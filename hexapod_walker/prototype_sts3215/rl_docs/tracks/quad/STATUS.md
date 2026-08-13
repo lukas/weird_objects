@@ -7,6 +7,24 @@ Stand on four, walk on four, front pair free for tricks.
 
 ## Now
 
+- **08-13 (~16:xx UTC): `cw-quadwalk4` (quadwalk3 + `goal.quadwalk_start
+  ="quad"` spawn) FAIL — the spawn fix WORKS (fronts_lifted 11/12
+  det+sto, tail lift duty <0.15, first quadwalk arm EVER to clear
+  the fronts-down cheat) but the policy found a NEW flag-leg cheat:
+  it parks the two MID support legs instead (duty 0.0-0.06 vs rears
+  0.60/0.45 med) and scoots forward on the rear pair alone —
+  gait_valid 0/6, rear-two speed 0.017 m/s vs 0.05 commanded, slip
+  ~13 m/m, height sagged ~35mm, roll_tail 0.7deg, 0 falls, fwd med
+  det 0.14m. Mechanism (measured, not guessed): `k_drag_loaded=10`
+  prices touching a mid foot down and scuffing it far above what
+  `k_park_duty=1.0` charges for leaving it parked in the air
+  (~100x underpriced) — an active choice to keep the cheaper leg up,
+  not a basin-crossing accident. Quad-hold retention: lineage
+  baseline (fwd creep 0.46m ≈ quadwalk1-3's 0.43-0.50m, k_quad_still
+  terms still 0 — the creep-fix miss from quadwalk3 is UNCHANGED,
+  not re-litigated here). One-lever follow-up queued:
+  **`cw-quadwalk5`** (quadwalk4 + `reward.k_park_duty` 1.0→6.0, ONE
+  lever, 2M discovery) — backlog, drain in progress.
 - **08-13 (~15:xx UTC): `cw-quadwalk3` (per-tick lift-leg ground-
   contact charge, k=3.0) FAIL — same pre-registered fronts-down cheat,
   THIRD time, and this one is decisive: the charge verifiably FIRED
