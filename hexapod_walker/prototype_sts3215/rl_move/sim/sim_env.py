@@ -296,6 +296,60 @@ class SimHexapodBalanceEnv(_GymBase):
         self.render_mode = render_mode
         self.rng = np.random.default_rng(seed)
 
+        # In-run coefficient scheduler (2026-08-13, nobc gait line —
+        # GAIT.md P3 lever 2 "annealed-up charge", the last unbuilt
+        # lever after every fixed-coefficient / warm-start form closed).
+        # Linearly ramps ONE cfg coefficient DURING a training run, by
+        # GLOBAL env steps. Default OFF (sched.key unset) = bit-exact
+        # legacy behavior: nothing is tracked, no cfg value is written.
+        #   sched.key       dotted cfg path to drive, e.g.
+        #                   "reward.k_drag_stance"
+        #   sched.v0 / v1   value before t0 / after t1 (linear between)
+        #   sched.t0_steps / t1_steps   GLOBAL env-step boundaries
+        #   sched.n_envs    total parallel envs in the run — each env
+        #                   converts its own tick count to global steps
+        #                   as ticks * n_envs (exact for the synchronous
+        #                   vec envs, which step every env every batch
+        #                   tick). REQUIRED — no silent default, a
+        #                   mis-clocked schedule is worse than a crash.
+        # The clock is a per-process monotone tick counter. It is NOT
+        # in mjx_host.SNAP_ATTRS on purpose: episode pool-restores must
+        # never rewind it (the commit-65edba7 bug class). It restarts
+        # at 0 on resume-from-checkpoint — scheduled runs should be
+        # fresh single-process runs, note it in the spec. Eval-harness
+        # envs built from the same cfg sit at tick ~0 and so read ~v0
+        # for the scheduled key: judge scheduled runs on measured
+        # behavior metrics (slip/gait/travel), not eval reward panels.
+        self._sched_key = str(cfg_get(self.cfg, "sched", "key",
+                                      default="") or "")
+        self._sched_ticks = 0
+        self._sched_value: float | None = None
+        if self._sched_key:
+            self._sched_path = tuple(self._sched_key.split("."))
+            if len(self._sched_path) < 2:
+                raise ValueError(
+                    "sched.key must be a dotted cfg path "
+                    f"(section.leaf), got {self._sched_key!r}")
+
+            def _sched_req(leaf: str) -> float:
+                v = cfg_get(self.cfg, "sched", leaf, default=None)
+                if v is None:
+                    raise ValueError(
+                        f"sched.key is set but sched.{leaf} is missing "
+                        "— the scheduler has no silent defaults")
+                return float(v)
+
+            self._sched_v0 = _sched_req("v0")
+            self._sched_v1 = _sched_req("v1")
+            self._sched_t0 = _sched_req("t0_steps")
+            self._sched_t1 = _sched_req("t1_steps")
+            self._sched_n = _sched_req("n_envs")
+            if not (self._sched_t1 > self._sched_t0 >= 0.0):
+                raise ValueError(
+                    "sched requires t1_steps > t0_steps >= 0")
+            if self._sched_n < 1.0:
+                raise ValueError("sched.n_envs must be >= 1")
+
         # Temporal actor (plan §Architecture): obs.history_frames > 1
         # stacks the last K single-tick observations NEWEST-FIRST, so a
         # parent trained on width W transplants via --obs-pad-transplant
@@ -1430,6 +1484,26 @@ class SimHexapodBalanceEnv(_GymBase):
         Split so the batched MJX vec env can run all envs' pre-physics
         halves, one batched tick, then all post-physics halves.
         """
+        # In-run coefficient scheduler (see __init__): both stacks call
+        # _step_begin every tick (sim_env.step and the MJX vec envs'
+        # step_wait), so this is the one hook that clocks identically
+        # everywhere. Runs BEFORE this tick's reward is computed.
+        if self._sched_key:
+            self._sched_ticks += 1
+            t = self._sched_ticks * self._sched_n
+            if t <= self._sched_t0:
+                v = self._sched_v0
+            elif t >= self._sched_t1:
+                v = self._sched_v1
+            else:
+                f = ((t - self._sched_t0)
+                     / (self._sched_t1 - self._sched_t0))
+                v = self._sched_v0 + f * (self._sched_v1 - self._sched_v0)
+            self._sched_value = v
+            node = self.cfg
+            for k in self._sched_path[:-1]:
+                node = node.setdefault(k, {})
+            node[self._sched_path[-1]] = v
         assert self._state is not None and self._profile is not None
         clipped, bad = self.safety.validate_action(action, n_act=self.n_act)
         pen = float(cfg_get(self.cfg, "reward",
@@ -2375,6 +2449,11 @@ class SimHexapodBalanceEnv(_GymBase):
                 "pitch_deg": self._state.imu_pitch * RAD2DEG,
                 "roll_rel_deg": (self._state.imu_roll
                                  - self._tilt_ref0[0]) * RAD2DEG}
+        if self._sched_value is not None:
+            # Live scheduled-coefficient value — auto-logged to W&B as
+            # env/sched_value by the trainers' info-scalar sweep, so
+            # triage can see WHERE on the ramp a behavior change lands.
+            info["sched_value"] = float(self._sched_value)
         # BC-anchor target (rl_move/sim/bc_anchor.py; RL_PLAN queue 2a,
         # operator 08-11 — the rise lever AFTER all reward-side levers
         # closed). For every rise tick with a live reference clock,

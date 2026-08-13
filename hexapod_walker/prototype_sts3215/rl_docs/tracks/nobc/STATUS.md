@@ -47,12 +47,22 @@ whatever works; this track exists to retire the crutch.
   leg-3 flag-leg skate (gait_valid 0/6, sac [3] all det episodes),
   slip/m 4.3-5.1 vs the 1.5 bar, reward diving -335 → -4744 by
   quarters as the charge goes unresolved for 2M steps. Every
-  no-new-code form of lever 2 is now closed. **The track is now a
-  genuine WAIT on unwritten code:** a true in-run coefficient
-  scheduler (ramp the drag charge DURING one run; spec first, then
-  implement in both trainer stacks) — or close the from-scratch
-  gait line. Surfaced in STATUS.md top (08-12); nothing is
-  training in nobc.
+  no-new-code form of lever 2 is now closed. ~~The track is now a
+  genuine WAIT on unwritten code~~ **08-13: the code-wait CLEARED —
+  the in-run coefficient scheduler LANDED** (`sched.*` cfg keys,
+  applied in `sim_env._step_begin`, so it runs on both trainer
+  stacks by construction — the MJX vec envs call the same hook;
+  default off = bit-exact, 10 new tests `test_coef_sched.py` + full
+  semantics bank green, REWARD.md row; monotone per-process clock,
+  never rewound by pool-restores). First arm `cw-gait-sched1`
+  (2M discovery, from-scratch on the dragstance1 stack, charge
+  ramped 0→8000 over global steps 0.5M→1.5M) is the LAST untried
+  form of lever 2: let the paddle form first, then price the skate
+  out from under a policy that already knows how to move. Gate
+  pre-registered (mobility retained AND skate resolving). If it
+  fails the same way as its siblings (freeze OR unresolved-charge
+  skate), the from-scratch gait line has no levers left and closing
+  it is the recommendation to the operator.
 
 - CROSS-TRACK INSIGHT (hw P0 probe, 08-11 late, GAIT.md bottom): the
   crouch-paddle is a sim-EFFECTIVENESS optimum, not a paid basin —
