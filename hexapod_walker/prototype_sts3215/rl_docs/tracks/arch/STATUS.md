@@ -236,12 +236,28 @@ at what budget, with which failure modes.
   rise-only-DAgger variant distill (operator/local lever — lower
   kept BC-only), NOT a coefficient variant. Eval artifacts
   `logs/ckpt_eval/gru_dual_bc_dagger1_{gate,rise12}` (local).
+- **OPERATOR DIRECTIVE (08-13 ~21:00 UTC): two jobs — ONE model for
+  operator-commanded rise→walk→sit→rise cycles. Spec of record:
+  `TRANSITIONS_DIRECTIVE.md` (this dir). Agent-doable, NOT
+  operator-gated.** In order: land the three CODE items
+  (`goal.mode_seq` mid-episode mode switching with per-switch
+  re-anchoring of `_z0`/refs — the #1 hidden-state trap;
+  `distill_gru --transitions` teacher-chained sequence demos via the
+  eval_handoff re-anchor mechanics; a per-segment sequence eval
+  baselined on the known zero-fall two-specialist composition), then
+  run **arm 1 `cw-arch-trans-dagger1`** (transition DAgger distill,
+  CPU job, gate incl. lower REBUILD ≥4/6 and zero falls ≥11/12
+  sequences) and **arm 2 `cw-arch-modeseq1`** (10M consolidated RL:
+  dual1's exact proven stack with mode sequencing as the ONLY new
+  variable; warm-start order pre-registered trans-dagger1 > dual2 >
+  dagger1 BC; gates + FAIL branches pre-registered in the directive).
+  The directive's failure ledger (12 measured lessons) is binding —
+  do not re-litigate closed levers inside these arms.
 - Distill-then-finetune (`ft1`, warm from a BC-distilled net) is
   SUPERSEDED as the walk-freeze workaround — dual-core is strictly
   better (walk retains AND hold/lower beat it on drag) — but keep
   `ppo_goal_cw_gru_bc.zip` as the hold+walk reference artifact per
   the "Now" entry above.
-- Later: contact-from-proprioception aux head; distill specialists
-  into one recurrent net.
+- Later: contact-from-proprioception aux head.
 
 Detail: RL_PLAN.md "Architecture" · ledger cw-arch-* lineage.
