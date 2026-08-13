@@ -7,6 +7,22 @@ Stand on four, walk on four, front pair free for tricks.
 
 ## Now
 
+- **08-13 (~14:xx UTC): `cw-quadwalk2` (3× lift income) FAIL — the
+  same pre-registered cheat (b), milder: fronts_lifted 0/12 det+sto,
+  front tail contact duty 1.0 → 0.62/0.32 (still ≫ the 0.15 bar),
+  fwd med 0.61 m, 0 falls, roll clean, quad-hold retention ok.
+  Pricing moved behavior but cannot clear the bar → per the
+  pre-registered two-miss fork, PURE REPRICE IS CLOSED as a lever.
+  The prescribed CODE lever is BUILT and checked in (tag
+  exp/cw-quadwalk3): `reward.k_quad_lift_contact` — per-tick charge
+  on the fraction of commanded lift legs in ground contact after
+  grace; default 0 = bit-exact off; semantics bank green (sixleg
+  charged −547/ep, frontdrag −882/ep, honest tucked gait exactly 0;
+  full test_task_semantics 84 pass). **`cw-quadwalk3`** (quadwalk2 +
+  k_quad_lift_contact=3.0, ONE lever, 2M discovery) VERIFIED RUNNING
+  train-0. Pre-registered STOPs unchanged (freeze/park now the
+  likelier escape — it's already a one-line STOP); if quadwalk3
+  freezes, the next lever is exploration/entropy, not pricing.
 - **08-13 (~13:2x UTC): `cw-quadwalk1` (first quadwalk discovery arm)
   FINISHED and hit exactly the pre-registered cheat (b) — fronts-down
   six-leg gait. Det+sto harness: quadwalk gait_valid 0/6,
