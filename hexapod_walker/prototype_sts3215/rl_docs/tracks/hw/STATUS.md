@@ -9,6 +9,33 @@ unresolved blockers between the robot and reliable joystick control.
 
 ## Now
 
+- **08-13 ~12:4x UTC OPERATOR RULINGS — both open hw design forks
+  are DECIDED:**
+  1. **Standing lean (~8°): MECHANICAL TRIM.** The lean is ruled a
+     hardware/mechanical trim problem OUTSIDE RL. Do NOT queue a
+     lean-pricing reward term, tipped-exposure arm, or teacher
+     redesign on any stance lineage (tiltcomp dossier stands as the
+     closing evidence; the mechanisms `bc_anchor_tilt_comp` /
+     `_tilt_from_settle` stay built, default-off). RL-side the lean
+     is CLOSED; the fix moves to the bench (leg/servo trim,
+     zero-calibration, or physical shimming — operator session
+     work). `holdbc1_hard1` stays deployed meanwhile.
+  2. **Walk-takeoff roll transient: STOP reward/DR sweeps;
+     INSTRUMENT, then design a STAGED GAIT-ENTRY TRANSITION.** No
+     further perturbation/DR/reward arm may target takeoff (the
+     walk-kick / rise-rock / walk-push closures are now a ruling,
+     not just evidence). The accepted direction: (a) INSTRUMENT the
+     transient first — bench tapes + matched sim replays of the
+     first ~1.5 s after gait start (roll rate, per-foot loading,
+     which feet break contact, command ramp phase) so the
+     transition is designed against measurements, not conjecture;
+     (b) DESIGN a staged gait-entry transition — a deploy-side
+     entry sequence that brings the gait up in stages (e.g.
+     stance-settle → weight-shift → first half-step at reduced
+     command, then blend to the policy's steady gait), rather than
+     dropping the policy into full command from a cold plant.
+     Deploy-side runner work + sim prototyping both in scope;
+     training arms only AFTER an instrumented design exists.
 - **08-13 ~12:xx: `cw-stand-tiltcomp3` (the 4× exposure follow-up)
   FAILS the same way, and the pre-registered FAIL branch FIRES —
   tipped-exposure training is CLOSED for the standing-lean fix,
@@ -29,12 +56,10 @@ unresolved blockers between the robot and reliable joystick control.
   income are both measured innocent (tiltcomp2's dig-in); more
   practice is now measured insufficient too. **Both obvious sim
   levers (teacher design, exposure dose) are exhausted.** `hard1`
-  (`holdbc1_hard1`) stays deployed, unaffected. **OPERATOR DESIGN
-  CALL NEEDED (see STATUS.md WAITING-ON):** price residual lean
-  directly in hold income (a new reward term, not exposure), or
-  treat the ~8° lean as a hardware/mechanical trim problem outside
-  RL. No further tipped-exposure or teacher-redesign arm should be
-  queued on this lineage without that call.
+  (`holdbc1_hard1`) stays deployed, unaffected. ~~OPERATOR DESIGN
+  CALL NEEDED~~ **DECIDED 08-13 ~12:4x UTC (ruling at the top of
+  this section): mechanical trim, outside RL — no lean-pricing
+  reward term, no further tipped-exposure or teacher-redesign arm.**
 - **08-13 ~11:xx: `cw-stand-tiltcomp2` (the teacher-defect fix)
   FAILED its forced-tip gate — but cleanly, on the pre-registered
   discriminator: under-ADOPTION, not teacher design.** Det tipped

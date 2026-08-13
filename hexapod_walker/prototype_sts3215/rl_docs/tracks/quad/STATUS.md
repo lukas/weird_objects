@@ -76,6 +76,27 @@ Stand on four, walk on four, front pair free for tricks.
   stepping as the bank trajectory — an MDP_PREFLIGHT
   chicken-and-egg only the operator can approve), is now the ONLY
   route. Until it lands, NO quadwalk training arm is launchable.**
+  **08-13 ~12:4x UTC OPERATOR RULING: route (2) APPROVED — a
+  feedback/RL policy showing genuine rear-four stepping is
+  PERMITTED as the quadwalk bank reference, WITH AN EXPLICIT
+  ROBUSTNESS GATE.** MDP_PREFLIGHT unblocks for quadwalk under
+  these binding conditions: (a) "genuine rear-four stepping" must
+  be evidenced the way every gait claim is — video/contact-sheet
+  showing all four support legs stepping (no pinned/dragged mid
+  leg, no backward rectification), positive translation, fronts
+  lifted; (b) before ANY candidate is accepted as the bank
+  reference it must pass a pre-registered ROBUSTNESS GATE, written
+  down BEFORE the first arm launches — at minimum: multi-seed det
+  (≥2 seeds × ≥6 eps), a DR panel at the walk bank's standard axes
+  (dr-scale 0.5 + friction), zero falls, fronts_lifted + lift-leg
+  no-credit exemptions verified in eval, and stance stillness
+  (k_quad_still's measured creep ≤ a stated bar) — the gate spec
+  is the FIRST artifact of the first arm, subject to the normal
+  one-variable/matched-parent rules; (c) until a candidate passes
+  that gate, the ordering tests keep SKIPPING and no scripted-bank
+  claim may cite the RL reference. Reference-quality bar mirrors
+  the walk bank's: the reference is data, so a sloppy reference
+  poisons every downstream BC/anchor use — gate hard.
 - A legal interim arm once the operator weighs stance priorities: a
   quad-HOLD continuation pricing the stance creep with the new
   `k_quad_still` (bank-proven, cheats priced) — fixes the measured

@@ -90,20 +90,28 @@ operator calls at regeneration time).
   1/2/3; the untrained parent still recovers best). All takeoff
   perturb families closed (walk-kick, rise-rock, walk-push);
   contact/pinning falsified; the hardware stand fall is a 3-foot
-  knife-edge sim survives (SIM.md gap 4). Takeoff + lean are now
-  OPERATOR design forks (STATUS.md WAITING-ON).
+  knife-edge sim survives (SIM.md gap 4). RULINGS 08-13: lean =
+  MECHANICAL TRIM outside RL (no lean-pricing/exposure/teacher
+  arms); takeoff = NO more reward/DR sweeps — instrument the
+  transient, then design a staged gait-entry transition
+  (deploy-side + sim prototyping; training only after an
+  instrumented design).
 - Turn: de-scoped from the deliverable, alive as a track; yaw income
   defects fixed+banked; price escalation closed; signs correct both
   ways (rate unmeasured). Omni: pricing exonerated, walk-tick BC
   failed — rot60 is the shipped answer.
 - Quad: quad-hold solid, mixing erodes walk (specialist-only);
   open-loop statically-stable quad crawl measured GEOMETRICALLY
-  INFEASIBLE — quadwalk bank reference is an operator MDP_PREFLIGHT
-  ruling; quadwalk code built, default-off, launch-blocked.
-- Multitask: command-width interference real+monotone at 20M;
-  capacity/widening/history levers all failed — direction is an
-  operator call; MoE only after real interference is shown. nobc
-  from-scratch GAIT line out of levers, closure recommended
-  (operator accept/reject); stand-from-scratch charter stays.
+  INFEASIBLE. RULING 08-13: feedback/RL rear-four stepping is
+  PERMITTED as the quadwalk bank reference behind an explicit
+  pre-registered robustness gate (spec first artifact, conditions
+  in quad/STATUS.md) — quadwalk launchable under those terms.
+- Multitask: PAUSED by operator 08-13 (dynrep prioritized; wave-1
+  read stands: interference real+monotone at 20M, all cheap levers
+  failed; MoE only after real interference is shown). nobc: RULING
+  08-13 — from-scratch GAIT line CLOSED (reopen on new hardware
+  evidence only); stand-from-scratch charter stays.
+- Watcher idle-kick backoff (15m→4h no-op spacing, snap-back on
+  activity) operator-APPROVED 08-13.
 - Bench/UI: sit NEVER refuses on pose delta (stand-only refusal);
   errors stay copyable; thermal reads debounced (phantom wall).

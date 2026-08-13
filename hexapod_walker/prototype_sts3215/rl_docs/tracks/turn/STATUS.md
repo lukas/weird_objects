@@ -27,13 +27,28 @@ baked into the walk gait so the joystick can point the robot.
 ## Next
 
 - SHIPPED turning story: eval-time MirrorPolicy chirality selection
-  (arc-left/arc-right/straight, zero training, ~2 deg/s). Deploy port
-  + rot60 composition are the remaining [CODE] items.
+  (arc-left/arc-right/straight, zero training, ~2 deg/s). ~~Deploy
+  port + rot60 composition are the remaining [CODE] items.~~
+  **BOTH LANDED 08-13:** `run_policy_move(..., turn="left"/"right"/
+  "hold")` in `linux_control/rl_policy.py`, over `POST /api/rl/walk
+  {"turn": ...}`. left/right = constant chirality keyed off
+  `NAKED_DRIFT_SIGN` (naked drifts left); hold = bang-bang on the
+  gyro-z-integrated heading, the sim probe's 4° hysteresis. rot60
+  composition: mirror wrapped OUTSIDE its own canonicalizer instance
+  (reflect world → run the shipped stack → reflect action; per-
+  chirality sector state, so alternation never chatters the
+  hysteresis). `turn` unset = bit-identical naked path. Episode CSV
+  gains a trailing `mirror` column; result reports switches +
+  heading_end_deg. mirror.py added to both deploy scripts;
+  `tests/test_mirror_runner.py` locks replay parity, selector
+  semantics, and the numpy-only import chain.
 - Fast commanded turning needs a NEW idea (step 4 BC-anchor-on-turn
   ticks is in reserve but unpromising after transbc1). No more
   reward/coef/symmetry variants.
 - Sign audit CLOSED (operator 08-11 night: turns match the drawn
   signs in both directions, no bridge flip; rate unmeasured). Bench
-  turn sessions now wait only on the MirrorPolicy deploy port.
+  turn sessions now wait only on an operator session — re-deploy
+  first (`deploy_adb.sh`/`deploy_ssh.sh` now ship mirror.py and the
+  new runner).
 
 Detail: rl_docs/TURN.md (design, bank numbers, failure history).

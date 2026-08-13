@@ -126,6 +126,14 @@ whatever works; this track exists to retire the crutch.
   pre-built but UNQUEUED — its licensing condition was the marginal
   branch, which did not occur. No nobc gait run queued pending the
   operator's close call.
+  **08-13 ~12:4x UTC OPERATOR RULING: CLOSE the from-scratch gait
+  line; RETAIN the stand-from-scratch charter.** The recommendation
+  is accepted as-is. No further gait-from-scratch arm may be queued
+  on any lever, new or old, without a NEW hardware-evidence reopen
+  per the campaign rule. Stand-from-scratch (income shaping / RSI
+  re-opened post-pool-bug) remains this track's live charter. The
+  `ease.*` / `sched.*` mechanisms stay in-repo, default-off, free
+  for other tracks.
 
 - CROSS-TRACK INSIGHT (hw P0 probe, 08-11 late, GAIT.md bottom): the
   crouch-paddle is a sim-EFFECTIVENESS optimum, not a paid basin —
@@ -145,9 +153,8 @@ whatever works; this track exists to retire the crutch.
    08-13 (see above) — BOTH forms FAILED, lever 2 closed for good.
 3. ~~Physics easing~~ DONE 08-13 (`ease.*` built, snapshot e40a3ea;
    `cw-gait-ease1` FAILED on the pre-registered false branch — see
-   above). **The gait-from-scratch lever menu is exhausted;
-   recommendation to the operator: CLOSE the line.** Nothing queued
-   pending that call. Stand-from-scratch (the track's other charter
-   item) is unaffected.
+   above). **The gait-from-scratch line is CLOSED by operator ruling
+   (08-13 ~12:4x UTC); stand-from-scratch charter retained.** Reopen
+   requires new hardware evidence, per the campaign rule.
 
 Detail: GAIT.md P3 · RISE.md forensic ladder.
