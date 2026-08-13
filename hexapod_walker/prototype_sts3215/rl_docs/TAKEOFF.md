@@ -45,6 +45,34 @@ Per-tick source: `rl_move/hardware_traces/bench_blast_*/rl_walk_*.csv`
   baseline peaks 3–5.5°, and the no-push arm of the 08-13 prototype
   probe below reproduces that: peak 1.6°).
 
+### 1b. Per-foot contact story in the takeoff window (matched sim replay, 08-13)
+
+Tool: `rl_move/scripts/takeoff_audit.py` (`--all --replay`) — per-tape
+command-side fingerprint (raw first-tick target jump, slew-saturation
+counts, 5°-crossing ramp phase, tracking, currents, time-to-stable)
+plus the open-loop matched replay's per-foot loading; artifacts:
+`rl_move/hardware_traces/takeoff_audit/takeoff_audit_20260813.{json,md}`
+(27 tapes = the 08-11 corpus + the 08-13 walk). Sim-replay evidence,
+not hardware force sensing (which still does not exist — §4):
+
+- **The engagement stance is already a three-foot knife edge.** After
+  settling the replay at each tape's recorded start pose, the median
+  per-foot load is L0/L2/L4 ≈ 7.5 N each and L1/L3/L5 ≈ 0 — the plant
+  stance concentrates support on one tripod, the same support-geometry
+  class as the stand-fall mechanism (SIM.md gap 4). The zero-command
+  posture snap therefore starts with minimal support redundancy.
+- **Feet start breaking contact during the zero-command settle:**
+  first liftoff at median 0.64 s (L0 first in 12/26 replays), before
+  the velocity ramp; median 9 contact transitions inside the first
+  1.5 s; the loaded-foot count bottoms out at a median of 2.
+- **~100 mm cumulative loaded-foot slip** (median) inside the window.
+- Open-loop replay roll peak median 21.7° vs hardware 22.5° across the
+  corpus — reconfirming per tape that the recorded command stream
+  alone (no feedback, no disturbance) reproduces the excursion.
+- The 08-13 tape (`bench_blast_20260813_091608`) matches the corpus:
+  first-tick raw target jump 101°, crossing at 1.76 s (ramp phase),
+  rode a 24° peak and ended holding a ~21° lean through the tail.
+
 **Design consequence (measured, not conjectured):** any staged entry
 that only shrinks the FIRST STEP or slows the velocity ramp attacks
 the wrong stage — the excursion happens at zero command. The stage
@@ -149,4 +177,5 @@ velocity ramp (stage 2 option above), not more entry throttle.
 - The bench-tape half of instrumentation that needs NEW hardware
   data (per-foot loading at takeoff — no foot force sensing exists;
   camera-synced contact-break order) stays operator bench work; the
-  sim-side per-foot contact story comes from the replay JSONs.
+  sim-side per-foot contact story is computed per tape by
+  `rl_move/scripts/takeoff_audit.py --replay` (§1b).

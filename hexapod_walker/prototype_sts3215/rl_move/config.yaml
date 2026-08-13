@@ -63,6 +63,19 @@ safety:
   # limit is the servo profile, not this clamp. Still far below the
   # incident speeds.
   max_delta_q_deg: 1.5
+  # Staged gait-entry slew ramp (08-13 takeoff ruling; design +
+  # measured results in rl_docs/TAKEOFF.md, DEFAULT OFF = bit-exact).
+  # Instrumented mechanism (26+ walk tapes, takeoff_audit +
+  # TAKEOFF.md dossier): at the v_cmd=0 handoff the policy requests a
+  # whole-body posture snap — actions pinned near +/-1, ~all 18 joints
+  # riding this 1.5 deg/tick clamp — and the 5-deg roll crossing lands
+  # at median ~0.9 s, mostly BEFORE the velocity ramp starts. When
+  # entry_slew_ramp_s > 0, the per-tick limit starts at
+  # entry_slew_start_deg after set_nominal() (= policy engage) and
+  # ramps linearly to max_delta_q_deg, throttling the snap at the
+  # source. Bench-recommended trial: ramp 1.5 s, start 0.25 (~6x).
+  entry_slew_ramp_s: 0.0       # 0.0 = off
+  entry_slew_start_deg: 0.25   # initial per-tick limit when ramping
   imu_stale_ms: 100
   enable_soft_torque_limit: false
   soft_torque_limit: 600
