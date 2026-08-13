@@ -270,10 +270,40 @@ at what budget, with which failure modes.
     dagger1 BC).
   The directive's failure ledger (12 measured lessons) is binding —
   do not re-litigate closed levers inside these arms.
-- **`cw-arch-gru-dual2` drained 20:15 UTC, FINISHED ~21:38 — canary
-  AUTO-STOP at 3.18M steps (rise_bridge failed 3 consecutive
-  probes).** Flagged DIG-IN by the triage cycle (model tiering); no
-  verdict yet — do not treat the auto-stop as a verdict.
+- **`cw-arch-gru-dual2` VERDICTED FAIL (08-13 ~23:xx UTC dig-in) —
+  the operator's option (a) fork is resolved: DAgger-init rise
+  gains do NOT survive warm-RL; option (b), the rise-only variant
+  distill (operator/local), is now the required next lever (WAIT
+  entry added to top-level STATUS.md).** The canary auto-stop at
+  3.18M was the system's FIRST TRUE protected-skill catch: the
+  DAgger init passed rise_bridge 2/2 at the baseline probe (first
+  init in the lineage to do so — dual1's init failed it, so dual1
+  was never bridge-protected and its all-zero bridge canaries mean
+  nothing), and every probe from 1M on read 0/2. Pre-registered
+  n=12/seed=1 DR0 rise recheck on the stopped checkpoint: **det
+  5/12 with ZERO non-crouch (bridge 0/4, flat 0/3, crouch 5/5)**
+  vs the matched control (dagger1 init, same seed/cfg, same pod:
+  det 3/12 ALL non-crouch — bridge 2/4, flat 1/3, crouch 0/5 —
+  reproducing the operator's local numbers exactly). RL SWAPPED
+  the rise profile back to the crouch attractor (hfloor1's exact
+  endpoint) within 1M steps: PPO+stance-anchors spend the rare
+  hard-start demo competence first. More budget is unjustified
+  (gone by 1M; dual1's full 10M from scratch reached only 2
+  non-crouch wins) and banned by the pre-registration. Videos:
+  honest low-crouch stalls, no cheat. **Two findings shape option
+  (b): (1) lower REBUILT det+sto 6/6 from the COLLAPSED (0/6)
+  init — the 'keep lower BC-only' requirement is RELAXED; (2) walk
+  did not freeze (gv 6/6, zero sacrificed legs; prog 0.61/vel_err
+  0.046 is dual1's own 3.2M mid-run transient, not an isolation
+  regression — escalate branch does not fire).** NOTE for arm 2's
+  pre-registered warm-start order (trans-dagger1 > dual2 > dagger1
+  BC): dual2's artifact is a 3.18M mid-transient checkpoint whose
+  walk is WORSE than the dagger1 BC init's (0.61/0.046 vs
+  1.03/0.034) and whose rise is crouch-only — re-judge that slot
+  when arm 2 specs. Evidence:
+  `logs/ckpt_eval/cw_arch_gru_dual2_{gate,owncfg,rise12}` +
+  `gru_dual_bc_dagger1_rise12_pod` (control); full chain in
+  rl_docs/runs/cw-arch-gru-dual2.md.
 - **CODE item 3 LANDED + BASELINED (08-13, c-triage): the sequence
   eval instrument (`eval_modeseq.py`, new file, pure external
   orchestration of already-trained checkpoints — touches zero env/
