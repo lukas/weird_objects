@@ -191,6 +191,15 @@ Parent `ppo_goal_cw_dep_vref1_r1` itself (contract-exact obs + 25° tilt, no sta
   (lineage trait, not new). Dose-response confirmed: 30% is the
   workable mix. Not hardware-ready (walk leg still paddle-gait); base
   for the joystick-mainline quad command `cw-walk-joyquad30`.
+  LIMIT measured 08-13 (first GENUINE harness quad eval, after the
+  quad-mode fallback fix, on descendant `cw-quad-turn1-r1`): the
+  stance is level and survives 12/12 but CREEPS ~0.33 m per 15 s
+  episode (~1.1 m accumulated foot drag) — it holds posture while
+  slowly wandering, it does not stand still (no stillness term ever
+  priced quad; `hold_still_gate` exempts it by design). NOTE: all
+  pre-08-13 `eval/dr0/quad_*` W&B rows on every quad run are actually
+  mislabeled WALK episodes (harness bug, fixed exp/eval-quadmode-fix);
+  the trainer's `eval/quad/*` metrics and videos were always genuine.
 - **Feasibility sweep PASSED (c56, `rl_move/sim/quadruped_feasibility.py`,
   `logs/experiments/quadruped-feasibility/sweep.json`):** four-leg static
   stance is geometrically comfortable. Neutral six-leg stance with fronts
