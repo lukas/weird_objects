@@ -118,6 +118,34 @@ Knobs (set via attach_bc_anchor / cfg):
                                servo sag cancels it, the matched index
                                pins, and the anchor supervises the
                                stall with a low, converged loss.
+  train.bc_anchor_tilt_comp    (env-side, HOLD episodes only) tip-aware
+                               hold reference: instead of the constant
+                               q_nom, anchor toward FixedFootBodyIK
+                               (q_nom) solved at BodyOffset(roll/pitch
+                               = -comp * measured attitude relative to
+                               the episode tilt reference) — a
+                               proportional posture-feedback teacher
+                               that gives the anchor a LEVELING
+                               gradient (default 0 = legacy constant
+                               target, bit-exact). Exists because
+                               cw-stand-footlow2-tip1 (08-12) showed
+                               tipped-start DR under a tilt-blind
+                               anchor teaches tilt TOLERANCE (holds
+                               q_nom leaning 7deg), and the hardware
+                               candidate stands with a persistent
+                               ~8deg lean. Track episodes are excluded
+                               (they command attitude goals the
+                               compensation would fight).
+  train.bc_anchor_tilt_deadband_deg  soft deadband (deg, default 1.5)
+                               subtracted from |rel attitude| before
+                               compensation — settled-level ticks keep
+                               the exact q_nom target, and the target
+                               stays continuous at the threshold.
+  train.bc_anchor_tilt_max_deg cap (deg, default 6) on the commanded
+                               counter-rotation per axis: the measured
+                               action-space expressibility boundary
+                               (7deg+ saturates a joint bound from the
+                               settled stance; IK itself reaches 10).
   train.bc_anchor_detach_trunk (recurrent only) stop the anchor
                                gradient at the GRU/feature-extractor
                                output — only the actor head trains on

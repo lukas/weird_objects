@@ -2675,8 +2675,74 @@ class SimHexapodBalanceEnv(_GymBase):
         elif (self._is_hold_bc and getattr(self, "n_act", 0) == N_JOINTS
                 and _bc_coef > 0.0):
             from .joint_task import q_rad_to_action
+            _q_tgt = self._q_nom
+            # TIP-AWARE HOLD REFERENCE (08-13, train.bc_anchor_tilt_comp,
+            # default 0 = legacy constant-q_nom target, bit-exact).
+            # cw-stand-footlow2-tip1's gate consequence: tipped-start DR
+            # with a tilt-BLIND anchor taught the policy to HOLD the
+            # lean (target = q_nom regardless of attitude gives zero
+            # leveling gradient; joint-space MSE is attitude-blind), and
+            # the hardware candidate stands with a persistent ~8deg
+            # lean. When enabled, HOLD episodes (not track — track
+            # commands attitude goals the compensation would fight)
+            # anchor toward the pose that COUNTER-ROTATES the measured
+            # lean: FixedFootBodyIK from q_nom with
+            # BodyOffset(roll/pitch = -comp * rel_attitude), i.e. a
+            # proportional posture-feedback teacher. rel attitude is
+            # measured against the episode tilt reference exactly like
+            # the tipped-start recovery metric (tipped episodes keep the
+            # ref LEVEL, so rel ~= true lean; mount-bias/slope stays
+            # inside the ref). Soft deadband keeps the target continuous
+            # and leaves settled-level ticks anchored at q_nom; the
+            # commanded correction is clipped for IK safety. Solved
+            # fresh per tick from SNAP_ATTRS state only (_q_nom,
+            # _tilt_ref0, _state) — pool-restore safe, same pattern as
+            # the lower anchor. imu roll/pitch and BodyOffset roll/pitch
+            # share the same axis convention (rot_x/rot_y; verified in
+            # test_bc_anchor.py::test_tilt_comp_counter_rotates).
+            _tc = float(cfg_get(self.cfg, "train", "bc_anchor_tilt_comp",
+                                default=0.0))
+            if (_tc > 0.0 and self._goal_traj is not None
+                    and self._goal_traj.mode == "hold"
+                    and self._q_nom is not None):
+                _dead = float(cfg_get(
+                    self.cfg, "train", "bc_anchor_tilt_deadband_deg",
+                    default=1.5)) * DEG2RAD
+                # Cap default 6.0: measured expressibility boundary —
+                # the counter-rotated pose from a settled hold stance
+                # round-trips the [-1,1] action space EXACTLY up to 6
+                # deg and saturates a joint bound from 7 deg (the
+                # target must be a pose the policy can actually
+                # command; a clipped target supervises garbage on the
+                # saturated joints).
+                _maxc = float(cfg_get(
+                    self.cfg, "train", "bc_anchor_tilt_max_deg",
+                    default=6.0)) * DEG2RAD
+
+                def _soft(x: float) -> float:
+                    return math.copysign(max(abs(x) - _dead, 0.0), x)
+
+                _er = _soft(self._state.imu_roll - self._tilt_ref0[0])
+                _ep_ = _soft(self._state.imu_pitch - self._tilt_ref0[1])
+                if _er != 0.0 or _ep_ != 0.0:
+                    from rl_move.body_ik import BodyOffset, FixedFootBodyIK
+                    _cr = float(np.clip(-_tc * _er, -_maxc, _maxc))
+                    _cp = float(np.clip(-_tc * _ep_, -_maxc, _maxc))
+                    _ik = FixedFootBodyIK()
+                    _ik.reset(self._q_nom)
+                    # Halving retry: a correction the stance geometry
+                    # can't reach degrades to a smaller one instead of
+                    # silently reverting to the tilt-blind target (the
+                    # 12deg default cap was IK-infeasible from the
+                    # settled hold stance — caught by the clip test).
+                    for _s in (1.0, 0.5, 0.25):
+                        _res = _ik.solve(BodyOffset(
+                            roll=_cr * _s, pitch=_cp * _s))
+                        if _res.ok:
+                            _q_tgt = _res.q_rad
+                            break
             info["bc_target"] = q_rad_to_action(
-                self._q_nom).astype(np.float32)
+                _q_tgt).astype(np.float32)
             info["bc_mode"] = 1        # hold/track
         # LOWER BC-anchor target (08-11, cfg train.bc_anchor_lower,
         # default 0 = legacy no-emission). The lower bank's strict

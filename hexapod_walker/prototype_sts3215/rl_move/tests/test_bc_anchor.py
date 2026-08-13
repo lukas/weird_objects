@@ -1009,3 +1009,192 @@ def test_min_h_ahead_unpins_the_plateau_traversal():
     assert fast > slow + 30.0, (
         f"no traversal separation: floor {fast:.1f}mm vs "
         f"legacy {slow:.1f}mm")
+
+
+# ---------------------------------------------------------------------------
+# TIP-AWARE HOLD REFERENCE (train.bc_anchor_tilt_comp, 08-13).
+# cw-stand-footlow2-tip1's gate consequence: tipped-start DR under a
+# tilt-BLIND anchor (constant q_nom target) teaches the policy to HOLD
+# the lean — the anchor gives zero leveling gradient and joint-space
+# MSE is attitude-blind. The hardware stance candidate stands with a
+# persistent ~8deg lean. The tip-aware reference counter-rotates the
+# measured relative attitude via FixedFootBodyIK so the anchor TEACHES
+# proportional posture feedback. These tests pin: default-off
+# bit-exactness, level ticks unchanged, the counter-rotation semantics
+# (sign + magnitude, via foot_world_error against the trusted IK
+# transform), the per-axis clip, track-mode exclusion, and end-to-end
+# integration with the dr.tipped_start_* machinery.
+# ---------------------------------------------------------------------------
+
+def _tilt_env(seed, tilt_comp=None, only_mode="hold", extra=None):
+    ov = {("train", "bc_anchor_coef"): 1.0}
+    if tilt_comp is not None:
+        ov[("train", "bc_anchor_tilt_comp")] = tilt_comp
+    ov.update(extra or {})
+    return _make_env(seed, ov, only_mode=only_mode)
+
+
+def _shift_ref(env, roll_deg=0.0, pitch_deg=0.0):
+    """Shift the episode tilt reference so the CURRENT (level) pose
+    reads as a relative lean of (roll_deg, pitch_deg)."""
+    env._tilt_ref0 = (env._tilt_ref0[0] - roll_deg * DEG2RAD,
+                      env._tilt_ref0[1] - pitch_deg * DEG2RAD)
+    env.safety.set_tilt_reference(*env._tilt_ref0)
+
+
+def _soft(x, dead_deg=1.5):
+    import math
+    d = dead_deg * DEG2RAD
+    return math.copysign(max(abs(x) - d, 0.0), x)
+
+
+def _expected_corr(rel, cap_deg=6.0):
+    cap = cap_deg * DEG2RAD
+    return float(np.clip(-_soft(rel), -cap, cap))
+
+
+def test_tilt_comp_default_off_is_bit_exact():
+    """No tilt_comp key: an 8deg relative lean still anchors to the
+    exact constant q_nom target (legacy behavior byte-for-byte)."""
+    env = _tilt_env(30)
+    env.reset()
+    _shift_ref(env, roll_deg=8.0)
+    expected = q_rad_to_action(env._q_nom)
+    _o, _r, _t, _tr, info = env.step(np.zeros(18))
+    assert np.array_equal(info["bc_target"],
+                          expected.astype(np.float32))
+
+
+def test_tilt_comp_level_keeps_qnom():
+    """tilt_comp on, chassis level (inside the 1.5deg soft deadband):
+    target stays the constant q_nom pose."""
+    env = _tilt_env(31, tilt_comp=1.0)
+    env.reset()
+    expected = q_rad_to_action(env._q_nom)
+    _o, _r, _t, _tr, info = env.step(np.zeros(18))
+    r = abs(env._state.imu_roll - env._tilt_ref0[0]) * RAD2DEG
+    p = abs(env._state.imu_pitch - env._tilt_ref0[1]) * RAD2DEG
+    assert r < 1.5 and p < 1.5, "fixture not level enough for the test"
+    assert np.allclose(info["bc_target"], expected, atol=1e-6)
+
+
+def test_tilt_comp_counter_rotates():
+    """A 5.5deg relative roll lean (soft-deadbanded to a 4deg
+    correction — inside the cap, no action-bound saturation) anchors
+    toward the pose that puts the body at MINUS the correction with
+    the feet kept at the level q_nom anchors — checked with
+    foot_world_error against the trusted IK transform (the wrong sign
+    fails by an order of magnitude) — and the leaned-toward side's
+    feet extend (body-frame z more negative)."""
+    from rl_move.body_ik import (
+        BodyOffset, fk_all_feet, foot_world_error)
+    env = _tilt_env(32, tilt_comp=1.0)
+    env.reset()
+    _shift_ref(env, roll_deg=5.5)
+    _o, _r, _t, _tr, info = env.step(np.zeros(18))
+    q_tgt = action_to_q_rad(info["bc_target"])
+    assert not np.allclose(q_tgt, env._q_nom, atol=1e-4), \
+        "tilt_comp emitted the legacy constant target"
+    rel_r = env._state.imu_roll - env._tilt_ref0[0]
+    rel_p = env._state.imu_pitch - env._tilt_ref0[1]
+    feet_ref = fk_all_feet(env._q_nom)
+    off_good = BodyOffset(roll=_expected_corr(rel_r),
+                          pitch=_expected_corr(rel_p))
+    off_bad = BodyOffset(roll=-_expected_corr(rel_r),
+                         pitch=-_expected_corr(rel_p))
+    e_good = foot_world_error(q_tgt, feet_ref, off_good)
+    e_bad = foot_world_error(q_tgt, feet_ref, off_bad)
+    assert e_good < 0.005, f"counter-rotation error {e_good*1e3:.1f}mm"
+    assert e_bad > 3.0 * e_good, (
+        f"sign not discriminated: good {e_good*1e3:.1f}mm vs "
+        f"wrong-sign {e_bad*1e3:.1f}mm")
+    # +roll = +y (left) side up = leaning right: right legs (3-5)
+    # extend (z more negative), left legs (0-2) flex.
+    z_tgt = fk_all_feet(q_tgt)[:, 2]
+    z_nom = fk_all_feet(env._q_nom)[:, 2]
+    assert np.mean(z_tgt[3:6]) < np.mean(z_nom[3:6]) - 1e-3
+    assert np.mean(z_tgt[0:3]) > np.mean(z_nom[0:3]) + 1e-3
+
+
+def test_tilt_comp_clips_the_correction():
+    """A 30deg relative lean commands at most bc_anchor_tilt_max_deg
+    (default 6 — the action-space expressibility boundary) of
+    counter-rotation, not 28.5. The emitted action target equals the
+    capped IK solve byte-for-byte (no saturation loss at the cap)."""
+    from rl_move.body_ik import (
+        BodyOffset, FixedFootBodyIK, fk_all_feet, foot_world_error)
+    env = _tilt_env(33, tilt_comp=1.0)
+    env.reset()
+    _shift_ref(env, roll_deg=30.0)
+    _o, _r, _t, _tr, info = env.step(np.zeros(18))
+    q_tgt = action_to_q_rad(info["bc_target"])
+    rel_r = env._state.imu_roll - env._tilt_ref0[0]
+    rel_p = env._state.imu_pitch - env._tilt_ref0[1]
+    feet_ref = fk_all_feet(env._q_nom)
+    off_cap = BodyOffset(roll=_expected_corr(rel_r),
+                         pitch=_expected_corr(rel_p))
+    off_full = BodyOffset(roll=-_soft(rel_r), pitch=-_soft(rel_p))
+    e_cap = foot_world_error(q_tgt, feet_ref, off_cap)
+    e_full = foot_world_error(q_tgt, feet_ref, off_full)
+    assert e_cap < 0.005, f"capped-offset error {e_cap*1e3:.1f}mm"
+    assert e_full > 3.0 * e_cap, "correction was not clipped"
+    ik = FixedFootBodyIK()
+    ik.reset(env._q_nom)
+    res = ik.solve(off_cap)
+    assert res.ok
+    assert np.array_equal(
+        info["bc_target"],
+        q_rad_to_action(res.q_rad).astype(np.float32))
+
+
+def test_tilt_comp_track_mode_excluded():
+    """Track episodes command attitude goals the compensation would
+    fight: tilt_comp must leave their target at the constant q_nom."""
+    env = _tilt_env(34, tilt_comp=1.0, only_mode="track")
+    env.reset()
+    assert env._goal_traj.mode == "track"
+    _shift_ref(env, roll_deg=8.0)
+    expected = q_rad_to_action(env._q_nom)
+    _o, _r, _t, _tr, info = env.step(np.zeros(18))
+    assert np.allclose(info["bc_target"], expected, atol=1e-6)
+
+
+def test_tilt_comp_tipped_start_end_to_end():
+    """Integration with dr.tipped_start_*: a forced 8deg tipped hold
+    spawn (level tilt reference, the recovery-metric convention) emits
+    a counter-rotating target — the same foot_world_error check driven
+    entirely by the env's own measured relative attitude."""
+    from rl_move.body_ik import (
+        BodyOffset, fk_all_feet, foot_world_error)
+    cfg = load_config()
+    ov = dict(BASE_OVERRIDES)
+    ov.update({("train", "bc_anchor_coef"): 1.0,
+               ("train", "bc_anchor_tilt_comp"): 1.0,
+               ("dr", "tipped_start_prob"): 1.0,
+               ("dr", "tipped_start_deg"): [8.0, 8.0]})
+    for (sec, leaf), val in ov.items():
+        cfg.setdefault(sec, {})[leaf] = val
+    env = SimHexapodJointGoalEnv(
+        params=SimServoParams.from_cfg(None), randomize=True,
+        dr_scale=0.0, episode_seconds=16.0, seed=35, cfg=cfg)
+    gen = env._goal_gen
+    for m in ("hold", "lean", "track", "unload", "raise", "rise",
+              "lower", "quad"):
+        if hasattr(gen, f"p_{m}"):
+            setattr(gen, f"p_{m}", 1.0 if m == "hold" else 0.0)
+    env.reset()
+    assert getattr(env, "_tipped_applied", False), \
+        "tipped start did not engage"
+    _o, _r, _t, _tr, info = env.step(np.zeros(18))
+    rel_r = env._state.imu_roll - env._tilt_ref0[0]
+    rel_p = env._state.imu_pitch - env._tilt_ref0[1]
+    if max(abs(rel_r), abs(rel_p)) * RAD2DEG <= 2.0:
+        pytest.skip("tip settled level before the first tick")
+    q_tgt = action_to_q_rad(info["bc_target"])
+    assert not np.allclose(q_tgt, env._q_nom, atol=1e-4)
+    feet_ref = fk_all_feet(env._q_nom)
+    off_good = BodyOffset(roll=_expected_corr(rel_r),
+                          pitch=_expected_corr(rel_p))
+    e_good = foot_world_error(q_tgt, feet_ref, off_good)
+    assert e_good < 0.005, f"counter-rotation error {e_good*1e3:.1f}mm"
+    env.close()

@@ -1329,3 +1329,40 @@ resolution-limited or a PPO equilibrium?). Artifacts:
 `logs/experiments/cw-stand-footlow2-r1/digin/` (6-seed floored probe
 traces, FK hold probes both policies, probe script),
 `logs/ckpt_eval/cw_stand_footlow2_r1_rise_norsi/`.
+
+### 08-13 tip-aware hold anchor (`train.bc_anchor_tilt_comp`) — the
+### anchor-side design the tip1 gate consequence prescribed
+
+Motivation chain: `footlow2-hard1` stands on hardware with a
+persistent ~8° lean (operator bench 08-12); the forced-8°-tip probe
+showed the policy only partially self-corrects; training on tipped
+spawns with the tilt-BLIND anchor (`footlow2-tip1`) taught the policy
+to HOLD the lean (roll tail 7.2°, nominal retention broken) — the
+constant-q_nom hold target gives ZERO leveling gradient, and
+joint-space MSE is attitude-blind, so the anchor actively supervises
+whatever attitude the chassis has.
+
+Mechanism (landed, default off = bit-exact, 6 new tests in
+test_bc_anchor.py, full 50-test anchor suite + task-semantics bank
+green): on HOLD episodes (track excluded — it commands attitude
+goals), when `train.bc_anchor_tilt_comp` > 0 the hold target becomes
+`FixedFootBodyIK(q_nom)` solved at `BodyOffset(roll/pitch = -comp ×
+rel_attitude)` — a proportional posture-feedback TEACHER: lean +φ ⇒
+the anchor demands the pose that counter-rotates the body by
+comp·φ with the feet kept at the level anchors (downhill legs
+extend, uphill legs flex — sign verified against the trusted IK
+transform via foot_world_error, wrong sign discriminated 3x+).
+Attitude is measured against the episode tilt reference exactly like
+the tipped-start recovery metric (tipped episodes keep the ref
+LEVEL). `bc_anchor_tilt_deadband_deg` (1.5, soft) keeps settled-level
+ticks anchored at exactly q_nom; `bc_anchor_tilt_max_deg` (6.0) caps
+the correction at the MEASURED action-space expressibility boundary
+(7°+ counter-rotation saturates a joint's [-1,1] action bound from
+the settled stance and the target would supervise garbage on the
+clipped joints; IK itself reaches 10°), with a halving retry if a
+solve fails. Composes with `bc_anchor_foot_z`: the foot-height term
+now supervises the asymmetric extension in mm space. Pool-restore
+safe (reads only SNAP_ATTRS state: `_q_nom`, `_tilt_ref0`, `_state`).
+First arm: `cw-stand-tiltcomp1` (2M discovery, warm from
+footlow2-hard1, tip1's exact recipe + tilt_comp=1.0 — one variable vs
+tip1).
