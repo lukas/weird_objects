@@ -253,6 +253,47 @@ at what budget, with which failure modes.
   dagger1 BC; gates + FAIL branches pre-registered in the directive).
   The directive's failure ledger (12 measured lessons) is binding —
   do not re-litigate closed levers inside these arms.
+- **CODE item 3 LANDED + BASELINED (08-13, c-triage): the sequence
+  eval instrument (`eval_modeseq.py`, new file, pure external
+  orchestration of already-trained checkpoints — touches zero env/
+  reward code, no semantics-bank exposure).** Generalizes both proven
+  pairwise handoffs (`eval_handoff.py` rise→walk, `eval_handoff_reverse.py`
+  walk→lower) into one `reanchor_to(mode)` helper applied N times for
+  a 5-segment grammar (rise→walk→lower→rise→walk — the directive's own
+  fixed schedule). **Baseline finding: the reference composition must
+  be `footlow2_hard1`, NOT the deployed `holdbc1_hard1`** — holdbc1_hard1
+  scores only 7/12 zero-fall end to end (n=12, det, seed 0; its known
+  sit-after-walk stall from CURRENT_TRUTHS reproduces cleanly here:
+  lower success 1/8 despite 0 falls, rise falls 5/20 with the crouch-tip
+  fingerprint), while footlow2_hard1 clears the directive's own
+  ≥11/12 bar exactly: **11/12 det** (seed 0; rise 23/24, lower 12/12,
+  walk 23/23) and **9/12 stochastic** (seed 1; below the bar — all 3
+  sequence-ending falls landed on the SECOND rise specifically, 8/12
+  vs the first rise's 10/12). This is a real, decisive instance of
+  failure-ledger risk #4/#5 (the two stances differ; start-relative
+  `_z0`): even the BEST available stance specialist shows the
+  reanchored post-lower rise measurably weaker than a cold-start rise
+  under action noise — a concrete number for CODE items 1/2's authors
+  to beat, not just the qualitative risk. Artifacts:
+  `logs/ckpt_eval/modeseq_baseline_footlow2_{det,sto}.json` +
+  `modeseq_baseline_det.json` (the holdbc1_hard1 control). **Next:
+  CODE items 1 (`goal.mode_seq`) and 2 (`distill_gru --transitions`)
+  are still OPEN** — scoped this cycle but NOT attempted: the MJX/warp
+  vectorized stack turns out to reuse the exact same per-env Python
+  objects as the CPU path (`mjx_host.SNAP_ATTRS` pool-restores plain
+  `sim_env`/`walk_task` attributes), so item 1 is tractable as a
+  `walk_task`/`sim_env` change (NOT a new MJX-side mechanism) — but it
+  requires carefully splitting `_reset_finalize`'s ~600-line "physical
+  reset" and "goal-derived per-episode state" halves so a mid-episode
+  switch can re-run only the latter (re-anchor `_z0`/`_h_target`/
+  `_plant_feet_xy`/BC-anchor eligibility flags from the CURRENT
+  physical state, add new per-episode attrs to `SNAP_ATTRS`, index
+  `_current_goal()` by a segment-local offset default-0). That is
+  real, testable, contained work for a dedicated cycle — not
+  something to rush alongside a triage pass. Item 2 (`--transitions`)
+  can actually proceed WITHOUT item 1 (demo collection is external
+  orchestration, same `reanchor_to` trick this instrument just
+  proved out) and is the better next CODE step.
 - Distill-then-finetune (`ft1`, warm from a BC-distilled net) is
   SUPERSEDED as the walk-freeze workaround — dual-core is strictly
   better (walk retains AND hold/lower beat it on drag) — but keep

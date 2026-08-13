@@ -128,6 +128,22 @@ re-litigate these; cite them.
    start-kind split. This is the gate instrument for BOTH arms —
    build and baseline it on the two-specialist composition (known
    zero-fall) before gating anything.
+   **LANDED + baselined (08-13, c-triage): `rl_move/sim/eval_modeseq.py`
+   (external orchestration via `reanchor_to`, generalizing
+   eval_handoff{,_reverse}.py; zero env/reward touch). Baseline (the
+   directive's own reference) is `footlow2_hard1` + `walk_longdist_r2`
+   at the 5-segment grammar above, NOT `holdbc1_hard1` (which
+   reproduces its known sit-after-walk defect: 7/12 zero-fall).
+   footlow2_hard1: det 11/12 (rise 23/24, lower 12/12, walk 23/23),
+   stochastic 9/12 — every stochastic sequence-ending fall landed on
+   the SECOND (post-lower) rise (8/12 vs the cold first rise's
+   10/12). This is the zero-fall noise band + the numbered
+   start-relative-`_z0` risk items 1/2 must beat. Per-segment
+   mode-specific criteria (gait_valid/prog_ratio/park-duty/switch-
+   window tilt) are NOT yet wired — current success is a coarser
+   fall+posture+tracking check; tighten when items 1/2 need it.
+   Artifacts: `logs/ckpt_eval/modeseq_baseline_{det,footlow2_det,
+   footlow2_sto}.json`.**
 
 ## Arm 1 — `cw-arch-trans-dagger1` (transition DAgger distillation)
 
