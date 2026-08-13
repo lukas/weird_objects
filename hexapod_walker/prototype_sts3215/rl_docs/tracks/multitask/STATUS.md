@@ -202,10 +202,20 @@ new command later (the phase-2 transfer test).
   needs a design change (curriculum on command width, more
   capacity, or staged widening from a walking checkpoint), not just
   more steps at the same width.
-- [CODE, when wave 1 lands] fixed retained-command suite runner
-  (`eval_cmd_suite`) if `eval_drive.py`/`eval_yaw.py` can't already
-  probe exact (vx, vy, wz) triples per checkpoint — per-command
-  tracking error/falls/slip/current, det+sto, machine-readable.
+- ~~[CODE, when wave 1 lands] fixed retained-command suite runner~~
+  **LANDED 08-13 (idle-kick cycle): `rl_move/sim/eval_cmd_suite.py`**
+  — neither `eval_drive.py` (named linear panel, no wz) nor
+  `eval_yaw.py` (fixed yaw panel) could probe an arbitrary exact
+  (vx, vy, wz) triple, so it was built: explicit command list
+  (`--cmd vx,vy,wz` repeatable / `--suite file.json` / default
+  panel), det+sto passes, per-command falls / per-axis + magnitude
+  v-tracking error / wz error / loaded-foot slip-per-m (harness
+  definition) / servo current mean+p95, machine-readable `--out`
+  JSON. Measurement suite, NOT a gate (always exits 0). Smoke on
+  `vref1_r1` reproduced known facts (fwd slip/m ≈ 1.0 shuffle;
+  wz_err ≈ 0.27 on a 0.3 tip = no yaw tracking). Ready for wave-2 /
+  transfer-test retained-suite erosion runs whichever direction the
+  operator picks.
 - Phase 2 transfer test after wave 1: warm-start A/B/C on the SAME
   new command (larger yaw or backward), fixed 1M/2M/5M budgets,
   measure acquisition speed AND retained-suite erosion.
