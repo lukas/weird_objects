@@ -461,18 +461,22 @@ near-static stance across all 10 sampled frames. **GAIT P3 LEVER 2 IS
 NOW CLOSED IN EVERY FORM TESTED** (fixed rung, warm-start anneal onto
 a mobile prior, true in-run schedule — three distinct mechanisms, one
 collapse). The nobc gait-from-scratch no-new-code menu (levers 2, 4,
-5) is fully exhausted. Remaining lever 3 (physics easing) is genuine
-unbuilt code, not a cfg flip: the generic `sched.*` engine drives any
-cfg path, but `DomainRandomizer.sample()` reads a `self.ranges`
-snapshot frozen at construction time, so scheduling a DR field (e.g.
-gravity magnitude, servo velocity ceiling) needs new per-episode-reset
-refresh plumbing in code shared by every run in the project across
-every track — exactly the class of shared-code change that produced
-the campaign's pool-restore and dilution bugs when rushed. NOT
-written same-cycle as this triage; it needs its own dedicated
-design+test pass. WAITING-ON an operator call (surfaced in top-level
-STATUS.md 08-13): build lever 3, or accept the from-scratch gait line
-as exhausted for now.
+5) is fully exhausted. **Lever 3 (physics easing) BUILT 08-13** in a
+dedicated idle-kick build cycle (assume-and-go on the build-vs-close
+call, ASSUMPTION recorded in top STATUS.md): the feared
+`DomainRandomizer` per-reset range-refresh plumbing was NOT needed —
+`ease.gravity_scale` / `ease.vel_ceiling_scale` (cfg keys, default
+off = bit-exact, snapshot e40a3ea, `test_physics_ease.py` + semantics
+bank green, REWARD.md row) scale the per-episode DR **draw** at the
+`_reset_begin` choke point both trainer stacks consume, re-read every
+reset so `sched.*` anneals them in-run (slope direction preserved,
+physics constant within an episode; schedules must end at v1=1.0 with
+t1 under one eval episode's global-step equivalent so gate evals stay
+nominal). First arm `cw-gait-ease1` (2M discovery, dragstance1 stack
++ full charge from step 0, gravity 0.5→1.0 over 0.4M–1.1M as the ONE
+variable) pre-registers the line's endgame: PASS = first from-scratch
+gait signal → longer-anneal 20M hardening; FAIL = levers 1–5 all
+closed → recommend closing the from-scratch gait line.
 
 ## TALL LADDER — height-ref rungs on the dep line (operator session 08-11 eve)
 

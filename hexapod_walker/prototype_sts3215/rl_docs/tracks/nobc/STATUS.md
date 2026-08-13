@@ -77,26 +77,37 @@ whatever works; this track exists to retire the crutch.
   EVERY FORM** (fixed-rung pricing, warm-start anneal onto a mobile
   prior, and now a true in-run schedule) — three distinct mechanisms,
   same collapse. **The nobc gait-from-scratch line's entire
-  no-new-code lever menu (2, 4, 5) is exhausted.** The only
-  remaining lever is GAIT.md P3 item 3, physics easing (gravity/
-  servo-velocity-ceiling relaxed early, annealed to nominal) —
-  genuinely UNBUILT CODE, not a cfg flip: the generic `sched.*`
-  engine drives any cfg path but `DomainRandomizer.sample()` reads a
-  `self.ranges` snapshot frozen at construction, so scheduling a DR
-  field needs new per-reset refresh plumbing shared by every run in
-  the project (mass/friction/gravity/etc. DR is used everywhere, incl.
-  the batched MJX vec-env path) — exactly the kind of shared-code
-  change the campaign's pool-restore/dilution bugs came from when
-  rushed. NOT written this cycle: it needs its own careful
-  design+test pass, not a same-cycle add-on next to a live triage.
-  **WAITING-ON (since 08-13 ~01:2x): nobc's gait-from-scratch line is
-  blocked on the physics-easing mechanism (spec above, code unbuilt)
-  — surfaced in top-level STATUS.md.** Recommendation to the
-  operator, per pre-registration: either dedicate a cycle to building
-  and validating physics easing, or accept the from-scratch gait line
-  as exhausted for now (the hardware-bound gait keeps coming from the
-  BC-anchored lineage regardless — this is a nobc-charter research
-  question, not an hw-mainline blocker).
+  no-new-code lever menu (2, 4, 5) is exhausted.**
+  **08-13 ~04:xx: the physics-easing code-wait CLEARED — lever 3 is
+  BUILT and running.** The 01:2x entry's build-vs-close question was
+  answered assume-and-go (BUILD, per the CODE-FIRST directive; a
+  dedicated idle-kick build cycle was available — ASSUMPTION
+  recorded in top-level STATUS.md for operator review). The build is
+  much smaller than the spec above feared: no `DomainRandomizer`
+  range-refresh plumbing at all. New cfg keys `ease.gravity_scale` /
+  `ease.vel_ceiling_scale` (default off, bit-exact when off,
+  snapshot e40a3ea) scale the per-episode DR **draw** (`_ep_rand`)
+  in `_reset_begin` — the single choke point BOTH trainer stacks
+  already consume (private model via `apply_to_model`; batched MJX
+  via `ModelDrScratch.rows_for`/`tp_rows`) — re-read every reset so
+  the `sched.*` engine anneals them in-run; slope-DR direction is
+  preserved, per-episode physics never changes mid-episode;
+  randomize=False private-model envs get a direct fallback and
+  shared-model shims raise loudly. 8 tests `test_physics_ease.py` +
+  sched tests + full semantics bank green; REWARD.md row documents
+  the eval-safety design rules (schedules must end at v1=1.0 and
+  keep t1 under one eval episode's global-step equivalent so all
+  gate evals run nominal physics). First arm **`cw-gait-ease1`**
+  (2M discovery, train-0): byte-identical dragstance1 stack (full
+  k_drag_stance=8000 from step 0), ONE variable = gravity 0.5→1.0
+  annealed over 0.4M–1.1M. Pre-registered: PASS (fwd ≥0.3 m AND
+  slip/m ≤3.0 or gait_valid ≥1/6 at nominal-physics DR0 det) =
+  first-ever from-scratch gait signal → longer-anneal 20M hardening
+  (vel-ceiling ease is the pre-built second axis); FAIL = P3 levers
+  1–5 ALL closed under honest trials → recommend closing the
+  from-scratch gait line (the hardware-bound gait keeps coming from
+  the BC-anchored lineage regardless — nobc-charter research, not an
+  hw-mainline blocker).
 
 - CROSS-TRACK INSIGHT (hw P0 probe, 08-11 late, GAIT.md bottom): the
   crouch-paddle is a sim-EFFECTIVENESS optimum, not a paid basin —
@@ -114,10 +125,12 @@ whatever works; this track exists to retire the crutch.
    same freeze/near-still mechanism as the drag charge alone.
 2b. ~~Annealed-up charge (warm-start AND true in-run schedule)~~ DONE
    08-13 (see above) — BOTH forms FAILED, lever 2 closed for good.
-3. Physics easing — the last lever, UNBUILT CODE (not spec-ready: it
-   needs a per-reset DR-refresh mechanism, touching shared
-   `domain_rand.py` machinery used by every run in the project — a
-   dedicated build+test cycle, not a same-cycle add-on). WAITING-ON
-   an operator call: build it, or close the from-scratch gait line.
+3. Physics easing — BUILT 08-13 (`ease.*` cfg keys, snapshot
+   e40a3ea; no DomainRandomizer change needed). First arm
+   `cw-gait-ease1` (gravity 0.5→1.0 anneal, 2M discovery) RUNNING
+   train-0 — the line's last lever; its pre-registered FAIL branch
+   is "recommend closing the from-scratch gait line". If it lands
+   marginal, the one pre-built follow-up axis is
+   `ease.vel_ceiling_scale` (same mechanism, untried).
 
 Detail: GAIT.md P3 · RISE.md forensic ladder.
