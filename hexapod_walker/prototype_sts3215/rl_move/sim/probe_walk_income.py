@@ -152,10 +152,15 @@ FACTOR_KEYS = ("walk_prog_factor", "walk_anchor_frac",
                "walk_yaw_hold_factor")
 
 
-def make_env(seed: int, stack: dict, dr_scale: float = 0.0):
+def make_env(seed: int, stack: dict, dr_scale: float = 0.0,
+             extra_sets: tuple = ()):
     from rl_move.sim.walk_task import SimHexapodJointWalkEnv
     cfg = load_config()
     for (sec, leaf), val in stack.items():
+        cfg.setdefault(sec, {})[leaf] = val
+    # --set overrides land AFTER the named stack (audit tool: replay a
+    # run's exact ledger cfg on top of the nearest base stack).
+    for (sec, leaf), val in extra_sets:
         cfg.setdefault(sec, {})[leaf] = val
     env = SimHexapodJointWalkEnv(
         params=SimServoParams.from_cfg(None), randomize=dr_scale > 0.0,
@@ -185,14 +190,15 @@ def pin_command(env, vx: float, vy: float) -> None:
 
 
 def rollout(policy: str, direction: str, seed: int, stack_name: str,
-            deterministic: bool = True, dr_scale: float = 0.0) -> dict:
+            deterministic: bool = True, dr_scale: float = 0.0,
+            extra_sets: tuple = (), cmd: float = CMD_V) -> dict:
     from tripod_gait import TripodGait
 
     stack = STACKS[stack_name]
-    env = make_env(seed, stack, dr_scale)
+    env = make_env(seed, stack, dr_scale, extra_sets)
     obs, _ = env.reset()
     ux, uy = DIRS[direction]
-    vx, vy = ux * CMD_V, uy * CMD_V
+    vx, vy = ux * cmd, uy * cmd
     pin_command(env, vx, vy)
     traj = env._goal_traj
     n = len(traj.vx)
@@ -293,7 +299,12 @@ def summarize(records: list[dict]) -> None:
     all_terms = sorted({t for r in records for t in r["terms"]})
 
     def pname(p):
-        return p if not p.startswith("ckpt:") else "ckpt"
+        if not p.startswith("ckpt:"):
+            return p
+        # distinguish multiple checkpoints: last path piece, trimmed
+        base = p[5:].rsplit("/", 1)[-1]
+        base = base.replace("ppo_goal_cw_", "").replace(".zip", "")
+        return base[-13:]
 
     hdr = f"{'':28s}" + "".join(f"{pname(p):>14s}" for p in pols)
     print("\n=== per-episode MEAN income by term (all dirs/seeds) ===")
@@ -351,15 +362,36 @@ def main() -> None:
     ap.add_argument("--jobs", type=int, default=4)
     ap.add_argument("--stochastic", action="store_true")
     ap.add_argument("--dr-scale", type=float, default=0.0)
+    ap.add_argument("--set", action="append", default=[],
+                    dest="sets", metavar="SEC.KEY=VAL",
+                    help="cfg override applied AFTER the stack; "
+                         "repeatable (audit: replay a run's ledger cfg)")
+    ap.add_argument("--cmd", type=float, default=CMD_V,
+                    help=f"pinned command speed m/s (default {CMD_V})")
     ap.add_argument("--out", default=None)
     a = ap.parse_args()
+
+    extra_sets = []
+    for s in a.sets:
+        key, _, val = s.partition("=")
+        sec, _, leaf = key.partition(".")
+        if not (sec and leaf and _):
+            raise SystemExit(f"bad --set {s!r}, want SEC.KEY=VAL")
+        try:
+            v = float(val)
+        except ValueError:
+            v = val
+        extra_sets.append(((sec, leaf), v))
+    extra_sets = tuple(extra_sets)
 
     pols = [p for p in a.policies.split(",") if p]
     dirs = [d for d in a.dirs.split(",") if d]
     seeds = [int(s) for s in a.seeds.split(",") if s != ""]
-    jobs = [(p, d, s, a.stack, not a.stochastic, a.dr_scale)
+    jobs = [(p, d, s, a.stack, not a.stochastic, a.dr_scale,
+             extra_sets, a.cmd)
             for p in pols for d in dirs for s in seeds]
-    print(f"probe_walk_income: stack={a.stack} dr={a.dr_scale} {len(jobs)} rollouts "
+    print(f"probe_walk_income: stack={a.stack} dr={a.dr_scale} "
+          f"cmd={a.cmd} sets={a.sets} {len(jobs)} rollouts "
           f"({len(pols)} policies x {len(dirs)} dirs x {len(seeds)} seeds)")
     if a.jobs > 1:
         with ProcessPoolExecutor(max_workers=a.jobs) as ex:

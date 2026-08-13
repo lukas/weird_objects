@@ -108,6 +108,24 @@ whatever works; this track exists to retire the crutch.
   from-scratch gait line (the hardware-bound gait keeps coming from
   the BC-anchored lineage regardless — nobc-charter research, not an
   hw-mainline blocker).
+  **08-13 ~03:1x: `cw-gait-ease1` RESULT — FAIL, the false branch
+  exactly. THE FROM-SCRATCH GAIT LINE IS OUT OF LEVERS; recommend
+  CLOSE (operator call, surfaced top-level STATUS WAITING-ON).**
+  Gate: det fwd travel med 0.00 m (bar ≥0.3 m), slip/m med 7.21 det
+  / 19.19 sto, zero terms; video/contact-sheet a motionless splayed
+  crouch in all frames — the identical freeze fingerprint as
+  dragstance1/rsi1/slowfirst1/anneal1/sched1 (`gv True` here is the
+  known zero-travel artifact, not stepping). The decisive mechanism
+  read: `walk_loadslip_factor` floored at 0.04–0.09 from the FIRST
+  W&B sample — i.e. through the entire HALF-GRAVITY eased phase —
+  while `env/sched_value` confirms the anneal ran exactly as coded
+  (0.5→1.0 over 0.4M–1.1M) and the drag charge paid −6.5..−7.9/tick
+  unresolved to the end. Easier physics gave exploration nothing:
+  the freeze forms before the eased window even closes. Levers 1–5
+  all closed under honest trials; `ease.vel_ceiling_scale` stays
+  pre-built but UNQUEUED — its licensing condition was the marginal
+  branch, which did not occur. No nobc gait run queued pending the
+  operator's close call.
 
 - CROSS-TRACK INSIGHT (hw P0 probe, 08-11 late, GAIT.md bottom): the
   crouch-paddle is a sim-EFFECTIVENESS optimum, not a paid basin —
@@ -125,12 +143,11 @@ whatever works; this track exists to retire the crutch.
    same freeze/near-still mechanism as the drag charge alone.
 2b. ~~Annealed-up charge (warm-start AND true in-run schedule)~~ DONE
    08-13 (see above) — BOTH forms FAILED, lever 2 closed for good.
-3. Physics easing — BUILT 08-13 (`ease.*` cfg keys, snapshot
-   e40a3ea; no DomainRandomizer change needed). First arm
-   `cw-gait-ease1` (gravity 0.5→1.0 anneal, 2M discovery) RUNNING
-   train-0 — the line's last lever; its pre-registered FAIL branch
-   is "recommend closing the from-scratch gait line". If it lands
-   marginal, the one pre-built follow-up axis is
-   `ease.vel_ceiling_scale` (same mechanism, untried).
+3. ~~Physics easing~~ DONE 08-13 (`ease.*` built, snapshot e40a3ea;
+   `cw-gait-ease1` FAILED on the pre-registered false branch — see
+   above). **The gait-from-scratch lever menu is exhausted;
+   recommendation to the operator: CLOSE the line.** Nothing queued
+   pending that call. Stand-from-scratch (the track's other charter
+   item) is unaffected.
 
 Detail: GAIT.md P3 · RISE.md forensic ladder.

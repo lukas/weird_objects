@@ -477,6 +477,21 @@ nominal). First arm `cw-gait-ease1` (2M discovery, dragstance1 stack
 variable) pre-registers the line's endgame: PASS = first from-scratch
 gait signal → longer-anneal 20M hardening; FAIL = levers 1–5 all
 closed → recommend closing the from-scratch gait line.
+**08-13 ~03:1x RESULT: `cw-gait-ease1` FAIL — the false branch
+exactly, and the endgame fires.** Gate: det fwd travel med 0.00 m
+(bar ≥0.3 m), slip/m med 7.21 det / 19.19 sto, video a motionless
+splayed crouch in every sampled frame. Mechanism:
+`walk_loadslip_factor` floored at 0.04–0.09 from the FIRST W&B
+sample — through the entire half-gravity eased phase — while
+`env/sched_value` proves the anneal ran exactly as coded (0.5→1.0
+over 0.4M–1.1M) and the drag charge paid −6.5..−7.9/tick unresolved
+to the end. Easier physics gave exploration nothing; the freeze
+forms before the eased window closes. **GAIT P3 LEVERS 1–5 ARE ALL
+CLOSED UNDER HONEST TRIALS — recommendation to the operator: close
+the from-scratch gait line** (`ease.vel_ceiling_scale` stays built
+but unqueued; its licensing condition — a marginal ease1 — did not
+occur). The deployable gait continues to come from the BC-anchored
+lineage (see BC-INIT above / tall ladder below).
 
 ## TALL LADDER — height-ref rungs on the dep line (operator session 08-11 eve)
 

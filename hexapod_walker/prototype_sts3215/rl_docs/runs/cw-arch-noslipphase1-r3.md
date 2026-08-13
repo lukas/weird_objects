@@ -18,5 +18,7 @@
 
 **gate**: Band-matched phase probe (vref1 base, band 0.008-0.016, park_duty 0, walk_phase_obs 1 @ hz 0.1666667, CMD 0.012, 3 seeds x fwd/crab): TOTAL_RETURN >= 900 (init det 1030) AND progress_ratio >= 0.6 AND walk_loadslip_factor >= 0.5 AND no crouch (height factor >= 0.75).
 
+**verdict**: NEAR-MISS, dose-response point confirmed: halving the drift budget (1M steps, lr 5e-5, kl 0.005) recovered most of the anchoring r1 lost - loadslip 0.11 -> 0.45 (gate 0.5), return 617 -> 889 (gate 900), progress 0.70, anchor frac 1.00, no crouch. Missed the gate by 11 return points / 0.05 loadslip. Confirms drift-dose is the operative variable; quartered again in r4.
+
 **failed_reason**: W&B global_step not advancing (1048576 -> 0) after 120s (n_steps=64, cpu-time flat for 2 polls)
 
