@@ -287,6 +287,21 @@ at what budget, with which failure modes.
     (`cw-arch-modeseq1`; warm-start order trans-dagger1 > dual2 >
     dagger1 BC — note dual2's slot is a 3.18M mid-transient ckpt,
     re-judge per the dual2 verdict).
+  - **Gate instrument made Arm-1-ready (08-13 ~23:xx, this cycle,
+    while the CPU job ran its BC epochs): `eval_modeseq --single`**
+    — one checkpoint drives every segment, GRU hidden state carried
+    ACROSS switches (the `--transitions` continuous-stream
+    contract), dual-core one-hot auto-detected; walk segments now
+    gate on gait_valid per segment (lesson 11) and every segment
+    reports switch-window tilt/current. v1 could not evaluate a
+    single-model artifact at all — the Arm 1 gate would have been
+    unrunnable at triage time. Smokes on train-1: specialist path
+    reproduces the baseline in-band; `--single` on the dagger1 zip
+    reproduces its known skill profile. Baseline det+sto refreshed
+    with the new fields (`modeseq_baseline_footlow2_{det,sto}_v2
+    .json`). Job health at check: BC RMS 0.1552 (better than
+    dagger1's 0.1865), DAgger rounds in progress, 0 verify falls.
+    Details: TRANSITIONS_DIRECTIVE.md item 3 GATE-READY note.
   The directive's failure ledger (12 measured lessons) is binding —
   do not re-litigate closed levers inside these arms.
 - **`cw-arch-gru-dual2` VERDICTED FAIL (08-13 ~23:xx UTC dig-in) —

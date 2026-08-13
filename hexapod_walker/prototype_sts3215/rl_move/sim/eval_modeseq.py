@@ -34,16 +34,51 @@ is the gate/baseline both future arms must beat.
 
 Per segment: mode, start_kind (rise only), fall (or None), and the
 segment's OWN existing criterion (rise/lower: `env.plant_report` +
-height_err; walk: tracking error + distance, same as eval_handoff).
-Per episode: zero_fall over the whole grammar. Summary: per-segment-
-type success rate + fraction of episodes with zero falls end to end,
-det and stochastic passes both supported (--stochastic).
+height_err; walk: tracking error + gait_valid + prog_ratio, same
+definitions as eval_checkpoint's walk letter). Per episode: zero_fall
+over the whole grammar. Summary: per-segment-type success rate +
+fraction of episodes with zero falls end to end, det and stochastic
+passes both supported (--stochastic).
 
+Two drive modes:
+
+- TWO-SPECIALIST (default, the baseline): `--stand` drives rise/lower
+  segments on the 68-obs prefix, `--walk` drives walk segments.
+- SINGLE MODEL (`--single <ckpt>`, the gate path for the directive's
+  Arm 1/2 artifacts): ONE checkpoint drives every segment on the full
+  obs. GRU (RecurrentPPO) checkpoints keep their hidden state ACROSS
+  segment switches within a sequence (reset only at true episode
+  start) — exactly the continuous-stream contract `distill_gru
+  --transitions` trains, so the eval never lobotomizes the memory at a
+  switch. Dual-core GRU checkpoints (obs = env + mode one-hot) are
+  auto-detected from the stored obs width and the env is rebuilt with
+  `obs.mode_onehot=1`, same convention as eval_checkpoint.
+
+Per-segment criteria (tightened 08-13 for the Arm 1 gate — failure-
+ledger lesson 11: cheat gates must apply PER SEGMENT, pooled numbers
+lie): walk success now ALSO requires gait_valid (no persistently
+sacrificed leg, identical duty/swings formula to eval_checkpoint) —
+a parked-leg walk segment can no longer read OK on tracking error
+alone; prog_ratio and slip_per_m are reported per segment (evidence,
+no bar here — the triaging cycle judges vs the baseline). Every
+segment additionally reports switch_tilt_deg / switch_peak_a (max
+|roll|/|pitch| and peak servo current over the first 1.5 s after its
+re-anchor — the directive's switch-window evidence field, no bar in
+v1; on the first, cold segment the window reads engagement, not a
+switch).
+
+    # baseline (two specialists)
     python3 -m rl_move.sim.eval_modeseq \
-        --stand rl_move/sim/policies/ppo_goal_cw_stand_holdbc1_hard1.zip \
+        --stand rl_move/sim/policies/ppo_goal_cw_stand_footlow2_hard1.zip \
         --walk  rl_move/sim/policies/ppo_goal_cw_walk_longdist_r2.zip \
         --episodes 12 --grammar rise,walk,lower,rise,walk \
         --out logs/ckpt_eval/modeseq_baseline.json
+
+    # one-model gate (Arm 1 / Arm 2 artifacts)
+    python3 -m rl_move.sim.eval_modeseq \
+        --single rl_move/sim/policies/ppo_goal_cw_gru_dual_bc_transdagger1.zip \
+        --episodes 12 --grammar rise,walk,lower,rise,walk \
+        --out logs/ckpt_eval/modeseq_transdagger1.json
 
 Verdict rule of thumb (matches the directive's Arm 1/2 gates): PASS if
 zero_fall_frac >= 11/12 AND every segment TYPE's own success rate is
@@ -77,6 +112,8 @@ TAIL_S = 0.5
 END_CLEAR_BELLY_MM = 60.0   # eval_checkpoint.py posture-strict lower rule
 HEIGHT_ERR_OK_MM = 15.0     # eval_checkpoint.py lower/rise success rule
 RISE_START_KINDS = ("flat", "bridge", "crouch")   # cold-start rotation
+CONTACT_N = 0.5             # eval_checkpoint.py touch-force threshold
+SWITCH_WIN_S = 1.5          # switch-window evidence (directive item 3)
 
 
 def _set_mix(gen, **p) -> None:
@@ -95,6 +132,13 @@ def main() -> int:
     ap.add_argument("--walk", type=Path,
                     default=Path("rl_move/sim/policies/"
                                  "ppo_goal_cw_walk_longdist_r2.zip"))
+    ap.add_argument("--single", type=Path, default=None,
+                    help="ONE checkpoint drives every segment (the "
+                         "one-model gate path); overrides --stand/"
+                         "--walk. GRU hidden state persists across "
+                         "segment switches (reset at episode start "
+                         "only); dual-core GRU obs one-hot handled "
+                         "automatically")
     ap.add_argument("--episodes", type=int, default=12,
                     help="episodes total (cold-start kind rotates "
                          "flat/bridge/crouch)")
@@ -155,20 +199,77 @@ def main() -> int:
             parsed = val.strip()
         cfg.setdefault(sect, {})[name] = parsed
 
-    env = SimHexapodJointWalkEnv(
-        params=SimServoParams.from_cfg(cfg), cfg=cfg, randomize=False,
-        episode_seconds=20.0, seed=args.seed,
-        render_mode="rgb_array" if args.strips else None)
-    stand = PPO.load(args.stand, device="cpu")
-    walk = PPO.load(args.walk, device="cpu")
-    n_stand = int(stand.observation_space.shape[0])
-    n_env = int(env.observation_space.shape[0])
-    assert walk.observation_space.shape[0] == n_env, (
-        f"walk policy obs {walk.observation_space.shape} != env {n_env}")
-    assert n_stand < n_env, (
-        "stand policy obs must be a prefix of the walk env obs "
-        f"(got {n_stand} vs {n_env})")
     det = not args.stochastic
+
+    def make_env():
+        return SimHexapodJointWalkEnv(
+            params=SimServoParams.from_cfg(cfg), cfg=cfg,
+            randomize=False, episode_seconds=20.0, seed=args.seed,
+            render_mode="rgb_array" if args.strips else None)
+
+    if args.single is not None:
+        # ---- one-model gate path (Arm 1/2 artifacts) ----------------
+        from .gru_policy import is_recurrent_checkpoint, \
+            load_checkpoint_auto
+        single = load_checkpoint_auto(args.single, device="cpu")
+        n_model = int(single.observation_space.shape[0])
+        env = make_env()
+        n_env = int(env.observation_space.shape[0])
+        if n_model != n_env:
+            from .walk_task import N_MODE_OBS
+            if n_model == n_env + N_MODE_OBS:
+                # dual-core GRU convention (eval_checkpoint parity)
+                print(f"[modeseq] checkpoint obs {n_model} = env "
+                      f"{n_env} + {N_MODE_OBS}: enabling "
+                      f"obs.mode_onehot (dual-core checkpoint)")
+                env.close()
+                cfg.setdefault("obs", {})["mode_onehot"] = 1.0
+                env = make_env()
+                n_env = int(env.observation_space.shape[0])
+            if n_model != n_env:
+                raise SystemExit(f"--single obs {n_model} does not "
+                                 f"match env obs {n_env}")
+        recurrent = is_recurrent_checkpoint(args.single)
+        _rec = {"state": None, "start": np.ones((1,), dtype=bool)}
+
+        def episode_begin() -> None:
+            # Hidden state clears at TRUE episode start only; segment
+            # switches keep it (the --transitions continuous-stream
+            # contract — resetting here would evaluate a lobotomy).
+            _rec["state"] = None
+            _rec["start"] = np.ones((1,), dtype=bool)
+
+        if recurrent:
+            def act(obs, mode):
+                a, _rec["state"] = single.policy.predict(
+                    obs, state=_rec["state"],
+                    episode_start=_rec["start"], deterministic=det)
+                _rec["start"] = np.zeros((1,), dtype=bool)
+                return a
+        else:
+            def act(obs, mode):
+                return single.predict(obs, deterministic=det)[0]
+    else:
+        # ---- two-specialist baseline path ----------------------------
+        env = make_env()
+        stand = PPO.load(args.stand, device="cpu")
+        walk = PPO.load(args.walk, device="cpu")
+        n_stand = int(stand.observation_space.shape[0])
+        n_env = int(env.observation_space.shape[0])
+        assert walk.observation_space.shape[0] == n_env, (
+            f"walk policy obs {walk.observation_space.shape} != env "
+            f"{n_env}")
+        assert n_stand < n_env, (
+            "stand policy obs must be a prefix of the walk env obs "
+            f"(got {n_stand} vs {n_env})")
+
+        def episode_begin() -> None:
+            pass
+
+        def act(obs, mode):
+            if mode == "walk":
+                return walk.predict(obs, deterministic=det)[0]
+            return stand.predict(obs[:n_stand], deterministic=det)[0]
 
     gen = env._goal_gen
     dt = env.dt
@@ -235,6 +336,31 @@ def main() -> int:
                       env._prev_action, goal=env._current_goal(),
                       tilt_ref=env._tilt_ref0), reset=True)
 
+    switch_win_n = max(1, int(round(SWITCH_WIN_S / dt)))
+
+    class _SegMeter:
+        """Switch-window evidence (directive item 3, no bar in v1):
+        max |roll|/|pitch| and peak servo current over the first
+        SWITCH_WIN_S after the segment's re-anchor (on the first,
+        cold segment the window reads engagement, not a switch)."""
+
+        def __init__(self) -> None:
+            self.n, self.tilt, self.amp = 0, 0.0, 0.0
+
+        def tick(self, info: dict) -> None:
+            if self.n < switch_win_n:
+                self.tilt = max(self.tilt,
+                                abs(float(info.get("roll_deg", 0.0))),
+                                abs(float(info.get("pitch_deg", 0.0))))
+                cur = getattr(env._state, "servo_current", None)
+                if cur is not None and len(cur):
+                    self.amp = max(self.amp, float(np.max(cur)))
+            self.n += 1
+
+        def finalize(self, rec: dict) -> None:
+            rec["switch_tilt_deg"] = round(self.tilt, 1)
+            rec["switch_peak_a"] = round(self.amp, 2)
+
     def score_posture(rec: dict, pad_hist: list, h_err_mm) -> None:
         clear_mm = (np.asarray(pad_hist[-tail_n:]).mean(axis=0)
                     - env._pad_z_ref) * 1000.0
@@ -260,15 +386,19 @@ def main() -> int:
         else:
             obs = reanchor_to("rise", force_rise_start="flat")
             rec["start_kind"] = "reanchor_post_lower"
+        meter = _SegMeter()
         for _ in range(int(round(RISE_PHASE_S / dt))):
-            a, _ = stand.predict(obs[:n_stand], deterministic=det)
+            a = act(obs, "rise")
             obs, _rw, term, trunc, info = env.step(a)
             grab()
+            meter.tick(info)
             if term or trunc:
                 rec["fall"] = str(info.get("termination_reason")
                                   or "episode_end")
                 rec["success"] = False
+                meter.finalize(rec)
                 return obs, False
+        meter.finalize(rec)
         h_err = chassis_z() - (env._z0 + env._h_target)
         ok, detail = env.plant_report(height_err_m=h_err)
         rec["success"] = bool(ok)
@@ -283,6 +413,42 @@ def main() -> int:
         traj = env._goal_traj
         p0 = np.array(env.data.qpos[:2], dtype=float)
         n_err, err_sum = 0, 0.0
+        cmd_dist_m, along_dist_m = 0.0, 0.0
+        contact_hist: list = []      # (T, 6) bool
+        pad_xy_hist: list = []       # (T, 6, 2) world
+        pads = env._pad_bids
+        meter = _SegMeter()
+
+        def gait_metrics() -> None:
+            # Identical definitions to eval_checkpoint (duty/swings/
+            # sacrificed/gait_valid, prog_ratio, slip_per_m) so the
+            # per-segment numbers are directly comparable to the
+            # harness letter — failure-ledger lesson 11: cheat gates
+            # apply PER SEGMENT, never pooled.
+            if not contact_hist:
+                rec["gait_valid"] = False
+                return
+            contact = np.asarray(contact_hist, dtype=bool)
+            pad_xy = np.asarray(pad_xy_hist)
+            duty = contact.mean(axis=0)
+            swings, slips = [], []
+            for f in range(6):
+                c = contact[:, f]
+                d = np.diff(c.astype(int))
+                swings.append(int((d == -1).sum()))
+                moved = np.linalg.norm(
+                    np.diff(pad_xy[:, f], axis=0), axis=1)
+                slips.append(float(moved[c[:-1]].sum()))
+            rec["sacrificed_legs"] = [
+                f for f in range(6)
+                if duty[f] < 0.10 or (duty[f] > 0.95
+                                      and swings[f] == 0)]
+            rec["gait_valid"] = not rec["sacrificed_legs"]
+            rec["prog_ratio"] = (round(along_dist_m / cmd_dist_m, 3)
+                                 if cmd_dist_m > 1e-6 else None)
+            rec["slip_per_m"] = round(
+                float(np.sum(slips)) / max(along_dist_m, 0.05), 3)
+
         for seconds, vx, vy in WALK_SCHEDULE(args.speed):
             for _ in range(max(1, int(round(seconds / dt)))):
                 if hasattr(traj, "vx"):
@@ -290,33 +456,51 @@ def main() -> int:
                     traj.vy[:] = vy
                 if getattr(traj, "wz", None) is not None:
                     traj.wz[:] = 0.0
-                a, _ = walk.predict(obs, deterministic=det)
+                a = act(obs, "walk")
                 obs, _rw, term, trunc, info = env.step(a)
                 grab()
+                meter.tick(info)
+                contact_hist.append([
+                    float(env.data.sensordata[adr]) > CONTACT_N
+                    for adr in env._touch_adr])
+                pad_xy_hist.append(
+                    [env.data.xpos[b, :2].copy() for b in pads])
                 v = env._body_vel_xy()
                 err_sum += math.hypot(v[0] - vx, v[1] - vy)
                 n_err += 1
+                s_ref = math.hypot(vx, vy)
+                if s_ref > 1e-3:
+                    cmd_dist_m += s_ref * dt
+                    along_dist_m += (v[0] * vx + v[1] * vy) / s_ref * dt
                 if term or trunc:
                     rec["fall"] = str(info.get("termination_reason")
                                       or "episode_end")
                     rec["success"] = False
+                    meter.finalize(rec)
+                    gait_metrics()
                     return obs, False
         rec["trk_err"] = round(err_sum / max(n_err, 1), 4)
         rec["dist_m"] = round(float(np.hypot(
             *(np.array(env.data.qpos[:2], dtype=float) - p0))), 3)
-        # Success = tracked the command without falling; the pairwise
-        # gait_valid/prog_ratio checks belong to the harness, this
-        # instrument's job is falls + coarse tracking across the chain.
-        rec["success"] = bool(rec["trk_err"] < 0.15)
+        meter.finalize(rec)
+        gait_metrics()
+        # Success = tracked the command without falling AND a valid
+        # six-leg gait (a parked-leg segment must not read OK on
+        # tracking alone — lesson 11). prog_ratio/slip_per_m are
+        # reported as evidence, no bar here.
+        rec["success"] = bool(rec["trk_err"] < 0.15
+                              and rec["gait_valid"])
         return obs, True
 
     def run_lower(obs, rec: dict):
         obs = reanchor_to("lower")
         pad_hist, h_err_mm = [], None
+        meter = _SegMeter()
         for _ in range(int(round(LOWER_PHASE_S / dt))):
-            a, _ = stand.predict(obs[:n_stand], deterministic=det)
+            a = act(obs, "lower")
             obs, _rw, term, trunc, info = env.step(a)
             grab()
+            meter.tick(info)
             pad_hist.append(pad_z())
             if "height_err_mm" in info:
                 h_err_mm = float(info["height_err_mm"])
@@ -324,20 +508,28 @@ def main() -> int:
                 rec["fall"] = str(info.get("termination_reason")
                                   or "episode_end")
                 rec["success"] = False
+                meter.finalize(rec)
                 return obs, False
+        meter.finalize(rec)
         score_posture(rec, pad_hist, h_err_mm)
         return obs, True
 
     results: dict = {"cfg_set": args.cfg_set or [], "grammar": grammar,
-                     "stand": str(args.stand), "walk": str(args.walk),
                      "speed": args.speed, "deterministic": det,
                      "episodes": []}
+    if args.single is not None:
+        results["single"] = str(args.single)
+        results["recurrent"] = bool(recurrent)
+    else:
+        results["stand"] = str(args.stand)
+        results["walk"] = str(args.walk)
 
     seen_rise = 0
     for ep in range(args.episodes):
         ep_rec = {"ep": ep, "segments": [], "zero_fall": True}
         want_strip = args.strips is not None and ep == 0
         strip_frames.clear()
+        episode_begin()
         obs, alive = None, True
         for si, mode in enumerate(grammar):
             seg = {"i": si, "mode": mode}
@@ -386,6 +578,20 @@ def main() -> int:
             "success": sum(1 for s in segs if s.get("success")),
             "falls": sum(1 for s in segs if s.get("fall")),
         }
+        if mode == "walk":
+            summary[mode]["gait_valid"] = sum(
+                1 for s in segs if s.get("gait_valid"))
+            prs = [s["prog_ratio"] for s in segs
+                   if s.get("prog_ratio") is not None]
+            if prs:
+                summary[mode]["prog_ratio_med"] = round(
+                    float(np.median(prs)), 3)
+    tilts = [s["switch_tilt_deg"] for segs in by_type.values()
+             for s in segs if "switch_tilt_deg" in s]
+    if tilts:
+        summary["switch_tilt_deg_med"] = round(
+            float(np.median(tilts)), 1)
+        summary["switch_tilt_deg_max"] = round(float(max(tilts)), 1)
     summary["rise_by_ordinal"] = {
         str(i): {"n": len(segs),
                  "success": sum(1 for s in segs if s.get("success")),

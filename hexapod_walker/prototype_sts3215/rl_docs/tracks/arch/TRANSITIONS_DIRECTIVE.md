@@ -157,12 +157,35 @@ re-litigate these; cite them.
    stochastic 9/12 — every stochastic sequence-ending fall landed on
    the SECOND (post-lower) rise (8/12 vs the cold first rise's
    10/12). This is the zero-fall noise band + the numbered
-   start-relative-`_z0` risk items 1/2 must beat. Per-segment
-   mode-specific criteria (gait_valid/prog_ratio/park-duty/switch-
-   window tilt) are NOT yet wired — current success is a coarser
-   fall+posture+tracking check; tighten when items 1/2 need it.
+   start-relative-`_z0` risk items 1/2 must beat.
    Artifacts: `logs/ckpt_eval/modeseq_baseline_{det,footlow2_det,
    footlow2_sto}.json`.**
+   **GATE-READY UPDATE (08-13 ~23:xx, pre-Arm-1-triage): the two
+   gaps between the v1 instrument and the Arm 1 gate are CLOSED —
+   (a) `--single <ckpt>`: ONE checkpoint drives every segment (the
+   Arm 1/2 artifact path; v1 could only drive the two specialists).
+   GRU hidden state persists ACROSS segment switches within a
+   sequence (reset at true episode start only — the `--transitions`
+   continuous-stream contract; per-switch resets would evaluate a
+   memory lobotomy), dual-core obs one-hot auto-detected from the
+   stored obs width (eval_checkpoint parity). (b) per-segment
+   criteria per lesson 11: walk segment success now ALSO requires
+   gait_valid (identical duty/swings/sacrificed formula to
+   eval_checkpoint); prog_ratio + slip_per_m reported per segment;
+   every segment reports switch_tilt_deg/switch_peak_a (max
+   |roll|/|pitch| + peak servo current, first 1.5 s post-reanchor —
+   the switch-window evidence field, no bar in v1). Smoked on
+   train-1: specialist path reproduces the baseline (walk
+   gait_valid 4/4, prog 1.05–1.11, slip 1.7–2.0 in-band; the
+   post-lower rise's switch window reads 5.8–9.1° vs 0.3–2.6°
+   elsewhere — the second-rise risk now has a per-switch
+   instrument); `--single` on the dagger1 dual-GRU zip reproduces
+   its known profile (walk honest gv 2/2, lower collapsed 0/2,
+   post-lower rise tilt_roll falls). Baseline artifacts refreshed
+   with the new fields:
+   `logs/ckpt_eval/modeseq_baseline_footlow2_{det,sto}_v2.json`
+   (train-1). Hold-segment park-duty stays unwired — no hold token
+   in either arm's gate grammar; wire it if a grammar adds hold.**
 
 ## Arm 1 — `cw-arch-trans-dagger1` (transition DAgger distillation)
 
