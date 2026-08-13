@@ -8,6 +8,26 @@ at what budget, with which failure modes.
 
 ## Now
 
+- **08-13: the no-slip walking line (`cw-arch-noslipphase1*`,
+  phase-clock BC-init + drift-budgeted RL) has its first GATE PASS at
+  r4 — and its blocker is now MEASURED: the warp/MJX training physics
+  under-charges loaded-foot creep vs the C env.** r4 (500k drift
+  dose) is the first RL-fine-tuned no-slip checkpoint that keeps the
+  taught gait (probe return 943/loadslip 0.54 vs init 951/0.53), but
+  RL only preserves — it adds nothing under DR. The pre-registered
+  follow-up `cw-arch-noslipphase1-dr0` (r3's exact 1M dose, ALL DR
+  off) settled why: even in a clean world MJX PPO erodes loadslip
+  1.00→0.085 by ~400k steps with return climbing, while the matched
+  C-env income audit (probe_walk_income --set replay of the training
+  pricing; logs/probe_noslip_income/ on train-0) shows C CHARGES that
+  drift ~−280/ep. Same checkpoint: loadslip 0.085 (MJX) vs 0.31 (C).
+  DR-blinding refuted; MJX-vs-C contact gap confirmed. Per the gate's
+  consequence clause **no more training arms on this line — the next
+  lever is a warp-vs-C loaded-foot contact-creep parity audit**
+  (replay matched det action streams in both physics, compare
+  per-tick loaded-foot XY displacement; warp iterations-1/4 contact
+  looseness is the suspect). Cross-track: every MJX-trained walking
+  line inherits this pricing bias (escalated to hw, not launched).
 - **From-scratch GRU walking CLOSED (08-11, gru-r4c):** both
   pre-registered levers (BPTT window 64→256 steps, hidden 128→256)
   tried and the identical leg-sacrifice/paddle fingerprint survived

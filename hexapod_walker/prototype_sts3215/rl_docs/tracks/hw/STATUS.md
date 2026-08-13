@@ -9,6 +9,17 @@ unresolved blockers between the robot and reliable joystick control.
 
 ## Now
 
+- **CROSS-TRACK INSIGHT (from arch, 08-13, measured — no hw launch):
+  the warp/MJX training physics under-charges loaded-foot slip vs
+  the C env** (same checkpoint: loadslip factor 0.085 in MJX vs 0.31
+  in C; C-env replay of the training pricing docks the slippy gait
+  ~−280/ep that MJX pays — arch/STATUS.md "no-slip line" for the
+  audit). Every MJX-trained walking line, including the deployed
+  crouch-shuffle's slip numbers and bcgait1-hard1's residual slip,
+  inherits this bias toward foot-dragging; a warp-vs-C contact-creep
+  parity fix would raise gait quality campaign-wide. Parity audit is
+  the arch track's named next step; cross-track launches stay
+  operator-only.
 - **08-12 eve: `footlow2-tip1` FAILS both clauses — tipped-start DR
   on anchored stance is CLOSED as HARMFUL.** 50% tipped spawns
   taught tilt TOLERANCE, not correction: forced-8° probe holds
