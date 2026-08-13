@@ -213,14 +213,26 @@ at what budget, with which failure modes.
 
 ## Next
 
-- **The only live lever for RISE is the DAgger redistillation**
-  (re-distill stance-heavy + DAgger rounds on `distill_gru.py` before
-  any further RL) — operator-directed, in progress OUTSIDE this
-  loop. Nothing else is queued against rise on this architecture;
-  waiting on that redistillation to land before another dual-core
-  rise arm. Walk/hold/lower are solved at hardening grade on this
-  lineage (`cw-arch-gru-dual1`/`-hfloor1`) — no further arms needed
-  there either.
+- **The DAgger redistillation LANDED (08-13 ~13:00, operator session,
+  local Mac): rise is in the BC init for the first time.**
+  `distill_gru --dual`, stance-heavy mix walk=0.30/rise=0.40/
+  lower=0.15/hold=0.15, 400 BC eps + 2 DAgger rounds ×150 (dataset
+  698 eps, BC actor RMS 0.1865). Artifact
+  `ppo_goal_cw_gru_dual_bc_dagger1.zip` (md5 b5167c10). Harness-eval
+  before any RL (gate-cfg replica, DR0, det+sto): matched n=12/seed=1
+  rise recheck **det 3/12 with real non-crouch wins (bridge 2/4, flat
+  1/3), sto 2/12** — the old dual BC parent had effectively none
+  (dual1's 7/12 needed 10M RL+anchors on top). hold det 6/6 retained;
+  walk gait honest (gait_valid 6/6, prog_ratio 1.03, slip/m 1.45) but
+  misses the success letter on tracking (vel_err 0.034 vs 0.030 —
+  polish, RL's job). **Cost: lower collapsed det+sto 0/6** (drag
+  550mm) — the bc2 DAgger-collapse fingerprint, on lower only this
+  time. **Operator call before the next dual-core rise arm:** (a)
+  warm from this zip as-is and let RL+anchors rebuild lower (they
+  built lower 6/6 from a weaker init in dual1), or (b) a variant
+  distill with DAgger rounds rise-only / lower kept BC-only. Eval
+  artifacts `logs/ckpt_eval/gru_dual_bc_dagger1_{gate,rise12}`
+  (local).
 - Distill-then-finetune (`ft1`, warm from a BC-distilled net) is
   SUPERSEDED as the walk-freeze workaround — dual-core is strictly
   better (walk retains AND hold/lower beat it on drag) — but keep

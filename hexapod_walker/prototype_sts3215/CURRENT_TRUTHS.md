@@ -59,8 +59,11 @@ operator calls at regeneration time).
   BOTH training and hardware; vx/vy_meas:=ref contract ACCEPTED
   (`cw-dep-vref1-r1` = hardware base); prev-action audited PASS.
 - hist16 is the temporal base; dual-core mode-gated GRU removes
-  shared-trunk walk-freeze; its rise gap is BC-demo poverty
-  (waiting on the operator's DAgger redistillation).
+  shared-trunk walk-freeze; its rise gap was BC-demo poverty — the
+  DAgger redistillation landed 08-13 (`ppo_goal_cw_gru_dual_bc_
+  dagger1.zip`, rise in the BC init for the first time, lower
+  collapsed 0/6; operator picks warm-RL vs variant distill —
+  arch/STATUS.md).
 - Stance goal profile ships in the weights meta (runner contract
   test-locked); eval_session gates every stance/walk candidate and
   runs automatically in watcher pod evals.
