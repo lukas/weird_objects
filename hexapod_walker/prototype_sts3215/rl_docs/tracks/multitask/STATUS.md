@@ -5,6 +5,13 @@ W&B: tag `track:multitask`. Excess-capacity research; run prefix
 before triaging anything here — this track has its own binding rules
 for what counts as forgetting vs acquisition failure).
 
+**PAUSED by operator 08-13 (~12:2x UTC): the dynrep (world-dynamics)
+line takes priority. No new `cw-mt-` launches, queue items, or
+planning until the operator unpauses. The 08-13 WAITING-ON direction
+call is withdrawn, not answered — the options (arch recurrence
+transplant / command-width curriculum / accept `b2` ceiling / reward
+geometry diagnosis) remain open for whenever the track resumes.**
+
 **Goal:** test whether a fresh command-conditioned generalist
 (stand + forward + small yaw/lateral trained SIMULTANEOUSLY, one
 coherent reward) beats the sequential specialist-fine-tuning pattern —
@@ -190,12 +197,24 @@ new command later (the phase-2 transfer test).
 - The cheap-lever menu for wave-1's acquisition shortfall (capacity/
   arch256, staged-widening, history, all tested at matched budgets
   where applicable) is now EXHAUSTED — every one FAILED or made
-  things worse. **WAITING-ON: an operator call** on the next
-  direction (arch recurrence transplant onto this recipe, vs.
-  narrowing command width via curriculum, vs. accepting `b2` as the
-  ceiling for this recipe/architecture) — no further isolated-lever
-  retries queued pending that call. Reflected in top STATUS.md
-  WAITING-ON block.
+  things worse. The 08-13 operator direction call was WITHDRAWN by
+  the pause (see banner above); the candidate directions (arch
+  recurrence transplant, command-width curriculum, accepting `b2`
+  as the recipe ceiling, reward-geometry diagnosis per MULTITASK.md's
+  closing rule) are recorded for resumption. Top STATUS.md
+  WAITING-ON entry updated to PAUSED.
+- **08-13: the transplant's code is BUILT** (the operator call is now
+  purely a launch decision). The blocker was routing: on this recipe
+  every episode is mode "walk", so the episode-constant
+  `obs.mode_onehot` never exercises the dual-core gate. New
+  `obs.mode_onehot_cmd=1` (walk_task `_augment_obs`) derives the
+  one-hot from the LIVE blended command instead — commanded stop
+  (|vx|,|vy| ≤ `obs.mode_cmd_stop_m_s`, |wz| ≤
+  `obs.mode_cmd_stop_rad_s`) lights "hold" (stance core), any motion
+  lights "walk" (locomotion core); non-walk modes and the default-OFF
+  path are untouched (bit-exact, `tests/test_mode_onehot.py`). Arm
+  recipe = b2's cfg + `--gru-dual` + `--cfg-set obs.mode_onehot=1
+  --cfg-set obs.mode_onehot_cmd=1`.
 - Phase 2 / wave-2 planning should start from `b2` (real gait,
   closest to passing) or `a2` (clean specialist), never from `c2`'s
   broad-command recipe as-is — any future wide-command attempt
