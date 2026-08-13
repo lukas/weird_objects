@@ -9,6 +9,27 @@ unresolved blockers between the robot and reliable joystick control.
 
 ## Now
 
+- **08-13 ~11:xx: `cw-stand-tiltcomp2` (the teacher-defect fix)
+  FAILED its forced-tip gate — but cleanly, on the pre-registered
+  discriminator: under-ADOPTION, not teacher design.** Det tipped
+  tail med 5.25° (bar ≤3), leaning 24/24, parked foot persists —
+  while the same checkpoint's teacher, rolled out as a perfect
+  student on the same pod, levels to 1.76° at +0.384/tick. Adoption
+  measured directly: the policy's actions sit at ~90% of the full
+  distance from the teacher target (act-vs-tgt MSE 0.0131–0.0147 vs
+  signal 0.0149) — 2M steps with hold=0.1×tipped=0.5 (~5% exposure,
+  ~10% of anchor-loss mass) never competed with the warm-start
+  habit. Nominal retention = sibling tiltcomp1's band exactly (hold
+  det 6/6 vp tail 0.35°, zero falls; min-duty 0.72/slip 0.632 —
+  pre-existing lineage cost, not new). Now running:
+  `cw-stand-tiltcomp3` (ONE knob: goal mix hold 0.1→0.4, rise/lower
+  0.3 each; gate adds an explicit adoption clause act-vs-tgt <0.5×
+  signal). Pre-registered FAIL branch: adoption still ~0 at 4×
+  exposure ⇒ tipped-exposure training CLOSED with a complete dossier
+  (capable teacher + income pays leveling + refused adoption + the
+  untrained parent's innate 1.45° recovery beats every tipped-trained
+  child ⇒ training-dynamics, e.g. trip-fear near the 10° roll limit)
+  → operator design call with data, not conjecture.
 - **08-13 ~10:xx: tiltcomp1's mechanism read is OVERTURNED by
   measurement — the standing-lean line is UNBLOCKED and training
   again (`cw-stand-tiltcomp2`, train-0); the operator design-fork
