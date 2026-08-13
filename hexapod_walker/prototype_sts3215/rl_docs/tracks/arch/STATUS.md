@@ -227,12 +227,15 @@ at what budget, with which failure modes.
   misses the success letter on tracking (vel_err 0.034 vs 0.030 —
   polish, RL's job). **Cost: lower collapsed det+sto 0/6** (drag
   550mm) — the bc2 DAgger-collapse fingerprint, on lower only this
-  time. **Operator call before the next dual-core rise arm:** (a)
-  warm from this zip as-is and let RL+anchors rebuild lower (they
-  built lower 6/6 from a weaker init in dual1), or (b) a variant
-  distill with DAgger rounds rise-only / lower kept BC-only. Eval
-  artifacts `logs/ckpt_eval/gru_dual_bc_dagger1_{gate,rise12}`
-  (local).
+  time. **Operator DECIDED (08-13 ~20:0x UTC): option (a) first —
+  `cw-arch-gru-dual2` QUEUED to backlog** (10M, exact dual1 recipe,
+  ONE variable: warm from this zip; ckpt pushed to all 12 train
+  pods md5-verified; gate pre-registers the n=12/seed=1 rise
+  recheck >=8/12 with >=2 non-crouch wins + lower REBUILD >=4/6 +
+  walk retention). Every FAIL branch routes to option (b), the
+  rise-only-DAgger variant distill (operator/local lever — lower
+  kept BC-only), NOT a coefficient variant. Eval artifacts
+  `logs/ckpt_eval/gru_dual_bc_dagger1_{gate,rise12}` (local).
 - Distill-then-finetune (`ft1`, warm from a BC-distilled net) is
   SUPERSEDED as the walk-freeze workaround — dual-core is strictly
   better (walk retains AND hold/lower beat it on drag) — but keep
