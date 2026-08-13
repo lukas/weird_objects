@@ -122,6 +122,10 @@ _MODE_FAMILY = {
     # in the goal obs carry the within-mode command).
     "getup": "walk",
     "quad": "quad",
+    # quadwalk = quad-family locomotion (08-13, quad track "four-leg
+    # WALKING" spec): the quad one-hot bit + non-zero vx/vy refs carry
+    # the within-mode command, exactly the walk-vs-hold convention.
+    "quadwalk": "quad",
 }
 
 
@@ -207,6 +211,14 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # p_<mode> isolation mechanism works unchanged. 0.70: run 1's
         # 0.40 diluted the hard skill with tasks the lineage had solved.
         self._goal_gen.p_walk = 0.70
+        # quadwalk (08-13, quad track): commanded walking on the four
+        # support legs with goal.quad_lift_legs raised. Default 0 =
+        # never sampled; the _sample_goal cdf gains an EMPTY interval
+        # so every legacy rng stream is bit-exact unchanged. Enable
+        # per-run via --goal-mix quadwalk=<p>. The attribute must
+        # exist (not just a getattr default) so the eval harness's
+        # p_<mode> forcing can isolate the mode.
+        self._goal_gen.p_quadwalk = 0.0
         # Swing-bonus bookkeeping (see step()): per-foot contact state
         # and world XY at the moment of liftoff.
         self._pad_bids = [self.model.body(f"L{i}_pad").id
@@ -598,6 +610,56 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                               height=height, unload_leg=None,
                               start_at=start_at, vx=vx, vy=vy, wz=wz)
 
+    def _sample_quadwalk(self) -> WalkTrajectory:
+        """QUADWALK mode (quad track, 08-13 spec): commanded planar
+        walking on the four support legs with the front pair
+        (goal.quad_lift_legs) raised as hands.
+
+        Command interface = walk's (vx/vy refs + the goal one-hot
+        lighting the lift legs; obs width unchanged, mode one-hot
+        family "quad"). The walk reward block prices it with lift-leg
+        exemptions (park-duty window and step/swing credit skip the
+        lift legs) PLUS the quad clear/plant income, so an honest
+        rear-four gait out-earns a six-leg walk, a fronts-down drag
+        and a freeze — pinned by the QUADWALK semantics bank.
+
+        Discovery-scope defaults, all cfg-overridable: slower command
+        band than walk (four feet, smaller support polygon), forward
+        only, a longer settle head (the fronts must lift before the
+        ramp — matches goal.quad_grace_s + ramp), heading-hold yaw,
+        no mid-episode resample.
+        """
+        n = self.episode_steps + 1
+        rng = self.rng
+        s_lo = float(cfg_get(self.cfg, "goal", "quadwalk_speed_min_m_s",
+                             default=0.02))
+        s_hi = float(cfg_get(self.cfg, "goal", "quadwalk_speed_max_m_s",
+                             default=0.05))
+        h_max = float(cfg_get(self.cfg, "goal", "quadwalk_heading_max_rad",
+                              default=0.0))
+        hold_s = float(cfg_get(self.cfg, "goal", "quadwalk_hold_s",
+                               default=2.0))
+        speed = float(rng.uniform(s_lo, s_hi))
+        ang = 0.0 if h_max <= 0.0 else float(rng.uniform(-h_max, h_max))
+        vx_t = speed * math.cos(ang)
+        vy_t = speed * math.sin(ang)
+        hold_n = max(1, int(round(hold_s / self.dt)))
+        ramp_n = max(1, int(round(1.0 / self.dt)))
+        vx = np.full(n, vx_t)
+        vy = np.full(n, vy_t)
+        vx[:hold_n] = 0.0
+        vy[:hold_n] = 0.0
+        end = min(hold_n + ramp_n, n)
+        vx[hold_n:end] = np.linspace(0.0, vx_t, end - hold_n)
+        vy[hold_n:end] = np.linspace(0.0, vy_t, end - hold_n)
+        zeros = np.zeros(n)
+        wz = np.zeros(n) if self._yaw_cmd else None
+        return WalkTrajectory(mode="quadwalk", roll=zeros, pitch=zeros,
+                              height=zeros, unload_leg=None,
+                              lift_legs=tuple(getattr(
+                                  self._goal_gen, "quad_legs", (0, 5))),
+                              start_at="plant", vx=vx, vy=vy, wz=wz)
+
     # GETUP start-kind mix (see _sample_getup): random legal tangle,
     # belly-zero, partial curl, crouch, plant, tripod park. The pose
     # itself is built env-side in sim_env._reset_begin ("any" branch).
@@ -695,20 +757,24 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         gen = self._goal_gen
         p_walk = float(getattr(gen, "p_walk", 0.0))
         p_getup = float(getattr(gen, "p_getup", 0.0))
+        p_qw = float(getattr(gen, "p_quadwalk", 0.0))
         p_base = (gen.p_hold + gen.p_lean + gen.p_track + gen.p_unload
                   + gen.p_raise + gen.p_rise + gen.p_lower
                   + getattr(gen, "p_quad", 0.0))
-        tot = p_walk + p_getup + p_base
+        tot = p_walk + p_getup + p_qw + p_base
         if tot <= 0:
             return self._sample_walk()
-        # Single draw, walk-first cdf: with p_getup == 0 (default) the
-        # draw and its use are bit-identical to the legacy two-way
-        # split, so every existing lineage's rng stream is unchanged.
+        # Single draw, walk-first cdf: with p_getup == p_quadwalk == 0
+        # (default) the draw and its use are bit-identical to the
+        # legacy two-way split, so every existing lineage's rng stream
+        # is unchanged (a zero-probability mode is an empty interval).
         r = self.rng.random() * tot
         if r < p_walk:
             return self._sample_walk()
         if r < p_walk + p_getup:
             return self._sample_getup()
+        if r < p_walk + p_getup + p_qw:
+            return self._sample_quadwalk()
         return super()._sample_goal()
 
     def _current_goal(self):
@@ -734,8 +800,19 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # rejected-action early return.
         obs, reward, term, trunc, info = super()._post_step(result)
         if (self._goal_traj is not None
-                and getattr(self._goal_traj, "mode", "") == "walk"):
+                and getattr(self._goal_traj, "mode", "")
+                in ("walk", "quadwalk")):
+            # quadwalk (08-13, quad track) shares the entire walk
+            # pricing stack — kernel, progress, every income gate and
+            # slip/drag charge — with exactly two lift-leg exemptions
+            # below (park-duty window, step/swing credit) plus the
+            # quad clear/plant income at the end. `lift` is empty in
+            # walk mode, so walk pricing is bit-exact unchanged.
+            mode_q = (getattr(self._goal_traj, "mode", "")
+                      == "quadwalk")
             goal = self._current_goal()
+            lift = (tuple(goal.lift_legs)
+                    if (mode_q and goal.lift_legs) else ())
             v = self._body_vel_xy()
             err = float(np.hypot(v[0] - goal.vx_ref, v[1] - goal.vy_ref))
             r_walk = K_WALK * math.exp(-(err ** 2) / (2.0 * SIGMA_V ** 2))
@@ -1204,9 +1281,15 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                         # >=2 ticks airborne filters contact chatter /
                         # settle wobble (zero-action probe scored one
                         # phantom swing without this).
-                        if k_swing > 0.0 and stride >= 0.015 and air >= 2:
+                        # Lift-leg exemption (quadwalk): a commanded-
+                        # lifted front never earns swing/step credit —
+                        # stepping with the "hands" is the six-leg
+                        # cheat, not the task. Charges below still
+                        # apply to it (a dragging front pays).
+                        if k_swing > 0.0 and stride >= 0.015 \
+                                and air >= 2 and f not in lift:
                             r_swing += k_swing
-                        if k_step > 0.0 and air >= 2:
+                        if k_step > 0.0 and air >= 2 and f not in lift:
                             along_f = float(
                                 d[0] * goal.vx_ref + d[1] * goal.vy_ref
                             ) / s_ref
@@ -1265,6 +1348,16 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                     r_park = 0.0
                     if len(self._duty_hist) >= n_win:
                         duty = np.mean(self._duty_hist, axis=0)
+                        # Lift-leg exemption (quadwalk): the window
+                        # spans only the support legs — a permanently
+                        # lifted front is the COMMAND, not a park
+                        # (audit 08-13: all six spanned meant an
+                        # honest quad stance paid ~0.2k every tick).
+                        # `lift` empty (walk mode) = original array,
+                        # bit-exact.
+                        if lift:
+                            duty = duty[[f for f in range(6)
+                                         if f not in lift]]
                         over = float(np.sum(
                             np.maximum(0.0, duty - 0.9)
                             + np.maximum(0.0, 0.1 - duty)))
@@ -1294,66 +1387,104 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                     r_eff = -k_eff * float(np.mean(cur))
                     reward += r_eff
                 info["reward_effort"] = r_eff
+            if mode_q:
+                # quadwalk: the lifted-fronts income (clear/plant,
+                # same cfg keys and grace as quad hold) rides on top
+                # of the walk stack — fronts-down forfeits it by
+                # construction, which is what makes the six-leg and
+                # drag cheats under-earn (QUADWALK semantics bank).
+                reward, info = self._quad_income(float(reward), info)
         elif (self._goal_traj is not None
                 and getattr(self._goal_traj, "mode", "") == "quad"):
-            # Quad-hold shaping (feasibility GO, c57; all cfg-gated,
-            # default 0 = mode earns only the base kernels). Two income
-            # terms, no new charges — the level kernel, current charge
-            # and tilt trip already price the failure modes:
-            #   k_quad_clear: pay each LIFT leg's height above its
-            #     episode-start pad z, clipped at quad_clear_cap_mm,
-            #     and only while that foot is OFF the ground (a loaded
-            #     "lifted" leg earns nothing by construction).
-            #   k_quad_plant: pay the loaded fraction of the four
-            #     support legs — the four-planted half of the task.
-            # A grace window (quad_grace_s) keeps the settle + lift
-            # transient unpaid so income starts only once the hold
-            # could actually be happening.
-            goal = self._current_goal()
-            lift = tuple(goal.lift_legs) if goal.lift_legs else ()
-            grace_n = int(round(float(cfg_get(
-                self.cfg, "goal", "quad_grace_s", default=1.5)) / self.dt))
-            k_qc = float(cfg_get(self.cfg, "reward", "k_quad_clear",
-                                 default=0.0))
-            k_qp = float(cfg_get(self.cfg, "reward", "k_quad_plant",
-                                 default=0.0))
-            if lift and self._step_i > grace_n and (k_qc > 0.0
-                                                    or k_qp > 0.0):
-                cap_m = float(cfg_get(self.cfg, "reward",
-                                      "quad_clear_cap_mm",
-                                      default=30.0)) / 1000.0
-                clear_sum = 0.0
-                clear_mm = 0.0
-                fronts_off = 0
-                for f in lift:
-                    adr = self._touch_adr[f]
-                    on = (adr >= 0 and
-                          float(self.data.sensordata[adr]) > 0.5)
-                    z_ref = (self._pad_z_ref[f]
-                             if self._pad_z_ref is not None else 0.0)
-                    clear = float(
-                        self.data.xpos[self._pad_bids[f], 2]) - z_ref
-                    clear_mm += clear * 1000.0
-                    if not on:
-                        fronts_off += 1
-                        clear_sum += min(max(clear / cap_m, 0.0), 1.0)
-                support = [f for f in range(6) if f not in lift]
-                n_on = sum(
-                    1 for f in support
-                    if self._touch_adr[f] >= 0
-                    and float(self.data.sensordata[
-                        self._touch_adr[f]]) > 0.5)
-                r_qc = k_qc * clear_sum / max(len(lift), 1)
-                r_qp = k_qp * n_on / max(len(support), 1)
-                reward = float(reward) + r_qc + r_qp
-                info["reward_quad_clear"] = r_qc
-                info["reward_quad_plant"] = r_qp
-                info["quad_clear_mm"] = clear_mm / max(len(lift), 1)
-                info["quad_fronts_off"] = fronts_off / max(len(lift), 1)
-                info["quad_planted_frac"] = n_on / max(len(support), 1)
+            reward, info = self._quad_income(float(reward), info)
         elif getattr(self, "_is_getup", False):
             reward, info = self._getup_reward(float(reward), info)
         return obs, reward, term, trunc, info
+
+    def _quad_income(self, reward: float, info: dict) -> tuple:
+        """Quad-family lifted-fronts shaping, shared by the quad HOLD
+        mode and quadwalk (08-13; pure code motion from the quad elif
+        in _post_step — behavior identical for quad mode).
+
+        Quad-hold shaping (feasibility GO, c57; all cfg-gated,
+        default 0 = mode earns only the base kernels). Two income
+        terms, no new charges — the level kernel, current charge
+        and tilt trip already price the failure modes:
+          k_quad_clear: pay each LIFT leg's height above its
+            episode-start pad z, clipped at quad_clear_cap_mm,
+            and only while that foot is OFF the ground (a loaded
+            "lifted" leg earns nothing by construction).
+          k_quad_plant: pay the loaded fraction of the four
+            support legs — the four-planted half of the task.
+        A grace window (quad_grace_s) keeps the settle + lift
+        transient unpaid so income starts only once the hold
+        could actually be happening.
+
+        k_quad_still (08-13, quad track: the turn1-r1 dig-in measured
+        the learned quad HOLD stance creeping ~0.33 m/15 s — stillness
+        was never priced; hold_still_gate is scoped hold/track and
+        exempts quad by design): per-tick charge on body planar speed
+        above quad_still_floor_m_s, applied ONLY while no velocity is
+        commanded (s_ref ~ 0) so it can never fight a quadwalk
+        command. Default 0 = off, legacy exact.
+        """
+        goal = self._current_goal()
+        lift = tuple(goal.lift_legs) if goal.lift_legs else ()
+        grace_n = int(round(float(cfg_get(
+            self.cfg, "goal", "quad_grace_s", default=1.5)) / self.dt))
+        k_qc = float(cfg_get(self.cfg, "reward", "k_quad_clear",
+                             default=0.0))
+        k_qp = float(cfg_get(self.cfg, "reward", "k_quad_plant",
+                             default=0.0))
+        if lift and self._step_i > grace_n and (k_qc > 0.0
+                                                or k_qp > 0.0):
+            cap_m = float(cfg_get(self.cfg, "reward",
+                                  "quad_clear_cap_mm",
+                                  default=30.0)) / 1000.0
+            clear_sum = 0.0
+            clear_mm = 0.0
+            fronts_off = 0
+            for f in lift:
+                adr = self._touch_adr[f]
+                on = (adr >= 0 and
+                      float(self.data.sensordata[adr]) > 0.5)
+                z_ref = (self._pad_z_ref[f]
+                         if self._pad_z_ref is not None else 0.0)
+                clear = float(
+                    self.data.xpos[self._pad_bids[f], 2]) - z_ref
+                clear_mm += clear * 1000.0
+                if not on:
+                    fronts_off += 1
+                    clear_sum += min(max(clear / cap_m, 0.0), 1.0)
+            support = [f for f in range(6) if f not in lift]
+            n_on = sum(
+                1 for f in support
+                if self._touch_adr[f] >= 0
+                and float(self.data.sensordata[
+                    self._touch_adr[f]]) > 0.5)
+            r_qc = k_qc * clear_sum / max(len(lift), 1)
+            r_qp = k_qp * n_on / max(len(support), 1)
+            reward = float(reward) + r_qc + r_qp
+            info["reward_quad_clear"] = r_qc
+            info["reward_quad_plant"] = r_qp
+            info["quad_clear_mm"] = clear_mm / max(len(lift), 1)
+            info["quad_fronts_off"] = fronts_off / max(len(lift), 1)
+            info["quad_planted_frac"] = n_on / max(len(support), 1)
+        k_qs = float(cfg_get(self.cfg, "reward", "k_quad_still",
+                             default=0.0))
+        if lift and k_qs > 0.0 and self._step_i > grace_n:
+            s_ref = float(np.hypot(getattr(goal, "vx_ref", 0.0),
+                                   getattr(goal, "vy_ref", 0.0)))
+            if s_ref <= 1e-3:
+                sp = float(np.hypot(*self._body_vel_xy()))
+                floor = float(cfg_get(self.cfg, "reward",
+                                      "quad_still_floor_m_s",
+                                      default=0.005))
+                r_qs = -k_qs * max(sp - floor, 0.0)
+                reward = float(reward) + r_qs
+                info["reward_quad_still"] = r_qs
+                info["quad_body_speed"] = sp
+        return reward, info
 
     # ------------------------------------------------------------------
     # GETUP mode reward (08-11, from-scratch redesign; REWARD.md §4b).

@@ -938,9 +938,16 @@ def _run_periodic_eval(env, act, args, env_cls, step,
                 f"lower {stats['lower_completed']}"
                 f"/{stats['lower_episodes']}")
         elif "walk_vel_err_mean" in stats:
-            payload["eval/walk/vel_err_m_s"] = stats["walk_vel_err_mean"]
-            payload["eval/walk/speed_m_s"] = stats["walk_speed_mean"]
-            brief.append(f"walk err {stats['walk_vel_err_mean']:.3f} m/s")
+            # Keyed by the ISOLATED mode (08-13): quadwalk episodes
+            # emit the same walk_vel_err info keys, and the fixed
+            # "eval/walk/" prefix would have let a later quadwalk
+            # round silently overwrite walk's numbers. mode == "walk"
+            # keeps the historical key exactly.
+            payload[f"eval/{mode}/vel_err_m_s"] = (
+                stats["walk_vel_err_mean"])
+            payload[f"eval/{mode}/speed_m_s"] = stats["walk_speed_mean"]
+            brief.append(
+                f"{mode} err {stats['walk_vel_err_mean']:.3f} m/s")
         else:
             brief.append(
                 f"{mode} {stats.get('track_err_deg_mean', 0.0):.2f}°")
@@ -1033,8 +1040,13 @@ def _reel_modes(env, video_episodes: int) -> list[str]:
 
     Cycling matters for rise: its start kind (flat/bridge/crouch)
     is drawn per-episode, so repeats show different starts."""
+    # quadwalk/quad/getup appended 08-13 (quadwalk build): a mode
+    # active in the goal mix but missing here never appeared in the
+    # training video reel — the exact blind-spot class the harness's
+    # ALL_MODES quad fallback bug came from.
     all_modes = ("rise", "walk", "lower", "raise",
-                 "hold", "track", "lean", "unload")
+                 "hold", "track", "lean", "unload",
+                 "quadwalk", "quad", "getup")
     gen = getattr(env, "_goal_gen", None)
     active = [m for m in all_modes
               if gen is not None
@@ -1057,7 +1069,8 @@ def _render_reel(env, policy, args, step,
     gen = getattr(env, "_goal_gen", None)
     saved_p = {m: getattr(gen, f"p_{m}")
                for m in ("hold", "lean", "track", "unload",
-                         "raise", "rise", "lower", "walk")
+                         "raise", "rise", "lower", "walk",
+                         "quadwalk", "quad", "getup")
                if gen is not None and hasattr(gen, f"p_{m}")}
     reel = _reel_modes(env, args.video_episodes)
     # Path MUST be unique per process: two runs sharing a pod (warm-started

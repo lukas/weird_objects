@@ -2771,3 +2771,350 @@ def test_support_margin_prices_the_replay_knife_edge():
             f"wide {inc_wide:.1f} — margin term not discriminating")
         assert inc_knife >= 0.0, "margin income went negative on a " \
             "stable tripod — cap/exemption broken"
+
+
+# --------------------------------------------------------------------------
+# QUADWALK bank — commanded walking on the four support legs with the
+# front pair (0, 5) lifted (quad track "four-leg WALKING" spec, 08-13).
+# Stack = the walk-lineage champion stack (WALK_OVERRIDES — the exact
+# stack the quad-hold lineage trained with) + the quad clear/plant
+# income (cw-quad-hold2 coefficients). Required ordering:
+#
+#     honest rear-four gait (fronts up) > six-leg walk (fronts
+#     stepping) > fronts-down drag / freeze-at-quad-stance
+#
+# The 08-13 audit found the pre-quadwalk stack REWARD-PUNISHED and
+# EVAL-INVALIDATED any honest quad walk (k_park_duty's window spanned
+# the commanded-lifted fronts ~0.2k/tick; eval sacrificed_legs counted
+# them too). These tests pin that the mode's lift-leg exemptions plus
+# the clear income actually price the task as specified — BEFORE any
+# PPO arm trains on it.
+
+QUADWALK_OVERRIDES = dict(WALK_OVERRIDES)
+QUADWALK_OVERRIDES.update({
+    ("reward", "k_quad_clear"): 1.5,
+    ("reward", "k_quad_plant"): 1.0,
+    ("goal", "quad_grace_s"): 1.5,
+    ("goal", "quadwalk_speed_min_m_s"): 0.03,
+    ("goal", "quadwalk_speed_max_m_s"): 0.04,
+})
+QUADWALK_CMD_VX = 0.03      # slower than walk: four feet, small polygon
+# Raised front pose (yaw, hip, knee) rad — quadruped_feasibility
+# FRONT_POSES["tuck"], the feasibility-GO claw pose.
+QW_TUCK_RAD = (0.0, -1.10, 2.40)
+QW_LIFT = (0, 5)
+
+
+def _make_quadwalk_env(seed: int, overrides: dict | None = None):
+    from rl_move.sim.walk_task import SimHexapodJointWalkEnv
+
+    cfg = load_config()
+    for (sec, leaf), val in (overrides or QUADWALK_OVERRIDES).items():
+        cfg.setdefault(sec, {})[leaf] = val
+    env = SimHexapodJointWalkEnv(
+        params=SimServoParams.from_cfg(None), randomize=False,
+        dr_scale=0.0, episode_seconds=15.0, seed=seed, cfg=cfg)
+    gen = env._goal_gen
+    for m in ("hold", "lean", "track", "unload", "raise", "rise",
+              "lower", "quad", "walk", "quadwalk"):
+        if hasattr(gen, f"p_{m}"):
+            setattr(gen, f"p_{m}", 1.0 if m == "quadwalk" else 0.0)
+    return env
+
+
+def _quadwalk_rollout(policy: str, seed: int, *,
+                      vx: float = QUADWALK_CMD_VX,
+                      overrides: dict | None = None) -> dict:
+    """One 15 s quadwalk episode under a scripted policy.
+
+    quadgait   rear-four tripod-derived trot (legs 2,4 / 1,3 pairs),
+               fronts held at the tuck pose — the honest behavior
+    sixleg     plain six-leg tripod gait — fronts stepping (cheat)
+    frontdrag  rear-four gait, fronts held at PLANT angles: feet down,
+               dragging as the body moves (cheat)
+    freeze     quad stance park: support legs planted, fronts tucked,
+               no stepping (refusal)
+    """
+    from tripod_gait import TripodGait
+
+    env = _make_quadwalk_env(seed, overrides)
+    env.reset()
+    traj = env._goal_traj
+    assert getattr(traj, "mode", "") == "quadwalk", (
+        f"quadwalk forcing broken: sampled {getattr(traj, 'mode', '?')}")
+    n = len(traj.vx)
+    hold_n = int(round(2.0 / env.dt))
+    ramp_n = int(round(1.0 / env.dt))
+    ramp = np.linspace(0.0, 1.0, ramp_n)
+    traj.vx[:] = vx
+    traj.vx[:hold_n] = 0.0
+    traj.vx[hold_n:hold_n + ramp_n] = vx * ramp
+    traj.vy[:] = 0.0
+    if traj.wz is not None:
+        traj.wz[:] = 0.0
+
+    gait = TripodGait(vx=0.0, lift=0.025)
+    gait.sync_plant_stance(*WALK_PLANT)
+    if policy in ("quadgait", "freeze"):
+        # Probe-derived viable statics (08-13): without the mid-leg
+        # forward splay the tucked stance pitch-trips in <1 s (CoM
+        # ahead of the 4-foot polygon front edge); the tuck must also
+        # blend in over ~1.5 s. NOTE the splayed trot still does not
+        # TRANSLATE — see QUADWALK_REFERENCE_BLOCKED; the quadgait
+        # branch must be replaced by a working scheme (probe_quad_
+        # crawl.py) before the ordering fixture is un-skipped.
+        _orig_target = gait._foot_target_in_body
+
+        def _splayed(i, vx, vy, om):
+            dx, dy, dz = _orig_target(i, vx, vy, om)
+            if i in (1, 4):
+                dx += 0.06
+            return (dx, dy, dz)
+        gait._foot_target_in_body = _splayed
+    plant_rad = np.array([0.0, *WALK_PLANT] * 6) * DEG2RAD
+    gait.reset_phase()
+    tuck = np.array(QW_TUCK_RAD)
+
+    total, step = 0.0, 0
+    lift_contact, lift_ticks = 0, 0
+    n_skip = int(round(3.0 / env.dt))
+    while True:
+        t = step * env.dt
+        i = min(step, n - 1)
+        gait.set_velocity(
+            vx=0.0 if policy == "freeze" else float(traj.vx[i]),
+            vy=0.0 if policy == "freeze" else float(traj.vy[i]))
+        q = np.asarray(gait.desired_deg(t)) * DEG2RAD
+        if policy in ("quadgait", "freeze"):
+            a = min(t / 1.5, 1.0)
+            for leg in QW_LIFT:
+                q[3 * leg:3 * leg + 3] = (
+                    (1 - a) * plant_rad[3 * leg:3 * leg + 3] + a * tuck)
+        elif policy == "frontdrag":
+            for leg in QW_LIFT:
+                q[3 * leg:3 * leg + 3] = plant_rad[3 * leg:3 * leg + 3]
+        # (sixleg: q untouched — fronts step like any other leg)
+        _obs, r, term, trunc, _info = env.step(q_rad_to_action(q))
+        total += float(r)
+        if step >= n_skip:
+            lift_ticks += 1
+            lift_contact += sum(
+                1 for leg in QW_LIFT
+                if float(env.data.sensordata[env._touch_adr[leg]]) > 0.5)
+        step += 1
+        if term or trunc:
+            break
+    env.close()
+    return {"return": total, "terminated": bool(term),
+            "lift_duty_tail": (lift_contact / (2.0 * lift_ticks)
+                               if lift_ticks else 1.0)}
+
+
+# HONEST-REFERENCE STATUS (08-13, spec cycle finding): NO open-loop
+# scripted quad gait walks on this platform in sim yet. Tried, all
+# failing to translate (probe_quad_crawl.py reproduces every scheme):
+#   - rear-four 2-2 trot (tripod timing minus fronts): stable, fronts
+#     clean, fwd ~0.00 m/15 s (diagonal 2-leg support pivots/slips);
+#   - 4-beat crawl duty 0.75: mid legs PINNED under load (CoM outside
+#     the mid-swing support triangle — matches the feasibility sweep
+#     geometry: GO rows all splay the mid feet forward);
+#   - + mid splay 0.04-0.06 m & body-back 0.05-0.06 m (the sweep's GO
+#     statics): mids still pinned;
+#   - + lateral sway 0.05-0.06 m (leading or in-phase), lift-first or
+#     delayed swings, periods 2.0-4.0 s, vx 0.02-0.04: mids lift but
+#     the body drifts -0.02..-0.10 m (slip/rock consumes everything;
+#     rear legs chatter 2-3x their commanded step count).
+# Static hold margin (quadruped_feasibility GO) does NOT extend to
+# open-loop stepping. Until an honest reference EXISTS (a video-driven
+# scripted-crawl iteration on a train pod, or an operator ruling on
+# relaxing the reference source), the ordering tests below SKIP —
+# which keeps every quadwalk PPO arm launch-blocked by MDP_PREFLIGHT,
+# exactly as the rules intend. The exemption/inertness tests further
+# down run regardless.
+QUADWALK_REFERENCE_BLOCKED = (
+    "QUADWALK bank blocked: no viable honest scripted rear-four gait "
+    "yet (open-loop trot/crawl/two-phase-crawl all fail to translate; "
+    "see quad/STATUS.md 08-13 and rl_move/sim/probe_quad_crawl.py). "
+    "Do NOT launch quadwalk training arms until this bank passes.")
+
+
+@pytest.fixture(scope="module")
+def quadwalk_bank() -> dict[str, list[dict]]:
+    pytest.skip(QUADWALK_REFERENCE_BLOCKED)
+    return {p: [_quadwalk_rollout(p, s) for s in SEEDS[:2]]
+            for p in ("quadgait", "sixleg", "frontdrag", "freeze")}
+
+
+def _qw_mean(bank, policy):
+    return float(np.mean([r["return"] for r in bank[policy]]))
+
+
+def test_quadwalk_honest_gait_survives(quadwalk_bank):
+    """The honest reference must be PHYSICALLY viable: the scripted
+    rear-four gait with tucked fronts finishes its episodes upright
+    (feasibility GO was static; this pins the walking form) and its
+    fronts genuinely stay up (tail duty < 0.15 — the same criterion
+    the eval harness scores fronts_lifted with)."""
+    for r in quadwalk_bank["quadgait"]:
+        assert not r["terminated"], (
+            f"scripted rear-four gait fell: {r}")
+        assert r["lift_duty_tail"] < 0.15, (
+            f"'lifted' fronts touch the ground {r['lift_duty_tail']:.2f} "
+            "of the tail — tuck pose not clearing")
+
+
+def test_quadwalk_gait_beats_sixleg_walk(quadwalk_bank):
+    """Rear-four stepping with fronts up must OUT-EARN the six-leg walk
+    under the quadwalk stack, else PPO will just keep walking on six
+    (the fronts-stepping cheat). The separator is the clear income the
+    grounded fronts forfeit; the exemptions only stop the honest form
+    being CHARGED."""
+    qg, six = _qw_mean(quadwalk_bank, "quadgait"), _qw_mean(
+        quadwalk_bank, "sixleg")
+    assert qg > six + 100.0, (
+        f"six-leg walking rivals the commanded quad gait: "
+        f"quadgait {qg:.0f} vs sixleg {six:.0f}")
+
+
+def test_quadwalk_gait_beats_frontdrag(quadwalk_bank):
+    """Fronts-down dragging (feet planted, scraping along) must earn
+    clearly less than lifting them: it forfeits the clear income AND
+    pays the drag charges the exemptions deliberately did NOT lift."""
+    qg, fd = _qw_mean(quadwalk_bank, "quadgait"), _qw_mean(
+        quadwalk_bank, "frontdrag")
+    assert qg > fd + 100.0, (
+        f"fronts-down drag rivals the honest quad gait: "
+        f"quadgait {qg:.0f} vs frontdrag {fd:.0f}")
+
+
+def test_quadwalk_gait_beats_freeze(quadwalk_bank):
+    """A quad-stance park (fronts up, nobody stepping) collects the
+    full clear+plant income — walking must still win via the velocity
+    kernel/progress, and the park-duty charge (support legs only, by
+    the exemption) must bite the freeze."""
+    qg, fz = _qw_mean(quadwalk_bank, "quadgait"), _qw_mean(
+        quadwalk_bank, "freeze")
+    assert qg > fz + 100.0, (
+        f"freezing at the quad stance rivals walking: "
+        f"quadgait {qg:.0f} vs freeze {fz:.0f}")
+
+
+def test_quadwalk_never_sampled_by_default():
+    """Default config: p_quadwalk exists (harness forcing needs the
+    attribute) but is 0.0 — the mode must never be drawn, so every
+    legacy lineage's episode stream is unchanged."""
+    from rl_move.sim.walk_task import SimHexapodJointWalkEnv
+
+    env = SimHexapodJointWalkEnv(
+        params=SimServoParams.from_cfg(None), randomize=False,
+        dr_scale=0.0, episode_seconds=15.0, seed=SEEDS[0],
+        cfg=load_config())
+    assert getattr(env._goal_gen, "p_quadwalk", None) == 0.0
+    modes = set()
+    for _ in range(300):
+        modes.add(env._sample_goal().mode)
+    env.close()
+    assert "quadwalk" not in modes, (
+        "quadwalk sampled at default p=0 — cdf branch broken")
+
+
+# k_quad_still (08-13): the learned quad HOLD stance creeps ~0.33 m/15 s
+# (cw-quad-turn1-r1 harness measurement) because nothing prices body
+# translation in quad mode (hold_still_gate exempts quad by design).
+# The term charges body planar speed above a floor while NO velocity is
+# commanded. Bank: a quad-stance "creeper" (rear-four skate, fronts
+# tucked, body sliding at ~0.02 m/s) vs the still quad stance.
+
+QUAD_STILL_OVERRIDES = dict(QUADWALK_OVERRIDES)
+QUAD_STILL_OVERRIDES.update({("reward", "k_quad_still"): 50.0})
+
+
+def _quad_hold_rollout(policy: str, seed: int, overrides: dict) -> float:
+    """Quad HOLD mode (p_quad=1): 'still' holds the tuck stance,
+    'creep' translates the body through the hold command.
+
+    'still' needs the probe-derived viable statics: mid feet splayed
+    forward 0.06 m (feasibility-GO geometry — without it the tuck
+    stance pitch-trips in <1 s) and the tuck blended in over 1.5 s.
+    'creep' is the plain six-leg gait at 0.03 m/s — the only SCRIPTED
+    policy that genuinely translates (every scripted quad-stance
+    creep attempt slips in place; see probe_quad_crawl.py). The term
+    under test charges measured BODY SPEED while a quad hold is
+    commanded, independent of leg pattern, so this proxy exercises
+    exactly the mechanism that prices the learned rear-four creep
+    (0.022 m/s, cw-quad-turn1-r1)."""
+    from tripod_gait import TripodGait
+
+    cfg = load_config()
+    for (sec, leaf), val in overrides.items():
+        cfg.setdefault(sec, {})[leaf] = val
+    from rl_move.sim.walk_task import SimHexapodJointWalkEnv
+    env = SimHexapodJointWalkEnv(
+        params=SimServoParams.from_cfg(None), randomize=False,
+        dr_scale=0.0, episode_seconds=15.0, seed=seed, cfg=cfg)
+    gen = env._goal_gen
+    for m in ("hold", "lean", "track", "unload", "raise", "rise",
+              "lower", "quad", "walk", "quadwalk"):
+        if hasattr(gen, f"p_{m}"):
+            setattr(gen, f"p_{m}", 1.0 if m == "quad" else 0.0)
+    env.reset()
+    assert env._goal_traj.mode == "quad"
+    gait = TripodGait(vx=0.0, lift=0.025 if policy == "creep" else 0.0)
+    gait.sync_plant_stance(*WALK_PLANT)
+    if policy != "creep":
+        _orig_target = gait._foot_target_in_body
+
+        def _splayed(i, vx, vy, om):
+            dx, dy, dz = _orig_target(i, vx, vy, om)
+            if i in (1, 4):
+                dx += 0.06
+            return (dx, dy, dz)
+        gait._foot_target_in_body = _splayed
+    plant_rad = np.array([0.0, *WALK_PLANT] * 6) * DEG2RAD
+    gait.reset_phase()
+    tuck = np.array(QW_TUCK_RAD)
+
+    total, step = 0.0, 0
+    while True:
+        t = step * env.dt
+        gait.set_velocity(vx=0.03 if policy == "creep" else 0.0, vy=0.0)
+        q = np.asarray(gait.desired_deg(t)) * DEG2RAD
+        if policy != "creep":
+            a = min(t / 1.5, 1.0)
+            for leg in QW_LIFT:
+                q[3 * leg:3 * leg + 3] = (
+                    (1 - a) * plant_rad[3 * leg:3 * leg + 3]
+                    + a * tuck)
+        _obs, r, term, trunc, _info = env.step(q_rad_to_action(q))
+        total += float(r)
+        step += 1
+        if term or trunc:
+            break
+    env.close()
+    return total
+
+
+def test_quad_still_default_off_bit_exact():
+    """k_quad_still=0.0 (explicit) must equal the key being absent."""
+    off = dict(QUADWALK_OVERRIDES)
+    off[("reward", "k_quad_still")] = 0.0
+    a = _quad_hold_rollout("creep", SEEDS[0], QUADWALK_OVERRIDES)
+    b = _quad_hold_rollout("creep", SEEDS[0], off)
+    assert a == b, f"k_quad_still=0 changed the reward path ({a} vs {b})"
+
+
+def test_quad_still_charges_the_creep_not_the_stand(quad_still_returns=None):
+    """With k_quad_still=50 the sliding quad stance pays real money
+    (the measured creep is ~0.022 m/s; 50 * ~0.017 ~= 0.85/tick) while
+    the genuinely still stance is charged ~nothing (floor)."""
+    s = SEEDS[0]
+    creep_cost = (_quad_hold_rollout("creep", s, QUADWALK_OVERRIDES)
+                  - _quad_hold_rollout("creep", s, QUAD_STILL_OVERRIDES))
+    still_cost = (_quad_hold_rollout("still", s, QUADWALK_OVERRIDES)
+                  - _quad_hold_rollout("still", s, QUAD_STILL_OVERRIDES))
+    assert creep_cost > 100.0, (
+        f"k_quad_still=50 charged the creeping stance only "
+        f"{creep_cost:.1f} over the episode — no bite")
+    assert still_cost < 0.2 * creep_cost, (
+        f"still stance pays {still_cost:.1f} vs creep {creep_cost:.1f} "
+        "— the floor is not protecting genuine stillness")

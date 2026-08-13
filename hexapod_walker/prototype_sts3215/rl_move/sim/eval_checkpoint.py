@@ -63,7 +63,7 @@ ENV_CLASSES = {"goal": SimHexapodGoalEnv,
                "joint_walk": SimHexapodJointWalkEnv}
 
 ALL_MODES = ("hold", "lean", "track", "unload", "raise", "rise",
-             "lower", "walk", "quad", "getup")
+             "lower", "walk", "quad", "getup", "quadwalk")
 # "quad"/"getup" added 08-13 (cw-quad-turn1-r1 dig-in): the forcing loop
 # below only touches p_<m> for m in ALL_MODES, so a requested mode
 # MISSING from this tuple zeroed every listed probability while leaving
@@ -127,9 +127,11 @@ def _success(mode: str, term: bool, ep: dict,
     if mode == "raise":
         return ep["height_err_end_mm"] is not None \
             and ep["height_err_end_mm"] <= 5.0
-    if mode == "walk":
+    if mode in ("walk", "quadwalk"):
         # gait_valid: no persistently sacrificed leg (see gait-validity
         # gate below); tracking alone has repeatedly hidden the exploit.
+        # For quadwalk, gait_valid additionally requires the lift legs
+        # to actually stay off the ground (fronts_lifted).
         return (ep.get("vel_err_mean", 1e9) <= 0.03
                 and ep.get("gait_valid", True))
     if mode in ("lean", "track", "hold"):
@@ -223,7 +225,7 @@ def run_episode(env, model, *, deterministic: bool, video: bool,
         if "walk_vel_err" in info:
             vel_errs.append(float(info["walk_vel_err"]))
             speeds.append(float(info["walk_speed"]))
-        if mode == "walk":
+        if mode in ("walk", "quadwalk"):
             # progress_ratio bookkeeping (operator ruling 2026-08-09
             # WALK-DISTANCE-GATE): along-command body displacement vs
             # commanded displacement, integrated over commanded ticks.
@@ -341,17 +343,38 @@ def run_episode(env, model, *, deterministic: bool, video: bool,
     if vel_errs:
         ep["vel_err_mean"] = round(float(np.mean(vel_errs)), 3)
         ep["speed_mean_m_s"] = round(float(np.mean(speeds)), 3)
-    if mode == "walk":
+    if mode in ("walk", "quadwalk"):
         # Gait-validity gate (guardrails, external review §5b): a walking
         # checkpoint is INVALID if any leg is persistently sacrificed,
         # regardless of velocity error. Sacrificed = airborne essentially
         # the whole episode (parked flag leg) or grounded the whole
         # episode with zero swings (dragged anchor). Permanent eval-side
         # detection, independent of any reward term.
+        # quadwalk (08-13, quad track): the commanded-lifted legs are
+        # NOT sacrificed — they are the command (audit 08-13: counting
+        # them made any honest quad walk eval-invalid). Instead they
+        # must be genuinely UP: fronts_lifted = tail duty (after a 3 s
+        # settle window; the episode starts six-planted) below 0.15 on
+        # every lift leg, and gait_valid requires it — a six-leg walk
+        # or a fronts-down drag can never score valid quadwalk.
+        lift = ()
+        if mode == "quadwalk":
+            lift = tuple(getattr(env._goal_traj, "lift_legs", None)
+                         or ()) if env._goal_traj is not None else ()
         ep["sacrificed_legs"] = [
-            f for f in range(6)
-            if duty[f] < 0.10 or (duty[f] > 0.95 and swings[f] == 0)]
+            f for f in range(6) if f not in lift
+            and (duty[f] < 0.10 or (duty[f] > 0.95 and swings[f] == 0))]
         ep["gait_valid"] = not ep["sacrificed_legs"]
+        if mode == "quadwalk":
+            n_skip = min(int(round(3.0 / env.dt)), max(len(contact) - 1,
+                                                       0))
+            tail_duty = contact[n_skip:].mean(axis=0)
+            ep["lift_legs"] = list(lift)
+            ep["lift_duty_tail"] = [round(float(tail_duty[f]), 2)
+                                    for f in lift]
+            ep["fronts_lifted"] = bool(all(tail_duty[f] < 0.15
+                                           for f in lift))
+            ep["gait_valid"] = ep["gait_valid"] and ep["fronts_lifted"]
         # Ruled walk metrics (operator rulings 2026-08-09 §3/§6):
         # progress_ratio = along-command displacement / commanded
         # displacement (promotion band 0.75-1.25; >1.25 = overspeed);
@@ -750,7 +773,8 @@ def main() -> None:
                     # episodes are rendered but not saved.
                     scheduled = (k == 0 or k % args.video_every == 0)
                     video = (not args.no_video
-                             and (scheduled or mode == "walk"))
+                             and (scheduled
+                                  or mode in ("walk", "quadwalk")))
                     ep, frames = run_episode(
                         env, model, deterministic=det, video=video,
                         annotate=_annotate_frame,
@@ -794,12 +818,16 @@ def main() -> None:
                           if "speed_mean_m_s" in e]
                     extra = (f" | vel_err {np.mean(ve):.3f} "
                              f"speed {np.mean(sp):.3f} m/s")
-                if mode == "walk":
+                if mode in ("walk", "quadwalk"):
                     n_valid = sum(bool(e.get("gait_valid")) for e in eps)
                     sac = sorted({f for e in eps
                                   for f in e.get("sacrificed_legs", [])})
                     extra += (f" | gait_valid {n_valid}/{len(eps)}"
                               + (f" sacrificed legs {sac}" if sac else ""))
+                    if mode == "quadwalk":
+                        n_up = sum(bool(e.get("fronts_lifted"))
+                                   for e in eps)
+                        extra += f" fronts_lifted {n_up}/{len(eps)}"
                     pr = [e["progress_ratio"] for e in eps
                           if e.get("progress_ratio") is not None]
                     spm = [e["slip_per_m"] for e in eps

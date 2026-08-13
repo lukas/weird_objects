@@ -7,6 +7,30 @@ Stand on four, walk on four, front pair free for tricks.
 
 ## Now
 
+- **08-13 (later, spec cycle): the four-leg-WALK spec + bank [CODE]
+  is BUILT and checked in — but the bank is BLOCKED on a physical
+  finding: NO open-loop scripted quad gait actually walks in sim.**
+  Landed (all default-off, legacy bit-exact, walk/turn banks green):
+  `quadwalk` goal mode (`--goal-mix quadwalk=<p>`; walk command
+  interface + quad one-hot family, sampler keys in REWARD.md), the
+  two audited reward exemptions (k_park_duty spans support legs
+  only; lift legs never earn step/swing credit — drag charges kept),
+  quad clear/plant income riding on the walk stack, `k_quad_still`
+  (prices the hold-stance creep, only when no velocity commanded;
+  bank-proven: charges a translating body ~180/ep, still stance ~0),
+  and harness/trainer eval support (quadwalk in ALL_MODES,
+  lift-aware sacrificed_legs + fronts_lifted gate, per-mode vel-err
+  keys, reel modes). THE BLOCKER: the bank's honest reference —
+  tried rear-four trot, 4-beat crawl (duty 0.75), and a two-phase
+  distance-clock crawl with feasibility-GO statics (mid splay,
+  body-back, leading sway, lift-first swings): trot is stable but
+  translates 0.00 m; crawl pins a mid leg (CoM outside the mid-swing
+  triangle); two-phase steps but drifts BACKWARD 0.02–0.10 m with
+  rear-leg chatter. Static feasibility (c57 GO) does NOT extend to
+  open-loop stepping. All schemes reproducible via
+  `rl_move/sim/probe_quad_crawl.py` (supports --video). The ordering
+  tests SKIP with a loud reason (`QUADWALK_REFERENCE_BLOCKED`), so
+  every quadwalk PPO arm stays MDP_PREFLIGHT-blocked — by design.
 - **08-13: `cw-quad-turn1-r1` (quad-hold × commanded-turn compose,
   10M, finished 08-10, dig-in dropped in the shuffle — closed today)
   FAILED its compound gate; the quad-turn rung is CLOSED behind the
@@ -31,19 +55,22 @@ Stand on four, walk on four, front pair free for tricks.
 
 ## Next
 
-- The unattempted core: four-leg WALKING (weight shifted back onto
-  the rear four). Spec + bank FIRST — [CODE], buildable by a
-  dedicated orchestrator cycle, no operator input needed. Audited
-  specifics (08-13): `reward.k_park_duty`'s duty window spans ALL
-  six legs, so permanently-lifted fronts pay ~0.2k every tick;
-  eval-side `sacrificed_legs`/gait_valid also counts the fronts →
-  any honest quad-walk is reward-punished AND eval-INVALID today.
-  Build = a quadwalk mode (walk trajectory + lift_legs) with
-  mode-aware exemptions in both reward and eval, plus a QUADWALK
-  semantics bank proving rear-four stepping out-earns six-leg walk,
-  fronts-down drag, and freeze. Also fold in: stillness for the
-  quad HOLD stance (it creeps; hold_still_gate is scoped hold/track
-  only and quad is exempt by design — needs its own term or scope).
+- **Unblock the QUADWALK bank's honest reference** — two routes:
+  (1) video-driven iteration of the scripted crawl on a train pod
+  (`probe_quad_crawl.py --video`; the blind CPU sweep exhausted its
+  cheap hypotheses — watching the failure will likely name the fix
+  in one session), or (2) operator ruling on relaxing the reference
+  source (e.g. accept the first RL policy showing genuine rear-four
+  stepping as the bank trajectory — that's an MDP_PREFLIGHT
+  chicken-and-egg only the operator can approve). Until one lands,
+  NO quadwalk training arm is launchable.
+- A legal interim arm once the operator weighs stance priorities: a
+  quad-HOLD continuation pricing the stance creep with the new
+  `k_quad_still` (bank-proven, cheats priced) — fixes the measured
+  0.33 m/15 s drift on the existing quad-hold skill. Not queued this
+  cycle: one-variable discipline says it rides with the next
+  quad-hold consolidation, not as a lone 10M retrain of a solved
+  trick (excess-capacity track; hw keeps pod priority).
 - Then front-pair posture control while moving.
 
 Detail: ledger cw-quad-* lineage.

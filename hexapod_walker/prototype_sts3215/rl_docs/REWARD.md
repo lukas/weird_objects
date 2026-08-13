@@ -123,7 +123,9 @@ Income:
 | `k_phase_contact` | 0 | ±k on tripod-clock contact agreement (paired with `goal.walk_phase_obs`); parked/dragged legs average 50% = zero net. |
 | `k_walk_swing` | 0 | one-shot +k per completed real swing (≥2 ticks airborne, lands ≥15 mm away). |
 | `k_step_event` / `step_disp_budget_mm` | 0 / 0 | one-shot per-leg credit for a touchdown displaced ≥10 mm along command, scaled by along/30 mm cap 1.5×. The budget makes each paid credit CONSUME banked body displacement — cadence inflation and stride-in-place earn nothing by construction. |
-| `k_quad_clear` / `k_quad_plant` / `quad_clear_cap_mm` | 0 / 0 / 30 | quad mode: pay lift-leg clearance (only while OFF the ground) and the loaded fraction of the four support legs, after `goal.quad_grace_s`. |
+| `k_quad_clear` / `k_quad_plant` / `quad_clear_cap_mm` | 0 / 0 / 30 | quad-family modes (quad hold AND quadwalk, 08-13): pay lift-leg clearance (only while OFF the ground) and the loaded fraction of the four support legs, after `goal.quad_grace_s`. |
+| `k_quad_still` / `quad_still_floor_m_s` | 0 / 0.005 | quad-family stillness (08-13; the learned quad hold creeps ~0.33 m/15 s — `hold_still_gate` exempts quad by design): −k·max(body planar speed − floor, 0) per tick, ONLY while no velocity is commanded (never fights a quadwalk command). |
+| — quadwalk mode (08-13) | — | `--goal-mix quadwalk=<p>`: walk pricing stack + quad clear/plant income, with two lift-leg exemptions: the `k_park_duty` window spans only the support legs, and lift legs never earn step/swing credit (drag/slip charges still apply to them). Sampler keys: `goal.quadwalk_speed_min/max_m_s` (0.02/0.05), `quadwalk_heading_max_rad` (0 = fwd only), `quadwalk_hold_s` (2.0). LAUNCH-BLOCKED: QUADWALK bank has no viable honest reference yet (test_task_semantics.QUADWALK_REFERENCE_BLOCKED). |
 
 Income gates (each in [0,1]; scale kernel + positive progress only):
 
