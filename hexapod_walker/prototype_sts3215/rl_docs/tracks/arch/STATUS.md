@@ -263,11 +263,30 @@ at what budget, with which failure modes.
   - **CODE item 3 LANDED + BASELINED** (same day, c-triage — see the
     dedicated bullet below; baseline: footlow2_hard1 composition
     11/12 det, 9/12 sto, all sto falls on the post-lower rise).
-  - **CODE item 2 (`distill_gru --transitions`) still OPEN — the
-    next CODE job**, then **arm 1 `cw-arch-trans-dagger1`**, then
-    **arm 2 `cw-arch-modeseq1`** (now unblocked env-side by item 1;
-    warm-start order pre-registered trans-dagger1 > dual2 >
-    dagger1 BC).
+  - **CODE item 2 LANDED (08-13, c-idlekick post-dual2): `distill_gru
+    --transitions`** — sequence demos ride item 1's `goal.mode_seq=1`
+    env (env chains + re-anchors; per-tick teacher routing by active
+    segment; one continuous stream, one-hot flips; hard in-context
+    teacher-verification abort; sequence DAgger labels every segment
+    incl. lower). Default 0 = off/bit-exact; tests
+    `test_distill_transitions.py` + full regression green; tiny
+    end-to-end smoke clean (0 teacher falls). Details/landed-note in
+    TRANSITIONS_DIRECTIVE.md item 2.
+  - **Arm 1 `cw-arch-trans-dagger1` LAUNCHED (08-13, same cycle):
+    CPU job on hexapod-mjx-train-0's idle cores (fleet 0/12 GPU) —
+    300 seq eps (30 s) + 200 single-mode retention eps (stance-heavy
+    mix), 30 epochs, 2 DAgger rounds x 100 seq eps, teachers
+    walk_longdist_r2 + stance_dr10 (directive default), artifact
+    `ppo_goal_cw_gru_dual_bc_transdagger1.zip`. Gate = the directive's
+    pre-registered Arm 1 gate (sequence eval det DR0 zero-fall >=11/12
+    + per-segment >=8/12 + retention: hold >=5/6, walk gv >=5/6, rise
+    n=12/seed=1 >=3/12 with >=1 non-crouch, lower REBUILD >=4/6).
+    NOT a ledger/GPU run (dynrep precedent) — log
+    `/tmp/transdagger1.log` on train-0; next cycle triages the
+    artifact through `eval_modeseq` + the harness, then specs arm 2
+    (`cw-arch-modeseq1`; warm-start order trans-dagger1 > dual2 >
+    dagger1 BC — note dual2's slot is a 3.18M mid-transient ckpt,
+    re-judge per the dual2 verdict).
   The directive's failure ledger (12 measured lessons) is binding —
   do not re-litigate closed levers inside these arms.
 - **`cw-arch-gru-dual2` VERDICTED FAIL (08-13 ~23:xx UTC dig-in) —

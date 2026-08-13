@@ -119,6 +119,25 @@ re-litigate these; cite them.
    wants the composition-proven `ppo_goal_cw_stand_holdbc1_hard1` it
    must first confirm obs-layout compatibility (hist16 stack ≠ prefix)
    — do not assume.
+   **LANDED (08-13, c-idlekick after the dual2 dig-in): implemented ON
+   TOP OF item 1 rather than external re-anchor orchestration — the
+   demo env runs `goal.mode_seq=1`, so the env itself chains grammar
+   segments and re-anchors refs at every switch (identical mechanics
+   to what arm 2 will train on — lesson 8, contexts matched), while
+   `distill_gru --transitions N` routes per-tick teacher labels by the
+   active segment (`_seq_teacher`) and records ONE continuous
+   obs/act/mode stream per sequence. Teacher verification is a hard
+   gate: the first `--seq-verify` (12) sequences run deterministic and
+   collection ABORTS (SystemExit) past `--seq-verify-max-falls` (4).
+   DAgger rounds collect whole student-driven sequences with
+   active-segment teacher labels on EVERY segment incl. lower (lesson
+   9). Default 0 = off, bit-exact. Tests:
+   `rl_move/tests/test_distill_transitions.py` (routing/one-hot
+   agreement, stream continuity, verify abort, dual guard, mode_seq
+   guard); semantics bank + mode_seq/gru/bc_anchor/sim_env/vec suites
+   re-run green; end-to-end tiny smoke (3 seq + 4 single-mode eps +
+   1 sequence DAgger round, real teachers: 0 falls) saved a loadable
+   zip. Arm 1 recipe is in the module docstring.**
 3. **Sequence eval instrument (`eval_modeseq.py` or an
    eval_checkpoint mode):** drives a FIXED command schedule
    (rise→walk→sit→rise→walk, plus a det+sto pass), reports PER

@@ -21,6 +21,19 @@ starts — no mid-episode chunking, which would teach a bogus
 Run (from prototype_sts3215/):
     ../../.venv/bin/python -m rl_move.sim.distill_gru \
         --episodes 400 --epochs 30
+
+TRANSITIONS_DIRECTIVE CODE item 2 (08-13): ``--transitions N`` adds N
+teacher-chained SEQUENCE demo episodes on a ``goal.mode_seq=1`` env
+(CODE item 1): the env chains grammar segments and re-anchors refs at
+every switch, the ACTIVE segment's teacher drives and labels, and the
+student sees one continuous stream with the mode one-hot flipping.
+DAgger rounds then run on whole sequences. Default 0 = feature off,
+behavior unchanged. Arm 1 recipe:
+    ../../.venv/bin/python -m rl_move.sim.distill_gru --dual \
+        --transitions 300 --episodes 200 \
+        --mix walk=0.30,rise=0.40,lower=0.15,hold=0.15 --epochs 30 \
+        --dagger-rounds 2 --dagger-episodes 100 \
+        --out rl_move/sim/policies/ppo_goal_cw_gru_dual_bc_transdagger1.zip
 """
 from __future__ import annotations
 
@@ -124,6 +137,143 @@ def collect(envs: dict, teachers: dict, episodes_by_mode: dict[str, int],
         print(f"[distill-gru] {mode}: {n_ep} eps, teacher return "
               f"med {np.median(returns):.0f} min {min(returns):.0f} "
               f"({time.monotonic() - t0:.0f}s elapsed)")
+    return episodes
+
+
+def _seq_teacher(mode: str, teachers: dict):
+    """Per-tick teacher routing for sequence episodes: the ACTIVE
+    segment's teacher labels (walk segments -> walk teacher, every
+    stance-family segment -> stance teacher)."""
+    return teachers["walk" if mode == "walk" else "stance"]
+
+
+def collect_transitions(env, teachers: dict, n_ep: int,
+                        stochastic_frac: float, rng: np.random.Generator,
+                        verify_n: int = 12, verify_max_falls: int = 4):
+    """Teacher-CHAINED sequence demos (TRANSITIONS_DIRECTIVE CODE item 2).
+
+    ``env`` must run ``goal.mode_seq=1``: the env itself chains K
+    grammar segments per episode and re-anchors the goal frame at every
+    switch (CODE item 1 mechanics — same re-anchor semantics as
+    eval_handoff), so the student sees ONE continuous obs/act stream
+    with the mode one-hot flipping mid-episode; labels always come from
+    the ACTIVE segment's teacher. Nothing is stitched post-hoc.
+
+    In-context teacher verification (directive rule: "a teacher that
+    scores badly in the sequence context cannot be distilled"): the
+    first ``verify_n`` episodes run deterministic; if the chained
+    teachers fall more than ``verify_max_falls`` times in that window
+    the collection ABORTS loudly instead of distilling garbage.
+    Returns (episodes, stats) — stats carries per-episode plan/fall/
+    per-tick-mode records for diagnostics and tests.
+    """
+    import torch
+
+    if float(env.cfg.get("goal", {}).get("mode_seq", 0.0)) != 1.0:
+        raise SystemExit("collect_transitions needs a goal.mode_seq=1 env")
+    episodes: list = []
+    stats: dict = {"eps": [], "falls": 0, "fall_modes": {}, "verify": None}
+    t0 = time.monotonic()
+    for i in range(n_ep):
+        deterministic = (True if i < verify_n
+                         else bool(rng.random() >= stochastic_frac))
+        obs, _info = env.reset()
+        plan_modes = [str(p["mode"]) for p in env._seq_plan]
+        obs_l, act_l, val_l, mode_l = [], [], [], []
+        done, ep_ret, fall_mode = False, 0.0, None
+        while not done:
+            mode = str(env._goal_traj.mode)
+            teacher, n_t = _seq_teacher(mode, teachers)
+            t_obs = obs[:n_t]
+            act, _ = teacher.predict(t_obs, deterministic=deterministic)
+            with torch.no_grad():
+                val = teacher.policy.predict_values(
+                    torch.as_tensor(t_obs[None]).float()).item()
+            obs_l.append(obs)
+            act_l.append(np.clip(act, -1.0, 1.0))
+            val_l.append(val)
+            mode_l.append(mode)
+            obs, r, term, trunc, _ = env.step(act)
+            ep_ret += float(r)
+            if term:                      # fall/over-current, not clock
+                fall_mode = mode
+            done = term or trunc
+        episodes.append(("seq",
+                         np.asarray(obs_l, dtype=np.float32),
+                         np.asarray(act_l, dtype=np.float32),
+                         np.asarray(val_l, dtype=np.float32)))
+        if fall_mode is not None:
+            stats["falls"] += 1
+            stats["fall_modes"][fall_mode] = (
+                stats["fall_modes"].get(fall_mode, 0) + 1)
+        stats["eps"].append({"plan": plan_modes, "len": len(act_l),
+                             "switches": int(env._seq_idx),
+                             "fall": fall_mode, "ret": ep_ret,
+                             "det": deterministic, "modes": mode_l})
+        if verify_n > 0 and i == verify_n - 1:
+            stats["verify"] = (stats["falls"], verify_n)
+            print(f"[distill-gru] transitions verify: {stats['falls']} "
+                  f"fall(s) in first {verify_n} det sequences "
+                  f"(cap {verify_max_falls})")
+            if stats["falls"] > verify_max_falls:
+                raise SystemExit(
+                    "[distill-gru] TEACHER NOT SEQUENCE-COMPETENT: "
+                    f"{stats['falls']} falls in the first {verify_n} "
+                    f"deterministic sequence episodes (> "
+                    f"{verify_max_falls}); by the directive's rule this "
+                    "teacher pair cannot be distilled on sequences — "
+                    "fix the teacher/context, do not collect more demos "
+                    f"(fall modes: {stats['fall_modes']})")
+        if (i + 1) % 25 == 0 or i == n_ep - 1:
+            rets = [e["ret"] for e in stats["eps"]]
+            print(f"[distill-gru] transitions: {i + 1}/{n_ep} eps, "
+                  f"falls {stats['falls']} {stats['fall_modes']}, "
+                  f"teacher return med {np.median(rets):.0f} "
+                  f"min {min(rets):.0f} "
+                  f"({time.monotonic() - t0:.0f}s elapsed)")
+    return episodes, stats
+
+
+def collect_dagger_transitions(env, student, teachers: dict, n_ep: int):
+    """Sequence DAgger round: the STUDENT drives WHOLE sequences
+    (stateful, deterministic) through the mode_seq env; the ACTIVE
+    segment's teacher labels every visited state — including lower
+    segments (failure-ledger lesson 9: label EVERY segment so the
+    dagger1 lower collapse cannot be inherited)."""
+    import torch
+
+    episodes: list = []
+    falls = 0
+    t0 = time.monotonic()
+    for i in range(n_ep):
+        obs, _info = env.reset()
+        state, ep_start = None, np.ones((1,), dtype=bool)
+        obs_l, act_l, val_l = [], [], []
+        done = False
+        while not done:
+            mode = str(env._goal_traj.mode)
+            teacher, n_t = _seq_teacher(mode, teachers)
+            t_obs = obs[:n_t]
+            label, _ = teacher.predict(t_obs, deterministic=True)
+            with torch.no_grad():
+                val = teacher.policy.predict_values(
+                    torch.as_tensor(t_obs[None]).float()).item()
+            obs_l.append(obs)
+            act_l.append(np.clip(label, -1.0, 1.0))
+            val_l.append(val)
+            act, state = student.predict(
+                obs, state=state, episode_start=ep_start,
+                deterministic=True)
+            ep_start = np.zeros((1,), dtype=bool)
+            obs, _, term, trunc, _ = env.step(act)
+            falls += int(bool(term))
+            done = term or trunc
+        episodes.append(("seq",
+                         np.asarray(obs_l, dtype=np.float32),
+                         np.asarray(act_l, dtype=np.float32),
+                         np.asarray(val_l, dtype=np.float32)))
+    print(f"[distill-gru] dagger transitions: {n_ep} eps, student "
+          f"falls {falls} ({time.monotonic() - t0:.0f}s elapsed)")
     return episodes
 
 
@@ -240,6 +390,26 @@ def train_student(student, episodes, epochs: int, batch_eps: int = 8,
     return last_a
 
 
+def probe_seq(student, env, n_ep: int = 2) -> None:
+    """Stateful deterministic sequence sanity rollouts (mode_seq env)."""
+    for _ in range(n_ep):
+        obs, _ = env.reset()
+        plan = [str(p["mode"]) for p in env._seq_plan]
+        state, ep_start = None, np.ones((1,), dtype=bool)
+        done, tot, fell = False, 0.0, False
+        while not done:
+            a, state = student.predict(
+                obs, state=state, episode_start=ep_start,
+                deterministic=True)
+            ep_start = np.zeros((1,), dtype=bool)
+            obs, r, term, trunc, _ = env.step(a)
+            tot += float(r)
+            fell = fell or bool(term)
+            done = term or trunc
+        print(f"[distill-gru] probe seq {'->'.join(plan)}: "
+              f"return {tot:.0f} fell={fell}")
+
+
 def quick_probe(student, env, modes=("walk", "rise", "hold"),
                 n_ep: int = 2) -> None:
     """Stateful deterministic sanity rollouts (not the real harness)."""
@@ -303,6 +473,44 @@ def main(argv: list[str] | None = None) -> int:
                          "env appends the 6-wide skill-family one-hot "
                          "at the obs tail, teachers still read their "
                          "prefix slices")
+    ap.add_argument("--transitions", type=int, default=0,
+                    help="TRANSITIONS_DIRECTIVE CODE item 2: N teacher-"
+                         "chained SEQUENCE demo episodes on a "
+                         "goal.mode_seq=1 env (the env chains grammar "
+                         "segments rise->{hold|walk}->{walk|lower}->"
+                         "(rise..) and re-anchors refs at each switch; "
+                         "the active segment's teacher drives AND "
+                         "labels; the student sees one continuous "
+                         "stream with the mode one-hot flipping). "
+                         "Requires --dual (failure-ledger lesson 1). "
+                         "With --dagger-rounds, DAgger rounds collect "
+                         "SEQUENCE episodes (student drives whole "
+                         "sequences, teacher labels every segment "
+                         "incl. lower — lesson 9). 0 (default) = "
+                         "feature off, behavior unchanged")
+    ap.add_argument("--seq-episode-seconds", type=float, default=30.0,
+                    help="sequence episode length (directive: 25-30 s; "
+                         "keep demo/train/eval contexts matched — "
+                         "lesson 8)")
+    ap.add_argument("--seq-segment-s", type=str, default="6,8",
+                    help="goal.mode_seq_segment_s_min,max for demo "
+                         "sequences (directive default 6-8 s jittered)")
+    ap.add_argument("--seq-first-mix", type=str,
+                    default="rise=0.40,walk=0.30,lower=0.15,hold=0.15",
+                    help="first-segment mode draw for sequences "
+                         "(stance-heavy default = the 08-13 dagger1 "
+                         "retention mix; rise-first sequences keep the "
+                         "full flat/bridge/crouch start-kind diversity "
+                         "via the legacy samplers — lesson 3)")
+    ap.add_argument("--seq-verify", type=int, default=12,
+                    help="first N sequence demos run deterministic as "
+                         "the in-context teacher verification (0 = "
+                         "skip)")
+    ap.add_argument("--seq-verify-max-falls", type=int, default=4,
+                    help="abort collection if the deterministic verify "
+                         "window has more falls than this (a teacher "
+                         "that falls in sequences cannot be distilled "
+                         "on them)")
     ap.add_argument("--stochastic-frac", type=float, default=0.3)
     ap.add_argument("--epochs", type=int, default=30)
     ap.add_argument("--gru-hidden-size", type=int, default=256)
@@ -310,6 +518,13 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--episode-seconds", type=float, default=15.0)
     ap.add_argument("--seed", type=int, default=0)
     args = ap.parse_args(argv)
+
+    if args.transitions > 0 and not args.dual:
+        raise SystemExit(
+            "--transitions requires --dual: the TRANSITIONS_DIRECTIVE "
+            "arms run the mode-gated dual-core GRU (failure-ledger "
+            "lesson 1 — never a shared trunk), and sequence routing "
+            "rides the obs mode one-hot that --dual turns on")
 
     from sb3_contrib import RecurrentPPO
     from stable_baselines3 import PPO
@@ -355,8 +570,38 @@ def main(argv: list[str] | None = None) -> int:
                         for m, w in mix.items() if w > 0}
     teachers = {"walk": (walk_teacher, n_walk),
                 "stance": (stance_teacher, n_stance)}
-    episodes = collect(envs, teachers, episodes_by_mode,
-                       args.stochastic_frac, rng)
+
+    # ---- sequence demos FIRST (TRANSITIONS_DIRECTIVE item 2): the
+    # in-context teacher verification aborts before any single-mode
+    # collection time is spent on a teacher pair that cannot chain.
+    seq_env = None
+    episodes: list = []
+    if args.transitions > 0:
+        seg_lo, seg_hi = (float(x) for x in args.seq_segment_s.split(","))
+        seq_cfg = _build_cfg({"obs.mode_onehot": 1.0,
+                              "goal.mode_seq": 1.0,
+                              "goal.mode_seq_segment_s_min": seg_lo,
+                              "goal.mode_seq_segment_s_max": seg_hi})
+        seq_args = _copy.copy(args)
+        seq_args.episode_seconds = args.seq_episode_seconds
+        seq_env = _make_env(seq_args, seq_cfg, params)
+        if int(seq_env.observation_space.shape[0]) != n_env_obs:
+            raise SystemExit("seq env obs != single-mode env obs "
+                             f"({seq_env.observation_space.shape[0]} vs "
+                             f"{n_env_obs})")
+        first_mix = {k: float(v) for k, v in
+                     (kv.split("=") for kv in args.seq_first_mix.split(","))}
+        unknown = set(first_mix) - set(DIET)
+        if unknown:
+            raise SystemExit(f"--seq-first-mix unknown modes: {unknown}")
+        seq_env.set_goal_mix({m: first_mix.get(m, 0.0) for m in DIET})
+        seq_eps, _seq_stats = collect_transitions(
+            seq_env, teachers, args.transitions, args.stochastic_frac,
+            rng, args.seq_verify, args.seq_verify_max_falls)
+        episodes.extend(seq_eps)
+
+    episodes.extend(collect(envs, teachers, episodes_by_mode,
+                            args.stochastic_frac, rng))
     n_steps_total = sum(len(a) for _, _, a, _ in episodes)
     print(f"[distill-gru] {len(episodes)} episodes, "
           f"{n_steps_total} transitions")
@@ -377,7 +622,15 @@ def main(argv: list[str] | None = None) -> int:
     dagger_by_mode = {m: max(1, round(args.dagger_episodes * w))
                       for m, w in mix.items() if w > 0}
     for rnd in range(args.dagger_rounds):
-        new_eps = collect_dagger(envs, student, teachers, dagger_by_mode)
+        if seq_env is not None:
+            # Directive arm 1: DAgger rounds are SEQUENCE episodes —
+            # the student drives whole chains, the active segment's
+            # teacher labels every state (incl. lower, lesson 9).
+            new_eps = collect_dagger_transitions(
+                seq_env, student, teachers, args.dagger_episodes)
+        else:
+            new_eps = collect_dagger(envs, student, teachers,
+                                     dagger_by_mode)
         episodes.extend(new_eps)
         actor_mse = train_student(student, episodes,
                                   max(args.epochs // 2, 5))
@@ -385,6 +638,9 @@ def main(argv: list[str] | None = None) -> int:
               f"{len(episodes)} eps, actor RMS {np.sqrt(actor_mse):.4f}")
 
     quick_probe(student, env)
+    if seq_env is not None:
+        probe_seq(student, seq_env)
+        seq_env.close()
     env.close()
     stance_env.close()
 
