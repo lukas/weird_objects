@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: RUNNING
+**status**: FAILED
 
 **created**: 2026-08-08T22:01:31+00:00
 
@@ -15,4 +15,6 @@
 **hypothesis**: Probe (audit sec6) for new posture-pricing mechanism: k_support_margin=0.3 + k_load_even=1.5 on stance-champ init at DR 1.0. If-true: both reward parts appear in W&B within audited band (margin<=0.3/step, even<=0.25/step), canaries protected, trainer healthy. If-false: term explosion, canary group failure, or crash. Relaunch of probe-posture-price after callback fix 88cd50a.
 
 **gate**: mechanical only: reward_support_margin and reward_load_even present in W&B rollup within audited band; no canary group failure; no behavioral claim at 150k
+
+**verdict**: Stale orphan closed 08-13: 150k-step mechanical probe from 08-08 left RUNNING in the ledger; its pod (hexapod-sweep-lower) was deleted in the 08-09 CPU-pod retirement, no artifacts to score. No science lost — the mechanism it probed (k_support_margin/k_load_even pricing) was since tested for real and closed by cw-stand-margin1 (FAIL, 08-12).
 

@@ -975,7 +975,7 @@
       "--subproc"
     ],
     "created": "2026-08-08T22:01:31+00:00",
-    "status": "RUNNING",
+    "status": "FAILED",
     "checks": {
       "cpu_limit": 30,
       "existing_trainers": [],
@@ -1001,7 +1001,9 @@
         ]
       }
     ],
-    "track": "hw"
+    "track": "hw",
+    "verdict": "Stale orphan closed 08-13: 150k-step mechanical probe from 08-08 left RUNNING in the ledger; its pod (hexapod-sweep-lower) was deleted in the 08-09 CPU-pod retirement, no artifacts to score. No science lost \u2014 the mechanism it probed (k_support_margin/k_load_even pricing) was since tested for real and closed by cw-stand-margin1 (FAIL, 08-12).",
+    "triage": "done"
   },
   {
     "run": "cw-stance-posture",
@@ -32411,7 +32413,7 @@
       "respec of cw-uni-mix20: Mechanical retry of cw-uni-mix20 (identical config): prior attempt was a launch-collision EOFError (gotcha 13b, 0 steps), not a science result. Same inverse mix-ladder stage-1 hypothesis (walk=.2/rise=.35/lower=.35 off cw-uni-blend1-r2, pairs with mix40)."
     ],
     "created": "2026-08-10T00:48:39+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -32450,8 +32452,10 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-uni-mix20-r1-cw-walk-groundtilt5-payload-cw-walk-groundti since 2026-08-10T01:15:08",
-    "track": "hw"
+    "triage": "done",
+    "track": "hw",
+    "hardware_ready": "no",
+    "verdict": "FAIL per own gate (staged own-DR eval: rise det 0/6, lower det 0/6 vs >=5/6 bar; walk retained gv 6/6, hold clean). Completes the inverse-mix ladder (blend1-r2 70%, mix40-r2 40%, this 20%, mix0-r1 0% \u2014 all 0-success): walk-share competition was never the lever. Its 08-10 DIG-IN fork (income-scale vs reward-shaping) was resolved downstream: reward PRICING was the defect (cw-uni-rfix-warm1: fixed pricing made lower work 6/6 on the same brain). Dropped dig-in closed 08-13, no follow-up \u2014 line superseded by the rfix/stance lineage."
   },
   {
     "run": "cw-walk-multiaxis2-r3",
@@ -51781,7 +51785,7 @@
       "goal.walk_yaw_zero_frac=0.5"
     ],
     "created": "2026-08-10T07:02:57+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -51820,8 +51824,10 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-quad-turn1-r1-cw-walk-joyheadtilt3-payload-rr1-cw-walk-jo since 2026-08-10T13:10:52",
-    "track": "quad"
+    "triage": "done",
+    "track": "quad",
+    "hardware_ready": "no",
+    "verdict": "FAIL (completes the DIG-IN dropped since 08-10). OBSERVATIONS \u2014 own-cfg harness (quad/walk/hold, DR0, det+sto) + eval_yaw panel + matched trainer eval: (1) quad clause PASSES: survived_frac 1.0 (trainer eval), harness quad 12/12 success after the ALL_MODES fix, level fronts-lifted stance (roll tail 0.6-0.9deg settled 12/12, h_err ~3mm) \u2014 but it CREEPS 0.33m/15s with ~1.1m foot drag, same creep as its hold mode (0.335m): posture holds, stillness never trained. (2) walk clauses FAIL: slip/m det med 1.45-1.58 vs <=1.25 cap; gv not 6/6 \u2014 leg-3 flag-leg churn episodes at ~1/6 rate (slip 20-24, prog ~0) in both det+sto. (3) yaw clauses FAIL decisively: commanded-turn |wz_err| med 0.227 vs <=0.10, heading-hold |wz| 0.102 vs <=0.05, right turns untracked (0.33-0.36 = |cmd|+drift) \u2014 byte-similar to sibling yawcmd1-s1 (0.242/0.099) on the same pre-fix yaw stack. INTERPRETATION: both failures are class-known \u2014 no policy trained on the pre-fix turn reward ever tracked yaw (turn track since closed reward-shape tuning), and quad-mix walk-slip erosion gets its 4th independent confirmation (after joyquad30/15, hold2-lowgait). The compose adds no new pathology; the quad-hold mechanism is intact under it. VERDICT: FAIL, quad-turn rung CLOSED behind the turn track's own 'commanded yaw needs a new idea' wall \u2014 no retry from quad. SIDE RESULT (infra): found+fixed eval_checkpoint's silent quad->walk mode fallback (ALL_MODES lacked quad; every prior harness/periodic 'quad' eval row was actually walk episodes) + loud per-episode mode assert."
   },
   {
     "run": "cw-dep-startvar1-noBS1",

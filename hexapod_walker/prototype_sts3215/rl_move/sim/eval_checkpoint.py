@@ -63,7 +63,15 @@ ENV_CLASSES = {"goal": SimHexapodGoalEnv,
                "joint_walk": SimHexapodJointWalkEnv}
 
 ALL_MODES = ("hold", "lean", "track", "unload", "raise", "rise",
-             "lower", "walk")
+             "lower", "walk", "quad", "getup")
+# "quad"/"getup" added 08-13 (cw-quad-turn1-r1 dig-in): the forcing loop
+# below only touches p_<m> for m in ALL_MODES, so a requested mode
+# MISSING from this tuple zeroed every listed probability while leaving
+# its own p_<m> at the cfg default (0) — walk_task._sample_goal then
+# hit tot<=0 and silently fell back to _sample_walk(), producing WALK
+# episodes labeled "quad" in the report (and in the trainer's periodic
+# eval/dr0/quad_* stats). The per-episode mode assert below makes any
+# recurrence loud instead of silent.
 SOFT_CURRENT_A = 1.5      # sustained above this = hot-servo flag
 CONTACT_N = 0.5           # touch-sensor force that counts as contact
 FPS = 25
@@ -748,6 +756,16 @@ def main() -> None:
                         annotate=_annotate_frame,
                         end_posture_gate=args.end_posture_gate,
                         valid_plant_gate=args.valid_plant_gate)
+                    # A forced mode MUST be the mode that actually ran
+                    # (see ALL_MODES note): a silent sampler fallback
+                    # voids the whole report, so die loudly instead.
+                    _got = ep.get("mode", mode)
+                    if _got != mode:
+                        raise SystemExit(
+                            f"[eval_checkpoint] forced mode '{mode}' but "
+                            f"the env sampled '{_got}' — goal-generator "
+                            f"forcing is broken for this mode/env; "
+                            f"report would be mislabeled, aborting.")
                     eps.append(ep)
                     if frames and (scheduled
                                    or not ep.get("gait_valid", True)):
