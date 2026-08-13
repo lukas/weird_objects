@@ -82450,7 +82450,7 @@
       "goal.walk_phase_hz=0.1666667"
     ],
     "created": "2026-08-13T02:11:34+00:00",
-    "status": "FINISHED",
+    "status": "FAIL",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -82485,50 +82485,10 @@
         "verdict": "FINISHED_BEFORE_CHECKUP",
         "log_tail": "1.97\u00b0, track 4.10\u00b0, unload 1.23\u00b0, raise 0/2, rise f0/2 b0/2 c2/2, walk err 0.017 m/s, lower 0/2, tipped 2/2, rolltrap 1/2\n[video] logged reel (2,007,040 steps | walk:ok walk:ok walk:ok walk:ok)\n[video] logged reel (final | walk:ok walk:ok walk:ok walk:ok)\n[mjx-train] done: 2,000,000 steps in 334s (5,992 env-steps/s incl. setup) -> /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_arch_noslipphase1_r1.zip\n[mjx-train] evaluate with the C-env harness before trusting anything (MJX_PORT.md phase-2 item 4).\n[wandb] checkpoint artifact ckpt-ppo_goal_cw_arch_noslipphase1_r1 (md5 8b6f3113)\n"
       }
-    ]
-  },
-  {
-    "run": "cw-arch-noslipphase1-r1",
-    "pod": "hexapod-mjx-train-0",
-    "steps": 2000000,
-    "smoke": false,
-    "hypothesis": "",
-    "gate": "",
-    "parent": "",
-    "track": "arch",
-    "extra_args": [],
-    "created": "2026-08-13T02:16:45+00:00",
-    "status": "REFUSED",
-    "checks": {},
-    "stack": "gpu-mjx",
-    "refused_reason": "experiments require --hypothesis and --gate (guardrails)"
-  },
-  {
-    "run": "cw-arch-noslipphase1-r1",
-    "pod": "hexapod-mjx-train-0",
-    "steps": 2000000,
-    "smoke": false,
-    "hypothesis": "One-shot retry of cw-arch-noslipphase1 with the measured fail mode fixed at the INIT, nothing else changed. Parent proved the phase clock fixes expressibility (BC init walks closed-loop: probe 951, progress 0.73) yet fine-tuning still destroyed it. Measured root cause: the init shipped log_std -1.0 (sigma 0.37) and the quasi-static gait dies under that sampling noise - deterministic 1027 vs stochastic 79 - so PPO never samples the taught behavior; and the BC critic was random, so early updates ran on garbage advantages. This init bakes log_std -3.0 (sigma 0.05, matching the DART demo noise the clone was trained to recover from; stochastic return 770 = 75% of deterministic, i.e. on-policy data now LIVES in the no-slip basin) and a value head pretrained on MC returns from 24 deterministic rollouts (rmse ~53 on ~250-scale returns). With income, optimizer, expressibility, exploration noise, and critic all aligned, PPO should finally preserve and polish the first RL no-slip walker.",
-    "gate": "Band-matched phase probe (vref1 base, band 0.008-0.016, park_duty 0, walk_phase_obs 1 @ hz 0.1666667, CMD 0.012, 3 seeds x fwd/crab): TOTAL_RETURN >= 900 (init det 1030) AND progress_ratio >= 0.6 AND walk_loadslip_factor >= 0.5 AND no crouch (height factor >= 0.75) - the fine-tune must NOT erode the working init.",
-    "parent": "cw-arch-noslipphase1",
-    "track": "arch",
-    "extra_args": [
-      "--n-envs",
-      "4096"
     ],
-    "created": "2026-08-13T02:17:03+00:00",
-    "status": "REFUSED",
-    "checks": {
-      "cpu_limit": 28,
-      "existing_trainers": [
-        "cw-arch-noslipphase1-r1"
-      ]
-    },
-    "stack": "gpu-mjx",
-    "phase": "discovery",
-    "refused_reason": "hexapod-mjx-train-0 already runs cw-arch-noslipphase1-r1 \u2014 GPU pods host exactly one run; pick a free GPU pod.",
-    "triage": "done",
-    "verdict": "FAIL on the pre-registered gate but MAJOR partial win - the destruction mode is SOLVED. Warm start correct (phase2 init: log_std -3 baked, MC-pretrained critic). In-training health held all run (hold err 0.78 -> 1.97 deg vs 6.6 -> 21.7 in parent). Band-matched C probe: return 617 (gate 900), progress 0.64 PASS, height 0.90 PASS (no crouch), pitch charge -1.6 (parent -523). The single failing axis: loadslip factor 0.53 -> 0.11 - fine-tuning traded foot anchoring for progress. Contact-Jacobian audit: true sliding is ~0 in sim for BOTH r1 and the DRAG gait (mu 2.0 foot spheres ROLL instead of slide), so the loadslip proxy IS the operative no-slip criterion for deployment, and PPO leaked toward rolling loaded feet. Since the anchored init out-earns r1 in the C probe (951 vs 617) yet PPO drifted anyway, the MJX training env prices anchoring weaker than C. Final log_std still -3.000 exactly - noise did not regrow; the drift is in the policy mean. Next arm r2: halve the drift budget (1M steps, lr 5e-5, kl 0.005), same init."
+    "hardware_ready": false,
+    "verdict": "FAIL on the pre-registered gate, but the good branch of the two predicted outcomes: the init fix (log_std -3, MC-pretrained critic) CURED the violent destruction mode from the parent (cw-arch-noslipphase1) \u2014 zero pitch-rocking, roll_tail 0.3-2.3deg both modes, gait_valid 6/6 det+sto with ZERO sacrificed legs and balanced duty (0.36-0.76 across all six legs both modes), a genuine honest six-leg walk, video-confirmed both fresh eval passes (gate DR0 + own-DR0.35). What replaces it is a slower basin-drift failure, exactly as this cycle's own follow-up (r2) already diagnosed: over the 2M steps env/walk_loadslip_factor collapsed 1.00 (step 131k) -> 0.069 (final) while reward climbed (quarters 64/171/304/369) and env/walk_height_factor never cleared the 0.75 no-crouch bar (peaked 0.737) \u2014 2/6 det episodes end with real 44-66mm height sag (video-confirmed sinking, not a labeling artifact). PPO is trading the taught no-slip foot-anchoring for forward-progress income under the MJX training env's pricing. TOTAL_RETURN, walk_loadslip_factor>=0.5, and height-factor>=0.75 gate clauses all miss.",
+    "triage": "done"
   },
   {
     "run": "cw-arch-noslipphase1-r2",
@@ -82556,7 +82516,7 @@
       "24"
     ],
     "created": "2026-08-13T02:21:41+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -82582,6 +82542,16 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:arch nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-arch-noslipphase1-r2 --steps 1000000 --n-envs 4096 --lr 5e-5 --target-kl 0.005 --out-name ppo_goal_cw_arch_noslipphase1_r2 --notes 'respec of cw-arch-noslipphase1-r1: Drift-budget arm of the phase-clock no-slip line. r1 fixed expressibility (phase obs), exploration noise (log_std -3 baked in, unchanged after 2M steps - verified) and the critic (MC-pretrained), and the destruction mode is GONE: r1 walks stably (progress 0.64, pitch charge -1.6, hold err 0.8-2.0 deg all run). What remains is slow basin drift: over 2M steps the policy traded foot anchoring for progress (loadslip factor 0.53 -> 0.11, C-probe return 951 -> 617) even though the anchored gait earns more in the C probe - evidence the MJX training env prices anchoring weaker than the C env, so PPO leaks toward rolling loaded feet. This arm halves the drift budget on every axis: 1M steps (r1 periodic evals were already healthy at 1M), lr 1e-4 -> 5e-5, target-kl 0.01 -> 0.005. Same init (ppo_goal_cw_bcnoslip_phase2_init, det probe 1030 / stochastic 770). Expected: preserve anchoring (loadslip >= 0.5) while keeping the stability polish; if it STILL erodes, the recorded blocker is the MJX-vs-C anchoring-price gap and the next lever is pricing, not optimization.' --impl warp --host-workers 24 > /tmp/train_cw-arch-noslipphase1-r2.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-arch-noslipphase1-r2.log",
     "wandb_id": "nh8kthf3",
-    "verified": "2026-08-13T02:24:30+00:00"
+    "verified": "2026-08-13T02:24:30+00:00",
+    "triage": "done",
+    "checkups": [
+      {
+        "time": "2026-08-13T02:30:26+00:00",
+        "process_alive": false,
+        "verdict": "FINISHED_BEFORE_CHECKUP",
+        "log_tail": "ogs at: ./wandb/run-20260813_022207-nh8kthf3/logs\n[periodic-eval] 1,003,520: hold 3.55\u00b0, track 3.67\u00b0, unload 2.62\u00b0, raise 0/2, rise f0/2 b0/2 c0/2, walk err 0.057 m/s, tipped 2/2, rolltrap 0/2\n[video] logged reel (final | rise:ok walk:ok raise:ok hold:ok)\n[mjx-train] done: 1,000,000 steps in 188s (5,324 env-steps/s incl. setup) -> /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_arch_noslipphase1_r2.zip\n[mjx-train] evaluate with the C-env harness before trusting anything (MJX_PORT.md phase-2 item 4).\n[wandb] checkpoint artifact ckpt-ppo_goal_cw_arch_noslipphase1_r2 (md5 11a3ec5d)\n"
+      }
+    ],
+    "verdict": "INVALID - do not read as evidence. The aborted r1 respec plus two refused launch retries left duplicate r1 ledger entries (one empty, one with only --n-envs); this respec inherited the bare duplicate, so r2 trained FROM SCRATCH on the default task mix with no --init-from, no walk-only goal mix, no band, no phase obs. Ledger deduped (backup /tmp/experiments_backup_*.json); the real drift-budget arm is relaunched as cw-arch-noslipphase1-r3."
   }
 ]
