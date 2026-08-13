@@ -7,6 +7,28 @@ Stand on four, walk on four, front pair free for tricks.
 
 ## Now
 
+- **08-13 (~13:2x UTC): `cw-quadwalk1` (first quadwalk discovery arm)
+  FINISHED and hit exactly the pre-registered cheat (b) — fronts-down
+  six-leg gait. Det+sto harness: quadwalk gait_valid 0/6,
+  fronts_lifted 0/6 both passes; frame strip/video shows all six
+  legs planted and cycling like an ordinary walk, no lift attempt at
+  all; net forward is positive (med 0.64m, no backward rectification)
+  and 0 falls, but the fronts-down clause alone is an automatic
+  STOP — no forensics needed, no continuation of this exact spec.
+  Root read: ordinary six-leg walking already pays well from the
+  warm-started lineage and the lift-leg income (k_quad_clear=1.5,
+  k_quad_plant=1.0) is too small a side bonus to make the policy
+  even try lifting under a 2M-step, low-entropy discovery budget.
+  Quad (hold) retention side of the same run stayed clean (survived
+  6/6, roll settled 6/6). Follow-up queued per the hypothesis's own
+  pre-registered fix for class (b) — **`cw-quadwalk2`** (respec,
+  same base/mix/budget, ONE lever: triple the lift-leg income,
+  k_quad_clear 1.5→4.5 / k_quad_plant 1.0→3.0) — queued to the
+  backlog, drain in progress. Per RESEARCH_RULES "two misses in a
+  row": if quadwalk2 also lands at fronts_lifted 0/6, pure reprice
+  is CLOSED as a lever and the next move is CODE — an explicit
+  penalty for front-leg ground contact during quadwalk (or an
+  entropy/exploration lever), not another coefficient scan.**
 - **08-13 (~13:xx UTC, post-ruling cycle): the pre-registered
   reference-acceptance gate is WRITTEN (`rl_docs/tracks/quad/
   QUADWALK_REF_GATE.md` — the ruling's required first artifact:
