@@ -350,6 +350,27 @@ class SimHexapodBalanceEnv(_GymBase):
             if self._sched_n < 1.0:
                 raise ValueError("sched.n_envs must be >= 1")
 
+        # Physics easing (2026-08-13, GAIT.md P3 lever 3, nobc track):
+        # ease.gravity_scale / ease.vel_ceiling_scale multiply THIS
+        # EPISODE's gravity magnitude and servo velocity ceiling. Both
+        # are read from cfg at EVERY reset (see _reset_begin) so the
+        # sched.* engine above — which writes its target cfg path each
+        # tick — can anneal them across a run (eased physics early,
+        # nominal by the end); within an episode physics never changes.
+        # Default (keys unset / 1.0) is bit-exact legacy: no draw, no
+        # mutation, no extra code path. Application point is the
+        # episode's DR draw (_ep_rand) — the one object BOTH trainer
+        # stacks consume (private model: EpisodeRand.apply_to_model;
+        # batched MJX: ModelDrScratch.rows_for + tp_rows) — so easing
+        # composes with DR (slope direction kept, |g| scaled) with NO
+        # DomainRandomizer or per-world plumbing changes. These two
+        # fields hold the randomize=False PRIVATE-model fallback used
+        # by reset(); shared-model shims without DR raise instead
+        # (per-world model fields are the only route to eased gravity
+        # in the batched path).
+        self._ease_g = 1.0
+        self._ease_v = 1.0
+
         # Temporal actor (plan §Architecture): obs.history_frames > 1
         # stacks the last K single-tick observations NEWEST-FIRST, so a
         # parent trained on width W transplants via --obs-pad-transplant
@@ -968,6 +989,44 @@ class SimHexapodBalanceEnv(_GymBase):
         self._ep_rand = (self.randomizer.sample(self.rng)
                          if self.randomizer is not None else None)
 
+        # Physics easing (see __init__): scale this episode's gravity /
+        # servo velocity ceiling by the CURRENT cfg values, so an
+        # active sched.* ramp moves the physics episode-by-episode.
+        # Batched-pool note: pooled resets restore entries minted at
+        # choreography time, so under an active schedule an episode's
+        # eased physics can lag the schedule by up to the pool depth
+        # (a few episodes) — end easing schedules at v1=1.0 (nominal)
+        # and judge scheduled runs on measured behavior metrics.
+        self._ease_g = 1.0
+        self._ease_v = 1.0
+        _e_g = float(cfg_get(self.cfg, "ease", "gravity_scale",
+                             default=1.0))
+        _e_v = float(cfg_get(self.cfg, "ease", "vel_ceiling_scale",
+                             default=1.0))
+        if _e_g != 1.0 or _e_v != 1.0:
+            if _e_g <= 0.0 or _e_v <= 0.0:
+                raise ValueError("ease.* scales must be > 0, got "
+                                 f"gravity={_e_g} vel_ceiling={_e_v}")
+            if self._ep_rand is not None:
+                if _e_g != 1.0:
+                    self._ep_rand.gravity_vec = (
+                        np.asarray(self._ep_rand.gravity_vec, float)
+                        * _e_g)
+                if _e_v != 1.0:
+                    self._ep_rand.vel_scale = (
+                        float(self._ep_rand.vel_scale) * _e_v)
+            elif self._owns_model:
+                # randomize=False private-model env (eval harness at
+                # DR-0, viewers): reset() applies the same scales
+                # directly to the model / servo profile.
+                self._ease_g, self._ease_v = _e_g, _e_v
+            else:
+                raise ValueError(
+                    "ease.* on a shared-model shim env needs "
+                    "randomize=True (dr_scale may be 0): the batched "
+                    "path can only ease gravity through per-world "
+                    "model-DR fields")
+
         # Goal first: it decides the reset pose. Rise episodes start at
         # the ZERO pose — legs straight out, belly resting on the yaw
         # servos, exactly how the operator places the robot — and must
@@ -1185,6 +1244,12 @@ class SimHexapodBalanceEnv(_GymBase):
                 torque_scale=self._ep_rand.torque_scale)
         else:
             apply_params_to_model(self.model, self.params)
+        if self._ease_g != 1.0:
+            # Physics-easing fallback for randomize=False private-model
+            # envs (_reset_begin); with DR on the scale already lives in
+            # _ep_rand.gravity_vec and _ease_g stays 1.0.
+            self.model.opt.gravity[:] = (
+                self.model.opt.gravity * self._ease_g)
 
         self._place_at_plant(q_start)
         er = self._ep_rand
@@ -1192,7 +1257,8 @@ class SimHexapodBalanceEnv(_GymBase):
             self.params, q_start,
             latency_scale=1.0 if er is None else er.latency_scale,
             deadband_scale=1.0 if er is None else er.deadband_scale,
-            vel_scale=1.0 if er is None else er.vel_scale,
+            vel_scale=((1.0 if er is None else er.vel_scale)
+                       * self._ease_v),
         )
         self._cmd = q_start.copy()
         # Settle with slippery feet AND limp servos first: when a human
