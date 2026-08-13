@@ -284,6 +284,16 @@ def main() -> None:
             print(f"WARNING: {actor} checkpoint missing ({p}); "
                   f"reassigning its weight to random")
             mix["random"] = mix.get("random", 0.0) + mix.pop(actor)
+    # noslip_gait.py is laptop-local (never committed); degrade the same
+    # way a missing checkpoint does so pod-side collection works. Bit-
+    # exact when the module is importable (the operator's machine).
+    if mix.get("noslip", 0.0) > 0.0:
+        try:
+            import noslip_gait  # noqa: F401
+        except ImportError:
+            print("WARNING: noslip_gait module missing; "
+                  "reassigning its weight to tripod")
+            mix["tripod"] = mix.get("tripod", 0.0) + mix.pop("noslip")
     names = sorted(mix)
     probs = np.array([mix[n] for n in names])
     probs = probs / probs.sum()

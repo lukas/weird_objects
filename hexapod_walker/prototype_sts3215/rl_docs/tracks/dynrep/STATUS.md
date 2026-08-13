@@ -80,8 +80,20 @@ scratch. Primary metric: sample efficiency on a NEW task.
 
 ## Next
 
-- Seed replication of the pilot (3+ seeds; `run_pilot.sh <steps>
-  <seed>`) before claiming anything. Then pod-scale budgets for the
+- **Seed replication IN FLIGHT (08-13 ~12:3x UTC, train-11 idle
+  CPUs, `pod_pilot_rep.sh`):** the operator's code push (4d26954)
+  unblocked the track, but datasets/models are laptop-local, so the
+  pod pipeline regenerates the v2-recipe dataset + obs encoder
+  (`datasets/v2pod`, `dyn_v2pod_obs` — deliberately NOT named v2;
+  G1/G2 gates enforced before PPO wiring, hard-stop on FAIL), then
+  runs the A/B/C cohort for seeds 1–3 in parallel. Do NOT pool the
+  operator's s0 with these (different encoder/dataset provenance);
+  compare direction-of-effect instead. Recipe drift to remember at
+  triage: noslip actor share fell back to tripod (noslip_gait.py is
+  laptop-only; collect.py degrades gracefully since 08-13). Log:
+  `logs/pod_pilot_rep.log`; per-seed `logs/pilot_rep_s{1,2,3}.log`;
+  summary `logs/pilot_rep_summary.txt` when done.
+- Then pod-scale budgets for the
   brief's real task ladder (stand → forward walk → yaw → recovery) —
   local Mac budgets cannot reach walking, and phase 1 needs a
   non-degenerate hold stack.
