@@ -19,12 +19,17 @@ The primary metric is **sample efficiency on a new task**.
 
 ## V1 build (deliberately small — no transformer)
 
-- **Frame** (86 dims, `dynamics/frames.py` layout v1): joint pos/vel,
+- **Frame** (86 dims, `dynamics/frames.py` layout v2): joint pos/vel,
   tilt (episode-relative roll/pitch), gyro, IMU specific force, servo
   currents, per-foot touch forces, previous action. Extracted from the
   sim env AFTER its sensor-corruption path — never privileged ground
   truth. All continuous channels standardized so no channel dominates
-  by scale.
+  by scale. Joint positions are stored RELATIVE to the episode's
+  settled start pose `q_nom` — the policy obs contract ((q−q_nom)
+  with q_nom captured per episode at reset), so a pretrained encoder
+  can be fed from the deployed observation; absolute q is not
+  recoverable from the obs (v1 stored absolute q and was therefore
+  unwireable — kept only as a lesson).
 - **Model** (~1M params): frame MLP 256→256 (SiLU) → GRU 256 → latent
   z=128; future-action GRU conditions every prediction head
   (action-conditioned by construction, never `state_t → state_{t+k}`
@@ -69,9 +74,15 @@ changes:
 - **B — frozen pretrained z**: obs/action history → pretrained encoder
   → frozen z → PPO actor/critic (only the policy head learns).
 - **C — continually anchored**: as B but the encoder fine-tunes slowly
-  (encoder LR ≪ policy LR) while the predictive objective keeps
-  running: `L_total = L_PPO + λ·L_dynamics`. The most interesting
-  condition — the dynamics loss is a task-independent anchor.
+  (encoder LR ≪ policy LR, `ScaledLRPPO`) while the predictive
+  objective keeps running. The most interesting condition — the
+  dynamics loss is a task-independent anchor. V1 approximation
+  (implemented): instead of the joint sum `L_PPO + λ·L_dynamics`, the
+  anchor alternates — after every PPO rollout a few dynamics-loss
+  gradient steps run on the OFFLINE pretraining dataset through the
+  shared encoder. An online-window anchor (dynamics loss on the
+  policy's own fresh rollouts) is the follow-up once the pilot says
+  the condition is worth it.
 
 Downstream tasks, in order: stand, forward locomotion, small yaw
 steering, recovery/return toward zero pose. Measure: env steps to
