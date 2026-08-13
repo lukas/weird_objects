@@ -160,20 +160,42 @@ new command later (the phase-2 transfer test).
   — matched to b2's from-scratch design, NOT continued from r1's
   crouch checkpoint — at the b2-matched 20M budget) — RUNNING
   (train-0).
+- **08-13 ~00:3x: `cw-mt-b-hist16-20m1` (representation lever, b2-
+  matched 20M) FAILS(worse/no-gait), decisively — history CLOSED as
+  a lever at both budgets tested.** gait_valid collapses to 2/6 det,
+  2/6 sto (gate DR0) and 4/6 det, 3/6 sto (own-DR0.2) vs `b2`'s clean
+  6/6 in all four passes: one front leg sits at duty 0.01-0.17 in
+  every one of 24 episodes (video-confirmed rigid/splayed, barely
+  touching ground) — worse than `b2`'s already-marginal leg-3
+  (0.11-0.35). prog med looks flat-to-better (0.60-0.64 vs `b2`'s
+  0.51-0.53) and slip_per_m better (2.5-2.8 vs 3.4-3.9), but that's
+  the drag-exploit-inflates-progress pattern (five legs dragging the
+  near-frozen one), not genuine improvement; roll_tail flat-to-worse
+  (4.2-4.85 vs 2.9-4.45). Compound gate already fails on clause 1
+  (gait_valid) so yaw probes weren't run — moot. **History (16-frame)
+  actively hurts this from-scratch multitask recipe at the exact
+  budget where the plain recipe learned a clean gait.** Combined with
+  `r1`'s 2M FAIL, the representation lever is closed on this recipe
+  at both budgets — no further hist-frames variants. Next per the
+  gate's own escalation clause: arch-recurrence or an operator call
+  on narrowing command width, not another cheap probe.
+  CROSS-TRACK NOTE: not escalated to `arch` — that track's own hist16
+  frame-stack line already PASSED on its (different, sequential-
+  specialist) recipe, so this is a multitask-recipe-specific
+  interaction (marginal weak-leg + history), not a general finding
+  against temporal history.
 
 ## Next
 
-- **[RUNNING, train-0] `cw-mt-b-hist16-20m1`** — the real
-  command-acquisition test for the representation lever: same
-  16-frame recipe as `r1`, budget-matched to `cw-mt-b2` (20M). Gate
-  (vs `b2`'s matched numbers): PASS = gait_valid >=5/6 det AND prog
-  med >=0.615 (0.5x-of-a2 bar b2 missed) AND signed-yaw
-  differential >=0.10 sign-correct AND turn |wz_err| med <=0.10 with
-  <9 falls. FAIL(match-b2) = prog/yaw within noise of b2 -> history
-  lever closed at this recipe, next is escalation (arch recurrence /
-  operator command-width-curriculum call), no further hist-frames
-  variants. FAIL(worse/no-gait) = hist16 actively hurts from-scratch
-  multitask learning. Report slip_per_m + roll_tail vs b2 regardless.
+- The cheap-lever menu for wave-1's acquisition shortfall (capacity/
+  arch256, staged-widening, history, all tested at matched budgets
+  where applicable) is now EXHAUSTED — every one FAILED or made
+  things worse. **WAITING-ON: an operator call** on the next
+  direction (arch recurrence transplant onto this recipe, vs.
+  narrowing command width via curriculum, vs. accepting `b2` as the
+  ceiling for this recipe/architecture) — no further isolated-lever
+  retries queued pending that call. Reflected in top STATUS.md
+  WAITING-ON block.
 - Phase 2 / wave-2 planning should start from `b2` (real gait,
   closest to passing) or `a2` (clean specialist), never from `c2`'s
   broad-command recipe as-is — any future wide-command attempt
