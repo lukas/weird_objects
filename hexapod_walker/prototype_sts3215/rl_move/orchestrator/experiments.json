@@ -84033,7 +84033,7 @@
       "reward.walk_gait_gate=1.0"
     ],
     "created": "2026-08-13T17:28:56+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -84060,6 +84060,17 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:quad nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-quadwalk6 --steps 2000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_quad_hold2.zip --no-dr --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix quadwalk=0.7,quad=0.3 --cfg-set reward.k_quad_lift_contact=3.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=6.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --out-name ppo_goal_cw_quadwalk6 --n-envs 4096 --impl warp --host-workers 24 --notes 'respec of cw-quadwalk5: Stop paying the robot for moving unless every one of its four support legs is genuinely stepping \u2014 if any leg is parked (in the air or pinned to the floor), the walking money drops to zero instead of a payable fine; this arm tests whether that structural change finally makes the policy step with all four legs. Five arms (quadwalk1-5) measured that additive charges cannot do this: quadwalk3 verifiably PAID a -575/ep lift-contact charge (~40% of return) and kept six-legging, and quadwalk5'\"'\"'s 6x k_park_duty reprice changed the mid-leg-park scoot not at all (identical legs [1,4] sacrificed 12/12) - the anchor gate never sees an air-parked leg because its fraction spans loaded feet only. One lever vs quadwalk5: reward.walk_gait_gate=1.0 (new, bank-proven: velocity income kernel+positive-progress+quadwalk clear/plant is multiplied by the MIN over commanded support legs of a completed-a-real-swing-recently score, 2s window + 2s fade on commanded ticks, swing = >=2 ticks airborne + >=10mm XY stride; lift legs exempt; penalties never shrink; semantics tests measure the scripted mid-pin scoot losing 54% of return and 72% of its income while the honest six-leg walk gait keeps walk_gait_min=1.0 and ~99% of income). Prediction-if-true: by 2M the det video shows all four support legs cycling contact/swing (gait_valid >0/6), positive forward travel toward 0.05 m/s, fronts lifted. Prediction-if-false: (a) policy freezes/creeps in the quad stance to dodge the zeroed income (park-duty + still charges make that negative - known one-line STOP, would mean the gate is right but 2M exploration from the spawn cannot find four-leg stepping, next lever is exploration/curriculum or a feedback-reference discussion, NOT pricing); (b) token-hop cheat - mids hop >=10mm every <=2s but duty stays <0.1 (park duty still charges it; would mean stride/window bars need coupling to duty, a gate parameter fix, not a new mechanism); (c) balance failure - genuine stepping attempts but falls (balance curriculum next, matches quadwalk1 class (c)). Strongest alternative: closed-loop four-leg balance is beyond a reactive MLP at any reward - shows as (c) persisting.' --cfg-set reward.k_quad_clear=4.5 --cfg-set reward.k_quad_plant=3.0 --cfg-set goal.quad_grace_s=1.5 --cfg-set reward.k_quad_still=1.0 --cfg-set goal.quadwalk_start=quad --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --cfg-set reward.walk_gait_gate=1.0 > /tmp/train_cw-quadwalk6.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-quadwalk6.log",
     "wandb_id": "60eu6ogs",
-    "verified": "2026-08-13T17:31:46+00:00"
+    "verified": "2026-08-13T17:31:46+00:00",
+    "triage": "done",
+    "checkups": [
+      {
+        "time": "2026-08-13T17:37:03+00:00",
+        "process_alive": false,
+        "verdict": "FINISHED_BEFORE_CHECKUP",
+        "log_tail": ": hold 1.01\u00b0, track 3.65\u00b0, unload 1.32\u00b0, raise 0/2, rise f0/2 b0/2 c0/2, walk err 0.027 m/s, quadwalk err 0.037 m/s, quad 1.13\u00b0, rolltrap 2/2\n[video] logged reel (2,007,040 steps | rise:ok walk:ok raise:ok hold:ok)\n[video] logged reel (final | rise:ok walk:ok raise:ok hold:ok)\n[mjx-train] done: 2,000,000 steps in 343s (5,837 env-steps/s incl. setup) -> /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_quadwalk6.zip\n[mjx-train] evaluate with the C-env harness before trusting anything (MJX_PORT.md phase-2 item 4).\n[wandb] checkpoint artifact ckpt-ppo_goal_cw_quadwalk6 (md5 52ad352d)\n"
+      }
+    ],
+    "hardware_ready": false,
+    "verdict": "STOP \u2014 pricing PROVEN (matched A/B vs quadwalk5, identical cheat: sac legs [1,4], near-identical per-leg swing_count fingerprint, return flips +722..+1146 -> -65..-290 for the SAME behavior) but the policy is STUCK in that now-unprofitable basin after 2M fresh steps from the shared quad_hold2 init (gait_valid 0/6 det+sto unchanged). Secondary: front lift-leg dragged into support service (duty_tail up to 0.44, fronts_lifted fails 9/12) despite k_quad_lift_contact=3.0 firing -- an additive fine, paid, same lesson as quadwalk3 but on the lift-leg side. Quad-hold retention clean (fwd creep 0.41m det, in-band vs 0.43-0.50m lineage; roll_tail 0.6deg; height_err 6.3mm; 0 falls). Verdict: exploration-blocked local optimum, not a pricing problem -- next lever is entropy/exploration (pre-registered branch a), not another coefficient."
   }
 ]
