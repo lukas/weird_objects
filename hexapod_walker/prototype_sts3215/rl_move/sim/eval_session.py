@@ -188,15 +188,17 @@ def run_session(stance_p: Path, walk_p: Path, cfg=None,
                         duty_num[leg] += 1
                 duty_den += 1
             if strips and i % 20 == 0:
-                import cv2
+                # PIL, not cv2: the train pods (where the watcher's
+                # pre-staged session gate runs, 08-13) carry
+                # PIL/imageio but no cv2. Frames stay RGB end-to-end.
+                from PIL import Image, ImageDraw
                 f = env.render()
-                f = cv2.resize(f, (220, int(220 * f.shape[0]
-                                            / f.shape[1])))
-                f = cv2.cvtColor(f, cv2.COLOR_RGB2BGR)
-                cv2.putText(f, f"{phase} {i * env.dt:.0f}s", (4, 14),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.4,
-                            (40, 240, 240), 1, cv2.LINE_AA)
-                state["frames"].append(f)
+                im = Image.fromarray(f).resize(
+                    (220, int(220 * f.shape[0] / f.shape[1])))
+                ImageDraw.Draw(im).text(
+                    (4, 6), f"{phase} {i * env.dt:.0f}s",
+                    fill=(240, 240, 40))
+                state["frames"].append(np.asarray(im))
             if term or trunc:
                 fell = info.get("termination_reason") or "episode_end"
                 report["falls"].append(
@@ -283,7 +285,7 @@ def run_session(stance_p: Path, walk_p: Path, cfg=None,
     report["gates"] = {"hard": hard, "soft": soft}
 
     if strips and state["frames"]:
-        import cv2
+        from PIL import Image
         strips.mkdir(parents=True, exist_ok=True)
         frames = state["frames"]
         cols = 10
@@ -295,7 +297,7 @@ def run_session(stance_p: Path, walk_p: Path, cfg=None,
             sheet[rr * h:rr * h + f.shape[0],
                   cc * w:cc * w + f.shape[1]] = f
         out_png = strips / f"session_{stance_p.stem}__{walk_p.stem}.png"
-        cv2.imwrite(str(out_png), sheet)
+        Image.fromarray(sheet).save(out_png)
         report["strip"] = str(out_png)
     return report
 

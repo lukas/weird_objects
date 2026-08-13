@@ -186,12 +186,17 @@ existing config knobs, [CODE] needs an implementation cycle first,
     vs parent. Optionally widen `goal.lower_height_mm` to [25, 60]
     in the same arm (play.py sits to the full −60 mm; trained band
     stops at 55 — existing cfg knob, no code).
-8e. [READY] **Session gate in the standard eval sweep** — the
+8e. [DONE 08-13] **Session gate in the standard eval sweep** — the
     watcher's post-run evals add `eval_session` (stance candidates
     pair with the deployed walk, walk candidates with the deployed
     stance). Soft gates define the forward bar: heading drift < 10°,
     per-axis tracking ≥ 70 %, drive height ≥ 110 mm, quiet post-walk
-    hold. No training, pure harness wiring.
+    hold. No training, pure harness wiring. LANDED: `pod_eval.py`
+    session pass (seat rule pinned by
+    `rl_move/tests/test_pod_eval_session.py`; informational —
+    never fails the prestage; eval_session strips ported cv2→PIL,
+    the train pods carry no cv2). Update `pod_eval.py`'s
+    DEPLOYED_STANCE/DEPLOYED_WALK constants on every promotion.
 
 ## Robustness (survives the real world)
 

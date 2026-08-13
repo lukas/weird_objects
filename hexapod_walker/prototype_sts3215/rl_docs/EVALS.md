@@ -111,7 +111,17 @@ charts) and uploads report.json.
   feet). Exists because the mode gates sample TRAINING profiles: the
   deployed stance passed them all while deterministically tipping on
   the interactive sit (rl_docs/MODEL_TOUR_2026-08-11.md). Run it on
-  every stand/sit/drive candidate. ~4 s CPU.
+  every stand/sit/drive candidate. ~4 s CPU. **Automatic since 08-13
+  (WISHLIST 8e): the watcher's pre-staged pod evals (`pod_eval.py`)
+  run it for every finished stance/walk candidate** — stance
+  candidates take the stance seat vs the DEPLOYED walk
+  (`ppo_goal_cw_dep_vref1_r1`), walk (or walk+stance) candidates take
+  the walk seat vs the DEPLOYED stance (`ppo_goal_cw_stand_
+  holdbc1_hard1`); constants at the top of `pod_eval.py`, update on
+  promotion. Result is INFORMATIONAL (never fails the prestage —
+  exotic-obs candidates exit loudly as INCOMPATIBLE): triage reads
+  `/tmp/eval_<run>_session.log` and
+  `logs/ckpt_eval/<run>_session/{report.json, session_*.png}`.
 - `eval_yaw.py` — turn-segment |wz_err| median (pass ≤ 0.10 rad/s)
   and heading-hold |wz| median (pass ≤ 0.05). Judge turn arms with a
   matched-parent control (rl_docs/TURN.md).
