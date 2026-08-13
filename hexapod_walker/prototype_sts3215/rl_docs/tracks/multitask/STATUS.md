@@ -156,8 +156,10 @@ new command later (the phase-2 transfer test).
   this recipe — the cheap-2M-probe menu for this track (capacity,
   staged-widening, history) is now exhausted. Next call per the gate:
   a straight-to-20M hist16 arm citing the b2/widen2 budget precedent.
-  Refill (same cycle): **`cw-mt-b-hist16-20m1`** (respec, continue
-  the r1 checkpoint to the b2-matched 20M budget) — RUNNING (train-0).
+  Refill (same cycle): **`cw-mt-b-hist16-20m1`** (respec, FRESH init
+  — matched to b2's from-scratch design, NOT continued from r1's
+  crouch checkpoint — at the b2-matched 20M budget) — RUNNING
+  (train-0).
 
 ## Next
 
