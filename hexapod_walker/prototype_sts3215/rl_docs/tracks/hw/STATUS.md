@@ -9,6 +9,32 @@ unresolved blockers between the robot and reliable joystick control.
 
 ## Now
 
+- **08-13 ~12:xx: `cw-stand-tiltcomp3` (the 4× exposure follow-up)
+  FAILS the same way, and the pre-registered FAIL branch FIRES —
+  tipped-exposure training is CLOSED for the standing-lean fix,
+  ESCALATED to the operator with a complete dossier.** Quadrupling
+  hold/tipped-hold exposure (goal-mix hold 0.1→0.4) barely moved
+  adoption: the policy's action-vs-teacher-target MSE closed only
+  0.90×→0.80× of the full teacher-vs-nothing signal (bar: <0.5×,
+  measured via the same `probe_tilt_teacher` policy arm). Forced-8°
+  det tail median improved numerically (5.25°→2.55°) but
+  settled/recovered count barely moved (0/12→1/12, bar ≥9/12) — 11/12
+  episodes still classed "leaning", one foot still parked (det min
+  duty 0.06–0.15, video-confirmed). **NEW cost, outside every
+  pre-registered branch: the same park now leaks into NOMINAL
+  (untipped) retention** — det hold min duty fell to 0.03 (was
+  0.58–0.76 on tiltcomp2's nominal pass) even with zero tip and zero
+  falls — more tipped-exposure made the ordinary stance worse, not
+  just failed to fix the tipped one. Teacher capability and hold
+  income are both measured innocent (tiltcomp2's dig-in); more
+  practice is now measured insufficient too. **Both obvious sim
+  levers (teacher design, exposure dose) are exhausted.** `hard1`
+  (`holdbc1_hard1`) stays deployed, unaffected. **OPERATOR DESIGN
+  CALL NEEDED (see STATUS.md WAITING-ON):** price residual lean
+  directly in hold income (a new reward term, not exposure), or
+  treat the ~8° lean as a hardware/mechanical trim problem outside
+  RL. No further tipped-exposure or teacher-redesign arm should be
+  queued on this lineage without that call.
 - **08-13 ~11:xx: `cw-stand-tiltcomp2` (the teacher-defect fix)
   FAILED its forced-tip gate — but cleanly, on the pre-registered
   discriminator: under-ADOPTION, not teacher design.** Det tipped

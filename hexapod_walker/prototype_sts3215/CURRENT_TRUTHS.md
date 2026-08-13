@@ -780,14 +780,27 @@ hold solved via BC-anchor, both handoffs compose).
   ~5% of training episodes (goal-mix hold=0.1 × tipped_start_prob=0.5).
   Nominal (untipped) retention is unaffected, byte-similar to
   tiltcomp1's own nominal band. `cw-stand-tiltcomp3` (one knob:
-  goal-mix hold 0.1→0.4, quadrupling exposure, identical teacher) is
-  RUNNING to test whether more exposure fixes adoption; its
-  pre-registered FAIL branch closes tipped-exposure training for
-  real (teacher capability and income both now measured innocent,
-  adoption still refused) and escalates to the operator with the
-  full dossier. **Standing caveat that holds across all three
-  teacher designs tried so far: the UNTRAINED parent's innate
-  recovery (1.45° settled in 11/12, no BC anchor at all) still beats
-  every tipped-trained child (5.25–5.75°) — tipped-spawn training has
-  made recovery WORSE, not better, every time.** Detail:
-  rl_docs/tracks/hw/STATUS.md, RISE.md.
+  goal-mix hold 0.1→0.4, quadrupling exposure, identical teacher)
+  **RAN and FAILS — the pre-registered FAIL branch fires and
+  TIPPED-EXPOSURE TRAINING IS NOW CLOSED for the standing-lean fix,
+  escalated to the operator with a full dossier.** 4× exposure moved
+  adoption only 10%→20% (bar ≥50%, measured via the same
+  action-vs-teacher-target MSE) and settled/recovered only 0/12→1/12
+  (bar ≥9/12, still "leaning" 11/12, one foot still parked, det min
+  duty 0.06–0.15). New finding outside every pre-registered branch:
+  the same one-foot park now leaks into NOMINAL (untipped) hold too
+  (min duty down to 0.03, was 0.58–0.76 on tiltcomp2's nominal pass)
+  — more tipped-exposure made the ordinary stance worse, not just
+  failed on the tipped one. Teacher capability, hold income, AND
+  training exposure are now all measured innocent/insufficient; the
+  two remaining levers are both operator calls (price residual lean
+  directly in hold income, or treat the ~8° lean as a hardware/
+  mechanical trim problem outside RL) — no further tipped-exposure
+  or teacher-redesign arm on this lineage without that call.
+  **Standing caveat that holds across all three teacher designs and
+  exposure doses tried: the UNTRAINED parent's innate recovery
+  (1.45° settled in 11/12, no BC anchor at all) still beats every
+  tipped-trained child (5.25° det tail on tiltcomp2/3's own gate) —
+  tipped-spawn training has made recovery WORSE, not better, every
+  time it's been tried.** `hard1` (`holdbc1_hard1`) stays deployed,
+  unaffected. Detail: rl_docs/tracks/hw/STATUS.md, RISE.md.
