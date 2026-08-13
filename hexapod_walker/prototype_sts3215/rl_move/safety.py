@@ -60,6 +60,23 @@ class SafetyLayer:
             float(cfg_get(cfg, "safety", "max_pitch_deg", default=15)))
         self.max_dq = math.radians(
             float(cfg_get(cfg, "safety", "max_delta_q_deg", default=2.0)))
+        # Entry slew ramp (08-13, takeoff-transient instrumentation —
+        # operator ruling "staged gait-entry transition"): the 08-11
+        # bench tapes show the walk policy saturates the full
+        # max_delta_q slew on ALL 18 joints from tick 0 at ZERO
+        # command (a whole-body posture snap; 14/26 tapes cross 5 deg
+        # roll before the velocity ramp even starts). When
+        # entry_slew_ramp_s > 0, the per-tick rate limit starts at
+        # entry_slew_start_deg and ramps linearly to max_delta_q_deg
+        # over that many seconds after set_nominal() (episode start /
+        # policy engage on hardware), throttling the drop-in snap.
+        # Default 0.0 = OFF = bit-exact legacy behavior.
+        self.entry_ramp_s = float(
+            cfg_get(cfg, "safety", "entry_slew_ramp_s", default=0.0))
+        self.entry_start_dq = math.radians(
+            float(cfg_get(cfg, "safety", "entry_slew_start_deg",
+                          default=0.25)))
+        self._entry_ticks = 0
         self.imu_stale_s = float(
             cfg_get(cfg, "safety", "imu_stale_ms", default=100)) / 1000.0
         self.max_temp = float(cfg_get(cfg, "safety", "max_temp_c", default=65))
@@ -74,6 +91,7 @@ class SafetyLayer:
         trip_s = float(cfg_get(cfg, "safety", "over_current_trip_s",
                                default=0.8))
         hz = float(cfg_get(cfg, "control", "hz", default=25))
+        self._hz = hz
         self._over_current_trip_ticks = max(1, int(round(trip_s * hz)))
         self._over_current_ticks = 0
         # Over-temp needs consecutive FRESH feedback reads (not control
@@ -95,6 +113,7 @@ class SafetyLayer:
     def set_nominal(self, q_rad: np.ndarray) -> None:
         self._last_safe = np.asarray(q_rad, dtype=float).reshape(N_JOINTS).copy()
         self._over_current_ticks = 0
+        self._entry_ticks = 0
 
     def set_tilt_reference(self, roll: float, pitch: float) -> None:
         """Anchor the tilt trip to the episode's starting attitude.
@@ -235,9 +254,20 @@ class SafetyLayer:
             status.held = True
             return self._last_safe.copy(), status
 
-        # Per-step rate limit vs last safe command.
+        # Per-step rate limit vs last safe command. With the entry
+        # slew ramp active (entry_slew_ramp_s > 0) the limit starts at
+        # entry_start_dq right after set_nominal() and ramps linearly
+        # to max_dq; off (0.0, the default) this is exactly max_dq.
+        max_dq = self.max_dq
+        if self.entry_ramp_s > 0.0:
+            t = self._entry_ticks / self._hz
+            if t < self.entry_ramp_s:
+                f = t / self.entry_ramp_s
+                max_dq = min(self.max_dq, self.entry_start_dq
+                             + f * (self.max_dq - self.entry_start_dq))
+        self._entry_ticks += 1
         dq = q - self._last_safe
-        dq = np.clip(dq, -self.max_dq, self.max_dq)
+        dq = np.clip(dq, -max_dq, max_dq)
         q = self._last_safe + dq
 
         # Joint limits (deg in AXIS_LIMITS).
