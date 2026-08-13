@@ -63,6 +63,40 @@ whatever works; this track exists to retire the crutch.
   fails the same way as its siblings (freeze OR unresolved-charge
   skate), the from-scratch gait line has no levers left and closing
   it is the recommendation to the operator.
+  **08-13 ~01:2x: `cw-gait-sched1` RESULT — FAIL, the predicted false
+  branch exactly.** Gate: det fwd travel med 0.01m (bar >=0.3m),
+  slip/m 9.4 det / 18.4 sto (bar <=3.0) — both clauses miss badly.
+  `env/sched_value` confirms the coefficient ramped correctly
+  (0→8000 over the 0.5M-1.5M window, verified in the training curve
+  — the scheduler CODE works exactly as built), but
+  `env/walk_loadslip_factor` stayed floored at 0.03-0.09 the entire
+  run and `env/reward_drag_stance` paid -6..-8/tick unresolved to
+  the end — the identical mechanism as every prior lever-2 form.
+  Video/contact-sheet: near-static stance across all 10 sampled
+  frames, a freeze, not a paddle. **GAIT P3 LEVER 2 IS NOW CLOSED IN
+  EVERY FORM** (fixed-rung pricing, warm-start anneal onto a mobile
+  prior, and now a true in-run schedule) — three distinct mechanisms,
+  same collapse. **The nobc gait-from-scratch line's entire
+  no-new-code lever menu (2, 4, 5) is exhausted.** The only
+  remaining lever is GAIT.md P3 item 3, physics easing (gravity/
+  servo-velocity-ceiling relaxed early, annealed to nominal) —
+  genuinely UNBUILT CODE, not a cfg flip: the generic `sched.*`
+  engine drives any cfg path but `DomainRandomizer.sample()` reads a
+  `self.ranges` snapshot frozen at construction, so scheduling a DR
+  field needs new per-reset refresh plumbing shared by every run in
+  the project (mass/friction/gravity/etc. DR is used everywhere, incl.
+  the batched MJX vec-env path) — exactly the kind of shared-code
+  change the campaign's pool-restore/dilution bugs came from when
+  rushed. NOT written this cycle: it needs its own careful
+  design+test pass, not a same-cycle add-on next to a live triage.
+  **WAITING-ON (since 08-13 ~01:2x): nobc's gait-from-scratch line is
+  blocked on the physics-easing mechanism (spec above, code unbuilt)
+  — surfaced in top-level STATUS.md.** Recommendation to the
+  operator, per pre-registration: either dedicate a cycle to building
+  and validating physics easing, or accept the from-scratch gait line
+  as exhausted for now (the hardware-bound gait keeps coming from the
+  BC-anchored lineage regardless — this is a nobc-charter research
+  question, not an hw-mainline blocker).
 
 - CROSS-TRACK INSIGHT (hw P0 probe, 08-11 late, GAIT.md bottom): the
   crouch-paddle is a sim-EFFECTIVENESS optimum, not a paid basin —
@@ -78,8 +112,12 @@ whatever works; this track exists to retire the crutch.
    structural charge does not induce stepping from scratch.
 2. ~~RSI-for-walk mid-stride spawns~~ DONE 08-12 (see above) — CLOSED,
    same freeze/near-still mechanism as the drag charge alone.
-3. Physics easing (unstarted) or annealed-up charge once the P2 bank
-   lands, whichever is spec-ready first; then stand-from-scratch
-   resumes with whatever levers moved gait discovery.
+2b. ~~Annealed-up charge (warm-start AND true in-run schedule)~~ DONE
+   08-13 (see above) — BOTH forms FAILED, lever 2 closed for good.
+3. Physics easing — the last lever, UNBUILT CODE (not spec-ready: it
+   needs a per-reset DR-refresh mechanism, touching shared
+   `domain_rand.py` machinery used by every run in the project — a
+   dedicated build+test cycle, not a same-cycle add-on). WAITING-ON
+   an operator call: build it, or close the from-scratch gait line.
 
 Detail: GAIT.md P3 · RISE.md forensic ladder.

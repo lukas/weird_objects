@@ -427,6 +427,53 @@ unqueued, spec first) or BC-INIT (the lever that broke the hw
 track's tall-wall, `cw-dep-bcgait1`) — NOT available here, nobc bans
 imitation losses of any kind by charter.
 
+**08-12 ~08:30: `cw-gait-anneal1` FAILS, informatively — NOT the
+freeze fingerprint.** The mobile prior survives the charge (det fwd
+0.37-0.46 m) but never cleans up: leg-3 flag-leg skate (gait_valid
+0/6, sac [3] all det episodes), slip/m 4.3-5.1 vs the 1.5 bar, reward
+diving -335 → -4744 by quarters as the charge goes unresolved for
+2M steps. Every no-new-code form of lever 2 (fixed rung, warm-start
+anneal) is now closed. The only remaining form is a TRUE in-run
+schedule — CODE, unqueued at the time.
+
+**08-13: the in-run coefficient scheduler LANDS** (`sched.*` cfg
+keys — `sched.key/v0/v1/t0_steps/t1_steps/n_envs`, linear ramp of any
+one dotted cfg path by GLOBAL env steps, implemented once in
+`sim_env._step_begin` so both trainer stacks pick it up by
+construction; default off = bit-exact off, 10 new tests
+`test_coef_sched.py`, full semantics bank green, REWARD.md row).
+First and only arm, `cw-gait-sched1` (2M discovery, dragstance1 stack
+from a random init, `k_drag_stance` ramped 0→8000 over global steps
+0.5M-1.5M — let the paddle form before pricing the skate out from
+under it). **RESULT: FAIL, the pre-registered false branch exactly.**
+Gate: det fwd travel med 0.01m (bar >=0.3m), slip/m 9.4 det / 18.4 sto
+(bar <=3.0) — both clauses miss badly, and by a wide margin (this is
+the FREEZE fingerprint, not the anneal1-style unresolved skate).
+`env/sched_value` confirms the ramp fired exactly as designed (0→8000
+over the programmed window — the scheduler code itself is verified
+correct), but `env/walk_loadslip_factor` stayed floored at 0.03-0.09
+for the entire 2M steps and `env/reward_drag_stance` paid -6..-8/tick
+unresolved throughout — the policy never attempted to resolve the
+charge at all, identical in kind to dragstance1/rsi1/slowfirst1's
+random-init freeze, now reproduced even with the charge starting at
+literally zero for the first 500k steps. Video/contact-sheet: a
+near-static stance across all 10 sampled frames. **GAIT P3 LEVER 2 IS
+NOW CLOSED IN EVERY FORM TESTED** (fixed rung, warm-start anneal onto
+a mobile prior, true in-run schedule — three distinct mechanisms, one
+collapse). The nobc gait-from-scratch no-new-code menu (levers 2, 4,
+5) is fully exhausted. Remaining lever 3 (physics easing) is genuine
+unbuilt code, not a cfg flip: the generic `sched.*` engine drives any
+cfg path, but `DomainRandomizer.sample()` reads a `self.ranges`
+snapshot frozen at construction time, so scheduling a DR field (e.g.
+gravity magnitude, servo velocity ceiling) needs new per-episode-reset
+refresh plumbing in code shared by every run in the project across
+every track — exactly the class of shared-code change that produced
+the campaign's pool-restore and dilution bugs when rushed. NOT
+written same-cycle as this triage; it needs its own dedicated
+design+test pass. WAITING-ON an operator call (surfaced in top-level
+STATUS.md 08-13): build lever 3, or accept the from-scratch gait line
+as exhausted for now.
+
 ## TALL LADDER — height-ref rungs on the dep line (operator session 08-11 eve)
 
 Operator directive: "make a deployable tall smooth walker." Mechanism:
