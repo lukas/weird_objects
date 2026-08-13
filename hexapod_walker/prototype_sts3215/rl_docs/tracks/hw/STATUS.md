@@ -9,6 +9,25 @@ unresolved blockers between the robot and reliable joystick control.
 
 ## Now
 
+- **08-13 ~07:xx: the anchor-side tip-aware reference (the lever the
+  tip1 gate consequence prescribed for the hardware ~8° standing
+  lean) is BUILT and its first arm is training.**
+  `train.bc_anchor_tilt_comp` (snapshot 1efc816, default off =
+  bit-exact, 6 new tests + 50-test anchor suite + 78-test semantics
+  bank green; design note in RISE.md): HOLD-episode anchor target =
+  the IK pose counter-rotating the measured lean (soft deadband
+  1.5°, cap 6° — the measured action-space expressibility boundary;
+  track mode excluded), a proportional posture-feedback TEACHER, so
+  tipped spawns supervise LEVELING instead of the tilt tolerance
+  tip1 learned from the tilt-blind constant q_nom target. Composes
+  with `bc_anchor_foot_z` (the foot-height term now prices the
+  asymmetric extension in mm). First arm `cw-stand-tiltcomp1`
+  (2M discovery, train-0, warm from footlow2-hard1, tip1's exact
+  recipe + this ONE variable): gate = matched-parent forced-8°-tip
+  probe (settled ≥10/12 det tail ≤3° AND valid_plant ≥9/12, zero
+  park) + nominal retention at hard1's band; FAIL consequence
+  pre-registered = tipped-exposure route closed even with a correct
+  teacher → escalate the lean to an operator design discussion.
 - **CORRECTION (08-13 ~06:xx, cross-track from arch — RETRACTS the
   earlier "warp under-charges slip" insight): the warp-vs-C contact
   parity audit RAN (`probe_contact_parity.py`, matched scripted-gait
