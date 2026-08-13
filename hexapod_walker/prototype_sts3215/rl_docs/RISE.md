@@ -1366,3 +1366,21 @@ safe (reads only SNAP_ATTRS state: `_q_nom`, `_tilt_ref0`, `_state`).
 First arm: `cw-stand-tiltcomp1` (2M discovery, warm from
 footlow2-hard1, tip1's exact recipe + tilt_comp=1.0 — one variable vs
 tip1).
+
+**08-13 addendum — the proportional (current-lean) comp source is a
+measured DEFECT, fixed by `train.bc_anchor_tilt_from_settle=1`.**
+`probe_tilt_teacher` (closed-loop rollout of the teacher itself:
+`bc_target` fed back as the action, forced tipped holds, n=6)
+measured that a PERFECT student of the current-lean teacher settles
+at 3.95° from ~6.5° spawns — the classic P-controller fixed point
+(L0+deadband)/2 = 3.98° predicted — because the commanded correction
+shrinks as the student levels. It can never demonstrate ≤3°. The
+same probe kills the "hold income never prices lean" reading:
+teacher rollout earns −0.046/tick vs −0.150 tilted (k_track tilt
+Gaussian σ1.5° vs the level ref). With `bc_anchor_tilt_from_settle=1`
+the comp is computed ONCE from the episode's post-settle lean
+(`_settle_lean`, per-episode constant, SNAP_ATTRS) — the ideal
+student then levels to the deadband/cap residual (probe: 1.76°,
++0.385/tick), inside the band where the income Gaussian has gradient
+again. Default 0 = bit-exact legacy source. Second arm:
+`cw-stand-tiltcomp2` (tiltcomp1's recipe + this one switch).

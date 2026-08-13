@@ -9,7 +9,36 @@ unresolved blockers between the robot and reliable joystick control.
 
 ## Now
 
-- **08-13 ~08:xx: `cw-stand-tiltcomp1` FAILED — the tipped-exposure
+- **08-13 ~10:xx: tiltcomp1's mechanism read is OVERTURNED by
+  measurement — the standing-lean line is UNBLOCKED and training
+  again (`cw-stand-tiltcomp2`, train-0); the operator design-fork
+  escalation is withdrawn.** New probe (`probe_tilt_teacher`,
+  snapshot 0ca5c4f) rolled out the tilt-comp TEACHER ITSELF
+  (bc_target fed as the action) on forced ~6.5° tipped holds:
+  a PERFECT student settles at 3.95° — above the run's own 3° bar —
+  exactly the closed-loop fixed point of a P-controller on the
+  CURRENT lean ((L0+deadband)/2 = 3.98° predicted). And hold income
+  DOES price lean (k_track tilt Gaussian σ1.5° vs the level ref on
+  tipped episodes; teacher rollout −0.046/tick vs −0.150 staying
+  tilted). So "two correct teachers converged ⇒ incentive gap" was
+  wrong on both counts: neither teacher was capable (tilt-blind
+  supervises the lean outright; tilt-aware backslides as the student
+  levels), and the incentive already points level. FIX LANDED
+  (snapshot fdc48d4): `train.bc_anchor_tilt_from_settle=1` sources
+  the counter-rotation from the episode's post-settle lean (a
+  per-episode constant, SNAP_ATTRS pool-safe; default-off bit-exact,
+  4 new tests, 54-test anchor suite + 81-pass semantics bank green)
+  — probe-verified the ideal student now levels to 1.76° earning
+  +0.385/tick. `cw-stand-tiltcomp2` = tiltcomp1's exact recipe + that
+  ONE switch (2M discovery, VERIFIED RUNNING ~15.3k fps); gate =
+  matched forced-8°-tip probe (tail ≤3°, settle ≥9/12, no parked
+  foot) + nominal retention in hard1's band. Residual caveat carried
+  in the gate's FAIL branch: tiltcomp1's policy sat at 6.4°, never
+  even reaching its teacher's 3.95° fixed point — if tiltcomp2
+  under-adopts a probe-capable teacher the same way, the next lever
+  is EXPOSURE (hold=0.1 mix / tip prob), not teacher design.
+- SUPERSEDED by the above — **08-13 ~08:xx: `cw-stand-tiltcomp1`
+  FAILED — the tipped-exposure
   route on the standing lean is CLOSED even with a correct teacher;
   the ~8° hardware lean escalates to an operator design
   discussion.** Matched forced-8°-tip probe (frozen hard1 baseline,
