@@ -7,6 +7,37 @@ Stand on four, walk on four, front pair free for tricks.
 
 ## Now
 
+- **08-13 (~17:5x UTC): `cw-quadwalk6` (structural walk_gait_gate,
+  ONE lever vs quadwalk5) STOP, but decisively informative — the
+  fix is PROVEN to work as pricing, yet the policy is stuck anyway.**
+  Matched-behavior A/B against quadwalk5 (identical cheat: legs
+  [1,4] idle, near-identical per-leg swing_count fingerprint) shows
+  the gate flips that EXACT behavior's return from strongly
+  profitable (+722..+1146/ep in quadwalk5) to strongly unprofitable
+  (-65..-290/ep in quadwalk6) — the income-side fix works as
+  designed. But a FRESH 2M-step run from the same quad_hold2 init
+  (every quadwalk arm 1-6 inits fresh from quad_hold2, none chain
+  weights) converged on the SAME now-losing mid-leg-park shuffle
+  anyway: gait_valid still 0/6 det+sto. Secondary: the front lift
+  leg gets dragged into service as a support prop in most episodes
+  (duty_tail up to 0.44, fronts_lifted fails 9/12) despite
+  k_quad_lift_contact=3.0 charging it — an additive fine, paid, the
+  same "just pay the fine" pattern as quadwalk3, now on the lift-leg
+  side (ungated by the new mechanism, which only gates support-leg
+  income). Quad-hold retention clean (fwd creep 0.41m det, in-band;
+  roll_tail 0.6°; height_err 6.3mm; 0 falls) — the fix is safe for
+  the hold skill. Read: this is an EXPLORATION-blocked local optimum,
+  not a pricing problem (pre-registered branch (a)'s own prescribed
+  remedy) — swinging a mid leg while balancing on the rest may be a
+  harder motor skill to stumble into than the cheat, so a low-entropy
+  (ent=0.001) warm start never tries it long enough to feel the new
+  penalty. One-lever follow-up launched same cycle:
+  **`cw-quadwalk7`** (quadwalk6 + `--ent-coef` 0.001→0.02, ONE
+  lever, 2M discovery) VERIFIED RUNNING train-0 (~13.1k fps). If
+  quadwalk7 lands on the identical [1,4] shuffle too, exploration-
+  only is CLOSED for this family and the next question is whether a
+  reactive MLP can balance a moving four-leg stance at all
+  (architecture/curriculum, not reward) — NOT another entropy scan.
 - **08-13 (~18:xx UTC): the structural CODE fix the quadwalk5 ruling
   demanded is BUILT, bank-proven and TRAINING — `cw-quadwalk6`
   (quadwalk5 + `reward.walk_gait_gate=1.0`, ONE lever, 2M discovery)
