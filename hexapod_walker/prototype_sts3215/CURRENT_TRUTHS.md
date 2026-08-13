@@ -753,3 +753,41 @@ hold solved via BC-anchor, both handoffs compose).
   GAIT.md, hw/STATUS.md.
 - MoE only after clean multitask training (explicit mode ID, correct
   rewards, enough plain-MLP capacity) shows real skill interference.
+- **STANDING LEAN (08-12/13): the deployed stance holds a persistent
+  ~8° lean on hardware after a tip; three sim arms in, still
+  unsolved, but the mechanism is now well characterized.**
+  `cw-stand-tiltcomp1` (a tilt-aware BC-anchor teacher, correction
+  proportional to CURRENT lean) FAILED — reproduces the identical
+  stay-tilted habit (tail 5.75°, 24/24 "leaning", one foot parked)
+  seen with the tilt-blind teacher. That FAIL's escalation ("two
+  correct teachers agree ⇒ the incentive is the blocker") was then
+  OVERTURNED by measurement (`probe_tilt_teacher`, rolls the teacher
+  itself out as the action): the tiltcomp1 teacher is a closed-loop
+  P-controller on the CURRENT lean, whose own fixed point is
+  (L0+deadband)/2 ≈ 3.95–3.98° — mathematically incapable of the
+  ≤3° bar regardless of the student, and hold income already prices
+  lean correctly (leveling earns 3× staying tilted). Fix landed
+  (`train.bc_anchor_tilt_from_settle`: correction sourced from the
+  episode's post-settle lean, a constant, not the live lean) —
+  probe-verified a perfect student of THIS teacher levels to 1.76°.
+  `cw-stand-tiltcomp2` (that one-variable fix, trained) still FAILS
+  the forced-8°-tip gate (det tail 5.25°, 0/24 settled, one-foot
+  park persists) — but the discriminator built into its own gate
+  answered cleanly: UNDER-ADOPTION, not teacher incapability. The
+  trained policy's action-vs-teacher MSE (0.0131–0.0147) is ~90% of
+  the total signal size — it adopted only ~10% of a now-demonstrably-
+  capable teacher's correction, because tipped-hold exposure was only
+  ~5% of training episodes (goal-mix hold=0.1 × tipped_start_prob=0.5).
+  Nominal (untipped) retention is unaffected, byte-similar to
+  tiltcomp1's own nominal band. `cw-stand-tiltcomp3` (one knob:
+  goal-mix hold 0.1→0.4, quadrupling exposure, identical teacher) is
+  RUNNING to test whether more exposure fixes adoption; its
+  pre-registered FAIL branch closes tipped-exposure training for
+  real (teacher capability and income both now measured innocent,
+  adoption still refused) and escalates to the operator with the
+  full dossier. **Standing caveat that holds across all three
+  teacher designs tried so far: the UNTRAINED parent's innate
+  recovery (1.45° settled in 11/12, no BC anchor at all) still beats
+  every tipped-trained child (5.25–5.75°) — tipped-spawn training has
+  made recovery WORSE, not better, every time.** Detail:
+  rl_docs/tracks/hw/STATUS.md, RISE.md.
