@@ -19,6 +19,7 @@ it is for; keep them SHORT when you edit them.
 | `RISE.md` | Stand-up skill: plan, PLANT_SPEC standing spec, evidence trail | Working on rise/lower |
 | `TURN.md` | Yaw drift problem, anti-drift mechanisms, TURN bank | Working on yaw/turning |
 | `MULTITASK.md` | Multitask track design: acquisition-failure vs forgetting reframe, A/B/C specialist-vs-generalist cohort, transfer test, binding verdict labels | Working in the multitask track (read before triage) |
+| `DYNREP.md` | Dynamics-representation track design: self-supervised action-conditioned predictor, baseline gates (G1-G3), A/B/C PPO transfer plan | Working in the dynrep track (read before triage); code runbook: `rl_move/dynamics/README.md` |
 | `EXPERIMENT_LOGS.md` | Per-run `logs/experiments/<run>/summary.md` convention + cached W&B data | When finishing or investigating a run |
 | `WANDB.md` | How W&B is wired in: project/creds, ops.sh readers, run-page anatomy (OUTCOME notes, artifact lineage), gotchas | First time touching W&B, or when an API call fails auth |
 | `runs/` | One GENERATED summary per run (status, hypothesis, gate, verdict) — rendered from `experiments.json` by `launch_run.py`; never hand-edit | Browsing past runs; `launch_run.py runsmd` refreshes |
