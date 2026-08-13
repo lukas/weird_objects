@@ -2932,10 +2932,16 @@ def _quadwalk_rollout(policy: str, seed: int, *,
 # exactly as the rules intend. The exemption/inertness tests further
 # down run regardless.
 QUADWALK_REFERENCE_BLOCKED = (
-    "QUADWALK bank blocked: no viable honest scripted rear-four gait "
-    "yet (open-loop trot/crawl/two-phase-crawl all fail to translate; "
-    "see quad/STATUS.md 08-13 and rl_move/sim/probe_quad_crawl.py). "
-    "Do NOT launch quadwalk training arms until this bank passes.")
+    "QUADWALK ordering bank skipped: no accepted reference gait yet. "
+    "Scripted open-loop rear-four gaits are measured geometrically "
+    "infeasible (probe_quad_crawl.py --diag, quad/STATUS.md 08-13); "
+    "per the operator ruling of 08-13 ~12:4x UTC a feedback/RL "
+    "rear-four-stepping policy MAY become the reference, but ONLY "
+    "after passing the pre-registered robustness gate in "
+    "rl_docs/tracks/quad/QUADWALK_REF_GATE.md. Until a candidate "
+    "passes that gate these ordering tests keep skipping and no "
+    "scripted-bank claim may cite an RL reference. Quadwalk training "
+    "arms are launchable under the ruling's terms despite this skip.")
 
 
 @pytest.fixture(scope="module")

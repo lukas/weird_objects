@@ -7,6 +7,21 @@ Stand on four, walk on four, front pair free for tricks.
 
 ## Now
 
+- **08-13 (~13:xx UTC, post-ruling cycle): the pre-registered
+  reference-acceptance gate is WRITTEN (`rl_docs/tracks/quad/
+  QUADWALK_REF_GATE.md` — the ruling's required first artifact:
+  multi-seed det bars, dr-scale 0.5 + friction panel, zero falls,
+  exemption verification, stillness bars, backward-rectification
+  auto-FAIL), and the FIRST quadwalk training arm is launched:
+  `cw-quadwalk1` (2M discovery, warm from `cw-quad-hold2`, mix
+  quadwalk=0.7/quad=0.3, + k_quad_still=1.0). Binary question: does
+  genuine rear-four stepping (all four support legs cycling,
+  positive forward translation, fronts lifted) emerge at all?
+  Known cheats pre-registered as one-line STOPs: freeze-in-stance,
+  fronts-down six-leg gait, backward-rectified shuffle. Passing
+  discovery does NOT make it the bank reference — that needs the
+  full REF_GATE. Ordering tests still SKIP (message updated to
+  cite the ruling + gate doc; REWARD.md row updated).**
 - **08-13 (later, spec cycle): the four-leg-WALK spec + bank [CODE]
   is BUILT and checked in — but the bank is BLOCKED on a physical
   finding: NO open-loop scripted quad gait actually walks in sim.**
