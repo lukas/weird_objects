@@ -3286,3 +3286,236 @@ def test_quadwalk_start_quad_spawns_fronts_up():
     assert support_off_frac < 0.25, (
         f"support feet off the ground {support_off_frac:.2f} of ticks "
         "— spawn stance not planted")
+
+
+# --------------------------------------------------------------------
+# reward.walk_gait_gate (08-13, quad track, after cw-quadwalk1-5):
+# additive pricing is measured-exhausted for BOTH quadwalk cheat
+# families — quadwalk3 verifiably PAID the -575/ep lift-contact
+# charge (~40% of return) and kept walking on six legs; quadwalk5's
+# 6x k_park_duty reprice changed the mid-leg-park scoot NOT AT ALL
+# (identical legs [1,4] sacrificed 12/12). The anchor gate never sees
+# an air-parked leg (its fraction spans LOADED feet only), so the
+# structural fix is a new income gate: velocity income (kernel +
+# positive progress + quadwalk clear/plant) is multiplied by the MIN
+# over commanded SUPPORT legs of a per-leg "completed a real swing
+# recently" score (window 2 s of commanded ticks, linear 2 s fade,
+# swing = >=2 ticks airborne + XY stride >= gait_gate_stride_mm).
+# MIN, not mean: fractional discounts are measured-payable; parking
+# ANY support leg must collapse transport income to the (1-g) floor.
+# Lift legs are exempt (their stepping is the six-leg cheat, priced
+# elsewhere); penalties never shrink; default 0 = off, bit-exact.
+# NOTE the scripted splayed rear-four trot canNOT serve as the honest
+# actor here: its mid legs are PINNED (0 completed swings after the
+# blend — the probe_quad_crawl geometric finding), so the gate
+# correctly scores IT as a sacrificing gait; the honest-form check
+# lives in WALK mode, where a genuinely six-leg-cycling scripted
+# reference exists.
+
+GAIT_GATE_ON = dict(WALK_OVERRIDES)
+GAIT_GATE_ON[("reward", "walk_gait_gate")] = 1.0
+QW_GAIT_GATE_ON = dict(QUADWALK_OVERRIDES)
+QW_GAIT_GATE_ON[("reward", "walk_gait_gate")] = 1.0
+# Raised flag pose (hip up, knee tucked) for a sacrificed leg.
+GG_FLAG_RAD = (0.0, -1.10, 2.40)
+
+
+def _gait_gate_walk_rollout(policy: str, seed: int,
+                            overrides: dict) -> dict:
+    """Walk-mode rollout: 'gait' = the honest six-leg scripted tripod;
+    'flagleg' = the same gait with mid leg 1 blended to a raised flag
+    pose (the one-leg-sacrifice cheat class). Returns the episode
+    return plus the summed gated income terms and the post-6s median
+    of the walk_gait_min metric."""
+    from tripod_gait import TripodGait
+
+    env = _make_walk_env(seed, overrides)
+    env.reset()
+    traj = env._goal_traj
+    n = len(traj.vx)
+    hold_n = ramp_n = int(round(1.0 / env.dt))
+    traj.vx[:] = WALK_CMD_VX
+    traj.vx[:hold_n] = 0.0
+    traj.vx[hold_n:hold_n + ramp_n] = WALK_CMD_VX * np.linspace(
+        0.0, 1.0, ramp_n)
+    traj.vy[:] = 0.0
+    if traj.wz is not None:
+        traj.wz[:] = 0.0
+    gait = TripodGait(vx=0.0, lift=0.025)
+    gait.sync_plant_stance(*WALK_PLANT)
+    plant_rad = np.array([0.0, *WALK_PLANT] * 6) * DEG2RAD
+    flag = np.array(GG_FLAG_RAD)
+    gait.reset_phase()
+    total, step = 0.0, 0
+    kernel = prog = 0.0
+    gmin_tail: list[float] = []
+    while True:
+        t = step * env.dt
+        i = min(step, n - 1)
+        gait.set_velocity(vx=float(traj.vx[i]), vy=float(traj.vy[i]))
+        q = np.asarray(gait.desired_deg(t)) * DEG2RAD
+        if policy == "flagleg":
+            a = min(t / 1.5, 1.0)
+            q[3:6] = (1 - a) * plant_rad[3:6] + a * flag
+        _obs, r, term, trunc, info = env.step(q_rad_to_action(q))
+        total += float(r)
+        kernel += float(info.get("reward_walk", 0.0))
+        prog += float(info.get("reward_walk_prog", 0.0))
+        if "walk_gait_min" in info and t > 6.0:
+            gmin_tail.append(float(info["walk_gait_min"]))
+        step += 1
+        if term or trunc:
+            break
+    env.close()
+    return {"return": total, "terminated": bool(term), "kernel": kernel,
+            "prog": prog,
+            "gmin": (float(np.median(gmin_tail)) if gmin_tail else None)}
+
+
+def _gait_gate_midpin_rollout(seed: int, overrides: dict) -> dict:
+    """Quadwalk-mode rollout of the MID-LEG-PIN sacrifice: the splayed
+    rear-four trot with the mid legs FROZEN at their splayed plant
+    pose (drag anchors, duty ~1.0, zero completed swings) and fronts
+    honestly tucked — the scripted twin of cw-quadwalk4/5's cheat
+    family (statically stable, unlike the air-park scoot, so the
+    15 s episode survives and the gate window is actually exercised)."""
+    from tripod_gait import TripodGait
+
+    env = _make_quadwalk_env(seed, overrides)
+    env.reset()
+    traj = env._goal_traj
+    assert getattr(traj, "mode", "") == "quadwalk"
+    n = len(traj.vx)
+    hold_n = int(round(2.0 / env.dt))
+    ramp_n = int(round(1.0 / env.dt))
+    traj.vx[:] = 0.03
+    traj.vx[:hold_n] = 0.0
+    traj.vx[hold_n:hold_n + ramp_n] = 0.03 * np.linspace(
+        0.0, 1.0, ramp_n)
+    traj.vy[:] = 0.0
+    if traj.wz is not None:
+        traj.wz[:] = 0.0
+    gait = TripodGait(vx=0.0, lift=0.025)
+    gait.sync_plant_stance(*WALK_PLANT)
+    _orig = gait._foot_target_in_body
+
+    def _splayed(i, vx, vy, om, _o=_orig):
+        dx, dy, dz = _o(i, vx, vy, om)
+        if i in (1, 4):
+            dx += 0.06
+        return (dx, dy, dz)
+    gait._foot_target_in_body = _splayed
+    plant_rad = np.array([0.0, *WALK_PLANT] * 6) * DEG2RAD
+    gait.reset_phase()
+    tuck = np.array(QW_TUCK_RAD)
+    gait.set_velocity(vx=0.0, vy=0.0)
+    q_pin = np.asarray(gait.desired_deg(0.0)) * DEG2RAD
+    total, step = 0.0, 0
+    income = 0.0
+    gmin_tail: list[float] = []
+    while True:
+        t = step * env.dt
+        i = min(step, n - 1)
+        gait.set_velocity(vx=float(traj.vx[i]), vy=float(traj.vy[i]))
+        q = np.asarray(gait.desired_deg(t)) * DEG2RAD
+        a = min(t / 1.5, 1.0)
+        for leg in QW_LIFT:
+            q[3 * leg:3 * leg + 3] = (
+                (1 - a) * plant_rad[3 * leg:3 * leg + 3] + a * tuck)
+        for leg in (1, 4):
+            q[3 * leg:3 * leg + 3] = q_pin[3 * leg:3 * leg + 3]
+        _obs, r, term, trunc, info = env.step(q_rad_to_action(q))
+        total += float(r)
+        for k in ("reward_walk", "reward_quad_clear",
+                  "reward_quad_plant"):
+            income += float(info.get(k, 0.0))
+        income += max(float(info.get("reward_walk_prog", 0.0)), 0.0)
+        if "walk_gait_min" in info and t > 10.0:
+            gmin_tail.append(float(info["walk_gait_min"]))
+        step += 1
+        if term or trunc:
+            break
+    env.close()
+    return {"return": total, "terminated": bool(term), "income": income,
+            "gmin": (float(np.median(gmin_tail)) if gmin_tail else None)}
+
+
+def test_walk_gait_gate_default_off_bit_exact():
+    """walk_gait_gate=0.0 (explicit) must equal the key absent, on
+    both a quadwalk and a walk rollout (no reward-path or rng
+    change on the default path)."""
+    off = dict(QUADWALK_OVERRIDES)
+    off[("reward", "walk_gait_gate")] = 0.0
+    a = _quadwalk_rollout("sixleg", SEEDS[0],
+                          overrides=QUADWALK_OVERRIDES)["return"]
+    b = _quadwalk_rollout("sixleg", SEEDS[0], overrides=off)["return"]
+    assert a == b, (
+        f"walk_gait_gate=0 changed the quadwalk reward path ({a} vs {b})")
+    woff = dict(WALK_OVERRIDES)
+    woff[("reward", "walk_gait_gate")] = 0.0
+    c = _gait_gate_walk_rollout("gait", SEEDS[0], WALK_OVERRIDES)["return"]
+    d = _gait_gate_walk_rollout("gait", SEEDS[0], woff)["return"]
+    assert c == d, (
+        f"walk_gait_gate=0 changed the walk reward path ({c} vs {d})")
+
+
+def test_walk_gait_gate_keeps_honest_gait_income():
+    """The honest six-leg scripted gait (every support leg completes
+    real swings well inside the 2 s window — measured qualifying-swing
+    gap median 0.76 s) must keep its income under the full gate:
+    factor pinned at 1, return within a few percent of gate-off."""
+    off = _gait_gate_walk_rollout("gait", SEEDS[0], WALK_OVERRIDES)
+    on = _gait_gate_walk_rollout("gait", SEEDS[0], GAIT_GATE_ON)
+    assert on["gmin"] is not None and on["gmin"] >= 0.99, (
+        f"honest gait scored walk_gait_min {on['gmin']} — the gate is "
+        "mis-scoring a genuinely cycling gait")
+    assert not on["terminated"]
+    drop = off["return"] - on["return"]
+    assert drop < 0.05 * abs(off["return"]) + 20.0, (
+        f"gate cost the honest gait {drop:.1f} of {off['return']:.1f} "
+        "— it must be ~free for the intended behavior")
+
+
+def test_walk_gait_gate_collapses_flag_leg_income():
+    """One sacrificed leg (mid leg 1 raised to a flag) must collapse
+    velocity income to the floor: walk_gait_min 0 after the fade and
+    a large return hit vs gate-off (measured: kernel 167->74, prog
+    29->-29, return 387->235 at seed 0). This is the generic
+    'sacrifice any subset' close — the MIN makes 5 honest legs unable
+    to fund the 6th's park."""
+    off = _gait_gate_walk_rollout("flagleg", SEEDS[0], WALK_OVERRIDES)
+    on = _gait_gate_walk_rollout("flagleg", SEEDS[0], GAIT_GATE_ON)
+    assert on["gmin"] is not None and on["gmin"] <= 0.01, (
+        f"flag-leg gait still scores walk_gait_min {on['gmin']} — the "
+        "sacrificed leg is not collapsing the min")
+    hit = off["return"] - on["return"]
+    assert hit > 80.0, (
+        f"gate charged the flag-leg cheat only {hit:.1f} over the "
+        "episode — no structural bite")
+    assert on["kernel"] < 0.55 * off["kernel"], (
+        f"flag-leg kernel income {on['kernel']:.1f} vs {off['kernel']:.1f} "
+        "gate-off — transport income not collapsed")
+
+
+def test_walk_gait_gate_collapses_quadwalk_midpin_income():
+    """cw-quadwalk4/5's cheat family, scripted: mids pinned as drag
+    anchors while the rears cycle and the fronts stay honestly up.
+    Under the full gate the positive income streams (kernel, positive
+    progress, clear, plant) must collapse (measured: 934->260 at seed
+    0, return 1194->550) and walk_gait_min must sit at 0 — the pinned
+    legs never complete a swing, so the sitting income can no longer
+    fund the scoot. Charges are untouched by construction."""
+    off = _gait_gate_midpin_rollout(SEEDS[0], QUADWALK_OVERRIDES)
+    on = _gait_gate_midpin_rollout(SEEDS[0], QW_GAIT_GATE_ON)
+    assert not off["terminated"] and not on["terminated"], (
+        "midpin actor tipped — the sacrifice actor must survive for "
+        "the gate window to be exercised")
+    assert on["gmin"] is not None and on["gmin"] <= 0.01, (
+        f"pinned-mid gait still scores walk_gait_min {on['gmin']}")
+    assert on["income"] < 0.40 * off["income"], (
+        f"gated income {on['income']:.1f} vs {off['income']:.1f} "
+        "gate-off — the mid-leg sacrifice still collects")
+    hit = off["return"] - on["return"]
+    assert hit > 300.0, (
+        f"gate cost the mid-pin scoot only {hit:.1f} over the episode "
+        "— quadwalk5's cheat would still pay")

@@ -203,7 +203,9 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                           "_walk_bucket", "_step_disp_bank",
                           "_ls_prev_xy", "_ls_prev_on",
                           "_ls_slip_m", "_ls_prog_m",
-                          "_yaw_still_ema", "_stance_slip_acc")
+                          "_yaw_still_ema", "_stance_slip_acc",
+                          "_gait_last_step", "_gait_cmd_tick",
+                          "_gait_gate_qfactor")
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -262,6 +264,16 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # them 3.3x (learned skaters median 9.8 mm vs scripted gait
         # 2.9 mm, p90 5.7) — charge the stroke, not the jitter.
         self._stance_slip_acc = [0.0] * 6
+        # All-support-legs gait gate bookkeeping (08-13, quad track,
+        # reward.walk_gait_gate): per-leg COMMANDED-tick index of the
+        # last completed real swing (liftoff -> >=2 ticks airborne ->
+        # touchdown with XY stride >= gait_gate_stride_mm), plus the
+        # commanded-tick clock itself and the per-tick factor stashed
+        # for _quad_income's clear/plant gating. All three ride
+        # MJX_SNAPSHOT_EXTRA (pool-restore lesson, commit 65edba7).
+        self._gait_last_step = [0] * 6
+        self._gait_cmd_tick = 0
+        self._gait_gate_qfactor = 1.0
         # Learning-progress curriculum state: sampling weights over
         # LP_BUCKETS (None = uniform) and the bucket of the current
         # walk episode (surfaced in step info for the LP callback).
@@ -367,6 +379,9 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         self._ls_slip_m = 0.0
         self._ls_prog_m = 0.0
         self._stance_slip_acc = [0.0] * 6
+        self._gait_last_step = [0] * 6
+        self._gait_cmd_tick = 0
+        self._gait_gate_qfactor = 1.0
         self._phase = 0.0
         self._yaw_still_ema = 0.0
         return super()._reset_begin(seed)
@@ -1162,6 +1177,66 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                     r_walk *= hgt_factor
                     if r_prog > 0.0:
                         r_prog *= hgt_factor
+            # All-support-legs gait gate (08-13, quad track; the
+            # STRUCTURAL close of the leg-sacrifice loophole after
+            # cw-quadwalk1-5 measured pricing exhausted for BOTH cheat
+            # families: fronts-down paid a -575/ep lift-contact charge
+            # (~40% of return) and kept walking on six (quadwalk3);
+            # mid-leg-park ignored a 6x k_park_duty reprice outright
+            # (quadwalk5). Additive charges are payable fines, and the
+            # anchor gate's fraction spans LOADED feet only — a leg
+            # parked in the AIR silently drops out of its denominator.
+            # Same lesson as the prog/anchor/loadslip gates: make the
+            # cheat worth less BY CONSTRUCTION. Velocity income
+            # (kernel + positive progress; quadwalk's clear/plant
+            # income in _quad_income rides the same factor) is
+            # multiplied by the MIN over commanded SUPPORT legs of a
+            # per-leg "recently completed a real swing" score: 1.0 if
+            # the leg finished a liftoff -> >=2-ticks-airborne ->
+            # touchdown swing with XY stride >= gait_gate_stride_mm
+            # within the trailing gait_gate_window_s of COMMANDED
+            # ticks, fading linearly to 0 over gait_gate_fade_s after
+            # that (a fade, not a hard zero — the holdstill1
+            # zero-gradient lesson). MIN, not mean: quadwalk3/5
+            # measured that any fractional discount is simply paid;
+            # sacrificing ANY subset of support legs must collapse
+            # transport income to the (1-g) floor. Episode start
+            # counts as "just stepped" (window+fade of commanded
+            # grace); lift legs are exempt (they must NOT step);
+            # penalties are never shrunk. Default 0 = off, legacy
+            # bit-exact. cfg: reward.walk_gait_gate in [0,1],
+            # reward.gait_gate_window_s (2.0), gait_gate_fade_s (2.0),
+            # gait_gate_stride_mm (10.0).
+            g_gait = float(cfg_get(self.cfg, "reward",
+                                   "walk_gait_gate", default=0.0))
+            self._gait_gate_qfactor = 1.0
+            if g_gait > 0.0 and s_ref > 1e-3:
+                self._gait_cmd_tick += 1
+                n_gwin = max(1, int(round(float(cfg_get(
+                    self.cfg, "reward", "gait_gate_window_s",
+                    default=2.0)) / self.dt)))
+                n_gfade = int(round(float(cfg_get(
+                    self.cfg, "reward", "gait_gate_fade_s",
+                    default=2.0)) / self.dt))
+                g_score = 1.0
+                for f in range(6):
+                    if f in lift:
+                        continue
+                    since = self._gait_cmd_tick - self._gait_last_step[f]
+                    if since <= n_gwin:
+                        sc = 1.0
+                    elif n_gfade > 0:
+                        sc = max(1.0 - (since - n_gwin) / n_gfade, 0.0)
+                    else:
+                        sc = 0.0
+                    g_score = min(g_score, sc)
+                gt_factor = (1.0 - g_gait) + g_gait * g_score
+                r_walk *= gt_factor
+                if r_prog > 0.0:
+                    r_prog *= gt_factor
+                self._gait_gate_qfactor = gt_factor
+                info["walk_gait_min"] = g_score
+                info["walk_gait_gate_factor"] = gt_factor
             reward = float(reward) + r_walk + r_prog
             info["reward_walk"] = r_walk
             info["reward_walk_prog"] = r_prog
@@ -1267,8 +1342,17 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             budget_m = float(cfg_get(self.cfg, "reward",
                                      "step_disp_budget_mm",
                                      default=0.0)) / 1000.0
+            # gait_gate_stride_mm: min completed-swing XY stride the
+            # walk_gait_gate above counts as "this leg is cycling"
+            # (below the step credit's 10 mm ALONG-command bar on
+            # purpose — the gate scores gait legality, not progress;
+            # direction is priced by the kernel/progress terms).
+            gait_stride_m = float(cfg_get(self.cfg, "reward",
+                                          "gait_gate_stride_mm",
+                                          default=10.0)) / 1000.0
             if (k_swing > 0.0 or k_step > 0.0 or k_drag > 0.0
-                    or k_park > 0.0 or k_ds > 0.0) and s_ref > 1e-3:
+                    or k_park > 0.0 or k_ds > 0.0
+                    or g_gait > 0.0) and s_ref > 1e-3:
                 if budget_m > 0.0:
                     # `along` here is still the BODY along-command
                     # velocity (m/s) from the r_prog block above (the
@@ -1306,6 +1390,14 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                         # stepping with the "hands" is the six-leg
                         # cheat, not the task. Charges below still
                         # apply to it (a dragging front pays).
+                        # walk_gait_gate bookkeeping: a completed real
+                        # swing marks this leg "cycling" on the
+                        # commanded-tick clock (lift legs excluded —
+                        # their stepping is the six-leg cheat).
+                        if g_gait > 0.0 and air >= 2 \
+                                and stride >= gait_stride_m \
+                                and f not in lift:
+                            self._gait_last_step[f] = self._gait_cmd_tick
                         if k_swing > 0.0 and stride >= 0.015 \
                                 and air >= 2 and f not in lift:
                             r_swing += k_swing
@@ -1495,8 +1587,21 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 if self._touch_adr[f] >= 0
                 and float(self.data.sensordata[
                     self._touch_adr[f]]) > 0.5)
-            r_qc = k_qc * clear_sum / max(len(lift), 1)
-            r_qp = k_qp * n_on / max(len(support), 1)
+            # walk_gait_gate (08-13): on commanded quadwalk ticks the
+            # clear/plant income rides the SAME all-support-legs
+            # factor as the kernel — otherwise "sit fronts-up and
+            # scoot" keeps its ~2.25/tick sitting income while the
+            # gate zeroes only transport pay (quadwalk4/5's cheat was
+            # funded by exactly this stream). Quad HOLD mode and
+            # quadwalk stillness segments are untouched (the factor
+            # is reset to 1.0 on every non-commanded tick and the
+            # mode check below skips hold outright); gate off =
+            # factor 1.0 = bit-exact.
+            qgt = 1.0
+            if getattr(self._goal_traj, "mode", "") == "quadwalk":
+                qgt = float(getattr(self, "_gait_gate_qfactor", 1.0))
+            r_qc = k_qc * clear_sum / max(len(lift), 1) * qgt
+            r_qp = k_qp * n_on / max(len(support), 1) * qgt
             reward = float(reward) + r_qc + r_qp
             info["reward_quad_clear"] = r_qc
             info["reward_quad_plant"] = r_qp
