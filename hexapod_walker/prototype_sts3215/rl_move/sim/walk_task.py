@@ -654,11 +654,31 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         vy[hold_n:end] = np.linspace(0.0, vy_t, end - hold_n)
         zeros = np.zeros(n)
         wz = np.zeros(n) if self._yaw_cmd else None
+        # Spawn kind (08-13, quad track, after cw-quadwalk1/2/3): from
+        # the legacy six-foot "plant" start the warm-started six-leg
+        # walk basin survives both 3x lift income AND a live per-tick
+        # ground-contact charge worth ~40% of episode return (verdict
+        # chain in rl_docs/runs/cw-quadwalk{1,2,3}.md) — pricing is an
+        # exhausted lever class; the blocker is exploration. "quad"
+        # spawns the episode ALREADY IN the fronts-tucked four-leg
+        # stance (built env-side in sim_env._reset_begin, kind
+        # "quadstance") so rear-four stepping is the natural thing to
+        # try and six-leg walking requires actively planting the
+        # charged fronts. Default "plant" = legacy bit-exact (same
+        # start_at literal, no extra rng draw).
+        start = str(cfg_get(self.cfg, "goal", "quadwalk_start",
+                            default="plant"))
+        if start not in ("plant", "quad"):
+            raise ValueError(
+                f"goal.quadwalk_start must be 'plant' or 'quad', "
+                f"got {start!r}")
         return WalkTrajectory(mode="quadwalk", roll=zeros, pitch=zeros,
                               height=zeros, unload_leg=None,
                               lift_legs=tuple(getattr(
                                   self._goal_gen, "quad_legs", (0, 5))),
-                              start_at="plant", vx=vx, vy=vy, wz=wz)
+                              start_at=("quadstance" if start == "quad"
+                                        else "plant"),
+                              vx=vx, vy=vy, wz=wz)
 
     # GETUP start-kind mix (see _sample_getup): random legal tangle,
     # belly-zero, partial curl, crouch, plant, tripod park. The pose

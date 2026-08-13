@@ -47,6 +47,13 @@ from .servo_model import (  # noqa: E402
 G0 = 9.80665
 N_OBS = 47
 
+# QUADWALK "quadstance" spawn (08-13, quad track): per-lift-leg
+# (yaw, hip, knee) rad — the "tuck" claw from
+# quadruped_feasibility.FRONT_POSES (kept literal here so env workers
+# don't import that mujoco-loading probe module; c57 static sweep GO,
+# within joint limits yaw ±0.61 / hip −1.40..0.52 / knee −0.35..2.62).
+_QUAD_TUCK_RAD = (0.0, -1.10, 2.40)
+
 # Rise-reference cache (reward.rise_ref_path): one load per process —
 # the MJX vec envs build thousands of shims that share this module.
 _RISE_REF_CACHE: dict[str, dict] = {}
@@ -1216,6 +1223,62 @@ class SimHexapodBalanceEnv(_GymBase):
                 q_start = q_start + self._ep_rand.start_offset_rad
             q_start = self._apply_tipped_start(q_start)
             q_start = self._clip_to_joint_limits(q_start)
+        elif start_at == "quadstance":
+            # QUADWALK four-leg spawn (08-13, quad track; opt-in via
+            # cfg goal.quadwalk_start="quad", see
+            # walk_task._sample_quadwalk). Mid feet splayed forward
+            # (goal.quadwalk_mid_splay_m, default 0.06 — the bare
+            # plant+tuck stance pitch-trips in <1 s, CoM ahead of the
+            # 4-foot polygon front edge; the splayed form is the
+            # QUADWALK bank's own statically-surviving freeze stance),
+            # commanded lift legs pre-folded into the feasibility
+            # sweep's "tuck" claw. Episodes begin INSIDE the fronts-up
+            # stance the policy already knows from quad-hold, so
+            # rear-four stepping is the reachable behavior and six-leg
+            # walking requires actively planting the charged fronts.
+            # +-2 deg jitter matches the gait/park spawn convention.
+            # Reached only from quadwalk trajectories, so no legacy
+            # rng stream can be perturbed.
+            from tripod_gait import TripodGait
+            splay = float(cfg_get(self.cfg, "goal",
+                                  "quadwalk_mid_splay_m", default=0.06))
+            g = TripodGait()
+            g.sync_plant_stance(float(self._plant_deg[1]),
+                                float(self._plant_deg[2]))
+            _orig = g._foot_target_in_body
+
+            def _splayed(i, vx, vy, om, _o=_orig, _s=splay):
+                dx, dy, dz = _o(i, vx, vy, om)
+                if i in (1, 4):
+                    dx += _s
+                return (dx, dy, dz)
+            g._foot_target_in_body = _splayed
+            g.set_velocity(vx=0.0, vy=0.0)
+            g.reset_phase()
+            q_start = np.asarray(g.desired_deg(0.0),
+                                 dtype=float) * DEG2RAD
+            lift = tuple(getattr(self._goal_traj, "lift_legs", None)
+                         or (0, 5))
+            for leg in lift:
+                q_start[3 * leg: 3 * leg + 3] = _QUAD_TUCK_RAD
+            q_start += self.rng.uniform(-2.0, 2.0, N_JOINTS) * DEG2RAD
+            if self._ep_rand is not None:
+                q_start = q_start + self._ep_rand.start_offset_rad
+            q_start = self._apply_tipped_start(q_start)
+            q_start = self._clip_to_joint_limits(q_start)
+            # The limp-settle stage passively pitches this front-back-
+            # asymmetric stance nose-down onto the tucked claws (~15-17
+            # deg) before the servos engage; anchoring the tilt ref at
+            # that sagged attitude would (a) train the policy to HOLD
+            # the sag and (b) trip tilt_pitch the moment it LEVELS by
+            # more than the envelope (measured: recovery to 6 deg
+            # tripped at |6-16.6|>10). Keep the reference LEVEL like
+            # tipped starts / "any" recovery spawns, so the attitude
+            # terms pay leveling out. Runs enabling this spawn must
+            # widen safety.max_roll/pitch_deg past the sag transient
+            # (the deployment-contract 25 deg envelope covers it),
+            # same contract as the getup "any" starts.
+            self._tipped_applied = True
         else:
             q_start = self._clip_to_joint_limits(
                 self._apply_tipped_start(self._start_pose_rad()))

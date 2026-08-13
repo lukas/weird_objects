@@ -7,6 +7,30 @@ Stand on four, walk on four, front pair free for tricks.
 
 ## Now
 
+- **08-13 (~15:xx UTC): `cw-quadwalk3` (per-tick lift-leg ground-
+  contact charge, k=3.0) FAIL — same pre-registered fronts-down cheat,
+  THIRD time, and this one is decisive: the charge verifiably FIRED
+  (`env/reward_quad_lift_contact` −1.54/tick ≈ −575/ep, matching the
+  bank's −547) and the policy simply PAID it — ~40% of episode return
+  — rather than leave the warm-started six-leg basin (tail lift duty
+  0.58/0.36 med vs quadwalk2's 0.62/0.32; fronts_lifted 0/12; fwd med
+  0.60 m, 0 falls, roll clean). PRICING (income and charge) is now a
+  measured-exhausted lever CLASS for quadwalk; per the arm's own
+  prediction-if-false the blocker is EXPLORATION from the six-foot
+  plant spawn (quad-hold proves lifting IS learnable from plant under
+  a hold command — under a walk command the six-leg basin dominates).
+  Secondary: quad-hold retention survived 12/12 but the stance still
+  creeps 0.41–0.43 m/15 s (k_quad_still=1.0 didn't fix creep).
+  CODE lever landed per that branch: `goal.quadwalk_start="quad"` —
+  episodes spawn ALREADY in the four-leg stance (support legs at the
+  splayed freeze stance, `quadwalk_mid_splay_m` 0.06; lift legs at
+  the feasibility tuck claw; tilt refs anchored LEVEL because the
+  limp settle sags the stance ~16° nose-down onto the claws — runs
+  must widen safety.max_roll/pitch_deg to 25). Default "plant"
+  bit-exact; 3 new semantics tests, full bank 87 pass. Six-leg
+  walking now requires actively PLANTING the charged fronts from a
+  fronts-up start — **`cw-quadwalk4`** (quadwalk3 + this spawn, ONE
+  lever package, 2M discovery) is the refill.
 - **08-13 (~14:xx UTC): `cw-quadwalk2` (3× lift income) FAIL — the
   same pre-registered cheat (b), milder: fronts_lifted 0/12 det+sto,
   front tail contact duty 1.0 → 0.62/0.32 (still ≫ the 0.15 bar),

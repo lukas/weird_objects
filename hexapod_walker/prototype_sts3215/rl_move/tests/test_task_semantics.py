@@ -3184,3 +3184,105 @@ def test_quad_lift_contact_charges_frontdrag_like_sixleg():
                                    overrides=QUAD_LIFTC_OVERRIDES)["return"])
     assert fd_cost > 100.0, (
         f"k=3 charged the fronts-down drag only {fd_cost:.1f} — no bite")
+
+
+# --------------------------------------------------------------------
+# goal.quadwalk_start (08-13, quad track, after cw-quadwalk3): with the
+# lift-contact charge verifiably live (env/reward_quad_lift_contact
+# -1.54/tick ~ -575/ep) the policy STILL walked on six legs — income
+# and charge pricing are both exhausted, the blocker is exploration
+# from the six-foot plant spawn. "quad" spawns quadwalk episodes
+# already in the fronts-tucked four-leg stance (env-side kind
+# "quadstance": support legs at plant, lift legs at the feasibility
+# tuck claw, +-2 deg jitter). Default "plant" must stay bit-exact.
+
+def test_quadwalk_start_default_plant_bit_exact():
+    """Key absent and key explicitly 'plant' are the same episode:
+    identical start_at literal and identical scripted-rollout return
+    (no rng draw may be added on the default path)."""
+    env = _make_quadwalk_env(SEEDS[0])
+    env.reset()
+    assert getattr(env._goal_traj, "start_at", "?") == "plant"
+    env.close()
+    explicit = dict(QUADWALK_OVERRIDES)
+    explicit[("goal", "quadwalk_start")] = "plant"
+    a = _quadwalk_rollout("sixleg", SEEDS[0],
+                          overrides=QUADWALK_OVERRIDES)["return"]
+    b = _quadwalk_rollout("sixleg", SEEDS[0], overrides=explicit)["return"]
+    assert a == b, (
+        f"goal.quadwalk_start='plant' changed the episode ({a} vs {b})")
+
+
+def test_quadwalk_start_invalid_rejected():
+    ov = dict(QUADWALK_OVERRIDES)
+    ov[("goal", "quadwalk_start")] = "sideways"
+    env = _make_quadwalk_env(SEEDS[0], overrides=ov)
+    with pytest.raises(ValueError):
+        env.reset()
+    env.close()
+
+
+def test_quadwalk_start_quad_spawns_fronts_up():
+    """'quad' spawn: episode begins in the four-leg stance — lift-leg
+    joints at the tuck claw (not plant), lift feet OFF the ground and
+    all four support feet ON it right after the spawn settles, and the
+    stance survives a 2 s scripted hold without tipping. Runs using
+    this spawn must widen the tilt envelope past the limp-settle sag
+    transient (~15-17 deg nose-down onto the claws) — same contract as
+    the getup 'any' starts; the test mirrors the launch cfg (25 deg =
+    the deployment envelope)."""
+    ov = dict(QUADWALK_OVERRIDES)
+    ov[("goal", "quadwalk_start")] = "quad"
+    ov[("safety", "max_roll_deg")] = 25.0
+    ov[("safety", "max_pitch_deg")] = 25.0
+    env = _make_quadwalk_env(SEEDS[0], overrides=ov)
+    env.reset()
+    traj = env._goal_traj
+    assert getattr(traj, "start_at", "?") == "quadstance"
+    tuck = np.array(QW_TUCK_RAD)
+    # Hold the spawn stance for 2 s — same construction as the spawn
+    # itself and the bank's surviving freeze stance: TripodGait plant
+    # with mid feet splayed +0.06 m forward, lift legs at tuck.
+    from tripod_gait import TripodGait
+    gait = TripodGait()
+    gait.sync_plant_stance(*WALK_PLANT)
+    _orig = gait._foot_target_in_body
+
+    def _splayed(i, vx, vy, om, _o=_orig):
+        dx, dy, dz = _o(i, vx, vy, om)
+        if i in (1, 4):
+            dx += 0.06
+        return (dx, dy, dz)
+    gait._foot_target_in_body = _splayed
+    gait.set_velocity(vx=0.0, vy=0.0)
+    gait.reset_phase()
+    q_hold = np.asarray(gait.desired_deg(0.0)) * DEG2RAD
+    for leg in QW_LIFT:
+        q_hold[3 * leg:3 * leg + 3] = tuck
+    n_hold = int(round(2.0 / env.dt))
+    n_settle = int(round(0.5 / env.dt))
+    lift_contact = support_off = checked = 0
+    term = trunc = False
+    for step in range(n_hold):
+        _obs, _r, term, trunc, _info = env.step(q_rad_to_action(q_hold))
+        if step >= n_settle:
+            checked += 1
+            lift_contact += sum(
+                1 for leg in QW_LIFT
+                if float(env.data.sensordata[env._touch_adr[leg]]) > 0.5)
+            support_off += sum(
+                1 for leg in range(6) if leg not in QW_LIFT
+                and float(env.data.sensordata[env._touch_adr[leg]]) < 0.5)
+        if term or trunc:
+            break
+    env.close()
+    assert not term, "quadstance spawn tipped over during a scripted hold"
+    assert checked > 0
+    lift_duty = lift_contact / (2.0 * checked)
+    support_off_frac = support_off / (4.0 * checked)
+    assert lift_duty < 0.05, (
+        f"lift feet touch the ground {lift_duty:.2f} of post-settle "
+        "ticks — spawn is not fronts-up")
+    assert support_off_frac < 0.25, (
+        f"support feet off the ground {support_off_frac:.2f} of ticks "
+        "— spawn stance not planted")
