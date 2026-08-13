@@ -788,7 +788,181 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         traj.start_kind = kind
         return traj
 
+    # ---- mode sequencing (goal.mode_seq; TRANSITIONS_DIRECTIVE item 1)
+    #
+    # Episode = K back-to-back mode segments following the operator's
+    # command grammar rise -> {hold|walk} -> {walk|lower} -> (rise ...).
+    # At each switch the env re-anchors the height frame on the CURRENT
+    # state and regenerates the refs (sim_env._seq_maybe_switch — the
+    # eval_handoff re-anchor semantics); this side samples the plan and
+    # builds each segment's schedule. goal.mode_seq=0 (default) is
+    # bit-exact legacy: no plan, no extra rng draws, no per-tick work
+    # beyond one attr check. Keys:
+    #   goal.mode_seq                1 = on (joint_walk task only)
+    #   goal.mode_seq_segment_s_min  segment length draw lo (s, 6.0)
+    #   goal.mode_seq_segment_s_max  segment length draw hi (s, 8.0)
+    #   goal.mode_seq_blend_s_min    per-switch ref blend lo (s, 0.5)
+    #   goal.mode_seq_blend_s_max    per-switch ref blend hi (s, 1.0)
+    #   goal.mode_seq_max_segments   plan length cap (5)
+    # First segment uses the LEGACY samplers (full start-kind diversity:
+    # rise keeps its flat/bridge/crouch mix, walk its park/gait spawn
+    # draws, lower its belly-start draw) so a sequence may begin at any
+    # start kind, compatibly by construction. Mid-sequence spawns
+    # (sequence-RSI) are deliberately NOT in v1 (pre-registered
+    # follow-up lever).
+    SEQ_NEXT = {"rise": ("hold", "walk"), "hold": ("walk", "lower"),
+                "walk": ("lower",), "lower": ("rise",)}
+
+    def _sample_mode_seq(self):
+        gen = self._goal_gen
+        rng = self.rng
+        dt = self.dt
+        n = self.episode_steps + 1
+        seg_lo = float(cfg_get(self.cfg, "goal", "mode_seq_segment_s_min",
+                               default=6.0))
+        seg_hi = float(cfg_get(self.cfg, "goal", "mode_seq_segment_s_max",
+                               default=8.0))
+        bl_lo = float(cfg_get(self.cfg, "goal", "mode_seq_blend_s_min",
+                              default=0.5))
+        bl_hi = float(cfg_get(self.cfg, "goal", "mode_seq_blend_s_max",
+                              default=1.0))
+        max_seg = int(cfg_get(self.cfg, "goal", "mode_seq_max_segments",
+                              default=5))
+        # First mode: the configured goal mix restricted to the four
+        # sequence modes (renormalized; uniform fallback) — --goal-mix
+        # keeps steering what sequences train on.
+        modes4 = ("rise", "walk", "hold", "lower")
+        p = np.array([gen.p_rise, float(getattr(gen, "p_walk", 0.0)),
+                      gen.p_hold, gen.p_lower], dtype=float)
+        p = (p / p.sum()) if p.sum() > 0 else np.full(4, 0.25)
+        mode = str(modes4[int(rng.choice(4, p=p))])
+        # Segment boundaries: cumulative U(seg_lo, seg_hi) draws until
+        # the tail can no longer hold a useful (>=3 s) segment; the
+        # last segment runs to the episode end. Guarantee >= 2 segments
+        # (a 1-segment "sequence" tests nothing) by splitting at the
+        # middle if the draw left no boundary.
+        min_tail = int(round(3.0 / dt))
+        ticks = [0]
+        t = 0.0
+        while len(ticks) < max_seg:
+            t += float(rng.uniform(seg_lo, seg_hi))
+            tk = int(round(t / dt))
+            if tk > self.episode_steps - min_tail:
+                break
+            ticks.append(tk)
+        if len(ticks) == 1:
+            ticks.append(max(1, self.episode_steps // 2))
+        plan = [{"mode": mode, "tick": 0, "blend": 0}]
+        for tk in ticks[1:]:
+            mode = str(rng.choice(self.SEQ_NEXT[mode]))
+            bn = max(1, int(round(float(rng.uniform(bl_lo, bl_hi)) / dt)))
+            plan.append({"mode": mode, "tick": tk, "blend": bn})
+        self._seq_plan = plan
+        self._seq_idx = 0
+        self._seq_seg_end = (int(plan[1]["tick"]) if len(plan) > 1
+                             else int(self.episode_steps))
+        # First segment through the legacy samplers (start-kind
+        # diversity lives there; reset() uses its start_at).
+        first = str(plan[0]["mode"])
+        if first == "walk":
+            return self._sample_walk()
+        return gen.sample(rng, n, dt, force_mode=first)
+
+    def _seq_segment_traj(self, mode: str, tick: int):
+        """Mid-episode segment schedule on the EPISODE clock: arrays are
+        full-length with [0:tick] padded (never read again) so every
+        existing _step_i-indexed consumer (goal reads, ref_quiet, the
+        BC lookahead, end-posture) works unchanged. Heights are
+        relative to the freshly re-anchored _z0 (caller re-bases it
+        BEFORE calling). Returns (traj, h_target, ramp_i0)."""
+        gen = self._goal_gen
+        rng = self.rng
+        dt = self.dt
+        n = self.episode_steps + 1
+        m = n - tick
+        if mode == "walk":
+            base = self._sample_walk()
+            for name in ("roll", "pitch", "height", "vx", "vy", "wz"):
+                arr = getattr(base, name, None)
+                if arr is None:
+                    continue
+                arr = np.asarray(arr, dtype=float)
+                out = np.empty(n, dtype=float)
+                out[:tick] = arr[0]
+                out[tick:] = arr[:m]
+                setattr(base, name, out)
+            base.start_at = "plant"    # reset-only hint, unused here
+            return base, 0.0, 0
+        height = np.zeros(n)
+        h_target = 0.0
+        ramp_i0 = 0
+        if mode == "rise":
+            # Aim back at the last commanded stand height when known
+            # (the joystick semantics of "stand up" mid-cycle); a
+            # sequence that has never stood draws the legacy amplitude.
+            if self._seq_stand_z is not None:
+                amp = min(max(self._seq_stand_z - self._z0, 0.010),
+                          gen.rise_m[1])
+            else:
+                amp = float(rng.uniform(*gen.rise_m))
+            hold_n = max(1, int(round(1.0 / dt)))
+            ramp_n = max(1, int(round(gen._jittered_s(
+                rng, gen.rise_ramp_s, gen.rise_ramp_jitter) / dt)))
+            i1 = min(tick + hold_n, n)
+            end = min(i1 + ramp_n, n)
+            height[i1:] = amp
+            if end > i1:
+                height[i1:end] = np.linspace(0.0, amp, end - i1)
+            h_target = amp
+            ramp_i0 = i1
+            self._seq_stand_z = self._z0 + amp
+        elif mode == "lower":
+            target = -float(rng.uniform(*gen.lower_m))
+            hold_n = max(1, int(round(gen.lower_hold_s / dt)))
+            ramp_n = max(1, int(round(gen._jittered_s(
+                rng, gen.lower_ramp_s, gen.lower_ramp_jitter) / dt)))
+            i1 = min(tick + hold_n, n)
+            end = min(i1 + ramp_n, n)
+            height[i1:] = target
+            if end > i1:
+                height[i1:end] = np.linspace(0.0, target, end - i1)
+            h_target = target
+        elif mode != "hold":
+            raise ValueError(f"mode_seq: unsupported segment {mode!r}")
+        traj = GoalTrajectory(mode=mode, roll=np.zeros(n),
+                              pitch=np.zeros(n), height=height,
+                              unload_leg=None, start_at="plant")
+        return traj, h_target, ramp_i0
+
+    def _seq_reset_mode_state(self, mode: str, ramp_i0: int,
+                              h_target: float) -> None:
+        super()._seq_reset_mode_state(mode, ramp_i0, h_target)
+        # Fresh-segment walk bookkeeping: every accumulator _reset_begin
+        # zeroes gets a fresh segment (income/charge baselines must
+        # never leak across a mode switch); prev-XY/contact latches go
+        # back to None/False and re-latch on the next loaded tick.
+        self._liftoff_step = [0] * 6
+        self._foot_prev_xy = [None] * 6
+        self._duty_hist = []
+        self._anchor_xy = [None] * 6
+        self._anchor_prev_on = [False] * 6
+        self._step_disp_bank = 0.0
+        self._yaw_still_ema = 0.0
+        self._ls_prev_xy = [None] * 6
+        self._ls_prev_on = [False] * 6
+        self._ls_slip_m = 0.0
+        self._ls_prog_m = 0.0
+        self._stance_slip_acc = [0.0] * 6
+        self._gait_last_step = [0] * 6
+        self._gait_cmd_tick = 0
+        self._gait_gate_qfactor = 1.0
+        self._walk_bucket = None
+        self._phase = 0.0
+
     def _sample_goal(self):
+        if float(cfg_get(self.cfg, "goal", "mode_seq",
+                         default=0.0)) == 1.0:
+            return self._sample_mode_seq()
         gen = self._goal_gen
         p_walk = float(getattr(gen, "p_walk", 0.0))
         p_getup = float(getattr(gen, "p_getup", 0.0))

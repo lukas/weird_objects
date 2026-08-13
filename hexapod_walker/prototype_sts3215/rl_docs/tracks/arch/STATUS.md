@@ -239,20 +239,41 @@ at what budget, with which failure modes.
 - **OPERATOR DIRECTIVE (08-13 ~21:00 UTC): two jobs — ONE model for
   operator-commanded rise→walk→sit→rise cycles. Spec of record:
   `TRANSITIONS_DIRECTIVE.md` (this dir). Agent-doable, NOT
-  operator-gated.** In order: land the three CODE items
-  (`goal.mode_seq` mid-episode mode switching with per-switch
-  re-anchoring of `_z0`/refs — the #1 hidden-state trap;
-  `distill_gru --transitions` teacher-chained sequence demos via the
-  eval_handoff re-anchor mechanics; a per-segment sequence eval
-  baselined on the known zero-fall two-specialist composition), then
-  run **arm 1 `cw-arch-trans-dagger1`** (transition DAgger distill,
-  CPU job, gate incl. lower REBUILD ≥4/6 and zero falls ≥11/12
-  sequences) and **arm 2 `cw-arch-modeseq1`** (10M consolidated RL:
-  dual1's exact proven stack with mode sequencing as the ONLY new
-  variable; warm-start order pre-registered trans-dagger1 > dual2 >
-  dagger1 BC; gates + FAIL branches pre-registered in the directive).
+  operator-gated.** Progress:
+  - **CODE item 1 LANDED (08-13 ~22:xx, c-modeseq-code):
+    `goal.mode_seq`** (walk_task/sim_env, per the scoping note below
+    — the goal-derived half of the episode state re-derives at each
+    switch, physical reset untouched). K-segment episodes on the
+    grammar rise→{hold|walk}→{walk|lower}→(rise…); at each switch the
+    height frame re-anchors (`_z0` = the CURRENT chassis height —
+    directly attacks lesson 5 and the baseline's second-rise
+    weakness below), refs regenerate on the episode clock with an
+    absolute-continuous blend window (lesson 6), BC-anchor
+    eligibility flips with the segment and hold/lower anchors
+    re-base on the pose carried INTO the segment (never the reset
+    q_nom), walk income accumulators restart per segment, the
+    end-posture window clamps to the segment. Default 0 = bit-exact
+    legacy (no extra rng draws); 5 new per-episode attrs ride
+    `mjx_host.SNAP_ATTRS`. Tests: `rl_move/tests/test_mode_seq.py`
+    (8: off-by-default stream equality, grammar/start-kind
+    compatibility, lower→rise re-anchor, blend continuity, one-hot
+    flip, walk-state restart, SNAP membership) + full regression
+    green (semantics bank 91 pass/1 xfail; sim_env, mode_onehot,
+    bc_anchor, gru_policy, mjx_vec_env suites all pass).
+  - **CODE item 3 LANDED + BASELINED** (same day, c-triage — see the
+    dedicated bullet below; baseline: footlow2_hard1 composition
+    11/12 det, 9/12 sto, all sto falls on the post-lower rise).
+  - **CODE item 2 (`distill_gru --transitions`) still OPEN — the
+    next CODE job**, then **arm 1 `cw-arch-trans-dagger1`**, then
+    **arm 2 `cw-arch-modeseq1`** (now unblocked env-side by item 1;
+    warm-start order pre-registered trans-dagger1 > dual2 >
+    dagger1 BC).
   The directive's failure ledger (12 measured lessons) is binding —
   do not re-litigate closed levers inside these arms.
+- **`cw-arch-gru-dual2` drained 20:15 UTC, FINISHED ~21:38 — canary
+  AUTO-STOP at 3.18M steps (rise_bridge failed 3 consecutive
+  probes).** Flagged DIG-IN by the triage cycle (model tiering); no
+  verdict yet — do not treat the auto-stop as a verdict.
 - **CODE item 3 LANDED + BASELINED (08-13, c-triage): the sequence
   eval instrument (`eval_modeseq.py`, new file, pure external
   orchestration of already-trained checkpoints — touches zero env/

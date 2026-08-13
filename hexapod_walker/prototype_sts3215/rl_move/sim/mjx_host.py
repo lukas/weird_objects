@@ -62,6 +62,15 @@ SNAP_ATTRS = (
     # episode inheriting another episode's ratchet is exactly the
     # commit-65edba7 bug class this list exists to prevent.
     "_is_getup", "_getup_best",
+    # Mode-sequencing episode state (goal.mode_seq, TRANSITIONS_
+    # DIRECTIVE item 1, 08-13): the segment plan/index, the stand-
+    # height anchor mid-sequence rises aim at, the active segment's
+    # end tick (end-posture window clamp) and the hold/lower BC base
+    # pose captured at each switch. Set in the reset path AND at
+    # mid-episode switches, read every tick — the exact attr class
+    # this list exists for.
+    "_seq_plan", "_seq_idx", "_seq_stand_z", "_seq_seg_end",
+    "_seq_pose_anchor",
 )
 
 

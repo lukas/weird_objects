@@ -204,17 +204,25 @@ class GoalGenerator:
         return np.clip(out, -amp_max, amp_max)
 
     def sample(self, rng: np.random.Generator, n_steps: int,
-               dt: float) -> GoalTrajectory:
+               dt: float, force_mode: str | None = None) -> GoalTrajectory:
         # "quad" appended with p=0 by default: a zero-probability entry
         # does not change Generator.choice's cdf mapping, so legacy rng
         # streams are unchanged.
-        probs = np.array([self.p_hold, self.p_lean, self.p_track,
-                          self.p_unload, self.p_raise, self.p_rise,
-                          self.p_lower, self.p_quad])
-        mode = str(rng.choice(
-            ["hold", "lean", "track", "unload", "raise", "rise", "lower",
-             "quad"],
-            p=probs / probs.sum()))
+        if force_mode is not None:
+            # Mode-sequencing hook (goal.mode_seq, TRANSITIONS_DIRECTIVE
+            # CODE item 1): the sequence planner draws the mode itself
+            # and asks for that segment's reference schedule. Legacy
+            # callers never pass this, so the draw below (and every rng
+            # stream) is bit-exact unchanged when unused.
+            mode = str(force_mode)
+        else:
+            probs = np.array([self.p_hold, self.p_lean, self.p_track,
+                              self.p_unload, self.p_raise, self.p_rise,
+                              self.p_lower, self.p_quad])
+            mode = str(rng.choice(
+                ["hold", "lean", "track", "unload", "raise", "rise",
+                 "lower", "quad"],
+                p=probs / probs.sum()))
         roll = np.zeros(n_steps)
         pitch = np.zeros(n_steps)
         height = np.zeros(n_steps)

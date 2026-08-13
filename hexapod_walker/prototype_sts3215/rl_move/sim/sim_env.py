@@ -522,6 +522,13 @@ class SimHexapodBalanceEnv(_GymBase):
         self._state: RobotState | None = None
         self._renderer = None
         self._goal_traj = None            # set by goal-conditioned subclass
+        # Mode-sequencing state (goal.mode_seq) — populated per episode
+        # in _reset_begin/_sample_mode_seq; None = feature off.
+        self._seq_plan = None
+        self._seq_idx = 0
+        self._seq_stand_z = None
+        self._seq_seg_end = None
+        self._seq_pose_anchor = None
         self._imu_prev_v: np.ndarray | None = None
         self._imu_f_accum = np.zeros(3)
         self._imu_f_n = 0
@@ -1035,6 +1042,18 @@ class SimHexapodBalanceEnv(_GymBase):
                     "path can only ease gravity through per-world "
                     "model-DR fields")
 
+        # Mode-sequencing episode state (goal.mode_seq, TRANSITIONS_
+        # DIRECTIVE CODE item 1). Cleared BEFORE _sample_goal so the
+        # planner (walk_task._sample_mode_seq) can repopulate it; all
+        # five ride mjx_host.SNAP_ATTRS (pool-restore lesson). None/0
+        # defaults = legacy bit-exact (the switch hook is a single
+        # attr check per tick and no rng is ever drawn).
+        self._seq_plan = None          # [{mode, tick, blend}, ...]
+        self._seq_idx = 0              # index of the ACTIVE segment
+        self._seq_stand_z = None       # abs z of the last commanded stand
+        self._seq_seg_end = None       # active segment's end tick
+        self._seq_pose_anchor = None   # hold/lower BC base pose mid-seq
+
         # Goal first: it decides the reset pose. Rise episodes start at
         # the ZERO pose — legs straight out, belly resting on the yaw
         # servos, exactly how the operator places the robot — and must
@@ -1490,21 +1509,7 @@ class SimHexapodBalanceEnv(_GymBase):
                                   default=0.0)) > 0.0
                 and float(cfg_get(self.cfg, "train", "bc_anchor_walk",
                                   default=1.0)) > 0.0):
-            try:
-                from tripod_gait import TripodGait
-            except ImportError:
-                import sys as _sys
-                _lc = str(Path(__file__).resolve().parents[2]
-                          / "linux_control")
-                if _lc not in _sys.path:
-                    _sys.path.insert(0, _lc)
-                from tripod_gait import TripodGait
-            _g = TripodGait(vx=0.0)
-            # Canonical sim plant stance (same source as _default_plant
-            # fallback and the WALK semantics bank): +20/+80.
-            _g.sync_plant_stance(20.0, 80.0)
-            _g.reset_phase()
-            self._walk_bc_gait = _g
+            self._walk_bc_gait = self._make_walk_bc_gait()
         # First ramp tick of a rise schedule (hold window ends here) —
         # the alignment anchor for the rise-reference tracking term:
         # references are recorded ramp-relative so episodes with
@@ -1514,6 +1519,21 @@ class SimHexapodBalanceEnv(_GymBase):
             nz = np.nonzero(
                 np.abs(np.asarray(self._goal_traj.height)) > 1e-12)[0]
             self._rise_ramp_i0 = int(nz[0]) if len(nz) else 0
+        # Mode-seq stand anchor (goal.mode_seq): the absolute chassis z
+        # of the last COMMANDED standing height. A mid-sequence rise
+        # aims back at this (re-anchored per switch — lesson 5 of the
+        # transitions directive: start-relative refs are the #1 hidden-
+        # state trap). Standing starts anchor at the settled height;
+        # rise starts at the commanded top; a belly-start lower has no
+        # known stand height until its first rise completes.
+        if getattr(self, "_seq_plan", None) is not None:
+            _m0 = getattr(self._goal_traj, "mode", "")
+            if _m0 == "rise":
+                self._seq_stand_z = self._z0 + self._h_target
+            elif getattr(self._goal_traj, "start_at", "plant") != "zero":
+                self._seq_stand_z = self._z0
+            else:
+                self._seq_stand_z = None
         self._plant_feet_xy = fk_all_feet(
             self._plant_deg * DEG2RAD)[:, :2]
         self._curl_dist_prev = self._curl_dist()
@@ -1733,11 +1753,124 @@ class SimHexapodBalanceEnv(_GymBase):
             is_rsi = False
         return min(max(j, 0), len(ref["q"]) - 1), is_rsi
 
+    def _make_walk_bc_gait(self):
+        """Per-episode TripodGait instance for the walk BC anchor
+        (shared by _reset_finalize and the mode-seq switch path)."""
+        try:
+            from tripod_gait import TripodGait
+        except ImportError:
+            import sys as _sys
+            _lc = str(Path(__file__).resolve().parents[2]
+                      / "linux_control")
+            if _lc not in _sys.path:
+                _sys.path.insert(0, _lc)
+            from tripod_gait import TripodGait
+        _g = TripodGait(vx=0.0)
+        # Canonical sim plant stance (same source as _default_plant
+        # fallback and the WALK semantics bank): +20/+80.
+        _g.sync_plant_stance(20.0, 80.0)
+        _g.reset_phase()
+        return _g
+
+    # ---- mode sequencing (goal.mode_seq; TRANSITIONS_DIRECTIVE item 1)
+
+    def _seq_segment_traj(self, mode: str, tick: int):
+        """Build one mid-episode segment's reference schedule. Only the
+        walk task supports mode sequencing; see walk_task override."""
+        raise NotImplementedError(
+            "goal.mode_seq segments require the joint_walk task")
+
+    def _seq_maybe_switch(self) -> None:
+        """Mid-episode mode switch (called once per tick, immediately
+        after _step_i advances and BEFORE the goal is read). At each
+        planned boundary: re-anchor the height frame at the CURRENT
+        body height (eval_handoff re-anchor semantics — refs are
+        re-based on the state the robot actually reached, physics
+        untouched), install the new segment's schedule with a blend
+        window on the refs, and re-derive ONLY the goal-derived
+        episode bookkeeping (the directive's 'flip nothing else':
+        q_nom, tilt frame, pad refs, safety state all carry over)."""
+        nxt = self._seq_idx + 1
+        if self._seq_plan is None or nxt >= len(self._seq_plan):
+            return
+        seg = self._seq_plan[nxt]
+        if self._step_i < int(seg["tick"]):
+            return
+        i0 = int(seg["tick"])
+        # Old ABSOLUTE refs at the boundary (blend origin).
+        g_old = self._goal_traj.at(self._step_i)
+        old_abs_h = self._z0 + g_old.height_ref
+        old_r, old_p = g_old.roll_ref, g_old.pitch_ref
+        # Re-anchor the height frame at the current body height
+        # (lesson 5: rise-after-lower must NOT aim at a stale frame).
+        self._z0 = float(self.data.xpos[self._chassis_bid, 2])
+        traj, h_target, ramp_i0 = self._seq_segment_traj(
+            str(seg["mode"]), i0)
+        # Blend window: refs continuous in ABSOLUTE terms across the
+        # switch (engagement-snap lesson 6 — never hand the policy a
+        # step-change reference at a control handoff).
+        b = int(seg.get("blend", 0))
+        if b > 0:
+            n = len(traj.height)
+            s = np.clip((np.arange(n) - i0 + 1.0) / float(b), 0.0, 1.0)
+            s[:i0] = 0.0   # pre-switch region, never read again
+            dh = old_abs_h - self._z0
+            traj.height = (1.0 - s) * dh + s * np.asarray(traj.height,
+                                                          dtype=float)
+            traj.roll = (1.0 - s) * old_r + s * np.asarray(traj.roll,
+                                                           dtype=float)
+            traj.pitch = (1.0 - s) * old_p + s * np.asarray(traj.pitch,
+                                                            dtype=float)
+        self._goal_traj = traj
+        self._seq_idx = nxt
+        self._seq_seg_end = (int(self._seq_plan[nxt + 1]["tick"])
+                             if nxt + 1 < len(self._seq_plan)
+                             else int(self.episode_steps))
+        self._seq_reset_mode_state(str(seg["mode"]), ramp_i0, h_target)
+
+    def _seq_reset_mode_state(self, mode: str, ramp_i0: int,
+                              h_target: float) -> None:
+        """Re-derive the goal-derived per-episode bookkeeping for a new
+        segment (the exact set _reset_finalize derives from the goal —
+        milestones/ratchets restart so a segment can never inherit
+        another segment's income baseline; SNAP_ATTRS lesson)."""
+        self._h_target = float(h_target)
+        self._h_milestones = set()
+        self._prev_h_err_abs = 0.0
+        self._score_best = None
+        self._is_rise = mode == "rise"
+        self._is_getup = False
+        self._getup_best = None
+        self._is_hold_bc = mode in ("hold", "track")
+        self._is_lower_bc = mode == "lower"
+        self._rise_ramp_i0 = int(ramp_i0)
+        self._rsi_pending = False
+        self._rsi_ref_tick0 = None
+        self._end_posture_from = None
+        self._curl_dist_prev = self._curl_dist()
+        self._curl_milestones = set()
+        # Hold/lower BC anchors mid-sequence target the pose the robot
+        # actually carries INTO the segment, not the episode-reset
+        # q_nom (a rise->hold segment anchored at a belly q_nom would
+        # supervise lying down). None outside mode_seq = legacy exact.
+        self._seq_pose_anchor = (
+            np.asarray(self.data.qpos[self._qadr], dtype=float).copy()
+            if mode in ("hold", "track", "lower") else None)
+        self._walk_bc_gait = None
+        if (mode == "walk"
+                and float(cfg_get(self.cfg, "train", "bc_anchor_coef",
+                                  default=0.0)) > 0.0
+                and float(cfg_get(self.cfg, "train", "bc_anchor_walk",
+                                  default=1.0)) > 0.0):
+            self._walk_bc_gait = self._make_walk_bc_gait()
+
     def _step_finish(self, ctx):
         """Post-physics half of step: state read, reward, obs."""
         clipped, terminated, status, pen = ctx
         self._state = self._read_state()
         self._step_i += 1
+        if getattr(self, "_seq_plan", None) is not None:
+            self._seq_maybe_switch()
         goal = self._current_goal()
         h_err = None
         h_rel = float(self.data.xpos[self._chassis_bid, 2]) - self._z0
@@ -2542,9 +2675,14 @@ class SimHexapodBalanceEnv(_GymBase):
                 win_s = float(cfg_get(
                     self.cfg, "reward", "end_posture_window_s",
                     default=1.5))
+                # Mode-seq segments end at the next switch, not the
+                # episode end — clamp the charge window to the ACTIVE
+                # segment (None outside mode_seq = legacy exact).
+                _ep_end = int(getattr(self, "_seq_seg_end", None)
+                              or self.episode_steps)
                 self._end_posture_from = max(
                     start + int(round(grace_s / self.dt)),
-                    self.episode_steps - int(round(win_s / self.dt)))
+                    _ep_end - int(round(win_s / self.dt)))
                 # Dense variant (cycle 25, lower only): a proper lower
                 # keeps all six feet planted THROUGHOUT the descent —
                 # there is no legitimate leg-lift transient to protect
@@ -2751,7 +2889,13 @@ class SimHexapodBalanceEnv(_GymBase):
         elif (self._is_hold_bc and getattr(self, "n_act", 0) == N_JOINTS
                 and _bc_coef > 0.0):
             from .joint_task import q_rad_to_action
-            _q_tgt = self._q_nom
+            # Mode-seq hold segments anchor at the pose carried INTO
+            # the segment (_seq_pose_anchor, captured at the switch);
+            # None outside mode_seq = the legacy settled q_nom.
+            _q_hold_base = (self._q_nom
+                            if getattr(self, "_seq_pose_anchor", None)
+                            is None else self._seq_pose_anchor)
+            _q_tgt = _q_hold_base
             # TIP-AWARE HOLD REFERENCE (08-13, train.bc_anchor_tilt_comp,
             # default 0 = legacy constant-q_nom target, bit-exact).
             # cw-stand-footlow2-tip1's gate consequence: tipped-start DR
@@ -2827,7 +2971,7 @@ class SimHexapodBalanceEnv(_GymBase):
                     _cr = float(np.clip(-_tc * _er, -_maxc, _maxc))
                     _cp = float(np.clip(-_tc * _ep_, -_maxc, _maxc))
                     _ik = FixedFootBodyIK()
-                    _ik.reset(self._q_nom)
+                    _ik.reset(_q_hold_base)
                     # Halving retry: a correction the stance geometry
                     # can't reach degrades to a smaller one instead of
                     # silently reverting to the tilt-blind target (the
@@ -2868,7 +3012,11 @@ class SimHexapodBalanceEnv(_GymBase):
             # (same one-tick-ahead convention as the rise clock).
             _g_next = self._goal_traj.at(self._step_i + 1)
             _ik = FixedFootBodyIK()
-            _ik.reset(self._q_nom)
+            # Mode-seq lower segments descend from the stance carried
+            # INTO the segment; None outside mode_seq = legacy q_nom.
+            _ik.reset(self._q_nom
+                      if getattr(self, "_seq_pose_anchor", None) is None
+                      else self._seq_pose_anchor)
             _res = _ik.solve(BodyOffset(
                 height=float(_g_next.height_ref)))
             if _res.ok:
