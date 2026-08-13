@@ -11,35 +11,38 @@ whether PPO reusing that representation (frozen / continually
 anchored) learns new motor skills with fewer env steps than PPO from
 scratch. Primary metric: sample efficiency on a NEW task.
 
-## Now (08-13 ~18:3x UTC: rep G1 FAIL at k=1 → ONE seed-retry running)
+## Now (08-13 ~19:4x UTC: retry G1 FAIL — replicated; dataset fix is
+## OPERATOR-side, no third seed)
 
-- **train-11 pilot replication FINISHED — and stopped at the G1 hard
-  gate: the pod-regenerated encoder (`dyn_v2pod_obs`, seed 0) lost
-  to the linear baseline at k=1 ONLY (model_mse 0.1718 vs linear
-  0.1673, ~2.7% miss; k=2/5/10/25 all beat both baselines; k=1
-  joint-pos RMSE 0.356° ≈ the laptop's passing 0.32°, so residual
-  heads ARE active and the model is laptop-comparable — the pod's
-  LINEAR baseline is what's stronger).** The script honored the
-  DYNREP.md hard gate: PPO cohort never ran, so this is NOT yet the
-  direction-of-effect check; hold→walk stays hard-blocked (its
-  runner aborts without a G1 PASS on record). Two candidate causes:
-  (a) training variance on a thin margin, (b) the KNOWN dataset
-  drift — the noslip actor's 10% share fell back to tripod on the
-  pod (laptop-only module), and more-periodic tripod data is exactly
-  what strengthens a ridge regressor. **ONE pre-registered retry is
-  RUNNING on train-11 (`pod_pilot_rep_retry.sh`, tag
-  exp/dynrep-podrep-retry1, launched 18:26 UTC, verified ~12 cores):
-  retrain the encoder with `--seed 1` (ONE variable), re-gate; on
-  PASS it auto-continues into the full A/B/C seeds-1–3 cohort +
-  aggregation (identical to the original stage 4/5, ENC=
-  `dyn_v2pod_obs_s1`); on FAIL (two seeds losing at k=1 on the same
-  dataset) the dataset drift becomes the prime suspect and the fix
-  is OPERATOR-side (push `noslip_gait.py` to the pod or revise the
-  v2 recipe) — no third seed.** Log:
-  `rl_move/dynamics/logs/pod_pilot_rep_retry.log` on train-11.
-  Expected if the laptop read holds, once a cohort runs: phase-1
-  final hold C > B > A; no phase-2 speed separation; retention
-  A >= C > B.
+- **The pre-registered seed-retry FINISHED and G1-FAILED the same
+  way (`pod_pilot_rep_retry.sh`, tag exp/dynrep-podrep-retry1,
+  encoder `dyn_v2pod_obs_s1`, seed 1): lost to the linear baseline
+  at k=1 ONLY — model_mse 0.1718 vs linear 0.1673 (~2.7%), k=2/5
+  and both latent horizons beat persistence AND linear, exactly the
+  seed-0 pattern.** Seed-plumbing was ruled out before accepting
+  the replication: the two checkpoints are md5-distinct, best val
+  differs (2.9357 vs 2.9599), k=2/k=5/latent numbers differ — the
+  4-dp k=1 match is rounding coincidence (physical q 0.35° vs
+  0.36°). **Per the pre-registered fork this CLOSES training
+  variance as the explanation: two independent seeds losing at k=1
+  on the same pod dataset makes the KNOWN dataset drift (noslip
+  actor's 10% share silently falling back to tripod on the pod —
+  `noslip_gait.py` is laptop-only; more-periodic tripod data is
+  exactly what strengthens a ridge regressor) the prime suspect,
+  and the fix is OPERATOR-side: push `noslip_gait.py` to the pod
+  or revise the v2 recipe. NO third seed (pre-registered).** The
+  DYNREP.md hard gate held throughout: no PPO cohort ran on either
+  failed encoder, so the pod direction-of-effect check vs the
+  laptop A/B/C read has still not happened; hold→walk stays
+  hard-blocked (its runner aborts without a G1 PASS on record).
+  Artifacts on train-11:
+  `rl_move/dynamics/logs/pod_pilot_rep_retry.log`,
+  `logs/dyn_v2pod_obs_s1_gate.txt`,
+  `logs/eval_dyn_v2pod_obs_s1_20260813_191445.json` (+latents npz),
+  `models/dyn_v2pod_obs_s1{,_final}.pt`.
+  Expected if the laptop read holds, once a cohort runs on a fixed
+  dataset: phase-1 final hold C > B > A; no phase-2 speed
+  separation; retention A >= C > B.
 - **hold->walk transfer pair: code LANDED this cycle, launch-blocked
   only on the rep landing + triage** (operator ordering). What
   landed: `walk` task in train_ppo_transfer.py (p_walk=1.0 pin, same
