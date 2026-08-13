@@ -9,17 +9,23 @@ unresolved blockers between the robot and reliable joystick control.
 
 ## Now
 
-- **CROSS-TRACK INSIGHT (from arch, 08-13, measured — no hw launch):
-  the warp/MJX training physics under-charges loaded-foot slip vs
-  the C env** (same checkpoint: loadslip factor 0.085 in MJX vs 0.31
-  in C; C-env replay of the training pricing docks the slippy gait
-  ~−280/ep that MJX pays — arch/STATUS.md "no-slip line" for the
-  audit). Every MJX-trained walking line, including the deployed
-  crouch-shuffle's slip numbers and bcgait1-hard1's residual slip,
-  inherits this bias toward foot-dragging; a warp-vs-C contact-creep
-  parity fix would raise gait quality campaign-wide. Parity audit is
-  the arch track's named next step; cross-track launches stay
-  operator-only.
+- **CORRECTION (08-13 ~06:xx, cross-track from arch — RETRACTS the
+  earlier "warp under-charges slip" insight): the warp-vs-C contact
+  parity audit RAN (`probe_contact_parity.py`, matched scripted-gait
+  command streams from one settled start, iteration sweep) and the
+  physics is IN PARITY.** Loaded-foot slip warp@1/4 vs C@50: within
+  ~6% at 0.055 m/s and ~3% at the no-slip band's 0.012 m/s,
+  iteration-INSENSITIVE (warp 1/4≈2/4≈4/8≈8/8), zero stance creep
+  under pure load (warp cleaner than C); C itself explodes at 1/4
+  (NaN), so warp's 1/4 was never the C solver truncated. The
+  0.085-vs-0.31 "gap" was a stochastic on-policy TRAINING metric
+  compared against a deterministic probe (C's own stochastic replays
+  measured ratio 1.42–1.45 ≈ MJX's ~1.44), amplified by the steep
+  loadslip-factor clip (raw ratios 1.44 vs 1.27, ~13%). Consequence
+  for hw: NO campaign-wide physics fix is coming — the deployed
+  crouch-shuffle's and bcgait1-hard1's slip numbers are honest
+  properties of the policies, and slip levers stay reward/BC-side.
+  Audit data: train-0 `logs/probe_contact_parity/`.
 - **08-12 eve: `footlow2-tip1` FAILS both clauses — tipped-start DR
   on anchored stance is CLOSED as HARMFUL.** 50% tipped spawns
   taught tilt TOLERANCE, not correction: forced-8° probe holds

@@ -8,26 +8,34 @@ at what budget, with which failure modes.
 
 ## Now
 
-- **08-13: the no-slip walking line (`cw-arch-noslipphase1*`,
-  phase-clock BC-init + drift-budgeted RL) has its first GATE PASS at
-  r4 — and its blocker is now MEASURED: the warp/MJX training physics
-  under-charges loaded-foot creep vs the C env.** r4 (500k drift
-  dose) is the first RL-fine-tuned no-slip checkpoint that keeps the
-  taught gait (probe return 943/loadslip 0.54 vs init 951/0.53), but
-  RL only preserves — it adds nothing under DR. The pre-registered
-  follow-up `cw-arch-noslipphase1-dr0` (r3's exact 1M dose, ALL DR
-  off) settled why: even in a clean world MJX PPO erodes loadslip
-  1.00→0.085 by ~400k steps with return climbing, while the matched
-  C-env income audit (probe_walk_income --set replay of the training
-  pricing; logs/probe_noslip_income/ on train-0) shows C CHARGES that
-  drift ~−280/ep. Same checkpoint: loadslip 0.085 (MJX) vs 0.31 (C).
-  DR-blinding refuted; MJX-vs-C contact gap confirmed. Per the gate's
-  consequence clause **no more training arms on this line — the next
-  lever is a warp-vs-C loaded-foot contact-creep parity audit**
-  (replay matched det action streams in both physics, compare
-  per-tick loaded-foot XY displacement; warp iterations-1/4 contact
-  looseness is the suspect). Cross-track: every MJX-trained walking
-  line inherits this pricing bias (escalated to hw, not launched).
+- **08-13 ~06:xx: the parity audit RAN and EXONERATES the warp
+  physics — the no-slip line's story is corrected and the line
+  CONCLUDES at r4.** `probe_contact_parity.py` (new, snapshot
+  ac5500a) drove the identical TripodGait command stream through the
+  identical servo-profile pipeline from one shared settled start in
+  {C@50, C@1/4, warp@1/4, 2/4, 4/8, 8/8}: loaded-foot slip warp@1/4
+  is within ~6% of C@50 at 0.055 m/s and ~3% at the line's own
+  0.012 m/s band, flat across the iteration sweep, and pure stance
+  load creeps ZERO in warp (0.0000 m vs C's 0.0007 m); C@1/4 itself
+  goes NaN-unstable, so warp's 1/4 is a different, stable solver, not
+  truncated C. **Re-attribution of dr0's "0.085 MJX vs 0.31 C":** the
+  0.085 was the stochastic on-policy TRAINING metric, the 0.31 a
+  deterministic probe — the prior income audit's own C stochastic
+  replays measured ratio 1.42–1.45 m/m ≈ MJX's ~1.44 — and the steep
+  loadslip-factor clip (ls_ok 0.75/ls_max 1.5) amplifies the ~13% raw
+  ratio difference (1.44 vs 1.27) into a 3.6× factor difference.
+  What SURVIVES: PPO's anchoring erosion is real and dose-monotone in
+  DET behavior too (2M→0.11, 1M→0.31–0.45, 500k→0.54 factor) under
+  bank-verified pricing in a clean world — an RL-incentive fact, not
+  a sim defect, and per the two-miss rule the fix is a mechanism
+  change, not more optimizer/dose arms. **r4 stands as the line's
+  artifact (GATE PASS, preserves the taught no-slip gait; adds ~zero
+  under DR); no training arm is queued** — genuine RL gains on this
+  line need a new mechanism (the operator's DAgger redistillation
+  thread, or an erosion-proof anchoring design), which is spec work.
+  Audit data: train-0 `logs/probe_contact_parity/parity*.json`;
+  earlier income audit `logs/probe_noslip_income/`. The hw
+  cross-track escalation is RETRACTED (corrected in hw/STATUS.md).
 - **From-scratch GRU walking CLOSED (08-11, gru-r4c):** both
   pre-registered levers (BPTT window 64→256 steps, hidden 128→256)
   tried and the identical leg-sacrifice/paddle fingerprint survived
