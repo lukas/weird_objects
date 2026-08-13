@@ -82337,7 +82337,7 @@
       "sched.n_envs=3072"
     ],
     "created": "2026-08-13T02:00:09+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -82363,6 +82363,14 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:nobc nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-gait-ease1 --steps 2000000 --task joint_walk --dr-scale 0.5 --episode-seconds 15 --ent-coef 0.01 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_heading_max_rad=3.14159 --cfg-set goal.walk_cmd_resample_s=1.5 --cfg-set goal.walk_cmd_resample_jitter=0.6 --cfg-set goal.walk_cmd_blend_s_min=0.1 --cfg-set goal.walk_cmd_blend_s_max=1.0 --cfg-set goal.walk_stop_frac=0.2 --cfg-set obs.history_frames=16 --n-envs 3072 --impl warp --host-workers 24 --out-name ppo_goal_cw_gait_ease1 --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --cfg-set reward.k_current=0.0 --cfg-set train.mirror_loss_coef=1.0 --cfg-set reward.k_drag_stance=8000 --cfg-set reward.drag_stance_allow_mm=6.0 --cfg-set reward.drag_stance_tick_floor_mm=0.25 --notes 'respec of cw-gait-sched1: Teach a from-scratch, no-imitation walking network to discover stepping by making the physics easier while it learns: gravity starts at half strength (falls are slow, lifting a leg is cheap, and the anti-skate stance charge is easiest to dodge by actually stepping) and ramps back to full strength mid-run (0.4M->1.1M global steps), so the final behavior is earned under real physics. This is GAIT.md P3 lever 3 (physics easing) \u2014 the LAST untried lever on the from-scratch gait line after every pricing/schedule/RSI/speed form (levers 2, 4, 5) collapsed into the same freeze-or-skate under nominal physics from step 0. Stack is byte-identical to cw-gait-dragstance1 (full k_drag_stance=8000 stance charge from step 0) with the eased-gravity anneal as the ONE variable, driven by the existing sched.* engine onto the new default-off ease.gravity_scale key (snapshot e40a3ea, test_physics_ease.py + semantics bank green). Anneal ends at exactly 1.0 by 1.1M so every eval-harness episode (own sched clock: 375 ticks x 3072 = 1.15M global steps/ep) resets at NOMINAL physics; judge on measured behavior (fwd travel, slip/m, gait_valid), not eval reward panels.' --cfg-set sched.key=ease.gravity_scale --cfg-set sched.v0=0.5 --cfg-set sched.v1=1.0 --cfg-set sched.t0_steps=400000 --cfg-set sched.t1_steps=1100000 --cfg-set sched.n_envs=3072 > /tmp/train_cw-gait-ease1.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-gait-ease1.log",
     "wandb_id": "3pm2pqy8",
-    "verified": "2026-08-13T02:02:57+00:00"
+    "verified": "2026-08-13T02:02:57+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-13T02:08:23+00:00",
+        "process_alive": false,
+        "verdict": "FINISHED_BEFORE_CHECKUP",
+        "log_tail": "al] 2,002,944: hold 0.45\u00b0, track 2.91\u00b0, unload 1.48\u00b0, raise 0/2, rise f0/2 b0/2 c0/2, walk err 0.047 m/s, lower 0/2, tipped 2/2, rolltrap 0/2\n[video] logged reel (2,006,016 steps | walk:ok walk:ok walk:ok walk:ok)\n[video] logged reel (final | walk:ok walk:ok walk:ok walk:ok)\n[mjx-train] done: 2,000,000 steps in 446s (4,481 env-steps/s incl. setup) -> /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_gait_ease1.zip\n[mjx-train] evaluate with the C-env harness before trusting anything (MJX_PORT.md phase-2 item 4).\n[wandb] checkpoint artifact ckpt-ppo_goal_cw_gait_ease1 (md5 bfa3b60a)\n"
+      }
+    ]
   }
 ]
