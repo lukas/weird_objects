@@ -35,7 +35,7 @@ leave the next agent to rediscover it.
 | Write the cycle's RL_LOG line | `ops.sh logline "c<N>: …"` — the ONLY way; never `cat >>` RL_LOG |
 | Frames from a video | harness already wrote `*.png` sheets; else `ops.sh frames <mp4> [n]` |
 | Operator wants an overview in a browser | status page at http://127.0.0.1:8090 — full setup/restart runbook in "Operator status page" section below |
-| An external LLM (GPT/Claude) wants to read status | `https://hexapod.cwd1f0-new-cluster.coreweave.app/llms.txt?key=<token>` — see "LLM-readable mirror" in the status-page runbook |
+| An external LLM (GPT/Claude) wants to read status | `https://hexapod.cwd1f0-new-cluster.coreweave.app/llms.txt` (no key) — see "LLM-readable mirror" in the status-page runbook |
 
 **DO NOT hand-write python for any row above.** Transcript mining
 (08-09) found >500 ad-hoc snippets re-parsing experiments.json,
@@ -411,9 +411,10 @@ per-track STATUS docs), `/llm/plan.md`, `/llm/log.md`, `/llm/runs.md`
 `/llm/docs.md` (index of EVERY .md in the prototype tree), and
 `/llm/doc/<path>` (any individual doc, e.g.
 `/llm/doc/rl_docs/HARDWARE.md`). Spend/token numbers and pod names
-are deliberately NOT on those paths. Auth there is stateless —
-`?key=<token>` on EVERY request, no cookie redirect — because LLM
-fetchers don't keep cookies.
+are deliberately NOT on those paths. The /llm paths need **no token**
+(operator 08-13): they mirror the PUBLIC GitHub repo so the gate
+protected nothing, and GPT's URL-safety wrapper refuses keyed URLs
+outright. The dashboard and /json (spend, infra) remain token-gated.
 
 **Docs auto-update on git push:** the server runs a sync thread on the
 controller that pulls origin/main every 60 s (skipping rounds where a
@@ -424,9 +425,8 @@ code change still needs the tmux kill+restart in step 1 above (the
 pull itself is now automatic).
 
 Hand an LLM:
-`https://hexapod.cwd1f0-new-cluster.coreweave.app/llms.txt?key=<token>`
-— the links inside llms.txt already embed the key so the fetcher can
-follow them. Recover the token with:
+`https://hexapod.cwd1f0-new-cluster.coreweave.app/llms.txt`
+(no key). Recover the dashboard token with:
 
 ```sh
 kubectl --kubeconfig=$HOME/.kube/coreweave.yaml exec hexapod-sweep-friction -- \
