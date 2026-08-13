@@ -26,7 +26,8 @@ DEG2RAD = np.pi / 180.0
 # foot anchors) and are deep-copied whole.
 SNAP_ATTRS = (
     "_ep_rand", "_goal_traj", "_q_nom", "_cmd", "_prev_action", "_step_i",
-    "_state", "_att_rp", "_cur_filt", "_tilt_ref0", "_z0", "_pad_z_ref",
+    "_state", "_att_rp", "_cur_filt", "_tilt_ref0", "_settle_lean",
+    "_z0", "_pad_z_ref",
     "_h_target", "_h_milestones", "_prev_h_err_abs", "_is_rise",
     "_plant_feet_xy", "_curl_dist_prev", "_curl_milestones",
     "_imu_prev_v", "_imu_f_accum", "_imu_f_n", "_gyro_accum", "_gyro_n",

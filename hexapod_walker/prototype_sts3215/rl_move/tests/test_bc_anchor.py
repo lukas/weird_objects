@@ -1198,3 +1198,125 @@ def test_tilt_comp_tipped_start_end_to_end():
     e_good = foot_world_error(q_tgt, feet_ref, off_good)
     assert e_good < 0.005, f"counter-rotation error {e_good*1e3:.1f}mm"
     env.close()
+
+
+# ---------------------------------------------------------------------------
+# SETTLE-LEAN COMP SOURCE (train.bc_anchor_tilt_from_settle, 08-13).
+# probe_tilt_teacher measured that the current-lean proportional source
+# is a P-controller with a closed-loop fixed point at (L0+deadband)/2:
+# a PERFECT student of the tilt-comp teacher settles at 3.95deg from
+# 6.5deg tipped spawns (prediction 3.98) — above the 3deg leveling bar,
+# because as the student levels, the measured lean (and hence the
+# commanded counter-rotation) shrinks below what leveling needs. The
+# settle-lean source freezes the comp at the episode's post-settle lean
+# (a per-episode constant, SNAP_ATTRS pool-safe): the ideal student
+# levels to the deadband / cap-limited residual. These tests pin:
+# default-off bit-exactness vs the current-lean source, the source
+# actually being the settled lean (not the live one), target constancy
+# while the student levels, and the end-to-end tipped-reset capture.
+# ---------------------------------------------------------------------------
+
+def test_tilt_from_settle_off_matches_current_lean_source():
+    """from_settle=0.0 emits byte-identical targets to the key being
+    absent (default-off bit-exactness of the new source switch)."""
+    outs = []
+    for extra in ({}, {("train", "bc_anchor_tilt_from_settle"): 0.0}):
+        env = _tilt_env(40, tilt_comp=1.0, extra=extra)
+        env.reset()
+        _shift_ref(env, roll_deg=5.5)
+        _o, _r, _t, _tr, info = env.step(np.zeros(18))
+        outs.append(np.asarray(info["bc_target"]))
+        env.close()
+    assert np.array_equal(outs[0], outs[1])
+
+
+def test_tilt_from_settle_ignores_current_lean():
+    """from_settle=1.0: with the CURRENT pose level (proportional
+    source would keep q_nom), a recorded 5.5deg settled lean still
+    commands the counter-rotated target — the comp reads the episode
+    constant, not the live attitude."""
+    from rl_move.body_ik import (
+        BodyOffset, fk_all_feet, foot_world_error)
+    env = _tilt_env(41, tilt_comp=1.0,
+                    extra={("train",
+                            "bc_anchor_tilt_from_settle"): 1.0})
+    env.reset()
+    r = abs(env._state.imu_roll - env._tilt_ref0[0]) * RAD2DEG
+    assert r < 1.5, "fixture not level enough for the test"
+    env._settle_lean = (5.5 * DEG2RAD, 0.0)
+    _o, _r, _t, _tr, info = env.step(np.zeros(18))
+    q_tgt = action_to_q_rad(info["bc_target"])
+    assert not np.allclose(q_tgt, env._q_nom, atol=1e-4), \
+        "settle-lean source ignored the recorded settled lean"
+    feet_ref = fk_all_feet(env._q_nom)
+    off_good = BodyOffset(roll=_expected_corr(5.5 * DEG2RAD), pitch=0.0)
+    off_bad = BodyOffset(roll=-_expected_corr(5.5 * DEG2RAD), pitch=0.0)
+    e_good = foot_world_error(q_tgt, feet_ref, off_good)
+    e_bad = foot_world_error(q_tgt, feet_ref, off_bad)
+    assert e_good < 0.005, f"counter-rotation error {e_good*1e3:.1f}mm"
+    assert e_bad > 3.0 * e_good
+
+
+def test_tilt_from_settle_target_constant_while_leveling():
+    """from_settle=1.0: the target does NOT backslide as the student
+    levels — byte-identical across ticks while the live relative lean
+    swings 5.5deg -> 0 -> -3deg (the proportional source would emit
+    three different targets)."""
+    env = _tilt_env(42, tilt_comp=1.0,
+                    extra={("train",
+                            "bc_anchor_tilt_from_settle"): 1.0})
+    env.reset()
+    env._settle_lean = (5.5 * DEG2RAD, 0.0)
+    targets = []
+    for shift in (5.5, -5.5, -3.0):
+        _shift_ref(env, roll_deg=shift)
+        _o, _r, _t, _tr, info = env.step(np.zeros(18))
+        targets.append(np.asarray(info["bc_target"]))
+    assert np.array_equal(targets[0], targets[1])
+    assert np.array_equal(targets[0], targets[2])
+    q_tgt = action_to_q_rad(targets[0])
+    assert not np.allclose(q_tgt, env._q_nom, atol=1e-4)
+    env.close()
+
+
+def test_tilt_from_settle_captured_at_tipped_reset():
+    """End-to-end with dr.tipped_start_*: a forced 8deg tipped hold
+    spawn records its post-settle lean in _settle_lean (matching the
+    reset-tick relative attitude) and the teacher counter-rotates THAT
+    constant."""
+    from rl_move.body_ik import (
+        BodyOffset, fk_all_feet, foot_world_error)
+    cfg = load_config()
+    ov = dict(BASE_OVERRIDES)
+    ov.update({("train", "bc_anchor_coef"): 1.0,
+               ("train", "bc_anchor_tilt_comp"): 1.0,
+               ("train", "bc_anchor_tilt_from_settle"): 1.0,
+               ("dr", "tipped_start_prob"): 1.0,
+               ("dr", "tipped_start_deg"): [8.0, 8.0]})
+    for (sec, leaf), val in ov.items():
+        cfg.setdefault(sec, {})[leaf] = val
+    env = SimHexapodJointGoalEnv(
+        params=SimServoParams.from_cfg(None), randomize=True,
+        dr_scale=0.0, episode_seconds=16.0, seed=43, cfg=cfg)
+    gen = env._goal_gen
+    for m in ("hold", "lean", "track", "unload", "raise", "rise",
+              "lower", "quad"):
+        if hasattr(gen, f"p_{m}"):
+            setattr(gen, f"p_{m}", 1.0 if m == "hold" else 0.0)
+    env.reset()
+    assert getattr(env, "_tipped_applied", False), \
+        "tipped start did not engage"
+    rel_r0 = env._state.imu_roll - env._tilt_ref0[0]
+    rel_p0 = env._state.imu_pitch - env._tilt_ref0[1]
+    assert abs(env._settle_lean[0] - rel_r0) < 1e-9
+    assert abs(env._settle_lean[1] - rel_p0) < 1e-9
+    if max(abs(rel_r0), abs(rel_p0)) * RAD2DEG <= 2.0:
+        pytest.skip("tip settled level before capture")
+    _o, _r, _t, _tr, info = env.step(np.zeros(18))
+    q_tgt = action_to_q_rad(info["bc_target"])
+    feet_ref = fk_all_feet(env._q_nom)
+    off_good = BodyOffset(roll=_expected_corr(rel_r0),
+                          pitch=_expected_corr(rel_p0))
+    e_good = foot_world_error(q_tgt, feet_ref, off_good)
+    assert e_good < 0.005, f"counter-rotation error {e_good*1e3:.1f}mm"
+    env.close()

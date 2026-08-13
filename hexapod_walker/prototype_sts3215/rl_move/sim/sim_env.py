@@ -522,6 +522,7 @@ class SimHexapodBalanceEnv(_GymBase):
         self._gyro_n = 0
         self._att_rp: np.ndarray | None = None
         self._tilt_ref0 = (0.0, 0.0)
+        self._settle_lean = (0.0, 0.0)
         self._z0 = 0.0
 
         if _gym is not None:
@@ -1469,6 +1470,18 @@ class SimHexapodBalanceEnv(_GymBase):
             self._tilt_ref0 = (self._state.imu_roll - t_roll,
                                self._state.imu_pitch - t_pitch)
         self.safety.set_tilt_reference(*self._tilt_ref0)
+        # Settled lean relative to the episode tilt reference, captured
+        # once post-settle (same tick _q_nom was captured). The
+        # tilt-comp teacher's settle-lean source reads this
+        # (train.bc_anchor_tilt_from_settle in _step_finish): a
+        # per-episode CONSTANT, so the commanded counter-rotation does
+        # not shrink as the student levels. Probe-measured 08-13
+        # (probe_tilt_teacher): the current-lean proportional source
+        # has a closed-loop fixed point at (L0+deadband)/2 (~4deg for
+        # the ~6.5deg tipped spawns) — the teacher itself can never
+        # demonstrate a <=3deg settle. In SNAP_ATTRS (pool-restore).
+        self._settle_lean = (self._state.imu_roll - self._tilt_ref0[0],
+                             self._state.imu_pitch - self._tilt_ref0[1])
         er = self._ep_rand
         info = {
             "episode": self._episode,
@@ -2722,8 +2735,30 @@ class SimHexapodBalanceEnv(_GymBase):
                 def _soft(x: float) -> float:
                     return math.copysign(max(abs(x) - _dead, 0.0), x)
 
-                _er = _soft(self._state.imu_roll - self._tilt_ref0[0])
-                _ep_ = _soft(self._state.imu_pitch - self._tilt_ref0[1])
+                # Comp source (train.bc_anchor_tilt_from_settle,
+                # default 0 = the original current-lean proportional
+                # source, bit-exact). The proportional source is a
+                # P-controller with a closed-loop fixed point at
+                # (L0+deadband)/2 — as the student levels, the
+                # commanded correction SHRINKS below what leveling
+                # needs (probe_tilt_teacher, 08-13: a perfect student
+                # settles 3.95deg from 6.5deg spawns vs the 3deg gate
+                # bar; predicted 3.98). The settle-lean source uses the
+                # episode's post-settle lean (_settle_lean, a
+                # per-episode constant in SNAP_ATTRS): the ideal
+                # student levels to the deadband (or the cap-limited
+                # residual), where the income Gaussian regains
+                # gradient and RL can finish the job.
+                if float(cfg_get(self.cfg, "train",
+                                 "bc_anchor_tilt_from_settle",
+                                 default=0.0)) > 0.0:
+                    _er = _soft(self._settle_lean[0])
+                    _ep_ = _soft(self._settle_lean[1])
+                else:
+                    _er = _soft(self._state.imu_roll
+                                - self._tilt_ref0[0])
+                    _ep_ = _soft(self._state.imu_pitch
+                                 - self._tilt_ref0[1])
                 if _er != 0.0 or _ep_ != 0.0:
                     from rl_move.body_ik import BodyOffset, FixedFootBodyIK
                     _cr = float(np.clip(-_tc * _er, -_maxc, _maxc))

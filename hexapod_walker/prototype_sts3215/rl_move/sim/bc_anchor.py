@@ -136,6 +136,23 @@ Knobs (set via attach_bc_anchor / cfg):
                                ~8deg lean. Track episodes are excluded
                                (they command attitude goals the
                                compensation would fight).
+  train.bc_anchor_tilt_from_settle  (default 0 = current-lean source,
+                               bit-exact) source the tilt-comp from
+                               the episode's POST-SETTLE lean
+                               (_settle_lean, per-episode constant,
+                               SNAP_ATTRS) instead of the live
+                               measured lean. probe_tilt_teacher
+                               (08-13) measured the live source is a
+                               P-controller with a closed-loop fixed
+                               point at (L0+deadband)/2 — a PERFECT
+                               student settles 3.95deg from 6.5deg
+                               tipped spawns (predicted 3.98), never
+                               the <=3deg bar, because the commanded
+                               correction shrinks as the student
+                               levels. With the settle source the
+                               ideal student levels to the deadband /
+                               cap residual, where the k_track income
+                               Gaussian regains gradient.
   train.bc_anchor_tilt_deadband_deg  soft deadband (deg, default 1.5)
                                subtracted from |rel attitude| before
                                compensation — settled-level ticks keep
