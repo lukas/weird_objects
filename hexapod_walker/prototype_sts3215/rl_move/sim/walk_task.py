@@ -1427,6 +1427,19 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         above quad_still_floor_m_s, applied ONLY while no velocity is
         commanded (s_ref ~ 0) so it can never fight a quadwalk
         command. Default 0 = off, legacy exact.
+
+        k_quad_lift_contact (08-13, quad track, after cw-quadwalk1/2:
+        pure lift-INCOME pricing is a closed lever — 3x clear/plant
+        income moved front-leg tail contact duty only 1.0 -> 0.62/0.32,
+        never under the 0.15 fronts_lifted bar; six-leg walking from
+        the warm start pays too well to abandon for a side bonus):
+        per-tick CHARGE on the fraction of commanded LIFT legs in
+        ground contact after the grace window. Makes keeping the
+        fronts down strictly unprofitable instead of merely less
+        profitable; the honest lifted form pays ~0 by construction.
+        Applies to the whole quad family (quad hold's honest form has
+        the fronts off the ground, so it is uncharged). Default 0 =
+        off, legacy exact.
         """
         goal = self._current_goal()
         lift = tuple(goal.lift_legs) if goal.lift_legs else ()
@@ -1470,6 +1483,17 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             info["quad_clear_mm"] = clear_mm / max(len(lift), 1)
             info["quad_fronts_off"] = fronts_off / max(len(lift), 1)
             info["quad_planted_frac"] = n_on / max(len(support), 1)
+        k_ql = float(cfg_get(self.cfg, "reward", "k_quad_lift_contact",
+                             default=0.0))
+        if lift and k_ql > 0.0 and self._step_i > grace_n:
+            n_lift_on = sum(
+                1 for f in lift
+                if self._touch_adr[f] >= 0
+                and float(self.data.sensordata[self._touch_adr[f]]) > 0.5)
+            if n_lift_on:
+                r_ql = -k_ql * n_lift_on / max(len(lift), 1)
+                reward = float(reward) + r_ql
+                info["reward_quad_lift_contact"] = r_ql
         k_qs = float(cfg_get(self.cfg, "reward", "k_quad_still",
                              default=0.0))
         if lift and k_qs > 0.0 and self._step_i > grace_n:

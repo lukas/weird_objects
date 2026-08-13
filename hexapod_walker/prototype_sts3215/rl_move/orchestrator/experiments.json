@@ -83589,7 +83589,7 @@
       "reward.k_quad_still=1.0"
     ],
     "created": "2026-08-13T13:28:02+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -83616,6 +83616,17 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:quad nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-quadwalk2 --steps 2000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_quad_hold2.zip --no-dr --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix quadwalk=0.7,quad=0.3 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --out-name ppo_goal_cw_quadwalk2 --n-envs 4096 --impl warp --host-workers 24 --notes 'respec of cw-quadwalk1: Teach the four-leg-stance robot to actually WALK on its rear four legs with the front pair lifted as hands, instead of just walking normally on all six. cw-quadwalk1 (same recipe) hit the pre-registered failure class (b): it never even attempted to lift the fronts (fronts_lifted 0/6 det+sto, gait_valid 0/6) because ordinary six-leg walking already pays well and lifting earns only a small side bonus. This arm tests the hypothesis'\"'\"'s own prescribed fix for class (b): reprice \u2014 triple the lift-leg income (k_quad_clear 1.5->4.5, k_quad_plant 1.0->3.0, same ratio) so that actually lifting and balancing on four is worth the risk relative to the safe six-leg default. Same base (cw-quad-hold2), same mix (quadwalk=0.7/quad=0.3), same 2M discovery budget, same grace/thresholds -- ONE lever: the size of the reward for doing the quad thing. Prediction-if-true: det video by 2M shows at least some episodes with fronts genuinely lifted and rear-four stepping attempts (fronts_lifted improves off 0/6, even if imperfect). Prediction-if-false: fronts_lifted stays 0/6 -- income scaling isn'\"'\"'t the lever (the policy isn'\"'\"'t exploring lifting at all under this entropy/warm-start), and the next lever must be an explicit CODE penalty for front-leg ground contact during quadwalk (or higher exploration), not further coefficient scaling. This is the SECOND arm on this failure class; per research-rules '\"'\"'two misses in a row = change the hypothesis, not the step count'\"'\"', a second 0/6 here closes the pure-reprice lever.' --cfg-set reward.k_quad_clear=4.5 --cfg-set reward.k_quad_plant=3.0 --cfg-set goal.quad_grace_s=1.5 --cfg-set reward.k_quad_still=1.0 > /tmp/train_cw-quadwalk2.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-quadwalk2.log",
     "wandb_id": "q8hujezw",
-    "verified": "2026-08-13T13:30:53+00:00"
+    "verified": "2026-08-13T13:30:53+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-13T13:35:53+00:00",
+        "process_alive": false,
+        "verdict": "FINISHED_BEFORE_CHECKUP",
+        "log_tail": ": hold 1.23\u00b0, track 3.10\u00b0, unload 1.14\u00b0, raise 0/2, rise f0/2 b0/2 c0/2, walk err 0.027 m/s, quadwalk err 0.036 m/s, quad 0.97\u00b0, rolltrap 2/2\n[video] logged reel (2,007,040 steps | rise:ok walk:ok raise:ok hold:ok)\n[video] logged reel (final | rise:ok walk:ok raise:ok hold:ok)\n[mjx-train] done: 2,000,000 steps in 336s (5,954 env-steps/s incl. setup) -> /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_quadwalk2.zip\n[mjx-train] evaluate with the C-env harness before trusting anything (MJX_PORT.md phase-2 item 4).\n[wandb] checkpoint artifact ckpt-ppo_goal_cw_quadwalk2 (md5 ebb7b737)\n"
+      }
+    ],
+    "verdict": "STOP \u2014 pre-registered cheat (b) fronts-down gait again: fronts_lifted 0/12 det+sto (lift duty tail 0.62/0.32 vs <0.15 bar), fwd med 0.61m, 0 falls, roll clean, quad-hold retention ok(6/6, but 0.50m creep unpriced \u2014 k_quad_still floor only fires at zero command). 3x lift income moved duty (1.0 -> 0.62/0.32) but cannot clear the bar: pure reprice CLOSED per the pre-registered two-miss fork; next lever is CODE (explicit lift-leg ground-contact charge).",
+    "hardware_ready": "no",
+    "triage": "done"
   }
 ]

@@ -3124,3 +3124,63 @@ def test_quad_still_charges_the_creep_not_the_stand(quad_still_returns=None):
     assert still_cost < 0.2 * creep_cost, (
         f"still stance pays {still_cost:.1f} vs creep {creep_cost:.1f} "
         "— the floor is not protecting genuine stillness")
+
+
+# k_quad_lift_contact (08-13): cw-quadwalk1 (income 1.5/1.0) and
+# cw-quadwalk2 (3x income) both landed the pre-registered fronts-down
+# cheat — front tail contact duty moved 1.0 -> 0.62/0.32 but never
+# under the 0.15 fronts_lifted bar, so pure income pricing is a CLOSED
+# lever (quad/STATUS.md two-miss fork). The term under test charges
+# the fraction of commanded lift legs in ground contact per tick after
+# grace, making six-leg walking strictly unprofitable. Bank: the
+# scripted six-leg walk (the cheat) vs the tucked-fronts quadgait
+# (honest form; does not need to translate to prove the charge is ~0
+# for lifted fronts).
+
+QUAD_LIFTC_OVERRIDES = dict(QUADWALK_OVERRIDES)
+QUAD_LIFTC_OVERRIDES.update({("reward", "k_quad_lift_contact"): 3.0})
+
+
+def test_quad_lift_contact_default_off_bit_exact():
+    """k_quad_lift_contact=0.0 (explicit) must equal the key absent."""
+    off = dict(QUADWALK_OVERRIDES)
+    off[("reward", "k_quad_lift_contact")] = 0.0
+    a = _quadwalk_rollout("sixleg", SEEDS[0],
+                          overrides=QUADWALK_OVERRIDES)["return"]
+    b = _quadwalk_rollout("sixleg", SEEDS[0], overrides=off)["return"]
+    assert a == b, (
+        f"k_quad_lift_contact=0 changed the reward path ({a} vs {b})")
+
+
+def test_quad_lift_contact_charges_sixleg_not_quadgait():
+    """With k=3 the six-leg walk (fronts stepping on the ground) pays
+    real money over the episode while the tucked-fronts gait is
+    charged ~nothing — the charge separates exactly on the cheat
+    axis, not on stepping itself."""
+    s = SEEDS[0]
+    six_cost = (_quadwalk_rollout("sixleg", s,
+                                  overrides=QUADWALK_OVERRIDES)["return"]
+                - _quadwalk_rollout("sixleg", s,
+                                    overrides=QUAD_LIFTC_OVERRIDES)["return"])
+    qg_cost = (_quadwalk_rollout("quadgait", s,
+                                 overrides=QUADWALK_OVERRIDES)["return"]
+               - _quadwalk_rollout("quadgait", s,
+                                   overrides=QUAD_LIFTC_OVERRIDES)["return"])
+    assert six_cost > 100.0, (
+        f"k=3 charged the six-leg cheat only {six_cost:.1f} over the "
+        "episode — no bite")
+    assert qg_cost < 0.2 * six_cost, (
+        f"tucked-fronts gait pays {qg_cost:.1f} vs sixleg "
+        f"{six_cost:.1f} — the charge is hitting the honest form")
+
+
+def test_quad_lift_contact_charges_frontdrag_like_sixleg():
+    """Fronts-down dragging (planted, not stepping) is charged at
+    least as hard as the stepping cheat: contact duty ~1.0."""
+    s = SEEDS[0]
+    fd_cost = (_quadwalk_rollout("frontdrag", s,
+                                 overrides=QUADWALK_OVERRIDES)["return"]
+               - _quadwalk_rollout("frontdrag", s,
+                                   overrides=QUAD_LIFTC_OVERRIDES)["return"])
+    assert fd_cost > 100.0, (
+        f"k=3 charged the fronts-down drag only {fd_cost:.1f} — no bite")
