@@ -83807,7 +83807,7 @@
       "safety.max_pitch_deg=25"
     ],
     "created": "2026-08-13T15:48:44+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -83834,6 +83834,17 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:quad nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-quadwalk4 --steps 2000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_quad_hold2.zip --no-dr --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix quadwalk=0.7,quad=0.3 --cfg-set reward.k_quad_lift_contact=3.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --out-name ppo_goal_cw_quadwalk4 --n-envs 4096 --impl warp --host-workers 24 --notes 'respec of cw-quadwalk3: Start every four-leg-walking episode with the front legs ALREADY lifted, so the robot only has to learn to step with the rear four \u2014 not to discover lifting in the first place. Three arms (cw-quadwalk1/2/3) proved pricing cannot do it: even a live per-tick fine worth ~40% of episode return (quadwalk3, charge verified fired at -575/ep) would not pull a warm-started six-leg walker out of its basin from the all-six-feet plant start, while the same policy lifts its fronts fine when told to hold still (quad mode). This arm keeps quadwalk3'\"'\"'s exact economy (3x lift income + k_quad_lift_contact=3.0) and changes ONE thing, the new spawn package goal.quadwalk_start=quad: episodes begin in the statically-viable four-leg stance (mid feet splayed, fronts at the feasibility tuck claw), tilt refs anchored level, safety envelope widened to 25deg to cover the measured ~16deg limp-settle sag transient (part of the spawn contract, like getup any-starts). Now six-leg walking requires actively PLANTING the charged fronts, so the priced-out cheat is no longer the path of least action. Prediction-if-true: det video by 2M shows the fronts staying up past the grace window (tail lift duty <0.15) with genuine rear-four stepping attempts and positive forward translation. Prediction-if-false: the policy plants the fronts right after spawn and six-leg walks anyway (same one-line STOP - would mean the basin is reachable and preferred even from outside, i.e. the task needs a stronger curriculum or BC-style reference), or it freezes/creeps in the spawn stance (progress income unearned - exploration blocked even with the stance given), or it walks while staying pitched near the sag (attitude terms underpriced vs walk income - a NEW finding, not a rerun).' --cfg-set reward.k_quad_clear=4.5 --cfg-set reward.k_quad_plant=3.0 --cfg-set goal.quad_grace_s=1.5 --cfg-set reward.k_quad_still=1.0 --cfg-set goal.quadwalk_start=quad --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 > /tmp/train_cw-quadwalk4.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-quadwalk4.log",
     "wandb_id": "rnqq6ouh",
-    "verified": "2026-08-13T15:51:34+00:00"
+    "verified": "2026-08-13T15:51:34+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-13T15:56:59+00:00",
+        "process_alive": false,
+        "verdict": "FINISHED_BEFORE_CHECKUP",
+        "log_tail": ": hold 0.99\u00b0, track 3.37\u00b0, unload 1.20\u00b0, raise 0/2, rise f0/2 b0/2 c0/2, walk err 0.027 m/s, quadwalk err 0.036 m/s, quad 1.21\u00b0, rolltrap 2/2\n[video] logged reel (2,007,040 steps | rise:ok walk:ok raise:ok hold:ok)\n[video] logged reel (final | rise:ok walk:ok raise:ok hold:ok)\n[mjx-train] done: 2,000,000 steps in 341s (5,873 env-steps/s incl. setup) -> /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_quadwalk4.zip\n[mjx-train] evaluate with the C-env harness before trusting anything (MJX_PORT.md phase-2 item 4).\n[wandb] checkpoint artifact ckpt-ppo_goal_cw_quadwalk4 (md5 e296125b)\n"
+      }
+    ],
+    "hardware_ready": "no",
+    "verdict": "STOP \u2014 known exploit (flag-leg variant): quad spawn KILLED the fronts-down cheat (fronts_lifted 11/12 det+sto, tail lift duty <0.15, first arm ever) but the policy sacrificed the MID support legs instead \u2014 duty 0.01-0.06 vs rears 0.6/0.45, gait_valid 0/6, rear-two scoot at 0.017 m/s vs 0.05 commanded, slip ~13 m/m, height sagged ~35mm, roll_tail 0.7deg, 0 falls, fwd med det 0.14m. Mechanism: k_drag_loaded=10 makes touching mids down cost >> k_park_duty=1.0 (~-0.12/tick, ~7% of 1243/ep return) \u2014 the flag-leg price is 100x under the drag price it dodges; an active choice, not a basin crossing. Quad-hold retention: lineage-baseline (fwd creep 0.46m ~= quadwalk1-3's 0.43-0.50m, terms 0). Next: cw-quadwalk5 = same spec, ONE lever, reward.k_park_duty 1.0->6.0.",
+    "triage": "done"
   }
 ]

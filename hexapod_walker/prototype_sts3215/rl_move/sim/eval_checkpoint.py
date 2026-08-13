@@ -85,6 +85,13 @@ def _start_kind(traj) -> str:
     start_at = getattr(traj, "start_at", "plant")
     if start_at == "crouch":
         return "crouch"
+    if start_at == "quadstance":
+        # goal.quadwalk_start="quad" spawns (08-13). Without this the
+        # report labeled them "plant" — the cw-quadwalk4 triage briefly
+        # read that as "the spawn lever never fired", the same
+        # dishonest-label class as the RSI-masquerading-as-flat bug
+        # documented below in run_episode.
+        return "quadstance"
     if getattr(traj, "start_curl", 0.0) > 0:
         return "bridge"
     if start_at == "zero":
