@@ -7,6 +7,44 @@ Stand on four, walk on four, front pair free for tricks.
 
 ## Now
 
+- **08-13 (~18:xx UTC): the structural CODE fix the quadwalk5 ruling
+  demanded is BUILT, bank-proven and TRAINING — `cw-quadwalk6`
+  (quadwalk5 + `reward.walk_gait_gate=1.0`, ONE lever, 2M discovery)
+  VERIFIED RUNNING train-0 (~15.3k fps, commit 1a21060, tag
+  exp/cw-quadwalk6).** Root-cause pass (behavior <- incentive <-
+  pricing <- sim defect): the scoot's income survives every existing
+  lever because (a) the anchor/loadslip gates' fractions span LOADED
+  feet only — an AIR-parked leg silently drops out of the
+  denominator; (b) the sitting income (quad clear ~1.5 + plant
+  ~0.75/tick) plus prog-gated kernel flows regardless of WHICH legs
+  move the body; (c) all counter-pricing (k_park_duty,
+  k_drag_loaded, k_quad_lift_contact) is additive, and quadwalk3/5
+  measured that fines up to ~40-55% of return are simply paid (sim
+  physics already audited clean). The fix is the campaign's proven
+  "worth less by construction" pattern, extended to leg-sacrifice:
+  velocity income (kernel + positive progress + quadwalk clear/plant
+  on commanded ticks) is multiplied by the **MIN over commanded
+  SUPPORT legs** of a per-leg "completed a real swing recently"
+  score (2 s window of commanded ticks + 2 s linear fade — the
+  holdstill1 no-hard-zeros lesson; swing = >=2 ticks airborne + XY
+  stride >= 10 mm; lift legs exempt; penalties never shrink;
+  episode start counts as just-stepped). MIN, not mean: fractional
+  discounts are measured-payable — sacrificing ANY subset of support
+  legs collapses transport income to the (1-g) floor. Default 0 =
+  bit-exact off (verified); semantics bank 91 pass with 4 new
+  `test_walk_gait_gate_*` cases: the scripted MID-PIN scoot
+  (quadwalk4/5's cheat family) loses 72% of income / 54% of return,
+  a one-leg walk flag collapses to walk_gait_min=0, and the honest
+  six-leg walk gait keeps walk_gait_min=1.0 and ~99% of income.
+  Instructive probe finding along the way: the scripted splayed
+  rear-four trot scores 0 on the gate BECAUSE its mid legs are
+  genuinely pinned (0 completed swings — the probe_quad_crawl
+  geometry, seen per-leg), so the gate agrees with the geometric
+  infeasibility proof and only a feedback policy can pass it —
+  exactly the operator's route (2). Pre-registered outcomes ride in
+  the ledger entry (freeze = known one-line STOP -> exploration/
+  curriculum next, NOT pricing; token-hop -> gate parameter fix;
+  falls -> balance curriculum).
 - **08-13 (~17:xx UTC): `cw-quadwalk5` (quadwalk4 + `reward.k_park_duty`
   1.0->6.0, ONE lever) STOP — same known exploit, price hike did
   NOTHING. Det+sto both sacrifice the identical mid legs [1,4] in
