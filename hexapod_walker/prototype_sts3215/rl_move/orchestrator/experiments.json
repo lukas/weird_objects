@@ -82526,6 +82526,62 @@
     },
     "stack": "gpu-mjx",
     "phase": "discovery",
-    "refused_reason": "hexapod-mjx-train-0 already runs cw-arch-noslipphase1-r1 \u2014 GPU pods host exactly one run; pick a free GPU pod."
+    "refused_reason": "hexapod-mjx-train-0 already runs cw-arch-noslipphase1-r1 \u2014 GPU pods host exactly one run; pick a free GPU pod.",
+    "triage": "done",
+    "verdict": "FAIL on the pre-registered gate but MAJOR partial win - the destruction mode is SOLVED. Warm start correct (phase2 init: log_std -3 baked, MC-pretrained critic). In-training health held all run (hold err 0.78 -> 1.97 deg vs 6.6 -> 21.7 in parent). Band-matched C probe: return 617 (gate 900), progress 0.64 PASS, height 0.90 PASS (no crouch), pitch charge -1.6 (parent -523). The single failing axis: loadslip factor 0.53 -> 0.11 - fine-tuning traded foot anchoring for progress. Contact-Jacobian audit: true sliding is ~0 in sim for BOTH r1 and the DRAG gait (mu 2.0 foot spheres ROLL instead of slide), so the loadslip proxy IS the operative no-slip criterion for deployment, and PPO leaked toward rolling loaded feet. Since the anchored init out-earns r1 in the C probe (951 vs 617) yet PPO drifted anyway, the MJX training env prices anchoring weaker than C. Final log_std still -3.000 exactly - noise did not regrow; the drift is in the policy mean. Next arm r2: halve the drift budget (1M steps, lr 5e-5, kl 0.005), same init."
+  },
+  {
+    "run": "cw-arch-noslipphase1-r2",
+    "pod": "hexapod-mjx-train-0",
+    "steps": 1000000,
+    "smoke": false,
+    "hypothesis": "Drift-budget arm of the phase-clock no-slip line. r1 fixed expressibility (phase obs), exploration noise (log_std -3 baked in, unchanged after 2M steps - verified) and the critic (MC-pretrained), and the destruction mode is GONE: r1 walks stably (progress 0.64, pitch charge -1.6, hold err 0.8-2.0 deg all run). What remains is slow basin drift: over 2M steps the policy traded foot anchoring for progress (loadslip factor 0.53 -> 0.11, C-probe return 951 -> 617) even though the anchored gait earns more in the C probe - evidence the MJX training env prices anchoring weaker than the C env, so PPO leaks toward rolling loaded feet. This arm halves the drift budget on every axis: 1M steps (r1 periodic evals were already healthy at 1M), lr 1e-4 -> 5e-5, target-kl 0.01 -> 0.005. Same init (ppo_goal_cw_bcnoslip_phase2_init, det probe 1030 / stochastic 770). Expected: preserve anchoring (loadslip >= 0.5) while keeping the stability polish; if it STILL erodes, the recorded blocker is the MJX-vs-C anchoring-price gap and the next lever is pricing, not optimization.",
+    "gate": "Band-matched phase probe (vref1 base, band 0.008-0.016, park_duty 0, walk_phase_obs 1 @ hz 0.1666667, CMD 0.012, 3 seeds x fwd/crab): TOTAL_RETURN >= 900 (init det 1030) AND progress_ratio >= 0.6 AND walk_loadslip_factor >= 0.5 AND no crouch (height factor >= 0.75).",
+    "parent": "cw-arch-noslipphase1-r1",
+    "track": "arch",
+    "extra_args": [
+      "--n-envs",
+      "4096",
+      "--lr",
+      "5e-5",
+      "--target-kl",
+      "0.005",
+      "--out-name",
+      "ppo_goal_cw_arch_noslipphase1_r2",
+      "--notes",
+      "respec of cw-arch-noslipphase1-r1: Drift-budget arm of the phase-clock no-slip line. r1 fixed expressibility (phase obs), exploration noise (log_std -3 baked in, unchanged after 2M steps - verified) and the critic (MC-pretrained), and the destruction mode is GONE: r1 walks stably (progress 0.64, pitch charge -1.6, hold err 0.8-2.0 deg all run). What remains is slow basin drift: over 2M steps the policy traded foot anchoring for progress (loadslip factor 0.53 -> 0.11, C-probe return 951 -> 617) even though the anchored gait earns more in the C probe - evidence the MJX training env prices anchoring weaker than the C env, so PPO leaks toward rolling loaded feet. This arm halves the drift budget on every axis: 1M steps (r1 periodic evals were already healthy at 1M), lr 1e-4 -> 5e-5, target-kl 0.01 -> 0.005. Same init (ppo_goal_cw_bcnoslip_phase2_init, det probe 1030 / stochastic 770). Expected: preserve anchoring (loadslip >= 0.5) while keeping the stability polish; if it STILL erodes, the recorded blocker is the MJX-vs-C anchoring-price gap and the next lever is pricing, not optimization.",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24"
+    ],
+    "created": "2026-08-13T02:21:41+00:00",
+    "status": "RUNNING",
+    "checks": {
+      "cpu_limit": 28,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-b29b4867-ac22-4270-8fa9-5d854396da05)",
+      "running_experiments_before": 0,
+      "code_sha_local": "f0196539f36fd023a11ddd0566ce31568d6b5479",
+      "code_sha_pod": "f0196539f36fd023a11ddd0566ce31568d6b5479",
+      "wandb_env_on_pod": true,
+      "pid": "4150134",
+      "log_growth_bytes": [
+        9493,
+        18032
+      ],
+      "wandb_id": "nh8kthf3",
+      "global_step_window": [
+        851968,
+        1003520
+      ],
+      "fps_estimate": 5051.7
+    },
+    "stack": "gpu-mjx",
+    "phase": "discovery",
+    "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:arch nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-arch-noslipphase1-r2 --steps 1000000 --n-envs 4096 --lr 5e-5 --target-kl 0.005 --out-name ppo_goal_cw_arch_noslipphase1_r2 --notes 'respec of cw-arch-noslipphase1-r1: Drift-budget arm of the phase-clock no-slip line. r1 fixed expressibility (phase obs), exploration noise (log_std -3 baked in, unchanged after 2M steps - verified) and the critic (MC-pretrained), and the destruction mode is GONE: r1 walks stably (progress 0.64, pitch charge -1.6, hold err 0.8-2.0 deg all run). What remains is slow basin drift: over 2M steps the policy traded foot anchoring for progress (loadslip factor 0.53 -> 0.11, C-probe return 951 -> 617) even though the anchored gait earns more in the C probe - evidence the MJX training env prices anchoring weaker than the C env, so PPO leaks toward rolling loaded feet. This arm halves the drift budget on every axis: 1M steps (r1 periodic evals were already healthy at 1M), lr 1e-4 -> 5e-5, target-kl 0.01 -> 0.005. Same init (ppo_goal_cw_bcnoslip_phase2_init, det probe 1030 / stochastic 770). Expected: preserve anchoring (loadslip >= 0.5) while keeping the stability polish; if it STILL erodes, the recorded blocker is the MJX-vs-C anchoring-price gap and the next lever is pricing, not optimization.' --impl warp --host-workers 24 > /tmp/train_cw-arch-noslipphase1-r2.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-arch-noslipphase1-r2.log",
+    "wandb_id": "nh8kthf3",
+    "verified": "2026-08-13T02:24:30+00:00"
   }
 ]
