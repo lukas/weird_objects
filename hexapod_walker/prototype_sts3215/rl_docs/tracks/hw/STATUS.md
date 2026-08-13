@@ -9,6 +9,27 @@ unresolved blockers between the robot and reliable joystick control.
 
 ## Now
 
+- **08-13 ~2x:xx UTC: ruling 2's agent-doable half is DONE — the
+  takeoff transient is instrumented and the staged gait-entry design
+  exists, prototyped, with a bench-ready recommendation
+  (`rl_docs/TAKEOFF.md`).** Tape analysis (26 walks): the transient
+  is a DROP-IN POSTURE SNAP — the policy saturates the 1.5°/tick slew
+  on all 18 joints from tick 0 at ZERO command; 14/26 tapes cross 5°
+  roll before the runner's velocity ramp even starts (t=1.04 s), so
+  the throttle must act at policy HANDOFF, not on the first step.
+  Design built (default-off, bit-exact, tests + 91-bank green):
+  `safety.entry_slew_ramp_s`/`entry_slew_start_deg` — per-tick slew
+  starts at 0.25°/tick after engage and ramps to 1.5°/tick over
+  1.5 s; shared SafetyLayer code path = same switch on hardware and
+  in sim. Prototype (`probe_gait_entry.py`, 144 paired det rollouts,
+  calibrated 2.6 N·m walk-push proxy): deployed walker tip1 falls
+  9/12→4/12 (paired 5 saved / 0 caused), early peak 30.4°→7.2° med,
+  walking resumes; bcgait1_hard1 fall count unchanged (push-dominated
+  at that fixed dose) but rates halve; ALL no-push arms clean 12/12 —
+  the throttle is OOD-safe. NEXT = OPERATOR BENCH: flip the two cfg
+  keys on the runner's walk engage and re-run takeoff reps
+  (fell/tail); training arms under the entry schedule only if the
+  bench adopts it (MJX parity test for the new keys first).
 - **08-13 ~12:4x UTC OPERATOR RULINGS — both open hw design forks
   are DECIDED:**
   1. **Standing lean (~8°): MECHANICAL TRIM.** The lean is ruled a

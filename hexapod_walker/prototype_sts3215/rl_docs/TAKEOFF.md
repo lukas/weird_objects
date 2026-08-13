@@ -91,7 +91,53 @@ Arms: entry off / ramp1.5s-start0.25 / ramp1.0s-start0.5, on the
 deployed walk champion (`tip1`) and the tall-walk candidate
 (`bcgait1_hard1`).
 
-RESULTS: (pending — filled by the probe run of this cycle)
+RESULTS (08-13, 144 rollouts on train-0, det, paired seeds — same
+push draw per seed across arms; rows:
+`logs/probe_gait_entry/all_rows.json`):
+
+| ckpt | entry | push | falls | peak2.5s med | rate med | x@10s med (no-push) |
+|---|---|---|---|---|---|---|
+| tip1 | off | 2.6 N·m | **9/12** | 30.4° | 106 dps | +0.491 m |
+| tip1 | ramp1.5/0.25 | 2.6 N·m | **4/12** | 7.2° | 48 dps | +0.418 m |
+| tip1 | ramp1.0/0.5 | 2.6 N·m | 5/12 | 9.0° | 70 dps | +0.456 m |
+| bcgait1_hard1 | off | 2.6 N·m | 6/12 | 17.6° | 86 dps | +0.545 m |
+| bcgait1_hard1 | ramp1.5/0.25 | 2.6 N·m | 6/12 | 14.4° | 46 dps | +0.535 m |
+| bcgait1_hard1 | ramp1.0/0.5 | 2.6 N·m | 6/12 | 15.2° | 72 dps | +0.547 m |
+
+- **Deployed walker (tip1): the entry ramp SAVES 5 of 9 paired falls
+  and causes 0 new ones** (per-seed McNemar 5–0); surviving episodes'
+  peaks collapse (25–34° → 2.8–17.4°) and walking fully resumes after
+  the entry (+0.42 m at 10 s vs the baseline's knocked-flat
+  survivors). Falls all happen at ticks 22–34 (0.9–1.4 s), inside the
+  entry/push window, as the tapes predict.
+- **Tall-walk candidate (bcgait1_hard1): fall COUNT unchanged (6/12
+  → 6/12, same seeds)** — under this fixed 2.6 N·m dose its falls are
+  push-sign/geometry-determined, though median roll rate halves
+  (86→46 dps) and fall peaks soften (32–36° → 27–29°). The entry ramp
+  is not a walk-push armor for the tall gait; its value there is only
+  the (hardware-side) snap removal.
+- **The throttle is safe out-of-distribution**: 0/12 falls on every
+  no-push arm for both checkpoints and all schedules; cost is only
+  the entry itself (~7–15% less progress inside a 10 s window; steady
+  gait unchanged, tail roll in-band).
+- Honesty note: sim closed-loop never exhibits the hardware snap
+  (no-push baseline peak ~1.4° med), so sim CANNOT directly show the
+  ramp fixing it. The hardware argument is mechanical: the measured
+  snap is slew-saturated (96–99% of joint-ticks at 1.5°/tick), so a
+  6× slower entry cap bounds the self-induced angular impulse by
+  construction; the probe's contribution is that the policy tolerates
+  the throttle (no new instability, walking resumes) and that under a
+  calibrated worst-case disturbance it strictly helps the deployed
+  policy.
+
+RECOMMENDATION (to the operator, deploy is operator-only): flip
+`safety.entry_slew_ramp_s=1.5`, `entry_slew_start_deg=0.25` in the
+runner cfg for walk engage on the next bench session and re-run the
+takeoff reps of the 08-11 A/B protocol (alternating lead policy);
+judge by fell/tail per the standing metric ruling. If bench falls
+persist WITH the snap throttled, the residual is genuinely
+external-disturbance-like and the next design stage is the gyro-gated
+velocity ramp (stage 2 option above), not more entry throttle.
 
 ## 4. What this does NOT do
 
