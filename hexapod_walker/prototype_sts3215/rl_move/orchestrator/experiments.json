@@ -84147,7 +84147,7 @@
       "reward.walk_gait_gate=1.0"
     ],
     "created": "2026-08-13T17:50:21+00:00",
-    "status": "RUNNING",
+    "status": "STOP",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -84174,6 +84174,17 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:quad nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-quadwalk7 --steps 2000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_quad_hold2.zip --no-dr --episode-seconds 15 --ent-coef 0.02 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix quadwalk=0.7,quad=0.3 --cfg-set reward.k_quad_lift_contact=3.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=6.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --out-name ppo_goal_cw_quadwalk7 --n-envs 4096 --impl warp --host-workers 24 --notes 'respec of cw-quadwalk6: Teach the quadruped to genuinely walk on four legs (front pair free as hands) instead of faking it by parking two middle legs. This arm tests whether the quadwalk6 failure was an EXPLORATION problem rather than a pricing problem. Evidence for that read: quadwalk6 added a structural income gate that verifiably flips the known mid-leg-sacrifice cheat from strongly profitable (matched-behavior comparison vs quadwalk5: same two legs [1,4] idle, same footwork fingerprint, return +722..+1146) to strongly unprofitable (-65..-290 for the identical behavior) -- proof the pricing now works -- yet a FRESH 2M-step run from the same quad_hold2 init, with the fix active from step 0, converged on the exact same now-losing behavior anyway. One lever vs quadwalk6: raise --ent-coef 0.001 -> 0.02 (10-20x), everything else identical (same gate, same init, same 2M discovery budget) -- this is the arm'\"'\"'s own pre-registered branch (a) remedy: if the gate is right but exploration from the spawn can'\"'\"'t find real four-leg stepping, the next lever is exploration, not pricing. Prediction-if-true: by 2M the det video shows all four support legs cycling contact/swing (gait_valid >0/6) and net forward progress, even if rough. Prediction-if-false: (a) the policy still converges to the same mid-leg-park shuffle despite the extra noise -- exploration alone isn'\"'\"'t enough either, next question becomes whether a reactive MLP can balance a moving four-leg stance at all (architecture/curriculum question, not reward); (b) higher entropy destabilizes quad-hold retention (falls/roll blowup) -- would mean this entropy level is too hot for this warm start, try a smaller bump instead of abandoning the exploration hypothesis.' --cfg-set reward.k_quad_clear=4.5 --cfg-set reward.k_quad_plant=3.0 --cfg-set goal.quad_grace_s=1.5 --cfg-set reward.k_quad_still=1.0 --cfg-set goal.quadwalk_start=quad --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --cfg-set reward.walk_gait_gate=1.0 > /tmp/train_cw-quadwalk7.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-quadwalk7.log",
     "wandb_id": "tw2ui4kc",
-    "verified": "2026-08-13T17:53:12+00:00"
+    "verified": "2026-08-13T17:53:12+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-13T17:59:05+00:00",
+        "process_alive": false,
+        "verdict": "FINISHED_BEFORE_CHECKUP",
+        "log_tail": ": hold 1.24\u00b0, track 3.57\u00b0, unload 1.46\u00b0, raise 0/2, rise f0/2 b0/2 c0/2, walk err 0.025 m/s, quadwalk err 0.037 m/s, quad 1.35\u00b0, rolltrap 2/2\n[video] logged reel (2,007,040 steps | rise:ok walk:ok raise:ok hold:ok)\n[video] logged reel (final | rise:ok walk:ok raise:ok hold:ok)\n[mjx-train] done: 2,000,000 steps in 339s (5,907 env-steps/s incl. setup) -> /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_quadwalk7.zip\n[mjx-train] evaluate with the C-env harness before trusting anything (MJX_PORT.md phase-2 item 4).\n[wandb] checkpoint artifact ckpt-ppo_goal_cw_quadwalk7 (md5 16086b2e)\n"
+      }
+    ],
+    "hardware_ready": false,
+    "verdict": "STOP \u2014 pre-registered close: 20x entropy (ent-coef 0.001->0.02) did not escape the [1,4] mid-leg-sacrifice local optimum (gait_valid 0/6 det+sto, identical fingerprint to quadwalk5/6) even though quadwalk6 proved the walk_gait_gate makes that behavior lose -65..-290/ep. Exploration-only is CLOSED for the quadwalk family; next lever is architecture/curriculum (operator discussion). Quad-hold retention clean: 6/6, roll_tail 0.8deg, creep 0.36m in-band, 0 falls.",
+    "triage": "done"
   }
 ]

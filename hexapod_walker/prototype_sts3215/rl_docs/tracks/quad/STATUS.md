@@ -7,6 +7,31 @@ Stand on four, walk on four, front pair free for tricks.
 
 ## Now
 
+- **08-13 (~19:xx UTC): `cw-quadwalk7` (quadwalk6 + `--ent-coef`
+  0.001→0.02, ONE lever) STOP — the pre-registered closing branch
+  fired: 20× exploration noise converged on the IDENTICAL [1,4]
+  mid-leg-sacrifice shuffle (gait_valid 0/6 det+sto, same
+  fingerprint as quadwalk5/6), even though quadwalk6 proved that
+  behavior now LOSES money (-65..-290/ep) under the walk_gait_gate.
+  Forward displacement ticked up (fwd med 0.15m det vs 0.14) but the
+  gait topology is unchanged; slip ~15 m/m; 0 falls; quad-hold
+  retention clean (6/6, roll_tail 0.8°, creep 0.36m — better than
+  the 0.41-0.50m lineage band). **EXPLORATION-ONLY IS CLOSED for the
+  quadwalk family.** With pricing (quadwalk2/3/5), spawn (quadwalk4),
+  structural income gating (quadwalk6), and exploration (quadwalk7)
+  ALL measured-exhausted, the surviving question is the one
+  quadwalk6's verdict named: can a reactive MLP warm-started from a
+  static four-leg hold ever discover DYNAMIC four-leg stepping, or
+  does this need architecture/curriculum (e.g., BC from a feedback
+  stepping reference that doesn't exist yet, staged single-leg-swing
+  curricula, or a temporal policy)? That is an OPERATOR DESIGN
+  DISCUSSION per the arm's own pre-registration — no further
+  entropy/coefficient scans, no quadwalk arm launchable until the
+  operator picks a direction (wait recorded in root STATUS
+  WAITING-ON). Note the geometric proof below makes the stakes
+  clear: only a closed-loop policy can ever pass the bank, so if RL
+  can't find stepping from this init, the curriculum design IS the
+  critical path for this track's goal.
 - **08-13 (~17:5x UTC): `cw-quadwalk6` (structural walk_gait_gate,
   ONE lever vs quadwalk5) STOP, but decisively informative — the
   fix is PROVEN to work as pricing, yet the policy is stuck anyway.**
