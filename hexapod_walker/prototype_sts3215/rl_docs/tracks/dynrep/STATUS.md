@@ -11,7 +11,33 @@ whether PPO reusing that representation (frozen / continually
 anchored) learns new motor skills with fewer env steps than PPO from
 scratch. Primary metric: sample efficiency on a NEW task.
 
-## Now (08-13 am: local 3-seed sweep on the REPAIRED hold task)
+## Now (08-13 ~13:3x UTC: rep in flight + hold->walk code READY)
+
+- **train-11 pilot replication: mid-flight, verified healthy** (13:19
+  UTC health check: encoder pretraining ~25k/40k steps, val total
+  ~3.00 and flat, trainer process at ~18.5 cores; the "stale" log is
+  stdout block-buffering). PPO A/B/C cohort (seeds 1–3) still ahead —
+  hours-scale. NOT triaged; that is the next dynrep cycle's job, per
+  the operator's ordering (expected if the laptop read holds: phase-1
+  final hold C > B > A; no phase-2 speed separation; retention
+  A >= C > B).
+- **hold->walk transfer pair: code LANDED this cycle, launch-blocked
+  only on the rep landing + triage** (operator ordering). What
+  landed: `walk` task in train_ppo_transfer.py (p_walk=1.0 pin, same
+  env family, one variable per run preserved), `--eval-tasks`
+  (default keeps the pilot CSV schema bit-exact; hold->walk cohorts
+  pass hold,walk for free retention curves), eval-every default
+  25k -> 10k (operator: NEW cohorts need <= 10k, seeds >= 5),
+  `pod_holdwalk.sh` (seeds 1–5, reuses the rep's hold checkpoints
+  for 1–3, trains hold for 4–5, walk at WALK_STEPS default 1M,
+  hard-aborts without a G1 PASS on record), and
+  `analyze_pilot --phase2 walk --phase2-threshold <thr>` (threshold
+  pinned after first curves — walk return scale here is unmeasured).
+  Smoke-tested end-to-end on the controller (env pinning, 1k-step
+  A-condition runs both tasks, warm-start, both analyzer modes;
+  legacy CSV schema verified unchanged).
+
+## Previously (08-13 am: local 3-seed sweep on the REPAIRED hold task)
 
 - **Hold-task fix first** (train_ppo_transfer.py `--term-penalty`,
   default 30): the 08-12 pilot's phase 1 was degenerate — every
@@ -131,11 +157,14 @@ scratch. Primary metric: sample efficiency on a NEW task.
      retention A >= C > B.
   2. **If more seeds are queued, fix the eval granularity first:**
      eval-every <= 10k (the laptop's 25k grid can't resolve
-     steps-to-threshold differences), seeds >= 5.
+     steps-to-threshold differences), seeds >= 5. — DONE 08-13
+     ~13:3x: eval-every default is now 10k in train_ppo_transfer.py;
+     pod_holdwalk.sh runs seeds 1–5.
   3. **Harder transfer pair next: hold -> walk** (the brief's real
      ladder). lower is too close to hold to discriminate — all three
      conditions transferred at the same speed locally. Walk budgets
-     don't fit the laptop; this is the pod's job.
+     don't fit the laptop; this is the pod's job. — CODE READY 08-13
+     ~13:3x (see Now); launch after the rep triage.
 - **Seed replication IN FLIGHT (08-13 ~12:3x UTC, train-11 idle
   CPUs, `pod_pilot_rep.sh`):** the operator's code push (4d26954)
   unblocked the track, but datasets/models are laptop-local, so the

@@ -16,7 +16,10 @@ variable is where the policy's representation comes from
 
 Local pilot tasks (Mac-scale budgets; the brief's walk/yaw tasks need
 pod-scale steps): "hold" (quiet plant stance) then "lower" (controlled
-descent to belly = return toward the zero pose). Transfer protocol:
+descent to belly = return toward the zero pose). Pod-scale transfer
+task (08-13 operator directive — lower is too close to hold to
+discriminate acquisition speed): "walk" (commanded velocity tracking,
+the campaign walk goal mode; runner: pod_holdwalk.sh). Transfer protocol:
 train task 1, checkpoint, warm-start task 2 with --init-from; the eval
 callback measures BOTH tasks at every eval so retention curves come
 for free.
@@ -52,8 +55,15 @@ DEFAULT_ENCODER = "rl_move/dynamics/models/dyn_v2_obs.pt"
 
 HISTORY = 16
 FRAME_WIDTH = 72          # walk-env frame: 59 proprio + 13 goal/cmd
-TASKS = ("hold", "lower")
-TASK_GOALS = {"hold": {"hold": 1.0}, "lower": {"lower": 1.0}}
+TASKS = ("hold", "lower", "walk")
+TASK_GOALS = {"hold": {"hold": 1.0}, "lower": {"lower": 1.0},
+              # walk (08-13, operator directive: hold->walk is the pod
+              # transfer pair — lower is too close to hold to
+              # discriminate). p_walk=1.0 pins every episode to the
+              # walk goal mode; the goal gen samples velocity commands
+              # exactly as the campaign's eval harnesses do
+              # (eval_cmd_suite/drive_policy set gen.p_walk = 1.0).
+              "walk": {"walk": 1.0}}
 ALL_MODES = ("hold", "lean", "track", "unload", "raise", "rise",
              "lower", "quad", "walk")
 
@@ -150,7 +160,17 @@ def main() -> None:
     ap.add_argument("--encoder", default=DEFAULT_ENCODER)
     ap.add_argument("--init-from", default=None,
                     help="warm-start checkpoint (transfer phase)")
-    ap.add_argument("--eval-every", type=int, default=25_000)
+    # 25k -> 10k default (operator directive 08-13: the laptop sweep's
+    # 25k grid could not resolve steps-to-threshold differences; every
+    # NEW cohort runs eval-every <= 10k and seeds >= 5). Eval uses
+    # separate fixed-seed envs + deterministic predict, so cadence does
+    # not perturb the training trajectory — only wall clock.
+    ap.add_argument("--eval-every", type=int, default=10_000)
+    ap.add_argument("--eval-tasks", default="hold,lower",
+                    help="comma-separated task list measured at every "
+                         "eval point (retention curves). Default keeps "
+                         "the pilot CSV schema; hold->walk cohorts pass "
+                         "hold,walk")
     ap.add_argument("--eval-episodes", type=int, default=4)
     ap.add_argument("--lr", type=float, default=3e-4)
     ap.add_argument("--encoder-lr-scale", type=float, default=0.1)
@@ -218,13 +238,20 @@ def main() -> None:
           f"obs {venv.observation_space.shape}, "
           f"init_from={args.init_from}, term_penalty={args.term_penalty}")
 
+    eval_tasks = tuple(t.strip() for t in args.eval_tasks.split(",")
+                       if t.strip())
+    assert all(t in TASKS for t in eval_tasks), \
+        f"--eval-tasks entries must be in {TASKS}"
+    assert args.task in eval_tasks, \
+        "--eval-tasks must include the trained task"
+
     LOG_DIR.mkdir(parents=True, exist_ok=True)
     MODEL_DIR.mkdir(parents=True, exist_ok=True)
     csv_path = LOG_DIR / f"ppo_{args.name}_eval.csv"
     csv_f = open(csv_path, "w", newline="")
     csv_w = csv.DictWriter(csv_f, fieldnames=[
         "step", "wall_s",
-        *[f"{t}/{m}" for t in TASKS
+        *[f"{t}/{m}" for t in eval_tasks
           for m in ("return", "ep_len", "early_term_rate")],
         "anchor_loss"])
     csv_w.writeheader()
@@ -234,7 +261,7 @@ def main() -> None:
     def run_evals(step: int):
         row = {"step": step, "wall_s": round(time.time() - t0, 1),
                "anchor_loss": anchor_state["loss"]}
-        for t in TASKS:
+        for t in eval_tasks:
             m = eval_task(model, t, args.eval_episodes, args.dr_scale,
                           args.episode_seconds)
             row.update({f"{t}/{k}": round(v, 3) for k, v in m.items()})
@@ -242,7 +269,7 @@ def main() -> None:
         csv_f.flush()
         print(f"  eval @ {step}: " + "  ".join(
             f"{t} ret={row[f'{t}/return']:.1f} "
-            f"term={row[f'{t}/early_term_rate']:.2f}" for t in TASKS)
+            f"term={row[f'{t}/early_term_rate']:.2f}" for t in eval_tasks)
             + (f"  anchor={anchor_state['loss']:.3f}"
                if args.condition == "C" else ""))
 

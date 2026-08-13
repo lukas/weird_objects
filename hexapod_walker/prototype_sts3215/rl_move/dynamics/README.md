@@ -41,6 +41,14 @@ make -C rl_move/dynamics smoke      # tiny end-to-end sanity run (~3 min)
 sh rl_move/dynamics/run_pilot.sh 150000 0      # [steps] [seed]
 ../../.venv/bin/python -m rl_move.dynamics.analyze_pilot \
     --seeds 0 1 2 --plot
+
+# pod-scale hold->walk transfer pair (operator directive 08-13;
+# preconditions in the script header — G1-passed pod encoder +
+# v2pod dataset + rep triage done):
+SEEDS="1 2 3 4 5" nohup sh rl_move/dynamics/pod_holdwalk.sh \
+    > rl_move/dynamics/logs/pod_holdwalk.log &
+../../.venv/bin/python -m rl_move.dynamics.analyze_pilot \
+    --seeds 1 2 3 4 5 --phase2 walk --phase2-threshold <thr> --plot
 ```
 
 Training applies a one-time reward penalty on early termination

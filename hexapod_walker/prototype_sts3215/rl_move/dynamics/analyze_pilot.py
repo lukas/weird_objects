@@ -14,6 +14,11 @@ stderr theater). A plot of the per-seed curves lands next to the logs.
 
     python -m rl_move.dynamics.analyze_pilot [--seeds 0 1 2]
         [--hold-threshold -120] [--lower-threshold -40] [--plot]
+
+Phase 2 defaults to "lower" (the laptop pilot pair); the pod
+hold->walk cohorts pass --phase2 walk --phase2-threshold <thr>
+(pin the threshold AFTER seeing the first curves — walk return
+scale in this env is unmeasured until then).
 """
 from __future__ import annotations
 
@@ -25,7 +30,6 @@ import numpy as np
 
 LOG_DIR = Path(__file__).resolve().parent / "logs"
 CONDITIONS = ("A", "B", "C")
-PHASES = ("hold", "lower")
 
 
 def load_curve(phase: str, cond: str, seed: int) -> dict[str, np.ndarray]:
@@ -65,10 +69,23 @@ def main() -> None:
     ap.add_argument("--seeds", type=int, nargs="+", default=[0, 1, 2])
     ap.add_argument("--hold-threshold", type=float, default=-120.0)
     ap.add_argument("--lower-threshold", type=float, default=-40.0)
+    ap.add_argument("--phase2", default="lower", choices=("lower", "walk"),
+                    help="the transfer task of phase 2 (default: the "
+                         "laptop pilot's lower; pod cohorts: walk)")
+    ap.add_argument("--phase2-threshold", type=float, default=None,
+                    help="steps-to-threshold cut for the phase-2 task "
+                         "(default: the --lower-threshold value for "
+                         "lower; REQUIRED for walk)")
     ap.add_argument("--plot", action="store_true",
                     help="write per-seed curves to logs/pilot_sweep.png")
     args = ap.parse_args()
-    thr = {"hold": args.hold_threshold, "lower": args.lower_threshold}
+    thr2 = args.phase2_threshold
+    if thr2 is None:
+        if args.phase2 != "lower":
+            ap.error("--phase2-threshold is required for --phase2 walk")
+        thr2 = args.lower_threshold
+    PHASES = ("hold", args.phase2)
+    thr = {"hold": args.hold_threshold, args.phase2: thr2}
 
     curves: dict[tuple, dict] = {}
     for ph in PHASES:
@@ -84,7 +101,7 @@ def main() -> None:
         print(f"\n== phase: {ph} (train task '{task}', "
               f"threshold {thr[task]}) ==")
         hdr = (f"{'cond':>4}  {'steps-to-thr':>28}  {'final ' + task:>20}"
-               + (f"  {'final hold (retention)':>24}" if ph == "lower"
+               + (f"  {'final hold (retention)':>24}" if ph != "hold"
                   else ""))
         print(hdr)
         for c in CONDITIONS:
@@ -96,10 +113,10 @@ def main() -> None:
                 stt.append(steps_to_threshold(
                     cu["step"], cu[f"{task}/return"], thr[task]))
                 fin.append(cu[f"{task}/return"][-1])
-                if ph == "lower":
+                if ph != "hold":
                     ret_hold.append(cu["hold/return"][-1])
             line = f"{c:>4}  {_fmt(stt):>28}  {_fmt(fin):>20}"
-            if ph == "lower":
+            if ph != "hold":
                 line += f"  {_fmt(ret_hold):>24}"
             print(line)
 
@@ -108,8 +125,9 @@ def main() -> None:
         matplotlib.use("Agg")
         import matplotlib.pyplot as plt
         fig, axes = plt.subplots(2, 2, figsize=(12, 8), sharex=True)
-        panels = [("hold", "hold"), ("lower", "lower"), ("lower", "hold")]
-        titles = ["phase 1: hold return", "phase 2: lower return",
+        p2 = args.phase2
+        panels = [("hold", "hold"), (p2, p2), (p2, "hold")]
+        titles = ["phase 1: hold return", f"phase 2: {p2} return",
                   "phase 2: hold retention"]
         colors = {"A": "tab:red", "B": "tab:blue", "C": "tab:green"}
         for ax, (ph, task), title in zip(axes.flat, panels, titles):
@@ -128,7 +146,8 @@ def main() -> None:
         fig.suptitle("dynrep pilot sweep — A scratch / B frozen / "
                      "C anchored (thin lines = seeds)")
         fig.tight_layout()
-        out = LOG_DIR / "pilot_sweep.png"
+        out = LOG_DIR / ("pilot_sweep.png" if p2 == "lower"
+                         else f"pilot_sweep_{p2}.png")
         fig.savefig(out, dpi=110)
         print(f"\nplot -> {out}")
 
