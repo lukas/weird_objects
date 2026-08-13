@@ -55,15 +55,27 @@ Stand on four, walk on four, front pair free for tricks.
 
 ## Next
 
-- **Unblock the QUADWALK bank's honest reference** — two routes:
-  (1) video-driven iteration of the scripted crawl on a train pod
-  (`probe_quad_crawl.py --video`; the blind CPU sweep exhausted its
-  cheap hypotheses — watching the failure will likely name the fix
-  in one session), or (2) operator ruling on relaxing the reference
-  source (e.g. accept the first RL policy showing genuine rear-four
-  stepping as the bank trajectory — that's an MDP_PREFLIGHT
-  chicken-and-egg only the operator can approve). Until one lands,
-  NO quadwalk training arm is launchable.
+- **08-13 (diag session): route (1) — scripted-reference iteration —
+  is CLOSED with a measured geometric proof.** The train-0
+  instrumented session (`probe_quad_crawl.py --diag`, 14 configs
+  spanning every physical lever: stance translation/rotation, pitch
+  to the tilt limit, front-tuck yaw, adaptive 2-D weight shift,
+  slow periods) shows a statically-stable open-loop quad crawl with
+  both fronts lifted is INFEASIBLE on this robot: the mid-swing
+  support triangle needs the CoM ~5-7 cm further back (or 9-13 cm
+  lateral) than the ±35° hip-yaw workspace can EVER put it — the
+  mid-swing margin measured −33..−70 mm in every config while rear
+  swings are +35..+55 mm; commanded body x-shifts don't physically
+  realize (yaw-saturated), lateral realizes ~30%; the swinging mid
+  is pinned 0.65-1.0 of its window and the tip+recovery rectifies
+  the gait backward. Full numbers + geometry argument in the probe
+  docstring. **Consequence: only DYNAMIC (closed-loop) balance can
+  walk this robot on four legs — the honest scripted reference the
+  bank was waiting for cannot exist. Route (2), the operator ruling
+  (accept the first RL/feedback policy showing genuine rear-four
+  stepping as the bank trajectory — an MDP_PREFLIGHT
+  chicken-and-egg only the operator can approve), is now the ONLY
+  route. Until it lands, NO quadwalk training arm is launchable.**
 - A legal interim arm once the operator weighs stance priorities: a
   quad-HOLD continuation pricing the stance creep with the new
   `k_quad_still` (bank-proven, cheats priced) — fixes the measured
