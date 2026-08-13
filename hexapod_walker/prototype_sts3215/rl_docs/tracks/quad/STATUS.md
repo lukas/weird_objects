@@ -7,6 +7,32 @@ Stand on four, walk on four, front pair free for tricks.
 
 ## Now
 
+- **08-13 (~17:xx UTC): `cw-quadwalk5` (quadwalk4 + `reward.k_park_duty`
+  1.0->6.0, ONE lever) STOP — same known exploit, price hike did
+  NOTHING. Det+sto both sacrifice the identical mid legs [1,4] in
+  12/12 episodes (gait_valid 0/6, slip 13.25 med det / 11.31 sto,
+  fwd med 0.17m det vs 0.05-0.06 commanded), and fronts_lifted
+  actually regressed to 3/6 det (was 11/12 in quadwalk4) — a 6x
+  charge that should dominate the ~-0.12/tick park cost produced
+  ZERO behavior change. Quad-hold retention held (6/6 survived,
+  creep 0.49m det / 0.40m sto — in the 0.43-0.50m lineage band;
+  roll_tail 2.5/0.7deg, within the 3deg cap). **RULING: pricing-only
+  is now measured-exhausted for BOTH quadwalk cheat families found
+  so far** — fronts-down (quadwalk1-3, repriced 3x, still failed)
+  and mid-leg-park (quadwalk4 discovery -> quadwalk5 repriced 6x,
+  still failed identically). A coefficient that should have been
+  overwhelming changed nothing, so the next lever is a structural
+  CODE fix that closes the "sacrifice any subset of support legs"
+  loophole generically (mirrors the stance line's per-foot-price ->
+  bc_anchor_foot_z lesson: duty/contact pricing alone gets evaded by
+  parking, whichever legs are cheapest to park). No further
+  reprice-only quadwalk arm until that lever exists and its own
+  semantics-bank case is written; this needs a root-cause pass
+  (behavior <- incentive <- pricing <- sim defect), not another
+  coefficient scan, and is not a same-cycle triage fix — flagged for
+  a deeper pass. Fleet stays idle on quadwalk in the meantime
+  (excess-capacity track; hw keeps pod priority; an idle pod here is
+  fine, a blind 6th reprice would not be).
 - **08-13 (~16:xx UTC): `cw-quadwalk4` (quadwalk3 + `goal.quadwalk_start
   ="quad"` spawn) FAIL — the spawn fix WORKS (fronts_lifted 11/12
   det+sto, tail lift duty <0.15, first quadwalk arm EVER to clear
