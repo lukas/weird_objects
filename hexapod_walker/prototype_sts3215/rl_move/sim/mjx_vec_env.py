@@ -224,7 +224,7 @@ class MjxVecEnv(VecEnv):
         # change, per choreography under DR (tick-param scales and
         # model-field draws both move the settled frames).
         seq_on = float(cfg_get(getattr(self.envs[0], "cfg", None) or {},
-                               "goal", "mode_seq", default=0.0)) == 1.0
+                               "goal", "mode_seq", default=0.0)) > 0.0
         mint = seq_on and (self._model_dr
                            or any(e.randomizer is not None
                                   for e in self.envs)

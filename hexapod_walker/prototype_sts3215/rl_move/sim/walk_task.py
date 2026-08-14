@@ -852,7 +852,9 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
     # builds each segment's schedule. goal.mode_seq=0 (default) is
     # bit-exact legacy: no plan, no extra rng draws, no per-tick work
     # beyond one attr check. Keys:
-    #   goal.mode_seq                1 = on (joint_walk task only)
+    #   goal.mode_seq                sequence-episode probability
+    #                                (0 = off/legacy, 1 = every episode,
+    #                                0<p<1 = mixed diet; joint_walk only)
     #   goal.mode_seq_segment_s_min  segment length draw lo (s, 6.0)
     #   goal.mode_seq_segment_s_max  segment length draw hi (s, 8.0)
     #   goal.mode_seq_blend_s_min    per-switch ref blend lo (s, 0.5)
@@ -1016,8 +1018,16 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         self._phase = 0.0
 
     def _sample_goal(self):
-        if float(cfg_get(self.cfg, "goal", "mode_seq",
-                         default=0.0)) == 1.0:
+        # goal.mode_seq semantics (08-14, Arm 2 recipe: "retain ~25%
+        # single-mode episodes"): 0 = off (bit-exact legacy, no draw),
+        # 1 = every episode a sequence (bit-exact prior behavior, no
+        # draw), 0<p<1 = this episode is a sequence with prob p, else
+        # falls through to the legacy single-mode samplers (one extra
+        # rng draw ONLY in the fractional case, so both endpoints keep
+        # their historical rng streams).
+        p_seq = float(cfg_get(self.cfg, "goal", "mode_seq",
+                              default=0.0))
+        if p_seq >= 1.0 or (p_seq > 0.0 and self.rng.random() < p_seq):
             return self._sample_mode_seq()
         gen = self._goal_gen
         p_walk = float(getattr(gen, "p_walk", 0.0))

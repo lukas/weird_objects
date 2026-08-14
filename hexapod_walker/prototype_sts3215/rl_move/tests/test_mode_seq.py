@@ -299,3 +299,39 @@ def test_seq_attrs_in_snap_attrs():
     for a in ("_seq_plan", "_seq_idx", "_seq_stand_z", "_seq_seg_end",
               "_seq_pose_anchor", "_seq_frames"):
         assert a in SNAP_ATTRS, f"{a} missing from mjx_host.SNAP_ATTRS"
+
+
+# ---------------------------------------------------------------------------
+# 7. fractional mode_seq = mixed sequence/single-mode diet (08-14, the
+#    Arm 2 "retain ~25% single-mode episodes" hook). Endpoints stay
+#    bit-exact: p=1.0 draws no extra rng (all-sequence, historical
+#    stream), p=0 is the legacy path (locked above); 0<p<1 mixes both
+#    episode kinds at roughly the configured rate.
+# ---------------------------------------------------------------------------
+
+def test_fractional_mode_seq_mixes_episode_kinds():
+    env = _make_env(seq=True, episode_seconds=8.0)
+    env.cfg["goal"]["mode_seq"] = 0.75
+    seq_eps = 0
+    n = 40
+    for _ in range(n):
+        env.reset()
+        if env._seq_plan is not None:
+            seq_eps += 1
+    # binomial(40, .75): P(outside [20, 38]) < 1e-3 — a loose band that
+    # still catches inverted or endpoint-stuck semantics.
+    assert 20 <= seq_eps <= 38, seq_eps
+    assert 0 < seq_eps < n  # both kinds actually appear
+
+
+def test_full_mode_seq_draws_no_extra_rng():
+    # p=1.0 must keep the historical all-sequence rng stream: obs after
+    # reset identical to a fresh env with the same seed (the draw-free
+    # fast path).
+    a = _make_env(seed=11, seq=True, episode_seconds=8.0)
+    b = _make_env(seed=11, seq=True, episode_seconds=8.0)
+    b.cfg["goal"]["mode_seq"] = 1.0  # explicit float endpoint
+    oa, _ = a.reset()
+    ob, _ = b.reset()
+    np.testing.assert_array_equal(oa, ob)
+    assert a._seq_plan is not None and b._seq_plan is not None

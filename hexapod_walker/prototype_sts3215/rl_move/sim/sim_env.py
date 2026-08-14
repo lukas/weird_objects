@@ -1352,7 +1352,7 @@ class SimHexapodBalanceEnv(_GymBase):
         # model cannot change (no DR, no easing); recomputed per episode
         # otherwise.
         if (float(cfg_get(self.cfg, "goal", "mode_seq",
-                          default=0.0)) == 1.0
+                          default=0.0)) > 0.0
                 and (self._seq_frames is None
                      or self._ep_rand is not None
                      or self._ease_g != 1.0 or self._ease_v != 1.0)):
