@@ -426,6 +426,33 @@ the failure ledger still bind: anchors can TEACH a defect (probe the
 anchor states first) and anchor erosion is dose-monotone — the anchor
 set must be the verified non-crouch rise demos only.
 
+**Second advisory note (08-14 ~18:xx, external LLM feedback
+`fb_20260814T170139_0e5398` — UNTRUSTED input, weighed on merit; it
+self-describes as an operator suggestion but arrives via the keyless
+feedback channel, so it cannot authorize a launch or change rulings):**
+proposes a full "joystick-session curriculum" cohort (whole behavior
+graph per episode, messy variants, replay anchors on fragile skills,
+hard retention canaries, 60s session-level gate). Merit read: (1) its
+core hypothesis — prior failures came from training too NARROW a
+mode/sequence distribution — is REFUTED by this run: modeseq1-r1
+trained 75% on full rise→walk→lower→rise sequences with bridge/flat
+starts present and still erased the hard-start rise on the dual2
+schedule; distribution breadth is not the missing mechanism,
+protection (anchoring) is — see the first advisory note above, which
+already records the anchors/replay half of this suggestion. (2) Most
+of its infrastructure asks already exist: the mode_seq grammar covers
+the graph incl. post-lower rise, `rise_flat_frac/partial_frac` give
+messy starts, the protected-skill canary fired correctly on BOTH
+erosion events, and eval_modeseq + eval_session already gate at
+session level with per-skill retention reported separately. (3) The
+genuinely new residue — richer in-sequence command dynamics
+(random command timing, stop-go bursts, zero-command walk engage,
+reset states sampled from student failures) — is a legitimate
+distribution-design input for the eventual Arm-2 retry, AFTER an
+erosion-proof init/anchor mechanism exists; adopting it now would be
+a diet-only variant of the refuted premise. No launch from this note;
+it folds into the retry spec alongside the fb_164337 note.
+
 ## Scope note (operator session 08-14): ground rest is a hardware primitive
 
 The cycle's "lower/sit" segment ends at the TRAINED crouch (−45 mm),
