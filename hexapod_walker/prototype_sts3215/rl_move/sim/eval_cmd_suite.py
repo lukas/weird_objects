@@ -20,7 +20,17 @@ every time — and reports per command, per pass (det AND sto):
 Output is machine-readable JSON (--out): one row per (command, pass),
 medians across --episodes episodes. NOT a gate — this is a
 measurement suite for retained-command erosion; it always exits 0
-unless it errors. MLP PPO checkpoints only (the multitask lineage).
+unless it errors.
+
+Checkpoints: plain PPO/MLP or RecurrentPPO/GRU zips both load
+(gru_policy.load_checkpoint_auto); recurrent hidden state is threaded
+across steps and reset at episode boundaries (zero-state predict on a
+GRU evaluates a memory-less lobotomy, not the policy). A checkpoint
+that is N_MODE_OBS wider than the env auto-enables obs.mode_onehot +
+obs.mode_onehot_cmd — the dual-core transplant recipe routes on the
+LIVE blended command, so a stopped command must light the stance core
+here exactly as in training (pass --cfg-set obs.mode_onehot_cmd=0
+for a dual-core checkpoint trained on the episode-mode one-hot).
 
     cd prototype_sts3215 && python3 -m rl_move.sim.eval_cmd_suite \
         <ckpt.zip> --cmd 0.05,0,0 --cmd 0,0,0.3 [--suite cmds.json] \
@@ -67,6 +77,33 @@ def default_panel(s: float, w: float) -> list[tuple[str, float, float, float]]:
 
 def _cmd_name(vx: float, vy: float, wz: float) -> str:
     return f"vx{vx:+.3f}_vy{vy:+.3f}_wz{wz:+.2f}"
+
+
+class _StatefulPredictor:
+    """Thread recurrent hidden state across steps; uniform interface
+    for plain PPO. reset() at every episode boundary (initial reset
+    AND the mid-schedule fall reset), never between commands of the
+    same episode."""
+
+    def __init__(self, model):
+        self._policy = model.policy
+        self._recurrent = getattr(model.policy, "lstm_actor",
+                                  None) is not None
+        self.reset()
+
+    def reset(self) -> None:
+        self._state = None
+        self._start = np.ones((1,), dtype=bool)
+
+    def predict(self, obs, deterministic: bool):
+        if self._recurrent:
+            a, self._state = self._policy.predict(
+                obs, state=self._state, episode_start=self._start,
+                deterministic=deterministic)
+            self._start = np.zeros((1,), dtype=bool)
+            return a
+        a, _ = self._policy.predict(obs, deterministic=deterministic)
+        return a
 
 
 def main() -> int:
@@ -122,17 +159,16 @@ def main() -> int:
     if not cmds:
         cmds = default_panel(args.speed, args.wz_max)
 
-    from stable_baselines3 import PPO
+    from rl_move.config import load_config
 
+    from .gru_policy import load_checkpoint_auto
     from .servo_model import SimServoParams
-    from .walk_task import SimHexapodJointWalkEnv
+    from .walk_task import N_MODE_OBS, SimHexapodJointWalkEnv
 
     # Same cfg-before-construction rule as eval_checkpoint (cycle 11:
     # overrides can change obs WIDTH, baked in __init__).
-    cfg_kw = {}
+    cfg = load_config()
     if args.cfg_set:
-        from rl_move.config import load_config
-        cfg = load_config()
         for spec in args.cfg_set:
             key, val = spec.split("=", 1)
             sect, name = key.split(".", 1)
@@ -141,26 +177,46 @@ def main() -> int:
             except ValueError:
                 parsed = val.strip()
             cfg.setdefault(sect, {})[name] = parsed
-        cfg_kw["cfg"] = cfg
-    env = SimHexapodJointWalkEnv(
-        params=SimServoParams.from_cfg(cfg_kw.get("cfg")),
-        randomize=args.dr_scale > 0,
-        dr_scale=args.dr_scale, episode_seconds=600.0, seed=args.seed,
-        **cfg_kw)
-    gen = env._goal_gen
-    gen.p_walk = 1.0
-    for m in ("hold", "lean", "track", "unload", "raise", "rise", "lower"):
-        setattr(gen, f"p_{m}", 0.0)
-    model = PPO.load(args.checkpoint, device="cpu")
-    assert model.observation_space.shape == env.observation_space.shape, (
-        f"obs mismatch: policy {model.observation_space.shape} vs env "
-        f"{env.observation_space.shape} — wrong --cfg-set for this ckpt?")
+
+    def make_env(c):
+        env = SimHexapodJointWalkEnv(
+            params=SimServoParams.from_cfg(c), cfg=c,
+            randomize=args.dr_scale > 0, dr_scale=args.dr_scale,
+            episode_seconds=600.0, seed=args.seed)
+        gen = env._goal_gen
+        gen.p_walk = 1.0
+        for m in ("hold", "lean", "track", "unload", "raise", "rise",
+                  "lower"):
+            setattr(gen, f"p_{m}", 0.0)
+        return env
+
+    env = make_env(cfg)
+    model = load_checkpoint_auto(args.checkpoint, device="cpu")
+    n_model = int(model.observation_space.shape[0])
+    n_env = int(env.observation_space.shape[0])
+    if n_model == n_env + N_MODE_OBS:
+        # Dual-core checkpoint: route on the LIVE command, exactly as
+        # the multitask transplant trains (walk_task
+        # obs.mode_onehot_cmd; setdefault so an explicit
+        # --cfg-set obs.mode_onehot_cmd=0 still wins).
+        print(f"[cmd_suite] checkpoint obs {n_model} = env {n_env} + "
+              f"{N_MODE_OBS}: enabling obs.mode_onehot + mode_onehot_cmd")
+        env.close()
+        cfg.setdefault("obs", {})["mode_onehot"] = 1.0
+        cfg["obs"].setdefault("mode_onehot_cmd", 1.0)
+        env = make_env(cfg)
+    elif n_model != n_env:
+        raise SystemExit(
+            f"obs mismatch: policy {model.observation_space.shape} vs env "
+            f"{env.observation_space.shape} — wrong --cfg-set for this ckpt?")
+    predictor = _StatefulPredictor(model)
 
     pads = [env.model.body(f"L{i}_pad").id for i in range(6)]
 
     def run_episode(vx: float, vy: float, wz: float, det: bool,
                     seed: int) -> dict:
         obs, _ = env.reset(seed=seed)
+        predictor.reset()
         falls = 0
         verr, vxerr, vyerr, wzerr = [], [], [], []
         cur_meas: list[np.ndarray] = []
@@ -181,7 +237,7 @@ def main() -> int:
                     traj.wz[:] = cwz
                 elif abs(cwz) > 1e-9:
                     traj.wz = np.full_like(np.asarray(traj.vx), cwz)
-            a, _ = model.predict(obs, deterministic=det)
+            a = predictor.predict(obs, deterministic=det)
             obs, _r, term, trunc, _info = env.step(a)
             t += env.dt
             measured = in_hold and (i - n_settle) * env.dt >= args.blend_skip_s
@@ -205,6 +261,7 @@ def main() -> int:
             if term or trunc:
                 falls += 1
                 obs, _ = env.reset()
+                predictor.reset()
                 pos0 = None   # progress across a fall is meaningless
 
         # loaded-foot slip over the measured window (harness definition)
