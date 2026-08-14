@@ -962,6 +962,27 @@ class SimHexapodBalanceEnv(_GymBase):
         self._park_bank_cache = bank
         return bank
 
+    def _rise_start_bank(self) -> np.ndarray | None:
+        """Harvested settled lower-endpoint poses (08-14, post-lower
+        rise exposure — SESSION_BULK_GATE's named boundary). Lazy-loads
+        the npz named by cfg goal.rise_start_bank (key ``q_rad``, shape
+        (K,18)); caches None when unset so the legacy path costs one
+        attribute check. Same contract as _walk_park_bank."""
+        if hasattr(self, "_rise_bank_cache"):
+            return self._rise_bank_cache
+        path = cfg_get(self.cfg, "goal", "rise_start_bank", default=None)
+        bank = None
+        if path:
+            arr = np.load(str(path))["q_rad"]
+            arr = np.asarray(arr, dtype=float)
+            if arr.ndim != 2 or arr.shape[1] != N_JOINTS or len(arr) == 0:
+                raise ValueError(
+                    f"rise_start_bank {path}: expected (K,{N_JOINTS}) "
+                    f"q_rad, got {arr.shape}")
+            bank = arr
+        self._rise_bank_cache = bank
+        return bank
+
     def _place_at_plant(self, q_rad: np.ndarray) -> None:
         """Set qpos to ``q_rad`` with the chassis at foot-contact height."""
         import mujoco_prototype as MP
@@ -1092,7 +1113,13 @@ class SimHexapodBalanceEnv(_GymBase):
         self._rsi_pending = False
         self._rsi_ref_tick0: int | None = None
         if (self._goal_traj is not None
-                and getattr(self._goal_traj, "mode", "") == "rise"):
+                and getattr(self._goal_traj, "mode", "") == "rise"
+                # Bank episodes ARE the post-lower exposure — RSI must
+                # not override them (rise_bank never occurs unless
+                # goal.rise_start_bank is configured, so the legacy
+                # rng stream is untouched when the feature is off).
+                and getattr(self._goal_traj, "start_at", "")
+                != "rise_bank"):
             rsi_f = float(cfg_get(self.cfg, "goal", "rise_rsi_frac",
                                   default=0.0))
             rsi_ref = cfg_get(self.cfg, "reward", "rise_ref_path",
@@ -1139,6 +1166,24 @@ class SimHexapodBalanceEnv(_GymBase):
             if self._ep_rand is not None:
                 q_start = self._clip_to_joint_limits(
                     q_start + self._ep_rand.start_offset_rad)
+        elif start_at == "rise_bank":
+            # Post-lower rise start (08-14): a harvested settled
+            # lower-endpoint pose of the policy's OWN lower skill
+            # (goal.rise_start_bank, built by harvest_lower_endpoints).
+            # SESSION_BULK_GATE named this the single trainable
+            # boundary: ALL 10 det session failures + the weakest sto
+            # stratum (0.801, over_current-dominated) were post-lower
+            # rises, while synthetic-start first rises were 300/300.
+            # +-2 deg jitter, same as the walk park bank.
+            bank = self._rise_start_bank()
+            if bank is None:
+                raise RuntimeError(
+                    "start_at='rise_bank' requires goal.rise_start_bank")
+            q_start = bank[int(self.rng.integers(len(bank)))].copy()
+            q_start += self.rng.uniform(-2.0, 2.0, N_JOINTS) * DEG2RAD
+            if self._ep_rand is not None:
+                q_start = q_start + self._ep_rand.start_offset_rad
+            q_start = self._clip_to_joint_limits(q_start)
         elif start_at == "gait":
             # Mid-stride TALL spawn (TALL LADDER T6: RSI-for-walk, see
             # walk_task._sample_walk). Scripted tripod-gait pose at a

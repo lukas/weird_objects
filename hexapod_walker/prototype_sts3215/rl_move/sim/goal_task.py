@@ -142,6 +142,21 @@ class GoalGenerator:
         self.rise_flat_frac = float(g.get("rise_flat_frac", 0.35))
         self.rise_partial_frac = float(g.get("rise_partial_frac", 0.40))
         self.rise_ramp_s = float(g.get("rise_ramp_s", 4.0))
+        # Post-lower rise starts (08-14, the SESSION_BULK_GATE named
+        # boundary: 100% of the hierarchy's det session failures were
+        # POST-LOWER rises while first rises were 300/300).
+        # goal.rise_start_bank = npz path (key q_rad, shape (K,18),
+        # built by harvest_lower_endpoints) holding the policy's OWN
+        # settled lower-endpoint poses; goal.rise_start_bank_frac f =
+        # fraction of non-forced rise episodes that start from a bank
+        # pose (env side: start_at="rise_bank") instead of the
+        # synthetic flat/partial/crouch mix. Default OFF; the bank
+        # draw is CONDITIONAL on a configured bank so legacy rng
+        # streams stay bit-exact (same short-circuit contract as
+        # goal.walk_park_bank).
+        self.rise_start_bank = str(g.get("rise_start_bank", "") or "")
+        self.rise_start_bank_frac = float(
+            g.get("rise_start_bank_frac", 0.0))
         raise_mm = g.get("raise_height_mm", [10.0, 30.0])
         self.raise_m = (min(float(raise_mm[0]), max_h) * 0.001,
                         min(float(raise_mm[1]), max_h) * 0.001)
@@ -311,7 +326,21 @@ class GoalGenerator:
             rise = rng.uniform(*self.rise_m)
             hold_hi = self.rise_hold_s
             hold_lo = min(self.rise_hold_min_s, hold_hi)
-            if r < self.rise_flat_frac:
+            # Bank exposure draw AFTER the legacy r draw and only when
+            # a bank is configured, so the off path is bit-exact and
+            # canary-forced episodes (force_rise_start) keep their
+            # pinned kind.
+            use_bank = False
+            if (self.rise_start_bank and self.rise_start_bank_frac > 0.0
+                    and force is None):
+                use_bank = rng.random() < self.rise_start_bank_frac
+            if use_bank:
+                # Harvested lower-endpoint start: belly-down like flat,
+                # so the height schedule is the flat one (full rise
+                # from ground after a jittered hold).
+                start_at = "rise_bank"
+                hold_s = float(rng.uniform(hold_lo, hold_hi))
+            elif r < self.rise_flat_frac:
                 start_at = "zero"
                 hold_s = float(rng.uniform(hold_lo, hold_hi))
             elif r < self.rise_flat_frac + self.rise_partial_frac:

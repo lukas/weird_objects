@@ -92,6 +92,11 @@ def _start_kind(traj) -> str:
         # dishonest-label class as the RSI-masquerading-as-flat bug
         # documented below in run_episode.
         return "quadstance"
+    if start_at == "rise_bank":
+        # Harvested lower-endpoint start (goal.rise_start_bank, 08-14).
+        # Label matches the session instrument's post-lower stratum so
+        # per-start-kind eval tables stay honest.
+        return "post_lower"
     if getattr(traj, "start_curl", 0.0) > 0:
         return "bridge"
     if start_at == "zero":
