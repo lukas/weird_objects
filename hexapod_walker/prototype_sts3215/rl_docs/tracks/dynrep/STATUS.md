@@ -76,6 +76,25 @@ scratch. Primary metric: sample efficiency on a NEW task.
   the ridge baseline), not model capacity. Session B's v2pod2
   replication remains the formal original-recipe/original-gate
   confirmation.
+- **POD OOM INCIDENT + FULL RERUN (08-14 ~09:40 UTC OOM, 12:33 UTC
+  relaunch):** train-10 was OOMKilled at its 96Gi pod limit ~3h after
+  the sweep finished, i.e. during the chained holdwalk cohort (exact
+  offender unknown — pod logs died with the pod). The train pods mount
+  NO persistent volume (/workspace = container overlay fs), so the
+  ENTIRE first sweep run was lost: v3scale datasets, all 12 cell
+  checkpoints + gate records, scale_summary. The one result that
+  survives (committed here + in the eval JSON quoted above) is
+  dyn_scale_S_h16_small's legacy-G1 PASS. Recovery: pod deleted +
+  re-applied from coreweave_pods_mjx_scaleout.yaml, re-bootstrapped
+  (bootstrap_train_pod.sh), stance champion re-pushed (md5 da1d912a…),
+  GPU venv rebuilt, and the whole pipeline relaunched (STAGE=all sweep
+  + chain watcher). NEW GUARD: pod_memwatch.sh runs alongside — logs
+  container memory.current + top-RSS process every 60s to
+  logs/memwatch.log and above 85GiB kill -9's the single largest
+  python, so a runaway loses ONE job loudly instead of the whole pod
+  silently. LESSON: pull artifacts (gate JSONs, summary, champion-cell
+  checkpoints) off-pod promptly; nothing on /workspace survives a pod
+  kill.
 - **A/B/C COHORT CLAIMED BY SESSION A (train-10, chained):**
   `pod_chain_abc.sh` (nohup'd 03:02 UTC, `logs/chain_abc.log`) waits
   for POD_SCALE_SWEEP_DONE then launches pod_holdwalk.sh with the
