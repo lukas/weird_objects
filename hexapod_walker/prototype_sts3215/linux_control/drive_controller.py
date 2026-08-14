@@ -9,6 +9,13 @@ firmware enough that the web UI can stay familiar:
   C                    centre all joints to 0°
   J vx vy omega [gait] live drive (vx,vy in mm/s; omega rad/s)
   K <lift_mm>          swing foot lift
+  GAIT <id> [alpha]    pick the walk gait: 0 = tripod (body-frame drag,
+                       legacy), 1 = no-slip world-pinned (noslip_gait);
+                       alpha 0..1 = body-motion overlap (0 = step-then-
+                       shift, 1 = continuous). Swaps are refused while
+                       walking — send J 0 0 0 first; alpha alone
+                       retunes the live no-slip gait at the next phase
+                       boundary.
   # <j> <deg>          set one joint
   Q <j> <amp>          wiggle one joint
   HOLD                 freeze at present pose
@@ -39,6 +46,7 @@ from feetech_bus import (  # noqa: E402
     normalize_speed, standing_pose_degrees,
 )
 from mcu_feetech_bus import open_feetech_bus  # noqa: E402
+from noslip_gait import NoSlipGait  # noqa: E402
 from tripod_gait import TripodGait  # noqa: E402
 
 DT = 0.05  # 20 Hz walk loop
@@ -65,7 +73,9 @@ class DriveController:
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
         self._vx = self._vy = self._omega = 0.0
-        self._gait_id = 0
+        self._gait_id = 0            # 0 = tripod (drag), 1 = no-slip
+        self._noslip_alpha = 0.0     # body-motion overlap (no-slip only)
+        self._lift_mm: float | None = None   # last K value, re-applied on swap
         self._last_pose = standing_pose_degrees()
         self.status = "init"
         self._live_ids_cache: set[int] = set()
@@ -206,6 +216,40 @@ class DriveController:
             pose.append(0.0 if d is None else d)
         self._write_pose(pose, speed=250, acc=30)
 
+    # -- gait selection --------------------------------------------------------
+    def _gait_desc(self) -> str:
+        if self._gait_id == 1:
+            return f"noslip alpha={self._noslip_alpha:.2f}"
+        return "tripod (drag)"
+
+    def _set_gait(self, gait_id: int, alpha: float | None = None) -> str:
+        """Swap / retune the walk gait (call with the lock held).
+
+        Swaps only happen while NOT walking: a fresh gait re-pins its
+        feet at neutral, which would yank mid-stride legs. Alpha alone
+        retunes a live no-slip gait safely (phase-boundary semantics).
+        """
+        gait_id = 1 if int(gait_id) == 1 else 0
+        if alpha is not None:
+            self._noslip_alpha = max(0.0, min(1.0, float(alpha)))
+            if gait_id == 1 and self._gait_id == 1:
+                self.gait.set_alpha(self._noslip_alpha)
+        if gait_id == self._gait_id:
+            return f"gait {self._gait_desc()}"
+        moving = abs(self._vx) + abs(self._vy) + abs(self._omega) > 1e-4
+        if self.mode == "walk" or moving:
+            self.status = "gait swap refused while walking (J 0 0 0 first)"
+            return "refused gait swap while walking - send J 0 0 0 first"
+        self.gait = (NoSlipGait(alpha=self._noslip_alpha) if gait_id == 1
+                     else TripodGait())
+        self.gait.sync_plant_stance()
+        if self._lift_mm is not None:
+            self.gait.set_lift_mm(self._lift_mm)
+        self.gait.reset_phase(t=time.monotonic())
+        self._gait_id = gait_id
+        self.status = f"gait -> {self._gait_desc()}"
+        return f"gait {self._gait_desc()}"
+
     # -- command API ---------------------------------------------------------
     def handle(self, line: str) -> str:
         line = (line or "").strip()
@@ -294,32 +338,61 @@ class DriveController:
                 omega = float(parts[3])
             except ValueError:
                 return "bad J"
+            gid = None
             if len(parts) >= 5:
                 try:
-                    self._gait_id = int(parts[4])
+                    gid = int(parts[4])
                 except ValueError:
-                    pass
+                    gid = None
             # UI uses mm/s; gait wants m/s. Cap gently for first teleop.
             self._vx = max(-0.20, min(0.20, vx_mm / 1000.0))
             self._vy = max(-0.15, min(0.15, vy_mm / 1000.0))
             self._omega = max(-0.9, min(0.9, omega))
-            self.gait.sync_plant_stance()
-            self.gait.set_velocity(vx=self._vx, vy=self._vy, omega=self._omega)
             moving = abs(self._vx) + abs(self._vy) + abs(self._omega) > 1e-4
+            was_walking = self.mode == "walk"
             self.mode = "walk" if moving else "stand"
-            if not moving:
-                # Planted stand while stick centred.
-                pass
-            self.status = (f"walk vx={self._vx:.3f} vy={self._vy:.3f} "
-                           f"w={self._omega:.2f}")
+            if gid is not None and gid != self._gait_id:
+                # Picker swap carried on the J stream: lands on the first
+                # stopped packet (refused while moving — see _set_gait).
+                self._set_gait(gid)
+            if not (was_walking and moving):
+                # Pick up the latest learned plant when a walk engages /
+                # while standing — but never mid-walk: NoSlipGait's sync
+                # re-pins the world anchors, which would snap planted
+                # feet back to neutral under load.
+                self.gait.sync_plant_stance()
+                if moving and isinstance(self.gait, NoSlipGait):
+                    # Fresh cycle on engage: re-pin feet under the robot
+                    # NOW and restart the startup-softened phase machine.
+                    self.gait.reset_phase()
+            self.gait.set_velocity(vx=self._vx, vy=self._vy, omega=self._omega)
+            self.status = (f"walk[{self._gait_desc()}] vx={self._vx:.3f} "
+                           f"vy={self._vy:.3f} w={self._omega:.2f}")
             return "J"
 
         if cmd == "K" and len(parts) >= 2:
             try:
-                self.gait.set_lift_mm(float(parts[1]))
+                lift_mm = float(parts[1])
             except ValueError:
                 return "bad K"
+            self._lift_mm = lift_mm       # survives gait swaps
+            self.gait.set_lift_mm(lift_mm)
             return "K"
+
+        if cmd == "GAIT":
+            if len(parts) < 2:
+                return f"gait {self._gait_desc()}"
+            try:
+                gid = int(parts[1])
+            except ValueError:
+                return "bad GAIT"
+            alpha = None
+            if len(parts) >= 3:
+                try:
+                    alpha = float(parts[2])
+                except ValueError:
+                    return "bad GAIT"
+            return self._set_gait(gid, alpha)
 
         if cmd == "#" and len(parts) >= 3:
             if not self.armed:

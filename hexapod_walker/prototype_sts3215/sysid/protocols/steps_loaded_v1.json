@@ -1,0 +1,462 @@
+{
+ "created": "2026-08-13T08:23:53",
+ "description": "Phase 4 LOADED step ladders: hips \u00b13/6, knees \u00b15/10, legs L2+L5, 3 repeats, home = plant stance (hip 20 knee 80). Robot ON THE GROUND, feet planted, operator watching; the runner glide is a slow quasi-static stand-up. Loaded current budget 2.0 A.",
+ "home_deg": [
+  0.0,
+  20.0,
+  80.0,
+  0.0,
+  20.0,
+  80.0,
+  0.0,
+  20.0,
+  80.0,
+  0.0,
+  20.0,
+  80.0,
+  0.0,
+  20.0,
+  80.0,
+  0.0,
+  20.0,
+  80.0
+ ],
+ "hz": 25.0,
+ "max_current_a": 2.0,
+ "name": "steps_loaded_v1",
+ "segments": [
+  {
+   "amp_deg": 3.0,
+   "hold_s": 2.0,
+   "joint": 7,
+   "kind": "step",
+   "label": "L2_hip_lstep+3_r0",
+   "pre_s": 0.8,
+   "rest_s": 1.6
+  },
+  {
+   "amp_deg": -3.0,
+   "hold_s": 2.0,
+   "joint": 7,
+   "kind": "step",
+   "label": "L2_hip_lstep-3_r0",
+   "pre_s": 0.8,
+   "rest_s": 1.6
+  },
+  {
+   "amp_deg": 6.0,
+   "hold_s": 2.0,
+   "joint": 7,
+   "kind": "step",
+   "label": "L2_hip_lstep+6_r0",
+   "pre_s": 0.8,
+   "rest_s": 1.6
+  },
+  {
+   "amp_deg": -6.0,
+   "hold_s": 2.0,
+   "joint": 7,
+   "kind": "step",
+   "label": "L2_hip_lstep-6_r0",
+   "pre_s": 0.8,
+   "rest_s": 1.6
+  },
+  {
+   "amp_deg": 3.0,
+   "hold_s": 2.0,
+   "joint": 7,
+   "kind": "step",
+   "label": "L2_hip_lstep+3_r1",
+   "pre_s": 0.8,
+   "rest_s": 1.6
+  },
+  {
+   "amp_deg": -3.0,
+   "hold_s": 2.0,
+   "joint": 7,
+   "kind": "step",
+   "label": "L2_hip_lstep-3_r1",
+   "pre_s": 0.8,
+   "rest_s": 1.6
+  },
+  {
+   "amp_deg": 6.0,
+   "hold_s": 2.0,
+   "joint": 7,
+   "kind": "step",
+   "label": "L2_hip_lstep+6_r1",
+   "pre_s": 0.8,
+   "rest_s": 1.6
+  },
+  {
+   "amp_deg": -6.0,
+   "hold_s": 2.0,
+   "joint": 7,
+   "kind": "step",
+   "label": "L2_hip_lstep-6_r1",
+   "pre_s": 0.8,
+   "rest_s": 1.6
+  },
+  {
+   "amp_deg": 3.0,
+   "hold_s": 2.0,
+   "joint": 7,
+   "kind": "step",
+   "label": "L2_hip_lstep+3_r2",
+   "pre_s": 0.8,
+   "rest_s": 1.6
+  },
+  {
+   "amp_deg": -3.0,
+   "hold_s": 2.0,
+   "joint": 7,
+   "kind": "step",
+   "label": "L2_hip_lstep-3_r2",
+   "pre_s": 0.8,
+   "rest_s": 1.6
+  },
+  {
+   "amp_deg": 6.0,
+   "hold_s": 2.0,
+   "joint": 7,
+   "kind": "step",
+   "label": "L2_hip_lstep+6_r2",
+   "pre_s": 0.8,
+   "rest_s": 1.6
+  },
+  {
+   "amp_deg": -6.0,
+   "hold_s": 2.0,
+   "joint": 7,
+   "kind": "step",
+   "label": "L2_hip_lstep-6_r2",
+   "pre_s": 0.8,
+   "rest_s": 1.6
+  },
+  {
+   "amp_deg": 5.0,
+   "hold_s": 2.0,
+   "joint": 8,
+   "kind": "step",
+   "label": "L2_knee_lstep+5_r0",
+   "pre_s": 0.8,
+   "rest_s": 1.6
+  },
+  {
+   "amp_deg": -5.0,
+   "hold_s": 2.0,
+   "joint": 8,
+   "kind": "step",
+   "label": "L2_knee_lstep-5_r0",
+   "pre_s": 0.8,
+   "rest_s": 1.6
+  },
+  {
+   "amp_deg": 10.0,
+   "hold_s": 2.0,
+   "joint": 8,
+   "kind": "step",
+   "label": "L2_knee_lstep+10_r0",
+   "pre_s": 0.8,
+   "rest_s": 1.6
+  },
+  {
+   "amp_deg": -10.0,
+   "hold_s": 2.0,
+   "joint": 8,
+   "kind": "step",
+   "label": "L2_knee_lstep-10_r0",
+   "pre_s": 0.8,
+   "rest_s": 1.6
+  },
+  {
+   "amp_deg": 5.0,
+   "hold_s": 2.0,
+   "joint": 8,
+   "kind": "step",
+   "label": "L2_knee_lstep+5_r1",
+   "pre_s": 0.8,
+   "rest_s": 1.6
+  },
+  {
+   "amp_deg": -5.0,
+   "hold_s": 2.0,
+   "joint": 8,
+   "kind": "step",
+   "label": "L2_knee_lstep-5_r1",
+   "pre_s": 0.8,
+   "rest_s": 1.6
+  },
+  {
+   "amp_deg": 10.0,
+   "hold_s": 2.0,
+   "joint": 8,
+   "kind": "step",
+   "label": "L2_knee_lstep+10_r1",
+   "pre_s": 0.8,
+   "rest_s": 1.6
+  },
+  {
+   "amp_deg": -10.0,
+   "hold_s": 2.0,
+   "joint": 8,
+   "kind": "step",
+   "label": "L2_knee_lstep-10_r1",
+   "pre_s": 0.8,
+   "rest_s": 1.6
+  },
+  {
+   "amp_deg": 5.0,
+   "hold_s": 2.0,
+   "joint": 8,
+   "kind": "step",
+   "label": "L2_knee_lstep+5_r2",
+   "pre_s": 0.8,
+   "rest_s": 1.6
+  },
+  {
+   "amp_deg": -5.0,
+   "hold_s": 2.0,
+   "joint": 8,
+   "kind": "step",
+   "label": "L2_knee_lstep-5_r2",
+   "pre_s": 0.8,
+   "rest_s": 1.6
+  },
+  {
+   "amp_deg": 10.0,
+   "hold_s": 2.0,
+   "joint": 8,
+   "kind": "step",
+   "label": "L2_knee_lstep+10_r2",
+   "pre_s": 0.8,
+   "rest_s": 1.6
+  },
+  {
+   "amp_deg": -10.0,
+   "hold_s": 2.0,
+   "joint": 8,
+   "kind": "step",
+   "label": "L2_knee_lstep-10_r2",
+   "pre_s": 0.8,
+   "rest_s": 1.6
+  },
+  {
+   "amp_deg": 3.0,
+   "hold_s": 2.0,
+   "joint": 16,
+   "kind": "step",
+   "label": "L5_hip_lstep+3_r0",
+   "pre_s": 0.8,
+   "rest_s": 1.6
+  },
+  {
+   "amp_deg": -3.0,
+   "hold_s": 2.0,
+   "joint": 16,
+   "kind": "step",
+   "label": "L5_hip_lstep-3_r0",
+   "pre_s": 0.8,
+   "rest_s": 1.6
+  },
+  {
+   "amp_deg": 6.0,
+   "hold_s": 2.0,
+   "joint": 16,
+   "kind": "step",
+   "label": "L5_hip_lstep+6_r0",
+   "pre_s": 0.8,
+   "rest_s": 1.6
+  },
+  {
+   "amp_deg": -6.0,
+   "hold_s": 2.0,
+   "joint": 16,
+   "kind": "step",
+   "label": "L5_hip_lstep-6_r0",
+   "pre_s": 0.8,
+   "rest_s": 1.6
+  },
+  {
+   "amp_deg": 3.0,
+   "hold_s": 2.0,
+   "joint": 16,
+   "kind": "step",
+   "label": "L5_hip_lstep+3_r1",
+   "pre_s": 0.8,
+   "rest_s": 1.6
+  },
+  {
+   "amp_deg": -3.0,
+   "hold_s": 2.0,
+   "joint": 16,
+   "kind": "step",
+   "label": "L5_hip_lstep-3_r1",
+   "pre_s": 0.8,
+   "rest_s": 1.6
+  },
+  {
+   "amp_deg": 6.0,
+   "hold_s": 2.0,
+   "joint": 16,
+   "kind": "step",
+   "label": "L5_hip_lstep+6_r1",
+   "pre_s": 0.8,
+   "rest_s": 1.6
+  },
+  {
+   "amp_deg": -6.0,
+   "hold_s": 2.0,
+   "joint": 16,
+   "kind": "step",
+   "label": "L5_hip_lstep-6_r1",
+   "pre_s": 0.8,
+   "rest_s": 1.6
+  },
+  {
+   "amp_deg": 3.0,
+   "hold_s": 2.0,
+   "joint": 16,
+   "kind": "step",
+   "label": "L5_hip_lstep+3_r2",
+   "pre_s": 0.8,
+   "rest_s": 1.6
+  },
+  {
+   "amp_deg": -3.0,
+   "hold_s": 2.0,
+   "joint": 16,
+   "kind": "step",
+   "label": "L5_hip_lstep-3_r2",
+   "pre_s": 0.8,
+   "rest_s": 1.6
+  },
+  {
+   "amp_deg": 6.0,
+   "hold_s": 2.0,
+   "joint": 16,
+   "kind": "step",
+   "label": "L5_hip_lstep+6_r2",
+   "pre_s": 0.8,
+   "rest_s": 1.6
+  },
+  {
+   "amp_deg": -6.0,
+   "hold_s": 2.0,
+   "joint": 16,
+   "kind": "step",
+   "label": "L5_hip_lstep-6_r2",
+   "pre_s": 0.8,
+   "rest_s": 1.6
+  },
+  {
+   "amp_deg": 5.0,
+   "hold_s": 2.0,
+   "joint": 17,
+   "kind": "step",
+   "label": "L5_knee_lstep+5_r0",
+   "pre_s": 0.8,
+   "rest_s": 1.6
+  },
+  {
+   "amp_deg": -5.0,
+   "hold_s": 2.0,
+   "joint": 17,
+   "kind": "step",
+   "label": "L5_knee_lstep-5_r0",
+   "pre_s": 0.8,
+   "rest_s": 1.6
+  },
+  {
+   "amp_deg": 10.0,
+   "hold_s": 2.0,
+   "joint": 17,
+   "kind": "step",
+   "label": "L5_knee_lstep+10_r0",
+   "pre_s": 0.8,
+   "rest_s": 1.6
+  },
+  {
+   "amp_deg": -10.0,
+   "hold_s": 2.0,
+   "joint": 17,
+   "kind": "step",
+   "label": "L5_knee_lstep-10_r0",
+   "pre_s": 0.8,
+   "rest_s": 1.6
+  },
+  {
+   "amp_deg": 5.0,
+   "hold_s": 2.0,
+   "joint": 17,
+   "kind": "step",
+   "label": "L5_knee_lstep+5_r1",
+   "pre_s": 0.8,
+   "rest_s": 1.6
+  },
+  {
+   "amp_deg": -5.0,
+   "hold_s": 2.0,
+   "joint": 17,
+   "kind": "step",
+   "label": "L5_knee_lstep-5_r1",
+   "pre_s": 0.8,
+   "rest_s": 1.6
+  },
+  {
+   "amp_deg": 10.0,
+   "hold_s": 2.0,
+   "joint": 17,
+   "kind": "step",
+   "label": "L5_knee_lstep+10_r1",
+   "pre_s": 0.8,
+   "rest_s": 1.6
+  },
+  {
+   "amp_deg": -10.0,
+   "hold_s": 2.0,
+   "joint": 17,
+   "kind": "step",
+   "label": "L5_knee_lstep-10_r1",
+   "pre_s": 0.8,
+   "rest_s": 1.6
+  },
+  {
+   "amp_deg": 5.0,
+   "hold_s": 2.0,
+   "joint": 17,
+   "kind": "step",
+   "label": "L5_knee_lstep+5_r2",
+   "pre_s": 0.8,
+   "rest_s": 1.6
+  },
+  {
+   "amp_deg": -5.0,
+   "hold_s": 2.0,
+   "joint": 17,
+   "kind": "step",
+   "label": "L5_knee_lstep-5_r2",
+   "pre_s": 0.8,
+   "rest_s": 1.6
+  },
+  {
+   "amp_deg": 10.0,
+   "hold_s": 2.0,
+   "joint": 17,
+   "kind": "step",
+   "label": "L5_knee_lstep+10_r2",
+   "pre_s": 0.8,
+   "rest_s": 1.6
+  },
+  {
+   "amp_deg": -10.0,
+   "hold_s": 2.0,
+   "joint": 17,
+   "kind": "step",
+   "label": "L5_knee_lstep-10_r2",
+   "pre_s": 0.8,
+   "rest_s": 1.6
+  }
+ ],
+ "sysid_protocol": 1
+}

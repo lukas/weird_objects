@@ -56,6 +56,9 @@ adb push "$SRC/mpu_probe.py" "$REMOTE/linux_control/"
 adb push "$SRC/rl_policy.py" "$REMOTE/linux_control/"
 adb push "$SRC/safe_zero.py" "$REMOTE/linux_control/"
 adb push "$SRC/pinned_tip.py" "$REMOTE/linux_control/"
+adb push "$SRC/noslip_gait.py" "$REMOTE/linux_control/"
+adb push "$SRC/sysid_protocol.py" "$REMOTE/linux_control/"
+adb push "$SRC/sysid_runner.py" "$REMOTE/linux_control/"
 adb push "$SRC/rl_policy_weights.json" "$REMOTE/linux_control/"
 adb push "$SRC/rl_walk_weights.json" "$REMOTE/linux_control/"
 # Swappable policy registry (bench_api rl_policies/rl_policy_select):
@@ -71,10 +74,11 @@ for f in __init__.py env.py robot_state.py attitude.py safety.py \
          config.py config.yaml body_ik.py control_loop.py logger.py; do
   adb push "$SRC/../rl_move/$f" "$REMOTE/rl_move/"
 done
-# rot-60 canonicalizer (numpy-only; sim/__init__.py is a bare docstring)
-# — full-circle walk headings for rl_policy.py (RL_PLAN queue 2.1).
+# rot-60 canonicalizer + sagittal mirror (numpy-only; sim/__init__.py
+# is a bare docstring) — full-circle walk headings (RL_PLAN queue 2.1)
+# and turn= chirality selection (TURN.md deploy port) for rl_policy.py.
 adb shell "mkdir -p '$REMOTE/rl_move/sim'"
-for f in __init__.py rot60.py; do
+for f in __init__.py rot60.py mirror.py; do
   adb push "$SRC/../rl_move/sim/$f" "$REMOTE/rl_move/sim/"
 done
 # Full setup bundle (demos + bench helpers) for Motors/Demos tabs.

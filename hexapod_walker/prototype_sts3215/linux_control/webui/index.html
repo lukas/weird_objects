@@ -76,10 +76,29 @@
     </div>
     <div class="pad">
       <h2>2 · Scripted gait walk</h2>
-      <div class="hint" style="margin-top:0">Known-good tripod gait — the same
-        commands the tape-measure session sent: <code>J vx vy ω</code> to walk,
-        <code>J 0 0 0</code> to stop and hold the planted stand.
-        Caps: |vx|≤60 · |vy|≤40 mm/s · |ω|≤0.5 rad/s · 3–60 s.</div>
+      <div class="hint" style="margin-top:0">Scripted (non-RL) walking:
+        <code>J vx vy ω</code> to walk, <code>J 0 0 0</code> to stop and hold
+        the planted stand. Caps: |vx|≤60 · |vy|≤40 mm/s · |ω|≤0.5 rad/s ·
+        3–60 s (no-slip clamps itself tighter: 40/35 mm/s, ω 0.30).</div>
+      <div class="btns" style="margin-top:8px">
+        <label class="hint">gait
+          <select id="wgait" title="Which gait runs the J commands. Swaps are
+refused while walking — stop first. tripod = the legacy body-frame drag gait
+(known-good but loses ~50% of its stride to slip); no-slip = world-pinned
+feet, zero commanded scrub.">
+            <option value="0" selected>tripod (legacy — drags feet)</option>
+            <option value="1">no-slip (world-pinned feet)</option>
+          </select></label>
+      </div>
+      <div id="walphawrap" style="display:none">
+        <label class="slab">No-slip α — body-motion overlap:
+          <span id="walab">0.00</span></label>
+        <input id="walpha" type="range" min="0" max="1" step="0.05" value="0">
+        <div class="hint">α 0 = step-then-shift (body only moves with all six
+          feet planted; pause-anywhere). α 1 = continuous body motion spread
+          across the whole cycle (gentler servo tracking). Feet stay pinned to
+          world anchors at every α; applies at the next phase boundary.</div>
+      </div>
       <div class="fields">
         <label class="field">vx mm/s<input id="wvx" type="number" value="30" min="-60" max="60" step="5"></label>
         <label class="field">vy mm/s<input id="wvy" type="number" value="0" min="-40" max="40" step="5"></label>

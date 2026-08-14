@@ -5,7 +5,12 @@ weights by ``rl_move/sim/export_policy_np.py`` — no torch on the board)
 in the exact conventions they were trained with. Two weight files:
 ``rl_policy_weights.json`` = stance champion (stand/lower, obs 68),
 ``rl_walk_weights.json`` = walk champion (obs 72; see the walk-mode
-constants below for its hardware caveats).
+constants below for its hardware caveats). Walk files may also be
+obs 74 = obs 72 + [sin, cos] of a phase clock the runner keeps
+(advances at meta["phase_hz"] while velocity is commanded, frozen at
+zero command — the sim's goal.walk_phase_obs=1 contract; the
+cw-arch-noslipphase1 no-slip line). Phase policies run naked: no
+rot-60 / mirror (they train all headings, no wedge).
 
 - 25 Hz loop; obs = build_obs(q, qd, tilt-rel-to-start, gyro,
   prev_action(18), goal(9)) with q_nom = the pose read at arm time.
@@ -74,6 +79,24 @@ try:
 except Exception:                                          # pragma: no cover
     Rot60Policy = None
     _ROT60_OK = False
+
+# Sagittal-mirror chirality selection (08-12, TURN.md deploy port).
+# Every walk-lineage champion carries a command-invariant ~+0.09 rad/s
+# LEFT yaw drift baked into its gait chirality; reflecting the policy
+# (mirror.MirrorPolicy, numpy-only like rot60) produces a RIGHT-drifter
+# with the same gait competence — sim-proven PASS 08-11
+# (probe_mirror_turn: drift flips sign, travel matched, heading-hold
+# 2-4 deg vs 38 deg naked drift over 12 s). Selecting naked-vs-mirrored
+# by desired turn sign = commanded ARC turning (~2 deg/s, slow);
+# alternating on the accumulated heading = drive straight. If the
+# module is missing on-board, turn requests are refused (the default
+# turn=None walk never needs it).
+try:
+    from rl_move.sim.mirror import MirrorPolicy            # noqa: E402
+    _MIRROR_OK = True
+except Exception:                                          # pragma: no cover
+    MirrorPolicy = None
+    _MIRROR_OK = False
 
 WEIGHTS_PATH = _HERE / "rl_policy_weights.json"        # stance (obs 68)
 WALK_WEIGHTS_PATH = _HERE / "rl_walk_weights.json"     # walk (obs 72)
@@ -152,6 +175,53 @@ WALK_START_TOL_DEG = 25.0    # near the captured plant stance
 # Stand/lower keep the config's 10 deg trip — the stance champion
 # (stance_dr10) trained with it, and its episodes should sit at +-1 deg.
 WALK_MAX_TILT_DEG = 25.0
+
+# Chirality selection (turn= on walk moves). The naked champion drifts
+# LEFT (+wz, probe_mirror_turn 08-11); the mirrored policy drifts right
+# at the same rate. If a future champion drifts right, flip this sign —
+# the selector and the left/right mapping both key off it.
+NAKED_DRIFT_SIGN = +1
+# Heading-hold bang-bang hysteresis: the sim probe's 4 deg. Below it
+# the selector keeps the current chirality, so it cannot chatter.
+TURN_HYST_RAD = math.radians(4.0)
+
+
+class ChiralitySelector:
+    """naked/mirror selection for a walk episode (TURN.md deploy port).
+
+    turn="left"/"right": constant chirality — the one whose drift turns
+    the commanded way. turn="hold": bang-bang on the accumulated
+    heading (integrated gyro z, rad) with TURN_HYST_RAD hysteresis —
+    veered too far one way -> run the chirality that drifts back.
+    Mirrors probe_mirror_turn.rollout's selector exactly; locked by
+    tests/test_mirror_runner.py.
+    """
+
+    def __init__(self, turn: str, drift_sign: int = NAKED_DRIFT_SIGN):
+        assert turn in ("left", "right", "hold")
+        self.turn = turn
+        self.drift_sign = +1 if drift_sign >= 0 else -1
+        left = "naked" if self.drift_sign > 0 else "mirror"
+        right = "mirror" if self.drift_sign > 0 else "naked"
+        self.active = {"left": left, "right": right,
+                       "hold": "naked"}[turn]
+        self.switches = 0
+        self.heading = 0.0
+
+    def update(self, gyro_z: float, dt: float) -> str:
+        """Integrate heading, return the chirality for this tick."""
+        self.heading += float(gyro_z) * dt
+        if self.turn != "hold":
+            return self.active
+        want = self.active
+        if self.heading > TURN_HYST_RAD:
+            want = "mirror" if self.drift_sign > 0 else "naked"
+        elif self.heading < -TURN_HYST_RAD:
+            want = "naked" if self.drift_sign > 0 else "mirror"
+        if want != self.active:
+            self.active = want
+            self.switches += 1
+        return self.active
 
 # Drive session (MuJoCo-viewer-style held-key driving, operator 08-11).
 # The browser holds arrow keys -> POST /api/rl/drive/cmd heartbeats carry
@@ -265,6 +335,24 @@ def make_walk_canonicalizer(policy: NumpyPolicy, cfg: dict):
     return Rot60Policy(_Rot60ModelShim(policy), tilt_scale=ts)
 
 
+def make_walk_mirror(policy: NumpyPolicy, cfg: dict, *, rot60: bool):
+    """Reflected stack for chirality selection (None if mirror absent).
+
+    Mirror OUTERMOST: reflect the world's obs, run the SAME shipped
+    stack (rot60 canonicalizer + policy — its own instance, so its
+    sector hysteresis state never sees the other chirality's frames),
+    reflect the action back. Wrapping outside rot60 keeps the
+    composition correct for any heading: the reflected command selects
+    the reflected sector by construction. numpy-only end to end.
+    """
+    if not _MIRROR_OK:
+        return None
+    inner = (make_walk_canonicalizer(policy, cfg) if rot60 and _ROT60_OK
+             else _Rot60ModelShim(policy))
+    return MirrorPolicy(inner, walk=True,
+                        obs_dim=int(policy.meta.get("obs_dim", 72)))
+
+
 def heading_in_trained_wedge(vx: float, vy: float,
                              wedge_deg: float = 30.0) -> bool:
     """True if the commanded heading is inside the trained +/-30 deg
@@ -345,7 +433,10 @@ class _EpisodeLog:
             # (obs columns hold the REAL-frame obs; replaying them
             # through make_walk_canonicalizer must reproduce act* —
             # the offline replay-parity contract).
-            + ["rot60_k"])
+            # "mirror": 1 when the mirrored chirality drove this tick
+            # (turn= walk moves), 0 naked, "" no selector. Appended
+            # after rot60_k for the same index-stability reason.
+            + ["rot60_k", "mirror"])
         try:
             from event_log import emit
             emit("rl_episode", f"{mode} started ({self.csv_path.name})",
@@ -355,7 +446,8 @@ class _EpisodeLog:
 
     def tick(self, t: float, state, action, q_cmd_rad, goal,
              vx_r: float, vy_r: float, max_cur: float,
-             obs=None, phase: str = "run", rot60_k=None) -> None:
+             obs=None, phase: str = "run", rot60_k=None,
+             mirror_on=None) -> None:
         cur = (state.servo_current.tolist()
                if state.servo_current is not None else [None] * N_JOINTS)
         obs_cols = ([round(float(o), 4) for o in obs]
@@ -375,7 +467,8 @@ class _EpisodeLog:
                if action is not None else [""] * N_JOINTS)
             + ["" if c is None else round(float(c), 3) for c in cur]
             + obs_cols
-            + ["" if rot60_k is None else int(rot60_k)])
+            + ["" if rot60_k is None else int(rot60_k),
+               "" if mirror_on is None else int(mirror_on)])
         self._n += 1
         if self._n % 25 == 0:      # survive a mid-run kill: flush each ~1 s
             self._f.flush()
@@ -497,7 +590,10 @@ def preflight(bus, mode: str) -> tuple[bool, str, dict]:
 def run_policy_move(drive, mode: str, *, on_progress=None,
                     abort_check=None, vx: float = 0.03, vy: float = 0.0,
                     duration_s: float = 6.0, rot60: bool = True,
-                    weights_path: Path | None = None) -> dict:
+                    turn: str | None = None,
+                    weights_path: Path | None = None,
+                    tilt_trip_deg: float | None = None,
+                    extra_hold_s: float = 0.0) -> dict:
     """Blocking policy episode. Call from a worker thread.
 
     ``drive`` is web_drive's DriveController (bus + arm state).
@@ -506,10 +602,29 @@ def run_policy_move(drive, mode: str, *, on_progress=None,
     rot-60 canonicalizer, else the trained +/-30 deg wedge only) and
     duration_s. ``rot60=False`` runs the naked policy (A/B baseline
     for a hardware parity session) — wedge headings only.
+    ``turn`` (walk only): None = today's naked path, bit-identical;
+    "left"/"right" = constant-chirality arc turn (~2 deg/s, the
+    gait's own drift steered by naked-vs-mirrored selection);
+    "hold" = heading hold, alternating chirality on the integrated
+    gyro-z heading (4 deg hysteresis). Zero training; sim-proven
+    (probe_mirror_turn PASS 08-11). Requires rl_move/sim/mirror.py
+    on the board or the request is refused up front.
     ``weights_path`` overrides the default slot file (role registry,
     bench_api.rl_roles); obs-dim checks still apply.
+    ``tilt_trip_deg`` (stand/lower only, clamped 5..30): operator-
+    requested aggressive-tip test envelope — the 08-12 bench trips at
+    10.3 deg mid-curl left "would it have stood?" unanswered. Walk
+    keeps its own 25 deg envelope.
+    ``extra_hold_s`` (stand/lower only, clamped 0..15): extends the
+    episode past the profile's total_s; the height ref simply holds
+    the target, so the extension is a longer settled hold.
     """
     assert mode in ("stand", "lower", "walk")
+    if turn is not None and mode != "walk":
+        return {"ok": False, "error": "turn= is walk-only"}
+    if turn is not None and turn not in ("left", "right", "hold"):
+        return {"ok": False,
+                "error": f"bad turn {turn!r} (left / right / hold)"}
     on_progress = on_progress or (lambda p: None)
     abort_check = abort_check or (lambda: False)
     bus = drive.bus
@@ -518,21 +633,54 @@ def run_policy_move(drive, mode: str, *, on_progress=None,
 
     cfg = load_config(str(_HERE.parent / "rl_move" / "config.yaml"))
     canon = None
+    mirror = None
+    selector = None
     if mode == "walk":
         wpath = weights_path or WALK_WEIGHTS_PATH
         policy = NumpyPolicy(wpath)
-        if policy.meta.get("obs_dim") != 72:
+        walk_obs = policy.meta.get("obs_dim")
+        if walk_obs not in (72, 74):
             return {"ok": False,
                     "error": (f"{Path(wpath).name} is not a walk policy "
-                              f"(obs {policy.meta.get('obs_dim')} != 72)")}
+                              f"(obs {walk_obs} not 72/74)")}
+        # obs 74 = walk + phase clock (cw-arch-noslipphase1 no-slip
+        # line): the runner appends [sin, cos] of a clock that advances
+        # at meta["phase_hz"] while a velocity is commanded — the exact
+        # contract of the sim's goal.walk_phase_obs=1. That line trains
+        # ALL headings (no wedge) and has no rot-60/mirror machinery,
+        # so it always runs naked. phase_hz MUST come from the export
+        # meta: the sim default (1.0 Hz) is NOT this line's clock
+        # (0.1666667 Hz) and a wrong clock is a silently broken gait.
+        phase_hz = 0.0
+        if walk_obs == 74:
+            if "phase_hz" not in policy.meta:
+                return {"ok": False,
+                        "error": (f"{Path(wpath).name} is obs-74 but has "
+                                  "no phase_hz in meta — re-export with "
+                                  "--extra-meta phase_hz=<trained hz>")}
+            phase_hz = float(policy.meta["phase_hz"])
+            if turn is not None:
+                return {"ok": False,
+                        "error": ("turn= is not supported for phase-"
+                                  "clock (obs 74) walk policies")}
         spd = math.hypot(vx, vy)
         if spd > WALK_SPEED_MAX:
             s = WALK_SPEED_MAX / spd
             vx, vy = vx * s, vy * s
         total_s = min(max(float(duration_s), 3.0), WALK_MAX_TOTAL_S)
-        if rot60:
+        if rot60 and walk_obs == 72:
             canon = make_walk_canonicalizer(policy, cfg)
-        if canon is None and not heading_in_trained_wedge(vx, vy):
+        if turn is not None:
+            mirror = make_walk_mirror(policy, cfg, rot60=rot60)
+            if mirror is None:
+                return {"ok": False,
+                        "error": ("turn= requested but the mirror "
+                                  "module is unavailable "
+                                  "(rl_move/sim/mirror.py not "
+                                  "deployed)")}
+            selector = ChiralitySelector(turn)
+        if (canon is None and walk_obs == 72
+                and not heading_in_trained_wedge(vx, vy)):
             # Naked, the policy freezes/degenerates off-wedge (sim-
             # proven, rot60.py docstring) — refuse rather than wander.
             return {"ok": False,
@@ -551,7 +699,8 @@ def run_policy_move(drive, mode: str, *, on_progress=None,
                               "goal policy (obs "
                               f"{policy.meta.get('obs_dim')} != 68)")}
         prof = policy_profile(policy, mode)
-        total_s = float(prof["total_s"])
+        total_s = float(prof["total_s"]) + min(
+            max(float(extra_hold_s or 0.0), 0.0), 15.0)
 
     ok, reason, details = preflight(bus, mode)
     if not ok:
@@ -584,6 +733,12 @@ def run_policy_move(drive, mode: str, *, on_progress=None,
         # WALK_MAX_TILT_DEG). The config's 10 deg stays for stand/lower.
         safety.max_roll = math.radians(WALK_MAX_TILT_DEG)
         safety.max_pitch = math.radians(WALK_MAX_TILT_DEG)
+    elif tilt_trip_deg:
+        # Operator aggressive-tip test envelope (see docstring). The
+        # 35 deg fell detector and the current/temp trips stay as-is.
+        t_deg = min(max(float(tilt_trip_deg), 5.0), 30.0)
+        safety.max_roll = math.radians(t_deg)
+        safety.max_pitch = math.radians(t_deg)
     tilt_trip_deg = round(math.degrees(safety.max_roll), 1)
     write_speed = int(cfg_get(cfg, "bus", "write_speed", default=400))
     write_acc = int(cfg_get(cfg, "bus", "write_acc", default=20))
@@ -628,10 +783,12 @@ def run_policy_move(drive, mode: str, *, on_progress=None,
         "tilt_trip_deg": tilt_trip_deg,
         "preflight": details,
         **({"vx": round(vx, 3), "vy": round(vy, 3),
-            "rot60": canon is not None}
+            "rot60": canon is not None,
+            **({"turn": turn} if turn else {})}
            if mode == "walk" else {}),
     })
 
+    phase = 0.0        # walk phase clock (obs-74 policies only)
     for i in range(n_ticks):
         if abort_check():
             # Operator stop: HOLD pose (torque stays on); X still limps.
@@ -654,13 +811,35 @@ def run_policy_move(drive, mode: str, *, on_progress=None,
             obs = np.concatenate(
                 [obs, np.array([vx_r, vy_r, vx_r, vy_r]) / WALK_VEL_SCALE]
             ).astype(np.float32)
+            if walk_obs == 74:
+                # Phase tail, then advance while a velocity is
+                # commanded — the sim's clock gate (walk_task
+                # _augment_obs: s_ref > 1e-3). Episode starts at 0,
+                # matching an env reset.
+                obs = np.concatenate(
+                    [obs, np.array([math.sin(phase), math.cos(phase)])]
+                ).astype(np.float32)
+                if math.hypot(vx_r, vy_r) > 1e-3:
+                    phase = (phase + 2.0 * math.pi * phase_hz * DT) \
+                        % (2.0 * math.pi)
         else:
             goal = TaskGoal(roll_ref=0.0, pitch_ref=0.0,
                             height_ref=_height_ref(prof, t),
                             unload_leg=None)
             obs = build_obs(cfg, state, q_nom, prev_action, goal=goal,
                             tilt_ref=tilt_ref0)
-        if canon is not None:
+        chirality = None
+        if selector is not None:
+            # Chirality selection (turn=): integrate the heading from
+            # gyro z and pick naked vs mirrored for THIS tick. Each
+            # chirality runs its own rot60 instance (sector state
+            # never sees the other's frames); obs/prev_action/logs
+            # stay REAL-frame for both — the wrappers permute
+            # internally.
+            chirality = selector.update(float(state.imu_gyro[2]), DT)
+        if chirality == "mirror":
+            raw_act, _ = mirror.predict(obs)
+        elif canon is not None:
             # Canonicalize the REAL-frame obs into the trained wedge,
             # un-relabel the action back to real legs (rot60.py).
             # prev_action / logs stay REAL-frame — same contract as
@@ -704,7 +883,9 @@ def run_policy_move(drive, mode: str, *, on_progress=None,
         t_end = t + DT
         elog.tick(t, state, action, q_safe, goal, vx_r, vy_r, max_cur,
                   obs=obs,
-                  rot60_k=(canon.k if canon is not None else None))
+                  rot60_k=(canon.k if canon is not None else None),
+                  mirror_on=(None if chirality is None
+                             else chirality == "mirror"))
         if i % 5 == 0:
             if mode == "walk":
                 phase = ("settle" if t < WALK_HOLD_S else
@@ -714,6 +895,9 @@ def run_policy_move(drive, mode: str, *, on_progress=None,
                 ref_txt = (f"v=({vx_r * 1000:+.0f},{vy_r * 1000:+.0f})mm/s")
                 if canon is not None and canon.k:
                     ref_txt += f" sec={canon.k:+d}"
+                if selector is not None:
+                    ref_txt += (f" {selector.active[:3]}"
+                                f" hd={math.degrees(selector.heading):+.0f}")
             else:
                 phase = ("curl" if mode == "stand" and t < prof["hold_s"]
                          else "ramp" if t < prof["hold_s"] + prof["ramp_s"]
@@ -747,6 +931,11 @@ def run_policy_move(drive, mode: str, *, on_progress=None,
                       rot60=canon is not None,
                       rot60_k_end=(canon.k if canon is not None
                                    else None))
+        if selector is not None:
+            result.update(
+                turn=turn, turn_switches=selector.switches,
+                heading_end_deg=round(
+                    math.degrees(selector.heading), 1))
 
     # Post-episode tail (08-10, dep-tip1 fall debug): the robot tipped
     # AFTER "walk done" — the episode ended holding a ~15° lean and
@@ -831,27 +1020,44 @@ def run_drive_session(drive, cmd: DriveCommand, *, on_progress=None,
     cfg = load_config(str(_HERE.parent / "rl_move" / "config.yaml"))
     wpath = walk_weights or WALK_WEIGHTS_PATH
     walk_policy = NumpyPolicy(wpath)
-    if walk_policy.meta.get("obs_dim") != 72:
+    walk_obs = walk_policy.meta.get("obs_dim")
+    if walk_obs not in (72, 74):
         return {"ok": False,
                 "error": (f"{Path(wpath).name} is not a walk policy "
-                          f"(obs {walk_policy.meta.get('obs_dim')} != 72)")}
+                          f"(obs {walk_obs} not 72/74)")}
+    # obs 74 = phase-clock walk (see run_policy_move): all-heading
+    # training, no rot-60/mirror, phase_hz required in export meta.
+    phase_hz = 0.0
+    if walk_obs == 74:
+        if "phase_hz" not in walk_policy.meta:
+            return {"ok": False,
+                    "error": (f"{Path(wpath).name} is obs-74 but has no "
+                              "phase_hz in meta — re-export with "
+                              "--extra-meta phase_hz=<trained hz>")}
+        phase_hz = float(walk_policy.meta["phase_hz"])
     hold_policy = None
     hold_obs = None
     if hold_weights is not None:
         hold_policy = NumpyPolicy(hold_weights)
         hold_obs = hold_policy.meta.get("obs_dim")
-        if hold_obs not in (68, 72):
+        if hold_obs not in (68, 72, 74):
             return {"ok": False,
                     "error": (f"{Path(hold_weights).name} fits no hold "
-                              f"role (obs {hold_obs}, need 68 or 72)")}
+                              f"role (obs {hold_obs}, need 68/72/74)")}
+        if hold_obs == 74 and "phase_hz" not in hold_policy.meta:
+            return {"ok": False,
+                    "error": (f"{Path(hold_weights).name} is obs-74 but "
+                              "has no phase_hz in meta")}
 
-    canon = make_walk_canonicalizer(walk_policy, cfg) if rot60 else None
+    canon = (make_walk_canonicalizer(walk_policy, cfg)
+             if rot60 and walk_obs == 72 else None)
     hold_canon = (make_walk_canonicalizer(hold_policy, cfg)
                   if rot60 and hold_policy is not None and hold_obs == 72
                   else None)
-    if canon is None and not _ROT60_OK:
+    if canon is None and walk_obs == 72 and not _ROT60_OK:
         # Without the canonicalizer only the trained forward wedge is
         # safe; a live joystick can't be trusted to stay inside it.
+        # (obs-74 phase policies trained all headings — naked is fine.)
         return {"ok": False,
                 "error": ("drive session needs the rot-60 canonicalizer "
                           "(rl_move/sim/rot60.py not deployed)")}
@@ -907,6 +1113,8 @@ def run_drive_session(drive, cmd: DriveCommand, *, on_progress=None,
 
     prev_action = np.zeros(N_JOINTS, dtype=float)
     vx_r = vy_r = 0.0
+    phase = 0.0     # walk phase clock (obs-74 policies only); like the
+                    # sim it starts at 0 and freezes at zero command
     dv_max = WALK_SPEED_MAX * DT / WALK_RAMP_S   # trained ramp rate
     active = "walk"
     zero_since = 0.0            # session time when refs+target went zero
@@ -918,7 +1126,7 @@ def run_drive_session(drive, cmd: DriveCommand, *, on_progress=None,
     i = 0
     t_next = time.monotonic()
     result: dict = {"ok": True, "mode": "drive"}
-    elog = _EpisodeLog("drive", obs_dim=72, params={
+    elog = _EpisodeLog("drive", obs_dim=int(walk_obs), params={
         "mode": "drive", "hz": HZ,
         "policy": dict(walk_policy.meta),
         "hold_policy": (dict(hold_policy.meta)
@@ -977,11 +1185,16 @@ def run_drive_session(drive, cmd: DriveCommand, *, on_progress=None,
                         unload_leg=None)
         base_obs = build_obs(cfg, state, q_nom, prev_action, goal=goal,
                              tilt_ref=tilt_ref0)
-        if active == "walk" or hold_obs == 72:
+        need_obs = walk_obs if active == "walk" else hold_obs
+        if need_obs in (72, 74):
             obs = np.concatenate(
                 [base_obs,
                  np.array([vx_r, vy_r, vx_r, vy_r]) / WALK_VEL_SCALE]
             ).astype(np.float32)
+            if need_obs == 74:
+                obs = np.concatenate(
+                    [obs, np.array([math.sin(phase), math.cos(phase)])]
+                ).astype(np.float32)
             if active == "walk":
                 raw_act, _ = (canon.predict(obs) if canon is not None
                               else (walk_policy.act(obs), None))
@@ -992,6 +1205,12 @@ def run_drive_session(drive, cmd: DriveCommand, *, on_progress=None,
         else:   # 68-obs stance hold at height_ref 0
             obs = base_obs
             raw_act = hold_policy.act(obs)
+        # Phase clock advance (obs-74 policies): after obs, gated on a
+        # live velocity ref — the sim's walk_task gate (s_ref > 1e-3).
+        # At zero command the clock freezes, matching the trained hold.
+        if walk_obs == 74 and math.hypot(vx_r, vy_r) > 1e-3:
+            phase = (phase + 2.0 * math.pi * phase_hz * DT) \
+                % (2.0 * math.pi)
         action, bad = safety.validate_action(raw_act, n_act=N_JOINTS)
         if action is None:
             limp()

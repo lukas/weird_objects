@@ -1,0 +1,269 @@
+{
+ "created": "2026-08-13T08:23:53",
+ "description": "Phase 1 high-frequency redo: 0.5/1/1.5/2 Hz at 2/3 deg (peak vel < 38 deg/s so the servo can follow; v1's 2 Hz points saturated). Robot on stand, feet OFF the ground; the runner glides to bench zero by itself.",
+ "home_deg": [
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0
+ ],
+ "hz": 25.0,
+ "name": "sines_air_v2",
+ "segments": [
+  {
+   "amp_deg": 2.0,
+   "cycles": 3,
+   "freq_hz": 0.5,
+   "joint": 6,
+   "kind": "sine",
+   "label": "L2_yaw_sine2@0.5Hz",
+   "pre_s": 0.6,
+   "rest_s": 0.8
+  },
+  {
+   "amp_deg": 2.0,
+   "cycles": 3,
+   "freq_hz": 1.0,
+   "joint": 6,
+   "kind": "sine",
+   "label": "L2_yaw_sine2@1Hz",
+   "pre_s": 0.6,
+   "rest_s": 0.8
+  },
+  {
+   "amp_deg": 2.0,
+   "cycles": 4,
+   "freq_hz": 1.5,
+   "joint": 6,
+   "kind": "sine",
+   "label": "L2_yaw_sine2@1.5Hz",
+   "pre_s": 0.6,
+   "rest_s": 0.8
+  },
+  {
+   "amp_deg": 2.0,
+   "cycles": 6,
+   "freq_hz": 2.0,
+   "joint": 6,
+   "kind": "sine",
+   "label": "L2_yaw_sine2@2Hz",
+   "pre_s": 0.6,
+   "rest_s": 0.8
+  },
+  {
+   "amp_deg": 3.0,
+   "cycles": 3,
+   "freq_hz": 0.5,
+   "joint": 6,
+   "kind": "sine",
+   "label": "L2_yaw_sine3@0.5Hz",
+   "pre_s": 0.6,
+   "rest_s": 0.8
+  },
+  {
+   "amp_deg": 3.0,
+   "cycles": 3,
+   "freq_hz": 1.0,
+   "joint": 6,
+   "kind": "sine",
+   "label": "L2_yaw_sine3@1Hz",
+   "pre_s": 0.6,
+   "rest_s": 0.8
+  },
+  {
+   "amp_deg": 3.0,
+   "cycles": 4,
+   "freq_hz": 1.5,
+   "joint": 6,
+   "kind": "sine",
+   "label": "L2_yaw_sine3@1.5Hz",
+   "pre_s": 0.6,
+   "rest_s": 0.8
+  },
+  {
+   "amp_deg": 3.0,
+   "cycles": 6,
+   "freq_hz": 2.0,
+   "joint": 6,
+   "kind": "sine",
+   "label": "L2_yaw_sine3@2Hz",
+   "pre_s": 0.6,
+   "rest_s": 0.8
+  },
+  {
+   "amp_deg": 2.0,
+   "cycles": 3,
+   "freq_hz": 0.5,
+   "joint": 7,
+   "kind": "sine",
+   "label": "L2_hip_sine2@0.5Hz",
+   "pre_s": 0.6,
+   "rest_s": 0.8
+  },
+  {
+   "amp_deg": 2.0,
+   "cycles": 3,
+   "freq_hz": 1.0,
+   "joint": 7,
+   "kind": "sine",
+   "label": "L2_hip_sine2@1Hz",
+   "pre_s": 0.6,
+   "rest_s": 0.8
+  },
+  {
+   "amp_deg": 2.0,
+   "cycles": 4,
+   "freq_hz": 1.5,
+   "joint": 7,
+   "kind": "sine",
+   "label": "L2_hip_sine2@1.5Hz",
+   "pre_s": 0.6,
+   "rest_s": 0.8
+  },
+  {
+   "amp_deg": 2.0,
+   "cycles": 6,
+   "freq_hz": 2.0,
+   "joint": 7,
+   "kind": "sine",
+   "label": "L2_hip_sine2@2Hz",
+   "pre_s": 0.6,
+   "rest_s": 0.8
+  },
+  {
+   "amp_deg": 3.0,
+   "cycles": 3,
+   "freq_hz": 0.5,
+   "joint": 7,
+   "kind": "sine",
+   "label": "L2_hip_sine3@0.5Hz",
+   "pre_s": 0.6,
+   "rest_s": 0.8
+  },
+  {
+   "amp_deg": 3.0,
+   "cycles": 3,
+   "freq_hz": 1.0,
+   "joint": 7,
+   "kind": "sine",
+   "label": "L2_hip_sine3@1Hz",
+   "pre_s": 0.6,
+   "rest_s": 0.8
+  },
+  {
+   "amp_deg": 3.0,
+   "cycles": 4,
+   "freq_hz": 1.5,
+   "joint": 7,
+   "kind": "sine",
+   "label": "L2_hip_sine3@1.5Hz",
+   "pre_s": 0.6,
+   "rest_s": 0.8
+  },
+  {
+   "amp_deg": 3.0,
+   "cycles": 6,
+   "freq_hz": 2.0,
+   "joint": 7,
+   "kind": "sine",
+   "label": "L2_hip_sine3@2Hz",
+   "pre_s": 0.6,
+   "rest_s": 0.8
+  },
+  {
+   "amp_deg": 2.0,
+   "cycles": 3,
+   "freq_hz": 0.5,
+   "joint": 8,
+   "kind": "sine",
+   "label": "L2_knee_sine2@0.5Hz",
+   "pre_s": 0.6,
+   "rest_s": 0.8
+  },
+  {
+   "amp_deg": 2.0,
+   "cycles": 3,
+   "freq_hz": 1.0,
+   "joint": 8,
+   "kind": "sine",
+   "label": "L2_knee_sine2@1Hz",
+   "pre_s": 0.6,
+   "rest_s": 0.8
+  },
+  {
+   "amp_deg": 2.0,
+   "cycles": 4,
+   "freq_hz": 1.5,
+   "joint": 8,
+   "kind": "sine",
+   "label": "L2_knee_sine2@1.5Hz",
+   "pre_s": 0.6,
+   "rest_s": 0.8
+  },
+  {
+   "amp_deg": 2.0,
+   "cycles": 6,
+   "freq_hz": 2.0,
+   "joint": 8,
+   "kind": "sine",
+   "label": "L2_knee_sine2@2Hz",
+   "pre_s": 0.6,
+   "rest_s": 0.8
+  },
+  {
+   "amp_deg": 3.0,
+   "cycles": 3,
+   "freq_hz": 0.5,
+   "joint": 8,
+   "kind": "sine",
+   "label": "L2_knee_sine3@0.5Hz",
+   "pre_s": 0.6,
+   "rest_s": 0.8
+  },
+  {
+   "amp_deg": 3.0,
+   "cycles": 3,
+   "freq_hz": 1.0,
+   "joint": 8,
+   "kind": "sine",
+   "label": "L2_knee_sine3@1Hz",
+   "pre_s": 0.6,
+   "rest_s": 0.8
+  },
+  {
+   "amp_deg": 3.0,
+   "cycles": 4,
+   "freq_hz": 1.5,
+   "joint": 8,
+   "kind": "sine",
+   "label": "L2_knee_sine3@1.5Hz",
+   "pre_s": 0.6,
+   "rest_s": 0.8
+  },
+  {
+   "amp_deg": 3.0,
+   "cycles": 6,
+   "freq_hz": 2.0,
+   "joint": 8,
+   "kind": "sine",
+   "label": "L2_knee_sine3@2Hz",
+   "pre_s": 0.6,
+   "rest_s": 0.8
+  }
+ ],
+ "sysid_protocol": 1
+}

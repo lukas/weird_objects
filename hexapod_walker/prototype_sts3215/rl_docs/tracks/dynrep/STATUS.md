@@ -167,6 +167,26 @@ scratch. Primary metric: sample efficiency on a NEW task.
 
 ## Next
 
+- **OPERATOR SUGGESTIONS (08-13 ~19:5x UTC) — what to actually test
+  with the representation, in this order:**
+  1. **Does C produce a BETTER gait than scratch — not merely higher
+     return?** Compare loaded-foot slip, roll, contact sequencing,
+     joint slew saturation, servo currents, falls, and gait videos
+     (A vs C, matched budgets). Given the track's current problems,
+     gait quality matters more than sample efficiency.
+  2. **Does C improve the stand→walk handoff?** This is suddenly a
+     beautiful dynrep test. Start every policy from the deployed
+     standing state at zero velocity, then engage walking. A
+     recurrent representation has the history needed to know "I have
+     just been standing with six feet loaded," which a plain
+     instantaneous policy has less access to. Measure peak roll and
+     simultaneous slew saturation during the first second.
+  3. **Does the representation make the policy robust to
+     actuator/model mismatch?** Randomize latency, servo speed,
+     structural compliance, and contact; compare A vs C under
+     HELD-OUT dynamics. This gets much closer to the actual reason
+     for building a world model: sim-to-real robustness rather than
+     leaderboard return.
 - **OPERATOR DIRECTIVE (08-13 13:1x UTC, local sweep done — next
   pod work, in order):**
   1. The in-flight train-11 replication runs the REPAIRED hold task

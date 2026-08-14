@@ -38,8 +38,16 @@ a **tall stilt** pose (~tibia length), not “1–2 inches off the ground.”
 - Before multi-joint SyncWrite: HOLD/read **present** for all joints; never
   write a stale `_last_pose` that yanks other legs toward 0 or plant.
 - No autonomous stand-up, `stand_to_plant`, geometry plant, or `go_zero stand`
-  unless the user explicitly orders that script **and** is watching.
+ unless the user explicitly orders that script **and** is watching.
 - On tip, overcurrent, missing ID, or hot motor: limp (`X`) and stop.
+- **Surprise force = stop, limp, descriptive error.** In any recovery or
+ zeroing routine (safe_zero, pinned-tip untrap, glides), unexpected force
+ can always be a mechanical jam or a WRONG LOGICAL ZERO — never push
+ through or retry. Limp immediately and surface an error that names the
+ joint, the reading, and the likely causes (suggest re-doing `set_zero`).
+ Only quiet, torque-limit-bounded stalls that a routine explicitly
+ expects (e.g. the pinned leg during the low-torque untrap fold) may be
+ tolerated; force that contradicts the torque limit is never fought.
 - Do not leave torque on a fighting/stilt pose to “wait for the job.”
 
 ## Priority: basic controls first — not standing

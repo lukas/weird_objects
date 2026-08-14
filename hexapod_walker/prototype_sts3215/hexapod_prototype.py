@@ -680,6 +680,14 @@ LEG_TUBE_OD               = 8.0   # mm -- carbon tube outer diameter
 LEG_TUBE_WALL             = 1.0   # mm -- typical CF tube wall (8 OD / 6 ID)
 LEG_TUBE_SOCKET_CLEAR     = 0.05  # mm -- radial: snug slip-fit (Ø8.1 bore = 0.1 mm diametral), still slides on over a thin epoxy film, retained by the transverse pin
 LEG_TUBE_SOCKET_DEPTH     = 14.0  # mm -- tube engagement depth into a socket
+# Aug 2026: a tibia knee yoke split through the socket's front wall in the
+# field (crack ran through the pin cross-hole region -- the thinnest hoop
+# section, right on the print layer seams).  The wall was a hard-coded 3 mm;
+# it is now a named parameter, bumped to 5 mm (boss Phi 14 -> Phi 18, ~2.8x
+# the hoop-bending stiffness and far more meat around the Phi 2.6 pin hole).
+# NOTE: FEMUR_SPAR_OD deliberately stays at the old Phi 14 (frozen geometry);
+# this wall only drives the tibia knee yoke's tube socket boss.
+LEG_TUBE_SOCKET_WALL      = 5.0   # mm -- printed radial wall around the tube bore
 
 # Tube retention (Jun 2026): epoxy bond ALONE is not enough for a dynamic
 # legged robot -- the tibia in particular sees foot-strike shock at the end
@@ -5820,7 +5828,8 @@ def _disc_horn_bolt_centres():
 # no printed centering/standoff bushing is needed.
 
 
-def _sandwich_fixed_side(*, end_face_bolts: bool = True) -> trimesh.Trimesh:
+def _sandwich_fixed_side(*, end_face_bolts: bool = True,
+                         farwall_pad: bool = False) -> trimesh.Trimesh:
     """The FIXED printed side of a sandwich joint: JUST the STS3215
     front-face mount cradle (4 walls + output-face mount lip + end-face body
     bolts).  The back is now OPEN -- the PASSIVE disc horn rides the servo's
@@ -5833,12 +5842,26 @@ def _sandwich_fixed_side(*, end_face_bolts: bool = True) -> trimesh.Trimesh:
     the -X wall (one-piece femur knee cradle -- the fused spar covers that
     wall; see ``_servo_well_solid``).
 
+    ``farwall_pad=True`` adds the external buttress pad on the +X (far)
+    wall's outer face (Aug 2026 femur knee field crack; see the
+    FEMUR_KNEE_FARWALL_PAD_* constants block for the failure mode and
+    the FEA).  The pad is unioned BEFORE the wire-exit diff so the
+    harness corridor still pierces it.
+
     The serial-bus harness exits the body's +X bottom-outboard corner via
     the L-shaped wire-exit corridor + boot-clearance channel (well-local,
     shared with every cradle) so ``check_wire_slot`` finds a clear exit
     and the molded boot has a pocket to seat in."""
-    return _diff(_servo_well_solid(end_face_bolts=end_face_bolts),
-                 _wire_exit_slot())
+    body = _servo_well_solid(end_face_bolts=end_face_bolts)
+    if farwall_pad:
+        pad_x0 = WELL_W / 2.0 - 1.0                       # 1 mm wall bite
+        pad_x1 = WELL_W / 2.0 + FEMUR_KNEE_FARWALL_PAD_T
+        pad_z1 = WELL_RIM_Z                               # stop at plate underside
+        pad = _box((pad_x1 - pad_x0, 2.0 * FEMUR_KNEE_FARWALL_PAD_HALF_Y,
+                    pad_z1),
+                   center=(0.5 * (pad_x0 + pad_x1), 0.0, pad_z1 / 2.0))
+        body = _union(body, pad)
+    return _diff(body, _wire_exit_slot())
 
 
 def make_servo_clamp_cap() -> trimesh.Trimesh:
@@ -5956,13 +5979,13 @@ def _leg_tube_socket_x(x_mouth: float, sock_z: float, *, direction: int = 1,
     inset = pin_inset if pin_inset is not None else LEG_TUBE_PIN_INSET
     s = float(direction)
     Rx = rotation_matrix(np.pi / 2.0, [0, 1, 0])   # cyl axis Z -> X
-    boss = _cyl(LEG_TUBE_OD / 2.0 + 3.0, sock_len)
+    boss = _cyl(LEG_TUBE_OD / 2.0 + LEG_TUBE_SOCKET_WALL, sock_len)
     boss.apply_transform(Rx)
     boss.apply_translation([x_mouth + s * sock_len / 2.0, 0.0, sock_z])
     bore = _cyl(LEG_TUBE_OD / 2.0 + LEG_TUBE_SOCKET_CLEAR, sock_len * 2)
     bore.apply_transform(Rx)
     bore.apply_translation([x_mouth + s * sock_len, 0.0, sock_z])
-    pin = _cyl(LEG_TUBE_PIN_OD / 2.0, (LEG_TUBE_OD / 2.0 + 3.0) * 4)
+    pin = _cyl(LEG_TUBE_PIN_OD / 2.0, (LEG_TUBE_OD / 2.0 + LEG_TUBE_SOCKET_WALL) * 4)
     pin.apply_transform(rotation_matrix(np.pi / 2.0, [1, 0, 0]))   # axis Y
     pin.apply_translation([x_mouth + s * inset, 0.0, sock_z])
     return boss, bore, pin
@@ -5999,22 +6022,124 @@ YOKE_PAD_RADIAL_GROW = 1.0   # mm per side added to the horn-contact pad radius
 _YOKE_ARM_X0, _YOKE_ARM_X1 = 2.0, 46.0
 _YOKE_SOCKET_X = 42.0                       # CF-tube socket mouth (femur span frozen)
 _YOKE_SPINE_X0, _YOKE_SPINE_X1 = 42.0, 46.0
+# Aug 2026, field crack #1 follow-up (user: "I dont think you actually
+# thickened the front of the tibia knee yoke where it also broke"): the
+# tibia crack photo shows VERTICAL splits through the 4 mm spine PLATE
+# (the yoke's flat front face), above and below the tube socket, out to
+# the arm edges -- the Ø18 socket-boss thickening (LEG_TUBE_SOCKET_WALL
+# 3 -> 5) fattened the boss but left the plate it tees into untouched.
+# Mechanism: a motion-plane foot strike bends the tube about the pivot
+# axis and the boss pries the plate top/bottom, splitting it along the
+# vertical layer seams (same thin-plate T-junction failure as the femur
+# far wall).  Fix: DOUBLE the spine plate for the TIBIA yoke only
+# (4 -> 8 mm, extending OUTBOARD x 46 -> 50 -- inboard is forbidden by
+# the Jun 2026 clamp-cap ROM refit; outboard is measured-free: the
+# closed-yoke diag maps the knee joint clear to r ~ 39.5+ in this
+# sector, and the thicker plate's swept corner reaches r ~ 39.4).
+# CalculiX before/after (2g foot strike, motion-plane): see
+# artifacts/strength/tibiayoke_*.  The femur hip yoke keeps the stock
+# 4 mm spine: its spar passes through the plate's full thickness and
+# that junction never cracked.  Bore, pin (x = 49, now buried in the
+# thicker plate -- the cross-hole still pierces, more pin bearing) and
+# socket mouth (x = 42) are unchanged, so the CF tube cut length and
+# drill position stay put.
+TIBIA_YOKE_SPINE_PAD_T = 4.0   # mm added OUTBOARD to the tibia yoke spine
 # Socket height = mid-plane of the yoke (between the top + bottom arms).
 _YOKE_BOT_Z0 = JOINT_HORN_BOT_Z - _YOKE_ARM_T                          # -11
 _YOKE_TOP_Z1 = JOINT_HORN_TOP_Z + _YOKE_ARM_T                          # 45.3
 JOINT_SOCKET_Z = 0.5 * (_YOKE_BOT_Z0 + _YOKE_TOP_Z1)                   # ~17.15
 
+# ---------------------------------------------------------------------------
+# REINFORCED-YOKE TEST VARIANT (Aug 2026 v3, after the bench yoke-bend
+# incident).  The weak member is the SPINE -- the plate connecting the two
+# clevis arms (user, after v2: "you dont need to reinforce the arms, you
+# need to reinforce the plate connecting the arms").  The evidence agrees:
+# the arms are bolted flat onto the disc horns (well supported), the load
+# path BETWEEN them is the 4 mm spine plate, twisting/bending of which is
+# exactly what lets the arms go non-parallel -- and the tibia yoke's spine
+# plate is the part that actually CRACKED in the field (see
+# TIBIA_YOKE_SPINE_PAD_T above).  v3 therefore:
+#   * DOUBLES the spine plate to YOKE_SPINE_T_REINF = 8 mm total on EVERY
+#     yoke (the tibia already ships 8 mm from the crack fix; the variant
+#     brings the femur hip yoke to match).  Growth is OUTBOARD only
+#     (x 46 -> 50) -- inboard is forbidden by the Jun 2026 clamp-cap ROM
+#     refit (the spine face at x 42 clears the swept cap by 0.39 mm).
+#     Plate bending/torsion stiffness ~ t^3 => ~8x.
+#   * KEEPS the triangular root fillets at the arm/spine inner corners --
+#     they reinforce the plate-to-arm junction where the yield started.
+#     Z-legs differ per corner because the measured swept gaps differ:
+#     below the BOTTOM arm face (-7) the servo rear boss tops out at -4
+#     (3 mm gap -> LZ 2.5); above the TOP arm face (41.3) the HIP's coxa
+#     deck plate sweeps to z 39.3 across r 14-30 (2 mm gap -> LZ 1.5).
+#   * Arms stay stock 4 mm (v2's 7 mm arms retired: they stiffened the
+#     wrong member and needed +3 mm horn screws).
+# History: v1 (outboard drum "closed yoke", ~23 g/joint) and v2 (7 mm
+# arms) are retired; each stiffened something other than the plate that
+# fails.
+#
+# Where reinforcement may live was measured, not guessed
+# (tools/_closed_yoke_diag.py sweeps the REAL fixed-side meshes through the
+# joint ROM in the yoke frame, +5 deg margin each end):
+#   * Outboard of the spine, |phi| <= ~45 deg about +X is free out to
+#     r ~ 39.5 (hip-limited); the 8 mm plate's corners reach r 39.4 --
+#     the same envelope the tibia crack-fix pad already occupies.
+#   * A hoop closing the open (-X) end is IMPOSSIBLE at any radius (the
+#     incoming femur spar / coxa arm sweeps that half-space out to
+#     r ~ 90 mm over the ROM); side webs near the arm edges are blocked by
+#     the clamp-cap corner sweep (r <= 29.1 mm across phi +/-105 deg).
+#
+# Enable with env HEX_YOKE_REINFORCED=1 (test builds) or per-call
+# reinforced=True.  Assembly/hardware unchanged (stock screws fit; the
+# tibia retention pin at x = 49 still pierces an 8 mm plate).
+YOKE_REINFORCED   = os.environ.get("HEX_YOKE_REINFORCED", "") == "1"
+YOKE_SPINE_T_REINF  = 8.0   # mm TOTAL spine plate thickness (stock 4)
+_YOKE_FILLET_LX     = 6.0   # mm fillet leg along the arm (inboard from spine)
+_YOKE_FILLET_LZ_TOP = 1.5   # mm z-leg, top corner (hip coxa deck at 39.3)
+_YOKE_FILLET_LZ_BOT = 2.5   # mm z-leg, bottom corner (servo rear boss at -4)
+
+
+def _yoke_root_fillet(z_face: float, d: float, lz: float) -> trimesh.Trimesh:
+    """Triangular fillet prism at one arm/spine inner corner, full arm
+    width (see the REINFORCED-YOKE note above).  ``z_face`` is the arm's
+    inner face plane; ``d`` = +1 for the top arm (fillet hangs below it),
+    -1 for the bottom arm (mirrored); ``lz`` is the corner's z-leg.
+    Triangle verts in x-z: (spine_x0 - LX, z_face), (spine_x0, z_face),
+    (spine_x0, z_face - d*lz)."""
+    lx = _YOKE_FILLET_LX
+    x1 = _YOKE_SPINE_X0
+    block = _box((lx, 2 * _YOKE_ARM_Y, lz),
+                 center=(x1 - lx / 2.0, 0.0, z_face - d * lz / 2.0))
+    # Hypotenuse: half-space cut through (x1-LX, z_face) and
+    # (x1, z_face - d*LZ), removing the corner block's far half.
+    cutter = _box((400.0, 400.0, 400.0), center=(0.0, 0.0, -d * 200.0))
+    cutter.apply_transform(rotation_matrix(
+        d * np.arctan2(lz, lx), [0, 1, 0]))
+    cutter.apply_translation([x1 - lx, 0.0, z_face])
+    return _diff(block, cutter)
+
 
 def _sandwich_moving_yoke(*, tube_socket: bool = True,
                           socket_length: float = None,
-                          socket_pin_inset: float = None) -> trimesh.Trimesh:
+                          socket_pin_inset: float = None,
+                          reinforced: bool = None,
+                          spine_extra_t: float = 0.0) -> trimesh.Trimesh:
     """The MOVING printed link of a sandwich joint: a C-clevis straddling
     the fixed servo/housing stack.
+
+    ``reinforced`` (default: the HEX_YOKE_REINFORCED env flag) builds the
+    Aug 2026 v3 test reinforcement -- spine plate grown OUTBOARD to
+    YOKE_SPINE_T_REINF total + root fillets at the arm/spine inner
+    corners (see the REINFORCED-YOKE note above).
 
     ``socket_length`` / ``socket_pin_inset`` override the CF-tube socket size
     (historical: the two-part femur used SHORT sockets; since the Jul 2026
     one-piece femur only the tibia knee yoke sockets a tube, at the default
     size).
+
+    ``spine_extra_t`` thickens the spine plate OUTBOARD (+X) by that many
+    mm (Aug 2026 tibia spine-plate field crack; the tibia knee yoke passes
+    TIBIA_YOKE_SPINE_PAD_T -- see that constant's block.  The femur hip
+    yoke keeps 0).
 
     - TOP arm seats on the DRIVEN disc-horn top (z = JOINT_HORN_TOP_Z) and
       bolts to it with 4x M3 on the Phi DISC_HORN_BOLT_PCD circle.
@@ -6025,6 +6150,8 @@ def _sandwich_moving_yoke(*, tube_socket: bool = True,
     - +X spine ties the arms and (optionally) sockets the Phi 8 CF tube
       (epoxy + transverse retention pin).
     """
+    if reinforced is None:
+        reinforced = YOKE_REINFORCED
     arm_t = _YOKE_ARM_T
 
     def _disc_arm(seat_z, arm_dir, reach):
@@ -6079,12 +6206,23 @@ def _sandwich_moving_yoke(*, tube_socket: bool = True,
     bot = _disc_arm(JOINT_HORN_BOT_Z, -1, reach)                   # passive (rear boss)
     top_z0 = JOINT_HORN_TOP_Z
 
-    spine = _box((_YOKE_SPINE_X1 - _YOKE_SPINE_X0, 2 * _YOKE_ARM_Y,
+    spine_x1 = _YOKE_SPINE_X1 + spine_extra_t
+    if reinforced:
+        # Spine plate to >= YOKE_SPINE_T_REINF total, growing OUTBOARD
+        # (the tibia crack-fix pad already puts the tibia yoke at 8 mm;
+        # this brings the femur hip yoke to the same plate).
+        spine_x1 = max(spine_x1, _YOKE_SPINE_X0 + YOKE_SPINE_T_REINF)
+    spine = _box((spine_x1 - _YOKE_SPINE_X0, 2 * _YOKE_ARM_Y,
                   (top_z0 + arm_t) - _YOKE_BOT_Z0),
-                 center=(0.5 * (_YOKE_SPINE_X0 + _YOKE_SPINE_X1), 0.0,
+                 center=(0.5 * (_YOKE_SPINE_X0 + spine_x1), 0.0,
                          0.5 * (_YOKE_BOT_Z0 + top_z0 + arm_t)))
 
     parts = [top, bot, spine]
+    if reinforced:
+        parts.append(_yoke_root_fillet(JOINT_HORN_TOP_Z, +1.0,
+                                       _YOKE_FILLET_LZ_TOP))
+        parts.append(_yoke_root_fillet(JOINT_HORN_BOT_Z, -1.0,
+                                       _YOKE_FILLET_LZ_BOT))
     if tube_socket:
         boss, bore, pin = _leg_tube_socket_x(
             _YOKE_SOCKET_X, JOINT_SOCKET_Z,
@@ -6122,23 +6260,102 @@ _FEMUR_SPAR_WALL_BITE = 1.0   # mm the spar extends INTO the knee well wall
                               # so the boolean union is volumetric (not a
                               # coincident-face contact); stays well clear of
                               # the servo cavity behind the 6 mm wall.
+# Aug 2026: field crack #2 -- a femur knee well crack one week after the
+# identical tibia socket-wall crack.  (First read as radiating from the
+# spar landing; the user corrected that -- the split actually runs along
+# the FAR wall, see the FEMUR_KNEE_FARWALL_PAD_* block below, which is
+# the fix for the crack itself.)  The spar junction cone is KEPT on its
+# own merits: the bare Phi 14 spar met the yoke spine and the knee well
+# wall at SHARP 90-deg T-junctions, and the torque-reaction FEA shows
+# the near-wall junction is still the highest-stressed region of the
+# whole part (~12 MPa) under a 2g foot strike -- every bending moment
+# funnels through that re-entrant corner (Kt ~ 3) across the FDM layer
+# seams (the part prints spar-horizontal).  The cone: base radius
+# FEMUR_GUSSET_R buried _FEMUR_SPAR_WALL_BITE into the spine / wall, apex
+# exactly at the OPPOSITE junction face, so each cone tapers past the spar
+# OD ~5.5 mm out (a ~48-deg gusset -- near the ideal 45) and NEVER pokes
+# through the far wall / spine into the clamp-cap or clevis airspace.
+# Per-end base radii (FEA-tuned, Aug 2026 before/after study):
+# * KNEE end R = 12 -- the base lands on the 9 mm well wall backed by the
+#   whole well box; FEA: junction stress -31%, no new hot spot.
+# * HIP end: NO cone (R = 0).  FEA showed any stiff cone rim landing on
+#   the 4 mm spine PLATE trades the old corner (5.3 MPa) for a WORSE
+#   plate-prying hot zone at the rim (7.7 MPa at R = 12, still 7.3 at
+#   R = 10) -- and the hip junction never cracked anyway: unlike the
+#   knee wall the spar already passes through the spine's full 4 mm
+#   thickness and is backed by it.
+FEMUR_GUSSET_R_HIP  = 0.0   # mm -- 0 = no hip-end cone (see FEA note above)
+FEMUR_GUSSET_R_KNEE = 12.0  # mm -- cone base radius at the knee well wall
+
+# Aug 2026, crack-location correction (user: "the crack was against the
+# other wall"): the field crack is NOT at the spar landing -- the photo
+# shows a layer-seam split just under the clamp-cap seam wrapping the
+# FAR (+X well-local) wall corner, the wall OPPOSITE the spar.  A
+# torque-reaction FEA (knee moment = F_impact * TIBIA_LENGTH ~ 1.8 N-m
+# applied as the servo's bearing couple on the well walls + cap-pilot
+# pull, artifacts/strength/femur_tq_*) shows why: pure knee torque only
+# puts ~2 MPa in that wall, but a LATERAL foot catch reacts its
+# out-of-plane moment as an ~80 N bearing couple of the servo case
+# against the far wall's TOP band plus a pull against the retaining
+# lip -- 5..17 MPa at the wall top / plate junction, marginal against
+# PETG LAYER-ADHESION strength (well under the 22.7 MPa derated bulk
+# yield, but the load pries straight across the seams, and the Phi 2.5
+# cap-bolt pilot pre-stresses the same section).  Fix: an external
+# BUTTRESS PAD (a doubler) on the far wall's outer face over the WALL
+# BAND ONLY, z in [0, WELL_RIM_Z] -- STOPPING at the plate underside.
+#   * FEA-tuned height: a first full-height pad (flush with the plate
+#     top) halved the wall stress but hard-coupled the lateral couple
+#     into the 4 mm top plate -- its drop-in-slot edge strip went +65%
+#     (p95 9.8 -> 16.3 MPa), the same stiff-addition-moves-the-hot-spot
+#     lesson as the abandoned hip-end spar cone.  Stopping the pad at
+#     the plate underside keeps the wall doubled (far-wall mid-section
+#     p95 1.48 -> 0.81 MPa, region peak 17 -> 9.7; pilot vicinity -70%;
+#     lateral-case global peak 36 -> 16 MPa vs 22.7 derated yield) with
+#     the plate strip unchanged from baseline.
+#   * T = 3.5 (1 mm bite into the wall for a volumetric union): the
+#     wire-exit corridor only reaches WIRE_SLOT_X_PAST_WALL = 4 past the
+#     wall face, so 3.5 keeps the harness exit pierced with margin.
+#   * half-Y = 13 < wall end 16.9: keeps the pad clear of the clamp-cap
+#     flange seat and keeps its swept corner (r ~26.2 about the knee
+#     axis) inside the cap flange's existing r ~29.1 sweep envelope, so
+#     the tibia yoke clears it everywhere the cap already fit.
+# Knee cradle only -- the coxa hip cradle keeps the stock wall (its far
+# wall never cracked; revisit if it does).
+FEMUR_KNEE_FARWALL_PAD_T      = 3.5   # mm proud of the far wall outer face
+FEMUR_KNEE_FARWALL_PAD_HALF_Y = 13.0  # mm pad half-width along well Y
 
 
 def _femur_fused_spar() -> trimesh.Trimesh:
-    """The solid femur spar of the one-piece femur (hip-joint-local frame).
+    """The solid femur spar of the one-piece femur (hip-joint-local frame),
+    plus its two junction gussets (Aug 2026, see FEMUR_GUSSET_R above).
 
     A Phi FEMUR_SPAR_OD solid cylinder at z = JOINT_SOCKET_Z running from
     the hip yoke's spine face (x = _YOKE_SOCKET_X, embedding into the
     x[42,46] spine) to _FEMUR_SPAR_WALL_BITE past the knee bracket's well
     wall face (x = _YOKE_SOCKET_X + FEMUR_SPAR_LEN), fusing yoke and
-    bracket into one printed body."""
+    bracket into one printed body.  A cone at each end (base at the
+    spine / wall, apex at the opposite face) fillets both T-junctions."""
     Rx = rotation_matrix(np.pi / 2.0, [0, 1, 0])   # cyl axis Z -> X
     length = FEMUR_SPAR_LEN + _FEMUR_SPAR_WALL_BITE
     spar = _cyl(FEMUR_SPAR_OD / 2.0, length)
     spar.apply_transform(Rx)
     spar.apply_translation([_YOKE_SOCKET_X + length / 2.0, 0.0,
                             JOINT_SOCKET_Z])
-    return spar
+    spine_face = _YOKE_SPINE_X1                       # 46
+    wall_face = _YOKE_SOCKET_X + FEMUR_SPAR_LEN       # 58.3 (well wall outer)
+    bite = _FEMUR_SPAR_WALL_BITE
+    cone_h = (wall_face - spine_face) + bite          # apex at opposite face
+    gussets = []
+    for base_x, sgn, base_r in ((spine_face - bite, +1.0, FEMUR_GUSSET_R_HIP),
+                                (wall_face + bite, -1.0, FEMUR_GUSSET_R_KNEE)):
+        if base_r <= 0.0:
+            continue
+        g = trimesh.creation.cone(radius=base_r, height=cone_h,
+                                  sections=CYL_SECTIONS)
+        g.apply_transform(rotation_matrix(sgn * np.pi / 2.0, [0, 1, 0]))
+        g.apply_translation([base_x, 0.0, JOINT_SOCKET_Z])
+        gussets.append(g)
+    return _union(spar, *gussets)
 
 
 def _servo_envelope() -> trimesh.Trimesh:
@@ -10887,12 +11104,16 @@ def _femur_knee_fixed_solid() -> trimesh.Trimesh:
 
     ``end_face_bolts=False`` (Jul 2026, user: "theres four holes in the one
     piece femur link where you added the connection which serve no purpose
-    and weaken the connection"): the spar covers this cradle's -X wall from
+    and weaken the connection"): the     spar covers this cradle's -X wall from
     outside, so the 4x M2.5 end-face screws could never be installed at the
     knee anyway -- the empty holes + counterbores just punched through the
     spar-to-wall junction.  The knee servo is retained by the clamp cap +
-    retaining lip (the hip cradle on coxa_link keeps its 4 bolts)."""
-    return _sandwich_fixed_side(end_face_bolts=False)
+    retaining lip (the hip cradle on coxa_link keeps its 4 bolts).
+
+    ``farwall_pad=True`` (Aug 2026): external buttress pad on the far
+    (+X) wall -- the wall the field crack actually ran along; see the
+    FEMUR_KNEE_FARWALL_PAD_* constants block."""
+    return _sandwich_fixed_side(end_face_bolts=False, farwall_pad=True)
 
 
 def make_femur_link_part() -> trimesh.Trimesh:
@@ -10921,8 +11142,10 @@ def make_femur_link_part() -> trimesh.Trimesh:
 def make_tibia_knee_yoke() -> trimesh.Trimesh:
     """Tibia's KNEE end: the moving yoke (driven by the knee disc horn,
     stub into the knee 688 bearing) with the tibia CF-tube socket toward
-    the foot.  Joint-local frame."""
-    return _sandwich_moving_yoke(tube_socket=True)
+    the foot.  Joint-local frame.  Aug 2026: the spine plate is doubled
+    (TIBIA_YOKE_SPINE_PAD_T) after the field crack through it."""
+    return _sandwich_moving_yoke(tube_socket=True,
+                                 spine_extra_t=TIBIA_YOKE_SPINE_PAD_T)
 
 
 # make_tibia_foot_fitting / make_tibia_foot_fitting_plus4 /

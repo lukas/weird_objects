@@ -139,6 +139,14 @@ DIRS = {
 #          Scripted omega 0.25 calibrated to ACHIEVE ~0.088 rad/s
 #          while translating (the gait realizes ~40% of commanded
 #          omega — measured, test_task_semantics.py DRIFT_RIDE_WZ).
+#   noslip / noslip_slow / noslip_clean: the step-then-shift
+#          world-anchored gait (linux_control/noslip_gait.py) —
+#          quasi-static, zero commanded foot drag. noslip = default
+#          timing (realizes ~0.02-0.03 m/s, BELOW the trained 0.05-0.06
+#          band); noslip_slow = an early slow timing (~0.005 m/s);
+#          noslip_clean = NoSlipGait.CLAMP_FIT_KW, the 08-12 sweep's
+#          cleanest timing under the fitted 31 deg/s clamp (zero true
+#          scrub, travel ratio 0.96 at 13 mm/s commanded).
 SCRIPTED = ("gait", "gait_slow", "sac1", "sac3", "paddle", "freeze",
             "driftride")
 PIN = {"sac1": (0,), "sac3": (0, 2, 4), "paddle": (1, 4)}
@@ -209,6 +217,15 @@ def rollout(policy: str, direction: str, seed: int, stack_name: str,
     if policy.startswith("ckpt:"):
         from stable_baselines3 import PPO
         model = PPO.load(str(ROOT / policy[5:]), device="cpu")
+    elif policy.startswith("noslip"):
+        from noslip_gait import NoSlipGait
+        if policy == "noslip_clean":
+            gait = NoSlipGait.clamp_fit()
+        else:
+            kw = (dict(period=8.0, shift_frac=0.20, swing_frac=0.26)
+                  if policy == "noslip_slow" else {})
+            gait = NoSlipGait(**kw)
+        gait.sync_plant_stance(*WALK_PLANT)
     else:
         gait = TripodGait(vx=0.0)
         gait.sync_plant_stance(*WALK_PLANT)

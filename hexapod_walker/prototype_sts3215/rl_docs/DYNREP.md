@@ -92,6 +92,18 @@ checkpoint → train forward locomotion on identical budgets (later:
 locomotion → self-righting); plot new-task performance vs additional
 env steps while re-evaluating old tasks.
 
+Beyond the sample-efficiency curves, three operator-priority tests
+(08-13; full wording in `rl_docs/tracks/dynrep/STATUS.md` → Next):
+(1) gait QUALITY of C vs scratch — loaded-foot slip, roll, contact
+sequencing, slew saturation, currents, falls, videos — not merely
+return; (2) the stand→walk handoff from the deployed standing state
+at zero velocity (peak roll + simultaneous slew saturation in the
+first second — a recurrent representation knows "I have just been
+standing with six feet loaded"); (3) robustness to actuator/model
+mismatch — A vs C under held-out randomized latency, servo speed,
+compliance, and contact — the sim-to-real reason a world model
+exists.
+
 ## Ablations (after the first comparison, one variable each)
 
 z ∈ {64, 128, 256} before any deeper network. Do not assume extra

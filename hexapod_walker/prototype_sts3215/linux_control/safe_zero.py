@@ -10,15 +10,29 @@ unexpected force.
 Two halves:
 
 PLANNER — ``plan_safe_zero(present)`` (pure stdlib math, testable on a
-laptop with no hardware). Universal 3-stage strategy that is the same
-whether the robot starts standing or belly-down:
+laptop with no hardware).
 
   1. "straighten"  hips → 0°, knees → a small lift angle that keeps the
      feet ~``LIFT_CLEAR_MM`` above the belly-down ground plane; yaws
-     held where they are. From a stand this IS the eased sit descent
-     (feet drag radially outward while the body lowers — the approved
-     sit motion, force-monitored); from the belly it is a small foot
-     lift.
+     held where they are. From the belly this is a small foot lift.
+     From a STAND (lowest foot > ``STAND_DETECT_MM`` below the belly
+     plane) the descent is planned drag-minimally instead (operator
+     ask 2026-08-12 — the old single blend slid the loaded feet
+     ~190 mm radially outward):
+       a. "fold crouch"  knees fold toward ``KNEE_FOLD_MAX_DEG`` with
+          each foot held at its present radius — the body sinks with
+          NO foot slide until the fold-reach limit binds;
+       b. "slide to belly"  the only loaded drag left: feet slide
+          outward just far enough (typically 30–70 mm, vs ~190 mm)
+          that belly contact is reachable with knee ≤
+          ``KNEE_CONTACT_MAX_DEG``;
+       c. "unfold skim"  belly carries the weight; the unloaded feet
+          sweep out at ``SKIM_CLEAR_MM`` over the floor to the lift
+          pose. Waypoints are refined (bisected through per-leg IK)
+          until every joint-space blend tracks the intended foot path
+          — no blend may press a foot or a folded knee into the floor.
+     Any pose the per-leg IK can't cover falls back to the legacy
+     single-blend straighten (still force-monitored).
   2. "center yaws" all yaws → 0° with the feet geometrically clear of
      the ground. Tries all-at-once; if the top-view leg segments would
      cross, falls back to one-leg-at-a-time (largest |yaw| first); if
@@ -77,6 +91,16 @@ LIMIT_SLOP_DEG = 20.0       # encoder past limit+slop → zero frame suspect
 DONE_TOL_DEG = 4.0
 PATH_SAMPLES = 9
 
+# Low-drag descent (standing starts only).
+STAND_DETECT_MM = 25.0      # lowest foot this far below belly plane = stand
+KNEE_FOLD_MAX_DEG = 135.0   # crouch fold ceiling (margin off the 150° stop)
+KNEE_CONTACT_MAX_DEG = 130.0  # deepest fold allowed at belly touchdown
+SKIM_CLEAR_MM = 6.0         # unloaded unfold sweeps this far over the floor
+SLIDE_PRESS_TOL_MM = 6.0    # blend may push a foot this far below its line
+SLIDE_DEV_TOL_MM = 8.0      # blend may slide a foot this far off its radius
+DESCENT_RATE_DPS = 12.0
+_REFINE_DEPTH = 2           # waypoint bisection depth before giving up
+
 # Executor trip thresholds.
 STALL_CURRENT_A = 2.5       # air / geometric stages
 DRAG_CURRENT_A = 3.0        # descent stage (weight transfer is honest work)
@@ -126,6 +150,44 @@ def knee_for_foot_z(hip_deg: float, z_mm: float) -> float | None:
         if lo <= knee <= hi:
             return float(knee)
     return None
+
+
+def foot_r_mm(hip_deg: float, knee_deg: float) -> float:
+    """Foot radial distance from the hip pivot in the leg plane (mm)."""
+    return (FEMUR_MM * math.cos(math.radians(hip_deg))
+            + TIBIA_MM * math.cos(math.radians(hip_deg + knee_deg)))
+
+
+def leg_reach_mm(knee_deg: float) -> float:
+    """Hip-pivot→foot distance at a given knee fold (hip-independent)."""
+    return math.sqrt(FEMUR_MM ** 2 + TIBIA_MM ** 2
+                     + 2.0 * FEMUR_MM * TIBIA_MM
+                     * math.cos(math.radians(knee_deg)))
+
+
+def ik_hip_knee(r_mm: float, z_mm: float) -> tuple[float, float] | None:
+    """(hip, knee) placing the foot at ``(r, z)`` mm from the hip pivot.
+
+    Positive-fold (knee ≥ 0) branch only. None when out of reach or
+    outside the hip/knee axis limits.
+    """
+    d2 = r_mm * r_mm + z_mm * z_mm
+    d = math.sqrt(d2)
+    if d < 1e-6:
+        return None
+    ck = ((d2 - FEMUR_MM ** 2 - TIBIA_MM ** 2)
+          / (2.0 * FEMUR_MM * TIBIA_MM))
+    if not -1.0 <= ck <= 1.0:
+        return None
+    knee = math.degrees(math.acos(ck))
+    cg = (FEMUR_MM ** 2 + d2 - TIBIA_MM ** 2) / (2.0 * FEMUR_MM * d)
+    hip = math.degrees(math.atan2(-z_mm, r_mm)
+                       - math.acos(max(-1.0, min(1.0, cg))))
+    hip_lo, hip_hi = AXIS_LIMITS_DEG[1]
+    knee_lo, knee_hi = AXIS_LIMITS_DEG[2]
+    if not (hip_lo <= hip <= hip_hi and knee_lo <= knee <= knee_hi):
+        return None
+    return float(hip), float(knee)
 
 
 def leg_segment_2d(leg: int, yaw_deg: float, hip_deg: float,
@@ -238,6 +300,177 @@ def _stage(label: str, goal: list[float], seconds: float,
             "seconds": round(seconds, 2), "drag_ok": drag_ok}
 
 
+# ---------------------------------------------------------------------------
+# Low-drag descent (standing starts)
+# ---------------------------------------------------------------------------
+
+def _descent_pose(yaw_now: list[float],
+                  feet: list[tuple[float, float]]) -> list[float] | None:
+    """18-joint pose putting each foot at its (r, z); None if any leg
+    has no in-limit IK solution."""
+    q: list[float] = []
+    for leg in range(6):
+        hk = ik_hip_knee(*feet[leg])
+        if hk is None:
+            return None
+        q.extend([yaw_now[leg], hk[0], hk[1]])
+    return q
+
+
+def _seg_foot_error(qa: list[float], qb: list[float],
+                    fa: list[tuple[float, float]],
+                    fb: list[tuple[float, float]], *,
+                    floor_z_mm: float | None) -> tuple[float, float, float]:
+    """How badly the joint-space blend qa→qb strays from the straight
+    per-leg foot line fa→fb.
+
+    Returns (press, r_dev, floor_hit) in mm: press = worst dip BELOW
+    the foot line (pushes into whatever the foot rests on); r_dev =
+    worst radial wander (unplanned slide); floor_hit = worst intrusion
+    of a foot or knee joint below a fixed floor (belly-down segments
+    only; the floor plane is meaningless in the hip frame while the
+    body is still descending).
+    """
+    press = r_dev = floor_hit = 0.0
+    for s in range(1, PATH_SAMPLES):
+        t = s / PATH_SAMPLES
+        q = _lerp(qa, qb, t)
+        for leg in range(6):
+            hip, knee = q[leg * 3 + 1], q[leg * 3 + 2]
+            r, z = foot_r_mm(hip, knee), foot_z_mm(hip, knee)
+            rl = fa[leg][0] + (fb[leg][0] - fa[leg][0]) * t
+            zl = fa[leg][1] + (fb[leg][1] - fa[leg][1]) * t
+            press = max(press, zl - z)
+            r_dev = max(r_dev, abs(r - rl))
+            if floor_z_mm is not None:
+                floor_hit = max(
+                    floor_hit, floor_z_mm - GROUND_TOL_MM - z)
+                knee_z = -FEMUR_MM * math.sin(math.radians(hip))
+                floor_hit = max(floor_hit, floor_z_mm - knee_z)
+    return press, r_dev, floor_hit
+
+
+def _refine_pair(a: dict, b: dict, yaw_now: list[float],
+                 ground_z_mm: float, depth: int) -> list[dict] | None:
+    """Waypoints (excluding ``a``) so every blend tracks its foot line;
+    bisects through IK up to ``depth`` times, None if it can't."""
+    floor = ground_z_mm if a.get("grounded") else None
+    press, r_dev, floor_hit = _seg_foot_error(
+        a["q"], b["q"], a["feet"], b["feet"], floor_z_mm=floor)
+    if (press <= SLIDE_PRESS_TOL_MM and r_dev <= SLIDE_DEV_TOL_MM
+            and floor_hit <= 0.0):
+        return [b]
+    if depth <= 0:
+        return None
+    mid_feet = [((ra + rb) / 2.0, (za + zb) / 2.0)
+                for (ra, za), (rb, zb) in zip(a["feet"], b["feet"])]
+    qm = _descent_pose(yaw_now, mid_feet)
+    if qm is None:
+        return None
+    mid = {"q": qm, "feet": mid_feet, "label": b["label"],
+           "grounded": a.get("grounded")}
+    left = _refine_pair(a, mid, yaw_now, ground_z_mm, depth - 1)
+    if left is None:
+        return None
+    right = _refine_pair(mid, b, yaw_now, ground_z_mm, depth - 1)
+    if right is None:
+        return None
+    return left + right
+
+
+def _plan_descent(present: list[float], yaw_now: list[float],
+                  ground_z_mm: float, knee_lift: float,
+                  z_lift: float) -> dict:
+    """Drag-minimal stand→belly descent ending exactly at the lift pose.
+
+    ``{"ok": True, "stages": [...], ...metrics}`` or
+    ``{"ok": False, "why": ...}`` (caller falls back to the legacy
+    single-blend straighten).
+    """
+    h_belly = -ground_z_mm
+    r0, z0 = [], []
+    for leg in range(6):
+        hip, knee = present[leg * 3 + 1], present[leg * 3 + 2]
+        r0.append(foot_r_mm(hip, knee))
+        z0.append(foot_z_mm(hip, knee))
+    if min(z0) > ground_z_mm - STAND_DETECT_MM:
+        return {"ok": False, "why": "not standing"}
+
+    reach_max = FEMUR_MM + TIBIA_MM - 2.0
+    reach_contact = leg_reach_mm(KNEE_CONTACT_MAX_DEG)
+    if h_belly >= reach_contact:
+        return {"ok": False, "why": "ground plane deeper than leg reach"}
+
+    # Deepest body drop with every foot held at its present radius and
+    # no knee past the fold ceiling.
+    reach_fold = leg_reach_mm(KNEE_FOLD_MAX_DEG)
+    h_crouch = h_belly
+    for r in r0:
+        rr = min(abs(r), reach_fold)
+        h_crouch = max(h_crouch, math.sqrt(reach_fold ** 2 - rr * rr))
+
+    lim_a = math.sqrt(max(0.0, reach_max ** 2 - h_crouch ** 2))
+    r_a = [max(-lim_a, min(lim_a, r)) for r in r0]
+    r_contact = math.sqrt(reach_contact ** 2 - h_belly ** 2)
+    lim_b = math.sqrt(reach_max ** 2 - h_belly ** 2)
+    r_b = [min(max(r_a[leg], r_contact), lim_b) for leg in range(6)]
+    r_lift = foot_r_mm(0.0, knee_lift)
+
+    points = [{"q": list(present), "feet": list(zip(r0, z0)),
+               "grounded": False}]
+
+    def _add(label: str, feet: list[tuple[float, float]],
+             grounded: bool, q: list[float] | None = None) -> bool:
+        q = q if q is not None else _descent_pose(yaw_now, feet)
+        if q is None:
+            return False
+        if _max_delta(points[-1]["q"], q) > 1.5:
+            points.append({"q": q, "feet": feet, "label": label,
+                           "grounded": grounded})
+        elif grounded:
+            points[-1]["grounded"] = True
+        return True
+
+    ok = True
+    if h_crouch < -min(z0) - 3.0:
+        ok = _add("fold crouch (feet planted)",
+                  [(r_a[leg], -h_crouch) for leg in range(6)], False)
+    ok = ok and _add("slide feet out to belly contact",
+                     [(r_b[leg], ground_z_mm) for leg in range(6)], True)
+    z_skim = ground_z_mm + SKIM_CLEAR_MM
+    ok = ok and _add(
+        "unfold legs (skim, unloaded)",
+        [((r_b[leg] + r_lift) / 2.0, z_skim) for leg in range(6)], True)
+    q_lift_goal = []
+    for leg in range(6):
+        q_lift_goal.extend([yaw_now[leg], 0.0, knee_lift])
+    ok = ok and _add("feet to lift height",
+                     [(r_lift, z_lift)] * 6, True, q=q_lift_goal)
+    if not ok or len(points) < 2:
+        return {"ok": False, "why": "no in-limit leg path for this pose"}
+
+    refined = [points[0]]
+    for a, b in zip(points, points[1:]):
+        seg = _refine_pair(a, b, yaw_now, ground_z_mm, _REFINE_DEPTH)
+        if seg is None:
+            return {"ok": False,
+                    "why": "blend cannot track the planned foot path"}
+        refined.extend(seg)
+
+    stages = []
+    for a, b in zip(refined, refined[1:]):
+        d = _max_delta(a["q"], b["q"])
+        stages.append(_stage(b["label"], b["q"],
+                             min(12.0, max(2.0, d / DESCENT_RATE_DPS)),
+                             not a.get("grounded")))
+    slide = max(max(0.0, r_b[leg] - r_a[leg]) for leg in range(6))
+    legacy = max(max(0.0, r_lift - r0[leg]) for leg in range(6))
+    return {"ok": True, "stages": stages,
+            "loaded_slide_mm": round(slide, 1),
+            "legacy_slide_mm": round(legacy, 1),
+            "crouch_height_mm": round(h_crouch, 1)}
+
+
 def plan_safe_zero(present: list[float], *,
                    ground_z_mm: float = BELLY_GROUND_Z_MM,
                    lift_clear_mm: float = LIFT_CLEAR_MM,
@@ -292,19 +525,47 @@ def plan_safe_zero(present: list[float], *,
     stages: list[dict] = []
     notes: list[str] = []
 
-    # Stage 1 — straighten hips/knees (descent when standing). Feet may
-    # drag on purpose; no geometric ground check, force-monitored instead.
+    # Stage 1 — straighten hips/knees (descent when standing). From a
+    # stand, prefer the low-drag fold→slide→skim descent; any pose it
+    # can't cover falls back to the legacy single blend (feet may drag
+    # on purpose; no geometric ground check, force-monitored instead).
+    descent_used = None
     d1 = _max_delta(present, q_lift)
     if d1 > 1.0:
-        v = _path_violation(present, q_lift, ground_z_mm=None)
-        if v:
-            return {"ok": False,
-                    "error": (f"cannot straighten legs safely: {v}. "
-                              "Reposition the crossed legs by hand "
-                              "(limp) and retry.")}
-        stages.append(_stage(
-            "straighten hips/knees (feet to lift height)",
-            q_lift, min(12.0, max(3.0, d1 / 12.0)), True))
+        desc = _plan_descent(present, yaw_now, ground_z_mm,
+                             knee_lift, z_lift)
+        if desc["ok"]:
+            prev = present
+            for s in desc["stages"]:
+                v = _path_violation(prev, s["goal"], ground_z_mm=None)
+                if v:
+                    desc = {"ok": False, "why": v}
+                    break
+                prev = s["goal"]
+        if desc["ok"]:
+            stages.extend(desc["stages"])
+            descent_used = {k: desc[k] for k in
+                            ("loaded_slide_mm", "legacy_slide_mm",
+                             "crouch_height_mm")}
+            notes.append(
+                f"low-drag descent: fold to "
+                f"{desc['crouch_height_mm']:.0f} mm height, loaded "
+                f"slide ≤{desc['loaded_slide_mm']:.0f} mm "
+                f"(legacy blend ≈{desc['legacy_slide_mm']:.0f} mm)")
+        else:
+            if desc.get("why") != "not standing":
+                notes.append(f"low-drag descent unavailable "
+                             f"({desc.get('why')}); using legacy "
+                             "straighten blend")
+            v = _path_violation(present, q_lift, ground_z_mm=None)
+            if v:
+                return {"ok": False,
+                        "error": (f"cannot straighten legs safely: {v}. "
+                                  "Reposition the crossed legs by hand "
+                                  "(limp) and retry.")}
+            stages.append(_stage(
+                "straighten hips/knees (feet to lift height)",
+                q_lift, min(12.0, max(3.0, d1 / 12.0)), True))
 
     # Stage 2 — yaws to center with the feet geometrically clear.
     d2 = _max_delta(q_lift, q_center)
@@ -351,7 +612,7 @@ def plan_safe_zero(present: list[float], *,
             "extend legs straight (zero)", q_zero,
             min(5.0, max(2.0, d3 / 15.0)), False))
 
-    return {
+    out = {
         "ok": True,
         "stages": stages,
         "notes": notes,
@@ -359,6 +620,9 @@ def plan_safe_zero(present: list[float], *,
         "knee_lift_deg": round(knee_lift, 2),
         "total_s": round(sum(s["seconds"] for s in stages), 1),
     }
+    if descent_used:
+        out["descent"] = descent_used
+    return out
 
 
 # ---------------------------------------------------------------------------

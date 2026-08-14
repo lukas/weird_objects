@@ -53,10 +53,14 @@ Reference: `~/buildviz/README.md` ("How to run BuildViz") and
 
 `hexapod-prototype` (prototype_v1, animated gait), `prototype_sts3215`
 (full robot; motion baked into its single scene.json — the separate
-`prototype_sts3215_motion` build id was retired), `prototype_v1/chassis`,
-`prototype_v1/leg`, `prototype_v1/leg/coxa`, `rideable_v1`, `robot-cat`, plus
-older collision/demo builds. List them live with `npx buildviz hub status` or
-open `http://127.0.0.1:5183/`.
+`prototype_sts3215_motion` build id was retired),
+`prototype_ak40` (AK40 QDD hexapod, Design B, joints + stance poses; FLAT
+build id — register with `--build-id prototype_ak40`, never `--project` +
+`--build`, which creates a two-segment id the `?build=` viewer param can't
+resolve; regenerate via `make -C hexapod_walker/prototype_ak40 view-buildviz`),
+`prototype_v1/chassis`, `prototype_v1/leg`, `prototype_v1/leg/coxa`,
+`rideable_v1`, `robot-cat`, plus older collision/demo builds. List them live
+with `npx buildviz hub status` or open `http://127.0.0.1:5183/`.
 
 ## Out of scope for agents (unless the user explicitly asks)
 

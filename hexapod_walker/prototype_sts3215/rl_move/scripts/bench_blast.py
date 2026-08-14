@@ -36,6 +36,13 @@ Session plan (steps run in order; --only / --skip to cherry-pick):
              gated on the goal-profile check from `info`, preflight,
              then /api/rl/stand with your hands ready; offers
              /api/rl/lower afterwards.
+  zero       Laptop-driven safe zero (operator ruling 08-12: the slow
+             tilt-gated safe_zero glide MAY be commanded from the
+             laptop). Glides to belly zero, then verifies the stance
+             TWO ways before anything riskier runs: all 18 encoders
+             near 0 deg, and (with --camera) a still frame saved as
+             zero_check.jpg for a visual look at the pose. Fails the
+             session if the pose does not verify.
   turnsign   wz sign audit: scripted turn-in-place +0.3 then -0.3
              rad/s, you report observed direction (cw/ccw) —
              closes the TURN sign question.
@@ -54,14 +61,38 @@ Usage (bench, robot ARMed and standing at plant, web UI handy):
     python -m rl_move.scripts.bench_blast --go --only ab tape
     python -m rl_move.scripts.bench_blast --go --rounds 4
 
-VIDEO MODE (--video): the zero-typing session. Lay the tape measure on
-the floor along the walk direction, start filming (whole runway in
-frame, Mac speaker audible), run with --go --video, and only type the
-per-step ``go``s. Every step is SPOKEN onto the video's audio track
-and timestamped in summary.json; the tape reading and the turn
-direction are read off the footage afterwards by
-``rl_move/scripts/video_review.py`` + the analysis agent — you never
-report a number.
+INTERACTION MODES — how much typing each combination needs:
+
+  (default)      Per-step gate: each motion step waits for a typed
+                 ``go``; anything else skips that one step. Safest;
+                 you are at the keyboard AND watching the robot.
+  --auto         NO keyboard at all: every gate becomes a spoken
+                 3-second countdown (watch the robot, not the
+                 terminal; Ctrl-C or the web STOP aborts). Preflight
+                 failures ABORT the session instead of asking. A walk
+                 that ends tilted gets one recovery, then aborts after
+                 MAX_RECOVERIES.
+  --one-go       One typed ``go`` at the very start (get hands
+                 ready), then the rest runs --auto style.
+  --video        Film-instead-of-type for the MEASUREMENTS: steps are
+                 spoken onto the audio track, and the tape reading +
+                 turn direction are read OFF THE FOOTAGE afterwards
+                 (``video_review.py``) — without --video, ``tape``
+                 and ``turnsign`` prompt for typed readings and MUST
+                 have a human at the keyboard. With --auto (phone
+                 filming) you get a spoken 20 s lead-in to hit record.
+  --camera N     Record camera.mp4 from Mac/USB camera index N
+                 automatically (no phone, no lead-in, exact t0 sync;
+                 a recorder that fails to open is non-fatal). Also
+                 saves zero_check.jpg during the ``zero`` step.
+
+  Fully unattended (agent-driven / zero stdin) invocation:
+
+      python -m rl_move.scripts.bench_blast --go --auto --video \
+          --camera 0 [--skip ...]
+
+  Do NOT run without --video in a shell that has no stdin: the
+  ``tape``/``turnsign`` prompts would hit EOF and abort the session.
 """
 from __future__ import annotations
 
@@ -91,9 +122,17 @@ THERMAL_WARN_C = 55        # hold before motion if any servo is at/above
 THERMAL_RESUME_C = 45      # ...and resume only once back under this
 THERMAL_COOL_WAIT_S = 360  # max cooldown hold before aborting the session
 DEFAULT_STEPS = ("info", "ab", "tape", "rot60", "stand", "turnsign", "hold")
-# rise/sit: single transitions for composed --only sessions (e.g. a
-# belly-start unattended run: info rise ab turnsign sit)
-STEPS = DEFAULT_STEPS + ("rise", "sit")
+# rise/sit/zero: single transitions for composed --only sessions (e.g.
+# a belly-start unattended run: info zero rise ab turnsign sit)
+STEPS = DEFAULT_STEPS + ("rise", "sit", "zero")
+ZERO_MAX_JOINT_DEG = 6.0   # post-safe_zero encoder bar (loaded sag;
+                           # the 08-11 19:07 stalled leg read 78 deg)
+ONE_GO_LEAD_S = 8.0        # single spoken lead-in before the session's
+                           # first motion (operator 08-12: one short
+                           # wait, no ARM dance, no long countdowns)
+VIDEO_STATE_DIR = _HERE.parents[2] / "video_state"
+IN_VIEW_STREAK = 3         # consecutive 'full' verdicts to open the gate
+IN_VIEW_TIMEOUT_S = 300.0  # give up if the robot is never fully framed
 
 
 def ask(prompt: str) -> str:
@@ -123,6 +162,7 @@ class CameraRecorder:
         self.fps = fps
         self.t0: float | None = None
         self.frames = 0
+        self.latest = None            # newest frame (for snapshots)
         self._stop = None
         self._thread = None
         self._cap = None
@@ -162,17 +202,27 @@ class CameraRecorder:
 
     def _run(self, first_frame) -> None:
         latest = first_frame
+        self.latest = first_frame
         next_t = self.t0
         while not self._stop.is_set():
             ok, f = self._cap.read()      # blocks at the camera's rate
             if ok:
                 latest = f
+                self.latest = f
             now = time.time()
             # constant-rate output: repeat the newest frame as needed
             while next_t <= now:
                 self._writer.write(latest)
                 self.frames += 1
                 next_t += 1.0 / self.fps
+
+    def snapshot(self, path: Path) -> bool:
+        """Save the newest frame as a still (zero_check etc.)."""
+        if self.latest is None:
+            return False
+        import cv2
+        path.parent.mkdir(parents=True, exist_ok=True)
+        return bool(cv2.imwrite(str(path), self.latest))
 
     def stop(self) -> dict | None:
         if self._thread is None:
@@ -191,12 +241,19 @@ class CameraRecorder:
 class Session:
     def __init__(self, client: HexapodClient, go: bool, rounds: int,
                  video: bool = False, auto: bool = False,
-                 camera: int | None = None):
+                 camera: int | None = None, one_go: bool = False,
+                 tilt_trip: float | None = None,
+                 extra_hold: float = 0.0):
         self.c = client
         self.go = go
         self.rounds = rounds
         self.video = video or camera is not None
         self.auto = auto
+        self.one_go = one_go
+        self.tilt_trip = tilt_trip     # stand/lower tip envelope (deg)
+        self.extra_hold = extra_hold   # stand/lower episode extension (s)
+        self._model_line_said = False  # spoken model intro, once
+        self._started = False          # one-go gate already passed?
         self.camera = camera
         self.recorder: CameraRecorder | None = None
         self.stamp = time.strftime("%Y%m%d_%H%M%S")
@@ -266,17 +323,97 @@ class Session:
         raise SessionAbort(f"thermal: {name} still {t}C after "
                            f"{THERMAL_COOL_WAIT_S:.0f}s cooldown")
 
-    def confirm(self, what: str, countdown: int = 5) -> bool:
+    def _say(self, text: str) -> None:
+        """announce() + ALWAYS speak (even in --camera mode, which
+        normally skips speech) — speech is fire-and-forget (Popen),
+        never a stall: operator 08-12 asked the script not to block
+        on narration."""
+        self.announce(text)
+        if self.camera is not None:
+            import subprocess
+            try:
+                subprocess.Popen(["say", "-r", "200", text])
+            except Exception:
+                pass
+
+    def _wait_robot_in_view(self) -> None:
+        """--one-go start gate (operator 08-12): hold the session until
+        the hexapod is FULLY inside the camera frame, so a run can't be
+        filmed half out of shot — and placing the robot in view is what
+        actually starts the session. Uses the classical-CV red-and-blue
+        classifier (video_state/detect.py) on the recorder's live feed;
+        opens after IN_VIEW_STREAK consecutive 'full' verdicts ~0.5 s
+        apart. Skipped with a spoken note if there is no live camera or
+        the detector will not load — never a silent hang."""
+        if self.recorder is None or self.recorder.t0 is None:
+            self._say("no live camera. skipping the in-view check.")
+            return
+        try:
+            if str(VIDEO_STATE_DIR) not in sys.path:
+                sys.path.insert(0, str(VIDEO_STATE_DIR))
+            from detect import RobotDetector
+        except Exception as e:
+            self._say("robot detector unavailable. skipping the "
+                      "in-view check.")
+            print(f"    !! robot_in_frame import failed: {e}")
+            return
+        det = RobotDetector()
+        self._say("waiting for the whole robot to be in camera view.")
+        deadline = time.time() + IN_VIEW_TIMEOUT_S
+        streak = 0
+        last_note = time.time()
+        last_verdict = "?"
+        while time.time() < deadline:
+            frame = self.recorder.latest
+            v = "no_frame"
+            if frame is not None:
+                v = det.detect(frame).verdict
+            streak = streak + 1 if v == "full" else 0
+            if streak >= IN_VIEW_STREAK:
+                self._say("robot is fully in view.")
+                return
+            if v != last_verdict:
+                print(f"    in-view: {v}")
+                last_verdict = v
+            if time.time() - last_note > 20.0:
+                last_note = time.time()
+                self._say(f"still waiting: robot is {v.replace('_', ' ')}.")
+            time.sleep(0.5)
+        raise SessionAbort(
+            f"robot never fully in camera view for {IN_VIEW_STREAK} "
+            f"consecutive checks within {IN_VIEW_TIMEOUT_S:.0f}s "
+            f"(last verdict: {last_verdict})")
+
+    def _one_go_gate(self, what: str) -> None:
+        """The single operator wait (--one-go): hold until the robot is
+        fully in camera view, then one spoken lead-in and the whole
+        session runs --auto style (spoken step countdowns, Ctrl-C or
+        the web STOP aborts). No ARM dance — the robot's motion workers
+        arm the bus themselves and the operator asked for hands-off
+        starts (08-12)."""
+        self._wait_robot_in_view()
+        self._say(f"bench session starting in {ONE_GO_LEAD_S:.0f} "
+                  f"seconds. first motion: {what}. "
+                  "control C or web stop to abort.")
+        time.sleep(ONE_GO_LEAD_S)
+        self._started = True
+        self.auto = True               # spoken countdowns from here on
+
+    def confirm(self, what: str, countdown: int = 3) -> bool:
         """Motion gate: explicit per-step operator go — or, in --auto,
         a SPOKEN countdown with Ctrl-C as the abort (the operator is
-        watching the robot, not the keyboard)."""
+        watching the robot, not the keyboard). With --one-go the first
+        motion step adds one short spoken lead-in, then everything
+        runs auto-style."""
         if not self.go:
             print(f"    [dry-run] would: {what}")
             return False
         self._thermal_gate()
+        if self.one_go and not self._started:
+            self._one_go_gate(what)
         if self.auto:
-            self.announce(f"next: {what}. starting in {countdown} "
-                          "seconds. control C to abort.")
+            self._say(f"next: {what}. starting in {countdown} "
+                      "seconds. control C to abort.")
             for i in range(countdown, 0, -1):
                 print(f"    ... {i}", flush=True)
                 time.sleep(1.0)
@@ -287,8 +424,10 @@ class Session:
         return a == "go"
 
     def newest_walk_csv(self, after_unix: float = 0.0,
-                        wait_s: float = 12.0) -> str | None:
-        """Newest rl_walk CSV WRITTEN AFTER after_unix, and only once its
+                        wait_s: float = 12.0,
+                        prefix: str = "rl_walk_") -> str | None:
+        """Newest episode CSV (default rl_walk_, prefix for
+        rl_stand_/rl_lower_) WRITTEN AFTER after_unix, and only once its
         size has stopped growing. Two races bit on 08-11: the tape walk
         pulled the PREVIOUS csv (no after_unix), and vref1-r1 pulled a
         csv mid-flush and got 'too few rows'."""
@@ -298,7 +437,7 @@ class Session:
             logs = self.req("GET", "/api/logs")
             found: tuple[str, int] | None = None
             for f in logs.get("files", []):
-                if (f.get("name", "").startswith("rl_walk_")
+                if (f.get("name", "").startswith(prefix)
                         and f.get("name", "").endswith(".csv")
                         and f.get("mtime_unix", 0) > after_unix):
                     found = (f["name"], int(f.get("bytes", 0)))
@@ -441,16 +580,64 @@ class Session:
             res = (state.get("calibrate") or {}).get("result")
         return res
 
+    def _model_line(self, mode: str) -> str | None:
+        """'model <name>: <first words of its notes>' for the policy
+        that will actually run ``mode`` — the ROLE assignment when one
+        is set (the runner resolves roles first), else the live slot.
+        Read-only; a fetch error just skips the line — the model intro
+        must never block or kill the session."""
+        try:
+            name = ""
+            roles = self.c._req("GET", "/api/rl/roles")
+            if roles.get("ok"):
+                r = (roles.get("roles") or {}).get(mode) or {}
+                if r.get("file"):
+                    name = str(r.get("resolved") or "").strip()
+            info = self.c._req("GET", "/api/rl/policy")
+            if not name:
+                name = str(info.get("name") or "").strip()
+            if not name:
+                return None
+            short = ""
+            if name == str(info.get("name") or "").strip():
+                short = " ".join(str(info.get("notes") or "").split()[:16])
+            return f"model {name}" + (f": {short}" if short else "")
+        except Exception:
+            return None
+
     def _transition(self, mode: str) -> bool:
         """Learned stand ('stand') or lower ('lower') with the TERMINAL
-        result recorded — returns True only on a clean finish."""
+        result recorded — returns True only on a clean finish. Pulls
+        the episode CSV + its _summary.json into the session dir (same
+        treatment walks always got)."""
         self.announce(f"learned "
                       f"{'stand up' if mode == 'stand' else mode} starting")
-        kick = self.req("POST", f"/api/rl/{mode}", {})
+        line = self._model_line(mode)
+        if line and not self._model_line_said:
+            self._say(line)            # spoken async — never blocks
+            self._model_line_said = True
+        elif line:
+            self.announce(line)
+        t0 = time.time()
+        body: dict = {}
+        if self.tilt_trip:
+            body["tilt_trip_deg"] = float(self.tilt_trip)
+        if self.extra_hold:
+            body["extra_hold_s"] = float(self.extra_hold)
+        if body:
+            print(f"    aggressive-test params: {body}")
+        kick = self.req("POST", f"/api/rl/{mode}", body)
         entry: dict = {"kick": kick}
         if kick.get("ok", True):
             end_state = self.c.wait_idle(timeout_s=90.0)
             entry["result"] = self._runner_result(end_state)
+            name = self.newest_walk_csv(after_unix=t0,
+                                        prefix=f"rl_{mode}_")
+            if name and self.pull_csv(name):
+                entry["csv"] = name
+                sname = name[:-4] + "_summary.json"
+                if self.pull_csv(sname):
+                    entry["summary_json"] = sname
         res = entry.get("result")
         ok = bool(isinstance(res, dict) and res.get("ok"))
         entry["ok"] = ok
@@ -645,7 +832,7 @@ class Session:
               "known-good fallback.")
         for mode in plan:
             if not self.confirm(f"RL {mode.upper()} (preflight-gated)",
-                                countdown=8):
+                                countdown=4):
                 continue
             if not self._transition(mode):
                 # unknown pose after a failed transition — do not chain
@@ -677,15 +864,78 @@ class Session:
                 raise SessionAbort(
                     "start pose is not belly zero even after safe_zero: "
                     + json.dumps(pf)[:160])
-        if not self.confirm("RL STAND UP (rise only)", countdown=8):
+        if not self.confirm("RL STAND UP (rise only)", countdown=4):
             return
         if not self._transition("stand") and self.auto:
             raise SessionAbort("opening stand-up failed")
 
     def step_sit(self) -> None:
         """Learned lower alone — the session closer (park on the belly)."""
-        if self.confirm("RL LOWER (sit only)", countdown=8):
+        if self.confirm("RL LOWER (sit only)", countdown=4):
             self._transition("lower")
+
+    def step_zero(self) -> None:
+        """Laptop-driven safe zero + verification (operator ruling
+        08-12: safe_zero may run from the laptop — it is the slow
+        tilt-gated glide; stall/unexpected-force limp protection stays
+        armed throughout). After the glide, verify the zero stance two
+        ways BEFORE anything riskier is offered: every encoder near
+        0 deg (catches the 08-11 stalled-leg-78-deg-off trap), and a
+        camera still for the visual check. NOT a set_zero remap — it
+        never rewrites the zero frame, only glides to it."""
+        if not self.confirm("SAFE ZERO glide to belly zero (slow, "
+                            "tilt-gated)"):
+            return
+        self.announce("safe zero starting")
+        r = self.req("POST", "/api/safe_zero", {})
+        if not r.get("ok", True) and "tilt" in str(r.get("error", "")).lower():
+            # The rest pose sits on the wedge past the IMU tilt gate, so
+            # the unforced call refuses right at session start (08-11
+            # 19:13 recovery lesson). force bypasses ONLY the tilt gate;
+            # stall/unexpected-force limp protection stays armed.
+            self.announce("tilt gate refused safe zero. retrying with "
+                          "force, tilt gate only.")
+            r = self.req("POST", "/api/safe_zero", {"force": True})
+        demo = self._wait_demo(timeout_s=90.0)
+        status = str(demo.get("status", ""))
+        if not r.get("ok", True) or "error" in status.lower():
+            raise SessionAbort(f"safe_zero refused/errored: "
+                               f"{status or r}")
+        pose = self.req("GET", "/api/pose")
+        raw = pose.get("degrees") or []
+        missing = sum(1 for d in raw if d is None)
+        degs = [(abs(d), i) for i, d in enumerate(raw) if d is not None]
+        worst, wi = max(degs) if degs else (None, -1)
+        names = ("yaw", "hip", "knee")
+        worst_name = f"L{wi // 3} {names[wi % 3]}" if wi >= 0 else "?"
+        entry: dict = {"t_unix": round(time.time(), 2),
+                       "worst_joint_deg": worst,
+                       "worst_joint": worst_name,
+                       "missing_joints": missing}
+        ok = (worst is not None and missing == 0
+              and worst <= ZERO_MAX_JOINT_DEG)
+        entry["encoders_ok"] = ok
+        print(f"    encoders: worst |joint| = {worst} deg on "
+              f"{worst_name} (bar {ZERO_MAX_JOINT_DEG}), "
+              f"missing={missing} -> {'OK' if ok else 'NOT ZERO'}")
+        if self.recorder is not None:
+            still = self.out / "zero_check.jpg"
+            if self.recorder.snapshot(still):
+                entry["still"] = still.name
+                self.announce("zero check still saved")
+                print(f"    visual check: {still}\n"
+                      "    (legs straight out, belly down, level — "
+                      "review before any stand)")
+        self.summary["zero_check"] = entry
+        if not ok:
+            # Encoders that disagree with the commanded zero mean a
+            # stalled/jammed leg or a wrong logical zero — per the
+            # safety rules never push a stand on top of it.
+            raise SessionAbort(
+                f"zero stance NOT verified after safe_zero (worst "
+                f"{worst} deg on {worst_name}, {missing} missing) — "
+                "eyeball the robot / zero_check.jpg; if encoders and "
+                "the photo disagree, re-do set_zero from the web UI")
 
     def step_turnsign(self) -> None:
         for omega in (0.3, -0.3):
@@ -826,7 +1076,7 @@ def main() -> int:
                          "footage (or hand it to the agent)")
     ap.add_argument("--auto", action="store_true",
                     help="no typed go's: each motion step runs after a "
-                         "SPOKEN 5s countdown (8s for STAND); Ctrl-C "
+                         "SPOKEN 3s countdown (4s for STAND); Ctrl-C "
                          "aborts and stops the robot. The operator "
                          "must be watching the robot the whole time.")
     ap.add_argument("--camera", type=int, default=None, metavar="N",
@@ -834,10 +1084,29 @@ def main() -> int:
                          "built-in) for the whole session — implies "
                          "--video minus the phone: exact unix-time sync, "
                          "footage lands in the session dir as camera.mp4")
+    ap.add_argument("--one-go", action="store_true",
+                    help="hands-off start: ONE spoken lead-in "
+                         f"({ONE_GO_LEAD_S:.0f}s) before the first "
+                         "motion, then the whole session runs --auto "
+                         "style with short spoken countdowns; no ARM "
+                         "dance, no typed go's; Ctrl-C / web STOP abort")
+    ap.add_argument("--tilt-trip", type=float, default=None,
+                    metavar="DEG",
+                    help="stand/lower tip envelope override, deg "
+                         "(robot clamps 5..30; default = robot config "
+                         "10). Operator 08-12: be more aggressive — "
+                         "the 10 deg trip kills every rise mid-curl.")
+    ap.add_argument("--extra-hold", type=float, default=0.0,
+                    metavar="S",
+                    help="extend stand/lower episodes past the "
+                         "profile's total_s (robot clamps 0..15 s); "
+                         "the height ref just holds the target longer")
     args = ap.parse_args()
 
     s = Session(HexapodClient(args.base), args.go, args.rounds,
-                video=args.video, auto=args.auto, camera=args.camera)
+                video=args.video, auto=args.auto, camera=args.camera,
+                one_go=args.one_go, tilt_trip=args.tilt_trip,
+                extra_hold=args.extra_hold)
     s.run(args.only, args.skip)
     return 0
 

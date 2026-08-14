@@ -1,11 +1,11 @@
-"""BOTH champions in one sim: stand up, walk around, sit down.
+"""BOTH champions in one sim: rise, walk around, lower to the ground.
 
     ./sim_play.sh          # from prototype_sts3215/  (plain python, NO mjpython)
 
 One physics env (the walk env) + two policies:
 
 - STANCE policy (ppo_goal_cw_stance_dr10, obs 68) is active while no
-  velocity is commanded: stand up / sit down / lean / height.
+  velocity is commanded: rise / hold / lower / lean / height.
 - WALK policy (ppo_goal_cw_walk_longdist_r2, obs 72) takes over the
   moment you command a velocity, and hands back on stop.
 
@@ -27,8 +27,8 @@ the walk champion's training distribution.
 
 Gamepad (recommended; hot-plugs any time — just turn the pad on):
     Left stick  analog walk: forward/back + strafe (engages WALK)
-    A           stand up IN PLACE (belly: auto rise ~11 s; crouch: rises)
-    B           sit down
+    A           rise IN PLACE (belly: auto rise ~11 s; crouch: rises)
+    B           lower to the ground
     Y           reset to standing        X   reset belly-down
     LB / RB     body height -/+ 5 mm (stance)
     D-pad U/D   cycle STANCE model       D-pad L/R  cycle WALK model
@@ -47,22 +47,49 @@ right of the window (like the robot webui's policy picker) lists both
 groups — click a row to load it (~1 s stall); `[ ]` / `, .` and the
 pad d-pad cycle the same lists. The current pair is highlighted.
 
+--phase-obs: enables the walk env's phase clock (goal.walk_phase_obs=1,
+sin/cos appended at the obs tail -> obs 74) so the PHASE-CLOCK no-slip
+RL checkpoints (obs 74; cw-arch-noslipphase1 line, e.g.
+ppo_goal_cw_arch_noslipphase1_r4) become playable in the WALK slot.
+--phase-hz sets the clock rate (default 1/6 Hz = one revolution per
+6 s clamp-fit gait cycle, what that line was trained on). Legacy 72-obs
+walk champions still work in this mode — the phase dims sit AFTER the
+velocity tail, so they are fed obs[:72] (their exact layout); the
+stance policy always reads obs[:68].
+
+The WALK list additionally ends with two non-checkpoint rows, flagged
+`S`: the SCRIPTED no-slip gait (linux_control/noslip_gait.py —
+rules-based, no RL) at alpha=0 (the original step-then-shift) and at
+alpha=0.5 (the middle of the overlap continuum: half the body travel
+rides a constant drift through swings and dwells instead of the shift
+pulses). Select one and the usual drive inputs run that gait instead
+of a policy; stopping still hands back to the stance policy. Both are
+slower than the RL band (clamped 0.04/0.035 m/s; ~0.01 m/s realized
+here, since this env keeps the default clamped servo cruise rather
+than verify_noslip's unclamped hardware profile) but planted feet are
+commanded to fixed world anchors at every alpha (zero commanded scrub,
+see verify_noslip --alpha), and unlike the walk champions it can TURN:
+U/O trim a yaw rate +-0.05 rad/s per tap, including turn-in-place.
+
 Keys (window must have focus; all still work without a pad — the cv2
 window owns every key, so no modifier is needed to avoid collisions):
     Arrows      HOLD to drive (fwd/back/strafe at 0.05 m/s), release to
                 stop. Diagonals work (hold two arrows). Detected via OS
                 key auto-repeat: no repeat for ~0.65 s = released.
-    7           stand up IN PLACE - no reset/teleport. From a crouch it
+    7           rise IN PLACE - no reset/teleport. From a crouch it
                 just rises; from the belly it re-anchors the episode
                 where the robot is and runs the auto rise (~11 s).
-    8           sit down (crouch; from a belly episode: back to floor)
+    8           lower FOR REAL: trained lower to the crouch, then a
+                torque-off limp settle onto the belly (the robot's own
+                lower-then-limp choreography). Stays parked until 7.
     9 / R       reset to standing (plant, at the origin - a true reset)
 
 On a tip (episode termination) there is NO auto-reset: the robot
 freezes where it fell and waits — 7 tries an in-place recovery,
 9 does a true reset. Same stop-and-wait rule as the real robot.
-    B           reset belly-down (then 7 to stand)
+    B           reset belly-down (then 7 to rise)
     I/K J/L     persistent cruise trim (+-0.01 m/s per tap, engages WALK)
+    U / O       turn left/right trim (scripted no-slip gait only)
     0 / Space   stop -> STANCE policy holds
     = / -       body height +/- 5 mm (stance)
     [ / ]       cycle STANCE model      , / .  cycle WALK model
@@ -74,6 +101,7 @@ import argparse
 import json
 import math
 import os
+import sys
 import time
 import zipfile
 from pathlib import Path
@@ -87,6 +115,22 @@ from .walk_task import SimHexapodJointWalkEnv, WalkGoal
 _STEP = 0.01          # m/s per keypress
 _SPEED_MAX = 0.06     # champion's trained command band tops out here
 _CRUISE = 0.05        # hold-to-drive speed (inside the trained band)
+_STEP_W = 0.05        # rad/s per keypress (scripted gait turn)
+
+# Sentinel rows in the WALK panel: not checkpoints — they select the
+# scripted no-slip gait (linux_control/noslip_gait.py) as the walk
+# driver, at different alpha (body-motion overlap): 0.0 = the original
+# step-then-shift, 0.5 = the midpoint of the continuum (half the body
+# travel rides a constant drift through swings/dwells). Slower than the
+# RL band (~0.02 m/s realized here) but stance feet are commanded to
+# fixed world anchors at every alpha, and it turns (U/O). The clampfit
+# row is NoSlipGait.CLAMP_FIT_KW — the 08-12 sweep's cleanest timing
+# under this env's fitted ~31 deg/s servo clamp (alpha=1, swing-heavy
+# 6 s cycle; zero true scrub, 4x less loaded foot drift).
+_NOSLIP = Path("noslip_scripted_gait")
+_NOSLIP_MID = Path("noslip_hybrid_a50")
+_NOSLIP_CLEAN = Path("noslip_clampfit_gait")
+_SCRIPTED_ALPHA = {_NOSLIP: 0.0, _NOSLIP_MID: 0.5, _NOSLIP_CLEAN: 1.0}
 # cv2 can't see key-up events, but macOS auto-repeats a held arrow key.
 # "No repeat for _HOLD_S" therefore means "released" — a dead-man switch.
 # Must exceed the OS initial-repeat delay (default ~0.5 s).
@@ -96,10 +140,18 @@ _UP, _DOWN, _LEFT, _RIGHT = 63232, 63233, 63234, 63235   # macOS cv2 arrows
 # Playable obs widths (see module docstring / sim_viewer/README.md).
 _ROLE_OBS = {68: "stance", 72: "walk"}
 
-# Checkpoints currently deployed on the physical robot (source: the
-# `meta` blocks of linux_control/rl_policy_weights.json and
-# rl_walk_weights.json). Sorted to the top of each panel list.
-_ON_ROBOT = {"ppo_goal_cw_stand_holdbc1_hard1", "ppo_goal_cw_dep_vref1_r1"}
+# Checkpoints currently deployed on the physical robot — live slot
+# files AND the selectable linux_control/policies/ picker entries
+# (source: GET /api/rl/policies). Sorted to the top of each panel list.
+_ON_ROBOT = {
+    "ppo_goal_cw_stand_holdbc1_hard1",     # live stance slot
+    "ppo_goal_cw_stand_footlow2_hard1",    # stand/lower roles
+    "ppo_goal_cw_stance_dr10",             # picker fallback
+    "ppo_goal_cw_dep_vref1_r1",            # live walk slot
+    "ppo_goal_cw_dep_tip1",                # picker
+    "ppo_goal_cw_dep_quad1_c2",            # picker
+    "ppo_goal_cw_arch_noslipphase1_r4",    # picker (obs 74, 08-13)
+}
 
 # Panel order: robot-deployed first, then the checkpoints most worth
 # trying (champions / hardened driving recipes per SKILLS.md), then the
@@ -107,11 +159,14 @@ _ON_ROBOT = {"ppo_goal_cw_stand_holdbc1_hard1", "ppo_goal_cw_dep_vref1_r1"}
 _PROMOTED = [
     # stance group
     "ppo_goal_cw_stand_holdbc1_hard1",
+    "ppo_goal_cw_stand_footlow2_hard1",
     "ppo_goal_cw_stance_dr10",
     "ppo_goal_cw_stand_crouchrise1",
     "ppo_goal_cw_stance_raisefix",
     # walk group
     "ppo_goal_cw_dep_vref1_r1",
+    "ppo_goal_cw_arch_noslipphase1_r4",
+    "ppo_goal_cw_dep_tip1",
     "ppo_goal_cw_walk_joyheadfric",
     "ppo_goal_cw_walk_joyheadfric_payload_r1",
     "ppo_goal_cw_walk_longdist_r2",
@@ -128,7 +183,8 @@ _DESC = {
     "ppo_goal_cw_lower": "stand-flat round trip solved; early flagship",
     "ppo_goal_cw_stance_clear": "clearance pen broke tripod; raise 0/6 FAIL",
     "ppo_goal_cw_stance_dr08": "even-stance line DR 0.8 PASS, raise 5/6",
-    "ppo_goal_cw_stance_dr10": "STANCE CHAMPION, solved at DR 1.0",
+    "ppo_goal_cw_stance_dr10":
+        "stance line solved at DR 1.0; hw stand-up didn't transfer",
     "ppo_goal_cw_stance_even": "hot-current fix partial; tripod unchanged",
     "ppo_goal_cw_stance_raisefix": "raise exempt from clearance; gate PASS",
     "ppo_goal_cw_stand_dr05": "plain stand line, DR 0.5 rung PASS 6/6",
@@ -139,7 +195,11 @@ _DESC = {
     "ppo_goal_cw_stand_crouchrise3":
         "mid-dose retry: crouch-rise 4/4 but hold parks 2 legs; FAIL",
     "ppo_goal_cw_stand_holdbc1_hard1":
-        "ON ROBOT (stance): stand/sit/hold 10M run",
+        "ON ROBOT (live stance): good hold; its LOWER tips over in "
+        "this sim (pitch, 08-13) - lower with footlow2",
+    "ppo_goal_cw_stand_footlow2_hard1":
+        "ON ROBOT (stand/lower roles): rise+hold+lower all-PASS "
+        "08-12; full 148mm rise; not bench-tested",
     "ppo_joint_goal": "local default-name ckpt; 512-step smoke overwrote",
     "ppo_joint_goal_bc": "BC-from-IK-teacher variant (no log entry)",
     "ppo_joint_goal_bc2m": "BC warm 2M net negative: rise 3/4 + overcurrent",
@@ -150,12 +210,12 @@ _DESC = {
     "ppo_goal_cw_dep_vref1_r1":
         "ON ROBOT (walk): meas:=ref contract, 0.05-0.06",
     "ppo_goal_cw_walk2_gait": "swing bonus: stride 2x, tracking still 0/6",
-    "ppo_goal_cw_walk_anchorgate": "ex walk champ; income gate, less slip",
+    "ppo_goal_cw_walk_anchorgate": "income gate, less slip than longdist",
     "ppo_goal_cw_walk_curr08": "widen 0.02-0.08 unconsolidated; missed gate",
     "ppo_goal_cw_walk_dr04": "DR 0.2->0.4 near-miss, 3/6 stop @0.031",
     "ppo_goal_cw_walk_fresh_gait": "fresh-init ablation; same skate, refuted",
     "ppo_goal_cw_walk_longdist_r2":
-        "SIM WALK CHAMPION; paddle-slide, not hw-ready",
+        "long-distance sim walk; paddle-slide, not hw-ready",
     "ppo_goal_cw_walk_prog3": "3x progress reward refuted; motion, 0 track",
     "ppo_goal_cw_walk_slow": "slow band 0.02-0.06; first tracking gain",
     "ppo_goal_cw_walk_slow2": "slow-band consolidation; gate 5/6 @0.028",
@@ -163,11 +223,59 @@ _DESC = {
     "ppo_goal_cw_walk_w08_s1": "INVALID seed twin; bit-identical, seed bug",
     "ppo_goal_cw_walk_wander30": "30s drive endurance PASS; speedband base",
     "ppo_mjx_joint_walk": "MJX trainer default-name artifact (no log)",
+    "noslip_scripted_gait":
+        "SCRIPTED (no RL): world-pinned feet, zero scrub; U/O turn",
+    "noslip_hybrid_a50":
+        "SCRIPTED alpha=0.5: same anchors, body drifts through swings",
+    "noslip_clampfit_gait":
+        "SCRIPTED clamp-fit: fits the 31deg/s servo clamp, cleanest",
+    "ppo_goal_cw_arch_noslipphase1_r4":
+        "ON ROBOT (picker): no-slip RL, gate PASS 943, loadslip "
+        "0.54; obs 74, needs --phase-obs",
+    "ppo_goal_cw_bcnoslip_phase2_init":
+        "BC clone of the clamp-fit no-slip teacher (obs 74, "
+        "--phase-obs); log_std -3, pretrained critic",
+    "ppo_goal_cw_arch_noslipphase1_r1":
+        "no-slip RL, 2M-step arm: anchoring eroded (loadslip 0.11)",
+    "ppo_goal_cw_arch_noslipphase1_r3":
+        "no-slip RL, 1M-step arm: near-miss (889, loadslip 0.45)",
+    "ppo_goal_cw_dep_bcnoslip2":
+        "FAILED no-clock arm: pitch-rocking, teacher phase unobservable",
     "ppo_goal_cw_walk_joyheadfric":
         "widest driving env: +-90deg steer, fric, 3-seed",
     "ppo_goal_cw_walk_joyheadfric_payload_r1":
         "joyheadfric + payload 1.0-1.4x; gate PASS",
 }
+
+
+# Trained goal-ramp profiles (hold_s / ramp_s / target_m) per stance
+# checkpoint, read from the exported robot weights JSONs
+# (linux_control/policies/*.json meta["profile"] — the sb3 zips don't
+# carry them). Driving a model with a DIFFERENT ramp than it trained on
+# is out-of-distribution: holdbc1_hard1 (hold 5s, ramp 6s to +111mm)
+# stalls its rise at ~55mm when fed the old +45mm @ 12mm/s recipe —
+# right under the player's 60mm success gate, i.e. "7 sometimes doesn't
+# stand" (operator report 08-13). Models without an export fall back to
+# the stance_dr10-era constants the player always used.
+_LEGACY_PROFILE = {
+    "stand": {"hold_s": 5.0, "ramp_s": 4.0, "target_m": 0.045},
+    "lower": {"hold_s": 0.0, "ramp_s": 5.0, "target_m": -0.060},
+}
+
+
+def _load_profiles() -> dict[str, dict]:
+    out: dict[str, dict] = {}
+    pdir = Path(__file__).resolve().parents[2] / "linux_control" / "policies"
+    for f in sorted(pdir.glob("*.json")):
+        try:
+            meta = json.loads(f.read_text())["meta"]
+        except Exception:
+            continue
+        stem = Path(meta.get("source", "")).stem
+        prof = meta.get("profile")
+        if stem and isinstance(prof, dict):
+            out[stem] = prof
+    return out
 
 
 def _sim_only_obs(role: str, stem: str) -> bool:
@@ -176,10 +284,10 @@ def _sim_only_obs(role: str, stem: str) -> bool:
     Walk-env checkpoints train by default with PRIVILEGED simulator
     body velocity in the obs (walk_task walk_obs_body_vel=1.0); the
     board has no velocity estimate, so those can never run honestly on
-    hardware. The dep-* line trains with meas:=ref (mode 2.0) — the
-    robot's exact contract. Stance obs (68) are encoders/IMU/goal only,
-    all measurable on the robot."""
-    return role == "walk" and "_dep" not in stem
+    hardware. The dep-* line AND the noslip phase line train with
+    meas:=ref (mode 2.0) — the robot's exact contract. Stance obs (68)
+    are encoders/IMU/goal only, all measurable on the robot."""
+    return role == "walk" and "_dep" not in stem and "noslip" not in stem
 
 
 def _obs_width(path: Path) -> int | None:
@@ -340,13 +448,23 @@ class _PlayEnv(SimHexapodJointWalkEnv):
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    # footlow2: the only stance model that both rises to FULL height and
+    # sits cleanly in this env (holdbc1 tips tilt_pitch on every sit
+    # here — measured 08-13, see its panel note).
     ap.add_argument("--stance", type=Path,
                     default=Path("rl_move/sim/policies/"
-                                 "ppo_goal_cw_stance_dr10.zip"))
+                                 "ppo_goal_cw_stand_footlow2_hard1.zip"))
     ap.add_argument("--walk", type=Path,
                     default=Path("rl_move/sim/policies/"
                                  "ppo_goal_cw_walk_longdist_r2.zip"))
     ap.add_argument("--realtime", type=float, default=1.0)
+    ap.add_argument("--phase-obs", action="store_true",
+                    help="enable the walk env's phase clock (+2 obs) so "
+                         "74-obs phase-clock checkpoints are playable "
+                         "(cw-arch-noslipphase1 line)")
+    ap.add_argument("--phase-hz", type=float, default=0.1666667,
+                    help="phase clock rate; default 1/6 Hz = one "
+                         "revolution per 6 s clamp-fit gait cycle")
     args = ap.parse_args()
 
     import cv2
@@ -356,32 +474,56 @@ def main() -> None:
     from .joint_task import q_rad_to_action
     from .servo_model import SimServoParams
 
+    lc = Path(__file__).resolve().parents[2] / "linux_control"
+    if str(lc) not in sys.path:
+        sys.path.insert(0, str(lc))
+    from noslip_gait import NoSlipGait
+
+    env_kw: dict = {}
+    walk_widths = (72,)
+    if args.phase_obs:
+        from ..config import load_config
+        cfg = load_config()
+        cfg.setdefault("goal", {})["walk_phase_obs"] = 1.0
+        cfg["goal"]["walk_phase_hz"] = args.phase_hz
+        env_kw["cfg"] = cfg
+        # 74-obs phase-clock checkpoints join the WALK panel; the phase
+        # dims are appended after the vel tail, so 72-obs champions
+        # keep working on obs[:72].
+        _ROLE_OBS[74] = "walk"
+        walk_widths = (72, 74)
     env = _PlayEnv(params=SimServoParams.load(), randomize=False,
-                   episode_seconds=3600.0, render_mode="rgb_array")
+                   episode_seconds=3600.0, render_mode="rgb_array",
+                   **env_kw)
 
     # --- checkpoint slots: one STANCE (obs 68) + one WALK (obs 72) ------
     cats = scan_policies(args.stance.parent)
     stance_list, walk_list = cats["stance"], cats["walk"]
 
-    def ensure_listed(lst: list[Path], p: Path, want: int) -> int:
+    def ensure_listed(lst: list[Path], p: Path, want: tuple[int, ...],
+                      ) -> int:
         w = _obs_width(p)
-        if w != want:
-            raise SystemExit(f"{p}: obs width {w}, need {want}")
+        if w not in want:
+            raise SystemExit(f"{p}: obs width {w}, need one of {want}")
         p = p.resolve()
         if p not in lst:
             lst.insert(0, p)
         return lst.index(p)
 
-    si = ensure_listed(stance_list, args.stance, 68)
-    wi = ensure_listed(walk_list, args.walk, 72)
+    si = ensure_listed(stance_list, args.stance, (68,))
+    wi = ensure_listed(walk_list, args.walk, walk_widths)
+    # Scripted-gait rows (alpha 0 and 0.5), bottom of the panel.
+    walk_list.extend(_SCRIPTED_ALPHA)
 
     stance = PPO.load(stance_list[si], device="cpu")
     walk = PPO.load(walk_list[wi], device="cpu")
     n_stance = int(stance.observation_space.shape[0])
-    assert walk.observation_space.shape == env.observation_space.shape, (
-        f"walk policy obs {walk.observation_space.shape} != env "
-        f"{env.observation_space.shape}")
-    assert n_stance < int(env.observation_space.shape[0]), (
+    n_walk = int(walk.observation_space.shape[0])
+    n_env = int(env.observation_space.shape[0])
+    assert n_walk <= n_env, (
+        f"walk policy obs {n_walk} wider than env {n_env} "
+        "(74-obs phase-clock checkpoints need --phase-obs)")
+    assert n_stance < n_env, (
         "stance policy obs must be a prefix of the walk env obs")
 
     traj = env.traj
@@ -389,6 +531,14 @@ def main() -> None:
     msg = ""
     # phases of the 7-key auto stand: None | ("rise", steps) | ("blend", k)
     auto: list | None = None
+
+    # Scripted no-slip gait state (live while the WALK slot is one of the
+    # _SCRIPTED_ALPHA rows — then ``walk is None``). Rebuilt every time
+    # driving engages from a stop, so its world-pinned foot anchors are
+    # re-pinned under wherever the robot is actually standing.
+    gait = None
+    gait_t = 0.0
+    om_cmd = 0.0        # rad/s turn command (scripted gait only)
 
     def set_stance(i: int) -> None:
         nonlocal stance, si, n_stance, msg
@@ -402,13 +552,28 @@ def main() -> None:
         msg = f"stance model -> {stance_list[si].stem}"
 
     def set_walk(i: int) -> None:
-        nonlocal walk, wi, msg
+        nonlocal walk, wi, msg, gait, n_walk
         wi = i % len(walk_list)
+        if walk_list[wi] in _SCRIPTED_ALPHA:
+            walk = None                 # scripted driver, no checkpoint
+            gait = None                 # re-pinned when driving engages
+            msg = ("walk driver -> SCRIPTED no-slip gait "
+                   + ("clamp-fit preset "
+                      if walk_list[wi] is _NOSLIP_CLEAN else
+                      f"alpha={_SCRIPTED_ALPHA[walk_list[wi]]:.1f} ")
+                   + "(U/O to turn)")
+            return
         m = PPO.load(walk_list[wi], device="cpu")
         if m.action_space.shape != env.action_space.shape:
             msg = f"{walk_list[wi].stem}: action space mismatch - skipped"
             return
+        if int(m.observation_space.shape[0]) > n_env:
+            msg = (f"{walk_list[wi].stem}: obs "
+                   f"{int(m.observation_space.shape[0])} > env {n_env} "
+                   "- needs --phase-obs; skipped")
+            return
         walk = m
+        n_walk = int(m.observation_space.shape[0])
         msg = f"walk model -> {walk_list[wi].stem}"
 
     try:
@@ -420,6 +585,7 @@ def main() -> None:
     held: dict[int, float] = {}      # arrow keycode -> last press/repeat time
     arrows_live = False
     downed = False   # episode terminated (tip etc.): freeze, wait for user
+    sitting = False  # sat via 8: freeze on the ground until 7/9/driving
 
     def chassis_z() -> float:
         return float(env.data.xpos[chassis_bid, 2])
@@ -428,10 +594,13 @@ def main() -> None:
         return env.data.qpos[7:25].copy()
 
     def do_reset(start: str, h_goal: float, note: str) -> None:
-        nonlocal obs, msg, auto, downed
+        nonlocal obs, msg, auto, downed, gait, om_cmd, sitting
         auto = None
         downed = False
+        sitting = False
         held.clear()
+        gait = None
+        om_cmd = 0.0
         traj.start_at = start
         traj.goal = TaskGoal()
         traj.goal.height_ref = h_goal
@@ -445,52 +614,169 @@ def main() -> None:
     traj.start_at = "plant"
     obs, _ = env.reset()
     q_plant = q_now()
+    z_plant = chassis_z()
+    q_sit = q_plant  # pose held while sitting (captured at settle)
 
-    RISE_S = 9.5                          # curl 5 s + rise ramp, plus slack
-    BLEND_N = int(round(1.5 / env.dt))    # scripted crouch->plant blend
+    def new_gait() -> "NoSlipGait":
+        # Sync the gait's stance geometry to THIS env's plant pose (leg 0
+        # hip/knee — all legs plant identically), so its neutral feet sit
+        # where the robot is actually standing when driving engages.
+        if walk_list[wi] is _NOSLIP_CLEAN:
+            g = NoSlipGait.clamp_fit()
+        else:
+            g = NoSlipGait(alpha=_SCRIPTED_ALPHA.get(walk_list[wi], 0.0))
+        g.sync_plant_stance(math.degrees(q_plant[1]),
+                            math.degrees(q_plant[2]))
+        return g
+
+    # Scripted crouch->plant blend, PACED like a real motion: the old
+    # fixed 1.5 s popped a 70 mm crouch-stand up at ~48 mm/s — 2.6x any
+    # trained rise ramp, i.e. "jumps into standing" (operator 08-13).
+    # Duration now scales with the height gap at ~20 mm/s, and a rise
+    # that already reached plant height gets only a token joint-align.
+    BLEND_RATE = 0.020                    # m/s vertical, physical pace
     q_blend_from = q_plant
+
+    def blend_ticks() -> int:
+        gap = max(z_plant - chassis_z(), 0.0)
+        return int(round(min(max(gap / BLEND_RATE, 0.5), 4.0) / env.dt))
+
+    profiles = _load_profiles()
+
+    def stance_profile(kind: str) -> dict:
+        """Trained goal ramp of the ACTIVE stance model ('stand'/'lower')."""
+        prof = profiles.get(stance_list[si].stem, {})
+        return {**_LEGACY_PROFILE[kind], **prof.get(kind, {})}
+
+    def apply_ramp(kind: str) -> dict:
+        """Point the traj's ref ramp at the active model's trained rate."""
+        prof = stance_profile(kind)
+        traj.HEIGHT_RATE = abs(prof["target_m"]) / max(prof["ramp_s"], 0.1)
+        traj.BELLY_HOLD_S = float(prof["hold_s"]) if kind == "stand" else 0.0
+        return prof
+
+    def restore_phys(keep_q: np.ndarray, keep_v: np.ndarray) -> None:
+        # Put the robot back EXACTLY where it physically was after a
+        # bookkeeping env.reset(), and re-arm the command-side state to
+        # the restored joints: the reset left the servo profile's
+        # goal/target AND the safety layer's rate-limit anchor
+        # (_last_safe) at the RESET pose, so the first ticks would slew
+        # the actuators from that pose to the real one — from a sit
+        # that sweep passes through the stilt extension and pops the
+        # body +35mm (measured 08-13).
+        env.data.qpos[:] = keep_q
+        env.data.qvel[:] = keep_v
+        mujoco.mj_forward(env.model, env.data)
+        env._profile.reset(q_now())
+        env.safety.set_nominal(q_now())
 
     def re_anchor_plant() -> None:
         # The robot is physically AT the plant pose now; reset the episode
         # so goal frames (height 0 = standing tall) and both policies see
-        # the training distribution, then put the body back where it was.
+        # the training distribution, then put the robot back EXACTLY
+        # where it physically was — full qpos/qvel, same trick as
+        # do_stand. (Used to keep only XY and snap height/quat to the
+        # reset's ideal upright, a small unrequested teleport; operator
+        # rule 08-13: only an explicit 9/B may move the body.)
         nonlocal obs
-        keep = env.data.qpos[:7].copy()
+        keep_q = env.data.qpos.copy()
+        keep_v = env.data.qvel.copy()
         traj.start_at = "plant"
         traj.goal = TaskGoal()
         traj.vx = traj.vy = 0.0
         traj.reset_published()
         obs, _ = env.reset()
-        env.data.qpos[:2] = keep[:2]      # keep XY; reset's height/quat
-        mujoco.mj_forward(env.model, env.data)
+        restore_phys(keep_q, keep_v)
+
+    def re_anchor_belly() -> None:
+        # Episode re-anchor after the SIT fold: belly-frame bookkeeping
+        # reset, robot stays exactly where it physically is (full
+        # qpos/qvel restore) — 7 then runs the normal belly stand-up.
+        nonlocal obs
+        keep_q = env.data.qpos.copy()
+        keep_v = env.data.qvel.copy()
+        traj.start_at = "zero"
+        traj.goal = TaskGoal()
+        traj.vx = traj.vy = 0.0
+        traj.reset_published()
+        obs, _ = env.reset()
+        restore_phys(keep_q, keep_v)
 
     def do_stand() -> None:
         # Realistic stand: never teleport. Crouched in a plant frame ->
         # just raise the height ref. Otherwise re-anchor a belly episode
         # IN PLACE (restore full qpos/qvel after the bookkeeping reset,
-        # same trick as re_anchor_plant) and run the auto rise sequence.
-        nonlocal obs, msg, auto, downed
+        # same trick as re_anchor_plant) and run the auto rise sequence
+        # along the ACTIVE stance model's trained ramp profile.
+        nonlocal obs, msg, auto, downed, gait, om_cmd, sitting
         if auto is not None:
-            return
+            if auto[0] == "lower":
+                auto = None        # cancel the sit, stand instead
+            else:
+                msg = ("rise already running - hands off (9 aborts)"
+                       if auto[0] == "rise"
+                       else "scripted transition - one moment")
+                return
+        sitting = False
+        prof = apply_ramp("stand")
         if not downed and traj.start_at == "plant" and chassis_z() > 0.09:
             traj.goal.height_ref = 0.0
-            msg = "standing back up (in place)"
+            msg = "rising back up (in place)"
             return
         keep_q = env.data.qpos.copy()
         keep_v = env.data.qvel.copy()
         downed = False
+        gait = None
+        om_cmd = 0.0
         held.clear()
         traj.start_at = "zero"
         traj.goal = TaskGoal()
-        traj.goal.height_ref = 0.045
+        traj.goal.height_ref = float(prof["target_m"])
         traj.vx = traj.vy = 0.0
         traj.reset_published()
         obs, _ = env.reset()
-        env.data.qpos[:] = keep_q
-        env.data.qvel[:] = keep_v
-        mujoco.mj_forward(env.model, env.data)
-        auto = ["rise", 0]
-        msg = "STAND (in place): curl ~5s, rise, then blend - hands off"
+        restore_phys(keep_q, keep_v)
+        rise_total = float(prof["hold_s"]) + float(prof["ramp_s"]) + 1.5
+        auto = ["rise", 0, rise_total]
+        msg = (f"RISE (in place): curl ~{prof['hold_s']:.0f}s, rise to "
+               f"{prof['target_m'] * 1000:+.0f}mm, blend - hands off")
+
+    def do_sit() -> None:
+        # A REAL sit, exactly the robot's lower choreography: the active
+        # model's trained LOWER ramp takes the body to its crouch (that
+        # is ALL the height-ref interface can command — the -60mm clamp
+        # keeps a "sit" a subtle 45mm dip, the 08-13 "not sitting" bug),
+        # then torque-off LIMP settling sags the body onto its belly,
+        # like the robot's lower-then-limp. It stays frozen there
+        # (`sitting`; no policy — the stance models have no trained
+        # "rest on the ground" behavior and stand right back up) until
+        # 7 stands it up. Cancels a running rise.
+        nonlocal msg, auto, om_cmd
+        if downed:
+            msg = "robot is down - 7 to rise or 9 to reset first"
+            return
+        if sitting:
+            msg = "already lowered - 7 to rise"
+            return
+        if auto is not None and auto[0] in ("blend", "fold"):
+            msg = "scripted transition - one moment, then 8 again"
+            return
+        auto = None                     # cancels a running rise
+        traj.vx = traj.vy = 0.0
+        om_cmd = 0.0
+        prof = apply_ramp("lower")
+        if traj.start_at in ("zero", "belly"):
+            # Belly-frame episode (cancelled rise): the policy cannot
+            # track back DOWN here (measured: ref 0 still stands) — go
+            # straight to the limp settle.
+            auto = ["fold", 0, int(6.0 / env.dt), chassis_z()]
+            msg = "LOWER: settling to the ground (torque off) - hands off"
+            return
+        traj.goal.height_ref = float(prof["target_m"])
+        total = float(prof["hold_s"]) + float(prof["ramp_s"]) + 1.5
+        auto = ["lower", 0, total]
+        msg = (f"LOWER: {prof['target_m'] * 1000:+.0f}mm crouch, then "
+               "settle to the ground - hands off")
 
     # --- clickable model panel (like the robot webui's policy picker) ---
     # Fixed-size canvas + WINDOW_AUTOSIZE so mouse coords map 1:1 to
@@ -532,9 +818,10 @@ def main() -> None:
         for y, role, i in layout:
             if role.startswith("hdr"):
                 txt = ("STANCE models (obs 68)" if role.endswith("stance")
-                       else "WALK models (obs 72)")
+                       else "WALK models (obs "
+                       + "/".join(str(w) for w in walk_widths) + ")")
                 cv2.putText(panel,
-                            txt + "  R = on robot  * = sim-only obs",
+                            txt + "  R = on robot  * = sim-only  S = scripted",
                             (10, y + ROW_H - 6), cv2.FONT_HERSHEY_SIMPLEX,
                             0.45, (150, 150, 150), 1, cv2.LINE_AA)
                 continue
@@ -550,6 +837,7 @@ def main() -> None:
             color = (((240, 200, 40) if role == "stance" else (40, 240, 40))
                      if sel else (205, 205, 205))
             flag = ("R" if stem in _ON_ROBOT
+                    else "S" if lst[i] in _SCRIPTED_ALPHA
                     else "*" if _sim_only_obs(role, stem) else " ")
             mark = (">" if sel else " ") + flag
             disp = stem.removeprefix("ppo_goal_").removeprefix("ppo_")
@@ -569,7 +857,11 @@ def main() -> None:
     while True:
         t0 = time.monotonic()
         cmd_speed = float(np.hypot(traj.vx, traj.vy))
-        walking = cmd_speed > 1e-3 and auto is None and not downed
+        scripted = walk is None
+        walking = ((cmd_speed > 1e-3 or (scripted and abs(om_cmd) > 1e-3))
+                   and auto is None and not downed and not sitting)
+        if not walking and gait is not None:
+            gait = None      # stale anchors: re-pin on the next engage
         if downed:
             # No auto-reset: freeze the joints where they are and wait
             # for the operator (7 = try to stand in place, 9 = reset) —
@@ -578,35 +870,75 @@ def main() -> None:
         elif auto is not None and auto[0] == "rise":
             action, _ = stance.predict(obs[:n_stance], deterministic=True)
             auto[1] += 1
-            if auto[1] * env.dt >= RISE_S:
+            if auto[1] * env.dt >= auto[2]:
                 if chassis_z() > 0.06:
                     q_blend_from = q_now()
-                    auto = ["blend", 0]
-                    msg = "blending to the walk stance..."
+                    n_blend = blend_ticks()
+                    auto = ["blend", 0, n_blend]
+                    msg = (f"aligning to the walk stance "
+                           f"({n_blend * env.dt:.1f}s)...")
                 else:
                     auto = None
-                    msg = "stand-up failed - press 9 to reset standing"
+                    msg = "rise failed - press 9 to reset standing"
         elif auto is not None and auto[0] == "blend":
             auto[1] += 1
-            s = min(auto[1] / BLEND_N, 1.0)
+            s = min(auto[1] / auto[2], 1.0)
             action = q_rad_to_action(
                 (1.0 - s) * q_blend_from + s * q_plant)
-            if auto[1] >= BLEND_N:
+            if auto[1] >= auto[2]:
                 re_anchor_plant()
                 auto = None
-                msg = "standing tall - I/K/J/L to walk, 8 to sit"
+                msg = "up at walk stance - I/K/J/L to walk, 8 to lower"
+        elif auto is not None and auto[0] == "lower":
+            action, _ = stance.predict(obs[:n_stance], deterministic=True)
+            auto[1] += 1
+            if auto[1] * env.dt >= auto[2]:
+                auto = ["fold", 0, int(6.0 / env.dt), chassis_z()]
+                msg = "settling to the ground (torque off)..."
+        elif auto is not None and auto[0] == "fold":
+            # Torque-off limp settle — the sim twin of the robot's
+            # lower-then-limp sit. Raw physics ticks, no env.step (a
+            # position action would hold the stilts up, and the stance
+            # policy would stand right back up).
+            env._advance(limp=True)
+            action = None
+            auto[1] += 1
+            z = chassis_z()
+            settled = (auto[1] * env.dt > 1.0 and abs(z - auto[3]) < 2e-5)
+            auto[3] = z
+            if settled or auto[1] >= auto[2]:
+                re_anchor_belly()
+                auto = None
+                sitting = True
+                q_sit = q_now()
+                msg = "lowered, parked on the ground - 7 to rise"
+        elif sitting:
+            # Parked on the ground: hold the pose captured at settle
+            # (deadband makes this ~zero torque). A fixed target — NOT
+            # q_now() re-read each tick, which self-chases and ratchets
+            # the body back up (measured +1.5mm/tick, 08-13).
+            action = q_rad_to_action(q_sit)
+        elif walking and scripted:
+            if gait is None:
+                gait = new_gait()
+                gait_t = 0.0
+            gait.set_velocity(vx=traj.vx, vy=traj.vy, omega=om_cmd)
+            action = q_rad_to_action(np.radians(gait.desired_deg(gait_t)))
+            gait_t += env.dt
         elif walking:
-            action, _ = walk.predict(obs, deterministic=True)
+            action, _ = walk.predict(obs[:n_walk], deterministic=True)
         else:
             action, _ = stance.predict(obs[:n_stance], deterministic=True)
-        obs, _r, term, trunc, info = env.step(action)
-        if (term or trunc) and not downed:
-            downed = True
-            auto = None
-            held.clear()
-            traj.vx = traj.vy = 0.0
-            msg = (f"[{info.get('termination_reason') or 'episode end'}] "
-                   "DOWN - 7 stand in place, 9 reset standing")
+        if action is not None:
+            obs, _r, term, trunc, info = env.step(action)
+            if (term or trunc) and not downed:
+                downed = True
+                auto = None
+                held.clear()
+                traj.vx = traj.vy = 0.0
+                om_cmd = 0.0
+                msg = (f"[{info.get('termination_reason') or 'episode end'}]"
+                       " DOWN - 7 rise in place, 9 reset standing")
 
         # --- HUD ---------------------------------------------------------
         frame = env.render()
@@ -616,13 +948,24 @@ def main() -> None:
         v = env._body_vel_xy()
         g = traj.goal
         if downed:
-            mode_txt = "DOWN (episode terminated) - 7 stand, 9 reset"
+            mode_txt = "DOWN (episode terminated) - 7 rise, 9 reset"
             mode_col = (60, 60, 255)
         elif auto is not None:
-            mode_txt = ("STANDING UP (auto): "
-                        + ("curl + rise..." if auto[0] == "rise"
-                           else "blend to walk stance..."))
+            mode_txt = {
+                "rise": "RISING (auto): curl + rise...",
+                "blend": "RISING (auto): align to walk stance...",
+                "lower": "LOWERING (auto): trained lower to crouch...",
+                "fold": "LOWERING (auto): limp settle to the ground...",
+            }[auto[0]]
             mode_col = (0, 200, 255)
+        elif sitting:
+            mode_txt = "LOWERED (parked) - 7 to rise, 9 to reset standing"
+            mode_col = (0, 200, 255)
+        elif walking and scripted:
+            mode_txt = ("WALK: scripted no-slip gait "
+                        f"a={_SCRIPTED_ALPHA.get(walk_list[wi], 0.0):.1f}  "
+                        f"[{gait.phase_name() if gait else '-'}]")
+            mode_col = (40, 240, 240)
         elif walking:
             mode_txt, mode_col = "WALK policy", (40, 240, 40)
         else:
@@ -632,21 +975,23 @@ def main() -> None:
                    else pad_err or "no gamepad - turn it on, it hot-plugs")
         lines = [
             (f"{mode_txt}   height {chassis_z() * 1000:.0f}mm", mode_col),
-            (f"CMD vx {traj.vx:+.3f} vy {traj.vy:+.3f} m/s   "
-             f"ACTUAL vx {v[0]:+.3f} vy {v[1]:+.3f}", (200, 200, 40)),
+            (f"CMD vx {traj.vx:+.3f} vy {traj.vy:+.3f} m/s"
+             + (f" om {om_cmd:+.2f} rad/s" if scripted else "")
+             + f"   ACTUAL vx {v[0]:+.3f} vy {v[1]:+.3f}", (200, 200, 40)),
             (f"goal height {g.height_ref * 1000:+.0f}mm  "
              f"roll {math.degrees(g.roll_ref):+.1f}  "
              f"pitch {math.degrees(g.pitch_ref):+.1f}", (200, 200, 200)),
             (f"stance[{si + 1}/{len(stance_list)}] {stance_list[si].stem}   "
              f"walk[{wi + 1}/{len(walk_list)}] {walk_list[wi].stem}",
              (230, 160, 230)),
-            (pad_txt + "   L-stick walk  A stand  B sit  Y reset  X belly",
+            (pad_txt + "   L-stick walk  A rise  B lower  Y reset  X belly",
              (120, 220, 220) if pad_name else (140, 140, 140)),
             ("pad: dpad U/D stance model  L/R walk model  LB/RB height",
              (120, 220, 220) if pad_name else (140, 140, 140)),
             ("keys: HOLD arrows to drive (release = stop)   "
-             "7 stand  8 sit  9 reset  B belly", (180, 180, 180)),
-            ("keys: I/K/J/L cruise trim  0/space stop  =/- height  "
+             "7 rise  8 lower  9 reset  B belly", (180, 180, 180)),
+            ("keys: I/K/J/L cruise trim  U/O turn (scripted gait)  "
+             "0/space stop  =/- height  "
              "[ ] stance model  , . walk model  Q quit", (180, 180, 180)),
         ]
         if msg:
@@ -673,12 +1018,27 @@ def main() -> None:
             # into a belly shuffle (measured) — make the user stand first.
             nonlocal msg
             if auto is not None:
+                # Never swallow input silently (08-13: "why can't I walk
+                # coming out of a stand or sit" — drive keys pressed
+                # during the auto choreography just did nothing).
+                msg = {"rise": "rising - drive keys work when the "
+                               "rise finishes",
+                       "blend": "almost up - drive keys work in "
+                                "a moment",
+                       "lower": "lowering - 7 cancels and rises "
+                                "back up",
+                       "fold": "settling to the ground - 7 to rise "
+                               "when parked",
+                       }[auto[0]]
                 return False
             if downed:
-                msg = "robot is down - 7 to stand or 9 to reset first"
+                msg = "robot is down - 7 to rise or 9 to reset first"
+                return False
+            if sitting:
+                msg = "lowered - press 7 (pad: A) to rise first"
                 return False
             if chassis_z() < 0.09:
-                msg = "too low to walk - press 7 (pad: A) to stand up first"
+                msg = "too low to walk - press 7 (pad: A) to rise first"
                 return False
             # Walk champion trained at height/tilt refs = 0: snap the
             # published stance refs to nominal so its obs is in-distribution.
@@ -702,18 +1062,16 @@ def main() -> None:
                 stick_live = True
             elif stick_live:
                 traj.vx = traj.vy = 0.0     # released -> stance holds
+                om_cmd = 0.0
                 stick_live = False
             if "A" in pressed:
                 do_stand()
             elif "B" in pressed:
-                traj.vx = traj.vy = 0.0
-                traj.goal.height_ref = (0.0 if traj.start_at
-                                        in ("zero", "belly") else -0.06)
-                msg = "sitting back down"
+                do_sit()
             elif "Y" in pressed:
                 do_reset("plant", 0.0, "reset standing")
             elif "X" in pressed:
-                do_reset("zero", 0.0, "reset belly-down (A to stand)")
+                do_reset("zero", 0.0, "reset belly-down (A to rise)")
             if "RB" in pressed:
                 traj.goal.height_ref = min(traj.goal.height_ref + 0.005,
                                            0.06)
@@ -749,23 +1107,25 @@ def main() -> None:
             if engage_walk():
                 traj.vy = float(np.clip(traj.vy - _STEP,
                                         -_SPEED_MAX, _SPEED_MAX))
+        elif k in (ord("u"), ord("U"), ord("o"), ord("O")):
+            if not scripted:
+                msg = "U/O turn needs the scripted no-slip walk driver (, .)"
+            elif engage_walk():
+                d = _STEP_W if k in (ord("u"), ord("U")) else -_STEP_W
+                om_cmd = float(np.clip(om_cmd + d, -0.30, 0.30))
         elif k in (ord("0"), ord(" ")):
             held.clear()
             traj.vx = traj.vy = 0.0
-            msg = "stopped - stance policy holding"
+            om_cmd = 0.0
+            msg = "stopped - HOLD (stance policy holding still)"
         elif k == ord("7"):
             do_stand()
         elif k == ord("8"):
-            traj.vx = traj.vy = 0.0
-            # Height refs are relative to the episode's start pose:
-            # belly-start episodes sit at 0, plant-start ones crouch.
-            traj.goal.height_ref = (0.0 if traj.start_at in ("zero", "belly")
-                                    else -0.06)
-            msg = "sitting back down"
+            do_sit()
         elif k in (ord("9"), ord("r"), ord("R")):
             do_reset("plant", 0.0, "reset standing")
         elif k in (ord("b"), ord("B")):
-            do_reset("zero", 0.0, "reset belly-down (7 to stand)")
+            do_reset("zero", 0.0, "reset belly-down (7 to rise)")
         elif k == ord("="):
             traj.goal.height_ref = min(traj.goal.height_ref + 0.005, 0.06)
         elif k == ord("-"):
@@ -792,6 +1152,7 @@ def main() -> None:
             arrows_live = True
         elif arrows_live:
             traj.vx = traj.vy = 0.0     # all arrows released -> stance holds
+            om_cmd = 0.0
             arrows_live = False
 
         if cv2.getWindowProperty(win, cv2.WND_PROP_VISIBLE) < 1:

@@ -1,0 +1,456 @@
+# rideable_v2 — machine-readable design basis (source of truth for the docs)
+#
+# Second design iteration of the rideable hexapod.  rideable_v1 was a ~360 kg
+# 72 V machine on 12 × RMD-X15-450 + 6:1 duplex-chain secondaries; v2 is a
+# ~165 kg 48 V machine on 18 × CubeMars AK80-64 behind per-joint wide
+# synchronous-belt stages (4:1 hip / 3:1 knee / 2:1 yaw), with the knee
+# actuator relocated to the hip end of the femur and every joint riding its
+# own large structural bearing (NOT the motor's output bearing).
+#
+# LOAD HOLDING (rev 2, parts-spec pass): the machine still never stands on
+# motor current, but the holding device is a JOINT-SIDE spring-applied,
+# solenoid-retracted PARKING PIN that locks the driven pulley to the parent
+# link.  The COTS fast-shaft friction brakes originally budgeted (0.65 kg /
+# $250) do not exist at the needed torque — real 110–170 N·m spring brakes
+# (INTORQ BFK458-16/-18 class) are 4–8 kg each.  The pin holds at the joint,
+# which also removes the belt from the holding load path (v1's chain
+# single-point-of-failure is GONE).
+#
+# The design_basis / mass_budget / drivetrain / power / cost blocks are
+# MACHINE-CHECKED: tools/design_consistency_check.py (run by `make check`)
+# re-derives loads, torques, belt tensions, lock sizing, and power from
+# these numbers + the leg geometry and FAILS if the docs and spec drift.
+#
+# UNITS: mm and degrees unless a key says otherwise.  Frame: right-handed,
+# +Z up, leg 0 along +X, legs 1-5 rotated i*60° about +Z.
+
+units: mm
+
+design_basis:                       # README.md §2 (decided — do not silently change)
+  purpose: "Carry 1 adult rider (~77 kg / 170 lb), private property, slow walk"
+  cruise_speed_m_s: 0.3             # 0.4 m/s is a stretch goal, not the basis
+  rider_mass_kg: 77
+  vehicle_dry_mass_kg: 165
+  total_operating_mass_kg: 242
+  ground_weight_kN: 2.37            # 242 kg × 9.80665
+  gait: "alternating tripod (design gait); ripple/wave at creep for a bigger polygon"
+  legs: 6
+  dof_per_leg: 3                    # hip-yaw, hip-pitch, knee
+  actuators_total: 18
+  stance: "tucked — foot 0.30 m outboard of / 0.55 m below the hip-pitch joint"
+  nominal_per_leg_foot_load_kN: 0.79   # 2.37 / 3 (tripod)
+  design_per_leg_foot_load_kN: 1.19    # × 1.5 SF
+  foot_load_safety_factor: 1.5
+  # Horizontal foot→axis moment arms (m): static from the solved tucked pose;
+  # worst adds the ±0.15 m fore-aft stride excursion.
+  hip_moment_arm_m: {static: 0.30, worst_in_stride: 0.45}
+  knee_moment_arm_m: {static: 0.035, worst_in_stride: 0.185}
+  stride_excursion_m: 0.15
+  # Joint torques (kN·m).  Design = the bound the drivetrain must beat;
+  # hip design = nominal load × worst-in-stride arm (no extra stack — the
+  # 1.16× peak margin over it is THIN, see DRIVETRAIN.md §5 and the
+  # ratio-swap fallback).
+  hip_pitch_torque_kNm: {static_parked: 0.24, worst_in_stride: 0.36, design: 0.36}
+  knee_torque_kNm: {holding_nominal: 0.03, holding_worst: 0.15, design: 0.20}
+  hip_yaw_torque_kNm: {min: 0.03, max: 0.08}
+  # Speeds (deg/s at the joint).  Loaded stance sweep at 0.3 m/s is ~31 °/s;
+  # unloaded swing in tripod needs ~94 °/s (must fit under the NO-LOAD speed,
+  # swing torque ≈ 0).
+  gait_stance_speed_deg_s: 31
+  gait_swing_speed_deg_s: 94
+  # Static rollover angles (CoM ≈ 0.65 m with rider): parked-on-6-feet uses
+  # the full hexagon (inradius 0.745 m); walking tripod uses the 3-foot
+  # triangle (inradius 0.43 m).  v1-style "45°" claims only hold PARKED.
+  rollover_deg: {parked_6_feet: 49, tripod: 33}
+  com_height_m: 0.65
+
+mass_budget:                        # README.md §6 (kg) — rows must sum to subtotal
+  actuators: 15.3                   # 18 × AK80-64 @ 0.85 kg
+  belt_stages: 33.0                 # 6×(hip 2.3 + knee 2.2 + yaw 1.0) pulleys/belts/tensioners/guards
+  joint_bearings: 18.0              # 18 structural joint assemblies (~1.0 kg avg)
+  load_holds: 4.2                   # 12 × ~0.35 kg parking-pin lock assemblies
+  legs: 21.0                        # 6 × ~3.5 kg (Al femur+tibia + hubs/clevises)
+  feet: 4.0                         # 6 × ~0.7 kg pad + load-cell mount
+  chassis_deck: 20.0                # 850–900 mm wide frame + deck
+  rider_interface: 8.0              # saddle, pegs, bars, harness
+  battery: 10.0                     # 12S ~1.8 kWh
+  power_electronics: 5.0            # contactor, fusing, DC-DC, wiring
+  compute_sensors: 3.0
+  hardware: 8.0                     # fasteners, mounts, misc
+  finishing: 2.0
+  subtotal: 151.5
+  contingency: 13.5                 # ~9% — mass never goes down in real builds
+  total_dry: 165.0                  # must equal vehicle_dry_mass_kg
+
+power_budget:                       # POWER_SYSTEM.md
+  bus: "12S Li-ion (AK80-64 max is 12S): 50.4 V full / 44.4 V nom / 36 V empty"
+  bus_V_nom: 44.4
+  pack_Ah: 40
+  pack_kWh: 1.8                     # 44.4 × 40
+  cruise_kW: 0.9
+  peak_walk_kW: 1.8
+  standup_transient_A: [70, 90]
+  main_fuse_A: 100
+  branch_fuse_A: 30                 # one per leg (3 actuators: 3×7 A rated, 19 A peak each)
+  branch_count: 6
+  rail_24V_W: 350                   # 12 lock solenoids held retracted + logic
+  lock_solenoid_W_hold: 12          # per solenoid with PWM economizer (peak pull ~25 W, brief)
+  lock_solenoids: 12
+
+# ---------------------------------------------------------------------------
+# Leg kinematics (tucked stance, knee-up IK branch).  README.md §3.
+# ---------------------------------------------------------------------------
+leg_kinematics:
+  hip_yaw_ring_radius_mm: 440       # body ~880 mm across the yaw axes ("wide body, not long legs")
+  coxa_length_mm: 120               # hip-yaw → hip-pitch
+  femur_length_mm: 350
+  tibia_length_mm: 450
+  hip_axis_height_mm: 550           # hip-pitch axis above ground in the nominal stance
+  foot_target_under_hip_mm: {out: 300, down: 550}   # rel. hip-pitch joint
+  # Solved (knee-up branch): femur ~-17° from horizontal, knee interior
+  # angle ~102° (comfortable, NOT v1's deeply-folded 51°), knee sits
+  # 0.035 m outboard of the foot → the tiny knee static arm above.
+  foot_stance_radius_mm: 860        # 440 + 120 + 300 → footprint Ø ~1.72 m
+  joint_limits_deg: {hip_yaw: [-35, 35], hip_pitch: [-50, 35], knee: [-45, 45]}
+
+# ---------------------------------------------------------------------------
+# Actuator: ONE SKU everywhere (verified against CubeMars, Aug 2026).
+# ---------------------------------------------------------------------------
+actuator:
+  part: "CubeMars AK80-64 KV80"
+  qty: 18
+  rated_torque_Nm: 48
+  peak_torque_Nm: 120
+  rated_speed_rpm_48V: 48
+  no_load_speed_rpm_48V: 75
+  rated_current_A: 7
+  peak_current_A: 19
+  internal_ratio: "64:1 planetary"
+  backdrive_torque_Nm: 4.7          # at output — effectively NOT backdrivable
+  mass_kg: 0.85
+  bus: "48 V class (6–12S)"
+  unit_usd: 890                     # store.cubemars.com Aug 2026; confirm driver-board option
+  alternative:
+    part: "CubeMars AKH70-48 V1.0 (new 03/2026)"
+    rated_torque_Nm: 74
+    peak_torque_Nm: 222
+    rated_speed_rpm: 28
+    no_load_speed_rpm: 35
+    mass_kg: 1.396
+    unit_usd: 699
+    note: "Cheaper per N·m, dual 21-bit encoders, dual-CAN daisy-chain.
+      Designated HIP fallback at 3:1 if ballast testing shows the 4:1
+      AK80-64 margin is short (579 N·m peak / 193 N·m cont / 56 °/s)."
+
+# ---------------------------------------------------------------------------
+# Belt stages (DRIVETRAIN.md §3, PARTS.md §2) — Gates Poly Chain GT Carbon
+# 8MGT × 36 mm.  Small sprockets are Gates STOCK sizes (stock 8M grooves are
+# 22/25/26/28/30/32/36/... — there is NO stock 24T, hence 25:100 at the hip);
+# large pulleys are custom-machined and double as the joint hub disc.
+# Joint peak here is MOTOR-limited; the belt allowable clears it (below).
+# ---------------------------------------------------------------------------
+belt_stage:
+  family: "Gates Poly Chain GT Carbon 8MGT × 36 mm"
+  efficiency: 0.87                  # mid of the 85–90% brief
+  # CATALOG-ANCHORED (Gates Poly Chain GT Carbon Drive Design Manual,
+  # 17595_2012): the manual's own worked example runs a 12 mm 8MGT at
+  # Te ≈ 2.6 kN as a normal rated working point; Table 11 width constants
+  # (Y: 12mm=65, 36mm=194) scale the 36 mm belt to ~3.0× → ~7.7 kN class.
+  # Confirm the final drive with Gates Design Flex / application engineering
+  # at order time; the check requires >= 2x margin over peak tension.
+  allowable_working_tension_kN: 7.7
+  min_install_tension_lb_per_span: 84   # Gates Table 11 minimum Tst, 8M x 36mm
+  tension_constants: {M: 0.97, Y: 194}  # Gates Table 11, 8M x 36 mm
+  # The belt shaft pull (working + pretension, ~2.9 kN cont / ~4.9 kN peak at
+  # the hip) also acts on the DRIVER sprocket — far beyond the AK80-64's own
+  # output bearing (2.0 kN dyn / 2.5 kN static).  Every driver sprocket hub
+  # therefore rides an outboard PILOT BEARING (6905-2RS class) in the mount
+  # plate so the motor bearing carries only its share.  PARTS.md §2.
+  driver_pilot_bearing: "6905-2RS in the mount plate, one per stage (18)"
+  joints:
+    hip_pitch:
+      ratio: 4.0
+      teeth: "25T → 100T"           # 25T is stock (24T is not); 100T custom
+      driven_pd_mm: 254.6           # 100 × 8 / π
+      joint_peak_Nm: 418            # 120 × 4 × 0.87
+      joint_cont_Nm: 167            # 48 × 4 × 0.87
+      joint_speed_deg_s_rated: 72   # 48 rpm / 4
+      joint_speed_deg_s_no_load: 112
+      peak_belt_tension_kN: 3.28    # 418 / (0.2546/2)
+      belt: "8MGT-960-36 (Gates 9274-2120)"
+      center_distance_mm: 208
+    knee:
+      ratio: 3.0
+      teeth: "28T → 84T"            # 28T stock; 84T custom at the knee
+      driven_pd_mm: 213.9
+      joint_peak_Nm: 313
+      joint_cont_Nm: 125
+      joint_speed_deg_s_rated: 96
+      joint_speed_deg_s_no_load: 150
+      peak_belt_tension_kN: 2.93
+      belt: "8MGT-896-36 (Gates 9274-2112)"
+      center_distance_mm: 212       # knee motor ~140 mm from the hip axis: still
+                                    # "at the hip end" for inertia, and its mount
+                                    # clears the Ø255 hip pulley disc (packaging)
+    hip_yaw:
+      ratio: 2.0
+      teeth: "36T → 72T"            # 36T stock; 72T custom on the yaw bearing
+      driven_pd_mm: 183.3
+      joint_peak_Nm: 209
+      joint_cont_Nm: 84
+      joint_speed_deg_s_rated: 144
+      joint_speed_deg_s_no_load: 225
+      peak_belt_tension_kN: 2.28
+      belt: "8MGT-720-36 (Gates 9274-2090)"
+      center_distance_mm: 136
+
+# ---------------------------------------------------------------------------
+# Load holding — JOINT-SIDE PARKING PIN LOCKS (DRIVETRAIN.md §6, PARTS.md §4).
+# Spring-applied / solenoid-retracted: power-off = pin extended.  The pin
+# drops into a hardened hole ring machined into the driven pulley web, so it
+# holds AT THE JOINT — the belt is NOT in the holding load path (v1's chain
+# single-point-of-failure is designed out).  Hip parked static (~237 N·m)
+# still exceeds hip continuous (~167 N·m): the machine cannot stand on motor
+# current, so all 12 locks are mandatory.
+# ---------------------------------------------------------------------------
+load_hold:
+  type: "spring-applied / solenoid-retracted parking pin into the driven pulley (power-off = engaged)"
+  qty: 12                           # 6 hip-pitch + 6 knee, ALL mandatory; yaw has none
+  pin_dia_mm: 12                    # hardened dowel, double-shear clevis
+  engage_radius_mm: 90              # hole ring radius in the pulley web.  NOT 100:
+                                    # the knee's 84T pulley tooth root is at r≈102,
+                                    # and an Ø18 ring bushing at r=100 breaks into
+                                    # the teeth (edge at 109).  r=90 leaves ~3 mm of
+                                    # rim wall on the knee and plenty on the hip.
+  hole_pitch_deg: 15                # lock positions every 15° of joint travel
+  max_backdrive_to_engage_deg: 15   # worst joint motion before the pin finds a hole on power loss
+  rated_hold_Nm: 540                # design bound = 1.5 × hip design (shear capacity is ~10x higher)
+  solenoid: "24 V tubular pull, ~25 W pull / ~12 W PWM-economized hold, 12 mm stroke
+    (pin must clear the ~10 mm web+bushing engagement plus 2 mm)"
+  mass_kg: 0.35
+  unit_usd: 80
+  friction_brake_fallback: "INTORQ BFK458-16 (125-145 N·m) on the motor fast
+    shaft — REAL mass 4.3 kg / ~$400 each; 12 of them add ~50 kg and blow the
+    hip margin, which is why the pin lock won.  Documented in PARTS.md §4."
+
+# ---------------------------------------------------------------------------
+# Structural joint bearings — the load path decision (DRIVETRAIN.md §4):
+#   motor → belt → LARGE bearing-supported joint shaft → leg,
+# never motor-gearbox-output-bearing → leg.  Bearings also react the belt
+# pretension (~2×Tst static, ~5 kN bound at the hip).
+# ---------------------------------------------------------------------------
+joint_bearing:
+  qty: 18
+  type: "paired tapered-roller 30205 (hip/knee, 25 mm shaft) / 32006 pair
+    (yaw, 30 mm hollow shaft); driven pulley bolted to the moving link's hub"
+  radial_bound_kN: 5.0              # belt pretension + working tension bound
+  mass_kg_avg: 1.0
+
+structure:                          # STRUCTURE.md
+  legs: "6061-T6 aluminum box/tube femur + tibia (design foot load 1.19 kN —
+    ~half of v1's 2.25 kN, which is why aluminum works here where v1 needed
+    4130 steel truss)"
+  femur_section: "60×40×3 box, bending SF ~4.7 at the 535 N·m root moment;
+    also carries the knee-belt shaft pull (~5 kN bound) as axial compression"
+  leg_mass_kg_each: 3.5
+  chassis: "welded 6061 tube frame, 850–900 mm wide × ~1.1 m long + deck;
+    wide body buys the support polygon instead of long high-torque legs"
+  foot: "urethane pad + load cell (foot contact/force sensing)"
+
+cost_rollup_usd:                    # BOM.md — buckets must sum
+  actuators: 16020                  # 18 × 890
+  belt_stages: 4080                 # 6×250 + 6×250 + 6×180
+  joint_bearings: 2520              # 18 × 140
+  load_holds: 960                   # 12 × 80
+  drivetrain_subtotal: 23580
+  legs: 2000
+  feet: 400
+  chassis_rider: 2300
+  battery_power: 1200
+  electronics_sensors: 1700
+  hardware_misc: 1500
+  consumables: 400
+  full_build: 33080
+
+# ---------------------------------------------------------------------------
+# Parts placed in the BuildViz scene (partType -> what it is).  Mirrors the
+# instance names emitted by tools/rideable_viz_build.py; `buildviz compat`
+# reconciles scene instances against these keys.
+# ---------------------------------------------------------------------------
+parts:
+  # --- per-leg (×6) ---
+  yaw_actuator:
+    label: "Hip-yaw actuator"
+    role: motor
+    cots: true
+    qty: 6
+    description: "AK80-64 under the chassis vertex plate, offset from the yaw
+      axis; drives the yaw joint through the 2:1 belt (run not modelled)."
+  yaw_pulley:
+    label: "Yaw driven pulley (72T)"
+    role: drivetrain
+    cots: true
+    qty: 6
+    description: "Ø183.3 mm PD custom 72T pulley ON the yaw axis, bolted to
+      the coxa yaw hub so it rotates with the leg."
+  yaw_pivot_pin:
+    label: "Yaw joint shaft"
+    role: bearing
+    cots: true
+    qty: 6
+    description: "Coaxial 30 mm hollow shaft on the yaw axis (32006 tapered
+      pair): the only part bridging chassis and coxa, so the yaw DOF is free."
+  coxa_frame:
+    label: "Coxa frame"
+    role: frame
+    cots: false
+    qty: 6
+    description: "6061 coxa: yaw hub + 120 mm box link + hip clevis + the
+      mount plate carrying the hip actuator.  Moving femur connects only
+      through the hip pivot pin."
+  hip_actuator:
+    label: "Hip-pitch actuator"
+    role: motor
+    cots: true
+    qty: 6
+    description: "AK80-64 on the coxa, axis parallel to the hip joint; drives
+      the hip through the 4:1 belt (25T→100T, 8MGT-960-36)."
+  hip_pulley:
+    label: "Hip driven pulley (100T)"
+    role: drivetrain
+    cots: true
+    qty: 6
+    description: "Ø254.6 mm PD custom 100T pulley ON the hip axis, bolted to
+      the femur hub; its web carries the parking-pin hole ring."
+  hip_lock:
+    label: "Hip parking-pin lock"
+    role: brake
+    cots: true
+    qty: 6
+    description: "Spring-applied / solenoid-retracted pin on the coxa,
+      engaging the hip pulley web hole ring.  Power-off = engaged; holds the
+      parked stance at zero motor current, at the JOINT (belt not in the
+      holding path)."
+  hip_pivot_pin:
+    label: "Hip-pitch joint shaft"
+    role: bearing
+    cots: true
+    qty: 6
+    description: "Coaxial 25 mm joint shaft on the hip axis (30205 tapered
+      pair): grips the femur hub and the coxa clevis plate."
+  femur_frame:
+    label: "Femur frame"
+    role: frame
+    cots: false
+    qty: 6
+    description: "6061 60×40×3 box femur (hip → knee, 350 mm): hip pivot hub
+      (which the hip pulley bolts to) + box beam + knee clevis + the mount
+      plate carrying the knee actuator at the HIP end.  The knee belt runs
+      down this beam (run not modelled)."
+  knee_actuator:
+    label: "Knee actuator"
+    role: motor
+    cots: true
+    qty: 6
+    description: "AK80-64 at the HIP end of the femur, ~140 mm from the hip
+      axis (the brief's key layout move: far less leg swing inertia); drives
+      the knee through the 3:1 belt down the femur (28T→84T, 8MGT-896-36,
+      C≈212 mm), on the OPPOSITE femur face from the hip pulley."
+  knee_pulley:
+    label: "Knee driven pulley (84T)"
+    role: drivetrain
+    cots: true
+    qty: 6
+    description: "Ø213.9 mm PD custom 84T pulley ON the knee axis, bolted to
+      the tibia hub; web carries the parking-pin hole ring."
+  knee_lock:
+    label: "Knee parking-pin lock"
+    role: brake
+    cots: true
+    qty: 6
+    description: "Spring-applied / solenoid-retracted pin on the femur,
+      engaging the knee pulley web hole ring.  Power-off = engaged."
+  knee_pivot_pin:
+    label: "Knee joint shaft"
+    role: bearing
+    cots: true
+    qty: 6
+    description: "Coaxial 25 mm joint shaft on the knee axis (30205 tapered
+      pair): grips the tibia hub and the femur clevis plate."
+  tibia_frame:
+    label: "Tibia frame"
+    role: frame
+    cots: false
+    qty: 6
+    description: "6061 Ø50×3 tube tibia (knee → foot, 450 mm): knee pivot hub
+      + tube + ankle boss.  Connects to the femur ONLY through the knee joint
+      shaft — the actuator/belt live on the femur side."
+  foot:
+    label: "Foot pad"
+    role: frame
+    cots: false
+    qty: 6
+    description: "Urethane pad + aluminum disc + load-cell boss (contact /
+      force sensing)."
+  # --- body (×1 unless noted) ---
+  chassis_frame:
+    label: "Chassis frame"
+    role: chassis
+    cots: false
+    qty: 1
+    description: "Welded 6061 tube hex frame, ~880 mm across the yaw axes,
+      carrying the 6 yaw actuator plates, deck, battery, e-bay."
+  deck_plate:
+    label: "Deck plate"
+    role: chassis
+    cots: false
+    qty: 1
+    description: "Aluminum rider deck (saddle + footpegs mount to it)."
+  saddle_post:
+    label: "Saddle post"
+    role: rider
+    cots: true
+    qty: 1
+    description: "Suspension seatpost — isolates the rider from gait bob."
+  saddle:
+    label: "Saddle"
+    role: rider
+    cots: true
+    qty: 1
+    description: "Motorcycle/bicycle saddle."
+  controls:
+    label: "Rider controls"
+    role: rider
+    cots: true
+    qty: 1
+    description: "Handlebar + grips + latching-mushroom e-stop."
+  footpeg:
+    label: "Footpeg"
+    role: rider
+    cots: true
+    qty: 2
+    description: "Rider footrests on the deck (one per side)."
+  battery:
+    label: "Battery pack"
+    role: electronics
+    cots: true
+    qty: 1
+    description: "12S Li-ion ~40 Ah / ~1.8 kWh, low + central."
+  e_bay:
+    label: "Electronics bay"
+    role: electronics
+    cots: true
+    qty: 1
+    description: "Compute + contactor/pre-charge + fused branch bus + 48→24 V
+      DC-DC."
+
+notes:
+  - "Belt runs are NOT modelled in the scene (same convention as v1's chain):
+    a belt spans a declared joint, so modelling it would fail the
+    joint-articulation checks it is exempt from in reality."
+  - "No rider until the machine has survived substantial ballast testing —
+    see README.md §9 for the staged ballast protocol."
+  - "AK80-64 specs/prices live-verified Aug 2026 (store.cubemars.com);
+    AKH70-48 alternative verified same day; Gates 8MGT stock lengths/widths
+    and Table 11 tension constants verified against the Poly Chain GT Carbon
+    Drive Design Manual (17595_2012)."

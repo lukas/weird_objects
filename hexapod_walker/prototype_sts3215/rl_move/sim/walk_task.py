@@ -295,6 +295,20 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # from a non-mode checkpoint (--obs-pad-transplant works).
         self._mode_obs = float(cfg_get(self.cfg, "obs", "mode_onehot",
                                        default=0.0)) == 1.0
+        # Command-derived one-hot (obs.mode_onehot_cmd=1; the multitask
+        # x arch transplant, 08-13). On the command-conditioned
+        # generalist recipe every episode is mode "walk", so the
+        # episode-constant one-hot above never routes the dual-core GRU
+        # (gru_policy.DualGruActorCriticPolicy gates on the obs tail).
+        # With this flag, walk-FAMILY ticks light the slot from the
+        # LIVE blended command instead: a commanded stop (all of
+        # |vx_ref|,|vy_ref| <= obs.mode_cmd_stop_m_s and |wz_ref| <=
+        # obs.mode_cmd_stop_rad_s) lights "hold" (stance core), any
+        # motion command lights "walk" (locomotion core). Non-walk
+        # modes are untouched; no effect unless obs.mode_onehot=1.
+        # Default OFF = bit-exact obs for every existing lineage.
+        self._mode_cmd = float(cfg_get(self.cfg, "obs", "mode_onehot_cmd",
+                                       default=0.0)) == 1.0
         if _gym is not None:
             self.observation_space = self._obs_space_box(
                 N_OBS - 6 + self.n_act + WALK_GOAL_DIM + N_VEL_OBS
@@ -357,9 +371,36 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             # Skill-family one-hot, constant per episode, re-derived
             # every tick from _goal_traj (already in mjx_host.SNAP_ATTRS
             # — pool-restore safe by construction, no new episode attr).
-            obs = np.concatenate([obs, mode_onehot(
-                getattr(self._goal_traj, "mode", "hold")
-                if self._goal_traj is not None else "hold")])
+            mode = (getattr(self._goal_traj, "mode", "hold")
+                    if self._goal_traj is not None else "hold")
+            if (self._mode_cmd
+                    and _MODE_FAMILY.get(str(mode), "hold") == "walk"):
+                # Command-derived slot (obs.mode_onehot_cmd=1): follow
+                # the LIVE blended command so the dual-core GRU routes
+                # stop segments to the stance core. Derived per tick
+                # from _current_goal() like the wz_ref tail above —
+                # pool-restore safe by construction, no episode attr.
+                # During the settle hold / ramp-from-zero the command
+                # IS near zero, so those ticks route to the stance
+                # core too — the commanded behavior there is standing.
+                goal = self._current_goal()
+                vx = float(getattr(goal, "vx_ref", 0.0)) \
+                    if goal is not None else 0.0
+                vy = float(getattr(goal, "vy_ref", 0.0)) \
+                    if goal is not None else 0.0
+                wz = float(getattr(goal, "wz_ref", 0.0)) \
+                    if goal is not None else 0.0
+                eps_v = float(cfg_get(self.cfg, "obs", "mode_cmd_stop_m_s",
+                                      default=0.005))
+                eps_w = float(cfg_get(self.cfg, "obs",
+                                      "mode_cmd_stop_rad_s",
+                                      default=0.02))
+                stopped = (abs(vx) <= eps_v and abs(vy) <= eps_v
+                           and abs(wz) <= eps_w)
+                obs = np.concatenate(
+                    [obs, mode_onehot("hold" if stopped else "walk")])
+            else:
+                obs = np.concatenate([obs, mode_onehot(mode)])
         return obs.astype(np.float32)
 
     def _reset_begin(self, seed: int | None = None):

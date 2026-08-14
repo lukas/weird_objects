@@ -503,11 +503,20 @@ class Handler(BaseHTTPRequestHandler):
             self._json(200, BENCH.rl_stop() if BENCH
                        else {"ok": False, "error": "no bench"})
         elif path in ("/api/rl/stand", "/api/rl/lower"):
+            try:
+                data = json.loads(body or "{}") if body else {}
+            except ValueError:
+                data = {}
             if not BENCH:
                 self._json(400, {"ok": False, "error": "no bench"})
             else:
+                kw = {}
+                if data.get("tilt_trip_deg"):
+                    kw["tilt_trip_deg"] = float(data["tilt_trip_deg"])
+                if data.get("extra_hold_s"):
+                    kw["extra_hold_s"] = float(data["extra_hold_s"])
                 self._json(200, BENCH.rl_policy_move(
-                    mode=path.rsplit("/", 1)[-1]))
+                    mode=path.rsplit("/", 1)[-1], **kw))
         elif path == "/api/rl/walk":
             try:
                 data = json.loads(body or "{}") if body else {}
@@ -523,7 +532,12 @@ class Handler(BaseHTTPRequestHandler):
                     duration_s=float(data.get("duration_s", 6.0)),
                     # rot-60 canonicalizer: default ON (exact no-op for
                     # forward-wedge commands); false = naked A/B baseline.
-                    rot60=bool(data.get("rot60", True))))
+                    rot60=bool(data.get("rot60", True)),
+                    # mirror chirality selection (TURN.md): "left" /
+                    # "right" = arc turn, "hold" = heading hold;
+                    # absent = today's naked path, bit-identical.
+                    turn=(str(data["turn"]).strip().lower()
+                          if data.get("turn") else None)))
         elif path == "/api/rl/set_stance":
             try:
                 data = json.loads(body or "{}") if body else {}
@@ -627,6 +641,22 @@ class Handler(BaseHTTPRequestHandler):
         elif path == "/api/standup/stop":
             self._json(200, BENCH.stop_demo() if BENCH
                        else {"ok": False, "error": "no bench"})
+        elif path == "/api/sysid/run":
+            # Deterministic sysid command stream (sysid_runner.py).
+            # Body: {"protocol": {...}, "force": false}.
+            try:
+                data = json.loads(body or "{}") if body else {}
+            except ValueError:
+                data = {}
+            if not BENCH:
+                self._json(400, {"ok": False, "error": "no bench"})
+            elif not isinstance(data, dict) or "protocol" not in data:
+                self._json(400, {"ok": False,
+                                 "error": "body needs {'protocol': {...}}"})
+            else:
+                self._json(200, BENCH.sysid_run(
+                    data["protocol"],
+                    force=bool(data.get("force", False))))
         elif path == "/api/rl/probe_dynamics":
             try:
                 data = json.loads(body or "{}") if body else {}

@@ -8135,6 +8135,11 @@ def _cache_global_input_hash() -> str:
                         h.update(b"\n")
                 except OSError:
                     continue
+        # Geometry-variant env flags change what hp builds WITHOUT changing
+        # any source, so they must be part of the key (a closed-yoke test
+        # run and a stock run would otherwise poison each other's cache).
+        h.update(b"\0HEX_YOKE_REINFORCED=")
+        h.update(os.environ.get("HEX_YOKE_REINFORCED", "").encode("utf-8"))
         _CACHE_INPUT_HASH_GLOBAL = h.hexdigest()
         return _CACHE_INPUT_HASH_GLOBAL
 

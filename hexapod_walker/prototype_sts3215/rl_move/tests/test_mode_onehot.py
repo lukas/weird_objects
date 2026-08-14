@@ -127,6 +127,122 @@ def test_history_frames_carry_mode_in_every_frame():
 
 
 # ---------------------------------------------------------------------------
+# Command-derived one-hot (obs.mode_onehot_cmd=1) — the multitask x arch
+# transplant: on walk-family ticks the lit slot follows the LIVE blended
+# command so DualGruActorCriticPolicy routes stop segments to the stance
+# core on a walk-only command recipe.
+# ---------------------------------------------------------------------------
+
+HOLD_BIT = MODE_ONEHOT_ORDER.index("hold")
+WALK_BIT = MODE_ONEHOT_ORDER.index("walk")
+
+
+def _cmd_env(speed: float, *, cmd_flag: bool = True, yaw: bool = False,
+             wz_max: float = 0.15, seed: int = 0):
+    cfg = load_config()
+    obs_cfg = cfg.setdefault("obs", {})
+    obs_cfg["mode_onehot"] = 1.0
+    if cmd_flag:
+        obs_cfg["mode_onehot_cmd"] = 1.0
+    g = cfg.setdefault("goal", {})
+    g["walk_speed_min_m_s"] = speed
+    g["walk_speed_max_m_s"] = speed
+    g["walk_heading_max_rad"] = 0.0
+    if yaw:
+        g["walk_yaw_cmd"] = 1.0
+        g["walk_yaw_zero_frac"] = 0.0
+        g["walk_yaw_max_rad_s"] = wz_max
+    env = SimHexapodJointWalkEnv(cfg, seed=seed)
+    gen = env._goal_gen
+    for m in ALL_MODES:
+        if hasattr(gen, f"p_{m}"):
+            setattr(gen, f"p_{m}", 0.0)
+    gen.p_walk = 1.0
+    return env
+
+
+def _cmd_tail_tracks_goal(env, n_steps: int = 80):
+    """Step and assert the tail matches the stopped-predicate per tick.
+
+    Returns (saw_hold, saw_walk) so callers can assert both routes
+    were exercised.
+    """
+    eps_v, eps_w = 0.005, 0.02
+    saw_hold = saw_walk = False
+    a = np.zeros(env.action_space.shape, dtype=np.float32)
+    obs, _ = env.reset(seed=0)
+    for _ in range(n_steps):
+        goal = env._current_goal()
+        vx = float(getattr(goal, "vx_ref", 0.0)) if goal else 0.0
+        vy = float(getattr(goal, "vy_ref", 0.0)) if goal else 0.0
+        wz = float(getattr(goal, "wz_ref", 0.0)) if goal else 0.0
+        stopped = (abs(vx) <= eps_v and abs(vy) <= eps_v
+                   and abs(wz) <= eps_w)
+        tail = obs[-N_MODE_OBS:]
+        want = np.zeros(N_MODE_OBS)
+        want[HOLD_BIT if stopped else WALK_BIT] = 1.0
+        assert np.array_equal(tail, want), \
+            f"cmd ({vx:.4f},{vy:.4f},{wz:.4f}) stopped={stopped}, " \
+            f"tail={tail}"
+        saw_hold |= stopped
+        saw_walk |= not stopped
+        obs, _, term, trunc, _ = env.step(a)
+        if term or trunc:
+            break
+    return saw_hold, saw_walk
+
+
+def test_cmd_flag_off_walk_bit_constant_during_settle():
+    # Bit-exact-off contract: without obs.mode_onehot_cmd a walk
+    # episode lights "walk" from the very first (zero-command settle)
+    # tick — the pre-change behavior.
+    env = _cmd_env(0.05, cmd_flag=False)
+    obs, _ = env.reset(seed=0)
+    assert obs[-N_MODE_OBS:][WALK_BIT] == 1.0
+
+
+def test_cmd_flag_routes_settle_to_hold_then_ramp_to_walk():
+    env = _cmd_env(0.05)
+    saw_hold, saw_walk = _cmd_tail_tracks_goal(env)
+    # Settle hold (1 s at zero command) must route to the stance slot,
+    # the ramped command to the locomotion slot.
+    assert saw_hold and saw_walk
+
+
+def test_cmd_flag_zero_command_stays_hold():
+    env = _cmd_env(0.0)
+    saw_hold, saw_walk = _cmd_tail_tracks_goal(env)
+    assert saw_hold and not saw_walk
+
+
+def test_cmd_flag_turn_in_place_routes_to_walk():
+    # Zero linear speed but a live yaw command: turn-in-place is a
+    # locomotion-core behavior (walk/turn/quad are all core A).
+    env = _cmd_env(0.0, yaw=True)
+    saw_hold, saw_walk = _cmd_tail_tracks_goal(env)
+    assert saw_hold and saw_walk
+
+
+def test_cmd_flag_non_walk_modes_unchanged():
+    for mode, fam in (("hold", "hold"), ("rise", "rise"),
+                      ("lower", "lower")):
+        cfg = load_config()
+        obs_cfg = cfg.setdefault("obs", {})
+        obs_cfg["mode_onehot"] = 1.0
+        obs_cfg["mode_onehot_cmd"] = 1.0
+        env = SimHexapodJointWalkEnv(cfg, seed=3)
+        gen = env._goal_gen
+        for m in ALL_MODES:
+            if hasattr(gen, f"p_{m}"):
+                setattr(gen, f"p_{m}", 0.0)
+        setattr(gen, f"p_{mode}", 1.0)
+        obs, _ = env.reset(seed=3)
+        want = np.zeros(N_MODE_OBS)
+        want[MODE_ONEHOT_ORDER.index(fam)] = 1.0
+        assert np.array_equal(obs[-N_MODE_OBS:], want)
+
+
+# ---------------------------------------------------------------------------
 # Mirror maps at the widened layout
 # ---------------------------------------------------------------------------
 

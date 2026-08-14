@@ -19,7 +19,8 @@ for _p in (_HERE, _HERE.parent / "motor_setup"):
 from feetech_bus import (AXIS_LIMITS_DEG, N_JOINTS, deg_to_count,
                          joint_to_servo_id)
 from safe_zero import (BELLY_GROUND_Z_MM, GROUND_TOL_MM, LIFT_CLEAR_MM,
-                       foot_z_mm, knee_for_foot_z, plan_safe_zero,
+                       SLIDE_DEV_TOL_MM, foot_r_mm, foot_z_mm,
+                       ik_hip_knee, knee_for_foot_z, plan_safe_zero,
                        run_safe_zero, seg_dist_2d)
 
 
@@ -111,6 +112,74 @@ def test_crossed_adjacent_yaws():
         _check_plan_geometry(p, present)
     else:
         assert p["error"]
+
+
+def test_ik_hip_knee_roundtrip():
+    for r in (20.0, 60.0, 120.0, 180.0, 210.0):
+        for z in (-120.0, -80.0, -40.0, -18.0):
+            hk = ik_hip_knee(r, z)
+            if hk is None:
+                continue  # out of reach / limits is a valid answer
+            hip, knee = hk
+            assert abs(foot_r_mm(hip, knee) - r) < 1e-6, (r, z)
+            assert abs(foot_z_mm(hip, knee) - z) < 1e-6, (r, z)
+    assert ik_hip_knee(300.0, -40.0) is None  # beyond full extension
+    assert ik_hip_knee(10.0, -10.0) is None   # inside the fold limit
+
+
+def test_low_drag_descent_from_plant_stand():
+    # Plant-like stance: feet tucked nearly under the hip pivots. The
+    # legacy blend slid them ~190 mm loaded; fold-first must cut that
+    # to the geometric minimum (~65 mm).
+    present = _pose(hip=15.0, knee=104.0)
+    p = plan_safe_zero(present)
+    _check_plan_geometry(p, present)
+    d = p.get("descent")
+    assert d, "standing start should plan the low-drag descent"
+    assert d["loaded_slide_mm"] <= 70.0, d
+    assert d["legacy_slide_mm"] - d["loaded_slide_mm"] >= 80.0, d
+    labels = [s["label"] for s in p["stages"]]
+    assert any("fold" in l for l in labels), labels
+    assert p["stages"][0]["drag_ok"]
+
+
+def test_descent_fold_keeps_feet_planted():
+    # Sampled paths of the fold stages must hold each foot at its
+    # starting radius — that is the whole point of the crouch.
+    present = _pose(hip=15.0, knee=104.0)
+    p = plan_safe_zero(present)
+    assert p.get("descent")
+    r_start = foot_r_mm(15.0, 104.0)
+    prev = present
+    for s in p["stages"]:
+        if "fold" not in s["label"]:
+            break
+        for k in range(1, 11):
+            q = [a + (b - a) * (k / 10.0) for a, b in zip(prev, s["goal"])]
+            for leg in range(6):
+                r = foot_r_mm(q[leg * 3 + 1], q[leg * 3 + 2])
+                assert abs(r - r_start) <= SLIDE_DEV_TOL_MM + 2.0, (
+                    f"fold stage slid a foot to r={r:.1f} "
+                    f"(start {r_start:.1f})")
+        prev = s["goal"]
+
+
+def test_wide_stance_descends_without_slide():
+    # Feet already far out: belly contact is reachable at constant
+    # radius, so the descent should plan zero loaded slide.
+    present = _pose(hip=10.0, knee=25.0)
+    p = plan_safe_zero(present)
+    _check_plan_geometry(p, present)
+    d = p.get("descent")
+    assert d and d["loaded_slide_mm"] <= 1.0, d
+
+
+def test_belly_start_keeps_legacy_plan():
+    present = _pose(hip=-10.0, knee=20.0)  # feet near the belly plane
+    p = plan_safe_zero(present)
+    _check_plan_geometry(p, present)
+    assert "descent" not in p
+    assert p["stages"][0]["label"].startswith("straighten")
 
 
 def test_knee_for_foot_z_roundtrip():

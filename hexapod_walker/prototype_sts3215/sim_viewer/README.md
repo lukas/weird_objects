@@ -36,7 +36,37 @@ sim_viewer/sim_walk.sh     # walk champion alone (cv2 drive window)
   observations — privileged body velocity (`walk_obs_body_vel=1.0`)
   that the board cannot sense, so it can never run honestly on
   hardware. Only the `dep_*` line (meas:=ref) and the stance group
-  (encoder/IMU-only obs) are asterisk-free.
+  (encoder/IMU-only obs) are asterisk-free. The walk list ends with
+  three `S` rows — not checkpoints but the scripted no-slip gait
+  (`linux_control/noslip_gait.py`) at three settings:
+  `noslip_scripted_gait` (alpha 0, the original step-then-shift),
+  `noslip_hybrid_a50` (alpha 0.5 — half the body travel rides a
+  constant drift through swings/dwells), and `noslip_clampfit_gait`
+  (`NoSlipGait.CLAMP_FIT_KW`: period 6 s, swing-heavy, alpha 1 — the
+  08-12 sweep's cleanest timing under the env's fitted ~31 deg/s servo
+  clamp; zero true scrub and ~4x less loaded foot-centre drift than
+  the default timing). Select one and the same drive inputs run that
+  gait instead of a policy (stop still hands back to the stance
+  policy); slower than the RL band but zero commanded foot scrub at
+  every alpha (verified: `verify_noslip --alpha 0/0.5/1` all measure
+  0.0 mm true scrub, travel ratio ~0.96), and it turns: `U`/`O` trim a
+  yaw rate ±0.05 rad/s per tap, including turn-in-place.
+  `sim_noslip.sh` drives the gait alone with live alpha keys
+  (`4`/`5`/`6` = 0/0.5/1) and `7` = the clamp-fit preset.
+- **`--phase-obs`** (pass through `sim_play.sh`): enables the walk
+  env's phase clock (+2 obs dims, sin/cos at the tail; `--phase-hz`
+  default 1/6 = one revolution per 6 s clamp-fit cycle) so the
+  PHASE-CLOCK no-slip RL checkpoints (obs 74) are playable in the WALK
+  slot — the champion is `ppo_goal_cw_arch_noslipphase1_r4` (gate PASS
+  08-12: return 943, loadslip 0.54, anchor frac 1.00; BC from the
+  clamp-fit scripted teacher + minimal-drift PPO). Legacy 72-obs walk
+  champions still work in this mode (they are fed `obs[:72]`, their
+  exact layout).
+
+```sh
+sim_viewer/sim_play.sh --phase-obs \
+    --walk rl_move/sim/policies/ppo_goal_cw_arch_noslipphase1_r4.zip
+```
 - **Gamepad** (optional, hot-plugs whenever it's turned on; pygame/SDL,
   Xbox/PS/Switch all normalized): left stick = analog walk, `A` stand,
   `B` sit, `Y` reset, `X` belly, `LB/RB` height, d-pad U/D / L/R =

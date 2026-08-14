@@ -1,0 +1,675 @@
+{
+  "source": "sysid fit from sysid_steps_air_v1_20260812_181232.csv, sysid_sines_air_v1_20260812_181941.csv (base: air)",
+  "timestamp": "2026-08-12T14:28:10",
+  "speed_counts_s": 350.0,
+  "axes": {
+    "yaw": {
+      "kp": 1469.6938456699065,
+      "kv": 0.02581988897471611,
+      "frictionloss": 0.06999999999999999,
+      "latency_ms": 96.1125,
+      "vel_max_deg_s": 48.5,
+      "deadband_deg": 0.16714285714285712,
+      "torque_limit_nm": 2.2
+    },
+    "hip": {
+      "kp": 88.01097470937268,
+      "kv": 3.027787265724939,
+      "frictionloss": 0.12,
+      "latency_ms": 25.6125,
+      "vel_max_deg_s": 35.76171875,
+      "deadband_deg": 0.045,
+      "torque_limit_nm": 2.2
+    },
+    "knee": {
+      "kp": 140.19828977761006,
+      "kv": 1.5279159544143495,
+      "frictionloss": 0.1,
+      "latency_ms": 85.0,
+      "vel_max_deg_s": 48.5,
+      "deadband_deg": 0.28571428571428564,
+      "torque_limit_nm": 2.2
+    }
+  },
+  "spread": {
+    "yaw": {
+      "delay_ms_pct": 0.043,
+      "rise_ms_pct": 0.108
+    },
+    "hip": {
+      "delay_ms_pct": 0.146,
+      "rise_ms_pct": 0.104
+    },
+    "knee": {
+      "delay_ms_pct": 0.114,
+      "rise_ms_pct": 0.088
+    }
+  },
+  "fit_evidence": {
+    "traces": [
+      "sysid/datasets/steps_air_v1_20260812_141932/sysid_steps_air_v1_20260812_181232.csv",
+      "sysid/datasets/sines_air_v1_20260812_142243/sysid_sines_air_v1_20260812_181941.csv"
+    ],
+    "fit_loss": {
+      "yaw": 0.241,
+      "hip": 0.61,
+      "knee": 0.269
+    },
+    "holdout": {
+      "j6_step+10": {
+        "loss_fitted": 0.0,
+        "loss_base": 1.796
+      },
+      "j6_step-10": {
+        "loss_fitted": 0.015,
+        "loss_base": 0.488
+      },
+      "j7_step+10": {
+        "loss_fitted": 0.021,
+        "loss_base": 3.463
+      },
+      "j7_step-10": {
+        "loss_fitted": 0.015,
+        "loss_base": 1.495
+      },
+      "j8_step+10": {
+        "loss_fitted": 0.0,
+        "loss_base": 0.941
+      },
+      "j8_step-10": {
+        "loss_fitted": 0.031,
+        "loss_base": 0.139
+      },
+      "j6_sine+4@0.5Hz": {
+        "loss_fitted": 0.009,
+        "loss_base": 0.065
+      },
+      "j6_sine+8@0.5Hz": {
+        "loss_fitted": 0.013,
+        "loss_base": 0.234
+      },
+      "j7_sine+4@0.5Hz": {
+        "loss_fitted": 0.012,
+        "loss_base": 0.08
+      },
+      "j7_sine+8@0.5Hz": {
+        "loss_fitted": 0.001,
+        "loss_base": 0.195
+      },
+      "j8_sine+4@0.5Hz": {
+        "loss_fitted": 0.008,
+        "loss_base": 0.169
+      },
+      "j8_sine+8@0.5Hz": {
+        "loss_fitted": 0.001,
+        "loss_base": 0.394
+      }
+    },
+    "full_replay": {
+      "sysid_steps_air_v1_20260812_181232.csv": {
+        "fitted": 0.246,
+        "base": 0.375
+      },
+      "sysid_sines_air_v1_20260812_181941.csv": {
+        "fitted": 0.616,
+        "base": 0.748
+      }
+    },
+    "targets": [
+      {
+        "joint": 6,
+        "kind": "step",
+        "amp_deg": 5.0,
+        "freq_hz": 0.0,
+        "n_reps": 5,
+        "target": {
+          "latency_ms": 120.0,
+          "t90_ms": 319.9,
+          "peak_vel_deg_s": 28.6,
+          "tracking_pct": 94.9,
+          "overshoot_deg": 0.0
+        }
+      },
+      {
+        "joint": 6,
+        "kind": "step",
+        "amp_deg": -5.0,
+        "freq_hz": 0.0,
+        "n_reps": 5,
+        "target": {
+          "latency_ms": 120.0,
+          "t90_ms": 319.9,
+          "peak_vel_deg_s": 28.5,
+          "tracking_pct": 94.7,
+          "overshoot_deg": 0.0
+        }
+      },
+      {
+        "joint": 6,
+        "kind": "step",
+        "amp_deg": 10.0,
+        "freq_hz": 0.0,
+        "n_reps": 5,
+        "target": {
+          "latency_ms": 120.0,
+          "t90_ms": 440.0,
+          "peak_vel_deg_s": 35.3,
+          "tracking_pct": 98.4,
+          "overshoot_deg": 0.0
+        }
+      },
+      {
+        "joint": 6,
+        "kind": "step",
+        "amp_deg": -10.0,
+        "freq_hz": 0.0,
+        "n_reps": 5,
+        "target": {
+          "latency_ms": 120.0,
+          "t90_ms": 400.1,
+          "peak_vel_deg_s": 35.2,
+          "tracking_pct": 97.6,
+          "overshoot_deg": 0.0
+        }
+      },
+      {
+        "joint": 6,
+        "kind": "step",
+        "amp_deg": 20.0,
+        "freq_hz": 0.0,
+        "n_reps": 5,
+        "target": {
+          "latency_ms": 120.0,
+          "t90_ms": 640.0,
+          "peak_vel_deg_s": 37.4,
+          "tracking_pct": 98.9,
+          "overshoot_deg": 0.0
+        }
+      },
+      {
+        "joint": 6,
+        "kind": "step",
+        "amp_deg": -20.0,
+        "freq_hz": 0.0,
+        "n_reps": 5,
+        "target": {
+          "latency_ms": 120.0,
+          "t90_ms": 639.9,
+          "peak_vel_deg_s": 35.3,
+          "tracking_pct": 98.9,
+          "overshoot_deg": 0.0
+        }
+      },
+      {
+        "joint": 7,
+        "kind": "step",
+        "amp_deg": 5.0,
+        "freq_hz": 0.0,
+        "n_reps": 5,
+        "target": {
+          "latency_ms": 80.0,
+          "t90_ms": 280.0,
+          "peak_vel_deg_s": 30.8,
+          "tracking_pct": 100.2,
+          "overshoot_deg": 0.009
+        }
+      },
+      {
+        "joint": 7,
+        "kind": "step",
+        "amp_deg": -5.0,
+        "freq_hz": 0.0,
+        "n_reps": 5,
+        "target": {
+          "latency_ms": 80.0,
+          "t90_ms": 280.0,
+          "peak_vel_deg_s": 28.6,
+          "tracking_pct": 98.4,
+          "overshoot_deg": 0.0
+        }
+      },
+      {
+        "joint": 7,
+        "kind": "step",
+        "amp_deg": 10.0,
+        "freq_hz": 0.0,
+        "n_reps": 5,
+        "target": {
+          "latency_ms": 80.0,
+          "t90_ms": 400.0,
+          "peak_vel_deg_s": 37.4,
+          "tracking_pct": 100.2,
+          "overshoot_deg": 0.02
+        }
+      },
+      {
+        "joint": 7,
+        "kind": "step",
+        "amp_deg": -10.0,
+        "freq_hz": 0.0,
+        "n_reps": 5,
+        "target": {
+          "latency_ms": 80.0,
+          "t90_ms": 400.0,
+          "peak_vel_deg_s": 35.2,
+          "tracking_pct": 99.3,
+          "overshoot_deg": 0.0
+        }
+      },
+      {
+        "joint": 7,
+        "kind": "step",
+        "amp_deg": 20.0,
+        "freq_hz": 0.0,
+        "n_reps": 5,
+        "target": {
+          "latency_ms": 80.0,
+          "t90_ms": 640.0,
+          "peak_vel_deg_s": 37.4,
+          "tracking_pct": 100.6,
+          "overshoot_deg": 0.127
+        }
+      },
+      {
+        "joint": 7,
+        "kind": "step",
+        "amp_deg": -20.0,
+        "freq_hz": 0.0,
+        "n_reps": 5,
+        "target": {
+          "latency_ms": 80.0,
+          "t90_ms": 640.0,
+          "peak_vel_deg_s": 37.6,
+          "tracking_pct": 100.2,
+          "overshoot_deg": 0.039
+        }
+      },
+      {
+        "joint": 7,
+        "kind": "step",
+        "amp_deg": -40.0,
+        "freq_hz": 0.0,
+        "n_reps": 5,
+        "target": {
+          "latency_ms": 80.1,
+          "t90_ms": 1120.0,
+          "peak_vel_deg_s": 37.5,
+          "tracking_pct": 99.5,
+          "overshoot_deg": 0.0
+        }
+      },
+      {
+        "joint": 8,
+        "kind": "step",
+        "amp_deg": 5.0,
+        "freq_hz": 0.0,
+        "n_reps": 5,
+        "target": {
+          "latency_ms": 120.0,
+          "t90_ms": 320.0,
+          "peak_vel_deg_s": 35.1,
+          "tracking_pct": 94.9,
+          "overshoot_deg": 0.0
+        }
+      },
+      {
+        "joint": 8,
+        "kind": "step",
+        "amp_deg": -5.0,
+        "freq_hz": 0.0,
+        "n_reps": 5,
+        "target": {
+          "latency_ms": 120.0,
+          "t90_ms": 360.0,
+          "peak_vel_deg_s": 26.4,
+          "tracking_pct": 93.2,
+          "overshoot_deg": 0.0
+        }
+      },
+      {
+        "joint": 8,
+        "kind": "step",
+        "amp_deg": 10.0,
+        "freq_hz": 0.0,
+        "n_reps": 5,
+        "target": {
+          "latency_ms": 120.0,
+          "t90_ms": 440.1,
+          "peak_vel_deg_s": 35.2,
+          "tracking_pct": 97.6,
+          "overshoot_deg": 0.0
+        }
+      },
+      {
+        "joint": 8,
+        "kind": "step",
+        "amp_deg": -10.0,
+        "freq_hz": 0.0,
+        "n_reps": 5,
+        "target": {
+          "latency_ms": 120.0,
+          "t90_ms": 440.0,
+          "peak_vel_deg_s": 35.2,
+          "tracking_pct": 95.8,
+          "overshoot_deg": 0.0
+        }
+      },
+      {
+        "joint": 8,
+        "kind": "step",
+        "amp_deg": 20.0,
+        "freq_hz": 0.0,
+        "n_reps": 5,
+        "target": {
+          "latency_ms": 120.0,
+          "t90_ms": 640.0,
+          "peak_vel_deg_s": 37.3,
+          "tracking_pct": 98.9,
+          "overshoot_deg": 0.0
+        }
+      },
+      {
+        "joint": 8,
+        "kind": "step",
+        "amp_deg": 40.0,
+        "freq_hz": 0.0,
+        "n_reps": 5,
+        "target": {
+          "latency_ms": 120.0,
+          "t90_ms": 1160.0,
+          "peak_vel_deg_s": 37.4,
+          "tracking_pct": 98.7,
+          "overshoot_deg": 0.0
+        }
+      },
+      {
+        "joint": 6,
+        "kind": "sine",
+        "amp_deg": 4.0,
+        "freq_hz": 0.25,
+        "n_reps": 1,
+        "target": {
+          "gain": 0.9915,
+          "phase_lag_ms": 116.2,
+          "rmse_deg": 0.528
+        }
+      },
+      {
+        "joint": 6,
+        "kind": "sine",
+        "amp_deg": 4.0,
+        "freq_hz": 0.5,
+        "n_reps": 1,
+        "target": {
+          "gain": 0.9912,
+          "phase_lag_ms": 121.0,
+          "rmse_deg": 0.912
+        }
+      },
+      {
+        "joint": 6,
+        "kind": "sine",
+        "amp_deg": 4.0,
+        "freq_hz": 1.0,
+        "n_reps": 1,
+        "target": {
+          "gain": 1.0158,
+          "phase_lag_ms": 128.1,
+          "rmse_deg": 1.923
+        }
+      },
+      {
+        "joint": 6,
+        "kind": "sine",
+        "amp_deg": 4.0,
+        "freq_hz": 2.0,
+        "n_reps": 1,
+        "target": {
+          "gain": 0.4471,
+          "phase_lag_ms": -230.5,
+          "rmse_deg": 3.631
+        }
+      },
+      {
+        "joint": 6,
+        "kind": "sine",
+        "amp_deg": 8.0,
+        "freq_hz": 0.25,
+        "n_reps": 1,
+        "target": {
+          "gain": 1.0082,
+          "phase_lag_ms": 110.8,
+          "rmse_deg": 0.987
+        }
+      },
+      {
+        "joint": 6,
+        "kind": "sine",
+        "amp_deg": 8.0,
+        "freq_hz": 0.5,
+        "n_reps": 1,
+        "target": {
+          "gain": 0.9995,
+          "phase_lag_ms": 139.3,
+          "rmse_deg": 2.089
+        }
+      },
+      {
+        "joint": 6,
+        "kind": "sine",
+        "amp_deg": 8.0,
+        "freq_hz": 1.0,
+        "n_reps": 1,
+        "target": {
+          "gain": 0.9053,
+          "phase_lag_ms": 315.1,
+          "rmse_deg": 7.658
+        }
+      },
+      {
+        "joint": 6,
+        "kind": "sine",
+        "amp_deg": 8.0,
+        "freq_hz": 2.0,
+        "n_reps": 1,
+        "target": {
+          "gain": 0.2093,
+          "phase_lag_ms": -210.4,
+          "rmse_deg": 6.166
+        }
+      },
+      {
+        "joint": 7,
+        "kind": "sine",
+        "amp_deg": 4.0,
+        "freq_hz": 0.25,
+        "n_reps": 1,
+        "target": {
+          "gain": 0.9986,
+          "phase_lag_ms": 92.0,
+          "rmse_deg": 0.421
+        }
+      },
+      {
+        "joint": 7,
+        "kind": "sine",
+        "amp_deg": 4.0,
+        "freq_hz": 0.5,
+        "n_reps": 1,
+        "target": {
+          "gain": 0.9849,
+          "phase_lag_ms": 95.3,
+          "rmse_deg": 0.716
+        }
+      },
+      {
+        "joint": 7,
+        "kind": "sine",
+        "amp_deg": 4.0,
+        "freq_hz": 1.0,
+        "n_reps": 1,
+        "target": {
+          "gain": 1.0045,
+          "phase_lag_ms": 106.5,
+          "rmse_deg": 1.61
+        }
+      },
+      {
+        "joint": 7,
+        "kind": "sine",
+        "amp_deg": 4.0,
+        "freq_hz": 2.0,
+        "n_reps": 1,
+        "target": {
+          "gain": 0.4714,
+          "phase_lag_ms": 239.9,
+          "rmse_deg": 3.669
+        }
+      },
+      {
+        "joint": 7,
+        "kind": "sine",
+        "amp_deg": 8.0,
+        "freq_hz": 0.25,
+        "n_reps": 1,
+        "target": {
+          "gain": 1.0093,
+          "phase_lag_ms": 87.8,
+          "rmse_deg": 0.786
+        }
+      },
+      {
+        "joint": 7,
+        "kind": "sine",
+        "amp_deg": 8.0,
+        "freq_hz": 0.5,
+        "n_reps": 1,
+        "target": {
+          "gain": 0.9963,
+          "phase_lag_ms": 115.5,
+          "rmse_deg": 1.731
+        }
+      },
+      {
+        "joint": 7,
+        "kind": "sine",
+        "amp_deg": 8.0,
+        "freq_hz": 1.0,
+        "n_reps": 1,
+        "target": {
+          "gain": 0.9084,
+          "phase_lag_ms": 299.2,
+          "rmse_deg": 7.381
+        }
+      },
+      {
+        "joint": 7,
+        "kind": "sine",
+        "amp_deg": 8.0,
+        "freq_hz": 2.0,
+        "n_reps": 1,
+        "target": {
+          "gain": 0.2446,
+          "phase_lag_ms": -230.0,
+          "rmse_deg": 6.379
+        }
+      },
+      {
+        "joint": 8,
+        "kind": "sine",
+        "amp_deg": 4.0,
+        "freq_hz": 0.25,
+        "n_reps": 1,
+        "target": {
+          "gain": 0.9622,
+          "phase_lag_ms": 146.8,
+          "rmse_deg": 0.64
+        }
+      },
+      {
+        "joint": 8,
+        "kind": "sine",
+        "amp_deg": 4.0,
+        "freq_hz": 0.5,
+        "n_reps": 1,
+        "target": {
+          "gain": 0.9461,
+          "phase_lag_ms": 138.4,
+          "rmse_deg": 1.016
+        }
+      },
+      {
+        "joint": 8,
+        "kind": "sine",
+        "amp_deg": 4.0,
+        "freq_hz": 1.0,
+        "n_reps": 1,
+        "target": {
+          "gain": 0.9694,
+          "phase_lag_ms": 136.3,
+          "rmse_deg": 2.012
+        }
+      },
+      {
+        "joint": 8,
+        "kind": "sine",
+        "amp_deg": 4.0,
+        "freq_hz": 2.0,
+        "n_reps": 1,
+        "target": {
+          "gain": 0.3827,
+          "phase_lag_ms": -227.3,
+          "rmse_deg": 3.473
+        }
+      },
+      {
+        "joint": 8,
+        "kind": "sine",
+        "amp_deg": 8.0,
+        "freq_hz": 0.25,
+        "n_reps": 1,
+        "target": {
+          "gain": 0.9987,
+          "phase_lag_ms": 125.3,
+          "rmse_deg": 1.103
+        }
+      },
+      {
+        "joint": 8,
+        "kind": "sine",
+        "amp_deg": 8.0,
+        "freq_hz": 0.5,
+        "n_reps": 1,
+        "target": {
+          "gain": 0.9883,
+          "phase_lag_ms": 148.4,
+          "rmse_deg": 2.202
+        }
+      },
+      {
+        "joint": 8,
+        "kind": "sine",
+        "amp_deg": 8.0,
+        "freq_hz": 1.0,
+        "n_reps": 1,
+        "target": {
+          "gain": 0.8841,
+          "phase_lag_ms": 324.4,
+          "rmse_deg": 7.672
+        }
+      },
+      {
+        "joint": 8,
+        "kind": "sine",
+        "amp_deg": 8.0,
+        "freq_hz": 2.0,
+        "n_reps": 1,
+        "target": {
+          "gain": 0.1875,
+          "phase_lag_ms": -209.0,
+          "rmse_deg": 6.019
+        }
+      }
+    ]
+  }
+}

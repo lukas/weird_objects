@@ -698,9 +698,9 @@ parts:
           holes_on_feature: [cap_bolt_90deg]
 
   femur_link:
-    description: "The WHOLE FEMUR as ONE printed part (Jul 2026 merge #2, user: 'combine the femur knee bracket with the femur hip yoke and make that connection very solid (cylinder size of our diameter)' -- supersedes the two-part yoke-pinned-into-bracket femur).  Three fused regions: (1) the HIP-end MOVING C-clevis yoke straddling the coxa_link's hip fixed side -- TOP arm bolts the DRIVEN hip disc horn (4 x M3 on the Phi 14 BCD), BOTTOM arm bolts IDENTICALLY to the PASSIVE disc horn on the servo's rear idler boss; (2) a SOLID Phi 14 spar (the old socket-boss OUTER diameter -- no bore, no slip fit, no retention pin) bridging the full inter-well gap and burying 1 mm into the knee well wall; (3) the KNEE-end FIXED side -- an STS3215 front-face servo bracket (4 walls + output plate), OPEN at the back so the passive knee disc horn rides the servo's rear idler boss.  FRAME: the STL is in the ASSEMBLED-link frame (kept so MuJoCo's mesh loader works unchanged): origin = hip disc-horn-top ON the hip-pitch axis, +X along the femur (knee axis at x = FEMUR_LENGTH = 90), +Z = pivot axis; from shared joint-local coords (x,y,z), STL coords = (x - 12.5, 41.3 - z, y).  Hip yoke features live near x=0 (joint-local values quoted in feature text); knee features near x=90 (their joint-local values are knee-joint-local + 90 in x)."
+    description: "The WHOLE FEMUR as ONE printed part (Jul 2026 merge #2, user: 'combine the femur knee bracket with the femur hip yoke and make that connection very solid (cylinder size of our diameter)' -- supersedes the two-part yoke-pinned-into-bracket femur).  Three fused regions: (1) the HIP-end MOVING C-clevis yoke straddling the coxa_link's hip fixed side -- TOP arm bolts the DRIVEN hip disc horn (4 x M3 on the Phi 14 BCD), BOTTOM arm bolts IDENTICALLY to the PASSIVE disc horn on the servo's rear idler boss; (2) a SOLID Phi 14 spar (the old socket-boss OUTER diameter -- no bore, no slip fit, no retention pin) bridging the full inter-well gap and burying 1 mm into the knee well wall; (3) the KNEE-end FIXED side -- an STS3215 front-face servo bracket (4 walls + output plate), OPEN at the back so the passive knee disc horn rides the servo's rear idler boss.  FRAME: the STL is in the ASSEMBLED-link frame (kept so MuJoCo's mesh loader works unchanged): origin = hip disc-horn-top ON the hip-pitch axis, +X along the femur (knee axis at x = FEMUR_LENGTH = 90), +Z = pivot axis; from shared joint-local coords (x,y,z), STL coords = (x - 12.5, 41.3 - z, y).  Hip yoke features live near x=0 (joint-local values quoted in feature text); knee features near x=90 (their joint-local values are knee-joint-local + 90 in x).  Aug 2026: the knee well's far (+X) wall carries an external 3.5 mm buttress pad (see knee_farwall_buttress_pad -- the fix for the field crack that ran along that wall)."
     qty: 6
-    bounds_mm: [119.7, 56.3, 33.8]      # measured (Jul 2026 merge #2, on disk, STL frame): x in [-10.5, 109.2] (hip yoke arm tip to knee well +X wall), y in [-4.0, 52.3] (top-arm outer face to bottom-arm outer face), z in [-16.9, 16.9] (well depth WELL_D = 33.8).
+    bounds_mm: [123.2, 56.3, 33.8]      # measured (Aug 2026, on disk, STL frame): x in [-10.5, 112.7] (hip yoke arm tip to knee far-wall buttress pad outer face), y in [-4.0, 52.3] (top-arm outer face to bottom-arm outer face), z in [-16.9, 16.9] (well depth WELL_D = 33.8).
     holes:
       # -- Hip yoke: 4 x M3 disc-horn bolts through the TOP arm (probed at
       #    arm mid-thickness; joint-local z = 43.3 -> STL y = -2.0).  The
@@ -776,10 +776,23 @@ parts:
           axis: y
         - name: fused_femur_spar
           type: cylindrical_boss
-          description: "The SOLID femur spar (Jul 2026 merge #2; = hexapod_prototype._femur_fused_spar).  A solid Phi FEMUR_SPAR_OD = 14 cylinder (the old socket-boss OUTER diameter) on the femur line (joint-local z = JOINT_SOCKET_Z = 17.15 -> STL y = 24.15), running from the hip spine face (joint-local x = _YOKE_SOCKET_X = 42) to 1 mm PAST the knee well wall face at 58.3 (= FEMUR_LENGTH - WELL_W/2), i.e. buried volumetrically into the wall so the boolean union is one body.  NOTHING is cut from it: the old Phi 8.1 socket bore, Phi 7.8 rod tail and both transverse Phi 2.6 retention pins are RETIRED."
+          description: "The SOLID femur spar (Jul 2026 merge #2; = hexapod_prototype._femur_fused_spar).  A solid Phi FEMUR_SPAR_OD = 14 cylinder (the old socket-boss OUTER diameter) on the femur line (joint-local z = JOINT_SOCKET_Z = 17.15 -> STL y = 24.15), running from the hip spine face (joint-local x = _YOKE_SOCKET_X = 42) to 1 mm PAST the knee well wall face at 58.3 (= FEMUR_LENGTH - WELL_W/2), i.e. buried volumetrically into the wall so the boolean union is one body.  NOTHING is cut from it: the old Phi 8.1 socket bore, Phi 7.8 rod tail and both transverse Phi 2.6 retention pins are RETIRED.  Aug 2026: the knee-end T-junction now carries a conical gusset (see spar_knee_junction_gusset)."
           centre_mm: [38.15, 24.15, 0.0] # joint-local (50.65, 0, 17.15); spans joint-local x in [42, 59.3]
           length_mm: 17.3               # = FEMUR_SPAR_LEN (16.3) + 1 mm wall bite
           diameter_mm: 14.0             # = FEMUR_SPAR_OD = LEG_TUBE_OD + 6 (solid, full length)
+          axis: x
+        - name: spar_knee_junction_gusset
+          type: gusset_rib
+          description: "Aug 2026: a conical gusset at the spar's KNEE end kills the sharp 90-deg T-junction into the well wall.  (Originally added as the fix for field crack #2, on a misread of the photo -- the user corrected that the crack actually runs along the FAR wall, see knee_farwall_buttress_pad, which is the real crack fix.  The cone is KEPT on its own merits: the torque-reaction FEA shows this junction is still the highest-stressed region of the whole part, ~9-12 MPa under a 2g foot strike, and the cone cuts it -25..-31%.)  Base = Phi 2*FEMUR_GUSSET_R_KNEE = 24 buried 1 mm into the wall (base at joint-local x = 59.3), apex at the spine face (cone height 13.3), so the cone tapers past the spar's Phi 14 ~5.5 mm out (a ~48-deg gusset) and never enters the clamp-cap or clevis airspace.  HIP end deliberately has NO cone: FEA showed any stiff cone rim landing on the 4 mm spine PLATE trades the old corner stress for a WORSE plate-prying rim hot zone, and the hip junction (spar buried through the full spine thickness) never cracked in the field."
+          centre_mm: [40.15, 24.15, 0.0] # same spar line (joint-local z = 17.15); cone spans joint-local x in [46, 59.3]
+          length_mm: 13.3               # base face (x = 59.3) to apex at the spine face (x = 46)
+          diameter_mm: 24.0             # = 2 * FEMUR_GUSSET_R_KNEE at the base, tapering to 0 at the apex
+          axis: x
+        - name: knee_farwall_buttress_pad
+          type: extruded_rectangle
+          description: "Aug 2026, THE fix for field crack #2 (user-corrected location: the split runs along a layer seam just under the clamp-cap seam on the knee well's FAR (+X well-local) wall -- the wall OPPOSITE the spar -- wrapping its corner).  Torque-reaction FEA (artifacts/strength/femur_tq_*): pure knee torque puts only ~2 MPa there, but a LATERAL foot catch reacts its out-of-plane moment (F_impact x TIBIA_LENGTH ~ 1.8 N-m) as an ~80 N bearing couple of the servo case against that wall's top band plus a pull on the retaining lip and cap pilot -- the wall was the only load path and pried across its own layer seams + the Phi 2.5 cap-bolt pilot.  Fix: an external 3.5 mm DOUBLER pad on the wall's outer face (1 mm volumetric bite, so 4.5 total), 26 mm wide (|well y| <= 13, clear of the clamp-cap flange seat and inside the cap's existing yoke-sweep envelope), spanning the WALL BAND ONLY (well z 0..34.3, stopping at the plate underside -- an FEA iteration showed a full-height pad hard-couples the couple into the 4 mm plate's drop-in-slot edge, +65%).  Result (lateral case): far-wall mid-section p95 1.48 -> 0.81 MPa, region peak 17 -> 9.7, pilot vicinity -70%, global peak 36 -> 16 MPa vs 22.7 MPa derated yield; plate unchanged from baseline; wire-exit corridor still pierces (slot reaches 4.0 past the wall > 3.5 pad).  Knee cradle only -- the coxa hip cradle keeps the stock wall."
+          centre_mm: [110.45, 24.15, 0.0] # joint-local (122.95, 0, 17.15); spans joint-local x in [120.7, 125.2] (wall outer face 121.7 + 3.5), y +/-13, z 0..34.3
+          size_mm: [4.5, 34.3, 26.0]    # STL frame: 4.5 along x (incl 1 mm wall bite), 34.3 along y (well band height), 26 along z
           axis: x
         - name: knee_servo_mount_plate
           type: extruded_rectangle
@@ -811,7 +824,7 @@ parts:
           axis: y
 
   tibia_knee_yoke:
-    description: "Tibia's KNEE-end MOVING yoke (Jun 2026 bearing-sandwich).  GEOMETRICALLY IDENTICAL to the femur_link's hip yoke (same _sandwich_moving_yoke helper): a C-clevis whose top arm bolts to the knee disc horn (4 x M3 on the Phi 14 BCD) and whose bottom arm bolts to the STOCK passive knee horn flush on the servo back face (Jul 2026 stock-horn refit); the +X spine sockets the tibia Phi 8 CF tube toward the foot.  Shared joint-local frame."
+    description: "Tibia's KNEE-end MOVING yoke (Jun 2026 bearing-sandwich).  Same _sandwich_moving_yoke helper as the femur_link's hip yoke: a C-clevis whose top arm bolts to the knee disc horn (4 x M3 on the Phi 14 BCD) and whose bottom arm bolts to the STOCK passive knee horn flush on the servo back face (Jul 2026 stock-horn refit); the +X spine sockets the tibia Phi 8 CF tube toward the foot.  Shared joint-local frame.  Aug 2026: NO LONGER geometrically identical to the femur hip yoke -- the tibia yoke's spine plate is DOUBLED 4 -> 8 mm (TIBIA_YOKE_SPINE_PAD_T; see spine_plate_doubler) after the field crack through it; the femur hip yoke keeps the stock 4 mm spine."
     qty: 6
     bounds_mm: [60.0, 24.0, 56.3]       # identical clevis to the femur_link hip yoke (longer default tube socket): z in [-11.0, 45.3] (Jul 2026 stock-horn refit)
     holes:
@@ -864,18 +877,24 @@ parts:
             mating_plane_z_local_mm: -2.0
         - name: tibia_tube_socket
           type: cylindrical_boss
-          description: "Phi 14 OD socket boss extending toward +X at z = JOINT_SOCKET_Z = 17.15 (yoke mid-plane; moved +1 mm by the Jul 2026 stock-horn refit); Phi 8.3 bore accepts the tibia Phi 8 CF tube (epoxy + Phi 2.6 transverse pin at x = mouth + 7 = 49) running to the foot end (pressed-on TPU foot_boot)."
+          description: "Phi 18 OD socket boss extending toward +X at z = JOINT_SOCKET_Z = 17.15 (yoke mid-plane; moved +1 mm by the Jul 2026 stock-horn refit); Phi 8.1 bore accepts the tibia Phi 8 CF tube (epoxy + Phi 2.6 transverse pin at x = mouth + 7 = 49) running to the foot end (pressed-on TPU foot_boot).  Aug 2026: wall thickened 3 -> 5 mm (LEG_TUBE_SOCKET_WALL, boss Phi 14 -> Phi 18) -- first read as the crack fix; the user then pinned the field crack on the SPINE PLATE the boss tees into (see spine_plate_doubler, the real fix).  The thicker boss is kept on its own merits: FEA puts the tube-exit fulcrum at the boss mouth at ~14 MPa under a 2g strike, the highest-stressed spot on the part."
           centre_mm: [52.0, 0.0, 17.15]
           length_mm: 20.0
-          diameter_mm: 14.0
-          inner_diameter_mm: 8.3
+          diameter_mm: 18.0
+          inner_diameter_mm: 8.1
           axis: x
           mating_face:
             normal: +x
             mates_to: "tibia Phi 8 mm carbon-fibre tube (epoxy + transverse Phi 2.6 retention pin); other end takes the pressed-on TPU foot_boot"
             mating_plane_z_local_mm: 17.15
-
-  foot_boot:
+        - name: spine_plate_doubler
+          type: extruded_rectangle
+          description: "Aug 2026, THE fix for field crack #1 (user-corrected location: the photo shows VERTICAL splits through the 4 mm spine plate -- the yoke's flat front face -- above and below the tube socket, out to the arm edges; the earlier boss thickening never touched the plate).  Mechanism: a motion-plane foot strike bends the tube about the pivot axis and the socket boss pries the plate top/bottom, splitting it along vertical layer seams (same thin-plate T-junction failure as the femur knee-well far wall).  Fix: the spine plate is DOUBLED 4 -> 8 mm, extended OUTBOARD x 46 -> 50 (TIBIA_YOKE_SPINE_PAD_T = 4; inboard is forbidden by the Jun 2026 clamp-cap ROM refit, outboard is measured-free per the closed-yoke ROM survey).  CalculiX before/after (2g motion-plane foot strike, artifacts/strength/tibiayoke_*): spine crack-path peak 4.9 -> 2.1 MPa (-57%), p95 -63%; boss-mouth fulcrum 14.3 -> 5.3 MPa (-63%, now backed by the thick plate); vs 22.7 MPa derated yield.  Socket mouth (x = 42), bore, and pin (x = 49, cross-hole now runs through the thicker plate = more pin bearing) unchanged -- CF tube cut length and drill position stay put.  TIBIA YOKE ONLY: the femur hip yoke keeps the 4 mm spine (its spar passes through the plate's full thickness; never cracked)."
+          centre_mm: [46.0, 0.0, 17.15]  # plate spans x [42, 50], y +/-12, z [-11, 45.3]
+          length_mm: 8.0                # doubled thickness along x (was 4)
+          width_mm: 24.0
+          thickness_mm: 56.3            # full spine height, z -11 .. 45.3
+          axis: x
     description: "TPU 95A boot pressed over the tibia CF-tube end (Aug 2026 -- replaces tibia_foot_fitting + foot_pad + the M3 x 16/nyloc hinge pin; 12 printed parts + 12 fasteners retired).  One revolved solid: a 3 mm-wall sleeve stretches over the last FOOT_BOOT_SOCKET_DEPTH = 20 mm of the Phi 8 tube (Phi 7.7 bore = 0.3 mm diametral interference), closed by a FOOT_BOOT_TIP_L = 8 mm solid tip whose FLAT chamfer-rimmed face is the ground contact.  Local frame: origin at the tube end on the tube axis; tube enters from -X, tip face at +8.  A +4 mm-longer-tip variant (extra_stl/foot_boot_plus4.stl) rides the 4 mm-short CF tubes of legs 0/4 so every tip lands at tibia-local x = TIBIA_LENGTH.  TRANSITIONAL: the plus4 variant only absorbs an as-built tube-cutting error -- at the next tube recut standardize all six tubes at 128 mm and retire it (one boot SKU)."
     qty: 6
     bounds_mm: [28.0, 14.0, 14.0]       # x in [-20, +8] (20 mm socket + 8 mm tip), Phi 14 OD (FOOT_BOOT_OD)

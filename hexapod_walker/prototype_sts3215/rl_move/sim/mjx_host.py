@@ -71,6 +71,11 @@ SNAP_ATTRS = (
     # this list exists for.
     "_seq_plan", "_seq_idx", "_seq_stand_z", "_seq_seg_end",
     "_seq_pose_anchor",
+    # Physics easing (08-13): the episode's baked ease multipliers,
+    # set in _reset_begin next to the _ep_rand they scaled and emitted
+    # in step info — a pool-restored episode must report the ease
+    # values its own DR rows were minted with, not a later episode's.
+    "_ease_g", "_ease_v",
 )
 
 

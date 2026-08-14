@@ -1891,6 +1891,105 @@ class BenchAPI:
         self._demo_thread.start()
         return {"ok": True, "calibrate": self.calibrate_state()}
 
+    def sysid_run(self, protocol: dict, *, force: bool = False) -> dict:
+        """Run a sysid protocol (deterministic command stream, async).
+
+        Body-supplied protocol JSON (see ``sysid_protocol.py``); logged
+        to ``logs/sysid_<name>_<stamp>.csv`` with per-tick send/recv
+        timestamps. Whole-body ``traj`` segments additionally require
+        ``force=true`` (and the runner's own start-pose gate).
+        """
+        try:
+            from sysid_protocol import duration_s, validate
+            from sysid_runner import run_sysid_protocol
+        except ImportError as e:
+            return {"ok": False, "error": f"sysid modules missing: {e}"}
+        if self.drive.dry_run or not self.drive.bus:
+            return {"ok": False, "error": "no bus"}
+        if not isinstance(protocol, dict):
+            return {"ok": False, "error": "protocol must be a JSON object"}
+        errs = validate(protocol)
+        if errs:
+            return {"ok": False,
+                    "error": "invalid protocol: " + "; ".join(errs)}
+        if self._demo_thread and self._demo_thread.is_alive():
+            if not self._preempt_demo_thread(reason="→ sysid", timeout=5.0):
+                return {"ok": False, "error": "previous job still running"}
+
+        name = str(protocol.get("name", "unnamed"))
+        secs = duration_s(protocol)
+        self._demo_gen += 1
+        gen = self._demo_gen
+        self._demo_abort.clear()
+        with self._lock:
+            self._demo_name = "sysid_run"
+            self._demo_status = f"sysid '{name}' ({secs:.0f}s)"
+            self._demo_params = {"name": name, "force": bool(force),
+                                 "duration_s": round(secs, 1),
+                                 "segments": len(protocol.get("segments",
+                                                              []))}
+            self._cal_result = None
+            self._cal_progress = {"msg": self._demo_status}
+        self._set_activity("calibrating", self._demo_status)
+
+        def _worker():
+            d = self.drive
+            with d._lock:
+                d.mode = "demo"
+                d.gait.stop()
+                if not d.armed:
+                    d._torque_all(True)
+                    d.armed = True
+
+            def _on_progress(p: dict) -> None:
+                with self._lock:
+                    self._cal_progress = dict(p)
+                    self._demo_status = str(p.get("msg") or "sysid")
+
+            try:
+                result = run_sysid_protocol(
+                    d.bus,
+                    protocol,
+                    force=bool(force),
+                    abort_check=self._demo_abort.is_set,
+                    on_progress=_on_progress,
+                )
+                if gen != self._demo_gen:
+                    return
+                with self._lock:
+                    self._cal_result = result
+                    if self._demo_abort.is_set() or result.get("aborted"):
+                        self._demo_status = "aborted"
+                    elif result.get("ok"):
+                        self._demo_status = (
+                            f"done · {result.get('ticks_done')}/"
+                            f"{result.get('ticks_planned')} ticks")
+                    else:
+                        self._demo_status = f"error: {result.get('error')}"
+            except Exception as e:
+                if gen != self._demo_gen:
+                    return
+                with self._lock:
+                    self._cal_result = {"ok": False, "error": str(e),
+                                       "mode": "sysid"}
+                    self._demo_status = f"error: {e}"
+            finally:
+                if gen != self._demo_gen:
+                    return
+                # Runner limps the bus; keep drive disarmed.
+                with d._lock:
+                    d.armed = False
+                    if d.mode == "demo":
+                        d.mode = "idle"
+                with self._lock:
+                    st = self._demo_status
+                self._set_activity("limp", st or "sysid done")
+
+        self._demo_thread = threading.Thread(target=_worker, daemon=True)
+        self._demo_thread.start()
+        return {"ok": True, "name": name, "duration_s": round(secs, 1),
+                "calibrate": self.calibrate_state()}
+
     def rl_preflight(self, *, mode: str = "stand") -> dict:
         """Read-only readiness check for the RL stand/lower/walk buttons."""
         mode = (mode or "stand").strip().lower()
@@ -1976,7 +2075,9 @@ class BenchAPI:
     # weights fresh at every episode start. Slot is inferred from the
     # obs dim (68 = stance stand/lower, 72 = walk).
     POLICIES_DIR = Path(__file__).resolve().parent / "policies"
-    _SLOT_OBS = {68: "stance", 72: "walk"}
+    # obs 74 = walk + phase clock (sin/cos appended by the runner; the
+    # cw-arch-noslipphase1 no-slip line). Same walk slot.
+    _SLOT_OBS = {68: "stance", 72: "walk", 74: "walk"}
 
     def _policy_slot_targets(self) -> dict:
         from rl_policy import WALK_WEIGHTS_PATH, WEIGHTS_PATH
@@ -2032,7 +2133,7 @@ class BenchAPI:
         if slot is None:
             return {"ok": False,
                     "error": (f"obs_dim {meta.get('obs_dim')} fits no slot "
-                              f"(68 = stance, 72 = walk)")}
+                              f"(68 = stance, 72/74 = walk)")}
         dst = self._policy_slot_targets()[slot]
         tmp = dst.with_name(dst.name + ".tmp")
         tmp.write_text(payload)
@@ -2058,7 +2159,7 @@ class BenchAPI:
     # special hold value "walk" (the default) means "the walk policy at
     # zero command" — its trained stop, no model switch at all.
     ROLES_FILE = Path.home() / ".hexapod_rl_roles.json"
-    _ROLE_OBS = {"walk": (72,), "hold": (68, 72),
+    _ROLE_OBS = {"walk": (72, 74), "hold": (68, 72, 74),
                  "stand": (68,), "lower": (68,)}
 
     def _roles(self) -> dict:
@@ -2326,7 +2427,9 @@ class BenchAPI:
 
     def rl_policy_move(self, *, mode: str = "stand", vx: float = 0.03,
                        vy: float = 0.0, duration_s: float = 6.0,
-                       rot60: bool = True) -> dict:
+                       rot60: bool = True, turn: str | None = None,
+                       tilt_trip_deg: float | None = None,
+                       extra_hold_s: float = 0.0) -> dict:
         """Run a trained RL policy: stand up / lower / walk.
 
         Async (demo-thread slot, poll ``rl_state``, abort via ``rl_stop``).
@@ -2336,6 +2439,8 @@ class BenchAPI:
         Safety layer trips (tilt / sustained over-current / temp) limp
         immediately. Walk extras: body-frame vx/vy (m/s, clamped to the
         trained 0.06 band) and duration_s (clamped 3..20 s).
+        ``turn`` (walk only): "left"/"right" = mirror-selection arc
+        turn, "hold" = heading hold; None = the unchanged naked path.
         The OPERATOR MUST BE WATCHING — this is the explicit order.
         """
         mode = (mode or "stand").strip().lower()
@@ -2399,6 +2504,13 @@ class BenchAPI:
                 self._demo_params.update(
                     vx=float(vx), vy=float(vy),
                     duration_s=float(duration_s), rot60=bool(rot60))
+                if turn:
+                    self._demo_params["turn"] = str(turn)
+            else:
+                if tilt_trip_deg:
+                    self._demo_params["tilt_trip_deg"] = float(tilt_trip_deg)
+                if extra_hold_s:
+                    self._demo_params["extra_hold_s"] = float(extra_hold_s)
             self._cal_result = None
             self._cal_progress = {"msg": self._demo_status}
         self._set_activity("rl_policy", label)
@@ -2412,6 +2524,13 @@ class BenchAPI:
                     self._demo_status = str(p.get("msg") or label)
 
             try:
+                # 08-12 operator-observed freezes during the RL stand:
+                # this worker was the ONLY motion path that never set
+                # _bus_hot, so the TFT panel kept repainting mid-episode
+                # (a DJ redraw holds the MCU link ~1.5 s — the measured
+                # "big pause in the middle of standing"). Same guard as
+                # every other motion worker.
+                self._bus_hot = True
                 if acquire_first:
                     with d._lock:
                         d.mode = "demo"
@@ -2437,7 +2556,11 @@ class BenchAPI:
                     abort_check=self._demo_abort.is_set,
                     vx=float(vx), vy=float(vy),
                     duration_s=float(duration_s), rot60=bool(rot60),
-                    weights_path=weights_path)
+                    turn=(str(turn) if turn else None),
+                    weights_path=weights_path,
+                    tilt_trip_deg=(float(tilt_trip_deg)
+                                   if tilt_trip_deg else None),
+                    extra_hold_s=float(extra_hold_s or 0.0))
                 if gen != self._demo_gen:
                     return
                 if result.get("ok") and mode == "stand":
@@ -2483,6 +2606,7 @@ class BenchAPI:
                                         "mode": mode}
                     self._demo_status = f"error: {e}"
             finally:
+                self._bus_hot = False
                 if gen != self._demo_gen:
                     return
                 res = self._cal_result or {}

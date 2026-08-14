@@ -20,7 +20,11 @@ PYTHON="${PYTHON:-python3}"
 
 if [ ! -d "$VENV_DIR" ]; then
     echo "Creating virtual environment in $VENV_DIR..."
-    "$PYTHON" -m venv "$VENV_DIR"
+    if command -v uv >/dev/null 2>&1; then
+        uv venv "$VENV_DIR"
+    else
+        "$PYTHON" -m venv "$VENV_DIR"
+    fi
 fi
 
 # shellcheck disable=SC1091
@@ -32,8 +36,14 @@ CURRENT_HASH="$(shasum "$REQ_FILE" | awk '{print $1}')"
 
 if [ ! -f "$STAMP_FILE" ] || [ "$(cat "$STAMP_FILE")" != "$CURRENT_HASH" ]; then
     echo "Installing/updating dependencies..."
-    pip install --upgrade pip
-    pip install -r "$REQ_FILE"
+    # The venv is uv-managed (created with `uv venv`, so it has no pip
+    # module).  Prefer uv; fall back to `python -m pip` for a stock venv.
+    if command -v uv >/dev/null 2>&1; then
+        uv pip install --python "$VENV_DIR/bin/python" -r "$REQ_FILE"
+    else
+        python -m pip install --upgrade pip
+        python -m pip install -r "$REQ_FILE"
+    fi
     echo "$CURRENT_HASH" > "$STAMP_FILE"
 fi
 

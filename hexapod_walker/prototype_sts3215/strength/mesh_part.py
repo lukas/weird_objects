@@ -117,7 +117,8 @@ def tetrahedralize(stl_path: str,
     )
 
 
-def _heal_stl_via_trimesh(stl_path: str) -> str:
+def _heal_stl_via_trimesh(stl_path: str,
+                          max_edge_mm: float | None = None) -> str:
     """Run trimesh's standard cleanup pipeline on the STL and write a
     healed copy.  Returns the path to the healed STL.
 
@@ -127,15 +128,35 @@ def _heal_stl_via_trimesh(stl_path: str) -> str:
     ``createGeometry`` step refuses to accept those (raises "Invalid
     boundary mesh (overlapping facets)"), so we run trimesh's
     standard cleanup pipeline before handing the STL to Gmsh.
+
+    Aug 2026: two more healing passes, found meshing femur_link (its
+    CSG seams made gmsh's Delaunay throw "PLC Error: a segment and a
+    facet intersect" and HXT segfault in facet recovery):
+    * a manifold3d self-union, which rebuilds the mesh as a guaranteed
+      self-intersection-free solid, and
+    * ``subdivide_to_size(max_edge=max_edge_mm)`` so the boundary has
+      no long skinny CSG facets -- gmsh's classify+reparametrize pass
+      then generates its own conforming surface mesh without
+      "overlapping facets" failures.  Pass ``max_edge_mm`` ~ the tet
+      target size.
     """
     import trimesh
     m = trimesh.load(stl_path, force="mesh")
+    try:
+        m = trimesh.boolean.union([m], engine="manifold")
+    except BaseException:
+        pass  # manifold3d missing/failed: fall through to basic cleanup
     # Standard cleanup pipeline:
     m.merge_vertices()
     m.remove_duplicate_faces() if hasattr(m, "remove_duplicate_faces") else None
     m.remove_degenerate_faces() if hasattr(m, "remove_degenerate_faces") else None
     m.remove_unreferenced_vertices()
     m.fix_normals()
+    if max_edge_mm is not None and max_edge_mm > 0:
+        v, f = trimesh.remesh.subdivide_to_size(
+            m.vertices, m.faces, max_edge=max_edge_mm)
+        m = trimesh.Trimesh(v, f)
+        m.merge_vertices()
     base = os.path.splitext(os.path.basename(stl_path))[0]
     out = os.path.join(ARTIFACT_DIR, f"{base}_healed.stl")
     m.export(out)
@@ -159,7 +180,7 @@ def _tet_via_gmsh_python(stl_path: str,
     import gmsh
     import meshio
 
-    healed_path = _heal_stl_via_trimesh(stl_path)
+    healed_path = _heal_stl_via_trimesh(stl_path, max_edge_mm=target_size_mm)
 
     def _try_classify_geometry() -> bool:
         gmsh.merge(healed_path)
@@ -227,6 +248,18 @@ def _tet_via_gmsh_python(stl_path: str,
         gmsh.model.mesh.field.setNumber(bg, "VIn", target_size_mm)
         gmsh.model.mesh.field.setNumber(bg, "VOut", target_size_mm)
         all_curves = [e[1] for e in gmsh.model.getEntities(1)]
+        # Aug 2026: the Distance field costs O(curves x sampling) per mesh
+        # point -- on a healed/subdivided CSG part classify can emit 1000s
+        # of tiny curves and the "refinement" then pegs a core for 30+ min
+        # (observed on femur_link).  Cap it: past ~200 curves skip the
+        # sharp-edge refinement and mesh at the constant target size.
+        if len(all_curves) > 200:
+            print(
+                f"[mesh_part] {len(all_curves)} classified curves -- "
+                "skipping Distance-field edge refinement (would hang); "
+                "meshing at constant size."
+            )
+            all_curves = []
         if all_curves:
             df = gmsh.model.mesh.field.add("Distance")
             gmsh.model.mesh.field.setNumbers(df, "CurvesList", all_curves)

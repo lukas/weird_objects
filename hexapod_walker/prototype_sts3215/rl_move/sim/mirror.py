@@ -145,12 +145,17 @@ class MirrorPolicy:
     """
 
     def __init__(self, model, *, walk: bool = True, yaw_cmd: bool = False,
-                 phase_obs: bool = False, mode_onehot: bool = False):
+                 phase_obs: bool = False, mode_onehot: bool = False,
+                 obs_dim: int | None = None):
+        # obs_dim: deploy-side wrappers (NumpyPolicy / Rot60Policy in
+        # linux_control/rl_policy.py) have no observation_space; the
+        # runner passes the width explicitly.
         self.model = model
         fw = len(frame_perm_sign(walk=walk, yaw_cmd=yaw_cmd,
                                  phase_obs=phase_obs,
                                  mode_onehot=mode_onehot)[0])
-        obs_dim = int(np.prod(model.observation_space.shape))
+        if obs_dim is None:
+            obs_dim = int(np.prod(model.observation_space.shape))
         if obs_dim % fw:
             raise ValueError(
                 f"model obs width {obs_dim} is not a multiple of the "

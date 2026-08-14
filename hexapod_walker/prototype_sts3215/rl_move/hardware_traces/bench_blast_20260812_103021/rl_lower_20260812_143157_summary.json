@@ -1,0 +1,86 @@
+{
+ "started": "2026-08-12T14:31:57",
+ "csv": "rl_lower_20260812_143157.csv",
+ "ticks_logged": 101,
+ "params": {
+  "mode": "lower",
+  "total_s": 13.5,
+  "hz": 25.0,
+  "policy": {
+   "source": "rl_move/sim/policies/ppo_goal_cw_stand_holdbc1_hard1.zip",
+   "name": "holdbc1-hard1 stand/sit (HOLD+RISE 10M)",
+   "notes": "EXPERIMENTAL on hardware \u2014 watch it. Overnight 08-11 HOLD+RISE+LOWER specialist: quiet six-foot hold (feet factor 0.99-1.0), belly-to-plant rise tracks a recorded reference, trained lower/sit. Sim: hold 11/12 valid, crouch-start rise still tips 2/4 \u2014 NOT hardware-validated, no deployment-contract flags. Try SIT and HOLD first; for stand-up keep a hand ready and use Experiments tab tuck as the known-good fallback. Meta carries the TRAINED goal ramp (hold 5s, ramp 6s, +111mm): re-select/push this file before STAND \u2014 the 08-11-morning copy (md5 6620705c) lacks it and the runner falls back to the legacy +50mm/4s ramp, an out-of-distribution command for this policy.",
+   "obs_dim": 68,
+   "act_dim": 18,
+   "hidden": [
+    128,
+    128
+   ],
+   "activation": "tanh",
+   "profile": {
+    "stand": {
+     "hold_s": 5.0,
+     "ramp_s": 6.0,
+     "target_m": 0.111,
+     "total_s": 12.5
+    },
+    "lower": {
+     "hold_s": 1.0,
+     "ramp_s": 5.0,
+     "target_m": -0.045,
+     "total_s": 11.0
+    }
+   }
+  },
+  "q_nom_deg": [
+   0.0,
+   19.34,
+   79.37,
+   0.26,
+   16.79,
+   78.57,
+   -0.26,
+   19.51,
+   80.16,
+   0.09,
+   17.75,
+   79.1,
+   -0.18,
+   19.25,
+   80.07,
+   0.09,
+   17.84,
+   79.72
+  ],
+  "tilt_ref_deg": [
+   5.06,
+   3.39
+  ],
+  "tilt_trip_deg": 20.0,
+  "preflight": {
+   "roll_deg": 5.3,
+   "pitch_deg": 3.5,
+   "max_pose_delta_deg": 1.5,
+   "pose_tol_deg": 25.0
+  }
+ },
+ "result": {
+  "ok": false,
+  "mode": "lower",
+  "error": "safety trip: over_load (L3 knee 97%)",
+  "limped": true,
+  "ticks": 71,
+  "max_current_a": 5.78,
+  "overruns": 7,
+  "tilt_ref_deg": [
+   5.06,
+   3.39
+  ],
+  "tilt_rel_max_deg": 11.1,
+  "roll_rel_end_deg": -18.0,
+  "pitch_rel_end_deg": 13.8,
+  "tail_s": 3.0,
+  "tail_tilt_max_deg": 18.0,
+  "fell": false
+ }
+}

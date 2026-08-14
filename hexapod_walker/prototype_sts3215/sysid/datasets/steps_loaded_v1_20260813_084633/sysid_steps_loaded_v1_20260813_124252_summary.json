@@ -1,0 +1,768 @@
+{
+ "ok": true,
+ "mode": "sysid",
+ "name": "steps_loaded_v1",
+ "protocol_hash": "cdce8fe4c7b3",
+ "hz": 25.0,
+ "ticks_planned": 5280,
+ "ticks_done": 5280,
+ "overruns": 5,
+ "clamped_cmds": 0,
+ "aborted": false,
+ "error": null,
+ "csv": "/home/arduino/hexapod_sts/linux_control/logs/sysid_steps_loaded_v1_20260813_124252.csv",
+ "segments": [
+  {
+   "seg": 0,
+   "label": "L2_hip_lstep+3_r0",
+   "ticks": 110,
+   "peak_current_a": 0.5005
+  },
+  {
+   "seg": 1,
+   "label": "L2_hip_lstep-3_r0",
+   "ticks": 110,
+   "peak_current_a": 0.221
+  },
+  {
+   "seg": 2,
+   "label": "L2_hip_lstep+6_r0",
+   "ticks": 110,
+   "peak_current_a": 0.3575
+  },
+  {
+   "seg": 3,
+   "label": "L2_hip_lstep-6_r0",
+   "ticks": 110,
+   "peak_current_a": 0.20149999999999998
+  },
+  {
+   "seg": 4,
+   "label": "L2_hip_lstep+3_r1",
+   "ticks": 110,
+   "peak_current_a": 0.22749999999999998
+  },
+  {
+   "seg": 5,
+   "label": "L2_hip_lstep-3_r1",
+   "ticks": 110,
+   "peak_current_a": 0.13
+  },
+  {
+   "seg": 6,
+   "label": "L2_hip_lstep+6_r1",
+   "ticks": 110,
+   "peak_current_a": 0.286
+  },
+  {
+   "seg": 7,
+   "label": "L2_hip_lstep-6_r1",
+   "ticks": 110,
+   "peak_current_a": 0.1235
+  },
+  {
+   "seg": 8,
+   "label": "L2_hip_lstep+3_r2",
+   "ticks": 110,
+   "peak_current_a": 0.1625
+  },
+  {
+   "seg": 9,
+   "label": "L2_hip_lstep-3_r2",
+   "ticks": 110,
+   "peak_current_a": 0.0715
+  },
+  {
+   "seg": 10,
+   "label": "L2_hip_lstep+6_r2",
+   "ticks": 110,
+   "peak_current_a": 0.2405
+  },
+  {
+   "seg": 11,
+   "label": "L2_hip_lstep-6_r2",
+   "ticks": 110,
+   "peak_current_a": 0.0455
+  },
+  {
+   "seg": 12,
+   "label": "L2_knee_lstep+5_r0",
+   "ticks": 110,
+   "peak_current_a": 0.065
+  },
+  {
+   "seg": 13,
+   "label": "L2_knee_lstep-5_r0",
+   "ticks": 110,
+   "peak_current_a": 0.052
+  },
+  {
+   "seg": 14,
+   "label": "L2_knee_lstep+10_r0",
+   "ticks": 110,
+   "peak_current_a": 0.156
+  },
+  {
+   "seg": 15,
+   "label": "L2_knee_lstep-10_r0",
+   "ticks": 110,
+   "peak_current_a": 0.052
+  },
+  {
+   "seg": 16,
+   "label": "L2_knee_lstep+5_r1",
+   "ticks": 110,
+   "peak_current_a": 0.091
+  },
+  {
+   "seg": 17,
+   "label": "L2_knee_lstep-5_r1",
+   "ticks": 110,
+   "peak_current_a": 0.039
+  },
+  {
+   "seg": 18,
+   "label": "L2_knee_lstep+10_r1",
+   "ticks": 110,
+   "peak_current_a": 0.1235
+  },
+  {
+   "seg": 19,
+   "label": "L2_knee_lstep-10_r1",
+   "ticks": 110,
+   "peak_current_a": 0.065
+  },
+  {
+   "seg": 20,
+   "label": "L2_knee_lstep+5_r2",
+   "ticks": 110,
+   "peak_current_a": 0.104
+  },
+  {
+   "seg": 21,
+   "label": "L2_knee_lstep-5_r2",
+   "ticks": 110,
+   "peak_current_a": 0.039
+  },
+  {
+   "seg": 22,
+   "label": "L2_knee_lstep+10_r2",
+   "ticks": 110,
+   "peak_current_a": 0.1105
+  },
+  {
+   "seg": 23,
+   "label": "L2_knee_lstep-10_r2",
+   "ticks": 110,
+   "peak_current_a": 0.078
+  },
+  {
+   "seg": 24,
+   "label": "L5_hip_lstep+3_r0",
+   "ticks": 110,
+   "peak_current_a": 0.08449999999999999
+  },
+  {
+   "seg": 25,
+   "label": "L5_hip_lstep-3_r0",
+   "ticks": 110,
+   "peak_current_a": 0.0455
+  },
+  {
+   "seg": 26,
+   "label": "L5_hip_lstep+6_r0",
+   "ticks": 110,
+   "peak_current_a": 0.13
+  },
+  {
+   "seg": 27,
+   "label": "L5_hip_lstep-6_r0",
+   "ticks": 110,
+   "peak_current_a": 0.052
+  },
+  {
+   "seg": 28,
+   "label": "L5_hip_lstep+3_r1",
+   "ticks": 110,
+   "peak_current_a": 0.0715
+  },
+  {
+   "seg": 29,
+   "label": "L5_hip_lstep-3_r1",
+   "ticks": 110,
+   "peak_current_a": 0.0325
+  },
+  {
+   "seg": 30,
+   "label": "L5_hip_lstep+6_r1",
+   "ticks": 110,
+   "peak_current_a": 0.104
+  },
+  {
+   "seg": 31,
+   "label": "L5_hip_lstep-6_r1",
+   "ticks": 110,
+   "peak_current_a": 0.0325
+  },
+  {
+   "seg": 32,
+   "label": "L5_hip_lstep+3_r2",
+   "ticks": 110,
+   "peak_current_a": 0.08449999999999999
+  },
+  {
+   "seg": 33,
+   "label": "L5_hip_lstep-3_r2",
+   "ticks": 110,
+   "peak_current_a": 0.0325
+  },
+  {
+   "seg": 34,
+   "label": "L5_hip_lstep+6_r2",
+   "ticks": 110,
+   "peak_current_a": 0.08449999999999999
+  },
+  {
+   "seg": 35,
+   "label": "L5_hip_lstep-6_r2",
+   "ticks": 110,
+   "peak_current_a": 0.052
+  },
+  {
+   "seg": 36,
+   "label": "L5_knee_lstep+5_r0",
+   "ticks": 110,
+   "peak_current_a": 0.026
+  },
+  {
+   "seg": 37,
+   "label": "L5_knee_lstep-5_r0",
+   "ticks": 110,
+   "peak_current_a": 0.0195
+  },
+  {
+   "seg": 38,
+   "label": "L5_knee_lstep+10_r0",
+   "ticks": 110,
+   "peak_current_a": 0.0455
+  },
+  {
+   "seg": 39,
+   "label": "L5_knee_lstep-10_r0",
+   "ticks": 110,
+   "peak_current_a": 0.0325
+  },
+  {
+   "seg": 40,
+   "label": "L5_knee_lstep+5_r1",
+   "ticks": 110,
+   "peak_current_a": 0.026
+  },
+  {
+   "seg": 41,
+   "label": "L5_knee_lstep-5_r1",
+   "ticks": 110,
+   "peak_current_a": 0.013
+  },
+  {
+   "seg": 42,
+   "label": "L5_knee_lstep+10_r1",
+   "ticks": 110,
+   "peak_current_a": 0.039
+  },
+  {
+   "seg": 43,
+   "label": "L5_knee_lstep-10_r1",
+   "ticks": 110,
+   "peak_current_a": 0.039
+  },
+  {
+   "seg": 44,
+   "label": "L5_knee_lstep+5_r2",
+   "ticks": 110,
+   "peak_current_a": 0.026
+  },
+  {
+   "seg": 45,
+   "label": "L5_knee_lstep-5_r2",
+   "ticks": 110,
+   "peak_current_a": 0.0195
+  },
+  {
+   "seg": 46,
+   "label": "L5_knee_lstep+10_r2",
+   "ticks": 110,
+   "peak_current_a": 0.039
+  },
+  {
+   "seg": 47,
+   "label": "L5_knee_lstep-10_r2",
+   "ticks": 110,
+   "peak_current_a": 0.0455
+  }
+ ],
+ "started": "2026-08-13T12:42:52",
+ "ended": "2026-08-13T12:46:31",
+ "protocol": {
+  "created": "2026-08-13T08:23:53",
+  "description": "Phase 4 LOADED step ladders: hips \u00b13/6, knees \u00b15/10, legs L2+L5, 3 repeats, home = plant stance (hip 20 knee 80). Robot ON THE GROUND, feet planted, operator watching; the runner glide is a slow quasi-static stand-up. Loaded current budget 2.0 A.",
+  "home_deg": [
+   0.0,
+   20.0,
+   80.0,
+   0.0,
+   20.0,
+   80.0,
+   0.0,
+   20.0,
+   80.0,
+   0.0,
+   20.0,
+   80.0,
+   0.0,
+   20.0,
+   80.0,
+   0.0,
+   20.0,
+   80.0
+  ],
+  "hz": 25.0,
+  "max_current_a": 2.0,
+  "name": "steps_loaded_v1",
+  "segments": [
+   {
+    "amp_deg": 3.0,
+    "hold_s": 2.0,
+    "joint": 7,
+    "kind": "step",
+    "label": "L2_hip_lstep+3_r0",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": -3.0,
+    "hold_s": 2.0,
+    "joint": 7,
+    "kind": "step",
+    "label": "L2_hip_lstep-3_r0",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": 6.0,
+    "hold_s": 2.0,
+    "joint": 7,
+    "kind": "step",
+    "label": "L2_hip_lstep+6_r0",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": -6.0,
+    "hold_s": 2.0,
+    "joint": 7,
+    "kind": "step",
+    "label": "L2_hip_lstep-6_r0",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": 3.0,
+    "hold_s": 2.0,
+    "joint": 7,
+    "kind": "step",
+    "label": "L2_hip_lstep+3_r1",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": -3.0,
+    "hold_s": 2.0,
+    "joint": 7,
+    "kind": "step",
+    "label": "L2_hip_lstep-3_r1",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": 6.0,
+    "hold_s": 2.0,
+    "joint": 7,
+    "kind": "step",
+    "label": "L2_hip_lstep+6_r1",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": -6.0,
+    "hold_s": 2.0,
+    "joint": 7,
+    "kind": "step",
+    "label": "L2_hip_lstep-6_r1",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": 3.0,
+    "hold_s": 2.0,
+    "joint": 7,
+    "kind": "step",
+    "label": "L2_hip_lstep+3_r2",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": -3.0,
+    "hold_s": 2.0,
+    "joint": 7,
+    "kind": "step",
+    "label": "L2_hip_lstep-3_r2",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": 6.0,
+    "hold_s": 2.0,
+    "joint": 7,
+    "kind": "step",
+    "label": "L2_hip_lstep+6_r2",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": -6.0,
+    "hold_s": 2.0,
+    "joint": 7,
+    "kind": "step",
+    "label": "L2_hip_lstep-6_r2",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": 5.0,
+    "hold_s": 2.0,
+    "joint": 8,
+    "kind": "step",
+    "label": "L2_knee_lstep+5_r0",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": -5.0,
+    "hold_s": 2.0,
+    "joint": 8,
+    "kind": "step",
+    "label": "L2_knee_lstep-5_r0",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": 10.0,
+    "hold_s": 2.0,
+    "joint": 8,
+    "kind": "step",
+    "label": "L2_knee_lstep+10_r0",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": -10.0,
+    "hold_s": 2.0,
+    "joint": 8,
+    "kind": "step",
+    "label": "L2_knee_lstep-10_r0",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": 5.0,
+    "hold_s": 2.0,
+    "joint": 8,
+    "kind": "step",
+    "label": "L2_knee_lstep+5_r1",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": -5.0,
+    "hold_s": 2.0,
+    "joint": 8,
+    "kind": "step",
+    "label": "L2_knee_lstep-5_r1",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": 10.0,
+    "hold_s": 2.0,
+    "joint": 8,
+    "kind": "step",
+    "label": "L2_knee_lstep+10_r1",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": -10.0,
+    "hold_s": 2.0,
+    "joint": 8,
+    "kind": "step",
+    "label": "L2_knee_lstep-10_r1",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": 5.0,
+    "hold_s": 2.0,
+    "joint": 8,
+    "kind": "step",
+    "label": "L2_knee_lstep+5_r2",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": -5.0,
+    "hold_s": 2.0,
+    "joint": 8,
+    "kind": "step",
+    "label": "L2_knee_lstep-5_r2",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": 10.0,
+    "hold_s": 2.0,
+    "joint": 8,
+    "kind": "step",
+    "label": "L2_knee_lstep+10_r2",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": -10.0,
+    "hold_s": 2.0,
+    "joint": 8,
+    "kind": "step",
+    "label": "L2_knee_lstep-10_r2",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": 3.0,
+    "hold_s": 2.0,
+    "joint": 16,
+    "kind": "step",
+    "label": "L5_hip_lstep+3_r0",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": -3.0,
+    "hold_s": 2.0,
+    "joint": 16,
+    "kind": "step",
+    "label": "L5_hip_lstep-3_r0",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": 6.0,
+    "hold_s": 2.0,
+    "joint": 16,
+    "kind": "step",
+    "label": "L5_hip_lstep+6_r0",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": -6.0,
+    "hold_s": 2.0,
+    "joint": 16,
+    "kind": "step",
+    "label": "L5_hip_lstep-6_r0",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": 3.0,
+    "hold_s": 2.0,
+    "joint": 16,
+    "kind": "step",
+    "label": "L5_hip_lstep+3_r1",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": -3.0,
+    "hold_s": 2.0,
+    "joint": 16,
+    "kind": "step",
+    "label": "L5_hip_lstep-3_r1",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": 6.0,
+    "hold_s": 2.0,
+    "joint": 16,
+    "kind": "step",
+    "label": "L5_hip_lstep+6_r1",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": -6.0,
+    "hold_s": 2.0,
+    "joint": 16,
+    "kind": "step",
+    "label": "L5_hip_lstep-6_r1",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": 3.0,
+    "hold_s": 2.0,
+    "joint": 16,
+    "kind": "step",
+    "label": "L5_hip_lstep+3_r2",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": -3.0,
+    "hold_s": 2.0,
+    "joint": 16,
+    "kind": "step",
+    "label": "L5_hip_lstep-3_r2",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": 6.0,
+    "hold_s": 2.0,
+    "joint": 16,
+    "kind": "step",
+    "label": "L5_hip_lstep+6_r2",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": -6.0,
+    "hold_s": 2.0,
+    "joint": 16,
+    "kind": "step",
+    "label": "L5_hip_lstep-6_r2",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": 5.0,
+    "hold_s": 2.0,
+    "joint": 17,
+    "kind": "step",
+    "label": "L5_knee_lstep+5_r0",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": -5.0,
+    "hold_s": 2.0,
+    "joint": 17,
+    "kind": "step",
+    "label": "L5_knee_lstep-5_r0",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": 10.0,
+    "hold_s": 2.0,
+    "joint": 17,
+    "kind": "step",
+    "label": "L5_knee_lstep+10_r0",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": -10.0,
+    "hold_s": 2.0,
+    "joint": 17,
+    "kind": "step",
+    "label": "L5_knee_lstep-10_r0",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": 5.0,
+    "hold_s": 2.0,
+    "joint": 17,
+    "kind": "step",
+    "label": "L5_knee_lstep+5_r1",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": -5.0,
+    "hold_s": 2.0,
+    "joint": 17,
+    "kind": "step",
+    "label": "L5_knee_lstep-5_r1",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": 10.0,
+    "hold_s": 2.0,
+    "joint": 17,
+    "kind": "step",
+    "label": "L5_knee_lstep+10_r1",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": -10.0,
+    "hold_s": 2.0,
+    "joint": 17,
+    "kind": "step",
+    "label": "L5_knee_lstep-10_r1",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": 5.0,
+    "hold_s": 2.0,
+    "joint": 17,
+    "kind": "step",
+    "label": "L5_knee_lstep+5_r2",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": -5.0,
+    "hold_s": 2.0,
+    "joint": 17,
+    "kind": "step",
+    "label": "L5_knee_lstep-5_r2",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": 10.0,
+    "hold_s": 2.0,
+    "joint": 17,
+    "kind": "step",
+    "label": "L5_knee_lstep+10_r2",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": -10.0,
+    "hold_s": 2.0,
+    "joint": 17,
+    "kind": "step",
+    "label": "L5_knee_lstep-10_r2",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   }
+  ],
+  "sysid_protocol": 1
+ }
+}

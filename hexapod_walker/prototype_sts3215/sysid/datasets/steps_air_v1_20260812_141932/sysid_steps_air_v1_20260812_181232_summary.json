@@ -1,0 +1,1472 @@
+{
+ "ok": true,
+ "mode": "sysid",
+ "name": "steps_air_v1",
+ "protocol_hash": "6b0de9836b97",
+ "hz": 25.0,
+ "ticks_planned": 10450,
+ "ticks_done": 10450,
+ "overruns": 53,
+ "clamped_cmds": 0,
+ "aborted": false,
+ "error": null,
+ "csv": "/home/arduino/hexapod_sts/linux_control/logs/sysid_steps_air_v1_20260812_181232.csv",
+ "segments": [
+  {
+   "seg": 0,
+   "label": "L2_yaw_step+5_r0",
+   "ticks": 110,
+   "peak_current_a": 0.013
+  },
+  {
+   "seg": 1,
+   "label": "L2_yaw_step-5_r0",
+   "ticks": 110,
+   "peak_current_a": 0.013
+  },
+  {
+   "seg": 2,
+   "label": "L2_yaw_step+10_r0",
+   "ticks": 110,
+   "peak_current_a": 0.0195
+  },
+  {
+   "seg": 3,
+   "label": "L2_yaw_step-10_r0",
+   "ticks": 110,
+   "peak_current_a": 0.026
+  },
+  {
+   "seg": 4,
+   "label": "L2_yaw_step+20_r0",
+   "ticks": 110,
+   "peak_current_a": 0.0195
+  },
+  {
+   "seg": 5,
+   "label": "L2_yaw_step-20_r0",
+   "ticks": 110,
+   "peak_current_a": 0.026
+  },
+  {
+   "seg": 6,
+   "label": "L2_yaw_step+5_r1",
+   "ticks": 110,
+   "peak_current_a": 0.0195
+  },
+  {
+   "seg": 7,
+   "label": "L2_yaw_step-5_r1",
+   "ticks": 110,
+   "peak_current_a": 0.0195
+  },
+  {
+   "seg": 8,
+   "label": "L2_yaw_step+10_r1",
+   "ticks": 110,
+   "peak_current_a": 0.0195
+  },
+  {
+   "seg": 9,
+   "label": "L2_yaw_step-10_r1",
+   "ticks": 110,
+   "peak_current_a": 0.026
+  },
+  {
+   "seg": 10,
+   "label": "L2_yaw_step+20_r1",
+   "ticks": 110,
+   "peak_current_a": 0.0195
+  },
+  {
+   "seg": 11,
+   "label": "L2_yaw_step-20_r1",
+   "ticks": 110,
+   "peak_current_a": 0.0195
+  },
+  {
+   "seg": 12,
+   "label": "L2_yaw_step+5_r2",
+   "ticks": 110,
+   "peak_current_a": 0.0195
+  },
+  {
+   "seg": 13,
+   "label": "L2_yaw_step-5_r2",
+   "ticks": 110,
+   "peak_current_a": 0.026
+  },
+  {
+   "seg": 14,
+   "label": "L2_yaw_step+10_r2",
+   "ticks": 110,
+   "peak_current_a": 0.0195
+  },
+  {
+   "seg": 15,
+   "label": "L2_yaw_step-10_r2",
+   "ticks": 110,
+   "peak_current_a": 0.026
+  },
+  {
+   "seg": 16,
+   "label": "L2_yaw_step+20_r2",
+   "ticks": 110,
+   "peak_current_a": 0.026
+  },
+  {
+   "seg": 17,
+   "label": "L2_yaw_step-20_r2",
+   "ticks": 110,
+   "peak_current_a": 0.026
+  },
+  {
+   "seg": 18,
+   "label": "L2_yaw_step+5_r3",
+   "ticks": 110,
+   "peak_current_a": 0.013
+  },
+  {
+   "seg": 19,
+   "label": "L2_yaw_step-5_r3",
+   "ticks": 110,
+   "peak_current_a": 0.026
+  },
+  {
+   "seg": 20,
+   "label": "L2_yaw_step+10_r3",
+   "ticks": 110,
+   "peak_current_a": 0.0195
+  },
+  {
+   "seg": 21,
+   "label": "L2_yaw_step-10_r3",
+   "ticks": 110,
+   "peak_current_a": 0.0195
+  },
+  {
+   "seg": 22,
+   "label": "L2_yaw_step+20_r3",
+   "ticks": 110,
+   "peak_current_a": 0.0195
+  },
+  {
+   "seg": 23,
+   "label": "L2_yaw_step-20_r3",
+   "ticks": 110,
+   "peak_current_a": 0.0195
+  },
+  {
+   "seg": 24,
+   "label": "L2_yaw_step+5_r4",
+   "ticks": 110,
+   "peak_current_a": 0.0195
+  },
+  {
+   "seg": 25,
+   "label": "L2_yaw_step-5_r4",
+   "ticks": 110,
+   "peak_current_a": 0.026
+  },
+  {
+   "seg": 26,
+   "label": "L2_yaw_step+10_r4",
+   "ticks": 110,
+   "peak_current_a": 0.0195
+  },
+  {
+   "seg": 27,
+   "label": "L2_yaw_step-10_r4",
+   "ticks": 110,
+   "peak_current_a": 0.0195
+  },
+  {
+   "seg": 28,
+   "label": "L2_yaw_step+20_r4",
+   "ticks": 110,
+   "peak_current_a": 0.0195
+  },
+  {
+   "seg": 29,
+   "label": "L2_yaw_step-20_r4",
+   "ticks": 110,
+   "peak_current_a": 0.026
+  },
+  {
+   "seg": 30,
+   "label": "L2_hip_step+5_r0",
+   "ticks": 110,
+   "peak_current_a": 0.013
+  },
+  {
+   "seg": 31,
+   "label": "L2_hip_step-5_r0",
+   "ticks": 110,
+   "peak_current_a": 0.0195
+  },
+  {
+   "seg": 32,
+   "label": "L2_hip_step+10_r0",
+   "ticks": 110,
+   "peak_current_a": 0.039
+  },
+  {
+   "seg": 33,
+   "label": "L2_hip_step-10_r0",
+   "ticks": 110,
+   "peak_current_a": 0.0325
+  },
+  {
+   "seg": 34,
+   "label": "L2_hip_step+20_r0",
+   "ticks": 110,
+   "peak_current_a": 0.0325
+  },
+  {
+   "seg": 35,
+   "label": "L2_hip_step-20_r0",
+   "ticks": 110,
+   "peak_current_a": 0.0325
+  },
+  {
+   "seg": 36,
+   "label": "L2_hip_step-40_r0",
+   "ticks": 110,
+   "peak_current_a": 0.039
+  },
+  {
+   "seg": 37,
+   "label": "L2_hip_step+5_r1",
+   "ticks": 110,
+   "peak_current_a": 0.039
+  },
+  {
+   "seg": 38,
+   "label": "L2_hip_step-5_r1",
+   "ticks": 110,
+   "peak_current_a": 0.026
+  },
+  {
+   "seg": 39,
+   "label": "L2_hip_step+10_r1",
+   "ticks": 110,
+   "peak_current_a": 0.026
+  },
+  {
+   "seg": 40,
+   "label": "L2_hip_step-10_r1",
+   "ticks": 110,
+   "peak_current_a": 0.026
+  },
+  {
+   "seg": 41,
+   "label": "L2_hip_step+20_r1",
+   "ticks": 110,
+   "peak_current_a": 0.0325
+  },
+  {
+   "seg": 42,
+   "label": "L2_hip_step-20_r1",
+   "ticks": 110,
+   "peak_current_a": 0.039
+  },
+  {
+   "seg": 43,
+   "label": "L2_hip_step-40_r1",
+   "ticks": 110,
+   "peak_current_a": 0.0325
+  },
+  {
+   "seg": 44,
+   "label": "L2_hip_step+5_r2",
+   "ticks": 110,
+   "peak_current_a": 0.026
+  },
+  {
+   "seg": 45,
+   "label": "L2_hip_step-5_r2",
+   "ticks": 110,
+   "peak_current_a": 0.026
+  },
+  {
+   "seg": 46,
+   "label": "L2_hip_step+10_r2",
+   "ticks": 110,
+   "peak_current_a": 0.026
+  },
+  {
+   "seg": 47,
+   "label": "L2_hip_step-10_r2",
+   "ticks": 110,
+   "peak_current_a": 0.0325
+  },
+  {
+   "seg": 48,
+   "label": "L2_hip_step+20_r2",
+   "ticks": 110,
+   "peak_current_a": 0.0325
+  },
+  {
+   "seg": 49,
+   "label": "L2_hip_step-20_r2",
+   "ticks": 110,
+   "peak_current_a": 0.0325
+  },
+  {
+   "seg": 50,
+   "label": "L2_hip_step-40_r2",
+   "ticks": 110,
+   "peak_current_a": 0.0325
+  },
+  {
+   "seg": 51,
+   "label": "L2_hip_step+5_r3",
+   "ticks": 110,
+   "peak_current_a": 0.0325
+  },
+  {
+   "seg": 52,
+   "label": "L2_hip_step-5_r3",
+   "ticks": 110,
+   "peak_current_a": 0.026
+  },
+  {
+   "seg": 53,
+   "label": "L2_hip_step+10_r3",
+   "ticks": 110,
+   "peak_current_a": 0.026
+  },
+  {
+   "seg": 54,
+   "label": "L2_hip_step-10_r3",
+   "ticks": 110,
+   "peak_current_a": 0.026
+  },
+  {
+   "seg": 55,
+   "label": "L2_hip_step+20_r3",
+   "ticks": 110,
+   "peak_current_a": 0.0325
+  },
+  {
+   "seg": 56,
+   "label": "L2_hip_step-20_r3",
+   "ticks": 110,
+   "peak_current_a": 0.0455
+  },
+  {
+   "seg": 57,
+   "label": "L2_hip_step-40_r3",
+   "ticks": 110,
+   "peak_current_a": 0.0325
+  },
+  {
+   "seg": 58,
+   "label": "L2_hip_step+5_r4",
+   "ticks": 110,
+   "peak_current_a": 0.026
+  },
+  {
+   "seg": 59,
+   "label": "L2_hip_step-5_r4",
+   "ticks": 110,
+   "peak_current_a": 0.026
+  },
+  {
+   "seg": 60,
+   "label": "L2_hip_step+10_r4",
+   "ticks": 110,
+   "peak_current_a": 0.026
+  },
+  {
+   "seg": 61,
+   "label": "L2_hip_step-10_r4",
+   "ticks": 110,
+   "peak_current_a": 0.026
+  },
+  {
+   "seg": 62,
+   "label": "L2_hip_step+20_r4",
+   "ticks": 110,
+   "peak_current_a": 0.0325
+  },
+  {
+   "seg": 63,
+   "label": "L2_hip_step-20_r4",
+   "ticks": 110,
+   "peak_current_a": 0.0325
+  },
+  {
+   "seg": 64,
+   "label": "L2_hip_step-40_r4",
+   "ticks": 110,
+   "peak_current_a": 0.0325
+  },
+  {
+   "seg": 65,
+   "label": "L2_knee_step+5_r0",
+   "ticks": 110,
+   "peak_current_a": 0.013
+  },
+  {
+   "seg": 66,
+   "label": "L2_knee_step-5_r0",
+   "ticks": 110,
+   "peak_current_a": 0.026
+  },
+  {
+   "seg": 67,
+   "label": "L2_knee_step+10_r0",
+   "ticks": 110,
+   "peak_current_a": 0.0195
+  },
+  {
+   "seg": 68,
+   "label": "L2_knee_step-10_r0",
+   "ticks": 110,
+   "peak_current_a": 0.026
+  },
+  {
+   "seg": 69,
+   "label": "L2_knee_step+20_r0",
+   "ticks": 110,
+   "peak_current_a": 0.026
+  },
+  {
+   "seg": 70,
+   "label": "L2_knee_step+40_r0",
+   "ticks": 110,
+   "peak_current_a": 0.026
+  },
+  {
+   "seg": 71,
+   "label": "L2_knee_step+5_r1",
+   "ticks": 110,
+   "peak_current_a": 0.0195
+  },
+  {
+   "seg": 72,
+   "label": "L2_knee_step-5_r1",
+   "ticks": 110,
+   "peak_current_a": 0.0195
+  },
+  {
+   "seg": 73,
+   "label": "L2_knee_step+10_r1",
+   "ticks": 110,
+   "peak_current_a": 0.026
+  },
+  {
+   "seg": 74,
+   "label": "L2_knee_step-10_r1",
+   "ticks": 110,
+   "peak_current_a": 0.0325
+  },
+  {
+   "seg": 75,
+   "label": "L2_knee_step+20_r1",
+   "ticks": 110,
+   "peak_current_a": 0.026
+  },
+  {
+   "seg": 76,
+   "label": "L2_knee_step+40_r1",
+   "ticks": 110,
+   "peak_current_a": 0.039
+  },
+  {
+   "seg": 77,
+   "label": "L2_knee_step+5_r2",
+   "ticks": 110,
+   "peak_current_a": 0.0195
+  },
+  {
+   "seg": 78,
+   "label": "L2_knee_step-5_r2",
+   "ticks": 110,
+   "peak_current_a": 0.0325
+  },
+  {
+   "seg": 79,
+   "label": "L2_knee_step+10_r2",
+   "ticks": 110,
+   "peak_current_a": 0.0195
+  },
+  {
+   "seg": 80,
+   "label": "L2_knee_step-10_r2",
+   "ticks": 110,
+   "peak_current_a": 0.026
+  },
+  {
+   "seg": 81,
+   "label": "L2_knee_step+20_r2",
+   "ticks": 110,
+   "peak_current_a": 0.0325
+  },
+  {
+   "seg": 82,
+   "label": "L2_knee_step+40_r2",
+   "ticks": 110,
+   "peak_current_a": 0.0325
+  },
+  {
+   "seg": 83,
+   "label": "L2_knee_step+5_r3",
+   "ticks": 110,
+   "peak_current_a": 0.0195
+  },
+  {
+   "seg": 84,
+   "label": "L2_knee_step-5_r3",
+   "ticks": 110,
+   "peak_current_a": 0.0195
+  },
+  {
+   "seg": 85,
+   "label": "L2_knee_step+10_r3",
+   "ticks": 110,
+   "peak_current_a": 0.026
+  },
+  {
+   "seg": 86,
+   "label": "L2_knee_step-10_r3",
+   "ticks": 110,
+   "peak_current_a": 0.026
+  },
+  {
+   "seg": 87,
+   "label": "L2_knee_step+20_r3",
+   "ticks": 110,
+   "peak_current_a": 0.026
+  },
+  {
+   "seg": 88,
+   "label": "L2_knee_step+40_r3",
+   "ticks": 110,
+   "peak_current_a": 0.026
+  },
+  {
+   "seg": 89,
+   "label": "L2_knee_step+5_r4",
+   "ticks": 110,
+   "peak_current_a": 0.0195
+  },
+  {
+   "seg": 90,
+   "label": "L2_knee_step-5_r4",
+   "ticks": 110,
+   "peak_current_a": 0.0195
+  },
+  {
+   "seg": 91,
+   "label": "L2_knee_step+10_r4",
+   "ticks": 110,
+   "peak_current_a": 0.026
+  },
+  {
+   "seg": 92,
+   "label": "L2_knee_step-10_r4",
+   "ticks": 110,
+   "peak_current_a": 0.026
+  },
+  {
+   "seg": 93,
+   "label": "L2_knee_step+20_r4",
+   "ticks": 110,
+   "peak_current_a": 0.026
+  },
+  {
+   "seg": 94,
+   "label": "L2_knee_step+40_r4",
+   "ticks": 110,
+   "peak_current_a": 0.0325
+  }
+ ],
+ "started": "2026-08-12T18:12:32",
+ "ended": "2026-08-12T18:19:30",
+ "protocol": {
+  "created": "2026-08-12T11:12:30",
+  "description": "Phase 1 unloaded step ladders \u00b15/10/20/40 deg, 5 repeats, joints [6, 7, 8]. Robot on stand, feet OFF the ground; the runner glides the legs to bench zero by itself.",
+  "home_deg": [
+   0.0,
+   0.0,
+   0.0,
+   0.0,
+   0.0,
+   0.0,
+   0.0,
+   0.0,
+   0.0,
+   0.0,
+   0.0,
+   0.0,
+   0.0,
+   0.0,
+   0.0,
+   0.0,
+   0.0,
+   0.0
+  ],
+  "hz": 25.0,
+  "name": "steps_air_v1",
+  "segments": [
+   {
+    "amp_deg": 5.0,
+    "hold_s": 2.0,
+    "joint": 6,
+    "kind": "step",
+    "label": "L2_yaw_step+5_r0",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": -5.0,
+    "hold_s": 2.0,
+    "joint": 6,
+    "kind": "step",
+    "label": "L2_yaw_step-5_r0",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": 10.0,
+    "hold_s": 2.0,
+    "joint": 6,
+    "kind": "step",
+    "label": "L2_yaw_step+10_r0",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": -10.0,
+    "hold_s": 2.0,
+    "joint": 6,
+    "kind": "step",
+    "label": "L2_yaw_step-10_r0",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": 20.0,
+    "hold_s": 2.0,
+    "joint": 6,
+    "kind": "step",
+    "label": "L2_yaw_step+20_r0",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": -20.0,
+    "hold_s": 2.0,
+    "joint": 6,
+    "kind": "step",
+    "label": "L2_yaw_step-20_r0",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": 5.0,
+    "hold_s": 2.0,
+    "joint": 6,
+    "kind": "step",
+    "label": "L2_yaw_step+5_r1",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": -5.0,
+    "hold_s": 2.0,
+    "joint": 6,
+    "kind": "step",
+    "label": "L2_yaw_step-5_r1",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": 10.0,
+    "hold_s": 2.0,
+    "joint": 6,
+    "kind": "step",
+    "label": "L2_yaw_step+10_r1",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": -10.0,
+    "hold_s": 2.0,
+    "joint": 6,
+    "kind": "step",
+    "label": "L2_yaw_step-10_r1",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": 20.0,
+    "hold_s": 2.0,
+    "joint": 6,
+    "kind": "step",
+    "label": "L2_yaw_step+20_r1",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": -20.0,
+    "hold_s": 2.0,
+    "joint": 6,
+    "kind": "step",
+    "label": "L2_yaw_step-20_r1",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": 5.0,
+    "hold_s": 2.0,
+    "joint": 6,
+    "kind": "step",
+    "label": "L2_yaw_step+5_r2",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": -5.0,
+    "hold_s": 2.0,
+    "joint": 6,
+    "kind": "step",
+    "label": "L2_yaw_step-5_r2",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": 10.0,
+    "hold_s": 2.0,
+    "joint": 6,
+    "kind": "step",
+    "label": "L2_yaw_step+10_r2",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": -10.0,
+    "hold_s": 2.0,
+    "joint": 6,
+    "kind": "step",
+    "label": "L2_yaw_step-10_r2",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": 20.0,
+    "hold_s": 2.0,
+    "joint": 6,
+    "kind": "step",
+    "label": "L2_yaw_step+20_r2",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": -20.0,
+    "hold_s": 2.0,
+    "joint": 6,
+    "kind": "step",
+    "label": "L2_yaw_step-20_r2",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": 5.0,
+    "hold_s": 2.0,
+    "joint": 6,
+    "kind": "step",
+    "label": "L2_yaw_step+5_r3",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": -5.0,
+    "hold_s": 2.0,
+    "joint": 6,
+    "kind": "step",
+    "label": "L2_yaw_step-5_r3",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": 10.0,
+    "hold_s": 2.0,
+    "joint": 6,
+    "kind": "step",
+    "label": "L2_yaw_step+10_r3",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": -10.0,
+    "hold_s": 2.0,
+    "joint": 6,
+    "kind": "step",
+    "label": "L2_yaw_step-10_r3",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": 20.0,
+    "hold_s": 2.0,
+    "joint": 6,
+    "kind": "step",
+    "label": "L2_yaw_step+20_r3",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": -20.0,
+    "hold_s": 2.0,
+    "joint": 6,
+    "kind": "step",
+    "label": "L2_yaw_step-20_r3",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": 5.0,
+    "hold_s": 2.0,
+    "joint": 6,
+    "kind": "step",
+    "label": "L2_yaw_step+5_r4",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": -5.0,
+    "hold_s": 2.0,
+    "joint": 6,
+    "kind": "step",
+    "label": "L2_yaw_step-5_r4",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": 10.0,
+    "hold_s": 2.0,
+    "joint": 6,
+    "kind": "step",
+    "label": "L2_yaw_step+10_r4",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": -10.0,
+    "hold_s": 2.0,
+    "joint": 6,
+    "kind": "step",
+    "label": "L2_yaw_step-10_r4",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": 20.0,
+    "hold_s": 2.0,
+    "joint": 6,
+    "kind": "step",
+    "label": "L2_yaw_step+20_r4",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": -20.0,
+    "hold_s": 2.0,
+    "joint": 6,
+    "kind": "step",
+    "label": "L2_yaw_step-20_r4",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": 5.0,
+    "hold_s": 2.0,
+    "joint": 7,
+    "kind": "step",
+    "label": "L2_hip_step+5_r0",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": -5.0,
+    "hold_s": 2.0,
+    "joint": 7,
+    "kind": "step",
+    "label": "L2_hip_step-5_r0",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": 10.0,
+    "hold_s": 2.0,
+    "joint": 7,
+    "kind": "step",
+    "label": "L2_hip_step+10_r0",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": -10.0,
+    "hold_s": 2.0,
+    "joint": 7,
+    "kind": "step",
+    "label": "L2_hip_step-10_r0",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": 20.0,
+    "hold_s": 2.0,
+    "joint": 7,
+    "kind": "step",
+    "label": "L2_hip_step+20_r0",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": -20.0,
+    "hold_s": 2.0,
+    "joint": 7,
+    "kind": "step",
+    "label": "L2_hip_step-20_r0",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": -40.0,
+    "hold_s": 2.0,
+    "joint": 7,
+    "kind": "step",
+    "label": "L2_hip_step-40_r0",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": 5.0,
+    "hold_s": 2.0,
+    "joint": 7,
+    "kind": "step",
+    "label": "L2_hip_step+5_r1",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": -5.0,
+    "hold_s": 2.0,
+    "joint": 7,
+    "kind": "step",
+    "label": "L2_hip_step-5_r1",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": 10.0,
+    "hold_s": 2.0,
+    "joint": 7,
+    "kind": "step",
+    "label": "L2_hip_step+10_r1",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": -10.0,
+    "hold_s": 2.0,
+    "joint": 7,
+    "kind": "step",
+    "label": "L2_hip_step-10_r1",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": 20.0,
+    "hold_s": 2.0,
+    "joint": 7,
+    "kind": "step",
+    "label": "L2_hip_step+20_r1",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": -20.0,
+    "hold_s": 2.0,
+    "joint": 7,
+    "kind": "step",
+    "label": "L2_hip_step-20_r1",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": -40.0,
+    "hold_s": 2.0,
+    "joint": 7,
+    "kind": "step",
+    "label": "L2_hip_step-40_r1",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": 5.0,
+    "hold_s": 2.0,
+    "joint": 7,
+    "kind": "step",
+    "label": "L2_hip_step+5_r2",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": -5.0,
+    "hold_s": 2.0,
+    "joint": 7,
+    "kind": "step",
+    "label": "L2_hip_step-5_r2",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": 10.0,
+    "hold_s": 2.0,
+    "joint": 7,
+    "kind": "step",
+    "label": "L2_hip_step+10_r2",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": -10.0,
+    "hold_s": 2.0,
+    "joint": 7,
+    "kind": "step",
+    "label": "L2_hip_step-10_r2",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": 20.0,
+    "hold_s": 2.0,
+    "joint": 7,
+    "kind": "step",
+    "label": "L2_hip_step+20_r2",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": -20.0,
+    "hold_s": 2.0,
+    "joint": 7,
+    "kind": "step",
+    "label": "L2_hip_step-20_r2",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": -40.0,
+    "hold_s": 2.0,
+    "joint": 7,
+    "kind": "step",
+    "label": "L2_hip_step-40_r2",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": 5.0,
+    "hold_s": 2.0,
+    "joint": 7,
+    "kind": "step",
+    "label": "L2_hip_step+5_r3",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": -5.0,
+    "hold_s": 2.0,
+    "joint": 7,
+    "kind": "step",
+    "label": "L2_hip_step-5_r3",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": 10.0,
+    "hold_s": 2.0,
+    "joint": 7,
+    "kind": "step",
+    "label": "L2_hip_step+10_r3",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": -10.0,
+    "hold_s": 2.0,
+    "joint": 7,
+    "kind": "step",
+    "label": "L2_hip_step-10_r3",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": 20.0,
+    "hold_s": 2.0,
+    "joint": 7,
+    "kind": "step",
+    "label": "L2_hip_step+20_r3",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": -20.0,
+    "hold_s": 2.0,
+    "joint": 7,
+    "kind": "step",
+    "label": "L2_hip_step-20_r3",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": -40.0,
+    "hold_s": 2.0,
+    "joint": 7,
+    "kind": "step",
+    "label": "L2_hip_step-40_r3",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": 5.0,
+    "hold_s": 2.0,
+    "joint": 7,
+    "kind": "step",
+    "label": "L2_hip_step+5_r4",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": -5.0,
+    "hold_s": 2.0,
+    "joint": 7,
+    "kind": "step",
+    "label": "L2_hip_step-5_r4",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": 10.0,
+    "hold_s": 2.0,
+    "joint": 7,
+    "kind": "step",
+    "label": "L2_hip_step+10_r4",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": -10.0,
+    "hold_s": 2.0,
+    "joint": 7,
+    "kind": "step",
+    "label": "L2_hip_step-10_r4",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": 20.0,
+    "hold_s": 2.0,
+    "joint": 7,
+    "kind": "step",
+    "label": "L2_hip_step+20_r4",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": -20.0,
+    "hold_s": 2.0,
+    "joint": 7,
+    "kind": "step",
+    "label": "L2_hip_step-20_r4",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": -40.0,
+    "hold_s": 2.0,
+    "joint": 7,
+    "kind": "step",
+    "label": "L2_hip_step-40_r4",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": 5.0,
+    "hold_s": 2.0,
+    "joint": 8,
+    "kind": "step",
+    "label": "L2_knee_step+5_r0",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": -5.0,
+    "hold_s": 2.0,
+    "joint": 8,
+    "kind": "step",
+    "label": "L2_knee_step-5_r0",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": 10.0,
+    "hold_s": 2.0,
+    "joint": 8,
+    "kind": "step",
+    "label": "L2_knee_step+10_r0",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": -10.0,
+    "hold_s": 2.0,
+    "joint": 8,
+    "kind": "step",
+    "label": "L2_knee_step-10_r0",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": 20.0,
+    "hold_s": 2.0,
+    "joint": 8,
+    "kind": "step",
+    "label": "L2_knee_step+20_r0",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": 40.0,
+    "hold_s": 2.0,
+    "joint": 8,
+    "kind": "step",
+    "label": "L2_knee_step+40_r0",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": 5.0,
+    "hold_s": 2.0,
+    "joint": 8,
+    "kind": "step",
+    "label": "L2_knee_step+5_r1",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": -5.0,
+    "hold_s": 2.0,
+    "joint": 8,
+    "kind": "step",
+    "label": "L2_knee_step-5_r1",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": 10.0,
+    "hold_s": 2.0,
+    "joint": 8,
+    "kind": "step",
+    "label": "L2_knee_step+10_r1",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": -10.0,
+    "hold_s": 2.0,
+    "joint": 8,
+    "kind": "step",
+    "label": "L2_knee_step-10_r1",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": 20.0,
+    "hold_s": 2.0,
+    "joint": 8,
+    "kind": "step",
+    "label": "L2_knee_step+20_r1",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": 40.0,
+    "hold_s": 2.0,
+    "joint": 8,
+    "kind": "step",
+    "label": "L2_knee_step+40_r1",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": 5.0,
+    "hold_s": 2.0,
+    "joint": 8,
+    "kind": "step",
+    "label": "L2_knee_step+5_r2",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": -5.0,
+    "hold_s": 2.0,
+    "joint": 8,
+    "kind": "step",
+    "label": "L2_knee_step-5_r2",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": 10.0,
+    "hold_s": 2.0,
+    "joint": 8,
+    "kind": "step",
+    "label": "L2_knee_step+10_r2",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": -10.0,
+    "hold_s": 2.0,
+    "joint": 8,
+    "kind": "step",
+    "label": "L2_knee_step-10_r2",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": 20.0,
+    "hold_s": 2.0,
+    "joint": 8,
+    "kind": "step",
+    "label": "L2_knee_step+20_r2",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": 40.0,
+    "hold_s": 2.0,
+    "joint": 8,
+    "kind": "step",
+    "label": "L2_knee_step+40_r2",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": 5.0,
+    "hold_s": 2.0,
+    "joint": 8,
+    "kind": "step",
+    "label": "L2_knee_step+5_r3",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": -5.0,
+    "hold_s": 2.0,
+    "joint": 8,
+    "kind": "step",
+    "label": "L2_knee_step-5_r3",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": 10.0,
+    "hold_s": 2.0,
+    "joint": 8,
+    "kind": "step",
+    "label": "L2_knee_step+10_r3",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": -10.0,
+    "hold_s": 2.0,
+    "joint": 8,
+    "kind": "step",
+    "label": "L2_knee_step-10_r3",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": 20.0,
+    "hold_s": 2.0,
+    "joint": 8,
+    "kind": "step",
+    "label": "L2_knee_step+20_r3",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": 40.0,
+    "hold_s": 2.0,
+    "joint": 8,
+    "kind": "step",
+    "label": "L2_knee_step+40_r3",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": 5.0,
+    "hold_s": 2.0,
+    "joint": 8,
+    "kind": "step",
+    "label": "L2_knee_step+5_r4",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": -5.0,
+    "hold_s": 2.0,
+    "joint": 8,
+    "kind": "step",
+    "label": "L2_knee_step-5_r4",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": 10.0,
+    "hold_s": 2.0,
+    "joint": 8,
+    "kind": "step",
+    "label": "L2_knee_step+10_r4",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": -10.0,
+    "hold_s": 2.0,
+    "joint": 8,
+    "kind": "step",
+    "label": "L2_knee_step-10_r4",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": 20.0,
+    "hold_s": 2.0,
+    "joint": 8,
+    "kind": "step",
+    "label": "L2_knee_step+20_r4",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   },
+   {
+    "amp_deg": 40.0,
+    "hold_s": 2.0,
+    "joint": 8,
+    "kind": "step",
+    "label": "L2_knee_step+40_r4",
+    "pre_s": 0.8,
+    "rest_s": 1.6
+   }
+  ],
+  "sysid_protocol": 1
+ }
+}

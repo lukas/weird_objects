@@ -414,8 +414,31 @@ document.getElementById('wpreflight').onclick = async ()=>{
   }catch(e){ out.textContent = 'preflight failed (link?)'; }
 };
 
+// --- gait picker: tripod (0) vs no-slip (1) + overlap alpha ------------------
+// `gait` (top of file) also rides the manual-drive J stream, so the picker
+// applies to both the timed walk pad and the sticks. The controller refuses
+// swaps while walking (stop first) and applies alpha at the next phase
+// boundary of a live no-slip gait.
+const wgaitSel = document.getElementById('wgait');
+const walphaEl = document.getElementById('walpha');
+function sendGait(){
+  gait = parseInt(wgaitSel.value, 10) || 0;
+  const a = parseFloat(walphaEl.value) || 0;
+  document.getElementById('walab').textContent = a.toFixed(2);
+  document.getElementById('walphawrap').style.display =
+    gait === 1 ? '' : 'none';
+  const line = 'GAIT ' + gait + ' ' + a.toFixed(2);
+  cmd(line); showSent(line); forceResend();
+}
+wgaitSel.onchange = sendGait;
+walphaEl.oninput = ()=>{
+  document.getElementById('walab').textContent =
+    (parseFloat(walphaEl.value) || 0).toFixed(2);
+};
+walphaEl.onchange = sendGait;
+
 // --- scripted gait walk (exact tape_measure_walk.py commands) ---------------
-// Start = `J vx vy omega` (script run_leg), timed stop / STOP button =
+// Start = `J vx vy omega [gait]` (script run_leg), timed stop / STOP button =
 // `J 0 0 0` → planted stand, torque stays on (limp is the operator's call).
 let walkTimer = null, walkTick = null, walkEndT = 0, walkLine = '';
 function stopGaitWalk(msg){
@@ -438,7 +461,7 @@ document.getElementById('wstart').onclick = async ()=>{
   armed = false; dancePaused = false;   // keep the stick loop from streaming J over this
   if(walkTimer) clearTimeout(walkTimer);
   if(walkTick) clearInterval(walkTick);
-  walkLine = 'J '+vx.toFixed(1)+' '+vy.toFixed(1)+' '+om.toFixed(3);
+  walkLine = 'J '+vx.toFixed(1)+' '+vy.toFixed(1)+' '+om.toFixed(3)+' '+gait;
   await cmd(walkLine); showSent(walkLine); forceResend();
   walkEndT = performance.now() + dur*1000;
   walkTick = setInterval(()=>{

@@ -1,0 +1,84 @@
+{
+ "started": "2026-08-12T14:49:41",
+ "csv": "rl_stand_20260812_144941.csv",
+ "ticks_logged": 405,
+ "params": {
+  "mode": "stand",
+  "total_s": 15.0,
+  "hz": 25.0,
+  "policy": {
+   "source": "rl_move/sim/policies/ppo_goal_cw_stand_footlow2_hard1.zip",
+   "name": "footlow2-hard1 stand/sit (RISE+HOLD+LOWER 10M candidate)",
+   "notes": "SIM DEPLOYMENT CANDIDATE 08-12 (all 4 gate clauses + eval_session hard gates PASS; src zip md5 680e8e0e, pulled from train-0). NOT bench-tested, single seed (s1 twin queued). First policy clean on rise+hold+lower at once: cold flat rise 12/12 h_err<=3.4mm, six-foot hold duty 0.95-0.99, lower 12/12 flush; interactive rise reaches full 148mm by 9.5s where holdbc1_hard1 stalls at 55mm. The hardware belly-curl knife-edge (3-foot support window, 10/10 tilt_roll trips on holdbc1_hard1) is UNTESTED by this lineage - hand ready, 10deg trip + 2.5A trip armed, scripted stand glide is the fallback. holdbc1_hard1 stays ACTIVE unless the operator selects this file.",
+   "obs_dim": 68,
+   "act_dim": 18,
+   "hidden": [
+    128,
+    128
+   ],
+   "activation": "tanh",
+   "profile": {
+    "stand": {
+     "hold_s": 5.0,
+     "ramp_s": 6.0,
+     "target_m": 0.111,
+     "total_s": 12.5
+    },
+    "lower": {
+     "hold_s": 1.0,
+     "ramp_s": 5.0,
+     "target_m": -0.045,
+     "total_s": 11.0
+    }
+   }
+  },
+  "q_nom_deg": [
+   0.09,
+   -0.09,
+   0.18,
+   0.09,
+   0.53,
+   0.09,
+   0.18,
+   0.09,
+   0.44,
+   0.09,
+   0.44,
+   0.09,
+   -0.18,
+   0.18,
+   0.0,
+   0.0,
+   0.18,
+   0.26
+  ],
+  "tilt_ref_deg": [
+   0.44,
+   3.52
+  ],
+  "tilt_trip_deg": 20.0,
+  "preflight": {
+   "roll_deg": 0.3,
+   "pitch_deg": 3.7,
+   "max_pose_delta_deg": 0.5,
+   "pose_tol_deg": 30.0
+  }
+ },
+ "result": {
+  "ok": true,
+  "mode": "stand",
+  "ticks": 375,
+  "max_current_a": 1.18,
+  "overruns": 12,
+  "tilt_ref_deg": [
+   0.44,
+   3.52
+  ],
+  "tilt_rel_max_deg": 7.7,
+  "roll_rel_end_deg": 8.1,
+  "pitch_rel_end_deg": 0.8,
+  "tail_s": 3.0,
+  "tail_tilt_max_deg": 8.1,
+  "fell": false
+ }
+}

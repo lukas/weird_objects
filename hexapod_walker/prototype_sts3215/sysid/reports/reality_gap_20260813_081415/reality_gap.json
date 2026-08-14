@@ -1,0 +1,78 @@
+{
+ "meta": {
+  "generated": "2026-08-13T08:14:15",
+  "git": "4d26954",
+  "param_files": {
+   "air": "sim_model.json (6968268e879e)",
+   "rl_move/sim/sim_model_sysid.json": "sim_model_sysid.json (8b8d2f260256)"
+  },
+  "traces": [
+   "sysid/datasets/champion_stand_air_v1_20260813_081407/sysid_champion_stand_air_v1_20260813_121343.csv"
+  ]
+ },
+ "traces": [
+  {
+   "trace": "sysid_champion_stand_air_v1_20260813_121343.csv",
+   "protocol": "champion_stand_air_v1",
+   "protocol_hash": "a0a58435fcb5",
+   "ticks": 554,
+   "tick_jitter": {
+    "n": 553,
+    "nominal_ms": 40.0,
+    "median_ms": 40.0,
+    "p95_ms": 40.2,
+    "max_ms": 1505.4,
+    "late_pct": 0.36
+   },
+   "read_rtt": {
+    "n": 554,
+    "mean_ms": 12.1,
+    "max_ms": 1494.6,
+    "p10_ms": 8.8,
+    "p25_ms": 8.9,
+    "p50_ms": 9.2,
+    "p75_ms": 9.3,
+    "p90_ms": 9.4,
+    "p95_ms": 9.5
+   },
+   "cmd_to_motion_latency": {
+    "n": 0
+   },
+   "servo_variation": {},
+   "sim": {
+    "air": {
+     "moving_joints": 18,
+     "q_rmse_deg": 0.828,
+     "qd_rmse_deg_s": 5.81
+    },
+    "rl_move/sim/sim_model_sysid.json": {
+     "moving_joints": 18,
+     "q_rmse_deg": 0.558,
+     "qd_rmse_deg_s": 11.99
+    }
+   },
+   "segments": [
+    {
+     "label": "traj_rl_stand_20260812_145534",
+     "kind": "traj",
+     "joint": -1,
+     "hw": {
+      "ok": true,
+      "kind": "traj",
+      "rmse_moving_deg": 2.37
+     },
+     "sim_air": {
+      "ok": true,
+      "kind": "traj",
+      "rmse_moving_deg": 2.633
+     },
+     "sim_rl_move/sim/sim_model_sysid.json": {
+      "ok": true,
+      "kind": "traj",
+      "rmse_moving_deg": 2.273
+     }
+    }
+   ]
+  }
+ ]
+}

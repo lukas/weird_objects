@@ -30,20 +30,21 @@ echo ">> pushing code + vendored SDK -> $HOST:$REMOTE"
   "$SRC/plant_calibrate.py" "$SRC/imu_calibrate.py" \
   "$SRC/event_log.py" "$SRC/status_display.py" "$SRC/servo_watch.py" \
   "$SRC/mpu_probe.py" "$SRC/rl_policy.py" "$SRC/safe_zero.py" \
-  "$SRC/pinned_tip.py" \
+  "$SRC/pinned_tip.py" "$SRC/noslip_gait.py" \
+  "$SRC/sysid_protocol.py" "$SRC/sysid_runner.py" \
   "$SRC/rl_policy_weights.json" "$SRC/rl_walk_weights.json" \
   "$SRC/standup_modes.json" \
   "$HOST:$REMOTE/linux_control/"
 "${SCP[@]}" -r "$SRC/webui" "$SRC/policies" "$SRC/vendor" \
   "$HOST:$REMOTE/linux_control/"
 
-# rl_move core (numpy-only) + rot-60 canonicalizer — same list as
-# deploy_adb.sh.
+# rl_move core (numpy-only) + rot-60 canonicalizer + sagittal mirror —
+# same list as deploy_adb.sh.
 for f in __init__.py env.py robot_state.py attitude.py safety.py \
          config.py config.yaml body_ik.py control_loop.py logger.py; do
   "${SCP[@]}" "$SRC/../rl_move/$f" "$HOST:$REMOTE/rl_move/"
 done
-for f in __init__.py rot60.py; do
+for f in __init__.py rot60.py mirror.py; do
   "${SCP[@]}" "$SRC/../rl_move/sim/$f" "$HOST:$REMOTE/rl_move/sim/"
 done
 
