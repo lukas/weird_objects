@@ -360,8 +360,12 @@ def cmd_rerender(args) -> int:
             sh = {"cand": r["cand"], "mode": r["mode"], "seed": r["seed"],
                   "eps": r["ep"] + 1,
                   "out": str(outdir / f"{tag}_{name}.json")}
+            # per-episode strips subdir: eval_modeseq names the strip
+            # modeseq_ep<k>.png, so a SHARED dir would overwrite
+            # strips across re-runs with the same episode index
             cmd = shard_cmd(sh) + ["--strip-ep", str(r["ep"]),
-                                   "--strips", str(outdir / "strips")]
+                                   "--strips",
+                                   str(outdir / "strips" / f"{tag}_{name}")]
             cmds.append((sh, cmd))
     print(f"[rerender] {len(fails)} failures + {len(sample)} clean "
           f"sample = {len(cmds)} re-runs")

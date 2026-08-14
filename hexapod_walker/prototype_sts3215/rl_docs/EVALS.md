@@ -109,6 +109,20 @@ charts) and uploads report.json.
   `logs/ckpt_eval/session_joystick_handoff1_*.json` (footlow2_hard1 +
   bcgait1_hard1: det no-slew 12/12 zero-fall, all segments; sto weak
   link = in-sequence rise; zero-command residual drift ~0.04 m/s).
+- `bulk_session_eval.py` — BULK held-out session cohorts (08-14,
+  operator directive fb_20260814T205137_33f21c): shards hundreds of
+  `eval_modeseq --drive-random --entry-slew` sessions across idle
+  pod CPUs (plan/worker/aggregate/rerender; resumable — done shards
+  skip; matched seed banks => identical joystick schedules across
+  candidates; `--torch-seed` makes stochastic passes reproducible).
+  Aggregate = episodes.jsonl + Wilson-95%-CI rates: complete-session
+  zero-fall overall + per cold-start stratum, per-segment success,
+  first vs post-lower rise, gait_valid, stop-settle, fall reasons.
+  Rerender re-runs every failed episode (+ clean sample) with frame
+  strips via `eval_modeseq --strip-ep`. First cohort + gate:
+  `rl_docs/tracks/hw/SESSION_BULK_GATE.md` (c1, n=1800, seed banks
+  900000../910000.. RETIRED for tuning). Tests:
+  `rl_move/tests/test_bulk_session_eval.py`.
 - `eval_session.py` — the SESSION gate (08-11, model tour): drives a
   stance+walk checkpoint pair through the exact interactive play.py
   protocol (belly → auto stand under the `_InteractiveTraj` ramp →

@@ -88,3 +88,69 @@ story rests on intervals instead of 12 repeated cases.
 `rerender/` (controller copies; shards on train pods), verdict in
 hw/STATUS.md + STATUS.md headline, RL_LOG line citing
 fb_20260814T205137_33f21c.
+
+---
+
+## RESULTS (2026-08-14 ~21:4x UTC — read AFTER the cohort completed; seed banks now RETIRED per clause 7)
+
+All 300 shards ran (1,800 sessions), zero shards failed/missing;
+manifest sha256 verified == the pre-registered hash. Full numbers:
+`logs/bulk_session/c1/aggregate.json` (+ `episodes.jsonl`); failure
+re-renders + clean samples: `logs/bulk_session/c1/rerender/strips/`
+on train-1 (spec), train-2 (td2), train-3 (td3).
+
+**Clause 1 — product adoption: PASS (mechanically checked).**
+`spec` det complete-session zero-fall **290/300 = 0.967, CI
+[0.940, 0.982]** (≥0.95 ✓); det segments rise 0.983 / walk 1.000 /
+lower 1.000 (all ≥0.95 ✓); det strata flat 0.95 / bridge 0.99 /
+crouch 0.96 (all ≥0.90 ✓). clean_session == zero_fall (no non-fall
+segment misses hid anywhere). Walk gait_valid 590/590, slip/m med
+1.75, drive height med 135 mm, switch tilt med 1.8°. Notably ALL 10
+det failures are POST-LOWER rises (first rise 300/300 across all
+three cold starts); reasons 7 tilt_roll / 2 tilt_pitch /
+1 over_current.
+
+**Clause 2 — weakest link (sto): the in-sequence RISE, specifically
+post-lower.** spec sto zero-fall 256/300 = 0.853 CI [0.809, 0.889];
+rise segment 0.852 (first 0.903, post-lower 0.801); worst first-rise
+stratum crouch 0.84; fall reasons rise:over_current 30 /
+tilt_pitch 10 / tilt_roll 4. Walking + lowering are NOT the problem
+at n=300: walk 552/552, lower 296/296, zero drive falls under
+stop-go + direction flips in 1,104 spec drive segments (det+sto).
+Named next training target: the post-lower stochastic rise
+(over_current-dominated), skills frozen, transition/residual only.
+
+**Clause 3 — hierarchy vs single models: separated.** sto: spec CI
+lower 0.809 > td2 CI upper 0.705 and > td3 upper 0.746 — DECISIVE
+both. det: spec lower 0.940 > td3 upper 0.929 (separated); vs td2
+upper 0.946 marginal overlap (not separated at 95% on det alone).
+Single-model quality gaps the pooled numbers hid: td2 det
+clean_session only 0.597 (its crouch cold rise finishes short
+0/100 — the 12-ep read "5/12" resolves into a clean stratum split:
+flat 100/100, bridge 96/100, crouch 0/100), both td2/td3 walk
+~115-117 mm drive height (vs spec 135 mm, visibly lower posture),
+sto first-rise collapses (td2 0.233, td3 0.320). Consequence per
+pre-registration + directive: single shared-policy consolidation is
+research, NOT a product blocker; any future single-model arm needs
+structural parameter isolation.
+
+**Clause 4 — early stop:** moot (bulk parallel finished in ~3 min).
+
+**Clause 5 — zero-command creep: confirmed at scale.** stop_settle
+< 0.02 m/s in **0 of 2,773** drive segments across all arms (spec
+med 0.036-0.040 m/s; td2/td3 ~0.05). The runner's STOP→stance-hold
+switch is mandatory; "walk policy at zero command" is not a stop —
+now a measured fact at n=1800.
+
+**Clause 6 — eyes:** every failure (719 episodes) + 12 random clean
+sessions re-rendered with frame strips; reviewed samples (spec
+post-lower-rise falls, td2 crouch stall, clean sessions) documented
+in hw/STATUS.md.
+
+**Verdict: the hierarchical frozen-skill controller
+(footlow2_hard1 + bcgait1_hard1 + explicit session grammar +
+entry-slew + STOP→stance-hold) is the measured PRODUCT BASELINE at
+n=600 held-out sessions — det 0.967 / sto 0.853 complete-session
+zero-fall — and the single boundary that needs work is the
+post-lower stochastic rise.** Bench promotion of the pair stays
+operator-owned.

@@ -9,6 +9,41 @@ unresolved blockers between the robot and reliable joystick control.
 
 ## Now
 
+- **08-14 ~21:4x UTC: BULK HELD-OUT SESSION COHORT (operator
+  directive fb_20260814T205137_33f21c) — the hierarchical
+  frozen-skill controller PASSES the pre-registered product gate at
+  n=600 fresh sessions and is now the MEASURED product baseline;
+  single-model consolidation is officially research, not a
+  blocker.** New resumable sharded evaluator
+  (`rl_move.sim.bulk_session_eval`, tests green, snapshot
+  `exp/session-bulk-cohort1` d5aa13c) ran 300 det + 300 sto ~60 s
+  randomized joystick sessions per candidate on 11 idle pods'
+  CPUs (~3 min wall), matched seeds/schedules (held-out banks
+  900000../910000.., now RETIRED), for `spec`
+  (footlow2_hard1 + bcgait1_hard1 + entry-slew), `td2`, `td3`.
+  Pre-registration + full numbers: `SESSION_BULK_GATE.md`. Headlines:
+  - **spec det zero-fall 290/300 = 0.967 CI [0.940, 0.982]** — all
+    gate clauses pass (segments ≥0.983, strata ≥0.95); ALL 10 det
+    failures are POST-LOWER rises (first rise 300/300); sto 0.853
+    with the weak link again the stochastic post-lower rise (0.801,
+    over_current-dominated). Walking is clean at scale: zero drive
+    falls + gait_valid 1104/1104 spec drive segments, slip/m 1.75,
+    height 135 mm.
+  - **Hierarchy vs single models: separated** — sto spec CI lower
+    0.809 > td2 0.705 / td3 0.746 CI uppers; det separated vs td3,
+    marginal overlap vs td2 (0.940 vs 0.946). td2's pooled det 0.92
+    hid clean_session 0.597 (crouch cold rise 0/100 finishes short)
+    and both singles walk ~116 mm (low posture) with sto first-rise
+    collapse (0.23/0.32).
+  - **Zero-command creep confirmed at n=1800**: 0/2773 drive
+    segments settle <0.02 m/s — STOP→stance-hold stays mandatory.
+  - Strips: every failure (719) + clean samples re-rendered on
+    train-1/2/3 (`logs/bulk_session/c1/rerender/strips/`); reviewed
+    samples confirm honest six-leg gait in clean sessions and real
+    (not artifact) post-lower-rise falls.
+  Next lever (pre-named): train ONLY the post-lower-rise
+  transition/residual with both skills frozen; bench promotion of
+  the pair stays operator-owned.
 - **08-14 ~20:0x UTC: the SESSION-JOYSTICK product gate exists and
   the candidate specialist pair PASSES it deterministically —
   `session-joystick-handoff1`** (operator-requested action cycle;
