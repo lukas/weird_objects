@@ -517,7 +517,31 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--dr-scale", type=float, default=0.5)
     ap.add_argument("--episode-seconds", type=float, default=15.0)
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--cfg-set", action="append", default=None,
+                    metavar="K=V",
+                    help="dotted cfg override applied to EVERY env this "
+                         "tool builds (single-mode, stance and sequence "
+                         "collection) — e.g. goal.rise_flat_frac=0.45 "
+                         "for a bridge/flat-heavy demo mix "
+                         "(TRANSITIONS_DIRECTIVE Arm-2 follow-up). "
+                         "Default None = no overrides, bit-exact legacy "
+                         "cfg. Same K=V convention as eval_modeseq/"
+                         "eval_checkpoint (float if parseable, else "
+                         "string).")
     args = ap.parse_args(argv)
+
+    # --cfg-set K=V passthrough (08-14, Arm-2 follow-up lever): parsed
+    # once, applied as _build_cfg extras everywhere. None/[] = empty
+    # dict = _build_cfg items unchanged = bit-exact prior behavior.
+    cfg_overrides: dict[str, float | str] = {}
+    for spec in (args.cfg_set or []):
+        key, val = spec.split("=", 1)
+        if "." not in key:
+            raise SystemExit(f"--cfg-set needs a dotted key, got: {spec}")
+        try:
+            cfg_overrides[key] = float(val)
+        except ValueError:
+            cfg_overrides[key] = val.strip()
 
     if args.transitions > 0 and not args.dual:
         raise SystemExit(
@@ -533,7 +557,8 @@ def main(argv: list[str] | None = None) -> int:
 
     rng = np.random.default_rng(args.seed)
     params = SimServoParams.load()
-    cfg = _build_cfg({"obs.mode_onehot": 1.0} if args.dual else None)
+    cfg = _build_cfg(({"obs.mode_onehot": 1.0} if args.dual else {})
+                     | cfg_overrides)
 
     walk_teacher = PPO.load(args.walk_teacher, device="cpu")
     stance_teacher = PPO.load(args.stance_teacher, device="cpu")
@@ -581,7 +606,8 @@ def main(argv: list[str] | None = None) -> int:
         seq_cfg = _build_cfg({"obs.mode_onehot": 1.0,
                               "goal.mode_seq": 1.0,
                               "goal.mode_seq_segment_s_min": seg_lo,
-                              "goal.mode_seq_segment_s_max": seg_hi})
+                              "goal.mode_seq_segment_s_max": seg_hi}
+                             | cfg_overrides)
         seq_args = _copy.copy(args)
         seq_args.episode_seconds = args.seq_episode_seconds
         seq_env = _make_env(seq_args, seq_cfg, params)

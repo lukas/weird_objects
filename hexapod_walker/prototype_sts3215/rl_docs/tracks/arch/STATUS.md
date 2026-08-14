@@ -8,28 +8,33 @@ at what budget, with which failure modes.
 
 ## Now
 
-- **08-14 ~15:4x UTC — Arm 2 `cw-arch-modeseq1-r1` FINISHED via canary
-  AUTO-STOP at 4,565,248/10,000,000 steps, NOT verdicted (DIG-IN
-  flagged, per model tiering).** Protected skills `rise_bridge` +
-  `rise_flat` both failed 3 consecutive periodic-eval probes (streaks
-  3/3) — live at 1M, both dead by 3–4M. This is the identical
-  protected-skill-erosion catch that stopped `cw-arch-gru-dual2` at
-  3.18M from the SAME `dagger1` BC init (option (a) precedent);
-  reward held flat (quarters 641/704/702/671, no divergence/cheat
-  signature) so this reads as erosion, not a training blowup. The
-  pre-staged single-mode gate(DR0)/own-DR0.5 evals were still running
-  on train-0 at hand-off; the sequence-half of the gate
-  (`eval_modeseq --single`, det+sto DR0 + own-DR0.5, per-segment
-  criteria) has not been run yet. Whoever digs in: reuse dual2's
-  matched-control recipe (n=12/seed=1 DR0 rise recheck vs the
-  dagger1-init control) before writing new forensics — see
-  `rl_docs/runs/cw-arch-gru-dual2.md`. If this confirms the same
-  erosion, Arm 2 is FAIL and the track's only open lever is the
-  already-queued operator/local option (b), the rise-only-DAgger
-  variant distill (see top-level STATUS.md WAITING-ON) — no new
-  coefficient/budget arm on this mechanism per the two-miss rule
-  (dual2 + modeseq1-r1 would make two independent warm-RLs erasing
-  the same dagger1-lineage hard-start rise).
+- **08-14 ~17:xx UTC — Arm 2 `cw-arch-modeseq1-r1` VERDICTED FAIL
+  (dig-in): the canary auto-stop at 4.56M was dual2's protected-skill
+  erosion, second independent reproduction — and training 75% on
+  sequences did NOT protect the demo rise.** Sequence gate det DR0
+  zero-fall **2/12** (bar ≥11/12; sto 3/12) vs transdagger2's 12/12
+  and the specialist baseline's 11/12; every fall is INSIDE a rise
+  segment (all 3 flat cold-starts fell, 5/7 post-lower rises fell;
+  switches clean ≤8.2°; walk segments 9/9 gait_valid prog 1.014,
+  lower 7/7). Matched rise recheck (n=12/seed=1 DR0): det 5/12 =
+  crouch 5/5 / bridge 0/4 / flat 0/3 — the EXACT dual2 3.18M endpoint
+  profile vs the dagger1-init control's 3/12 all-non-crouch; and
+  flat/bridge attempts now FALL instead of stalling. Single-mode
+  retention letter-passes (walk gv 6/6 prog 1.04, hold 6/6, lower 6/6
+  worst_clear 0mm). None of the three pre-registered Arm-2 FAIL
+  branches matches. **Ruling: warm-RL from the dagger1 init is CLOSED
+  per the two-miss rule (dual2 + this); the sequence-diet hypothesis
+  is refuted — PPO+stance-anchors spend rare hard-start demo
+  competence regardless of diet.** Per the directive's pre-named
+  fork, the agent-doable half was EXECUTED same cycle:
+  **`transdagger3` — the transdagger2 recipe with a bridge/flat-heavy
+  demo mix (`--cfg-set goal.rise_flat_frac=0.45
+  goal.rise_partial_frac=0.45`, crouch 0.10; passthrough flag landed
+  this cycle, default-off/bit-exact) — is RUNNING on train-0 CPUs**;
+  the operator's option (b) rise-only variant distill stays open in
+  top-level WAITING-ON. Detail: `rl_docs/runs/cw-arch-modeseq1-r1.md`;
+  evidence `logs/ckpt_eval/modeseq1_r1_seq_{det,sto}.json`,
+  `cw_arch_modeseq1_r1_{gate,owncfg,rise12}`.
 - **08-14 ~12:4x UTC — transdagger2 TRIAGED (the named next step):
   FAIL by the letter of the Arm 1 gate, but only on the two rise
   clauses — the sequence-fall problem itself is SOLVED in one model

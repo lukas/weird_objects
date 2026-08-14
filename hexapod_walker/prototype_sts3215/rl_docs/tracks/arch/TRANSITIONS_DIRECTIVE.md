@@ -383,6 +383,31 @@ DR axes; no wider command set.
   tall-rsi1 applies: expect recovery-robustness, verify it doesn't
   just learn to dive to a safe mode).
 
+**ARM 2 RESULT (08-14 ~17:xx UTC, `cw-arch-modeseq1-r1`, warm from
+init (3) per the order above, canary auto-stop 4.56M/10M): FAIL —
+sequence det DR0 zero-fall 2/12 (bar ≥11/12; sto 3/12), all falls
+inside rise segments (flat cold-start 0/3 all fell; post-lower rise
+2/7; switches clean ≤8.2°; walk 9/9 gv prog 1.014; lower 7/7).**
+rise12 recheck det 5/12 = crouch 5/5 / bridge 0/4 / flat 0/3 — the
+exact dual2 endpoint vs the dagger1-init control's 3/12
+all-non-crouch. Single-mode retention letter-passes (walk gv 6/6
+prog 1.04, hold 6/6, lower 6/6). NONE of the three pre-registered
+FAIL branches matches (no walk freeze; no switch falls; single-mode
+rise degraded too → sequence-RSI inapplicable). Rulings: (a) warm-RL
+from the dagger1 init CLOSED (two-miss: dual2 + this); (b) the Arm-2
+premise "train on sequences to protect the skills sequences need" is
+REFUTED for rise — a 75% mode_seq diet did not slow the erosion
+(dead by 3–4M, same as dual2's 1M-3.18M window). The one-model
+sequence-fall problem remains SOLVED only at the distill stage
+(transdagger2 12/12). Follow-up per the pre-named fork: agent half =
+`transdagger3` (transdagger2 recipe + bridge/flat-heavy demo mix via
+the new `distill_gru --cfg-set` passthrough:
+`goal.rise_flat_frac=0.45 goal.rise_partial_frac=0.45`), launched on
+train-0 CPUs same cycle; operator half = option (b) rise-only
+variant distill, still open. No further Arm-2-style warm-RL until a
+BC init exists whose hard-start rise survives RL or the operator
+redefines the protection mechanism.
+
 ## Bookkeeping
 
 Same rules as every arm: ledger entries with hypothesis + gate at
