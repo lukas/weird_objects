@@ -67,6 +67,24 @@ scratch. Primary metric: sample efficiency on a NEW task.
   `logs/scale_sweep_gpu.log`. NOTE for future pod training: use this
   venv (or recreate it the same way) for any torch training on the
   mjx-train pods; system python3 trains on CPU silently.
+- **FIRST DRIFT-FIXED GATE VERDICT (03:54 UTC): dyn_scale_S_h16_small
+  — LEGACY G1 PASS outright** (beats persistence AND matched ridge at
+  every horizon; G1.1 tolerance not even needed). The SMALLEST cell
+  (~0.8M params, H16, 1200 eps) on the drift-fixed 5-actor mix passes
+  the gate both v2pod encoders failed — strong confirmation that the
+  v2pod G1 FAILs were dataset drift (periodic-heavy mix strengthening
+  the ridge baseline), not model capacity. Session B's v2pod2
+  replication remains the formal original-recipe/original-gate
+  confirmation.
+- **A/B/C COHORT CLAIMED BY SESSION A (train-10, chained):**
+  `pod_chain_abc.sh` (nohup'd 03:02 UTC, `logs/chain_abc.log`) waits
+  for POD_SCALE_SWEEP_DONE then launches pod_holdwalk.sh with the
+  first gate-passing cell in a FIXED preference order declared before
+  those verdicts were known (M_h16_large first — mid capacity, short
+  history, large data), SEEDS="5 6 7" (fresh seeds per operator rule),
+  DATA=v3scale_{large,small} matched to the cell. Session B: do NOT
+  also launch a holdwalk cohort; key any rep2 follow-up to v2pod2
+  explicitly.
 - **EVAL INSTRUMENTATION LANDED (train_ppo_transfer.py, smoke-tested
   locally incl. every new column):** (1) per-task gait/transition
   QUALITY metrics at every eval point — slip_m, fwd_m, peak_roll/

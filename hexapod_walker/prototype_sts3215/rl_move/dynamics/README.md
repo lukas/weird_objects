@@ -27,6 +27,7 @@ comparison. Full design + gates: `rl_docs/DYNREP.md`.
 | `pod_holdwalk.sh` | hold->walk transfer cohort (+ rise-retention canary + heldout suites in phase 2) |
 | `pod_risewalk.sh` | rise->walk benchmark cohort — the operator's actual robot objective; rise retention is the first-class hypothesis |
 | `pod_scale_sweep.sh` | Representation scaling matrix: S/M/L (~0.8/5.9/17M) x history 16/48 x 1200/4800-ep data, each cell gate-evaluated; aggregate with `analyze_scale.py` |
+| `pod_chain_abc.sh` | Watcher that chains pod_holdwalk.sh behind the scale sweep: waits for POD_SCALE_SWEEP_DONE, picks the first gate-passing cell in a fixed pre-declared preference order, launches the cohort with fresh seeds (>= 5) |
 | `datasets/` `models/` `logs/` | Generated (gitignored; also excluded from `snapshot.sh --sync` code tarballs) |
 
 ## Quick start (from `prototype_sts3215/`, repo `.venv`)
