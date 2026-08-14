@@ -317,6 +317,43 @@ def main() -> int:
     check(cost["full_build"] == full,
           "full-build total sums", f"{cost['full_build']} vs {full}")
 
+    # ---- chain variant (CHAIN_VARIANT.md): Carvera-manufacturable drive -----
+    # Same ratios as the belt baseline, ANSI #40-2 duplex, driven sprockets
+    # as flat plates that must fit the Carvera's 240 mm Y axis.
+    print("Chain variant (CHAIN_VARIANT.md):")
+    CH_P = 12.7                  # ANSI 40 pitch, mm
+    CH_UTS_KN = 27.8             # duplex ultimate (the v1/BOM figure)
+    CH_ETA = 0.95                # lubricated roller chain
+    CARVERA_Y_MM = 240.0
+    chain_joints = {             # teeth (driver, driven), even link count
+        "hip_pitch": (13, 52, 68),
+        "knee": (14, 42, 62),
+        "hip_yaw": (18, 36, 50),
+    }
+    for name, (n1, n2, links) in chain_joints.items():
+        ratio = belt["joints"][name]["ratio"]
+        check(n2 / n1 == ratio, f"chain {name}: {n1}T→{n2}T keeps ratio {ratio}")
+        check(links % 2 == 0, f"chain {name}: even link count (no offset link)",
+              f"{links} links")
+        pd = CH_P / math.sin(math.pi / n2)
+        od = CH_P * (0.6 + 1.0 / math.tan(math.pi / n2))
+        check(od < CARVERA_Y_MM,
+              f"chain {name}: driven OD fits the Carvera envelope",
+              f"OD {od:.1f} vs {CARVERA_Y_MM:.0f} mm")
+        peak_Nm = act["peak_torque_Nm"] * ratio * CH_ETA
+        tension_kN = peak_Nm / (pd / 2000.0) / 1000.0
+        check(tension_kN <= CH_UTS_KN / 6.0,
+              f"chain {name}: peak tension within slow-drive UTS/6",
+              f"{tension_kN:.2f} vs {CH_UTS_KN / 6.0:.2f} kN")
+    chain_hip_peak = act["peak_torque_Nm"] * 4 * CH_ETA
+    check(chain_hip_peak / design_Nm["hip_pitch"] >= 1.25,
+          "chain variant: hip peak margin >= 1.25x (efficiency win)",
+          f"{chain_hip_peak / design_Nm['hip_pitch']:.2f}x")
+    chain_hip_cont = act["rated_torque_Nm"] * 4 * CH_ETA
+    check(tripod_rms <= chain_hip_cont,
+          "chain variant: tripod hip RMS fits the raised continuous rating",
+          f"{tripod_rms:.0f} vs {chain_hip_cont:.0f} N·m")
+
     # ---- doc drift: headline numbers must appear verbatim -------------------
     print("Docs quote the spec numbers:")
     doc_expectations = {
@@ -331,6 +368,8 @@ def main() -> int:
         "BOM.md": ["$23,580", "all 12", "$16,020"],
         "PARTS.md": ["8MGT-896-36", "BFK458", "30205", "6905-2RS",
                      "r = 90 mm", "back-to-back"],
+        "CHAIN_VARIANT.md": ["#40-2", "13T → 52T", "4.34 kN", "27.8 kN",
+                             "217.6 mm", "cush", "Carvera", "r = 90 mm"],
     }
     for doc, needles in doc_expectations.items():
         text = (PROJ / doc).read_text()
@@ -382,6 +421,14 @@ def main() -> int:
         except (json.JSONDecodeError, KeyError) as exc:
             check(False, "buildviz sweep produced a readable report",
                   f"{exc}: {res.stderr[-300:]}")
+
+    # ---- chain-variant assembly stack-up (tools/chain_assembly_check.py) ----
+    res = subprocess.run([sys.executable, str(HERE / "chain_assembly_check.py")],
+                         capture_output=True, text=True)
+    check(res.returncode == 0,
+          "chain-variant assembly stack-up: all clearances/fits pass",
+          (res.stdout.strip().splitlines()[-1] if res.stdout.strip() else
+           res.stderr[-200:]))
 
     print(f"\n{CHECKS} checks, {len(FAILURES)} failure(s).")
     if FAILURES:

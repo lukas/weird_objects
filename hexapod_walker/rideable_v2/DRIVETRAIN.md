@@ -297,7 +297,10 @@ actuators, 18 belt stages, 18 bearing assemblies, 12 locks.**
 1. **Belt allowable (~7.7 kN class for 8MGT×36)** is catalog-anchored
    (Gates manual worked example × Table 11 width scaling), not a formal
    drive rating — have Gates application engineering sign off the three
-   drives at order time. Fallbacks: 5:1 hip ratio or duplex #40 chain.
+   drives at order time. Fallbacks: 5:1 hip ratio or duplex #40 chain —
+   the chain option is now fully specified as the Carvera-manufacturable
+   [`CHAIN_VARIANT.md`](CHAIN_VARIANT.md) (same ratios, flat-plate
+   sprockets, no outside machine shop).
 2. **η = 0.87** for every belt stage; a lossier stage shrinks all
    torque figures proportionally. Measure on the bench rig.
 3. **Knee-belt routing** along the femur needs a real tensioner design

@@ -32,6 +32,7 @@ and fails if these docs drift.
 | [`README.md`](README.md) *(this file)* | Overview, design basis, what changed vs v1 and vs the original brief, mass budget, cost roll-up, safety/ballast protocol. |
 | [`DRIVETRAIN.md`](DRIVETRAIN.md) | The AK80-64 + belt-stage lineup, per-joint sizing and margins, the knee-motor-at-the-hip layout, the structural-joint-bearing load path, and the joint-side parking-pin load holding. |
 | [`PARTS.md`](PARTS.md) | SKU-level part specs: belt/sprocket part numbers with center distances, bearing SKUs, lock hardware, electrical SKUs — the orderable detail behind `BOM.md`. |
+| [`CHAIN_VARIANT.md`](CHAIN_VARIANT.md) | Alternative drivetrain: #40-2 duplex chain with flat-plate sprockets sized so every custom part cuts on a Makera Carvera — no outside machine shop. Same ratios; better hip margin (1.27×); chain-specific trade-offs stated. |
 | [`STRUCTURE.md`](STRUCTURE.md) | Aluminum legs and the wide chassis: loads, sections, why 6061 works here where v1 needed 4130 steel. |
 | [`POWER_SYSTEM.md`](POWER_SYSTEM.md) | The 12S (48 V-class) bus: contactor + pre-charge, **six fused leg branches**, the 24 V solenoid/logic rail, budgets, interlocks. |
 | [`BOM.md`](BOM.md) | Orderable bill of materials with live-verified Aug-2026 prices. |
