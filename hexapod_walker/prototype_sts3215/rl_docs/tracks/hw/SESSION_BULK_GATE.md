@@ -154,3 +154,41 @@ n=600 held-out sessions — det 0.967 / sto 0.853 complete-session
 zero-fall — and the single boundary that needs work is the
 post-lower stochastic rise.** Bench promotion of the pair stays
 operator-owned.
+
+---
+
+## Cohort c2 — pre-registered gate for `cw-stand-postlower1`
+
+Registered: 2026-08-14 ~22:2x UTC, BEFORE the arm trained (snapshot
+`exp/cw-stand-postlower1` 950e496 + the bank commit). Arm: the c1
+verdict's named next lever — rise-mode training with POST-LOWER
+start-state exposure. Mechanism: `goal.rise_start_bank` (new,
+default-off) samples harvested settled lower-endpoint poses of
+`footlow2_hard1`'s OWN lower skill
+(`park_banks/footlow2_hard1_lower_endpoints.npz`: 300/300 settled,
+0 falls, seed 5000; knees sit ~+113 deg and hips ~-18 deg from the
+flat-zero pose rise training saw before — the state family was
+literally unseen) as the start of 35% of rise episodes. Everything
+else is the footlow2_hard1 recipe unchanged (skills frozen: no
+walk/hold diet changes; walk ckpt untouched).
+
+- Instrument + grammar identical to c1 (`bulk_session_eval`,
+  entry-slew on, `rise,walk,lower,rise,walk`).
+- FRESH held-out shard-seed banks (c1's 900000../910000.. are
+  RETIRED): **det = 920000..920049, sto = 930000..930049.**
+- Candidate: `spec-pl` = new stance ckpt
+  (`ppo_goal_cw_stand_postlower1`) + `bcgait1_hard1` walk (frozen).
+  Baseline numbers = c1 spec (parent stance): det 0.967
+  [0.940, 0.982]; det post-lower rise 290/300 (0.967); sto
+  post-lower rise 0.801 CI [0.752, 0.842]; sto zero-fall 0.853.
+- **PASS iff ALL of:** (1) sto post-lower rise ≥ 0.90 AND its
+  Wilson 95% CI lower bound > 0.842 (parent's CI upper — true
+  separation, not noise); (2) det complete-session zero-fall ≥ 0.95;
+  (3) det post-lower rise ≥ 0.967 (no det regression); (4) det
+  first-rise strata (flat/bridge/crouch) each ≥ 0.95 AND lower
+  segments ≥ 0.99 (cold-rise/lower retention — the crown jewels);
+  (5) the standard stance gate + eval_session hard gates pass
+  (watcher auto-eval), with roll_tail/drag/slip quoted vs
+  footlow2_hard1 (no visual-quality regression).
+- **FAIL** if any clause misses. Two data-mix/exposure misses on
+  this boundary = change mechanism, not dose (RESEARCH_RULES).
