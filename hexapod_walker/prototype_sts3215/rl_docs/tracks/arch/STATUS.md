@@ -302,6 +302,41 @@ at what budget, with which failure modes.
     .json`). Job health at check: BC RMS 0.1552 (better than
     dagger1's 0.1865), DAgger rounds in progress, 0 verify falls.
     Details: TRANSITIONS_DIRECTIVE.md item 3 GATE-READY note.
+  - **Arm 1 first artifact VERDICTED FAIL (08-14) — but the
+    `--transitions` mechanism is EXONERATED and the fix is one flag,
+    already running.** transdagger1 on the sequence gate: det+sto
+    **0/12 zero-fall** (bar ≥11/12); walk segments 12/12 gait_valid
+    (the rise→walk switch transfers), but lower parks a whole tripod
+    (legs 0/2/4, 80–260mm in air) and the post-lower rise tips
+    tilt_roll 12/12. **Matched-teacher control: the default stance
+    teacher `stance_dr10` scores 0/12 det on the same instrument with
+    the identical per-segment fingerprint** (and fell 30/300 demo
+    sequences during collection — rise 24, lower 5) — the student is
+    a high-fidelity copy of an in-context-incapable teacher, exactly
+    CURRENT_TRUTHS' "anchors can TEACH a defect". The falls-only
+    `--seq-verify` missed it (tripod-up lower doesn't fall). Retention:
+    hold det 6/6 + walk gv 6/6 + rise n=12/seed=1 det 3/12 with 3
+    non-crouch (= dagger1 init) all PASS; **lower 0/6 NOT rebuilt —
+    and in the teacher's tripod-up shape (worst_clear 261mm), not
+    dagger1's belly-drag collapse: the defect was TAUGHT, in and out
+    of sequence.** The one-flag fix `cw-arch-trans-dagger2`
+    (`--stance-teacher` → `footlow2_hard1`) was launched AND KILLED
+    the same cycle — the kill is the bigger finding: **in the
+    `goal.mode_seq` training env that teacher pair fell 99/225 demo
+    sequences (lower 73) while scoring 11/12 zero-fall on the eval
+    instrument; stance_dr10 shows the INVERTED pattern (30/300
+    in-env, 0/12 instrument). CODE item 1's in-env per-switch
+    re-anchor (walk→lower especially) does not reproduce the proven
+    handoff context and is now the prime suspect — debug it before
+    ANY re-distill, and arm 2 must not train on `goal.mode_seq=1`
+    until fixed** (full plan in TRANSITIONS_DIRECTIVE.md "ARM 1
+    RESULT"). Arm 2 also stays off the slot-3 (dagger1 BC) init
+    while the slot-1 repair is in flight (ASSUMPTION, operator to
+    review). Evidence:
+    `logs/ckpt_eval/transdagger1_modeseq_{det,sto}.json`,
+    `modeseq_stancedr10_det.json`,
+    `cw_arch_trans_dagger1_{gate,rise12}` (all train-0); full note in
+    TRANSITIONS_DIRECTIVE.md "ARM 1 RESULT".
   The directive's failure ledger (12 measured lessons) is binding —
   do not re-litigate closed levers inside these arms.
 - **`cw-arch-gru-dual2` VERDICTED FAIL (08-13 ~23:xx UTC dig-in) —

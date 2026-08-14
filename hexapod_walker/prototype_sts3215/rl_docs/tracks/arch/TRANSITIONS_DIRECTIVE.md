@@ -214,6 +214,67 @@ matters.
   science); lower still collapsed → drop the DAgger rounds on lower
   segments only (bc2 precedent) and re-distill.
 
+**ARM 1 RESULT (08-14, first artifact `...transdagger1.zip`): FAIL on
+the pre-registered gate — root cause is the DEFAULT STANCE TEACHER,
+proven by a matched-teacher control, and the fix is running.**
+Sequence eval det DR0: **0/12 zero-fall** (bar ≥11/12; sto 0/12 too).
+Per segment: walk 12/12 gait_valid (prog med 0.79) — the rise→walk
+switch transfers; rise 0/24 (first rise never falls but ends 15–25mm
+short with feet unplanted); lower 0/12 falls-free but parks a WHOLE
+TRIPOD (legs 0/2/4) 80–260mm in the air; the post-lower rise then
+tips `tilt_roll` **12/12** at 12–14° switch-window tilt. Retention
+(single-mode DR0): hold det 6/6 PASS; walk gait_valid 6/6 PASS (prog
+1.03, slip/m 1.46; success letter 2/6 on the dagger1-init's same
+vel_err 0.033-vs-0.030 polish miss); rise n=12/seed=1 det 3/12 with
+3 non-crouch wins PASS (= dagger1 init); **lower det+sto 0/6 — NOT
+rebuilt (bar ≥4/6), and with the TEACHER's signature: worst_clear
+261mm (tripod parked in the air), not dagger1's belly-drag collapse**
+— the broken in-context teacher lower out-voted the 30 single-mode
+lower demos. Artifacts:
+`logs/ckpt_eval/cw_arch_trans_dagger1_{gate,rise12}` (train-0).
+**Matched control (same instrument, det, seed 0):** the default
+stance teacher `ppo_goal_cw_stance_dr10` scores **0/12 zero-fall
+itself** with the IDENTICAL fingerprint segment for segment (first
+rise herr −14..−27mm; lower end_clear ~[90,85,250]mm on legs 0/2/4;
+post-lower rise tilt_roll 12/12 at 12–15°) —
+`logs/ckpt_eval/modeseq_stancedr10_det.json` vs
+`transdagger1_modeseq_{det,sto}.json`. So `--transitions` distilled
+with HIGH fidelity — the student is a faithful copy of an in-context
+INCAPABLE teacher. The demo log agrees: the teacher fell 30/300
+collection sequences (rise 24, lower 5, walk 1) — the directive's own
+"a teacher that scores badly in the sequence context cannot be
+distilled" condition was violated in the data, but the mechanical
+`--seq-verify` (falls-only, first 12 det) PASSED because a tripod-up
+lower does not fall. **Lesson for the ledger: the teacher-verify gate
+must check segment QUALITY, not just falls — until then, pre-verify
+any teacher on THIS instrument (footlow2_hard1 det 11/12 is the
+passing reference; stance_dr10 det 0/12 is disqualified).**
+**Fix attempt `cw-arch-trans-dagger2` (one variable:
+`--stance-teacher` → `footlow2_hard1`, 68-obs compat proven) was
+launched 08-14 and KILLED mid-collection by the same cycle — and the
+kill is the cycle's biggest finding: `goal.mode_seq` (CODE item 1)
+itself is now the prime suspect.** In the mode_seq TRAINING env the
+footlow2_hard1+walk_longdist_r2 pair fell **99/225 demo sequences
+(44%; lower 73, walk 22, rise 3)** with teacher return med ~298/min
+−485 — while the SAME pair scores **11/12 zero-fall on the eval
+instrument** (whose reanchor mechanics are the composition-proven
+eval_handoff ones) and footlow2's lower never falls anywhere else
+(12/12 single-mode AND in-sequence on the instrument). stance_dr10
+shows the INVERTED pattern (30/300 in-env vs 0/12 on the
+instrument). Two switch implementations, two contradictory verdicts
+on the same checkpoints → the in-env per-switch re-anchor
+(especially walk→lower) does not reproduce the proven handoff
+context. The falls-only `--seq-verify` cap (12 det eps) passed at
+4/12 and failed to protect the dataset (poisoned per this
+directive's own teacher rule; no artifact was written).
+**NEXT (agent-doable, blocking both arms): instrument the mode_seq
+walk→lower switch — dump the refs/_z0/q_nom/blend state the env
+generates at the switch and diff against `reanchor_to()`'s on the
+same physical state; fix item 1; re-verify footlow2_hard1 composes
+in-env at ≈ its instrument rate; ONLY THEN re-run the transdagger2
+recipe.** Arm 2 must not launch on `goal.mode_seq=1` until this is
+resolved — its RL would train on the same defective switch context.
+
 ## Arm 2 — `cw-arch-modeseq1` (consolidated RL, the "one good set" arm)
 
 10M, dual-core GRU, `goal.mode_seq=1`. THE one-variable framing: the
