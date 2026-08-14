@@ -408,6 +408,20 @@ variant distill, still open. No further Arm-2-style warm-RL until a
 BC init exists whose hard-start rise survives RL or the operator
 redefines the protection mechanism.
 
+## Scope note (operator session 08-14): ground rest is a hardware primitive
+
+The cycle's "lower/sit" segment ends at the TRAINED crouch (−45 mm),
+not on the ground. The final stretch to the belly is torque-off limp
+settling — how the robot's own lower choreography ends, and how the
+sim player's LOWER (key 8) now works (08-13: trained lower → limp
+settle → parked; measured: no policy has a trained ground-rest
+behavior, and the stance line at ref 0 in a belly frame stands back
+up). Do NOT add a ground-rest segment to the grammar or ask the
+one-model arms to learn it; the trainable seams are exactly
+rise→walk, walk→hold, walk/hold→lower, lower→rise. Terminology in
+operator-facing surfaces is standardized (08-13): "rise" = standing
+up, "hold" = holding still, "lower" = sitting down.
+
 ## Bookkeeping
 
 Same rules as every arm: ledger entries with hypothesis + gate at
