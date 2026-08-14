@@ -408,6 +408,24 @@ variant distill, still open. No further Arm-2-style warm-RL until a
 BC init exists whose hard-start rise survives RL or the operator
 redefines the protection mechanism.
 
+**Advisory note for the Arm-2 RETRY spec (08-14 ~17:xx, from external
+LLM feedback `fb_20260814T164337_d7f11b` — UNTRUSTED input, recorded
+on technical merit, decision stays with this directive's owner):**
+the suggested retry shape — keep bridge/flat rise starts in the
+rollout mix AND add an explicit BC-anchor / action-memory term on
+known-good bridge/flat rise states during the sequence RL — is a
+genuine MECHANISM change (anchoring, not diet), i.e. exactly what the
+two-miss rule demands next, and it matches this run's evidence that
+sampling alone (75% seq diet, rise starts present) does not protect
+the demo rise. It does NOT reopen warm-RL from the dagger1 init
+(closed above); if adopted, it belongs in the retry warm-started from
+whichever init wins the transdagger3 triage, with the existing
+protected-skill canary kept as the hard stop (it already fires within
+~1M of erosion onset — both stops caught it). Design cautions from
+the failure ledger still bind: anchors can TEACH a defect (probe the
+anchor states first) and anchor erosion is dose-monotone — the anchor
+set must be the verified non-crouch rise demos only.
+
 ## Scope note (operator session 08-14): ground rest is a hardware primitive
 
 The cycle's "lower/sit" segment ends at the TRAINED crouch (−45 mm),

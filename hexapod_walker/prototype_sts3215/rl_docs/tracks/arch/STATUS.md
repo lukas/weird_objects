@@ -32,7 +32,11 @@ at what budget, with which failure modes.
   goal.rise_partial_frac=0.45`, crouch 0.10; passthrough flag landed
   this cycle, default-off/bit-exact) — is RUNNING on train-0 CPUs**;
   the operator's option (b) rise-only variant distill stays open in
-  top-level WAITING-ON. Detail: `rl_docs/runs/cw-arch-modeseq1-r1.md`;
+  top-level WAITING-ON. An advisory external-feedback note
+  (fb_20260814T164337_d7f11b: add a bridge/flat-rise BC-anchor term
+  to the eventual Arm-2 retry, not just diet) is recorded in
+  TRANSITIONS_DIRECTIVE under "ARM 2 RESULT" for the retry spec.
+  Detail: `rl_docs/runs/cw-arch-modeseq1-r1.md`;
   evidence `logs/ckpt_eval/modeseq1_r1_seq_{det,sto}.json`,
   `cw_arch_modeseq1_r1_{gate,owncfg,rise12}`.
 - **08-14 ~12:4x UTC — transdagger2 TRIAGED (the named next step):
