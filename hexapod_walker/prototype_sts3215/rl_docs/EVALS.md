@@ -99,6 +99,16 @@ charts) and uploads report.json.
 - `eval_drive.py` — the joystick gate: scripted command schedule;
   falls, tracking error, distance. Gate wording lives in the run's
   ledger entry.
+- `eval_modeseq.py --drive-random [--entry-slew 1.5,0.25]` — the
+  SESSION-JOYSTICK gate (08-14, hw mainline): the modeseq sequence
+  instrument with a per-episode randomized joystick DRIVE (engage
+  dwell, fwd/diagonal segments in the trained band, guaranteed
+  stop-go + direction flip, trailing STOP_SETTLE window reported per
+  segment) and the TAKEOFF.md entry-slew ramp engaged at each walk
+  handoff. Default-off flags; legacy invocations bit-exact. Baseline:
+  `logs/ckpt_eval/session_joystick_handoff1_*.json` (footlow2_hard1 +
+  bcgait1_hard1: det no-slew 12/12 zero-fall, all segments; sto weak
+  link = in-sequence rise; zero-command residual drift ~0.04 m/s).
 - `eval_session.py` — the SESSION gate (08-11, model tour): drives a
   stance+walk checkpoint pair through the exact interactive play.py
   protocol (belly → auto stand under the `_InteractiveTraj` ramp →

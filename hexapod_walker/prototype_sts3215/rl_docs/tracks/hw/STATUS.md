@@ -9,6 +9,41 @@ unresolved blockers between the robot and reliable joystick control.
 
 ## Now
 
+- **08-14 ~20:0x UTC: the SESSION-JOYSTICK product gate exists and
+  the candidate specialist pair PASSES it deterministically —
+  `session-joystick-handoff1`** (operator-requested action cycle;
+  external notes fb_20260814T194245/194529). New default-off
+  `eval_modeseq` flags (`--drive-random`, `--entry-slew`, snapshot
+  `exp/session-joystick-handoff1` 4c9912d, legacy path bit-exact)
+  turn the modeseq instrument into the ~60 s guarded session
+  REST→RISE→SETTLE→WALK_ENTRY→randomized joystick DRIVE (fwd/
+  diagonals at the trained band, guaranteed stop-go + direction
+  flip)→STOP_SETTLE→LOWER→RISE→DRIVE, with canonical per-mode
+  re-anchor at every switch and the TAKEOFF.md entry-slew ramp at
+  walk engage. Result, `footlow2_hard1` (stance) +
+  `bcgait1_hard1` (tall walk, own-cfg vel:=ref), 12 eps, matched
+  A/B slew-on/off, strips watched (honest tall gait, no parks):
+  - **det no-slew 12/12 zero-fall, every segment perfect** (rise
+    24/24 incl. post-lower, lower 12/12, walk 24/24 gait_valid,
+    slip/m med 1.80, drive height med 135 mm); det slew-on 11/12
+    (one downstream rise tilt fall — noise-level; engage-window
+    tilt med 1.6→1.3°, max 2.5→2.1°: the ramp is in-session
+    OOD-safe and mildly quieter, its real justification stays the
+    push-probe in TAKEOFF.md).
+  - **sto: the weak link is the in-sequence RISE, not driving** —
+    rise 18-19/24 (over_current + tilt falls), walk stays
+    21-22/21-22 gait_valid with zero drive falls under flips and
+    stop-go, lower 12/12 both arms.
+  - **NEW measured fact for the session controller: at zero command
+    the tall walker does NOT settle** — mean body speed over the
+    trailing 1.5 s stop window is 0.035–0.040 m/s in all 4 arms
+    (0/90 windows under 0.02 m/s). A joystick session MUST keep the
+    runner's stop→stance-hold switch; "walk policy at zero command"
+    is not a stop.
+  Evidence: `logs/ckpt_eval/session_joystick_handoff1_{det,sto}_
+  {slew,noslew}.json` + `_ep0.png` (controller copies; source
+  train-1). Next hw session gate for any stance/walk candidate can
+  now add these two flags for the session-level read.
 - **08-13 ~2x:xx UTC: ruling 2's agent-doable half is DONE — the
   takeoff transient is instrumented and the staged gait-entry design
   exists, prototyped, with a bench-ready recommendation
