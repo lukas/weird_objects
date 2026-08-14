@@ -1,0 +1,40 @@
+---
+description: Each agent works in its own git worktree and commits its own finished work there
+alwaysApply: true
+---
+
+# Agent worktrees — work in your own worktree, commit your own work
+
+Standing policy (Lukas, 2026-08-14): each Cursor agent runs in its own git
+worktree and commits its finished work to the repo from there.
+
+## When your session is in a worktree
+
+You're in a worktree if the path is under `~/.cursor/worktrees/` or
+`git rev-parse --git-common-dir` is not `.git`.
+
+- You have **standing permission to commit your own completed work** on the
+  worktree's branch — no need to ask first. Commit when a task is done (or
+  at coherent milestones in a long task), not after every edit.
+- Stage only the files YOU changed for the task (`git add <paths>`; never
+  `git add -A` / `git commit -a` — pre-existing dirt is not yours).
+- Message style matches `git log`: `<area>: <what and why>`, e.g.
+  `dynrep: quality/retention eval instrumentation`.
+- Do **not** push, merge into the main branch, or delete branches unless the
+  user asks. Merging back is the user's call (`/apply-worktree`, or a PR when
+  requested).
+
+## Worktree environment (set up automatically)
+
+`.cursor/worktrees.json` runs `.cursor/setup-worktree-unix.sh` in each new
+worktree. It writes an `.envrc` that activates the MAIN checkout's `.venv`
+(never create a per-worktree venv), symlinks
+`hexapod_walker/prototype_sts3215/rl_move/sim/policies` to the main
+checkout's checkpoint cache (shared — never delete zips from a worktree),
+and copies `.mcp.json`. If imports fail in a fresh worktree, run that script
+by hand with `ROOT_WORKTREE_PATH=/Users/lukas/weird_objects`.
+
+## When your session is in the main checkout
+
+The default rules stand: only commit when the user asks in the current
+session. Prefer starting substantive work in a worktree (`/worktree`).

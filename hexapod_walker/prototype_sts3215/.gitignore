@@ -16,7 +16,10 @@ node_modules/
 # Large regenerable / unrelated artifacts (rebuilt from source by the
 # build + verify + viz scripts; not tracked by convention)
 policies_prototype/
-rl_move/sim/policies/
+# No trailing slash: in Cursor agent worktrees this path is a SYMLINK to the
+# main checkout's checkpoint cache (see .cursor/setup-worktree-unix.sh), and
+# dir-only patterns (trailing /) don't match symlinks.
+rl_move/sim/policies
 
 # W&B credentials (placeholder template lives in git history only via
 # docs; the real file must never be committed)
