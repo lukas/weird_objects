@@ -1888,11 +1888,12 @@ class SimHexapodBalanceEnv(_GymBase):
             self.SEQ_FRAME_FAMILY[str(seg["mode"])])
         if frame is None:
             raise RuntimeError(
-                "goal.mode_seq: canonical segment frames missing — this "
-                "env's reset() never ran _seq_capture_frames. The MJX "
-                "batched-reset path needs its own frame mint (settle "
-                "probe per pool entry) before mode_seq can train there; "
-                "see TRANSITIONS_DIRECTIVE 'ARM 1 RESULT'.")
+                "goal.mode_seq: canonical segment frames missing — "
+                "neither reset() (_seq_capture_frames) nor the MJX "
+                "choreography (MjxVecEnv._mint_seq_frames, the batched "
+                "twin landed 08-14) minted them before the first "
+                "switch. This is an invariant violation, not a "
+                "missing-feature guard; see TRANSITIONS_DIRECTIVE.")
         # Old ABSOLUTE refs at the boundary (blend origin).
         g_old = self._goal_traj.at(self._step_i)
         old_abs_h = self._z0 + g_old.height_ref

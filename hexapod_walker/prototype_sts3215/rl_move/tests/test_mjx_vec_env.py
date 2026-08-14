@@ -185,3 +185,91 @@ def test_truncation_and_pool_refill(venv):
     obs, rews, dones, infos = venv.step(np.zeros((B, N_ACT)))
     assert not dones.any()
     assert np.all(np.isfinite(obs))
+
+
+# ---------------------------------------------------------------------------
+# goal.mode_seq on the batched path (TRANSITIONS_DIRECTIVE follow-up,
+# 08-14): the MJX choreography must mint the canonical plant/belly
+# segment frames (sim_env._seq_capture_frames twin) — before this the
+# vec path raised at the first mid-episode switch.
+# ---------------------------------------------------------------------------
+
+def _seq_cfg(seg_s=(3.0, 4.0)):
+    # Mirrors test_mode_seq._make_env: segments shorter than the rise
+    # sampler's hold+ramp horizon make the goal generator degenerate,
+    # so keep the C test's 3-4 s segments / 12 s episodes.
+    from rl_move.config import load_config
+    cfg = load_config()
+    g = cfg.setdefault("goal", {})
+    g["mode_seq"] = 1.0
+    g["mode_seq_segment_s_min"] = seg_s[0]
+    g["mode_seq_segment_s_max"] = seg_s[1]
+    cfg.setdefault("obs", {})["mode_onehot"] = 1.0
+    return cfg
+
+
+def test_mode_seq_frames_minted_and_match_c_env():
+    """The batched mint must reproduce the C env's canonical frames.
+
+    Physics differs (float32 MJX, iterations 8 vs 50) so this is the
+    settle test's behavioral bar, not bit parity: q_nom within 0.03
+    rad, z0 within 6 mm — and the two families must differ materially
+    (the ~79 deg knee gap the trans-dagger2 kill measured is the whole
+    point of the canonical-frame install)."""
+    from rl_move.sim.walk_task import SimHexapodJointWalkEnv
+
+    cfg = _seq_cfg()
+    v = MjxVecEnv(SimHexapodJointWalkEnv, B,
+                  env_kwargs=dict(randomize=False, episode_seconds=12.0,
+                                  cfg=cfg),
+                  seed=3, pool_per_env=1, desync_episodes=False)
+    try:
+        v.reset()
+        c_env = SimHexapodJointWalkEnv(randomize=False,
+                                       episode_seconds=12.0, seed=3,
+                                       cfg=cfg)
+        c_env.reset()
+        ref = c_env._seq_frames
+        assert ref is not None
+        for env in v.envs:
+            fr = env._seq_frames
+            assert fr is not None and set(fr) == {"plant", "belly"}
+            assert np.max(np.abs(fr["plant"]["q_nom"]
+                                 - fr["belly"]["q_nom"])) > 0.5
+            assert fr["belly"]["z0"] < fr["plant"]["z0"]
+            for fam in ("plant", "belly"):
+                assert np.max(np.abs(fr[fam]["q_nom"]
+                                     - ref[fam]["q_nom"])) < 0.03, fam
+                assert abs(fr[fam]["z0"] - ref[fam]["z0"]) < 0.006, fam
+                assert np.max(np.abs(fr[fam]["pad_z_ref"]
+                                     - ref[fam]["pad_z_ref"])) < 0.008, fam
+    finally:
+        v.close()
+
+
+def test_mode_seq_switch_crosses_on_batched_path():
+    """Stepping across a segment boundary must install the canonical
+    frame (pre-mint code raised RuntimeError at the first switch) and
+    keep obs finite; at least one env must actually switch."""
+    from rl_move.sim.walk_task import SimHexapodJointWalkEnv
+
+    cfg = _seq_cfg()
+    v = MjxVecEnv(SimHexapodJointWalkEnv, B,
+                  env_kwargs=dict(randomize=False, episode_seconds=12.0,
+                                  cfg=cfg),
+                  seed=5, pool_per_env=1, desync_episodes=False)
+    try:
+        v.reset()
+        # Step just past the longest possible first segment (4 s):
+        # every env's first switch must install the canonical frame
+        # (pre-mint code raised RuntimeError here).
+        dt = v.envs[0].dt
+        n_act = v.action_space.shape[0]   # walk env n_act != balance N_ACT
+        for _ in range(int(round(4.5 / dt))):
+            obs, rews, dones, infos = v.step(np.zeros((B, n_act)))
+            assert np.all(np.isfinite(obs))
+            for info in infos:
+                assert info.get("termination_reason") != "bad_action_shape"
+        assert any(env._seq_idx > 0 for env in v.envs)
+    finally:
+        v.close()

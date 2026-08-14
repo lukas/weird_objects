@@ -53,6 +53,7 @@ from typing import Any
 import numpy as np
 from stable_baselines3.common.vec_env.base_vec_env import VecEnv
 
+from ..config import cfg_get
 from .mjx_backend import MODEL_DR_FIELDS, MjxTickStepper, mjx_is_available
 from .mjx_host import (
     CommandStub, ModelDrScratch, foot_mu_from_cfg, leg_chassis_from_cfg,
@@ -61,7 +62,7 @@ from .mjx_host import (
     snap_attrs_for, terrain_from_cfg,
     snapshot_env, tp_rows,
 )
-from .servo_model import N_JOINTS, SimServoParams
+from .servo_model import DEG2RAD, N_JOINTS, SimServoParams
 from .sim_env import SimHexapodBalanceEnv
 
 
@@ -153,6 +154,51 @@ class MjxVecEnv(VecEnv):
     def _push_output(self, env, i: int, outs) -> None:
         push_output_row(env, self.stepper.adr.pad_bids, outs, i)
 
+    def _mint_seq_frames(self, q_probe: dict, qpos_probe: dict) -> None:
+        """Batched frame mint for goal.mode_seq — the device twin of
+        sim_env._seq_capture_frames(). For each segment family (plant,
+        belly) replay the exact reset choreography SYNCHRONIZED across
+        the batch (place -> stiff slip settle 0.4s -> limp slip settle
+        0.5s -> capture nominal -> hold settle 0.3s) and record the
+        reference frame a FRESH episode of that family would get:
+        q_nom, _z0 (chassis z), pad-z ref. Runs BEFORE the episode's
+        own reset_envs(), which wipes the probe physics — the episode
+        start is untouched, exactly like the C mint. No host rng draws
+        (legacy streams bit-exact; feature off = this never runs)."""
+        B = self.num_envs
+        st = self.stepper
+        dt = self.envs[0].dt
+        hold = st.make_command(np.zeros((B, N_JOINTS)), speed_deg_s=0.0,
+                               acc_units=0.0, valid=False)
+        frames: list[dict] = [dict() for _ in range(B)]
+        for fam in ("plant", "belly"):
+            st.reset_envs(qpos_probe[fam],
+                          np.zeros((B, self.mj_model.nv)),
+                          q_probe[fam], dt_ctrl=dt,
+                          tick_params=self._tp_host)
+            out = None
+            for _ in range(int(round(0.4 / dt))):      # stiff, slip feet
+                out = st.tick(hold, slip=True)
+            for _ in range(int(round(0.5 / dt))):      # limp, slip feet
+                out = st.tick(hold, limp=True, slip=True)
+            outs = self._jax.device_get(out)
+            q_nom = np.asarray(outs.q, dtype=float)    # (B, 18)
+            st.reset_profiles(q_nom)
+            for _ in range(int(round(0.3 / dt))):      # stiff, normal feet
+                out = st.tick(hold)
+            outs = self._jax.device_get(out)
+            for i, env in enumerate(self.envs):
+                self._push_output(env, i, outs)
+                frames[i][fam] = {
+                    "q_nom": q_nom[i].copy(),
+                    "z0": float(env.data.xpos[env._chassis_bid, 2]),
+                    "pad_z_ref": np.array(
+                        [float(env.data.xpos[b, 2]) if b >= 0 else 0.0
+                         for b in env._pad_bids]),
+                }
+        for env, fr in zip(self.envs, frames):
+            env._seq_frames = fr
+
     def _choreography(self) -> list[dict]:
         """Run the full synchronized reset for ALL envs. Leaves every
         env + the device batch in fresh-episode state and returns one
@@ -168,6 +214,29 @@ class MjxVecEnv(VecEnv):
         tp = {k: [] for k in ("latency_s", "deadband", "vel_max", "imu_off")}
         dr_rows: dict[str, list] | None = (
             {k: [] for k in MODEL_DR_FIELDS} if self._model_dr else None)
+        # Mode-sequencing canonical frames (goal.mode_seq): the batched
+        # twin of sim_env._seq_capture_frames(). The C env mints the
+        # plant/belly reference frames inside reset() (between the DR
+        # half and the placement); this path never runs env.reset(), so
+        # without a mint here _seq_maybe_switch raises at the first
+        # switch (TRANSITIONS_DIRECTIVE "ARM 1 RESULT" follow-up item).
+        # Mirrors the C re-mint condition: once when the model cannot
+        # change, per choreography under DR (tick-param scales and
+        # model-field draws both move the settled frames).
+        seq_on = float(cfg_get(getattr(self.envs[0], "cfg", None) or {},
+                               "goal", "mode_seq", default=0.0)) == 1.0
+        mint = seq_on and (self._model_dr
+                           or any(e.randomizer is not None
+                                  for e in self.envs)
+                           or any(getattr(e, "_seq_frames", None) is None
+                                  for e in self.envs))
+        q_probe: dict[str, np.ndarray] | None = None
+        qpos_probe: dict[str, np.ndarray] | None = None
+        if mint:
+            q_probe = {f: np.zeros((B, N_JOINTS))
+                       for f in ("plant", "belly")}
+            qpos_probe = {f: np.zeros((B, self.mj_model.nq))
+                          for f in ("plant", "belly")}
         for i, env in enumerate(self.envs):
             q_start = env._reset_begin(None)
             q_starts[i] = q_start
@@ -180,6 +249,16 @@ class MjxVecEnv(VecEnv):
                 for k in dr_rows:
                     dr_rows[k].append(rows[k])
                 dr_model = self._dr_scratch.model   # DR'd for placement
+            if mint:
+                # Probe placements on the SAME DR'd model as the episode
+                # placement below (C order: probes, then episode start).
+                for fam, qp in (
+                        ("plant", env._clip_to_joint_limits(
+                            env._plant_deg * DEG2RAD)),
+                        ("belly", np.zeros(N_JOINTS, dtype=float))):
+                    q_probe[fam][i] = qp
+                    qpos_probe[fam][i] = place_env(
+                        env, self._scratch_data, qp, model=dr_model)
             qpos0[i] = place_env(env, self._scratch_data, q_start,
                                  model=dr_model)
             env._profile = CommandStub()
@@ -188,6 +267,8 @@ class MjxVecEnv(VecEnv):
         if self._model_dr:
             self._dr_host = {k: np.stack(v) for k, v in dr_rows.items()}
             st.set_model_fields(self._dr_host)   # before settle physics
+        if mint:
+            self._mint_seq_frames(q_probe, qpos_probe)
 
         st.reset_envs(qpos0, np.zeros((B, self.mj_model.nv)), q_starts,
                       dt_ctrl=dt, tick_params=self._tp_host)
