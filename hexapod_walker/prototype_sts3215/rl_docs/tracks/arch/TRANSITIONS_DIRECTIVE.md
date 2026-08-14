@@ -304,7 +304,15 @@ defect stands; teacher-quality gate lesson unchanged). Residual
 scope: the MJX batched-reset path never runs env.reset(), so
 `goal.mode_seq=1` there raises loudly until a batched frame mint
 lands (named follow-up CODE item) — **arm 2 on MJX waits on that;
-the transdagger2 recipe (CPU) can re-run NOW.**
+the transdagger2 recipe (CPU) can re-run NOW.** **BOTH DONE (08-14
+~03:xx UTC, orchestrator): transdagger2 re-run RUNNING on train-0
+(on-pod teacher verify 2/12 det falls, return med 656 — the fix
+reproduces in the collection context on the pod), and the MJX mint
+LANDED (`MjxVecEnv._mint_seq_frames`, commit 8374125: batched
+choreography mints the canonical plant/belly frames per episode,
+default-off, pod-verified frame parity vs fresh C reset + batched
+switch crossing as regression tests). Arm 2's only remaining wait
+is the transdagger2 artifact triage.**
 
 ## Arm 2 — `cw-arch-modeseq1` (consolidated RL, the "one good set" arm)
 

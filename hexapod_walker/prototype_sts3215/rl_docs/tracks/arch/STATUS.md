@@ -388,6 +388,28 @@ at what budget, with which failure modes.
     (`--stance-teacher footlow2_hard1`, CPU) on the fixed env; arm 2
     stays held only on the MJX frame mint + the transdagger2
     result.**
+  - **BOTH next steps EXECUTED (08-14 ~03:xx UTC, orchestrator
+    idle-kick): (1) the transdagger2 recipe is RUNNING on train-0
+    CPUs** (fixed env synced to the pod first; in-context teacher
+    verify PASSED on-pod — 2/12 det falls, cap 4, teacher return med
+    656 ≈ local 658; collection 500 eps at ~4% falls, BC epochs
+    running; artifact `ppo_goal_cw_gru_dual_bc_transdagger2.zip`,
+    log `/tmp/transdagger2.log`, gate = the directive's Arm 1 gate
+    unchanged). **(2) The MJX batched frame mint LANDED — arm 2's
+    named CODE wait is CLEARED** (`MjxVecEnv._mint_seq_frames`,
+    commit 8374125 / tag exp/mjx-modeseq-mint1): the batched
+    choreography mints canonical plant/belly frames per episode
+    (device twin of `_seq_capture_frames`, re-minted under DR),
+    default-off/bit-exact when mode_seq=0. Pod-verified on train-1
+    CPU MJX: frame parity vs a fresh C reset within 0.03 rad/6 mm
+    (`test_mode_seq_frames_minted_and_match_c_env`), batched
+    episodes now cross switches (`test_mode_seq_switch_crosses_on_
+    batched_path`; pre-mint = RuntimeError). Caveat logged: the
+    pre-existing `test_sharded_bitwise_matches_inprocess` failure
+    on train-1 reproduces at unmodified HEAD (~1e-5 sharded vs
+    in-process obs drift) — pod-env issue, NOT the mint; flag to
+    the next MJX dig-in. Arm 2 now waits only on the transdagger2
+    triage.
   The directive's failure ledger (12 measured lessons) is binding —
   do not re-litigate closed levers inside these arms.
 - **`cw-arch-gru-dual2` VERDICTED FAIL (08-13 ~23:xx UTC dig-in) —
