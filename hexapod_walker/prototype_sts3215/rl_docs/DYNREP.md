@@ -129,6 +129,16 @@ exists.
 z ∈ {64, 128, 256} before any deeper network. Do not assume extra
 layers create better semantics.
 
+**Scaling experiment (operator next-steps 08-13, supersedes the "keep
+it small" cap for the PREDICTION study only):** S ~0.8M (current) /
+M ~5.9M / L ~17M × history 16/48 × dataset 1200/4800 eps, all
+`--input-set obs`, matched steps/optimizer (`pod_scale_sweep.sh`,
+`analyze_scale.py`). The deliverable is the prediction scaling curve +
+G3 probe quality; a larger encoder still earns PPO wiring only through
+the normal gates and matched A/B/C. The likely bottleneck is data/task
+diversity, not parameters — the matrix includes the data axis to test
+exactly that.
+
 ## Do not do yet (v1 discipline)
 
 Large transformer; 10+ layer MLP; huge latent; contrastive stacks;

@@ -216,13 +216,15 @@ def main() -> None:
         if args.dump_latents:
             lat_z.append(out["z"].numpy())
             fN = b["hist"][:, -1]
-            lat_labels.append(np.stack([
-                fN[:, 36] * stats.std[36] + stats.mean[36],   # roll
-                fN[:, 37] * stats.std[37] + stats.mean[37],   # pitch
-                np.sum((b["hist"][:, -1, fr.CONTACT_SLICE]
-                        * stats.std[fr.CONTACT_SLICE]
-                        + stats.mean[fr.CONTACT_SLICE])
-                       > fr.CONTACT_THRESH_N, axis=1),          # n feet on
+            phys = fN * stats.std + stats.mean       # un-normalized
+            contacts = (phys[:, fr.CONTACT_SLICE]
+                        > fr.CONTACT_THRESH_N)
+            lat_labels.append(np.concatenate([
+                phys[:, 36:38],                       # roll, pitch
+                phys[:, 38:41],                       # gyro x/y/z
+                np.sum(contacts, axis=1,
+                       keepdims=True),                # n feet on
+                contacts.astype(np.float32),          # per-foot contact
             ], axis=1))
 
     report: dict = {"ckpt": args.ckpt, "data": args.data,
@@ -303,8 +305,12 @@ def main() -> None:
         np.savez_compressed(
             lat_path, z=np.concatenate(lat_z),
             labels=np.concatenate(lat_labels),
-            label_names=np.array(["roll_rad", "pitch_rad", "n_feet_on"]))
+            label_names=np.array(
+                ["roll_rad", "pitch_rad", "gyro_x", "gyro_y", "gyro_z",
+                 "n_feet_on", *[f"contact_{i}" for i in range(6)]]))
         print(f"latents: {lat_path}")
+        print("probe them: python -m rl_move.dynamics.probe_latents "
+              f"--latents {lat_path.relative_to(ROOT)}")
 
 
 if __name__ == "__main__":

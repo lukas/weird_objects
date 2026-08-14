@@ -15,12 +15,19 @@ comparison. Full design + gates: `rl_docs/DYNREP.md`.
 | `data.py` | Shard loading, episode-hash train/val split, normalization stats, window sampler |
 | `model.py` | Frame MLP(256,256, SiLU) -> GRU(256) -> z(128) -> short-horizon raw-state heads + long-horizon latent heads |
 | `train.py` | Pretraining loop; per-horizon train/val logging (CSV + optional W&B), best-val checkpoint |
-| `eval_model.py` | Gate G1: held-out prediction vs persistence + linear-ridge baselines (information-matched to the model's input set); latent dump for cluster analysis |
+| `eval_model.py` | Gates G1 (legacy) + G1.1 (revised 2026-08-13, `--k1-ridge-tol`): held-out prediction vs persistence + linear-ridge baselines (information-matched to the model's input set); latent dump for probes/cluster analysis |
+| `probe_latents.py` | G3 linear probes from dumped z: roll/pitch/gyro R², per-foot contact balanced accuracy, shuffled-target chance floor |
+| `merge_shards.py` | Merge parallel per-seed collection subdirs (collect.py shard numbering races under concurrent writers); `--require-actor` guards against recipe drift |
 | `sb3_encoder.py` | `DynFeaturesExtractor`: stacked env obs -> un-scale -> pretrained encoder -> z (+goal tail); `ScaledLRPPO` + `set_group_lrs` for condition C's slow encoder LR |
-| `train_ppo_transfer.py` | The A/B/C comparison: scratch vs frozen-z vs anchored encoder, dual-task eval CSV (retention for free), offline dynamics-anchor callback |
+| `train_ppo_transfer.py` | The A/B/C comparison: scratch vs frozen-z vs anchored encoder; tasks hold/lower/walk/rise; eval CSV carries per-task gait/transition QUALITY metrics (slip, peak roll/rate, slew saturation, contact switching, height/dh, vx tracking) + optional `--eval-heldout` dynamics-mismatch suites (broad DR, latency, servo speed, deadband, torque) |
 | `run_pilot.sh` | Local pilot cohort: hold from scratch, then lower warm-started (A/B/C, matched); run names are seed-suffixed (`pilot_hold_A_s0`) |
 | `analyze_pilot.py` | Cross-seed aggregation of the pilot eval CSVs: steps-to-threshold, final returns, hold retention, optional per-seed curve plot |
-| `datasets/` `models/` `logs/` | Generated (gitignored) |
+| `pod_v3_pipeline.sh` | v3 drift-fix pipeline (stood down in favor of pod_pilot_rep2.sh — kept as the G1.1-gated variant) |
+| `pod_pilot_rep2.sh` | Drift-fix replication on the INTENDED v2 recipe (v2pod2), gated on ORIGINAL G1 (no post-hoc weakening) |
+| `pod_holdwalk.sh` | hold->walk transfer cohort (+ rise-retention canary + heldout suites in phase 2) |
+| `pod_risewalk.sh` | rise->walk benchmark cohort — the operator's actual robot objective; rise retention is the first-class hypothesis |
+| `pod_scale_sweep.sh` | Representation scaling matrix: S/M/L (~0.8/5.9/17M) x history 16/48 x 1200/4800-ep data, each cell gate-evaluated; aggregate with `analyze_scale.py` |
+| `datasets/` `models/` `logs/` | Generated (gitignored; also excluded from `snapshot.sh --sync` code tarballs) |
 
 ## Quick start (from `prototype_sts3215/`, repo `.venv`)
 

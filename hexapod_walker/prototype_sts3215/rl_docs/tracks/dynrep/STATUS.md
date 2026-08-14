@@ -11,8 +11,87 @@ whether PPO reusing that representation (frozen / continually
 anchored) learns new motor skills with fewer env steps than PPO from
 scratch. Primary metric: sample efficiency on a NEW task.
 
-## Now (08-13 ~19:4x UTC: retry G1 FAIL — replicated; dataset fix is
-## OPERATOR-side, no third seed)
+## Now (08-14 ~02:2x UTC: operator next-steps EXECUTION — two agent
+## sessions in parallel, division of labor below)
+
+- **COORDINATION (08-14 ~02:2x UTC):** two concurrent local sessions
+  are executing the operator's DYNREP_NEXT_STEPS directive. Session A
+  (this update) has LANDED (commit 08ba040): **G1.1 revised gate
+  recorded prospectively** (eval_model.py `--k1-ridge-tol` 0.05,
+  `gate_g1_1_pass` in the report JSON + console line, rationale in
+  rl_docs/DYNREP.md — historical v2pod FAIL verdicts unchanged),
+  model/train scaling knobs (hidden/act_hidden/gru_layers, stored in
+  ckpt config), merge_shards.py (parallel per-seed collection +
+  --require-actor drift guard), pod_v3_pipeline.sh, pod_scale_sweep.sh
+  + analyze_scale.py, and snapshot.sh --sync now EXCLUDES
+  rl_move/dynamics/{datasets,models,logs} from the code tarball.
+  Session B (uncommitted, in flight as of 02:1x UTC) has collect.py
+  hard-fail-on-degraded-mix, pod_pilot_rep2.sh (v2pod2 recollect +
+  encoder, gated on ORIGINAL G1 from the report JSON — correctly NOT
+  the revised G1.1, no post-hoc weakening), and the mode_seq
+  canonical-segment-frames fix (trans-dagger2) + verify/eval tooling.
+  **Division to avoid double-launch: the drift-fix replication runs
+  via session B's pod_pilot_rep2.sh (train-11 left free for it;
+  pod_v3_pipeline.sh stands down as the duplicate); session A runs the
+  SCALING sweep on train-10 (claimed 02:2x UTC) + the eval
+  instrumentation (gait/transition quality, rise canary, held-out
+  dynamics) + representation probes.** Re-sync code to a pod only
+  between pipeline stages, never mid-cohort.
+- **NEW drift finding (08-14, train-11 meta.json + collect WARNINGs):
+  the v2pod drift was WORSE than recorded — `ppo_goal_cw_stance_dr10.
+  zip` was ALSO missing on the pods**, so the stance actor's 0.20
+  share fell back to RANDOM: v2pod's actual mix was random 0.50 /
+  tripod 0.25 / walk 0.25 (zero stance-champion episodes, zero noslip)
+  vs the recipe's 5-actor mix. Both G1-failed pod encoders trained on
+  that. The stance champion (md5 da1d912a…) is now pushed to train-11
+  AND train-10; collect preflights hard-require both champions +
+  noslip_gait.
+- **SCALING SWEEP LAUNCHED (train-10, 02:13 UTC, STAGE=all,
+  hands-off):** 12 parallel collects (seeds 0-11, 4800 eps; small=s0-2
+  merged with the noslip guard) then the 12-cell matrix S/M/L
+  (~0.8/5.9/17M params) x H16/H48 x small/large, each cell trained
+  40k matched steps + gate-evaluated (G1.1 AND legacy G1 recorded).
+  Logs: `logs/scale_all.log`, per-cell `logs/dyn_scale_*_{train,gate}`,
+  summary `logs/scale_summary.txt` (analyze_scale.py). Triage rule:
+  the deliverable is the prediction scaling CURVE + probe quality —
+  no cell earns PPO wiring without the normal gate + A/B/C.
+- **EVAL INSTRUMENTATION LANDED (train_ppo_transfer.py, smoke-tested
+  locally incl. every new column):** (1) per-task gait/transition
+  QUALITY metrics at every eval point — slip_m, fwd_m, peak_roll/
+  pitch_deg, peak_gyro_dps, contact_sw_per_s, slew_sat (joint-ticks at
+  the safety rate limit) + slew_sat_all (>=6 joints simultaneously —
+  the takeoff posture-snap signature), mean_h_m, dh_m (rise-gain
+  canary signal), vx_rmse; (2) task "rise" (p_rise=1.0, belly/bridge
+  starts) usable as trained task AND as --eval-tasks retention canary;
+  (3) --eval-heldout: fixed held-out dynamics suites on the trained
+  task every --heldout-every (50k) — dr10 (broad DR 1.0), lat2x,
+  vel07, db25, tq07 via the campaign's cfg dr.<field> override
+  mechanism (isolated axes, same as the cw-walk-latjit25 precedent).
+  pod_holdwalk.sh phase 2 now runs --eval-tasks hold,walk,rise +
+  --eval-heldout and accepts G1 OR G1.1 on the gate record;
+  pod_risewalk.sh (NEW) is the operator's actual-objective benchmark:
+  rise 500k from scratch -> walk 1M warm-started, rise retention as
+  the first-class hypothesis (expected strongest-positive pattern: A
+  loses rise + rolls/slips more, C retains rise + cleaner walk).
+- **G3 probes: first real result (probe_latents.py, laptop
+  dyn_v2_obs latents, 4096 held-out windows):** ridge probes from z
+  recover roll/pitch R² 0.96/0.97, gyro x/y/z R² 0.97/0.96/0.92, and
+  **per-foot contact at 0.90-0.95 balanced accuracy (chance 0.50) —
+  with contact forces NOT in the obs input set**: the encoder infers
+  support state from proprio/action history. n_feet_on R² 0.47 (count
+  is harder linearly). This is the strongest G3 evidence yet that the
+  latent organizes attitude, angular rate and support state.
+- **Launch ordering for the cohorts:** pod_pilot_rep2.sh (session B,
+  train-11) must land its ORIGINAL-G1 verdict first. On PASS:
+  pod_risewalk.sh (ENC/DATA pointed at v2pod2, seeds 1-3) on a free
+  pod is the priority cohort per the directive ("the next dynrep task
+  should NOT be another narrow hold->lower transfer"); pod_holdwalk
+  seeds can follow on remaining capacity. On FAIL: the drift
+  hypothesis is disconfirmed — escalate to the operator, do NOT
+  gate-shop with G1.1, do not launch A/B/C.
+
+## Previously (08-13 ~19:4x UTC: retry G1 FAIL — replicated; dataset
+## fix is OPERATOR-side, no third seed)
 
 - **The pre-registered seed-retry FINISHED and G1-FAILED the same
   way (`pod_pilot_rep_retry.sh`, tag exp/dynrep-podrep-retry1,

@@ -46,8 +46,12 @@ echo "== pod_holdwalk start $(date -u +%FT%TZ) host=$(hostname)" \
 
 [ -f "$ENC" ] || { echo "POD_HOLDWALK_ABORT: encoder $ENC missing"; exit 3; }
 [ -d "$DATA" ] || { echo "POD_HOLDWALK_ABORT: dataset $DATA missing"; exit 3; }
-grep -q "GATE G1 .*PASS" "$LOG/$(basename "$ENC" .pt)_gate.txt" 2>/dev/null || {
-    echo "POD_HOLDWALK_ABORT: no G1 PASS on record for $ENC" \
+# Accept the original G1 or the prospectively recorded G1.1 (revised
+# 2026-08-13, rl_docs/DYNREP.md — G1.1 governs encoders gated from that
+# date; a legacy PASS implies a G1.1 PASS).
+grep -Eq "GATE G1(\.1)? .*PASS" "$LOG/$(basename "$ENC" .pt)_gate.txt" \
+    2>/dev/null || {
+    echo "POD_HOLDWALK_ABORT: no G1/G1.1 PASS on record for $ENC" \
          "(DYNREP.md hard gate)"; exit 3; }
 
 for SEED in $SEEDS; do
@@ -63,10 +67,14 @@ for SEED in $SEEDS; do
                     --encoder "$ENC" --anchor-data "$DATA" \
                     --name "pilot_hold_${C}_s${SEED}"
             fi
+            # eval-tasks includes rise: the hard rise-retention canary
+            # (operator next-steps 08-14 — the measured failure mode is
+            # rise competence erased by PPO); eval-heldout adds the
+            # fixed held-out dynamics suites on the trained task.
             OMP_NUM_THREADS=4 $PY -m rl_move.dynamics.train_ppo_transfer \
                 --condition "$C" --task walk --seed "$SEED" \
                 --steps "$WALK_STEPS" --eval-every "$EVAL_EVERY" \
-                --eval-tasks hold,walk \
+                --eval-tasks hold,walk,rise --eval-heldout \
                 --encoder "$ENC" --anchor-data "$DATA" \
                 --init-from "$HOLD_CKPT" \
                 --name "pilot_walk_${C}_s${SEED}"

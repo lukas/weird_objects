@@ -55,7 +55,7 @@ DEFAULT_ENCODER = "rl_move/dynamics/models/dyn_v2_obs.pt"
 
 HISTORY = 16
 FRAME_WIDTH = 72          # walk-env frame: 59 proprio + 13 goal/cmd
-TASKS = ("hold", "lower", "walk")
+TASKS = ("hold", "lower", "walk", "rise")
 TASK_GOALS = {"hold": {"hold": 1.0}, "lower": {"lower": 1.0},
               # walk (08-13, operator directive: hold->walk is the pod
               # transfer pair — lower is too close to hold to
@@ -63,21 +63,46 @@ TASK_GOALS = {"hold": {"hold": 1.0}, "lower": {"lower": 1.0},
               # walk goal mode; the goal gen samples velocity commands
               # exactly as the campaign's eval harnesses do
               # (eval_cmd_suite/drive_policy set gen.p_walk = 1.0).
-              "walk": {"walk": 1.0}}
+              "walk": {"walk": 1.0},
+              # rise (08-14, operator next-steps: hard rise-retention
+              # canary — the measured failure mode is DAgger rise
+              # competence erased by PPO walk training). Belly/bridge
+              # starts per the campaign rise goal mode.
+              "rise": {"rise": 1.0}}
 ALL_MODES = ("hold", "lean", "track", "unload", "raise", "rise",
              "lower", "quad", "walk")
 
+# Held-out dynamics suites (operator next-steps: robustness to
+# actuator/model mismatch is the sim-to-real reason the representation
+# exists). Each entry is (name, dr_scale, dr-overrides) — overrides use
+# the campaign's cfg dr.<field> mechanism, which pins the randomizer
+# RANGES post-scaling, so dr_scale=0 + one override = one isolated
+# held-out axis exactly like the cw-walk-latjit25/deadband30/velsag30
+# ledger runs. Values sit OUTSIDE the training DR envelope at the
+# pilot's --dr-scale 0.3 (e.g. latency trains at ~1±0.3*(0.3,0.8)).
+HELDOUT_SUITES = (
+    ("dr10", 1.0, None),                                # broad unseen DR
+    ("lat2x", 0.0, {"latency_scale": "2.0,2.0"}),       # slow bus
+    ("vel07", 0.0, {"vel_scale": "0.7,0.7"}),           # servo speed sag
+    ("db25", 0.0, {"deadband_scale": "2.5,2.5"}),       # worn deadband
+    ("tq07", 0.0, {"torque_scale": "0.7,0.7"}),         # battery sag
+)
+
 
 def make_task_env(task: str, seed: int, dr_scale: float,
-                  episode_seconds: float):
+                  episode_seconds: float,
+                  dr_overrides: dict | None = None):
     """One walk-family env pinned to a single goal mode. Uses the walk
     env class for every task so obs width (72) and checkpoints are
     interchangeable across tasks."""
     from rl_move.sim.walk_task import SimHexapodJointWalkEnv
     cfg = load_config()
     cfg.setdefault("obs", {})["history_frames"] = HISTORY
+    if dr_overrides:
+        cfg["dr"] = {**(cfg.get("dr") or {}), **dr_overrides}
     env = SimHexapodJointWalkEnv(
-        params=SimServoParams.from_cfg(None), randomize=dr_scale > 0.0,
+        params=SimServoParams.from_cfg(None),
+        randomize=(dr_scale > 0.0 or bool(dr_overrides)),
         dr_scale=dr_scale, episode_seconds=episode_seconds, seed=seed,
         cfg=cfg)
     gen = env._goal_gen
@@ -118,29 +143,126 @@ def _env_factory(task: str, seed: int, dr_scale: float,
     return _make
 
 
+# Gait/transition-quality metric keys appended per task at every eval
+# point (operator next-steps: "measure transition quality and gait
+# quality, not only return"; a representation that merely learns the
+# sliding exploit faster is not a success).
+QUALITY_KEYS = ("peak_roll_deg", "peak_pitch_deg", "peak_gyro_dps",
+                "slip_m", "fwd_m", "contact_sw_per_s", "slew_sat",
+                "slew_sat_all", "mean_h_m", "dh_m", "vx_rmse")
+
+
+def _foot_site_ids(env) -> list[int]:
+    import mujoco
+    return [mujoco.mj_name2id(env.model, mujoco.mjtObj.mjOBJ_SITE,
+                              f"L{i}_foot_site") for i in range(6)]
+
+
 def eval_task(model, task: str, episodes: int, dr_scale: float,
-              episode_seconds: float, seed0: int = 10_000) -> dict:
+              episode_seconds: float, seed0: int = 10_000,
+              dr_overrides: dict | None = None) -> dict:
     """Deterministic episodes on fixed seeds -> mean return / length /
-    early-termination (fall/trip) rate."""
+    early-termination (fall/trip) rate + physical quality metrics:
+
+        peak_roll/pitch_deg   worst |tilt| vs the episode tilt ref
+        peak_gyro_dps         worst |roll/pitch rate|
+        slip_m                summed horizontal motion of LOADED feet
+        fwd_m                 chassis xy displacement over the episode
+        contact_sw_per_s      foot touchdown/liftoff transitions per s
+        slew_sat              fraction of joint-ticks at the safety
+                              layer's per-tick rate limit
+        slew_sat_all          fraction of ticks with >=6 joints
+                              saturated SIMULTANEOUSLY (the takeoff
+                              posture-snap signature)
+        mean_h_m / dh_m       chassis height mean / final-minus-start
+                              (dh_m is the rise-success canary signal)
+        vx_rmse               commanded-vs-measured body vx (walk mode
+                              refs only; nan elsewhere)
+    """
     rets, lens, terms = [], [], 0
-    env = make_task_env(task, seed0, dr_scale, episode_seconds)
+    env = make_task_env(task, seed0, dr_scale, episode_seconds,
+                        dr_overrides)
+    sids = _foot_site_ids(env)
+    rad2deg = 180.0 / np.pi
+    agg = {k: [] for k in QUALITY_KEYS}
     for i in range(episodes):
         obs, _ = env.reset(seed=seed0 + i)
+        tr = getattr(env, "_tilt_ref0", (0.0, 0.0))
+        sat_limit = 0.98 * env.safety.max_dq
+        prev_cmd = env.safety._last_safe.copy()
+        prev_on: list[bool] | None = None
+        prev_xy: list = [None] * 6
+        peak_roll = peak_pitch = peak_gyro = 0.0
+        slip = 0.0
+        sw = sat_jt = sat_all = 0
+        h0 = float(env.data.xpos[env._chassis_bid, 2])
+        xy0 = env.data.xpos[env._chassis_bid, :2].copy()
+        h_sum = 0.0
+        vx_se, vx_n = 0.0, 0
         ret, n = 0.0, 0
         while True:
             act, _ = model.predict(obs, deterministic=True)
             obs, r, term, trunc, _ = env.step(act)
             ret += float(r)
             n += 1
+            st = env._state
+            peak_roll = max(peak_roll, abs(st.imu_roll - tr[0]))
+            peak_pitch = max(peak_pitch, abs(st.imu_pitch - tr[1]))
+            peak_gyro = max(peak_gyro,
+                            float(np.max(np.abs(st.imu_gyro[:2]))))
+            cmd = env.safety._last_safe
+            n_sat = int(np.sum(np.abs(cmd - prev_cmd) >= sat_limit))
+            sat_jt += n_sat
+            sat_all += int(n_sat >= 6)
+            prev_cmd = cmd.copy()
+            on: list[bool] = []
+            for f in range(6):
+                adr = env._touch_adr[f]
+                is_on = bool(adr >= 0
+                             and float(env.data.sensordata[adr]) > 0.5)
+                xy = (env.data.site_xpos[sids[f], :2].copy()
+                      if sids[f] >= 0 else None)
+                if prev_on is not None:
+                    if is_on != prev_on[f]:
+                        sw += 1
+                    if (is_on and prev_on[f] and xy is not None
+                            and prev_xy[f] is not None):
+                        slip += float(np.hypot(*(xy - prev_xy[f])))
+                prev_xy[f] = xy
+                on.append(is_on)
+            prev_on = on
+            h_sum += float(env.data.xpos[env._chassis_bid, 2])
+            vxr = getattr(env._goal_traj, "vx", None)
+            if vxr is not None and hasattr(env, "_body_vel_xy"):
+                j = min(max(n - 1, 0), len(vxr) - 1)
+                vx_meas, _ = env._body_vel_xy()
+                vx_se += (float(vxr[j]) - float(vx_meas)) ** 2
+                vx_n += 1
             if term or trunc:
                 terms += int(term)
                 break
         rets.append(ret)
         lens.append(n)
+        xyN = env.data.xpos[env._chassis_bid, :2]
+        agg["peak_roll_deg"].append(peak_roll * rad2deg)
+        agg["peak_pitch_deg"].append(peak_pitch * rad2deg)
+        agg["peak_gyro_dps"].append(peak_gyro * rad2deg)
+        agg["slip_m"].append(slip)
+        agg["fwd_m"].append(float(np.hypot(*(xyN - xy0))))
+        agg["contact_sw_per_s"].append(sw / max(n * env.dt, 1e-9))
+        agg["slew_sat"].append(sat_jt / max(n * 18, 1))
+        agg["slew_sat_all"].append(sat_all / max(n, 1))
+        agg["mean_h_m"].append(h_sum / max(n, 1))
+        agg["dh_m"].append(
+            float(env.data.xpos[env._chassis_bid, 2]) - h0)
+        agg["vx_rmse"].append(float(np.sqrt(vx_se / vx_n))
+                              if vx_n else float("nan"))
     env.close()
-    return {"return": float(np.mean(rets)),
-            "ep_len": float(np.mean(lens)),
-            "early_term_rate": terms / episodes}
+    out = {"return": float(np.mean(rets)),
+           "ep_len": float(np.mean(lens)),
+           "early_term_rate": terms / episodes}
+    out.update({k: float(np.mean(v)) for k, v in agg.items()})
+    return out
 
 
 def main() -> None:
@@ -172,6 +294,13 @@ def main() -> None:
                          "the pilot CSV schema; hold->walk cohorts pass "
                          "hold,walk")
     ap.add_argument("--eval-episodes", type=int, default=4)
+    ap.add_argument("--eval-heldout", action="store_true",
+                    help="also evaluate the TRAINED task under the "
+                         "fixed held-out dynamics suites (broad DR + "
+                         "isolated latency/speed/deadband/torque axes "
+                         "outside the training envelope) every "
+                         "--heldout-every steps")
+    ap.add_argument("--heldout-every", type=int, default=50_000)
     ap.add_argument("--lr", type=float, default=3e-4)
     ap.add_argument("--encoder-lr-scale", type=float, default=0.1)
     ap.add_argument("--anchor-data",
@@ -249,27 +378,40 @@ def main() -> None:
     MODEL_DIR.mkdir(parents=True, exist_ok=True)
     csv_path = LOG_DIR / f"ppo_{args.name}_eval.csv"
     csv_f = open(csv_path, "w", newline="")
+    base_metrics = ("return", "ep_len", "early_term_rate")
+    heldout_metrics = ("return", "early_term_rate", "slip_m",
+                       "peak_roll_deg")
     csv_w = csv.DictWriter(csv_f, fieldnames=[
         "step", "wall_s",
         *[f"{t}/{m}" for t in eval_tasks
-          for m in ("return", "ep_len", "early_term_rate")],
-        "anchor_loss"])
+          for m in (*base_metrics, *QUALITY_KEYS)],
+        *([f"{args.task}@{h}/{m}" for h, _, _ in HELDOUT_SUITES
+           for m in heldout_metrics] if args.eval_heldout else []),
+        "anchor_loss"], restval="")
     csv_w.writeheader()
     t0 = time.time()
     anchor_state = {"loss": float("nan")}
 
-    def run_evals(step: int):
+    def run_evals(step: int, heldout: bool = False):
         row = {"step": step, "wall_s": round(time.time() - t0, 1),
                "anchor_loss": anchor_state["loss"]}
         for t in eval_tasks:
             m = eval_task(model, t, args.eval_episodes, args.dr_scale,
                           args.episode_seconds)
-            row.update({f"{t}/{k}": round(v, 3) for k, v in m.items()})
+            row.update({f"{t}/{k}": round(v, 4) for k, v in m.items()})
+        if heldout:
+            for name, ho_dr, ho_over in HELDOUT_SUITES:
+                m = eval_task(model, args.task, args.eval_episodes,
+                              ho_dr, args.episode_seconds,
+                              dr_overrides=ho_over)
+                row.update({f"{args.task}@{name}/{k}": round(m[k], 4)
+                            for k in heldout_metrics})
         csv_w.writerow(row)
         csv_f.flush()
         print(f"  eval @ {step}: " + "  ".join(
             f"{t} ret={row[f'{t}/return']:.1f} "
             f"term={row[f'{t}/early_term_rate']:.2f}" for t in eval_tasks)
+            + ("  [+heldout]" if heldout else "")
             + (f"  anchor={anchor_state['loss']:.3f}"
                if args.condition == "C" else ""))
 
@@ -277,11 +419,16 @@ def main() -> None:
         def __init__(self):
             super().__init__()
             self._next = args.eval_every
+            self._next_ho = args.heldout_every
 
         def _on_step(self) -> bool:
             if self.num_timesteps >= self._next:
-                run_evals(self.num_timesteps)
+                ho = (args.eval_heldout
+                      and self.num_timesteps >= self._next_ho)
+                run_evals(self.num_timesteps, heldout=ho)
                 self._next += args.eval_every
+                if ho:
+                    self._next_ho += args.heldout_every
             return True
 
     callbacks = [EvalCb()]
@@ -354,10 +501,10 @@ def main() -> None:
 
         callbacks.append(AnchorCb())
 
-    run_evals(0)
+    run_evals(0, heldout=args.eval_heldout)
     model.learn(total_timesteps=args.steps, callback=callbacks,
                 reset_num_timesteps=True, progress_bar=False)
-    run_evals(model.num_timesteps)
+    run_evals(model.num_timesteps, heldout=args.eval_heldout)
     out = MODEL_DIR / f"ppo_{args.name}.zip"
     model.save(str(out))
     csv_f.close()
