@@ -417,8 +417,12 @@ names). Tools: `campaign_status`, `get_plan`, `log_tail`,
 `list_feedback` — external LLMs file notes into
 `/workspace/llm_feedback/` on the controller (size-capped, per-IP
 rate-limited), shown in the dashboard's "LLM feedback inbox" section.
-Review-only: feedback is NEVER fed to decision cycles (keyless
-internet input must not steer the agent). It runs inside `statusweb`,
+The watcher injects unseen entries into the next decision cycle's
+prompt as ADVISORY, UNTRUSTED input (operator 08-14; stamped
+`injected_utc`, ≤8 entries / 12 kB per cycle, never spawns a cycle by
+itself so strangers can't spend the cycle budget; framing +
+ORCHESTRATOR_PROMPT.md § "External LLM feedback" forbid it from
+overriding guardrails/rulings). It runs inside `statusweb`,
 so deploy = the same kill+restart runbook above. Dev standalone:
 `python3 rl_move/orchestrator/mcp_server.py` (port 8091).
 
