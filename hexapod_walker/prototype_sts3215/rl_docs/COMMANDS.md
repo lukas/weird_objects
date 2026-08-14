@@ -413,8 +413,13 @@ names). Tools: `campaign_status`, `get_plan`, `log_tail`,
 `list_runs` (ledger with status/track/substring filters), `get_run`
 (entry + story), `run_metrics` (cached W&B summary/history),
 `eval_report` (gate report.json), `list_docs` / `read_doc`,
-`search_docs`. It runs inside `statusweb`, so deploy = the same
-kill+restart runbook above. Dev standalone:
+`search_docs`, plus a write path: `submit_feedback` /
+`list_feedback` — external LLMs file notes into
+`/workspace/llm_feedback/` on the controller (size-capped, per-IP
+rate-limited), shown in the dashboard's "LLM feedback inbox" section.
+Review-only: feedback is NEVER fed to decision cycles (keyless
+internet input must not steer the agent). It runs inside `statusweb`,
+so deploy = the same kill+restart runbook above. Dev standalone:
 `python3 rl_move/orchestrator/mcp_server.py` (port 8091).
 
 The server also serves a plain-markdown mirror so external LLMs
