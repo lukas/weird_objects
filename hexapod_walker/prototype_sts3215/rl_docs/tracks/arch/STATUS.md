@@ -8,6 +8,28 @@ at what budget, with which failure modes.
 
 ## Now
 
+- **08-14 ~15:4x UTC — Arm 2 `cw-arch-modeseq1-r1` FINISHED via canary
+  AUTO-STOP at 4,565,248/10,000,000 steps, NOT verdicted (DIG-IN
+  flagged, per model tiering).** Protected skills `rise_bridge` +
+  `rise_flat` both failed 3 consecutive periodic-eval probes (streaks
+  3/3) — live at 1M, both dead by 3–4M. This is the identical
+  protected-skill-erosion catch that stopped `cw-arch-gru-dual2` at
+  3.18M from the SAME `dagger1` BC init (option (a) precedent);
+  reward held flat (quarters 641/704/702/671, no divergence/cheat
+  signature) so this reads as erosion, not a training blowup. The
+  pre-staged single-mode gate(DR0)/own-DR0.5 evals were still running
+  on train-0 at hand-off; the sequence-half of the gate
+  (`eval_modeseq --single`, det+sto DR0 + own-DR0.5, per-segment
+  criteria) has not been run yet. Whoever digs in: reuse dual2's
+  matched-control recipe (n=12/seed=1 DR0 rise recheck vs the
+  dagger1-init control) before writing new forensics — see
+  `rl_docs/runs/cw-arch-gru-dual2.md`. If this confirms the same
+  erosion, Arm 2 is FAIL and the track's only open lever is the
+  already-queued operator/local option (b), the rise-only-DAgger
+  variant distill (see top-level STATUS.md WAITING-ON) — no new
+  coefficient/budget arm on this mechanism per the two-miss rule
+  (dual2 + modeseq1-r1 would make two independent warm-RLs erasing
+  the same dagger1-lineage hard-start rise).
 - **08-14 ~12:4x UTC — transdagger2 TRIAGED (the named next step):
   FAIL by the letter of the Arm 1 gate, but only on the two rise
   clauses — the sequence-fall problem itself is SOLVED in one model
