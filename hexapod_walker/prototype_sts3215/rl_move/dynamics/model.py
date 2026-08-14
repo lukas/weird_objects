@@ -33,6 +33,7 @@ from . import frames as fr
 class DynamicsModel(nn.Module):
     def __init__(self, input_set: str = "full", z_dim: int = 128,
                  hidden: int = 256, act_hidden: int = 128,
+                 gru_layers: int = 1,
                  horizons: tuple[int, ...] = (1, 2, 5, 10, 25),
                  short_max: int = 5, delta_state: bool = True):
         super().__init__()
@@ -55,10 +56,14 @@ class DynamicsModel(nn.Module):
         self.long = tuple(k for k in self.horizons if k > short_max)
         self.z_dim = z_dim
 
+        self.hidden = int(hidden)
+        self.act_hidden = int(act_hidden)
+        self.gru_layers = int(gru_layers)
         self.frame_mlp = nn.Sequential(
             nn.Linear(in_dim, hidden), nn.SiLU(),
             nn.Linear(hidden, hidden), nn.SiLU())
-        self.gru = nn.GRU(hidden, hidden, batch_first=True)
+        self.gru = nn.GRU(hidden, hidden, num_layers=self.gru_layers,
+                          batch_first=True)
         self.to_z = nn.Linear(hidden, z_dim)
         self.act_gru = nn.GRU(fr.ACTION_DIM, act_hidden, batch_first=True)
 
@@ -103,6 +108,8 @@ class DynamicsModel(nn.Module):
 
     def config(self) -> dict:
         return {"input_set": self.input_set, "z_dim": self.z_dim,
+                "hidden": self.hidden, "act_hidden": self.act_hidden,
+                "gru_layers": self.gru_layers,
                 "horizons": list(self.horizons),
                 "short_max": max(self.short) if self.short else 0,
                 "delta_state": self.delta_state}

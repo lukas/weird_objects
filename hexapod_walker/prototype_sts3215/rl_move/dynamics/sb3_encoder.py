@@ -55,6 +55,9 @@ def load_dyn_checkpoint(ckpt_path: str | Path):
             f"obs (got {cfg['input_set']!r}): the policy obs only "
             "carries the 59 proprio dims")
     model = DynamicsModel(input_set=cfg["input_set"], z_dim=cfg["z_dim"],
+                          hidden=cfg.get("hidden", 256),
+                          act_hidden=cfg.get("act_hidden", 128),
+                          gru_layers=cfg.get("gru_layers", 1),
                           horizons=tuple(cfg["horizons"]),
                           short_max=cfg["short_max"],
                           delta_state=cfg.get("delta_state", False))

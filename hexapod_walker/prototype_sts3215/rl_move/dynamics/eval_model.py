@@ -51,6 +51,9 @@ def load_model(ckpt_path: Path):
     cfg = ckpt["config"]
     model = DynamicsModel(input_set=cfg["input_set"],
                           z_dim=cfg["z_dim"],
+                          hidden=cfg.get("hidden", 256),
+                          act_hidden=cfg.get("act_hidden", 128),
+                          gru_layers=cfg.get("gru_layers", 1),
                           horizons=tuple(cfg["horizons"]),
                           short_max=cfg["short_max"],
                           delta_state=cfg.get("delta_state", False))
@@ -137,6 +140,13 @@ def main() -> None:
     ap.add_argument("--linear-rows", type=int, default=50000)
     ap.add_argument("--batch", type=int, default=512)
     ap.add_argument("--dump-latents", action="store_true")
+    ap.add_argument("--k1-ridge-tol", type=float, default=0.05,
+                    help="G1.1 (revised gate, recorded 2026-08-13): at "
+                         "the shortest horizon the model may be within "
+                         "this relative margin of the matched ridge "
+                         "baseline (locally-linear 1-step dynamics are "
+                         "a ridge home game); every other horizon must "
+                         "still beat both baselines outright.")
     args = ap.parse_args()
 
     import torch
@@ -219,6 +229,7 @@ def main() -> None:
                     "val_windows": args.val_windows,
                     "config": ckpt["config"], "horizons": {}}
     dim = fr.STATE_DIM
+    k1 = min(model.short) if model.short else None
     print(f"\n{'k':>4} {'model':>10} {'persist':>10} {'linear':>10} "
           f"{'beats?':>7}   physical (model)")
     for k in horizons:
@@ -245,6 +256,13 @@ def main() -> None:
                             np.concatenate(a["con_tgt"])).items()})
             beats = mdl < pers and mdl < lin
             row["beats_baselines"] = beats
+            # G1.1: shortest horizon gets the ridge tolerance.
+            if k == k1:
+                row["beats_revised"] = (
+                    mdl < pers and mdl <= lin * (1.0 + args.k1_ridge_tol))
+                row["k1_ridge_margin"] = float(mdl / lin - 1.0)
+            else:
+                row["beats_revised"] = beats
             print(f"{k:>4} {mdl:>10.4f} {pers:>10.4f} {lin:>10.4f} "
                   f"{'YES' if beats else 'NO':>7}   "
                   f"q {row['model_joint_pos_rmse_deg']:.2f}deg  "
@@ -256,6 +274,7 @@ def main() -> None:
             row["latent_persistence_mse"] = a["z_pers_se"] / zn
             beats = row["latent_mse"] < row["latent_persistence_mse"]
             row["beats_baselines"] = beats
+            row["beats_revised"] = beats
             print(f"{k:>4} {'(latent)':>10} {'':>10} {'':>10} "
                   f"{'YES' if beats else 'NO':>7}   "
                   f"z-mse {row['latent_mse']:.4f} vs unchanged-z "
@@ -264,8 +283,15 @@ def main() -> None:
         report["horizons"][k] = row
     report["gate_g1_pass"] = all(
         report["horizons"][k]["beats_baselines"] for k in horizons)
-    print(f"\nGATE G1 (beat persistence + linear at every horizon): "
-          f"{'PASS' if report['gate_g1_pass'] else 'FAIL'}")
+    report["gate_g1_1_pass"] = all(
+        report["horizons"][k]["beats_revised"] for k in horizons)
+    report["g1_1_k1_ridge_tol"] = args.k1_ridge_tol
+    print(f"\nGATE G1 (legacy: beat persistence + linear at every "
+          f"horizon): {'PASS' if report['gate_g1_pass'] else 'FAIL'}")
+    print(f"GATE G1.1 (revised 2026-08-13: k={k1} within "
+          f"{args.k1_ridge_tol:.0%} of matched ridge, all other "
+          f"horizons beat both baselines): "
+          f"{'PASS' if report['gate_g1_1_pass'] else 'FAIL'}")
 
     LOG_DIR.mkdir(parents=True, exist_ok=True)
     ts = time.strftime("%Y%m%d_%H%M%S")

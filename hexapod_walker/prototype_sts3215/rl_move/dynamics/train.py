@@ -92,6 +92,11 @@ def main() -> None:
     ap.add_argument("--horizons", default="1,2,5,10,25")
     ap.add_argument("--short-max", type=int, default=5)
     ap.add_argument("--z-dim", type=int, default=128)
+    # Scaling knobs (operator next-steps 08-13: representation scaling
+    # curve small ~1M / medium ~5M / large ~15-20M x context x data).
+    ap.add_argument("--hidden", type=int, default=256)
+    ap.add_argument("--act-hidden", type=int, default=128)
+    ap.add_argument("--gru-layers", type=int, default=1)
     ap.add_argument("--input-set", choices=sorted(fr.INPUT_SETS),
                     default="full")
     ap.add_argument("--lr", type=float, default=3e-4)
@@ -138,6 +143,8 @@ def main() -> None:
     print(f"persistence baseline (val state MSE): {pers_line}")
 
     model = DynamicsModel(input_set=args.input_set, z_dim=args.z_dim,
+                          hidden=args.hidden, act_hidden=args.act_hidden,
+                          gru_layers=args.gru_layers,
                           horizons=horizons,
                           short_max=args.short_max).to(device)
     n_params = sum(p.numel() for p in model.parameters())
