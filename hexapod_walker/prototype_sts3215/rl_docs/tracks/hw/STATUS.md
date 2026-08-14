@@ -43,7 +43,20 @@ unresolved blockers between the robot and reliable joystick control.
     (not artifact) post-lower-rise falls.
   Next lever (pre-named): train ONLY the post-lower-rise
   transition/residual with both skills frozen; bench promotion of
-  the pair stays operator-owned.
+  the pair stays operator-owned. **EXECUTED 08-14 ~22:3x UTC:
+  `cw-stand-postlower1` is TRAINING (hardening 6M, train-0)** —
+  new default-off `goal.rise_start_bank`/`_frac` (rise episodes
+  start from harvested settled lower-endpoint poses of
+  footlow2_hard1's own lower skill, walk-park-bank mechanism class;
+  RSI skips bank episodes, canary force overrides bank, off-path
+  bit-exact, tests green; eval start_kind label "post_lower") +
+  `harvest_lower_endpoints.py` (bank: 300/300 settled, 0 falls,
+  seed 5000, `park_banks/footlow2_hard1_lower_endpoints.npz` —
+  knees ~+113°/hips ~−18° from the flat-zero pose, an unseen state
+  family). Gate pre-registered BEFORE training on fresh c2 banks:
+  SESSION_BULK_GATE.md "Cohort c2" (sto post-lower ≥0.90 CI-separated
+  above parent 0.842 upper + full det/cold-start/lower retention +
+  eval_session, visual stats vs parent).
 - **08-14 ~20:0x UTC: the SESSION-JOYSTICK product gate exists and
   the candidate specialist pair PASSES it deterministically —
   `session-joystick-handoff1`** (operator-requested action cycle;
