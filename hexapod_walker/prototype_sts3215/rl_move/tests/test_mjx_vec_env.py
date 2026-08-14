@@ -273,3 +273,43 @@ def test_mode_seq_switch_crosses_on_batched_path():
         assert any(env._seq_idx > 0 for env in v.envs)
     finally:
         v.close()
+
+
+def test_mode_seq_sharded_bitwise_matches_inprocess():
+    """The sharded mint (08-14) must make MjxShardedVecEnv BIT-IDENTICAL
+    to the in-process reference with goal.mode_seq on — same probe
+    choreography, same frames, same switch behavior. Pre-fix the
+    sharded path raised RuntimeError at the first switch (killed
+    cw-arch-modeseq1's first launch); the in-process class is the
+    pod-verified reference (test_mode_seq_frames_minted_and_match_c_env)."""
+    from rl_move.sim.mjx_sharded_vec_env import MjxShardedVecEnv
+    from rl_move.sim.walk_task import SimHexapodJointWalkEnv
+
+    cfg = _seq_cfg()
+    kw = dict(randomize=False, episode_seconds=6.0, cfg=cfg)
+    a = MjxVecEnv(SimHexapodJointWalkEnv, 4, env_kwargs=kw, seed=7,
+                  pool_per_env=1, desync_episodes=False)
+    b = MjxShardedVecEnv(SimHexapodJointWalkEnv, 4, env_kwargs=kw,
+                         seed=7, pool_per_env=1, host_workers=2,
+                         desync_episodes=False)
+    try:
+        obs_a, obs_b = a.reset(), b.reset()
+        assert np.array_equal(obs_a, obs_b)
+        # In-process reference must have minted (guards the seq gate).
+        assert all(env._seq_frames is not None for env in a.envs)
+        n_act = a.action_space.shape[0]
+        dt = a.envs[0].dt
+        rng = np.random.default_rng(0)
+        # Cross the first switch (first segment <= 4 s) and keep going:
+        # the sharded path must neither raise nor diverge by a bit.
+        for k in range(int(round(4.5 / dt))):
+            act = rng.uniform(-0.3, 0.3, (4, n_act)).astype(np.float32)
+            oa, ra, da, ia = a.step(act)
+            ob, rb, db, ib = b.step(act)
+            assert np.array_equal(oa, ob), f"obs diverged at step {k}"
+            assert np.array_equal(ra, rb), f"reward diverged at step {k}"
+            assert np.array_equal(da, db), f"dones diverged at step {k}"
+        assert any(env._seq_idx > 0 for env in a.envs)  # switch crossed
+    finally:
+        a.close()
+        b.close()

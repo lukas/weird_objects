@@ -8,6 +8,28 @@ at what budget, with which failure modes.
 
 ## Now
 
+- **08-14 ~12:4x UTC — transdagger2 TRIAGED (the named next step):
+  FAIL by the letter of the Arm 1 gate, but only on the two rise
+  clauses — the sequence-fall problem itself is SOLVED in one model
+  for the first time.** `ppo_goal_cw_gru_dual_bc_transdagger2.zip`
+  scores **12/12 det zero-fall** on the sequence eval (above the
+  two-specialist baseline's 11/12; sto 10/12 vs 9/12), walk segments
+  24/24 gait_valid, lower segments 12/12, **single-mode lower REBUILT
+  6/6 det+sto worst_clear 0mm** (dagger1: 0/6, 261mm airborne
+  tripod), hold 6/6, switch tilt ≤7.7°; video honest. The misses:
+  cold FIRST rise 5/12 det (ends 4–17mm short, zero falls) and the
+  rise12 retention recheck 3/12 with **0 non-crouch wins** (init had
+  3) — the DAgger rounds traded bridge/flat rise finish for
+  crouch/plant competence; no pre-registered FAIL branch matches, so
+  no discretionary transdagger3. Full scorecard in
+  TRANSITIONS_DIRECTIVE "ARM 1 RE-RUN RESULT". **Consequence: Arm 2
+  `cw-arch-modeseq1` QUEUED same cycle** per the no-discretion
+  warm-start order → init (3) `ppo_goal_cw_gru_dual_bc_dagger1.zip`
+  (gates (1) and (2) both FAIL), dual2's exact stack + episode 30s +
+  `goal.mode_seq=0.75` — the 75/25 sequence/single-mode diet hook
+  (fractional mode_seq) was the one missing cfg and LANDED this
+  cycle (snapshot 2ef85f7, endpoints bit-exact, mode_seq bank 11/11
+  + semantics bank green).
 - **08-13 ~06:xx: the parity audit RAN and EXONERATES the warp
   physics — the no-slip line's story is corrected and the line
   CONCLUDES at r4.** `probe_contact_parity.py` (new, snapshot

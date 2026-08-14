@@ -314,6 +314,42 @@ default-off, pod-verified frame parity vs fresh C reset + batched
 switch crossing as regression tests). Arm 2's only remaining wait
 is the transdagger2 artifact triage.**
 
+**ARM 1 RE-RUN RESULT (08-14 ~12:4x UTC, artifact
+`ppo_goal_cw_gru_dual_bc_transdagger2.zip`, md5 02748e27, train-0;
+evals `logs/ckpt_eval/transdagger2_modeseq_{det,sto}.json`,
+`cw_arch_trans_dagger2_{gate,rise12,lower}`): FAIL by the letter of
+the pre-registered gate — but ONLY on the two rise clauses; every
+fall-related and lower clause now PASSES, several above the
+two-specialist baseline.** Scorecard: (1) sequence det DR0 zero-fall
+**12/12 PASS** (bar ≥11/12; baseline itself 11/12; sto 10/12 vs
+baseline 9/12 — the 2 sto falls are both FIRST-rise-from-flat
+`over_current`, a new flavor, switch windows clean at ≤7.7° vs
+dagger1's 14.5°). (2) per-segment: walk 24/24 gait_valid prog_med
+1.05 PASS; lower 12/12 PASS; **rise: cold FIRST rise 5/12 det**
+(misses end 4–17mm short + footprint, ZERO falls; the post-lower
+rise is 12/12 — dagger1's killer switch, now the strongest segment;
+the baseline's own risk INVERTED) → clause MISS. (3) retention: hold
+6/6 PASS; walk gait_valid 6/6 det+sto (letter 1/6 on the same
+vel_err polish miss as the init); **lower REBUILT 6/6 det + 6/6 sto,
+worst_clear 0mm det (bar ≥4/6; dagger1: 0/6 with a 261mm airborne
+tripod)**; **rise12 (n=12/seed=1) 3/12 meets ≥3/12 but ALL THREE
+wins are crouch — 0 non-crouch (init had 3) → clause FAIL.** Video
+(det seq strip ep0): honest flat→rise→tall six-leg walk→lower→
+rise→walk, no parked leg, no belly shuffle, no fall. Verdict:
+teacher-quality fix + canonical-frame fix SOLVED the sequence-fall
+problem end to end; what the DAgger rounds traded away is the
+non-crouch single-mode rise (sequence data is crouch/plant-heavy
+relative to bridge/flat cold starts — a data-mix question, not a
+mechanics one; none of the three pre-registered FAIL branches
+matches, so no discretionary transdagger3 was launched). Per the
+warm-start order below (no discretion at launch time): gate (1)
+FAIL → (2) gru-dual2 FAIL → **(3) `ppo_goal_cw_gru_dual_bc_
+dagger1.zip` — `cw-arch-modeseq1` QUEUED 08-14 with exactly that
+init.** Candidate follow-up for the operator/next triage if Arm 2's
+rise clause also misses: rise-only-DAgger variant distill (the
+already-routed option (b)) or a bridge/flat-heavy `--transitions`
+demo mix on the transdagger2 recipe.
+
 ## Arm 2 — `cw-arch-modeseq1` (consolidated RL, the "one good set" arm)
 
 10M, dual-core GRU, `goal.mode_seq=1`. THE one-variable framing: the

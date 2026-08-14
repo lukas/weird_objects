@@ -44,7 +44,8 @@ from stable_baselines3.common.vec_env.base_vec_env import VecEnv
 from .mjx_backend import (
     MODEL_DR_FIELDS, MjxTickStepper, _model_addrs, mjx_is_available,
 )
-from .servo_model import N_JOINTS, SimServoParams
+from ..config import cfg_get
+from .servo_model import DEG2RAD, N_JOINTS, SimServoParams
 from .sim_env import SimHexapodBalanceEnv
 
 _TP_KEYS = ("latency_s", "deadband", "vel_max", "imu_off")
@@ -73,8 +74,8 @@ class _ShmSpec:
 
 def _shm_layout(B: int, n_act: int, n_obs: int, nq: int, nv: int,
                 ns: int, tag: str,
-                dr_shapes: dict[str, tuple] | None = None
-                ) -> dict[str, _ShmSpec]:
+                dr_shapes: dict[str, tuple] | None = None,
+                seq: bool = False) -> dict[str, _ShmSpec]:
     def s(key, shape, dtype):
         return _ShmSpec(f"hexmjx-{tag}-{key}", shape, dtype)
     layout = {
@@ -113,6 +114,17 @@ def _shm_layout(B: int, n_act: int, n_obs: int, nq: int, nv: int,
         # Model-DR rows (worker computes → parent uploads to device).
         for i, (field, shape) in enumerate(sorted(dr_shapes.items())):
             layout[f"dr_{field}"] = s(f"dr{i}", (B,) + shape, "float64")
+    if seq:
+        # goal.mode_seq canonical-frame mint (08-14, sharded twin of
+        # MjxVecEnv._mint_seq_frames): probe placements computed
+        # worker-side on each env's DR'd model, choreographed
+        # parent-side. Allocated ONLY when the cfg enables mode_seq —
+        # the default 64M /dev/shm budget stays untouched otherwise.
+        for fam in ("plant", "belly"):
+            layout[f"seq_q_{fam}"] = s(f"sq{fam[0]}", (B, N_JOINTS),
+                                       "float64")
+            layout[f"seq_qpos_{fam}"] = s(f"sp{fam[0]}", (B, nq),
+                                          "float64")
     return layout
 
 
@@ -243,6 +255,7 @@ def _worker_main(conn, layout, task_cls, env_kwargs, lo, hi, seed,
         shm = _ShmArrays(layout, create=False)
         outs = shm.outs_view()
         pool: list[list[dict]] = [[] for _ in envs]
+        seq_partial: list[dict] | None = None   # mode_seq mint scratch
         early: dict[int, tuple] = {}
         ctxs: dict[int, tuple] = {}
         saved = None
@@ -257,6 +270,23 @@ def _worker_main(conn, layout, task_cls, env_kwargs, lo, hi, seed,
                 break
 
             elif cmd == "reset_begin":
+                # goal.mode_seq frame mint (08-14, sharded twin of the
+                # MjxVecEnv path): probe placements ride the same loop
+                # so each env's probes use ITS fresh DR'd model, exactly
+                # like the in-process reference (C order: probes, then
+                # the episode start). "seq_q_plant" in the layout <=>
+                # the parent read mode_seq>0 from the cfg. The mint
+                # condition mirrors mjx_vec_env.py verbatim; it is
+                # uniform across workers (model_dr is global, randomizer
+                # presence comes from shared env_kwargs, and _seq_frames
+                # populate for all envs in the same choreography), and
+                # the parent asserts that uniformity.
+                seq_mint = ("seq_q_plant" in layout
+                            and (model_dr
+                                 or any(e.randomizer is not None
+                                        for e in envs)
+                                 or any(getattr(e, "_seq_frames", None)
+                                        is None for e in envs)))
                 for k, env in enumerate(envs):
                     g = lo + k
                     q_start = env._reset_begin(None)
@@ -270,10 +300,41 @@ def _worker_main(conn, layout, task_cls, env_kwargs, lo, hi, seed,
                         for f, v in rows.items():
                             shm[f"dr_{f}"][g] = v
                         dr_model = dr_scratch.model
+                    if seq_mint:
+                        for fam, qp in (
+                                ("plant", env._clip_to_joint_limits(
+                                    env._plant_deg * DEG2RAD)),
+                                ("belly", np.zeros(N_JOINTS,
+                                                   dtype=float))):
+                            shm[f"seq_q_{fam}"][g] = qp
+                            shm[f"seq_qpos_{fam}"][g] = place_env(
+                                env, scratch, qp, model=dr_model)
                     shm["qpos0"][g] = place_env(env, scratch, q_start,
                                                 model=dr_model)
                     env._profile = CommandStub()
                     env._cmd = q_start.copy()
+                if seq_mint:
+                    seq_partial = [dict() for _ in envs]
+                conn.send(("ok", seq_mint))
+
+            elif cmd == "seq_capture":
+                # One segment family's settled probe outputs are in the
+                # shm TickOutput mirror + q_nom row; record the frame
+                # exactly like sim_env._seq_capture_frames /
+                # MjxVecEnv._mint_seq_frames do.
+                fam = args[0]
+                for k, env in enumerate(envs):
+                    g = lo + k
+                    push_output_row(env, pad_bids, outs, g)
+                    seq_partial[k][fam] = {
+                        "q_nom": shm["q_nom"][g].copy(),
+                        "z0": float(env.data.xpos[env._chassis_bid, 2]),
+                        "pad_z_ref": np.array(
+                            [float(env.data.xpos[b, 2]) if b >= 0
+                             else 0.0 for b in env._pad_bids]),
+                    }
+                    if fam == "belly":       # families sent plant-first
+                        env._seq_frames = seq_partial[k]
                 conn.send(("ok", None))
 
             elif cmd == "reset_mid":
@@ -461,11 +522,17 @@ class MjxShardedVecEnv(VecEnv):
         # unlinked) make every later launch on the pod die of SIGBUS on
         # first page touch — the 08-10 "0-step EOFError" launch plague.
         _gc_orphaned_shm()
+        # goal.mode_seq: allocate the mint's probe arrays only when the
+        # cfg enables the feature (mirrors MjxVecEnv's seq_on gate; the
+        # fractional-p semantics landed 08-14 make any p>0 eligible).
+        self._seq_on = float(cfg_get(env_kwargs.get("cfg") or {},
+                                     "goal", "mode_seq",
+                                     default=0.0)) > 0.0
         layout = _shm_layout(
             B, act_space.shape[0], obs_space.shape[0], self.mj_model.nq,
             self.mj_model.nv, self.mj_model.nsensordata,
             tag=f"{seed}-{np.random.randint(1 << 30)}",
-            dr_shapes=self._dr_shapes)
+            dr_shapes=self._dr_shapes, seq=self._seq_on)
         self._shm = _ShmArrays(layout, create=True)
 
         ctx = mp.get_context("spawn")
@@ -562,9 +629,45 @@ class MjxShardedVecEnv(VecEnv):
     def _choreography(self, mode: str) -> list:
         st = self.stepper
         B, dt = self.num_envs, self._dt
-        self._broadcast("reset_begin")
+        mint_flags = self._broadcast("reset_begin")
         if self._model_dr:
             st.set_model_fields(self._dr_dict())   # before settle physics
+        # goal.mode_seq canonical-frame mint (08-14): the sharded twin
+        # of MjxVecEnv._mint_seq_frames, same device choreography per
+        # family (place -> stiff slip 0.4s -> limp slip 0.5s -> capture
+        # nominal -> hold 0.3s), BEFORE the episode's own reset_envs()
+        # wipes the probe physics. Workers computed the probe
+        # placements inside reset_begin (per-env DR'd models) and reply
+        # a uniform want-mint flag; frame capture happens worker-side
+        # (they own the envs).
+        if self._seq_on and any(mint_flags):
+            if not all(mint_flags):
+                raise RuntimeError(
+                    "goal.mode_seq mint: workers disagree on the mint "
+                    f"condition ({mint_flags}) — the condition inputs "
+                    "(model_dr / randomizer / cached frames) must be "
+                    "uniform across the batch; see mjx_sharded_vec_env")
+            hold = st.make_command(np.zeros((B, N_JOINTS)),
+                                   speed_deg_s=0.0, acc_units=0.0,
+                                   valid=False)
+            for fam in ("plant", "belly"):
+                st.reset_envs(self._shm[f"seq_qpos_{fam}"].copy(),
+                              np.zeros((B, self.mj_model.nv)),
+                              self._shm[f"seq_q_{fam}"].copy(),
+                              dt_ctrl=dt, tick_params=self._tp_dict())
+                out = None
+                for _ in range(int(round(0.4 / dt))):   # stiff, slip
+                    out = st.tick(hold, slip=True)
+                for _ in range(int(round(0.5 / dt))):   # limp, slip
+                    out = st.tick(hold, limp=True, slip=True)
+                q_nom = np.asarray(self._jax.device_get(out).q,
+                                   dtype=float)
+                np.copyto(self._shm["q_nom"], q_nom)
+                st.reset_profiles(q_nom)
+                for _ in range(int(round(0.3 / dt))):   # stiff, normal
+                    out = st.tick(hold)
+                self._copy_outs(out)
+                self._broadcast("seq_capture", fam)
         st.reset_envs(self._shm["qpos0"].copy(),
                       np.zeros((B, self.mj_model.nv)),
                       self._shm["q_start"].copy(), dt_ctrl=dt,
