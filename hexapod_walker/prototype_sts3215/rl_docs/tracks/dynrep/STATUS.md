@@ -95,6 +95,29 @@ scratch. Primary metric: sample efficiency on a NEW task.
   silently. LESSON: pull artifacts (gate JSONs, summary, champion-cell
   checkpoints) off-pod promptly; nothing on /workspace survives a pod
   kill.
+- **SCALING SWEEP COMPLETE (rerun, 16:37 UTC): 12/12 cells PASS the
+  ORIGINAL legacy G1** (every size x history x data cell beats
+  persistence AND matched ridge at every horizon on the drift-fixed
+  mix — the G1.1 tolerance was never needed once the data was right).
+  Scaling curve (k1 model/linear MSE, lower better): DATA dominates
+  (M h16: 0.126 on 4800 eps vs 0.165 on 1200), HISTORY helps modestly
+  (M large: h48 0.116 vs h16 0.126), SIZE saturates at M — L (~17M)
+  is consistently slightly WORSE than M (~5.9M) at matched 40k steps,
+  and on small data size does nothing. Verdict: spend future encoder
+  compute on data + context, not parameters. L_h48_large trained
+  clean this run (peak container ~57GiB) — the 08-14 OOM culprit
+  therefore remains unidentified; memwatch stays on. Artifacts pulled
+  OFF-POD to the laptop (logs/scale_run2/: summary, sweep log, all 12
+  gate records + eval JSONs; models/: dyn_scale_M_h16_large.pt md5
+  195285c0…, dyn_scale_M_h48_large.pt md5 06fce9c5…).
+- **A/B/C COHORT LAUNCHED (chained automatically 16:38 UTC):**
+  pod_chain_abc.sh picked dyn_scale_M_h16_large (per the fixed
+  preference order; near-best cell) + v3scale_large, SEEDS="5 6 7" —
+  hold 150k then walk 1M per condition, eval-tasks hold,walk,rise +
+  --eval-heldout. Logs: logs/holdwalk_s{5,6,7}.log + per-run eval
+  CSVs. ETA ~3h/seed (subshells parallel). Triage: analyze_pilot
+  --phase2 walk after pinning a threshold from the first curves; the
+  rise-retention canary and heldout suites are the primary hypotheses.
 - **A/B/C COHORT CLAIMED BY SESSION A (train-10, chained):**
   `pod_chain_abc.sh` (nohup'd 03:02 UTC, `logs/chain_abc.log`) waits
   for POD_SCALE_SWEEP_DONE then launches pod_holdwalk.sh with the
