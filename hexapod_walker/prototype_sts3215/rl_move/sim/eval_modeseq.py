@@ -86,6 +86,29 @@ inside its pairwise-handoff band (rise ~= eval_handoff "direct", lower
 ~= eval_handoff_reverse "direct", walk tracking inside eval_handoff's
 plant-arm band). A regression on the SECOND rise specifically (vs the
 first) isolates the start-relative-_z0 risk named above.
+
+SESSION-JOYSTICK GATE PATH (hw mainline, 08-14 — default OFF, the
+flags below leave every legacy invocation bit-exact): `--drive-random`
+replaces the fixed walk schedule with a per-episode randomized
+joystick DRIVE — zero-command engage dwell (WALK_ENTRY), random
+forward/fwd-diagonal segments at the trained speed band with a
+guaranteed stop-go and a guaranteed direction flip, trailing
+zero-command STOP_SETTLE window (guard: mean body speed < 0.02 m/s,
+reported per segment) — and `--entry-slew 1.5,0.25` engages the
+SafetyLayer entry slew ramp (rl_docs/TAKEOFF.md deploy design) at
+each walk-segment policy handoff, exactly the runner's staged
+gait-entry switch, scoped to walk engages only. Together with the
+grammar `rise,walk,lower,rise,walk` this is the ~60 s guarded
+specialist session REST->RISE->SETTLE->WALK_ENTRY->DRIVE->
+STOP_SETTLE->LOWER->RISE->DRIVE:
+
+    python3 -m rl_move.sim.eval_modeseq \
+        --stand rl_move/sim/policies/ppo_goal_cw_stand_footlow2_hard1.zip \
+        --walk  rl_move/sim/policies/ppo_goal_cw_dep_bcgait1_hard1.zip \
+        --episodes 12 --grammar rise,walk,lower,rise,walk \
+        --drive-random --drive-speed-max 0.06 --entry-slew 1.5,0.25 \
+        --cfg-set goal.walk_obs_body_vel=2 \
+        --out logs/ckpt_eval/session_joystick_handoff1_det.json
 """
 from __future__ import annotations
 
@@ -106,6 +129,47 @@ import numpy as np
 # -- identical shape to eval_handoff.py / eval_handoff_reverse.py so the
 # per-segment walk numbers are directly comparable to their bands.
 WALK_SCHEDULE = lambda v: [(1.0, 0.0, 0.0), (4.0, v, 0.0), (1.0, 0.0, 0.0)]
+
+# --drive-random headings: forward-weighted, fwd-diagonal scope (the
+# operator's ruled command envelope; matches the legacy training mix's
+# 60% fwd / +-45deg band that every walk candidate saw in training).
+DRIVE_HEADINGS = (0.0, 0.0, math.pi / 7.2, -math.pi / 7.2,   # 0deg x2, +-25deg
+                  math.pi / 4, -math.pi / 4)                  # +-45deg
+DRIVE_ENGAGE_S = 1.0        # zero-command dwell at policy handoff
+DRIVE_STOP_SETTLE_S = 1.5   # trailing zero-command settle window
+
+
+def _random_drive_schedule(rng, v_lo: float, v_hi: float,
+                           seconds: float) -> list:
+    """Randomized joystick DRIVE schedule (session-joystick gate,
+    08-14): zero-command engage dwell, then random (dur, vx, vy)
+    segments inside the trained envelope -- forward / fwd-diagonal
+    headings at the trained speed band -- with a guaranteed mid-drive
+    stop-go and a guaranteed direction flip (left-diag -> right-diag
+    or vice versa), then a trailing zero-command STOP_SETTLE window.
+    Purely additive: only used when --drive-random is passed."""
+    segs = [(DRIVE_ENGAGE_S, 0.0, 0.0)]
+    t, last_ang = 0.0, None
+    flip_done = stop_done = False
+    while t < seconds:
+        if not stop_done and t >= seconds * 0.4:
+            segs.append((1.5, 0.0, 0.0))          # stop-go
+            stop_done = True
+            t += 1.5
+            continue
+        dur = float(rng.uniform(1.5, 3.5))
+        if not flip_done and last_ang not in (None, 0.0):
+            ang = -last_ang                        # direction flip
+            flip_done = True
+        else:
+            ang = float(DRIVE_HEADINGS[int(rng.integers(
+                len(DRIVE_HEADINGS)))])
+        sp = float(rng.uniform(v_lo, v_hi))
+        segs.append((dur, sp * math.cos(ang), sp * math.sin(ang)))
+        last_ang = ang
+        t += dur
+    segs.append((DRIVE_STOP_SETTLE_S, 0.0, 0.0))
+    return segs
 LOWER_PHASE_S = 10.0        # lower_hold_s(1) + lower_ramp_s(5) + settle
 RISE_PHASE_S = 12.5         # eval_handoff.py's PHASE_A_S (worst-case rise)
 TAIL_S = 0.5
@@ -150,6 +214,25 @@ def main() -> int:
                          "first re-anchors from wherever the previous "
                          "segment left the robot, not a cold reset")
     ap.add_argument("--speed", type=float, default=0.05)
+    ap.add_argument("--drive-random", action="store_true",
+                    help="walk segments use a per-episode randomized "
+                         "joystick schedule (fwd/diagonal/stop-go/"
+                         "direction-flip inside the trained envelope) "
+                         "instead of the fixed settle-fwd-stop schedule "
+                         "-- the session-joystick gate path (08-14)")
+    ap.add_argument("--drive-seconds", type=float, default=14.0,
+                    help="commanded portion of each --drive-random "
+                         "walk segment (default 14 s)")
+    ap.add_argument("--drive-speed-max", type=float, default=None,
+                    help="upper speed for --drive-random draws "
+                         "(default = --speed, i.e. fixed speed)")
+    ap.add_argument("--entry-slew", type=str, default=None,
+                    metavar="RAMP_S,START_DEG",
+                    help="engage the SafetyLayer entry slew ramp at "
+                         "each walk-segment policy handoff (e.g. "
+                         "'1.5,0.25' = the TAKEOFF.md deploy design); "
+                         "scoped to walk engages only, default off = "
+                         "bit-exact legacy behavior")
     ap.add_argument("--stochastic", action="store_true",
                     help="both policies predict stochastically (default "
                          "deterministic)")
@@ -200,6 +283,14 @@ def main() -> int:
         cfg.setdefault(sect, {})[name] = parsed
 
     det = not args.stochastic
+
+    entry_slew = None
+    if args.entry_slew:
+        ramp_s, start_deg = (float(x) for x in
+                             args.entry_slew.split(","))
+        entry_slew = (ramp_s, math.radians(start_deg))
+    drive_rng = (np.random.default_rng(args.seed)
+                 if args.drive_random else None)
 
     def make_env():
         return SimHexapodJointWalkEnv(
@@ -408,8 +499,20 @@ def main() -> int:
                                   if k.endswith("_ok") and not v]
         return obs, True
 
-    def run_walk(obs, rec: dict):
+    def run_walk(obs, rec: dict, schedule=None):
         obs = reanchor_to("walk")
+        if entry_slew is not None:
+            # Deploy-design walk engage (TAKEOFF.md): per-tick slew
+            # starts at start_dq and ramps to max_dq over ramp_s after
+            # this handoff. reanchor_to's inner env.reset() already
+            # zeroed _entry_ticks via set_nominal(); scope the ramp to
+            # WALK engages only by enabling it here and disabling it
+            # at segment end (rise/lower handoffs stay legacy).
+            env.safety.entry_ramp_s, env.safety.entry_start_dq = \
+                entry_slew
+            env.safety._entry_ticks = 0
+        if schedule is None:
+            schedule = WALK_SCHEDULE(args.speed)
         traj = env._goal_traj
         p0 = np.array(env.data.qpos[:2], dtype=float)
         n_err, err_sum = 0, 0.0
@@ -449,7 +552,11 @@ def main() -> int:
             rec["slip_per_m"] = round(
                 float(np.sum(slips)) / max(along_dist_m, 0.05), 3)
 
-        for seconds, vx, vy in WALK_SCHEDULE(args.speed):
+        z_sum, z_n = 0.0, 0
+        settle_speeds: list = []     # |v| samples in the final zero seg
+        n_seg = len(schedule)
+        for si_s, (seconds, vx, vy) in enumerate(schedule):
+            last_zero = (si_s == n_seg - 1 and vx == 0.0 and vy == 0.0)
             for _ in range(max(1, int(round(seconds / dt)))):
                 if hasattr(traj, "vx"):
                     traj.vx[:] = vx
@@ -460,6 +567,12 @@ def main() -> int:
                 obs, _rw, term, trunc, info = env.step(a)
                 grab()
                 meter.tick(info)
+                if vx != 0.0 or vy != 0.0:
+                    z_sum += chassis_z()
+                    z_n += 1
+                elif last_zero:
+                    settle_speeds.append(
+                        float(np.hypot(*env._body_vel_xy())))
                 contact_hist.append([
                     float(env.data.sensordata[adr]) > CONTACT_N
                     for adr in env._touch_adr])
@@ -478,7 +591,23 @@ def main() -> int:
                     rec["success"] = False
                     meter.finalize(rec)
                     gait_metrics()
+                    if entry_slew is not None:
+                        env.safety.entry_ramp_s = 0.0
                     return obs, False
+        if entry_slew is not None:
+            env.safety.entry_ramp_s = 0.0
+        if args.drive_random:
+            # Session-gate evidence fields (report-only): commanded-
+            # portion height vs the plant frame, and the STOP_SETTLE
+            # guard -- mean body speed over the trailing zero window
+            # (quiet = ready to lower / take a new direction).
+            if z_n:
+                rec["drive_z_mean_mm"] = round(z_sum / z_n * 1000.0, 1)
+            if settle_speeds:
+                rec["stop_settle_speed_mps"] = round(
+                    float(np.mean(settle_speeds)), 4)
+                rec["stop_settle_ok"] = bool(
+                    np.mean(settle_speeds) < 0.02)
         rec["trk_err"] = round(err_sum / max(n_err, 1), 4)
         rec["dist_m"] = round(float(np.hypot(
             *(np.array(env.data.qpos[:2], dtype=float) - p0))), 3)
@@ -516,6 +645,8 @@ def main() -> int:
 
     results: dict = {"cfg_set": args.cfg_set or [], "grammar": grammar,
                      "speed": args.speed, "deterministic": det,
+                     "drive_random": bool(args.drive_random),
+                     "entry_slew": args.entry_slew,
                      "episodes": []}
     if args.single is not None:
         results["single"] = str(args.single)
@@ -544,7 +675,16 @@ def main() -> int:
                 seen_rise += 1 if cold else 0
                 obs, alive = run_rise(obs, seg, cold, kind)
             elif mode == "walk":
-                obs, alive = run_walk(obs, seg)
+                sched = None
+                if drive_rng is not None:
+                    sched = _random_drive_schedule(
+                        drive_rng, args.speed,
+                        args.drive_speed_max or args.speed,
+                        args.drive_seconds)
+                    seg["schedule"] = [
+                        (round(s, 2), round(x, 4), round(y, 4))
+                        for s, x, y in sched]
+                obs, alive = run_walk(obs, seg, sched)
             else:
                 obs, alive = run_lower(obs, seg)
             if not alive:
@@ -586,6 +726,16 @@ def main() -> int:
             if prs:
                 summary[mode]["prog_ratio_med"] = round(
                     float(np.median(prs)), 3)
+            if args.drive_random:
+                sso = [s for s in segs if "stop_settle_ok" in s]
+                summary[mode]["stop_settle_ok"] = sum(
+                    1 for s in sso if s["stop_settle_ok"])
+                summary[mode]["stop_settle_n"] = len(sso)
+                zs = [s["drive_z_mean_mm"] for s in segs
+                      if "drive_z_mean_mm" in s]
+                if zs:
+                    summary[mode]["drive_z_mean_mm_med"] = round(
+                        float(np.median(zs)), 1)
     tilts = [s["switch_tilt_deg"] for segs in by_type.values()
              for s in segs if "switch_tilt_deg" in s]
     if tilts:

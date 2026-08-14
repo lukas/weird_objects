@@ -8,8 +8,19 @@ ARE the same code. Skipped when mujoco-mjx / jax aren't installed.
 """
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
+
+# This suite is specified on CPU MJX (see module docstring). On GPU
+# pods bare jax picks CUDA for the in-process device ticks while the
+# sharded workers' halves run CPU float math — measured 08-14 on
+# train-1/train-2: ~1e-4..6e-4 fp32 drift across the whole obs vector
+# from the very first reset, DR on or off; identical run with
+# JAX_PLATFORMS=cpu is bit-exact 0.0. The bit-identical contract is
+# per-XLA-platform, so pin CPU before jax initializes (setdefault:
+# an explicit operator override still wins).
+os.environ.setdefault("JAX_PLATFORMS", "cpu")
 
 import numpy as np
 import pytest
@@ -107,6 +118,15 @@ def test_sharded_bitwise_matches_inprocess():
     reference: same seeds + same device ticks + same host halves ⇒ the
     obs/reward/done streams (incl. pooled-reset pops, DR draws, and a
     pool refill at truncation) may not differ in a single bit."""
+    import jax
+
+    if jax.default_backend() != "cpu":  # pragma: no cover
+        pytest.skip(
+            "bit-exact contract is per-XLA-platform: jax already "
+            "initialized on a non-CPU backend in this process (GPU vs "
+            "CPU fp32 math drifts ~1e-4 — measured 08-14, not a "
+            "sharded-env bug); rerun with JAX_PLATFORMS=cpu")
+
     from rl_move.sim.mjx_sharded_vec_env import MjxShardedVecEnv
 
     kw = dict(randomize=True, episode_seconds=0.6)
