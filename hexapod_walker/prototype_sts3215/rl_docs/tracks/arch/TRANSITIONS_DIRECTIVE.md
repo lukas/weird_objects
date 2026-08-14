@@ -267,13 +267,44 @@ on the same checkpoints → the in-env per-switch re-anchor
 context. The falls-only `--seq-verify` cap (12 det eps) passed at
 4/12 and failed to protect the dataset (poisoned per this
 directive's own teacher rule; no artifact was written).
-**NEXT (agent-doable, blocking both arms): instrument the mode_seq
+~~NEXT (agent-doable, blocking both arms): instrument the mode_seq
 walk→lower switch — dump the refs/_z0/q_nom/blend state the env
 generates at the switch and diff against `reanchor_to()`'s on the
 same physical state; fix item 1; re-verify footlow2_hard1 composes
 in-env at ≈ its instrument rate; ONLY THEN re-run the transdagger2
-recipe.** Arm 2 must not launch on `goal.mode_seq=1` until this is
-resolved — its RL would train on the same defective switch context.
+recipe.~~ **DONE (08-14 ~02:xx UTC, operator session, local Mac) —
+root cause found, fixed, re-verified; the CPU path is unblocked.**
+The instrumented diff found it immediately: the v1 switch carried
+the EPISODE-reset `q_nom` ("flip nothing else") and re-based `_z0`
+on the instantaneous chassis height; `reanchor_to()` instead derives
+`q_nom`/`_z0`/pad refs from a fresh settled reset of the TARGET
+mode. Obs joints are `(q − q_nom)` and the settled belly vs plant
+`q_nom` differ by **78.9° at the knees** — a rise-start sequence put
+every later plant-family segment that far off the teachers' obs
+distribution (hence lower worst at 73/225: never a first segment;
+hence the stance_dr10 inversion: wrong-frame obs happened to mask
+its post-lower weakness). Fix in `sim_env.py`: a reset()-time
+settle probe (`_seq_capture_frames`) mints the canonical
+plant+belly frames on the episode's own DR'd model, and
+`_seq_maybe_switch` installs the target family's frame at every
+switch; hold/lower BC base = that canonical `q_nom`; physics,
+servo profile, slew memory and tilt frame still carry over.
+Frame parity is locked as a regression test
+(`test_canonical_frames_match_fresh_reset_frames`). **Re-verify
+(exact collection context, DR0.5, seed 0,
+`verify_modeseq_teachers.py`): footlow2_hard1+walk_longdist_r2
+12/225 fell (5.3%; lower 5) vs 99/225 (44%, lower 73) on the pods
+pre-fix — and a same-machine/seed pre-fix A/B replicates the pod
+number at 92/225 (40.9%, lower 62), so the fix alone moves
+41%→5.3%. Teacher return med 658 vs 287 — ≈ the instrument band.
+Condition met.** Evidence:
+`rl_move/sim/logs/verify_modeseq_footlow2_{prefix_ab,postfix}.json`
++ `verify_modeseq_stancedr10_postfix.json` (local). stance_dr10 control 9/300 (its tripod-up-lower quality
+defect stands; teacher-quality gate lesson unchanged). Residual
+scope: the MJX batched-reset path never runs env.reset(), so
+`goal.mode_seq=1` there raises loudly until a batched frame mint
+lands (named follow-up CODE item) — **arm 2 on MJX waits on that;
+the transdagger2 recipe (CPU) can re-run NOW.**
 
 ## Arm 2 — `cw-arch-modeseq1` (consolidated RL, the "one good set" arm)
 

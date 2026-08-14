@@ -529,6 +529,16 @@ class SimHexapodBalanceEnv(_GymBase):
         self._seq_stand_z = None
         self._seq_seg_end = None
         self._seq_pose_anchor = None
+        # Canonical per-family segment frames (goal.mode_seq): the
+        # settled plant / belly reference frames a FRESH episode of each
+        # segment family would derive at reset (q_nom, _z0, pad-z ref).
+        # Captured by a settle probe inside reset() (see
+        # _seq_capture_frames) and installed at every mid-episode
+        # switch — the trans-dagger2 kill (08-14) proved that carrying
+        # the episode-reset q_nom across switches puts every later
+        # segment's obs frame up to ~79 deg (knee, belly-vs-plant) off
+        # the teachers' training distribution.
+        self._seq_frames: dict | None = None
         self._imu_prev_v: np.ndarray | None = None
         self._imu_f_accum = np.zeros(3)
         self._imu_f_n = 0
@@ -1334,6 +1344,20 @@ class SimHexapodBalanceEnv(_GymBase):
             self.model.opt.gravity[:] = (
                 self.model.opt.gravity * self._ease_g)
 
+        # Mode-sequencing canonical frames (goal.mode_seq): capture the
+        # settled plant/belly reference frames on THIS episode's model
+        # (DR applied above) before the episode's own placement — the
+        # probe physics is wiped by the placement + settle below, so the
+        # episode start is untouched. Cached across resets when the
+        # model cannot change (no DR, no easing); recomputed per episode
+        # otherwise.
+        if (float(cfg_get(self.cfg, "goal", "mode_seq",
+                          default=0.0)) == 1.0
+                and (self._seq_frames is None
+                     or self._ep_rand is not None
+                     or self._ease_g != 1.0 or self._ease_v != 1.0)):
+            self._seq_capture_frames()
+
         self._place_at_plant(q_start)
         er = self._ep_rand
         self._profile = ServoProfile(
@@ -1780,16 +1804,79 @@ class SimHexapodBalanceEnv(_GymBase):
         raise NotImplementedError(
             "goal.mode_seq segments require the joint_walk task")
 
+    # Segment family -> canonical start pose the frame probe settles at.
+    # walk/hold/track/lower episodes all reset at the plant; rise resets
+    # belly-flat (the instrument's post-lower rise uses
+    # force_rise_start="flat" — eval_modeseq.reanchor_to).
+    SEQ_FRAME_FAMILY = {"rise": "belly", "walk": "plant", "hold": "plant",
+                        "track": "plant", "lower": "plant"}
+
+    def _seq_capture_frames(self) -> None:
+        """Settle-probe the canonical segment frames for this episode's
+        model (called from reset() BEFORE the episode's own placement,
+        which wipes the probe physics). Each probe replays the exact
+        reset choreography (place -> slip stiff settle -> slip limp
+        settle -> capture nominal -> hold settle) at the family's
+        canonical start pose, and records the reference frame a FRESH
+        episode of that family would get: q_nom, _z0, pad-z ref. These
+        are the eval_handoff/reanchor_to() mechanics — the composition-
+        proven switch context both eval instruments derive via a full
+        env.reset() — reproduced in-env so mid-episode switches see the
+        identical frame. No rng draws (legacy streams bit-exact)."""
+        frames: dict = {}
+        for fam, q_probe in (
+                ("plant", self._clip_to_joint_limits(
+                    self._plant_deg * DEG2RAD)),
+                ("belly", np.zeros(N_JOINTS, dtype=float))):
+            self._place_at_plant(q_probe)
+            er = self._ep_rand
+            self._profile = ServoProfile(
+                self.params, q_probe,
+                latency_scale=1.0 if er is None else er.latency_scale,
+                deadband_scale=1.0 if er is None else er.deadband_scale,
+                vel_scale=((1.0 if er is None else er.vel_scale)
+                           * self._ease_v),
+            )
+            self._cmd = q_probe.copy()
+            fr = self.model.geom_friction[:, 0].copy()
+            self.model.geom_friction[:, 0] = self.SLIP_MU
+            self._settle(0.4)
+            self._settle(0.5, limp=True)
+            self.model.geom_friction[:, 0] = fr
+            q_nom = self.data.qpos[self._qadr].copy()
+            self._profile.reset(q_nom)
+            self._cmd = q_nom.copy()
+            self._settle(0.3)
+            frames[fam] = {
+                "q_nom": q_nom,
+                "z0": float(self.data.xpos[self._chassis_bid, 2]),
+                "pad_z_ref": np.array(
+                    [float(self.data.xpos[b, 2]) if b >= 0 else 0.0
+                     for b in self._pad_bids]),
+            }
+        self._seq_frames = frames
+
     def _seq_maybe_switch(self) -> None:
         """Mid-episode mode switch (called once per tick, immediately
         after _step_i advances and BEFORE the goal is read). At each
-        planned boundary: re-anchor the height frame at the CURRENT
-        body height (eval_handoff re-anchor semantics — refs are
-        re-based on the state the robot actually reached, physics
-        untouched), install the new segment's schedule with a blend
-        window on the refs, and re-derive ONLY the goal-derived
-        episode bookkeeping (the directive's 'flip nothing else':
-        q_nom, tilt frame, pad refs, safety state all carry over)."""
+        planned boundary: install the new segment family's CANONICAL
+        reference frame (q_nom / _z0 / pad-z ref from the settle probe
+        — exactly what eval_handoff/reanchor_to() derive via a fresh
+        reset of the target mode), regenerate the refs with a blend
+        window, and re-derive the goal-derived episode bookkeeping.
+        Physics, servo/profile state, tilt frame and the safety layer's
+        slew memory all carry over — on hardware a mode command changes
+        no physical state, and the proven reanchor mechanics explicitly
+        restore them across the switch.
+
+        HISTORY (trans-dagger2 kill, 08-14): v1 of this switch kept the
+        EPISODE-reset q_nom and re-based _z0 on the instantaneous
+        chassis height. Since obs joints are (q - q_nom), a rise-start
+        sequence fed every later plant-family segment a belly frame
+        (~79 deg off at the knees) — footlow2_hard1 fell 99/225 demo
+        sequences in-env (lower 73) while scoring 11/12 zero-fall on
+        the instrument, whose frames come from reanchor_to(). The
+        canonical-frame install below is the fix."""
         nxt = self._seq_idx + 1
         if self._seq_plan is None or nxt >= len(self._seq_plan):
             return
@@ -1797,13 +1884,26 @@ class SimHexapodBalanceEnv(_GymBase):
         if self._step_i < int(seg["tick"]):
             return
         i0 = int(seg["tick"])
+        frame = (self._seq_frames or {}).get(
+            self.SEQ_FRAME_FAMILY[str(seg["mode"])])
+        if frame is None:
+            raise RuntimeError(
+                "goal.mode_seq: canonical segment frames missing — this "
+                "env's reset() never ran _seq_capture_frames. The MJX "
+                "batched-reset path needs its own frame mint (settle "
+                "probe per pool entry) before mode_seq can train there; "
+                "see TRANSITIONS_DIRECTIVE 'ARM 1 RESULT'.")
         # Old ABSOLUTE refs at the boundary (blend origin).
         g_old = self._goal_traj.at(self._step_i)
         old_abs_h = self._z0 + g_old.height_ref
         old_r, old_p = g_old.roll_ref, g_old.pitch_ref
-        # Re-anchor the height frame at the current body height
-        # (lesson 5: rise-after-lower must NOT aim at a stale frame).
-        self._z0 = float(self.data.xpos[self._chassis_bid, 2])
+        # Install the new segment family's canonical frame (lesson 5:
+        # rise-after-lower must NOT aim at a stale frame — and the
+        # trans-dagger2 lesson above: the frame must be the one the
+        # specialists trained in, not the episode's start frame).
+        self._z0 = float(frame["z0"])
+        self._q_nom = frame["q_nom"].copy()
+        self._pad_z_ref = frame["pad_z_ref"].copy()
         traj, h_target, ramp_i0 = self._seq_segment_traj(
             str(seg["mode"]), i0)
         # Blend window: refs continuous in ABSOLUTE terms across the
@@ -1849,13 +1949,17 @@ class SimHexapodBalanceEnv(_GymBase):
         self._end_posture_from = None
         self._curl_dist_prev = self._curl_dist()
         self._curl_milestones = set()
-        # Hold/lower BC anchors mid-sequence target the pose the robot
-        # actually carries INTO the segment, not the episode-reset
-        # q_nom (a rise->hold segment anchored at a belly q_nom would
-        # supervise lying down). None outside mode_seq = legacy exact.
-        self._seq_pose_anchor = (
-            np.asarray(self.data.qpos[self._qadr], dtype=float).copy()
-            if mode in ("hold", "track", "lower") else None)
+        # Hold/lower BC anchors mid-sequence use q_nom directly — which
+        # the switch just re-based to the CANONICAL plant frame, i.e.
+        # exactly the settled-plant base a fresh single-mode hold/lower
+        # episode anchors at (and the frame the stance teachers were
+        # trained against). The v1 "pose carried INTO the segment"
+        # anchor existed to dodge the belly episode-q_nom trap; with
+        # per-switch canonical frames that trap is gone and the carried
+        # pose (mid-stride after a walk segment) would anchor WORSE
+        # than the teachers' own base. Kept as an attr (always None)
+        # for SNAP_ATTRS/pool compatibility.
+        self._seq_pose_anchor = None
         self._walk_bc_gait = None
         if (mode == "walk"
                 and float(cfg_get(self.cfg, "train", "bc_anchor_coef",

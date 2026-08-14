@@ -337,6 +337,57 @@ at what budget, with which failure modes.
     `modeseq_stancedr10_det.json`,
     `cw_arch_trans_dagger1_{gate,rise12}` (all train-0); full note in
     TRANSITIONS_DIRECTIVE.md "ARM 1 RESULT".
+  - **CODE item 1 re-anchor bug FOUND, FIXED and RE-VERIFIED (08-14
+    ~02:xx UTC, operator session, local Mac) — the blocker on both
+    arms is CLEARED for the CPU path.** Root cause (instrumented
+    diff, exactly the pre-registered next step): the v1 in-env switch
+    carried the EPISODE-reset `q_nom` across segments ("flip nothing
+    else") and re-based `_z0` on the instantaneous chassis height,
+    while the proven `reanchor_to()` derives `q_nom`/`_z0`/pad refs
+    from a fresh settled reset of the TARGET mode. Obs joints are
+    `(q − q_nom)`: the settled belly-flat vs settled-plant `q_nom`
+    differ by **78.9° at the knees** (measured), so every rise-start
+    sequence fed all later plant-family segments a belly frame that
+    far off the teachers' training distribution — which is why LOWER
+    fell hardest (73/225: lower is never a first segment) and why the
+    eval instrument (canonical frames by construction) contradicted
+    the env. Fix (`sim_env.py`): reset()-time settle probe
+    `_seq_capture_frames` mints the canonical plant+belly frames on
+    the episode's OWN model (exact reset choreography; cached when
+    the model can't change, re-minted per episode under DR);
+    `_seq_maybe_switch` installs the target family's frame
+    (`q_nom`/`_z0`/`_pad_z_ref`) at every switch; hold/lower BC base
+    is now that canonical `q_nom` (the v1 carried-pose anchor is
+    dropped — its belly-trap rationale is gone and the teachers'
+    own base is the plant frame); physics, servo profile, slew
+    memory and tilt frame still carry over (they are physical);
+    `_seq_frames` rides SNAP_ATTRS. Guard: the MJX batched-reset
+    path never runs env.reset(), so mode_seq there raises loudly —
+    **a batched frame mint is the named follow-up CODE item before
+    arm 2 can train on MJX.** Tests: frame parity locked as a
+    regression test (probe frames == fresh-reset frames, the
+    reanchor_to() equivalence), lower→rise switch asserts the belly
+    frame install; mode_seq suite 9 pass, full local bank 311
+    pass/1 xfail. **Re-verify (pre-registered condition, exact
+    collection context — DR0.5, 30 s eps, stance-heavy first mix,
+    seed 0, `verify_modeseq_teachers.py`): footlow2_hard1 +
+    walk_longdist_r2 fall 12/225 (5.3%; lower 5, walk 3, rise 2,
+    hold 2; det 9/163) with teacher return med 658 min −79 — vs
+    99/225 (44%, lower 73, med ~298 min −485) on the pods pre-fix,
+    AND a same-machine/same-seed pre-fix A/B (worktree at the old
+    code, identical driver) that replicates the pod number at
+    92/225 (40.9%, lower 62, med 287 min −560): the fix, and only
+    the fix, moves 41%→5.3%. ≈ the instrument's own det band
+    (11/12 zero-fall).** stance_dr10
+    control: 9/300 (3.0%) vs 30/300 pre-fix — the inverted pattern
+    is gone; its tripod-up-lower QUALITY defect remains (and remains
+    invisible to falls-only counting: the ledger's teacher-quality-
+    gate lesson stands, stance_dr10 stays disqualified). Artifacts:
+    `rl_move/sim/logs/verify_modeseq_{footlow2,stancedr10}_postfix
+    .json` (local). **Next: re-run the transdagger2 recipe
+    (`--stance-teacher footlow2_hard1`, CPU) on the fixed env; arm 2
+    stays held only on the MJX frame mint + the transdagger2
+    result.**
   The directive's failure ledger (12 measured lessons) is binding —
   do not re-litigate closed levers inside these arms.
 - **`cw-arch-gru-dual2` VERDICTED FAIL (08-13 ~23:xx UTC dig-in) —

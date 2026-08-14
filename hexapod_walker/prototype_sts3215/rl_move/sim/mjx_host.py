@@ -71,6 +71,11 @@ SNAP_ATTRS = (
     # this list exists for.
     "_seq_plan", "_seq_idx", "_seq_stand_z", "_seq_seg_end",
     "_seq_pose_anchor",
+    # Canonical segment frames (trans-dagger2 fix, 08-14): the settled
+    # plant/belly q_nom/_z0/pad-z refs the switch installs per segment.
+    # Under DR they are minted per episode — a pool-restored episode
+    # must carry ITS model's frames, not a later draw's.
+    "_seq_frames",
     # Physics easing (08-13): the episode's baked ease multipliers,
     # set in _reset_begin next to the _ep_rand they scaled and emitted
     # in step info — a pool-restored episode must report the ease

@@ -802,6 +802,15 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                                    default=3.0))
             seg_hi = float(cfg_get(self.cfg, "goal", "getup_seg_s_max",
                                    default=6.0))
+            # goal.getup_forward_only=1 (RISE_WALK_NEXT_48H P1): the
+            # minimal unified rise->walk task — commands are forward
+            # or stop ONLY, no lateral/diagonal targets. The angle
+            # draws still happen (and are discarded) so rng streams —
+            # and hence start kinds, stop patterns, DR — are seed-
+            # identical to the full task for A/B. Default 0 bit-exact.
+            fwd_only = bool(int(cfg_get(self.cfg, "goal",
+                                        "getup_forward_only",
+                                        default=0)))
             i = max(1, int(round(float(rng.uniform(q_lo, q_hi)) / dt)))
             cvx = cvy = 0.0
             blend_n = max(1, int(round(1.0 / dt)))
@@ -813,6 +822,8 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                     ang = (0.0 if rng.random() < 0.60
                            else float(rng.uniform(-math.pi / 4,
                                                   math.pi / 4)))
+                    if fwd_only:
+                        ang = 0.0
                     tvx, tvy = sp * math.cos(ang), sp * math.sin(ang)
                 end_b = min(i + blend_n, n)
                 vx[i:end_b] = np.linspace(cvx, tvx, end_b - i)
@@ -833,9 +844,11 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
     #
     # Episode = K back-to-back mode segments following the operator's
     # command grammar rise -> {hold|walk} -> {walk|lower} -> (rise ...).
-    # At each switch the env re-anchors the height frame on the CURRENT
-    # state and regenerates the refs (sim_env._seq_maybe_switch — the
-    # eval_handoff re-anchor semantics); this side samples the plan and
+    # At each switch the env installs the new segment family's CANONICAL
+    # settled frame (q_nom/_z0/pad refs from sim_env._seq_capture_frames
+    # — the eval_handoff/reanchor_to() semantics; see the trans-dagger2
+    # fix note on sim_env._seq_maybe_switch) and regenerates the refs;
+    # this side samples the plan and
     # builds each segment's schedule. goal.mode_seq=0 (default) is
     # bit-exact legacy: no plan, no extra rng draws, no per-tick work
     # beyond one attr check. Keys:
@@ -914,8 +927,10 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         full-length with [0:tick] padded (never read again) so every
         existing _step_i-indexed consumer (goal reads, ref_quiet, the
         BC lookahead, end-posture) works unchanged. Heights are
-        relative to the freshly re-anchored _z0 (caller re-bases it
-        BEFORE calling). Returns (traj, h_target, ramp_i0)."""
+        relative to the CANONICAL family _z0 the caller installs
+        BEFORE calling (settled plant for walk/hold/lower, settled
+        belly for rise — sim_env._seq_capture_frames). Returns
+        (traj, h_target, ramp_i0)."""
         gen = self._goal_gen
         rng = self.rng
         dt = self.dt

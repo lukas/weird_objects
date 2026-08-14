@@ -8,13 +8,18 @@ frame on the CURRENT state. These tests lock:
    cfg without the keys);
 2. the sampled plan follows the command grammar and the first segment
    is start-kind compatible;
-3. a mid-episode switch re-anchors _z0 at the current chassis height,
+3. a mid-episode switch installs the target family's CANONICAL settled
+   frame (_z0/q_nom/pad refs from the reset-time settle probe — the
+   reanchor_to()/eval_handoff mechanics; trans-dagger2 fix 08-14),
    re-derives the goal bookkeeping (_h_target/_is_rise/ratchets), keeps
    the height reference continuous in absolute terms (blend window),
    and flips the obs mode one-hot;
-4. walk segments arrive on the episode clock (shifted arrays) and the
+4. the canonical frames MATCH what a fresh reset of the target mode
+   derives (the parity reanchor_to() relies on — the instrumented diff
+   from the trans-dagger2 kill, locked as a regression test);
+5. walk segments arrive on the episode clock (shifted arrays) and the
    walk income accumulators restart;
-5. every new per-episode attr rides mjx_host.SNAP_ATTRS (pool-restore
+6. every new per-episode attr rides mjx_host.SNAP_ATTRS (pool-restore
    lesson, commit 65edba7).
 """
 from __future__ import annotations
@@ -154,9 +159,13 @@ def test_lower_to_rise_switch_reanchors():
         if env._seq_idx == 1:
             break
     assert env._seq_idx == 1
-    # _z0 re-anchored at the CURRENT chassis height, not the reset one
-    z_now = float(env.data.xpos[env._chassis_bid, 2])
-    assert abs(env._z0 - z_now) < 5e-3
+    # the switch installed the rise family's CANONICAL belly frame —
+    # NOT the episode-reset plant frame, and NOT the instantaneous
+    # chassis height (the v1 bug trans-dagger2 caught)
+    belly = env._seq_frames["belly"]
+    assert env._z0 == pytest.approx(belly["z0"])
+    np.testing.assert_array_equal(env._q_nom, belly["q_nom"])
+    np.testing.assert_array_equal(env._pad_z_ref, belly["pad_z_ref"])
     # goal bookkeeping re-derived for the new segment
     assert env._is_rise and not env._is_lower_bc
     assert env._h_target > 0.0
@@ -170,7 +179,7 @@ def test_lower_to_rise_switch_reanchors():
     env.close()
 
 
-def test_hold_segment_pose_anchor_captured():
+def test_hold_segment_anchors_at_canonical_plant():
     # rise -> {hold|walk}: find a seed whose plan has a hold at idx 1.
     for seed in range(30):
         env = _make_env(seed=seed, episode_seconds=10.0,
@@ -182,6 +191,7 @@ def test_hold_segment_pose_anchor_captured():
     else:
         pytest.skip("no rise->hold plan in 30 seeds")
     assert env._seq_pose_anchor is None
+    q_nom_reset = env._q_nom.copy()      # belly frame (rise start)
     zeros = np.zeros(env.action_space.shape[0])
     sw = int(env._seq_plan[1]["tick"])
     for _ in range(sw + 5):
@@ -189,16 +199,60 @@ def test_hold_segment_pose_anchor_captured():
         if env._seq_idx == 1:
             break
     assert env._seq_idx == 1 and env._is_hold_bc
-    # hold BC base = the pose carried INTO the segment, not reset q_nom
-    assert env._seq_pose_anchor is not None
-    np.testing.assert_allclose(env._seq_pose_anchor,
-                               np.asarray(env.data.qpos[env._qadr]),
-                               atol=0.2)
+    # hold BC base = q_nom, re-based to the CANONICAL plant frame the
+    # stance teachers trained against (trans-dagger2 fix) — never the
+    # episode-reset belly frame, and no separate carried-pose anchor.
+    assert env._seq_pose_anchor is None
+    plant = env._seq_frames["plant"]
+    np.testing.assert_array_equal(env._q_nom, plant["q_nom"])
+    assert env._z0 == pytest.approx(plant["z0"])
+    assert float(np.max(np.abs(env._q_nom - q_nom_reset))) > 0.5, \
+        "belly->plant frame switch should move q_nom by ~79 deg knees"
     env.close()
 
 
 # ---------------------------------------------------------------------------
-# 4. walk segments: episode-clock arrays + accumulator restart
+# 4. frame parity: probe frames == fresh-reset frames (reanchor_to())
+# ---------------------------------------------------------------------------
+
+def test_canonical_frames_match_fresh_reset_frames():
+    """The instrumented diff from the trans-dagger2 kill, locked as a
+    regression test: the frame a switch installs must equal the frame
+    reanchor_to() derives (a fresh env.reset() of the target mode on
+    the same model). If these drift apart again, the in-env sequence
+    context no longer reproduces the composition-proven handoff."""
+    env = _make_env(seed=1, episode_seconds=10.0, seg_s=(3.0, 3.5),
+                    mix={"lower": 1.0})
+    env.reset()
+    frames = env._seq_frames
+    assert frames is not None
+    # plant family: what reanchor_to("lower"/"hold"/"walk") derives.
+    ref = _make_env(seed=5, seq=False, episode_seconds=5.0,
+                    mix={"lower": 1.0})
+    ref.reset()
+    assert ref._goal_traj.start_at == "plant"
+    np.testing.assert_allclose(frames["plant"]["q_nom"], ref._q_nom,
+                               atol=5e-3)
+    assert abs(frames["plant"]["z0"] - ref._z0) < 2e-3
+    np.testing.assert_allclose(frames["plant"]["pad_z_ref"],
+                               ref._pad_z_ref, atol=2e-3)
+    ref.close()
+    # belly family: what reanchor_to("rise", force_rise_start="flat")
+    # derives.
+    ref2 = _make_env(seed=7, seq=False, episode_seconds=5.0,
+                     mix={"rise": 1.0})
+    ref2._goal_gen.force_rise_start = "flat"
+    ref2.reset()
+    assert ref2._goal_traj.start_at == "zero"
+    np.testing.assert_allclose(frames["belly"]["q_nom"], ref2._q_nom,
+                               atol=5e-3)
+    assert abs(frames["belly"]["z0"] - ref2._z0) < 2e-3
+    ref2.close()
+    env.close()
+
+
+# ---------------------------------------------------------------------------
+# 5. walk segments: episode-clock arrays + accumulator restart
 # ---------------------------------------------------------------------------
 
 def test_walk_segment_traj_shifted_and_state_reset():
@@ -238,10 +292,10 @@ def test_rise_segment_aims_at_stand_anchor():
 
 
 # ---------------------------------------------------------------------------
-# 5. pool-restore safety
+# 6. pool-restore safety
 # ---------------------------------------------------------------------------
 
 def test_seq_attrs_in_snap_attrs():
     for a in ("_seq_plan", "_seq_idx", "_seq_stand_z", "_seq_seg_end",
-              "_seq_pose_anchor"):
+              "_seq_pose_anchor", "_seq_frames"):
         assert a in SNAP_ATTRS, f"{a} missing from mjx_host.SNAP_ATTRS"
