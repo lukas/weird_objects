@@ -55,6 +55,18 @@ scratch. Primary metric: sample efficiency on a NEW task.
   summary `logs/scale_summary.txt` (analyze_scale.py). Triage rule:
   the deliverable is the prediction scaling CURVE + probe quality —
   no cell earns PPO wiring without the normal gate + A/B/C.
+  **GPU RELAUNCH (02:41 UTC):** the pods' system torch is CPU-ONLY
+  (`2.13.0+cpu` — collects were fine, but the training matrix was
+  ~3 steps/s). Killed the CPU sweep after collect/merge finished,
+  built `/workspace/venv_torchgpu` (`--system-site-packages` +
+  `pip install --ignore-installed torch` → `2.13.0+cu130`,
+  `cuda.is_available()=True`; plain `pip install torch` is a no-op
+  because the venv sees the system CPU wheel), and relaunched
+  STAGE=sweep with `PYTHON=/workspace/venv_torchgpu/bin/python
+  PYTHONUNBUFFERED=1` → ~59 steps/s on the H200. New log:
+  `logs/scale_sweep_gpu.log`. NOTE for future pod training: use this
+  venv (or recreate it the same way) for any torch training on the
+  mjx-train pods; system python3 trains on CPU silently.
 - **EVAL INSTRUMENTATION LANDED (train_ppo_transfer.py, smoke-tested
   locally incl. every new column):** (1) per-task gait/transition
   QUALITY metrics at every eval point — slip_m, fwd_m, peak_roll/
