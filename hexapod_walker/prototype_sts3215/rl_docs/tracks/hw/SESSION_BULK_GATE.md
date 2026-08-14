@@ -192,3 +192,38 @@ walk/hold diet changes; walk ckpt untouched).
   footlow2_hard1 (no visual-quality regression).
 - **FAIL** if any clause misses. Two data-mix/exposure misses on
   this boundary = change mechanism, not dose (RESEARCH_RULES).
+
+### RESULTS (2026-08-14 ~22:5x UTC — read AFTER the cohort completed; banks now RETIRED per clause 7)
+
+**FAIL — REGRESSION, not a trade-off.** 100 shards (11 idle pods,
+`--cohort c2 --cands spec-pl`), 0 missing, 600 sessions total.
+`logs/bulk_session/c2/aggregate.json`, `episodes.jsonl`, rerender
+sample (6 fails + 4 clean) in `rerender/strips/` (video-reviewed:
+no exploit — `over_current` fails show the robot genuinely stuck
+straining against the deep-knee bank pose, same failure mode as
+before, not a reward hack).
+
+| clause | need | got | verdict |
+|---|---|---|---|
+| (1) sto post-lower rise | ≥0.90, CI lower >0.842 | **0.7167** [0.663,0.765] | **FAIL — worse than parent** (CI upper 0.765 < parent's own CI lower 0.752: real separation the WRONG way) |
+| (2) det session zero-fall | ≥0.95 | 0.9233 [0.888,0.948] | FAIL (parent 0.967) |
+| (3) det post-lower rise | ≥0.967 | 0.9358 [0.902,0.959] | FAIL (regression) |
+| (4) det first-rise strata / lower | ≥0.95 / ≥0.99 | flat 1.00, bridge 0.96, crouch 1.00 / lower 1.00 | pass (crown jewels intact) |
+| (5) visual stats vs parent | no regression | det hold drag 623mm vs parent 136mm (worse); sto rise roll_tail 2.3° vs parent 0.7° (worse); walk untouched (slip 1.74, height 135mm — unchanged, walk ckpt frozen) | FAIL (drag/roll-tail both worse) |
+
+Only clause (4) passes. Clauses (1)(2)(3)(5) all miss, and (1) is a
+genuine regression below the parent's own confidence interval, not
+noise or a null. **35% exposure to the harvested post-lower bank
+made the exact skill it targeted WORSE, plus a small hit to
+det-session/cold-rise retention and hold/rise drag.** Two live
+hypotheses this run cannot separate: DOSE (0.35 too aggressive,
+diluting the general rise skill) vs MECHANISM (the fixed
+`rise_ref_track` reference is shaped for flat-topology starts and
+mis-prices the escape motion from this pose family regardless of
+dose). Verdict + full reasoning: `rl_docs/runs/cw-stand-postlower1.md`.
+
+**Next:** `cw-stand-postlower2` (discovery, 2M steps, frac 0.15,
+same recipe otherwise) launched same cycle to separate the two
+hypotheses cheaply before any further hardening or reward-side
+change. Product baseline is UNCHANGED (still the c1 hierarchy);
+this FAIL does not touch it.

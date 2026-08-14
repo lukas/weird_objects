@@ -56,7 +56,28 @@ unresolved blockers between the robot and reliable joystick control.
   family). Gate pre-registered BEFORE training on fresh c2 banks:
   SESSION_BULK_GATE.md "Cohort c2" (sto post-lower ≥0.90 CI-separated
   above parent 0.842 upper + full det/cold-start/lower retention +
-  eval_session, visual stats vs parent).
+  eval_session, visual stats vs parent). **RESULT 08-14 ~22:5x UTC:
+  FAIL — REGRESSION, not a trade-off.** Full c2 bulk cohort (n=600,
+  fresh 920000/930000 banks, 11 pods): sto post-lower rise
+  **0.717** [0.663,0.765] — WORSE than the parent's own 0.801
+  (CI upper below parent's CI lower: real separation the wrong
+  way), det session zero-fall 0.923 (parent 0.967), det post-lower
+  rise 0.936 (parent 0.967), det cold first-rise 0.987 (parent
+  1.00), det hold drag 623mm (parent 136mm), sto rise roll_tail
+  2.3° (parent 0.7°). Only the cold-rise-stratum/lower clause still
+  passes. Video-confirmed no exploit (over_current fails show the
+  robot genuinely stuck straining from the deep-knee bank pose, not
+  a reward hack) — 35% exposure to the harvested post-lower start
+  bank made the exact skill it targeted worse, diluting general
+  rise quality with it. Full numbers + table: SESSION_BULK_GATE.md
+  "Cohort c2 RESULTS". **Next (launched same cycle):
+  `cw-stand-postlower2`** (discovery, 2M, frac 0.15, same recipe
+  otherwise, train-0) to separate DOSE (0.35 too aggressive) from
+  MECHANISM (the fixed `rise_ref_track` reference is shaped for
+  flat-topology starts and mis-prices this pose family regardless
+  of dose) before any further hardening or reward-side change.
+  Product baseline is UNCHANGED — this FAIL doesn't touch the
+  passing c1 hierarchy.
 - **08-14 ~20:0x UTC: the SESSION-JOYSTICK product gate exists and
   the candidate specialist pair PASSES it deterministically —
   `session-joystick-handoff1`** (operator-requested action cycle;
