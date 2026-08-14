@@ -453,6 +453,48 @@ erosion-proof init/anchor mechanism exists; adopting it now would be
 a diet-only variant of the refuted premise. No launch from this note;
 it folds into the retry spec alongside the fb_164337 note.
 
+**TRANSDAGGER3 RESULT (08-14 ~19:5x UTC, artifact
+`ppo_goal_cw_gru_dual_bc_transdagger3.zip`, md5 5080efb6, train-0;
+evals `logs/ckpt_eval/transdagger3_modeseq_{det,sto}.json`,
+`cw_arch_trans_dagger3_{gate,rise12,lower}`): FAIL on the
+pre-registered Arm 1 gate — and a NET REGRESSION vs transdagger2 on
+the sequence clause. The bridge/flat-heavy demo mix
+(`goal.rise_flat_frac=0.45 rise_partial_frac=0.45`, crouch 0.10)
+fixed exactly the clause it targeted and broke the one transdagger2
+owned:** sequence det DR0 zero-fall **9/12** (bar ≥11/12; td2 12/12,
+baseline 11/12; sto 10/12 = td2), cold FIRST rise now **12/12**
+in-seq (td2: 5/12 — the targeted miss, fixed) but ALL THREE det falls
+are inside the SECOND (post-lower) rise (9/12; td2's strongest
+segment at 12/12). rise12 retention **2/12, all-crouch, 0 non-crouch**
+(bar ≥3/12 with ≥1 non-crouch; td2 3/12 all-crouch, init 3/12
+all-non-crouch) → clause FAIL, worse than td2. What held: lower
+REBUILT 6/6 det + 6/6 sto (worst_clear 0mm det); hold 6/6; walk
+gait_valid 21/21 in-seq (prog med 1.071) + 6/6 single-mode (same
+vel_err polish letter-miss as the whole lineage); switch windows
+clean (med 1.9°, max 10.2°). Video (det ep0 strip): honest
+flat→rise→tall six-leg walk→lower, no parked leg, no shuffle; the
+episode's failure IS the second rise, as the metrics say. Instrument
+note: in-seq rise success (handoff plant band) reads 12/12 on the
+first rise while the stricter harness rise12 reads 2/12 — the two
+instruments' success bands differ (fall counts agree); each gate
+clause was judged on its own pre-registered instrument. **Verdict:
+the rise demo mix is ZERO-SUM at this dataset size — shifting
+start-kind proportions moves WHICH rise fails (cutting crouch to
+0.10 starved the post-lower/crouch-context rise) instead of fixing
+rise. Second data-mix miss in a row → per the two-miss rule the next
+lever is a MECHANISM change, not another proportion shuffle. No
+pre-registered FAIL branch matches (falls inside rise segments, not
+at switches; single-mode rise fails too; lower fine) → no
+discretionary transdagger4. transdagger2 remains the winning distill
+artifact/init (12/12 det zero-fall) — the Arm-2 retry's "whichever
+init wins the transdagger3 triage" resolves to transdagger2. The
+arch line's open rise levers are now both operator-routed: option
+(b) rise-only-DAgger variant distill (this result sharpens its spec:
+it must ADD rise coverage across ALL start kinds — flat, bridge,
+crouch, post-lower context — not re-weight a fixed budget) and/or
+the anchor-on-rise mechanism for the Arm-2 retry (advisory notes
+above).**
+
 ## Scope note (operator session 08-14): ground rest is a hardware primitive
 
 The cycle's "lower/sit" segment ends at the TRAINED crouch (−45 mm),

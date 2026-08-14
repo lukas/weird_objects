@@ -8,6 +8,23 @@ at what budget, with which failure modes.
 
 ## Now
 
+- **08-14 ~19:5x UTC — `transdagger3` TRIAGED: FAIL on the Arm 1
+  gate, NET REGRESSION vs transdagger2 on the sequence clause — the
+  rise demo mix is ZERO-SUM.** Seq det DR0 zero-fall 9/12 (bar
+  ≥11/12; td2 12/12; sto 10/12 = td2): the bridge/flat-heavy mix
+  fixed its target (cold first rise 12/12 in-seq vs td2's 5/12) but
+  all 3 det falls moved into the post-lower rise (td2's strongest
+  segment), and rise12 retention got WORSE (2/12 all-crouch vs td2's
+  3/12; bar ≥3/12 with ≥1 non-crouch). Lower/hold/walk retention all
+  held (lower 6/6+6/6 worst_clear 0mm; walk gv 21/21 in-seq + 6/6).
+  Second data-mix miss → mechanism change per two-miss; no
+  pre-registered FAIL branch matches → no transdagger4.
+  **transdagger2 stays the winning distill artifact/init.** Open rise
+  levers are both operator-routed: option (b) rise-only-DAgger
+  variant (spec sharpened: ADD rise coverage across ALL start kinds,
+  don't re-weight a fixed budget) and/or the anchor-on-rise Arm-2
+  retry mechanism. Full scorecard: TRANSITIONS_DIRECTIVE
+  "TRANSDAGGER3 RESULT".
 - **08-14 ~17:xx UTC — Arm 2 `cw-arch-modeseq1-r1` VERDICTED FAIL
   (dig-in): the canary auto-stop at 4.56M was dual2's protected-skill
   erosion, second independent reproduction — and training 75% on
@@ -30,7 +47,8 @@ at what budget, with which failure modes.
   **`transdagger3` — the transdagger2 recipe with a bridge/flat-heavy
   demo mix (`--cfg-set goal.rise_flat_frac=0.45
   goal.rise_partial_frac=0.45`, crouch 0.10; passthrough flag landed
-  this cycle, default-off/bit-exact) — is RUNNING on train-0 CPUs**;
+  this cycle, default-off/bit-exact) — ran on train-0 CPUs (TRIAGED
+  FAIL 08-14 ~19:5x, see the bullet above)**;
   the operator's option (b) rise-only variant distill stays open in
   top-level WAITING-ON. An advisory external-feedback note
   (fb_20260814T164337_d7f11b: add a bridge/flat-rise BC-anchor term
