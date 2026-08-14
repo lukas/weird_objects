@@ -63,6 +63,22 @@ def test_plan_deterministic_and_matched():
     assert sorted(s["id"] for s in parts) == [s["id"] for s in p1]
 
 
+def test_cohort_seed_bank_bump():
+    # c1 (and any unlisted cohort) stays on the legacy bank —
+    # bit-exact for every pre-existing caller.
+    p_c1 = bse.plan("c1", ["spec"], ("det", "sto"))
+    dets = {sh["seed"] for sh in p_c1 if sh["mode"] == "det"}
+    stos = {sh["seed"] for sh in p_c1 if sh["mode"] == "sto"}
+    assert min(dets) == bse.SEED_DET and min(stos) == bse.SEED_STO
+    # c2 gets its own pre-registered fresh bank (SESSION_BULK_GATE.md
+    # "Cohort c2"), never overlapping c1's (retired) bank.
+    p_c2 = bse.plan("c2", ["spec"], ("det", "sto"))
+    dets2 = {sh["seed"] for sh in p_c2 if sh["mode"] == "det"}
+    stos2 = {sh["seed"] for sh in p_c2 if sh["mode"] == "sto"}
+    assert min(dets2) == 920000 and min(stos2) == 930000
+    assert not (dets2 & dets) and not (stos2 & stos)
+
+
 def test_shard_cmd_candidates():
     sh = dict(cand="spec", mode="det", seed=900000, eps=6, out="/tmp/x.json")
     c = bse.shard_cmd(sh)

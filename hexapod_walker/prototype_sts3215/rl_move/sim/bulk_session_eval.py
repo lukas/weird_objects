@@ -66,6 +66,16 @@ SEED_DET = 900000                 # held-out seed banks (fresh; retire
 SEED_STO = 910000                 # for tuning once the gate is read)
 OUT_ROOT = Path("logs/bulk_session")
 
+# Per-cohort seed-bank bases (SESSION_BULK_GATE.md clause 7: "future
+# cohorts bump the bases" — each cohort's banks are retired for tuning
+# the moment its aggregate.json is read, so the next cohort needs a
+# fresh, never-before-used pair). Cohorts not listed here (including
+# the legacy/test cohort "c1"/"t"...) fall back to SEED_DET/SEED_STO
+# unchanged -> bit-exact for every pre-08-14-cycle-2 caller.
+COHORT_SEED_BASE: dict[str, tuple[int, int]] = {
+    "c2": (920000, 930000),   # cw-stand-postlower1 gate (retire on read)
+}
+
 CANDIDATES: dict[str, dict] = {
     # A. product baseline: hierarchical frozen specialists
     "spec": {
@@ -79,6 +89,14 @@ CANDIDATES: dict[str, dict] = {
     # C. single shared model (diagnostic)
     "td3": {"single":
             "rl_move/sim/policies/ppo_goal_cw_gru_dual_bc_transdagger3.zip"},
+    # D. cohort c2 candidate: postlower1 stance (rise_start_bank) +
+    # the SAME frozen tall walker as `spec` — SESSION_BULK_GATE.md
+    # "Cohort c2".
+    "spec-pl": {
+        "stand": "rl_move/sim/policies/ppo_goal_cw_stand_postlower1.zip",
+        "walk": "rl_move/sim/policies/ppo_goal_cw_dep_bcgait1_hard1.zip",
+        "cfg": ["goal.walk_obs_body_vel=2"],
+    },
 }
 MODES = ("det", "sto")
 
@@ -119,10 +137,11 @@ def plan(cohort: str, cands=None, modes=MODES, n_shards: int = N_SHARDS,
          eps: int = SHARD_EPS) -> list[dict]:
     """Deterministic shard manifest — identical on every host."""
     cands = list(cands or CANDIDATES)
+    det_base, sto_base = COHORT_SEED_BASE.get(cohort, (SEED_DET, SEED_STO))
     shards, sid = [], 0
     for cand in cands:
         for mode in modes:
-            base = SEED_DET if mode == "det" else SEED_STO
+            base = det_base if mode == "det" else sto_base
             for i in range(n_shards):
                 seed = base + i
                 shards.append({
