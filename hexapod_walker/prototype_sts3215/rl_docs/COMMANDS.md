@@ -403,6 +403,20 @@ the status server on 127.0.0.1:8090. Access requires the token in
 at startup — restart `statusweb` after changing it): first browser
 visit uses `?key=<token>`, which sets a cookie and redirects clean.
 
+**MCP server (LLMs investigating results as tools):** the status
+server also mounts an MCP endpoint at **POST /mcp**
+(`rl_move/orchestrator/mcp_server.py`, streamable-HTTP transport,
+stdlib only). Add `https://hexapod.cwd1f0-new-cluster.coreweave.app/mcp`
+as a remote MCP server in Claude/Cursor/ChatGPT — no auth, same
+keyless policy as /llm (public-repo data only; no spend, no pod
+names). Tools: `campaign_status`, `get_plan`, `log_tail`,
+`list_runs` (ledger with status/track/substring filters), `get_run`
+(entry + story), `run_metrics` (cached W&B summary/history),
+`eval_report` (gate report.json), `list_docs` / `read_doc`,
+`search_docs`. It runs inside `statusweb`, so deploy = the same
+kill+restart runbook above. Dev standalone:
+`python3 rl_move/orchestrator/mcp_server.py` (port 8091).
+
 The server also serves a plain-markdown mirror so external LLMs
 (ChatGPT, Claude web fetch) can assess the campaign: `/llms.txt` is
 the index (llmstxt.org convention), `/llm/status.md` (campaign + all
