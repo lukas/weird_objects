@@ -35,10 +35,41 @@ same script, same per-seed A→B→C→(walk warm-start) sequence, just
 one seed's 6-phase chain per pod instead of 3 seeds' worth
 competing for one pod's RAM) — triage this as `risewalk-single`
 when it reports, not against the original `rw_rise_C_s5-7` naming.
-Old train-10 is back `Running` (self-recreated ~18:04 UTC, empty
-overlay fs as expected) and free; not reused for this cohort by
+Old train-10 is back `Running` (recreated manually by a concurrent
+orchestrator cycle via `kubectl delete`+`apply` ~18:04 UTC, restart-
+Policy:Never bare pods do not self-recreate — not "self-recreated" as
+first logged here) and free; not reused for the risewalk cohort by
 design (no evidence yet the 1-process-per-pod fix is sufficient
 long-run, don't put a second copy on the pod that just OOMed).
+
+**08-15 ~18:1x UTC (separate concurrent cycle, kick_20260815T172346_ea7b20
+review):** the kick asked the orchestrator to execute a fresh CUDA
+causal-Transformer dynrep pretrain (`cw-dynrep-tf-state1`, arch=
+transformer, 40k steps, full 14-priv-label data `v4priv14`, PID 137013
+collecting on train-10). Found already fully executed by the
+operator's own live Codex session, not by this orchestrator: the run
+launched+verified RUNNING on train-3 (train-10 having died mid-
+collection, see above — the "PID 137013" collection is unrecoverable,
+no persistent volume), substituting a quick single-seed 400-episode
+`v4priv14_recovery` set (genuine 14-priv-label, not legacy 4-label —
+kick's hard requirement honored) to unblock the architecture proof;
+the operator then watched it live and KILLED it at ~21k/40k with a
+real verdict already on the ledger + W&B notes: confirmed overfitting
+(train total <0.75, held-out total 5.53->8.22 from step 1000), next
+step named ("preserve the best checkpoint, add early stopping and
+stronger regularization, then rerun under a new append-only name").
+Nothing left to triage. Left the named regularization/early-stopping
+follow-up to the operator's own session (actively engaged on this
+exact file/run this minute — avoid duplicate-edit collision on
+train.py). This cycle's distinct contribution: repaired train-10
+(independently of the risewalk-repair cycle above; different
+pods, no collision) and relaunched the FULL 12-seed x 400-episode
+(4800 ep) `v4priv14_full` collection the kick actually asked for
+(pod_scale_sweep.sh recipe, `noslip:0.05` actor-share required,
+`pod_memwatch.sh` riding shotgun this time), so the operator's named
+rerun has real full-scale data instead of the 400-ep recovery set
+when they get to it. In flight at cycle end (~245/400 eps per seed);
+not blocking anything, first free pod picks up triage when it lands.
 
 W&B: tag `track:dynrep`, run prefix `cw-dyn-`. Design doc + binding
 gates: **rl_docs/DYNREP.md** (read before triaging anything here).
