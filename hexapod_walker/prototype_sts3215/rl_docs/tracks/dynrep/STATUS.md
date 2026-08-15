@@ -1,5 +1,47 @@
 # dynrep — Dynamics-representation pretraining
 
+**08-15 ~20:2x UTC (independent discovery, this cycle): the
+`risewalk-single` cohort (seeds 5/6/7 on train-4/5/6, launched ~18:19
+UTC) was DEAD, silently, for ~45 min — a THIRD distinct code bug in
+the same-day scaling work, this time in the PPO side, not the
+pretraining side.** `pod_risewalk.sh`'s manifest showed
+`phase_start condition C` immediately followed by `done seeds_done=0`
+on all three pods (~19:33 UTC); `ops.sh census`/`ops.sh procs` missed
+it because `train_ppo_transfer` matches the `*train_ppo*` filter only
+while alive — once dead it just looked like 3 more idle pods (no
+SUSPECT/DEAD checkup fired because the process exited cleanly with a
+traceback, not a hang). Root cause (`rl_move/dynamics/logs/
+risewalk_s5.log`): `KeyError: 'contact_now'` in `model.dynamics_loss`,
+called from `train_ppo_transfer.py`'s condition-C `AnchorCb.
+_on_training_start`. `dynamics_loss` grew "current"-state heads
+(`contact_now`/`current_now`/per-horizon `current`, commit `6a8560c0`
+"Add GPU transformer dynamics pretraining", 17:15 UTC) but the PPO
+-side batch converter (`anchor_batch_to_torch`) was never updated to
+forward those keys from `WindowSampler.batch()` — a real gap, not
+config drift: it silently breaks EVERY condition-C PPO run launched
+on code synced after 17:15 UTC. `dynrep-futurewalk-C-s5/6/7`
+(train-7/8/9, still healthy) never hit it only because they started
+at 16:33 UTC, before the regression, and a running Python process
+doesn't reload edited source. Fixed same cycle (`anchor_batch_to_torch`
+hoisted to module scope + now forwards `contact_now`/`current_now`/
+`current`/`priv_mask_now`; new `test_dynrep_ppo_anchor.py` drives the
+REAL `WindowSampler` + a tiny real `DynamicsModel` through the exact
+`AnchorCb` path with no GPU/pod dependency — fails on the pre-fix code,
+green after; full dynrep+dynamics suite still green), snapshot
+`exp/cw-dynrep-fix-anchor-batch-current`. Retried once (DEAD ->
+clean-up-and-retry-once per the shutdown protocol): killed the
+orphaned multiprocessing zombies, synced the fix to train-4/5/6,
+verified the G1/G1.1-PASS encoder+dataset still present, relaunched
+`risewalk-single2` (same seeds, one per pod, `pod_memwatch.sh`
+alongside) — all 3 confirmed live via W&B under the now-unique
+per-attempt name (`rw_rise_A_s5.0815-2022Z` etc., commit `d93ee431`'s
+attempt-stamp fix already covers the collision), condition A rise
+phase advancing normally. Not this cycle's assigned run (that was
+`cw-dynrep-tf-state2-fresh3-data`, already fully triaged+superseded by
+a concurrent cycle before I reached it — see the entry below); this is
+a genuinely new, independently-discovered dead cohort, fixed and
+retried per the 08-14 drain-before-backoff rule.
+
 **08-15 ~20:1x UTC: `cw-dynrep-tf-state2-fresh2` died a SECOND time
 (pod train-10 hard-OOMKilled at the 96Gi cgroup limit, ~65s after its
 stage-1 collection cleanly logged `data/complete=1` meeting the gate --
