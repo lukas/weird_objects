@@ -9,11 +9,36 @@ unresolved blockers between the robot and reliable joystick control.
 
 ## Now
 
-- **08-15 ~18:xx (operator-kick cycle): the getup/recovery sub-line
-  is REOPENED BY OPERATOR ORDER (authenticated KICK confirming the
+- **08-15 ~20:0x (operator-kick cycle, fb_20260815T193318_2cc049):
+  `cw-recover-any1` KILLED at ~13.5M by OPERATOR ORDER (failed
+  diagnostic: aggregate success 0, Phi/quality declining, NO
+  per-start-kind visibility — the video reel didn't even list the
+  recover mode) and REPLACED by `cw-recover-any2`**, relaunched from
+  the clean stance champion `cw-stand-footlow2-hard1` (NOT any1's
+  degraded weights) on the operator's own bucket-1-fix commit
+  (aa1023c6, pushed to main mid-cycle by his Codex session — this
+  cycle's parallel duplicate implementation was dropped in its
+  favor): curriculum starts at ONLY onefoot/park with no
+  harder-family probe, retreat floor 1, admission n>=4 @ EMA-β .25
+  per kind with retreat re-certification; always-on per-kind
+  success/EMA/count + settled-reset height/tilt/load/spread + BC
+  eligibility/ref-index telemetry; `recover_success` is an explicit
+  termination reason; periodic eval + gate reports force equal
+  onefoot/park episodes and split all recover rows by start kind;
+  video reels caption the start kind; restored stance-lineage
+  supervision (foot-z BC 1.0 @ 3mm, min-height-ahead 15mm above the
+  BELLY datum, lookahead 0.5 s, height-matched state alignment).
+  Preflight: plant-teacher held-success from settled onefoot AND park
+  is now a semantics-bank test (PASS). Gate: >=95% det / >=85% sto
+  held recovery on forced onefoot+park by 40M, no rise/hold/lower
+  regression. any1's other MDP pieces (PBRS reward, 5.1 s horizon,
+  185° envelope) carried unchanged. The paragraph below describes
+  the original any1 spec, kept for the mode's design record.**
+- 08-15 ~18:xx (operator-kick cycle): the getup/recovery sub-line
+  REOPENED BY OPERATOR ORDER (authenticated KICK confirming the
   fb_20260815T165306_606974 directive after 5-6 correct
   channel-grounds declines of its unauthenticated MCP copies) and
-  `cw-recover-any1` is RUNNING** — a universal recover-to-plant
+  `cw-recover-any1` launched (now KILLED, see above) — a universal recover-to-plant
   specialist: from any recoverable state (near-stand w/ one unloaded
   foot, tripod park, crouch/interrupted rise, harvested post-lower
   bank, belly, random tangle, side/back/UPSIDE-DOWN drops) reach a
