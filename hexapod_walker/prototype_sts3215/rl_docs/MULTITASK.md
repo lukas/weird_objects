@@ -4,6 +4,19 @@ Source: operator brief 2026-08-12 ("Hexapod RL: Multitask Learning,
 Forgetting, and the Next Experiment"). This doc is the track's design;
 live state is `rl_docs/tracks/multitask/STATUS.md`.
 
+**NAMING CORRECTION (operator, 08-15, fb_20260815T114937_f9078d —
+binding on the fb_20260815T114414_3c40d6 arm and all future runs):**
+the c2-continuation arm is **`cw-joystick-translate1`** — the
+user-facing task is joystick-commanded translation (policy receives
+changing [vx,vy] and moves that way; wz/yaw identically zero and out
+of the task description). "Fullcircle" is banned as a run/product
+label (uniform [-pi,pi] heading is sampler coverage, not the
+behavior); the launcher refuses it mechanically. Headline metric:
+`joystick/v_along_m_s` (+`_cumulative`) = average signed m/s in the
+requested joystick direction over nonzero-command ticks. Rule: name
+the operator-visible behavior first; mechanism/sampler/arch details
+live in config/tags/notes.
+
 ## The reframe (read this before judging any run here)
 
 Do NOT assume the campaign's main failure is catastrophic forgetting.

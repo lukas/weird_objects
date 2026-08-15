@@ -12,6 +12,26 @@ call is withdrawn, not answered — the options (arch recurrence
 transplant / command-width curriculum / accept `b2` ceiling / reward
 geometry diagnosis) remain open for whenever the track resumes.**
 
+**PAUSE EXCEPTION + NAMING CORRECTION (operator, 08-15 ~11:4x UTC —
+read BEFORE speccing/launching anything from the c2 lineage):**
+fb_20260815T114414_3c40d6 is an operator-authorized reopening of ONE
+sim question — a joystick-commanded-translation continuation of
+`cw-mt-c2` (headings sampled uniformly on [-pi,pi], wz/yaw
+identically ZERO, explicit fall pricing, all-support-leg gait gate,
+raw signed along-command m/s as the headline). fb_20260815T114937_f9078d
+then CORRECTED THE NAME: the run is **`cw-joystick-translate1`**
+(W&B display/output/ledger aligned), NOT "cw-mt-c2-fullcircle1" —
+"fullcircle" is a banned mechanism-centric label and the launcher now
+REFUSES any run name containing it (launch_run.py
+`naming_correction`). Headline metrics should be plain/physical:
+`joystick/v_along_m_s` (+`_cumulative`), "average signed m/s in the
+requested joystick direction over nonzero-command ticks". General
+rule (applies to future runs): name the operator-visible behavior
+(joystick translate, stop, rise, lower); sampler geometry, reward
+mechanism, architecture, curriculum go in config/tags/notes. The
+name has no `cw-mt-` prefix by operator choice — pass
+`--track multitask` explicitly so track inference doesn't misfile it.
+
 **Goal:** test whether a fresh command-conditioned generalist
 (stand + forward + small yaw/lateral trained SIMULTANEOUSLY, one
 coherent reward) beats the sequential specialist-fine-tuning pattern —
