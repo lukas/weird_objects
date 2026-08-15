@@ -394,9 +394,20 @@ new command later (the phase-2 transfer test).
   as the recipe ceiling, reward-geometry diagnosis per MULTITASK.md's
   closing rule) are recorded for resumption. Top STATUS.md
   WAITING-ON entry updated to PAUSED.
-- **08-13: the transplant's code is BUILT** (the operator call is now
-  purely a launch decision). The blocker was routing: on this recipe
-  every episode is mode "walk", so the episode-constant
+- **08-13: the transplant's code is BUILT.** **LAUNCHED 08-15 ~18:1x
+  UTC (pause lifted 08-15 ~17:2x, this is the topmost agent-doable
+  multitask item, code+tests already green): `cw-mt-b1-dualgru1`**
+  — b1's exact fresh-init narrow-generalist recipe (walk 0-0.06 m/s,
+  +-0.15 rad/s yaw on 20% of segments, 40% stop) plus
+  `--gru-dual --cfg-set obs.mode_onehot=1 --cfg-set
+  obs.mode_onehot_cmd=1` (rollout geometry n-envs=256/n-steps=256/
+  batch=8192/hidden=256, matching every other `--gru-dual` run's
+  established precedent — a mechanical requirement of the recurrent
+  architecture, not a second experimental lever), 2M discovery,
+  VERIFIED RUNNING train-1 (W&B `gz8a103k`). PASS/FAIL/bug gate in
+  the ledger; triage against b1's own 2M read (0/6 gait_valid) next
+  cycle. No longer a wait. The blocker being tested was routing: on
+  this recipe every episode is mode "walk", so the episode-constant
   `obs.mode_onehot` never exercises the dual-core gate. New
   `obs.mode_onehot_cmd=1` (walk_task `_augment_obs`) derives the
   one-hot from the LIVE blended command instead — commanded stop
