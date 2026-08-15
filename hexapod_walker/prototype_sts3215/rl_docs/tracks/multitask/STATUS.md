@@ -87,6 +87,28 @@ new command later (the phase-2 transfer test).
 
 ## Now
 
+- **08-15 ~18:3x UTC: `cw-mt-b1-dualgru1` FINISHED (2M discovery) —
+  VERDICT: FAIL(no-benefit), the arch-recurrence-transplant option
+  is CLOSED.** This was the first of the 08-13 withdrawn-pause
+  candidate directions to actually run: b1's exact fresh-init
+  narrow-generalist recipe (walk 0-0.06 m/s, ±0.15 rad/s yaw on 20%
+  of segments, 40% stop) plus a dual-core mode-gated GRU
+  (`--gru-dual`) routed by the LIVE blended command
+  (`obs.mode_onehot_cmd`, new 08-13 code) instead of the useless
+  episode-constant one-hot. Result: det walk `gait_valid` 0/6 at
+  both DR0 (sacrificed legs [1,3]) and own-DR0.2 (sacrificed legs
+  [1,2,3]) — the identical splayed-leg paddle/park signature as
+  b1's own 2M read (0/6), just a slightly higher `prog_ratio`
+  (0.16→0.28-0.30) that never becomes a real gait. Confirmed the
+  live-command routing DID engage (walk_stop_frac=0.4 forces
+  hold/walk switches within every episode, ruling out FAIL(bug)) —
+  so this is a genuine no-benefit result, not a wiring miss: giving
+  the multitask policy two mode-gated cores does not fix its
+  acquisition shortfall on this recipe. The remaining wave-1 fix
+  candidates are command-width curriculum, accepting `b2` as the
+  recipe ceiling, or a reward-geometry diagnosis — pick one of
+  those next, not another architecture swap on this exact recipe.
+  Ledger + W&B `gz8a103k` have full numbers/video refs.
 - **CROSS-TRACK INSIGHT (08-15 ~17:5x UTC, from arch):
   `cw-arch-tf-joymodes-scratch1` (a from-scratch causal-transformer,
   arch track) independently re-ran this exact closed joystick
@@ -394,9 +416,12 @@ new command later (the phase-2 transfer test).
   as the recipe ceiling, reward-geometry diagnosis per MULTITASK.md's
   closing rule) are recorded for resumption. Top STATUS.md
   WAITING-ON entry updated to PAUSED.
-- **08-13: the transplant's code is BUILT.** **LAUNCHED 08-15 ~18:1x
-  UTC (pause lifted 08-15 ~17:2x, this is the topmost agent-doable
-  multitask item, code+tests already green): `cw-mt-b1-dualgru1`**
+- ~~08-13: the transplant's code is BUILT.~~ **LAUNCHED 08-15 ~18:1x
+  UTC and TRIAGED 08-15 ~18:3x UTC: `cw-mt-b1-dualgru1` FAILED
+  (no-benefit) — see Now.** The routing question this arm existed to
+  test is settled (routing engaged correctly, architecture still
+  doesn't fix acquisition); do not re-queue this transplant on the
+  b1 recipe. Original spec kept below for the record.
   — b1's exact fresh-init narrow-generalist recipe (walk 0-0.06 m/s,
   +-0.15 rad/s yaw on 20% of segments, 40% stop) plus
   `--gru-dual --cfg-set obs.mode_onehot=1 --cfg-set
@@ -404,9 +429,7 @@ new command later (the phase-2 transfer test).
   batch=8192/hidden=256, matching every other `--gru-dual` run's
   established precedent — a mechanical requirement of the recurrent
   architecture, not a second experimental lever), 2M discovery,
-  VERIFIED RUNNING train-1 (W&B `gz8a103k`). PASS/FAIL/bug gate in
-  the ledger; triage against b1's own 2M read (0/6 gait_valid) next
-  cycle. No longer a wait. The blocker being tested was routing: on
+  VERIFIED RUNNING train-1 (W&B `gz8a103k`). The blocker being tested was routing: on
   this recipe every episode is mode "walk", so the episode-constant
   `obs.mode_onehot` never exercises the dual-core gate. New
   `obs.mode_onehot_cmd=1` (walk_task `_augment_obs`) derives the

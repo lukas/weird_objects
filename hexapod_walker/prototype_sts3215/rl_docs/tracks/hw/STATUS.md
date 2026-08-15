@@ -9,6 +9,39 @@ unresolved blockers between the robot and reliable joystick control.
 
 ## Now
 
+- **08-15 ~18:xx (operator-kick cycle): the getup/recovery sub-line
+  is REOPENED BY OPERATOR ORDER (authenticated KICK confirming the
+  fb_20260815T165306_606974 directive after 5-6 correct
+  channel-grounds declines of its unauthenticated MCP copies) and
+  `cw-recover-any1` is RUNNING** — a universal recover-to-plant
+  specialist: from any recoverable state (near-stand w/ one unloaded
+  foot, tripod park, crouch/interrupted rise, harvested post-lower
+  bank, belly, random tangle, side/back/UPSIDE-DOWN drops) reach a
+  full-height level quiet stand with ALL SIX feet loaded, hold 0.5 s,
+  episode ends on held success. New `recover` mode (REWARD.md §4c):
+  potential-DIFFERENCE reward (PBRS — no occupancy/ratchet/hold
+  income, no alive bonus; smooth-min per-foot load keeps one unloaded
+  foot visible → the getup3-c2/getup4 4-leg plateau cannot recur by
+  construction), one-shot success bonus, time tax, fail cost ≥ max
+  remaining tax (no early-abort), adaptive reset-family curriculum
+  (frontier-weighted, ≥80% admit / <20% retreat, buckets 1-2 first),
+  eligibility-gated state-aligned rise BC anchor (the cw-getup3
+  lever, now orientation/height/contact-conditioned). Warm from
+  footlow2_hard1 (obs-pad transplant = optimizer fresh, critic
+  carried — recorded semantics), long-horizon PPO per directive
+  (512 envs × 128 steps = 5.1 s span, γ=0.995, λ=0.98, batch 8192),
+  40M cap, one-run bundle exception per the operator ruling
+  (root STATUS.md). v1 DEVIATIONS from the directive spec (recorded,
+  pre-registered next rungs): reset families 5-6 (pushed-walking
+  falling states, on-policy failure harvests) + exact-qvel bank
+  restore on the MJX path + the 1 s frozen-stance handoff INSIDE
+  train-time eval are not built — handoff is checked at triage via
+  eval_handoff; curriculum stats are per-env (4-worker sharded), not
+  fleet-global; COM/support check is the footprint+all-loaded+level
+  proxy. Gate: pre-registered in the ledger (held recovery ≥95% det /
+  ≥85% sto across the ACTIVE mixture at 40M or early exploit stop;
+  no regression on ordinary rise/hold/lower; research specialist —
+  does NOT touch the product baseline).**
 - CROSS-TRACK INSIGHT (08-15, from multitask): `cw-joystick-translate1`
   (walk-task, unrelated reward recipe) independently reproduced the
   parked/stilt-single-foot exploit gaming its progress proxy while

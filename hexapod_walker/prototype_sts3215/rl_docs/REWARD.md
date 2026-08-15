@@ -206,6 +206,51 @@ whose fast time-to-stand beats the replay on episode TOTALS, so it is
 priced per-tick: tail 0.20 vs the plant stand's 0.55. Walk side: gait
 +378 vs park −1.6 / belly-shuffle −3.6).
 
+## 4c) RECOVER mode — recover_to_plant (08-15 operator directive)
+
+`rl_move/sim/walk_task.py _recover_reward()`, mode `recover` only
+(walk env; enabled per-run via `--goal-mix recover=...` — absent from
+every default mix, so all keys below are inert = bit-exact legacy).
+Operator directive fb_20260815T165306_606974: from any physically
+recoverable state, reach a full-height, LEVEL, QUIET stand with ALL
+SIX feet loaded, hold it 0.5 s continuously — then the episode ENDS
+(one-shot bonus). Zero velocity command throughout. Falls are NOT
+terminal: runs must set `safety.max_roll/pitch_deg=185` (an inverted
+settle reads ~179.5°); ends are held success / timeout / safety only.
+Start states come from the adaptive reset-family curriculum
+(`_sample_recover`: onefoot/park → crouch/partial/bank → zero/tangle
+→ flip, admitted on per-kind success EMAs ≥0.8, retreat <0.2; v1
+families 5-6 — pushed-walking falling states + on-policy failure
+harvests — are the pre-registered next rung). Unlike getup there is
+NO occupancy/ratchet/hold income and no alive bonus: income is a
+potential DIFFERENCE, so re-farming any feature pays 0 and stalling
+anywhere bleeds the time tax.
+
+`r = rec_k_pot·(rec_gamma·Φ(s′) − Φ(s)) + rec_b_success·(first held
+success) − rec_c_time·dt (until termination, incl. the hold) −
+rec_fail_cost (at a non-success end) + base regularizers`
+(gyro/action/current stay; `reward_task`/`k_roll`/`k_pitch` stripped,
+`h_err` never fed — same guard as getup, measured −58/ep otherwise).
+`Φ = wU·U + wL·g(U)·L + wH·g(U)·L·H + wM·g(U)·g(H)·M +
+wP·g(U)·g(H)·P`, all features bounded [0,1], g = smoothstep.
+
+| cfg key (reward.) | default | what it does |
+|---|---|---|
+| `rec_k_pot` / `rec_gamma` | 20.0 / 0.995 | PBRS scale + discount (match the run's PPO `--gamma`). Telescopes: spawn posture is never income. |
+| `rec_w_u/_l/_h/_m/_p` | .15/.15/.30/.30/.10 | Φ weights: U uprightness ((1+cosθ)/2 — gradient from upside-down), L mean six-foot load, H supported height (belly→z_full, getup calibration, stilt overshoot fades to 0), M SMOOTH-MIN per-foot load (`rec_min_tau` 0.15 — ONE unloaded foot stays visible; the getup3-c2/getup4 mean-plateau cannot recur), P footprint closeness. |
+| `rec_b_success` | 50.0 | one-shot on the first completed 0.5 s (`rec_hold_s`) hold of: \|z−z_full\|≤`rec_h_tol_mm` 15, tilt≤`rec_level_deg` 6°, min per-foot load≥`rec_load_min` 0.35 AND pad spread≤`rec_pad_spread_mm` 30 (all six near ground and loaded — no mean loophole), P≥0.5 (support proxy), qd rms≤`rec_qd_max_rad_s` 0.7, \|v_xy\|≤`rec_v_max_m_s` 0.08, max current≤`rec_cur_max_a` 3.0. Terminates the episode. |
+| `rec_c_time` | 1.0/s | rate-normalized time tax, every tick until termination (the directive's speed incentive; a ~4 s recovery costs ~8% of the bonus). |
+| `rec_fail_cost` | 0 → auto 1.25·c_time·horizon | charged at timeout/safety end without success — ≥ the max remaining time tax, so early abort never out-earns trying. |
+| `goal.recover_start_bank` | unset | npz (`q_rad` (K,18)) harvested start poses for the "bank" kind (family 2). |
+| `train.bc_anchor_recover` (+`_tilt_deg` 25) | 0 | state-aligned rise BC anchor (the cw-getup3 lever), eligibility-gated to the mastered rise manifold: upright ≤25°, real foot ground-reaction, at/below plant height — orientation/height/contact conditioning, never nearest-q alone; a flipped robot is never pulled toward rise poses. |
+
+Bank: RECOVER section of `test_task_semantics.py` (replay succeeds +
+terminates, dominates flagleg/freeze/stilt/thrash by >20; flag leg
+blocks success with M≪L; no height charge; fail cost ≥ max remaining
+tax; flip spawns settle >60° and survive; sampler
+proportions/admission; empty-interval rng parity; anchor state
+gating).
+
 ## 5) Changing the reward — checklist
 
 1. New terms: cfg-gated, default 0 = byte-identical legacy. Income

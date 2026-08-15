@@ -88134,7 +88134,7 @@
       "multitask recurrence-transplant: b1's exact narrow-generalist recipe (fresh init, walk/stop/yaw command mix) plus the dual-core mode-gated GRU architecture with LIVE-command routing (obs.mode_onehot_cmd), the fix for the always-walk routing bug that kept the dual-core gate from ever engaging on this recipe. 2M discovery: does architecture (not more reward tuning) fix wave-1's yaw/acquisition shortfall?"
     ],
     "created": "2026-08-15T18:06:29+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -88174,7 +88174,9 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-mt-b1-dualgru1 since 2026-08-15T18:31:32"
+    "triage": "done",
+    "verdict": "FAIL(no-benefit) per its own pre-registered gate: the dual-core mode-gated GRU with live-command routing (obs.mode_onehot_cmd; routing confirmed engaging -- walk_stop_frac=0.4 drives command-derived hold/walk switching within episodes) does NOT fix multitask acquisition shortfall at 2M steps. Det walk gait_valid 0/6 (gate DR0, sacrificed legs [1,3]) and 0/6 (own-DR0.2, sacrificed legs [1,2,3]) -- identical splayed-leg paddle/park signature to cw-mt-b1 own 2M read (0/6). prog_ratio inched up (0.16->0.28-0.30) but no real gait emerged; roll settled only 1-2/6. Routing engaged as designed (rules out FAIL(bug)), so this closes the architecture-transplant option for multitask: the acquisition shortfall is not a shared-trunk routing problem on this recipe.",
+    "hardware_ready": false
   },
   {
     "run": "cw-arch-tf-joymodes-scratch1-c1",
@@ -88401,7 +88403,19 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:arch nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-arch-tf-joymodes-scratch1-acq1 --steps 38000000 --task joint_walk --dr-scale 0.5 --episode-seconds 15 --ent-coef 0.01 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --device cuda --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.k_walk_prog=0.0 --cfg-set reward.k_walk_cmd_track=2.0 --cfg-set goal.walk_speed_min_m_s=0.03 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set reward.walk_gait_gate=1.0 --cfg-set goal.walk_heading_max_rad=3.141592653589793 --cfg-set goal.walk_cmd_mode=stress_mix --cfg-set goal.walk_cmd_resample_s=4.0 --cfg-set goal.walk_cmd_resample_jitter=0.5 --cfg-set goal.walk_cmd_blend_s_min=0.0 --cfg-set goal.walk_cmd_blend_s_max=0.0 --cfg-set goal.walk_cmd_sweep_period_s=12.0 --cfg-set goal.walk_cmd_jitter_rad=0.25 --cfg-set goal.walk_stop_frac=0.0 --cfg-set goal.walk_cmd_metrics=1.0 --cfg-set obs.history_frames=16 --transformer --n-envs 3072 --impl warp --host-workers 24 --out-name ppo_goal_cw_arch_tf_joymodes_scratch1_acq1 --notes 'respec of cw-arch-tf-joymodes-scratch1: Keep training the same random-initialized joystick Transformer lineage for its honest 40M total learning budget. The 2M checkpoint proved the machinery works but was only 5% of the budget this architecture previously needed; if the direction reward and command curriculum work, the immature stilt posture should give way to a stable six-leg gait as command-aligned speed and mode-switch tracking continue improving through acquisition.' --init-from rl_move/sim/policies/ppo_goal_cw_arch_tf_joymodes_scratch1.zip > /tmp/train_cw-arch-tf-joymodes-scratch1-acq1.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-arch-tf-joymodes-scratch1-acq1.log",
     "wandb_id": "7sualbv3",
-    "verified": "2026-08-15T18:33:37+00:00"
+    "verified": "2026-08-15T18:33:37+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-15T18:39:33+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 2961,
+        "fps": 3413.3,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   },
   {
     "run": "cw-dynrep-tf-state2-fresh",
@@ -88479,5 +88493,119 @@
     "phase": "discovery",
     "assessment_scope": "short_behavior_discovery",
     "refused_reason": "hexapod-mjx-train-3 already runs cw-arch-tf-joymodes-scratch1-acq1 \u2014 GPU pods host exactly one run; pick a free GPU pod."
+  },
+  {
+    "run": "cw-dynrep-tf-state2-fresh",
+    "pod": "hexapod-mjx-train-1",
+    "steps": 40000,
+    "smoke": false,
+    "hypothesis": "The full 13.62M-parameter causal Transformer will generalize current and future servo state, velocity, heading, current, and foot contact when its optimizer budget is supplied by at least 10.24M distinct windows from fresh GPU MJX/Warp trajectories instead of replaying a tiny frozen corpus; an EMA target encoder will stabilize long-horizon latent supervision.",
+    "gate": "Stage 1 must run on the H200, preserve the intended five-actor and four-level DR recipe, log data/train_windows >= 10240000 and data/planned_window_reuse <= 2.0 in W&B. Stage 2 must retain hidden=512,z=256,4 layers,8 heads,ff=1024, run CUDA/GPU-resident batches, and log train/val physical plus contact Brier/ECE metrics; validation must not show the immediate broad divergence seen in telnzd5r.",
+    "parent": "",
+    "track": "dynrep",
+    "extra_args": [
+      "--data",
+      "rl_move/dynamics/datasets/v5_mjx_fresh",
+      "--batch",
+      "512",
+      "--history",
+      "16",
+      "--horizons",
+      "1,2,5,10,25",
+      "--max-window-reuse",
+      "2.0",
+      "--collect-n-envs",
+      "2048",
+      "--collect-host-workers",
+      "24",
+      "--collect-pool-per-env",
+      "2",
+      "--collect-shard-episodes",
+      "2048",
+      "--collect-impl",
+      "warp",
+      "--collect-seed",
+      "42",
+      "--short-max",
+      "5",
+      "--z-dim",
+      "256",
+      "--hidden",
+      "512",
+      "--act-hidden",
+      "256",
+      "--arch",
+      "transformer",
+      "--tf-layers",
+      "4",
+      "--tf-heads",
+      "8",
+      "--tf-ff",
+      "1024",
+      "--tf-dropout",
+      "0",
+      "--input-set",
+      "obs",
+      "--device",
+      "cuda",
+      "--target-ema",
+      "0.995",
+      "--val-every",
+      "500",
+      "--val-windows",
+      "8192",
+      "--log-every",
+      "50",
+      "--notes",
+      "The full 13.62M-parameter causal Transformer will generalize current and future servo state, velocity, heading, current, and foot contact when its optimizer budget is supplied by at least 10.24M distinct windows from fresh GPU MJX/Warp trajectories instead of replaying a tiny frozen corpus; an EMA target encoder will stabilize long-horizon latent supervision. Gate: Stage 1 must run on the H200, preserve the intended five-actor and four-level DR recipe, log data/train_windows >= 10240000 and data/planned_window_reuse <= 2.0 in W&B. Stage 2 must retain hidden=512,z=256,4 layers,8 heads,ff=1024, run CUDA/GPU-resident batches, and log train/val physical plus contact Brier/ECE metrics; validation must not show the immediate broad divergence seen in telnzd5r."
+    ],
+    "created": "2026-08-15T18:36:13+00:00",
+    "status": "RUNNING",
+    "checks": {
+      "cpu_limit": 28,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-355c3628-64fd-3de4-c195-55797a8c64f4)",
+      "running_experiments_before": 3,
+      "code_sha_local": "e673446b77e7b33792bf9edb3b6bab78572257bc",
+      "code_sha_pod": "e673446b77e7b33792bf9edb3b6bab78572257bc",
+      "wandb_env_on_pod": true,
+      "cuda_torch_runtime": "python3: 2.11.0+cu128 NVIDIA H200",
+      "pid": "48873",
+      "log_growth_bytes": [
+        1292,
+        1292
+      ],
+      "wandb_id": "wttfxanc",
+      "global_step_window": [
+        87807,
+        119902
+      ],
+      "fps_estimate": 1069.8
+    },
+    "trainer": "dynrep-fresh",
+    "stack": "gpu-transformer-fresh-data",
+    "phase": "discovery",
+    "assessment_scope": "short_behavior_discovery",
+    "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:dynrep nohup python3 -m rl_move.dynamics.fresh_pipeline --name cw-dynrep-tf-state2-fresh --steps 40000 --data rl_move/dynamics/datasets/v5_mjx_fresh --batch 512 --history 16 --horizons 1,2,5,10,25 --max-window-reuse 2.0 --collect-n-envs 2048 --collect-host-workers 24 --collect-pool-per-env 2 --collect-shard-episodes 2048 --collect-impl warp --collect-seed 42 --short-max 5 --z-dim 256 --hidden 512 --act-hidden 256 --arch transformer --tf-layers 4 --tf-heads 8 --tf-ff 1024 --tf-dropout 0 --input-set obs --device cuda --target-ema 0.995 --val-every 500 --val-windows 8192 --log-every 50 --notes 'The full 13.62M-parameter causal Transformer will generalize current and future servo state, velocity, heading, current, and foot contact when its optimizer budget is supplied by at least 10.24M distinct windows from fresh GPU MJX/Warp trajectories instead of replaying a tiny frozen corpus; an EMA target encoder will stabilize long-horizon latent supervision. Gate: Stage 1 must run on the H200, preserve the intended five-actor and four-level DR recipe, log data/train_windows >= 10240000 and data/planned_window_reuse <= 2.0 in W&B. Stage 2 must retain hidden=512,z=256,4 layers,8 heads,ff=1024, run CUDA/GPU-resident batches, and log train/val physical plus contact Brier/ECE metrics; validation must not show the immediate broad divergence seen in telnzd5r.' > /tmp/train_cw-dynrep-tf-state2-fresh.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-dynrep-tf-state2-fresh.log",
+    "wandb_id": "wttfxanc",
+    "verified": "2026-08-15T18:39:20+00:00"
+  },
+  {
+    "run": "x",
+    "pod": "x",
+    "steps": 1,
+    "smoke": false,
+    "hypothesis": "",
+    "gate": "",
+    "parent": "",
+    "track": "hw",
+    "extra_args": [],
+    "created": "2026-08-15T18:39:39+00:00",
+    "status": "REFUSED",
+    "checks": {},
+    "trainer": "ppo",
+    "stack": "cpu",
+    "refused_reason": "pod x not in guardrails pod list"
   }
 ]
