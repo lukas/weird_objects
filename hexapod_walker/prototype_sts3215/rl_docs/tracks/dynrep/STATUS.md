@@ -1,5 +1,43 @@
 # dynrep — Dynamics-representation pretraining
 
+**08-15 ~20:4x UTC (triage, this cycle): `cw-dynrep-tf-state2-recovered1`
+FINISHED and is a clean PASS — the first TRANSFORMER-architecture
+dynrep encoder to clear every binding gate (prior G1/G1.1 passes were
+all GRU, e.g. `dyn_scale_S/M_h16`).** The recovered flaf42k7 corpus
+(10.24M fresh GPU-collected windows) trained the unchanged 13.62M-param
+causal Transformer to its full 40k-step budget with NO divergence
+(train/val/test total 2.08/2.24/2.26, val/train ratio 1.03,
+`generalization/overfit_alarm` never fired) — the exact opposite of
+predecessor `telnzd5r`, which the operator killed at 21k/40k on a
+5.53→8.22 held-out blowup. This run's own training loop only logs a
+persistence baseline; the two BINDING gates (G1/G1.1 legacy+revised,
+and G3) were NOT part of the training run and were run this cycle
+against the saved checkpoint (`rl_move.dynamics.eval_model --split
+test` + `probe_latents.py`, both cheap/no-training): **G1/G1.1 PASS
+outright at every horizon** (beats persistence AND matched linear
+ridge at k=1/2/5, beats unchanged-latent at k=10/25 — e.g. k=1 MSE
+0.079 vs ridge 0.139, persistence 0.231; no G1.1 tolerance even
+needed) and **G3 PASS** (linear probes from z recover roll/pitch/gyro
+R²=0.90–0.99, body velocity R²=0.90–0.95, chassis height R²=0.98,
+per-foot contact bal-acc 0.97–0.98, all far above the shuffled-chance
+floor). One honest gap: `cos_yaw_rel` R²=−0.04 (degenerate; `sin_
+yaw_rel` only 0.72) — command-frame yaw phase isn't cleanly encoded,
+everything else is. Evidence: `logs/ckpt_eval/
+cw_dynrep_tf_state2_recovered1/{eval_g1_test,eval_g1_g3dump_test}.json`
++ `g3_probe.txt`. Does not change the product baseline (no policy
+shipped) and was NOT wired into a PPO condition A/B/C comparison this
+cycle — that would be a genuinely new, not-yet-pre-registered
+experiment (6 of the 9 nominally-"free" GPU pods are actually busy
+with the GRU-encoder A/B/C cohort, invisible to `capacity.py`/`ops.sh
+census` because `train_ppo_transfer` lives under `rl_move.dynamics`,
+not the `rl_move.sim.train_ppo_*` pattern those tools match — confirmed
+live via direct `kubectl exec` /proc reads on train-4/5/6/7/8/9).
+**Next candidate (not launched, needs its own hypothesis+gate):** wire
+this Transformer encoder into a condition B/C PPO transfer arm and
+compare sample-efficiency/gait-quality against the running GRU-encoder
+cohort — same A/B/C ladder the operator already asked for, new axis
+(architecture) instead of scale.
+
 **08-15 ~20:2x UTC (independent discovery, this cycle): the
 `risewalk-single` cohort (seeds 5/6/7 on train-4/5/6, launched ~18:19
 UTC) was DEAD, silently, for ~45 min — a THIRD distinct code bug in

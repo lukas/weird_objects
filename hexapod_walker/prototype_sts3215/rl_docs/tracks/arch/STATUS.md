@@ -8,6 +8,24 @@ at what budget, with which failure modes.
 
 ## Now
 
+- **08-15 ~21:0x UTC — `cw-arch-tf-r1-hard3` (2nd +40M continuation of
+  the transformer walk line) TRIAGED PASS, but the step-budget lever
+  is now DIMINISHING FAST: the ~24-27% slip drop hard1→hard2-r1
+  bought shrank to ~3% this round (det slip/m med 1.21→1.17, sto
+  1.32→1.28, both DR0 gate and DR0.5 own-cfg moved the same small
+  direction; gait_valid 6/6, zero falls/sacrificed legs both passes,
+  contact sheets clean six-leg cycling in all 12 episodes each pass).
+  PASS by the pre-registered gate's letter (clear direction, not
+  noise) but this is the same plateau shape the sibling hist16-r7
+  line eventually hit (r7→c1→c3→c4) — **no hard4 queued.** The
+  walk-only step-count lever on this lineage is deprioritized; the
+  gate's own named next question — does this architecture also learn
+  rise/hold/lower, not just walk (the track's actual goal) — is
+  untested and is the more valuable next arch lever whenever a design
+  cycle picks it up (needs a multi-skill/BC-anchor recipe ported to
+  `--transformer`, not yet speced). Evidence:
+  `rl_docs/runs/cw-arch-tf-r1-hard3.md`, SKILLS.md,
+  `logs/ckpt_eval/cw_arch_tf_r1_hard3_{gate,owncfg}`.
 - **08-15 ~20:0x UTC — `cw-arch-tf-joymodes-scratch1-fallfix1` TRIAGED
   FAIL at the pre-registered full-40M-lineage gate; the joymodes
   lineage is CLOSED, no further chunks.** The 14x harsher fall charge
