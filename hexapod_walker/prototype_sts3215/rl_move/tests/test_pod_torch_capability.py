@@ -103,3 +103,72 @@ def test_probe_parser_extracts_json_from_noisy_output():
     out = ptc._parse_probe(noisy, "CAPPROBE_JSON:")
     assert out["torch_cuda_available"] is True
     assert out["jax_import_ok"] is True
+
+
+def test_run_smoke_shell_quotes_multiline_python(monkeypatch):
+    commands = []
+
+    def fake_kexec(_pod, command, timeout=120):
+        commands.append(command)
+        if "FULLPROBE_JSON" in command:
+            return "FULLPROBE_JSON:" + json.dumps({
+                "cuda_matmul_ok": True,
+                "cuda_matmul_finite": True,
+                "jax_roundtrip_ok": True,
+            })
+        return "CAPPROBE_JSON:" + json.dumps({
+            "torch_cuda_available": True,
+            "jax_import_ok": True,
+        })
+
+    monkeypatch.setattr(ptc, "_kexec", fake_kexec)
+    smoke = ptc._run_smoke("train-A", full=True)
+    assert smoke["jax_roundtrip_ok"] is True
+    assert all("python3 -c '" in command for command in commands)
+    assert all("\\n" not in command for command in commands)
+    assert "==12.0" in ptc._FULL_SMOKE_PY
+
+
+def test_install_records_additive_cuda_runtime(monkeypatch, tmp_path):
+    _isolate(monkeypatch, tmp_path)
+    commands = []
+    extra_calls = []
+
+    def fake_kexec(_pod, command, timeout=120):
+        commands.append(command)
+        return ""
+
+    smoke = {"torch_version": "2.11.0+cu128",
+             "torch_cuda_available": True, "jax_import_ok": True,
+             "cuda_matmul_ok": True, "cuda_matmul_finite": True,
+             "jax_roundtrip_ok": True}
+    monkeypatch.setattr(ptc, "_kexec", fake_kexec)
+    monkeypatch.setattr(
+        ptc, "_ensure_extra_cuda_libs",
+        lambda pod: extra_calls.append(pod) or ["nvidia-cufile-cu12==1.14.1.1"])
+    monkeypatch.setattr(ptc, "_run_smoke", lambda _pod, full: smoke)
+    ns = ptc.argparse.Namespace(pod="train-A", version="", full_smoke=True)
+    assert ptc.cmd_install(ns) == 0
+    assert extra_calls == ["train-A"]
+    assert "--index-url https://download.pytorch.org/whl/cu128" in commands[0]
+    rec = ptc.load()["train-A"]
+    assert rec["extra_cuda_libs_installed"] == [
+        "nvidia-cufile-cu12==1.14.1.1"]
+    assert rec["install_cmd"] == commands[0]
+
+
+def test_extra_cuda_libs_are_installed_only_when_missing(monkeypatch):
+    commands = []
+
+    def fake_kexec(_pod, command, timeout=120):
+        commands.append(command)
+        if "import nvidia.cufile.lib" in command:
+            raise ptc.subprocess.CalledProcessError(1, command)
+        return ""
+
+    monkeypatch.setattr(ptc, "_kexec", fake_kexec)
+    installed = ptc._ensure_extra_cuda_libs("train-A")
+    assert installed == ["nvidia-cufile-cu12==1.14.1.1"]
+    installs = [command for command in commands
+                if command.startswith("pip install")]
+    assert installs == ["pip install nvidia-cufile-cu12==1.14.1.1 --no-deps"]

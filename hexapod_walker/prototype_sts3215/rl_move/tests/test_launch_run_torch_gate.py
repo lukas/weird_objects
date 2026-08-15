@@ -44,6 +44,8 @@ def _patch_common(monkeypatch):
             return local_sha
         if "nvidia-smi" in script:
             return "GPU 0: NVIDIA H200\n"
+        if "torch.cuda.is_available" in script:
+            return "2.11.0+cu128 NVIDIA H200\n"
         if "wandb.env" in script:
             return "OK"
         return ""
@@ -104,18 +106,16 @@ def test_device_auto_default_is_never_gated(monkeypatch):
     assert rc == 0
 
 
-def test_dynrep_launches_are_exempt_from_this_gate(monkeypatch):
-    # dynrep already runs its own stricter live cuda_torch_runtime probe
-    # (kexec'd against GPU_TORCH_PYTHON) a few lines below this gate;
-    # this gate must not double-refuse it, and must not even consult
-    # is_capable() for a dynrep launch.
+def test_dynrep_uses_recorded_capability_and_live_runtime_probe(monkeypatch):
+    # A recorded capability lets dynrep consider system python3 after the
+    # private venv; the live CUDA probe still has to succeed before launch.
     _patch_common(monkeypatch)
     calls = []
     monkeypatch.setattr(lr._torch_cap, "is_capable",
-                        lambda pod: calls.append(pod) or False)
+                        lambda pod: calls.append(pod) or True)
     a = _ns(run="cw-dynrep-gatecheck", trainer="dynrep")
     rc = lr._launch_locked(
         _guardrails(), a,
         ["--device", "cuda", "--data", "ds1", "--arch", "transformer"])
-    assert calls == []
+    assert calls == ["hexapod-mjx-train-1"]
     assert rc == 0
