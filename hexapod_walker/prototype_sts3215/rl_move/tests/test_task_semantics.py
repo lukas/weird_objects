@@ -3603,6 +3603,22 @@ FC_CMDS = {
 }
 
 
+def test_joymodes_direct_command_score_orders_exact_direction_first():
+    """The direct joystick term must make refusal and wrong-direction
+    motion strictly worse than matching the requested velocity."""
+    from rl_move.sim.walk_task import walk_cmd_track_score
+
+    speed = 0.05
+    exact = walk_cmd_track_score(speed, 0.0, speed, 0.0)[0]
+    parked = walk_cmd_track_score(0.0, 0.0, speed, 0.0)[0]
+    cross = walk_cmd_track_score(0.0, speed, speed, 0.0)[0]
+    wrong = walk_cmd_track_score(-speed, 0.0, speed, 0.0)[0]
+    assert (exact, parked, cross, wrong) == pytest.approx(
+        (1.0, -1.0, -2.0, -3.0))
+    assert walk_cmd_track_score(0.0, 0.0, 0.0, 0.0)[0] == 0.0
+    assert walk_cmd_track_score(speed, 0.0, 0.0, 0.0)[0] < 0.0
+
+
 @pytest.fixture(scope="module")
 def fullcircle_returns() -> dict[str, dict[str, float]]:
     return {name: {p: float(np.mean(

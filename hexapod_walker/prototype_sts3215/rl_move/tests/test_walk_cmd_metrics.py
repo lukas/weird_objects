@@ -32,6 +32,7 @@ pytest.importorskip("mujoco")
 
 from rl_move.config import load_config  # noqa: E402
 from rl_move.sim.servo_model import SimServoParams  # noqa: E402
+from rl_move.sim.walk_task import walk_cmd_track_score  # noqa: E402
 
 METRIC_KEYS = ("v_along_cmd_m_s", "v_cross_abs_m_s", "cmd_speed_m_s",
                "wrong_way")
@@ -68,6 +69,86 @@ def _walk_env(seed=0, extra=None, episode_seconds=8.0):
 
 def _hold_action(env):
     return np.zeros(env.action_space.shape, dtype=np.float32)
+
+
+def test_direct_command_score_orders_exact_park_cross_and_wrong_way():
+    speed = 0.05
+    exact = walk_cmd_track_score(speed, 0.0, speed, 0.0)[0]
+    parked = walk_cmd_track_score(0.0, 0.0, speed, 0.0)[0]
+    cross = walk_cmd_track_score(0.0, speed, speed, 0.0)[0]
+    wrong = walk_cmd_track_score(-speed, 0.0, speed, 0.0)[0]
+    assert (exact, parked, cross, wrong) == pytest.approx(
+        (1.0, -1.0, -2.0, -3.0))
+    assert walk_cmd_track_score(0.0, 0.0, 0.0, 0.0)[0] == 0.0
+    assert walk_cmd_track_score(speed, 0.0, 0.0, 0.0)[0] < 0.0
+
+
+def _mode_traj(mode: str, seed: int = 0):
+    env = _walk_env(seed=seed, episode_seconds=18.0, extra={
+        ("goal", "walk_cmd_mode"): mode,
+        ("goal", "walk_cmd_resample_s"): 2.0,
+        ("goal", "walk_cmd_resample_jitter"): 0.0,
+        ("goal", "walk_cmd_blend_s_min"): 0.0,
+        ("goal", "walk_cmd_blend_s_max"): 0.0,
+        ("goal", "walk_stop_frac"): 0.0,
+        ("goal", "walk_cmd_sweep_period_s"): 12.0,
+        ("goal", "walk_cmd_jitter_rad"): 0.25,
+    })
+    env.reset()
+    traj = env._goal_traj
+    env.close()
+    return traj
+
+
+def _cmd_at(traj, seconds: float) -> np.ndarray:
+    i = int(round(seconds / 0.04))
+    return np.array([traj.vx[i], traj.vy[i]], dtype=float)
+
+
+def test_abrupt_flip_square_and_stop_go_modes():
+    flip = _mode_traj("flip_180")
+    square = _mode_traj("square")
+    stop_go = _mode_traj("stop_go")
+    samples = (3.0, 4.5, 6.5, 8.5)
+    fv = [_cmd_at(flip, t) for t in samples]
+    sv = [_cmd_at(square, t) for t in samples]
+    zv = [_cmd_at(stop_go, t) for t in samples]
+    for a, b in zip(fv, fv[1:]):
+        assert np.dot(a, b) < -0.99 * np.linalg.norm(a) * np.linalg.norm(b)
+    for a, b in zip(sv, sv[1:]):
+        assert abs(np.dot(a, b)) < 1e-8
+    assert [np.linalg.norm(v) > 1e-3 for v in zv] == [
+        True, False, True, False]
+
+
+def test_zero_blend_random_hold_switch_is_instant():
+    traj = _mode_traj("random_hold")
+    switch = int(round(4.0 / 0.04))
+    old = np.array([traj.vx[switch - 1], traj.vy[switch - 1]])
+    new = np.array([traj.vx[switch], traj.vy[switch]])
+    after = np.array([traj.vx[switch + 1], traj.vy[switch + 1]])
+    assert not np.allclose(old, new)
+    assert np.allclose(new, after)
+
+
+def test_sweep_circle_is_continuous_and_jitter_is_bounded():
+    sweep = _mode_traj("sweep_circle")
+    start = int(round(2.0 / 0.04))
+    angles = np.unwrap(np.arctan2(sweep.vy[start:], sweep.vx[start:]))
+    delta = np.diff(angles)
+    assert np.max(np.abs(delta)) < 0.03
+    assert abs(angles[-1] - angles[0]) > math.pi
+
+    jitter = _mode_traj("jitter")
+    vals = [_cmd_at(jitter, t) for t in (3.0, 4.5, 6.5, 8.5)]
+    headings = np.unwrap([math.atan2(v[1], v[0]) for v in vals])
+    assert np.max(np.abs(np.diff(headings))) <= 0.25 + 1e-9
+
+
+def test_stress_mix_samples_each_concrete_mode():
+    modes = {_mode_traj("stress_mix", seed).cmd_mode for seed in range(40)}
+    assert modes == {"random_hold", "flip_180", "sweep_circle", "square",
+                     "stop_go", "jitter"}
 
 
 def test_metrics_keys_present_on_active_ticks_only():

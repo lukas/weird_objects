@@ -118,6 +118,7 @@ Income:
 |---|---|---|
 | (kernel, always on) | K_WALK 2.0 | Gaussian on |v − v_ref| — up to +2/tick. |
 | `k_walk_prog` | 1.0 | linear progress: k·clip(along-command speed fraction, −∞, 1.25). Negative when moving against the command. |
+| `k_walk_cmd_track` | 0 | direct normalized joystick objective: k·(along − |along−requested speed| − |cross-track speed|)/requested speed. Exact requested velocity = +k, parking = −k, equal-speed sideways = −2k, and equal-speed backward = −3k. A stop command charges planar speed relative to `goal.walk_speed_min_m_s`. Positive income obeys `walk_gait_gate`; penalties never shrink. |
 | `k_walk_yaw` / `yaw_sigma_rad_s` | 0 / 0.15 | yaw-rate tracking kernel, paid every walk tick incl. wz_ref=0 (heading-hold income prices drift). |
 | `k_yaw_prog` | 0 | SIGNED rotation income on turn segments: k·clip(wz/wz_ref, −1.5, 1.25) — genuinely negative against the command (the Gaussian kernel never is). Anti-drift, see TURN.md. |
 | `k_yaw_still` | 0 | quadratic drift charge on heading-hold segments (wz_ref=0): −k·wz². At the measured 0.09 rad/s drift, k=50 costs ~0.4/tick; gyro noise stays ~free. See TURN.md. |
@@ -130,6 +131,15 @@ Income:
 | — quadwalk mode (08-13) | — | `--goal-mix quadwalk=<p>`: walk pricing stack + quad clear/plant income, with two lift-leg exemptions: the `k_park_duty` window spans only the support legs, and lift legs never earn step/swing credit (drag/slip charges still apply to them). Sampler keys: `goal.quadwalk_speed_min/max_m_s` (0.02/0.05), `quadwalk_heading_max_rad` (0 = fwd only), `quadwalk_hold_s` (2.0). Ordering bank SKIPS pending an accepted reference (test_task_semantics.QUADWALK_REFERENCE_BLOCKED); per the 08-13 operator ruling, training arms are LAUNCHABLE and the first policy passing the pre-registered gate in `rl_docs/tracks/quad/QUADWALK_REF_GATE.md` becomes the bank reference. |
 | `walk_gait_gate` / `gait_gate_window_s` / `gait_gate_fade_s` / `gait_gate_stride_mm` | 0 / 2.0 / 2.0 / 10 | all-support-legs gait gate (08-13, quad track, after cw-quadwalk1-5 measured additive pricing exhausted for BOTH cheat families: quadwalk3 PAID the −575/ep lift-contact charge and kept six-legging; quadwalk5's 6× `k_park_duty` reprice changed the mid-leg-park scoot not at all — and the anchor gate never sees an air-parked leg, its fraction spans LOADED feet only): velocity income (kernel + positive progress, plus quadwalk clear/plant on commanded ticks) × [(1−g) + g·MIN over commanded SUPPORT legs of a per-leg "completed a real swing recently" score] — 1.0 if the leg finished a ≥2-ticks-airborne swing with XY stride ≥ `gait_gate_stride_mm` within the trailing `gait_gate_window_s` of COMMANDED ticks, linear fade to 0 over `gait_gate_fade_s` (fade, not hard zero — holdstill1 lesson). MIN, not mean: fractional discounts are measured-payable; sacrificing ANY support leg collapses transport income to the (1−g) floor by construction. Lift legs exempt; episode start counts as "just stepped" (window+fade commanded grace); penalties never shrink. Walk-family modes only. Semantics: `test_walk_gait_gate_*`. |
 | `goal.quadwalk_start` / `goal.quadwalk_mid_splay_m` | "plant" / 0.06 | quadwalk spawn kind (08-13, after cw-quadwalk3 proved pricing exhausted: the −575/ep lift-contact charge fired and the policy still walked on six legs — exploration from the six-foot plant start is the blocker). `"quad"` spawns episodes ALREADY in the four-leg stance (env kind `quadstance`: TripodGait plant with mid feet splayed `quadwalk_mid_splay_m` forward — the bank's statically-surviving freeze stance; the bare plant+tuck pitch-trips — lift legs at the feasibility tuck claw, ±2° jitter). Tilt refs anchor to LEVEL like tipped starts (the limp settle sags the stance ~15–17° nose-down onto the claws; anchoring at the sag would train holding it and trip on recovery); runs enabling it MUST widen `safety.max_roll/pitch_deg` past the sag (25 = deployment envelope). Default "plant" = legacy bit-exact. Semantics: `test_quadwalk_start_*`. |
+
+Joystick command schedules use `goal.walk_cmd_mode`: `legacy` (default),
+`random_hold`, `flip_180`, `sweep_circle`, `square`, `stop_go`, `jitter`, or
+`stress_mix` (one concrete mode sampled per episode). Abrupt modes are truly
+abrupt when `walk_cmd_blend_s_min=max=0`; `walk_cmd_resample_s` and
+`walk_cmd_resample_jitter` control hold duration, `walk_cmd_sweep_period_s`
+controls a continuous circle, and `walk_cmd_jitter_rad` bounds heading nudges.
+`goal.walk_cmd_metrics=1` logs along/cross speed, wrong-way rate, commanded
+speed, and the concrete schedule id.
 
 Income gates (each in [0,1]; scale kernel + positive progress only):
 

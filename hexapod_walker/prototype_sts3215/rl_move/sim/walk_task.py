@@ -63,6 +63,39 @@ SIGMA_V = 0.05            # m/s; kernel width
 # paid ~nothing until tracking was already good. Every cm/s toward the
 # goal now pays immediately; moving against the command costs.
 K_PROG = 1.0
+
+# Explicit joystick command schedules. ``legacy`` preserves the historical
+# independent resampler exactly; ``stress_mix`` selects one of the concrete
+# schedules per episode.
+WALK_CMD_SCHEDULES = (
+    "random_hold", "flip_180", "sweep_circle", "square", "stop_go",
+    "jitter",
+)
+WALK_CMD_MODE_IDS = {"legacy": 0, **{
+    name: i + 1 for i, name in enumerate(WALK_CMD_SCHEDULES)
+}}
+
+
+def walk_cmd_track_score(vx: float, vy: float, vx_ref: float,
+                         vy_ref: float, stop_speed_m_s: float = 0.03
+                         ) -> tuple[float, float, float]:
+    """Normalized physical command score and its two components.
+
+    At the requested speed and direction the score is +1. A parked body is
+    -1, equal-speed cross-track motion is -2, and equal-speed motion exactly
+    backward is -3. For a stop command, stillness is 0 and motion is charged
+    by speed relative to ``stop_speed_m_s``.
+    """
+    s_ref = math.hypot(vx_ref, vy_ref)
+    if s_ref <= 1e-6:
+        speed = math.hypot(vx, vy)
+        scale = max(float(stop_speed_m_s), 1e-6)
+        return -speed / scale, 0.0, speed
+    ux, uy = vx_ref / s_ref, vy_ref / s_ref
+    along = vx * ux + vy * uy
+    cross = abs(ux * vy - uy * vx)
+    score = (along - abs(along - s_ref) - cross) / s_ref
+    return score, along, cross
 # Learning-progress curriculum (goal.walk_lp_curriculum=1): commanded
 # speed is drawn from one of these buckets instead of a single global
 # uniform range. Bucket weights start uniform and are re-weighted during
@@ -164,6 +197,7 @@ class WalkTrajectory(GoalTrajectory):
     vx: np.ndarray = None  # (n_steps,) m/s
     vy: np.ndarray = None
     wz: np.ndarray = None  # (n_steps,) rad/s; None = no yaw channel
+    cmd_mode: str = "legacy"
 
     def at(self, step: int) -> WalkGoal:
         i = min(max(step, 0), len(self.roll) - 1)
@@ -479,6 +513,14 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 ang = float(rng.uniform(-math.pi / 4, math.pi / 4))
             else:
                 ang = float(rng.uniform(-math.pi, math.pi))  # anywhere
+        cmd_mode = str(cfg_get(self.cfg, "goal", "walk_cmd_mode",
+                               default="legacy")).strip().lower()
+        if cmd_mode == "stress_mix":
+            cmd_mode = str(rng.choice(WALK_CMD_SCHEDULES))
+        elif cmd_mode != "legacy" and cmd_mode not in WALK_CMD_SCHEDULES:
+            raise ValueError(
+                f"unknown goal.walk_cmd_mode={cmd_mode!r}; expected "
+                f"legacy, stress_mix, or one of {WALK_CMD_SCHEDULES}")
         vx_t, vy_t = speed * math.cos(ang), speed * math.sin(ang)
         hold_n = max(1, int(round(1.0 / self.dt)))
         ramp_n = max(1, int(round(1.0 / self.dt)))
@@ -558,30 +600,81 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             def blend_len() -> int:
                 b = bl_lo if bl_hi <= bl_lo \
                     else float(rng.uniform(bl_lo, bl_hi))
+                if b <= 0.0:
+                    return 0
                 return max(1, int(round(max(b, self.dt) / self.dt)))
 
             cvx, cvy = vx_t, vy_t
             cwz = float(wz[min(end, n - 1)]) if wz is not None else 0.0
-            i = hold_n + ramp_n + seg_len()
-            while i < n:
-                if rng.random() < stop_frac:
-                    nvx = nvy = 0.0
-                else:
-                    s2 = float(rng.uniform(s_lo, s_hi))
-                    a2 = draw_heading()
-                    nvx, nvy = s2 * math.cos(a2), s2 * math.sin(a2)
-                end_b = min(i + blend_len(), n)
-                vx[i:end_b] = np.linspace(cvx, nvx, end_b - i)
-                vy[i:end_b] = np.linspace(cvy, nvy, end_b - i)
-                vx[end_b:] = nvx
-                vy[end_b:] = nvy
-                cvx, cvy = nvx, nvy
-                if wz is not None:
-                    nwz = draw_wz()
-                    wz[i:end_b] = np.linspace(cwz, nwz, end_b - i)
-                    wz[end_b:] = nwz
-                    cwz = nwz
-                i += seg_len()
+            if cmd_mode == "sweep_circle":
+                period_s = max(float(cfg_get(
+                    self.cfg, "goal", "walk_cmd_sweep_period_s",
+                    default=12.0)), self.dt)
+                sweep_sign = -1.0 if rng.random() < 0.5 else 1.0
+                idx = np.arange(max(n - end, 0), dtype=float)
+                theta = ang + sweep_sign * 2.0 * math.pi * (
+                    idx * self.dt / period_s)
+                vx[end:] = speed * np.cos(theta)
+                vy[end:] = speed * np.sin(theta)
+            else:
+                square_sign = None
+                if cmd_mode == "square":
+                    square_sign = -1.0 if rng.random() < 0.5 else 1.0
+                stop_next = True
+                i = hold_n + ramp_n + seg_len()
+                while i < n:
+                    if cmd_mode in ("legacy", "random_hold"):
+                        if rng.random() < stop_frac:
+                            nvx = nvy = 0.0
+                        else:
+                            s2 = float(rng.uniform(s_lo, s_hi))
+                            a2 = draw_heading()
+                            nvx = s2 * math.cos(a2)
+                            nvy = s2 * math.sin(a2)
+                    elif cmd_mode == "flip_180":
+                        nvx, nvy = -cvx, -cvy
+                    elif cmd_mode == "square":
+                        a2 = math.atan2(cvy, cvx) + (
+                            square_sign * math.pi / 2.0)
+                        s2 = max(math.hypot(cvx, cvy), s_lo)
+                        nvx = s2 * math.cos(a2)
+                        nvy = s2 * math.sin(a2)
+                    elif cmd_mode == "stop_go":
+                        if stop_next:
+                            nvx = nvy = 0.0
+                        else:
+                            s2 = float(rng.uniform(s_lo, s_hi))
+                            a2 = draw_heading()
+                            nvx = s2 * math.cos(a2)
+                            nvy = s2 * math.sin(a2)
+                        stop_next = not stop_next
+                    else:  # jitter
+                        a2 = math.atan2(cvy, cvx) + float(rng.uniform(
+                            -float(cfg_get(
+                                self.cfg, "goal", "walk_cmd_jitter_rad",
+                                default=0.25)),
+                            float(cfg_get(
+                                self.cfg, "goal", "walk_cmd_jitter_rad",
+                                default=0.25))))
+                        s2 = float(rng.uniform(s_lo, s_hi))
+                        nvx = s2 * math.cos(a2)
+                        nvy = s2 * math.sin(a2)
+                    n_blend = blend_len()
+                    end_b = min(i + n_blend, n)
+                    if n_blend:
+                        vx[i:end_b] = np.linspace(cvx, nvx, end_b - i)
+                        vy[i:end_b] = np.linspace(cvy, nvy, end_b - i)
+                    vx[end_b:] = nvx
+                    vy[end_b:] = nvy
+                    cvx, cvy = nvx, nvy
+                    if wz is not None:
+                        nwz = draw_wz()
+                        if n_blend:
+                            wz[i:end_b] = np.linspace(
+                                cwz, nwz, end_b - i)
+                        wz[end_b:] = nwz
+                        cwz = nwz
+                    i += seg_len()
         # Commanded gait height (operator wishlist 2026-08-09: walk in a
         # HIGHER or LOWER stance; default 0 = today's nominal walk).
         # goal.walk_height_off_mm ramps the height ref alongside the
@@ -664,7 +757,8 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 height[:ramp_fast] = np.linspace(0.0, h_off, ramp_fast)
         return WalkTrajectory(mode="walk", roll=zeros, pitch=zeros,
                               height=height, unload_leg=None,
-                              start_at=start_at, vx=vx, vy=vy, wz=wz)
+                              start_at=start_at, vx=vx, vy=vy, wz=wz,
+                              cmd_mode=cmd_mode)
 
     def _sample_quadwalk(self) -> WalkTrajectory:
         """QUADWALK mode (quad track, 08-13 spec): commanded planar
@@ -1073,6 +1167,21 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 k_prog = float(cfg_get(self.cfg, "reward", "k_walk_prog",
                                        default=K_PROG))
                 r_prog = k_prog * min(along / s_ref, 1.25)
+            # Simple physical joystick objective (default off). Unlike the
+            # historical Gaussian/proxy stack, this is negative for parking,
+            # cross-track travel, and wrong-way travel by construction.
+            k_cmd_track = max(0.0, float(cfg_get(
+                self.cfg, "reward", "k_walk_cmd_track", default=0.0)))
+            r_cmd_track = 0.0
+            cmd_cross = 0.0
+            if k_cmd_track > 0.0:
+                cmd_score, cmd_along, cmd_cross = walk_cmd_track_score(
+                    float(v[0]), float(v[1]), goal.vx_ref, goal.vy_ref,
+                    stop_speed_m_s=float(cfg_get(
+                        self.cfg, "goal", "walk_speed_min_m_s",
+                        default=0.03)))
+                along = cmd_along
+                r_cmd_track = k_cmd_track * cmd_score
             # Yaw-rate tracking kernel (goal.walk_yaw_cmd lineage only;
             # reward.k_walk_yaw default 0 = off). Paid in EVERY walk
             # tick, including wz_ref = 0 — heading-hold earns income, so
@@ -1445,12 +1554,16 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 r_walk *= gt_factor
                 if r_prog > 0.0:
                     r_prog *= gt_factor
+                if r_cmd_track > 0.0:
+                    r_cmd_track *= gt_factor
                 self._gait_gate_qfactor = gt_factor
                 info["walk_gait_min"] = g_score
                 info["walk_gait_gate_factor"] = gt_factor
-            reward = float(reward) + r_walk + r_prog
+            reward = float(reward) + r_walk + r_prog + r_cmd_track
             info["reward_walk"] = r_walk
             info["reward_walk_prog"] = r_prog
+            if k_cmd_track > 0.0:
+                info["reward_walk_cmd_track"] = r_cmd_track
             info["walk_vel_err"] = err
             info["walk_speed"] = float(np.hypot(*v))
             # Raw commanded-direction speed telemetry (08-15, operator
@@ -1470,10 +1583,13 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                     default=0.0)) == 1.0):
                 ux, uy = goal.vx_ref / s_ref, goal.vy_ref / s_ref
                 info["v_along_cmd_m_s"] = float(along)
-                info["v_cross_abs_m_s"] = abs(
-                    float(ux * v[1] - uy * v[0]))
+                info["v_cross_abs_m_s"] = (
+                    cmd_cross if k_cmd_track > 0.0 else
+                    abs(float(ux * v[1] - uy * v[0])))
                 info["cmd_speed_m_s"] = s_ref
                 info["wrong_way"] = 1.0 if along < 0.0 else 0.0
+                info["walk_cmd_mode_id"] = WALK_CMD_MODE_IDS.get(
+                    getattr(self._goal_traj, "cmd_mode", "legacy"), 0)
             if self._walk_bucket is not None:
                 info["walk_bucket"] = self._walk_bucket
             # Tripod phase clock + contact-agreement reward (walk-routed
