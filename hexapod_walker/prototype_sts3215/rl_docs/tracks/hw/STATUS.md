@@ -78,6 +78,43 @@ unresolved blockers between the robot and reliable joystick control.
   of dose) before any further hardening or reward-side change.
   Product baseline is UNCHANGED — this FAIL doesn't touch the
   passing c1 hierarchy.
+- **08-14 (late): `cw-stand-postlower2` FAIL — and the dig-in found
+  the REAL bug: the bank mechanism trained on IMPOSSIBLE height
+  targets.** Chain of matched controls (all rise-only, per-mode 6,
+  parent = `footlow2_hard1`, reports `logs/ckpt_eval/*bank*/`):
+  (1) postlower2 from the bank: 0/12, same stuck-straining stall.
+  (2) PARENT from the same bank spawns: ALSO 0/12 (worse errors) —
+  yet the parent rises from REAL in-session post-lower states at
+  0.801 sto / 0.967 det (n=600). (3) Exact full-state restore
+  (new opt-in `goal.rise_start_bank_exact`, harvest now saves
+  qpos/qvel): parent still 0/12 — reconstruction exonerated.
+  (4) Root cause MEASURED: rise height bands are z0-relative and
+  BELLY-calibrated (flat z0=38mm), but bank spawns settle at
+  82-99mm — the schedule commanded chassis ~190-213mm, ~50mm above
+  standing. postlower1 (35%) and postlower2 (15%) trained on
+  unreachable goals; max-current straining was the OPTIMAL policy.
+  Explains the c2 regression outright. FIX LANDED: harvest saves
+  per-row `z_stand` (the lower episode's own standing height);
+  `goal.rise_start_bank_anchor_stand` (default OFF, bit-exact,
+  tests green, snapshot f3b4902 tag exp/postlower-anchor-fix)
+  rewrites the schedule to the REMAINING rise; v2 bank harvested
+  (`park_banks/footlow2_hard1_lower_endpoints_v2.npz`).
+  (5) Parent from the FIXED instrument: sto 2/6 real completions
+  (first ever from bank spawns) but det 0/6 — the det parent
+  COLLAPSES TO BELLY during the zero-height hold (constant 95.1mm
+  err): a COLD single-mode spawn does not reproduce the in-session
+  context (warm policy state + canonical re-anchor right after its
+  own lower) where the same parent scores 0.967. **Two misses =
+  hypothesis changed: cold-spawn exposure is the wrong lever class
+  for a TRANSITION boundary. Named next arm (`cw-stand-postlower3`,
+  to spec): train the stance policy with in-context lower→rise
+  SEQUENCE episodes via `goal.mode_seq` (machinery landed + sharded
+  mint proven 08-14 in arch; hw use here is stance-only, judged
+  against the hw goal — not a cross-track launch) — spec needs the
+  sequence-grammar check for stance-only pairs, mode-bank preflight,
+  and a pre-registered c3 bulk cohort on fresh banks
+  (940000../950000..) before training.** Product baseline still
+  UNCHANGED (c1 hierarchy).
 - **08-14 ~20:0x UTC: the SESSION-JOYSTICK product gate exists and
   the candidate specialist pair PASSES it deterministically —
   `session-joystick-handoff1`** (operator-requested action cycle;
