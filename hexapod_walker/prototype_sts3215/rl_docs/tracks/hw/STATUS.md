@@ -29,11 +29,25 @@ unresolved blockers between the robot and reliable joystick control.
   supervision (foot-z BC 1.0 @ 3mm, min-height-ahead 15mm above the
   BELLY datum, lookahead 0.5 s, height-matched state alignment).
   Preflight: plant-teacher held-success from settled onefoot AND park
-  is now a semantics-bank test (PASS). Gate: >=95% det / >=85% sto
-  held recovery on forced onefoot+park by 40M, no rise/hold/lower
-  regression. any1's other MDP pieces (PBRS reward, 5.1 s horizon,
-  185° envelope) carried unchanged. The paragraph below describes
-  the original any1 spec, kept for the mode's design record.**
+  is now a semantics-bank test (PASS; full bank 109-pass green).
+  any2 was launched by the CONCURRENT operator-kick cycle
+  (fb_20260815T194955_9441a0) on train-1, W&B `lf5afhd6`, SHA
+  local==pod 4f70cc13, verified advancing (1.44M @ ~20:1x) with
+  per-kind counts/EMAs live. Its gate: both forced onefoot/park
+  success curves must RISE, no promotion before per-kind EMA>=0.8
+  n>=4, STOP EARLY on invalid settled resets or zero BC
+  eligibility/fill; full-arm bar keeps any1's 95/85 held-recovery +
+  video + no rise/hold/lower regression. BASELINE (this cycle's
+  read): settled onefoot lands h~133mm tilt 3.3deg, park h~119mm
+  tilt 1.3deg, ALL feet grounded but under-loaded (min_load
+  2.3-2.7N — the limp settle mostly drops the lifted feet back
+  down, so bucket 1 = a load/height correction, not a re-plant);
+  zero-shot transplanted parent success = 0 through 1.4M (EMA ~0.23
+  from the 0.5 prior) — learning is genuinely required, and the
+  plant teacher proves the gate reachable. any1's other MDP pieces
+  (PBRS reward, 5.1 s horizon, 185° envelope) carried unchanged.
+  The paragraph below describes the original any1 spec, kept for
+  the mode's design record.**
 - 08-15 ~18:xx (operator-kick cycle): the getup/recovery sub-line
   REOPENED BY OPERATOR ORDER (authenticated KICK confirming the
   fb_20260815T165306_606974 directive after 5-6 correct
