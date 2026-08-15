@@ -4,9 +4,9 @@
 
 **status**: REFUSED
 
-**created**: 2026-08-15T20:03:43+00:00
+**created**: 2026-08-15T20:05:15+00:00
 
-**pod**: hexapod-mjx-train-3
+**pod**: hexapod-mjx-train-11
 
 **steps**: 40000
 
@@ -16,5 +16,5 @@
 
 **gate**: Stage 1: data/train_windows >= 10240000 and data/planned_window_reuse <= 2.0 in W&B (same as fresh2, already proven). Stage 2 must actually START (its own W&B run must exist, unlike fresh2) and survive load_dataset/compute_stats/sampler-build without the pod's cgroup memory.current exceeding ~50GiB (visible via the new mem/* fields), then train to convergence with val/train-eval gap behaved (no immediate broad divergence like telnzd5r) and log contact Brier/ECE.
 
-**refused_reason**: hexapod-mjx-train-3 code marker 3d9f0113a477b86f0d0cc36430e2fc012c3f279b != local HEAD 909f002de5562c9ee251973eca001a1961558c37. Sync first: snapshot.sh --sync hexapod-mjx-train-3 (and snapshot/commit before that if the tree is dirty).
+**refused_reason**: hexapod-mjx-train-11 lacks a working recorded CUDA PyTorch runtime (['/workspace/venv_torchgpu/bin/python']): Command '['kubectl', '--kubeconfig', '/root/.kube/coreweave.yaml', 'exec', 'hexapod-mjx-train-11', '--', 'bash', '-c', "test -x $(command -v /workspace/venv_torchgpu/bin/python 2>/dev/null || echo /workspace/venv_torchgpu/bin/python) && /workspace/venv_torchgpu/bin/python -c 'import torch; assert torch.cuda.is_available(); print(torch.__version__, torch.cuda.get_device_name())'"]' returned non-zero exit status 1.
 

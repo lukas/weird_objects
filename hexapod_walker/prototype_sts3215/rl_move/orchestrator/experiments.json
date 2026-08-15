@@ -89362,7 +89362,7 @@
       "reward.term_cost_per_remaining_s=12.0"
     ],
     "created": "2026-08-15T19:39:02+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -89406,7 +89406,9 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-arch-tf-joymodes-scratch1-fallfix1 since 2026-08-15T20:00:09"
+    "triage": "done",
+    "verdict": "FAIL by the pre-registered letter at full 40M lineage budget: eval/walk/survived_frac stayed 0 at all 4 eval checkpoints of this run (and was 0 through the parent's 28M too) despite the -141-per-fall horizon charge; DR0 gate 0/6 det + 0/6 sto, all 12 episodes terminated tilt_pitch/tilt_roll, roll_class fell 12/12, video shows genuine forward pitch-overs (not a stable stilt cheat). Tilt terminations over this 4M chunk: 267 pitch + 302 roll = 569 of ~571 episodes (only 2 truncated) -- nowhere near the required >=50% cut from the ~607 baseline. Direction-following held up fine (wrong_way_frac 0.042, dir_valid_frac 0.96, dir_err_deg_mean 19 deg) so the acquisition half of the lineage is real, but pricing the fall harder did not buy survival -- per the gate this is now a capability/curriculum problem, not a pricing one, and the lineage gets no further chunks.",
+    "hardware_ready": false
   },
   {
     "run": "cw-recover-any2",
@@ -89517,7 +89519,19 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:hw nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-recover-any2 --steps 40000000 --task joint_walk --goal-mix recover=1.0,walk=0.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0,quad=0.0 --init-from rl_move/sim/policies/ppo_goal_cw_stand_footlow2_hard1.zip --obs-pad-transplant 4 --n-envs 512 --n-steps 128 --batch-size 8192 --gamma 0.995 --gae-lambda 0.98 --episode-seconds 16 --dr-scale 0.1 --ent-coef 0.003 --no-canary --eval-every 1000000 --video-every 2000000 --seed 11 --cfg-set safety.max_roll_deg=185 --cfg-set safety.max_pitch_deg=185 --cfg-set goal.walk_obs_body_vel=2 --cfg-set reward.rise_ref_path=rl_move/sim/refs/rise_ref_belly2plant.npz --cfg-set train.bc_anchor_coef=1.0 --cfg-set train.bc_anchor_recover=1.0 --cfg-set goal.recover_start_bank=rl_move/sim/park_banks/footlow2_hard1_lower_endpoints_full.npz --out-name ppo_goal_cw_recover_any2 --impl warp --host-workers 24 --notes 'respec of cw-recover-any1: Teach the robot to get up from the two easiest disturbed starts first -- one foot parked wrong (onefoot) and the parked crouch (park) -- and only admit harder falls once those are mastered; this arm tests whether the bucket-1-first recovery curriculum plus restored foot-height BC-anchor supervision (operator-implemented fix, main commit aa1023c: curriculum starts at bucket 1 only with re-certifying retreat, per-kind train/eval telemetry, named recover_success termination, height-conditioned anchor matching with min-height-ahead pursuit) lets recovery learning actually start, where cw-recover-any1 sat at zero success through 13.5M with declining stand quality. OPERATOR-ORDERED (fb_20260815T194955_9441a0): warm from cw-stand-footlow2-hard1 (never any1'\"'\"'s degraded checkpoint), any1'\"'\"'s MDP/PPO settings otherwise unchanged (512x128, gamma .995, lambda .98, DR .1, 16s episodes, ent .003, safety envelope, rise ref, recover bank, BC coef/recover gate, obs-pad transplant, 40M). Prediction-if-true: forced onefoot AND park success curves rise, per-kind EMAs cross 0.8, curriculum admits bucket 2 legitimately. Prediction-if-false: a kind stays flat with valid resets and nonzero BC fill -- pointing at reward/anchor coverage, not curriculum order.' --cfg-set train.bc_anchor_foot_z=1.0 --cfg-set train.bc_anchor_foot_z_mm=3 --cfg-set train.bc_anchor_min_h_ahead_mm=15 --cfg-set train.bc_anchor_lookahead_s=0.5 --cfg-set goal.recover_admit_n=4 --cfg-set goal.recover_retreat_n=6 --cfg-set goal.recover_ema_beta=0.25 > /tmp/train_cw-recover-any2.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-recover-any2.log",
     "wandb_id": "lf5afhd6",
-    "verified": "2026-08-15T19:59:17+00:00"
+    "verified": "2026-08-15T19:59:17+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-15T20:04:50+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 4334,
+        "fps": 4369.1,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   },
   {
     "run": "cw-dynrep-tf-state2-fresh3",
@@ -89601,5 +89615,89 @@
     "phase": "discovery",
     "assessment_scope": "short_behavior_discovery",
     "refused_reason": "hexapod-mjx-train-3 code marker 3d9f0113a477b86f0d0cc36430e2fc012c3f279b != local HEAD 909f002de5562c9ee251973eca001a1961558c37. Sync first: snapshot.sh --sync hexapod-mjx-train-3 (and snapshot/commit before that if the tree is dirty)."
+  },
+  {
+    "run": "cw-dynrep-tf-state2-fresh3",
+    "pod": "hexapod-mjx-train-11",
+    "steps": 40000,
+    "smoke": false,
+    "hypothesis": "Give the 13.62M-param causal Transformer its full >=10.24M-window fresh-GPU-data budget (identical recipe to fresh/fresh2) now that the actual OOM cause is fixed: load_dataset() was re-allocating each shard's full frames/actions/priv arrays on every episode (NpzFile.__getitem__ has no caching), exhausting a 96Gi pod loading an ~8-9GiB corpus (commit 3cd6c57a caches each member once per shard). fresh2's stage 1 already proved the collection recipe hits the window/reuse gate cleanly (flaf42k7: 10,240,039 train windows, reuse 1.9999x) and died only in the now-patched stage-2 load; this is a clean-pod retry of the SAME hypothesis with the load bug fixed, plus new mem/* W&B telemetry (this cycle) at each stage-1/stage-2 checkpoint in case anything still spikes.",
+    "gate": "Stage 1: data/train_windows >= 10240000 and data/planned_window_reuse <= 2.0 in W&B (same as fresh2, already proven). Stage 2 must actually START (its own W&B run must exist, unlike fresh2) and survive load_dataset/compute_stats/sampler-build without the pod's cgroup memory.current exceeding ~50GiB (visible via the new mem/* fields), then train to convergence with val/train-eval gap behaved (no immediate broad divergence like telnzd5r) and log contact Brier/ECE.",
+    "parent": "cw-dynrep-tf-state2-fresh2",
+    "track": "dynrep",
+    "extra_args": [
+      "--data",
+      "rl_move/dynamics/datasets/v5_mjx_fresh",
+      "--batch",
+      "512",
+      "--history",
+      "16",
+      "--horizons",
+      "1,2,5,10,25",
+      "--max-window-reuse",
+      "2.0",
+      "--collect-n-envs",
+      "2048",
+      "--collect-host-workers",
+      "24",
+      "--collect-pool-per-env",
+      "2",
+      "--collect-shard-episodes",
+      "2048",
+      "--collect-impl",
+      "warp",
+      "--collect-seed",
+      "42",
+      "--short-max",
+      "5",
+      "--z-dim",
+      "256",
+      "--hidden",
+      "512",
+      "--act-hidden",
+      "256",
+      "--arch",
+      "transformer",
+      "--tf-layers",
+      "4",
+      "--tf-heads",
+      "8",
+      "--tf-ff",
+      "1024",
+      "--tf-dropout",
+      "0",
+      "--input-set",
+      "obs",
+      "--device",
+      "cuda",
+      "--target-ema",
+      "0.995",
+      "--val-every",
+      "500",
+      "--val-windows",
+      "8192",
+      "--log-every",
+      "50",
+      "--notes",
+      "respec of cw-dynrep-tf-state2-fresh2: Give the 13.62M-param causal Transformer its full >=10.24M-window fresh-GPU-data budget (identical recipe to fresh/fresh2) now that the actual OOM cause is fixed: load_dataset() was re-allocating each shard's full frames/actions/priv arrays on every episode (NpzFile.__getitem__ has no caching), exhausting a 96Gi pod loading an ~8-9GiB corpus (commit 3cd6c57a caches each member once per shard). fresh2's stage 1 already proved the collection recipe hits the window/reuse gate cleanly (flaf42k7: 10,240,039 train windows, reuse 1.9999x) and died only in the now-patched stage-2 load; this is a clean-pod retry of the SAME hypothesis with the load bug fixed, plus new mem/* W&B telemetry (this cycle) at each stage-1/stage-2 checkpoint in case anything still spikes.",
+      "--out-name",
+      "ppo_goal_cw_dynrep_tf_state2_fresh3"
+    ],
+    "created": "2026-08-15T20:05:15+00:00",
+    "status": "REFUSED",
+    "checks": {
+      "cpu_limit": 26,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-570e6615-ff09-beeb-779f-b2da29edf3bb)",
+      "running_experiments_before": 2,
+      "code_sha_local": "94fa40de17445d4aea8529947d3507107b79d61b",
+      "code_sha_pod": "94fa40de17445d4aea8529947d3507107b79d61b",
+      "wandb_env_on_pod": true
+    },
+    "trainer": "dynrep-fresh",
+    "stack": "gpu-transformer-fresh-data",
+    "phase": "discovery",
+    "assessment_scope": "short_behavior_discovery",
+    "refused_reason": "hexapod-mjx-train-11 lacks a working recorded CUDA PyTorch runtime (['/workspace/venv_torchgpu/bin/python']): Command '['kubectl', '--kubeconfig', '/root/.kube/coreweave.yaml', 'exec', 'hexapod-mjx-train-11', '--', 'bash', '-c', \"test -x $(command -v /workspace/venv_torchgpu/bin/python 2>/dev/null || echo /workspace/venv_torchgpu/bin/python) && /workspace/venv_torchgpu/bin/python -c 'import torch; assert torch.cuda.is_available(); print(torch.__version__, torch.cuda.get_device_name())'\"]' returned non-zero exit status 1."
   }
 ]
