@@ -3738,9 +3738,13 @@ def test_fullcircle_drag_then_fall_cannot_retain_positive_return():
 
 RECOVER_OVERRIDES = {
     # Falls are recoverable states: side/back/upside-down spawns are
-    # part of the task. Bank under the run's own widened envelope.
-    ("safety", "max_roll_deg"): 179.0,
-    ("safety", "max_pitch_deg"): 179.0,
+    # part of the task. 185 > the 180-deg attitude bound = the tilt
+    # trip is genuinely OFF (a fully inverted settle reads ~179.5 and
+    # must not terminate); timeout + the current/impact channels are
+    # the only ends besides held success. Bank under the run's own
+    # envelope.
+    ("safety", "max_roll_deg"): 185.0,
+    ("safety", "max_pitch_deg"): 185.0,
 }
 
 
@@ -3973,7 +3977,11 @@ def test_recover_empty_interval_and_walk_isolation():
         b.reset(seed=seed)
         ta, tb = a._goal_traj, b._goal_traj
         assert ta.mode == tb.mode
-        assert np.array_equal(ta.vx, tb.vx)
+        assert np.array_equal(ta.height, tb.height)
+        va, vb = getattr(ta, "vx", None), getattr(tb, "vx", None)
+        assert (va is None) == (vb is None)
+        if va is not None:
+            assert np.array_equal(va, vb)
         assert not getattr(a, "_is_recover", False)
         _obs, _r, _term, _trunc, info = a.step(np.zeros(a.n_act))
         assert "recover_phi" not in info
