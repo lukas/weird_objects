@@ -91546,7 +91546,7 @@
       "8"
     ],
     "created": "2026-08-15T22:35:45+00:00",
-    "status": "RUNNING",
+    "status": "KILLED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -91587,7 +91587,10 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "hardware_ready": false,
+    "verdict": "STOPPED at ~7.7M/40M by operator directive fb_20260815T230538_a6f8d2: preserved as the coarse-bucket deterministic-cert diagnostic. Not continued across the 3d556232 curriculum change (bucket identities B0-B16 redefined; old CERT/*_success metric names retired). Superseded by cw-recover-any6-microbuckets-scratch1 (from scratch on the micro-bucket ladder).",
+    "triage": "done"
   },
   {
     "run": "dynrep-tfwalk-gpu1-A-s5",
