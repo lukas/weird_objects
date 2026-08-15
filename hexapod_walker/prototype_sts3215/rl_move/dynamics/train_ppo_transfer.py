@@ -128,17 +128,35 @@ def _init_wandb(args):
         )
 
     LOG_DIR.mkdir(parents=True, exist_ok=True)
+    # W&B display name gets a per-attempt UTC stamp (operator 08-15:
+    # crash-relaunches were creating W&B runs with the EXACT same name,
+    # e.g. two rw_rise_C_s6). Files/checkpoints keep the bare args.name
+    # so --init-from chains and eval CSV paths are unaffected.
+    attempt = time.strftime("%m%d-%H%MZ", time.gmtime())
+    condition_blurb = {
+        "A": "A=scratch (MlpPolicy on raw stacked obs, no encoder)",
+        "B": "B=frozen pretrained dyn encoder, policy/value heads learn",
+        "C": ("C=anchored: encoder fine-tunes at scaled-down LR + "
+              "offline dynamics-loss anchor steps after every rollout"),
+    }.get(args.condition.upper(), f"condition {args.condition}")
     run = wandb.init(
         entity=os.environ.get("WANDB_ENTITY", WANDB_ENTITY_DEFAULT),
         project=os.environ.get("WANDB_PROJECT", WANDB_PROJECT_DEFAULT),
         dir=str(LOG_DIR),
         group="dynrep-transfer",
         job_type=f"condition-{args.condition.lower()}-{args.task}",
-        name=args.name,
+        name=f"{args.name}.{attempt}",
+        tags=[f"cond-{args.condition.upper()}", f"task-{args.task}",
+              f"seed-{args.seed}", f"base-{args.name}"],
         notes=(
-            "Representation-transfer PPO. Condition C jointly updates the "
-            "walking policy and future-servo dynamics objective after every "
-            "rollout."
+            f"dynrep A/B/C representation-transfer PPO — {condition_blurb}. "
+            f"task={args.task} seed={args.seed} steps={args.steps} "
+            f"encoder={os.path.basename(args.encoder) if args.encoder else 'none'} "
+            + (f"warm-started from {os.path.basename(args.init_from)} "
+               if args.init_from else "from scratch ")
+            + f"host={os.uname().nodename}. Attempt {attempt} of base run "
+            f"{args.name} (re-runs of the same condition/seed get a new "
+            f"attempt stamp instead of a duplicate name)."
         ),
         config={
             "trainer": "train_ppo_transfer",
@@ -163,7 +181,8 @@ def _init_wandb(args):
     )
     run.define_metric("eval/*", step_metric="global_step", summary="last")
     run.define_metric("anchor/*", step_metric="global_step", summary="last")
-    metadata = {"id": run.id, "url": run.url, "name": args.name}
+    metadata = {"id": run.id, "url": run.url, "name": args.name,
+                "wandb_name": f"{args.name}.{attempt}"}
     (LOG_DIR / f"ppo_{args.name}_wandb.json").write_text(
         json.dumps(metadata, indent=2) + "\n"
     )
