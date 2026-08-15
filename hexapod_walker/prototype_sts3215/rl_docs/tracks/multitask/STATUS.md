@@ -5,12 +5,16 @@ W&B: tag `track:multitask`. Excess-capacity research; run prefix
 before triaging anything here — this track has its own binding rules
 for what counts as forgetting vs acquisition failure).
 
-**PAUSED by operator 08-13 (~12:2x UTC): the dynrep (world-dynamics)
-line takes priority. No new `cw-mt-` launches, queue items, or
-planning until the operator unpauses. The 08-13 WAITING-ON direction
-call is withdrawn, not answered — the options (arch recurrence
-transplant / command-width curriculum / accept `b2` ceiling / reward
-geometry diagnosis) remain open for whenever the track resumes.**
+**PAUSE LIFTED by operator 08-15 ~17:2x UTC (ops.sh cycle KICK focus
+note): the 08-13 operator pause "no longer applies" and MUST NOT be
+cited to decline multitask-adjacent work again. Normal launch rules
+(blocker-reducing hypothesis, phases, preflights, track containment)
+govern this track like any other. Historical context: the pause ran
+08-13 ~12:2x → 08-15 ~17:2x with one partial reopening (below); the
+withdrawn 08-13 direction call's options (arch recurrence transplant /
+command-width curriculum / accept `b2` ceiling / reward geometry
+diagnosis) are open again, now informed by the translate1 /
+translate-scratch1 double-FAIL (recipe closed, see Now).**
 
 **PARTIAL REOPENING by operator directive 08-15
 (fb_20260815T114414_3c40d6, via ops.sh cycle focus note): ONE
