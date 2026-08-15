@@ -87,6 +87,19 @@ new command later (the phase-2 transfer test).
 
 ## Now
 
+- **CROSS-TRACK INSIGHT (08-15 ~17:5x UTC, from arch):
+  `cw-arch-tf-joymodes-scratch1` (a from-scratch causal-transformer,
+  arch track) independently re-ran this exact closed joystick
+  command-tracking reward recipe and reproduced the identical
+  signature a THIRD time: wrong_way_frac pinned ~0.43-0.44, near-zero
+  real command-aligned motion (`v_along` ratio ~0.08), this time via a
+  leg-sacrifice stilt cheat (video-confirmed, gait_valid 0/6 det).
+  Three independent lineages (warm-stilt, fresh-march-in-place,
+  fresh-transformer-stilt) now find a zero-net-motion cheat under this
+  reward — further confirms the recipe itself, not init/architecture,
+  is the blocker. Detail: arch/STATUS.md, ledger
+  `cw-arch-tf-joymodes-scratch1`. No mt action taken; recipe already
+  closed below.**
 - **08-15 ~15:1x UTC: `cw-joystick-translate-scratch1` FINISHED (40M,
   from-scratch comparator) — VERDICT: FAIL, and it CONFIRMS the
   reward-setup hypothesis rather than the lineage hypothesis.**

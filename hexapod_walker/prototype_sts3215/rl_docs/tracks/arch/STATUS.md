@@ -8,6 +8,41 @@ at what budget, with which failure modes.
 
 ## Now
 
+- **08-15 ~17:5x UTC — `cw-arch-tf-r1-hard3` (2nd +40M continuation of
+  the transformer walk line, respec of hard2-r1) LAUNCHED + VERIFIED
+  on train-0.** hard1 (fresh, 40M) matched the MLP champion at budget
+  parity; hard2-r1 (unplanned, backfilled) then improved slip/m 25-30%
+  with the exact same recipe — hard3 asks the same "does more
+  training keep helping" question the hist16-r7 line already answered
+  step by step (r7→c1 improved, c3→c4 finally plateaued). Pure
+  step-count continuation, one variable, pre-registered PASS/FLAT/
+  REGRESSION gate (FLAT closes the step-budget lever per the
+  two-flat-continuations rule, same as r7). Side effect: this
+  prelaunch found `pod_torch_capability.py install` had never actually
+  succeeded against a live pod — two real bugs (bare pip 404 on the
+  `+cu128` build missing `--index-url`; the shell-quoting embedding a
+  literal `\n` instead of a newline into the remote `python3 -c`
+  probe, `SyntaxError` every time) plus one baseline-image gap
+  (train-0 was missing 4 CUDA sub-packages jax's install never
+  needed). All three fixed (`--index-url`, `shlex.quote` instead of
+  `json.dumps` for shell embedding, an additive-only
+  `EXTRA_CUDA_LIBS` installer), tests green, train-0 now durably
+  CUDA-torch-capable too (`exp/cuda-torch-install-fix`).
+- **08-15 ~17:5x UTC — `cw-arch-tf-joymodes-scratch1` (2M discovery,
+  launched by a concurrent cycle) TRIAGED FAIL — KNOWN EXPLOIT, no
+  forensics per RUN_INTERPRETATION_RULES check 1.** DR0 gate det
+  gait_valid 0/6, EVERY episode sacrifices 2 legs and stilt-leans on
+  the other four (video-confirmed, both DR passes); prog_ratio med
+  0.28 (bar 0.85), wrong_way_frac pinned ~0.43-0.44, real
+  command-aligned motion ~8% of commanded. **CROSS-TRACK INSIGHT:**
+  this is the SAME joystick command-tracking reward recipe multitask
+  already closed (`cw-joystick-translate1` warm + `-scratch1`
+  from-scratch, both FAILED identically) — a third independent
+  lineage (from-scratch transformer) reproduces the exact signature,
+  confirming the reward/command recipe itself is the blocker, not
+  init or architecture. No further arch-track retry of this recipe;
+  the fix belongs to whoever redesigns the command-tracking reward
+  (multitask), logged in multitask/STATUS.md too.
 - **08-15 ~17:4x UTC — `cw-arch-tf-r1-hard2-r1` (unplanned +40M
   continuation of hard1) TRIAGED PASS: economy improves, no
   regression, same continuation-helps pattern the hist16-r7 line
