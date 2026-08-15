@@ -174,6 +174,16 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--n-steps", type=int, default=16,
                     help="rollout length per env per update")
     ap.add_argument("--batch-size", type=int, default=8192)
+    ap.add_argument("--gamma", type=float, default=None,
+                    help="PPO discount. Default None = legacy exact: "
+                         "0.99 on fresh/transplant constructors, the "
+                         "checkpoint's own value on a plain --init-from "
+                         "warm start. Long-horizon tasks (e.g. the "
+                         "recover mode's 3-5 s recoveries) want 0.995.")
+    ap.add_argument("--gae-lambda", type=float, default=None,
+                    help="GAE lambda. Default None = legacy exact "
+                         "(0.95 / checkpoint's own), same contract as "
+                         "--gamma.")
     ap.add_argument("--n-epochs", type=int, default=5)
     ap.add_argument("--lr", type=float, default=3e-4)
     ap.add_argument("--ent-coef", type=float, default=1e-3)
@@ -471,7 +481,10 @@ def main(argv: list[str] | None = None) -> int:
                 "MlpPolicy", venv,
                 n_steps=args.n_steps, batch_size=args.batch_size,
                 n_epochs=args.n_epochs, learning_rate=args.lr,
-                gamma=0.99, gae_lambda=0.95, ent_coef=args.ent_coef,
+                gamma=(0.99 if args.gamma is None else args.gamma),
+                gae_lambda=(0.95 if args.gae_lambda is None
+                            else args.gae_lambda),
+                ent_coef=args.ent_coef,
                 clip_range=0.2,
                 target_kl=(args.target_kl if args.target_kl > 0
                            else None),
@@ -491,12 +504,17 @@ def main(argv: list[str] | None = None) -> int:
                     "--gru cannot warm-start from an MLP checkpoint "
                     f"({args.init_from}); GRU runs start from scratch "
                     "or from a previous GRU checkpoint")
+            _ld_kw = {}
+            if args.gamma is not None:
+                _ld_kw["gamma"] = args.gamma
+            if args.gae_lambda is not None:
+                _ld_kw["gae_lambda"] = args.gae_lambda
             model = algo_cls.load(args.init_from, env=venv,
                                   device=args.device,
                              n_steps=args.n_steps,
                              batch_size=args.batch_size,
                              n_epochs=args.n_epochs, learning_rate=args.lr,
-                             ent_coef=args.ent_coef,
+                             ent_coef=args.ent_coef, **_ld_kw,
                              target_kl=(args.target_kl or None),
                              tensorboard_log=tb_dir)
             # A plain --init-from warm start keeps the checkpoint's own
@@ -524,7 +542,10 @@ def main(argv: list[str] | None = None) -> int:
             policy_cls, venv,
             n_steps=args.n_steps, batch_size=args.batch_size,
             n_epochs=args.n_epochs, learning_rate=args.lr,
-            gamma=0.99, gae_lambda=0.95, ent_coef=args.ent_coef,
+            gamma=(0.99 if args.gamma is None else args.gamma),
+            gae_lambda=(0.95 if args.gae_lambda is None
+                        else args.gae_lambda),
+            ent_coef=args.ent_coef,
             clip_range=0.2,
             target_kl=(args.target_kl if args.target_kl > 0 else None),
             policy_kwargs=dict(net_arch=net_arch,

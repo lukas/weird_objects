@@ -2361,3 +2361,207 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         info["getup_f_footprint"] = f_fp
         info["getup_f_flag"] = f_flag
         return reward, info
+
+    @staticmethod
+    def _rec_gate(x: float) -> float:
+        """Smooth gate g(x): smoothstep on [0,1] — C1, monotone, g(0)=0,
+        g(1)=1. The directive requires smooth gates (no hard
+        thresholds inside the potential)."""
+        x = min(max(x, 0.0), 1.0)
+        return x * x * (3.0 - 2.0 * x)
+
+    def _recover_reward(self, reward: float, term: bool, trunc: bool,
+                        info: dict) -> tuple[float, bool, dict]:
+        """recover_to_plant pricing (08-15 directive
+        fb_20260815T165306_606974; REWARD.md §4c).
+
+        r = kP*(gamma*Phi(s') - Phi(s)) + B*first_held_success
+            - c_time*dt (until termination, incl. the success hold)
+            - fail_cost at timeout/safety termination without success
+        plus the base regularizers (gyro/action/current — physics
+        pricing stays; the tracking kernel + tilt shaping are stripped
+        like getup ticks). Phi uses bounded [0,1] features with smooth
+        gates:
+          U  uprightness ((1+cos(tilt))/2 — full gradient from
+             upside-down)
+          L  mean six-foot load saturation
+          H  supported stand-height progress (belly->z_full, the
+             compliance-calibrated real stand height; overshoot above
+             the FK plant fades to 0 like getup — stilt pops price
+             themselves)
+          M  SMOOTH-MIN per-foot load — one unloaded foot stays
+             visible; the getup3-c2/getup4 mean-average plateau cannot
+             recur by construction
+          P  nominal-footprint closeness (the getup f_footprint fade)
+          Phi = wU*U + wL*g(U)*L + wH*g(U)*L*H + wM*g(U)*g(H)*M
+                + wP*g(U)*g(H)*P            (defaults .15/.15/.30/.30/.10)
+        Success = 0.5 s CONTINUOUS hold of: |z - z_full| <= 15 mm,
+        tilt <= 6 deg, every foot's load fraction >= rec_load_min AND
+        pad spread small (all six near the ground and loaded — no
+        mean-only loophole), footprint closeness >= 0.5 (support
+        proxy), low joint/body velocity, and no current violation.
+        Falls are NOT terminal; the episode ends only on held success
+        (one-shot bonus, term=True), timeout, or the safety envelope.
+        A non-success termination pays fail_cost >= the maximum
+        remaining time tax, so early abort can never out-earn trying.
+        PBRS telescopes over the episode, so the spawn potential is
+        never income and re-farming a feature pays 0 by construction.
+        """
+        # 1) Strip kernel + tilt shaping (same rationale as getup).
+        r_strip = (info.get("reward_task", 0.0)
+                   + info.get("reward_roll", 0.0)
+                   + info.get("reward_pitch", 0.0))
+        if r_strip != 0.0:
+            reward -= r_strip
+            info["reward_task"] = 0.0
+            info["reward_roll"] = 0.0
+            info["reward_pitch"] = 0.0
+
+        # 2) Bounded features.
+        load_n = float(cfg_get(self.cfg, "reward", "rec_load_n",
+                               default=1.0))
+        x = np.zeros(6)
+        for f in range(6):
+            adr = self._touch_adr[f]
+            if adr >= 0:
+                t_n = max(float(self.data.sensordata[adr]), 0.0)
+                x[f] = min(t_n / max(load_n, 1e-6), 1.0)
+        feat_l = float(np.mean(x))
+        tau = float(cfg_get(self.cfg, "reward", "rec_min_tau",
+                            default=0.15))
+        feat_m = float(min(max(
+            -tau * math.log(float(np.mean(np.exp(-x / tau)))),
+            0.0), 1.0))
+        t_roll, t_pitch = self._true_roll_pitch()
+        cos_t = math.cos(t_roll) * math.cos(t_pitch)
+        feat_u = min(max((1.0 + cos_t) / 2.0, 0.0), 1.0)
+        z_plant, _weight_n = self._getup_geom()
+        z_belly = float(cfg_get(self.cfg, "reward", "getup_z_belly_mm",
+                                default=38.0)) * 0.001
+        z_frac = float(cfg_get(self.cfg, "reward", "getup_z_full_frac",
+                               default=0.80))
+        z_full = z_belly + z_frac * max(z_plant - z_belly, 1e-3)
+        z = float(self.data.xpos[self._chassis_bid, 2])
+        feat_h = min(max((z - z_belly) / max(z_full - z_belly, 1e-3),
+                         0.0), 1.0)
+        over = z - (z_plant + 0.02)
+        if over > 0.0:
+            feat_h *= min(max(1.0 - over / 0.06, 0.0), 1.0)
+        curl = self._curl_dist()
+        fp_ok = float(cfg_get(self.cfg, "reward", "getup_fp_ok_mm",
+                              default=40.0)) * 0.001
+        fp_hi = float(cfg_get(self.cfg, "reward", "getup_fp_hi_mm",
+                              default=120.0)) * 0.001
+        feat_p = min(max((fp_hi - curl) / max(fp_hi - fp_ok, 1e-6),
+                         0.0), 1.0)
+        g_u = self._rec_gate(feat_u)
+        g_h = self._rec_gate(feat_h)
+        w_u = float(cfg_get(self.cfg, "reward", "rec_w_u", default=0.15))
+        w_l = float(cfg_get(self.cfg, "reward", "rec_w_l", default=0.15))
+        w_h = float(cfg_get(self.cfg, "reward", "rec_w_h", default=0.30))
+        w_m = float(cfg_get(self.cfg, "reward", "rec_w_m", default=0.30))
+        w_p = float(cfg_get(self.cfg, "reward", "rec_w_p", default=0.10))
+        phi = (w_u * feat_u + w_l * g_u * feat_l
+               + w_h * g_u * feat_l * feat_h
+               + w_m * g_u * g_h * feat_m
+               + w_p * g_u * g_h * feat_p)
+
+        # 3) Potential difference (PBRS). Seeded at the first
+        #    post-settle tick — no income for the spawn posture.
+        k_pot = float(cfg_get(self.cfg, "reward", "rec_k_pot",
+                              default=20.0))
+        gam = float(cfg_get(self.cfg, "reward", "rec_gamma",
+                            default=0.995))
+        r_pot = 0.0
+        if self._rec_phi_prev is not None:
+            r_pot = k_pot * (gam * phi - self._rec_phi_prev)
+        self._rec_phi_prev = phi
+        reward += r_pot
+
+        # 4) Success detection + 0.5 s continuous hold.
+        h_tol = float(cfg_get(self.cfg, "reward", "rec_h_tol_mm",
+                              default=15.0)) * 0.001
+        lev_deg = float(cfg_get(self.cfg, "reward", "rec_level_deg",
+                                default=6.0))
+        load_min = float(cfg_get(self.cfg, "reward", "rec_load_min",
+                                 default=0.35))
+        spread_max = float(cfg_get(self.cfg, "reward",
+                                   "rec_pad_spread_mm",
+                                   default=30.0)) * 0.001
+        qd_max = float(cfg_get(self.cfg, "reward", "rec_qd_max_rad_s",
+                               default=0.7))
+        v_max = float(cfg_get(self.cfg, "reward", "rec_v_max_m_s",
+                              default=0.08))
+        cur_max = float(cfg_get(self.cfg, "reward", "rec_cur_max_a",
+                                default=3.0))
+        tilt_deg = max(abs(t_roll), abs(t_pitch)) * 180.0 / math.pi
+        pad_z = np.array([float(self.data.xpos[b, 2])
+                          for b in self._pad_bids])
+        spread = float(np.max(pad_z) - np.min(pad_z))
+        qd_rms = float(np.sqrt(np.mean(
+            np.square(self._state.joint_velocity))))
+        v = self._body_vel_xy()
+        cur = getattr(self._state, "servo_current", None)
+        cur_ok = (cur is None or cur_max <= 0.0
+                  or float(np.max(cur)) <= cur_max)
+        ok = (abs(z - z_full) <= h_tol
+              and tilt_deg <= lev_deg
+              and float(np.min(x)) >= load_min
+              and spread <= spread_max
+              and feat_p >= 0.5
+              and qd_rms <= qd_max
+              and float(np.hypot(v[0], v[1])) <= v_max
+              and cur_ok)
+        self._rec_hold_n = self._rec_hold_n + 1 if ok else 0
+        hold_need = max(int(round(float(cfg_get(
+            self.cfg, "reward", "rec_hold_s", default=0.5))
+            / self.dt)), 1)
+        success = self._rec_hold_n >= hold_need
+
+        # 5) Time tax — every tick until termination, INCLUDING the
+        #    success hold (the directive's speed incentive; a normal
+        #    ~4 s recovery costs ~8% of the success bonus at defaults).
+        c_time = float(cfg_get(self.cfg, "reward", "rec_c_time",
+                               default=1.0))
+        reward -= c_time * self.dt
+
+        # 6) Terminal handling.
+        r_bonus = 0.0
+        if success:
+            r_bonus = float(cfg_get(self.cfg, "reward",
+                                    "rec_b_success", default=50.0))
+            reward += r_bonus
+            term = True
+        elif term or trunc:
+            # timeout / safety-envelope end without success: pay at
+            # least the maximum remaining time tax so aborting early
+            # (or coasting into the horizon) never beats recovering.
+            fail = float(cfg_get(self.cfg, "reward", "rec_fail_cost",
+                                 default=0.0))
+            if fail <= 0.0:
+                fail = 1.25 * c_time * self.episode_steps * self.dt
+            reward -= fail
+            info["reward_recover_fail"] = -fail
+        if term or trunc:
+            # adaptive-curriculum bookkeeping (persistent across
+            # episodes; the sampler reads it at the next reset)
+            kind = getattr(self._goal_traj, "start_kind", "?")
+            ema, n = self._rec_stats.get(kind, (0.5, 0))
+            beta = 0.10
+            self._rec_stats[kind] = (
+                (1.0 - beta) * ema + beta * (1.0 if success else 0.0),
+                n + 1)
+
+        info["reward_recover_pot"] = r_pot
+        info["reward_recover_bonus"] = r_bonus
+        info["recover_phi"] = phi
+        info["recover_U"] = feat_u
+        info["recover_L"] = feat_l
+        info["recover_H"] = feat_h
+        info["recover_M"] = feat_m
+        info["recover_P"] = feat_p
+        info["recover_hold_n"] = float(self._rec_hold_n)
+        info["recover_success"] = 1.0 if success else 0.0
+        info["recover_min_load"] = float(np.min(x))
+        info["recover_tilt_deg"] = tilt_deg
+        return reward, term, info
