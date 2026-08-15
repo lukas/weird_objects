@@ -87900,7 +87900,7 @@
       "A CUDA causal Transformer trained on full-label proprioceptive trajectories can learn current and future servo state, body velocity, yaw/heading, and foot contact accurately enough to provide a reusable representation for later walking control while continued auxiliary sampling prevents degradation. Gate: W&B must show arch=transformer, device=cuda on an H200, full_priv_fraction=100%, advancing global_step, and interpretable validation metrics for velocity, heading, contacts, currents, and future servo state."
     ],
     "created": "2026-08-15T17:53:27+00:00",
-    "status": "RUNNING",
+    "status": "KILLED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -87925,6 +87925,22 @@
     "failed_reason": null,
     "wandb_id": "telnzd5r",
     "verified": "2026-08-15T17:56:00+00:00",
-    "recovery_note": "False verification repaired: timeout scan selected its own wrapper PID; real trainer PID 4184935 remained live on H200 and W&B advanced 200 to 3250."
+    "recovery_note": "False verification repaired: timeout scan selected its own wrapper PID; real trainer PID 4184935 remained live on H200 and W&B advanced 200 to 3250.",
+    "checkups": [
+      {
+        "time": "2026-08-15T18:01:51+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 0,
+        "fps": 41.1,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "SUSPECT",
+        "problems": [
+          "fps 41 below expected floor 5000 for solo on GPU-MJX pod \u2014 starved or misplaced; consider rebalancing"
+        ]
+      }
+    ],
+    "verdict": "Stopped by operator at about 21k/40k: confirmed immediate overfitting. Train total fell below 0.75 while held-out total rose from best 5.5278 at step 1000 to 8.22; held-out contact BCE and joint-velocity/future losses degraded. Preserve the best checkpoint, add early stopping and stronger regularization, then rerun under a new append-only name.",
+    "triage": "done"
   }
 ]
