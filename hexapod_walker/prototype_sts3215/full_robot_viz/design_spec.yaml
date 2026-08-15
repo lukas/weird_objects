@@ -63,7 +63,7 @@ parts:
     role: "frame"
     cots: false
     qty: 6
-    description: "The WHOLE femur as ONE printed part (Jul 2026 merge #2 of the old hip yoke + knee bracket): the hip-end yoke straddles the hip servo (top arm bolts the driven disc horn, bottom arm the passive horn), a SOLID \u00d814 spar bridges the full 90 mm hip-to-knee span, and the knee-end cradle mounts the knee servo + 688 bearing housing. No sockets, no slip fits, no retention pins anywhere in the femur."
+    description: "The WHOLE femur as ONE printed part (Jul 2026 merge #2 of the old hip yoke + knee bracket): the hip-end yoke straddles the hip servo (top arm bolts the driven disc horn, bottom arm the passive horn; 8 mm spine plate since Aug 2026), a SOLID \u00d818 spar with small cone flares at both ends bridges the full 90 mm hip-to-knee span, and the knee-end cradle mounts the knee servo + 688 bearing housing. No sockets, no slip fits, no retention pins anywhere in the femur."
   foot_boot:
     label: "foot boot"
     role: "frame"
@@ -207,7 +207,7 @@ parts:
     role: "spar"
     cots: false
     qty: 6
-    description: "\u00d88 carbon-fibre tibia segment (130 mm knee->foot). Retained by epoxy bond + a transverse pin. CF for stiffness/weight at the longest, most-loaded segment."
+    description: "\u00d88 carbon-fibre tibia segment (130 mm knee->foot). Retained by epoxy bond alone (Aug 2026 -- retention pin removed). CF for stiffness/weight at the longest, most-loaded segment."
   uno_q:
     label: "uno q"
     role: "electronics"

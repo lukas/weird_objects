@@ -1367,13 +1367,30 @@ CANARY_CASES: tuple[tuple[str, str, str | None, int], ...] = (
     ("rise_crouch_b", "rise", "crouch", 3002),
     ("lower_a", "lower", None, 4001),
     ("lower_b", "lower", None, 4002),
+    # Unified rise->walk retention set (RISE_WALK_NEXT_48H P1, 08-13):
+    # PPO destroyed bridge/flat rise in <1M steps while aggregate
+    # return improved — the directive requires hold and gait canaries
+    # alongside the rise set so no capability can vanish unseen. Safe
+    # by construction for existing lineages: only groups the PARENT
+    # passes 2/2 become protected, and stance/rise tasks without a
+    # p_walk generator skip the walk cases entirely.
+    ("hold_a", "hold", None, 5001),
+    ("hold_b", "hold", None, 5002),
+    ("walk_fwd_a", "walk", None, 6001),
+    ("walk_fwd_b", "walk", None, 6002),
 )
 CANARY_GROUPS: dict[str, tuple[str, ...]] = {
     "rise_flat": ("rise_flat_a", "rise_flat_b"),
     "rise_bridge": ("rise_bridge_a", "rise_bridge_b"),
     "rise_crouch": ("rise_crouch_a", "rise_crouch_b"),
     "lower": ("lower_a", "lower_b"),
+    "hold": ("hold_a", "hold_b"),
+    "walk_fwd": ("walk_fwd_a", "walk_fwd_b"),
 }
+CANARY_WALK_V = 0.05        # pinned forward command (trained band low)
+CANARY_WALK_PROG_MIN = 0.5  # forward-progress floor (champion ~1.0,
+#                             degenerate gaits measure 0.0-0.35 —
+#                             probe_walk_income 08-13)
 
 
 def _run_canaries(env, act_fn) -> dict[str, bool]:
@@ -1384,6 +1401,12 @@ def _run_canaries(env, act_fn) -> dict[str, bool]:
     is a repeatable episode. Mode is isolated via the generator's p_*
     (same pattern as _run_periodic_eval); the rise start kind is pinned
     through GoalGenerator.force_rise_start.
+
+    Success rules: rise/lower/hold = no fall + final |height err|
+    <= 15 mm (the harness rule). walk = no fall + along-command
+    progress ratio >= CANARY_WALK_PROG_MIN + gait validity (no
+    sacrificed leg, duty/swing rule identical to eval_checkpoint) on a
+    pinned 1 s-hold / 1 s-ramp / constant forward command.
     """
     gen = getattr(env, "_goal_gen", None)
     if gen is None:
@@ -1398,6 +1421,9 @@ def _run_canaries(env, act_fn) -> dict[str, bool]:
         gen.force_rise_start = force
         obs, _ = env.reset(seed=seed)
         _reset_act(act_fn)
+        if mode == "walk":
+            results[case] = _run_walk_canary(env, act_fn, obs)
+            continue
         done = term = False
         h_err = None
         while not done:
@@ -1408,6 +1434,52 @@ def _run_canaries(env, act_fn) -> dict[str, bool]:
             not term and h_err is not None and h_err <= 15.0)
     gen.force_rise_start = None
     return results
+
+
+def _run_walk_canary(env, act_fn, obs) -> bool:
+    """Pinned-forward walk case: progress + gait validity, no fall."""
+    import math as _math
+    traj = env._goal_traj
+    if not hasattr(traj, "vx"):
+        return False
+    hold_n = ramp_n = max(1, int(round(1.0 / env.dt)))
+    n = len(traj.vx)
+    traj.vx[:] = CANARY_WALK_V
+    traj.vx[:hold_n] = 0.0
+    traj.vx[hold_n:hold_n + ramp_n] = CANARY_WALK_V * np.linspace(
+        0.0, 1.0, min(ramp_n, n - hold_n))
+    traj.vy[:] = 0.0
+    if getattr(traj, "wz", None) is not None:
+        traj.wz[:] = 0.0
+    contact_hist: list[list[bool]] = []
+    cmd_dist = along_dist = 0.0
+    done = term = False
+    while not done:
+        obs, _r, term, trunc, _info = env.step(act_fn(obs))
+        done = term or trunc
+        contact_hist.append([
+            adr >= 0 and float(env.data.sensordata[adr]) > 0.5
+            for adr in env._touch_adr])
+        g = env._current_goal()
+        if g is None:
+            continue
+        s_ref = _math.hypot(g.vx_ref, g.vy_ref)
+        if s_ref > 1e-3:
+            v = env._body_vel_xy()
+            cmd_dist += s_ref * env.dt
+            along_dist += ((v[0] * g.vx_ref + v[1] * g.vy_ref)
+                           / s_ref) * env.dt
+    if term or cmd_dist <= 1e-6 or not contact_hist:
+        return False
+    prog = along_dist / cmd_dist
+    contact = np.asarray(contact_hist, dtype=bool)
+    duty = contact.mean(axis=0)
+    swings = [int(np.sum(np.diff(contact[:, f].astype(int)) == -1))
+              for f in range(6)]
+    gait_valid = not any(
+        duty[f] < 0.10 or (duty[f] > 0.95 and swings[f] == 0)
+        for f in range(6))
+    return bool(prog >= CANARY_WALK_PROG_MIN and gait_valid)
 
 
 def _protected_groups(baseline: dict[str, bool]) -> list[str]:

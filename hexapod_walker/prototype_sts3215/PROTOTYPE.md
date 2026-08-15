@@ -382,7 +382,7 @@ boss for passive support, with the yoke bolting identically to both.
 The tibia segment is a Ø8 mm carbon-fibre tube epoxy-bonded into printed
 end-fittings.  The femur is ONE printed part, `femur_link` (Jul 2026 —
 the separate printed `femur_strut`, the femur CF tube, and the two-part
-yoke + knee bracket are all retired): hip moving yoke, a SOLID Ø14 spar
+yoke + knee bracket are all retired): hip moving yoke, a SOLID Ø18 spar
 (the old socket-boss outer diameter) and the knee servo bracket printed
 as a single body — no socket, no slip fit, no retention pin.
 
@@ -391,16 +391,16 @@ as a single body — no socket, no slip fit, no retention pin.
 | `coxa_link.stl` | ONE piece (Aug 2026 merge of the old yaw hub + hip bracket): yaw turntable hub (bolts the driven disc horn, rides the touching 6805 pair on a Ø24.95 boss) fused to the hip fixed side (symmetric servo cradle; the passive disc horn rides the servo's own rear idler boss).  5 vertical head-access shafts reach the yaw horn screws through the (empty) hip servo well. | On its SIDE — yaw axis horizontal, cradle end wall on the bed |
 | `yaw_bearing_cap.stl` | TOP half of the SPLIT yaw-bearing tower; bolts onto each `chassis_bottom` tower with 3 x M3 x 8 SHCS to capture the touching 6805 bearing pair (12 mm ring; Ø32 x 2 mm retaining lip).  Print flat, ring face down (no supports). | Ring face down |
 | `yaw_servo_retainer.stl` | Anti-rotation saddle under each yaw cradle + short ground FEET (Aug 2026 v4: four 8 mm corner poles to small Ø12 pads, 34 mm below the belly — the underside stays open so the case-back servo plug is reachable, and the wire exits ride ~9 mm off the floor when the robot belly-sits); bolts to the chassis_bottom anchor bosses and captures the hanging yaw servo body. | Flange down (flipped) |
-| `femur_link.stl` | The WHOLE femur, one printed part (Jul 2026): hip moving yoke (symmetric clevis — both arms bolt to a disc horn, driven on the front, passive on the rear boss) + SOLID Ø14 spar + knee fixed side (symmetric servo cradle). | Yoke spine down, spar horizontal, knee mount plate up (support the knee well through its open back) |
+| `femur_link.stl` | The WHOLE femur, one printed part (Jul 2026): hip moving yoke (symmetric clevis — both arms bolt to a disc horn, driven on the front, passive on the rear boss) + SOLID Ø18 spar (8 mm yoke spine plate, small cone flares at both spar ends — Aug 2026) + knee fixed side (symmetric servo cradle). | Yoke spine down, spar horizontal, knee mount plate up (support the knee well through its open back) |
 | `tibia_knee_yoke.stl` | Knee moving yoke (symmetric clevis — driven + passive disc horns) + Ø8 CF-tube socket. | Spine down |
 | `foot_boot.stl` (**TPU 95A**) | Compliant foot boot pressed over the tibia CF-tube end (Aug 2026: replaces `tibia_foot_fitting` + `foot_pad` + the M3 hinge pin/nyloc). Ø7.7 bore over the Ø8 tube = 0.3 mm TPU interference; 8 mm solid tip with a domed ground face. Short CF legs 0/4 take `extra_stl/foot_boot_plus4.stl` (+4 mm tip). | Tip face on bed, bore up — no supports |
 
 > **Femur** = `femur_link`, one printed body — nothing to join (no CF,
 > no epoxy, no pins; the Jul 2026 merge fused the old hip yoke and knee
-> bracket across a solid Ø14 cylinder).
+> bracket across a solid Ø18 cylinder).
 > **Tibia** = `tibia_knee_yoke` + Ø8 CF tube + pressed-on `foot_boot`.
-> Cut the tube to length, epoxy into the printed socket,
-> and drive a transverse Ø2.5 mm roll pin through each cross-hole.
+> Cut the tube to length and epoxy it into the printed socket
+> (epoxy-only since Aug 2026 — no retention pin, no cross-hole).
 
 ### 3.2a Per-joint parts (print 12 of each — 1 per hip + knee joint)
 
@@ -503,7 +503,6 @@ The authoritative, auto-generated fastener counts live in the
 | Ø8 × 8 mm disc magnets | 4 | Top of each post; hold the round Ø115 mount plate. |
 | 6805-2RS ball bearings | 12 | Yaw joint touching pair (2 per leg), Ø25 × Ø37 × 7 mm (61805; Aug 2026 — was 6706-2RS 30×37×4); captured by the split tower + `yaw_bearing_cap`. |
 | Ø8 mm carbon-fibre tube | ~1 m | Femur + tibia leg segments (epoxy-bonded into the printed sockets). |
-| Ø2.5 mm roll pins | 12 | Transverse CF-tube retention (2 per leg). |
 | Two-part epoxy | 1 | Bonds the CF tubes into the printed sockets. |
 
 ### 4.5 3D-printed material
@@ -525,7 +524,7 @@ Cost buckets mirror the **Rough Cost** table in
 | Arduino Uno Q + microSD + USB-C | ~$60 – $100 |
 | Battery + charger + bag + switch + velcro | ~$70 – $120 |
 | Power distribution (fuses + Wagos + silicone wire + 5264 kit; no PDB) | ~$30 – $50 |
-| Disc horns (30) + CF tube + roll pins + epoxy | ~$30 – $55 |
+| Disc horns (30) + CF tube + epoxy | ~$30 – $55 |
 | Fasteners / standoffs / magnet posts / wiring | ~$30 – $55 |
 | Filament + MJF clamp caps + hex plate / raised platform | ~$30 – $55 |
 | **Total** | **~ $615 – $1000** |
@@ -576,7 +575,7 @@ Allow ~ 4 hours for a first build, ~ 90 min for a second.
 > for passive support, so the moving yoke bolts identically to a disc on
 > BOTH faces — no external ball bearing on the hip/knee. The tibia is a
 > Ø8 mm carbon-fibre tube epoxy-bonded into the printed end-fittings
-> (with a transverse Ø2.5 mm roll pin); the femur is ONE printed part
+> (epoxy-only since Aug 2026 — no retention pin); the femur is ONE printed part
 > (`femur_link`, Jul 2026) — nothing to join at all.
 > Full joint detail is in the **Bench Test Order** of
 > [`docs/BOM.md`](docs/BOM.md).
@@ -590,7 +589,7 @@ Allow ~ 4 hours for a first build, ~ 90 min for a second.
 > `servo_clamp_cap` seated flush against the body's +Y face and retained
 > by 2 × M3 × 8 SHCS self-tapping into the cradle's ±X wall-end pilots.
 > The KNEE cradle takes **no end-face bolts** (Jul 2026 one-piece femur:
-> the fused Ø14 spar covers that wall from outside, so the screws were
+> the fused Ø18 spar covers that wall from outside, so the screws were
 > impossible to drive and their empty holes only weakened the spar
 > junction — removed); the knee servo is held by the clamp cap + the
 > retaining lip alone.  The YAW servo also uses no cradle bolts (see the
@@ -601,9 +600,9 @@ Allow ~ 4 hours for a first build, ~ 90 min for a second.
 1. **Join the leg segments first.**  FEMUR: nothing to do — `femur_link`
    comes off the printer as one finished part (Jul 2026 one-piece merge;
    no CF, no epoxy, no pins).  TIBIA:
-   cut the Ø8 mm carbon-fibre tube to length, epoxy it into the
-   `tibia_knee_yoke` socket, and drive a transverse Ø2.5 mm roll pin
-   through the socket cross-hole.  Let the slow-cure epoxy fully set
+   cut the Ø8 mm carbon-fibre tube to length and epoxy it into the
+   `tibia_knee_yoke` socket (epoxy-only since Aug 2026 — the pin
+   cross-hole is gone).  Let the slow-cure epoxy fully set
    before loading the joints.
 2. **Hip-pitch servo into the coxa link's hip cradle** — *but only
    AFTER the coxa is bolted to its yaw disc horn* (Aug 2026 one-piece

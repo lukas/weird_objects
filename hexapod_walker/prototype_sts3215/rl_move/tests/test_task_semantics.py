@@ -2398,6 +2398,45 @@ def _make_getup_env(seed: int, *, start: str, cmd: tuple[float, float],
     return env
 
 
+def test_getup_forward_only_commands():
+    """goal.getup_forward_only=1 (RISE_WALK_NEXT_48H P1 unified task):
+    the sampled command schedule is forward-or-stop ONLY (vy == 0,
+    vx >= 0 everywhere), and the discarded angle draws keep the rng
+    stream seed-identical to the full task — same start kind and the
+    same stop/go segment mask. (Speed magnitudes match only at
+    plateaus: blends interpolate vx/vy component-wise, so the full
+    task's |v| is sub-linear mid-blend — not asserted.)"""
+    from rl_move.sim.walk_task import SimHexapodJointWalkEnv
+
+    def make(fwd_only: int, seed: int):
+        cfg = load_config()
+        for (sec, leaf), val in GETUP_OVERRIDES.items():
+            cfg.setdefault(sec, {})[leaf] = val
+        cfg.setdefault("goal", {})["getup_forward_only"] = fwd_only
+        env = SimHexapodJointWalkEnv(
+            params=SimServoParams.from_cfg(None), randomize=False,
+            dr_scale=0.0, episode_seconds=30.0, seed=seed, cfg=cfg)
+        gen = env._goal_gen
+        for attr in [a for a in vars(gen) if a.startswith("p_")]:
+            setattr(gen, attr, 0.0)
+        gen.p_getup = 1.0
+        return env
+
+    for seed in (11, 12, 13):
+        env_f = make(1, seed)
+        env_full = make(0, seed)
+        env_f.reset(seed=seed)
+        env_full.reset(seed=seed)
+        tf, tu = env_f._goal_traj, env_full._goal_traj
+        assert np.all(tf.vy == 0.0), "forward-only drew a lateral cmd"
+        assert np.all(tf.vx >= -1e-12), "forward-only drew a reverse cmd"
+        # rng-stream parity with the full task under the same seed
+        assert tf.start_kind == tu.start_kind
+        assert np.array_equal(tf.vx != 0.0, tu.vx != 0.0)
+        env_f.close()
+        env_full.close()
+
+
 def _getup_rollout(policy: str, seed: int, *, start: str = "zero",
                    cmd: tuple[float, float] = (0.0, 0.0)) -> dict:
     from tripod_gait import TripodGait

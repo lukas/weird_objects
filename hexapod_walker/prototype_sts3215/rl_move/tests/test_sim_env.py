@@ -522,15 +522,44 @@ def test_canary_runner_and_protected_groups():
     # episode length in production).
     env = SimHexapodGoalEnv(seed=9)
     res = _run_canaries(env, lambda obs: np.zeros(env.n_act))
-    assert set(res) == {c[0] for c in CANARY_CASES}
+    # Cases whose mode the env's generator lacks are skipped (the walk
+    # cases on a stance-only goal env — RISE_WALK_NEXT_48H retention
+    # set, 08-13); everything the generator supports must run.
+    expected = {c[0] for c in CANARY_CASES
+                if hasattr(env._goal_gen, f"p_{c[1]}")}
+    assert set(res) == expected
+    assert {"hold_a", "hold_b"} <= set(res)       # hold runs on goal env
+    assert "walk_fwd_a" not in res                # no p_walk -> skipped
     assert all(isinstance(v, bool) for v in res.values())
     assert env._goal_gen.force_rise_start is None  # hook disarmed after
     env.close()
 
     assert _protected_groups({c[0]: True for c in CANARY_CASES}) == \
-        ["lower", "rise_bridge", "rise_crouch", "rise_flat"]
+        ["hold", "lower", "rise_bridge", "rise_crouch", "rise_flat",
+         "walk_fwd"]
     partial = {c[0]: c[0] != "rise_flat_b" for c in CANARY_CASES}
     assert "rise_flat" not in _protected_groups(partial)  # 1/2 ≠ protected
+
+
+def test_walk_canary_smoke():
+    """The pinned-forward walk canary (RISE_WALK_NEXT_48H retention
+    set) runs end-to-end on the joint-walk env and fails a do-nothing
+    policy — zero progress can never read as a pass."""
+    from rl_move.sim.train_ppo_sim import _run_walk_canary
+    from rl_move.sim.walk_task import SimHexapodJointWalkEnv
+
+    env = SimHexapodJointWalkEnv(seed=5, episode_seconds=6.0)
+    gen = env._goal_gen
+    for attr in [a for a in vars(gen) if a.startswith("p_")]:
+        setattr(gen, attr, 0.0)
+    gen.p_walk = 1.0
+    obs, _ = env.reset(seed=6001)
+    ok = _run_walk_canary(env, lambda o: np.zeros(env.n_act), obs)
+    assert ok is False
+    # command was pinned: zero head, then forward-only schedule
+    traj = env._goal_traj
+    assert float(np.max(traj.vx)) > 0.0 and np.all(traj.vy == 0.0)
+    env.close()
 
 
 def test_canary_stop_callback_streak_logic():
