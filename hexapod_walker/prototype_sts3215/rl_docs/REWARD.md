@@ -64,6 +64,7 @@ Total = kernel income + weak shaping + weak regularizers.
 | `k_unload` | 0.2 | weak linear gradient toward zero load on the unload leg. |
 | `alive` | 0.0 | keep at 0 (see principles). |
 | `safety_termination_penalty` | 10.0 | one-time −10 on safety termination (tilt trip etc.). |
+| `term_cost_per_remaining_s` | 0.0 (off) | early-fall horizon cost (08-15, operator directive fb_20260815T114414): adds k × REMAINING episode seconds to the flat penalty on safety terminations (never on truncation), so a drag-then-fall cannot bank income a survivor would keep earning — `cw-mt-c2` retained ~+166/ep from ~6 s drag-then-fall at the flat −10. Bank-calibrated in the FULLCIRCLE bank (`test_task_semantics.py`): at k=12 a 6 s fall in a 60 s episode goes negative while the tripod gait/freeze orderings survive. Logged inside `reward_termination`. |
 
 ## 2) Rise / lower / raise terms
 
@@ -117,6 +118,7 @@ Income:
 |---|---|---|
 | (kernel, always on) | K_WALK 2.0 | Gaussian on |v − v_ref| — up to +2/tick. |
 | `k_walk_prog` | 1.0 | linear progress: k·clip(along-command speed fraction, −∞, 1.25). Negative when moving against the command. |
+| `k_walk_cmd_track` | 0 | direct normalized joystick objective: k·(along − |along−requested speed| − |cross-track speed|)/requested speed. Exact requested velocity = +k, parking = −k, equal-speed sideways = −2k, and equal-speed backward = −3k. A stop command charges planar speed relative to `goal.walk_speed_min_m_s`. Positive income obeys `walk_gait_gate`; penalties never shrink. |
 | `k_walk_yaw` / `yaw_sigma_rad_s` | 0 / 0.15 | yaw-rate tracking kernel, paid every walk tick incl. wz_ref=0 (heading-hold income prices drift). |
 | `k_yaw_prog` | 0 | SIGNED rotation income on turn segments: k·clip(wz/wz_ref, −1.5, 1.25) — genuinely negative against the command (the Gaussian kernel never is). Anti-drift, see TURN.md. |
 | `k_yaw_still` | 0 | quadratic drift charge on heading-hold segments (wz_ref=0): −k·wz². At the measured 0.09 rad/s drift, k=50 costs ~0.4/tick; gyro noise stays ~free. See TURN.md. |
@@ -129,6 +131,15 @@ Income:
 | — quadwalk mode (08-13) | — | `--goal-mix quadwalk=<p>`: walk pricing stack + quad clear/plant income, with two lift-leg exemptions: the `k_park_duty` window spans only the support legs, and lift legs never earn step/swing credit (drag/slip charges still apply to them). Sampler keys: `goal.quadwalk_speed_min/max_m_s` (0.02/0.05), `quadwalk_heading_max_rad` (0 = fwd only), `quadwalk_hold_s` (2.0). Ordering bank SKIPS pending an accepted reference (test_task_semantics.QUADWALK_REFERENCE_BLOCKED); per the 08-13 operator ruling, training arms are LAUNCHABLE and the first policy passing the pre-registered gate in `rl_docs/tracks/quad/QUADWALK_REF_GATE.md` becomes the bank reference. |
 | `walk_gait_gate` / `gait_gate_window_s` / `gait_gate_fade_s` / `gait_gate_stride_mm` | 0 / 2.0 / 2.0 / 10 | all-support-legs gait gate (08-13, quad track, after cw-quadwalk1-5 measured additive pricing exhausted for BOTH cheat families: quadwalk3 PAID the −575/ep lift-contact charge and kept six-legging; quadwalk5's 6× `k_park_duty` reprice changed the mid-leg-park scoot not at all — and the anchor gate never sees an air-parked leg, its fraction spans LOADED feet only): velocity income (kernel + positive progress, plus quadwalk clear/plant on commanded ticks) × [(1−g) + g·MIN over commanded SUPPORT legs of a per-leg "completed a real swing recently" score] — 1.0 if the leg finished a ≥2-ticks-airborne swing with XY stride ≥ `gait_gate_stride_mm` within the trailing `gait_gate_window_s` of COMMANDED ticks, linear fade to 0 over `gait_gate_fade_s` (fade, not hard zero — holdstill1 lesson). MIN, not mean: fractional discounts are measured-payable; sacrificing ANY support leg collapses transport income to the (1−g) floor by construction. Lift legs exempt; episode start counts as "just stepped" (window+fade commanded grace); penalties never shrink. Walk-family modes only. Semantics: `test_walk_gait_gate_*`. |
 | `goal.quadwalk_start` / `goal.quadwalk_mid_splay_m` | "plant" / 0.06 | quadwalk spawn kind (08-13, after cw-quadwalk3 proved pricing exhausted: the −575/ep lift-contact charge fired and the policy still walked on six legs — exploration from the six-foot plant start is the blocker). `"quad"` spawns episodes ALREADY in the four-leg stance (env kind `quadstance`: TripodGait plant with mid feet splayed `quadwalk_mid_splay_m` forward — the bank's statically-surviving freeze stance; the bare plant+tuck pitch-trips — lift legs at the feasibility tuck claw, ±2° jitter). Tilt refs anchor to LEVEL like tipped starts (the limp settle sags the stance ~15–17° nose-down onto the claws; anchoring at the sag would train holding it and trip on recovery); runs enabling it MUST widen `safety.max_roll/pitch_deg` past the sag (25 = deployment envelope). Default "plant" = legacy bit-exact. Semantics: `test_quadwalk_start_*`. |
+
+Joystick command schedules use `goal.walk_cmd_mode`: `legacy` (default),
+`random_hold`, `flip_180`, `sweep_circle`, `square`, `stop_go`, `jitter`, or
+`stress_mix` (one concrete mode sampled per episode). Abrupt modes are truly
+abrupt when `walk_cmd_blend_s_min=max=0`; `walk_cmd_resample_s` and
+`walk_cmd_resample_jitter` control hold duration, `walk_cmd_sweep_period_s`
+controls a continuous circle, and `walk_cmd_jitter_rad` bounds heading nudges.
+`goal.walk_cmd_metrics=1` logs along/cross speed, wrong-way rate, commanded
+speed, and the concrete schedule id.
 
 Income gates (each in [0,1]; scale kernel + positive progress only):
 
@@ -194,6 +205,51 @@ negative; the hip-0 "stilt" is in-sim a legitimate NARROW crouch-stand
 whose fast time-to-stand beats the replay on episode TOTALS, so it is
 priced per-tick: tail 0.20 vs the plant stand's 0.55. Walk side: gait
 +378 vs park −1.6 / belly-shuffle −3.6).
+
+## 4c) RECOVER mode — recover_to_plant (08-15 operator directive)
+
+`rl_move/sim/walk_task.py _recover_reward()`, mode `recover` only
+(walk env; enabled per-run via `--goal-mix recover=...` — absent from
+every default mix, so all keys below are inert = bit-exact legacy).
+Operator directive fb_20260815T165306_606974: from any physically
+recoverable state, reach a full-height, LEVEL, QUIET stand with ALL
+SIX feet loaded, hold it 0.5 s continuously — then the episode ENDS
+(one-shot bonus). Zero velocity command throughout. Falls are NOT
+terminal: runs must set `safety.max_roll/pitch_deg=185` (an inverted
+settle reads ~179.5°); ends are held success / timeout / safety only.
+Start states come from the adaptive reset-family curriculum
+(`_sample_recover`: onefoot/park → crouch/partial/bank → zero/tangle
+→ flip, admitted on per-kind success EMAs ≥0.8, retreat <0.2; v1
+families 5-6 — pushed-walking falling states + on-policy failure
+harvests — are the pre-registered next rung). Unlike getup there is
+NO occupancy/ratchet/hold income and no alive bonus: income is a
+potential DIFFERENCE, so re-farming any feature pays 0 and stalling
+anywhere bleeds the time tax.
+
+`r = rec_k_pot·(rec_gamma·Φ(s′) − Φ(s)) + rec_b_success·(first held
+success) − rec_c_time·dt (until termination, incl. the hold) −
+rec_fail_cost (at a non-success end) + base regularizers`
+(gyro/action/current stay; `reward_task`/`k_roll`/`k_pitch` stripped,
+`h_err` never fed — same guard as getup, measured −58/ep otherwise).
+`Φ = wU·U + wL·g(U)·L + wH·g(U)·L·H + wM·g(U)·g(H)·M +
+wP·g(U)·g(H)·P`, all features bounded [0,1], g = smoothstep.
+
+| cfg key (reward.) | default | what it does |
+|---|---|---|
+| `rec_k_pot` / `rec_gamma` | 20.0 / 0.995 | PBRS scale + discount (match the run's PPO `--gamma`). Telescopes: spawn posture is never income. |
+| `rec_w_u/_l/_h/_m/_p` | .15/.15/.30/.30/.10 | Φ weights: U uprightness ((1+cosθ)/2 — gradient from upside-down), L mean six-foot load, H supported height (belly→z_full, getup calibration, stilt overshoot fades to 0), M SMOOTH-MIN per-foot load (`rec_min_tau` 0.15 — ONE unloaded foot stays visible; the getup3-c2/getup4 mean-plateau cannot recur), P footprint closeness. |
+| `rec_b_success` | 50.0 | one-shot on the first completed 0.5 s (`rec_hold_s`) hold of: \|z−z_full\|≤`rec_h_tol_mm` 15, tilt≤`rec_level_deg` 6°, min per-foot load≥`rec_load_min` 0.35 AND pad spread≤`rec_pad_spread_mm` 30 (all six near ground and loaded — no mean loophole), P≥0.5 (support proxy), qd rms≤`rec_qd_max_rad_s` 0.7, \|v_xy\|≤`rec_v_max_m_s` 0.08, max current≤`rec_cur_max_a` 3.0. Terminates the episode. |
+| `rec_c_time` | 1.0/s | rate-normalized time tax, every tick until termination (the directive's speed incentive; a ~4 s recovery costs ~8% of the bonus). |
+| `rec_fail_cost` | 0 → auto 1.25·c_time·horizon | charged at timeout/safety end without success — ≥ the max remaining time tax, so early abort never out-earns trying. |
+| `goal.recover_start_bank` | unset | npz (`q_rad` (K,18)) harvested start poses for the "bank" kind (family 2). |
+| `train.bc_anchor_recover` (+`_tilt_deg` 25) | 0 | state-aligned rise BC anchor (the cw-getup3 lever), eligibility-gated to the mastered rise manifold: upright ≤25°, real foot ground-reaction, at/below plant height — orientation/height/contact conditioning, never nearest-q alone; a flipped robot is never pulled toward rise poses. |
+
+Bank: RECOVER section of `test_task_semantics.py` (replay succeeds +
+terminates, dominates flagleg/freeze/stilt/thrash by >20; flag leg
+blocks success with M≪L; no height charge; fail cost ≥ max remaining
+tax; flip spawns settle >60° and survive; sampler
+proportions/admission; empty-interval rng parity; anchor state
+gating).
 
 ## 5) Changing the reward — checklist
 

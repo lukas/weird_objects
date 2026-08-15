@@ -17,7 +17,7 @@ representations learned only from PPO rewards. The research question:
 
 The primary metric is **sample efficiency on a new task**.
 
-## V1 build (deliberately small — no transformer)
+## V1 build (historical GRU baseline)
 
 - **Frame** (86 dims, `dynamics/frames.py` layout v2): joint pos/vel,
   tilt (episode-relative roll/pitch), gyro, IMU specific force, servo
@@ -35,9 +35,13 @@ The primary metric is **sample efficiency on a new task**.
   (action-conditioned by construction, never `state_t → state_{t+k}`
   alone).
 - **Horizons** t+1, t+2, t+5 → raw physical state (q, qd, IMU) MSE +
-  contact BCE; t+10, t+25 → future latent, target =
-  `stop_gradient(encoder(future_history))`. History window H=16
-  (25 Hz ⇒ 0.64 s).
+  contact BCE; current and all future horizons → privileged simulator
+  truths as auxiliary targets (true body-frame velocity, yaw rate,
+  relative heading sin/cos, command refs, along/cross-command motion,
+  chassis height); t+10, t+25 → future latent, target =
+  `stop_gradient(encoder(future_history))`. Privileged truths are
+  labels only, never encoder inputs. History window H=16 (25 Hz ⇒
+  0.64 s).
 - **Data** (`dynamics/collect.py`): diversity of physical experience
   over task labels. Actor mix random-OU / scripted tripod / scripted
   noslip / stance champion / walk champion, each with noise variants;
@@ -81,8 +85,9 @@ The primary metric is **sample efficiency on a new task**.
   gyro, prev action). It must still pass G1 (the `full` input set is
   the ceiling reference, not the transfer candidate).
 - **G3 — latent sanity**: dumped latents (`--dump-latents`) organize
-  visibly around upright/fallen, contact configuration, and tilt
-  before we claim "reusable body knowledge".
+  visibly around upright/fallen, contact configuration, tilt, true
+  velocity/yaw-rate and command-frame motion before we claim
+  "reusable body knowledge".
 
 ## First experimental comparison (after G1+G2)
 
@@ -141,9 +146,17 @@ exactly that.
 
 ## Do not do yet (v1 discipline)
 
-Large transformer; 10+ layer MLP; huge latent; contrastive stacks;
-VAEs; full Dreamer-style world model; planning through the model; one
-policy for every task at once.
+**Superseded for phase-1 prediction on 2026-08-15 by the operator's causal
+Transformer direction.** The current model is intentionally not reduced:
+4 layers, width 512, 8 heads, FF 1024, z=256 (~13.6M parameters). The first
+Transformer run overfit because 20.48M optimizer draws repeatedly sampled a
+fixed corpus with only tens of thousands of highly overlapping valid centers;
+the train/validation actor and mode coverage was not grossly broken. Current
+production runs therefore generate GPU MJX/Warp trajectories until planned
+window reuse is <=2x and the trainer mechanically refuses undersized data.
+
+Still deferred: contrastive stacks, VAEs, a full Dreamer-style world model,
+planning through the model, and one policy for every task at once.
 
 ## Logging
 

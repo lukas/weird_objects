@@ -29,7 +29,7 @@ sys.path.insert(0, str(ROOT / "linux_control" / "urt2_setup"))
 
 from rl_move.config import load_config  # noqa: E402
 from rl_move.sim.distill_gru import (  # noqa: E402
-    collect_transitions, main as distill_main,
+    _episode_split, collect_transitions, main as distill_main,
 )
 from rl_move.sim.walk_task import (  # noqa: E402
     MODE_ONEHOT_ORDER, SimHexapodJointWalkEnv,
@@ -145,3 +145,38 @@ def test_refuses_env_without_mode_seq():
         collect_transitions(env, teachers, n_ep=1, stochastic_frac=0.0,
                             rng=np.random.default_rng(0))
     env.close()
+
+
+# ---------------------------------------------------------------------------
+# 6. --dagger-extra-mix / --dagger-extra-episodes (Arm-A stage-0 FAIL
+#    follow-up: a rise-targeted DAgger top-up on top of the sequence
+#    pass). Default OFF; validation fires before any teacher/env load.
+# ---------------------------------------------------------------------------
+
+def test_dagger_extra_mix_requires_episodes():
+    with pytest.raises(SystemExit, match="dagger-extra-episodes"):
+        distill_main(["--dagger-extra-mix", "rise=1.0"])
+
+
+def test_dagger_extra_episodes_requires_mix():
+    with pytest.raises(SystemExit, match="dagger-extra-mix"):
+        distill_main(["--dagger-extra-episodes", "10"])
+
+
+def test_dagger_extra_mix_rejects_unknown_mode():
+    with pytest.raises(SystemExit, match="unknown modes"):
+        distill_main(["--dagger-extra-mix", "flap=1.0",
+                      "--dagger-extra-episodes", "10"])
+
+
+def test_episode_split_matches_legacy_formula():
+    mix = {"walk": 0.60, "rise": 0.15, "lower": 0.15, "hold": 0.10}
+    got = _episode_split(200, mix)
+    want = {m: max(1, round(200 * w)) for m, w in mix.items() if w > 0}
+    assert got == want
+    # zero-weight modes are dropped, not zero-valued
+    assert _episode_split(100, {"rise": 1.0, "walk": 0.0}) == {"rise": 100}
+    # every present weight gets at least 1 episode even at tiny totals
+    assert _episode_split(1, {"rise": 0.4, "walk": 0.3, "lower": 0.15,
+                              "hold": 0.15}) == {
+        "rise": 1, "walk": 1, "lower": 1, "hold": 1}

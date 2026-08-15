@@ -223,8 +223,11 @@ class MjxVecEnv(VecEnv):
         # Mirrors the C re-mint condition: once when the model cannot
         # change, per choreography under DR (tick-param scales and
         # model-field draws both move the settled frames).
-        seq_on = float(cfg_get(getattr(self.envs[0], "cfg", None) or {},
-                               "goal", "mode_seq", default=0.0)) > 0.0
+        _seq_cfg = getattr(self.envs[0], "cfg", None) or {}
+        seq_on = (float(cfg_get(_seq_cfg, "goal", "mode_seq",
+                                default=0.0)) > 0.0
+                  or float(cfg_get(_seq_cfg, "goal", "mode_seq_stance",
+                                   default=0.0)) > 0.0)
         mint = seq_on and (self._model_dr
                            or any(e.randomizer is not None
                                   for e in self.envs)
@@ -239,6 +242,12 @@ class MjxVecEnv(VecEnv):
                           for f in ("plant", "belly")}
         for i, env in enumerate(self.envs):
             q_start = env._reset_begin(None)
+            if getattr(env, "_exact_start_pending", None) is not None:
+                raise NotImplementedError(
+                    "goal.rise_start_bank_exact: exact full-state restore "
+                    "is CPU-env only (eval/harvest); the MJX vec env runs "
+                    "its own placement+settle and would silently ignore "
+                    "it. Train without _exact or build the MJX twin.")
             q_starts[i] = q_start
             row = tp_rows(env)
             for k in tp:

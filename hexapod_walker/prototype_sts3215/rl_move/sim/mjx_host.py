@@ -62,6 +62,14 @@ SNAP_ATTRS = (
     # episode inheriting another episode's ratchet is exactly the
     # commit-65edba7 bug class this list exists to prevent.
     "_is_getup", "_getup_best",
+    # RECOVER (recover_to_plant, 08-15) episode state: mode flag, the
+    # PBRS previous-potential baseline, and the continuous success-hold
+    # counter. A pool-restored episode inheriting another episode's
+    # potential baseline or hold streak is exactly the commit-65edba7
+    # bug class this list exists to prevent. (The adaptive-curriculum
+    # stats dict `_rec_stats` is deliberately NOT here — it is
+    # cross-episode learning state, like _lp_weights.)
+    "_is_recover", "_rec_phi_prev", "_rec_hold_n",
     # Mode-sequencing episode state (goal.mode_seq, TRANSITIONS_
     # DIRECTIVE item 1, 08-13): the segment plan/index, the stand-
     # height anchor mid-sequence rises aim at, the active segment's

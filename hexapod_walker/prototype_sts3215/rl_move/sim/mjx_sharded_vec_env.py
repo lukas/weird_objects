@@ -290,6 +290,13 @@ def _worker_main(conn, layout, task_cls, env_kwargs, lo, hi, seed,
                 for k, env in enumerate(envs):
                     g = lo + k
                     q_start = env._reset_begin(None)
+                    if getattr(env, "_exact_start_pending", None) is not None:
+                        raise NotImplementedError(
+                            "goal.rise_start_bank_exact: exact full-state "
+                            "restore is CPU-env only (eval/harvest); the "
+                            "sharded MJX env runs its own placement+settle "
+                            "and would silently ignore it. Train without "
+                            "_exact or build the MJX twin.")
                     shm["q_start"][g] = q_start
                     row = tp_rows(env)
                     for key in _TP_KEYS:
@@ -525,9 +532,12 @@ class MjxShardedVecEnv(VecEnv):
         # goal.mode_seq: allocate the mint's probe arrays only when the
         # cfg enables the feature (mirrors MjxVecEnv's seq_on gate; the
         # fractional-p semantics landed 08-14 make any p>0 eligible).
-        self._seq_on = float(cfg_get(env_kwargs.get("cfg") or {},
-                                     "goal", "mode_seq",
-                                     default=0.0)) > 0.0
+        _seq_cfg = env_kwargs.get("cfg") or {}
+        self._seq_on = (float(cfg_get(_seq_cfg, "goal", "mode_seq",
+                                      default=0.0)) > 0.0
+                        or float(cfg_get(_seq_cfg, "goal",
+                                         "mode_seq_stance",
+                                         default=0.0)) > 0.0)
         layout = _shm_layout(
             B, act_space.shape[0], obs_space.shape[0], self.mj_model.nq,
             self.mj_model.nv, self.mj_model.nsensordata,

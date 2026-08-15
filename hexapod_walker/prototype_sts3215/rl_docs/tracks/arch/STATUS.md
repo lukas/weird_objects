@@ -8,6 +8,263 @@ at what budget, with which failure modes.
 
 ## Now
 
+- **08-15 ~17:5x UTC — `cw-arch-tf-r1-hard3` (2nd +40M continuation of
+  the transformer walk line, respec of hard2-r1) LAUNCHED + VERIFIED
+  on train-0.** hard1 (fresh, 40M) matched the MLP champion at budget
+  parity; hard2-r1 (unplanned, backfilled) then improved slip/m 25-30%
+  with the exact same recipe — hard3 asks the same "does more
+  training keep helping" question the hist16-r7 line already answered
+  step by step (r7→c1 improved, c3→c4 finally plateaued). Pure
+  step-count continuation, one variable, pre-registered PASS/FLAT/
+  REGRESSION gate (FLAT closes the step-budget lever per the
+  two-flat-continuations rule, same as r7). Side effect: this
+  prelaunch found `pod_torch_capability.py install` had never actually
+  succeeded against a live pod — two real bugs (bare pip 404 on the
+  `+cu128` build missing `--index-url`; the shell-quoting embedding a
+  literal `\n` instead of a newline into the remote `python3 -c`
+  probe, `SyntaxError` every time) plus one baseline-image gap
+  (train-0 was missing 4 CUDA sub-packages jax's install never
+  needed). All three fixed (`--index-url`, `shlex.quote` instead of
+  `json.dumps` for shell embedding, an additive-only
+  `EXTRA_CUDA_LIBS` installer), tests green, train-0 now durably
+  CUDA-torch-capable too (`exp/cuda-torch-install-fix`).
+- **08-15 ~17:5x UTC — `cw-arch-tf-joymodes-scratch1` (2M discovery,
+  launched by a concurrent cycle) TRIAGED FAIL — KNOWN EXPLOIT, no
+  forensics per RUN_INTERPRETATION_RULES check 1.** DR0 gate det
+  gait_valid 0/6, EVERY episode sacrifices 2 legs and stilt-leans on
+  the other four (video-confirmed, both DR passes); prog_ratio med
+  0.28 (bar 0.85), wrong_way_frac pinned ~0.43-0.44, real
+  command-aligned motion ~8% of commanded. **CROSS-TRACK INSIGHT:**
+  this is the SAME joystick command-tracking reward recipe multitask
+  already closed (`cw-joystick-translate1` warm + `-scratch1`
+  from-scratch, both FAILED identically) — a third independent
+  lineage (from-scratch transformer) reproduces the exact signature,
+  confirming the reward/command recipe itself is the blocker, not
+  init or architecture. No further arch-track retry of this recipe;
+  the fix belongs to whoever redesigns the command-tracking reward
+  (multitask), logged in multitask/STATUS.md too.
+- **08-15 ~17:4x UTC — `cw-arch-tf-r1-hard2-r1` (unplanned +40M
+  continuation of hard1) TRIAGED PASS: economy improves, no
+  regression, same continuation-helps pattern the hist16-r7 line
+  already showed.** DR0 gate det/sto gait_valid 6/6, 0 term, prog
+  med 1.23/1.08 (was 1.14/1.08), slip/m med 1.21/1.32 (was
+  1.60/1.53 — a real drop); own-cfg DR0.5 det/sto gv 6/6, 0 term,
+  prog med 1.16/1.01 (was 1.10/1.00), slip/m med 1.19/1.51 (was
+  1.41/1.67); roll cleaner too (peak 1.6-2.8°/tail 0.4-0.5° vs
+  hard1's 2.0-7.8°/0.4-1.9°); contact-sheet across all 6 det
+  episodes shows clean six-leg cycling, no flag-leg/drag. **PROCESS
+  GAP (not a science problem): this run had NO ledger/INTENT entry**
+  — a concurrent cycle launched it by raw `kubectl exec`
+  (bypassing `launch_run.py`) in response to untrusted external MCP
+  kicks asking to "continue tf-r1-hard1" (kick_20260815T165322_b36a18
+  family), with no hypothesis/gate/doc anywhere. Backfilled into the
+  ledger this cycle (`update --create`) from the pod log + checkpoint
+  evidence so it isn't a silent gap; do not repeat the raw-launch
+  pattern — respec through `launch_run.py respec` next time (nothing
+  here needed a pod-specific or non-launcher path). Evidence:
+  `logs/ckpt_eval/cw_arch_tf_r1_hard2_r1_{det,sto,owncfg_det,owncfg_sto}`,
+  SKILLS.md.
+- **08-15 ~15:0x UTC — `cw-arch-tf-r1-hard1` (40M hardening twin)
+  TRIAGED PASS: the causal-transformer trunk GROWS a real walking
+  gait at budget parity with the hist16-MLP champion (r7).** DR0
+  gate det+sto gait_valid 6/6, zero sacrificed legs, zero falls
+  (terms 0), prog_ratio med 1.14/1.08 (>=0.85 bar); own-cfg DR0.5
+  same 6/6/6/6, 0 term, prog med 1.10/1.00. Roll behavior clean
+  every episode (roll_class clean/recovered, peak 2.0-7.8°, tail
+  0.4-1.9°) — NOT the universal takeoff-roll-transient fall pattern,
+  and a clear jump from this same arm's 2M canary (fell via roll on
+  every det episode). Video (10-frame strips, all 24 eps across both
+  DR passes) shows six feet cycling through changing contact
+  patterns over the 15s clip, no flag leg, no static/parked gait.
+  Slip is elevated (med 1.60 det/1.53 sto) vs r7's freshest read but
+  sits inside the range r7's OWN verdict already flagged as
+  "elevated vs contract-line champions, not gated here" (1.3-1.6) —
+  not a new regression, the same documented economy gap this whole
+  architecture line carries. **ASSUMPTION (operator to review): no
+  bulk_session_eval cohort before this verdict** — the checkpoint is
+  confirmed obs-INCOMPATIBLE with eval_session/bulk_session_eval
+  (1152 vs 72, same obs-contract mismatch every arch-line checkpoint
+  since r7 has had), so the pre-registered 6-episode-per-mode
+  harness gate (the same convention r7 itself was verdicted on) was
+  treated as the applicable evidence bar for this obs family — same
+  precedent as every other arch-line walk verdict already in
+  SKILLS.md. **Answers the arm's question cleanly: a small attention
+  trunk is not a dead end — given the same 40M budget the MLP
+  champion needed, it gets to the same place.** Walk-only; rise/
+  hold/lower untested on this trunk. No further tf-line fork is
+  pre-registered — a full-skill (rise/hold/lower) extension on the
+  transformer trunk is the natural next question but needs its own
+  spec (BC-anchor/composition choice), not a plain respec; left for
+  a future cycle rather than launched speculatively this cycle.
+  Evidence: `rl_docs/runs/cw-arch-tf-r1-hard1.md`,
+  `logs/ckpt_eval/cw_arch_tf_r1_hard1_{gate,owncfg,session}`.
+- **08-15 ~13:4x UTC — `cw-arch-tf-r1b` TRIAGED PASS (2M discovery
+  mechanism canary): the causal-transformer PPO stack boots/trains
+  cleanly to 2M (no NaN/crash, ep_rew -1.5→93, EV 0.02→0.86, std
+  stable 0.37→0.39), det walk gait_valid 6/6 both DR passes with
+  ZERO sacrificed legs (the hard lock-in FAIL clause never fires) —
+  watched det video confirms all six legs cycling, no flag leg. It
+  falls via roll on every det episode (roll_class fell 6/6, tail
+  ~4°, term tilt_roll) — the SAME campaign-wide universal takeoff-roll
+  transient (CURRENT_TRUTHS), not new/transformer-specific, and not
+  gated at this budget. fps ended 1651 (peaked 1887), short of the
+  informational ≥2000 floor — same ad hoc-CUDA-torch softness as
+  below, not a fail. **Per the pre-registered gate: PASS → respec 40M
+  hardening twin, launched + VERIFIED same cycle as
+  `cw-arch-tf-r1-hard1` on train-1 (reuses the proven ad hoc
+  CUDA-torch build; fps estimate 8192 at launch — the durable
+  launcher-level CUDA-torch path stays the open `[code]` item
+  below).** Evidence: `rl_docs/runs/cw-arch-tf-r1b.md`.
+- **08-15 ~12:1x UTC — `cw-arch-tf-r1` (transformer 2M discovery,
+  train-0) checkup-SUSPECT resolved: slow but healthy, left running
+  (finishes ~13:45 UTC).** The watcher's fps flag (1092 < 1875 floor)
+  is NOT starvation — the run is solo with free cores and 0% GPU
+  util. Root cause: torch on every mjx-train pod is the **CPU-only
+  build** (2.13.0+cpu), so all SB3 policy nets have always trained on
+  CPU; the hist16 MLP tolerates it (r7 ~4.7-5.6k fps) but the
+  transformer trunk runs ~250-300 fps steady (~18x slower, batched
+  impl verified clean — it's the build, not the code). The 2M rung
+  still answers its behavioral question (boot/NaN/cheat lock-in);
+  the gate's "fps usable >=2000" clause is answered NO for
+  environmental reasons. **Named [code] item (blocks the
+  pre-registered 40M hardening twin, 37h at current fps):** build an
+  OPT-IN CUDA-torch path for the policy net (separate venv on one
+  pod, launcher opt-in flag, bit-parity + GPU-memory-coexistence
+  smoke vs warp) — shared default stays CPU-torch, no fleet-wide
+  build swap. Ledger `checkup_note` on the run has the full chain.
+  **UPDATE 08-15 ~12:2x UTC: superseded — the run was KILLED (no
+  science read; env-only) once the fps math (37h for the pre-
+  registered 40M twin) made waiting on it pointless, and relaunched
+  as `cw-arch-tf-r1b` on train-1 with an ad hoc CUDA-torch install
+  (`pip install torch==2.11.0+cu128 --no-deps`, kept train-1's
+  existing jax/nvidia-cu12 stack intact) + `--device cuda`.
+  Benchmarked ~120x on the identical PPO update (240s/iter CPU vs
+  2.0s/iter cuda); `cw-arch-tf-r1b` verified RUNNING, fps climbing
+  993→1457 over its first ~5 update cycles (still short of the
+  gate's >=2000 floor at last look, trending toward it) and healthy
+  (no NaN, EV climbing, coexists on train-1 fine alongside the
+  still-running Arm A distill CPU job below). This is a ONE-POD,
+  UNDOCUMENTED-BY-CODE fix — ephemeral (lost on pod restart/recycle,
+  invisible to snapshot.sh's code marker) — so the named [code] item
+  above (a real launcher-level opt-in CUDA-torch path: recorded pod
+  capability, parity/coexistence smoke, reproducible install step)
+  STAYS OPEN as the durable version of this fix; treat train-1's
+  torch build as a manual, temporary exception until it lands.**
+  **UPDATE 08-15 ~17:3x UTC: FULLY LANDED, wait CLOSED.**
+  `rl_move/orchestrator/pod_torch_capability.py` (install/verify/
+  status/record CLI, `is_capable()` gate requiring a passed
+  torch-cuda + jax-coexistence smoke, 6 tests green, snapshot
+  `exp/cuda-torch-durable1`) records capability durably; train-1
+  recorded retroactively from this arm's own evidence. The launcher
+  refusal itself is now wired: `launch_run.py`'s GPU-checks block
+  refuses an explicit `--device cuda` launch on any pod without a
+  recorded capability (`--device auto`, the trainer default, and
+  dynrep's own live probe are untouched), 4 new monkeypatched tests
+  green (`test_launch_run_torch_gate.py`), snapshot
+  `exp/cuda-torch-launcher-gate`. No more manual archaeology for the
+  next transformer/attention arm on a fresh pod — it gets a clean
+  REFUSED naming the fix (install+record) instead of a silent slow
+  CPU-torch run. See STATUS.md WAITING-ON.
+- **08-15 ~15:2x UTC — Arm A stage-0 distill VERIFIED: FAIL, no
+  Stage 1 launch.** `ppo_goal_cw_arch_modeexperts_bc1.zip` (distilled
+  from `footlow2_hard1` + `bcgait1_hard1`) does not match its
+  teachers cold: det single-mode rise 0/6 (stalls 40-80mm short of
+  full stand vs teacher's 0.5-3.4mm), det walk prog_ratio med 0.53
+  with 2/6 episodes collapsing (prog 0.02/0.12, slip/m 26.2/7.7);
+  hold/lower det clean (6/6 each). Sequence det 10/12 zero-fall
+  (bar 11/12), sto 3/12. Per the pre-registered FAIL branch this is
+  infrastructure (distill can't match teachers), not a science
+  verdict — no PPO on this artifact. Leading fix candidate: the
+  DAgger correction budget over-weighted lower's falls while rise
+  stayed under-corrected (training probe returns already showed this:
+  rise `['-217','125']` vs walk `['837','734']`) — a rise-targeted
+  DAgger/coverage redesign is the next lever, left for a future
+  cycle. Full numbers + evidence paths: `MODE_EXPERTS_DIRECTIVE.md`
+  "Arm A" Stage 0.
+  **08-15 ~17:0x UTC (drain-before-backoff cycle) — the redesign
+  LANDED and re-collection is RUNNING.** `distill_gru --dagger-extra-
+  mix/--dagger-extra-episodes` (default off, tests green, snapshot
+  `exp/arch-modeexperts-bc2-rise-dagger`): a second single-mode
+  targeted DAgger pass tops up rise's correction density independent
+  of whether it triggers a hard fall (bc1's fall tally was almost
+  entirely lower). `bc2` = bc1's exact recipe + `rise=1.0`/100 extra
+  DAgger episodes per round, running as a CPU job on train-0
+  (`/tmp/modeexperts_bc2.log`, `ppo_goal_cw_arch_modeexperts_bc2.zip`
+  when done). Next cycle re-runs the same VERIFY before any Stage 1
+  PPO; two-miss discipline applies (a second miss escalates
+  `[operator]`, not a third variant). Detail:
+  `MODE_EXPERTS_DIRECTIVE.md` "Arm A" Stage 0.
+- **CROSS-TRACK INSIGHT (08-15, from hw `cw-stand-postlower3` dig-in,
+  Cohort c3):** the shared mode-sequence rise branch
+  (`_seq_segment_traj`) starts every mid-sequence rise at BELLY-FRAME
+  0 with the blend interpolating the height ref DOWN from the current
+  height — training on `goal.mode_seq`/`goal.mode_seq_stance` PAYS
+  the policy to re-descend to belly and re-run the flat-rise
+  choreography after a lower (hw measured: held-out det post-lower
+  rise 0.967→0.419, over_current stalls mid-curl; detour visible in
+  clean runs too). Any arch arm training with `goal.mode_seq` > 0
+  (e.g. the modeexperts scratch line at 0.2) inherits this teacher.
+  Fix exists, default-off: `goal.mode_seq_rise_from_h=1` (rise starts
+  at current height; hw evidence pending Cohort c4 on
+  `cw-stand-postlower4`). Adopting it in arch specs is an arch/
+  operator call — no arch launch from the hw cycle. Details:
+  `rl_docs/tracks/hw/SESSION_BULK_GATE.md` "Cohort c3 DIG-IN VERDICT".
+- **08-15 ~06:2x UTC — Arm B canary `cw-arch-modeexperts-scratch1-r1`
+  TRIAGED PASS (mechanism health, all four pre-registered clauses):
+  finished 2.03M steps clean, no NaN/crash/canary-stop; FINAL
+  experts/tick_frac_ rise=.345 loco=.260 lower=.217 hold=.178 vs
+  commanded .35/.35/.20/.10 — every expert within 0.09, i.e. the mix
+  self-corrected past the ±0.10 clause by end of run (better than the
+  1.05M mid-run snapshot's hold=.246 miss, exactly as predicted:
+  "as walking improves f_seq self-shifts toward walk"); per-expert
+  std diverged independently from the shared .368 init (hold .393 >
+  rise .389 > loco/lower .385); reward quarters −330.9/−308.1/
+  −163.8/−2.4, monotone, no divergence. Skill acquisition explicitly
+  NOT judged at 2M (mechanism-only gate). **PASS → `scratch2` (40M,
+  corrected diet rise/loco/lower≈.30 each, hold≈.03,
+  goal.mode_seq=0.2) LAUNCHED + VERIFIED same cycle on train-2** per
+  the pre-registered SCRATCH2 order (fb_20260815T035147_dd2af0).
+  Evidence: `rl_docs/runs/cw-arch-modeexperts-scratch1-r1.md`.
+- **08-15 — OPERATOR DIRECTIVE EXECUTED (fb_20260815T013349_488ffd,
+  via operator KICK): the four-expert isolated architecture is BUILT
+  and both arms are pre-registered — full spec + gates + decision
+  table in `MODE_EXPERTS_DIRECTIVE.md`.**
+  `ModeExpertsGruActorCriticPolicy` (rise/hold/lower/loco experts,
+  each its own actor GRU + critic GRU + heads + PER-EXPERT log_std —
+  the two sharing channels dual2/modeseq1-r1 died through are gone by
+  construction; optional zero-init transition adapter; freeze
+  support), default-off, legacy bit-exact, tests + semantics bank
+  green, snapshotted. **Arm A** `cw-arch-modeexperts1` (composition):
+  stage-0 distill from footlow2_hard1 (stance experts) +
+  bcgait1_hard1 (loco) RUNNING on train-1 CPUs; stage-1 frozen-expert
+  adapter PPO pre-registered `[precondition: distill verifies vs
+  teachers]`. **Arm B** `cw-arch-modeexperts-scratch1` (from-scratch
+  WALK+RISE+LOWER, operator override of the nobc gait closure; no BC
+  anchor, no rise_ref imitation): 2M mechanism CANARY
+  `cw-arch-modeexperts-scratch1-r1` RUNNING on train-2 (first launch
+  died silently on train-0 — INFRA, verdicted, retry verified);
+  staged ~60M full-budget acquisition pre-registered on canary PASS —
+  "not learned at 2M" is explicitly NOT a verdict (budget honesty:
+  cw-mt-a2 needed 20M active walk ticks). Multitask pause explicitly
+  lifted for these two arms only; hierarchy product baseline
+  untouched. **08-15 ~04:1x UTC (overnight directive
+  fb_20260815T035147_dd2af0 executed): scratch2 is fully pre-staged.**
+  Canary healthy at 1.05M (reward −301→−238, independent per-expert
+  stds, ~195 fps) but the realized skill diet misses the tick clause:
+  hold gets .246 of ticks (ordered .10), loco .234 (ordered .35).
+  Measured attribution: sequence episodes deliver f_seq = rise .29 /
+  loco .12 / lower .20 / hold .39 (rise→hold precedes walk in the
+  grammar; early falls truncate walk tails) — operator pre-classified
+  this exact miss as a curriculum SPEC DEFECT, not an architecture
+  verdict. Corrected phase-1 curriculum solved from measured
+  fractions (mode_seq 0.5→0.2, mix walk=.345/rise=.303/lower=.324/
+  hold=.028 → predicted realized .30/.30/.30/.10, preflight PASSED);
+  exact respec command, exposure-honesty gate, watchdog/checkpoint/
+  canary-stop safeguards, disclosed limitations, and the scratch3
+  active-tick top-up (≥20M REAL ticks/skill; never report env steps
+  as exposure) are pre-registered in MODE_EXPERTS_DIRECTIVE.md
+  "SCRATCH2". The cycle that triages the canary launches scratch2
+  SAME CYCLE.
 - **08-14 ~19:5x UTC — `transdagger3` TRIAGED: FAIL on the Arm 1
   gate, NET REGRESSION vs transdagger2 on the sequence clause — the
   rise demo mix is ZERO-SUM.** Seq det DR0 zero-fall 9/12 (bar

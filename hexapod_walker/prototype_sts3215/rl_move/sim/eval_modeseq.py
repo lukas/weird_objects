@@ -237,6 +237,16 @@ def main() -> int:
                     help="both policies predict stochastically (default "
                          "deterministic)")
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--torch-seed", type=int, default=None,
+                    help="seed torch's global RNG at start (makes "
+                         "--stochastic runs reproducible / resumable "
+                         "shard-exact for the bulk session cohort); "
+                         "default None = legacy behavior untouched")
+    ap.add_argument("--strip-ep", type=int, default=0,
+                    help="which episode index --strips renders "
+                         "(default 0 = legacy; the bulk rerender path "
+                         "re-runs a shard up to a failed episode and "
+                         "saves THAT episode's strip)")
     ap.add_argument("--rise-height-mm", default="108,114",
                     help="specialist's trained plant band (eval_handoff "
                          "default)")
@@ -249,6 +259,10 @@ def main() -> int:
 
     import mujoco
     from stable_baselines3 import PPO
+
+    if args.torch_seed is not None:
+        import torch
+        torch.manual_seed(args.torch_seed)
 
     from rl_move.config import load_config
     from rl_move.env import build_obs
@@ -658,7 +672,7 @@ def main() -> int:
     seen_rise = 0
     for ep in range(args.episodes):
         ep_rec = {"ep": ep, "segments": [], "zero_fall": True}
-        want_strip = args.strips is not None and ep == 0
+        want_strip = args.strips is not None and ep == args.strip_ep
         strip_frames.clear()
         episode_begin()
         obs, alive = None, True

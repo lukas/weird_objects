@@ -962,6 +962,70 @@ class SimHexapodBalanceEnv(_GymBase):
         self._park_bank_cache = bank
         return bank
 
+    def _recover_start_bank(self) -> np.ndarray | None:
+        """Harvested recover-mode start poses (08-15, recover_to_plant
+        family 2). Lazy-loads the npz named by cfg
+        goal.recover_start_bank (key ``q_rad``, shape (K,18)); caches
+        None when unset. Same contract as _walk_park_bank."""
+        if hasattr(self, "_rec_bank_cache"):
+            return self._rec_bank_cache
+        path = cfg_get(self.cfg, "goal", "recover_start_bank",
+                       default=None)
+        bank = None
+        if path:
+            arr = np.asarray(np.load(str(path))["q_rad"], dtype=float)
+            if arr.ndim != 2 or arr.shape[1] != N_JOINTS or len(arr) == 0:
+                raise ValueError(
+                    f"recover_start_bank {path}: expected "
+                    f"(K,{N_JOINTS}) q_rad, got {arr.shape}")
+            bank = arr
+        self._rec_bank_cache = bank
+        return bank
+
+    def _rise_start_bank(self) -> np.ndarray | None:
+        """Harvested settled lower-endpoint poses (08-14, post-lower
+        rise exposure — SESSION_BULK_GATE's named boundary). Lazy-loads
+        the npz named by cfg goal.rise_start_bank (key ``q_rad``, shape
+        (K,18)); caches None when unset so the legacy path costs one
+        attribute check. Same contract as _walk_park_bank."""
+        if hasattr(self, "_rise_bank_cache"):
+            return self._rise_bank_cache
+        path = cfg_get(self.cfg, "goal", "rise_start_bank", default=None)
+        bank = None
+        self._rise_bank_full = None
+        self._rise_bank_zstand = None
+        if path:
+            npz = np.load(str(path))
+            arr = np.asarray(npz["q_rad"], dtype=float)
+            if arr.ndim != 2 or arr.shape[1] != N_JOINTS or len(arr) == 0:
+                raise ValueError(
+                    f"rise_start_bank {path}: expected (K,{N_JOINTS}) "
+                    f"q_rad, got {arr.shape}")
+            bank = arr
+            # Full-state twin (08-14 postlower2 dig-in): newer banks also
+            # carry the exact settled qpos/qvel; goal.rise_start_bank_exact
+            # (default OFF) restores them verbatim instead of the
+            # joints-only _place_at_plant reconstruction, which proved
+            # off-distribution (parent 0/12 from reconstruction vs
+            # 0.801/0.967 from real in-session post-lower states).
+            if "qpos_full" in npz.files and "qvel_full" in npz.files:
+                qp = np.asarray(npz["qpos_full"], dtype=float)
+                qv = np.asarray(npz["qvel_full"], dtype=float)
+                if len(qp) == len(arr) and len(qv) == len(arr):
+                    self._rise_bank_full = (qp, qv)
+            # Standing anchor per row (08-14, the postlower1/2 root
+            # cause): rise heights are z0-relative and belly-calibrated;
+            # a bank spawn settles ~50mm above the belly, so anchoring
+            # the band at the spawn commands an IMPOSSIBLE target.
+            # z_stand = the harvest lower-episode's own standing z0 —
+            # what this endpoint should rise back to.
+            self._rise_bank_zstand = (
+                np.asarray(npz["z_stand"], dtype=float)
+                if "z_stand" in npz.files
+                and len(npz["z_stand"]) == len(arr) else None)
+        self._rise_bank_cache = bank
+        return bank
+
     def _place_at_plant(self, q_rad: np.ndarray) -> None:
         """Set qpos to ``q_rad`` with the chassis at foot-contact height."""
         import mujoco_prototype as MP
@@ -990,6 +1054,27 @@ class SimHexapodBalanceEnv(_GymBase):
                 break
             self.data.qpos[2] += -worst + 0.001
             mujoco.mj_forward(self.model, self.data)
+        # RECOVER "flip" spawn (08-15): consume-once pending base
+        # orientation — rotate, lift clear of the floor, and let the
+        # caller's settle choreography drop it however it lands
+        # (side/back/upside-down). Both reset paths (C reset() and the
+        # MJX batched choreography's place_env) run through here, so
+        # one hook covers both. None everywhere outside the recover
+        # mode's flip kind — every legacy placement is bit-exact.
+        flip = getattr(self, "_flip_spawn_pending", None)
+        if flip is not None:
+            self._flip_spawn_pending = None
+            self.data.qpos[3:7] = flip
+            self.data.qpos[2] += 0.03
+            mujoco.mj_forward(self.model, self.data)
+            for _ in range(40):
+                worst = 0.0
+                for ci in range(self.data.ncon):
+                    worst = min(worst, float(self.data.contact[ci].dist))
+                if worst > -1e-4:
+                    break
+                self.data.qpos[2] += -worst + 0.001
+                mujoco.mj_forward(self.model, self.data)
 
     # ------------------------------------------------------------------
     # gym API
@@ -1010,6 +1095,8 @@ class SimHexapodBalanceEnv(_GymBase):
         self._prev_action[:] = 0.0
         self.safety.clear_estop()
         self._tipped_applied = False
+        self._rise_bank_zstand_pending = None
+        self._flip_spawn_pending = None
 
         self._ep_rand = (self.randomizer.sample(self.rng)
                          if self.randomizer is not None else None)
@@ -1092,7 +1179,13 @@ class SimHexapodBalanceEnv(_GymBase):
         self._rsi_pending = False
         self._rsi_ref_tick0: int | None = None
         if (self._goal_traj is not None
-                and getattr(self._goal_traj, "mode", "") == "rise"):
+                and getattr(self._goal_traj, "mode", "") == "rise"
+                # Bank episodes ARE the post-lower exposure — RSI must
+                # not override them (rise_bank never occurs unless
+                # goal.rise_start_bank is configured, so the legacy
+                # rng stream is untouched when the feature is off).
+                and getattr(self._goal_traj, "start_at", "")
+                != "rise_bank"):
             rsi_f = float(cfg_get(self.cfg, "goal", "rise_rsi_frac",
                                   default=0.0))
             rsi_ref = cfg_get(self.cfg, "reward", "rise_ref_path",
@@ -1139,6 +1232,52 @@ class SimHexapodBalanceEnv(_GymBase):
             if self._ep_rand is not None:
                 q_start = self._clip_to_joint_limits(
                     q_start + self._ep_rand.start_offset_rad)
+        elif start_at == "rise_bank":
+            # Post-lower rise start (08-14): a harvested settled
+            # lower-endpoint pose of the policy's OWN lower skill
+            # (goal.rise_start_bank, built by harvest_lower_endpoints).
+            # SESSION_BULK_GATE named this the single trainable
+            # boundary: ALL 10 det session failures + the weakest sto
+            # stratum (0.801, over_current-dominated) were post-lower
+            # rises, while synthetic-start first rises were 300/300.
+            # +-2 deg jitter, same as the walk park bank.
+            bank = self._rise_start_bank()
+            if bank is None:
+                raise RuntimeError(
+                    "start_at='rise_bank' requires goal.rise_start_bank")
+            bi = int(self.rng.integers(len(bank)))
+            q_start = bank[bi].copy()
+            anchor = float(cfg_get(self.cfg, "goal",
+                                   "rise_start_bank_anchor_stand",
+                                   default=0.0)) > 0.0
+            if anchor:
+                zs = getattr(self, "_rise_bank_zstand", None)
+                if zs is None:
+                    raise ValueError(
+                        "goal.rise_start_bank_anchor_stand needs a bank "
+                        "with the z_stand array (re-harvest with the "
+                        "08-14 harvest_lower_endpoints) — the legacy "
+                        "bank has no standing anchor to rewrite the "
+                        "height schedule against.")
+                self._rise_bank_zstand_pending = float(zs[bi])
+            exact = (float(cfg_get(self.cfg, "goal",
+                                   "rise_start_bank_exact",
+                                   default=0.0)) > 0.0
+                     and getattr(self, "_rise_bank_full", None) is not None)
+            if exact:
+                # Exact-restore mode (08-14, default OFF): spawn IS the
+                # harvested settled state, verbatim — no jitter, no
+                # start-offset, no re-plant/settle choreography. The
+                # joints-only reconstruction proved off-distribution
+                # (see _rise_start_bank docstring).
+                qp, qv = self._rise_bank_full
+                self._exact_start_pending = (qp[bi].copy(), qv[bi].copy())
+                q_start = self._clip_to_joint_limits(q_start)
+            else:
+                q_start += self.rng.uniform(-2.0, 2.0, N_JOINTS) * DEG2RAD
+                if self._ep_rand is not None:
+                    q_start = q_start + self._ep_rand.start_offset_rad
+                q_start = self._clip_to_joint_limits(q_start)
         elif start_at == "gait":
             # Mid-stride TALL spawn (TALL LADDER T6: RSI-for-walk, see
             # walk_task._sample_walk). Scripted tripod-gait pose at a
@@ -1206,6 +1345,50 @@ class SimHexapodBalanceEnv(_GymBase):
                         self.rng.uniform(10.0, 25.0)) * DEG2RAD
                     q_start[3 * leg + 2] += float(
                         self.rng.uniform(-5.0, 10.0)) * DEG2RAD
+            elif kind == "onefoot":
+                # RECOVER family 1: near-standing with exactly ONE
+                # misplaced/unloaded foot (recover-only kind — never
+                # drawn by getup, so legacy rng streams are untouched).
+                q_start = (self._plant_deg * DEG2RAD).copy()
+                leg = int(self.rng.integers(6))
+                q_start[3 * leg + 1] -= float(
+                    self.rng.uniform(12.0, 30.0)) * DEG2RAD
+                q_start[3 * leg + 2] += float(
+                    self.rng.uniform(-5.0, 12.0)) * DEG2RAD
+            elif kind == "bank":
+                # RECOVER family 2: harvested post-lower/interrupted
+                # poses (goal.recover_start_bank npz, key q_rad
+                # (K,18)). Placement + slip/limp settle produce a
+                # physically consistent start; the exact-qvel restore
+                # is CPU-only (family-5 falling velocities are the
+                # pre-registered next rung).
+                bank = self._recover_start_bank()
+                if bank is None:
+                    raise ValueError("start_kind 'bank' requires "
+                                     "goal.recover_start_bank")
+                q_start = bank[int(self.rng.integers(len(bank)))].copy()
+                q_start += self.rng.uniform(
+                    -2.0, 2.0, N_JOINTS) * DEG2RAD
+            elif kind == "flip":
+                # RECOVER family 4: side/back/upside-down. Random legal
+                # joints + a random base rotation of 90-180 deg about a
+                # random horizontal axis, applied by _place_at_plant
+                # (consume-once pending quat, both C and MJX paths go
+                # through place_env -> _place_at_plant), then the
+                # slip/limp settle drops it however it lands. Runs
+                # enabling this kind must widen safety.max_roll/
+                # pitch_deg to ~179 (a fall is a recoverable state).
+                from rl_move.safety import AXIS_LIMITS_DEG
+                q_start = np.array(
+                    [self.rng.uniform(*AXIS_LIMITS_DEG[j % 3])
+                     for j in range(N_JOINTS)], dtype=float) * DEG2RAD
+                ax_ang = float(self.rng.uniform(0.0, 2.0 * math.pi))
+                ang = float(self.rng.uniform(math.pi / 2.0, math.pi))
+                ax = (math.cos(ax_ang), math.sin(ax_ang), 0.0)
+                half = ang / 2.0
+                s = math.sin(half)
+                self._flip_spawn_pending = (
+                    math.cos(half), ax[0] * s, ax[1] * s, ax[2] * s)
             else:  # "plant"
                 q_start = (self._plant_deg * DEG2RAD).copy()
             if self._ep_rand is not None:
@@ -1351,14 +1534,36 @@ class SimHexapodBalanceEnv(_GymBase):
         # episode start is untouched. Cached across resets when the
         # model cannot change (no DR, no easing); recomputed per episode
         # otherwise.
-        if (float(cfg_get(self.cfg, "goal", "mode_seq",
-                          default=0.0)) > 0.0
+        if ((float(cfg_get(self.cfg, "goal", "mode_seq",
+                           default=0.0)) > 0.0
+             or float(cfg_get(self.cfg, "goal", "mode_seq_stance",
+                              default=0.0)) > 0.0)
                 and (self._seq_frames is None
                      or self._ep_rand is not None
                      or self._ease_g != 1.0 or self._ease_v != 1.0)):
             self._seq_capture_frames()
 
-        self._place_at_plant(q_start)
+        exact_start = getattr(self, "_exact_start_pending", None)
+        self._exact_start_pending = None
+        if exact_start is not None:
+            # Exact-restore spawn (08-14, rise_start_bank_exact): the
+            # harvested settled state IS the episode start — restore it
+            # verbatim (servos holding, contacts as-settled) instead of
+            # re-planting at foot height and re-settling, which distorts
+            # deep post-lower poses into an unreal family.
+            qp, qv = exact_start
+            self._mujoco.mj_resetData(self.model, self.data)
+            self.data.qpos[:] = qp
+            # Recenter horizontally: harvest episodes drift in x/y and
+            # dynamics are translation-invariant; keeps eval odometry
+            # (forward_dist) comparable with every other spawn.
+            self.data.qpos[0:2] = 0.0
+            self.data.qvel[:] = qv
+            self.data.ctrl[:] = 0.0
+            self.data.ctrl[self._pos_act] = q_start
+            self._mujoco.mj_forward(self.model, self.data)
+        else:
+            self._place_at_plant(q_start)
         er = self._ep_rand
         self._profile = ServoProfile(
             self.params, q_start,
@@ -1368,16 +1573,18 @@ class SimHexapodBalanceEnv(_GymBase):
                        * self._ease_v),
         )
         self._cmd = q_start.copy()
-        # Settle with slippery feet AND limp servos first: when a human
-        # sets the robot down (torque off), feet micro-slip and joints
-        # sag until the structure reaches a passive equilibrium —
-        # otherwise randomized geometry + pinned contacts leave the legs
-        # isometrically preloaded at 2-3 A from step 0.
-        fr = self.model.geom_friction[:, 0].copy()
-        self.model.geom_friction[:, 0] = self.SLIP_MU
-        self._settle(0.4)          # stiff: reach the commanded pose
-        self._settle(0.5, limp=True)   # limp: bleed off contact preload
-        self.model.geom_friction[:, 0] = fr
+        if exact_start is None:
+            # Settle with slippery feet AND limp servos first: when a
+            # human sets the robot down (torque off), feet micro-slip and
+            # joints sag until the structure reaches a passive
+            # equilibrium — otherwise randomized geometry + pinned
+            # contacts leave the legs isometrically preloaded at 2-3 A
+            # from step 0.
+            fr = self.model.geom_friction[:, 0].copy()
+            self.model.geom_friction[:, 0] = self.SLIP_MU
+            self._settle(0.4)      # stiff: reach the commanded pose
+            self._settle(0.5, limp=True)  # limp: bleed contact preload
+            self.model.geom_friction[:, 0] = fr
 
         # Hold-current semantics, same as the hardware env: nominal is the
         # pose the robot actually SETTLED at (however badly it was placed),
@@ -1451,6 +1658,29 @@ class SimHexapodBalanceEnv(_GymBase):
             n_ep = len(np.asarray(self._goal_traj.height))
             self._goal_traj.height = h_left * np.clip(
                 np.arange(n_ep, dtype=float) / n_ramp, 0.0, 1.0)
+        # Bank-episode standing re-anchor (08-14, the postlower1/2 root
+        # cause): rise heights are relative to _z0 (= wherever the body
+        # settled) with a BELLY-calibrated band, but a post-lower bank
+        # spawn settles ~50mm above the belly — the unmodified schedule
+        # commands an impossible ~190-213mm chassis height (measured;
+        # the champion parent scores 0/12 on it while rising from REAL
+        # in-session post-lower states 80-97% of the time). Rewrite the
+        # schedule to the REMAINING rise back to the harvested standing
+        # height, RSI-style ramp scaling. Opt-in
+        # (goal.rise_start_bank_anchor_stand, default OFF => bit-exact).
+        z_stand = getattr(self, "_rise_bank_zstand_pending", None)
+        self._rise_bank_zstand_pending = None
+        if z_stand is not None and self._goal_traj is not None:
+            h_left = max(z_stand - self._z0, 0.002)
+            hs = np.asarray(self._goal_traj.height)
+            h_end = max(float(hs[-1]), 1e-3)
+            ramp_s = float(cfg_get(self.cfg, "goal", "rise_ramp_s",
+                                   default=6.0))
+            n_ramp = max(int(round(ramp_s * min(h_left / h_end, 1.0)
+                                   / self.dt)), 3)
+            n_ep = len(hs)
+            self._goal_traj.height = h_left * np.clip(
+                np.arange(n_ep, dtype=float) / n_ramp, 0.0, 1.0)
         # Staged height scores (rise/raise/lower): potential-based
         # progress on |height_err| plus one-time milestone bonuses at
         # fractions of the episode's height target. Sim-only (privileged
@@ -1482,6 +1712,17 @@ class SimHexapodBalanceEnv(_GymBase):
                           and getattr(self._goal_traj, "mode", "")
                           == "getup")
         self._getup_best = None
+        # RECOVER (recover_to_plant, 08-15 directive) episode state:
+        # mode flag, the PBRS previous-potential (seeded on the first
+        # post-settle tick — spawn posture is never income), and the
+        # continuous success-hold counter. All three ride
+        # mjx_host.SNAP_ATTRS (pool-restored episodes must not inherit
+        # another episode's potential baseline or hold streak).
+        self._is_recover = (self._goal_traj is not None
+                            and getattr(self._goal_traj, "mode", "")
+                            == "recover")
+        self._rec_phi_prev = None
+        self._rec_hold_n = 0
         # HOLD/TRACK BC-anchor eligibility (RL_PLAN queue 2.3, 08-11:
         # the rise lever repeated after both hold pricing levers — hard
         # zero, then the fade — moved the pricing but never reached a
@@ -1696,6 +1937,20 @@ class SimHexapodBalanceEnv(_GymBase):
                             "safety_termination_penalty", default=10))
         if clipped is None:
             self._step_i += 1
+            # Early-fall horizon cost (08-15, operator directive
+            # fb_20260815T114414): reward.term_cost_per_remaining_s
+            # charges k * REMAINING episode seconds on top of the flat
+            # penalty for ANY safety termination, so a drag-then-fall
+            # cannot bank income a survivor would have kept earning
+            # (cw-mt-c2's ~6 s drag-then-fall retained positive return
+            # at the flat -10). Truncation is never charged. Default
+            # 0.0 = legacy bit-exact.
+            k_rem = float(cfg_get(self.cfg, "reward",
+                                  "term_cost_per_remaining_s",
+                                  default=0.0))
+            if k_rem > 0.0:
+                pen += k_rem * max(self.episode_steps - self._step_i,
+                                   0) * self.dt
             parts = {"reward_termination": -pen}
             return (self._final_obs(
                         build_obs(self.cfg, self._state, self._q_nom,
@@ -1800,9 +2055,11 @@ class SimHexapodBalanceEnv(_GymBase):
 
     def _seq_segment_traj(self, mode: str, tick: int):
         """Build one mid-episode segment's reference schedule. Only the
-        walk task supports mode sequencing; see walk_task override."""
+        goal tasks support mode sequencing: goal_task (rise/hold/lower,
+        goal.mode_seq_stance) and walk_task (adds walk, goal.mode_seq)."""
         raise NotImplementedError(
-            "goal.mode_seq segments require the joint_walk task")
+            "mode_seq segments require a goal task (joint_goal for "
+            "stance-only sequences, joint_walk for walk grammars)")
 
     # Segment family -> canonical start pose the frame probe settles at.
     # walk/hold/track/lower episodes all reset at the plant; rise resets
@@ -1942,6 +2199,9 @@ class SimHexapodBalanceEnv(_GymBase):
         self._is_rise = mode == "rise"
         self._is_getup = False
         self._getup_best = None
+        self._is_recover = False   # recover never occurs mid-sequence
+        self._rec_phi_prev = None
+        self._rec_hold_n = 0
         self._is_hold_bc = mode in ("hold", "track")
         self._is_lower_bc = mode == "lower"
         self._rise_ramp_i0 = int(ramp_i0)
@@ -1985,8 +2245,12 @@ class SimHexapodBalanceEnv(_GymBase):
             # stand score (walk_task._post_step) replaces the height
             # kernel/shaping. Feeding h_err = h_rel here would CHARGE
             # standing up away from the settled spawn height — the
-            # exact opposite of the task.
-            if not getattr(self, "_is_getup", False):
+            # exact opposite of the task. RECOVER (08-15) has the
+            # identical shape: its potential Phi prices height, and
+            # the spawn-anchored h_err would charge every honest rise
+            # (measured -58/ep on the reference rise replay).
+            if not (getattr(self, "_is_getup", False)
+                    or getattr(self, "_is_recover", False)):
                 h_err = h_rel - goal.height_ref
             if goal.unload_leg is not None:
                 adr = self._touch_adr[int(goal.unload_leg)]
@@ -2824,6 +3088,16 @@ class SimHexapodBalanceEnv(_GymBase):
                 parts["reward_end_posture"] = r_endp
                 reward += r_endp
         if terminated:
+            # Early-fall horizon cost — same key/semantics as the
+            # _step_begin site (reward.term_cost_per_remaining_s,
+            # default 0.0 = legacy bit-exact); only safety
+            # terminations are charged, never time-limit truncation.
+            k_rem = float(cfg_get(self.cfg, "reward",
+                                  "term_cost_per_remaining_s",
+                                  default=0.0))
+            if k_rem > 0.0:
+                pen += k_rem * max(self.episode_steps - self._step_i,
+                                   0) * self.dt
             parts["reward_termination"] = -pen
             reward -= pen
         truncated = self._step_i >= self.episode_steps
@@ -2982,6 +3256,57 @@ class SimHexapodBalanceEnv(_GymBase):
                 info["bc_target"] = q_rad_to_action(
                     _bc_ref["q"][_bc_jn]).astype(np.float32)
                 info["bc_mode"] = 4    # getup
+        # RECOVER BC-anchor target (08-15 directive: "preserve the
+        # explicit state-aligned getup BC anchor that made cw-getup3
+        # work; apply it on MASTERED rise/plant states so the
+        # inherited skill cannot decay", with matching conditioned on
+        # orientation/height/contact — not nearest-q alone). Same
+        # nearest-q + lookahead emit as getup, but ELIGIBILITY-GATED:
+        # the target only fires when the body is upright-ish (true
+        # tilt <= train.bc_anchor_recover_tilt_deg), at/below plant
+        # height (no stilt supervision), and with real ground reaction
+        # through the feet — a side/back/flipped robot is never pulled
+        # toward rise poses it cannot reach from there. Cfg-gated by
+        # train.bc_anchor_recover (default 0 = off, bit-exact).
+        elif (getattr(self, "_is_recover", False)
+                and getattr(self, "n_act", 0) == N_JOINTS
+                and _bc_coef > 0.0
+                and float(cfg_get(self.cfg, "train",
+                                  "bc_anchor_recover",
+                                  default=0.0)) > 0.0):
+            _bc_ref_path = cfg_get(self.cfg, "reward", "rise_ref_path",
+                                   default=None)
+            if _bc_ref_path:
+                _r, _p = self._true_roll_pitch()
+                _tilt = max(abs(_r), abs(_p)) * 180.0 / math.pi
+                _tilt_max = float(cfg_get(
+                    self.cfg, "train", "bc_anchor_recover_tilt_deg",
+                    default=25.0))
+                _touch_n = 0.0
+                for _f in range(6):
+                    _adr = self._touch_adr[_f]
+                    if _adr >= 0:
+                        _touch_n += max(
+                            float(self.data.sensordata[_adr]), 0.0)
+                _z_now = float(self.data.xpos[self._chassis_bid, 2])
+                _z_pl, _ = self._getup_geom()
+                if (_tilt <= _tilt_max and _touch_n >= 0.5
+                        and _z_now <= _z_pl + 0.02):
+                    from .joint_task import q_rad_to_action
+                    _bc_ref = load_rise_ref(str(_bc_ref_path))
+                    _bc_qnow = np.asarray(
+                        self.data.qpos[self._qadr], dtype=float)
+                    _bc_j = int(np.argmin(
+                        ((_bc_ref["q"] - _bc_qnow[None, :]) ** 2)
+                        .mean(axis=1)))
+                    _bc_ahead = max(int(round(float(cfg_get(
+                        self.cfg, "train", "bc_anchor_lookahead_s",
+                        default=0.25)) / _bc_ref["dt"])), 1)
+                    _bc_jn = min(_bc_j + _bc_ahead,
+                                 len(_bc_ref["q"]) - 1)
+                    info["bc_target"] = q_rad_to_action(
+                        _bc_ref["q"][_bc_jn]).astype(np.float32)
+                    info["bc_mode"] = 6    # recover
         # HOLD/TRACK BC-anchor target (RL_PLAN queue 2.3, 08-11): the
         # rise lever repeated after two hold pricing misses (hard zero,
         # then a linear fade) neither reached a quiet plant. Hold/track

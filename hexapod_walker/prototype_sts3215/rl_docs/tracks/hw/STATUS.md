@@ -9,6 +9,267 @@ unresolved blockers between the robot and reliable joystick control.
 
 ## Now
 
+- **08-15 ~18:xx (operator-kick cycle): the getup/recovery sub-line
+  is REOPENED BY OPERATOR ORDER (authenticated KICK confirming the
+  fb_20260815T165306_606974 directive after 5-6 correct
+  channel-grounds declines of its unauthenticated MCP copies) and
+  `cw-recover-any1` is RUNNING** — a universal recover-to-plant
+  specialist: from any recoverable state (near-stand w/ one unloaded
+  foot, tripod park, crouch/interrupted rise, harvested post-lower
+  bank, belly, random tangle, side/back/UPSIDE-DOWN drops) reach a
+  full-height level quiet stand with ALL SIX feet loaded, hold 0.5 s,
+  episode ends on held success. New `recover` mode (REWARD.md §4c):
+  potential-DIFFERENCE reward (PBRS — no occupancy/ratchet/hold
+  income, no alive bonus; smooth-min per-foot load keeps one unloaded
+  foot visible → the getup3-c2/getup4 4-leg plateau cannot recur by
+  construction), one-shot success bonus, time tax, fail cost ≥ max
+  remaining tax (no early-abort), adaptive reset-family curriculum
+  (frontier-weighted, ≥80% admit / <20% retreat, buckets 1-2 first),
+  eligibility-gated state-aligned rise BC anchor (the cw-getup3
+  lever, now orientation/height/contact-conditioned). Warm from
+  footlow2_hard1 (obs-pad transplant = optimizer fresh, critic
+  carried — recorded semantics), long-horizon PPO per directive
+  (512 envs × 128 steps = 5.1 s span, γ=0.995, λ=0.98, batch 8192),
+  40M cap, one-run bundle exception per the operator ruling
+  (root STATUS.md). v1 DEVIATIONS from the directive spec (recorded,
+  pre-registered next rungs): reset families 5-6 (pushed-walking
+  falling states, on-policy failure harvests) + exact-qvel bank
+  restore on the MJX path + the 1 s frozen-stance handoff INSIDE
+  train-time eval are not built — handoff is checked at triage via
+  eval_handoff; curriculum stats are per-env (4-worker sharded), not
+  fleet-global; COM/support check is the footprint+all-loaded+level
+  proxy. Gate: pre-registered in the ledger (held recovery ≥95% det /
+  ≥85% sto across the ACTIVE mixture at 40M or early exploit stop;
+  no regression on ordinary rise/hold/lower; research specialist —
+  does NOT touch the product baseline).**
+- CROSS-TRACK INSIGHT (08-15, from multitask): `cw-joystick-translate1`
+  (walk-task, unrelated reward recipe) independently reproduced the
+  parked/stilt-single-foot exploit gaming its progress proxy while
+  real displacement stayed ~0 for 40M steps — corroborates, does not
+  reopen, the hw "one-parked-foot hold habit" already TERMINALLY
+  CLOSED on pricing above (`cw-stand-minfeet1` etc.); still points at
+  the anchor/behavior side, not more per-foot reward tuning, as the
+  only lever left. No hw launch from this.
+- **08-15 (this cycle): `cw-stand-postlower4` FINISHED and its
+  pre-registered Cohort c4 bulk read (n=600, fresh banks
+  960000../970000.., now retired) is IN — VERDICT: FAIL, but the
+  right kind of FAIL — mechanism CONFIRMED, magnitude still short.**
+  The schedule fix (`goal.mode_seq_rise_from_h`, "stand up from where
+  you are") worked exactly as designed: 10 watched re-renders (6 of
+  the failures + 4 clean draws) show every post-lower rise is now a
+  DIRECT push-up, zero belly-detours, and det post-lower rise
+  recovered from c3's 0.419 to **0.872** (sto 0.631→0.690) — but both
+  numbers land short of the parent (det 0.967, sto 0.801) and short
+  of the pre-registered parity bar, so the letter of the gate reads
+  FAIL on clauses 1-3 (det session zero-fall 0.863 vs bar 0.95, det
+  post-lower rise 0.872 vs bar 0.967, sto post-lower rise 0.690 vs
+  bar 0.90). Crown jewels clean (det first-rise 0.99 every stratum
+  ≥0.97; lower 1.0 det+sto). Remaining falls are a genuine
+  over_current stall (switch_peak_a ~2.6A), not a new exploit — an
+  actuation-effort ceiling, not a behavior bug. This is the SECOND
+  miss of the in-context sequence-training mechanism (c3 = wrong
+  mechanism/detour, c4 = right mechanism/still short) — per two-miss
+  discipline the class is CLOSED for further dose/diet/schedule
+  resweeps of this recipe; unlike c3 this result is NOT surprising
+  (it's exactly the pre-registered "if-false" branch, video-
+  confirmed), so no dig-in was needed to call it. Next lever is an
+  operator product-contract choice: align the runner/instrument's
+  rise-schedule semantics to "remaining rise" (train==deploy exactly)
+  or price post-lower rise directly in reward — escalated
+  `[operator]` in STATUS.md WAITING-ON, no new postlower arm until
+  picked. Full numbers: `SESSION_BULK_GATE.md` "Cohort c4 RESULTS".
+  Product baseline (c1 hierarchy) unaffected.
+- 08-15 (dig-in cycle, superseded by the c4 read above): `cw-stand-postlower3` VERDICTED FAIL —
+  root cause FOUND, fixed in code, and `cw-stand-postlower4` launched
+  on the fix (pre-registered Cohort c4, fresh banks 960000../970000..).
+  The c3 collapse was not "more exposure needed" and not the reanchor
+  path: the sequence rise schedule STARTS AT BELLY-FRAME 0 (blend
+  down + 1 s hold at 0), so training PAID the robot to re-descend,
+  splay flat and re-run the flat-rise demo choreography after every
+  lower — the re-renders show that detour in failures AND successes,
+  and the state-aligned flat-demo BC anchor reinforces it once low.
+  The detour completes on-policy in training (hence the `rise:ok`
+  reels) but routes every held-out post-lower rise through the
+  max-strain curl → over_current on >50% det (det<sto because det
+  fully commits to the taught detour). Fix (same-cycle, CODE-FIRST):
+  `goal.mode_seq_rise_from_h` (default off, bit-exact, tests green) —
+  mid-sequence rises start at the robot's CURRENT height, "stand up
+  from where you are", never a commanded descent. Full chain +
+  clause table: `SESSION_BULK_GATE.md` "Cohort c3 DIG-IN VERDICT" +
+  "Cohort c4". If c4 misses too, the in-context class is done and
+  the next fork (align instrument/runner rise schedules to
+  remaining-rise semantics = a product-contract change) goes to the
+  operator. Product baseline (c1 hierarchy) unaffected. CROSS-TRACK
+  INSIGHT: the shared walk-task `goal.mode_seq` rise branch has the
+  identical descent defect — noted in arch/STATUS.md, no arch launch
+  from here.
+- 08-15 (triage cycle, superseded by the dig-in above):
+  `cw-stand-postlower3` FINISHED training and
+  its pre-registered Cohort c3 bulk read (n=600, fresh banks) is IN —
+  a CLEAN, BAD MISS: det session zero-fall collapsed to 0.413 (parent
+  0.967) and det post-lower rise to 0.419 (parent 0.967, also worse
+  than both prior FAILED attempts), sto post-lower rise 0.631 (worse
+  than parent's 0.801). Cold first-rise and lower retention are
+  untouched (still ≥0.96/1.0) — the damage is isolated to exactly the
+  post-lower-rise mechanism this arm targeted, and it got WORSE, not
+  better, training a NEW mechanism aimed straight at it. Same
+  qualitative failure mode as before on video (over_current stall,
+  no exploit, honest six-leg gait elsewhere), but det doing WORSE
+  than sto — backwards from the usual pattern — and disagreeing with
+  this arm's OWN training-time telemetry (last reel read
+  `rise:ok lower:ok rise:ok`) is a generalization-failure signature
+  that needs a root-cause read before naming the next lever, not a
+  triage guess. **Left UNVERDICTED (DIG-IN flagged) per the model-
+  tiering rule** — full numbers + a first hypothesis (train/eval
+  reanchor-path mismatch specific to `mode_seq_stance`, not just
+  "needs more exposure") in `SESSION_BULK_GATE.md` "Cohort c3
+  RESULTS"; raw shards + failure re-renders saved
+  (`logs/bulk_session/c3/`), no need to re-run the cohort. This is
+  the THIRD miss on post-lower-rise (postlower1/2/3) — per two-miss
+  discipline, no further dose/diet resweep of this recipe; the next
+  mechanism is an operator/dig-in call, not a triage one. Product
+  baseline (c1 hierarchy) unaffected.
+- **08-15 (idle-kick cycle): `cw-stand-postlower3` LAUNCHED (discovery
+  2M, train-0) — the c2 dig-in's named mechanism change is built,
+  preflighted and pre-registered, all in one cycle.** New cfg key
+  `goal.mode_seq_stance` (default OFF, bit-exact off; stance-only
+  grammar rise→hold→lower→rise on the joint_goal task) delivers the
+  in-context lower→rise SEQUENCE training the postlower verdicts
+  called for: half of all episodes are two-segment stance sequences
+  (7–8 s segments in 18 s episodes), a lower-first sequence IS the
+  post-lower rise with real transition context (warm policy state,
+  canonical per-family re-anchor, blend window), and the mid-sequence
+  rise target anchors at the sequence's OWN commanded stand height —
+  mechanically reachable by construction, so the c2 impossible-target
+  bug class is locked out by a regression test
+  (`test_lower_to_rise_targets_remaining_rise`). Bank exposure is OFF
+  (`rise_start_bank_frac=0` — the cold-spawn class stays closed);
+  everything else is the footlow2_hard1 recipe warm from
+  footlow2_hard1, walk ckpt untouched. Implementation notes: the
+  rise/hold/lower segment builder moved to the shared goal-task base
+  (walk task delegates — statements verbatim, walk rng streams
+  unchanged, `test_mode_seq.py` 11/11 green); the frame-capture and
+  MJX mint gates now also fire on the stance key; the stance key on
+  the joint_walk task raises loudly. Preflight: new
+  `test_mode_seq_stance.py` (7 tests) + full `test_task_semantics.py`
+  bank (91 passed) locally; `test_mode_seq_stance` +
+  `test_mjx_vec_env` 16/16 on train-1 (pod MJX env). Snapshot tag
+  `exp/cw-stand-postlower3`. Gate: **pre-registered Cohort c3**
+  (SESSION_BULK_GATE.md "Cohort c3", FRESH held-out banks
+  940000../950000.., candidate `spec-pl3` registered in
+  `bulk_session_eval.py`) — full PASS = promotion-grade candidate;
+  partial (sto post-lower rise separated above parent 0.801, retention
+  clean) = one 6M hardening rerun on cohort c4; at/below parent or any
+  retention/visual break = next change must be mechanism-level
+  (sequence-RSI or rise pricing), never a dose resweep. Product
+  baseline unchanged (c1 hierarchy).
+
+- **08-14 ~21:4x UTC: BULK HELD-OUT SESSION COHORT (operator
+  directive fb_20260814T205137_33f21c) — the hierarchical
+  frozen-skill controller PASSES the pre-registered product gate at
+  n=600 fresh sessions and is now the MEASURED product baseline;
+  single-model consolidation is officially research, not a
+  blocker.** New resumable sharded evaluator
+  (`rl_move.sim.bulk_session_eval`, tests green, snapshot
+  `exp/session-bulk-cohort1` d5aa13c) ran 300 det + 300 sto ~60 s
+  randomized joystick sessions per candidate on 11 idle pods'
+  CPUs (~3 min wall), matched seeds/schedules (held-out banks
+  900000../910000.., now RETIRED), for `spec`
+  (footlow2_hard1 + bcgait1_hard1 + entry-slew), `td2`, `td3`.
+  Pre-registration + full numbers: `SESSION_BULK_GATE.md`. Headlines:
+  - **spec det zero-fall 290/300 = 0.967 CI [0.940, 0.982]** — all
+    gate clauses pass (segments ≥0.983, strata ≥0.95); ALL 10 det
+    failures are POST-LOWER rises (first rise 300/300); sto 0.853
+    with the weak link again the stochastic post-lower rise (0.801,
+    over_current-dominated). Walking is clean at scale: zero drive
+    falls + gait_valid 1104/1104 spec drive segments, slip/m 1.75,
+    height 135 mm.
+  - **Hierarchy vs single models: separated** — sto spec CI lower
+    0.809 > td2 0.705 / td3 0.746 CI uppers; det separated vs td3,
+    marginal overlap vs td2 (0.940 vs 0.946). td2's pooled det 0.92
+    hid clean_session 0.597 (crouch cold rise 0/100 finishes short)
+    and both singles walk ~116 mm (low posture) with sto first-rise
+    collapse (0.23/0.32).
+  - **Zero-command creep confirmed at n=1800**: 0/2773 drive
+    segments settle <0.02 m/s — STOP→stance-hold stays mandatory.
+  - Strips: every failure (719) + clean samples re-rendered on
+    train-1/2/3 (`logs/bulk_session/c1/rerender/strips/`); reviewed
+    samples confirm honest six-leg gait in clean sessions and real
+    (not artifact) post-lower-rise falls.
+  Next lever (pre-named): train ONLY the post-lower-rise
+  transition/residual with both skills frozen; bench promotion of
+  the pair stays operator-owned. **EXECUTED 08-14 ~22:3x UTC:
+  `cw-stand-postlower1` is TRAINING (hardening 6M, train-0)** —
+  new default-off `goal.rise_start_bank`/`_frac` (rise episodes
+  start from harvested settled lower-endpoint poses of
+  footlow2_hard1's own lower skill, walk-park-bank mechanism class;
+  RSI skips bank episodes, canary force overrides bank, off-path
+  bit-exact, tests green; eval start_kind label "post_lower") +
+  `harvest_lower_endpoints.py` (bank: 300/300 settled, 0 falls,
+  seed 5000, `park_banks/footlow2_hard1_lower_endpoints.npz` —
+  knees ~+113°/hips ~−18° from the flat-zero pose, an unseen state
+  family). Gate pre-registered BEFORE training on fresh c2 banks:
+  SESSION_BULK_GATE.md "Cohort c2" (sto post-lower ≥0.90 CI-separated
+  above parent 0.842 upper + full det/cold-start/lower retention +
+  eval_session, visual stats vs parent). **RESULT 08-14 ~22:5x UTC:
+  FAIL — REGRESSION, not a trade-off.** Full c2 bulk cohort (n=600,
+  fresh 920000/930000 banks, 11 pods): sto post-lower rise
+  **0.717** [0.663,0.765] — WORSE than the parent's own 0.801
+  (CI upper below parent's CI lower: real separation the wrong
+  way), det session zero-fall 0.923 (parent 0.967), det post-lower
+  rise 0.936 (parent 0.967), det cold first-rise 0.987 (parent
+  1.00), det hold drag 623mm (parent 136mm), sto rise roll_tail
+  2.3° (parent 0.7°). Only the cold-rise-stratum/lower clause still
+  passes. Video-confirmed no exploit (over_current fails show the
+  robot genuinely stuck straining from the deep-knee bank pose, not
+  a reward hack) — 35% exposure to the harvested post-lower start
+  bank made the exact skill it targeted worse, diluting general
+  rise quality with it. Full numbers + table: SESSION_BULK_GATE.md
+  "Cohort c2 RESULTS". **Next (launched same cycle):
+  `cw-stand-postlower2`** (discovery, 2M, frac 0.15, same recipe
+  otherwise, train-0) to separate DOSE (0.35 too aggressive) from
+  MECHANISM (the fixed `rise_ref_track` reference is shaped for
+  flat-topology starts and mis-prices this pose family regardless
+  of dose) before any further hardening or reward-side change.
+  Product baseline is UNCHANGED — this FAIL doesn't touch the
+  passing c1 hierarchy.
+- **08-14 (late): `cw-stand-postlower2` FAIL — and the dig-in found
+  the REAL bug: the bank mechanism trained on IMPOSSIBLE height
+  targets.** Chain of matched controls (all rise-only, per-mode 6,
+  parent = `footlow2_hard1`, reports `logs/ckpt_eval/*bank*/`):
+  (1) postlower2 from the bank: 0/12, same stuck-straining stall.
+  (2) PARENT from the same bank spawns: ALSO 0/12 (worse errors) —
+  yet the parent rises from REAL in-session post-lower states at
+  0.801 sto / 0.967 det (n=600). (3) Exact full-state restore
+  (new opt-in `goal.rise_start_bank_exact`, harvest now saves
+  qpos/qvel): parent still 0/12 — reconstruction exonerated.
+  (4) Root cause MEASURED: rise height bands are z0-relative and
+  BELLY-calibrated (flat z0=38mm), but bank spawns settle at
+  82-99mm — the schedule commanded chassis ~190-213mm, ~50mm above
+  standing. postlower1 (35%) and postlower2 (15%) trained on
+  unreachable goals; max-current straining was the OPTIMAL policy.
+  Explains the c2 regression outright. FIX LANDED: harvest saves
+  per-row `z_stand` (the lower episode's own standing height);
+  `goal.rise_start_bank_anchor_stand` (default OFF, bit-exact,
+  tests green, snapshot f3b4902 tag exp/postlower-anchor-fix)
+  rewrites the schedule to the REMAINING rise; v2 bank harvested
+  (`park_banks/footlow2_hard1_lower_endpoints_v2.npz`).
+  (5) Parent from the FIXED instrument: sto 2/6 real completions
+  (first ever from bank spawns) but det 0/6 — the det parent
+  COLLAPSES TO BELLY during the zero-height hold (constant 95.1mm
+  err): a COLD single-mode spawn does not reproduce the in-session
+  context (warm policy state + canonical re-anchor right after its
+  own lower) where the same parent scores 0.967. **Two misses =
+  hypothesis changed: cold-spawn exposure is the wrong lever class
+  for a TRANSITION boundary. Named next arm (`cw-stand-postlower3`,
+  to spec): train the stance policy with in-context lower→rise
+  SEQUENCE episodes via `goal.mode_seq` (machinery landed + sharded
+  mint proven 08-14 in arch; hw use here is stance-only, judged
+  against the hw goal — not a cross-track launch) — spec needs the
+  sequence-grammar check for stance-only pairs, mode-bank preflight,
+  and a pre-registered c3 bulk cohort on fresh banks
+  (940000../950000..) before training.** Product baseline still
+  UNCHANGED (c1 hierarchy).
 - **08-14 ~20:0x UTC: the SESSION-JOYSTICK product gate exists and
   the candidate specialist pair PASSES it deterministically —
   `session-joystick-handoff1`** (operator-requested action cycle;

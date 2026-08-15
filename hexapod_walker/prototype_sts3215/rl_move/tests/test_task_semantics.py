@@ -680,7 +680,8 @@ def test_turn_command_signs_priced_symmetrically():
 # stack is optimizing against reality.
 
 
-def _make_walk_env(seed: int, overrides: dict | None = None):
+def _make_walk_env(seed: int, overrides: dict | None = None,
+                   episode_seconds: float = 15.0):
     from rl_move.sim.walk_task import SimHexapodJointWalkEnv
 
     cfg = load_config()
@@ -688,7 +689,7 @@ def _make_walk_env(seed: int, overrides: dict | None = None):
         cfg.setdefault(sec, {})[leaf] = val
     env = SimHexapodJointWalkEnv(
         params=SimServoParams.from_cfg(None), randomize=False,
-        dr_scale=0.0, episode_seconds=15.0, seed=seed, cfg=cfg)
+        dr_scale=0.0, episode_seconds=episode_seconds, seed=seed, cfg=cfg)
     gen = env._goal_gen
     for m in ("hold", "lean", "track", "unload", "raise", "rise",
               "lower", "quad", "walk"):
@@ -3558,3 +3559,461 @@ def test_walk_gait_gate_collapses_quadwalk_midpin_income():
     assert hit > 300.0, (
         f"gate cost the mid-pin scoot only {hit:.1f} over the episode "
         "— quadwalk5's cheat would still pay")
+
+
+# --------------------------------------------------------------------------
+# FULLCIRCLE bank — the cw-mt-c2-fullcircle1 stack (operator directive
+# fb_20260815T114414, 08-15): translation-only full-circle commands
+# (heading uniform [-pi, pi], speed 0.03-0.06, NO stop segments,
+# wz identically zero with the yaw obs channel kept for checkpoint
+# width) + the all-support-leg walk_gait_gate + the NEW early-fall
+# horizon cost reward.term_cost_per_remaining_s. The exploit this bank
+# pins: cw-mt-c2 at 20M retained POSITIVE return (~166/ep) from ~6 s
+# flag-leg drag-then-fall trajectories in 15 s episodes — the flat -10
+# safety_termination_penalty made early death cheaper than honest
+# survival. Required ordering under the arm's FULL stack, per
+# direction: honest gait > stall > park, and drag-then-fall < 0 (and
+# far below a full-session freeze).
+
+FC_TERM_COST_PER_S = 12.0
+FC_OVERRIDES = {
+    ("reward", "k_drag_loaded"): 10.0,
+    ("reward", "k_park_duty"): 1.0,
+    ("reward", "walk_kernel_prog_gate"): 1.0,
+    ("reward", "walk_anchor_gate"): 1.0,
+    ("reward", "anchor_tol_mm"): 10.0,
+    ("reward", "walk_gait_gate"): 1.0,
+    ("reward", "term_cost_per_remaining_s"): FC_TERM_COST_PER_S,
+    ("goal", "walk_obs_body_vel"): 2.0,
+    ("goal", "walk_yaw_cmd"): 1.0,
+    ("goal", "walk_speed_min_m_s"): 0.03,
+    ("goal", "walk_speed_max_m_s"): 0.06,
+    ("goal", "walk_heading_max_rad"): math.pi,
+    ("goal", "walk_stop_frac"): 0.0,
+    ("goal", "walk_cmd_metrics"): 1.0,
+    ("safety", "max_roll_deg"): 25.0,
+    ("safety", "max_pitch_deg"): 25.0,
+}
+
+FC_CMDS = {
+    "forward": (WALK_CMD_VX, 0.0),
+    "backward": (-WALK_CMD_VX, 0.0),
+    "crab_left": (0.0, WALK_CMD_VX),
+    "diag_back_right": (-WALK_CMD_VX * 0.707, -WALK_CMD_VX * 0.707),
+}
+
+
+def test_joymodes_direct_command_score_orders_exact_direction_first():
+    """The direct joystick term must make refusal and wrong-direction
+    motion strictly worse than matching the requested velocity."""
+    from rl_move.sim.walk_task import walk_cmd_track_score
+
+    speed = 0.05
+    exact = walk_cmd_track_score(speed, 0.0, speed, 0.0)[0]
+    parked = walk_cmd_track_score(0.0, 0.0, speed, 0.0)[0]
+    cross = walk_cmd_track_score(0.0, speed, speed, 0.0)[0]
+    wrong = walk_cmd_track_score(-speed, 0.0, speed, 0.0)[0]
+    assert (exact, parked, cross, wrong) == pytest.approx(
+        (1.0, -1.0, -2.0, -3.0))
+    assert walk_cmd_track_score(0.0, 0.0, 0.0, 0.0)[0] == 0.0
+    assert walk_cmd_track_score(speed, 0.0, 0.0, 0.0)[0] < 0.0
+
+
+@pytest.fixture(scope="module")
+def fullcircle_returns() -> dict[str, dict[str, float]]:
+    return {name: {p: float(np.mean(
+        [_walk_rollout(p, s, vx=vx, vy=vy, overrides=FC_OVERRIDES)
+         for s in SEEDS]))
+        for p in ("gait", "stall", "park")}
+        for name, (vx, vy) in FC_CMDS.items()}
+
+
+def test_fullcircle_gait_beats_stall_and_park_every_direction(
+        fullcircle_returns):
+    """The gait gate + horizon fall cost must not invert the basic
+    ordering anywhere on the circle: the hardware-proven tripod gait
+    (which survives all 15 s, so the fall cost never fires on it)
+    out-earns march-in-place and refusal in every direction."""
+    for name, r in fullcircle_returns.items():
+        assert r["gait"] > r["stall"] + 50.0, (
+            f"{name}: stall rivals the gait under the FC stack: {r}")
+        assert r["gait"] > r["park"] + 50.0, (
+            f"{name}: parking rivals the gait under the FC stack: {r}")
+
+
+def test_fullcircle_directions_priced_comparably(fullcircle_returns):
+    """No commanded direction may be structurally cheap/expensive
+    under the FC stack (min gait income > 55% of max), else the run
+    re-learns a heading bias instead of the command."""
+    gains = {n: r["gait"] for n, r in fullcircle_returns.items()}
+    lo, hi = min(gains.values()), max(gains.values())
+    assert lo > 0.55 * hi, (
+        f"direction income skew under FC stack: {gains}")
+
+
+def test_fullcircle_drag_then_fall_cannot_retain_positive_return():
+    """THE c2 exploit, priced: accumulate the zero-lift skate's real
+    income for the first 6 s of a 60 s episode under the FC stack,
+    then charge the exact termination cost the env would levy on a
+    fall at that tick (flat penalty + k * remaining seconds). The
+    total must be NEGATIVE (c2 banked ~+166 this way at the flat -10),
+    and a full-session freeze (park, 60 s, never falls) must out-earn
+    it by a wide margin — death is never a paying strategy, freezing
+    beats dying, and (per the ordering tests above) walking beats
+    freezing."""
+    from tripod_gait import TripodGait
+
+    fall_tick = None
+    drag_income = 0.0
+    env = _make_walk_env(0, overrides=FC_OVERRIDES, episode_seconds=60.0)
+    env.reset()
+    traj = env._goal_traj
+    n = len(traj.vx)
+    hold_n = ramp_n = int(round(1.0 / env.dt))
+    ramp = np.linspace(0.0, 1.0, ramp_n)
+    traj.vx[:] = WALK_CMD_VX
+    traj.vx[:hold_n] = 0.0
+    traj.vx[hold_n:hold_n + ramp_n] = WALK_CMD_VX * ramp
+    traj.vy[:] = 0.0
+    if traj.wz is not None:
+        traj.wz[:] = 0.0
+    gait = TripodGait(vx=0.0, lift=0.0)          # zero-lift skate/drag
+    gait.sync_plant_stance(*WALK_PLANT)
+    gait.reset_phase()
+    six_s = int(round(6.0 / env.dt))
+    for step in range(six_s):
+        i = min(step, n - 1)
+        gait.set_velocity(vx=float(traj.vx[i]), vy=0.0)
+        act = q_rad_to_action(
+            np.asarray(gait.desired_deg(step * env.dt)) * DEG2RAD)
+        _o, r, term, trunc, _i = env.step(act)
+        drag_income += float(r)
+        if term or trunc:
+            fall_tick = step + 1
+            break
+    if fall_tick is None:
+        # Counterfactual fall at 6 s: charge exactly what the env's
+        # termination sites would charge at this step index.
+        fall_tick = six_s
+        pen = 10.0 + FC_TERM_COST_PER_S * max(
+            env.episode_steps - fall_tick, 0) * env.dt
+        drag_income -= pen
+    env.close()
+
+    park_total = _walk_rollout("park", 0, overrides=FC_OVERRIDES)
+    # park is 15 s; scale to the 60 s session for the comparison
+    # (income is per-tick and the park never terminates).
+    park_60s = park_total * 4.0
+    assert drag_income < 0.0, (
+        f"drag-then-fall at 6 s of a 60 s episode still retains "
+        f"positive return ({drag_income:.1f}) — raise "
+        f"term_cost_per_remaining_s (the c2 exploit still pays)")
+    assert park_60s > drag_income + 200.0, (
+        f"freezing ({park_60s:.1f}) does not clearly out-earn early "
+        f"death ({drag_income:.1f})")
+
+
+# ---------------------------------------------------------------------------
+# RECOVER bank — recover_to_plant (08-15 operator directive
+# fb_20260815T165306_606974): from any recoverable state, reach a
+# full-height, level, quiet stand with ALL SIX feet loaded, hold it
+# 0.5 s, episode ends on held success. Reward is a potential
+# DIFFERENCE (PBRS) on bounded features + one-shot success bonus +
+# rate-normalized time tax; no occupancy/hold income, no alive bonus.
+# MDP_PREFLIGHT: every stand-campaign cheat is banked before the first
+# training run.
+#
+#   freeze    stay at the spawn — must bleed the time tax + terminal
+#             fail cost (no alive income anywhere).
+#   flagleg   five legs rise, one flags — the SMOOTH-MIN feature M
+#             must keep the unloaded foot visible (no mean-average
+#             loophole; the getup3-c2/getup4 plateau class) and block
+#             success outright.
+#   stilt     hip 0 / knee 80 pop — blocked by the H overshoot fade +
+#             footprint/spread gates.
+#   thrash    random flailing — must under-earn everything.
+#   early-abort: a non-success termination pays >= the maximum
+#             remaining time tax, so dying/aborting never out-earns
+#             trying (rec_fail_cost floor).
+
+RECOVER_OVERRIDES = {
+    # Falls are recoverable states: side/back/upside-down spawns are
+    # part of the task. 185 > the 180-deg attitude bound = the tilt
+    # trip is genuinely OFF (a fully inverted settle reads ~179.5 and
+    # must not terminate); timeout + the current/impact channels are
+    # the only ends besides held success. Bank under the run's own
+    # envelope.
+    ("safety", "max_roll_deg"): 185.0,
+    ("safety", "max_pitch_deg"): 185.0,
+}
+
+
+def _make_recover_env(seed: int, *, start: str,
+                      extra: dict | None = None):
+    from rl_move.sim.walk_task import SimHexapodJointWalkEnv
+
+    cfg = load_config()
+    for (sec, leaf), val in RECOVER_OVERRIDES.items():
+        cfg.setdefault(sec, {})[leaf] = val
+    for (sec, leaf), val in (extra or {}).items():
+        cfg.setdefault(sec, {})[leaf] = val
+    env = SimHexapodJointWalkEnv(
+        params=SimServoParams.from_cfg(None), randomize=False,
+        dr_scale=0.0, episode_seconds=16.0, seed=seed, cfg=cfg)
+    gen = env._goal_gen
+    for attr in [a for a in vars(gen) if a.startswith("p_")]:
+        setattr(gen, attr, 0.0)
+    gen.p_recover = 1.0
+    env.force_recover_start = start
+    return env
+
+
+def _recover_rollout(policy: str, seed: int, *, start: str = "zero",
+                     extra: dict | None = None) -> dict:
+    env = _make_recover_env(seed, start=start, extra=extra)
+    env.reset()
+    assert getattr(env, "_is_recover", False), "recover mode did not arm"
+    ref = np.load(ROOT / RISE_REF)
+    q_ref = ref["q_rad"]
+    n_ref = len(q_ref)
+    q0 = env.data.qpos[env._qadr].copy()
+    q_stilt = np.array([0.0, 0.0, 80.0] * 6) * DEG2RAD
+    rng = np.random.default_rng(seed)
+    tot, step, succ, terminated = 0.0, 0, False, False
+    bonus_sum, fail_sum, height_sum = 0.0, 0.0, 0.0
+    last: dict = {}
+    while True:
+        t = step * env.dt
+        if policy == "replay":
+            act = q_rad_to_action(q_ref[min(step, n_ref - 1)])
+        elif policy == "flagleg":
+            q = q_ref[min(step, n_ref - 1)].copy()
+            q[0:3] = q0[0:3]
+            act = q_rad_to_action(q)
+        elif policy == "freeze":
+            act = q_rad_to_action(q0)
+        elif policy == "stilt":
+            act = q_rad_to_action(q0 if t < 2.0 else q_stilt)
+        else:  # thrash
+            act = rng.uniform(-1.0, 1.0, size=18)
+        _obs, r, term, trunc, info = env.step(act)
+        tot += float(r)
+        step += 1
+        bonus_sum += float(info.get("reward_recover_bonus", 0.0))
+        fail_sum += float(info.get("reward_recover_fail", 0.0))
+        height_sum += float(info.get("reward_height", 0.0))
+        if info.get("recover_success", 0.0) > 0.0:
+            succ = True
+        last = info
+        if term or trunc:
+            terminated = term
+            break
+    env.close()
+    return {"ret": tot, "succ": succ, "steps": step, "last": last,
+            "terminated": terminated, "bonus": bonus_sum,
+            "fail": fail_sum, "height": height_sum,
+            "dt": 16.0 / max(step, 1) if step else 0.0}
+
+
+RECOVER_POLICIES = ("replay", "flagleg", "freeze", "stilt", "thrash")
+
+
+@pytest.fixture(scope="module")
+def recover_bank() -> dict[str, list[dict]]:
+    return {p: [_recover_rollout(p, s) for s in SEEDS[:2]]
+            for p in RECOVER_POLICIES}
+
+
+def test_recover_replay_succeeds_and_terminates(recover_bank):
+    """The reference belly->plant rise reaches the held success: bonus
+    paid EXACTLY once, episode ends by termination (not timeout),
+    total return positive. This is the current-height target
+    reachability proof (the postlower mechanically-impossible-target
+    lesson) and the success-hold semantics check in one."""
+    for roll in recover_bank["replay"]:
+        assert roll["succ"], "reference rise never reached success"
+        assert roll["terminated"], "success did not terminate"
+        assert roll["steps"] < 395, "success only at the horizon"
+        assert roll["ret"] > 0.0, f"honest recovery not paid: {roll['ret']:.1f}"
+        b = float(roll["bonus"])
+        assert b > 0.0, "success bonus never paid"
+        # one-shot: total bonus equals a single payment
+        first = [r for r in recover_bank["replay"]][0]
+        assert abs(b - first["bonus"]) < 1e-9
+
+
+def test_recover_replay_dominates_all_cheats(recover_bank):
+    rets = {p: float(np.mean([r["ret"] for r in rolls]))
+            for p, rolls in recover_bank.items()}
+    best_cheat = max(rets[p] for p in RECOVER_POLICIES if p != "replay")
+    assert rets["replay"] > best_cheat + 20.0, (
+        f"recover stack prefers a known cheat: {rets}")
+    for p in ("flagleg", "freeze", "stilt", "thrash"):
+        assert not any(r["succ"] for r in recover_bank[p]), (
+            f"cheat '{p}' reached the success gate")
+
+
+def test_recover_smooth_min_keeps_unloaded_foot_visible(recover_bank):
+    """No mean-only loophole: the flag-leg's final state must show M
+    (smooth min per-foot load) far below L (mean load) AND a zero
+    min-load, and success must be blocked."""
+    for roll in recover_bank["flagleg"]:
+        last = roll["last"]
+        assert last["recover_min_load"] < 0.1
+        assert last["recover_M"] < 0.45
+        assert last["recover_L"] > last["recover_M"] + 0.25, (
+            "M does not separate one unloaded foot from the mean")
+
+
+def test_recover_no_early_abort_advantage(recover_bank):
+    """A non-success end pays >= the maximum remaining time tax
+    (rec_fail_cost floor 1.25 * c_time * horizon), so aborting early
+    never out-earns a slow honest recovery — and the terminal fail
+    cost actually fires at the timeout."""
+    for roll in recover_bank["freeze"]:
+        assert roll["fail"] < 0.0, "timeout paid no fail cost"
+        # default floor: 1.25 * c_time(=1.0/s) * 16 s
+        assert -roll["fail"] >= 16.0, (
+            f"fail cost {-roll['fail']:.1f} below the max remaining "
+            "time tax (early abort could pay)")
+        assert roll["ret"] < 0.0, "doing nothing retains positive return"
+
+
+def test_recover_no_height_charge_on_honest_rise(recover_bank):
+    """The spawn-anchored h_err channel is disabled on recover ticks
+    (same guard as getup): an honest rise must not accumulate
+    reward_height charges (measured -58/ep before the guard)."""
+    for roll in recover_bank["replay"]:
+        assert abs(roll["height"]) < 1e-9, (
+            f"recover episode accumulated reward_height "
+            f"{roll['height']:.2f} — the h_err guard regressed")
+
+
+def test_recover_time_tax_prices_stalling(recover_bank):
+    """No alive/hold income: between the potential plateau and the
+    horizon a freezer's per-tick income is negative (time tax +
+    regularizer leakage)."""
+    for roll in recover_bank["freeze"]:
+        # total ex terminal fail, per tick
+        per_tick = (roll["ret"] - roll["fail"]) / roll["steps"]
+        assert per_tick < 0.0, (
+            f"freeze earns non-negative per-tick income {per_tick:.4f}")
+
+
+def test_recover_flip_spawn_is_nonupright():
+    """Family-4 'flip' spawns settle genuinely tipped (side/back/
+    upside-down), the episode survives the spawn (falls are
+    recoverable, not terminal under the widened envelope), and the
+    consume-once pending quat is cleared."""
+    import math as _math
+    tilts = []
+    for seed in SEEDS:
+        env = _make_recover_env(seed, start="flip")
+        env.reset()
+        assert getattr(env, "_flip_spawn_pending", None) is None
+        r, p = env._true_roll_pitch()
+        tilts.append(max(abs(r), abs(p)) * 180.0 / _math.pi)
+        _obs, _r, term, _trunc, _info = env.step(np.zeros(18))
+        assert not term, "flip spawn terminated on tick 1"
+        env.close()
+    assert max(tilts) > 60.0, (
+        f"no flip spawn landed tipped (tilts {tilts})")
+
+
+def test_recover_adaptive_sampler_proportions():
+    """Unit-level checks on the adaptive reset-bank curriculum:
+    frontier kinds out-weigh mastered kinds; admission advances only
+    when the hardest active family is mastered (EMA>=0.8, n>=12);
+    retreat fires below 20%; the ladder never drops below 2
+    families."""
+    env = _make_recover_env(0, start="zero")
+    # frontier vs mastered weights
+    env._rec_stats = {"onefoot": (0.5, 30), "park": (0.95, 30),
+                      "crouch": (0.5, 30), "partial": (0.5, 30),
+                      "zero": (0.5, 30), "tangle": (0.5, 30)}
+    env._rec_active_n = 2
+    kinds = env._recover_active_kinds()
+    assert "bank" not in kinds, "bank admitted without a bank file"
+    w = env._recover_kind_weights(kinds)
+    wi = dict(zip(kinds, w))
+    assert wi["onefoot"] > wi["park"] * 2.0, (
+        "frontier kind does not out-weigh mastered kind")
+    # admission: not yet (crouch/partial not mastered)
+    env._recover_update_admission()
+    assert env._rec_active_n == 2
+    # master family 2 -> admit family 3
+    env._rec_stats.update({"crouch": (0.9, 15), "partial": (0.85, 15)})
+    env._recover_update_admission()
+    assert env._rec_active_n == 3
+    # collapse on family 3 -> retreat, but never below 2
+    env._rec_stats.update({"zero": (0.1, 25), "tangle": (0.1, 25)})
+    env._recover_update_admission()
+    assert env._rec_active_n == 2
+    env._recover_update_admission()
+    assert env._rec_active_n >= 2
+    env.close()
+
+
+def test_recover_empty_interval_and_walk_isolation():
+    """p_recover=0 (the default) is an EMPTY cdf interval: an
+    identically-seeded walk-mix env samples the identical trajectory
+    whether the attribute is its default 0.0 or deleted outright, and
+    a non-recover episode's info never carries recover keys (the
+    pricing branch is never entered)."""
+    from rl_move.sim.walk_task import SimHexapodJointWalkEnv
+
+    def mk(seed, drop_attr):
+        cfg = load_config()
+        env = SimHexapodJointWalkEnv(
+            params=SimServoParams.from_cfg(None), randomize=False,
+            dr_scale=0.0, episode_seconds=6.0, seed=seed, cfg=cfg)
+        if drop_attr:
+            del env._goal_gen.p_recover
+        return env
+
+    for seed in SEEDS[:2]:
+        a, b = mk(seed, False), mk(seed, True)
+        a.reset(seed=seed)
+        b.reset(seed=seed)
+        ta, tb = a._goal_traj, b._goal_traj
+        assert ta.mode == tb.mode
+        assert np.array_equal(ta.height, tb.height)
+        va, vb = getattr(ta, "vx", None), getattr(tb, "vx", None)
+        assert (va is None) == (vb is None)
+        if va is not None:
+            assert np.array_equal(va, vb)
+        assert not getattr(a, "_is_recover", False)
+        _obs, _r, _term, _trunc, info = a.step(np.zeros(a.n_act))
+        assert "recover_phi" not in info
+        a.close()
+        b.close()
+
+
+def test_recover_bc_anchor_gated_by_state():
+    """train.bc_anchor_recover=1: the state-aligned rise anchor fires
+    on the mastered rise manifold (upright belly start: level, feet
+    carrying load) and NEVER on a flipped robot (orientation/height/
+    contact conditioning — not nearest-q alone). Default-off: without
+    the key no recover tick emits a target."""
+    extra_on = {("train", "bc_anchor_coef"): 1.0,
+                ("train", "bc_anchor_recover"): 1.0,
+                ("reward", "rise_ref_path"): RISE_REF}
+    env = _make_recover_env(0, start="zero", extra=extra_on)
+    env.reset()
+    _obs, _r, _t, _tr, info = env.step(np.zeros(18))
+    assert "bc_target" in info and info.get("bc_mode") == 6, (
+        "anchor did not fire on the upright belly start")
+    env.close()
+
+    env = _make_recover_env(0, start="flip", extra=extra_on)
+    env.reset()
+    _obs, _r, _t, _tr, info = env.step(np.zeros(18))
+    assert "bc_target" not in info, (
+        "anchor fired on a flipped robot — the orientation gate leaks")
+    env.close()
+
+    env = _make_recover_env(0, start="zero")  # key off
+    env.reset()
+    _obs, _r, _t, _tr, info = env.step(np.zeros(18))
+    assert "bc_target" not in info, "anchor on without its cfg key"
+    env.close()

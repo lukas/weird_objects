@@ -142,6 +142,21 @@ class GoalGenerator:
         self.rise_flat_frac = float(g.get("rise_flat_frac", 0.35))
         self.rise_partial_frac = float(g.get("rise_partial_frac", 0.40))
         self.rise_ramp_s = float(g.get("rise_ramp_s", 4.0))
+        # Post-lower rise starts (08-14, the SESSION_BULK_GATE named
+        # boundary: 100% of the hierarchy's det session failures were
+        # POST-LOWER rises while first rises were 300/300).
+        # goal.rise_start_bank = npz path (key q_rad, shape (K,18),
+        # built by harvest_lower_endpoints) holding the policy's OWN
+        # settled lower-endpoint poses; goal.rise_start_bank_frac f =
+        # fraction of non-forced rise episodes that start from a bank
+        # pose (env side: start_at="rise_bank") instead of the
+        # synthetic flat/partial/crouch mix. Default OFF; the bank
+        # draw is CONDITIONAL on a configured bank so legacy rng
+        # streams stay bit-exact (same short-circuit contract as
+        # goal.walk_park_bank).
+        self.rise_start_bank = str(g.get("rise_start_bank", "") or "")
+        self.rise_start_bank_frac = float(
+            g.get("rise_start_bank_frac", 0.0))
         raise_mm = g.get("raise_height_mm", [10.0, 30.0])
         self.raise_m = (min(float(raise_mm[0]), max_h) * 0.001,
                         min(float(raise_mm[1]), max_h) * 0.001)
@@ -311,7 +326,21 @@ class GoalGenerator:
             rise = rng.uniform(*self.rise_m)
             hold_hi = self.rise_hold_s
             hold_lo = min(self.rise_hold_min_s, hold_hi)
-            if r < self.rise_flat_frac:
+            # Bank exposure draw AFTER the legacy r draw and only when
+            # a bank is configured, so the off path is bit-exact and
+            # canary-forced episodes (force_rise_start) keep their
+            # pinned kind.
+            use_bank = False
+            if (self.rise_start_bank and self.rise_start_bank_frac > 0.0
+                    and force is None):
+                use_bank = rng.random() < self.rise_start_bank_frac
+            if use_bank:
+                # Harvested lower-endpoint start: belly-down like flat,
+                # so the height schedule is the flat one (full rise
+                # from ground after a jittered hold).
+                start_at = "rise_bank"
+                hold_s = float(rng.uniform(hold_lo, hold_hi))
+            elif r < self.rise_flat_frac:
                 start_at = "zero"
                 hold_s = float(rng.uniform(hold_lo, hold_hi))
             elif r < self.rise_flat_frac + self.rise_partial_frac:
@@ -347,7 +376,179 @@ class SimHexapodGoalEnv(SimHexapodBalanceEnv):
         if _gym is not None:
             self.observation_space = self._obs_space_box(N_OBS + GOAL_DIM)
 
+    # ---- stance-only mode sequencing (goal.mode_seq_stance, 08-15,
+    # cw-stand-postlower3 spec) -------------------------------------
+    #
+    # The hw post-lower dig-in (SESSION_BULK_GATE.md Cohort c2 + the
+    # postlower2 root-cause chain) proved cold single-mode spawns
+    # cannot reproduce the in-session lower->rise transition context:
+    # the champion rises from REAL post-lower states at 0.967 det but
+    # 0/12 from any cold reconstruction of the same poses. The fix
+    # class is IN-CONTEXT sequence training: one episode = lower
+    # followed by rise (etc.), with the proven goal.mode_seq switch
+    # machinery (canonical per-family frames, blend windows, per-
+    # segment bookkeeping — sim_env._seq_maybe_switch and friends).
+    #
+    # This is the joint_goal-task twin of walk_task's goal.mode_seq,
+    # under its OWN key because the walk task's _sample_goal falls
+    # through to super()._sample_goal() for base modes — a shared key
+    # would double-draw there. Keys:
+    #   goal.mode_seq_stance         sequence-episode probability
+    #                                (0 = off/legacy bit-exact, 1 =
+    #                                every episode, 0<p<1 = mixed diet)
+    #   goal.mode_seq_segment_s_min/max, goal.mode_seq_blend_s_min/max,
+    #   goal.mode_seq_max_segments   shared with the walk-task keys.
+    # Grammar = the operator command grammar with walk removed:
+    # rise -> hold -> lower -> rise (SEQ_NEXT_STANCE). First segment
+    # uses the LEGACY samplers via force_mode (full start-kind
+    # diversity: rise keeps flat/bridge/crouch, lower its plant start)
+    # restricted to the stance modes, drawn from the configured
+    # --goal-mix renormalized.
+    SEQ_NEXT_STANCE = {"rise": ("hold",), "hold": ("lower",),
+                       "lower": ("rise",)}
+
+    def _sample_mode_seq_stance(self) -> GoalTrajectory:
+        gen = self._goal_gen
+        rng = self.rng
+        dt = self.dt
+        n = self.episode_steps + 1
+        seg_lo = float(cfg_get(self.cfg, "goal", "mode_seq_segment_s_min",
+                               default=6.0))
+        seg_hi = float(cfg_get(self.cfg, "goal", "mode_seq_segment_s_max",
+                               default=8.0))
+        bl_lo = float(cfg_get(self.cfg, "goal", "mode_seq_blend_s_min",
+                              default=0.5))
+        bl_hi = float(cfg_get(self.cfg, "goal", "mode_seq_blend_s_max",
+                              default=1.0))
+        max_seg = int(cfg_get(self.cfg, "goal", "mode_seq_max_segments",
+                              default=5))
+        # First mode: the configured goal mix restricted to the three
+        # stance sequence modes (renormalized; uniform fallback).
+        modes3 = ("rise", "hold", "lower")
+        p = np.array([gen.p_rise, gen.p_hold, gen.p_lower], dtype=float)
+        p = (p / p.sum()) if p.sum() > 0 else np.full(3, 1.0 / 3.0)
+        mode = str(modes3[int(rng.choice(3, p=p))])
+        # Segment boundaries: cumulative U(seg_lo, seg_hi) draws until
+        # the tail can no longer hold a useful (>=3 s) segment; the
+        # last segment runs to the episode end. Guarantee >= 2 segments
+        # by splitting at the middle if the draw left no boundary
+        # (identical mechanics to walk_task._sample_mode_seq).
+        min_tail = int(round(3.0 / dt))
+        ticks = [0]
+        t = 0.0
+        while len(ticks) < max_seg:
+            t += float(rng.uniform(seg_lo, seg_hi))
+            tk = int(round(t / dt))
+            if tk > self.episode_steps - min_tail:
+                break
+            ticks.append(tk)
+        if len(ticks) == 1:
+            ticks.append(max(1, self.episode_steps // 2))
+        plan = [{"mode": mode, "tick": 0, "blend": 0}]
+        for tk in ticks[1:]:
+            mode = str(rng.choice(self.SEQ_NEXT_STANCE[mode]))
+            bn = max(1, int(round(float(rng.uniform(bl_lo, bl_hi)) / dt)))
+            plan.append({"mode": mode, "tick": tk, "blend": bn})
+        self._seq_plan = plan
+        self._seq_idx = 0
+        self._seq_seg_end = (int(plan[1]["tick"]) if len(plan) > 1
+                             else int(self.episode_steps))
+        return gen.sample(rng, n, dt, force_mode=str(plan[0]["mode"]))
+
+    def _seq_segment_traj(self, mode: str, tick: int):
+        """Mid-episode segment schedule on the EPISODE clock: arrays are
+        full-length with [0:tick] padded (never read again) so every
+        existing _step_i-indexed consumer (goal reads, ref_quiet, the
+        BC lookahead, end-posture) works unchanged. Heights are
+        relative to the CANONICAL family _z0 the caller installs
+        BEFORE calling (settled plant for hold/lower, settled belly
+        for rise — sim_env._seq_capture_frames). Returns
+        (traj, h_target, ramp_i0). Moved here 08-15 from walk_task so
+        stance-only sequences (goal.mode_seq_stance, joint_goal task)
+        share it; the walk task overrides for its walk branch and
+        delegates the rest (statements verbatim — walk-task rng
+        streams unchanged)."""
+        gen = self._goal_gen
+        rng = self.rng
+        dt = self.dt
+        n = self.episode_steps + 1
+        height = np.zeros(n)
+        h_target = 0.0
+        ramp_i0 = 0
+        if mode == "rise":
+            # Aim back at the last commanded stand height when known
+            # (the joystick semantics of "stand up" mid-cycle); a
+            # sequence that has never stood draws the legacy amplitude.
+            # THIS is the z_stand anchoring the postlower bank family
+            # lacked: the rise target is the REMAINING rise from the
+            # canonical belly frame, never an impossible absolute.
+            if self._seq_stand_z is not None:
+                amp = min(max(self._seq_stand_z - self._z0, 0.010),
+                          gen.rise_m[1])
+            else:
+                amp = float(rng.uniform(*gen.rise_m))
+            hold_n = max(1, int(round(1.0 / dt)))
+            ramp_n = max(1, int(round(gen._jittered_s(
+                rng, gen.rise_ramp_s, gen.rise_ramp_jitter) / dt)))
+            i1 = min(tick + hold_n, n)
+            end = min(i1 + ramp_n, n)
+            # goal.mode_seq_rise_from_h (08-15, cw-stand-postlower3
+            # dig-in; default 0 = legacy bit-exact): the legacy
+            # schedule starts every mid-sequence rise at 0 in the
+            # belly frame — for a robot standing at the lower-end
+            # height that COMMANDS A DESCENT TO BELLY before the ramp
+            # (blend -> 0 + 1 s hold at 0). Cohort c3 showed the
+            # policy learns exactly that: it re-descends, splays to
+            # the flat-demo start and re-runs the flat-rise
+            # choreography, stalling over_current on >half of held-out
+            # det post-lower rises (0.419 vs parent 0.967). With this
+            # key on, the schedule instead starts AT the robot's
+            # current height above the just-installed belly frame
+            # ("stand up from where you ARE"): hold at h_now, then
+            # ramp h_now -> amp. No rng draws added/removed (amp/ramp
+            # draws identical), so legacy streams are untouched either
+            # way. Only meaningful mid-episode (callers install _z0
+            # before building the segment); cold episodes never enter
+            # this path.
+            h_start = 0.0
+            if float(cfg_get(self.cfg, "goal", "mode_seq_rise_from_h",
+                             default=0.0)) > 0.0:
+                h_start = float(
+                    self.data.xpos[self._chassis_bid, 2]) - self._z0
+            height[tick:] = h_start
+            height[i1:] = amp
+            if end > i1:
+                height[i1:end] = np.linspace(h_start, amp, end - i1)
+            h_target = amp
+            ramp_i0 = i1
+            self._seq_stand_z = self._z0 + amp
+        elif mode == "lower":
+            target = -float(rng.uniform(*gen.lower_m))
+            hold_n = max(1, int(round(gen.lower_hold_s / dt)))
+            ramp_n = max(1, int(round(gen._jittered_s(
+                rng, gen.lower_ramp_s, gen.lower_ramp_jitter) / dt)))
+            i1 = min(tick + hold_n, n)
+            end = min(i1 + ramp_n, n)
+            height[i1:] = target
+            if end > i1:
+                height[i1:end] = np.linspace(0.0, target, end - i1)
+            h_target = target
+        elif mode != "hold":
+            raise ValueError(f"mode_seq: unsupported segment {mode!r}")
+        traj = GoalTrajectory(mode=mode, roll=np.zeros(n),
+                              pitch=np.zeros(n), height=height,
+                              unload_leg=None, start_at="plant")
+        return traj, h_target, ramp_i0
+
     def _sample_goal(self) -> GoalTrajectory:
+        # goal.mode_seq_stance: 0 = off (bit-exact legacy, no draw),
+        # 1 = every episode a sequence (no draw), 0<p<1 = this episode
+        # is a sequence with prob p (one extra rng draw ONLY in the
+        # fractional case — both endpoints keep historical streams).
+        p_seq = float(cfg_get(self.cfg, "goal", "mode_seq_stance",
+                              default=0.0))
+        if p_seq >= 1.0 or (p_seq > 0.0 and self.rng.random() < p_seq):
+            return self._sample_mode_seq_stance()
         # +1: _current_goal is also read at step index == episode_steps.
         return self._goal_gen.sample(self.rng, self.episode_steps + 1,
                                      self.dt)

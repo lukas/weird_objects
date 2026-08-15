@@ -35,6 +35,8 @@ from __future__ import annotations
 
 import argparse
 import csv
+import json
+import os
 import sys
 import time
 from pathlib import Path
@@ -52,6 +54,9 @@ from rl_move.sim.servo_model import SimServoParams      # noqa: E402
 MODEL_DIR = ROOT / "rl_move" / "dynamics" / "models"
 LOG_DIR = ROOT / "rl_move" / "dynamics" / "logs"
 DEFAULT_ENCODER = "rl_move/dynamics/models/dyn_v2_obs.pt"
+WANDB_ENV_FILE = ROOT / "rl_move" / "sim" / "wandb.env"
+WANDB_ENTITY_DEFAULT = "l2k2"
+WANDB_PROJECT_DEFAULT = "hexapod-balance"
 
 HISTORY = 16
 FRAME_WIDTH = 72          # walk-env frame: 59 proprio + 13 goal/cmd
@@ -87,6 +92,83 @@ HELDOUT_SUITES = (
     ("db25", 0.0, {"deadband_scale": "2.5,2.5"}),       # worn deadband
     ("tq07", 0.0, {"torque_scale": "0.7,0.7"}),         # battery sag
 )
+
+
+def _load_wandb_env() -> None:
+    if not WANDB_ENV_FILE.is_file():
+        return
+    for raw in WANDB_ENV_FILE.read_text().splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        if key.strip() and value.strip():
+            os.environ.setdefault(key.strip(), value.strip())
+
+
+def _init_wandb(args):
+    if args.no_wandb:
+        return None
+    _load_wandb_env()
+    try:
+        import wandb
+    except ImportError as exc:
+        raise RuntimeError(
+            "W&B tracking is required; install wandb or pass --no-wandb"
+        ) from exc
+    has_key = bool(os.environ.get("WANDB_API_KEY"))
+    if not has_key:
+        try:
+            has_key = bool(wandb.api.api_key)
+        except Exception:
+            has_key = False
+    if not has_key:
+        raise RuntimeError(
+            f"W&B tracking is required but no key was found in {WANDB_ENV_FILE}"
+        )
+
+    LOG_DIR.mkdir(parents=True, exist_ok=True)
+    run = wandb.init(
+        entity=os.environ.get("WANDB_ENTITY", WANDB_ENTITY_DEFAULT),
+        project=os.environ.get("WANDB_PROJECT", WANDB_PROJECT_DEFAULT),
+        dir=str(LOG_DIR),
+        group="dynrep-transfer",
+        job_type=f"condition-{args.condition.lower()}-{args.task}",
+        name=args.name,
+        notes=(
+            "Representation-transfer PPO. Condition C jointly updates the "
+            "walking policy and future-servo dynamics objective after every "
+            "rollout."
+        ),
+        config={
+            "trainer": "train_ppo_transfer",
+            "condition": args.condition,
+            "task": args.task,
+            "steps": args.steps,
+            "seed": args.seed,
+            "n_envs": args.n_envs,
+            "dr_scale": args.dr_scale,
+            "episode_seconds": args.episode_seconds,
+            "encoder": args.encoder,
+            "encoder_lr_scale": args.encoder_lr_scale,
+            "anchor_data": args.anchor_data,
+            "anchor_batches": args.anchor_batches,
+            "anchor_batch_size": args.anchor_batch_size,
+            "init_from": args.init_from,
+            "eval_every": args.eval_every,
+            "eval_tasks": args.eval_tasks,
+            "eval_heldout": args.eval_heldout,
+        },
+        sync_tensorboard=True,
+    )
+    run.define_metric("eval/*", step_metric="global_step", summary="last")
+    run.define_metric("anchor/*", step_metric="global_step", summary="last")
+    metadata = {"id": run.id, "url": run.url, "name": args.name}
+    (LOG_DIR / f"ppo_{args.name}_wandb.json").write_text(
+        json.dumps(metadata, indent=2) + "\n"
+    )
+    print(f"[wandb] logging to {run.url}", flush=True)
+    return run
 
 
 def make_task_env(task: str, seed: int, dr_scale: float,
@@ -307,7 +389,11 @@ def main() -> None:
                     default="rl_move/dynamics/datasets/v2")
     ap.add_argument("--anchor-batches", type=int, default=4)
     ap.add_argument("--anchor-batch-size", type=int, default=256)
+    ap.add_argument("--no-wandb", action="store_true",
+                    help="explicitly disable required W&B tracking")
     args = ap.parse_args()
+
+    wandb_run = _init_wandb(args)
 
     import torch
     from stable_baselines3 import PPO
@@ -330,7 +416,7 @@ def main() -> None:
         n_steps=256, batch_size=min(2048, 256 * args.n_envs),
         learning_rate=args.lr, gamma=0.99, gae_lambda=0.95,
         ent_coef=1e-3, clip_range=0.2, seed=args.seed, verbose=0,
-        device="cpu")
+        device="cpu", tensorboard_log=str(LOG_DIR / "tensorboard"))
     enc_kwargs = dict(ckpt_path=str(ROOT / args.encoder),
                       frame_width=FRAME_WIDTH, history=HISTORY)
 
@@ -408,6 +494,13 @@ def main() -> None:
                             for k in heldout_metrics})
         csv_w.writerow(row)
         csv_f.flush()
+        if wandb_run is not None:
+            wandb_run.log({
+                "global_step": step,
+                **{f"eval/{key}": value for key, value in row.items()
+                   if key not in ("step", "anchor_loss")},
+                "anchor/loss": row["anchor_loss"],
+            })
         print(f"  eval @ {step}: " + "  ".join(
             f"{t} ret={row[f'{t}/return']:.1f} "
             f"term={row[f'{t}/early_term_rate']:.2f}" for t in eval_tasks)
@@ -435,16 +528,32 @@ def main() -> None:
 
     if args.condition == "C":
         eps = dd.load_dataset(ROOT / args.anchor_data)
-        stats = dd.Stats(
-            model.policy.features_extractor.f_mean.numpy(),
-            model.policy.features_extractor.f_std.numpy())
+        enc_ckpt = torch.load(ROOT / args.encoder, map_location="cpu",
+                              weights_only=False)
+        stats = dd.Stats.from_dict(enc_ckpt["stats"])
         dyn = model.policy.features_extractor.dyn
         sampler = dd.WindowSampler(eps, stats, HISTORY, dyn.horizons,
                                    val=False, seed=args.seed)
         lambdas = {"joint_pos": 1.0, "joint_vel": 1.0, "imu": 1.0,
-                   "contact": 0.5, "latent": 1.0}
+                   "contact": 0.5, "latent": 1.0,
+                   "priv_current": 0.25, "priv_future": 0.25}
         anchor_opt = torch.optim.Adam(
             dyn.parameters(), lr=args.lr * args.encoder_lr_scale)
+
+        def anchor_batch_to_torch(b: dict) -> dict:
+            return {
+                "hist": torch.as_tensor(b["hist"]),
+                "fut_actions": torch.as_tensor(b["fut_actions"]),
+                "state": {k: torch.as_tensor(v)
+                          for k, v in b["state"].items()},
+                "contact": {k: torch.as_tensor(v)
+                            for k, v in b["contact"].items()},
+                "priv_now": torch.as_tensor(b["priv_now"]),
+                "priv": {k: torch.as_tensor(v)
+                         for k, v in b["priv"].items()},
+                "fut_hist": {k: torch.as_tensor(v)
+                             for k, v in b["fut_hist"].items()},
+            }
 
         class AnchorCb(BaseCallback):
             """Continue the predictive objective on the offline
@@ -457,36 +566,21 @@ def main() -> None:
                 # or normalization wiring is wrong.
                 with torch.no_grad():
                     b = sampler.batch(args.anchor_batch_size)
-                    bt = {
-                        "hist": torch.as_tensor(b["hist"]),
-                        "fut_actions": torch.as_tensor(b["fut_actions"]),
-                        "state": {k: torch.as_tensor(v)
-                                  for k, v in b["state"].items()},
-                        "contact": {k: torch.as_tensor(v)
-                                    for k, v in b["contact"].items()},
-                        "fut_hist": {k: torch.as_tensor(v)
-                                     for k, v in b["fut_hist"].items()},
-                    }
+                    bt = anchor_batch_to_torch(b)
                     out = dyn(bt["hist"], bt["fut_actions"])
                     loss, _ = dynamics_loss(out, bt, lambdas, dyn)
                 print(f"  anchor loss at start (pretrained, untouched): "
                       f"{float(loss):.3f}")
+                if wandb_run is not None:
+                    wandb_run.log({"global_step": 0,
+                                   "anchor/pretrained_loss": float(loss)})
 
             def _on_rollout_end(self) -> None:
                 dyn.train()
                 losses = []
                 for _ in range(args.anchor_batches):
                     b = sampler.batch(args.anchor_batch_size)
-                    bt = {
-                        "hist": torch.as_tensor(b["hist"]),
-                        "fut_actions": torch.as_tensor(b["fut_actions"]),
-                        "state": {k: torch.as_tensor(v)
-                                  for k, v in b["state"].items()},
-                        "contact": {k: torch.as_tensor(v)
-                                    for k, v in b["contact"].items()},
-                        "fut_hist": {k: torch.as_tensor(v)
-                                     for k, v in b["fut_hist"].items()},
-                    }
+                    bt = anchor_batch_to_torch(b)
                     out = dyn(bt["hist"], bt["fut_actions"])
                     loss, _ = dynamics_loss(out, bt, lambdas, dyn)
                     anchor_opt.zero_grad()
@@ -495,6 +589,9 @@ def main() -> None:
                     anchor_opt.step()
                     losses.append(float(loss.detach()))
                 anchor_state["loss"] = float(np.mean(losses))
+                if wandb_run is not None:
+                    wandb_run.log({"global_step": self.num_timesteps,
+                                   "anchor/loss": anchor_state["loss"]})
 
             def _on_step(self) -> bool:
                 return True
@@ -503,7 +600,8 @@ def main() -> None:
 
     run_evals(0, heldout=args.eval_heldout)
     model.learn(total_timesteps=args.steps, callback=callbacks,
-                reset_num_timesteps=True, progress_bar=False)
+                reset_num_timesteps=True, progress_bar=False,
+                tb_log_name=args.name)
     run_evals(model.num_timesteps, heldout=args.eval_heldout)
     out = MODEL_DIR / f"ppo_{args.name}.zip"
     model.save(str(out))
@@ -511,6 +609,8 @@ def main() -> None:
     venv.close()
     print(f"[{args.name}] done in {(time.time() - t0) / 60:.1f} min "
           f"-> {out}\n  eval log: {csv_path}")
+    if wandb_run is not None:
+        wandb_run.finish()
 
 
 if __name__ == "__main__":

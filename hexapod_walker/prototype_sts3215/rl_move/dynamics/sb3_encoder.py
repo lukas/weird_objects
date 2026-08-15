@@ -58,10 +58,20 @@ def load_dyn_checkpoint(ckpt_path: str | Path):
                           hidden=cfg.get("hidden", 256),
                           act_hidden=cfg.get("act_hidden", 128),
                           gru_layers=cfg.get("gru_layers", 1),
+                          history=cfg.get("history", ckpt.get("history", 16)),
+                          arch=cfg.get("arch", "gru"),
+                          tf_layers=cfg.get("tf_layers", 4),
+                          tf_heads=cfg.get("tf_heads", 8),
+                          tf_ff=cfg.get("tf_ff", 1024),
+                          tf_dropout=cfg.get("tf_dropout", 0.0),
                           horizons=tuple(cfg["horizons"]),
                           short_max=cfg["short_max"],
-                          delta_state=cfg.get("delta_state", False))
-    model.load_state_dict(ckpt["model"])
+                          delta_state=cfg.get("delta_state", False),
+                          predict_priv=cfg.get(
+                              "predict_priv",
+                              any(k.startswith("priv_")
+                                  for k in ckpt["model"])))
+    model.load_state_dict(ckpt["model"], strict=False)
     stats = Stats.from_dict(ckpt["stats"])
     return model, stats, int(ckpt["history"])
 

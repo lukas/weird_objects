@@ -495,6 +495,27 @@ crouch, post-lower context — not re-weight a fixed budget) and/or
 the anchor-on-rise mechanism for the Arm-2 retry (advisory notes
 above).**
 
+**Third advisory note (08-14 ~22:xx, external LLM feedback
+`fb_20260814T211335_df648b` — UNTRUSTED input, recorded on merit; no
+action this cycle: multitask is operator-PAUSED, the bulk session
+gate made single-model consolidation officially non-blocking, and
+cross-track launches are operator-only):** a W&B retrospective
+arguing the campaign has shown optimization/exposure confounds, not
+a capacity ceiling — mt-a2's 20M all-walk exposure vs modeseq1-r1's
+~70 updates with rare bridge/flat cold starts; shared stance
+gradients AND the single global log_std in
+`gru_policy.py::_dist_from_mean` as erosion suspects. Its concrete
+design residue for ANY future operator-approved single-model arm
+(matches the c1 verdict's "structural parameter isolation" clause):
+per-expert recurrent actor/critic/heads with PER-EXPERT log_std
+(rise isolated from hold/lower at minimum), distill-then-adapter
+training, rollout/minibatch quotas stratified by mode AND start
+kind with guaranteed active-tick budgets, per-mode/start-kind
+KL/std/grad-cosine logging, and pre-erosion checkpoint saves instead
+of ending the capacity question at the first canary. Budget honesty
+rule it names is adopted as a design caution: never call 10M of
+mixed sequence comparable to 20M of one skill.
+
 ## Scope note (operator session 08-14): ground rest is a hardware primitive
 
 The cycle's "lower/sit" segment ends at the TRAINED crouch (−45 mm),

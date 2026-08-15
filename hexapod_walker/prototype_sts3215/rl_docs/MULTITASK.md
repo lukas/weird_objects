@@ -4,6 +4,33 @@ Source: operator brief 2026-08-12 ("Hexapod RL: Multitask Learning,
 Forgetting, and the Next Experiment"). This doc is the track's design;
 live state is `rl_docs/tracks/multitask/STATUS.md`.
 
+**NAMING CORRECTION (operator, 08-15, fb_20260815T114937_f9078d —
+binding on the fb_20260815T114414_3c40d6 arm and all future runs):**
+the c2-continuation arm is **`cw-joystick-translate1`** — the
+user-facing task is joystick-commanded translation (policy receives
+changing [vx,vy] and moves that way; wz/yaw identically zero and out
+of the task description). "Fullcircle" is banned as a run/product
+label (uniform [-pi,pi] heading is sampler coverage, not the
+behavior); the launcher refuses it mechanically. Headline metric:
+`joystick/v_along_m_s` (+`_cumulative`) = average signed m/s in the
+requested joystick direction over nonzero-command ticks. Rule: name
+the operator-visible behavior first; mechanism/sampler/arch details
+live in config/tags/notes.
+
+**METRIC SIMPLIFICATION (operator, 08-15, fb_20260815T115650_47010c —
+applied 12:0x UTC, before launch):** the TRAINING dashboard carries NO
+per-heading direction bins (`v_along_hbin*` removed from env info keys
+and trainer W&B series; launcher refuses joystick launches if they
+reappear). Uniform [-pi,pi] heading sampling + the RAW SIGNED average
+already zeroes out command-ignorant motion, so bins add nothing in
+training. Contract: `joystick/v_along_m_s` (per-rollout mean over
+active ticks), `joystick/v_along_m_s_cumulative` (active-tick-weighted
+run mean), `joystick/active_ticks` (audit count), episode
+survival/fall metrics beside them; cross-track/wrong-way/ratio stay
+secondary under `train/`. Fixed 8/12-direction panels are HELD-OUT
+EVAL tools only, for diagnosing failures after the simple average
+says whether learning is occurring.
+
 ## The reframe (read this before judging any run here)
 
 Do NOT assume the campaign's main failure is catastrophic forgetting.

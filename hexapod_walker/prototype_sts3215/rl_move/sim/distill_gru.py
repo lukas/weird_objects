@@ -140,6 +140,14 @@ def collect(envs: dict, teachers: dict, episodes_by_mode: dict[str, int],
     return episodes
 
 
+def _episode_split(total: int, mix: dict[str, float]) -> dict[str, int]:
+    """Split ``total`` episodes across ``mix`` weights (dropping
+    zero-weight modes), each mode getting at least 1 episode if its
+    weight is > 0. Shared by --episodes/--mix, --dagger-episodes/--mix
+    and --dagger-extra-episodes/--dagger-extra-mix (same convention)."""
+    return {m: max(1, round(total * w)) for m, w in mix.items() if w > 0}
+
+
 def _seq_teacher(mode: str, teachers: dict):
     """Per-tick teacher routing for sequence episodes: the ACTIVE
     segment's teacher labels (walk segments -> walk teacher, every
@@ -473,6 +481,24 @@ def main(argv: list[str] | None = None) -> int:
                          "env appends the 6-wide skill-family one-hot "
                          "at the obs tail, teachers still read their "
                          "prefix slices")
+    ap.add_argument("--experts", action="store_true",
+                    help="distill into ModeExpertsGruActorCriticPolicy "
+                         "(four fully isolated experts: rise/hold/"
+                         "lower/locomotion, each with its own actor "
+                         "GRU, critic GRU, heads and log_std — "
+                         "operator directive fb_20260815T013349_488ffd)"
+                         ". Turns on obs.mode_onehot=1 like --dual; "
+                         "exclusive with --dual. Routing gives each "
+                         "expert gradient only from its own modes' "
+                         "ticks, so one BC pass distills all four")
+    ap.add_argument("--experts-adapter", type=int, default=0,
+                    help="with --experts: build the transition adapter "
+                         "(zero-init residual MLP, hidden width N) "
+                         "into the student so a later frozen-expert "
+                         "PPO phase can train it. The adapter is "
+                         "FROZEN during BC/DAgger (experts learn pure "
+                         "teacher behavior; the zero-init residual "
+                         "contributes exactly 0). 0 = no adapter")
     ap.add_argument("--transitions", type=int, default=0,
                     help="TRANSITIONS_DIRECTIVE CODE item 2: N teacher-"
                          "chained SEQUENCE demo episodes on a "
@@ -511,6 +537,29 @@ def main(argv: list[str] | None = None) -> int:
                          "window has more falls than this (a teacher "
                          "that falls in sequences cannot be distilled "
                          "on them)")
+    ap.add_argument("--dagger-extra-mix", type=str, default=None,
+                    help="Arm-A stage-0 FAIL follow-up (cross-track "
+                         "insight fb_20260814T164337_d7f11b, "
+                         "MODE_EXPERTS_DIRECTIVE 'distill-recipe "
+                         "redesign'): with --transitions, sequence "
+                         "DAgger rounds label whatever mix of segments "
+                         "the STUDENT happens to visit — a mode that "
+                         "rarely triggers a hard fall (rise stalls "
+                         "short instead of falling) gets no extra "
+                         "correction density even though it needs it "
+                         "(modeexperts_bc1: det rise 0/6, walk 2/6 "
+                         "near-total stalls, while DAgger falls "
+                         "concentrated in lower {'lower':6,'rise':1,"
+                         "'walk':3,'hold':1}/300). This adds a SECOND, "
+                         "single-mode targeted DAgger pass each round "
+                         "(same collect_dagger() used by the no-"
+                         "--transitions path) on top of the sequence "
+                         "one, e.g. 'rise=1.0' or 'rise=0.7,walk=0.3'. "
+                         "None (default) = no extra pass, bit-exact.")
+    ap.add_argument("--dagger-extra-episodes", type=int, default=0,
+                    help="total episodes for --dagger-extra-mix, split "
+                         "per its weights (same convention as "
+                         "--episodes/--mix). 0 (default) = off.")
     ap.add_argument("--stochastic-frac", type=float, default=0.3)
     ap.add_argument("--epochs", type=int, default=30)
     ap.add_argument("--gru-hidden-size", type=int, default=256)
@@ -543,21 +592,40 @@ def main(argv: list[str] | None = None) -> int:
         except ValueError:
             cfg_overrides[key] = val.strip()
 
-    if args.transitions > 0 and not args.dual:
+    extra_mix: dict[str, float] = {}
+    if args.dagger_extra_mix:
+        extra_mix = {k: float(v) for k, v in
+                     (kv.split("=") for kv in
+                      args.dagger_extra_mix.split(","))}
+        unknown = set(extra_mix) - set(DIET)
+        if unknown:
+            raise SystemExit(f"--dagger-extra-mix unknown modes: {unknown}")
+    if extra_mix and args.dagger_extra_episodes <= 0:
+        raise SystemExit("--dagger-extra-mix needs --dagger-extra-episodes > 0")
+    if args.dagger_extra_episodes > 0 and not extra_mix:
+        raise SystemExit("--dagger-extra-episodes needs --dagger-extra-mix")
+
+    if args.dual and args.experts:
+        raise SystemExit("--dual and --experts are exclusive")
+    if args.experts_adapter > 0 and not args.experts:
+        raise SystemExit("--experts-adapter requires --experts")
+    mode_gated = args.dual or args.experts
+    if args.transitions > 0 and not mode_gated:
         raise SystemExit(
-            "--transitions requires --dual: the TRANSITIONS_DIRECTIVE "
-            "arms run the mode-gated dual-core GRU (failure-ledger "
-            "lesson 1 — never a shared trunk), and sequence routing "
-            "rides the obs mode one-hot that --dual turns on")
+            "--transitions requires --dual or --experts: sequence "
+            "routing rides the obs mode one-hot that those policies "
+            "turn on (failure-ledger lesson 1 — never a shared trunk)")
 
     from sb3_contrib import RecurrentPPO
     from stable_baselines3 import PPO
 
-    from .gru_policy import DualGruActorCriticPolicy, GruActorCriticPolicy
+    from .gru_policy import (DualGruActorCriticPolicy,
+                             GruActorCriticPolicy,
+                             ModeExpertsGruActorCriticPolicy)
 
     rng = np.random.default_rng(args.seed)
     params = SimServoParams.load()
-    cfg = _build_cfg(({"obs.mode_onehot": 1.0} if args.dual else {})
+    cfg = _build_cfg(({"obs.mode_onehot": 1.0} if mode_gated else {})
                      | cfg_overrides)
 
     walk_teacher = PPO.load(args.walk_teacher, device="cpu")
@@ -568,11 +636,11 @@ def main(argv: list[str] | None = None) -> int:
 
     env = _make_env(args, cfg, params)
     n_env_obs = int(env.observation_space.shape[0])
-    n_walk_want = n_walk + (6 if args.dual else 0)  # + mode one-hot tail
+    n_walk_want = n_walk + (6 if mode_gated else 0)  # + one-hot tail
     if n_env_obs != n_walk_want:
         raise SystemExit(f"env obs {n_env_obs} != expected {n_walk_want} "
                          f"(walk teacher {n_walk}"
-                         f"{' + 6 one-hot' if args.dual else ''})")
+                         f"{' + 6 one-hot' if mode_gated else ''})")
     if n_stance >= n_env_obs:
         raise SystemExit(f"stance teacher obs {n_stance} not a prefix of "
                          f"env obs {n_env_obs}")
@@ -591,8 +659,7 @@ def main(argv: list[str] | None = None) -> int:
         unknown = set(mix) - set(DIET)
         if unknown:
             raise SystemExit(f"--mix unknown modes: {unknown}")
-    episodes_by_mode = {m: max(1, round(args.episodes * w))
-                        for m, w in mix.items() if w > 0}
+    episodes_by_mode = _episode_split(args.episodes, mix)
     teachers = {"walk": (walk_teacher, n_walk),
                 "stance": (stance_teacher, n_stance)}
 
@@ -632,21 +699,31 @@ def main(argv: list[str] | None = None) -> int:
     print(f"[distill-gru] {len(episodes)} episodes, "
           f"{n_steps_total} transitions")
 
+    policy_cls = (ModeExpertsGruActorCriticPolicy if args.experts
+                  else DualGruActorCriticPolicy if args.dual
+                  else GruActorCriticPolicy)
+    pk = dict(lstm_hidden_size=args.gru_hidden_size)
+    if args.experts:
+        pk["experts_adapter_hidden"] = args.experts_adapter
     student = RecurrentPPO(
-        DualGruActorCriticPolicy if args.dual else GruActorCriticPolicy,
+        policy_cls,
         env,
         n_steps=256, batch_size=8192, n_epochs=5, learning_rate=3e-4,
         gamma=0.99, gae_lambda=0.95, ent_coef=0.01, clip_range=0.2,
         target_kl=0.02,
-        policy_kwargs=dict(lstm_hidden_size=args.gru_hidden_size),
+        policy_kwargs=pk,
         seed=args.seed, device="cpu", verbose=0)
+    if args.experts and student.policy.experts_adapter is not None:
+        # BC/DAgger fit the EXPERTS only; the adapter stays zero-init
+        # and frozen until the frozen-expert PPO phase trains it.
+        student.policy.experts_adapter.requires_grad_(False)
 
     actor_mse = train_student(student, episodes, args.epochs)
     print(f"[distill-gru] BC actor RMS {np.sqrt(actor_mse):.4f} action "
           f"units (~{np.sqrt(actor_mse) * 85:.1f} deg on the knee axis)")
 
-    dagger_by_mode = {m: max(1, round(args.dagger_episodes * w))
-                      for m, w in mix.items() if w > 0}
+    dagger_by_mode = _episode_split(args.dagger_episodes, mix)
+    extra_by_mode = _episode_split(args.dagger_extra_episodes, extra_mix)
     for rnd in range(args.dagger_rounds):
         if seq_env is not None:
             # Directive arm 1: DAgger rounds are SEQUENCE episodes —
@@ -658,6 +735,16 @@ def main(argv: list[str] | None = None) -> int:
             new_eps = collect_dagger(envs, student, teachers,
                                      dagger_by_mode)
         episodes.extend(new_eps)
+        if extra_by_mode:
+            # Second, single-mode targeted pass (see --dagger-extra-mix
+            # help): tops up correction density on modes the sequence
+            # pass under-visits/under-corrects, independent of whether
+            # they trigger hard falls.
+            extra_eps = collect_dagger(envs, student, teachers,
+                                       extra_by_mode)
+            episodes.extend(extra_eps)
+            print(f"[distill-gru] dagger round {rnd + 1} extra pass: "
+                  f"+{len(extra_eps)} eps {extra_by_mode}")
         actor_mse = train_student(student, episodes,
                                   max(args.epochs // 2, 5))
         print(f"[distill-gru] dagger round {rnd + 1}: dataset "

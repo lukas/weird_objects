@@ -122,5 +122,19 @@ operator calls at regeneration time).
   judges the coupling necessary; pre-registration and honest
   verdicts still required (RESEARCH_RULES.md, guardrails.yaml
   updated; this file wins on conflict with any older restatement).
+  SCOPE CAVEAT: the operator's authenticated 18:15 KICK granted the
+  cw-recover-any1 bundle a ONE-RUN exception and said "NOT a global
+  abolition"; the global repeal landed 10 min later (commit
+  24707196) with no cycle-log trail — confirm-or-disavow entry in
+  STATUS.md WAITING-ON; treat bundles conservatively meanwhile.
+- cw-recover-any1 / universal-recovery: CONFIRMED GENUINE by the
+  operator (08-15 18:15 UTC authenticated KICK) after 5-6 correct
+  channel-grounds declines of its unauthenticated MCP copies —
+  future cycles must NOT re-decline this line on channel grounds.
+  Executed 08-15: `recover` mode (PBRS potential-difference reward,
+  held-success termination, adaptive reset-family curriculum,
+  default-off) built + banked (RECOVER section,
+  test_task_semantics.py), REWARD.md §4c, run launched on the
+  footlow2_hard1 lineage (hw track).
 - Bench/UI: sit NEVER refuses on pose delta (stand-only refusal);
   errors stay copyable; thermal reads debounced (phantom wall).

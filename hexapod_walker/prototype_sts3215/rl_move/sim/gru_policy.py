@@ -340,6 +340,320 @@ class DualGruActorCriticPolicy(GruActorCriticPolicy):
         return self._actor_mean(pa, pb, gate)
 
 
+# --- Mode-experts (four-expert, fully isolated) GRU -----------------
+#
+# Operator directive fb_20260815T013349_488ffd (08-15, executed via
+# operator KICK): the dual-core split removed walk<->stance trunk
+# interference, but rise/hold/lower still share the stance core AND
+# every expert shares ONE global log_std — modeseq1-r1/dual2 showed
+# PPO spending rare hard-start rise competence through exactly those
+# shared parameters. This policy gives each skill its own COMPLETE
+# expert: RISE, HOLD, LOWER, LOCOMOTION (walk/turn/quad), each with
+# its own actor GRU, critic GRU, latent extractors, action/value
+# heads, and its own learnable log_std. All four hidden states stay
+# warm every tick (memories survive mode switches); only the ACTIVE
+# expert's output is selected, so gradients — actor, critic, AND
+# exploration std — flow exclusively into the expert whose mode is
+# lit. Optional small transition adapter: a residual MLP on the
+# selected action mean, zero-initialized (exactly 0 contribution at
+# init), architecturally separate so it can never silently rewrite a
+# frozen expert body. Default OFF everywhere: nothing constructs this
+# class unless --gru-experts / --experts is passed.
+
+EXPERTS_ORDER = ("rise", "hold", "lower", "loco")
+N_EXPERTS = 4
+
+
+class _QuadGRU(nn.Module):
+    """Four parallel single-layer GRU cores behind one state facade.
+
+    ``num_layers=4`` is a facade (like _DualGRU's 2): RecurrentPPO
+    sizes its opaque state buffers as (4, n_envs, H); row i threads
+    the core for EXPERTS_ORDER[i].
+    """
+
+    def __init__(self, input_size: int, hidden_size: int, **gru_kwargs):
+        super().__init__()
+        self.core_rise = nn.GRU(input_size, hidden_size, **gru_kwargs)
+        self.core_hold = nn.GRU(input_size, hidden_size, **gru_kwargs)
+        self.core_lower = nn.GRU(input_size, hidden_size, **gru_kwargs)
+        self.core_loco = nn.GRU(input_size, hidden_size, **gru_kwargs)
+        self.input_size = input_size
+        self.hidden_size = hidden_size
+        self.num_layers = N_EXPERTS  # facade: 4 state rows
+
+    def cores(self):
+        return (self.core_rise, self.core_hold, self.core_lower,
+                self.core_loco)
+
+
+class ModeExpertsGruActorCriticPolicy(GruActorCriticPolicy):
+    """Mode-gated four-expert GRU policy with complete per-expert
+    gradient isolation (rise / hold / lower / locomotion).
+
+    Same constructor surface as GruActorCriticPolicy plus:
+      experts_adapter_hidden: >0 builds the transition adapter — a
+        small residual MLP (obs features -> action delta) whose output
+        layer is ZERO-initialized, added to the selected expert mean.
+        0 (default) = no adapter module, bit-identical selected-expert
+        output path.
+      experts_adapter_scale: residual multiplier (default 0.05).
+
+    Requires the default recurrent layout (critic GRU enabled, no
+    shared_lstm, no SDE, n_lstm_layers=1 per core) and an env with
+    obs.mode_onehot=1 (the 6-wide skill one-hot at the obs tail).
+    """
+
+    def __init__(self, *args, experts_adapter_hidden: int = 0,
+                 experts_adapter_scale: float = 0.05, **kwargs):
+        self.experts_adapter_hidden = int(experts_adapter_hidden)
+        self.experts_adapter_scale = float(experts_adapter_scale)
+        super().__init__(*args, **kwargs)
+        if self.lstm_critic is None or self.shared_lstm:
+            raise ValueError(
+                "ModeExpertsGruActorCriticPolicy requires "
+                "enable_critic_lstm=True and shared_lstm=False")
+        if self.use_sde:
+            raise ValueError("ModeExpertsGruActorCriticPolicy does not "
+                             "support use_sde")
+        if self.lstm_actor.num_layers != 1:
+            raise ValueError("ModeExpertsGruActorCriticPolicy requires "
+                             "n_lstm_layers=1 (one layer per core)")
+        import copy
+
+        feat_dim = self.lstm_actor.input_size
+        self.lstm_actor = _QuadGRU(
+            feat_dim, self.lstm_actor.hidden_size, **self.lstm_kwargs)
+        self.lstm_critic = _QuadGRU(
+            self.lstm_critic.input_size, self.lstm_critic.hidden_size,
+            **self.lstm_kwargs)
+        self.lstm_hidden_state_shape = (
+            N_EXPERTS, 1, self.lstm_actor.hidden_size)
+        # Per-expert heads. The base modules (mlp_extractor/action_net/
+        # value_net/log_std) serve the LOCO expert (mirrors _DualGRU's
+        # core-A convention); rise/hold/lower get deepcopies that
+        # diverge immediately under their disjoint gradients.
+        for name in ("rise", "hold", "lower"):
+            setattr(self, f"mlp_extractor_{name}",
+                    copy.deepcopy(self.mlp_extractor))
+            setattr(self, f"action_net_{name}",
+                    copy.deepcopy(self.action_net))
+            setattr(self, f"value_net_{name}",
+                    copy.deepcopy(self.value_net))
+            setattr(self, f"log_std_{name}",
+                    nn.Parameter(self.log_std.data.clone(),
+                                 requires_grad=True))
+        # Optional transition adapter — zero-init output layer, so the
+        # residual is EXACTLY 0 until it is trained.
+        if self.experts_adapter_hidden > 0:
+            act_dim = self.action_net.out_features
+            out = nn.Linear(self.experts_adapter_hidden, act_dim)
+            with th.no_grad():
+                out.weight.zero_()
+                out.bias.zero_()
+            self.experts_adapter = nn.Sequential(
+                nn.Linear(feat_dim, self.experts_adapter_hidden),
+                nn.Tanh(), out)
+        else:
+            self.experts_adapter = None
+        lr = self.optimizer.defaults["lr"]
+        self.optimizer = self.optimizer_class(
+            self.parameters(), lr=lr, **self.optimizer_kwargs)
+
+    # -- gating --------------------------------------------------
+
+    @staticmethod
+    def _experts_weights(obs_or_feats: th.Tensor) -> th.Tensor:
+        """(..., obs) -> (..., 4) expert one-hot in EXPERTS_ORDER.
+
+        Obs-tail slot order is frozen in walk_task.MODE_ONEHOT_ORDER =
+        (hold, rise, lower, walk, turn, quad); exactly one slot is lit
+        per tick, so this selection is exact.
+        """
+        x = obs_or_feats
+        hold = x[..., -6:-5]
+        rise = x[..., -5:-4]
+        lower = x[..., -4:-3]
+        loco = x[..., -3:].sum(dim=-1, keepdim=True).clamp(0.0, 1.0)
+        return th.cat([rise, hold, lower, loco], dim=-1)
+
+    def _pi_heads(self):
+        return ((self.mlp_extractor_rise, self.action_net_rise),
+                (self.mlp_extractor_hold, self.action_net_hold),
+                (self.mlp_extractor_lower, self.action_net_lower),
+                (self.mlp_extractor, self.action_net))
+
+    def _vf_heads(self):
+        return ((self.mlp_extractor_rise, self.value_net_rise),
+                (self.mlp_extractor_hold, self.value_net_hold),
+                (self.mlp_extractor_lower, self.value_net_lower),
+                (self.mlp_extractor, self.value_net))
+
+    def _log_stds(self):
+        return (self.log_std_rise, self.log_std_hold,
+                self.log_std_lower, self.log_std)
+
+    def _quad_sequence(self, features, lstm_states, episode_starts, quad):
+        """Run ALL FOUR cores over the sequence (memories stay warm);
+        return per-expert outputs and the repacked (h, c) with h rows
+        in EXPERTS_ORDER."""
+        base = GruActorCriticPolicy._process_sequence
+        h, c = lstm_states[0], lstm_states[1]
+        outs, hs = [], []
+        for i, core in enumerate(quad.cores()):
+            out_i, (h_i, _) = base(
+                features, (h[i:i + 1], c[0:1]), episode_starts, core)
+            outs.append(out_i)
+            hs.append(h_i)
+        return outs, (th.cat(hs, dim=0), c)
+
+    def _actor_mean(self, outs, w, features):
+        mus = [head(mlp.forward_actor(out))
+               for (mlp, head), out in zip(self._pi_heads(), outs)]
+        mu = sum(w[..., i:i + 1] * m for i, m in enumerate(mus))
+        if self.experts_adapter is not None:
+            mu = mu + self.experts_adapter_scale \
+                * self.experts_adapter(features)
+        return mu
+
+    def _critic_value(self, outs, w):
+        vs = [head(mlp.forward_critic(out))
+              for (mlp, head), out in zip(self._vf_heads(), outs)]
+        return sum(w[..., i:i + 1] * v for i, v in enumerate(vs))
+
+    def _dist(self, mean_actions, w):
+        # Per-sample log_std: the one-hot selects the ACTIVE expert's
+        # row, so exploration std is per-expert and its gradient never
+        # reaches a gated-out expert.
+        log_std = w @ th.stack(self._log_stds())
+        return self.action_dist.proba_distribution(mean_actions, log_std)
+
+    # -- freezing (Arm A: frozen expert bodies + trainable adapter) --
+
+    def set_experts_frozen(self, frozen: bool = True,
+                           include_critic: bool = False):
+        """Freeze/unfreeze all four expert ACTOR bodies (GRU cores,
+        actor latent nets, action heads, per-expert log_std). Critic
+        bodies stay trainable by default (value estimates may keep
+        improving without touching behavior); include_critic=True
+        freezes them too. The transition adapter always stays
+        trainable."""
+        req = not frozen
+        self.lstm_actor.requires_grad_(req)
+        if include_critic:
+            self.lstm_critic.requires_grad_(req)
+        for (mlp, head) in self._pi_heads():
+            mlp.policy_net.requires_grad_(req)
+            head.requires_grad_(req)
+        if include_critic:
+            for (mlp, head) in self._vf_heads():
+                mlp.value_net.requires_grad_(req)
+                head.requires_grad_(req)
+        for p in self._log_stds():
+            p.requires_grad = req
+        if self.experts_adapter is not None:
+            self.experts_adapter.requires_grad_(True)
+
+    # -- RecurrentPPO entry points ---------------------------------
+
+    def forward(self, obs, lstm_states, episode_starts,
+                deterministic: bool = False):
+        features = self.extract_features(obs)
+        if self.share_features_extractor:
+            pi_features = vf_features = features
+        else:
+            pi_features, vf_features = features
+        w = self._experts_weights(obs)
+        pi_outs, st_pi = self._quad_sequence(
+            pi_features, lstm_states.pi, episode_starts, self.lstm_actor)
+        vf_outs, st_vf = self._quad_sequence(
+            vf_features, lstm_states.vf, episode_starts, self.lstm_critic)
+        values = self._critic_value(vf_outs, w)
+        distribution = self._dist(
+            self._actor_mean(pi_outs, w, pi_features), w)
+        actions = distribution.get_actions(deterministic=deterministic)
+        log_prob = distribution.log_prob(actions)
+        actions = actions.reshape((-1, *self.action_space.shape))
+        from sb3_contrib.common.recurrent.type_aliases import RNNStates
+        return actions, values, log_prob, RNNStates(st_pi, st_vf)
+
+    def get_distribution(self, obs, lstm_states, episode_starts):
+        from stable_baselines3.common.policies import ActorCriticPolicy
+        features = super(ActorCriticPolicy, self).extract_features(
+            obs, self.pi_features_extractor)
+        w = self._experts_weights(obs)
+        outs, st = self._quad_sequence(
+            features, lstm_states, episode_starts, self.lstm_actor)
+        return self._dist(self._actor_mean(outs, w, features), w), st
+
+    def predict_values(self, obs, lstm_states, episode_starts):
+        from stable_baselines3.common.policies import ActorCriticPolicy
+        features = super(ActorCriticPolicy, self).extract_features(
+            obs, self.vf_features_extractor)
+        w = self._experts_weights(obs)
+        outs, _ = self._quad_sequence(
+            features, lstm_states, episode_starts, self.lstm_critic)
+        return self._critic_value(outs, w)
+
+    def evaluate_actions(self, obs, actions, lstm_states, episode_starts):
+        features = self.extract_features(obs)
+        if self.share_features_extractor:
+            pi_features = vf_features = features
+        else:
+            pi_features, vf_features = features
+        w = self._experts_weights(obs)
+        pi_outs, _ = self._quad_sequence(
+            pi_features, lstm_states.pi, episode_starts, self.lstm_actor)
+        vf_outs, _ = self._quad_sequence(
+            vf_features, lstm_states.vf, episode_starts, self.lstm_critic)
+        distribution = self._dist(
+            self._actor_mean(pi_outs, w, pi_features), w)
+        log_prob = distribution.log_prob(actions)
+        values = self._critic_value(vf_outs, w)
+        return values, log_prob, distribution.entropy()
+
+    # -- auxiliary paths (distillation, BC anchor) ------------------
+
+    def bptt_forward(self, feats: th.Tensor):
+        """Whole-episode fused BPTT pass for distill_gru.train_student.
+        ``feats`` is (T, B, obs) padded episodes starting at reset."""
+        w = self._experts_weights(feats)
+        pi_outs = [core(feats)[0] for core in self.lstm_actor.cores()]
+        mu = self._actor_mean(pi_outs, w, feats)
+        vf_outs = [core(feats)[0] for core in self.lstm_critic.cores()]
+        value = self._critic_value(vf_outs, w)
+        return mu, value
+
+    def bc_anchor_mean(self, th_obs: th.Tensor, th_h: th.Tensor,
+                       detach_trunk: bool = False):
+        """Policy mean at stored hidden states for the BC anchor aux
+        step. ``th_h`` is (B, 4*H) flat rows (row-major over the
+        (4, B, H) state, EXPERTS_ORDER)."""
+        hidden = self.lstm_actor.hidden_size
+        h = (th_obs.new_zeros((N_EXPERTS, th_obs.shape[0], hidden))
+             if th_h is None
+             else th_h.reshape(th_obs.shape[0], N_EXPERTS, hidden)
+             .transpose(0, 1).contiguous())
+        starts = th.zeros(th_obs.shape[0], device=th_obs.device)
+        w = self._experts_weights(th_obs)
+        if detach_trunk:
+            with th.no_grad():
+                feats = self.extract_features(th_obs)
+                if not self.share_features_extractor:
+                    feats = feats[0]
+                outs, _ = self._quad_sequence(
+                    feats, (h, th.zeros_like(h)), starts, self.lstm_actor)
+            feats = feats.detach()
+            outs = [o.detach() for o in outs]
+        else:
+            feats = self.extract_features(th_obs)
+            if not self.share_features_extractor:
+                feats = feats[0]
+            outs, _ = self._quad_sequence(
+                feats, (h, th.zeros_like(h)), starts, self.lstm_actor)
+        return self._actor_mean(outs, w, feats)
+
+
 def is_recurrent_checkpoint(path: str | Path) -> bool:
     """True if the SB3 zip at ``path`` holds a recurrent policy."""
     from stable_baselines3.common.save_util import load_from_zip_file

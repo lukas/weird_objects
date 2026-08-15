@@ -32,6 +32,17 @@ STATE = frame[0:44] (q, qd, tilt, gyro, accel) — the raw physical state
 the short-horizon heads predict directly. Contacts are predicted as
 binary (force > CONTACT_THRESH_N) via BCE.
 
+PRIV = privileged simulator truths stored as targets only. They are
+never model inputs, even for the "full" input set:
+
+    [ 0:3]  body_vel     true chassis linear velocity in body frame, m/s
+    [ 3:4]  body_wz      true chassis yaw rate about body z, rad/s
+    [ 4:5]  chassis_z    world chassis height, m
+    [ 5:7]  yaw_rel      sin/cos of chassis yaw relative to episode start
+    [ 7:10] cmd          current walk command vx, vy, wz
+    [10:12] cmd_vel      achieved velocity along/across commanded xy dir
+    [12:14] cmd_heading  sin/cos of commanded xy direction (0/1 if stop)
+
 Input sets for the encoder (targets always use the full frame):
 
     "full"  all 86 dims — the strongest v1 representation.
@@ -42,11 +53,13 @@ Input sets for the encoder (targets always use the full frame):
             actually receives at deploy time.
 
 Alongside each frame the collector stores the EXECUTED action a_t
-(frames F = T+1 states s_0..s_T, actions length T) plus a small
-privileged sidecar (body-frame vx, vy, wz, chassis z) for analysis
-only — never model input.
+(frames F = T+1 states s_0..s_T, actions length T) plus the privileged
+sidecar above for supervised targets / diagnostics only — never model
+input.
 """
 from __future__ import annotations
+
+import math
 
 import numpy as np
 
@@ -55,7 +68,15 @@ LAYOUT_VERSION = "v2"
 N_JOINTS = 18
 FRAME_DIM = 86
 ACTION_DIM = 18
-PRIV_DIM = 4          # body-frame vx, vy, wz, chassis z (analysis only)
+PRIV_DIM = 14
+LEGACY_PRIV_DIM = 4  # old shards: body-frame vx, vy, wz, chassis z
+PRIV_NAMES = (
+    "vx_body", "vy_body", "vz_body", "wz_body", "chassis_z",
+    "sin_yaw_rel", "cos_yaw_rel",
+    "vx_ref", "vy_ref", "wz_ref",
+    "v_along_cmd", "v_cross_cmd",
+    "sin_cmd_heading", "cos_cmd_heading",
+)
 
 # (name, start, stop) — contiguous channel groups, in frame order.
 GROUPS = (
@@ -71,6 +92,8 @@ GROUPS = (
 
 STATE_SLICE = slice(0, 44)       # q + qd + tilt + gyro + accel
 STATE_DIM = 44
+CURRENT_SLICE = slice(44, 62)
+CURRENT_DIM = 18
 CONTACT_SLICE = slice(62, 68)
 N_FEET = 6
 CONTACT_THRESH_N = 0.5           # same "foot is on" threshold the env uses
@@ -117,12 +140,93 @@ def extract_frame(env, prev_action: np.ndarray) -> np.ndarray:
     return frame
 
 
+def _body_heading(env) -> float:
+    R = env.data.xmat[env._chassis_bid].reshape(3, 3)
+    return float(math.atan2(R[1, 0], R[0, 0]))
+
+
+def _wrap_pi(x: float) -> float:
+    return float((x + math.pi) % (2.0 * math.pi) - math.pi)
+
+
+def reset_priv_episode(env) -> None:
+    """Reset episode-relative privileged-target references."""
+    env._dynrep_yaw0 = _body_heading(env)
+
+
 def extract_priv(env) -> np.ndarray:
-    """Privileged sidecar for later analysis (never a model input)."""
-    vx = vy = wz = 0.0
+    """Privileged simulator truths (targets only; never model input)."""
+    R = env.data.xmat[env._chassis_bid].reshape(3, 3)
+    v_body = (R.T @ env.data.qvel[:3]).astype(np.float32)
     if hasattr(env, "_body_vel_xy"):
-        vx, vy = (float(v) for v in env._body_vel_xy())
+        v_body[:2] = np.asarray(env._body_vel_xy(), dtype=np.float32)
+    wz = 0.0
     if hasattr(env, "_body_wz"):
         wz = float(env._body_wz())
+    else:
+        wz = float((R.T @ env.data.qvel[3:6])[2])
     z = float(env.data.xpos[env._chassis_bid, 2])
-    return np.array([vx, vy, wz, z], dtype=np.float32)
+    yaw = _body_heading(env)
+    if not hasattr(env, "_dynrep_yaw0"):
+        reset_priv_episode(env)
+    yaw_rel = _wrap_pi(yaw - float(env._dynrep_yaw0))
+
+    vx_ref = vy_ref = wz_ref = 0.0
+    goal = None
+    if hasattr(env, "_current_goal"):
+        try:
+            goal = env._current_goal()
+        except Exception:
+            goal = None
+    if goal is not None:
+        vx_ref = float(getattr(goal, "vx_ref", 0.0))
+        vy_ref = float(getattr(goal, "vy_ref", 0.0))
+        wz_ref = float(getattr(goal, "wz_ref", 0.0))
+    s_ref = math.hypot(vx_ref, vy_ref)
+    if s_ref > 1e-6:
+        ux, uy = vx_ref / s_ref, vy_ref / s_ref
+        v_along = float(v_body[0] * ux + v_body[1] * uy)
+        v_cross = float(-v_body[0] * uy + v_body[1] * ux)
+        sin_cmd, cos_cmd = uy, ux
+    else:
+        v_along = v_cross = 0.0
+        sin_cmd, cos_cmd = 0.0, 1.0
+    priv = np.array([
+        float(v_body[0]), float(v_body[1]), float(v_body[2]), wz, z,
+        math.sin(yaw_rel), math.cos(yaw_rel),
+        vx_ref, vy_ref, wz_ref,
+        v_along, v_cross, sin_cmd, cos_cmd,
+    ], dtype=np.float32)
+    assert priv.shape == (PRIV_DIM,)
+    return priv
+
+
+def upgrade_priv(priv: np.ndarray) -> np.ndarray:
+    """Pad legacy sidecars to the current privileged-target layout."""
+    priv = np.asarray(priv, dtype=np.float32)
+    if priv.shape[-1] == PRIV_DIM:
+        return priv
+    if priv.shape[-1] != LEGACY_PRIV_DIM:
+        raise ValueError(
+            f"priv sidecar has dim {priv.shape[-1]}, expected "
+            f"{PRIV_DIM} or legacy {LEGACY_PRIV_DIM}")
+    out = np.zeros((*priv.shape[:-1], PRIV_DIM), dtype=np.float32)
+    out[..., 0] = priv[..., 0]          # vx_body
+    out[..., 1] = priv[..., 1]          # vy_body
+    out[..., 3] = priv[..., 2]          # wz_body
+    out[..., 4] = priv[..., 3]          # chassis_z
+    out[..., 6] = 1.0                   # cos_yaw_rel unknown -> 0 rad
+    out[..., 13] = 1.0                  # cos_cmd_heading stop/default
+    return out
+
+
+def priv_available_mask(dim: int) -> np.ndarray:
+    """Channels genuinely present in a sidecar before legacy upgrade."""
+    if dim == PRIV_DIM:
+        return np.ones(PRIV_DIM, dtype=np.float32)
+    if dim != LEGACY_PRIV_DIM:
+        raise ValueError(f"priv sidecar has dim {dim}, expected "
+                         f"{PRIV_DIM} or legacy {LEGACY_PRIV_DIM}")
+    mask = np.zeros(PRIV_DIM, dtype=np.float32)
+    mask[[0, 1, 3, 4]] = 1.0
+    return mask

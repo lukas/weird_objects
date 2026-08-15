@@ -109,6 +109,20 @@ charts) and uploads report.json.
   `logs/ckpt_eval/session_joystick_handoff1_*.json` (footlow2_hard1 +
   bcgait1_hard1: det no-slew 12/12 zero-fall, all segments; sto weak
   link = in-sequence rise; zero-command residual drift ~0.04 m/s).
+- `bulk_session_eval.py` — BULK held-out session cohorts (08-14,
+  operator directive fb_20260814T205137_33f21c): shards hundreds of
+  `eval_modeseq --drive-random --entry-slew` sessions across idle
+  pod CPUs (plan/worker/aggregate/rerender; resumable — done shards
+  skip; matched seed banks => identical joystick schedules across
+  candidates; `--torch-seed` makes stochastic passes reproducible).
+  Aggregate = episodes.jsonl + Wilson-95%-CI rates: complete-session
+  zero-fall overall + per cold-start stratum, per-segment success,
+  first vs post-lower rise, gait_valid, stop-settle, fall reasons.
+  Rerender re-runs every failed episode (+ clean sample) with frame
+  strips via `eval_modeseq --strip-ep`. First cohort + gate:
+  `rl_docs/tracks/hw/SESSION_BULK_GATE.md` (c1, n=1800, seed banks
+  900000../910000.. RETIRED for tuning). Tests:
+  `rl_move/tests/test_bulk_session_eval.py`.
 - `eval_session.py` — the SESSION gate (08-11, model tour): drives a
   stance+walk checkpoint pair through the exact interactive play.py
   protocol (belly → auto stand under the `_InteractiveTraj` ramp →
@@ -147,3 +161,21 @@ charts) and uploads report.json.
    other move.
 3. Any new metric: add the row here + the definition in the emitting
    code in the same commit.
+4. **BULK COHORTS ARE THE VERDICT STANDARD (operator standing rule,
+   08-15, fb_20260815T033634_7d750e; established by the 08-14 c1–c3
+   cohorts):** every VERDICT-BEARING candidate — any track, stance /
+   walk / single-model, any claim that will land in the ledger as a
+   skill/quality verdict — gets a `bulk_session_eval` cohort first:
+   n≥300 per pass, det + sto, a FRESH pre-registered seed-bank pair
+   per the COHORT_SEED_BASE convention (retired after the read),
+   Wilson CIs quoted, failures re-rendered and WATCHED (videos are
+   failure-only; headless metrics for the rest). Cost calibration:
+   1,800 sessions ≈ 3 min on 11 idle pods' CPUs, zero GPU.
+5. 12-episode `eval_modeseq`/harness reads are CHEAP CANARIES only —
+   direction-finding, kill-checks, milestone telemetry. They are
+   never verdict evidence on their own (the 08-12 dual1 n=6 rise
+   draw mis-read is the canonical example). Mechanism-health gates
+   (e.g. a 2M canary judged on training telemetry) and mid-lineage
+   non-fork milestones do not burn bulk cohorts
+   (fb_20260815T035147_dd2af0): bulk fires at forks, final
+   candidates, and any ledger-bound skill claim.

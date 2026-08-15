@@ -5,12 +5,79 @@ W&B: tag `track:multitask`. Excess-capacity research; run prefix
 before triaging anything here — this track has its own binding rules
 for what counts as forgetting vs acquisition failure).
 
-**PAUSED by operator 08-13 (~12:2x UTC): the dynrep (world-dynamics)
-line takes priority. No new `cw-mt-` launches, queue items, or
-planning until the operator unpauses. The 08-13 WAITING-ON direction
-call is withdrawn, not answered — the options (arch recurrence
-transplant / command-width curriculum / accept `b2` ceiling / reward
-geometry diagnosis) remain open for whenever the track resumes.**
+**PAUSE LIFTED by operator 08-15 ~17:2x UTC (ops.sh cycle KICK focus
+note): the 08-13 operator pause "no longer applies" and MUST NOT be
+cited to decline multitask-adjacent work again. Normal launch rules
+(blocker-reducing hypothesis, phases, preflights, track containment)
+govern this track like any other. Historical context: the pause ran
+08-13 ~12:2x → 08-15 ~17:2x with one partial reopening (below); the
+withdrawn 08-13 direction call's options (arch recurrence transplant /
+command-width curriculum / accept `b2` ceiling / reward geometry
+diagnosis) are open again, now informed by the translate1 /
+translate-scratch1 double-FAIL (recipe closed, see Now).**
+
+**PARTIAL REOPENING by operator directive 08-15
+(fb_20260815T114414_3c40d6, via ops.sh cycle focus note): ONE
+authorized arm, `cw-joystick-translate1` (renamed from
+"cw-mt-c2-fullcircle1" by fb_20260815T114937_f9078d, see below) — an
+all-directions translation-only 40M continuation of `cw-mt-c2`. The
+pause otherwise stands for agent-initiated mt work.**
+
+## Corrections (08-15, operator directive + external audit)
+
+- **`cw-mt-c2`'s "acquisition failure" verdict was premature** (ledger
+  amended): W&B kvbcuqox shows active learning at 20M (return
+  ->~166-172, reward_task 0.07->0.34, walk_prog_factor 0.34->0.80)
+  with ep_len collapsing to ~148 — the return was optimized by
+  drag-then-fall, an UNSAFE-REWARD/GAIT MISMATCH (flat -10 fall
+  penalty + progress income without an all-leg gait gate), not
+  demonstrated non-acquisition. Corrected label: PROMISING ACTIVE
+  LEARNING + UNSAFE REWARD/GAIT MISMATCH AT 20M.
+- **Yaw audit (fb_20260815T113718_baf9d6, VERIFIED in the ledger arg
+  vectors): b2/c2 set `goal.walk_yaw_cmd=1` (wz sampled, in obs) but
+  never set `reward.k_walk_yaw` (code default 0) — commanded to turn,
+  never PAID to turn. The yaw clauses of the b2/c2 verdicts are
+  invalid; the wave-1 monotone interference story stands only for
+  the linear-command axis at the checkpoint level.** Any future yaw
+  claim needs explicitly audited yaw pricing + command-bucket
+  metrics.
+- New machinery landed for the joystick-translate arm (all
+  default-off, bank-tested): `reward.term_cost_per_remaining_s`
+  (early-fall horizon cost, REWARD.md row), `goal.walk_cmd_metrics`
+  (raw signed v_along/v_cross/wrong-way info keys, active ticks
+  only) + headline `joystick/v_along_m_s` / `_cumulative` /
+  `active_ticks` (secondary ratio-of-sums, cross, wrong-way under
+  `train/`; NO per-heading training bins per fb_20260815T115650 —
+  direction panels are eval-only) in the MJX trainer; FULLCIRCLE
+  semantics bank (drag-then-fall < 0 at k=12; gait>stall>park all
+  four directions).
+
+**PAUSE EXCEPTION + NAMING CORRECTION (operator, 08-15 ~11:4x UTC —
+read BEFORE speccing/launching anything from the c2 lineage):**
+fb_20260815T114414_3c40d6 is an operator-authorized reopening of ONE
+sim question — a joystick-commanded-translation continuation of
+`cw-mt-c2` (headings sampled uniformly on [-pi,pi], wz/yaw
+identically ZERO, explicit fall pricing, all-support-leg gait gate,
+raw signed along-command m/s as the headline). fb_20260815T114937_f9078d
+then CORRECTED THE NAME: the run is **`cw-joystick-translate1`**
+(W&B display/output/ledger aligned), NOT "cw-mt-c2-fullcircle1" —
+"fullcircle" is a banned mechanism-centric label and the launcher now
+REFUSES any run name containing it (launch_run.py
+`naming_correction`). Headline metrics should be plain/physical:
+`joystick/v_along_m_s` (+`_cumulative`), "average signed m/s in the
+requested joystick direction over nonzero-command ticks".
+fb_20260815T115650_47010c then SIMPLIFIED the training metric
+contract (applied 08-15 12:0x UTC, pre-launch): NO per-heading
+direction bins in training — headline is only `joystick/v_along_m_s`
++ `_cumulative` + `joystick/active_ticks` (cross/wrong-way stay
+secondary under `train/`); fixed 8/12-direction panels are held-out
+EVAL only. The launcher refuses joystick launches if binned training
+series reappear in the sim tree (`_joystick_metric_block`). General
+rule (applies to future runs): name the operator-visible behavior
+(joystick translate, stop, rise, lower); sampler geometry, reward
+mechanism, architecture, curriculum go in config/tags/notes. The
+name has no `cw-mt-` prefix by operator choice — pass
+`--track multitask` explicitly so track inference doesn't misfile it.
 
 **Goal:** test whether a fresh command-conditioned generalist
 (stand + forward + small yaw/lateral trained SIMULTANEOUSLY, one
@@ -20,6 +87,152 @@ new command later (the phase-2 transfer test).
 
 ## Now
 
+- **08-15 ~18:3x UTC: `cw-mt-b1-dualgru1` FINISHED (2M discovery) —
+  VERDICT: FAIL(no-benefit), the arch-recurrence-transplant option
+  is CLOSED.** This was the first of the 08-13 withdrawn-pause
+  candidate directions to actually run: b1's exact fresh-init
+  narrow-generalist recipe (walk 0-0.06 m/s, ±0.15 rad/s yaw on 20%
+  of segments, 40% stop) plus a dual-core mode-gated GRU
+  (`--gru-dual`) routed by the LIVE blended command
+  (`obs.mode_onehot_cmd`, new 08-13 code) instead of the useless
+  episode-constant one-hot. Result: det walk `gait_valid` 0/6 at
+  both DR0 (sacrificed legs [1,3]) and own-DR0.2 (sacrificed legs
+  [1,2,3]) — the identical splayed-leg paddle/park signature as
+  b1's own 2M read (0/6), just a slightly higher `prog_ratio`
+  (0.16→0.28-0.30) that never becomes a real gait. Confirmed the
+  live-command routing DID engage (walk_stop_frac=0.4 forces
+  hold/walk switches within every episode, ruling out FAIL(bug)) —
+  so this is a genuine no-benefit result, not a wiring miss: giving
+  the multitask policy two mode-gated cores does not fix its
+  acquisition shortfall on this recipe. The remaining wave-1 fix
+  candidates are command-width curriculum, accepting `b2` as the
+  recipe ceiling, or a reward-geometry diagnosis — pick one of
+  those next, not another architecture swap on this exact recipe.
+  Ledger + W&B `gz8a103k` have full numbers/video refs.
+- **CROSS-TRACK INSIGHT (08-15 ~17:5x UTC, from arch):
+  `cw-arch-tf-joymodes-scratch1` (a from-scratch causal-transformer,
+  arch track) independently re-ran this exact closed joystick
+  command-tracking reward recipe and reproduced the identical
+  signature a THIRD time: wrong_way_frac pinned ~0.43-0.44, near-zero
+  real command-aligned motion (`v_along` ratio ~0.08), this time via a
+  leg-sacrifice stilt cheat (video-confirmed, gait_valid 0/6 det).
+  Three independent lineages (warm-stilt, fresh-march-in-place,
+  fresh-transformer-stilt) now find a zero-net-motion cheat under this
+  reward — further confirms the recipe itself, not init/architecture,
+  is the blocker. Detail: arch/STATUS.md, ledger
+  `cw-arch-tf-joymodes-scratch1`. No mt action taken; recipe already
+  closed below.**
+- **08-15 ~15:1x UTC: `cw-joystick-translate-scratch1` FINISHED (40M,
+  from-scratch comparator) — VERDICT: FAIL, and it CONFIRMS the
+  reward-setup hypothesis rather than the lineage hypothesis.**
+  Acquisition: `joystick/v_along_m_s_cumulative` stayed flat
+  ~0.003-0.006 m/s for the entire 40M steps (never trended) and
+  `train/wrong_way_frac` stayed pinned ~0.43-0.44 from step 0 —
+  the identical shape/magnitude as the warm twin
+  `cw-joystick-translate1`. Harness confirms near-zero real motion
+  across all 4 passes (gate det/sto, own-DR det/sto): `prog_ratio`
+  med 0.11-0.17 (promotion band 0.75-1.25), `fwd` med 0.05-0.09 m
+  over a 60 s episode commanding 0.03-0.06 m/s (~2-3 m expected),
+  despite `env/reward_task` climbing to 0.85-0.89 — the reward/
+  task-metric disconnect from RUN_INTERPRETATION rule 2. Survival:
+  fully solved (ep_len saturates 1500/1500, ~1-2 terminations total
+  across ~26k episodes). Gait quality actually DIFFERS from the
+  twin: `gait_valid` 6/6 on every pass, no sacrificed leg at all
+  (the twin has a persistent single-leg park/stilt, `sac [2]`,
+  `gait_valid` 1-2/6) — but the video shows why that doesn't rescue
+  it: all six legs cycle in a normal-looking pattern while the body
+  sits on the same floor tile for the full episode (frame strips
+  `walk_det_0/4`, `walk_sto_1`: identical checkerboard position from
+  t=0 to t=48-60s). March-in-place is a listed known-exploit video
+  pattern (RUN_INTERPRETATION_RULES #4) — one-line STOP, no
+  forensics, no re-run. Because TWO independent initializations
+  (warm c2-derived stilt-leg, fresh-random march-in-place) both
+  found a different zero-net-motion cheat under the identical
+  reward, the joystick-translate reward/command recipe itself (pays
+  survival + leg-cycling, not real distance) is the problem, not the
+  c2 lineage — the operator's "reward setup favors low-motion
+  survival" prediction is CONFIRMED, not merely un-refuted. This
+  exact recipe is CLOSED — no further re-runs in either lineage; a
+  revisit needs a reward that prices real along-command distance
+  much more explicitly than gait-validity/survival alone. The
+  operator's one-time pause exception (fb_20260815T122345_2c039a) is
+  now fully spent for BOTH arms; the 08-13 pause otherwise stands,
+  no new mt launch this cycle. Full numbers: ledger entry + W&B
+  tvzk2nn8 notes.
+- **08-15 ~14:0x UTC: `cw-joystick-translate1` FINISHED (40M) —
+  VERDICT: FAIL, known exploit (parked/stilt leg), not acquisition.**
+  The fall-cost + gait-gate fix worked exactly as designed for
+  survival (episode length 17->1478/1500, reward_task 0.66->0.83),
+  but the actual task metrics never moved in 40M steps:
+  `joystick/v_along_m_s_cumulative` stayed ~0.001-0.003 m/s the
+  entire run (commanded 0.03-0.06, gate bar 0.015) and
+  `train/wrong_way_frac` stayed pinned at 0.43-0.47 from step 0 —
+  flat, no learning signal, ever. Video (rollout_627, ~31M steps)
+  shows why: one front leg locks near-vertical like a stilt/prop
+  while the body stays essentially stationary; `env/reward_park_duty`
+  sits at -0.40 to -0.45 all run (chronic parked-leg penalty firing)
+  and `env/walk_gait_gate_factor` never rises past ~0.2 (real
+  all-leg gait needs ~1.0) despite this run's own gait-gate +
+  park-duty pricing built specifically to price this out. So the
+  reward_task climb is the shaping proxy being gamed by the stilt/
+  park posture, not genuine command-following — this is a REWARD/
+  METRIC specification gap (`walk_prog_factor`/`reward_task` payable
+  by a planted leg), not proof broad-command walking is unlearnable.
+  Per RUN_INTERPRETATION_RULES a known exploit in the video is a
+  complete verdict: no forensics, no re-run, no continuation of this
+  recipe. Confirms (does not newly discover) the standing
+  "one-parked-foot hold habit" blocker already named in
+  CURRENT_TRUTHS/hw — CROSS-TRACK INSIGHT noted there, no new hw
+  launch from this (containment). `cw-joystick-translate-scratch1`
+  (from-scratch comparator, same recipe) is still training under a
+  concurrent cycle — same exploit is plausible there given it shares
+  every reward term; its own verdict is not implied by this one and
+  needs its own video read when it finishes. The one-time pause
+  exception for this arm is now spent; the 08-13 pause otherwise
+  stands. No new mt launch from this cycle.
+- **08-15 ~12:2x UTC: `cw-joystick-translate1` LAUNCHED + VERIFIED
+  (train-0, W&B ti7hygbp, 40M, warm from `cw-mt-c2`'s checkpoint) —
+  the operator-directed joystick-translation continuation.** Full
+  contract confirmed in the resolved W&B config: heading uniform
+  [-pi,pi], speed 0.03-0.06, stop_frac 0, 8s±50% segments with
+  0.5-1.0s blends, 60s episodes, wz≡0 (yaw obs kept,
+  walk_yaw_zero_frac=1), `reward.walk_gait_gate=1.0`,
+  `reward.term_cost_per_remaining_s=12.0`, `goal.walk_cmd_metrics=1`.
+  Headline metrics live from the first rollouts:
+  `joystick/v_along_m_s` ≈0.004-0.013 (cumulative ≈0.011),
+  `train/wrong_way_frac` ≈0.35, active_ticks counting — exactly the
+  near-zero-signed-projection starting point expected from the c2
+  checkpoint under full-circle commands; NO `v_along_hbin*` series.
+  Gate (pre-registered, EVAL-side direction splits only):
+  eval_cmd_suite 12-direction panel + random 60s sessions, det+sto —
+  zero falls, all-leg duty ≥0.10, raw det med v_along ≥0.015 m/s in
+  every direction, v_cross med ≤0.03; no auto-FAIL while
+  joystick/v_along_m_s + reward_task still rise; verdict needs the
+  bulk cohort (EVALS.md §4).
+- **08-15 ~12:3x UTC: `cw-joystick-translate-scratch1` LAUNCHED +
+  VERIFIED (train-3, W&B tvzk2nn8, 40M) — operator-directed
+  (fb_20260815T122345_2c039a) matched FROM-SCRATCH comparator to
+  `cw-joystick-translate1`: identical arg vector at bit-identical
+  trainer code (rl_move/sim+tests diff 8a8ee7e..HEAD empty), the ONLY
+  difference is no `--init-from` (random init; fresh init IS the
+  hypothesis, warm-start default waived per the directive).
+  Purpose: separate "c2's inherited narrow/unsafe optimum × new gait
+  gate" from "the all-direction reward setup itself favors low-motion
+  survival". Per fb_20260815T121512_00533c, both arms report
+  acquisition (joystick/v_along_m_s ± cumulative), survival
+  (ep_len/falls), and gait quality SEPARATELY — no global PASS/FAIL
+  from total return, no forced early binary verdict on translate1.
+  **12:4x checkup note:** the watcher's low-fps SUSPECT on scratch1
+  (~2.9k vs 5k floor) is RESOLVED-benign — slow since iteration 1 and
+  climbing with learning while the twin holds 7538 fps on the same
+  node; run-intrinsic contact-thrash cost of random init, left in
+  place (expect repeat alarms until survival improves). **Triage
+  precondition (fb_20260815T123151_a8660c, verified):** scratch1
+  retains the twin's `--out-name` — its checkpoint file is ALSO named
+  `ppo_goal_cw_joystick_translate1.zip`. Pull it only from
+  train-3 / W&B tvzk2nn8 and rename to
+  `ppo_goal_cw_joystick_translate_scratch1.zip` before any cross-pod
+  use (full note in the ledger entry `checkpoint_provenance`).
 - **Wave 1 A/B/C cohort FAILED at 2M — under-budget, not an
   acquisition/interference result (08-12 ~20:00 UTC).** All three
   arms hit the same low-crouch splay creep, video-confirmed, with a
@@ -203,9 +416,21 @@ new command later (the phase-2 transfer test).
   as the recipe ceiling, reward-geometry diagnosis per MULTITASK.md's
   closing rule) are recorded for resumption. Top STATUS.md
   WAITING-ON entry updated to PAUSED.
-- **08-13: the transplant's code is BUILT** (the operator call is now
-  purely a launch decision). The blocker was routing: on this recipe
-  every episode is mode "walk", so the episode-constant
+- ~~08-13: the transplant's code is BUILT.~~ **LAUNCHED 08-15 ~18:1x
+  UTC and TRIAGED 08-15 ~18:3x UTC: `cw-mt-b1-dualgru1` FAILED
+  (no-benefit) — see Now.** The routing question this arm existed to
+  test is settled (routing engaged correctly, architecture still
+  doesn't fix acquisition); do not re-queue this transplant on the
+  b1 recipe. Original spec kept below for the record.
+  — b1's exact fresh-init narrow-generalist recipe (walk 0-0.06 m/s,
+  +-0.15 rad/s yaw on 20% of segments, 40% stop) plus
+  `--gru-dual --cfg-set obs.mode_onehot=1 --cfg-set
+  obs.mode_onehot_cmd=1` (rollout geometry n-envs=256/n-steps=256/
+  batch=8192/hidden=256, matching every other `--gru-dual` run's
+  established precedent — a mechanical requirement of the recurrent
+  architecture, not a second experimental lever), 2M discovery,
+  VERIFIED RUNNING train-1 (W&B `gz8a103k`). The blocker being tested was routing: on
+  this recipe every episode is mode "walk", so the episode-constant
   `obs.mode_onehot` never exercises the dual-core gate. New
   `obs.mode_onehot_cmd=1` (walk_task `_augment_obs`) derives the
   one-hot from the LIVE blended command instead — commanded stop

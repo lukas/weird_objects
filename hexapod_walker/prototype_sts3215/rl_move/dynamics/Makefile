@@ -12,7 +12,8 @@ smoke:                   ## tiny end-to-end run: collect 12 eps -> train 300 ste
 	    --episode-seconds 10 --walk-episode-seconds 8 --seed 0
 	cd $(PROTO) && $(PY) -m rl_move.dynamics.train \
 	    --data rl_move/dynamics/datasets/smoke --name dyn_smoke \
-	    --steps 300 --val-every 150 --val-windows 512 --warmup 50
+	    --steps 300 --val-every 150 --val-windows 512 --warmup 50 \
+	    --allow-excess-window-reuse
 	cd $(PROTO) && $(PY) -m rl_move.dynamics.eval_model \
 	    --ckpt rl_move/dynamics/models/dyn_smoke.pt \
 	    --data rl_move/dynamics/datasets/smoke \

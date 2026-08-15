@@ -63,6 +63,39 @@ SIGMA_V = 0.05            # m/s; kernel width
 # paid ~nothing until tracking was already good. Every cm/s toward the
 # goal now pays immediately; moving against the command costs.
 K_PROG = 1.0
+
+# Explicit joystick command schedules. ``legacy`` preserves the historical
+# independent resampler exactly; ``stress_mix`` selects one of the concrete
+# schedules per episode.
+WALK_CMD_SCHEDULES = (
+    "random_hold", "flip_180", "sweep_circle", "square", "stop_go",
+    "jitter",
+)
+WALK_CMD_MODE_IDS = {"legacy": 0, **{
+    name: i + 1 for i, name in enumerate(WALK_CMD_SCHEDULES)
+}}
+
+
+def walk_cmd_track_score(vx: float, vy: float, vx_ref: float,
+                         vy_ref: float, stop_speed_m_s: float = 0.03
+                         ) -> tuple[float, float, float]:
+    """Normalized physical command score and its two components.
+
+    At the requested speed and direction the score is +1. A parked body is
+    -1, equal-speed cross-track motion is -2, and equal-speed motion exactly
+    backward is -3. For a stop command, stillness is 0 and motion is charged
+    by speed relative to ``stop_speed_m_s``.
+    """
+    s_ref = math.hypot(vx_ref, vy_ref)
+    if s_ref <= 1e-6:
+        speed = math.hypot(vx, vy)
+        scale = max(float(stop_speed_m_s), 1e-6)
+        return -speed / scale, 0.0, speed
+    ux, uy = vx_ref / s_ref, vy_ref / s_ref
+    along = vx * ux + vy * uy
+    cross = abs(ux * vy - uy * vx)
+    score = (along - abs(along - s_ref) - cross) / s_ref
+    return score, along, cross
 # Learning-progress curriculum (goal.walk_lp_curriculum=1): commanded
 # speed is drawn from one of these buckets instead of a single global
 # uniform range. Bucket weights start uniform and are re-weighted during
@@ -121,6 +154,11 @@ _MODE_FAMILY = {
     # score — command-wise it is the walk family (vx/vy refs already
     # in the goal obs carry the within-mode command).
     "getup": "walk",
+    # recover (recover_to_plant, 08-15 operator directive
+    # fb_20260815T165306_606974): reach a full-height quiet six-loaded
+    # stand from any recoverable state, zero velocity command
+    # throughout — command-wise it is the rise family.
+    "recover": "rise",
     "quad": "quad",
     # quadwalk = quad-family locomotion (08-13, quad track "four-leg
     # WALKING" spec): the quad one-hot bit + non-zero vx/vy refs carry
@@ -164,6 +202,7 @@ class WalkTrajectory(GoalTrajectory):
     vx: np.ndarray = None  # (n_steps,) m/s
     vy: np.ndarray = None
     wz: np.ndarray = None  # (n_steps,) rad/s; None = no yaw channel
+    cmd_mode: str = "legacy"
 
     def at(self, step: int) -> WalkGoal:
         i = min(max(step, 0), len(self.roll) - 1)
@@ -221,6 +260,18 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # exist (not just a getattr default) so the eval harness's
         # p_<mode> forcing can isolate the mode.
         self._goal_gen.p_quadwalk = 0.0
+        # recover_to_plant (08-15, operator directive fb_20260815T165306
+        # _606974): universal recovery to a quiet six-loaded stand.
+        # Default 0 = never sampled; the _sample_goal cdf gains an EMPTY
+        # interval so every legacy rng stream is bit-exact unchanged.
+        # Enable per-run via --goal-mix recover=<p>.
+        self._goal_gen.p_recover = 0.0
+        # Adaptive reset-bank curriculum state (recover mode only).
+        # PERSISTENT across episodes (like _lp_weights, NOT in
+        # SNAP_ATTRS): per-start-kind success EMA + episode count, and
+        # the number of admitted difficulty families.
+        self._rec_stats = {}
+        self._rec_active_n = 2
         # Swing-bonus bookkeeping (see step()): per-foot contact state
         # and world XY at the moment of liftoff.
         self._pad_bids = [self.model.body(f"L{i}_pad").id
@@ -479,6 +530,14 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 ang = float(rng.uniform(-math.pi / 4, math.pi / 4))
             else:
                 ang = float(rng.uniform(-math.pi, math.pi))  # anywhere
+        cmd_mode = str(cfg_get(self.cfg, "goal", "walk_cmd_mode",
+                               default="legacy")).strip().lower()
+        if cmd_mode == "stress_mix":
+            cmd_mode = str(rng.choice(WALK_CMD_SCHEDULES))
+        elif cmd_mode != "legacy" and cmd_mode not in WALK_CMD_SCHEDULES:
+            raise ValueError(
+                f"unknown goal.walk_cmd_mode={cmd_mode!r}; expected "
+                f"legacy, stress_mix, or one of {WALK_CMD_SCHEDULES}")
         vx_t, vy_t = speed * math.cos(ang), speed * math.sin(ang)
         hold_n = max(1, int(round(1.0 / self.dt)))
         ramp_n = max(1, int(round(1.0 / self.dt)))
@@ -558,30 +617,81 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             def blend_len() -> int:
                 b = bl_lo if bl_hi <= bl_lo \
                     else float(rng.uniform(bl_lo, bl_hi))
+                if b <= 0.0:
+                    return 0
                 return max(1, int(round(max(b, self.dt) / self.dt)))
 
             cvx, cvy = vx_t, vy_t
             cwz = float(wz[min(end, n - 1)]) if wz is not None else 0.0
-            i = hold_n + ramp_n + seg_len()
-            while i < n:
-                if rng.random() < stop_frac:
-                    nvx = nvy = 0.0
-                else:
-                    s2 = float(rng.uniform(s_lo, s_hi))
-                    a2 = draw_heading()
-                    nvx, nvy = s2 * math.cos(a2), s2 * math.sin(a2)
-                end_b = min(i + blend_len(), n)
-                vx[i:end_b] = np.linspace(cvx, nvx, end_b - i)
-                vy[i:end_b] = np.linspace(cvy, nvy, end_b - i)
-                vx[end_b:] = nvx
-                vy[end_b:] = nvy
-                cvx, cvy = nvx, nvy
-                if wz is not None:
-                    nwz = draw_wz()
-                    wz[i:end_b] = np.linspace(cwz, nwz, end_b - i)
-                    wz[end_b:] = nwz
-                    cwz = nwz
-                i += seg_len()
+            if cmd_mode == "sweep_circle":
+                period_s = max(float(cfg_get(
+                    self.cfg, "goal", "walk_cmd_sweep_period_s",
+                    default=12.0)), self.dt)
+                sweep_sign = -1.0 if rng.random() < 0.5 else 1.0
+                idx = np.arange(max(n - end, 0), dtype=float)
+                theta = ang + sweep_sign * 2.0 * math.pi * (
+                    idx * self.dt / period_s)
+                vx[end:] = speed * np.cos(theta)
+                vy[end:] = speed * np.sin(theta)
+            else:
+                square_sign = None
+                if cmd_mode == "square":
+                    square_sign = -1.0 if rng.random() < 0.5 else 1.0
+                stop_next = True
+                i = hold_n + ramp_n + seg_len()
+                while i < n:
+                    if cmd_mode in ("legacy", "random_hold"):
+                        if rng.random() < stop_frac:
+                            nvx = nvy = 0.0
+                        else:
+                            s2 = float(rng.uniform(s_lo, s_hi))
+                            a2 = draw_heading()
+                            nvx = s2 * math.cos(a2)
+                            nvy = s2 * math.sin(a2)
+                    elif cmd_mode == "flip_180":
+                        nvx, nvy = -cvx, -cvy
+                    elif cmd_mode == "square":
+                        a2 = math.atan2(cvy, cvx) + (
+                            square_sign * math.pi / 2.0)
+                        s2 = max(math.hypot(cvx, cvy), s_lo)
+                        nvx = s2 * math.cos(a2)
+                        nvy = s2 * math.sin(a2)
+                    elif cmd_mode == "stop_go":
+                        if stop_next:
+                            nvx = nvy = 0.0
+                        else:
+                            s2 = float(rng.uniform(s_lo, s_hi))
+                            a2 = draw_heading()
+                            nvx = s2 * math.cos(a2)
+                            nvy = s2 * math.sin(a2)
+                        stop_next = not stop_next
+                    else:  # jitter
+                        a2 = math.atan2(cvy, cvx) + float(rng.uniform(
+                            -float(cfg_get(
+                                self.cfg, "goal", "walk_cmd_jitter_rad",
+                                default=0.25)),
+                            float(cfg_get(
+                                self.cfg, "goal", "walk_cmd_jitter_rad",
+                                default=0.25))))
+                        s2 = float(rng.uniform(s_lo, s_hi))
+                        nvx = s2 * math.cos(a2)
+                        nvy = s2 * math.sin(a2)
+                    n_blend = blend_len()
+                    end_b = min(i + n_blend, n)
+                    if n_blend:
+                        vx[i:end_b] = np.linspace(cvx, nvx, end_b - i)
+                        vy[i:end_b] = np.linspace(cvy, nvy, end_b - i)
+                    vx[end_b:] = nvx
+                    vy[end_b:] = nvy
+                    cvx, cvy = nvx, nvy
+                    if wz is not None:
+                        nwz = draw_wz()
+                        if n_blend:
+                            wz[i:end_b] = np.linspace(
+                                cwz, nwz, end_b - i)
+                        wz[end_b:] = nwz
+                        cwz = nwz
+                    i += seg_len()
         # Commanded gait height (operator wishlist 2026-08-09: walk in a
         # HIGHER or LOWER stance; default 0 = today's nominal walk).
         # goal.walk_height_off_mm ramps the height ref alongside the
@@ -664,7 +774,8 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 height[:ramp_fast] = np.linspace(0.0, h_off, ramp_fast)
         return WalkTrajectory(mode="walk", roll=zeros, pitch=zeros,
                               height=height, unload_leg=None,
-                              start_at=start_at, vx=vx, vy=vy, wz=wz)
+                              start_at=start_at, vx=vx, vy=vy, wz=wz,
+                              cmd_mode=cmd_mode)
 
     def _sample_quadwalk(self) -> WalkTrajectory:
         """QUADWALK mode (quad track, 08-13 spec): commanded planar
@@ -840,6 +951,146 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         traj.start_kind = kind
         return traj
 
+    # ---- recover_to_plant (08-15, operator directive
+    # fb_20260815T165306_606974): reach a full-height, level, quiet
+    # standing pose with ALL SIX feet loaded, from any recoverable
+    # start, then HOLD it 0.5 s — the episode ends on held success.
+    # Zero velocity command throughout (this is the recovery
+    # specialist; walking is another mode's job). Start-state
+    # curriculum = difficulty FAMILIES of start kinds, admitted
+    # adaptively from per-kind success EMAs (buckets 1-2 first, per
+    # the directive). Reward is a potential DIFFERENCE (PBRS) on
+    # bounded [0,1] features + one-shot success bonus + a
+    # rate-normalized time tax — no occupancy/hold income, no alive
+    # bonus (see _recover_reward / REWARD.md §4c).
+    #
+    # v1 family map (directive families 1-4 + 7; families 5-6 —
+    # walking-under-push falling states and on-policy failure
+    # harvests — need harvest infra and are the pre-registered next
+    # rung, recorded as a deviation in the run's ledger entry):
+    #   fam 0 (bucket 1): "onefoot" (plant with ONE leg lifted),
+    #                     "park"    (tripod lifted)
+    #   fam 1 (bucket 2): "crouch", "partial" (interrupted rise),
+    #                     "bank"    (harvested post-lower endpoints,
+    #                                only when goal.recover_start_bank
+    #                                is configured)
+    #   fam 2 (bucket 3): "zero" (belly), "tangle" (random legal
+    #                     joints, settles however it lands incl.
+    #                     tipped — the dropped/settled coverage family)
+    #   fam 3 (bucket 4): "flip" (random base orientation drop:
+    #                     side/back/upside-down)
+    RECOVER_FAMILIES = (("onefoot", "park"),
+                        ("crouch", "partial", "bank"),
+                        ("zero", "tangle"),
+                        ("flip",))
+
+    def _recover_active_kinds(self) -> list:
+        """Kinds in the currently admitted families ("bank" only when a
+        bank file is configured)."""
+        kinds = []
+        has_bank = cfg_get(self.cfg, "goal", "recover_start_bank",
+                           default=None) is not None
+        for fam in self.RECOVER_FAMILIES[:self._rec_active_n]:
+            kinds += [k for k in fam if k != "bank" or has_bank]
+        return kinds
+
+    def _recover_kind_weights(self, kinds: list) -> np.ndarray:
+        """Adaptive sampler weights (directive proportions): frontier
+        kinds (success EMA 20-80%, or <8 episodes seen) carry the bulk
+        (0.55), mastered kinds (>80%) keep retention pressure (0.20),
+        struggling kinds (<20%) stay pressured but reduced (0.35), the
+        next NOT-yet-admitted family's kinds get a hard probe share
+        (0.15 — this is also what feeds the admission statistics), and
+        a uniform fresh floor (0.10 split) keeps every kind alive.
+        Pure function of self._rec_stats; unit-tested in the semantics
+        bank."""
+        w = []
+        for k in kinds:
+            ema, n = self._rec_stats.get(k, (0.5, 0))
+            if n < 8 or 0.2 <= ema <= 0.8:
+                w.append(0.55)          # frontier
+            elif ema > 0.8:
+                w.append(0.20)          # mastered retention
+            else:
+                w.append(0.35)          # struggling: keep pressure
+        w = np.asarray(w, dtype=float)
+        w += 0.10 / max(len(kinds), 1)  # fresh floor
+        return w / w.sum()
+
+    def _recover_update_admission(self) -> None:
+        """Advance/retreat the family ladder from the stats: admit the
+        next family when every kind of the HARDEST ACTIVE family has
+        n>=12 and success EMA >=0.8; retreat (never below 2 families)
+        when any kind of the last-admitted family has n>=20 and EMA
+        <0.2 (directive: >=80% advance, <20% retreat)."""
+        hard = [k for k in self.RECOVER_FAMILIES[self._rec_active_n - 1]
+                if k != "bank" or cfg_get(self.cfg, "goal",
+                                          "recover_start_bank",
+                                          default=None) is not None]
+        st = self._rec_stats
+        if (self._rec_active_n < len(self.RECOVER_FAMILIES)
+                and hard
+                and all(st.get(k, (0.0, 0))[1] >= 12
+                        and st.get(k, (0.0, 0))[0] >= 0.8
+                        for k in hard)):
+            self._rec_active_n += 1
+        elif (self._rec_active_n > 2
+                and any(st.get(k, (1.0, 0))[1] >= 20
+                        and st.get(k, (1.0, 0))[0] < 0.2
+                        for k in hard)):
+            self._rec_active_n -= 1
+
+    def _sample_recover(self) -> WalkTrajectory:
+        """One recover_to_plant episode: adaptive start-kind draw, zero
+        commands, mode 'recover', env-side 'any' spawn branch builds
+        the pose (start_kind rides the trajectory, same contract as
+        getup). Hook (bank/eval only, not a cfg key):
+        force_recover_start pins the kind — the weight computation and
+        the draw still happen, so rng streams are identical whether or
+        not the hook is armed."""
+        if float(cfg_get(self.cfg, "goal", "mode_seq",
+                         default=0.0)) > 0.0:
+            # The mode-seq frame probes call _place_at_plant before the
+            # episode placement and would consume the flip-spawn
+            # pending quat; the combination is also semantically
+            # meaningless (recover episodes are single-goal). Refuse
+            # loudly instead of training a corrupted diet.
+            raise ValueError("goal.mode_seq is incompatible with the "
+                             "recover mode (frame probes vs flip "
+                             "spawns); run recover as a single-mode "
+                             "diet")
+        self._recover_update_admission()
+        kinds = self._recover_active_kinds()
+        w = self._recover_kind_weights(kinds)
+        # probe share for the next not-yet-admitted family (0.15),
+        # renormalized against the active weights
+        if self._rec_active_n < len(self.RECOVER_FAMILIES):
+            probe = [k for k in
+                     self.RECOVER_FAMILIES[self._rec_active_n]
+                     if k != "bank" or cfg_get(
+                         self.cfg, "goal", "recover_start_bank",
+                         default=None) is not None]
+            if probe:
+                kinds = kinds + probe
+                w = np.concatenate(
+                    [w * 0.85, np.full(len(probe), 0.15 / len(probe))])
+                w = w / w.sum()
+        r = float(self.rng.random())
+        kind = kinds[int(np.searchsorted(np.cumsum(w), r,
+                                         side="right").clip(
+                                             0, len(kinds) - 1))]
+        force = getattr(self, "force_recover_start", None)
+        if force is not None:
+            kind = str(force)
+        n = self.episode_steps + 1
+        zeros = np.zeros(n)
+        traj = WalkTrajectory(mode="recover", roll=zeros.copy(),
+                              pitch=zeros.copy(), height=zeros.copy(),
+                              unload_leg=None, start_at="any",
+                              vx=zeros.copy(), vy=zeros.copy(), wz=None)
+        traj.start_kind = kind
+        return traj
+
     # ---- mode sequencing (goal.mode_seq; TRANSITIONS_DIRECTIVE item 1)
     #
     # Episode = K back-to-back mode segments following the operator's
@@ -933,9 +1184,6 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         BEFORE calling (settled plant for walk/hold/lower, settled
         belly for rise — sim_env._seq_capture_frames). Returns
         (traj, h_target, ramp_i0)."""
-        gen = self._goal_gen
-        rng = self.rng
-        dt = self.dt
         n = self.episode_steps + 1
         m = n - tick
         if mode == "walk":
@@ -951,46 +1199,11 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 setattr(base, name, out)
             base.start_at = "plant"    # reset-only hint, unused here
             return base, 0.0, 0
-        height = np.zeros(n)
-        h_target = 0.0
-        ramp_i0 = 0
-        if mode == "rise":
-            # Aim back at the last commanded stand height when known
-            # (the joystick semantics of "stand up" mid-cycle); a
-            # sequence that has never stood draws the legacy amplitude.
-            if self._seq_stand_z is not None:
-                amp = min(max(self._seq_stand_z - self._z0, 0.010),
-                          gen.rise_m[1])
-            else:
-                amp = float(rng.uniform(*gen.rise_m))
-            hold_n = max(1, int(round(1.0 / dt)))
-            ramp_n = max(1, int(round(gen._jittered_s(
-                rng, gen.rise_ramp_s, gen.rise_ramp_jitter) / dt)))
-            i1 = min(tick + hold_n, n)
-            end = min(i1 + ramp_n, n)
-            height[i1:] = amp
-            if end > i1:
-                height[i1:end] = np.linspace(0.0, amp, end - i1)
-            h_target = amp
-            ramp_i0 = i1
-            self._seq_stand_z = self._z0 + amp
-        elif mode == "lower":
-            target = -float(rng.uniform(*gen.lower_m))
-            hold_n = max(1, int(round(gen.lower_hold_s / dt)))
-            ramp_n = max(1, int(round(gen._jittered_s(
-                rng, gen.lower_ramp_s, gen.lower_ramp_jitter) / dt)))
-            i1 = min(tick + hold_n, n)
-            end = min(i1 + ramp_n, n)
-            height[i1:] = target
-            if end > i1:
-                height[i1:end] = np.linspace(0.0, target, end - i1)
-            h_target = target
-        elif mode != "hold":
-            raise ValueError(f"mode_seq: unsupported segment {mode!r}")
-        traj = GoalTrajectory(mode=mode, roll=np.zeros(n),
-                              pitch=np.zeros(n), height=height,
-                              unload_leg=None, start_at="plant")
-        return traj, h_target, ramp_i0
+        # rise/hold/lower segment schedules moved to the shared base
+        # (goal_task.SimHexapodGoalEnv._seq_segment_traj, 08-15,
+        # stance-only sequencing) — identical statements, identical rng
+        # draw order, so walk-task sequence streams are unchanged.
+        return super()._seq_segment_traj(mode, tick)
 
     def _seq_reset_mode_state(self, mode: str, ramp_i0: int,
                               h_target: float) -> None:
@@ -1027,22 +1240,33 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # their historical rng streams).
         p_seq = float(cfg_get(self.cfg, "goal", "mode_seq",
                               default=0.0))
+        if float(cfg_get(self.cfg, "goal", "mode_seq_stance",
+                         default=0.0)) > 0.0:
+            # The stance-only planner (goal_task, 08-15) belongs to the
+            # joint_goal task; on joint_walk the base-mode fallback
+            # below would start stance sequences mid-draw — refuse
+            # loudly instead of training a misconfigured diet.
+            raise ValueError(
+                "goal.mode_seq_stance is a joint_goal-task key; use "
+                "goal.mode_seq on the joint_walk task")
         if p_seq >= 1.0 or (p_seq > 0.0 and self.rng.random() < p_seq):
             return self._sample_mode_seq()
         gen = self._goal_gen
         p_walk = float(getattr(gen, "p_walk", 0.0))
         p_getup = float(getattr(gen, "p_getup", 0.0))
         p_qw = float(getattr(gen, "p_quadwalk", 0.0))
+        p_rec = float(getattr(gen, "p_recover", 0.0))
         p_base = (gen.p_hold + gen.p_lean + gen.p_track + gen.p_unload
                   + gen.p_raise + gen.p_rise + gen.p_lower
                   + getattr(gen, "p_quad", 0.0))
-        tot = p_walk + p_getup + p_qw + p_base
+        tot = p_walk + p_getup + p_qw + p_rec + p_base
         if tot <= 0:
             return self._sample_walk()
-        # Single draw, walk-first cdf: with p_getup == p_quadwalk == 0
-        # (default) the draw and its use are bit-identical to the
-        # legacy two-way split, so every existing lineage's rng stream
-        # is unchanged (a zero-probability mode is an empty interval).
+        # Single draw, walk-first cdf: with p_getup == p_quadwalk ==
+        # p_recover == 0 (default) the draw and its use are
+        # bit-identical to the legacy two-way split, so every existing
+        # lineage's rng stream is unchanged (a zero-probability mode is
+        # an empty interval).
         r = self.rng.random() * tot
         if r < p_walk:
             return self._sample_walk()
@@ -1050,6 +1274,8 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             return self._sample_getup()
         if r < p_walk + p_getup + p_qw:
             return self._sample_quadwalk()
+        if r < p_walk + p_getup + p_qw + p_rec:
+            return self._sample_recover()
         return super()._sample_goal()
 
     def _current_goal(self):
@@ -1102,6 +1328,21 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 k_prog = float(cfg_get(self.cfg, "reward", "k_walk_prog",
                                        default=K_PROG))
                 r_prog = k_prog * min(along / s_ref, 1.25)
+            # Simple physical joystick objective (default off). Unlike the
+            # historical Gaussian/proxy stack, this is negative for parking,
+            # cross-track travel, and wrong-way travel by construction.
+            k_cmd_track = max(0.0, float(cfg_get(
+                self.cfg, "reward", "k_walk_cmd_track", default=0.0)))
+            r_cmd_track = 0.0
+            cmd_cross = 0.0
+            if k_cmd_track > 0.0:
+                cmd_score, cmd_along, cmd_cross = walk_cmd_track_score(
+                    float(v[0]), float(v[1]), goal.vx_ref, goal.vy_ref,
+                    stop_speed_m_s=float(cfg_get(
+                        self.cfg, "goal", "walk_speed_min_m_s",
+                        default=0.03)))
+                along = cmd_along
+                r_cmd_track = k_cmd_track * cmd_score
             # Yaw-rate tracking kernel (goal.walk_yaw_cmd lineage only;
             # reward.k_walk_yaw default 0 = off). Paid in EVERY walk
             # tick, including wz_ref = 0 — heading-hold earns income, so
@@ -1474,14 +1715,42 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 r_walk *= gt_factor
                 if r_prog > 0.0:
                     r_prog *= gt_factor
+                if r_cmd_track > 0.0:
+                    r_cmd_track *= gt_factor
                 self._gait_gate_qfactor = gt_factor
                 info["walk_gait_min"] = g_score
                 info["walk_gait_gate_factor"] = gt_factor
-            reward = float(reward) + r_walk + r_prog
+            reward = float(reward) + r_walk + r_prog + r_cmd_track
             info["reward_walk"] = r_walk
             info["reward_walk_prog"] = r_prog
+            if k_cmd_track > 0.0:
+                info["reward_walk_cmd_track"] = r_cmd_track
             info["walk_vel_err"] = err
             info["walk_speed"] = float(np.hypot(*v))
+            # Raw commanded-direction speed telemetry (08-15, operator
+            # directive fb_20260815T114414: judge command-following by
+            # RAW SIGNED m/s along the requested direction, never by
+            # clipped gate factors or total speed; SIMPLIFIED by
+            # fb_20260815T115650: NO per-heading bin keys in training —
+            # uniform [-pi,pi] heading sampling + the signed average
+            # already zeroes out command-ignorant motion, and fixed
+            # 8/12-direction panels belong in held-out EVAL only). cfg
+            # goal.walk_cmd_metrics=1; default 0 = no new info keys,
+            # legacy info dict bit-exact. Emitted ONLY on
+            # active-command ticks (s_ref > 1e-3), so the trainers'
+            # info-scalar means are per-ACTIVE-tick by construction.
+            if (s_ref > 1e-3 and float(cfg_get(
+                    self.cfg, "goal", "walk_cmd_metrics",
+                    default=0.0)) == 1.0):
+                ux, uy = goal.vx_ref / s_ref, goal.vy_ref / s_ref
+                info["v_along_cmd_m_s"] = float(along)
+                info["v_cross_abs_m_s"] = (
+                    cmd_cross if k_cmd_track > 0.0 else
+                    abs(float(ux * v[1] - uy * v[0])))
+                info["cmd_speed_m_s"] = s_ref
+                info["wrong_way"] = 1.0 if along < 0.0 else 0.0
+                info["walk_cmd_mode_id"] = WALK_CMD_MODE_IDS.get(
+                    getattr(self._goal_traj, "cmd_mode", "legacy"), 0)
             if self._walk_bucket is not None:
                 info["walk_bucket"] = self._walk_bucket
             # Tripod phase clock + contact-agreement reward (walk-routed
@@ -1751,6 +2020,9 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             reward, info = self._quad_income(float(reward), info)
         elif getattr(self, "_is_getup", False):
             reward, info = self._getup_reward(float(reward), info)
+        elif getattr(self, "_is_recover", False):
+            reward, term, info = self._recover_reward(
+                float(reward), term, trunc, info)
         return obs, reward, term, trunc, info
 
     def _quad_income(self, reward: float, info: dict) -> tuple:
@@ -2089,3 +2361,207 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         info["getup_f_footprint"] = f_fp
         info["getup_f_flag"] = f_flag
         return reward, info
+
+    @staticmethod
+    def _rec_gate(x: float) -> float:
+        """Smooth gate g(x): smoothstep on [0,1] — C1, monotone, g(0)=0,
+        g(1)=1. The directive requires smooth gates (no hard
+        thresholds inside the potential)."""
+        x = min(max(x, 0.0), 1.0)
+        return x * x * (3.0 - 2.0 * x)
+
+    def _recover_reward(self, reward: float, term: bool, trunc: bool,
+                        info: dict) -> tuple[float, bool, dict]:
+        """recover_to_plant pricing (08-15 directive
+        fb_20260815T165306_606974; REWARD.md §4c).
+
+        r = kP*(gamma*Phi(s') - Phi(s)) + B*first_held_success
+            - c_time*dt (until termination, incl. the success hold)
+            - fail_cost at timeout/safety termination without success
+        plus the base regularizers (gyro/action/current — physics
+        pricing stays; the tracking kernel + tilt shaping are stripped
+        like getup ticks). Phi uses bounded [0,1] features with smooth
+        gates:
+          U  uprightness ((1+cos(tilt))/2 — full gradient from
+             upside-down)
+          L  mean six-foot load saturation
+          H  supported stand-height progress (belly->z_full, the
+             compliance-calibrated real stand height; overshoot above
+             the FK plant fades to 0 like getup — stilt pops price
+             themselves)
+          M  SMOOTH-MIN per-foot load — one unloaded foot stays
+             visible; the getup3-c2/getup4 mean-average plateau cannot
+             recur by construction
+          P  nominal-footprint closeness (the getup f_footprint fade)
+          Phi = wU*U + wL*g(U)*L + wH*g(U)*L*H + wM*g(U)*g(H)*M
+                + wP*g(U)*g(H)*P            (defaults .15/.15/.30/.30/.10)
+        Success = 0.5 s CONTINUOUS hold of: |z - z_full| <= 15 mm,
+        tilt <= 6 deg, every foot's load fraction >= rec_load_min AND
+        pad spread small (all six near the ground and loaded — no
+        mean-only loophole), footprint closeness >= 0.5 (support
+        proxy), low joint/body velocity, and no current violation.
+        Falls are NOT terminal; the episode ends only on held success
+        (one-shot bonus, term=True), timeout, or the safety envelope.
+        A non-success termination pays fail_cost >= the maximum
+        remaining time tax, so early abort can never out-earn trying.
+        PBRS telescopes over the episode, so the spawn potential is
+        never income and re-farming a feature pays 0 by construction.
+        """
+        # 1) Strip kernel + tilt shaping (same rationale as getup).
+        r_strip = (info.get("reward_task", 0.0)
+                   + info.get("reward_roll", 0.0)
+                   + info.get("reward_pitch", 0.0))
+        if r_strip != 0.0:
+            reward -= r_strip
+            info["reward_task"] = 0.0
+            info["reward_roll"] = 0.0
+            info["reward_pitch"] = 0.0
+
+        # 2) Bounded features.
+        load_n = float(cfg_get(self.cfg, "reward", "rec_load_n",
+                               default=1.0))
+        x = np.zeros(6)
+        for f in range(6):
+            adr = self._touch_adr[f]
+            if adr >= 0:
+                t_n = max(float(self.data.sensordata[adr]), 0.0)
+                x[f] = min(t_n / max(load_n, 1e-6), 1.0)
+        feat_l = float(np.mean(x))
+        tau = float(cfg_get(self.cfg, "reward", "rec_min_tau",
+                            default=0.15))
+        feat_m = float(min(max(
+            -tau * math.log(float(np.mean(np.exp(-x / tau)))),
+            0.0), 1.0))
+        t_roll, t_pitch = self._true_roll_pitch()
+        cos_t = math.cos(t_roll) * math.cos(t_pitch)
+        feat_u = min(max((1.0 + cos_t) / 2.0, 0.0), 1.0)
+        z_plant, _weight_n = self._getup_geom()
+        z_belly = float(cfg_get(self.cfg, "reward", "getup_z_belly_mm",
+                                default=38.0)) * 0.001
+        z_frac = float(cfg_get(self.cfg, "reward", "getup_z_full_frac",
+                               default=0.80))
+        z_full = z_belly + z_frac * max(z_plant - z_belly, 1e-3)
+        z = float(self.data.xpos[self._chassis_bid, 2])
+        feat_h = min(max((z - z_belly) / max(z_full - z_belly, 1e-3),
+                         0.0), 1.0)
+        over = z - (z_plant + 0.02)
+        if over > 0.0:
+            feat_h *= min(max(1.0 - over / 0.06, 0.0), 1.0)
+        curl = self._curl_dist()
+        fp_ok = float(cfg_get(self.cfg, "reward", "getup_fp_ok_mm",
+                              default=40.0)) * 0.001
+        fp_hi = float(cfg_get(self.cfg, "reward", "getup_fp_hi_mm",
+                              default=120.0)) * 0.001
+        feat_p = min(max((fp_hi - curl) / max(fp_hi - fp_ok, 1e-6),
+                         0.0), 1.0)
+        g_u = self._rec_gate(feat_u)
+        g_h = self._rec_gate(feat_h)
+        w_u = float(cfg_get(self.cfg, "reward", "rec_w_u", default=0.15))
+        w_l = float(cfg_get(self.cfg, "reward", "rec_w_l", default=0.15))
+        w_h = float(cfg_get(self.cfg, "reward", "rec_w_h", default=0.30))
+        w_m = float(cfg_get(self.cfg, "reward", "rec_w_m", default=0.30))
+        w_p = float(cfg_get(self.cfg, "reward", "rec_w_p", default=0.10))
+        phi = (w_u * feat_u + w_l * g_u * feat_l
+               + w_h * g_u * feat_l * feat_h
+               + w_m * g_u * g_h * feat_m
+               + w_p * g_u * g_h * feat_p)
+
+        # 3) Potential difference (PBRS). Seeded at the first
+        #    post-settle tick — no income for the spawn posture.
+        k_pot = float(cfg_get(self.cfg, "reward", "rec_k_pot",
+                              default=20.0))
+        gam = float(cfg_get(self.cfg, "reward", "rec_gamma",
+                            default=0.995))
+        r_pot = 0.0
+        if self._rec_phi_prev is not None:
+            r_pot = k_pot * (gam * phi - self._rec_phi_prev)
+        self._rec_phi_prev = phi
+        reward += r_pot
+
+        # 4) Success detection + 0.5 s continuous hold.
+        h_tol = float(cfg_get(self.cfg, "reward", "rec_h_tol_mm",
+                              default=15.0)) * 0.001
+        lev_deg = float(cfg_get(self.cfg, "reward", "rec_level_deg",
+                                default=6.0))
+        load_min = float(cfg_get(self.cfg, "reward", "rec_load_min",
+                                 default=0.35))
+        spread_max = float(cfg_get(self.cfg, "reward",
+                                   "rec_pad_spread_mm",
+                                   default=30.0)) * 0.001
+        qd_max = float(cfg_get(self.cfg, "reward", "rec_qd_max_rad_s",
+                               default=0.7))
+        v_max = float(cfg_get(self.cfg, "reward", "rec_v_max_m_s",
+                              default=0.08))
+        cur_max = float(cfg_get(self.cfg, "reward", "rec_cur_max_a",
+                                default=3.0))
+        tilt_deg = max(abs(t_roll), abs(t_pitch)) * 180.0 / math.pi
+        pad_z = np.array([float(self.data.xpos[b, 2])
+                          for b in self._pad_bids])
+        spread = float(np.max(pad_z) - np.min(pad_z))
+        qd_rms = float(np.sqrt(np.mean(
+            np.square(self._state.joint_velocity))))
+        v = self._body_vel_xy()
+        cur = getattr(self._state, "servo_current", None)
+        cur_ok = (cur is None or cur_max <= 0.0
+                  or float(np.max(cur)) <= cur_max)
+        ok = (abs(z - z_full) <= h_tol
+              and tilt_deg <= lev_deg
+              and float(np.min(x)) >= load_min
+              and spread <= spread_max
+              and feat_p >= 0.5
+              and qd_rms <= qd_max
+              and float(np.hypot(v[0], v[1])) <= v_max
+              and cur_ok)
+        self._rec_hold_n = self._rec_hold_n + 1 if ok else 0
+        hold_need = max(int(round(float(cfg_get(
+            self.cfg, "reward", "rec_hold_s", default=0.5))
+            / self.dt)), 1)
+        success = self._rec_hold_n >= hold_need
+
+        # 5) Time tax — every tick until termination, INCLUDING the
+        #    success hold (the directive's speed incentive; a normal
+        #    ~4 s recovery costs ~8% of the success bonus at defaults).
+        c_time = float(cfg_get(self.cfg, "reward", "rec_c_time",
+                               default=1.0))
+        reward -= c_time * self.dt
+
+        # 6) Terminal handling.
+        r_bonus = 0.0
+        if success:
+            r_bonus = float(cfg_get(self.cfg, "reward",
+                                    "rec_b_success", default=50.0))
+            reward += r_bonus
+            term = True
+        elif term or trunc:
+            # timeout / safety-envelope end without success: pay at
+            # least the maximum remaining time tax so aborting early
+            # (or coasting into the horizon) never beats recovering.
+            fail = float(cfg_get(self.cfg, "reward", "rec_fail_cost",
+                                 default=0.0))
+            if fail <= 0.0:
+                fail = 1.25 * c_time * self.episode_steps * self.dt
+            reward -= fail
+            info["reward_recover_fail"] = -fail
+        if term or trunc:
+            # adaptive-curriculum bookkeeping (persistent across
+            # episodes; the sampler reads it at the next reset)
+            kind = getattr(self._goal_traj, "start_kind", "?")
+            ema, n = self._rec_stats.get(kind, (0.5, 0))
+            beta = 0.10
+            self._rec_stats[kind] = (
+                (1.0 - beta) * ema + beta * (1.0 if success else 0.0),
+                n + 1)
+
+        info["reward_recover_pot"] = r_pot
+        info["reward_recover_bonus"] = r_bonus
+        info["recover_phi"] = phi
+        info["recover_U"] = feat_u
+        info["recover_L"] = feat_l
+        info["recover_H"] = feat_h
+        info["recover_M"] = feat_m
+        info["recover_P"] = feat_p
+        info["recover_hold_n"] = float(self._rec_hold_n)
+        info["recover_success"] = 1.0 if success else 0.0
+        info["recover_min_load"] = float(np.min(x))
+        info["recover_tilt_deg"] = tilt_deg
+        return reward, term, info
