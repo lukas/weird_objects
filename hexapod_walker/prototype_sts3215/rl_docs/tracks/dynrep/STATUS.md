@@ -1,5 +1,23 @@
 # dynrep — Dynamics-representation pretraining
 
+**08-15 ~23:0x UTC (checkup cycle): the 22:37 watcher alarms on all
+six dynrep runs are RESOLVED — no live run was actually unhealthy.**
+The three tfwalk alarms were the operator/Codex CPU-compliance kills
+(see 22:5x entry below; gpu1 relaunch cohort is the live test) plus a
+checkup crash on the missing `/tmp/train_<run>.log`; the three
+`risewalk-single2-s{5,6,7}` DEADs were FALSE (trainer `--name` is
+per-phase, e.g. `rw_rise_C_s5`; all three verified alive, ~108 min
+CPU each). Fixed the machinery so script-owned cohorts stop
+false-alarming: checkup now honors optional ledger fields
+`proc_match`/`wandb_match` (regex; absent = old behavior, bit-exact),
+`_pod_trainer_pid` learned `train_ppo_transfer`, and the GPU fps
+floor carve-out extends to `train_ppo_transfer` (8-env SB3, healthy
+~50-560 fps vs the 19-20k MJX floor). Fields set on the risewalk
+entries; end-to-end smoke: `checkup --run risewalk-single2-s5` now
+HEALTHY rc=0 (was DEAD, then SUSPECT). Launcher scan tests 14/14
+green. My interim A/B retries (pre-CPU-finding) were superseded and
+killed by the gpu1 relaunch — recorded as non-events.
+
 **08-15 ~22:5x UTC (operator-kick cycle, corrected order
 20260815T224355Z executed): the 22:2x tfwalk cohort was a GPU
 COMPLIANCE FAILURE — all three arms ran `train_ppo_transfer` with

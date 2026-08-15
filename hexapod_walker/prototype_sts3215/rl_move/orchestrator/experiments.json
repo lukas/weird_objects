@@ -91383,8 +91383,33 @@
         "process_alive": false,
         "verdict": "DEAD",
         "log_tail": ""
+      },
+      {
+        "time": "2026-08-15T22:57:11+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 0,
+        "fps": 48.7,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "SUSPECT",
+        "problems": [
+          "fps 49 below expected floor 5000 for solo on GPU-MJX pod \u2014 starved or misplaced; consider rebalancing"
+        ]
+      },
+      {
+        "time": "2026-08-15T22:58:39+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 0,
+        "fps": 91.0,
+        "placement": "solo on GPU-MJX pod (dynrep trainer)",
+        "verdict": "HEALTHY",
+        "problems": []
       }
-    ]
+    ],
+    "log": "/workspace/prototype_sts3215/rl_move/dynamics/logs/risewalk_s5.log",
+    "proc_match": "^rw_[a-z]+_[ABC]_s5$",
+    "wandb_match": "^rw_[a-z]+_[ABC]_s5"
   },
   {
     "run": "risewalk-single2-s6",
@@ -91409,7 +91434,10 @@
         "verdict": "DEAD",
         "log_tail": ""
       }
-    ]
+    ],
+    "log": "/workspace/prototype_sts3215/rl_move/dynamics/logs/risewalk_s6.log",
+    "proc_match": "^rw_[a-z]+_[ABC]_s6$",
+    "wandb_match": "^rw_[a-z]+_[ABC]_s6"
   },
   {
     "run": "risewalk-single2-s7",
@@ -91434,7 +91462,10 @@
         "verdict": "DEAD",
         "log_tail": ""
       }
-    ]
+    ],
+    "log": "/workspace/prototype_sts3215/rl_move/dynamics/logs/risewalk_s7.log",
+    "proc_match": "^rw_[a-z]+_[ABC]_s7$",
+    "wandb_match": "^rw_[a-z]+_[ABC]_s7"
   },
   {
     "run": "cw-recover-any5-mjxcert-scratch1",
@@ -91573,7 +91604,21 @@
     "wandb_match": "^dynrep-tfwalk-gpu1-A-s5",
     "log": "/workspace/prototype_sts3215/rl_move/dynamics/logs/pod_tfwalk_gpu1_A.log",
     "hypothesis": "Scratch-baseline arm of the operator-ordered Transformer walking transfer test: PPO learns commanded-velocity walking from raw stacked obs with no pretrained encoder \u2014 the null hypothesis that the dynrep representation gives no sample-efficiency or gait-quality win. GPU-only relaunch (CUDA-required trainer c4f5b211) of the aborted CPU cohort.",
-    "gate": "Judged as a matched triple with dynrep-tfwalk-gpu1-B-s5/C-s5 at 1M steps: walk return/steps-to-threshold and gait-quality columns (slip_m, peak_roll_deg, slew_sat) vs B and C."
+    "gate": "Judged as a matched triple with dynrep-tfwalk-gpu1-B-s5/C-s5 at 1M steps: walk return/steps-to-threshold and gait-quality columns (slip_m, peak_roll_deg, slew_sat) vs B and C.",
+    "checkups": [
+      {
+        "time": "2026-08-15T22:58:52+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 0,
+        "fps": 401.1,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "SUSPECT",
+        "problems": [
+          "fps 401 below expected floor 5000 for solo on GPU-MJX pod \u2014 starved or misplaced; consider rebalancing"
+        ]
+      }
+    ]
   },
   {
     "run": "dynrep-tfwalk-gpu1-B-s5",
