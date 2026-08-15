@@ -87,6 +87,24 @@ new command later (the phase-2 transfer test).
 
 ## Now
 
+- **CROSS-TRACK INSIGHT (08-15 ~20:0x UTC, from arch):
+  `cw-arch-tf-joymodes-scratch1-fallfix1` (the same from-scratch
+  transformer lineage already noted below) was continued to its full
+  40M budget with a 14x harsher fall charge (operator-ordered,
+  `reward.term_cost_per_remaining_s=12.0`) specifically to test
+  whether underpriced falls, not the recipe, were the blocker.
+  Result: FAIL — survival stayed at 0/6 det+sto (569/571 episodes
+  tilt-terminated) even with falls costing ~-141 instead of ~-10,
+  while direction-following held up fine (wrong_way_frac 0.042,
+  dir_valid_frac 0.96). This rules OUT fall-pricing as the fix and
+  sharpens the earlier finding: it isn't that the recipe rewards
+  cheap survival over motion (undercharged falls) alone — under this
+  stress-mix command curriculum, a walk that both follows commands
+  AND survives doesn't currently exist for this reward/task setup at
+  any fall price tried. Reinforces that a genuine command-tracking
+  reward/curriculum redesign (this track's call) is the only lever
+  left; no further arch-side resweep is coming. Detail:
+  arch/STATUS.md "Now", ledger `cw-arch-tf-joymodes-scratch1-fallfix1`.
 - **08-15 ~18:3x UTC: `cw-mt-b1-dualgru1` FINISHED (2M discovery) —
   VERDICT: FAIL(no-benefit), the arch-recurrence-transplant option
   is CLOSED.** This was the first of the 08-13 withdrawn-pause
