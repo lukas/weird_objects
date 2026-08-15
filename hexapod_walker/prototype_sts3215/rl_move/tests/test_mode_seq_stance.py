@@ -192,6 +192,64 @@ def test_rise_to_hold_anchors_at_canonical_plant():
     env.close()
 
 
+def test_rise_from_h_starts_at_current_height():
+    """goal.mode_seq_rise_from_h (cw-stand-postlower3 dig-in, 08-15).
+
+    Legacy mid-sequence rise schedules start at 0 in the belly frame,
+    COMMANDING A DESCENT TO BELLY from the lower-end height (Cohort c3:
+    the policy learned that detour and stalled over_current on >half of
+    held-out det post-lower rises). Key on = the schedule starts at the
+    robot's CURRENT height above the belly frame; key off/default =
+    bit-exact legacy (0-start, descent commanded), same rng streams
+    (identical plan + target) either way.
+    """
+    def run(key_on: bool):
+        env = _make_env(seed=1, episode_seconds=10.0, seg_s=(3.0, 3.5),
+                        mix={"lower": 1.0})
+        if key_on:
+            env.cfg["goal"]["mode_seq_rise_from_h"] = 1.0
+        env.reset()
+        assert env._seq_plan[0]["mode"] == "lower"
+        assert env._seq_plan[1]["mode"] == "rise"
+        sw = int(env._seq_plan[1]["tick"])
+        # Hold the canonical plant pose through the lower segment so
+        # the robot is genuinely ABOVE belly at the switch (zero
+        # actions sag it to belly and the key would be a no-op).
+        from rl_move.sim.joint_task import q_rad_to_action
+        hold = q_rad_to_action(env._seq_frames["plant"]["q_nom"])
+        for _ in range(sw + 5):
+            env.step(hold)
+            if env._seq_idx == 1:
+                break
+        assert env._seq_idx == 1 and env._is_rise
+        h_now = float(env.data.xpos[env._chassis_bid, 2]) - env._z0
+        sched = np.asarray(env._goal_traj.height, dtype=float)
+        plan = [dict(p) for p in env._seq_plan]
+        h_target = float(env._h_target)
+        env.close()
+        return sched, sw, h_now, plan, h_target
+
+    sched_off, sw_off, h_off, plan_off, tgt_off = run(False)
+    sched_on, sw_on, h_on, plan_on, tgt_on = run(True)
+    # rng-stream invariance: identical plan and rise target either way
+    assert plan_on == plan_off
+    assert tgt_on == pytest.approx(tgt_off)
+    assert sw_on == sw_off
+    # the robot really is above belly after its lower (else the test
+    # can't discriminate)
+    assert h_on > 0.008
+    # legacy: descent to belly is commanded (schedule reaches 0 after
+    # the switch, then ramps)
+    assert float(np.min(sched_off[sw_off:])) == pytest.approx(0.0)
+    # key on: never commanded meaningfully below the height at the
+    # switch — "stand up from where you ARE" (0.012 m slack covers the
+    # tick gap between the switch-time read and the test's read)
+    assert float(np.min(sched_on[sw_on:])) >= min(h_on, tgt_on) - 0.012
+    # both still end at the anchored remaining-rise target
+    assert sched_on[-1] == pytest.approx(tgt_on)
+    assert sched_off[-1] == pytest.approx(tgt_off)
+
+
 # ---------------------------------------------------------------------------
 # 4. the stance key is joint_goal-only
 # ---------------------------------------------------------------------------

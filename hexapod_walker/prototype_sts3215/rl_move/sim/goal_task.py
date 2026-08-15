@@ -492,9 +492,33 @@ class SimHexapodGoalEnv(SimHexapodBalanceEnv):
                 rng, gen.rise_ramp_s, gen.rise_ramp_jitter) / dt)))
             i1 = min(tick + hold_n, n)
             end = min(i1 + ramp_n, n)
+            # goal.mode_seq_rise_from_h (08-15, cw-stand-postlower3
+            # dig-in; default 0 = legacy bit-exact): the legacy
+            # schedule starts every mid-sequence rise at 0 in the
+            # belly frame — for a robot standing at the lower-end
+            # height that COMMANDS A DESCENT TO BELLY before the ramp
+            # (blend -> 0 + 1 s hold at 0). Cohort c3 showed the
+            # policy learns exactly that: it re-descends, splays to
+            # the flat-demo start and re-runs the flat-rise
+            # choreography, stalling over_current on >half of held-out
+            # det post-lower rises (0.419 vs parent 0.967). With this
+            # key on, the schedule instead starts AT the robot's
+            # current height above the just-installed belly frame
+            # ("stand up from where you ARE"): hold at h_now, then
+            # ramp h_now -> amp. No rng draws added/removed (amp/ramp
+            # draws identical), so legacy streams are untouched either
+            # way. Only meaningful mid-episode (callers install _z0
+            # before building the segment); cold episodes never enter
+            # this path.
+            h_start = 0.0
+            if float(cfg_get(self.cfg, "goal", "mode_seq_rise_from_h",
+                             default=0.0)) > 0.0:
+                h_start = float(
+                    self.data.xpos[self._chassis_bid, 2]) - self._z0
+            height[tick:] = h_start
             height[i1:] = amp
             if end > i1:
-                height[i1:end] = np.linspace(0.0, amp, end - i1)
+                height[i1:end] = np.linspace(h_start, amp, end - i1)
             h_target = amp
             ramp_i0 = i1
             self._seq_stand_z = self._z0 + amp

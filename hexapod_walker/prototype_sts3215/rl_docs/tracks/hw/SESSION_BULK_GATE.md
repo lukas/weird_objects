@@ -281,7 +281,7 @@ frozen and untouched).
 - Banks retire the moment aggregate.json is read, pass or fail
   (clause 7 convention).
 
-### Cohort c3 — RESULTS (2026-08-15, read this cycle; DIG-IN FLAGGED, not yet verdicted)
+### Cohort c3 — RESULTS (2026-08-15; dig-in verdict at the end of this section)
 
 n=600 (300 det + 300 sto), `spec-pl3` only (parent `spec` baseline
 numbers reused from c1, not re-measured), banks 940000../950000..
@@ -352,3 +352,98 @@ rerender_pulled/`.
   the ledger pending that read. Product baseline (c1 hierarchy)
   unaffected either way — walk ckpt untouched, stance candidate not
   promoted.
+
+### Cohort c3 — DIG-IN VERDICT (2026-08-15, deep cycle)
+
+**FAIL — the mechanism taught a belly detour; root cause is a
+reference-construction defect in `_seq_segment_traj`, found and fixed
+same-cycle.** The chain, each link checked:
+
+- **Behavior (video, re-renders):** after the lower, the policy
+  RE-DESCENDS, splays flat to the belly pose, and re-runs the
+  flat-rise choreography — visible in det failures
+  (`fail_spec-pl3_det_s940000_ep0/ep2`, `s940001_ep1`) AND in det
+  SUCCESSES (`ok_spec-pl3_det_s940009_ep0` tiles ~50-55: splay →
+  curl → stand). The behavior change is global in the post-lower
+  state family; failures are the >50% of det curls that stall
+  (`over_current` 166/172 det post-lower falls; switch_peak_a pinned
+  at 2.64 A in every fail).
+- **Incentive (code):** at the lower→rise switch the rise schedule
+  starts at **0 in the belly frame** (`height` zeros + 1 s hold
+  before the ramp) and the blend interpolates the ref DOWN from the
+  lower-end height to 0 — the reward's height tracking literally
+  pays a descent to belly. Once low, the state-aligned flat-demo BC
+  anchor supervises the flat-rise choreography (its whole path
+  starts splayed). Both teachers price the detour; the c3 fix
+  anchored the segment's ENDPOINT (`_seq_stand_z`) but left the
+  STARTPOINT at belly 0 — the same bug class c2 died of, inverted.
+- **Why training telemetry disagreed with the cohort:** on-policy in
+  the training env the detour completes and the reward pays it
+  (ref-compliance + low anchor loss → `rise:ok` reels). The
+  instrument only scores end height/no-fall; the detour routes every
+  post-lower rise through the max-strain curl, which over_currents
+  >50% det on held-out sessions. det < sto because the deterministic
+  policy fully commits to the taught detour; sto noise sometimes
+  breaks it into the parent's direct push-up basin.
+- **Why worse than the parent:** the 50% sequence diet actively
+  overwrote the parent's direct push-up in exactly this state family
+  (the parent never trained there and generalizes fine, 0.967).
+  Cold rises/lower untouched (clause 4 passed) because the flat demo
+  IS the right teacher for cold starts.
+- **Controls:** standard DR-0 gate (single-mode cold spawns) is
+  clean — hold/rise/lower det+sto 35/36 ok, no terms — confirming
+  the damage is confined to the in-context transition.
+
+**Fix (landed this cycle, snapshot `exp/cw-stand-postlower4`):**
+`goal.mode_seq_rise_from_h` (default 0 = bit-exact legacy; tests
+`test_rise_from_h_starts_at_current_height` + suites green) — with
+the key on, a mid-sequence rise schedule starts AT the robot's
+current height above the just-installed belly frame ("stand up from
+where you ARE": hold at h_now, ramp h_now→amp), never commanding the
+belly descent. rng streams unchanged. NOT a dose/diet resweep — a
+construction-defect fix in the same mechanism class, per the c3
+pre-registration's FAIL branch. CROSS-TRACK: the shared
+`goal.mode_seq` (walk-task grammars, arch) has the identical
+descent-commanding rise branch — escalated in arch/STATUS.md, no
+arch launch from here.
+
+---
+
+## Cohort c4 — pre-registered gate for `cw-stand-postlower4` (rise-from-height fix)
+
+Registered: 2026-08-15 (dig-in cycle), BEFORE the arm trains
+(snapshot tag `exp/cw-stand-postlower4`). Arm: `cw-stand-postlower4`
+(discovery, 2M) = the postlower3 recipe with exactly ONE change:
+`goal.mode_seq_rise_from_h=1` (mid-sequence rise schedules start at
+current height — no commanded belly descent). Everything else
+identical (mode_seq_stance=0.5, warm from footlow2_hard1, walk ckpt
+frozen).
+
+- Instrument + grammar identical to c1/c2/c3 (`bulk_session_eval`,
+  entry-slew on, `rise,walk,lower,rise,walk`, 300 det + 300 sto).
+- FRESH banks (c1-c3 bases RETIRED): **det = 960000..960049,
+  sto = 970000..970049** (`COHORT_SEED_BASE["c4"]`).
+- Candidate: `spec-pl4` = `ppo_goal_cw_stand_postlower4` +
+  `bcgait1_hard1` walk (frozen). Baselines = c1 spec (parent stance):
+  det 0.967 [0.940, 0.982]; det post-lower rise 0.967; sto
+  post-lower rise 0.801 CI [0.752, 0.842].
+- **PASS iff ALL of (c2/c3 clauses + one new eye clause):** (1) sto
+  post-lower rise ≥ 0.90 AND CI lower > 0.842; (2) det session
+  zero-fall ≥ 0.95; (3) det post-lower rise ≥ 0.967; (4) det
+  first-rise strata each ≥ 0.95 AND lower ≥ 0.99; (5) stance gate +
+  eval_session hard gates pass, roll_tail/drag/slip vs
+  footlow2_hard1; **(6) watched post-lower-rise re-renders show a
+  DIRECT push-up — any splay-to-belly detour on a post-lower rise is
+  a FAIL regardless of counts** (the c3 lesson: counts can pass while
+  the behavior is a taught detour).
+- PARTIAL (sto post-lower rise CI-separated ABOVE parent but < 0.90,
+  retention + eye clauses clean) = mechanism confirmed → one 6M
+  hardening rerun on fresh cohort c5.
+- FAIL (post-lower rise ≤ parent or any retention/visual/eye clause
+  broken) = SECOND miss of the in-context class → the class is
+  closed for dose/diet AND schedule fixes; next lever must be a
+  different mechanism entirely (align the instrument/runner rise
+  schedule to remaining-rise semantics so train==deploy — an
+  operator-facing product-contract question — or reward-side rise
+  pricing), taken to the operator.
+- Banks retire on aggregate read, pass or fail.

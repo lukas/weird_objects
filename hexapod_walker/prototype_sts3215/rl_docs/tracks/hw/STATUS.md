@@ -9,7 +9,32 @@ unresolved blockers between the robot and reliable joystick control.
 
 ## Now
 
-- **08-15 (triage cycle): `cw-stand-postlower3` FINISHED training and
+- **08-15 (dig-in cycle): `cw-stand-postlower3` VERDICTED FAIL —
+  root cause FOUND, fixed in code, and `cw-stand-postlower4` launched
+  on the fix (pre-registered Cohort c4, fresh banks 960000../970000..).**
+  The c3 collapse was not "more exposure needed" and not the reanchor
+  path: the sequence rise schedule STARTS AT BELLY-FRAME 0 (blend
+  down + 1 s hold at 0), so training PAID the robot to re-descend,
+  splay flat and re-run the flat-rise demo choreography after every
+  lower — the re-renders show that detour in failures AND successes,
+  and the state-aligned flat-demo BC anchor reinforces it once low.
+  The detour completes on-policy in training (hence the `rise:ok`
+  reels) but routes every held-out post-lower rise through the
+  max-strain curl → over_current on >50% det (det<sto because det
+  fully commits to the taught detour). Fix (same-cycle, CODE-FIRST):
+  `goal.mode_seq_rise_from_h` (default off, bit-exact, tests green) —
+  mid-sequence rises start at the robot's CURRENT height, "stand up
+  from where you are", never a commanded descent. Full chain +
+  clause table: `SESSION_BULK_GATE.md` "Cohort c3 DIG-IN VERDICT" +
+  "Cohort c4". If c4 misses too, the in-context class is done and
+  the next fork (align instrument/runner rise schedules to
+  remaining-rise semantics = a product-contract change) goes to the
+  operator. Product baseline (c1 hierarchy) unaffected. CROSS-TRACK
+  INSIGHT: the shared walk-task `goal.mode_seq` rise branch has the
+  identical descent defect — noted in arch/STATUS.md, no arch launch
+  from here.
+- 08-15 (triage cycle, superseded by the dig-in above):
+  `cw-stand-postlower3` FINISHED training and
   its pre-registered Cohort c3 bulk read (n=600, fresh banks) is IN —
   a CLEAN, BAD MISS: det session zero-fall collapsed to 0.413 (parent
   0.967) and det post-lower rise to 0.419 (parent 0.967, also worse

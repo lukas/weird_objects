@@ -8,6 +8,21 @@ at what budget, with which failure modes.
 
 ## Now
 
+- **CROSS-TRACK INSIGHT (08-15, from hw `cw-stand-postlower3` dig-in,
+  Cohort c3):** the shared mode-sequence rise branch
+  (`_seq_segment_traj`) starts every mid-sequence rise at BELLY-FRAME
+  0 with the blend interpolating the height ref DOWN from the current
+  height — training on `goal.mode_seq`/`goal.mode_seq_stance` PAYS
+  the policy to re-descend to belly and re-run the flat-rise
+  choreography after a lower (hw measured: held-out det post-lower
+  rise 0.967→0.419, over_current stalls mid-curl; detour visible in
+  clean runs too). Any arch arm training with `goal.mode_seq` > 0
+  (e.g. the modeexperts scratch line at 0.2) inherits this teacher.
+  Fix exists, default-off: `goal.mode_seq_rise_from_h=1` (rise starts
+  at current height; hw evidence pending Cohort c4 on
+  `cw-stand-postlower4`). Adopting it in arch specs is an arch/
+  operator call — no arch launch from the hw cycle. Details:
+  `rl_docs/tracks/hw/SESSION_BULK_GATE.md` "Cohort c3 DIG-IN VERDICT".
 - **08-15 ~06:2x UTC — Arm B canary `cw-arch-modeexperts-scratch1-r1`
   TRIAGED PASS (mechanism health, all four pre-registered clauses):
   finished 2.03M steps clean, no NaN/crash/canary-stop; FINAL

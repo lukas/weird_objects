@@ -75,6 +75,7 @@ OUT_ROOT = Path("logs/bulk_session")
 COHORT_SEED_BASE: dict[str, tuple[int, int]] = {
     "c2": (920000, 930000),   # cw-stand-postlower1 gate (retire on read)
     "c3": (940000, 950000),   # postlower3 lineage gate (retire on read)
+    "c4": (960000, 970000),   # postlower4 gate (retire on read)
 }
 
 CANDIDATES: dict[str, dict] = {
