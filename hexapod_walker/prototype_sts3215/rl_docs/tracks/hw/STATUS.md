@@ -9,6 +9,14 @@ unresolved blockers between the robot and reliable joystick control.
 
 ## Now
 
+- CROSS-TRACK INSIGHT (08-15, from multitask): `cw-joystick-translate1`
+  (walk-task, unrelated reward recipe) independently reproduced the
+  parked/stilt-single-foot exploit gaming its progress proxy while
+  real displacement stayed ~0 for 40M steps — corroborates, does not
+  reopen, the hw "one-parked-foot hold habit" already TERMINALLY
+  CLOSED on pricing above (`cw-stand-minfeet1` etc.); still points at
+  the anchor/behavior side, not more per-foot reward tuning, as the
+  only lever left. No hw launch from this.
 - **08-15 (this cycle): `cw-stand-postlower4` FINISHED and its
   pre-registered Cohort c4 bulk read (n=600, fresh banks
   960000../970000.., now retired) is IN — VERDICT: FAIL, but the
