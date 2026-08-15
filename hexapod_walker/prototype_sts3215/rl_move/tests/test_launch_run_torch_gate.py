@@ -15,6 +15,7 @@ import argparse
 import importlib.util
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 _HERE = Path(__file__).resolve().parents[1] / "orchestrator"
 sys.path.insert(0, str(_HERE))
@@ -187,3 +188,34 @@ def test_dynrep_fresh_uses_gpu_data_pipeline(monkeypatch, capsys):
     assert "-m rl_move.dynamics.fresh_pipeline" in command
     assert "--collect-n-envs 2048" in command
     assert "--arch transformer" in command
+
+
+def test_respec_now_preserves_dynrep_fresh_trainer(monkeypatch):
+    source = {
+        "run": "cw-dynrep-source", "trainer": "dynrep-fresh",
+        "steps": 40_000, "track": "dynrep", "phase": "discovery",
+        "extra_args": ["--data", "old_ds", "--device", "cuda"],
+        "checks": {"pid": "123"},
+    }
+    monkeypatch.setattr(lr, "load_ledger", lambda: [source])
+    monkeypatch.setattr(
+        lr.subprocess, "run",
+        lambda *args, **kwargs: SimpleNamespace(
+            returncode=0, stdout="snapshot ok", stderr=""))
+    monkeypatch.setattr(lr, "_self_repair_pod", lambda pod, args: None)
+    captured = {}
+
+    def fake_launch(g, ns, args):
+        captured.update(ns=ns, args=args)
+        return 0
+
+    monkeypatch.setattr(lr, "cmd_launch", fake_launch)
+    args = argparse.Namespace(
+        source="cw-dynrep-source", run="cw-dynrep-copy", seed=None,
+        steps=None, parent="", hypothesis="h", gate="g", phase="",
+        evidence="", arg=["--data=new_ds"], cfg=None,
+        init_from_source=False, now=True, pod="hexapod-mjx-train-1",
+        operator_override="", track="")
+    assert lr.cmd_respec({}, args) == 0
+    assert captured["ns"].trainer == "dynrep-fresh"
+    assert captured["args"][captured["args"].index("--data") + 1] == "new_ds"
