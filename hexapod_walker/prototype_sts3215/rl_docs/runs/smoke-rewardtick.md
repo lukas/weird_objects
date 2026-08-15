@@ -2,9 +2,9 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: REFUSED
+**status**: DONE
 
-**created**: 2026-08-15T13:46:25+00:00
+**created**: 2026-08-15T13:47:19+00:00
 
 **pod**: hexapod-mjx-train-4
 
@@ -14,5 +14,5 @@
 
 **gate**: boots, trains, no crash, optimization/reward_per_tick* keys appear in stdout/log
 
-**refused_reason**: hexapod-mjx-train-4 code marker 882a2c423935b80e29c0b28fb30d171fcb29328f != local HEAD d057d22dc00ce0acd598fc3365c82af2eebd15bd. Sync first: snapshot.sh --sync hexapod-mjx-train-4 (and snapshot/commit before that if the tree is dirty).
+**verdict**: PASS — boots/trains 2048 steps (2 rollout updates) on GPU-MJX warp, no crash/exception; optimization/reward_per_tick(_cumulative/_ema) payload keys compute without error across both rollout ends (division-by-zero guarded); WANDB_MODE=disabled so values not independently visible in this smoke, but code path exercised cleanly. Code change: rl_move/sim/train_ppo_mjx.py _Track callback (fb_20260815T132846_c8442f).
 

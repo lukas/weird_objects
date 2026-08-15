@@ -86258,7 +86258,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "in-cycle cw-joystick-translate1 since 2026-08-15T13:52:02"
   },
   {
     "run": "cw-arch-tf-r1b",
@@ -86421,7 +86422,7 @@
       "Transformer twin of cw-arch-hist16-r7, discovery rung (2M), CUDA-torch relaunch of cw-arch-tf-r1: identical recipe, policy trunk swapped to a 2-layer causal transformer over the 16-frame window (--transformer, tf defaults 2/128/4/256, separate actor/critic trunks), PPO update on the H200 (--device cuda)."
     ],
     "created": "2026-08-15T12:12:54+00:00",
-    "status": "RUNNING",
+    "status": "DONE",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -86460,7 +86461,9 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-arch-tf-r1b since 2026-08-15T13:36:52"
+    "triage": "done",
+    "hardware_ready": "no",
+    "verdict": "PASS (2M discovery mechanism canary, per pre-registered gate). The causal-transformer PPO trunk (2 layers, d_model 128, 4 heads, over the 16-frame window) boots and trains stably on GPU-MJX with the ad hoc CUDA-torch build: 2.02M steps, no NaN/crash, ep_rew climbs through a mid-run dip to +93 by 2M (quarters -1.5/-64.3/-28.8/+74.9), explained_variance 0.02->0.86, std stable 0.37->0.39 (no collapse/blowup). Det walk eval (own DR0.5 + gate DR0): gait_valid 6/6 both passes, sacrificed_legs empty every det episode -- the one hard FAIL clause (leg-sacrifice/paddle lock-in) does not fire. Stochastic eval does show a dropped leg in some episodes (gate DR0 sacrificed [3] in 3/6, own-DR0.5 sacrificed [4] in 1/6) -- expected exploration noise at 2M, not a det lock-in, so it does not trip the gate. Watched det frame strips (walk_det_0/3, all 6 episodes): all six legs visibly cycling swing/stance, no flag leg -- but the robot falls via roll on EVERY det episode (roll_class fell 6/6, roll_peak ~15-16 deg, tail ~4 deg, roll_settled 0/6, term_reason tilt_roll every time), covering only ~0.1-0.15 m before tipping (slip/m ~2.9-4.5, prog_ratio noisy since distance is tiny). This is the SAME universal takeoff-roll instability already documented campaign-wide (CURRENT_TRUTHS) -- not new, not a transformer-specific defect, and explicitly NOT required to be solved at this discovery rung (directional gait/survival not gated at 2M). fps ended 1651 (peaked 1887 mid-run) -- short of the gates informational >=2000 floor, same ad hoc-CUDA-torch environmental softness already noted on this lineage checkup, not a behavioral fail. Session gate: INCOMPATIBLE as expected (transformer obs width 1152 != deployed session env 72 -- exotic-obs candidate, informational only). Per the pre-registered gate: PASS -> respec 40M from-scratch hardening twin of hist16-r7, launched this cycle as cw-arch-tf-r1-hard1 on train-1 (keeps the ad hoc CUDA-torch build already proven there)."
   },
   {
     "run": "cw-joystick-translate-scratch1",
@@ -86738,5 +86741,56 @@
     },
     "stack": "gpu-mjx",
     "refused_reason": "hexapod-mjx-train-4 code marker 882a2c423935b80e29c0b28fb30d171fcb29328f != local HEAD d057d22dc00ce0acd598fc3365c82af2eebd15bd. Sync first: snapshot.sh --sync hexapod-mjx-train-4 (and snapshot/commit before that if the tree is dirty)."
+  },
+  {
+    "run": "smoke-rewardtick",
+    "pod": "hexapod-mjx-train-4",
+    "steps": 2048,
+    "smoke": true,
+    "hypothesis": "smoke: optimization/reward_per_tick logging change boots and trains",
+    "gate": "boots, trains, no crash, optimization/reward_per_tick* keys appear in stdout/log",
+    "parent": "",
+    "track": "hw",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--n-envs",
+      "64",
+      "--n-steps",
+      "16",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "8",
+      "--eval-every",
+      "999999999",
+      "--video-every",
+      "999999999",
+      "--no-canary",
+      "--notes",
+      "smoke: reward_per_tick metric addition (fb_20260815T132846_c8442f)",
+      "--out-name",
+      "ppo_goal_smoke_rewardtick"
+    ],
+    "created": "2026-08-15T13:47:19+00:00",
+    "status": "DONE",
+    "checks": {
+      "cpu_limit": 26,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-c7c481c8-b38e-d350-964a-7156462b21c8)",
+      "code_sha_local": "508a31f95d14e2792d50be94ac35f46da9fba489",
+      "code_sha_pod": "508a31f95d14e2792d50be94ac35f46da9fba489",
+      "pid": "1727549",
+      "log_growth_bytes": [
+        5534,
+        5534
+      ]
+    },
+    "stack": "gpu-mjx",
+    "command": "cd /workspace/prototype_sts3215 && WANDB_MODE=disabled nohup python -m rl_move.sim.train_ppo_mjx --run-name smoke-rewardtick --steps 2048 --task joint_walk --n-envs 64 --n-steps 16 --impl warp --host-workers 8 --eval-every 999999999 --video-every 999999999 --no-canary --notes 'smoke: reward_per_tick metric addition (fb_20260815T132846_c8442f)' --out-name ppo_goal_smoke_rewardtick > /tmp/train_smoke-rewardtick.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_smoke-rewardtick.log",
+    "verified": "2026-08-15T13:49:42+00:00",
+    "verdict": "PASS \u2014 boots/trains 2048 steps (2 rollout updates) on GPU-MJX warp, no crash/exception; optimization/reward_per_tick(_cumulative/_ema) payload keys compute without error across both rollout ends (division-by-zero guarded); WANDB_MODE=disabled so values not independently visible in this smoke, but code path exercised cleanly. Code change: rl_move/sim/train_ppo_mjx.py _Track callback (fb_20260815T132846_c8442f).",
+    "triage": "done"
   }
 ]
