@@ -68,3 +68,42 @@ def test_split_diagnostics_and_coverage_include_all_splits():
     assert set(diagnostics) == set(dd.SPLITS)
     assert sum(row["episodes"] for row in diagnostics.values()) == 1000
     assert sum(row["windows"] for row in diagnostics.values()) == 61_000
+
+
+def _root_array(value: np.ndarray) -> np.ndarray:
+    while isinstance(value.base, np.ndarray):
+        value = value.base
+    return value
+
+
+def test_load_dataset_reuses_each_shard_member_allocation(tmp_path):
+    frame_counts = np.array([5, 7, 6], dtype=np.int64)
+    action_counts = frame_counts - 1
+    n_frames = int(frame_counts.sum())
+    n_actions = int(action_counts.sum())
+    np.savez(
+        tmp_path / "shard_0000.npz",
+        frames=np.arange(n_frames * fr.FRAME_DIM, dtype=np.float32).reshape(
+            n_frames, fr.FRAME_DIM),
+        actions=np.arange(n_actions * fr.ACTION_DIM, dtype=np.float32).reshape(
+            n_actions, fr.ACTION_DIM),
+        priv=np.arange(n_frames * fr.PRIV_DIM, dtype=np.float32).reshape(
+            n_frames, fr.PRIV_DIM),
+        ep_frames=frame_counts,
+        ep_actions=action_counts,
+        ep_actor=np.array(["random", "stance", "walk"]),
+        ep_mode=np.array(["walk", "hold", "walk"]),
+        ep_reason=np.array(["trunc", "end", "fall"]),
+        ep_dr=np.array([0.0, 0.3, 1.0], dtype=np.float32),
+        ep_seed=np.arange(3, dtype=np.int64),
+        ep_qnom=np.zeros((3, fr.N_JOINTS), dtype=np.float32),
+    )
+
+    episodes = dd.load_dataset(tmp_path)
+
+    assert [len(ep.frames) for ep in episodes] == frame_counts.tolist()
+    assert [len(ep.actions) for ep in episodes] == action_counts.tolist()
+    for member in ("frames", "actions", "priv"):
+        roots = {_root_array(getattr(ep, member)).__array_interface__["data"][0]
+                 for ep in episodes}
+        assert len(roots) == 1, f"{member} was allocated once per episode"

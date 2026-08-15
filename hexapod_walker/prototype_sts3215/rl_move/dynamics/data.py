@@ -200,21 +200,36 @@ def load_dataset(path: Path | str) -> list[Episode]:
     eps: list[Episode] = []
     gidx = 0
     for shard in shards:
-        z = np.load(shard, allow_pickle=False)
+        # NpzFile.__getitem__ decompresses and allocates the complete member.
+        # Cache each member once: indexing z["frames"] inside this episode
+        # loop retained one full shard allocation per episode and exhausted a
+        # 96 GiB pod while loading an 8 GiB corpus.
+        with np.load(shard, allow_pickle=False) as z:
+            frames = z["frames"]
+            actions = z["actions"]
+            priv = z["priv"]
+            ep_frames = z["ep_frames"]
+            ep_actions = z["ep_actions"]
+            ep_actor = z["ep_actor"]
+            ep_mode = z["ep_mode"]
+            ep_reason = z["ep_reason"]
+            ep_dr = z["ep_dr"]
+            ep_qnom = z["ep_qnom"] if "ep_qnom" in z else None
+
         f_off = a_off = 0
-        for i in range(len(z["ep_frames"])):
-            nf = int(z["ep_frames"][i])
-            na = int(z["ep_actions"][i])
-            raw_priv = z["priv"][f_off:f_off + nf]
+        for i, (nf_raw, na_raw) in enumerate(zip(ep_frames, ep_actions)):
+            nf = int(nf_raw)
+            na = int(na_raw)
+            raw_priv = priv[f_off:f_off + nf]
             eps.append(Episode(
-                frames=z["frames"][f_off:f_off + nf],
-                actions=z["actions"][a_off:a_off + na],
+                frames=frames[f_off:f_off + nf],
+                actions=actions[a_off:a_off + na],
                 priv=fr.upgrade_priv(raw_priv),
                 priv_mask=fr.priv_available_mask(raw_priv.shape[-1]),
-                actor=str(z["ep_actor"][i]), mode=str(z["ep_mode"][i]),
-                reason=str(z["ep_reason"][i]), dr=float(z["ep_dr"][i]),
+                actor=str(ep_actor[i]), mode=str(ep_mode[i]),
+                reason=str(ep_reason[i]), dr=float(ep_dr[i]),
                 global_idx=gidx,
-                q_nom=(z["ep_qnom"][i] if "ep_qnom" in z else None)))
+                q_nom=(ep_qnom[i] if ep_qnom is not None else None)))
             f_off += nf
             a_off += na
             gidx += 1
