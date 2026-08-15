@@ -107,6 +107,36 @@ def test_device_auto_default_is_never_gated(monkeypatch):
     assert rc == 0
 
 
+def test_canary_and_acquisition_are_distinct_phase_contracts(monkeypatch):
+    _patch_common(monkeypatch)
+    monkeypatch.setattr(lr._torch_cap, "is_capable", lambda pod: True)
+
+    assert lr._launch_locked(
+        _guardrails(), _ns(phase="canary"), ["--device", "cuda"]) == 0
+    assert lr._launch_locked(
+        _guardrails(), _ns(phase="canary", steps=2_000_001),
+        ["--device", "cuda"]) == 1
+    assert lr._launch_locked(
+        _guardrails(), _ns(phase="acquisition", steps=38_000_000,
+                           evidence=None), ["--device", "cuda"]) == 1
+    assert lr._launch_locked(
+        _guardrails(), _ns(phase="acquisition", steps=38_000_000,
+                           evidence="healthy 2M canary; matched family 40M"),
+        ["--device", "cuda"]) == 0
+
+
+def test_canary_verdict_guard_blocks_behavioral_category_error():
+    base = {"phase": "canary", "hardware_ready": False}
+    assert lr.canary_update_error({
+        **base, "verdict": "CANARY PASS - optimizer and telemetry healthy"}) == ""
+    assert lr.canary_update_error({
+        **base, "verdict": "CANARY FAIL - MECHANISM - NaN at step 10"}) == ""
+    assert "invalid" in lr.canary_update_error({
+        **base, "verdict": "FAIL - KNOWN EXPLOIT; reward recipe closed"})
+    assert "hardware_ready" in lr.canary_update_error({
+        **base, "hardware_ready": True, "verdict": "CANARY PASS"})
+
+
 def test_dynrep_uses_recorded_capability_and_live_runtime_probe(monkeypatch):
     # A recorded capability lets dynrep consider system python3 after the
     # private venv; the live CUDA probe still has to succeed before launch.
