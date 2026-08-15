@@ -9,7 +9,27 @@ unresolved blockers between the robot and reliable joystick control.
 
 ## Now
 
-- **08-15 ~22:3x (this cycle, triage + operator directive
+- **08-15 ~23:1x (operator-kick cycle, fb_20260815T230538_a6f8d2):
+  micro-bucket curriculum live.** Operator found B4→B5 and B5→B6
+  were cliffs and replaced the coarse ladder with 17 baby-step
+  buckets (B0 plant_catch … B16 flip, commit `3d556232`); promotion
+  authority is now the literal latest deterministic held-out batch
+  fraction (≥0.8 promote, <0.2 retreat; EMA never gates), with exact
+  per-bucket stochastic training scores counting EVERY terminal env
+  (`TRAIN/recover_bucket_N_success_fraction/_successes/_episodes`)
+  and deterministic authority as
+  `CERT/recover_bucket_N_success_fraction/_successes/_episodes`.
+  `cw-recover-any5-mjxcert-scratch1` STOPPED at ~7.7M and preserved
+  as the coarse-bucket cert diagnostic (bucket identities changed —
+  no continuation). Successor **`cw-recover-any6-microbuckets-scratch1`**
+  launched FROM SCRATCH on train-1 (W&B 78xjmlov; no --init-from, no
+  transplant; clones any5's full 40M recipe), bank green (117/4/1).
+  Verified live: B0–B16 map in W&B config, TRAIN B0 metrics logging,
+  first 1M cert fired — CERT B0 fraction 1.0 (8/8 episodes), frontier
+  0→1 promoted by the deterministic authority. Watch: how far the
+  frontier climbs past the old B4/B5-equivalent rungs.
+- **08-15 ~22:3x (superseded by the entry above — any5 stopped at
+  ~7.7M under fb_20260815T230538_a6f8d2; triage + operator directive
   fb_20260815T222943_d019de): `cw-recover-any4-b0scratch1` STOPPED at
   ~10.8M/40M — the curriculum's judge, not the policy, was the bug.**
   Reward quarters were flat/worsening (-103.9→-108.3) and B0 EMA
