@@ -634,12 +634,32 @@ def main(argv: list[str] | None = None) -> int:
             self._cmd_cum = {"along": 0.0, "cmd": 0.0, "cross": 0.0,
                              "wrong": 0.0, "n": 0.0}
             self._cmd_stride = 1
+            # Overall optimization-progress metric (operator feedback
+            # fb_20260815T132846_c8442f, 08-15): "is PPO still getting
+            # more total reward per real transition" — computed
+            # directly from the raw per-step scalar rewards SB3 hands
+            # the callback (self.locals["rewards"], the actual PPO
+            # training signal, captured before the truncation-bootstrap
+            # adjustment further down collect_rollouts), NOT from
+            # ep_rew_mean/ep_len_mean (those distort under changing
+            # episode length / partial episodes). Per-rollout sum+count
+            # reset every _on_rollout_end; cumulative + EMA never reset.
+            self._reward_sum = 0.0
+            self._reward_n = 0
+            self._reward_sum_cum = 0.0
+            self._reward_n_cum = 0
+            self._reward_ema: float | None = None
 
         def _acc(self, k: str, v: float) -> None:
             self._sum[k] = self._sum.get(k, 0.0) + v
             self._cnt[k] = self._cnt.get(k, 0) + 1
 
         def _on_step(self) -> bool:
+            rewards = self.locals.get("rewards")
+            if rewards is not None:
+                arr = np.asarray(rewards)
+                self._reward_sum += float(arr.sum())
+                self._reward_n += int(arr.size)
             if args.gru_experts:
                 no = self.locals.get("new_obs")
                 if no is not None and getattr(no, "ndim", 0) == 2 \
@@ -709,6 +729,27 @@ def main(argv: list[str] | None = None) -> int:
                             for k in self._sum})
             payload.update({f"terminations/{k}": v
                             for k, v in self._terms.items()})
+            if self._reward_n > 0:
+                # optimization/* (fb_20260815T132846_c8442f): "is PPO
+                # continuing to get more total reward per real
+                # transition" — an OPTIMIZATION/objective score, not a
+                # behavioral-success claim; read it beside the task
+                # (joystick/v_along_m_s) and safety (terminations/*)
+                # metrics, never alone. reward/tick rising + task
+                # rising = useful learning; reward/tick rising + task
+                # falling = exploiting/prioritizing a different reward
+                # term; reward/tick flat = optimization stalled.
+                rpt = self._reward_sum / self._reward_n
+                payload["optimization/reward_per_tick"] = rpt
+                self._reward_sum_cum += self._reward_sum
+                self._reward_n_cum += self._reward_n
+                payload["optimization/reward_per_tick_cumulative"] = (
+                    self._reward_sum_cum / self._reward_n_cum)
+                self._reward_ema = (rpt if self._reward_ema is None else
+                                    0.9 * self._reward_ema + 0.1 * rpt)
+                payload["optimization/reward_per_tick_ema"] = (
+                    self._reward_ema)
+            self._reward_sum, self._reward_n = 0.0, 0
             if self._cmd_cum["n"] > 0:
                 # Operator-named joystick command-following metrics
                 # (fb_20260815T114414, simplified fb_20260815T115650).

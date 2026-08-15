@@ -86459,7 +86459,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "in-cycle cw-arch-tf-r1b since 2026-08-15T13:36:52"
   },
   {
     "run": "cw-joystick-translate-scratch1",
@@ -86697,5 +86698,45 @@
     ],
     "checkup_resolution": "12:38 SUSPECT (fps 2913 < 5000 solo floor) RESOLVED, run left in place: slow since iteration 1 (2130) and climbing monotonically with learning (1900->2856) while the bit-identical warm twin holds 7538 fps on the SAME node (g131eec) \u2014 run-intrinsic state-dependent physics cost (random-init thrash = contact-rich states + frequent resets at ep_len~446), not CPU starvation or misplacement. No rebalance: would not recover fps and would muddy the matched-step comparator. Expect the floor alarm to keep firing until the policy survives longer; ignore unless fps stops rising or drops.",
     "checkpoint_provenance": "CAUTION (fb_20260815T123151_a8660c, verified in extra_args): --out-name retained from the warm twin \u2014 this run writes ppo_goal_cw_joystick_translate1.zip, SAME filename as cw-joystick-translate1 (train-0). No live collision (different pods), but before ANY cross-pod use pull the scratch checkpoint explicitly from hexapod-mjx-train-3 / W&B tvzk2nn8 and rename to ppo_goal_cw_joystick_translate_scratch1.zip; never stage or compare it under the shared filename. Random init itself verified genuine (no --init-from in the live process command)."
+  },
+  {
+    "run": "smoke-rewardtick",
+    "pod": "hexapod-mjx-train-4",
+    "steps": 2048,
+    "smoke": true,
+    "hypothesis": "smoke: optimization/reward_per_tick logging change boots and trains",
+    "gate": "boots, trains, no crash, optimization/reward_per_tick* keys appear in stdout/log",
+    "parent": "",
+    "track": "hw",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--n-envs",
+      "64",
+      "--n-steps",
+      "16",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "8",
+      "--eval-every",
+      "999999999",
+      "--video-every",
+      "999999999",
+      "--no-canary",
+      "--notes",
+      "smoke: reward_per_tick metric addition (fb_20260815T132846_c8442f)"
+    ],
+    "created": "2026-08-15T13:46:25+00:00",
+    "status": "REFUSED",
+    "checks": {
+      "cpu_limit": 26,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-c7c481c8-b38e-d350-964a-7156462b21c8)",
+      "code_sha_local": "d057d22dc00ce0acd598fc3365c82af2eebd15bd",
+      "code_sha_pod": "882a2c423935b80e29c0b28fb30d171fcb29328f"
+    },
+    "stack": "gpu-mjx",
+    "refused_reason": "hexapod-mjx-train-4 code marker 882a2c423935b80e29c0b28fb30d171fcb29328f != local HEAD d057d22dc00ce0acd598fc3365c82af2eebd15bd. Sync first: snapshot.sh --sync hexapod-mjx-train-4 (and snapshot/commit before that if the tree is dirty)."
   }
 ]
