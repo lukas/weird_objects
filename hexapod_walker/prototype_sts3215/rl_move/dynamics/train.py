@@ -221,7 +221,10 @@ def _init_wandb(args, config: dict):
                "velocity, and heading state under future actions."))
     run.define_metric("global_step")
     run.define_metric("train/*", step_metric="global_step")
+    run.define_metric("train_eval/*", step_metric="global_step")
     run.define_metric("val/*", step_metric="global_step")
+    run.define_metric("generalization/*", step_metric="global_step")
+    run.define_metric("test/*", step_metric="global_step", summary="last")
     run.define_metric("data/*", summary="last")
     print(f"[wandb] logging to {run.url or 'offline run dir'}")
     return run
@@ -264,6 +267,16 @@ def main() -> None:
     ap.add_argument("--val-every", type=int, default=1000)
     ap.add_argument("--val-windows", type=int, default=8192)
     ap.add_argument("--log-every", type=int, default=100)
+    ap.add_argument("--overfit-patience", type=int, default=12,
+                    help="stop after this many validation checks without a "
+                         "meaningful improvement when the validation/train "
+                         "loss ratio also exceeds --overfit-gap-ratio; zero "
+                         "disables stopping")
+    ap.add_argument("--overfit-min-delta", type=float, default=1e-3,
+                    help="minimum relative validation improvement")
+    ap.add_argument("--overfit-gap-ratio", type=float, default=1.10,
+                    help="validation/train_eval loss ratio that confirms "
+                         "overfitting rather than a shared plateau")
     ap.add_argument("--max-window-reuse", type=float, default=2.0,
                     help="hard cap on planned optimizer draws / distinct "
                          "training-window centers")
@@ -318,6 +331,8 @@ def main() -> None:
     print(f"privileged-label coverage: {coverage:.1%}")
     stats = dd.compute_stats(eps)
     budget = dd.window_budget(eps, args.history, horizons)
+    diagnostics = dd.split_diagnostics(eps, args.history, horizons)
+    dd.validate_split_coverage(diagnostics)
     planned_draws = args.steps * args.batch
     planned_reuse = planned_draws / max(budget["train"], 1)
     if (planned_reuse > args.max_window_reuse
@@ -334,11 +349,14 @@ def main() -> None:
             "13.6M-parameter Transformer on a frozen tiny corpus.")
     sampler_cls = dd.GpuWindowSampler if device.type == "cuda" else dd.WindowSampler
     sampler_kw = {"device": device} if device.type == "cuda" else {}
-    train_s = sampler_cls(eps, stats, args.history, horizons, val=False,
+    train_s = sampler_cls(eps, stats, args.history, horizons, split="train",
                           seed=args.seed, **sampler_kw)
-    val_s = sampler_cls(eps, stats, args.history, horizons, val=True,
+    val_s = sampler_cls(eps, stats, args.history, horizons, split="val",
                         seed=args.seed, **sampler_kw)
-    print(f"windows: train {len(train_s)}, val {len(val_s)}; "
+    test_s = sampler_cls(eps, stats, args.history, horizons, split="test",
+                         seed=args.seed, **sampler_kw)
+    print(f"windows: train {len(train_s)}, val {len(val_s)}, "
+          f"test {len(test_s)}; "
           f"planned draws={planned_draws:,}; reuse={planned_reuse:.2f}x; "
           f"device={device}; gpu={gpu_name}; "
           f"gpu_resident_batches={device.type == 'cuda'}")
@@ -372,15 +390,29 @@ def main() -> None:
               "gpu_resident_batches": device.type == "cuda",
               "data_train_windows": budget["train"],
               "data_val_windows": budget["val"],
+              "data_test_windows": budget["test"],
               "data_planned_draws": planned_draws,
-              "data_planned_window_reuse": planned_reuse}
+              "data_planned_window_reuse": planned_reuse,
+              "split_version": dd.SPLIT_VERSION,
+              "split_diagnostics": diagnostics}
     run = _init_wandb(args, config)
     if run is not None:
-        run.log({"global_step": 0,
-                 "data/train_windows": budget["train"],
-                 "data/val_windows": budget["val"],
-                 "data/planned_draws": planned_draws,
-                 "data/planned_window_reuse": planned_reuse})
+        data_payload = {
+            "global_step": 0,
+            "data/train_windows": budget["train"],
+            "data/val_windows": budget["val"],
+            "data/test_windows": budget["test"],
+            "data/planned_draws": planned_draws,
+            "data/planned_window_reuse": planned_reuse,
+        }
+        for split, row in diagnostics.items():
+            data_payload[f"data/{split}/episodes"] = row["episodes"]
+            for category in ("actors", "dr", "modes"):
+                for label, count in row[category].items():
+                    safe_label = str(label).replace(".", "p").replace("/", "_")
+                    data_payload[
+                        f"data/{split}/{category}/{safe_label}"] = count
+        run.log(data_payload)
 
     MODEL_DIR.mkdir(parents=True, exist_ok=True)
     ckpt_path = MODEL_DIR / f"{args.name}.pt"
@@ -388,6 +420,10 @@ def main() -> None:
     log_f = open(log_path, "w", newline="")
     log_w = None
     best_val = float("inf")
+    best_step = 0
+    checks_since_improvement = 0
+    overfit_stop = False
+    current_step = 0
     t0 = time.time()
 
     def save(path: Path):
@@ -397,9 +433,12 @@ def main() -> None:
                     "layout_version": fr.LAYOUT_VERSION,
                     "target_model": target_model.state_dict(),
                     "target_ema": args.target_ema,
+                    "split_version": dd.SPLIT_VERSION,
+                    "best_val": best_val, "best_step": best_step,
                     "args": vars(args)}, path)
 
     for step in range(1, args.steps + 1):
+        current_step = step
         if step <= args.warmup:
             lr_now = args.lr * step / max(args.warmup, 1)
         else:
@@ -437,6 +476,9 @@ def main() -> None:
                 run.log(payload)
 
         if step % args.val_every == 0 or step == args.steps:
+            tlogs = evaluate(model, target_model, train_s, lambdas,
+                             device, stats,
+                             args.val_windows, args.batch)
             vlogs = evaluate(model, target_model, val_s, lambdas,
                              device, stats,
                              args.val_windows, args.batch)
@@ -445,29 +487,78 @@ def main() -> None:
                   f"m/s; heading={vlogs.get('current/heading_rmse_deg', float('nan')):.2f} "
                   f"deg; contact_f1={vlogs['current/contact_f1']:.3f}; "
                   f"current={vlogs['current/motor_current_rmse_a']:.3f} A")
-            row = {"step": step, **{f"val/{key}": value
-                                     for key, value in vlogs.items()}}
+            gap = vlogs["total"] - tlogs["total"]
+            gap_ratio = vlogs["total"] / max(tlogs["total"], 1e-12)
+            is_best = vlogs["total"] < best_val
+            meaningful_improvement = (
+                vlogs["total"] < best_val * (1.0 - args.overfit_min_delta))
+            checks_since_improvement = (
+                0 if meaningful_improvement else checks_since_improvement + 1)
+            overfit_alarm = bool(
+                args.overfit_patience > 0
+                and checks_since_improvement >= args.overfit_patience
+                and gap_ratio >= args.overfit_gap_ratio)
+            print(f"    train_eval={tlogs['total']:.4f}; gap={gap:+.4f}; "
+                  f"val/train={gap_ratio:.3f}; "
+                  f"no_improve_checks={checks_since_improvement}; "
+                  f"overfit_alarm={int(overfit_alarm)}")
+            row = {
+                "step": step,
+                **{f"train_eval/{key}": value for key, value in tlogs.items()},
+                **{f"val/{key}": value for key, value in vlogs.items()},
+                "generalization/total_gap": gap,
+                "generalization/val_train_ratio": gap_ratio,
+                "generalization/checks_since_improvement":
+                    checks_since_improvement,
+                "generalization/overfit_alarm": int(overfit_alarm),
+            }
             if log_w is None:
                 log_w = csv.DictWriter(log_f, fieldnames=list(row))
                 log_w.writeheader()
             log_w.writerow(row)
             log_f.flush()
             if run is not None:
-                run.log({"global_step": step,
-                         **{f"val/{key}": value
-                            for key, value in vlogs.items()}})
-            if vlogs["total"] < best_val:
+                run.log({"global_step": step, **{key: value
+                                                  for key, value in row.items()
+                                                  if key != "step"}})
+            if is_best or best_step == 0:
                 best_val = vlogs["total"]
+                best_step = step
                 save(ckpt_path)
                 print(f"  saved best -> {ckpt_path.name} "
                       f"(val {best_val:.4f})")
+            if overfit_alarm:
+                overfit_stop = True
+                print("  stopping: sustained validation/train divergence; "
+                      "the best-validation checkpoint is retained")
+                break
 
     save(MODEL_DIR / f"{args.name}_final.pt")
+    selected = torch.load(ckpt_path, map_location=device, weights_only=False)
+    model.load_state_dict(selected["model"])
+    target_model.load_state_dict(selected["target_model"])
+    test_logs = evaluate(model, target_model, test_s, lambdas, device, stats,
+                         args.val_windows, args.batch)
+    test_pers = persistence_val_loss(test_s, args.val_windows, args.batch)
+    print(f"  untouched test (selected step {best_step}): "
+          f"total={test_logs['total']:.4f}; "
+          f"vxy={test_logs.get('current/vxy_rmse_m_s', float('nan')):.4f} "
+          f"m/s; heading={test_logs.get('current/heading_rmse_deg', float('nan')):.2f} "
+          f"deg; contact_f1={test_logs['current/contact_f1']:.3f}")
     log_f.close()
     if run is not None:
+        run.log({
+            "global_step": current_step,
+            **{f"test/{key}": value for key, value in test_logs.items()},
+            **{f"test/persistence/{key}": value
+               for key, value in test_pers.items()},
+            "test/selected_step": best_step,
+            "test/overfit_stop": int(overfit_stop),
+        })
         run.finish()
     print(f"done in {(time.time() - t0) / 60:.1f} min; best val "
-          f"{best_val:.4f}; checkpoints: {ckpt_path} + _final.pt")
+          f"{best_val:.4f} at step {best_step}; test "
+          f"{test_logs['total']:.4f}; checkpoints: {ckpt_path} + _final.pt")
 
 
 if __name__ == "__main__":

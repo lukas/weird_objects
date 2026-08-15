@@ -1,8 +1,9 @@
 """data.py — window sampling over collected rollout shards.
 
-Loads every shard_*.npz under a dataset dir, splits by EPISODE (val
-fraction is a deterministic hash of the episode's global index, so the
-split is stable across runs and processes), computes per-channel
+Loads every shard_*.npz under a dataset dir, splits by EPISODE (a
+deterministic hash of the episode's global index produces disjoint
+train/validation/test sets that are stable across runs and processes),
+computes per-channel
 normalization statistics on the TRAIN episodes only, and samples
 training windows:
 
@@ -31,14 +32,38 @@ import numpy as np
 
 from . import frames as fr
 
+SPLIT_VERSION = "episode-blake2b-80-10-10-v1"
+TRAIN_FRACTION = 0.8
 VAL_FRACTION = 0.1
+TEST_FRACTION = 0.1
+SPLITS = ("train", "val", "test")
 STD_FLOOR = 1e-3
 
 
+def split_for_episode(ep_global_idx: int) -> str:
+    """Stable, whole-episode 80/10/10 split.
+
+    Eight hash bytes avoid the coarse 1/256 buckets used by the old
+    train/validation-only split. No frame or overlapping window from one
+    episode can appear in more than one split.
+    """
+    digest = hashlib.blake2b(
+        f"dynrep-ep-{int(ep_global_idx)}".encode(), digest_size=8).digest()
+    unit = int.from_bytes(digest, "big") / float(1 << 64)
+    if unit < TRAIN_FRACTION:
+        return "train"
+    if unit < TRAIN_FRACTION + VAL_FRACTION:
+        return "val"
+    return "test"
+
+
 def is_val_episode(ep_global_idx: int) -> bool:
-    """Stable episode-level split shared by collectors and samplers."""
-    h = hashlib.md5(f"dynrep-ep-{ep_global_idx}".encode()).digest()
-    return (h[0] / 255.0) < VAL_FRACTION
+    """Backward-compatible predicate for the validation split."""
+    return split_for_episode(ep_global_idx) == "val"
+
+
+def is_test_episode(ep_global_idx: int) -> bool:
+    return split_for_episode(ep_global_idx) == "test"
 
 
 def _is_val(ep_global_idx: int) -> bool:
@@ -57,12 +82,49 @@ def valid_window_count(n_frames: int, history: int,
 def window_budget(eps: list["Episode"], history: int,
                   horizons: tuple[int, ...]) -> dict[str, int]:
     """Distinct center-window counts for mechanical data-reuse checks."""
-    out = {"train": 0, "val": 0}
+    out = {split: 0 for split in SPLITS}
     for episode in eps:
-        split = "val" if episode.is_val else "train"
-        out[split] += valid_window_count(
+        out[episode.split] += valid_window_count(
             len(episode.frames), history, horizons)
     return out
+
+
+def split_diagnostics(eps: list["Episode"], history: int,
+                      horizons: tuple[int, ...]) -> dict[str, dict]:
+    """Episode/window counts and marginal coverage for each split."""
+    out = {
+        split: {"episodes": 0, "windows": 0, "actors": {}, "dr": {},
+                "modes": {}}
+        for split in SPLITS
+    }
+    for episode in eps:
+        row = out[episode.split]
+        row["episodes"] += 1
+        row["windows"] += valid_window_count(
+            len(episode.frames), history, horizons)
+        for key, value in (("actors", episode.actor),
+                           ("dr", f"{episode.dr:g}"),
+                           ("modes", episode.mode)):
+            row[key][value] = row[key].get(value, 0) + 1
+    return out
+
+
+def validate_split_coverage(diagnostics: dict[str, dict]) -> None:
+    """Refuse datasets whose held-out splits miss a collected stratum."""
+    for split in SPLITS:
+        if diagnostics[split]["episodes"] <= 0:
+            raise ValueError(f"dataset split {split!r} has no episodes")
+        if diagnostics[split]["windows"] <= 0:
+            raise ValueError(f"dataset split {split!r} has no valid windows")
+    for category in ("actors", "dr", "modes"):
+        expected = set().union(
+            *(set(diagnostics[s][category]) for s in SPLITS))
+        for split in SPLITS:
+            missing = sorted(expected - set(diagnostics[split][category]))
+            if missing:
+                raise ValueError(
+                    f"dataset split {split!r} is missing {category}: "
+                    f"{', '.join(missing)}")
 
 
 @dataclass
@@ -114,10 +176,12 @@ class Episode:
     dr: float
     global_idx: int
     q_nom: np.ndarray | None = None    # (18,) episode settled start pose
+    split: str = field(init=False)
     is_val: bool = field(init=False)
 
     def __post_init__(self):
-        self.is_val = _is_val(self.global_idx)
+        self.split = split_for_episode(self.global_idx)
+        self.is_val = self.split == "val"
 
 
 def load_dataset(path: Path | str) -> list[Episode]:
@@ -158,10 +222,12 @@ def load_dataset(path: Path | str) -> list[Episode]:
 
 
 def compute_stats(eps: list[Episode]) -> Stats:
-    train = np.concatenate([e.frames for e in eps if not e.is_val])
+    train_eps = [e for e in eps if e.split == "train"]
+    if not train_eps:
+        raise ValueError("cannot compute normalization without train episodes")
+    train = np.concatenate([e.frames for e in train_eps])
     mean = train.mean(axis=0).astype(np.float32)
     std = np.maximum(train.std(axis=0), STD_FLOOR).astype(np.float32)
-    train_eps = [e for e in eps if not e.is_val]
     priv_mean = np.zeros(fr.PRIV_DIM, dtype=np.float32)
     priv_std = np.ones(fr.PRIV_DIM, dtype=np.float32)
     for j in range(fr.PRIV_DIM):
@@ -182,14 +248,21 @@ class WindowSampler:
     """Uniform sampling of valid (episode, t) windows in one split."""
 
     def __init__(self, eps: list[Episode], stats: Stats, history: int,
-                 horizons: tuple[int, ...], val: bool,
-                 seed: int = 0):
+                 horizons: tuple[int, ...], val: bool | None = None,
+                 seed: int = 0, *, split: str | None = None):
         self.stats = stats
         self.H = int(history)
         self.horizons = tuple(sorted(int(k) for k in horizons))
         self.Kmax = self.horizons[-1]
         self.rng = np.random.default_rng(seed)
-        self.eps = [e for e in eps if e.is_val == val]
+        if split is None:
+            if val is None:
+                raise ValueError("pass split='train', 'val', or 'test'")
+            split = "val" if val else "train"
+        if split not in SPLITS:
+            raise ValueError(f"unknown split {split!r}; expected one of {SPLITS}")
+        self.split = split
+        self.eps = [e for e in eps if e.split == split]
         self.index: list[tuple[int, int]] = []      # (ep_i, t)
         for i, e in enumerate(self.eps):
             F = len(e.frames)
@@ -198,7 +271,7 @@ class WindowSampler:
                 self.index.append((i, t))
         if not self.index:
             raise ValueError(
-                f"no valid windows (val={val}): need episodes with at "
+                f"no valid windows (split={split}): need episodes with at "
                 f"least H+Kmax={self.H + self.Kmax} frames")
 
     def __len__(self) -> int:
@@ -273,8 +346,8 @@ class GpuWindowSampler:
     """
 
     def __init__(self, eps: list[Episode], stats: Stats, history: int,
-                 horizons: tuple[int, ...], val: bool, device,
-                 seed: int = 0):
+                 horizons: tuple[int, ...], val: bool | None = None,
+                 device=None, seed: int = 0, *, split: str | None = None):
         import torch
 
         self.stats = stats
@@ -284,7 +357,14 @@ class GpuWindowSampler:
         self.device = torch.device(device)
         if self.device.type != "cuda":
             raise ValueError("GpuWindowSampler requires a CUDA device")
-        selected = [e for e in eps if e.is_val == val]
+        if split is None:
+            if val is None:
+                raise ValueError("pass split='train', 'val', or 'test'")
+            split = "val" if val else "train"
+        if split not in SPLITS:
+            raise ValueError(f"unknown split {split!r}; expected one of {SPLITS}")
+        self.split = split
+        selected = [e for e in eps if e.split == split]
         frames, actions, priv = [], [], []
         frame_centers, action_centers, masks = [], [], []
         foff = aoff = 0
@@ -302,7 +382,7 @@ class GpuWindowSampler:
             foff += len(e.frames)
             aoff += len(e.actions)
         if not frame_centers:
-            raise ValueError(f"no valid windows (val={val}): need episodes "
+            raise ValueError(f"no valid windows (split={split}): need episodes "
                              f"with at least H+Kmax={self.H + self.Kmax} "
                              "frames")
         self.frames = torch.as_tensor(np.concatenate(frames),
@@ -376,7 +456,8 @@ class GpuWindowSampler:
 
 
 def describe(eps: list[Episode]) -> str:
-    n_val = sum(e.is_val for e in eps)
+    split_counts = {split: sum(e.split == split for e in eps)
+                    for split in SPLITS}
     steps = sum(len(e.actions) for e in eps)
     actors: dict[str, int] = {}
     falls = 0
@@ -384,7 +465,9 @@ def describe(eps: list[Episode]) -> str:
         actors[e.actor] = actors.get(e.actor, 0) + 1
         if "trunc" not in e.reason and e.reason != "end":
             falls += 1
-    return (f"{len(eps)} episodes ({n_val} val), {steps} steps "
+    return (f"{len(eps)} episodes (train/val/test "
+            f"{split_counts['train']}/{split_counts['val']}/"
+            f"{split_counts['test']}), {steps} steps "
             f"({steps / 25 / 60:.1f} sim-min), "
             f"{falls} terminated early (falls/trips); "
             f"actors: {json.dumps(actors)}")

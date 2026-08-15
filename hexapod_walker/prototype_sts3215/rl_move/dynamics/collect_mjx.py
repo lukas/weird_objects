@@ -277,7 +277,7 @@ def main() -> None:
         args.optimizer_steps * args.batch / args.max_window_reuse))
     run = _init_wandb(args, {
         **vars(args), "target_train_windows": target_train_windows,
-        "collector": "mjx_sharded_gpu",
+        "collector": "mjx_sharded_gpu", "split_version": dd.SPLIT_VERSION,
     })
     if run is not None:
         run.log({"global_step": 0,
@@ -378,13 +378,15 @@ def main() -> None:
         total_steps = sum(len(ep.actions) for ep in existing)
         train_windows = old_budget["train"]
         val_windows = old_budget["val"]
+        test_windows = old_budget["test"]
         counts: dict[str, int] = {}
         for ep in existing:
             counts[ep.actor] = counts.get(ep.actor, 0) + 1
         print(f"append: found {completed} episodes and "
               f"{train_windows:,} train windows in {out}")
     else:
-        completed = total_steps = train_windows = val_windows = 0
+        completed = total_steps = 0
+        train_windows = val_windows = test_windows = 0
         counts = {}
     started_completed = completed
     started_steps = total_steps
@@ -429,10 +431,13 @@ def main() -> None:
                 )
                 shard.append(episode)
                 valid = dd.valid_window_count(nf, args.history, horizons)
-                if dd.is_val_episode(completed):
+                split = dd.split_for_episode(completed)
+                if split == "train":
+                    train_windows += valid
+                elif split == "val":
                     val_windows += valid
                 else:
-                    train_windows += valid
+                    test_windows += valid
                 completed += 1
                 total_steps += na
                 counts[str(actors[i])] = counts.get(str(actors[i]), 0) + 1
@@ -479,6 +484,7 @@ def main() -> None:
                         "data/env_steps": total_steps,
                         "data/train_windows": train_windows,
                         "data/val_windows": val_windows,
+                        "data/test_windows": test_windows,
                         "data/target_train_windows": target_train_windows,
                         "data/planned_window_reuse": reuse,
                         "data/env_steps_per_second": total_steps / elapsed,
@@ -505,7 +511,9 @@ def main() -> None:
         "actor_counts_total": counts,
         "total_steps": total_steps - started_steps,
         "train_windows_added": train_windows - started_train_windows,
+        "split_version": dd.SPLIT_VERSION,
         "train_windows": train_windows, "val_windows": val_windows,
+        "test_windows": test_windows,
         "target_train_windows": target_train_windows,
         "planned_window_reuse": (args.optimizer_steps * args.batch
                                   / train_windows),
@@ -524,6 +532,7 @@ def main() -> None:
             "data/env_steps": total_steps,
             "data/train_windows": train_windows,
             "data/val_windows": val_windows,
+            "data/test_windows": test_windows,
             "data/target_train_windows": target_train_windows,
             "data/planned_window_reuse": (
                 args.optimizer_steps * args.batch / train_windows),

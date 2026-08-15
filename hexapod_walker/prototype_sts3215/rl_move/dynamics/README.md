@@ -14,10 +14,10 @@ Full design + gates: `rl_docs/DYNREP.md`.
 | `collect.py` | Rollout collector: 5 actor types x goal mixes x DR scales -> npz shards |
 | `collect_mjx.py` | H200 MJX/Warp collector: thousands of simulator worlds, original five-actor/DR recipe, terminal-frame preservation, W&B throughput/freshness tracking |
 | `fresh_pipeline.py` | Orchestrator entry point: collect until the optimizer reuse budget is met, then launch the unchanged full-size Transformer |
-| `data.py` | Shard loading, episode-hash train/val split, normalization stats, window sampler |
+| `data.py` | Shard loading, whole-episode 80/10/10 train/validation/test split, train-only normalization stats, window sampler, and split-coverage checks |
 | `model.py` | Causal Transformer (current default: 4 layers, width 512, 8 heads, FF 1024, z=256) -> current/future physical, privileged-truth, contact, current, and latent heads |
-| `train.py` | CUDA pretraining loop; GPU-resident sampling, physical train/val metrics, W&B, best-val checkpoint, and a hard planned-window-reuse gate |
-| `eval_model.py` | Gates G1 (legacy) + G1.1 (revised 2026-08-13, `--k1-ridge-tol`): held-out prediction vs persistence + linear-ridge baselines (information-matched to the model's input set); privileged-target diagnostics; latent dump for probes/cluster analysis |
+| `train.py` | CUDA pretraining loop; GPU-resident sampling, physical train/validation metrics and generalization-gap alarms in W&B, best-validation checkpoint, one-time test evaluation, and a hard planned-window-reuse gate |
+| `eval_model.py` | Gates G1 (legacy) + G1.1 (revised 2026-08-13, `--k1-ridge-tol`) on test by default: held-out prediction vs persistence + linear-ridge baselines (information-matched to the model's input set); privileged-target diagnostics; latent dump for probes/cluster analysis |
 | `probe_latents.py` | G3 linear probes from dumped z: roll/pitch/gyro R², per-foot contact balanced accuracy, shuffled-target chance floor |
 | `merge_shards.py` | Merge parallel per-seed collection subdirs (collect.py shard numbering races under concurrent writers); `--require-actor` guards against recipe drift |
 | `sb3_encoder.py` | `DynFeaturesExtractor`: stacked env obs -> un-scale -> pretrained encoder -> z (+goal tail); `ScaledLRPPO` + `set_group_lrs` for condition C's slow encoder LR |
@@ -96,7 +96,12 @@ only; they are not included in any encoder input set.
 
 - **Do not connect PPO until gate G1 passes** (`eval_model` prints
   PASS/FAIL): the model must beat persistence AND the linear predictor
-  at every horizon on held-out windows. This is the brief's hard gate.
+  at every horizon on held-out test windows. This is the brief's hard gate.
+- The split is a stable whole-episode 80/10/10 hash. Normalization and
+  optimization use train only; checkpoint selection uses validation only;
+  test is evaluated only after selecting the checkpoint. Training refuses a
+  corpus whose validation or test split omits any collected actor, DR level,
+  or mode.
 - Transfer cohorts currently run through pod scripts, not
   `launch_run.py`; until they are launcher-wired, every launch must
   write `rl_move/dynamics/logs/<cohort>_manifest.jsonl`, and a cycle

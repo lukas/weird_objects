@@ -7,7 +7,8 @@ model must beat BOTH baselines on held-out windows at every horizon:
     linear        ridge regression from [flattened history, flattened
                   future actions] -> future state (fit on train windows)
 
-Reports, per horizon: normalized state MSE (model / persistence /
+Reports on the untouched test split by default, per horizon: normalized
+state MSE (model / persistence /
 linear), physical errors (joint pos RMSE deg, joint vel RMSE deg/s,
 tilt RMSE deg), contact accuracy + F1 (model vs persistence), optional
 privileged-truth target metrics, and the latent-prediction MSE against
@@ -18,7 +19,7 @@ JSON report -> rl_move/dynamics/logs/, table -> stdout.
         --ckpt rl_move/dynamics/models/dyn_v1.pt \
         --data rl_move/dynamics/datasets/v1
 
---dump-latents also writes val-split latent embeddings + episode labels
+--dump-latents also writes evaluation-split latent embeddings + episode labels
 (actor, goal mode, termination, mean tilt/contact) for the organization
 analysis the brief asks for (upright/fallen, stable/unstable clusters).
 """
@@ -207,6 +208,9 @@ def main() -> None:
     ap.add_argument("--ckpt", required=True)
     ap.add_argument("--data", required=True)
     ap.add_argument("--val-windows", type=int, default=16384)
+    ap.add_argument("--split", choices=("val", "test"), default="test",
+                    help="held-out split to evaluate; test is the final G1 "
+                         "gate, while val is for diagnostics only")
     ap.add_argument("--linear-rows", type=int, default=50000)
     ap.add_argument("--batch", type=int, default=512)
     ap.add_argument("--dump-latents", action="store_true")
@@ -226,10 +230,10 @@ def main() -> None:
     horizons = tuple(model.horizons)
     eps = dd.load_dataset(ROOT / args.data)
     print(dd.describe(eps))
-    train_s = dd.WindowSampler(eps, stats, history, horizons, val=False,
+    train_s = dd.WindowSampler(eps, stats, history, horizons, split="train",
                                seed=1)
-    val_s = dd.WindowSampler(eps, stats, history, horizons, val=True,
-                             seed=1)
+    eval_s = dd.WindowSampler(eps, stats, history, horizons, split=args.split,
+                              seed=1)
     input_idx = fr.INPUT_SETS[ckpt["config"]["input_set"]]
     print(f"fitting linear baseline on {args.linear_rows} train "
           f"windows (input set '{ckpt['config']['input_set']}', "
@@ -257,7 +261,7 @@ def main() -> None:
                         "lin_pred": [], "tgt": []}
                     for k in (0, *horizons)}
     lat_z, lat_labels = [], []
-    for b in val_s.val_batches(args.val_windows, args.batch):
+    for b in eval_s.val_batches(args.val_windows, args.batch):
         bt_hist = torch.as_tensor(b["hist"])
         bt_act = torch.as_tensor(b["fut_actions"])
         with torch.no_grad():
@@ -336,7 +340,8 @@ def main() -> None:
             ], axis=1))
 
     report: dict = {"ckpt": args.ckpt, "data": args.data,
-                    "val_windows": args.val_windows,
+                    "split": args.split, "eval_windows": args.val_windows,
+                    "split_version": dd.SPLIT_VERSION,
                     "config": ckpt["config"], "horizons": {},
                     "privileged": {}}
     dim = fr.STATE_DIM

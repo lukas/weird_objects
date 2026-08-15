@@ -160,9 +160,13 @@ planning through the model, and one policy for every task at once.
 
 ## Logging
 
-Pretraining: per-horizon train/val prediction loss, joint-state error,
-IMU error, contact accuracy, latent error (CSV next to checkpoint;
-optional W&B). PPO phase (later): reward, task success, falls,
+Pretraining uses a stable whole-episode 80/10/10 train/validation/test split.
+Normalization is fit on train only, validation alone selects checkpoints, and
+the selected checkpoint is evaluated on test once at the end. W&B records
+per-horizon train/validation prediction loss, their generalization gap and
+overfit alarm, final test metrics, joint-state error, IMU error, contact
+accuracy, and latent error (CSV next to checkpoint). PPO phase (later): reward,
+task success, falls,
 tracking error, energy/current, old-task retention, steps-to-threshold
 — the existing `SCORE/*` + eval harness conventions apply. Periodically
 save latents from standardized trajectories for the organization
