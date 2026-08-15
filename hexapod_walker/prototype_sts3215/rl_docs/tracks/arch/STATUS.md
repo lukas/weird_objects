@@ -8,6 +8,40 @@ at what budget, with which failure modes.
 
 ## Now
 
+- **08-15 ~15:0x UTC — `cw-arch-tf-r1-hard1` (40M hardening twin)
+  TRIAGED PASS: the causal-transformer trunk GROWS a real walking
+  gait at budget parity with the hist16-MLP champion (r7).** DR0
+  gate det+sto gait_valid 6/6, zero sacrificed legs, zero falls
+  (terms 0), prog_ratio med 1.14/1.08 (>=0.85 bar); own-cfg DR0.5
+  same 6/6/6/6, 0 term, prog med 1.10/1.00. Roll behavior clean
+  every episode (roll_class clean/recovered, peak 2.0-7.8°, tail
+  0.4-1.9°) — NOT the universal takeoff-roll-transient fall pattern,
+  and a clear jump from this same arm's 2M canary (fell via roll on
+  every det episode). Video (10-frame strips, all 24 eps across both
+  DR passes) shows six feet cycling through changing contact
+  patterns over the 15s clip, no flag leg, no static/parked gait.
+  Slip is elevated (med 1.60 det/1.53 sto) vs r7's freshest read but
+  sits inside the range r7's OWN verdict already flagged as
+  "elevated vs contract-line champions, not gated here" (1.3-1.6) —
+  not a new regression, the same documented economy gap this whole
+  architecture line carries. **ASSUMPTION (operator to review): no
+  bulk_session_eval cohort before this verdict** — the checkpoint is
+  confirmed obs-INCOMPATIBLE with eval_session/bulk_session_eval
+  (1152 vs 72, same obs-contract mismatch every arch-line checkpoint
+  since r7 has had), so the pre-registered 6-episode-per-mode
+  harness gate (the same convention r7 itself was verdicted on) was
+  treated as the applicable evidence bar for this obs family — same
+  precedent as every other arch-line walk verdict already in
+  SKILLS.md. **Answers the arm's question cleanly: a small attention
+  trunk is not a dead end — given the same 40M budget the MLP
+  champion needed, it gets to the same place.** Walk-only; rise/
+  hold/lower untested on this trunk. No further tf-line fork is
+  pre-registered — a full-skill (rise/hold/lower) extension on the
+  transformer trunk is the natural next question but needs its own
+  spec (BC-anchor/composition choice), not a plain respec; left for
+  a future cycle rather than launched speculatively this cycle.
+  Evidence: `rl_docs/runs/cw-arch-tf-r1-hard1.md`,
+  `logs/ckpt_eval/cw_arch_tf_r1_hard1_{gate,owncfg,session}`.
 - **08-15 ~13:4x UTC — `cw-arch-tf-r1b` TRIAGED PASS (2M discovery
   mechanism canary): the causal-transformer PPO stack boots/trains
   cleanly to 2M (no NaN/crash, ep_rew -1.5→93, EV 0.02→0.86, std
@@ -60,6 +94,22 @@ at what budget, with which failure modes.
   capability, parity/coexistence smoke, reproducible install step)
   STAYS OPEN as the durable version of this fix; treat train-1's
   torch build as a manual, temporary exception until it lands.**
+- **08-15 ~15:2x UTC — Arm A stage-0 distill VERIFIED: FAIL, no
+  Stage 1 launch.** `ppo_goal_cw_arch_modeexperts_bc1.zip` (distilled
+  from `footlow2_hard1` + `bcgait1_hard1`) does not match its
+  teachers cold: det single-mode rise 0/6 (stalls 40-80mm short of
+  full stand vs teacher's 0.5-3.4mm), det walk prog_ratio med 0.53
+  with 2/6 episodes collapsing (prog 0.02/0.12, slip/m 26.2/7.7);
+  hold/lower det clean (6/6 each). Sequence det 10/12 zero-fall
+  (bar 11/12), sto 3/12. Per the pre-registered FAIL branch this is
+  infrastructure (distill can't match teachers), not a science
+  verdict — no PPO on this artifact. Leading fix candidate: the
+  DAgger correction budget over-weighted lower's falls while rise
+  stayed under-corrected (training probe returns already showed this:
+  rise `['-217','125']` vs walk `['837','734']`) — a rise-targeted
+  DAgger/coverage redesign is the next lever, left for a future
+  cycle. Full numbers + evidence paths: `MODE_EXPERTS_DIRECTIVE.md`
+  "Arm A" Stage 0.
 - **CROSS-TRACK INSIGHT (08-15, from hw `cw-stand-postlower3` dig-in,
   Cohort c3):** the shared mode-sequence rise branch
   (`_seq_segment_traj`) starts every mid-sequence rise at BELLY-FRAME

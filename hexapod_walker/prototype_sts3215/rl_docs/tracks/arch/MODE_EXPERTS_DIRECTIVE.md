@@ -54,18 +54,39 @@ construction.
 Question: does one checkpoint PRESERVE the working skills and learn
 only their boundaries once destructive shared gradients are removed?
 
-- Stage 0 (RUNNING 08-15, train-1 CPUs): distill
-  rise/hold/lower experts from `footlow2_hard1` and loco from
-  `bcgait1_hard1` — `distill_gru --experts --experts-adapter 32
+- Stage 0 (FINISHED 08-15 ~13:5x, train-1 CPUs; VERIFIED 08-15 ~15:2x
+  — **FAIL, infrastructure not science, Stage 1 does NOT launch**):
+  distilled rise/hold/lower experts from `footlow2_hard1` and loco
+  from `bcgait1_hard1` — `distill_gru --experts --experts-adapter 32
   --transitions 300 --episodes 200 --dagger-rounds 2` (transdagger2's
   proven recipe, new teachers per the directive) →
-  `ppo_goal_cw_arch_modeexperts_bc1.zip`. In-context teacher
-  verification (12 det sequences, abort >4 falls) guards a
-  teacher pair that cannot chain. VERIFY before stage 1: eval the
-  distill vs each teacher (single-mode det: rise/hold/lower vs
-  footlow2_hard1 bars, walk gait_valid vs bcgait1_hard1) + sequence
-  eval vs the c1 hierarchy baseline. A broken distill is
-  infrastructure, not science — fix or re-collect, don't launch.
+  `ppo_goal_cw_arch_modeexperts_bc1.zip`. Training-time in-context
+  teacher verification passed (12/12 det sequences, 0 falls) but the
+  FULL VERIFY (single-mode det vs each teacher's bars + sequence eval
+  vs c1) finds real misses: **det rise 0/6** (bridge 0/3, flat 0/3),
+  stalling 40–80mm short of full stand (footlow2_hard1's own cold
+  rises: 0.5–3.4mm) — a genuine miss, not noise, foreshadowed by the
+  training log's own rise probe returns (`['-217','125']`, versus
+  walk `['837','734']`/hold `['93','274']`). **det walk prog_ratio
+  med 0.53** (teacher's own 1.05–1.10) with 2/6 episodes collapsing
+  to prog 0.02/0.12 and slip/m 26.2/7.7 (teacher 1.3–1.5) — an
+  intermittent near-total stall never seen in the teacher. hold/lower
+  det clean (6/6 each, matching teacher bars). Sequence
+  (`eval_modeseq --single`, grammar rise,walk,lower,rise,walk): det
+  10/12 zero-fall (bar 11/12, just under — first-rise-ordinal 6/12
+  vs later-rise 10/12, i.e. NOT the usual post-lower-weak pattern),
+  sto collapses to 3/12. **Root-cause hint (not confirmed): the
+  DAgger correction budget over-weighted lower's failures** (300-ep
+  transitions pass: falls `{'lower':6,'rise':1,'walk':3,'hold':1}`)
+  **while rise stayed under-corrected** — consistent with the
+  cross-track insight already on file for the transdagger2/3 rise
+  line (fb_20260814T164337_d7f11b: rise needs its own targeted
+  BC-anchor/coverage term, not just a diet re-weight). Per the
+  pre-registered FAIL branch below, this is infrastructure: **fix or
+  re-collect the distill (rise-targeted DAgger coverage is the
+  leading candidate), then re-run VERIFY — no Stage 1 PPO on this
+  artifact.** Evidence: `logs/ckpt_eval/arch_modeexperts_bc1_verify`,
+  `logs/ckpt_eval/arch_modeexperts_bc1_seq_{det,sto}.json`.
 - Stage 1 (pre-registered, [precondition: stage-0 artifact passes
   verification]): `cw-arch-modeexperts1` — 2M discovery PPO, warm
   from the distill, `--gru-experts --gru-experts-freeze` (expert
