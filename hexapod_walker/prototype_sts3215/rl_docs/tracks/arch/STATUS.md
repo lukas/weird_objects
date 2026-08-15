@@ -94,6 +94,16 @@ at what budget, with which failure modes.
   capability, parity/coexistence smoke, reproducible install step)
   STAYS OPEN as the durable version of this fix; treat train-1's
   torch build as a manual, temporary exception until it lands.**
+  **UPDATE 08-15 ~17:2x UTC: half landed.**
+  `rl_move/orchestrator/pod_torch_capability.py` (install/verify/
+  status/record CLI, `is_capable()` gate requiring a passed
+  torch-cuda + jax-coexistence smoke, 6 tests green, snapshot
+  `exp/cuda-torch-durable1`) records capability durably; train-1
+  recorded retroactively from this arm's own evidence. The launcher
+  refusal itself (`launch_run.py` declining an unrecorded pod's
+  `--device cuda`) is NOT wired yet — deferred one cycle to avoid
+  colliding with a concurrent cycle's in-flight edit of the same
+  file, not a sizing/science deferral. See STATUS.md WAITING-ON.
 - **08-15 ~15:2x UTC — Arm A stage-0 distill VERIFIED: FAIL, no
   Stage 1 launch.** `ppo_goal_cw_arch_modeexperts_bc1.zip` (distilled
   from `footlow2_hard1` + `bcgait1_hard1`) does not match its
