@@ -2245,8 +2245,12 @@ class SimHexapodBalanceEnv(_GymBase):
             # stand score (walk_task._post_step) replaces the height
             # kernel/shaping. Feeding h_err = h_rel here would CHARGE
             # standing up away from the settled spawn height — the
-            # exact opposite of the task.
-            if not getattr(self, "_is_getup", False):
+            # exact opposite of the task. RECOVER (08-15) has the
+            # identical shape: its potential Phi prices height, and
+            # the spawn-anchored h_err would charge every honest rise
+            # (measured -58/ep on the reference rise replay).
+            if not (getattr(self, "_is_getup", False)
+                    or getattr(self, "_is_recover", False)):
                 h_err = h_rel - goal.height_ref
             if goal.unload_leg is not None:
                 adr = self._touch_adr[int(goal.unload_leg)]
