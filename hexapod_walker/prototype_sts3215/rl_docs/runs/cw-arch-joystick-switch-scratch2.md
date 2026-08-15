@@ -4,7 +4,7 @@
 
 **status**: REFUSED
 
-**created**: 2026-08-15T20:15:07+00:00
+**created**: 2026-08-15T20:16:58+00:00
 
 **pod**: hexapod-mjx-train-3
 
@@ -14,5 +14,5 @@
 
 **gate**: No reward-only pass. Fresh initialization must be confirmed by absence of --init-from. Final C-MuJoCo gate requires at least 5/6 deterministic and 4/6 stochastic walk trials to survive the full 15 seconds, mean direction error <=20 deg, p90 <=45 deg, wrong-direction fraction <=0.10, velocity error <=0.02 m/s, and video showing controlled responses to multiple instantaneous command switches without tilt termination.
 
-**refused_reason**: hexapod-mjx-train-3 code marker 6315a4535db43ff09759007c0838f6290145d7f8-dirty != local HEAD 6315a4535db43ff09759007c0838f6290145d7f8. Sync first: snapshot.sh --sync hexapod-mjx-train-3 (and snapshot/commit before that if the tree is dirty).
+**refused_reason**: hexapod-mjx-train-3 code marker 500e856b5695747d11ba1918d7c417216510b9c8 != local HEAD 3120696e7807d31c14ff8874ea408ce207ca0a0e. Sync first: snapshot.sh --sync hexapod-mjx-train-3 (and snapshot/commit before that if the tree is dirty).
 
