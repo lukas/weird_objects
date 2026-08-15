@@ -85153,7 +85153,7 @@
       "goal.mode_seq_max_segments=2"
     ],
     "created": "2026-08-15T01:20:26+00:00",
-    "status": "FINISHED",
+    "status": "FAIL",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -85189,7 +85189,9 @@
         "log_tail": ",007,040: hold 0.39\u00b0, lean 1.17\u00b0, lower 0/1, unload 0.30\u00b0, raise 1/2, rise f1/2 b1/2 c2/2, lower 1/2, tipped 2/2, rolltrap 2/2\n[video] logged reel (2,007,040 steps | rise:ok lower:ok raise:ok hold:ok)\n[video] logged reel (final | rise:ok lower:ok rise:ok hold:ok)\n[mjx-train] done: 2,000,000 steps in 397s (5,041 env-steps/s incl. setup) -> /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_stand_postlower3.zip\n[mjx-train] evaluate with the C-env harness before trusting anything (MJX_PORT.md phase-2 item 4).\n[wandb] checkpoint artifact ckpt-ppo_goal_cw_stand_postlower3 (md5 12cf40cf)\n"
       }
     ],
-    "triage": "in-cycle cw-stand-postlower3 since 2026-08-15T10:55:13"
+    "triage": "done",
+    "hardware_ready": false,
+    "verdict": "FAIL (Cohort c3, n=600 held-out: det session 0.413 vs parent 0.967; det post-lower rise 0.419 vs 0.967; sto 0.631 vs 0.801; cold rise/lower retention intact). DIG-IN root cause: the mode_seq_stance rise schedule starts at belly-frame 0 (blend down + 1s hold at 0), so training PAID a re-descend/splay-to-belly + flat-demo redo after every lower (detour visible in fail AND success re-renders; over_current 166/172 det post-lower falls; det<sto because det commits to the taught detour; training telemetry read ok because on-policy the detour completes and reward pays it). Fix landed same cycle: goal.mode_seq_rise_from_h (default-off, tests green, snapshot exp/cw-stand-postlower4); follow-up cw-stand-postlower4 judged on pre-registered Cohort c4. Full chain: SESSION_BULK_GATE.md 'Cohort c3 DIG-IN VERDICT'."
   },
   {
     "run": "cw-arch-modeexperts-scratch1",
