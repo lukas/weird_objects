@@ -1751,6 +1751,23 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 info["wrong_way"] = 1.0 if along < 0.0 else 0.0
                 info["walk_cmd_mode_id"] = WALK_CMD_MODE_IDS.get(
                     getattr(self._goal_traj, "cmd_mode", "legacy"), 0)
+                # Walk-direction telemetry (operator directive
+                # fb_20260815T192912): angular error in DEGREES between
+                # the achieved planar velocity and the commanded
+                # direction. Direction is undefined near zero speed, so
+                # ticks are VALID only when actual speed >= 5 mm/s;
+                # walk_dir_valid is emitted on every active tick (its
+                # mean = valid fraction) while the deg key is emitted
+                # only on valid ticks (its mean = error over valid
+                # ticks). Same walk_cmd_metrics gate as above: the
+                # default (0) keeps the legacy info dict bit-exact.
+                spd = float(np.hypot(*v))
+                dir_valid = spd >= 5e-3
+                info["walk_dir_valid"] = 1.0 if dir_valid else 0.0
+                if dir_valid:
+                    cosang = max(-1.0, min(1.0, float(along) / spd))
+                    info["walk_direction_err_deg"] = math.degrees(
+                        math.acos(cosang))
             if self._walk_bucket is not None:
                 info["walk_bucket"] = self._walk_bucket
             # Tripod phase clock + contact-agreement reward (walk-routed

@@ -946,6 +946,19 @@ def _run_periodic_eval(env, act, args, env_cls, step,
             payload[f"eval/{mode}/vel_err_m_s"] = (
                 stats["walk_vel_err_mean"])
             payload[f"eval/{mode}/speed_m_s"] = stats["walk_speed_mean"]
+            # Walk-direction eval telemetry (operator directive
+            # fb_20260815T192912) — present only when the run enables
+            # goal.walk_cmd_metrics=1.
+            if "walk_dir_valid_frac" in stats:
+                payload[f"eval/{mode}/dir_valid_frac"] = (
+                    stats["walk_dir_valid_frac"])
+                payload[f"eval/{mode}/wrong_dir_frac"] = (
+                    stats["walk_wrong_dir_frac"])
+            if "walk_dir_err_deg_mean" in stats:
+                payload[f"eval/{mode}/dir_err_deg_mean"] = (
+                    stats["walk_dir_err_deg_mean"])
+                payload[f"eval/{mode}/dir_err_deg_p90"] = (
+                    stats["walk_dir_err_deg_p90"])
             brief.append(
                 f"{mode} err {stats['walk_vel_err_mean']:.3f} m/s")
         else:
@@ -1887,6 +1900,7 @@ def _rollout_stats(env, act_fn, episodes: int) -> dict:
     raise_total, raise_done = 0, 0
     lower_total, lower_done = 0, 0
     walk_errs, walk_speeds = [], []
+    dir_errs, dir_valid, wrong_dirs = [], [], []
     h_errs_end = []
     term_reasons: dict[str, int] = {}
     for _ in range(episodes):
@@ -1912,6 +1926,15 @@ def _rollout_stats(env, act_fn, episodes: int) -> dict:
             if "walk_vel_err" in info:
                 walk_errs.append(float(info["walk_vel_err"]))
                 walk_speeds.append(float(info["walk_speed"]))
+            # Walk-direction eval telemetry (operator directive
+            # fb_20260815T192912): keys exist only when the run enables
+            # goal.walk_cmd_metrics=1 (see walk_task.py) — absent
+            # otherwise, so legacy evals are bit-exact.
+            if "walk_dir_valid" in info:
+                dir_valid.append(float(info["walk_dir_valid"]))
+                wrong_dirs.append(float(info.get("wrong_way", 0.0)))
+            if "walk_direction_err_deg" in info:
+                dir_errs.append(float(info["walk_direction_err_deg"]))
             done = term or trunc
         returns.append(ret)
         tilts.append(max_tilt)
@@ -1967,6 +1990,14 @@ def _rollout_stats(env, act_fn, episodes: int) -> dict:
     if walk_errs:
         stats["walk_vel_err_mean"] = float(np.mean(walk_errs))
         stats["walk_speed_mean"] = float(np.mean(walk_speeds))
+    if dir_valid:
+        # Fractions over ACTIVE-command ticks; the deg stats only over
+        # VALID ticks (speed >= 5 mm/s — direction is undefined at ~0).
+        stats["walk_dir_valid_frac"] = float(np.mean(dir_valid))
+        stats["walk_wrong_dir_frac"] = float(np.mean(wrong_dirs))
+    if dir_errs:
+        stats["walk_dir_err_deg_mean"] = float(np.mean(dir_errs))
+        stats["walk_dir_err_deg_p90"] = float(np.percentile(dir_errs, 90))
     return stats
 
 

@@ -194,6 +194,54 @@ def test_metrics_default_off_is_bit_exact():
     env.close()
 
 
+DIR_KEYS = ("walk_dir_valid", "walk_direction_err_deg")
+
+
+def test_direction_telemetry_keys_and_bounds():
+    """fb_20260815T192912: walk_direction_err_deg / walk_dir_valid ride
+    the same walk_cmd_metrics gate; valid requires real motion
+    (speed >= 5 mm/s), the deg key exists only on valid ticks, and it
+    agrees with the signed along-speed key (wrong_way <=> err > 90)."""
+    env = _walk_env(extra={("goal", "walk_cmd_metrics"): 1.0})
+    env.reset()
+    saw_active = False
+    for step in range(100):
+        _o, _r, term, trunc, info = env.step(_hold_action(env))
+        goal = env._current_goal()
+        s_ref = float(np.hypot(goal.vx_ref, goal.vy_ref))
+        if s_ref > 1e-3:
+            saw_active = True
+            assert info["walk_dir_valid"] in (0.0, 1.0)
+            if info["walk_dir_valid"] == 1.0:
+                err = info["walk_direction_err_deg"]
+                assert 0.0 <= err <= 180.0
+                if info["wrong_way"] == 1.0:
+                    assert err > 90.0
+                else:
+                    assert err <= 90.0
+            else:
+                assert "walk_direction_err_deg" not in info
+        else:
+            for k in DIR_KEYS:
+                assert k not in info, f"{k} leaked onto inactive tick"
+        if term or trunc:
+            break
+    env.close()
+    assert saw_active, "no active-command ticks seen in 4 s"
+
+
+def test_direction_telemetry_absent_when_metrics_off():
+    env = _walk_env()              # walk_cmd_metrics unset -> 0
+    env.reset()
+    for step in range(80):
+        _o, _r, term, trunc, info = env.step(_hold_action(env))
+        for k in DIR_KEYS:
+            assert k not in info, k
+        if term or trunc:
+            break
+    env.close()
+
+
 def test_fullcircle_sampler_contract():
     """Headings cover the circle (>=6 of 8 octants over 32 resets),
     every first-segment speed is in [0.03, 0.06], and wz is

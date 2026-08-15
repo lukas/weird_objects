@@ -1,5 +1,30 @@
 # dynrep — Dynamics-representation pretraining
 
+**08-15 ~19:1x UTC (operator-kick cycle: cw-dynrep-tf-state2-fresh
+verification): the operator's fresh-data Transformer launch DIED and
+was retried once — now RUNNING as `cw-dynrep-tf-state2-fresh2` on
+train-10.** Chain: the ordered train-3 launch was REFUSED (pod busy
+with cw-arch-tf-joymodes-scratch1-acq1); a concurrent cycle re-placed
+it on train-1 at 18:36, where stage-1 collection OOM-killed the WHOLE
+pod at 18:52 (96Gi limit, 1.18M/10.24M windows, W&B wttfxanc crashed,
+overlay + shards lost — third pod-OOM this week). Confound: the
+launcher placed it next to a heavyweight co-resident eval
+(cw-mt-b1-dualgru1) because it only counts trainers when calling a pod
+free. Retry-once per protocol: identical recipe, clean pod train-10,
+`pod_memwatch.sh` (85GiB guard) alongside, CUDA-torch capability
+installed+recorded on train-10 first. Measured on the retry: collector
+memory grows ~2GiB per 1M windows over a ~6GiB base → ~50GiB projected
+peak, safely inside limits — implicating STACKING (eval + collector),
+not a collector leak, for the train-1 death. Retry passed the parent's
+death point at 19:09 and was at 2.34M windows / reuse 8.7 by 19:13,
+five-actor + 4-level-DR recipe verified from config, both gate metrics
+(`data/train_windows`, `data/planned_window_reuse`) logging on W&B
+`flaf42k7`. Fleet repair in the same cycle: train-1 recreated on
+g131eec, bootstrapped, CUDA-torch reinstalled + re-recorded (the old
+record died with the pod). Stage 2 (13.62M-param CUDA Transformer,
+val + contact Brier/ECE vs the telnzd5r divergence) starts when
+collection hits 10.24M windows — verification continues this cycle.
+
 **08-15 ~18:1x UTC (orchestrator repair): the A/B/C `rw_rise_C_s5/6/7`
 cohort that the operator emergency-launched at 16:06 on train-10 died
 with the pod (OOMKilled same-day — train-10 went `Failed`,
