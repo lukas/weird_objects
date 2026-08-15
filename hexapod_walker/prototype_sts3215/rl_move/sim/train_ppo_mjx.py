@@ -233,6 +233,24 @@ def main(argv: list[str] | None = None) -> int:
                          "training. Arm A stage 1 (frozen-expert "
                          "transition-adapter composition). Requires an "
                          "adapter on the policy")
+    ap.add_argument("--transformer", action="store_true",
+                    help="causal-transformer actor-critic (transformer_"
+                         "policy.py) over the env-side frame stack: "
+                         "attends over the obs.history_frames window "
+                         "instead of flattening it into one MLP input. "
+                         "REQUIRES --cfg-set obs.history_frames=K "
+                         "(K>=2; the hist16 lineage uses 16). Stock "
+                         "non-recurrent PPO — n_steps/batching identical "
+                         "to the frame-stack MLP. From-scratch or "
+                         "transformer-parent warm starts only")
+    ap.add_argument("--tf-layers", type=int, default=2,
+                    help="transformer encoder layers (per actor/critic)")
+    ap.add_argument("--tf-width", type=int, default=128,
+                    help="transformer d_model (token width)")
+    ap.add_argument("--tf-heads", type=int, default=4,
+                    help="attention heads")
+    ap.add_argument("--tf-ff", type=int, default=256,
+                    help="feed-forward hidden width inside each layer")
     ap.add_argument("--device", default="auto",
                     help="torch device for PPO (auto: cuda if available "
                          "— the big-batch MLP pays off on GPU)")
@@ -374,6 +392,30 @@ def main(argv: list[str] | None = None) -> int:
               f"{cores_note}, "
               f"BPTT window = n_steps = {args.n_steps} "
               f"({args.n_steps / 25.0:.2f}s at 25 Hz)")
+    if args.transformer:
+        if args.gru:
+            raise SystemExit("--transformer and --gru are mutually "
+                             "exclusive (pick one memory mechanism)")
+        if args.obs_pad_transplant:
+            raise SystemExit("--transformer + --obs-pad-transplant is not "
+                             "implemented (transformer weights don't "
+                             "transplant from MLP checkpoints)")
+        hist = int(float(_parse_cfg_set(args.cfg_set).get(
+            "obs.history_frames", 1)))
+        if hist < 2:
+            raise SystemExit(
+                "--transformer needs the env-side frame stack: add "
+                "--cfg-set obs.history_frames=K (K>=2; hist16 lineage "
+                "uses 16)")
+        from .transformer_policy import TransformerActorCriticPolicy
+        policy_cls = TransformerActorCriticPolicy
+        extra_pk = dict(n_frames=hist, d_model=args.tf_width,
+                        n_layers=args.tf_layers, n_heads=args.tf_heads,
+                        ff_dim=args.tf_ff)
+        print(f"[mjx-train] transformer policy: {args.tf_layers} layers, "
+              f"d_model {args.tf_width}, {args.tf_heads} heads, "
+              f"ff {args.tf_ff}, context {hist} frames "
+              f"({hist / 25.0:.2f}s at 25 Hz), separate actor/critic")
 
     print(f"[mjx-train] task={args.task} n_envs={args.n_envs} "
           f"impl={impl or 'jax(default)'} iterations={iters}/{ls_iters} "

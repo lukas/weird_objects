@@ -1626,6 +1626,9 @@ def train(args) -> int:
         algo_cls = PPO
         policy_cls = "MlpPolicy"
         extra_pk = {}
+        if args.gru and args.transformer:
+            raise SystemExit("--gru and --transformer are mutually "
+                             "exclusive (pick one memory mechanism)")
         if args.gru:
             # GRU recurrent actor-critic (sb3-contrib RecurrentPPO with
             # the GRU cell swap from gru_policy.py). The env should run
@@ -1639,6 +1642,25 @@ def train(args) -> int:
             extra_pk = dict(lstm_hidden_size=args.gru_hidden_size)
             print(f"[train] GRU policy: hidden {args.gru_hidden_size}, "
                   f"net_arch [128, 128] head")
+        elif args.transformer:
+            # Causal transformer over the env-side frame stack (stock
+            # PPO — no recurrent machinery). Context length = the env's
+            # obs.history_frames (cfg-set convention, same source
+            # _privileged_idx reads).
+            hist = int(float(_parse_cfg_set(args.cfg_set).get(
+                "obs.history_frames", 1)))
+            if hist < 2:
+                raise SystemExit(
+                    "--transformer needs the env-side frame stack: add "
+                    "--cfg-set obs.history_frames=K (K>=2)")
+            from .transformer_policy import TransformerActorCriticPolicy
+            policy_cls = TransformerActorCriticPolicy
+            extra_pk = dict(n_frames=hist, d_model=args.tf_width,
+                            n_layers=args.tf_layers,
+                            n_heads=args.tf_heads, ff_dim=args.tf_ff)
+            print(f"[train] transformer policy: {args.tf_layers} layers, "
+                  f"d_model {args.tf_width}, {args.tf_heads} heads, "
+                  f"ff {args.tf_ff}, context {hist} frames")
         elif args.asym_critic:
             from .asym_policy import AsymActorCriticPolicy
             policy_cls = AsymActorCriticPolicy
@@ -2016,6 +2038,20 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--gru-hidden-size", type=int, default=128,
                     help="GRU hidden units per layer (actor and critic "
                          "each get their own single-layer GRU)")
+    ap.add_argument("--transformer", action="store_true",
+                    help="causal-transformer actor-critic (transformer_"
+                         "policy.py) attending over the env-side frame "
+                         "stack. REQUIRES --cfg-set obs.history_frames=K "
+                         "(K>=2). Stock non-recurrent PPO. From-scratch "
+                         "only — MLP checkpoints cannot warm-start it")
+    ap.add_argument("--tf-layers", type=int, default=2,
+                    help="transformer encoder layers (per actor/critic)")
+    ap.add_argument("--tf-width", type=int, default=128,
+                    help="transformer d_model (token width)")
+    ap.add_argument("--tf-heads", type=int, default=4,
+                    help="attention heads")
+    ap.add_argument("--tf-ff", type=int, default=256,
+                    help="feed-forward hidden width inside each layer")
     ap.add_argument("--asym-critic", action="store_true",
                     help="asymmetric actor-critic: mask the privileged "
                          "measured-velocity obs (last 2 dims) on the "
