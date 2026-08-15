@@ -1151,6 +1151,19 @@ def _bg_eval_child(jobs, results, task, args) -> None:
     training process does all wandb logging (single W&B writer).
     """
     from .gru_policy import load_checkpoint_auto
+    # Cap torch intra-op threads: this child does SINGLE-sample predicts,
+    # where torch's default (= all visible cores, 64+ on the train pods)
+    # is pure sync overhead. Measured on cw-arch-tf-r1b (08-15): one
+    # periodic eval of the 622k-param transformer ran 40+ min at ~15
+    # cores busy — thread-barrier thrash, not compute — starving the 24
+    # host physics workers and blocking end-of-run shutdown() for as
+    # long. Tiny-MLP evals never exposed this (per-op cost too small to
+    # notice). 4 threads is faster than 64 for every policy size here.
+    try:
+        import torch as _torch
+        _torch.set_num_threads(4)
+    except Exception:
+        pass
     env_cls = ENV_CLASSES[task]
     params = SimServoParams.load()  # same file the trainer loaded from
     eval_env = None
