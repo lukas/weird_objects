@@ -83,7 +83,7 @@ def main() -> None:
 
     model = PPO.load(args.checkpoint, device="cpu")
 
-    bank, ep_stats = [], []
+    bank, bank_qpos, bank_qvel, ep_stats = [], [], [], []
     kept = fell = unsettled = 0
     t0 = time.time()
     for ep in range(args.episodes):
@@ -98,6 +98,14 @@ def main() -> None:
         ok = (not term) and abs(h_err) <= args.h_err_tol_mm
         if ok:
             bank.append(env.data.qpos[env._qadr].copy())
+            # Full-state twin (08-14, postlower2 dig-in): the joints-only
+            # bank re-planted by _place_at_plant + slip/limp settle proved
+            # OFF-DISTRIBUTION — even the harvested policy's own parent
+            # rises 0/12 from the reconstruction vs 0.801/0.967 from real
+            # in-session post-lower states. Save the exact settled state
+            # so goal.rise_start_bank_exact can restore it verbatim.
+            bank_qpos.append(np.asarray(env.data.qpos, dtype=float).copy())
+            bank_qvel.append(np.asarray(env.data.qvel, dtype=float).copy())
             kept += 1
         elif term:
             fell += 1
@@ -120,7 +128,10 @@ def main() -> None:
             "kept": kept, "fell": fell, "unsettled": unsettled,
             "ep_stats": ep_stats}
     args.out.parent.mkdir(parents=True, exist_ok=True)
-    np.savez(args.out, q_rad=q_rad, meta=json.dumps(meta))
+    np.savez(args.out, q_rad=q_rad,
+             qpos_full=np.asarray(bank_qpos, dtype=np.float64),
+             qvel_full=np.asarray(bank_qvel, dtype=np.float64),
+             meta=json.dumps(meta))
     print(f"[harvest] kept {kept}/{args.episodes} settled lower "
           f"endpoints (fell {fell}, unsettled {unsettled}) -> {args.out} "
           f"({time.time() - t0:.0f}s)")

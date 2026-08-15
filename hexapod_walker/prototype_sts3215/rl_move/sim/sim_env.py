@@ -972,14 +972,26 @@ class SimHexapodBalanceEnv(_GymBase):
             return self._rise_bank_cache
         path = cfg_get(self.cfg, "goal", "rise_start_bank", default=None)
         bank = None
+        self._rise_bank_full = None
         if path:
-            arr = np.load(str(path))["q_rad"]
-            arr = np.asarray(arr, dtype=float)
+            npz = np.load(str(path))
+            arr = np.asarray(npz["q_rad"], dtype=float)
             if arr.ndim != 2 or arr.shape[1] != N_JOINTS or len(arr) == 0:
                 raise ValueError(
                     f"rise_start_bank {path}: expected (K,{N_JOINTS}) "
                     f"q_rad, got {arr.shape}")
             bank = arr
+            # Full-state twin (08-14 postlower2 dig-in): newer banks also
+            # carry the exact settled qpos/qvel; goal.rise_start_bank_exact
+            # (default OFF) restores them verbatim instead of the
+            # joints-only _place_at_plant reconstruction, which proved
+            # off-distribution (parent 0/12 from reconstruction vs
+            # 0.801/0.967 from real in-session post-lower states).
+            if "qpos_full" in npz.files and "qvel_full" in npz.files:
+                qp = np.asarray(npz["qpos_full"], dtype=float)
+                qv = np.asarray(npz["qvel_full"], dtype=float)
+                if len(qp) == len(arr) and len(qv) == len(arr):
+                    self._rise_bank_full = (qp, qv)
         self._rise_bank_cache = bank
         return bank
 
@@ -1179,11 +1191,26 @@ class SimHexapodBalanceEnv(_GymBase):
             if bank is None:
                 raise RuntimeError(
                     "start_at='rise_bank' requires goal.rise_start_bank")
-            q_start = bank[int(self.rng.integers(len(bank)))].copy()
-            q_start += self.rng.uniform(-2.0, 2.0, N_JOINTS) * DEG2RAD
-            if self._ep_rand is not None:
-                q_start = q_start + self._ep_rand.start_offset_rad
-            q_start = self._clip_to_joint_limits(q_start)
+            bi = int(self.rng.integers(len(bank)))
+            q_start = bank[bi].copy()
+            exact = (float(cfg_get(self.cfg, "goal",
+                                   "rise_start_bank_exact",
+                                   default=0.0)) > 0.0
+                     and getattr(self, "_rise_bank_full", None) is not None)
+            if exact:
+                # Exact-restore mode (08-14, default OFF): spawn IS the
+                # harvested settled state, verbatim — no jitter, no
+                # start-offset, no re-plant/settle choreography. The
+                # joints-only reconstruction proved off-distribution
+                # (see _rise_start_bank docstring).
+                qp, qv = self._rise_bank_full
+                self._exact_start_pending = (qp[bi].copy(), qv[bi].copy())
+                q_start = self._clip_to_joint_limits(q_start)
+            else:
+                q_start += self.rng.uniform(-2.0, 2.0, N_JOINTS) * DEG2RAD
+                if self._ep_rand is not None:
+                    q_start = q_start + self._ep_rand.start_offset_rad
+                q_start = self._clip_to_joint_limits(q_start)
         elif start_at == "gait":
             # Mid-stride TALL spawn (TALL LADDER T6: RSI-for-walk, see
             # walk_task._sample_walk). Scripted tripod-gait pose at a
@@ -1403,7 +1430,27 @@ class SimHexapodBalanceEnv(_GymBase):
                      or self._ease_g != 1.0 or self._ease_v != 1.0)):
             self._seq_capture_frames()
 
-        self._place_at_plant(q_start)
+        exact_start = getattr(self, "_exact_start_pending", None)
+        self._exact_start_pending = None
+        if exact_start is not None:
+            # Exact-restore spawn (08-14, rise_start_bank_exact): the
+            # harvested settled state IS the episode start — restore it
+            # verbatim (servos holding, contacts as-settled) instead of
+            # re-planting at foot height and re-settling, which distorts
+            # deep post-lower poses into an unreal family.
+            qp, qv = exact_start
+            self._mujoco.mj_resetData(self.model, self.data)
+            self.data.qpos[:] = qp
+            # Recenter horizontally: harvest episodes drift in x/y and
+            # dynamics are translation-invariant; keeps eval odometry
+            # (forward_dist) comparable with every other spawn.
+            self.data.qpos[0:2] = 0.0
+            self.data.qvel[:] = qv
+            self.data.ctrl[:] = 0.0
+            self.data.ctrl[self._pos_act] = q_start
+            self._mujoco.mj_forward(self.model, self.data)
+        else:
+            self._place_at_plant(q_start)
         er = self._ep_rand
         self._profile = ServoProfile(
             self.params, q_start,
@@ -1413,16 +1460,18 @@ class SimHexapodBalanceEnv(_GymBase):
                        * self._ease_v),
         )
         self._cmd = q_start.copy()
-        # Settle with slippery feet AND limp servos first: when a human
-        # sets the robot down (torque off), feet micro-slip and joints
-        # sag until the structure reaches a passive equilibrium —
-        # otherwise randomized geometry + pinned contacts leave the legs
-        # isometrically preloaded at 2-3 A from step 0.
-        fr = self.model.geom_friction[:, 0].copy()
-        self.model.geom_friction[:, 0] = self.SLIP_MU
-        self._settle(0.4)          # stiff: reach the commanded pose
-        self._settle(0.5, limp=True)   # limp: bleed off contact preload
-        self.model.geom_friction[:, 0] = fr
+        if exact_start is None:
+            # Settle with slippery feet AND limp servos first: when a
+            # human sets the robot down (torque off), feet micro-slip and
+            # joints sag until the structure reaches a passive
+            # equilibrium — otherwise randomized geometry + pinned
+            # contacts leave the legs isometrically preloaded at 2-3 A
+            # from step 0.
+            fr = self.model.geom_friction[:, 0].copy()
+            self.model.geom_friction[:, 0] = self.SLIP_MU
+            self._settle(0.4)      # stiff: reach the commanded pose
+            self._settle(0.5, limp=True)  # limp: bleed contact preload
+            self.model.geom_friction[:, 0] = fr
 
         # Hold-current semantics, same as the hardware env: nominal is the
         # pose the robot actually SETTLED at (however badly it was placed),

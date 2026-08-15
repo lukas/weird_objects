@@ -290,6 +290,13 @@ def _worker_main(conn, layout, task_cls, env_kwargs, lo, hi, seed,
                 for k, env in enumerate(envs):
                     g = lo + k
                     q_start = env._reset_begin(None)
+                    if getattr(env, "_exact_start_pending", None) is not None:
+                        raise NotImplementedError(
+                            "goal.rise_start_bank_exact: exact full-state "
+                            "restore is CPU-env only (eval/harvest); the "
+                            "sharded MJX env runs its own placement+settle "
+                            "and would silently ignore it. Train without "
+                            "_exact or build the MJX twin.")
                     shm["q_start"][g] = q_start
                     row = tp_rows(env)
                     for key in _TP_KEYS:

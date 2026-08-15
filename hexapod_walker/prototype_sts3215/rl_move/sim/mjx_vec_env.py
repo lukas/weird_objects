@@ -239,6 +239,12 @@ class MjxVecEnv(VecEnv):
                           for f in ("plant", "belly")}
         for i, env in enumerate(self.envs):
             q_start = env._reset_begin(None)
+            if getattr(env, "_exact_start_pending", None) is not None:
+                raise NotImplementedError(
+                    "goal.rise_start_bank_exact: exact full-state restore "
+                    "is CPU-env only (eval/harvest); the MJX vec env runs "
+                    "its own placement+settle and would silently ignore "
+                    "it. Train without _exact or build the MJX twin.")
             q_starts[i] = q_start
             row = tp_rows(env)
             for k in tp:
