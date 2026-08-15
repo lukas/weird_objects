@@ -102,6 +102,30 @@ new command later (the phase-2 transfer test).
   every direction, v_cross med ≤0.03; no auto-FAIL while
   joystick/v_along_m_s + reward_task still rise; verdict needs the
   bulk cohort (EVALS.md §4).
+- **08-15 ~12:3x UTC: `cw-joystick-translate-scratch1` LAUNCHED +
+  VERIFIED (train-3, W&B tvzk2nn8, 40M) — operator-directed
+  (fb_20260815T122345_2c039a) matched FROM-SCRATCH comparator to
+  `cw-joystick-translate1`: identical arg vector at bit-identical
+  trainer code (rl_move/sim+tests diff 8a8ee7e..HEAD empty), the ONLY
+  difference is no `--init-from` (random init; fresh init IS the
+  hypothesis, warm-start default waived per the directive).
+  Purpose: separate "c2's inherited narrow/unsafe optimum × new gait
+  gate" from "the all-direction reward setup itself favors low-motion
+  survival". Per fb_20260815T121512_00533c, both arms report
+  acquisition (joystick/v_along_m_s ± cumulative), survival
+  (ep_len/falls), and gait quality SEPARATELY — no global PASS/FAIL
+  from total return, no forced early binary verdict on translate1.
+  **12:4x checkup note:** the watcher's low-fps SUSPECT on scratch1
+  (~2.9k vs 5k floor) is RESOLVED-benign — slow since iteration 1 and
+  climbing with learning while the twin holds 7538 fps on the same
+  node; run-intrinsic contact-thrash cost of random init, left in
+  place (expect repeat alarms until survival improves). **Triage
+  precondition (fb_20260815T123151_a8660c, verified):** scratch1
+  retains the twin's `--out-name` — its checkpoint file is ALSO named
+  `ppo_goal_cw_joystick_translate1.zip`. Pull it only from
+  train-3 / W&B tvzk2nn8 and rename to
+  `ppo_goal_cw_joystick_translate_scratch1.zip` before any cross-pod
+  use (full note in the ledger entry `checkpoint_provenance`).
 - **Wave 1 A/B/C cohort FAILED at 2M — under-budget, not an
   acquisition/interference result (08-12 ~20:00 UTC).** All three
   arms hit the same low-crouch splay creep, video-confirmed, with a
