@@ -9,6 +9,31 @@ unresolved blockers between the robot and reliable joystick control.
 
 ## Now
 
+- **08-15 (triage cycle): `cw-stand-postlower3` FINISHED training and
+  its pre-registered Cohort c3 bulk read (n=600, fresh banks) is IN —
+  a CLEAN, BAD MISS: det session zero-fall collapsed to 0.413 (parent
+  0.967) and det post-lower rise to 0.419 (parent 0.967, also worse
+  than both prior FAILED attempts), sto post-lower rise 0.631 (worse
+  than parent's 0.801). Cold first-rise and lower retention are
+  untouched (still ≥0.96/1.0) — the damage is isolated to exactly the
+  post-lower-rise mechanism this arm targeted, and it got WORSE, not
+  better, training a NEW mechanism aimed straight at it. Same
+  qualitative failure mode as before on video (over_current stall,
+  no exploit, honest six-leg gait elsewhere), but det doing WORSE
+  than sto — backwards from the usual pattern — and disagreeing with
+  this arm's OWN training-time telemetry (last reel read
+  `rise:ok lower:ok rise:ok`) is a generalization-failure signature
+  that needs a root-cause read before naming the next lever, not a
+  triage guess. **Left UNVERDICTED (DIG-IN flagged) per the model-
+  tiering rule** — full numbers + a first hypothesis (train/eval
+  reanchor-path mismatch specific to `mode_seq_stance`, not just
+  "needs more exposure") in `SESSION_BULK_GATE.md` "Cohort c3
+  RESULTS"; raw shards + failure re-renders saved
+  (`logs/bulk_session/c3/`), no need to re-run the cohort. This is
+  the THIRD miss on post-lower-rise (postlower1/2/3) — per two-miss
+  discipline, no further dose/diet resweep of this recipe; the next
+  mechanism is an operator/dig-in call, not a triage one. Product
+  baseline (c1 hierarchy) unaffected.
 - **08-15 (idle-kick cycle): `cw-stand-postlower3` LAUNCHED (discovery
   2M, train-0) — the c2 dig-in's named mechanism change is built,
   preflighted and pre-registered, all in one cycle.** New cfg key

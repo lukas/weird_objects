@@ -280,3 +280,75 @@ frozen and untouched).
   reward-side rise pricing), not a dose/diet resweep.
 - Banks retire the moment aggregate.json is read, pass or fail
   (clause 7 convention).
+
+### Cohort c3 — RESULTS (2026-08-15, read this cycle; DIG-IN FLAGGED, not yet verdicted)
+
+n=600 (300 det + 300 sto), `spec-pl3` only (parent `spec` baseline
+numbers reused from c1, not re-measured), banks 940000../950000..
+now RETIRED. Full aggregate: `logs/bulk_session/c3/aggregate.json` +
+`episodes.jsonl`; failure/clean re-renders (13/14 shards, one
+timed out mid-render, easily finished): `logs/bulk_session/c3/
+rerender_pulled/`.
+
+- **Clause (1) sto post-lower rise ≥0.90, CI lower >0.842: FAIL.**
+  Measured 0.6305, CI [0.5741, 0.6836] — WORSE than the c1 parent's
+  0.801, and worse than postlower1's 0.717 miss.
+- **Clause (2) det complete-session zero-fall ≥0.95: FAIL, badly.**
+  Measured **0.4133**, CI [0.359, 0.4698] — vs parent 0.967. This is
+  not a marginal miss, it's a collapse.
+- **Clause (3) det post-lower rise ≥0.967 (no regression): FAIL,
+  badly.** Measured **0.4189** (124/296) vs parent 0.967 — over
+  half of all det post-lower rises now fail, where the parent almost
+  never does.
+- Clause (4) first-rise strata + lower retention: PASSES cleanly —
+  det first rise 0.9867 overall, every stratum ≥0.96 (flat/crouch
+  1.0, bridge 0.96); lower segments 1.0 det+sto. The COLD-START rise
+  (the original crown jewel) and the lower segment are UNTOUCHED.
+  The damage is isolated to the post-lower (in-context) rise —
+  exactly the mechanism this arm targeted, now much worse instead of
+  better.
+- Fall reasons (det): `rise:over_current` 170/176 rise-segment
+  falls, `rise:tilt_roll` 6 — the SAME qualitative failure mode
+  named in postlower1/2 (a genuine current stall, not a new
+  exploit; sto adds a few `tilt_pitch` falls too). Frame strips of
+  4 det failures reviewed (`rerender_pulled/strips/fail_*`): the
+  cold rise and the walk-drive segment both look like an honest,
+  full-height six-leg gait — no flag-leg/tripod/park visible before
+  the failure. Did not resolve pixel-exact where in the failed
+  post-lower rise the stall bites (chase-cam framing changes with
+  height, ordinary crop-and-eyeball couldn't localize it) — that
+  localization plus the "why is this worse than not training the
+  mechanism at all" question is exactly the dig-in's job.
+- **Odd/notable for the dig-in:** det (0.42) does WORSE than sto
+  (0.63) on the post-lower rise — backwards from the usual
+  more-noise-in-sto pattern, and from this same arm's OWN training
+  telemetry, whose last video reel read `rise:ok lower:ok rise:ok
+  hold:ok` (i.e. the in-context sequence the arm was trained on
+  reads as succeeding on-policy). That gap — trains-fine /
+  held-out-collapses, with the WRONG mode (det) hit hardest — is a
+  generalization-failure signature (RUN_INTERPRETATION_RULES #3),
+  not a straightforward "not enough exposure" story; a plausible
+  first hypothesis is a mismatch between the training env's own
+  segment-transition re-anchor (mode_seq_stance, hold/rise/lower
+  only, never sees a walk hand-off) and `eval_modeseq.py`'s
+  `reanchor_to()` used for the real rise→walk→lower→rise chain —
+  but the PARENT (footlow2_hard1) has that exact same train/eval
+  mismatch and scores 0.967/0.801, so "different reanchor path" by
+  itself doesn't explain it; something about mode_seq_stance
+  training specifically (interference between the two 50% diets,
+  or the sequence's own re-anchor logic) is the more likely culprit.
+  Needs the deep-model root-cause chain before naming the next
+  mechanism-level lever.
+- **Verdict: FAIL by the letter of the pre-registration** (clauses
+  1–3 all miss, clause 3 by a huge margin) — this is a clean THIRD
+  miss for the post-lower-rise problem (postlower1, postlower2,
+  postlower3 all FAIL) and, per two-miss discipline, rules out
+  another simple resweep of this exact recipe. But the MAGNITUDE and
+  DIRECTION of the miss (regression far below not just the gate but
+  the parent and the prior misses, with det hit harder than sto) is
+  surprising enough that the ledger verdict + "what mechanism comes
+  next" call is being left to a dig-in cycle rather than guessed at
+  triage. `cw-stand-postlower3` is deliberately left UNVERDICTED in
+  the ledger pending that read. Product baseline (c1 hierarchy)
+  unaffected either way — walk ckpt untouched, stance candidate not
+  promoted.
