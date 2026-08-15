@@ -92,6 +92,8 @@ GROUPS = (
 
 STATE_SLICE = slice(0, 44)       # q + qd + tilt + gyro + accel
 STATE_DIM = 44
+CURRENT_SLICE = slice(44, 62)
+CURRENT_DIM = 18
 CONTACT_SLICE = slice(62, 68)
 N_FEET = 6
 CONTACT_THRESH_N = 0.5           # same "foot is on" threshold the env uses
@@ -216,3 +218,15 @@ def upgrade_priv(priv: np.ndarray) -> np.ndarray:
     out[..., 6] = 1.0                   # cos_yaw_rel unknown -> 0 rad
     out[..., 13] = 1.0                  # cos_cmd_heading stop/default
     return out
+
+
+def priv_available_mask(dim: int) -> np.ndarray:
+    """Channels genuinely present in a sidecar before legacy upgrade."""
+    if dim == PRIV_DIM:
+        return np.ones(PRIV_DIM, dtype=np.float32)
+    if dim != LEGACY_PRIV_DIM:
+        raise ValueError(f"priv sidecar has dim {dim}, expected "
+                         f"{PRIV_DIM} or legacy {LEGACY_PRIV_DIM}")
+    mask = np.zeros(PRIV_DIM, dtype=np.float32)
+    mask[[0, 1, 3, 4]] = 1.0
+    return mask
