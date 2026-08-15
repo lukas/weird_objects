@@ -35,9 +35,34 @@ VAL_FRACTION = 0.1
 STD_FLOOR = 1e-3
 
 
-def _is_val(ep_global_idx: int) -> bool:
+def is_val_episode(ep_global_idx: int) -> bool:
+    """Stable episode-level split shared by collectors and samplers."""
     h = hashlib.md5(f"dynrep-ep-{ep_global_idx}".encode()).digest()
     return (h[0] / 255.0) < VAL_FRACTION
+
+
+def _is_val(ep_global_idx: int) -> bool:
+    """Backward-compatible private alias."""
+    return is_val_episode(ep_global_idx)
+
+
+def valid_window_count(n_frames: int, history: int,
+                       horizons: tuple[int, ...]) -> int:
+    """Number of distinct valid center timesteps in one episode."""
+    if not horizons:
+        raise ValueError("at least one prediction horizon is required")
+    return max(int(n_frames) - int(history) - max(horizons) + 1, 0)
+
+
+def window_budget(eps: list["Episode"], history: int,
+                  horizons: tuple[int, ...]) -> dict[str, int]:
+    """Distinct center-window counts for mechanical data-reuse checks."""
+    out = {"train": 0, "val": 0}
+    for episode in eps:
+        split = "val" if episode.is_val else "train"
+        out[split] += valid_window_count(
+            len(episode.frames), history, horizons)
+    return out
 
 
 @dataclass

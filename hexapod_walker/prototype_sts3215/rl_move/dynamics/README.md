@@ -1,20 +1,22 @@
 # dynamics — self-supervised dynamics-representation pretraining (track: dynrep)
 
 Can a model first learn how this body behaves, and then reuse that
-knowledge to learn new motor skills faster? V1: a small
-action-conditioned multi-horizon predictor (frame MLP + GRU + 128-dim
-latent, ~1M params) trained on diverse saved simulator rollouts —
-standing, walking, falls, random flailing, DR perturbations — then
-(only after it beats trivial baselines) an A/B/C PPO transfer
-comparison. Full design + gates: `rl_docs/DYNREP.md`.
+knowledge to learn new motor skills faster? The current phase-1 model is
+a 13.6M-parameter causal Transformer trained on diverse simulator
+rollouts: standing, walking, falls, random flailing, DR perturbations,
+current/future servo state, contacts, velocity, and heading. Only after
+it beats trivial baselines does it enter an A/B/C PPO transfer comparison.
+Full design + gates: `rl_docs/DYNREP.md`.
 
 | File | What it is |
 |------|------------|
 | `frames.py` | The canonical 86-dim deployable per-tick feature frame (layout v2) plus privileged target sidecar; extraction from a live sim env |
 | `collect.py` | Rollout collector: 5 actor types x goal mixes x DR scales -> npz shards |
+| `collect_mjx.py` | H200 MJX/Warp collector: thousands of simulator worlds, original five-actor/DR recipe, terminal-frame preservation, W&B throughput/freshness tracking |
+| `fresh_pipeline.py` | Orchestrator entry point: collect until the optimizer reuse budget is met, then launch the unchanged full-size Transformer |
 | `data.py` | Shard loading, episode-hash train/val split, normalization stats, window sampler |
-| `model.py` | Frame MLP(256,256, SiLU) -> GRU(256) -> z(128) -> short-horizon raw-state heads + current/future privileged-truth heads + long-horizon latent heads |
-| `train.py` | Pretraining loop; per-horizon train/val logging (CSV + optional W&B), best-val checkpoint |
+| `model.py` | Causal Transformer (current default: 4 layers, width 512, 8 heads, FF 1024, z=256) -> current/future physical, privileged-truth, contact, current, and latent heads |
+| `train.py` | CUDA pretraining loop; GPU-resident sampling, physical train/val metrics, W&B, best-val checkpoint, and a hard planned-window-reuse gate |
 | `eval_model.py` | Gates G1 (legacy) + G1.1 (revised 2026-08-13, `--k1-ridge-tol`): held-out prediction vs persistence + linear-ridge baselines (information-matched to the model's input set); privileged-target diagnostics; latent dump for probes/cluster analysis |
 | `probe_latents.py` | G3 linear probes from dumped z: roll/pitch/gyro R², per-foot contact balanced accuracy, shuffled-target chance floor |
 | `merge_shards.py` | Merge parallel per-seed collection subdirs (collect.py shard numbering races under concurrent writers); `--require-actor` guards against recipe drift |
@@ -46,6 +48,15 @@ make -C rl_move/dynamics smoke      # tiny end-to-end sanity run (~3 min)
 ../../.venv/bin/python -m rl_move.dynamics.eval_model \
     --ckpt rl_move/dynamics/models/dyn_v2_obs.pt \
     --data rl_move/dynamics/datasets/v2 --dump-latents
+
+# Production H200 path: generate enough fresh GPU-sim data for the exact
+# optimizer budget, then train the full Transformer. Both stages use W&B.
+python3 -m rl_move.dynamics.fresh_pipeline \
+    --name cw-dynrep-tf-state2-fresh --steps 40000 \
+    --data rl_move/dynamics/datasets/v5_mjx_fresh \
+    --batch 512 --history 16 --horizons 1,2,5,10,25 \
+    --max-window-reuse 2 --collect-n-envs 2048 \
+    --arch transformer --device cuda --input-set obs
 
 # A/B/C transfer pilot (after G1 passes on the obs encoder):
 sh rl_move/dynamics/run_pilot.sh 150000 0      # [steps] [seed]
@@ -95,9 +106,10 @@ only; they are not included in any encoder input set.
   dims). Train the transfer candidate with `--input-set obs`; the
   default `full` set (currents, contacts, accel) is for the
   representation-quality ceiling and analysis.
-- Keep v1 small on purpose: no transformer, no VAE, no Dreamer-style
-  imagination, no planning through the model (see DYNREP.md
-  "do not do yet").
+- Do not shrink the Transformer to compensate for data starvation. A
+  production run may draw at most 2x as many optimizer windows as distinct
+  train-window centers unless an explicit smoke/debug override is present.
+- No VAE, Dreamer-style imagination, or planning through the model yet.
 - Don't let one champion dominate collection — the default actor mix
   exists to model the hexapod's dynamics, not one policy's trajectory
   distribution. Failures (tips, early terminations) are kept on

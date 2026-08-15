@@ -218,7 +218,9 @@ STATE_GROUPS = {
 
 
 def dynamics_loss(out: dict, batch_t: dict, lambdas: dict,
-                  model: DynamicsModel) -> tuple[torch.Tensor, dict]:
+                  model: DynamicsModel,
+                  target_model: DynamicsModel | None = None
+                  ) -> tuple[torch.Tensor, dict]:
     """Multi-horizon loss per the brief. ``batch_t`` holds torch
     tensors (hist, fut_actions, state{k}, contact{k}, fut_hist{k}).
     Latent targets are stop-gradient encodings of the future history.
@@ -267,9 +269,10 @@ def dynamics_loss(out: dict, batch_t: dict, lambdas: dict,
             l_priv = masked_mse(out["priv"][k], batch_t["priv"][k])
             total = total + lambdas.get("priv_future", 0.0) * l_priv
             logs[f"h{k}/priv"] = float(l_priv.detach())
+    latent_encoder = target_model if target_model is not None else model
     for k in model.long:
         with torch.no_grad():
-            z_tgt = model.encode(batch_t["fut_hist"][k])
+            z_tgt = latent_encoder.encode(batch_t["fut_hist"][k])
         l_z = mse(out["z_pred"][k], z_tgt)
         total = total + lambdas["latent"] * l_z
         logs[f"h{k}/latent"] = float(l_z.detach())

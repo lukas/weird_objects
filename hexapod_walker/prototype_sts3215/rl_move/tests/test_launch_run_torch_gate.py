@@ -172,3 +172,18 @@ def test_dynrep_launch_timeout_recovers_anchored_trainer_pid(monkeypatch):
         ["--device", "cuda", "--data", "ds1", "--arch", "transformer"])
     assert recovered == [("hexapod-mjx-train-1", "cw-dynrep-timeout")]
     assert ctx["pid"] == "4184935"
+
+
+def test_dynrep_fresh_uses_gpu_data_pipeline(monkeypatch, capsys):
+    _patch_common(monkeypatch)
+    monkeypatch.setattr(lr._torch_cap, "is_capable", lambda pod: True)
+    a = _ns(run="cw-dynrep-fresh-gatecheck", trainer="dynrep-fresh")
+    rc = lr._launch_locked(
+        _guardrails(), a,
+        ["--device", "cuda", "--data", "fresh_ds",
+         "--arch", "transformer", "--collect-n-envs", "2048"])
+    command = capsys.readouterr().out
+    assert rc == 0
+    assert "-m rl_move.dynamics.fresh_pipeline" in command
+    assert "--collect-n-envs 2048" in command
+    assert "--arch transformer" in command

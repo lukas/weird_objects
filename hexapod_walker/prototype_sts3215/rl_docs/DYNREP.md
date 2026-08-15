@@ -17,7 +17,7 @@ representations learned only from PPO rewards. The research question:
 
 The primary metric is **sample efficiency on a new task**.
 
-## V1 build (deliberately small — no transformer)
+## V1 build (historical GRU baseline)
 
 - **Frame** (86 dims, `dynamics/frames.py` layout v2): joint pos/vel,
   tilt (episode-relative roll/pitch), gyro, IMU specific force, servo
@@ -146,9 +146,17 @@ exactly that.
 
 ## Do not do yet (v1 discipline)
 
-Large transformer; 10+ layer MLP; huge latent; contrastive stacks;
-VAEs; full Dreamer-style world model; planning through the model; one
-policy for every task at once.
+**Superseded for phase-1 prediction on 2026-08-15 by the operator's causal
+Transformer direction.** The current model is intentionally not reduced:
+4 layers, width 512, 8 heads, FF 1024, z=256 (~13.6M parameters). The first
+Transformer run overfit because 20.48M optimizer draws repeatedly sampled a
+fixed corpus with only tens of thousands of highly overlapping valid centers;
+the train/validation actor and mode coverage was not grossly broken. Current
+production runs therefore generate GPU MJX/Warp trajectories until planned
+window reuse is <=2x and the trainer mechanically refuses undersized data.
+
+Still deferred: contrastive stacks, VAEs, a full Dreamer-style world model,
+planning through the model, and one policy for every task at once.
 
 ## Logging
 

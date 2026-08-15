@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import copy
 import csv
 import math
 import os
@@ -38,14 +39,25 @@ def _to_torch(value, device):
 
 
 def _contact_metrics(logits, target) -> dict[str, float]:
-    pred = logits.sigmoid() > 0.5
+    import torch
+
+    prob = logits.sigmoid()
+    pred = prob > 0.5
     truth = target > 0.5
     tp = (pred & truth).sum().float()
     fp = (pred & ~truth).sum().float()
     fn = (~pred & truth).sum().float()
+    ece = prob.new_zeros(())
+    for lo in torch.linspace(0.0, 0.9, 10, device=prob.device):
+        mask = (prob >= lo) & (prob < lo + 0.1)
+        if mask.any():
+            ece += mask.float().mean() * torch.abs(
+                prob[mask].mean() - truth[mask].float().mean())
     return {
         "contact_acc": float((pred == truth).float().mean().detach()),
         "contact_f1": float((2 * tp / (2 * tp + fp + fn).clamp_min(1)).detach()),
+        "contact_brier": float(((prob - target).square()).mean().detach()),
+        "contact_ece": float(ece.detach()),
     }
 
 
@@ -147,7 +159,8 @@ def persistence_val_loss(sampler, n_windows: int,
     return {key: value / max(n, 1) for key, value in sums.items()}
 
 
-def evaluate(model, sampler, lambdas: dict, device, stats: dd.Stats,
+def evaluate(model, target_model, sampler, lambdas: dict, device,
+             stats: dd.Stats,
              n_windows: int, batch_size: int) -> dict[str, float]:
     import torch
 
@@ -158,7 +171,7 @@ def evaluate(model, sampler, lambdas: dict, device, stats: dd.Stats,
         for batch in sampler.val_batches(n_windows, batch_size):
             bt = _to_torch(batch, device)
             out = model(bt["hist"], bt["fut_actions"])
-            _, logs = dynamics_loss(out, bt, lambdas, model)
+            _, logs = dynamics_loss(out, bt, lambdas, model, target_model)
             logs.update(_physical_metrics(out, bt, stats, model))
             for key, value in logs.items():
                 sums[key] = sums.get(key, 0.0) + value
@@ -209,6 +222,7 @@ def _init_wandb(args, config: dict):
     run.define_metric("global_step")
     run.define_metric("train/*", step_metric="global_step")
     run.define_metric("val/*", step_metric="global_step")
+    run.define_metric("data/*", summary="last")
     print(f"[wandb] logging to {run.url or 'offline run dir'}")
     return run
 
@@ -243,11 +257,18 @@ def main() -> None:
     ap.add_argument("--lr", type=float, default=3e-4)
     ap.add_argument("--lr-final-frac", type=float, default=0.1)
     ap.add_argument("--weight-decay", type=float, default=1e-4)
+    ap.add_argument("--target-ema", type=float, default=0.995,
+                    help="EMA decay for stable long-horizon latent targets")
     ap.add_argument("--warmup", type=int, default=500)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--val-every", type=int, default=1000)
     ap.add_argument("--val-windows", type=int, default=8192)
     ap.add_argument("--log-every", type=int, default=100)
+    ap.add_argument("--max-window-reuse", type=float, default=2.0,
+                    help="hard cap on planned optimizer draws / distinct "
+                         "training-window centers")
+    ap.add_argument("--allow-excess-window-reuse", action="store_true",
+                    help="explicit smoke/debug override for the data budget")
     ap.add_argument("--lam-joint-pos", type=float, default=1.0)
     ap.add_argument("--lam-joint-vel", type=float, default=1.0)
     ap.add_argument("--lam-imu", type=float, default=1.0)
@@ -296,14 +317,31 @@ def main() -> None:
     print(dd.describe(eps))
     print(f"privileged-label coverage: {coverage:.1%}")
     stats = dd.compute_stats(eps)
+    budget = dd.window_budget(eps, args.history, horizons)
+    planned_draws = args.steps * args.batch
+    planned_reuse = planned_draws / max(budget["train"], 1)
+    if (planned_reuse > args.max_window_reuse
+            and not args.allow_excess_window_reuse):
+        required = math.ceil(planned_draws / args.max_window_reuse)
+        raise RuntimeError(
+            f"DATA BUDGET REFUSED: {planned_draws:,} optimizer draws over "
+            f"only {budget['train']:,} distinct train-window centers = "
+            f"{planned_reuse:.1f}x planned reuse (limit "
+            f"{args.max_window_reuse:.1f}x). Collect at least "
+            f"{required:,} train windows with collect_mjx, or use "
+            "--allow-excess-window-reuse only for an intentional smoke/debug "
+            "run. Model capacity is not the problem; the old run starved a "
+            "13.6M-parameter Transformer on a frozen tiny corpus.")
     sampler_cls = dd.GpuWindowSampler if device.type == "cuda" else dd.WindowSampler
     sampler_kw = {"device": device} if device.type == "cuda" else {}
     train_s = sampler_cls(eps, stats, args.history, horizons, val=False,
                           seed=args.seed, **sampler_kw)
     val_s = sampler_cls(eps, stats, args.history, horizons, val=True,
                         seed=args.seed, **sampler_kw)
-    print(f"windows: train {len(train_s)}, val {len(val_s)}; device={device}; "
-          f"gpu={gpu_name}; gpu_resident_batches={device.type == 'cuda'}")
+    print(f"windows: train {len(train_s)}, val {len(val_s)}; "
+          f"planned draws={planned_draws:,}; reuse={planned_reuse:.2f}x; "
+          f"device={device}; gpu={gpu_name}; "
+          f"gpu_resident_batches={device.type == 'cuda'}")
 
     pers = persistence_val_loss(val_s, args.val_windows, args.batch)
     print("persistence baseline: " + " ".join(
@@ -317,6 +355,10 @@ def main() -> None:
         tf_dropout=args.tf_dropout, horizons=horizons,
         short_max=args.short_max, predict_priv=not args.no_priv_heads,
     ).to(device)
+    if not 0.0 <= args.target_ema < 1.0:
+        raise ValueError("--target-ema must be in [0, 1)")
+    target_model = copy.deepcopy(model).eval()
+    target_model.requires_grad_(False)
     n_params = sum(p.numel() for p in model.parameters())
     print(f"model: {n_params / 1e6:.2f}M params; arch={args.arch}; "
           f"input_set={args.input_set}; z={args.z_dim}")
@@ -327,8 +369,18 @@ def main() -> None:
               "dataset_summary": dd.describe(eps),
               "full_priv_fraction": coverage, "torch": torch.__version__,
               "cuda": torch.version.cuda, "gpu": gpu_name,
-              "gpu_resident_batches": device.type == "cuda"}
+              "gpu_resident_batches": device.type == "cuda",
+              "data_train_windows": budget["train"],
+              "data_val_windows": budget["val"],
+              "data_planned_draws": planned_draws,
+              "data_planned_window_reuse": planned_reuse}
     run = _init_wandb(args, config)
+    if run is not None:
+        run.log({"global_step": 0,
+                 "data/train_windows": budget["train"],
+                 "data/val_windows": budget["val"],
+                 "data/planned_draws": planned_draws,
+                 "data/planned_window_reuse": planned_reuse})
 
     MODEL_DIR.mkdir(parents=True, exist_ok=True)
     ckpt_path = MODEL_DIR / f"{args.name}.pt"
@@ -343,6 +395,8 @@ def main() -> None:
                     "stats": stats.to_dict(), "history": args.history,
                     "lambdas": lambdas,
                     "layout_version": fr.LAYOUT_VERSION,
+                    "target_model": target_model.state_dict(),
+                    "target_ema": args.target_ema,
                     "args": vars(args)}, path)
 
     for step in range(1, args.steps + 1):
@@ -358,11 +412,15 @@ def main() -> None:
         with torch.autocast(device_type="cuda", dtype=torch.bfloat16,
                             enabled=device.type == "cuda"):
             out = model(bt["hist"], bt["fut_actions"])
-            loss, logs = dynamics_loss(out, bt, lambdas, model)
+            loss, logs = dynamics_loss(out, bt, lambdas, model, target_model)
         opt.zero_grad(set_to_none=True)
         loss.backward()
         torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
         opt.step()
+        with torch.no_grad():
+            for target, online in zip(target_model.parameters(),
+                                      model.parameters()):
+                target.lerp_(online, 1.0 - args.target_ema)
 
         if step % args.log_every == 0:
             physical = _physical_metrics(out, bt, stats, model)
@@ -379,7 +437,8 @@ def main() -> None:
                 run.log(payload)
 
         if step % args.val_every == 0 or step == args.steps:
-            vlogs = evaluate(model, val_s, lambdas, device, stats,
+            vlogs = evaluate(model, target_model, val_s, lambdas,
+                             device, stats,
                              args.val_windows, args.batch)
             print(f"  val @ {step}: total={vlogs['total']:.4f}; "
                   f"vxy={vlogs.get('current/vxy_rmse_m_s', float('nan')):.4f} "
