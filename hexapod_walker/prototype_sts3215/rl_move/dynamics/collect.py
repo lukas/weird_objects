@@ -25,7 +25,7 @@ Output: npz shards under --out (append-safe; existing shards are kept):
     shard_XXX.npz:
         frames    (F_total, 86) float32   see frames.py
         actions   (A_total, 18) float32   executed [-1,1] actions
-        priv      (F_total, 4)  float32   analysis sidecar
+        priv      (F_total, 14) float32   privileged targets; never input
         ep_frames (E,) int64              frames per episode (= steps+1)
         ep_actions(E,) int64              actions per episode
         ep_actor / ep_mode / ep_reason (E,) str
@@ -197,6 +197,7 @@ def rollout(env, actor_factory, rng: np.random.Generator):
     term_reason). ``actor_factory(env)`` is called after reset so
     actors can read the sampled start pose."""
     obs, _ = env.reset()
+    fr.reset_priv_episode(env)
     actor = actor_factory(env)
     mode = getattr(env._goal_traj, "mode", "?")
     prev_a = np.zeros(fr.ACTION_DIM)
@@ -339,7 +340,10 @@ def main() -> None:
     meta_path = out / "meta.json"
     meta = json.loads(meta_path.read_text()) if meta_path.exists() else {
         "layout_version": fr.LAYOUT_VERSION, "frame_dim": fr.FRAME_DIM,
-        "action_dim": fr.ACTION_DIM, "dt": 0.04, "runs": []}
+        "action_dim": fr.ACTION_DIM, "priv_dim": fr.PRIV_DIM,
+        "priv_names": list(fr.PRIV_NAMES), "dt": 0.04, "runs": []}
+    meta["priv_dim"] = fr.PRIV_DIM
+    meta["priv_names"] = list(fr.PRIV_NAMES)
     meta["runs"].append({
         "when": time.strftime("%Y-%m-%d %H:%M:%S"),
         "episodes": args.episodes, "seed": args.seed,

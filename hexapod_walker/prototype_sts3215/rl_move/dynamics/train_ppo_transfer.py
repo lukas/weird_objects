@@ -435,16 +435,32 @@ def main() -> None:
 
     if args.condition == "C":
         eps = dd.load_dataset(ROOT / args.anchor_data)
-        stats = dd.Stats(
-            model.policy.features_extractor.f_mean.numpy(),
-            model.policy.features_extractor.f_std.numpy())
+        enc_ckpt = torch.load(ROOT / args.encoder, map_location="cpu",
+                              weights_only=False)
+        stats = dd.Stats.from_dict(enc_ckpt["stats"])
         dyn = model.policy.features_extractor.dyn
         sampler = dd.WindowSampler(eps, stats, HISTORY, dyn.horizons,
                                    val=False, seed=args.seed)
         lambdas = {"joint_pos": 1.0, "joint_vel": 1.0, "imu": 1.0,
-                   "contact": 0.5, "latent": 1.0}
+                   "contact": 0.5, "latent": 1.0,
+                   "priv_current": 0.25, "priv_future": 0.25}
         anchor_opt = torch.optim.Adam(
             dyn.parameters(), lr=args.lr * args.encoder_lr_scale)
+
+        def anchor_batch_to_torch(b: dict) -> dict:
+            return {
+                "hist": torch.as_tensor(b["hist"]),
+                "fut_actions": torch.as_tensor(b["fut_actions"]),
+                "state": {k: torch.as_tensor(v)
+                          for k, v in b["state"].items()},
+                "contact": {k: torch.as_tensor(v)
+                            for k, v in b["contact"].items()},
+                "priv_now": torch.as_tensor(b["priv_now"]),
+                "priv": {k: torch.as_tensor(v)
+                         for k, v in b["priv"].items()},
+                "fut_hist": {k: torch.as_tensor(v)
+                             for k, v in b["fut_hist"].items()},
+            }
 
         class AnchorCb(BaseCallback):
             """Continue the predictive objective on the offline
@@ -457,16 +473,7 @@ def main() -> None:
                 # or normalization wiring is wrong.
                 with torch.no_grad():
                     b = sampler.batch(args.anchor_batch_size)
-                    bt = {
-                        "hist": torch.as_tensor(b["hist"]),
-                        "fut_actions": torch.as_tensor(b["fut_actions"]),
-                        "state": {k: torch.as_tensor(v)
-                                  for k, v in b["state"].items()},
-                        "contact": {k: torch.as_tensor(v)
-                                    for k, v in b["contact"].items()},
-                        "fut_hist": {k: torch.as_tensor(v)
-                                     for k, v in b["fut_hist"].items()},
-                    }
+                    bt = anchor_batch_to_torch(b)
                     out = dyn(bt["hist"], bt["fut_actions"])
                     loss, _ = dynamics_loss(out, bt, lambdas, dyn)
                 print(f"  anchor loss at start (pretrained, untouched): "
@@ -477,16 +484,7 @@ def main() -> None:
                 losses = []
                 for _ in range(args.anchor_batches):
                     b = sampler.batch(args.anchor_batch_size)
-                    bt = {
-                        "hist": torch.as_tensor(b["hist"]),
-                        "fut_actions": torch.as_tensor(b["fut_actions"]),
-                        "state": {k: torch.as_tensor(v)
-                                  for k, v in b["state"].items()},
-                        "contact": {k: torch.as_tensor(v)
-                                    for k, v in b["contact"].items()},
-                        "fut_hist": {k: torch.as_tensor(v)
-                                     for k, v in b["fut_hist"].items()},
-                    }
+                    bt = anchor_batch_to_torch(b)
                     out = dyn(bt["hist"], bt["fut_actions"])
                     loss, _ = dynamics_loss(out, bt, lambdas, dyn)
                     anchor_opt.zero_grad()

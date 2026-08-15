@@ -11,6 +11,8 @@ training windows:
     per horizon k:
         state target   frames[t+k][0:44]   normalized (q,qd,tilt,gyro,accel)
         contact target frames[t+k][62:68] > CONTACT_THRESH_N
+        priv_now       priv[t]             normalized privileged truths
+        priv target    priv[t+k]           normalized privileged truths
         future window  frames[t+k-H+1 .. t+k]  (for the latent target)
 
 Validity: t >= H-1 and t + Kmax <= F-1 (frames per episode F = steps+1;
@@ -42,17 +44,37 @@ def _is_val(ep_global_idx: int) -> bool:
 class Stats:
     mean: np.ndarray
     std: np.ndarray
+    priv_mean: np.ndarray | None = None
+    priv_std: np.ndarray | None = None
 
     def normalize(self, frames: np.ndarray) -> np.ndarray:
         return (frames - self.mean) / self.std
 
+    def normalize_priv(self, priv: np.ndarray) -> np.ndarray:
+        if self.priv_mean is None or self.priv_std is None:
+            return priv
+        return (priv - self.priv_mean) / self.priv_std
+
+    def denormalize_priv(self, priv: np.ndarray) -> np.ndarray:
+        if self.priv_mean is None or self.priv_std is None:
+            return priv
+        return priv * self.priv_std + self.priv_mean
+
     def to_dict(self) -> dict:
-        return {"mean": self.mean.tolist(), "std": self.std.tolist()}
+        d = {"mean": self.mean.tolist(), "std": self.std.tolist()}
+        if self.priv_mean is not None and self.priv_std is not None:
+            d["priv_mean"] = self.priv_mean.tolist()
+            d["priv_std"] = self.priv_std.tolist()
+        return d
 
     @classmethod
     def from_dict(cls, d: dict) -> "Stats":
         return cls(np.asarray(d["mean"], dtype=np.float32),
-                   np.asarray(d["std"], dtype=np.float32))
+                   np.asarray(d["std"], dtype=np.float32),
+                   (np.asarray(d["priv_mean"], dtype=np.float32)
+                    if "priv_mean" in d else None),
+                   (np.asarray(d["priv_std"], dtype=np.float32)
+                    if "priv_std" in d else None))
 
 
 @dataclass
@@ -96,7 +118,7 @@ def load_dataset(path: Path | str) -> list[Episode]:
             eps.append(Episode(
                 frames=z["frames"][f_off:f_off + nf],
                 actions=z["actions"][a_off:a_off + na],
-                priv=z["priv"][f_off:f_off + nf],
+                priv=fr.upgrade_priv(z["priv"][f_off:f_off + nf]),
                 actor=str(z["ep_actor"][i]), mode=str(z["ep_mode"][i]),
                 reason=str(z["ep_reason"][i]), dr=float(z["ep_dr"][i]),
                 global_idx=gidx,
@@ -109,9 +131,12 @@ def load_dataset(path: Path | str) -> list[Episode]:
 
 def compute_stats(eps: list[Episode]) -> Stats:
     train = np.concatenate([e.frames for e in eps if not e.is_val])
+    priv = np.concatenate([e.priv for e in eps if not e.is_val])
     mean = train.mean(axis=0).astype(np.float32)
     std = np.maximum(train.std(axis=0), STD_FLOOR).astype(np.float32)
-    return Stats(mean, std)
+    priv_mean = priv.mean(axis=0).astype(np.float32)
+    priv_std = np.maximum(priv.std(axis=0), STD_FLOOR).astype(np.float32)
+    return Stats(mean, std, priv_mean, priv_std)
 
 
 class WindowSampler:
@@ -153,24 +178,31 @@ class WindowSampler:
                  for k in self.horizons}
         contact = {k: np.empty((len(idx), fr.N_FEET), dtype=np.float32)
                    for k in self.horizons}
+        priv_now = np.empty((len(idx), fr.PRIV_DIM), dtype=np.float32)
+        priv = {k: np.empty((len(idx), fr.PRIV_DIM), dtype=np.float32)
+                for k in self.horizons}
         fut_hist = {k: np.empty((len(idx), H, D), dtype=np.float32)
                     for k in self.horizons}
         for row, j in enumerate(np.asarray(idx)):
             ep_i, t = self.index[int(j)]
             f = self.eps[ep_i].frames
             a = self.eps[ep_i].actions
+            p = self.eps[ep_i].priv
             hist[row] = self.stats.normalize(f[t - H + 1:t + 1])
             fut_a[row] = a[t:t + Kmax]
+            priv_now[row] = self.stats.normalize_priv(p[t])
             for k in self.horizons:
                 tk = t + k
                 nf = self.stats.normalize(f[tk])
                 state[k][row] = nf[fr.STATE_SLICE]
                 contact[k][row] = (f[tk][fr.CONTACT_SLICE]
                                    > fr.CONTACT_THRESH_N)
+                priv[k][row] = self.stats.normalize_priv(p[tk])
                 fut_hist[k][row] = self.stats.normalize(
                     f[tk - H + 1:tk + 1])
         return {"hist": hist, "fut_actions": fut_a, "state": state,
-                "contact": contact, "fut_hist": fut_hist}
+                "contact": contact, "priv_now": priv_now, "priv": priv,
+                "fut_hist": fut_hist}
 
     def val_batches(self, n_windows: int, batch: int):
         """Deterministic, evenly spaced coverage of the split."""

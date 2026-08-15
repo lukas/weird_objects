@@ -60,8 +60,12 @@ def load_dyn_checkpoint(ckpt_path: str | Path):
                           gru_layers=cfg.get("gru_layers", 1),
                           horizons=tuple(cfg["horizons"]),
                           short_max=cfg["short_max"],
-                          delta_state=cfg.get("delta_state", False))
-    model.load_state_dict(ckpt["model"])
+                          delta_state=cfg.get("delta_state", False),
+                          predict_priv=cfg.get(
+                              "predict_priv",
+                              any(k.startswith("priv_")
+                                  for k in ckpt["model"])))
+    model.load_state_dict(ckpt["model"], strict=False)
     stats = Stats.from_dict(ckpt["stats"])
     return model, stats, int(ckpt["history"])
 

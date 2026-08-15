@@ -16,6 +16,10 @@
     short horizons (k <= short_max): MLP head -> raw physical state
         (normalized q, qd, tilt, gyro, accel = 44) + 6 contact logits,
         one output layer per horizon.
+    privileged heads: z -> current privileged simulator truths, and
+        [z, future actions] -> future privileged truths at every horizon.
+        These are supervised targets only; privileged state is never an
+        input channel.
     long horizons: MLP head -> future latent z (target =
         stop_gradient(encode(future_history))).
 
@@ -35,7 +39,8 @@ class DynamicsModel(nn.Module):
                  hidden: int = 256, act_hidden: int = 128,
                  gru_layers: int = 1,
                  horizons: tuple[int, ...] = (1, 2, 5, 10, 25),
-                 short_max: int = 5, delta_state: bool = True):
+                 short_max: int = 5, delta_state: bool = True,
+                 predict_priv: bool = True):
         super().__init__()
         # Short-horizon heads predict the state DELTA from the newest
         # history frame (residual parametrization): persistence is the
@@ -43,6 +48,7 @@ class DynamicsModel(nn.Module):
         # is what lets the obs-input variant beat a strong full-history
         # linear predictor at k=1 where dynamics are locally linear.
         self.delta_state = bool(delta_state)
+        self.predict_priv = bool(predict_priv)
         if input_set not in fr.INPUT_SETS:
             raise ValueError(f"input_set must be one of "
                              f"{sorted(fr.INPUT_SETS)}")
@@ -77,6 +83,15 @@ class DynamicsModel(nn.Module):
             nn.Linear(head_in, hidden), nn.SiLU())
         self.long_out = nn.ModuleDict({
             str(k): nn.Linear(hidden, z_dim) for k in self.long})
+        if self.predict_priv:
+            self.priv_current_out = nn.Sequential(
+                nn.Linear(z_dim, hidden), nn.SiLU(),
+                nn.Linear(hidden, fr.PRIV_DIM))
+            self.priv_trunk = nn.Sequential(
+                nn.Linear(head_in, hidden), nn.SiLU())
+            self.priv_out = nn.ModuleDict({
+                str(k): nn.Linear(hidden, fr.PRIV_DIM)
+                for k in self.horizons})
 
     def encode(self, hist: torch.Tensor) -> torch.Tensor:
         """(B, H, FRAME_DIM) normalized frames -> (B, z_dim)."""
@@ -93,6 +108,9 @@ class DynamicsModel(nn.Module):
         a_seq, _ = self.act_gru(fut_actions)     # (B, Kmax, act_hidden)
         base = hist[:, -1, fr.STATE_SLICE]       # newest frame's state
         out = {"z": z, "state": {}, "contact_logits": {}, "z_pred": {}}
+        if self.predict_priv:
+            out["priv_now"] = self.priv_current_out(z)
+            out["priv"] = {}
         for k in self.short:
             h = self.short_trunk(torch.cat([z, a_seq[:, k - 1]], dim=-1))
             y = self.short_out[str(k)](h)
@@ -104,6 +122,11 @@ class DynamicsModel(nn.Module):
         for k in self.long:
             h = self.long_trunk(torch.cat([z, a_seq[:, k - 1]], dim=-1))
             out["z_pred"][k] = self.long_out[str(k)](h)
+        if self.predict_priv:
+            for k in self.horizons:
+                h = self.priv_trunk(torch.cat([z, a_seq[:, k - 1]],
+                                              dim=-1))
+                out["priv"][k] = self.priv_out[str(k)](h)
         return out
 
     def config(self) -> dict:
@@ -112,7 +135,8 @@ class DynamicsModel(nn.Module):
                 "gru_layers": self.gru_layers,
                 "horizons": list(self.horizons),
                 "short_max": max(self.short) if self.short else 0,
-                "delta_state": self.delta_state}
+                "delta_state": self.delta_state,
+                "predict_priv": self.predict_priv}
 
 
 # Per-group column indices WITHIN the 44-dim state target, for
@@ -152,6 +176,14 @@ def dynamics_loss(out: dict, batch_t: dict, lambdas: dict,
         logs[f"h{k}/joint_vel"] = float(l_vel.detach())
         logs[f"h{k}/imu"] = float(l_imu.detach())
         logs[f"h{k}/contact_bce"] = float(l_con.detach())
+    if model.predict_priv and "priv_now" in batch_t:
+        l_priv_now = mse(out["priv_now"], batch_t["priv_now"])
+        total = total + lambdas.get("priv_current", 0.0) * l_priv_now
+        logs["priv/current"] = float(l_priv_now.detach())
+        for k in model.horizons:
+            l_priv = mse(out["priv"][k], batch_t["priv"][k])
+            total = total + lambdas.get("priv_future", 0.0) * l_priv
+            logs[f"h{k}/priv"] = float(l_priv.detach())
     for k in model.long:
         with torch.no_grad():
             z_tgt = model.encode(batch_t["fut_hist"][k])
