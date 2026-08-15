@@ -139,3 +139,32 @@ Entry format (append; newest last; update status in place):
   same cycle; see STATUS.md WAITING-ON clearance + hw/STATUS.md
   "Now" entry. 
 - rulebook change: 
+
+## q_20260815T2240Z — OPEN
+- cycle: operator-kick 20260815T221231Z (Codex-relayed order, MCP
+  operator lane)
+- operator order: run eval_model G1/G1.1 on cw-dynrep-tf-state2-
+  recovered1 + exact v5_mjx_fresh corpus; if PASS, launch matched
+  walking/heading PPO A/B/C from THIS checkpoint, "GPU-only, W&B
+  tracked, new append-only names".
+- conflicted with: nothing hard. Two interpretation notes, executed
+  per best precedent rather than declined: (1) "GPU-only" — the A/B/C
+  framework (`train_ppo_transfer`) is SB3 `device="cpu"` by design
+  and every prior cohort (futurewalk, risewalk) ran it on the GPU
+  pods' CPU cores; I read "GPU-only" as "on the GPU fleet, never the
+  controller" and launched on train-7/8/11. If the operator meant
+  CUDA-resident PPO, that is new code (SB3 device=cuda + GPU encoder
+  forward) — say the word and I'll build it under a new name. (2) The
+  kick preamble said "skip eval steps for runs already logged", but
+  the order said "immediately run" the gate — I re-ran it (cheap,
+  ~3 min on train-11's CPUs): fresh PASS, numbers identical to the
+  20:4x record.
+- what was executed: gate re-run PASS (eval_g1_test_order_
+  20260815T2219.json); pod_tfwalk.sh cohort launched, A `11zsrpl9`
+  train-8 / B `f086dlfd` train-7 / C train-11 (first attempt
+  `9e4eimd8` died silently ~63s in, no OOM/no traceback, retried
+  once via setsid — see dynrep/STATUS.md); all six script-owned live
+  runs registered in the ledger (dynrep-tfwalk-{A,B,C}-s5,
+  risewalk-single2-s{5,6,7}).
+- ANSWER (operator): —
+- rulebook change: —

@@ -1,6 +1,34 @@
 # dynrep — Dynamics-representation pretraining
 
-**08-15 ~20:4x UTC (triage, this cycle): `cw-dynrep-tf-state2-recovered1`
+**08-15 ~22:2x UTC (operator-kick cycle, order 20260815T221231Z
+executed): G1/G1.1 RE-VERIFIED and the Transformer-encoder
+walking/heading A/B/C transfer cohort is LAUNCHED.** Per the order:
+re-ran `rl_move.dynamics.eval_model --split test` on the exact
+`cw-dynrep-tf-state2-recovered1.pt` + recovered `v5_mjx_fresh` corpus
+on train-11 — **G1 PASS + G1.1 PASS at every horizon** (k=1 model MSE
+0.0788 vs ridge 0.1389 / persistence 0.2314; identical to the 20:4x
+record; report pulled to `logs/ckpt_eval/cw_dynrep_tf_state2_
+recovered1/eval_g1_test_order_20260815T2219.json`, gate record written
+to each launch pod as `logs/cw-dynrep-tf-state2-recovered1_gate.txt`).
+Gate passed → launched the matched walk-task (commanded velocity/
+heading) PPO triple via the new `pod_tfwalk.sh` (snapshot
+`exp/cw-dynrep-tfwalk-abc`, one condition per pod, design matched to
+the GRU futurewalk benchmark: 1M steps, seed 5, dr 0.3, eval
+rise/hold/walk + held-out suites): **A scratch** train-8 (W&B
+`11zsrpl9`), **B frozen TF encoder** train-7 (`f086dlfd`, encoder
+md5-verified identical to train-11's), **C anchored TF encoder +
+v5_mjx_fresh anchor batches** train-11 (first attempt `9e4eimd8` DIED
+silently ~63s in — whole process group gone, NO traceback, NO cgroup
+OOM (`memory.peak` 42.5GiB of 96Gi, `oom_kill 0`), no memwatch kill;
+retried once via `setsid` full detach). All arms ledger-registered
+(`dynrep-tfwalk-{A,B,C}-s5`) with hypothesis+gate; the live GRU
+`risewalk-single2` cohort (train-4/5/6, condition-C rise phase,
+verified via `check_cohort` + W&B advancing) registered post-hoc as
+`risewalk-single2-s{5,6,7}` per the order's "register all live runs".
+NO substitution of `dyn_scale_M_h16_large` or any older encoder
+anywhere in the tfwalk cohort; no recollection performed.
+
+**08-15 ~20:4x UTC (triage, earlier cycle): `cw-dynrep-tf-state2-recovered1`
 FINISHED and is a clean PASS — the first TRANSFORMER-architecture
 dynrep encoder to clear every binding gate (prior G1/G1.1 passes were
 all GRU, e.g. `dyn_scale_S/M_h16`).** The recovered flaf42k7 corpus

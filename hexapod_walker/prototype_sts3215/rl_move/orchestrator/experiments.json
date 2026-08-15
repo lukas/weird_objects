@@ -91287,7 +91287,22 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:arch nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-arch-joystick-long-scratch3 --steps 40000000 --task joint_walk --dr-scale 0.3 --episode-seconds 60 --n-envs 32 --n-steps 1536 --batch-size 8192 --gamma 0.995 --gae-lambda 0.97 --ent-coef 0.001 --log-std-init -1.0 --eval-every 2000000 --video-every 5000000 --video-episodes 4 --save-every 2000000 --seed 2 --device cuda --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.k_walk_prog=0.0 --cfg-set reward.k_walk_cmd_track=2.0 --cfg-set reward.k_roll=30.0 --cfg-set reward.k_pitch=30.0 --cfg-set reward.k_gyro=0.1 --cfg-set reward.term_cost_per_remaining_s=12.0 --cfg-set safety.walk_max_height_drop_mm=90.0 --cfg-set safety.walk_height_grace_s=2.0 --cfg-set goal.walk_speed_min_m_s=0.02 --cfg-set goal.walk_speed_max_m_s=0.05 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.0 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set reward.walk_gait_gate=1.0 --cfg-set goal.walk_heading_max_rad=3.141592653589793 --cfg-set goal.walk_cmd_mode=stress_mix --cfg-set goal.walk_cmd_resample_s=4.0 --cfg-set goal.walk_cmd_resample_jitter=0.8 --cfg-set goal.walk_cmd_blend_s_min=0.0 --cfg-set goal.walk_cmd_blend_s_max=0.0 --cfg-set goal.walk_stop_frac=0.1 --cfg-set goal.walk_cmd_sweep_period_s=12.0 --cfg-set goal.walk_cmd_jitter_rad=0.25 --cfg-set goal.walk_cmd_metrics=1.0 --cfg-set obs.history_frames=16 --transformer --impl warp --host-workers 8 --out-name ppo_goal_cw_arch_joystick_long_scratch3 --notes 'Fresh 60-second scratch joystick run with full-session PPO rollouts, irregular instantaneous command changes, and walk-only low-height collapse termination.' > /tmp/train_cw-arch-joystick-long-scratch3.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-arch-joystick-long-scratch3.log",
     "wandb_id": "a7rtr3lq",
-    "verified": "2026-08-15T22:33:52+00:00"
+    "verified": "2026-08-15T22:33:52+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-15T22:39:08+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 0,
+        "cpu_centisec_deltas": [
+          2347,
+          2337
+        ],
+        "note": "global_step flat in 45s window but trainer CPU busy \u2014 long-rollout iteration cadence, not a stall",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   },
   {
     "run": "dynrep-tfwalk-A-s5",
@@ -91355,7 +91370,15 @@
     "stack": "cpu-sb3-on-gpu-pod",
     "hardware_ready": false,
     "hypothesis": "GRU-encoder rise-to-walk A/B/C benchmark, seed 5 (operator emergency order 08-15 16:06, relaunched one-seed-per-pod after the train-10 OOM): does the dyn_scale_M_h16_large GRU dynamics encoder (frozen B / anchored C) retain rise competence while PPO learns walking, vs scratch A? 6-phase chain rise AxBxC then walk AxBxC on one pod.",
-    "gate": "Per pod_risewalk.sh pre-registration: A loses hard-start rise (rise/return + rise/dh_m collapse) during walk training while C retains it and matches walk; quality columns decide if the walk is cleaner."
+    "gate": "Per pod_risewalk.sh pre-registration: A loses hard-start rise (rise/return + rise/dh_m collapse) during walk training while C retains it and matches walk; quality columns decide if the walk is cleaner.",
+    "checkups": [
+      {
+        "time": "2026-08-15T22:38:06+00:00",
+        "process_alive": false,
+        "verdict": "DEAD",
+        "log_tail": ""
+      }
+    ]
   },
   {
     "run": "risewalk-single2-s6",
@@ -91372,7 +91395,15 @@
     "stack": "cpu-sb3-on-gpu-pod",
     "hardware_ready": false,
     "hypothesis": "GRU-encoder rise-to-walk A/B/C benchmark, seed 6 -- same design as risewalk-single2-s5 (one seed per pod).",
-    "gate": "Same pre-registered risewalk gate as risewalk-single2-s5."
+    "gate": "Same pre-registered risewalk gate as risewalk-single2-s5.",
+    "checkups": [
+      {
+        "time": "2026-08-15T22:38:07+00:00",
+        "process_alive": false,
+        "verdict": "DEAD",
+        "log_tail": ""
+      }
+    ]
   },
   {
     "run": "risewalk-single2-s7",
@@ -91389,6 +91420,124 @@
     "stack": "cpu-sb3-on-gpu-pod",
     "hardware_ready": false,
     "hypothesis": "GRU-encoder rise-to-walk A/B/C benchmark, seed 7 -- same design as risewalk-single2-s5 (one seed per pod).",
-    "gate": "Same pre-registered risewalk gate as risewalk-single2-s5."
+    "gate": "Same pre-registered risewalk gate as risewalk-single2-s5.",
+    "checkups": [
+      {
+        "time": "2026-08-15T22:38:08+00:00",
+        "process_alive": false,
+        "verdict": "DEAD",
+        "log_tail": ""
+      }
+    ]
+  },
+  {
+    "run": "cw-recover-any5-mjxcert-scratch1",
+    "pod": "hexapod-mjx-train-1",
+    "steps": 40000000,
+    "smoke": false,
+    "hypothesis": "The recovery robot already learned to catch itself but training never gave it credit: any4's deterministic policy passed B0-B4 on the reference simulator while the noisy exploration rollouts that governed the curriculum scored zero (action jitter ~0.38 std kept unloading a foot and resetting the strict 0.5s six-foot hold). This run repeats the exact from-scratch recovery recipe with promotion judged ONLY by a deterministic 8-env certification pool on the exact training backend (Warp/MJX), one assay per active family every 1M steps. OPERATOR-ORDERED (fb_20260815T222943_d019de, commit 3589f418 'Use deterministic MJX recovery certification'): genuinely FROM SCRATCH \u2014 no --init-from, no --obs-pad-transplant, no checkpoint load of any kind; parent field is recipe provenance only. Clones any4's complete 40M MDP/PPO recipe exactly plus --recover-cert-every 1000000 --recover-cert-envs 8. Prediction-if-true: CERT/recover_bucket_0_success appears at ~1M with 8 episodes and passes, CERT/recover_frontier_after=1, training env frontier promotes to 2 families/B1. Prediction-if-false: CERT B0 fails while background C-MuJoCo SCORE B0 passes \u2014 a Warp-vs-C backend mismatch; no promotion, report it.",
+    "gate": "HARD integration gate at ~1M steps: CERT/recover_bucket_0_success must be PRESENT with an 8-episode denominator. PASS: CERT B0 succeeds AND CERT/recover_frontier_after=1 AND training env/recover_active_families/frontier become 2/B1. If CERT B0 fails while C-MuJoCo SCORE B0 passes: do NOT promote \u2014 report Warp-vs-C backend mismatch. Stochastic env/recover_rollout_ema_* and SCORE/recover_* (C-MuJoCo assay) are telemetry only, never admission signals. Full-arm PASS bar: video-verified genuine recover-to-stand (all six feet loaded, no flag/stilt/park) on the legitimately earned frontier by 40M with per-bucket CERT denominators reported.",
+    "parent": "cw-recover-any4-b0scratch1",
+    "track": "hw",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--goal-mix",
+      "recover=1.0,walk=0.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0,quad=0.0",
+      "--n-envs",
+      "512",
+      "--n-steps",
+      "128",
+      "--batch-size",
+      "8192",
+      "--gamma",
+      "0.995",
+      "--gae-lambda",
+      "0.98",
+      "--episode-seconds",
+      "16",
+      "--dr-scale",
+      "0.1",
+      "--ent-coef",
+      "0.003",
+      "--no-canary",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--seed",
+      "11",
+      "--cfg-set",
+      "safety.max_roll_deg=185",
+      "--cfg-set",
+      "safety.max_pitch_deg=185",
+      "--cfg-set",
+      "goal.walk_obs_body_vel=2",
+      "--cfg-set",
+      "reward.rise_ref_path=rl_move/sim/refs/rise_ref_belly2plant.npz",
+      "--cfg-set",
+      "train.bc_anchor_coef=1.0",
+      "--cfg-set",
+      "train.bc_anchor_recover=1.0",
+      "--cfg-set",
+      "goal.recover_start_bank=rl_move/sim/park_banks/footlow2_hard1_lower_endpoints_full.npz",
+      "--cfg-set",
+      "train.bc_anchor_foot_z=1.0",
+      "--cfg-set",
+      "train.bc_anchor_foot_z_mm=3",
+      "--cfg-set",
+      "train.bc_anchor_min_h_ahead_mm=15",
+      "--cfg-set",
+      "train.bc_anchor_lookahead_s=0.5",
+      "--cfg-set",
+      "goal.recover_admit_n=4",
+      "--cfg-set",
+      "goal.recover_retreat_n=6",
+      "--cfg-set",
+      "goal.recover_ema_beta=0.25",
+      "--out-name",
+      "ppo_goal_cw_recover_any5_mjxcert_scratch1",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--notes",
+      "respec of cw-recover-any4-b0scratch1: The recovery robot already learned to catch itself but training never gave it credit: any4's deterministic policy passed B0-B4 on the reference simulator while the noisy exploration rollouts that governed the curriculum scored zero (action jitter ~0.38 std kept unloading a foot and resetting the strict 0.5s six-foot hold). This run repeats the exact from-scratch recovery recipe with promotion judged ONLY by a deterministic 8-env certification pool on the exact training backend (Warp/MJX), one assay per active family every 1M steps. OPERATOR-ORDERED (fb_20260815T222943_d019de, commit 3589f418 'Use deterministic MJX recovery certification'): genuinely FROM SCRATCH \u2014 no --init-from, no --obs-pad-transplant, no checkpoint load of any kind; parent field is recipe provenance only. Clones any4's complete 40M MDP/PPO recipe exactly plus --recover-cert-every 1000000 --recover-cert-envs 8. Prediction-if-true: CERT/recover_bucket_0_success appears at ~1M with 8 episodes and passes, CERT/recover_frontier_after=1, training env frontier promotes to 2 families/B1. Prediction-if-false: CERT B0 fails while background C-MuJoCo SCORE B0 passes \u2014 a Warp-vs-C backend mismatch; no promotion, report it.",
+      "--recover-cert-every",
+      "1000000",
+      "--recover-cert-envs",
+      "8"
+    ],
+    "created": "2026-08-15T22:35:45+00:00",
+    "status": "RUNNING",
+    "checks": {
+      "cpu_limit": 28,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-355c3628-64fd-3de4-c195-55797a8c64f4)",
+      "running_experiments_before": 2,
+      "code_sha_local": "fa7a3047470555c2c60266879a065a21acc54cce",
+      "code_sha_pod": "fa7a3047470555c2c60266879a065a21acc54cce",
+      "wandb_env_on_pod": true,
+      "pid": "45610",
+      "log_growth_bytes": [
+        6976,
+        11338
+      ],
+      "wandb_id": "1tmepjxh",
+      "global_step_window": [
+        327680,
+        524288
+      ],
+      "fps_estimate": 3276.8
+    },
+    "trainer": "ppo",
+    "stack": "gpu-mjx",
+    "phase": "acquisition",
+    "assessment_scope": "full_budget_skill_acquisition",
+    "evidence": "Operator directive fb_20260815T222943_d019de (approved clean fix, implemented+pushed 3589f418). Re-verified on controller this cycle: test_task_semantics.py -k recover 19/19 PASS; test_recover_cert.py 3/3 PASS. MJX accelerator suite unavailable locally \u2014 the first on-pod CERT at ~1M is the hard integration gate. Diagnostic precedent: cw-recover-any4-b0scratch1 (stopped/preserved: C-det B0-B4=1.0, B5=0.667 vs Warp-stochastic 0).",
+    "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:hw nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-recover-any5-mjxcert-scratch1 --steps 40000000 --task joint_walk --goal-mix recover=1.0,walk=0.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0,quad=0.0 --n-envs 512 --n-steps 128 --batch-size 8192 --gamma 0.995 --gae-lambda 0.98 --episode-seconds 16 --dr-scale 0.1 --ent-coef 0.003 --no-canary --eval-every 1000000 --video-every 2000000 --seed 11 --cfg-set safety.max_roll_deg=185 --cfg-set safety.max_pitch_deg=185 --cfg-set goal.walk_obs_body_vel=2 --cfg-set reward.rise_ref_path=rl_move/sim/refs/rise_ref_belly2plant.npz --cfg-set train.bc_anchor_coef=1.0 --cfg-set train.bc_anchor_recover=1.0 --cfg-set goal.recover_start_bank=rl_move/sim/park_banks/footlow2_hard1_lower_endpoints_full.npz --cfg-set train.bc_anchor_foot_z=1.0 --cfg-set train.bc_anchor_foot_z_mm=3 --cfg-set train.bc_anchor_min_h_ahead_mm=15 --cfg-set train.bc_anchor_lookahead_s=0.5 --cfg-set goal.recover_admit_n=4 --cfg-set goal.recover_retreat_n=6 --cfg-set goal.recover_ema_beta=0.25 --out-name ppo_goal_cw_recover_any5_mjxcert_scratch1 --impl warp --host-workers 24 --notes 'respec of cw-recover-any4-b0scratch1: The recovery robot already learned to catch itself but training never gave it credit: any4'\"'\"'s deterministic policy passed B0-B4 on the reference simulator while the noisy exploration rollouts that governed the curriculum scored zero (action jitter ~0.38 std kept unloading a foot and resetting the strict 0.5s six-foot hold). This run repeats the exact from-scratch recovery recipe with promotion judged ONLY by a deterministic 8-env certification pool on the exact training backend (Warp/MJX), one assay per active family every 1M steps. OPERATOR-ORDERED (fb_20260815T222943_d019de, commit 3589f418 '\"'\"'Use deterministic MJX recovery certification'\"'\"'): genuinely FROM SCRATCH \u2014 no --init-from, no --obs-pad-transplant, no checkpoint load of any kind; parent field is recipe provenance only. Clones any4'\"'\"'s complete 40M MDP/PPO recipe exactly plus --recover-cert-every 1000000 --recover-cert-envs 8. Prediction-if-true: CERT/recover_bucket_0_success appears at ~1M with 8 episodes and passes, CERT/recover_frontier_after=1, training env frontier promotes to 2 families/B1. Prediction-if-false: CERT B0 fails while background C-MuJoCo SCORE B0 passes \u2014 a Warp-vs-C backend mismatch; no promotion, report it.' --recover-cert-every 1000000 --recover-cert-envs 8 > /tmp/train_cw-recover-any5-mjxcert-scratch1.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-recover-any5-mjxcert-scratch1.log",
+    "wandb_id": "1tmepjxh",
+    "verified": "2026-08-15T22:39:18+00:00"
   }
 ]

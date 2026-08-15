@@ -9,6 +9,31 @@ unresolved blockers between the robot and reliable joystick control.
 
 ## Now
 
+- **08-15 ~22:3x (this cycle, triage + operator directive
+  fb_20260815T222943_d019de): `cw-recover-any4-b0scratch1` STOPPED at
+  ~10.8M/40M — the curriculum's judge, not the policy, was the bug.**
+  Reward quarters were flat/worsening (-103.9→-108.3) and B0 EMA
+  stuck near 0 under the stochastic rollout success signal used
+  below, but a deterministic same-checkpoint eval on the reference
+  C-MuJoCo simulator scores B0-B4=1.0, B5=0.667 — the policy already
+  catches itself from small disturbances. The gap: action noise
+  (~0.38 std) keeps nudging a foot off the ground and re-triggers the
+  strict 0.5 s six-foot hold requirement, so the *noisy* rollouts that
+  drove promotion never registered success even when the *calm*
+  policy already could. Fix (operator-approved, commit `3589f418`):
+  promotion now runs off a periodic deterministic certification pool
+  on the exact training backend (Warp/MJX) — `CERT/recover_bucket_*`
+  — with the old stochastic EMAs and the C-MuJoCo assay demoted to
+  telemetry-only. Successor **`cw-recover-any5-mjxcert-scratch1`**
+  launched FROM SCRATCH on train-1 (clones any4's full recipe +
+  `--recover-cert-every 1000000 --recover-cert-envs 8`), verified
+  live via `/proc`. Hard gate at ~1M: `CERT/recover_bucket_0_success`
+  must be PRESENT (8-episode denominator); if CERT B0 fails while the
+  background C-MuJoCo SCORE B0 still passes, that is a genuine
+  Warp-vs-C backend mismatch, not more curriculum tuning — report it,
+  do not promote. any4's checkpoint preserved on train-1 as the
+  backend-mismatch diagnostic. Ledger verdict + W&B OUTCOME note
+  complete on any4; no further action needed on it.
 - **08-15 ~22:0x (operator-kick cycle, fb_20260815T214555_008f42):
   the RECOVERY LINE IS LIVE AGAIN — `cw-recover-any4-b0scratch1`
   launched FROM SCRATCH on train-1 (W&B brjnwcnb, 40M,
