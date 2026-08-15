@@ -973,6 +973,7 @@ class SimHexapodBalanceEnv(_GymBase):
         path = cfg_get(self.cfg, "goal", "rise_start_bank", default=None)
         bank = None
         self._rise_bank_full = None
+        self._rise_bank_zstand = None
         if path:
             npz = np.load(str(path))
             arr = np.asarray(npz["q_rad"], dtype=float)
@@ -992,6 +993,16 @@ class SimHexapodBalanceEnv(_GymBase):
                 qv = np.asarray(npz["qvel_full"], dtype=float)
                 if len(qp) == len(arr) and len(qv) == len(arr):
                     self._rise_bank_full = (qp, qv)
+            # Standing anchor per row (08-14, the postlower1/2 root
+            # cause): rise heights are z0-relative and belly-calibrated;
+            # a bank spawn settles ~50mm above the belly, so anchoring
+            # the band at the spawn commands an IMPOSSIBLE target.
+            # z_stand = the harvest lower-episode's own standing z0 —
+            # what this endpoint should rise back to.
+            self._rise_bank_zstand = (
+                np.asarray(npz["z_stand"], dtype=float)
+                if "z_stand" in npz.files
+                and len(npz["z_stand"]) == len(arr) else None)
         self._rise_bank_cache = bank
         return bank
 
@@ -1043,6 +1054,7 @@ class SimHexapodBalanceEnv(_GymBase):
         self._prev_action[:] = 0.0
         self.safety.clear_estop()
         self._tipped_applied = False
+        self._rise_bank_zstand_pending = None
 
         self._ep_rand = (self.randomizer.sample(self.rng)
                          if self.randomizer is not None else None)
@@ -1193,6 +1205,19 @@ class SimHexapodBalanceEnv(_GymBase):
                     "start_at='rise_bank' requires goal.rise_start_bank")
             bi = int(self.rng.integers(len(bank)))
             q_start = bank[bi].copy()
+            anchor = float(cfg_get(self.cfg, "goal",
+                                   "rise_start_bank_anchor_stand",
+                                   default=0.0)) > 0.0
+            if anchor:
+                zs = getattr(self, "_rise_bank_zstand", None)
+                if zs is None:
+                    raise ValueError(
+                        "goal.rise_start_bank_anchor_stand needs a bank "
+                        "with the z_stand array (re-harvest with the "
+                        "08-14 harvest_lower_endpoints) — the legacy "
+                        "bank has no standing anchor to rewrite the "
+                        "height schedule against.")
+                self._rise_bank_zstand_pending = float(zs[bi])
             exact = (float(cfg_get(self.cfg, "goal",
                                    "rise_start_bank_exact",
                                    default=0.0)) > 0.0
@@ -1543,6 +1568,29 @@ class SimHexapodBalanceEnv(_GymBase):
             n_ramp = max(int(round(ramp_s * min(h_left / max(h_end, 1e-3),
                                                 1.0) / self.dt)), 3)
             n_ep = len(np.asarray(self._goal_traj.height))
+            self._goal_traj.height = h_left * np.clip(
+                np.arange(n_ep, dtype=float) / n_ramp, 0.0, 1.0)
+        # Bank-episode standing re-anchor (08-14, the postlower1/2 root
+        # cause): rise heights are relative to _z0 (= wherever the body
+        # settled) with a BELLY-calibrated band, but a post-lower bank
+        # spawn settles ~50mm above the belly — the unmodified schedule
+        # commands an impossible ~190-213mm chassis height (measured;
+        # the champion parent scores 0/12 on it while rising from REAL
+        # in-session post-lower states 80-97% of the time). Rewrite the
+        # schedule to the REMAINING rise back to the harvested standing
+        # height, RSI-style ramp scaling. Opt-in
+        # (goal.rise_start_bank_anchor_stand, default OFF => bit-exact).
+        z_stand = getattr(self, "_rise_bank_zstand_pending", None)
+        self._rise_bank_zstand_pending = None
+        if z_stand is not None and self._goal_traj is not None:
+            h_left = max(z_stand - self._z0, 0.002)
+            hs = np.asarray(self._goal_traj.height)
+            h_end = max(float(hs[-1]), 1e-3)
+            ramp_s = float(cfg_get(self.cfg, "goal", "rise_ramp_s",
+                                   default=6.0))
+            n_ramp = max(int(round(ramp_s * min(h_left / h_end, 1.0)
+                                   / self.dt)), 3)
+            n_ep = len(hs)
             self._goal_traj.height = h_left * np.clip(
                 np.arange(n_ep, dtype=float) / n_ramp, 0.0, 1.0)
         # Staged height scores (rise/raise/lower): potential-based

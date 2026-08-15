@@ -83,7 +83,7 @@ def main() -> None:
 
     model = PPO.load(args.checkpoint, device="cpu")
 
-    bank, bank_qpos, bank_qvel, ep_stats = [], [], [], []
+    bank, bank_qpos, bank_qvel, bank_zstand, ep_stats = [], [], [], [], []
     kept = fell = unsettled = 0
     t0 = time.time()
     for ep in range(args.episodes):
@@ -106,6 +106,17 @@ def main() -> None:
             # so goal.rise_start_bank_exact can restore it verbatim.
             bank_qpos.append(np.asarray(env.data.qpos, dtype=float).copy())
             bank_qvel.append(np.asarray(env.data.qvel, dtype=float).copy())
+            # Standing anchor (08-14 postlower2 dig-in, the REAL bug):
+            # the rise task's height band is BELLY-anchored (z0 +
+            # 108-114mm) but bank spawns settle ~50mm ABOVE the belly —
+            # anchoring the band at the spawn commanded an impossible
+            # ~190-213mm chassis height and both postlower arms trained
+            # on it (strain-at-max-current, c2 regression). The lower
+            # episode STARTS standing, so its own _z0 is the exact
+            # height this endpoint should rise back to:
+            # goal.rise_start_bank_anchor_stand rewrites the schedule to
+            # z_stand - z0_spawn.
+            bank_zstand.append(float(env._z0))
             kept += 1
         elif term:
             fell += 1
@@ -131,6 +142,7 @@ def main() -> None:
     np.savez(args.out, q_rad=q_rad,
              qpos_full=np.asarray(bank_qpos, dtype=np.float64),
              qvel_full=np.asarray(bank_qvel, dtype=np.float64),
+             z_stand=np.asarray(bank_zstand, dtype=np.float64),
              meta=json.dumps(meta))
     print(f"[harvest] kept {kept}/{args.episodes} settled lower "
           f"endpoints (fell {fell}, unsettled {unsettled}) -> {args.out} "

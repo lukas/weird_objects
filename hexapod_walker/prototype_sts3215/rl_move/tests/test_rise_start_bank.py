@@ -46,6 +46,15 @@ def _rise_env(seed: int, **goal_over) -> SimHexapodGoalEnv:
     cfg = load_config()
     for k, v in goal_over.items():
         cfg.setdefault("goal", {})[k] = v
+    if "rise_height_mm" in goal_over:
+        # The default action ceiling (5mm) clips the band to nothing,
+        # and the default 5s pre-ramp hold fills the whole 5s test
+        # episode with zeros — match the deployed stance recipe's
+        # ceiling and leave room for the ramp whenever a band is pinned.
+        cfg.setdefault("actions", {})["max_height_mm"] = 115
+        if "rise_hold_s" not in goal_over:
+            cfg["goal"]["rise_hold_s"] = 1.0
+            cfg["goal"]["rise_hold_min_s"] = 1.0
     env = SimHexapodGoalEnv(cfg=cfg, seed=seed)
     g = env._goal_gen
     for m in ("hold", "lean", "track", "unload", "raise", "rise",
@@ -209,3 +218,76 @@ def test_exact_off_with_full_bank_is_bit_exact_with_legacy_path(tmp_path):
             env_a.data.qpos[env_a._qadr], env_b.data.qpos[env_b._qadr])
     env_a.close()
     env_b.close()
+
+
+def _mk_anchored_bank(tmp_path: Path, env_probe: SimHexapodGoalEnv,
+                      k: int = 3) -> tuple[Path, np.ndarray, np.ndarray]:
+    """Full-state bank WITH the z_stand anchor array (08-14 root-cause
+    fix: bank spawns settle above the belly, so the belly-calibrated
+    z0-relative band must be rewritten to the remaining rise)."""
+    nq, nv = env_probe.model.nq, env_probe.model.nv
+    q = np.zeros((k, N_JOINTS))
+    qpos = np.zeros((k, nq))
+    qvel = np.zeros((k, nv))
+    z_stand = np.zeros(k)
+    for i in range(k):
+        q[i, 2::3] = 0.30 + 0.08 * i
+        qpos[i, 2] = 0.041 + 0.002 * i
+        qpos[i, 3] = 1.0
+        qpos[i, env_probe._qadr] = q[i]
+        # Anchor ~50mm above the synthetic spawn's settle (~40mm): the
+        # remaining rise must come out ~half the belly band, so a band
+        # leak is unambiguous.
+        z_stand[i] = 0.090 + 0.001 * i
+    p = tmp_path / "lower_bank_anchored.npz"
+    np.savez(p, q_rad=q, qpos_full=qpos, qvel_full=qvel,
+             z_stand=z_stand, meta="{}")
+    return p, q, z_stand
+
+
+def test_anchor_stand_rewrites_schedule_to_remaining_rise(tmp_path):
+    """anchor_stand=1: the height schedule ends at z_stand - z0 (the
+    remaining rise back to standing), NOT the belly band (108-114mm)."""
+    probe = _rise_env(seed=17)
+    bank_path, q, z_stand = _mk_anchored_bank(tmp_path, probe)
+    probe.close()
+    env = _rise_env(seed=17, rise_start_bank=str(bank_path),
+                    rise_start_bank_frac=1.0, rise_start_bank_exact=1.0,
+                    rise_start_bank_anchor_stand=1.0,
+                    rise_height_mm=[108, 114])
+    for _ in range(4):
+        env.reset()
+        assert env._goal_traj.start_at == "rise_bank"
+        h_end = float(np.asarray(env._goal_traj.height)[-1])
+        want = max(min(z_stand) - env._z0, 0.002)
+        want_hi = max(max(z_stand) - env._z0, 0.002)
+        assert want - 1e-9 <= h_end <= want_hi + 1e-9, (
+            f"schedule end {h_end*1000:.1f}mm not the remaining rise "
+            f"[{want*1000:.1f}, {want_hi*1000:.1f}]mm")
+        assert h_end < 0.080, "belly band leaked through the re-anchor"
+    env.close()
+
+
+def test_anchor_stand_off_keeps_legacy_schedule(tmp_path):
+    """Same anchored bank, flag OFF: schedule stays the belly band."""
+    probe = _rise_env(seed=19)
+    bank_path, q, _ = _mk_anchored_bank(tmp_path, probe)
+    probe.close()
+    env = _rise_env(seed=19, rise_start_bank=str(bank_path),
+                    rise_start_bank_frac=1.0, rise_start_bank_exact=1.0,
+                    rise_height_mm=[108, 114])
+    env.reset()
+    h_end = float(np.asarray(env._goal_traj.height)[-1])
+    assert 0.100 <= h_end <= 0.120, f"legacy band changed: {h_end}"
+    env.close()
+
+
+def test_anchor_stand_on_legacy_bank_raises(tmp_path):
+    """anchor_stand=1 on a bank without z_stand must fail LOUDLY."""
+    bank_path, _ = _mk_bank(tmp_path)
+    env = _rise_env(seed=21, rise_start_bank=str(bank_path),
+                    rise_start_bank_frac=1.0,
+                    rise_start_bank_anchor_stand=1.0)
+    with pytest.raises(ValueError, match="z_stand"):
+        env.reset()
+    env.close()
