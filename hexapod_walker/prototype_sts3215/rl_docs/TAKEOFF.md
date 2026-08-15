@@ -167,6 +167,50 @@ persist WITH the snap throttled, the residual is genuinely
 external-disturbance-like and the next design stage is the gyro-gated
 velocity ramp (stage 2 option above), not more entry throttle.
 
+## 3b. Entry-slew TRAINING curriculum (RISE_WALK_NEXT_48H P2, 08-13)
+
+The operator directive keeps the ~6× slower entry slew as both the
+hardware safety mechanism and the TRAINING baseline, and asks for a
+staged curriculum so the policy learns the transition instead of
+leaning on the external throttle forever:
+
+    stage 1: entry_slew_start_deg 0.25 (~6× slower), ramp 1.5 s
+    stage 2: entry_slew_start_deg 0.50 (~3×)
+    stage 3: entry_slew_start_deg 1.00 (~1.5×)
+    stage 4: entry_slew_ramp_s 0 (normal slew authority)
+
+Two supported implementations (enabler landed 08-13:
+`SafetyLayer.set_nominal()` now RE-READS both entry keys from cfg per
+episode — `test_set_nominal_rereads_cfg_schedule` — so cfg changes
+actually reach the layer; previously they were cached at construction
+and any schedule silently did nothing):
+
+1. **Chained runs (repo-native, one lever per run):** four warm-start
+   stages, each `--set safety.entry_slew_ramp_s=1.5 --set
+   safety.entry_slew_start_deg=<stage>`; stage 4 sets ramp 0. Gate
+   each stage with `rl_move/sim/eval_transition_gate.py` (identical
+   start states; W0 = first 1 s after activation) before chaining.
+2. **In-run anneal:** `sched.key=safety.entry_slew_start_deg` with
+   v0=0.25 → v1=1.5 (the scheduler mutates cfg per tick; the layer
+   picks it up at each episode's set_nominal).
+
+FINAL TEST (the directive's question, verbatim): when normal slew
+authority is available (stage 4), does the policy voluntarily perform
+a graceful transition, or immediately saturate the joints again?
+Measure with `eval_transition_gate` W0 `max_sat_frac` /
+`max_target_disc_deg` vs the stage-1 band on identical starts. If
+saturation returns at stage 4, the learning objective still favors
+the bad transition — fix the objective (transition window pricing),
+do not re-tighten the throttle and call it solved.
+
+Baseline evidence (08-13, `logs/ckpt_eval/transition_gate_baseline.json`):
+the current walk champion (`longdist_r2`), taking over from the stance
+specialist's post-rise state at ZERO command, demands a 20–22°
+single-tick target discontinuity with 56–61% of joints simultaneously
+slew-saturated — the sim reproduction of the bench posture snap. It
+survives in sim (0/6 falls); the gate still flags it VIOLENT, exactly
+the "do not promote on survival alone" rule.
+
 ## 4. What this does NOT do
 
 - No training arm is launched from this doc (ruling: design first).

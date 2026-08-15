@@ -148,6 +148,21 @@ def _success(mode: str, term: bool, ep: dict,
                 and ep.get("gait_valid", True))
     if mode in ("lean", "track", "hold"):
         return ep.get("track_err_mean_deg", 1e9) <= 1.5
+    if mode == "getup":
+        # Whole-sequence rule (RISE_WALK_NEXT_48H P1): survival alone
+        # is not success. The robot must have STOOD (peak supported-
+        # stand score S >= 0.8; honest stands read ~0.95) and, if the
+        # schedule issued commands, tracked them (progress ratio
+        # >= 0.5 — same floor as the walk_fwd canary; degenerate
+        # gaits measure 0.0-0.35). Stop-only schedules fall back to
+        # stood + survived.
+        s_max = ep.get("getup_s_max")
+        if s_max is None or s_max < 0.8:
+            return False
+        prog = ep.get("progress_ratio")
+        if ep.get("cmd_dist_m", 0.0) > 0.01:
+            return prog is not None and prog >= 0.5
+        return True
     if mode == "unload":
         return True   # survival; force stats reported separately
     return True
@@ -206,6 +221,7 @@ def run_episode(env, model, *, deterministic: bool, video: bool,
     pad_xy_hist = []         # (T, 6, 2) world
     rolls_rel = []           # (T,) |roll − ref|, deg
     track_errs, vel_errs, speeds = [], [], []
+    getup_s_hist = []        # (T,) supported-stand score S (getup only)
     cmd_dist_m, along_dist_m = 0.0, 0.0
     h_err = None
     chassis0 = env.data.xpos[env._chassis_bid, :2].copy()
@@ -237,7 +253,9 @@ def run_episode(env, model, *, deterministic: bool, video: bool,
         if "walk_vel_err" in info:
             vel_errs.append(float(info["walk_vel_err"]))
             speeds.append(float(info["walk_speed"]))
-        if mode in ("walk", "quadwalk"):
+        if "getup_S" in info:
+            getup_s_hist.append(float(info["getup_S"]))
+        if mode in ("walk", "quadwalk", "getup"):
             # progress_ratio bookkeeping (operator ruling 2026-08-09
             # WALK-DISTANCE-GATE): along-command body displacement vs
             # commanded displacement, integrated over commanded ticks.
@@ -393,6 +411,26 @@ def run_episode(env, model, *, deterministic: bool, video: bool,
         # slip_per_m = episode loaded foot-XY travel per meter of
         # along-command progress (primary skating metric, never
         # touchdown-reset by construction of slip_m_total).
+        ep["along_dist_m"] = round(along_dist_m, 3)
+        ep["cmd_dist_m"] = round(cmd_dist_m, 3)
+        ep["progress_ratio"] = (round(along_dist_m / cmd_dist_m, 3)
+                                if cmd_dist_m > 1e-6 else None)
+        ep["slip_per_m"] = round(
+            float(np.sum(slips)) / max(along_dist_m, 0.05), 3)
+    if mode == "getup":
+        # Whole-sequence metrics (RISE_WALK_NEXT_48H P1, 08-13): a
+        # getup "success" must mean the WHOLE pipeline worked — the
+        # robot actually stood (supported-stand score S from the
+        # staged getup reward; honest stands bank-measure ~0.95) AND
+        # tracked the commanded displacement while commands were
+        # active. Per-phase scores alone hid rise-then-collapse and
+        # stand-then-park failure shapes.
+        ep["getup_s_max"] = (round(float(np.max(getup_s_hist)), 3)
+                             if getup_s_hist else None)
+        tail_n = max(1, int(round(1.0 / env.dt)))
+        ep["getup_s_tail"] = (round(float(
+            np.mean(getup_s_hist[-tail_n:])), 3)
+            if getup_s_hist else None)
         ep["along_dist_m"] = round(along_dist_m, 3)
         ep["cmd_dist_m"] = round(cmd_dist_m, 3)
         ep["progress_ratio"] = (round(along_dist_m / cmd_dist_m, 3)

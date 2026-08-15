@@ -29,6 +29,7 @@ comparison. Full design + gates: `rl_docs/DYNREP.md`.
 | `pod_scale_sweep.sh` | Representation scaling matrix: S/M/L (~0.8/5.9/17M) x history 16/48 x 1200/4800-ep data, each cell gate-evaluated; aggregate with `analyze_scale.py` |
 | `pod_chain_abc.sh` | Watcher that chains pod_holdwalk.sh behind the scale sweep: waits for POD_SCALE_SWEEP_DONE, picks the first gate-passing cell in a fixed pre-declared preference order, launches the cohort with fresh seeds (>= 5) |
 | `pod_memwatch.sh` | Container-OOM guard (train-10 OOMKilled 08-14, whole overlay fs lost): logs memory.current + top-RSS process every 60s; above 85GiB kills the largest python so the pod survives |
+| `check_cohort.py` | Mechanical status for script-owned transfer cohorts: reads the manifest, live `train_ppo_transfer` processes, and done markers. Use this before believing STATUS prose. |
 | `datasets/` `models/` `logs/` | Generated (gitignored; also excluded from `snapshot.sh --sync` code tarballs) |
 
 ## Quick start (from `prototype_sts3215/`, repo `.venv`)
@@ -58,6 +59,10 @@ SEEDS="1 2 3 4 5" nohup sh rl_move/dynamics/pod_holdwalk.sh \
     > rl_move/dynamics/logs/pod_holdwalk.log &
 ../../.venv/bin/python -m rl_move.dynamics.analyze_pilot \
     --seeds 1 2 3 4 5 --phase2 walk --phase2-threshold <thr> --plot
+
+# verify a script-owned cohort mechanically, never from prose:
+python3 -m rl_move.dynamics.check_cohort --cohort holdwalk
+python3 -m rl_move.dynamics.check_cohort --cohort risewalk
 ```
 
 Training applies a one-time reward penalty on early termination
@@ -81,6 +86,11 @@ only; they are not included in any encoder input set.
 - **Do not connect PPO until gate G1 passes** (`eval_model` prints
   PASS/FAIL): the model must beat persistence AND the linear predictor
   at every horizon on held-out windows. This is the brief's hard gate.
+- Transfer cohorts currently run through pod scripts, not
+  `launch_run.py`; until they are launcher-wired, every launch must
+  write `rl_move/dynamics/logs/<cohort>_manifest.jsonl`, and a cycle
+  may call it launched only after `check_cohort.py` sees either live
+  `train_ppo_transfer` processes or a final `done` event.
 - The PPO encoder can only use the `obs` input set (59 policy-visible
   dims). Train the transfer candidate with `--input-set obs`; the
   default `full` set (currents, contacts, accel) is for the

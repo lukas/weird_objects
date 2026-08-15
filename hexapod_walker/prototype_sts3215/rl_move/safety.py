@@ -114,6 +114,18 @@ class SafetyLayer:
         self._last_safe = np.asarray(q_rad, dtype=float).reshape(N_JOINTS).copy()
         self._over_current_ticks = 0
         self._entry_ticks = 0
+        # Re-read the entry-slew params on every engage/reset so the
+        # in-run cfg scheduler (sched.key=safety.entry_slew_start_deg /
+        # entry_slew_ramp_s) and staged curricula actually take effect
+        # per episode (RISE_WALK_NEXT_48H P2 entry-slew curriculum,
+        # 08-13). __init__ caches were per-process constants; with an
+        # unchanged cfg this re-read is bit-exact.
+        self.entry_ramp_s = float(
+            cfg_get(self.cfg, "safety", "entry_slew_ramp_s",
+                    default=0.0))
+        self.entry_start_dq = math.radians(
+            float(cfg_get(self.cfg, "safety", "entry_slew_start_deg",
+                          default=0.25)))
 
     def set_tilt_reference(self, roll: float, pitch: float) -> None:
         """Anchor the tilt trip to the episode's starting attitude.

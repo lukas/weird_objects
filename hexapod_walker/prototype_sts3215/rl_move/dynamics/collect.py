@@ -263,6 +263,16 @@ def main() -> None:
     ap.add_argument("--stance-ckpt", default=str(DEFAULT_STANCE_CKPT))
     ap.add_argument("--mix", default=None,
                     help="override actor mix, e.g. random=0.5,tripod=0.5")
+    ap.add_argument("--allow-degraded-mix", action="store_true",
+                    help="permit silent actor substitution when a mix "
+                         "component is unavailable (pre-08-13 pod "
+                         "behavior). Default is a HARD FAIL: the v2pod "
+                         "recipe drift (noslip's 0.10 share silently "
+                         "reassigned to tripod) is the prime suspect "
+                         "for the replicated G1 k=1 failure "
+                         "(RISE_WALK_NEXT_48H P2: recollect the "
+                         "INTENDED recipe, never train on a drifted "
+                         "one unknowingly)")
     args = ap.parse_args()
 
     rng = np.random.default_rng(args.seed)
@@ -273,6 +283,7 @@ def main() -> None:
     if args.mix:
         mix = {k: float(v) for k, v in
                (kv.split("=") for kv in args.mix.split(","))}
+    requested_mix = dict(mix)
     ckpts: dict[str, object] = {}
     for actor, path in (("walk_ckpt", args.walk_ckpt),
                         ("stance_ckpt", args.stance_ckpt)):
@@ -281,20 +292,41 @@ def main() -> None:
         p = Path(path) if Path(path).is_absolute() else ROOT / path
         if p.exists():
             ckpts[actor] = _load_ckpt(p)
-        else:
+        elif args.allow_degraded_mix:
             print(f"WARNING: {actor} checkpoint missing ({p}); "
-                  f"reassigning its weight to random")
+                  f"reassigning its weight to random "
+                  f"(--allow-degraded-mix)")
             mix["random"] = mix.get("random", 0.0) + mix.pop(actor)
-    # noslip_gait.py is laptop-local (never committed); degrade the same
-    # way a missing checkpoint does so pod-side collection works. Bit-
-    # exact when the module is importable (the operator's machine).
+        else:
+            raise SystemExit(
+                f"collect: {actor} checkpoint missing ({p}) and the "
+                f"mix requests it. A dataset collected with a "
+                f"substituted actor is a DIFFERENT recipe (the v2pod "
+                f"drift lesson). Pull the checkpoint, or pass "
+                f"--allow-degraded-mix to accept the substitution "
+                f"knowingly (the dataset dir will record it).")
+    # noslip_gait.py is in git since decb1fa (08-13); a missing module
+    # now means a stale checkout, not an expected environment.
     if mix.get("noslip", 0.0) > 0.0:
         try:
             import noslip_gait  # noqa: F401
         except ImportError:
-            print("WARNING: noslip_gait module missing; "
-                  "reassigning its weight to tripod")
-            mix["tripod"] = mix.get("tripod", 0.0) + mix.pop("noslip")
+            if args.allow_degraded_mix:
+                print("WARNING: noslip_gait module missing; "
+                      "reassigning its weight to tripod "
+                      "(--allow-degraded-mix)")
+                mix["tripod"] = (mix.get("tripod", 0.0)
+                                 + mix.pop("noslip"))
+            else:
+                raise SystemExit(
+                    "collect: noslip_gait module missing but the mix "
+                    "requests noslip. Silently substituting tripod is "
+                    "the exact recipe drift that invalidated v2pod "
+                    "(dynrep STATUS 08-13; more-periodic tripod data "
+                    "strengthens the ridge baseline G1 compares "
+                    "against). noslip_gait.py is committed since "
+                    "decb1fa — git pull, or pass --allow-degraded-mix "
+                    "to accept the substitution knowingly.")
     names = sorted(mix)
     probs = np.array([mix[n] for n in names])
     probs = probs / probs.sum()
@@ -349,6 +381,8 @@ def main() -> None:
         "episodes": args.episodes, "seed": args.seed,
         "actor_counts": counts, "total_steps": total_steps,
         "mix": mix,
+        "mix_requested": requested_mix,
+        "mix_degraded": mix != requested_mix,
         "walk_ckpt": args.walk_ckpt, "stance_ckpt": args.stance_ckpt,
     })
     meta_path.write_text(json.dumps(meta, indent=2) + "\n")

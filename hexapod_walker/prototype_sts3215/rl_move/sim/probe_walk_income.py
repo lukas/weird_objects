@@ -25,6 +25,30 @@ checkpoints (ckpt:<path>).
 Residual = episode return − Σ(labelled terms): non-zero residual is the
 BASE stack (task kernel, stance/clearance/still, penalties) — printed
 as its own row so no income channel can hide.
+
+CLEAN-vs-DIRTY VERDICT (operator RISE_WALK_NEXT_48H directive, 08-13:
+"why does the dirty/crouched/sliding policy earn more return than the
+clean teacher?" — answer it BEFORE any coefficient sweep): every
+rollout now also measures ACTUATOR FEASIBILITY under the fitted servo
+model (requested joint-target speed vs the effective per-joint clamp
+min(write_speed, vel_max_deg_s); fraction of joint-ticks cruising AT
+the clamp; simultaneous-saturation ticks; profile backlog; command-vs-
+measured tracking error), and `--clean <pol> --dirty <pol>` prints a
+matched per-term return decomposition (identical seeds + pinned
+command schedule) plus termination economics, then classifies the gap:
+
+  A. reward economics prefer sliding (income channels dominate, clean
+     physically keeps up);
+  B. actuator constraints make clean stepping infeasible/expensive
+     (clean saturates the clamp and undertracks);
+  C. neither channel explains the gap (architecture/other — escalate).
+
+    python -m rl_move.sim.probe_walk_income --stack vref1 \
+        --policies noslip_clean,ckpt:rl_move/sim/policies/ppo_goal_cw_walk_longdist_r2.zip \
+        --dirs forward --seeds 0,1,2 \
+        --clean noslip_clean \
+        --dirty ckpt:rl_move/sim/policies/ppo_goal_cw_walk_longdist_r2.zip \
+        --out logs/probe_walk_income/clean_vs_dirty_vref1.json
 """
 from __future__ import annotations
 
@@ -240,6 +264,20 @@ def rollout(policy: str, direction: str, seed: int, stack_name: str,
     term_reason = None
     scale = VEL_SCALE.get(policy, 1.0)
 
+    # Actuator-feasibility accumulators (clean-vs-dirty directive):
+    # requested target speed |Δq_cmd|/dt vs the profile's effective
+    # clamp, cruise-at-clamp saturation, backlog, tracking error. All
+    # read AFTER env.step so post-SafetyLayer commands are measured —
+    # the same signal the hardware SafetyLayer clamp analysis uses.
+    prev_cmd = env._cmd.copy()
+    req_speed: list[np.ndarray] = []      # per-tick (18,) rad/s
+    sat_counts: list[int] = []            # joints cruising at clamp
+    lag: list[float] = []                 # max |goal-target| rad
+    track_err: list[np.ndarray] = []      # per-tick (18,) rad
+    vel_clamp = np.minimum(
+        env._profile._vel_default,
+        float(env.write_speed_deg_s) * DEG2RAD)
+
     while True:
         t = step * env.dt
         i = min(step, n - 1)
@@ -277,11 +315,38 @@ def rollout(policy: str, direction: str, seed: int, stack_name: str,
         contact_hist.append([
             float(env.data.sensordata[adr]) > 0.5
             for adr in env._touch_adr])
+        cmd_now = env._cmd.copy()
+        req_speed.append(np.abs(cmd_now - prev_cmd) / env.dt)
+        prev_cmd = cmd_now
+        prof = env._profile
+        sat_counts.append(int(np.sum(
+            np.abs(prof._v) >= 0.999 * np.maximum(prof._vel_now, 1e-9))))
+        lag.append(float(np.max(np.abs(prof.goal - prof.target))))
+        track_err.append(np.abs(env._state.joint_position - cmd_now))
         step += 1
         if term or trunc:
             term_reason = info.get("termination_reason")
             break
     env.close()
+
+    rs = np.asarray(req_speed) / DEG2RAD          # (T, 18) deg/s
+    te = np.asarray(track_err) / DEG2RAD          # (T, 18) deg
+    sat = np.asarray(sat_counts, dtype=float)
+    feas = {
+        "vel_clamp_deg_s_mean": float(np.mean(vel_clamp) / DEG2RAD),
+        "req_speed_deg_s_p95": float(np.percentile(rs, 95)),
+        "req_speed_deg_s_max": float(np.max(rs)) if rs.size else 0.0,
+        # joint-ticks demanding more than the joint's effective clamp
+        "req_over_clamp_frac": float(np.mean(
+            rs > (vel_clamp / DEG2RAD)[None, :])),
+        # joint-ticks cruising AT the clamp (profile velocity pinned)
+        "sat_joint_frac": float(np.mean(sat / 18.0)),
+        # ticks with >= 6 joints simultaneously slew-saturated
+        "sat6_tick_frac": float(np.mean(sat >= 6.0)),
+        "lag_deg_p95": float(np.percentile(np.asarray(lag) / DEG2RAD, 95)
+                             if lag else 0.0),
+        "track_rmse_deg": float(np.sqrt(np.mean(te ** 2))),
+    }
 
     contact = np.asarray(contact_hist, dtype=bool)
     duty = contact.mean(axis=0)
@@ -299,6 +364,7 @@ def rollout(policy: str, direction: str, seed: int, stack_name: str,
         "wz_mean": wz_sum / wz_n if wz_n else 0.0,
         "duty": [round(float(d), 3) for d in duty],
         "swings": swings,
+        "feas": feas,
         "terminated": term_reason if term_reason not in (None, "time")
         else None,
     }
@@ -349,6 +415,15 @@ def summarize(records: list[dict]) -> None:
     for p in pols:
         row += f"{sum(1 for r in by_pol[p] if r['terminated']):14d}"
     print(row)
+    print("\n--- actuator feasibility (mean; fitted servo clamp) ---")
+    for fk in ("req_speed_deg_s_p95", "req_over_clamp_frac",
+               "sat_joint_frac", "sat6_tick_frac", "lag_deg_p95",
+               "track_rmse_deg"):
+        row = f"{fk:28s}"
+        for p in pols:
+            vals = [r["feas"][fk] for r in by_pol[p] if "feas" in r]
+            row += (f"{np.mean(vals):14.3f}" if vals else f"{'-':>14s}")
+        print(row)
     for fk in FACTOR_KEYS:
         vals = {p: [r["factors"][fk] for r in by_pol[p]
                     if fk in r["factors"]] for p in pols}
@@ -370,6 +445,179 @@ def summarize(records: list[dict]) -> None:
         print(row)
 
 
+# Directive channel map: every reward_* term the stack can emit, folded
+# into the report categories of RISE_WALK_NEXT_48H "P1 — Understand why
+# PPO prefers the dirty gait". Unlisted terms land in "other" and are
+# still printed individually — no channel can hide.
+CHANNELS = {
+    "progress_tracking": (
+        "reward_task", "reward_walk", "reward_walk_prog",
+        "reward_step_event", "reward_swing", "reward_walk_yaw",
+        "reward_yaw_prog", "reward_getup_prog", "reward_getup_hold",
+        "reward_getup_walk"),
+    "slip_drag": ("reward_drag", "reward_drag_stance",
+                  "reward_drag_trans"),
+    "effort_current": ("reward_current", "reward_current_max",
+                       "reward_current_hot", "reward_effort"),
+    "posture_height": (
+        "reward_height", "reward_roll", "reward_pitch", "reward_stance",
+        "reward_clearance", "reward_flag_leg", "reward_support_margin",
+        "reward_load_even", "reward_end_posture"),
+    "action_smoothness": ("reward_action", "reward_action_delta",
+                          "reward_gyro", "reward_still",
+                          "reward_yaw_still"),
+    "contact": ("reward_phase_contact", "reward_park_duty",
+                "reward_quad_clear", "reward_quad_plant",
+                "reward_quad_lift_contact", "reward_quad_still"),
+    "termination": ("reward_termination", "reward_alive"),
+}
+_TERM_TO_CHANNEL = {t: c for c, ts in CHANNELS.items() for t in ts}
+
+
+def verdict(records: list[dict], clean: str, dirty: str) -> dict:
+    """Matched clean-vs-dirty decomposition + hypothesis classification.
+
+    Uses only (dir, seed) cells BOTH policies ran, so the comparison is
+    the directive's "matched states/commands": identical resets and
+    identical pinned command schedules.
+    """
+    def cells(pol):
+        return {(r["dir"], r["seed"]): r for r in records
+                if r["policy"] == pol}
+
+    rc, rd = cells(clean), cells(dirty)
+    keys = sorted(set(rc) & set(rd))
+    if not keys:
+        print(f"\nVERDICT: no matched (dir, seed) cells for "
+              f"clean={clean!r} dirty={dirty!r} — nothing to compare")
+        return {}
+    cs = [rc[k] for k in keys]
+    ds = [rd[k] for k in keys]
+
+    def mean_terms(rs):
+        out: dict[str, float] = defaultdict(float)
+        for r in rs:
+            for t, v in r["terms"].items():
+                out[t] += v / len(rs)
+            out["residual_base"] += r["residual_base"] / len(rs)
+        return out
+
+    tc, td = mean_terms(cs), mean_terms(ds)
+    all_terms = sorted(set(tc) | set(td))
+    ret_c = float(np.mean([r["return"] for r in cs]))
+    ret_d = float(np.mean([r["return"] for r in ds]))
+    gap = ret_d - ret_c
+
+    chan_delta: dict[str, float] = defaultdict(float)
+    print(f"\n=== VERDICT: dirty − clean, matched over {len(keys)} "
+          f"(dir, seed) cells ===")
+    print(f"{'term':28s}{'clean':>12s}{'dirty':>12s}{'delta':>12s}")
+    rows = []
+    for t in all_terms:
+        d = td.get(t, 0.0) - tc.get(t, 0.0)
+        rows.append((t, tc.get(t, 0.0), td.get(t, 0.0), d))
+        chan_delta[_TERM_TO_CHANNEL.get(t, "other")] += d
+    for t, c, dv, d in sorted(rows, key=lambda r: -abs(r[3])):
+        if abs(d) < 0.05 and abs(c) < 0.05 and abs(dv) < 0.05:
+            continue
+        print(f"{t:28s}{c:12.1f}{dv:12.1f}{d:12.1f}")
+    print(f"{'TOTAL_RETURN':28s}{ret_c:12.1f}{ret_d:12.1f}{gap:12.1f}")
+
+    # Termination economics: early ends forfeit the survivor's mean
+    # per-tick income for the remaining ticks — report it explicitly so
+    # "fall risk was cheap/expensive" is a number, not a feeling.
+    ticks_c = float(np.mean([r["ticks"] for r in cs]))
+    ticks_d = float(np.mean([r["ticks"] for r in ds]))
+    full_ticks = max(max(r["ticks"] for r in cs + ds), 1)
+    inc_c = ret_c / max(ticks_c, 1.0)
+    inc_d = ret_d / max(ticks_d, 1.0)
+    forfeits_c = (full_ticks - ticks_c) * inc_c
+    forfeits_d = (full_ticks - ticks_d) * inc_d
+    n_term_c = sum(1 for r in cs if r["terminated"])
+    n_term_d = sum(1 for r in ds if r["terminated"])
+    print(f"\ntermination economics: clean {n_term_c}/{len(cs)} eps "
+          f"terminated (mean {ticks_c:.0f} ticks, ~{forfeits_c:.1f} "
+          f"return forfeited) | dirty {n_term_d}/{len(ds)} "
+          f"(mean {ticks_d:.0f} ticks, ~{forfeits_d:.1f} forfeited)")
+
+    def mfeas(rs, k):
+        return float(np.mean([r["feas"][k] for r in rs if "feas" in r]))
+
+    feas_keys = ("req_speed_deg_s_p95", "req_over_clamp_frac",
+                 "sat_joint_frac", "sat6_tick_frac", "track_rmse_deg")
+    fc = {k: mfeas(cs, k) for k in feas_keys}
+    fd = {k: mfeas(ds, k) for k in feas_keys}
+    print("\nactuator feasibility (fitted servo-speed clamp):")
+    for k in feas_keys:
+        print(f"  {k:26s} clean {fc[k]:8.3f}   dirty {fd[k]:8.3f}")
+
+    print("\nchannel deltas (dirty − clean):")
+    for c, d in sorted(chan_delta.items(), key=lambda kv: -abs(kv[1])):
+        print(f"  {c:26s}{d:10.1f}")
+
+    # Mechanical classification (evidence summary, not a decree):
+    #   B if the clean gait is pinned at the clamp much harder than the
+    #     dirty one AND tracks its own commands worse;
+    #   A if the gap is dominated by income channels while clean keeps
+    #     up physically;
+    #   C/other if neither pattern holds.
+    clean_saturates = (fc["sat_joint_frac"]
+                       > max(1.5 * fd["sat_joint_frac"], 0.10)
+                       or fc["req_over_clamp_frac"]
+                       > max(1.5 * fd["req_over_clamp_frac"], 0.10))
+    clean_undertracks = fc["track_rmse_deg"] > fd["track_rmse_deg"] * 1.5
+    top = sorted(chan_delta.items(), key=lambda kv: -abs(kv[1]))[:2]
+    top_str = ", ".join(f"{c} {d:+.1f}" for c, d in top)
+    print("\n--- verdict ---")
+    print(f"dirty out-earns clean by {gap:+.1f} return/episode; "
+          f"largest channels: {top_str}")
+    if gap <= 0:
+        klass = "clean_wins"
+        print("the clean policy already out-earns the dirty one under "
+            "this stack — the dirty attractor is NOT the paid optimum "
+            "here. If PPO still converges to it, the failure is "
+            "optimization/exploration (or a training-env pricing "
+            "mismatch, e.g. the measured MJX-vs-C anchoring gap), not "
+            "reward economics. Compare the same pair under the MJX "
+            "training pricing before concluding.")
+    elif clean_saturates and clean_undertracks:
+        klass = "B"
+        print("hypothesis B evidence: the clean gait demands speeds the "
+              f"fitted clamp cannot deliver (sat_joint_frac "
+              f"{fc['sat_joint_frac']:.2f} vs {fd['sat_joint_frac']:.2f}"
+              f", track RMSE {fc['track_rmse_deg']:.2f} vs "
+              f"{fd['track_rmse_deg']:.2f} deg) — clean stepping is "
+              "infeasible/expensive under the current actuator model. "
+            "Intervention: fix/verify the clamp fit (sysid loaded runs) "
+            "or retime the clean gait under the clamp before repricing "
+            "anything.")
+    elif abs(chan_delta.get("progress_tracking", 0.0)) >= 0.5 * abs(gap) \
+            and gap > 0:
+        klass = "A"
+        print("hypothesis A evidence: the gap is dominated by "
+            "progress/tracking income the dirty gait collects while its "
+            f"slip/drag charges move only {chan_delta.get('slip_drag', 0.0):+.1f}"
+            " — reward economics underprice sliding relative to "
+            "velocity-tracking income. Intervention: raise ONLY the "
+            "implicated slip/drag price enough to reverse this measured "
+            "advantage (preregister the budget), not a blind sweep.")
+    else:
+        klass = "C/other"
+        print("neither the actuator-infeasibility nor the "
+            "income-dominance pattern explains the gap — check "
+            "observation/control architecture (hypothesis C) or an "
+            "unlisted mechanism before touching coefficients.")
+    return {"matched_cells": len(keys), "return_clean": ret_c,
+            "return_dirty": ret_d, "gap": gap,
+            "channel_delta": dict(chan_delta),
+            "term_clean": dict(tc), "term_dirty": dict(td),
+            "feas_clean": fc, "feas_dirty": fd,
+            "termination": {"clean_eps": n_term_c, "dirty_eps": n_term_d,
+                            "clean_forfeit": forfeits_c,
+                            "dirty_forfeit": forfeits_d},
+            "class": klass}
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--stack", choices=list(STACKS), default="trans1")
@@ -385,6 +633,12 @@ def main() -> None:
                          "repeatable (audit: replay a run's ledger cfg)")
     ap.add_argument("--cmd", type=float, default=CMD_V,
                     help=f"pinned command speed m/s (default {CMD_V})")
+    ap.add_argument("--clean", default=None,
+                    help="policy name (as in --policies) of the CLEAN "
+                         "reference for the verdict block")
+    ap.add_argument("--dirty", default=None,
+                    help="policy name of the DIRTY policy for the "
+                         "verdict block")
     ap.add_argument("--out", default=None)
     a = ap.parse_args()
 
@@ -416,10 +670,15 @@ def main() -> None:
     else:
         records = [_job(j) for j in jobs]
     summarize(records)
+    vd = None
+    if a.clean and a.dirty:
+        vd = verdict(records, a.clean, a.dirty)
     if a.out:
         out = ROOT / a.out
         out.parent.mkdir(parents=True, exist_ok=True)
-        out.write_text(json.dumps(records, indent=1))
+        payload = ({"records": records, "verdict": vd}
+                   if vd is not None else records)
+        out.write_text(json.dumps(payload, indent=1))
         print(f"\nWROTE {out}")
 
 

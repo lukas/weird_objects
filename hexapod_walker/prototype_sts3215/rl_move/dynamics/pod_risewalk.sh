@@ -34,6 +34,8 @@ SEEDS=${SEEDS:-"1 2 3"}
 RISE_STEPS=${RISE_STEPS:-500000}
 WALK_STEPS=${WALK_STEPS:-1000000}
 EVAL_EVERY=${EVAL_EVERY:-10000}
+COHORT_NAME=${COHORT_NAME:-risewalk}
+MANIFEST="$LOG/${COHORT_NAME}_manifest.jsonl"
 mkdir -p "$LOG"
 echo "== pod_risewalk start $(date -u +%FT%TZ) host=$(hostname)" \
      "seeds=[$SEEDS] rise=$RISE_STEPS walk=$WALK_STEPS enc=$ENC"
@@ -45,18 +47,35 @@ grep -Eq "GATE G1(\.1)? .*PASS" "$LOG/$(basename "$ENC" .pt)_gate.txt" \
     echo "POD_RISEWALK_ABORT: no G1/G1.1 PASS on record for $ENC" \
          "(DYNREP.md hard gate)"; exit 3; }
 
+if pgrep -f "rl_move.dynamics.train_ppo_transfer" >/dev/null 2>&1; then
+    echo "POD_RISEWALK_ABORT: train_ppo_transfer already running on host=$(hostname)"
+    exit 4
+fi
+
+printf '{"event":"start","cohort":"%s","host":"%s","utc":"%s","seeds":"%s","encoder":"%s","data":"%s","rise_steps":%s,"walk_steps":%s}\n' \
+    "$COHORT_NAME" "$(hostname)" "$(date -u +%FT%TZ)" "$SEEDS" "$ENC" "$DATA" "$RISE_STEPS" "$WALK_STEPS" \
+    >> "$MANIFEST"
+
 for SEED in $SEEDS; do
     (
         set -e
+        printf '{"event":"seed_start","cohort":"%s","seed":%s,"utc":"%s"}\n' \
+            "$COHORT_NAME" "$SEED" "$(date -u +%FT%TZ)" >> "$MANIFEST"
         for C in A B C; do
+            printf '{"event":"phase_start","cohort":"%s","seed":%s,"condition":"%s","task":"rise","utc":"%s"}\n' \
+                "$COHORT_NAME" "$SEED" "$C" "$(date -u +%FT%TZ)" >> "$MANIFEST"
             OMP_NUM_THREADS=4 $PY -m rl_move.dynamics.train_ppo_transfer \
                 --condition "$C" --task rise --seed "$SEED" \
                 --steps "$RISE_STEPS" --eval-every "$EVAL_EVERY" \
                 --eval-tasks rise,hold \
                 --encoder "$ENC" --anchor-data "$DATA" \
                 --name "rw_rise_${C}_s${SEED}"
+            printf '{"event":"phase_done","cohort":"%s","seed":%s,"condition":"%s","task":"rise","utc":"%s"}\n' \
+                "$COHORT_NAME" "$SEED" "$C" "$(date -u +%FT%TZ)" >> "$MANIFEST"
         done
         for C in A B C; do
+            printf '{"event":"phase_start","cohort":"%s","seed":%s,"condition":"%s","task":"walk","utc":"%s"}\n' \
+                "$COHORT_NAME" "$SEED" "$C" "$(date -u +%FT%TZ)" >> "$MANIFEST"
             OMP_NUM_THREADS=4 $PY -m rl_move.dynamics.train_ppo_transfer \
                 --condition "$C" --task walk --seed "$SEED" \
                 --steps "$WALK_STEPS" --eval-every "$EVAL_EVERY" \
@@ -64,8 +83,12 @@ for SEED in $SEEDS; do
                 --encoder "$ENC" --anchor-data "$DATA" \
                 --init-from "rl_move/dynamics/models/ppo_rw_rise_${C}_s${SEED}.zip" \
                 --name "rw_walk_${C}_s${SEED}"
+            printf '{"event":"phase_done","cohort":"%s","seed":%s,"condition":"%s","task":"walk","utc":"%s"}\n' \
+                "$COHORT_NAME" "$SEED" "$C" "$(date -u +%FT%TZ)" >> "$MANIFEST"
         done
         echo "RISEWALK_COHORT_DONE seed=$SEED"
+        printf '{"event":"seed_done","cohort":"%s","seed":%s,"utc":"%s"}\n' \
+            "$COHORT_NAME" "$SEED" "$(date -u +%FT%TZ)" >> "$MANIFEST"
     ) > "$LOG/risewalk_s${SEED}.log" 2>&1 &
 done
 wait
@@ -73,3 +96,5 @@ wait
 n_done=$(grep -l "RISEWALK_COHORT_DONE" "$LOG"/risewalk_s*.log | wc -l)
 echo "cohorts done: $n_done"
 echo "POD_RISEWALK_DONE $(date -u +%FT%TZ)"
+printf '{"event":"done","cohort":"%s","utc":"%s","seeds_done":%s}\n' \
+    "$COHORT_NAME" "$(date -u +%FT%TZ)" "$n_done" >> "$MANIFEST"

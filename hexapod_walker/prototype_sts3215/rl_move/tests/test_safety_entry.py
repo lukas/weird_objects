@@ -88,3 +88,21 @@ def test_start_rate_never_exceeds_max():
                              entry_slew_start_deg=5.0))
     deltas = _run_deltas(layer, 3)
     assert all(d <= 1.5 + 1e-9 for d in deltas)
+
+
+def test_set_nominal_rereads_cfg_schedule():
+    """The in-run scheduler mutates cfg (sched.key=safety.entry_slew_
+    start_deg); set_nominal must pick the new value up per episode —
+    the entry-slew CURRICULUM enabler (RISE_WALK_NEXT_48H P2)."""
+    cfg = _cfg(entry_slew_ramp_s=1.0, entry_slew_start_deg=0.25)
+    layer = SafetyLayer(cfg)
+    deltas = _run_deltas(layer, 3)
+    assert abs(deltas[0] - 0.25) < 1e-9
+    # scheduler anneals the start rate toward full authority
+    cfg["safety"]["entry_slew_start_deg"] = 1.0
+    deltas2 = _run_deltas(layer, 3)   # set_nominal inside re-reads
+    assert abs(deltas2[0] - 1.0) < 1e-9
+    # ...and can disable the ramp entirely (stage 4: normal authority)
+    cfg["safety"]["entry_slew_ramp_s"] = 0.0
+    deltas3 = _run_deltas(layer, 3)
+    assert all(abs(d - 1.5) < 1e-9 for d in deltas3)
