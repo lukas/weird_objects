@@ -89809,7 +89809,32 @@
     "phase": "discovery",
     "hypothesis": "Trainer-only recovery: the exact completed flaf42k7 corpus (10,240,039 train windows, <=2.0x reuse, gate already met) can train the unchanged 13.62M-param causal Transformer without any recollection now that each compressed NPZ shard member is loaded once per shard instead of once per episode (commit 3cd6c57a fixed the bug that OOMKilled cw-dynrep-tf-state2-fresh2's pod loading this same corpus). Launched directly against rl_move.dynamics.train (skipping fresh_pipeline's redundant stage-1 recollection) once the corpus was confirmed to already exist and be complete.",
     "gate": "Trainer-only on the H200; recovered dataset aggregate SHA-256 6762fe81a0694b647086c5f454070ec208c059c7e8efbd1dcb597b76f1c70cf0; 10,240,039 train windows and <=2.0x reuse; 13.62M-parameter Transformer (hidden=512,z=256,4 layers,8 heads,ff=1024); CUDA GPU-resident batches; loader stays below the 85GiB watchdog; W&B advances and reports train/validation velocity, heading, contacts, currents, future servo state, generalization gap; no immediate broad train/val divergence like telnzd5r; one-time sealed test evaluation at the end.",
-    "evidence": "commit 3cd6c57a ('Load each dynrep shard member once') fixes the NpzFile re-allocation bug; cw-dynrep-tf-state2-fresh2's stage-1 (flaf42k7) already proved the corpus meets the window/reuse gate before dying only in the now-patched load step."
+    "evidence": "commit 3cd6c57a ('Load each dynrep shard member once') fixes the NpzFile re-allocation bug; cw-dynrep-tf-state2-fresh2's stage-1 (flaf42k7) already proved the corpus meets the window/reuse gate before dying only in the now-patched load step.",
+    "assessment_scope": "short_behavior_discovery",
+    "stack": "gpu-transformer",
+    "checks": {
+      "cpu_limit": 26,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-570e6615-ff09-beeb-779f-b2da29edf3bb)",
+      "running_experiments_before": 2,
+      "code_sha_local": "6315a4535db43ff09759007c0838f6290145d7f8",
+      "code_sha_pod": "6315a4535db43ff09759007c0838f6290145d7f8",
+      "wandb_env_on_pod": true,
+      "cuda_torch_runtime": "python3: 2.11.0+cu128 NVIDIA H200",
+      "pid": "2809560",
+      "log_growth_bytes": [
+        2423,
+        2423
+      ],
+      "wandb_id": "vt2ovznc",
+      "global_step_window": [
+        3950,
+        5200
+      ],
+      "fps_estimate": 41.7
+    },
+    "log": "/tmp/train_cw-dynrep-tf-state2-recovered1.log",
+    "verified": "2026-08-15T20:14:09+00:00"
   },
   {
     "run": "cw-arch-joystick-switch-scratch2",
