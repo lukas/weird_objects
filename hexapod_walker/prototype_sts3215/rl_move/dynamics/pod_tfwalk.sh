@@ -71,6 +71,7 @@ OMP_NUM_THREADS=4 $PY -m rl_move.dynamics.train_ppo_transfer \
     --steps "$WALK_STEPS" --eval-every "$EVAL_EVERY" \
     --eval-tasks rise,hold,walk --eval-heldout \
     --encoder "$ENC" --anchor-data "$DATA" \
+    --device cuda \
     --name "$NAME"
 printf '{"event":"phase_done","cohort":"%s","seed":%s,"condition":"%s","task":"walk","utc":"%s"}\n' \
     "$COHORT_NAME" "$SEED" "$COND" "$(date -u +%FT%TZ)" >> "$MANIFEST"

@@ -20,12 +20,16 @@ no GPU/pod dataset dependency -- it must fail loudly (KeyError) on the
 pre-fix converter and pass on the fix.
 """
 import numpy as np
+import pytest
 import torch
 
 from rl_move.dynamics import data as dd
 from rl_move.dynamics import frames as fr
 from rl_move.dynamics.model import DynamicsModel, dynamics_loss
-from rl_move.dynamics.train_ppo_transfer import anchor_batch_to_torch
+from rl_move.dynamics.train_ppo_transfer import (
+    anchor_batch_to_torch,
+    require_torch_device,
+)
 
 HORIZONS = (1, 2, 5, 10, 25)
 HISTORY = 16
@@ -51,6 +55,16 @@ def _tiny_model() -> DynamicsModel:
         delta_state=True, predict_priv=True)
 
 
+def test_cuda_request_never_falls_back_to_cpu(monkeypatch):
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: False)
+    with pytest.raises(RuntimeError, match="refusing to fall back to CPU"):
+        require_torch_device(torch, "cuda")
+
+
+def test_explicit_cpu_device_is_supported_for_local_tests():
+    assert require_torch_device(torch, "cpu").type == "cpu"
+
+
 def test_anchor_batch_to_torch_forwards_every_key_dynamics_loss_needs():
     # Enough frames per episode for every horizon (needs >= H + Kmax).
     episodes = [_episode(i, HISTORY + HORIZONS[-1] + 5, seed=i)
@@ -65,7 +79,7 @@ def test_anchor_batch_to_torch_forwards_every_key_dynamics_loss_needs():
                "priv_future": 0.25}
 
     b = sampler.batch(4)
-    bt = anchor_batch_to_torch(b)
+    bt = anchor_batch_to_torch(b, device="cpu")
 
     # The exact failure mode: these keys must be present and torch
     # tensors, or dynamics_loss raises KeyError before ever computing.
@@ -76,6 +90,15 @@ def test_anchor_batch_to_torch_forwards_every_key_dynamics_loss_needs():
         1 for k in HORIZONS if k <= 5)]) or True  # short horizons only
     for k, v in bt["current"].items():
         assert torch.is_tensor(v)
+
+    def tensors(value):
+        if isinstance(value, dict):
+            for child in value.values():
+                yield from tensors(child)
+        else:
+            yield value
+
+    assert all(t.device.type == "cpu" for t in tensors(bt))
 
     with torch.no_grad():
         out = model(bt["hist"], bt["fut_actions"])

@@ -172,6 +172,7 @@ def _init_wandb(args):
             "anchor_data": args.anchor_data,
             "anchor_batches": args.anchor_batches,
             "anchor_batch_size": args.anchor_batch_size,
+            "device": args.device,
             "init_from": args.init_from,
             "eval_every": args.eval_every,
             "eval_tasks": args.eval_tasks,
@@ -366,7 +367,7 @@ def eval_task(model, task: str, episodes: int, dr_scale: float,
     return out
 
 
-def anchor_batch_to_torch(b: dict) -> dict:
+def anchor_batch_to_torch(b: dict, device=None) -> dict:
     """Convert a WindowSampler/GpuWindowSampler batch (numpy/torch) into
     the exact key set ``dynamics_loss`` (model.py) reads.
 
@@ -386,23 +387,37 @@ def anchor_batch_to_torch(b: dict) -> dict:
     """
     import torch  # deferred import (matches main()'s lazy torch import)
     return {
-        "hist": torch.as_tensor(b["hist"]),
-        "fut_actions": torch.as_tensor(b["fut_actions"]),
-        "state": {k: torch.as_tensor(v)
+        "hist": torch.as_tensor(b["hist"], device=device),
+        "fut_actions": torch.as_tensor(b["fut_actions"], device=device),
+        "state": {k: torch.as_tensor(v, device=device)
                   for k, v in b["state"].items()},
-        "contact": {k: torch.as_tensor(v)
+        "contact": {k: torch.as_tensor(v, device=device)
                     for k, v in b["contact"].items()},
-        "contact_now": torch.as_tensor(b["contact_now"]),
-        "current": {k: torch.as_tensor(v)
+        "contact_now": torch.as_tensor(b["contact_now"], device=device),
+        "current": {k: torch.as_tensor(v, device=device)
                     for k, v in b["current"].items()},
-        "current_now": torch.as_tensor(b["current_now"]),
-        "priv_now": torch.as_tensor(b["priv_now"]),
-        "priv_mask_now": torch.as_tensor(b["priv_mask_now"]),
-        "priv": {k: torch.as_tensor(v)
+        "current_now": torch.as_tensor(b["current_now"], device=device),
+        "priv_now": torch.as_tensor(b["priv_now"], device=device),
+        "priv_mask_now": torch.as_tensor(b["priv_mask_now"], device=device),
+        "priv": {k: torch.as_tensor(v, device=device)
                  for k, v in b["priv"].items()},
-        "fut_hist": {k: torch.as_tensor(v)
+        "fut_hist": {k: torch.as_tensor(v, device=device)
                      for k, v in b["fut_hist"].items()},
     }
+
+
+def require_torch_device(torch, requested: str):
+    """Resolve the training device and make CUDA requests fail fast."""
+    device = torch.device(requested)
+    if device.type == "cuda":
+        if not torch.cuda.is_available():
+            raise RuntimeError(
+                "CUDA training was requested but torch.cuda.is_available() "
+                "is false; refusing to fall back to CPU"
+            )
+        # Allocation catches missing drivers/runtime before W&B creates a run.
+        torch.empty(1, device=device)
+    return device
 
 
 def main() -> None:
@@ -447,11 +462,12 @@ def main() -> None:
                     default="rl_move/dynamics/datasets/v2")
     ap.add_argument("--anchor-batches", type=int, default=4)
     ap.add_argument("--anchor-batch-size", type=int, default=256)
+    ap.add_argument("--device", choices=("cuda", "cpu"), default="cuda",
+                    help="torch device; defaults to CUDA and never silently "
+                         "falls back to CPU")
     ap.add_argument("--no-wandb", action="store_true",
                     help="explicitly disable required W&B tracking")
     args = ap.parse_args()
-
-    wandb_run = _init_wandb(args)
 
     import torch
     from stable_baselines3 import PPO
@@ -464,6 +480,14 @@ def main() -> None:
         DynFeaturesExtractor, ScaledLRPPO, set_group_lrs,
     )
 
+    device = require_torch_device(torch, args.device)
+    if device.type == "cuda":
+        gpu_name = torch.cuda.get_device_name(device)
+        print(f"[device] CUDA required and active: {gpu_name}", flush=True)
+    else:
+        print("[device] explicit CPU training", flush=True)
+    wandb_run = _init_wandb(args)
+
     torch.set_num_threads(2)
     venv = SubprocVecEnv(
         [_env_factory(args.task, args.seed * 1000 + i, args.dr_scale,
@@ -474,7 +498,7 @@ def main() -> None:
         n_steps=256, batch_size=min(2048, 256 * args.n_envs),
         learning_rate=args.lr, gamma=0.99, gae_lambda=0.95,
         ent_coef=1e-3, clip_range=0.2, seed=args.seed, verbose=0,
-        device="cpu", tensorboard_log=str(LOG_DIR / "tensorboard"))
+        device=device, tensorboard_log=str(LOG_DIR / "tensorboard"))
     enc_kwargs = dict(ckpt_path=str(ROOT / args.encoder),
                       frame_width=FRAME_WIDTH, history=HISTORY)
 
@@ -499,7 +523,7 @@ def main() -> None:
         # PPO.load hits on condition C's two-group optimizer).
         from stable_baselines3.common.save_util import load_from_zip_file
         _, params, _ = load_from_zip_file(str(ROOT / args.init_from),
-                                          device="cpu")
+                                          device=device)
         model.policy.load_state_dict(params["policy"])
     if args.condition == "C":
         set_group_lrs(model.policy, args.lr, args.encoder_lr_scale)
@@ -609,7 +633,7 @@ def main() -> None:
                 # or normalization wiring is wrong.
                 with torch.no_grad():
                     b = sampler.batch(args.anchor_batch_size)
-                    bt = anchor_batch_to_torch(b)
+                    bt = anchor_batch_to_torch(b, device=device)
                     out = dyn(bt["hist"], bt["fut_actions"])
                     loss, _ = dynamics_loss(out, bt, lambdas, dyn)
                 print(f"  anchor loss at start (pretrained, untouched): "
@@ -623,7 +647,7 @@ def main() -> None:
                 losses = []
                 for _ in range(args.anchor_batches):
                     b = sampler.batch(args.anchor_batch_size)
-                    bt = anchor_batch_to_torch(b)
+                    bt = anchor_batch_to_torch(b, device=device)
                     out = dyn(bt["hist"], bt["fut_actions"])
                     loss, _ = dynamics_loss(out, bt, lambdas, dyn)
                     anchor_opt.zero_grad()
