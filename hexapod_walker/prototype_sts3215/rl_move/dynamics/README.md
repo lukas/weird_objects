@@ -10,12 +10,12 @@ comparison. Full design + gates: `rl_docs/DYNREP.md`.
 
 | File | What it is |
 |------|------------|
-| `frames.py` | The canonical 86-dim per-tick feature frame (layout v1), extraction from a live sim env |
+| `frames.py` | The canonical 86-dim deployable per-tick feature frame (layout v2) plus privileged target sidecar; extraction from a live sim env |
 | `collect.py` | Rollout collector: 5 actor types x goal mixes x DR scales -> npz shards |
 | `data.py` | Shard loading, episode-hash train/val split, normalization stats, window sampler |
-| `model.py` | Frame MLP(256,256, SiLU) -> GRU(256) -> z(128) -> short-horizon raw-state heads + long-horizon latent heads |
+| `model.py` | Frame MLP(256,256, SiLU) -> GRU(256) -> z(128) -> short-horizon raw-state heads + current/future privileged-truth heads + long-horizon latent heads |
 | `train.py` | Pretraining loop; per-horizon train/val logging (CSV + optional W&B), best-val checkpoint |
-| `eval_model.py` | Gates G1 (legacy) + G1.1 (revised 2026-08-13, `--k1-ridge-tol`): held-out prediction vs persistence + linear-ridge baselines (information-matched to the model's input set); latent dump for probes/cluster analysis |
+| `eval_model.py` | Gates G1 (legacy) + G1.1 (revised 2026-08-13, `--k1-ridge-tol`): held-out prediction vs persistence + linear-ridge baselines (information-matched to the model's input set); privileged-target diagnostics; latent dump for probes/cluster analysis |
 | `probe_latents.py` | G3 linear probes from dumped z: roll/pitch/gyro R², per-foot contact balanced accuracy, shuffled-target chance floor |
 | `merge_shards.py` | Merge parallel per-seed collection subdirs (collect.py shard numbering races under concurrent writers); `--require-actor` guards against recipe drift |
 | `sb3_encoder.py` | `DynFeaturesExtractor`: stacked env obs -> un-scale -> pretrained encoder -> z (+goal tail); `ScaledLRPPO` + `set_group_lrs` for condition C's slow encoder LR |
@@ -71,6 +71,10 @@ and needs the two local champion checkpoints in
 `rl_move/sim/policies/` (already pulled; if one is missing its episode
 share falls back to random actions with a warning). Datasets are
 append-safe: re-running `collect` with a new `--seed` adds shards.
+The `priv` sidecar stores supervised simulator-only labels such as true
+body velocity, yaw rate, relative heading, command velocity and
+along/cross-command motion. These labels are targets and diagnostics
+only; they are not included in any encoder input set.
 
 ## Rules of the road
 

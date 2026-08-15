@@ -46,6 +46,8 @@ def _to_torch(batch: dict, device):
             "fut_actions": t(batch["fut_actions"]),
             "state": {k: t(v) for k, v in batch["state"].items()},
             "contact": {k: t(v) for k, v in batch["contact"].items()},
+            "priv_now": t(batch["priv_now"]),
+            "priv": {k: t(v) for k, v in batch["priv"].items()},
             "fut_hist": {k: t(v) for k, v in batch["fut_hist"].items()}}
 
 
@@ -57,9 +59,12 @@ def persistence_val_loss(sampler: dd.WindowSampler, n_windows: int,
     n = 0
     for b in sampler.val_batches(n_windows, batch):
         cur_state = b["hist"][:, -1, fr.STATE_SLICE]
+        cur_priv = b["priv_now"]
         for k in sampler.horizons:
             err = float(np.mean((cur_state - b["state"][k]) ** 2))
             sums[f"h{k}/state"] = sums.get(f"h{k}/state", 0.0) + err
+            perr = float(np.mean((cur_priv - b["priv"][k]) ** 2))
+            sums[f"h{k}/priv"] = sums.get(f"h{k}/priv", 0.0) + perr
         n += 1
     return {key: v / max(n, 1) for key, v in sums.items()}
 
@@ -114,6 +119,11 @@ def main() -> None:
     ap.add_argument("--lam-imu", type=float, default=1.0)
     ap.add_argument("--lam-contact", type=float, default=0.5)
     ap.add_argument("--lam-latent", type=float, default=1.0)
+    ap.add_argument("--lam-priv-current", type=float, default=0.25)
+    ap.add_argument("--lam-priv-future", type=float, default=0.25)
+    ap.add_argument("--no-priv-heads", action="store_true",
+                    help="disable privileged-truth prediction heads "
+                         "(legacy ablation; inputs are never privileged)")
     ap.add_argument("--wandb", action="store_true")
     args = ap.parse_args()
 
@@ -125,7 +135,9 @@ def main() -> None:
     lambdas = {"joint_pos": args.lam_joint_pos,
                "joint_vel": args.lam_joint_vel,
                "imu": args.lam_imu, "contact": args.lam_contact,
-               "latent": args.lam_latent}
+               "latent": args.lam_latent,
+               "priv_current": args.lam_priv_current,
+               "priv_future": args.lam_priv_future}
 
     eps = dd.load_dataset(ROOT / args.data)
     print(dd.describe(eps))
@@ -138,15 +150,15 @@ def main() -> None:
           f"device {device}")
 
     pers = persistence_val_loss(val_s, args.val_windows, args.batch)
-    pers_line = " ".join(f"{k.split('/')[0]}={v:.4f}"
-                         for k, v in sorted(pers.items()))
-    print(f"persistence baseline (val state MSE): {pers_line}")
+    pers_line = " ".join(f"{k}={v:.4f}" for k, v in sorted(pers.items()))
+    print(f"persistence baseline (val state/priv MSE): {pers_line}")
 
     model = DynamicsModel(input_set=args.input_set, z_dim=args.z_dim,
                           hidden=args.hidden, act_hidden=args.act_hidden,
                           gru_layers=args.gru_layers,
                           horizons=horizons,
-                          short_max=args.short_max).to(device)
+                          short_max=args.short_max,
+                          predict_priv=not args.no_priv_heads).to(device)
     n_params = sum(p.numel() for p in model.parameters())
     print(f"model: {n_params / 1e6:.2f}M params, input_set="
           f"{args.input_set}, z={args.z_dim}, horizons={horizons}")

@@ -35,9 +35,13 @@ The primary metric is **sample efficiency on a new task**.
   (action-conditioned by construction, never `state_t → state_{t+k}`
   alone).
 - **Horizons** t+1, t+2, t+5 → raw physical state (q, qd, IMU) MSE +
-  contact BCE; t+10, t+25 → future latent, target =
-  `stop_gradient(encoder(future_history))`. History window H=16
-  (25 Hz ⇒ 0.64 s).
+  contact BCE; current and all future horizons → privileged simulator
+  truths as auxiliary targets (true body-frame velocity, yaw rate,
+  relative heading sin/cos, command refs, along/cross-command motion,
+  chassis height); t+10, t+25 → future latent, target =
+  `stop_gradient(encoder(future_history))`. Privileged truths are
+  labels only, never encoder inputs. History window H=16 (25 Hz ⇒
+  0.64 s).
 - **Data** (`dynamics/collect.py`): diversity of physical experience
   over task labels. Actor mix random-OU / scripted tripod / scripted
   noslip / stance champion / walk champion, each with noise variants;
@@ -81,8 +85,9 @@ The primary metric is **sample efficiency on a new task**.
   gyro, prev action). It must still pass G1 (the `full` input set is
   the ceiling reference, not the transfer candidate).
 - **G3 — latent sanity**: dumped latents (`--dump-latents`) organize
-  visibly around upright/fallen, contact configuration, and tilt
-  before we claim "reusable body knowledge".
+  visibly around upright/fallen, contact configuration, tilt, true
+  velocity/yaw-rate and command-frame motion before we claim
+  "reusable body knowledge".
 
 ## First experimental comparison (after G1+G2)
 
