@@ -12,6 +12,7 @@ These tests exercise `_launch_locked` with every external call
 so nothing here touches a real pod or experiments.json.
 """
 import argparse
+import contextlib
 import importlib.util
 import sys
 from pathlib import Path
@@ -241,3 +242,34 @@ def test_respec_init_from_source_refused_for_dynrep(monkeypatch):
         init_from_source=True, now=False, pod=None,
         operator_override=None, track="")
     assert lr.cmd_respec({}, args) == 1
+
+
+def test_dynrep_checkup_floor_is_not_the_ppo_physics_fps_floor(monkeypatch):
+    """Regression (found 08-15 on cw-dynrep-tf-state2-recovered1, and
+    reproduced retroactively in the ledger on cw-dynrep-tf-state1):
+    dynrep/dynrep-fresh's W&B "global_step" is a GRADIENT step over a
+    fixed pre-collected window dataset, not a PPO physics env-step —
+    a completely different unit from the ~19-20k-fps GPU-MJX floor
+    calibrated for MJX rollout throughput. Both real runs steady-state
+    at ~41 step/s and both false-SUSPECTed against the flat 5000 floor.
+    A healthy ~41 step/s dynrep trainer must read HEALTHY."""
+    entry = {
+        "run": "cw-dynrep-gatecheck-checkup", "pod": "hexapod-mjx-train-1",
+        "created": "2026-08-15T00:00:00+00:00", "status": "RUNNING",
+        "trainer": "dynrep", "log": "/tmp/train_cw-dynrep-gatecheck-checkup.log",
+    }
+    monkeypatch.setattr(lr, "load_ledger", lambda: [entry])
+    monkeypatch.setattr(lr, "save_ledger", lambda entries: None)
+    monkeypatch.setattr(lr, "ledger_lock", lambda: contextlib.nullcontext())
+    monkeypatch.setattr(lr, "pod_trainers",
+                        lambda pod: ["cw-dynrep-gatecheck-checkup"])
+    monkeypatch.setattr(lr, "pod_cpu_limit", lambda pod: 26)
+    monkeypatch.setattr(lr, "kexec", lambda pod, script, timeout=60: "0")
+    monkeypatch.setattr(lr.time, "sleep", lambda s: None)
+    steps = iter([27750, 27750 + 41 * 45])  # matches recovered1's steady-state
+    monkeypatch.setattr(
+        lr, "wandb_running_runs",
+        lambda: {"cw-dynrep-gatecheck-checkup": {"global_step": next(steps)}})
+    a = SimpleNamespace(run="cw-dynrep-gatecheck-checkup")
+    g = {"compute": {"gpu_pods": ["hexapod-mjx-train-1"]}}
+    assert lr.cmd_checkup(g, a) == 0
