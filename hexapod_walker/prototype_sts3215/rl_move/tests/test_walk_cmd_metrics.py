@@ -10,6 +10,8 @@ checks are held-out EVAL tools; headline is raw signed v_along only):
     cost, k * remaining episode seconds added to the flat
     safety_termination_penalty on safety terminations only; default
     0.0 = legacy flat -10.
+  - safety.walk_max_height_drop_mm (sim_env): optional walk-only belly
+    collapse termination after safety.walk_height_grace_s; default off.
 
 Fast (~seconds): short episodes, scripted actions, no PPO.
 """
@@ -293,4 +295,28 @@ def test_term_cost_scales_with_remaining_horizon():
     expect = -(10.0 + k * max(env.episode_steps - n_fall, 0) * env.dt)
     assert abs(info["reward_termination"] - expect) < 1e-6, (
         f"{info['reward_termination']} != {expect}")
+    env.close()
+
+
+def test_walk_low_height_termination_is_opt_in_and_charges_horizon():
+    legacy = _walk_env(episode_seconds=60.0)
+    legacy.reset()
+    legacy._z0 += 0.10
+    _o, _r, term, _tr, info = legacy.step(_hold_action(legacy))
+    assert not term, info.get("termination_reason")
+    legacy.close()
+
+    k = 12.0
+    env = _walk_env(extra={
+        ("safety", "walk_max_height_drop_mm"): 90.0,
+        ("safety", "walk_height_grace_s"): 0.0,
+        ("reward", "term_cost_per_remaining_s"): k,
+    }, episode_seconds=60.0)
+    env.reset()
+    env._z0 += 0.10
+    _o, _r, term, _tr, info = env.step(_hold_action(env))
+    assert term
+    assert info["termination_reason"] == "walk_low_height"
+    expect = -(10.0 + k * (env.episode_steps - 1) * env.dt)
+    assert info["reward_termination"] == pytest.approx(expect)
     env.close()

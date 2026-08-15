@@ -2271,6 +2271,23 @@ class SimHexapodBalanceEnv(_GymBase):
         goal = self._current_goal()
         h_err = None
         h_rel = float(self.data.xpos[self._chassis_bid, 2]) - self._z0
+        # Optional walk-only collapse termination.  Tilt alone does not
+        # catch a level chassis resting on its belly, which lets a seated
+        # scoot survive and collect locomotion income for the full episode.
+        # Keep this opt-in so every existing task/config remains bit-exact.
+        walk_max_drop_mm = float(cfg_get(
+            self.cfg, "safety", "walk_max_height_drop_mm", default=0.0))
+        walk_height_grace_s = float(cfg_get(
+            self.cfg, "safety", "walk_height_grace_s", default=0.0))
+        if (not terminated and walk_max_drop_mm > 0.0
+                and self._goal_traj is not None
+                and getattr(self._goal_traj, "mode", "") == "walk"
+                and self._step_i * self.dt >= walk_height_grace_s
+                and h_rel < -walk_max_drop_mm * 0.001):
+            terminated = True
+            status.ok = False
+            status.terminate = True
+            status.reason = "walk_low_height"
         unload_f = None
         if goal is not None:
             # GETUP mode has no height reference at all: its staged
