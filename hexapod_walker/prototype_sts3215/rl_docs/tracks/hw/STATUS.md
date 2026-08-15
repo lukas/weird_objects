@@ -9,6 +9,19 @@ unresolved blockers between the robot and reliable joystick control.
 
 ## Now
 
+- **08-15 ~20:3x (operator-kick cycle, fb_20260815T194955_9441a0):
+  the replacement is LIVE as `cw-recover-any2b` (W&B u9sp8dki,
+  train-1, 40M, hw/acquisition)** — first attempt (`cw-recover-any2`,
+  W&B lf5afhd6) was a no-science FALSE START: train-1's fresh
+  bootstrap lacked sb3-contrib, the trainer's bg eval/video/canary
+  child died at first import and the run was permanently eval-blind;
+  killed at ~5M, pod env fixed, `bootstrap_train_pod.sh` patched
+  (sb3-contrib pinned + smoke import). any2b verified end-to-end at
+  1.2M: bucket-1-only curriculum active, per-kind EMAs/counts and
+  settled-reset telemetry live, `train/bc_anchor_*_recover` filling,
+  and the split eval already shows det onefoot 2/2 AND park 2/2
+  (`SCORE/recover_onefoot_success=1`, `park=1`) — the exact signal
+  any1 never produced in 13.5M. Bucket-1 gate as pre-registered.
 - **08-15 ~20:0x (operator-kick cycle, fb_20260815T193318_2cc049):
   `cw-recover-any1` KILLED at ~13.5M by OPERATOR ORDER (failed
   diagnostic: aggregate success 0, Phi/quality declining, NO

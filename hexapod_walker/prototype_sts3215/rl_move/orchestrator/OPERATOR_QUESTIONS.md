@@ -71,10 +71,16 @@ Entry format (append; newest last; update status in place):
 - what was executed: the order, fully — verified the concurrent
   cycle had already KILLED any1 (verdict recorded, process dead,
   its duplicate implementation dropped for aa1023c; conflicts
-  resolved to main by the time I acted), then launched
-  cw-recover-any2 myself (respec --from any1, parent
-  cw-stand-footlow2-hard1, all 7 cfg keys, train-1, W&B lf5afhd6,
-  snapshot 4f70cc13 = aa1023c code bit-exact). No duplicate launch
-  occurred (launcher dedupe would have REFUSED one). Suggest future
-  operator kicks that retarget a run named in a concurrency list
-  say so explicitly.
+  resolved to main by the time I acted), then launched the run
+  myself (respec --from any1, parent cw-stand-footlow2-hard1, all
+  7 cfg keys, train-1, aa1023c code bit-exact). First attempt
+  (W&B lf5afhd6, name cw-recover-any2) was a FALSE START — train-1's
+  fresh bootstrap lacked sb3-contrib so the bg eval/video/canary
+  child died at first import; killed at ~5M, pod env fixed,
+  bootstrap_train_pod.sh patched, relaunched as cw-recover-any2b
+  (W&B u9sp8dki; W&B names append-only). All directive
+  verifications pass on any2b incl. split onefoot/park eval
+  (SCORE/recover_onefoot_success=1, park=1 at 1.0M). No duplicate
+  launch occurred (launcher dedupe REFUSED correctly). Suggest
+  future operator kicks that retarget a run named in a concurrency
+  list say so explicitly.
