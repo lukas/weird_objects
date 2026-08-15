@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-08-15T18:30:34+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 38000000
 
 **parent**: cw-arch-tf-joymodes-scratch1
+
+**wandb_id**: 7sualbv3
 
 **hypothesis**: Keep training the same random-initialized joystick Transformer lineage for its honest 40M total learning budget. The 2M checkpoint proved the machinery works but was only 5% of the budget this architecture previously needed; if the direction reward and command curriculum work, the immature stilt posture should give way to a stable six-leg gait as command-aligned speed and mode-switch tracking continue improving through acquisition.
 

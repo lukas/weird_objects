@@ -88173,7 +88173,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "in-cycle cw-mt-b1-dualgru1 since 2026-08-15T18:31:32"
   },
   {
     "run": "cw-arch-tf-joymodes-scratch1-c1",
@@ -88369,7 +88370,7 @@
       "rl_move/sim/policies/ppo_goal_cw_arch_tf_joymodes_scratch1.zip"
     ],
     "created": "2026-08-15T18:30:34+00:00",
-    "status": "INTENT",
+    "status": "RUNNING",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -88379,7 +88380,18 @@
       "code_sha_local": "b2ec5a92f861061556137b61f33a6016e59ac7db",
       "code_sha_pod": "b2ec5a92f861061556137b61f33a6016e59ac7db",
       "init_from_on_pod": true,
-      "wandb_env_on_pod": true
+      "wandb_env_on_pod": true,
+      "pid": "19960",
+      "log_growth_bytes": [
+        7980,
+        11770
+      ],
+      "wandb_id": "7sualbv3",
+      "global_step_window": [
+        344064,
+        491520
+      ],
+      "fps_estimate": 4915.2
     },
     "trainer": "ppo",
     "stack": "gpu-mjx",
@@ -88387,6 +88399,8 @@
     "assessment_scope": "full_budget_skill_acquisition",
     "evidence": "cw-arch-tf-joymodes-scratch1 is a corrected CANARY PASS: CUDA Transformer mechanism healthy, finite optimization, required command telemetry present and moving. Comparable architecture precedent cw-arch-tf-r1-hard1 required 40M total steps to progress from its falling 2M canary to gait_valid 6/6 with zero falls.",
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:arch nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-arch-tf-joymodes-scratch1-acq1 --steps 38000000 --task joint_walk --dr-scale 0.5 --episode-seconds 15 --ent-coef 0.01 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --device cuda --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.k_walk_prog=0.0 --cfg-set reward.k_walk_cmd_track=2.0 --cfg-set goal.walk_speed_min_m_s=0.03 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set reward.walk_gait_gate=1.0 --cfg-set goal.walk_heading_max_rad=3.141592653589793 --cfg-set goal.walk_cmd_mode=stress_mix --cfg-set goal.walk_cmd_resample_s=4.0 --cfg-set goal.walk_cmd_resample_jitter=0.5 --cfg-set goal.walk_cmd_blend_s_min=0.0 --cfg-set goal.walk_cmd_blend_s_max=0.0 --cfg-set goal.walk_cmd_sweep_period_s=12.0 --cfg-set goal.walk_cmd_jitter_rad=0.25 --cfg-set goal.walk_stop_frac=0.0 --cfg-set goal.walk_cmd_metrics=1.0 --cfg-set obs.history_frames=16 --transformer --n-envs 3072 --impl warp --host-workers 24 --out-name ppo_goal_cw_arch_tf_joymodes_scratch1_acq1 --notes 'respec of cw-arch-tf-joymodes-scratch1: Keep training the same random-initialized joystick Transformer lineage for its honest 40M total learning budget. The 2M checkpoint proved the machinery works but was only 5% of the budget this architecture previously needed; if the direction reward and command curriculum work, the immature stilt posture should give way to a stable six-leg gait as command-aligned speed and mode-switch tracking continue improving through acquisition.' --init-from rl_move/sim/policies/ppo_goal_cw_arch_tf_joymodes_scratch1.zip > /tmp/train_cw-arch-tf-joymodes-scratch1-acq1.log 2>&1 < /dev/null & echo $!",
-    "log": "/tmp/train_cw-arch-tf-joymodes-scratch1-acq1.log"
+    "log": "/tmp/train_cw-arch-tf-joymodes-scratch1-acq1.log",
+    "wandb_id": "7sualbv3",
+    "verified": "2026-08-15T18:33:37+00:00"
   }
 ]
