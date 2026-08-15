@@ -107,6 +107,15 @@ CANDIDATES: dict[str, dict] = {
         "walk": "rl_move/sim/policies/ppo_goal_cw_dep_bcgait1_hard1.zip",
         "cfg": ["goal.walk_obs_body_vel=2"],
     },
+    # F. cohort c4 candidate: postlower4 stance (in-context sequence
+    # training + goal.mode_seq_rise_from_h, the "stand up from where
+    # you are" fix for the c3 belly-detour) + the SAME frozen tall
+    # walker as `spec` — SESSION_BULK_GATE.md "Cohort c4".
+    "spec-pl4": {
+        "stand": "rl_move/sim/policies/ppo_goal_cw_stand_postlower4.zip",
+        "walk": "rl_move/sim/policies/ppo_goal_cw_dep_bcgait1_hard1.zip",
+        "cfg": ["goal.walk_obs_body_vel=2"],
+    },
 }
 MODES = ("det", "sto")
 
