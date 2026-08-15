@@ -154,6 +154,11 @@ _MODE_FAMILY = {
     # score — command-wise it is the walk family (vx/vy refs already
     # in the goal obs carry the within-mode command).
     "getup": "walk",
+    # recover (recover_to_plant, 08-15 operator directive
+    # fb_20260815T165306_606974): reach a full-height quiet six-loaded
+    # stand from any recoverable state, zero velocity command
+    # throughout — command-wise it is the rise family.
+    "recover": "rise",
     "quad": "quad",
     # quadwalk = quad-family locomotion (08-13, quad track "four-leg
     # WALKING" spec): the quad one-hot bit + non-zero vx/vy refs carry
@@ -255,6 +260,18 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # exist (not just a getattr default) so the eval harness's
         # p_<mode> forcing can isolate the mode.
         self._goal_gen.p_quadwalk = 0.0
+        # recover_to_plant (08-15, operator directive fb_20260815T165306
+        # _606974): universal recovery to a quiet six-loaded stand.
+        # Default 0 = never sampled; the _sample_goal cdf gains an EMPTY
+        # interval so every legacy rng stream is bit-exact unchanged.
+        # Enable per-run via --goal-mix recover=<p>.
+        self._goal_gen.p_recover = 0.0
+        # Adaptive reset-bank curriculum state (recover mode only).
+        # PERSISTENT across episodes (like _lp_weights, NOT in
+        # SNAP_ATTRS): per-start-kind success EMA + episode count, and
+        # the number of admitted difficulty families.
+        self._rec_stats = {}
+        self._rec_active_n = 2
         # Swing-bonus bookkeeping (see step()): per-foot contact state
         # and world XY at the moment of liftoff.
         self._pad_bids = [self.model.body(f"L{i}_pad").id
@@ -934,6 +951,146 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         traj.start_kind = kind
         return traj
 
+    # ---- recover_to_plant (08-15, operator directive
+    # fb_20260815T165306_606974): reach a full-height, level, quiet
+    # standing pose with ALL SIX feet loaded, from any recoverable
+    # start, then HOLD it 0.5 s — the episode ends on held success.
+    # Zero velocity command throughout (this is the recovery
+    # specialist; walking is another mode's job). Start-state
+    # curriculum = difficulty FAMILIES of start kinds, admitted
+    # adaptively from per-kind success EMAs (buckets 1-2 first, per
+    # the directive). Reward is a potential DIFFERENCE (PBRS) on
+    # bounded [0,1] features + one-shot success bonus + a
+    # rate-normalized time tax — no occupancy/hold income, no alive
+    # bonus (see _recover_reward / REWARD.md §4c).
+    #
+    # v1 family map (directive families 1-4 + 7; families 5-6 —
+    # walking-under-push falling states and on-policy failure
+    # harvests — need harvest infra and are the pre-registered next
+    # rung, recorded as a deviation in the run's ledger entry):
+    #   fam 0 (bucket 1): "onefoot" (plant with ONE leg lifted),
+    #                     "park"    (tripod lifted)
+    #   fam 1 (bucket 2): "crouch", "partial" (interrupted rise),
+    #                     "bank"    (harvested post-lower endpoints,
+    #                                only when goal.recover_start_bank
+    #                                is configured)
+    #   fam 2 (bucket 3): "zero" (belly), "tangle" (random legal
+    #                     joints, settles however it lands incl.
+    #                     tipped — the dropped/settled coverage family)
+    #   fam 3 (bucket 4): "flip" (random base orientation drop:
+    #                     side/back/upside-down)
+    RECOVER_FAMILIES = (("onefoot", "park"),
+                        ("crouch", "partial", "bank"),
+                        ("zero", "tangle"),
+                        ("flip",))
+
+    def _recover_active_kinds(self) -> list:
+        """Kinds in the currently admitted families ("bank" only when a
+        bank file is configured)."""
+        kinds = []
+        has_bank = cfg_get(self.cfg, "goal", "recover_start_bank",
+                           default=None) is not None
+        for fam in self.RECOVER_FAMILIES[:self._rec_active_n]:
+            kinds += [k for k in fam if k != "bank" or has_bank]
+        return kinds
+
+    def _recover_kind_weights(self, kinds: list) -> np.ndarray:
+        """Adaptive sampler weights (directive proportions): frontier
+        kinds (success EMA 20-80%, or <8 episodes seen) carry the bulk
+        (0.55), mastered kinds (>80%) keep retention pressure (0.20),
+        struggling kinds (<20%) stay pressured but reduced (0.35), the
+        next NOT-yet-admitted family's kinds get a hard probe share
+        (0.15 — this is also what feeds the admission statistics), and
+        a uniform fresh floor (0.10 split) keeps every kind alive.
+        Pure function of self._rec_stats; unit-tested in the semantics
+        bank."""
+        w = []
+        for k in kinds:
+            ema, n = self._rec_stats.get(k, (0.5, 0))
+            if n < 8 or 0.2 <= ema <= 0.8:
+                w.append(0.55)          # frontier
+            elif ema > 0.8:
+                w.append(0.20)          # mastered retention
+            else:
+                w.append(0.35)          # struggling: keep pressure
+        w = np.asarray(w, dtype=float)
+        w += 0.10 / max(len(kinds), 1)  # fresh floor
+        return w / w.sum()
+
+    def _recover_update_admission(self) -> None:
+        """Advance/retreat the family ladder from the stats: admit the
+        next family when every kind of the HARDEST ACTIVE family has
+        n>=12 and success EMA >=0.8; retreat (never below 2 families)
+        when any kind of the last-admitted family has n>=20 and EMA
+        <0.2 (directive: >=80% advance, <20% retreat)."""
+        hard = [k for k in self.RECOVER_FAMILIES[self._rec_active_n - 1]
+                if k != "bank" or cfg_get(self.cfg, "goal",
+                                          "recover_start_bank",
+                                          default=None) is not None]
+        st = self._rec_stats
+        if (self._rec_active_n < len(self.RECOVER_FAMILIES)
+                and hard
+                and all(st.get(k, (0.0, 0))[1] >= 12
+                        and st.get(k, (0.0, 0))[0] >= 0.8
+                        for k in hard)):
+            self._rec_active_n += 1
+        elif (self._rec_active_n > 2
+                and any(st.get(k, (1.0, 0))[1] >= 20
+                        and st.get(k, (1.0, 0))[0] < 0.2
+                        for k in hard)):
+            self._rec_active_n -= 1
+
+    def _sample_recover(self) -> WalkTrajectory:
+        """One recover_to_plant episode: adaptive start-kind draw, zero
+        commands, mode 'recover', env-side 'any' spawn branch builds
+        the pose (start_kind rides the trajectory, same contract as
+        getup). Hook (bank/eval only, not a cfg key):
+        force_recover_start pins the kind — the weight computation and
+        the draw still happen, so rng streams are identical whether or
+        not the hook is armed."""
+        if float(cfg_get(self.cfg, "goal", "mode_seq",
+                         default=0.0)) > 0.0:
+            # The mode-seq frame probes call _place_at_plant before the
+            # episode placement and would consume the flip-spawn
+            # pending quat; the combination is also semantically
+            # meaningless (recover episodes are single-goal). Refuse
+            # loudly instead of training a corrupted diet.
+            raise ValueError("goal.mode_seq is incompatible with the "
+                             "recover mode (frame probes vs flip "
+                             "spawns); run recover as a single-mode "
+                             "diet")
+        self._recover_update_admission()
+        kinds = self._recover_active_kinds()
+        w = self._recover_kind_weights(kinds)
+        # probe share for the next not-yet-admitted family (0.15),
+        # renormalized against the active weights
+        if self._rec_active_n < len(self.RECOVER_FAMILIES):
+            probe = [k for k in
+                     self.RECOVER_FAMILIES[self._rec_active_n]
+                     if k != "bank" or cfg_get(
+                         self.cfg, "goal", "recover_start_bank",
+                         default=None) is not None]
+            if probe:
+                kinds = kinds + probe
+                w = np.concatenate(
+                    [w * 0.85, np.full(len(probe), 0.15 / len(probe))])
+                w = w / w.sum()
+        r = float(self.rng.random())
+        kind = kinds[int(np.searchsorted(np.cumsum(w), r,
+                                         side="right").clip(
+                                             0, len(kinds) - 1))]
+        force = getattr(self, "force_recover_start", None)
+        if force is not None:
+            kind = str(force)
+        n = self.episode_steps + 1
+        zeros = np.zeros(n)
+        traj = WalkTrajectory(mode="recover", roll=zeros.copy(),
+                              pitch=zeros.copy(), height=zeros.copy(),
+                              unload_leg=None, start_at="any",
+                              vx=zeros.copy(), vy=zeros.copy(), wz=None)
+        traj.start_kind = kind
+        return traj
+
     # ---- mode sequencing (goal.mode_seq; TRANSITIONS_DIRECTIVE item 1)
     #
     # Episode = K back-to-back mode segments following the operator's
@@ -1098,16 +1255,18 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         p_walk = float(getattr(gen, "p_walk", 0.0))
         p_getup = float(getattr(gen, "p_getup", 0.0))
         p_qw = float(getattr(gen, "p_quadwalk", 0.0))
+        p_rec = float(getattr(gen, "p_recover", 0.0))
         p_base = (gen.p_hold + gen.p_lean + gen.p_track + gen.p_unload
                   + gen.p_raise + gen.p_rise + gen.p_lower
                   + getattr(gen, "p_quad", 0.0))
-        tot = p_walk + p_getup + p_qw + p_base
+        tot = p_walk + p_getup + p_qw + p_rec + p_base
         if tot <= 0:
             return self._sample_walk()
-        # Single draw, walk-first cdf: with p_getup == p_quadwalk == 0
-        # (default) the draw and its use are bit-identical to the
-        # legacy two-way split, so every existing lineage's rng stream
-        # is unchanged (a zero-probability mode is an empty interval).
+        # Single draw, walk-first cdf: with p_getup == p_quadwalk ==
+        # p_recover == 0 (default) the draw and its use are
+        # bit-identical to the legacy two-way split, so every existing
+        # lineage's rng stream is unchanged (a zero-probability mode is
+        # an empty interval).
         r = self.rng.random() * tot
         if r < p_walk:
             return self._sample_walk()
@@ -1115,6 +1274,8 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             return self._sample_getup()
         if r < p_walk + p_getup + p_qw:
             return self._sample_quadwalk()
+        if r < p_walk + p_getup + p_qw + p_rec:
+            return self._sample_recover()
         return super()._sample_goal()
 
     def _current_goal(self):
@@ -1859,6 +2020,9 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             reward, info = self._quad_income(float(reward), info)
         elif getattr(self, "_is_getup", False):
             reward, info = self._getup_reward(float(reward), info)
+        elif getattr(self, "_is_recover", False):
+            reward, term, info = self._recover_reward(
+                float(reward), term, trunc, info)
         return obs, reward, term, trunc, info
 
     def _quad_income(self, reward: float, info: dict) -> tuple:
