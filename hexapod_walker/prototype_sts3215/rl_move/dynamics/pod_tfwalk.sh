@@ -33,10 +33,10 @@ ENC=${ENC:-rl_move/dynamics/models/cw-dynrep-tf-state2-recovered1.pt}
 DATA=${DATA:-rl_move/dynamics/datasets/v5_mjx_fresh}
 WALK_STEPS=${WALK_STEPS:-1000000}
 EVAL_EVERY=${EVAL_EVERY:-10000}
-COHORT_NAME=${COHORT_NAME:-tfwalk}
+COHORT_NAME=${COHORT_NAME:-tfwalk-gpu1}
 LOG=rl_move/dynamics/logs
 MANIFEST="$LOG/${COHORT_NAME}_manifest.jsonl"
-NAME="dynrep-tfwalk-${COND}-s${SEED}"
+NAME="dynrep-${COHORT_NAME}-${COND}-s${SEED}"
 mkdir -p "$LOG"
 echo "== pod_tfwalk start $(date -u +%FT%TZ) host=$(hostname)" \
      "cond=$COND seed=$SEED steps=$WALK_STEPS enc=$ENC"
