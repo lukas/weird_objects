@@ -223,8 +223,11 @@ class MjxVecEnv(VecEnv):
         # Mirrors the C re-mint condition: once when the model cannot
         # change, per choreography under DR (tick-param scales and
         # model-field draws both move the settled frames).
-        seq_on = float(cfg_get(getattr(self.envs[0], "cfg", None) or {},
-                               "goal", "mode_seq", default=0.0)) > 0.0
+        _seq_cfg = getattr(self.envs[0], "cfg", None) or {}
+        seq_on = (float(cfg_get(_seq_cfg, "goal", "mode_seq",
+                                default=0.0)) > 0.0
+                  or float(cfg_get(_seq_cfg, "goal", "mode_seq_stance",
+                                   default=0.0)) > 0.0)
         mint = seq_on and (self._model_dr
                            or any(e.randomizer is not None
                                   for e in self.envs)

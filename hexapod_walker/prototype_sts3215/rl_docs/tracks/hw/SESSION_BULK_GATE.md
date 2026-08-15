@@ -227,3 +227,56 @@ same recipe otherwise) launched same cycle to separate the two
 hypotheses cheaply before any further hardening or reward-side
 change. Product baseline is UNCHANGED (still the c1 hierarchy);
 this FAIL does not touch it.
+
+---
+
+## Cohort c3 — pre-registered gate for the postlower3 lineage (in-context sequence training)
+
+Registered: 2026-08-15 (idle-kick cycle), BEFORE the arm trained
+(snapshot tag `exp/cw-stand-postlower3`). Arm: `cw-stand-postlower3`
+(discovery, 2M) — the c2 dig-in's named mechanism change. The
+cold-spawn exposure class (postlower1/2, `goal.rise_start_bank*`) is
+CLOSED by two misses + the impossible-target root cause; this arm
+trains the transition IN CONTEXT instead: `goal.mode_seq_stance=0.5`
+(new default-off key, stance-only grammar rise→hold→lower→rise on the
+joint_goal task, tests `test_mode_seq_stance.py`) gives half of all
+episodes an in-episode mode sequence — a lower-first sequence IS the
+post-lower rise with real transition context (warm policy state,
+canonical per-family re-anchor, blend window), and the mid-sequence
+rise target is anchored at the sequence's OWN commanded stand height
+(`_seq_stand_z`), mechanically reachable by construction (the c2 bug
+class is impossible here; locked by
+`test_lower_to_rise_targets_remaining_rise`). Everything else is the
+footlow2_hard1 recipe unchanged (warm from footlow2_hard1; walk ckpt
+frozen and untouched).
+
+- Instrument + grammar identical to c1/c2 (`bulk_session_eval`,
+  entry-slew on, `rise,walk,lower,rise,walk`, 300 det + 300 sto).
+- FRESH held-out shard-seed banks (c1's 900000../910000.. and c2's
+  920000../930000.. are RETIRED): **det = 940000..940049,
+  sto = 950000..950049** (`COHORT_SEED_BASE["c3"]`).
+- Candidate: `spec-pl3` = `ppo_goal_cw_stand_postlower3` +
+  `bcgait1_hard1` walk (frozen). Baselines = c1 spec (parent stance):
+  det 0.967 [0.940, 0.982]; det post-lower rise 0.967; sto post-lower
+  rise 0.801 CI [0.752, 0.842]; sto zero-fall 0.853.
+- **PASS iff ALL of (same clauses as c2):** (1) sto post-lower rise
+  ≥ 0.90 AND Wilson 95% CI lower bound > 0.842 (true separation
+  above the parent); (2) det complete-session zero-fall ≥ 0.95;
+  (3) det post-lower rise ≥ 0.967 (no det regression); (4) det
+  first-rise strata (flat/bridge/crouch) each ≥ 0.95 AND lower
+  segments ≥ 0.99 (crown jewels); (5) standard stance gate +
+  eval_session hard gates pass, roll_tail/drag/slip quoted vs
+  footlow2_hard1 (no visual-quality regression — the c2 623mm hold
+  drag counts as a FAIL here even if counts pass).
+- **Discovery framing:** the arm is a 2M mechanism probe. Full PASS
+  on c3 = a promotion-grade candidate (proceed to bench wait). A
+  PARTIAL (sto post-lower rise separated ABOVE parent but short of
+  0.90, retention clean) = mechanism confirmed → one 6M hardening
+  re-run of the identical recipe, judged on a fresh cohort c4
+  (bases bump per clause 7). Post-lower rise ≤ parent OR any
+  retention/visual clause broken = the in-context class misses its
+  first shot; per two-miss discipline the NEXT change must be
+  mechanism-level again (e.g. sequence-RSI mid-lower spawns or
+  reward-side rise pricing), not a dose/diet resweep.
+- Banks retire the moment aggregate.json is read, pass or fail
+  (clause 7 convention).

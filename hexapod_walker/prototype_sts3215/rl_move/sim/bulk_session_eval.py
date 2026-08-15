@@ -74,6 +74,7 @@ OUT_ROOT = Path("logs/bulk_session")
 # unchanged -> bit-exact for every pre-08-14-cycle-2 caller.
 COHORT_SEED_BASE: dict[str, tuple[int, int]] = {
     "c2": (920000, 930000),   # cw-stand-postlower1 gate (retire on read)
+    "c3": (940000, 950000),   # postlower3 lineage gate (retire on read)
 }
 
 CANDIDATES: dict[str, dict] = {
@@ -94,6 +95,14 @@ CANDIDATES: dict[str, dict] = {
     # "Cohort c2".
     "spec-pl": {
         "stand": "rl_move/sim/policies/ppo_goal_cw_stand_postlower1.zip",
+        "walk": "rl_move/sim/policies/ppo_goal_cw_dep_bcgait1_hard1.zip",
+        "cfg": ["goal.walk_obs_body_vel=2"],
+    },
+    # E. cohort c3 candidate: postlower3 stance (in-context lower->rise
+    # sequence training, goal.mode_seq_stance) + the SAME frozen tall
+    # walker as `spec` — SESSION_BULK_GATE.md "Cohort c3".
+    "spec-pl3": {
+        "stand": "rl_move/sim/policies/ppo_goal_cw_stand_postlower3.zip",
         "walk": "rl_move/sim/policies/ppo_goal_cw_dep_bcgait1_hard1.zip",
         "cfg": ["goal.walk_obs_body_vel=2"],
     },

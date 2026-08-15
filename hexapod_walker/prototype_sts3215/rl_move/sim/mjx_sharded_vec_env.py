@@ -532,9 +532,12 @@ class MjxShardedVecEnv(VecEnv):
         # goal.mode_seq: allocate the mint's probe arrays only when the
         # cfg enables the feature (mirrors MjxVecEnv's seq_on gate; the
         # fractional-p semantics landed 08-14 make any p>0 eligible).
-        self._seq_on = float(cfg_get(env_kwargs.get("cfg") or {},
-                                     "goal", "mode_seq",
-                                     default=0.0)) > 0.0
+        _seq_cfg = env_kwargs.get("cfg") or {}
+        self._seq_on = (float(cfg_get(_seq_cfg, "goal", "mode_seq",
+                                      default=0.0)) > 0.0
+                        or float(cfg_get(_seq_cfg, "goal",
+                                         "mode_seq_stance",
+                                         default=0.0)) > 0.0)
         layout = _shm_layout(
             B, act_space.shape[0], obs_space.shape[0], self.mj_model.nq,
             self.mj_model.nv, self.mj_model.nsensordata,

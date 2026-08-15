@@ -1448,8 +1448,10 @@ class SimHexapodBalanceEnv(_GymBase):
         # episode start is untouched. Cached across resets when the
         # model cannot change (no DR, no easing); recomputed per episode
         # otherwise.
-        if (float(cfg_get(self.cfg, "goal", "mode_seq",
-                          default=0.0)) > 0.0
+        if ((float(cfg_get(self.cfg, "goal", "mode_seq",
+                           default=0.0)) > 0.0
+             or float(cfg_get(self.cfg, "goal", "mode_seq_stance",
+                              default=0.0)) > 0.0)
                 and (self._seq_frames is None
                      or self._ep_rand is not None
                      or self._ease_g != 1.0 or self._ease_v != 1.0)):
@@ -1942,9 +1944,11 @@ class SimHexapodBalanceEnv(_GymBase):
 
     def _seq_segment_traj(self, mode: str, tick: int):
         """Build one mid-episode segment's reference schedule. Only the
-        walk task supports mode sequencing; see walk_task override."""
+        goal tasks support mode sequencing: goal_task (rise/hold/lower,
+        goal.mode_seq_stance) and walk_task (adds walk, goal.mode_seq)."""
         raise NotImplementedError(
-            "goal.mode_seq segments require the joint_walk task")
+            "mode_seq segments require a goal task (joint_goal for "
+            "stance-only sequences, joint_walk for walk grammars)")
 
     # Segment family -> canonical start pose the frame probe settles at.
     # walk/hold/track/lower episodes all reset at the plant; rise resets

@@ -933,9 +933,6 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         BEFORE calling (settled plant for walk/hold/lower, settled
         belly for rise — sim_env._seq_capture_frames). Returns
         (traj, h_target, ramp_i0)."""
-        gen = self._goal_gen
-        rng = self.rng
-        dt = self.dt
         n = self.episode_steps + 1
         m = n - tick
         if mode == "walk":
@@ -951,46 +948,11 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 setattr(base, name, out)
             base.start_at = "plant"    # reset-only hint, unused here
             return base, 0.0, 0
-        height = np.zeros(n)
-        h_target = 0.0
-        ramp_i0 = 0
-        if mode == "rise":
-            # Aim back at the last commanded stand height when known
-            # (the joystick semantics of "stand up" mid-cycle); a
-            # sequence that has never stood draws the legacy amplitude.
-            if self._seq_stand_z is not None:
-                amp = min(max(self._seq_stand_z - self._z0, 0.010),
-                          gen.rise_m[1])
-            else:
-                amp = float(rng.uniform(*gen.rise_m))
-            hold_n = max(1, int(round(1.0 / dt)))
-            ramp_n = max(1, int(round(gen._jittered_s(
-                rng, gen.rise_ramp_s, gen.rise_ramp_jitter) / dt)))
-            i1 = min(tick + hold_n, n)
-            end = min(i1 + ramp_n, n)
-            height[i1:] = amp
-            if end > i1:
-                height[i1:end] = np.linspace(0.0, amp, end - i1)
-            h_target = amp
-            ramp_i0 = i1
-            self._seq_stand_z = self._z0 + amp
-        elif mode == "lower":
-            target = -float(rng.uniform(*gen.lower_m))
-            hold_n = max(1, int(round(gen.lower_hold_s / dt)))
-            ramp_n = max(1, int(round(gen._jittered_s(
-                rng, gen.lower_ramp_s, gen.lower_ramp_jitter) / dt)))
-            i1 = min(tick + hold_n, n)
-            end = min(i1 + ramp_n, n)
-            height[i1:] = target
-            if end > i1:
-                height[i1:end] = np.linspace(0.0, target, end - i1)
-            h_target = target
-        elif mode != "hold":
-            raise ValueError(f"mode_seq: unsupported segment {mode!r}")
-        traj = GoalTrajectory(mode=mode, roll=np.zeros(n),
-                              pitch=np.zeros(n), height=height,
-                              unload_leg=None, start_at="plant")
-        return traj, h_target, ramp_i0
+        # rise/hold/lower segment schedules moved to the shared base
+        # (goal_task.SimHexapodGoalEnv._seq_segment_traj, 08-15,
+        # stance-only sequencing) — identical statements, identical rng
+        # draw order, so walk-task sequence streams are unchanged.
+        return super()._seq_segment_traj(mode, tick)
 
     def _seq_reset_mode_state(self, mode: str, ramp_i0: int,
                               h_target: float) -> None:
@@ -1027,6 +989,15 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # their historical rng streams).
         p_seq = float(cfg_get(self.cfg, "goal", "mode_seq",
                               default=0.0))
+        if float(cfg_get(self.cfg, "goal", "mode_seq_stance",
+                         default=0.0)) > 0.0:
+            # The stance-only planner (goal_task, 08-15) belongs to the
+            # joint_goal task; on joint_walk the base-mode fallback
+            # below would start stance sequences mid-draw — refuse
+            # loudly instead of training a misconfigured diet.
+            raise ValueError(
+                "goal.mode_seq_stance is a joint_goal-task key; use "
+                "goal.mode_seq on the joint_walk task")
         if p_seq >= 1.0 or (p_seq > 0.0 and self.rng.random() < p_seq):
             return self._sample_mode_seq()
         gen = self._goal_gen
