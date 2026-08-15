@@ -4,9 +4,9 @@
 
 **status**: REFUSED
 
-**created**: 2026-08-15T17:32:46+00:00
+**created**: 2026-08-15T17:34:28+00:00
 
-**pod**: hexapod-mjx-train-0
+**pod**: hexapod-mjx-train-1
 
 **steps**: 2000000
 
@@ -16,5 +16,5 @@
 
 **gate**: PASS discovery mechanism = VERIFIED RUNNING with no NaN/crash, reward_walk_cmd_track and v_along/v_cross/wrong_way telemetry present, training reward improves, and the 2M checkpoint shows an emerging six-leg gait with command-aligned motion in multiple schedule modes. FAIL = launch/runtime bug, absent telemetry, parked/one-leg exploit, or no command-conditioned movement signal by 2M; then fix mechanism rather than extending steps.
 
-**refused_reason**: hexapod-mjx-train-0: --device cuda requested but has no recorded CUDA-torch capability (pod_torch_capability.py install/verify + record first, or drop --device cuda to keep the pod's default CPU-torch)
+**refused_reason**: hexapod-mjx-train-1 code marker 4c723840ae847a63c4b579da7cf7055c70aefab6 != local HEAD ea25552a3d29516e37b96fda7715298424183ecb. Sync first: snapshot.sh --sync hexapod-mjx-train-1 (and snapshot/commit before that if the tree is dirty).
 
