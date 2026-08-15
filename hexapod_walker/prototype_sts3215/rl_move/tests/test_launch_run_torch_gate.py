@@ -62,6 +62,7 @@ def _patch_common(monkeypatch):
             return False
 
     monkeypatch.setattr(lr, "LAUNCH_HOLD", _NeverExists())
+    return _kexec
 
 
 def _guardrails():
@@ -119,3 +120,25 @@ def test_dynrep_uses_recorded_capability_and_live_runtime_probe(monkeypatch):
         ["--device", "cuda", "--data", "ds1", "--arch", "transformer"])
     assert calls == ["hexapod-mjx-train-1"]
     assert rc == 0
+
+
+def test_dynrep_launch_timeout_recovers_anchored_trainer_pid(monkeypatch):
+    base_kexec = _patch_common(monkeypatch)
+    monkeypatch.setattr(lr._torch_cap, "is_capable", lambda pod: True)
+
+    def timeout_on_launch(pod, script, timeout=60):
+        if "nohup" in script and " -m rl_move.dynamics.train" in script:
+            raise lr.subprocess.TimeoutExpired("kubectl exec", timeout)
+        return base_kexec(pod, script, timeout)
+
+    recovered = []
+    monkeypatch.setattr(lr, "kexec", timeout_on_launch)
+    monkeypatch.setattr(
+        lr, "_pod_trainer_pid",
+        lambda pod, run: recovered.append((pod, run)) or "4184935")
+    a = _ns(run="cw-dynrep-timeout", trainer="dynrep", dry_run=False)
+    ctx = lr._launch_locked(
+        _guardrails(), a,
+        ["--device", "cuda", "--data", "ds1", "--arch", "transformer"])
+    assert recovered == [("hexapod-mjx-train-1", "cw-dynrep-timeout")]
+    assert ctx["pid"] == "4184935"
