@@ -140,6 +140,14 @@ def collect(envs: dict, teachers: dict, episodes_by_mode: dict[str, int],
     return episodes
 
 
+def _episode_split(total: int, mix: dict[str, float]) -> dict[str, int]:
+    """Split ``total`` episodes across ``mix`` weights (dropping
+    zero-weight modes), each mode getting at least 1 episode if its
+    weight is > 0. Shared by --episodes/--mix, --dagger-episodes/--mix
+    and --dagger-extra-episodes/--dagger-extra-mix (same convention)."""
+    return {m: max(1, round(total * w)) for m, w in mix.items() if w > 0}
+
+
 def _seq_teacher(mode: str, teachers: dict):
     """Per-tick teacher routing for sequence episodes: the ACTIVE
     segment's teacher labels (walk segments -> walk teacher, every
@@ -529,6 +537,29 @@ def main(argv: list[str] | None = None) -> int:
                          "window has more falls than this (a teacher "
                          "that falls in sequences cannot be distilled "
                          "on them)")
+    ap.add_argument("--dagger-extra-mix", type=str, default=None,
+                    help="Arm-A stage-0 FAIL follow-up (cross-track "
+                         "insight fb_20260814T164337_d7f11b, "
+                         "MODE_EXPERTS_DIRECTIVE 'distill-recipe "
+                         "redesign'): with --transitions, sequence "
+                         "DAgger rounds label whatever mix of segments "
+                         "the STUDENT happens to visit — a mode that "
+                         "rarely triggers a hard fall (rise stalls "
+                         "short instead of falling) gets no extra "
+                         "correction density even though it needs it "
+                         "(modeexperts_bc1: det rise 0/6, walk 2/6 "
+                         "near-total stalls, while DAgger falls "
+                         "concentrated in lower {'lower':6,'rise':1,"
+                         "'walk':3,'hold':1}/300). This adds a SECOND, "
+                         "single-mode targeted DAgger pass each round "
+                         "(same collect_dagger() used by the no-"
+                         "--transitions path) on top of the sequence "
+                         "one, e.g. 'rise=1.0' or 'rise=0.7,walk=0.3'. "
+                         "None (default) = no extra pass, bit-exact.")
+    ap.add_argument("--dagger-extra-episodes", type=int, default=0,
+                    help="total episodes for --dagger-extra-mix, split "
+                         "per its weights (same convention as "
+                         "--episodes/--mix). 0 (default) = off.")
     ap.add_argument("--stochastic-frac", type=float, default=0.3)
     ap.add_argument("--epochs", type=int, default=30)
     ap.add_argument("--gru-hidden-size", type=int, default=256)
@@ -560,6 +591,19 @@ def main(argv: list[str] | None = None) -> int:
             cfg_overrides[key] = float(val)
         except ValueError:
             cfg_overrides[key] = val.strip()
+
+    extra_mix: dict[str, float] = {}
+    if args.dagger_extra_mix:
+        extra_mix = {k: float(v) for k, v in
+                     (kv.split("=") for kv in
+                      args.dagger_extra_mix.split(","))}
+        unknown = set(extra_mix) - set(DIET)
+        if unknown:
+            raise SystemExit(f"--dagger-extra-mix unknown modes: {unknown}")
+    if extra_mix and args.dagger_extra_episodes <= 0:
+        raise SystemExit("--dagger-extra-mix needs --dagger-extra-episodes > 0")
+    if args.dagger_extra_episodes > 0 and not extra_mix:
+        raise SystemExit("--dagger-extra-episodes needs --dagger-extra-mix")
 
     if args.dual and args.experts:
         raise SystemExit("--dual and --experts are exclusive")
@@ -615,8 +659,7 @@ def main(argv: list[str] | None = None) -> int:
         unknown = set(mix) - set(DIET)
         if unknown:
             raise SystemExit(f"--mix unknown modes: {unknown}")
-    episodes_by_mode = {m: max(1, round(args.episodes * w))
-                        for m, w in mix.items() if w > 0}
+    episodes_by_mode = _episode_split(args.episodes, mix)
     teachers = {"walk": (walk_teacher, n_walk),
                 "stance": (stance_teacher, n_stance)}
 
@@ -679,8 +722,8 @@ def main(argv: list[str] | None = None) -> int:
     print(f"[distill-gru] BC actor RMS {np.sqrt(actor_mse):.4f} action "
           f"units (~{np.sqrt(actor_mse) * 85:.1f} deg on the knee axis)")
 
-    dagger_by_mode = {m: max(1, round(args.dagger_episodes * w))
-                      for m, w in mix.items() if w > 0}
+    dagger_by_mode = _episode_split(args.dagger_episodes, mix)
+    extra_by_mode = _episode_split(args.dagger_extra_episodes, extra_mix)
     for rnd in range(args.dagger_rounds):
         if seq_env is not None:
             # Directive arm 1: DAgger rounds are SEQUENCE episodes —
@@ -692,6 +735,16 @@ def main(argv: list[str] | None = None) -> int:
             new_eps = collect_dagger(envs, student, teachers,
                                      dagger_by_mode)
         episodes.extend(new_eps)
+        if extra_by_mode:
+            # Second, single-mode targeted pass (see --dagger-extra-mix
+            # help): tops up correction density on modes the sequence
+            # pass under-visits/under-corrects, independent of whether
+            # they trigger hard falls.
+            extra_eps = collect_dagger(envs, student, teachers,
+                                       extra_by_mode)
+            episodes.extend(extra_eps)
+            print(f"[distill-gru] dagger round {rnd + 1} extra pass: "
+                  f"+{len(extra_eps)} eps {extra_by_mode}")
         actor_mse = train_student(student, episodes,
                                   max(args.epochs // 2, 5))
         print(f"[distill-gru] dagger round {rnd + 1}: dataset "
