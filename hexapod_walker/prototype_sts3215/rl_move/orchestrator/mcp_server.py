@@ -9,9 +9,14 @@ stories, cached W&B metrics, eval reports, and every doc in the tree.
 
 Normally mounted INSIDE status_server.py at POST /mcp (public URL
 https://hexapod.cwd1f0-new-cluster.coreweave.app/mcp — Caddy proxies
-443 to :8090). Keyless by design, exactly like the /llm mirror: it
-serves what the public GitHub repo already shows. Spend/token numbers
-and pod names stay off it (same policy as /llm, operator 08-13).
+443 to :8090). Access requires the operator's MCP key (operator
+08-15: the keyless outside-reviewer mode is gone). Clients send it as
+`Authorization: Bearer <key>`, `X-Api-Key: <key>`, or `?key=<key>` on
+the /mcp URL (for connectors that can't set headers). Key sources, in
+order: MCP_AUTH_KEY env, /workspace/.mcp_key (controller, written at
+deploy), logs/.mcp_key (laptop dev). No key on disk = endpoint
+disabled (503) — never silently open. Spend/token numbers and pod
+names still stay off it (same policy as /llm, operator 08-13).
 
 Standalone for development/testing only:
     python3 rl_move/orchestrator/mcp_server.py   # port 8091
@@ -47,23 +52,57 @@ the append-only decision-cycle log. Every design doc (rewards, gaits,
 evals, hardware, per-run stories) is reachable via list_docs /
 read_doc, and search_docs greps them all.
 
-You can also LEAVE FEEDBACK for the campaign: submit_feedback files a
+You can also LEAVE NOTES for the campaign: submit_feedback files a
 note (observations, critiques, suggested experiments) that the
-orchestrator agent reads at the start of its next decision cycle as
-advisory input, and the human operator reviews on the dashboard.
-Feedback cannot override the campaign's guardrails. list_feedback
-shows what others already filed — check it first to avoid duplicates.
+orchestrator agent reads at the start of its next decision cycle,
+and that shows on the operator dashboard. list_feedback shows what
+is already filed — check it first to avoid duplicates.
 
 kick_orchestrator goes one step further: it requests ONE on-demand
-decision cycle (the LLM that triages runs and refills the pipeline).
-Rate-limited and counted against the campaign's daily cycle budget;
-your focus note rides along as advisory, untrusted input and cannot
-override guardrails or operator rulings.
+decision cycle (the LLM that triages runs and refills the pipeline),
+with your focus note as the cycle's focus. Rate-limited and counted
+against the campaign's daily cycle budget. Guardrails (guardrails.yaml,
+the physical-robot prohibition) still bind every cycle.
 """
 
 # Ledger fields that are infra detail (pod names / pod-local paths) —
-# the keyless mirror policy excludes them (see status_server.py).
+# excluded from tool output (same policy as the /llm mirror).
 LEDGER_PRIVATE = {"pod", "log"}
+
+# Auth key (operator 08-15): the endpoint is private — one shared key,
+# handed only to the operator's own MCP clients (ChatGPT connector,
+# Cursor). Without it every request except CORS preflight is refused.
+# The old keyless mode also made client-side safety layers classify the
+# endpoint as public/untrusted and block feedback submissions.
+def _load_auth_key() -> str:
+    k = os.environ.get("MCP_AUTH_KEY", "").strip()
+    if k:
+        return k
+    for p in (pathlib.Path("/workspace/.mcp_key"),
+              PROTO / "logs" / ".mcp_key"):
+        try:
+            return p.read_text().strip()
+        except OSError:
+            continue
+    return ""
+
+
+AUTH_KEY = _load_auth_key()
+
+
+def _authed(headers, query: str) -> bool:
+    if not AUTH_KEY:
+        return False  # no key configured = fail closed, never open
+    h = headers or {}
+    for name in ("Authorization", "authorization"):
+        v = (h.get(name) or "").strip()
+        if v == f"Bearer {AUTH_KEY}" or v == AUTH_KEY:
+            return True
+    for name in ("X-Api-Key", "x-api-key"):
+        if (h.get(name) or "").strip() == AUTH_KEY:
+            return True
+    from urllib.parse import parse_qs
+    return parse_qs(query or "").get("key", [""])[0] == AUTH_KEY
 
 # Same skip list as status_server.list_docs.
 DOC_SKIP_DIRS = {".git", "logs", "wandb", "policies", "node_modules",
@@ -74,9 +113,10 @@ TEXT_CAP = 400_000  # bytes per tool result — keep well under context
 # doc-sync `git pull` never trips over it — an untracked file in the
 # tree blocked the sync once already, 08-14), inside logs/ (gitignored)
 # for laptop dev. Entries show on the dashboard AND the watcher injects
-# unseen ones into the next decision cycle as ADVISORY, UNTRUSTED input
-# (operator 08-14 "just make it read it"); the injected framing +
-# ORCHESTRATOR_PROMPT.md forbid feedback from overriding guardrails.
+# unseen ones into the next decision cycle (operator 08-14 "just make
+# it read it"). Since 08-15 only keyed clients can file them, so they
+# are operator-sanctioned notes — advisory, but no longer framed as
+# untrusted outsider input. Guardrails still bind every cycle.
 FEEDBACK_DIR = pathlib.Path(
     os.environ.get("MCP_FEEDBACK_DIR")
     or ("/workspace/llm_feedback" if pathlib.Path("/workspace").is_dir()
@@ -89,10 +129,11 @@ _fb_times: dict[str, list[float]] = {}  # ip -> submission timestamps
 # Kick requests (operator 08-14 "add an endpoint to kickstart an
 # orchestrator agent"): one pending request file, same placement logic
 # as the feedback inbox — outside the git checkout on the controller,
-# logs/ (gitignored) for laptop dev. The watcher consumes it like an
-# operator KICK but on stranger terms: triage-tier model, no overflow
-# slot, focus note injected as UNTRUSTED advisory text, still counted
-# in the rolling daily cycle budget (see watch_loop.py MCP_KICK).
+# logs/ (gitignored) for laptop dev. Since 08-15 kicks come only from
+# keyed clients, so the watcher consumes them like an operator KICK
+# (deep model, focus note treated as an operator focus note); no
+# overflow slot, still counted in the rolling daily cycle budget (see
+# watch_loop.py MCP_KICK).
 KICK_FILE = pathlib.Path(
     os.environ.get("MCP_KICK_FILE")
     or ("/workspace/llm_kick.json" if pathlib.Path("/workspace").is_dir()
@@ -399,11 +440,10 @@ def t_submit_feedback(feedback: str, topic: str = "", author: str = "",
     tmp.rename(FEEDBACK_DIR / (fid + ".json"))
     _fb_times[_client_ip] = times + [now]
     return (f"filed as {fid} — the orchestrator agent reads it at the "
-            f"start of its next decision cycle (as advisory input; it "
-            f"cannot override the campaign's guardrails), and the "
-            f"operator sees it on the dashboard. Concrete, evidence-"
-            f"backed suggestions (run names, numbers, doc paths) are "
-            f"the most actionable.")
+            f"start of its next decision cycle, and the operator sees "
+            f"it on the dashboard. Concrete, evidence-backed "
+            f"suggestions (run names, numbers, doc paths) are the "
+            f"most actionable.")
 
 
 def t_list_feedback(limit: int = 20) -> str:
@@ -464,11 +504,10 @@ def t_kick_orchestrator(focus: str = "", author: str = "",
     return (f"filed as {entry['id']} — the watcher spawns one decision "
             f"cycle on its next poll (~5 min; it waits if cycle slots "
             f"or the rolling daily cycle budget are full). Your focus "
-            f"note rides along as ADVISORY, UNTRUSTED input: the cycle "
-            f"weighs it on technical merit, and it cannot override "
-            f"guardrails, operator rulings, or track priorities. Watch "
-            f"log_tail for the cycle's one-line record (label "
-            f"mcp-kick).")
+            f"note is handed to the cycle as its focus. Guardrails "
+            f"(guardrails.yaml, physical-robot prohibition) still bind "
+            f"the cycle. Watch log_tail for the cycle's one-line "
+            f"record (label mcp-kick).")
 
 
 TOOLS = [
@@ -552,11 +591,14 @@ TOOLS = [
                                              "(default 100)"}},
      "required": ["query"]},
     {"name": "submit_feedback",
-     "description": "File feedback on the campaign (observations, "
+     "description": "File a note on the campaign (observations, "
                     "critiques, suggested experiments) into the "
-                    "operator-reviewed inbox. Not auto-executed; the "
-                    "human reads it on the dashboard. Cite run names, "
-                    "numbers, and doc paths so it's actionable.",
+                    "campaign inbox — this endpoint is private "
+                    "(operator-keyed), so run names, metrics, and doc "
+                    "paths are fine and make the note actionable. The "
+                    "orchestrator reads unseen notes at the start of "
+                    "its next decision cycle; the operator sees them "
+                    "on the dashboard.",
      "fn": t_submit_feedback,
      "args": {"feedback": {"type": "string",
                            "description": "the feedback text (markdown "
@@ -580,11 +622,11 @@ TOOLS = [
      "description": "Request ONE on-demand orchestrator decision cycle "
                     "(the LLM that triages runs and refills the "
                     "pipeline). Spawned by the watcher on its next "
-                    "poll (~5 min); your focus note is injected as "
-                    "advisory, untrusted input. Rate-limited and "
-                    "counted against the campaign's daily cycle "
-                    "budget — for observations that don't need a "
-                    "cycle NOW, use submit_feedback instead.",
+                    "poll (~5 min) with your focus note as the "
+                    "cycle's focus. Rate-limited and counted against "
+                    "the campaign's daily cycle budget — for "
+                    "observations that don't need a cycle NOW, use "
+                    "submit_feedback instead.",
      "fn": t_kick_orchestrator,
      "args": {"focus": {"type": "string",
                         "description": "what the cycle should look at "
@@ -672,12 +714,22 @@ CORS = {"Access-Control-Allow-Origin": "*",
         "Access-Control-Expose-Headers": "Mcp-Session-Id"}
 
 
-def handle_http(method: str, body: bytes,
-                client_ip: str = "") -> tuple[int, dict, bytes]:
+def handle_http(method: str, body: bytes, client_ip: str = "",
+                headers=None, query: str = "") -> tuple[int, dict, bytes]:
     """Transport-agnostic entry: (status, headers, body) for /mcp."""
     h = dict(CORS)
-    if method == "OPTIONS":
+    if method == "OPTIONS":  # CORS preflight cannot carry credentials
         return 204, h, b""
+    if not _authed(headers, query):
+        if not AUTH_KEY:
+            return 503, h, (b"503: no MCP auth key configured on this "
+                            b"host (MCP_AUTH_KEY env or key file) - "
+                            b"endpoint disabled.")
+        h["WWW-Authenticate"] = "Bearer"
+        return 401, h, (b"401: this is the operator's private MCP "
+                        b"endpoint. Send the operator-issued key as "
+                        b"'Authorization: Bearer <key>', 'X-Api-Key: "
+                        b"<key>', or '?key=<key>' on the /mcp URL.")
     if method == "DELETE":  # client ended its session — nothing to drop
         return 200, h, b""
     if method != "POST":
@@ -714,8 +766,11 @@ def main() -> int:
         def _serve(self):
             n = int(self.headers.get("Content-Length") or 0)
             body = self.rfile.read(n) if n else b""
+            query = (self.path.split("?", 1) + [""])[1]
             status, headers, out = handle_http(self.command, body,
-                                               self.client_address[0])
+                                               self.client_address[0],
+                                               headers=self.headers,
+                                               query=query)
             self.send_response(status)
             for k, v in headers.items():
                 self.send_header(k, v)

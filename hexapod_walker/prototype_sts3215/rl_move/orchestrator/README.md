@@ -59,11 +59,15 @@ the drain requires before treating a pod as a slot.
   operator Mac) writes `KICK` here; the watcher spawns one deep-model
   session on its next poll (≤5 min), allowed one slot past the
   concurrency cap (temporary 5th session), counted in the daily budget.
-- **Kick via MCP:** the public `/mcp` endpoint's `kick_orchestrator`
+- **Kick via MCP:** the keyed `/mcp` endpoint's `kick_orchestrator`
   tool files `/workspace/llm_kick.json` (rate-limited, one pending at
-  a time); the watcher spawns one triage-model session on its next
-  poll — no overflow slot, focus note injected as untrusted advisory
-  text, counted in the daily budget.
+  a time). Since 08-15 `/mcp` requires the operator's MCP key
+  (`MCP_AUTH_KEY` env or `/workspace/.mcp_key`; sent as
+  `Authorization: Bearer`, `X-Api-Key`, or `?key=`), so kicks come
+  from the operator's own clients (GPT, Cursor) and spawn a
+  deep-model session with the focus note treated like an operator
+  focus note — still no overflow slot, still counted in the daily
+  budget.
 - **Restart the watcher:** ONLY via `restart_watcher.sh` (nohup'd on
   the controller). Hard-killing the tmux session murders in-flight
   cycles, which only write their output at exit.

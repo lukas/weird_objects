@@ -21,7 +21,9 @@ are plain markdown, /llm/doc/<path> serves any .md in the prototype
 tree. Those paths need NO token: they mirror a public GitHub repo, and
 GPT's URL-safety wrapper refuses keyed URLs. The dashboard and /json
 (spend, infra) stay token-gated. /mcp is the same data as MCP tools
-(mcp_server.py, streamable HTTP) — also keyless. On the controller, a background
+(mcp_server.py, streamable HTTP) — gated by the operator's MCP key
+(MCP_AUTH_KEY / /workspace/.mcp_key, separate from STATUS_TOKEN;
+operator 08-15). On the controller, a background
 thread keeps the checkout synced to origin/main so pushed doc changes
 go live within ~1 min.
 
@@ -549,7 +551,8 @@ def llm_url_groups(base: str) -> list[tuple[str, list[tuple[str, str]]]]:
         ("Start here (live index pages)", [
             ("LLM index — hand an agent THIS one", f"{base}/llms.txt"),
             ("MCP endpoint (streamable HTTP — add as a remote MCP "
-             "server, tools for ledger/metrics/docs)", f"{base}/mcp"),
+             "server WITH the operator MCP key; tools for "
+             "ledger/metrics/docs)", f"{base}/mcp"),
             ("Campaign + all per-track STATUS", f"{base}/llm/status.md"),
             ("Research plan (RL_PLAN.md)", f"{base}/llm/plan.md"),
             ("Cycle log (RL_LOG.md)", f"{base}/llm/log.md"),
@@ -1249,10 +1252,10 @@ at {base}/llm/doc/<path>{key}:
 
 The same results are queryable as tools over the MCP streamable-HTTP
 transport (run ledger with filters, per-run stories, cached W&B
-metrics, eval reports, doc search), and LLM readers can file feedback
-for the operator via its submit_feedback tool. Add this URL as a
-remote MCP server (no auth):
-{base}/mcp
+metrics, eval reports, doc search) at {base}/mcp — but that endpoint
+is private: it requires the operator's MCP key (Authorization: Bearer
+<key>, X-Api-Key, or ?key=<key>). The keyless /llm pages above carry
+the same public data.
 """
 
 
@@ -1309,8 +1312,9 @@ TOKEN = _load_token()
 
 
 class Handler(http.server.BaseHTTPRequestHandler):
-    # MCP endpoint (mcp_server.py): keyless like the /llm mirror — it
-    # serves the same public-repo results, as tools for MCP clients.
+    # MCP endpoint (mcp_server.py): private since 08-15 — requires the
+    # operator's MCP key (separate from STATUS_TOKEN); auth is checked
+    # inside mcp_server.handle_http.
     def _is_mcp(self) -> bool:
         return self.path.split("?")[0].rstrip("/") == "/mcp"
 
@@ -1321,7 +1325,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
         # X-Forwarded-For (first hop) — used only for rate limiting.
         ip = (self.headers.get("X-Forwarded-For", "").split(",")[0].strip()
               or self.client_address[0])
-        status, headers, out = _mcp.handle_http(self.command, body, ip)
+        query = (self.path.split("?", 1) + [""])[1]
+        status, headers, out = _mcp.handle_http(self.command, body, ip,
+                                                headers=self.headers,
+                                                query=query)
         self.send_response(status)
         for k, v in headers.items():
             self.send_header(k, v)
