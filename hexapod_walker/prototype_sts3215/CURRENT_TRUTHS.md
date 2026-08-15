@@ -109,16 +109,18 @@ operator calls at regeneration time).
   PERMITTED as the quadwalk bank reference behind an explicit
   pre-registered robustness gate (spec first artifact, conditions
   in quad/STATUS.md) — quadwalk launchable under those terms.
-- Multitask: 08-13 operator pause LIFTED by operator 08-15 ~17:2x UTC
-  (ops.sh cycle KICK focus note: "Remove the multitask operator-level
-  pause now; it no longer applies" — and it may not be cited to
-  decline work again). Normal track rules (MULTITASK.md labels,
-  phases, preflights, containment) apply as for any track. Wave-1
+- Multitask: PAUSED by operator 08-13 (dynrep prioritized; wave-1
   read stands: interference real+monotone at 20M, all cheap levers
-  failed; MoE only after real interference is shown. nobc: RULING
+  failed; MoE only after real interference is shown). nobc: RULING
   08-13 — from-scratch GAIT line CLOSED (reopen on new hardware
   evidence only); stand-from-scratch charter stays.
 - Watcher idle-kick backoff (15m→4h no-op spacing, snap-back on
   activity) operator-APPROVED 08-13.
+- One-variable-per-run REPEALED by operator 08-15 (~18:20 UTC,
+  relayed via authenticated Cursor session): multi-variable/coupled
+  bundles are permitted when the operator orders them or the cycle
+  judges the coupling necessary; pre-registration and honest
+  verdicts still required (RESEARCH_RULES.md, guardrails.yaml
+  updated; this file wins on conflict with any older restatement).
 - Bench/UI: sit NEVER refuses on pose delta (stand-only refusal);
   errors stay copyable; thermal reads debounced (phantom wall).
