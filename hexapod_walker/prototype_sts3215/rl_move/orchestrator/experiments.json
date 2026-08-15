@@ -85477,6 +85477,32 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:arch nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-arch-modeexperts-scratch1-r1 --steps 2000000 --task joint_walk --gru-experts --gru-hidden-size 256 --n-steps 256 --n-envs 256 --batch-size 8192 --ent-coef 0.01 --dr-scale 0.5 --episode-seconds 30 --goal-mix walk=0.35,rise=0.35,lower=0.20,hold=0.10 --cfg-set obs.mode_onehot=1 --cfg-set goal.mode_seq=0.5 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set goal.walk_heading_max_rad=0.7854 --cfg-set goal.walk_cmd_resample_s=1.5 --cfg-set goal.walk_cmd_resample_jitter=0.6 --cfg-set goal.walk_cmd_blend_s_min=0.1 --cfg-set goal.walk_cmd_blend_s_max=1.0 --cfg-set goal.walk_stop_frac=0.2 --seed 0 --out-name ppo_goal_cw_arch_modeexperts_scratch1_r1 --impl warp --host-workers 24 --notes 'Can a robot brain built as four fully walled-off specialists inside one checkpoint (stand-up, hold, sit-down, walking - each with its own memory, value estimate and exploration noise) learn to walk, stand up and sit down FROM RANDOM WEIGHTS, with no imitation? 2M MECHANISM canary (identical retry of cw-arch-modeexperts-scratch1, which died silently ~2min in on train-0 with no traceback while another cycle'\"'\"'s CPU distills shared that pod; this retry runs on a clean pod). Judges ONLY mechanism health - stable training, all four experts receiving their modes'\"'\"' ticks, independent per-expert std/gradients. Skill acquisition NOT judged at 2M (budget honesty: cw-mt-a2 needed ~20M active walk ticks; staged ~60M full budget pre-registered in MODE_EXPERTS_DIRECTIVE.md Arm B). Genuinely from scratch: no init checkpoint, no BC anchor/DAgger, rise_ref tracking EXCLUDED; disclosed curriculum = validated env reward stack + goal-mix 0.35/0.35/0.20/0.10 + 50% mode_seq sessions; no transition adapter. Operator directive fb_20260815T013349_488ffd (multitask pause + nobc gait closure lifted for this arm). Gate: MECHANISM HEALTH ONLY (pre-registered, MODE_EXPERTS_DIRECTIVE.md Arm B stage 1): completes 2M with no NaN/crash/canary-stop; experts/tick_frac_* shows all four experts active within ~0.10 of the commanded mix; experts/std_* diverge per expert; per-expert learning signal visible. PASS = launch pre-registered stage 2 (scratch2, 40M). Skill success at 2M is explicitly NOT gated and produces NO capacity verdict. Second silent death = NEEDS OPERATOR (infra).' > /tmp/train_cw-arch-modeexperts-scratch1-r1.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-arch-modeexperts-scratch1-r1.log",
     "wandb_id": "ww6xarcw",
-    "verified": "2026-08-15T02:43:04+00:00"
+    "verified": "2026-08-15T02:43:04+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-15T02:48:13+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 0,
+        "verdict": "SUSPECT",
+        "problems": [
+          "W&B global_step stalled at 256",
+          "log stopped growing"
+        ]
+      },
+      {
+        "time": "2026-08-15T02:56:30+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 0,
+        "cpu_centisec_deltas": [
+          84540,
+          74237
+        ],
+        "note": "global_step flat in 45s window but trainer CPU busy \u2014 long-rollout iteration cadence, not a stall",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   }
 ]
