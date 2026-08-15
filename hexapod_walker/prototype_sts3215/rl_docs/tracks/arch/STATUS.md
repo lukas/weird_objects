@@ -23,7 +23,9 @@ at what budget, with which failure modes.
   adapter PPO pre-registered `[precondition: distill verifies vs
   teachers]`. **Arm B** `cw-arch-modeexperts-scratch1` (from-scratch
   WALK+RISE+LOWER, operator override of the nobc gait closure; no BC
-  anchor, no rise_ref imitation): 2M mechanism CANARY launched;
+  anchor, no rise_ref imitation): 2M mechanism CANARY
+  `cw-arch-modeexperts-scratch1-r1` RUNNING on train-2 (first launch
+  died silently on train-0 — INFRA, verdicted, retry verified);
   staged ~60M full-budget acquisition pre-registered on canary PASS —
   "not learned at 2M" is explicitly NOT a verdict (budget honesty:
   cw-mt-a2 needed 20M active walk ticks). Multitask pause explicitly

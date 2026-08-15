@@ -105,7 +105,9 @@ weights in one training program?
   no-skate gate), goal-mix walk=0.35,rise=0.35,lower=0.20,hold=0.10
   (hold kept small for session settling; exposure reported
   separately via experts/tick_frac_*), 50% mode_seq sessions.
-- Stage 1 (LAUNCHED 08-15): 2M discovery CANARY on the launcher.
+- Stage 1 (RUNNING 08-15 as `cw-arch-modeexperts-scratch1-r1` on
+  train-2; the original name's launch died silently on train-0 —
+  INFRA FAIL, verdicted in its ledger entry): 2M discovery CANARY.
   Gate is MECHANISM HEALTH ONLY: no crash/NaN, canaries quiet,
   routing live (all four experts receive ticks; tick fractions match
   the mix), per-expert std/grad curves move independently, active
