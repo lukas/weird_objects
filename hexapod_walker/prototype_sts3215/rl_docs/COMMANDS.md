@@ -407,24 +407,33 @@ visit uses `?key=<token>`, which sets a cookie and redirects clean.
 server also mounts an MCP endpoint at **POST /mcp**
 (`rl_move/orchestrator/mcp_server.py`, streamable-HTTP transport,
 stdlib only). Add `https://hexapod.cwd1f0-new-cluster.coreweave.app/mcp`
-as a remote MCP server in Claude/Cursor/ChatGPT — no auth, same
-keyless policy as /llm (public-repo data only; no spend, no pod
-names). Tools: `campaign_status`, `get_plan`, `log_tail`,
+as a remote MCP server in Claude/Cursor/ChatGPT — **requires the
+operator's MCP key** (operator 08-15; the old keyless mode made
+client-side safety layers classify the endpoint as public and block
+feedback): send `Authorization: Bearer <key>`, `X-Api-Key: <key>`,
+or `?key=<key>` on the URL (ChatGPT connectors can't set headers —
+use the `?key=` form). Key lives in `/workspace/.mcp_key` on the
+controller (`MCP_AUTH_KEY` env overrides; `logs/.mcp_key` for laptop
+dev; server reads it once at startup — restart `statusweb` after
+changing it; no key on disk = endpoint disabled). Content policy
+unchanged: public-repo data only, no spend, no pod names. Tools:
+`campaign_status`, `get_plan`, `log_tail`,
 `list_runs` (ledger with status/track/substring filters), `get_run`
 (entry + story), `run_metrics` (cached W&B summary/history),
 `eval_report` (gate report.json), `list_docs` / `read_doc`,
 `search_docs`, plus a write path: `submit_feedback` /
-`list_feedback` — external LLMs file notes into
+`list_feedback` — keyed clients file notes into
 `/workspace/llm_feedback/` on the controller (size-capped, per-IP
 rate-limited), shown in the dashboard's "LLM feedback inbox" section.
 The watcher injects unseen entries into the next decision cycle's
-prompt as ADVISORY, UNTRUSTED input (operator 08-14; stamped
-`injected_utc`, ≤8 entries / 12 kB per cycle, never spawns a cycle by
-itself so strangers can't spend the cycle budget; framing +
-ORCHESTRATOR_PROMPT.md § "External LLM feedback" forbid it from
-overriding guardrails/rulings). It runs inside `statusweb`,
-so deploy = the same kill+restart runbook above. Dev standalone:
-`python3 rl_move/orchestrator/mcp_server.py` (port 8091).
+prompt as operator-sanctioned advisory notes (operator 08-14, keyed
+08-15; stamped `injected_utc`, ≤8 entries / 12 kB per cycle, never
+spawns a cycle by itself; guardrails/rulings still win on conflict —
+ORCHESTRATOR_PROMPT.md § "MCP feedback"). `kick_orchestrator` files
+an operator-tier kick (deep model, trusted focus note). It runs
+inside `statusweb`, so deploy = the same kill+restart runbook above.
+Dev standalone: `python3 rl_move/orchestrator/mcp_server.py` (port
+8091).
 
 The server also serves a plain-markdown mirror so external LLMs
 (ChatGPT, Claude web fetch) can assess the campaign: `/llms.txt` is
