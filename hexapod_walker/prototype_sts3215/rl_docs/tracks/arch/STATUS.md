@@ -8,6 +8,25 @@ at what budget, with which failure modes.
 
 ## Now
 
+- **08-15 ~19:5x UTC — operator-ordered stop + fall-fix relaunch of the
+  joymodes lineage (fb_20260815T192912_15af2f).**
+  `cw-arch-tf-joymodes-scratch1-acq1` KILLED at ckpt 34.06M/38M:
+  direction acquisition was real (requested-direction v-err
+  0.045→0.016 m/s, wrong-way 26%→5%) but `eval/walk/survived_frac=0`
+  at EVERY 1M eval through 28M (~81/375 ticks/ep, ~607 tilt
+  terminations per rollout) — the run charged only the flat -10 fall
+  penalty and omitted the horizon charge, so burst-then-fall paid
+  ~145/ep. Continuation `cw-arch-tf-joymodes-scratch1-fallfix1`
+  (W&B kt8w93ra, train-3) runs the acq1 checkpoint (md5 b020c6f7)
+  +4M (rest of the promised 40M lineage total) with exactly one
+  change: `reward.term_cost_per_remaining_s=12.0` (~-141 at the
+  observed ~3.25 s failure time). Primary readout = survival/falls;
+  direction metrics must merely not regress. Also landed: the
+  operator-named walk-direction telemetry (training
+  `env/walk_direction_err_deg` + `env/walk_dir_valid`; eval
+  `dir_err_deg_mean/p90`, `dir_valid_frac`, `wrong_dir_frac`) under
+  the existing `goal.walk_cmd_metrics` gate — default off, tests
+  green, live on kt8w93ra.
 - **08-15 ~17:5x UTC — `cw-arch-tf-r1-hard3` (2nd +40M continuation of
   the transformer walk line, respec of hard2-r1) LAUNCHED + VERIFIED
   on train-0.** hard1 (fresh, 40M) matched the MLP champion at budget
