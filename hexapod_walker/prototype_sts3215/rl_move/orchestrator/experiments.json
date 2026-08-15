@@ -88560,7 +88560,7 @@
       "The full 13.62M-parameter causal Transformer will generalize current and future servo state, velocity, heading, current, and foot contact when its optimizer budget is supplied by at least 10.24M distinct windows from fresh GPU MJX/Warp trajectories instead of replaying a tiny frozen corpus; an EMA target encoder will stabilize long-horizon latent supervision. Gate: Stage 1 must run on the H200, preserve the intended five-actor and four-level DR recipe, log data/train_windows >= 10240000 and data/planned_window_reuse <= 2.0 in W&B. Stage 2 must retain hidden=512,z=256,4 layers,8 heads,ff=1024, run CUDA/GPU-resident batches, and log train/val physical plus contact Brier/ECE metrics; validation must not show the immediate broad divergence seen in telnzd5r."
     ],
     "created": "2026-08-15T18:36:13+00:00",
-    "status": "RUNNING",
+    "status": "DEAD",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -88606,7 +88606,9 @@
           "log stopped growing"
         ]
       }
-    ]
+    ],
+    "verdict": "Stage-1 fresh-data collection OOM-killed pod hexapod-mjx-train-1 at 18:52 UTC (96Gi cgroup limit, exit 137) ~16 min in, at 1.18M of 10.24M windows; W&B wttfxanc crashed, overlay fs + shards lost. Same OOM class as train-10 08-14/15. Confound: cw-mt-b1-dualgru1 eval co-resident on the pod. Retry-once on clean train-10 with pod_memwatch.sh as cw-dynrep-tf-state2-fresh2.",
+    "triage": "done"
   },
   {
     "run": "x",
@@ -88878,7 +88880,19 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:hw nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-recover-any1 --steps 40000000 --task joint_walk --goal-mix recover=1.0,walk=0.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0,quad=0.0 --init-from rl_move/sim/policies/ppo_goal_cw_stand_footlow2_hard1.zip --obs-pad-transplant 4 --n-envs 512 --n-steps 128 --batch-size 8192 --gamma 0.995 --gae-lambda 0.98 --episode-seconds 16 --dr-scale 0.1 --ent-coef 0.003 --no-canary --eval-every 1000000 --video-every 2000000 --seed 11 --cfg-set safety.max_roll_deg=185 --cfg-set safety.max_pitch_deg=185 --cfg-set goal.walk_obs_body_vel=2 --cfg-set reward.rise_ref_path=rl_move/sim/refs/rise_ref_belly2plant.npz --cfg-set train.bc_anchor_coef=1.0 --cfg-set train.bc_anchor_recover=1.0 --cfg-set goal.recover_start_bank=rl_move/sim/park_banks/footlow2_hard1_lower_endpoints_full.npz --out-name ppo_goal_cw_recover_any1 --impl warp --host-workers 24 --notes 'Teach the robot to GET UP FROM ANYWHERE -- knocked over, on its side, upside-down, mid-crouch, sitting after a lower, or standing with one foot misplaced -- and settle into its full-height six-feet-loaded stand and stop; this arm tests whether the new potential-difference recovery reward (REWARD.md 4c: PBRS on U/L/H/M/P with smooth-min per-foot load, one-shot held-success bonus that ENDS the episode, time tax, no-early-abort fail cost) + the adaptive start-family curriculum (buckets 1-2 first, >=80 admit / <20 retreat) + the eligibility-gated cw-getup3 BC anchor can learn a universal recovery specialist warm-started from the stance champion. OPERATOR-ORDERED COUPLED BUNDLE: one-run exception to one-variable-per-run granted in the 08-15 ~18:15 KICK (ruling recorded in STATUS.md + CURRENT_TRUTHS.md). Prediction-if-true: env/recover_success climbs family by family and the mixture hardens to >=95 det / >=85 sto held recovery by 40M, video shows genuine roll-over-and-rise with all six feet cycling to load, ordinary rise/hold/lower intact. Prediction-if-false: success stalls on a named family (pointing at the family-5/6 harvest rungs or anchor coverage as the next lever) or the anchor'\"'\"'s upright-manifold gate proves too narrow to bridge flips. Strongest alternative: buckets 1-3 master but side/back/inverted recovery never crosses 20 percent -- recovery from inversion needs demonstration data, not reward shaping. Recorded v1 deviations from the directive spec: families 5-6 + exact-qvel bank restore + in-train handoff eval not built (pre-registered next rungs); curriculum stats per-env not fleet-global; COM/support = footprint+all-loaded+level proxy; critic carried via obs-pad transplant (optimizer fresh) since actor-only warm start is unsupported; k_current kept at lineage default per the directive'\"'\"'s keep-safety-costs-strong clause. Parent: cw-stand-footlow2-hard1. Gate: PASS if by 40M (or an earlier milestone) held recovery on the ACTIVE family mixture reaches >=95 pct det / >=85 pct sto (SCORE/recover + env/recover_success; VERDICT REQUIRES VIDEO: genuine recover-to-stand from every active family, all six feet loaded, zero flag/stilt/park), AND standard eval shows no regression on ordinary rise/hold/lower vs footlow2_hard1, AND eval_handoff to the frozen stance controller holds >=1 s post-success at triage. STOP EARLY only on a pre-registered banked cheat class appearing in video or a safety failure. Research specialist -- never auto-replaces the product baseline.' > /tmp/train_cw-recover-any1.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-recover-any1.log",
     "wandb_id": "e2q5q5a3",
-    "verified": "2026-08-15T18:51:41+00:00"
+    "verified": "2026-08-15T18:51:41+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-15T18:57:22+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 4530,
+        "fps": 13789.9,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   },
   {
     "run": "cw-recover-any1",
