@@ -30,7 +30,24 @@ at what budget, with which failure modes.
   "not learned at 2M" is explicitly NOT a verdict (budget honesty:
   cw-mt-a2 needed 20M active walk ticks). Multitask pause explicitly
   lifted for these two arms only; hierarchy product baseline
-  untouched.
+  untouched. **08-15 ~04:1x UTC (overnight directive
+  fb_20260815T035147_dd2af0 executed): scratch2 is fully pre-staged.**
+  Canary healthy at 1.05M (reward −301→−238, independent per-expert
+  stds, ~195 fps) but the realized skill diet misses the tick clause:
+  hold gets .246 of ticks (ordered .10), loco .234 (ordered .35).
+  Measured attribution: sequence episodes deliver f_seq = rise .29 /
+  loco .12 / lower .20 / hold .39 (rise→hold precedes walk in the
+  grammar; early falls truncate walk tails) — operator pre-classified
+  this exact miss as a curriculum SPEC DEFECT, not an architecture
+  verdict. Corrected phase-1 curriculum solved from measured
+  fractions (mode_seq 0.5→0.2, mix walk=.345/rise=.303/lower=.324/
+  hold=.028 → predicted realized .30/.30/.30/.10, preflight PASSED);
+  exact respec command, exposure-honesty gate, watchdog/checkpoint/
+  canary-stop safeguards, disclosed limitations, and the scratch3
+  active-tick top-up (≥20M REAL ticks/skill; never report env steps
+  as exposure) are pre-registered in MODE_EXPERTS_DIRECTIVE.md
+  "SCRATCH2". The cycle that triages the canary launches scratch2
+  SAME CYCLE.
 - **08-14 ~19:5x UTC — `transdagger3` TRIAGED: FAIL on the Arm 1
   gate, NET REGRESSION vs transdagger2 on the sequence clause — the
   rise demo mix is ZERO-SUM.** Seq det DR0 zero-fall 9/12 (bar
