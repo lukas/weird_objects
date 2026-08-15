@@ -110,6 +110,19 @@ at what budget, with which failure modes.
   DAgger/coverage redesign is the next lever, left for a future
   cycle. Full numbers + evidence paths: `MODE_EXPERTS_DIRECTIVE.md`
   "Arm A" Stage 0.
+  **08-15 ~17:0x UTC (drain-before-backoff cycle) — the redesign
+  LANDED and re-collection is RUNNING.** `distill_gru --dagger-extra-
+  mix/--dagger-extra-episodes` (default off, tests green, snapshot
+  `exp/arch-modeexperts-bc2-rise-dagger`): a second single-mode
+  targeted DAgger pass tops up rise's correction density independent
+  of whether it triggers a hard fall (bc1's fall tally was almost
+  entirely lower). `bc2` = bc1's exact recipe + `rise=1.0`/100 extra
+  DAgger episodes per round, running as a CPU job on train-0
+  (`/tmp/modeexperts_bc2.log`, `ppo_goal_cw_arch_modeexperts_bc2.zip`
+  when done). Next cycle re-runs the same VERIFY before any Stage 1
+  PPO; two-miss discipline applies (a second miss escalates
+  `[operator]`, not a third variant). Detail:
+  `MODE_EXPERTS_DIRECTIVE.md` "Arm A" Stage 0.
 - **CROSS-TRACK INSIGHT (08-15, from hw `cw-stand-postlower3` dig-in,
   Cohort c3):** the shared mode-sequence rise branch
   (`_seq_segment_traj`) starts every mid-sequence rise at BELLY-FRAME

@@ -87,6 +87,30 @@ only their boundaries once destructive shared gradients are removed?
   leading candidate), then re-run VERIFY — no Stage 1 PPO on this
   artifact.** Evidence: `logs/ckpt_eval/arch_modeexperts_bc1_verify`,
   `logs/ckpt_eval/arch_modeexperts_bc1_seq_{det,sto}.json`.
+  **Stage 0 re-collection `bc2` LAUNCHED 08-15 ~17:0x UTC (idle-kick
+  drain, no operator wait needed — this was the named `[code]`/
+  `[precondition: distill recipe fix]` item):** `distill_gru` gained
+  `--dagger-extra-mix`/`--dagger-extra-episodes` (default off, 4 new
+  tests green + full gru_policy suite 25/25 green, snapshot
+  `exp/arch-modeexperts-bc2-rise-dagger`) — a SECOND, single-mode
+  targeted DAgger pass each round on top of the sequence one, so a
+  mode that rarely triggers a hard fall (rise stalls short instead of
+  falling, hence its near-absence from the bc1 fall tally) still gets
+  extra correction density. Exact bc1 recipe
+  (`--experts --experts-adapter 32 --transitions 300 --episodes 200
+  --dagger-rounds 2`, same teachers) plus `--dagger-extra-mix
+  rise=1.0 --dagger-extra-episodes 100`, seed 0 — ONE variable vs
+  bc1. Running as a CPU job on train-0 idle cores (PID confirmed via
+  /proc utime climbing; teacher-verify/collection prints are batched,
+  same buffered-log profile as transdagger — do not mistake silence
+  for a stall), `--out
+  rl_move/sim/policies/ppo_goal_cw_arch_modeexperts_bc2.zip`, log
+  `/tmp/modeexperts_bc2.log`. Next cycle: re-run the same VERIFY
+  (single-mode det vs teacher bars + `--single` sequence eval) before
+  any Stage 1 PPO launch — if bc2 also misses the rise bar, escalate
+  to `[operator]` (BC/DAgger may not be sufficient for this maneuver
+  at all, per the existing dual-line rise history) rather than a
+  third recipe variant.
 - Stage 1 (pre-registered, [precondition: stage-0 artifact passes
   verification]): `cw-arch-modeexperts1` — 2M discovery PPO, warm
   from the distill, `--gru-experts --gru-experts-freeze` (expert
