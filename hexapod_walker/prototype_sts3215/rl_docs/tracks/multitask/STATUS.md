@@ -83,6 +83,43 @@ new command later (the phase-2 transfer test).
 
 ## Now
 
+- **08-15 ~15:1x UTC: `cw-joystick-translate-scratch1` FINISHED (40M,
+  from-scratch comparator) — VERDICT: FAIL, and it CONFIRMS the
+  reward-setup hypothesis rather than the lineage hypothesis.**
+  Acquisition: `joystick/v_along_m_s_cumulative` stayed flat
+  ~0.003-0.006 m/s for the entire 40M steps (never trended) and
+  `train/wrong_way_frac` stayed pinned ~0.43-0.44 from step 0 —
+  the identical shape/magnitude as the warm twin
+  `cw-joystick-translate1`. Harness confirms near-zero real motion
+  across all 4 passes (gate det/sto, own-DR det/sto): `prog_ratio`
+  med 0.11-0.17 (promotion band 0.75-1.25), `fwd` med 0.05-0.09 m
+  over a 60 s episode commanding 0.03-0.06 m/s (~2-3 m expected),
+  despite `env/reward_task` climbing to 0.85-0.89 — the reward/
+  task-metric disconnect from RUN_INTERPRETATION rule 2. Survival:
+  fully solved (ep_len saturates 1500/1500, ~1-2 terminations total
+  across ~26k episodes). Gait quality actually DIFFERS from the
+  twin: `gait_valid` 6/6 on every pass, no sacrificed leg at all
+  (the twin has a persistent single-leg park/stilt, `sac [2]`,
+  `gait_valid` 1-2/6) — but the video shows why that doesn't rescue
+  it: all six legs cycle in a normal-looking pattern while the body
+  sits on the same floor tile for the full episode (frame strips
+  `walk_det_0/4`, `walk_sto_1`: identical checkerboard position from
+  t=0 to t=48-60s). March-in-place is a listed known-exploit video
+  pattern (RUN_INTERPRETATION_RULES #4) — one-line STOP, no
+  forensics, no re-run. Because TWO independent initializations
+  (warm c2-derived stilt-leg, fresh-random march-in-place) both
+  found a different zero-net-motion cheat under the identical
+  reward, the joystick-translate reward/command recipe itself (pays
+  survival + leg-cycling, not real distance) is the problem, not the
+  c2 lineage — the operator's "reward setup favors low-motion
+  survival" prediction is CONFIRMED, not merely un-refuted. This
+  exact recipe is CLOSED — no further re-runs in either lineage; a
+  revisit needs a reward that prices real along-command distance
+  much more explicitly than gait-validity/survival alone. The
+  operator's one-time pause exception (fb_20260815T122345_2c039a) is
+  now fully spent for BOTH arms; the 08-13 pause otherwise stands,
+  no new mt launch this cycle. Full numbers: ledger entry + W&B
+  tvzk2nn8 notes.
 - **08-15 ~14:0x UTC: `cw-joystick-translate1` FINISHED (40M) —
   VERDICT: FAIL, known exploit (parked/stilt leg), not acquisition.**
   The fall-cost + gait-gate fix worked exactly as designed for

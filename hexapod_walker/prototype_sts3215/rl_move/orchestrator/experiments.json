@@ -86659,7 +86659,7 @@
       "reward.term_cost_per_remaining_s=12.0"
     ],
     "created": "2026-08-15T12:29:31+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -86702,7 +86702,10 @@
       }
     ],
     "checkup_resolution": "12:38 SUSPECT (fps 2913 < 5000 solo floor) RESOLVED, run left in place: slow since iteration 1 (2130) and climbing monotonically with learning (1900->2856) while the bit-identical warm twin holds 7538 fps on the SAME node (g131eec) \u2014 run-intrinsic state-dependent physics cost (random-init thrash = contact-rich states + frequent resets at ep_len~446), not CPU starvation or misplacement. No rebalance: would not recover fps and would muddy the matched-step comparator. Expect the floor alarm to keep firing until the policy survives longer; ignore unless fps stops rising or drops.",
-    "checkpoint_provenance": "CAUTION (fb_20260815T123151_a8660c, verified in extra_args): --out-name retained from the warm twin \u2014 this run writes ppo_goal_cw_joystick_translate1.zip, SAME filename as cw-joystick-translate1 (train-0). No live collision (different pods), but before ANY cross-pod use pull the scratch checkpoint explicitly from hexapod-mjx-train-3 / W&B tvzk2nn8 and rename to ppo_goal_cw_joystick_translate_scratch1.zip; never stage or compare it under the shared filename. Random init itself verified genuine (no --init-from in the live process command)."
+    "checkpoint_provenance": "CAUTION (fb_20260815T123151_a8660c, verified in extra_args): --out-name retained from the warm twin \u2014 this run writes ppo_goal_cw_joystick_translate1.zip, SAME filename as cw-joystick-translate1 (train-0). No live collision (different pods), but before ANY cross-pod use pull the scratch checkpoint explicitly from hexapod-mjx-train-3 / W&B tvzk2nn8 and rename to ppo_goal_cw_joystick_translate_scratch1.zip; never stage or compare it under the shared filename. Random init itself verified genuine (no --init-from in the live process command).",
+    "triage": "done",
+    "verdict": "FAIL (comparator, not promotion) - from-scratch init does not fix the joystick-translate stall, it just cheats a DIFFERENT way. Acquisition: joystick/v_along_m_s_cumulative flat ~0.003-0.006 m/s for all 40M steps (never trended), train/wrong_way_frac pinned ~0.43-0.44 from step 0 -- identical shape to the warm twin cw-joystick-translate1. Harness confirms: prog_ratio med 0.11-0.17 (promotion band 0.75-1.25), fwd med 0.05-0.09m over a 60s episode commanding 0.03-0.06 m/s (~2-3m expected) across all 4 passes (gate det/sto, own-DR det/sto), despite env/reward_task climbing to 0.85-0.89 -- reward/task-metric disconnect, RUN_INTERPRETATION rule 2. Survival: fully solved, ep_len saturates 1500/1500, ~1-2 terminations total across ~26k episodes. Gait quality DIFFERS from the twin: gait_valid 6/6 on all 4 passes, no sacrificed leg (twin had a persistent single-leg park/stilt, sac[2], gait_valid 1-2/6) -- but video shows why that does not matter: all six legs cycle vigorously while the body sits on the same floor tile the entire episode (walk_det_0/4, walk_sto_1 frame strips, t=0 to t=48-60s, no visible displacement) -- a march-in-place exploit, RUN_INTERPRETATION_RULES #4 known-exploit video pattern, one-line STOP verdict. CONFIRMS the operator prediction-if-scratch-also-stalls branch: the joystick-translate reward/command setup itself favors low-motion survival over real command-following, independent of lineage -- two independent inits (warm c2-derived stilt-leg, fresh random march-in-place) both found zero-net-motion cheats. Recipe closed, no forensics/continuation/re-run. multitask one-time pause exception now spent for both arms; 08-13 pause otherwise stands.",
+    "hardware_ready": false
   },
   {
     "run": "smoke-rewardtick",
@@ -86896,6 +86899,19 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:arch nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-arch-tf-r1-hard1 --steps 40000000 --task joint_walk --dr-scale 0.5 --episode-seconds 15 --ent-coef 0.01 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --device cuda --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_heading_max_rad=0.7854 --cfg-set goal.walk_cmd_resample_s=1.5 --cfg-set goal.walk_cmd_resample_jitter=0.6 --cfg-set goal.walk_cmd_blend_s_min=0.1 --cfg-set goal.walk_cmd_blend_s_max=1.0 --cfg-set goal.walk_stop_frac=0.2 --cfg-set obs.history_frames=16 --transformer --n-envs 3072 --impl warp --host-workers 24 --out-name ppo_goal_cw_arch_tf_r1_hard1 --notes 'respec of cw-arch-tf-r1b: Does the small causal-transformer policy trunk (2 layers, d_model 128, 4 heads, over the 16-frame history window) learn to WALK as well as the hist16 MLP champion (cw-arch-hist16-r7: det gait_valid 6/6, zero falls, prog_ratio med 1.08-1.17 at 40M) when given the SAME 40M-step budget, identical joint_walk recipe/reward/DR? One variable changed vs r7: policy trunk (flatten-MLP -> causal self-attention). The 2M discovery rung (cw-arch-tf-r1b) already showed the stack boots/trains cleanly with no leg-sacrifice cheat locked in -- this run answers whether the mechanism actually GROWS a working gait at the budget r7 needed, or whether attention over a short window is no better/worse than the flatten baseline.' > /tmp/train_cw-arch-tf-r1-hard1.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-arch-tf-r1-hard1.log",
     "wandb_id": "t79e5h3e",
-    "verified": "2026-08-15T13:56:40+00:00"
+    "verified": "2026-08-15T13:56:40+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-15T14:01:40+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 8646,
+        "fps": 8738.1,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ],
+    "triage": "in-cycle cw-arch-tf-r1-hard1 since 2026-08-15T15:02:45"
   }
 ]
