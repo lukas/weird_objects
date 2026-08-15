@@ -83,6 +83,25 @@ new command later (the phase-2 transfer test).
 
 ## Now
 
+- **08-15 ~12:2x UTC: `cw-joystick-translate1` LAUNCHED + VERIFIED
+  (train-0, W&B ti7hygbp, 40M, warm from `cw-mt-c2`'s checkpoint) —
+  the operator-directed joystick-translation continuation.** Full
+  contract confirmed in the resolved W&B config: heading uniform
+  [-pi,pi], speed 0.03-0.06, stop_frac 0, 8s±50% segments with
+  0.5-1.0s blends, 60s episodes, wz≡0 (yaw obs kept,
+  walk_yaw_zero_frac=1), `reward.walk_gait_gate=1.0`,
+  `reward.term_cost_per_remaining_s=12.0`, `goal.walk_cmd_metrics=1`.
+  Headline metrics live from the first rollouts:
+  `joystick/v_along_m_s` ≈0.004-0.013 (cumulative ≈0.011),
+  `train/wrong_way_frac` ≈0.35, active_ticks counting — exactly the
+  near-zero-signed-projection starting point expected from the c2
+  checkpoint under full-circle commands; NO `v_along_hbin*` series.
+  Gate (pre-registered, EVAL-side direction splits only):
+  eval_cmd_suite 12-direction panel + random 60s sessions, det+sto —
+  zero falls, all-leg duty ≥0.10, raw det med v_along ≥0.015 m/s in
+  every direction, v_cross med ≤0.03; no auto-FAIL while
+  joystick/v_along_m_s + reward_task still rise; verdict needs the
+  bulk cohort (EVALS.md §4).
 - **Wave 1 A/B/C cohort FAILED at 2M — under-budget, not an
   acquisition/interference result (08-12 ~20:00 UTC).** All three
   arms hit the same low-crouch splay creep, video-confirmed, with a
