@@ -89532,7 +89532,7 @@
         "problems": []
       }
     ],
-    "verdict": "OPERATOR-ORDERED STOP at 5.1M/40M (fb_20260815T201417_5f7f0e): mechanically healthy (fps ~4800, BC fill 131072, footz loss ~0.037) but overall/onefoot/park success all ZERO, bucket-1 EMAs collapsed to ~0.02, every episode a full 400-step failure, no split SCORE/recover eval metrics emitted. PRESERVED as the warm-start diagnostic: with any1 it shows two warm-started (stand-champion init) recovery attempts both flatlined at zero -- cw-recover-any3-scratch1 tests scratch init as the isolated change.",
+    "verdict": "FALSE START, no science (corrected verdict): train-1 fresh bootstrap lacked sb3-contrib so the bg eval/video child died at import -- the run was permanently EVAL-BLIND, which is why it emitted no split SCORE/recover metrics; train-side success stayed 0 through 5.1M. Killed by a concurrent cycle that fixed the pod env and relaunched as cw-recover-any2b; operator stop directive fb_20260815T201417_5f7f0e arrived concurrently and this entry is PRESERVED as the warm-start diagnostic it names. NOTE: its env-fixed twin any2b then showed det onefoot AND park recovery success by 2.75M -- the warm-started recipe was NOT hopeless, the eval was blind. See cw-recover-any2b.",
     "hardware_ready": false,
     "triage": "done"
   },
@@ -89837,7 +89837,8 @@
       "fps_estimate": 41.7
     },
     "log": "/tmp/train_cw-dynrep-tf-state2-recovered1.log",
-    "verified": "2026-08-15T20:14:09+00:00"
+    "verified": "2026-08-15T20:14:09+00:00",
+    "triage": "in-cycle cw-dynrep-tf-state2-recovered1-cw-recover-any2b since 2026-08-15T20:29:59"
   },
   {
     "run": "cw-arch-joystick-switch-scratch2",
@@ -90378,7 +90379,7 @@
       "goal.recover_ema_beta=0.25"
     ],
     "created": "2026-08-15T20:17:31+00:00",
-    "status": "RUNNING",
+    "status": "KILLED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -90420,7 +90421,9 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "verdict": "KILLED at 2.75M by operator directive chain (fb_20260815T201417_5f7f0e: stop the warm-started recovery arm; fb_20260815T201712_39279d: recovery line WAITS for the operator bucket-0 curriculum + new main SHA -- \"execute, do not analyze\"). HONEST READ AT KILL: this env-fixed relaunch was the FIRST run to show real recovery signal -- split eval det onefoot success 1.0 (solved in 1.58s) AND park success 1.0 (2.36s), SCORE/recover_success=1, tipped_recovery_success=1, BC recover anchor filling, curriculum correctly bucket-1-only; train-side sto EMAs still ~0.1 (early). Checkpoint ppo_goal_cw_recover_any2b.zip preserved on train-1 + W&B u9sp8dki for the operator to weigh in the bucket-0 respec decision.",
+    "triage": "done"
   },
   {
     "run": "cw-arch-joystick-switch-scratch2",
@@ -90745,7 +90748,7 @@
       "Teach the robot to get up from the two easiest disturbed starts -- one foot parked wrong (onefoot) and the parked crouch (park) -- training FROM SCRATCH, with no warm-start checkpoint of any kind; this arm tests whether the stand-champion initialization itself is what blocks recovery learning, since both warm-started attempts (cw-recover-any1, cw-recover-any2) flatlined at exactly zero success while mechanically healthy (any2: 5.1M steps, overall/onefoot/park all 0, bucket-1 EMAs ~0.02, every episode a full 400-step failure). OPERATOR-ORDERED (fb_20260815T201417_5f7f0e, execute-not-analyze): clone any2's full recovery MDP/PPO recipe and 40M budget EXACTLY (512x128, batch 8192, gamma .995, lambda .98, DR .1, 16s, ent .003, rise ref, recover bank, BC anchor coef/recover/foot-z with foot_z_mm=3, min_h_ahead_mm=15, lookahead .5s, admit 4 / retreat 6 / ema .25, safety 185/185, no-canary, seed 11, warp/24) on current main containing recovery fix aa1023c; the ONLY training change is scratch initialization -- REMOVED --init-from and REMOVED --obs-pad-transplant. Parent/provenance: SCRATCH/NULL; cw-recover-any2 is the respec comparison only, never an init source. Prediction-if-true: onefoot/park success curves rise where both warm-started twins stayed at zero, implicating the champion weights as a local-minimum trap. Prediction-if-false: zero success from scratch too -- pointing at the recovery MDP/reward/reset validity, not initialization."
     ],
     "created": "2026-08-15T20:26:00+00:00",
-    "status": "REFUSED",
+    "status": "SUPERSEDED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [
@@ -90757,6 +90760,8 @@
     "phase": "acquisition",
     "assessment_scope": "full_budget_skill_acquisition",
     "evidence": "RECOVER MDP_PREFLIGHT re-run GREEN this cycle on current main (test_task_semantics.py -k recover: 13/13 PASS; full file 109 pass / 1 xfail, commit 6f909719 containing recovery fix aa1023c); operator directive fb_20260815T201417_5f7f0e + operator focus note (authenticated MCP operator lane) order the scratch arm; healthy-canary precedent: any2 ran the identical recipe mechanically clean (fps ~4800, BC fill nonzero) on this exact pod.",
-    "refused_reason": "hexapod-mjx-train-1 already runs cw-recover-any2b \u2014 GPU pods host exactly one run; pick a free GPU pod."
+    "refused_reason": "hexapod-mjx-train-1 already runs cw-recover-any2b \u2014 GPU pods host exactly one run; pick a free GPU pod.",
+    "verdict": "NEVER LAUNCHED -- launch attempt REFUSED (pod busy with any2b), then operator directive fb_20260815T201712_39279d superseded the scratch order before any retry: do NOT launch on the aa1023c curriculum; the recovery line waits for the operator bucket-0 (plant-catch / micro-onefoot) curriculum implementation and a new exact main SHA + final launch directive. Do not drain or retry from this spec. Tag exp/cw-recover-any3-scratch1 (6f909719) exists from the pre-launch snapshot; nothing trained on it.",
+    "triage": "done"
   }
 ]

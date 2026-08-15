@@ -9,8 +9,28 @@ unresolved blockers between the robot and reliable joystick control.
 
 ## Now
 
+- **08-15 ~20:5x (operator-kick cycle, fb_20260815T201417_5f7f0e +
+  superseding fb_20260815T201712_39279d): the RECOVERY LINE IS
+  PAUSED `[operator]` — waiting on the operator's bucket-0
+  curriculum (plant-catch / micro-onefoot rungs, tripod park moved
+  later, per-bucket SCORE metrics), a new exact main SHA, and the
+  final launch directive.** Executed: `cw-recover-any2b` KILLED at
+  2.75M under the stop-the-warm-arm order (checkpoint preserved on
+  train-1 + W&B u9sp8dki, RESUMABLE); the ordered from-scratch
+  replacement `cw-recover-any3-scratch1` was NEVER LAUNCHED — the
+  supersede arrived first (ledger stub marked SUPERSEDED; RECOVER
+  preflight bank 13/13 PASS on main 6f909719 stands for the future
+  launch). **Honest read at kill: any2b was WORKING — split det eval
+  onefoot success=1 (fixed the foot in 1.58 s) AND park success=1
+  (rose from the crouch in 2.36 s), `SCORE/recover_success=1`,
+  `tipped_recovery_success=1`, BC recover anchor filling, curriculum
+  correctly bucket-1-only; train-side sto EMAs still ~0.1 (early).
+  The "warm-start flatlined at zero" premise behind the pause traces
+  to any2's blind evaluator, not to learning failure — decision
+  asked in OPERATOR_QUESTIONS q_20260815T2050Z (resume any2b vs
+  bucket-0 scratch, or both).**
 - **08-15 ~20:3x (operator-kick cycle, fb_20260815T194955_9441a0):
-  the replacement is LIVE as `cw-recover-any2b` (W&B u9sp8dki,
+  the replacement went LIVE as `cw-recover-any2b` (W&B u9sp8dki,
   train-1, 40M, hw/acquisition)** — first attempt (`cw-recover-any2`,
   W&B lf5afhd6) was a no-science FALSE START: train-1's fresh
   bootstrap lacked sb3-contrib, the trainer's bg eval/video/canary
@@ -22,6 +42,7 @@ unresolved blockers between the robot and reliable joystick control.
   and the split eval already shows det onefoot 2/2 AND park 2/2
   (`SCORE/recover_onefoot_success=1`, `park=1`) — the exact signal
   any1 never produced in 13.5M. Bucket-1 gate as pre-registered.
+  (Superseded ~20 min later — see the entry above.)
 - **08-15 ~20:0x (operator-kick cycle, fb_20260815T193318_2cc049):
   `cw-recover-any1` KILLED at ~13.5M by OPERATOR ORDER (failed
   diagnostic: aggregate success 0, Phi/quality declining, NO

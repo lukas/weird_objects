@@ -84,3 +84,48 @@ Entry format (append; newest last; update status in place):
   launch occurred (launcher dedupe REFUSED correctly). Suggest
   future operator kicks that retarget a run named in a concurrency
   list say so explicitly.
+
+## q_20260815T2050Z — OPEN
+- cycle: opkick-recover-any3-scratch1 (08-15 ~20:3x-20:5x UTC)
+- operator order: fb_20260815T201417_5f7f0e (stop cw-recover-any2 /
+  lf5afhd6, launch cw-recover-any3-scratch1 FROM SCRATCH) then
+  fb_20260815T201712_39279d (SUPERSEDES the scratch launch: wait for
+  the bucket-0 curriculum implementation + a new exact main SHA +
+  final launch directive; if any3 launched concurrently, stop/preserve
+  it as superseded).
+- conflicted with: (a) "warm-start by default" + the running-runs
+  hands-off etiquette — killing cw-recover-any2b, a CONCURRENT cycle's
+  env-fixed relaunch of the stopped arm, is not literally named by
+  either directive; a peer cycle (20:28 dynrep logline) read the same
+  two directives as "any2b RUNNING is fine". (b) The stop order's own
+  evidence ("zero success, no split SCORE metrics") turned out to
+  describe an INSTRUMENTATION failure: any2 was eval-blind (missing
+  sb3-contrib killed its eval sidecar), and the fixed twin any2b was
+  succeeding.
+- why the cycle would have declined: any2b at kill time (2.75M) showed
+  the line's FIRST genuine recovery successes — split det eval
+  onefoot success=1 (solved in 1.58 s) AND park success=1 (2.36 s),
+  SCORE/recover_success=1, tipped_recovery_success=1, BC recover
+  anchor filling, curriculum correctly bucket-1-only. The "warm-start
+  flatlined at zero" premise behind pausing the line came from the
+  blind evaluator. On the merits I would have let any2b run while the
+  bucket-0 curriculum was being built.
+- what was executed: obeyed the strict reading — the warm-started arm
+  is STOPPED and the recovery line WAITS. cw-recover-any2 verdict
+  corrected (eval-blind FALSE START, preserved as the warm-start
+  diagnostic); cw-recover-any2b KILLED at 2.75M via ops.sh killrun
+  (verified dead, /dev/shm cleaned), verdict + W&B note record its
+  positive evidence, checkpoint ppo_goal_cw_recover_any2b.zip
+  preserved on train-1 + W&B u9sp8dki (RESUMABLE on one word);
+  cw-recover-any3-scratch1 NEVER LAUNCHED (first attempt REFUSED
+  pod-busy, then superseded; ledger stub marked SUPERSEDED "do not
+  drain/retry"; snapshot tag exp/cw-recover-any3-scratch1 = 6f909719
+  exists, nothing trained on it). RECOVER preflight bank 13/13 PASS
+  on current main was run before the supersede arrived and stands.
+- DECISION NEEDED: (1) resume any2b (warm + fixed evaluator, already
+  succeeding on bucket-1) alongside or instead of the bucket-0
+  from-scratch plan? (2) confirm the bucket-0/scratch design should
+  weigh any2b's det onefoot/park successes — the zero-success premise
+  was instrumentation, not learning.
+- ANSWER (operator): 
+- rulebook change: 
