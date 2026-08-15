@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: DONE
+**status**: VERDICTED
 
 **created**: 2026-08-15T17:23:49+00:00
 
@@ -20,7 +20,7 @@
 
 **gate**: Same gate as parent cw-arch-tf-r1-hard1 (identical recipe, this is a length extension not a mechanism change): PASS = det+sto gait_valid 6/6, zero sacrificed legs, zero falls, prog_ratio med >=0.85, video six-leg cycling, matching-or-beating hard1's own numbers (prog 1.14/1.08, slip 1.60/1.53). A PASS that does not improve slip vs hard1 is still a pass (extension), but is not extra good news.
 
-**verdict**: PASS -- the extra 40M-step continuation (ad hoc launch, ledger backfilled) CONSOLIDATES the causal-transformer walk: DR0 gate det+sto gait_valid 6/6 both, zero sacrificed legs, zero falls across all 24 gate + 24 own-cfg(DR0.5) episodes (48/48), roll clean/recovered every episode (peak 1.4-8.0deg, tail 0.2-1.4deg, all settled), height error <=8mm. prog_ratio med 1.23 det / 1.09 sto (matches hard1's 1.14/1.08, >=0.85 bar) and slip/m med IMPROVED 1.60->1.22 det / 1.53->1.32 sto vs hard1's own numbers -- closing (not closed) the gap to the hist16-MLP champion r7's 0.95-1.02. Own-cfg DR0.5 slip is worse (1.19 det/1.51 sto, similar to hard1) so the DR0-only slip gain does not fully transfer to on-DR training conditions -- real but partial consolidation, not a new mechanism result. Video (12 det+12 sto frame strips, both DR passes) shows six feet cycling through changing contact patterns, no flag leg, no parked/static gait, consistent height. This is a length-extension PASS on an already-PASSed line (hard1), not a new architecture finding.
+**verdict**: PASS (continuation/hardening extension, same recipe as parent) -- another 40M steps warm from the already-PASSed cw-arch-tf-r1-hard1 IMPROVES economy without regressing the gait: DR0 gate det/sto gait_valid 6/6, 0 term both, prog med 1.23/1.08 (was 1.14/1.08), slip med 1.21/1.32 (was 1.60/1.53, a real drop); own-cfg DR0.5 det/sto gv 6/6, 0 term, prog med 1.16/1.01 (was 1.10/1.00), slip med 1.19/1.51 (was 1.41/1.67); roll clean (peak 1.6-2.8deg, tail 0.4-0.5deg, better than hard1's 2.0-7.8/0.4-1.9); 10-frame contact-sheet across all 6 det episodes shows clean six-leg cycling, no flag-leg/parked-leg/drag pathology. Still not on the deployment-exact obs contract (same as hard1, walk-only). PROCESS NOTE: this run had NO ledger/INTENT record -- launched by a concurrent cycle acting on untrusted external MCP kicks (kick_20260815T165322_b36a18 family) via a raw kubectl-exec command that bypassed launch_run.py entirely, with no hypothesis/gate/doc entry anywhere; backfilled into the ledger this cycle from pod log + checkpoint evidence so it is not a silent gap. Evidence: logs/ckpt_eval/cw_arch_tf_r1_hard2_r1_{det,sto,owncfg_det,owncfg_sto}/.
 
 **note**: BACKFILLED ledger entry: run was launched manually (kubectl exec, bypassing launch_run.py) by a prior cycle acting on external MCP kicks, no ledger/INTENT record existed. extra_args reconstructed from parent hard1's args + pod log evidence (warm start file, out-name, device); exact CLI not recoverable (process exited, no history).
 

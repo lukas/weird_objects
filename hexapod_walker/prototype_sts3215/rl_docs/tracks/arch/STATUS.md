@@ -8,6 +8,27 @@ at what budget, with which failure modes.
 
 ## Now
 
+- **08-15 ~17:4x UTC — `cw-arch-tf-r1-hard2-r1` (unplanned +40M
+  continuation of hard1) TRIAGED PASS: economy improves, no
+  regression, same continuation-helps pattern the hist16-r7 line
+  already showed.** DR0 gate det/sto gait_valid 6/6, 0 term, prog
+  med 1.23/1.08 (was 1.14/1.08), slip/m med 1.21/1.32 (was
+  1.60/1.53 — a real drop); own-cfg DR0.5 det/sto gv 6/6, 0 term,
+  prog med 1.16/1.01 (was 1.10/1.00), slip/m med 1.19/1.51 (was
+  1.41/1.67); roll cleaner too (peak 1.6-2.8°/tail 0.4-0.5° vs
+  hard1's 2.0-7.8°/0.4-1.9°); contact-sheet across all 6 det
+  episodes shows clean six-leg cycling, no flag-leg/drag. **PROCESS
+  GAP (not a science problem): this run had NO ledger/INTENT entry**
+  — a concurrent cycle launched it by raw `kubectl exec`
+  (bypassing `launch_run.py`) in response to untrusted external MCP
+  kicks asking to "continue tf-r1-hard1" (kick_20260815T165322_b36a18
+  family), with no hypothesis/gate/doc anywhere. Backfilled into the
+  ledger this cycle (`update --create`) from the pod log + checkpoint
+  evidence so it isn't a silent gap; do not repeat the raw-launch
+  pattern — respec through `launch_run.py respec` next time (nothing
+  here needed a pod-specific or non-launcher path). Evidence:
+  `logs/ckpt_eval/cw_arch_tf_r1_hard2_r1_{det,sto,owncfg_det,owncfg_sto}`,
+  SKILLS.md.
 - **08-15 ~15:0x UTC — `cw-arch-tf-r1-hard1` (40M hardening twin)
   TRIAGED PASS: the causal-transformer trunk GROWS a real walking
   gait at budget parity with the hist16-MLP champion (r7).** DR0

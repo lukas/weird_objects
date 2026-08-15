@@ -86925,7 +86925,7 @@
     "parent": "cw-arch-tf-r1-hard1",
     "track": "arch",
     "phase": "hardening",
-    "status": "DONE",
+    "status": "VERDICTED",
     "wandb_id": "7lgpxtc7",
     "hypothesis": "Ad hoc continuation (no pre-registered spec found in ledger/arch docs) launched by a concurrent cycle in response to untrusted external MCP kicks kick_20260815T165322_b36a18/fb_20260815T165849/fb_20260815T170903+a23668 asking to 'continue tf-r1-hard1'. Backfilled by triage cycle c(kick-review-0815-17xx) from pod log evidence (no launch_run.py record existed). Implicit question: does another 40M steps warm-started from the already-PASSed cw-arch-tf-r1-hard1 (which matched r7 at budget parity but carried elevated slip 1.5-1.6 vs r7's 0.95-1.02) further consolidate the gait or reduce that slip gap, without regressing the walk.",
     "gate": "Same gate as parent cw-arch-tf-r1-hard1 (identical recipe, this is a length extension not a mechanism change): PASS = det+sto gait_valid 6/6, zero sacrificed legs, zero falls, prog_ratio med >=0.85, video six-leg cycling, matching-or-beating hard1's own numbers (prog 1.14/1.08, slip 1.60/1.53). A PASS that does not improve slip vs hard1 is still a pass (extension), but is not extra good news.",
@@ -86994,8 +86994,8 @@
       "ppo_goal_cw_arch_tf_r1_hard2_r1"
     ],
     "log": "/tmp/train_cw-arch-tf-r1-hard2-r1.log",
-    "verdict": "PASS -- the extra 40M-step continuation (ad hoc launch, ledger backfilled) CONSOLIDATES the causal-transformer walk: DR0 gate det+sto gait_valid 6/6 both, zero sacrificed legs, zero falls across all 24 gate + 24 own-cfg(DR0.5) episodes (48/48), roll clean/recovered every episode (peak 1.4-8.0deg, tail 0.2-1.4deg, all settled), height error <=8mm. prog_ratio med 1.23 det / 1.09 sto (matches hard1's 1.14/1.08, >=0.85 bar) and slip/m med IMPROVED 1.60->1.22 det / 1.53->1.32 sto vs hard1's own numbers -- closing (not closed) the gap to the hist16-MLP champion r7's 0.95-1.02. Own-cfg DR0.5 slip is worse (1.19 det/1.51 sto, similar to hard1) so the DR0-only slip gain does not fully transfer to on-DR training conditions -- real but partial consolidation, not a new mechanism result. Video (12 det+12 sto frame strips, both DR passes) shows six feet cycling through changing contact patterns, no flag leg, no parked/static gait, consistent height. This is a length-extension PASS on an already-PASSed line (hard1), not a new architecture finding.",
-    "hardware_ready": false,
+    "verdict": "PASS (continuation/hardening extension, same recipe as parent) -- another 40M steps warm from the already-PASSed cw-arch-tf-r1-hard1 IMPROVES economy without regressing the gait: DR0 gate det/sto gait_valid 6/6, 0 term both, prog med 1.23/1.08 (was 1.14/1.08), slip med 1.21/1.32 (was 1.60/1.53, a real drop); own-cfg DR0.5 det/sto gv 6/6, 0 term, prog med 1.16/1.01 (was 1.10/1.00), slip med 1.19/1.51 (was 1.41/1.67); roll clean (peak 1.6-2.8deg, tail 0.4-0.5deg, better than hard1's 2.0-7.8/0.4-1.9); 10-frame contact-sheet across all 6 det episodes shows clean six-leg cycling, no flag-leg/parked-leg/drag pathology. Still not on the deployment-exact obs contract (same as hard1, walk-only). PROCESS NOTE: this run had NO ledger/INTENT record -- launched by a concurrent cycle acting on untrusted external MCP kicks (kick_20260815T165322_b36a18 family) via a raw kubectl-exec command that bypassed launch_run.py entirely, with no hypothesis/gate/doc entry anywhere; backfilled into the ledger this cycle from pod log + checkpoint evidence so it is not a silent gap. Evidence: logs/ckpt_eval/cw_arch_tf_r1_hard2_r1_{det,sto,owncfg_det,owncfg_sto}/.",
+    "hardware_ready": "False",
     "triage": "done"
   },
   {
@@ -87443,7 +87443,7 @@
       "Fresh causal Transformer learns exact joystick direction under six user-like command schedules; no blending on abrupt modes."
     ],
     "created": "2026-08-15T17:36:14+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -87471,7 +87471,15 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:arch nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-arch-tf-joymodes-scratch1 --steps 2000000 --task joint_walk --dr-scale 0.5 --episode-seconds 15 --ent-coef 0.01 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --device cuda --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.k_walk_prog=0.0 --cfg-set reward.k_walk_cmd_track=2.0 --cfg-set goal.walk_speed_min_m_s=0.03 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set reward.walk_gait_gate=1.0 --cfg-set goal.walk_heading_max_rad=3.141592653589793 --cfg-set goal.walk_cmd_mode=stress_mix --cfg-set goal.walk_cmd_resample_s=4.0 --cfg-set goal.walk_cmd_resample_jitter=0.5 --cfg-set goal.walk_cmd_blend_s_min=0.0 --cfg-set goal.walk_cmd_blend_s_max=0.0 --cfg-set goal.walk_cmd_sweep_period_s=12.0 --cfg-set goal.walk_cmd_jitter_rad=0.25 --cfg-set goal.walk_stop_frac=0.0 --cfg-set goal.walk_cmd_metrics=1.0 --cfg-set obs.history_frames=16 --transformer --n-envs 3072 --impl warp --host-workers 24 --out-name ppo_goal_cw_arch_tf_joymodes_scratch1 --notes 'Fresh causal Transformer learns exact joystick direction under six user-like command schedules; no blending on abrupt modes.' > /tmp/train_cw-arch-tf-joymodes-scratch1.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-arch-tf-joymodes-scratch1.log",
     "wandb_id": "5mzh18w5",
-    "verified": "2026-08-15T17:39:16+00:00"
+    "verified": "2026-08-15T17:39:16+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-15T17:45:07+00:00",
+        "process_alive": false,
+        "verdict": "FINISHED_BEFORE_CHECKUP",
+        "log_tail": "0.048 m/s, lower 0/2, tipped 0/2, rolltrap 0/2\n[video] logged reel (2,006,016 steps | walk:TERM(tilt_roll) walk:TERM(tilt_roll) walk:TERM(tilt_roll) walk:ok)\n[video] logged reel (final | walk:TERM(tilt_roll) walk:ok walk:ok walk:TERM(tilt_roll))\n[mjx-train] done: 2,000,000 steps in 439s (4,554 env-steps/s incl. setup) -> /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_arch_tf_joymodes_scratch1.zip\n[mjx-train] evaluate with the C-env harness before trusting anything (MJX_PORT.md phase-2 item 4).\n[wandb] checkpoint artifact ckpt-ppo_goal_cw_arch_tf_joymodes_scratch1 (md5 0da5057e)\n"
+      }
+    ]
   },
   {
     "run": "cw-arch-tf-joymodes-scratch1",
