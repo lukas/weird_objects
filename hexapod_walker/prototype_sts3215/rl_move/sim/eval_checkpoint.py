@@ -63,7 +63,7 @@ ENV_CLASSES = {"goal": SimHexapodGoalEnv,
                "joint_walk": SimHexapodJointWalkEnv}
 
 ALL_MODES = ("hold", "lean", "track", "unload", "raise", "rise",
-             "lower", "walk", "quad", "getup", "quadwalk")
+             "lower", "walk", "quad", "getup", "quadwalk", "recover")
 # "quad"/"getup" added 08-13 (cw-quad-turn1-r1 dig-in): the forcing loop
 # below only touches p_<m> for m in ALL_MODES, so a requested mode
 # MISSING from this tuple zeroed every listed probability while leaving
@@ -82,6 +82,9 @@ FPS = 25
 
 
 def _start_kind(traj) -> str:
+    explicit = getattr(traj, "start_kind", None)
+    if explicit is not None:
+        return str(explicit)
     start_at = getattr(traj, "start_at", "plant")
     if start_at == "crouch":
         return "crouch"
@@ -111,7 +114,7 @@ def _start_kind(traj) -> str:
 # (tucked is fine, a vertical flag leg ~130+ mm is not). Eval-side only,
 # independent of reward terms. Gate wiring is behind --end-posture-gate
 # until the champions are baselined (report the baseline first).
-STAND_END_MODES = ("rise", "raise", "hold", "lean", "track")
+STAND_END_MODES = ("rise", "raise", "hold", "lean", "track", "recover")
 END_CLEAR_STAND_MM = 20.0
 END_CLEAR_BELLY_MM = 60.0
 
@@ -119,6 +122,11 @@ END_CLEAR_BELLY_MM = 60.0
 def _success(mode: str, term: bool, ep: dict,
              end_posture_gate: bool = False,
              valid_plant_gate: bool = False) -> bool:
+    if mode == "recover":
+        # Held recovery is the one goal whose success deliberately ends
+        # the episode.  Treating every termination as failure made the
+        # gate report successful recoveries as misses.
+        return bool(term and ep.get("term_reason") == "recover_success")
     if term:
         return False
     if end_posture_gate and mode in STAND_END_MODES + ("lower",) \
@@ -607,7 +615,7 @@ def _wandb_push(report: dict, out: Path, args) -> None:
             if any("valid_plant" in e for e in eps):
                 flat[f"{pre}/valid_plant"] = sum(
                     bool(e.get("valid_plant")) for e in eps)
-            if mode in ("rise", "lower"):
+            if mode in ("rise", "lower", "recover"):
                 by: dict[str, tuple[int, int]] = {}
                 for e in eps:
                     ok, tot = by.get(e["start_kind"], (0, 0))
@@ -813,6 +821,13 @@ def main() -> None:
                         setattr(gen, f"p_{m}", 1.0 if m == mode else 0.0)
                 eps = []
                 for k in range(args.per_mode):
+                    if mode == "recover":
+                        # Bucket-1 acquisition must be readable without
+                        # depending on random start composition.
+                        env.force_recover_start = (
+                            "onefoot" if k % 2 == 0 else "park")
+                    elif hasattr(env, "force_recover_start"):
+                        env.force_recover_start = None
                     # sto passes get video too: an unwatched success cannot
                     # support a PASS (guardrails:
                     # watched_modes=all_verdict_modes). walk mode renders
@@ -852,7 +867,7 @@ def main() -> None:
                 n_ok = sum(e["success"] for e in eps)
                 hot = max(e["cur_max_a"] for e in eps)
                 kinds = ""
-                if mode in ("rise", "lower"):
+                if mode in ("rise", "lower", "recover"):
                     by = {}
                     for e in eps:
                         ok, tot = by.get(e["start_kind"], (0, 0))

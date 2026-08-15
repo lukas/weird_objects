@@ -811,6 +811,29 @@ def test_getup_anchor_accepts_with_ref_path():
     assert model.bc_coef == 1.0
 
 
+def test_recover_anchor_refuses_without_ref_path():
+    from rl_move.sim.bc_anchor import attach_bc_anchor
+
+    model = _tiny_model()
+    with pytest.raises(SystemExit):
+        attach_bc_anchor(
+            model, coef=1.0,
+            cfg={"train": {"bc_anchor_recover": 1.0}},
+            task="joint_walk")
+
+
+def test_recover_anchor_accepts_with_ref_path():
+    from rl_move.sim.bc_anchor import attach_bc_anchor
+
+    model = _tiny_model()
+    attach_bc_anchor(
+        model, coef=1.0,
+        cfg={"train": {"bc_anchor_recover": 1.0},
+             "reward": {"rise_ref_path": RISE_REF}},
+        task="joint_walk")
+    assert model.bc_coef == 1.0
+
+
 # ---------------------------------------------------------------------------
 # FOOT-HEIGHT anchor term (train.bc_anchor_foot_z, 08-12 park audit:
 # the one-parked-foot hold habit is invisible to joint-space MSE — the

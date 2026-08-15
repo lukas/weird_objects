@@ -70,6 +70,8 @@ SNAP_ATTRS = (
     # stats dict `_rec_stats` is deliberately NOT here — it is
     # cross-episode learning state, like _lp_weights.)
     "_is_recover", "_rec_phi_prev", "_rec_hold_n",
+    "_rec_reset_height_mm", "_rec_reset_tilt_deg",
+    "_rec_reset_min_load_n", "_rec_reset_pad_spread_mm",
     # Mode-sequencing episode state (goal.mode_seq, TRANSITIONS_
     # DIRECTIVE item 1, 08-13): the segment plan/index, the stand-
     # height anchor mid-sequence rises aim at, the active segment's

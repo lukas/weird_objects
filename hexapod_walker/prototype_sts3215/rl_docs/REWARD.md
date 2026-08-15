@@ -219,9 +219,13 @@ terminal: runs must set `safety.max_roll/pitch_deg=185` (an inverted
 settle reads ~179.5°); ends are held success / timeout / safety only.
 Start states come from the adaptive reset-family curriculum
 (`_sample_recover`: onefoot/park → crouch/partial/bank → zero/tangle
-→ flip, admitted on per-kind success EMAs ≥0.8, retreat <0.2; v1
+→ flip). The curriculum begins with ONLY onefoot/park, admits the next
+family only after every kind in the frontier has EMA ≥0.8 with at
+least `goal.recover_admit_n` episodes (default 4, EMA beta .25), never
+samples an unadmitted probe, and may retreat all the way to bucket 1
+when the frontier falls below 0.2 (`recover_retreat_n`, default 6). v1
 families 5-6 — pushed-walking falling states + on-policy failure
-harvests — are the pre-registered next rung). Unlike getup there is
+harvests — are the pre-registered next rung. Unlike getup there is
 NO occupancy/ratchet/hold income and no alive bonus: income is a
 potential DIFFERENCE, so re-farming any feature pays 0 and stalling
 anywhere bleeds the time tax.
@@ -242,14 +246,25 @@ wP·g(U)·g(H)·P`, all features bounded [0,1], g = smoothstep.
 | `rec_c_time` | 1.0/s | rate-normalized time tax, every tick until termination (the directive's speed incentive; a ~4 s recovery costs ~8% of the bonus). |
 | `rec_fail_cost` | 0 → auto 1.25·c_time·horizon | charged at timeout/safety end without success — ≥ the max remaining time tax, so early abort never out-earns trying. |
 | `goal.recover_start_bank` | unset | npz (`q_rad` (K,18)) harvested start poses for the "bank" kind (family 2). |
-| `train.bc_anchor_recover` (+`_tilt_deg` 25) | 0 | state-aligned rise BC anchor (the cw-getup3 lever), eligibility-gated to the mastered rise manifold: upright ≤25°, real foot ground-reaction, at/below plant height — orientation/height/contact conditioning, never nearest-q alone; a flipped robot is never pulled toward rise poses. |
+| `train.bc_anchor_recover` (+`_tilt_deg` 25) | 0 | state-aligned rise BC anchor (the cw-getup3 lever), eligibility-gated to the mastered rise manifold: upright ≤25°, real foot ground-reaction, at/below plant height. Matching is restricted by current absolute belly→plant height before nearest-q selection. |
+| `train.bc_anchor_lookahead_s` / `bc_anchor_min_h_ahead_mm` | .25 / 0 | recovery uses the same pursuit controls as rise. The recovery arm uses the proven footlow2 values `.5` / `15`; the height floor is computed above the absolute belly datum, not above a near-standing recovery spawn. |
+| `train.bc_anchor_foot_z` / `bc_anchor_foot_z_mm` | 0 / 10 | additional contact-coordinate loss. The replacement recovery arm enables `1` / `3` so a millimetre-scale parked foot cannot hide inside the 18-joint MSE. |
+
+Training telemetry includes stable numeric start-kind/bucket ids,
+active-family count, per-kind curriculum EMA/count and terminal success,
+post-settle height/tilt/min-load/pad-spread by kind, BC eligibility and
+matched/target reference indices. Periodic eval forces equal `onefoot`
+and `park` episodes and logs separate success, return, and time panels;
+gate eval and video carry the start-kind label and treat the named
+`recover_success` termination as success.
 
 Bank: RECOVER section of `test_task_semantics.py` (replay succeeds +
 terminates, dominates flagleg/freeze/stilt/thrash by >20; flag leg
 blocks success with M≪L; no height charge; fail cost ≥ max remaining
-tax; flip spawns settle >60° and survive; sampler
-proportions/admission; empty-interval rng parity; anchor state
-gating).
+tax; flip spawns settle >60° and survive; a nominal plant teacher
+reaches held success after the real settled onefoot/park resets;
+bucket-1-only sampling/admission/retreat; empty-interval rng parity;
+anchor state gating).
 
 ## 5) Changing the reward — checklist
 

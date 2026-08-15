@@ -753,6 +753,47 @@ def _rise_split_stats(env, act_fn, per_kind: int = 2) -> dict[str, tuple]:
     return {k: (v[0], v[1]) for k, v in counts.items()}
 
 
+def _recover_split_stats(env, act_fn, per_kind: int = 2) -> dict[str, dict]:
+    """Forced bucket-1 recovery eval for onefoot and park starts.
+
+    Recovery success intentionally terminates the episode, so generic
+    survival accounting reports the opposite of the task outcome.  Keep
+    the explicit held-success signal, return, and time-to-success by kind.
+    """
+    out: dict[str, dict] = {}
+    saved = getattr(env, "force_recover_start", None)
+    try:
+        for kind in ("onefoot", "park"):
+            successes, returns, times = 0, [], []
+            env.force_recover_start = kind
+            for _ in range(per_kind):
+                obs, _ = env.reset()
+                _reset_act(act_fn)
+                done = False
+                ret = 0.0
+                success = False
+                while not done:
+                    obs, r, term, trunc, info = env.step(act_fn(obs))
+                    ret += float(r)
+                    success = success or bool(
+                        info.get("recover_success", 0.0) > 0.0
+                        or info.get("termination_reason")
+                        == "recover_success")
+                    done = term or trunc
+                successes += int(success)
+                returns.append(ret)
+                times.append(float(env._step_i) * env.dt)
+            out[kind] = {
+                "successes": successes,
+                "episodes": per_kind,
+                "return_mean": float(np.mean(returns)),
+                "time_mean_s": float(np.mean(times)),
+            }
+    finally:
+        env.force_recover_start = saved
+    return out
+
+
 def _roll_trap_stats(env, act_fn, episodes: int, walk: bool) -> dict:
     """ROLL-TRAP GATE (operator spec 08-10): walk normally, then a
     servo-controlled external roll torque on the chassis drags the
@@ -908,6 +949,27 @@ def _run_periodic_eval(env, act, args, env_cls, step,
                 bits.append(f"{kind[0]}{done_n}/{tot}")
             brief.append("rise " + " ".join(bits))
             continue
+        if mode == "recover" and gen is not None:
+            split = _recover_split_stats(env, act, per_kind=per_mode)
+            done_n = total_n = 0
+            returns = []
+            bits = []
+            for kind, stats in split.items():
+                ok, tot = stats["successes"], stats["episodes"]
+                payload[f"SCORE/recover_{kind}_success"] = ok / tot
+                payload[f"eval/recover/{kind}_return"] = (
+                    stats["return_mean"])
+                payload[f"eval/recover/{kind}_time_s"] = (
+                    stats["time_mean_s"])
+                done_n += ok
+                total_n += tot
+                returns.append(stats["return_mean"])
+                bits.append(f"{kind}:{ok}/{tot}")
+            payload["SCORE/recover_success"] = done_n / total_n
+            payload["SCORE/recover_total_reward"] = float(
+                np.mean(returns))
+            brief.append("recover " + " ".join(bits))
+            continue
         stats = _rollout_stats(env, act, per_mode)
         # Headline numbers live in the SCORE/ section (operator 08-10:
         # "return" was an awful name and the totals were buried).
@@ -1059,7 +1121,7 @@ def _reel_modes(env, video_episodes: int) -> list[str]:
     # ALL_MODES quad fallback bug came from.
     all_modes = ("rise", "walk", "lower", "raise",
                  "hold", "track", "lean", "unload",
-                 "quadwalk", "quad", "getup")
+                 "quadwalk", "quad", "getup", "recover")
     gen = getattr(env, "_goal_gen", None)
     active = [m for m in all_modes
               if gen is not None
@@ -1083,7 +1145,7 @@ def _render_reel(env, policy, args, step,
     saved_p = {m: getattr(gen, f"p_{m}")
                for m in ("hold", "lean", "track", "unload",
                          "raise", "rise", "lower", "walk",
-                         "quadwalk", "quad", "getup")
+                         "quadwalk", "quad", "getup", "recover")
                if gen is not None and hasattr(gen, f"p_{m}")}
     reel = _reel_modes(env, args.video_episodes)
     # Path MUST be unique per process: two runs sharing a pod (warm-started
@@ -1110,7 +1172,10 @@ def _render_reel(env, policy, args, step,
             obs, info = env.reset()
             _reset_act(act)
             mode = info.get("goal_mode", want)
-            header = f"[{k + 1}/{len(reel)}] task: {mode}"
+            start_kind = getattr(getattr(env, "_goal_traj", None),
+                                 "start_kind", None)
+            suffix = f"  start: {start_kind}" if start_kind else ""
+            header = f"[{k + 1}/{len(reel)}] task: {mode}{suffix}"
             title = _annotate_frame(env.render(), [header])
             for _ in range(12):  # ~0.5 s title card per episode
                 writer.append_data(title)
@@ -1144,7 +1209,7 @@ def _render_reel(env, policy, args, step,
                     _annotate_frame(env.render(), lines))
                 done = term or trunc
             outcomes.append(
-                f"{mode}:"
+                f"{mode}{f'({start_kind})' if start_kind else ''}:"
                 + (f"TERM({info.get('termination_reason')})"
                    if term else "ok"))
     finally:

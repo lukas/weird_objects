@@ -429,7 +429,7 @@ def make_bc_anchor_ppo_class(base_cls=None):
             # sampled, so the update sequence is bit-identical.
             with torch.no_grad():
                 names = {0: "rise", 1: "hold", 2: "lower", 3: "walk",
-                          4: "getup"}
+                          4: "getup", 6: "recover"}
                 for m in np.unique(self._bc_mode[:n]):
                     rows = np.flatnonzero(self._bc_mode[:n] == m)
                     sel = (rows if len(rows) <= bs
@@ -438,11 +438,18 @@ def make_bc_anchor_ppo_class(base_cls=None):
                     th_act = torch.as_tensor(self._bc_act[sel], device=dev)
                     th_h = (torch.as_tensor(self._bc_h[sel], device=dev)
                             if recurrent else None)
-                    l_m = float(F.mse_loss(
-                        self._bc_policy_mean(th_obs, th_h),
-                        th_act).detach().cpu())
+                    mean_m = self._bc_policy_mean(th_obs, th_h)
+                    l_m = float(F.mse_loss(mean_m, th_act).detach().cpu())
                     tag = names.get(int(m), str(int(m)))
                     self.logger.record(f"train/bc_anchor_loss_{tag}", l_m)
+                    if float(getattr(self, "bc_foot_z_coef", 0.0)) > 0.0:
+                        scale = float(getattr(
+                            self, "bc_foot_z_mm", 10.0)) * 1e-3
+                        dz_m = (_bc_foot_z(mean_m)
+                                - _bc_foot_z(th_act)) / scale
+                        self.logger.record(
+                            f"train/bc_anchor_footz_loss_{tag}",
+                            float(dz_m.pow(2).mean().detach().cpu()))
                     self.logger.record(f"train/bc_anchor_fill_{tag}",
                                        int(len(rows)))
 
@@ -519,6 +526,13 @@ def attach_bc_anchor(model, *, coef: float, cfg: dict | None,
             raise SystemExit(
                 "train.bc_anchor_getup set but reward.rise_ref_path is "
                 "missing — the env would never emit a getup bc_target "
+                "and the anchor would silently no-op")
+    if float(cfg_get(cfg, "train", "bc_anchor_recover", default=0.0)) > 0.0:
+        ref = cfg_get(cfg, "reward", "rise_ref_path", default=None)
+        if not ref:
+            raise SystemExit(
+                "train.bc_anchor_recover set but reward.rise_ref_path is "
+                "missing — the env would never emit a recovery bc_target "
                 "and the anchor would silently no-op")
     model.bc_coef = float(coef)
     model.bc_stratified = float(cfg_get(

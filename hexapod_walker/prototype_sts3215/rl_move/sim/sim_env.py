@@ -1804,6 +1804,21 @@ class SimHexapodBalanceEnv(_GymBase):
         self._curl_dist_prev = self._curl_dist()
         self._curl_milestones: set[float] = set()
         self._state = self._read_state()
+        self._rec_reset_height_mm = 0.0
+        self._rec_reset_tilt_deg = 0.0
+        self._rec_reset_min_load_n = 0.0
+        self._rec_reset_pad_spread_mm = 0.0
+        if self._is_recover:
+            _rr, _rp = self._true_roll_pitch()
+            _loads = [max(float(self.data.sensordata[a]), 0.0)
+                      if a >= 0 else 0.0 for a in self._touch_adr]
+            _pad_z = [float(self.data.xpos[b, 2]) for b in self._pad_bids]
+            self._rec_reset_height_mm = float(
+                self.data.xpos[self._chassis_bid, 2]) * 1000.0
+            self._rec_reset_tilt_deg = max(abs(_rr), abs(_rp)) * RAD2DEG
+            self._rec_reset_min_load_n = min(_loads)
+            self._rec_reset_pad_spread_mm = (
+                max(_pad_z) - min(_pad_z)) * 1000.0
         # Anchor trip, obs, and reward to the start attitude — mount bias
         # / slope isn't tipping, and goals mean "lean from here".
         self._tilt_ref0 = (self._state.imu_roll, self._state.imu_pitch)
@@ -3274,6 +3289,7 @@ class SimHexapodBalanceEnv(_GymBase):
                 and float(cfg_get(self.cfg, "train",
                                   "bc_anchor_recover",
                                   default=0.0)) > 0.0):
+            info["recover_bc_eligible"] = 0.0
             _bc_ref_path = cfg_get(self.cfg, "reward", "rise_ref_path",
                                    default=None)
             if _bc_ref_path:
@@ -3292,21 +3308,65 @@ class SimHexapodBalanceEnv(_GymBase):
                 _z_pl, _ = self._getup_geom()
                 if (_tilt <= _tilt_max and _touch_n >= 0.5
                         and _z_now <= _z_pl + 0.02):
+                    info["recover_bc_eligible"] = 1.0
                     from .joint_task import q_rad_to_action
                     _bc_ref = load_rise_ref(str(_bc_ref_path))
                     _bc_qnow = np.asarray(
                         self.data.qpos[self._qadr], dtype=float)
-                    _bc_j = int(np.argmin(
-                        ((_bc_ref["q"] - _bc_qnow[None, :]) ** 2)
-                        .mean(axis=1)))
+                    _bc_dist = ((_bc_ref["q"] - _bc_qnow[None, :]) ** 2
+                                ).mean(axis=1)
+                    # Recover starts span belly to plant height.  Nearest-q
+                    # alone was known to match a parked near-plant leg to a
+                    # low, slow part of the rise reference.  Restrict the
+                    # pose match to reference frames near the current
+                    # absolute belly->plant height whenever h_rel_m exists;
+                    # upright/contact eligibility above supplies the other
+                    # two state dimensions from the directive.
+                    _bc_hnow = None
+                    if "h" in _bc_ref:
+                        _z_belly = float(cfg_get(
+                            self.cfg, "reward", "getup_z_belly_mm",
+                            default=38.0)) * 1e-3
+                        _bc_hnow = max(_z_now - _z_belly, 0.0)
+                        _h_tol = float(cfg_get(
+                            self.cfg, "train",
+                            "bc_anchor_recover_height_match_mm",
+                            default=25.0)) * 1e-3
+                        _height_rows = np.flatnonzero(
+                            np.abs(_bc_ref["h"] - _bc_hnow) <= _h_tol)
+                    else:
+                        _height_rows = np.empty(0, dtype=int)
+                    if len(_height_rows):
+                        _bc_j = int(_height_rows[
+                            np.argmin(_bc_dist[_height_rows])])
+                    else:
+                        _bc_j = int(np.argmin(_bc_dist))
                     _bc_ahead = max(int(round(float(cfg_get(
                         self.cfg, "train", "bc_anchor_lookahead_s",
                         default=0.25)) / _bc_ref["dt"])), 1)
+                    # Carry the proven footlow2 height-floor pursuit into
+                    # recovery.  Use absolute height above the belly datum,
+                    # not height above this episode's spawn (_z0): a
+                    # onefoot/park episode starts near standing height.
+                    _bc_min_h = float(cfg_get(
+                        self.cfg, "train", "bc_anchor_min_h_ahead_mm",
+                        default=0.0))
+                    if (_bc_min_h > 0.0 and "h" in _bc_ref
+                            and _bc_hnow is not None):
+                        _bc_ks = np.flatnonzero(
+                            _bc_ref["h"][_bc_j:]
+                            >= _bc_hnow + _bc_min_h * 1e-3)
+                        _bc_floor = (_bc_j + int(_bc_ks[0])
+                                     if len(_bc_ks)
+                                     else len(_bc_ref["q"]) - 1)
+                        _bc_ahead = max(_bc_ahead, _bc_floor - _bc_j)
                     _bc_jn = min(_bc_j + _bc_ahead,
                                  len(_bc_ref["q"]) - 1)
                     info["bc_target"] = q_rad_to_action(
                         _bc_ref["q"][_bc_jn]).astype(np.float32)
                     info["bc_mode"] = 6    # recover
+                    info["recover_bc_ref_index"] = float(_bc_j)
+                    info["recover_bc_target_index"] = float(_bc_jn)
         # HOLD/TRACK BC-anchor target (RL_PLAN queue 2.3, 08-11): the
         # rise lever repeated after two hold pricing misses (hard zero,
         # then a linear fade) neither reached a quiet plant. Hold/track

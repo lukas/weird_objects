@@ -271,7 +271,11 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # SNAP_ATTRS): per-start-kind success EMA + episode count, and
         # the number of admitted difficulty families.
         self._rec_stats = {}
-        self._rec_active_n = 2
+        # Recovery must prove the easy six-foot correction before floor
+        # starts enter the diet.  any1 started with families 1+2 and also
+        # probed family 3, so there was no bucket-1 acquisition phase to
+        # measure or retreat to.
+        self._rec_active_n = 1
         # Swing-bonus bookkeeping (see step()): per-foot contact state
         # and world XY at the moment of liftoff.
         self._pad_bids = [self.model.body(f"L{i}_pad").id
@@ -958,8 +962,8 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
     # Zero velocity command throughout (this is the recovery
     # specialist; walking is another mode's job). Start-state
     # curriculum = difficulty FAMILIES of start kinds, admitted
-    # adaptively from per-kind success EMAs (buckets 1-2 first, per
-    # the directive). Reward is a potential DIFFERENCE (PBRS) on
+    # adaptively from per-kind success EMAs (bucket 1 alone first).
+    # Reward is a potential DIFFERENCE (PBRS) on
     # bounded [0,1] features + one-shot success bonus + a
     # rate-normalized time tax — no occupancy/hold income, no alive
     # bonus (see _recover_reward / REWARD.md §4c).
@@ -983,6 +987,10 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                         ("crouch", "partial", "bank"),
                         ("zero", "tangle"),
                         ("flip",))
+    RECOVER_KIND_IDS = {
+        kind: i for i, kind in enumerate(
+            kind for family in RECOVER_FAMILIES for kind in family)
+    }
 
     def _recover_active_kinds(self) -> list:
         """Kinds in the currently admitted families ("bank" only when a
@@ -998,10 +1006,10 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         """Adaptive sampler weights (directive proportions): frontier
         kinds (success EMA 20-80%, or <8 episodes seen) carry the bulk
         (0.55), mastered kinds (>80%) keep retention pressure (0.20),
-        struggling kinds (<20%) stay pressured but reduced (0.35), the
-        next NOT-yet-admitted family's kinds get a hard probe share
-        (0.15 — this is also what feeds the admission statistics), and
-        a uniform fresh floor (0.10 split) keeps every kind alive.
+        struggling kinds (<20%) stay pressured but reduced (0.35), and
+        a uniform fresh floor (0.10 split) keeps every ADMITTED kind
+        alive.  Unadmitted families receive no probes: admission means
+        the preceding family has already passed its gate.
         Pure function of self._rec_stats; unit-tested in the semantics
         bank."""
         w = []
@@ -1020,25 +1028,39 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
     def _recover_update_admission(self) -> None:
         """Advance/retreat the family ladder from the stats: admit the
         next family when every kind of the HARDEST ACTIVE family has
-        n>=12 and success EMA >=0.8; retreat (never below 2 families)
-        when any kind of the last-admitted family has n>=20 and EMA
+        enough evidence and success EMA >=0.8; retreat (down to bucket
+        1) when any kind of the last-admitted family has enough evidence
+        and EMA
         <0.2 (directive: >=80% advance, <20% retreat)."""
         hard = [k for k in self.RECOVER_FAMILIES[self._rec_active_n - 1]
                 if k != "bank" or cfg_get(self.cfg, "goal",
                                           "recover_start_bank",
                                           default=None) is not None]
         st = self._rec_stats
+        admit_n = int(float(cfg_get(
+            self.cfg, "goal", "recover_admit_n", default=4)))
+        retreat_n = int(float(cfg_get(
+            self.cfg, "goal", "recover_retreat_n", default=6)))
         if (self._rec_active_n < len(self.RECOVER_FAMILIES)
                 and hard
-                and all(st.get(k, (0.0, 0))[1] >= 12
+                and all(st.get(k, (0.0, 0))[1] >= admit_n
                         and st.get(k, (0.0, 0))[0] >= 0.8
                         for k in hard)):
             self._rec_active_n += 1
-        elif (self._rec_active_n > 2
-                and any(st.get(k, (1.0, 0))[1] >= 20
+        elif (self._rec_active_n > 1
+                and any(st.get(k, (1.0, 0))[1] >= retreat_n
                         and st.get(k, (1.0, 0))[0] < 0.2
                         for k in hard)):
             self._rec_active_n -= 1
+            # Re-certify the easier frontier before trying the failed
+            # family again.  Without this reset, its old mastered EMA
+            # immediately re-admitted the failed family on the very next
+            # reset, so "retreat" lasted zero training episodes.
+            for k in self.RECOVER_FAMILIES[self._rec_active_n - 1]:
+                if k != "bank" or cfg_get(
+                        self.cfg, "goal", "recover_start_bank",
+                        default=None) is not None:
+                    st[k] = (0.5, 0)
 
     def _sample_recover(self) -> WalkTrajectory:
         """One recover_to_plant episode: adaptive start-kind draw, zero
@@ -1062,19 +1084,6 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         self._recover_update_admission()
         kinds = self._recover_active_kinds()
         w = self._recover_kind_weights(kinds)
-        # probe share for the next not-yet-admitted family (0.15),
-        # renormalized against the active weights
-        if self._rec_active_n < len(self.RECOVER_FAMILIES):
-            probe = [k for k in
-                     self.RECOVER_FAMILIES[self._rec_active_n]
-                     if k != "bank" or cfg_get(
-                         self.cfg, "goal", "recover_start_bank",
-                         default=None) is not None]
-            if probe:
-                kinds = kinds + probe
-                w = np.concatenate(
-                    [w * 0.85, np.full(len(probe), 0.15 / len(probe))])
-                w = w / w.sum()
         r = float(self.rng.random())
         kind = kinds[int(np.searchsorted(np.cumsum(w), r,
                                          side="right").clip(
@@ -2549,6 +2558,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                                     "rec_b_success", default=50.0))
             reward += r_bonus
             term = True
+            info["termination_reason"] = "recover_success"
         elif term or trunc:
             # timeout / safety-envelope end without success: pay at
             # least the maximum remaining time tax so aborting early
@@ -2564,13 +2574,17 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             # episodes; the sampler reads it at the next reset)
             kind = getattr(self._goal_traj, "start_kind", "?")
             ema, n = self._rec_stats.get(kind, (0.5, 0))
-            beta = 0.10
+            beta = float(cfg_get(self.cfg, "goal",
+                                 "recover_ema_beta", default=0.25))
             self._rec_stats[kind] = (
                 (1.0 - beta) * ema + beta * (1.0 if success else 0.0),
                 n + 1)
+            info[f"recover_episode_{kind}"] = 1.0
+            info[f"recover_success_{kind}"] = 1.0 if success else 0.0
 
         info["reward_recover_pot"] = r_pot
         info["reward_recover_bonus"] = r_bonus
+        info["reward_recover_time"] = -c_time * self.dt
         info["recover_phi"] = phi
         info["recover_U"] = feat_u
         info["recover_L"] = feat_l
@@ -2581,4 +2595,23 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         info["recover_success"] = 1.0 if success else 0.0
         info["recover_min_load"] = float(np.min(x))
         info["recover_tilt_deg"] = tilt_deg
+        kind = getattr(self._goal_traj, "start_kind", "?")
+        info["recover_start_kind_id"] = float(
+            self.RECOVER_KIND_IDS.get(kind, -1))
+        info["recover_start_bucket"] = float(next(
+            (i + 1 for i, fam in enumerate(self.RECOVER_FAMILIES)
+             if kind in fam), 0))
+        info["recover_active_families"] = float(self._rec_active_n)
+        info[f"recover_reset_height_mm_{kind}"] = float(
+            self._rec_reset_height_mm)
+        info[f"recover_reset_tilt_deg_{kind}"] = float(
+            self._rec_reset_tilt_deg)
+        info[f"recover_reset_min_load_n_{kind}"] = float(
+            self._rec_reset_min_load_n)
+        info[f"recover_reset_pad_spread_mm_{kind}"] = float(
+            self._rec_reset_pad_spread_mm)
+        for rec_kind in self._recover_active_kinds():
+            ema, n = self._rec_stats.get(rec_kind, (0.5, 0))
+            info[f"recover_curriculum_ema_{rec_kind}"] = float(ema)
+            info[f"recover_curriculum_n_{rec_kind}"] = float(n)
         return reward, term, info

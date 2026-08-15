@@ -610,6 +610,19 @@ def test_walk_success_requires_gait_validity():
     assert not _success("walk", False, flagged)
 
 
+def test_recover_success_is_the_named_terminal_and_keeps_start_kind():
+    from types import SimpleNamespace
+
+    from rl_move.sim.eval_checkpoint import _start_kind, _success
+
+    ep = {"term_reason": "recover_success"}
+    assert _success("recover", True, ep)
+    assert not _success("recover", False, ep)
+    assert not _success("recover", True, {"term_reason": "tilt"})
+    traj = SimpleNamespace(start_at="any", start_kind="onefoot")
+    assert _start_kind(traj) == "onefoot"
+
+
 def test_walk_phase_obs_clock_and_routing():
     """goal.walk_phase_obs=1: obs +2 (sin/cos), clock advances at
     goal.walk_phase_hz only while a walk velocity is commanded; default

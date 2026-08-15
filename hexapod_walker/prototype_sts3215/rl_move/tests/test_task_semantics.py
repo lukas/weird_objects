@@ -3920,37 +3920,78 @@ def test_recover_flip_spawn_is_nonupright():
         f"no flip spawn landed tipped (tilts {tilts})")
 
 
+@pytest.mark.parametrize("start", ("onefoot", "park"))
+def test_recover_bucket1_plant_teacher_reaches_held_success(start):
+    """Bucket 1 is mechanically an easy correction after the real
+    slippery/limp settle.  Holding the nominal six-foot plant command
+    must restore every foot and satisfy the exact held-success gate;
+    otherwise the curriculum's first rung is mislabeled or unreachable.
+    """
+    for seed in SEEDS[:2]:
+        env = _make_recover_env(seed, start=start)
+        _obs, reset_info = env.reset()
+        assert env._goal_traj.start_kind == start
+        assert reset_info["goal_mode"] == "recover"
+        plant = q_rad_to_action(env._plant_deg * DEG2RAD)
+        success = False
+        last = {}
+        while True:
+            _obs, _r, term, trunc, last = env.step(plant)
+            success = success or last.get("recover_success", 0.0) > 0.0
+            if term or trunc:
+                break
+        env.close()
+        assert success, f"plant teacher cannot solve settled {start}"
+        assert last.get("termination_reason") == "recover_success"
+        assert last["recover_start_kind_id"] >= 0.0
+        assert last["recover_start_bucket"] == 1.0
+        assert last["recover_active_families"] == 1.0
+
+
+def test_recover_periodic_eval_is_forced_and_split_by_bucket1_kind():
+    from rl_move.sim.train_ppo_sim import _recover_split_stats
+
+    env = _make_recover_env(7, start="onefoot")
+    plant = q_rad_to_action(env._plant_deg * DEG2RAD)
+    split = _recover_split_stats(env, lambda _obs: plant, per_kind=1)
+    env.close()
+    assert set(split) == {"onefoot", "park"}
+    assert split["onefoot"]["successes"] == 1
+    assert split["park"]["successes"] == 1
+    assert all(v["episodes"] == 1 for v in split.values())
+
+
 def test_recover_adaptive_sampler_proportions():
     """Unit-level checks on the adaptive reset-bank curriculum:
     frontier kinds out-weigh mastered kinds; admission advances only
-    when the hardest active family is mastered (EMA>=0.8, n>=12);
-    retreat fires below 20%; the ladder never drops below 2
-    families."""
+    when the hardest active family is mastered; no unadmitted family is
+    probed; retreat fires below 20%; the ladder can return to bucket 1."""
     env = _make_recover_env(0, start="zero")
+    env.force_recover_start = None
+    assert env._rec_active_n == 1
+    assert set(env._sample_recover().start_kind
+               for _ in range(100)) <= {"onefoot", "park"}
     # frontier vs mastered weights
-    env._rec_stats = {"onefoot": (0.5, 30), "park": (0.95, 30),
-                      "crouch": (0.5, 30), "partial": (0.5, 30),
-                      "zero": (0.5, 30), "tangle": (0.5, 30)}
-    env._rec_active_n = 2
+    env._rec_stats = {"onefoot": (0.5, 30), "park": (0.95, 30)}
     kinds = env._recover_active_kinds()
     assert "bank" not in kinds, "bank admitted without a bank file"
     w = env._recover_kind_weights(kinds)
     wi = dict(zip(kinds, w))
     assert wi["onefoot"] > wi["park"] * 2.0, (
         "frontier kind does not out-weigh mastered kind")
-    # admission: not yet (crouch/partial not mastered)
+    # admission: not yet (onefoot is frontier)
+    env._recover_update_admission()
+    assert env._rec_active_n == 1
+    # master bucket 1 -> admit bucket 2
+    env._rec_stats.update({"onefoot": (0.9, 4), "park": (0.85, 4)})
     env._recover_update_admission()
     assert env._rec_active_n == 2
-    # master family 2 -> admit family 3
-    env._rec_stats.update({"crouch": (0.9, 15), "partial": (0.85, 15)})
+    # collapse on bucket 2 -> retreat to bucket 1 and stay there
+    env._rec_stats.update({"crouch": (0.1, 6), "partial": (0.1, 6)})
     env._recover_update_admission()
-    assert env._rec_active_n == 3
-    # collapse on family 3 -> retreat, but never below 2
-    env._rec_stats.update({"zero": (0.1, 25), "tangle": (0.1, 25)})
+    assert env._rec_active_n == 1
     env._recover_update_admission()
-    assert env._rec_active_n == 2
-    env._recover_update_admission()
-    assert env._rec_active_n >= 2
+    assert env._rec_active_n == 1
     env.close()
 
 
