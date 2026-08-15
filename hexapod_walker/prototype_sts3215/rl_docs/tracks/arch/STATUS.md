@@ -25,6 +25,25 @@ at what budget, with which failure modes.
   pod, launcher opt-in flag, bit-parity + GPU-memory-coexistence
   smoke vs warp) — shared default stays CPU-torch, no fleet-wide
   build swap. Ledger `checkup_note` on the run has the full chain.
+  **UPDATE 08-15 ~12:2x UTC: superseded — the run was KILLED (no
+  science read; env-only) once the fps math (37h for the pre-
+  registered 40M twin) made waiting on it pointless, and relaunched
+  as `cw-arch-tf-r1b` on train-1 with an ad hoc CUDA-torch install
+  (`pip install torch==2.11.0+cu128 --no-deps`, kept train-1's
+  existing jax/nvidia-cu12 stack intact) + `--device cuda`.
+  Benchmarked ~120x on the identical PPO update (240s/iter CPU vs
+  2.0s/iter cuda); `cw-arch-tf-r1b` verified RUNNING, fps climbing
+  993→1457 over its first ~5 update cycles (still short of the
+  gate's >=2000 floor at last look, trending toward it) and healthy
+  (no NaN, EV climbing, coexists on train-1 fine alongside the
+  still-running Arm A distill CPU job below). This is a ONE-POD,
+  UNDOCUMENTED-BY-CODE fix — ephemeral (lost on pod restart/recycle,
+  invisible to snapshot.sh's code marker) — so the named [code] item
+  above (a real launcher-level opt-in CUDA-torch path: recorded pod
+  capability, parity/coexistence smoke, reproducible install step)
+  STAYS OPEN as the durable version of this fix; treat train-1's
+  torch build as a manual, temporary exception until it lands.**
+- **CROSS-TRACK INSIGHT (08-15, from hw `cw-stand-postlower3` dig-in,
   Cohort c3):** the shared mode-sequence rise branch
   (`_seq_segment_traj`) starts every mid-sequence rise at BELLY-FRAME
   0 with the blend interpolating the height ref DOWN from the current
