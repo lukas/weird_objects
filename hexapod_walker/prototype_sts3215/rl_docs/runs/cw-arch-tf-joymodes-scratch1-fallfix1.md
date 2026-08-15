@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: FAIL
+**status**: FAILED
 
 **created**: 2026-08-15T19:39:02+00:00
 
@@ -20,5 +20,5 @@
 
 **gate**: PRIMARY readout is survival/fall count, not reward or direction error. PASS = by the final 1M-cadence evals, eval/walk/survived_frac moves materially off 0 (>=0.25) AND training tilt terminations per rollout drop >=50% vs the ~607 baseline, with directional metrics not regressing beyond noise (requested-direction v-err <=0.02 m/s, wrong-way <=0.10). FAIL = survival still ~0 at 40M lineage total despite the ~-141 fall charge — then the diagnosis shifts from pricing to capability/curriculum and this unchanged lineage gets no further chunks. Rising reward alone is not a safety verdict.
 
-**verdict**: FAIL by the pre-registered letter at full 40M lineage budget: eval/walk/survived_frac stayed 0 at all 4 eval checkpoints of this run (and was 0 through the parent's 28M too) despite the -141-per-fall horizon charge; DR0 gate 0/6 det + 0/6 sto, all 12 episodes terminated tilt_pitch/tilt_roll, roll_class fell 12/12, video shows genuine forward pitch-overs (not a stable stilt cheat). Tilt terminations over this 4M chunk: 267 pitch + 302 roll = 569 of ~571 episodes (only 2 truncated) -- nowhere near the required >=50% cut from the ~607 baseline. Direction-following held up fine (wrong_way_frac 0.042, dir_valid_frac 0.96, dir_err_deg_mean 19 deg) so the acquisition half of the lineage is real, but pricing the fall harder did not buy survival -- per the gate this is now a capability/curriculum problem, not a pricing one, and the lineage gets no further chunks.
+**verdict**: FAIL: The fall-fix continuation did not learn stable walking. It resumed the 34.1M-step failure policy instead of starting fresh, changed only a sparse delayed terminal charge, kept n_steps=16 (0.64 s) despite falls around 3.8 s, and ran only 4.03M samples (82 rollout collections, 749 s wall time). Mean episode length was 94.3/375 ticks, eval walk survival was 0/6, all four final video trials ended in tilt, and direction error worsened to 19.2 deg. Predictable reward oscillation came from clustered tilt terminations dominating short rollout windows. Do not continue this checkpoint. Replacement must start from random weights, use a rollout horizon spanning the pre-fall behavior, lower entropy pressure, simplify command switching during acquisition, train at the full 40M per-run budget, and gate on full-horizon deterministic survival plus direction error rather than reward.
 

@@ -219,3 +219,25 @@ def test_respec_now_preserves_dynrep_fresh_trainer(monkeypatch):
     assert lr.cmd_respec({}, args) == 0
     assert captured["ns"].trainer == "dynrep-fresh"
     assert captured["args"][captured["args"].index("--data") + 1] == "new_ds"
+    # 08-15 regression: respec used to append --out-name unconditionally
+    # (a ppo-only convention) — rl_move.dynamics.train/fresh_pipeline has
+    # no such flag and argparse crashes on it (cw-dynrep-tf-state2-fresh3
+    # burned a full stage-1 recollection before hitting this on stage 2).
+    assert "--out-name" not in captured["args"]
+
+
+def test_respec_init_from_source_refused_for_dynrep(monkeypatch):
+    source = {
+        "run": "cw-dynrep-source", "trainer": "dynrep-fresh",
+        "steps": 40_000, "track": "dynrep", "phase": "discovery",
+        "extra_args": ["--data", "old_ds", "--device", "cuda"],
+        "checks": {"pid": "123"},
+    }
+    monkeypatch.setattr(lr, "load_ledger", lambda: [source])
+    args = argparse.Namespace(
+        source="cw-dynrep-source", run="cw-dynrep-copy", seed=None,
+        steps=None, parent="", hypothesis="h", gate="g", phase="",
+        evidence="", arg=None, cfg=None,
+        init_from_source=True, now=False, pod=None,
+        operator_override=None, track="")
+    assert lr.cmd_respec({}, args) == 1

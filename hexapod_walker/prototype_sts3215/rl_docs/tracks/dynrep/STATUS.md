@@ -1,5 +1,43 @@
 # dynrep — Dynamics-representation pretraining
 
+**08-15 ~20:1x UTC: `cw-dynrep-tf-state2-fresh2` died a SECOND time
+(pod train-10 hard-OOMKilled at the 96Gi cgroup limit, ~65s after its
+stage-1 collection cleanly logged `data/complete=1` meeting the gate --
+10,240,039 train windows, reuse 1.9999x, wandb `flaf42k7`), and this
+time ROOT-CAUSED, not just retried blind: `data.load_dataset` indexed
+`z["frames"]`/`z["actions"]`/`z["priv"]` freshly INSIDE the per-episode
+loop, and `NpzFile.__getitem__` allocates the complete member array on
+every call with no caching -- a ~2048-episode shard re-allocated its
+full frames/actions/priv arrays up to 2048 times each, exhausting a
+96Gi pod loading an ~8-9GiB corpus. This ALSO FALSIFIES the earlier
+"stacking, not a collector leak" read on the FIRST fresh death (train-1):
+fresh2 died solo, no co-resident job, so the bug was always in
+load_dataset. Fixed directly (commit `3cd6c57a`, "Load each dynrep
+shard member once" -- caches each npz array once per shard). Same
+cycle added durable forensics regardless of root cause: `memutil.py`
+(host RSS + cgroup memory.current/max), wired into `collect_mjx.py`'s
+periodic/final logs and `train.py`'s `main()` now calls `wandb.init`
+BEFORE the memory-heavy load/stats/sampler/model steps (previously
+after -- meaning a crash in that exact stretch, like this one, left
+literally no durable trace; the stage-2 W&B run for fresh2 never even
+existed) so every future crash there leaves a `mem/*` breadcrumb;
+`pod_memwatch.sh` poll tightened 60s->10s. A `launch_run.py respec`
+retry (`cw-dynrep-tf-state2-fresh3`) then hit a SEPARATE, previously
+latent launcher bug: `respec` unconditionally appended `--out-name`
+(a ppo-only convention, unguarded for dynrep sources) so
+`fresh_pipeline`'s stage-2 `os.execv` into `train.py` crashed on
+argparse; fixed (`respec` now skips `--out-name`/`--init-from-source`
+for dynrep/dynrep-fresh sources) and recorded FAILED. Superseded in
+real time by a concurrent operator/session action that reasoned the
+same way one level further: the `v5_mjx_fresh` corpus survives on
+shared storage across the pod that died collecting it, so no
+recollection is needed at all -- `cw-dynrep-tf-state2-recovered1`
+launched straight against `rl_move.dynamics.train` (skipping
+`fresh_pipeline` entirely), confirmed RUNNING (wandb `vt2ovznc`,
+train-11) and registered in the ledger this cycle (it had none, having
+been launched outside `launch_run.py`). This is the line to watch now,
+not fresh3.
+
 **08-15 ~19:1x UTC (operator-kick cycle: cw-dynrep-tf-state2-fresh
 verification): the operator's fresh-data Transformer launch DIED and
 was retried once — now RUNNING as `cw-dynrep-tf-state2-fresh2` on
