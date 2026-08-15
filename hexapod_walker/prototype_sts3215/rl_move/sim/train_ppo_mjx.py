@@ -206,6 +206,33 @@ def main(argv: list[str] | None = None) -> int:
                          "anchor1..3 closure: one shared trunk cannot "
                          "hold anchored stance and a displacing walk at "
                          "once. Implies --gru")
+    ap.add_argument("--gru-experts", action="store_true",
+                    help="mode-gated FOUR-expert GRU (gru_policy."
+                         "ModeExpertsGruActorCriticPolicy): fully "
+                         "isolated rise/hold/lower/locomotion experts, "
+                         "each with its own actor GRU, critic GRU, "
+                         "heads and learnable log_std; only the active "
+                         "expert's output/gradient is selected. "
+                         "Operator directive fb_20260815T013349_488ffd. "
+                         "Requires --cfg-set obs.mode_onehot=1. "
+                         "Implies --gru; exclusive with --gru-dual")
+    ap.add_argument("--gru-experts-adapter", type=int, default=0,
+                    help="hidden width of the optional transition "
+                         "adapter (zero-init residual MLP on the "
+                         "selected action mean; 0 = no adapter module, "
+                         "bit-exact expert-only path). Only with "
+                         "--gru-experts")
+    ap.add_argument("--gru-experts-adapter-scale", type=float,
+                    default=0.05,
+                    help="residual multiplier for the transition "
+                         "adapter (default 0.05)")
+    ap.add_argument("--gru-experts-freeze", action="store_true",
+                    help="freeze all four expert ACTOR bodies (cores, "
+                         "actor latents, action heads, per-expert "
+                         "log_std); critics + transition adapter keep "
+                         "training. Arm A stage 1 (frozen-expert "
+                         "transition-adapter composition). Requires an "
+                         "adapter on the policy")
     ap.add_argument("--device", default="auto",
                     help="torch device for PPO (auto: cuda if available "
                          "— the big-batch MLP pays off on GPU)")
@@ -303,13 +330,16 @@ def main(argv: list[str] | None = None) -> int:
 
     policy_cls: str | type = "MlpPolicy"
     extra_pk: dict = {}
-    if args.gru_dual:
+    if args.gru_dual and args.gru_experts:
+        raise SystemExit("--gru-dual and --gru-experts are exclusive")
+    if args.gru_dual or args.gru_experts:
         args.gru = True
         if float(_parse_cfg_set(args.cfg_set).get(
                 "obs.mode_onehot", 0.0)) <= 0.0:
             raise SystemExit(
-                "--gru-dual requires --cfg-set obs.mode_onehot=1 (the "
-                "dual policy routes by the obs-tail skill one-hot)")
+                f"--gru-{'dual' if args.gru_dual else 'experts'} requires "
+                "--cfg-set obs.mode_onehot=1 (the policy routes by the "
+                "obs-tail skill one-hot)")
     if args.gru:
         if mirror_coef > 0.0:
             raise SystemExit("--gru + mirror loss is not implemented "
@@ -319,8 +349,9 @@ def main(argv: list[str] | None = None) -> int:
                              "implemented (recurrent weights don't "
                              "transplant from MLP checkpoints)")
         from sb3_contrib import RecurrentPPO
-        from .gru_policy import DualGruActorCriticPolicy, \
-            GruActorCriticPolicy
+        from .gru_policy import (DualGruActorCriticPolicy,
+                                 GruActorCriticPolicy,
+                                 ModeExpertsGruActorCriticPolicy)
         algo_cls = RecurrentPPO
         if bc_coef > 0.0:
             # Recurrent BC anchor: pairs carry the rollout hidden state
@@ -328,11 +359,19 @@ def main(argv: list[str] | None = None) -> int:
             # bc_anchor.py::_bc_policy_mean).
             from .bc_anchor import make_bc_anchor_ppo_class
             algo_cls = make_bc_anchor_ppo_class(RecurrentPPO)
-        policy_cls = (DualGruActorCriticPolicy if args.gru_dual
+        policy_cls = (ModeExpertsGruActorCriticPolicy if args.gru_experts
+                      else DualGruActorCriticPolicy if args.gru_dual
                       else GruActorCriticPolicy)
         extra_pk = dict(lstm_hidden_size=args.gru_hidden_size)
+        if args.gru_experts:
+            extra_pk.update(
+                experts_adapter_hidden=args.gru_experts_adapter,
+                experts_adapter_scale=args.gru_experts_adapter_scale)
+        cores_note = (" x4 isolated mode experts" if args.gru_experts
+                      else " x2 mode-gated cores" if args.gru_dual
+                      else "")
         print(f"[mjx-train] GRU policy: hidden {args.gru_hidden_size}"
-              f"{' x2 mode-gated cores' if args.gru_dual else ''}, "
+              f"{cores_note}, "
               f"BPTT window = n_steps = {args.n_steps} "
               f"({args.n_steps / 25.0:.2f}s at 25 Hz)")
 
@@ -452,6 +491,23 @@ def main(argv: list[str] | None = None) -> int:
             seed=args.seed, verbose=1, device=args.device,
             tensorboard_log=tb_dir)
 
+    if args.gru_experts_freeze:
+        from .gru_policy import ModeExpertsGruActorCriticPolicy as _MEP
+        if not isinstance(model.policy, _MEP):
+            raise SystemExit(
+                "--gru-experts-freeze needs a ModeExperts policy "
+                "(pass --gru-experts, or warm-start from an experts "
+                "checkpoint)")
+        if model.policy.experts_adapter is None:
+            raise SystemExit(
+                "--gru-experts-freeze with no transition adapter on "
+                "the policy would train nothing actor-side; distill "
+                "the init with an adapter or drop the freeze")
+        model.policy.set_experts_frozen(True)
+        print("[mjx-train] mode-experts ACTOR bodies FROZEN (cores, "
+              "actor latents, heads, per-expert log_std); training "
+              "only the transition adapter + critics")
+
     if mirror_coef > 0.0:
         attach_mirror(model, coef=mirror_coef, task=args.task,
                       cfg=env_kw.get("cfg"),
@@ -518,12 +574,28 @@ def main(argv: list[str] | None = None) -> int:
             self._sum: dict[str, float] = {}
             self._cnt: dict[str, int] = {}
             self._terms: dict[str, int] = {}
+            # Mode-experts active-tick accounting (directive
+            # fb_20260815T013349_488ffd: report ACTIVE ticks per
+            # expert, not just total env steps). Cumulative over the
+            # whole run; indices follow gru_policy.EXPERTS_ORDER.
+            self._exp_ticks = np.zeros(4, dtype=np.float64)
 
         def _acc(self, k: str, v: float) -> None:
             self._sum[k] = self._sum.get(k, 0.0) + v
             self._cnt[k] = self._cnt.get(k, 0) + 1
 
         def _on_step(self) -> bool:
+            if args.gru_experts:
+                no = self.locals.get("new_obs")
+                if no is not None and getattr(no, "ndim", 0) == 2 \
+                        and no.shape[1] >= 6:
+                    tail = no[:, -6:]
+                    # EXPERTS_ORDER = (rise, hold, lower, loco);
+                    # obs tail = (hold, rise, lower, walk, turn, quad)
+                    self._exp_ticks[0] += float(tail[:, 1].sum())
+                    self._exp_ticks[1] += float(tail[:, 0].sum())
+                    self._exp_ticks[2] += float(tail[:, 2].sum())
+                    self._exp_ticks[3] += float(tail[:, 3:].sum())
             infos = self.locals.get("infos", ())
             stride = max(1, len(infos) // self.SAMPLE)
             for info in infos[::stride]:
@@ -568,6 +640,20 @@ def main(argv: list[str] | None = None) -> int:
                             for k in self._sum})
             payload.update({f"terminations/{k}": v
                             for k, v in self._terms.items()})
+            if args.gru_experts:
+                from .gru_policy import EXPERTS_ORDER
+                tot = max(float(self._exp_ticks.sum()), 1.0)
+                for i, name in enumerate(EXPERTS_ORDER):
+                    payload[f"experts/active_ticks_{name}"] = float(
+                        self._exp_ticks[i])
+                    payload[f"experts/tick_frac_{name}"] = float(
+                        self._exp_ticks[i]) / tot
+                pol = self.model.policy
+                if hasattr(pol, "_log_stds"):
+                    for name, ls in zip(EXPERTS_ORDER,
+                                        pol._log_stds()):
+                        payload[f"experts/std_{name}"] = float(
+                            ls.detach().exp().mean())
             buf = self.model.ep_info_buffer
             if buf:
                 payload["rollout/ep_rew_mean"] = float(

@@ -473,6 +473,24 @@ def main(argv: list[str] | None = None) -> int:
                          "env appends the 6-wide skill-family one-hot "
                          "at the obs tail, teachers still read their "
                          "prefix slices")
+    ap.add_argument("--experts", action="store_true",
+                    help="distill into ModeExpertsGruActorCriticPolicy "
+                         "(four fully isolated experts: rise/hold/"
+                         "lower/locomotion, each with its own actor "
+                         "GRU, critic GRU, heads and log_std — "
+                         "operator directive fb_20260815T013349_488ffd)"
+                         ". Turns on obs.mode_onehot=1 like --dual; "
+                         "exclusive with --dual. Routing gives each "
+                         "expert gradient only from its own modes' "
+                         "ticks, so one BC pass distills all four")
+    ap.add_argument("--experts-adapter", type=int, default=0,
+                    help="with --experts: build the transition adapter "
+                         "(zero-init residual MLP, hidden width N) "
+                         "into the student so a later frozen-expert "
+                         "PPO phase can train it. The adapter is "
+                         "FROZEN during BC/DAgger (experts learn pure "
+                         "teacher behavior; the zero-init residual "
+                         "contributes exactly 0). 0 = no adapter")
     ap.add_argument("--transitions", type=int, default=0,
                     help="TRANSITIONS_DIRECTIVE CODE item 2: N teacher-"
                          "chained SEQUENCE demo episodes on a "
@@ -543,21 +561,27 @@ def main(argv: list[str] | None = None) -> int:
         except ValueError:
             cfg_overrides[key] = val.strip()
 
-    if args.transitions > 0 and not args.dual:
+    if args.dual and args.experts:
+        raise SystemExit("--dual and --experts are exclusive")
+    if args.experts_adapter > 0 and not args.experts:
+        raise SystemExit("--experts-adapter requires --experts")
+    mode_gated = args.dual or args.experts
+    if args.transitions > 0 and not mode_gated:
         raise SystemExit(
-            "--transitions requires --dual: the TRANSITIONS_DIRECTIVE "
-            "arms run the mode-gated dual-core GRU (failure-ledger "
-            "lesson 1 — never a shared trunk), and sequence routing "
-            "rides the obs mode one-hot that --dual turns on")
+            "--transitions requires --dual or --experts: sequence "
+            "routing rides the obs mode one-hot that those policies "
+            "turn on (failure-ledger lesson 1 — never a shared trunk)")
 
     from sb3_contrib import RecurrentPPO
     from stable_baselines3 import PPO
 
-    from .gru_policy import DualGruActorCriticPolicy, GruActorCriticPolicy
+    from .gru_policy import (DualGruActorCriticPolicy,
+                             GruActorCriticPolicy,
+                             ModeExpertsGruActorCriticPolicy)
 
     rng = np.random.default_rng(args.seed)
     params = SimServoParams.load()
-    cfg = _build_cfg(({"obs.mode_onehot": 1.0} if args.dual else {})
+    cfg = _build_cfg(({"obs.mode_onehot": 1.0} if mode_gated else {})
                      | cfg_overrides)
 
     walk_teacher = PPO.load(args.walk_teacher, device="cpu")
@@ -568,11 +592,11 @@ def main(argv: list[str] | None = None) -> int:
 
     env = _make_env(args, cfg, params)
     n_env_obs = int(env.observation_space.shape[0])
-    n_walk_want = n_walk + (6 if args.dual else 0)  # + mode one-hot tail
+    n_walk_want = n_walk + (6 if mode_gated else 0)  # + one-hot tail
     if n_env_obs != n_walk_want:
         raise SystemExit(f"env obs {n_env_obs} != expected {n_walk_want} "
                          f"(walk teacher {n_walk}"
-                         f"{' + 6 one-hot' if args.dual else ''})")
+                         f"{' + 6 one-hot' if mode_gated else ''})")
     if n_stance >= n_env_obs:
         raise SystemExit(f"stance teacher obs {n_stance} not a prefix of "
                          f"env obs {n_env_obs}")
@@ -632,14 +656,24 @@ def main(argv: list[str] | None = None) -> int:
     print(f"[distill-gru] {len(episodes)} episodes, "
           f"{n_steps_total} transitions")
 
+    policy_cls = (ModeExpertsGruActorCriticPolicy if args.experts
+                  else DualGruActorCriticPolicy if args.dual
+                  else GruActorCriticPolicy)
+    pk = dict(lstm_hidden_size=args.gru_hidden_size)
+    if args.experts:
+        pk["experts_adapter_hidden"] = args.experts_adapter
     student = RecurrentPPO(
-        DualGruActorCriticPolicy if args.dual else GruActorCriticPolicy,
+        policy_cls,
         env,
         n_steps=256, batch_size=8192, n_epochs=5, learning_rate=3e-4,
         gamma=0.99, gae_lambda=0.95, ent_coef=0.01, clip_range=0.2,
         target_kl=0.02,
-        policy_kwargs=dict(lstm_hidden_size=args.gru_hidden_size),
+        policy_kwargs=pk,
         seed=args.seed, device="cpu", verbose=0)
+    if args.experts and student.policy.experts_adapter is not None:
+        # BC/DAgger fit the EXPERTS only; the adapter stays zero-init
+        # and frozen until the frozen-expert PPO phase trains it.
+        student.policy.experts_adapter.requires_grad_(False)
 
     actor_mse = train_student(student, episodes, args.epochs)
     print(f"[distill-gru] BC actor RMS {np.sqrt(actor_mse):.4f} action "

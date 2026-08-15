@@ -689,3 +689,305 @@ def test_gru_learns_memory_task():
     assert mean_r > 0.75, (
         f"GRU scored {mean_r:.3f}/step on the memory task; memoryless "
         f"cap is 0.5 — state threading through training is broken")
+
+
+# ---------------------------------------------------------------------------
+# 6. Mode-experts (four-expert) GRU — operator directive
+#    fb_20260815T013349_488ffd (08-15): complete per-expert isolation
+#    (actor GRU, critic GRU, heads, per-expert log_std) + optional
+#    zero-init transition adapter.
+# ---------------------------------------------------------------------------
+
+from rl_move.sim.gru_policy import (  # noqa: E402
+    EXPERTS_ORDER,
+    N_EXPERTS,
+    ModeExpertsGruActorCriticPolicy,
+)
+
+
+class _TinyExpertsEnv(_TinyDualEnv):
+    """Cycles episodes through all four expert-gated modes:
+    walk(3)->hold(0)->rise(1)->lower(2)."""
+
+    _SLOTS = (3, 0, 1, 2)
+
+    def _obs(self):
+        core = self.np_random.uniform(-1, 1, 3).astype(np.float32)
+        return np.concatenate(
+            [core, _onehot_tail(self._SLOTS[self._ep % 4])])
+
+
+def _experts_model(hidden=8, env_ctor=_TinyExpertsEnv, adapter=0, **kw):
+    from sb3_contrib import RecurrentPPO
+    return RecurrentPPO(
+        ModeExpertsGruActorCriticPolicy, env_ctor(),
+        n_steps=8, batch_size=16, n_epochs=1, seed=0, device="cpu",
+        policy_kwargs=dict(lstm_hidden_size=hidden, net_arch=[16],
+                           experts_adapter_hidden=adapter), **kw)
+
+
+# obs-tail slot lighting each expert, in EXPERTS_ORDER:
+#   rise=slot1, hold=slot0, lower=slot2, loco=walk slot3 (turn 4/quad 5).
+_EXPERT_SLOT = {"rise": 1, "hold": 0, "lower": 2, "loco": 3}
+
+
+def _expert_params(pol, name):
+    """ALL parameters belonging to one expert: actor GRU core, critic
+    GRU core, latent extractor, action/value heads, its log_std."""
+    sfx = "" if name == "loco" else f"_{name}"
+    core = f"core_{name}"
+    return (list(getattr(pol.lstm_actor, core).parameters())
+            + list(getattr(pol.lstm_critic, core).parameters())
+            + list(getattr(pol, f"mlp_extractor{sfx}").parameters())
+            + list(getattr(pol, f"action_net{sfx}").parameters())
+            + list(getattr(pol, f"value_net{sfx}").parameters())
+            + [getattr(pol, f"log_std{sfx}")])
+
+
+def test_experts_slots_match_walk_task():
+    """Frozen routing contract with walk_task's one-hot order."""
+    from rl_move.sim.walk_task import MODE_ONEHOT_ORDER
+    assert MODE_ONEHOT_ORDER == ("hold", "rise", "lower", "walk",
+                                 "turn", "quad")
+    assert EXPERTS_ORDER == ("rise", "hold", "lower", "loco")
+    pol_w = ModeExpertsGruActorCriticPolicy._experts_weights
+    for name, slot in _EXPERT_SLOT.items():
+        w = pol_w(th.as_tensor(np.concatenate(
+            [np.zeros(3, np.float32), _onehot_tail(slot)]))[None])
+        expected = th.zeros(1, N_EXPERTS)
+        expected[0, EXPERTS_ORDER.index(name)] = 1.0
+        assert th.equal(w, expected), f"{name}/slot{slot}: {w}"
+    # turn + quad also route to loco
+    for slot in (4, 5):
+        w = pol_w(th.as_tensor(np.concatenate(
+            [np.zeros(3, np.float32), _onehot_tail(slot)]))[None])
+        assert float(w[0, 3]) == 1.0 and float(w[0, :3].sum()) == 0.0
+
+
+def test_experts_routing_selects_expert_mean_and_std():
+    """Poison each expert's action head with a distinct constant AND
+    give each a distinct log_std: per-sample output must be exactly
+    the active expert's mean and std."""
+    model = _experts_model()
+    pol = model.policy
+    pol.set_training_mode(False)
+    consts = {"rise": 0.1, "hold": 0.3, "lower": 0.5, "loco": -0.7}
+    stds = {"rise": -0.5, "hold": -1.0, "lower": -1.5, "loco": -2.0}
+    with th.no_grad():
+        for name in EXPERTS_ORDER:
+            sfx = "" if name == "loco" else f"_{name}"
+            head = getattr(pol, f"action_net{sfx}")
+            head.weight.zero_()
+            head.bias.fill_(consts[name])
+            getattr(pol, f"log_std{sfx}").fill_(stds[name])
+    rows = [("rise", 1), ("hold", 0), ("lower", 2), ("loco", 3),
+            ("loco", 4), ("loco", 5)]
+    obs = th.as_tensor(np.stack([np.concatenate(
+        [np.ones(3, np.float32) * 0.1, _onehot_tail(s)])
+        for _, s in rows]))
+    h = th.zeros(N_EXPERTS, len(rows), 8)
+    with th.no_grad():
+        dist, _ = pol.get_distribution(
+            obs, (h, th.zeros_like(h)), th.ones(len(rows)))
+        mean = dist.distribution.mean
+        std = dist.distribution.stddev
+    for i, (name, slot) in enumerate(rows):
+        assert th.allclose(mean[i], th.full((2,), consts[name]),
+                           atol=1e-6), f"mean routing broken row {i}"
+        assert th.allclose(std[i], th.full((2,), float(np.exp(stds[name]))),
+                           atol=1e-6), f"log_std routing broken row {i}"
+
+
+@pytest.mark.parametrize("active", list(EXPERTS_ORDER))
+def test_experts_gradient_isolation(active):
+    """THE property this architecture exists for: a batch gated
+    entirely to one expert leaves every OTHER expert — actor GRU,
+    critic GRU, heads, AND its log_std — with exactly zero gradient."""
+    from sb3_contrib.common.recurrent.type_aliases import RNNStates
+
+    model = _experts_model()
+    pol = model.policy
+    slot = _EXPERT_SLOT[active]
+    obs = th.as_tensor(np.stack([np.concatenate([
+        np.random.default_rng(i).uniform(-1, 1, 3).astype(np.float32),
+        _onehot_tail(slot)]) for i in range(8)]))
+    actions = th.zeros(8, 2)
+    h = th.zeros(N_EXPERTS, 8, 8)
+    states = RNNStates((h, th.zeros_like(h)),
+                       (h.clone(), th.zeros_like(h)))
+    groups = {n: _expert_params(pol, n) for n in EXPERTS_ORDER}
+    for ps in groups.values():
+        for p in ps:
+            p.grad = None
+    values, log_prob, entropy = pol.evaluate_actions(
+        obs, actions, states, th.ones(8))
+    (values.sum() + log_prob.sum() + entropy.sum()).backward()
+    for name, ps in groups.items():
+        norm = sum(float(p.grad.abs().sum())
+                   for p in ps if p.grad is not None)
+        if name == active:
+            assert norm > 0.0, f"active expert {name} got no gradient"
+            g = getattr(pol, "log_std" if name == "loco"
+                        else f"log_std_{name}").grad
+            assert g is not None and float(g.abs().sum()) > 0.0, \
+                f"active expert {name}'s log_std got no gradient"
+        else:
+            assert norm == 0.0, (
+                f"gradient leaked into gated-out expert {name} "
+                f"while {active} was active")
+
+
+def test_experts_adapter_zero_init_and_freeze():
+    """Adapter contributes EXACTLY zero at init; with expert bodies
+    frozen, gradient reaches ONLY the adapter (+ critic path) — never
+    a frozen actor body or log_std."""
+    from sb3_contrib.common.recurrent.type_aliases import RNNStates
+
+    model = _experts_model(adapter=16)
+    pol = model.policy
+    pol.set_training_mode(False)
+    assert pol.experts_adapter is not None
+    out = pol.experts_adapter[-1]
+    assert float(out.weight.abs().sum()) == 0.0
+    assert float(out.bias.abs().sum()) == 0.0
+    obs = th.as_tensor(np.stack([np.concatenate([
+        np.random.default_rng(i).uniform(-1, 1, 3).astype(np.float32),
+        _onehot_tail(i % 6)]) for i in range(6)]))
+    h = th.zeros(N_EXPERTS, 6, 8)
+    with th.no_grad():
+        dist, _ = pol.get_distribution(
+            obs, (h, th.zeros_like(h)), th.ones(6))
+        mean0 = dist.distribution.mean.clone()
+        # zeroed-adapter reference: identical (residual is exactly 0)
+        feats = pol.extract_features(obs)
+        outs, _ = pol._quad_sequence(
+            feats, (h, th.zeros_like(h)), th.ones(6), pol.lstm_actor)
+        w = pol._experts_weights(obs)
+        mus = [hd(mlp.forward_actor(o)) for (mlp, hd), o
+               in zip(pol._pi_heads(), outs)]
+        ref = sum(w[..., i:i + 1] * m for i, m in enumerate(mus))
+    assert th.allclose(mean0, ref, atol=0.0), \
+        "zero-init adapter changed the selected-expert mean"
+
+    # freeze expert bodies -> only adapter (+critic) train
+    pol.set_training_mode(True)
+    pol.set_experts_frozen(True)
+    states = RNNStates((h.clone(), th.zeros_like(h)),
+                       (h.clone(), th.zeros_like(h)))
+    values, log_prob, entropy = pol.evaluate_actions(
+        obs, th.zeros(6, 2), states, th.ones(6))
+    (values.sum() + log_prob.sum()).backward()
+    frozen = (list(pol.lstm_actor.parameters())
+              + [p for (mlp, hd) in pol._pi_heads()
+                 for p in list(mlp.policy_net.parameters())
+                 + list(hd.parameters())]
+              + list(pol._log_stds()))
+    for p in frozen:
+        assert p.grad is None or float(p.grad.abs().sum()) == 0.0, \
+            "gradient reached a frozen expert actor body"
+    a_norm = sum(float(p.grad.abs().sum())
+                 for p in pol.experts_adapter.parameters()
+                 if p.grad is not None)
+    assert a_norm > 0.0, "adapter received no gradient while unfrozen"
+    # unfreeze restores flow
+    pol.set_experts_frozen(False)
+    assert all(p.requires_grad for p in pol._log_stds())
+
+
+def test_experts_save_load_stateful_roundtrip(tmp_path):
+    """Deterministic save/load: bit-identical stateful predictions,
+    adapter kwargs preserved, auto-loader returns RecurrentPPO."""
+    from sb3_contrib import RecurrentPPO
+
+    model = _experts_model(adapter=16)
+    with th.no_grad():  # make the adapter nonzero so it must roundtrip
+        model.policy.experts_adapter[-1].weight.normal_(0, 0.1)
+    p = tmp_path / "experts.zip"
+    model.save(p)
+    assert is_recurrent_checkpoint(p)
+    loaded = load_checkpoint_auto(p)
+    assert isinstance(loaded, RecurrentPPO)
+    assert isinstance(loaded.policy, ModeExpertsGruActorCriticPolicy)
+    assert loaded.policy.experts_adapter_hidden == 16
+
+    def rollout(m):
+        env = _TinyExpertsEnv()
+        acts = []
+        obs, _ = env.reset(seed=7)
+        state, start = None, np.ones(1, dtype=bool)
+        for _ in range(40):
+            a, state = m.predict(obs, state=state, episode_start=start,
+                                 deterministic=True)
+            start = np.zeros(1, dtype=bool)
+            obs, _, term, trunc, _ = env.step(a)
+            acts.append(a.copy())
+            if term or trunc:
+                obs, _ = env.reset()
+                start = np.ones(1, dtype=bool)
+        return np.stack(acts)
+
+    np.testing.assert_array_equal(rollout(model), rollout(loaded))
+
+
+def test_experts_bptt_forward_matches_entry_points():
+    """distill_gru's whole-episode path must agree with the production
+    get_distribution path from zero states."""
+    model = _experts_model()
+    pol = model.policy
+    pol.set_training_mode(False)
+    t_len, b = 5, 4
+    rng = np.random.default_rng(3)
+    obs = np.zeros((t_len, b, 3 + N_MODE_OBS), dtype=np.float32)
+    for k in range(b):
+        slot = _EXPERT_SLOT[EXPERTS_ORDER[k % 4]]
+        for t in range(t_len):
+            obs[t, k] = np.concatenate([
+                rng.uniform(-1, 1, 3).astype(np.float32),
+                _onehot_tail(slot)])
+    feats = th.as_tensor(obs)
+    with th.no_grad():
+        mu_bptt, _ = pol.bptt_forward(feats)
+        flat = feats.transpose(0, 1).reshape(t_len * b, -1)
+        h = th.zeros(N_EXPERTS, b, 8)
+        dist, _ = pol.get_distribution(
+            flat, (h, th.zeros_like(h)), th.zeros(t_len * b))
+        mu_ref = dist.distribution.mean.reshape(
+            b, t_len, -1).transpose(0, 1)
+    assert th.allclose(mu_bptt, mu_ref, atol=1e-5), \
+        "experts bptt_forward diverges from the production path"
+
+
+def test_experts_bc_anchor_mean(tmp_path):
+    """Recurrent BC anchor aux mean matches the stateful predict path
+    at a stored 4-row hidden state."""
+    from stable_baselines3.common.vec_env import DummyVecEnv
+    from sb3_contrib import RecurrentPPO
+    from rl_move.sim.bc_anchor import make_bc_anchor_ppo_class
+
+    class _ExpertsAnchorEnv(_TinyExpertsEnv):
+        def __init__(self):
+            super().__init__()
+            self.action_space = spaces.Box(-1, 1, (18,), dtype=np.float32)
+
+    cls = make_bc_anchor_ppo_class(RecurrentPPO)
+    venv = DummyVecEnv([_ExpertsAnchorEnv for _ in range(2)])
+    model = cls(
+        ModeExpertsGruActorCriticPolicy, venv,
+        n_steps=8, batch_size=8, n_epochs=1, seed=0, device="cpu",
+        policy_kwargs=dict(lstm_hidden_size=8, net_arch=[16]))
+    pol = model.policy
+    pol.set_training_mode(False)
+    rng = np.random.default_rng(0)
+    obs_np = np.stack([np.concatenate([
+        rng.uniform(-1, 1, 3).astype(np.float32),
+        _onehot_tail((1, 0, 2, 3)[i % 4])]) for i in range(4)])
+    h_np = rng.uniform(-1, 1, (4, N_EXPERTS * 8)).astype(np.float32)
+    with th.no_grad():
+        mean = model._bc_policy_mean(
+            th.as_tensor(obs_np), th.as_tensor(h_np))
+    h1 = h_np[:1].reshape(1, N_EXPERTS, 8).transpose(1, 0, 2)
+    a, _ = pol.predict(
+        obs_np[:1], state=(h1, np.zeros_like(h1)),
+        episode_start=np.zeros(1, dtype=bool), deterministic=True)
+    np.testing.assert_allclose(
+        a[0], np.clip(mean.numpy()[0], -1, 1), atol=1e-5)

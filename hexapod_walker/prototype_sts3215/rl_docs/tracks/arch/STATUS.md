@@ -8,6 +8,27 @@ at what budget, with which failure modes.
 
 ## Now
 
+- **08-15 — OPERATOR DIRECTIVE EXECUTED (fb_20260815T013349_488ffd,
+  via operator KICK): the four-expert isolated architecture is BUILT
+  and both arms are pre-registered — full spec + gates + decision
+  table in `MODE_EXPERTS_DIRECTIVE.md`.**
+  `ModeExpertsGruActorCriticPolicy` (rise/hold/lower/loco experts,
+  each its own actor GRU + critic GRU + heads + PER-EXPERT log_std —
+  the two sharing channels dual2/modeseq1-r1 died through are gone by
+  construction; optional zero-init transition adapter; freeze
+  support), default-off, legacy bit-exact, tests + semantics bank
+  green, snapshotted. **Arm A** `cw-arch-modeexperts1` (composition):
+  stage-0 distill from footlow2_hard1 (stance experts) +
+  bcgait1_hard1 (loco) RUNNING on train-1 CPUs; stage-1 frozen-expert
+  adapter PPO pre-registered `[precondition: distill verifies vs
+  teachers]`. **Arm B** `cw-arch-modeexperts-scratch1` (from-scratch
+  WALK+RISE+LOWER, operator override of the nobc gait closure; no BC
+  anchor, no rise_ref imitation): 2M mechanism CANARY launched;
+  staged ~60M full-budget acquisition pre-registered on canary PASS —
+  "not learned at 2M" is explicitly NOT a verdict (budget honesty:
+  cw-mt-a2 needed 20M active walk ticks). Multitask pause explicitly
+  lifted for these two arms only; hierarchy product baseline
+  untouched.
 - **08-14 ~19:5x UTC — `transdagger3` TRIAGED: FAIL on the Arm 1
   gate, NET REGRESSION vs transdagger2 on the sequence clause — the
   rise demo mix is ZERO-SUM.** Seq det DR0 zero-fall 9/12 (bar
