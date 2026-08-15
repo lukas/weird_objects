@@ -8,7 +8,23 @@ at what budget, with which failure modes.
 
 ## Now
 
-- **CROSS-TRACK INSIGHT (08-15, from hw `cw-stand-postlower3` dig-in,
+- **08-15 ~12:1x UTC — `cw-arch-tf-r1` (transformer 2M discovery,
+  train-0) checkup-SUSPECT resolved: slow but healthy, left running
+  (finishes ~13:45 UTC).** The watcher's fps flag (1092 < 1875 floor)
+  is NOT starvation — the run is solo with free cores and 0% GPU
+  util. Root cause: torch on every mjx-train pod is the **CPU-only
+  build** (2.13.0+cpu), so all SB3 policy nets have always trained on
+  CPU; the hist16 MLP tolerates it (r7 ~4.7-5.6k fps) but the
+  transformer trunk runs ~250-300 fps steady (~18x slower, batched
+  impl verified clean — it's the build, not the code). The 2M rung
+  still answers its behavioral question (boot/NaN/cheat lock-in);
+  the gate's "fps usable >=2000" clause is answered NO for
+  environmental reasons. **Named [code] item (blocks the
+  pre-registered 40M hardening twin, 37h at current fps):** build an
+  OPT-IN CUDA-torch path for the policy net (separate venv on one
+  pod, launcher opt-in flag, bit-parity + GPU-memory-coexistence
+  smoke vs warp) — shared default stays CPU-torch, no fleet-wide
+  build swap. Ledger `checkup_note` on the run has the full chain.
   Cohort c3):** the shared mode-sequence rise branch
   (`_seq_segment_traj`) starts every mid-sequence rise at BELLY-FRAME
   0 with the blend interpolating the height ref DOWN from the current

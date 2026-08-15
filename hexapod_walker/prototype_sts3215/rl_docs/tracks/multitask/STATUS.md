@@ -14,9 +14,10 @@ geometry diagnosis) remain open for whenever the track resumes.**
 
 **PARTIAL REOPENING by operator directive 08-15
 (fb_20260815T114414_3c40d6, via ops.sh cycle focus note): ONE
-authorized arm, `cw-mt-c2-fullcircle1` — a full-circle
-translation-only 40M continuation of `cw-mt-c2`. The pause otherwise
-stands for agent-initiated mt work.**
+authorized arm, `cw-joystick-translate1` (renamed from
+"cw-mt-c2-fullcircle1" by fb_20260815T114937_f9078d, see below) — an
+all-directions translation-only 40M continuation of `cw-mt-c2`. The
+pause otherwise stands for agent-initiated mt work.**
 
 ## Corrections (08-15, operator directive + external audit)
 
