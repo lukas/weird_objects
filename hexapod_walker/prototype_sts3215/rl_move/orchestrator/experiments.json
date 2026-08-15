@@ -91127,6 +91127,18 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:hw nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-recover-any4-b0scratch1 --steps 40000000 --task joint_walk --goal-mix recover=1.0,walk=0.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0,quad=0.0 --n-envs 512 --n-steps 128 --batch-size 8192 --gamma 0.995 --gae-lambda 0.98 --episode-seconds 16 --dr-scale 0.1 --ent-coef 0.003 --no-canary --eval-every 1000000 --video-every 2000000 --seed 11 --cfg-set safety.max_roll_deg=185 --cfg-set safety.max_pitch_deg=185 --cfg-set goal.walk_obs_body_vel=2 --cfg-set reward.rise_ref_path=rl_move/sim/refs/rise_ref_belly2plant.npz --cfg-set train.bc_anchor_coef=1.0 --cfg-set train.bc_anchor_recover=1.0 --cfg-set goal.recover_start_bank=rl_move/sim/park_banks/footlow2_hard1_lower_endpoints_full.npz --cfg-set train.bc_anchor_foot_z=1.0 --cfg-set train.bc_anchor_foot_z_mm=3 --cfg-set train.bc_anchor_min_h_ahead_mm=15 --cfg-set train.bc_anchor_lookahead_s=0.5 --cfg-set goal.recover_admit_n=4 --cfg-set goal.recover_retreat_n=6 --cfg-set goal.recover_ema_beta=0.25 --out-name ppo_goal_cw_recover_any4_b0scratch1 --impl warp --host-workers 24 --notes 'FROM-SCRATCH bucketed recovery curriculum (operator directive fb_20260815T214555_008f42, code c60c7ac): zero-indexed easy-first ladder B0 plant_catch (+/-2deg) through B7 flip, promote EMA>=0.8 n>=4, retreat/re-certify <0.2 n>=6, no harder probes. No checkpoint load of any kind; cw-recover-any2b is comparison evidence only.' > /tmp/train_cw-recover-any4-b0scratch1.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-recover-any4-b0scratch1.log",
     "wandb_id": "brjnwcnb",
-    "verified": "2026-08-15T21:59:28+00:00"
+    "verified": "2026-08-15T21:59:28+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-15T22:05:13+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 5572,
+        "fps": 5825.4,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   }
 ]
