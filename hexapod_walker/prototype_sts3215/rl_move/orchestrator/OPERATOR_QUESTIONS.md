@@ -55,3 +55,26 @@ Entry format (append; newest last; update status in place):
   96Gi-scale collector next to a heavyweight harness eval (that
   stacking is the likely train-1 killer). Should pod_eval/eval
   processes count toward launcher placement?
+
+## q_20260815T2010Z — OPEN
+- cycle: opkick-recover-any2 (08-15 ~19:5x–20:1x UTC operator KICK)
+- operator order: fb_20260815T194955_9441a0 + kick focus note — sync
+  aa1023c, stop cw-recover-any1, launch cw-recover-any2 from
+  cw-stand-footlow2-hard1 with the seven listed cfg overrides.
+- conflicted with: this cycle's own prompt concurrency assignment
+  ("Another decision cycle ... already handles: ... cw-recover-any1.
+  Do NOT evaluate, verdict, or launch on behalf of those runs").
+- why the cycle would have declined: acting on any1's line risked
+  duplicating the concurrent fb_193318 cycle's stop-and-fix work
+  (its uncommitted ledger edits + conflicted sim files were live in
+  the shared clone when I started).
+- what was executed: the order, fully — verified the concurrent
+  cycle had already KILLED any1 (verdict recorded, process dead,
+  its duplicate implementation dropped for aa1023c; conflicts
+  resolved to main by the time I acted), then launched
+  cw-recover-any2 myself (respec --from any1, parent
+  cw-stand-footlow2-hard1, all 7 cfg keys, train-1, W&B lf5afhd6,
+  snapshot 4f70cc13 = aa1023c code bit-exact). No duplicate launch
+  occurred (launcher dedupe would have REFUSED one). Suggest future
+  operator kicks that retarget a run named in a concurrency list
+  say so explicitly.
