@@ -366,6 +366,45 @@ def eval_task(model, task: str, episodes: int, dr_scale: float,
     return out
 
 
+def anchor_batch_to_torch(b: dict) -> dict:
+    """Convert a WindowSampler/GpuWindowSampler batch (numpy/torch) into
+    the exact key set ``dynamics_loss`` (model.py) reads.
+
+    08-15: dynamics_loss grew "current"-state heads (contact_now/
+    current_now/current[k], commit 6a8560c0, the GPU-transformer
+    scaling work) but this PPO-side condition-C anchor converter was
+    never updated to forward them -- any condition C run launched on
+    code synced after that commit crashed at _on_training_start with
+    KeyError('contact_now') the instant AnchorCb touched the raw batch
+    (silent since any already-running process keeps its old in-memory
+    code; caught 08-15 ~20:2x UTC when 3 freshly-launched risewalk
+    -single seeds died identically ~1min into their condition-C phase,
+    right after the NPZ-caching OOM fix landed). Forward every key
+    dynamics_loss actually reads; priv_mask_now is optional there
+    (falls back to all-ones) but forwarding it keeps the anchor loss
+    numerically identical to pretraining's own loss.
+    """
+    import torch  # deferred import (matches main()'s lazy torch import)
+    return {
+        "hist": torch.as_tensor(b["hist"]),
+        "fut_actions": torch.as_tensor(b["fut_actions"]),
+        "state": {k: torch.as_tensor(v)
+                  for k, v in b["state"].items()},
+        "contact": {k: torch.as_tensor(v)
+                    for k, v in b["contact"].items()},
+        "contact_now": torch.as_tensor(b["contact_now"]),
+        "current": {k: torch.as_tensor(v)
+                    for k, v in b["current"].items()},
+        "current_now": torch.as_tensor(b["current_now"]),
+        "priv_now": torch.as_tensor(b["priv_now"]),
+        "priv_mask_now": torch.as_tensor(b["priv_mask_now"]),
+        "priv": {k: torch.as_tensor(v)
+                 for k, v in b["priv"].items()},
+        "fut_hist": {k: torch.as_tensor(v)
+                     for k, v in b["fut_hist"].items()},
+    }
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--condition", required=True, choices=("A", "B", "C"))
@@ -558,40 +597,6 @@ def main() -> None:
                    "priv_current": 0.25, "priv_future": 0.25}
         anchor_opt = torch.optim.Adam(
             dyn.parameters(), lr=args.lr * args.encoder_lr_scale)
-
-        def anchor_batch_to_torch(b: dict) -> dict:
-            # 08-15: dynamics_loss (model.py) grew "current"-state heads
-            # (contact_now/current_now/current[k], commit 6a8560c0, the
-            # GPU-transformer scaling work) but this PPO-side anchor
-            # converter was never updated to forward them -- any
-            # condition C run launched after that commit synced crashes
-            # at _on_training_start with KeyError('contact_now') the
-            # instant AnchorCb touches the raw batch (silent since any
-            # already-running process keeps its old in-memory code;
-            # caught 08-15 ~20:2x UTC when 3 freshly-launched risewalk
-            # -single seeds died identically ~1min into their condition-C
-            # phase). Forward every key dynamics_loss actually reads;
-            # priv_mask_now is optional there (falls back to all-ones)
-            # but forwarding it keeps the anchor loss numerically
-            # identical to pretraining's own loss.
-            return {
-                "hist": torch.as_tensor(b["hist"]),
-                "fut_actions": torch.as_tensor(b["fut_actions"]),
-                "state": {k: torch.as_tensor(v)
-                          for k, v in b["state"].items()},
-                "contact": {k: torch.as_tensor(v)
-                            for k, v in b["contact"].items()},
-                "contact_now": torch.as_tensor(b["contact_now"]),
-                "current": {k: torch.as_tensor(v)
-                            for k, v in b["current"].items()},
-                "current_now": torch.as_tensor(b["current_now"]),
-                "priv_now": torch.as_tensor(b["priv_now"]),
-                "priv_mask_now": torch.as_tensor(b["priv_mask_now"]),
-                "priv": {k: torch.as_tensor(v)
-                         for k, v in b["priv"].items()},
-                "fut_hist": {k: torch.as_tensor(v)
-                             for k, v in b["fut_hist"].items()},
-            }
 
         class AnchorCb(BaseCallback):
             """Continue the predictive objective on the offline
