@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: RUNNING
+**status**: ABORTED
 
 **created**: 2026-08-15T22:31:35+00:00
 
@@ -19,6 +19,8 @@
 **hypothesis**: Frozen-encoder arm of the operator-ordered (20260815T221231Z) Transformer walking/heading transfer test: the first G1/G1.1+G3-passing Transformer dynrep encoder (cw-dynrep-tf-state2-recovered1, md5 9df48f68) is frozen and PPO learns commanded-velocity walking through its latent z; tests whether the pretrained body-dynamics representation alone speeds/cleans learning vs scratch (A). No older/GRU encoder substituted per order.
 
 **gate**: Judged as a matched triple with A/C at 1M steps: beats A on walk steps-to-threshold or final return outside eval noise, with gait-quality columns no worse; loses to A = the representation does not transfer frozen.
+
+**verdict**: ABORTED/NON-EVIDENCE, class stopped by the C-s5 finding (operator fb_20260815T222316_26b670): the same train_ppo_transfer build hard-coded device=cpu for all conditions, so this B attempt (W&B f086dlfd) is CPU-compromised like C. No behavioral verdict taken; superseded by dynrep-tfwalk-gpu1-B-s5 (CUDA-required trainer c4f5b211, corrected order 20260815T224355Z).
 
 **note**: Script-owned cohort (pod_tfwalk.sh); G1/G1.1 re-verified this cycle on the exact v5_mjx_fresh test split (logs/ckpt_eval/cw_dynrep_tf_state2_recovered1/eval_g1_test_order_20260815T2219.json); W&B attempt name dynrep-tfwalk-B-s5.0815-2221Z.
 
