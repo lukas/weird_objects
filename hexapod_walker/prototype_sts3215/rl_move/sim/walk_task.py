@@ -268,9 +268,15 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         self._goal_gen.p_recover = 0.0
         # Adaptive reset-bank curriculum state (recover mode only).
         # PERSISTENT across episodes (like _lp_weights, NOT in
-        # SNAP_ATTRS): per-start-kind success EMA + episode count, and
-        # the number of admitted difficulty families.
+        # SNAP_ATTRS).  _rec_stats is certification-only: stochastic
+        # PPO rollouts are deliberately too noisy to certify the 0.5 s
+        # six-foot hold, so they must never advance/retreat the ladder.
+        # _rec_rollout_stats remains visible as diagnostic telemetry.
         self._rec_stats = {}
+        self._rec_rollout_stats = {}
+        self._rec_external_certification = bool(float(cfg_get(
+            self.cfg, "goal", "recover_external_certification",
+            default=0.0)))
         # Recovery must prove the easy six-foot correction before floor
         # starts enter the diet.  any1 started with families 1+2 and also
         # probed family 3, so there was no bucket-1 acquisition phase to
@@ -1062,16 +1068,50 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 and any(st.get(k, (1.0, 0))[1] >= retreat_n
                         and st.get(k, (1.0, 0))[0] < 0.2
                         for k in hard)):
+            failed_bucket = self._rec_active_n - 1
             self._rec_active_n -= 1
             # Re-certify the easier frontier before trying the failed
             # family again.  Without this reset, its old mastered EMA
             # immediately re-admitted the failed family on the very next
             # reset, so "retreat" lasted zero training episodes.
-            for k in self.RECOVER_FAMILIES[self._rec_active_n - 1]:
-                if k != "bank" or cfg_get(
-                        self.cfg, "goal", "recover_start_bank",
-                        default=None) is not None:
-                    st[k] = (0.5, 0)
+            # Clear the failed family too; otherwise it immediately
+            # re-triggers retreat after the easier bucket is re-certified,
+            # before the deterministic certifier can reassess it.
+            for bucket in (self._rec_active_n - 1, failed_bucket):
+                for k in self.RECOVER_FAMILIES[bucket]:
+                    if k != "bank" or cfg_get(
+                            self.cfg, "goal", "recover_start_bank",
+                            default=None) is not None:
+                        st[k] = (0.5, 0)
+
+    def apply_recover_certification(self, kind: str,
+                                    outcomes: list[bool]) -> dict:
+        """Apply deterministic same-backend outcomes to the curriculum.
+
+        The MJX trainer calls this on every training env after a held-out
+        deterministic certification pass.  Keeping this mutation here
+        makes the admission contract identical for C, MJX and sharded
+        host envs while ensuring ordinary stochastic rollout terminals
+        cannot move the frontier.
+        """
+        kind = str(kind)
+        if kind not in self.RECOVER_KIND_BUCKETS:
+            raise ValueError(f"unknown recover certification kind {kind!r}")
+        ys = [bool(v) for v in outcomes]
+        if not ys:
+            raise ValueError("recover certification needs at least one outcome")
+        ema, n = self._rec_stats.get(kind, (0.5, 0))
+        beta = float(cfg_get(self.cfg, "goal", "recover_ema_beta",
+                             default=0.25))
+        for ok in ys:
+            ema = (1.0 - beta) * ema + beta * (1.0 if ok else 0.0)
+            n += 1
+        self._rec_stats[kind] = (ema, n)
+        before = self._rec_active_n
+        self._recover_update_admission()
+        return {"kind": kind, "ema": float(ema), "n": int(n),
+                "active_before": int(before),
+                "active_after": int(self._rec_active_n)}
 
     def _sample_recover(self) -> WalkTrajectory:
         """One recover_to_plant episode: adaptive start-kind draw, zero
@@ -2581,16 +2621,24 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             reward -= fail
             info["reward_recover_fail"] = -fail
         if term or trunc:
-            # adaptive-curriculum bookkeeping (persistent across
-            # episodes; the sampler reads it at the next reset)
+            # Stochastic rollout bookkeeping is diagnostic only.  The
+            # adaptive sampler/admission state is updated exclusively by
+            # apply_recover_certification() from deterministic MJX passes.
             kind = getattr(self._goal_traj, "start_kind", "?")
             bucket = self.RECOVER_KIND_BUCKETS.get(kind, -1)
-            ema, n = self._rec_stats.get(kind, (0.5, 0))
+            ema, n = self._rec_rollout_stats.get(kind, (0.5, 0))
             beta = float(cfg_get(self.cfg, "goal",
                                  "recover_ema_beta", default=0.25))
-            self._rec_stats[kind] = (
+            updated = (
                 (1.0 - beta) * ema + beta * (1.0 if success else 0.0),
                 n + 1)
+            self._rec_rollout_stats[kind] = updated
+            # Preserve the legacy self-certified curriculum for the C
+            # trainer.  MJX recovery runs opt into external certification
+            # in train_ppo_mjx._env_kwargs, so their noisy PPO actions can
+            # never mutate _rec_stats.
+            if not self._rec_external_certification:
+                self._rec_stats[kind] = updated
             info[f"recover_episode_{kind}"] = 1.0
             info[f"recover_success_{kind}"] = 1.0 if success else 0.0
             if bucket >= 0:
@@ -2630,6 +2678,10 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             ema, n = self._rec_stats.get(rec_kind, (0.5, 0))
             info[f"recover_curriculum_ema_{rec_kind}"] = float(ema)
             info[f"recover_curriculum_n_{rec_kind}"] = float(n)
+            roll_ema, roll_n = self._rec_rollout_stats.get(
+                rec_kind, (0.5, 0))
+            info[f"recover_rollout_ema_{rec_kind}"] = float(roll_ema)
+            info[f"recover_rollout_n_{rec_kind}"] = float(roll_n)
         for rec_bucket in range(self._rec_active_n):
             stats = [self._rec_stats.get(k, (0.5, 0))
                      for k in self._recover_family_kinds(rec_bucket)]

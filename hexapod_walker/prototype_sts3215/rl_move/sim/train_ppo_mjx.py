@@ -14,10 +14,10 @@ Differences from the production trainer, on purpose:
   4096 envs, instead of 256-step rollouts tuned for 8-48 envs. These
   are STARTING points — the recipe rework is phase-2 item 6 in
   MJX_PORT.md and nothing here is validated for wall-clock learning yet.
-- No eval/video worker, no canary, no lineage stitching — this trainer
-  is for physics-throughput and recipe experiments. Evaluate its
-  checkpoints with the normal C-env harness (that IS the behavioral
-  A/B, phase-2 item 4).
+- Monitoring eval/video runs in a background C-MuJoCo process, preserving
+  the cross-simulator behavioral A/B without occupying the training GPU.
+  Recovery curriculum decisions use a separate small deterministic MJX
+  pool on the training backend; C evaluation is never an admission signal.
 - v1 backend limits apply (MJX_PORT.md): model-field DR is OFF (shared
   nominal model), actuation/sensing DR is per-env as usual.
 
@@ -56,6 +56,50 @@ from .train_ppo_sim import (  # noqa: E402
 )
 
 
+def _run_recover_cert_kind(vec_env, model, kind: str) -> dict:
+    """One deterministic first-episode recovery assay on an MJX VecEnv."""
+    n_envs = int(vec_env.num_envs)
+    vec_env.set_attr("force_recover_start", str(kind))
+    obs = vec_env.reset()
+    state = None
+    episode_start = np.ones(n_envs, dtype=bool)
+    finished = np.zeros(n_envs, dtype=bool)
+    outcomes = np.zeros(n_envs, dtype=bool)
+    finish_ticks = np.zeros(n_envs, dtype=np.int64)
+    max_ticks = int(getattr(vec_env, "_episode_steps", 0)) + 2
+    if max_ticks <= 2:
+        raise RuntimeError("MJX recovery cert env has no episode horizon")
+    ticks = 0
+    while not bool(np.all(finished)):
+        actions, state = model.predict(
+            obs, state=state, episode_start=episode_start,
+            deterministic=True)
+        obs, _rewards, dones, infos = vec_env.step(actions)
+        ticks += 1
+        episode_start = np.asarray(dones, dtype=bool)
+        for i in np.flatnonzero(np.asarray(dones) & ~finished):
+            info = infos[int(i)]
+            outcomes[i] = bool(
+                info.get("recover_success", 0.0) > 0.0
+                or info.get("termination_reason") == "recover_success")
+            finished[i] = True
+            finish_ticks[i] = ticks
+        if ticks > max_ticks:
+            missing = np.flatnonzero(~finished).tolist()
+            raise RuntimeError(
+                f"MJX recovery certification exceeded the episode "
+                f"horizon for envs {missing}")
+    dt = float(getattr(vec_env, "_dt", 0.0))
+    return {
+        "kind": str(kind),
+        "outcomes": outcomes.tolist(),
+        "successes": int(outcomes.sum()),
+        "episodes": n_envs,
+        "success": float(outcomes.mean()),
+        "time_mean_s": float(finish_ticks.mean() * dt),
+    }
+
+
 def _env_kwargs(args, params: SimServoParams | None = None) -> dict:
     """Per-shim-env kwargs — mirrors train_ppo_sim._build_env, minus the
     model-DR pieces the shared-model backend can't honor yet.
@@ -66,7 +110,11 @@ def _env_kwargs(args, params: SimServoParams | None = None) -> dict:
               dr_scale=args.dr_scale,
               episode_seconds=args.episode_seconds)
     overrides = _parse_cfg_set(args.cfg_set)
-    if overrides:
+    external_recover_cert = (
+        args.recover_cert_every > 0
+        and args.recover_cert_envs > 0
+        and float(_parse_goal_mix(args.goal_mix).get("recover", 0.0)) > 0.0)
+    if overrides or external_recover_cert:
         from rl_move.config import load_config
         cfg = load_config()
         for dotted, val in overrides.items():
@@ -75,6 +123,9 @@ def _env_kwargs(args, params: SimServoParams | None = None) -> dict:
             for k in path:
                 node = node.setdefault(k, {})
             node[leaf] = val
+        if external_recover_cert:
+            cfg.setdefault("goal", {})[
+                "recover_external_certification"] = 1.0
         kw["cfg"] = cfg
     kw["params"] = (params if params is not None
                     else SimServoParams.from_cfg(kw.get("cfg")))
@@ -130,6 +181,8 @@ def _init_wandb(args, params: SimServoParams):
                 "episode_seconds": args.episode_seconds,
                 "mjx_iterations": args.mjx_iterations,
                 "mjx_ls_iterations": args.mjx_ls_iterations,
+                "recover_cert_every": args.recover_cert_every,
+                "recover_cert_envs": args.recover_cert_envs,
                 "model_dr": False,  # v1 backend limit, see MJX_PORT.md
                 "sim_model_source": params.source})
     # Same headline-score pinning as the C trainer (the periodic eval
@@ -137,6 +190,7 @@ def _init_wandb(args, params: SimServoParams):
     run.define_metric("SCORE/*", step_metric="global_step",
                       summary="last")
     run.define_metric("eval/*", step_metric="global_step")
+    run.define_metric("CERT/*", step_metric="global_step", summary="last")
     print(f"[wandb] logging to {run.url or 'offline run dir'}")
     return run
 
@@ -284,6 +338,14 @@ def main(argv: list[str] | None = None) -> int:
                     help="background telemetry-overlay video reel every "
                          "N steps (0 = off); rendered on a C-MuJoCo env")
     ap.add_argument("--video-episodes", type=int, default=4)
+    ap.add_argument("--recover-cert-every", type=int, default=1_000_000,
+                    help="deterministic same-backend MJX recovery "
+                         "certification every N training env-steps; this "
+                         "alone controls recovery curriculum admission "
+                         "and retreat (0 = off)")
+    ap.add_argument("--recover-cert-envs", type=int, default=8,
+                    help="parallel deterministic MJX episodes per active "
+                         "recovery start kind")
     ap.add_argument("--no-canary", action="store_true",
                     help="disable the fixed-seed canary probes + "
                          "regression auto-stop (on by default for warm "
@@ -313,6 +375,7 @@ def main(argv: list[str] | None = None) -> int:
         args.save_every = 0
         args.eval_every = 0
         args.video_every = 0
+        args.recover_cert_every = 0
         args.device = "cpu"
     # Canaries ride the periodic C-env eval (campaign parity): on by
     # default for warm starts, since the failure class is a warm-started
@@ -839,6 +902,106 @@ def main(argv: list[str] | None = None) -> int:
     if bc_coef > 0.0:
         from .bc_anchor import make_bc_collect_callback
         callbacks.append(make_bc_collect_callback())
+
+    cert_cb = None
+    if (args.recover_cert_every > 0 and args.recover_cert_envs > 0
+            and float(gm.get("recover", 0.0)) > 0.0):
+        class _MjxRecoverCert(BaseCallback):
+            """Deterministic curriculum authority on training physics."""
+
+            def __init__(self):
+                super().__init__()
+                self._next = int(args.recover_cert_every)
+                self._env = None
+
+            def _build(self):
+                cert_kw = dict(vec_kw)
+                cert_kw.update(
+                    seed=args.seed + 515151,
+                    pool_per_env=max(2, args.pool_per_env),
+                    desync_episodes=False)
+                if args.host_workers > 0:
+                    from .mjx_sharded_vec_env import MjxShardedVecEnv
+                    workers = min(args.recover_cert_envs,
+                                  max(1, args.host_workers))
+                    env = MjxShardedVecEnv(
+                        env_cls, args.recover_cert_envs,
+                        host_workers=workers, **cert_kw)
+                else:
+                    from .mjx_vec_env import MjxVecEnv
+                    env = MjxVecEnv(
+                        env_cls, args.recover_cert_envs, **cert_kw)
+                env.env_method("set_goal_mix", gm)
+                print("[recover-cert] deterministic MJX pool ready: "
+                      f"{args.recover_cert_envs} envs, "
+                      f"{impl or 'jax(default)'} backend")
+                return env
+
+            def _on_step(self) -> bool:
+                return True
+
+            def _on_rollout_end(self) -> None:
+                if self.num_timesteps < self._next:
+                    return
+                self._next = ((self.num_timesteps
+                               // args.recover_cert_every) + 1
+                              ) * args.recover_cert_every
+                if self._env is None:
+                    self._env = self._build()
+                active_before = int(venv.get_attr(
+                    "_rec_active_n", indices=0)[0])
+                bucket = active_before - 1
+                kinds = venv.env_method(
+                    "_recover_family_kinds", bucket, indices=0)[0]
+                rows = []
+                for kind in kinds:
+                    row = _run_recover_cert_kind(
+                        self._env, self.model, kind)
+                    rows.append(row)
+                    venv.env_method(
+                        "apply_recover_certification", kind,
+                        row["outcomes"])
+                active_after = int(venv.get_attr(
+                    "_rec_active_n", indices=0)[0])
+                successes = sum(r["successes"] for r in rows)
+                episodes = sum(r["episodes"] for r in rows)
+                payload = {
+                    "global_step": self.num_timesteps,
+                    f"CERT/recover_bucket_{bucket}_success": (
+                        successes / max(episodes, 1)),
+                    f"CERT/recover_bucket_{bucket}_episodes": episodes,
+                    "CERT/recover_frontier_before": bucket,
+                    "CERT/recover_frontier_after": active_after - 1,
+                }
+                for row in rows:
+                    kind = row["kind"]
+                    payload[f"CERT/recover_{kind}_success"] = row["success"]
+                    payload[f"CERT/recover_{kind}_episodes"] = row["episodes"]
+                    payload[f"CERT/recover_{kind}_time_s"] = (
+                        row["time_mean_s"])
+                if run is not None:
+                    import wandb
+                    wandb.log(payload)
+                bits = " ".join(
+                    f"{r['kind']}={r['successes']}/{r['episodes']}"
+                    for r in rows)
+                print(f"[recover-cert] step {self.num_timesteps:,} "
+                      f"B{bucket}: {bits}; frontier "
+                      f"B{bucket}->B{active_after - 1}")
+
+            def close(self):
+                if self._env is not None:
+                    self._env.close()
+                    self._env = None
+
+            def _on_training_end(self) -> None:
+                self.close()
+
+        cert_cb = _MjxRecoverCert()
+        callbacks.append(cert_cb)
+        print("[recover-cert] armed: deterministic MJX certification "
+              f"every {args.recover_cert_every:,} steps, "
+              f"{args.recover_cert_envs} episodes/kind")
     bg = None
     if run is not None and (args.eval_every > 0 or args.video_every > 0):
         # The campaign's background eval/video worker, reused verbatim:
@@ -880,10 +1043,14 @@ def main(argv: list[str] | None = None) -> int:
         if args.video_every > 0:
             callbacks.append(_make_video_callback(bg, args.video_every,
                                                   args))
-    model.learn(total_timesteps=args.steps, callback=callbacks,
-                progress_bar=False)
-    if bg is not None:
-        bg.shutdown()
+    try:
+        model.learn(total_timesteps=args.steps, callback=callbacks,
+                    progress_bar=False)
+    finally:
+        if cert_cb is not None:
+            cert_cb.close()
+        if bg is not None:
+            bg.shutdown()
     model.save(out_path)
     dt = time.monotonic() - t0
     print(f"[mjx-train] done: {args.steps:,} steps in {dt:.0f}s "

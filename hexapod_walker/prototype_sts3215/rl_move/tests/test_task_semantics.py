@@ -4034,6 +4034,53 @@ def test_recover_adaptive_sampler_proportions():
     env.close()
 
 
+def test_recover_curriculum_moves_only_from_certification():
+    """Noisy PPO outcomes are telemetry; deterministic cert owns admission."""
+    env = _make_recover_env(
+        0, start="plant_catch",
+        extra={("goal", "recover_external_certification"): 1.0})
+    assert env._rec_active_n == 1
+    assert env._rec_stats == {}
+
+    # Four deterministic successes cross the configured 0.8 EMA gate.
+    result = env.apply_recover_certification(
+        "plant_catch", [True, True, True, True])
+    assert result["ema"] >= 0.8
+    assert result["n"] == 4
+    assert result["active_before"] == 1
+    assert result["active_after"] == 2
+
+    # Six certified failures on the new frontier trigger retreat and
+    # clear B0 so it must be certified again.
+    result = env.apply_recover_certification(
+        "onefoot_micro", [False] * 6)
+    assert result["ema"] < 0.2
+    assert result["active_before"] == 2
+    assert result["active_after"] == 1
+    assert env._rec_stats["plant_catch"] == (0.5, 0)
+    assert env._rec_stats["onefoot_micro"] == (0.5, 0)
+    env.close()
+
+
+def test_recover_external_cert_ignores_stochastic_terminal_for_admission():
+    env = _make_recover_env(
+        0, start="plant_catch",
+        extra={("goal", "recover_external_certification"): 1.0})
+    env.reset()
+    plant = q_rad_to_action(env._plant_deg * DEG2RAD)
+    last = {}
+    while True:
+        _obs, _reward, term, trunc, last = env.step(plant)
+        if term or trunc:
+            break
+
+    assert last["termination_reason"] == "recover_success"
+    assert env._rec_stats == {}
+    assert env._rec_rollout_stats["plant_catch"][1] == 1
+    assert env._rec_active_n == 1
+    env.close()
+
+
 def test_recover_empty_interval_and_walk_isolation():
     """p_recover=0 (the default) is an EMPTY cdf interval: an
     identically-seeded walk-mix env samples the identical trajectory
