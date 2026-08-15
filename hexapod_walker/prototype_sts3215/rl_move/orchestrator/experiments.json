@@ -91617,8 +91617,19 @@
         "problems": [
           "fps 401 below expected floor 5000 for solo on GPU-MJX pod \u2014 starved or misplaced; consider rebalancing"
         ]
+      },
+      {
+        "time": "2026-08-15T23:06:47+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 0,
+        "fps": 455.1,
+        "placement": "solo on GPU-MJX pod (dynrep trainer)",
+        "verdict": "HEALTHY",
+        "problems": []
       }
-    ]
+    ],
+    "trainer": "train_ppo_transfer"
   },
   {
     "run": "dynrep-tfwalk-gpu1-B-s5",
@@ -91636,7 +91647,32 @@
     "wandb_match": "^dynrep-tfwalk-gpu1-B-s5",
     "log": "/workspace/prototype_sts3215/rl_move/dynamics/logs/pod_tfwalk_gpu1_B.log",
     "hypothesis": "Frozen-encoder arm of the operator-ordered Transformer walking transfer test: the first G1/G1.1+G3-passing Transformer dynrep encoder (cw-dynrep-tf-state2-recovered1) is frozen and PPO learns commanded-velocity walking through its latent z; tests whether the pretrained body-dynamics representation alone speeds/cleans learning vs scratch (A). GPU-only relaunch (CUDA-required trainer c4f5b211).",
-    "gate": "Judged as a matched triple with dynrep-tfwalk-gpu1-A-s5/C-s5 at 1M steps: walk return/steps-to-threshold and gait-quality columns (slip_m, peak_roll_deg, slew_sat) vs A and C."
+    "gate": "Judged as a matched triple with dynrep-tfwalk-gpu1-A-s5/C-s5 at 1M steps: walk return/steps-to-threshold and gait-quality columns (slip_m, peak_roll_deg, slew_sat) vs A and C.",
+    "checkups": [
+      {
+        "time": "2026-08-15T22:59:42+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 0,
+        "fps": 233.2,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "SUSPECT",
+        "problems": [
+          "fps 233 below expected floor 5000 for solo on GPU-MJX pod \u2014 starved or misplaced; consider rebalancing"
+        ]
+      },
+      {
+        "time": "2026-08-15T23:06:47+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 0,
+        "fps": 415.6,
+        "placement": "solo on GPU-MJX pod (dynrep trainer)",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ],
+    "trainer": "train_ppo_transfer"
   },
   {
     "run": "dynrep-tfwalk-gpu1-C-s5",
@@ -91654,6 +91690,31 @@
     "wandb_match": "^dynrep-tfwalk-gpu1-C-s5",
     "log": "/workspace/prototype_sts3215/rl_move/dynamics/logs/pod_tfwalk_gpu1_C.log",
     "hypothesis": "Anchored arm of the operator-ordered Transformer walking transfer test: the same cw-dynrep-tf-state2-recovered1 encoder fine-tunes at 0.1x LR while its self-supervised future-state objective continues as 4x256 anchor batches per rollout on the ORIGINAL recovered v5_mjx_fresh corpus; tests whether continued dynamics prediction keeps the representation honest while PPO learns walking, vs frozen (B) and scratch (A). GPU-only relaunch (CUDA-required trainer c4f5b211, anchor tensors on CUDA).",
-    "gate": "Judged as a matched triple with dynrep-tfwalk-gpu1-A-s5/B-s5 at 1M steps: walk return/steps-to-threshold and gait-quality columns (slip_m, peak_roll_deg, slew_sat) vs A and B; anchor_loss must stay finite/stable."
+    "gate": "Judged as a matched triple with dynrep-tfwalk-gpu1-A-s5/B-s5 at 1M steps: walk return/steps-to-threshold and gait-quality columns (slip_m, peak_roll_deg, slew_sat) vs A and B; anchor_loss must stay finite/stable.",
+    "checkups": [
+      {
+        "time": "2026-08-15T23:00:33+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 0,
+        "fps": 227.6,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "SUSPECT",
+        "problems": [
+          "fps 228 below expected floor 5000 for solo on GPU-MJX pod \u2014 starved or misplaced; consider rebalancing"
+        ]
+      },
+      {
+        "time": "2026-08-15T23:06:47+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 0,
+        "fps": 409.6,
+        "placement": "solo on GPU-MJX pod (dynrep trainer)",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ],
+    "trainer": "train_ppo_transfer"
   }
 ]
