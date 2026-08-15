@@ -194,3 +194,39 @@ Entry format (append; newest last; update status in place):
   + "[recover-cert] armed" log line + advancing steps.
 - ANSWER (operator): —
 - rulebook change: —
+
+## q_20260815T2255Z — OPEN
+- cycle: operator-kick 20260815 ~22:4x-22:5xZ (corrected GPU-only
+  tfwalk relaunch, order 20260815T224355Z /
+  fb_20260815T222316_26b670)
+- operator order: relaunch the Transformer walking A/B/C transfer
+  cohort GPU-only under append-only names dynrep-tfwalk-gpu1-{A,B,C}-
+  s5; treat 9e4eimd8 + both old C attempts as ABORTED/NON-EVIDENCE;
+  no gate rerun; no CPU fallback or encoder/data substitution.
+- conflicted with: (1) nothing mechanical — but the order only
+  explicitly aborted the old C attempts, while the root cause (the
+  trainer hard-coding device=cpu) equally compromises the old A
+  (11zsrpl9) and B (f086dlfd) attempts; I marked all three ABORTED/
+  NON-EVIDENCE (A/B as "class stopped by the C finding") and KILLED
+  the old B trainer found still alive on train-7 — without that kill
+  the ordered B relaunch was mechanically impossible (pod_tfwalk.sh
+  refuses a second trainer per pod). Confirm A/B non-evidence
+  reading. (2) SB3 emits its generic "PPO on GPU with MlpPolicy will
+  be slower" advisory on arm A — executed --device cuda anyway per
+  the explicit GPU-only order (matched-triple comparability + the
+  B/C encoder arms are where CUDA pays). (3) launcher bypass for a
+  script-owned cohort — precedented (08-15 22:2x q entry), ledger
+  entries created mechanically with proc_match/wandb_match so watcher
+  checkups work.
+- what was executed: full order — old cohort aborted in ledger;
+  train-7 synced (was f4978e72 → dfe6e78e); CUDA torch 2.11.0+cu128
+  installed+recorded on train-7/8 via pod_torch_capability.py (both
+  were 2.13.0+cpu — arm-A/B pods would have failed the CUDA
+  assertion); G1/G1.1 PASS record verified readable on all 3 pods
+  (NOT rerun); launched A train-8 (W&B h9yy9fll), B train-7
+  (dg5oj5hs), C train-11 (dx4yw04i); every log prints "[device] CUDA
+  required and active: NVIDIA H200" before W&B init; C anchor
+  tensors on CUDA (anchor_batch_to_torch device=cuda); steps
+  verified advancing on all three (86k/12k/49k at check).
+- ANSWER (operator): —
+- rulebook change: —

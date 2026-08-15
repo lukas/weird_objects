@@ -1,6 +1,24 @@
 # dynrep — Dynamics-representation pretraining
 
-**08-15 ~22:2x UTC (operator-kick cycle, order 20260815T221231Z
+**08-15 ~22:5x UTC (operator-kick cycle, corrected order
+20260815T224355Z executed): the 22:2x tfwalk cohort was a GPU
+COMPLIANCE FAILURE — all three arms ran `train_ppo_transfer` with
+device hard-coded to CPU (fb_20260815T222316_26b670; Codex stopped
+C). All three old attempts (`11zsrpl9`/`f086dlfd`/`9e4eimd8`) are
+ABORTED/NON-EVIDENCE in the ledger; the stale old-B trainer found
+still alive on train-7 was killed this cycle. RELAUNCHED clean on
+the CUDA-required trainer (c4f5b211 + append-only names 66d024a):
+`dynrep-tfwalk-gpu1-A-s5` train-8 (W&B `h9yy9fll`),
+`-B-s5` train-7 (`dg5oj5hs`), `-C-s5` train-11 (`dx4yw04i`) — every
+log prints "[device] CUDA required and active: NVIDIA H200" BEFORE
+W&B init, C's anchor tensors are built on CUDA, steps verified
+advancing on all three. The saved G1/G1.1 PASS gate record was
+verified readable on each pod (NO gate rerun, per order). CUDA
+torch (2.11.0+cu128) was installed+recorded on train-7/8 via
+pod_torch_capability.py (both were still 2.13.0+cpu).**
+
+**08-15 ~22:2x UTC (SUPERSEDED by the 22:5x entry above — cohort
+was CPU-compromised) (operator-kick cycle, order 20260815T221231Z
 executed): G1/G1.1 RE-VERIFIED and the Transformer-encoder
 walking/heading A/B/C transfer cohort is LAUNCHED.** Per the order:
 re-ran `rl_move.dynamics.eval_model --split test` on the exact

@@ -91557,5 +91557,58 @@
         "problems": []
       }
     ]
+  },
+  {
+    "run": "dynrep-tfwalk-gpu1-A-s5",
+    "created": "2026-08-15T22:53:10+00:00",
+    "note": "Script-owned cohort (pod_tfwalk.sh, manifest tfwalk-gpu1_manifest.jsonl on-pod). CORRECTED GPU-only relaunch per operator order 20260815T224355Z after the CPU compliance failure (fb_20260815T222316_26b670); log shows '[device] CUDA required and active' before W&B init; supersedes dynrep-tfwalk-A-s5 (11zsrpl9, non-evidence).",
+    "status": "RUNNING",
+    "pod": "hexapod-mjx-train-8",
+    "track": "dynrep",
+    "phase": "behavioral",
+    "steps": 1000000,
+    "wandb_id": "h9yy9fll",
+    "git_sha": "745816a059ddfbf62d5b3bae2aec3b192089b426",
+    "proc_match": "dynrep-tfwalk-gpu1-A-s5",
+    "wandb_match": "^dynrep-tfwalk-gpu1-A-s5",
+    "log": "/workspace/prototype_sts3215/rl_move/dynamics/logs/pod_tfwalk_gpu1_A.log",
+    "hypothesis": "Scratch-baseline arm of the operator-ordered Transformer walking transfer test: PPO learns commanded-velocity walking from raw stacked obs with no pretrained encoder \u2014 the null hypothesis that the dynrep representation gives no sample-efficiency or gait-quality win. GPU-only relaunch (CUDA-required trainer c4f5b211) of the aborted CPU cohort.",
+    "gate": "Judged as a matched triple with dynrep-tfwalk-gpu1-B-s5/C-s5 at 1M steps: walk return/steps-to-threshold and gait-quality columns (slip_m, peak_roll_deg, slew_sat) vs B and C."
+  },
+  {
+    "run": "dynrep-tfwalk-gpu1-B-s5",
+    "created": "2026-08-15T22:53:23+00:00",
+    "note": "Script-owned cohort (pod_tfwalk.sh). CORRECTED GPU-only relaunch per operator order 20260815T224355Z; exact cw-dynrep-tf-state2-recovered1 frozen Transformer encoder, no substitution; G1/G1.1 PASS record verified readable on-pod (no gate rerun per order); '[device] CUDA required and active' before W&B init. Supersedes dynrep-tfwalk-B-s5 (f086dlfd, CPU, non-evidence \u2014 its stale trainer was still alive on train-7 and was killed this cycle before relaunch).",
+    "status": "RUNNING",
+    "pod": "hexapod-mjx-train-7",
+    "track": "dynrep",
+    "phase": "behavioral",
+    "steps": 1000000,
+    "wandb_id": "dg5oj5hs",
+    "git_sha": "dfe6e78e9bd670e404fd6c51136d9a30f99d5c84",
+    "parent": "cw-dynrep-tf-state2-recovered1",
+    "proc_match": "dynrep-tfwalk-gpu1-B-s5",
+    "wandb_match": "^dynrep-tfwalk-gpu1-B-s5",
+    "log": "/workspace/prototype_sts3215/rl_move/dynamics/logs/pod_tfwalk_gpu1_B.log",
+    "hypothesis": "Frozen-encoder arm of the operator-ordered Transformer walking transfer test: the first G1/G1.1+G3-passing Transformer dynrep encoder (cw-dynrep-tf-state2-recovered1) is frozen and PPO learns commanded-velocity walking through its latent z; tests whether the pretrained body-dynamics representation alone speeds/cleans learning vs scratch (A). GPU-only relaunch (CUDA-required trainer c4f5b211).",
+    "gate": "Judged as a matched triple with dynrep-tfwalk-gpu1-A-s5/C-s5 at 1M steps: walk return/steps-to-threshold and gait-quality columns (slip_m, peak_roll_deg, slew_sat) vs A and C."
+  },
+  {
+    "run": "dynrep-tfwalk-gpu1-C-s5",
+    "created": "2026-08-15T22:53:42+00:00",
+    "note": "Script-owned cohort (pod_tfwalk.sh); only arm needing the 8.3G recovered v5_mjx_fresh corpus on-pod (train-11, where it lives). CORRECTED GPU-only relaunch per operator order 20260815T224355Z: anchor tensors now built on CUDA (anchor_batch_to_torch device=cuda, c4f5b211); '[device] CUDA required and active' before W&B init. Supersedes both dynrep-tfwalk-C-s5 attempts (incl. 9e4eimd8, CPU, non-evidence).",
+    "status": "RUNNING",
+    "pod": "hexapod-mjx-train-11",
+    "track": "dynrep",
+    "phase": "behavioral",
+    "steps": 1000000,
+    "wandb_id": "dx4yw04i",
+    "git_sha": "745816a059ddfbf62d5b3bae2aec3b192089b426",
+    "parent": "cw-dynrep-tf-state2-recovered1",
+    "proc_match": "dynrep-tfwalk-gpu1-C-s5",
+    "wandb_match": "^dynrep-tfwalk-gpu1-C-s5",
+    "log": "/workspace/prototype_sts3215/rl_move/dynamics/logs/pod_tfwalk_gpu1_C.log",
+    "hypothesis": "Anchored arm of the operator-ordered Transformer walking transfer test: the same cw-dynrep-tf-state2-recovered1 encoder fine-tunes at 0.1x LR while its self-supervised future-state objective continues as 4x256 anchor batches per rollout on the ORIGINAL recovered v5_mjx_fresh corpus; tests whether continued dynamics prediction keeps the representation honest while PPO learns walking, vs frozen (B) and scratch (A). GPU-only relaunch (CUDA-required trainer c4f5b211, anchor tensors on CUDA).",
+    "gate": "Judged as a matched triple with dynrep-tfwalk-gpu1-A-s5/B-s5 at 1M steps: walk return/steps-to-threshold and gait-quality columns (slip_m, peak_roll_deg, slew_sat) vs A and B; anchor_loss must stay finite/stable."
   }
 ]
