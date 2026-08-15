@@ -8,6 +8,34 @@ at what budget, with which failure modes.
 
 ## Now
 
+- **08-15 ~20:0x UTC — `cw-arch-tf-joymodes-scratch1-fallfix1` TRIAGED
+  FAIL at the pre-registered full-40M-lineage gate; the joymodes
+  lineage is CLOSED, no further chunks.** The 14x harsher fall charge
+  (`reward.term_cost_per_remaining_s=12.0`, ~-141/fall vs the old
+  flat -10) did not buy survival: `eval/walk/survived_frac` stayed 0
+  at all 4 evals of this 4M chunk (same as the parent's 28M), DR0
+  gate 0/6 det + 0/6 sto, 12/12 episodes terminated tilt_pitch/
+  tilt_roll, `roll_class` fell 12/12. Video (contact sheets,
+  `walk_det_0/2`) shows genuine forward pitch-overs — not a stable
+  stilt/lean holding cheat, an actual crash. Over the whole 4M-step
+  chunk 569 of ~571 episodes ended in a tilt termination (only 2
+  truncated) — nowhere near the gate's required ≥50% cut from the
+  ~607 baseline. What DID hold: direction-following (`wrong_way_frac`
+  0.042, `dir_valid_frac` 0.96, `dir_err_deg_mean` 19°) — the
+  acquisition half of the lineage is real and didn't regress. Per the
+  gate's own letter this reclassifies the problem from pricing to
+  capability/curriculum, and the unchanged lineage gets no further
+  budget. **CROSS-TRACK INSIGHT (reinforces the 08-15 ~17:5x note
+  below and multitask/STATUS.md):** this is now the clearest evidence
+  that the joystick command-tracking reward/curriculum recipe itself
+  — not fall pricing, not architecture, not init — is what can't
+  currently produce a walk that survives; a redesign (multitask's
+  call) is the only lever left, not another reward-shaping resweep
+  on this recipe from arch. No new arch launch from this result;
+  arch's other two in-flight arms (`cw-arch-tf-r1-hard3`,
+  `cw-arch-modeexperts-scratch2`) are unrelated lineages and continue
+  unaffected. Evidence: ledger entry, W&B kt8w93ra,
+  `logs/ckpt_eval/cw_arch_tf_joymodes_scratch1_fallfix1_{gate,owncfg}`.
 - **08-15 ~19:5x UTC — operator-ordered stop + fall-fix relaunch of the
   joymodes lineage (fb_20260815T192912_15af2f).**
   `cw-arch-tf-joymodes-scratch1-acq1` KILLED at ckpt 34.06M/38M:
