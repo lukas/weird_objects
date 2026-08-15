@@ -9,12 +9,32 @@ unresolved blockers between the robot and reliable joystick control.
 
 ## Now
 
-- **08-15 ~20:5x (operator-kick cycle, fb_20260815T201417_5f7f0e +
+- **08-15 ~22:0x (operator-kick cycle, fb_20260815T214555_008f42):
+  the RECOVERY LINE IS LIVE AGAIN — `cw-recover-any4-b0scratch1`
+  launched FROM SCRATCH on train-1 (W&B brjnwcnb, 40M,
+  hw/acquisition) on the operator's bucketed curriculum at exact
+  main c60c7ac** (zero-indexed ladder B0 plant_catch ±2° → B1-B3
+  onefoot micro/mid/full → B4 tripod park → B5 crouch/partial/bank
+  → B6 zero/tangle → B7 flip; promote EMA≥0.8 n≥4, retreat+re-certify
+  <0.2 n≥6, no harder probes). Genuinely scratch: no --init-from, no
+  --obs-pad-transplant, parent null; any2b is comparison evidence
+  only. Preflight green same cycle (recover 17/17, full bank 113
+  pass / 4 skip / 1 xfail — matches operator's numbers). Verified
+  live at ~1.2M: frontier B0-only (`env/recover_start_bucket=0`,
+  `recover_frontier_bucket=0`, `recover_active_families=1`), valid
+  settled B0 resets (tilt 0.44°, height 141 mm, min-load 3.3 N), BC
+  recover anchor filling (131k, footz loss 0.16), first forced eval
+  emitted `SCORE/recover_bucket_0..7_success` with explicit
+  denominators (2/2/2/2/2/6/4/2 episodes). Train-side B0 EMA ~0.12
+  (early, as expected from scratch). Watch: B0 success curve must
+  rise; promotion only at EMA≥0.8 n≥4.
+- ~~**08-15 ~20:5x (operator-kick cycle, fb_20260815T201417_5f7f0e +
   superseding fb_20260815T201712_39279d): the RECOVERY LINE IS
-  PAUSED `[operator]` — waiting on the operator's bucket-0
+  PAUSED `[operator]`**~~ — CLEARED by the entry above; history:
+  waiting on the operator's bucket-0
   curriculum (plant-catch / micro-onefoot rungs, tripod park moved
   later, per-bucket SCORE metrics), a new exact main SHA, and the
-  final launch directive.** Executed: `cw-recover-any2b` KILLED at
+  final launch directive. Executed: `cw-recover-any2b` KILLED at
   2.75M under the stop-the-warm-arm order (checkpoint preserved on
   train-1 + W&B u9sp8dki, RESUMABLE); the ordered from-scratch
   replacement `cw-recover-any3-scratch1` was NEVER LAUNCHED — the

@@ -85,7 +85,7 @@ Entry format (append; newest last; update status in place):
   future operator kicks that retarget a run named in a concurrency
   list say so explicitly.
 
-## q_20260815T2050Z — OPEN
+## q_20260815T2050Z — CLOSED (08-15 ~22:0x UTC, by fb_20260815T214555_008f42)
 - cycle: opkick-recover-any3-scratch1 (08-15 ~20:3x-20:5x UTC)
 - operator order: fb_20260815T201417_5f7f0e (stop cw-recover-any2 /
   lf5afhd6, launch cw-recover-any3-scratch1 FROM SCRATCH) then
@@ -127,5 +127,15 @@ Entry format (append; newest last; update status in place):
   from-scratch plan? (2) confirm the bucket-0/scratch design should
   weigh any2b's det onefoot/park successes — the zero-success premise
   was instrumentation, not learning.
-- ANSWER (operator): 
+- ANSWER (operator): answered implicitly by directive
+  fb_20260815T214555_008f42 (08-15 21:45 UTC): (1) the bucket-0
+  from-scratch plan proceeds — cw-recover-any4-b0scratch1 launched
+  FROM SCRATCH at exact main c60c7ac; any2b stays killed/preserved
+  and is designated "comparison evidence only", NOT resumed.
+  (2) not directly addressed; any2b's positive det onefoot/park
+  evidence remains recorded in its ledger/W&B note and the B0-B7
+  forced eval metrics now give per-bucket denominators that will
+  settle the warm-vs-scratch question empirically. CLOSED — executed
+  same cycle; see STATUS.md WAITING-ON clearance + hw/STATUS.md
+  "Now" entry. 
 - rulebook change: 
