@@ -8,6 +8,22 @@ at what budget, with which failure modes.
 
 ## Now
 
+- **08-15 ~06:2x UTC — Arm B canary `cw-arch-modeexperts-scratch1-r1`
+  TRIAGED PASS (mechanism health, all four pre-registered clauses):
+  finished 2.03M steps clean, no NaN/crash/canary-stop; FINAL
+  experts/tick_frac_ rise=.345 loco=.260 lower=.217 hold=.178 vs
+  commanded .35/.35/.20/.10 — every expert within 0.09, i.e. the mix
+  self-corrected past the ±0.10 clause by end of run (better than the
+  1.05M mid-run snapshot's hold=.246 miss, exactly as predicted:
+  "as walking improves f_seq self-shifts toward walk"); per-expert
+  std diverged independently from the shared .368 init (hold .393 >
+  rise .389 > loco/lower .385); reward quarters −330.9/−308.1/
+  −163.8/−2.4, monotone, no divergence. Skill acquisition explicitly
+  NOT judged at 2M (mechanism-only gate). **PASS → `scratch2` (40M,
+  corrected diet rise/loco/lower≈.30 each, hold≈.03,
+  goal.mode_seq=0.2) LAUNCHED + VERIFIED same cycle on train-2** per
+  the pre-registered SCRATCH2 order (fb_20260815T035147_dd2af0).
+  Evidence: `rl_docs/runs/cw-arch-modeexperts-scratch1-r1.md`.
 - **08-15 — OPERATOR DIRECTIVE EXECUTED (fb_20260815T013349_488ffd,
   via operator KICK): the four-expert isolated architecture is BUILT
   and both arms are pre-registered — full spec + gates + decision
