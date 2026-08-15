@@ -17,6 +17,20 @@ requested joystick direction over nonzero-command ticks. Rule: name
 the operator-visible behavior first; mechanism/sampler/arch details
 live in config/tags/notes.
 
+**METRIC SIMPLIFICATION (operator, 08-15, fb_20260815T115650_47010c —
+applied 12:0x UTC, before launch):** the TRAINING dashboard carries NO
+per-heading direction bins (`v_along_hbin*` removed from env info keys
+and trainer W&B series; launcher refuses joystick launches if they
+reappear). Uniform [-pi,pi] heading sampling + the RAW SIGNED average
+already zeroes out command-ignorant motion, so bins add nothing in
+training. Contract: `joystick/v_along_m_s` (per-rollout mean over
+active ticks), `joystick/v_along_m_s_cumulative` (active-tick-weighted
+run mean), `joystick/active_ticks` (audit count), episode
+survival/fall metrics beside them; cross-track/wrong-way/ratio stay
+secondary under `train/`. Fixed 8/12-direction panels are HELD-OUT
+EVAL tools only, for diagnosing failures after the simple average
+says whether learning is occurring.
+
 ## The reframe (read this before judging any run here)
 
 Do NOT assume the campaign's main failure is catastrophic forgetting.

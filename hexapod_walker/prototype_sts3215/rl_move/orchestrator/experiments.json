@@ -81168,7 +81168,7 @@
     ],
     "triage": "done",
     "hardware_ready": false,
-    "verdict": "FAIL(acquisition-failure) per MULTITASK.md labels, worse than budget or shortfall \u2014 with the broadest command distribution (C), the policy never reaches a valid six-leg gait at the SAME 20M budget where the specialist (a2) passed cleanly. Leg index 2 is a true flag leg in every single episode across both eval configs (duty_cycle 0.01-0.03 vs the other five legs 0.35-0.69) and the robot falls (term_reason=tilt_pitch, roll_class=fell) in 10/12 gate episodes and 9/12 own-cfg(DR0.2) episodes. gait_valid: gate det 0/6, gate sto 2/6, owncfg det 1/6, owncfg sto 2/6 (vs a2 6/6 everywhere, 0 terms). prog med numbers look nontrivial (gate det 1.01, owncfg det 0.96) only because progress is measured on the drag-then-fall trajectory, not a real walk cycle \u2014 video confirms: robot holds a near-normal stance on 5 legs with leg 2 splayed out rigid, drags forward briefly, then topples nose-first around frame 8-10 of every clip. Never reaches the point of testing the lateral/interpolation probes in its own gate (moot \u2014 it cannot clear plain forward without falling). Establishes the wave-1 monotone story at MATCHED 20M budget: a2 (specialist) clean pass -> b2 (narrow generalist) FAIL(acquisition-shortfall), real gait but underpowered, no falls -> c2 (broad generalist) FAIL(acquisition-failure), flag-leg + falls, no valid gait at all. Command-width interference is real and monotonic, not a 2M-only budget artifact."
+    "verdict": "FAIL(acquisition-failure) per MULTITASK.md labels, worse than budget or shortfall \u2014 with the broadest command distribution (C), the policy never reaches a valid six-leg gait at the SAME 20M budget where the specialist (a2) passed cleanly. Leg index 2 is a true flag leg in every episode (duty 0.01-0.03) and the robot falls in 10/12 gate / 9/12 own-cfg episodes; prog med numbers (1.01) are drag-then-fall artifacts. || CORRECTION 08-15 (operator directive fb_20260815T114414_3c40d6 + audit fb_20260815T113718_baf9d6): the 'acquisition failure / converged' half of this verdict was premature. (1) Training telemetry (W&B kvbcuqox) shows ACTIVE learning at 20M: return rising to ~166-172, env/reward_task 0.07->0.34, walk_prog_factor 0.34->0.80 \u2014 the checkpoint failed the gate, but the mechanism had not converged; ep_len falling to ~148 shows the return was optimized via drag-then-fall, i.e. an UNSAFE-REWARD/GAIT MISMATCH (flat -10 fall penalty + ungated aligned-progress income), not a demonstrated inability to acquire broad commands. (2) The yaw clause is INVALID: cfg set goal.walk_yaw_cmd=1 (wz sampled, in obs) but reward.k_walk_yaw was never set (default 0) \u2014 commanded to turn, never paid for turning; the same invalidates cw-mt-b2's yaw clause. (3) Heading was only +/-0.34 rad, so no arbitrary-direction claim was ever testable. Corrected label: PROMISING ACTIVE LEARNING + UNSAFE REWARD/GAIT MISMATCH AT 20M. Operator-authorized follow-up: cw-mt-c2-fullcircle1 (full-circle translation-only continuation, gait gate + horizon fall cost + raw v_along telemetry)."
   },
   {
     "run": "cw-mt-a2",
@@ -85730,7 +85730,7 @@
       "goal.mode_seq_rise_from_h=1"
     ],
     "created": "2026-08-15T11:39:25+00:00",
-    "status": "FINISHED",
+    "status": "FAILED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -85766,7 +85766,9 @@
         "log_tail": ",007,040: hold 0.34\u00b0, lean 1.20\u00b0, lower 0/1, unload 0.26\u00b0, raise 1/2, rise f1/2 b1/2 c2/2, lower 1/2, tipped 2/2, rolltrap 2/2\n[video] logged reel (2,007,040 steps | rise:ok lower:ok raise:ok hold:ok)\n[video] logged reel (final | rise:ok lower:ok rise:ok hold:ok)\n[mjx-train] done: 2,000,000 steps in 474s (4,222 env-steps/s incl. setup) -> /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_stand_postlower4.zip\n[mjx-train] evaluate with the C-env harness before trusting anything (MJX_PORT.md phase-2 item 4).\n[wandb] checkpoint artifact ckpt-ppo_goal_cw_stand_postlower4 (md5 cde24df2)\n"
       }
     ],
-    "triage": "in-cycle cw-stand-postlower4 since 2026-08-15T11:50:47"
+    "triage": "done",
+    "hardware_ready": false,
+    "verdict": "FAIL (Cohort c4, n=600 held-out, banks 960000../970000..): the mode_seq_rise_from_h schedule fix WORKED as designed -- 10 watched re-renders (6 fail+4 clean) show every post-lower rise is now a direct push-up, zero belly-detours (the c3 defect is gone) -- and det post-lower rise recovered 0.419->0.872, sto 0.631->0.690, but both stayed short of the parent (det 0.967, sto 0.801) and the pre-registered parity bar (det session zero-fall 0.863 vs 0.95, det post-lower rise 0.872 vs 0.967, sto post-lower rise 0.690 vs 0.90). Crown jewels clean (det first-rise 0.99 all strata >=0.97, lower 1.0 det+sto). Remaining falls are a genuine over_current stall (switch_peak_a ~2.6A), not an exploit. SECOND miss of the in-context sequence-training mechanism (c3=wrong mechanism, c4=right mechanism/still short) -- per two-miss discipline the class is CLOSED for further dose/diet/schedule resweeps; this is the pre-registered if-false branch, not a surprise, so no dig-in needed. Next lever is an operator product-contract call (align runner rise-schedule semantics to train==deploy, or price post-lower rise directly) -- escalated [operator] in STATUS.md. Product baseline (c1 hierarchy) unaffected. Full chain: SESSION_BULK_GATE.md 'Cohort c4 RESULTS'."
   },
   {
     "run": "cw-arch-tf-r1",
@@ -86080,7 +86082,7 @@
       "Transformer twin of cw-arch-hist16-r7, discovery rung (2M): identical recipe, policy trunk swapped to a 2-layer causal transformer over the 16-frame window (--transformer, tf defaults 2/128/4/256, separate actor/critic trunks)."
     ],
     "created": "2026-08-15T11:51:05+00:00",
-    "status": "INTENT",
+    "status": "KILLED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -86088,11 +86090,40 @@
       "running_experiments_before": 1,
       "code_sha_local": "e01a174564c141edd16fcfc86b57a1a46b198965",
       "code_sha_pod": "e01a174564c141edd16fcfc86b57a1a46b198965",
-      "wandb_env_on_pod": true
+      "wandb_env_on_pod": true,
+      "pid": "776332",
+      "log_growth_bytes": [
+        4566,
+        4906
+      ],
+      "wandb_id": "m0r5qmct",
+      "global_step_window": [
+        49152,
+        98304
+      ],
+      "fps_estimate": 182.0
     },
     "stack": "gpu-mjx",
     "phase": "discovery",
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:arch nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-arch-tf-r1 --steps 2000000 --task joint_walk --dr-scale 0.5 --episode-seconds 15 --ent-coef 0.01 --no-canary --eval-every 1000000 --video-every 2000000 --seed 0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_heading_max_rad=0.7854 --cfg-set goal.walk_cmd_resample_s=1.5 --cfg-set goal.walk_cmd_resample_jitter=0.6 --cfg-set goal.walk_cmd_blend_s_min=0.1 --cfg-set goal.walk_cmd_blend_s_max=1.0 --cfg-set goal.walk_stop_frac=0.2 --cfg-set obs.history_frames=16 --transformer --n-envs 3072 --impl warp --host-workers 24 --out-name ppo_goal_cw_arch_tf_r1 --notes 'Transformer twin of cw-arch-hist16-r7, discovery rung (2M): identical recipe, policy trunk swapped to a 2-layer causal transformer over the 16-frame window (--transformer, tf defaults 2/128/4/256, separate actor/critic trunks).' > /tmp/train_cw-arch-tf-r1.log 2>&1 < /dev/null & echo $!",
-    "log": "/tmp/train_cw-arch-tf-r1.log"
+    "log": "/tmp/train_cw-arch-tf-r1.log",
+    "wandb_id": "m0r5qmct",
+    "verified": "2026-08-15T11:58:16+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-15T12:04:12+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 924,
+        "fps": 1092.3,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "SUSPECT",
+        "problems": [
+          "fps 1092 below expected floor 1875 for solo on GPU-MJX pod \u2014 starved or misplaced; consider rebalancing"
+        ]
+      }
+    ],
+    "verdict": "KILLED by operator agent, no science read: pods run CPU-only torch, so the transformer PPO update ran ~240s/iter (~200 fps, 2M ETA ~3h, 40M ~2 days) while the H200 idled. Installed CUDA torch (2.11.0+cu128, --no-deps against the existing jax nvidia-cu12 stack; jax verified intact) on train-1 and benchmarked the same update at 2.0s (~120x). Relaunching the identical discovery spec as cw-arch-tf-r1b on train-1 with --device cuda.",
+    "triage": "done"
   }
 ]

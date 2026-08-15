@@ -12,6 +12,41 @@ call is withdrawn, not answered — the options (arch recurrence
 transplant / command-width curriculum / accept `b2` ceiling / reward
 geometry diagnosis) remain open for whenever the track resumes.**
 
+**PARTIAL REOPENING by operator directive 08-15
+(fb_20260815T114414_3c40d6, via ops.sh cycle focus note): ONE
+authorized arm, `cw-mt-c2-fullcircle1` — a full-circle
+translation-only 40M continuation of `cw-mt-c2`. The pause otherwise
+stands for agent-initiated mt work.**
+
+## Corrections (08-15, operator directive + external audit)
+
+- **`cw-mt-c2`'s "acquisition failure" verdict was premature** (ledger
+  amended): W&B kvbcuqox shows active learning at 20M (return
+  ->~166-172, reward_task 0.07->0.34, walk_prog_factor 0.34->0.80)
+  with ep_len collapsing to ~148 — the return was optimized by
+  drag-then-fall, an UNSAFE-REWARD/GAIT MISMATCH (flat -10 fall
+  penalty + progress income without an all-leg gait gate), not
+  demonstrated non-acquisition. Corrected label: PROMISING ACTIVE
+  LEARNING + UNSAFE REWARD/GAIT MISMATCH AT 20M.
+- **Yaw audit (fb_20260815T113718_baf9d6, VERIFIED in the ledger arg
+  vectors): b2/c2 set `goal.walk_yaw_cmd=1` (wz sampled, in obs) but
+  never set `reward.k_walk_yaw` (code default 0) — commanded to turn,
+  never PAID to turn. The yaw clauses of the b2/c2 verdicts are
+  invalid; the wave-1 monotone interference story stands only for
+  the linear-command axis at the checkpoint level.** Any future yaw
+  claim needs explicitly audited yaw pricing + command-bucket
+  metrics.
+- New machinery landed for the joystick-translate arm (all
+  default-off, bank-tested): `reward.term_cost_per_remaining_s`
+  (early-fall horizon cost, REWARD.md row), `goal.walk_cmd_metrics`
+  (raw signed v_along/v_cross/wrong-way info keys, active ticks
+  only) + headline `joystick/v_along_m_s` / `_cumulative` /
+  `active_ticks` (secondary ratio-of-sums, cross, wrong-way under
+  `train/`; NO per-heading training bins per fb_20260815T115650 —
+  direction panels are eval-only) in the MJX trainer; FULLCIRCLE
+  semantics bank (drag-then-fall < 0 at k=12; gait>stall>park all
+  four directions).
+
 **PAUSE EXCEPTION + NAMING CORRECTION (operator, 08-15 ~11:4x UTC —
 read BEFORE speccing/launching anything from the c2 lineage):**
 fb_20260815T114414_3c40d6 is an operator-authorized reopening of ONE
@@ -25,7 +60,14 @@ then CORRECTED THE NAME: the run is **`cw-joystick-translate1`**
 REFUSES any run name containing it (launch_run.py
 `naming_correction`). Headline metrics should be plain/physical:
 `joystick/v_along_m_s` (+`_cumulative`), "average signed m/s in the
-requested joystick direction over nonzero-command ticks". General
+requested joystick direction over nonzero-command ticks".
+fb_20260815T115650_47010c then SIMPLIFIED the training metric
+contract (applied 08-15 12:0x UTC, pre-launch): NO per-heading
+direction bins in training — headline is only `joystick/v_along_m_s`
++ `_cumulative` + `joystick/active_ticks` (cross/wrong-way stay
+secondary under `train/`); fixed 8/12-direction panels are held-out
+EVAL only. The launcher refuses joystick launches if binned training
+series reappear in the sim tree (`_joystick_metric_block`). General
 rule (applies to future runs): name the operator-visible behavior
 (joystick translate, stop, rise, lower); sampler geometry, reward
 mechanism, architecture, curriculum go in config/tags/notes. The

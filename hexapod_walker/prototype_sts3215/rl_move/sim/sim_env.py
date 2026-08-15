@@ -1840,6 +1840,20 @@ class SimHexapodBalanceEnv(_GymBase):
                             "safety_termination_penalty", default=10))
         if clipped is None:
             self._step_i += 1
+            # Early-fall horizon cost (08-15, operator directive
+            # fb_20260815T114414): reward.term_cost_per_remaining_s
+            # charges k * REMAINING episode seconds on top of the flat
+            # penalty for ANY safety termination, so a drag-then-fall
+            # cannot bank income a survivor would have kept earning
+            # (cw-mt-c2's ~6 s drag-then-fall retained positive return
+            # at the flat -10). Truncation is never charged. Default
+            # 0.0 = legacy bit-exact.
+            k_rem = float(cfg_get(self.cfg, "reward",
+                                  "term_cost_per_remaining_s",
+                                  default=0.0))
+            if k_rem > 0.0:
+                pen += k_rem * max(self.episode_steps - self._step_i,
+                                   0) * self.dt
             parts = {"reward_termination": -pen}
             return (self._final_obs(
                         build_obs(self.cfg, self._state, self._q_nom,
@@ -2970,6 +2984,16 @@ class SimHexapodBalanceEnv(_GymBase):
                 parts["reward_end_posture"] = r_endp
                 reward += r_endp
         if terminated:
+            # Early-fall horizon cost — same key/semantics as the
+            # _step_begin site (reward.term_cost_per_remaining_s,
+            # default 0.0 = legacy bit-exact); only safety
+            # terminations are charged, never time-limit truncation.
+            k_rem = float(cfg_get(self.cfg, "reward",
+                                  "term_cost_per_remaining_s",
+                                  default=0.0))
+            if k_rem > 0.0:
+                pen += k_rem * max(self.episode_steps - self._step_i,
+                                   0) * self.dt
             parts["reward_termination"] = -pen
             reward -= pen
         truncated = self._step_i >= self.episode_steps

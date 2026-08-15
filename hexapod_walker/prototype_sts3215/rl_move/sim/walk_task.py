@@ -1453,6 +1453,27 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             info["reward_walk_prog"] = r_prog
             info["walk_vel_err"] = err
             info["walk_speed"] = float(np.hypot(*v))
+            # Raw commanded-direction speed telemetry (08-15, operator
+            # directive fb_20260815T114414: judge command-following by
+            # RAW SIGNED m/s along the requested direction, never by
+            # clipped gate factors or total speed; SIMPLIFIED by
+            # fb_20260815T115650: NO per-heading bin keys in training —
+            # uniform [-pi,pi] heading sampling + the signed average
+            # already zeroes out command-ignorant motion, and fixed
+            # 8/12-direction panels belong in held-out EVAL only). cfg
+            # goal.walk_cmd_metrics=1; default 0 = no new info keys,
+            # legacy info dict bit-exact. Emitted ONLY on
+            # active-command ticks (s_ref > 1e-3), so the trainers'
+            # info-scalar means are per-ACTIVE-tick by construction.
+            if (s_ref > 1e-3 and float(cfg_get(
+                    self.cfg, "goal", "walk_cmd_metrics",
+                    default=0.0)) == 1.0):
+                ux, uy = goal.vx_ref / s_ref, goal.vy_ref / s_ref
+                info["v_along_cmd_m_s"] = float(along)
+                info["v_cross_abs_m_s"] = abs(
+                    float(ux * v[1] - uy * v[0]))
+                info["cmd_speed_m_s"] = s_ref
+                info["wrong_way"] = 1.0 if along < 0.0 else 0.0
             if self._walk_bucket is not None:
                 info["walk_bucket"] = self._walk_bucket
             # Tripod phase clock + contact-agreement reward (walk-routed

@@ -9,9 +9,38 @@ unresolved blockers between the robot and reliable joystick control.
 
 ## Now
 
-- **08-15 (dig-in cycle): `cw-stand-postlower3` VERDICTED FAIL —
+- **08-15 (this cycle): `cw-stand-postlower4` FINISHED and its
+  pre-registered Cohort c4 bulk read (n=600, fresh banks
+  960000../970000.., now retired) is IN — VERDICT: FAIL, but the
+  right kind of FAIL — mechanism CONFIRMED, magnitude still short.**
+  The schedule fix (`goal.mode_seq_rise_from_h`, "stand up from where
+  you are") worked exactly as designed: 10 watched re-renders (6 of
+  the failures + 4 clean draws) show every post-lower rise is now a
+  DIRECT push-up, zero belly-detours, and det post-lower rise
+  recovered from c3's 0.419 to **0.872** (sto 0.631→0.690) — but both
+  numbers land short of the parent (det 0.967, sto 0.801) and short
+  of the pre-registered parity bar, so the letter of the gate reads
+  FAIL on clauses 1-3 (det session zero-fall 0.863 vs bar 0.95, det
+  post-lower rise 0.872 vs bar 0.967, sto post-lower rise 0.690 vs
+  bar 0.90). Crown jewels clean (det first-rise 0.99 every stratum
+  ≥0.97; lower 1.0 det+sto). Remaining falls are a genuine
+  over_current stall (switch_peak_a ~2.6A), not a new exploit — an
+  actuation-effort ceiling, not a behavior bug. This is the SECOND
+  miss of the in-context sequence-training mechanism (c3 = wrong
+  mechanism/detour, c4 = right mechanism/still short) — per two-miss
+  discipline the class is CLOSED for further dose/diet/schedule
+  resweeps of this recipe; unlike c3 this result is NOT surprising
+  (it's exactly the pre-registered "if-false" branch, video-
+  confirmed), so no dig-in was needed to call it. Next lever is an
+  operator product-contract choice: align the runner/instrument's
+  rise-schedule semantics to "remaining rise" (train==deploy exactly)
+  or price post-lower rise directly in reward — escalated
+  `[operator]` in STATUS.md WAITING-ON, no new postlower arm until
+  picked. Full numbers: `SESSION_BULK_GATE.md` "Cohort c4 RESULTS".
+  Product baseline (c1 hierarchy) unaffected.
+- 08-15 (dig-in cycle, superseded by the c4 read above): `cw-stand-postlower3` VERDICTED FAIL —
   root cause FOUND, fixed in code, and `cw-stand-postlower4` launched
-  on the fix (pre-registered Cohort c4, fresh banks 960000../970000..).**
+  on the fix (pre-registered Cohort c4, fresh banks 960000../970000..).
   The c3 collapse was not "more exposure needed" and not the reanchor
   path: the sequence rise schedule STARTS AT BELLY-FRAME 0 (blend
   down + 1 s hold at 0), so training PAID the robot to re-descend,

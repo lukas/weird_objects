@@ -64,6 +64,7 @@ Total = kernel income + weak shaping + weak regularizers.
 | `k_unload` | 0.2 | weak linear gradient toward zero load on the unload leg. |
 | `alive` | 0.0 | keep at 0 (see principles). |
 | `safety_termination_penalty` | 10.0 | one-time −10 on safety termination (tilt trip etc.). |
+| `term_cost_per_remaining_s` | 0.0 (off) | early-fall horizon cost (08-15, operator directive fb_20260815T114414): adds k × REMAINING episode seconds to the flat penalty on safety terminations (never on truncation), so a drag-then-fall cannot bank income a survivor would keep earning — `cw-mt-c2` retained ~+166/ep from ~6 s drag-then-fall at the flat −10. Bank-calibrated in the FULLCIRCLE bank (`test_task_semantics.py`): at k=12 a 6 s fall in a 60 s episode goes negative while the tripod gait/freeze orderings survive. Logged inside `reward_termination`. |
 
 ## 2) Rise / lower / raise terms
 

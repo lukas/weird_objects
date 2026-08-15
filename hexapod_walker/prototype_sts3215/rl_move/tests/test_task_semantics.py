@@ -680,7 +680,8 @@ def test_turn_command_signs_priced_symmetrically():
 # stack is optimizing against reality.
 
 
-def _make_walk_env(seed: int, overrides: dict | None = None):
+def _make_walk_env(seed: int, overrides: dict | None = None,
+                   episode_seconds: float = 15.0):
     from rl_move.sim.walk_task import SimHexapodJointWalkEnv
 
     cfg = load_config()
@@ -688,7 +689,7 @@ def _make_walk_env(seed: int, overrides: dict | None = None):
         cfg.setdefault(sec, {})[leaf] = val
     env = SimHexapodJointWalkEnv(
         params=SimServoParams.from_cfg(None), randomize=False,
-        dr_scale=0.0, episode_seconds=15.0, seed=seed, cfg=cfg)
+        dr_scale=0.0, episode_seconds=episode_seconds, seed=seed, cfg=cfg)
     gen = env._goal_gen
     for m in ("hold", "lean", "track", "unload", "raise", "rise",
               "lower", "quad", "walk"):
@@ -3519,3 +3520,139 @@ def test_walk_gait_gate_collapses_quadwalk_midpin_income():
     assert hit > 300.0, (
         f"gate cost the mid-pin scoot only {hit:.1f} over the episode "
         "— quadwalk5's cheat would still pay")
+
+
+# --------------------------------------------------------------------------
+# FULLCIRCLE bank — the cw-mt-c2-fullcircle1 stack (operator directive
+# fb_20260815T114414, 08-15): translation-only full-circle commands
+# (heading uniform [-pi, pi], speed 0.03-0.06, NO stop segments,
+# wz identically zero with the yaw obs channel kept for checkpoint
+# width) + the all-support-leg walk_gait_gate + the NEW early-fall
+# horizon cost reward.term_cost_per_remaining_s. The exploit this bank
+# pins: cw-mt-c2 at 20M retained POSITIVE return (~166/ep) from ~6 s
+# flag-leg drag-then-fall trajectories in 15 s episodes — the flat -10
+# safety_termination_penalty made early death cheaper than honest
+# survival. Required ordering under the arm's FULL stack, per
+# direction: honest gait > stall > park, and drag-then-fall < 0 (and
+# far below a full-session freeze).
+
+FC_TERM_COST_PER_S = 12.0
+FC_OVERRIDES = {
+    ("reward", "k_drag_loaded"): 10.0,
+    ("reward", "k_park_duty"): 1.0,
+    ("reward", "walk_kernel_prog_gate"): 1.0,
+    ("reward", "walk_anchor_gate"): 1.0,
+    ("reward", "anchor_tol_mm"): 10.0,
+    ("reward", "walk_gait_gate"): 1.0,
+    ("reward", "term_cost_per_remaining_s"): FC_TERM_COST_PER_S,
+    ("goal", "walk_obs_body_vel"): 2.0,
+    ("goal", "walk_yaw_cmd"): 1.0,
+    ("goal", "walk_speed_min_m_s"): 0.03,
+    ("goal", "walk_speed_max_m_s"): 0.06,
+    ("goal", "walk_heading_max_rad"): math.pi,
+    ("goal", "walk_stop_frac"): 0.0,
+    ("goal", "walk_cmd_metrics"): 1.0,
+    ("safety", "max_roll_deg"): 25.0,
+    ("safety", "max_pitch_deg"): 25.0,
+}
+
+FC_CMDS = {
+    "forward": (WALK_CMD_VX, 0.0),
+    "backward": (-WALK_CMD_VX, 0.0),
+    "crab_left": (0.0, WALK_CMD_VX),
+    "diag_back_right": (-WALK_CMD_VX * 0.707, -WALK_CMD_VX * 0.707),
+}
+
+
+@pytest.fixture(scope="module")
+def fullcircle_returns() -> dict[str, dict[str, float]]:
+    return {name: {p: float(np.mean(
+        [_walk_rollout(p, s, vx=vx, vy=vy, overrides=FC_OVERRIDES)
+         for s in SEEDS]))
+        for p in ("gait", "stall", "park")}
+        for name, (vx, vy) in FC_CMDS.items()}
+
+
+def test_fullcircle_gait_beats_stall_and_park_every_direction(
+        fullcircle_returns):
+    """The gait gate + horizon fall cost must not invert the basic
+    ordering anywhere on the circle: the hardware-proven tripod gait
+    (which survives all 15 s, so the fall cost never fires on it)
+    out-earns march-in-place and refusal in every direction."""
+    for name, r in fullcircle_returns.items():
+        assert r["gait"] > r["stall"] + 50.0, (
+            f"{name}: stall rivals the gait under the FC stack: {r}")
+        assert r["gait"] > r["park"] + 50.0, (
+            f"{name}: parking rivals the gait under the FC stack: {r}")
+
+
+def test_fullcircle_directions_priced_comparably(fullcircle_returns):
+    """No commanded direction may be structurally cheap/expensive
+    under the FC stack (min gait income > 55% of max), else the run
+    re-learns a heading bias instead of the command."""
+    gains = {n: r["gait"] for n, r in fullcircle_returns.items()}
+    lo, hi = min(gains.values()), max(gains.values())
+    assert lo > 0.55 * hi, (
+        f"direction income skew under FC stack: {gains}")
+
+
+def test_fullcircle_drag_then_fall_cannot_retain_positive_return():
+    """THE c2 exploit, priced: accumulate the zero-lift skate's real
+    income for the first 6 s of a 60 s episode under the FC stack,
+    then charge the exact termination cost the env would levy on a
+    fall at that tick (flat penalty + k * remaining seconds). The
+    total must be NEGATIVE (c2 banked ~+166 this way at the flat -10),
+    and a full-session freeze (park, 60 s, never falls) must out-earn
+    it by a wide margin — death is never a paying strategy, freezing
+    beats dying, and (per the ordering tests above) walking beats
+    freezing."""
+    from tripod_gait import TripodGait
+
+    fall_tick = None
+    drag_income = 0.0
+    env = _make_walk_env(0, overrides=FC_OVERRIDES, episode_seconds=60.0)
+    env.reset()
+    traj = env._goal_traj
+    n = len(traj.vx)
+    hold_n = ramp_n = int(round(1.0 / env.dt))
+    ramp = np.linspace(0.0, 1.0, ramp_n)
+    traj.vx[:] = WALK_CMD_VX
+    traj.vx[:hold_n] = 0.0
+    traj.vx[hold_n:hold_n + ramp_n] = WALK_CMD_VX * ramp
+    traj.vy[:] = 0.0
+    if traj.wz is not None:
+        traj.wz[:] = 0.0
+    gait = TripodGait(vx=0.0, lift=0.0)          # zero-lift skate/drag
+    gait.sync_plant_stance(*WALK_PLANT)
+    gait.reset_phase()
+    six_s = int(round(6.0 / env.dt))
+    for step in range(six_s):
+        i = min(step, n - 1)
+        gait.set_velocity(vx=float(traj.vx[i]), vy=0.0)
+        act = q_rad_to_action(
+            np.asarray(gait.desired_deg(step * env.dt)) * DEG2RAD)
+        _o, r, term, trunc, _i = env.step(act)
+        drag_income += float(r)
+        if term or trunc:
+            fall_tick = step + 1
+            break
+    if fall_tick is None:
+        # Counterfactual fall at 6 s: charge exactly what the env's
+        # termination sites would charge at this step index.
+        fall_tick = six_s
+        pen = 10.0 + FC_TERM_COST_PER_S * max(
+            env.episode_steps - fall_tick, 0) * env.dt
+        drag_income -= pen
+    env.close()
+
+    park_total = _walk_rollout("park", 0, overrides=FC_OVERRIDES)
+    # park is 15 s; scale to the 60 s session for the comparison
+    # (income is per-tick and the park never terminates).
+    park_60s = park_total * 4.0
+    assert drag_income < 0.0, (
+        f"drag-then-fall at 6 s of a 60 s episode still retains "
+        f"positive return ({drag_income:.1f}) — raise "
+        f"term_cost_per_remaining_s (the c2 exploit still pays)")
+    assert park_60s > drag_income + 200.0, (
+        f"freezing ({park_60s:.1f}) does not clearly out-earn early "
+        f"death ({drag_income:.1f})")

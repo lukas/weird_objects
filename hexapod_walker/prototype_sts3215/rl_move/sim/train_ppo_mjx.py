@@ -621,6 +621,19 @@ def main(argv: list[str] | None = None) -> int:
             # expert, not just total env steps). Cumulative over the
             # whole run; indices follow gru_policy.EXPERTS_ORDER.
             self._exp_ticks = np.zeros(4, dtype=np.float64)
+            # Joystick command telemetry (08-15, operator directive
+            # fb_20260815T114414, SIMPLIFIED by fb_20260815T115650):
+            # cumulative ACTIVE-TICK accounting of the env's
+            # goal.walk_cmd_metrics info keys — raw signed v_along and
+            # ratio-of-sums (NOT mean of per-tick ratios). No
+            # per-heading bins in training: uniform [-pi,pi] heading
+            # sampling + the signed average already zeroes out
+            # command-ignorant motion; fixed-direction panels are
+            # held-out EVAL tools. Zero-cost when the env never emits
+            # the keys.
+            self._cmd_cum = {"along": 0.0, "cmd": 0.0, "cross": 0.0,
+                             "wrong": 0.0, "n": 0.0}
+            self._cmd_stride = 1
 
         def _acc(self, k: str, v: float) -> None:
             self._sum[k] = self._sum.get(k, 0.0) + v
@@ -662,6 +675,20 @@ def main(argv: list[str] | None = None) -> int:
                     self._acc("pct_within_1deg",
                               1.0 if float(info["track_err_deg"]) <= 1.0
                               else 0.0)
+                if "v_along_cmd_m_s" in info:
+                    # Cumulative active-tick command telemetry (see
+                    # __init__); sums, so ratios come out as
+                    # sum(v_along)/sum(cmd_speed), never mean-of-ratios.
+                    self._cmd_stride = stride
+                    al = float(info["v_along_cmd_m_s"])
+                    self._cmd_cum["along"] += al
+                    self._cmd_cum["cmd"] += float(
+                        info.get("cmd_speed_m_s", 0.0))
+                    self._cmd_cum["cross"] += float(
+                        info.get("v_cross_abs_m_s", 0.0))
+                    self._cmd_cum["wrong"] += float(
+                        info.get("wrong_way", 0.0))
+                    self._cmd_cum["n"] += 1.0
             dones = self.locals.get("dones")
             if dones is not None and np.any(dones):
                 for i in np.flatnonzero(dones):
@@ -682,6 +709,38 @@ def main(argv: list[str] | None = None) -> int:
                             for k in self._sum})
             payload.update({f"terminations/{k}": v
                             for k, v in self._terms.items()})
+            if self._cmd_cum["n"] > 0:
+                # Operator-named joystick command-following metrics
+                # (fb_20260815T114414, simplified fb_20260815T115650).
+                # HEADLINE (joystick/*): raw signed m/s along the
+                # requested direction over active ticks — per-rollout
+                # mean, active-tick-weighted cumulative mean, and the
+                # active-tick audit count. Everything else (cross-track,
+                # wrong-way, ratio-of-sums) is secondary under train/.
+                # NO per-heading series here — fixed-direction checks
+                # live in held-out EVAL only.
+                c = self._cmd_cum
+                n_r = self._cnt.get("v_along_cmd_m_s", 0)
+                if n_r:
+                    s_al = self._sum["v_along_cmd_m_s"]
+                    s_cmd = self._sum.get("cmd_speed_m_s", 0.0)
+                    payload["joystick/v_along_m_s"] = s_al / n_r
+                    payload["train/cmd_speed_active_m_s"] = (
+                        s_cmd / max(self._cnt.get("cmd_speed_m_s", 1), 1))
+                    if s_cmd > 0.0:
+                        payload["train/v_along_ratio_active"] = (
+                            s_al / s_cmd)
+                payload["joystick/v_along_m_s_cumulative"] = (
+                    c["along"] / c["n"])
+                if c["cmd"] > 0.0:
+                    payload["train/v_along_ratio_active_cumulative"] = (
+                        c["along"] / c["cmd"])
+                payload["train/v_cross_abs_m_s"] = c["cross"] / c["n"]
+                payload["train/wrong_way_frac"] = c["wrong"] / c["n"]
+                # Estimate: sampled count x sample stride (the info
+                # sweep reads every stride-th env).
+                payload["joystick/active_ticks"] = (
+                    c["n"] * self._cmd_stride)
             if args.gru_experts:
                 from .gru_policy import EXPERTS_ORDER
                 tot = max(float(self._exp_ticks.sum()), 1.0)

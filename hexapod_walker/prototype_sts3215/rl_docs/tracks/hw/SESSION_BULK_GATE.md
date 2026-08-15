@@ -447,3 +447,64 @@ frozen).
   operator-facing product-contract question — or reward-side rise
   pricing), taken to the operator.
 - Banks retire on aggregate read, pass or fail.
+
+### Cohort c4 — RESULTS (2026-08-15)
+
+n=600 (300 det + 300 sto), `spec-pl4` only (parent `spec` baseline
+numbers reused from c1). Banks 960000../970000.. now RETIRED.
+Aggregate: `logs/bulk_session/c4/aggregate.json` + `episodes.jsonl`;
+10 watched re-renders (6 failures + 4 clean, sample-seed 0):
+`logs/bulk_session/c4/rerender/strips/`.
+
+- **Clause (1) sto post-lower rise ≥0.90, CI lower >0.842: FAIL.**
+  Measured 0.6902, CI [0.6355, 0.7401] — below the c1 parent's 0.801,
+  though well above c3's 0.6305.
+- **Clause (2) det complete-session zero-fall ≥0.95: FAIL.** Measured
+  0.8633, CI [0.8198, 0.8976] — below parent 0.967, but a MASSIVE
+  recovery from c3's 0.4133 (collapse) — no longer a collapse, a
+  clean shortfall.
+- **Clause (3) det post-lower rise ≥0.967 (no regression): FAIL.**
+  Measured 0.8721 (259/297) vs parent 0.967 — again a big recovery
+  from c3's 0.4189, but still short of parity.
+- **Clause (4) first-rise strata + lower retention: PASS.** Det first
+  rise 0.99 overall, every start-kind ≥0.97 (flat 1.0, bridge 0.97,
+  crouch 1.0); lower segments 1.0 det+sto (n=297). Crown jewels
+  untouched, same as c3.
+- **Clause (5) stance gate / visual quality vs footlow2_hard1:**
+  drive height 135.0/135.2mm det/sto (in-band, matches c3's 135);
+  slip/m 1.71 det / 1.73 sto (in line with c3's own-cfg numbers, no
+  new drag signature); the pre-staged interactive session-gate canary
+  (12-ep, informational only) reads HARD no_falls/rise/sit_descends
+  all PASS. No new failure mode in the fall-reason histogram
+  (`rise:over_current` 33/41 det falls, `rise:tilt_roll` 6,
+  `rise:tilt_pitch` 2 — same qualitative stall as every postlower
+  arm, at roughly 1/4 the c3 incidence).
+- **Clause (6) eye clause — watched re-renders: PASS, cleanly.** 10
+  re-renders reviewed (6 of the 41 det failures + 4 clean draws,
+  frame strips at `logs/bulk_session/c4/rerender/strips/`): every
+  post-lower rise is a DIRECT push-up from a crouched/low posture —
+  no splay-to-belly detour in ANY of the 10, failing or clean. The
+  fix (`goal.mode_seq_rise_from_h`) did exactly what it was built to
+  do: it eliminated the c3 detour behavior. The remaining failures
+  are a straightforward over_current stall partway up the push
+  (switch_peak_a pinned ~2.6A at the stall tick, matching the
+  qualitative pattern of postlower1/2's cold-bank stalls) — a
+  genuine actuation-effort ceiling, not an exploit.
+- **Verdict: FAIL by the letter of the pre-registration** (clauses
+  1–3 all miss the parent-parity bar) — this is the SECOND miss of
+  the in-context sequence-training mechanism (c3 = wrong mechanism
+  fully taught a detour and collapsed; c4 = right mechanism, detour
+  gone, big recovery, still short of parity). Per two-miss
+  discipline the class is CLOSED for further dose/diet/schedule
+  resweeps of this recipe. Unlike c3, this is NOT a surprising or
+  disagreeing-with-telemetry result — it is exactly the pre-
+  registered "if-false" branch of the hypothesis (mechanism doesn't
+  fully transfer to the runner's reanchor semantics), confirmed by
+  clean, video-checked evidence — so no dig-in is needed to interpret
+  it; the pre-registration already named the next step. Per the
+  pre-registered FAIL branch, the next lever is an operator product-
+  contract call (align the runner/instrument rise schedule to
+  remaining-rise semantics so train==deploy, or price post-lower
+  rise directly in reward) — escalated to `[operator]` WAITING-ON in
+  STATUS.md / hw/STATUS.md, not launched. Product baseline (c1
+  hierarchy) unaffected either way.
