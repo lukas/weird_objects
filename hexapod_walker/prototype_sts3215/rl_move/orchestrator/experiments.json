@@ -89489,7 +89489,7 @@
       "goal.recover_ema_beta=0.25"
     ],
     "created": "2026-08-15T19:55:44+00:00",
-    "status": "KILLED",
+    "status": "STOPPED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -89532,7 +89532,7 @@
         "problems": []
       }
     ],
-    "verdict": "FALSE START (no science signal): train-1 was re-bootstrapped 08-15 19:06 without sb3-contrib, so the trainer background eval/video/canary child died at first import (gru_policy -> sb3_contrib) and the busy flag never cleared -- the run trained fine (~5M steps, bucket-1 telemetry healthy) but was permanently eval/video/canary-blind. Killed at ~5M, sb3-contrib installed on the pod, bootstrap_train_pod.sh patched (pkg + smoke import). Relaunched as cw-recover-any2b (W&B name append-only). W&B lf5afhd6 = this false start.",
+    "verdict": "OPERATOR-ORDERED STOP at 5.1M/40M (fb_20260815T201417_5f7f0e): mechanically healthy (fps ~4800, BC fill 131072, footz loss ~0.037) but overall/onefoot/park success all ZERO, bucket-1 EMAs collapsed to ~0.02, every episode a full 400-step failure, no split SCORE/recover eval metrics emitted. PRESERVED as the warm-start diagnostic: with any1 it shows two warm-started (stand-champion init) recovery attempts both flatlined at zero -- cw-recover-any3-scratch1 tests scratch init as the isolated change.",
     "hardware_ready": false,
     "triage": "done"
   },

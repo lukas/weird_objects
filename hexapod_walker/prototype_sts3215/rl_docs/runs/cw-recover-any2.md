@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: KILLED
+**status**: STOPPED
 
 **created**: 2026-08-15T19:55:44+00:00
 
@@ -20,5 +20,5 @@
 
 **gate**: Bucket-1 gate: both forced onefoot and park eval success curves must RISE; no curriculum promotion before both per-kind EMAs >=0.8 with count >=4; STOP EARLY if reset telemetry (post-settle height/tilt/min-load/pad-spread) proves either settled start invalid, or if BC eligibility/fill stays zero. Full-arm PASS keeps any1's bar: >=95 pct det / >=85 pct sto held recovery on the active mixture by 40M, VIDEO-verified genuine recover-to-stand (all six feet loaded, no flag/stilt/park), no rise/hold/lower regression vs cw-stand-footlow2-hard1.
 
-**verdict**: FALSE START (no science signal): train-1 was re-bootstrapped 08-15 19:06 without sb3-contrib, so the trainer background eval/video/canary child died at first import (gru_policy -> sb3_contrib) and the busy flag never cleared -- the run trained fine (~5M steps, bucket-1 telemetry healthy) but was permanently eval/video/canary-blind. Killed at ~5M, sb3-contrib installed on the pod, bootstrap_train_pod.sh patched (pkg + smoke import). Relaunched as cw-recover-any2b (W&B name append-only). W&B lf5afhd6 = this false start.
+**verdict**: OPERATOR-ORDERED STOP at 5.1M/40M (fb_20260815T201417_5f7f0e): mechanically healthy (fps ~4800, BC fill 131072, footz loss ~0.037) but overall/onefoot/park success all ZERO, bucket-1 EMAs collapsed to ~0.02, every episode a full 400-step failure, no split SCORE/recover eval metrics emitted. PRESERVED as the warm-start diagnostic: with any1 it shows two warm-started (stand-champion init) recovery attempts both flatlined at zero -- cw-recover-any3-scratch1 tests scratch init as the isolated change.
 
