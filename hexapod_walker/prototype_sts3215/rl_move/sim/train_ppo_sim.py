@@ -753,17 +753,27 @@ def _rise_split_stats(env, act_fn, per_kind: int = 2) -> dict[str, tuple]:
     return {k: (v[0], v[1]) for k, v in counts.items()}
 
 
-def _recover_split_stats(env, act_fn, per_kind: int = 2) -> dict[str, dict]:
-    """Forced bucket-1 recovery eval for onefoot and park starts.
+def _recover_split_stats(env, act_fn, per_kind: int = 2,
+                         kinds: tuple[str, ...] | None = None
+                         ) -> dict[str, dict]:
+    """Forced recovery eval for every available curriculum kind.
 
     Recovery success intentionally terminates the episode, so generic
     survival accounting reports the opposite of the task outcome.  Keep
     the explicit held-success signal, return, and time-to-success by kind.
+    The training sampler's active frontier is deliberately ignored: this
+    is a fixed competence assay, so every bucket remains visible before,
+    during, and after promotion.
     """
     out: dict[str, dict] = {}
     saved = getattr(env, "force_recover_start", None)
+    if kinds is None:
+        kinds = tuple(
+            kind
+            for bucket in range(len(env.RECOVER_FAMILIES))
+            for kind in env._recover_family_kinds(bucket))
     try:
-        for kind in ("onefoot", "park"):
+        for kind in kinds:
             successes, returns, times = 0, [], []
             env.force_recover_start = kind
             for _ in range(per_kind):
@@ -784,6 +794,7 @@ def _recover_split_stats(env, act_fn, per_kind: int = 2) -> dict[str, dict]:
                 returns.append(ret)
                 times.append(float(env._step_i) * env.dt)
             out[kind] = {
+                "bucket": int(env.RECOVER_KIND_BUCKETS[kind]),
                 "successes": successes,
                 "episodes": per_kind,
                 "return_mean": float(np.mean(returns)),
@@ -792,6 +803,32 @@ def _recover_split_stats(env, act_fn, per_kind: int = 2) -> dict[str, dict]:
     finally:
         env.force_recover_start = saved
     return out
+
+
+def _recover_bucket_stats(split: dict[str, dict]) -> dict[int, dict]:
+    """Aggregate forced kind evaluations into explicit bucket scores."""
+    accum: dict[int, dict] = {}
+    for stats in split.values():
+        bucket = int(stats["bucket"])
+        dst = accum.setdefault(bucket, {
+            "successes": 0, "episodes": 0,
+            "return_sum": 0.0, "time_sum_s": 0.0,
+        })
+        n = int(stats["episodes"])
+        dst["successes"] += int(stats["successes"])
+        dst["episodes"] += n
+        dst["return_sum"] += float(stats["return_mean"]) * n
+        dst["time_sum_s"] += float(stats["time_mean_s"]) * n
+    return {
+        bucket: {
+            "successes": stats["successes"],
+            "episodes": stats["episodes"],
+            "success": stats["successes"] / stats["episodes"],
+            "return_mean": stats["return_sum"] / stats["episodes"],
+            "time_mean_s": stats["time_sum_s"] / stats["episodes"],
+        }
+        for bucket, stats in accum.items()
+    }
 
 
 def _roll_trap_stats(env, act_fn, episodes: int, walk: bool) -> dict:
@@ -951,6 +988,7 @@ def _run_periodic_eval(env, act, args, env_cls, step,
             continue
         if mode == "recover" and gen is not None:
             split = _recover_split_stats(env, act, per_kind=per_mode)
+            buckets = _recover_bucket_stats(split)
             done_n = total_n = 0
             returns = []
             bits = []
@@ -961,10 +999,21 @@ def _run_periodic_eval(env, act, args, env_cls, step,
                     stats["return_mean"])
                 payload[f"eval/recover/{kind}_time_s"] = (
                     stats["time_mean_s"])
+                payload[f"eval/recover/{kind}_episodes"] = tot
                 done_n += ok
                 total_n += tot
                 returns.append(stats["return_mean"])
-                bits.append(f"{kind}:{ok}/{tot}")
+            for bucket, stats in sorted(buckets.items()):
+                payload[f"SCORE/recover_bucket_{bucket}_success"] = (
+                    stats["success"])
+                payload[f"SCORE/recover_bucket_{bucket}_return"] = (
+                    stats["return_mean"])
+                payload[f"eval/recover/bucket_{bucket}_episodes"] = (
+                    stats["episodes"])
+                payload[f"eval/recover/bucket_{bucket}_time_s"] = (
+                    stats["time_mean_s"])
+                bits.append(
+                    f"b{bucket}:{stats['successes']}/{stats['episodes']}")
             payload["SCORE/recover_success"] = done_n / total_n
             payload["SCORE/recover_total_reward"] = float(
                 np.mean(returns))

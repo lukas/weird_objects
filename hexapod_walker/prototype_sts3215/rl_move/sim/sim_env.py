@@ -1336,6 +1336,14 @@ class SimHexapodBalanceEnv(_GymBase):
                 # Zero pose is exactly q=0, so the belly->crouch blend
                 # is a plain scale (same construction as rise bridge).
                 q_start = f * np.asarray(q_c, dtype=float)
+            elif kind == "plant_catch":
+                # First backward-curriculum rung: already at the goal
+                # neighborhood, but the controller must catch and hold
+                # plant for the full success dwell instead of receiving
+                # a free terminal reward at reset.
+                q_start = (self._plant_deg * DEG2RAD).copy()
+                q_start += self.rng.uniform(
+                    -2.0, 2.0, N_JOINTS) * DEG2RAD
             elif kind == "park":
                 q_start = (self._plant_deg * DEG2RAD).copy()
                 tripod = ((1, 3, 5) if self.rng.random() < 0.5
@@ -1345,16 +1353,25 @@ class SimHexapodBalanceEnv(_GymBase):
                         self.rng.uniform(10.0, 25.0)) * DEG2RAD
                     q_start[3 * leg + 2] += float(
                         self.rng.uniform(-5.0, 10.0)) * DEG2RAD
-            elif kind == "onefoot":
-                # RECOVER family 1: near-standing with exactly ONE
-                # misplaced/unloaded foot (recover-only kind — never
-                # drawn by getup, so legacy rng streams are untouched).
+            elif kind in ("onefoot_micro", "onefoot_mid", "onefoot"):
+                # Progressive one-foot correction rungs.  They use the
+                # same construction and differ only in disturbance
+                # magnitude, so promotion measures a real expansion of
+                # the solved basin instead of a task-definition switch.
                 q_start = (self._plant_deg * DEG2RAD).copy()
                 leg = int(self.rng.integers(6))
+                if kind == "onefoot_micro":
+                    hip_deg = self.rng.uniform(3.0, 8.0)
+                    knee_deg = self.rng.uniform(-1.0, 3.0)
+                elif kind == "onefoot_mid":
+                    hip_deg = self.rng.uniform(8.0, 15.0)
+                    knee_deg = self.rng.uniform(-3.0, 6.0)
+                else:
+                    hip_deg = self.rng.uniform(15.0, 30.0)
+                    knee_deg = self.rng.uniform(-5.0, 12.0)
                 q_start[3 * leg + 1] -= float(
-                    self.rng.uniform(12.0, 30.0)) * DEG2RAD
-                q_start[3 * leg + 2] += float(
-                    self.rng.uniform(-5.0, 12.0)) * DEG2RAD
+                    hip_deg) * DEG2RAD
+                q_start[3 * leg + 2] += float(knee_deg) * DEG2RAD
             elif kind == "bank":
                 # RECOVER family 2: harvested post-lower/interrupted
                 # poses (goal.recover_start_bank npz, key q_rad
@@ -3347,7 +3364,7 @@ class SimHexapodBalanceEnv(_GymBase):
                     # Carry the proven footlow2 height-floor pursuit into
                     # recovery.  Use absolute height above the belly datum,
                     # not height above this episode's spawn (_z0): a
-                    # onefoot/park episode starts near standing height.
+                    # near-goal recovery starts are already near standing.
                     _bc_min_h = float(cfg_get(
                         self.cfg, "train", "bc_anchor_min_h_ahead_mm",
                         default=0.0))

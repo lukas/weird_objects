@@ -217,13 +217,15 @@ SIX feet loaded, hold it 0.5 s continuously — then the episode ENDS
 (one-shot bonus). Zero velocity command throughout. Falls are NOT
 terminal: runs must set `safety.max_roll/pitch_deg=185` (an inverted
 settle reads ~179.5°); ends are held success / timeout / safety only.
-Start states come from the adaptive reset-family curriculum
-(`_sample_recover`: onefoot/park → crouch/partial/bank → zero/tangle
-→ flip). The curriculum begins with ONLY onefoot/park, admits the next
-family only after every kind in the frontier has EMA ≥0.8 with at
-least `goal.recover_admit_n` episodes (default 4, EMA beta .25), never
-samples an unadmitted probe, and may retreat all the way to bucket 1
-when the frontier falls below 0.2 (`recover_retreat_n`, default 6). v1
+Start states come from a zero-indexed adaptive backward curriculum:
+`B0 plant_catch` (plant ±2°) → `B1 onefoot_micro` (3–8°) →
+`B2 onefoot_mid` (8–15°) → `B3 onefoot` (15–30°) → `B4 park`
+(full tripod) → `B5 crouch/partial/bank` → `B6 zero/tangle` →
+`B7 flip`. The curriculum begins with ONLY B0, admits the next bucket
+only after every kind in the frontier has EMA ≥0.8 with at least
+`goal.recover_admit_n` episodes (default 4, EMA beta .25), never samples
+an unadmitted probe, and may retreat all the way to B0 when the frontier
+falls below 0.2 (`recover_retreat_n`, default 6). v1
 families 5-6 — pushed-walking falling states + on-policy failure
 harvests — are the pre-registered next rung. Unlike getup there is
 NO occupancy/ratchet/hold income and no alive bonus: income is a
@@ -245,26 +247,28 @@ wP·g(U)·g(H)·P`, all features bounded [0,1], g = smoothstep.
 | `rec_b_success` | 50.0 | one-shot on the first completed 0.5 s (`rec_hold_s`) hold of: \|z−z_full\|≤`rec_h_tol_mm` 15, tilt≤`rec_level_deg` 6°, min per-foot load≥`rec_load_min` 0.35 AND pad spread≤`rec_pad_spread_mm` 30 (all six near ground and loaded — no mean loophole), P≥0.5 (support proxy), qd rms≤`rec_qd_max_rad_s` 0.7, \|v_xy\|≤`rec_v_max_m_s` 0.08, max current≤`rec_cur_max_a` 3.0. Terminates the episode. |
 | `rec_c_time` | 1.0/s | rate-normalized time tax, every tick until termination (the directive's speed incentive; a ~4 s recovery costs ~8% of the bonus). |
 | `rec_fail_cost` | 0 → auto 1.25·c_time·horizon | charged at timeout/safety end without success — ≥ the max remaining time tax, so early abort never out-earns trying. |
-| `goal.recover_start_bank` | unset | npz (`q_rad` (K,18)) harvested start poses for the "bank" kind (family 2). |
+| `goal.recover_start_bank` | unset | npz (`q_rad` (K,18)) harvested start poses for the "bank" kind (B5). |
 | `train.bc_anchor_recover` (+`_tilt_deg` 25) | 0 | state-aligned rise BC anchor (the cw-getup3 lever), eligibility-gated to the mastered rise manifold: upright ≤25°, real foot ground-reaction, at/below plant height. Matching is restricted by current absolute belly→plant height before nearest-q selection. |
 | `train.bc_anchor_lookahead_s` / `bc_anchor_min_h_ahead_mm` | .25 / 0 | recovery uses the same pursuit controls as rise. The recovery arm uses the proven footlow2 values `.5` / `15`; the height floor is computed above the absolute belly datum, not above a near-standing recovery spawn. |
 | `train.bc_anchor_foot_z` / `bc_anchor_foot_z_mm` | 0 / 10 | additional contact-coordinate loss. The replacement recovery arm enables `1` / `3` so a millimetre-scale parked foot cannot hide inside the 18-joint MSE. |
 
 Training telemetry includes stable numeric start-kind/bucket ids,
-active-family count, per-kind curriculum EMA/count and terminal success,
-post-settle height/tilt/min-load/pad-spread by kind, BC eligibility and
-matched/target reference indices. Periodic eval forces equal `onefoot`
-and `park` episodes and logs separate success, return, and time panels;
-gate eval and video carry the start-kind label and treat the named
-`recover_success` termination as success.
+frontier bucket, per-kind and per-bucket curriculum EMA/count and
+terminal success, post-settle height/tilt/min-load/pad-spread by kind,
+BC eligibility, and matched/target reference indices. Periodic eval
+ignores the changing training mixture and forces every available kind
+in every bucket. It logs `SCORE/recover_bucket_<N>_success`, return,
+time, and explicit episode denominators, plus the per-kind equivalents.
+Gate eval uses the same all-bucket coverage; video carries the start-kind
+label and the named `recover_success` termination counts as success.
 
 Bank: RECOVER section of `test_task_semantics.py` (replay succeeds +
 terminates, dominates flagleg/freeze/stilt/thrash by >20; flag leg
 blocks success with M≪L; no height charge; fail cost ≥ max remaining
 tax; flip spawns settle >60° and survive; a nominal plant teacher
-reaches held success after the real settled onefoot/park resets;
-bucket-1-only sampling/admission/retreat; empty-interval rng parity;
-anchor state gating).
+reaches held success after every near-goal B0–B4 reset; B0-only initial
+sampling, admission, retreat and no-probe semantics; forced bucket
+aggregation; empty-interval rng parity; anchor state gating).
 
 ## 5) Changing the reward — checklist
 

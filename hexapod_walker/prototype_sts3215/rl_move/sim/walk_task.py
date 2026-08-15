@@ -962,28 +962,30 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
     # Zero velocity command throughout (this is the recovery
     # specialist; walking is another mode's job). Start-state
     # curriculum = difficulty FAMILIES of start kinds, admitted
-    # adaptively from per-kind success EMAs (bucket 1 alone first).
+    # adaptively from per-kind success EMAs (bucket 0 alone first).
     # Reward is a potential DIFFERENCE (PBRS) on
     # bounded [0,1] features + one-shot success bonus + a
     # rate-normalized time tax — no occupancy/hold income, no alive
     # bonus (see _recover_reward / REWARD.md §4c).
     #
-    # v1 family map (directive families 1-4 + 7; families 5-6 —
-    # walking-under-push falling states and on-policy failure
-    # harvests — need harvest infra and are the pre-registered next
-    # rung, recorded as a deviation in the run's ledger entry):
-    #   fam 0 (bucket 1): "onefoot" (plant with ONE leg lifted),
-    #                     "park"    (tripod lifted)
-    #   fam 1 (bucket 2): "crouch", "partial" (interrupted rise),
-    #                     "bank"    (harvested post-lower endpoints,
-    #                                only when goal.recover_start_bank
-    #                                is configured)
-    #   fam 2 (bucket 3): "zero" (belly), "tangle" (random legal
-    #                     joints, settles however it lands incl.
-    #                     tipped — the dropped/settled coverage family)
-    #   fam 3 (bucket 4): "flip" (random base orientation drop:
-    #                     side/back/upside-down)
-    RECOVER_FAMILIES = (("onefoot", "park"),
+    # Backward curriculum from the goal boundary.  Buckets are
+    # zero-indexed in telemetry and forced eval:
+    #   B0 plant_catch: nominal plant + <=2 deg joint noise; hold it.
+    #   B1 onefoot_micro: one foot perturbed 3-8 deg.
+    #   B2 onefoot_mid:   one foot perturbed 8-15 deg.
+    #   B3 onefoot:       one foot perturbed 15-30 deg.
+    #   B4 park:          a full alternating tripod is lifted.
+    #   B5 crouch/partial/bank: interrupted vertical transitions.
+    #   B6 zero/tangle: belly or dropped/settled legal joint states.
+    #   B7 flip: side/back/upside-down orientation drops.
+    # Keeping the one-foot severities separate matters: the original
+    # bucket 1 mixed a 12-30 deg single-foot correction with a tripod
+    # park, and produced zero success despite millions of steps.
+    RECOVER_FAMILIES = (("plant_catch",),
+                        ("onefoot_micro",),
+                        ("onefoot_mid",),
+                        ("onefoot",),
+                        ("park",),
                         ("crouch", "partial", "bank"),
                         ("zero", "tangle"),
                         ("flip",))
@@ -991,15 +993,24 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         kind: i for i, kind in enumerate(
             kind for family in RECOVER_FAMILIES for kind in family)
     }
+    RECOVER_KIND_BUCKETS = {
+        kind: bucket for bucket, family in enumerate(RECOVER_FAMILIES)
+        for kind in family
+    }
+
+    def _recover_family_kinds(self, bucket: int) -> list:
+        """Available kinds in one bucket (bank requires a configured file)."""
+        has_bank = cfg_get(self.cfg, "goal", "recover_start_bank",
+                           default=None) is not None
+        return [k for k in self.RECOVER_FAMILIES[bucket]
+                if k != "bank" or has_bank]
 
     def _recover_active_kinds(self) -> list:
         """Kinds in the currently admitted families ("bank" only when a
         bank file is configured)."""
         kinds = []
-        has_bank = cfg_get(self.cfg, "goal", "recover_start_bank",
-                           default=None) is not None
-        for fam in self.RECOVER_FAMILIES[:self._rec_active_n]:
-            kinds += [k for k in fam if k != "bank" or has_bank]
+        for bucket in range(self._rec_active_n):
+            kinds += self._recover_family_kinds(bucket)
         return kinds
 
     def _recover_kind_weights(self, kinds: list) -> np.ndarray:
@@ -2573,6 +2584,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             # adaptive-curriculum bookkeeping (persistent across
             # episodes; the sampler reads it at the next reset)
             kind = getattr(self._goal_traj, "start_kind", "?")
+            bucket = self.RECOVER_KIND_BUCKETS.get(kind, -1)
             ema, n = self._rec_stats.get(kind, (0.5, 0))
             beta = float(cfg_get(self.cfg, "goal",
                                  "recover_ema_beta", default=0.25))
@@ -2581,6 +2593,10 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 n + 1)
             info[f"recover_episode_{kind}"] = 1.0
             info[f"recover_success_{kind}"] = 1.0 if success else 0.0
+            if bucket >= 0:
+                info[f"recover_episode_bucket_{bucket}"] = 1.0
+                info[f"recover_success_bucket_{bucket}"] = (
+                    1.0 if success else 0.0)
 
         info["reward_recover_pot"] = r_pot
         info["reward_recover_bonus"] = r_bonus
@@ -2596,12 +2612,12 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         info["recover_min_load"] = float(np.min(x))
         info["recover_tilt_deg"] = tilt_deg
         kind = getattr(self._goal_traj, "start_kind", "?")
+        bucket = self.RECOVER_KIND_BUCKETS.get(kind, -1)
         info["recover_start_kind_id"] = float(
             self.RECOVER_KIND_IDS.get(kind, -1))
-        info["recover_start_bucket"] = float(next(
-            (i + 1 for i, fam in enumerate(self.RECOVER_FAMILIES)
-             if kind in fam), 0))
+        info["recover_start_bucket"] = float(bucket)
         info["recover_active_families"] = float(self._rec_active_n)
+        info["recover_frontier_bucket"] = float(self._rec_active_n - 1)
         info[f"recover_reset_height_mm_{kind}"] = float(
             self._rec_reset_height_mm)
         info[f"recover_reset_tilt_deg_{kind}"] = float(
@@ -2614,4 +2630,14 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             ema, n = self._rec_stats.get(rec_kind, (0.5, 0))
             info[f"recover_curriculum_ema_{rec_kind}"] = float(ema)
             info[f"recover_curriculum_n_{rec_kind}"] = float(n)
+        for rec_bucket in range(self._rec_active_n):
+            stats = [self._rec_stats.get(k, (0.5, 0))
+                     for k in self._recover_family_kinds(rec_bucket)]
+            if stats:
+                # Admission requires every kind in the bucket, so the
+                # minimum is the honest bucket-level training estimate.
+                info[f"recover_curriculum_bucket_{rec_bucket}_ema"] = (
+                    float(min(v[0] for v in stats)))
+                info[f"recover_curriculum_bucket_{rec_bucket}_n"] = (
+                    float(min(v[1] for v in stats)))
         return reward, term, info
