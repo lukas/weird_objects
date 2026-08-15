@@ -9,6 +9,41 @@ unresolved blockers between the robot and reliable joystick control.
 
 ## Now
 
+- **08-15 (idle-kick cycle): `cw-stand-postlower3` LAUNCHED (discovery
+  2M, train-0) — the c2 dig-in's named mechanism change is built,
+  preflighted and pre-registered, all in one cycle.** New cfg key
+  `goal.mode_seq_stance` (default OFF, bit-exact off; stance-only
+  grammar rise→hold→lower→rise on the joint_goal task) delivers the
+  in-context lower→rise SEQUENCE training the postlower verdicts
+  called for: half of all episodes are two-segment stance sequences
+  (7–8 s segments in 18 s episodes), a lower-first sequence IS the
+  post-lower rise with real transition context (warm policy state,
+  canonical per-family re-anchor, blend window), and the mid-sequence
+  rise target anchors at the sequence's OWN commanded stand height —
+  mechanically reachable by construction, so the c2 impossible-target
+  bug class is locked out by a regression test
+  (`test_lower_to_rise_targets_remaining_rise`). Bank exposure is OFF
+  (`rise_start_bank_frac=0` — the cold-spawn class stays closed);
+  everything else is the footlow2_hard1 recipe warm from
+  footlow2_hard1, walk ckpt untouched. Implementation notes: the
+  rise/hold/lower segment builder moved to the shared goal-task base
+  (walk task delegates — statements verbatim, walk rng streams
+  unchanged, `test_mode_seq.py` 11/11 green); the frame-capture and
+  MJX mint gates now also fire on the stance key; the stance key on
+  the joint_walk task raises loudly. Preflight: new
+  `test_mode_seq_stance.py` (7 tests) + full `test_task_semantics.py`
+  bank (91 passed) locally; `test_mode_seq_stance` +
+  `test_mjx_vec_env` 16/16 on train-1 (pod MJX env). Snapshot tag
+  `exp/cw-stand-postlower3`. Gate: **pre-registered Cohort c3**
+  (SESSION_BULK_GATE.md "Cohort c3", FRESH held-out banks
+  940000../950000.., candidate `spec-pl3` registered in
+  `bulk_session_eval.py`) — full PASS = promotion-grade candidate;
+  partial (sto post-lower rise separated above parent 0.801, retention
+  clean) = one 6M hardening rerun on cohort c4; at/below parent or any
+  retention/visual break = next change must be mechanism-level
+  (sequence-RSI or rise pricing), never a dose resweep. Product
+  baseline unchanged (c1 hierarchy).
+
 - **08-14 ~21:4x UTC: BULK HELD-OUT SESSION COHORT (operator
   directive fb_20260814T205137_33f21c) — the hierarchical
   frozen-skill controller PASSES the pre-registered product gate at
