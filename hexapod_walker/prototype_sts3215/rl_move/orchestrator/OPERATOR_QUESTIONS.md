@@ -168,3 +168,29 @@ Entry format (append; newest last; update status in place):
   risewalk-single2-s{5,6,7}).
 - ANSWER (operator): —
 - rulebook change: —
+
+## q_20260815T2250Z — OPEN
+- cycle: operator-kick 20260815 ~22:2x-22:5xZ (executed
+  fb_20260815T222943_d019de: any4 stop/preserve + any5 mjxcert
+  from-scratch launch)
+- operator order: launch cw-recover-any5-mjxcert-scratch1 "on exact
+  main 3589f41018001528e7ce8848f82ee589e86e6d3d".
+- conflicted with: nothing — but that full 40-char SHA does not exist
+  in the repo or on origin (typo/transcription artifact in the note).
+  The real main HEAD commit with the matching short prefix AND the
+  exact stated title "Use deterministic MJX recovery certification"
+  is 3589f418ca883404ee52fdc59350733a01ae49e0; its content matches the
+  directive (recover-cert flags, CERT/* metrics, telemetry-only
+  rollout EMAs; test_recover_cert.py 3/3, recover bank 19/19 re-run
+  green this cycle). Executed on that commit (pod actually synced at
+  snapshot fa7a3047, whose only deltas over 3589f418 are run-doc md
+  files, the ledger, and dynrep's pod_tfwalk.sh — recover/cert code
+  bit-identical).
+- what was executed: full directive — any4 stopped/preserved (verdict
+  + OUTCOME note, checkpoint kept on train-1), any5 launched FROM
+  SCRATCH on train-1 (W&B 1tmepjxh, no --init-from/transplant,
+  --recover-cert-every 1000000 --recover-cert-envs 8, out-name
+  ppo_goal_cw_recover_any5_mjxcert_scratch1), verified live via /proc
+  + "[recover-cert] armed" log line + advancing steps.
+- ANSWER (operator): —
+- rulebook change: —
