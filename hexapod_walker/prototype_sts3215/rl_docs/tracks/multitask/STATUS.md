@@ -83,6 +83,37 @@ new command later (the phase-2 transfer test).
 
 ## Now
 
+- **08-15 ~14:0x UTC: `cw-joystick-translate1` FINISHED (40M) —
+  VERDICT: FAIL, known exploit (parked/stilt leg), not acquisition.**
+  The fall-cost + gait-gate fix worked exactly as designed for
+  survival (episode length 17->1478/1500, reward_task 0.66->0.83),
+  but the actual task metrics never moved in 40M steps:
+  `joystick/v_along_m_s_cumulative` stayed ~0.001-0.003 m/s the
+  entire run (commanded 0.03-0.06, gate bar 0.015) and
+  `train/wrong_way_frac` stayed pinned at 0.43-0.47 from step 0 —
+  flat, no learning signal, ever. Video (rollout_627, ~31M steps)
+  shows why: one front leg locks near-vertical like a stilt/prop
+  while the body stays essentially stationary; `env/reward_park_duty`
+  sits at -0.40 to -0.45 all run (chronic parked-leg penalty firing)
+  and `env/walk_gait_gate_factor` never rises past ~0.2 (real
+  all-leg gait needs ~1.0) despite this run's own gait-gate +
+  park-duty pricing built specifically to price this out. So the
+  reward_task climb is the shaping proxy being gamed by the stilt/
+  park posture, not genuine command-following — this is a REWARD/
+  METRIC specification gap (`walk_prog_factor`/`reward_task` payable
+  by a planted leg), not proof broad-command walking is unlearnable.
+  Per RUN_INTERPRETATION_RULES a known exploit in the video is a
+  complete verdict: no forensics, no re-run, no continuation of this
+  recipe. Confirms (does not newly discover) the standing
+  "one-parked-foot hold habit" blocker already named in
+  CURRENT_TRUTHS/hw — CROSS-TRACK INSIGHT noted there, no new hw
+  launch from this (containment). `cw-joystick-translate-scratch1`
+  (from-scratch comparator, same recipe) is still training under a
+  concurrent cycle — same exploit is plausible there given it shares
+  every reward term; its own verdict is not implied by this one and
+  needs its own video read when it finishes. The one-time pause
+  exception for this arm is now spent; the 08-13 pause otherwise
+  stands. No new mt launch from this cycle.
 - **08-15 ~12:2x UTC: `cw-joystick-translate1` LAUNCHED + VERIFIED
   (train-0, W&B ti7hygbp, 40M, warm from `cw-mt-c2`'s checkpoint) —
   the operator-directed joystick-translation continuation.** Full

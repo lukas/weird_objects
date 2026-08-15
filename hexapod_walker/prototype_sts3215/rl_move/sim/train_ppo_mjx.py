@@ -635,7 +635,7 @@ def main(argv: list[str] | None = None) -> int:
                              "wrong": 0.0, "n": 0.0}
             self._cmd_stride = 1
             # Overall optimization-progress metric (operator feedback
-            # fb_20260815T132846_c8442f, 08-15): "is PPO still getting
+            # fb_20260815T131225_c8442f, 08-15): "is PPO still getting
             # more total reward per real transition" — computed
             # directly from the raw per-step scalar rewards SB3 hands
             # the callback (self.locals["rewards"], the actual PPO
@@ -730,7 +730,7 @@ def main(argv: list[str] | None = None) -> int:
             payload.update({f"terminations/{k}": v
                             for k, v in self._terms.items()})
             if self._reward_n > 0:
-                # optimization/* (fb_20260815T132846_c8442f): "is PPO
+                # optimization/* (fb_20260815T131225_c8442f): "is PPO
                 # continuing to get more total reward per real
                 # transition" — an OPTIMIZATION/objective score, not a
                 # behavioral-success claim; read it beside the task

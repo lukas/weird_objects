@@ -8,6 +8,23 @@ at what budget, with which failure modes.
 
 ## Now
 
+- **08-15 ~13:4x UTC — `cw-arch-tf-r1b` TRIAGED PASS (2M discovery
+  mechanism canary): the causal-transformer PPO stack boots/trains
+  cleanly to 2M (no NaN/crash, ep_rew -1.5→93, EV 0.02→0.86, std
+  stable 0.37→0.39), det walk gait_valid 6/6 both DR passes with
+  ZERO sacrificed legs (the hard lock-in FAIL clause never fires) —
+  watched det video confirms all six legs cycling, no flag leg. It
+  falls via roll on every det episode (roll_class fell 6/6, tail
+  ~4°, term tilt_roll) — the SAME campaign-wide universal takeoff-roll
+  transient (CURRENT_TRUTHS), not new/transformer-specific, and not
+  gated at this budget. fps ended 1651 (peaked 1887), short of the
+  informational ≥2000 floor — same ad hoc-CUDA-torch softness as
+  below, not a fail. **Per the pre-registered gate: PASS → respec 40M
+  hardening twin, launched + VERIFIED same cycle as
+  `cw-arch-tf-r1-hard1` on train-1 (reuses the proven ad hoc
+  CUDA-torch build; fps estimate 8192 at launch — the durable
+  launcher-level CUDA-torch path stays the open `[code]` item
+  below).** Evidence: `rl_docs/runs/cw-arch-tf-r1b.md`.
 - **08-15 ~12:1x UTC — `cw-arch-tf-r1` (transformer 2M discovery,
   train-0) checkup-SUSPECT resolved: slow but healthy, left running
   (finishes ~13:45 UTC).** The watcher's fps flag (1092 < 1875 floor)
