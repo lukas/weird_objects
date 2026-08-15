@@ -4,7 +4,8 @@ from types import SimpleNamespace
 
 import numpy as np
 
-from rl_move.sim.train_ppo_mjx import _env_kwargs, _run_recover_cert_kind
+from rl_move.sim.train_ppo_mjx import (
+    _env_kwargs, _recover_episode_outcome, _run_recover_cert_kind)
 
 
 class _FakeCertEnv:
@@ -62,6 +63,20 @@ def test_recover_cert_runner_uses_deterministic_first_episodes():
     assert result["time_mean_s"] == (1 + 2 + 4) / 3 * env._dt
     assert all(deterministic for _starts, deterministic in model.calls)
     assert model.calls[0][0].tolist() == [True, True, True]
+
+
+def test_recover_training_outcome_is_an_episode_fraction_observation():
+    assert _recover_episode_outcome({
+        "recover_episode_bucket_7": 1.0,
+        "recover_start_bucket": 7.0,
+        "recover_success": 1.0,
+    }) == (7, True)
+    assert _recover_episode_outcome({
+        "recover_episode_bucket_7": 1.0,
+        "recover_start_bucket": 7.0,
+        "termination_reason": "timeout",
+    }) == (7, False)
+    assert _recover_episode_outcome({"recover_start_bucket": 7.0}) is None
 
 
 def test_mjx_recover_run_opts_into_external_certification():

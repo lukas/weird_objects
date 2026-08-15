@@ -3973,6 +3973,50 @@ def test_recover_near_goal_buckets_increase_settled_disturbance():
         f"recovery difficulty bins are not monotonic: {distances}")
 
 
+def test_recover_coarse_cliffs_are_split_into_single_distribution_rungs():
+    env = _make_recover_env(0, start="plant_catch")
+    expected = (
+        "plant_catch", "onefoot_micro", "onefoot_mid", "onefoot", "park",
+        "crouch_shallow", "crouch_mid", "crouch_deep", "partial_high",
+        "partial_mid", "partial_low", "zero", "tangle_mild", "tangle_mid",
+        "tangle_deep", "tangle", "flip")
+    assert tuple(family[0] for family in env.RECOVER_FAMILIES) == expected
+    assert all(len(family) == 1 for family in env.RECOVER_FAMILIES[:15])
+    assert env.RECOVER_FAMILIES[15] == ("tangle", "bank")
+    assert env.RECOVER_FAMILIES[16] == ("flip",)
+    env.close()
+
+
+def test_recover_floor_rungs_remain_distinct_after_physics_settle():
+    """The added labels must describe different settled reset banks."""
+    kinds = ("park", "crouch_shallow", "crouch_mid", "crouch_deep",
+             "partial_high", "partial_mid", "partial_low", "zero",
+             "tangle_mild", "tangle_mid", "tangle_deep", "tangle")
+    sig = {}
+    for kind in kinds:
+        rows = []
+        for seed in SEEDS[:3]:
+            env = _make_recover_env(seed, start=kind)
+            env.reset()
+            q_dist = float(np.linalg.norm(
+                env.data.qpos[env._qadr]
+                - env._plant_deg * DEG2RAD))
+            rows.append((q_dist, env._rec_reset_height_mm,
+                         env._rec_reset_pad_spread_mm))
+            env.close()
+        sig[kind] = np.mean(rows, axis=0)
+
+    assert sig["park"][0] < sig["crouch_shallow"][0]
+    assert sig["crouch_shallow"][1] > sig["crouch_mid"][1] + 8.0
+    assert sig["crouch_mid"][1] > sig["crouch_deep"][1] + 8.0
+    assert sig["crouch_deep"][1] > sig["partial_high"][1] + 10.0
+    assert sig["partial_high"][1] > sig["partial_mid"][1] + 8.0
+    assert sig["partial_low"][0] > sig["partial_mid"][0] + 0.2
+    spreads = [sig[k][2] for k in (
+        "zero", "tangle_mild", "tangle_mid", "tangle_deep", "tangle")]
+    assert all(a + 10.0 < b for a, b in zip(spreads, spreads[1:])), sig
+
+
 def test_recover_periodic_eval_is_forced_and_split_by_bucket():
     from rl_move.sim.train_ppo_sim import (
         _recover_bucket_stats, _recover_split_stats)
@@ -4006,18 +4050,18 @@ def test_recover_adaptive_sampler_proportions():
                for _ in range(100)) == {"plant_catch"}
     # frontier vs mastered weights
     env._rec_stats = {
-        "plant_catch": (0.95, 30), "onefoot_micro": (0.5, 30)}
+        "plant_catch": (29, 30), "onefoot_micro": (15, 30)}
     kinds = ["plant_catch", "onefoot_micro"]
     w = env._recover_kind_weights(kinds)
     wi = dict(zip(kinds, w))
     assert wi["onefoot_micro"] > wi["plant_catch"] * 2.0, (
         "frontier kind does not out-weigh mastered kind")
     # admission: not yet (plant catch has not met the gate in this env)
-    env._rec_stats["plant_catch"] = (0.5, 30)
+    env._rec_stats["plant_catch"] = (15, 30)
     env._recover_update_admission()
     assert env._rec_active_n == 1
     # master bucket 0 -> admit micro-onefoot bucket 1
-    env._rec_stats["plant_catch"] = (0.9, 4)
+    env._rec_stats["plant_catch"] = (4, 4)
     env._recover_update_admission()
     assert env._rec_active_n == 2
     assert env._recover_active_kinds() == [
@@ -4025,10 +4069,10 @@ def test_recover_adaptive_sampler_proportions():
     assert "bank" not in env._recover_active_kinds(), (
         "bank admitted without a bank file")
     # collapse on bucket 1 -> retreat to bucket 0 and stay there
-    env._rec_stats["onefoot_micro"] = (0.1, 6)
+    env._rec_stats["onefoot_micro"] = (0, 6)
     env._recover_update_admission()
     assert env._rec_active_n == 1
-    assert env._rec_stats["plant_catch"] == (0.5, 0)
+    assert env._rec_stats["plant_catch"] == (0, 0)
     env._recover_update_admission()
     assert env._rec_active_n == 1
     env.close()
@@ -4042,11 +4086,12 @@ def test_recover_curriculum_moves_only_from_certification():
     assert env._rec_active_n == 1
     assert env._rec_stats == {}
 
-    # Four deterministic successes cross the configured 0.8 EMA gate.
+    # Four deterministic successes cross the configured 0.8 fraction gate.
     result = env.apply_recover_certification(
         "plant_catch", [True, True, True, True])
-    assert result["ema"] >= 0.8
-    assert result["n"] == 4
+    assert result["success_fraction"] == 1.0
+    assert result["successes"] == 4
+    assert result["episodes"] == 4
     assert result["active_before"] == 1
     assert result["active_after"] == 2
 
@@ -4054,11 +4099,11 @@ def test_recover_curriculum_moves_only_from_certification():
     # clear B0 so it must be certified again.
     result = env.apply_recover_certification(
         "onefoot_micro", [False] * 6)
-    assert result["ema"] < 0.2
+    assert result["success_fraction"] < 0.2
     assert result["active_before"] == 2
     assert result["active_after"] == 1
-    assert env._rec_stats["plant_catch"] == (0.5, 0)
-    assert env._rec_stats["onefoot_micro"] == (0.5, 0)
+    assert env._rec_stats["plant_catch"] == (0, 0)
+    assert env._rec_stats["onefoot_micro"] == (0, 0)
     env.close()
 
 

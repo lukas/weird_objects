@@ -274,6 +274,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # _rec_rollout_stats remains visible as diagnostic telemetry.
         self._rec_stats = {}
         self._rec_rollout_stats = {}
+        self._rec_rollout_counts = {}
         self._rec_external_certification = bool(float(cfg_get(
             self.cfg, "goal", "recover_external_certification",
             default=0.0)))
@@ -968,7 +969,8 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
     # Zero velocity command throughout (this is the recovery
     # specialist; walking is another mode's job). Start-state
     # curriculum = difficulty FAMILIES of start kinds, admitted
-    # adaptively from per-kind success EMAs (bucket 0 alone first).
+    # adaptively from per-kind deterministic certification fractions
+    # (bucket 0 alone first).
     # Reward is a potential DIFFERENCE (PBRS) on
     # bounded [0,1] features + one-shot success bonus + a
     # rate-normalized time tax — no occupancy/hold income, no alive
@@ -981,9 +983,13 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
     #   B2 onefoot_mid:   one foot perturbed 8-15 deg.
     #   B3 onefoot:       one foot perturbed 15-30 deg.
     #   B4 park:          a full alternating tripod is lifted.
-    #   B5 crouch/partial/bank: interrupted vertical transitions.
-    #   B6 zero/tangle: belly or dropped/settled legal joint states.
-    #   B7 flip: side/back/upside-down orientation drops.
+    #   B5-B7 shallow/medium/deep all-feet crouches.
+    #   B8-B10 high/mid/low partial curls toward the belly-zero pose.
+    #   B11 zero: belly-zero with small joint jitter.
+    #   B12-B15 25/50/75/100% blends toward random legal tangles.
+    #   B16 flip: side/back/upside-down orientation drops. Sub-90-degree
+    #   constructor tilts roll back upright during limp settle, so they
+    #   are deliberately not represented as fake curriculum rungs.
     # Keeping the one-foot severities separate matters: the original
     # bucket 1 mixed a 12-30 deg single-foot correction with a tripod
     # park, and produced zero success despite millions of steps.
@@ -992,8 +998,17 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                         ("onefoot_mid",),
                         ("onefoot",),
                         ("park",),
-                        ("crouch", "partial", "bank"),
-                        ("zero", "tangle"),
+                        ("crouch_shallow",),
+                        ("crouch_mid",),
+                        ("crouch_deep",),
+                        ("partial_high",),
+                        ("partial_mid",),
+                        ("partial_low",),
+                        ("zero",),
+                        ("tangle_mild",),
+                        ("tangle_mid",),
+                        ("tangle_deep",),
+                        ("tangle", "bank"),
                         ("flip",))
     RECOVER_KIND_IDS = {
         kind: i for i, kind in enumerate(
@@ -1021,20 +1036,21 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
 
     def _recover_kind_weights(self, kinds: list) -> np.ndarray:
         """Adaptive sampler weights (directive proportions): frontier
-        kinds (success EMA 20-80%, or <8 episodes seen) carry the bulk
+        kinds (success fraction 20-80%, or <8 episodes seen) carry the bulk
         (0.55), mastered kinds (>80%) keep retention pressure (0.20),
         struggling kinds (<20%) stay pressured but reduced (0.35), and
         a uniform fresh floor (0.10 split) keeps every ADMITTED kind
         alive.  Unadmitted families receive no probes: admission means
         the preceding family has already passed its gate.
-        Pure function of self._rec_stats; unit-tested in the semantics
-        bank."""
+        Pure function of the latest deterministic certification batch in
+        self._rec_stats; unit-tested in the semantics bank."""
         w = []
         for k in kinds:
-            ema, n = self._rec_stats.get(k, (0.5, 0))
-            if n < 8 or 0.2 <= ema <= 0.8:
+            successes, n = self._rec_stats.get(k, (0, 0))
+            fraction = successes / n if n else 0.5
+            if n < 8 or 0.2 <= fraction <= 0.8:
                 w.append(0.55)          # frontier
-            elif ema > 0.8:
+            elif fraction > 0.8:
                 w.append(0.20)          # mastered retention
             else:
                 w.append(0.35)          # struggling: keep pressure
@@ -1045,9 +1061,9 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
     def _recover_update_admission(self) -> None:
         """Advance/retreat the family ladder from the stats: admit the
         next family when every kind of the HARDEST ACTIVE family has
-        enough evidence and success EMA >=0.8; retreat (down to bucket
-        1) when any kind of the last-admitted family has enough evidence
-        and EMA
+        enough evidence and certified success fraction >=0.8; retreat
+        (down to bucket 1) when any kind of the last-admitted family has
+        enough evidence and success fraction
         <0.2 (directive: >=80% advance, <20% retreat)."""
         hard = [k for k in self.RECOVER_FAMILIES[self._rec_active_n - 1]
                 if k != "bank" or cfg_get(self.cfg, "goal",
@@ -1058,16 +1074,20 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             self.cfg, "goal", "recover_admit_n", default=4)))
         retreat_n = int(float(cfg_get(
             self.cfg, "goal", "recover_retreat_n", default=6)))
+        def passed(kind: str) -> bool:
+            successes, n = st.get(kind, (0, 0))
+            return n >= admit_n and successes / n >= 0.8
+
+        def collapsed(kind: str) -> bool:
+            successes, n = st.get(kind, (0, 0))
+            return n >= retreat_n and successes / n < 0.2
+
         if (self._rec_active_n < len(self.RECOVER_FAMILIES)
                 and hard
-                and all(st.get(k, (0.0, 0))[1] >= admit_n
-                        and st.get(k, (0.0, 0))[0] >= 0.8
-                        for k in hard)):
+                and all(passed(k) for k in hard)):
             self._rec_active_n += 1
         elif (self._rec_active_n > 1
-                and any(st.get(k, (1.0, 0))[1] >= retreat_n
-                        and st.get(k, (1.0, 0))[0] < 0.2
-                        for k in hard)):
+                and any(collapsed(k) for k in hard)):
             failed_bucket = self._rec_active_n - 1
             self._rec_active_n -= 1
             # Re-certify the easier frontier before trying the failed
@@ -1082,10 +1102,11 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                     if k != "bank" or cfg_get(
                             self.cfg, "goal", "recover_start_bank",
                             default=None) is not None:
-                        st[k] = (0.5, 0)
+                        st[k] = (0, 0)
 
     def apply_recover_certification(self, kind: str,
-                                    outcomes: list[bool]) -> dict:
+                                    outcomes: list[bool],
+                                    update_admission: bool = True) -> dict:
         """Apply deterministic same-backend outcomes to the curriculum.
 
         The MJX trainer calls this on every training env after a held-out
@@ -1100,16 +1121,18 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         ys = [bool(v) for v in outcomes]
         if not ys:
             raise ValueError("recover certification needs at least one outcome")
-        ema, n = self._rec_stats.get(kind, (0.5, 0))
-        beta = float(cfg_get(self.cfg, "goal", "recover_ema_beta",
-                             default=0.25))
-        for ok in ys:
-            ema = (1.0 - beta) * ema + beta * (1.0 if ok else 0.0)
-            n += 1
-        self._rec_stats[kind] = (ema, n)
+        successes = sum(1 for ok in ys if ok)
+        n = len(ys)
+        fraction = successes / n
+        # A certification is a fixed-size held-out assay. Store exactly
+        # this batch, rather than blending it into an EMA whose numerator
+        # and denominator cannot be interpreted from a chart.
+        self._rec_stats[kind] = (successes, n)
         before = self._rec_active_n
-        self._recover_update_admission()
-        return {"kind": kind, "ema": float(ema), "n": int(n),
+        if update_admission:
+            self._recover_update_admission()
+        return {"kind": kind, "success_fraction": float(fraction),
+                "successes": int(successes), "episodes": int(n),
                 "active_before": int(before),
                 "active_after": int(self._rec_active_n)}
 
@@ -2633,12 +2656,18 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 (1.0 - beta) * ema + beta * (1.0 if success else 0.0),
                 n + 1)
             self._rec_rollout_stats[kind] = updated
+            successes, episodes = self._rec_rollout_counts.get(kind, (0, 0))
+            self._rec_rollout_counts[kind] = (
+                successes + int(success), episodes + 1)
             # Preserve the legacy self-certified curriculum for the C
             # trainer.  MJX recovery runs opt into external certification
             # in train_ppo_mjx._env_kwargs, so their noisy PPO actions can
             # never mutate _rec_stats.
             if not self._rec_external_certification:
-                self._rec_stats[kind] = updated
+                cert_successes, cert_episodes = self._rec_stats.get(
+                    kind, (0, 0))
+                self._rec_stats[kind] = (
+                    cert_successes + int(success), cert_episodes + 1)
             info[f"recover_episode_{kind}"] = 1.0
             info[f"recover_success_{kind}"] = 1.0 if success else 0.0
             if bucket >= 0:
@@ -2675,21 +2704,35 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         info[f"recover_reset_pad_spread_mm_{kind}"] = float(
             self._rec_reset_pad_spread_mm)
         for rec_kind in self._recover_active_kinds():
-            ema, n = self._rec_stats.get(rec_kind, (0.5, 0))
-            info[f"recover_curriculum_ema_{rec_kind}"] = float(ema)
-            info[f"recover_curriculum_n_{rec_kind}"] = float(n)
+            cert_successes, cert_episodes = self._rec_stats.get(
+                rec_kind, (0, 0))
+            cert_fraction = (cert_successes / cert_episodes
+                             if cert_episodes else 0.0)
+            info[f"recover_curriculum_fraction_{rec_kind}"] = float(
+                cert_fraction)
+            info[f"recover_curriculum_successes_{rec_kind}"] = float(
+                cert_successes)
+            info[f"recover_curriculum_episodes_{rec_kind}"] = float(
+                cert_episodes)
             roll_ema, roll_n = self._rec_rollout_stats.get(
                 rec_kind, (0.5, 0))
             info[f"recover_rollout_ema_{rec_kind}"] = float(roll_ema)
             info[f"recover_rollout_n_{rec_kind}"] = float(roll_n)
+            roll_successes, roll_episodes = self._rec_rollout_counts.get(
+                rec_kind, (0, 0))
+            info[f"recover_rollout_fraction_{rec_kind}"] = float(
+                roll_successes / roll_episodes if roll_episodes else 0.0)
         for rec_bucket in range(self._rec_active_n):
-            stats = [self._rec_stats.get(k, (0.5, 0))
+            stats = [self._rec_stats.get(k, (0, 0))
                      for k in self._recover_family_kinds(rec_bucket)]
             if stats:
-                # Admission requires every kind in the bucket, so the
-                # minimum is the honest bucket-level training estimate.
-                info[f"recover_curriculum_bucket_{rec_bucket}_ema"] = (
-                    float(min(v[0] for v in stats)))
-                info[f"recover_curriculum_bucket_{rec_bucket}_n"] = (
-                    float(min(v[1] for v in stats)))
+                successes = sum(v[0] for v in stats)
+                episodes = sum(v[1] for v in stats)
+                info[
+                    f"recover_curriculum_bucket_{rec_bucket}_success_fraction"
+                ] = float(successes / episodes if episodes else 0.0)
+                info[f"recover_curriculum_bucket_{rec_bucket}_successes"] = (
+                    float(successes))
+                info[f"recover_curriculum_bucket_{rec_bucket}_episodes"] = (
+                    float(episodes))
         return reward, term, info

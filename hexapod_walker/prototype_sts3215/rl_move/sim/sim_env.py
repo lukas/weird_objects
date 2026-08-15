@@ -1316,23 +1316,45 @@ class SimHexapodBalanceEnv(_GymBase):
             # _sample_getup (goal side, where the force hook lives) and
             # rides on the trajectory.
             kind = getattr(self._goal_traj, "start_kind", "tangle")
-            if kind == "tangle":
+            if kind in ("tangle_mild", "tangle_mid", "tangle_deep",
+                        "tangle"):
                 from rl_move.safety import AXIS_LIMITS_DEG
-                q_start = np.array(
+                q_random = np.array(
                     [self.rng.uniform(*AXIS_LIMITS_DEG[j % 3])
                      for j in range(N_JOINTS)], dtype=float) * DEG2RAD
+                blend = {"tangle_mild": 0.25, "tangle_mid": 0.50,
+                         "tangle_deep": 0.75, "tangle": 1.0}[kind]
+                q_start = blend * q_random
             elif kind == "zero":
-                q_start = np.zeros(N_JOINTS, dtype=float)
-            elif kind in ("partial", "crouch"):
+                q_start = self.rng.uniform(
+                    -2.0, 2.0, N_JOINTS) * DEG2RAD
+            elif kind in ("partial", "crouch", "crouch_shallow",
+                          "crouch_mid", "crouch_deep", "partial_high",
+                          "partial_mid", "partial_low"):
                 from rl_move.body_ik import BodyOffset
+                crouch_ranges = {
+                    "crouch_shallow": (0.010, 0.025),
+                    "crouch_mid": (0.025, 0.045),
+                    "crouch_deep": (0.045, 0.070),
+                }
+                depth = (float(self.rng.uniform(*crouch_ranges[kind]))
+                         if kind in crouch_ranges
+                         else float(self.rng.uniform(0.03, 0.07)))
                 any_ik = FixedFootBodyIK()
                 any_ik.reset(self._plant_deg * DEG2RAD)
                 res = any_ik.solve(BodyOffset(
-                    height=-float(self.rng.uniform(0.03, 0.07))))
+                    height=-depth))
                 q_c = (res.q_rad if res.ok
                        else self._plant_deg * DEG2RAD)
-                f = (1.0 if kind == "crouch"
-                     else float(self.rng.uniform(0.10, 0.90)))
+                partial_ranges = {
+                    "partial_high": (0.70, 0.95),
+                    "partial_mid": (0.40, 0.70),
+                    "partial_low": (0.15, 0.40),
+                }
+                f = (1.0 if kind in ("crouch", "crouch_shallow",
+                                     "crouch_mid", "crouch_deep")
+                     else float(self.rng.uniform(
+                         *partial_ranges.get(kind, (0.10, 0.90)))))
                 # Zero pose is exactly q=0, so the belly->crouch blend
                 # is a plain scale (same construction as rise bridge).
                 q_start = f * np.asarray(q_c, dtype=float)
@@ -1387,8 +1409,8 @@ class SimHexapodBalanceEnv(_GymBase):
                 q_start += self.rng.uniform(
                     -2.0, 2.0, N_JOINTS) * DEG2RAD
             elif kind == "flip":
-                # RECOVER family 4: side/back/upside-down. Random legal
-                # joints + a random base rotation of 90-180 deg about a
+                # Final recovery rung: random legal joints plus a base
+                # rotation about a
                 # random horizontal axis, applied by _place_at_plant
                 # (consume-once pending quat, both C and MJX paths go
                 # through place_env -> _place_at_plant), then the
@@ -1400,7 +1422,7 @@ class SimHexapodBalanceEnv(_GymBase):
                     [self.rng.uniform(*AXIS_LIMITS_DEG[j % 3])
                      for j in range(N_JOINTS)], dtype=float) * DEG2RAD
                 ax_ang = float(self.rng.uniform(0.0, 2.0 * math.pi))
-                ang = float(self.rng.uniform(math.pi / 2.0, math.pi))
+                ang = float(self.rng.uniform(90.0, 180.0)) * DEG2RAD
                 ax = (math.cos(ax_ang), math.sin(ax_ang), 0.0)
                 half = ang / 2.0
                 s = math.sin(half)

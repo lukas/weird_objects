@@ -56,6 +56,20 @@ from .train_ppo_sim import (  # noqa: E402
 )
 
 
+def _recover_episode_outcome(info: dict) -> tuple[int, bool] | None:
+    """Extract one exact terminal training outcome from an env info."""
+    if not any(str(k).startswith("recover_episode_bucket_")
+               for k in info):
+        return None
+    bucket = int(float(info.get("recover_start_bucket", -1)))
+    if bucket < 0:
+        return None
+    success = bool(
+        info.get("recover_success", 0.0) > 0.0
+        or info.get("termination_reason") == "recover_success")
+    return bucket, success
+
+
 def _run_recover_cert_kind(vec_env, model, kind: str) -> dict:
     """One deterministic first-episode recovery assay on an MJX VecEnv."""
     n_envs = int(vec_env.num_envs)
@@ -183,6 +197,10 @@ def _init_wandb(args, params: SimServoParams):
                 "mjx_ls_iterations": args.mjx_ls_iterations,
                 "recover_cert_every": args.recover_cert_every,
                 "recover_cert_envs": args.recover_cert_envs,
+                "recover_buckets": {
+                    str(i): list(family) for i, family in enumerate(
+                        getattr(ENV_CLASSES[args.task],
+                                "RECOVER_FAMILIES", ()))},
                 "model_dr": False,  # v1 backend limit, see MJX_PORT.md
                 "sim_model_source": params.source})
     # Same headline-score pinning as the C trainer (the periodic eval
@@ -191,6 +209,7 @@ def _init_wandb(args, params: SimServoParams):
                       summary="last")
     run.define_metric("eval/*", step_metric="global_step")
     run.define_metric("CERT/*", step_metric="global_step", summary="last")
+    run.define_metric("TRAIN/*", step_metric="global_step", summary="last")
     print(f"[wandb] logging to {run.url or 'offline run dir'}")
     return run
 
@@ -733,6 +752,10 @@ def main(argv: list[str] | None = None) -> int:
             self._reward_sum_cum = 0.0
             self._reward_n_cum = 0
             self._reward_ema: float | None = None
+            # Exact completed-episode recovery scores. These inspect every
+            # env terminal, not the 256-env telemetry sample above.
+            self._recover_window: dict[int, list[int]] = {}
+            self._recover_cumulative: dict[int, list[int]] = {}
 
         def _acc(self, k: str, v: float) -> None:
             self._sum[k] = self._sum.get(k, 0.0) + v
@@ -796,6 +819,14 @@ def main(argv: list[str] | None = None) -> int:
             dones = self.locals.get("dones")
             if dones is not None and np.any(dones):
                 for i in np.flatnonzero(dones):
+                    outcome = _recover_episode_outcome(infos[i])
+                    if outcome is not None:
+                        bucket, success = outcome
+                        for bank in (self._recover_window,
+                                     self._recover_cumulative):
+                            counts = bank.setdefault(bucket, [0, 0])
+                            counts[0] += int(success)
+                            counts[1] += 1
                     r = infos[i].get("termination_reason") or (
                         "truncated"
                         if infos[i].get("TimeLimit.truncated")
@@ -813,6 +844,18 @@ def main(argv: list[str] | None = None) -> int:
                             for k in self._sum})
             payload.update({f"terminations/{k}": v
                             for k, v in self._terms.items()})
+            for bucket, (successes, episodes) in sorted(
+                    self._recover_window.items()):
+                stem = f"TRAIN/recover_bucket_{bucket}"
+                payload[f"{stem}_success_fraction"] = successes / episodes
+                payload[f"{stem}_successes"] = successes
+                payload[f"{stem}_episodes"] = episodes
+            for bucket, (successes, episodes) in sorted(
+                    self._recover_cumulative.items()):
+                stem = f"TRAIN/recover_bucket_{bucket}"
+                payload[f"{stem}_success_fraction_cumulative"] = (
+                    successes / episodes)
+                payload[f"{stem}_episodes_cumulative"] = episodes
             if self._reward_n > 0:
                 # optimization/* (fb_20260815T131225_c8442f): "is PPO
                 # continuing to get more total reward per real
@@ -890,6 +933,7 @@ def main(argv: list[str] | None = None) -> int:
                 import wandb
                 wandb.log(payload)
             self._sum, self._cnt, self._terms = {}, {}, {}
+            self._recover_window = {}
             if (args.save_every and self.num_timesteps - self._last_save
                     >= args.save_every):
                 self._last_save = self.num_timesteps
@@ -960,22 +1004,30 @@ def main(argv: list[str] | None = None) -> int:
                     rows.append(row)
                     venv.env_method(
                         "apply_recover_certification", kind,
-                        row["outcomes"])
+                        row["outcomes"], False)
+                # Update the whole frontier atomically. This matters when
+                # the optional harvested bank shares the full-tangle bucket:
+                # no stale kind result may promote the family mid-assay.
+                venv.env_method("_recover_update_admission")
                 active_after = int(venv.get_attr(
                     "_rec_active_n", indices=0)[0])
                 successes = sum(r["successes"] for r in rows)
                 episodes = sum(r["episodes"] for r in rows)
                 payload = {
                     "global_step": self.num_timesteps,
-                    f"CERT/recover_bucket_{bucket}_success": (
+                    f"CERT/recover_bucket_{bucket}_success_fraction": (
                         successes / max(episodes, 1)),
+                    f"CERT/recover_bucket_{bucket}_successes": successes,
                     f"CERT/recover_bucket_{bucket}_episodes": episodes,
                     "CERT/recover_frontier_before": bucket,
                     "CERT/recover_frontier_after": active_after - 1,
                 }
                 for row in rows:
                     kind = row["kind"]
-                    payload[f"CERT/recover_{kind}_success"] = row["success"]
+                    payload[f"CERT/recover_{kind}_success_fraction"] = (
+                        row["success"])
+                    payload[f"CERT/recover_{kind}_successes"] = (
+                        row["successes"])
                     payload[f"CERT/recover_{kind}_episodes"] = row["episodes"]
                     payload[f"CERT/recover_{kind}_time_s"] = (
                         row["time_mean_s"])
