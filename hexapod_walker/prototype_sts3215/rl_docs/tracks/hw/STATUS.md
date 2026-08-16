@@ -9,6 +9,45 @@ unresolved blockers between the robot and reliable joystick control.
 
 ## Now
 
+- **08-16 ~08:1x (triage cycle): `cw-recover-any8-spacedreplay-scratch1`
+  FAIL, WORSE than the pre-registered if-false branch predicted —
+  spaced replay got permanently stuck THREE RUNGS SHORT of the
+  tangle wall, on a bucket neither sibling stalled on.** Same MDP/
+  recipe as any6/any7, genuinely from scratch, but with bucket-level
+  spaced replay (50% frontier / 25% previous-3 / 15% weakest / 10%
+  uniform, default masses) + 16-episode certs (was 8) + 3 retention
+  buckets. Frontier climbed cleanly B0→B11 by 13.0M steps (~1M/bucket,
+  matching any6/7's pace) then FLATLINED at B11 (`zero` — belly-flat
+  + small joint jitter) for the entire remaining 27M/40M steps: 28
+  consecutive 16-ep certs average 1.6% success (mostly exact 0/16,
+  best-ever 3/16) despite holding 50% of ALL training sample mass the
+  whole time. Never reached B12-15 (tangle/bank) any6 AND any7 both
+  climbed to — this is not "slower," it never got there. Video
+  (recover_det_17, the zero-bucket episode) confirms a genuine
+  capability gap, not a cheat: robot starts flat, splays into a low
+  crouch by frame 2, never completes the rise in the full 16s episode
+  — the flat-rise-stall pathology named elsewhere in the campaign, no
+  flag-leg/park/stilt. Single-sample harness eval agrees exactly
+  (zero 0/1 det AND sto, both DR-0 and own-DR-0.1 passes). Retention
+  of buckets 0-10 is solid at the FINAL read (≥0.8125, mostly 1.0)
+  but a non-frontier bucket dipped below 0.8 in 14/28 rounds while
+  B11 was frontier — the no-forgetting promise only partially held.
+  **Resolves any7's flagged open question: plant_catch (bucket 0) is
+  NOT a real retention regression** (training cert 16/16 solid
+  throughout, harness confirms 1/1 det; any7's sto 0/18-everywhere
+  and this run's identical pattern are the already-documented any4
+  action-noise artifact, not new evidence). **CONCLUSION: spaced
+  replay as specified is measured WORSE than any6/7's plain cert-
+  gated curriculum for climbing THIS ladder**, and additionally
+  exposes a THIRD wall (zero, B11) neither sibling hit — plausibly
+  because dedicating 50% of mass to a stuck frontier starves the
+  varied earlier-bucket exposure that apparently bootstraps the
+  flat-belly recovery. One miss on this exact hypothesis (not two) —
+  no resample without a mechanism change (e.g. cap/anneal the
+  frontier mass share, or attack the zero-bucket flat-rise stall
+  directly). The universal-recovery project's best result stays
+  any6/any7's plain-curriculum lineage (B15, tangle wall, bank
+  solved); no product baseline touched.
 - **08-16 ~06:3x (triage cycle): `cw-recover-any7-tangle-cont1` FAIL on
   its primary bar, but SHARPENS the any6 wall — bank is SOLVED,
   tangle specifically is a statistically solid wall.** Warm-started
