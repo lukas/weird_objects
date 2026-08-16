@@ -49,10 +49,12 @@ unresolved blockers between the robot and reliable joystick control.
   recover_rsi_bank_*` (3 tests) + full RECOVER bank green (150/150),
   REWARD.md row, snapshot `1202b816`. Harvested a real bank from
   `any11` on all four tangle-family kinds (350 episodes/kind,
-  deterministic, on train-0's idle CPU) — matches the historical
-  0.25-0.44 band exactly (this smoke's own tangle/tangle_deep rates:
-  0.35/0.25) confirming the source checkpoint's real, if partial,
-  competence to harvest from. **`cw-recover-any13-tanglersi-bank1`
+  deterministic, on train-0's idle CPU, ~4572 poses from 762
+  successful episodes) — per-kind success rates 0.926 (tangle_mild) /
+  0.497 (tangle_mid) / 0.377 (tangle) / 0.377 (tangle_deep), matching
+  the historical 0.25-0.44 band on the two hard kinds exactly and
+  confirming the source checkpoint's real, if partial, competence to
+  harvest from. **`cw-recover-any13-tanglersi-bank1`
   LAUNCHED** (warm from `any11`, NOT `any12`; default curriculum mix
   restored; `recover_rsi_frac=0.5`/`kinds=zero` kept for zero-safety;
   new `recover_rsi_bank_frac=0.5`/`kinds=tangle,tangle_deep,
