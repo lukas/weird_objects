@@ -92993,13 +92993,13 @@
     "track": "dynrep",
     "phase": "behavioral",
     "steps": 1000000,
-    "wandb_id": "uov23qlu",
-    "git_sha": "60922150bc390cadeb1add8686ba41a0cdc70b72",
+    "wandb_id": "rmucm5m0",
+    "git_sha": "b91c16ba64aad6c8f9d64c1e083dad0781538ad4",
     "trainer": "train_ppo_transfer",
     "proc_match": "dynrep-tfwalk-joint1-C-s5",
     "wandb_match": "^dynrep-tfwalk-joint1-C-s5",
     "log": "/workspace/prototype_sts3215/rl_move/dynamics/logs/pod_tfwalk_joint1_C_s5.log",
-    "pid": 3108089,
+    "pid": 3118611,
     "hypothesis": "Teach the walking policy and its pretrained dynamics transformer TOGETHER, properly: after a 50k-step encoder-frozen head warmup, the future-state prediction loss trains INSIDE every PPO minibatch (same backward/optimizer, transformer at 0.1x LR) on fresh online rollout windows + 25% rehearsal from the recovered v5 corpus, with the total policy movement action-KL guarded (0.02 target / 0.04 rollback guard). Tests whether fixing the out-of-band anchor instability (metrics1-C: led at 1M, last at 2M, approx_kl 4x A/B) finally makes the pretrained representation beat frozen reuse (B) and scratch (A).",
     "gate": "Matched triple at the PRE-REGISTERED 1M decision checkpoint (metrics1 seed-5 A/B reused at their 1M eval points; config equivalence mechanically verified vs W&B configs jf0tfsqh/psiz3y6x - identical trainer config except budget). Corrected C must: (1) preserve phase-1 heldout prediction quality (aux/heldout total ~within 15% of the pretrained start value on the corpus val split); (2) keep total action-KL of the combined update near the 0.02 target without late regression (guard rejections not saturating, aux not permanently stopped); (3) beat B on walk return AND gait quality (slip_m, peak_roll_deg, slew_sat) across seeds, with rise/hold retention + heldout DR rollouts reported. If corrected C cannot beat B across seeds: STOP adding complexity and record that conclusion. Extension past 1M only after this gate; best checkpoint selected by heldout walking eval, not final step.",
     "checkups": [
@@ -93016,13 +93016,14 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "attempt2": "Attempt 2 (code b91c16ba): first attempt killed at <=150k steps and restarted after the KL-guard attribution fix - PPO's own approx_kl (~0.03) breached the 0.04 guard regardless of the auxiliary, and the un-attributed consecutive-reject counter permanently stopped the aux ~50k in (superseded W&B attempt kept for the record). Superseded attempt: uov23qlu."
   },
   {
     "run": "dynrep-tfwalk-joint1-A-s6",
     "created": "2026-08-16T21:07:13+00:00",
     "note": "Script-owned cohort (pod_tfwalk_joint.sh, manifest tfwalk-joint1_manifest.jsonl on-pod). Operator directive fb_20260816T203212_af7c64: corrected joint PPO+auxiliary condition C (code 60922150, tag exp/cw-dynrep-tfwalk-joint1). Rehearsal corpus = untouched v5_mjx_fresh on train-11 lineage; canonical aggregate sha256 (cat shard_*.npz, name order) a0bb722ecdd38ebb013ff8dcedf28edd6ffb38510e17e0f7fb570540c03a717a (directive's quoted 6762fe81... not reproducible - see OPERATOR_QUESTIONS q_20260816T2140Z).",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "pod": "hexapod-mjx-train-8",
     "track": "dynrep",
     "phase": "behavioral",
@@ -93137,6 +93138,76 @@
         "log_growth_bytes": 0,
         "fps": 182.0,
         "placement": "solo on GPU-MJX pod (dynrep trainer)",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
+  },
+  {
+    "run": "dynrep-tfwalk-joint1-C-s6",
+    "created": "2026-08-16T21:30:52+00:00",
+    "note": "Script-owned cohort (pod_tfwalk_joint.sh, manifest tfwalk-joint1_manifest.jsonl on-pod). Operator directive fb_20260816T203212_af7c64: corrected joint PPO+auxiliary condition C (code 60922150 + scan-fix 5d12019c, tag exp/cw-dynrep-tfwalk-joint1). Rehearsal corpus = per-file md5-verified copy of train-11's untouched v5_mjx_fresh; canonical aggregate sha256 (cat shard_*.npz, name order) a0bb722ecdd38ebb013ff8dcedf28edd6ffb38510e17e0f7fb570540c03a717a (directive's quoted 6762fe81... not reproducible - see OPERATOR_QUESTIONS q_20260816T2140Z).",
+    "status": "RUNNING",
+    "pod": "hexapod-mjx-train-4",
+    "track": "dynrep",
+    "phase": "behavioral",
+    "steps": 1000000,
+    "wandb_id": "mjhi4knh",
+    "git_sha": "b91c16ba64aad6c8f9d64c1e083dad0781538ad4",
+    "trainer": "train_ppo_transfer",
+    "proc_match": "dynrep-tfwalk-joint1-C-s6",
+    "wandb_match": "^dynrep-tfwalk-joint1-C-s6",
+    "log": "/workspace/prototype_sts3215/rl_move/dynamics/logs/pod_tfwalk_joint1_C_s6.log",
+    "pid": 2288769,
+    "hypothesis": "Teach the walking policy and its pretrained dynamics transformer TOGETHER, properly: after a 50k-step encoder-frozen head warmup, the future-state prediction loss trains INSIDE every PPO minibatch (same backward/optimizer, transformer at 0.1x LR) on fresh online rollout windows + 25% rehearsal from the recovered v5 corpus, with the total policy movement action-KL guarded (0.02 target / 0.04 rollback guard). Tests whether fixing the out-of-band anchor instability (metrics1-C: led at 1M, last at 2M, approx_kl 4x A/B) finally makes the pretrained representation beat frozen reuse (B) and scratch (A).",
+    "gate": "Matched triple at the PRE-REGISTERED 1M decision checkpoint (metrics1 seed-5 A/B reused at their 1M eval points; config equivalence mechanically verified vs W&B configs jf0tfsqh/psiz3y6x - identical trainer config except budget). Corrected C must: (1) preserve phase-1 heldout prediction quality (aux/heldout total ~within 15% of the pretrained start value on the corpus val split); (2) keep total action-KL of the combined update near the 0.02 target without late regression (guard rejections not saturating, aux not permanently stopped); (3) beat B on walk return AND gait quality (slip_m, peak_roll_deg, slew_sat) across seeds, with rise/hold retention + heldout DR rollouts reported. If corrected C cannot beat B across seeds: STOP adding complexity and record that conclusion. Extension past 1M only after this gate; best checkpoint selected by heldout walking eval, not final step.",
+    "attempt2": "Attempt 2 (code b91c16ba): first attempt killed at <=150k steps and restarted after the KL-guard attribution fix - PPO's own approx_kl (~0.03) breached the 0.04 guard regardless of the auxiliary, and the un-attributed consecutive-reject counter permanently stopped the aux ~50k in (superseded W&B attempt kept for the record). Superseded attempt: msvr8yy5.",
+    "checkups": [
+      {
+        "time": "2026-08-16T21:36:08+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 0,
+        "cpu_centisec_deltas": [
+          3025,
+          3022
+        ],
+        "note": "global_step flat in 45s window but trainer CPU busy \u2014 long-rollout iteration cadence, not a stall",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
+  },
+  {
+    "run": "dynrep-tfwalk-joint1-C-s7",
+    "created": "2026-08-16T21:30:52+00:00",
+    "note": "Script-owned cohort (pod_tfwalk_joint.sh, manifest tfwalk-joint1_manifest.jsonl on-pod). Operator directive fb_20260816T203212_af7c64: corrected joint PPO+auxiliary condition C (code 60922150 + scan-fix 5d12019c, tag exp/cw-dynrep-tfwalk-joint1). Rehearsal corpus = per-file md5-verified copy of train-11's untouched v5_mjx_fresh; canonical aggregate sha256 (cat shard_*.npz, name order) a0bb722ecdd38ebb013ff8dcedf28edd6ffb38510e17e0f7fb570540c03a717a (directive's quoted 6762fe81... not reproducible - see OPERATOR_QUESTIONS q_20260816T2140Z).",
+    "status": "RUNNING",
+    "pod": "hexapod-mjx-train-5",
+    "track": "dynrep",
+    "phase": "behavioral",
+    "steps": 1000000,
+    "wandb_id": "9k7n9svg",
+    "git_sha": "b91c16ba64aad6c8f9d64c1e083dad0781538ad4",
+    "trainer": "train_ppo_transfer",
+    "proc_match": "dynrep-tfwalk-joint1-C-s7",
+    "wandb_match": "^dynrep-tfwalk-joint1-C-s7",
+    "log": "/workspace/prototype_sts3215/rl_move/dynamics/logs/pod_tfwalk_joint1_C_s7.log",
+    "pid": 138582,
+    "hypothesis": "Teach the walking policy and its pretrained dynamics transformer TOGETHER, properly: after a 50k-step encoder-frozen head warmup, the future-state prediction loss trains INSIDE every PPO minibatch (same backward/optimizer, transformer at 0.1x LR) on fresh online rollout windows + 25% rehearsal from the recovered v5 corpus, with the total policy movement action-KL guarded (0.02 target / 0.04 rollback guard). Tests whether fixing the out-of-band anchor instability (metrics1-C: led at 1M, last at 2M, approx_kl 4x A/B) finally makes the pretrained representation beat frozen reuse (B) and scratch (A).",
+    "gate": "Matched triple at the PRE-REGISTERED 1M decision checkpoint (metrics1 seed-5 A/B reused at their 1M eval points; config equivalence mechanically verified vs W&B configs jf0tfsqh/psiz3y6x - identical trainer config except budget). Corrected C must: (1) preserve phase-1 heldout prediction quality (aux/heldout total ~within 15% of the pretrained start value on the corpus val split); (2) keep total action-KL of the combined update near the 0.02 target without late regression (guard rejections not saturating, aux not permanently stopped); (3) beat B on walk return AND gait quality (slip_m, peak_roll_deg, slew_sat) across seeds, with rise/hold retention + heldout DR rollouts reported. If corrected C cannot beat B across seeds: STOP adding complexity and record that conclusion. Extension past 1M only after this gate; best checkpoint selected by heldout walking eval, not final step.",
+    "attempt2": "Attempt 2 (code b91c16ba): first attempt killed at <=150k steps and restarted after the KL-guard attribution fix - PPO's own approx_kl (~0.03) breached the 0.04 guard regardless of the auxiliary, and the un-attributed consecutive-reject counter permanently stopped the aux ~50k in (superseded W&B attempt kept for the record). Superseded attempt: 3bwkk2pu.",
+    "checkups": [
+      {
+        "time": "2026-08-16T21:38:03+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 0,
+        "cpu_centisec_deltas": [
+          3025,
+          3025
+        ],
+        "note": "global_step flat in 45s window but trainer CPU busy \u2014 long-rollout iteration cadence, not a stall",
         "verdict": "HEALTHY",
         "problems": []
       }

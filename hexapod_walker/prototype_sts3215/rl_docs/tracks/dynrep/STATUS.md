@@ -35,6 +35,19 @@ reproducible by any standard aggregation; identity established by
 provenance and a canonical hash recorded (OPERATOR_QUESTIONS
 q_20260816T2140Z).
 
+**Late-cycle addendum (~21:5x UTC): guard-attribution fix + C restart.**
+First C-s5 attempt exposed a real design artifact: PPO's OWN approx_kl
+runs ~0.03 early in walk training, so every combined update breached
+the 0.04 guard and the un-attributed consecutive-reject counter
+permanently stopped the auxiliary ~50k steps in (C degenerating to a
+no-aux arm). Fixed (b91c16ba, tests 7/7): a rejection advances the
+permanent-stop counter only when the no-aux retry lands UNDER the
+guard (breach attributable to the auxiliary); rollback + rejected
+logging unchanged, `aux/action_kl_retry` now logged. All three C arms
+killed and relaunched on the fixed code (attempt-2 W&B: rmucm5m0 /
+mjhi4knh / 9k7n9svg). A-s6 already FINISHED clean at 1M (walk 334.9,
+best-by-heldout checkpointing verified in production).
+
 **08-16 ~06:3x UTC (triage cycle): the metrics1 matched triple landed
 and TRIAGED — first real behavioral verdict for the dynrep hypothesis,
 and it's a clean MISS.** All three `dynrep-tfwalk-metrics1-{A,B,C}-s5`
