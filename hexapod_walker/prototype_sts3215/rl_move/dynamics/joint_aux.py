@@ -232,9 +232,15 @@ class JointAuxPPO(ScaledLRPPO):
         rejected = 0
         if aux_active and kl_total > cfg.kl_guard:
             # The COMBINED update moved the policy too far: roll back
-            # params + optimizer state, redo without the auxiliary. If
-            # the redo still exceeds the guard, that movement is PPO's
-            # own and stands (attribution comes from the pair).
+            # params + optimizer state, redo without the auxiliary. The
+            # retry gives ATTRIBUTION: only a breach that disappears
+            # without the auxiliary counts toward stopping it — if the
+            # no-aux redo breaches too, the movement is PPO's own and
+            # stands (measured 08-16 on tfwalk-joint1-C-s5: PPO alone
+            # ran approx_kl ~0.03 in this task's early phase, so
+            # counting every combined breach stopped the auxiliary
+            # permanently ~50k steps in, degenerating condition C into
+            # a no-aux arm — an artifact, not the hypothesis).
             self._restore_policy(snap)
             self._n_updates = n_updates0
             kl_with_aux = kl_total
@@ -243,10 +249,13 @@ class JointAuxPPO(ScaledLRPPO):
             rejected = 1
             self._updates_rejected += 1
             self._aux_batches_rejected += n_aux_batches
-            self._consec_rejects += 1
             aux_logs["aux/action_kl_rejected"] = kl_with_aux
-            if self._consec_rejects >= cfg.stop_after:
-                self._aux_stopped = True
+            aux_logs["aux/action_kl_retry"] = kl_total
+            if kl_total <= cfg.kl_guard:
+                # breach attributable to the auxiliary
+                self._consec_rejects += 1
+                if self._consec_rejects >= cfg.stop_after:
+                    self._aux_stopped = True
         elif aux_active:
             self._updates_accepted += 1
             self._aux_batches_accepted += n_aux_batches

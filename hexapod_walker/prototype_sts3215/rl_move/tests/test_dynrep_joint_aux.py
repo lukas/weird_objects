@@ -199,16 +199,36 @@ def test_head_warmup_freezes_encoder_then_joint_training_moves_it(
     assert payloads[-1]["aux/active"] == 1
 
 
-def test_kl_guard_rejects_rolls_back_and_stops_aux(encoder_ckpt, corpus):
+def test_kl_guard_rejects_and_rolls_back_without_misattribution(
+        encoder_ckpt, corpus):
+    """guard=0: every combined update breaches, but so does every no-aux
+    retry (any update moves the policy), so the breach is NOT
+    attributable to the auxiliary — it must be rolled back and logged
+    rejected, but must NOT advance the permanent-stop counter."""
     model, payloads = _build_model(encoder_ckpt, corpus, kl_guard=0.0,
                                    stop_after=2)
     model.learn(total_timesteps=96)
     rejected = [p for p in payloads if p["aux/rejected"]]
     assert rejected, "guard at 0.0 must reject aux-active updates"
     assert payloads[-1]["aux/updates_rejected_total"] >= 2
+    assert all("aux/action_kl_retry" in p for p in rejected)
+    assert payloads[-1]["aux/stopped"] == 0, \
+        "non-attributable breaches must not stop the auxiliary"
+
+
+def test_kl_guard_stops_aux_on_attributable_breaches(encoder_ckpt, corpus):
+    """Scripted KL: the combined update breaches (0.5) while the no-aux
+    retry is clean (0.001) -> attributable to aux -> counter advances
+    and the auxiliary stops permanently at stop_after."""
+    model, payloads = _build_model(encoder_ckpt, corpus, kl_guard=0.04,
+                                   stop_after=2)
+    seq = iter([0.5, 0.001] * 10)   # with-aux, retry, with-aux, retry...
+    model._action_kl = lambda *a, **kw: next(seq)
+    model.learn(total_timesteps=96)
     assert payloads[-1]["aux/stopped"] == 1
-    # after the stop, updates run without aux and are not rejected
-    assert payloads[-1]["aux/active"] == 0 or payloads[-1]["aux/rejected"] == 0
+    assert payloads[-1]["aux/updates_rejected_total"] >= 2
+    # post-stop updates run without aux
+    assert payloads[-1]["aux/active"] == 0
 
 
 def test_mixed_batch_honors_rehearsal_fraction(corpus):
