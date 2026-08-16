@@ -9,6 +9,31 @@ unresolved blockers between the robot and reliable joystick control.
 
 ## Now
 
+- **08-16 ~21:xx (triage cycle): `cw-recover-any13-tanglersi-bank1` FAIL —
+  on-path-bank RSI does NOT crack tangle either; CLOSES the exposure-
+  side lever class for tangle entirely (2nd new-mechanism miss,
+  after 3 curriculum-weight misses any7/any11/any12) and surfaces a
+  new starvation regression.** Tangle CERT success_fraction touched
+  0.75 twice in a row (24.1M/25.0M) but never sustained ≥0.7 through
+  the 30M budget — it decayed to a 0.1875 trough at 28M and closed
+  at 0.5. Independently, the retention floor the gate was watching
+  broke: zero-bucket (RSI-protected) read 1.0 four times through 24M
+  then crashed to 0/16 at its last reading (29M); bucket 10 crashed
+  to 0/16 at BOTH of its last two readings (28M, 29M) right after
+  reading 1.0 at 23-24M — the same starvation signature any12 showed
+  under 0.80 focus, now appearing even with the DEFAULT curriculum
+  mix restored (16-ep readings, so 1.0→0/16 is a real regression,
+  not noise). Root-cause note for the redesign: the recover BC
+  anchor is eligibility-gated OFF whenever the robot isn't already
+  near-upright/near-plant (08-15 anchor directive, by design), so it
+  structurally cannot supervise the tangled→upright transition
+  itself — fixing this needs a tangle-specific reference trajectory
+  or a relaxed eligibility gate, a design call, not another
+  automatic exposure knob (see WAITING-ON, `[operator]`). `any11`
+  stays the recovery line's reference checkpoint — independently
+  corroborated by MCP note `fb_20260816T203228_bc9bad` (operator
+  review recommending any11 as canonical; already the parent here).
+  No further recover/tangle arm queued this cycle pending that call.
 - **08-16 ~18:xx (triage cycle): `cw-recover-any12-hifocus-cont1` FAIL —
   curriculum-weight for tangle is CLOSED (3rd miss: any7, any11,
   any12), extreme focus concentration also actively HURTS retention,

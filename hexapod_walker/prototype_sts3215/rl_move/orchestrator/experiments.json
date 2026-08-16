@@ -92937,7 +92937,7 @@
       "rl_move/sim/policies/ppo_goal_cw_recover_any11_rsi_scratch1.zip"
     ],
     "created": "2026-08-16T18:47:27+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -92976,6 +92976,167 @@
         "log_growth_bytes": 5812,
         "fps": 10877.2,
         "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ],
+    "triage": "done",
+    "hardware_ready": false,
+    "verdict": "FAIL on both pre-registered conditions. Tangle CERT success_fraction never sustained >=0.7: it touched 0.75 twice in a row (24.1M/25.0M) but decayed to a 0.1875 trough at 28M and closed the 30M budget at 0.5, well under the win bar (win requires sustaining, not briefly touching). Independently, the retention floor the gate was protecting broke: the zero bucket (RSI-protected) read 1.0 four times through 24M then crashed to 0/16 at its final reading (29M), and bucket 10 crashed to 0/16 at BOTH of its last two readings (28M, 29M) right after reading 1.0 at 23-24M -- the same starvation signature any12 showed at 0.80 focus concentration, now appearing even with the DEFAULT curriculum mix restored (n=16 per reading, so 0/16 after a run of 1.0s is a real regression, not sampling noise). Per the pre-registered gate this CLOSES on-path-bank RSI for tangle (2nd new-mechanism miss on tangle, after 3 curriculum-weight misses any7/any11/any12) and escalates to a reward/BC-teacher-side redesign, which the gate text itself flags as an operator call. Root cause note for that redesign: the recover BC anchor is eligibility-gated OFF whenever the robot is not already near-upright/near-plant (08-15 anchor directive, by design), so it structurally cannot supervise the tangled-to-upright transition itself -- a real fix needs a tangle-specific reference or a relaxed eligibility gate, a design choice not another automatic exposure knob. any11 stays the recovery line's reference checkpoint (independently corroborated by MCP note fb_20260816T203228_bc9bad). No tangle-kind episode was captured in this run's periodic video reels (all logged reels landed on plant_catch/onefoot/crouch/partial kinds), so this verdict rests on the CERT/W&B numeric record, which is unambiguous on its own for a FAIL."
+  },
+  {
+    "run": "dynrep-tfwalk-joint1-C-s5",
+    "created": "2026-08-16T21:07:13+00:00",
+    "note": "Script-owned cohort (pod_tfwalk_joint.sh, manifest tfwalk-joint1_manifest.jsonl on-pod). Operator directive fb_20260816T203212_af7c64: corrected joint PPO+auxiliary condition C (code 60922150, tag exp/cw-dynrep-tfwalk-joint1). Rehearsal corpus = untouched v5_mjx_fresh on train-11 lineage; canonical aggregate sha256 (cat shard_*.npz, name order) a0bb722ecdd38ebb013ff8dcedf28edd6ffb38510e17e0f7fb570540c03a717a (directive's quoted 6762fe81... not reproducible - see OPERATOR_QUESTIONS q_20260816T2140Z).",
+    "status": "RUNNING",
+    "pod": "hexapod-mjx-train-11",
+    "track": "dynrep",
+    "phase": "behavioral",
+    "steps": 1000000,
+    "wandb_id": "uov23qlu",
+    "git_sha": "60922150bc390cadeb1add8686ba41a0cdc70b72",
+    "trainer": "train_ppo_transfer",
+    "proc_match": "dynrep-tfwalk-joint1-C-s5",
+    "wandb_match": "^dynrep-tfwalk-joint1-C-s5",
+    "log": "/workspace/prototype_sts3215/rl_move/dynamics/logs/pod_tfwalk_joint1_C_s5.log",
+    "pid": 3108089,
+    "hypothesis": "Teach the walking policy and its pretrained dynamics transformer TOGETHER, properly: after a 50k-step encoder-frozen head warmup, the future-state prediction loss trains INSIDE every PPO minibatch (same backward/optimizer, transformer at 0.1x LR) on fresh online rollout windows + 25% rehearsal from the recovered v5 corpus, with the total policy movement action-KL guarded (0.02 target / 0.04 rollback guard). Tests whether fixing the out-of-band anchor instability (metrics1-C: led at 1M, last at 2M, approx_kl 4x A/B) finally makes the pretrained representation beat frozen reuse (B) and scratch (A).",
+    "gate": "Matched triple at the PRE-REGISTERED 1M decision checkpoint (metrics1 seed-5 A/B reused at their 1M eval points; config equivalence mechanically verified vs W&B configs jf0tfsqh/psiz3y6x - identical trainer config except budget). Corrected C must: (1) preserve phase-1 heldout prediction quality (aux/heldout total ~within 15% of the pretrained start value on the corpus val split); (2) keep total action-KL of the combined update near the 0.02 target without late regression (guard rejections not saturating, aux not permanently stopped); (3) beat B on walk return AND gait quality (slip_m, peak_roll_deg, slew_sat) across seeds, with rise/hold retention + heldout DR rollouts reported. If corrected C cannot beat B across seeds: STOP adding complexity and record that conclusion. Extension past 1M only after this gate; best checkpoint selected by heldout walking eval, not final step.",
+    "checkups": [
+      {
+        "time": "2026-08-16T21:13:00+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 0,
+        "cpu_centisec_deltas": [
+          3022,
+          2631
+        ],
+        "note": "global_step flat in 45s window but trainer CPU busy \u2014 long-rollout iteration cadence, not a stall",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
+  },
+  {
+    "run": "dynrep-tfwalk-joint1-A-s6",
+    "created": "2026-08-16T21:07:13+00:00",
+    "note": "Script-owned cohort (pod_tfwalk_joint.sh, manifest tfwalk-joint1_manifest.jsonl on-pod). Operator directive fb_20260816T203212_af7c64: corrected joint PPO+auxiliary condition C (code 60922150, tag exp/cw-dynrep-tfwalk-joint1). Rehearsal corpus = untouched v5_mjx_fresh on train-11 lineage; canonical aggregate sha256 (cat shard_*.npz, name order) a0bb722ecdd38ebb013ff8dcedf28edd6ffb38510e17e0f7fb570540c03a717a (directive's quoted 6762fe81... not reproducible - see OPERATOR_QUESTIONS q_20260816T2140Z).",
+    "status": "RUNNING",
+    "pod": "hexapod-mjx-train-8",
+    "track": "dynrep",
+    "phase": "behavioral",
+    "steps": 1000000,
+    "wandb_id": "c58ft8qp",
+    "git_sha": "60922150bc390cadeb1add8686ba41a0cdc70b72",
+    "trainer": "train_ppo_transfer",
+    "proc_match": "dynrep-tfwalk-joint1-A-s6",
+    "wandb_match": "^dynrep-tfwalk-joint1-A-s6",
+    "log": "/workspace/prototype_sts3215/rl_move/dynamics/logs/pod_tfwalk_joint1_A_s6.log",
+    "pid": 4062805,
+    "hypothesis": "Scratch-control arm (no pretrained representation) of the corrected joint-PPO cohort: fresh PPO on raw stacked obs, new seed for the 3-seed panel; the reference the representation arms must beat. Config-matched to metrics1-A (reused as seed 5).",
+    "gate": "Matched triple at the PRE-REGISTERED 1M decision checkpoint (metrics1 seed-5 A/B reused at their 1M eval points; config equivalence mechanically verified vs W&B configs jf0tfsqh/psiz3y6x - identical trainer config except budget). Corrected C must: (1) preserve phase-1 heldout prediction quality (aux/heldout total ~within 15% of the pretrained start value on the corpus val split); (2) keep total action-KL of the combined update near the 0.02 target without late regression (guard rejections not saturating, aux not permanently stopped); (3) beat B on walk return AND gait quality (slip_m, peak_roll_deg, slew_sat) across seeds, with rise/hold retention + heldout DR rollouts reported. If corrected C cannot beat B across seeds: STOP adding complexity and record that conclusion. Extension past 1M only after this gate; best checkpoint selected by heldout walking eval, not final step.",
+    "checkups": [
+      {
+        "time": "2026-08-16T21:14:51+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 0,
+        "fps": 482.8,
+        "placement": "solo on GPU-MJX pod (dynrep trainer)",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
+  },
+  {
+    "run": "dynrep-tfwalk-joint1-A-s7",
+    "created": "2026-08-16T21:07:13+00:00",
+    "note": "Script-owned cohort (pod_tfwalk_joint.sh, manifest tfwalk-joint1_manifest.jsonl on-pod). Operator directive fb_20260816T203212_af7c64: corrected joint PPO+auxiliary condition C (code 60922150, tag exp/cw-dynrep-tfwalk-joint1). Rehearsal corpus = untouched v5_mjx_fresh on train-11 lineage; canonical aggregate sha256 (cat shard_*.npz, name order) a0bb722ecdd38ebb013ff8dcedf28edd6ffb38510e17e0f7fb570540c03a717a (directive's quoted 6762fe81... not reproducible - see OPERATOR_QUESTIONS q_20260816T2140Z).",
+    "status": "RUNNING",
+    "pod": "hexapod-mjx-train-9",
+    "track": "dynrep",
+    "phase": "behavioral",
+    "steps": 1000000,
+    "wandb_id": "3qqitw5h",
+    "git_sha": "60922150bc390cadeb1add8686ba41a0cdc70b72",
+    "trainer": "train_ppo_transfer",
+    "proc_match": "dynrep-tfwalk-joint1-A-s7",
+    "wandb_match": "^dynrep-tfwalk-joint1-A-s7",
+    "log": "/workspace/prototype_sts3215/rl_move/dynamics/logs/pod_tfwalk_joint1_A_s7.log",
+    "pid": 1643000,
+    "hypothesis": "Scratch-control arm (no pretrained representation) of the corrected joint-PPO cohort: fresh PPO on raw stacked obs, new seed for the 3-seed panel; the reference the representation arms must beat. Config-matched to metrics1-A (reused as seed 5).",
+    "gate": "Matched triple at the PRE-REGISTERED 1M decision checkpoint (metrics1 seed-5 A/B reused at their 1M eval points; config equivalence mechanically verified vs W&B configs jf0tfsqh/psiz3y6x - identical trainer config except budget). Corrected C must: (1) preserve phase-1 heldout prediction quality (aux/heldout total ~within 15% of the pretrained start value on the corpus val split); (2) keep total action-KL of the combined update near the 0.02 target without late regression (guard rejections not saturating, aux not permanently stopped); (3) beat B on walk return AND gait quality (slip_m, peak_roll_deg, slew_sat) across seeds, with rise/hold retention + heldout DR rollouts reported. If corrected C cannot beat B across seeds: STOP adding complexity and record that conclusion. Extension past 1M only after this gate; best checkpoint selected by heldout walking eval, not final step.",
+    "checkups": [
+      {
+        "time": "2026-08-16T21:15:40+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 0,
+        "fps": 591.6,
+        "placement": "solo on GPU-MJX pod (dynrep trainer)",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
+  },
+  {
+    "run": "dynrep-tfwalk-joint1-B-s6",
+    "created": "2026-08-16T21:07:14+00:00",
+    "note": "Script-owned cohort (pod_tfwalk_joint.sh, manifest tfwalk-joint1_manifest.jsonl on-pod). Operator directive fb_20260816T203212_af7c64: corrected joint PPO+auxiliary condition C (code 60922150, tag exp/cw-dynrep-tfwalk-joint1). Rehearsal corpus = untouched v5_mjx_fresh on train-11 lineage; canonical aggregate sha256 (cat shard_*.npz, name order) a0bb722ecdd38ebb013ff8dcedf28edd6ffb38510e17e0f7fb570540c03a717a (directive's quoted 6762fe81... not reproducible - see OPERATOR_QUESTIONS q_20260816T2140Z).",
+    "status": "RUNNING",
+    "pod": "hexapod-mjx-train-7",
+    "track": "dynrep",
+    "phase": "behavioral",
+    "steps": 1000000,
+    "wandb_id": "emhdcamd",
+    "git_sha": "60922150bc390cadeb1add8686ba41a0cdc70b72",
+    "trainer": "train_ppo_transfer",
+    "proc_match": "dynrep-tfwalk-joint1-B-s6",
+    "wandb_match": "^dynrep-tfwalk-joint1-B-s6",
+    "log": "/workspace/prototype_sts3215/rl_move/dynamics/logs/pod_tfwalk_joint1_B_s6.log",
+    "pid": 2367289,
+    "hypothesis": "Frozen-encoder arm of the corrected joint-PPO cohort: the G1/G1.1+G3-passing transformer feeds frozen latents to learning PPO heads for the whole run (a head warmup that never ends), new seed for the 3-seed panel. Config-matched to metrics1-B (reused as seed 5).",
+    "gate": "Matched triple at the PRE-REGISTERED 1M decision checkpoint (metrics1 seed-5 A/B reused at their 1M eval points; config equivalence mechanically verified vs W&B configs jf0tfsqh/psiz3y6x - identical trainer config except budget). Corrected C must: (1) preserve phase-1 heldout prediction quality (aux/heldout total ~within 15% of the pretrained start value on the corpus val split); (2) keep total action-KL of the combined update near the 0.02 target without late regression (guard rejections not saturating, aux not permanently stopped); (3) beat B on walk return AND gait quality (slip_m, peak_roll_deg, slew_sat) across seeds, with rise/hold retention + heldout DR rollouts reported. If corrected C cannot beat B across seeds: STOP adding complexity and record that conclusion. Extension past 1M only after this gate; best checkpoint selected by heldout walking eval, not final step.",
+    "checkups": [
+      {
+        "time": "2026-08-16T21:16:29+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 0,
+        "fps": 637.2,
+        "placement": "solo on GPU-MJX pod (dynrep trainer)",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
+  },
+  {
+    "run": "dynrep-tfwalk-joint1-B-s7",
+    "created": "2026-08-16T21:07:14+00:00",
+    "note": "Script-owned cohort (pod_tfwalk_joint.sh, manifest tfwalk-joint1_manifest.jsonl on-pod). Operator directive fb_20260816T203212_af7c64: corrected joint PPO+auxiliary condition C (code 60922150, tag exp/cw-dynrep-tfwalk-joint1). Rehearsal corpus = untouched v5_mjx_fresh on train-11 lineage; canonical aggregate sha256 (cat shard_*.npz, name order) a0bb722ecdd38ebb013ff8dcedf28edd6ffb38510e17e0f7fb570540c03a717a (directive's quoted 6762fe81... not reproducible - see OPERATOR_QUESTIONS q_20260816T2140Z).",
+    "status": "RUNNING",
+    "pod": "hexapod-mjx-train-3",
+    "track": "dynrep",
+    "phase": "behavioral",
+    "steps": 1000000,
+    "wandb_id": "temultp5",
+    "git_sha": "60922150bc390cadeb1add8686ba41a0cdc70b72",
+    "trainer": "train_ppo_transfer",
+    "proc_match": "dynrep-tfwalk-joint1-B-s7",
+    "wandb_match": "^dynrep-tfwalk-joint1-B-s7",
+    "log": "/workspace/prototype_sts3215/rl_move/dynamics/logs/pod_tfwalk_joint1_B_s7.log",
+    "pid": 658956,
+    "hypothesis": "Frozen-encoder arm of the corrected joint-PPO cohort: the G1/G1.1+G3-passing transformer feeds frozen latents to learning PPO heads for the whole run (a head warmup that never ends), new seed for the 3-seed panel. Config-matched to metrics1-B (reused as seed 5).",
+    "gate": "Matched triple at the PRE-REGISTERED 1M decision checkpoint (metrics1 seed-5 A/B reused at their 1M eval points; config equivalence mechanically verified vs W&B configs jf0tfsqh/psiz3y6x - identical trainer config except budget). Corrected C must: (1) preserve phase-1 heldout prediction quality (aux/heldout total ~within 15% of the pretrained start value on the corpus val split); (2) keep total action-KL of the combined update near the 0.02 target without late regression (guard rejections not saturating, aux not permanently stopped); (3) beat B on walk return AND gait quality (slip_m, peak_roll_deg, slew_sat) across seeds, with rise/hold retention + heldout DR rollouts reported. If corrected C cannot beat B across seeds: STOP adding complexity and record that conclusion. Extension past 1M only after this gate; best checkpoint selected by heldout walking eval, not final step.",
+    "checkups": [
+      {
+        "time": "2026-08-16T21:17:18+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 0,
+        "fps": 182.0,
+        "placement": "solo on GPU-MJX pod (dynrep trainer)",
         "verdict": "HEALTHY",
         "problems": []
       }
