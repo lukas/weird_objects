@@ -9,6 +9,55 @@ unresolved blockers between the robot and reliable joystick control.
 
 ## Now
 
+- **08-16 ~16:xx (triage cycle): `cw-recover-any11-rsi-scratch1` PASS —
+  RECOVER RSI genuinely generalizes to from-scratch protection; the
+  zero-bucket (flat-belly) wall is now SOLVED as a training recipe,
+  and the tangle wall gets its 2nd miss on curriculum-weight fixes.**
+  Genuinely from-scratch (any6's exact recipe, `recover_rsi_frac=0.5`
+  on kind `zero` from step 0), 40M budget. CERT frontier hit B11
+  (zero) at 12.1M steps and cleared it in <1M steps (promoted to B12
+  by 13.1M) — NO multi-cert stall, unlike any8/9/10's permanent
+  stalls (>27M steps stuck, three separate mechanisms). Frontier then
+  climbed cleanly through B12-14 and reached B15 (tangle+bank) by
+  21.1M, holding there through 40M — matching/beating any6/7's clean
+  pace. Harness eval confirms genuine capability, not an artifact:
+  det zero (b11) 1/1 `recover_success`, bank (b16... b15 bank kind)
+  1/1, video (recover_det_11, recover_det_16) shows real six-foot
+  settle from a fallen/awkward start, no flag-leg/stilt/park.
+  `tangle`/`tangle_deep` still fail (0/1 each) — this reconfirms the
+  EXACT same statistically-solid tangle wall any7 already named
+  (0.25-0.44 cert fraction band), now under a SECOND, differently-
+  mechanisms attempt (any7: bigger cert sample + more time; any11:
+  RSI + the current default spaced-replay sampler) — **two misses on
+  "exposure/curriculum-weight cracks tangle," closing that avenue
+  per the two-miss rule.** Secondary: a few early buckets (b0/1/2/9/
+  10) miss their single harness sample despite ~1.0 CERT history
+  throughout training — matches the already-named PPO-churn cert-
+  oscillation pattern, not new forgetting (video for b0/plant_catch
+  shows a stable, correctly-postured stance that simply never
+  crosses the strict consecutive-hold success threshold). `sto`
+  collapses to 0/18 across every bucket on both DR0 and own-cfg(0.1)
+  — matches the already-documented any4 action-noise/hold-criterion
+  artifact (video confirms a visually stable stance under noise,
+  just never holds the required consecutive ticks), not new
+  evidence. **Recovery line's best checkpoint is now `any11`**
+  (matches any6/7's frontier with RSI protection baked in from
+  scratch — the safer base for any future recover-line warm-start,
+  since it can never re-entrench the zero stall). One untried,
+  no-new-code lever launched same cycle as a genuine (not repeat)
+  test before calling tangle a NEW-MECHANISM-ONLY wall:
+  **`cw-recover-any12-hifocus-cont1`** (warm from any11, focus mass
+  pushed well above the ~0.50 both misses trained under —
+  `recover_focus_mix=0.80/recent=0.10/weak=0.05/uniform=0.05`, RSI
+  kept on for zero-safety, 20M budget) — if tangle still plateaus in
+  the same 0.25-0.44 band even at near-maximal frontier concentration,
+  that is the THIRD miss and definitively closes curriculum-weight
+  for tangle; the next lever would then be a genuinely new mechanism
+  (a tangle-specific on-path RSI bank harvested from successful
+  tangle-recovery rollouts, generalizing the rise-path RSI trick
+  beyond the belly->plant reference it's hardcoded to today) — CODE,
+  not yet built, named here for whichever cycle picks it up if
+  any12 also misses.
 - **08-16 ~13:xx (triage cycle): `cw-recover-any10-zerorsi-cont1` FAIL —
   RECOVER RSI does NOT rescue an already-stuck policy; the any8/any9
   stuck-lineage rescue is now CLOSED (no third warm-start).** Matched
