@@ -1268,6 +1268,34 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 default="zero")).split(",") if k.strip()]
             if kind in _rsi_kinds and float(self.rng.random()) < _rsi_f:
                 traj.recover_rsi = True
+        # RECOVER RSI, HARVESTED-BANK variant (08-16, tangle-wall
+        # mechanism fix after any7/any11/any12's 3rd matching miss on
+        # curriculum-weight): the ref-path mechanism above is
+        # hardcoded to the belly->plant rise trajectory (a single
+        # monotonic-height reference), which has no equivalent for
+        # tangle's non-monotonic untangling motion. This second,
+        # independent axis instead samples a spawn pose from a
+        # harvested bank of ON-PATH states from a checkpoint's OWN
+        # successful recoveries of the target kind
+        # (harvest_recover_rsi_bank.py), so a policy stuck on a hard
+        # kind practices from states partway through the motion that
+        # is already known to work sometimes, not just the family's
+        # raw start pose. Fully independent cfg keys/kind-list from
+        # the ref-path axis above (no interaction when the target
+        # kinds don't overlap); default frac 0.0 = off, bit-exact (no
+        # extra rng draw). `not traj.recover_rsi` keeps the two
+        # mechanisms mutually exclusive on a single episode if a kind
+        # is ever listed in both.
+        traj.recover_rsi_bank = False
+        _rsi_bank_f = float(cfg_get(self.cfg, "goal",
+                                    "recover_rsi_bank_frac", default=0.0))
+        if _rsi_bank_f > 0.0 and force is None and not traj.recover_rsi:
+            _rsi_bank_kinds = [k.strip() for k in str(cfg_get(
+                self.cfg, "goal", "recover_rsi_bank_kinds",
+                default="")).split(",") if k.strip()]
+            if (kind in _rsi_bank_kinds
+                    and float(self.rng.random()) < _rsi_bank_f):
+                traj.recover_rsi_bank = True
         return traj
 
     # ---- mode sequencing (goal.mode_seq; TRANSITIONS_DIRECTIVE item 1)
@@ -2745,15 +2773,21 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             # apply_recover_certification() from deterministic MJX passes.
             kind = getattr(self._goal_traj, "start_kind", "?")
             bucket = self.RECOVER_KIND_BUCKETS.get(kind, -1)
-            if getattr(self._goal_traj, "recover_rsi", False):
-                # RSI episodes (goal.recover_rsi_frac) practice
-                # ref-path waypoints, not the family's own start:
-                # keep them OUT of the rollout EMA/counters and the
+            if (getattr(self._goal_traj, "recover_rsi", False)
+                    or getattr(self._goal_traj, "recover_rsi_bank",
+                              False)):
+                # RSI episodes (ref-path goal.recover_rsi_frac OR
+                # harvested-bank goal.recover_rsi_bank_frac) practice
+                # on-path waypoints, not the family's own start: keep
+                # them OUT of the rollout EMA/counters and the
                 # C-trainer self-cert stats so no curriculum or
                 # diagnostic signal is inflated by easier on-path
-                # spawns. They log under their own _rsi suffix.
-                info[f"recover_episode_{kind}_rsi"] = 1.0
-                info[f"recover_success_{kind}_rsi"] = (
+                # spawns. Each logs under its own suffix.
+                suffix = ("_rsi" if getattr(self._goal_traj,
+                                            "recover_rsi", False)
+                         else "_rsibank")
+                info[f"recover_episode_{kind}{suffix}"] = 1.0
+                info[f"recover_success_{kind}{suffix}"] = (
                     1.0 if success else 0.0)
             else:
                 ema, n = self._rec_rollout_stats.get(kind, (0.5, 0))
@@ -2798,6 +2832,9 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         info["recover_success"] = 1.0 if success else 0.0
         info["recover_rsi_episode"] = (
             1.0 if getattr(self._goal_traj, "recover_rsi", False)
+            else 0.0)
+        info["recover_rsi_bank_episode"] = (
+            1.0 if getattr(self._goal_traj, "recover_rsi_bank", False)
             else 0.0)
         info["recover_min_load"] = float(np.min(x))
         info["recover_tilt_deg"] = tilt_deg

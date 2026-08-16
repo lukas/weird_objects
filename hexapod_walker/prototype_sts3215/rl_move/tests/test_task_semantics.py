@@ -4288,3 +4288,105 @@ def test_recover_rsi_stats_stay_clean():
     assert "zero" not in env._rec_stats, (
         "RSI episode polluted the self-cert stats for kind 'zero'")
     env.close()
+
+
+def _write_rsi_bank(tmp_path, n: int = 4) -> str:
+    """A tiny synthetic on-path bank for the harvested-bank RSI tests
+    below — small, safely-in-limits joint offsets, never real harvest
+    output (that's harvest_recover_rsi_bank.py's job, exercised
+    separately as an integration script, not unit-tested here)."""
+    rng = np.random.default_rng(0)
+    q = rng.uniform(-15.0, 15.0, size=(n, 18)) * DEG2RAD
+    path = tmp_path / "rsi_bank.npz"
+    np.savez(path, q_rad=q)
+    return str(path)
+
+
+def test_recover_rsi_bank_default_off_and_cert_purity(tmp_path):
+    """goal.recover_rsi_bank_frac: default off = the tangle family's
+    own spawn, bit-exact; a FORCED kind never carries the bank flag
+    even at frac=1.0 (CERT/eval purity, same contract as the ref-path
+    RSI above)."""
+    bank_path = _write_rsi_bank(tmp_path)
+    env = _make_recover_env(4, start="tangle")   # key absent
+    env.reset()
+    assert not getattr(env._goal_traj, "recover_rsi_bank", False), (
+        "bank RSI flag set without its cfg key")
+    env.close()
+
+    extra = {("goal", "recover_rsi_bank_frac"): 1.0,
+             ("goal", "recover_rsi_bank_kinds"): "tangle",
+             ("goal", "recover_rsi_bank_path"): bank_path}
+    env = _make_recover_env(5, start="tangle", extra=extra)  # forced
+    env.reset()
+    assert not getattr(env._goal_traj, "recover_rsi_bank", False), (
+        "bank RSI fired on a FORCED kind — CERT/eval purity broken")
+    env.close()
+
+
+def test_recover_rsi_bank_spawns_from_harvested_poses(tmp_path):
+    """goal.recover_rsi_bank_frac=1.0: naturally drawn tangle episodes
+    carry the bank flag (and only those, never a different kind); the
+    actual spawn pose is read back post-settle (same limp-sag
+    choreography as every other spawn path), so this checks the flag
+    plumbing, not an exact pre-settle pose match (see the ref-path
+    RSI test above for the same pattern)."""
+    bank_path = _write_rsi_bank(tmp_path)
+    extra = {("goal", "recover_rsi_bank_frac"): 1.0,
+             ("goal", "recover_rsi_bank_kinds"): "tangle",
+             ("goal", "recover_rsi_bank_path"): bank_path}
+    env = _make_recover_env(6, start="tangle", extra=extra)
+    env.force_recover_start = None
+    env._rec_active_n = 16          # unlock B0..B15 (tangle = bucket 15)
+    hits = 0
+    for _ in range(60):
+        env.reset()
+        kind = getattr(env._goal_traj, "start_kind", "")
+        if kind != "tangle":
+            assert not getattr(env._goal_traj, "recover_rsi_bank",
+                               False), (
+                f"bank RSI flag leaked onto kind {kind!r}")
+            continue
+        assert getattr(env._goal_traj, "recover_rsi_bank", False), (
+            "naturally drawn tangle episode missing the bank RSI flag "
+            "at frac=1.0")
+        assert env._tipped_applied, (
+            "bank RSI spawn did not go through the waypoint-placement "
+            "branch (_tipped_applied unset) — check sim_env dispatch")
+        hits += 1
+        if hits >= 5:
+            break
+    assert hits >= 2, f"tangle drawn only {hits} times with B15 unlocked"
+    env.close()
+
+
+def test_recover_rsi_bank_stats_stay_clean(tmp_path):
+    """A bank-RSI episode's outcome must never touch the rollout EMA/
+    counters or the C-trainer self-cert stats under the tangle kind —
+    it logs under its own _rsibank suffix, distinct from the ref-path
+    _rsi suffix."""
+    bank_path = _write_rsi_bank(tmp_path)
+    extra = {("goal", "recover_rsi_bank_frac"): 1.0,
+             ("goal", "recover_rsi_bank_kinds"): "tangle",
+             ("goal", "recover_rsi_bank_path"): bank_path}
+    env = _make_recover_env(7, start="tangle", extra=extra)
+    env.reset()
+    env._goal_traj.recover_rsi_bank = True   # forced kind: flag manually
+    act = q_rad_to_action(env.data.qpos[env._qadr].copy())
+    info = {}
+    for _ in range(env.episode_steps + 2):
+        _obs, _r, term, trunc, info = env.step(act)
+        if term or trunc:
+            break
+    assert term or trunc, "episode never ended"
+    assert info.get("recover_rsi_bank_episode") == 1.0
+    assert info.get("recover_rsi_episode") == 0.0, (
+        "bank RSI episode also set the ref-path RSI flag")
+    assert ("recover_episode_tangle_rsibank" in info
+            or "recover_success_tangle_rsibank" in info), (
+        "bank RSI episode did not log under its own _rsibank suffix")
+    assert "tangle" not in env._rec_rollout_counts, (
+        "bank RSI episode polluted the rollout counters for 'tangle'")
+    assert "tangle" not in env._rec_stats, (
+        "bank RSI episode polluted the self-cert stats for 'tangle'")
+    env.close()

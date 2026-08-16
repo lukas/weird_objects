@@ -982,6 +982,28 @@ class SimHexapodBalanceEnv(_GymBase):
         self._rec_bank_cache = bank
         return bank
 
+    def _recover_rsi_bank(self) -> np.ndarray | None:
+        """Harvested ON-PATH recover-mode poses for the harvested-bank
+        RSI variant (08-16, tangle-wall mechanism fix; see the
+        sim_env spawn branch and walk_task._sample_recover). Lazy-
+        loads the npz named by cfg goal.recover_rsi_bank_path (key
+        ``q_rad``, shape (K,18)); caches None when unset. Same
+        contract as _recover_start_bank / _walk_park_bank."""
+        if hasattr(self, "_rec_rsi_bank_cache"):
+            return self._rec_rsi_bank_cache
+        path = cfg_get(self.cfg, "goal", "recover_rsi_bank_path",
+                       default=None)
+        bank = None
+        if path:
+            arr = np.asarray(np.load(str(path))["q_rad"], dtype=float)
+            if arr.ndim != 2 or arr.shape[1] != N_JOINTS or len(arr) == 0:
+                raise ValueError(
+                    f"recover_rsi_bank_path {path}: expected "
+                    f"(K,{N_JOINTS}) q_rad, got {arr.shape}")
+            bank = arr
+        self._rec_rsi_bank_cache = bank
+        return bank
+
     def _rise_start_bank(self) -> np.ndarray | None:
         """Harvested settled lower-endpoint poses (08-14, post-lower
         rise exposure — SESSION_BULK_GATE's named boundary). Lazy-loads
@@ -1234,6 +1256,29 @@ class SimHexapodBalanceEnv(_GymBase):
             n, i0 = len(ref["q"]), int(ref["ramp_i0"])
             j = int(self.rng.integers(0, i0 + int(0.9 * (n - 1 - i0))))
             q_rsi = ref["q"][j] + self.rng.uniform(
+                -2.0, 2.0, N_JOINTS) * DEG2RAD
+            if self._ep_rand is not None:
+                q_rsi = q_rsi + self._ep_rand.start_offset_rad
+            self._tipped_applied = True
+            return self._clip_to_joint_limits(q_rsi)
+        # RECOVER RSI, HARVESTED-BANK variant (08-16, tangle-wall
+        # mechanism fix): spawn on a pose harvested from a checkpoint's
+        # OWN successful rollouts of the target kind
+        # (goal.recover_rsi_bank_path, built by
+        # harvest_recover_rsi_bank.py) instead of the belly->plant
+        # reference above, which has no equivalent for non-monotonic
+        # untangling motion. Flag set only by
+        # walk_task._sample_recover (goal.recover_rsi_bank_frac/
+        # _kinds, default off, forced CERT/eval kinds never carry it).
+        if (self._goal_traj is not None
+                and getattr(self._goal_traj, "mode", "") == "recover"
+                and getattr(self._goal_traj, "recover_rsi_bank", False)):
+            bank = self._recover_rsi_bank()
+            if bank is None:
+                raise ValueError("goal.recover_rsi_bank_frac needs "
+                                 "goal.recover_rsi_bank_path")
+            idx = int(self.rng.integers(0, len(bank)))
+            q_rsi = bank[idx] + self.rng.uniform(
                 -2.0, 2.0, N_JOINTS) * DEG2RAD
             if self._ep_rand is not None:
                 q_rsi = q_rsi + self._ep_rand.start_offset_rad

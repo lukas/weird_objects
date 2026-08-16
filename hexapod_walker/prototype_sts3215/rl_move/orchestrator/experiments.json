@@ -92796,7 +92796,7 @@
       "rl_move/sim/policies/ppo_goal_cw_recover_any11_rsi_scratch1.zip"
     ],
     "created": "2026-08-16T16:15:14+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -92826,6 +92826,24 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:hw nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-recover-any12-hifocus-cont1 --steps 20000000 --task joint_walk --goal-mix recover=1.0,walk=0.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0,quad=0.0 --n-envs 512 --n-steps 128 --batch-size 8192 --gamma 0.995 --gae-lambda 0.98 --episode-seconds 16 --dr-scale 0.1 --ent-coef 0.003 --no-canary --eval-every 1000000 --video-every 2000000 --seed 12 --cfg-set safety.max_roll_deg=185 --cfg-set safety.max_pitch_deg=185 --cfg-set goal.walk_obs_body_vel=2 --cfg-set reward.rise_ref_path=rl_move/sim/refs/rise_ref_belly2plant.npz --cfg-set train.bc_anchor_coef=1.0 --cfg-set train.bc_anchor_recover=1.0 --cfg-set goal.recover_start_bank=rl_move/sim/park_banks/footlow2_hard1_lower_endpoints_full.npz --cfg-set train.bc_anchor_foot_z=1.0 --cfg-set train.bc_anchor_foot_z_mm=3 --cfg-set train.bc_anchor_min_h_ahead_mm=15 --cfg-set train.bc_anchor_lookahead_s=0.5 --cfg-set goal.recover_admit_n=4 --cfg-set goal.recover_retreat_n=6 --cfg-set goal.recover_ema_beta=0.25 --cfg-set goal.recover_rsi_frac=0.5 --out-name ppo_goal_cw_recover_any12_hifocus_cont1 --impl warp --host-workers 24 --recover-cert-every 1000000 --recover-cert-envs 16 --recover-retention-buckets 3 --notes 'respec of cw-recover-any11-rsi-scratch1: Teach the fallen robot to untangle its own crossed legs more reliably, by dedicating far more training time to that specific case once the robot is already good at everything easier. any7 (bigger cert sample, more time) and any11 (RSI + the current default spaced-replay mix, ~50% mass on the frontier) both independently plateaued at the SAME tangle cert-fraction band (0.25-0.44) despite different mechanisms -- neither has ever tried genuinely MAXIMIZING frontier concentration beyond that default ~50% share. This arm warm-starts from any11 (zero-safe, already sitting at the B15 tangle/bank wall) and pushes recover_focus_mix 0.50->0.80 (recent 0.25->0.10, weak 0.15->0.05, uniform 0.10->0.05 -- coupled renormalization, RSI kept ON for zero-safety). Prediction-if-true: tangle CERT fraction breaks clearly above the 0.44 ceiling (>=0.7 sustained across >=2 late certs) within the 20M budget. Prediction-if-false: tangle plateaus again in the same ~0.25-0.44 band even at near-maximal concentration -- a THIRD miss that definitively closes curriculum-weight as a lever for tangle (any7, any11, any12 all independently capped at the same band) and names the next lever as a genuinely new mechanism: a tangle-specific on-path RSI bank harvested from successful tangle-recovery rollouts (generalizing the belly->plant RSI trick beyond its current hardcoded rise-path reference), which is CODE, not yet built.' --cfg-set goal.recover_focus_mix=0.80 --cfg-set goal.recover_recent_mix=0.10 --cfg-set goal.recover_weak_mix=0.05 --cfg-set goal.recover_uniform_mix=0.05 --init-from rl_move/sim/policies/ppo_goal_cw_recover_any11_rsi_scratch1.zip > /tmp/train_cw-recover-any12-hifocus-cont1.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-recover-any12-hifocus-cont1.log",
     "wandb_id": "93tlavwp",
-    "verified": "2026-08-16T16:18:13+00:00"
+    "verified": "2026-08-16T16:18:13+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-16T16:23:14+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 4773,
+        "cpu_centisec_deltas": [
+          2773,
+          2746
+        ],
+        "note": "global_step flat in 45s window but trainer CPU busy \u2014 long-rollout iteration cadence, not a stall",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ],
+    "triage": "done",
+    "hardware_ready": false,
+    "verdict": "FAIL, 3rd miss CLOSES curriculum-weight for tangle, plus a new harmful side effect. Frontier under recover_focus_mix=0.80 never even reached the tangle wall bucket (B15, tangle+bank) in the full 20M budget -- it stalled at B13 (tangle_mid) for the last 3M steps, TWO rungs behind any11's pace at a matched step count (any11 reached B15 by 21.1M from scratch with the default 0.50/0.25/0.15/0.10 mix). So near-maximal frontier concentration didn't just fail to crack tangle, it made overall ladder-climbing throughput WORSE -- reinforcing the closure rather than complicating it (3rd independent miss: any7, any11, any12). Bigger unplanned finding: buckets 0-10 retention broadly collapsed under the 80pct focus mass (final-cert gate_fraction 0.0 on b0/b1/b5/b6/b7, 0.125-0.1875 on b2/b8/b9 -- matches the harness det report, 7/11 early buckets 0/1) because RSI protection is wired only to the zero family and the remaining 20pct recent/weak/uniform mass cannot sustain 10 other buckets. any12 must NOT replace any11 as the recovery line reference checkpoint -- any11 remains best (it held buckets 0-10 solidly). Video confirms genuine capability, no exploit: zero and tangle_mid/tangle_mild det successes show real six-foot settles; tangle/tangle_deep/bank det failures show a genuine low-splay stall, not a cheat."
   }
 ]
