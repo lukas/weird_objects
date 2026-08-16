@@ -91988,7 +91988,19 @@
     "wandb_match": "^dynrep-tfwalk-metrics1-A-s5",
     "log": "/workspace/prototype_sts3215/rl_move/dynamics/logs/pod_tfwalk_metrics1_A.log",
     "hypothesis": "Scratch-control arm of the Transformer walking transfer rerun: PPO learns commanded-velocity walking from raw stacked obs with no pretrained encoder. Rerun of the gpu1 cohort at 2M steps (double the prior cutoff) with the full transfer-v2 rollout/SCORE metrics contract, so learning-curve shape past 1M is measurable.",
-    "gate": "Judged as a matched triple at 2M steps with full rollout metrics: (1) walk return / steps-to-threshold and gait-quality columns (slip_m, peak_roll_deg, slew_sat) A vs B vs C; (2) the explicit 2M-extension question - is C still improving past the prior 1M cutoff (rollout/reward_per_transition_ema and SCORE/walk_total_reward slope over the 1M-2M half)?; (3) rise/hold retention + heldout dynamics suites."
+    "gate": "Judged as a matched triple at 2M steps with full rollout metrics: (1) walk return / steps-to-threshold and gait-quality columns (slip_m, peak_roll_deg, slew_sat) A vs B vs C; (2) the explicit 2M-extension question - is C still improving past the prior 1M cutoff (rollout/reward_per_transition_ema and SCORE/walk_total_reward slope over the 1M-2M half)?; (3) rise/hold retention + heldout dynamics suites.",
+    "checkups": [
+      {
+        "time": "2026-08-16T04:40:11+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 282,
+        "fps": 500.6,
+        "placement": "solo on GPU-MJX pod (dynrep trainer)",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   },
   {
     "run": "dynrep-tfwalk-metrics1-B-s5",
@@ -92006,7 +92018,19 @@
     "wandb_match": "^dynrep-tfwalk-metrics1-B-s5",
     "log": "/workspace/prototype_sts3215/rl_move/dynamics/logs/pod_tfwalk_metrics1_B.log",
     "hypothesis": "Frozen-encoder arm: the exact G1/G1.1+G3-passing Transformer cw-dynrep-tf-state2-recovered1 (md5 9df48f68, identical on-pod) feeds frozen latents to PPO heads. Tests whether the pretrained dynamics representation beats scratch on walking at a 2M budget with full rollout metrics.",
-    "gate": "Judged as a matched triple at 2M steps with full rollout metrics: (1) walk return / steps-to-threshold and gait-quality columns (slip_m, peak_roll_deg, slew_sat) A vs B vs C; (2) the explicit 2M-extension question - is C still improving past the prior 1M cutoff (rollout/reward_per_transition_ema and SCORE/walk_total_reward slope over the 1M-2M half)?; (3) rise/hold retention + heldout dynamics suites."
+    "gate": "Judged as a matched triple at 2M steps with full rollout metrics: (1) walk return / steps-to-threshold and gait-quality columns (slip_m, peak_roll_deg, slew_sat) A vs B vs C; (2) the explicit 2M-extension question - is C still improving past the prior 1M cutoff (rollout/reward_per_transition_ema and SCORE/walk_total_reward slope over the 1M-2M half)?; (3) rise/hold retention + heldout dynamics suites.",
+    "checkups": [
+      {
+        "time": "2026-08-16T04:41:01+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 200,
+        "fps": 273.1,
+        "placement": "solo on GPU-MJX pod (dynrep trainer)",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   },
   {
     "run": "dynrep-tfwalk-metrics1-C-s5",
@@ -92024,6 +92048,18 @@
     "wandb_match": "^dynrep-tfwalk-metrics1-C-s5",
     "log": "/workspace/prototype_sts3215/rl_move/dynamics/logs/pod_tfwalk_metrics1_C.log",
     "hypothesis": "Anchored arm: the same pretrained Transformer fine-tunes at 0.1x LR with continued dynamics-loss anchor batches from the ORIGINAL recovered v5_mjx_fresh corpus (no recollection, no substitution). The 2M budget exists specifically to answer whether C is still learning past the prior 1M cutoff.",
-    "gate": "Judged as a matched triple at 2M steps with full rollout metrics: (1) walk return / steps-to-threshold and gait-quality columns (slip_m, peak_roll_deg, slew_sat) A vs B vs C; (2) the explicit 2M-extension question - is C still improving past the prior 1M cutoff (rollout/reward_per_transition_ema and SCORE/walk_total_reward slope over the 1M-2M half)?; (3) rise/hold retention + heldout dynamics suites."
+    "gate": "Judged as a matched triple at 2M steps with full rollout metrics: (1) walk return / steps-to-threshold and gait-quality columns (slip_m, peak_roll_deg, slew_sat) A vs B vs C; (2) the explicit 2M-extension question - is C still improving past the prior 1M cutoff (rollout/reward_per_transition_ema and SCORE/walk_total_reward slope over the 1M-2M half)?; (3) rise/hold retention + heldout dynamics suites.",
+    "checkups": [
+      {
+        "time": "2026-08-16T04:41:50+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 216,
+        "fps": 455.1,
+        "placement": "solo on GPU-MJX pod (dynrep trainer)",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   }
 ]
