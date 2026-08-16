@@ -9,6 +9,30 @@ unresolved blockers between the robot and reliable joystick control.
 
 ## Now
 
+- **08-16 ~10:1x (triage cycle): `cw-recover-any9-lessfocus-cont1` FAIL —
+  the SECOND miss on the curriculum-mass hypothesis, CLOSES that
+  avenue, plus a new retention regression.** De-concentrating replay
+  mass off the stuck B11 (zero/flat-belly) frontier (focus 0.50→0.20,
+  recent 0.25→0.35, uniform 0.10→0.30, warm-started from any8's exact
+  stuck checkpoint) did NOT unstick it: CERT bucket 11 success_fraction
+  went 0.25→0.25 (inherited) then flat 0.0 for the last 7/9 certs over
+  the full 20M budget, never reaching the pre-registered ≥0.5 bar —
+  frontier never promoted past B11. Video (recover_det_11) confirms a
+  genuine capability gap, not an exploit: robot stays flat/splayed on
+  its belly and trips over_current before rising — the same flat-
+  rise-stall pathology named elsewhere in the campaign. **Two misses
+  now on curriculum-mass (any8 concentrated, any9 diffuse), both FAIL
+  identically — the curriculum-mass avenue is CLOSED per the two-miss
+  rule; do not schedule a third mass resweep.** NEW, unpredicted
+  finding: the required buckets 0-10 ≥0.8 retention floor also broke —
+  crouch_mid (B6) dropped to 0.25 and crouch_deep (B7) to 0.0 at the
+  final CERT. Next lever named by the pre-registered gate: a
+  mechanism-level fix (targeted BC anchor exposure or a reward term
+  for the zero/flat-belly family), not another schedule tweak — this
+  needs new reward/env code, **flagged DIG-IN** rather than designed
+  here (see WAITING-ON). Universal-recovery's best result stays
+  any6/any7's plain-curriculum lineage (B15, tangle wall, bank
+  solved); no product baseline touched.
 - **08-16 ~08:1x (triage cycle): `cw-recover-any8-spacedreplay-scratch1`
   FAIL, WORSE than the pre-registered if-false branch predicted —
   spaced replay got permanently stuck THREE RUNGS SHORT of the
@@ -47,7 +71,18 @@ unresolved blockers between the robot and reliable joystick control.
   frontier mass share, or attack the zero-bucket flat-rise stall
   directly). The universal-recovery project's best result stays
   any6/any7's plain-curriculum lineage (B15, tangle wall, bank
-  solved); no product baseline touched.
+  solved); no product baseline touched. **Refilled same cycle:
+  `cw-recover-any9-lessfocus-cont1`** (warm-started from any8's exact
+  stuck checkpoint, not from scratch — 20M budget, VERIFIED RUNNING
+  train-9) tests the named suspect directly: ONE coupled change (the
+  4 spaced-replay mass shares must renormalize together) — focus
+  0.50→0.20 / recent 0.25→0.35 / weak 0.15 unchanged / uniform
+  0.10→0.30 — de-concentrating replay off the stuck B11 frontier.
+  Gate: bucket 11 CERT success_fraction must show a clear rise and
+  reach ≥0.5 in some late cert (vs any8's flat ~0.016 mean) AND
+  buckets 0-10 stay ≥0.8 retained, or the curriculum-mass hypothesis
+  is refuted and the next lever is mechanism-level (BC anchor /
+  reward term for the zero family), not a third mass resweep.
 - **08-16 ~06:3x (triage cycle): `cw-recover-any7-tangle-cont1` FAIL on
   its primary bar, but SHARPENS the any6 wall — bank is SOLVED,
   tangle specifically is a statistically solid wall.** Warm-started
