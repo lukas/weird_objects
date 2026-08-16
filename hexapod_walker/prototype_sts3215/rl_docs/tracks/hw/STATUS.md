@@ -9,6 +9,32 @@ unresolved blockers between the robot and reliable joystick control.
 
 ## Now
 
+- **08-16 ~12:xx (dig-in cycle): the zero-bucket (flat-belly) wall is
+  root-caused and the mechanism fix is TRAINING.** Dig-in on the any9
+  FAIL found the gap is start-distribution COVERAGE, not anchor
+  pressure or pricing: the recover BC anchor already fires everywhere
+  (eligible ~1.0) with a near-minimized loss (~0.05, no headroom), but
+  the ladder's partial_high/mid/low rungs are LINEAR joint blends
+  (f·q_crouch), NOT states on the executable belly→plant rise
+  trajectory — so a policy entrenched in the splay-to-low-crouch/
+  over-current local optimum never practices mid-rise states (the
+  exact exploration gap `goal.rise_rsi_frac` closed for the rise task
+  in the footlow2 lineage). The "retention regression" is cert-to-cert
+  OSCILLATION (crouch_deep 0.0→1.0→0.0, B10 0.06→0.94), i.e. PPO churn
+  from grinding a 0%-success frontier — secondary, not forgetting.
+  **Built this cycle: RECOVER RSI** (`goal.recover_rsi_frac` /
+  `recover_rsi_kinds`, default-off bit-exact; naturally drawn
+  zero-family episodes spawn on a random rise-reference row; forced
+  CERT/eval kinds never carry the flag so certification stays pure by
+  construction; RSI episodes excluded from rollout/self-cert stats;
+  `test_recover_rsi_*` + full RECOVER bank 24/24 green; snapshot
+  `a1994dee`, REWARD.md §4c row). **`cw-recover-any10-zerorsi-cont1`
+  VERIFIED RUNNING (train-1): matched A/B vs any9** — same stuck any8
+  checkpoint, same diffuse masses, same seed, ONE delta
+  (`recover_rsi_frac=0.5`, the footlow2-proven fraction). Gate: B11
+  pure-CERT ≥0.5 in a late cert + buckets 0-10 ≥0.8 at final cert;
+  FAIL closes the stuck-lineage rescue (no third warm-start) and
+  returns the line's frontier to any7's tangle wall.
 - **08-16 ~10:1x (triage cycle): `cw-recover-any9-lessfocus-cont1` FAIL —
   the SECOND miss on the curriculum-mass hypothesis, CLOSES that
   avenue, plus a new retention regression.** De-concentrating replay
