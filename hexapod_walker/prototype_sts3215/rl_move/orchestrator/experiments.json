@@ -91799,7 +91799,7 @@
       "8"
     ],
     "created": "2026-08-15T23:20:04+00:00",
-    "status": "RUNNING",
+    "status": "PASS",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -91828,6 +91828,21 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:hw nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-recover-any6-microbuckets-scratch1 --steps 40000000 --task joint_walk --goal-mix recover=1.0,walk=0.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0,quad=0.0 --n-envs 512 --n-steps 128 --batch-size 8192 --gamma 0.995 --gae-lambda 0.98 --episode-seconds 16 --dr-scale 0.1 --ent-coef 0.003 --no-canary --eval-every 1000000 --video-every 2000000 --seed 11 --cfg-set safety.max_roll_deg=185 --cfg-set safety.max_pitch_deg=185 --cfg-set goal.walk_obs_body_vel=2 --cfg-set reward.rise_ref_path=rl_move/sim/refs/rise_ref_belly2plant.npz --cfg-set train.bc_anchor_coef=1.0 --cfg-set train.bc_anchor_recover=1.0 --cfg-set goal.recover_start_bank=rl_move/sim/park_banks/footlow2_hard1_lower_endpoints_full.npz --cfg-set train.bc_anchor_foot_z=1.0 --cfg-set train.bc_anchor_foot_z_mm=3 --cfg-set train.bc_anchor_min_h_ahead_mm=15 --cfg-set train.bc_anchor_lookahead_s=0.5 --cfg-set goal.recover_admit_n=4 --cfg-set goal.recover_retreat_n=6 --cfg-set goal.recover_ema_beta=0.25 --out-name ppo_goal_cw_recover_any6_microbuckets_scratch1 --impl warp --host-workers 24 --notes 'respec of cw-recover-any5-mjxcert-scratch1: Teach the fallen robot to stand back up by climbing a ladder of 17 baby-step difficulty buckets instead of the old coarse ones; this arm tests whether removing the two difficulty cliffs the operator found (B4->B5 and B5->B6) lets a from-scratch policy climb past where any4/any5 stalled. OPERATOR-ORDERED (fb_20260815T230538_a6f8d2, commit 3d556232 '\"'\"'Refine recovery curriculum and bucket scores'\"'\"'): genuinely FROM SCRATCH \u2014 no --init-from, no obs-pad transplant, no checkpoint load of any kind; parent is recipe provenance only. Clones any5'\"'\"'s complete recover-only 40M Warp/MJX recipe (DR, BC anchor, safety, PPO, 1M deterministic MJX certification cadence with 8 cert envs, eval/video cadence, all MDP settings). New under 3d556232: micro-bucket ladder B0 plant_catch .. B16 flip; promotion authority is the literal latest deterministic held-out batch fraction per bucket (>=0.8 promotes, <0.2 retreats, episode minima; EMA never gates); exact stochastic training scores count EVERY terminal env as TRAIN/recover_bucket_N_success_fraction/_successes/_episodes; deterministic authority metrics are CERT/recover_bucket_N_success_fraction/_successes/_episodes. Prediction-if-true: CERT B0 fraction appears at ~1M with an 8-episode denominator, passes >=0.8, frontier promotes, and the ladder climbs smoothly past the old cliff region. Prediction-if-false: the fraction stalls at some rung with full denominators \u2014 which then names the true difficulty wall instead of a cliff artifact.' --recover-cert-every 1000000 --recover-cert-envs 8 > /tmp/train_cw-recover-any6-microbuckets-scratch1.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-recover-any6-microbuckets-scratch1.log",
     "wandb_id": "78xjmlov",
-    "verified": "2026-08-15T23:23:07+00:00"
+    "verified": "2026-08-15T23:23:07+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-15T23:28:24+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 4720,
+        "fps": 4369.1,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ],
+    "triage": "done",
+    "hardware_ready": false,
+    "verdict": "PASS on the pre-registered hypothesis: the micro-bucket curriculum (17 baby-step buckets, CERT-gated >=0.8/<0.2 promotion) climbed CLEANLY and legitimately from B0 to B15 by 22M/40M steps -- no B4/B5/B6-equivalent cliff, the exact artifact any4/any5 were built to diagnose is GONE. It held the B15 peak (tangle+bank) for 5 straight 1M-step certs (tangle 62.5-100%, bank 75-100%) before a single bank-kind cert crashed to 12.5% at 28M, triggering the designed retreat; the remaining ~12M steps oscillated B13-B14 (tangle_mid/deep, CERT fractions ~0.25-0.75, never resettling >=0.8) and finished at B13. Video (own-pod gate eval + training-video spot checks) shows genuine six-foot-loaded stable stands at low roll/pitch (roll_tail 0.1-0.3deg, height err ~0mm) on every bucket CERT certified, incl. tangle_mild/tangle_mid and bank -- no flag-leg/stilt/park exploit anywhere. NEW WALL NAMED for the next arm: tangle-family recovery (self-tangled legs, moderate-to-deep) plus the harvested bank pose subset is the real remaining difficulty, not a curriculum artifact -- still actively contested (not flatlined at 0) when the budget ran out. Evaluator note: the generic eval_checkpoint single-episode recover probe marks some already-at-target starts (crouch_shallow/mid/deep, zero) as non-success despite a visually perfect held stance (tilt <0.5deg, height err 0mm) through the whole 16s episode -- looks like a start-already-at-goal blind spot in that harness, not a policy regression; CERT (many-episode, training's own criterion) is the gate's designated authority and shows those families were legitimately mastered earlier. No SKILLS.md row: recover is not yet reliable/hardware-ready."
   }
 ]

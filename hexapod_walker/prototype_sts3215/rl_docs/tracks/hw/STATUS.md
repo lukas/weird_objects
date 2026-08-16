@@ -9,6 +9,25 @@ unresolved blockers between the robot and reliable joystick control.
 
 ## Now
 
+- **08-16 ~02:5x (triage cycle): micro-bucket curriculum CONFIRMED —
+  `cw-recover-any6-microbuckets-scratch1` PASSED its full 40M budget.**
+  The frontier climbed cleanly (every promotion CERT-gated ≥0.8, no
+  shortcuts) from B0 all the way to B15 by 22M/40M steps — the exact
+  B4/B5/B6 cliff any4/any5 were built to diagnose is GONE, and this is
+  the furthest the universal-recovery line has ever reached. It held
+  the B15 peak (tangle+bank) for 5 straight certs (tangle 62.5–100%,
+  bank 75–100%) before one bad bank-kind cert (12.5%) triggered the
+  designed retreat at 28M; the remaining ~12M steps oscillated B13–B14
+  (tangle_mid/deep, CERT ~0.25–0.75, never resettling ≥0.8), finishing
+  at B13. Video confirms genuine six-foot-loaded stable stands (roll
+  tail 0.1–0.3°, height err ~0mm) on every certified bucket incl.
+  tangle_mild/mid and bank — no flag-leg/stilt/park anywhere. NEW WALL
+  NAMED for the next arm: tangle-family recovery (self-tangled legs)
+  + the harvested bank poses, still actively contested (not
+  flatlined) when the budget ran out — a real capability gap, not a
+  curriculum artifact. Next: warm-start continuation from this
+  checkpoint targeting the tangle/bank wall specifically (see
+  `cw-recover-any7-tangle-cont1`, launched this cycle).
 - **08-15 ~23:1x (operator-kick cycle, fb_20260815T230538_a6f8d2):
   micro-bucket curriculum live.** Operator found B4→B5 and B5→B6
   were cliffs and replaced the coarse ladder with 17 baby-step
