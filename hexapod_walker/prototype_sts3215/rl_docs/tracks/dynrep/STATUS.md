@@ -1,5 +1,40 @@
 # dynrep — Dynamics-representation pretraining
 
+**08-16 ~21:xx UTC (operator-kick cycle, directive
+fb_20260816T203212_af7c64 executed): condition C REBUILT as a joint
+PPO+auxiliary update and the corrected 1M A/B/C cohort is the live
+test.** The directive's root-cause read of metrics1 is accepted: the
+old AnchorCb mutated the SHARED transformer out-of-band (multiple Adam
+steps between rollout collection and the PPO update), invalidating the
+old-policy/value assumptions — C's late regression came with approx_kl
+~0.085-0.089 vs A/B ~0.02 while the anchor loss stayed flat. Built and
+landed this cycle (`joint_aux.py`, `online_windows.py`, trainer rewire;
+`test_dynrep_joint_aux.py` 6/6 + all prior dynrep banks green + CPU
+end-to-end C smoke): transformer capacity unchanged; 50k encoder-frozen
+head warmup; future-state loss inside every PPO minibatch (same
+backward/optimizer, encoder 0.1x LR group); aux batches = online
+rollout windows (new capture wrapper, collector frame contract) + 25%
+rehearsal from the untouched v5_mjx_fresh corpus; total action-KL
+guard (target 0.02 / rollback guard 0.04 / stop after 3 consecutive
+rejections) with full rollback of params+optimizer; latent drift +
+accepted/rejected logging; heldout prediction quality re-measured on
+the corpus val split at every heldout eval; periodic checkpoints +
+best-by-heldout-walk retention. Out-of-band mutation now RAISES
+(bit-exact guard; regression test drives a rogue AnchorCb-style
+callback). Cohort `tfwalk-joint1` (runner `pod_tfwalk_joint.sh`):
+1M-step pre-registered decision checkpoint, seeds 5/6/7 for C, seeds
+6/7 for A/B; metrics1 seed-5 A/B reused at their 1M eval points
+(config-equivalent: same trainer defaults, same task/eval cadence/seed;
+A/B training paths untouched by the new code — verified by the A smoke
++ code inspection). Gate: corrected C must preserve phase-1 heldout
+prediction quality, keep total action-KL near target without late
+regression, and beat B on walk return + gait quality at 1M across
+seeds; if it cannot beat B, STOP adding complexity and record that.
+Corpus note: the directive's quoted aggregate SHA (6762fe81...) is not
+reproducible by any standard aggregation; identity established by
+provenance and a canonical hash recorded (OPERATOR_QUESTIONS
+q_20260816T2140Z).
+
 **08-16 ~06:3x UTC (triage cycle): the metrics1 matched triple landed
 and TRIAGED — first real behavioral verdict for the dynrep hypothesis,
 and it's a clean MISS.** All three `dynrep-tfwalk-metrics1-{A,B,C}-s5`

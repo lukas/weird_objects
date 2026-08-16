@@ -230,3 +230,28 @@ Entry format (append; newest last; update status in place):
   verified advancing on all three (86k/12k/49k at check).
 - ANSWER (operator): —
 - rulebook change: —
+
+## q_20260816T2140Z — OPEN
+- cycle: operator-kick 08-16 ~21:xx UTC (dynrep joint-PPO directive)
+- operator order: fb_20260816T203212_af7c64 — corrected dynrep joint-
+  PPO experiment; "reuse the recovered corpus whose aggregate SHA-256
+  is 6762fe81a069...f1c70cf0. Do NOT rerun the offline collector."
+- conflicted with: nothing procedural — but the quoted aggregate
+  SHA-256 is NOT reproducible: 8 aggregation variants over the 81
+  v5_mjx_fresh shards on train-11 (per-shard sha256 sorted/unsorted/
+  with names/with meta.json, cat-of-bytes in several orders) all
+  yield different digests; the method behind 6762fe81 was never
+  recorded in the repo (it entered via the 20260815T2212 order's gate
+  text).
+- why the cycle would have declined: could not literally verify the
+  quoted hash.
+- what was executed: the order's intent (SAME corpus, no recollection)
+  is satisfied by provenance instead: identical directory/shard set
+  used by cw-dynrep-tf-state2-recovered1 pretraining and the
+  metrics1-C anchors, shard mtimes untouched since 08-15 19:03-19:46
+  UTC (pre-dating both). Recorded a CANONICAL reproducible aggregate
+  in the new ledger entries for future bit-exact checks:
+  `cat shard_*.npz | sha256sum` (shard name order) =
+  a0bb722ecdd38ebb013ff8dcedf28edd6ffb38510e17e0f7fb570540c03a717a.
+- ANSWER (operator): _pending_
+- rulebook change: _pending_

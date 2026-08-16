@@ -6,13 +6,23 @@ variable is where the policy's representation comes from
 
     A  scratch    MlpPolicy on the raw stacked obs (H=16 frames)
     B  frozen     pretrained dyn encoder (dyn_v2_obs) -> frozen z ->
-                  policy/value heads learn
-    C  anchored   as B, but the encoder fine-tunes at a scaled-down LR
-                  AND keeps training on the predictive objective: after
-                  every rollout a few dynamics-loss steps on the
-                  OFFLINE pretraining dataset anchor the encoder
-                  (v1 approximation of L_total = L_PPO + lambda*L_dyn;
-                  an online-window anchor is a documented follow-up).
+                  policy/value heads learn (the heads' entire run IS
+                  the head warmup: the encoder never unfreezes)
+    C  joint-aux  pretrained encoder, brief encoder-frozen head warmup,
+                  then PPO actor/value/transformer train JOINTLY: the
+                  future-state auxiliary loss joins every PPO minibatch
+                  (same backward/optimizer step; transformer in a
+                  scaled-LR param group), on online rollout windows
+                  with 20-30% rehearsal from the pretraining corpus,
+                  with a total action-KL guard (rollback/stop on
+                  breach). This is L_total = L_PPO + coef*L_dyn done
+                  properly — the retired v1 "AnchorCb" mechanism
+                  (out-of-band Adam steps on the shared transformer
+                  between rollout collection and the PPO update) was
+                  measured harmful (metrics1: C led at 1M, regressed to
+                  last at 2M, approx_kl 4x A/B) and is now impossible:
+                  JointAuxPPO raises if the shared transformer changes
+                  out-of-band (fb_20260816T203212_af7c64).
 
 Local pilot tasks (Mac-scale budgets; the brief's walk/yaw tasks need
 pod-scale steps): "hold" (quiet plant stance) then "lower" (controlled
@@ -136,8 +146,10 @@ def _init_wandb(args):
     condition_blurb = {
         "A": "A=scratch (MlpPolicy on raw stacked obs, no encoder)",
         "B": "B=frozen pretrained dyn encoder, policy/value heads learn",
-        "C": ("C=anchored: encoder fine-tunes at scaled-down LR + "
-              "offline dynamics-loss anchor steps after every rollout"),
+        "C": ("C=joint-aux: pretrained encoder + head warmup, then the "
+              "future-state auxiliary loss trains INSIDE every PPO "
+              "minibatch (online rollout windows + rehearsal mix, "
+              "scaled encoder LR, total action-KL guard with rollback)"),
     }.get(args.condition.upper(), f"condition {args.condition}")
     run = wandb.init(
         entity=os.environ.get("WANDB_ENTITY", WANDB_ENTITY_DEFAULT),
@@ -170,14 +182,21 @@ def _init_wandb(args):
             "encoder": args.encoder,
             "encoder_lr_scale": args.encoder_lr_scale,
             "anchor_data": args.anchor_data,
-            "anchor_batches": args.anchor_batches,
-            "anchor_batch_size": args.anchor_batch_size,
+            "head_warmup_steps": args.head_warmup_steps,
+            "aux_coef": args.aux_coef,
+            "aux_batch_size": args.aux_batch_size,
+            "rehearsal_frac": args.rehearsal_frac,
+            "aux_kl_target": args.aux_kl_target,
+            "aux_kl_guard": args.aux_kl_guard,
+            "aux_stop_after": args.aux_stop_after,
+            "online_buffer_frames": args.online_buffer_frames,
+            "checkpoint_every": args.checkpoint_every,
             "device": args.device,
             "init_from": args.init_from,
             "eval_every": args.eval_every,
             "eval_tasks": args.eval_tasks,
             "eval_heldout": args.eval_heldout,
-            "metrics_contract": "transfer-v2",
+            "metrics_contract": "transfer-v3-jointaux",
         },
         sync_tensorboard=True,
     )
@@ -239,9 +258,15 @@ def _term_penalty_wrapper(env, penalty: float):
 
 
 def _env_factory(task: str, seed: int, dr_scale: float,
-                 episode_seconds: float, term_penalty: float):
+                 episode_seconds: float, term_penalty: float,
+                 capture_windows: bool = False):
     def _make():
         env = make_task_env(task, seed, dr_scale, episode_seconds)
+        if capture_windows:
+            # Condition C: record collector-contract episodes so the
+            # auxiliary objective trains on FRESH on-policy windows.
+            from rl_move.dynamics.online_windows import OnlineEpisodeCapture
+            env = OnlineEpisodeCapture(env, dr_scale)
         if term_penalty > 0.0:
             env = _term_penalty_wrapper(env, term_penalty)
         return env
@@ -493,9 +518,37 @@ def main() -> None:
     ap.add_argument("--lr", type=float, default=3e-4)
     ap.add_argument("--encoder-lr-scale", type=float, default=0.1)
     ap.add_argument("--anchor-data",
-                    default="rl_move/dynamics/datasets/v2")
-    ap.add_argument("--anchor-batches", type=int, default=4)
-    ap.add_argument("--anchor-batch-size", type=int, default=256)
+                    default="rl_move/dynamics/datasets/v2",
+                    help="pretraining corpus: rehearsal mix source + "
+                         "heldout prediction reference (condition C)")
+    ap.add_argument("--head-warmup-steps", type=int, default=50_000,
+                    help="condition C: encoder-frozen steps so the "
+                         "actor/value heads learn to consume the "
+                         "pretrained latent before joint training")
+    ap.add_argument("--aux-coef", type=float, default=1.0,
+                    help="weight of the future-state auxiliary loss "
+                         "inside each PPO minibatch loss")
+    ap.add_argument("--aux-batch-size", type=int, default=256)
+    ap.add_argument("--rehearsal-frac", type=float, default=0.25,
+                    help="fraction of each auxiliary batch drawn from "
+                         "the pretraining corpus (directive: 20-30%%); "
+                         "the rest is fresh online rollout windows")
+    ap.add_argument("--aux-kl-target", type=float, default=0.02,
+                    help="logged reference for total post-update "
+                         "action KL of the combined PPO+aux update")
+    ap.add_argument("--aux-kl-guard", type=float, default=0.04,
+                    help="reject/rollback threshold on total "
+                         "post-update action KL while aux is active")
+    ap.add_argument("--aux-stop-after", type=int, default=3,
+                    help="consecutive rejected updates before the "
+                         "auxiliary objective stops permanently")
+    ap.add_argument("--online-buffer-frames", type=int, default=120_000,
+                    help="FIFO capacity (frames) of the online rollout "
+                         "window buffer")
+    ap.add_argument("--checkpoint-every", type=int, default=250_000,
+                    help="periodic checkpoint cadence in steps (0 "
+                         "disables); best-by-heldout-walk checkpoint "
+                         "is always kept when --eval-heldout is on")
     ap.add_argument("--device", choices=("cuda", "cpu"), default="cuda",
                     help="torch device; defaults to CUDA and never silently "
                          "falls back to CPU")
@@ -509,9 +562,13 @@ def main() -> None:
     from stable_baselines3.common.vec_env import SubprocVecEnv, VecMonitor
 
     from rl_move.dynamics import data as dd
+    from rl_move.dynamics.joint_aux import (
+        AuxConfig, JointAuxPPO, priv_group_metrics,
+    )
     from rl_move.dynamics.model import dynamics_loss
+    from rl_move.dynamics.online_windows import OnlineWindowBuffer
     from rl_move.dynamics.sb3_encoder import (
-        DynFeaturesExtractor, ScaledLRPPO, set_group_lrs,
+        DynFeaturesExtractor, set_group_lrs,
     )
 
     device = require_torch_device(torch, args.device)
@@ -523,9 +580,11 @@ def main() -> None:
     wandb_run = _init_wandb(args)
 
     torch.set_num_threads(2)
+    capture = args.condition == "C"
     venv = VecMonitor(SubprocVecEnv(
         [_env_factory(args.task, args.seed * 1000 + i, args.dr_scale,
-                      args.episode_seconds, args.term_penalty)
+                      args.episode_seconds, args.term_penalty,
+                      capture_windows=capture)
          for i in range(args.n_envs)]))
 
     common = dict(
@@ -542,7 +601,7 @@ def main() -> None:
                                        log_std_init=-1.0), **common)
     else:
         freeze = args.condition == "B"
-        cls = PPO if freeze else ScaledLRPPO
+        cls = PPO if freeze else JointAuxPPO
         model = cls("MlpPolicy", venv, policy_kwargs=dict(
             net_arch=[128, 128], log_std_init=-1.0,
             features_extractor_class=DynFeaturesExtractor,
@@ -593,6 +652,13 @@ def main() -> None:
     csv_w.writeheader()
     t0 = time.time()
     anchor_state = {"loss": float("nan")}
+    # Best-checkpoint selection (directive: retain/select the winning
+    # checkpoint by HELDOUT walking evaluation, not the final step).
+    best_state = {"score": float("-inf"), "step": -1}
+    best_path = MODEL_DIR / f"ppo_{args.name}_best.zip"
+    # Condition C fills this with its heldout-prediction closure so the
+    # phase-1 predictor-quality reference is measured alongside RL evals.
+    aux_ctx: dict = {}
 
     def run_evals(step: int, heldout: bool = False):
         row = {"step": step, "wall_s": round(time.time() - t0, 1),
@@ -601,6 +667,7 @@ def main() -> None:
             m = eval_task(model, t, args.eval_episodes, args.dr_scale,
                           args.episode_seconds)
             row.update({f"{t}/{k}": round(v, 4) for k, v in m.items()})
+        heldout_score = None
         if heldout:
             for name, ho_dr, ho_over in HELDOUT_SUITES:
                 m = eval_task(model, args.task, args.eval_episodes,
@@ -608,6 +675,17 @@ def main() -> None:
                               dr_overrides=ho_over)
                 row.update({f"{args.task}@{name}/{k}": round(m[k], 4)
                             for k in heldout_metrics})
+            heldout_score = float(np.mean(
+                [row[f"{args.task}@{name}/return"]
+                 for name, _, _ in HELDOUT_SUITES]))
+            if heldout_score > best_state["score"]:
+                best_state.update(score=heldout_score, step=step)
+                model.save(str(best_path))
+                print(f"  new best heldout-{args.task} checkpoint @ "
+                      f"{step}: {heldout_score:.1f} -> {best_path.name}")
+        heldout_pred = (aux_ctx["heldout_pred"]()
+                        if heldout and aux_ctx.get("heldout_pred")
+                        else None)
         csv_w.writerow(row)
         csv_f.flush()
         if wandb_run is not None:
@@ -617,6 +695,15 @@ def main() -> None:
                    if key not in ("step", "anchor_loss")},
                 "anchor/loss": row["anchor_loss"],
             }
+            if heldout_score is not None:
+                payload["eval/heldout_walk_score"] = heldout_score
+                payload["eval/best_heldout_walk_score"] = (
+                    best_state["score"])
+                payload["eval/best_heldout_walk_step"] = (
+                    best_state["step"])
+            if heldout_pred is not None:
+                payload.update({f"aux/heldout/{k}": v
+                                for k, v in heldout_pred.items()})
             for task in eval_tasks:
                 payload[f"SCORE/{task}_total_reward"] = row[
                     f"{task}/return"]
@@ -627,14 +714,17 @@ def main() -> None:
             f"{t} ret={row[f'{t}/return']:.1f} "
             f"term={row[f'{t}/early_term_rate']:.2f}" for t in eval_tasks)
             + ("  [+heldout]" if heldout else "")
-            + (f"  anchor={anchor_state['loss']:.3f}"
-               if args.condition == "C" else ""))
+            + (f"  aux_train_total={anchor_state['loss']:.3f}"
+               if args.condition == "C" else "")
+            + (f"  heldout_pred_total={heldout_pred['total']:.3f}"
+               if heldout_pred else ""))
 
     class EvalCb(BaseCallback):
         def __init__(self):
             super().__init__()
             self._next = args.eval_every
             self._next_ho = args.heldout_every
+            self._next_ck = args.checkpoint_every
 
         def _on_step(self) -> bool:
             if self.num_timesteps >= self._next:
@@ -644,6 +734,18 @@ def main() -> None:
                 self._next += args.eval_every
                 if ho:
                     self._next_ho += args.heldout_every
+            if args.checkpoint_every > 0 and (
+                    self.num_timesteps >= self._next_ck):
+                ck = MODEL_DIR / (f"ppo_{args.name}_"
+                                  f"ck{self.num_timesteps}.zip")
+                self.model.save(str(ck))
+                self._next_ck += args.checkpoint_every
+                # Keep the newest 3 periodic checkpoints (best/final
+                # zips live under different names and are never pruned).
+                cks = sorted(MODEL_DIR.glob(f"ppo_{args.name}_ck*.zip"),
+                             key=lambda p: int(p.stem.rsplit("ck", 1)[1]))
+                for old in cks[:-3]:
+                    old.unlink()
             return True
 
     class RolloutMetricsCb(BaseCallback):
@@ -715,56 +817,78 @@ def main() -> None:
                               weights_only=False)
         stats = dd.Stats.from_dict(enc_ckpt["stats"])
         dyn = model.policy.features_extractor.dyn
-        sampler = dd.WindowSampler(eps, stats, HISTORY, dyn.horizons,
-                                   val=False, seed=args.seed)
-        lambdas = {"joint_pos": 1.0, "joint_vel": 1.0, "imu": 1.0,
-                   "contact": 0.5, "latent": 1.0,
-                   "priv_current": 0.25, "priv_future": 0.25}
-        anchor_opt = torch.optim.Adam(
-            dyn.parameters(), lr=args.lr * args.encoder_lr_scale)
+        aux_cfg = AuxConfig(
+            coef=args.aux_coef, batch_size=args.aux_batch_size,
+            rehearsal_frac=args.rehearsal_frac,
+            warmup_steps=args.head_warmup_steps,
+            kl_target=args.aux_kl_target, kl_guard=args.aux_kl_guard,
+            stop_after=args.aux_stop_after)
+        rehearsal = dd.WindowSampler(eps, stats, HISTORY, dyn.horizons,
+                                     val=False, seed=args.seed)
+        heldout_sampler = dd.WindowSampler(eps, stats, HISTORY,
+                                           dyn.horizons, val=True,
+                                           seed=args.seed)
+        online_buf = OnlineWindowBuffer(
+            stats, HISTORY, dyn.horizons,
+            max_frames=args.online_buffer_frames, seed=args.seed)
 
-        class AnchorCb(BaseCallback):
-            """Continue the predictive objective on the offline
-            dataset after every PPO rollout (task-independent anchor
-            for the shared encoder)."""
+        def aux_sink(payload: dict, step: int) -> None:
+            anchor_state["loss"] = payload.get(
+                "aux/train/total", anchor_state["loss"])
+            if wandb_run is not None:
+                wandb_run.log({"global_step": step, **payload,
+                               "anchor/loss": anchor_state["loss"]})
+
+        model.configure_aux(aux_cfg, online_buf, rehearsal,
+                            anchor_batch_to_torch, metrics_sink=aux_sink)
+
+        def heldout_pred() -> dict:
+            """Phase-1 predictor quality on the corpus VAL split (the
+            gate: joint training must not degrade heldout prediction)."""
+            dyn.eval()
+            sums: dict[str, float] = {}
+            n = 0
+            with torch.no_grad():
+                for b in heldout_sampler.val_batches(
+                        1024, args.aux_batch_size):
+                    bt = anchor_batch_to_torch(b, device=device)
+                    out = dyn(bt["hist"], bt["fut_actions"])
+                    _, logs = dynamics_loss(out, bt, aux_cfg.lambdas, dyn)
+                    logs.update(priv_group_metrics(out, bt, prefix=""))
+                    for k, v in logs.items():
+                        sums[k] = sums.get(k, 0.0) + v
+                    n += 1
+            dyn.train()
+            return {k: v / max(n, 1) for k, v in sums.items()}
+
+        aux_ctx["heldout_pred"] = heldout_pred
+
+        class OnlineWindowCb(BaseCallback):
+            """Harvest captured episodes from env infos into the
+            online window buffer (main-process side of the capture)."""
 
             def _on_training_start(self) -> None:
-                # Loss of the untouched pretrained model — if this is
-                # far above the pretraining val total, the checkpoint
-                # or normalization wiring is wrong.
-                with torch.no_grad():
-                    b = sampler.batch(args.anchor_batch_size)
-                    bt = anchor_batch_to_torch(b, device=device)
-                    out = dyn(bt["hist"], bt["fut_actions"])
-                    loss, _ = dynamics_loss(out, bt, lambdas, dyn)
-                print(f"  anchor loss at start (pretrained, untouched): "
-                      f"{float(loss):.3f}")
+                # Loss of the untouched pretrained model on the corpus
+                # val split — if far above the pretraining val total,
+                # the checkpoint or normalization wiring is wrong.
+                ref = heldout_pred()
+                print(f"  heldout pred loss at start (pretrained, "
+                      f"untouched): {ref['total']:.3f}")
                 if wandb_run is not None:
-                    wandb_run.log({"global_step": 0,
-                                   "anchor/pretrained_loss": float(loss)})
-
-            def _on_rollout_end(self) -> None:
-                dyn.train()
-                losses = []
-                for _ in range(args.anchor_batches):
-                    b = sampler.batch(args.anchor_batch_size)
-                    bt = anchor_batch_to_torch(b, device=device)
-                    out = dyn(bt["hist"], bt["fut_actions"])
-                    loss, _ = dynamics_loss(out, bt, lambdas, dyn)
-                    anchor_opt.zero_grad()
-                    loss.backward()
-                    torch.nn.utils.clip_grad_norm_(dyn.parameters(), 1.0)
-                    anchor_opt.step()
-                    losses.append(float(loss.detach()))
-                anchor_state["loss"] = float(np.mean(losses))
-                if wandb_run is not None:
-                    wandb_run.log({"global_step": self.num_timesteps,
-                                   "anchor/loss": anchor_state["loss"]})
+                    wandb_run.log({
+                        "global_step": 0,
+                        "anchor/pretrained_loss": ref["total"],
+                        **{f"aux/heldout/{k}": v for k, v in ref.items()},
+                    })
 
             def _on_step(self) -> bool:
+                for info in self.locals.get("infos", ()):
+                    ep = info.get("dynrep_episode")
+                    if ep is not None:
+                        online_buf.add_episode(ep)
                 return True
 
-        callbacks.append(AnchorCb())
+        callbacks.append(OnlineWindowCb())
 
     run_evals(0, heldout=args.eval_heldout)
     model.learn(total_timesteps=args.steps, callback=callbacks,
