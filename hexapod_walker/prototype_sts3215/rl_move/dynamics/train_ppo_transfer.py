@@ -177,10 +177,13 @@ def _init_wandb(args):
             "eval_every": args.eval_every,
             "eval_tasks": args.eval_tasks,
             "eval_heldout": args.eval_heldout,
+            "metrics_contract": "transfer-v2",
         },
         sync_tensorboard=True,
     )
     run.define_metric("eval/*", step_metric="global_step", summary="last")
+    run.define_metric("SCORE/*", step_metric="global_step", summary="last")
+    run.define_metric("rollout/*", step_metric="global_step", summary="last")
     run.define_metric("anchor/*", step_metric="global_step", summary="last")
     metadata = {"id": run.id, "url": run.url, "name": args.name,
                 "wandb_name": f"{args.name}.{attempt}"}
@@ -420,6 +423,37 @@ def require_torch_device(torch, requested: str):
     return device
 
 
+def rollout_metrics_payload(
+        ep_info_buffer, *, reward_sum: float, reward_count: int,
+        reward_sum_cumulative: float, reward_count_cumulative: int,
+        reward_ema: float | None, episodes_completed: int,
+        early_terminations: int, time_limit_truncations: int) -> dict:
+    """Build the campaign-standard rollout metrics for one PPO rollout."""
+    payload = {}
+    if reward_count:
+        payload["rollout/reward_per_transition"] = (
+            reward_sum / reward_count)
+    if reward_count_cumulative:
+        payload["rollout/reward_per_transition_cumulative"] = (
+            reward_sum_cumulative / reward_count_cumulative)
+    if reward_ema is not None:
+        payload["rollout/reward_per_transition_ema"] = reward_ema
+    if ep_info_buffer:
+        payload["rollout/ep_rew_mean"] = float(np.mean(
+            [episode["r"] for episode in ep_info_buffer]))
+        payload["rollout/ep_len_mean"] = float(np.mean(
+            [episode["l"] for episode in ep_info_buffer]))
+    payload["rollout/episodes_completed"] = episodes_completed
+    payload["rollout/early_terminations"] = early_terminations
+    payload["rollout/time_limit_truncations"] = time_limit_truncations
+    if episodes_completed:
+        payload["rollout/early_term_rate"] = (
+            early_terminations / episodes_completed)
+        payload["rollout/time_limit_rate"] = (
+            time_limit_truncations / episodes_completed)
+    return payload
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--condition", required=True, choices=("A", "B", "C"))
@@ -472,7 +506,7 @@ def main() -> None:
     import torch
     from stable_baselines3 import PPO
     from stable_baselines3.common.callbacks import BaseCallback
-    from stable_baselines3.common.vec_env import SubprocVecEnv
+    from stable_baselines3.common.vec_env import SubprocVecEnv, VecMonitor
 
     from rl_move.dynamics import data as dd
     from rl_move.dynamics.model import dynamics_loss
@@ -489,10 +523,10 @@ def main() -> None:
     wandb_run = _init_wandb(args)
 
     torch.set_num_threads(2)
-    venv = SubprocVecEnv(
+    venv = VecMonitor(SubprocVecEnv(
         [_env_factory(args.task, args.seed * 1000 + i, args.dr_scale,
                       args.episode_seconds, args.term_penalty)
-         for i in range(args.n_envs)])
+         for i in range(args.n_envs)]))
 
     common = dict(
         n_steps=256, batch_size=min(2048, 256 * args.n_envs),
@@ -577,12 +611,18 @@ def main() -> None:
         csv_w.writerow(row)
         csv_f.flush()
         if wandb_run is not None:
-            wandb_run.log({
+            payload = {
                 "global_step": step,
                 **{f"eval/{key}": value for key, value in row.items()
                    if key not in ("step", "anchor_loss")},
                 "anchor/loss": row["anchor_loss"],
-            })
+            }
+            for task in eval_tasks:
+                payload[f"SCORE/{task}_total_reward"] = row[
+                    f"{task}/return"]
+                payload[f"SCORE/{task}_early_term_rate"] = row[
+                    f"{task}/early_term_rate"]
+            wandb_run.log(payload)
         print(f"  eval @ {step}: " + "  ".join(
             f"{t} ret={row[f'{t}/return']:.1f} "
             f"term={row[f'{t}/early_term_rate']:.2f}" for t in eval_tasks)
@@ -606,7 +646,68 @@ def main() -> None:
                     self._next_ho += args.heldout_every
             return True
 
-    callbacks = [EvalCb()]
+    class RolloutMetricsCb(BaseCallback):
+        """Log the actual PPO signal and completed-episode outcomes."""
+
+        def __init__(self):
+            super().__init__()
+            self._reward_sum = 0.0
+            self._reward_count = 0
+            self._reward_sum_cumulative = 0.0
+            self._reward_count_cumulative = 0
+            self._reward_ema = None
+            self._episodes_completed = 0
+            self._early_terminations = 0
+            self._time_limit_truncations = 0
+
+        def _on_step(self) -> bool:
+            rewards = self.locals.get("rewards")
+            if rewards is not None:
+                values = np.asarray(rewards, dtype=np.float64)
+                self._reward_sum += float(values.sum())
+                self._reward_count += int(values.size)
+            dones = self.locals.get("dones")
+            infos = self.locals.get("infos")
+            if dones is not None and infos is not None:
+                for done, info in zip(dones, infos):
+                    if not done:
+                        continue
+                    self._episodes_completed += 1
+                    if info.get("TimeLimit.truncated", False):
+                        self._time_limit_truncations += 1
+                    else:
+                        self._early_terminations += 1
+            return True
+
+        def _on_rollout_end(self) -> None:
+            self._reward_sum_cumulative += self._reward_sum
+            self._reward_count_cumulative += self._reward_count
+            if self._reward_count:
+                current = self._reward_sum / self._reward_count
+                self._reward_ema = (current if self._reward_ema is None
+                                    else 0.9 * self._reward_ema
+                                    + 0.1 * current)
+            payload = rollout_metrics_payload(
+                self.model.ep_info_buffer,
+                reward_sum=self._reward_sum,
+                reward_count=self._reward_count,
+                reward_sum_cumulative=self._reward_sum_cumulative,
+                reward_count_cumulative=self._reward_count_cumulative,
+                reward_ema=self._reward_ema,
+                episodes_completed=self._episodes_completed,
+                early_terminations=self._early_terminations,
+                time_limit_truncations=self._time_limit_truncations,
+            )
+            if wandb_run is not None:
+                wandb_run.log({"global_step": self.num_timesteps,
+                               **payload})
+            self._reward_sum = 0.0
+            self._reward_count = 0
+            self._episodes_completed = 0
+            self._early_terminations = 0
+            self._time_limit_truncations = 0
+
+    callbacks = [RolloutMetricsCb(), EvalCb()]
 
     if args.condition == "C":
         eps = dd.load_dataset(ROOT / args.anchor_data)
