@@ -8,6 +8,50 @@ at what budget, with which failure modes.
 
 ## Now
 
+- **08-16 ~11:5x UTC — Arm A `bc2` (rise-targeted DAgger re-collection)
+  VERIFIED: MIXED result, SECOND MISS, escalated to `[operator]` —
+  no Stage 1 PPO, no bc3.** Isolated single-mode rise genuinely
+  improved (det 0/6 -> 3/6, real bridge/flat wins, hold/lower/walk
+  retained clean) but the sequence eval NET REGRESSED and got a worse
+  failure mode: overall det zero-fall 10/12 (bc1) -> 6/12 (bc2)
+  because the POST-LOWER rise went from stalling short to actually
+  FALLING (6/6 of its failures are falls, was 0 in bc1). Contact
+  sheet confirms genuine motion, no exploit — this is a real
+  trade-off, the SAME zero-sum DAgger-correction signature
+  transdagger3 already found, now reproduced on the fully-isolated
+  4-expert architecture too. Per the pre-registered branch this
+  closes the DAgger-recipe ladder for Arm A Stage 0 (two misses, no
+  bc3); open operator question: can BC/DAgger hold isolated-rise AND
+  post-lower-rise simultaneously at all under this architecture, or
+  does Stage 1 need RL correction instead of a better distill. Detail
+  + full numbers: `MODE_EXPERTS_DIRECTIVE.md` "Arm A" Stage 0 RESULT;
+  evidence `logs/ckpt_eval/arch_modeexperts_bc2_verify_{stance2,walk}`,
+  `logs/ckpt_eval/arch_modeexperts_bc2_seq_{det,sto}.json`.
+- **08-16 ~11:xx UTC — `cw-arch-joystick-long-scratch3` (from-scratch,
+  full 40M, 60s full-session episodes + walk-only low-height collapse
+  termination) TRIAGED FAIL — 4th independent from-scratch attempt at
+  the joystick command-switch recipe to fail, and the LAST planned
+  variant on this recipe.** DR0 gate + own-cfg (DR0.3) both 0/6 det +
+  0/6 sto walk success. The collapse-termination fix DID work as
+  designed — no more seated-scooting cheat, gait_valid 6/6 det/6/6
+  sto, all six legs cycling right up to the fall — but the robot
+  still can't survive: every one of the 6 det episodes ends
+  `roll_class=fell` (over_current x2, tilt_roll x2, tilt_pitch x2,
+  roll_peak 8.7-10.5deg), having moved 1-6cm. **CROSS-TRACK INSIGHT
+  (reinforces the 08-15 ~17:5x/~20:0x/08-16 ~11:xx chain below and
+  multitask/STATUS.md): this recipe has now failed under 4
+  independently-varied fixes** (plain from-scratch transformer, 14x
+  harsher fall pricing, full-episode rollout + dense roll/pitch
+  pricing, and now the collapse-termination redesign) **— the
+  instantaneous command-switch reward/curriculum itself is the
+  blocker, not architecture, init, rollout horizon, fall pricing, or
+  the scooting-exploit fix.** No further chunks or variants of this
+  exact recipe are queued from arch; the only remaining lever is a
+  redesign of the command-tracking task itself, which is a
+  multitask-track call. Arch's other in-flight lineages
+  (`cw-arch-tf-r1-*`, `cw-arch-modeexperts-scratch2`) are unrelated
+  and unaffected. Evidence: `rl_docs/runs/cw-arch-joystick-long-scratch3.md`,
+  W&B a7rtr3lq, `logs/ckpt_eval/cw_arch_joystick_long_scratch3_{gate,owncfg}`.
 - **08-16 ~11:xx UTC — `cw-arch-joystick-switch-scratch2` (from-scratch,
   full 40M, redesigned recipe: n_steps=384/full-episode rollout,
   ent-coef 0.001, dense k_roll/k_pitch=30) TRIAGED FAIL — full budget

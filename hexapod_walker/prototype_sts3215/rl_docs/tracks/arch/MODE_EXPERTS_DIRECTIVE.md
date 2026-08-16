@@ -105,12 +105,44 @@ only their boundaries once destructive shared gradients are removed?
   same buffered-log profile as transdagger — do not mistake silence
   for a stall), `--out
   rl_move/sim/policies/ppo_goal_cw_arch_modeexperts_bc2.zip`, log
-  `/tmp/modeexperts_bc2.log`. Next cycle: re-run the same VERIFY
-  (single-mode det vs teacher bars + `--single` sequence eval) before
-  any Stage 1 PPO launch — if bc2 also misses the rise bar, escalate
-  to `[operator]` (BC/DAgger may not be sufficient for this maneuver
-  at all, per the existing dual-line rise history) rather than a
-  third recipe variant.
+  `/tmp/modeexperts_bc2.log`. (Original plan, superseded by the
+  RESULT below: re-run the same VERIFY before any Stage 1 PPO
+  launch — if bc2 also misses the rise bar, escalate to `[operator]`
+  rather than a third recipe variant.)
+  **RESULT (08-16 ~11:5x UTC): VERIFY ran — MIXED, and per the
+  pre-registered branch this is a SECOND MISS -> escalate to
+  `[operator]`, no Stage 1 PPO, no third recipe variant.** The
+  rise-targeted DAgger top-up DID move isolated single-mode rise the
+  right way (det 0/6 -> **3/6**, real non-crouch wins this time:
+  bridge 1/1, flat 1/1, rsi 1/3; hold 6/6, lower 6/6 both retained;
+  walk gait honest, gv 6/6 det + 6/6 sto, prog 1.01/0.88) — but it is
+  still short of the teacher bar (footlow2_hard1 cold rises stall
+  0.5-3.4mm; this checkpoint's sto rise is still 0/6). **The sequence
+  metric NET REGRESSED and changed character**: overall det
+  zero-fall 10/12 (bc1) -> **6/12** (bc2); by ordinal, first-rise
+  improved 6/12->7/12 but the POST-LOWER rise went from stalling
+  short (bc1) to **actually falling 6/6 of its 6 failures** (rise_by_
+  ordinal[1] = 6 success/6 falls out of 12) — sto is worse across the
+  board (seq 3/12->4/12 barely, but first-rise sto is now 0/12, was
+  some nonzero in bc1). Video (contact sheet,
+  `logs/ckpt_eval/arch_modeexperts_bc2_verify_stance2/contact_sheet.png`)
+  confirms genuine rise/hold/lower motion, no park/flag-leg exploit —
+  this is a real skill trade-off, not a measurement artifact. **This
+  is the SAME zero-sum DAgger-correction signature the transdagger3
+  line already found** (topping up one segment's correction density
+  measurably erodes another's) — now reproduced on the isolated
+  4-expert architecture too, independent of the shared-GRU mechanism
+  transdagger/dual2 blamed. Two misses (bc1: rise+sequence both miss;
+  bc2: rise partially fixed, sequence gets WORSE via a harsher failure
+  mode) closes the DAgger-recipe-variant ladder for Arm A Stage 0 per
+  the pre-registered branch — no bc3. Open question for the operator:
+  whether BC/DAgger distillation can produce a single checkpoint that
+  holds isolated-rise AND post-lower-rise simultaneously at all under
+  this architecture, or whether Stage 1 needs to start RL-based
+  correction (unfreezing rise) rather than waiting for a better
+  distill. Evidence: `logs/ckpt_eval/arch_modeexperts_bc2_verify_
+  {stance2,walk}`, `logs/ckpt_eval/arch_modeexperts_bc2_seq_{det,sto}.json`.
+  No Stage 1 PPO launched from this result.
 - Stage 1 (pre-registered, [precondition: stage-0 artifact passes
   verification]): `cw-arch-modeexperts1` — 2M discovery PPO, warm
   from the distill, `--gru-experts --gru-experts-freeze` (expert

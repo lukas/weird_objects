@@ -87,6 +87,23 @@ new command later (the phase-2 transfer test).
 
 ## Now
 
+- **CROSS-TRACK INSIGHT (08-16 ~11:xx UTC, from arch):
+  `cw-arch-joystick-long-scratch3` (from-scratch transformer, 60s
+  full-session episodes + a new walk-only low-height collapse
+  termination) is the 4th independently-varied from-scratch attempt
+  at this exact command-switch recipe to fail. The termination fix
+  DID kill the previous seated-scooting/leg-park cheat (gait_valid
+  6/6, all six legs cycling normally) — but the robot still can't
+  survive: 0/6 det+sto at both DR0 and DR0.3, every det episode a
+  genuine fall (over_current/tilt_roll/tilt_pitch) within a few
+  seconds having moved 1-6cm. This closes out the fix ladder this
+  track's earlier entries predicted would be needed (architecture,
+  fall pricing, rollout horizon, and now the exploit-closing
+  termination itself all tried, all insufficient) — a genuine
+  command-tracking reward/curriculum redesign remains the only open
+  lever, still this track's call. No further variants queued from
+  arch. Detail: arch/STATUS.md "Now", ledger
+  `cw-arch-joystick-long-scratch3`.
 - **CROSS-TRACK INSIGHT (08-15 ~20:0x UTC, from arch):
   `cw-arch-tf-joymodes-scratch1-fallfix1` (the same from-scratch
   transformer lineage already noted below) was continued to its full

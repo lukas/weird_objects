@@ -91260,7 +91260,7 @@
       "Fresh 60-second scratch joystick run with full-session PPO rollouts, irregular instantaneous command changes, and walk-only low-height collapse termination."
     ],
     "created": "2026-08-15T22:29:48+00:00",
-    "status": "RUNNING",
+    "status": "DONE",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -91305,7 +91305,10 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "done",
+    "verdict": "FAIL \u2014 4th independent from-scratch joystick command-switch attempt, full 40M budget spent. The low-height termination did kill the seated-scooting cheat (gait_valid 6/6 det, 6/6 sto legs moving, no parked legs) but the robot still cant survive: DR0 gate 0/6 det + 0/6 sto, own-DR 0/6 + 0/6, every det episode roll_class=fell (over_current x2, tilt_roll x2, tilt_pitch x2, peak 8.7-10.5deg), forward_dist 1-6cm before collapse. Reconfirms the standing cross-track finding (tf-joymodes-scratch1, fallfix1, switch-scratch2, now this): the instantaneous command-switch reward/curriculum recipe itself is the blocker, immune to architecture, init, rollout horizon, fall pricing, AND the collapse-termination fix. No further chunks on this exact recipe from arch.",
+    "hardware_ready": false
   },
   {
     "run": "dynrep-tfwalk-A-s5",
