@@ -9,6 +9,61 @@ unresolved blockers between the robot and reliable joystick control.
 
 ## Now
 
+- **08-16 ~18:xx (triage cycle): `cw-recover-any12-hifocus-cont1` FAIL —
+  curriculum-weight for tangle is CLOSED (3rd miss: any7, any11,
+  any12), extreme focus concentration also actively HURTS retention,
+  and the named next-lever CODE (a harvested on-path RSI bank for
+  tangle) is BUILT and launching this same cycle.** Pushing
+  `recover_focus_mix` to 0.80 (from the proven 0.50/0.25/0.15/0.10
+  default) did not just fail to crack the tangle-family plateau — the
+  run's curriculum frontier never even reached the wall bucket (B15,
+  `tangle`+`bank`) inside its full 20M budget, stalling at B13
+  (`tangle_mid`) for the last 3M steps, TWO rungs behind any11's own
+  pace at a matched step count (any11, default mix, reached B15 by
+  21.1M from scratch). Extreme concentration made ladder-climbing
+  throughput WORSE, not better — reinforcing rather than merely
+  matching the closure. Unplanned second finding: buckets 0-10
+  retention broadly COLLAPSED under the 80% frontier mass (final-cert
+  training gate_fraction 0.0 on b0/b1/b5/b6/b7, 0.125-0.1875 on
+  b2/b8/b9; harness det agrees, 7/11 early buckets 0/1) — RSI
+  protection is wired only to the `zero` family, and the remaining 20%
+  recent/weak/uniform mass can't sustain 10 other buckets under that
+  much starvation. **`any12` must NOT replace `any11` as the recovery
+  line's reference checkpoint — `any11` stays best** (it held buckets
+  0-10 solidly at ≥0.8). Video: zero/tangle_mid/tangle_mild det
+  successes are genuine six-foot settles; tangle/tangle_deep/bank det
+  failures are a genuine low-splay stall, no exploit.
+  **CODE-FIRST, built this cycle:** the pre-registered next lever
+  (RSI generalized beyond the belly→plant reference, which has no
+  equivalent for tangle's non-monotonic untangling motion) is now a
+  second, independent RSI axis — `goal.recover_rsi_bank_frac`/
+  `_bank_kinds`/`_bank_path` (default off, bit-exact, mutually
+  exclusive with the ref-path axis per-episode) plus
+  `harvest_recover_rsi_bank.py`, which rolls a checkpoint
+  DETERMINISTICALLY (this campaign's own "sto collapses to 0" recover
+  artifact would starve a stochastic harvester of successes even on
+  solved kinds) through forced episodes of a target kind and keeps a
+  subsample of the joint poses from the MIDDLE of every episode that
+  reaches `recover_success` — an on-path bank built from the policy's
+  own occasional wins, not a hand-choreographed reference. `test_
+  recover_rsi_bank_*` (3 tests) + full RECOVER bank green (150/150),
+  REWARD.md row, snapshot `1202b816`. Harvested a real bank from
+  `any11` on all four tangle-family kinds (350 episodes/kind,
+  deterministic, on train-0's idle CPU) — matches the historical
+  0.25-0.44 band exactly (this smoke's own tangle/tangle_deep rates:
+  0.35/0.25) confirming the source checkpoint's real, if partial,
+  competence to harvest from. **`cw-recover-any13-tanglersi-bank1`
+  LAUNCHED** (warm from `any11`, NOT `any12`; default curriculum mix
+  restored; `recover_rsi_frac=0.5`/`kinds=zero` kept for zero-safety;
+  new `recover_rsi_bank_frac=0.5`/`kinds=tangle,tangle_deep,
+  tangle_mid,tangle_mild` pointed at the harvested bank). Gate: read
+  at 30M or earlier plateau — `tangle` (the actual wall kind) CERT
+  success_fraction must sustain ≥0.7 across ≥2 consecutive late certs
+  once it reaches frontier; zero + buckets 0-10 retention must hold
+  ≥0.8 at the final cert (a regression there would mean the new axis
+  repeats any12's starvation mistake). FAIL closes the on-path-bank-
+  RSI lever for tangle too and escalates to a reward/BC-teacher-side
+  redesign (operator call, named in WAITING-ON if it comes to that).
 - **08-16 ~16:xx (triage cycle): `cw-recover-any11-rsi-scratch1` PASS —
   RECOVER RSI genuinely generalizes to from-scratch protection; the
   zero-bucket (flat-belly) wall is now SOLVED as a training recipe,
