@@ -8,6 +8,31 @@ at what budget, with which failure modes.
 
 ## Now
 
+- **08-16 ~11:xx UTC — `cw-arch-joystick-switch-scratch2` (from-scratch,
+  full 40M, redesigned recipe: n_steps=384/full-episode rollout,
+  ent-coef 0.001, dense k_roll/k_pitch=30) TRIAGED FAIL — full budget
+  spent, robot never learns to survive.** DR0 gate + own-cfg (DR0.3)
+  both 0/6 det + 0/6 sto walk success, gait_valid 0/6, every
+  deterministic episode `roll_class` fell, `TERMINATED: tilt_roll` at
+  t=0.84s (roll_peak 10.6deg) having moved 4mm; `sacrificed_legs`
+  [3,4]/[0,3,4] in all trials — same parked-leg habit as the closed
+  joymodes attempts. Training reward improved (-1015→-229 across
+  quarters) but real task metrics didn't: `eval/walk/survived_frac=0`
+  throughout, `dir_err_deg_mean` 90° (worse than fallfix1's 19°),
+  `wrong_dir_frac` 0.32. **This is the THIRD independent from-scratch
+  attempt at the joystick command-switch recipe to fail identically**
+  (after `tf-joymodes-scratch1` known-exploit FAIL and its
+  `fallfix1` FAIL) — reconfirms the standing CROSS-TRACK INSIGHT
+  (08-15 ~17:5x/~20:0x entries below, multitask/STATUS.md): the
+  command-tracking reward/curriculum recipe itself is the blocker,
+  not architecture, init, rollout horizon, or fall pricing. No
+  further chunks on this exact recipe. The sibling already in flight,
+  `cw-arch-joystick-long-scratch3` (spawned off an early
+  switch-scratch2 checkpoint read, 60s episodes + explicit low-height
+  collapse termination), is the standing next attempt at a different
+  fix — no new launch needed, it reports on its own schedule.
+  Evidence: `rl_docs/runs/cw-arch-joystick-switch-scratch2.md`,
+  W&B 9olozoz7, `logs/ckpt_eval/cw_arch_joystick_switch_scratch2_{gate,owncfg}`.
 - **08-15 ~21:0x UTC — `cw-arch-tf-r1-hard3` (2nd +40M continuation of
   the transformer walk line) TRIAGED PASS, but the step-budget lever
   is now DIMINISHING FAST: the ~24-27% slip drop hard1→hard2-r1

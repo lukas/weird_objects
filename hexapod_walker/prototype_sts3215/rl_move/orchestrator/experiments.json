@@ -90878,7 +90878,7 @@
       "From random weights, learn stable 15-second joystick translation with instantaneous command switches by matching PPO credit assignment to the whole episode. Each episode contains multiple commands and draws a structured schedule including random holds, 180-degree back-and-forth, square turns, stop-go, circle sweeps, or local jitter; discrete switch intervals vary from about 0.8 to 7.2 seconds. The recipe uses n_steps=384, n_envs=128, gamma=0.995, GAE=0.97, normal entropy pressure, stronger dense tilt cost, and the full 40M budget. Gate: No reward-only pass. Fresh initialization must be confirmed by absence of --init-from. Final C-MuJoCo gate requires at least 5/6 deterministic and 4/6 stochastic walk trials to survive the full 15 seconds, mean direction error <=20 deg, p90 <=45 deg, wrong-direction fraction <=0.10, velocity error <=0.02 m/s, and video showing controlled responses to multiple instantaneous command switches without tilt termination."
     ],
     "created": "2026-08-15T20:40:18+00:00",
-    "status": "RUNNING",
+    "status": "FAILED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -90930,7 +90930,10 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "done",
+    "verdict": "FAIL \u2014 full 40M-step from-scratch acquisition never learned to survive. DR0 gate + own-cfg (DR0.3) both 0/6 det and 0/6 sto walk success, gait_valid 0/6, roll_class fell in every deterministic episode, terminated tilt_roll at t=0.84s (roll_peak 10.6deg) having moved 4mm; sacrificed_legs [3,4] (gate) / [0,3,4] (owncfg) in all trials \u2014 the recurring parked-leg pattern. Training reward improved (-1015->-229 across quarters) but the real task metrics did not: eval/walk/survived_frac=0 throughout, dir_err_deg_mean 90 (worse than fallfix1's 19), wrong_dir_frac 0.32. This is the third independent from-scratch attempt at the joystick command-switch recipe on arch (after tf-joymodes-scratch1 known-exploit FAIL and its fallfix1 FAIL) to fail identically \u2014 confirms CURRENT_TRUTHS/arch-STATUS cross-track finding that the command-tracking reward/curriculum recipe itself, not architecture/init/fall-pricing, is the blocker. No further chunks on this exact recipe; the already-running cw-arch-joystick-long-scratch3 (60s horizon, explicit low-height collapse termination, spawned off an early switch-scratch2 checkpoint read) is the standing next attempt and needs no new launch.",
+    "hardware_ready": false
   },
   {
     "run": "cw-recover-any4-b0scratch1",
@@ -92462,6 +92465,18 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:hw nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-recover-any10-zerorsi-cont1 --steps 20000000 --task joint_walk --goal-mix recover=1.0,walk=0.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0,quad=0.0 --n-envs 512 --n-steps 128 --batch-size 8192 --gamma 0.995 --gae-lambda 0.98 --episode-seconds 16 --dr-scale 0.1 --ent-coef 0.003 --no-canary --eval-every 1000000 --video-every 2000000 --seed 11 --cfg-set safety.max_roll_deg=185 --cfg-set safety.max_pitch_deg=185 --cfg-set goal.walk_obs_body_vel=2 --cfg-set reward.rise_ref_path=rl_move/sim/refs/rise_ref_belly2plant.npz --cfg-set train.bc_anchor_coef=1.0 --cfg-set train.bc_anchor_recover=1.0 --cfg-set goal.recover_start_bank=rl_move/sim/park_banks/footlow2_hard1_lower_endpoints_full.npz --cfg-set train.bc_anchor_foot_z=1.0 --cfg-set train.bc_anchor_foot_z_mm=3 --cfg-set train.bc_anchor_min_h_ahead_mm=15 --cfg-set train.bc_anchor_lookahead_s=0.5 --cfg-set goal.recover_admit_n=4 --cfg-set goal.recover_retreat_n=6 --cfg-set goal.recover_ema_beta=0.25 --out-name ppo_goal_cw_recover_any10_zerorsi_cont1 --impl warp --host-workers 24 --notes 'respec of cw-recover-any9-lessfocus-cont1: Teach the fallen robot to get up from lying completely flat on its belly by letting it PRACTICE from waypoints partway along the known-good stand-up demonstration, instead of only ever starting from flat. Dig-in on any8/any9 (both stuck at bucket 11 '\"'\"'zero'\"'\"' for their whole budgets) found the mechanism gap: the ladder'\"'\"'s '\"'\"'partial curl'\"'\"' rungs are linear joint blends, NOT states on the executable belly->plant rise path, so the stuck policy (splays to a low crouch, stalls over-current) never visits the mid-rise states it must learn to push through \u2014 while its imitation-anchor loss is already near-minimized (no headroom there). This arm is a matched A/B against any9: same stuck any8 checkpoint, same diffuse replay masses, same seed, ONE delta \u2014 the new RECOVER RSI mechanism (goal.recover_rsi_frac=0.5, snapshot a1994dee) spawns half of naturally-drawn zero-family episodes on a random row of the rise reference (belly curl through ~90% of the ramp, the exact lever/fraction that cracked stand-up for the footlow2 stance champion via goal.rise_rsi_frac). Certification exams are untouched by construction (forced kinds never RSI), so a PASS is a legitimately promoted frontier. Prediction-if-true: bucket 11 CERT climbs off 0 and reaches >=0.5, frontier resumes toward B12+ (tangle), and the late-run crouch/partial cert oscillation (churn from grinding a 0%-success frontier) calms. Prediction-if-false: zero stays at 0 even WITH on-path practice \u2014 the stuck-lineage rescue is then closed and the recovery line'\"'\"'s live frontier returns to any7'\"'\"'s tangle wall on the healthy lineage.' --recover-cert-every 1000000 --recover-cert-envs 16 --recover-retention-buckets 3 --cfg-set goal.recover_focus_mix=0.20 --cfg-set goal.recover_recent_mix=0.35 --cfg-set goal.recover_weak_mix=0.15 --cfg-set goal.recover_uniform_mix=0.30 --init-from rl_move/sim/policies/ppo_goal_cw_recover_any8_spacedreplay_scratch1.zip --cfg-set goal.recover_rsi_frac=0.5 > /tmp/train_cw-recover-any10-zerorsi-cont1.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-recover-any10-zerorsi-cont1.log",
     "wandb_id": "kjl7unpn",
-    "verified": "2026-08-16T10:38:54+00:00"
+    "verified": "2026-08-16T10:38:54+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-16T10:44:28+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 6177,
+        "fps": 4369.1,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   }
 ]
