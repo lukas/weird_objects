@@ -70,6 +70,93 @@ def _recover_episode_outcome(info: dict) -> tuple[int, bool] | None:
     return bucket, success
 
 
+def _recover_cert_bucket_plan(frontier: int, retention_count: int,
+                              cursor: int,
+                              weak_bucket: int | None) -> tuple[list[int], int]:
+    """Frontier plus a weak bucket and rotating old-bucket assays."""
+    frontier = max(0, int(frontier))
+    old = list(range(frontier))
+    buckets = [frontier]
+    weak = -1 if weak_bucket is None else int(weak_bucket)
+    if weak in old:
+        buckets.append(weak)
+    if not old or retention_count <= 0:
+        return buckets, 0
+    cursor = int(cursor) % len(old)
+    scanned = 0
+    added = 0
+    while scanned < len(old) and added < int(retention_count):
+        bucket = old[(cursor + scanned) % len(old)]
+        scanned += 1
+        if bucket in buckets:
+            continue
+        buckets.append(bucket)
+        added += 1
+    return buckets, (cursor + scanned) % len(old)
+
+
+def _recover_score_payload(state: dict, best_score: float = 0.0,
+                           cert_ages: dict[int, int] | None = None
+                           ) -> tuple[dict, float]:
+    """Build the dedicated W&B recovery scoreboard.
+
+    Bucket B contributes B+1 points times its latest deterministic success
+    fraction. The denominator includes every curriculum bucket, including
+    locked/untested ones, so the normalized score rises as harder abilities
+    are unlocked rather than renormalizing the task underneath the policy.
+    """
+    total = int(state["total_buckets"])
+    maximum = total * (total + 1) / 2.0
+    rows = state.get("buckets", {})
+    points = 0.0
+    certified_weight = 0.0
+    payload = {
+        "RECOVER_SCORE/max_unlocked_bucket": float(
+            state["max_unlocked_bucket"]),
+        "RECOVER_SCORE/focus_bucket": float(state["focus_bucket"]),
+        "RECOVER_SCORE/weakest_bucket": float(state["weakest_bucket"]),
+        "RECOVER_SCORE/maximum_points": maximum,
+    }
+    gate_fractions = []
+    for bucket in range(total):
+        key = str(bucket)
+        row = rows.get(key)
+        weight = float(bucket + 1)
+        if row is not None:
+            fraction = float(row["success_fraction"])
+            gate_fraction = float(row["gate_fraction"])
+            bucket_points = weight * fraction
+            points += bucket_points
+            certified_weight += weight
+            gate_fractions.append(gate_fraction)
+            stem = f"RECOVER_SCORE/bucket_{bucket:02d}"
+            payload[f"{stem}_success_fraction"] = fraction
+            payload[f"{stem}_gate_fraction"] = gate_fraction
+            payload[f"{stem}_successes"] = float(row["successes"])
+            payload[f"{stem}_episodes"] = float(row["episodes"])
+            payload[f"{stem}_points"] = bucket_points
+            if cert_ages is not None and bucket in cert_ages:
+                payload[f"{stem}_cert_age_rounds"] = float(
+                    cert_ages[bucket])
+        probability = state.get("sample_probabilities", {}).get(key)
+        if probability is not None:
+            payload[
+                f"RECOVER_SCORE/bucket_{bucket:02d}_sample_probability"
+            ] = float(probability)
+    score = points / maximum if maximum > 0.0 else 0.0
+    best = max(float(best_score), score)
+    payload.update({
+        "RECOVER_SCORE/overall_points": points,
+        "RECOVER_SCORE/overall_weighted_success": score,
+        "RECOVER_SCORE/best_overall_weighted_success": best,
+        "RECOVER_SCORE/certified_weight_fraction": (
+            certified_weight / maximum if maximum > 0.0 else 0.0),
+        "RECOVER_SCORE/min_certified_gate_fraction": (
+            min(gate_fractions) if gate_fractions else 0.0),
+    })
+    return payload, best
+
+
 def _run_recover_cert_kind(vec_env, model, kind: str) -> dict:
     """One deterministic first-episode recovery assay on an MJX VecEnv."""
     n_envs = int(vec_env.num_envs)
@@ -197,6 +284,10 @@ def _init_wandb(args, params: SimServoParams):
                 "mjx_ls_iterations": args.mjx_ls_iterations,
                 "recover_cert_every": args.recover_cert_every,
                 "recover_cert_envs": args.recover_cert_envs,
+                "recover_retention_buckets": args.recover_retention_buckets,
+                "recover_replay_mix": {
+                    "focus": 0.50, "recent_three": 0.25,
+                    "weakest": 0.15, "uniform_older": 0.10},
                 "recover_buckets": {
                     str(i): list(family) for i, family in enumerate(
                         getattr(ENV_CLASSES[args.task],
@@ -210,6 +301,8 @@ def _init_wandb(args, params: SimServoParams):
     run.define_metric("eval/*", step_metric="global_step")
     run.define_metric("CERT/*", step_metric="global_step", summary="last")
     run.define_metric("TRAIN/*", step_metric="global_step", summary="last")
+    run.define_metric("RECOVER_SCORE/*", step_metric="global_step",
+                      summary="last")
     print(f"[wandb] logging to {run.url or 'offline run dir'}")
     return run
 
@@ -360,11 +453,15 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--recover-cert-every", type=int, default=1_000_000,
                     help="deterministic same-backend MJX recovery "
                          "certification every N training env-steps; this "
-                         "alone controls recovery curriculum admission "
-                         "and retreat (0 = off)")
+                         "alone controls monotonic recovery curriculum "
+                         "admission (0 = off)")
     ap.add_argument("--recover-cert-envs", type=int, default=8,
                     help="parallel deterministic MJX episodes per active "
                          "recovery start kind")
+    ap.add_argument("--recover-retention-buckets", type=int, default=3,
+                    help="rotating previously unlocked buckets assayed at "
+                         "each recovery certification; the current weakest "
+                         "old bucket is assayed in addition (default: 3)")
     ap.add_argument("--no-canary", action="store_true",
                     help="disable the fixed-seed canary probes + "
                          "regression auto-stop (on by default for warm "
@@ -957,6 +1054,10 @@ def main(argv: list[str] | None = None) -> int:
                 super().__init__()
                 self._next = int(args.recover_cert_every)
                 self._env = None
+                self._retention_cursor = 0
+                self._cert_round = 0
+                self._last_cert_round: dict[int, int] = {}
+                self._best_score = 0.0
 
             def _build(self):
                 cert_kw = dict(vec_kw)
@@ -994,52 +1095,87 @@ def main(argv: list[str] | None = None) -> int:
                     self._env = self._build()
                 active_before = int(venv.get_attr(
                     "_rec_active_n", indices=0)[0])
-                bucket = active_before - 1
-                kinds = venv.env_method(
-                    "_recover_family_kinds", bucket, indices=0)[0]
-                rows = []
-                for kind in kinds:
-                    row = _run_recover_cert_kind(
-                        self._env, self.model, kind)
-                    rows.append(row)
-                    venv.env_method(
-                        "apply_recover_certification", kind,
-                        row["outcomes"], False)
-                # Update the whole frontier atomically. This matters when
-                # the optional harvested bank shares the full-tangle bucket:
-                # no stale kind result may promote the family mid-assay.
+                frontier_before = int(venv.get_attr(
+                    "_rec_focus_bucket", indices=0)[0])
+                weak = venv.get_attr(
+                    "_rec_weak_bucket", indices=0)[0]
+                buckets, self._retention_cursor = (
+                    _recover_cert_bucket_plan(
+                        frontier_before, args.recover_retention_buckets,
+                        self._retention_cursor, weak))
+                rows_by_bucket = {}
+                self._cert_round += 1
+                for bucket in buckets:
+                    kinds = venv.env_method(
+                        "_recover_family_kinds", bucket, indices=0)[0]
+                    rows = []
+                    for kind in kinds:
+                        row = _run_recover_cert_kind(
+                            self._env, self.model, kind)
+                        rows.append(row)
+                        venv.env_method(
+                            "apply_recover_certification", kind,
+                            row["outcomes"], False)
+                    rows_by_bucket[bucket] = rows
+                    self._last_cert_round[bucket] = self._cert_round
+                # Apply all kind and retention results before changing the
+                # frontier. This keeps multi-kind promotion atomic and makes
+                # the score/sampler consume one coherent assay round.
                 venv.env_method("_recover_update_admission")
                 active_after = int(venv.get_attr(
                     "_rec_active_n", indices=0)[0])
-                successes = sum(r["successes"] for r in rows)
-                episodes = sum(r["episodes"] for r in rows)
                 payload = {
                     "global_step": self.num_timesteps,
-                    f"CERT/recover_bucket_{bucket}_success_fraction": (
-                        successes / max(episodes, 1)),
-                    f"CERT/recover_bucket_{bucket}_successes": successes,
-                    f"CERT/recover_bucket_{bucket}_episodes": episodes,
-                    "CERT/recover_frontier_before": bucket,
+                    "CERT/recover_frontier_before": frontier_before,
                     "CERT/recover_frontier_after": active_after - 1,
+                    "CERT/recover_max_unlocked_before": active_before - 1,
+                    "CERT/recover_max_unlocked_after": active_after - 1,
+                    "CERT/recover_assayed_bucket_count": len(buckets),
                 }
-                for row in rows:
-                    kind = row["kind"]
-                    payload[f"CERT/recover_{kind}_success_fraction"] = (
-                        row["success"])
-                    payload[f"CERT/recover_{kind}_successes"] = (
-                        row["successes"])
-                    payload[f"CERT/recover_{kind}_episodes"] = row["episodes"]
-                    payload[f"CERT/recover_{kind}_time_s"] = (
-                        row["time_mean_s"])
+                for bucket, rows in rows_by_bucket.items():
+                    successes = sum(r["successes"] for r in rows)
+                    episodes = sum(r["episodes"] for r in rows)
+                    stem = f"CERT/recover_bucket_{bucket}"
+                    payload[f"{stem}_success_fraction"] = (
+                        successes / max(episodes, 1))
+                    payload[f"{stem}_gate_fraction"] = min(
+                        r["success"] for r in rows)
+                    payload[f"{stem}_successes"] = successes
+                    payload[f"{stem}_episodes"] = episodes
+                    for row in rows:
+                        kind = row["kind"]
+                        payload[f"CERT/recover_{kind}_success_fraction"] = (
+                            row["success"])
+                        payload[f"CERT/recover_{kind}_successes"] = (
+                            row["successes"])
+                        payload[f"CERT/recover_{kind}_episodes"] = (
+                            row["episodes"])
+                        payload[f"CERT/recover_{kind}_time_s"] = (
+                            row["time_mean_s"])
+                score_state = venv.env_method(
+                    "recover_score_state", indices=0)[0]
+                ages = {
+                    bucket: self._cert_round - last_round
+                    for bucket, last_round in self._last_cert_round.items()
+                }
+                score_payload, self._best_score = _recover_score_payload(
+                    score_state, self._best_score, ages)
+                payload.update(score_payload)
                 if run is not None:
                     import wandb
                     wandb.log(payload)
-                bits = " ".join(
-                    f"{r['kind']}={r['successes']}/{r['episodes']}"
-                    for r in rows)
+                bits = " | ".join(
+                    f"B{bucket} " + " ".join(
+                        f"{r['kind']}={r['successes']}/{r['episodes']}"
+                        for r in rows)
+                    for bucket, rows in rows_by_bucket.items())
+                score_points = score_payload[
+                    "RECOVER_SCORE/overall_points"]
+                score_max = score_payload["RECOVER_SCORE/maximum_points"]
                 print(f"[recover-cert] step {self.num_timesteps:,} "
-                      f"B{bucket}: {bits}; frontier "
-                      f"B{bucket}->B{active_after - 1}")
+                      f"{bits}; frontier "
+                      f"B{frontier_before}->B{active_after - 1}; "
+                      f"score={score_points:.1f}/{score_max:.0f}")
 
             def close(self):
                 if self._env is not None:
@@ -1053,7 +1189,9 @@ def main(argv: list[str] | None = None) -> int:
         callbacks.append(cert_cb)
         print("[recover-cert] armed: deterministic MJX certification "
               f"every {args.recover_cert_every:,} steps, "
-              f"{args.recover_cert_envs} episodes/kind")
+              f"{args.recover_cert_envs} episodes/kind, frontier + weakest "
+              f"+ {args.recover_retention_buckets} rotating retention "
+              "buckets")
     bg = None
     if run is not None and (args.eval_every > 0 or args.video_every > 0):
         # The campaign's background eval/video worker, reused verbatim:

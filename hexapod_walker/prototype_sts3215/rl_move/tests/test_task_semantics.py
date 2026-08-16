@@ -4038,43 +4038,52 @@ def test_recover_periodic_eval_is_forced_and_split_by_bucket():
     assert all(v["episodes"] == 1 for v in buckets.values())
 
 
-def test_recover_adaptive_sampler_proportions():
-    """Unit-level checks on the adaptive reset-bank curriculum:
-    frontier kinds out-weigh mastered kinds; admission advances only
-    when the hardest active family is mastered; no unadmitted family is
-    probed; retreat fires below 20%; the ladder can return to bucket 0."""
+def test_recover_spaced_replay_and_monotonic_unlock():
+    """The frontier stays dominant without ever deleting old buckets."""
     env = _make_recover_env(0, start="zero")
     env.force_recover_start = None
     assert env._rec_active_n == 1
+    assert env._rec_focus_bucket == 0
     assert set(env._sample_recover().start_kind
                for _ in range(100)) == {"plant_catch"}
-    # frontier vs mastered weights
-    env._rec_stats = {
-        "plant_catch": (29, 30), "onefoot_micro": (15, 30)}
-    kinds = ["plant_catch", "onefoot_micro"]
-    w = env._recover_kind_weights(kinds)
-    wi = dict(zip(kinds, w))
-    assert wi["onefoot_micro"] > wi["plant_catch"] * 2.0, (
-        "frontier kind does not out-weigh mastered kind")
-    # admission: not yet (plant catch has not met the gate in this env)
+
+    # Admission does not move before the deterministic gate passes.
     env._rec_stats["plant_catch"] = (15, 30)
     env._recover_update_admission()
     assert env._rec_active_n == 1
-    # master bucket 0 -> admit micro-onefoot bucket 1
     env._rec_stats["plant_catch"] = (4, 4)
     env._recover_update_admission()
     assert env._rec_active_n == 2
+    assert env._rec_focus_bucket == 1
     assert env._recover_active_kinds() == [
         "plant_catch", "onefoot_micro"]
     assert "bank" not in env._recover_active_kinds(), (
         "bank admitted without a bank file")
-    # collapse on bucket 1 -> retreat to bucket 0 and stay there
+
+    # A failed frontier assay no longer relocks it or any learned starts.
     env._rec_stats["onefoot_micro"] = (0, 6)
     env._recover_update_admission()
-    assert env._rec_active_n == 1
-    assert env._rec_stats["plant_catch"] == (0, 0)
-    env._recover_update_admission()
-    assert env._rec_active_n == 1
+    assert env._rec_active_n == 2
+    assert env._rec_focus_bucket == 1
+    assert env._rec_stats["plant_catch"] == (4, 4)
+    assert env._rec_stats["onefoot_micro"] == (0, 6)
+
+    # At a later frontier, bucket mass is 50% focus, 25% recent-three,
+    # 15% weakest old bucket, 10% all remaining old buckets.
+    env._rec_active_n = 6
+    env._rec_focus_bucket = 5
+    env._rec_stats = {
+        "plant_catch": (8, 8),
+        "onefoot_micro": (8, 8),
+        "onefoot_mid": (4, 8),
+        "onefoot": (7, 8),
+        "park": (8, 8),
+    }
+    env._recover_refresh_weak_bucket()
+    assert env._rec_weak_bucket == 2
+    np.testing.assert_allclose(
+        env._recover_bucket_weights(),
+        [0.05, 0.05, 0.20, 0.075, 0.125, 0.50])
     env.close()
 
 
@@ -4095,15 +4104,21 @@ def test_recover_curriculum_moves_only_from_certification():
     assert result["active_before"] == 1
     assert result["active_after"] == 2
 
-    # Six certified failures on the new frontier trigger retreat and
-    # clear B0 so it must be certified again.
+    # A failed assay keeps the frontier unlocked and replayable.
     result = env.apply_recover_certification(
         "onefoot_micro", [False] * 6)
     assert result["success_fraction"] < 0.2
     assert result["active_before"] == 2
-    assert result["active_after"] == 1
-    assert env._rec_stats["plant_catch"] == (0, 0)
-    assert env._rec_stats["onefoot_micro"] == (0, 0)
+    assert result["active_after"] == 2
+    assert result["focus_after"] == 1
+    assert env._rec_stats["plant_catch"] == (4, 4)
+    assert env._rec_stats["onefoot_micro"] == (0, 6)
+
+    # Recovery on that same level advances normally.
+    result = env.apply_recover_certification(
+        "onefoot_micro", [True] * 6)
+    assert result["active_after"] == 3
+    assert result["focus_after"] == 2
     env.close()
 
 

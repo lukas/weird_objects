@@ -270,7 +270,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # PERSISTENT across episodes (like _lp_weights, NOT in
         # SNAP_ATTRS).  _rec_stats is certification-only: stochastic
         # PPO rollouts are deliberately too noisy to certify the 0.5 s
-        # six-foot hold, so they must never advance/retreat the ladder.
+        # six-foot hold, so they must never advance the ladder.
         # _rec_rollout_stats remains visible as diagnostic telemetry.
         self._rec_stats = {}
         self._rec_rollout_stats = {}
@@ -281,8 +281,15 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # Recovery must prove the easy six-foot correction before floor
         # starts enter the diet.  any1 started with families 1+2 and also
         # probed family 3, so there was no bucket-1 acquisition phase to
-        # measure or retreat to.
+        # measure.
+        # _rec_active_n is the MONOTONIC number of unlocked buckets.
+        # _rec_focus_bucket is the hardest unlocked acquisition bucket;
+        # _rec_weak_bucket is the weakest previously certified bucket and
+        # receives extra spaced-replay pressure.  Keeping these concepts
+        # separate prevents a noisy assay from deleting learned starts.
         self._rec_active_n = 1
+        self._rec_focus_bucket = 0
+        self._rec_weak_bucket = None
         # Swing-bonus bookkeeping (see step()): per-foot contact state
         # and world XY at the moment of liftoff.
         self._pad_bids = [self.model.body(f"L{i}_pad").id
@@ -968,9 +975,9 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
     # start, then HOLD it 0.5 s — the episode ends on held success.
     # Zero velocity command throughout (this is the recovery
     # specialist; walking is another mode's job). Start-state
-    # curriculum = difficulty FAMILIES of start kinds, admitted
-    # adaptively from per-kind deterministic certification fractions
-    # (bucket 0 alone first).
+    # curriculum = difficulty FAMILIES of start kinds, unlocked
+    # monotonically from per-kind deterministic certification fractions
+    # (bucket 0 alone first), with bucket-level spaced replay forever.
     # Reward is a potential DIFFERENCE (PBRS) on
     # bounded [0,1] features + one-shot success bonus + a
     # rate-normalized time tax — no occupancy/hold income, no alive
@@ -1027,82 +1034,147 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 if k != "bank" or has_bank]
 
     def _recover_active_kinds(self) -> list:
-        """Kinds in the currently admitted families ("bank" only when a
-        bank file is configured)."""
+        """Kinds in every monotonically unlocked family."""
         kinds = []
         for bucket in range(self._rec_active_n):
             kinds += self._recover_family_kinds(bucket)
         return kinds
 
+    def _recover_bucket_certification(self, bucket: int) -> dict | None:
+        """Latest complete deterministic assay for one bucket."""
+        kinds = self._recover_family_kinds(bucket)
+        stats = [self._rec_stats.get(k, (0, 0)) for k in kinds]
+        if not stats or any(episodes <= 0 for _successes, episodes in stats):
+            return None
+        successes = sum(v[0] for v in stats)
+        episodes = sum(v[1] for v in stats)
+        fractions = [s / n for s, n in stats]
+        return {
+            "success_fraction": successes / episodes,
+            # Multi-kind buckets promote and remediate on their weakest
+            # kind so an easy bank cannot hide a failing random tangle.
+            "gate_fraction": min(fractions),
+            "successes": successes,
+            "episodes": episodes,
+        }
+
+    def _recover_refresh_weak_bucket(self) -> None:
+        """Point replay pressure at the weakest certified old bucket."""
+        candidates = []
+        for bucket in range(self._rec_focus_bucket):
+            row = self._recover_bucket_certification(bucket)
+            if row is not None:
+                candidates.append((row["gate_fraction"], -bucket, bucket))
+        self._rec_weak_bucket = min(candidates)[2] if candidates else None
+
+    def _recover_bucket_weights(self) -> np.ndarray:
+        """Spaced-replay probabilities over unlocked recovery buckets.
+
+        The mass is assigned by BUCKET, not by start kind: 50% to the
+        acquisition frontier, 25% geometrically over its three immediate
+        predecessors, 15% to the weakest certified old bucket, and 10%
+        uniformly over all remaining unlocked buckets. Empty components
+        fall back to the frontier. A multi-kind family splits its bucket
+        probability later, so adding a bank never doubles that level's
+        training share.
+        """
+        n = max(1, int(self._rec_active_n))
+        focus = min(max(int(self._rec_focus_bucket), 0), n - 1)
+        w = np.zeros(n, dtype=float)
+        focus_mass = float(cfg_get(
+            self.cfg, "goal", "recover_focus_mix", default=0.50))
+        recent_mass = float(cfg_get(
+            self.cfg, "goal", "recover_recent_mix", default=0.25))
+        weak_mass = float(cfg_get(
+            self.cfg, "goal", "recover_weak_mix", default=0.15))
+        uniform_mass = float(cfg_get(
+            self.cfg, "goal", "recover_uniform_mix", default=0.10))
+        masses = np.maximum(
+            np.asarray([focus_mass, recent_mass, weak_mass, uniform_mass],
+                       dtype=float), 0.0)
+        if float(masses.sum()) <= 0.0:
+            masses[0] = 1.0
+        masses /= masses.sum()
+        focus_mass, recent_mass, weak_mass, uniform_mass = masses
+        w[focus] += focus_mass
+
+        recent = [focus - d for d in range(1, 4) if focus - d >= 0]
+        if recent:
+            shape = np.asarray((0.50, 0.30, 0.20)[:len(recent)],
+                               dtype=float)
+            shape /= shape.sum()
+            for bucket, share in zip(recent, shape):
+                w[bucket] += recent_mass * share
+        else:
+            w[focus] += recent_mass
+
+        weak = self._rec_weak_bucket
+        if weak is not None and 0 <= int(weak) < n and int(weak) != focus:
+            w[int(weak)] += weak_mass
+        else:
+            w[focus] += weak_mass
+
+        reserved = {focus, *recent}
+        if weak is not None and 0 <= int(weak) < n:
+            reserved.add(int(weak))
+        others = [bucket for bucket in range(n) if bucket not in reserved]
+        if others:
+            for bucket in others:
+                w[bucket] += uniform_mass / len(others)
+        else:
+            w[focus] += uniform_mass
+        return w / w.sum()
+
     def _recover_kind_weights(self, kinds: list) -> np.ndarray:
-        """Adaptive sampler weights (directive proportions): frontier
-        kinds (success fraction 20-80%, or <8 episodes seen) carry the bulk
-        (0.55), mastered kinds (>80%) keep retention pressure (0.20),
-        struggling kinds (<20%) stay pressured but reduced (0.35), and
-        a uniform fresh floor (0.10 split) keeps every ADMITTED kind
-        alive.  Unadmitted families receive no probes: admission means
-        the preceding family has already passed its gate.
-        Pure function of the latest deterministic certification batch in
-        self._rec_stats; unit-tested in the semantics bank."""
+        """Map bucket replay mass to kinds, splitting families evenly."""
+        bucket_w = self._recover_bucket_weights()
         w = []
-        for k in kinds:
-            successes, n = self._rec_stats.get(k, (0, 0))
-            fraction = successes / n if n else 0.5
-            if n < 8 or 0.2 <= fraction <= 0.8:
-                w.append(0.55)          # frontier
-            elif fraction > 0.8:
-                w.append(0.20)          # mastered retention
-            else:
-                w.append(0.35)          # struggling: keep pressure
+        for kind in kinds:
+            bucket = self.RECOVER_KIND_BUCKETS[kind]
+            family_n = len(self._recover_family_kinds(bucket))
+            w.append(bucket_w[bucket] / max(family_n, 1))
         w = np.asarray(w, dtype=float)
-        w += 0.10 / max(len(kinds), 1)  # fresh floor
         return w / w.sum()
 
     def _recover_update_admission(self) -> None:
-        """Advance/retreat the family ladder from the stats: admit the
-        next family when every kind of the HARDEST ACTIVE family has
-        enough evidence and certified success fraction >=0.8; retreat
-        (down to bucket 1) when any kind of the last-admitted family has
-        enough evidence and success fraction
-        <0.2 (directive: >=80% advance, <20% retreat)."""
-        hard = [k for k in self.RECOVER_FAMILIES[self._rec_active_n - 1]
-                if k != "bank" or cfg_get(self.cfg, "goal",
-                                          "recover_start_bank",
-                                          default=None) is not None]
+        """Monotonically unlock the next family after an >=80% assay."""
+        self._rec_focus_bucket = self._rec_active_n - 1
+        hard = self._recover_family_kinds(self._rec_focus_bucket)
         st = self._rec_stats
         admit_n = int(float(cfg_get(
             self.cfg, "goal", "recover_admit_n", default=4)))
-        retreat_n = int(float(cfg_get(
-            self.cfg, "goal", "recover_retreat_n", default=6)))
         def passed(kind: str) -> bool:
             successes, n = st.get(kind, (0, 0))
             return n >= admit_n and successes / n >= 0.8
-
-        def collapsed(kind: str) -> bool:
-            successes, n = st.get(kind, (0, 0))
-            return n >= retreat_n and successes / n < 0.2
 
         if (self._rec_active_n < len(self.RECOVER_FAMILIES)
                 and hard
                 and all(passed(k) for k in hard)):
             self._rec_active_n += 1
-        elif (self._rec_active_n > 1
-                and any(collapsed(k) for k in hard)):
-            failed_bucket = self._rec_active_n - 1
-            self._rec_active_n -= 1
-            # Re-certify the easier frontier before trying the failed
-            # family again.  Without this reset, its old mastered EMA
-            # immediately re-admitted the failed family on the very next
-            # reset, so "retreat" lasted zero training episodes.
-            # Clear the failed family too; otherwise it immediately
-            # re-triggers retreat after the easier bucket is re-certified,
-            # before the deterministic certifier can reassess it.
-            for bucket in (self._rec_active_n - 1, failed_bucket):
-                for k in self.RECOVER_FAMILIES[bucket]:
-                    if k != "bank" or cfg_get(
-                            self.cfg, "goal", "recover_start_bank",
-                            default=None) is not None:
-                        st[k] = (0, 0)
+            self._rec_focus_bucket = self._rec_active_n - 1
+        self._recover_refresh_weak_bucket()
+
+    def recover_score_state(self) -> dict:
+        """Serializable deterministic curriculum/scoreboard snapshot."""
+        self._recover_refresh_weak_bucket()
+        bucket_w = self._recover_bucket_weights()
+        buckets = {}
+        for bucket in range(len(self.RECOVER_FAMILIES)):
+            row = self._recover_bucket_certification(bucket)
+            if row is not None:
+                buckets[str(bucket)] = row
+        return {
+            "total_buckets": len(self.RECOVER_FAMILIES),
+            "max_unlocked_bucket": self._rec_active_n - 1,
+            "focus_bucket": self._rec_focus_bucket,
+            "weakest_bucket": (-1 if self._rec_weak_bucket is None
+                                else int(self._rec_weak_bucket)),
+            "buckets": buckets,
+            "sample_probabilities": {
+                str(bucket): float(probability)
+                for bucket, probability in enumerate(bucket_w)
+            },
+        }
 
     def apply_recover_certification(self, kind: str,
                                     outcomes: list[bool],
@@ -1129,12 +1201,15 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # and denominator cannot be interpreted from a chart.
         self._rec_stats[kind] = (successes, n)
         before = self._rec_active_n
+        focus_before = self._rec_focus_bucket
         if update_admission:
             self._recover_update_admission()
         return {"kind": kind, "success_fraction": float(fraction),
                 "successes": int(successes), "episodes": int(n),
                 "active_before": int(before),
-                "active_after": int(self._rec_active_n)}
+                "active_after": int(self._rec_active_n),
+                "focus_before": int(focus_before),
+                "focus_after": int(self._rec_focus_bucket)}
 
     def _sample_recover(self) -> WalkTrajectory:
         """One recover_to_plant episode: adaptive start-kind draw, zero
@@ -2695,6 +2770,11 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         info["recover_start_bucket"] = float(bucket)
         info["recover_active_families"] = float(self._rec_active_n)
         info["recover_frontier_bucket"] = float(self._rec_active_n - 1)
+        info["recover_max_unlocked_bucket"] = float(
+            self._rec_active_n - 1)
+        info["recover_focus_bucket"] = float(self._rec_focus_bucket)
+        info["recover_weakest_bucket"] = float(
+            -1 if self._rec_weak_bucket is None else self._rec_weak_bucket)
         info[f"recover_reset_height_mm_{kind}"] = float(
             self._rec_reset_height_mm)
         info[f"recover_reset_tilt_deg_{kind}"] = float(
@@ -2735,4 +2815,8 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                     float(successes))
                 info[f"recover_curriculum_bucket_{rec_bucket}_episodes"] = (
                     float(episodes))
+        for rec_bucket, probability in enumerate(
+                self._recover_bucket_weights()):
+            info[f"recover_sample_probability_bucket_{rec_bucket}"] = (
+                float(probability))
         return reward, term, info
