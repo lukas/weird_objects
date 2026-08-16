@@ -1,5 +1,38 @@
 # dynrep — Dynamics-representation pretraining
 
+**08-16 ~06:3x UTC (triage cycle): the metrics1 matched triple landed
+and TRIAGED — first real behavioral verdict for the dynrep hypothesis,
+and it's a clean MISS.** All three `dynrep-tfwalk-metrics1-{A,B,C}-s5`
+finished their 2M-step budget clean (POD_TFWALK_DONE, ~65/90/95 min).
+Matched-triple read at the full budget: **scratch PPO (A, no
+pretrained representation at all) wins on every axis** — highest
+final walk return (371 vs B 350 / C 262), cleanest gait (slip_m 0.52
+vs 0.91/0.85, peak_roll 2.7° vs 7.5°/6.8°, slew_sat 0.46 vs 0.94/0.75
+— B and C are frequently saturating joint-speed commands), and far
+better heldout hold-task reward (146 vs 0.7/1.3, i.e. B/C forgot how
+to stand/hold almost completely). The pre-registered 1M→2M slope
+question for C (continual anchor fine-tuning) answers in the WRONG
+direction: at 1M C briefly LED the triple (386 vs A's 281), but by 2M
+it REGRESSED to dead last (262) while A and B kept climbing — the
+anchor's own prediction loss stayed flat (~1.98, matching pretraining,
+so the encoder didn't break), so the regression looks like the walk
+and dynamics-prediction objectives fighting each other in the shared
+policy, not a broken world-model. Frozen (B) fares no better than
+scratch either. **Verdict: at this 2M budget, neither frozen nor
+continually-anchored reuse of the pretrained dynamics representation
+gives PPO a sample-efficiency or gait-quality win over training from
+scratch — continual anchoring looks actively harmful past 1M.** One
+miss, not two — per the two-miss rule this doesn't yet close the
+dynrep hypothesis, but it is the first real evidence against it (G1/
+G1.1 predictor-quality gates were never in question; this is the
+downstream "does it help RL" question, and so far: no). Full metrics:
+ledger entries `dynrep-tfwalk-metrics1-{A,B,C}-s5`. Next: either a
+lighter-touch use of the representation (auxiliary loss instead of
+frozen/anchored features) or an operator call on whether to keep
+pushing this lever — not simply re-running the same recipe longer
+(RESEARCH_RULES "two misses" discipline once a second matched arm
+also misses).
+
 **08-16 ~04:3x UTC (operator-kick cycle, order 20260816T042655Z
 executed): gpu1 cohort corrected to FINISHED + fresh 2M metrics
 cohort LIVE.** The three `dynrep-tfwalk-gpu1-{A,B,C}-s5` trainers all

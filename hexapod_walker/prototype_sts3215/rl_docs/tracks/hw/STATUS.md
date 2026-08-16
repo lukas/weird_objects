@@ -9,6 +9,30 @@ unresolved blockers between the robot and reliable joystick control.
 
 ## Now
 
+- **08-16 ~06:3x (triage cycle): `cw-recover-any7-tangle-cont1` FAIL on
+  its primary bar, but SHARPENS the any6 wall — bank is SOLVED,
+  tangle specifically is a statistically solid wall.** Warm-started
+  from any6, fresh 40M budget, doubled cert sample (8→16 eps/kind).
+  Frontier climbed 0→15 by 34M (curriculum state resets on warm-start;
+  network weights don't) then sat flat at B15 for the whole last 6M
+  steps — never promoted to B16 (flip). Splitting the combined
+  bucket-15 read: **bank cert fraction is now 0.56–1.0, trending to
+  1.0 the last 3 reads — solved.** **Tangle cert fraction is flat at
+  0.25–0.44 across all 6 late certs (n=16 each) — a real, statistically
+  solid wall, not curriculum noise** (any6 could only say "contested";
+  the bigger sample confirms it's a genuine plateau). Video (det, all
+  4 tangle severities) shows the skill is REAL when it fires: legs
+  start visibly crossed, the policy genuinely works them apart and
+  settles into a clean six-foot stance within ~2s, holds clean to
+  16s — no flag-leg/park/stilt. So this is a success-RATE gap under
+  held-out variation, not a missing skill. flip (B16, never trained)
+  fails as expected (genuine on-back flailing). Sample-size alone
+  didn't move tangle, so the next lever must be different exposure/
+  curriculum weight on tangle specifically, not more precise
+  measurement of the same mix — `cw-recover-any8-spacedreplay-scratch1`
+  (spaced replay, running) is testing one such lever now; if it also
+  misses on tangle, per two-miss discipline the next design needs a
+  named new mechanism, not a third resample.
 - **08-16 ~02:5x (triage cycle): micro-bucket curriculum CONFIRMED —
   `cw-recover-any6-microbuckets-scratch1` PASSED its full 40M budget.**
   The frontier climbed cleanly (every promotion CERT-gated ≥0.8, no
