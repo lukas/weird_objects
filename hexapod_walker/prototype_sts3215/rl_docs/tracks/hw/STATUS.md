@@ -9,6 +9,38 @@ unresolved blockers between the robot and reliable joystick control.
 
 ## Now
 
+- **08-16 ~13:xx (triage cycle): `cw-recover-any10-zerorsi-cont1` FAIL —
+  RECOVER RSI does NOT rescue an already-stuck policy; the any8/any9
+  stuck-lineage rescue is now CLOSED (no third warm-start).** Matched
+  A/B vs any9 (same stuck any8 checkpoint, same diffuse masses, ONE
+  delta: `recover_rsi_frac=0.5`). Bucket 11 (zero) CERT success stayed
+  <=0.125 across the whole 20M budget (last 5 certs: 0, 0, 0, 0,
+  0.0625 — no rising trend), and the single-sample harness gate eval
+  agrees exactly (zero 0/1 det, `over_current` termination). Video
+  (recover_det_11) is the same flat-splay-then-stall pathology as
+  any8/any9 — genuine capability gap, not an exploit. Buckets 0-10
+  retention also broke at the literal final cert (bucket 9
+  gate_fraction 0.5625 < 0.8), consistent with the PPO-churn
+  oscillation already named on any9, not new forgetting. Per the
+  pre-registered gate: **stuck-lineage rescue CLOSED entirely** (three
+  attempts now: any8 spaced-replay, any9 curriculum-mass, any10 RSI,
+  all FAIL identically on bucket 11); RECOVER RSI is RETAINED as a
+  mechanism, untested until now on a policy that ISN'T already stuck.
+  **Refilled same cycle: `cw-recover-any11-rsi-scratch1`** (genuinely
+  FROM SCRATCH, any6's exact recipe, `recover_rsi_frac=0.5` ON from
+  step 0 — VERIFIED RUNNING train-0, `--phase acquisition`, 40M
+  budget). Tests the live half of the hypothesis any8/9/10 never
+  reached: does RSI keep a policy from ever entrenching the zero stall
+  in the first place, rather than curing one that already has? Gate:
+  zero CERT must reach >=0.8 within 3M steps of becoming frontier (no
+  multi-cert stall) AND frontier must legitimately reach >=B12
+  (tangle_mild) by 40M with buckets 0-10 retained >=0.8. FAIL closes
+  RSI-for-zero entirely (from-scratch protection also fails) and calls
+  for a genuinely new mechanism (reward/BC-teacher-side) on the zero
+  family. Recovery line's best CURRENT checkpoint (until any11 lands)
+  stays any7 (B15, tangle+bank, bank solved / tangle contested,
+  10/10-episode video-confirmed genuine six-foot recover-to-stand,
+  no flag/stilt/park).
 - **08-16 ~12:xx (dig-in cycle): the zero-bucket (flat-belly) wall is
   root-caused and the mechanism fix is TRAINING.** Dig-in on the any9
   FAIL found the gap is start-distribution COVERAGE, not anchor
