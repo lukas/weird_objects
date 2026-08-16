@@ -58,9 +58,14 @@ fi
 if [ "$COND" = "C" ]; then
     [ -d "$DATA" ] || { echo "POD_TFWALK_JOINT_ABORT: rehearsal corpus $DATA missing"; exit 3; }
 fi
+# Match only a REAL trainer invocation (python -m rl_move.dynamics.
+# train_ppo_transfer). Matching bare "train_ppo_transfer" false-aborted
+# on train-4 (08-16): a leftover `bash -c` launcher wrapper from the
+# risewalk cohort still carried that substring inside its own inline
+# case-pattern text.
 for f in /proc/[0-9]*/cmdline; do
     c=$(tr '\0' ' ' < "$f" 2>/dev/null) || continue
-    case "$c" in *train_ppo_transfer*)
+    case "$c" in *rl_move.dynamics.train_ppo_transfer*)
         echo "POD_TFWALK_JOINT_ABORT: train_ppo_transfer already running on $(hostname)"
         exit 4;;
     esac
