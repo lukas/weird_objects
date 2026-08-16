@@ -1,5 +1,33 @@
 # dynrep — Dynamics-representation pretraining
 
+**08-16 ~04:3x UTC (operator-kick cycle, order 20260816T042655Z
+executed): gpu1 cohort corrected to FINISHED + fresh 2M metrics
+cohort LIVE.** The three `dynrep-tfwalk-gpu1-{A,B,C}-s5` trainers all
+exited cleanly at their 1M budget (~23:23-23:38 UTC 08-15,
+POD_TFWALK_DONE + checkpoints on-pod) but the ledger rows were stale
+RUNNING — corrected to FINISHED, no triage verdict (the learning
+question is superseded by the rerun below). Per the order: synced
+b823cc76 (transfer-v2 metrics contract — `rollout/*` per-rollout
+callback, `SCORE/*` at evals, VecMonitor) to train-7/8/11, ran the
+three focused tests on CUDA train-8 (`test_dynrep_transfer_metrics`
+2/2, `test_dynrep_ppo_anchor` 3/3, `test_pod_trainers_scan` 3/3),
+then STAGED-launched the append-only rerun `dynrep-tfwalk-metrics1-
+{A,B,C}-s5`: 2M PPO steps from scratch (2x the prior cutoff,
+specifically to see whether C is still learning past 1M), seed 5,
+eval every 10k on rise/hold/walk + heldout, `--device cuda`, fresh
+W&B IDs, NO init from any gpu1 checkpoint. A (train-8, `jf0tfsqh`)
+launched first; the required schema (all 7 rollout/* keys + counts,
+SCORE/walk_total_reward, eval/walk/return, train/* diagnostics) was
+mechanically verified present on W&B before B/C went out. B (train-7,
+`psiz3y6x`, frozen encoder md5 9df48f68 = train-11's) and C
+(train-11, `axw76nij`, same encoder + anchor batches from the
+original recovered `v5_mjx_fresh` 8.3G corpus, no recollection)
+verified: "[device] CUDA required and active: NVIDIA H200" pre-W&B,
+steps advancing on all three, same schema, C `anchor/loss` present
+with untouched pretrained anchor loss 1.908 (~pretraining val ≈2.0,
+tripwire clean). Triage when they land: matched-triple gate incl.
+the 1M→2M slope question, in the ledger entries.
+
 **08-15 ~23:0x UTC (checkup cycle): the 22:37 watcher alarms on all
 six dynrep runs are RESOLVED — no live run was actually unhealthy.**
 The three tfwalk alarms were the operator/Codex CPU-compliance kills

@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: RUNNING
+**status**: FINISHED
 
 **created**: 2026-08-15T22:53:42+00:00
 
@@ -20,5 +20,5 @@
 
 **gate**: Judged as a matched triple with dynrep-tfwalk-gpu1-A-s5/B-s5 at 1M steps: walk return/steps-to-threshold and gait-quality columns (slip_m, peak_roll_deg, slew_sat) vs A and B; anchor_loss must stay finite/stable.
 
-**note**: Script-owned cohort (pod_tfwalk.sh); only arm needing the 8.3G recovered v5_mjx_fresh corpus on-pod (train-11, where it lives). CORRECTED GPU-only relaunch per operator order 20260815T224355Z: anchor tensors now built on CUDA (anchor_batch_to_torch device=cuda, c4f5b211); '[device] CUDA required and active' before W&B init. Supersedes both dynrep-tfwalk-C-s5 attempts (incl. 9e4eimd8, CPU, non-evidence).
+**note**: Trainer exited cleanly at its 1M-step budget (POD_TFWALK_DONE in pod log, checkpoint ppo_dynrep-tfwalk-gpu1-C-s5.zip on pod); ledger row was stale-RUNNING. Corrected to FINISHED per operator order 20260816T042655Z. Learning-rate question (is C still learning at 1M?) superseded by the 2M dynrep-tfwalk-metrics1 cohort.
 

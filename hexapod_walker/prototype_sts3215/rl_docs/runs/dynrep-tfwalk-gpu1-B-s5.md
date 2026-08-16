@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: RUNNING
+**status**: FINISHED
 
 **created**: 2026-08-15T22:53:23+00:00
 
@@ -20,5 +20,5 @@
 
 **gate**: Judged as a matched triple with dynrep-tfwalk-gpu1-A-s5/C-s5 at 1M steps: walk return/steps-to-threshold and gait-quality columns (slip_m, peak_roll_deg, slew_sat) vs A and C.
 
-**note**: Script-owned cohort (pod_tfwalk.sh). CORRECTED GPU-only relaunch per operator order 20260815T224355Z; exact cw-dynrep-tf-state2-recovered1 frozen Transformer encoder, no substitution; G1/G1.1 PASS record verified readable on-pod (no gate rerun per order); '[device] CUDA required and active' before W&B init. Supersedes dynrep-tfwalk-B-s5 (f086dlfd, CPU, non-evidence — its stale trainer was still alive on train-7 and was killed this cycle before relaunch).
+**note**: Trainer exited cleanly at its 1M-step budget (POD_TFWALK_DONE in pod log, checkpoint ppo_dynrep-tfwalk-gpu1-B-s5.zip on pod); ledger row was stale-RUNNING. Corrected to FINISHED per operator order 20260816T042655Z. Learning-rate question (is C still learning at 1M?) superseded by the 2M dynrep-tfwalk-metrics1 cohort.
 
