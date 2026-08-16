@@ -1247,6 +1247,27 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                               unload_leg=None, start_at="any",
                               vx=zeros.copy(), vy=zeros.copy(), wz=None)
         traj.start_kind = kind
+        # RECOVER RSI (08-16, zero-family mechanism fix after
+        # cw-recover-any8/any9 both stalled on B11): with probability
+        # goal.recover_rsi_frac, an episode whose kind was NATURALLY
+        # drawn from goal.recover_rsi_kinds (default "zero") spawns ON
+        # the demonstrated belly->plant path instead of the family
+        # pose (sim_env._reset_begin builds the waypoint — the same
+        # proven goal.rise_rsi_frac lever, extended to recover). The
+        # decision lives HERE, goal-side, because only the sampler
+        # knows whether the kind was FORCED: force_recover_start is
+        # the deterministic CERT/eval path and must stay pure, so a
+        # forced episode never carries the flag. Default 0.0 = off,
+        # bit-exact (no extra rng draw).
+        traj.recover_rsi = False
+        _rsi_f = float(cfg_get(self.cfg, "goal", "recover_rsi_frac",
+                               default=0.0))
+        if _rsi_f > 0.0 and force is None:
+            _rsi_kinds = [k.strip() for k in str(cfg_get(
+                self.cfg, "goal", "recover_rsi_kinds",
+                default="zero")).split(",") if k.strip()]
+            if kind in _rsi_kinds and float(self.rng.random()) < _rsi_f:
+                traj.recover_rsi = True
         return traj
 
     # ---- mode sequencing (goal.mode_seq; TRANSITIONS_DIRECTIVE item 1)
@@ -2724,31 +2745,45 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             # apply_recover_certification() from deterministic MJX passes.
             kind = getattr(self._goal_traj, "start_kind", "?")
             bucket = self.RECOVER_KIND_BUCKETS.get(kind, -1)
-            ema, n = self._rec_rollout_stats.get(kind, (0.5, 0))
-            beta = float(cfg_get(self.cfg, "goal",
-                                 "recover_ema_beta", default=0.25))
-            updated = (
-                (1.0 - beta) * ema + beta * (1.0 if success else 0.0),
-                n + 1)
-            self._rec_rollout_stats[kind] = updated
-            successes, episodes = self._rec_rollout_counts.get(kind, (0, 0))
-            self._rec_rollout_counts[kind] = (
-                successes + int(success), episodes + 1)
-            # Preserve the legacy self-certified curriculum for the C
-            # trainer.  MJX recovery runs opt into external certification
-            # in train_ppo_mjx._env_kwargs, so their noisy PPO actions can
-            # never mutate _rec_stats.
-            if not self._rec_external_certification:
-                cert_successes, cert_episodes = self._rec_stats.get(
-                    kind, (0, 0))
-                self._rec_stats[kind] = (
-                    cert_successes + int(success), cert_episodes + 1)
-            info[f"recover_episode_{kind}"] = 1.0
-            info[f"recover_success_{kind}"] = 1.0 if success else 0.0
-            if bucket >= 0:
-                info[f"recover_episode_bucket_{bucket}"] = 1.0
-                info[f"recover_success_bucket_{bucket}"] = (
+            if getattr(self._goal_traj, "recover_rsi", False):
+                # RSI episodes (goal.recover_rsi_frac) practice
+                # ref-path waypoints, not the family's own start:
+                # keep them OUT of the rollout EMA/counters and the
+                # C-trainer self-cert stats so no curriculum or
+                # diagnostic signal is inflated by easier on-path
+                # spawns. They log under their own _rsi suffix.
+                info[f"recover_episode_{kind}_rsi"] = 1.0
+                info[f"recover_success_{kind}_rsi"] = (
                     1.0 if success else 0.0)
+            else:
+                ema, n = self._rec_rollout_stats.get(kind, (0.5, 0))
+                beta = float(cfg_get(self.cfg, "goal",
+                                     "recover_ema_beta", default=0.25))
+                updated = (
+                    (1.0 - beta) * ema
+                    + beta * (1.0 if success else 0.0),
+                    n + 1)
+                self._rec_rollout_stats[kind] = updated
+                successes, episodes = self._rec_rollout_counts.get(
+                    kind, (0, 0))
+                self._rec_rollout_counts[kind] = (
+                    successes + int(success), episodes + 1)
+                # Preserve the legacy self-certified curriculum for the
+                # C trainer.  MJX recovery runs opt into external
+                # certification in train_ppo_mjx._env_kwargs, so their
+                # noisy PPO actions can never mutate _rec_stats.
+                if not self._rec_external_certification:
+                    cert_successes, cert_episodes = self._rec_stats.get(
+                        kind, (0, 0))
+                    self._rec_stats[kind] = (
+                        cert_successes + int(success), cert_episodes + 1)
+                info[f"recover_episode_{kind}"] = 1.0
+                info[f"recover_success_{kind}"] = (
+                    1.0 if success else 0.0)
+                if bucket >= 0:
+                    info[f"recover_episode_bucket_{bucket}"] = 1.0
+                    info[f"recover_success_bucket_{bucket}"] = (
+                        1.0 if success else 0.0)
 
         info["reward_recover_pot"] = r_pot
         info["reward_recover_bonus"] = r_bonus
@@ -2761,6 +2796,9 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         info["recover_P"] = feat_p
         info["recover_hold_n"] = float(self._rec_hold_n)
         info["recover_success"] = 1.0 if success else 0.0
+        info["recover_rsi_episode"] = (
+            1.0 if getattr(self._goal_traj, "recover_rsi", False)
+            else 0.0)
         info["recover_min_load"] = float(np.min(x))
         info["recover_tilt_deg"] = tilt_deg
         kind = getattr(self._goal_traj, "start_kind", "?")

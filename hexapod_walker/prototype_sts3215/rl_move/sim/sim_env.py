@@ -1202,6 +1202,43 @@ class SimHexapodBalanceEnv(_GymBase):
                         -2.0, 2.0, N_JOINTS) * DEG2RAD
                     self._rsi_pending = True
                     return self._clip_to_joint_limits(q_rsi)
+        # RECOVER RSI (08-16, zero-family mechanism fix): spawn a
+        # flagged recover episode ON the demonstrated belly->plant
+        # path instead of its family pose. Root cause (cw-recover-any8
+        # /any9, hw track): the recovery ladder's partial_* rungs are
+        # LINEAR curls (f * q_crouch), not states on the executable
+        # rise trajectory, so a policy stuck at the zero (belly-flat)
+        # family never PRACTICES from mid-rise states — the exact
+        # exploration gap the rise-mode RSI above closed for the rise
+        # task (row-range formula reused: belly curl through ~90% of
+        # the ramp, never the free-success top). The flag is set ONLY
+        # by walk_task._sample_recover on NATURALLY drawn kinds
+        # (goal.recover_rsi_frac/_kinds, default off); forced CERT/
+        # eval kinds never carry it, so certification stays pure by
+        # construction. The settle choreography (incl. limp sag) runs
+        # unchanged — same sag-robustness contract as rise RSI. Level
+        # tilt anchoring matches the recover "any" branch below.
+        if (self._goal_traj is not None
+                and getattr(self._goal_traj, "mode", "") == "recover"
+                and getattr(self._goal_traj, "recover_rsi", False)):
+            rsi_ref = cfg_get(self.cfg, "reward", "rise_ref_path",
+                              default=None)
+            if not rsi_ref:
+                raise ValueError("goal.recover_rsi_frac needs "
+                                 "reward.rise_ref_path")
+            ref = load_rise_ref(str(rsi_ref))
+            if "h" not in ref:
+                raise ValueError("goal.recover_rsi_frac needs a rise "
+                                 "reference with per-tick heights "
+                                 "(re-extract with extract_rise_ref)")
+            n, i0 = len(ref["q"]), int(ref["ramp_i0"])
+            j = int(self.rng.integers(0, i0 + int(0.9 * (n - 1 - i0))))
+            q_rsi = ref["q"][j] + self.rng.uniform(
+                -2.0, 2.0, N_JOINTS) * DEG2RAD
+            if self._ep_rand is not None:
+                q_rsi = q_rsi + self._ep_rand.start_offset_rad
+            self._tipped_applied = True
+            return self._clip_to_joint_limits(q_rsi)
         if start_at == "zero":
             q_start = np.zeros(N_JOINTS, dtype=float)
             # Bridge start (rise reverse-curriculum): blend the start

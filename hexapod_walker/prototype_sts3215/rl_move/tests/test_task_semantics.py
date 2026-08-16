@@ -4204,3 +4204,87 @@ def test_recover_bc_anchor_gated_by_state():
     _obs, _r, _t, _tr, info = env.step(np.zeros(18))
     assert "bc_target" not in info, "anchor on without its cfg key"
     env.close()
+
+
+def test_recover_rsi_default_off_and_cert_purity():
+    """goal.recover_rsi_frac: default off = the flat-belly zero spawn,
+    bit-exact; a FORCED kind (the deterministic CERT/eval path) never
+    carries the RSI flag even at frac=1.0 — certification stays pure
+    by construction."""
+    env = _make_recover_env(0, start="zero")           # key absent
+    env.reset()
+    assert not getattr(env._goal_traj, "recover_rsi", False), (
+        "RSI flag set without its cfg key")
+    z = float(env.data.xpos[env._chassis_bid, 2])
+    assert z < 0.050, (
+        f"default zero spawn settled at z={z:.3f} m — not belly-flat")
+    _obs, _r, _t, _tr, info = env.step(np.zeros(18))
+    assert info.get("recover_rsi_episode") == 0.0
+    env.close()
+
+    extra = {("goal", "recover_rsi_frac"): 1.0,
+             ("reward", "rise_ref_path"): RISE_REF}
+    env = _make_recover_env(1, start="zero", extra=extra)  # forced kind
+    env.reset()
+    assert not getattr(env._goal_traj, "recover_rsi", False), (
+        "RSI fired on a FORCED kind — CERT/eval purity broken")
+    env.close()
+
+
+def test_recover_rsi_spawns_on_ref_path():
+    """goal.recover_rsi_frac=1.0: naturally drawn zero episodes carry
+    the flag and spawn on the belly->plant reference path — the settle
+    reaches supported heights the pure belly-flat start never has."""
+    extra = {("goal", "recover_rsi_frac"): 1.0,
+             ("reward", "rise_ref_path"): RISE_REF}
+    env = _make_recover_env(2, start="zero", extra=extra)
+    env.force_recover_start = None
+    env._rec_active_n = 12          # unlock B0..B11 (zero = frontier)
+    zs, hits = [], 0
+    for _ in range(40):
+        env.reset()
+        kind = getattr(env._goal_traj, "start_kind", "")
+        if kind != "zero":
+            assert not getattr(env._goal_traj, "recover_rsi", False), (
+                f"RSI flag leaked onto kind {kind!r}")
+            continue
+        assert getattr(env._goal_traj, "recover_rsi", False), (
+            "naturally drawn zero episode missing the RSI flag at "
+            "frac=1.0")
+        zs.append(float(env.data.xpos[env._chassis_bid, 2]))
+        hits += 1
+        if hits >= 8:
+            break
+    assert hits >= 3, f"zero drawn only {hits} times with B11 unlocked"
+    assert max(zs) > 0.055, (
+        f"RSI spawns never settled above the belly (max z "
+        f"{max(zs):.3f} m) — waypoints are not reaching supported "
+        "mid-rise states")
+    env.close()
+
+
+def test_recover_rsi_stats_stay_clean():
+    """An RSI episode's outcome must never touch the rollout EMA/
+    counters or the C-trainer self-cert stats under the zero kind —
+    it logs under its own _rsi suffix."""
+    extra = {("goal", "recover_rsi_frac"): 1.0,
+             ("reward", "rise_ref_path"): RISE_REF}
+    env = _make_recover_env(3, start="zero", extra=extra)
+    env.reset()
+    env._goal_traj.recover_rsi = True   # forced kind: flag manually
+    act = q_rad_to_action(env.data.qpos[env._qadr].copy())
+    info = {}
+    for _ in range(env.episode_steps + 2):
+        _obs, _r, term, trunc, info = env.step(act)
+        if term or trunc:
+            break
+    assert term or trunc, "episode never ended"
+    assert info.get("recover_rsi_episode") == 1.0
+    assert ("recover_episode_zero_rsi" in info
+            or "recover_success_zero_rsi" in info), (
+        "RSI episode did not log under its own _rsi suffix")
+    assert "zero" not in env._rec_rollout_counts, (
+        "RSI episode polluted the rollout counters for kind 'zero'")
+    assert "zero" not in env._rec_stats, (
+        "RSI episode polluted the self-cert stats for kind 'zero'")
+    env.close()
