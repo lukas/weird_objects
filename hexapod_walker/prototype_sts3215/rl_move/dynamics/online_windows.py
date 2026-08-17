@@ -54,6 +54,7 @@ class OnlineEpisodeCapture(gym.Wrapper):
         self._priv: list[np.ndarray] = []
         self._actions: list[np.ndarray] = []
         self._mode = "?"
+        self._start_at = "?"
         self._qnom: np.ndarray | None = None
 
     def reset(self, **kw):
@@ -65,6 +66,9 @@ class OnlineEpisodeCapture(gym.Wrapper):
         self._priv = [fr.extract_priv(raw)]
         self._actions = []
         self._mode = str(getattr(raw._goal_traj, "mode", "?"))
+        # start pose kind (rise stratification: flat/bridge = "zero",
+        # "crouch", post-lower bank = "rise_bank"; walk = "plant"/"park")
+        self._start_at = str(getattr(raw._goal_traj, "start_at", "?"))
         self._qnom = raw._q_nom.astype(np.float32).copy()
         return obs, info
 
@@ -81,6 +85,7 @@ class OnlineEpisodeCapture(gym.Wrapper):
                 "actions": np.stack(self._actions),
                 "priv": np.stack(self._priv),
                 "mode": self._mode,
+                "start_at": self._start_at,
                 "reason": "trunc" if trunc else "term",
                 "q_nom": self._qnom,
                 "dr": self._dr_scale,

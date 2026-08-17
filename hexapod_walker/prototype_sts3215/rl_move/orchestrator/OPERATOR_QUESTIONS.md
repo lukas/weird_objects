@@ -304,3 +304,12 @@ Entry format (append; newest last; update status in place):
   the never-retry order.
 - ANSWER (operator): —
 - rulebook change: —
+
+## q_20260817T2200Z — OPEN
+- cycle: operator-kick cycle 2026-08-17 ~21:5x-22:xx UTC (fb_20260817T210422_9df9c7 execution)
+- operator order: fb_20260817T210422_9df9c7 — launch cw-dynrep-livewalkrise1 (live command-rich CUDA online-predictor + boundary-gated critic snapshot) and cw-dynrep-criticD-40m1 (40M frozen-critic-D walk) in parallel.
+- conflicted with: (1) SIM SPRINT ruling (CURRENT_TRUTHS 08-17 ~18:05 UTC): "No new research-track launches (dynrep, ...) unless the arm directly serves that goal"; dynrep STATUS header: "NO NEW LAUNCHES on this track unless an arm directly serves reliable rise+walk"; also the 08-17 ~15:xx entry recorded "E CLOSED; NO launch/extension per operator order" for the online-predictor line. (2) The E verdict itself (online adaptation REDUCED the transfer benefit at 1M, pre-registered gate FAIL).
+- why the cycle would have declined: the E-lineage online-predictor mechanism has one clean pre-registered FAIL on record and the sprint ruling bans new dynrep launches; a non-operator cycle would have parked both arms as [operator]-gated.
+- what was executed: both arms built and launched per the order (the order is newer, operator-stamped, and explicitly frames both as serving the SIM SPRINT rise+walk deliverable; the livewalkrise design also addresses E's measured failure mode via boundary-gated versioned snapshots, so it is a NEW mechanism, not an E re-run). Code committed to main; preflight banks green; canary-first staging for arm A.
+- ANSWER (operator): _pending_
+- rulebook change: _pending_

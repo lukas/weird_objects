@@ -3,6 +3,38 @@
 **SIM SPRINT (operator 08-17 ~18:05 UTC — binding while the robot is off the bench for repair): NO NEW LAUNCHES on this track unless an arm directly serves reliable rise+walk in the MuJoCo sim (the fleet's single deliverable; download answer: `rl_docs/DOWNLOAD_ANSWER.md`). In-flight runs finish and get triaged normally. Full text: RL_PLAN.md "SIM SPRINT".**
 
 
+**08-17 ~22:xx UTC (operator-kick cycle, order fb_20260817T210422_9df9c7
+executed — two parallel arms, both framed by the operator as serving
+the SIM SPRINT rise+walk deliverable; obey-first question
+q_20260817T2200Z records the SIM-SPRINT/E-closure tension):**
+**(A) `cw-dynrep-livewalkrise1`** — condition F, the LIVE extension of
+the E path built this cycle (`live_replay.py` + predictive_critic
+"live" mode): CUDA-resident stratified replay from the policy's own
+rollouts (75% WALK / 25% RISE fresh target; 75% fresh + 25%
+recovered-v5 rehearsal per predictor batch), command-rich walkrise env
+(uniform heading incl. lateral/diagonal/backward, mid-episode command
+resampling + stops, commanded yaw, rise flat/bridge/crouch + 30%
+post-lower bank starts), per-bin composition and prediction-error
+logging (velocity/heading/tilt/contact/joint/current, now+future), and
+a VERSIONED critic snapshot that starts as exact frozen D and may
+change no faster than 1M-step boundaries, only behind the full gate
+battery (generic corpus-val retention 15%, live command-rich walk
+improvement, live rise retention 5%, latent drift, critic value-jump)
+— the explicit fix for E's measured nonstationary-critic failure.
+Actor stays raw-obs scratch-A (zero action-KL asserted in-process).
+Staging: 150k mechanism canary (boundary=50k to exercise accept AND
+reject paths) -> 10M continuation on canary PASS.
+**(B) `cw-dynrep-criticD-40m1`** — fresh seed 8, 40M steps, the exact
+vt2ovznc transformer (md5 9df48f687967c25085ee50171e4110ff, asserted
+at start) FROZEN as critic D throughout, scratch raw-obs actor, proven
+walk stack + conservative command diversity (resample 4s/jitter/15%
+stops), checkpoint selection by the pre-registered locomotion_quality
+composite (command progress, vx/vy+yaw tracking, slip-per-meter, roll,
+falls, slew, contact gait; rise/hold retention logged every eval) —
+scales the 1M frozen-D win (D beat scratch on 3/3 seeds).
+Tests: new bank test_dynrep_live_replay.py 9 CPU + 1 CUDA-pod test,
+all prior dynrep banks green (28), D/E semantics bit-untouched.**
+
 **08-17 ~15:xx UTC (operator-kick reconcile cycle, operator triage
 fb_20260817T153102_0f579c executed): the D/E 1M cohort is DONE and
 the line finally has a POSITIVE result. D (FROZEN predictive-critic)

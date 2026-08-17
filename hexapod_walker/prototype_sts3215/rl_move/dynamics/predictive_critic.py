@@ -183,16 +183,29 @@ class PredictiveCriticPolicy(ActorCriticPolicy):
 
 @dataclass
 class PredictorConfig:
-    mode: str = "frozen"            # "frozen" (D) | "online" (E)
+    mode: str = "frozen"            # "frozen" (D) | "online" (E) |
+                                    # "live" (boundary-gated snapshot,
+                                    # fb_20260817T210422_9df9c7)
     batch_size: int = 256
     rehearsal_frac: float = 0.25
     steps_per_iter: int = 8         # predictor grad steps per PPO iter
     lr: float = 1e-4                # online predictor Adam LR
-    ema_tau: float = 0.05           # snapshot <- online EMA rate
+    ema_tau: float = 0.05           # snapshot <- online EMA rate (E)
     drift_guard: float = 0.05       # max probe-z MSE(candidate, snap)
     min_online_windows: int = 1024
     probe_obs: int = 1024
     lambdas: dict = field(default_factory=default_lambdas)
+    # -- "live" mode only: the critic-facing snapshot may change no
+    # faster than snapshot_boundary_steps PPO-step boundaries, and only
+    # if EVERY gate passes; otherwise the attempt is logged + skipped.
+    snapshot_boundary_steps: int = 1_000_000
+    gate_heldout_band: float = 0.15   # generic corpus-val retention vs
+                                      # the pretrained reference
+    gate_live_improve: float = 0.0    # candidate must BEAT the current
+                                      # snapshot on live command-rich
+                                      # walk heldout by > this fraction
+    gate_rise_band: float = 0.05      # live rise heldout retention band
+    gate_value_jump_frac: float = 0.10  # mean |dV| <= frac*(mean|V|+1)
 
 
 class PredictiveCriticPPO(PPO):
@@ -206,6 +219,8 @@ class PredictiveCriticPPO(PPO):
         "_pcfg", "_online", "_rehearsal", "_to_torch", "_sink",
         "_online_dyn", "_pred_opt", "_probe_hist", "_z_pretrained",
         "_snap_guard", "_version_guard",
+        "_live_batch_fn", "_gate_fns", "_boundary_done",
+        "_boundary_accepted", "_boundary_rejected",
     )
 
     def _excluded_save_params(self) -> list[str]:
@@ -214,16 +229,34 @@ class PredictiveCriticPPO(PPO):
 
     def configure_predictor(self, cfg: PredictorConfig, rehearsal_sampler,
                             batch_to_torch, online_buffer=None,
-                            metrics_sink=None) -> None:
-        if cfg.mode not in ("frozen", "online"):
-            raise ValueError("mode must be 'frozen' or 'online'")
+                            metrics_sink=None, live_batch_fn=None,
+                            gate_fns=None) -> None:
+        if cfg.mode not in ("frozen", "online", "live"):
+            raise ValueError("mode must be 'frozen', 'online' or 'live'")
         if cfg.mode == "online" and online_buffer is None:
             raise ValueError("online mode requires an online buffer")
+        if cfg.mode == "live":
+            # live mode (fb_20260817T210422_9df9c7): the trainer supplies
+            # the stratified CUDA batch source and the snapshot-gate
+            # evaluators:
+            #   live_batch_fn(n) -> (device batch, info dict)
+            #   gate_fns["corpus_val"](model) -> float   (generic heldout)
+            #   gate_fns["live_val"](model, mode) -> float | None
+            #   gate_fns["pretrained_ref"] -> float      (set after the
+            #       start-of-run measurement of the untouched model)
+            if live_batch_fn is None or gate_fns is None:
+                raise ValueError(
+                    "live mode requires live_batch_fn and gate_fns")
         self._pcfg = cfg
         self._online = online_buffer
         self._rehearsal = rehearsal_sampler
         self._to_torch = batch_to_torch
         self._sink = metrics_sink
+        self._live_batch_fn = live_batch_fn
+        self._gate_fns = gate_fns
+        self._boundary_done = 0
+        self._boundary_accepted = 0
+        self._boundary_rejected = 0
         self._snap_guard = None
         self._version_guard = None
         self._ema_accepted = 0
@@ -236,9 +269,10 @@ class PredictiveCriticPPO(PPO):
         with th.no_grad():
             self._z_pretrained = self._snapshot_model().encode(
                 self._probe_hist).detach().clone()
-        if cfg.mode == "online":
+        if cfg.mode in ("online", "live"):
             # The online predictor starts as an exact copy of the
-            # snapshot (= the pretrained checkpoint) and NEVER shares
+            # snapshot (= the pretrained checkpoint — in live mode the
+            # run therefore STARTS as exact frozen D) and NEVER shares
             # parameters with it or with the policy.
             self._online_dyn = copy.deepcopy(self._snapshot_model())
             for p in self._online_dyn.parameters():
@@ -328,11 +362,16 @@ class PredictiveCriticPPO(PPO):
         logs: dict[str, float] = {}
         sums: dict[str, float] = {}
         re_fracs = []
+        live_infos: list[dict] = []
         for _ in range(max(cfg.steps_per_iter, 0)):
-            batch, re_frac = mixed_batch(
-                self._online, self._rehearsal, cfg.batch_size,
-                cfg.rehearsal_frac, cfg.min_online_windows)
-            bt = self._to_torch(batch, device=self.device)
+            if cfg.mode == "live":
+                bt, info = self._live_batch_fn(cfg.batch_size)
+                live_infos.append(info)
+            else:
+                batch, re_frac = mixed_batch(
+                    self._online, self._rehearsal, cfg.batch_size,
+                    cfg.rehearsal_frac, cfg.min_online_windows)
+                bt = self._to_torch(batch, device=self.device)
             out = self._online_dyn(bt["hist"], bt["fut_actions"])
             loss, metrics = dynamics_loss(out, bt, cfg.lambdas,
                                           self._online_dyn)
@@ -342,7 +381,8 @@ class PredictiveCriticPPO(PPO):
                                         1.0)
             self._pred_opt.step()
             self._pred_updates_total += 1
-            re_fracs.append(re_frac)
+            re_fracs.append(info["pred/batch_rehearsal_frac"]
+                            if cfg.mode == "live" else re_frac)
             metrics.update(priv_group_metrics(out, bt, prefix=""))
             for k, v in metrics.items():
                 sums[k] = sums.get(k, 0.0) + v
@@ -350,6 +390,10 @@ class PredictiveCriticPPO(PPO):
         logs.update({f"pred/train/{k}": v / n for k, v in sums.items()})
         if re_fracs:
             logs["pred/rehearsal_frac"] = float(np.mean(re_fracs))
+        if live_infos:
+            keys = live_infos[0].keys()
+            logs.update({k: float(np.mean([i[k] for i in live_infos]))
+                         for k in keys})
         logs["pred/updates_total"] = self._pred_updates_total
         return logs
 
@@ -400,6 +444,119 @@ class PredictiveCriticPPO(PPO):
                 self.policy.snapshot_version.item()),
         }
 
+    def _copy_into_snapshot(self, source) -> None:
+        snap = self._snapshot_model()
+        with th.no_grad():
+            for ps, po in zip(snap.parameters(), source.parameters()):
+                ps.copy_(po.detach())
+            for bs, bo in zip(snap.buffers(), source.buffers()):
+                bs.copy_(bo)
+        snap.eval()
+        self.policy.snapshot_version.add_(1)
+
+    def _boundary_snapshot_update(self) -> dict:
+        """LIVE mode: versioned critic-snapshot update, attempted at
+        most once per snapshot_boundary_steps PPO-step boundary,
+        strictly BETWEEN complete rollout+PPO iterations, and applied
+        only if EVERY gate passes (fb_20260817T210422_9df9c7):
+
+            generic  corpus-val loss of the candidate within
+                     gate_heldout_band of the pretrained reference
+            live_walk  candidate beats the CURRENT snapshot on the
+                     command-rich live walk heldout by > gate_live_improve
+            live_rise  candidate within gate_rise_band of the current
+                     snapshot on the live rise heldout (retention)
+            drift    probe-latent MSE(candidate, snapshot) <= drift_guard
+            value    critic value jump from swapping the snapshot on the
+                     probe obs <= gate_value_jump_frac * (mean|V|+1)
+
+        A failed gate leaves the snapshot untouched (rejection path);
+        the attempt and every gate value are logged either way. The
+        candidate is the online predictor itself; acceptance copies its
+        parameters into the snapshot and bumps snapshot_version."""
+        cfg = self._pcfg
+        boundary = int(self.num_timesteps // cfg.snapshot_boundary_steps)
+        payload: dict[str, float] = {
+            "pred/snapshot_version": int(
+                self.policy.snapshot_version.item()),
+            "pred/boundary_index": boundary,
+            "pred/boundary_accepted_total": self._boundary_accepted,
+            "pred/boundary_rejected_total": self._boundary_rejected,
+        }
+        if boundary <= self._boundary_done:
+            return payload
+        self._boundary_done = boundary
+        cand = self._online_dyn
+        snap = self._snapshot_model()
+        gates: dict[str, bool] = {}
+        ref = float(self._gate_fns["pretrained_ref"]())
+        cand_corpus = float(self._gate_fns["corpus_val"](cand))
+        gates["generic"] = (cand_corpus
+                            <= ref * (1.0 + cfg.gate_heldout_band))
+        cand_walk = self._gate_fns["live_val"](cand, "walk")
+        snap_walk = self._gate_fns["live_val"](snap, "walk")
+        gates["live_walk"] = (
+            cand_walk is not None and snap_walk is not None
+            and cand_walk < snap_walk * (1.0 - cfg.gate_live_improve))
+        cand_rise = self._gate_fns["live_val"](cand, "rise")
+        snap_rise = self._gate_fns["live_val"](snap, "rise")
+        gates["live_rise"] = (
+            cand_rise is not None and snap_rise is not None
+            and cand_rise <= snap_rise * (1.0 + cfg.gate_rise_band))
+        with th.no_grad():
+            was_training = cand.training
+            cand.eval()
+            z_cand = cand.encode(self._probe_hist)
+            z_snap = snap.encode(self._probe_hist)
+            drift = float(F.mse_loss(z_cand, z_snap))
+            gates["drift"] = drift <= cfg.drift_guard
+            # value-jump: residual with candidate vs current snapshot
+            # on the probe OBS through the critic's own adapter+gate.
+            obs = self._probe_obs_batch()
+            frames = self.policy.obs_to_frames(obs)
+            res_snap = (self.policy.value_gate
+                        * self.policy.latent_adapter(snap.encode(frames)))
+            res_cand = (self.policy.value_gate
+                        * self.policy.latent_adapter(cand.encode(frames)))
+            v_now = self.policy.predict_values(obs)
+            dv = float((res_cand - res_snap).abs().mean())
+            v_scale = float(v_now.abs().mean()) + 1.0
+            gates["value"] = dv <= cfg.gate_value_jump_frac * v_scale
+            if was_training:
+                cand.train()
+        accepted = all(gates.values())
+        if accepted:
+            self._copy_into_snapshot(cand)
+            self._boundary_accepted += 1
+        else:
+            self._boundary_rejected += 1
+        payload.update({
+            "pred/gate/attempted": 1,
+            "pred/gate/accepted": int(accepted),
+            "pred/gate/generic": int(gates["generic"]),
+            "pred/gate/live_walk": int(gates["live_walk"]),
+            "pred/gate/live_rise": int(gates["live_rise"]),
+            "pred/gate/drift": int(gates["drift"]),
+            "pred/gate/value": int(gates["value"]),
+            "pred/gate/corpus_val_candidate": cand_corpus,
+            "pred/gate/corpus_val_ref": ref,
+            "pred/gate/live_walk_candidate": float(cand_walk)
+            if cand_walk is not None else float("nan"),
+            "pred/gate/live_walk_snapshot": float(snap_walk)
+            if snap_walk is not None else float("nan"),
+            "pred/gate/live_rise_candidate": float(cand_rise)
+            if cand_rise is not None else float("nan"),
+            "pred/gate/live_rise_snapshot": float(snap_rise)
+            if snap_rise is not None else float("nan"),
+            "pred/gate/latent_drift": drift,
+            "pred/gate/value_jump": dv,
+            "pred/snapshot_version": int(
+                self.policy.snapshot_version.item()),
+            "pred/boundary_accepted_total": self._boundary_accepted,
+            "pred/boundary_rejected_total": self._boundary_rejected,
+        })
+        return payload
+
     # -- the coordinated iteration --------------------------------------
 
     def train(self) -> None:
@@ -409,7 +566,7 @@ class PredictiveCriticPPO(PPO):
         payload: dict[str, float] = {}
         probe = self._probe_obs_batch()
 
-        if self._pcfg.mode == "online":
+        if self._pcfg.mode in ("online", "live"):
             # 1. online predictor updates: own optimizer, own params.
             #    Proof obligations: actor params bit-identical and
             #    actor action-KL exactly zero across these updates.
@@ -464,9 +621,13 @@ class PredictiveCriticPPO(PPO):
             payload["pred/online_episodes_total"] = (
                 self._online.episodes_added)
 
-        # 3. atomic snapshot update BETWEEN iterations (E only).
+        # 3. atomic snapshot update BETWEEN iterations: E = guarded EMA
+        #    every iteration; live = versioned boundary update behind
+        #    the full gate battery; D = never.
         if self._pcfg.mode == "online":
             payload.update(self._ema_snapshot_update())
+        elif self._pcfg.mode == "live":
+            payload.update(self._boundary_snapshot_update())
         else:
             payload["pred/snapshot_version"] = int(
                 self.policy.snapshot_version.item())

@@ -34,6 +34,19 @@ variable is where the policy's representation comes from
                   BETWEEN rollout+PPO iterations — feeds the critic
                   residual. Actor stays completely independent
                   (asserted: zero action-KL from predictor updates).
+    F  live-critic  the command-rich LIVE extension of E (operator order
+                  fb_20260817T210422_9df9c7): starts as exact frozen D;
+                  the online predictor trains on CUDA-resident windows
+                  from the policy's own rollouts, stratified 75% WALK /
+                  25% RISE (75% fresh + 25% v5 rehearsal per batch),
+                  with per-bin composition + prediction-error logging;
+                  the critic-facing snapshot is VERSIONED and may change
+                  no faster than --snap-boundary-steps PPO-step
+                  boundaries, only if the full gate battery passes
+                  (generic heldout retention, live command-rich walk
+                  improvement, live rise retention, latent drift,
+                  critic value-jump). Actor stays raw-obs, fully
+                  independent (zero action-KL asserted).
 
 Local pilot tasks (Mac-scale budgets; the brief's walk/yaw tasks need
 pod-scale steps): "hold" (quiet plant stance) then "lower" (controlled
@@ -81,7 +94,9 @@ WANDB_PROJECT_DEFAULT = "hexapod-balance"
 
 HISTORY = 16
 FRAME_WIDTH = 72          # walk-env frame: 59 proprio + 13 goal/cmd
-TASKS = ("hold", "lower", "walk", "rise")
+                          # (default; the actual width is derived from
+                          # the live env obs — goal.walk_yaw_cmd adds 1)
+TASKS = ("hold", "lower", "walk", "rise", "walkrise")
 TASK_GOALS = {"hold": {"hold": 1.0}, "lower": {"lower": 1.0},
               # walk (08-13, operator directive: hold->walk is the pod
               # transfer pair — lower is too close to hold to
@@ -94,7 +109,13 @@ TASK_GOALS = {"hold": {"hold": 1.0}, "lower": {"lower": 1.0},
               # canary — the measured failure mode is DAgger rise
               # competence erased by PPO walk training). Belly/bridge
               # starts per the campaign rise goal mode.
-              "rise": {"rise": 1.0}}
+              "rise": {"rise": 1.0},
+              # walkrise (fb_20260817T210422_9df9c7 arm A): 75% walk /
+              # 25% rise episode mix — the live-replay stratification
+              # target; rise episodes cover flat/bridge/crouch (default
+              # 35/40/25 start mix) plus post-lower bank starts via
+              # --goal-set rise_start_bank=....
+              "walkrise": {"walk": 0.75, "rise": 0.25}}
 ALL_MODES = ("hold", "lean", "track", "unload", "raise", "rise",
              "lower", "quad", "walk")
 
@@ -169,6 +190,14 @@ def _init_wandb(args):
               "rollouts (+rehearsal); a guarded EMA snapshot, updated "
               "only between rollout+PPO iterations, feeds the critic's "
               "zero-gated stop-gradient residual"),
+        "F": ("F=live-critic: scratch-A actor untouched; starts as "
+              "exact frozen D; the online transformer trains on "
+              "CUDA-resident live rollout windows stratified 75% walk "
+              "/ 25% rise (75% fresh + 25% v5 rehearsal), command-rich "
+              "walk commands incl. stops/direction changes/yaw; the "
+              "critic-facing snapshot is versioned and may only change "
+              "at >=--snap-boundary-steps PPO-step boundaries behind "
+              "retention/improvement/drift/value-jump gates"),
     }.get(args.condition.upper(), f"condition {args.condition}")
     run = wandb.init(
         entity=os.environ.get("WANDB_ENTITY", WANDB_ENTITY_DEFAULT),
@@ -219,9 +248,21 @@ def _init_wandb(args):
             "pred_steps_per_iter": args.pred_steps_per_iter,
             "snap_ema_tau": args.snap_ema_tau,
             "snap_drift_guard": args.snap_drift_guard,
-            "metrics_contract": ("transfer-v4-predcritic"
-                                 if args.condition.upper() in ("D", "E")
-                                 else "transfer-v3-jointaux"),
+            "goal_set": args.goal_set,
+            "select_quality": args.select_quality,
+            "encoder_md5": args.encoder_md5,
+            "snap_boundary_steps": args.snap_boundary_steps,
+            "gate_heldout_band": args.gate_heldout_band,
+            "gate_live_improve": args.gate_live_improve,
+            "gate_rise_band": args.gate_rise_band,
+            "gate_value_jump": args.gate_value_jump,
+            "live_walk_frac": args.live_walk_frac,
+            "metrics_contract": (
+                "transfer-v5-livecritic"
+                if args.condition.upper() == "F" else
+                "transfer-v4-predcritic"
+                if args.condition.upper() in ("D", "E")
+                else "transfer-v3-jointaux"),
         },
         sync_tensorboard=True,
     )
@@ -231,6 +272,8 @@ def _init_wandb(args):
     run.define_metric("anchor/*", step_metric="global_step", summary="last")
     run.define_metric("pred/*", step_metric="global_step", summary="last")
     run.define_metric("critic/*", step_metric="global_step",
+                      summary="last")
+    run.define_metric("data/*", step_metric="global_step",
                       summary="last")
     metadata = {"id": run.id, "url": run.url, "name": args.name,
                 "wandb_name": f"{args.name}.{attempt}"}
@@ -243,13 +286,20 @@ def _init_wandb(args):
 
 def make_task_env(task: str, seed: int, dr_scale: float,
                   episode_seconds: float,
-                  dr_overrides: dict | None = None):
-    """One walk-family env pinned to a single goal mode. Uses the walk
-    env class for every task so obs width (72) and checkpoints are
-    interchangeable across tasks."""
+                  dr_overrides: dict | None = None,
+                  goal_set: dict | None = None):
+    """One walk-family env pinned to a single goal mode (or the
+    walkrise mix). Uses the walk env class for every task so obs width
+    and checkpoints are interchangeable across tasks. ``goal_set``
+    (--goal-set k=v) overrides cfg goal.* keys — the command-diversity
+    lever (walk_cmd_resample_s / walk_stop_frac / walk_yaw_cmd /
+    rise_start_bank...); it applies to TRAINING AND EVAL envs alike so
+    gates measure the distribution actually trained."""
     from rl_move.sim.walk_task import SimHexapodJointWalkEnv
     cfg = load_config()
     cfg.setdefault("obs", {})["history_frames"] = HISTORY
+    if goal_set:
+        cfg["goal"] = {**(cfg.get("goal") or {}), **goal_set}
     if dr_overrides:
         cfg["dr"] = {**(cfg.get("dr") or {}), **dr_overrides}
     env = SimHexapodJointWalkEnv(
@@ -287,12 +337,14 @@ def _term_penalty_wrapper(env, penalty: float):
 
 def _env_factory(task: str, seed: int, dr_scale: float,
                  episode_seconds: float, term_penalty: float,
-                 capture_windows: bool = False):
+                 capture_windows: bool = False,
+                 goal_set: dict | None = None):
     def _make():
-        env = make_task_env(task, seed, dr_scale, episode_seconds)
+        env = make_task_env(task, seed, dr_scale, episode_seconds,
+                            goal_set=goal_set)
         if capture_windows:
-            # Condition C: record collector-contract episodes so the
-            # auxiliary objective trains on FRESH on-policy windows.
+            # Conditions C/E/F: record collector-contract episodes so
+            # the predictor trains on FRESH on-policy windows.
             from rl_move.dynamics.online_windows import OnlineEpisodeCapture
             env = OnlineEpisodeCapture(env, dr_scale)
         if term_penalty > 0.0:
@@ -307,7 +359,51 @@ def _env_factory(task: str, seed: int, dr_scale: float,
 # sliding exploit faster is not a success).
 QUALITY_KEYS = ("peak_roll_deg", "peak_pitch_deg", "peak_gyro_dps",
                 "slip_m", "fwd_m", "contact_sw_per_s", "slew_sat",
-                "slew_sat_all", "mean_h_m", "dh_m", "vx_rmse")
+                "slew_sat_all", "mean_h_m", "dh_m", "vx_rmse",
+                # command-following quality (fb_20260817T210422_9df9c7):
+                # body-frame vy/yaw tracking, achieved progress along
+                # the commanded direction (m and fraction of commanded
+                # distance), and slip normalized per progress meter.
+                "vy_rmse", "wz_rmse_dps", "cmd_prog_m", "cmd_prog_frac",
+                "slip_per_m")
+
+
+def _nn(x, default=0.0) -> float:
+    """nan-safe float."""
+    x = float(x) if x is not None else float("nan")
+    return default if x != x else x
+
+
+def locomotion_quality(m: dict) -> float:
+    """Pre-registered composite walking-quality score in [0, 100]
+    (operator order fb_20260817T210422_9df9c7 arm B: checkpoint
+    selection by actual command progress, body-frame vx/vy+yaw
+    tracking, slip per progress meter, roll, falls, slew and contact
+    gait — never scalar reward alone):
+
+        100 * (1 - early_term_rate) * min(cmd_prog_frac, 1)
+            * exp(-hypot(vx_rmse, vy_rmse) / 0.05)
+            * exp(-wz_rmse_dps / 20)
+            * exp(-slip_per_m / 1.5)
+            * exp(-peak_roll_deg / 10)
+            * exp(-max(slew_sat - 0.5, 0) / 0.25)
+            * (1.0 if contact_sw_per_s >= 3 else 0.25)
+
+    The contact-switch floor marks gaits whose feet do not actually
+    cycle (a parked/sliding "walk" is not walking)."""
+    import math as _m
+    s_fall = 1.0 - min(max(_nn(m.get("early_term_rate"), 1.0), 0.0), 1.0)
+    prog = min(max(_nn(m.get("cmd_prog_frac")), 0.0), 1.0)
+    vxy = _m.hypot(_nn(m.get("vx_rmse"), 1.0), _nn(m.get("vy_rmse"), 0.0))
+    score = (100.0 * s_fall * prog
+             * _m.exp(-vxy / 0.05)
+             * _m.exp(-_nn(m.get("wz_rmse_dps"), 60.0) / 20.0)
+             * _m.exp(-min(_nn(m.get("slip_per_m"), 10.0), 50.0) / 1.5)
+             * _m.exp(-_nn(m.get("peak_roll_deg"), 30.0) / 10.0)
+             * _m.exp(-max(_nn(m.get("slew_sat"), 1.0) - 0.5, 0.0) / 0.25))
+    if _nn(m.get("contact_sw_per_s")) < 3.0:
+        score *= 0.25
+    return float(score)
 
 
 def _foot_site_ids(env) -> list[int]:
@@ -318,7 +414,8 @@ def _foot_site_ids(env) -> list[int]:
 
 def eval_task(model, task: str, episodes: int, dr_scale: float,
               episode_seconds: float, seed0: int = 10_000,
-              dr_overrides: dict | None = None) -> dict:
+              dr_overrides: dict | None = None,
+              goal_set: dict | None = None) -> dict:
     """Deterministic episodes on fixed seeds -> mean return / length /
     early-termination (fall/trip) rate + physical quality metrics:
 
@@ -339,7 +436,7 @@ def eval_task(model, task: str, episodes: int, dr_scale: float,
     """
     rets, lens, terms = [], [], 0
     env = make_task_env(task, seed0, dr_scale, episode_seconds,
-                        dr_overrides)
+                        dr_overrides, goal_set=goal_set)
     sids = _foot_site_ids(env)
     rad2deg = 180.0 / np.pi
     agg = {k: [] for k in QUALITY_KEYS}
@@ -357,6 +454,8 @@ def eval_task(model, task: str, episodes: int, dr_scale: float,
         xy0 = env.data.xpos[env._chassis_bid, :2].copy()
         h_sum = 0.0
         vx_se, vx_n = 0.0, 0
+        vy_se = wz_se = 0.0
+        cmd_dist = prog_m = 0.0
         ret, n = 0.0, 0
         while True:
             act, _ = model.predict(obs, deterministic=True)
@@ -393,9 +492,25 @@ def eval_task(model, task: str, episodes: int, dr_scale: float,
             vxr = getattr(env._goal_traj, "vx", None)
             if vxr is not None and hasattr(env, "_body_vel_xy"):
                 j = min(max(n - 1, 0), len(vxr) - 1)
-                vx_meas, _ = env._body_vel_xy()
-                vx_se += (float(vxr[j]) - float(vx_meas)) ** 2
+                vyr = getattr(env._goal_traj, "vy", None)
+                wzr = getattr(env._goal_traj, "wz", None)
+                vx_meas, vy_meas = env._body_vel_xy()
+                vx_c = float(vxr[j])
+                vy_c = float(vyr[j]) if vyr is not None else 0.0
+                vx_se += (vx_c - float(vx_meas)) ** 2
+                vy_se += (vy_c - float(vy_meas)) ** 2
+                if hasattr(env, "_body_wz"):
+                    wz_c = float(wzr[j]) if wzr is not None else 0.0
+                    wz_se += (wz_c - float(env._body_wz())) ** 2
                 vx_n += 1
+                # progress along the commanded direction vs the
+                # commanded distance (both in meters)
+                s_ref = float(np.hypot(vx_c, vy_c))
+                cmd_dist += s_ref * env.dt
+                if s_ref > 1e-6:
+                    prog_m += ((float(vx_meas) * vx_c
+                                + float(vy_meas) * vy_c) / s_ref
+                               * env.dt)
             if term or trunc:
                 terms += int(term)
                 break
@@ -415,6 +530,15 @@ def eval_task(model, task: str, episodes: int, dr_scale: float,
             float(env.data.xpos[env._chassis_bid, 2]) - h0)
         agg["vx_rmse"].append(float(np.sqrt(vx_se / vx_n))
                               if vx_n else float("nan"))
+        agg["vy_rmse"].append(float(np.sqrt(vy_se / vx_n))
+                              if vx_n else float("nan"))
+        agg["wz_rmse_dps"].append(
+            float(np.sqrt(wz_se / vx_n)) * rad2deg
+            if vx_n else float("nan"))
+        agg["cmd_prog_m"].append(prog_m)
+        agg["cmd_prog_frac"].append(prog_m / cmd_dist
+                                    if cmd_dist > 0.01 else float("nan"))
+        agg["slip_per_m"].append(slip / max(prog_m, 0.05))
     env.close()
     out = {"return": float(np.mean(rets)),
            "ep_len": float(np.mean(lens)),
@@ -510,7 +634,7 @@ def rollout_metrics_payload(
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--condition", required=True,
-                    choices=("A", "B", "C", "D", "E"))
+                    choices=("A", "B", "C", "D", "E", "F"))
     ap.add_argument("--task", required=True, choices=TASKS)
     ap.add_argument("--name", required=True)
     ap.add_argument("--steps", type=int, default=150_000)
@@ -596,7 +720,61 @@ def main() -> None:
                          "falls back to CPU")
     ap.add_argument("--no-wandb", action="store_true",
                     help="explicitly disable required W&B tracking")
+    # -- fb_20260817T210422_9df9c7 additions --------------------------
+    ap.add_argument("--goal-set", action="append", default=[],
+                    metavar="K=V",
+                    help="override cfg goal.* keys on TRAIN AND EVAL "
+                         "envs (command diversity: walk_cmd_resample_s, "
+                         "walk_stop_frac, walk_yaw_cmd, rise_start_bank"
+                         "...); repeatable")
+    ap.add_argument("--select-quality", action="store_true",
+                    help="select the best checkpoint by the "
+                         "pre-registered locomotion_quality composite "
+                         "(command progress/tracking/slip-per-m/roll/"
+                         "falls/slew/gait) on the own-DR + dr10 walk "
+                         "evals instead of heldout return")
+    ap.add_argument("--encoder-md5", default=None,
+                    help="assert the md5 of --encoder before training "
+                         "(provenance pin, e.g. the vt2ovznc artifact)")
+    ap.add_argument("--snap-boundary-steps", type=int, default=1_000_000,
+                    help="condition F: minimum PPO-step spacing of "
+                         "critic-snapshot update attempts")
+    ap.add_argument("--gate-heldout-band", type=float, default=0.15,
+                    help="condition F: generic corpus-val retention band "
+                         "vs the pretrained reference")
+    ap.add_argument("--gate-live-improve", type=float, default=0.0,
+                    help="condition F: required fractional improvement "
+                         "over the current snapshot on the live "
+                         "command-rich walk heldout")
+    ap.add_argument("--gate-rise-band", type=float, default=0.05,
+                    help="condition F: live rise heldout retention band")
+    ap.add_argument("--gate-value-jump", type=float, default=0.10,
+                    help="condition F: max critic value jump from a "
+                         "snapshot swap, as a fraction of mean|V|+1")
+    ap.add_argument("--live-walk-frac", type=float, default=0.75,
+                    help="condition F: walk fraction of the FRESH part "
+                         "of each predictor batch (rise = remainder)")
+    ap.add_argument("--live-windows-per-episode", type=int, default=64)
+    ap.add_argument("--live-max-walk-windows", type=int, default=30_000)
+    ap.add_argument("--live-max-rise-windows", type=int, default=12_000)
+    ap.add_argument("--live-max-val-windows", type=int, default=5_000)
+    ap.add_argument("--live-val-every", type=int, default=8,
+                    help="condition F: every Nth accepted episode per "
+                         "mode goes to the live VAL store (the "
+                         "command-rich heldout the gates read)")
+    ap.add_argument("--live-min-windows", type=int, default=512,
+                    help="condition F: live windows required before "
+                         "fresh data enters predictor batches")
     args = ap.parse_args()
+    goal_set = {}
+    for kv in args.goal_set:
+        key, sep, val = kv.partition("=")
+        if not sep:
+            ap.error(f"--goal-set needs K=V, got {kv!r}")
+        try:
+            goal_set[key] = json.loads(val)
+        except (json.JSONDecodeError, ValueError):
+            goal_set[key] = val
 
     import torch
     from stable_baselines3 import PPO
@@ -622,16 +800,31 @@ def main() -> None:
         print(f"[device] CUDA required and active: {gpu_name}", flush=True)
     else:
         print("[device] explicit CPU training", flush=True)
+    if args.encoder_md5:
+        import hashlib
+        got = hashlib.md5((ROOT / args.encoder).read_bytes()).hexdigest()
+        if got != args.encoder_md5.strip().lower():
+            raise RuntimeError(
+                f"encoder md5 mismatch: {args.encoder} is {got}, "
+                f"expected {args.encoder_md5} — wrong/corrupt "
+                f"pretrained transformer, refusing to train")
+        print(f"[encoder] md5 verified: {got}", flush=True)
     wandb_run = _init_wandb(args)
 
     torch.set_num_threads(2)
-    # C and E both train a predictor on FRESH rollout windows.
-    capture = args.condition in ("C", "E")
+    # C, E and F train a predictor on FRESH rollout windows.
+    capture = args.condition in ("C", "E", "F")
     venv = VecMonitor(SubprocVecEnv(
         [_env_factory(args.task, args.seed * 1000 + i, args.dr_scale,
                       args.episode_seconds, args.term_penalty,
-                      capture_windows=capture)
+                      capture_windows=capture, goal_set=goal_set)
          for i in range(args.n_envs)]))
+    # Frame width is derived from the live env: goal.walk_yaw_cmd=1
+    # (--goal-set) appends the commanded yaw rate to the goal obs.
+    n_obs = int(np.prod(venv.observation_space.shape))
+    assert n_obs % HISTORY == 0, \
+        f"obs dim {n_obs} not divisible by history {HISTORY}"
+    frame_width = n_obs // HISTORY
 
     common = dict(
         n_steps=256, batch_size=min(2048, 256 * args.n_envs),
@@ -639,13 +832,13 @@ def main() -> None:
         ent_coef=1e-3, clip_range=0.2, seed=args.seed, verbose=0,
         device=device, tensorboard_log=str(LOG_DIR / "tensorboard"))
     enc_kwargs = dict(ckpt_path=str(ROOT / args.encoder),
-                      frame_width=FRAME_WIDTH, history=HISTORY)
+                      frame_width=frame_width, history=HISTORY)
 
     if args.condition == "A":
         model = PPO("MlpPolicy", venv,
                     policy_kwargs=dict(net_arch=[128, 128],
                                        log_std_init=-1.0), **common)
-    elif args.condition in ("D", "E"):
+    elif args.condition in ("D", "E", "F"):
         # Decoupled predictive critic: the actor is the scratch-A
         # MlpPolicy on the raw stacked obs (bit-identical init at the
         # same seed — the predictive modules are built after SB3's
@@ -655,7 +848,7 @@ def main() -> None:
             PredictiveCriticPolicy, venv, policy_kwargs=dict(
                 net_arch=[128, 128], log_std_init=-1.0,
                 predictor_ckpt=str(ROOT / args.encoder),
-                frame_width=FRAME_WIDTH, history=HISTORY), **common)
+                frame_width=frame_width, history=HISTORY), **common)
     else:
         freeze = args.condition == "B"
         cls = PPO if freeze else JointAuxPPO
@@ -698,7 +891,9 @@ def main() -> None:
     csv_f = open(csv_path, "w", newline="")
     base_metrics = ("return", "ep_len", "early_term_rate")
     heldout_metrics = ("return", "early_term_rate", "slip_m",
-                       "peak_roll_deg")
+                       "peak_roll_deg", "cmd_prog_frac", "vx_rmse",
+                       "vy_rmse", "wz_rmse_dps", "slip_per_m",
+                       "slew_sat", "contact_sw_per_s")
     csv_w = csv.DictWriter(csv_f, fieldnames=[
         "step", "wall_s",
         *[f"{t}/{m}" for t in eval_tasks
@@ -722,24 +917,39 @@ def main() -> None:
                "anchor_loss": anchor_state["loss"]}
         for t in eval_tasks:
             m = eval_task(model, t, args.eval_episodes, args.dr_scale,
-                          args.episode_seconds)
+                          args.episode_seconds, goal_set=goal_set)
             row.update({f"{t}/{k}": round(v, 4) for k, v in m.items()})
         heldout_score = None
+        loco_score = None
         if heldout:
             for name, ho_dr, ho_over in HELDOUT_SUITES:
                 m = eval_task(model, args.task, args.eval_episodes,
                               ho_dr, args.episode_seconds,
-                              dr_overrides=ho_over)
+                              dr_overrides=ho_over, goal_set=goal_set)
                 row.update({f"{args.task}@{name}/{k}": round(m[k], 4)
                             for k in heldout_metrics})
             heldout_score = float(np.mean(
                 [row[f"{args.task}@{name}/return"]
                  for name, _, _ in HELDOUT_SUITES]))
-            if heldout_score > best_state["score"]:
-                best_state.update(score=heldout_score, step=step)
+            selection = heldout_score
+            if args.select_quality:
+                # Pre-registered composite quality on the own-DR eval
+                # of the trained task + its broad-DR heldout (dr10);
+                # this — not scalar reward — picks the best checkpoint.
+                own = {k: row.get(f"{args.task}/{k}")
+                       for k in ("early_term_rate", *QUALITY_KEYS)}
+                ho = {k: row.get(f"{args.task}@dr10/{k}")
+                      for k in heldout_metrics}
+                loco_score = 0.5 * (locomotion_quality(own)
+                                    + locomotion_quality(ho))
+                selection = loco_score
+            if selection > best_state["score"]:
+                best_state.update(score=selection, step=step)
                 model.save(str(best_path))
-                print(f"  new best heldout-{args.task} checkpoint @ "
-                      f"{step}: {heldout_score:.1f} -> {best_path.name}")
+                kind = ("loco-quality" if args.select_quality
+                        else f"heldout-{args.task}")
+                print(f"  new best {kind} checkpoint @ "
+                      f"{step}: {selection:.1f} -> {best_path.name}")
         heldout_pred = (aux_ctx["heldout_pred"]()
                         if heldout and aux_ctx.get("heldout_pred")
                         else None)
@@ -758,9 +968,15 @@ def main() -> None:
                     best_state["score"])
                 payload["eval/best_heldout_walk_step"] = (
                     best_state["step"])
+            if loco_score is not None:
+                payload["SCORE/loco_quality"] = loco_score
+                payload["eval/best_loco_quality"] = best_state["score"]
+                payload["eval/best_loco_step"] = best_state["step"]
             if heldout_pred is not None:
                 payload.update({f"aux/heldout/{k}": v
                                 for k, v in heldout_pred.items()})
+            if heldout and aux_ctx.get("bin_report"):
+                payload.update(aux_ctx["bin_report"]())
             for task in eval_tasks:
                 payload[f"SCORE/{task}_total_reward"] = row[
                     f"{task}/return"]
@@ -868,29 +1084,91 @@ def main() -> None:
 
     callbacks = [RolloutMetricsCb(), EvalCb()]
 
-    if args.condition in ("D", "E"):
+    if args.condition in ("D", "E", "F"):
         eps = dd.load_dataset(ROOT / args.anchor_data)
         enc_ckpt = torch.load(ROOT / args.encoder, map_location="cpu",
                               weights_only=False)
         stats = dd.Stats.from_dict(enc_ckpt["stats"])
         snap = model.policy.critic_predictor
         pred_cfg = PredictorConfig(
-            mode=("online" if args.condition == "E" else "frozen"),
+            mode={"D": "frozen", "E": "online",
+                  "F": "live"}[args.condition],
             batch_size=args.aux_batch_size,
             rehearsal_frac=args.rehearsal_frac,
             steps_per_iter=args.pred_steps_per_iter,
             lr=args.pred_lr, ema_tau=args.snap_ema_tau,
-            drift_guard=args.snap_drift_guard)
+            drift_guard=args.snap_drift_guard,
+            snapshot_boundary_steps=args.snap_boundary_steps,
+            gate_heldout_band=args.gate_heldout_band,
+            gate_live_improve=args.gate_live_improve,
+            gate_rise_band=args.gate_rise_band,
+            gate_value_jump_frac=args.gate_value_jump)
         rehearsal = dd.WindowSampler(eps, stats, HISTORY, snap.horizons,
                                      val=False, seed=args.seed)
         heldout_sampler = dd.WindowSampler(eps, stats, HISTORY,
                                            snap.horizons, val=True,
                                            seed=args.seed)
         online_buf = None
+        live_store = None
+        live_batch_fn = None
+        gate_fns = None
+        pretrained_ref = {"total": float("nan")}
         if args.condition == "E":
             online_buf = OnlineWindowBuffer(
                 stats, HISTORY, snap.horizons,
                 max_frames=args.online_buffer_frames, seed=args.seed)
+        if args.condition == "F":
+            from rl_move.dynamics.live_replay import (
+                LiveWindowStore, stratified_live_batch,
+            )
+            live_store = LiveWindowStore(
+                stats, HISTORY, snap.horizons, device,
+                max_walk_windows=args.live_max_walk_windows,
+                max_rise_windows=args.live_max_rise_windows,
+                max_val_windows=args.live_max_val_windows,
+                windows_per_episode=args.live_windows_per_episode,
+                val_every=args.live_val_every, seed=args.seed)
+
+            def live_batch_fn(n: int):
+                return stratified_live_batch(
+                    live_store, rehearsal, anchor_batch_to_torch,
+                    device, n, rehearsal_frac=args.rehearsal_frac,
+                    walk_frac=args.live_walk_frac,
+                    min_live_windows=args.live_min_windows)
+
+            def _model_val_total(m, batches) -> float | None:
+                was_training = m.training
+                m.eval()
+                tot, n_b = 0.0, 0
+                with torch.no_grad():
+                    for bt in batches:
+                        out = m(bt["hist"], bt["fut_actions"])
+                        loss, _ = dynamics_loss(out, bt,
+                                                pred_cfg.lambdas, m)
+                        tot += float(loss)
+                        n_b += 1
+                if was_training:
+                    m.train()
+                return tot / n_b if n_b else None
+
+            def corpus_val(m) -> float:
+                return _model_val_total(
+                    m, (anchor_batch_to_torch(b, device=device)
+                        for b in heldout_sampler.val_batches(
+                            1024, args.aux_batch_size)))
+
+            def live_val(m, mode: str) -> float | None:
+                if live_store.num_windows(mode, "val") < 128:
+                    return None
+                return _model_val_total(
+                    m, live_store.val_batches(
+                        mode, args.aux_batch_size, max_windows=2048))
+
+            gate_fns = {
+                "corpus_val": corpus_val,
+                "live_val": live_val,
+                "pretrained_ref": lambda: pretrained_ref["total"],
+            }
 
         def pred_sink(payload: dict, step: int) -> None:
             anchor_state["loss"] = payload.get(
@@ -901,13 +1179,15 @@ def main() -> None:
         model.configure_predictor(pred_cfg, rehearsal,
                                   anchor_batch_to_torch,
                                   online_buffer=online_buf,
-                                  metrics_sink=pred_sink)
+                                  metrics_sink=pred_sink,
+                                  live_batch_fn=live_batch_fn,
+                                  gate_fns=gate_fns)
 
         def heldout_pred() -> dict:
-            """Predictor quality on the corpus VAL split. E: the ONLINE
-            predictor (the 15%-preservation gate); D: the frozen
+            """Predictor quality on the corpus VAL split. E/F: the
+            ONLINE predictor (the preservation gate); D: the frozen
             snapshot (constant reference)."""
-            live = (model._online_dyn if args.condition == "E"
+            live = (model._online_dyn if args.condition in ("E", "F")
                     else snap)
             was_training = live.training
             live.eval()
@@ -929,10 +1209,19 @@ def main() -> None:
             return {k: v / max(n, 1) for k, v in sums.items()}
 
         aux_ctx["heldout_pred"] = heldout_pred
+        if args.condition == "F":
+            # Per-bin composition + prediction-error report for the
+            # heldout eval points (run_evals reads this closure).
+            aux_ctx["bin_report"] = lambda: {
+                **live_store.composition_report(),
+                **live_store.bin_report(model._online_dyn,
+                                        pred_cfg.lambdas),
+            }
 
         class PredOnlineWindowCb(BaseCallback):
             def _on_training_start(self) -> None:
                 ref = heldout_pred()
+                pretrained_ref["total"] = ref["total"]
                 print(f"  heldout pred loss at start (pretrained, "
                       f"untouched): {ref['total']:.3f}")
                 if wandb_run is not None:
@@ -943,13 +1232,23 @@ def main() -> None:
                     })
 
             def _on_step(self) -> bool:
-                if online_buf is None:
+                if online_buf is None and live_store is None:
                     return True
                 for info in self.locals.get("infos", ()):
                     ep = info.get("dynrep_episode")
                     if ep is not None:
-                        online_buf.add_episode(ep)
+                        if live_store is not None:
+                            live_store.add_episode(ep)
+                        else:
+                            online_buf.add_episode(ep)
                 return True
+
+            def _on_rollout_end(self) -> None:
+                if live_store is not None and wandb_run is not None:
+                    wandb_run.log({
+                        "global_step": self.num_timesteps,
+                        **live_store.composition_report(),
+                    })
 
         callbacks.append(PredOnlineWindowCb())
 
@@ -1039,7 +1338,7 @@ def main() -> None:
     run_evals(model.num_timesteps, heldout=args.eval_heldout)
     out = MODEL_DIR / f"ppo_{args.name}.zip"
     model.save(str(out))
-    if args.condition == "E":
+    if args.condition in ("E", "F"):
         # The SB3 zip carries only the critic SNAPSHOT (inside the
         # policy); persist the online predictor separately in the
         # standard encoder-checkpoint format (runtime is excluded from
