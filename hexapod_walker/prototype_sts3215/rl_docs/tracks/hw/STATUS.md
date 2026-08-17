@@ -44,7 +44,32 @@ unresolved blockers between the robot and reliable joystick control.
   `spec-pl4` over `footlow2_hard1` as the stance half of the
   hierarchy. No promotion made autonomously. Detail:
   SESSION_BULK_GATE.md "Cohort c5rr — RESULTS".
-- **08-17 ~22:xx (dig-in): `cw-recover-any15-retentionrollback-cont1`
+- **08-17 ~23:xx (operator order fb_20260817T221115_78b688):
+  `cw-recover-any15-retentionrollback-cont1` re-verdicted
+  scientifically INVALID — the dig-in bullet below is SUPERSEDED.**
+  The cert callback called `_recover_update_admission` with
+  `indices=0`, so only training env 0 advanced through the curriculum;
+  the other 511 PPO envs trained on the base bucket all run
+  (signature: `env/recover_focus_bucket=0.03125`,
+  `env/recover_active_families=1.03125`; ~94,510 B0 training episodes
+  vs 12-32 each for B1-B8). Every reward/frontier/stall/retention
+  conclusion from that run describes the cert probes, not the PPO
+  rollout distribution. Fix landed at main `4d1b45d` (admission
+  broadcast to all 512 envs + divergence abort;
+  `CERT/recover_training_envs_synchronized` must equal 512).
+  Per the same order, launched the from-scratch synchronized cohort
+  **recover-any16-pop3**: `cw-recover-any16-pop3-s11/s12/s13`
+  (seeds 11/12/13, member 0/1/2, NO init-from, 40M each, any11
+  recipe + 1M cert / 16 cert envs / retention gate / rollback 4M@0.60);
+  first member to earn a retention-clean promotion uploads
+  policy+optimizer+curriculum, member 0 elects, all three ACK before
+  the next election. Integration gate: 3 RUNNING rows with distinct
+  W&B IDs, "synchronized cohort armed" in logs, first cert
+  `recover_training_envs_synchronized=512` on all, and one shared B1
+  winner adopted/ACKed by all three before any B2 election.
+- **[SUPERSEDED by the 08-17 ~23:xx INVALID correction above — its
+  frontier/stall/retention conclusions are void] 08-17 ~22:xx
+  (dig-in): `cw-recover-any15-retentionrollback-cont1`
   FAIL by its gate's frontier clause, but the clause was the invalid
   part — the retention-gated promotion mechanism is PROVEN and it
   proved the recovery line's ladder numbers were INFLATED.** Guard

@@ -313,3 +313,26 @@ Entry format (append; newest last; update status in place):
 - what was executed: both arms built and launched per the order (the order is newer, operator-stamped, and explicitly frames both as serving the SIM SPRINT rise+walk deliverable; the livewalkrise design also addresses E's measured failure mode via boundary-gated versioned snapshots, so it is a NEW mechanism, not an E re-run). Code committed to main; preflight banks green; canary-first staging for arm A.
 - ANSWER (operator): _pending_
 - rulebook change: _pending_
+
+## q_20260817T2310Z — OPEN
+- cycle: operator-kick cycle 20260817T23xx (execute fb_20260817T221115_78b688)
+- operator order: fb_20260817T221115_78b688 — invalidate any15 and launch
+  from-scratch synchronized cohort recover-any16-pop3
+  (cw-recover-any16-pop3-s11/s12/s13, 40M each, no init-from).
+- conflicted with: SIM SPRINT banner (RL_PLAN.md "SIM SPRINT" / hw
+  STATUS: "recover/tangle redesign stays [operator]-gated and is NOT a
+  sprint item; no new research-track launches") and the any15 dig-in
+  verdict's "No follow-up arm" clause; also RESEARCH_RULES acquisition
+  phase asks for a healthy canary of the new mechanism (the population
+  sync protocol has test evidence but no live canary).
+- why the cycle would have declined: three 40M from-scratch recover runs
+  are outside the sprint's rise+walk deliverable, and the new
+  cohort-sync mechanism goes live at full budget without a canary rung.
+- what was executed: any15 re-verdicted INVALID (ledger + W&B top note,
+  hw STATUS superseded note); all three cohort runs launched exactly as
+  specified (seeds 11/12/13, member 0/1/2, population id
+  recover-any16-pop3, full roster flag, no --init-from) at main
+  containing operator SHA 4d1b45d; startup verification per the
+  feedback's integration gate recorded in the ledger.
+- ANSWER (operator): (pending)
+- rulebook change: (pending)
