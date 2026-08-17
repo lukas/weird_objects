@@ -436,5 +436,35 @@ Entry format (append; newest last; update status in place):
   `wait_for_start`, or dump `self._peer_ids` state on timeout, before
   the next relaunch attempt). Do NOT relaunch any16/17/18 names
   autonomously.
+- EVIDENCE ADDENDUM (checkup cycle, 08-17 ~23:35-23:55 UTC, watched
+  s11's final minutes live): four new mechanical facts narrowing the
+  fourth bug. (a) The exact discovery query (`api.runs(project,
+  filters={"display_name": name}, order="-created_at")`, fresh
+  `wandb.Api(timeout=15)`) run FROM THE FAILING POD ITSELF
+  (hexapod-mjx-train-0, same host/network) resolved s12 AND s13
+  instantly — so it is not pod networking/DNS/egress. (b) The key is
+  identical: the trainer authenticates via `_load_wandb_env()` from
+  `rl_move/sim/wandb.env` (no WANDB_API_KEY in /proc/<pid>/environ, no
+  /root/.netrc), and that file's key sha256-prefix (910697b85b49)
+  equals the controller's — so it is not a credential/visibility
+  asymmetry (get-by-id vs list-with-filters was tested and works with
+  this key). (c) The pod's train_ppo_mjx.py md5
+  (9a62cda2fb7c41a21fb5b76eb63ed625) equals commit 686f5628's blob
+  exactly — the fresh-Api fix WAS the running code (gate item on code
+  version confirmed mechanically). (d) All three ready_B00 records
+  were re-verified field-by-field against `_recover_population_all_
+  ready`'s checks (population_id/bucket/member/run_id/run_name/
+  root_fingerprint "root:recover-any18-pop3"/bootstrap_steps 655360):
+  mutually consistent, published 23:24:08/23:28:08/23:29:28Z, i.e.
+  ~10-11 min before the leader's 23:39:08 deadline; s11's timeout
+  crash observed at 23:39:24. Net: the only remaining suspect is
+  in-process wandb client state — a fresh `wandb.Api` constructed
+  INSIDE an active wandb-run process (764 threads, wandb-core service
+  live) silently returning an empty filtered-runs page that an
+  identical out-of-process query answers correctly. This makes
+  3cc62a23 (predeclared run ids at launch, `wandb.init(id=...,
+  resume="never")`, no name query at all) the right shape of fix
+  independent of the exact client-side mechanism. train-0 verified
+  clean post-crash (no trainer PIDs, 0 MiB GPU).
 - ANSWER (operator): _pending_
 - rulebook change: _pending_
