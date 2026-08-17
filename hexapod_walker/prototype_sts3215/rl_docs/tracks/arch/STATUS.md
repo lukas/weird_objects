@@ -1,5 +1,8 @@
 # arch — Advanced architectures
 
+**SIM SPRINT (operator 08-17 ~18:05 UTC — binding while the robot is off the bench for repair): NO NEW LAUNCHES on this track unless an arm directly serves reliable rise+walk in the MuJoCo sim (the fleet's single deliverable; download answer: `rl_docs/DOWNLOAD_ANSWER.md`). In-flight runs finish and get triaged normally. Full text: RL_PLAN.md "SIM SPRINT".**
+
+
 W&B: tag `track:arch`. Excess-capacity research.
 
 **Goal:** get a more advanced model (GRU/recurrent/temporal) to walk,

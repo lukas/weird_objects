@@ -1,5 +1,32 @@
 # dynrep — Dynamics-representation pretraining
 
+**SIM SPRINT (operator 08-17 ~18:05 UTC — binding while the robot is off the bench for repair): NO NEW LAUNCHES on this track unless an arm directly serves reliable rise+walk in the MuJoCo sim (the fleet's single deliverable; download answer: `rl_docs/DOWNLOAD_ANSWER.md`). In-flight runs finish and get triaged normally. Full text: RL_PLAN.md "SIM SPRINT".**
+
+
+**08-17 ~15:xx UTC (operator-kick reconcile cycle, operator triage
+fb_20260817T153102_0f579c executed): the D/E 1M cohort is DONE and
+the line finally has a POSITIVE result. D (FROZEN predictive-critic)
+is a genuine transfer WIN: beats matched scratch A on ALL THREE seeds
+(walk 396.9/355.1/373.3, mean 375.1, vs A ~281/334.9/360.8; final
+heldout walk mean 491.3, best 510.7; critic EV mean .928; cleaner
+gait than E — slip .320m vs .382, roll ~2.68° vs ~4.03°; zero early
+terms; critic gates learned to ~-0.44..-0.56 with nonzero residual,
+so the features were genuinely used). E (ONLINE predictor + guarded
+EMA) FAILS its pre-registered gate clause (3): mean walk 341.8, loses
+to D on 2/3 seeds — despite the mechanism working perfectly
+(actor_kl_from_predictor exactly 0 on all 489 iterations, heldout
+2.530/2.548/2.537 inside the 15% band, 0 EMA rejections). Precise
+conclusion: static pretrained dynamics features help PPO when
+restricted to the CRITIC; adapting the predictor online reduces the
+benefit. NOT "predictive representations never help". Now/Next: E
+CLOSED; NO launch/extension per operator order — D recorded as the
+candidate for any operator-approved extension (`[operator]` wait in
+root STATUS.md). All six ledger rows reconciled (were stale RUNNING;
+W&B all `finished` @1,001,472), best+final ckpts + E online
+predictors md5-verified and preserved at controller
+`artifacts/tfwalk-critic1/` (D-s5 best load-tested end-to-end),
+histories/evals cached in `logs/experiments/dynrep-tfwalk-critic1-*/`.**
+
 **08-17 ~06:xx UTC (operator-kick cycle, directive
 fb_20260817T052333_e5ae09 executed — Lukas: "ok try it"): the
 decoupled predictive-CRITIC transfer is BUILT and the E canary is the

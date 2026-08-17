@@ -2,6 +2,19 @@
 
 W&B: tag `track:hw`. THE MAINLINE — pod priority, operator bench time.
 
+**SIM SPRINT (operator 08-17 ~18:05 UTC — binding while the robot is
+off the bench for repair): the fleet's single deliverable is RELIABLE
+RISE + WALK IN THE MUJOCO SIM, download-ready. The maintained download
+answer is `rl_docs/DOWNLOAD_ANSWER.md` (hierarchy: `footlow2_hard1` +
+`bcgait1_hard1` + session controller, det 0.967 / sto 0.853 at n=600).
+Sprint gap status: post-lower rise = the ELEVATED `[operator]` fork in
+STATUS.md WAITING-ON (+ a queued `[code]` remaining-rise eval probe to
+price option (a)); takeoff transient = sim-side complete (entry-slew
+composed), bench reps parked; no live session-gate regressions. All
+bench-owned `[operator]` items stay parked; recover/tangle redesign
+stays `[operator]`-gated and is NOT a sprint item. Full text:
+RL_PLAN.md "SIM SPRINT".**
+
 **Goal:** a walking, joystick-driven, standing/sitting/holding robot
 working ON HARDWARE by any means necessary. Anchors, scripted blends,
 rot-60 wrappers, specialist checkpoints — all fair game. KPI:

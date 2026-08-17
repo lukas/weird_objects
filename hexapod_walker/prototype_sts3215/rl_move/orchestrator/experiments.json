@@ -93467,7 +93467,7 @@
     "run": "dynrep-tfwalk-critic1-E-s5",
     "created": "2026-08-17T05:47:19+00:00",
     "note": "Script-owned cohort (pod_tfwalk_critic.sh, manifest tfwalk-critic1_manifest.jsonl on-pod). Operator directive fb_20260817T052333_e5ae09 (decoupled predictive-critic transfer); code exp/cw-dynrep-tfwalk-critic1 (cc8c144f), 8/8 new bank + all dynrep banks green, E integration canary PASSED all hard gates (dynrep-tfwalk-critic-canary-E-s5). Controls = existing config-equivalent scratch A: joint1 A-s6 (c58ft8qp) / A-s7 (3qqitw5h) at 1M + metrics1 A-s5 (jf0tfsqh) at its 1M eval point - core MDP/PPO config keys mechanically verified identical vs W&B configs this cycle. Prior B/C are NOT controls (they changed actor inputs).",
-    "status": "RUNNING",
+    "status": "FAIL",
     "pod": "hexapod-mjx-train-11",
     "track": "dynrep",
     "phase": "behavioral",
@@ -93491,13 +93491,16 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "done",
+    "hardware_ready": false,
+    "verdict": "FAIL on pre-registered gate clause (3): E does not beat frozen D across seeds (E walk mean 341.8 vs D 375.1; s5 336.3 vs D 396.9; E loses to D on 2/3 seeds, beats scratch A only 2/3), with worse gait (cohort slip .382m vs D .320, roll ~4.03deg vs 2.68). Mechanism worked exactly as designed: actor_kl_from_predictor exactly 0 on all 489 iterations, heldout pred total 2.530 (+10.7% vs 2.286, inside the 15% band), all EMA snapshots accepted, EV .954. Precise conclusion (per gate): static pretrained dynamics features help critic-only; continuing to adapt the predictor online reduces the benefit. E line CLOSED - no relaunch (operator order fb_20260817T153102_0f579c). Ckpts+online predictor verified+preserved at artifacts/tfwalk-critic1/."
   },
   {
     "run": "dynrep-tfwalk-critic1-E-s6",
     "created": "2026-08-17T05:47:19+00:00",
     "note": "Script-owned cohort (pod_tfwalk_critic.sh, manifest tfwalk-critic1_manifest.jsonl on-pod). Operator directive fb_20260817T052333_e5ae09 (decoupled predictive-critic transfer); code exp/cw-dynrep-tfwalk-critic1 (cc8c144f), 8/8 new bank + all dynrep banks green, E integration canary PASSED all hard gates (dynrep-tfwalk-critic-canary-E-s5). Controls = existing config-equivalent scratch A: joint1 A-s6 (c58ft8qp) / A-s7 (3qqitw5h) at 1M + metrics1 A-s5 (jf0tfsqh) at its 1M eval point - core MDP/PPO config keys mechanically verified identical vs W&B configs this cycle. Prior B/C are NOT controls (they changed actor inputs).",
-    "status": "RUNNING",
+    "status": "FAIL",
     "pod": "hexapod-mjx-train-4",
     "track": "dynrep",
     "phase": "behavioral",
@@ -93521,13 +93524,16 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "done",
+    "hardware_ready": false,
+    "verdict": "FAIL on gate clause (3) as part of the E cohort: s6 walk 365.6 vs D-s6 355.1 (only seed where E edges D) but cohort mean 341.8 < D 375.1 and gait worse (slip/roll); predictor quality preserved (heldout 2.548, inside band), actor KL from predictor exactly 0. Online adaptation adds no benefit over the frozen snapshot. E line CLOSED per operator order fb_20260817T153102_0f579c. Artifacts preserved at artifacts/tfwalk-critic1/."
   },
   {
     "run": "dynrep-tfwalk-critic1-E-s7",
     "created": "2026-08-17T05:47:19+00:00",
     "note": "Script-owned cohort (pod_tfwalk_critic.sh, manifest tfwalk-critic1_manifest.jsonl on-pod). Operator directive fb_20260817T052333_e5ae09 (decoupled predictive-critic transfer); code exp/cw-dynrep-tfwalk-critic1 (cc8c144f), 8/8 new bank + all dynrep banks green, E integration canary PASSED all hard gates (dynrep-tfwalk-critic-canary-E-s5). Controls = existing config-equivalent scratch A: joint1 A-s6 (c58ft8qp) / A-s7 (3qqitw5h) at 1M + metrics1 A-s5 (jf0tfsqh) at its 1M eval point - core MDP/PPO config keys mechanically verified identical vs W&B configs this cycle. Prior B/C are NOT controls (they changed actor inputs).",
-    "status": "RUNNING",
+    "status": "FAIL",
     "pod": "hexapod-mjx-train-5",
     "track": "dynrep",
     "phase": "behavioral",
@@ -93551,13 +93557,16 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "done",
+    "hardware_ready": false,
+    "verdict": "FAIL on gate clause (3) as part of the E cohort: s7 walk 323.6 vs D-s7 373.3 and vs scratch A-s7 360.8 (loses to both); predictor quality preserved (heldout 2.537, inside band), actor KL from predictor exactly 0, EV .872. Online adaptation adds no benefit over the frozen snapshot. E line CLOSED per operator order fb_20260817T153102_0f579c. Artifacts preserved at artifacts/tfwalk-critic1/."
   },
   {
     "run": "dynrep-tfwalk-critic1-D-s5",
     "created": "2026-08-17T05:47:19+00:00",
     "note": "Script-owned cohort (pod_tfwalk_critic.sh, manifest tfwalk-critic1_manifest.jsonl on-pod). Operator directive fb_20260817T052333_e5ae09 (decoupled predictive-critic transfer); code exp/cw-dynrep-tfwalk-critic1 (cc8c144f), 8/8 new bank + all dynrep banks green, E integration canary PASSED all hard gates (dynrep-tfwalk-critic-canary-E-s5). Controls = existing config-equivalent scratch A: joint1 A-s6 (c58ft8qp) / A-s7 (3qqitw5h) at 1M + metrics1 A-s5 (jf0tfsqh) at its 1M eval point - core MDP/PPO config keys mechanically verified identical vs W&B configs this cycle. Prior B/C are NOT controls (they changed actor inputs).",
-    "status": "RUNNING",
+    "status": "PASS",
     "pod": "hexapod-mjx-train-7",
     "track": "dynrep",
     "phase": "behavioral",
@@ -93581,13 +93590,16 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "done",
+    "hardware_ready": false,
+    "verdict": "PASS (frozen predictive-critic transfer, s5): walk return 396.9 at 1M vs matched scratch A ~281 (s5); final heldout walk 493.9, best 507.3; critic EV .973; cohort D gait cleaner than E (mean slip .320m vs .382, roll ~2.68deg vs ~4.03), zero early terms; gate learned to ~-.5 with nonzero residual = critic genuinely used the pretrained dynamics features. Cohort: D beats matched A on all 3 seeds (mean 375.1 vs ~325.6) - first positive transfer result in the dynrep line. D is the candidate for operator-approved extension; NO extension launched (operator order fb_20260817T153102_0f579c). Note: this entry's gate field inherited E's text by copy-paste; judged per directive fb_20260817T052333 as D-vs-scratch-A. Best+final ckpts verified (md5 + on-pod load test) and preserved at artifacts/tfwalk-critic1/."
   },
   {
     "run": "dynrep-tfwalk-critic1-D-s6",
     "created": "2026-08-17T05:47:19+00:00",
     "note": "Script-owned cohort (pod_tfwalk_critic.sh, manifest tfwalk-critic1_manifest.jsonl on-pod). Operator directive fb_20260817T052333_e5ae09 (decoupled predictive-critic transfer); code exp/cw-dynrep-tfwalk-critic1 (cc8c144f), 8/8 new bank + all dynrep banks green, E integration canary PASSED all hard gates (dynrep-tfwalk-critic-canary-E-s5). Controls = existing config-equivalent scratch A: joint1 A-s6 (c58ft8qp) / A-s7 (3qqitw5h) at 1M + metrics1 A-s5 (jf0tfsqh) at its 1M eval point - core MDP/PPO config keys mechanically verified identical vs W&B configs this cycle. Prior B/C are NOT controls (they changed actor inputs).",
-    "status": "RUNNING",
+    "status": "PASS",
     "pod": "hexapod-mjx-train-9",
     "track": "dynrep",
     "phase": "behavioral",
@@ -93611,13 +93623,16 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "done",
+    "hardware_ready": false,
+    "verdict": "PASS (frozen predictive-critic transfer, s6): walk return 355.1 at 1M vs matched scratch A 334.9 (joint1 A-s6); final heldout walk 480.6, best 497.7; critic EV .883; zero early terms. Part of the 3/3 D-beats-A cohort result (mean 375.1 vs ~325.6) - first positive transfer in the dynrep line. No extension per operator order fb_20260817T153102_0f579c. Ckpts verified+preserved at artifacts/tfwalk-critic1/."
   },
   {
     "run": "dynrep-tfwalk-critic1-D-s7",
     "created": "2026-08-17T05:47:19+00:00",
     "note": "Script-owned cohort (pod_tfwalk_critic.sh, manifest tfwalk-critic1_manifest.jsonl on-pod). Operator directive fb_20260817T052333_e5ae09 (decoupled predictive-critic transfer); code exp/cw-dynrep-tfwalk-critic1 (cc8c144f), 8/8 new bank + all dynrep banks green, E integration canary PASSED all hard gates (dynrep-tfwalk-critic-canary-E-s5). Controls = existing config-equivalent scratch A: joint1 A-s6 (c58ft8qp) / A-s7 (3qqitw5h) at 1M + metrics1 A-s5 (jf0tfsqh) at its 1M eval point - core MDP/PPO config keys mechanically verified identical vs W&B configs this cycle. Prior B/C are NOT controls (they changed actor inputs).",
-    "status": "RUNNING",
+    "status": "PASS",
     "pod": "hexapod-mjx-train-3",
     "track": "dynrep",
     "phase": "behavioral",
@@ -93641,7 +93656,10 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "done",
+    "hardware_ready": false,
+    "verdict": "PASS (frozen predictive-critic transfer, s7): walk return 373.3 at 1M vs matched scratch A 360.8 (joint1 A-s7); final heldout walk 499.5, best 527.1; critic EV .927; zero early terms. Part of the 3/3 D-beats-A cohort result (mean 375.1 vs ~325.6). No extension per operator order fb_20260817T153102_0f579c. Ckpts verified+preserved at artifacts/tfwalk-critic1/."
   },
   {
     "run": "cw-arch-modeexperts-scratch3",
@@ -93752,6 +93770,18 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:arch nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-arch-modeexperts-scratch3 --steps 40000000 --task joint_walk --gru-experts --gru-hidden-size 256 --n-steps 256 --n-envs 256 --batch-size 8192 --ent-coef 0.01 --dr-scale 0.5 --episode-seconds 30 --goal-mix walk=0.383,rise=0.254,lower=0.352,hold=0.011 --cfg-set obs.mode_onehot=1 --cfg-set goal.mode_seq=0.10 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set goal.walk_heading_max_rad=0.7854 --cfg-set goal.walk_cmd_resample_s=1.5 --cfg-set goal.walk_cmd_resample_jitter=0.6 --cfg-set goal.walk_cmd_blend_s_min=0.1 --cfg-set goal.walk_cmd_blend_s_max=1.0 --cfg-set goal.walk_stop_frac=0.2 --seed 0 --out-name ppo_goal_cw_arch_modeexperts_scratch3 --impl warp --host-workers 24 --notes 'respec of cw-arch-modeexperts-scratch2: Give the four rise/hold/lower/loco experts a second, rebalanced training stage so the two lagging skills (walking, sitting-down) catch up to stand-up'\"'\"'s cumulative practice, and see whether the isolated-expert architecture can push all three real skills (rise/loco/lower) over our strict success bar once each has gotten a fair budget. Scratch2 (its first 40M) proved the mechanism keeps learning for real (per-expert stds and in-loop eval trends diverge and improve, no cheat in any of the 4 skill videos) but also measured that hold soaked up 2x its intended practice share (.21 realized vs .15 cap) while walking and sitting-down stayed under their .30 target (.24 and .24) -- because sequence episodes reach the hold segment more often now that stand-up reliably completes, so hold banks ticks a from-scratch policy doesn'\"'\"'t need as much anymore. This stage cuts mode_seq .20->.10 (fewer full sequences means less of that hold-segment leakage) and re-solves the single-mode mix from the measured realized/commanded ratios (rise .303->.254, walk .345->.383, lower .324->.352, hold .028->.011) so cumulative lineage active ticks should clear ~20M each for rise/loco/lower by the end of this stage (were 13.2M/10.0M/10.1M including the canary). If a skill is still flat at that exposure, that indicts its own reward/start curriculum, not capacity or cross-expert interference (the isolation is architectural, gradients cannot cross).' --canary-stop-after 0 --init-from rl_move/sim/policies/ppo_goal_cw_arch_modeexperts_scratch2.zip > /tmp/train_cw-arch-modeexperts-scratch3.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-arch-modeexperts-scratch3.log",
     "wandb_id": "puvo5i2y",
-    "verified": "2026-08-17T15:21:00+00:00"
+    "verified": "2026-08-17T15:21:00+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-17T15:26:04+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 978,
+        "fps": 1456.4,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   }
 ]
