@@ -94251,7 +94251,7 @@
     "run": "cw-dynrep-livewalkrise1-canary1",
     "created": "2026-08-17T21:40:26+00:00",
     "note": "Script-owned (pod_livewalkrise.sh, manifest livewalkrise_manifest.jsonl on-pod). Operator order fb_20260817T210422_9df9c7 arm A, mechanism canary before the 10M continuation. Code 8cc61c3d (main): live_replay.py stratified CUDA store + predictive_critic live mode (boundary-gated versioned snapshot). Tests: test_dynrep_live_replay.py 10/10 on-pod CUDA (incl. the CUDA store/optimizer proof), all prior dynrep banks 28/28, real-env F smoke on train-5 PASS (obs 16x73 yaw-cmd, md5 verified, pretrained heldout ref 2.286 exact). Canary boundary=50k exists ONLY to exercise the gated accept/reject machinery; the continuation uses the ordered 1M boundary.",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "pod": "hexapod-mjx-train-5",
     "track": "dynrep",
     "phase": "canary",
@@ -94263,7 +94263,18 @@
     "wandb_match": "^cw-dynrep-livewalkrise1-canary1",
     "log": "/workspace/prototype_sts3215/rl_move/dynamics/logs/pod_livewalkrise_canary1.log",
     "hypothesis": "Prove the new live world-model machinery end to end before spending real compute: the walking-and-rising robot collects its own command-rich experience (all heading directions, stops and direction changes, commanded yaw; rises from flat/bridge/crouch and post-lower bank poses), an online dynamics transformer keeps learning from it on the GPU with stratified 75/25 walk/rise replay + 25% v5 rehearsal, and the critic-facing feature snapshot starts as exact frozen D and may only change at gated step boundaries. This canary judges the MECHANISM (quotas, bins, gates, actor isolation, checkpoints), never learning outcomes. Operator order fb_20260817T210422_9df9c7 arm A.",
-    "gate": "MECHANISM-HEALTH CANARY ONLY: (1) CUDA - store tensors/predictor batches/online Adam state on CUDA (bank on-pod PASS); (2) actor isolation - pred/actor_kl_from_predictor exactly 0 throughout; (3) quotas - past warmup, batch fresh/rehearsal ~0.75/0.25 and fresh walk/rise ~0.75/0.25 (+/-10%); (4) coverage - data/added nonzero for cmd_change, start_stop, yaw_left+right, back/lat/diag, rise flat_bridge+crouch+post_lower; (5) snapshot discipline - version changes only at 50k boundaries, every attempt logs all six gate values, >=1 attempt exercised (accept OR reject both legal here); (6) W&B pred/*, critic/*, data/* advancing; (7) checkpoints <100MB, round-trip OK, online predictor saved separately. PASS -> launch cw-dynrep-livewalkrise1 (10M, boundary 1M, same cfg) immediately; FAIL -> fix + re-canary, no continuation."
+    "gate": "MECHANISM-HEALTH CANARY ONLY: (1) CUDA - store tensors/predictor batches/online Adam state on CUDA (bank on-pod PASS); (2) actor isolation - pred/actor_kl_from_predictor exactly 0 throughout; (3) quotas - past warmup, batch fresh/rehearsal ~0.75/0.25 and fresh walk/rise ~0.75/0.25 (+/-10%); (4) coverage - data/added nonzero for cmd_change, start_stop, yaw_left+right, back/lat/diag, rise flat_bridge+crouch+post_lower; (5) snapshot discipline - version changes only at 50k boundaries, every attempt logs all six gate values, >=1 attempt exercised (accept OR reject both legal here); (6) W&B pred/*, critic/*, data/* advancing; (7) checkpoints <100MB, round-trip OK, online predictor saved separately. PASS -> launch cw-dynrep-livewalkrise1 (10M, boundary 1M, same cfg) immediately; FAIL -> fix + re-canary, no continuation.",
+    "checkups": [
+      {
+        "time": "2026-08-17T21:45:51+00:00",
+        "process_alive": false,
+        "verdict": "DEAD",
+        "log_tail": "term=0.00  [+heldout]  heldout_pred_total=8.955\n  eval @ 151552: rise ret=6.6 term=0.00  walk ret=151.8 term=0.00  walkrise ret=151.8 term=0.00  [+heldout]  heldout_pred_total=9.467\n  online predictor -> /workspace/prototype_sts3215/rl_move/dynamics/models/dyn_online_cw-dynrep-livewalkrise1-canary1.pt\n[cw-dynrep-livewalkrise1-canary1] done in 6.5 min -> /workspace/prototype_sts3215/rl_move/dynamics/models/ppo_cw-dynrep-livewalkrise1-canary1.zip\n  eval log: /workspace/prototype_sts3215/rl_move/dynamics/logs/ppo_cw-dynrep-livewalkrise1-canary1_eval.csv\nPOD_LIVEWALKRISE_DONE 2026-08-17T21:40:48Z\n"
+      }
+    ],
+    "hardware_ready": false,
+    "verdict": "CANARY PASS (mechanism): all seven pre-registered gates hold \u2014 CUDA store/batches/optimizer proven on-pod (bank 10/10); pred/actor_kl_from_predictor exactly 0 on all 74 iterations; realized quotas exactly 0.75/0.25 fresh/rehearsal and 0.75/0.25 walk/rise; full command coverage (cmd_change 17263, start_stop 6846, yaw L/R 8844/8629, back/lat/diag all populated; rise flat_bridge 4859 / crouch 1551 / post_lower 3136); snapshot attempts exactly at the three 50k boundaries with all six gate values logged, all REJECTED -> version pinned 0 (rejection path exercised in production); W&B pred/critic/data all advancing; checkpoints ~63MB + separate online predictor. ONE REAL FINDING: the online predictor tripled its corpus-val (2.29->9.5) because the exogenous command priv channels blow up under corpus normalization (corpus wz_ref std=0.001; live yaw cmd 0.3 = ~300 sigma; cmd_track loss ~500-580 vs physical heads 0.3-1.5). Fix landed 3271920c: live windows mask priv 7:14 (exogenous commands) out of the supervised targets, rehearsal untouched; verified by canary2 before the 10M continuation.",
+    "triage": "done"
   },
   {
     "run": "cw-dynrep-criticD-40m1",
@@ -94282,6 +94293,58 @@
     "log": "/workspace/prototype_sts3215/rl_move/dynamics/logs/pod_criticD40m1.log",
     "evidence": "Healthy-mechanism precedent: dynrep-tfwalk-critic1-D s5/s6/s7 (frozen-D beat matched scratch A on 3/3 seeds at 1M, mean walk 375.1 vs ~325.6, critic EV .928, cleaner gait than E) + on-pod D smoke this cycle (train-7, loco-quality selection + md5 assert exercised). Full-budget precedent: 40M is the campaign standard consolidation budget (guardrails max_steps_per_run).",
     "hypothesis": "Give the walking robot a value function that reads the frozen pretrained dynamics transformer - the exact setup that beat from-scratch PPO on all three 1M seeds - and train a fresh command-following walker for 40M steps with joystick-style command changes and stops. Tests whether the frozen-D critic advantage compounds at scale into a download-quality command walker. Checkpoints are picked by how well the robot actually walks where commanded (progress, vx/vy+yaw tracking, slip per meter, roll, falls, slew, six-foot gait cycling), never scalar reward alone. Operator order fb_20260817T210422_9df9c7 arm B.",
-    "gate": "Pre-registered 40M decision checkpoint, no extension without a verdict. PASS = the best-loco checkpoint on the 6-episode command-rich own-DR walk eval shows early_term_rate 0, cmd_prog_frac >= 0.6, slip_per_m <= 2.0, peak_roll_deg <= 8, contact_sw_per_s >= 3 (all six feet cycling), SCORE/loco_quality >= 10, AND walk return exceeding the 1M frozen-D cohort mean (375) at some eval point. Mechanical invariants: encoder md5 match, pred/snapshot_version pinned at 0, W&B global_step advancing, periodic+best+final checkpoints present. Rise/hold retention curves reported alongside (monitored, scratch actor - no hard retention gate). Verdict must quote the visual-quality stats (slip, roll, tracking) vs the 1M cohort numbers - a higher-reward pick with worse drag/roll is not a PASS."
+    "gate": "Pre-registered 40M decision checkpoint, no extension without a verdict. PASS = the best-loco checkpoint on the 6-episode command-rich own-DR walk eval shows early_term_rate 0, cmd_prog_frac >= 0.6, slip_per_m <= 2.0, peak_roll_deg <= 8, contact_sw_per_s >= 3 (all six feet cycling), SCORE/loco_quality >= 10, AND walk return exceeding the 1M frozen-D cohort mean (375) at some eval point. Mechanical invariants: encoder md5 match, pred/snapshot_version pinned at 0, W&B global_step advancing, periodic+best+final checkpoints present. Rise/hold retention curves reported alongside (monitored, scratch actor - no hard retention gate). Verdict must quote the visual-quality stats (slip, roll, tracking) vs the 1M cohort numbers - a higher-reward pick with worse drag/roll is not a PASS.",
+    "checkups": [
+      {
+        "time": "2026-08-17T21:46:52+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 0,
+        "fps": 1456.4,
+        "placement": "solo on GPU-MJX pod (dynrep trainer)",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
+  },
+  {
+    "run": "cw-dynrep-livewalkrise1-canary2",
+    "created": "2026-08-17T21:48:18+00:00",
+    "note": "Script-owned re-canary after the canary1 exogenous-cmd-priv finding (fix 3271920c: live windows mask priv 7:14). 60k steps, boundary 30k. Same mechanism scope as canary1.",
+    "status": "FINISHED",
+    "pod": "hexapod-mjx-train-5",
+    "track": "dynrep",
+    "phase": "canary",
+    "steps": 60000,
+    "wandb_id": "2auqhfmy",
+    "git_sha": "3271920ca1e15b8d2e1f5e07ed057c916b0d2d5e",
+    "trainer": "train_ppo_transfer",
+    "proc_match": "cw-dynrep-livewalkrise1-canary2",
+    "wandb_match": "^cw-dynrep-livewalkrise1-canary2",
+    "log": "/workspace/prototype_sts3215/rl_move/dynamics/logs/pod_livewalkrise_canary2.log",
+    "hypothesis": "Verify the exogenous-command mask fixes the live predictor divergence canary1 found: with priv channels 7:14 masked on live windows, the online predictor trained on command-rich live data should keep its corpus heldout near the pretrained 2.286 reference instead of tripling, and live-val losses should sit at physical-head scale. Mechanism re-canary before the 10M continuation (operator order fb_20260817T210422_9df9c7 arm A).",
+    "gate": "MECHANISM-HEALTH CANARY ONLY: canary1 gates still hold (actor KL 0, quotas, boundary-only attempts with logged gate values) AND the fix is effective: pred/gate/corpus_val_candidate at the boundary attempts stays < 2x the 2.286 pretrained ref (vs 7.3-9.5 in canary1) and live_val walk/rise land at physical scale (<50, vs ~1900-2500). PASS -> launch cw-dynrep-livewalkrise1 (10M, boundary 1M) immediately.",
+    "hardware_ready": false,
+    "verdict": "CANARY PASS (mechanism): the exogenous-command mask fix works \u2014 online predictor corpus-val 2.496/2.529 at the two 30k boundary attempts (inside the 15% band of the 2.286 pretrained ref; was 7.3-9.5 in canary1), live_val at physical scale (walk 3.8-4.5, rise 3.1-3.4; was ~1900-2500), candidate BEAT the snapshot on live walk at both attempts and held rise retention, latent drift 0.02-0.03, value-jump 0.014/0.159 \u2014 both attempts ACCEPTED, snapshot_version 0->2 (accept path now exercised; canary1 exercised reject). actor KL exactly 0 on all 30 iterations. Continuation cw-dynrep-livewalkrise1 (10M, boundary 1M) launched per the pre-registered gate.",
+    "triage": "done"
+  },
+  {
+    "run": "cw-dynrep-livewalkrise1",
+    "created": "2026-08-17T21:50:11+00:00",
+    "note": "Script-owned (pod_livewalkrise.sh). Operator order fb_20260817T210422_9df9c7 arm A continuation: 10M steps, snapshot boundary 1M (up to ~9 gated update attempts), stratified live CUDA replay 75/25 walk/rise (75% fresh + 25% v5 rehearsal), command-rich env (uniform heading, resample 4s + jitter, 15% stops, commanded yaw, rise flat/bridge/crouch + 30% post-lower bank), exogenous cmd priv channels masked on live windows (canary1 finding, 3271920c). Actor raw-obs scratch; 13.62M transformer capacity unchanged; starts exact frozen D.",
+    "status": "RUNNING",
+    "pod": "hexapod-mjx-train-5",
+    "track": "dynrep",
+    "phase": "acquisition",
+    "steps": 10000000,
+    "wandb_id": "1d1ro5dc",
+    "git_sha": "3271920ca1e15b8d2e1f5e07ed057c916b0d2d5e",
+    "trainer": "train_ppo_transfer",
+    "proc_match": "cw-dynrep-livewalkrise1",
+    "wandb_match": "^cw-dynrep-livewalkrise1\\.",
+    "log": "/workspace/prototype_sts3215/rl_move/dynamics/logs/pod_livewalkrise1.log",
+    "evidence": "Mechanism canaries: cw-dynrep-livewalkrise1-canary1 (CANARY PASS, rejection path + quotas + isolation + coverage) and -canary2 (CANARY PASS, exogenous-mask fix verified, accept path exercised: corpus-val 2.50/2.53 inside the 15% band, snapshot v0->2). Transfer precedent: dynrep-tfwalk-critic1-D beat matched scratch on 3/3 seeds at 1M.",
+    "hypothesis": "Let the world model keep learning from what the robot is actually doing \u2014 walking in every direction with stops, turns and direction changes, and standing up from flat, crouched and post-sit poses \u2014 while the actor stays a plain raw-observation policy and the critic reads dynamics features from a snapshot that may only improve at 1M-step boundaries behind retention gates. Tests whether live-adapted dynamics features beat the static frozen-D transfer (the current best) without re-triggering the nonstationary-critic failure that sank condition E. Operator order fb_20260817T210422_9df9c7 arm A.",
+    "gate": "Pre-registered 10M decision checkpoint, no extension without a verdict. Mechanism invariants throughout: actor KL exactly 0; snapshot version changes only at 1M boundaries with all six gate values logged; every accepted update must NOT be followed by walk-return or live-val regression over the next 1M (the E failure signature \u2014 if it is, record LIVE-ADAPTATION HARMFUL and stop). Outcome read at 10M: (a) if >=1 snapshot update was accepted, compare walk return + gait quality (slip_m, peak_roll_deg, slew_sat) and rise/walkrise SCORE trends before/after accepts, and against the frozen-D yardstick cw-dynrep-criticD-40m1 at matched step counts (note confounds: n_envs 8 vs 16, yaw-cmd obs); (b) if NO update ever passes the gates by 10M, record that live adaptation cannot beat frozen features under honest retention gates on this data and close the online line for good. Retain best-by-heldout + periodic checkpoints; verdict quotes visual-quality stats, not scalar reward alone."
   }
 ]

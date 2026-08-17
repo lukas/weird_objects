@@ -32,8 +32,20 @@ stops), checkpoint selection by the pre-registered locomotion_quality
 composite (command progress, vx/vy+yaw tracking, slip-per-meter, roll,
 falls, slew, contact gait; rise/hold retention logged every eval) —
 scales the 1M frozen-D win (D beat scratch on 3/3 seeds).
-Tests: new bank test_dynrep_live_replay.py 9 CPU + 1 CUDA-pod test,
-all prior dynrep banks green (28), D/E semantics bit-untouched.**
+Tests: new bank test_dynrep_live_replay.py 10 tests + CUDA-pod proof,
+all prior dynrep banks green (28), D/E semantics bit-untouched.
+LAUNCH RESULTS (same cycle): canary1 CANARY PASS on all seven
+mechanism gates AND caught a real defect — exogenous command priv
+channels (corpus wz_ref std=0.001 => one live yaw cmd ~300 sigma)
+tripled the online predictor's corpus-val; fixed (live windows mask
+priv 7:14; 3271920c) and canary2 CANARY PASS verified it (corpus-val
+2.50/2.53 in-band, both 30k boundary updates ACCEPTED, snapshot
+v0->2 — accept AND reject paths both production-exercised). LIVE NOW:
+`cw-dynrep-livewalkrise1` (10M, boundary 1M, W&B 1d1ro5dc, train-5)
+and `cw-dynrep-criticD-40m1` (40M, W&B 55woacy7, train-7, ~1000 fps).
+Now: both training. Next: triage at their pre-registered decision
+checkpoints; the E-failure signature to watch on A = post-accept
+regression of walk return / live-val within the following 1M.**
 
 **08-17 ~15:xx UTC (operator-kick reconcile cycle, operator triage
 fb_20260817T153102_0f579c executed): the D/E 1M cohort is DONE and
