@@ -11,8 +11,9 @@ from rl_move.sim.train_ppo_mjx import (
     _RecoverPopulation,
     _env_kwargs, _recover_cert_bucket_plan, _recover_episode_outcome,
     _recover_episode_training_error, _recover_population_choose_candidate,
-    _recover_population_all_acked, _recover_population_record,
-    _recover_population_release, _recover_score_payload,
+    _recover_population_all_acked, _recover_population_all_ready,
+    _recover_population_record, _recover_population_release,
+    _recover_population_start, _recover_score_payload,
     _recover_update_admission_all, _recover_update_regression_timers,
     _run_recover_cert_kind)
 
@@ -235,6 +236,53 @@ def test_recover_population_requires_ack_from_every_matching_member():
         winner, "pop", 3)
 
 
+def test_recover_population_requires_every_seed_at_same_bootstrap_root():
+    def peer(member, *, steps=100, root="root:pop"):
+        run_id = f"run-{member}"
+        run_name = f"member-{member}"
+        ready = {
+            "population_id": "pop",
+            "bucket": 0,
+            "member": member,
+            "run_id": run_id,
+            "run_name": run_name,
+            "root_fingerprint": root,
+            "bootstrap_steps": steps,
+        }
+        return (member, run_id, run_name, {
+            "recover_population/ready_B00": json.dumps(ready),
+        })
+
+    peers = [peer(0), peer(1), peer(2)]
+    assert _recover_population_all_ready(
+        peers, 0, "pop", "root:pop", 100, 3)
+    assert not _recover_population_all_ready(
+        peers[:2], 0, "pop", "root:pop", 100, 3)
+    assert not _recover_population_all_ready(
+        [peer(0), peer(1, steps=99), peer(2)],
+        0, "pop", "root:pop", 100, 3)
+    assert not _recover_population_all_ready(
+        [peer(0), peer(1, root="stale"), peer(2)],
+        0, "pop", "root:pop", 100, 3)
+
+
+def test_recover_population_start_is_bound_to_root_and_budget():
+    summary = {
+        "recover_population/start_B00": json.dumps({
+            "population_id": "pop",
+            "bucket": 0,
+            "root_fingerprint": "root:pop",
+            "bootstrap_steps": 100,
+        }),
+    }
+    assert _recover_population_start(
+        summary, 0, "pop", "root:pop", 100) is not None
+    assert _recover_population_start(
+        summary, 0, "pop", "root:pop", 99) is None
+    assert _recover_population_start(
+        summary, 0, "pop", "stale", 100) is None
+
+
 def test_recover_population_force_refreshes_cached_peer_summaries():
     class ApiRun:
         def __init__(self, summary):
@@ -335,6 +383,58 @@ def test_recover_population_next_election_requires_leader_release(
         leader_summary, "winner", 2)["policy_sha256"] == "winner-B2"
 
 
+def test_recover_population_first_election_requires_start_release(
+        monkeypatch):
+    candidate_b1 = {
+        "population_id": "pop",
+        "bucket": 1,
+        "member": 1,
+        "run_id": "run-1",
+        "run_name": "member-1",
+        "step": 1_000,
+        "time_ns": 10,
+        "parent_fingerprint": "root:pop",
+        "policy_file": "recover_promotions/member-1.zip",
+        "curriculum_file": "recover_promotions/member-1.curriculum.json",
+        "policy_sha256": "winner-B1",
+        "curriculum_sha256": "curriculum-B1",
+    }
+    leader_summary = {}
+    peers = [
+        (0, "run-0", "member-0", leader_summary),
+        (1, "run-1", "member-1", {
+            "recover_population/candidate_B01": json.dumps(candidate_b1),
+        }),
+        (2, "run-2", "member-2", {}),
+    ]
+    population = object.__new__(_RecoverPopulation)
+    population.member = 0
+    population.peer_names = ("member-0", "member-1", "member-2")
+    population.initial_bucket = 0
+    population.population_id = "pop"
+    population.parent_fingerprint = "root:pop"
+    population.bootstrap_steps = 100
+    population.run = SimpleNamespace(summary={"global_step": 1_000})
+    population._local_summary = {}
+    population._summary_update = lambda values: (
+        population._local_summary.update(values))
+    monkeypatch.setitem(
+        sys.modules, "wandb", SimpleNamespace(log=lambda _payload: None))
+
+    population._elect(peers, leader_summary)
+    assert "recover_population/winner_B01" not in leader_summary
+
+    leader_summary["recover_population/start_B00"] = json.dumps({
+        "population_id": "pop",
+        "bucket": 0,
+        "root_fingerprint": "root:pop",
+        "bootstrap_steps": 100,
+    })
+    population._elect(peers, leader_summary)
+    assert _recover_population_record(
+        leader_summary, "winner", 1)["policy_sha256"] == "winner-B1"
+
+
 def test_recover_population_release_is_bound_to_winner_hash():
     winner = {"bucket": 2, "policy_sha256": "winner-B2"}
     summary = {
@@ -400,6 +500,63 @@ def test_recover_population_leader_releases_only_after_all_acks(monkeypatch):
     assert release is not None
     assert release["policy_sha256"] == "winner-B1"
     assert release["member_count"] == 3
+
+
+def test_recover_population_leader_starts_only_after_all_members_ready(
+        monkeypatch):
+    leader_summary = {}
+
+    def peer(member):
+        run_id = f"run-{member}"
+        run_name = f"member-{member}"
+        summary = leader_summary if member == 0 else {}
+        if member > 0:
+            ready = {
+                "population_id": "pop",
+                "bucket": 0,
+                "member": member,
+                "run_id": run_id,
+                "run_name": run_name,
+                "root_fingerprint": "root:pop",
+                "bootstrap_steps": 100,
+            }
+            summary["recover_population/ready_B00"] = json.dumps(ready)
+        return member, run_id, run_name, summary
+
+    peers = [peer(0), peer(1), peer(2)]
+    population = object.__new__(_RecoverPopulation)
+    population.population_id = "pop"
+    population.member = 0
+    population.peer_names = ("member-0", "member-1", "member-2")
+    population.run = SimpleNamespace(id="run-0")
+    population.initial_bucket = 0
+    population.parent_fingerprint = "root:pop"
+    population.bootstrap_steps = 100
+    population.poll_seconds = 0.01
+    population.barrier_timeout = 1.0
+    population._start_ready = False
+    population._race_started = False
+    population._peer_rows = lambda: peers
+    population._local_summary = {}
+
+    def summary_update(values):
+        leader_summary.update(values)
+        population._local_summary.update(values)
+
+    population._summary_update = summary_update
+    monkeypatch.setitem(
+        sys.modules, "wandb", SimpleNamespace(log=lambda _payload: None))
+
+    population.wait_for_start(global_step=99)
+    assert "recover_population/ready_B00" not in leader_summary
+
+    population.wait_for_start(global_step=100)
+
+    release = _recover_population_record(leader_summary, "start", 0)
+    assert release is not None
+    assert release["bootstrap_steps"] == 100
+    assert release["member_count"] == 3
+    assert population._race_started
 
 
 def test_recover_population_publishes_only_after_checkpoint_upload(

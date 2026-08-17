@@ -304,6 +304,46 @@ def _recover_population_release(
     return row
 
 
+def _recover_population_all_ready(
+        peer_rows: list[tuple[int, str, str, dict]], bucket: int,
+        population_id: str, root_fingerprint: str,
+        bootstrap_steps: int, expected_members: int) -> bool:
+    """Require every seeded member to reach the same root budget."""
+    if len(peer_rows) != int(expected_members):
+        return False
+    for member, run_id, run_name, summary in peer_rows:
+        ready = _recover_population_record(summary, "ready", bucket)
+        if (ready is None
+                or str(ready.get("population_id", ""))
+                != str(population_id)
+                or int(ready.get("bucket", -1)) != int(bucket)
+                or int(ready.get("member", -1)) != int(member)
+                or str(ready.get("run_id", "")) != str(run_id)
+                or str(ready.get("run_name", "")) != str(run_name)
+                or str(ready.get("root_fingerprint", ""))
+                != str(root_fingerprint)
+                or int(ready.get("bootstrap_steps", -1))
+                != int(bootstrap_steps)):
+            return False
+    return True
+
+
+def _recover_population_start(
+        leader_summary: dict, bucket: int, population_id: str,
+        root_fingerprint: str, bootstrap_steps: int) -> dict | None:
+    """Return a valid leader release for the initial seeded race."""
+    row = _recover_population_record(leader_summary, "start", bucket)
+    if (row is None
+            or str(row.get("population_id", "")) != str(population_id)
+            or int(row.get("bucket", -1)) != int(bucket)
+            or str(row.get("root_fingerprint", ""))
+            != str(root_fingerprint)
+            or int(row.get("bootstrap_steps", -1))
+            != int(bootstrap_steps)):
+        return None
+    return row
+
+
 class _RecoverPopulation:
     """W&B-backed best-of-N checkpoint election for recovery training."""
 
@@ -323,6 +363,11 @@ class _RecoverPopulation:
         self.initial_bucket = int(initial_bucket)
         self.adopted_bucket = int(initial_bucket)
         self.parent_fingerprint = f"root:{self.population_id}"
+        self.bootstrap_steps = int(
+            args.n_envs * args.n_steps
+            * args.recover_population_bootstrap_rollouts)
+        self._start_ready = False
+        self._race_started = False
         self._next_poll = 0.0
         self._peer_ids = {str(args.run_name): str(run.id)}
         self._local_summary: dict = {}
@@ -439,6 +484,11 @@ class _RecoverPopulation:
         return _recover_population_release(
             leader_summary, winner, self.population_id)
 
+    def _start(self, leader_summary: dict) -> dict | None:
+        return _recover_population_start(
+            leader_summary, self.initial_bucket, self.population_id,
+            self.parent_fingerprint, self.bootstrap_steps)
+
     def _elect(self, peer_rows, leader_summary: dict) -> dict:
         if self.member != 0 or len(peer_rows) != len(self.peer_names):
             return leader_summary
@@ -450,6 +500,8 @@ class _RecoverPopulation:
                 break
             last_bucket += 1
             last_winner = row
+        if last_winner is None and self._start(leader_summary) is None:
+            return leader_summary
         # ACKs alone are not enough: every member blocks after ACK until the
         # leader publishes this release. That gives each bucket three fresh
         # branches from the exact same parent instead of letting one member
@@ -582,6 +634,119 @@ class _RecoverPopulation:
         self._pending_acks[bucket] = (
             ack, int(global_step), int(winner["member"]))
         self._flush_acks()
+
+    def wait_for_start(self, global_step: int) -> None:
+        """Equalize seeded B0 budgets before the first candidate can win."""
+        if self._race_started or int(global_step) < self.bootstrap_steps:
+            return
+        import wandb
+        started = time.monotonic()
+        deadline = started + self.barrier_timeout
+        next_status = started
+        sleep_seconds = min(max(self.poll_seconds, 1.0), 5.0)
+        while True:
+            if not self._start_ready:
+                ready = {
+                    "population_id": self.population_id,
+                    "bucket": self.initial_bucket,
+                    "member": self.member,
+                    "run_id": str(self.run.id),
+                    "run_name": self.peer_names[self.member],
+                    "root_fingerprint": self.parent_fingerprint,
+                    "bootstrap_steps": self.bootstrap_steps,
+                    "ready_time_ns": time.time_ns(),
+                }
+                try:
+                    self._summary_update({
+                        f"recover_population/ready_B{self.initial_bucket:02d}":
+                            json.dumps(ready, sort_keys=True),
+                        "recover_population/bootstrap_ready_bucket":
+                            self.initial_bucket,
+                    })
+                    self._start_ready = True
+                    try:
+                        wandb.log({
+                            "global_step": int(global_step),
+                            "RECOVER_POPULATION/bootstrap_ready": 1.0,
+                        })
+                    except Exception as exc:
+                        print("[recover-pop] bootstrap-ready metric deferred: "
+                              f"{exc}")
+                except Exception as exc:
+                    print("[recover-pop] bootstrap readiness deferred: "
+                          f"{exc}")
+            try:
+                peer_rows = self._peer_rows()
+                if len(peer_rows) == len(self.peer_names):
+                    leader_summary = peer_rows[0][3]
+                    release = self._start(leader_summary)
+                    if (release is None and self.member == 0
+                            and _recover_population_all_ready(
+                                peer_rows, self.initial_bucket,
+                                self.population_id,
+                                self.parent_fingerprint,
+                                self.bootstrap_steps,
+                                len(self.peer_names))):
+                        release = {
+                            "population_id": self.population_id,
+                            "bucket": self.initial_bucket,
+                            "root_fingerprint": self.parent_fingerprint,
+                            "bootstrap_steps": self.bootstrap_steps,
+                            "member_count": len(self.peer_names),
+                            "start_time_ns": time.time_ns(),
+                        }
+                        values = {
+                            f"recover_population/start_B{self.initial_bucket:02d}":
+                                json.dumps(release, sort_keys=True),
+                            "recover_population/start_bucket":
+                                self.initial_bucket,
+                        }
+                        self._summary_update(values)
+                        leader_summary.update(values)
+                        try:
+                            wandb.log({
+                                "global_step": int(global_step),
+                                "RECOVER_POPULATION/start_release": 1.0,
+                            })
+                        except Exception as exc:
+                            print("[recover-pop] start metric deferred: "
+                                  f"{exc}")
+                        print("[recover-pop] leader RELEASED initial B"
+                              f"{self.initial_bucket} race after all "
+                              f"{len(self.peer_names)} members reached "
+                              f"{self.bootstrap_steps:,} steps")
+                    if release is not None:
+                        waited = time.monotonic() - started
+                        self._race_started = True
+                        try:
+                            wandb.log({
+                                "global_step": int(global_step),
+                                "RECOVER_POPULATION/start_observed": 1.0,
+                                "RECOVER_POPULATION/start_wait_seconds":
+                                    float(waited),
+                            })
+                        except Exception as exc:
+                            print("[recover-pop] start-observed metric "
+                                  f"deferred: {exc}")
+                        print("[recover-pop] member "
+                              f"{self.member} STARTED initial B"
+                              f"{self.initial_bucket} race after "
+                              f"{waited:.1f}s")
+                        return
+            except Exception as exc:
+                print(f"[recover-pop] start poll deferred: {exc}")
+            now = time.monotonic()
+            if now >= deadline:
+                raise RuntimeError(
+                    "recovery population timed out waiting for all members "
+                    f"to reach the {self.bootstrap_steps:,}-step initial "
+                    f"race barrier after {self.barrier_timeout:.0f}s")
+            if now >= next_status:
+                print("[recover-pop] member "
+                      f"{self.member} WAITING at initial B"
+                      f"{self.initial_bucket} bootstrap barrier")
+                next_status = now + 60.0
+            time.sleep(min(sleep_seconds, deadline - now))
 
     def wait_for_release(self, checkpoint: dict, global_step: int) -> None:
         """Block rollout collection until every member ACKs this winner."""
@@ -831,6 +996,11 @@ def _init_wandb(args, params: SimServoParams):
                     if args.recover_population_runs else []),
                 "recover_population_barrier_timeout_seconds": (
                     args.recover_population_barrier_timeout_seconds),
+                "recover_population_bootstrap_rollouts": (
+                    args.recover_population_bootstrap_rollouts),
+                "recover_population_bootstrap_steps": (
+                    args.n_envs * args.n_steps
+                    * args.recover_population_bootstrap_rollouts),
                 "recover_replay_mix": {
                     "focus": 0.50, "recent_three": 0.25,
                     "weakest": 0.15, "uniform_older": 0.10,
@@ -1082,6 +1252,10 @@ def main(argv: list[str] | None = None) -> int:
                     default=900.0,
                     help="fail a cohort member if the all-ACK release barrier "
                          "does not complete within this wall time")
+    ap.add_argument("--recover-population-bootstrap-rollouts", type=int,
+                    default=10,
+                    help="equal per-seed rollout budget before member 0 "
+                         "releases the initial recovery race")
     ap.add_argument("--no-canary", action="store_true",
                     help="disable the fixed-seed canary probes + "
                          "regression auto-stop (on by default for warm "
@@ -1129,6 +1303,14 @@ def main(argv: list[str] | None = None) -> int:
             ap.error("--recover-population-poll-seconds must be > 0")
         if args.recover_population_barrier_timeout_seconds <= 0.0:
             ap.error("--recover-population-barrier-timeout-seconds must be > 0")
+        if args.recover_population_bootstrap_rollouts <= 0:
+            ap.error("--recover-population-bootstrap-rollouts must be > 0")
+        bootstrap_steps = (
+            args.n_envs * args.n_steps
+            * args.recover_population_bootstrap_rollouts)
+        if bootstrap_steps >= args.recover_cert_every:
+            ap.error("recovery population bootstrap budget must be smaller "
+                     "than --recover-cert-every")
     elif args.recover_population_runs or args.recover_population_member >= 0:
         ap.error("population roster/member requires --recover-population-id")
 
@@ -1857,6 +2039,7 @@ def main(argv: list[str] | None = None) -> int:
 
             def _on_rollout_start(self) -> None:
                 if population is not None:
+                    population.wait_for_start(self.num_timesteps)
                     checkpoint = population.poll()
                     if checkpoint is not None:
                         self._pending_rollback = None
