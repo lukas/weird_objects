@@ -94879,7 +94879,7 @@
       "900"
     ],
     "created": "2026-08-17T22:56:56+00:00",
-    "status": "RUNNING",
+    "status": "INVALID",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -94908,7 +94908,27 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:hw nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-recover-any17-pop3-s12 --steps 40000000 --task joint_walk --goal-mix recover=1.0,walk=0.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0,quad=0.0 --n-envs 512 --n-steps 128 --batch-size 8192 --gamma 0.995 --gae-lambda 0.98 --episode-seconds 16 --dr-scale 0.1 --ent-coef 0.003 --no-canary --eval-every 1000000 --video-every 2000000 --seed 12 --recover-cert-every 1000000 --recover-cert-envs 16 --recover-retention-buckets 3 --recover-full-retention-every 2 --recover-rollback-after-steps 4000000 --recover-rollback-fraction 0.60 --recover-population-id recover-any17-pop3 --recover-population-member 1 --recover-population-runs cw-recover-any17-pop3-s11,cw-recover-any17-pop3-s12,cw-recover-any17-pop3-s13 --cfg-set safety.max_roll_deg=185 --cfg-set safety.max_pitch_deg=185 --cfg-set goal.walk_obs_body_vel=2 --cfg-set reward.rise_ref_path=rl_move/sim/refs/rise_ref_belly2plant.npz --cfg-set train.bc_anchor_coef=1.0 --cfg-set train.bc_anchor_recover=1.0 --cfg-set goal.recover_start_bank=rl_move/sim/park_banks/footlow2_hard1_lower_endpoints_full.npz --cfg-set train.bc_anchor_foot_z=1.0 --cfg-set train.bc_anchor_foot_z_mm=3 --cfg-set train.bc_anchor_min_h_ahead_mm=15 --cfg-set train.bc_anchor_lookahead_s=0.5 --cfg-set goal.recover_admit_n=4 --cfg-set goal.recover_retreat_n=6 --cfg-set goal.recover_ema_beta=0.25 --cfg-set goal.recover_rsi_frac=0.5 --out-name ppo_goal_cw_recover_any17_pop3_s12 --impl warp --host-workers 24 --notes 'respec of cw-recover-any16-pop3-s12: Teach the robot to stand back up from any fallen position by racing three fresh identical-recipe seeds in lockstep and always adopting the first retention-clean winner at each curriculum bucket; this relaunch (member 1, seed 12, of population recover-any17-pop3, roster s11,s12,s13) tests the CORRECTED synchronization protocol at f5aee3f: every member trains exactly 10 rollouts (655,360 steps), publishes ready_B00 and BLOCKS until member 0 releases start_B00; each bucket'\"'\"'s first retention-clean winner is hash-verified, adopted (policy+optimizer+curriculum) and ACKed by all three before the leader publishes release_BNN and anyone continues \u2014 fixing the stale _peer_rows cache + missing release barrier that let any16 member 0 run ahead on its own private lineage. From scratch, absolutely NO --init-from. Supersedes the INVALID any16 cohort (never resume it).' --recover-population-bootstrap-rollouts 10 --recover-population-barrier-timeout-seconds 900 > /tmp/train_cw-recover-any17-pop3-s12.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-recover-any17-pop3-s12.log",
     "wandb_id": "y4bpeqw0",
-    "verified": "2026-08-17T22:59:59+00:00"
+    "verified": "2026-08-17T22:59:59+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-17T23:05:15+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 0,
+        "cpu_centisec_deltas": [
+          4,
+          3
+        ],
+        "verdict": "SUSPECT",
+        "problems": [
+          "W&B global_step stalled at 655360",
+          "log stopped growing"
+        ]
+      }
+    ],
+    "hardware_ready": false,
+    "verdict": "INVALID_INTEGRATION_CANARY \u2014 bootstrap barrier itself PASSED (stopped exactly at 655,360 steps with valid ready_B00) but start_B00 was never released: wandb.Api.runs() negative-cached the empty peer page queried before s13 existed (s11/s12 stuck at 2/3 discovery). Stopped cleanly by operator at the barrier (fb_20260817T231211_ba01c4); PID 566734 verified absent, no trainer on train-1. Fix at 686f5628. Superseded by operator-directed any18; do not resume.",
+    "triage": "done"
   },
   {
     "run": "cw-recover-any17-pop3-s11",
@@ -95009,7 +95029,7 @@
       "900"
     ],
     "created": "2026-08-17T22:58:26+00:00",
-    "status": "RUNNING",
+    "status": "INVALID",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -95038,7 +95058,27 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:hw nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-recover-any17-pop3-s11 --steps 40000000 --task joint_walk --goal-mix recover=1.0,walk=0.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0,quad=0.0 --n-envs 512 --n-steps 128 --batch-size 8192 --gamma 0.995 --gae-lambda 0.98 --episode-seconds 16 --dr-scale 0.1 --ent-coef 0.003 --no-canary --eval-every 1000000 --video-every 2000000 --seed 11 --recover-cert-every 1000000 --recover-cert-envs 16 --recover-retention-buckets 3 --recover-full-retention-every 2 --recover-rollback-after-steps 4000000 --recover-rollback-fraction 0.60 --recover-population-id recover-any17-pop3 --recover-population-member 0 --recover-population-runs cw-recover-any17-pop3-s11,cw-recover-any17-pop3-s12,cw-recover-any17-pop3-s13 --cfg-set safety.max_roll_deg=185 --cfg-set safety.max_pitch_deg=185 --cfg-set goal.walk_obs_body_vel=2 --cfg-set reward.rise_ref_path=rl_move/sim/refs/rise_ref_belly2plant.npz --cfg-set train.bc_anchor_coef=1.0 --cfg-set train.bc_anchor_recover=1.0 --cfg-set goal.recover_start_bank=rl_move/sim/park_banks/footlow2_hard1_lower_endpoints_full.npz --cfg-set train.bc_anchor_foot_z=1.0 --cfg-set train.bc_anchor_foot_z_mm=3 --cfg-set train.bc_anchor_min_h_ahead_mm=15 --cfg-set train.bc_anchor_lookahead_s=0.5 --cfg-set goal.recover_admit_n=4 --cfg-set goal.recover_retreat_n=6 --cfg-set goal.recover_ema_beta=0.25 --cfg-set goal.recover_rsi_frac=0.5 --out-name ppo_goal_cw_recover_any17_pop3_s11 --impl warp --host-workers 24 --notes 'respec of cw-recover-any16-pop3-s11: Teach the robot to stand back up from any fallen position by racing three fresh identical-recipe seeds in lockstep and always adopting the first retention-clean winner at each curriculum bucket; this relaunch (member 0, seed 11, of population recover-any17-pop3, roster s11,s12,s13) tests the CORRECTED synchronization protocol at f5aee3f: every member trains exactly 10 rollouts (655,360 steps), publishes ready_B00 and BLOCKS until member 0 releases start_B00; each bucket'\"'\"'s first retention-clean winner is hash-verified, adopted (policy+optimizer+curriculum) and ACKed by all three before the leader publishes release_BNN and anyone continues \u2014 fixing the stale _peer_rows cache + missing release barrier that let any16 member 0 run ahead on its own private lineage. From scratch, absolutely NO --init-from. Supersedes the INVALID any16 cohort (never resume it).' --recover-population-bootstrap-rollouts 10 --recover-population-barrier-timeout-seconds 900 > /tmp/train_cw-recover-any17-pop3-s11.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-recover-any17-pop3-s11.log",
     "wandb_id": "5zvb4x7p",
-    "verified": "2026-08-17T23:01:32+00:00"
+    "verified": "2026-08-17T23:01:32+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-17T23:08:06+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 0,
+        "cpu_centisec_deltas": [
+          3,
+          3
+        ],
+        "verdict": "SUSPECT",
+        "problems": [
+          "W&B global_step stalled at 655360",
+          "log stopped growing"
+        ]
+      }
+    ],
+    "hardware_ready": false,
+    "verdict": "INVALID_INTEGRATION_CANARY \u2014 bootstrap barrier itself PASSED (stopped exactly at 655,360 steps with valid ready_B00 identity/root/budget record; no cert/candidate/winner/post-boundary training) but start_B00 was never released: wandb.Api.runs() negative-cached the empty peer page from queries made before s13 existed, so s11/s12 saw 2/3 peers forever (distinct from the any16 stale Run.summary bug). Stopped cleanly by operator at the barrier (fb_20260817T231211_ba01c4); PID 2077477 verified absent, no trainer on train-0. Fix landed at 686f5628 (fresh wandb.Api per unresolved-peer retry + regression test). Superseded by operator-directed any18; do not resume any17 names.",
+    "triage": "done"
   },
   {
     "run": "cw-recover-any17-pop3-s13",
@@ -95139,7 +95179,7 @@
       "900"
     ],
     "created": "2026-08-17T22:59:59+00:00",
-    "status": "RUNNING",
+    "status": "INVALID",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -95168,7 +95208,26 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:hw nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-recover-any17-pop3-s13 --steps 40000000 --task joint_walk --goal-mix recover=1.0,walk=0.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0,quad=0.0 --n-envs 512 --n-steps 128 --batch-size 8192 --gamma 0.995 --gae-lambda 0.98 --episode-seconds 16 --dr-scale 0.1 --ent-coef 0.003 --no-canary --eval-every 1000000 --video-every 2000000 --seed 13 --recover-cert-every 1000000 --recover-cert-envs 16 --recover-retention-buckets 3 --recover-full-retention-every 2 --recover-rollback-after-steps 4000000 --recover-rollback-fraction 0.60 --recover-population-id recover-any17-pop3 --recover-population-member 2 --recover-population-runs cw-recover-any17-pop3-s11,cw-recover-any17-pop3-s12,cw-recover-any17-pop3-s13 --cfg-set safety.max_roll_deg=185 --cfg-set safety.max_pitch_deg=185 --cfg-set goal.walk_obs_body_vel=2 --cfg-set reward.rise_ref_path=rl_move/sim/refs/rise_ref_belly2plant.npz --cfg-set train.bc_anchor_coef=1.0 --cfg-set train.bc_anchor_recover=1.0 --cfg-set goal.recover_start_bank=rl_move/sim/park_banks/footlow2_hard1_lower_endpoints_full.npz --cfg-set train.bc_anchor_foot_z=1.0 --cfg-set train.bc_anchor_foot_z_mm=3 --cfg-set train.bc_anchor_min_h_ahead_mm=15 --cfg-set train.bc_anchor_lookahead_s=0.5 --cfg-set goal.recover_admit_n=4 --cfg-set goal.recover_retreat_n=6 --cfg-set goal.recover_ema_beta=0.25 --cfg-set goal.recover_rsi_frac=0.5 --out-name ppo_goal_cw_recover_any17_pop3_s13 --impl warp --host-workers 24 --notes 'respec of cw-recover-any16-pop3-s13: Teach the robot to stand back up from any fallen position by racing three fresh identical-recipe seeds in lockstep and always adopting the first retention-clean winner at each curriculum bucket; this relaunch (member 2, seed 13, of population recover-any17-pop3, roster s11,s12,s13) tests the CORRECTED synchronization protocol at f5aee3f: every member trains exactly 10 rollouts (655,360 steps), publishes ready_B00 and BLOCKS until member 0 releases start_B00; each bucket'\"'\"'s first retention-clean winner is hash-verified, adopted (policy+optimizer+curriculum) and ACKed by all three before the leader publishes release_BNN and anyone continues \u2014 fixing the stale _peer_rows cache + missing release barrier that let any16 member 0 run ahead on its own private lineage. From scratch, absolutely NO --init-from. Supersedes the INVALID any16 cohort (never resume it).' --recover-population-bootstrap-rollouts 10 --recover-population-barrier-timeout-seconds 900 > /tmp/train_cw-recover-any17-pop3-s13.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-recover-any17-pop3-s13.log",
     "wandb_id": "biil109c",
-    "verified": "2026-08-17T23:03:03+00:00"
+    "verified": "2026-08-17T23:03:03+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-17T23:10:00+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 0,
+        "cpu_centisec_deltas": [
+          2
+        ],
+        "verdict": "SUSPECT",
+        "problems": [
+          "W&B global_step stalled at 655360",
+          "log stopped growing"
+        ]
+      }
+    ],
+    "hardware_ready": false,
+    "verdict": "INVALID_INTEGRATION_CANARY \u2014 bootstrap barrier itself PASSED (stopped exactly at 655,360 steps with valid ready_B00; s13's own discovery was fine but leader s11 never released start_B00 due to the wandb.Api.runs() negative discovery cache). Stopped cleanly by operator at the barrier (fb_20260817T231211_ba01c4); PID 1207931 verified absent, no trainer on train-3. Fix at 686f5628. Superseded by operator-directed any18; do not resume.",
+    "triage": "done"
   },
   {
     "run": "cw-recover-any17-pop3-s11",
@@ -95261,7 +95320,7 @@
       "goal.recover_rsi_frac=0.5"
     ],
     "created": "2026-08-17T23:01:29+00:00",
-    "status": "REFUSED",
+    "status": "STALE_DUPLICATE",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [
@@ -95273,6 +95332,8 @@
     "phase": "acquisition",
     "assessment_scope": "full_budget_skill_acquisition",
     "evidence": "Operator execution directive fb_20260817T225114_a31958: corrected cohort-sync implementation complete+tested+pushed at exact main SHA f5aee3f (on top of 72d4c53 barrier fix) after the any16-pop3 integration canary exposed cached peer summaries + a missing post-ACK release barrier (operator stop note fb_20260817T223644_c8bc48). From-scratch full-budget precedent: cw-recover-any11-rsi-scratch1 (same recipe, 40M, genuine six-foot recoveries on video); any16-pop3 additionally proved boot/optimization/telemetry health (512-env cert broadcast confirmed live on all 3 members).",
-    "refused_reason": "hexapod-mjx-train-0 already runs cw-recover-any17-pop3-s11 \u2014 GPU pods host exactly one run; pick a free GPU pod."
+    "refused_reason": "hexapod-mjx-train-0 already runs cw-recover-any17-pop3-s11 \u2014 GPU pods host exactly one run; pick a free GPU pod.",
+    "verdict": "Stale duplicate ledger row from a launcher refusal \u2014 NOT the scientific verdict for s11. An earlier s11 process really did run (W&B 5zvb4x7p, the 2026-08-17T22:58:26Z row), which is verdicted INVALID_INTEGRATION_CANARY there. Reconciled per operator fb_20260817T231211_ba01c4.",
+    "triage": "done"
   }
 ]

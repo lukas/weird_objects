@@ -77,6 +77,21 @@ unresolved blockers between the robot and reliable joystick control.
   with a 7-point live integration gate (bootstrap WAIT before
   start_B00, sync=512 certs, single B1 winner, all-ACK before
   release_B01, fail-closed).
+  **OUTCOME 08-17 ~23:2x UTC (operator MCP note
+  fb_20260817T231211_ba01c4): any17 ALSO stopped at the bootstrap
+  barrier, all three rows INVALID_INTEGRATION_CANARY.** The barrier
+  itself worked exactly as designed (all three stopped at 655,360
+  steps with valid ready_B00 records; no cert/candidate/winner/
+  post-boundary training), but start_B00 was never released: a THIRD
+  distinct bug — `wandb.Api.runs()` caches the initially EMPTY peer
+  page queried before s13 existed, so s11/s12 were stuck at 2/3
+  discovery forever. Fix landed at main `686f5628` (fresh
+  `wandb.Api(timeout=15)` per unresolved-peer retry + regression
+  test). PIDs verified absent on train-0/1/3; evidence preserved; the
+  stale duplicate s11 REFUSED ledger row reconciled as
+  STALE_DUPLICATE. Relaunch remains `[operator]`-gated on Codex's
+  any18 directive (main STATUS WAITING-ON); do not resume any17
+  names. No behavioral conclusions from any cohort member.
   **OUTCOME 08-17 ~23:0x UTC (operator MCP note
   fb_20260817T223644_c8bc48): integration gate FAILED — cohort
   STOPPED, all three ledger rows INVALID_INTEGRATION_CANARY.** The
