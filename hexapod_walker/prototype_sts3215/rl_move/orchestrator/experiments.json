@@ -93431,5 +93431,213 @@
     "triage": "done",
     "hardware_ready": false,
     "verdict": "CANARY FAIL - MECHANISM (operator fb_20260817T005114 canary): critic explained_variance stayed ~0 (1e-7 range, occasionally exactly 0) from step 49k to the 1.5M auto-stop, never rising -- the redesigned update path (actor/critic LR groups, transactional rollback, bounded term_cost=240, calibrated height gate) did NOT fix value learning despite the frozen-rollout audit proving the transformer critic CAN fit returns. Root cause visible in the curve: ep_len_mean pinned at EXACTLY 50 steps (= the 2.0s walk-height grace period at 25Hz) from the first logged iteration through ~1.28M steps -- every single episode gets terminated by walk_low_height at the earliest legal tick, so returns are near-identical across states (report.json confirms: all det episodes height_err_end_mm=37.9mm, roll_class=fell, forward_dist~15mm, identical duty/swing patterns) -- a return-variance collapse that trivially zeros explained_variance, a DIFFERENT failure mode than scratch3's unbounded terminal cliff. DR0 gate + own-DR(0.3): 0/6 det + 0/6 sto walk success both passes, prog_ratio 0.05-0.26, slip/m ~4 (dragging in place, not walking), roll settled 0/6; contact sheet shows a near-static crouched stance, no stepping. Per the canary's own FAIL branch: no 40M clone. Per-gate readings: gate1 EV=HARD FAIL; gate3 ep-len=FAIL (pinned at grace boundary); gate4 v_along/dir_err=not evaluable, no real motion; gate5 height_factor/low-height epidemic=FAIL (100% of episodes); gate6 video stepping=FAIL (static crouch). Open question for the next design cycle: the robot sinks below the height trip within the 2s grace on essentially every reset regardless of command -- check whether the walk task's initial pose/height reference sits near/below the 25mm trip band before any policy action, independent of the reward redesign."
+  },
+  {
+    "run": "dynrep-tfwalk-critic-canary-E-s5",
+    "created": "2026-08-17T05:39:37+00:00",
+    "note": "Script-owned (pod_tfwalk_critic.sh, cohort tfwalk-critic-canary). Operator directive fb_20260817T052333_e5ae09: <=100k one-seed E integration canary, hard-gated before the D/E seeds-5/6/7 1M cohort. Code exp/cw-dynrep-tfwalk-critic1 (cc8c144f), tests 8/8 new bank + all dynrep banks green.",
+    "status": "FINISHED",
+    "pod": "hexapod-mjx-train-11",
+    "track": "dynrep",
+    "phase": "mechanism",
+    "steps": 100000,
+    "wandb_id": "x2lgwif4",
+    "git_sha": "cc8c144f5032e4e17765c7c7c068549b1b48969c",
+    "trainer": "train_ppo_transfer",
+    "proc_match": "dynrep-tfwalk-critic-canary-E-s5",
+    "wandb_match": "^dynrep-tfwalk-critic-canary-E-s5",
+    "log": "/workspace/prototype_sts3215/rl_move/dynamics/logs/pod_tfwalk_critic-canary_E_s5.log",
+    "hypothesis": "Integration canary for the decoupled predictive-critic idea: the robot walking policy itself stays a plain from-scratch PPO actor, while ONLY its value function (critic) gets to read a continuously-learning dynamics world model through a zero-initialized gate. This 100k-step canary does not test learning quality - it mechanically proves the wiring: CUDA active, actor bit-independent of the predictor (zero action-KL proof metric), snapshot transformer frozen across each rollout+PPO iteration with guarded EMA updates only between iterations, W&B metrics advancing, checkpoints ~60MB not 12GB.",
+    "gate": "PASS = all hard requirements hold over the full 100k: (1) [device] CUDA line before W&B; (2) pred/actor_kl_from_predictor exactly 0.0 on every iteration and no actor-mutation RuntimeError; (3) snapshot version stable within iterations (no mutation raise), pred/snapshot_version advancing only via accepted EMA updates with drift-guard accounting logged; (4) run-end zip saves ~60MB (no runtime pickled), reloadable; (5) rollout/eval/pred/critic W&B channels present and advancing. Any assertion failure = STOP and fix; do not scale to the 1M cohort.",
+    "checkups": [
+      {
+        "time": "2026-08-17T05:44:54+00:00",
+        "process_alive": false,
+        "verdict": "DEAD",
+        "log_tail": "po_dynrep-tfwalk-critic-canary-E-s5_best.zip\n  eval @ 100352: rise ret=-44.4 term=0.00  hold ret=-104.4 term=0.00  walk ret=88.4 term=0.00  [+heldout]  heldout_pred_total=2.509\n  online predictor -> /workspace/prototype_sts3215/rl_move/dynamics/models/dyn_online_dynrep-tfwalk-critic-canary-E-s5.pt\n[dynrep-tfwalk-critic-canary-E-s5] done in 5.3 min -> /workspace/prototype_sts3215/rl_move/dynamics/models/ppo_dynrep-tfwalk-critic-canary-E-s5.zip\n  eval log: /workspace/prototype_sts3215/rl_move/dynamics/logs/ppo_dynrep-tfwalk-critic-canary-E-s5_eval.csv\nPOD_TFWALK_CRITIC_DONE 2026-08-17T05:44:21Z\n"
+      }
+    ],
+    "verdict": "PASS - all pre-registered canary hard gates hold over the full 100k on CUDA: actor_kl_from_predictor exactly 0 on all 49 iterations (no mutation raise), snapshot version monotone 0->49 via accepted EMA only (0 rejections, drift_step 2.6e-5 vs 0.05 guard), saves 58.8MB (+54.5MB separate online predictor) and reload verified on-pod, all rollout/eval/pred/critic W&B channels advancing. Bonus signal: online-predictor heldout 2.509 vs pretrained 2.286 (+9.7%, inside the 15% band), gate learned to -0.20 with residual contributing. Cleared to launch the D/E seeds-5/6/7 1M cohort.",
+    "triage": "done"
+  },
+  {
+    "run": "dynrep-tfwalk-critic1-E-s5",
+    "created": "2026-08-17T05:47:19+00:00",
+    "note": "Script-owned cohort (pod_tfwalk_critic.sh, manifest tfwalk-critic1_manifest.jsonl on-pod). Operator directive fb_20260817T052333_e5ae09 (decoupled predictive-critic transfer); code exp/cw-dynrep-tfwalk-critic1 (cc8c144f), 8/8 new bank + all dynrep banks green, E integration canary PASSED all hard gates (dynrep-tfwalk-critic-canary-E-s5). Controls = existing config-equivalent scratch A: joint1 A-s6 (c58ft8qp) / A-s7 (3qqitw5h) at 1M + metrics1 A-s5 (jf0tfsqh) at its 1M eval point - core MDP/PPO config keys mechanically verified identical vs W&B configs this cycle. Prior B/C are NOT controls (they changed actor inputs).",
+    "status": "RUNNING",
+    "pod": "hexapod-mjx-train-11",
+    "track": "dynrep",
+    "phase": "behavioral",
+    "steps": 1000000,
+    "wandb_id": "tz46nzpy",
+    "git_sha": "cc8c144f5032e4e17765c7c7c068549b1b48969c",
+    "trainer": "train_ppo_transfer",
+    "proc_match": "dynrep-tfwalk-critic1-E-s5",
+    "wandb_match": "^dynrep-tfwalk-critic1-E-s5",
+    "log": "/workspace/prototype_sts3215/rl_move/dynamics/logs/pod_tfwalk_critic1_E_s5.log",
+    "hypothesis": "Give the walking robot a better value function without touching how it acts: the actor is the plain from-scratch PPO policy (bit-identical init to scratch A), and only the CRITIC reads a dynamics transformer that KEEPS LEARNING from the robot own walking experience (own optimizer, fresh rollout windows + 25% v5 rehearsal), delivered through a drift-guarded EMA snapshot updated only between rollout+PPO iterations. Tests whether a continually-updated world model helps PPO as critic-only input (E = online arm of the D/E pair).",
+    "gate": "Pre-registered 1M decision checkpoint, NO extension without a verdict. PASS only if E: (1) preserves online-predictor heldout prediction quality within 15% of the pretrained 2.286 reference; (2) keeps actor approx-KL comparable to scratch A (~0.02, no late regression) with pred/actor_kl_from_predictor exactly 0 throughout; (3) improves critic explained-variance/sample-efficiency AND heldout walking over BOTH scratch A and frozen D across seeds, without gait regression (slip_m, peak_roll_deg, slew_sat vs A). If E does not beat D and A, record that predictive representation does not help PPO here and STOP this line. Retain best-by-heldout checkpoints, not merely final.",
+    "checkups": [
+      {
+        "time": "2026-08-17T05:52:55+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 0,
+        "fps": 364.1,
+        "placement": "solo on GPU-MJX pod (dynrep trainer)",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
+  },
+  {
+    "run": "dynrep-tfwalk-critic1-E-s6",
+    "created": "2026-08-17T05:47:19+00:00",
+    "note": "Script-owned cohort (pod_tfwalk_critic.sh, manifest tfwalk-critic1_manifest.jsonl on-pod). Operator directive fb_20260817T052333_e5ae09 (decoupled predictive-critic transfer); code exp/cw-dynrep-tfwalk-critic1 (cc8c144f), 8/8 new bank + all dynrep banks green, E integration canary PASSED all hard gates (dynrep-tfwalk-critic-canary-E-s5). Controls = existing config-equivalent scratch A: joint1 A-s6 (c58ft8qp) / A-s7 (3qqitw5h) at 1M + metrics1 A-s5 (jf0tfsqh) at its 1M eval point - core MDP/PPO config keys mechanically verified identical vs W&B configs this cycle. Prior B/C are NOT controls (they changed actor inputs).",
+    "status": "RUNNING",
+    "pod": "hexapod-mjx-train-4",
+    "track": "dynrep",
+    "phase": "behavioral",
+    "steps": 1000000,
+    "wandb_id": "vqql615u",
+    "git_sha": "cc8c144f5032e4e17765c7c7c068549b1b48969c",
+    "trainer": "train_ppo_transfer",
+    "proc_match": "dynrep-tfwalk-critic1-E-s6",
+    "wandb_match": "^dynrep-tfwalk-critic1-E-s6",
+    "log": "/workspace/prototype_sts3215/rl_move/dynamics/logs/pod_tfwalk_critic1_E_s6.log",
+    "hypothesis": "Give the walking robot a better value function without touching how it acts: the actor is the plain from-scratch PPO policy (bit-identical init to scratch A), and only the CRITIC reads a dynamics transformer that KEEPS LEARNING from the robot own walking experience (own optimizer, fresh rollout windows + 25% v5 rehearsal), delivered through a drift-guarded EMA snapshot updated only between rollout+PPO iterations. Tests whether a continually-updated world model helps PPO as critic-only input (E = online arm of the D/E pair).",
+    "gate": "Pre-registered 1M decision checkpoint, NO extension without a verdict. PASS only if E: (1) preserves online-predictor heldout prediction quality within 15% of the pretrained 2.286 reference; (2) keeps actor approx-KL comparable to scratch A (~0.02, no late regression) with pred/actor_kl_from_predictor exactly 0 throughout; (3) improves critic explained-variance/sample-efficiency AND heldout walking over BOTH scratch A and frozen D across seeds, without gait regression (slip_m, peak_roll_deg, slew_sat vs A). If E does not beat D and A, record that predictive representation does not help PPO here and STOP this line. Retain best-by-heldout checkpoints, not merely final.",
+    "checkups": [
+      {
+        "time": "2026-08-17T05:53:44+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 0,
+        "fps": 455.1,
+        "placement": "solo on GPU-MJX pod (dynrep trainer)",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
+  },
+  {
+    "run": "dynrep-tfwalk-critic1-E-s7",
+    "created": "2026-08-17T05:47:19+00:00",
+    "note": "Script-owned cohort (pod_tfwalk_critic.sh, manifest tfwalk-critic1_manifest.jsonl on-pod). Operator directive fb_20260817T052333_e5ae09 (decoupled predictive-critic transfer); code exp/cw-dynrep-tfwalk-critic1 (cc8c144f), 8/8 new bank + all dynrep banks green, E integration canary PASSED all hard gates (dynrep-tfwalk-critic-canary-E-s5). Controls = existing config-equivalent scratch A: joint1 A-s6 (c58ft8qp) / A-s7 (3qqitw5h) at 1M + metrics1 A-s5 (jf0tfsqh) at its 1M eval point - core MDP/PPO config keys mechanically verified identical vs W&B configs this cycle. Prior B/C are NOT controls (they changed actor inputs).",
+    "status": "RUNNING",
+    "pod": "hexapod-mjx-train-5",
+    "track": "dynrep",
+    "phase": "behavioral",
+    "steps": 1000000,
+    "wandb_id": "xs3fgez1",
+    "git_sha": "cc8c144f5032e4e17765c7c7c068549b1b48969c",
+    "trainer": "train_ppo_transfer",
+    "proc_match": "dynrep-tfwalk-critic1-E-s7",
+    "wandb_match": "^dynrep-tfwalk-critic1-E-s7",
+    "log": "/workspace/prototype_sts3215/rl_move/dynamics/logs/pod_tfwalk_critic1_E_s7.log",
+    "hypothesis": "Give the walking robot a better value function without touching how it acts: the actor is the plain from-scratch PPO policy (bit-identical init to scratch A), and only the CRITIC reads a dynamics transformer that KEEPS LEARNING from the robot own walking experience (own optimizer, fresh rollout windows + 25% v5 rehearsal), delivered through a drift-guarded EMA snapshot updated only between rollout+PPO iterations. Tests whether a continually-updated world model helps PPO as critic-only input (E = online arm of the D/E pair).",
+    "gate": "Pre-registered 1M decision checkpoint, NO extension without a verdict. PASS only if E: (1) preserves online-predictor heldout prediction quality within 15% of the pretrained 2.286 reference; (2) keeps actor approx-KL comparable to scratch A (~0.02, no late regression) with pred/actor_kl_from_predictor exactly 0 throughout; (3) improves critic explained-variance/sample-efficiency AND heldout walking over BOTH scratch A and frozen D across seeds, without gait regression (slip_m, peak_roll_deg, slew_sat vs A). If E does not beat D and A, record that predictive representation does not help PPO here and STOP this line. Retain best-by-heldout checkpoints, not merely final.",
+    "checkups": [
+      {
+        "time": "2026-08-17T05:54:34+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 0,
+        "fps": 455.1,
+        "placement": "solo on GPU-MJX pod (dynrep trainer)",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
+  },
+  {
+    "run": "dynrep-tfwalk-critic1-D-s5",
+    "created": "2026-08-17T05:47:19+00:00",
+    "note": "Script-owned cohort (pod_tfwalk_critic.sh, manifest tfwalk-critic1_manifest.jsonl on-pod). Operator directive fb_20260817T052333_e5ae09 (decoupled predictive-critic transfer); code exp/cw-dynrep-tfwalk-critic1 (cc8c144f), 8/8 new bank + all dynrep banks green, E integration canary PASSED all hard gates (dynrep-tfwalk-critic-canary-E-s5). Controls = existing config-equivalent scratch A: joint1 A-s6 (c58ft8qp) / A-s7 (3qqitw5h) at 1M + metrics1 A-s5 (jf0tfsqh) at its 1M eval point - core MDP/PPO config keys mechanically verified identical vs W&B configs this cycle. Prior B/C are NOT controls (they changed actor inputs).",
+    "status": "RUNNING",
+    "pod": "hexapod-mjx-train-7",
+    "track": "dynrep",
+    "phase": "behavioral",
+    "steps": 1000000,
+    "wandb_id": "dvke3f8h",
+    "git_sha": "cc8c144f5032e4e17765c7c7c068549b1b48969c",
+    "trainer": "train_ppo_transfer",
+    "proc_match": "dynrep-tfwalk-critic1-D-s5",
+    "wandb_match": "^dynrep-tfwalk-critic1-D-s5",
+    "log": "/workspace/prototype_sts3215/rl_move/dynamics/logs/pod_tfwalk_critic1_D_s5.log",
+    "hypothesis": "Give the walking robot a better value function without touching how it acts: the actor is the plain from-scratch PPO policy (bit-identical init to scratch A), and only the CRITIC reads the FROZEN pretrained dynamics transformer through a stop-gradient latent residual behind a zero-initialized learned gate. Tests whether pretrained predictive features help PPO purely as critic input (D = frozen-snapshot arm of the D/E pair).",
+    "gate": "Pre-registered 1M decision checkpoint, NO extension without a verdict. PASS only if E: (1) preserves online-predictor heldout prediction quality within 15% of the pretrained 2.286 reference; (2) keeps actor approx-KL comparable to scratch A (~0.02, no late regression) with pred/actor_kl_from_predictor exactly 0 throughout; (3) improves critic explained-variance/sample-efficiency AND heldout walking over BOTH scratch A and frozen D across seeds, without gait regression (slip_m, peak_roll_deg, slew_sat vs A). If E does not beat D and A, record that predictive representation does not help PPO here and STOP this line. Retain best-by-heldout checkpoints, not merely final.",
+    "checkups": [
+      {
+        "time": "2026-08-17T05:55:23+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 0,
+        "fps": 500.6,
+        "placement": "solo on GPU-MJX pod (dynrep trainer)",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
+  },
+  {
+    "run": "dynrep-tfwalk-critic1-D-s6",
+    "created": "2026-08-17T05:47:19+00:00",
+    "note": "Script-owned cohort (pod_tfwalk_critic.sh, manifest tfwalk-critic1_manifest.jsonl on-pod). Operator directive fb_20260817T052333_e5ae09 (decoupled predictive-critic transfer); code exp/cw-dynrep-tfwalk-critic1 (cc8c144f), 8/8 new bank + all dynrep banks green, E integration canary PASSED all hard gates (dynrep-tfwalk-critic-canary-E-s5). Controls = existing config-equivalent scratch A: joint1 A-s6 (c58ft8qp) / A-s7 (3qqitw5h) at 1M + metrics1 A-s5 (jf0tfsqh) at its 1M eval point - core MDP/PPO config keys mechanically verified identical vs W&B configs this cycle. Prior B/C are NOT controls (they changed actor inputs).",
+    "status": "RUNNING",
+    "pod": "hexapod-mjx-train-9",
+    "track": "dynrep",
+    "phase": "behavioral",
+    "steps": 1000000,
+    "wandb_id": "as36gvbx",
+    "git_sha": "cc8c144f5032e4e17765c7c7c068549b1b48969c",
+    "trainer": "train_ppo_transfer",
+    "proc_match": "dynrep-tfwalk-critic1-D-s6",
+    "wandb_match": "^dynrep-tfwalk-critic1-D-s6",
+    "log": "/workspace/prototype_sts3215/rl_move/dynamics/logs/pod_tfwalk_critic1_D_s6.log",
+    "hypothesis": "Give the walking robot a better value function without touching how it acts: the actor is the plain from-scratch PPO policy (bit-identical init to scratch A), and only the CRITIC reads the FROZEN pretrained dynamics transformer through a stop-gradient latent residual behind a zero-initialized learned gate. Tests whether pretrained predictive features help PPO purely as critic input (D = frozen-snapshot arm of the D/E pair).",
+    "gate": "Pre-registered 1M decision checkpoint, NO extension without a verdict. PASS only if E: (1) preserves online-predictor heldout prediction quality within 15% of the pretrained 2.286 reference; (2) keeps actor approx-KL comparable to scratch A (~0.02, no late regression) with pred/actor_kl_from_predictor exactly 0 throughout; (3) improves critic explained-variance/sample-efficiency AND heldout walking over BOTH scratch A and frozen D across seeds, without gait regression (slip_m, peak_roll_deg, slew_sat vs A). If E does not beat D and A, record that predictive representation does not help PPO here and STOP this line. Retain best-by-heldout checkpoints, not merely final.",
+    "checkups": [
+      {
+        "time": "2026-08-17T05:56:13+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 0,
+        "fps": 318.6,
+        "placement": "solo on GPU-MJX pod (dynrep trainer)",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
+  },
+  {
+    "run": "dynrep-tfwalk-critic1-D-s7",
+    "created": "2026-08-17T05:47:19+00:00",
+    "note": "Script-owned cohort (pod_tfwalk_critic.sh, manifest tfwalk-critic1_manifest.jsonl on-pod). Operator directive fb_20260817T052333_e5ae09 (decoupled predictive-critic transfer); code exp/cw-dynrep-tfwalk-critic1 (cc8c144f), 8/8 new bank + all dynrep banks green, E integration canary PASSED all hard gates (dynrep-tfwalk-critic-canary-E-s5). Controls = existing config-equivalent scratch A: joint1 A-s6 (c58ft8qp) / A-s7 (3qqitw5h) at 1M + metrics1 A-s5 (jf0tfsqh) at its 1M eval point - core MDP/PPO config keys mechanically verified identical vs W&B configs this cycle. Prior B/C are NOT controls (they changed actor inputs).",
+    "status": "RUNNING",
+    "pod": "hexapod-mjx-train-3",
+    "track": "dynrep",
+    "phase": "behavioral",
+    "steps": 1000000,
+    "wandb_id": "axjxeouz",
+    "git_sha": "cc8c144f5032e4e17765c7c7c068549b1b48969c",
+    "trainer": "train_ppo_transfer",
+    "proc_match": "dynrep-tfwalk-critic1-D-s7",
+    "wandb_match": "^dynrep-tfwalk-critic1-D-s7",
+    "log": "/workspace/prototype_sts3215/rl_move/dynamics/logs/pod_tfwalk_critic1_D_s7.log",
+    "hypothesis": "Give the walking robot a better value function without touching how it acts: the actor is the plain from-scratch PPO policy (bit-identical init to scratch A), and only the CRITIC reads the FROZEN pretrained dynamics transformer through a stop-gradient latent residual behind a zero-initialized learned gate. Tests whether pretrained predictive features help PPO purely as critic input (D = frozen-snapshot arm of the D/E pair).",
+    "gate": "Pre-registered 1M decision checkpoint, NO extension without a verdict. PASS only if E: (1) preserves online-predictor heldout prediction quality within 15% of the pretrained 2.286 reference; (2) keeps actor approx-KL comparable to scratch A (~0.02, no late regression) with pred/actor_kl_from_predictor exactly 0 throughout; (3) improves critic explained-variance/sample-efficiency AND heldout walking over BOTH scratch A and frozen D across seeds, without gait regression (slip_m, peak_roll_deg, slew_sat vs A). If E does not beat D and A, record that predictive representation does not help PPO here and STOP this line. Retain best-by-heldout checkpoints, not merely final.",
+    "checkups": [
+      {
+        "time": "2026-08-17T05:57:02+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 0,
+        "fps": 364.1,
+        "placement": "solo on GPU-MJX pod (dynrep trainer)",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   }
 ]
