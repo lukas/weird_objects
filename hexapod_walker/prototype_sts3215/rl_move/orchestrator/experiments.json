@@ -94218,7 +94218,7 @@
       "0.60"
     ],
     "created": "2026-08-17T19:12:55+00:00",
-    "status": "REFUSED",
+    "status": "KILLED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [
@@ -94230,6 +94230,8 @@
     "phase": "acquisition",
     "assessment_scope": "full_budget_skill_acquisition",
     "evidence": "any8 (spaced replay, from scratch) and any9/any10 (curriculum-mass / RECOVER-RSI rescues, warm-started from any8's exact stuck checkpoint) all got permanently stuck at bucket 11 'zero' (flat-belly rise), CERT success <=0.125 throughout, video-confirmed genuine over-current stall, not an exploit. any10 (this cycle) showed the newly-built RECOVER RSI mechanism (on-path belly->plant practice, recover_rsi_frac=0.5) does NOT rescue an ALREADY-STUCK policy. The mechanism itself was never tested on a policy that hasn't yet entrenched the bad local optimum -- any8/9/10 all warm-started or replay-tweaked a lineage that was stuck BEFORE RSI existed. any6/any7 (plain curriculum, no RSI) climbed cleanly through zero to the tangle wall (B15) from scratch, so zero is not universally unclimbable, just fragile to whatever any8's spaced-replay run did differently.",
-    "refused_reason": "hexapod-mjx-train-0 already runs cw-recover-any15-retentionrollback-cont1 \u2014 GPU pods host exactly one run; pick a free GPU pod."
+    "refused_reason": "hexapod-mjx-train-0 already runs cw-recover-any15-retentionrollback-cont1 \u2014 GPU pods host exactly one run; pick a free GPU pod.",
+    "verdict": "Never launched (REFUSED at capacity check, no process, no science). Closed per superseding operator order 20260817T190903Z: the any14 stubs used pre-7d39a25 code without per-promotion checkpoints/rollback and must NEVER be retried. Superseded by cw-recover-any15-retentionrollback-cont1 (RUNNING, exact SHA 7d39a25).",
+    "triage": "done"
   }
 ]

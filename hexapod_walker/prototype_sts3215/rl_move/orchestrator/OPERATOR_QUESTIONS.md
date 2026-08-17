@@ -282,3 +282,25 @@ Entry format (append; newest last; update status in place):
   promotion/refusal gates (no 40M clone without canary PASS).
 - ANSWER (operator): _pending_
 - rulebook change: _pending_
+
+## q_20260817T1930Z — OPEN
+- cycle: operator kick 2026-08-17 ~19:09 UTC (recover any15 launch)
+- operator order: MCP focus note 20260817T190903Z (+ amendment
+  fb_20260817T185822_6b9bfc) — launch cw-recover-any15-retentionrollback-cont1
+  at exact SHA 7d39a25 with per-promotion checkpoints + timed retention
+  rollback; never retry the any14 stubs.
+- conflicted with: SIM SPRINT banner (operator 08-17): "No new
+  research-track launches ... the fleet's single deliverable is reliable
+  rising + walking in the MuJoCo sim"; also hw-track recovery arm launched
+  while the sprint scopes work to rise/walk reliability.
+- why the cycle would have declined: recover-ladder training is not one of
+  the named rise/walk session reliability gaps; under the sprint I would
+  have parked this arm.
+- what was executed: cw-recover-any15-retentionrollback-cont1 launched on
+  hexapod-mjx-train-0 (PID 1832018, W&B xqcqvb3u, SHA 7d39a25 synced, 45
+  recovery tests green); first promotion B1@1.05M verified (checkpoint ZIP +
+  curriculum JSON on pod and on W&B, RECOVER_GUARD/promotion_checkpoint_saved=1);
+  stale auto-retry cw-recover-any14-retentiongate-cont1-r2 closed KILLED per
+  the never-retry order.
+- ANSWER (operator): —
+- rulebook change: —
