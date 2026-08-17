@@ -345,3 +345,32 @@ Entry format (append; newest last; update status in place):
   it stood down). The conflict question stands for the record only.
 - ANSWER (operator): (pending)
 - rulebook change: (pending)
+
+## q_20260817T2330Z — OPEN
+- cycle: operator-kick cycle 2026-08-17 ~22:5x-23:2x UTC (execute
+  fb_20260817T225114_a31958 — this cycle placed the any17 cohort).
+- operator order: fb_20260817T225114_a31958 — launch from-scratch
+  three-seed cohort cw-recover-any17-pop3-s11/s12/s13 at exact SHA
+  f5aee3f, 40M steps each, verify the 7-point live integration gate.
+- conflicted with: guardrails compute.max_new_gpu_steps_per_cycle =
+  80,000,000 — the ordered cohort is 3 x 40M = 120M GPU steps in one
+  cycle (same overage as the any16 cohort, previously unfiled). SIM
+  SPRINT tension already on record at q_20260817T2310Z (not repeated).
+- why the cycle would have declined: the per-cycle GPU-step blast-radius
+  cap exists so one confused cycle cannot burn the fleet; a non-operator
+  spec of this size would be split across cycles.
+- what was executed: all three queued via respec (exact recipe, roster
+  order s11,s12,s13, members 0/1/2, bootstrap-rollouts 10, barrier
+  timeout 900, NO --init-from) and drained onto train-0/1/3 at exact
+  f5aee3f; verified RUNNING with distinct W&B IDs (5zvb4x7p, y4bpeqw0,
+  biil109c). Gates 1-2 PASSED live (all three stopped at exactly
+  655,360 steps with valid identity/root/budget-bound ready_B00; no
+  cert/candidate/winner before start). Gate 3 FAILED live: start_B00
+  never released (wandb.Api.runs() negative peer-discovery cache);
+  fail-closed held — no member trained past the barrier. Operator
+  live-audit fb_20260817T231211_ba01c4 stopped the cohort (INVALID;
+  verdicts recorded by concurrent cycles), fix landed at 686f5628, and
+  the any18 relaunch (fb_20260817T231336_93cacc) is owned by a
+  concurrent cycle.
+- ANSWER (operator): _pending_
+- rulebook change: _pending_
