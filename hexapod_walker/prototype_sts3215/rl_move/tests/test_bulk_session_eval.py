@@ -94,6 +94,60 @@ def test_shard_cmd_candidates():
     assert c2[c2.index("--torch-seed") + 1] == str(sh["seed"])
 
 
+# ---- remaining-rise semantics probe (WAITING-ON 08-17, hw) -----------
+
+def test_remaining_rise_height_pure_math():
+    from rl_move.sim.eval_modeseq import remaining_rise_height
+    import numpy as np
+    amp = 0.11
+    # legacy schedule: hold at 0 for 10 ticks, ramp 0->amp over 5
+    # ticks, hold at amp for the rest.
+    h = np.zeros(30)
+    h[10:15] = np.linspace(0.0, amp, 5)
+    h[15:] = amp
+    out = remaining_rise_height(h, amp, h_start=0.03)
+    assert np.allclose(out[:10], 0.03)          # hold at CURRENT height
+    assert np.allclose(out[10:15],
+                       np.linspace(0.03, amp, 5))  # ramp h_start->amp
+    assert np.allclose(out[15:], amp)             # tail unchanged
+    # h_start clamped into [0, amp]
+    out_hi = remaining_rise_height(h, amp, h_start=amp + 0.05)
+    assert np.isclose(out_hi[0], amp)
+    out_lo = remaining_rise_height(h, amp, h_start=-0.02)
+    assert np.isclose(out_lo[0], 0.0)
+    # h_start == 0 reproduces the legacy schedule exactly (identity
+    # check on the boundary the flag is designed to leave untouched)
+    out_zero = remaining_rise_height(h, amp, h_start=0.0)
+    assert np.allclose(out_zero, h)
+
+
+def test_shard_cmd_remaining_rise_flag_is_opt_in():
+    sh = dict(cand="spec", mode="det", seed=900000, eps=6, out="/tmp/x.json")
+    assert "--remaining-rise" not in bse.shard_cmd(sh)
+    sh_rr = dict(sh, remaining_rise=True)
+    assert "--remaining-rise" in bse.shard_cmd(sh_rr)
+
+
+def test_cohort_c5rr_remaining_rise_and_fresh_bank():
+    # c5rr (the postlower-fork pricing probe) turns the flag on and
+    # uses a fresh, never-before-used seed bank; every other cohort
+    # (including unlisted ones) stays legacy/off -- bit-exact.
+    p_c1 = bse.plan("c1", ["spec"], ("det",))
+    assert all(not sh["remaining_rise"] for sh in p_c1)
+    p_rr = bse.plan("c5rr", ["spec", "spec-pl4"], ("det", "sto"))
+    assert all(sh["remaining_rise"] for sh in p_rr)
+    dets = {sh["seed"] for sh in p_rr if sh["mode"] == "det"}
+    stos = {sh["seed"] for sh in p_rr if sh["mode"] == "sto"}
+    assert min(dets) == 980000 and min(stos) == 990000
+    prior = set()
+    for base in (900000, 910000, 920000, 930000, 940000, 950000,
+                 960000, 970000):
+        prior |= set(range(base, base + 50))
+    assert not (dets & prior) and not (stos & prior)
+    cmds = [bse.shard_cmd(sh) for sh in p_rr[:3]]
+    assert all("--remaining-rise" in c for c in cmds)
+
+
 # ---- resume / idempotence -------------------------------------------
 
 def _fake_shard_json(sh, tmpdir):

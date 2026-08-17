@@ -508,3 +508,73 @@ Aggregate: `logs/bulk_session/c4/aggregate.json` + `episodes.jsonl`;
   rise directly in reward) — escalated to `[operator]` WAITING-ON in
   STATUS.md / hw/STATUS.md, not launched. Product baseline (c1
   hierarchy) unaffected either way.
+
+## Cohort c5rr — pre-registered "remaining-rise" semantics probe (prices the postlower `[operator]` fork)
+
+Registered: 2026-08-17 ~22:0x UTC (idle-drain cycle), BEFORE any
+shard ran. Not a promotion gate for a new arm — an EVAL-SIDE probe
+that answers the exact open question the c4 verdict escalated: c4's
+FAIL was attributed to a train/eval schedule MISMATCH (postlower4
+was trained under `goal.mode_seq_rise_from_h=1` — the mid-sequence
+rise holds at the robot's CURRENT height then ramps to the stand
+target — but `bulk_session_eval`/`eval_modeseq` always reanchors the
+post-lower rise with the LEGACY schedule, hold-at-belly then ramp,
+i.e. it evaluates the robot on a task it wasn't trained for). If
+c5rr shows c4 crossing the c1 parent's bars under the MATCHED
+schedule, operator fork option (a) — "align the runner/instrument to
+train==deploy semantics" — is measured-best and the pick becomes
+data, not taste; if it still falls short, the mismatch was not (the
+whole) story and option (b)/(c) (reward-side pricing / accept the
+ceiling) stay live.
+
+- **New code** (this cycle, tests green): `eval_modeseq.py
+  --remaining-rise` (default off, bit-exact legacy when unset) —
+  after the post-lower reanchor, rewrites the rise segment's height
+  schedule with `remaining_rise_height()` (pure affine value remap:
+  old range `[height[0]=0, amp]` -> `[h_start, amp]`, so the ramp's
+  exact tick timing is preserved, no index search) where `h_start`
+  is the robot's real height above the just-installed belly frame at
+  the reanchor tick. Mirrors `SimHexapodGoalEnv._seq_segment_traj`'s
+  `mode_seq_rise_from_h` branch (goal_task.py), applied post-hoc
+  instead of in-episode. `bulk_session_eval.py`: shards carry a
+  `remaining_rise` bool (`COHORT_REMAINING_RISE`), `shard_cmd` passes
+  `--remaining-rise` only when set. Tests: `test_bulk_session_eval.py`
+  +4 (pure-math identity/clamp check, shard-cmd opt-in, cohort
+  wiring + fresh bank) — 11/11 in that bank; two 2-episode smoke
+  reads on real checkpoints (`spec`, `spec-pl4`) confirm the
+  mechanism fires only on post-lower rises (`remaining_rise_h_start_mm`
+  present) and cold rises are untouched.
+- Instrument + grammar identical to c1-c4 EXCEPT `--remaining-rise`
+  is now on: `rise,walk,lower,rise,walk`, entry-slew on, speed
+  0.05-0.06, drive 14s. Candidates: **`spec`** (parent,
+  `footlow2_hard1`+`bcgait1_hard1`, re-read under the new schedule —
+  its OWN c1 numbers are NOT reusable here since the schedule
+  changed) and **`spec-pl4`** (`postlower4`+`bcgait1_hard1`, the c4
+  candidate). Volume: 50 shards x 6 episodes = 300 det + 300 sto per
+  candidate (1,200 total) — same n as c1/c4 so the read is directly
+  comparable to their bars.
+- FRESH bank (c1-c4 bases all retired): **det = 980000..980049, sto =
+  990000..990049** (`COHORT_SEED_BASE["c5rr"]`).
+- **Readout (no pass/fail bar — a comparative price, not a gate):**
+  report, for BOTH candidates under the matched schedule: det/sto
+  post-lower-rise (`rise_by_ordinal.1`) rate + CI, det complete-
+  session zero-fall + CI, first-rise/lower retention (must stay
+  parity — any drop here is a NEW problem, not this probe's
+  question), fall-reason histogram, visual medians (slip/m, drive
+  height, switch tilt), and a handful of watched re-renders of any
+  post-lower-rise failure (the eye clause: confirm no NEW exploit
+  from the schedule change itself).
+  - If `spec-pl4`'s post-lower rise (det AND sto) is >= `spec`'s
+    OWN number under this SAME schedule (not the stale c1 number),
+    with CIs not both worse: **fork (a) is supported** — write it up
+    for the operator as the measured answer, do not auto-promote
+    (postlower4 is not yet a product change without the operator's
+    sign-off on the runner/instrument contract).
+  - If `spec` ALSO changes materially (up or down) from its c1
+    numbers under `--remaining-rise`, that is itself a finding about
+    the runner (the legacy schedule was doing SOMETHING for the
+    parent too) and gets reported plainly, not smoothed over.
+  - If `spec-pl4` still trails `spec` under the matched schedule,
+    the mismatch was not (the whole) explanation for c4's FAIL — say
+    so plainly; fork (b)/(c) stay live for the operator.
+- Banks retire on aggregate read regardless of outcome.

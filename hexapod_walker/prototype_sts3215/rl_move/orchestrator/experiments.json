@@ -94345,6 +94345,18 @@
     "log": "/workspace/prototype_sts3215/rl_move/dynamics/logs/pod_livewalkrise1.log",
     "evidence": "Mechanism canaries: cw-dynrep-livewalkrise1-canary1 (CANARY PASS, rejection path + quotas + isolation + coverage) and -canary2 (CANARY PASS, exogenous-mask fix verified, accept path exercised: corpus-val 2.50/2.53 inside the 15% band, snapshot v0->2). Transfer precedent: dynrep-tfwalk-critic1-D beat matched scratch on 3/3 seeds at 1M.",
     "hypothesis": "Let the world model keep learning from what the robot is actually doing \u2014 walking in every direction with stops, turns and direction changes, and standing up from flat, crouched and post-sit poses \u2014 while the actor stays a plain raw-observation policy and the critic reads dynamics features from a snapshot that may only improve at 1M-step boundaries behind retention gates. Tests whether live-adapted dynamics features beat the static frozen-D transfer (the current best) without re-triggering the nonstationary-critic failure that sank condition E. Operator order fb_20260817T210422_9df9c7 arm A.",
-    "gate": "Pre-registered 10M decision checkpoint, no extension without a verdict. Mechanism invariants throughout: actor KL exactly 0; snapshot version changes only at 1M boundaries with all six gate values logged; every accepted update must NOT be followed by walk-return or live-val regression over the next 1M (the E failure signature \u2014 if it is, record LIVE-ADAPTATION HARMFUL and stop). Outcome read at 10M: (a) if >=1 snapshot update was accepted, compare walk return + gait quality (slip_m, peak_roll_deg, slew_sat) and rise/walkrise SCORE trends before/after accepts, and against the frozen-D yardstick cw-dynrep-criticD-40m1 at matched step counts (note confounds: n_envs 8 vs 16, yaw-cmd obs); (b) if NO update ever passes the gates by 10M, record that live adaptation cannot beat frozen features under honest retention gates on this data and close the online line for good. Retain best-by-heldout + periodic checkpoints; verdict quotes visual-quality stats, not scalar reward alone."
+    "gate": "Pre-registered 10M decision checkpoint, no extension without a verdict. Mechanism invariants throughout: actor KL exactly 0; snapshot version changes only at 1M boundaries with all six gate values logged; every accepted update must NOT be followed by walk-return or live-val regression over the next 1M (the E failure signature \u2014 if it is, record LIVE-ADAPTATION HARMFUL and stop). Outcome read at 10M: (a) if >=1 snapshot update was accepted, compare walk return + gait quality (slip_m, peak_roll_deg, slew_sat) and rise/walkrise SCORE trends before/after accepts, and against the frozen-D yardstick cw-dynrep-criticD-40m1 at matched step counts (note confounds: n_envs 8 vs 16, yaw-cmd obs); (b) if NO update ever passes the gates by 10M, record that live adaptation cannot beat frozen features under honest retention gates on this data and close the online line for good. Retain best-by-heldout + periodic checkpoints; verdict quotes visual-quality stats, not scalar reward alone.",
+    "checkups": [
+      {
+        "time": "2026-08-17T21:55:41+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 0,
+        "fps": 728.2,
+        "placement": "solo on GPU-MJX pod (dynrep trainer)",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   }
 ]
