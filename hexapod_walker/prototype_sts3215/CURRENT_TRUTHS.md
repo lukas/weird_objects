@@ -73,6 +73,14 @@ operator calls at regeneration time).
 
 ## Campaign rulings in force
 
+- **SIM SPRINT (operator 08-17, ~18:05 UTC — CURRENT top ruling):**
+  robot off the bench ~a day for repair; until the operator says it
+  is back, the fleet's single deliverable is RELIABLE RISE + WALK in
+  MuJoCo at download quality (named checkpoints + gate evidence;
+  post-lower rise and takeoff transient are the known gaps). No new
+  research-track launches unless they directly serve that; bench
+  [operator] items parked; no hardware steering. Full text:
+  RL_PLAN.md "SIM SPRINT".
 - KPI = blockers to the next joystick hardware test, not occupancy.
   08-11 night: sim stand/walk blockers are THE focus; write needed
   code same-cycle (cfg-gated, default-off, tests, snapshot).
