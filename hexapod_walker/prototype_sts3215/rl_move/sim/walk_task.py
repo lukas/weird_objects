@@ -1345,6 +1345,33 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             },
         }
 
+    def recover_curriculum_checkpoint_state(self) -> dict:
+        """State paired with a policy snapshot at a proven promotion."""
+        return {
+            "active_n": int(self._rec_active_n),
+            "focus_bucket": int(self._rec_focus_bucket),
+            "stats": dict(self._rec_stats),
+            "cert_rounds": dict(self._rec_cert_rounds),
+        }
+
+    def restore_recover_curriculum_checkpoint_state(self,
+                                                    state: dict) -> None:
+        """Restore promotion-time curriculum state, retaining error debt."""
+        active_n = int(state["active_n"])
+        if not 1 <= active_n <= len(self.RECOVER_FAMILIES):
+            raise ValueError(f"invalid recovery active_n {active_n}")
+        self._rec_active_n = active_n
+        self._rec_focus_bucket = active_n - 1
+        self._rec_stats = {
+            str(kind): (int(values[0]), int(values[1]))
+            for kind, values in dict(state["stats"]).items()
+        }
+        self._rec_cert_rounds = {
+            str(kind): int(cert_round)
+            for kind, cert_round in dict(state["cert_rounds"]).items()
+        }
+        self._recover_refresh_weak_bucket()
+
     def apply_recover_certification(self, kind: str,
                                     outcomes: list[bool],
                                     update_admission: bool = True,

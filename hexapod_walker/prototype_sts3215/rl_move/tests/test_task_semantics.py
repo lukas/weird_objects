@@ -4272,6 +4272,19 @@ def test_recover_promotion_requires_fresh_full_retention_suite():
     assert status["suite_passed"]
     assert status["promoted"]
     assert env._rec_active_n == 4
+
+    checkpoint = env.recover_curriculum_checkpoint_state()
+    env.apply_recover_training_error_batch({0: (8.0, 8)})
+    error_debt = dict(env._rec_training_error_stats)
+    env._rec_active_n = 7
+    env._rec_focus_bucket = 6
+    env._rec_stats = {"plant_catch": (0, 8)}
+    env.restore_recover_curriculum_checkpoint_state(checkpoint)
+    assert env._rec_active_n == 4
+    assert env._rec_focus_bucket == 3
+    assert env._rec_stats == checkpoint["stats"]
+    assert env._rec_training_error_stats == error_debt, (
+        "rollback discarded the adaptive replay debt")
     env.close()
 
 

@@ -7,7 +7,7 @@ import numpy as np
 from rl_move.sim.train_ppo_mjx import (
     _env_kwargs, _recover_cert_bucket_plan, _recover_episode_outcome,
     _recover_episode_training_error, _recover_score_payload,
-    _run_recover_cert_kind)
+    _recover_update_regression_timers, _run_recover_cert_kind)
 
 
 class _FakeCertEnv:
@@ -103,6 +103,23 @@ def test_recover_cert_plan_keeps_frontier_weakest_and_rotates_history():
         frontier=5, retention_count=2, cursor=cursor, weak_bucket=3)
     assert buckets == [5, 3, 2, 4]
     assert cursor == 0
+
+
+def test_recover_regression_timer_requires_same_bucket_for_elapsed_window():
+    failed_since = {}
+    assert _recover_update_regression_timers(
+        failed_since, {0: 0.5, 1: 1.0}, 10, 0.6, 20) == []
+    assert failed_since == {0: 10}
+
+    # A different bucket failing does not inherit B0's elapsed time, and B0
+    # recovering clears its own timer.
+    assert _recover_update_regression_timers(
+        failed_since, {0: 1.0, 1: 0.5}, 20, 0.6, 20) == []
+    assert failed_since == {1: 20}
+    assert _recover_update_regression_timers(
+        failed_since, {0: 1.0, 1: 0.5}, 39, 0.6, 20) == []
+    assert _recover_update_regression_timers(
+        failed_since, {0: 1.0, 1: 0.5}, 40, 0.6, 20) == [1]
 
 
 def test_recover_score_uses_fixed_difficulty_weighted_denominator():

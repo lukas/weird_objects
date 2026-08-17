@@ -33,6 +33,7 @@ Laptop smoke (CPU XLA, tiny batch):
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import sys
 import time
@@ -103,6 +104,24 @@ def _recover_cert_bucket_plan(frontier: int, retention_count: int,
         buckets.append(bucket)
         added += 1
     return buckets, (cursor + scanned) % len(old)
+
+
+def _recover_update_regression_timers(
+        failed_since: dict[int, int], gate_fractions: dict[int, float],
+        step: int, threshold: float, rollback_after_steps: int
+        ) -> list[int]:
+    """Update per-bucket regression timers and return timed-out buckets."""
+    for bucket in list(failed_since):
+        if bucket not in gate_fractions:
+            failed_since.pop(bucket, None)
+    for bucket, fraction in gate_fractions.items():
+        if float(fraction) < float(threshold):
+            failed_since.setdefault(int(bucket), int(step))
+        else:
+            failed_since.pop(int(bucket), None)
+    return sorted(
+        bucket for bucket, failed_at in failed_since.items()
+        if int(step) - failed_at >= int(rollback_after_steps))
 
 
 def _recover_score_payload(state: dict, best_score: float = 0.0,
@@ -305,6 +324,12 @@ def _init_wandb(args, params: SimServoParams):
                 "recover_cert_every": args.recover_cert_every,
                 "recover_cert_envs": args.recover_cert_envs,
                 "recover_retention_buckets": args.recover_retention_buckets,
+                "recover_full_retention_every": (
+                    args.recover_full_retention_every),
+                "recover_rollback_after_steps": (
+                    args.recover_rollback_after_steps),
+                "recover_rollback_fraction": (
+                    args.recover_rollback_fraction),
                 "recover_replay_mix": {
                     "focus": 0.50, "recent_three": 0.25,
                     "weakest": 0.15, "uniform_older": 0.10,
@@ -323,6 +348,8 @@ def _init_wandb(args, params: SimServoParams):
     run.define_metric("CERT/*", step_metric="global_step", summary="last")
     run.define_metric("TRAIN/*", step_metric="global_step", summary="last")
     run.define_metric("RECOVER_SCORE/*", step_metric="global_step",
+                      summary="last")
+    run.define_metric("RECOVER_GUARD/*", step_metric="global_step",
                       summary="last")
     print(f"[wandb] logging to {run.url or 'offline run dir'}")
     return run
@@ -522,6 +549,18 @@ def main(argv: list[str] | None = None) -> int:
                          "old bucket is assayed in addition. Whenever the "
                          "frontier passes, every remaining unlocked bucket "
                          "is assayed before promotion (default: 3 routine)")
+    ap.add_argument("--recover-full-retention-every", type=int, default=2,
+                    help="run a fresh full unlocked-bucket retention suite "
+                         "every N certification rounds in addition to every "
+                         "promotion attempt (0 = promotion attempts only)")
+    ap.add_argument("--recover-rollback-after-steps", type=int,
+                    default=4_000_000,
+                    help="restore the latest promotion checkpoint when the "
+                         "same retained bucket remains severely regressed "
+                         "for this many training env-steps (0 = disable)")
+    ap.add_argument("--recover-rollback-fraction", type=float, default=0.60,
+                    help="a retained bucket below this deterministic gate "
+                         "fraction starts/continues its rollback timer")
     ap.add_argument("--no-canary", action="store_true",
                     help="disable the fixed-seed canary probes + "
                          "regression auto-stop (on by default for warm "
@@ -538,6 +577,13 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--smoke", action="store_true",
                     help="tiny CPU run to validate the pipeline")
     args = ap.parse_args(argv)
+
+    if args.recover_full_retention_every < 0:
+        ap.error("--recover-full-retention-every must be >= 0")
+    if args.recover_rollback_after_steps < 0:
+        ap.error("--recover-rollback-after-steps must be >= 0")
+    if not 0.0 <= args.recover_rollback_fraction <= 1.0:
+        ap.error("--recover-rollback-fraction must be in [0, 1]")
 
     if not mjx_is_available():
         raise SystemExit("mujoco-mjx / jax not installed — "
@@ -1172,6 +1218,91 @@ def main(argv: list[str] | None = None) -> int:
                 self._cert_round = 0
                 self._last_cert_round: dict[int, int] = {}
                 self._best_score = 0.0
+                self._promotion_dir = POLICY_DIR / "recover_promotions"
+                self._promotion_dir.mkdir(parents=True, exist_ok=True)
+                self._latest_promotion: dict | None = None
+                self._pending_rollback: dict | None = None
+                self._retention_failed_since: dict[int, int] = {}
+                self._rollback_count = 0
+                self._promotion_checkpoint_count = 0
+
+            def _save_promotion_checkpoint(self, admission: dict) -> None:
+                bucket = int(admission["active_after"]) - 1
+                path = self._promotion_dir / (
+                    f"{out_name}_promote_B{bucket:02d}_"
+                    f"step{self.num_timesteps}.zip")
+                self.model.save(path)
+                curriculum = venv.env_method(
+                    "recover_curriculum_checkpoint_state", indices=0)[0]
+                metadata_path = path.with_suffix(".curriculum.json")
+                metadata_path.write_text(json.dumps({
+                    "policy": path.name,
+                    "promotion_bucket": bucket,
+                    "global_step": int(self.num_timesteps),
+                    "curriculum": curriculum,
+                }, indent=2, sort_keys=True) + "\n")
+                self._latest_promotion = {
+                    "path": path,
+                    "metadata_path": metadata_path,
+                    "bucket": bucket,
+                    "step": int(self.num_timesteps),
+                    "curriculum": curriculum,
+                }
+                self._promotion_checkpoint_count += 1
+                if run is not None:
+                    try:
+                        run.save(str(path), base_path=str(POLICY_DIR),
+                                 policy="now")
+                        run.save(str(metadata_path),
+                                 base_path=str(POLICY_DIR), policy="now")
+                        run.summary["recover_latest_promotion_checkpoint"] = (
+                            str(path.relative_to(POLICY_DIR)))
+                    except Exception as exc:
+                        print("[recover-guard] W&B checkpoint upload failed: "
+                              f"{exc}")
+                print(f"[recover-guard] promotion checkpoint B{bucket} "
+                      f"@ {self.num_timesteps:,}: {path}")
+
+            def _on_rollout_start(self) -> None:
+                if self._pending_rollback is None:
+                    return
+                rollback = self._pending_rollback
+                self._pending_rollback = None
+                checkpoint = rollback["checkpoint"]
+                # This hook runs after the preceding PPO update and before
+                # collecting the next rollout, so restoring parameters does
+                # not invalidate old-policy log probabilities.
+                self.model.set_parameters(
+                    str(checkpoint["path"]), exact_match=True,
+                    device=self.model.device)
+                venv.env_method(
+                    "restore_recover_curriculum_checkpoint_state",
+                    checkpoint["curriculum"])
+                self.model._last_obs = venv.reset()
+                self.model._last_episode_starts = np.ones(
+                    venv.num_envs, dtype=bool)
+                self._retention_failed_since = {}
+                self._rollback_count += 1
+                payload = {
+                    "global_step": self.num_timesteps,
+                    "RECOVER_GUARD/rollback_applied": 1.0,
+                    "RECOVER_GUARD/rollback_count": float(
+                        self._rollback_count),
+                    "RECOVER_GUARD/rollback_to_bucket": float(
+                        checkpoint["bucket"]),
+                    "RECOVER_GUARD/rollback_checkpoint_step": float(
+                        checkpoint["step"]),
+                    "RECOVER_GUARD/rollback_trigger_bucket": float(
+                        rollback["trigger_bucket"]),
+                }
+                if run is not None:
+                    import wandb
+                    wandb.log(payload)
+                print("[recover-guard] ROLLBACK applied: "
+                      f"B{rollback['trigger_bucket']} remained below "
+                      f"{args.recover_rollback_fraction:.2f}; restored "
+                      f"promotion B{checkpoint['bucket']} from step "
+                      f"{checkpoint['step']:,}")
 
             def _build(self):
                 cert_kw = dict(vec_kw)
@@ -1247,7 +1378,14 @@ def main(argv: list[str] | None = None) -> int:
                 promotion_candidate = bool(
                     active_before < len(env_cls.RECOVER_FAMILIES)
                     and gate["frontier_passed"])
-                if promotion_candidate:
+                periodic_full_due = bool(
+                    frontier_before > 0
+                    and args.recover_full_retention_every > 0
+                    and self._cert_round
+                    % args.recover_full_retention_every == 0)
+                full_suite_attempted = bool(
+                    promotion_candidate or periodic_full_due)
+                if full_suite_attempted:
                     for bucket in range(frontier_before + 1):
                         if bucket not in rows_by_bucket:
                             buckets.append(bucket)
@@ -1266,16 +1404,17 @@ def main(argv: list[str] | None = None) -> int:
                     "CERT/recover_promotion_candidate": float(
                         promotion_candidate),
                     "CERT/recover_retention_suite_attempted": float(
-                        promotion_candidate),
+                        full_suite_attempted),
                     "CERT/recover_retention_suite_passed": float(
-                        promotion_candidate
+                        full_suite_attempted
                         and admission["retention_passed"]),
                     "CERT/recover_retention_bucket_count": float(
                         admission["retention_bucket_count"]),
                     "CERT/recover_retention_min_gate_fraction": float(
                         admission["retention_min_gate_fraction"]),
                     "CERT/recover_retention_failed_bucket_count": float(
-                        len(admission["retention_failed_buckets"])),
+                        len(admission["retention_failed_buckets"])
+                        if full_suite_attempted else 0),
                     "CERT/recover_promoted": float(admission["promoted"]),
                 }
                 for bucket, rows in rows_by_bucket.items():
@@ -1298,6 +1437,65 @@ def main(argv: list[str] | None = None) -> int:
                             row["episodes"])
                         payload[f"CERT/recover_{kind}_time_s"] = (
                             row["time_mean_s"])
+                if admission["promoted"]:
+                    self._save_promotion_checkpoint(admission)
+
+                if (full_suite_attempted and frontier_before > 0
+                        and self._latest_promotion is not None
+                        and args.recover_rollback_after_steps > 0):
+                    retention_gates = {
+                        bucket: min(
+                            row["success"]
+                            for row in rows_by_bucket[bucket])
+                        for bucket in range(frontier_before)
+                    }
+                    offenders = _recover_update_regression_timers(
+                        self._retention_failed_since, retention_gates,
+                        int(self.num_timesteps),
+                        args.recover_rollback_fraction,
+                        args.recover_rollback_after_steps)
+                    if offenders and self._pending_rollback is None:
+                        trigger = max(
+                            offenders,
+                            key=lambda bucket: (
+                                self.num_timesteps
+                                - self._retention_failed_since[bucket],
+                                -bucket))
+                        self._pending_rollback = {
+                            "checkpoint": self._latest_promotion,
+                            "trigger_bucket": int(trigger),
+                        }
+
+                regression_ages = {
+                    bucket: self.num_timesteps - failed_at
+                    for bucket, failed_at
+                    in self._retention_failed_since.items()
+                }
+                payload.update({
+                    "RECOVER_GUARD/promotion_checkpoint_saved": float(
+                        admission["promoted"]),
+                    "RECOVER_GUARD/promotion_checkpoint_count": float(
+                        self._promotion_checkpoint_count),
+                    "RECOVER_GUARD/latest_checkpoint_bucket": float(
+                        self._latest_promotion["bucket"]
+                        if self._latest_promotion is not None else -1),
+                    "RECOVER_GUARD/latest_checkpoint_step": float(
+                        self._latest_promotion["step"]
+                        if self._latest_promotion is not None else -1),
+                    "RECOVER_GUARD/regressed_bucket_count": float(
+                        len(regression_ages)),
+                    "RECOVER_GUARD/max_regression_age_steps": float(
+                        max(regression_ages.values(), default=0)),
+                    "RECOVER_GUARD/rollback_pending": float(
+                        self._pending_rollback is not None),
+                    "RECOVER_GUARD/rollback_count": float(
+                        self._rollback_count),
+                })
+                for bucket, age in regression_ages.items():
+                    payload[
+                        f"RECOVER_GUARD/bucket_{bucket:02d}_"
+                        "regression_age_steps"
+                    ] = float(age)
                 score_state = venv.env_method(
                     "recover_score_state", indices=0)[0]
                 ages = {
@@ -1338,7 +1536,10 @@ def main(argv: list[str] | None = None) -> int:
               f"{args.recover_cert_envs} episodes/kind, frontier + weakest "
               f"+ {args.recover_retention_buckets} rotating retention "
               "buckets; a passing frontier triggers a fresh full retention "
-              "suite before promotion")
+              "suite before promotion; full retention every "
+              f"{args.recover_full_retention_every or 'promotion-only'} "
+              "round(s), promotion checkpoints + rollback after "
+              f"{args.recover_rollback_after_steps:,} regressed steps")
     bg = None
     if run is not None and (args.eval_every > 0 or args.video_every > 0):
         # The campaign's background eval/video worker, reused verbatim:
