@@ -1,5 +1,41 @@
 # dynrep — Dynamics-representation pretraining
 
+**08-17 ~06:xx UTC (operator-kick cycle, directive
+fb_20260817T052333_e5ae09 executed — Lukas: "ok try it"): the
+decoupled predictive-CRITIC transfer is BUILT and the E canary is the
+live test.** The genuinely-new mechanism after three actor-side
+misses: the actor is the proven scratch-A raw-obs policy (bit-identical
+init to `PPO("MlpPolicy")` at the same seed — test-locked), it never
+sees a transformer latent and shares no params/optimizer state with
+one; only the CRITIC adds a stop-gradient predictive-latent residual
+behind a learned gate initialized exactly to zero (start = bit-exact
+scratch A, test-locked). Two transformer instances: the ONLINE
+predictor (condition E) trains continuously with its own Adam on fresh
+rollout windows + 25% v5 rehearsal; an inference-only SNAPSHOT feeds
+the critic and may change ONLY via a drift-guarded EMA strictly
+between rollout+PPO iterations (identity bit-checked + version
+asserted across rollout/GAE/all PPO epochs; out-of-band mutation
+RAISES; oversized candidates logged + skipped). Condition D keeps the
+snapshot frozen forever. Code: `dynamics/predictive_critic.py`
+(+trainer conditions D/E, runner `pod_tfwalk_critic.sh`); tests:
+`test_dynrep_predictive_critic.py` 8/8 (actor/raw-critic bit-match to
+A, zero-gate no-op, obs→z parity with the audited B wiring, PPO grads
+can't touch either transformer, predictor updates leave actor
+untouched with the explicit zero-action-KL proof metric, snapshot
+updates between-iterations-only, drift-guard skip, small-checkpoint
+round-trip) + all prior dynrep banks green (32 total). tfwalk-joint1's
+checkpoint-exclusion lesson applied (runtime never pickled; E's online
+predictor saved separately as `dyn_online_<name>.pt`). Staging per the
+directive: ≤100k one-seed E canary first (hard gates: CUDA, actor
+independence, snapshot stability, W&B advancing, ~60MB saves), then
+D/E seeds 5/6/7 to the pre-registered 1M decision gate vs the existing
+config-equivalent scratch-A controls (joint1 A-s6/s7 + metrics1 A-s5
+at its 1M eval point; prior B/C are NOT controls — they changed actor
+inputs). PASS for E = predictor heldout within 15%, actor KL ~scratch
+A, critic EV/sample-efficiency + heldout walking better than BOTH A
+and D across seeds without gait regression; otherwise record that
+predictive representation does not help PPO here and STOP the line.
+
 **08-17 ~01:xx UTC (operator-kick diagnosis cycle, directive
 fb_20260817T005323_22be43 executed — NO relaunch): tfwalk-joint1
 RESOLVED. Corrected C FAILS the pre-registered 1M gate on ALL THREE

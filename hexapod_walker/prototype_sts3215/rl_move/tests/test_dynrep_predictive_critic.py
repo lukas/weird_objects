@@ -1,0 +1,349 @@
+"""Bank for the decoupled predictive-critic conditions D/E (operator
+directive fb_20260817T052333_e5ae09). Proves, on tiny real components
+(real DynamicsModel, real SB3 PPO loop, real WindowSampler):
+
+  1. actor + raw critic are BIT-IDENTICAL to a plain condition-A
+     PPO("MlpPolicy") at the same seed, and actor outputs/log-probs are
+     bit-identical with the predictive branch enabled/disabled at the
+     zero-init gate (values too: the residual starts as an exact no-op);
+  2. PPO value gradients cannot touch either transformer: after
+     training, snapshot params are bit-unchanged (frozen mode) while
+     the gate/adapter DID learn;
+  3. online predictor updates leave the actor untouched — mutated-param
+     check + the explicit zero action-KL proof metric — and only the
+     online predictor's own params move;
+  4. the snapshot's identity is frozen across rollout+GAE+PPO (an
+     out-of-band mutation raises) and version bumps happen only via the
+     guarded between-iteration EMA update;
+  5. the drift guard skips (and logs) oversized snapshot updates;
+  6. checkpoints stay small (no runtime pickled) and round-trip to
+     bit-identical actions AND values.
+"""
+import json
+import zipfile
+
+import numpy as np
+import pytest
+import torch as th
+import gymnasium as gym
+from gymnasium import spaces
+from stable_baselines3 import PPO
+from stable_baselines3.common.callbacks import BaseCallback
+from stable_baselines3.common.vec_env import DummyVecEnv
+
+from rl_move.dynamics import data as dd
+from rl_move.dynamics import frames as fr
+from rl_move.dynamics.model import DynamicsModel
+from rl_move.dynamics.online_windows import OnlineWindowBuffer
+from rl_move.dynamics.predictive_critic import (
+    ObsToDynFrames, PredictiveCriticPolicy, PredictiveCriticPPO,
+    PredictorConfig,
+)
+from rl_move.dynamics.sb3_encoder import DynFeaturesExtractor
+from rl_move.dynamics.train_ppo_transfer import anchor_batch_to_torch
+
+HORIZONS = (1, 2, 5, 10, 25)
+HISTORY = 16
+FRAME_WIDTH = 72
+OBS_DIM = HISTORY * FRAME_WIDTH
+
+
+def _episode(global_idx: int, n_frames: int, seed: int) -> dd.Episode:
+    rng = np.random.default_rng(seed)
+    return dd.Episode(
+        frames=rng.standard_normal((n_frames, fr.FRAME_DIM)).astype(
+            np.float32),
+        actions=rng.standard_normal((n_frames - 1, fr.ACTION_DIM)).astype(
+            np.float32),
+        priv=rng.standard_normal((n_frames, fr.PRIV_DIM)).astype(np.float32),
+        priv_mask=np.ones(fr.PRIV_DIM, dtype=np.float32),
+        actor="random", mode="walk", reason="trunc", dr=0.0,
+        global_idx=global_idx,
+    )
+
+
+def _tiny_model() -> DynamicsModel:
+    return DynamicsModel(
+        input_set="obs", z_dim=8, hidden=16, act_hidden=8,
+        history=HISTORY, arch="transformer", tf_layers=1, tf_heads=2,
+        tf_ff=16, tf_dropout=0.0, horizons=HORIZONS, short_max=5,
+        delta_state=True, predict_priv=True)
+
+
+@pytest.fixture(scope="module")
+def corpus():
+    episodes = [_episode(i, HISTORY + HORIZONS[-1] + 6, seed=i)
+                for i in range(40)]
+    stats = dd.compute_stats(episodes)
+    return episodes, stats
+
+
+@pytest.fixture(scope="module")
+def encoder_ckpt(tmp_path_factory, corpus):
+    _, stats = corpus
+    model = _tiny_model()
+    path = tmp_path_factory.mktemp("enc") / "tiny_dyn_obs.pt"
+    th.save({"layout_version": fr.LAYOUT_VERSION,
+             "config": model.config(), "model": model.state_dict(),
+             "stats": stats.to_dict(), "history": HISTORY}, path)
+    return path
+
+
+class _TinyEnv(gym.Env):
+    observation_space = spaces.Box(-10.0, 10.0, (OBS_DIM,),
+                                   dtype=np.float32)
+    action_space = spaces.Box(-1.0, 1.0, (fr.ACTION_DIM,),
+                              dtype=np.float32)
+
+    def __init__(self):
+        self._rng = np.random.default_rng(0)
+        self._t = 0
+
+    def _obs(self):
+        return self._rng.standard_normal(OBS_DIM).astype(np.float32)
+
+    def reset(self, *, seed=None, options=None):
+        self._t = 0
+        return self._obs(), {}
+
+    def step(self, action):
+        self._t += 1
+        return (self._obs(), float(action[0]) * 0.01, False,
+                self._t >= 20, {})
+
+
+def _build(encoder_ckpt, corpus, *, mode="online", steps_per_iter=2,
+           ema_tau=0.05, drift_guard=1e9, min_online_windows=10**9,
+           seed=0, configure=True):
+    episodes, stats = corpus
+    venv = DummyVecEnv([_TinyEnv])
+    model = PredictiveCriticPPO(
+        PredictiveCriticPolicy, venv,
+        policy_kwargs=dict(
+            net_arch=[16, 16], log_std_init=-1.0,
+            predictor_ckpt=str(encoder_ckpt),
+            frame_width=FRAME_WIDTH, history=HISTORY),
+        n_steps=32, batch_size=32, n_epochs=2, learning_rate=3e-4,
+        seed=seed, verbose=0, device="cpu")
+    payloads = []
+    if configure:
+        cfg = PredictorConfig(
+            mode=mode, batch_size=16, rehearsal_frac=0.25,
+            steps_per_iter=steps_per_iter, lr=1e-3, ema_tau=ema_tau,
+            drift_guard=drift_guard,
+            min_online_windows=min_online_windows, probe_obs=32)
+        rehearsal = dd.WindowSampler(episodes, stats, HISTORY, HORIZONS,
+                                     val=False, seed=0)
+        buffer = (OnlineWindowBuffer(stats, HISTORY, HORIZONS,
+                                     max_frames=10_000, seed=0)
+                  if mode == "online" else None)
+        model.configure_predictor(
+            cfg, rehearsal, anchor_batch_to_torch, online_buffer=buffer,
+            metrics_sink=lambda p, s: payloads.append(p))
+    return model, payloads
+
+
+def _named_clone(module):
+    return {n: p.detach().clone() for n, p in module.named_parameters()}
+
+
+def _snap_params(model):
+    return [p.detach().clone()
+            for p in model.policy.critic_predictor.parameters()]
+
+
+def test_actor_and_raw_critic_bit_match_scratch_A(encoder_ckpt, corpus):
+    """At the same seed the D/E policy's actor AND raw critic init
+    bit-identical to a plain condition-A PPO('MlpPolicy') — the
+    predictive modules are built after SB3's standard RNG draws."""
+    model, _ = _build(encoder_ckpt, corpus, configure=False, seed=7)
+    a = PPO("MlpPolicy", DummyVecEnv([_TinyEnv]),
+            policy_kwargs=dict(net_arch=[16, 16], log_std_init=-1.0),
+            n_steps=32, batch_size=32, n_epochs=2, learning_rate=3e-4,
+            seed=7, verbose=0, device="cpu")
+    ours = _named_clone(model.policy)
+    theirs = _named_clone(a.policy)
+    for name, p in theirs.items():
+        assert name in ours, f"scratch-A param {name} missing"
+        assert th.equal(ours[name], p), f"param {name} differs from A"
+    obs = np.random.default_rng(1).standard_normal(
+        (4, OBS_DIM)).astype(np.float32)
+    act_ours, _ = model.predict(obs, deterministic=True)
+    act_a, _ = a.predict(obs, deterministic=True)
+    assert np.array_equal(act_ours, act_a), \
+        "deterministic actions differ from scratch A"
+
+
+def test_zero_gate_residual_is_bit_exact_noop(encoder_ckpt, corpus):
+    model, _ = _build(encoder_ckpt, corpus, configure=False)
+    policy = model.policy
+    assert float(policy.value_gate.detach()) == 0.0
+    obs = th.as_tensor(np.random.default_rng(2).standard_normal(
+        (8, OBS_DIM)).astype(np.float32))
+    acts = th.zeros((8, fr.ACTION_DIM))
+    th.manual_seed(0)
+    policy.residual_enabled = True
+    v_on, lp_on, ent_on = policy.evaluate_actions(obs, acts)
+    val_on = policy.predict_values(obs)
+    th.manual_seed(0)
+    a_on, fv_on, flp_on = policy(obs, deterministic=True)
+    policy.residual_enabled = False
+    v_off, lp_off, ent_off = policy.evaluate_actions(obs, acts)
+    val_off = policy.predict_values(obs)
+    th.manual_seed(0)
+    a_off, fv_off, flp_off = policy(obs, deterministic=True)
+    assert th.equal(a_on, a_off) and th.equal(flp_on, flp_off), \
+        "actor output/log-prob changed with the predictive branch"
+    assert th.equal(lp_on, lp_off) and th.equal(ent_on, ent_off)
+    # at gate==0 the residual is exactly 0.0 -> values bit-equal too
+    assert th.equal(v_on, v_off) and th.equal(val_on, val_off)
+    assert th.equal(fv_on, fv_off)
+    policy.residual_enabled = True
+
+
+def test_obs_conversion_parity_with_features_extractor(encoder_ckpt,
+                                                       corpus):
+    """The critic-side obs->frames->z path must equal the audited
+    DynFeaturesExtractor wiring (frozen), so D/E read the exact latent
+    B consumed."""
+    model, _ = _build(encoder_ckpt, corpus, configure=False)
+    policy = model.policy
+    fe = DynFeaturesExtractor(
+        _TinyEnv.observation_space, ckpt_path=str(encoder_ckpt),
+        frame_width=FRAME_WIDTH, history=HISTORY, freeze=True)
+    obs = th.as_tensor(np.random.default_rng(3).standard_normal(
+        (5, OBS_DIM)).astype(np.float32))
+    z_policy = policy.predictive_latent(obs)
+    z_fe = fe(obs)[:, : policy.critic_predictor.z_dim]
+    assert th.allclose(z_policy, z_fe, atol=1e-6)
+    conv = ObsToDynFrames(dd.Stats.from_dict(
+        th.load(encoder_ckpt, weights_only=False)["stats"]),
+        FRAME_WIDTH, HISTORY)
+    assert conv(obs).shape == (5, HISTORY, fr.FRAME_DIM)
+
+
+def test_ppo_value_grads_cannot_touch_transformers(encoder_ckpt, corpus):
+    """Frozen mode (condition D): PPO trains actor/critic/adapter/gate;
+    both the snapshot and (nonexistent) online predictor stay put and
+    the gate/adapter demonstrably learn."""
+    model, payloads = _build(encoder_ckpt, corpus, mode="frozen")
+    snap_before = _snap_params(model)
+    assert all(not p.requires_grad
+               for p in model.policy.critic_predictor.parameters())
+    opt_params = {id(p) for g in model.policy.optimizer.param_groups
+                  for p in g["params"]}
+    assert not (opt_params & {
+        id(p) for p in model.policy.critic_predictor.parameters()}), \
+        "snapshot params leaked into the PPO optimizer"
+    model.learn(total_timesteps=96)
+    assert all(th.equal(a, b) for a, b in
+               zip(snap_before, _snap_params(model))), \
+        "PPO update mutated the frozen snapshot"
+    assert float(model.policy.value_gate.detach()) != 0.0, \
+        "gate never learned (no value gradient reached it)"
+    assert payloads and payloads[-1]["pred/snapshot_version"] == 0
+    assert "critic/residual_abs_mean" in payloads[-1]
+    assert "critic/gate" in payloads[-1]
+
+
+def test_predictor_updates_leave_actor_untouched(encoder_ckpt, corpus):
+    """Online mode: predictor trains with its own optimizer; the proof
+    metric pred/actor_kl_from_predictor is exactly 0.0 and only the
+    online predictor's params move (snapshot moves only via EMA)."""
+    model, payloads = _build(encoder_ckpt, corpus, mode="online",
+                             steps_per_iter=2, ema_tau=0.0)
+    online_before = [p.detach().clone()
+                     for p in model._online_dyn.parameters()]
+    model.learn(total_timesteps=96)
+    assert payloads
+    for p in payloads:
+        assert p["pred/actor_kl_from_predictor"] == 0.0
+        assert p["pred/updates_total"] > 0
+    assert not all(th.equal(a, b) for a, b in zip(
+        online_before, model._online_dyn.parameters())), \
+        "online predictor never trained"
+    # ema_tau=0 -> candidate == snapshot -> accepted but a no-op;
+    # snapshot must still equal the pretrained checkpoint
+    ck = th.load(encoder_ckpt, weights_only=False)
+    ref = _tiny_model()
+    ref.load_state_dict(ck["model"])
+    assert all(th.equal(a.detach(), b.detach()) for a, b in zip(
+        model.policy.critic_predictor.parameters(), ref.parameters()))
+
+
+def test_snapshot_updates_between_iterations_only(encoder_ckpt, corpus):
+    """EMA accepted -> version advances across learn(); out-of-band
+    mutation inside a rollout raises."""
+    model, payloads = _build(encoder_ckpt, corpus, mode="online",
+                             steps_per_iter=1, ema_tau=0.5,
+                             drift_guard=1e9)
+    model.learn(total_timesteps=96)
+    versions = [p["pred/snapshot_version"] for p in payloads
+                if "pred/snapshot_version" in p]
+    assert versions[-1] >= 2, versions
+    assert payloads[-1]["pred/ema_accepted_total"] >= 2
+    assert int(model.policy.snapshot_version.item()) == versions[-1]
+
+    model2, _ = _build(encoder_ckpt, corpus, mode="online",
+                       steps_per_iter=1)
+
+    class RogueSnapshotCb(BaseCallback):
+        def _on_rollout_end(self) -> None:
+            with th.no_grad():
+                next(iter(self.model.policy.critic_predictor
+                          .parameters())).add_(1.0)
+
+        def _on_step(self) -> bool:
+            return True
+
+    with pytest.raises(RuntimeError, match="MUTATED inside"):
+        model2.learn(total_timesteps=64, callback=RogueSnapshotCb())
+
+
+def test_drift_guard_skips_oversized_updates(encoder_ckpt, corpus):
+    """drift_guard=-1: every candidate is rejected -> version pinned at
+    0, snapshot bit-equal to the pretrained checkpoint, rejections
+    logged."""
+    model, payloads = _build(encoder_ckpt, corpus, mode="online",
+                             steps_per_iter=1, ema_tau=0.5,
+                             drift_guard=-1.0)
+    snap_before = _snap_params(model)
+    model.learn(total_timesteps=96)
+    assert payloads[-1]["pred/ema_rejected_total"] >= 2
+    assert payloads[-1]["pred/ema_accepted_total"] == 0
+    assert payloads[-1]["pred/snapshot_version"] == 0
+    assert all(th.equal(a, b) for a, b in
+               zip(snap_before, _snap_params(model)))
+    assert all(np.isfinite(p["pred/snap_drift_step"]) for p in payloads
+               if "pred/snap_drift_step" in p)
+
+
+def test_save_roundtrip_small_and_bit_identical(encoder_ckpt, corpus,
+                                                tmp_path):
+    """No runtime pickled (tfwalk-joint1 12.5GB lesson); loaded model
+    reproduces actions AND values (incl. residual) bit-for-bit and
+    keeps the snapshot version."""
+    model, _ = _build(encoder_ckpt, corpus, mode="online",
+                      steps_per_iter=1, ema_tau=0.5, drift_guard=1e9)
+    model.learn(total_timesteps=64)
+    path = tmp_path / "predcritic.zip"
+    model.save(str(path))
+    with zipfile.ZipFile(path) as z:
+        data_size = z.getinfo("data").file_size
+        saved_keys = set(json.loads(z.read("data")).keys())
+    assert data_size < 512 * 1024, f"data blob {data_size}B — runtime leaked"
+    leaked = saved_keys & set(PredictiveCriticPPO._PRED_RUNTIME_ATTRS)
+    assert not leaked, f"runtime pickled into checkpoint: {leaked}"
+
+    loaded = PredictiveCriticPPO.load(str(path), device="cpu")
+    assert loaded._pcfg is None      # un-configured = plain PPO behavior
+    obs_np = np.random.default_rng(4).standard_normal(
+        (6, OBS_DIM)).astype(np.float32)
+    act_orig, _ = model.predict(obs_np, deterministic=True)
+    act_load, _ = loaded.predict(obs_np, deterministic=True)
+    assert np.array_equal(act_orig, act_load)
+    obs_t = th.as_tensor(obs_np)
+    assert th.equal(model.policy.predict_values(obs_t),
+                    loaded.policy.predict_values(obs_t))
+    assert int(loaded.policy.snapshot_version.item()) == int(
+        model.policy.snapshot_version.item())

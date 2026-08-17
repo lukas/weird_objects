@@ -23,6 +23,17 @@ variable is where the policy's representation comes from
                   last at 2M, approx_kl 4x A/B) and is now impossible:
                   JointAuxPPO raises if the shared transformer changes
                   out-of-band (fb_20260816T203212_af7c64).
+    D  frozen-critic  scratch-A actor + raw critic with a stop-gradient
+                  predictive-latent residual (zero-init learned gate)
+                  from the FROZEN pretrained transformer snapshot; the
+                  actor never sees a latent (fb_20260817T052333_e5ae09).
+    E  online-critic  like D, plus a SECOND transformer instance (the
+                  online predictor) training continuously with its own
+                  optimizer on fresh rollout windows + rehearsal; a
+                  guarded EMA snapshot — updated atomically only
+                  BETWEEN rollout+PPO iterations — feeds the critic
+                  residual. Actor stays completely independent
+                  (asserted: zero action-KL from predictor updates).
 
 Local pilot tasks (Mac-scale budgets; the brief's walk/yaw tasks need
 pod-scale steps): "hold" (quiet plant stance) then "lower" (controlled
@@ -150,6 +161,14 @@ def _init_wandb(args):
               "future-state auxiliary loss trains INSIDE every PPO "
               "minibatch (online rollout windows + rehearsal mix, "
               "scaled encoder LR, total action-KL guard with rollback)"),
+        "D": ("D=frozen-critic: scratch-A actor untouched; the CRITIC "
+              "adds a zero-gated stop-gradient latent residual from "
+              "the frozen pretrained transformer snapshot"),
+        "E": ("E=online-critic: scratch-A actor untouched; a separate "
+              "online transformer keeps learning dynamics from fresh "
+              "rollouts (+rehearsal); a guarded EMA snapshot, updated "
+              "only between rollout+PPO iterations, feeds the critic's "
+              "zero-gated stop-gradient residual"),
     }.get(args.condition.upper(), f"condition {args.condition}")
     run = wandb.init(
         entity=os.environ.get("WANDB_ENTITY", WANDB_ENTITY_DEFAULT),
@@ -196,7 +215,13 @@ def _init_wandb(args):
             "eval_every": args.eval_every,
             "eval_tasks": args.eval_tasks,
             "eval_heldout": args.eval_heldout,
-            "metrics_contract": "transfer-v3-jointaux",
+            "pred_lr": args.pred_lr,
+            "pred_steps_per_iter": args.pred_steps_per_iter,
+            "snap_ema_tau": args.snap_ema_tau,
+            "snap_drift_guard": args.snap_drift_guard,
+            "metrics_contract": ("transfer-v4-predcritic"
+                                 if args.condition.upper() in ("D", "E")
+                                 else "transfer-v3-jointaux"),
         },
         sync_tensorboard=True,
     )
@@ -204,6 +229,9 @@ def _init_wandb(args):
     run.define_metric("SCORE/*", step_metric="global_step", summary="last")
     run.define_metric("rollout/*", step_metric="global_step", summary="last")
     run.define_metric("anchor/*", step_metric="global_step", summary="last")
+    run.define_metric("pred/*", step_metric="global_step", summary="last")
+    run.define_metric("critic/*", step_metric="global_step",
+                      summary="last")
     metadata = {"id": run.id, "url": run.url, "name": args.name,
                 "wandb_name": f"{args.name}.{attempt}"}
     (LOG_DIR / f"ppo_{args.name}_wandb.json").write_text(
@@ -481,7 +509,8 @@ def rollout_metrics_payload(
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    ap.add_argument("--condition", required=True, choices=("A", "B", "C"))
+    ap.add_argument("--condition", required=True,
+                    choices=("A", "B", "C", "D", "E"))
     ap.add_argument("--task", required=True, choices=TASKS)
     ap.add_argument("--name", required=True)
     ap.add_argument("--steps", type=int, default=150_000)
@@ -545,6 +574,19 @@ def main() -> None:
     ap.add_argument("--online-buffer-frames", type=int, default=120_000,
                     help="FIFO capacity (frames) of the online rollout "
                          "window buffer")
+    ap.add_argument("--pred-lr", type=float, default=1e-4,
+                    help="condition E: Adam LR of the ONLINE predictor "
+                         "(its own optimizer, never the policy's)")
+    ap.add_argument("--pred-steps-per-iter", type=int, default=8,
+                    help="condition E: online-predictor gradient steps "
+                         "per rollout+PPO iteration")
+    ap.add_argument("--snap-ema-tau", type=float, default=0.05,
+                    help="condition E: EMA rate of the guarded "
+                         "between-iteration critic-snapshot update")
+    ap.add_argument("--snap-drift-guard", type=float, default=0.05,
+                    help="condition E: max probe-latent MSE a candidate "
+                         "snapshot may move per update; larger drifts "
+                         "are logged and SKIPPED")
     ap.add_argument("--checkpoint-every", type=int, default=250_000,
                     help="periodic checkpoint cadence in steps (0 "
                          "disables); best-by-heldout-walk checkpoint "
@@ -567,6 +609,9 @@ def main() -> None:
     )
     from rl_move.dynamics.model import dynamics_loss
     from rl_move.dynamics.online_windows import OnlineWindowBuffer
+    from rl_move.dynamics.predictive_critic import (
+        PredictiveCriticPolicy, PredictiveCriticPPO, PredictorConfig,
+    )
     from rl_move.dynamics.sb3_encoder import (
         DynFeaturesExtractor, set_group_lrs,
     )
@@ -580,7 +625,8 @@ def main() -> None:
     wandb_run = _init_wandb(args)
 
     torch.set_num_threads(2)
-    capture = args.condition == "C"
+    # C and E both train a predictor on FRESH rollout windows.
+    capture = args.condition in ("C", "E")
     venv = VecMonitor(SubprocVecEnv(
         [_env_factory(args.task, args.seed * 1000 + i, args.dr_scale,
                       args.episode_seconds, args.term_penalty,
@@ -599,6 +645,17 @@ def main() -> None:
         model = PPO("MlpPolicy", venv,
                     policy_kwargs=dict(net_arch=[128, 128],
                                        log_std_init=-1.0), **common)
+    elif args.condition in ("D", "E"):
+        # Decoupled predictive critic: the actor is the scratch-A
+        # MlpPolicy on the raw stacked obs (bit-identical init at the
+        # same seed — the predictive modules are built after SB3's
+        # standard RNG draws); only the CRITIC reads the frozen
+        # snapshot transformer, through a zero-init learned gate.
+        model = PredictiveCriticPPO(
+            PredictiveCriticPolicy, venv, policy_kwargs=dict(
+                net_arch=[128, 128], log_std_init=-1.0,
+                predictor_ckpt=str(ROOT / args.encoder),
+                frame_width=FRAME_WIDTH, history=HISTORY), **common)
     else:
         freeze = args.condition == "B"
         cls = PPO if freeze else JointAuxPPO
@@ -811,6 +868,91 @@ def main() -> None:
 
     callbacks = [RolloutMetricsCb(), EvalCb()]
 
+    if args.condition in ("D", "E"):
+        eps = dd.load_dataset(ROOT / args.anchor_data)
+        enc_ckpt = torch.load(ROOT / args.encoder, map_location="cpu",
+                              weights_only=False)
+        stats = dd.Stats.from_dict(enc_ckpt["stats"])
+        snap = model.policy.critic_predictor
+        pred_cfg = PredictorConfig(
+            mode=("online" if args.condition == "E" else "frozen"),
+            batch_size=args.aux_batch_size,
+            rehearsal_frac=args.rehearsal_frac,
+            steps_per_iter=args.pred_steps_per_iter,
+            lr=args.pred_lr, ema_tau=args.snap_ema_tau,
+            drift_guard=args.snap_drift_guard)
+        rehearsal = dd.WindowSampler(eps, stats, HISTORY, snap.horizons,
+                                     val=False, seed=args.seed)
+        heldout_sampler = dd.WindowSampler(eps, stats, HISTORY,
+                                           snap.horizons, val=True,
+                                           seed=args.seed)
+        online_buf = None
+        if args.condition == "E":
+            online_buf = OnlineWindowBuffer(
+                stats, HISTORY, snap.horizons,
+                max_frames=args.online_buffer_frames, seed=args.seed)
+
+        def pred_sink(payload: dict, step: int) -> None:
+            anchor_state["loss"] = payload.get(
+                "pred/train/total", anchor_state["loss"])
+            if wandb_run is not None:
+                wandb_run.log({"global_step": step, **payload})
+
+        model.configure_predictor(pred_cfg, rehearsal,
+                                  anchor_batch_to_torch,
+                                  online_buffer=online_buf,
+                                  metrics_sink=pred_sink)
+
+        def heldout_pred() -> dict:
+            """Predictor quality on the corpus VAL split. E: the ONLINE
+            predictor (the 15%-preservation gate); D: the frozen
+            snapshot (constant reference)."""
+            live = (model._online_dyn if args.condition == "E"
+                    else snap)
+            was_training = live.training
+            live.eval()
+            sums: dict[str, float] = {}
+            n = 0
+            with torch.no_grad():
+                for b in heldout_sampler.val_batches(
+                        1024, args.aux_batch_size):
+                    bt = anchor_batch_to_torch(b, device=device)
+                    out = live(bt["hist"], bt["fut_actions"])
+                    _, logs = dynamics_loss(out, bt, pred_cfg.lambdas,
+                                            live)
+                    logs.update(priv_group_metrics(out, bt, prefix=""))
+                    for k, v in logs.items():
+                        sums[k] = sums.get(k, 0.0) + v
+                    n += 1
+            if was_training:
+                live.train()
+            return {k: v / max(n, 1) for k, v in sums.items()}
+
+        aux_ctx["heldout_pred"] = heldout_pred
+
+        class PredOnlineWindowCb(BaseCallback):
+            def _on_training_start(self) -> None:
+                ref = heldout_pred()
+                print(f"  heldout pred loss at start (pretrained, "
+                      f"untouched): {ref['total']:.3f}")
+                if wandb_run is not None:
+                    wandb_run.log({
+                        "global_step": 0,
+                        "anchor/pretrained_loss": ref["total"],
+                        **{f"aux/heldout/{k}": v for k, v in ref.items()},
+                    })
+
+            def _on_step(self) -> bool:
+                if online_buf is None:
+                    return True
+                for info in self.locals.get("infos", ()):
+                    ep = info.get("dynrep_episode")
+                    if ep is not None:
+                        online_buf.add_episode(ep)
+                return True
+
+        callbacks.append(PredOnlineWindowCb())
+
     if args.condition == "C":
         eps = dd.load_dataset(ROOT / args.anchor_data)
         enc_ckpt = torch.load(ROOT / args.encoder, map_location="cpu",
@@ -897,6 +1039,18 @@ def main() -> None:
     run_evals(model.num_timesteps, heldout=args.eval_heldout)
     out = MODEL_DIR / f"ppo_{args.name}.zip"
     model.save(str(out))
+    if args.condition == "E":
+        # The SB3 zip carries only the critic SNAPSHOT (inside the
+        # policy); persist the online predictor separately in the
+        # standard encoder-checkpoint format (runtime is excluded from
+        # SB3 saves by design — the tfwalk-joint1 12.5GB lesson).
+        online_out = MODEL_DIR / f"dyn_online_{args.name}.pt"
+        torch.save({"layout_version": enc_ckpt["layout_version"],
+                    "config": model._online_dyn.config(),
+                    "model": model._online_dyn.state_dict(),
+                    "stats": enc_ckpt["stats"],
+                    "history": HISTORY}, online_out)
+        print(f"  online predictor -> {online_out}")
     csv_f.close()
     venv.close()
     print(f"[{args.name}] done in {(time.time() - t0) / 60:.1f} min "
