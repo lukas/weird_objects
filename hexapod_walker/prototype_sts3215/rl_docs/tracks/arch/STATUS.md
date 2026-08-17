@@ -8,6 +8,32 @@ at what budget, with which failure modes.
 
 ## Now
 
+- **08-17 ~15:2x UTC (triage cycle) — `cw-arch-modeexperts-scratch2`
+  (Arm B's first 40M full-budget stage) TRIAGED ACQUISITION-STAGE
+  PASS (pre-registered mechanism/exposure gate) — genuinely still
+  learning, not yet succeeding, and NOT an exploit.** Finished 40.04M
+  clean; exposure clause drifted exactly as pre-classified (hold
+  banked ~2× its .15 cap via sequence leakage, loco/lower stayed
+  just under their .30 target, rise landed on-target) — never a kill
+  per the gate's own letter. Per-expert stds diverged independently
+  and per-mode eval trends improved — real per-expert learning. Bulk
+  harness fork read (DR0+DR0.5, det+sto): 0/6 success on all 4
+  skills, but video-confirmed NO park/flag-leg/freeze cheat anywhere
+  — walk has a genuine 6/6-gait-valid six-leg gait covering the
+  commanded distance (just too much slip to clear the bar), rise
+  genuinely curls but over-currents 3/6, lower genuinely descends but
+  stalls short of flat-plant, hold stays genuinely stable but
+  off-height. Cumulative lineage active ticks (canary+scratch2) are
+  13.2M/10.0M/10.1M for rise/loco/lower, still short of the ≥20M
+  target. **`cw-arch-modeexperts-scratch3` LAUNCHED same cycle**
+  (warm from scratch2, mode_seq 0.2→0.10 + single-mode mix re-solved
+  from scratch2's measured realized/commanded ratios, targeting
+  ≥20M cumulative active ticks/skill and now requiring a real skill
+  SUCCESS verdict at its own fork). Detail:
+  `MODE_EXPERTS_DIRECTIVE.md` "SCRATCH2 RESULT + SCRATCH3 EXECUTED";
+  evidence `rl_docs/runs/cw-arch-modeexperts-scratch2.md`, W&B
+  `1t6rmexz`/`puvo5i2y`,
+  `logs/ckpt_eval/cw_arch_modeexperts_scratch2_{gate,owncfg}`.
 - **08-17 ~03:xx UTC — `cw-arch-joystick-canary1` (the operator-approved
   update-path redesign canary) TRIAGED CANARY FAIL - MECHANISM, auto-stopped
   at 1.52M/2.5M steps by its own EV hard-failure check — no 40M clone,

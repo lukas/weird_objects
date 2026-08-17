@@ -302,6 +302,67 @@ training); if a skill is flat at full exposure, its verdict is
 table — no capacity claim either way without seed twins + bulk
 cohorts.
 
+**SCRATCH2 RESULT + SCRATCH3 EXECUTED (08-17 ~15:2x UTC, triage
+cycle):** scratch2 finished its full 40.04M clean (no NaN/crash).
+Exposure clause drifted exactly as pre-classified — at 10M rise .394
+(over band), loco .283/lower .299 (in band), hold .024 (fine); at end
+rise .312 (back in band), loco .236/lower .241 (just under band),
+hold .211 (~2× the .15 cap) — driven by sequence episodes' hold
+segment banking more ticks as rise got reliably completed (more
+sequences now survive rise long enough to reach hold). Per-expert
+stds diverged independently (hold 1.84 > rise 1.51 > lower 1.33 >
+loco 0.74, shared 0.39 init) and per-mode in-loop eval trends
+improved (hold survived_frac 0→~1.0 by ~12M; walk/lower stayed high
+throughout). **Bulk harness fork read** (DR0 gate + DR0.5 own-cfg,
+det+sto, 6 eps/mode): 0/6 success on all 4 skills both passes, but NO
+proven dominating exploit — walk gait_valid 6/6 both passes (0
+sacrificed legs), real forward travel matching the commanded speed
+(1.4–1.8 m/30s) and prog_ratio ~1.0–1.1, just too much slip to clear
+the bar (slip/m 1.8–2.4 vs a trained champion's ~1.0–1.3); rise curls
+upward genuinely on video but over-currents in 3/6 det episodes both
+passes (worst_clear ~100–140mm); lower descends genuinely but never
+reaches the flat-plant target (worst_clear ~275–305mm, drag
+~1.0–1.6m/ep, 0 terminations); hold stays upright and stable (roll
+tail 0.4–0.8°) but off the target height band (worst_clear
+~130–215mm). Reads as real, uniform under-training at ~9–13M active
+ticks/skill so far — exactly the case this gate defers judging, not a
+reward/eval bug.
+
+Cumulative lineage active ticks (canary + scratch2):
+rise 0.70+12.48=**13.18M**, loco 0.53+9.45=**9.98M**,
+lower 0.44+9.65=**10.09M** — all still short of the ≥20M target
+(need +6.8M / +10.0M / +9.9M respectively). Per-skill acquisition HAS
+partially appeared (real, non-exploit motion in all 4 videos) but not
+uniformly, and hold is already 2× over its cap purely from sequence
+leakage even at `mode_seq=0.2` — raising `mode_seq` toward 0.5 now
+would only inflate hold further and starve loco/lower more, so this
+stage instead CUTS `mode_seq` 0.2→0.10 (less sequence-driven hold
+leakage) and re-solves the single-mode mix from the measured
+realized/commanded RATIO at end-of-run (realized_i/commanded_i:
+loco 0.68×, lower 0.74×, rise 1.03×, hold 7.5×) inverted and
+renormalized to target realized ≈.30/.30/.30/≤.10 →
+**rise 0.303→0.254, walk 0.345→0.383, lower 0.324→0.352,
+hold 0.028→0.011** (sums to 1.000). This is a pragmatic ratio-based
+re-solve, not an exact stationary-f_seq solve (attempting the
+original two-equation form on scratch2's non-stationary realized
+values produced an impossible negative f_seq for loco — the
+mix/hold-leakage relationship shifted over the run as rise got more
+reliable, so a single constant f_seq cannot fit both the 10M and
+end-of-run reads). At 40M new steps and a realized rate anywhere near
+this estimate, rise/loco/lower each clear +10-12M new active ticks,
+comfortably closing the ≥20M cumulative gap.
+
+**`cw-arch-modeexperts-scratch3` LAUNCHED same cycle** (`respec --from
+cw-arch-modeexperts-scratch2 --init-from-source --steps 40000000
+--phase hardening --arg='--goal-mix=walk=0.383,rise=0.254,
+lower=0.352,hold=0.011' --cfg goal.mode_seq=0.10 --now --pod
+hexapod-mjx-train-2`), VERIFIED RUNNING (W&B `puvo5i2y`). Gate now
+additionally requires a skill SUCCESS verdict at this fork (≥1/6 on
+a skill that scored 0/6 in scratch2 = real progress; still 0/6 at
+≥20M cumulative ticks = reward/curriculum bottleneck, not capacity).
+Evidence: `rl_docs/runs/cw-arch-modeexperts-scratch2.md`, W&B
+`1t6rmexz`, `logs/ckpt_eval/cw_arch_modeexperts_scratch2_{gate,owncfg}`.
+
 ## Decision interpretation (operator's, binding)
 
 - A passes, B fails → one-checkpoint composition solved;
