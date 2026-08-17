@@ -354,6 +354,12 @@ class _RecoverPopulation:
         self.peer_names = tuple(
             name.strip() for name in args.recover_population_runs.split(",")
             if name.strip())
+        self.peer_ids = tuple(
+            run_id.strip()
+            for run_id in args.recover_population_run_ids.split(",")
+            if run_id.strip())
+        if len(self.peer_ids) != len(self.peer_names):
+            raise RuntimeError("recovery population W&B id roster mismatch")
         self.run = run
         self.project_path = f"{run.entity}/{run.project}"
         self.api = wandb.Api(timeout=15)
@@ -369,7 +375,12 @@ class _RecoverPopulation:
         self._start_ready = False
         self._race_started = False
         self._next_poll = 0.0
-        self._peer_ids = {str(args.run_name): str(run.id)}
+        self._peer_ids = dict(zip(self.peer_names, self.peer_ids))
+        expected_run_id = self.peer_ids[self.member]
+        if str(run.id) != expected_run_id:
+            raise RuntimeError(
+                "recovery population local W&B id mismatch: expected "
+                f"{expected_run_id}, got {run.id}")
         self._local_summary: dict = {}
         self._sync_count = 0
         self._api_runs: dict[str, object] = {}
@@ -439,27 +450,7 @@ class _RecoverPopulation:
             print("[recover-pop] published retained candidate "
                   f"B{bucket} from member {self.member}")
 
-    def _resolve_peer_ids(self) -> None:
-        unresolved = [
-            name for name in self.peer_names if name not in self._peer_ids]
-        if not unresolved:
-            return
-        # Api.runs() caches its Runs object by query, including an empty
-        # first page. Earlier cohort members commonly query later names
-        # before those runs exist, so retry discovery through a fresh API
-        # object until the complete fixed roster has been resolved.
-        import wandb
-        discovery_api = wandb.Api(timeout=15)
-        for name in unresolved:
-            runs = list(discovery_api.runs(
-                self.project_path, filters={"display_name": name},
-                order="-created_at"))
-            if runs:
-                self._peer_ids[name] = str(runs[0].id)
-        self.api = discovery_api
-
     def _peer_rows(self) -> list[tuple[int, str, str, dict]]:
-        self._resolve_peer_ids()
         rows = []
         for member, name in enumerate(self.peer_names):
             run_id = self._peer_ids.get(name)
@@ -968,6 +959,16 @@ def _init_wandb(args, params: SimServoParams):
     # open with what the run is learning, not lineage babble).
     notes = (_learning_line(args) + "\n\n" + (args.notes or "")).strip()
     notes += "\n\n" + _reward_notes(args.cfg_set)
+    wandb_identity = {}
+    if args.recover_population_id:
+        population_ids = tuple(
+            run_id.strip()
+            for run_id in args.recover_population_run_ids.split(",")
+            if run_id.strip())
+        wandb_identity = {
+            "id": population_ids[args.recover_population_member],
+            "resume": "never",
+        }
     run = wandb.init(
         entity=WANDB_ENTITY_DEFAULT,
         project=os.environ.get("WANDB_PROJECT", WANDB_PROJECT_DEFAULT),
@@ -977,6 +978,7 @@ def _init_wandb(args, params: SimServoParams):
         job_type=(f"recover-member-{args.recover_population_member}"
                   if args.recover_population_id else None),
         name=args.run_name, notes=notes,
+        **wandb_identity,
         sync_tensorboard=True,   # SB3 train/* metrics, like the campaign
         config={"trainer": "train_ppo_mjx", "task": args.task,
                 "n_envs": args.n_envs, "impl": args.impl,
@@ -1003,6 +1005,9 @@ def _init_wandb(args, params: SimServoParams):
                 "recover_population_runs": (
                     args.recover_population_runs.split(",")
                     if args.recover_population_runs else []),
+                "recover_population_run_ids": (
+                    args.recover_population_run_ids.split(",")
+                    if args.recover_population_run_ids else []),
                 "recover_population_barrier_timeout_seconds": (
                     args.recover_population_barrier_timeout_seconds),
                 "recover_population_bootstrap_rollouts": (
@@ -1253,6 +1258,9 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--recover-population-runs", type=str, default=None,
                     help="comma-separated W&B run display names in member "
                          "order; all members load each elected checkpoint")
+    ap.add_argument("--recover-population-run-ids", type=str, default=None,
+                    help="comma-separated predeclared W&B run ids in member "
+                         "order; required to avoid cached name discovery")
     ap.add_argument("--recover-population-poll-seconds", type=float,
                     default=20.0,
                     help="minimum W&B peer-poll interval at PPO rollout "
@@ -1291,6 +1299,10 @@ def main(argv: list[str] | None = None) -> int:
     population_runs = [
         name.strip() for name in (args.recover_population_runs or "").split(",")
         if name.strip()]
+    population_run_ids = [
+        run_id.strip()
+        for run_id in (args.recover_population_run_ids or "").split(",")
+        if run_id.strip()]
     if args.recover_population_id:
         if args.no_wandb:
             ap.error("--recover-population-id requires W&B")
@@ -1298,6 +1310,13 @@ def main(argv: list[str] | None = None) -> int:
             ap.error("--recover-population-runs needs at least two runs")
         if len(set(population_runs)) != len(population_runs):
             ap.error("--recover-population-runs contains duplicates")
+        if len(population_run_ids) != len(population_runs):
+            ap.error("--recover-population-run-ids must provide one "
+                     "predeclared id per roster member")
+        if len(set(population_run_ids)) != len(population_run_ids):
+            ap.error("--recover-population-run-ids contains duplicates")
+        if any("/" in run_id for run_id in population_run_ids):
+            ap.error("--recover-population-run-ids cannot contain '/'")
         if not 0 <= args.recover_population_member < len(population_runs):
             ap.error("--recover-population-member is outside the roster")
         if args.run_name != population_runs[args.recover_population_member]:
@@ -1320,7 +1339,8 @@ def main(argv: list[str] | None = None) -> int:
         if bootstrap_steps >= args.recover_cert_every:
             ap.error("recovery population bootstrap budget must be smaller "
                      "than --recover-cert-every")
-    elif args.recover_population_runs or args.recover_population_member >= 0:
+    elif (args.recover_population_runs or args.recover_population_run_ids
+          or args.recover_population_member >= 0):
         ap.error("population roster/member requires --recover-population-id")
 
     if not mjx_is_available():

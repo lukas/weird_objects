@@ -324,50 +324,37 @@ def test_recover_population_force_refreshes_cached_peer_summaries():
     assert all(run.loads == [True] for run in runs.values())
 
 
-def test_recover_population_retries_cached_negative_peer_discovery(
-        monkeypatch):
-    available = {"member-1": "run-1"}
-    api_instances = []
-
+def test_recover_population_uses_predeclared_wandb_run_ids(monkeypatch):
     class Api:
         def __init__(self, **_kwargs):
-            self.snapshot = dict(available)
-            self.queries = []
-            api_instances.append(self)
+            pass
 
-        def runs(self, _path, *, filters, order):
-            assert order == "-created_at"
-            name = filters["display_name"]
-            self.queries.append(name)
-            run_id = self.snapshot.get(name)
-            return [] if run_id is None else [SimpleNamespace(id=run_id)]
-
-    population = object.__new__(_RecoverPopulation)
-    population.peer_names = ("member-0", "member-1", "member-2")
-    population._peer_ids = {"member-0": "run-0"}
-    population.project_path = "entity/project"
-    population.api = SimpleNamespace(
-        runs=lambda *_args, **_kwargs: (_ for _ in ()).throw(
-            AssertionError("must not reuse the negatively cached API")))
     monkeypatch.setitem(sys.modules, "wandb", SimpleNamespace(Api=Api))
+    args = SimpleNamespace(
+        recover_population_id="pop",
+        recover_population_member=1,
+        recover_population_runs="member-0,member-1,member-2",
+        recover_population_run_ids="run-0,run-1,run-2",
+        recover_population_poll_seconds=20.0,
+        recover_population_barrier_timeout_seconds=900.0,
+        recover_population_bootstrap_rollouts=10,
+        n_envs=512,
+        n_steps=128,
+        run_name="member-1",
+    )
+    run = SimpleNamespace(
+        id="run-1", entity="entity", project="project")
 
-    population._resolve_peer_ids()
-    assert population._peer_ids == {
-        "member-0": "run-0", "member-1": "run-1",
-    }
+    population = _RecoverPopulation(args, run, initial_bucket=0)
 
-    # member-2 appears after the first lookup. A fresh API object sees it;
-    # reusing wandb.Api.runs() would return its cached empty Runs page.
-    available["member-2"] = "run-2"
-    population._resolve_peer_ids()
-
+    assert population.peer_ids == ("run-0", "run-1", "run-2")
     assert population._peer_ids == {
         "member-0": "run-0", "member-1": "run-1", "member-2": "run-2",
     }
-    assert len(api_instances) == 2
-    assert api_instances[0].queries == ["member-1", "member-2"]
-    assert api_instances[1].queries == ["member-2"]
-    assert population.api is api_instances[1]
+
+    run.id = "generated-id"
+    with np.testing.assert_raises_regex(RuntimeError, "local W&B id"):
+        _RecoverPopulation(args, run, initial_bucket=0)
 
 
 def test_recover_population_next_election_requires_leader_release(
