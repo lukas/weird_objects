@@ -124,6 +124,33 @@ def _recover_update_regression_timers(
         if int(step) - failed_at >= int(rollback_after_steps))
 
 
+def _recover_update_admission_all(vec_env, cert_round: int) -> tuple[dict, int]:
+    """Atomically advance every training env and verify agreement.
+
+    Recovery curriculum state lives on each host-side shim. Updating only
+    env zero makes certification appear to advance while nearly every PPO
+    rollout remains on B0, so treat a divergent fleet as a fatal error.
+    """
+    admissions = vec_env.env_method(
+        "_recover_update_admission", int(cert_round))
+    if not admissions:
+        raise RuntimeError("recovery admission updated zero training envs")
+    canonical = admissions[0]
+    fields = ("active_before", "active_after", "promoted")
+    expected = tuple(canonical[field] for field in fields)
+    divergent = [
+        index for index, admission in enumerate(admissions)
+        if tuple(admission[field] for field in fields) != expected
+    ]
+    if divergent:
+        preview = divergent[:8]
+        raise RuntimeError(
+            "recovery curriculum desynchronized across training envs; "
+            f"canonical={expected}, divergent_indices={preview}, "
+            f"divergent_count={len(divergent)}")
+    return canonical, len(admissions)
+
+
 def _recover_score_payload(state: dict, best_score: float = 0.0,
                            cert_ages: dict[int, int] | None = None
                            ) -> tuple[dict, float]:
@@ -194,6 +221,363 @@ def _recover_score_payload(state: dict, best_score: float = 0.0,
             min(gate_fractions) if gate_fractions else 0.0),
     })
     return payload, best
+
+
+def _recover_population_record(summary: dict, kind: str,
+                               bucket: int) -> dict | None:
+    """Decode one atomic candidate/winner/ack record from W&B summary."""
+    raw = summary.get(
+        f"recover_population/{kind}_B{int(bucket):02d}")
+    if isinstance(raw, dict) and set(raw) == {"last"}:
+        raw = raw["last"]
+    if not raw:
+        return None
+    if isinstance(raw, str):
+        try:
+            raw = json.loads(raw)
+        except json.JSONDecodeError:
+            return None
+    return dict(raw) if isinstance(raw, dict) else None
+
+
+def _recover_population_choose_candidate(
+        peer_rows: list[tuple[int, str, str, dict]], bucket: int,
+        parent_fingerprint: str, population_id: str) -> dict | None:
+    """Elect the earliest valid candidate, with member as the tie-break."""
+    candidates = []
+    for member, run_id, run_name, summary in peer_rows:
+        row = _recover_population_record(summary, "candidate", bucket)
+        if row is None:
+            continue
+        if (str(row.get("population_id", "")) != str(population_id)
+                or int(row.get("bucket", -1)) != int(bucket)
+                or int(row.get("member", -1)) != int(member)
+                or str(row.get("run_id", "")) != str(run_id)
+                or str(row.get("run_name", "")) != str(run_name)
+                or str(row.get("parent_fingerprint", ""))
+                != str(parent_fingerprint)
+                or not row.get("policy_sha256")
+                or not row.get("curriculum_sha256")
+                or not row.get("policy_file")
+                or not row.get("curriculum_file")):
+            continue
+        candidates.append(row)
+    if not candidates:
+        return None
+    return min(candidates, key=lambda row: (
+        int(row.get("time_ns", 0)), int(row["member"])))
+
+
+def _recover_population_all_acked(
+        peer_rows: list[tuple[int, str, str, dict]], winner: dict,
+        population_id: str, expected_members: int) -> bool:
+    """Require an identity-bound ACK from every cohort member."""
+    if len(peer_rows) != int(expected_members):
+        return False
+    bucket = int(winner["bucket"])
+    fingerprint = str(winner["policy_sha256"])
+    for member, run_id, run_name, summary in peer_rows:
+        ack = _recover_population_record(summary, "ack", bucket)
+        if (ack is None
+                or str(ack.get("population_id", "")) != str(population_id)
+                or int(ack.get("bucket", -1)) != bucket
+                or int(ack.get("member", -1)) != int(member)
+                or str(ack.get("run_id", "")) != str(run_id)
+                or str(ack.get("run_name", "")) != str(run_name)
+                or str(ack.get("policy_sha256", "")) != fingerprint):
+            return False
+    return True
+
+
+class _RecoverPopulation:
+    """W&B-backed best-of-N checkpoint election for recovery training."""
+
+    def __init__(self, args, run, initial_bucket: int):
+        import wandb
+        self.population_id = str(args.recover_population_id)
+        self.member = int(args.recover_population_member)
+        self.peer_names = tuple(
+            name.strip() for name in args.recover_population_runs.split(",")
+            if name.strip())
+        self.run = run
+        self.project_path = f"{run.entity}/{run.project}"
+        self.api = wandb.Api(timeout=15)
+        self.poll_seconds = float(args.recover_population_poll_seconds)
+        self.initial_bucket = int(initial_bucket)
+        self.adopted_bucket = int(initial_bucket)
+        self.parent_fingerprint = f"root:{self.population_id}"
+        self._next_poll = 0.0
+        self._peer_ids = {str(args.run_name): str(run.id)}
+        self._local_summary: dict = {}
+        self._sync_count = 0
+        self._api_runs: dict[str, object] = {}
+        self._pending_candidates: dict[int, dict] = {}
+        self._pending_acks: dict[int, tuple[dict, int, int]] = {}
+
+    def _summary_update(self, values: dict) -> None:
+        self.run.summary.update(values)
+        self._local_summary.update(values)
+
+    def publish_candidate(self, checkpoint: dict) -> None:
+        import hashlib
+        path = Path(checkpoint["path"])
+        metadata_path = Path(checkpoint["metadata_path"])
+        bucket = int(checkpoint["bucket"])
+        row = {
+            "population_id": self.population_id,
+            "bucket": bucket,
+            "member": self.member,
+            "run_id": str(self.run.id),
+            "run_name": self.peer_names[self.member],
+            "step": int(checkpoint["step"]),
+            "time_ns": time.time_ns(),
+            "parent_fingerprint": self.parent_fingerprint,
+            "policy_file": path.relative_to(POLICY_DIR).as_posix(),
+            "curriculum_file": metadata_path.relative_to(
+                POLICY_DIR).as_posix(),
+            "policy_sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+            "curriculum_sha256": hashlib.sha256(
+                metadata_path.read_bytes()).hexdigest(),
+        }
+        self._pending_candidates[bucket] = row
+        self._flush_candidates()
+
+    def _flush_candidates(self) -> None:
+        """Upload files before making an atomic candidate record visible."""
+        import wandb
+        for bucket, row in list(self._pending_candidates.items()):
+            try:
+                for key in ("policy_file", "curriculum_file"):
+                    rel = self._checked_relative_path(row[key])
+                    path = POLICY_DIR / rel
+                    if not path.is_file():
+                        raise FileNotFoundError(path)
+                    self.run.save(
+                        str(path), base_path=str(POLICY_DIR), policy="now")
+                self._summary_update({
+                    f"recover_population/candidate_B{bucket:02d}":
+                        json.dumps(row, sort_keys=True),
+                    "recover_population/latest_candidate_bucket": bucket,
+                    "recover_latest_promotion_checkpoint":
+                        str(row["policy_file"]),
+                })
+            except Exception as exc:
+                print("[recover-pop] candidate upload deferred for "
+                      f"B{bucket}: {exc}")
+                continue
+            del self._pending_candidates[bucket]
+            try:
+                wandb.log({
+                    "global_step": int(row["step"]),
+                    "RECOVER_POPULATION/candidate_bucket": float(bucket),
+                    "RECOVER_POPULATION/candidate_member": float(self.member),
+                })
+            except Exception as exc:
+                print(f"[recover-pop] candidate metric deferred: {exc}")
+            print("[recover-pop] published retained candidate "
+                  f"B{bucket} from member {self.member}")
+
+    def _resolve_peer_ids(self) -> None:
+        for name in self.peer_names:
+            if name in self._peer_ids:
+                continue
+            runs = list(self.api.runs(
+                self.project_path, filters={"display_name": name},
+                order="-created_at"))
+            if runs:
+                self._peer_ids[name] = str(runs[0].id)
+
+    def _peer_rows(self) -> list[tuple[int, str, str, dict]]:
+        self._resolve_peer_ids()
+        rows = []
+        for member, name in enumerate(self.peer_names):
+            run_id = self._peer_ids.get(name)
+            if run_id is None:
+                continue
+            api_run = self.api.run(f"{self.project_path}/{run_id}")
+            self._api_runs[run_id] = api_run
+            summary = dict(api_run.summary)
+            if run_id == str(self.run.id):
+                summary.update(self._local_summary)
+            rows.append((member, run_id, name, summary))
+        return rows
+
+    def _winner(self, leader_summary: dict, bucket: int) -> dict | None:
+        row = _recover_population_record(leader_summary, "winner", bucket)
+        if (row is None
+                or row.get("population_id") != self.population_id
+                or int(row.get("bucket", -1)) != int(bucket)):
+            return None
+        return row
+
+    def _all_acked(self, peer_rows, winner: dict) -> bool:
+        return _recover_population_all_acked(
+            peer_rows, winner, self.population_id, len(self.peer_names))
+
+    def _elect(self, peer_rows, leader_summary: dict) -> dict:
+        if self.member != 0 or len(peer_rows) != len(self.peer_names):
+            return leader_summary
+        last_bucket = self.initial_bucket
+        last_winner = None
+        while True:
+            row = self._winner(leader_summary, last_bucket + 1)
+            if row is None:
+                break
+            last_bucket += 1
+            last_winner = row
+        if last_winner is not None and not self._all_acked(
+                peer_rows, last_winner):
+            return leader_summary
+        parent = (f"root:{self.population_id}" if last_winner is None
+                  else str(last_winner["policy_sha256"]))
+        candidate = _recover_population_choose_candidate(
+            peer_rows, last_bucket + 1, parent, self.population_id)
+        if candidate is None:
+            return leader_summary
+        winner = dict(candidate)
+        winner["elected_time_ns"] = time.time_ns()
+        key = f"recover_population/winner_B{last_bucket + 1:02d}"
+        values = {
+            key: json.dumps(winner, sort_keys=True),
+            "recover_population/latest_winner_bucket": last_bucket + 1,
+        }
+        self._summary_update(values)
+        leader_summary.update(values)
+        import wandb
+        wandb.log({
+            "global_step": int(self.run.summary.get("global_step", 0)),
+            "RECOVER_POPULATION/winner_bucket": float(last_bucket + 1),
+            "RECOVER_POPULATION/winner_member": float(winner["member"]),
+        })
+        print("[recover-pop] elected member "
+              f"{winner['member']} candidate for B{last_bucket + 1}")
+        return leader_summary
+
+    @staticmethod
+    def _checked_relative_path(raw: str) -> Path:
+        path = Path(str(raw))
+        if path.is_absolute() or ".." in path.parts:
+            raise ValueError(f"unsafe recovery population file {raw!r}")
+        return path
+
+    def _download(self, winner: dict) -> dict:
+        import hashlib
+        run_id = str(winner["run_id"])
+        policy_rel = self._checked_relative_path(winner["policy_file"])
+        curriculum_rel = self._checked_relative_path(
+            winner["curriculum_file"])
+        if run_id == str(self.run.id):
+            policy_path = POLICY_DIR / policy_rel
+            curriculum_path = POLICY_DIR / curriculum_rel
+        else:
+            api_run = self._api_runs.get(run_id) or self.api.run(
+                f"{self.project_path}/{run_id}")
+            root = (POLICY_DIR / "recover_population" /
+                    self.population_id /
+                    f"B{int(winner['bucket']):02d}_m{int(winner['member'])}")
+            root.mkdir(parents=True, exist_ok=True)
+            for rel in (policy_rel, curriculum_rel):
+                remote = api_run.file(rel.as_posix())
+                if remote is None:
+                    raise FileNotFoundError(
+                        f"W&B run {run_id} has no file {rel.as_posix()}")
+                remote.download(root=str(root), replace=True)
+            policy_path = root / policy_rel
+            curriculum_path = root / curriculum_rel
+        for path, key in ((policy_path, "policy_sha256"),
+                          (curriculum_path, "curriculum_sha256")):
+            if not path.is_file():
+                raise FileNotFoundError(path)
+            actual = hashlib.sha256(path.read_bytes()).hexdigest()
+            if actual != str(winner[key]):
+                raise RuntimeError(
+                    f"recovery population checksum mismatch for {path}")
+        metadata = json.loads(curriculum_path.read_text())
+        if int(metadata["promotion_bucket"]) != int(winner["bucket"]):
+            raise RuntimeError("recovery population curriculum bucket "
+                               "does not match the elected winner")
+        return {
+            "path": policy_path,
+            "metadata_path": curriculum_path,
+            "bucket": int(winner["bucket"]),
+            "step": int(winner["step"]),
+            "curriculum": metadata["curriculum"],
+            "cert_round": int(metadata.get("cert_round", 0)),
+            "population_record": winner,
+        }
+
+    def poll(self) -> dict | None:
+        now = time.monotonic()
+        if now < self._next_poll:
+            return None
+        self._next_poll = now + self.poll_seconds
+        self._flush_candidates()
+        self._flush_acks()
+        try:
+            peer_rows = self._peer_rows()
+            if len(peer_rows) != len(self.peer_names):
+                print("[recover-pop] waiting for all peer W&B runs: "
+                      f"{len(peer_rows)}/{len(self.peer_names)} visible")
+                return None
+            leader_summary = peer_rows[0][3]
+            leader_summary = self._elect(peer_rows, leader_summary)
+            winner = self._winner(leader_summary, self.adopted_bucket + 1)
+            if winner is None:
+                return None
+            if str(winner.get("parent_fingerprint", "")) != (
+                    self.parent_fingerprint):
+                raise RuntimeError(
+                    "recovery population winner has the wrong parent "
+                    f"fingerprint for B{self.adopted_bucket + 1}")
+            return self._download(winner)
+        except Exception as exc:
+            print(f"[recover-pop] poll deferred: {exc}")
+            return None
+
+    def acknowledge(self, checkpoint: dict, global_step: int) -> None:
+        winner = checkpoint["population_record"]
+        bucket = int(checkpoint["bucket"])
+        self.adopted_bucket = bucket
+        self.parent_fingerprint = str(winner["policy_sha256"])
+        self._sync_count += 1
+        ack = {
+            "population_id": self.population_id,
+            "bucket": bucket,
+            "member": self.member,
+            "run_id": str(self.run.id),
+            "run_name": self.peer_names[self.member],
+            "policy_sha256": self.parent_fingerprint,
+            "winner_run_id": str(winner["run_id"]),
+            "ack_time_ns": time.time_ns(),
+        }
+        self._pending_acks[bucket] = (
+            ack, int(global_step), int(winner["member"]))
+        self._flush_acks()
+
+    def _flush_acks(self) -> None:
+        import wandb
+        for bucket, (ack, global_step, winner_member) in list(
+                self._pending_acks.items()):
+            try:
+                self._summary_update({
+                    f"recover_population/ack_B{bucket:02d}":
+                        json.dumps(ack, sort_keys=True),
+                    "recover_population/latest_ack_bucket": bucket,
+                })
+            except Exception as exc:
+                print(f"[recover-pop] ACK deferred for B{bucket}: {exc}")
+                continue
+            del self._pending_acks[bucket]
+            try:
+                wandb.log({
+                    "global_step": global_step,
+                    "RECOVER_POPULATION/adopted_bucket": float(bucket),
+                    "RECOVER_POPULATION/ack_bucket": float(bucket),
+                    "RECOVER_POPULATION/winner_member": float(winner_member),
+                    "RECOVER_POPULATION/sync_count": float(self._sync_count),
+                })
+            except Exception as exc:
+                print(f"[recover-pop] ACK metric deferred: {exc}")
 
 
 def _run_recover_cert_kind(vec_env, model, kind: str) -> dict:
@@ -309,7 +693,10 @@ def _init_wandb(args, params: SimServoParams):
         project=os.environ.get("WANDB_PROJECT", WANDB_PROJECT_DEFAULT),
         # Research tracks (operator 08-11) arrive as WANDB_TAGS
         # (track:<id>), which wandb.init honors natively.
-        group="mjx-trainer", name=args.run_name, notes=notes,
+        group=(args.recover_population_id or "mjx-trainer"),
+        job_type=(f"recover-member-{args.recover_population_member}"
+                  if args.recover_population_id else None),
+        name=args.run_name, notes=notes,
         sync_tensorboard=True,   # SB3 train/* metrics, like the campaign
         config={"trainer": "train_ppo_mjx", "task": args.task,
                 "n_envs": args.n_envs, "impl": args.impl,
@@ -330,6 +717,12 @@ def _init_wandb(args, params: SimServoParams):
                     args.recover_rollback_after_steps),
                 "recover_rollback_fraction": (
                     args.recover_rollback_fraction),
+                "recover_population_id": args.recover_population_id,
+                "recover_population_member": (
+                    args.recover_population_member),
+                "recover_population_runs": (
+                    args.recover_population_runs.split(",")
+                    if args.recover_population_runs else []),
                 "recover_replay_mix": {
                     "focus": 0.50, "recent_three": 0.25,
                     "weakest": 0.15, "uniform_older": 0.10,
@@ -350,6 +743,8 @@ def _init_wandb(args, params: SimServoParams):
     run.define_metric("RECOVER_SCORE/*", step_metric="global_step",
                       summary="last")
     run.define_metric("RECOVER_GUARD/*", step_metric="global_step",
+                      summary="last")
+    run.define_metric("RECOVER_POPULATION/*", step_metric="global_step",
                       summary="last")
     print(f"[wandb] logging to {run.url or 'offline run dir'}")
     return run
@@ -561,6 +956,20 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--recover-rollback-fraction", type=float, default=0.60,
                     help="a retained bucket below this deterministic gate "
                          "fraction starts/continues its rollback timer")
+    ap.add_argument("--recover-population-id", type=str, default=None,
+                    help="shared id for synchronized best-of-N recovery "
+                         "learners (requires W&B and --recover-population-"
+                         "runs)")
+    ap.add_argument("--recover-population-member", type=int, default=-1,
+                    help="zero-based member index; member 0 elects the "
+                         "first retention-clean promotion")
+    ap.add_argument("--recover-population-runs", type=str, default=None,
+                    help="comma-separated W&B run display names in member "
+                         "order; all members load each elected checkpoint")
+    ap.add_argument("--recover-population-poll-seconds", type=float,
+                    default=20.0,
+                    help="minimum W&B peer-poll interval at PPO rollout "
+                         "boundaries")
     ap.add_argument("--no-canary", action="store_true",
                     help="disable the fixed-seed canary probes + "
                          "regression auto-stop (on by default for warm "
@@ -584,6 +993,30 @@ def main(argv: list[str] | None = None) -> int:
         ap.error("--recover-rollback-after-steps must be >= 0")
     if not 0.0 <= args.recover_rollback_fraction <= 1.0:
         ap.error("--recover-rollback-fraction must be in [0, 1]")
+    population_runs = [
+        name.strip() for name in (args.recover_population_runs or "").split(",")
+        if name.strip()]
+    if args.recover_population_id:
+        if args.no_wandb:
+            ap.error("--recover-population-id requires W&B")
+        if len(population_runs) < 2:
+            ap.error("--recover-population-runs needs at least two runs")
+        if len(set(population_runs)) != len(population_runs):
+            ap.error("--recover-population-runs contains duplicates")
+        if not 0 <= args.recover_population_member < len(population_runs):
+            ap.error("--recover-population-member is outside the roster")
+        if args.run_name != population_runs[args.recover_population_member]:
+            ap.error("--run-name must match this member's population roster "
+                     "entry")
+        if args.recover_cert_every <= 0 or args.recover_cert_envs <= 0:
+            ap.error("recovery population sync requires deterministic "
+                     "recovery certification")
+        if float(_parse_goal_mix(args.goal_mix).get("recover", 0.0)) <= 0.0:
+            ap.error("recovery population sync requires recover episodes")
+        if args.recover_population_poll_seconds <= 0.0:
+            ap.error("--recover-population-poll-seconds must be > 0")
+    elif args.recover_population_runs or args.recover_population_member >= 0:
+        ap.error("population roster/member requires --recover-population-id")
 
     if not mjx_is_available():
         raise SystemExit("mujoco-mjx / jax not installed — "
@@ -738,6 +1171,10 @@ def main(argv: list[str] | None = None) -> int:
           f"(compile + {args.pool_per_env + 1} reset choreographies)")
 
     run = _init_wandb(args, params)
+    if args.recover_population_id and run is None:
+        raise SystemExit(
+            "recovery population sync could not initialize W&B; refusing "
+            "to start an unsynchronized cohort member")
 
     # Checkpoint lineage via W&B artifacts (operator, 08-09): declare
     # the parent checkpoint as an input so the W&B artifact DAG shows
@@ -1199,6 +1636,16 @@ def main(argv: list[str] | None = None) -> int:
                       f"-> {out_path} ({fps:,.0f} env-steps/s)")
 
 
+    population = None
+    if args.recover_population_id:
+        initial_bucket = int(venv.get_attr(
+            "_rec_active_n", indices=0)[0]) - 1
+        population = _RecoverPopulation(
+            args, run, initial_bucket=initial_bucket)
+        print("[recover-pop] synchronized cohort armed: "
+              f"{len(population.peer_names)} members, this member "
+              f"{population.member}, initial B{initial_bucket}")
+
     callbacks: list = [_Track()]
     if bc_coef > 0.0:
         from .bc_anchor import make_bc_collect_callback
@@ -1239,6 +1686,7 @@ def main(argv: list[str] | None = None) -> int:
                     "policy": path.name,
                     "promotion_bucket": bucket,
                     "global_step": int(self.num_timesteps),
+                    "cert_round": int(self._cert_round),
                     "curriculum": curriculum,
                 }, indent=2, sort_keys=True) + "\n")
                 self._latest_promotion = {
@@ -1246,10 +1694,11 @@ def main(argv: list[str] | None = None) -> int:
                     "metadata_path": metadata_path,
                     "bucket": bucket,
                     "step": int(self.num_timesteps),
+                    "cert_round": int(self._cert_round),
                     "curriculum": curriculum,
                 }
                 self._promotion_checkpoint_count += 1
-                if run is not None:
+                if run is not None and population is None:
                     try:
                         run.save(str(path), base_path=str(POLICY_DIR),
                                  policy="now")
@@ -1262,15 +1711,12 @@ def main(argv: list[str] | None = None) -> int:
                               f"{exc}")
                 print(f"[recover-guard] promotion checkpoint B{bucket} "
                       f"@ {self.num_timesteps:,}: {path}")
+                if population is not None:
+                    population.publish_candidate(self._latest_promotion)
 
-            def _on_rollout_start(self) -> None:
-                if self._pending_rollback is None:
-                    return
-                rollback = self._pending_rollback
-                self._pending_rollback = None
-                checkpoint = rollback["checkpoint"]
+            def _restore_checkpoint(self, checkpoint: dict) -> None:
                 # This hook runs after the preceding PPO update and before
-                # collecting the next rollout, so restoring parameters does
+                # collecting the next rollout, so replacing the policy does
                 # not invalidate old-policy log probabilities.
                 self.model.set_parameters(
                     str(checkpoint["path"]), exact_match=True,
@@ -1278,10 +1724,46 @@ def main(argv: list[str] | None = None) -> int:
                 venv.env_method(
                     "restore_recover_curriculum_checkpoint_state",
                     checkpoint["curriculum"])
+                active = [int(value) for value in venv.get_attr(
+                    "_rec_active_n")]
+                expected = int(checkpoint["bucket"]) + 1
+                if len(active) != venv.num_envs or set(active) != {expected}:
+                    counts = {
+                        value: active.count(value)
+                        for value in sorted(set(active))
+                    }
+                    raise RuntimeError(
+                        "recovery checkpoint restore desynchronized the "
+                        f"training fleet: expected active_n={expected}, "
+                        f"counts={counts}")
                 self.model._last_obs = venv.reset()
                 self.model._last_episode_starts = np.ones(
                     venv.num_envs, dtype=bool)
                 self._retention_failed_since = {}
+
+            def _on_rollout_start(self) -> None:
+                if population is not None:
+                    checkpoint = population.poll()
+                    if checkpoint is not None:
+                        self._pending_rollback = None
+                        self._restore_checkpoint(checkpoint)
+                        self._latest_promotion = checkpoint
+                        self._cert_round = max(
+                            self._cert_round,
+                            int(checkpoint.get("cert_round", 0)))
+                        population.acknowledge(
+                            checkpoint, self.num_timesteps)
+                        print("[recover-pop] ADOPTED elected B"
+                              f"{checkpoint['bucket']} checkpoint from "
+                              f"member {checkpoint['population_record']['member']} "
+                              f"at local step {self.num_timesteps:,}")
+                        return
+                if self._pending_rollback is None:
+                    return
+                rollback = self._pending_rollback
+                self._pending_rollback = None
+                checkpoint = rollback["checkpoint"]
+                self._restore_checkpoint(checkpoint)
                 self._rollback_count += 1
                 payload = {
                     "global_step": self.num_timesteps,
@@ -1390,9 +1872,8 @@ def main(argv: list[str] | None = None) -> int:
                         if bucket not in rows_by_bucket:
                             buckets.append(bucket)
                             assay_bucket(bucket)
-                admission = venv.env_method(
-                    "_recover_update_admission", self._cert_round,
-                    indices=0)[0]
+                admission, synchronized_envs = _recover_update_admission_all(
+                    venv, self._cert_round)
                 active_after = int(admission["active_after"])
                 payload = {
                     "global_step": self.num_timesteps,
@@ -1416,6 +1897,8 @@ def main(argv: list[str] | None = None) -> int:
                         len(admission["retention_failed_buckets"])
                         if full_suite_attempted else 0),
                     "CERT/recover_promoted": float(admission["promoted"]),
+                    "CERT/recover_training_envs_synchronized": float(
+                        synchronized_envs),
                 }
                 for bucket, rows in rows_by_bucket.items():
                     successes = sum(r["successes"] for r in rows)

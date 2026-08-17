@@ -1,13 +1,20 @@
 from __future__ import annotations
 
+import json
+import sys
 from types import SimpleNamespace
 
 import numpy as np
 
+import rl_move.sim.train_ppo_mjx as train_ppo_mjx
 from rl_move.sim.train_ppo_mjx import (
+    _RecoverPopulation,
     _env_kwargs, _recover_cert_bucket_plan, _recover_episode_outcome,
-    _recover_episode_training_error, _recover_score_payload,
-    _recover_update_regression_timers, _run_recover_cert_kind)
+    _recover_episode_training_error, _recover_population_choose_candidate,
+    _recover_population_all_acked, _recover_population_record,
+    _recover_score_payload,
+    _recover_update_admission_all, _recover_update_regression_timers,
+    _run_recover_cert_kind)
 
 
 class _FakeCertEnv:
@@ -120,6 +127,173 @@ def test_recover_regression_timer_requires_same_bucket_for_elapsed_window():
         failed_since, {0: 1.0, 1: 0.5}, 39, 0.6, 20) == []
     assert _recover_update_regression_timers(
         failed_since, {0: 1.0, 1: 0.5}, 40, 0.6, 20) == [1]
+
+
+class _FakeAdmissionVec:
+    def __init__(self, admissions):
+        self.admissions = admissions
+        self.calls = []
+
+    def env_method(self, method, *args, **kwargs):
+        self.calls.append((method, args, kwargs))
+        return self.admissions
+
+
+def test_recover_admission_updates_every_training_env():
+    row = {"active_before": 3, "active_after": 4, "promoted": True}
+    env = _FakeAdmissionVec([dict(row) for _ in range(512)])
+
+    admission, synchronized = _recover_update_admission_all(env, 7)
+
+    assert admission == row
+    assert synchronized == 512
+    assert env.calls == [("_recover_update_admission", (7,), {})]
+
+
+def test_recover_admission_fails_loudly_on_desynchronized_envs():
+    env = _FakeAdmissionVec([
+        {"active_before": 3, "active_after": 4, "promoted": True},
+        {"active_before": 3, "active_after": 3, "promoted": False},
+    ])
+
+    with np.testing.assert_raises_regex(RuntimeError, "desynchronized"):
+        _recover_update_admission_all(env, 7)
+
+
+def test_recover_population_elects_first_candidate_on_common_parent():
+    def summary(member, time_ns, parent="winner-B3"):
+        row = {
+            "population_id": "pop",
+            "bucket": 4,
+            "member": member,
+            "run_id": f"run-{member}",
+            "run_name": f"member-{member}",
+            "step": 10_000 + member,
+            "time_ns": time_ns,
+            "parent_fingerprint": parent,
+            "policy_file": f"recover_promotions/member-{member}.zip",
+            "curriculum_file": (
+                f"recover_promotions/member-{member}.curriculum.json"),
+            "policy_sha256": f"policy-{member}",
+            "curriculum_sha256": f"curriculum-{member}",
+        }
+        return {"recover_population/candidate_B04": json.dumps(row)}
+
+    peers = [
+        (0, "run-0", "member-0", summary(0, 200)),
+        (1, "run-1", "member-1", summary(1, 100)),
+        # A fast candidate from a stale pre-sync branch is ineligible.
+        (2, "run-2", "member-2", summary(2, 50, parent="stale")),
+    ]
+
+    winner = _recover_population_choose_candidate(
+        peers, bucket=4, parent_fingerprint="winner-B3",
+        population_id="pop")
+
+    assert winner is not None
+    assert winner["member"] == 1
+
+
+def test_recover_population_record_accepts_wandb_last_wrapper():
+    row = {"bucket": 3, "member": 2}
+    summary = {
+        "recover_population/winner_B03": {
+            "last": json.dumps(row),
+        },
+    }
+
+    assert _recover_population_record(summary, "winner", 3) == row
+
+
+def test_recover_population_requires_ack_from_every_matching_member():
+    winner = {"bucket": 4, "policy_sha256": "winner-B4"}
+
+    def peer(member, fingerprint="winner-B4", population="pop"):
+        run_id = f"run-{member}"
+        run_name = f"member-{member}"
+        ack = {
+            "population_id": population,
+            "bucket": 4,
+            "member": member,
+            "run_id": run_id,
+            "run_name": run_name,
+            "policy_sha256": fingerprint,
+        }
+        summary = {
+            "recover_population/ack_B04": json.dumps(ack),
+        }
+        return member, run_id, run_name, summary
+
+    peers = [peer(0), peer(1), peer(2)]
+    assert _recover_population_all_acked(peers, winner, "pop", 3)
+    assert not _recover_population_all_acked(peers[:2], winner, "pop", 3)
+    assert not _recover_population_all_acked(
+        [peer(0), peer(1, fingerprint="stale"), peer(2)],
+        winner, "pop", 3)
+    assert not _recover_population_all_acked(
+        [peer(0), peer(1, population="other"), peer(2)],
+        winner, "pop", 3)
+
+
+def test_recover_population_publishes_only_after_checkpoint_upload(
+        tmp_path, monkeypatch):
+    events = []
+
+    class Summary(dict):
+        def update(self, values):
+            events.append("summary")
+            super().update(values)
+
+    class Run:
+        id = "run-0"
+        summary = Summary()
+        fail_save = True
+
+        def save(self, path, **_kwargs):
+            events.append(f"save:{path}")
+            if self.fail_save:
+                raise RuntimeError("upload unavailable")
+
+    policy_dir = tmp_path / "policies"
+    promotion_dir = policy_dir / "recover_promotions"
+    promotion_dir.mkdir(parents=True)
+    policy = promotion_dir / "candidate.zip"
+    curriculum = promotion_dir / "candidate.curriculum.json"
+    policy.write_bytes(b"policy")
+    curriculum.write_text("{}")
+    monkeypatch.setattr(train_ppo_mjx, "POLICY_DIR", policy_dir)
+    monkeypatch.setitem(
+        sys.modules, "wandb",
+        SimpleNamespace(log=lambda _payload: events.append("metric")))
+
+    population = object.__new__(_RecoverPopulation)
+    population.population_id = "pop"
+    population.member = 0
+    population.peer_names = ("member-0", "member-1", "member-2")
+    population.run = Run()
+    population.parent_fingerprint = "root:pop"
+    population._local_summary = {}
+    population._pending_candidates = {}
+
+    checkpoint = {
+        "path": policy,
+        "metadata_path": curriculum,
+        "bucket": 1,
+        "step": 1_000,
+    }
+    population.publish_candidate(checkpoint)
+    assert 1 in population._pending_candidates
+    assert "recover_population/candidate_B01" not in population.run.summary
+
+    events.clear()
+    population.run.fail_save = False
+    population._flush_candidates()
+
+    assert 1 not in population._pending_candidates
+    assert events[0].startswith("save:")
+    assert events[1].startswith("save:")
+    assert events[2:] == ["summary", "metric"]
+    assert "recover_population/candidate_B01" in population.run.summary
 
 
 def test_recover_score_uses_fixed_difficulty_weighted_denominator():
