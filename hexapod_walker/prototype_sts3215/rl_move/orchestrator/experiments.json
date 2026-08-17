@@ -94137,7 +94137,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "in-cycle cw-recover-any15-retentionrollback-cont1 since 2026-08-17T21:35:01"
   },
   {
     "run": "cw-recover-any14-retentiongate-cont1-r2",
@@ -94245,5 +94246,42 @@
     "refused_reason": "hexapod-mjx-train-0 already runs cw-recover-any15-retentionrollback-cont1 \u2014 GPU pods host exactly one run; pick a free GPU pod.",
     "verdict": "Never launched (REFUSED at capacity check, no process, no science). Closed per superseding operator order 20260817T190903Z: the any14 stubs used pre-7d39a25 code without per-promotion checkpoints/rollback and must NEVER be retried. Superseded by cw-recover-any15-retentionrollback-cont1 (RUNNING, exact SHA 7d39a25).",
     "triage": "done"
+  },
+  {
+    "run": "cw-dynrep-livewalkrise1-canary1",
+    "created": "2026-08-17T21:40:26+00:00",
+    "note": "Script-owned (pod_livewalkrise.sh, manifest livewalkrise_manifest.jsonl on-pod). Operator order fb_20260817T210422_9df9c7 arm A, mechanism canary before the 10M continuation. Code 8cc61c3d (main): live_replay.py stratified CUDA store + predictive_critic live mode (boundary-gated versioned snapshot). Tests: test_dynrep_live_replay.py 10/10 on-pod CUDA (incl. the CUDA store/optimizer proof), all prior dynrep banks 28/28, real-env F smoke on train-5 PASS (obs 16x73 yaw-cmd, md5 verified, pretrained heldout ref 2.286 exact). Canary boundary=50k exists ONLY to exercise the gated accept/reject machinery; the continuation uses the ordered 1M boundary.",
+    "status": "RUNNING",
+    "pod": "hexapod-mjx-train-5",
+    "track": "dynrep",
+    "phase": "canary",
+    "steps": 150000,
+    "wandb_id": "m10szmx6",
+    "git_sha": "8cc61c3de6309e7c9fb806a57b074047cab00ce5",
+    "trainer": "train_ppo_transfer",
+    "proc_match": "cw-dynrep-livewalkrise1-canary1",
+    "wandb_match": "^cw-dynrep-livewalkrise1-canary1",
+    "log": "/workspace/prototype_sts3215/rl_move/dynamics/logs/pod_livewalkrise_canary1.log",
+    "hypothesis": "Prove the new live world-model machinery end to end before spending real compute: the walking-and-rising robot collects its own command-rich experience (all heading directions, stops and direction changes, commanded yaw; rises from flat/bridge/crouch and post-lower bank poses), an online dynamics transformer keeps learning from it on the GPU with stratified 75/25 walk/rise replay + 25% v5 rehearsal, and the critic-facing feature snapshot starts as exact frozen D and may only change at gated step boundaries. This canary judges the MECHANISM (quotas, bins, gates, actor isolation, checkpoints), never learning outcomes. Operator order fb_20260817T210422_9df9c7 arm A.",
+    "gate": "MECHANISM-HEALTH CANARY ONLY: (1) CUDA - store tensors/predictor batches/online Adam state on CUDA (bank on-pod PASS); (2) actor isolation - pred/actor_kl_from_predictor exactly 0 throughout; (3) quotas - past warmup, batch fresh/rehearsal ~0.75/0.25 and fresh walk/rise ~0.75/0.25 (+/-10%); (4) coverage - data/added nonzero for cmd_change, start_stop, yaw_left+right, back/lat/diag, rise flat_bridge+crouch+post_lower; (5) snapshot discipline - version changes only at 50k boundaries, every attempt logs all six gate values, >=1 attempt exercised (accept OR reject both legal here); (6) W&B pred/*, critic/*, data/* advancing; (7) checkpoints <100MB, round-trip OK, online predictor saved separately. PASS -> launch cw-dynrep-livewalkrise1 (10M, boundary 1M, same cfg) immediately; FAIL -> fix + re-canary, no continuation."
+  },
+  {
+    "run": "cw-dynrep-criticD-40m1",
+    "created": "2026-08-17T21:40:52+00:00",
+    "note": "Script-owned (pod_criticD40m.sh, manifest criticD40m_manifest.jsonl on-pod). Operator order fb_20260817T210422_9df9c7 arm B. Code 8cc61c3d (main). Encoder = EXACT vt2ovznc checkpoint (cw-dynrep-tf-state2-recovered1.pt, md5 9df48f687967c25085ee50171e4110ff asserted at trainer start), FROZEN as critic D throughout (no online predictor; snapshot_version must stay 0). n_envs 16 (vs cohort 8) for 40M wall clock; conservative command diversity via existing proven goal keys only: walk_cmd_resample_s=4.0 + jitter 0.5 + walk_stop_frac=0.15; no yaw command channel (proven walk stack unchanged). Checkpoints: periodic 2M (newest 3) + best by pre-registered locomotion_quality composite + final.",
+    "status": "RUNNING",
+    "pod": "hexapod-mjx-train-7",
+    "track": "dynrep",
+    "phase": "acquisition",
+    "steps": 40000000,
+    "wandb_id": "55woacy7",
+    "git_sha": "8cc61c3de6309e7c9fb806a57b074047cab00ce5",
+    "trainer": "train_ppo_transfer",
+    "proc_match": "cw-dynrep-criticD-40m1",
+    "wandb_match": "^cw-dynrep-criticD-40m1",
+    "log": "/workspace/prototype_sts3215/rl_move/dynamics/logs/pod_criticD40m1.log",
+    "evidence": "Healthy-mechanism precedent: dynrep-tfwalk-critic1-D s5/s6/s7 (frozen-D beat matched scratch A on 3/3 seeds at 1M, mean walk 375.1 vs ~325.6, critic EV .928, cleaner gait than E) + on-pod D smoke this cycle (train-7, loco-quality selection + md5 assert exercised). Full-budget precedent: 40M is the campaign standard consolidation budget (guardrails max_steps_per_run).",
+    "hypothesis": "Give the walking robot a value function that reads the frozen pretrained dynamics transformer - the exact setup that beat from-scratch PPO on all three 1M seeds - and train a fresh command-following walker for 40M steps with joystick-style command changes and stops. Tests whether the frozen-D critic advantage compounds at scale into a download-quality command walker. Checkpoints are picked by how well the robot actually walks where commanded (progress, vx/vy+yaw tracking, slip per meter, roll, falls, slew, six-foot gait cycling), never scalar reward alone. Operator order fb_20260817T210422_9df9c7 arm B.",
+    "gate": "Pre-registered 40M decision checkpoint, no extension without a verdict. PASS = the best-loco checkpoint on the 6-episode command-rich own-DR walk eval shows early_term_rate 0, cmd_prog_frac >= 0.6, slip_per_m <= 2.0, peak_roll_deg <= 8, contact_sw_per_s >= 3 (all six feet cycling), SCORE/loco_quality >= 10, AND walk return exceeding the 1M frozen-D cohort mean (375) at some eval point. Mechanical invariants: encoder md5 match, pred/snapshot_version pinned at 0, W&B global_step advancing, periodic+best+final checkpoints present. Rise/hold retention curves reported alongside (monitored, scratch actor - no hard retention gate). Verdict must quote the visual-quality stats (slip, roll, tracking) vs the 1M cohort numbers - a higher-reward pick with worse drag/roll is not a PASS."
   }
 ]

@@ -130,7 +130,7 @@ def test_window_extraction_parity_with_windowsampler(stats):
     """A store-held window must be bit-identical to the real
     WindowSampler's extraction of the same (episode, t)."""
     _, st = stats
-    store = _store(stats, val_every=10**9)
+    store = _store(stats, val_every=10**9, mask_cmd_priv=False)
     ep = _ep_dict(0, "walk")
     assert store.add_episode(ep)
     episode = dd.Episode(
@@ -195,6 +195,46 @@ def test_bin_meta_correctness(stats):
                                  reason="term"), t)
     assert _bin(m, "rise_start") == "flat_bridge"
     assert _bin(m, "fall") == "fall_ep"
+
+
+def test_live_windows_mask_exogenous_cmd_priv(stats):
+    """Live windows must NOT supervise the exogenous command priv
+    channels (7:14): future commands are unpredictable by design under
+    mid-episode resampling, and the corpus priv_std for wz_ref is a
+    clamped 0.001 (one live yaw command = ~300 sigma — the canary1
+    cmd_track blowup). Rehearsal windows keep the full corpus mask."""
+    eps_all, st = stats
+    store = _store(stats, val_every=10**9)      # mask_cmd_priv default ON
+    for i in range(4):
+        store.add_episode(_ep_dict(900 + i, "walk", cmd=(0.1, 0, 0.3)))
+    rehearsal = dd.WindowSampler(eps_all, st, HISTORY, HORIZONS,
+                                 val=False, seed=0)
+    batch, info = stratified_live_batch(
+        store, rehearsal, anchor_batch_to_torch, "cpu", 32,
+        rehearsal_frac=0.25, walk_frac=1.0, min_live_windows=16)
+    mask = batch["priv_mask_now"]
+    n_fresh = int(round(info["pred/batch_fresh_frac"] * 32))
+    assert n_fresh > 0
+    assert th.all(mask[:n_fresh, 7:14] == 0.0), \
+        "live windows still supervise exogenous cmd channels"
+    assert th.all(mask[:n_fresh, :7] == 1.0)
+    assert th.all(mask[n_fresh:, :] == 1.0), \
+        "rehearsal mask was clobbered"
+    # the masked loss must ignore the exploding channels entirely
+    from rl_move.dynamics.model import dynamics_loss
+    model = _tiny_model()
+    with th.no_grad():
+        out = model(batch["hist"], batch["fut_actions"])
+        # blow up the masked channels in the target: loss must not move
+        loss_a, _ = dynamics_loss(out, batch, PredictorConfig().lambdas,
+                                  model)
+        batch2 = dict(batch)
+        batch2["priv_now"] = batch["priv_now"].clone()
+        batch2["priv_now"][:n_fresh, 7:14] += 1000.0
+        loss_b, _ = dynamics_loss(out, batch2, PredictorConfig().lambdas,
+                                  model)
+    assert th.allclose(loss_a, loss_b), \
+        "masked exogenous channels still leak into the loss"
 
 
 def test_stratified_quotas_and_warmup_fallback(stats):

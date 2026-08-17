@@ -70,14 +70,28 @@ CMD_CHANGE_EPS = 0.01     # command-vector change that counts as a change
 # priv sidecar columns (frames.PRIV_NAMES)
 _PRIV_CMD = slice(7, 10)          # vx_ref, vy_ref, wz_ref
 _PRIV_V_ALONG = 10
+# Priv channels 7:14 (cmd refs + cmd-projected velocity + cmd heading)
+# are EXOGENOUS under command-rich live collection: mid-episode
+# resampling makes future commands unpredictable by design, and the
+# pretraining corpus never commanded yaw (its priv_std for wz_ref is a
+# clamped 0.001, so one live wz_ref=0.3 normalizes to ~300 sigma —
+# measured on cw-dynrep-livewalkrise1-canary1: the cmd_track loss group
+# hit ~500-580 while every physical head stayed 0.3-1.5, tripling the
+# online predictor's corpus-val). Live windows therefore mask these
+# channels out of the supervised priv targets; rehearsal windows keep
+# the full corpus mask so pretraining-comparable heldout numbers are
+# untouched.
+_PRIV_EXOGENOUS = slice(7, 14)
 
 # error-report channel groups within the 44-dim STATE target
 _STATE_TILT = (36, 37)
 _STATE_JOINT_POS = tuple(range(0, 18))
 _STATE_JOINT_VEL = tuple(range(18, 36))
-# priv groups (joint_aux.PRIV_GROUPS, restated for locality)
+# priv groups for per-bin reporting. NOTE: heading = yaw_rel sin/cos
+# only — the cmd-heading channels (12, 13) are exogenous-masked on live
+# windows (see _PRIV_EXOGENOUS) and would report untrained noise.
 _PRIV_VEL = (0, 1, 2, 3)
-_PRIV_HEADING = (5, 6, 12, 13)
+_PRIV_HEADING = (5, 6)
 
 
 def _mode_bin(mode: str) -> int:
@@ -258,7 +272,8 @@ class LiveWindowStore:
                  max_rise_windows: int = 12_000,
                  max_val_windows: int = 5_000,
                  windows_per_episode: int = 64,
-                 val_every: int = 8, seed: int = 0):
+                 val_every: int = 8, seed: int = 0,
+                 mask_cmd_priv: bool = True):
         self.stats = stats
         self.H = int(history)
         self.horizons = tuple(sorted(int(k) for k in horizons))
@@ -266,6 +281,7 @@ class LiveWindowStore:
         self.device = device
         self.windows_per_episode = int(windows_per_episode)
         self.val_every = int(val_every)
+        self.mask_cmd_priv = bool(mask_cmd_priv)
         self.rng = np.random.default_rng(seed)
         self.groups = {
             ("walk", "train"): _Group(max_walk_windows),
@@ -300,12 +316,15 @@ class LiveWindowStore:
         if key is None or len(frames) < self.min_episode_frames:
             self.episodes_skipped += 1
             return False
+        priv_mask = np.ones(fr.PRIV_DIM, dtype=np.float32)
+        if self.mask_cmd_priv:
+            priv_mask[_PRIV_EXOGENOUS] = 0.0
         episode = dd.Episode(
             frames=frames,
             actions=np.asarray(ep["actions"], dtype=np.float32),
             priv=fr.upgrade_priv(np.asarray(ep["priv"],
                                             dtype=np.float32)),
-            priv_mask=np.ones(fr.PRIV_DIM, dtype=np.float32),
+            priv_mask=priv_mask,
             actor="ppo_live", mode=mode,
             reason=str(ep.get("reason", "trunc")),
             dr=float(ep.get("dr", 0.0)), global_idx=self._next_idx,
