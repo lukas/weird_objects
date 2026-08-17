@@ -8,6 +8,29 @@ at what budget, with which failure modes.
 
 ## Now
 
+- **08-17 ~03:xx UTC — `cw-arch-joystick-canary1` (the operator-approved
+  update-path redesign canary) TRIAGED CANARY FAIL - MECHANISM, auto-stopped
+  at 1.52M/2.5M steps by its own EV hard-failure check — no 40M clone,
+  reported back to the operator.** Critic explained_variance sat at ~0
+  (1e-7 range) from step 49k through the auto-stop, never rising, so the
+  redesigned update path (actor/critic LR groups, transactional rollback,
+  bounded term_cost=240, calibrated 25mm height gate) did NOT fix value
+  learning — even though the frozen-rollout audit proved the transformer
+  critic CAN fit returns. New root cause, different from scratch3's
+  unbounded cliff: `ep_len_mean` pinned at EXACTLY 50 steps (the 2.0s
+  walk-height grace period at 25Hz) for nearly the whole run — every
+  episode gets stopped by `walk_low_height` at the earliest legal tick, so
+  returns are near-identical across states (report.json: every det episode
+  height_err_end_mm=37.9, roll_class=fell, forward_dist~15mm, identical
+  duty/swing) — a return-variance collapse that trivially zeros EV. DR0
+  gate + own-DR(0.3): 0/6 det + 0/6 sto, prog_ratio 0.05-0.26, slip/m ~4
+  (dragging, not walking), roll settled 0/6; contact sheet shows a static
+  crouch, no stepping. Open lead for whoever designs the next attempt
+  (operator call, not an autonomous arch relaunch — the canary's FAIL
+  branch routes here by design): check whether the walk task's initial
+  pose/height reference already sits near/below the 25mm trip band before
+  the policy acts at all, independent of the reward redesign. Evidence:
+  W&B hkliaidm, `logs/ckpt_eval/cw_arch_joystick_canary1_{gate,owncfg}`.
 - **08-17 ~02:xx UTC — OPERATOR-APPROVED joystick-walking redesign
   EXECUTED (fb_20260817T005114_775298) + `cw-arch-joystick-canary1`
   (2.5M gated integration canary) launched.** The 08-16 closure of

@@ -93386,7 +93386,7 @@
       "Operator-approved gated integration canary (fb_20260817T005114_775298): redesigned update path (actor/critic LR groups + decay, 3 epochs, tight KL, transactional rollback), bounded terminal cost 240, calibrated height gate (sigma 11mm / trip 25mm from honest scripted-gait band), staged command curriculum, best-ckpt retention + EV/regression auto-stops. Mechanism health only; promotion gates in the ledger."
     ],
     "created": "2026-08-17T01:28:47+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -93415,6 +93415,21 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:arch nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-arch-joystick-canary1 --steps 2000000 --task joint_walk --dr-scale 0.3 --episode-seconds 60 --n-envs 32 --n-steps 1536 --batch-size 8192 --gamma 0.995 --gae-lambda 0.97 --n-epochs 3 --target-kl 0.01 --lr 3e-4 --actor-lr 1e-4 --actor-lr-final 1e-5 --critic-lr 3e-4 --kl-rollback 0.03 --kl-rollback-lr-factor 0.5 --ev-stop-min 0.05 --ev-stop-after 1500000 --best-ckpt --regress-stop-n 3 --ent-coef 0.001 --log-std-init -1.0 --eval-every 1000000 --video-every 2000000 --video-episodes 4 --save-every 1000000 --seed 2 --device cuda --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.k_walk_prog=0.0 --cfg-set reward.k_walk_cmd_track=2.0 --cfg-set reward.k_roll=30.0 --cfg-set reward.k_pitch=30.0 --cfg-set reward.k_gyro=0.1 --cfg-set reward.term_cost_per_remaining_s=12.0 --cfg-set reward.term_cost_max=240.0 --cfg-set reward.walk_height_gate=1.0 --cfg-set reward.walk_height_sigma_mm=11.0 --cfg-set safety.walk_max_height_drop_mm=25.0 --cfg-set safety.walk_height_grace_s=2.0 --cfg-set goal.walk_speed_min_m_s=0.02 --cfg-set goal.walk_speed_max_m_s=0.05 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.0 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set reward.walk_gait_gate=1.0 --cfg-set goal.walk_heading_max_rad=3.141592653589793 --cfg-set goal.walk_cmd_mode=stress_mix --cfg-set goal.walk_cmd_stage=0.0 --cfg-set sched.key=goal.walk_cmd_stage --cfg-set sched.v0=0 --cfg-set sched.v1=2 --cfg-set sched.t0_steps=0 --cfg-set sched.t1_steps=1600000 --cfg-set sched.n_envs=32 --cfg-set goal.walk_cmd_resample_s=4.0 --cfg-set goal.walk_cmd_resample_jitter=0.8 --cfg-set goal.walk_cmd_blend_s_min=0.0 --cfg-set goal.walk_cmd_blend_s_max=0.0 --cfg-set goal.walk_stop_frac=0.1 --cfg-set goal.walk_cmd_sweep_period_s=12.0 --cfg-set goal.walk_cmd_jitter_rad=0.25 --cfg-set goal.walk_cmd_metrics=1.0 --cfg-set obs.history_frames=16 --transformer --impl warp --host-workers 8 --out-name ppo_goal_cw_arch_joystick_canary1 --notes 'Operator-approved gated integration canary (fb_20260817T005114_775298): redesigned update path (actor/critic LR groups + decay, 3 epochs, tight KL, transactional rollback), bounded terminal cost 240, calibrated height gate (sigma 11mm / trip 25mm from honest scripted-gait band), staged command curriculum, best-ckpt retention + EV/regression auto-stops. Mechanism health only; promotion gates in the ledger.' > /tmp/train_cw-arch-joystick-canary1.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-arch-joystick-canary1.log",
     "wandb_id": "hkliaidm",
-    "verified": "2026-08-17T01:31:46+00:00"
+    "verified": "2026-08-17T01:31:46+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-17T01:36:59+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 1050,
+        "fps": 1092.3,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ],
+    "triage": "done",
+    "hardware_ready": false,
+    "verdict": "CANARY FAIL - MECHANISM (operator fb_20260817T005114 canary): critic explained_variance stayed ~0 (1e-7 range, occasionally exactly 0) from step 49k to the 1.5M auto-stop, never rising -- the redesigned update path (actor/critic LR groups, transactional rollback, bounded term_cost=240, calibrated height gate) did NOT fix value learning despite the frozen-rollout audit proving the transformer critic CAN fit returns. Root cause visible in the curve: ep_len_mean pinned at EXACTLY 50 steps (= the 2.0s walk-height grace period at 25Hz) from the first logged iteration through ~1.28M steps -- every single episode gets terminated by walk_low_height at the earliest legal tick, so returns are near-identical across states (report.json confirms: all det episodes height_err_end_mm=37.9mm, roll_class=fell, forward_dist~15mm, identical duty/swing patterns) -- a return-variance collapse that trivially zeros explained_variance, a DIFFERENT failure mode than scratch3's unbounded terminal cliff. DR0 gate + own-DR(0.3): 0/6 det + 0/6 sto walk success both passes, prog_ratio 0.05-0.26, slip/m ~4 (dragging in place, not walking), roll settled 0/6; contact sheet shows a near-static crouched stance, no stepping. Per the canary's own FAIL branch: no 40M clone. Per-gate readings: gate1 EV=HARD FAIL; gate3 ep-len=FAIL (pinned at grace boundary); gate4 v_along/dir_err=not evaluable, no real motion; gate5 height_factor/low-height epidemic=FAIL (100% of episodes); gate6 video stepping=FAIL (static crouch). Open question for the next design cycle: the robot sinks below the height trip within the 2s grace on essentially every reset regardless of command -- check whether the walk task's initial pose/height reference sits near/below the 25mm trip band before any policy action, independent of the reward redesign."
   }
 ]
