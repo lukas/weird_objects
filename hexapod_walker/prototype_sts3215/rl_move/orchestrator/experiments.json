@@ -95574,7 +95574,7 @@
       "900"
     ],
     "created": "2026-08-17T23:22:39+00:00",
-    "status": "REFUSED",
+    "status": "STALE_DUPLICATE",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [
@@ -95586,7 +95586,8 @@
     "phase": "acquisition",
     "assessment_scope": "full_budget_skill_acquisition",
     "evidence": "Operator execution directive fb_20260817T225114_a31958: corrected synchronization protocol implemented, tested, pushed at origin/main f5aee3f (Synchronize initial recovery population race \u2014 bootstrap ready/start barrier at exactly 10 rollouts, identity-bound ACK + leader release_BNN barrier per bucket, forced W&B summary refresh + parent hashes; test_recover_cert.py extended). Comparable healthy full-budget from-scratch precedent: cw-recover-any11-rsi-scratch1 (same recipe family, 40M, genuine six-foot recoveries on video).",
-    "refused_reason": "hexapod-mjx-train-0 already runs cw-recover-any18-pop3-s11 \u2014 GPU pods host exactly one run; pick a free GPU pod."
+    "refused_reason": "hexapod-mjx-train-0 already runs cw-recover-any18-pop3-s11 \u2014 GPU pods host exactly one run; pick a free GPU pod.",
+    "note": "duplicate launch attempt (this cycle's own respec, or a concurrent cycle racing the same fb_20260817T231336_93cacc directive) refused after the real INTENT (created 2026-08-17T23:21:08+00:00) had already started the trainer on train-0; harmless, normal concurrent-launch traffic (REFUSED is not an error)."
   },
   {
     "run": "cw-recover-any18-pop3-s12",
