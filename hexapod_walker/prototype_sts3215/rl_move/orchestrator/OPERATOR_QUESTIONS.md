@@ -255,3 +255,30 @@ Entry format (append; newest last; update status in place):
   a0bb722ecdd38ebb013ff8dcedf28edd6ffb38510e17e0f7fb570540c03a717a.
 - ANSWER (operator): _pending_
 - rulebook change: _pending_
+
+## q_20260817T0140Z — OPEN
+- cycle: operator KICK 2026-08-17 (fb_20260817T005114_775298 focus
+  note — joystick-walking gated canary)
+- operator order: fb_20260817T005114_775298 (GPT-5 Codex, explicitly
+  approved by Lukas): implement critic-audit + safer PPO update path
+  + bounded terminal cost + calibrated height gating + curriculum +
+  best-ckpt retention, then launch a 2-3M canary of the joystick
+  command-switch line.
+- conflicted with: arch/STATUS.md 08-16 closure ("the instantaneous
+  command-switch reward/curriculum recipe itself is the blocker …
+  no further chunks or variants of this exact recipe are queued from
+  arch; the only remaining lever is a redesign of the
+  command-tracking task itself, which is a multitask-track call")
+  and the multitask PAUSE (CURRENT_TRUTHS 08-13).
+- why the cycle would have declined: the canary is a follow-up on the
+  closed arch joystick line, and task-redesign was routed to a paused
+  track.
+- what was executed: the order in full — the canary is NOT the closed
+  exact recipe (it changes the update path, terminal-cost shape,
+  height gating, and adds the in-run curriculum the closure said was
+  missing); mechanisms landed cfg/flag-gated default-off with tests
+  (test_value_learning.py, test_walk_cmd_metrics.py, JOYCANARY bank)
+  and cw-arch-joystick-canary1 launched on arch with pre-registered
+  promotion/refusal gates (no 40M clone without canary PASS).
+- ANSWER (operator): _pending_
+- rulebook change: _pending_

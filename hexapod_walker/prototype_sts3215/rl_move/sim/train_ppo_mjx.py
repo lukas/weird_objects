@@ -352,6 +352,43 @@ def main(argv: list[str] | None = None) -> int:
                          "--gamma.")
     ap.add_argument("--n-epochs", type=int, default=5)
     ap.add_argument("--lr", type=float, default=3e-4)
+    # Update-path protection (08-17, operator-approved
+    # fb_20260817T005114 after the scratch3 late-run collapse; all
+    # default OFF = legacy single-group optimizer, bit-exact).
+    ap.add_argument("--actor-lr", type=float, default=0.0,
+                    help="separate actor param-group LR (>0 enables "
+                         "actor/critic optimizer param groups via "
+                         "update_health.attach_actor_critic_lr)")
+    ap.add_argument("--actor-lr-final", type=float, default=0.0,
+                    help="linear-decay target for --actor-lr over the "
+                         "run (0 = no decay)")
+    ap.add_argument("--critic-lr", type=float, default=0.0,
+                    help="critic param-group LR, constant (0 = --lr); "
+                         "keeps the critic learning while the actor "
+                         "is throttled")
+    ap.add_argument("--kl-rollback", type=float, default=0.0,
+                    help="hard realized-KL ceiling: snapshot the "
+                         "policy before each PPO update, restore it "
+                         "and cut the actor LR when train/approx_kl "
+                         "exceeds this (0 = off; requires --actor-lr)")
+    ap.add_argument("--kl-rollback-lr-factor", type=float, default=0.5,
+                    help="actor-LR scale multiplier per rollback")
+    ap.add_argument("--ev-stop-min", type=float, default=0.0,
+                    help="critic explained-variance hard gate: stop "
+                         "the run if the EV EMA is still below this "
+                         "after --ev-stop-after steps (0 = off). "
+                         "EV~0 is a value-learning hard failure, "
+                         "never a plateau")
+    ap.add_argument("--ev-stop-after", type=int, default=1_500_000)
+    ap.add_argument("--best-ckpt", action="store_true",
+                    help="retain <out>_best.zip at every periodic-eval "
+                         "composite-health improvement (survival, "
+                         "direction error, aligned velocity) and arm "
+                         "the joint regression auto-stop")
+    ap.add_argument("--regress-stop-n", type=int, default=3,
+                    help="consecutive jointly-regressed assays "
+                         "(reward AND survival AND direction) before "
+                         "the --best-ckpt auto-stop fires")
     ap.add_argument("--ent-coef", type=float, default=1e-3)
     ap.add_argument("--target-kl", type=float, default=0.02)
     ap.add_argument("--log-std-init", type=float, default=-1.0)
@@ -758,6 +795,30 @@ def main(argv: list[str] | None = None) -> int:
         from .bc_anchor import attach_bc_anchor
         attach_bc_anchor(model, coef=bc_coef, cfg=env_kw.get("cfg"),
                          task=args.task)
+    # Update-path protection (fb_20260817T005114; default off).
+    if args.actor_lr > 0.0:
+        from .update_health import (attach_actor_critic_lr,
+                                    attach_kl_rollback)
+        attach_actor_critic_lr(
+            model, args.actor_lr,
+            (args.actor_lr_final if args.actor_lr_final > 0.0
+             else None),
+            (args.critic_lr if args.critic_lr > 0.0 else args.lr))
+        st = model._ac_state
+        print(f"[update-health] actor/critic param groups: "
+              f"{st['n_actor']} actor tensors @ {st['actor_lr']:.2e}"
+              f"{' -> %.2e' % st['actor_lr_final'] if st['actor_lr_final'] != st['actor_lr'] else ''}, "
+              f"{st['n_critic']} critic tensors @ "
+              f"{st['critic_lr']:.2e} (constant)")
+        if args.kl_rollback > 0.0:
+            attach_kl_rollback(model, args.kl_rollback,
+                               lr_factor=args.kl_rollback_lr_factor)
+            print(f"[update-health] transactional updates armed: "
+                  f"rollback + actor-LR x{args.kl_rollback_lr_factor} "
+                  f"on realized KL > {args.kl_rollback}")
+    elif args.kl_rollback > 0.0:
+        raise SystemExit("--kl-rollback requires --actor-lr (the "
+                         "rollback reduces the actor-LR scale)")
 
     out_name = args.out_name or (
         f"ppo_mjx_{args.task}" + (f"_{args.run_name}" if args.run_name
@@ -1233,6 +1294,91 @@ def main(argv: list[str] | None = None) -> int:
         if args.video_every > 0:
             callbacks.append(_make_video_callback(bg, args.video_every,
                                                   args))
+    if args.best_ckpt or args.ev_stop_min > 0.0:
+        from .update_health import EVTracker, HealthTracker
+
+        best_path = POLICY_DIR / f"{out_name}_best.zip"
+
+        class _Health(BaseCallback):
+            """Best-checkpoint retention + joint-regression stop +
+            critic explained-variance hard gate (fb_20260817T005114
+            items 2 and 8). Assays ride the periodic C-env eval; the
+            best checkpoint is the LIVE policy at drain time (the
+            eval snapshot is a few updates older — close enough for
+            retention, and the harness re-scores _best.zip anyway)."""
+
+            def __init__(self):
+                super().__init__()
+                self._tracker = HealthTracker(
+                    regress_n=args.regress_stop_n)
+                self._ev = (EVTracker(args.ev_stop_min,
+                                      args.ev_stop_after)
+                            if args.ev_stop_min > 0.0 else None)
+                self._stop_reason: str | None = None
+
+            def _on_step(self) -> bool:
+                if self._stop_reason is not None:
+                    print(f"[health-stop] {self._stop_reason}")
+                    return False
+                return True
+
+            def _on_rollout_end(self) -> None:
+                payload = {"global_step": self.num_timesteps}
+                if self._ev is not None:
+                    ev = self.model.logger.name_to_value.get(
+                        "train/explained_variance")
+                    if ev is not None:
+                        ema = self._ev.feed(float(ev))
+                        payload["health/explained_variance_ema"] = ema
+                        if self._ev.failed(self.num_timesteps):
+                            self._stop_reason = (
+                                f"critic explained variance EMA "
+                                f"{ema:.3f} < {self._ev.ev_min} after "
+                                f"{self.num_timesteps:,} steps — value "
+                                "learning hard failure (canary gate)")
+                if args.best_ckpt and bg is not None:
+                    for ep in bg.pop_evals():
+                        surv = ep.get("eval/walk/survived_frac")
+                        if surv is None:
+                            continue
+                        dir_err = float(ep.get(
+                            "eval/walk/dir_err_deg_mean", 180.0))
+                        vel_err = float(ep.get(
+                            "eval/walk/vel_err_m_s", 1.0))
+                        v_along = max(1.0 - vel_err / 0.05, -1.0)
+                        buf = self.model.ep_info_buffer
+                        rew = (float(np.mean([e["r"] / max(e["l"], 1)
+                                              for e in buf]))
+                               if buf else 0.0)
+                        res = self._tracker.feed(
+                            float(surv), dir_err, v_along, rew)
+                        payload["health/composite_score"] = res["score"]
+                        payload["health/regress_streak"] = (
+                            self._tracker.streak)
+                        if res["is_best"]:
+                            self.model.save(best_path)
+                            payload["health/best_step"] = (
+                                self.num_timesteps)
+                            print(f"[health] new best composite "
+                                  f"{res['score']:.3f} @ "
+                                  f"{self.num_timesteps:,} -> "
+                                  f"{best_path.name}")
+                        if res["should_stop"]:
+                            self._stop_reason = (
+                                f"reward+survival+direction regressed "
+                                f"together for {self._tracker.streak} "
+                                f"consecutive assays (best composite "
+                                f"{self._tracker.best_score:.3f}) — "
+                                "stopping; best checkpoint retained "
+                                f"at {best_path.name}")
+                if run is not None and len(payload) > 1:
+                    import wandb
+                    wandb.log(payload)
+
+        callbacks.append(_Health())
+        print("[update-health] health callback armed "
+              f"(best-ckpt={bool(args.best_ckpt)}, "
+              f"ev-gate={args.ev_stop_min or 'off'})")
     try:
         model.learn(total_timesteps=args.steps, callback=callbacks,
                     progress_bar=False)

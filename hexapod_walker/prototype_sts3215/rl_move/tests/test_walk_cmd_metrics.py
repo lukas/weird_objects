@@ -320,3 +320,123 @@ def test_walk_low_height_termination_is_opt_in_and_charges_horizon():
     expect = -(10.0 + k * (env.episode_steps - 1) * env.dt)
     assert info["reward_termination"] == pytest.approx(expect)
     env.close()
+
+
+# --------------------------------------------------------------------------
+# Bounded terminal cost (08-17, operator-approved fb_20260817T005114
+# item 5): reward.term_cost_max caps the ADDED horizon component of
+# the early-fall charge — the uncapped form reached ~-730 on an early
+# 60 s fall and the critic never learned to predict the cliff
+# (EV ~0 through 40M on cw-arch-joystick-long-scratch3). The flat
+# safety_termination_penalty is never capped; default 0 = uncapped
+# legacy bit-exact.
+
+def test_term_cost_max_caps_horizon_charge():
+    k, cap = 12.0, 60.0
+    env = _walk_env(extra={
+        ("reward", "term_cost_per_remaining_s"): k,
+        ("reward", "term_cost_max"): cap,
+    }, episode_seconds=60.0)
+    env.reset()
+    n_fall = 150                    # fall at 6 s: uncapped would be -658
+    for _ in range(n_fall - 1):
+        env.step(_hold_action(env))
+    bad = np.full(env.action_space.shape, np.nan, dtype=np.float32)
+    _o, _r, term, _tr, info = env.step(bad)
+    assert term
+    uncapped = k * max(env.episode_steps - n_fall, 0) * env.dt
+    assert uncapped > cap           # the cap must actually bind here
+    assert info["reward_termination"] == pytest.approx(-(10.0 + cap))
+    env.close()
+
+
+def test_term_cost_max_inert_when_not_binding():
+    k, cap = 12.0, 1e6
+    env = _walk_env(extra={
+        ("reward", "term_cost_per_remaining_s"): k,
+        ("reward", "term_cost_max"): cap,
+    }, episode_seconds=60.0)
+    env.reset()
+    bad = np.full(env.action_space.shape, np.nan, dtype=np.float32)
+    _o, _r, term, _tr, info = env.step(bad)
+    assert term
+    expect = -(10.0 + k * max(env.episode_steps - 1, 0) * env.dt)
+    assert info["reward_termination"] == pytest.approx(expect)
+    env.close()
+
+
+# --------------------------------------------------------------------------
+# stress_mix command curriculum (08-17, fb_20260817T005114 item 7):
+# goal.walk_cmd_stage restricts which schedule families stress_mix may
+# draw (cumulative tiers; stage 0 additionally forces heading 0 =
+# pure forward/back). Default -1 must leave stress_mix draw-stream
+# bit-exact; transitions stay instantaneous (blend cfg untouched).
+
+def _stage_traj(stage, seed):
+    env = _walk_env(seed=seed, episode_seconds=18.0, extra={
+        ("goal", "walk_cmd_mode"): "stress_mix",
+        ("goal", "walk_cmd_stage"): stage,
+        ("goal", "walk_cmd_resample_s"): 2.0,
+        ("goal", "walk_cmd_resample_jitter"): 0.0,
+        ("goal", "walk_cmd_blend_s_min"): 0.0,
+        ("goal", "walk_cmd_blend_s_max"): 0.0,
+        ("goal", "walk_stop_frac"): 0.0,
+    })
+    env.reset()
+    traj = env._goal_traj
+    env.close()
+    return traj
+
+
+def test_cmd_stage_off_is_bitexact_stress_mix():
+    for seed in range(4):
+        a = _stage_traj(-1.0, seed)
+        b = _stage_traj(-1.0, seed)   # determinism guard
+        env = _walk_env(seed=seed, episode_seconds=18.0, extra={
+            ("goal", "walk_cmd_mode"): "stress_mix",
+            ("goal", "walk_cmd_resample_s"): 2.0,
+            ("goal", "walk_cmd_resample_jitter"): 0.0,
+            ("goal", "walk_cmd_blend_s_min"): 0.0,
+            ("goal", "walk_cmd_blend_s_max"): 0.0,
+            ("goal", "walk_stop_frac"): 0.0,
+        })
+        env.reset()
+        c = env._goal_traj
+        env.close()
+        for other in (b, c):
+            assert a.cmd_mode == other.cmd_mode
+            assert np.array_equal(a.vx, other.vx)
+            assert np.array_equal(a.vy, other.vy)
+
+
+def test_cmd_stage0_is_pure_forward_back():
+    from rl_move.sim.walk_task import WALK_CMD_STAGE_FAMILIES
+    seen = set()
+    for seed in range(10):
+        traj = _stage_traj(0.0, seed)
+        seen.add(traj.cmd_mode)
+        assert traj.cmd_mode in WALK_CMD_STAGE_FAMILIES[0], traj.cmd_mode
+        assert np.all(np.abs(traj.vy) < 1e-12), (
+            f"seed {seed}: stage 0 must command the fwd/back axis only")
+    assert len(seen) == 2, f"stage-0 families not both drawn: {seen}"
+
+
+def test_cmd_stage1_adds_heading_families_cumulatively():
+    from rl_move.sim.walk_task import WALK_CMD_STAGE_FAMILIES
+    allowed = set(WALK_CMD_STAGE_FAMILIES[0]) | set(
+        WALK_CMD_STAGE_FAMILIES[1])
+    seen = set()
+    for seed in range(16):
+        traj = _stage_traj(1.0, seed)
+        seen.add(traj.cmd_mode)
+        assert traj.cmd_mode in allowed, traj.cmd_mode
+    assert seen & set(WALK_CMD_STAGE_FAMILIES[1]), (
+        f"stage 1 never drew a new family: {seen}")
+    assert "jitter" not in seen
+
+
+def test_cmd_stage_clips_to_full_mix():
+    from rl_move.sim.walk_task import WALK_CMD_SCHEDULES
+    seen = {_stage_traj(7.0, seed).cmd_mode for seed in range(24)}
+    assert seen <= set(WALK_CMD_SCHEDULES)
+    assert "jitter" in seen, f"full mix never drew jitter: {seen}"

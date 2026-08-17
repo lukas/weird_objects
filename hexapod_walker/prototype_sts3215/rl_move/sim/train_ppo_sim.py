@@ -1358,6 +1358,11 @@ class _BgEval:
         self._results = ctx.Queue()
         self._busy = {"eval": 0, "video": 0}
         self._canaries: list[dict] = []  # drained canary probe results
+        # Drained eval payloads for consumers beyond W&B (the MJX
+        # trainer's health/best-checkpoint callback, 08-17). Bounded
+        # deque: harmless if nobody pops (this trainer doesn't).
+        from collections import deque
+        self._evals = deque(maxlen=64)
         self._proc = ctx.Process(
             target=_bg_eval_child,
             args=(self._jobs, self._results, task, args),
@@ -1390,6 +1395,7 @@ class _BgEval:
                 print(f"[bg-{out['kind']}] skipped ({out['error']})")
             elif out["kind"] == "eval":
                 wandb.log(out["payload"])
+                self._evals.append(dict(out["payload"]))
                 if "canary" in out:
                     self._canaries.append(out["canary"])
                 print(f"[periodic-eval] {out['step']:,}: {out['brief']}")
@@ -1411,6 +1417,13 @@ class _BgEval:
         """Hand any drained canary probe results to the stop callback."""
         self.drain()
         out, self._canaries = self._canaries, []
+        return out
+
+    def pop_evals(self) -> list[dict]:
+        """Hand drained eval payloads to a health/best-ckpt callback."""
+        self.drain()
+        out = list(self._evals)
+        self._evals.clear()
         return out
 
     def wait(self, timeout_s: float = 1800.0) -> None:

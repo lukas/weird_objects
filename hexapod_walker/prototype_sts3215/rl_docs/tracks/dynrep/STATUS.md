@@ -1,5 +1,49 @@
 # dynrep — Dynamics-representation pretraining
 
+**08-17 ~01:xx UTC (operator-kick diagnosis cycle, directive
+fb_20260817T005323_22be43 executed — NO relaunch): tfwalk-joint1
+RESOLVED. Corrected C FAILS the pre-registered 1M gate on ALL THREE
+conditions; per the gate, STOP adding complexity. Now/Next: idle,
+`[operator]` decision on any next dynrep experiment.**
+- Science (matched data at 1M; A/B seeds 6/7 finished clean, C-s7 has
+  the complete 1M eval series in W&B): (1) heldout prediction ended
+  2.680 vs pretrained 2.286 (+17.2%, outside the 15% band, regressing
+  late from ~2.46); (2) combined-update action-KL 0.070 / approx_kl
+  0.054 vs 0.02 target & 0.04 guard with 98 rejected updates on C-s7;
+  C-s5/s6 had the aux PERMANENTLY STOPPED by 500k (degenerate no-aux
+  arms); (3) C walk 288.9 < B 308.8/318.5 < scratch A 334.9/360.8,
+  C best heldout 473.7@550k then regressed (B-s7 525.9). Scratch A
+  also keeps the cleanest gait (slip 0.54-0.64, roll 2.5-3.2 deg,
+  slew_sat ~0.5 vs B/C 0.79-0.93). Three cohorts in a row (gpu1,
+  metrics1, joint1) now agree: the pretrained dynamics transformer
+  does not transfer to walking under any tried mechanism.
+- Operations (root-cause proven, distinct from the science): all
+  three C arms were `kill -9`ed by the LEFTOVER risewalk-era
+  `pod_memwatch.sh` on train-11/4/5 (kill lines + pids + timestamps
+  match: 22:50:06Z/23:04:44Z/23:50:42Z) when checkpoint saves spiked
+  container memory over its 85GiB threshold — JointAuxPPO pickled the
+  rehearsal corpus + online windows into SB3's `data` blob (12.5GB per
+  zip; A=4MB, B=56MB). C-s5/s6 died mid-ck500000, C-s7 mid-ck1000000
+  AFTER logging its complete 1M eval; those three zips are 0-byte
+  husks (the C-s7 "1M checkpoint" never existed). The A/B pods have no
+  memwatch — asymmetric guard deployment, worth an operator look.
+  Wrapper `set -e` swallowed the deaths (no phase_fail/FAIL flag) =
+  why the ledger stayed RUNNING.
+- Fixes landed this cycle (tests 8/8 new bank + 20/20 all dynrep
+  banks; real C-s7 best zip round-trip verified on train-9):
+  `JointAuxPPO._excluded_save_params` (aux runtime never pickled),
+  `ScaledLRPPO.set_parameters` optimizer param-group rebuild (plain
+  `.load()` of two-group checkpoints used to raise), pod_tfwalk_joint
+  phase_fail manifest + POD_TFWALK_JOINT_FAIL on nonzero trainer exit.
+- Artifacts preserved: controller `artifacts/tfwalk-joint1/` (all A/B
+  zips, every valid C checkpoint's policy+optimizer tensors, all 7
+  eval CSVs/logs/manifests, memwatch kill evidence, full C-s7
+  best-550k zip md5 5c59d375... + second copy on train-9); W&B
+  summary+history cached for all 7 runs; ledger statuses corrected
+  (4 FINISHED / 3 FAIL with crash_cause), OUTCOME notes on all 7 run
+  pages. Orphans cleared on train-4 (stale risewalk launcher bash +
+  duplicate memwatch); one memwatch guard left running per C pod.
+
 **08-16 ~21:xx UTC (operator-kick cycle, directive
 fb_20260816T203212_af7c64 executed): condition C REBUILT as a joint
 PPO+auxiliary update and the corrected 1M A/B/C cohort is the live

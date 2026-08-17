@@ -75,6 +75,26 @@ WALK_CMD_MODE_IDS = {"legacy": 0, **{
     name: i + 1 for i, name in enumerate(WALK_CMD_SCHEDULES)
 }}
 
+# In-run command curriculum for stress_mix (08-17, operator-approved
+# fb_20260817T005114 item 7): the from-scratch joystick recipe threw
+# every schedule family at a newborn policy at once, four arms died
+# without ever surviving takeoff. goal.walk_cmd_stage (default -1 =
+# off, stress_mix draw-stream bit-exact) restricts which families
+# stress_mix may draw, CUMULATIVE so earlier skills stay in the mix:
+#   stage 0: forward/back stepping only (flip_180 + stop_go, heading
+#            forced to 0) — learn to survive and reverse;
+#   stage 1: + headings / circles / squares (random_hold,
+#            sweep_circle, square), full heading scope;
+#   stage >=2: the full stress_mix family set (adds jitter).
+# Transitions inside an episode stay INSTANTANEOUS (blend cfg is
+# untouched); ramp the stage with the sched.* in-run scheduler
+# (sched.key=goal.walk_cmd_stage) so promotion is by global steps.
+WALK_CMD_STAGE_FAMILIES = (
+    ("flip_180", "stop_go"),
+    ("random_hold", "sweep_circle", "square"),
+    ("jitter",),
+)
+
 
 def walk_cmd_track_score(vx: float, vy: float, vx_ref: float,
                          vy_ref: float, stop_speed_m_s: float = 0.03
@@ -550,8 +570,23 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 ang = float(rng.uniform(-math.pi, math.pi))  # anywhere
         cmd_mode = str(cfg_get(self.cfg, "goal", "walk_cmd_mode",
                                default="legacy")).strip().lower()
+        # goal.walk_cmd_stage curriculum (see WALK_CMD_STAGE_FAMILIES
+        # above): only shapes stress_mix draws; default -1 keeps the
+        # legacy uniform family choice draw-stream bit-exact.
+        stage_f = float(cfg_get(self.cfg, "goal", "walk_cmd_stage",
+                                default=-1.0))
+        stage0 = False
         if cmd_mode == "stress_mix":
-            cmd_mode = str(rng.choice(WALK_CMD_SCHEDULES))
+            if stage_f >= 0.0:
+                s = min(int(stage_f), len(WALK_CMD_STAGE_FAMILIES) - 1)
+                fams = tuple(f for tier in WALK_CMD_STAGE_FAMILIES[:s + 1]
+                             for f in tier)
+                cmd_mode = str(rng.choice(fams))
+                if s == 0:
+                    stage0 = True
+                    ang = 0.0    # pure forward/back stepping first
+            else:
+                cmd_mode = str(rng.choice(WALK_CMD_SCHEDULES))
         elif cmd_mode != "legacy" and cmd_mode not in WALK_CMD_SCHEDULES:
             raise ValueError(
                 f"unknown goal.walk_cmd_mode={cmd_mode!r}; expected "
@@ -603,6 +638,8 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                                       default=0.15))
 
             def draw_heading() -> float:
+                if stage0:
+                    return 0.0   # stage-0 curriculum: fwd/back only
                 if h_max >= 0.0:
                     return 0.0 if h_max == 0.0 \
                         else float(rng.uniform(-h_max, h_max))

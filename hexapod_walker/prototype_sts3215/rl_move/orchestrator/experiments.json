@@ -91307,7 +91307,7 @@
       }
     ],
     "triage": "done",
-    "verdict": "FAIL \u2014 4th independent from-scratch joystick command-switch attempt, full 40M budget spent. The low-height termination did kill the seated-scooting cheat (gait_valid 6/6 det, 6/6 sto legs moving, no parked legs) but the robot still cant survive: DR0 gate 0/6 det + 0/6 sto, own-DR 0/6 + 0/6, every det episode roll_class=fell (over_current x2, tilt_roll x2, tilt_pitch x2, peak 8.7-10.5deg), forward_dist 1-6cm before collapse. Reconfirms the standing cross-track finding (tf-joymodes-scratch1, fallfix1, switch-scratch2, now this): the instantaneous command-switch reward/curriculum recipe itself is the blocker, immune to architecture, init, rollout horizon, fall pricing, AND the collapse-termination fix. No further chunks on this exact recipe from arch.",
+    "verdict": "FAIL (final; operator-ratified fb_20260817T005114) \u2014 40M from-scratch joystick run collapsed after its best optimization point: reward/tick EMA peaked -2.16 @14.7M and ended -12.45, ep len ~1204 -> ~105 ticks, late updates approx_kl ~0.24 / clip ~0.40 despite target_kl=0.02, critic explained variance ~0 THROUGHOUT (frozen-rollout audit test_value_learning.py later proved the critic CAN fit returns \u2014 the unbounded -730 remaining-horizon terminal cliff blocked value learning, not a code bug). DR0 gate + own-DR 0/6 det + 0/6 sto; the 90mm low-height cutoff let it live 40-77mm low (walk_height_gate was OFF). DO NOT USE the final checkpoint; the 14-16M region was merely least-bad. Successor: cw-arch-joystick-canary1 (2.5M gated canary, redesigned update path/terminal cost/height gate/curriculum); promotion requires EV>0 rising + KL/clip health + ep-len stability + v_along/dir_err improving + video stepping \u2014 never reward alone.",
     "hardware_ready": false
   },
   {
@@ -92988,7 +92988,7 @@
     "run": "dynrep-tfwalk-joint1-C-s5",
     "created": "2026-08-16T21:07:13+00:00",
     "note": "Script-owned cohort (pod_tfwalk_joint.sh, manifest tfwalk-joint1_manifest.jsonl on-pod). Operator directive fb_20260816T203212_af7c64: corrected joint PPO+auxiliary condition C (code 60922150, tag exp/cw-dynrep-tfwalk-joint1). Rehearsal corpus = untouched v5_mjx_fresh on train-11 lineage; canonical aggregate sha256 (cat shard_*.npz, name order) a0bb722ecdd38ebb013ff8dcedf28edd6ffb38510e17e0f7fb570540c03a717a (directive's quoted 6762fe81... not reproducible - see OPERATOR_QUESTIONS q_20260816T2140Z).",
-    "status": "RUNNING",
+    "status": "FAIL",
     "pod": "hexapod-mjx-train-11",
     "track": "dynrep",
     "phase": "behavioral",
@@ -93017,7 +93017,10 @@
         "problems": []
       }
     ],
-    "attempt2": "Attempt 2 (code b91c16ba): first attempt killed at <=150k steps and restarted after the KL-guard attribution fix - PPO's own approx_kl (~0.03) breached the 0.04 guard regardless of the auxiliary, and the un-attributed consecutive-reject counter permanently stopped the aux ~50k in (superseded W&B attempt kept for the record). Superseded attempt: uov23qlu."
+    "attempt2": "Attempt 2 (code b91c16ba): first attempt killed at <=150k steps and restarted after the KL-guard attribution fix - PPO's own approx_kl (~0.03) breached the 0.04 guard regardless of the auxiliary, and the un-attributed consecutive-reject counter permanently stopped the aux ~50k in (superseded W&B attempt kept for the record). Superseded attempt: uov23qlu.",
+    "verdict": "CRASHED at 500k, then gate-FAIL on the evidence available: aux permanently stopped by the KL guard (7 accepted/21 rejected updates), heldout pred total 8.59 vs pretrained 2.286, latent_drift 0.99, walk 154.6 \u2014 far behind A/B. best@450k + ck250k CRC-OK; policy/optimizer tensors extracted to controller artifacts/tfwalk-joint1; ck500000.zip is a 0-byte mid-save husk (kept as evidence).",
+    "crash_cause": "Operational, NOT a trainer bug: leftover risewalk-era pod_memwatch.sh on train-11 SIGKILLed pid 3118611 at 2026-08-16T22:50:06Z when container memory crossed its 85GiB threshold during the ck500000 save \u2014 JointAuxPPO pickles the rehearsal corpus + online windows into SB3's 'data' blob (12.7GB per checkpoint; ~20-30GB RSS spike per save). Fixed in joint_aux._excluded_save_params this cycle.",
+    "triage": "done"
   },
   {
     "run": "dynrep-tfwalk-joint1-A-s6",
@@ -93048,13 +93051,15 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "verdict": "Scratch control, clean 1M: walk 334.9, heldout best 480.7@1M, approx_kl 0.018; cleanest gait of the cohort (slip 0.64m, peak_roll 3.2deg, slew_sat 0.45). Reference arm for the joint1 gate \u2014 C failed to beat it (see C-s7).",
+    "triage": "done"
   },
   {
     "run": "dynrep-tfwalk-joint1-A-s7",
     "created": "2026-08-16T21:07:13+00:00",
     "note": "Script-owned cohort (pod_tfwalk_joint.sh, manifest tfwalk-joint1_manifest.jsonl on-pod). Operator directive fb_20260816T203212_af7c64: corrected joint PPO+auxiliary condition C (code 60922150, tag exp/cw-dynrep-tfwalk-joint1). Rehearsal corpus = untouched v5_mjx_fresh on train-11 lineage; canonical aggregate sha256 (cat shard_*.npz, name order) a0bb722ecdd38ebb013ff8dcedf28edd6ffb38510e17e0f7fb570540c03a717a (directive's quoted 6762fe81... not reproducible - see OPERATOR_QUESTIONS q_20260816T2140Z).",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "pod": "hexapod-mjx-train-9",
     "track": "dynrep",
     "phase": "behavioral",
@@ -93079,13 +93084,15 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "verdict": "Scratch control, clean 1M: walk 360.8 (cohort-best return), heldout best 480.2@1M, approx_kl 0.019, slip 0.54m, peak_roll 2.5deg, slew_sat 0.50. Reference arm for the joint1 gate \u2014 C failed to beat it (see C-s7).",
+    "triage": "done"
   },
   {
     "run": "dynrep-tfwalk-joint1-B-s6",
     "created": "2026-08-16T21:07:14+00:00",
     "note": "Script-owned cohort (pod_tfwalk_joint.sh, manifest tfwalk-joint1_manifest.jsonl on-pod). Operator directive fb_20260816T203212_af7c64: corrected joint PPO+auxiliary condition C (code 60922150, tag exp/cw-dynrep-tfwalk-joint1). Rehearsal corpus = untouched v5_mjx_fresh on train-11 lineage; canonical aggregate sha256 (cat shard_*.npz, name order) a0bb722ecdd38ebb013ff8dcedf28edd6ffb38510e17e0f7fb570540c03a717a (directive's quoted 6762fe81... not reproducible - see OPERATOR_QUESTIONS q_20260816T2140Z).",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "pod": "hexapod-mjx-train-7",
     "track": "dynrep",
     "phase": "behavioral",
@@ -93110,13 +93117,15 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "verdict": "Frozen-encoder arm, clean 1M: walk 318.5, heldout best 475.7@600k regressing to 432.8 by 1M; gait saturates joint-speed commands (slew_sat 0.93, slip 0.79m, peak_roll 6.1deg) \u2014 same pathology as metrics1-B.",
+    "triage": "done"
   },
   {
     "run": "dynrep-tfwalk-joint1-B-s7",
     "created": "2026-08-16T21:07:14+00:00",
     "note": "Script-owned cohort (pod_tfwalk_joint.sh, manifest tfwalk-joint1_manifest.jsonl on-pod). Operator directive fb_20260816T203212_af7c64: corrected joint PPO+auxiliary condition C (code 60922150, tag exp/cw-dynrep-tfwalk-joint1). Rehearsal corpus = untouched v5_mjx_fresh on train-11 lineage; canonical aggregate sha256 (cat shard_*.npz, name order) a0bb722ecdd38ebb013ff8dcedf28edd6ffb38510e17e0f7fb570540c03a717a (directive's quoted 6762fe81... not reproducible - see OPERATOR_QUESTIONS q_20260816T2140Z).",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "pod": "hexapod-mjx-train-3",
     "track": "dynrep",
     "phase": "behavioral",
@@ -93141,13 +93150,15 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "verdict": "Frozen-encoder arm, clean 1M: walk 308.8, heldout best 525.9@1M (cohort-best heldout) but poor gait (slew_sat 0.92, slip 0.89m, peak_roll 5.9deg, 12.5 contact-switches/s). B's heldout lead does not survive the gait-quality read.",
+    "triage": "done"
   },
   {
     "run": "dynrep-tfwalk-joint1-C-s6",
     "created": "2026-08-16T21:30:52+00:00",
     "note": "Script-owned cohort (pod_tfwalk_joint.sh, manifest tfwalk-joint1_manifest.jsonl on-pod). Operator directive fb_20260816T203212_af7c64: corrected joint PPO+auxiliary condition C (code 60922150 + scan-fix 5d12019c, tag exp/cw-dynrep-tfwalk-joint1). Rehearsal corpus = per-file md5-verified copy of train-11's untouched v5_mjx_fresh; canonical aggregate sha256 (cat shard_*.npz, name order) a0bb722ecdd38ebb013ff8dcedf28edd6ffb38510e17e0f7fb570540c03a717a (directive's quoted 6762fe81... not reproducible - see OPERATOR_QUESTIONS q_20260816T2140Z).",
-    "status": "RUNNING",
+    "status": "FAIL",
     "pod": "hexapod-mjx-train-4",
     "track": "dynrep",
     "phase": "behavioral",
@@ -93176,13 +93187,16 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "verdict": "CRASHED at 500k, then gate-FAIL on the evidence available: aux permanently stopped, approx_kl 0.107 / action-KL total 0.175 (4-8x guard), heldout pred total 5.62 vs pretrained 2.286, walk 287.2 with slew_sat 0.79/slip 0.80m. best@350k + ck250k CRC-OK; policies extracted to controller artifacts/tfwalk-joint1; ck500000.zip 0-byte husk.",
+    "crash_cause": "Same memwatch SIGKILL as C-s5: train-4, pid 2288769, 2026-08-16T23:04:44Z, during the 12.7GB ck500000 save (checkpoint-pickle bloat, fixed this cycle).",
+    "triage": "done"
   },
   {
     "run": "dynrep-tfwalk-joint1-C-s7",
     "created": "2026-08-16T21:30:52+00:00",
     "note": "Script-owned cohort (pod_tfwalk_joint.sh, manifest tfwalk-joint1_manifest.jsonl on-pod). Operator directive fb_20260816T203212_af7c64: corrected joint PPO+auxiliary condition C (code 60922150 + scan-fix 5d12019c, tag exp/cw-dynrep-tfwalk-joint1). Rehearsal corpus = per-file md5-verified copy of train-11's untouched v5_mjx_fresh; canonical aggregate sha256 (cat shard_*.npz, name order) a0bb722ecdd38ebb013ff8dcedf28edd6ffb38510e17e0f7fb570540c03a717a (directive's quoted 6762fe81... not reproducible - see OPERATOR_QUESTIONS q_20260816T2140Z).",
-    "status": "RUNNING",
+    "status": "FAIL",
     "pod": "hexapod-mjx-train-5",
     "track": "dynrep",
     "phase": "behavioral",
@@ -93211,6 +93225,9 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "verdict": "Completed the full 1M eval before dying, and FAILS the pre-registered 1M gate on ALL THREE conditions: (1) heldout pred 2.680 = +17.2% vs pretrained 2.286 (outside the 15% band, late regression from ~2.46); (2) action-KL total 0.070 / approx_kl 0.054 vs 0.02 target & 0.04 guard, 98 updates rejected (aux still active); (3) walk 288.9 < B 308.8/318.5 < A 334.9/360.8, heldout best 473.7@550k then regressed vs B-s7 525.9. The 1M final checkpoint does NOT exist (0-byte mid-save husk); best-550k CRC-OK, full SB3 policy load + finite forward pass verified on train-9, full zip preserved on controller (md5 5c59d375...). Per the gate: corrected C cannot beat B across seeds \u2014 STOP adding complexity.",
+    "crash_cause": "Memwatch SIGKILL: train-5, pid 138582, 2026-08-16T23:50:42Z, during the 12.7GB ck1000000 final save (checkpoint-pickle bloat, fixed this cycle). W&B has the complete 1M eval series.",
+    "triage": "done"
   }
 ]

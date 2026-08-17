@@ -122,6 +122,24 @@ class JointAuxPPO(ScaledLRPPO):
 
     _aux: AuxConfig | None = None
 
+    # Aux runtime state must NEVER be pickled into SB3's `data` blob.
+    # tfwalk-joint1 (08-16): every C checkpoint serialized the rehearsal
+    # sampler + online window buffer (12.5GB `data` entry per zip), and
+    # the save-time RSS spike (~20-30GB in <60s) crossed the pods'
+    # memwatch 85GiB kill threshold — all three C arms were SIGKILLed
+    # MID-SAVE, leaving 0-byte checkpoint husks (C-s5/s6 at ck500000,
+    # C-s7 at its final ck1000000). Excluding names absent from
+    # __dict__ is a no-op, so A/B (no configure_aux) saves stay
+    # bit-identical.
+    _AUX_RUNTIME_ATTRS = (
+        "_aux", "_online", "_rehearsal", "_to_torch", "_sink", "_dyn",
+        "_enc_snapshot", "_probe_hist", "_z_init",
+    )
+
+    def _excluded_save_params(self) -> list[str]:
+        return (super()._excluded_save_params()
+                + list(self._AUX_RUNTIME_ATTRS))
+
     def configure_aux(self, cfg: AuxConfig, online_buffer,
                       rehearsal_sampler, batch_to_torch,
                       metrics_sink=None) -> None:

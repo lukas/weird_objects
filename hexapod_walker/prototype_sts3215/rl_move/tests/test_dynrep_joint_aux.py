@@ -276,3 +276,46 @@ def test_concat_batches_preserves_nested_keys(corpus):
         for k in HORIZONS:
             assert merged[key][k].shape[0] == 10
     assert merged["contact_now"].shape == (10, fr.N_FEET)
+
+
+def test_save_excludes_aux_runtime_and_roundtrips(encoder_ckpt, corpus,
+                                                  tmp_path):
+    """Checkpoint hygiene (tfwalk-joint1 crash diagnosis, 08-17).
+
+    Every C checkpoint pickled the rehearsal sampler + online window
+    buffer into SB3's `data` blob (12.5GB per zip); the save-time RSS
+    spike crossed the pods' memwatch 85GiB kill threshold and all three
+    C arms were SIGKILLed MID-SAVE (0-byte husks). Also: checkpoints
+    written after set_group_lrs() carry a two-group Adam state that a
+    freshly constructed model refused to load ("different number of
+    parameter groups"). Prove both are fixed: the saved `data` blob is
+    small and aux-free, and a plain JointAuxPPO.load() round-trips to
+    a working, identically-acting policy with the two-group optimizer.
+    """
+    import json
+    import zipfile
+
+    model, _ = _build_model(encoder_ckpt, corpus, warmup=0)
+    model.learn(total_timesteps=64)
+    path = tmp_path / "joint_aux_ckpt.zip"
+    model.save(str(path))
+
+    with zipfile.ZipFile(path) as z:
+        data_size = z.getinfo("data").file_size
+        saved_keys = set(json.loads(z.read("data")).keys())
+    # pre-fix the blob was ~12.5GB on the real corpus; even this tiny
+    # test corpus pushed it into the MBs. Post-fix: config-only.
+    assert data_size < 512 * 1024, f"data blob {data_size}B — aux leaked"
+    leaked = saved_keys & set(JointAuxPPO._AUX_RUNTIME_ATTRS)
+    assert not leaked, f"aux runtime pickled into checkpoint: {leaked}"
+
+    loaded = JointAuxPPO.load(str(path), device="cpu")  # died pre-fix
+    groups = loaded.policy.optimizer.param_groups
+    assert len(groups) == 2
+    assert sorted(g.get("lr_scale", 1.0) for g in groups) == [0.1, 1.0]
+    obs = np.zeros((1, OBS_DIM), dtype=np.float32)
+    act_orig, _ = model.predict(obs, deterministic=True)
+    act_loaded, _ = loaded.predict(obs, deterministic=True)
+    assert np.allclose(act_orig, act_loaded, atol=1e-6)
+    # un-configured loaded model must behave like plain ScaledLRPPO
+    assert loaded._aux is None

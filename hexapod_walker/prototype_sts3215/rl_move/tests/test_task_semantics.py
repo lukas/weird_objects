@@ -3713,6 +3713,104 @@ def test_fullcircle_drag_then_fall_cannot_retain_positive_return():
         f"death ({drag_income:.1f})")
 
 
+# JOYCANARY stack — the 08-17 operator-approved canary recipe
+# (fb_20260817T005114): FULLCIRCLE stack + BOUNDED terminal cost
+# (reward.term_cost_max) + the walk-height income gate CALIBRATED from
+# the honest scripted gait's measured height band (calibrate_walk_
+# height.py, 08-17: tripod/noslip ride +0.7..+7.3 mm around the
+# anchor; sigma 11 mm keeps the honest gait >=0.8 income while the
+# measured 40-77 mm hardware-crouch band keeps <=0.001; termination
+# 25 mm sits between the honest band and the collapse band). The cap
+# was first tried at 60 and the bank REOPENED the c2 exploit (+81/ep:
+# the zero-lift skate banks ~151 during the gait-gate's episode-start
+# grace); 240 (a 20 s-equivalent horizon, ~3x smaller than the -730
+# cliff) prices it back underwater. The cap
+# must not reopen the c2 drag-then-fall exploit: with the horizon
+# charge bounded, early death must STILL lose to freezing and to
+# honest walking.
+
+JC_TERM_COST_MAX = 240.0
+JC_OVERRIDES = dict(FC_OVERRIDES)
+JC_OVERRIDES.update({
+    ("reward", "term_cost_max"): JC_TERM_COST_MAX,
+    ("reward", "walk_height_gate"): 1.0,
+    ("reward", "walk_height_sigma_mm"): 11.0,
+    ("safety", "walk_max_height_drop_mm"): 25.0,
+    ("safety", "walk_height_grace_s"): 2.0,
+})
+
+
+def test_joycanary_bounded_term_cost_keeps_early_death_unpaid():
+    """The c2 exploit re-priced under the BOUNDED cap: accumulate the
+    zero-lift skate's real income for 6 s of a 60 s episode under the
+    canary stack, then charge the capped termination cost (flat +
+    min(k*remaining, cap)). Must stay NEGATIVE, and a full-session
+    freeze must still out-earn it — the cap trades the -730 critic
+    cliff for a bounded charge WITHOUT making early death a paying
+    strategy."""
+    from tripod_gait import TripodGait
+
+    fall_tick = None
+    drag_income = 0.0
+    env = _make_walk_env(0, overrides=JC_OVERRIDES, episode_seconds=60.0)
+    env.reset()
+    traj = env._goal_traj
+    n = len(traj.vx)
+    hold_n = ramp_n = int(round(1.0 / env.dt))
+    ramp = np.linspace(0.0, 1.0, ramp_n)
+    traj.vx[:] = WALK_CMD_VX
+    traj.vx[:hold_n] = 0.0
+    traj.vx[hold_n:hold_n + ramp_n] = WALK_CMD_VX * ramp
+    traj.vy[:] = 0.0
+    if traj.wz is not None:
+        traj.wz[:] = 0.0
+    gait = TripodGait(vx=0.0, lift=0.0)          # zero-lift skate/drag
+    gait.sync_plant_stance(*WALK_PLANT)
+    gait.reset_phase()
+    six_s = int(round(6.0 / env.dt))
+    for step in range(six_s):
+        i = min(step, n - 1)
+        gait.set_velocity(vx=float(traj.vx[i]), vy=0.0)
+        act = q_rad_to_action(
+            np.asarray(gait.desired_deg(step * env.dt)) * DEG2RAD)
+        _o, r, term, trunc, _i = env.step(act)
+        drag_income += float(r)
+        if term or trunc:
+            fall_tick = step + 1
+            break
+    if fall_tick is None:
+        fall_tick = six_s
+        pen = 10.0 + min(
+            FC_TERM_COST_PER_S * max(env.episode_steps - fall_tick, 0)
+            * env.dt, JC_TERM_COST_MAX)
+        drag_income -= pen
+    env.close()
+
+    park_total = _walk_rollout("park", 0, overrides=JC_OVERRIDES)
+    park_60s = park_total * 4.0
+    assert drag_income < 0.0, (
+        f"drag-then-fall at 6 s retains positive return "
+        f"({drag_income:.1f}) under the BOUNDED terminal cost — "
+        f"raise term_cost_max above {JC_TERM_COST_MAX}")
+    assert park_60s > drag_income + 200.0, (
+        f"freezing ({park_60s:.1f}) does not clearly out-earn early "
+        f"death ({drag_income:.1f}) under the bounded cap")
+
+
+def test_joycanary_honest_gait_beats_stall_and_park_forward():
+    """Sanity on the full canary stack (bounded cap + calibrated
+    height gate): the hardware-proven tripod gait must still out-earn
+    march-in-place and refusal (the calibrated 11 mm sigma must not
+    tax the honest gait into a stall basin)."""
+    r = {p: float(np.mean(
+        [_walk_rollout(p, s, overrides=JC_OVERRIDES) for s in SEEDS]))
+        for p in ("gait", "stall", "park")}
+    assert r["gait"] > r["stall"] + 50.0, (
+        f"stall rivals the gait under the canary stack: {r}")
+    assert r["gait"] > r["park"] + 50.0, (
+        f"parking rivals the gait under the canary stack: {r}")
+
+
 # ---------------------------------------------------------------------------
 # RECOVER bank — recover_to_plant (08-15 operator directive
 # fb_20260815T165306_606974): from any recoverable state, reach a

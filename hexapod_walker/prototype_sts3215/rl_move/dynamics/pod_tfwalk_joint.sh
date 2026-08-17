@@ -76,6 +76,11 @@ printf '{"event":"start","cohort":"%s","host":"%s","utc":"%s","condition":"%s","
     >> "$MANIFEST"
 printf '{"event":"phase_start","cohort":"%s","seed":%s,"condition":"%s","task":"walk","utc":"%s"}\n' \
     "$COHORT_NAME" "$SEED" "$COND" "$(date -u +%FT%TZ)" >> "$MANIFEST"
+# Do NOT let `set -e` swallow a trainer death: on tfwalk-joint1 all
+# three C trainers were SIGKILLed (memwatch, exit 137) and the wrapper
+# exited silently — no phase_fail manifest event, no FAIL flag, so the
+# ledger/watcher stayed stale ("RUNNING") for hours after the crash.
+set +e
 OMP_NUM_THREADS=4 $PY -m rl_move.dynamics.train_ppo_transfer \
     --condition "$COND" --task walk --seed "$SEED" \
     --steps "$WALK_STEPS" --eval-every "$EVAL_EVERY" \
@@ -83,6 +88,14 @@ OMP_NUM_THREADS=4 $PY -m rl_move.dynamics.train_ppo_transfer \
     --encoder "$ENC" --anchor-data "$DATA" \
     --device cuda \
     --name "$NAME"
+RC=$?
+set -e
+if [ "$RC" -ne 0 ]; then
+    printf '{"event":"phase_fail","cohort":"%s","seed":%s,"condition":"%s","task":"walk","exit_code":%s,"utc":"%s"}\n' \
+        "$COHORT_NAME" "$SEED" "$COND" "$RC" "$(date -u +%FT%TZ)" >> "$MANIFEST"
+    echo "POD_TFWALK_JOINT_FAIL rc=$RC $(date -u +%FT%TZ)"
+    exit "$RC"
+fi
 printf '{"event":"phase_done","cohort":"%s","seed":%s,"condition":"%s","task":"walk","utc":"%s"}\n' \
     "$COHORT_NAME" "$SEED" "$COND" "$(date -u +%FT%TZ)" >> "$MANIFEST"
 echo "POD_TFWALK_JOINT_DONE $(date -u +%FT%TZ)"

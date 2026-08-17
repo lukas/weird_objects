@@ -8,6 +8,32 @@ at what budget, with which failure modes.
 
 ## Now
 
+- **08-17 ~02:xx UTC — OPERATOR-APPROVED joystick-walking redesign
+  EXECUTED (fb_20260817T005114_775298) + `cw-arch-joystick-canary1`
+  (2.5M gated integration canary) launched.** The 08-16 closure of
+  the exact scratch3 recipe stands; the operator ordered a MECHANISM
+  redesign, not a clone. Audit answer first: the frozen-rollout
+  value-regression test (`test_value_learning.py`) PASSES for the
+  transformer critic — scratch3's EV~0 was the reward's fault (the
+  unbounded −730 remaining-horizon terminal cliff), NOT a critic
+  implementation bug. Landed this cycle (all default-off, tests
+  green): bounded terminal cost `reward.term_cost_max`
+  (bank-calibrated 240 after cap 60 REOPENED the c2 drag-then-fall
+  exploit at +81/ep — JOYCANARY bank), walk-height gate CALIBRATED
+  from the honest scripted gaits (`calibrate_walk_height.py`:
+  honest band +0.7..+7.3 mm ⇒ sigma 11 mm, low-height termination
+  25 mm instead of the guessed 90), actor/critic optimizer param
+  groups with linear actor-LR decay, transactional PPO updates
+  (snapshot → train → rollback + actor-LR cut on realized KL >0.03),
+  best-checkpoint retention + joint reward/survival/direction
+  regression auto-stop, critic-EV hard-failure auto-stop, and the
+  stress_mix in-run curriculum `goal.walk_cmd_stage` (fwd/back →
+  headings/circles/squares → full mix, instantaneous switches kept).
+  Promotion to any long run REQUIRES the canary gates (EV clearly >0
+  and rising; median KL ≤0.01, no accepted update >0.03; clip frac
+  controlled; no ep-len collapse; v_along + dir_err improving
+  together; upright/gait metrics + video stepping; NEVER
+  reward-only). Refusal = no 40M clone, line back to the operator.
 - **08-16 ~11:5x UTC — Arm A `bc2` (rise-targeted DAgger re-collection)
   VERIFIED: MIXED result, SECOND MISS, escalated to `[operator]` —
   no Stage 1 PPO, no bc3.** Isolated single-mode rise genuinely

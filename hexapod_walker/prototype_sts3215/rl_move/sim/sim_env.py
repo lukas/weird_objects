@@ -2085,8 +2085,23 @@ class SimHexapodBalanceEnv(_GymBase):
                                   "term_cost_per_remaining_s",
                                   default=0.0))
             if k_rem > 0.0:
-                pen += k_rem * max(self.episode_steps - self._step_i,
-                                   0) * self.dt
+                rem_cost = k_rem * max(self.episode_steps - self._step_i,
+                                       0) * self.dt
+                # Bounded terminal cost (08-17, operator-approved
+                # fb_20260817T005114 item 5): the uncapped horizon
+                # charge reached ~-730 on an early 60 s fall and the
+                # critic never learned to predict that rare cliff
+                # (explained variance ~0 through 40M on
+                # cw-arch-joystick-long-scratch3). term_cost_max caps
+                # the ADDED horizon component only (flat penalty is
+                # untouched); falls stay decisively bad via the dense
+                # roll/pitch shaping + this bounded charge. Default
+                # 0 = off, legacy uncapped bit-exact.
+                cap = float(cfg_get(self.cfg, "reward",
+                                    "term_cost_max", default=0.0))
+                if cap > 0.0:
+                    rem_cost = min(rem_cost, cap)
+                pen += rem_cost
             parts = {"reward_termination": -pen}
             return (self._final_obs(
                         build_obs(self.cfg, self._state, self._q_nom,
@@ -3249,8 +3264,16 @@ class SimHexapodBalanceEnv(_GymBase):
                                   "term_cost_per_remaining_s",
                                   default=0.0))
             if k_rem > 0.0:
-                pen += k_rem * max(self.episode_steps - self._step_i,
-                                   0) * self.dt
+                rem_cost = k_rem * max(self.episode_steps - self._step_i,
+                                       0) * self.dt
+                # reward.term_cost_max: same bounded-terminal-cost
+                # semantics as the _step_begin site above (08-17,
+                # fb_20260817T005114 item 5); default 0 = off.
+                cap = float(cfg_get(self.cfg, "reward",
+                                    "term_cost_max", default=0.0))
+                if cap > 0.0:
+                    rem_cost = min(rem_cost, cap)
+                pen += rem_cost
             parts["reward_termination"] = -pen
             reward -= pen
         truncated = self._step_i >= self.episode_steps
