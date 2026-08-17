@@ -594,3 +594,98 @@ ceiling) stay live.
     the mismatch was not (the whole) explanation for c4's FAIL — say
     so plainly; fork (b)/(c) stay live for the operator.
 - Banks retire on aggregate read regardless of outcome.
+
+### Cohort c5rr — RESULTS (2026-08-17, idle-drain cycle)
+
+n=1,200 (300 det + 300 sto per candidate), both `spec` and `spec-pl4`
+re-read under `--rise-from-h`. Banks 980000../990000.. now RETIRED.
+Aggregate: `logs/bulk_session/c5rr/aggregate.json` +
+`episodes.jsonl`; 14 watched re-renders (8 `spec` det failures + 1
+targeted `spec-pl4` det failure + 6 random clean, sample-seed 0, plus
+1 more targeted pl4 fail check): `logs/bulk_session/c5rr/rerender/
+strips/` + `/tmp/pl4_fail_strip` (the extra targeted pull, not
+copied into the tree).
+
+**Headline post-lower-rise numbers, matched schedule (this is the
+question c5rr exists to answer):**
+
+| | det | sto |
+|---|---|---|
+| `spec` (parent), OLD legacy-schedule (c1) | 0.967 | 0.801 |
+| `spec` (parent), THIS schedule (c5rr) | **0.950** [0.919,0.970] | **0.779** [0.729,0.823] |
+| `spec-pl4` (c4), OLD legacy-schedule (c4) | 0.872 | 0.690 |
+| `spec-pl4` (c4), THIS schedule (c5rr) | **0.963** [0.935,0.979] | **0.799** [0.750,0.841] |
+
+- **`spec-pl4` crosses `spec`'s OWN number on BOTH det and sto under
+  the matched schedule** (0.963 vs 0.950 det; 0.799 vs 0.779 sto) —
+  small margins with heavily overlapping CIs (not a decisive
+  statistical separation), but the DIRECTION is right on both, and
+  the pre-registered bar was ">= with CIs not both worse", which
+  this clears. **Per the pre-registration: fork (a) — align the
+  runner/instrument to train==deploy semantics — is SUPPORTED.**
+- **`spec` ALSO moved from its c1 numbers** (0.967->0.950 det,
+  0.801->0.779 sto) — both drops sit INSIDE c5rr's own CI for spec
+  (0.967 is inside [0.919,0.970]; 0.801 is inside [0.729,0.823]), so
+  this reads as noise/a mild schedule-sensitivity of the parent too,
+  not a material regression — reported per the pre-registration
+  clause, not smoothed over.
+- **`spec-pl4` recovered MOST of its apparent c4 deficit** (det
+  0.872->0.963, +9.1pp; sto 0.690->0.799, +10.9pp) simply by being
+  judged on the schedule it was trained for — confirming the c4
+  verdict's own escalated hypothesis (the mismatch was doing most of
+  the damage, not a genuine competence gap).
+- **Session-level effect: `spec-pl4`'s sto zero-fall (0.91 [0.872,
+  0.937]) is HIGHER than `spec`'s sto zero-fall (0.84 [0.794,
+  0.877])** — CIs nearly separated (0.872 vs 0.877, a hair of
+  overlap) — i.e. under a FAIR schedule, the postlower4 stance
+  candidate is arguably a better stochastic-session performer than
+  the current product parent, driven entirely by its post-lower-rise
+  advantage (first-rise and lower/walk segments are at parity between
+  candidates, see below).
+- **Retention (must stay parity, not this probe's question): clean.**
+  First (cold) rise: spec det 1.0 [0.987,1.0] vs spec-pl4 det 0.987
+  [0.966,0.995] (overlapping, both very high, every start-kind
+  stratum >=0.96 for both); lower: 1.0/1.0 both candidates both
+  modes. No new problem introduced by the schedule change or by the
+  candidate swap.
+- **Fall reasons, both candidates, both schedule reads:** the same
+  qualitative family as every prior cohort — `tilt_roll`/`tilt_pitch`
+  (balance loss mid-push) and `over_current` (actuation-effort
+  ceiling) — no new failure mode appeared from switching the
+  schedule.
+- **Eye clause: PASS, cleanly, on BOTH candidates.** Reviewed 8
+  `spec` det failures (all: robot rises from the post-lower crouch,
+  holds a low stance for several seconds while stepping is masked by
+  the hold window, then a DIRECT push attempt topples/rolls in the
+  final 1-2 frames — no belly-flop, no detour) + a targeted
+  `spec-pl4` det failure (seed 980000 ep0, `tilt_roll`: identical
+  qualitative shape — direct push, topples near the top) + 8 random
+  clean draws (both candidates, both modes: clean, direct,
+  continuous push from crouch to full stand height, e.g.
+  `spec-pl4/sto/seed990000/ep4`). No belly-flop detour, no new
+  exploit, in any of the 16 reviewed episodes — the schedule swap did
+  not teach or reveal a shortcut.
+- Visual-quality medians in-band and matched across candidates/
+  schedules: slip/m 1.71-1.75 (both candidates, both modes, same
+  range as every prior cohort), drive height 135.0-135.3mm, switch
+  tilt med 1.7-1.9° (max 11.5-14.3°, no new outlier).
+- **Verdict: fork (a) is the MEASURED-BEST answer to the operator's
+  postlower fork, escalated as a finding, NOT auto-promoted.** The
+  train/eval schedule mismatch this probe was built to test explains
+  MOST of c4's apparent shortfall (a ~9-11pp swing on exactly the
+  metric that mattered) and, once removed, `spec-pl4` is
+  statistically indistinguishable from (and directionally slightly
+  ahead of) the current product parent on post-lower rise, while
+  actually beating it on overall sto session zero-fall. This does
+  NOT retroactively invalidate the c4 ledger verdict (FAIL was the
+  correct call under the schedule that existed then) — it answers
+  the exact question the c4 verdict escalated to the operator.
+  Product-contract actions still needing the operator's sign-off
+  (not this cycle's to take): (i) whether the runner/instrument
+  should be upgraded to `rise_from_h` semantics generally (a
+  deploy-time contract change, not just an eval one — the real
+  hardware runner's post-lower rise reference would need the same
+  fix); (ii) whether `spec-pl4`/postlower4 should replace
+  `footlow2_hard1` as the stance half of the product hierarchy given
+  this reads. WAITING-ON updated in STATUS.md/hw/STATUS.md with this
+  result; no promotion made autonomously.

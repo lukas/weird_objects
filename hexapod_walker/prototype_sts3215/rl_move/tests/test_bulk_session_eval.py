@@ -126,6 +126,38 @@ def test_cohort_c5rr_rise_from_h_and_fresh_bank():
     assert all("--rise-from-h" in c for c in cmds)
 
 
+def test_flatten_and_rerender_carry_rise_from_h(tmp_path, monkeypatch):
+    # Bug found + fixed 08-17 while reading Cohort c5rr's failures: a
+    # rise_from_h cohort's rerender must reconstruct shard commands
+    # WITH --rise-from-h, or the eye-clause re-render silently checks
+    # the wrong (legacy) schedule. Lock both hops: plan -> shard file
+    # -> _flatten row -> cmd_rerender's reconstructed shard_cmd.
+    monkeypatch.setattr(bse, "OUT_ROOT", tmp_path)
+    shards = bse.plan("c5rr", ["spec"], ("det",), n_shards=1)
+    for sh in shards:
+        Path(sh["out"]).parent.mkdir(parents=True, exist_ok=True)
+        _fake_shard_json(sh, Path(sh["out"]).parent)
+    rows, _ = bse._flatten("c5rr", ["spec"], ("det",))
+    assert rows and all(r["rise_from_h"] for r in rows)
+    # a legacy (non-rise_from_h) cohort's rows carry it as False
+    shards_c1 = bse.plan("c1", ["spec"], ("det",), n_shards=1)
+    for sh in shards_c1:
+        Path(sh["out"]).parent.mkdir(parents=True, exist_ok=True)
+        _fake_shard_json(sh, Path(sh["out"]).parent)
+    rows_c1, _ = bse._flatten("c1", ["spec"], ("det",))
+    assert rows_c1 and all(not r["rise_from_h"] for r in rows_c1)
+
+    class A:
+        cohort, cands, modes = "c5rr", ["spec"], "det"
+        sample, sample_seed, limit, exec = 0, 0, None, False
+
+    n = bse.cmd_rerender(A())
+    assert n == 0
+    listing = (tmp_path / "c5rr" / "rerender" / "commands.txt").read_text()
+    assert listing.strip(), "expected at least one re-render command"
+    assert all("--rise-from-h" in line for line in listing.splitlines())
+
+
 # ---- resume / idempotence -------------------------------------------
 
 def _fake_shard_json(sh, tmpdir):

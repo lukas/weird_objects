@@ -272,6 +272,13 @@ def _flatten(cohort: str, cands, modes) -> tuple[list[dict], list[dict]]:
                 "clean": all(s.get("success") for s in segs)
                           and len(segs) == len(ep["segments"]),
                 "segments": ep["segments"],
+                # carried through so cmd_rerender reconstructs the
+                # EXACT shard invocation (a rise_from_h cohort's
+                # rerender must also pass --rise-from-h, or the
+                # eye-clause re-render silently checks the wrong
+                # schedule -- bug found + fixed 08-17 while reading
+                # Cohort c5rr's failures).
+                "rise_from_h": bool(sh.get("rise_from_h", False)),
             }
             rows.append(row)
     return rows, missing
@@ -419,6 +426,7 @@ def cmd_rerender(args) -> int:
             name = f"{r['cand']}_{r['mode']}_s{r['seed']}_ep{r['ep']}"
             sh = {"cand": r["cand"], "mode": r["mode"], "seed": r["seed"],
                   "eps": r["ep"] + 1,
+                  "rise_from_h": bool(r.get("rise_from_h", False)),
                   "out": str(outdir / f"{tag}_{name}.json")}
             # per-episode strips subdir: eval_modeseq names the strip
             # modeseq_ep<k>.png, so a SHARED dir would overwrite

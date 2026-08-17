@@ -22,6 +22,28 @@ unresolved blockers between the robot and reliable joystick control.
 
 ## Now
 
+- **08-17 ~22:3x (idle-drain): the postlower `[operator]` fork is
+  PRICED — fork (a) (align the eval to train==deploy semantics) is
+  the measured-best answer.** Built the `--rise-from-h` eval flag
+  (calls the REAL trained `_seq_segment_traj` generator instead of
+  the legacy cold sampler — a naive `--cfg-set` is a confirmed no-op
+  through this harness) and re-read `spec` (parent) + `spec-pl4` (c4)
+  under it, matched, n=1,200 fresh sessions (Cohort c5rr). Result:
+  `spec-pl4` crosses `spec`'s OWN post-lower-rise number on BOTH det
+  (0.963 vs 0.950) and sto (0.799 vs 0.779) under the fair schedule —
+  recovering ~9-11pp of its apparent c4 deficit just from the
+  schedule fix — and actually BEATS `spec` on overall sto session
+  zero-fall (0.91 vs 0.84). Retention at parity, eye clause PASS (16
+  reviewed episodes, both candidates: direct push-ups, no belly
+  detour, no new exploit), visual medians in-band. This does NOT
+  retroactively flip the c4 ledger verdict (correct under the
+  schedule that existed then) — it answers exactly the question that
+  verdict escalated. Two product-contract decisions still need the
+  operator: upgrade the runner/instrument (and real hardware
+  reference) to rise-from-h semantics generally, and/or promote
+  `spec-pl4` over `footlow2_hard1` as the stance half of the
+  hierarchy. No promotion made autonomously. Detail:
+  SESSION_BULK_GATE.md "Cohort c5rr — RESULTS".
 - **08-17 ~22:xx (dig-in): `cw-recover-any15-retentionrollback-cont1`
   FAIL by its gate's frontier clause, but the clause was the invalid
   part — the retention-gated promotion mechanism is PROVEN and it
