@@ -329,10 +329,19 @@ Entry format (append; newest last; update status in place):
   are outside the sprint's rise+walk deliverable, and the new
   cohort-sync mechanism goes live at full budget without a canary rung.
 - what was executed: any15 re-verdicted INVALID (ledger + W&B top note,
-  hw STATUS superseded note); all three cohort runs launched exactly as
-  specified (seeds 11/12/13, member 0/1/2, population id
-  recover-any16-pop3, full roster flag, no --init-from) at main
-  containing operator SHA 4d1b45d; startup verification per the
-  feedback's integration gate recorded in the ledger.
+  hw STATUS superseded note); all three any16-pop3 runs launched exactly
+  as specified (seeds 11/12/13, member 0/1/2, no --init-from) at main
+  containing operator SHA 4d1b45d; startup partially verified (3 distinct
+  W&B IDs, "synchronized cohort armed" x3, first certs sync=512) before
+  the operator's live-audit amendment fb_20260817T223644_c8bc48 stopped
+  the cohort as INVALID_INTEGRATION_CANARY (population sync defective:
+  cached peer summaries + missing post-ACK release barrier — matches
+  what this cycle observed live: member 0 self-adopted B1 and published
+  B2/B3 while s12/s13 never adopted). Stop + invalidation executed by
+  concurrent cycles; Codex's fix landed (72d4c53 + f5aee3f) and the
+  successor cohort cw-recover-any17-pop3-s11/s12/s13 was launched per
+  directive fb_20260817T225114_a31958 (placed by a concurrent cycle;
+  this cycle's duplicate placement attempt was REFUSED as designed and
+  it stood down). The conflict question stands for the record only.
 - ANSWER (operator): (pending)
 - rulebook change: (pending)

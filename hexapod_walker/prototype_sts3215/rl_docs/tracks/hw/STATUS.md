@@ -60,13 +60,23 @@ unresolved blockers between the robot and reliable joystick control.
   Per the same order, launched the from-scratch synchronized cohort
   **recover-any16-pop3**: `cw-recover-any16-pop3-s11/s12/s13`
   (seeds 11/12/13, member 0/1/2, NO init-from, 40M each, any11
-  recipe + 1M cert / 16 cert envs / retention gate / rollback 4M@0.60);
-  first member to earn a retention-clean promotion uploads
-  policy+optimizer+curriculum, member 0 elects, all three ACK before
-  the next election. Integration gate: 3 RUNNING rows with distinct
-  W&B IDs, "synchronized cohort armed" in logs, first cert
-  `recover_training_envs_synchronized=512` on all, and one shared B1
-  winner adopted/ACKed by all three before any B2 election.
+  recipe + 1M cert / 16 cert envs / retention gate / rollback 4M@0.60).
+  **UPDATE (~22:4x-23:0x): the any16 cohort was STOPPED and marked
+  INVALID_INTEGRATION_CANARY by operator amendment
+  fb_20260817T223644_c8bc48** — the 512-env cert broadcast worked on
+  all three, but population sync did not (member 0 self-adopted B1
+  and ran ahead to B2/B3; s12/s13 never adopted; root causes: cached
+  `wandb.Api` summaries in `_peer_rows` + no post-ACK release
+  barrier). Codex landed the fix (72d4c53 + f5aee3f: bootstrap
+  barrier at exactly 10 rollouts/655,360 steps, forced summary
+  refresh, leader release_BNN after all identity-bound ACKs) and the
+  successor cohort **recover-any17-pop3**
+  (`cw-recover-any17-pop3-s11/s12/s13`, same recipe +
+  `bootstrap-rollouts 10` / `barrier-timeout 900s`, still NO
+  init-from) is live per operator directive fb_20260817T225114_a31958
+  with a 7-point live integration gate (bootstrap WAIT before
+  start_B00, sync=512 certs, single B1 winner, all-ACK before
+  release_B01, fail-closed).
   **OUTCOME 08-17 ~23:0x UTC (operator MCP note
   fb_20260817T223644_c8bc48): integration gate FAILED — cohort
   STOPPED, all three ledger rows INVALID_INTEGRATION_CANARY.** The
