@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-08-17T23:24:59+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 40000000
 
 **parent**: cw-recover-any17-pop3-s12
+
+**wandb_id**: e8qr91fq
 
 **hypothesis**: Teach the robot to stand back up from any fallen position by racing three fresh identical-recipe seeds in lockstep and always adopting the first retention-clean winner at each curriculum bucket; this relaunch (member 1, seed 12, of population recover-any18-pop3, roster s11,s12,s13) tests the corrected PEER DISCOVERY at 686f5628: any17 proved the bootstrap barrier works (all three stopped at exactly 655,360 steps with valid ready_B00 records) but wandb.Api.runs() had negative-cached the empty peer query made before s13 existed, so the leader saw 2/3 peers forever and never released start_B00; 686f5628 creates a fresh wandb.Api on every retry while any roster name is unresolved, then keeps load(force=True) summaries once resolved (regression-tested). From scratch, absolutely NO --init-from. Supersedes the INVALID any17 cohort (never resume any16/any17 names). Operator execution directive fb_20260817T231336_93cacc.
 
