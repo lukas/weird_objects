@@ -440,14 +440,23 @@ class _RecoverPopulation:
                   f"B{bucket} from member {self.member}")
 
     def _resolve_peer_ids(self) -> None:
-        for name in self.peer_names:
-            if name in self._peer_ids:
-                continue
-            runs = list(self.api.runs(
+        unresolved = [
+            name for name in self.peer_names if name not in self._peer_ids]
+        if not unresolved:
+            return
+        # Api.runs() caches its Runs object by query, including an empty
+        # first page. Earlier cohort members commonly query later names
+        # before those runs exist, so retry discovery through a fresh API
+        # object until the complete fixed roster has been resolved.
+        import wandb
+        discovery_api = wandb.Api(timeout=15)
+        for name in unresolved:
+            runs = list(discovery_api.runs(
                 self.project_path, filters={"display_name": name},
                 order="-created_at"))
             if runs:
                 self._peer_ids[name] = str(runs[0].id)
+        self.api = discovery_api
 
     def _peer_rows(self) -> list[tuple[int, str, str, dict]]:
         self._resolve_peer_ids()
