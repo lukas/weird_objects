@@ -70,6 +70,16 @@ def _recover_episode_outcome(info: dict) -> tuple[int, bool] | None:
     return bucket, success
 
 
+def _recover_episode_training_error(info: dict) -> tuple[int, float] | None:
+    """Extract sampler-only terminal shortfall from a training episode."""
+    outcome = _recover_episode_outcome(info)
+    if outcome is None or "recover_training_error" not in info:
+        return None
+    bucket, _success = outcome
+    error = float(np.clip(info["recover_training_error"], 0.0, 1.0))
+    return bucket, error
+
+
 def _recover_cert_bucket_plan(frontier: int, retention_count: int,
                               cursor: int,
                               weak_bucket: int | None) -> tuple[list[int], int]:
@@ -108,6 +118,7 @@ def _recover_score_payload(state: dict, best_score: float = 0.0,
     total = int(state["total_buckets"])
     maximum = total * (total + 1) / 2.0
     rows = state.get("buckets", {})
+    training_errors = state.get("training_errors", {})
     points = 0.0
     certified_weight = 0.0
     payload = {
@@ -143,6 +154,15 @@ def _recover_score_payload(state: dict, best_score: float = 0.0,
             payload[
                 f"RECOVER_SCORE/bucket_{bucket:02d}_sample_probability"
             ] = float(probability)
+        training_error = training_errors.get(key)
+        if training_error is not None:
+            stem = f"RECOVER_SCORE/bucket_{bucket:02d}"
+            payload[f"{stem}_training_error_ema"] = float(
+                training_error["ema"])
+            payload[f"{stem}_training_error_episodes"] = float(
+                training_error["episodes"])
+            payload[f"{stem}_training_error_priority"] = float(
+                training_error.get("priority", 0.0))
     score = points / maximum if maximum > 0.0 else 0.0
     best = max(float(best_score), score)
     payload.update({
@@ -287,7 +307,8 @@ def _init_wandb(args, params: SimServoParams):
                 "recover_retention_buckets": args.recover_retention_buckets,
                 "recover_replay_mix": {
                     "focus": 0.50, "recent_three": 0.25,
-                    "weakest": 0.15, "uniform_older": 0.10},
+                    "weakest": 0.15, "uniform_older": 0.10,
+                    "training_error_overlay": 0.10},
                 "recover_buckets": {
                     str(i): list(family) for i, family in enumerate(
                         getattr(ENV_CLASSES[args.task],
@@ -498,7 +519,9 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--recover-retention-buckets", type=int, default=3,
                     help="rotating previously unlocked buckets assayed at "
                          "each recovery certification; the current weakest "
-                         "old bucket is assayed in addition (default: 3)")
+                         "old bucket is assayed in addition. Whenever the "
+                         "frontier passes, every remaining unlocked bucket "
+                         "is assayed before promotion (default: 3 routine)")
     ap.add_argument("--no-canary", action="store_true",
                     help="disable the fixed-seed canary probes + "
                          "regression auto-stop (on by default for warm "
@@ -914,6 +937,8 @@ def main(argv: list[str] | None = None) -> int:
             # env terminal, not the 256-env telemetry sample above.
             self._recover_window: dict[int, list[int]] = {}
             self._recover_cumulative: dict[int, list[int]] = {}
+            self._recover_error_window: dict[int, list[float]] = {}
+            self._recover_error_cumulative: dict[int, list[float]] = {}
 
         def _acc(self, k: str, v: float) -> None:
             self._sum[k] = self._sum.get(k, 0.0) + v
@@ -985,6 +1010,15 @@ def main(argv: list[str] | None = None) -> int:
                             counts = bank.setdefault(bucket, [0, 0])
                             counts[0] += int(success)
                             counts[1] += 1
+                    training_error = _recover_episode_training_error(
+                        infos[i])
+                    if training_error is not None:
+                        bucket, error = training_error
+                        for bank in (self._recover_error_window,
+                                     self._recover_error_cumulative):
+                            values = bank.setdefault(bucket, [0.0, 0.0])
+                            values[0] += error
+                            values[1] += 1.0
                     r = infos[i].get("termination_reason") or (
                         "truncated"
                         if infos[i].get("TimeLimit.truncated")
@@ -993,6 +1027,13 @@ def main(argv: list[str] | None = None) -> int:
             return True
 
         def _on_rollout_end(self) -> None:
+            if self._recover_error_window:
+                # Every host env receives the same aggregate, avoiding 512
+                # tiny local EMAs whose sparse bucket histories diverge.
+                venv.env_method(
+                    "apply_recover_training_error_batch",
+                    {bucket: (values[0], int(values[1]))
+                     for bucket, values in self._recover_error_window.items()})
             fps = self.num_timesteps / max(time.monotonic() - self._t0,
                                            1e-9)
             payload = {"time/env_steps_per_s": fps,
@@ -1014,6 +1055,17 @@ def main(argv: list[str] | None = None) -> int:
                 payload[f"{stem}_success_fraction_cumulative"] = (
                     successes / episodes)
                 payload[f"{stem}_episodes_cumulative"] = episodes
+            for bucket, (error_sum, episodes) in sorted(
+                    self._recover_error_window.items()):
+                stem = f"TRAIN/recover_bucket_{bucket}"
+                payload[f"{stem}_training_error_mean"] = (
+                    error_sum / max(episodes, 1.0))
+                payload[f"{stem}_training_error_episodes"] = episodes
+            for bucket, (error_sum, episodes) in sorted(
+                    self._recover_error_cumulative.items()):
+                stem = f"TRAIN/recover_bucket_{bucket}"
+                payload[f"{stem}_training_error_mean_cumulative"] = (
+                    error_sum / max(episodes, 1.0))
             if self._reward_n > 0:
                 # optimization/* (fb_20260815T131225_c8442f): "is PPO
                 # continuing to get more total reward per real
@@ -1092,6 +1144,7 @@ def main(argv: list[str] | None = None) -> int:
                 wandb.log(payload)
             self._sum, self._cnt, self._terms = {}, {}, {}
             self._recover_window = {}
+            self._recover_error_window = {}
             if (args.save_every and self.num_timesteps - self._last_save
                     >= args.save_every):
                 self._last_save = self.num_timesteps
@@ -1166,7 +1219,8 @@ def main(argv: list[str] | None = None) -> int:
                         self._retention_cursor, weak))
                 rows_by_bucket = {}
                 self._cert_round += 1
-                for bucket in buckets:
+
+                def assay_bucket(bucket: int) -> None:
                     kinds = venv.env_method(
                         "_recover_family_kinds", bucket, indices=0)[0]
                     rows = []
@@ -1176,15 +1230,32 @@ def main(argv: list[str] | None = None) -> int:
                         rows.append(row)
                         venv.env_method(
                             "apply_recover_certification", kind,
-                            row["outcomes"], False)
+                            row["outcomes"], False, self._cert_round)
                     rows_by_bucket[bucket] = rows
                     self._last_cert_round[bucket] = self._cert_round
-                # Apply all kind and retention results before changing the
-                # frontier. This keeps multi-kind promotion atomic and makes
-                # the score/sampler consume one coherent assay round.
-                venv.env_method("_recover_update_admission")
-                active_after = int(venv.get_attr(
-                    "_rec_active_n", indices=0)[0])
+
+                for bucket in buckets:
+                    assay_bucket(bucket)
+
+                # Routine rounds stay cheap (frontier + weak + rotating
+                # history). Once the frontier is a promotion candidate, assay
+                # every unlocked bucket in THIS round. Stale historical wins
+                # can no longer promote a policy that has forgotten basics.
+                gate = venv.env_method(
+                    "_recover_admission_status", self._cert_round,
+                    indices=0)[0]
+                promotion_candidate = bool(
+                    active_before < len(env_cls.RECOVER_FAMILIES)
+                    and gate["frontier_passed"])
+                if promotion_candidate:
+                    for bucket in range(frontier_before + 1):
+                        if bucket not in rows_by_bucket:
+                            buckets.append(bucket)
+                            assay_bucket(bucket)
+                admission = venv.env_method(
+                    "_recover_update_admission", self._cert_round,
+                    indices=0)[0]
+                active_after = int(admission["active_after"])
                 payload = {
                     "global_step": self.num_timesteps,
                     "CERT/recover_frontier_before": frontier_before,
@@ -1192,6 +1263,20 @@ def main(argv: list[str] | None = None) -> int:
                     "CERT/recover_max_unlocked_before": active_before - 1,
                     "CERT/recover_max_unlocked_after": active_after - 1,
                     "CERT/recover_assayed_bucket_count": len(buckets),
+                    "CERT/recover_promotion_candidate": float(
+                        promotion_candidate),
+                    "CERT/recover_retention_suite_attempted": float(
+                        promotion_candidate),
+                    "CERT/recover_retention_suite_passed": float(
+                        promotion_candidate
+                        and admission["retention_passed"]),
+                    "CERT/recover_retention_bucket_count": float(
+                        admission["retention_bucket_count"]),
+                    "CERT/recover_retention_min_gate_fraction": float(
+                        admission["retention_min_gate_fraction"]),
+                    "CERT/recover_retention_failed_bucket_count": float(
+                        len(admission["retention_failed_buckets"])),
+                    "CERT/recover_promoted": float(admission["promoted"]),
                 }
                 for bucket, rows in rows_by_bucket.items():
                     successes = sum(r["successes"] for r in rows)
@@ -1252,7 +1337,8 @@ def main(argv: list[str] | None = None) -> int:
               f"every {args.recover_cert_every:,} steps, "
               f"{args.recover_cert_envs} episodes/kind, frontier + weakest "
               f"+ {args.recover_retention_buckets} rotating retention "
-              "buckets")
+              "buckets; a passing frontier triggers a fresh full retention "
+              "suite before promotion")
     bg = None
     if run is not None and (args.eval_every > 0 or args.video_every > 0):
         # The campaign's background eval/video worker, reused verbatim:

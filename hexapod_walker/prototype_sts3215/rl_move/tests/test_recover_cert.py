@@ -6,7 +6,8 @@ import numpy as np
 
 from rl_move.sim.train_ppo_mjx import (
     _env_kwargs, _recover_cert_bucket_plan, _recover_episode_outcome,
-    _recover_score_payload, _run_recover_cert_kind)
+    _recover_episode_training_error, _recover_score_payload,
+    _run_recover_cert_kind)
 
 
 class _FakeCertEnv:
@@ -80,6 +81,18 @@ def test_recover_training_outcome_is_an_episode_fraction_observation():
     assert _recover_episode_outcome({"recover_start_bucket": 7.0}) is None
 
 
+def test_recover_training_error_uses_explicit_terminal_shortfall():
+    assert _recover_episode_training_error({
+        "recover_episode_bucket_7": 1.0,
+        "recover_start_bucket": 7.0,
+        "recover_training_error": 0.35,
+    }) == (7, 0.35)
+    assert _recover_episode_training_error({
+        "recover_episode_bucket_7": 1.0,
+        "recover_start_bucket": 7.0,
+    }) is None
+
+
 def test_recover_cert_plan_keeps_frontier_weakest_and_rotates_history():
     buckets, cursor = _recover_cert_bucket_plan(
         frontier=5, retention_count=2, cursor=0, weak_bucket=3)
@@ -107,6 +120,11 @@ def test_recover_score_uses_fixed_difficulty_weighted_denominator():
                   "successes": 2, "episodes": 8},
         },
         "sample_probabilities": {"0": 0.1, "1": 0.4, "2": 0.5},
+        "training_errors": {
+            "0": {"ema": 0.1, "episodes": 20},
+            "1": {"ema": 0.6, "episodes": 30},
+            "2": {"ema": 0.8, "episodes": 40},
+        },
     }
     payload, best = _recover_score_payload(
         state, best_score=0.30, cert_ages={0: 2, 1: 1, 2: 0})
@@ -121,6 +139,9 @@ def test_recover_score_uses_fixed_difficulty_weighted_denominator():
     assert payload["RECOVER_SCORE/bucket_00_cert_age_rounds"] == 2.0
     assert payload[
         "RECOVER_SCORE/bucket_01_sample_probability"] == 0.4
+    assert payload["RECOVER_SCORE/bucket_02_training_error_ema"] == 0.8
+    assert payload[
+        "RECOVER_SCORE/bucket_02_training_error_episodes"] == 40.0
     assert best == 0.30
 
 

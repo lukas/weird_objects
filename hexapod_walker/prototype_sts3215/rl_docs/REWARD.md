@@ -221,14 +221,16 @@ settle reads ~179.5°); ends are held success / timeout / safety only.
 Start states come from a zero-indexed adaptive backward curriculum:
 `B0 plant_catch` (plant ±2°) → `B1 onefoot_micro` (3–8°) →
 `B2 onefoot_mid` (8–15°) → `B3 onefoot` (15–30°) → `B4 park`
-(full tripod) → `B5 crouch/partial/bank` → `B6 zero/tangle` →
-`B7 flip`. The curriculum begins with ONLY B0, admits the next bucket
-only after every kind in the frontier has EMA ≥0.8 with at least
-`goal.recover_admit_n` episodes (default 4, EMA beta .25), never samples
-an unadmitted probe, and may retreat all the way to B0 when the frontier
-falls below 0.2 (`recover_retreat_n`, default 6). v1
-families 5-6 — pushed-walking falling states + on-policy failure
-harvests — are the pre-registered next rung. Unlike getup there is
+(full tripod) → `B5-B7` shallow/mid/deep crouch → `B8-B10`
+high/mid/low partial curl → `B11 zero` → `B12-B15` increasingly hard
+tangles (`B15` also includes the configured bank) → `B16 flip`. The
+curriculum begins with ONLY B0 and never samples an unadmitted probe.
+MJX admission is deterministic: a frontier pass (every kind ≥0.8 with
+at least `goal.recover_admit_n` episodes, default 4) triggers a fresh
+same-round assay of EVERY unlocked earlier bucket, and promotion occurs
+only if that whole retention suite also passes. Routine non-promotion
+rounds remain frontier + weakest + rotating retention assays. Unlike
+getup there is
 NO occupancy/ratchet/hold income and no alive bonus: income is a
 potential DIFFERENCE, so re-farming any feature pays 0 and stalling
 anywhere bleeds the time tax.
@@ -251,13 +253,16 @@ wP·g(U)·g(H)·P`, all features bounded [0,1], g = smoothstep.
 | `goal.recover_start_bank` | unset | npz (`q_rad` (K,18)) harvested start poses for the "bank" kind (B5). |
 | `goal.recover_rsi_frac` / `recover_rsi_kinds` | 0 / "zero" | RECOVER RSI (08-16, after cw-recover-any8/any9 both stalled at B11): with prob `frac`, a NATURALLY drawn episode of a listed kind spawns on a random row of `reward.rise_ref_path` (belly curl → ~90% of ramp, the rise-RSI row formula) instead of the family pose — the ladder's partial_* rungs are linear curls, not states on the executable rise path, so a stuck policy never practices mid-rise states. Forced CERT/eval kinds never carry the flag (cert purity by construction); RSI episodes log under `recover_*_{kind}_rsi` and never touch rollout EMA/counters or self-cert stats. Default 0 = off, bit-exact. Semantics: `test_recover_rsi_*`. |
 | `goal.recover_rsi_bank_frac` / `_bank_kinds` / `_bank_path` | 0 / "" / unset | RECOVER RSI, HARVESTED-BANK variant (08-16, after cw-recover-any7/any11/any12's 3rd matching miss closed curriculum-weight for the tangle family): with prob `bank_frac`, a NATURALLY drawn episode of a listed kind spawns on a random row of `bank_path` (npz, `q_rad` (K,18)) + ±2° joint noise, instead of the ref-path row above. The ref-path mechanism is hardcoded to the belly→plant reference, which has no equivalent for tangle's non-monotonic untangling motion; this bank is built by `harvest_recover_rsi_bank.py`, which rolls a checkpoint DETERMINISTICALLY through forced episodes of the target kind(s) and keeps a subsample of the joint poses from the MIDDLE of every episode that reaches `recover_success` (skips the raw start slice and the final settled-stance slice, both already covered by other families) — an on-path bank harvested from the policy's own occasional successes, not a hand-built reference. Independent cfg axis from `recover_rsi_frac`/`_kinds` above (mutually exclusive per-episode via `not traj.recover_rsi`); forced CERT/eval kinds never carry the flag. RSI episodes log under `recover_*_{kind}_rsibank` and never touch rollout EMA/counters or self-cert stats. Default 0 = off, bit-exact. Semantics: `test_recover_rsi_bank_*`. |
+| `goal.recover_training_error_mix` | .10 | Bounded adaptive replay overlay. Global non-RSI training terminals update a per-bucket EMA of goal-potential shortfall (`1-Φ`; safety termination = 1, success = 0). After `recover_training_error_min_episodes` (8), the overlay shifts up to 10% of sampling toward high-error buckets, squared by `recover_training_error_power` (2). This graded signal avoids the known stochastic strict-hold false-negative and can NEVER certify or promote a bucket. EMA beta: `recover_training_error_ema_beta` (.25). |
 | `train.bc_anchor_recover` (+`_tilt_deg` 25) | 0 | state-aligned rise BC anchor (the cw-getup3 lever), eligibility-gated to the mastered rise manifold: upright ≤25°, real foot ground-reaction, at/below plant height. Matching is restricted by current absolute belly→plant height before nearest-q selection. |
 | `train.bc_anchor_lookahead_s` / `bc_anchor_min_h_ahead_mm` | .25 / 0 | recovery uses the same pursuit controls as rise. The recovery arm uses the proven footlow2 values `.5` / `15`; the height floor is computed above the absolute belly datum, not above a near-standing recovery spawn. |
 | `train.bc_anchor_foot_z` / `bc_anchor_foot_z_mm` | 0 / 10 | additional contact-coordinate loss. The replacement recovery arm enables `1` / `3` so a millimetre-scale parked foot cannot hide inside the 18-joint MSE. |
 
 Training telemetry includes stable numeric start-kind/bucket ids,
 frontier bucket, per-kind and per-bucket curriculum EMA/count and
-terminal success, post-settle height/tilt/min-load/pad-spread by kind,
+terminal success, per-bucket training-error EMA/count and sampler
+probability, fresh retention-suite pass/fail and failed-bucket count,
+post-settle height/tilt/min-load/pad-spread by kind,
 BC eligibility, and matched/target reference indices. Periodic eval
 ignores the changing training mixture and forces every available kind
 in every bucket. It logs `SCORE/recover_bucket_<N>_success`, return,

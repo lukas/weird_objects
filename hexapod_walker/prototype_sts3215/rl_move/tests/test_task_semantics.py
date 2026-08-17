@@ -4182,6 +4182,18 @@ def test_recover_spaced_replay_and_monotonic_unlock():
     np.testing.assert_allclose(
         env._recover_bucket_weights(),
         [0.05, 0.05, 0.20, 0.075, 0.125, 0.50])
+
+    # Global training shortfall adds only a bounded replay overlay. It
+    # increases the failing bucket's probability without touching certs.
+    cert_before = dict(env._rec_stats)
+    env.apply_recover_training_error_batch({0: (8.0, 8)})
+    error_weights = env._recover_bucket_weights()
+    assert error_weights[0] > 0.05
+    assert error_weights[5] < 0.50
+    assert np.isclose(error_weights.sum(), 1.0)
+    assert env._rec_stats == cert_before
+    assert env.recover_score_state()["training_errors"]["0"][
+        "priority"] == 1.0
     env.close()
 
 
@@ -4217,6 +4229,49 @@ def test_recover_curriculum_moves_only_from_certification():
         "onefoot_micro", [True] * 6)
     assert result["active_after"] == 3
     assert result["focus_after"] == 2
+    env.close()
+
+
+def test_recover_promotion_requires_fresh_full_retention_suite():
+    env = _make_recover_env(
+        0, start="plant_catch",
+        extra={("goal", "recover_external_certification"): 1.0})
+    env._rec_active_n = 3
+    env._rec_focus_bucket = 2
+
+    # B0's old pass is not valid for round 2, even though frontier B2 and
+    # the other retained bucket pass in that round.
+    env.apply_recover_certification(
+        "plant_catch", [True] * 8, False, 1)
+    env.apply_recover_certification(
+        "onefoot_micro", [True] * 8, False, 2)
+    env.apply_recover_certification(
+        "onefoot_mid", [True] * 8, False, 2)
+    status = env._recover_update_admission(2)
+    assert not status["promoted"]
+    assert not status["retention_passed"]
+    assert status["failed_buckets"] == [0]
+    assert env._rec_active_n == 3
+    env.force_recover_start = None
+    env._sample_recover()
+    assert env._rec_active_n == 3, (
+        "external-cert reset bypassed the fresh retention gate")
+
+    # A fresh but failed retention assay also blocks promotion.
+    env.apply_recover_certification(
+        "plant_catch", [False] * 8, False, 2)
+    status = env._recover_update_admission(2)
+    assert not status["promoted"]
+    assert status["failed_buckets"] == [0]
+
+    # Promotion occurs only after that retained bucket passes in the same
+    # certification round as the frontier.
+    env.apply_recover_certification(
+        "plant_catch", [True] * 8, False, 2)
+    status = env._recover_update_admission(2)
+    assert status["suite_passed"]
+    assert status["promoted"]
+    assert env._rec_active_n == 4
     env.close()
 
 

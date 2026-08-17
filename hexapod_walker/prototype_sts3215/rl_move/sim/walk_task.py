@@ -293,8 +293,14 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # six-foot hold, so they must never advance the ladder.
         # _rec_rollout_stats remains visible as diagnostic telemetry.
         self._rec_stats = {}
+        self._rec_cert_rounds = {}
         self._rec_rollout_stats = {}
         self._rec_rollout_counts = {}
+        # Global MJX training batches are folded into this per-bucket
+        # terminal-shortfall EMA by the trainer callback.  It affects only
+        # replay probability; deterministic certification remains the sole
+        # authority for admission.
+        self._rec_training_error_stats = {}
         self._rec_external_certification = bool(float(cfg_get(
             self.cfg, "goal", "recover_external_certification",
             default=0.0)))
@@ -1104,6 +1110,56 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 candidates.append((row["gate_fraction"], -bucket, bucket))
         self._rec_weak_bucket = min(candidates)[2] if candidates else None
 
+    def _recover_training_error_distribution(
+            self, n: int | None = None) -> np.ndarray | None:
+        """Evidence-weighted replay priority from training shortfall.
+
+        Raw stochastic recovery success is a deliberately strict and noisy
+        signal (exploration can break the continuous six-foot hold).  The
+        sampler therefore uses terminal goal-potential shortfall instead,
+        with safety terminations recorded as maximum error.  This signal can
+        allocate a bounded replay slice but can never certify a bucket.
+        """
+        n = max(1, int(self._rec_active_n if n is None else n))
+        min_episodes = max(1, int(float(cfg_get(
+            self.cfg, "goal", "recover_training_error_min_episodes",
+            default=8))))
+        power = max(0.0, float(cfg_get(
+            self.cfg, "goal", "recover_training_error_power",
+            default=2.0)))
+        priority = np.zeros(n, dtype=float)
+        for bucket in range(n):
+            error, episodes = self._rec_training_error_stats.get(
+                bucket, (0.0, 0))
+            if episodes < min_episodes:
+                continue
+            confidence = min(float(episodes) / min_episodes, 1.0)
+            priority[bucket] = confidence * max(float(error), 0.0) ** power
+        total = float(priority.sum())
+        return priority / total if total > 0.0 else None
+
+    def apply_recover_training_error_batch(self, rows: dict) -> None:
+        """Fold global non-RSI training outcomes into sampler-only EMAs."""
+        beta = float(np.clip(cfg_get(
+            self.cfg, "goal", "recover_training_error_ema_beta",
+            default=0.25), 0.0, 1.0))
+        for raw_bucket, values in rows.items():
+            bucket = int(raw_bucket)
+            if not 0 <= bucket < len(self.RECOVER_FAMILIES):
+                continue
+            error_sum, episodes = values
+            episodes = int(episodes)
+            if episodes <= 0:
+                continue
+            batch_error = float(np.clip(
+                float(error_sum) / episodes, 0.0, 1.0))
+            old_error, old_n = self._rec_training_error_stats.get(
+                bucket, (batch_error, 0))
+            updated = (batch_error if old_n == 0 else
+                       (1.0 - beta) * old_error + beta * batch_error)
+            self._rec_training_error_stats[bucket] = (
+                float(updated), int(old_n) + episodes)
+
     def _recover_bucket_weights(self) -> np.ndarray:
         """Spaced-replay probabilities over unlocked recovery buckets.
 
@@ -1113,7 +1169,9 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         uniformly over all remaining unlocked buckets. Empty components
         fall back to the frontier. A multi-kind family splits its bucket
         probability later, so adding a bank never doubles that level's
-        training share.
+        training share.  Once enough terminal evidence exists, a bounded
+        sampler-only slice is redistributed toward buckets with the largest
+        terminal goal-potential shortfall.
         """
         n = max(1, int(self._rec_active_n))
         focus = min(max(int(self._rec_focus_bucket), 0), n - 1)
@@ -1160,6 +1218,13 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 w[bucket] += uniform_mass / len(others)
         else:
             w[focus] += uniform_mass
+        w /= w.sum()
+        error_distribution = self._recover_training_error_distribution(n)
+        error_mix = float(np.clip(cfg_get(
+            self.cfg, "goal", "recover_training_error_mix", default=0.10),
+            0.0, 1.0))
+        if error_distribution is not None and error_mix > 0.0:
+            w = (1.0 - error_mix) * w + error_mix * error_distribution
         return w / w.sum()
 
     def _recover_kind_weights(self, kinds: list) -> np.ndarray:
@@ -1173,28 +1238,85 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         w = np.asarray(w, dtype=float)
         return w / w.sum()
 
-    def _recover_update_admission(self) -> None:
-        """Monotonically unlock the next family after an >=80% assay."""
+    def _recover_admission_status(self,
+                                  cert_round: int | None = None) -> dict:
+        """Return the frontier and retention-suite gate state."""
         self._rec_focus_bucket = self._rec_active_n - 1
-        hard = self._recover_family_kinds(self._rec_focus_bucket)
-        st = self._rec_stats
         admit_n = int(float(cfg_get(
             self.cfg, "goal", "recover_admit_n", default=4)))
-        def passed(kind: str) -> bool:
-            successes, n = st.get(kind, (0, 0))
-            return n >= admit_n and successes / n >= 0.8
+        threshold = float(cfg_get(
+            self.cfg, "goal", "recover_admit_fraction", default=0.8))
+        bucket_rows = {}
+        for bucket in range(self._rec_active_n):
+            kinds = self._recover_family_kinds(bucket)
+            passed = bool(kinds)
+            fresh = bool(kinds)
+            fractions = []
+            for kind in kinds:
+                successes, episodes = self._rec_stats.get(kind, (0, 0))
+                fraction = successes / episodes if episodes else 0.0
+                fractions.append(fraction)
+                passed = (passed and episodes >= admit_n
+                          and fraction >= threshold)
+                if cert_round is not None:
+                    fresh = (fresh and self._rec_cert_rounds.get(kind)
+                             == int(cert_round))
+            bucket_rows[bucket] = {
+                "passed": bool(passed and fresh),
+                "score_passed": bool(passed),
+                "fresh": bool(fresh),
+                "gate_fraction": (min(fractions) if fractions else 0.0),
+            }
+        focus = self._rec_focus_bucket
+        frontier_passed = bool(bucket_rows.get(
+            focus, {}).get("passed", False))
+        retention = [bucket_rows[b] for b in range(focus)]
+        retention_passed = all(row["passed"] for row in retention)
+        failed = [bucket for bucket, row in bucket_rows.items()
+                  if not row["passed"]]
+        retention_failed = [bucket for bucket in range(focus)
+                            if not bucket_rows[bucket]["passed"]]
+        return {
+            "cert_round": (-1 if cert_round is None else int(cert_round)),
+            "frontier_bucket": int(focus),
+            "frontier_passed": frontier_passed,
+            "retention_passed": bool(retention_passed),
+            "suite_passed": bool(frontier_passed and retention_passed),
+            "retention_bucket_count": int(focus),
+            "failed_buckets": failed,
+            "retention_failed_buckets": retention_failed,
+            "retention_min_gate_fraction": min(
+                (row["gate_fraction"] for row in retention), default=1.0),
+            "min_gate_fraction": min(
+                (row["gate_fraction"] for row in bucket_rows.values()),
+                default=0.0),
+            "buckets": bucket_rows,
+        }
 
+    def _recover_update_admission(
+            self, cert_round: int | None = None) -> dict:
+        """Unlock only after frontier plus retention suite pass."""
+        status = self._recover_admission_status(cert_round)
+        before = self._rec_active_n
         if (self._rec_active_n < len(self.RECOVER_FAMILIES)
-                and hard
-                and all(passed(k) for k in hard)):
+                and status["suite_passed"]):
             self._rec_active_n += 1
             self._rec_focus_bucket = self._rec_active_n - 1
         self._recover_refresh_weak_bucket()
+        status.update({
+            "active_before": int(before),
+            "active_after": int(self._rec_active_n),
+            "promoted": bool(self._rec_active_n > before),
+        })
+        return status
 
     def recover_score_state(self) -> dict:
         """Serializable deterministic curriculum/scoreboard snapshot."""
         self._recover_refresh_weak_bucket()
         bucket_w = self._recover_bucket_weights()
+        error_priority = self._recover_training_error_distribution()
+        if error_priority is None:
+            error_priority = np.zeros(self._rec_active_n, dtype=float)
         buckets = {}
         for bucket in range(len(self.RECOVER_FAMILIES)):
             row = self._recover_bucket_certification(bucket)
@@ -1211,11 +1333,22 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 str(bucket): float(probability)
                 for bucket, probability in enumerate(bucket_w)
             },
+            "training_errors": {
+                str(bucket): {
+                    "ema": float(self._rec_training_error_stats.get(
+                        bucket, (0.0, 0))[0]),
+                    "episodes": int(self._rec_training_error_stats.get(
+                        bucket, (0.0, 0))[1]),
+                    "priority": float(error_priority[bucket]),
+                }
+                for bucket in range(self._rec_active_n)
+            },
         }
 
     def apply_recover_certification(self, kind: str,
                                     outcomes: list[bool],
-                                    update_admission: bool = True) -> dict:
+                                    update_admission: bool = True,
+                                    cert_round: int | None = None) -> dict:
         """Apply deterministic same-backend outcomes to the curriculum.
 
         The MJX trainer calls this on every training env after a held-out
@@ -1237,10 +1370,12 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # this batch, rather than blending it into an EMA whose numerator
         # and denominator cannot be interpreted from a chart.
         self._rec_stats[kind] = (successes, n)
+        if cert_round is not None:
+            self._rec_cert_rounds[kind] = int(cert_round)
         before = self._rec_active_n
         focus_before = self._rec_focus_bucket
         if update_admission:
-            self._recover_update_admission()
+            self._recover_update_admission(cert_round)
         return {"kind": kind, "success_fraction": float(fraction),
                 "successes": int(successes), "episodes": int(n),
                 "active_before": int(before),
@@ -1267,7 +1402,8 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                              "recover mode (frame probes vs flip "
                              "spawns); run recover as a single-mode "
                              "diet")
-        self._recover_update_admission()
+        if not self._rec_external_certification:
+            self._recover_update_admission()
         kinds = self._recover_active_kinds()
         w = self._recover_kind_weights(kinds)
         r = float(self.rng.random())
@@ -2827,6 +2963,14 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 info[f"recover_success_{kind}{suffix}"] = (
                     1.0 if success else 0.0)
             else:
+                # Do not use the strict stochastic success bit as replay
+                # error: exploration noise can interrupt an otherwise good
+                # 0.5 s hold.  Terminal potential shortfall preserves a
+                # graded signal; a true safety termination is maximal error.
+                training_error = (0.0 if success else
+                                  (1.0 if term and not trunc else
+                                   float(np.clip(1.0 - phi, 0.0, 1.0))))
+                info["recover_training_error"] = training_error
                 ema, n = self._rec_rollout_stats.get(kind, (0.5, 0))
                 beta = float(cfg_get(self.cfg, "goal",
                                      "recover_ema_beta", default=0.25))
@@ -2848,6 +2992,9 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                         kind, (0, 0))
                     self._rec_stats[kind] = (
                         cert_successes + int(success), cert_episodes + 1)
+                    if bucket >= 0:
+                        self.apply_recover_training_error_batch({
+                            bucket: (training_error, 1)})
                 info[f"recover_episode_{kind}"] = 1.0
                 info[f"recover_success_{kind}"] = (
                     1.0 if success else 0.0)
@@ -2914,6 +3061,9 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 rec_kind, (0, 0))
             info[f"recover_rollout_fraction_{rec_kind}"] = float(
                 roll_successes / roll_episodes if roll_episodes else 0.0)
+        error_priority = self._recover_training_error_distribution()
+        if error_priority is None:
+            error_priority = np.zeros(self._rec_active_n, dtype=float)
         for rec_bucket in range(self._rec_active_n):
             stats = [self._rec_stats.get(k, (0, 0))
                      for k in self._recover_family_kinds(rec_bucket)]
@@ -2927,6 +3077,14 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                     float(successes))
                 info[f"recover_curriculum_bucket_{rec_bucket}_episodes"] = (
                     float(episodes))
+            error_ema, error_episodes = (
+                self._rec_training_error_stats.get(rec_bucket, (0.0, 0)))
+            info[f"recover_training_error_ema_bucket_{rec_bucket}"] = (
+                float(error_ema))
+            info[f"recover_training_error_n_bucket_{rec_bucket}"] = (
+                float(error_episodes))
+            info[f"recover_training_error_priority_bucket_{rec_bucket}"] = (
+                float(error_priority[rec_bucket]))
         for rec_bucket, probability in enumerate(
                 self._recover_bucket_weights()):
             info[f"recover_sample_probability_bucket_{rec_bucket}"] = (
