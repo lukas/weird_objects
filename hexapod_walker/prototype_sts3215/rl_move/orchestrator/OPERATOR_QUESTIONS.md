@@ -374,3 +374,67 @@ Entry format (append; newest last; update status in place):
   concurrent cycle.
 - ANSWER (operator): _pending_
 - rulebook change: _pending_
+
+## q_20260817T2340Z — OPEN
+- cycle: operator-kick cycle 2026-08-17 ~23:2x-23:4x UTC (execute
+  fb_20260817T231336_93cacc — launch from-scratch three-seed cohort
+  recover-any18-pop3 at 686f5628-or-descendant, "do not analyze,
+  redesign, or implement another variant").
+- operator order: fb_20260817T231336_93cacc — launch
+  cw-recover-any18-pop3-s11/s12/s13 (exact any17 recipe, no
+  init-from, 40M each) and "verify the live gates."
+- conflicted with: guardrails compute.max_new_gpu_steps_per_cycle =
+  80,000,000 (same 3x40M=120M overage already on file at
+  q_20260817T2330Z for the identical any17 launch pattern — not
+  re-argued here) — and, more importantly, the directive's own
+  premise that 686f5628 fixed the sync bug turned out to be false in
+  this live run (see below), which is a finding, not a rule conflict.
+- why the cycle would have declined: same GPU-step blast-radius
+  reasoning as q_20260817T2330Z. Executed anyway per the same
+  authenticated-order logic.
+- what was executed: all three launched via respec at exact commit
+  686f5628 (s11 6be43243-descendant tree; s12/s13 landed by a
+  concurrent cycle racing the same directive — confirmed via git tags
+  exp/cw-recover-any18-pop3-s11/s12/s13 and duplicate snapshot
+  commits, normal concurrent-cycle traffic), verified RUNNING with
+  distinct W&B IDs (s11 18q6to9f/train-0, s12 e8qr91fq/train-1, s13
+  1z5ejwe4/train-3), no init_from. Gate items (1)-(2) PASSED live:
+  all three stopped exactly at 655,360 steps with valid, distinct,
+  correctly-shaped ready_B00 records. **Gate item (3) FAILED, and NOT
+  for the any17 reason**: the leader (s11/member 0) crashed with
+  RuntimeError at its own 900s barrier_timeout, having logged ZERO
+  "start poll deferred" exceptions the entire wait (i.e. its internal
+  `_peer_rows()` call never raised, it just silently kept returning
+  fewer than 3 rows for the whole 900s). This is puzzling because a
+  manual replica of the exact peer-discovery query
+  (`api.runs(project, filters={"display_name": name},
+  order="-created_at")`, fresh `wandb.Api()` object, same project
+  path) run from the controller at the same wall-clock times resolved
+  all three run names correctly and instantly throughout the window,
+  and W&B's own summary/history confirmed all three ready_B00 records
+  were present (correct member/run_id/run_name/population_id/
+  root_fingerprint/bootstrap_steps) well before the leader's deadline.
+  So 686f5628's fresh-Api-per-unresolved-retry fix addressed the
+  *documented* any17 mechanism (a cached empty first page) but this
+  run demonstrates a **fourth, different** failure mode inside the
+  leader process that a controller-side replica cannot reproduce —
+  and `wait_for_start`'s peer-count branch has NO diagnostic print
+  when `len(peer_rows) != len(peer_names)` (unlike `poll()`, which
+  does), so nothing in the log narrows it further; only the crash
+  traceback surfaced the failure at all. Stopped mechanically:
+  s11 self-terminated; s12/s13 (not yet at their own later deadlines)
+  were killed cleanly by this cycle once the leader was confirmed
+  dead (no member 0 left to ever release the race) — PIDs verified
+  absent on train-0/1/3 post-kill. All three ledger rows set
+  INVALID_INTEGRATION_CANARY with the analysis above; W&B notes
+  updated; checkpoints/logs preserved (no candidate/winner/
+  post-boundary training occurred, so nothing to preserve there
+  beyond the logs already on the pods). Per the directive's own
+  instruction NOT to redesign, no fix was attempted this cycle —
+  this entry is the reconnaissance the next Codex session needs
+  (add a per-call resolved-peer-count log line inside
+  `wait_for_start`, or dump `self._peer_ids` state on timeout, before
+  the next relaunch attempt). Do NOT relaunch any16/17/18 names
+  autonomously.
+- ANSWER (operator): _pending_
+- rulebook change: _pending_
