@@ -67,6 +67,20 @@ unresolved blockers between the robot and reliable joystick control.
   W&B IDs, "synchronized cohort armed" in logs, first cert
   `recover_training_envs_synchronized=512` on all, and one shared B1
   winner adopted/ACKed by all three before any B2 election.
+  **OUTCOME 08-17 ~23:0x UTC (operator MCP note
+  fb_20260817T223644_c8bc48): integration gate FAILED — cohort
+  STOPPED, all three ledger rows INVALID_INTEGRATION_CANARY.** The
+  512-env broadcast fix works (all certs synchronized=512), but the
+  population sync does not: s11 (member 0) elected+ADOPTED its own
+  B1 at local step 1,966,080 and ran ahead to publish B2/B3, while
+  s12/s13 never adopted anything and promoted private B1/B2 lineages
+  (log-verified on train-0/1/3). Root causes per the note: cached
+  `wandb.Api` summaries in `_peer_rows` (needs `load(force=True)`)
+  and no release barrier — all-ACK only blocks election, not the
+  leader training ahead. Codex is fixing and will issue one clean
+  relaunch directive; relaunch is `[operator]`-gated (main STATUS
+  WAITING-ON). No behavioral conclusions from any of the three runs;
+  checkpoints preserved on pods; /dev/shm cleaned on train-0/1/3.
 - **[SUPERSEDED by the 08-17 ~23:xx INVALID correction above — its
   frontier/stall/retention conclusions are void] 08-17 ~22:xx
   (dig-in): `cw-recover-any15-retentionrollback-cont1`
