@@ -289,6 +289,21 @@ def _recover_population_all_acked(
     return True
 
 
+def _recover_population_release(
+        leader_summary: dict, winner: dict,
+        population_id: str) -> dict | None:
+    """Return a valid leader release for one fully adopted winner."""
+    bucket = int(winner["bucket"])
+    row = _recover_population_record(leader_summary, "release", bucket)
+    if (row is None
+            or str(row.get("population_id", "")) != str(population_id)
+            or int(row.get("bucket", -1)) != bucket
+            or str(row.get("policy_sha256", ""))
+            != str(winner["policy_sha256"])):
+        return None
+    return row
+
+
 class _RecoverPopulation:
     """W&B-backed best-of-N checkpoint election for recovery training."""
 
@@ -303,6 +318,8 @@ class _RecoverPopulation:
         self.project_path = f"{run.entity}/{run.project}"
         self.api = wandb.Api(timeout=15)
         self.poll_seconds = float(args.recover_population_poll_seconds)
+        self.barrier_timeout = float(
+            args.recover_population_barrier_timeout_seconds)
         self.initial_bucket = int(initial_bucket)
         self.adopted_bucket = int(initial_bucket)
         self.parent_fingerprint = f"root:{self.population_id}"
@@ -395,6 +412,9 @@ class _RecoverPopulation:
             if run_id is None:
                 continue
             api_run = self.api.run(f"{self.project_path}/{run_id}")
+            # Public API Run objects cache summary fields. Without a forced
+            # reload, peers can train forever against the pre-election view.
+            api_run.load(force=True)
             self._api_runs[run_id] = api_run
             summary = dict(api_run.summary)
             if run_id == str(self.run.id):
@@ -414,6 +434,11 @@ class _RecoverPopulation:
         return _recover_population_all_acked(
             peer_rows, winner, self.population_id, len(self.peer_names))
 
+    def _release(self, leader_summary: dict,
+                 winner: dict) -> dict | None:
+        return _recover_population_release(
+            leader_summary, winner, self.population_id)
+
     def _elect(self, peer_rows, leader_summary: dict) -> dict:
         if self.member != 0 or len(peer_rows) != len(self.peer_names):
             return leader_summary
@@ -425,8 +450,12 @@ class _RecoverPopulation:
                 break
             last_bucket += 1
             last_winner = row
-        if last_winner is not None and not self._all_acked(
-                peer_rows, last_winner):
+        # ACKs alone are not enough: every member blocks after ACK until the
+        # leader publishes this release. That gives each bucket three fresh
+        # branches from the exact same parent instead of letting one member
+        # build a multi-bucket head start while slower peers are restoring.
+        if last_winner is not None and self._release(
+                leader_summary, last_winner) is None:
             return leader_summary
         parent = (f"root:{self.population_id}" if last_winner is None
                   else str(last_winner["policy_sha256"]))
@@ -553,6 +582,83 @@ class _RecoverPopulation:
         self._pending_acks[bucket] = (
             ack, int(global_step), int(winner["member"]))
         self._flush_acks()
+
+    def wait_for_release(self, checkpoint: dict, global_step: int) -> None:
+        """Block rollout collection until every member ACKs this winner."""
+        import wandb
+        winner = checkpoint["population_record"]
+        bucket = int(checkpoint["bucket"])
+        started = time.monotonic()
+        deadline = started + self.barrier_timeout
+        next_status = started
+        sleep_seconds = min(max(self.poll_seconds, 1.0), 5.0)
+        while True:
+            self._flush_acks()
+            try:
+                peer_rows = self._peer_rows()
+                if len(peer_rows) == len(self.peer_names):
+                    leader_summary = peer_rows[0][3]
+                    release = self._release(leader_summary, winner)
+                    if (release is None and self.member == 0
+                            and self._all_acked(peer_rows, winner)):
+                        release = {
+                            "population_id": self.population_id,
+                            "bucket": bucket,
+                            "policy_sha256": str(winner["policy_sha256"]),
+                            "winner_run_id": str(winner["run_id"]),
+                            "member_count": len(self.peer_names),
+                            "release_time_ns": time.time_ns(),
+                        }
+                        values = {
+                            f"recover_population/release_B{bucket:02d}":
+                                json.dumps(release, sort_keys=True),
+                            "recover_population/latest_release_bucket":
+                                bucket,
+                        }
+                        self._summary_update(values)
+                        leader_summary.update(values)
+                        try:
+                            wandb.log({
+                                "global_step": int(global_step),
+                                "RECOVER_POPULATION/release_bucket":
+                                    float(bucket),
+                            })
+                        except Exception as exc:
+                            print("[recover-pop] release metric deferred: "
+                                  f"{exc}")
+                        print("[recover-pop] leader RELEASED B"
+                              f"{bucket} after all {len(self.peer_names)} "
+                              "members ACKed")
+                    if release is not None:
+                        waited = time.monotonic() - started
+                        try:
+                            wandb.log({
+                                "global_step": int(global_step),
+                                "RECOVER_POPULATION/released_bucket":
+                                    float(bucket),
+                                "RECOVER_POPULATION/release_wait_seconds":
+                                    float(waited),
+                            })
+                        except Exception as exc:
+                            print("[recover-pop] release-observed metric "
+                                  f"deferred: {exc}")
+                        print("[recover-pop] member "
+                              f"{self.member} observed RELEASE B{bucket} "
+                              f"after {waited:.1f}s; next race may start")
+                        return
+            except Exception as exc:
+                print(f"[recover-pop] release poll deferred: {exc}")
+            now = time.monotonic()
+            if now >= deadline:
+                raise RuntimeError(
+                    "recovery population timed out waiting for all members "
+                    f"to ACK/release B{bucket} after "
+                    f"{self.barrier_timeout:.0f}s")
+            if now >= next_status:
+                print("[recover-pop] member "
+                      f"{self.member} WAITING at B{bucket} ACK barrier")
+                next_status = now + 60.0
+            time.sleep(min(sleep_seconds, deadline - now))
 
     def _flush_acks(self) -> None:
         import wandb
@@ -723,6 +829,8 @@ def _init_wandb(args, params: SimServoParams):
                 "recover_population_runs": (
                     args.recover_population_runs.split(",")
                     if args.recover_population_runs else []),
+                "recover_population_barrier_timeout_seconds": (
+                    args.recover_population_barrier_timeout_seconds),
                 "recover_replay_mix": {
                     "focus": 0.50, "recent_three": 0.25,
                     "weakest": 0.15, "uniform_older": 0.10,
@@ -970,6 +1078,10 @@ def main(argv: list[str] | None = None) -> int:
                     default=20.0,
                     help="minimum W&B peer-poll interval at PPO rollout "
                          "boundaries")
+    ap.add_argument("--recover-population-barrier-timeout-seconds", type=float,
+                    default=900.0,
+                    help="fail a cohort member if the all-ACK release barrier "
+                         "does not complete within this wall time")
     ap.add_argument("--no-canary", action="store_true",
                     help="disable the fixed-seed canary probes + "
                          "regression auto-stop (on by default for warm "
@@ -1015,6 +1127,8 @@ def main(argv: list[str] | None = None) -> int:
             ap.error("recovery population sync requires recover episodes")
         if args.recover_population_poll_seconds <= 0.0:
             ap.error("--recover-population-poll-seconds must be > 0")
+        if args.recover_population_barrier_timeout_seconds <= 0.0:
+            ap.error("--recover-population-barrier-timeout-seconds must be > 0")
     elif args.recover_population_runs or args.recover_population_member >= 0:
         ap.error("population roster/member requires --recover-population-id")
 
@@ -1757,6 +1871,8 @@ def main(argv: list[str] | None = None) -> int:
                               f"{checkpoint['bucket']} checkpoint from "
                               f"member {checkpoint['population_record']['member']} "
                               f"at local step {self.num_timesteps:,}")
+                        population.wait_for_release(
+                            checkpoint, self.num_timesteps)
                         return
                 if self._pending_rollback is None:
                     return

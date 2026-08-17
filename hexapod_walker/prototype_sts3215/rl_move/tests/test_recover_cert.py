@@ -12,7 +12,7 @@ from rl_move.sim.train_ppo_mjx import (
     _env_kwargs, _recover_cert_bucket_plan, _recover_episode_outcome,
     _recover_episode_training_error, _recover_population_choose_candidate,
     _recover_population_all_acked, _recover_population_record,
-    _recover_score_payload,
+    _recover_population_release, _recover_score_payload,
     _recover_update_admission_all, _recover_update_regression_timers,
     _run_recover_cert_kind)
 
@@ -233,6 +233,173 @@ def test_recover_population_requires_ack_from_every_matching_member():
     assert not _recover_population_all_acked(
         [peer(0), peer(1, population="other"), peer(2)],
         winner, "pop", 3)
+
+
+def test_recover_population_force_refreshes_cached_peer_summaries():
+    class ApiRun:
+        def __init__(self, summary):
+            self.summary = summary
+            self.loads = []
+
+        def load(self, force=False):
+            self.loads.append(force)
+
+    runs = {
+        "run-0": ApiRun({"remote": 0}),
+        "run-1": ApiRun({"remote": 1}),
+        "run-2": ApiRun({"remote": 2}),
+    }
+
+    class Api:
+        def run(self, path):
+            return runs[path.rsplit("/", 1)[-1]]
+
+    population = object.__new__(_RecoverPopulation)
+    population.peer_names = ("member-0", "member-1", "member-2")
+    population._peer_ids = {
+        f"member-{member}": f"run-{member}" for member in range(3)
+    }
+    population.project_path = "entity/project"
+    population.api = Api()
+    population.run = SimpleNamespace(id="run-0")
+    population._local_summary = {"local": True}
+    population._api_runs = {}
+
+    rows = population._peer_rows()
+
+    assert [row[:3] for row in rows] == [
+        (0, "run-0", "member-0"),
+        (1, "run-1", "member-1"),
+        (2, "run-2", "member-2"),
+    ]
+    assert rows[0][3] == {"remote": 0, "local": True}
+    assert all(run.loads == [True] for run in runs.values())
+
+
+def test_recover_population_next_election_requires_leader_release(
+        monkeypatch):
+    winner_b1 = {
+        "population_id": "pop",
+        "bucket": 1,
+        "member": 0,
+        "run_id": "run-0",
+        "run_name": "member-0",
+        "policy_sha256": "winner-B1",
+    }
+    candidate_b2 = {
+        "population_id": "pop",
+        "bucket": 2,
+        "member": 1,
+        "run_id": "run-1",
+        "run_name": "member-1",
+        "step": 2_000,
+        "time_ns": 10,
+        "parent_fingerprint": "winner-B1",
+        "policy_file": "recover_promotions/member-1.zip",
+        "curriculum_file": "recover_promotions/member-1.curriculum.json",
+        "policy_sha256": "winner-B2",
+        "curriculum_sha256": "curriculum-B2",
+    }
+    leader_summary = {
+        "recover_population/winner_B01": json.dumps(winner_b1),
+    }
+    peers = [
+        (0, "run-0", "member-0", leader_summary),
+        (1, "run-1", "member-1", {
+            "recover_population/candidate_B02": json.dumps(candidate_b2),
+        }),
+        (2, "run-2", "member-2", {}),
+    ]
+    population = object.__new__(_RecoverPopulation)
+    population.member = 0
+    population.peer_names = ("member-0", "member-1", "member-2")
+    population.initial_bucket = 0
+    population.population_id = "pop"
+    population.run = SimpleNamespace(summary={"global_step": 2_000})
+    population._local_summary = {}
+    population._summary_update = lambda values: (
+        population._local_summary.update(values))
+    monkeypatch.setitem(
+        sys.modules, "wandb", SimpleNamespace(log=lambda _payload: None))
+
+    population._elect(peers, leader_summary)
+    assert "recover_population/winner_B02" not in leader_summary
+
+    leader_summary["recover_population/release_B01"] = json.dumps({
+        "population_id": "pop",
+        "bucket": 1,
+        "policy_sha256": "winner-B1",
+    })
+    population._elect(peers, leader_summary)
+    assert _recover_population_record(
+        leader_summary, "winner", 2)["policy_sha256"] == "winner-B2"
+
+
+def test_recover_population_release_is_bound_to_winner_hash():
+    winner = {"bucket": 2, "policy_sha256": "winner-B2"}
+    summary = {
+        "recover_population/release_B02": json.dumps({
+            "population_id": "pop",
+            "bucket": 2,
+            "policy_sha256": "winner-B2",
+        }),
+    }
+    assert _recover_population_release(summary, winner, "pop") is not None
+    winner["policy_sha256"] = "other"
+    assert _recover_population_release(summary, winner, "pop") is None
+
+
+def test_recover_population_leader_releases_only_after_all_acks(monkeypatch):
+    winner = {
+        "population_id": "pop",
+        "bucket": 1,
+        "member": 2,
+        "run_id": "run-2",
+        "policy_sha256": "winner-B1",
+    }
+    leader_summary = {}
+
+    def peer(member):
+        run_id = f"run-{member}"
+        run_name = f"member-{member}"
+        ack = {
+            "population_id": "pop",
+            "bucket": 1,
+            "member": member,
+            "run_id": run_id,
+            "run_name": run_name,
+            "policy_sha256": "winner-B1",
+        }
+        summary = leader_summary if member == 0 else {}
+        summary["recover_population/ack_B01"] = json.dumps(ack)
+        return member, run_id, run_name, summary
+
+    peers = [peer(0), peer(1), peer(2)]
+    population = object.__new__(_RecoverPopulation)
+    population.population_id = "pop"
+    population.member = 0
+    population.peer_names = ("member-0", "member-1", "member-2")
+    population.poll_seconds = 0.01
+    population.barrier_timeout = 1.0
+    population._flush_acks = lambda: None
+    population._peer_rows = lambda: peers
+    population._local_summary = {}
+
+    def summary_update(values):
+        leader_summary.update(values)
+        population._local_summary.update(values)
+
+    population._summary_update = summary_update
+    monkeypatch.setitem(
+        sys.modules, "wandb", SimpleNamespace(log=lambda _payload: None))
+
+    population.wait_for_release(
+        {"bucket": 1, "population_record": winner}, global_step=2_000)
+
+    release = _recover_population_record(leader_summary, "release", 1)
+    assert release is not None
+    assert release["policy_sha256"] == "winner-B1"
+    assert release["member_count"] == 3
 
 
 def test_recover_population_publishes_only_after_checkpoint_upload(
