@@ -188,46 +188,45 @@ def _set_mix(gen, **p) -> None:
         setattr(gen, f"p_{k}", v)
 
 
-def remaining_rise_height(height: np.ndarray, amp: float,
-                          h_start: float) -> np.ndarray:
-    """Rewrite a legacy cold-rise height schedule (hold at belly=0,
-    ramp 0->amp, hold at amp) into the `goal.mode_seq_rise_from_h`
-    "remaining rise" shape (hold at h_start, ramp h_start->amp, hold
-    at amp), preserving the EXACT tick timing the legacy draw already
-    picked. Mirrors `SimHexapodGoalEnv._seq_segment_traj`'s rise
-    branch with `mode_seq_rise_from_h=1` (goal_task.py), applied
-    post-hoc to a reanchored eval schedule instead of an in-episode
-    one -- the WAITING-ON 08-17 "remaining-rise eval probe" that
-    prices the hw postlower `[operator]` fork (SESSION_BULK_GATE.md
-    Cohort c4 verdict: c4 was trained on this schedule shape but
-    evaluated on the legacy one; this makes the eval schedule match
-    training).
-
-    Implementation: an affine remap of VALUES, not an index search for
-    where the ramp starts/ends (the ramp's own endpoint samples equal
-    the adjacent hold values by construction -- e.g. the legacy ramp's
-    first sample is exactly 0.0, same as the belly hold -- so any
-    index-based "find the ramp" scan is off by ticks at both ends).
-    `height[0]` is always the legacy belly-hold value (0.0) and the
-    final value is always `amp` (both true by construction of the
-    legacy generator); rescaling every sample's position in
-    [height[0], amp] into [h_start, amp] reproduces the identical
-    ramp shape/timing at the new amplitude, exactly, with no ambiguity.
-
-    h_start is clamped into [0, amp] -- a robot already at/above the
-    nominal stand height still gets a (trivial) hold, never a
-    downward ramp; this probe measures the fork, not new behavior.
-    Pure array math, no env/mujoco dependency -- unit-testable in
-    isolation.
+def rise_from_h_traj(env, cfg: dict):
+    """Build a post-lower rise segment's goal trajectory with the REAL
+    trained generator instead of the legacy cold-reset sampler --
+    `SimHexapodGoalEnv._seq_segment_traj("rise", tick=0)` with
+    `goal.mode_seq_rise_from_h` forced to 1 for the call only (cfg is
+    restored immediately after, so nothing else this run reads a
+    mutated cfg). Requires `env._z0` already installed (the belly
+    frame `reanchor_to`'s inner `env.reset()` set BEFORE the physical
+    state was restored) and `env.data`/`env.rng` to reflect the
+    robot's real carried-over state (i.e. call AFTER the qpos
+    restore + mj_forward, same precondition as `reanchor_to`'s
+    return). Root cause this exists (2026-08-17, hw WAITING-ON): a
+    naive `--cfg-set goal.mode_seq_rise_from_h=1` is a confirmed
+    no-op through this harness -- that key is only read inside
+    `_sample_mode_seq_stance`, gated on `goal.mode_seq_stance>0`, a
+    code path the reanchor-based composed-specialist sequencing never
+    enters (`_sample_goal` falls straight to the legacy generator).
+    `_seq_segment_traj` is the actual training-time method that reads
+    the key; calling it directly is the only way to get its exact
+    hold_n=1.0s/ramp-jitter formula instead of re-deriving it.
+    `env._seq_stand_z` is left at its current value (None for the
+    first post-lower rise in a composed sequence, since these
+    specialists don't track a running "last commanded stand height"
+    across segments) -- the same amp draw the legacy sampler would
+    make (`rng.uniform(*gen.rise_m)`), only the height SCHEDULE
+    SHAPE changes. Returns (traj, h_target).
     """
-    h_start = float(np.clip(h_start, 0.0, amp))
-    out = np.asarray(height, dtype=float)
-    old_start = float(out[0])
-    denom = float(amp) - old_start
-    if abs(denom) < 1e-12:
-        return np.full_like(out, h_start)
-    frac = (out - old_start) / denom
-    return h_start + frac * (float(amp) - h_start)
+    goal_cfg = cfg.setdefault("goal", {})
+    had_key = "mode_seq_rise_from_h" in goal_cfg
+    prev = goal_cfg.get("mode_seq_rise_from_h")
+    goal_cfg["mode_seq_rise_from_h"] = 1
+    try:
+        traj, h_target, _ramp_i0 = env._seq_segment_traj("rise", 0)
+    finally:
+        if had_key:
+            goal_cfg["mode_seq_rise_from_h"] = prev
+        else:
+            del goal_cfg["mode_seq_rise_from_h"]
+    return traj, h_target
 
 
 def main() -> int:
@@ -275,18 +274,26 @@ def main() -> int:
                          "'1.5,0.25' = the TAKEOFF.md deploy design); "
                          "scoped to walk engages only, default off = "
                          "bit-exact legacy behavior")
-    ap.add_argument("--remaining-rise", action="store_true",
-                    help="mid-sequence (post-lower) rise segments "
-                         "hold their height goal at the robot's "
-                         "CURRENT height and ramp to the stand "
-                         "target, instead of the legacy hold-at-belly"
-                         "-then-ramp schedule -- mirrors the trained "
-                         "`goal.mode_seq_rise_from_h` semantics "
-                         "(WAITING-ON 08-17 hw: prices the postlower "
-                         "operator fork -- train==deploy schedule -- "
-                         "before a product-contract change). Default "
-                         "off = bit-exact legacy reanchor schedule; "
-                         "the first (cold) rise is never affected.")
+    ap.add_argument("--rise-from-h", action="store_true",
+                    help="mid-sequence (post-lower) rise segments use "
+                         "the REAL trained schedule generator "
+                         "(`SimHexapodGoalEnv._seq_segment_traj` with "
+                         "`goal.mode_seq_rise_from_h=1`) instead of the "
+                         "legacy cold-reset sampler, so the height "
+                         "goal holds at the robot's CURRENT height "
+                         "and ramps to the stand target with the "
+                         "SAME 1.0s-hold/ramp-jitter formula "
+                         "postlower4 was trained on -- a naive "
+                         "`--cfg-set goal.mode_seq_rise_from_h=1` is a "
+                         "confirmed no-op here (that key is only read "
+                         "by the in-context `_sample_mode_seq_stance` "
+                         "path, which this reanchor-based harness "
+                         "never enters). WAITING-ON 08-17 hw: prices "
+                         "the postlower operator fork (train==deploy "
+                         "schedule) before a product-contract change. "
+                         "Default off = bit-exact legacy reanchor "
+                         "schedule; the first (cold) rise is never "
+                         "affected.")
     ap.add_argument("--stochastic", action="store_true",
                     help="both policies predict stochastically (default "
                          "deterministic)")
@@ -545,16 +552,16 @@ def main() -> int:
         else:
             obs = reanchor_to("rise", force_rise_start="flat")
             rec["start_kind"] = "reanchor_post_lower"
-            if args.remaining_rise:
-                h_start = chassis_z() - env._z0
-                env._goal_traj.height = remaining_rise_height(
-                    env._goal_traj.height, float(env._h_target), h_start)
+            if args.rise_from_h:
+                traj, h_target = rise_from_h_traj(env, cfg)
+                env._goal_traj = traj
+                env._h_target = float(h_target)
                 obs = env._final_obs(
                     build_obs(env.cfg, env._state, env._q_nom,
                               env._prev_action, goal=env._current_goal(),
                               tilt_ref=env._tilt_ref0), reset=True)
-                rec["remaining_rise_h_start_mm"] = round(
-                    h_start * 1000.0, 1)
+                rec["rise_from_h_start_mm"] = round(
+                    (chassis_z() - env._z0) * 1000.0, 1)
         meter = _SegMeter()
         for _ in range(int(round(RISE_PHASE_S / dt))):
             a = act(obs, "rise")
@@ -725,7 +732,7 @@ def main() -> int:
                      "speed": args.speed, "deterministic": det,
                      "drive_random": bool(args.drive_random),
                      "entry_slew": args.entry_slew,
-                     "remaining_rise": bool(args.remaining_rise),
+                     "rise_from_h": bool(args.rise_from_h),
                      "episodes": []}
     if args.single is not None:
         results["single"] = str(args.single)

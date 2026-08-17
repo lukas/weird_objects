@@ -509,7 +509,7 @@ Aggregate: `logs/bulk_session/c4/aggregate.json` + `episodes.jsonl`;
   STATUS.md / hw/STATUS.md, not launched. Product baseline (c1
   hierarchy) unaffected either way.
 
-## Cohort c5rr — pre-registered "remaining-rise" semantics probe (prices the postlower `[operator]` fork)
+## Cohort c5rr — pre-registered "rise-from-h" semantics probe (prices the postlower `[operator]` fork)
 
 Registered: 2026-08-17 ~22:0x UTC (idle-drain cycle), BEFORE any
 shard ran. Not a promotion gate for a new arm — an EVAL-SIDE probe
@@ -527,24 +527,40 @@ data, not taste; if it still falls short, the mismatch was not (the
 whole) story and option (b)/(c) (reward-side pricing / accept the
 ceiling) stay live.
 
-- **New code** (this cycle, tests green): `eval_modeseq.py
-  --remaining-rise` (default off, bit-exact legacy when unset) —
-  after the post-lower reanchor, rewrites the rise segment's height
-  schedule with `remaining_rise_height()` (pure affine value remap:
-  old range `[height[0]=0, amp]` -> `[h_start, amp]`, so the ramp's
-  exact tick timing is preserved, no index search) where `h_start`
-  is the robot's real height above the just-installed belly frame at
-  the reanchor tick. Mirrors `SimHexapodGoalEnv._seq_segment_traj`'s
-  `mode_seq_rise_from_h` branch (goal_task.py), applied post-hoc
-  instead of in-episode. `bulk_session_eval.py`: shards carry a
-  `remaining_rise` bool (`COHORT_REMAINING_RISE`), `shard_cmd` passes
-  `--remaining-rise` only when set. Tests: `test_bulk_session_eval.py`
-  +4 (pure-math identity/clamp check, shard-cmd opt-in, cohort
-  wiring + fresh bank) — 11/11 in that bank; two 2-episode smoke
-  reads on real checkpoints (`spec`, `spec-pl4`) confirm the
-  mechanism fires only on post-lower rises (`remaining_rise_h_start_mm`
-  present) and cold rises are untouched.
-- Instrument + grammar identical to c1-c4 EXCEPT `--remaining-rise`
+- **New code** (this cycle, tests green): a first pass tried a pure
+  post-hoc rewrite of the legacy schedule array; a PRIOR cycle this
+  same window had already confirmed (on-pod, byte-identical A/B) that
+  a naive `--cfg-set goal.mode_seq_rise_from_h=1` is a NO-OP through
+  this harness — that key is only read inside
+  `_sample_mode_seq_stance`, gated on `goal.mode_seq_stance>0`, a
+  code path the reanchor-based composed-specialist sequencing never
+  enters (`_sample_goal` falls straight to the legacy
+  `GoalGenerator.sample`) — and specified the correct fix as calling
+  the REAL trained generator directly. Implemented per that spec:
+  `eval_modeseq.py --rise-from-h` (default off, bit-exact legacy when
+  unset) — after the post-lower reanchor (physical state already
+  restored), calls `rise_from_h_traj()` which invokes
+  `SimHexapodGoalEnv._seq_segment_traj("rise", tick=0)` with
+  `goal.mode_seq_rise_from_h` forced to 1 for that one call only (cfg
+  restored immediately after, verified to leak neither an absent key
+  nor an explicit prior value) — the SAME method and 1.0s-hold/ramp-
+  jitter formula postlower4 was trained on, not a re-derived
+  approximation. `_seq_stand_z` is left at its natural `None` (a bare
+  reanchored env has no in-context `_seq_plan`, so the call takes the
+  same `rng.uniform(*gen.rise_m)` amplitude draw the legacy sampler
+  would). `bulk_session_eval.py`: shards carry a `rise_from_h` bool
+  (`COHORT_RISE_FROM_H`), `shard_cmd` passes `--rise-from-h` only
+  when set. Tests: new `test_eval_modeseq_rise_from_h.py` (4/4, real
+  mujoco env — holds at current height then ramps to target, cfg
+  toggle scoped/restored exactly, works without `_seq_stand_z`, and a
+  locked regression proving the legacy path is still a no-op with the
+  cfg key set but the flag NOT passed) + `test_bulk_session_eval.py`
+  +2 (shard-cmd opt-in, cohort wiring + fresh bank) — 14/14 across
+  both banks; real-checkpoint smoke reads (2-3 episodes each, both
+  `spec` and `spec-pl4`) confirm the mechanism fires only on
+  post-lower rises (`rise_from_h_start_mm` ~40mm present) and cold
+  rises are untouched.
+- Instrument + grammar identical to c1-c4 EXCEPT `--rise-from-h`
   is now on: `rise,walk,lower,rise,walk`, entry-slew on, speed
   0.05-0.06, drive 14s. Candidates: **`spec`** (parent,
   `footlow2_hard1`+`bcgait1_hard1`, re-read under the new schedule —
@@ -571,7 +587,7 @@ ceiling) stay live.
     (postlower4 is not yet a product change without the operator's
     sign-off on the runner/instrument contract).
   - If `spec` ALSO changes materially (up or down) from its c1
-    numbers under `--remaining-rise`, that is itself a finding about
+    numbers under `--rise-from-h`, that is itself a finding about
     the runner (the legacy schedule was doing SOMETHING for the
     parent too) and gets reported plainly, not smoothed over.
   - If `spec-pl4` still trails `spec` under the matched schedule,

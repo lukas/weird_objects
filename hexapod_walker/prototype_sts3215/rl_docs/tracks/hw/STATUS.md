@@ -22,6 +22,43 @@ unresolved blockers between the robot and reliable joystick control.
 
 ## Now
 
+- **08-17 ~22:xx (dig-in): `cw-recover-any15-retentionrollback-cont1`
+  FAIL by its gate's frontier clause, but the clause was the invalid
+  part — the retention-gated promotion mechanism is PROVEN and it
+  proved the recovery line's ladder numbers were INFLATED.** Guard
+  items (1)-(3) all live: 8 promotions (B1@1.05M … B8@25.03M), each
+  with a saved policy ZIP + curriculum JSON on pod and W&B, every
+  `recover_promoted=1` paired with a same-round
+  `retention_suite_passed=1`, training-error priority responding to
+  fumbles (b4 0.00→0.20, sample prob 0.45→0.06-0.26). Item (4)
+  (timed rollback) never fired and is MIS-TARGETED: the observed
+  failure is OSCILLATION (a bucket reads 0.00 then 1.00 in adjacent
+  1M cert rounds, resetting the consecutive-failure timer; max age
+  3.01M vs the 4M trigger), not the monotone forgetting the timer
+  assumes. Root cause of the B8 stall: nothing was forgotten —
+  over the last 15M steps buckets 0-3 pass 100% of rounds, b4 0.85,
+  b5/b6 0.90; the wall is the frontier neighborhood, b7 `crouch_deep`
+  (pass rate 0.47, mean 0.59) and b8 `partial_high` (0.14, mean
+  0.31), and promotion was correctly denied at 28M/34M because b7
+  dipped in the same round the frontier passed. **Measurement
+  correction (the real result): `any11`'s "B15" was earned under
+  rotating-subset certification with stale passes — its own history
+  reads b1=0.06/b2=0.00/b3=0.00 at 15M with frontier 13, and
+  b0=0.06/b1=0.31 at 38M with frontier 15 — while matched one-shot
+  gate evals put any11 and any15 at EQUAL capability (det 10/18 at
+  DR-0 and 11/18 at DR-0.1 for both; sto 0/18 for both). So the
+  lineage's honest same-round-certified frontier is B8, not B15, and
+  "B8 vs B15" is a certification-standard artifact.** Video honest:
+  successes are genuine six-foot recoveries (no flag/stilt/park) and
+  the b8 failures are not falls — upright, roll_tail 0.1°,
+  end_posture_ok, valid_plant, just short of the held-success height
+  (plant_margin 128.8mm vs 143.3mm on a success). Also noted:
+  warm-start does NOT carry curriculum state (frontier restarts at
+  0). No follow-up arm — recover/tangle redesign stays `[operator]`
+  and is outside the SIM SPRINT. **Next, if the line reopens:** make
+  the rollback trigger judge a windowed pass RATE instead of
+  consecutive sub-threshold age, and aim the first lever at
+  crouch_deep/partial_high STABILITY, not at more ladder rungs.
 - **08-16 ~21:xx (triage cycle): `cw-recover-any13-tanglersi-bank1` FAIL —
   on-path-bank RSI does NOT crack tangle either; CLOSES the exposure-
   side lever class for tangle entirely (2nd new-mechanism miss,
