@@ -1,5 +1,30 @@
 # dynrep — Dynamics-representation pretraining
 
+**08-18 ~13:1x UTC (triage cycle): `cw-dynrep-criticD-walkcurr1` FINISHED
+its full 40M budget — FAIL, and with it every arm of the walkcurr
+tournament is now terminal.** This was the ORIGINAL adaptive-curriculum
+run (V1, launched 05:0x UTC, the twin `cw-dynrep-criticD-40m1` compares
+against). Full-budget data confirms the mid-run diagnosis that already
+triggered walkcurr2/V2: across all 80 cert rounds (every 0.5M steps)
+the curriculum never left bucket B0 — 0 promotions, 0 rollbacks, the
+entire 40M — even though the underlying policy kept visibly improving
+underneath (B0 cmd_prog_frac 0.35→0.65, falls→0, slip_per_m
+3.6→~1.8-2.3). Cause: V1's admission gate hard-requires slew_sat<=0.5,
+and this policy sits right on that line (0.49-0.54 for its last 10M
+steps) — a wall the best known comparable checkpoint
+(`cw-dynrep-criticD-40m1` 6M-best, slew_sat~0.925) would also fail.
+Per the gate's own rule ("best = last retention-clean promotion,
+never reward/latest"), zero promotions means there is NO certified
+checkpoint from this run at all. Gate required frontier>=B6; got B0:
+FAIL, no extension. Every sibling arm was already terminal
+(walkcurr2 SUPERSEDED_NONCOMPLIANT, walkcurr3
+FAIL/SUPERSEDED_REWARD_EXPLOIT, walkcurr4 canary tournament + bridge1
++ bridge2 all FAILED) — the whole walkcurr line is now closed pending
+a new operator order (open question: q_20260818T1035Z et al). No new
+launch this cycle: SIM SPRINT bars new dynrep work and this line has
+no unexplored lever left that isn't already an open operator
+question. Evidence: ledger verdict + W&B `137olxtr` OUTCOME note.
+
 **08-18 ~12:1x UTC (triage cycle): `cw-dynrep-criticD-walkcurr4-bridge2`
 FAILED — its own pre-registered IN-RUN fail-closed gate fired at
 2.007M/4M steps, and the walkcurr4 tournament's third distinct
