@@ -124,15 +124,16 @@ STAND_HANDS_SECONDS = 1.8
 STAND_HANDS_HOLD_S = 1.6
 STAND_HANDS_LEGS = (0, 2, 4)  # every other leg = stable tripod support
 # Dance: full choreography (heartbeat → breathe → hands up → RISE → wild
-# planted acts → sleep).  Durations below are at speed 1.0× (~100 s total).
-DANCE_HEARTBEAT_S = 4.4          # ~4 lub-dub pulses @ 1.1 s cycle
-DANCE_BREATH_GROWTH = (0.6, 1.0, 1.6)   # per-breath amplitude (× size)
-DANCE_BREATH_HALF_S = 2.2        # inhale / exhale glide each
-DANCE_TWINKLE_S = 5.0
-DANCE_SHIMMY_S = 5.0
-DANCE_CONDUCTOR_S = 5.0
-DANCE_OVERHEAD_SWAY_S = 3.0      # arms-overhead shimmer before the rise
-DANCE_OVERHEAD_HOLD_S = 1.0      # beat of stillness before the drop
+# planted acts → sleep).  Durations below are at speed 1.0×.
+# Opening tightened per operator note (was ~40 s of quiet before the
+# rise; now ~25 s, with big air choreography instead of small wiggles).
+DANCE_HEARTBEAT_S = 3.3          # ~3 lub-dub pulses @ 1.1 s cycle
+DANCE_BREATH_GROWTH = (0.8, 1.6)        # per-breath amplitude (× size)
+DANCE_BREATH_HALF_S = 1.8        # inhale / exhale glide each
+DANCE_AIR_WAVE_S = 4.5           # spiral wave, amplitude grows
+DANCE_AIR_CANON_S = 5.0          # follow-the-leader, air-sized
+DANCE_OVERHEAD_SWAY_S = 2.2      # arms-overhead shimmer before the rise
+DANCE_OVERHEAD_HOLD_S = 0.8      # beat of stillness before the drop
 DANCE_DESCEND_S = 10.0           # planted → sit zero (body onto the stand)
 DANCE_OUTRO_HEARTBEAT_S = 2.4    # two final soft thumps
 DANCE_HANDS_HOLD_S = 1.2         # standing hands-up feature hold
@@ -2424,6 +2425,50 @@ def run_rise_show_demo(bus: FeetechBus, *,
                                 descend_s, "rise_show+descend")
 
 
+def frames_air_wave(seconds: float = 4.5):
+    """Spiral wave in the air — all six legs, each at its own phase.
+
+    Hip, knee and yaw all ride the same traveling wave with different
+    lags, so every leg is somewhere different in the figure at any
+    instant.  Amplitude ramps 0.25 → 1.0 over the segment (waking up).
+    Air-sized: hips dip ±28°, knees curl −14..+34° (safe from zero).
+    """
+    n = max(1, int(seconds / DT))
+    for i in range(n):
+        t = i * DT
+        a = 0.25 + 0.75 * min(1.0, t / max(0.5, seconds * 0.7))
+        pose = _zero_pose()
+        for leg in range(6):
+            ph = 2.4 * t - leg * (math.pi / 3.0)
+            _yaw_hip_knee(leg, pose,
+                          yaw=14.0 * a * math.sin(ph + 0.5),
+                          hip=-28.0 * a * math.sin(ph),
+                          knee=a * (10.0 + 24.0 * math.sin(ph - 0.8)))
+        yield pose
+
+
+def frames_air_canon(seconds: float = 5.0):
+    """Follow-the-leader in the air — big gesture, decaying echoes.
+
+    Leg 0 leads a hip-dip + knee-curl + yaw-sweep gesture; each next
+    leg around the hex repeats it one offset later and ~12% smaller.
+    Narrow envelope → the gesture visibly travels leg to leg.
+    """
+    n = max(1, int(seconds / DT))
+    for i in range(n):
+        t = i * DT
+        pose = _zero_pose()
+        for leg in range(6):
+            decay = 1.0 - 0.12 * leg
+            ph = 1.7 * t - leg * (2.0 * math.pi / 6.0)
+            env = decay * max(0.0, math.sin(ph)) ** 2.0
+            _yaw_hip_knee(leg, pose,
+                          yaw=22.0 * env * math.sin(2.0 * ph),
+                          hip=-45.0 * env,
+                          knee=55.0 * env)
+        yield pose
+
+
 def frames_overhead_sway(seconds: float = 3.0):
     """Arms-overhead shimmer — traveling yaw wave + soft knee pulse.
 
@@ -2453,7 +2498,7 @@ def run_dance_demo(bus: FeetechBus, *,
     """Full dance routine — quiet heartbeat to wild show and back to sleep.
 
     Act I    heartbeat pulses, then breaths that grow (``size`` scales)
-    Act II   waking: twinkle → shimmy → conductor wave
+    Act II   air show: spiral wave (all legs, growing) + big air canon
     Act III  all six hands over head + overhead sway (the inhale)
     Act IV   THE RISE — one slow 12 s reach from overhead down to plant
     Act V    wild planted acts: bounce, look, orbit sway, ripple,
@@ -2530,7 +2575,7 @@ def run_dance_demo(bus: FeetechBus, *,
 
     # --- Act I: asleep — heartbeat, then breaths that grow ----------------
     note("act I — asleep: settling at sit zero")
-    if not _soft_glide(bus, _zero_pose(), live, 1.5 * sc, check, **glide_kw):
+    if not _soft_glide(bus, _zero_pose(), live, 1.0 * sc, check, **glide_kw):
         return bail("act1 settle")
     note("act I — heartbeat (soft double thumps)")
     if not _run_frames(bus, live,
@@ -2544,7 +2589,7 @@ def run_dance_demo(bus: FeetechBus, *,
         amp = min(2.5, growth * size)
         peak = _breathe_pose(1.0, hip_deg=BREATHE_HIP_DEG * amp,
                              knee_deg=BREATHE_KNEE_DEG * amp)
-        half = max(1.6, DANCE_BREATH_HALF_S * sc)
+        half = max(1.2, DANCE_BREATH_HALF_S * sc)
         note(f"act I — breath {i}/{len(DANCE_BREATH_GROWTH)} "
              f"(deeper, {amp:.1f}×)")
         print(f"  → act I — breath {i} ({amp:.2f}×)")
@@ -2556,13 +2601,14 @@ def run_dance_demo(bus: FeetechBus, *,
             return bail("act1 breathe")
         here = open_pose
 
-    # --- Act II: waking — twinkle → shimmy → conductor ---------------------
+    # --- Act II: air show — big free-range choreography --------------------
     for frame_fn, label, secs in (
-        (frames_twinkle, "act II — waking: twinkle (stirring)",
-         DANCE_TWINKLE_S),
-        (frames_shimmy, "act II — waking: shimmy", DANCE_SHIMMY_S),
-        (frames_conductor, "act II — waking: one leg wakes and waves",
-         DANCE_CONDUCTOR_S),
+        (frames_air_wave,
+         "act II — air wave: spiral around the hex, growing",
+         DANCE_AIR_WAVE_S),
+        (frames_air_canon,
+         "act II — air canon: leg 0 leads, others echo big",
+         DANCE_AIR_CANON_S),
     ):
         note(label)
         if not _run_frames(bus, live, frame_fn(seconds=secs * sc),
@@ -2572,7 +2618,7 @@ def run_dance_demo(bus: FeetechBus, *,
     # --- Act III: hands over head (the inhale) ------------------------------
     note("act III — all six hands over head")
     if not ease_to_pose(bus, _arms_up_pose(), abort_check=check,
-                        seconds=max(1.6, ARMS_UP_SECONDS * sc),
+                        seconds=max(1.4, 1.8 * sc),
                         label="act III — hands over head",
                         current_tracker=peaks):
         return bail("act3 arms up")
