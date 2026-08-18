@@ -20,13 +20,28 @@ sim_viewer/sim_walk.sh     # walk champion alone (cv2 drive window)
 - `7` stand up **in place** (no teleport: a crouch just rises; a belly
   start re-anchors the episode where the robot is, then auto-rises
   ~11 s), `8` sit, `9` reset standing (true reset, back to origin),
-  `B` belly-down, `I/K/J/L` persistent cruise trim, `Space` stop,
+  `B` belly-down, `F` **fall over** (torque-off tumble; cycles sprawl →
+  left side → back → right side → nose-over), `R` **run the recovery
+  policy** (recover-to-plant line, `--recover`; stands back up from
+  sprawls/tangles/crouches/belly — side/back inversion is not in its
+  curriculum yet), `I/K/J/L` persistent cruise trim, `Space` stop,
   `=`/`-` height, `Q` quit.
 - **Model picker panel** on the right of the window (like the robot
-  webui): every non-`*_steps` checkpoint in `rl_move/sim/policies/` is
-  classified at startup by obs width read from the sb3 zip's JSON
-  metadata (68 → stance slot, 72 → walk slot; no torch load) and listed
-  in two groups — click a row to load it. `[` / `]` and `,` / `.` cycle
+  webui): checkpoints in `rl_move/sim/policies/` are classified at
+  startup by obs width read from the sb3 zip's JSON metadata (68 →
+  stance slot; 72, 78 = +mode one-hot [transdagger GRU], 1152 = 16
+  stacked frames [transformer] → walk slot; no torch load) and listed
+  in two groups — click a row to load it. By default only a curated
+  TOP TEN + the 08-18 experiments is shown (best per category: rise,
+  all-round walk, no-slip, steering, speed, on-robot, the transformer
+  and transdagger experiments, plus the clamp-fit scripted gait) — the
+  full scan outgrew the panel and off-screen rows were unclickable;
+  pass `--all` for everything (rows shrink to fit). The mode one-hot
+  (+6 obs) is always appended env-side now — prefix-slicing keeps every
+  older checkpoint's layout intact; the GRU model threads recurrent
+  state through predict (cleared on true resets only) and the
+  transformer walker runs on a client-side 16-frame stack seeded like
+  a fresh episode whenever driving engages. `[` / `]` and `,` / `.` cycle
   the same lists. Swaps load on the spot (~1 s stall) and work
   mid-walk; the active pair is highlighted. Each row carries a one-line
   description (distilled from RL_LOG.md into `_DESC` in `play.py`).
