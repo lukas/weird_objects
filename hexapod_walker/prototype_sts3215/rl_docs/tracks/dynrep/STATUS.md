@@ -2,6 +2,20 @@
 
 **SIM SPRINT (operator 08-17 ~18:05 UTC — binding while the robot is off the bench for repair): NO NEW LAUNCHES on this track unless an arm directly serves reliable rise+walk in the MuJoCo sim (the fleet's single deliverable; download answer: `rl_docs/DOWNLOAD_ANSWER.md`). In-flight runs finish and get triaged normally. Full text: RL_PLAN.md "SIM SPRINT".**
 
+**08-18 ~02:50 UTC (operator kick fb_20260818T022818_d54f8e, mid-run
+visual check — NOT the 40M verdict): matched visual A/B of
+`cw-dynrep-criticD-40m1` best-loco @6M vs periodic ck22M
+(`probe-criticD40m1-viscompare1`, W&B `w9rfye7u`): the 6M best is
+clearly the keeper — better command progress on every moving segment,
+~half the slip, level posture; ck22M has developed a lean-and-park
+habit (tail roll to 8°, stiff outstretched legs in lateral/stop, walks
+lower) and goes the WRONG WAY on backward commands. Shared envelope
+gaps on BOTH: lateral ~0.2 prog_frac, backward broken, stop creeps
+2-6 cm/s, instant flip produces no reversal — the 40M gate's
+command-rich eval will hit these. Best-loco selection has not improved
+since 6M (loco score 0.5); watch whether the composite stays flat
+through 40M. Training untouched (23.75M at probe end).**
+
 **08-18 ~02:xx UTC (triage cycle): `cw-dynrep-livewalkrise1` (arm A, the
 10M live world-model continuation) is CLOSED — outcome (b) of its own
 pre-registered gate. Across all 10 boundary-gated snapshot attempts
