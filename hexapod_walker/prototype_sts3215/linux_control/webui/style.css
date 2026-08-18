@@ -45,6 +45,8 @@
                    color:#ffd7d7; border-radius:8px; padding:2px 8px;
                    font-size:12px; cursor:pointer; }
   #errbar button:active { background:#703030; }
+  #errbar-log { flex:0 0 auto; color:#e08d8d; font-size:12px;
+                align-self:center; }
   .hint, #sent { user-select:text; -webkit-user-select:text; }
   body.link-down #offlinebar { display:block; }
   body.link-down header { border-bottom-color:#7a2b2b; }

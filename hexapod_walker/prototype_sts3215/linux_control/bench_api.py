@@ -495,6 +495,8 @@ class BenchAPI:
                 continue
             if n in AIR_DEMO_NAMES:
                 group = "air"
+            elif n.startswith("quad"):
+                group = "quad"      # own web tab (tip-back 4-leg walk)
             elif n in stand_stream:
                 group = "stand"
             elif n.startswith("walk"):
@@ -775,6 +777,12 @@ class BenchAPI:
                 with self._lock:
                     self._demo_status = f"running @ {speed:.2f}×"
                 self._set_activity("demo", detail)
+                # Own the MCU link for the whole motion. Without this the
+                # TFT job-panel repaint (~1.5 s serial hold every 1.6 s)
+                # starved the 20 Hz demo stream to ~2 Hz — measured
+                # 08-17: stand_wave turned into rare giant steps and
+                # tipped the robot. Same bug rl_policy_move fixed 08-10.
+                self._bus_hot = True
                 # Every web demo is also a calibrate run: cmd vs encoder CSV.
                 log_dir = Path(__file__).resolve().parent / "logs"
                 log_dir.mkdir(parents=True, exist_ok=True)
@@ -852,6 +860,7 @@ class BenchAPI:
                 with self._lock:
                     self._demo_status = f"error: {e}"
             finally:
+                self._bus_hot = False
                 if gen != self._demo_gen:
                     return
                 with self._lock:

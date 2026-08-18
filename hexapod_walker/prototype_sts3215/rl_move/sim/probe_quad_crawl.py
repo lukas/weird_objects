@@ -57,6 +57,10 @@ off, quadwalk mode, champion walk stack + quad income):
      envelope. No foot placement within joint limits fixes this.
   => Only DYNAMIC (closed-loop) balance can walk this robot on four
   legs; an honest scripted open-loop bank reference CANNOT EXIST.
+  (PARTIALLY SUPERSEDED 08-18: that holds for LEVEL-body stances only.
+  probe_quad_rear.py shows a REARED stance — nose-up 14-17 deg, body
+  30-40 mm back — moves the CoM aft of the level-body gap and an
+  open-loop 4-beat creep then walks forward statically stable.)
   The QUADWALK bank stays SKIPped
   (test_task_semantics.QUADWALK_REFERENCE_BLOCKED) pending the
   operator ruling on a feedback/RL-derived reference (quad/STATUS

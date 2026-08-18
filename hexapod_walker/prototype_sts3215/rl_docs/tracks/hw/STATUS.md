@@ -22,6 +22,43 @@ unresolved blockers between the robot and reliable joystick control.
 
 ## Now
 
+- **08-18 ~19:4x (triage cycle): `cw-dep-bcgait1-hard1-steer2-stagecurric1`
+  CANARY PASSED with a favorable informational read — staged
+  difficulty ramp looks like the right lever for the direction-switch
+  jamming that FAILED steer1-hard20m1.** Same identical 24-episode
+  stress-mix panel (DR-0 + own-DR-0.35, det+sto): ZERO over_current
+  terminations (was 3/24) and only 1/24 episodes with a sacrificed
+  leg, and that one is a single-leg drag (video-verified, height and
+  five-of-six-leg cycling intact), not hard20m1's severe 3-leg
+  tangle/near-stall. Mechanism health clean (finite losses, kl_rollback
+  0, reward climbing all 4 quarters). Queued+launched same cycle:
+  `cw-dep-bcgait1-hard1-steer2-hard20m1-r1` (~20M, warm from this
+  checkpoint with the curriculum pinned at full stage 2, same
+  `--best-ckpt` retention guard as steer1-hard20m1) — a first launch
+  attempt crashed pre-boot on a respec-tool typo (`--arg='--best-ckpt='`
+  reintroduced the trailing-empty-arg bug the tool's own bare-flag fix
+  targets; zero GPU-seconds lost, fixed same cycle by using the true
+  bare-flag form). Not hardware-ready, still hardening-phase only.
+  Detail: ledger verdict + W&B `6ixhl7lq` OUTCOME note.
+- **08-18 ~19:3x (triage cycle): recover "keep it rumbling" cohort
+  COMPLETE — all three members (s11/s12/s13) verdicted, no clean
+  answer to "does more training help".** Member `s11`'s own matched
+  gate score is a wash (det 14/18 DR-0 was 13/18, DR-0.1 15/18 was
+  16/18 -- a +1/-1 shuffle), landing between s12 (fell 16->8) and
+  s13 (rose 13->16) on the identical recipe/budget/checkpoint
+  lineage. All three held the shared B15 frontier the whole 100M
+  (video-verified genuine recoveries, no exploit); s11 and s13 both
+  independently fired their `RECOVER_GUARD` rollback at the EXACT
+  same step (72,024,064, restoring the same B15 checkpoint) while
+  s12 never fired — worth a closer look if this line ever reopens,
+  but not dug into now (recover/tangle redesign stays
+  `[operator]`-gated, outside the SIM SPRINT). Cohort-level verdict:
+  the population-sync mechanism itself is now proven robust at 100M/
+  member scale on all three members across two cohorts (any21,
+  any21c2) — the remaining wall is the oscillating-retention plateau
+  named in CURRENT_TRUTHS, not sync. No follow-up queued. Detail:
+  `rl_docs/runs/cw-recover-any21c2-pop3-s11.md`, ledger verdicts on
+  s12/s13.
 - **08-18 ~19:1x (triage cycle): recover "keep it rumbling" continuation,
   member `s13`, finished its +100M — the OPPOSITE direction from
   s12: this member's own matched gate score IMPROVED (det 16/18 DR-0

@@ -51,7 +51,7 @@ done
 # Setup bundle + canonical motor_setup copies.
 "${SCP[@]}" -r "$SRC/urt2_setup/." "$HOST:$REMOTE/urt2_setup/"
 "${SCP[@]}" -r "$SRC/urt2_setup/." "$HOST:$REMOTE/linux_control/urt2_setup/"
-for f in feetech_bus.py urt2_bench.py inplace_demos.py \
+for f in feetech_bus.py urt2_bench.py inplace_demos.py quad_walk.py \
          motion_telemetry.py motor_setup_registry.json; do
   "${SCP[@]}" "$SRC/../motor_setup/$f" "$HOST:$REMOTE/motor_setup/"
 done
