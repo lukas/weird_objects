@@ -15,6 +15,10 @@ servo twin, but as a live state machine instead of a fixed timeline:
 
 Keys are drawn IN the window (cv2 owns every key — no viewer toggles):
     7 / W   rear up (W also auto-starts walking once reared)
+    T       gait: WALK (lateral sequence, one foot up, statically
+            stable) or TROT (diagonal pairs like a horse, ~2x pace —
+            sim-swept 08-18, never falls, rocks LESS than the walk).
+            Takes effect at the next rear-up.
     Space   stop walking — freezes at the next all-4-feet-down window
     8       sit back down (auto-stops the walk first)
     9       reset the sim to the plant pose
@@ -54,14 +58,11 @@ import quad_walk as QW  # noqa: E402
 WIN = "quad_play — tip-back walk (7 rear · W walk · Space stop · 8 sit)"
 
 
-def all_stance(tw: float) -> bool:
-    """True when all 4 support feet are planted at walk-clock ``tw``.
-
-    Legs swing (1-DUTY)=0.2 of the cycle at quarter-cycle offsets, so
-    the all-stance windows are the last 0.05 of every quarter-cycle.
-    """
-    p = (tw / QW.PERIOD_S) % 1.0
-    return (p % 0.25) >= 0.2
+def all_stance(g: "QW.QuadRearWalk", tw: float) -> bool:
+    """True when all 4 support feet are planted at walk-clock ``tw``."""
+    p = (tw / g.period) % 1.0
+    return all(((p - ph) % 1.0) >= (1.0 - g.duty)
+               for ph in g.phase.values())
 
 
 class Player:
@@ -88,6 +89,7 @@ class Player:
         self.h = self.model.opt.timestep
         self.sub = max(1, int(round(1.0 / CTRL_HZ / self.h)))
         self.speed = 1.0
+        self.gait_name = "walk"
         self.reset()
 
     # ---- sim plumbing ------------------------------------------------
@@ -96,7 +98,8 @@ class Player:
         place_at_plant(mujoco, self.model, self.data, self.qadr,
                        self.pos_act, self.q_plant)
         self.profile = ServoProfile(self.params, self.q_plant)
-        self.gait = QW.QuadRearWalk(list(ROBOT_PLANT_DEG), 1e6)
+        self.gait = QW.QuadRearWalk(list(ROBOT_PLANT_DEG), 1e6,
+                                    gait=self.gait_name)
         self.state = self.PLANT
         self.t = 0.0            # entry clock
         self.tw = 0.0           # walk clock
@@ -129,7 +132,7 @@ class Player:
                 self.walk_queued = False
         elif self.state in (self.WALK, self.STOPPING):
             self.tw += dg
-            if self.state == self.STOPPING and all_stance(self.tw):
+            if self.state == self.STOPPING and all_stance(self.gait, self.tw):
                 self.state = self.REARED
         elif self.state == self.EXIT:
             self.tx += dg
@@ -159,7 +162,8 @@ class Player:
     # ---- commands ----------------------------------------------------
     def cmd_rear(self, then_walk: bool = False) -> None:
         if self.state == self.PLANT:
-            self.gait = QW.QuadRearWalk(list(ROBOT_PLANT_DEG), 1e6)
+            self.gait = QW.QuadRearWalk(list(ROBOT_PLANT_DEG), 1e6,
+                                        gait=self.gait_name)
             self.t, self.tw = 0.0, 0.0
             self.state = self.ENTRY
             self.walk_queued = then_walk
@@ -170,7 +174,7 @@ class Player:
 
     def cmd_stop(self) -> None:
         if self.state == self.WALK:
-            self.state = (self.REARED if all_stance(self.tw)
+            self.state = (self.REARED if all_stance(self.gait, self.tw)
                           else self.STOPPING)
         self.walk_queued = False
 
@@ -181,10 +185,18 @@ class Player:
         # the regather blend in exit phase 1 absorbs a mid-swing foot.
         tw = self.tw
         secs = QW.ENTRY_TOTAL_S + tw + QW.EXIT_TOTAL_S
-        self.exit_fn = QW.QuadRearWalk(list(ROBOT_PLANT_DEG), secs).pose_at
+        self.exit_fn = QW.QuadRearWalk(list(ROBOT_PLANT_DEG), secs,
+                                       gait=self.gait_name).pose_at
         self.tx = QW.ENTRY_TOTAL_S + tw
         self.exit_fn_end = secs
         self.state = self.EXIT
+
+    def cmd_gait(self) -> None:
+        """Toggle walk/trot. Mid-run the clocks and foot schedules of the
+        two gaits don't line up, so it takes effect at the next rear-up."""
+        names = list(QW.GAITS)
+        self.gait_name = names[(names.index(self.gait_name) + 1)
+                               % len(names)]
 
 
 def main() -> None:
@@ -210,7 +222,8 @@ def main() -> None:
     cv2.setMouseCallback(WIN, on_mouse)
 
     help_lines = ["7/W rear up   W walk   Space stop   8 sit   9 reset",
-                  "-/= speed   P shove   Z/X zoom   drag orbit   Q quit"]
+                  "T gait walk/trot   -/= speed   P shove   Z/X zoom   "
+                  "drag orbit   Q quit"]
     next_t = time.monotonic()
     while True:
         pl.step()
@@ -222,7 +235,10 @@ def main() -> None:
         uz = up_z(pl.data, pl.chassis)
         tilt = math.degrees(math.acos(max(-1.0, min(1.0, uz))))
         dist = 1000.0 * (float(pl.data.qpos[0]) - pl.x0)
+        pending = ("" if pl.gait.phase == QW.GAITS[pl.gait_name]["phase"]
+                   or pl.state == Player.PLANT else " (next rear-up)")
         hud = [Player.NAMES[pl.state],
+               f"gait {pl.gait_name.upper()}{pending}   "
                f"speed {pl.speed:.2f}x   walked {dist:+.0f} mm   "
                f"tilt {tilt:.0f} deg   cur {pl.cur:.1f} A "
                f"(peak {pl.peak_cur:.1f})"]
@@ -254,6 +270,8 @@ def main() -> None:
             pl.speed = max(0.25, round(pl.speed - 0.25, 2))
         elif k in (ord("="), ord("+")):
             pl.speed = min(2.0, round(pl.speed + 0.25, 2))
+        elif k in (ord("t"), ord("T")):
+            pl.cmd_gait()
         elif k in (ord("p"), ord("P")):
             pl.push_left = 0.3
         elif k in (ord("z"), ord("Z")):

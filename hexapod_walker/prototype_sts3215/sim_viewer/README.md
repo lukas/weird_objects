@@ -14,13 +14,14 @@ sim_viewer/sim_quad.sh     # tip-back QUAD walk playground (scripted, no RL)
 ```
 
 `sim_quad.sh` (no checkpoints involved) drives the webui Quad tab's
-scripted gait — `motor_setup/quad_walk.py`, the tip-back 4-leg animal
-walk — as a live state machine in the fitted servo twin: `7`/`W` rear
-up (`W` auto-walks once reared), `Space` stop (freezes at the next
-all-4-feet-down window), `8` sit back down (ends at the plant pose),
-`9` reset, `-`/`=` gait speed 0.25–2× (the same live knob as the webui
-slider), `P` a 4 N forward shove to poke at robustness, drag to orbit,
-`Z`/`X` zoom, `Q` quit. Keys are drawn in the window.
+scripted gaits — `motor_setup/quad_walk.py`, the tip-back 4-leg animal
+walk and the diagonal-pair TROT — as a live state machine in the
+fitted servo twin: `7`/`W` rear up (`W` auto-walks once reared), `T`
+toggle walk/trot (applies at the next rear-up), `Space` stop (freezes
+at the next all-feet-down window), `8` sit back down (ends at the
+plant pose), `9` reset, `-`/`=` gait speed 0.25–2× (the same live knob
+as the webui slider), `P` a 4 N forward shove to poke at robustness,
+drag to orbit, `Z`/`X` zoom, `Q` quit. Keys are drawn in the window.
 
 `sim_play.sh` controls (shown in the window too):
 

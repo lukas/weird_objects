@@ -1730,15 +1730,20 @@ STAND_STREAM_DEMOS = ("stand_sway", "stand_hula", "stand_bounce",
 # home = stand) but grouped on their own web tab. The pose function is
 # DURATION-AWARE: the exit choreography (pitch level, untuck fronts)
 # is scripted into the last ~5.4 s, so the run ends back at the plant.
-QUAD_STREAM_DEMOS = ("quad_walk",)
+QUAD_STREAM_DEMOS = ("quad_walk", "quad_trot")
 
 
-def _make_quad_walk_fn(seconds: float):
+def _make_quad_walk_fn(seconds: float, gait: str = "walk"):
     from quad_walk import make_quad_walk_pose_fn
-    return make_quad_walk_pose_fn(_stand_zero_pose(), seconds)
+    return make_quad_walk_pose_fn(_stand_zero_pose(), seconds, gait=gait)
+
+
+def _make_quad_trot_fn(seconds: float):
+    return _make_quad_walk_fn(seconds, gait="trot")
 
 
 _make_quad_walk_fn.duration_aware = True
+_make_quad_trot_fn.duration_aware = True
 
 STREAM_POSE_FACTORIES = {
     "shimmy": lambda: pose_shimmy,
@@ -1748,6 +1753,7 @@ STREAM_POSE_FACTORIES = {
     "twinkle": make_pose_twinkle,
     **{n: (lambda n=n: make_stand_pose_fn(n)) for n in STAND_STREAM_DEMOS},
     "quad_walk": _make_quad_walk_fn,
+    "quad_trot": _make_quad_trot_fn,
 }
 # Default demo-time duration for standing dances (CLI; web sends its own).
 STAND_STREAM_SECONDS = 20.0
@@ -1890,6 +1896,8 @@ DEMOS = {
     # --- quad mode (own web tab: tip back, walk on four legs) -------------
     "quad_walk": ("[8 quad] TIP BACK — rear up on 4 legs, front paws in "
                   "the air, animal walk forward, sit back down", None),
+    "quad_trot": ("[8 quad] TIP BACK + TROT — diagonal leg pairs like a "
+                  "horse, ~2x the walk's pace, sit back down", None),
 }
 
 # Standalone planted acts (not the full rise_show script).

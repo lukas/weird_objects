@@ -48,6 +48,27 @@ SWAY_M = 0.025
 SWAY_PHASE_RAD = math.radians(125.0)
 WALK_PHASE = {2: 0.0, 1: 0.25, 3: 0.5, 4: 0.75}   # LH LF RH RF
 
+# Gait presets. Keys: stride/lift m, period s, duty (stance fraction),
+# sway m + phase rad, phase = per-leg footfall offsets (fraction of the
+# cycle; supports are L1=LF, L4=RF, L2=LH, L3=RH in the reared quad).
+# "walk"  = the sim-tuned lateral-sequence animal walk (one foot up).
+# "trot"  = horse trot: DIAGONAL pairs (LF+RH, then RF+LH) — only two
+#           feet down mid-beat. Sim sweep 08-18: never falls anywhere in
+#           period 0.8–2.0 s x stride 50–90 mm x duty 0.5–0.65 (the
+#           servo velocity clamp low-passes the fast end into a smooth
+#           shuffle), and it rocks LESS than the walk (symmetric beat,
+#           no sway needed). Preset = the realized-speed knee:
+#           10.6 mm/s over 40 s vs the walk's 6.2 (+71%); stride
+#           realization ~24% (servo clamp + slip bound it — bigger
+#           strides just slip more, ceiling ~11 mm/s).
+GAITS: dict[str, dict] = {
+    "walk": dict(stride=STRIDE_M, lift=LIFT_M, period=PERIOD_S, duty=DUTY,
+                 sway=SWAY_M, sway_phase=SWAY_PHASE_RAD, phase=WALK_PHASE),
+    "trot": dict(stride=0.070, lift=0.022, period=1.6, duty=0.60,
+                 sway=0.0, sway_phase=0.0,
+                 phase={1: 0.0, 3: 0.0, 4: 0.5, 2: 0.5}),
+}
+
 # entry: shift back · step mids out to the splayed stance (one at a
 # time, 5 feet down — scrubbing 25 deg of loaded mid yaw was the v1
 # blemish) · tuck fronts · rear up
@@ -73,11 +94,20 @@ def _smooth(u: float) -> float:
 class QuadRearWalk:
     """Pure pose function t → 18 joint degrees for the tip-back walk."""
 
-    def __init__(self, base_deg: list[float], seconds: float):
+    def __init__(self, base_deg: list[float], seconds: float,
+                 gait: str = "walk"):
         import tripod_gait as TG
         self._TG = TG
         self.base = list(base_deg)
         self.seconds = float(seconds)
+        g = GAITS[gait]
+        self.stride = g["stride"]
+        self.lift = g["lift"]
+        self.period = g["period"]
+        self.duty = g["duty"]
+        self.sway = g["sway"]
+        self.sway_phase = g["sway_phase"]
+        self.phase = dict(g["phase"])
         # Walk window: exit starts EXIT_TOTAL before the end, but never
         # before the entry finishes (too-short runs just rear up + back).
         self.t_exit = max(ENTRY_TOTAL_S, self.seconds - EXIT_TOTAL_S)
@@ -162,24 +192,25 @@ class QuadRearWalk:
         (used to build the regather target of the exit)."""
         feet = {}
         for leg in SUPPORT_LEGS:
-            ph = tw / PERIOD_S - WALK_PHASE[leg]
+            ph = tw / self.period - self.phase[leg]
             n = math.floor(ph)
             sph = ph - n
             ax, ay, az = self.anchors[leg]
             # center each leg's stance sweep in its workspace
-            a0x = ax - STRIDE_M * (1.0 - WALK_PHASE[leg] - (2 - DUTY) / 2)
-            if sph < (1.0 - DUTY) and not freeze_swing:
-                u = sph / (1.0 - DUTY)
-                feet[leg] = (a0x + (n + _smooth(u)) * STRIDE_M, ay,
-                             az + LIFT_M * math.sin(math.pi * u))
+            a0x = ax - self.stride * (
+                1.0 - self.phase[leg] - (2 - self.duty) / 2)
+            if sph < (1.0 - self.duty) and not freeze_swing:
+                u = sph / (1.0 - self.duty)
+                feet[leg] = (a0x + (n + _smooth(u)) * self.stride, ay,
+                             az + self.lift * math.sin(math.pi * u))
             else:
-                feet[leg] = (a0x + (n + 1) * STRIDE_M, ay, az)
+                feet[leg] = (a0x + (n + 1) * self.stride, ay, az)
         return feet
 
     def _walk_body(self, tw: float) -> tuple[float, float]:
-        v = STRIDE_M / PERIOD_S
-        sway = SWAY_M * math.sin(2 * math.pi * tw / PERIOD_S
-                                 + SWAY_PHASE_RAD)
+        v = self.stride / self.period
+        sway = self.sway * math.sin(2 * math.pi * tw / self.period
+                                    + self.sway_phase)
         return BODY_DX_M + v * tw, sway
 
     # -- the pose function ---------------------------------------------------
@@ -240,7 +271,7 @@ class QuadRearWalk:
         # ---- exit (reverse of the entry, ending at the plant pose) ----
         x1, x2, x3, x4, x5 = EXIT_S
         tx = t - self.t_exit
-        bx_end = BODY_DX_M + (STRIDE_M / PERIOD_S) * tw_end
+        bx_end = BODY_DX_M + (self.stride / self.period) * tw_end
         feet_end = self._walk_feet(tw_end, freeze_swing=True)
         # Final body center xf: where the REAR feet already sit at their
         # plant offsets (no rear re-step; residual is < stride/4).
@@ -302,7 +333,8 @@ class QuadRearWalk:
         return pose
 
 
-def make_quad_walk_pose_fn(base_deg: list[float], seconds: float):
+def make_quad_walk_pose_fn(base_deg: list[float], seconds: float,
+                           gait: str = "walk"):
     """Duration-aware factory: the exit is scripted into the last
-    ~5.4 s of ``seconds`` so the run ends back at the plant pose."""
-    return QuadRearWalk(base_deg, seconds).pose_at
+    ~7.5 s of ``seconds`` so the run ends back at the plant pose."""
+    return QuadRearWalk(base_deg, seconds, gait=gait).pose_at

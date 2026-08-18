@@ -52,6 +52,17 @@ FINDINGS (08-18, CPU twin, fitted air servo params):
   Sway phase is the key knob: 120-135 deg (lean lags the swing side)
   keeps the margin positive; 0 deg kills progress, 180+ goes
   margin-negative. Stride >= 50 mm slip-rocks like the creep.
+  TROT (08-18, evening): DIAGONAL pairs (LF+RH / RF+LH, phases 0/0.5)
+  beat the walk's realized speed by ~70%: preset period 1.6 s, stride
+  70 mm, duty 0.6, NO sway → 10.6 mm/s over 40 s vs the walk's 6.2.
+  Counter-intuitively it never falls and rocks LESS than the walk
+  (2.7–5.4 deg band) anywhere in period 0.8–2.0 s x stride 50–90 mm x
+  duty 0.5–0.65 — the fitted servo velocity clamp low-passes the fast
+  end into a smooth shuffle, and the symmetric beat needs no sway.
+  Realized speed ceiling ~11 mm/s (stride realization ~24%; bigger
+  strides just slip more). Swept via quad_walk.GAITS overrides on the
+  QuadRearWalk instance, not this file. Deployed as ``quad_trot``.
+
   Deployed as the ``quad_walk`` demo (motor_setup/quad_walk.py — the
   hardware port, validated end-to-end in this sim incl. entry/exit):
 

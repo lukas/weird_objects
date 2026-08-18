@@ -268,20 +268,27 @@ feet, zero commanded scrub.">
     <div class="pad">
       <h2>Quad mode — tip back, walk on four legs</h2>
       <div class="hint">The robot rears up nose-high like a begging dog —
-        front legs tucked in the air — and walks forward on the four rear
-        legs with a real <b>animal walk</b> (lateral-sequence footfalls
-        LH·LF·RH·RF, body always moving, weight sway against the swinging
-        leg). One run = <b>rear up → walk → sit back down</b>, one scripted
-        pose stream at 20&nbsp;Hz; the <b>speed slider works LIVE</b>.
+        front legs tucked in the air — and moves on the four rear legs.
+        Two gaits, both one scripted 20&nbsp;Hz pose stream of
+        <b>rear up → go → sit back down</b>, both with a <b>LIVE speed
+        slider</b>: the <b>walk</b> is a lateral-sequence animal walk
+        (footfalls LH·LF·RH·RF, one foot up at a time, statically stable,
+        weight sway against the swing); the <b>trot</b> moves DIAGONAL leg
+        pairs together like a horse — twice the beat, ~+70% realized pace,
+        and in sim it rocks <i>less</i> than the walk (symmetric beat), but
+        only two feet hold the floor mid-beat, so treat it as the more
+        advanced act on hardware.
         Level-body 4-leg walking is geometrically impossible on this robot
         (CoM lands ahead of the 4-foot polygon) — rearing back is what
-        makes it work. Sim-proven on the MuJoCo twin: support margin never
-        below +34&nbsp;mm, peak ~2&nbsp;A, zero rocking at 1×.<br>
-        <b>Floor:</b> flat + non-slip, ~0.3&nbsp;m clear ahead, no cords
+        makes it work. Sim-proven on the MuJoCo twin: walk margin never
+        below +34&nbsp;mm, peak ~2–2.6&nbsp;A, no falls anywhere in the
+        swept envelope (including 2×).<br>
+        <b>Floor:</b> flat + non-slip, ~0.4&nbsp;m clear ahead, no cords
         under the body. <b>Watch it the whole run</b> — first hardware runs
-        at 0.5–0.75×. Stop / E-STOP abort instantly.</div>
+        at 0.5–0.75×, walk before trot. Stop / E-STOP abort instantly.</div>
       <div class="btns" style="margin:12px 0">
         <button id="qstart" style="font-size:16px;background:#1c3d2a;border-color:#2e7d47">🐕 Rear up &amp; walk</button>
+        <button id="qtrot" style="font-size:16px;background:#3d2a1c;border-color:#7d5a2e">🐎 Rear up &amp; trot</button>
         <button id="qstop" class="danger">■ Stop</button>
         <button id="qstand">Stand zero</button>
       </div>
@@ -291,8 +298,8 @@ feet, zero commanded scrub.">
         it runs — gait tuned at 1×, start hardware at 0.5–0.75×)</span></label>
       <input id="qspeed" type="range" min="25" max="200" value="75" step="5">
       <label class="slab">Run for:
-        <span style="color:#8089a0;font-weight:400">(demo time · entry ~6.5 s
-        + exit ~7.5 s are inside it; the walk fills the middle)</span>
+        <span style="color:#8089a0;font-weight:400">(demo time · entry ~7.7 s
+        + exit ~7.5 s are inside it; the gait fills the middle)</span>
         <select id="qdur">
           <option value="20">20 s (rear up + a step + down)</option>
           <option value="40" selected>40 s</option>
@@ -302,10 +309,10 @@ feet, zero commanded scrub.">
       <div class="hint">Status: <span id="qstatus" class="pill">idle</span>
         <span id="qstatusdetail" style="color:#8089a0"></span></div>
       <div class="hint">Homes via the validated stand-up first (same as the
-        standing dances), τ900 + 3&nbsp;A stall guard while moving. Commanded
-        pace ~14&nbsp;mm/s at 1×; about half realizes (rear feet pivot under
-        load — measured in sim). Auto-logs cmd vs encoder →
-        <code>logs/demo_quad_walk_*.csv</code>.</div>
+        standing dances), τ900 + 3&nbsp;A stall guard while moving. Realized
+        pace at 1× (sim): walk ~6&nbsp;mm/s, trot ~11&nbsp;mm/s (feet
+        pivot-slip under load, so commanded stride only partly realizes).
+        Auto-logs cmd vs encoder → <code>logs/demo_quad_*.csv</code>.</div>
     </div>
   </div>
   </div><!-- /view-quad -->

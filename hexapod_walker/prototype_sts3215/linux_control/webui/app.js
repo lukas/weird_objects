@@ -2420,24 +2420,26 @@ $('qspeed').oninput = ()=>{
     }catch(e){}
   }, 150);
 };
-$('qstart').onclick = async ()=>{
+async function quadRun(name, label){
   if(needArm()) return;
   const sp = quadSpeed();
-  const body = {name:'quad_walk', speed:sp,
+  const body = {name, speed:sp,
                 seconds:Math.max(20, Math.min(300, +($('qdur').value)||40))};
-  showSent('quad walk @ '+sp.toFixed(2)+'×…');
+  showSent(label+' @ '+sp.toFixed(2)+'×…');
   const res = await fetch('/api/demo',{method:'POST',
     headers:{'Content-Type':'application/json'},
     body: JSON.stringify(body)});
   const j = await res.json();
-  if(j.ok) showSent('quad walk @ '+sp.toFixed(2)+'× for '+body.seconds+'s'
+  if(j.ok) showSent(label+' @ '+sp.toFixed(2)+'× for '+body.seconds+'s'
                     +(j.home?' (via '+j.home+' zero)':''));
   else showSent(j.error||'failed');
   if(j.demo) paintDemoStatus(j.demo);
   if(j.robot) paintRobotActivity(j.robot);
   startDemoPoll();
   refreshRobotState(true);
-};
+}
+$('qstart').onclick = ()=> quadRun('quad_walk', 'quad walk');
+$('qtrot').onclick = ()=> quadRun('quad_trot', 'quad trot');
 $('qstop').onclick = async ()=>{
   showSent('stopping…');
   const r = await fetch('/api/demo/stop',{method:'POST'});
