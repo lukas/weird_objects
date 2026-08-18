@@ -390,8 +390,21 @@ class Handler(BaseHTTPRequestHandler):
             except Exception:
                 pass
         if path == "/cmd":
-            ok = LINK.send(body.strip())
-            self._send(200 if ok else 502, "ok" if ok else "link down")
+            line = body.strip()
+            # E-STOP / limp MUST go through the bench so the demo worker is
+            # aborted first — a bare drive-level X limps the bus but the
+            # still-running demo re-enables torque on its next write and
+            # keeps going (observed with the dance, 2026-08-18).
+            if line.upper() in ("X", "DISARM", "RELAX") and BENCH is not None:
+                BENCH.estop()
+                self._send(200, "limp")
+            else:
+                if BENCH is not None and line.upper() == "SETTLE":
+                    # Graceful power-off also preempts any demo so the
+                    # settle doesn't fight a running routine.
+                    BENCH._preempt_demo_thread(reason="settle", timeout=3.0)
+                ok = LINK.send(line)
+                self._send(200 if ok else 502, "ok" if ok else "link down")
         elif path == "/api/wiggle":
             try:
                 data = json.loads(body or "{}")

@@ -578,6 +578,64 @@ class BenchAPI:
                 self._activity_detail = "aborted"
         return {"ok": True, "demo": self.demo_state(), "robot": self.robot_state()}
 
+    def estop(self) -> dict:
+        """TRUE emergency stop: kill the demo/RL worker AND limp, in order.
+
+        Root cause of the 2026-08-18 scare: the web E-STOP sent a bare
+        ``X`` to the DriveController, which limps the bus but never tells
+        the demo thread — and every demo primitive re-enables torque at
+        its next write, so the dance shrugged the limp off and kept going.
+        This method is what ``/cmd X`` now routes through:
+
+        1. abort event + gen bump — the worker exits at its next
+           checkpoint (≤ ~0.1 s) without running outro glides;
+        2. limp NOW (torque off) so the robot stops moving immediately;
+        3. wait briefly for the worker to die (its bail path may write
+           one last hold);
+        4. limp AGAIN so the guaranteed final state is torque-off,
+           no matter what the dying worker wrote in between.
+        """
+        self._demo_abort.set()
+        with self._lock:
+            self._demo_gen += 1
+            if self._demo_thread and self._demo_thread.is_alive():
+                self._demo_status = "estopped"
+
+        def _limp() -> None:
+            try:
+                self.drive.handle("X")
+            except Exception:
+                pass
+
+        _limp()
+        t = self._demo_thread
+        joined = True
+        if t is not None and t.is_alive():
+            t.join(timeout=3.0)
+            joined = not t.is_alive()
+            _limp()
+            if not joined:
+                # Worker outlived the join window — keep a watcher that
+                # limps once more the moment it finally dies, so a late
+                # bail write can never leave torque on.
+                def _watch(th: threading.Thread = t) -> None:
+                    th.join()
+                    _limp()
+                threading.Thread(target=_watch, daemon=True).start()
+        try:
+            from event_log import emit
+            emit("cmd", "EMERGENCY STOP (estop)", src="bench",
+                 data={"worker_exited": joined})
+        except Exception:
+            pass
+        self._set_activity(
+            "limp",
+            "EMERGENCY STOP" if joined else
+            "EMERGENCY STOP — worker still exiting (bus limp; a watcher "
+            "re-limps the instant it dies)")
+        return {"ok": True, "worker_exited": joined,
+                "demo": self.demo_state(), "robot": self.robot_state()}
+
     def run_demo(self, name: str, *, speed: float = 1.0,
                  size: float = 1.0, rate: float | None = None,
                  torque: int | None = None, softness: float = 1.0,
