@@ -671,6 +671,14 @@ class BenchAPI:
                         **dict(self._demo_params),
                         "log": log_path.name,
                     }
+                def _act_note(msg: str) -> None:
+                    # Live choreography annotation → demo status line
+                    # (the Demos tab polls it every 0.5 s).
+                    if gen != self._demo_gen:
+                        return
+                    with self._lock:
+                        self._demo_status = str(msg)
+
                 status = run_demo(
                     d.bus, name,
                     speed=speed,
@@ -679,6 +687,7 @@ class BenchAPI:
                     torque=torque,
                     softness=softness,
                     abort_check=self._demo_abort.is_set,
+                    on_act=_act_note,
                     log_path=log_path,
                 )
                 telem = None

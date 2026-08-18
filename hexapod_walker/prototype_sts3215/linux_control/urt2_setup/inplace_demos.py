@@ -2065,6 +2065,7 @@ def run_dance_demo(bus: FeetechBus, *,
                    size: float = 1.0,
                    softness: float = 1.0,
                    torque: int | None = None,
+                   on_act=None,
                    log_path: Path | None = None) -> str:
     """Full dance routine — quiet heartbeat to wild show and back to sleep.
 
@@ -2078,6 +2079,10 @@ def run_dance_demo(bus: FeetechBus, *,
 
     Starts and ends at sit zero (air home).  All durations scale with
     ``speed``; tether-safe (yaw always returns to 0, no walking).
+
+    ``on_act`` (optional callable) receives a short annotation string at
+    each phase — the web UI shows it as the live demo status.  The CLI
+    already narrates via prints.
     """
     sc = _speed_scale(speed)
     spd = _clamp_demo_speed(speed)
@@ -2108,6 +2113,15 @@ def run_dance_demo(bus: FeetechBus, *,
     else:
         peak_path = default_log_path("dance_current_peaks")
 
+    def note(msg: str) -> None:
+        """Live phase annotation (web status line); must never break the dance."""
+        if on_act is None:
+            return
+        try:
+            on_act(str(msg))
+        except Exception:
+            pass
+
     def bail(phase: str) -> str:
         peaks.write_log(peak_path, phase=f"dance {phase} (aborted)")
         _set_torque_limit(bus, live, 1000)
@@ -2129,8 +2143,10 @@ def run_dance_demo(bus: FeetechBus, *,
     )
 
     # --- Act I: asleep — heartbeat, then breaths that grow ----------------
+    note("act I — asleep: settling at sit zero")
     if not _soft_glide(bus, _zero_pose(), live, 1.5 * sc, check, **glide_kw):
         return bail("act1 settle")
+    note("act I — heartbeat (soft double thumps)")
     if not _run_frames(bus, live,
                        frames_heartbeat(seconds=DANCE_HEARTBEAT_S * sc),
                        check, label="act I — heartbeat"):
@@ -2138,12 +2154,14 @@ def run_dance_demo(bus: FeetechBus, *,
 
     open_pose = _zero_pose()
     here = open_pose
-    for growth in DANCE_BREATH_GROWTH:
+    for i, growth in enumerate(DANCE_BREATH_GROWTH, 1):
         amp = min(2.5, growth * size)
         peak = _breathe_pose(1.0, hip_deg=BREATHE_HIP_DEG * amp,
                              knee_deg=BREATHE_KNEE_DEG * amp)
         half = max(1.6, DANCE_BREATH_HALF_S * sc)
-        print(f"  → act I — breath ({amp:.2f}×)")
+        note(f"act I — breath {i}/{len(DANCE_BREATH_GROWTH)} "
+             f"(deeper, {amp:.1f}×)")
+        print(f"  → act I — breath {i} ({amp:.2f}×)")
         if not _soft_glide(bus, peak, live, half, check,
                            start=here, **glide_kw):
             return bail("act1 breathe")
@@ -2154,32 +2172,40 @@ def run_dance_demo(bus: FeetechBus, *,
 
     # --- Act II: waking — twinkle → shimmy → conductor ---------------------
     for frame_fn, label, secs in (
-        (frames_twinkle, "act II — twinkle (stirring)", DANCE_TWINKLE_S),
-        (frames_shimmy, "act II — shimmy", DANCE_SHIMMY_S),
-        (frames_conductor, "act II — conductor wave", DANCE_CONDUCTOR_S),
+        (frames_twinkle, "act II — waking: twinkle (stirring)",
+         DANCE_TWINKLE_S),
+        (frames_shimmy, "act II — waking: shimmy", DANCE_SHIMMY_S),
+        (frames_conductor, "act II — waking: one leg wakes and waves",
+         DANCE_CONDUCTOR_S),
     ):
+        note(label)
         if not _run_frames(bus, live, frame_fn(seconds=secs * sc),
                            check, label=label):
             return bail("act2")
 
     # --- Act III: hands over head (the inhale) ------------------------------
+    note("act III — all six hands over head")
     if not ease_to_pose(bus, _arms_up_pose(), abort_check=check,
                         seconds=max(1.6, ARMS_UP_SECONDS * sc),
                         label="act III — hands over head",
                         current_tracker=peaks):
         return bail("act3 arms up")
+    note("act III — overhead sway (the inhale)")
     if not _run_frames(bus, live,
                        frames_overhead_sway(
                            seconds=DANCE_OVERHEAD_SWAY_S * sc),
                        check, label="act III — overhead sway"):
         return bail("act3 sway")
     # Re-square overhead: one beat of stillness before the drop.
+    note("act III — still… (before the drop)")
     if not _soft_glide(bus, _arms_up_pose(), live,
                        max(0.8, DANCE_OVERHEAD_HOLD_S * sc), check,
                        **glide_kw):
         return bail("act3 hold")
 
     # --- Act IV: THE RISE — overhead melts into the slow 12 s reach --------
+    note(f"act IV — THE RISE (~{max(3.0, RISE_SECONDS * sc):.0f}s "
+         "reach down to plant)")
     _set_torque_limit(bus, live, RISE_TORQUE_LIMIT)
     planted = _elevated_stand_pose(hip=hip, knee=knee, yaw=0.0)
     if not _planted_glide(bus, planted, check=check, peaks=peaks,
@@ -2221,6 +2247,7 @@ def run_dance_demo(bus: FeetechBus, *,
         return ok
 
     # Power bounce.
+    note("act V — wild: power bounce ×3")
     for _ in range(3):
         if not snap_to(squatted, "BOOM", seconds=0.22 * sc):
             return bail("act5 bounce")
@@ -2230,6 +2257,7 @@ def run_dance_demo(bus: FeetechBus, *,
         return bail("act5 bounce")
 
     # Look + nod (personality beat).
+    note("act V — look left/right + nod")
     for goal, label, s in ((look_l, "look L", 0.28), (look_r, "look R", 0.32),
                            (planted, "center", 0.22), (nodded, "nod", 0.25),
                            (planted, "plant", 0.22)):
@@ -2240,12 +2268,14 @@ def run_dance_demo(bus: FeetechBus, *,
     for mode, secs, label in (("ripple", 3.2, "ripple — legs flying around"),
                               ("gallop", 2.8, "gallop — opposite pairs"),
                               ("tripod", 2.6, "tripod flip — 3 up / 3 down")):
+        note(f"act V — {label}")
         if not stream(mode, secs * sc, label):
             return bail("act5 stream")
         if not snap_to(planted, "plant", seconds=0.2 * sc):
             return bail("act5 stream")
 
     # Standing hands-up feature — echo of act III on a stable tripod.
+    note("act V — HANDS UP, standing on a tripod")
     if not snap_to(evens_up, "HANDS UP (tripod)", seconds=0.5 * sc):
         return bail("act5 hands")
     if _planted_pause(bus, live, check, peaks, DANCE_HANDS_HOLD_S * sc):
@@ -2255,18 +2285,21 @@ def run_dance_demo(bus: FeetechBus, *,
         if not snap_to(goal, label, seconds=0.26 * sc):
             return bail("act5 hands")
 
+    note("act V — fan: all six dancing")
     if not stream("fan", 2.4 * sc, "fan — all six dancing"):
         return bail("act5 fan")
     if not snap_to(planted, "plant", seconds=0.2 * sc):
         return bail("act5 fan")
 
     # Body twist (small, always returns to 0 — tether-safe).
+    note("act V — body twist (and back)")
     for goal, label in ((twist_p, "twist +"), (twist_n, "twist −"),
                         (planted, "untwist")):
         if not snap_to(goal, label, seconds=RISE_TURN_SECONDS * sc):
             return bail("act5 twist")
 
     # Finale: stomp barrage + TA-DA.
+    note("act V — finale: stomp barrage + TA-DA")
     for _ in range(4):
         if not snap_to(squatted, "STOMP", seconds=0.16 * sc):
             return bail("act5 stomp")
@@ -2281,6 +2314,7 @@ def run_dance_demo(bus: FeetechBus, *,
 
     # --- Act VI: back to sleep ----------------------------------------------
     print("  → act VI — descend, last heartbeats, sleep")
+    note(f"act VI — slow descend to sit (~{max(4.0, DANCE_DESCEND_S * sc):.0f}s)")
     # Full rise torque while lowering the body onto the stand.
     if not ease_to_pose(bus, _zero_pose(), abort_check=check,
                         seconds=max(4.0, DANCE_DESCEND_S * sc),
@@ -2288,12 +2322,14 @@ def run_dance_demo(bus: FeetechBus, *,
                         current_tracker=peaks):
         return bail("act6 descend")
     _set_torque_limit(bus, live, tlim)
+    note("act VI — last heartbeats")
     if not _run_frames(bus, live,
                        frames_heartbeat(
                            seconds=DANCE_OUTRO_HEARTBEAT_S * sc),
                        check, label="act VI — last heartbeats"):
         return bail("act6 heartbeat")
     # One long exhale, then still.
+    note("act VI — one long exhale… asleep")
     exhale = _breathe_pose(1.0, hip_deg=BREATHE_HIP_DEG * 0.6,
                            knee_deg=BREATHE_KNEE_DEG * 0.6)
     if not _soft_glide(bus, exhale, live, max(1.6, 2.2 * sc), check,
@@ -2586,6 +2622,7 @@ def run_demo(bus: FeetechBus, name: str, *,
              torque: int | None = None,
              softness: float = 1.0,
              abort_check=None,
+             on_act=None,
              log_path: Path | None = None,
              rise_high: bool = False,
              rise_fast: bool = False) -> str:
@@ -2636,7 +2673,8 @@ def run_demo(bus: FeetechBus, name: str, *,
     if name == "dance":
         return run_dance_demo(
             bus, abort_check=abort_check, speed=spd, size=size,
-            softness=softness, torque=torque, log_path=log_path)
+            softness=softness, torque=torque, on_act=on_act,
+            log_path=log_path)
     if name == "stand_hands":
         print(f"  demo speed {spd:.2f}×")
         return run_stand_hands_demo(
