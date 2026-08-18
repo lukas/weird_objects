@@ -21,6 +21,7 @@
     <button id="tab-motors" class="tab">Motors</button>
     <span class="tabsep"></span>
     <button id="tab-demos" class="tab">Demos</button>
+    <button id="tab-dance" class="tab">Dance</button>
     <button id="tab-rl" class="tab">RL</button>
     <button id="tab-experiments" class="tab">Experiments</button>
     <button id="tab-measure" class="tab">Measure</button>
@@ -260,6 +261,29 @@ feet, zero commanded scrub.">
     </div>
   </div>
   </div><!-- /view-demos -->
+
+  <div id="view-dance" class="view">
+  <div class="row">
+    <div class="pad">
+      <h2>Dance</h2>
+      <div class="hint">The choreographed shows, in one place. <b>Sitting
+        shows</b> keep the chassis on the ground (legs in the air — safe
+        on a desk). <b>Full shows</b> stand up mid-routine: give the robot
+        clear floor. The speed slider works on the full shows LIVE while
+        they run. E-STOP (top right) stops any of them instantly.</div>
+      <div class="btns" style="margin:10px 0">
+        <button id="dancestop" class="danger">■ Stop show</button>
+      </div>
+      <label class="slab">Speed <span class="tag" style="color:#5fd08a;border-color:#2e7d47">LIVE</span>:
+        <span id="dancespeedlab">1.0</span>×
+        <span style="color:#8089a0;font-weight:400">(0.25× → 3×)</span></label>
+      <input id="dancespeed" type="range" min="25" max="300" value="100" step="5">
+      <div class="hint">Status: <span id="dancestatus" class="pill">idle</span>
+        <span id="dancestatusdetail" style="color:#8089a0"></span></div>
+      <div class="demo-grid" id="dancegrid" style="margin-top:12px"></div>
+    </div>
+  </div>
+  </div><!-- /view-dance -->
 
   <div id="view-rl" class="view">
   <div class="row">

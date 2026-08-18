@@ -2674,15 +2674,13 @@ def frames_air_chaos(seconds: float = 4.5):
 def frames_air_converge(seconds: float = 7.0):
     """Six arms doing six different things — then MEETING overhead.
 
-    Phase 1 (~40%): the chaos vocabulary — every joint on its own
-    incommensurate frequency, no two arms alike.  Phase 2: legs LOCK
-    onto the overhead pose ONE AT A TIME around the hex (leg 0 first,
-    a visible click every ~7% of the act) while the still-free legs
-    keep churning.  Phase 3 (last ~14%): all six — now identical —
-    take one synchronized dip-and-lift at the top and land as a
-    single organism.  Ends exactly at ``_arms_up_pose()`` (operator
-    request 08-18: "all meeting at the top together in an organized
-    way").
+    Phase 1 (~50%): the chaos vocabulary — every joint on its own
+    incommensurate frequency, no two arms alike.  Phase 2 (~22%): all
+    six arms LOCK onto the overhead pose TOGETHER in one simultaneous
+    sweep (operator request 08-18: everything snaps into place at
+    once, not one arm after another).  Phase 3 (last ~14%): one
+    synchronized dip-and-lift at the top, landing as a single
+    organism.  Ends exactly at ``_arms_up_pose()``.
     """
     n = max(1, int(seconds / DT))
     for i in range(n):
@@ -2705,12 +2703,14 @@ def frames_air_converge(seconds: float = 7.0):
                      * math.sin(wh * t + (j + 1) * _CHAOS_GOLD))
             knee_c = (6.0 + 20.0 * swell
                       * math.sin(wk * t + (j + 2) * _CHAOS_GOLD))
-            # Staggered lock: leg 0 clicks overhead at 42% of the act,
-            # then one more every 7%; each click blends over ~0.6 s
-            # (faster looked snappier but peaked 152 deg/s — beyond
-            # the servos' ~132 deg/s tracking at walk write speed).
-            lock_u = 0.42 + 0.07 * leg
-            b = min(1.0, max(0.0, (u - lock_u) / 0.09))
+            # Simultaneous lock (operator 08-18: all at once, not one
+            # after another): every leg shares the same window, chaos
+            # until 50% then a ~1.5 s cosine-eased sweep onto the
+            # overhead pose (keeps peaks well under the servos'
+            # ~132 deg/s tracking; the old 0.6 s staggered clicks were
+            # rate-checked at 1x too).
+            b = min(1.0, max(0.0, (u - 0.50) / 0.22))
+            b = 0.5 - 0.5 * math.cos(math.pi * b)
             _yaw_hip_knee(
                 leg, pose,
                 yaw=yaw_c * (1.0 - b),
