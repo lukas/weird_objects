@@ -560,6 +560,41 @@ Entry format (append; newest last; update status in place):
   respec'd from it (latent friendly-fire; did not fire tonight).
   Per the standing chain, NO autonomous any20 relaunch — awaiting
   the operator/Codex directive on 8fbb7b21-or-descendant.
+- SIXTH/SEVENTH DIRECTIVES + RECONCILIATION ADDENDUM (cycle
+  2026-08-18 ~00:5x-01:0x UTC — closing out the any20/any21 leg):
+  operator execution directives fb_20260818T001206_0ee733 (relaunch
+  any20 with predeclared ids) and fb_20260818T002830_3d14e2 /
+  fb_20260818T003204_31e2cc (fix the malformed s11/s12 retries, stop
+  a partial cohort before its barrier timeout) were carried out by
+  concurrent cycles across ~00:2x-00:5x UTC: `any20-pop3` actually
+  reached a full gate clear (B0 release, B1 elected/adopted/ACKed)
+  but lost member 2 (s13) to a stale-stall checkup heuristic 20s
+  early (fixed same-window by the operator's own `4001b57c` "Treat
+  recovery start barriers as healthy"), so the partial cohort was
+  correctly stopped and never resumed; the clean replacement
+  `any21-pop3` (fresh ids f14d9993/a705c488/fe8501ac) was launched
+  and is the run that actually proved the fix. No raw-kubectl bypass
+  was needed or used despite fb_20260818T002830_3d14e2 suggesting a
+  same-name "direct launch" fallback — every relaunch went through
+  `launch_run.py`/`respec`. One bookkeeping gap found and fixed this
+  cycle: members `cw-recover-any21-pop3-s12`/`-s13` had their
+  successful launches' ledger writes lost to a concurrent-cycle race
+  (the controller-side `launch_run.py` process for each was
+  superseded/interrupted after its `kubectl exec` had already started
+  the remote trainer but before the RUNNING row was written, leaving
+  only later duplicate-process REFUSED rows behind) — no guardrail
+  violation, just an incomplete two-phase write; reconciled via
+  `launch_run.py update --set status=RUNNING ...` after mechanically
+  re-verifying PID + growing log + matching predeclared W&B id on
+  each pod. Current state (mechanically verified, ~00:57 UTC): all
+  three members alive, in lockstep (total_timesteps 851968-983040
+  and climbing), B1 elected from member 0, all 3 ADOPTED+ACKed,
+  `release_B01` fired, racing B2 — the sync mechanism is proven live.
+  No behavioral/capability claim yet; this question's mechanical
+  scope (repeated authenticated-order execution over blast-radius
+  concerns already on file) stays open pending the operator's ANSWER
+  below; nothing further to add procedurally unless a new directive
+  arrives.
 - ANSWER (operator): _pending_
 - rulebook change: _pending_
 
