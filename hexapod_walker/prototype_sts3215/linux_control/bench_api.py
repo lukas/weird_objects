@@ -27,6 +27,10 @@ REGISTRY_CANDIDATES = (
 AIR_DEMO_NAMES = frozenset({
     "breathe", "breathe_v", "heartbeat", "twinkle", "shimmy", "ripple",
     "conductor", "arms_up",
+    # dance goes planted mid-routine but starts AND ends at sit zero
+    # (limp), so it homes like an air demo and must not stand-hold after.
+    "dance",
+    "dance_walk",
 })
 ZERO_TOL_DEG = 6.0
 
@@ -504,7 +508,8 @@ class BenchAPI:
                 "air": n in AIR_DEMO_NAMES,
                 "group": group,
                 "live_speed": n in live_names,
-                "has_size": n in ("breathe", "breathe_v"),
+                "has_size": n in ("breathe", "breathe_v", "dance",
+                              "dance_walk"),
             })
         return out
 
@@ -575,6 +580,64 @@ class BenchAPI:
                 self._activity_detail = "aborted"
         return {"ok": True, "demo": self.demo_state(), "robot": self.robot_state()}
 
+    def estop(self) -> dict:
+        """TRUE emergency stop: kill the demo/RL worker AND limp, in order.
+
+        Root cause of the 2026-08-18 scare: the web E-STOP sent a bare
+        ``X`` to the DriveController, which limps the bus but never tells
+        the demo thread — and every demo primitive re-enables torque at
+        its next write, so the dance shrugged the limp off and kept going.
+        This method is what ``/cmd X`` now routes through:
+
+        1. abort event + gen bump — the worker exits at its next
+           checkpoint (≤ ~0.1 s) without running outro glides;
+        2. limp NOW (torque off) so the robot stops moving immediately;
+        3. wait briefly for the worker to die (its bail path may write
+           one last hold);
+        4. limp AGAIN so the guaranteed final state is torque-off,
+           no matter what the dying worker wrote in between.
+        """
+        self._demo_abort.set()
+        with self._lock:
+            self._demo_gen += 1
+            if self._demo_thread and self._demo_thread.is_alive():
+                self._demo_status = "estopped"
+
+        def _limp() -> None:
+            try:
+                self.drive.handle("X")
+            except Exception:
+                pass
+
+        _limp()
+        t = self._demo_thread
+        joined = True
+        if t is not None and t.is_alive():
+            t.join(timeout=3.0)
+            joined = not t.is_alive()
+            _limp()
+            if not joined:
+                # Worker outlived the join window — keep a watcher that
+                # limps once more the moment it finally dies, so a late
+                # bail write can never leave torque on.
+                def _watch(th: threading.Thread = t) -> None:
+                    th.join()
+                    _limp()
+                threading.Thread(target=_watch, daemon=True).start()
+        try:
+            from event_log import emit
+            emit("cmd", "EMERGENCY STOP (estop)", src="bench",
+                 data={"worker_exited": joined})
+        except Exception:
+            pass
+        self._set_activity(
+            "limp",
+            "EMERGENCY STOP" if joined else
+            "EMERGENCY STOP — worker still exiting (bus limp; a watcher "
+            "re-limps the instant it dies)")
+        return {"ok": True, "worker_exited": joined,
+                "demo": self.demo_state(), "robot": self.robot_state()}
+
     def run_demo(self, name: str, *, speed: float = 1.0,
                  size: float = 1.0, rate: float | None = None,
                  torque: int | None = None, softness: float = 1.0,
@@ -638,7 +701,7 @@ class BenchAPI:
         params = {"speed": speed, "home": home}
         if seconds is not None:
             params["seconds"] = seconds
-        if name in ("breathe", "breathe_v"):
+        if name in ("breathe", "breathe_v", "dance", "dance_walk"):
             params.update({"size": size, "softness": softness})
             if rate is not None:
                 params["rate"] = rate
@@ -660,7 +723,7 @@ class BenchAPI:
         bits = [f"{name} @ {speed:.2f}×"]
         if switched_from:
             bits.insert(0, f"switch←{switched_from}")
-        if name in ("breathe", "breathe_v"):
+        if name in ("breathe", "breathe_v", "dance", "dance_walk"):
             bits.append(f"size {size:.2f}×")
             if rate is not None:
                 bits.append(f"{rate:.2f} Hz")
@@ -735,19 +798,30 @@ class BenchAPI:
                     with self._lock:
                         self._demo_status = str(msg)
 
-                status = run_demo(
-                    d.bus, name,
-                    speed=speed,
-                    seconds=seconds,
-                    size=size,
-                    rate=rate,
-                    torque=torque,
-                    softness=softness,
-                    abort_check=self._demo_abort.is_set,
-                    speed_fn=lambda: self._demo_speed_live,
-                    status_cb=_live_status,
-                    log_path=log_path,
-                )
+                if name == "dance_walk":
+                    status = self._run_dance_walk(
+                        gen=gen, speed=speed, size=size,
+                        softness=softness, torque=torque,
+                        status_cb=_live_status, log_path=log_path)
+                else:
+                    extra = {}
+                    if name == "dance":
+                        extra["standup_fn"] = self._step_standup_fn(
+                            gen=gen, speed=speed)
+                    status = run_demo(
+                        d.bus, name,
+                        speed=speed,
+                        seconds=seconds,
+                        size=size,
+                        rate=rate,
+                        torque=torque,
+                        softness=softness,
+                        abort_check=self._demo_abort.is_set,
+                        speed_fn=lambda: self._demo_speed_live,
+                        status_cb=_live_status,
+                        log_path=log_path,
+                        **extra,
+                    )
                 telem = None
                 summary_path = log_path.with_name(
                     log_path.stem + "_summary.json")
@@ -811,6 +885,178 @@ class BenchAPI:
                 "switched": bool(switched_from),
                 "switched_from": switched_from,
                 "demo": self.demo_state(), "robot": self.robot_state()}
+
+    # Victory lap: horse-prance out (open-loop tripod — quick cadence,
+    # high knees), RL MOONWALK straight home (silky contrast, heading
+    # untouched so the return line is true), then a full 360° pirouette
+    # finale in place, where open-loop heading slip can't hurt anything.
+    DANCE_LAP_V = 0.055          # m/s, just under the trained 0.06 band
+    # Sized to the sim-predicted realized prance-out distance (~0.17 m
+    # at 0.038 m/s realized). If hardware pranced further, the moonwalk
+    # UNDERSHOOTS home — safe; a long moonwalk overshooting backward is
+    # the dangerous direction.
+    DANCE_MOONWALK_S = 3.5
+
+    def _step_standup_fn(self, *, gen: int, speed: float):
+        """Bound STEP stand-up for the dance's act IV (inline, same gen).
+
+        The dance's own tempo never SLOWS the stand-up below 1x (the
+        experiments-tab pacing the operator liked, 08-18); speeding
+        the dance up speeds the stand-up too.
+        """
+        def fn() -> tuple[bool, str]:
+            res = self.standup(mode="step",
+                               speed=max(1.0, float(speed)),
+                               direction="up", torque=700,
+                               sync_gen=gen)
+            return bool(res.get("ok")), str(res.get("error") or "")
+        return fn
+
+    def _run_dance_walk(self, *, gen: int, speed: float, size: float,
+                        softness: float, torque: int | None,
+                        status_cb, log_path: Path) -> str:
+        """dance acts I–V → RL walk victory lap → dance act VI.
+
+        Runs inside the demo worker thread (slot already claimed, sit
+        homing already done). A refused lap (rl_policy missing, walk
+        preflight fails) is never fatal — the outro still plays so the
+        robot always ends asleep at sit zero. A SAFETY-TRIPPED lap is
+        fatal: the robot is limped and stays limped (no blind outro
+        from an unknown pose — 2026-08-06 lesson).
+        """
+        from inplace_demos import run_dance_demo
+
+        d = self.drive
+        st = run_dance_demo(
+            d.bus, part="show", speed=speed, size=size, softness=softness,
+            torque=torque, abort_check=self._demo_abort.is_set,
+            status_cb=status_cb, log_path=log_path,
+            standup_fn=self._step_standup_fn(gen=gen, speed=speed))
+        if st != "planted":
+            return st
+
+        lap_err, limped = self._victory_lap(gen=gen, status_cb=status_cb)
+        if self._demo_abort.is_set() or lap_err == "aborted":
+            return "aborted"
+        if limped:
+            return f"error: lap safety-tripped ({lap_err}) — robot limp"
+        if lap_err:
+            status_cb(f"lap skipped ({lap_err}) — descending anyway")
+
+        outro_log = log_path.with_name(log_path.stem + "_outro.csv")
+        return run_dance_demo(
+            d.bus, part="outro", speed=speed, size=size, softness=softness,
+            torque=torque, abort_check=self._demo_abort.is_set,
+            status_cb=status_cb, log_path=outro_log)
+
+    def _victory_lap(self, *, gen: int,
+                     status_cb) -> tuple[str | None, bool]:
+        """Prance out → RL moonwalk home → pirouette.
+
+        Returns ``(error, limped)`` — ``(None, False)`` on success.
+        A missing gait or refused moonwalk degrades gracefully (the
+        remaining phases still play); an abort or safety limp is fatal.
+        """
+        d = self.drive
+        try:
+            from inplace_demos import run_dance_prance
+        except ImportError as e:
+            return f"inplace_demos missing: {e}", False
+
+        st = run_dance_prance(d.bus, "out",
+                              abort_check=self._demo_abort.is_set,
+                              status_cb=status_cb)
+        if st == "aborted" or self._demo_abort.is_set():
+            return "aborted", False
+        if st != "done":
+            # Never moved — skip the whole lap rather than moonwalk
+            # from an unknown spot.
+            return "prance gait unavailable", False
+
+        moon_err, limped = self._rl_moonwalk(gen=gen, status_cb=status_cb)
+        if limped:
+            return moon_err, True
+        if self._demo_abort.is_set():
+            return "aborted", False
+        if moon_err:
+            status_cb(f"moonwalk skipped ({moon_err}) — pirouette")
+
+        st = run_dance_prance(d.bus, "spin",
+                              abort_check=self._demo_abort.is_set,
+                              status_cb=status_cb)
+        if st == "aborted" or self._demo_abort.is_set():
+            return "aborted", False
+        return None, False
+
+    def _rl_moonwalk(self, *, gen: int,
+                     status_cb) -> tuple[str | None, bool]:
+        """RL drive session walking straight backward to the start.
+
+        Returns ``(error, limped)``. Same start contract as
+        rl_drive_start: read-only walk preflight with the moderate-tilt
+        auto-acquire fallback.
+        """
+        try:
+            from rl_policy import DriveCommand, preflight, run_drive_session
+        except ImportError as e:
+            return f"rl_policy missing: {e}", False
+        d = self.drive
+        status_cb("victory lap — walk preflight")
+        ok, reason, details = preflight(d.bus, "walk")
+        if not ok and (reason.startswith("pose is not")
+                       or reason.startswith("tilt too high")):
+            r = abs(float(details.get("roll_deg", 90.0)))
+            p = abs(float(details.get("pitch_deg", 90.0)))
+            if r <= 35.0 and p <= 35.0:
+                status_cb("victory lap — acquiring the walk stance")
+                res_a = self._acquire_start(
+                    "stand", gen=gen,
+                    on_progress=lambda pr: status_cb(
+                        str(pr.get("msg") or "acquiring stance…")))
+                if not res_a.get("ok"):
+                    return (str(res_a.get("error") or "stance not acquired"),
+                            False)
+                ok, reason, details = preflight(d.bus, "walk")
+        if not ok:
+            return f"preflight: {reason}", False
+
+        # Full torque for the weight-bearing walk (RL never touches the
+        # limit register; the dance show leaves it at rise torque).
+        try:
+            from inplace_demos import _live_robot_ids, _set_torque_limit
+            _set_torque_limit(d.bus, _live_robot_ids(d.bus), 1000)
+        except Exception:
+            pass
+
+        cmd = DriveCommand()
+        session_over = threading.Event()
+
+        def _sched():
+            status_cb("victory lap — MOONWALK home (silky RL glide)")
+            t_end = time.time() + float(self.DANCE_MOONWALK_S)
+            while time.time() < t_end:
+                if session_over.is_set() or self._demo_abort.is_set():
+                    break
+                cmd.set(-self.DANCE_LAP_V, 0.0)
+                time.sleep(0.15)
+            cmd.request_stop()
+
+        sched = threading.Thread(target=_sched, daemon=True)
+        sched.start()
+        try:
+            res = run_drive_session(
+                d, cmd,
+                on_progress=lambda p: None,
+                abort_check=self._demo_abort.is_set,
+                walk_weights=self._role_weights("walk"),
+                hold_weights=self._role_weights("hold"))
+        finally:
+            session_over.set()
+        sched.join(timeout=2.0)
+        if not res.get("ok"):
+            return (str(res.get("error") or "drive session failed"),
+                    bool(res.get("limped")))
+        return None, bool(res.get("limped"))
 
     def _delta_vs_present(self, goal: list[float]
                           ) -> tuple[float | None, int | None]:

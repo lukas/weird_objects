@@ -34,10 +34,12 @@ drag to orbit, `Z`/`X` zoom, `Q` quit. Keys are drawn in the window.
   `B` belly-down, `I/K/J/L` persistent cruise trim, `Space` stop,
   `=`/`-` height, `Q` quit.
 - **Model picker panel** on the right of the window (like the robot
-  webui): every non-`*_steps` checkpoint in `rl_move/sim/policies/` is
-  classified at startup by obs width read from the sb3 zip's JSON
-  metadata (68 → stance slot, 72 → walk slot; no torch load) and listed
-  in two groups — click a row to load it. `[` / `]` and `,` / `.` cycle
+  webui): checkpoints in `rl_move/sim/policies/` are classified at
+  startup by obs width read from the sb3 zip's JSON metadata (68 →
+  stance slot, 72 → walk slot; no torch load) and listed in two groups
+  — click a row to load it. The panel is CURATED by default (on-robot
+  + promoted checkpoints + the scripted gait rows; ~21 rows — the full
+  archive overflows the panel); `--all-models` lists everything. `[` / `]` and `,` / `.` cycle
   the same lists. Swaps load on the spot (~1 s stall) and work
   mid-walk; the active pair is highlighted. Each row carries a one-line
   description (distilled from RL_LOG.md into `_DESC` in `play.py`).
@@ -64,6 +66,21 @@ drag to orbit, `Z`/`X` zoom, `Q` quit. Keys are drawn in the window.
   yaw rate ±0.05 rad/s per tap, including turn-in-place.
   `sim_noslip.sh` drives the gait alone with live alpha keys
   (`4`/`5`/`6` = 0/0.5/1) and `7` = the clamp-fit preset.
+  Two more `S` rows run the TRIPOD gait (`linux_control/
+  tripod_gait.py`) — the dance_walk victory-lap drivers:
+  `tripod_prance_gait` (aggressive horse settings: 0.58 s cadence,
+  32 mm knees, cruise 0.09 m/s — 1.5× the RL band) and
+  `tripod_walk_gait` (stock gentle walk-demo settings, for
+  comparison). Tripod rows sim under the prance's own write regime
+  (speed 1500 counts/s, ACC 80): measured 08-18, the prance cadence is
+  ACCELERATION-limited, not velocity-limited — ACC 20 smears it to
+  0.012 m/s, ACC 80 realizes ~0.038 m/s upright at full height. `U`/`O`
+  turn up to the row's omega.
+  **`V` plays the whole dance_walk VICTORY LAP end-to-end** (horse
+  prance out 4.5 s → RL moonwalk home 3.5 s → pirouette 7.4 s) and `P`
+  plays the pirouette alone — both need NO row selection, auto-stand
+  the robot first if it's sitting/low, and cancel on P/V/space/arrows.
+  The pirouette slips to a partial turn (a flourish, not a 360).
 - **`--phase-obs`** (pass through `sim_play.sh`): enables the walk
   env's phase clock (+2 obs dims, sin/cos at the tail; `--phase-hz`
   default 1/6 = one revolution per 6 s clamp-fit cycle) so the
