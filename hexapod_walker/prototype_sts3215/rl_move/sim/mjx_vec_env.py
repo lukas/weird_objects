@@ -301,11 +301,32 @@ class MjxVecEnv(VecEnv):
             out = st.tick(hold)
         outs = self._jax.device_get(out)
 
-        entries = []
+        finalized = []
         for i, env in enumerate(self.envs):
             env._q_nom = q_nom[i].copy()
             self._push_output(env, i, outs)
             obs, info = env._reset_finalize()
+            finalized.append([obs, info])
+
+        # Optional real reset history: continue the same safe q_nom hold
+        # and let each host env consume the measured MJX output.  These
+        # are reset observations, not rollout transitions: episode clocks,
+        # rewards and curriculum statistics remain untouched.
+        probe_n = self.envs[0]._reset_history_probe_steps()
+        for _ in range(probe_n):
+            out = st.tick(hold)
+            outs = self._jax.device_get(out)
+            for i, env in enumerate(self.envs):
+                self._push_output(env, i, outs)
+                finalized[i][0] = env._reset_history_probe_obs()
+        if probe_n:
+            for _obs, info in finalized:
+                info["reset_history_probe_ticks"] = probe_n
+                info["reset_history_probe_s"] = probe_n * dt
+
+        entries = []
+        for i, env in enumerate(self.envs):
+            obs, info = finalized[i]
             entries.append(dict(
                 qpos=np.asarray(outs.qpos_all[i], dtype=float),
                 qvel=np.asarray(outs.qvel_all[i], dtype=float),

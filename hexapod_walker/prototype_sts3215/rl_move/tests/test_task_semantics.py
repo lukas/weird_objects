@@ -45,7 +45,7 @@ for _p in (ROOT, ROOT / "linux_control", ROOT / "linux_control" / "urt2_setup"):
 pytest.importorskip("mujoco")
 
 from rl_move.config import load_config  # noqa: E402
-from rl_move.robot_state import DEG2RAD  # noqa: E402
+from rl_move.robot_state import DEG2RAD, RAD2DEG  # noqa: E402
 from rl_move.sim.joint_task import (  # noqa: E402
     SimHexapodJointGoalEnv, q_rad_to_action)
 from rl_move.sim.servo_model import SimServoParams  # noqa: E402
@@ -4086,6 +4086,8 @@ def test_recover_flip_spawn_is_nonupright():
     ("onefoot_mid", 2),
     ("onefoot", 3),
     ("park", 4),
+    ("repair_one", 14),
+    ("repair_two", 15),
 ))
 def test_recover_near_goal_plant_teacher_reaches_held_success(
         start, bucket):
@@ -4139,11 +4141,12 @@ def test_recover_coarse_cliffs_are_split_into_single_distribution_rungs():
         "plant_catch", "onefoot_micro", "onefoot_mid", "onefoot", "park",
         "crouch_shallow", "crouch_mid", "crouch_deep", "partial_high",
         "partial_mid", "partial_low", "zero", "tangle_mild", "tangle_mid",
-        "tangle_deep", "tangle", "flip")
+        "repair_one", "repair_two", "tangle_60", "tangle_70",
+        "tangle_80", "tangle_90", "tangle", "bank", "flip")
     assert tuple(family[0] for family in env.RECOVER_FAMILIES) == expected
-    assert all(len(family) == 1 for family in env.RECOVER_FAMILIES[:15])
-    assert env.RECOVER_FAMILIES[15] == ("tangle", "bank")
-    assert env.RECOVER_FAMILIES[16] == ("flip",)
+    assert all(len(family) == 1 for family in env.RECOVER_FAMILIES)
+    assert env.RECOVER_FAMILIES[21] == ("bank",)
+    assert env.RECOVER_FAMILIES[22] == ("flip",)
     env.close()
 
 
@@ -4151,7 +4154,8 @@ def test_recover_floor_rungs_remain_distinct_after_physics_settle():
     """The added labels must describe different settled reset banks."""
     kinds = ("park", "crouch_shallow", "crouch_mid", "crouch_deep",
              "partial_high", "partial_mid", "partial_low", "zero",
-             "tangle_mild", "tangle_mid", "tangle_deep", "tangle")
+             "tangle_mild", "tangle_mid", "tangle_60", "tangle_70",
+             "tangle_80", "tangle_90", "tangle")
     sig = {}
     for kind in kinds:
         rows = []
@@ -4173,8 +4177,54 @@ def test_recover_floor_rungs_remain_distinct_after_physics_settle():
     assert sig["partial_high"][1] > sig["partial_mid"][1] + 8.0
     assert sig["partial_low"][0] > sig["partial_mid"][0] + 0.2
     spreads = [sig[k][2] for k in (
-        "zero", "tangle_mild", "tangle_mid", "tangle_deep", "tangle")]
-    assert all(a + 10.0 < b for a, b in zip(spreads, spreads[1:])), sig
+        "zero", "tangle_mild", "tangle_mid", "tangle_60", "tangle_70",
+        "tangle_80", "tangle_90", "tangle")]
+    assert all(a + 2.0 < b for a, b in zip(spreads, spreads[1:])), sig
+
+
+@pytest.mark.parametrize("kind,loaded", (
+    ("repair_one", 5),
+    ("repair_two", 4),
+))
+def test_recover_terminal_repairs_are_upright_missing_foot_states(
+        kind, loaded):
+    """Repair rungs model the old B14 timeout, not another belly start."""
+    for seed in range(8):
+        env = _make_recover_env(seed, start=kind)
+        env.reset()
+        loads = np.array([
+            max(float(env.data.sensordata[adr]), 0.0)
+            for adr in env._touch_adr])
+        roll, pitch = env._true_roll_pitch()
+        assert int(np.sum(loads >= 0.35)) == loaded, loads
+        assert max(abs(roll), abs(pitch)) * RAD2DEG < 8.0
+        assert env._rec_reset_height_mm > 115.0
+        env.close()
+
+
+def test_recover_observation_has_plant_pose_and_real_reset_history():
+    extra = {
+        ("obs", "history_frames"): 4,
+        ("obs", "reset_history_probe"): 1.0,
+        ("obs", "recover_plant_q"): 1.0,
+    }
+    env = _make_recover_env(2, start="repair_two", extra=extra)
+    obs, info = env.reset()
+    frames = obs.reshape(4, -1)
+
+    assert frames.shape == (4, 90)
+    assert info["reset_history_probe_ticks"] == 3
+    assert info["reset_history_probe_s"] == pytest.approx(3 * env.dt)
+    assert env._step_i == 0
+    assert all(not np.array_equal(frames[i], frames[i + 1])
+               for i in range(3))
+    q_scale = float(env.cfg["obs"].get("q_scale", 1.0))
+    expected = ((env._state.joint_position
+                 - env._plant_deg * DEG2RAD) / q_scale)
+    np.testing.assert_allclose(frames[0, -18:], expected, atol=1e-6)
+    assert np.linalg.norm(frames[0, -18:]) > 20.0 * np.linalg.norm(
+        frames[0, :18])
+    env.close()
 
 
 def test_recover_periodic_eval_is_forced_and_split_by_bucket():
@@ -4565,7 +4615,7 @@ def test_recover_rsi_bank_spawns_from_harvested_poses(tmp_path):
              ("goal", "recover_rsi_bank_path"): bank_path}
     env = _make_recover_env(6, start="tangle", extra=extra)
     env.force_recover_start = None
-    env._rec_active_n = 16          # unlock B0..B15 (tangle = bucket 15)
+    env._rec_active_n = 21          # unlock B0..B20 (tangle = bucket 20)
     hits = 0
     for _ in range(60):
         env.reset()
@@ -4584,7 +4634,7 @@ def test_recover_rsi_bank_spawns_from_harvested_poses(tmp_path):
         hits += 1
         if hits >= 5:
             break
-    assert hits >= 2, f"tangle drawn only {hits} times with B15 unlocked"
+    assert hits >= 2, f"tangle drawn only {hits} times with B20 unlocked"
     env.close()
 
 

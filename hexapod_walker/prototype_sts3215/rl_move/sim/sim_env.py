@@ -573,9 +573,11 @@ class SimHexapodBalanceEnv(_GymBase):
         """
         return obs
 
-    def _final_obs(self, obs: np.ndarray, *, reset: bool) -> np.ndarray:
+    def _final_obs(self, obs: np.ndarray, *, reset: bool,
+                   augment_reset: bool | None = None) -> np.ndarray:
         """Apply the augment hook, then the obs-history stack."""
-        obs = self._augment_obs(obs, reset=reset).astype(np.float32)
+        aug_reset = reset if augment_reset is None else bool(augment_reset)
+        obs = self._augment_obs(obs, reset=aug_reset).astype(np.float32)
         if self._hist_n <= 1:
             return obs
         if reset or self._hist_buf is None:
@@ -585,6 +587,31 @@ class SimHexapodBalanceEnv(_GymBase):
             self._hist_buf.insert(0, obs.copy())
         # newest first: frame 0 is the current tick (transplant prefix).
         return np.concatenate(self._hist_buf).astype(np.float32)
+
+    def _reset_history_probe_steps(self) -> int:
+        """Controlled hold ticks used to seed a real observation history.
+
+        The legacy reset repeats one final frame K times.  That erases the
+        only dynamics available before the first policy action, precisely
+        where a recovery policy needs to infer support/contact.  This
+        opt-in probe keeps commanding the captured passive equilibrium and
+        records K-1 additional sensor frames without advancing the episode
+        clock or paying reward.  C MuJoCo and both MJX reset paths call the
+        same two helpers.
+        """
+        enabled = float(cfg_get(self.cfg, "obs", "reset_history_probe",
+                                default=0.0)) > 0.0
+        return self._hist_n - 1 if enabled and self._hist_n > 1 else 0
+
+    def _reset_history_probe_obs(self) -> np.ndarray:
+        """Read one controlled reset-probe tick into the history stack."""
+        self._state = self._read_state()
+        goal = self._current_goal()
+        return self._final_obs(
+            build_obs(self.cfg, self._state, self._q_nom,
+                      self._prev_action, goal=goal,
+                      tilt_ref=self._tilt_ref0),
+            reset=False, augment_reset=True)
 
     # ------------------------------------------------------------------
     # state readout (sim → RobotState, with DR sensor corruption)
@@ -1398,15 +1425,23 @@ class SimHexapodBalanceEnv(_GymBase):
             # _sample_getup (goal side, where the force hook lives) and
             # rides on the trajectory.
             kind = getattr(self._goal_traj, "start_kind", "tangle")
-            if kind in ("tangle_mild", "tangle_mid", "tangle_deep",
-                        "tangle"):
+            tangle_blends = {
+                "tangle_mild": 0.25,
+                "tangle_mid": 0.50,
+                "tangle_60": 0.60,
+                "tangle_70": 0.70,
+                # Legacy forced-eval alias retained for old probes.
+                "tangle_deep": 0.75,
+                "tangle_80": 0.80,
+                "tangle_90": 0.90,
+                "tangle": 1.0,
+            }
+            if kind in tangle_blends:
                 from rl_move.safety import AXIS_LIMITS_DEG
                 q_random = np.array(
                     [self.rng.uniform(*AXIS_LIMITS_DEG[j % 3])
                      for j in range(N_JOINTS)], dtype=float) * DEG2RAD
-                blend = {"tangle_mild": 0.25, "tangle_mid": 0.50,
-                         "tangle_deep": 0.75, "tangle": 1.0}[kind]
-                q_start = blend * q_random
+                q_start = tangle_blends[kind] * q_random
             elif kind == "zero":
                 q_start = self.rng.uniform(
                     -2.0, 2.0, N_JOINTS) * DEG2RAD
@@ -1476,6 +1511,41 @@ class SimHexapodBalanceEnv(_GymBase):
                 q_start[3 * leg + 1] -= float(
                     hip_deg) * DEG2RAD
                 q_start[3 * leg + 2] += float(knee_deg) * DEG2RAD
+            elif kind in ("repair_one", "repair_two"):
+                # Terminal contact-repair rungs. Keep the chassis on a
+                # plant support polygon while one/two legs begin folded
+                # and laterally misplaced. Unlike the early one-foot
+                # rungs, yaw is wrong too: merely lowering the hip cannot
+                # satisfy footprint + six-load success, so the policy must
+                # identify and deliberately re-place the missing foot.
+                q_start = (self._plant_deg * DEG2RAD).copy()
+                n_bad = 1 if kind == "repair_one" else 2
+                first = int(self.rng.integers(6))
+                if n_bad == 1:
+                    legs = (first,)
+                else:
+                    # Adjacent lifted pairs put the four remaining feet
+                    # on one side and collapse the chassis during limp
+                    # settle. Non-adjacent pairs retain a true four-foot
+                    # support polygon, matching the quiet B14 failures.
+                    candidates = [leg for leg in range(6)
+                                  if leg != first
+                                  and (leg - first) % 6 not in (1, 5)]
+                    legs = (first, int(self.rng.choice(candidates)))
+                for leg in np.asarray(legs, dtype=int):
+                    sign = -1.0 if self.rng.random() < 0.5 else 1.0
+                    q_start[3 * leg] += sign * float(
+                        self.rng.uniform(15.0, 35.0)) * DEG2RAD
+                    # The quadstance feasibility sweep's tucked claw is
+                    # known to stay clear while the other four feet form
+                    # a support polygon. Small jitter keeps this a family,
+                    # not one memorized target.
+                    q_start[3 * leg + 1] = (_QUAD_TUCK_RAD[1]
+                                             + self.rng.uniform(-3.0, 3.0)
+                                             * DEG2RAD)
+                    q_start[3 * leg + 2] = (_QUAD_TUCK_RAD[2]
+                                             + self.rng.uniform(-4.0, 4.0)
+                                             * DEG2RAD)
             elif kind == "bank":
                 # RECOVER family 2: harvested post-lower/interrupted
                 # poses (goal.recover_start_bank npz, key q_rad
@@ -1716,7 +1786,15 @@ class SimHexapodBalanceEnv(_GymBase):
         self._profile.reset(self._q_nom)
         self._cmd = self._q_nom.copy()
         self._settle(0.3)
-        return self._reset_finalize()
+        obs, info = self._reset_finalize()
+        probe_n = self._reset_history_probe_steps()
+        for _ in range(probe_n):
+            self._advance()
+            obs = self._reset_history_probe_obs()
+        if probe_n:
+            info["reset_history_probe_ticks"] = probe_n
+            info["reset_history_probe_s"] = probe_n * self.dt
+        return obs, info
 
     def _reset_finalize(self):
         """Post-settle half of reset: episode references, filter resets,

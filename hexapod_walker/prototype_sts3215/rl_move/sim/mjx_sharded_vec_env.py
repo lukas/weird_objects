@@ -366,6 +366,26 @@ def _worker_main(conn, layout, task_cls, env_kwargs, lo, hi, seed,
                         infos.append(info)
                 conn.send(("ok", infos))
 
+            elif cmd == "reset_history_probe":
+                mode, final = args
+                for k, env in enumerate(envs):
+                    g = lo + k
+                    push_output_row(env, pad_bids, outs, g)
+                    obs = env._reset_history_probe_obs()
+                    shm["obs"][g] = obs
+                    if mode == "pool" and final:
+                        # reset_finalize created the matching LIFO entry;
+                        # replace its pre-probe host snapshot with the
+                        # actual end of the controlled history probe.
+                        pool[k][-1]["host"] = snapshot_env(env, attrs)
+                        pool[k][-1]["obs"] = obs.copy()
+                        pool[k][-1]["info"][
+                            "reset_history_probe_ticks"] = (
+                                env._reset_history_probe_steps())
+                        pool[k][-1]["info"]["reset_history_probe_s"] = (
+                            env._reset_history_probe_steps() * env.dt)
+                conn.send(("ok", None))
+
             elif cmd == "host_save":
                 saved = [(snapshot_env(env, attrs), env._profile)
                          for env in envs]
@@ -524,6 +544,7 @@ class MjxShardedVecEnv(VecEnv):
         obs_space, act_space = probe.observation_space, probe.action_space
         self._dt = probe.dt
         self._episode_steps = probe.episode_steps
+        self._reset_probe_n = probe._reset_history_probe_steps()
         probe.close()
 
         B = int(n_envs)
@@ -702,6 +723,17 @@ class MjxShardedVecEnv(VecEnv):
             out = st.tick(hold)
         self._copy_outs(out)
         infos = self._broadcast("reset_finalize", mode)
+        for probe_i in range(self._reset_probe_n):
+            out = st.tick(hold)
+            self._copy_outs(out)
+            self._broadcast("reset_history_probe", mode,
+                            probe_i == self._reset_probe_n - 1)
+        if self._reset_probe_n and mode != "pool":
+            for chunk in infos:
+                for info in chunk:
+                    info["reset_history_probe_ticks"] = self._reset_probe_n
+                    info["reset_history_probe_s"] = (
+                        self._reset_probe_n * dt)
         if mode == "pool":
             for i in range(B):
                 self._pool_dev[i].append(dict(

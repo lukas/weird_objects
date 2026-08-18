@@ -1108,6 +1108,8 @@ def _init_wandb(args, params: SimServoParams):
                 "n_steps": args.n_steps, "batch_size": args.batch_size,
                 "learning_rate": args.lr, "seed": args.seed,
                 "dr_scale": args.dr_scale, "no_dr": args.no_dr,
+                "predictive_actor": bool(args.predictive_actor),
+                "predictive_live": bool(args.predictive_live),
                 "cfg_set": args.cfg_set,
                 "reward_cfg": _resolved_reward_cfg(args.cfg_set),
                 "episode_seconds": getattr(
@@ -1454,6 +1456,11 @@ def main(argv: list[str] | None = None) -> int:
                          "critic's fixed probe batch + start-of-run "
                          "heldout reference (condition D reads, never "
                          "trains on it)")
+    ap.add_argument("--predictive-actor", action="store_true",
+                    help="feed the verified frozen predictive snapshot "
+                         "to BOTH actor and critic through independent "
+                         "zero-initialized residual gates; unlike "
+                         "--predictive-live, the encoder never updates")
     ap.add_argument("--predictive-live", action="store_true",
                     help="train the dynamics transformer continuously on "
                          "live curriculum walking plus retained corpus "
@@ -1798,6 +1805,8 @@ def main(argv: list[str] | None = None) -> int:
         if args.init_from_actor_only:
             raise SystemExit("--init-from-policy-backbone and "
                              "--init-from-actor-only are exclusive")
+    if args.predictive_actor and args.critic_encoder is None:
+        raise SystemExit("--predictive-actor requires --critic-encoder")
     if args.predictive_live:
         if args.critic_encoder is None:
             raise SystemExit("--predictive-live requires --critic-encoder "
@@ -2006,10 +2015,10 @@ def main(argv: list[str] | None = None) -> int:
         # inside the policy, zero-init value gate).
         if args.gru or args.transformer:
             raise SystemExit("--critic-encoder is MLP-actor only")
-        if mirror_coef > 0.0 or bc_coef > 0.0:
+        if mirror_coef > 0.0:
             raise SystemExit("--critic-encoder does not compose with "
-                             "mirror/BC-anchor losses (untested "
-                             "optimizer interaction); drop them")
+                             "mirror loss (untested optimizer "
+                             "interaction); drop it")
         hist = int(float(_parse_cfg_set(args.cfg_set).get(
             "obs.history_frames", 1)))
         if hist < 2:
@@ -2020,14 +2029,27 @@ def main(argv: list[str] | None = None) -> int:
         from rl_move.dynamics.predictive_critic import (
             PredictiveCriticPPO, PredictiveCriticPolicy)
         algo_cls = PredictiveCriticPPO
+        if bc_coef > 0.0:
+            # Both wrappers perform a separate optimizer step via
+            # cooperative super(): predictive PPO owns the ordinary PPO
+            # update/snapshot invariant, then BCAnchorPPO applies the
+            # existing recovery mentor loss. Frozen predictor tensors are
+            # requires_grad=False and absent from the shared optimizer.
+            from .bc_anchor import make_bc_anchor_ppo_class
+            algo_cls = make_bc_anchor_ppo_class(algo_cls)
         policy_cls = PredictiveCriticPolicy
         extra_pk = dict(predictor_ckpt=str(args.critic_encoder),
                         history=hist,
-                        actor_residual_enabled=args.predictive_live)
+                        actor_residual_enabled=(args.predictive_actor
+                                                or args.predictive_live))
         # frame_width is set after venv construction.
-        pred_note = ("live online transformer + boundary-gated actor/critic "
-                     "snapshot" if args.predictive_live
-                     else "frozen critic-only snapshot")
+        if args.predictive_live:
+            pred_note = ("live online transformer + boundary-gated "
+                         "actor/critic snapshot")
+        elif args.predictive_actor:
+            pred_note = "frozen actor+critic snapshot"
+        else:
+            pred_note = "frozen critic-only snapshot"
         print(f"[mjx-train] predictive representation: {pred_note}; "
               f"seed {args.critic_encoder.name} "
               f"(md5 {args.critic_encoder_md5}), history {hist}")

@@ -41,6 +41,7 @@ import numpy as np
 
 from rl_move.config import cfg_get
 from rl_move.env import GOAL_DIM, TaskGoal
+from rl_move.robot_state import DEG2RAD, N_JOINTS
 from .joint_task import SimHexapodJointGoalEnv
 from .goal_task import GoalTrajectory
 from .sim_env import N_OBS
@@ -767,12 +768,21 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # Default OFF = bit-exact obs for every existing lineage.
         self._mode_cmd = float(cfg_get(self.cfg, "obs", "mode_onehot_cmd",
                                        default=0.0)) == 1.0
+        # Recovery needs a task-stable pose frame.  q-q_nom is zero at
+        # every reset because q_nom is the arbitrary settled bad pose, so
+        # two very different tangles can otherwise begin with identical
+        # joint-position observations.  Append q-q_plant at the frame tail
+        # (recover ticks only); the pretrained dynamics adapter deliberately
+        # consumes only the original first 59 proprio fields.
+        self._recover_plant_q_obs = float(cfg_get(
+            self.cfg, "obs", "recover_plant_q", default=0.0)) == 1.0
         if _gym is not None:
             self.observation_space = self._obs_space_box(
                 N_OBS - 6 + self.n_act + WALK_GOAL_DIM + N_VEL_OBS
                 + (N_PHASE_OBS if self._phase_obs else 0)
                 + (1 if self._yaw_cmd else 0)
-                + (N_MODE_OBS if self._mode_obs else 0))
+                + (N_MODE_OBS if self._mode_obs else 0)
+                + (N_JOINTS if self._recover_plant_q_obs else 0))
 
     def _augment_obs(self, obs: np.ndarray, *,
                      reset: bool = False) -> np.ndarray:
@@ -859,6 +869,17 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                     [obs, mode_onehot("hold" if stopped else "walk")])
             else:
                 obs = np.concatenate([obs, mode_onehot(mode)])
+        if self._recover_plant_q_obs:
+            mode = (getattr(self._goal_traj, "mode", "hold")
+                    if self._goal_traj is not None else "hold")
+            q_plant = np.zeros(N_JOINTS, dtype=float)
+            if mode == "recover" and self._state is not None:
+                qs = float(cfg_get(self.cfg, "obs", "q_scale",
+                                   default=1.0))
+                q_plant = ((self._state.joint_position
+                            - self._plant_deg * DEG2RAD)
+                           / max(qs, 1e-6))
+            obs = np.concatenate([obs, q_plant])
         return obs.astype(np.float32)
 
     def _reset_begin(self, seed: int | None = None):
@@ -1816,8 +1837,13 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
     #   B5-B7 shallow/medium/deep all-feet crouches.
     #   B8-B10 high/mid/low partial curls toward the belly-zero pose.
     #   B11 zero: belly-zero with small joint jitter.
-    #   B12-B15 25/50/75/100% blends toward random legal tangles.
-    #   B16 flip: side/back/upside-down orientation drops. Sub-90-degree
+    #   B12-B13 25/50% blends toward random legal tangles.
+    #   B14-B15 full-height terminal repairs with one/two badly misplaced
+    #   legs. These explicitly teach the failure seen at the old B14:
+    #   upright and quiet, but parked forever on only four/five feet.
+    #   B16-B20 60/70/80/90/100% random-legal tangle blends.
+    #   B21 harvested on-path bank states; B22 side/back/upside-down drops.
+    #   Sub-90-degree
     #   constructor tilts roll back upright during limp settle, so they
     #   are deliberately not represented as fake curriculum rungs.
     # Keeping the one-foot severities separate matters: the original
@@ -1837,8 +1863,14 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                         ("zero",),
                         ("tangle_mild",),
                         ("tangle_mid",),
-                        ("tangle_deep",),
-                        ("tangle", "bank"),
+                        ("repair_one",),
+                        ("repair_two",),
+                        ("tangle_60",),
+                        ("tangle_70",),
+                        ("tangle_80",),
+                        ("tangle_90",),
+                        ("tangle",),
+                        ("bank",),
                         ("flip",))
     RECOVER_KIND_IDS = {
         kind: i for i, kind in enumerate(

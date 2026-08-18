@@ -147,6 +147,26 @@ def _build(encoder_ckpt, corpus, *, mode="online", steps_per_iter=2,
     return model, payloads
 
 
+def _build_with_algo(encoder_ckpt, corpus, algo_cls, *, seed=0,
+                     actor_residual=False):
+    """Tiny configured build for cooperative PPO wrapper tests."""
+    episodes, stats = corpus
+    model = algo_cls(
+        PredictiveCriticPolicy, DummyVecEnv([_TinyEnv]),
+        policy_kwargs=dict(
+            net_arch=[16, 16], log_std_init=-1.0,
+            predictor_ckpt=str(encoder_ckpt),
+            frame_width=FRAME_WIDTH, history=HISTORY,
+            actor_residual_enabled=actor_residual),
+        n_steps=32, batch_size=32, n_epochs=2, learning_rate=3e-4,
+        seed=seed, verbose=0, device="cpu")
+    cfg = PredictorConfig(mode="frozen", probe_obs=32)
+    rehearsal = dd.WindowSampler(episodes, stats, HISTORY, HORIZONS,
+                                 val=False, seed=0)
+    model.configure_predictor(cfg, rehearsal, anchor_batch_to_torch)
+    return model
+
+
 def _named_clone(module):
     return {n: p.detach().clone() for n, p in module.named_parameters()}
 
@@ -270,6 +290,51 @@ def test_obs_conversion_parity_with_features_extractor(encoder_ckpt,
         th.load(encoder_ckpt, weights_only=False)["stats"]),
         FRAME_WIDTH, HISTORY)
     assert conv(obs).shape == (5, HISTORY, fr.FRAME_DIM)
+
+
+def test_obs_conversion_ignores_appended_recovery_pose_tail(encoder_ckpt):
+    """Widening 72->90 leaves the pretrained encoder input bit-identical."""
+    stats = dd.Stats.from_dict(
+        th.load(encoder_ckpt, weights_only=False)["stats"])
+    rng = np.random.default_rng(31)
+    wide = rng.standard_normal((3, HISTORY, 90)).astype(np.float32)
+    narrow = wide[:, :, :FRAME_WIDTH].copy()
+    z_wide = ObsToDynFrames(stats, 90, HISTORY)(
+        th.as_tensor(wide.reshape(3, -1)))
+    z_narrow = ObsToDynFrames(stats, FRAME_WIDTH, HISTORY)(
+        th.as_tensor(narrow.reshape(3, -1)))
+    assert th.equal(z_wide, z_narrow)
+
+
+def test_frozen_predictive_policy_composes_with_bc_anchor(
+        encoder_ckpt, corpus):
+    """Recovery mentor updates cannot mutate either frozen snapshot."""
+    from rl_move.sim.bc_anchor import make_bc_anchor_ppo_class
+
+    combined = make_bc_anchor_ppo_class(PredictiveCriticPPO)
+    model = _build_with_algo(
+        encoder_ckpt, corpus, combined, actor_residual=True)
+    model.bc_coef = 0.5
+    model.bc_minibatches = 2
+    model.bc_batch_size = 16
+    model.bc_foot_z_coef = 0.0
+    rng = np.random.default_rng(37)
+    for _ in range(32):
+        model._bc_push(
+            rng.standard_normal(OBS_DIM).astype(np.float32),
+            rng.uniform(-1.0, 1.0, fr.ACTION_DIM).astype(np.float32),
+            mode=6)
+    critic_before = _snap_params(model)
+    actor_before = [p.detach().clone()
+                    for p in model.policy.actor_predictor.parameters()]
+
+    model.learn(total_timesteps=64)
+
+    assert all(th.equal(a, b) for a, b in
+               zip(critic_before, _snap_params(model)))
+    assert all(th.equal(a, b.detach()) for a, b in
+               zip(actor_before, model.policy.actor_predictor.parameters()))
+    assert model._bc_n == 32
 
 
 def test_ppo_value_grads_cannot_touch_transformers(encoder_ckpt, corpus):
