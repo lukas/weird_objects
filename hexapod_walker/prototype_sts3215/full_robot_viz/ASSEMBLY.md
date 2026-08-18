@@ -352,9 +352,9 @@ in millimetres. All individual STLs are sized to fit a 220 × 220 mm
 
 | File | Function | Suggested print settings |
 |---|---|---|
-| `chassis_top.stl` | Top deck (2 mm PLA — halved Aug 2026 so M3 + nut / short self-tap screw mounts clamp cleanly through it; a 140 mm flat-to-flat hex CLIPPED to a Ø115 mm disk so the yaw-centred hip servo bodies sweep clear).  Carries 2 × Φ 8 mm × 5 mm printed bosses near the +X edge for the `switch_holster` heat-set inserts (bosses grew from 3 mm so the 6.2 mm insert pocket keeps its floor in the thinner plate), plus the 4 `CHASSIS_STANDOFF_HOLES_XY` (±31.1) sites that take the sandwich standoffs below (M3×8 top bolts — were M3×10 with the 4 mm plate) and the magnet-post stack above (20 mm standoff + thumb nut + Ø8×8 mm magnet). | 0.2 mm layer, 25% gyroid infill, 4 walls |
-| `chassis_bottom.stl` | Single merged bottom plate (Jun 2026): a flat 200 mm hex with a ~8 mm floor that carries the 6 yaw-servo cradles, the split yaw-bearing tower bases, and the velcro-strap slots (centre pair = under-belly battery safety strap).  Aug 2026 rev: each leg's 3-port ribbed harness band is now ONE open 18 × 28 mm port (Molex connectors push straight through), plus a 14 × 22 mm battery XT60 pass-through at (48, 0) on the +X vertex axis.  Late-Aug 2026: the 6 corner power-Wago two-bay tray wall sets are printed INTO the top face (the separate taped `wago_mount.stl` trays are retired — wire pull is reacted by solid plastic, and the trays print as clean vertical walls on the face-down plate).  Prints face-DOWN, no supports. | same as top |
-| `switch_holster.stl` | Snap-in holster for one ~ 32 x 17 x 17 mm anti-spark on/off switch (the e-stop).  Bolted to chassis_top's +X edge via 2 x M3 x 10 SHCS that thread DOWN into M3 brass heat-set inserts captive in chassis_top's 2 printed bosses.  Toggle protrudes +X past the chassis edge for user access; XT60 pigtails exit the +/- Y end faces. | 0.2 mm, 25% infill, 3 walls |
+| `chassis_top.stl` | Top deck (2 mm PLA — halved Aug 2026 so M3 + nut / short self-tap screw mounts clamp cleanly through it; a 140 mm flat-to-flat hex CLIPPED to a Ø115 mm disk so the yaw-centred hip servo bodies sweep clear).  Completely flat both faces (Aug 16 2026: the 2 switch-holster insert bosses retired — the holster velcros down), plus the 4 `CHASSIS_STANDOFF_HOLES_XY` (±31.1) sites that take the sandwich standoffs below (M3×8 top bolts — were M3×10 with the 4 mm plate) and the magnet-post stack above (20 mm standoff + thumb nut + Ø8×8 mm magnet). | 0.2 mm layer, 25% gyroid infill, 4 walls |
+| `chassis_bottom.stl` | Single merged bottom plate (Jun 2026): a flat 200 mm hex with a ~8 mm floor that carries the 6 yaw-servo cradles, the split yaw-bearing tower bases, and the velcro-strap slots (centre pair = under-belly battery safety strap).  Aug 2026 rev: each leg's 3-port ribbed harness band is now ONE open 18 × 28 mm port (Molex connectors push straight through), plus a 14 × 22 mm battery XT60 pass-through at (48, 0) on the +X vertex axis.  Late-Aug 2026: the 6 corner power-Wago tray wall sets are printed INTO the top face (the separate taped `wago_mount.stl` trays are retired — wire pull is reacted by solid plastic, and the trays print as clean vertical walls on the face-down plate).  Aug 16 2026: each corner tray is now a SINGLE press-fit bay for one 5-port Wago 221-415 (was a two-bay 3-port V+/GND pair; the bay is 0.75 mm tighter — nominal 0.15 mm interference — so the nut wedges in), and Ø9 full-stack seat pads restore the 4 brass-standoff seats that the inboard-shifted harness ports had clipped (each pad nibbles one port corner; connectors still pass).  Prints face-DOWN, no supports. | same as top |
+| `switch_holster.stl` | Snap-in holster for one ~ 32 x 17 x 17 mm anti-spark on/off switch (the e-stop).  VELCROED flat to chassis_top's +X edge (Aug 16 2026: the bolt-down ear, chassis_top bosses, inserts and M3x10 bolts are retired — solid flat floor for the velcro patch).  Toggle protrudes +X past the chassis edge for user access; XT60 pigtails exit the -X end wall. | 0.2 mm, 25% infill, 3 walls |
 
 > **Aug 2026 as-built electronics deck** (from `extra_stl/`, not `stl_prototype/`):
 > four posts at `CHASSIS_STANDOFF_HOLES_XY` hold a round Ø115 **`round_mount_plate_115`**
@@ -388,12 +388,12 @@ as a single body — no socket, no slip fit, no retention pin.
 
 | File | Function | Print orientation |
 |---|---|---|
-| `coxa_link.stl` | ONE piece (Aug 2026 merge of the old yaw hub + hip bracket): yaw turntable hub (bolts the driven disc horn, rides the touching 6805 pair on a Ø24.95 boss) fused to the hip fixed side (symmetric servo cradle; the passive disc horn rides the servo's own rear idler boss).  5 vertical head-access shafts reach the yaw horn screws through the (empty) hip servo well. | On its SIDE — yaw axis horizontal, cradle end wall on the bed |
+| `coxa_link.stl` | ONE piece (Aug 2026 merge of the old yaw hub + hip bracket): yaw turntable hub (bolts the driven disc horn, rides the touching 6805 pair on a Ø25.15 press-fit boss) fused to the hip fixed side (symmetric servo cradle; the passive disc horn rides the servo's own rear idler boss; Aug 16 2026 — no end-face bolt holes, no wire-exit channel: a clean 4-wall box).  5 vertical head-access shafts reach the yaw horn screws through the (empty) hip servo well — M3 × 30 since Aug 16 2026; Aug 17 2026 sink pass: the hip cradle rides 5 mm lower (well floor 2 mm over the platform top), so the heads sit only ~5.3 mm below the shaft mouths; the cap-to-link labyrinth gaps widened to 1.5 mm axial / 1.0 mm radial after a bench scrape, and the horn-screw seats are deeper (corners +1.25 mm for full disc bite, centre +1 mm more into the spline tap); plus the same rear retention tab as the femur (2 × M2.5 × 6 into the hip servo's rear molded pair, inboard end, heads flush in Ø5.2 × 2 mm recesses). | On its SIDE — yaw axis horizontal, cradle end wall on the bed |
 | `yaw_bearing_cap.stl` | TOP half of the SPLIT yaw-bearing tower; bolts onto each `chassis_bottom` tower with 3 x M3 x 8 SHCS to capture the touching 6805 bearing pair (12 mm ring; Ø32 x 2 mm retaining lip).  Print flat, ring face down (no supports). | Ring face down |
 | `yaw_servo_retainer.stl` | Anti-rotation saddle under each yaw cradle + short ground FEET (Aug 2026 v4: four 8 mm corner poles to small Ø12 pads, 34 mm below the belly — the underside stays open so the case-back servo plug is reachable, and the wire exits ride ~9 mm off the floor when the robot belly-sits); bolts to the chassis_bottom anchor bosses and captures the hanging yaw servo body. | Flange down (flipped) |
-| `femur_link.stl` | The WHOLE femur, one printed part (Jul 2026): hip moving yoke (symmetric clevis — both arms bolt to a disc horn, driven on the front, passive on the rear boss) + SOLID Ø18 spar (8 mm yoke spine plate, small cone flares at both spar ends — Aug 2026) + knee fixed side (symmetric servo cradle). | Yoke spine down, spar horizontal, knee mount plate up (support the knee well through its open back) |
+| `femur_link.stl` | The WHOLE femur, one printed part (Jul 2026): hip moving yoke (symmetric clevis — both arms bolt to a disc horn, driven on the front, passive on the rear boss) + SOLID Ø18 spar (8 mm yoke spine plate, small cone flares at both spar ends — Aug 2026) + knee fixed side (symmetric servo cradle; rear retention tab — 2 × M2.5 × 6 into the servo's rear molded pair, holes fully enclosed since the Aug 17 2026 1 mm-longer tab, heads flush in Ø5.2 × 2 mm recesses). | Yoke spine down, spar horizontal, knee mount plate up (support the knee well through its open back) |
 | `tibia_knee_yoke.stl` | Knee moving yoke (symmetric clevis — driven + passive disc horns) + Ø8 CF-tube socket. | Spine down |
-| `foot_boot.stl` (**TPU 95A**) | Compliant foot boot pressed over the tibia CF-tube end (Aug 2026: replaces `tibia_foot_fitting` + `foot_pad` + the M3 hinge pin/nyloc). Ø7.7 bore over the Ø8 tube = 0.3 mm TPU interference; 8 mm solid tip with a domed ground face. Short CF legs 0/4 take `extra_stl/foot_boot_plus4.stl` (+4 mm tip). | Tip face on bed, bore up — no supports |
+| `foot_boot.stl` (**TPU 95A**) | Compliant foot boot pressed over the tibia CF-tube end (Aug 2026: replaces `tibia_foot_fitting` + `foot_pad` + the M3 hinge pin/nyloc). Ø8.1 bore over the Ø8 tube — same nominal slip fit as the tibia yoke socket (Aug 17 2026, two bench rounds: Ø7.7 and Ø7.9 both too tight, TPU bores print undersized; printed fit lands snug, CA/epoxy dab for keeps); 8 mm solid tip with a domed ground face. Short CF legs 0/4 take `extra_stl/foot_boot_plus4.stl` (+4 mm tip). | Tip face on bed, bore up — no supports |
 
 > **Femur** = `femur_link`, one printed body — nothing to join (no CF,
 > no epoxy, no pins; the Jul 2026 merge fused the old hip yoke and knee
@@ -455,11 +455,11 @@ regression fails CI before you waste filament.
 | Velcro cinch strap | Hook-and-loop strap (~15–20 mm) through the CENTRE chassis_bottom slot pair as the under-belly safety strap. | 1 | $5 |
 | Main fuse + holder | 15–20 A blade/ANL fuse + inline holder between the anti-spark switch and the trunk Wagos. | 1 | $8 |
 | Per-branch fuse + holder (optional) | 5–7 A mini-blade fuse + holder, one per leg branch. | 6 | $1.50 each |
-| Wago 221 lever-nuts | Compact splices — the whole power distribution (as-built: no PDB): a central **trunk** V+/GND pair of **5-port 221-415** near the chassis_top centre where the battery feed lands, **power** V+/GND pairs of 3-port 221-413 seated between the tray walls printed into the chassis_bottom top face (one pair per hex corner, entries facing inward), and **data** under the belly at the hex vertices (r = 70; off the leg azimuths, which the battery packs occupy). | 1 pack (~20, incl. 2× 5-port) | $15 |
+| Wago 221 lever-nuts | Compact splices — the whole power distribution (as-built: no PDB): a central **trunk** V+/GND pair of **5-port 221-415** near the chassis_top centre where the battery feed lands, **power** 5-port 221-415 nuts press-fit between the tray walls printed into the chassis_bottom top face (ONE per hex corner, entries facing inward; Aug 16 2026 — was a V+/GND pair of 3-port 221-413 per corner), and **data** under the belly at the hex vertices (r = 70; off the leg azimuths, which the battery packs occupy). | 1 pack (~20, incl. 2× 5-port) | $15 |
 | 16–18 AWG silicone wire | Red + black, ~5 m each; the six per-leg V+/GND branches from the trunk / power Wagos to each leg's 5264 injection pigtail. | 1 | $10 |
 | XT60 pigtails | Male/female, 12–14 AWG silicone (battery cable + trunk-Wago feed + Uno Q battery tap). | 2–3 | $4 |
 | Molex 5264 connector + crimp kit | 3-pin 2.5 mm kit (~20 sets) for the per-leg injection pigtails and the leg-to-leg signal+GND-only data jumpers. | 1 | $10 |
-| Anti-spark on/off switch | XT60 in/out pigtails (the e-stop).  Snaps into `switch_holster.stl` on chassis_top's +X edge; toggle protrudes outside the chassis for user access. | 1 | $10 |
+| Anti-spark on/off switch | XT60 in/out pigtails (the e-stop).  Snaps into `switch_holster.stl`, velcroed on chassis_top's +X edge; toggle protrudes outside the chassis for user access. | 1 | $10 |
 | LiPo charger | iSDT D2, B6AC, or any decent 3S balance charger | 1 | $30 |
 | LiPo bag | Fire-safe charging | 1 | $10 |
 
@@ -494,9 +494,7 @@ The authoritative, auto-generated fastener counts live in the
 | M2.5 × 8 SHCS, servo body retention (`91290A104`) | 24 | HIP cradles only — 4 per hip cradle into the servo's real END-face 10×10 mm M2.5 hole square. The YAW cradle takes none (held by the `yaw_servo_retainer` strap) and the KNEE cradle takes none either (Jul 2026 one-piece femur — the fused spar covers that wall; clamp cap + lip hold the body). |
 | M2.5 × 8 spline / passive-horn screws (`91290A104`) | 30 | Passive-horn retention + servo spline center screws (ship with the servos). |
 | M3 × 8 SHCS (`91290A113`) | ~52 | 24 `servo_clamp_cap` + 18 `yaw_bearing_cap` self-tap + 4 chassis_top → brass-standoff top bolts (moved from ×10 when the top plate was halved to 2 mm) + 3 screen-stand feet (up from under the round plate into Φ2.5 pilots) + 3 Uno Q mount (down into thumb nuts). |
-| M3 × 10 SHCS (`91290A114`) | 2 | switch_holster mount bolts. |
 | M3 × 14 SHCS (`91290A115`) | 4 | Chassis-standoff bottom bolts, UP through chassis_bottom's 8 mm plate + floor stack into the F-F standoffs' bottom female threads (Jul 2026 F/F switch). |
-| M3 brass heat-set inserts (McMaster `94459A130`) | 2 | chassis_top bosses for `switch_holster` only (Aug 2026: deck-tray / imu_pad / carapace inserts retired).  Soldering-iron installed at ~220 °C. |
 | M3 × 20 mm F-F brass standoffs | 4 | chassis_top ↔ chassis_bottom across `CHASSIS_GAP` = 20 mm (Aug 2026: was 32 mm; shrank when the battery moved under the belly) on the 44-mm-radius diagonal pattern (±31.1, ±31.1).  Same stock as the magnet-post bases below. |
 | M3 × 20 mm brass standoffs | 4 | Magnet-post bases at the same `CHASSIS_STANDOFF_HOLES_XY` (±31.1), rising above chassis_top. |
 | M3 knurled thumb nuts (~2.5 mm) | 7 | 4 sit on the 20 mm posts under the magnets; 3 hold the Uno Q's three-point mount under the round plate (finger-tight). |
@@ -582,20 +580,18 @@ Allow ~ 4 hours for a first build, ~ 90 min for a second.
 
 ### 6.1 Per-leg sub-assembly (do all 6 in parallel)
 
-> **Servo body retention.** The HIP cradle bolts the servo's real
-> **END-face 10 × 10 mm M2.5 hole square** with 4 × M2.5 × 8 SHCS driven
-> through the cradle's −X wall (head recessed in a wall counterbore,
-> threading into the servo's own metal case), plus the printed
-> `servo_clamp_cap` seated flush against the body's +Y face and retained
-> by 2 × M3 × 8 SHCS self-tapping into the cradle's ±X wall-end pilots.
-> The KNEE cradle takes **no end-face bolts** (Jul 2026 one-piece femur:
-> the fused Ø18 spar covers that wall from outside, so the screws were
-> impossible to drive and their empty holes only weakened the spar
-> junction — removed); the knee servo is held by the clamp cap + the
-> retaining lip alone.  The YAW servo also uses no cradle bolts (see the
-> chassis_bottom note above).  There are **no heat-set inserts and
-> no vertical tab bolts** anywhere on the leg — where servo threads are
-> used they bolt straight into the servo's own steel case.
+> **Servo body retention.** Every cradle holds its servo with the
+> printed `servo_clamp_cap` (seated flush against the body's +Y face,
+> retained by 2 × M3 × 8 SHCS self-tapping into the cradle's ±X wall-end
+> pilots) plus the retaining lip and the output-face seat.  **End-face
+> M2.5 body bolts are fully retired** (Aug 16 2026 — the HIP cradle's
+> 4-per-leg set was the last and went with its holes; they were never
+> installed on the bench and the empty holes only weakened the wall.
+> The KNEE cradle lost its set in the Jul 2026 one-piece femur — the
+> fused Ø18 spar covers that wall — and the YAW cradle in the Jun 2026
+> flush-horn refit; see the chassis_bottom note above).  There are
+> **no heat-set inserts and no vertical tab bolts** anywhere on the
+> leg.
 
 1. **Join the leg segments first.**  FEMUR: nothing to do — `femur_link`
    comes off the printer as one finished part (Jul 2026 one-piece merge;
@@ -609,10 +605,16 @@ Allow ~ 4 hours for a first build, ~ 90 min for a second.
    coxa: the 5 yaw horn screws drop down head-access shafts that open
    into this well, so the well must still be empty in final-assembly
    step 2 below; do steps 6.2-1/6.2-2 for this leg first).  Then seat
-   the servo into the `coxa_link` hip cradle and drive 4 × M2.5 × 8
-   SHCS through the cradle's −X wall into the servo's END-face hole
-   square, then snap on the `servo_clamp_cap` and secure it with
-   2 × M3 × 8 SHCS self-tapping into the cradle wall-end pilots.
+   the servo into the `coxa_link` hip cradle, snap on the
+   `servo_clamp_cap` and secure it with 2 × M3 × 8 SHCS self-tapping
+   into the cradle wall-end pilots (Aug 16 2026: the 4 × M2.5 end-face
+   bolts and their −X-wall holes are RETIRED — cap + lip + output-face
+   seat hold the body).  Then drive 2 × M2.5 × 6 self-tappers through
+   the cradle's rear retention tab (the vertical plate against the
+   servo's back face, inboard end) into the servo's rear molded hole
+   pair; the heads seat flush in their recesses — do this BEFORE the
+   femur goes on, the yoke arm later swings ~1.5 mm over the tab face
+   (Aug 17 2026, matching the femur's knee tab).
 3. **Disc horns on the hip servo:** push a 20 mm aluminium 25T disc
    horn onto the output spline at 0° and retain it with the servo's
    M2.5 spline screw; slide the STOCK metal passive horn (ships with
@@ -628,13 +630,17 @@ Allow ~ 4 hours for a first build, ~ 90 min for a second.
    `femur_link`'s knee cradle, snap on the `servo_clamp_cap` and secure
    it with 2 × M3 × 8 SHCS into the wall-end pilots (NO end-face bolts
    at the knee — the fused spar covers that wall; the cap + lip hold the
-   body), then fit the driven + passive disc horns as in step 3.
+   body), drive 2 × M2.5 × 6 self-tappers through the rear retention
+   tab under the servo's back face into the rear molded hole pair
+   nearer the spar (heads seat flush in their recesses; do it before
+   the tibia yoke goes on), then fit the
+   driven + passive disc horns as in step 3.
 6. **Tibia onto the knee joint:** seat the `tibia_knee_yoke`'s clevis
    arms onto the driven + passive knee disc horns and bolt each arm to
    its disc (4 × M3 × 10 per horn) as in step 4.
 7. **Foot boot:** press the TPU `foot_boot` over the free end of the
-   tibia CF tube until the tube bottoms in the 20 mm socket (Ø7.7 bore
-   over the Ø8 tube = 0.3 mm interference — a drop of isopropyl helps
+   tibia CF tube until the tube bottoms in the 20 mm socket (Ø8.1 bore
+   over the Ø8 tube, same slip fit as the yoke socket — a drop of isopropyl helps
    it slide, then grips when dry).  No fastener, no hinge (Aug 2026:
    the boot's compliance replaces the old passive hinge).  Legs 0/4
    with the short CF tubes take `foot_boot_plus4` instead (transitional
@@ -660,10 +666,16 @@ times.
    into the tower pilots, sandwiching both outer races between the
    chassis seat and the cap lip.
 2. **Coxa horn bolts (Aug 2026 one-piece coxa):** with the hip servo
-   NOT yet in its cradle, drop the **4 × M3 × 20 SHCS + 1 central M3
+   NOT yet in its cradle, drop the **4 × M3 × 30 SHCS + 1 central M3
    spline screw** down the five head-access shafts that open into the
-   empty hip-servo well, and torque them into the yaw disc horn with a
-   long 2.5 mm hex key.  Then lower the hip servo into the cradle
+   empty hip-servo well, and torque them into the yaw disc horn (Aug 17
+   2026 sink pass: the well floor sits just 2 mm over the hub platform,
+   so the heads are only ~5.3 mm below the shaft mouths — any stubby
+   driver works.
+   The corner seats are 1.25 mm deeper so the tips get the full 2 mm
+   disc bite on the printed part, just breaking the disc's far face;
+   the centre seat is 1 mm deeper still, into the spline tap).  Then
+   lower the hip servo into the cradle
    (its body covers the shaft mouths) and clamp it.  Each completed
    leg now hangs from its yaw axis.
 3. **Battery:** stick Dual Lock strips to the flat belly and to the
@@ -683,10 +695,10 @@ times.
    bottom female thread.  Drop `chassis_top.stl` onto the standoff tops
    and drive **4 × M3 × 8 mm SHCS** DOWN from above into the
    standoffs' female top threads.
-5. **Switch holster on chassis_top:** soldering-iron-install the 2
-   chassis_top boss inserts (McMaster `94459A130`, ~220 °C).  Bolt the
-   `switch_holster.stl` to chassis_top's +X edge with **2 × M3 × 10 mm
-   SHCS**.
+5. **Switch holster on chassis_top:** velcro the `switch_holster.stl`
+   flat to chassis_top's +X edge (toggle pointing outboard past the
+   chassis vertex).  (Aug 16 2026: the old boss-insert + 2 × M3 × 10
+   bolt-down mount is retired — no inserts, no bolts.)
 6. **Electronics deck (magnet plate + raised platform):** at the four
    `CHASSIS_STANDOFF_HOLES_XY` (±31.1) sites above chassis_top, stack
    a **20 mm M3 standoff + ~2.5 mm M3 thumb nut + Ø8×8 mm magnet**.
@@ -707,11 +719,13 @@ times.
    room).  Route IMU I²C (GND, SDA, SCL; VCC comes off the 3.3 V Wago)
    to the Uno Q (see `firmware/WIRING.md` Stage F).  Zip-tie the wires
    crossing the magnet interface at the plate's E/W rim slot pairs so
-   the plate lifts off cleanly.  Press a **V+/GND pair of 3-port
-   power Wagos** between the tray walls printed into chassis_bottom's
+   the plate lifts off cleanly.  Press ONE **5-port power
+   Wago (221-415)** into the tray walls printed into chassis_bottom's
    top face at each of the 6 hex **corner flats** (wire entries facing
-   the chassis centre; late-Aug 2026 — no separate tray, no tape);
-   park **data Wagos** under the chassis near the yaw retainers.
+   the chassis centre; Aug 16 2026 — single press-fit bay, 0.15 mm
+   nominal interference: push firmly until it seats on the plate; no
+   separate tray, no tape); park **data Wagos** under the chassis near
+   the yaw retainers.
 7. **Wire it up:** see §7 and `firmware/WIRING.md`.  Two battery
    domains, no buck, no PDB: `battery → trunk Wagos → power Wagos →
    servos` and
@@ -784,7 +798,7 @@ Why the power bus is **distributed** and not chained: the FEETECH
 3-pin bus connector (Molex 5264) is rated ~3 A/pin, but all-18 walking
 current is ~9 A and would melt the first upstream connector. So **DATA
 stays chained, POWER is injected per-leg from the trunk Wagos via
-the corner Wago pairs** — no single 5264 pin ever carries more than one leg (~1.5 A
+the corner Wagos** — no single 5264 pin ever carries more than one leg (~1.5 A
 walking). The leg-to-leg data jumper carries **signal + GND only
 (V+ omitted)**. The Uno Q takes its own battery tap (no buck on the
 servo rail). The anti-spark switch is the e-stop. See

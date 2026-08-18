@@ -46,6 +46,8 @@ harness (§2). This is also why the auto-continue logic reads
 | `eval/<mode>/track_err_deg` | mean \|tilt − reference\| over the episode |
 | `eval/<mode>/height_err_end_mm` | \|height − ref\| at episode end |
 | `eval/walk/vel_err_m_s`, `eval/walk/speed_m_s` | mean commanded-velocity error / achieved speed |
+| `eval/<walk-mode>/direction_err_deg`, `direction_err_p90_deg` | mean / p90 angle between actual XY velocity and the current nonzero command, over ticks moving at least 0.01 m/s; 0° is aligned, >90° is wrong-way |
+| `eval/<walk-mode>/direction_valid_frac`, `wrong_direction_frac` | fraction of active-command ticks moving fast enough for a meaningful direction / fraction of those valid ticks with angle error >90° |
 | `eval/tipped/roll_end_deg`, `eval/tipped/z_drop_mm` | tipped-start eval detail: mean \|roll − ref\| over the last quarter / body-height drop vs the settled start (>30 mm = collapsed, not recovered) |
 | `eval/roll_trap/*` | roll-trap detail: `trapped_frac` (trap reached 10°), `max_roll_deg`, `end_roll_deg`, `speed_frac`, `legs_cycling`, `tau_peak_nm` |
 | `canary/<case>`, `canary/auto_stop` | protected-skill regression flags (0/1) |
@@ -62,6 +64,10 @@ across the rename, pull both keys (`ops.sh wandbdump`).
 `rollout/ep_rew_mean` (SB3, training-noise rollouts — what the
 watcher's "reward quarters still climbing" auto-continue reads),
 `env/<part>` per-term reward means (see rl_docs/REWARD.md),
+`env/walk_direction_err_deg` plus `env/walk_direction_valid` and
+`env/walk_direction_wrong_way` (the training-rollout counterparts of
+the direction metrics above; the latter two are means of per-tick 0/1
+flags),
 `train/*`, `time/*`, `lp/*` (walk-speed curriculum),
 `terminations/<reason>` (MJX trainer).
 

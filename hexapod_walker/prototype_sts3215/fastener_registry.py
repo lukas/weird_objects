@@ -132,18 +132,12 @@ to clamp through the chassis plates.)
     4 ``DECK_COLUMN_XY`` positions (see 10.).  Jul 2026 F/F switch:
     replaces the old male-stud + nyloc retention.
 
-12. ``2 x M3 x 8 SHCS`` -- switch_holster mount bolts.  Threads
-    DOWN through 2 printed clearance holes in chassis_top into an
-    M3 brass heat-set insert (McMaster 94459A130) embedded in
-    each of the holster's 2 printed bosses.  Holds the anti-spark
-    on/off switch holster captive on the +X edge of chassis_top
-    between the L0 and L5 coxa brackets; the toggle protrudes
-    past the chassis vertex so the user can flip it without
-    opening the chassis.  May 2026 "essentials" pass.
+12. (retired Aug 16 2026) -- the 2 switch_holster mount bolts are gone:
+    the holster velcros to the flat deck (bosses, inserts, ear, and
+    clearance holes all deleted from the CAD).
 
-13. ``2 x M3 heat-set inserts`` -- captive in the switch_holster's
-    2 bosses (see 12.).  Same McMaster ``94459A130`` part as the
-    other M3 inserts on this build.
+13. (retired Aug 16 2026) -- the 2 switch_holster heat-set inserts went
+    with 12.
 
 14. ``24 x M3 x 8 SHCS`` -- sandwich-joint clamp-cap bolts.  Deck
     redesign (Jun 2026): 2 self-tapping M3 x 8 SHCS per ``servo_clamp_cap``
@@ -182,20 +176,25 @@ to clamp through the chassis plates.)
 
 LATE-AUG 2026 SKU AUDIT (design-review "fastener diet")
 --------------------------------------------------------
-Live census from ``build_all_fastener_instances()`` after the TPU-boot
-and integrated-tray changes -- 284 fasteners, 8 purchased SKUs:
+Live census from ``build_all_fastener_instances()`` after the TPU-boot,
+integrated-tray, and Aug 16 2026 coxa changes (hip end-face screws
+retired, yaw hub bolts M3x20 -> M3x30, switch-holster bolt-down mount
+retired for velcro) -- 248 fasteners, 8 purchased SKUs:
 
   ===  =================================  ==========  =====================
   qty  spec                               McMaster    why this length
   ===  =================================  ==========  =====================
    96  M3x10 disc-horn SHCS               91290A114   driven-horn stack
-   24  M3x20 disc-horn SHCS               91290A120   yaw hub stack
+   24  M3x30 disc-horn SHCS               91290A123   yaw hub stack (user's
+                                                      M3x30 stock, Aug 16
+                                                      2026; was M3x20 --
+                                                      heads now 10 mm
+                                                      higher for driver
+                                                      access)
    42  M3x8 SHCS self-tap                 91290A113   clamp caps + bearing
                                                       caps (wall pilots)
     4  M3x8 SHCS                          91290A113   chassis_top ->
                                                       standoff top thread
-    2  M3x10 SHCS                         91290A114   switch holster (ear +
-                                                      boss + insert stack)
     4  M3x14 SHCS                         91290A115   spans the 8 mm merged
                                                       chassis_bottom into
                                                       the standoff bottom
@@ -205,17 +204,25 @@ and integrated-tray changes -- 284 fasteners, 8 purchased SKUs:
                                                       plate (pilot bottoms
                                                       at -3); ships free
                                                       with the disc kits
-   54  M2.5x8 SHCS (spline + case)        91290A104   servo case threads
+   30  M2.5x8 SHCS (spline + board)       91290A104   servo spline screws
+                                                      (the 24 hip end-face
+                                                      CASE screws retired
+                                                      Aug 16 2026 with
+                                                      their holes)
    24  M2.5x6 self-tap (rear case)        96877A150   4 mm rear-shell bite
-   10  M3 heat-set insert                 94459A130   holster + deck bosses
   ===  =================================  ==========  =====================
+
+(The M3 heat-set insert SKU 94459A130 left the build entirely with the
+Aug 16 2026 velcro swap -- the 2 switch-holster inserts were the LAST
+real inserts; the standoff "insert" entries are virtual engagement
+targets, not hardware.)
 
 Verdict: no further merges are free.  Every remaining length is pinned
 by an engagement geometry the verifier checks (M3x6 tip clearance,
-M3x14 plate span, M3x20 hub stack); the only same-thread pair that
-COULD merge (2 x M3x10 holster -> M3x8) saves zero SKUs because
-91290A114 stays for the 96 disc-horn bolts.  The foot hinge's pan-head
-+ nyloc (the last non-hex-key hardware) left with the Aug 2026 boot.
+M3x14 plate span, M3x30 hub stack).  The foot hinge's pan-head
++ nyloc (the last non-hex-key hardware) left with the Aug 2026 boot;
+the 2 lone M3x10 holster bolts (the last 91290A114 oddballs outside the
+disc-horn stock) left with the Aug 16 2026 velcro swap.
 
 Off-registry (deck, not emitted by this module): 4 x M2 screen
 self-taps, and -- review round 2 -- 6 x M3x8 (3 screen-stand feet into
@@ -260,11 +267,16 @@ PN_M25_HEATSET_INSERT = "94459A106"  # M2.5 brass heat-set insert, knurled
                                       # Raspberry Pi 4 / Pi 5 onto the
                                       # electronics_tray (May 2026).
 PN_M3X10_SHCS    = "91290A114"   # M3 x 10 socket-head cap screw, black-oxide
-PN_M3X20_SHCS    = "91290A120"   # M3 x 20 socket-head cap screw (yaw hub stack)
                                   # steel (chassis_top -> standoff-top bolts,
                                   # deck-tray column bolts, driven disc-horn
                                   # bolts; the battery_holder foot bolts that
                                   # used this stock are retired)
+PN_M3X30_SHCS    = "91290A123"   # M3 x 30 socket-head cap screw (yaw hub
+                                  # stack; Aug 16 2026, user's own M3x30
+                                  # stock -- replaced the M3x20/91290A120,
+                                  # lifting the head seat 10 mm for driver
+                                  # access.  Same stock the legacy
+                                  # PN_M3X32_SHCS label points at.)
 PN_M3_HEATSET_INSERT = "94459A130"   # M3 brass heat-set insert, knurled (McMaster)
 PN_M3X14_SHCS    = "91290A115"   # M3 x 14 socket-head cap screw (Jul 2026 F/F
                                   # standoff switch: enters chassis_bottom's -6
@@ -299,7 +311,10 @@ SPEC_M3X8_SHCS   = "M3x8 SHCS"    # also the chassis-standoff top bolts (Aug
                                    # 2026: were M3x10 through the 4 mm plate;
                                    # the 2 mm plate needs x8 or the tip
                                    # bottoms out in the brass standoff).
-SPEC_M3X10_SHCS  = "M3x10 SHCS"   # switch-holster ear + deck-column
+SPEC_M3X10_SHCS  = "M3x10 SHCS"   # RETIRED Aug 16 2026 (was the 2 switch-
+                                  # holster mount bolts; holster is velcroed
+                                  # now).  Constant kept for the BOM sort
+                                  # table; zero live instances.
                                    # tray bolts (the retired battery_holder
                                    # foot bolts also used this spec).
 # RETIRED (Jun 2026): the chassis_bottom HIGH/LOW print split was re-merged
@@ -374,20 +389,23 @@ SPEC_M3X8_DISC_HORN = "M3x8 disc-horn SHCS"
 # spec so the engagement check still reserves engagement_mm = DISC_HORN_H = 2 mm.
 SPEC_M3X10_DISC_HORN = "M3x10 disc-horn SHCS"
 # Aug 2026: the coxa_link's yaw hub end is tall (horn at YAW_HUB_BOSS_BOT_Z,
-# heads in a mid-boss counterbore).  Bench uses M3 x 20; engagement_mm still
-# DISC_HORN_H = 2 mm into the aluminium disc.
-SPEC_M3X20_DISC_HORN = "M3x20 disc-horn SHCS"
+# heads in a mid-boss counterbore).  Aug 16 2026: M3 x 30 (user's stock).
+# Aug 17 2026: the corner head seat sank 1.25 mm to z = +17.75 (bench
+# shortfall compensation -- see _emit_horn_fasteners_yaw) and the sink pass
+# put the well-floor shaft mouths at +26, so the heads sit ~5.3 mm below
+# them; engagement_mm still DISC_HORN_H = 2 mm into the aluminium disc.
+SPEC_M3X30_DISC_HORN = "M3x30 disc-horn SHCS"
 # STS3215 reconciliation (Jun 2026): the invented "front-face 4-bolt
 # case-screw mount" on the servo OUTPUT face (4 per cradle x 3 cradles x
 # 6 legs = 72) was REMOVED -- the dia-20 disc horn covers the output
-# face.  POSITIVE body retention is now provided on the servo's REAL
-# END-face M2.5 holes (measured Waveshare ST3215: a 10 x 10 mm square
-# centred on each +/-X end face).  The HIP cradle bolts the servo's -X
-# end face to the cradle's -X wall with 4 x M2.5 x 8 SHCS that thread
-# into the servo's own metal case (the case IS the thread; no printed
-# boss / insert); yaw + knee cradles take none (see
-# _emit_end_face_fasteners).  Same exempt spec string as before so the
-# engagement check's clearance-bore air-span exemption still applies.
+# face.  The follow-on "POSITIVE body retention" via the servo's REAL
+# -X END-face M2.5 holes shrank in stages (yaw: Jun 2026 flush-horn
+# refit; knee: Jul 2026 one-piece femur) and RETIRED COMPLETELY on
+# Aug 16 2026 when the hip cradle's last 4-per-leg set went with its
+# holes (user: "four meaningless holes ... pointless now").  Every servo
+# is held by clamp cap + retaining lip + output-face seat.  The spec
+# string survives only for the engagement check's historical exemption
+# table; no live instances carry it.
 SPEC_M25_BODY_SCREW = "M2.5 SHCS into servo case"
 # Shallow SELF-TAPPING M2.5 into the STS3215 FIXED REAR (back) CASE FACE.  The 4
 # yaw anti-rotation saddle screws drive vertically UP into the standard STS3215
@@ -640,75 +658,13 @@ def _knee_cradle_T(leg_index: int) -> np.ndarray:
     return _coxa_to_world(leg_index) @ T_femur_in_link @ M
 
 
-def _emit_end_face_fasteners(
-    *,
-    T_well_to_world: np.ndarray,
-    leg_index: int,
-    joint: str,
-    location: str,
-    upper_row_only: bool = False,
-) -> list[FastenerInstance]:
-    """The M2.5 body-retention bolts on the servo's -X END face.
-
-    POSITIVE retention (Jun 2026): measured from the authoritative
-    Waveshare ST3215 brackets, each +/-X END face of the servo carries a
-    10 x 10 mm square of 4 M2.5 threaded case holes centred on the face.
-    Only the HIP cradle (coxa_link) uses them now: it bolts the servo's -X
-    end face to its -X wall -- the head is recessed in a wall counterbore
-    and the M2.5 x 8 SHCS threads +X (well-local) into the servo's own
-    metal case.  Geometry is cut by ``hexapod_prototype._servo_well_solid``
-    at ``servo_end_face_bolt_centres``.  The YAW cradle takes none (Jun
-    2026 flush-horn refit) and the KNEE cradle takes none either (Jul 2026
-    one-piece femur -- the fused spar covers that wall).
-
-    ``upper_row_only`` (yaw cradle, Jun 2026 single-part merge): the merged
-    chassis_bottom keeps the yaw cradle's -X WELL wall only down to its -6
-    bottom face; the servo body hangs ~14 mm BELOW that, so the LOWER end-face
-    bolt row (well-local bz < SERVO_BODY_H/2 -> world z ~ -10) would bear in
-    open air with no wall behind it (it belonged to the abandoned deep cradle
-    bucket).  Only the UPPER row engages real wall, so the yaw cradle bolts the
-    servo's upper -X face (2 screws) + seats its output face on the mount plate
-    + is captured from below by the bolt-on yaw_servo_retainer stirrup.  The
-    deep hip/knee cradles keep all 4.
-
-    Well-local frame matches ``_servo_well_solid``: body centred at
-    x = y = 0, z in [0, SERVO_BODY_H]; the -X end face is at
-    x = -SERVO_BODY_W/2 and the head plane stands SERVO_BODY_BOLT_STANDOFF
-    off it.  The screws are driven BEFORE the disc horn / next-stage link
-    close over the cradle, so they are sub-assembly fasteners (the
-    inboard/-X driver approach is buried once the robot is assembled).
-    """
-    head_x = -(HP.SERVO_BODY_W / 2.0 + HP.SERVO_BODY_BOLT_STANDOFF)
-    axis_local = np.array([1.0, 0.0, 0.0])   # +X, into the servo case
-    skip_reason = (
-        "captive sub-assembly fastener: the M2.5 end-face screws bolt "
-        "the servo body to the cradle's -X wall BEFORE the disc horn and "
-        "the next-stage link close over the cradle; the inboard/-X driver "
-        "approach is buried once the robot is assembled"
-    )
-    centres = HP.servo_end_face_bolt_centres()
-    if upper_row_only:
-        centres = [(by, bz) for (by, bz) in centres
-                   if bz > HP.SERVO_BODY_H / 2.0]
-    out: list[FastenerInstance] = []
-    for (by, bz) in centres:
-        head = _apply_point(T_well_to_world, np.array([head_x, by, bz]))
-        axis = _apply_dir(T_well_to_world, axis_local)
-        y_lbl = "+Y" if by > 0 else "-Y"
-        z_lbl = "top" if bz > HP.SERVO_BODY_H / 2.0 else "bot"
-        out.append(FastenerInstance(
-            part_number=PN_M25X8_SHCS,
-            spec=SPEC_M25_BODY_SCREW,
-            head_world_xyz=head,
-            axis_world=axis,
-            role=f"{location} -X end-face {y_lbl} {z_lbl} M2.5 body screw",
-            leg_index=leg_index,
-            joint=joint,
-            length_mm=HP.SERVO_BODY_BOLT_LEN,
-            cache_stl=f"{PN_M25X8_SHCS}.cache.stl",
-            skip_screwdriver_reason=skip_reason,
-        ))
-    return out
+# ``_emit_end_face_fasteners`` (the M2.5 body-retention bolts on the servo's
+# -X END face) is DELETED (Aug 16 2026): its last caller -- the hip cradle's
+# 4 screws per leg -- retired with the holes themselves (user: "four
+# meaningless holes ... pointless now"; see the retirement note in
+# ``build_all_fastener_instances``).  The yaw cradle had already dropped its
+# screws in the Jun 2026 flush-horn refit and the knee cradle in the Jul 2026
+# one-piece femur.
 
 
 # ---------------------------------------------------------------------------
@@ -775,10 +731,15 @@ def _emit_horn_fasteners_yaw(leg_index: int) -> list[FastenerInstance]:
     # yaw_output_z, which is exactly the disc horn's top face per
     # check_mating_face_contact's "coxa_link bottom <-> yaw disc-horn
     # top" probe (gap = +0.00 mm).
-    # Aug 2026: M3 x 20 (bench-confirmed).  Hub boss at YAW_HUB_BOSS_BOT_Z;
-    # tip at disc bottom; head underside on shared YAW_HUB_HORN_HEAD_SEAT_Z
-    # (~z=+9; 4 drive + centre).  Clearance Phi 3.7 (was 4.2; Aug 2026
-    # slop trim).  Older CAD M3 x 8 / M3 x 10 was undersized for this tall hub.
+    # Aug 16 2026: M3 x 30 (user's stock; was the bench M3 x 20).  Hub boss
+    # at YAW_HUB_BOSS_BOT_Z; head underside on the shared corner seat
+    # YAW_HUB_HORN_HEAD_SEAT_Z.  Aug 17 2026 seat-depth fix: the seat sank
+    # 1.25 mm to +17.75 (1.0 bench shortfall -- printed seats + screw
+    # tolerance ate ~1 mm of the nominal 2 mm horn bite -- plus 0.25 so
+    # the bench tip just breaks the disc's far face).  The NOMINAL tip is
+    # therefore 1.25 mm past the disc bottom (z = -12.25); on the printed
+    # part that lands ~0.25 proud, which the flush-seated disc tolerates.
+    # Clearance Phi 3.7 (was 4.2; Aug 2026 slop trim).
     horn_bolt_len = HP.YAW_HUB_HORN_BOLT_LEN
     head_local_z = HP.YAW_HUB_HORN_HEAD_SEAT_Z
     T_link_to_world = _T(*edge_mid) @ _T(0.0, 0.0, yaw_output_z) @ _Rz(a)
@@ -792,8 +753,8 @@ def _emit_horn_fasteners_yaw(leg_index: int) -> list[FastenerInstance]:
         head = _apply_point(T_link_to_world, p_local)
         axis = _apply_dir(T_link_to_world, np.array([0.0, 0.0, -1.0]))
         out.append(FastenerInstance(
-            part_number=PN_M3X20_SHCS,
-            spec=SPEC_M3X20_DISC_HORN,
+            part_number=PN_M3X30_SHCS,
+            spec=SPEC_M3X30_DISC_HORN,
             head_world_xyz=head,
             axis_world=axis,
             role=(
@@ -803,7 +764,7 @@ def _emit_horn_fasteners_yaw(leg_index: int) -> list[FastenerInstance]:
             leg_index=leg_index,
             joint="yaw",
             length_mm=horn_bolt_len,
-            cache_stl=f"{PN_M3X20_SHCS}.cache.stl",
+            cache_stl=f"{PN_M3X30_SHCS}.cache.stl",
             # Mostly-compliant clamp: the coxa_link hub disc-horn holes are
             # Phi 3.7 (Aug 2026; was 4.2) so the bearing pair still leads on
             # concentricity while screw-hole slop is reduced.  Bolt head
@@ -811,7 +772,7 @@ def _emit_horn_fasteners_yaw(leg_index: int) -> list[FastenerInstance]:
             # (Hip/knee disc-horn bolts use tight Phi 3.4 and stay rigid.)
             compliant_torque_only=True,
             # Captive sub-assembly fastener.  Aug 2026 one-piece coxa
-            # merge: each M3 x 20 drops down a vertical head-access
+            # merge: each M3 x 30 drops down a vertical head-access
             # shaft (Phi YAW_HUB_HORN_HEAD_CB_OD) that opens into the
             # hip servo well, and is torqued with a long 2.5 mm hex
             # key BEFORE the hip servo is lowered into its cradle
@@ -819,7 +780,7 @@ def _emit_horn_fasteners_yaw(leg_index: int) -> list[FastenerInstance]:
             # seated its body covers the shaft mouths, so no driver
             # envelope exists in the assembled state -- by design.
             skip_screwdriver_reason=(
-                "captive sub-assembly fastener: the M3 x 20 SHCS is "
+                "captive sub-assembly fastener: the M3 x 30 SHCS is "
                 "dropped down the coxa_link's head-access shaft and "
                 "torqued through the EMPTY hip servo well BEFORE the "
                 "hip servo is installed (PROTOTYPE.md section 6.2 "
@@ -1413,121 +1374,15 @@ def _emit_clamp_cap_fasteners(
 
 
 # ---------------------------------------------------------------------------
-# Switch-holster mount fasteners (M3 x 8 SHCS + M3 heat-set insert pair)
+# Switch-holster mount fasteners -- RETIRED Aug 16 2026 (velcro mount)
 # ---------------------------------------------------------------------------
-
-
-def _emit_switch_holster_fasteners() -> list[FastenerInstance]:
-    """The 2 switch_holster mount bolts + their captive heat-set inserts.
-
-    Bolts come DOWN from ABOVE the holster ear: head bears on the
-    holster ear's TOP face, M3 SHCS shaft passes DOWN through the
-    Phi BRACKET_BOLT_HOLE = 3.4 mm clearance hole in the ear, and
-    threads INTO an M3 brass heat-set insert (McMaster 94459A130)
-    that lives in a printed Phi SWITCH_HOLSTER_BOSS_OD = 8 mm boss
-    on chassis_top's TOP face.  See ``make_chassis_top`` for the
-    boss + pocket geometry.
-
-    Bolt-DOWN-from-above (rather than UP-from-below) keeps the
-    HEX_KEY 8 x 30 mm driver envelope in OPEN AIR above the
-    chassis -- a bolt-up-from-below variant collides with the
-    electronics_tray's base slab at z in [+5, +8] of the chassis-
-    cavity (see check_screwdriver_access).  The trade-off is 2
-    captive heat-set inserts on chassis_top (in a printed boss),
-    not in the holster.
-
-    Length budget (design frame, z = top of chassis_top):
-
-        ear top z            = chassis_top_top + BOSS_H + FLOOR
-                             = +38 + 3 + 4 = +45 mm (bolt head face)
-        ear (clearance hole) = 4 mm (SWITCH_HOLSTER_FLOOR = 4)
-        boss top z           = chassis_top_top + BOSS_H = +41 mm
-        insert top face z    = boss_top - debris_overdrill = +40
-                               (1 mm overdrill at the OPEN end of
-                                the pocket, same convention as
-                                the electronics_tray inserts)
-        insert engagement    = 5 mm (INSERT_M3_INSERT_LENGTH)
-        insert bottom z      = +35 mm
-        bolt tip min z       = +35 mm
-
-    Total bolt run from head to tip: 45 - 35 = 10 mm.  M3 x 10
-    SHCS (PN 91290A114) -- same stock as the chassis-standoff top
-    bolts so the BOM stays compact.
-
-    Deck redesign (Jun 2026): the Uno Q tray now sits 16 mm above
-    chassis_top in the vertical hex-key approach to the ear bolt
-    heads, so both mount bolts are captive sub-assembly fasteners
-    (torqued BEFORE the standoff-column + deck stack is fitted).
-    """
-    out: list[FastenerInstance] = []
-    # ``inspect_build._build_assembly_instances`` and the verifier's
-    # ``_build_world_leg0_printed_parts`` BOTH translate chassis_top by
-    # [0, 0, CHASSIS_TOP_CENTRE_Z] (mesh local z = 0 at mid-thickness);
-    # Aug 2026 half-thickness plate: use the authoritative constants.
-    chassis_top_top_z = HP.CHASSIS_TOP_TOP_Z
-    # Bolt head bears on the holster ear's TOP face.
-    boss_top_z = chassis_top_top_z + HP.SWITCH_HOLSTER_BOSS_H
-    ear_top_z  = boss_top_z + HP.SWITCH_HOLSTER_FLOOR
-    # Insert top face is 1 mm BELOW boss top (debris-clearance
-    # overdrill at the OPEN end of the pocket; same convention as
-    # _emit_electronics_tray_fasteners).
-    debris_overdrill = HP.INSERT_M3_PILOT_DEPTH - HP.INSERT_M3_INSERT_LENGTH
-    insert_top_z = boss_top_z - debris_overdrill
-    for (bx, by), corner in zip(
-        HP.SWITCH_HOLSTER_BOLT_CHASSIS_XY,
-        ("+Y", "-Y"),
-    ):
-        head_world = np.array([bx, by, ear_top_z])
-        axis_world = np.array([0.0, 0.0, -1.0])  # -Z (DOWN into material)
-        out.append(FastenerInstance(
-            part_number=PN_M3X10_SHCS,
-            spec=SPEC_M3X10_SHCS,
-            head_world_xyz=head_world,
-            axis_world=axis_world,
-            role=(
-                f"switch_holster mount bolt {corner} "
-                f"M3 x 10 SHCS into heat-set insert"
-            ),
-            leg_index=None,
-            joint=None,
-            length_mm=10.0,
-            cache_stl=f"{PN_M3X10_SHCS}.cache.stl",
-            # Deck redesign (Jun 2026): the Uno Q tray (16 mm above
-            # chassis_top) now sits in the vertical hex-key approach to
-            # the holster ear bolt head, so it is a captive sub-assembly
-            # fastener -- the holster is bolted on BEFORE the standoff-
-            # column + deck stack is fitted above chassis_top.
-            skip_screwdriver_reason=(
-                "captive sub-assembly fastener: the switch_holster is "
-                "bolted onto chassis_top BEFORE the standoff-column + "
-                "electronics-deck stack is fitted; once the Uno Q tray "
-                "(16 mm above chassis_top) is on, it blocks the vertical "
-                "hex-key approach to this ear bolt head"
-            ),
-        ))
-
-        insert_head_world = np.array([bx, by, insert_top_z])
-        out.append(FastenerInstance(
-            part_number=PN_M3_HEATSET_INSERT,
-            spec=SPEC_M3_HEATSET_INSERT,
-            head_world_xyz=insert_head_world,
-            axis_world=np.array([0.0, 0.0, -1.0]),
-            role=(
-                f"switch_holster chassis_top {corner} "
-                f"M3 heat-set insert"
-            ),
-            leg_index=None,
-            joint=None,
-            length_mm=HP.INSERT_M3_INSERT_LENGTH,
-            cache_stl=f"{PN_M3_HEATSET_INSERT}.cache.stl",
-            skip_screwdriver_reason=(
-                "heat-set insert installed with a soldering iron "
-                "BEFORE the switch_holster is dropped onto the "
-                "chassis_top bosses; no driver cone applies to "
-                "the brass insert"
-            ),
-        ))
-    return out
+#
+# The switch_holster used to bolt down with 2 x M3 x 10 SHCS into 2 M3
+# brass heat-set inserts captive in printed Phi 8 mm bosses on
+# chassis_top (May 2026 "essentials" pass; `_emit_switch_holster_fasteners`).
+# Aug 16 2026: the user velcros the holster to the deck instead, so the
+# bosses, inserts, bolts, the holster's -X mounting ear, and its
+# clearance holes are ALL deleted from the CAD.  Nothing to emit.
 
 
 # ---------------------------------------------------------------------------
@@ -1772,33 +1627,19 @@ def build_all_fastener_instances() -> list[FastenerInstance]:
         # The output face carries ONLY the flush disc horn + its 4 x M3
         # leg bolts on DISC_HORN_BOLT_PCD = 14 mm.
 
-        # POSITIVE servo body retention: M2.5 end-face bolts per cradle into
-        # the servo's real -X END-face 10x10 case-hole square, so the printed
-        # cradle bolts the servo instead of only gripping it.  Only the deep
-        # HIP cradle takes them now.
-        #
-        # The YAW cradle takes NONE (Jun 2026 flush-horn refit): both bearings
-        # moving above the flush horn lowered the yaw output 5.5 mm
-        # (YAW_TOWER_RAISE 9 -> 14.5), dropping the servo so its body hangs
-        # ~20 mm below the -6 chassis floor.  Even the upper end-face row now
-        # lands at the floor edge with no -X wall behind the head, so the yaw
-        # servo is retained instead by the ``make_yaw_servo_retainer`` strap +
-        # anchor bolts + the output-face seat + open-bottom pocket.  (The
-        # retired screws reacted X-translation, not yaw torque.)
-        #
-        # The KNEE cradle also takes NONE (Jul 2026 one-piece femur): the
-        # fused Phi 14 spar covers the knee cradle's -X wall from outside, so
-        # the end-face screws could never be driven there -- the empty holes
-        # only weakened the spar junction and were removed from the geometry
-        # (``_servo_well_solid(end_face_bolts=False)``).  The knee servo is
-        # retained by the clamp cap + retaining lip.
-        # 0 yaw + 4 hip + 0 knee = 4 per leg x 6 = 24.
-        out.extend(_emit_end_face_fasteners(
-            T_well_to_world=_hip_cradle_T(leg_index),
-            leg_index=leg_index,
-            joint="hip",
-            location=f"coxa_link L{leg_index} hip cradle",
-        ))
+        # POSITIVE servo body retention via M2.5 end-face bolts: FULLY
+        # RETIRED (Aug 16 2026).  History: the YAW cradle lost its screws in
+        # the Jun 2026 flush-horn refit (servo hangs below the chassis floor;
+        # retained by the yaw_servo_retainer strap + output-face seat), the
+        # KNEE cradle lost them in the Jul 2026 one-piece femur (the fused
+        # spar covers that wall), and the HIP cradle -- the last holdout at
+        # 4 per leg = 24 -- lost them Aug 16 2026 (user: "the coxa hub has
+        # four meaningless holes on one of the shorter sides where the servo
+        # sits ... pointless now").  On the bench they were never installed;
+        # every servo is held by its clamp cap + retaining lip + output-face
+        # seat, and the empty holes only weakened the wall
+        # (``make_coxa_hip_bracket`` now builds with
+        # ``_sandwich_fixed_side(end_face_bolts=False)``).
 
         # Sandwich-joint clamp-cap self-tap bolts (2 per hip + knee
         # cradle).  The yaw cradle (chassis_bottom) has no clamp cap.
@@ -1855,11 +1696,9 @@ def build_all_fastener_instances() -> list[FastenerInstance]:
     # out.extend(_emit_deck_fasteners())
     # out.extend(_emit_imu_pad_fasteners())
 
-    # Switch-holster mount bolts (May 2026 "essentials" pass).  2 x
-    # M3 x 10 SHCS thread UP from BELOW chassis_top into 2 x M3
-    # heat-set inserts captive in the holster's mounting ear.  Bolts
-    # are user-serviceable from inside the chassis cavity.
-    out.extend(_emit_switch_holster_fasteners())
+    # (Aug 16 2026: switch-holster mount bolts + inserts RETIRED --
+    # the holster velcros to the flat deck now; see the retirement
+    # note where `_emit_switch_holster_fasteners` used to live.)
 
     # Chassis-stack standoff fasteners.  4 x M3 x 10 SHCS into the F-F
     # brass standoff female tops (chassis_top side) + 4 x M3 x 14 SHCS
@@ -1917,7 +1756,7 @@ def fastener_bom_rows() -> list[tuple[str, str, int, str]]:
         SPEC_M3X10_SHCS:            7,
         SPEC_M3X10_DISC_HORN:       7,
         SPEC_M3X10_SHCS_SELFTAP:    7,
-        SPEC_M3X20_DISC_HORN:       7,
+        SPEC_M3X30_DISC_HORN:       7,
         SPEC_M3X14_SHCS:            7,
         SPEC_M3_HEATSET_INSERT:     8,
         SPEC_M3X32_SHCS:            9,
@@ -1966,10 +1805,7 @@ def _usage_bucket(fi: FastenerInstance) -> str:
                 "(cap -> chassis_bottom tower, M3 x 8 SHCS self-tap)")
     if "clamp-cap" in role:
         return "sandwich-joint clamp-cap bolts (M3 SHCS self-tap)"
-    if "switch_holster" in role:
-        if "heat-set insert" in role:
-            return "switch_holster heat-set inserts"
-        return "switch_holster mount bolts (M3 SHCS into heat-set insert)"
+    # (switch_holster roles retired Aug 16 2026 -- velcro mount.)
     if "imu_pad" in role:
         if "heat-set insert" in role:
             return "imu_pad heat-set inserts (MPU-6050 mount)"

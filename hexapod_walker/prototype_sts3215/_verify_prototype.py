@@ -1525,85 +1525,31 @@ def _probe_wire_corridor(part, name, R, t,
 
 
 def check_wire_slot():
-    """Verify the L-shaped wire-exit corridor at the -X bottom-OUTBOARD
-    corner of every servo cradle (yaw / hip-pitch / knee).
+    """FULLY RETIRED (Aug 16 2026) -- no cradle carries a wire-exit
+    L-corridor any more, so there is nothing left to probe.
 
-    Models the question:  starting at the body's bottom-outboard
-    corner inside the cavity, can a wire bundle of WIRE_SLOT_W (Y) by
-    ~3 mm (orthogonal) cross-section reach free space without
-    intersecting solid part material?
+    Retirement history (all the same stale-DS3225 story: the DS3225
+    exited a 3-wire harness from a molded +X boot at the body's
+    bottom-outboard corner; the STS3215 has NO boot -- its half-duplex
+    bus leaves via BACK-face 5264 ports through each sandwich's open
+    clamp face):
 
-    PASSES if EITHER the lateral OR the downward leg of the L is fully
-    clear in every cradle.  This is independent of whatever happens
-    above the slot -- the user is free to close the flange ring around
-    the body-passage slot at the top of the bracket without affecting
-    this check.
+      * yaw / chassis_bottom (Jun 2026 front-face mount): the yaw
+        harness routes through an inboard wire window verified
+        end-to-end by ``check_leg_harness_drop`` ([3c]).
+      * femur_link knee cradle (Aug 2026 flatten pass, user: "this top
+        can just be a flat wall with no weird cutouts"):
+        ``_sandwich_fixed_side(wire_exit=False)``.
+      * coxa_link hip cradle -- the LAST holdout -- (Aug 16 2026, user:
+        "a weird cutout channel on the opposite side ... pointless
+        now"): the hip cradle now also builds with ``wire_exit=False``,
+        so the corridor cut no longer exists anywhere.
 
-    May 2026 bracket-trim note: the coxa_bracket's yaw well is trimmed
-    at ``BRACKET_WELL_TRIM_Z = -15 mm`` (no floor, open bottom).  In
-    the bracket's case both the lateral AND the downward probe legs
-    fall entirely below the trim plane and so naturally land in free
-    air; the existing ``lat_ok or down_ok`` clause handles this without
-    a bracket-specific override.  The coxa_link and femur_link cradles
-    retain their full-depth walls + floor so their probes still
-    discriminate between blocked and free corridors as before.
-    """
-    print("\n[3b] Wire-exit L-corridor + boot fitment "
-          "(body's bottom +X corner):")
-    all_ok = True
-
-    lateral_well, downward_well, boot_well = _wire_corridor_points()
-
-    R_link    = rotation_matrix(-np.pi / 2.0, [1, 0, 0])
-    # Use the canonical post-lift well origin; do NOT re-derive in case
-    # COXA_LIFT / WELL_Z_DROP_EXTRA / COXA_ARM_T change later.
-    drop_z_cl = hp.COXA_HIP_DROP
-
-    # STS3215 front-face mount (Jun 2026): the yaw chassis_bottom cradle
-    # sub-check is RETIRED from this probe.  The DS3225 servo exited its
-    # 3-wire harness from a molded +X boot at the body's bottom-outboard
-    # corner, which this check models as a clear +X boot footprint + an
-    # L-corridor out the +X / -Z faces.  The STS3215 has NO molded boot:
-    # its half-duplex serial bus enters/exits via 2-pin connectors on
-    # the body ENDS, and ``_chassis_yaw_cradle_solid`` routes that
-    # harness through an INBOARD (-X) wire window that feeds the per-leg
-    # cable-drop slot.  That inboard path is already verified end-to-end
-    # by ``check_leg_harness_drop`` ([3c], the per-leg chassis_bottom
-    # drop slot), so probing a +X molded-boot exit on the yaw cradle
-    # here would be a stale DS3225 assumption.  The hip / knee LINK
-    # cradles keep the +X corridor probe (they still route +X) and are
-    # unchanged.
-    # Bearing-sandwich refit (Jun 2026): the fixed side is placed by
-    # hp._joint_place anchored at the disc-horn-TOP, so the well-local
-    # origin (servo back face) maps to coxa/femur-Y = -JOINT_HORN_TOP_Z
-    # (= -(SERVO_BODY_H + SERVO_OUTPUT_H + HORN_STACK_H)), NOT the legacy
-    # -(SERVO_BODY_H + SERVO_OUTPUT_H).  The rotation R_link == _joint_place's
-    # basis (joint x->x, z->Y, y->-Z); only the Y offset picks up HORN_STACK_H.
-    well_origin_y = -hp.JOINT_HORN_TOP_Z
-    cradles = [
-        # coxa_link: the hip bracket is centred on the yaw axis, so its
-        # cradle is shifted by COXA_HIP_ANCHOR_Y in coxa-Y (the hub stays
-        # at the origin); follow it with the same offset.
-        ("coxa_link    wire-exit L-corridor",
-         _load_mesh("coxa_link", copy=False),
-         R_link,
-         np.array([hp.COXA_LENGTH - hp.SERVO_OUTPUT_X,
-                   well_origin_y + hp.COXA_HIP_ANCHOR_Y,
-                   drop_z_cl])),
-        ("femur_link   wire-exit L-corridor",
-         _load_mesh("femur_link", copy=False),
-         R_link,
-         np.array([hp.FEMUR_LENGTH - hp.SERVO_OUTPUT_X,
-                   well_origin_y,
-                   0.0])),
-    ]
-
-    for name, part, R, t in cradles:
-        all_ok &= _probe_wire_corridor(part, name, R, t,
-                                        lateral_well, downward_well,
-                                        boot_well)
-
-    return all_ok
+    Kept as a stub (rather than deleted) so the CHECKS table, docs and
+    historical logs keep a stable name; unconditionally passes."""
+    print("\n[3b] Wire-exit L-corridor: RETIRED (Aug 16 2026 -- no cradle "
+          "cuts a corridor; STS3215 harnesses leave via back-face ports)")
+    return True
 
 
 def check_leg_harness_drop():
@@ -1667,6 +1613,22 @@ def check_leg_harness_drop():
             # Transform bracket-frame probe points into chassis frame for
             # this leg: chassis = edge_mid + R3 @ bracket.
             pts_chassis = pts_bracket @ R3.T + edge_mid
+
+            # Standoff SEAT-PAD exemption (Aug 16 2026): each of the 4
+            # brass-standoff sites sits 15 deg off a leg axis, and the
+            # Aug 2026 inboard port shift clipped its seat annulus -- the
+            # builder now unions a Phi CHASSIS_STANDOFF_SEAT_PAD_OD pad
+            # (full stack height) at every site, which deliberately bites
+            # one corner of the adjacent port.  Probe points inside a pad
+            # footprint (+0.3 mm skin margin) are INTENDED plate material,
+            # not an obstruction, so drop them from the corridor test.
+            pad_r = hp.CHASSIS_STANDOFF_SEAT_PAD_OD / 2.0 + 0.3
+            in_pad = np.zeros(len(pts_chassis), dtype=bool)
+            for (px, py) in hp.CHASSIS_STANDOFF_HOLES_XY:
+                in_pad |= (np.hypot(pts_chassis[:, 0] - px,
+                                    pts_chassis[:, 1] - py) <= pad_r)
+            pts_chassis = pts_chassis[~in_pad]
+
             inside = points_inside(cb, pts_chassis)
             n_blocked = int(inside.sum())
             n_total = len(pts_chassis)
@@ -5549,8 +5511,16 @@ def check_hub_inner_race_insertion_path():
     Includes an embedded FAIL-ON-OLD self-test: the retired two-flange hub is
     reconstructed and swept; the probe MUST flag the UPPER inner race as
     blocked at the lower flange's Phi 32 lip, proving it is sensitive enough to
-    catch the trapped-race regression.  The live hub must then PASS."""
-    r_in = hp.YAW_BEARING_ID / 2.0
+    catch the trapped-race regression.  The live hub must then PASS.
+
+    PRESS-FIT AWARENESS (Aug 16 2026): the hub boss deliberately carries a
+    LIGHT PRESS against the inner races (YAW_HUB_BOSS_OD = bearing ID + 0.05
+    -- the bench-measured -0.05 slip fit barely touched).  A designed
+    few-hundredths press is hand/tap-assemblable and NOT an insertion hard
+    stop, so the swept annulus bore is opened to the designed press surface
+    (max(ID, BOSS_OD)); real regressions (e.g. the Phi 32 flange lip vs the
+    Phi 25 bore) are MILLIMETRES of interference and still trip the probe."""
+    r_in = max(hp.YAW_BEARING_ID, hp.YAW_HUB_BOSS_OD) / 2.0
     r_out = hp.YAW_BEARING_INNER_OD / 2.0
     print(f"\n[5h] Hub-boss inner-race insertion-path probe "
           f"(rigid Phi{2 * r_in:.0f}..Phi{2 * r_out:.0f} race annulus slides "
@@ -5787,8 +5757,14 @@ def check_bearing_assembly_sequence():
 
     Embedded FAIL-ON-OLD self-test: the reconstructed platform/uflange boss +
     Phi-34-necked cap traps the rigid upper annulus both ways; the probe MUST
-    report it un-assemblable.  The live split design must then PASS."""
-    r_in = hp.YAW_BEARING_ID / 2.0
+    report it un-assemblable.  The live split design must then PASS.
+
+    PRESS-FIT AWARENESS (Aug 16 2026): same as the 5h inner-race probe -- the
+    hub boss deliberately light-presses the inner races (BOSS_OD = ID + 0.05,
+    bench refit), so the annulus bore sweeps at the designed press surface
+    (max(ID, BOSS_OD)).  Hand/tap-assemblable designed press != hard stop;
+    real blockers are millimetres over and still trip the tolerance."""
+    r_in = max(hp.YAW_BEARING_ID, hp.YAW_HUB_BOSS_OD) / 2.0
     r_out = hp.YAW_BEARING_OD / 2.0
     w = hp.YAW_BEARING_W
     print(f"\n[5j] One-piece-bearing assembly-sequence probe "
@@ -6037,16 +6013,15 @@ def _build_world_leg0_printed_parts() -> dict:
     # even in the registry, a blind spot this redesign closes).
     parts["yaw_servo_retainer"] = _place_yaw_retainers()["yaw_servo_retainer"]
 
-    # switch_holster: sits ON TOP of 2 printed bosses on chassis_top's
-    # TOP face.  Ear bottom rests on the boss tops at z =
-    # CHASSIS_TOP_TOP_Z + SWITCH_HOLSTER_BOSS_H = 36 + 5 = 41 in the
-    # chassis design frame (2 mm top plate, Aug 2026).
+    # switch_holster: velcroed FLAT on chassis_top's top face (Aug 16
+    # 2026: the 2 insert bosses + bolt-down ear are retired; floor
+    # bottom sits directly at z = CHASSIS_TOP_TOP_Z = 36 design frame).
     chassis_top_top_z = hp.CHASSIS_TOP_TOP_Z  # = 36 (design)
     sh = _load_mesh("switch_holster")
     sh.apply_translation([
         hp.SWITCH_HOLSTER_CENTRE_X,
         hp.SWITCH_HOLSTER_CENTRE_Y,
-        chassis_top_top_z + hp.SWITCH_HOLSTER_BOSS_H,
+        chassis_top_top_z,
     ])
     parts["switch_holster"] = sh
 
