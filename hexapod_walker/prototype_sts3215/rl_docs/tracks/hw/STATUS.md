@@ -122,6 +122,19 @@ unresolved blockers between the robot and reliable joystick control.
   instruction, no fix attempted this cycle. `[operator]`-gated again
   — do NOT relaunch any16/17/18 names without a fifth, root-caused
   directive.
+  **any19 LAUNCHED 2026-08-17 ~23:5x UTC per operator directive
+  fb_20260817T234449_bcdcce, replacing display-name peer discovery
+  entirely** (fix at exact SHA `3cc62a2` — every member predeclares
+  its W&B id, `wandb.init(id=..., resume="never")` aborts on
+  mismatch, peers resolved by direct `api.run(project/id)`, no
+  `Api.runs()` anywhere). `cw-recover-any19-pop3-s11/s12/s13` running
+  on train-0/1/3 with ids exactly matching the predeclared roster
+  (`6907573e`/`1c67c001`/`79ef86ae`); bootstrap-boundary
+  (`total_timesteps=655360`) reached on all three at verification
+  time, sync-gate outcome not yet known — **see main STATUS
+  WAITING-ON, next checkup watches the full 7-point gate.**
+  `q_20260817T2352Z` filed (same GPU-step-cap overage as the two
+  prior launches).
   **OUTCOME 08-17 ~23:0x UTC (operator MCP note
   fb_20260817T223644_c8bc48): integration gate FAILED — cohort
   STOPPED, all three ledger rows INVALID_INTEGRATION_CANARY.** The
