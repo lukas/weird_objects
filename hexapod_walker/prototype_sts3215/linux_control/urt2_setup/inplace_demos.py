@@ -1904,7 +1904,7 @@ DEMOS = {
     "quad_walk": ("[8 quad] TIP BACK — rear up on 4 legs, front paws in "
                   "the air, animal walk forward, sit back down", None),
     "quad_trot": ("[8 quad] TIP BACK + TROT — diagonal leg pairs like a "
-                  "horse, ~2x the walk's pace, sit back down", None),
+                  "horse, ~3x the walk's pace, sit back down", None),
 }
 
 # Standalone planted acts (not the full rise_show script).
