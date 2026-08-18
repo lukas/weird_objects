@@ -24,9 +24,11 @@ REGISTRY_CANDIDATES = (
 )
 
 # Air demos must start near logical 0°. Planted/rise demos start from a stand.
+# "dance" goes planted mid-routine but starts AND ends at sit zero (limp),
+# so it homes like an air demo and must not enter stand-hold afterward.
 AIR_DEMO_NAMES = frozenset({
     "breathe", "breathe_v", "heartbeat", "twinkle", "shimmy", "ripple",
-    "conductor", "arms_up",
+    "conductor", "arms_up", "dance",
 })
 ZERO_TOL_DEG = 6.0
 
@@ -481,7 +483,7 @@ class BenchAPI:
                 "name": n,
                 "title": t,
                 "air": n in AIR_DEMO_NAMES,
-                "has_size": n in ("breathe", "breathe_v"),
+                "has_size": n in ("breathe", "breathe_v", "dance"),
             })
         return out
 
@@ -587,7 +589,7 @@ class BenchAPI:
                         "demo": self.demo_state(), "robot": self.robot_state()}
 
         params = {"speed": speed, "home": home}
-        if name in ("breathe", "breathe_v"):
+        if name in ("breathe", "breathe_v", "dance"):
             params.update({"size": size, "softness": softness})
             if rate is not None:
                 params["rate"] = rate
@@ -606,7 +608,7 @@ class BenchAPI:
         bits = [f"{name} @ {speed:.2f}×"]
         if switched_from:
             bits.insert(0, f"switch←{switched_from}")
-        if name in ("breathe", "breathe_v"):
+        if name in ("breathe", "breathe_v", "dance"):
             bits.append(f"size {size:.2f}×")
             if rate is not None:
                 bits.append(f"{rate:.2f} Hz")
