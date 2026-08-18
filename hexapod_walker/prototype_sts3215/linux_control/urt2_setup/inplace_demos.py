@@ -144,12 +144,17 @@ DANCE_SNAP_S = 0.18
 DANCE_STOMP_S = 0.14
 # Victory-lap PRANCE (open-loop tripod, horse mode): quick cadence +
 # high knees — far more aggressive than the RL walk's trained band.
+# ACC 80 is deliberate (not WALK_ACC=30): sim sweep 08-18 showed the
+# 0.29 s half-swings are ACCELERATION-limited — at ACC 20 the servos
+# never reach cruise and the prance smears into a crawl (0.012 m/s);
+# ACC 80 realizes ~0.038 m/s upright at full height.
 DANCE_PRANCE_PERIOD = 0.58   # s/cycle (gentle walk demo uses 0.85)
 DANCE_PRANCE_LIFT_MM = 32.0  # high knees (gentle walk demo uses 18)
 DANCE_PRANCE_VX = 0.09       # m/s out (RL band tops out at 0.06)
-DANCE_PRANCE_FWD_S = 4.5     # ≈ 0.4 m out
-DANCE_PRANCE_SPIN_OMEGA = 0.85  # rad/s — full-spin pirouette finale
-DANCE_PRANCE_SPIN_S = 7.4
+DANCE_PRANCE_ACC = 80        # Feetech ACC units (×100 counts/s²)
+DANCE_PRANCE_FWD_S = 4.5     # ≈ 0.17–0.4 m out (slip-dependent)
+DANCE_PRANCE_SPIN_OMEGA = 0.85  # rad/s commanded — realizes a partial
+DANCE_PRANCE_SPIN_S = 7.4       # turn (sim ~110°); flourish, not a 360
 
 RISE_PRESETS = {
     "default": {
@@ -3050,9 +3055,10 @@ def run_dance_prance(bus: FeetechBus, phase: str = "out", *,
                      abort_check=None, status_cb=None) -> str:
     """Victory-lap gait phases — the aggressive open-loop half.
 
-    ``phase="out"``: horse-prance forward (quick cadence, high knees)
-    for ~0.4 m.  ``phase="spin"``: full 360° pirouette in place — the
-    lap finale, run at home where open-loop heading slip can't hurt.
+    ``phase="out"``: horse-prance forward (quick cadence, high knees).
+    ``phase="spin"``: pirouette flourish in place — the lap finale, run
+    at home where open-loop heading slip can't hurt anything (slip
+    means a partial turn, which is fine as a bow).
     Both start by easing onto the walk plant (stand zero) and end
     HOLDING it, so the RL moonwalk can run between them.
     """
@@ -3093,7 +3099,7 @@ def run_dance_prance(bus: FeetechBus, phase: str = "out", *,
         segments = [("PRANCE — high knees, quick cadence",
                      DANCE_PRANCE_VX, 0.0, 0.0, DANCE_PRANCE_FWD_S)]
     else:
-        segments = [("PIROUETTE — full spin",
+        segments = [("PIROUETTE — spin flourish",
                      0.0, 0.0, DANCE_PRANCE_SPIN_OMEGA,
                      DANCE_PRANCE_SPIN_S)]
 
@@ -3109,7 +3115,8 @@ def run_dance_prance(bus: FeetechBus, phase: str = "out", *,
             if check():
                 break
             pose = gait.desired_deg(time.monotonic())
-            _write_pose(bus, pose, live, speed=WALK_SPEED, acc=WALK_ACC)
+            _write_pose(bus, pose, live, speed=WALK_SPEED,
+                        acc=DANCE_PRANCE_ACC)
             time.sleep(WALK_DEMO_DT)
 
     gait.stop()
@@ -3117,7 +3124,8 @@ def run_dance_prance(bus: FeetechBus, phase: str = "out", *,
         if check():
             break
         pose = gait.desired_deg(time.monotonic())
-        _write_pose(bus, pose, live, speed=WALK_SPEED, acc=WALK_ACC)
+        _write_pose(bus, pose, live, speed=WALK_SPEED,
+                    acc=DANCE_PRANCE_ACC)
         time.sleep(WALK_DEMO_DT)
     if check():
         _hold_here(bus, live)

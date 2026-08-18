@@ -57,7 +57,7 @@ walk champions still work in this mode — the phase dims sit AFTER the
 velocity tail, so they are fed obs[:72] (their exact layout); the
 stance policy always reads obs[:68].
 
-The WALK list additionally ends with two non-checkpoint rows, flagged
+The WALK list additionally ends with non-checkpoint rows, flagged
 `S`: the SCRIPTED no-slip gait (linux_control/noslip_gait.py —
 rules-based, no RL) at alpha=0 (the original step-then-shift) and at
 alpha=0.5 (the middle of the overlap continuum: half the body travel
@@ -70,6 +70,17 @@ than verify_noslip's unclamped hardware profile) but planted feet are
 commanded to fixed world anchors at every alpha (zero commanded scrub,
 see verify_noslip --alpha), and unlike the walk champions it can TURN:
 U/O trim a yaw rate +-0.05 rad/s per tap, including turn-in-place.
+
+Two more `S` rows run the TRIPOD gait (linux_control/tripod_gait.py) —
+the dance_walk victory-lap drivers: `tripod_prance_gait` (the
+aggressive horse settings: 0.58 s cadence, 32 mm knee lift, cruise
+0.09 m/s — 1.5x the RL band) and `tripod_walk_gait` (the stock gentle
+walk-demo settings, for comparison). Tripod rows sim under the
+prance's own write regime (speed 1500 counts/s, ACC 80 — measured
+08-18: acceleration, not the velocity ceiling, is what gates the
+prance; ACC 20 smears it to 0.012 m/s, ACC 80 realizes ~0.038 m/s
+upright). U/O turn up to the row's omega, and P toggles a full-rate
+PIROUETTE in place (slip makes it a partial turn — a flourish).
 
 Keys (window must have focus; all still work without a pad — the cv2
 window owns every key, so no modifier is needed to avoid collisions):
@@ -89,7 +100,8 @@ freezes where it fell and waits — 7 tries an in-place recovery,
 9 does a true reset. Same stop-and-wait rule as the real robot.
     B           reset belly-down (then 7 to rise)
     I/K J/L     persistent cruise trim (+-0.01 m/s per tap, engages WALK)
-    U / O       turn left/right trim (scripted no-slip gait only)
+    U / O       turn left/right trim (scripted gait rows only)
+    P           pirouette toggle: full-rate spin in place (tripod rows)
     0 / Space   stop -> STANCE policy holds
     = / -       body height +/- 5 mm (stance)
     [ / ]       cycle STANCE model      , / .  cycle WALK model
@@ -131,6 +143,21 @@ _NOSLIP = Path("noslip_scripted_gait")
 _NOSLIP_MID = Path("noslip_hybrid_a50")
 _NOSLIP_CLEAN = Path("noslip_clampfit_gait")
 _SCRIPTED_ALPHA = {_NOSLIP: 0.0, _NOSLIP_MID: 0.5, _NOSLIP_CLEAN: 1.0}
+# Scripted TRIPOD gait rows (linux_control/tripod_gait.py) — the
+# dance_walk victory-lap gaits, previewable here before hardware runs.
+# "prance" = the aggressive horse settings (quick cadence, high knees,
+# 1.5x the RL band); "gentle" = the stock walk-demo settings for
+# comparison. cruise = hold-arrow speed; omega = the U/O clamp AND the
+# P-key pirouette rate.
+_TRIPOD_PRANCE = Path("tripod_prance_gait")
+_TRIPOD_GENTLE = Path("tripod_walk_gait")
+_SCRIPTED_TRIPOD = {
+    _TRIPOD_PRANCE: dict(period=0.58, lift_mm=32.0, cruise=0.09,
+                         omega=0.85, tag="PRANCE 0.58s/32mm"),
+    _TRIPOD_GENTLE: dict(period=0.85, lift_mm=18.0, cruise=0.045,
+                         omega=0.40, tag="gentle 0.85s/18mm"),
+}
+_SCRIPTED_ROWS = frozenset(_SCRIPTED_ALPHA) | frozenset(_SCRIPTED_TRIPOD)
 # cv2 can't see key-up events, but macOS auto-repeats a held arrow key.
 # "No repeat for _HOLD_S" therefore means "released" — a dead-man switch.
 # Must exceed the OS initial-repeat delay (default ~0.5 s).
@@ -229,6 +256,11 @@ _DESC = {
         "SCRIPTED alpha=0.5: same anchors, body drifts through swings",
     "noslip_clampfit_gait":
         "SCRIPTED clamp-fit: fits the 31deg/s servo clamp, cleanest",
+    "tripod_prance_gait":
+        "SCRIPTED horse PRANCE: 0.58s cadence, 32mm knees, cruise "
+        "0.09 - the dance_walk lap gait; P = pirouette",
+    "tripod_walk_gait":
+        "SCRIPTED gentle tripod (stock walk-demo 0.85s/18mm)",
     "ppo_goal_cw_arch_noslipphase1_r4":
         "ON ROBOT (picker): no-slip RL, gate PASS 943, loadslip "
         "0.54; obs 74, needs --phase-obs",
@@ -478,6 +510,7 @@ def main() -> None:
     if str(lc) not in sys.path:
         sys.path.insert(0, str(lc))
     from noslip_gait import NoSlipGait
+    from tripod_gait import TripodGait
 
     env_kw: dict = {}
     walk_widths = (72,)
@@ -512,8 +545,9 @@ def main() -> None:
 
     si = ensure_listed(stance_list, args.stance, (68,))
     wi = ensure_listed(walk_list, args.walk, walk_widths)
-    # Scripted-gait rows (alpha 0 and 0.5), bottom of the panel.
+    # Scripted-gait rows (no-slip alphas + tripod), bottom of the panel.
     walk_list.extend(_SCRIPTED_ALPHA)
+    walk_list.extend(_SCRIPTED_TRIPOD)
 
     stance = PPO.load(stance_list[si], device="cpu")
     walk = PPO.load(walk_list[wi], device="cpu")
@@ -554,9 +588,18 @@ def main() -> None:
     def set_walk(i: int) -> None:
         nonlocal walk, wi, msg, gait, n_walk
         wi = i % len(walk_list)
+        if walk_list[wi] in _SCRIPTED_TRIPOD:
+            walk = None                 # scripted driver, no checkpoint
+            gait = None                 # rebuilt when driving engages
+            kw = _SCRIPTED_TRIPOD[walk_list[wi]]
+            apply_servo_regime()
+            msg = (f"walk driver -> SCRIPTED tripod {kw['tag']} "
+                   f"(cruise {kw['cruise']:.2f}, U/O turn, P pirouette)")
+            return
         if walk_list[wi] in _SCRIPTED_ALPHA:
             walk = None                 # scripted driver, no checkpoint
             gait = None                 # re-pinned when driving engages
+            apply_servo_regime()
             msg = ("walk driver -> SCRIPTED no-slip gait "
                    + ("clamp-fit preset "
                       if walk_list[wi] is _NOSLIP_CLEAN else
@@ -574,7 +617,48 @@ def main() -> None:
             return
         walk = m
         n_walk = int(m.observation_space.shape[0])
+        apply_servo_regime()
         msg = f"walk model -> {walk_list[wi].stem}"
+
+    def drive_band() -> tuple[float, float]:
+        """(cruise, vmax) for the active walk driver.
+
+        Tripod rows carry their own (faster) band — the prance runs at
+        1.5x the RL clamp; policies keep the trained band.
+        """
+        kw = _SCRIPTED_TRIPOD.get(walk_list[wi])
+        if kw is not None:
+            return kw["cruise"], kw["cruise"]
+        return _CRUISE, _SPEED_MAX
+
+    # The fitted servo model (sim_model.json) was characterized at write
+    # speed 350 counts/s (~31 deg/s ceiling) — the RL training contract.
+    # The robot's TRIPOD gait writes at feetech_bus.DEFAULT_SPEED = 1500
+    # counts/s, and (measured here, 08-18) the binding constraint at
+    # prance cadence is ACCELERATION: ACC 20 units never reaches cruise
+    # inside a 0.29 s half-swing (0.012 m/s realized), ACC 80 realizes
+    # 0.038 m/s upright at full height. Tripod rows therefore sim at the
+    # prance's own write regime (speed 1500 / ACC 80 — what
+    # run_dance_prance writes on hardware); RL + no-slip rows keep the
+    # fitted contract they were trained/calibrated against.
+    _WALK_WRITE_COUNTS = 1500.0
+    _PRANCE_ACC_UNITS = 80.0
+    servo_fit_counts = float(getattr(SimServoParams.load(),
+                                     "speed_counts_s", 350.0))
+    base_vel_default = env._profile._vel_default.copy()
+    base_write_speed = env.write_speed_deg_s
+    base_write_acc = env.write_acc_units
+
+    def apply_servo_regime() -> None:
+        if walk_list[wi] in _SCRIPTED_TRIPOD:
+            s = _WALK_WRITE_COUNTS / max(servo_fit_counts, 1.0)
+            env._profile._vel_default[:] = base_vel_default * s
+            env.write_speed_deg_s = _WALK_WRITE_COUNTS * 360.0 / 4096.0
+            env.write_acc_units = _PRANCE_ACC_UNITS
+        else:
+            env._profile._vel_default[:] = base_vel_default
+            env.write_speed_deg_s = base_write_speed
+            env.write_acc_units = base_write_acc
 
     try:
         pad = _Gamepad()
@@ -617,10 +701,19 @@ def main() -> None:
     z_plant = chassis_z()
     q_sit = q_plant  # pose held while sitting (captured at settle)
 
-    def new_gait() -> "NoSlipGait":
+    def new_gait():
         # Sync the gait's stance geometry to THIS env's plant pose (leg 0
         # hip/knee — all legs plant identically), so its neutral feet sit
         # where the robot is actually standing when driving engages.
+        kw = _SCRIPTED_TRIPOD.get(walk_list[wi])
+        if kw is not None:
+            g = TripodGait(period=kw["period"],
+                           lift=kw["lift_mm"] * 0.001, ramp=0.4)
+            g.sync_plant_stance(math.degrees(q_plant[1]),
+                                math.degrees(q_plant[2]))
+            g.set_lift_mm(kw["lift_mm"])
+            g.reset_phase(t=0.0)
+            return g
         if walk_list[wi] is _NOSLIP_CLEAN:
             g = NoSlipGait.clamp_fit()
         else:
@@ -837,7 +930,7 @@ def main() -> None:
             color = (((240, 200, 40) if role == "stance" else (40, 240, 40))
                      if sel else (205, 205, 205))
             flag = ("R" if stem in _ON_ROBOT
-                    else "S" if lst[i] in _SCRIPTED_ALPHA
+                    else "S" if lst[i] in _SCRIPTED_ROWS
                     else "*" if _sim_only_obs(role, stem) else " ")
             mark = (">" if sel else " ") + flag
             disp = stem.removeprefix("ppo_goal_").removeprefix("ppo_")
@@ -962,9 +1055,16 @@ def main() -> None:
             mode_txt = "LOWERED (parked) - 7 to rise, 9 to reset standing"
             mode_col = (0, 200, 255)
         elif walking and scripted:
-            mode_txt = ("WALK: scripted no-slip gait "
-                        f"a={_SCRIPTED_ALPHA.get(walk_list[wi], 0.0):.1f}  "
-                        f"[{gait.phase_name() if gait else '-'}]")
+            kw = _SCRIPTED_TRIPOD.get(walk_list[wi])
+            if kw is not None:
+                mode_txt = (f"WALK: scripted TRIPOD {kw['tag']}"
+                            + ("  << PIROUETTE >>"
+                               if abs(om_cmd) > 1e-3 and cmd_speed < 1e-3
+                               else ""))
+            else:
+                mode_txt = ("WALK: scripted no-slip gait "
+                            f"a={_SCRIPTED_ALPHA.get(walk_list[wi], 0.0):.1f}  "
+                            f"[{gait.phase_name() if gait else '-'}]")
             mode_col = (40, 240, 240)
         elif walking:
             mode_txt, mode_col = "WALK policy", (40, 240, 40)
@@ -990,8 +1090,8 @@ def main() -> None:
              (120, 220, 220) if pad_name else (140, 140, 140)),
             ("keys: HOLD arrows to drive (release = stop)   "
              "7 rise  8 lower  9 reset  B belly", (180, 180, 180)),
-            ("keys: I/K/J/L cruise trim  U/O turn (scripted gait)  "
-             "0/space stop  =/- height  "
+            ("keys: I/K/J/L cruise trim  U/O turn  P pirouette "
+             "(scripted gaits)  0/space stop  =/- height  "
              "[ ] stance model  , . walk model  Q quit", (180, 180, 180)),
         ]
         if msg:
@@ -1057,8 +1157,9 @@ def main() -> None:
             if lx != 0.0 or ly != 0.0:
                 # Stick up = forward (+vx); stick left = strafe left (+vy).
                 if engage_walk():
-                    traj.vx = -ly * _SPEED_MAX
-                    traj.vy = -lx * _SPEED_MAX
+                    _, vmax = drive_band()
+                    traj.vx = -ly * vmax
+                    traj.vy = -lx * vmax
                 stick_live = True
             elif stick_live:
                 traj.vx = traj.vy = 0.0     # released -> stance holds
@@ -1093,26 +1194,38 @@ def main() -> None:
                 held[k] = time.monotonic()
         elif k in (ord("i"), ord("I")):
             if engage_walk():
-                traj.vx = float(np.clip(traj.vx + _STEP,
-                                        -_SPEED_MAX, _SPEED_MAX))
+                _, vmax = drive_band()
+                traj.vx = float(np.clip(traj.vx + _STEP, -vmax, vmax))
         elif k in (ord("k"), ord("K")):
             if engage_walk():
-                traj.vx = float(np.clip(traj.vx - _STEP,
-                                        -_SPEED_MAX, _SPEED_MAX))
+                _, vmax = drive_band()
+                traj.vx = float(np.clip(traj.vx - _STEP, -vmax, vmax))
         elif k in (ord("j"), ord("J")):
             if engage_walk():
-                traj.vy = float(np.clip(traj.vy + _STEP,
-                                        -_SPEED_MAX, _SPEED_MAX))
+                _, vmax = drive_band()
+                traj.vy = float(np.clip(traj.vy + _STEP, -vmax, vmax))
         elif k in (ord("l"), ord("L")):
             if engage_walk():
-                traj.vy = float(np.clip(traj.vy - _STEP,
-                                        -_SPEED_MAX, _SPEED_MAX))
+                _, vmax = drive_band()
+                traj.vy = float(np.clip(traj.vy - _STEP, -vmax, vmax))
         elif k in (ord("u"), ord("U"), ord("o"), ord("O")):
             if not scripted:
-                msg = "U/O turn needs the scripted no-slip walk driver (, .)"
+                msg = "U/O turn needs a scripted walk driver (, .)"
             elif engage_walk():
+                kw = _SCRIPTED_TRIPOD.get(walk_list[wi])
+                om_max = kw["omega"] if kw else 0.30
                 d = _STEP_W if k in (ord("u"), ord("U")) else -_STEP_W
-                om_cmd = float(np.clip(om_cmd + d, -0.30, 0.30))
+                om_cmd = float(np.clip(om_cmd + d, -om_max, om_max))
+        elif k in (ord("p"), ord("P")):
+            # Pirouette preset: full-rate spin in place (tap again to
+            # stop) — the dance_walk lap finale, tripod rows only.
+            kw = _SCRIPTED_TRIPOD.get(walk_list[wi])
+            if kw is None:
+                msg = "P pirouette needs a tripod row (, .)"
+            elif engage_walk():
+                om_cmd = 0.0 if abs(om_cmd) > 1e-3 else kw["omega"]
+                msg = (f"PIROUETTE {kw['omega']:.2f} rad/s - P to stop"
+                       if om_cmd else "pirouette stopped")
         elif k in (ord("0"), ord(" ")):
             held.clear()
             traj.vx = traj.vy = 0.0
@@ -1147,8 +1260,9 @@ def main() -> None:
             for kk in [kk for kk, t in held.items() if now - t >= _HOLD_S]:
                 del held[kk]
         if held:
-            traj.vx = _CRUISE * ((_UP in held) - (_DOWN in held))
-            traj.vy = _CRUISE * ((_LEFT in held) - (_RIGHT in held))
+            cruise, _ = drive_band()
+            traj.vx = cruise * ((_UP in held) - (_DOWN in held))
+            traj.vy = cruise * ((_LEFT in held) - (_RIGHT in held))
             arrows_live = True
         elif arrows_live:
             traj.vx = traj.vy = 0.0     # all arrows released -> stance holds

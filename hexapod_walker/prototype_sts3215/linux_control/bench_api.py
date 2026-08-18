@@ -819,7 +819,11 @@ class BenchAPI:
     # untouched so the return line is true), then a full 360° pirouette
     # finale in place, where open-loop heading slip can't hurt anything.
     DANCE_LAP_V = 0.055          # m/s, just under the trained 0.06 band
-    DANCE_MOONWALK_S = 7.4       # ≈ matches the 0.4 m prance-out distance
+    # Sized to the sim-predicted realized prance-out distance (~0.17 m
+    # at 0.038 m/s realized). If hardware pranced further, the moonwalk
+    # UNDERSHOOTS home — safe; a long moonwalk overshooting backward is
+    # the dangerous direction.
+    DANCE_MOONWALK_S = 3.5
 
     def _run_dance_walk(self, *, gen: int, speed: float, size: float,
                         softness: float, torque: int | None,
