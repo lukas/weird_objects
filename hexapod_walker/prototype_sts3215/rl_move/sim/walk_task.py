@@ -294,6 +294,43 @@ WALKCURR_BUCKETS_V2 = (
          blend_hi=1.0, dr=0.3, stop_gate=0.015,
          gate=WALKCURR_GATE_V2_QUALITY),
 )
+# WALKCURR_BUCKETS_V3 ("bridge" ladder, operator order
+# fb_20260818T102844_116d4c, walkcurr4 evidence-based correction):
+# ignition must be ADJACENT TO THE TRANSPLANTED SOURCE SKILL, not to a
+# park-proof speed band. The gaitinit canaries showed the two failure
+# directions of V2's ignition on an actor-init recipe: a scratch actor
+# reaches cmd_prog 0.74 but crouches/falls (canB-r1 at 2.1M), while the
+# proven tall-walk actor keeps posture/safety but LOSES commanded
+# travel chasing V2's 0.08-0.12 m/s band it never walked at
+# (gaitinit-bcinit final cert: cmd_prog_frac 0.0575, height_factor
+# 0.5847). V3's first two rungs are a SHORT BRIDGE at the source
+# checkpoint's own operating point (ppo_goal_cw_dep_bcgait1_hard1
+# walks ~0.05 m/s straight, height -12.7mm, slip 1.3, zero falls):
+# B0 = straight forward 0.05-0.06 m/s, NO heading jitter / resampling /
+# stops, DR0; B1 widens speed to 0.05-0.10 still dead straight; every
+# later rung is V2's own direction/heading/stop/DR ladder verbatim, so
+# the eventual multi-direction joystick goal is preserved. NOTE
+# V3 B0 deliberately sits near the SIGMA_V park zone V2 removed — that
+# is safe ONLY on an actor-init recipe whose init already walks
+# (pre-PPO deterministic cert required: --walkcurr-cert-at-init), and
+# is why V3 is not a scratch-acquisition ladder.
+WALKCURR_GATE_V3_BRIDGE = dict(
+    cmd_prog_frac_min=0.60, slip_per_m_max=2.0, peak_roll_deg_max=8.0,
+    slew_sat_max=0.95, cross_track_frac_max=0.30,
+    contact_sw_per_s_min=3.0, foot_sw_min_per_s_min=0.5)
+WALKCURR_BUCKETS_V3 = (
+    # B0 bridge: the source gait's own command, held all episode, DR0
+    dict(name="bridge_fwd", s_lo=0.05, s_hi=0.06, head_lo=0.0,
+         head_hi=0.0, resample_s=0.0, jitter=0.0, stop_frac=0.0,
+         blend_lo=1.0, blend_hi=1.0, dr=0.0, stop_gate=None,
+         gate=WALKCURR_GATE_V3_BRIDGE),
+    # B1 bridge: speed band widens upward, still dead straight
+    dict(name="bridge_band", s_lo=0.05, s_hi=0.10, head_lo=0.0,
+         head_hi=0.0, resample_s=0.0, jitter=0.0, stop_frac=0.0,
+         blend_lo=1.0, blend_hi=1.0, dr=0.0, stop_gate=None,
+         gate=WALKCURR_GATE_V3_BRIDGE),
+) + WALKCURR_BUCKETS_V2[2:]   # V2 direction/heading/stop/DR ladder
+
 # Sampling mixture over unlocked buckets (operator spec): 50% frontier,
 # 25% weakest mastered, 15% uniform over mastered, 10% the rung just
 # prior to the frontier. Empty components fold back to the frontier.
@@ -562,9 +599,11 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # the original V1 table; version 1 stays bit-exact unchanged.
         wc_version = float(cfg_get(self.cfg, "goal", "walk_curriculum",
                                    default=0.0))
-        self._wc_on = wc_version in (1.0, 2.0)
+        self._wc_on = wc_version in (1.0, 2.0, 3.0)
         self._wc_version = int(wc_version) if self._wc_on else 0
-        self._wc_table = (WALKCURR_BUCKETS_V2 if self._wc_version == 2
+        self._wc_table = (WALKCURR_BUCKETS_V3 if self._wc_version == 3
+                          else WALKCURR_BUCKETS_V2
+                          if self._wc_version == 2
                           else WALKCURR_BUCKETS)
         self._wc_active_n = 1
         self._wc_results: dict = {}   # bucket -> {passed, score, cert_round}

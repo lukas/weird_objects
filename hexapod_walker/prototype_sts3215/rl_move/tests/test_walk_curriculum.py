@@ -445,3 +445,96 @@ def test_v2_bucket_commands_and_dr_swap():
                                  t.vx[hold_n + ramp_n]))
             assert spec["head_lo"] - 1e-9 <= ang <= spec["head_hi"] + 1e-9
     env.close()
+
+
+# 3 ------------------------------------------------------------------
+# WALKCURR_BUCKETS_V3: the actor-init "bridge" ladder (operator order
+# fb_20260818T102844_116d4c). Ignition adjacent to the transplanted
+# source skill (straight 0.05-0.06 m/s, no jitter/resample/stops, DR0),
+# then a straight speed-band widening, then V2's own direction/heading
+# ladder verbatim.
+CURR_V3_ON = {("goal", "walk_curriculum"): 3.0}
+
+
+def test_v3_selects_the_v3_table_and_v1_v2_untouched():
+    from rl_move.sim.walk_task import WALKCURR_BUCKETS_V3
+    env = _env(seed=5, extra=CURR_V3_ON)
+    assert env._wc_version == 3
+    assert env._wc_table is WALKCURR_BUCKETS_V3
+    env.close()
+    env = _env(seed=5, extra=CURR_V2_ON)
+    assert env._wc_table is WALKCURR_BUCKETS_V2
+    env.close()
+    env = _env(seed=5, extra=CURR_ON)
+    assert env._wc_table is WALKCURR_BUCKETS
+    env.close()
+
+
+def test_v3_bridge_rungs_are_adjacent_to_the_source_skill():
+    """The two bridge rungs must sit at the transplanted checkpoint's
+    own operating point: dead straight, source-speed band, one command
+    held the whole episode, no stops, DR0 — and every later rung must
+    be V2's ladder verbatim (same objects), preserving the eventual
+    multi-direction joystick goal."""
+    from rl_move.sim.walk_task import (WALKCURR_BUCKETS_V3,
+                                       WALKCURR_GATE_V3_BRIDGE)
+    b0, b1 = WALKCURR_BUCKETS_V3[0], WALKCURR_BUCKETS_V3[1]
+    assert b0["name"] == "bridge_fwd"
+    assert (b0["s_lo"], b0["s_hi"]) == (0.05, 0.06)
+    assert (b1["s_lo"], b1["s_hi"]) == (0.05, 0.10)
+    for b in (b0, b1):
+        assert b["head_lo"] == 0.0 and b["head_hi"] == 0.0
+        assert b["resample_s"] == 0.0 and b["jitter"] == 0.0
+        assert b["stop_frac"] == 0.0 and b["dr"] == 0.0
+        assert b["stop_gate"] is None
+        assert b["gate"] is WALKCURR_GATE_V3_BRIDGE
+    assert WALKCURR_BUCKETS_V3[2:] == WALKCURR_BUCKETS_V2[2:]
+
+
+def test_v3_bridge_gate_admits_the_source_checkpoint_not_a_parked_one():
+    """The bridge gate must admit the transplanted source checkpoint's
+    own measured quality numbers (ppo_goal_cw_dep_bcgait1_hard1: slip
+    ~1.3/m, roll ~4.5 deg, zero falls, six-leg gait, slew ~0.93) at
+    honest command tracking — and still reject both the bcinit failure
+    signature (posture kept, commanded travel lost) and a faller."""
+    from rl_move.sim.walk_task import WALKCURR_BUCKETS_V3
+    from rl_move.sim.walkcurr_cert import walkcurr_bucket_pass
+    spec = WALKCURR_BUCKETS_V3[0]
+    source_like = dict(early_term_rate=0.0, contact_sw_per_s=12.0,
+                       foot_sw_min_per_s=1.0, cmd_prog_frac=0.85,
+                       wrong_way=0.0, cross_track_frac=0.05,
+                       slip_per_m=1.35, peak_roll_deg=4.5,
+                       slew_sat=0.93, stop_speed_m_s=float("nan"))
+    ok, checks = walkcurr_bucket_pass(source_like, spec)
+    assert ok, f"source-like row must pass the bridge gate: {checks}"
+    lost_travel = dict(source_like, cmd_prog_frac=0.06)   # bcinit @4M
+    ok, checks = walkcurr_bucket_pass(lost_travel, spec)
+    assert not ok and not checks["progress"]
+    faller = dict(source_like, early_term_rate=0.25)
+    ok, checks = walkcurr_bucket_pass(faller, spec)
+    assert not ok and not checks["no_falls"]
+
+
+def test_v3_bucket_commands_and_dr_swap():
+    """Bridge rungs realize exactly the source command: straight
+    heading, in-band speed, DR0, one command per episode (the V2 sweep
+    already covers the shared tail rungs)."""
+    env = _env(seed=31, extra=CURR_V3_ON, episode_seconds=10.0)
+    from rl_move.sim.walk_task import WALKCURR_BUCKETS_V3
+    hold_n = max(1, int(round(1.0 / env.dt)))
+    ramp_n = max(1, int(round(1.0 / env.dt)))
+    for b in (0, 1):
+        spec = WALKCURR_BUCKETS_V3[b]
+        env.force_walk_curr_bucket = b
+        for _ in range(4):
+            t = _sample_traj(env)
+            assert t.cmd_mode == "walkcurr"
+            assert env._wc_bucket == b
+            assert env.randomizer.scale == pytest.approx(0.0)
+            body = np.hypot(t.vx, t.vy)[hold_n + ramp_n:]
+            active = body[body > 1e-9]
+            assert active.size, f"bridge rung {b} produced no command"
+            assert active.max() <= spec["s_hi"] + 1e-9
+            assert active.min() >= spec["s_lo"] - 1e-9  # no resampling
+            assert abs(float(t.vy[hold_n + ramp_n])) <= 1e-9  # straight
+    env.close()

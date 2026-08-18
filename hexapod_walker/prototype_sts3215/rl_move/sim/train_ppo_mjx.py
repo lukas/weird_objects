@@ -1449,10 +1449,12 @@ def main(argv: list[str] | None = None) -> int:
                          "sets cfg goal.walk_curriculum + "
                          "goal.walk_pure at env construction")
     ap.add_argument("--walk-curriculum-version", type=int, default=1,
-                    choices=(1, 2),
+                    choices=(1, 2, 3),
                     help="1 = WALKCURR_BUCKETS (walkcurr1), 2 = "
                          "WALKCURR_BUCKETS_V2 ignition ladder "
-                         "(walkcurr2)")
+                         "(walkcurr2), 3 = WALKCURR_BUCKETS_V3 "
+                         "actor-init bridge ladder (operator order "
+                         "fb_20260818T102844_116d4c)")
     ap.add_argument("--walkcurr-cert-every", type=int, default=500_000,
                     help="deterministic certification cadence (steps)")
     ap.add_argument("--walkcurr-cert-episodes", type=int, default=8,
@@ -1479,6 +1481,31 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--walkcurr-fail-streak", type=int, default=2,
                     help="consecutive retained-failure rounds before "
                          "rollback to the last promotion")
+    ap.add_argument("--actor-freeze-steps", type=int, default=0,
+                    help="freeze the update_health ACTOR param group "
+                         "(lr=0) for the first N env-steps so a fresh "
+                         "critic adapts to a transplanted actor "
+                         "without erasing it; 0 = off, bit-exact "
+                         "(requires --actor-lr; operator order "
+                         "fb_20260818T102844_116d4c)")
+    ap.add_argument("--walkcurr-cert-at-init", action="store_true",
+                    help="run the frontier bucket's exact "
+                         "deterministic certification on the INITIAL "
+                         "policy, before any PPO update, and log it "
+                         "(walkcurr/pre_b0_*); aborts if the initial "
+                         "policy falls, or under-tracks "
+                         "--walkcurr-precert-min-prog (fix the "
+                         "transplant/obs mapping instead of training "
+                         "over it — fb_20260818T102844_116d4c item 6)")
+    ap.add_argument("--walkcurr-precert-min-prog", type=float,
+                    default=0.0,
+                    help="minimum pre-PPO b0 cmd_prog_frac before "
+                         "training may start (0 = survival-only bar; "
+                         "requires --walkcurr-cert-at-init)")
+    ap.add_argument("--walkcurr-precert-only", action="store_true",
+                    help="exit (rc 0 pass / 3 fail) right after the "
+                         "pre-PPO certification — the on-pod preflight "
+                         "mode; requires --walkcurr-cert-at-init")
     ap.add_argument("--no-canary", action="store_true",
                     help="disable the fixed-seed canary probes + "
                          "regression auto-stop (on by default for warm "
@@ -1628,6 +1655,20 @@ def main(argv: list[str] | None = None) -> int:
         raise SystemExit("--walkcurr-post-promo-* requires "
                          "--walk-curriculum (the trigger is the "
                          "curriculum's first promotion)")
+    if args.actor_freeze_steps > 0 and args.actor_lr <= 0.0:
+        raise SystemExit("--actor-freeze-steps requires --actor-lr "
+                         "(it zeroes the update_health actor param "
+                         "group)")
+    if args.walkcurr_cert_at_init and not args.walk_curriculum:
+        raise SystemExit("--walkcurr-cert-at-init requires "
+                         "--walk-curriculum (it runs the curriculum's "
+                         "own deterministic cert)")
+    if ((args.walkcurr_precert_only
+         or args.walkcurr_precert_min_prog > 0.0)
+            and not args.walkcurr_cert_at_init):
+        raise SystemExit("--walkcurr-precert-only/"
+                         "--walkcurr-precert-min-prog require "
+                         "--walkcurr-cert-at-init")
     if args.init_from_actor_only and args.critic_encoder is None:
         raise SystemExit("--init-from-actor-only requires "
                          "--critic-encoder (condition D actor-only "
@@ -1880,7 +1921,8 @@ def main(argv: list[str] | None = None) -> int:
         # below — not --dr-scale — is the DR the curriculum realizes.
         from .walk_task import WALKCURR_BUCKETS as _WC1
         from .walk_task import WALKCURR_BUCKETS_V2 as _WC2
-        _tbl = _WC2 if args.walk_curriculum_version == 2 else _WC1
+        from .walk_task import WALKCURR_BUCKETS_V3 as _WC3
+        _tbl = {1: _WC1, 2: _WC2, 3: _WC3}[args.walk_curriculum_version]
         print("[walkcurr] realized per-bucket DR (overrides --dr-scale "
               f"{args.dr_scale:g} per episode): "
               + " ".join(f"b{i}={row['dr']:g}"
@@ -2071,6 +2113,13 @@ def main(argv: list[str] | None = None) -> int:
               f"{' -> %.2e' % st['actor_lr_final'] if st['actor_lr_final'] != st['actor_lr'] else ''}, "
               f"{st['n_critic']} critic tensors @ "
               f"{st['critic_lr']:.2e} (constant)")
+        if args.actor_freeze_steps > 0:
+            from .update_health import set_actor_freeze
+            set_actor_freeze(model, args.actor_freeze_steps)
+            print("[update-health] actor FROZEN (group lr=0) until "
+                  f"{args.actor_freeze_steps:,} env-steps; critic "
+                  "learns throughout (train/actor_frozen logged; "
+                  "operator order fb_20260818T102844_116d4c)")
         if args.kl_rollback > 0.0:
             attach_kl_rollback(model, args.kl_rollback,
                                lr_factor=args.kl_rollback_lr_factor)
@@ -2855,14 +2904,14 @@ def main(argv: list[str] | None = None) -> int:
         import copy as _copy
         import shutil
 
-        from .walk_task import WALKCURR_BUCKETS, WALKCURR_BUCKETS_V2
+        from .walk_task import (WALKCURR_BUCKETS, WALKCURR_BUCKETS_V2,
+                                WALKCURR_BUCKETS_V3)
         from .walkcurr_cert import (WalkCurrController,
                                     aggregate_walk_probe,
                                     failed_probe_row,
                                     walkcurr_bucket_pass)
-        wc_table = (WALKCURR_BUCKETS_V2
-                    if args.walk_curriculum_version == 2
-                    else WALKCURR_BUCKETS)
+        wc_table = {1: WALKCURR_BUCKETS, 2: WALKCURR_BUCKETS_V2,
+                    3: WALKCURR_BUCKETS_V3}[args.walk_curriculum_version]
         core_venv = _unwrap_vec(venv)
         wc_best_path = POLICY_DIR / f"{out_name}_best.zip"
         wc_promo_dir = POLICY_DIR / "walkcurr_promotions"
@@ -3163,6 +3212,73 @@ def main(argv: list[str] | None = None) -> int:
               "checkpoints (best = last retention-clean promotion), "
               f"rollback after {args.walkcurr_fail_streak} consecutive "
               "retained-failure rounds")
+        if args.walkcurr_cert_at_init:
+            # Exact pre-PPO deterministic certification of the INITIAL
+            # policy (operator order fb_20260818T102844_116d4c item 6):
+            # the frontier bucket's own held-out assay — same cert env,
+            # same fixed seeds, same probe — runs BEFORE any PPO update
+            # and is logged, so a broken transplant/obs mapping is
+            # caught at step 0 instead of trained over. Measurement
+            # only: results are never broadcast to admission.
+            walkcurr_cb.model = model
+            if walkcurr_cb._env is None:
+                walkcurr_cb._env = walkcurr_cb._build()
+            spec0 = wc_table[0]
+            m0 = walkcurr_cb._assay(0)
+            passed0, checks0 = walkcurr_bucket_pass(m0, spec0)
+            fails0 = [k for k, ok in checks0.items() if not ok]
+
+            def _f(v, bad):
+                v = float(v) if v is not None else float("nan")
+                return bad if v != v else v
+            prog0 = _f(m0.get("cmd_prog_frac"), 0.0)
+            falls0 = _f(m0.get("early_term_rate"), 1.0)
+            print(f"[walkcurr-precert] b0 {spec0['name']} @ step 0 "
+                  f"(pre-PPO, det, n={args.walkcurr_cert_episodes}): "
+                  f"{'PASS' if passed0 else 'FAIL ' + ','.join(fails0)}"
+                  f" prog={prog0:.3f} falls={falls0:.2f}"
+                  f" slip/m={_f(m0.get('slip_per_m'), -1):.2f}"
+                  f" roll={_f(m0.get('peak_roll_deg'), -1):.1f}"
+                  f" h_err={_f(m0.get('h_err_mm'), 0):+.1f}mm"
+                  f" hf={_f(m0.get('height_factor'), 0):.2f}"
+                  f" slew={_f(m0.get('slew_sat'), -1):.2f}")
+            if run is not None:
+                import wandb
+                pre = {f"walkcurr/pre_b0_{k}": float(m0[k])
+                       for k in ("cmd_prog_frac", "slip_per_m",
+                                 "peak_roll_deg", "early_term_rate",
+                                 "height_factor", "h_err_mm",
+                                 "mean_h_m", "contact_sw_per_s",
+                                 "foot_sw_min_per_s", "slew_sat",
+                                 "cross_track_frac", "wrong_way",
+                                 "return")
+                       if m0.get(k) is not None
+                       and float(m0[k]) == float(m0[k])}
+                wandb.log({"global_step": 0,
+                           "walkcurr/pre_b0_pass": float(passed0),
+                           **pre})
+                run.summary["walkcurr_precert_b0"] = {
+                    "pass": bool(passed0), "prog": prog0,
+                    "falls": falls0, "fails": fails0}
+            ok0 = (falls0 == 0.0
+                   and prog0 >= args.walkcurr_precert_min_prog)
+            if args.walkcurr_precert_only:
+                walkcurr_cb.close()
+                venv.close()
+                if run is not None:
+                    run.finish()
+                print("[walkcurr-precert] precert-only mode: exiting "
+                      f"{'PASS (rc 0)' if ok0 else 'FAIL (rc 3)'} "
+                      "before any PPO update")
+                return 0 if ok0 else 3
+            if not ok0:
+                raise SystemExit(
+                    "[walkcurr-precert] the INITIAL policy fails the "
+                    f"survive/walk bar under exact b0 (falls={falls0:.2f},"
+                    f" prog={prog0:.3f} < "
+                    f"{args.walkcurr_precert_min_prog:.2f}) — fix the "
+                    "transplant/obs mapping first rather than training "
+                    "over it (fb_20260818T102844_116d4c item 6)")
     bg = None
     if run is not None and (args.eval_every > 0 or args.video_every > 0):
         # The campaign's background eval/video worker, reused verbatim:

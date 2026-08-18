@@ -290,3 +290,75 @@ def test_attachments_survive_save_load_roundtrip(tmp_path):
     obs = np.zeros(env.observation_space.shape, dtype=np.float32)
     loaded.predict(obs, deterministic=True)
     env.close()
+
+
+# --- actor-freeze window (operator order fb_20260818T102844_116d4c) --
+
+def test_actor_freeze_window_zeroes_then_releases_actor_lr():
+    from rl_move.sim.update_health import set_actor_freeze
+    policy = _mlp_policy()
+    m = _stub_model(policy)
+    attach_actor_critic_lr(m, actor_lr=5e-5, actor_lr_final=5e-5,
+                           critic_lr=3e-4)
+    set_actor_freeze(m, 100)
+    opt = policy.optimizer
+    m.num_timesteps = 0
+    m._update_learning_rate(opt)
+    assert opt.param_groups[0]["lr"] == 0.0          # actor frozen
+    assert opt.param_groups[1]["lr"] == pytest.approx(3e-4)  # critic on
+    assert m.logger.name_to_value["train/actor_frozen"] == 1.0
+    m.num_timesteps = 99
+    m._update_learning_rate(opt)
+    assert opt.param_groups[0]["lr"] == 0.0
+    m.num_timesteps = 100                            # boundary: release
+    m._update_learning_rate(opt)
+    assert opt.param_groups[0]["lr"] == pytest.approx(5e-5)
+    assert m.logger.name_to_value["train/actor_frozen"] == 0.0
+    assert m.logger.name_to_value["train/actor_lr"] == pytest.approx(5e-5)
+
+
+def test_actor_freeze_off_is_bit_exact():
+    """Without set_actor_freeze the LR path and the logged keys are
+    exactly the pre-change behavior (no freeze_until key consulted, no
+    actor_frozen key logged)."""
+    policy = _mlp_policy()
+    m = _stub_model(policy)
+    attach_actor_critic_lr(m, actor_lr=1e-4, actor_lr_final=1e-5,
+                           critic_lr=3e-4)
+    m.num_timesteps = 0
+    opt = policy.optimizer
+    m._update_learning_rate(opt)
+    assert opt.param_groups[0]["lr"] == pytest.approx(1e-4)
+    assert "train/actor_frozen" not in m.logger.name_to_value
+    # explicit 0 disarms too
+    from rl_move.sim.update_health import set_actor_freeze
+    set_actor_freeze(m, 0)
+    m._update_learning_rate(opt)
+    assert opt.param_groups[0]["lr"] == pytest.approx(1e-4)
+    assert "train/actor_frozen" not in m.logger.name_to_value
+
+
+def test_set_actor_freeze_requires_attached_groups():
+    policy = _mlp_policy()
+    m = _stub_model(policy)
+    from rl_move.sim.update_health import set_actor_freeze
+    with pytest.raises(ValueError):
+        set_actor_freeze(m, 100)
+
+
+def test_actor_freeze_composes_with_kl_rollback_scale():
+    """A rollback-cut actor_scale must not resurrect a frozen actor,
+    and must still apply after release."""
+    from rl_move.sim.update_health import set_actor_freeze
+    policy = _mlp_policy()
+    m = _stub_model(policy)
+    attach_actor_critic_lr(m, actor_lr=1e-4)
+    set_actor_freeze(m, 100)
+    m._ac_state["actor_scale"] = 0.5
+    opt = policy.optimizer
+    m.num_timesteps = 50
+    m._update_learning_rate(opt)
+    assert opt.param_groups[0]["lr"] == 0.0
+    m.num_timesteps = 200
+    m._update_learning_rate(opt)
+    assert opt.param_groups[0]["lr"] == pytest.approx(5e-5)

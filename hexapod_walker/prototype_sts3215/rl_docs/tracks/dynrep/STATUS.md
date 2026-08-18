@@ -1,5 +1,94 @@
 # dynrep — Dynamics-representation pretraining
 
+**08-18 ~11:xx UTC (operator-kick cycle, order fb_20260818T102844_116d4c
++ focus note executed): the walkcurr4 evidence-based correction is BUILT
+and the BRIDGE canary is the live arm —
+`cw-dynrep-criticD-walkcurr4-bridge1` (4M, actor-only hard1 transplant,
+frozen critic-D 9df48f68).** All six 4M tournament arms are now
+verdicted FAIL on admission (see the two triage entries below for the
+decisive split: RL-hardened actor preserves walking but falls chasing
+V2's non-adjacent 0.08-0.12 band; every other init collapses to a
+crouch), so the order's "one evidence-based correction" applies
+verbatim. Built this cycle (all default-off, bit-exact off; tests:
+test_walk_curriculum 23, test_value_learning 16, full semantics bank
+128p/4s/1x): (1) `WALKCURR_BUCKETS_V3` bridge ladder (walk_task.py) —
+B0 = the source checkpoint's own operating point (straight 0.05-0.06
+m/s, no jitter/resample/stops, DR0), B1 widens to 0.05-0.10 straight,
+B2+ = V2's direction/heading ladder verbatim (joystick goal preserved);
+(2) `--actor-freeze-steps` (update_health.set_actor_freeze: actor param
+group lr=0 for the first N steps so the fresh condition-D critic adapts
+without erasing the actor; `train/actor_frozen` logged); (3)
+`--walkcurr-cert-at-init` (+`--walkcurr-precert-min-prog`/
+`--walkcurr-precert-only`): the exact deterministic B0 cert runs on the
+transplanted actor BEFORE any PPO update, is logged
+(`walkcurr/pre_b0_*`), and refuses to train over a broken
+transplant/obs mapping. Recipe: freeze 0.5M then release at 5e-5 x3
+epochs / target_kl .01 / rollback .03 (post-promo raise to 1e-4
+deliberately NOT wired — "if needed" per the order). PRE-REGISTERED
+GATE: bridge B0 promotion by <=1M; at 4M frontier>=B2, cmd_prog>=.6,
+height_factor>=.8, slip<=2, zero falls in the final cert round.
+**PASS => the triaging cycle AUTOMATICALLY launches the 40M
+`cw-dynrep-criticD-walkcurr4` on the same recipe (operator-ordered, no
+new decision needed); FAIL => no 40M.** Stale-INTENT reconciliation the
+order asked for: the two early REFUSED `gaitinit-hard1` ledger rows
+were launcher retries, the third row genuinely RAN and FINISHED (triage
+below) — nothing was treated as running that isn't.
+
+**08-18 ~10:5x UTC (triage cycle): `cw-dynrep-criticD-walkcurr4-gaitinit-hard1`
+FINISHED — the tournament's 6th and last canary, FAIL admission but the
+CLEAR outlier, and it CORRECTS the framing below.** B0 ignition never
+certifies in 8 cert rounds/4M steps (final r8: cmd_prog_frac 0.60 < bar
+0.65, falls in 4/8 rounds, height_factor 0.71 noisy 0.71-0.96, no trend)
+— but gate-eval shows this is REAL walking, not a park: DR-0 det
+gait_valid 6/6 (median prog 0.55, slip 2.10, fwd 0.61m/15s), DR-0.3 det
+6/6, sto 5/6, six legs genuinely cycling, no flag-leg. It is the ONLY one
+of six canaries that preserved real locomotion (canA-r2/canB-r1/canC-r1/
+gaitinit-bcinit all collapsed to a static crouch, gait_valid 0/6).
+**Correction to the note below: "actor competence at init is refuted" was
+premature off bcinit alone** — bcinit's init source (`ppo_goal_cw_bcgait_
+init.zip`, the RAW un-RL-tuned BC clone) is meaningfully less competent
+than hard1's (`ppo_goal_cw_dep_bcgait1_hard1.zip`, 10M RL-hardened on top
+of that same clone); the RL-hardened actor DOES preserve walking under
+the frozen critic-D wiring, the raw clone doesn't. hard1 still misses
+admission for a different, diagnosable reason: V2's forced 0.08-0.12 m/s
+ignition band is faster than this actor's native ~0.05 m/s gait, so it
+falls occasionally chasing the commanded speed instead of consolidating
+— the mirror image of bcinit's failure (which kept posture/safety at the
+slow native speed but lost commanded progress). Together the two arms
+are exactly the evidence the operator's note (`fb_20260818T102844_116d4c`,
+filed off bcinit alone) used to spec the correction: actor-init from
+this checkpoint family + a bridge curriculum adjacent to the ~0.05 m/s
+native speed + a short actor freeze + gentle release
+(`WALKCURR_BUCKETS_V3` / `--actor-freeze-steps` / `--walkcurr-cert-at-
+init`, already coded in the working tree by a concurrent cycle at this
+triage's start). No new dynrep launch from this verdict alone — that
+correction is the concurrent cycle's to launch. Evidence: ledger verdict
++ W&B `jzegb7tg` OUTCOME note.
+
+**08-18 ~10:4x UTC (triage cycle): `cw-dynrep-criticD-walkcurr4-gaitinit-bcinit`
+FINISHED its 4M canary — FAIL, same crouch-park shape as canA-r2/canB-r1/
+canC-r1, and the informative half of the actor-init test.** B0 ignition
+never certified (frontier/promotions stuck at 0 for all 4M steps,
+b0_ignition/pass=0: cmd_prog_frac 0.009 vs bar 0.50, height_factor 0.76 vs
+bar 0.8, slip_per_m 7.8 vs bar 3.0); gate-eval confirms behaviorally (DR-0
+det gait_valid 0/6, prog_ratio 0.01, slip/m 9.97, 4/6 legs "sacrificed"
+i.e. parked; own-DR sto gait_valid 0/6, 5-6/6 legs sacrificed) — video is
+a static low crouch, not a gait. **This is now 4 of 5 substantive canary
+arms FAILED with the identical signature** (canA-r2, canB-r1, canC-r1,
+gaitinit-bcinit; only `gaitinit-hard1` still running, train-7, off-limits
+this cycle). The transplanted actor started from the proven BC-gait clone
+(already tall, in-band, competent) and STILL collapsed into the same
+crouch-shuffle within 4M steps — the run's own "if-false" prediction,
+confirmed. This shifts the suspect list: actor competence at init is
+refuted as the fix (bcinit had it, canA/B/C didn't, all four converge to
+the same failure); the frozen critic-D / walkcurr income wiring itself is
+now the leading suspect. Per the pre-registered tournament gate, no new
+arm launches from this result alone — wait for `gaitinit-hard1` (the
+last actor-init data point) before the tournament's next step (one
+evidence-based correction to the critic-D recipe, not a same-recipe
+re-run). Evidence:
+`rl_docs/runs/cw-dynrep-criticD-walkcurr4-gaitinit-bcinit.md`.
+
 **08-18 ~10:3x UTC (reconciliation note, this cycle): the tournament now
 has SIX canary arms, not three — `canB-r1`/`canC-r1` (train-9/train-5,
 scratch actor + LR variants, `canB-r1` FINISHED / `canC-r1` RUNNING,

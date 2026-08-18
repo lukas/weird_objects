@@ -136,6 +136,18 @@ def attach_actor_critic_lr(model, actor_lr: float,
         lr_a = (st["actor_lr_final"]
                 + (st["actor_lr"] - st["actor_lr_final"]) * progress)
         lr_a *= st["actor_scale"]
+        # Actor-freeze window (set_actor_freeze; default absent/0 =
+        # bit-exact off): while num_timesteps < freeze_until the actor
+        # group runs lr=0 (Adam with lr 0 changes nothing), so a fresh
+        # critic can adapt to a transplanted actor without erasing it
+        # (operator order fb_20260818T102844_116d4c item 3). The critic
+        # group is never frozen.
+        freeze_until = float(st.get("freeze_until", 0.0))
+        frozen = (freeze_until > 0.0
+                  and float(getattr(self, "num_timesteps", 0))
+                  < freeze_until)
+        if frozen:
+            lr_a = 0.0
         opt = self.policy.optimizer
         opt.param_groups[0]["lr"] = lr_a
         opt.param_groups[1]["lr"] = st["critic_lr"]
@@ -143,6 +155,8 @@ def attach_actor_critic_lr(model, actor_lr: float,
         if logger is not None:
             logger.record("train/actor_lr", lr_a)
             logger.record("train/critic_lr", st["critic_lr"])
+            if freeze_until > 0.0:
+                logger.record("train/actor_frozen", float(frozen))
 
     model._update_learning_rate = types.MethodType(
         _update_learning_rate, model)
@@ -189,6 +203,24 @@ def attach_actor_critic_lr(model, actor_lr: float,
 
     model.save = save_stock_optimizer
     _exclude_from_save(model, ("save",))
+
+
+def set_actor_freeze(model, until_steps: int) -> None:
+    """Arm the default-off actor-freeze window (operator order
+    fb_20260818T102844_116d4c item 3): the update_health ACTOR param
+    group (which includes log_std and any shared trunk) runs lr=0
+    until ``model.num_timesteps >= until_steps``, then returns to the
+    attached actor-LR schedule. The critic group learns throughout —
+    the point is letting a fresh critic adapt to a transplanted,
+    already-competent actor without erasing the actor. Requires
+    ``attach_actor_critic_lr`` first; ``until_steps <= 0`` disarms
+    (bit-exact off). ``train/actor_frozen`` is logged every update
+    while a window is armed."""
+    st = getattr(model, "_ac_state", None)
+    if st is None:
+        raise ValueError("set_actor_freeze requires "
+                         "attach_actor_critic_lr to be attached first")
+    st["freeze_until"] = max(0.0, float(until_steps))
 
 
 def attach_kl_rollback(model, threshold: float,
