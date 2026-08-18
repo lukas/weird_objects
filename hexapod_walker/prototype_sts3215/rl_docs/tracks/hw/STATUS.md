@@ -24,6 +24,7 @@ unresolved blockers between the robot and reliable joystick control.
 
 ## Now
 
+- **08-18 ~23:0x (triage cycle): `cw-recover-predictive1b-pop3-s13` PASSES its pre-registered 40M checkpoint and is the first checkpoint in the WHOLE recover lineage to clear the redesigned 23-rung ladder end to end** — frontier reached B22 (`flip`) by 37.7M and held to 40M, sync clean all 40 cert rounds, and the retention guard correctly caught+recovered one regression mid-run. Matched gate eval: DR-0 det 21/23 recover_success (real miss = `flip`, no exploit; the other "miss" is video-confirmed a clean quiet stand, a known scoring artifact), own-DR-0.1 det 23/23 incl. a genuine flip recovery on video — no flag/tripod/stilt/park exploit anywhere in the reviewed ladder, including the B14/B15 rungs built specifically to teach the OLD parked-on-4/5-feet wall every prior any-line cohort stalled on. **Single-seed result only** — s11/s12 (identical recipe, same cohort) are still training and get their own verdicts; this is not yet a cohort-level or line-level claim, and per the standing ruling recover/tangle redesign stays `[operator]`-gated so no follow-up arm is queued regardless. Detail: ledger verdict + W&B `95414586` OUTCOME note + `rl_docs/SKILLS.md` new row.
 - **08-18 ~22:3x (triage cycle): `cw-dep-bcgait1-hard1-steer2-blend1`
   CANARY PASSED mechanism health, but its own INFORMATIONAL read
   CLOSES the pure command-side/exposure lever class on the joystick
