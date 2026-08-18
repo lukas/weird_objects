@@ -1,5 +1,25 @@
 # dynrep — Dynamics-representation pretraining
 
+**08-18 ~16:0x UTC (operator focus-note session): the walkcurr line is
+REOPENED by explicit operator order** (fb 20260818T153944Z, MCP
+operator lane) — `cw-dynrep-tf-liveactor-walkcurr4-canary1-r1` is
+RUNNING on train-11 (4M, acquisition): the first LIVE-transformer arm
+(c6c19fde `--predictive-live`): the dynamics transformer now trains
+continuously on the run's own walking (25% corpus rehearsal, guarded
+1M-boundary snapshots) instead of staying frozen, and the hard1
+champion's raw actor AND critic are transplanted across the hist16
+widening (`--init-from-policy-backbone`) so the critic is proven from
+step 0 — directly attacking bridge2's failure layer (fresh critic
+never reached usable EV). Boot proofs all green: encoder md5, CUDA +
+warp GPU physics, 13-tensor transplant, pre-PPO B0 cert PASS
+(prog=1.139, falls=0, hf=0.82), first promotion b0->b1 @524k. Gate =
+operator's five bars (B0 zero-fall retention, promotion past B0,
+nonzero actor residual, online heldout improvement, >=1 accepted
+snapshot); PASS => operator-ordered 40M, FAIL => no 40M. Attempt 1
+died at boot on train-4's 64M /dev/shm (documented CAPACITY.md
+caveat; hist16 live stack needs ~75M) — placement rule: 4Gi-shm pods
+only (5/7/9/11). Sprint-fit question filed: q_20260818T1615Z.
+
 **08-18 ~13:1x UTC (triage cycle): `cw-dynrep-criticD-walkcurr1` FINISHED
 its full 40M budget — FAIL, and with it every arm of the walkcurr
 tournament is now terminal.** This was the ORIGINAL adaptive-curriculum

@@ -974,3 +974,33 @@ Entry format (append; newest last; update status in place):
   bridge2 launch + r2 kill; the resume-order judgment calls (r1
   precert refusal, retry1 left-to-finish) remain open for review.
 - rulebook change: —
+
+## q_20260818T1615Z — OPEN
+- cycle: operator focus-note session (fb 20260818T153944Z, GPT-5 Codex
+  acting for Lukas): EXECUTE cw-dynrep-tf-liveactor-walkcurr4-canary1.
+- operator order: launch the predictive-live transformer-actor
+  walkcurr4 canary (4M, hard1 actor+critic backbone transplant,
+  live online transformer + guarded snapshots), from c6c19fde.
+- conflicted with: (1) SIM SPRINT ruling ("no new research-track
+  launches (dynrep, ...) unless the arm directly serves reliable sim
+  rise+walk") and dynrep/STATUS.md's "walkcurr line closed pending a
+  new operator order"; (2) open questions q_20260818T1035Z/1040Z/
+  1103Z on walkcurr4 sprint fit.
+- what was executed: launched as ordered. Attempt 1 SIGBUS-crashed at
+  boot on train-4 (64M Docker-default /dev/shm too small for the
+  hist16/predictive-live sharded-env buffers — measured 75M needed;
+  ledger verdict on cw-dynrep-tf-liveactor-walkcurr4-canary1).
+  Retried once per DEAD protocol as
+  cw-dynrep-tf-liveactor-walkcurr4-canary1-r1 on train-11 (4G shm):
+  VERIFIED RUNNING, encoder md5 + CUDA/GPU-physics proofs printed,
+  pre-PPO B0 cert PASS (prog=1.139, falls=0), first promotion to b1
+  @524k. This order IS the "new operator order" the walkcurr closure
+  asked for, so it partially answers q_20260818T1035Z et al for this
+  one arm; not marking those CLOSED without an explicit ruling.
+- why the cycle would have declined: SIM SPRINT's dynrep launch ban;
+  executed because operator-lane orders outrank the sprint default.
+- ask: confirm the predictive-live walkcurr4 line is in-sprint scope
+  (and whether a PASS should auto-launch the 40M per the order's
+  bars), and whether train-0/4/6/8 should be recreated with the 4G
+  shm mount (today they cannot host hist16/predictive-live runs;
+  placement constraint recorded in the ledger + CAPACITY.md).

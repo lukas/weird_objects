@@ -101973,7 +101973,7 @@
       "operator-ordered live-transformer actor canary (fb 20260818T153944Z): predictive-live + walkcurr v4 sustained-joystick ladder, hard1 actor+critic backbone transplant, pretrained-D snapshot seed, hard1 retention reward stack preserved (-r1: train-4 64M-shm SIGBUS retry on train-11)"
     ],
     "created": "2026-08-18T15:52:31+00:00",
-    "status": "INTENT",
+    "status": "RUNNING",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -101982,7 +101982,18 @@
       "code_sha_local": "61da1d27bb8d1f23b4d4f6e3c927377211c13cea",
       "code_sha_pod": "61da1d27bb8d1f23b4d4f6e3c927377211c13cea",
       "init_from_on_pod": true,
-      "wandb_env_on_pod": true
+      "wandb_env_on_pod": true,
+      "pid": "74203",
+      "log_growth_bytes": [
+        8532,
+        13865
+      ],
+      "wandb_id": "fpz5b59q",
+      "global_step_window": [
+        327680,
+        589824
+      ],
+      "fps_estimate": 8738.1
     },
     "trainer": "ppo",
     "stack": "gpu-mjx",
@@ -101990,6 +102001,8 @@
     "assessment_scope": "full_budget_skill_acquisition",
     "evidence": "operator order fb 20260818T153944Z (MCP operator lane, GPT-5 Codex acting for Lukas); c6c19fde predictive-live stack tests green this cycle (66 passed: live_replay/predictive_critic/walk_curriculum/actor_only_transplant); comparable 4M same-recipe-family precedent: cw-dynrep-criticD-walkcurr4-bridge2 (same budget/cert cadence, frozen critic, same pod); encoder md5 9df48f68 + 8.3G v5_mjx_fresh corpus + hard1 zip verified on train-11 this cycle",
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:dynrep nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-dynrep-tf-liveactor-walkcurr4-canary1-r1 --steps 4000000 --task joint_walk --seed 8 --n-envs 4096 --impl warp --host-workers 24 --require-gpu-physics --critic-encoder rl_move/dynamics/models/cw-dynrep-tf-state2-recovered1.pt --critic-encoder-md5 9df48f687967c25085ee50171e4110ff --anchor-data rl_move/dynamics/datasets/v5_mjx_fresh --predictive-live --walk-curriculum --walk-curriculum-version 4 --walkcurr-cert-every 500000 --walkcurr-cert-episodes 8 --walkcurr-cert-at-init --walkcurr-precert-min-prog 0.5 --walkcurr-actor-only-rollback --n-epochs 3 --target-kl 0.01 --kl-rollback 0.03 --actor-lr 5e-5 --actor-lr-final 1e-5 --critic-lr 3e-4 --pred-batch-size 256 --pred-steps-per-iter 8 --pred-lr 1e-4 --pred-capture-envs 128 --pred-rehearsal-frac 0.25 --pred-snapshot-boundary-steps 1000000 --pred-gate-action-kl 0.002 --eval-every 1000000 --video-every 2000000 --save-every 2000000 --cfg-set obs.history_frames=16 --cfg-set reward.term_penalty=30 --cfg-set reward.walk_height_gate=1 --cfg-set reward.walk_height_sigma_mm=11 --cfg-set reward.walk_kernel_prog_gate=1 --cfg-set safety.walk_max_height_drop_mm=25 --cfg-set safety.walk_height_grace_s=2 --cfg-set reward.walk_anchor_gate=1 --cfg-set reward.anchor_tol_mm=10 --cfg-set reward.k_drag_loaded=10 --cfg-set reward.k_park_duty=1 --init-from rl_move/sim/policies/ppo_goal_cw_dep_bcgait1_hard1.zip --init-from-policy-backbone --out-name ppo_goal_cw_dynrep_tf_liveactor_walkcurr4_canary1_r1 --notes 'operator-ordered live-transformer actor canary (fb 20260818T153944Z): predictive-live + walkcurr v4 sustained-joystick ladder, hard1 actor+critic backbone transplant, pretrained-D snapshot seed, hard1 retention reward stack preserved (-r1: train-4 64M-shm SIGBUS retry on train-11)' > /tmp/train_cw-dynrep-tf-liveactor-walkcurr4-canary1-r1.log 2>&1 < /dev/null & echo $!",
-    "log": "/tmp/train_cw-dynrep-tf-liveactor-walkcurr4-canary1-r1.log"
+    "log": "/tmp/train_cw-dynrep-tf-liveactor-walkcurr4-canary1-r1.log",
+    "wandb_id": "fpz5b59q",
+    "verified": "2026-08-18T15:55:37+00:00"
   }
 ]
