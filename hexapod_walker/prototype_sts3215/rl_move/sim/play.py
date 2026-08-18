@@ -211,12 +211,26 @@ _PROMOTED = [
     "ppo_goal_cw_walk_anchorgate",
 ]
 
-# Default picker contents: only the rows worth a human's time (the
-# promoted set, whatever is on the robot, and the scripted gaits).
-# `--all` restores the full directory scan. The full list outgrew the
-# 720px panel (~55 rows by 08-18) — rows past the bottom were drawn
-# off-screen and could not be clicked, i.e. "I couldn't select gaits".
-_CURATED = set(_PROMOTED) | _ON_ROBOT
+# Default picker contents: a TOP-TEN (operator request 08-18) — the
+# best model per category plus what's on the robot; one scripted row
+# (clamp-fit, the cleanest) joins these in main(). `--all` restores the
+# full directory scan. The full list outgrew the 720px panel (~55 rows
+# by 08-18) — rows past the bottom were drawn off-screen and could not
+# be clicked, i.e. "I couldn't select gaits".
+_CURATED = {
+    # stance: best riser (default), live robot slot, classic champion
+    "ppo_goal_cw_stand_footlow2_hard1",
+    "ppo_goal_cw_stand_holdbc1_hard1",
+    "ppo_goal_cw_stance_dr10",
+    # walk: best all-round (default), best no-slip RL, on-robot walk,
+    # best steering, fastest (sim-only), deployed picker fallback
+    "ppo_goal_cw_dep_bcgait1_hard1",
+    "ppo_goal_cw_arch_noslipphase1_r4",
+    "ppo_goal_cw_dep_vref1_r1",
+    "ppo_goal_cw_walk_joyheadfric",
+    "ppo_goal_cw_walk_longdist_r2",
+    "ppo_goal_cw_dep_tip1",
+}
 
 # Plain-English one-liners (facts from RL_LOG.md / rl_docs; keep each
 # under ~58 chars so it fits the 330px description column).
@@ -568,8 +582,9 @@ def main() -> None:
 
     si = ensure_listed(stance_list, args.stance, (68,))
     wi = ensure_listed(walk_list, args.walk, walk_widths)
-    # Scripted-gait rows (alpha 0 and 0.5), bottom of the panel.
-    walk_list.extend(_SCRIPTED_ALPHA)
+    # Scripted-gait rows, bottom of the panel: all three with --all,
+    # otherwise just clamp-fit (the cleanest) to keep the top-ten.
+    walk_list.extend(_SCRIPTED_ALPHA if args.all else [_NOSLIP_CLEAN])
 
     def apply_vel_contract(stem: str) -> None:
         # dep-line / noslip-line walkers train with meas := ref (the

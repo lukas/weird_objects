@@ -26,10 +26,11 @@ sim_viewer/sim_walk.sh     # walk champion alone (cv2 drive window)
   webui): checkpoints in `rl_move/sim/policies/` are classified at
   startup by obs width read from the sb3 zip's JSON metadata (68 →
   stance slot, 72 → walk slot; no torch load) and listed in two groups
-  — click a row to load it. By default only the CURATED set is shown
-  (promoted + on-robot + scripted rows) — the full scan outgrew the
-  panel and off-screen rows were unclickable; pass `--all` for
-  everything (rows shrink to fit). `[` / `]` and `,` / `.` cycle
+  — click a row to load it. By default only a curated TOP TEN is
+  shown (best per category: rise, all-round walk, no-slip, steering,
+  speed, on-robot, plus the clamp-fit scripted gait) — the full scan
+  outgrew the panel and off-screen rows were unclickable; pass `--all`
+  for everything (rows shrink to fit). `[` / `]` and `,` / `.` cycle
   the same lists. Swaps load on the spot (~1 s stall) and work
   mid-walk; the active pair is highlighted. Each row carries a one-line
   description (distilled from RL_LOG.md into `_DESC` in `play.py`).
