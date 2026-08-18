@@ -82,12 +82,21 @@ window owns every key, so no modifier is needed to avoid collisions):
     8           lower FOR REAL: trained lower to the crouch, then a
                 torque-off limp settle onto the belly (the robot's own
                 lower-then-limp choreography). Stays parked until 7.
-    9 / R       reset to standing (plant, at the origin - a true reset)
+    9           reset to standing (plant, at the origin - a true reset)
 
 On a tip (episode termination) there is NO auto-reset: the robot
 freezes where it fell and waits — 7 tries an in-place recovery,
-9 does a true reset. Same stop-and-wait rule as the real robot.
+9 does a true reset, R runs the RECOVERY policy. Same stop-and-wait
+rule as the real robot.
     B           reset belly-down (then 7 to rise)
+    F           FALL OVER: torque-off tumble into the next fallen pose
+                (sprawled tangle -> left side -> back -> right side ->
+                nose-over) - then R.
+    R           run the RECOVERY policy (recover-to-plant line, newest
+                promotion of the 08-18 population run): stands back up
+                from sprawls/tangles/crouches/belly, then hands back to
+                the stance policy. Side/back inversion is NOT in its
+                training curriculum yet - expect those to stay down.
     I/K J/L     persistent cruise trim (+-0.01 m/s per tap, engages WALK)
     U / O       turn left/right trim (scripted no-slip gait only)
     0 / Space   stop -> STANCE policy holds
@@ -172,7 +181,12 @@ class _KeyFifo:
                                 ord(tok[0]))
 
 # Playable obs widths (see module docstring / sim_viewer/README.md).
-_ROLE_OBS = {68: "stance", 72: "walk"}
+# 78 = 72 + the 6-wide mode one-hot (transdagger GRU line); 1152 = 16
+# stacked 72-dim frames (transformer/hist16 line); 74 (phase clock)
+# joins only under --phase-obs.
+_ROLE_OBS = {68: "stance", 72: "walk", 78: "walk", 1152: "walk"}
+_N_MODE = 6          # walk_task.N_MODE_OBS (frozen slot order)
+_HIST_K = 16         # frames in the hist16/transformer stack
 
 # Checkpoints currently deployed on the physical robot — live slot
 # files AND the selectable linux_control/policies/ picker entries
@@ -201,6 +215,8 @@ _PROMOTED = [
     # walk group
     "ppo_goal_cw_dep_bcgait1_hard1",
     "ppo_goal_cw_arch_noslipphase1_r4",
+    "ppo_goal_cw_arch_tf_r1_hard2_r1",
+    "ppo_goal_cw_gru_dual_bc_transdagger2",
     "ppo_goal_cw_dep_vref1_r1",
     "ppo_goal_cw_dep_tip1",
     "ppo_goal_cw_walk_joyheadfric",
@@ -230,6 +246,10 @@ _CURATED = {
     "ppo_goal_cw_walk_joyheadfric",
     "ppo_goal_cw_walk_longdist_r2",
     "ppo_goal_cw_dep_tip1",
+    # newest experiments (operator request 08-18): transformer memory
+    # walker + the one-brain rise/walk/sit GRU distillation
+    "ppo_goal_cw_arch_tf_r1_hard2_r1",
+    "ppo_goal_cw_gru_dual_bc_transdagger2",
 }
 
 # Plain-English one-liners (facts from RL_LOG.md / rl_docs; keep each
@@ -303,6 +323,12 @@ _DESC = {
         "steers hard left/right, handles varied floors",
     "ppo_goal_cw_walk_joyheadfric_payload_r1":
         "same steering but also carries extra weight",
+    "ppo_goal_cw_arch_tf_r1_hard2_r1":
+        "NEW transformer memory: clean gait, low slip; sim-only",
+    "ppo_goal_cw_gru_dual_bc_transdagger2":
+        "NEW one GRU brain for rise+walk+sit (rise still shaky)",
+    "ppo_goal_cw_recover_any21_pop3_B14":
+        "gets up from sprawls/tangles/belly (R key runs it)",
 }
 
 
@@ -376,6 +402,8 @@ def scan_policies(pdir: Path, all_models: bool = False,
     for p in sorted(pdir.glob("*.zip")):
         if p.stem.endswith("_steps"):
             continue
+        if "recover" in p.stem:
+            continue        # recovery checkpoints ride the R key, not a slot
         if not all_models and p.stem not in _CURATED:
             continue
         role = _ROLE_OBS.get(_obs_width(p) or -1)
@@ -483,6 +511,13 @@ class _PlayTraj(_InteractiveTraj):
         self.vy = 0.0
         self._pvx = 0.0         # published (ramped) command
         self._pvy = 0.0
+        # Skill-family label read by walk_task's mode one-hot obs
+        # (obs.mode_onehot; the transdagger GRU contract). The player's
+        # state machine writes it every tick: rise/lower during autos,
+        # walk while driving, hold otherwise. obs.mode_onehot_cmd=1
+        # additionally routes zero-command "walk" ticks to hold, same
+        # as the distillation streams.
+        self.mode = "hold"
 
     def reset_published(self) -> None:
         super().reset_published()
@@ -527,6 +562,12 @@ def main() -> None:
                     help="list every scanned checkpoint in the picker "
                          "(default: curated set only — the full list "
                          "overflows the panel)")
+    # B14: the newest promotion of the recover-any21-pop3 population
+    # run (08-18, step 15.0M) — universal recover-to-plant specialist,
+    # standard 72-obs walk-env contract. Bound to the R key.
+    ap.add_argument("--recover", type=Path,
+                    default=Path("rl_move/sim/policies/"
+                                 "ppo_goal_cw_recover_any21_pop3_B14.zip"))
     ap.add_argument("--realtime", type=float, default=1.0)
     ap.add_argument("--phase-obs", action="store_true",
                     help="enable the walk env's phase clock (+2 obs) so "
@@ -549,22 +590,27 @@ def main() -> None:
         sys.path.insert(0, str(lc))
     from noslip_gait import NoSlipGait
 
-    env_kw: dict = {}
-    walk_widths = (72,)
+    from ..config import load_config
+    cfg = load_config()
+    # Mode one-hot ALWAYS on (+6 obs at the tail): the transdagger GRU
+    # line trained with it, and every other policy reads a prefix slice
+    # so the extra tail dims are invisible to them. mode_onehot_cmd
+    # routes zero-command walk ticks to the hold slot, matching the
+    # distillation streams (walk_task, 08-13).
+    cfg.setdefault("obs", {})["mode_onehot"] = 1.0
+    cfg["obs"]["mode_onehot_cmd"] = 1.0
+    walk_widths: tuple[int, ...] = (72, 78, 1152)
     if args.phase_obs:
-        from ..config import load_config
-        cfg = load_config()
         cfg.setdefault("goal", {})["walk_phase_obs"] = 1.0
         cfg["goal"]["walk_phase_hz"] = args.phase_hz
-        env_kw["cfg"] = cfg
         # 74-obs phase-clock checkpoints join the WALK panel; the phase
-        # dims are appended after the vel tail, so 72-obs champions
-        # keep working on obs[:72].
+        # dims are appended after the vel tail (before the mode tail),
+        # so 72-obs champions keep working on obs[:72].
         _ROLE_OBS[74] = "walk"
-        walk_widths = (72, 74)
+        walk_widths = (72, 74, 78, 1152)
     env = _PlayEnv(params=SimServoParams.load(), randomize=False,
                    episode_seconds=3600.0, render_mode="rgb_array",
-                   **env_kw)
+                   cfg=cfg)
 
     # --- checkpoint slots: one STANCE (obs 68) + one WALK (obs 72) ------
     cats = scan_policies(args.stance.parent, all_models=args.all)
@@ -594,17 +640,70 @@ def main() -> None:
         mode = 1.0 if _sim_only_obs("walk", stem) else 2.0
         env.cfg.setdefault("goal", {})["walk_obs_body_vel"] = mode
 
+    def walk_kind_of(width: int) -> str:
+        # "plain": feed obs[:width].  "hist": 16 stacked 72-dim frames
+        # (transformer/hist16 line — client-side stack, newest first).
+        # "gru": 72-dim frame + the 6-wide mode tail, recurrent state
+        # threaded through predict (transdagger line).
+        return {1152: "hist", 78: "gru"}.get(width, "plain")
+
+    from .gru_policy import load_checkpoint_auto
+
     stance = PPO.load(stance_list[si], device="cpu")
-    walk = PPO.load(walk_list[wi], device="cpu")
+    walk = load_checkpoint_auto(walk_list[wi], device="cpu")
     apply_vel_contract(walk_list[wi].stem)
     n_stance = int(stance.observation_space.shape[0])
     n_walk = int(walk.observation_space.shape[0])
+    walk_kind = walk_kind_of(n_walk)
     n_env = int(env.observation_space.shape[0])
-    assert n_walk <= n_env, (
+    assert walk_kind != "plain" or n_walk <= n_env, (
         f"walk policy obs {n_walk} wider than env {n_env} "
         "(74-obs phase-clock checkpoints need --phase-obs)")
     assert n_stance < n_env, (
         "stance policy obs must be a prefix of the walk env obs")
+
+    recover = None
+    if args.recover.exists():
+        recover = load_checkpoint_auto(args.recover, device="cpu")
+        assert int(recover.observation_space.shape[0]) == 72, (
+            f"{args.recover}: recovery checkpoints must be 72-obs")
+
+    # Walk-slot memories. hist: the last _HIST_K obs[:72] frames,
+    # NEWEST FIRST (sim_env._final_obs layout); None = seed with the
+    # current frame repeated on next use, exactly what env.reset does.
+    # gru: sb3-contrib recurrent state; cleared on TRUE episode starts
+    # only (9/B/F teleports) — bookkeeping re-anchors keep it, per the
+    # continuous-stream contract (eval_modeseq).
+    hist: list | None = None
+    gru = {"state": None, "start": np.ones((1,), dtype=bool)}
+
+    def reset_memories(hard: bool) -> None:
+        nonlocal hist
+        hist = None
+        if hard:
+            gru["state"] = None
+            gru["start"] = np.ones((1,), dtype=bool)
+
+    def walk_predict() -> np.ndarray:
+        nonlocal hist
+        if walk_kind == "hist":
+            frame = obs[:72].copy()
+            if hist is None:
+                hist = [frame.copy() for _ in range(_HIST_K)]
+            else:
+                hist.pop()
+                hist.insert(0, frame)
+            a, _ = walk.predict(np.concatenate(hist), deterministic=True)
+            return a
+        if walk_kind == "gru":
+            o = np.concatenate([obs[:72], obs[-_N_MODE:]])
+            a, gru["state"] = walk.policy.predict(
+                o, state=gru["state"], episode_start=gru["start"],
+                deterministic=True)
+            gru["start"] = np.zeros((1,), dtype=bool)
+            return a
+        a, _ = walk.predict(obs[:n_walk], deterministic=True)
+        return a
 
     traj = env.traj
     chassis_bid = env.model.body("chassis").id
@@ -632,7 +731,7 @@ def main() -> None:
         msg = f"stance model -> {stance_list[si].stem}"
 
     def set_walk(i: int) -> None:
-        nonlocal walk, wi, msg, gait, n_walk
+        nonlocal walk, wi, msg, gait, n_walk, walk_kind
         wi = i % len(walk_list)
         if walk_list[wi] in _SCRIPTED_ALPHA:
             walk = None                 # scripted driver, no checkpoint
@@ -643,17 +742,20 @@ def main() -> None:
                       f"alpha={_SCRIPTED_ALPHA[walk_list[wi]]:.1f} ")
                    + "(U/O to turn)")
             return
-        m = PPO.load(walk_list[wi], device="cpu")
+        m = load_checkpoint_auto(walk_list[wi], device="cpu")
         if m.action_space.shape != env.action_space.shape:
             msg = f"{walk_list[wi].stem}: action space mismatch - skipped"
             return
-        if int(m.observation_space.shape[0]) > n_env:
-            msg = (f"{walk_list[wi].stem}: obs "
-                   f"{int(m.observation_space.shape[0])} > env {n_env} "
+        w = int(m.observation_space.shape[0])
+        kind = walk_kind_of(w)
+        if kind == "plain" and w > n_env:
+            msg = (f"{walk_list[wi].stem}: obs {w} > env {n_env} "
                    "- needs --phase-obs; skipped")
             return
         walk = m
-        n_walk = int(m.observation_space.shape[0])
+        n_walk = w
+        walk_kind = kind
+        reset_memories(hard=True)      # fresh stack / recurrent state
         apply_vel_contract(walk_list[wi].stem)
         msg = f"walk model -> {walk_list[wi].stem}"
 
@@ -690,7 +792,9 @@ def main() -> None:
         traj.goal = TaskGoal()
         traj.goal.height_ref = h_goal
         traj.vx = traj.vy = 0.0
+        traj.mode = "hold"
         traj.reset_published()
+        reset_memories(hard=True)      # true episode start
         obs, _ = env.reset()
         msg = note
 
@@ -770,6 +874,7 @@ def main() -> None:
         traj.goal = TaskGoal()
         traj.vx = traj.vy = 0.0
         traj.reset_published()
+        reset_memories(hard=False)     # bookkeeping only: GRU state kept
         obs, _ = env.reset()
         restore_phys(keep_q, keep_v)
 
@@ -784,6 +889,7 @@ def main() -> None:
         traj.goal = TaskGoal()
         traj.vx = traj.vy = 0.0
         traj.reset_published()
+        reset_memories(hard=False)     # bookkeeping only: GRU state kept
         obs, _ = env.reset()
         restore_phys(keep_q, keep_v)
 
@@ -797,6 +903,9 @@ def main() -> None:
         if auto is not None:
             if auto[0] == "lower":
                 auto = None        # cancel the sit, stand instead
+            elif auto[0] == "recover":
+                msg = "recovering - wait for the stand (9 aborts)"
+                return
             else:
                 msg = ("rise already running - hands off (9 aborts)"
                        if auto[0] == "rise"
@@ -819,6 +928,7 @@ def main() -> None:
         traj.goal.height_ref = float(prof["target_m"])
         traj.vx = traj.vy = 0.0
         traj.reset_published()
+        reset_memories(hard=False)     # bookkeeping only: GRU state kept
         obs, _ = env.reset()
         restore_phys(keep_q, keep_v)
         rise_total = float(prof["hold_s"]) + float(prof["ramp_s"]) + 1.5
@@ -843,8 +953,11 @@ def main() -> None:
         if sitting:
             msg = "already lowered - 7 to rise"
             return
-        if auto is not None and auto[0] in ("blend", "fold"):
+        if auto is not None and auto[0] in ("blend", "fold", "fell"):
             msg = "scripted transition - one moment, then 8 again"
+            return
+        if auto is not None and auto[0] == "recover":
+            msg = "recovering - wait for the stand (9 aborts)"
             return
         auto = None                     # cancels a running rise
         traj.vx = traj.vy = 0.0
@@ -862,6 +975,87 @@ def main() -> None:
         auto = ["lower", 0, total]
         msg = (f"LOWER: {prof['target_m'] * 1000:+.0f}mm crouch, then "
                "settle to the ground - hands off")
+
+    # F cycles through these fallen poses (name, (roll, pitch),
+    # scramble-joints). First one is a sprawled tangle — the recover
+    # line's trained families (tangle/zero/crouch/partial; its any21
+    # curriculum has NO inversion family, measured 08-18: belly recovers
+    # to a full stand, side/back stay down). The tipped attitudes stay
+    # in the cycle as the honest hard cases.
+    _FALL_POSES = [("in a SPRAWL (tangled legs)", (0.4, 0.3), True),
+                   ("onto its LEFT side", (math.radians(90), 0.0), False),
+                   ("onto its BACK", (math.radians(180), 0.0), False),
+                   ("onto its RIGHT side", (math.radians(-90), 0.0), False),
+                   ("nose-over", (0.0, math.radians(-110)), False)]
+    fall_i = 0
+    upright_ticks = 0
+
+    def upright() -> bool:
+        qw, qx, qy, qz = env.data.qpos[3:7]
+        roll = math.atan2(2 * (qw * qx + qy * qz),
+                          1 - 2 * (qx * qx + qy * qy))
+        pitch = math.asin(max(-1.0, min(1.0, 2 * (qw * qy - qz * qx))))
+        return (chassis_z() > 0.10 and abs(roll) < 0.3
+                and abs(pitch) < 0.3)
+
+    def do_fall() -> None:
+        # An EXPLICIT teleport (the only kind allowed besides 9/B): tip
+        # the base into the next fallen attitude 20 cm up, zero all
+        # velocity, then let a torque-off limp tumble settle it — ends
+        # `downed`, exactly like a real tip, so R/7/9 all apply.
+        nonlocal auto, msg, downed, sitting, gait, om_cmd, fall_i
+        name, (roll, pitch), scramble = _FALL_POSES[fall_i
+                                                    % len(_FALL_POSES)]
+        fall_i += 1
+        held.clear()
+        traj.vx = traj.vy = 0.0
+        om_cmd = 0.0
+        gait = None
+        sitting = False
+        downed = False
+        cr, sr = math.cos(roll / 2), math.sin(roll / 2)
+        cp, sp = math.cos(pitch / 2), math.sin(pitch / 2)
+        env.data.qpos[2] = 0.20
+        env.data.qpos[3:7] = [cr * cp, sr * cp, cr * sp, sr * sp]
+        if scramble:
+            # Tangle spawn: every servo joint to a random legal angle
+            # (joint 0 is the free base; 1..18 are the hinges).
+            lo, hi = env.model.jnt_range[1:, 0], env.model.jnt_range[1:, 1]
+            env.data.qpos[7:25] = np.random.uniform(lo, hi)
+        env.data.qvel[:] = 0.0
+        mujoco.mj_forward(env.model, env.data)
+        reset_memories(hard=True)      # a teleport is a discontinuity
+        auto = ["fell", 0, int(4.0 / env.dt), chassis_z()]
+        msg = f"FALLING {name} (torque off)..."
+
+    def do_recover() -> None:
+        # R: hand the body to the recovery policy (recover-to-plant
+        # line). Episode re-anchors IN the fallen pose first — recover
+        # episodes SPAWN fallen, so goal frames anchor where it lies.
+        nonlocal auto, msg, downed, sitting, om_cmd, upright_ticks
+        if recover is None:
+            msg = f"no recovery checkpoint ({args.recover.name} missing)"
+            return
+        if auto is not None and auto[0] == "recover":
+            msg = "already recovering - hands off (9 aborts)"
+            return
+        if auto is not None and auto[0] == "fell":
+            msg = "still tumbling - press R once it lands"
+            return
+        auto = None
+        held.clear()
+        traj.vx = traj.vy = 0.0
+        om_cmd = 0.0
+        re_anchor_belly()
+        downed = False
+        sitting = False
+        upright_ticks = 0
+        # Recover line trained on the env default (privileged body
+        # vel); the selected walk model may have set the deployment
+        # contract. engage_walk() re-applies the walk contract later.
+        env.cfg.setdefault("goal", {})["walk_obs_body_vel"] = 1.0
+        auto = ["recover", 0, int(20.0 / env.dt)]
+        msg = "RECOVER: policy getting up - hands off (9 aborts)"
 
     # --- clickable model panel (like the robot webui's policy picker) ---
     # Fixed-size canvas + WINDOW_AUTOSIZE so mouse coords map 1:1 to
@@ -963,8 +1157,17 @@ def main() -> None:
         scripted = walk is None
         walking = ((cmd_speed > 1e-3 or (scripted and abs(om_cmd) > 1e-3))
                    and auto is None and not downed and not sitting)
-        if not walking and gait is not None:
-            gait = None      # stale anchors: re-pin on the next engage
+        if not walking:
+            if gait is not None:
+                gait = None  # stale anchors: re-pin on the next engage
+            hist = None      # stale frame stack: re-seed on next engage
+        # Skill-family label for the mode one-hot obs (transdagger
+        # contract): follow the player's own state machine.
+        traj.mode = ("rise" if auto is not None
+                     and auto[0] in ("rise", "blend", "recover")
+                     else "lower" if auto is not None
+                     and auto[0] in ("lower", "fold", "fell")
+                     else "walk" if walking else "hold")
         if downed:
             # No auto-reset: freeze the joints where they are and wait
             # for the operator (7 = try to stand in place, 9 = reset) —
@@ -1015,6 +1218,35 @@ def main() -> None:
                 sitting = True
                 q_sit = q_now()
                 msg = "lowered, parked on the ground - 7 to rise"
+        elif auto is not None and auto[0] == "fell":
+            # Torque-off tumble after the F teleport — same limp physics
+            # as the sit fold, but it ends DOWN (a fallen robot), not
+            # parked, so R/7/9 apply.
+            env._advance(limp=True)
+            action = None
+            auto[1] += 1
+            z = chassis_z()
+            settled = (auto[1] * env.dt > 1.0 and abs(z - auto[3]) < 2e-5)
+            auto[3] = z
+            if settled or auto[1] >= auto[2]:
+                re_anchor_belly()
+                auto = None
+                downed = True
+                msg = "FALLEN - R runs the recovery policy (7/9 also work)"
+        elif auto is not None and auto[0] == "recover":
+            # Recovery policy drives until the body is up and level for
+            # a full second, then the episode re-anchors in the plant
+            # frame and the stance policy holds.
+            action, _ = recover.predict(obs[:72], deterministic=True)
+            auto[1] += 1
+            upright_ticks = upright_ticks + 1 if upright() else 0
+            if upright_ticks >= int(1.0 / env.dt):
+                re_anchor_plant()
+                auto = None
+                msg = "recovered - standing (stance policy holding)"
+            elif auto[1] >= auto[2]:
+                auto = None
+                msg = "recovery timed out - R retries, 7/9 reset"
         elif sitting:
             # Parked on the ground: hold the pose captured at settle
             # (deadband makes this ~zero torque). A fixed target — NOT
@@ -1029,19 +1261,20 @@ def main() -> None:
             action = q_rad_to_action(np.radians(gait.desired_deg(gait_t)))
             gait_t += env.dt
         elif walking:
-            action, _ = walk.predict(obs[:n_walk], deterministic=True)
+            action = walk_predict()
         else:
             action, _ = stance.predict(obs[:n_stance], deterministic=True)
         if action is not None:
             obs, _r, term, trunc, info = env.step(action)
-            if (term or trunc) and not downed:
+            if ((term or trunc) and not downed
+                    and not (auto is not None and auto[0] == "recover")):
                 downed = True
                 auto = None
                 held.clear()
                 traj.vx = traj.vy = 0.0
                 om_cmd = 0.0
                 msg = (f"[{info.get('termination_reason') or 'episode end'}]"
-                       " DOWN - 7 rise in place, 9 reset standing")
+                       " DOWN - R recover, 7 rise in place, 9 reset")
 
         # --- HUD ---------------------------------------------------------
         frame = env.render()
@@ -1051,7 +1284,7 @@ def main() -> None:
         v = env._body_vel_xy()
         g = traj.goal
         if downed:
-            mode_txt = "DOWN (episode terminated) - 7 rise, 9 reset"
+            mode_txt = "DOWN - R recover, 7 rise, 9 reset"
             mode_col = (60, 60, 255)
         elif auto is not None:
             mode_txt = {
@@ -1059,8 +1292,11 @@ def main() -> None:
                 "blend": "RISING (auto): align to walk stance...",
                 "lower": "LOWERING (auto): trained lower to crouch...",
                 "fold": "LOWERING (auto): limp settle to the ground...",
+                "fell": "FALLING: torque-off tumble...",
+                "recover": "RECOVERING: recovery policy getting up...",
             }[auto[0]]
-            mode_col = (0, 200, 255)
+            mode_col = ((60, 60, 255) if auto[0] == "fell"
+                        else (0, 200, 255))
         elif sitting:
             mode_txt = "LOWERED (parked) - 7 to rise, 9 to reset standing"
             mode_col = (0, 200, 255)
@@ -1092,7 +1328,8 @@ def main() -> None:
             ("pad: dpad U/D stance model  L/R walk model  LB/RB height",
              (120, 220, 220) if pad_name else (140, 140, 140)),
             ("keys: HOLD arrows to drive (release = stop)   "
-             "7 rise  8 lower  9 reset  B belly", (180, 180, 180)),
+             "7 rise  8 lower  9 reset  B belly  F fall  R recover",
+             (180, 180, 180)),
             ("keys: I/K/J/L cruise trim  U/O turn (scripted gait)  "
              "0/space stop  =/- height  "
              "[ ] stance model  , . walk model  Q quit", (180, 180, 180)),
@@ -1146,6 +1383,9 @@ def main() -> None:
                                 "back up",
                        "fold": "settling to the ground - 7 to rise "
                                "when parked",
+                       "fell": "falling - R to recover once it lands",
+                       "recover": "recovering - drive keys work "
+                                  "once it is up",
                        }[auto[0]]
                 return False
             if downed:
@@ -1163,6 +1403,9 @@ def main() -> None:
             traj.goal.height_ref = 0.0
             traj._pub.roll_ref = traj._pub.pitch_ref = 0.0
             traj._pub.height_ref = 0.0
+            # Recovery may have flipped the env to privileged body vel;
+            # walking always runs the selected model's own contract.
+            apply_vel_contract(walk_list[wi].stem)
             if msg.startswith("too low to walk"):
                 msg = ""
             return True
@@ -1239,10 +1482,14 @@ def main() -> None:
             do_stand()
         elif k == ord("8"):
             do_sit()
-        elif k in (ord("9"), ord("r"), ord("R")):
+        elif k == ord("9"):
             do_reset("plant", 0.0, "reset standing")
         elif k in (ord("b"), ord("B")):
             do_reset("zero", 0.0, "reset belly-down (7 to rise)")
+        elif k in (ord("f"), ord("F")):
+            do_fall()
+        elif k in (ord("r"), ord("R")):
+            do_recover()
         elif k == ord("="):
             traj.goal.height_ref = min(traj.goal.height_ref + 0.005, 0.06)
         elif k == ord("-"):
