@@ -24,6 +24,42 @@ unresolved blockers between the robot and reliable joystick control.
 
 ## Now
 
+- **08-18 ~22:3x (triage cycle): `cw-dep-bcgait1-hard1-steer2-blend1`
+  CANARY PASSED mechanism health, but its own INFORMATIONAL read
+  CLOSES the pure command-side/exposure lever class on the joystick
+  direction-flip jam — three attempts, three different symptoms,
+  no cure.** Forced-eval note: this run's train cfg pins
+  `goal.walk_cmd_stage=0.0` as the pre-schedule base value, so the
+  auto pre-staged eval would have silently graded only the easy
+  2-family stage-0 subset — re-ran the panel by hand with
+  `--cfg-set goal.walk_cmd_stage=2.0` (full 6-family panel, matching
+  steer1/steer2-hard20m1-r1's own methodology) alongside the
+  pre-registered `blend_s_min/max=0` override. Result: 0/24
+  over_current across the full panel (best of three: steer1-hard20m1
+  3/24, steer2-hard20m1-r1 2/24, this run 0/24) — but 1/24 episode
+  (gate/det ep1) is a video-confirmed PARK/FREEZE stall (2 legs
+  sacrificed, feet-planted pattern frozen, v stuck ~0.02-0.06 m/s vs
+  ref the whole 120s, current never pinned at the safety limit) on
+  the identical flip_180 draw that also stalls (1-leg version) under
+  this run's own native training cfg — reproducible, not noise. So
+  the hard safety-trip is gone but the underlying flip_180 tangle
+  tendency just moved into a silent stall instead. Slip/m stays
+  elevated across all four panel slices (medians 2.48-3.55) — no
+  better than the FAILED steer2-hard20m1-r1's own elevated band
+  (2.2-3.9), still well above hard1's clean 1.3-1.5. Per the
+  pre-registered compound bar (zero/fewer over_current AND slip near
+  hard1's band) this is NOT a clean win — no matched ~20M hardening
+  continuation launched. CLOSING pure exposure/schedule/blend-ease
+  levers on this narrow sub-problem (3 attempts, 3 different
+  symptoms moved, none cured); the named fallback (reward-side
+  yaw-margin/joint-limit pricing) is real new CODE, not built this
+  cycle — recorded as a track finding, not queued, since mid-walk
+  instant-flip survivability is peripheral to the SIM SPRINT's named
+  deliverable (the shipped session controller re-anchors per
+  discrete segment change, never asks the walker to survive a
+  literal instant flip) and a new reward term deserves a dedicated
+  cycle. Does not touch today's download answer. Detail: ledger
+  verdict + W&B `608m9qc1` OUTCOME note.
 - **08-18 ~21:1x (triage cycle): `cw-dep-bcgait1-hard1-steer2-hard20m1-r1`
   FAILED its pre-registered gate clause (2) — the staged-curriculum
   lineage's ~20M full hardening pass did NOT reach zero over_current
