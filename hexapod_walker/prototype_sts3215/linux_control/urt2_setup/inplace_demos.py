@@ -31,6 +31,7 @@ From motor_setup: ``f`` = demos, ``g`` = go to zero pose.
 from __future__ import annotations
 
 import argparse
+import bisect
 import math
 import random
 import statistics
@@ -159,9 +160,14 @@ DANCE_PRANCE_PERIOD = 0.58   # s/cycle (gentle walk demo uses 0.85)
 DANCE_PRANCE_LIFT_MM = 32.0  # high knees (gentle walk demo uses 18)
 DANCE_PRANCE_VX = 0.09       # m/s out (RL band tops out at 0.06)
 DANCE_PRANCE_ACC = 80        # Feetech ACC units (×100 counts/s²)
-DANCE_PRANCE_FWD_S = 4.5     # ≈ 0.17–0.4 m out (slip-dependent)
-DANCE_PRANCE_SPIN_OMEGA = 0.85  # rad/s commanded — realizes a partial
-DANCE_PRANCE_SPIN_S = 7.4       # turn (sim ~110°); flourish, not a 360
+# Lap shape (operator 08-18): prance OUT further, ABOUT-FACE (true half
+# turn), prance HOME — no pirouette-for-no-reason. Out and home share
+# the same gait + duration, so the return distance matches the out leg
+# by symmetry no matter how much the feet slip.
+DANCE_PRANCE_FWD_S = 7.5     # sim: ~285 mm out (hardware slip-dependent)
+DANCE_PRANCE_TURN_OMEGA = 0.85  # rad/s commanded (gait clamps at 1.0)
+DANCE_PRANCE_HALFTURN_S = 9.3   # sim-measured 08-18: 19.3 deg/s realized
+                                # at ACC 80 regime → 180° in 9.3 s
 
 RISE_PRESETS = {
     "default": {
@@ -1901,6 +1907,287 @@ def frames_air_orbits(seconds: float = 18.0):
 
 
 
+# ---------------------------------------------------------------------------
+# SIMULATION SWARM — a sitting air dance choreographed to the song
+# (Big Thief, 4:13).  The beat grid and loudness envelope were measured
+# from the actual recording (librosa beat-track on the Bandcamp master,
+# 2026-08-18): ~108 BPM but LIVE — inter-beat wanders 0.53–0.58 s, so
+# the 436 real beat times are baked below (delta-encoded ms) instead of
+# assuming a fixed tempo.  AMP99 is the smoothed per-beat loudness
+# (00–99, p10→0 / p95→99 of the song's RMS); MOVES is the per-beat
+# choreography plan derived from 16-beat phrase loudness:
+#   0 BREATH (quiet verses + the operator-requested open/close)
+#   1 SWAY   (builds — travelling wave around the hex)
+#   2 PUMP   (driving sections — checkerboard knee pumps on the beat)
+#   3 BIG    (choruses + outro jam — arms overhead, downbeat punches)
+# Louder song → bigger movement: every move scales its ranges with the
+# live AMP envelope.  Beat 0 is a true downbeat (onset-strength test).
+_SWARM_T0_MS = 186
+_SWARM_BEAT_DELTAS_MS = (
+    "580,604,580,580,604,580,580,580,580,580,580,580,604,580,580,557,580,"
+    "580,580,580,580,580,580,580,580,557,580,580,580,580,557,580,580,580,"
+    "580,580,580,580,557,580,580,580,557,580,557,580,580,580,604,557,580,"
+    "557,580,557,580,580,580,580,580,580,557,580,580,557,557,580,580,580,"
+    "557,557,580,557,580,557,580,557,580,557,580,580,534,557,604,580,557,"
+    "580,557,604,557,534,627,580,534,557,557,557,580,557,557,580,534,580,"
+    "580,557,580,580,557,580,557,557,557,557,557,580,557,580,580,557,557,"
+    "580,557,557,580,557,557,557,580,557,557,557,580,580,557,580,557,557,"
+    "580,557,580,557,557,580,557,557,557,580,557,557,557,557,534,557,557,"
+    "580,557,557,557,557,557,557,557,580,534,557,557,557,557,534,557,580,"
+    "557,580,557,557,557,557,534,557,557,557,557,557,557,604,557,580,557,"
+    "557,557,557,464,650,627,557,557,580,557,557,557,557,580,557,557,557,"
+    "580,557,580,557,580,557,511,580,627,580,557,557,604,557,534,557,557,"
+    "580,557,580,604,580,511,557,580,557,557,580,580,557,557,557,557,557,"
+    "534,580,580,557,557,580,557,580,580,557,557,580,580,580,557,557,580,"
+    "580,557,580,580,557,557,557,604,534,557,557,580,557,557,580,557,604,"
+    "580,580,580,557,580,557,580,557,580,557,580,557,580,557,580,557,557,"
+    "557,580,557,534,557,557,580,557,557,557,557,534,580,557,580,580,557,"
+    "557,557,557,557,557,557,557,557,557,557,557,557,557,580,557,534,557,"
+    "580,557,580,557,580,557,580,534,580,557,534,557,557,557,557,534,580,"
+    "534,557,557,580,557,557,534,557,534,557,557,580,580,557,557,557,557,"
+    "534,557,580,557,580,534,557,534,557,557,580,557,557,557,557,557,604,"
+    "557,557,557,604,557,580,557,557,580,580,557,580,557,580,580,557,580,"
+    "557,534,604,580,534,604,580,580,557,580,580,557,580,580,580,557,580,"
+    "534,580,580,557,604,557,557,580,557,604,580,557,580,557,557,580,557,"
+    "557,534,580,580,580,580,557,557,557,557")
+_SWARM_AMP99 = (
+    "00020204041310111015060606050205041111100708010202020101000000000206"
+    "06232427292918262125343531312113080817171719171009151815182215182322"
+    "18202022212826211523242937453737393633343431253341485252403419161713"
+    "14171926313031282930324139394544383833323133464540393936334049444347"
+    "43373936424253576271747777787069697571737767616966717478717267737176"
+    "72736967647370727276696958503323100501031726294751414443342927253532"
+    "36424441404553515250474337455760596357483736433740434746495353515156"
+    "47646161577058665968646864696054485654586469606459605665616859554544"
+    "30414643454843474645504746424241352534292828332723222624333641393635"
+    "39364545444546415253637179868989847969656569687883777982727370656267"
+    "64687382788184858489858881818580778580828386797979776772665961584133"
+    "20222129364948515261576368767177656457666779818884816669687070838081"
+    "71736767616768736969707367736661453114100000000000000000")
+_SWARM_MOVES = (
+    "00000000000000000000000000000000111111111111111100000000000000000000"
+    "00000000000011111111111111111111111111111111111111111111111111111111"
+    "11111111333333333333333333333333333333331111111111111111111111111111"
+    "11112222222222222222111111111111111122222222222222222222222222222222"
+    "11111111111111111111111111111111222222222222222233333333333333333333"
+    "33333333333333333333333333331111111111111111333333333333333333333333"
+    "3333333311111111000000000000")
+_SWARM_CACHE: dict = {}
+_SWARM_SECTION_NOTES = {
+    "0": "breathing on the beat",
+    "1": "sway — the build",
+    "2": "PUMP — on the beat",
+    "3": "GO BIG — chorus",
+}
+
+
+def _swarm_tables():
+    """Decode the baked song data once: times_s, amps01, moves, starts."""
+    if not _SWARM_CACHE:
+        t = _SWARM_T0_MS / 1000.0
+        times = [t]
+        for d in _SWARM_BEAT_DELTAS_MS.split(","):
+            t += int(d) / 1000.0
+            times.append(t)
+        amps = [int(_SWARM_AMP99[i:i + 2]) / 99.0
+                for i in range(0, len(_SWARM_AMP99), 2)]
+        starts = [0] * len(times)
+        for i in range(1, len(times)):
+            starts[i] = (starts[i - 1]
+                         if _SWARM_MOVES[i] == _SWARM_MOVES[i - 1] else i)
+        _SWARM_CACHE.update(times=times, amps=amps,
+                            moves=_SWARM_MOVES, starts=starts)
+    c = _SWARM_CACHE
+    return c["times"], c["amps"], c["moves"], c["starts"]
+
+
+def _swarm_pulse(u: float) -> float:
+    """Percussive on-beat hit with a ~0.1 s attack ramp.
+
+    A raw exp(-k*u) decay JUMPS to 1.0 at u=0 — one 0.08 s tick of
+    step, which rate-checked at 160 deg/s on the finale's hip punch.
+    Easing the attack over the first 18% of the beat keeps the hit
+    punchy but streamable.
+    """
+    if u < 0.18:
+        return math.sin(0.5 * math.pi * u / 0.18)
+    return math.exp(-4.0 * (u - 0.18))
+
+
+def _swarm_move_pose(move: str, bi: float, idx: int, u: float,
+                     a: float) -> list[float]:
+    """One move vocabulary evaluated at beat-clock (bi, idx, u), amp a."""
+    pose = _zero_pose()
+    pulse = _swarm_pulse(u)             # percussive on-beat hit
+    if move == "0":                     # BREATH — all legs as one lung
+        br = 0.5 - 0.5 * math.cos(2.0 * math.pi * (bi % 4.0) / 4.0)
+        hip = -(3.0 + (7.0 + 9.0 * a) * br)
+        knee = 1.5 + (4.0 + 7.0 * a) * br
+        knee += (1.5 + 2.5 * a) * pulse
+        if idx % 4 == 0:
+            hip -= 2.0 * a * pulse
+        for leg in range(6):
+            _yaw_hip_knee(leg, pose, yaw=0.0, hip=hip, knee=knee)
+    elif move == "1":                   # SWAY — travelling wave, 8 beats
+        for leg in range(6):
+            ph = 2.0 * math.pi * bi / 8.0 - leg * (math.pi / 3.0)
+            hip = -16.0 - (7.0 + 8.0 * a) * math.sin(ph + 0.8)
+            if idx % 2 == 0:
+                hip -= 2.5 * a * pulse
+            _yaw_hip_knee(
+                leg, pose,
+                yaw=(9.0 + 8.0 * a) * math.sin(ph),
+                hip=hip,
+                knee=5.0 + (7.0 + 6.0 * a) * math.sin(ph + 1.6))
+    elif move == "2":                   # PUMP — checkerboard on the beat
+        for leg in range(6):
+            sgn = math.cos(math.pi * u) * (1.0 if (idx + leg) % 2 == 0
+                                           else -1.0)
+            knee = 7.0 + (8.0 + 12.0 * a) * sgn
+            if idx % 4 == 0:
+                knee += 4.0 * a * pulse
+            _yaw_hip_knee(
+                leg, pose,
+                yaw=(5.0 + 7.0 * a) * sgn * (1.0 if leg % 2 else -1.0),
+                hip=-20.0 - 8.0 * a + 5.0 * a * sgn,
+                knee=knee)
+    else:                               # BIG — arms overhead, punches
+        hip_base = -42.0 - 10.0 * a + 1.5 * math.sin(2.0 * math.pi * bi / 8.0)
+        knee_base = 13.0 + 7.0 * a
+        punch = (5.0 + 4.0 * a) * pulse if idx % 4 == 0 else 0.0
+        for leg in range(6):
+            bounce = ((5.0 + 5.0 * a) * pulse
+                      if (idx + leg) % 2 == 0 else 0.0)
+            _yaw_hip_knee(
+                leg, pose,
+                yaw=(7.0 + 6.0 * a) * math.sin(
+                    2.0 * math.pi * bi / 4.0 + leg * _CHAOS_GOLD),
+                hip=hip_base - punch,
+                knee=knee_base - bounce)
+    return pose
+
+
+def _swarm_pose(t: float) -> list[float]:
+    """Pose at song time t (s): beat-locked, loudness-scaled, blended."""
+    times, amps, moves, starts = _swarm_tables()
+    n = len(times)
+    if t <= times[0]:
+        return _swarm_move_pose("0", 0.0, 0, 1.0, amps[0])
+    idx = bisect.bisect_right(times, t) - 1
+    idx = min(idx, n - 1)
+    nxt = times[idx + 1] if idx + 1 < n else times[idx] + 0.557
+    u = min(1.0, (t - times[idx]) / max(nxt - times[idx], 1e-6))
+    bi = idx + u
+    a = amps[idx] + (amps[min(idx + 1, n - 1)] - amps[idx]) * u
+    pose = _swarm_move_pose(moves[idx], bi, idx, u, a)
+    s = starts[idx]
+    if s > 0 and bi - s < 2.0:          # 2-beat crossfade between moves
+        w = 0.5 - 0.5 * math.cos(math.pi * min(1.0, (bi - s) / 2.0))
+        old = _swarm_move_pose(moves[s - 1], bi, idx, u, a)
+        pose = [o * (1.0 - w) + p * w for o, p in zip(old, pose)]
+    return pose
+
+
+def run_swarm_dance(bus: FeetechBus, *, abort_check=None, status_cb=None,
+                    torque=None, log_path: Path | None = None) -> str:
+    """SIMULATION SWARM — sitting show synced to the Big Thief song.
+
+    The robot counts you in with four metronome nods (press play on the
+    GO nod), then dances the whole 4:07 on a WALL-CLOCK beat schedule:
+    each tick samples the choreography at true elapsed time, so timing
+    error never accumulates the way per-tick sleep drift would over
+    four minutes.  Tempo/speed sliders are ignored — the song owns the
+    clock.  Begins and ends with the breath, on the beat.
+    """
+    live = _live_robot_ids(bus)
+    if len(live) < 3:
+        print(f"  Only {len(live)} robot servo(s) — need more.")
+        return "skipped"
+    check = abort_check or (lambda: False)
+
+    def note(msg: str) -> None:
+        print(f"  {msg}")
+        if status_cb is None:
+            return
+        try:
+            status_cb(str(msg))
+        except Exception:
+            pass
+
+    _enable_torque(bus, live)
+    try:
+        tlim = int(torque) if torque is not None else DEMO_TORQUE_LIMIT
+    except (TypeError, ValueError):
+        tlim = DEMO_TORQUE_LIMIT
+    _set_torque_limit(bus, live, max(150, min(1000, tlim)))
+
+    times, amps, moves, starts = _swarm_tables()
+    t_end = times[-1] + 0.6
+    stream = PoseStreamer()
+
+    def play(pose_at, seconds: float, *, t_off: float = 0.0) -> bool:
+        """Stream pose_at(t) on an ABSOLUTE schedule for `seconds`."""
+        t0 = time.monotonic()
+        i = 0
+        while True:
+            now = time.monotonic()
+            t = now - t0
+            if t >= seconds:
+                return True
+            if check():
+                _hold_here(bus, live)
+                return False
+            stream.write(bus, pose_at(t + t_off), live, dt=DT, max_acc=80)
+            i += 1
+            time.sleep(max(0.0, t0 + i * DT - time.monotonic()))
+
+    # Count-in: four metronome nods, one second apart. Press play as the
+    # GO nod lands — the choreography clock starts exactly there.
+    def nod(t: float) -> list[float]:
+        pose = _zero_pose()
+        k = 5.0 * _swarm_pulse(t % 1.0)
+        for leg in range(6):
+            _yaw_hip_knee(leg, pose, knee=k)
+        return pose
+
+    for cnt in ("3", "2", "1", "GO — PRESS PLAY NOW"):
+        note(f"SIMULATION SWARM count-in: {cnt}"
+             if cnt != "GO — PRESS PLAY NOW" else cnt)
+        if not play(nod, 1.0):
+            return "aborted"
+
+    log_cm = MotionLog(log_path, live) if log_path is not None else None
+    if log_cm is not None:
+        log_cm.__enter__()
+    try:
+        last_note = [""]
+
+        def pose_with_notes(t: float) -> list[float]:
+            idx = min(bisect.bisect_right(times, t) - 1, len(times) - 1)
+            if idx >= 0:
+                m = moves[idx]
+                if m != last_note[0]:
+                    last_note[0] = m
+                    note(_SWARM_SECTION_NOTES.get(m, m))
+            return _swarm_pose(t)
+
+        ok = play(pose_with_notes, t_end)
+    finally:
+        if log_cm is not None:
+            log_cm.__exit__(None, None, None)
+    if not ok:
+        _set_torque_limit(bus, live, 1000)
+        return "aborted"
+
+    note("song over — breathing out")
+    if not go_to_zero_pose(bus, abort_check=check, seconds=2.5):
+        _set_torque_limit(bus, live, 1000)
+        return "aborted"
+    _limp_all(bus, live)
+    _set_torque_limit(bus, live, 1000)
+    return "done"
+
+
 # Ordered gentlest → spiciest (web UI + CLI menu follow this order).
 DEMOS = {
     # --- gentle air (offsets around logical 0° / legs out) ---------------
@@ -1920,6 +2207,9 @@ DEMOS = {
                      "into sync", frames_air_pendulum),
     "air_orbits": ("[3 air show] six orbits magnetize into one, release",
                    frames_air_orbits),
+    "dance_swarm": ("[3 air show] SIMULATION SWARM — beat-synced to the "
+                    "Big Thief song (4:07) · counts you in, press play "
+                    "on GO", None),
     # --- standing dances (streamed · live speed · around the live plant) --
     "stand_sway": ("[3 stand] slow body sway — weight orbits the hex", None),
     "stand_bounce": ("[3 stand] squat bob — smooth streamed bounce", None),
@@ -1943,8 +2233,8 @@ DEMOS = {
     "rise_show": ("[6 show] FULL planted show (all of the above)", None),
     "dance": ("[6 show] DANCE — heartbeat → breathe → hands up → RISE "
               "→ wild → sleep", None),
-    "dance_walk": ("[6 show] DANCE + VICTORY LAP — the dance, then an "
-                   "RL walk box (strut/sidestep/moonwalk), then sleep",
+    "dance_walk": ("[6 show] DANCE + VICTORY LAP — the dance, then "
+                   "prance out, about-face, prance home, sleep",
                    None),
     # --- real walk (open-loop tripod gait) --------------------------------
     "walk": ("[7 walk] tripod forward a few strides, then stand", None),
@@ -1976,6 +2266,7 @@ AIR_DEMO_SECONDS = {
     "air_meet": 24.0,
     "air_pendulum": 20.0,
     "air_orbits": 18.0,
+    "dance_swarm": 252.0,   # the song's length — the clock is the song's
 }
 
 
@@ -3401,16 +3692,18 @@ def run_walk_demo(bus: FeetechBus, name: str = "walk", *,
 
 def run_dance_prance(bus: FeetechBus, phase: str = "out", *,
                      abort_check=None, status_cb=None) -> str:
-    """Victory-lap gait phases — the aggressive open-loop half.
+    """Victory-lap gait phases — the aggressive open-loop tripod.
 
     ``phase="out"``: horse-prance forward (quick cadence, high knees).
-    ``phase="spin"``: pirouette flourish in place — the lap finale, run
-    at home where open-loop heading slip can't hurt anything (slip
-    means a partial turn, which is fine as a bow).
-    Both start by easing onto the walk plant (stand zero) and end
-    HOLDING it, so the RL moonwalk can run between them.
+    ``phase="halfturn"``: about-face — a sim-calibrated 180° spin in
+    place, so the "home" leg walks FORWARD back toward the start.
+    ``phase="home"``: prance back — identical gait and duration to
+    "out", so the return distance matches by symmetry however much
+    the feet slip on the day's floor.
+    Each phase starts by easing onto the walk plant (stand zero) and
+    ends HOLDING it, so phases chain cleanly.
     """
-    assert phase in ("out", "spin")
+    assert phase in ("out", "halfturn", "home")
     try:
         from tripod_gait import TripodGait
     except ImportError as e:
@@ -3446,10 +3739,13 @@ def run_dance_prance(bus: FeetechBus, phase: str = "out", *,
     if phase == "out":
         segments = [("PRANCE — high knees, quick cadence",
                      DANCE_PRANCE_VX, 0.0, 0.0, DANCE_PRANCE_FWD_S)]
+    elif phase == "halfturn":
+        segments = [("ABOUT-FACE — half turn in place",
+                     0.0, 0.0, DANCE_PRANCE_TURN_OMEGA,
+                     DANCE_PRANCE_HALFTURN_S)]
     else:
-        segments = [("PIROUETTE — spin flourish",
-                     0.0, 0.0, DANCE_PRANCE_SPIN_OMEGA,
-                     DANCE_PRANCE_SPIN_S)]
+        segments = [("PRANCE home — same strut back",
+                     DANCE_PRANCE_VX, 0.0, 0.0, DANCE_PRANCE_FWD_S)]
 
     gait.reset_phase(t=time.monotonic())
     for label, vx, vy, om, dur in segments:
@@ -3702,10 +3998,10 @@ def run_demo(bus: FeetechBus, name: str, *,
             speed=spd, log_path=log_path)
     if name in ("dance", "dance_walk"):
         # Choreographed times (like rise_show) — live tempo not wired in.
-        # dance_walk's RL victory lap needs the web bench (it owns the
-        # drive object); from the CLI it degrades to the full dance.
+        # dance_walk's victory lap is composed by the web bench (it owns
+        # the safety plumbing); from the CLI it degrades to the dance.
         if name == "dance_walk":
-            print("  (RL victory lap runs from the web bench only — "
+            print("  (victory lap runs from the web bench only — "
                   "playing the full dance)")
         return run_dance_demo(
             bus, abort_check=abort_check, speed=spd, size=size,
@@ -3748,6 +4044,11 @@ def run_demo(bus: FeetechBus, name: str, *,
     if name == "arms_up":
         return run_arms_up_demo(
             bus, abort_check=abort_check, speed=spd, seconds=seconds,
+            torque=torque, log_path=log_path)
+    if name == "dance_swarm":
+        # Song-locked: ignores speed/seconds — the recording is the clock.
+        return run_swarm_dance(
+            bus, abort_check=abort_check, status_cb=status_cb,
             torque=torque, log_path=log_path)
 
     title, frame_fn = DEMOS[name]

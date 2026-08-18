@@ -27,7 +27,7 @@ REGISTRY_CANDIDATES = (
 AIR_DEMO_NAMES = frozenset({
     "breathe", "breathe_v", "heartbeat", "twinkle", "shimmy", "ripple",
     "conductor", "arms_up",
-    "air_meet", "air_pendulum", "air_orbits",
+    "air_meet", "air_pendulum", "air_orbits", "dance_swarm",
     # dance goes planted mid-routine but starts AND ends at sit zero
     # (limp), so it homes like an air demo and must not stand-hold after.
     "dance",
@@ -887,16 +887,13 @@ class BenchAPI:
                 "switched_from": switched_from,
                 "demo": self.demo_state(), "robot": self.robot_state()}
 
-    # Victory lap: horse-prance out (open-loop tripod — quick cadence,
-    # high knees), RL MOONWALK straight home (silky contrast, heading
-    # untouched so the return line is true), then a full 360° pirouette
-    # finale in place, where open-loop heading slip can't hurt anything.
-    DANCE_LAP_V = 0.055          # m/s, just under the trained 0.06 band
-    # Sized to the sim-predicted realized prance-out distance (~0.17 m
-    # at 0.038 m/s realized). If hardware pranced further, the moonwalk
-    # UNDERSHOOTS home — safe; a long moonwalk overshooting backward is
-    # the dangerous direction.
-    DANCE_MOONWALK_S = 3.5
+    # Victory lap (operator 08-18): horse-prance OUT (open-loop tripod —
+    # quick cadence, high knees), ABOUT-FACE (sim-calibrated 180° turn),
+    # horse-prance HOME. Out and home share the same gait + duration, so
+    # the return distance matches the out leg by symmetry regardless of
+    # floor slip — no distance model needed. The old RL moonwalk +
+    # pirouette finale was retired (turning for no reason read as
+    # aimless; the moonwalk needed a slip-dependent distance guess).
 
     def _step_standup_fn(self, *, gen: int, speed: float):
         """Bound STEP stand-up for the dance's act IV (inline, same gen).
@@ -916,12 +913,12 @@ class BenchAPI:
     def _run_dance_walk(self, *, gen: int, speed: float, size: float,
                         softness: float, torque: int | None,
                         status_cb, log_path: Path) -> str:
-        """dance acts I–V → RL walk victory lap → dance act VI.
+        """dance acts I–V → tripod victory lap → dance act VI.
 
         Runs inside the demo worker thread (slot already claimed, sit
-        homing already done). A refused lap (rl_policy missing, walk
-        preflight fails) is never fatal — the outro still plays so the
-        robot always ends asleep at sit zero. A SAFETY-TRIPPED lap is
+        homing already done). A refused lap (tripod gait unavailable)
+        is never fatal — the outro still plays so the robot always
+        ends asleep at sit zero. A SAFETY-TRIPPED lap is
         fatal: the robot is limped and stays limped (no blind outro
         from an unknown pose — 2026-08-06 lesson).
         """
@@ -936,11 +933,9 @@ class BenchAPI:
         if st != "planted":
             return st
 
-        lap_err, limped = self._victory_lap(gen=gen, status_cb=status_cb)
+        lap_err = self._victory_lap(status_cb=status_cb)
         if self._demo_abort.is_set() or lap_err == "aborted":
             return "aborted"
-        if limped:
-            return f"error: lap safety-tripped ({lap_err}) — robot limp"
         if lap_err:
             status_cb(f"lap skipped ({lap_err}) — descending anyway")
 
@@ -950,114 +945,29 @@ class BenchAPI:
             torque=torque, abort_check=self._demo_abort.is_set,
             status_cb=status_cb, log_path=outro_log)
 
-    def _victory_lap(self, *, gen: int,
-                     status_cb) -> tuple[str | None, bool]:
-        """Prance out → RL moonwalk home → pirouette.
+    def _victory_lap(self, *, status_cb) -> str | None:
+        """Prance out → about-face (180°) → prance home.
 
-        Returns ``(error, limped)`` — ``(None, False)`` on success.
-        A missing gait or refused moonwalk degrades gracefully (the
-        remaining phases still play); an abort or safety limp is fatal.
+        Returns an error string, or None on success. All three phases
+        are the same open-loop tripod, so if the gait is unavailable
+        the whole lap is skipped in one place; if a later phase
+        refuses, the lap stops there (never turn/return blindly).
         """
         d = self.drive
         try:
             from inplace_demos import run_dance_prance
         except ImportError as e:
-            return f"inplace_demos missing: {e}", False
+            return f"inplace_demos missing: {e}"
 
-        st = run_dance_prance(d.bus, "out",
-                              abort_check=self._demo_abort.is_set,
-                              status_cb=status_cb)
-        if st == "aborted" or self._demo_abort.is_set():
-            return "aborted", False
-        if st != "done":
-            # Never moved — skip the whole lap rather than moonwalk
-            # from an unknown spot.
-            return "prance gait unavailable", False
-
-        moon_err, limped = self._rl_moonwalk(gen=gen, status_cb=status_cb)
-        if limped:
-            return moon_err, True
-        if self._demo_abort.is_set():
-            return "aborted", False
-        if moon_err:
-            status_cb(f"moonwalk skipped ({moon_err}) — pirouette")
-
-        st = run_dance_prance(d.bus, "spin",
-                              abort_check=self._demo_abort.is_set,
-                              status_cb=status_cb)
-        if st == "aborted" or self._demo_abort.is_set():
-            return "aborted", False
-        return None, False
-
-    def _rl_moonwalk(self, *, gen: int,
-                     status_cb) -> tuple[str | None, bool]:
-        """RL drive session walking straight backward to the start.
-
-        Returns ``(error, limped)``. Same start contract as
-        rl_drive_start: read-only walk preflight with the moderate-tilt
-        auto-acquire fallback.
-        """
-        try:
-            from rl_policy import DriveCommand, preflight, run_drive_session
-        except ImportError as e:
-            return f"rl_policy missing: {e}", False
-        d = self.drive
-        status_cb("victory lap — walk preflight")
-        ok, reason, details = preflight(d.bus, "walk")
-        if not ok and (reason.startswith("pose is not")
-                       or reason.startswith("tilt too high")):
-            r = abs(float(details.get("roll_deg", 90.0)))
-            p = abs(float(details.get("pitch_deg", 90.0)))
-            if r <= 35.0 and p <= 35.0:
-                status_cb("victory lap — acquiring the walk stance")
-                res_a = self._acquire_start(
-                    "stand", gen=gen,
-                    on_progress=lambda pr: status_cb(
-                        str(pr.get("msg") or "acquiring stance…")))
-                if not res_a.get("ok"):
-                    return (str(res_a.get("error") or "stance not acquired"),
-                            False)
-                ok, reason, details = preflight(d.bus, "walk")
-        if not ok:
-            return f"preflight: {reason}", False
-
-        # Full torque for the weight-bearing walk (RL never touches the
-        # limit register; the dance show leaves it at rise torque).
-        try:
-            from inplace_demos import _live_robot_ids, _set_torque_limit
-            _set_torque_limit(d.bus, _live_robot_ids(d.bus), 1000)
-        except Exception:
-            pass
-
-        cmd = DriveCommand()
-        session_over = threading.Event()
-
-        def _sched():
-            status_cb("victory lap — MOONWALK home (silky RL glide)")
-            t_end = time.time() + float(self.DANCE_MOONWALK_S)
-            while time.time() < t_end:
-                if session_over.is_set() or self._demo_abort.is_set():
-                    break
-                cmd.set(-self.DANCE_LAP_V, 0.0)
-                time.sleep(0.15)
-            cmd.request_stop()
-
-        sched = threading.Thread(target=_sched, daemon=True)
-        sched.start()
-        try:
-            res = run_drive_session(
-                d, cmd,
-                on_progress=lambda p: None,
-                abort_check=self._demo_abort.is_set,
-                walk_weights=self._role_weights("walk"),
-                hold_weights=self._role_weights("hold"))
-        finally:
-            session_over.set()
-        sched.join(timeout=2.0)
-        if not res.get("ok"):
-            return (str(res.get("error") or "drive session failed"),
-                    bool(res.get("limped")))
-        return None, bool(res.get("limped"))
+        for phase in ("out", "halfturn", "home"):
+            st = run_dance_prance(d.bus, phase,
+                                  abort_check=self._demo_abort.is_set,
+                                  status_cb=status_cb)
+            if st == "aborted" or self._demo_abort.is_set():
+                return "aborted"
+            if st != "done":
+                return f"lap {phase} unavailable ({st})"
+        return None
 
     def _delta_vs_present(self, goal: list[float]
                           ) -> tuple[float | None, int | None]:

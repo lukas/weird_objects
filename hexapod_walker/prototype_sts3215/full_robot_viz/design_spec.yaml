@@ -21,7 +21,7 @@ parts:
     role: "chassis"
     cots: false
     qty: 1
-    description: "Structural 200 mm flat-to-flat hex deck (single merged print) with 6 integrated STS3215 front-face-mount yaw cradles + upward yaw-bearing towers, one per leg at each hex-edge midpoint. Each STS3215 inserts from BELOW (output UP), bolts via 4x M2.5 through the cradle front plate, body hangs DOWN through a body cutout; the bolt-on yaw_servo_retainer stirrup captures it. A folded 4 mm floor makes the printed bottom one flush flat face so it prints flat, tower-up, no supports (Jun 2026 flush-bottom fix; check_flat_bottom overhang = 0.00 mm)."
+    description: "Structural 200 mm flat-to-flat hex deck (single merged print) with 6 integrated STS3215 front-face-mount yaw cradles + upward yaw-bearing towers, one per leg at each hex-edge midpoint. Each STS3215 inserts from BELOW (output UP), bolts via 4x M2.5 through the cradle front plate, body hangs DOWN through a body cutout; the bolt-on yaw_servo_retainer stirrup captures it. A folded 4 mm floor makes the printed bottom one flush flat face so it prints flat, tower-up, no supports (Jun 2026 flush-bottom fix; check_flat_bottom overhang = 0.00 mm). Aug 16 2026: \u00d89 full-stack seat pads restore the 4 brass-standoff seats that the inboard-shifted harness ports had clipped (each pad nibbles one port corner; connectors still pass)."
   chassis_standoff:
     label: "chassis standoff"
     role: "electronics"
@@ -39,7 +39,7 @@ parts:
     role: "frame"
     cots: false
     qty: 6
-    description: "ONE-PIECE printed coxa (Aug 2026 merge of the old coxa_yaw_hub + coxa_hip_bracket): the yaw turntable hub (bolts the driven \u00d820 disc horn on the \u00d814 / 4x M3 circle, rides the touching 6805 pair (25x37x7, Aug 2026 thick-section swap) on a \u00d824.95 boss) fused to the hip servo cradle. 5 vertical head-access shafts through the foot plate reach the horn screws from the (empty) hip servo well."
+    description: "ONE-PIECE printed coxa (Aug 2026 merge of the old coxa_yaw_hub + coxa_hip_bracket): the yaw turntable hub (bolts the driven \u00d820 disc horn on the \u00d814 / 4x M3 circle, rides the touching 6805 pair (25x37x7, Aug 2026 thick-section swap) on a \u00d825.15 press-fit boss) fused to the hip servo cradle. Aug 17 2026 sink pass: the cradle rides 5 mm lower -- its foot slab fuses through the full platform band and the hip-servo well floor sits 2 mm over the platform top (+26), so the 5 vertical head-access shafts are only ~5.3 mm deep above the M3x30 horn-screw heads (any driver fits) and the part is 5 mm shorter. Aug 17 2026 scrape fix: the running gaps between the rotating link and the stationary yaw_bearing_cap widened to 1.5 mm axial (platform underside over the cap rim) and 1.0 mm radial (dust-skirt bore over the Phi 44 ring) after the printed parts scraped. The horn-screw seats are 1.25 mm deeper (bench: printed seats + screw tolerance ate ~1 mm of horn bite; corner tips now just break the disc's far face, the centre seat goes 1 mm deeper into the spline tap). Aug 16 2026 flatten: the cradle's 4x M2.5 end-face bolt holes and the DS3225-era wire-exit corridor are deleted -- a clean 4-wall box. Aug 17 2026: the cradle grew the SAME rear retention tab as the femur knee cradle (user: 'copy that same part ... so I can screw into the servo from both sides') -- a vertical 5.5 mm plate on the back-face side taking 2x M2.5x6 self-tappers into the hip servo's rear molded hole pair nearer the inboard/wire end, heads flush in Phi 5.2 x 2 mm recesses (connector-end pair stays open for the bus harness; the swinging femur arm passes ~1.5 mm over the tab's outer face)."
   disc_horn_hip:
     label: "disc horn hip"
     role: "horn"
@@ -63,7 +63,7 @@ parts:
     role: "frame"
     cots: false
     qty: 6
-    description: "The WHOLE femur as ONE printed part (Jul 2026 merge #2 of the old hip yoke + knee bracket): the hip-end yoke straddles the hip servo (top arm bolts the driven disc horn, bottom arm the passive horn; 8 mm spine plate since Aug 2026), a SOLID \u00d818 spar with small cone flares at both ends bridges the full 90 mm hip-to-knee span, and the knee-end cradle mounts the knee servo + 688 bearing housing. No sockets, no slip fits, no retention pins anywhere in the femur."
+    description: "The WHOLE femur as ONE printed part (Jul 2026 merge #2 of the old hip yoke + knee bracket): the hip-end yoke straddles the hip servo (top arm bolts the driven disc horn, bottom arm the passive horn; 8 mm spine plate since Aug 2026, and both horn pads reach 0.5 mm/side deeper \u2014 YOKE_PAD_EXTRA_REACH, bench fit \u2014 to close the measured ~1 mm clevis-to-horn gap), a SOLID \u00d818 spar with small cone flares at both ends bridges the full 90 mm hip-to-knee span, and the knee-end cradle mounts the knee servo + 688 bearing housing. Aug 2026: a rear tab under the knee servo's open back face takes 2\u00d7 M2.5\u00d76 self-tappers into the rear molded hole pair nearer the spar (the connector-end pair stays open for the bus harness; the tab reaches 4.5 mm past the servo's wire-end face \u2014 Aug 17 2026 bench remeasure: the flat back-face ledge before the ~1.8 mm case step is just under 5 mm, not the ~4 mm read off the photo, so the 1 mm-longer tab now fully encloses both screw holes instead of the old open keyhole slots \u2014 its wall riser is capped 3.5 mm above the servo base for the wire-end shell flare, and the heads sit FLUSH in \u00d85.2 \u00d7 2 mm recesses like the output plate's 4 countersunk case screws: the tab is 5.5 mm thick = 3.5 shank + 2 head pocket, keeping the M2.5\u00d76's pilot bite unchanged), and the knee well's far (+X) wall is one flat solid face: full-width buttress thickness, no DS3225-era wire channel (the knee cables leave via the back-face ports through the open back). No sockets, no slip fits, no retention pins anywhere in the femur."
   foot_boot:
     label: "foot boot"
     role: "frame"
@@ -164,13 +164,13 @@ parts:
     label: "screw chassis"
     role: "fastener"
     cots: true
-    qty: 12
+    qty: 8
     description: "Chassis-level / foot / deck fasteners (rendered set)."
   screw_hip:
     label: "screw hip"
     role: "fastener"
     cots: true
-    qty: 96
+    qty: 72
     description: "Fasteners around the hip joint / bearing sandwich (rendered set)."
   screw_knee:
     label: "screw knee"
@@ -195,13 +195,13 @@ parts:
     role: "electronics"
     cots: true
     qty: 1
-    description: "Printed holster for the anti-spark XT60 on/off switch, bolted to 2 bosses on chassis_top's +X edge (2x M3x10 SHCS into heat-set inserts)."
+    description: "Printed holster for the anti-spark XT60 on/off switch, velcroed flat to chassis_top's +X edge (Aug 16 2026: the bolt-down bosses/inserts/ear are retired -- solid flat floor for the velcro patch)."
   tibia_knee_yoke:
     label: "tibia knee yoke"
     role: "frame"
     cots: false
     qty: 6
-    description: "Printed tibia knee-end yoke driven off the knee disc horn (bearing-sandwich passive side on the opposite face); sockets the \u00d88 tibia tube."
+    description: "Printed tibia knee-end yoke driven off the knee disc horn (bearing-sandwich passive side on the opposite face); sockets the \u00d88 tibia tube. Aug 2026 bench fit: both horn pads reach 0.5 mm/side deeper (YOKE_PAD_EXTRA_REACH) to close the measured ~1 mm total clevis-to-horn gap."
   tibia_tube:
     label: "tibia tube"
     role: "spar"
@@ -224,14 +224,14 @@ parts:
     label: "wago power"
     role: "electronics"
     cots: true
-    qty: 12
-    description: "3-port Wago 221-413 lever nut for a per-leg 12 V + G motor branch: one V+/GND pair per chassis_bottom hex corner flat (between adjacent yaw cradles), wire entries facing the chassis centre, seated between the two-bay tray walls integrated into the chassis_bottom top face (late-Aug 2026; was a separate printed wago_mount tray). Polarity convention (same at every corner, viewed from above): V+ = the nut CLOCKWISE of the corner's outward ray, GND = counterclockwise. COTS."
+    qty: 6
+    description: "5-port Wago 221-415 lever nut for a per-leg 12 V + G motor branch: ONE press-fit nut per chassis_bottom hex corner flat, wedged between the integrated tray walls (Aug 16 2026, user -- was a V+/GND pair of 3-port 221-413; WAGO_MOUNT_BAY_CLEAR is now -0.15, a 0.75 mm tighter nominal-interference press fit), wire entries facing the chassis centre. COTS."
   wago_trunk:
     label: "wago trunk"
     role: "electronics"
     cots: true
     qty: 2
-    description: "Central trunk splice pair: two 5-port Wago 221-415 side by side near the chassis_top centre (nudged +X for adapter wire clearance), wire entries facing +X toward the switch. Polarity: V+ = the SOUTH nut at (16, -16) nearest the switch, GND = the NORTH nut at (16, +16). The fused battery trunk lands here and fans out the six 16 AWG branches to the corner power Wago pairs (as-built Aug 2026: no PDB \u2014 power distribution is all lever nuts). COTS."
+    description: "Central trunk splice pair: two 5-port Wago 221-415 side by side near the chassis_top centre (nudged +X for adapter wire clearance), wire entries facing +X toward the switch. Polarity: V+ = the SOUTH nut at (16, -16) nearest the switch, GND = the NORTH nut at (16, +16). The fused battery trunk lands here and fans out the six 16 AWG branches to the corner power Wagos (as-built Aug 2026: no PDB \u2014 power distribution is all lever nuts). COTS."
   wago_v33:
     label: "wago v33"
     role: "electronics"
@@ -407,9 +407,9 @@ wiring:
   route-uart-uno-adapter-gnd:
     purpose: "Uno Q MCU UART from the digital-header pins D1(TX)/D0(RX)/GND (feetech_bridge, 1 Mbps bus / 921600 to Linux) -> over the round plate's -X rim -> south around the adapter -> UART/MCU header on the adapter's +X servo face (jumper A; USB-C is bench-only -- VIN power gives no USB host mode / no VBUS) [GND]"
   route-data-head-sig:
-    purpose: "bus head: adapter servo plug -> over the switch holster (top deck0+26.5; the hex-plate underside leaves a 4 mm lane) -> down SOUTH of the az-0 corner Wago mount (mount spans y +/-22.3, x 79-102) -> inboard of the L0 yaw tower -> L0 drop slot -> L0 data Wago (S+GND only; adapter is data-only on the robot) [S]"
+    purpose: "bus head: adapter servo plug -> over the switch holster (top deck0+21.5, velcro mount; the hex-plate underside leaves a 9 mm lane) -> down SOUTH of the az-0 corner Wago mount (mount spans y +/-22.3, x 79-102) -> inboard of the L0 yaw tower -> L0 drop slot -> L0 data Wago (S+GND only; adapter is data-only on the robot) [S]"
   route-data-head-gnd:
-    purpose: "bus head: adapter servo plug -> over the switch holster (top deck0+26.5; the hex-plate underside leaves a 4 mm lane) -> down SOUTH of the az-0 corner Wago mount (mount spans y +/-22.3, x 79-102) -> inboard of the L0 yaw tower -> L0 drop slot -> L0 data Wago (S+GND only; adapter is data-only on the robot) [GND]"
+    purpose: "bus head: adapter servo plug -> over the switch holster (top deck0+21.5, velcro mount; the hex-plate underside leaves a 9 mm lane) -> down SOUTH of the az-0 corner Wago mount (mount spans y +/-22.3, x 79-102) -> inboard of the L0 yaw tower -> L0 drop slot -> L0 data Wago (S+GND only; adapter is data-only on the robot) [GND]"
   route-i2c-imu-gnd:
     purpose: "Uno Q I2C from the digital-header pins SCL/SDA/GND -> diagonally over the board -> over the round plate's SE rim (r ~ 59, between the raised-platform legs) -> GY-521 MPU glued on chassis_top beside the trunk Wagos (28 AWG; MPU VCC comes off the 3.3 V Wago instead, route-3v3-mpu) [GND]"
   route-i2c-imu-scl:
@@ -437,29 +437,29 @@ wiring:
   route-screen-blk:
     purpose: "screen pigtail 8x 28 AWG: Uno Q pins (3V3+GND on the power header; D13/D11/D10/D9/D8/D7 = SCK/MOSI/CS/DC/RES/BLK on the digital header) -> bundles over the board's east end -> rises just inboard of the az-330 platform leg (r 36; blade starts r 42) -> under the top plate -> UP through the 24x5 wire slot behind the panel's +X edge (panel held by 4x M2 self-tappers in the top-plate pilot holes) [BLK]"
   route-pwr-L0-vp:
-    purpose: "L0 power 16-18 AWG: trunk nuts (V+ = south, GND = north) -> corner Wago pair at az 0 deg (V+ = the clockwise nut of the integrated chassis tray) -> inboard of the yaw tower -> leg 0 drop [V+]"
+    purpose: "L0 power 16-18 AWG: trunk nuts (V+ = south, GND = north) -> corner 5-port Wago at az 0 deg (single press-fit 221-415 in the integrated chassis tray; V+ on a clockwise port, GND counterclockwise) -> inboard of the yaw tower -> leg 0 drop [V+]"
   route-pwr-L0-gnd:
-    purpose: "L0 power 16-18 AWG: trunk nuts (V+ = south, GND = north) -> corner Wago pair at az 0 deg (V+ = the clockwise nut of the integrated chassis tray) -> inboard of the yaw tower -> leg 0 drop [GND]"
+    purpose: "L0 power 16-18 AWG: trunk nuts (V+ = south, GND = north) -> corner 5-port Wago at az 0 deg (single press-fit 221-415 in the integrated chassis tray; V+ on a clockwise port, GND counterclockwise) -> inboard of the yaw tower -> leg 0 drop [GND]"
   route-pwr-L1-vp:
-    purpose: "L1 power 16-18 AWG: trunk nuts (V+ = south, GND = north) -> corner Wago pair at az 60 deg (V+ = the clockwise nut of the integrated chassis tray) -> inboard of the yaw tower -> leg 1 drop [V+]"
+    purpose: "L1 power 16-18 AWG: trunk nuts (V+ = south, GND = north) -> corner 5-port Wago at az 60 deg (single press-fit 221-415 in the integrated chassis tray; V+ on a clockwise port, GND counterclockwise) -> inboard of the yaw tower -> leg 1 drop [V+]"
   route-pwr-L1-gnd:
-    purpose: "L1 power 16-18 AWG: trunk nuts (V+ = south, GND = north) -> corner Wago pair at az 60 deg (V+ = the clockwise nut of the integrated chassis tray) -> inboard of the yaw tower -> leg 1 drop [GND]"
+    purpose: "L1 power 16-18 AWG: trunk nuts (V+ = south, GND = north) -> corner 5-port Wago at az 60 deg (single press-fit 221-415 in the integrated chassis tray; V+ on a clockwise port, GND counterclockwise) -> inboard of the yaw tower -> leg 1 drop [GND]"
   route-pwr-L2-vp:
-    purpose: "L2 power 16-18 AWG: trunk nuts (V+ = south, GND = north) -> corner Wago pair at az 120 deg (V+ = the clockwise nut of the integrated chassis tray) -> inboard of the yaw tower -> leg 2 drop [V+]"
+    purpose: "L2 power 16-18 AWG: trunk nuts (V+ = south, GND = north) -> corner 5-port Wago at az 120 deg (single press-fit 221-415 in the integrated chassis tray; V+ on a clockwise port, GND counterclockwise) -> inboard of the yaw tower -> leg 2 drop [V+]"
   route-pwr-L2-gnd:
-    purpose: "L2 power 16-18 AWG: trunk nuts (V+ = south, GND = north) -> corner Wago pair at az 120 deg (V+ = the clockwise nut of the integrated chassis tray) -> inboard of the yaw tower -> leg 2 drop [GND]"
+    purpose: "L2 power 16-18 AWG: trunk nuts (V+ = south, GND = north) -> corner 5-port Wago at az 120 deg (single press-fit 221-415 in the integrated chassis tray; V+ on a clockwise port, GND counterclockwise) -> inboard of the yaw tower -> leg 2 drop [GND]"
   route-pwr-L3-vp:
-    purpose: "L3 power 16-18 AWG: trunk nuts (V+ = south, GND = north) -> corner Wago pair at az 180 deg (V+ = the clockwise nut of the integrated chassis tray) -> inboard of the yaw tower -> leg 3 drop [V+]"
+    purpose: "L3 power 16-18 AWG: trunk nuts (V+ = south, GND = north) -> corner 5-port Wago at az 180 deg (single press-fit 221-415 in the integrated chassis tray; V+ on a clockwise port, GND counterclockwise) -> inboard of the yaw tower -> leg 3 drop [V+]"
   route-pwr-L3-gnd:
-    purpose: "L3 power 16-18 AWG: trunk nuts (V+ = south, GND = north) -> corner Wago pair at az 180 deg (V+ = the clockwise nut of the integrated chassis tray) -> inboard of the yaw tower -> leg 3 drop [GND]"
+    purpose: "L3 power 16-18 AWG: trunk nuts (V+ = south, GND = north) -> corner 5-port Wago at az 180 deg (single press-fit 221-415 in the integrated chassis tray; V+ on a clockwise port, GND counterclockwise) -> inboard of the yaw tower -> leg 3 drop [GND]"
   route-pwr-L4-vp:
-    purpose: "L4 power 16-18 AWG: trunk nuts (V+ = south, GND = north) -> corner Wago pair at az 240 deg (V+ = the clockwise nut of the integrated chassis tray) -> inboard of the yaw tower -> leg 4 drop [V+]"
+    purpose: "L4 power 16-18 AWG: trunk nuts (V+ = south, GND = north) -> corner 5-port Wago at az 240 deg (single press-fit 221-415 in the integrated chassis tray; V+ on a clockwise port, GND counterclockwise) -> inboard of the yaw tower -> leg 4 drop [V+]"
   route-pwr-L4-gnd:
-    purpose: "L4 power 16-18 AWG: trunk nuts (V+ = south, GND = north) -> corner Wago pair at az 240 deg (V+ = the clockwise nut of the integrated chassis tray) -> inboard of the yaw tower -> leg 4 drop [GND]"
+    purpose: "L4 power 16-18 AWG: trunk nuts (V+ = south, GND = north) -> corner 5-port Wago at az 240 deg (single press-fit 221-415 in the integrated chassis tray; V+ on a clockwise port, GND counterclockwise) -> inboard of the yaw tower -> leg 4 drop [GND]"
   route-pwr-L5-vp:
-    purpose: "L5 power 16-18 AWG: trunk nuts (V+ = south, GND = north) -> corner Wago pair at az 300 deg (V+ = the clockwise nut of the integrated chassis tray) -> inboard of the yaw tower -> leg 5 drop [V+]"
+    purpose: "L5 power 16-18 AWG: trunk nuts (V+ = south, GND = north) -> corner 5-port Wago at az 300 deg (single press-fit 221-415 in the integrated chassis tray; V+ on a clockwise port, GND counterclockwise) -> inboard of the yaw tower -> leg 5 drop [V+]"
   route-pwr-L5-gnd:
-    purpose: "L5 power 16-18 AWG: trunk nuts (V+ = south, GND = north) -> corner Wago pair at az 300 deg (V+ = the clockwise nut of the integrated chassis tray) -> inboard of the yaw tower -> leg 5 drop [GND]"
+    purpose: "L5 power 16-18 AWG: trunk nuts (V+ = south, GND = north) -> corner 5-port Wago at az 300 deg (single press-fit 221-415 in the integrated chassis tray; V+ on a clockwise port, GND counterclockwise) -> inboard of the yaw tower -> leg 5 drop [GND]"
   route-data-L0L1-sig:
     purpose: "leg 0 -> leg 1 data jumper via underside data Wagos, dipping under the belly around the LiPo packs (signal+GND only, NO V+) [S]"
   route-data-L0L1-gnd:

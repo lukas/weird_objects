@@ -159,12 +159,12 @@ ROLE = {
 # 688 passive bearing on the other).  When you add/rename a partType in PALETTE,
 # add its rationale here too — a missing key makes the build non-compat.
 DESCRIPTIONS = {
-    "coxa_link": "ONE-PIECE printed coxa (Aug 2026 merge of the old coxa_yaw_hub + coxa_hip_bracket): the yaw turntable hub (bolts the driven Ø20 disc horn on the Ø14 / 4x M3 circle, rides the touching 6805 pair (25x37x7, Aug 2026 thick-section swap) on a Ø24.95 boss) fused to the hip servo cradle. 5 vertical head-access shafts through the foot plate reach the horn screws from the (empty) hip servo well.",
+    "coxa_link": "ONE-PIECE printed coxa (Aug 2026 merge of the old coxa_yaw_hub + coxa_hip_bracket): the yaw turntable hub (bolts the driven Ø20 disc horn on the Ø14 / 4x M3 circle, rides the touching 6805 pair (25x37x7, Aug 2026 thick-section swap) on a Ø25.15 press-fit boss) fused to the hip servo cradle. Aug 17 2026 sink pass: the cradle rides 5 mm lower -- its foot slab fuses through the full platform band and the hip-servo well floor sits 2 mm over the platform top (+26), so the 5 vertical head-access shafts are only ~5.3 mm deep above the M3x30 horn-screw heads (any driver fits) and the part is 5 mm shorter. Aug 17 2026 scrape fix: the running gaps between the rotating link and the stationary yaw_bearing_cap widened to 1.5 mm axial (platform underside over the cap rim) and 1.0 mm radial (dust-skirt bore over the Phi 44 ring) after the printed parts scraped. The horn-screw seats are 1.25 mm deeper (bench: printed seats + screw tolerance ate ~1 mm of horn bite; corner tips now just break the disc's far face, the centre seat goes 1 mm deeper into the spline tap). Aug 16 2026 flatten: the cradle's 4x M2.5 end-face bolt holes and the DS3225-era wire-exit corridor are deleted -- a clean 4-wall box. Aug 17 2026: the cradle grew the SAME rear retention tab as the femur knee cradle (user: 'copy that same part ... so I can screw into the servo from both sides') -- a vertical 5.5 mm plate on the back-face side taking 2x M2.5x6 self-tappers into the hip servo's rear molded hole pair nearer the inboard/wire end, heads flush in Phi 5.2 x 2 mm recesses (connector-end pair stays open for the bus harness; the swinging femur arm passes ~1.5 mm over the tab's outer face).",
     "yaw_bearing_cap": "Printed cap that closes the top of each chassis yaw-bearing tower, capturing the upper yaw bearing.",
     "yaw_bearing_lower": "Lower ball bearing of the yaw-axis bearing pair in the chassis tower (COTS).",
     "yaw_bearing_upper": "Upper ball bearing of the yaw-axis bearing pair in the chassis tower (COTS).",
-    "femur_link": "The WHOLE femur as ONE printed part (Jul 2026 merge #2 of the old hip yoke + knee bracket): the hip-end yoke straddles the hip servo (top arm bolts the driven disc horn, bottom arm the passive horn; 8 mm spine plate since Aug 2026), a SOLID Ø18 spar with small cone flares at both ends bridges the full 90 mm hip-to-knee span, and the knee-end cradle mounts the knee servo + 688 bearing housing. No sockets, no slip fits, no retention pins anywhere in the femur.",
-    "tibia_knee_yoke": "Printed tibia knee-end yoke driven off the knee disc horn (bearing-sandwich passive side on the opposite face); sockets the Ø8 tibia tube.",
+    "femur_link": "The WHOLE femur as ONE printed part (Jul 2026 merge #2 of the old hip yoke + knee bracket): the hip-end yoke straddles the hip servo (top arm bolts the driven disc horn, bottom arm the passive horn; 8 mm spine plate since Aug 2026, and both horn pads reach 0.5 mm/side deeper — YOKE_PAD_EXTRA_REACH, bench fit — to close the measured ~1 mm clevis-to-horn gap), a SOLID Ø18 spar with small cone flares at both ends bridges the full 90 mm hip-to-knee span, and the knee-end cradle mounts the knee servo + 688 bearing housing. Aug 2026: a rear tab under the knee servo's open back face takes 2× M2.5×6 self-tappers into the rear molded hole pair nearer the spar (the connector-end pair stays open for the bus harness; the tab reaches 4.5 mm past the servo's wire-end face — Aug 17 2026 bench remeasure: the flat back-face ledge before the ~1.8 mm case step is just under 5 mm, not the ~4 mm read off the photo, so the 1 mm-longer tab now fully encloses both screw holes instead of the old open keyhole slots — its wall riser is capped 3.5 mm above the servo base for the wire-end shell flare, and the heads sit FLUSH in Ø5.2 × 2 mm recesses like the output plate's 4 countersunk case screws: the tab is 5.5 mm thick = 3.5 shank + 2 head pocket, keeping the M2.5×6's pilot bite unchanged), and the knee well's far (+X) wall is one flat solid face: full-width buttress thickness, no DS3225-era wire channel (the knee cables leave via the back-face ports through the open back). No sockets, no slip fits, no retention pins anywhere in the femur.",
+    "tibia_knee_yoke": "Printed tibia knee-end yoke driven off the knee disc horn (bearing-sandwich passive side on the opposite face); sockets the Ø8 tibia tube. Aug 2026 bench fit: both horn pads reach 0.5 mm/side deeper (YOKE_PAD_EXTRA_REACH) to close the measured ~1 mm total clevis-to-horn gap.",
 
     "tibia_tube": "Ø8 carbon-fibre tibia segment (130 mm knee->foot). Retained by epoxy bond alone (Aug 2026 -- retention pin removed). CF for stiffness/weight at the longest, most-loaded segment.",
     "foot_boot": "TPU 95A boot pressed over the tibia tube end -- flat chamfer-rimmed tip is the ground contact (Aug 2026; replaces the hinged foot fitting + pad + M3x16 pin).",
@@ -176,7 +176,7 @@ DESCRIPTIONS = {
     "yaw_servo": "FEETECH STS3215 serial-bus servo driving the hip-yaw axis (real FEETECH envelope). COTS.",
     "hip_servo": "FEETECH STS3215 serial-bus servo driving the hip-pitch axis. COTS.",
     "knee_servo": "FEETECH STS3215 serial-bus servo driving the knee axis. COTS.",
-    "chassis_bottom": "Structural 200 mm flat-to-flat hex deck (single merged print) with 6 integrated STS3215 front-face-mount yaw cradles + upward yaw-bearing towers, one per leg at each hex-edge midpoint. Each STS3215 inserts from BELOW (output UP), bolts via 4x M2.5 through the cradle front plate, body hangs DOWN through a body cutout; the bolt-on yaw_servo_retainer stirrup captures it. A folded 4 mm floor makes the printed bottom one flush flat face so it prints flat, tower-up, no supports (Jun 2026 flush-bottom fix; check_flat_bottom overhang = 0.00 mm).",
+    "chassis_bottom": "Structural 200 mm flat-to-flat hex deck (single merged print) with 6 integrated STS3215 front-face-mount yaw cradles + upward yaw-bearing towers, one per leg at each hex-edge midpoint. Each STS3215 inserts from BELOW (output UP), bolts via 4x M2.5 through the cradle front plate, body hangs DOWN through a body cutout; the bolt-on yaw_servo_retainer stirrup captures it. A folded 4 mm floor makes the printed bottom one flush flat face so it prints flat, tower-up, no supports (Jun 2026 flush-bottom fix; check_flat_bottom overhang = 0.00 mm). Aug 16 2026: Ø9 full-stack seat pads restore the 4 brass-standoff seats that the inboard-shifted harness ports had clipped (each pad nibbles one port corner; connectors still pass).",
     "chassis_top": "Hex top plate that closes the chassis; carries the trunk power Wagos + motor controller and the 4 magnet posts for the hex board (per-leg power Wago pairs live below, on the chassis_bottom corner flats).",
     "hex_mount_plate": "Round Ø115 mm board (2 mm, matches the chassis_top disc) held by 4 magnets on 20 mm posts; carries Uno Q + breakout on top and the 3.3 V Wago underneath. Late-Aug 2026: 4 underside registration bosses socket the magnet tops (shear goes to plastic, magnets only carry pull); legacy 49.5 mm bolt square dropped. Review round 2: 3 stand-foot holes (M3x8 up into the stand's self-tap pilots), the Uno Q's 3-point UNO mount holes (M3x8 down into thumb nuts; the separate io board is retired), 2 Ø8 wire ports at the south rim, E/W zip-tie slots. Print-only (SVG cut file retired).",
     "hex_raised_platform": "Screen stand ('hex' is historical): round Ø115 top disc matching the plate below, on 3 blade legs at az 90/210/330 (28 mm, shortened from 72 in the late-Aug 2026 design review to cut the lever arm on the magnet-held plate). Mounts with 3x M3x8 SHCS driven up from under the plate into blind self-tap pilots in the feet. Screen on the top face, held by 4x M2 self-tappers in corner pilot holes, its 8-wire Uno pigtail entering through the 24x5 slot behind the panel's +X edge (MPU is glued on chassis_top, not under this plate).",
@@ -186,18 +186,18 @@ DESCRIPTIONS = {
     "hex_post_magnet": "Ø8×8 mm disc magnet that holds the hex mount plate.",
     "uno_q": "Arduino Uno Q compute board on the hex mount plate (high-level control host). COTS.",
     "breakout": "Generic shield / breakout next to the Uno Q on the hex plate. COTS.",
-    "wago_trunk": "Central trunk splice pair: two 5-port Wago 221-415 side by side near the chassis_top centre (nudged +X for adapter wire clearance), wire entries facing +X toward the switch. Polarity: V+ = the SOUTH nut at (16, -16) nearest the switch, GND = the NORTH nut at (16, +16). The fused battery trunk lands here and fans out the six 16 AWG branches to the corner power Wago pairs (as-built Aug 2026: no PDB — power distribution is all lever nuts). COTS.",
+    "wago_trunk": "Central trunk splice pair: two 5-port Wago 221-415 side by side near the chassis_top centre (nudged +X for adapter wire clearance), wire entries facing +X toward the switch. Polarity: V+ = the SOUTH nut at (16, -16) nearest the switch, GND = the NORTH nut at (16, +16). The fused battery trunk lands here and fans out the six 16 AWG branches to the corner power Wagos (as-built Aug 2026: no PDB — power distribution is all lever nuts). COTS.",
     "wago_v33": "3.3 V rail splice: one 5-port Wago 221-415 VHB-taped flat under the round mount plate near its south rim, wire entries facing -Y. Feed = Uno Q 3V3 pin (down through the east Ø8 wire port); load = MPU VCC (straight down to the deck), 3 spare ports (Aug 2026: the screen's VCC rides its own 8-wire Uno pigtail instead). Pull the plate off its magnets to work the levers. COTS.",
     "motor_controller": "Waveshare Bus Servo Adapter (A), 42x33 mm, on the chassis_top west band. Servo/UART plugs exit its +X face, screw terminal + USB-C its -X face; both faces keep clear wire zones, and the USB-C additionally keeps a 30 mm bench-plug corridor off the -X face so a laptop cable plugs straight in (connector_clearance checks; the corridor may pass the deck rim because the robot is parked when tethered). As-built the Uno Q drives it over the D0/D1 TX/RX/GND UART pigtail (jumper A); USB-C is bench-only since a VIN-powered Uno Q gives no USB host mode / no VBUS. COTS.",
     "screen": "63×35 mm display panel centered on the raised platform top. COTS.",
     "mpu6050": "GY-521 MPU-6050 IMU glued on chassis_top just south of the central trunk Wago pair (inboard, r=43). Right-angle header row faces -X with a clear wire zone (connector_clearance check). I²C to the Uno Q above. COTS.",
-    "wago_power": "3-port Wago 221-413 lever nut for a per-leg 12 V + G motor branch: one V+/GND pair per chassis_bottom hex corner flat (between adjacent yaw cradles), wire entries facing the chassis centre, seated between the two-bay tray walls integrated into the chassis_bottom top face (late-Aug 2026; was a separate printed wago_mount tray). Polarity convention (same at every corner, viewed from above): V+ = the nut CLOCKWISE of the corner's outward ray, GND = counterclockwise. COTS.",
+    "wago_power": "5-port Wago 221-415 lever nut for a per-leg 12 V + G motor branch: ONE press-fit nut per chassis_bottom hex corner flat, wedged between the integrated tray walls (Aug 16 2026, user -- was a V+/GND pair of 3-port 221-413; WAGO_MOUNT_BAY_CLEAR is now -0.15, a 0.75 mm tighter nominal-interference press fit), wire entries facing the chassis centre. COTS.",
     "wago_data": "Wago 221-style lever nut under chassis near a yaw retainer for the shared data bus.",
     "lipo_battery": "3S 2200 mAh shorty LiPo (Zeee 75x34x26.5 mm), one of a PARALLEL pair velcro'd side by side under chassis_bottom's flat belly (block yawed 30 deg; XT60 Y-harness). Replaces the single bay pack -- lower CG and a clear inter-plate wiring bay. COTS.",
     "hip_clamp_cap": "Printed clamp cap that clamshells the hip servo cradle (bolts to the cradle wall ends), capturing the servo body.",
     "knee_clamp_cap": "Printed clamp cap that closes the knee yoke's tube socket, clamping the Ø8 tibia tube.",
     "yaw_servo_retainer": "Anti-rotation saddle under each yaw cradle (Aug 2026 flat-belly rework: the 38 mm ground stand is removed; the belly is flat except the hanging servos + saddles).",
-    "switch_holster": "Printed holster for the anti-spark XT60 on/off switch, bolted to 2 bosses on chassis_top's +X edge (2x M3x10 SHCS into heat-set inserts).",
+    "switch_holster": "Printed holster for the anti-spark XT60 on/off switch, velcroed flat to chassis_top's +X edge (Aug 16 2026: the bolt-down bosses/inserts/ear are retired -- solid flat floor for the velcro patch).",
     "screw_yaw": "Fasteners around the yaw joint / servo mount (rendered set; count is the summed per-leg joint hardware).",
     "screw_hip": "Fasteners around the hip joint / bearing sandwich (rendered set).",
     "screw_knee": "Fasteners around the knee joint / bearing sandwich (rendered set).",
@@ -323,7 +323,23 @@ INTENDED_OVERLAP_PAIRS = frozenset(
         # needed).  Tibia: carbon-fibre spar epoxied into the yoke /
         # fitting sockets.
         ("tibia_knee_yoke", "tibia_tube"),
+        # BOTH clevises' pads press onto their disc-horn pairs:
+        # YOKE_PAD_EXTRA_REACH (+0.5 mm/side, Aug 2026 bench fit -- closes the
+        # measured ~1 mm total clevis gap on the tibia knee yoke AND the femur
+        # hip yoke) on top of YOKE_SEAT_INTERF makes ~0.63 mm/side of DESIGNED
+        # nominal interference (~150 mm^3 per horn), an intended preload fill.
+        ("tibia_knee_yoke", "disc_horn_knee"),
+        ("tibia_knee_yoke", "passive_horn_knee"),
+        ("femur_link", "disc_horn_hip"),
+        ("femur_link", "passive_horn_hip"),
         ("foot_boot", "tibia_tube"),
+        # Yaw hub boss PRESSES both 6805 inner races (Aug 16 2026 bench
+        # refit round 2: YAW_HUB_BOSS_OD = ID + 0.15 -- -0.05 barely touched and
+        # +0.05 still printed at 25.0, the side-printed layer axis quantizing
+        # to 0.2 mm layers).  ~320 mm^3 of designed nominal interference per
+        # race in the faceted scene meshes.
+        ("coxa_link", "yaw_bearing_lower"),
+        ("coxa_link", "yaw_bearing_upper"),
         # Printed stacks sharing a flush/running interface (the one-piece
         # coxa_link's hub boss runs inside the stationary bearing cap).
         ("coxa_link", "yaw_bearing_cap"),
@@ -601,7 +617,7 @@ _SCENE_MESH_KEY = {
     "knee_clamp_cap": "servo_clamp_cap",
     "wago_trunk": "wago5",
     "wago_v33": "wago5",
-    "wago_power": "wago3",
+    "wago_power": "wago5",
     "wago_data": "wago",
 }
 
@@ -867,9 +883,10 @@ def _body_local_parts() -> list[tuple[str, trimesh.Trimesh, np.ndarray]]:
         ("chassis_bottom", HP.make_chassis_bottom(), np.eye(4)),
         ("chassis_top", HP.make_chassis_top(),
          _trans([0, 0, HP.CHASSIS_TOP_CENTRE_Z])),
+        # Velcroed flat on the deck (Aug 16 2026: insert bosses retired).
         ("switch_holster", HP.make_switch_holster(),
          _trans([HP.SWITCH_HOLSTER_CENTRE_X, HP.SWITCH_HOLSTER_CENTRE_Y,
-                 HP.CHASSIS_TOP_TOP_Z + HP.SWITCH_HOLSTER_BOSS_H])),
+                 HP.CHASSIS_TOP_TOP_Z])),
     ]
     parts.extend(HP.asbuilt_electronics_local_parts())
     return parts
@@ -1837,8 +1854,8 @@ def _build_body_routes(chassis_lift: float, legs: list[int],
                       _leg_drop(0), _leg_src(0)),
         "maxLengthMm": 450.0,
         "label": ("bus head: adapter servo plug -> over the switch holster "
-                  "(top deck0+26.5; the hex-plate underside leaves a 4 mm "
-                  "lane) -> down SOUTH of the az-0 corner Wago mount "
+                  "(top deck0+21.5, velcro mount; the hex-plate underside "
+                  "leaves a 9 mm lane) -> down SOUTH of the az-0 corner Wago mount "
                   "(mount spans y +/-22.3, x 79-102) -> inboard of the "
                   "L0 yaw tower -> L0 drop slot -> L0 data Wago (S+GND "
                   "only; adapter is data-only on the robot)"),
@@ -1967,24 +1984,22 @@ def _build_body_routes(chassis_lift: float, legs: list[int],
         "blk": {0: w(uno_pin("D7"))},
     })
 
-    # -- 6x power branches: trunk Wagos -> corner Wago pair -> leg drop -----
-    # As-built Aug 2026: each leg's V+/GND splice pair (two 3-port Wago
-    # 221-413 between the tray walls integrated into the chassis_bottom
-    # top face) sits at the chassis_bottom hex CORNER FLAT at az =
-    # leg*60 deg (30 deg clockwise of the leg's yaw axis), wire entries
-    # facing the chassis centre.  The branch hops off
+    # -- 6x power branches: trunk Wagos -> corner Wago -> leg drop ----------
+    # Aug 16 2026 (user): each corner now holds ONE press-fit 5-port Wago
+    # 221-415 between the tray walls integrated into the chassis_bottom
+    # top face (was a V+/GND pair of 3-port 221-413), at the chassis_bottom
+    # hex CORNER FLAT at az = leg*60 deg (30 deg clockwise of the leg's yaw
+    # axis), wire entries facing the chassis centre.  The branch hops off
     # the chassis_top edge, descends into the inter-plate bay outside the
-    # top plate, lands on the corner pair, then runs to the leg drop slot.
+    # top plate, lands on the corner nut, then runs to the leg drop slot.
     wago_r = (HP.WAGO_MOUNT_EDGE_R - HP.WAGO_MOUNT_WALL_T
-              - (HP.WAGO3_D + HP.WAGO_MOUNT_BAY_CLEAR) / 2.0)
-    # Nuts sit directly on the plate top face (integrated tray, no floor).
-    wago_top_z = HP.CHASSIS_PLATE_T / 2.0 + HP.WAGO3_H
-    # Tangential half-spacing of the two 3-port nuts in a corner tray
-    # (tray local +Y = world tangential (-sin a, cos a)).  Polarity
-    # convention: V+ = the nut CLOCKWISE of the corner ray (s = -1),
-    # GND = counterclockwise (s = +1) -- same at every corner.
-    nut_dt = (HP.WAGO3_W + HP.WAGO_MOUNT_BAY_CLEAR
-              + HP.WAGO_MOUNT_WALL_T) / 2.0
+              - (HP.WAGO5_D + HP.WAGO_MOUNT_BAY_CLEAR) / 2.0)
+    # Nut sits directly on the plate top face (integrated tray, no floor).
+    wago_top_z = HP.CHASSIS_PLATE_T / 2.0 + HP.WAGO5_H
+    # V+/GND land on separate PORTS of the single 5-slot nut; the route
+    # fan pins both conductors near the nut's tangential thirds (the old
+    # two-nut tray used the bay centres instead).
+    nut_dt = HP.WAGO5_W / 4.0
     for leg in legs:
         a = leg * np.pi / 3.0
         ca, sa = np.cos(a), np.sin(a)
@@ -1994,8 +2009,9 @@ def _build_body_routes(chassis_lift: float, legs: list[int],
         # Leg 3's corner (az 180) is straight across the motor controller
         # from the trunk node -- hop OVER the board (top z = deck0 + 12)
         # instead of through it.  Leg 0's corner (az 0) is straight across
-        # the SWITCH HOLSTER (x 34..85, y +/-11, top deck0+26.5): no lane
-        # exists beside it on the deck, so ride the 4 mm gap between the
+        # the SWITCH HOLSTER (x 48..85, y +/-11, top deck0+21.5 -- Aug 16
+        # 2026 velcro mount: ear gone, boss gone, 5 mm lower): no lane
+        # exists beside it on the deck, so ride the 9 mm gap between the
         # holster top and the hex-plate underside (deck0+30.5), then drop
         # past the holster's +X face (x 85) to the corner tray.
         if leg == 0:
@@ -2024,9 +2040,10 @@ def _build_body_routes(chassis_lift: float, legs: list[int],
         dodge = ([(38.0 * np.cos(a + np.pi / 12.0),
                    38.0 * np.sin(a + np.pi / 12.0), 7.0)]
                  if leg in (2, 5) else [])
-        # Pin each conductor to its REAL nuts: trunk (V+ = south,
-        # GND = north) and the corner tray's own V+/GND 3-port pair
-        # (V+ = clockwise nut).  The tray via sits at points index
+        # Pin each conductor to its REAL nut ports: trunk (V+ = south,
+        # GND = north) and the corner tray's single 5-port nut
+        # (V+ = a port clockwise of the corner ray, GND = a port
+        # counterclockwise).  The tray via sits at points index
         # 1 + len(head).
         def corner_nut(s: float) -> tuple[float, float, float]:
             return (wago_r * ca - s * nut_dt * sa,
@@ -2043,9 +2060,10 @@ def _build_body_routes(chassis_lift: float, legs: list[int],
                           _leg_drop(leg)),
             "maxLengthMm": 320.0,
             "label": (f"L{leg} power 16-18 AWG: trunk nuts (V+ = south, "
-                      f"GND = north) -> corner Wago pair at az "
-                      f"{leg * 60} deg (V+ = the clockwise nut of the "
-                      f"integrated chassis tray) -> inboard of the yaw "
+                      f"GND = north) -> corner 5-port Wago at az "
+                      f"{leg * 60} deg (single press-fit 221-415 in the "
+                      f"integrated chassis tray; V+ on a clockwise port, "
+                      f"GND counterclockwise) -> inboard of the yaw "
                       f"tower -> leg {leg} drop"),
             "instances": ids("chassis_bottom")
             + ids_all("wago_trunk", "wago_power"),
