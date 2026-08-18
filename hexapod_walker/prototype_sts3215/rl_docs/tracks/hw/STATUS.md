@@ -22,6 +22,45 @@ unresolved blockers between the robot and reliable joystick control.
 
 ## Now
 
+- **08-18 ~18:3x (triage cycle): `cw-dep-bcgait1-hard1-steer1-hard20m1`
+  FAILED its pre-registered 5-clause gate — the ~20M full-stress-mix
+  hardening pass did NOT cure the direction-switch tangle/stall.**
+  Standard harness eval under the run's own trained stress_mix cfg
+  (24 episodes, 120s each, all six schedule families, instant
+  switches, DR-0 + own-DR-0.35): 3/24 ended in a hard `over_current`
+  safety termination (a servo jammed against a limit fighting a
+  direction change — the exact yaw-limit-saturation stall this arm
+  targeted; robot stays upright, doesn't tip over) and 1/24 (det)
+  is a severe leg-tangle (gait_valid False, 3 legs sacrificed
+  [0,2,4], slip 32/m, progress_ratio 0.03, 17cm of travel in 120s —
+  video confirms near-stationary struggling). Base gait quality
+  partially retained on the other 23 episodes (gait_valid 6/6, roll
+  clean/recovered, slip 1.3-2.4/m on the clean ones) — this is not a
+  collapse of the whole skill, just the direction-switch handling.
+  Clause (2) alone ("zero falls/tangles") already fails the gate, so
+  no further compute went into the dedicated `probe_dirswitch_tangle`
+  script or the legacy fixed-command matched panel (clause 1) — the
+  result was already decisive. This CONFIRMS the run's own
+  pre-registered prediction-if-false: full-mix exposure from step 0
+  isn't enough, a staged-dwell curriculum is needed. **Queued same
+  cycle** (agent-doable, no new code — the `sched.*` in-run
+  scheduler + `goal.walk_cmd_stage` curriculum landed 08-17 for
+  exactly this failure class and is untried on this lineage):
+  `cw-dep-bcgait1-hard1-steer2-stagecurric1`, a 2M canary
+  warm-started from `cw-dep-bcgait1-hard1` (the clean base, same
+  parent steer1c used) that ramps `goal.walk_cmd_stage` 0->2 via
+  `sched.key=goal.walk_cmd_stage` over the first 60% of the budget
+  (forward/back-only switches first, full family set incl. jitter by
+  the end) instead of throwing the hardest mix at it from tick 0.
+  Gate: mechanism health (finite losses, no early collapse, tall
+  gait retained on periodic eval/video) AND a first informational
+  read on whether the same 24-episode tangle panel shows fewer
+  over_current/tangle events than hard20m1's 3+1/24 — informational
+  only at 2M, no final behavioral verdict until a matched hardening
+  continuation. Does not touch today's download answer (still plain
+  `bcgait1_hard1`, never asked to survive mid-walk switches).
+  Detail: ledger verdict + W&B `w3fbxfj7` OUTCOME note.
+
 - **08-18 ~16:5x (triage cycle): `cw-recover-predictive1-canary1` CANARY
   PASSED** (frozen dynamics-transformer context in the recover
   actor+critic, 15-tick reset probe, obs 1440; operator order
