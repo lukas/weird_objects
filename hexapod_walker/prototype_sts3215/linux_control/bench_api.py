@@ -814,19 +814,12 @@ class BenchAPI:
                 "switched_from": switched_from,
                 "demo": self.demo_state(), "robot": self.robot_state()}
 
-    # Victory-lap velocity schedule (body frame, unit direction): a
-    # closed box — strut toward the audience, sidestep, moonwalk back,
-    # sidestep home. Ends where it started (tether-friendly).
+    # Victory lap: horse-prance out (open-loop tripod — quick cadence,
+    # high knees), RL MOONWALK straight home (silky contrast, heading
+    # untouched so the return line is true), then a full 360° pirouette
+    # finale in place, where open-loop heading slip can't hurt anything.
     DANCE_LAP_V = 0.055          # m/s, just under the trained 0.06 band
-    DANCE_LAP_BOX = (
-        (6.0, 1.0, 0.0, "strut forward"),
-        (0.8, 0.0, 0.0, "…beat…"),
-        (4.0, 0.0, 1.0, "sidestep"),
-        (0.8, 0.0, 0.0, "…beat…"),
-        (6.0, -1.0, 0.0, "MOONWALK back"),
-        (0.8, 0.0, 0.0, "…beat…"),
-        (4.0, 0.0, -1.0, "sidestep home"),
-    )
+    DANCE_MOONWALK_S = 7.4       # ≈ matches the 0.4 m prance-out distance
 
     def _run_dance_walk(self, *, gen: int, speed: float, size: float,
                         softness: float, torque: int | None,
@@ -851,7 +844,7 @@ class BenchAPI:
             return st
 
         lap_err, limped = self._victory_lap(gen=gen, status_cb=status_cb)
-        if self._demo_abort.is_set():
+        if self._demo_abort.is_set() or lap_err == "aborted":
             return "aborted"
         if limped:
             return f"error: lap safety-tripped ({lap_err}) — robot limp"
@@ -866,11 +859,50 @@ class BenchAPI:
 
     def _victory_lap(self, *, gen: int,
                      status_cb) -> tuple[str | None, bool]:
-        """RL-walk the closed box from the plant stance.
+        """Prance out → RL moonwalk home → pirouette.
 
         Returns ``(error, limped)`` — ``(None, False)`` on success.
-        Same start contract as rl_drive_start: read-only walk preflight
-        with the moderate-tilt auto-acquire fallback.
+        A missing gait or refused moonwalk degrades gracefully (the
+        remaining phases still play); an abort or safety limp is fatal.
+        """
+        d = self.drive
+        try:
+            from inplace_demos import run_dance_prance
+        except ImportError as e:
+            return f"inplace_demos missing: {e}", False
+
+        st = run_dance_prance(d.bus, "out",
+                              abort_check=self._demo_abort.is_set,
+                              status_cb=status_cb)
+        if st == "aborted" or self._demo_abort.is_set():
+            return "aborted", False
+        if st != "done":
+            # Never moved — skip the whole lap rather than moonwalk
+            # from an unknown spot.
+            return "prance gait unavailable", False
+
+        moon_err, limped = self._rl_moonwalk(gen=gen, status_cb=status_cb)
+        if limped:
+            return moon_err, True
+        if self._demo_abort.is_set():
+            return "aborted", False
+        if moon_err:
+            status_cb(f"moonwalk skipped ({moon_err}) — pirouette")
+
+        st = run_dance_prance(d.bus, "spin",
+                              abort_check=self._demo_abort.is_set,
+                              status_cb=status_cb)
+        if st == "aborted" or self._demo_abort.is_set():
+            return "aborted", False
+        return None, False
+
+    def _rl_moonwalk(self, *, gen: int,
+                     status_cb) -> tuple[str | None, bool]:
+        """RL drive session walking straight backward to the start.
+
+        Returns ``(error, limped)``. Same start contract as
+        rl_drive_start: read-only walk preflight with the moderate-tilt
+        auto-acquire fallback.
         """
         try:
             from rl_policy import DriveCommand, preflight, run_drive_session
@@ -908,16 +940,13 @@ class BenchAPI:
         session_over = threading.Event()
 
         def _sched():
-            for dur, fx, fy, label in self.DANCE_LAP_BOX:
+            status_cb("victory lap — MOONWALK home (silky RL glide)")
+            t_end = time.time() + float(self.DANCE_MOONWALK_S)
+            while time.time() < t_end:
                 if session_over.is_set() or self._demo_abort.is_set():
                     break
-                status_cb(f"victory lap — {label}")
-                t_end = time.time() + float(dur)
-                while time.time() < t_end:
-                    if session_over.is_set() or self._demo_abort.is_set():
-                        break
-                    cmd.set(fx * self.DANCE_LAP_V, fy * self.DANCE_LAP_V)
-                    time.sleep(0.15)
+                cmd.set(-self.DANCE_LAP_V, 0.0)
+                time.sleep(0.15)
             cmd.request_stop()
 
         sched = threading.Thread(target=_sched, daemon=True)

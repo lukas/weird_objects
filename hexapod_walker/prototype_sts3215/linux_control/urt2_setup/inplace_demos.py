@@ -142,6 +142,14 @@ DANCE_HANDS_HOLD_S = 0.9         # standing hands-up feature hold
 # operator note: "faster especially after it stands".
 DANCE_SNAP_S = 0.18
 DANCE_STOMP_S = 0.14
+# Victory-lap PRANCE (open-loop tripod, horse mode): quick cadence +
+# high knees — far more aggressive than the RL walk's trained band.
+DANCE_PRANCE_PERIOD = 0.58   # s/cycle (gentle walk demo uses 0.85)
+DANCE_PRANCE_LIFT_MM = 32.0  # high knees (gentle walk demo uses 18)
+DANCE_PRANCE_VX = 0.09       # m/s out (RL band tops out at 0.06)
+DANCE_PRANCE_FWD_S = 4.5     # ≈ 0.4 m out
+DANCE_PRANCE_SPIN_OMEGA = 0.85  # rad/s — full-spin pirouette finale
+DANCE_PRANCE_SPIN_S = 7.4
 
 RISE_PRESETS = {
     "default": {
@@ -3035,6 +3043,88 @@ def run_walk_demo(bus: FeetechBus, name: str = "walk", *,
         return "aborted"
     print(f"  {name} done — holding stand.")
     _write_pose(bus, stand, live, speed=200, acc=20)
+    return "done"
+
+
+def run_dance_prance(bus: FeetechBus, phase: str = "out", *,
+                     abort_check=None, status_cb=None) -> str:
+    """Victory-lap gait phases — the aggressive open-loop half.
+
+    ``phase="out"``: horse-prance forward (quick cadence, high knees)
+    for ~0.4 m.  ``phase="spin"``: full 360° pirouette in place — the
+    lap finale, run at home where open-loop heading slip can't hurt.
+    Both start by easing onto the walk plant (stand zero) and end
+    HOLDING it, so the RL moonwalk can run between them.
+    """
+    assert phase in ("out", "spin")
+    try:
+        from tripod_gait import TripodGait
+    except ImportError as e:
+        print(f"  prance needs tripod_gait: {e}")
+        return "skipped"
+
+    live = _live_robot_ids(bus)
+    if len(live) < 12:
+        print(f"  Only {len(live)} robot servo(s) — need most of a hex.")
+        return "skipped"
+    check = abort_check or (lambda: False)
+
+    def note(msg: str) -> None:
+        if status_cb is None:
+            return
+        try:
+            status_cb(str(msg))
+        except Exception:
+            pass
+
+    _enable_torque(bus, live)
+    _set_torque_limit(bus, live, STAND_TORQUE_LIMIT)
+    stand = standing_pose_degrees()
+    if not ease_to_pose(bus, stand, abort_check=check, seconds=1.4,
+                        label=f"stand before prance {phase}"):
+        return "aborted"
+
+    gait = TripodGait(period=DANCE_PRANCE_PERIOD,
+                      lift=DANCE_PRANCE_LIFT_MM * 0.001, ramp=0.4)
+    gait.sync_plant_stance()
+    gait.set_lift_mm(DANCE_PRANCE_LIFT_MM)
+
+    if phase == "out":
+        segments = [("PRANCE — high knees, quick cadence",
+                     DANCE_PRANCE_VX, 0.0, 0.0, DANCE_PRANCE_FWD_S)]
+    else:
+        segments = [("PIROUETTE — full spin",
+                     0.0, 0.0, DANCE_PRANCE_SPIN_OMEGA,
+                     DANCE_PRANCE_SPIN_S)]
+
+    gait.reset_phase(t=time.monotonic())
+    for label, vx, vy, om, dur in segments:
+        if check():
+            break
+        note(f"victory lap — {label}")
+        print(f"  → {label}  vx={vx * 1000:.0f} mm/s  ω={om:.2f}")
+        gait.set_velocity(vx=vx, vy=vy, omega=om)
+        seg_t0 = time.monotonic()
+        while time.monotonic() - seg_t0 < dur:
+            if check():
+                break
+            pose = gait.desired_deg(time.monotonic())
+            _write_pose(bus, pose, live, speed=WALK_SPEED, acc=WALK_ACC)
+            time.sleep(WALK_DEMO_DT)
+
+    gait.stop()
+    for _ in range(8):
+        if check():
+            break
+        pose = gait.desired_deg(time.monotonic())
+        _write_pose(bus, pose, live, speed=WALK_SPEED, acc=WALK_ACC)
+        time.sleep(WALK_DEMO_DT)
+    if check():
+        _hold_here(bus, live)
+        return "aborted"
+    if not ease_to_pose(bus, stand, abort_check=check, seconds=1.2,
+                        label=f"stand after prance {phase}"):
+        return "aborted"
     return "done"
 
 
