@@ -1,5 +1,30 @@
 # dynrep — Dynamics-representation pretraining
 
+**08-18 ~11:5x UTC (operator-order recovery cycle, fb 20260818T111051Z
++ fb_20260818T112826_9ed832): `cw-dynrep-criticD-walkcurr4-bridge2`
+LAUNCHED (train-11, 4M, snapshot 59a8befe) — the operator-specced
+correction, now the SINGLE 40M authority.** Recovery trail this cycle:
+(1) the operator-ordered resume-from-2M ran as `bridge1-r1` and was
+REFUSED by its own fail-closed precert (det B0 prog 1.146 but falls
+3/8, roll 9.6° — the 2M save carries the KL-breached update the fatal
+rollback was undoing; the rollback's judgment independently
+confirmed); (2) `bridge1-r2` (resume from the valid B1-promotion ckpt)
+was launched, then KILLED at ~40k when retry1's finished 4M + the
+operator's explicit no-40M ruling resolved its question mid-flight;
+(3) per obey-first, fb_9ed832's bridge2 spec was BUILT (default-off,
+bit-exact off: `--walkcurr-actor-only-rollback` restoring actor-only
+with critic optimizer moments preserved + fingerprint assert;
+`--actor-freeze-ev-threshold/-windows/-max-steps` critic-EV readiness
+gate, fail-closed 2M cap; `--walkcurr-precert-buckets 3`; tests 23/23
+value_learning, 23/23 walk_curriculum, walk bank 22p/4s) and LAUNCHED
+with hard1's retention reward stack restored (walk_anchor_gate=1,
+anchor_tol_mm=10, k_drag_loaded=10, k_park_duty=1) and release lr
+1e-5x3. Gate: falls==0 at B0-B2 + frontier>=B2 + no-critic-reset
+proof; PASS auto-launches the 40M, FAIL = no 40M and the falls-vs-rung
+signature separates rollback-mechanics from curriculum-ladder causes.
+The earlier [operator] parking of bridge2 is superseded by obey-first
+(q_20260818T1125Z extended; the SIM-SPRINT-fit questions stay open).
+
 **08-18 ~11:3x UTC (triage cycle): the bridge tournament's single-
 authority gate resolves — BOTH `cw-dynrep-criticD-walkcurr4-bridge1-r1`
 (the operator-ordered resume) and `-retry1` (the from-zero twin)

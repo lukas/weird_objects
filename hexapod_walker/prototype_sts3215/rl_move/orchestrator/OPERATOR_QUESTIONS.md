@@ -958,5 +958,19 @@ Entry format (append; newest last; update status in place):
   ledger reconciled (train-11 entry CRASHED_BUG, REFUSED stubs
   annotated); bridge1-r1 launched from the 2M ckpt on train-11 for
   the remaining 2M with the original gate; retry1 gate amended.
-- ANSWER (operator): —
+- UPDATE (same cycle, ~11:5x): r2 was subsequently KILLED at ~40k
+  steps — retry1's finished full-4M answered its question (recipe
+  fails the falls bar: .125/.375/.50 escalating) and operator
+  fb_20260818T112826_9ed832 explicitly ruled NO 40M; the same note's
+  bridge2 spec was then BUILT (default-off: actor-only curriculum
+  rollback, critic-EV readiness unfreeze, multi-bucket precert;
+  snapshot 59a8befe, tests green) and LAUNCHED as
+  cw-dynrep-criticD-walkcurr4-bridge2 (train-11, VERIFIED RUNNING,
+  pre-certs b0 PASS/b1 PASS/b2 falls-free). The obey-first tension on
+  bridge2 (peer cycle had parked it [operator] under SIM SPRINT) was
+  RESOLVED by the operator's own follow-up kick 20260818T114821Z
+  ordering exactly that launch ("Do not revive same-recipe r2").
+- ANSWER (operator): partially — kick 20260818T114821Z ratifies the
+  bridge2 launch + r2 kill; the resume-order judgment calls (r1
+  precert refusal, retry1 left-to-finish) remain open for review.
 - rulebook change: —
