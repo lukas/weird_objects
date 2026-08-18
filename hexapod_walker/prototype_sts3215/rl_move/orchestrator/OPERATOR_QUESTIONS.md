@@ -562,3 +562,44 @@ Entry format (append; newest last; update status in place):
   the operator/Codex directive on 8fbb7b21-or-descendant.
 - ANSWER (operator): _pending_
 - rulebook change: _pending_
+
+## q_20260818T0100Z — OPEN
+- cycle: cycle_20260817T231332_findings (checkup cycle, any17 SUSPECT ->
+  executed the any18/any20/any21 directive chain alongside concurrent
+  cycles)
+- operator order: fb_20260817T231336_93cacc (launch any18),
+  fb_20260818T001206_0ee733 (launch any20),
+  fb_20260818T002830_3d14e2 (fallback: fresh any21 cohort after
+  pre-syncing all three pods to one HEAD).
+- conflicted with / judgment calls needing reconciliation:
+  1. TAG DELETION: while executing the any18 launch this cycle found
+     `exp/cw-recover-any18-pop3-s11` already tagged at a commit whose
+     message was the any17 invalidation (no ledger row, no W&B run, no
+     process at that moment) and DELETED it local+origin as a stale
+     name-squat — it was actually a concurrent cycle's pre-launch
+     snapshot tag, minted seconds before its launch. The launch was
+     unharmed (my own aborted snapshot re-minted the tag at a
+     code-identical descendant, and the pod .code_sha at launch matched
+     the concurrent cycle's commit), but the exp/<run> tag invariant
+     was briefly violated on origin. Proposed rule: a cycle must never
+     delete another cycle's exp/ tag; treat tag-exists as "stand down
+     and re-verify ledger/census/W&B", full stop.
+  2. SELF-MINTED W&B IDS: fb_20260818T002830 pre-authorized "a fresh
+     any21 3-seed cohort" but (unlike the any19/any20 directives)
+     supplied no predeclared W&B ids. This cycle minted
+     f14d9993,a705c488,fe8501ac itself (verified absent immediately
+     before use) to execute without stalling. The cohort is live and
+     passed all gate items. Please confirm agent-minted ids are
+     acceptable for operator-preauthorized fallback cohorts, or
+     reserve id-minting to the Codex session.
+  3. Standing SIM SPRINT conflict for the whole recover-cohort line is
+     already on file as q_20260817T2310Z — any18/19/20/21 continue
+     under it; not re-litigated here.
+- what was executed: full obey-first chain — any17/18/19/20 cohorts
+  reconciled INVALID (by this + concurrent cycles), any18 s12 + any20
+  s13 + any21 s11 launched by this cycle (other members by concurrent
+  cycles), any20 s11/s12 verdicts corrected to record the FIRST live
+  start_B00 release, any21 cohort live with all 7 gate items observed
+  (release_B01, racing B2).
+- ANSWER (operator): (pending)
+- rulebook change: (pending)

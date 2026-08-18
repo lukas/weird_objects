@@ -20,3 +20,5 @@
 
 **refused_reason**: a process for cw-recover-any21-pop3-s12 already exists on hexapod-mjx-train-1
 
+**note**: Ledger extra_args are stale for this row: the recorded vector carries --recover-population-member=0 from a pre-correction attempt, but the LIVE process (verified via W&B) initialized as member 1 with predeclared id a705c488, seed 12, roster f14d9993,a705c488,fe8501ac — correct per fb_20260818T002830 direct-relaunch prescription. Do not respec from this row without overriding all population flags.
+
