@@ -2,6 +2,22 @@
 
 **SIM SPRINT (operator 08-17 ~18:05 UTC — binding while the robot is off the bench for repair): NO NEW LAUNCHES on this track unless an arm directly serves reliable rise+walk in the MuJoCo sim (the fleet's single deliverable; download answer: `rl_docs/DOWNLOAD_ANSWER.md`). In-flight runs finish and get triaged normally. Full text: RL_PLAN.md "SIM SPRINT".**
 
+**08-18 ~05:0x UTC (operator order, MCP lane 20260818T041434Z):
+`cw-dynrep-criticD-walkcurr1` LAUNCHED on train-4 (W&B `137olxtr`,
+code `5e7c1db3`, 40M) — the clean ONE-VARIABLE twin of
+`cw-dynrep-criticD-40m1` (same fresh actor seed 8 / frozen vt2ovznc
+critic D md5-pinned / rewards / optimizer / eval cadence AND eval
+command distribution). Only the TRAINING command sampling changes:
+new default-off adaptive competence+retention frontier curriculum
+(`goal.walk_curriculum`, WALKCURR_BUCKETS B0 slow-fwd-DR0 ... B10
+rear; certs every 0.5M on deterministic held-out seeds n=8/bucket;
+promote only on frontier+all-retained pass; 2 consecutive retained
+failures = rollback; best = last retention-clean promotion, never
+reward/latest; per-bucket walkcurr/* W&B panels). Directly targets the
+viscompare1 findings below (wrong-way backward, stop creep, lateral
+gap, best-loco flat since 6M). CUDA canary passed pre-launch; 13-test
+bank + full semantics bank green.**
+
 **08-18 ~02:50 UTC (operator kick fb_20260818T022818_d54f8e, mid-run
 visual check — NOT the 40M verdict): matched visual A/B of
 `cw-dynrep-criticD-40m1` best-loco @6M vs periodic ck22M
