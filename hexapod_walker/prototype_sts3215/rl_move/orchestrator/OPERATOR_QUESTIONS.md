@@ -518,5 +518,47 @@ Entry format (append; newest last; update status in place):
   observable at verification time (bootstrap not yet complete on all
   three simultaneously) and are left for the next checkup cycle to
   watch to conclusion.
+- EVIDENCE ADDENDUM (checkup cycle, 08-18 ~00:0x-00:2x UTC — watched
+  the any19 barrier to conclusion; ROOT CAUSE of the any17/18/19
+  freeze family identified): gate item (3) FAILED again — all three
+  ready_B00 records valid (posted 23:55:22/23:56:49/23:59:41Z), no
+  start_B00 ever released. The predeclared-id protocol removed the
+  display-name search and the failure FOLLOWED THE READ, not the
+  query form: the leader's flushed log shows its direct
+  api.run(project/id) lookups raising "Could not find run
+  1c67c001 / 79ef86ae (not found)" — 404s on exactly the two runs
+  created AFTER the leader process started, while the identical
+  by-id reads from the controller succeeded throughout the window.
+  Member s12 404'd ONLY on s13 (the one run created after s12
+  started); member s13 (started last) 404'd on nobody. Same
+  first-sight pattern as any17 (display-name search) and any18
+  (fresh-Api search). Four live probes this night (controller and
+  the failing pod, with and without an active wandb run in-process:
+  probe-negcache-x1, probe-podcache-x2, probe-active-x3) all resolve
+  just-created runs in <5s — the failure needs the long-lived
+  trainer process itself. Mechanism consistent with ALL evidence:
+  wandb 0.28 keeps one authenticated session per process
+  (wbauth.authenticate_session), so "fresh" wandb.Api() objects
+  reuse the same pinned connection/backend view; whatever the
+  backend first materialized for that session stays frozen — runs
+  created later are 404/invisible to that process indefinitely.
+  8fbb7b21 ("Read recovery peers through fresh GraphQL") is the
+  right shape of fix. SECOND DEFECT exposed: all three members hung
+  PAST their 900s barrier deadlines (leader ~20 min) blocked inside
+  a W&B call (near-zero CPU, threads in futex_wait, no RuntimeError,
+  no log flush) — the fail-closed timeout is UNENFORCEABLE when a
+  W&B call blocks; the barrier loop needs call-level timeouts or a
+  watchdog that hard-raises past the deadline (verify 8fbb7b21
+  covers the write path — a blocked _summary_update would hang the
+  same way). Cleanup: members s12/s13 killed by this cycle ~00:17Z
+  (leader was killed externally ~00:15Z, presumably the cycle that
+  landed 8fbb7b21); all three ledger rows INVALID_INTEGRATION_CANARY
+  with this analysis; W&B notes updated. Tooling fix landed this
+  cycle: ops.sh killrun now matches only the "--run-name <run>"
+  token — respec embeds the PARENT name in --notes, so a bare
+  substring killrun against a parent would have killed every child
+  respec'd from it (latent friendly-fire; did not fire tonight).
+  Per the standing chain, NO autonomous any20 relaunch — awaiting
+  the operator/Codex directive on 8fbb7b21-or-descendant.
 - ANSWER (operator): _pending_
 - rulebook change: _pending_
