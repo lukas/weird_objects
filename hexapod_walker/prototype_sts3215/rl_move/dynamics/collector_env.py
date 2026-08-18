@@ -36,6 +36,14 @@ class DynrepCollectWalkEnv(SimHexapodJointWalkEnv):
         "_dynrep_initial_mode", "_dynrep_initial_qnom",
     )
 
+    def __init__(self, *args, **kwargs):
+        self._dynrep_capture_enabled = False
+        super().__init__(*args, **kwargs)
+
+    def dynrep_capture_enable(self, enabled: bool = True) -> None:
+        """Enable per-tick labels only on the trainer's bounded subset."""
+        self._dynrep_capture_enabled = bool(enabled)
+
     def dynrep_configure(self, profile: str, dr_scale: float) -> None:
         """Set one row's goal distribution and DR scale before reset.
 
@@ -79,6 +87,8 @@ class DynrepCollectWalkEnv(SimHexapodJointWalkEnv):
 
     def _post_step(self, result):
         obs, reward, term, trunc, info = super()._post_step(result)
+        if not self._dynrep_capture_enabled:
+            return obs, reward, term, trunc, info
         info = dict(info)
         info["dynrep_frame"] = fr.extract_frame(self, self._prev_action)
         info["dynrep_priv"] = fr.extract_priv(self)
@@ -93,6 +103,17 @@ class DynrepCollectWalkEnv(SimHexapodJointWalkEnv):
             self._dynrep_initial_mode,
             self._dynrep_initial_qnom.copy(),
         )
+
+    def dynrep_episode_initial(self) -> dict:
+        """Initial state and labels for one live replay episode."""
+        return {
+            "frame": self._dynrep_initial_frame.copy(),
+            "priv": self._dynrep_initial_priv.copy(),
+            "mode": self._dynrep_initial_mode,
+            "start_at": str(getattr(self._goal_traj, "start_at", "?")),
+            "q_nom": self._dynrep_initial_qnom.copy(),
+            "dr": float(getattr(self.randomizer, "scale", 0.0)),
+        }
 
     def dynrep_goal_traj(self):
         """Return the goal trajectory for scripted gait actors."""

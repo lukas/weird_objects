@@ -331,6 +331,87 @@ WALKCURR_BUCKETS_V3 = (
          gate=WALKCURR_GATE_V3_BRIDGE),
 ) + WALKCURR_BUCKETS_V2[2:]   # V2 direction/heading/stop/DR ladder
 
+# WALKCURR_BUCKETS_V4: sustained joystick curriculum. V3 spends its
+# first five rungs on one fixed command per 10-second episode, even
+# though the observed deployment failure is falling only after several
+# direction changes. V4 keeps one short source-skill bridge, introduces
+# command changes immediately at B1, then holds the command distribution
+# fixed while extending continuous survival to 20/40/60 seconds. Only
+# after the 60-second joystick task is retained does it widen speed, add
+# DR, and open lateral/rear travel. ``duration_s`` controls both training
+# episode truncation and the deterministic certification horizon;
+# ``min_command_changes`` is a fail-closed check that a cert actually
+# exercised the intended joystick transitions.
+WALKCURR_GATE_V4_BRIDGE = dict(
+    cmd_prog_frac_min=0.60, cmd_prog_frac_p10_min=0.50,
+    slip_per_m_max=2.0, peak_roll_deg_max=8.0, slew_sat_max=0.95,
+    cross_track_frac_max=0.30, contact_sw_per_s_min=3.0,
+    foot_sw_min_per_s_min=0.5, height_factor_min=0.80)
+WALKCURR_GATE_V4_JOYSTICK = dict(
+    cmd_prog_frac_min=0.65, cmd_prog_frac_p10_min=0.50,
+    slip_per_m_max=2.0, peak_roll_deg_max=8.0, slew_sat_max=0.95,
+    cross_track_frac_max=0.30, contact_sw_per_s_min=3.0,
+    foot_sw_min_per_s_min=0.5, height_factor_min=0.80)
+
+WALKCURR_BUCKETS_V4 = (
+    # B0: prove the imported gait survives at its own operating point.
+    dict(name="bridge_10s", duration_s=10.0, min_command_changes=0,
+         s_lo=0.05, s_hi=0.06, head_lo=0.0, head_hi=0.0,
+         resample_s=0.0, jitter=0.0, stop_frac=0.0, blend_lo=1.0,
+         blend_hi=1.0, dr=0.0, stop_gate=None,
+         gate=WALKCURR_GATE_V4_BRIDGE),
+    # B1-B4: joystick changes happen immediately, then only duration grows.
+    dict(name="joystick_10s", duration_s=10.0, min_command_changes=2,
+         s_lo=0.04, s_hi=0.08, head_lo=0.0,
+         head_hi=math.radians(45.0), resample_s=3.0, jitter=0.2,
+         stop_frac=0.10, blend_lo=0.5, blend_hi=0.9, dr=0.0,
+         stop_gate=0.015, gate=WALKCURR_GATE_V4_JOYSTICK),
+    dict(name="joystick_20s", duration_s=20.0, min_command_changes=4,
+         s_lo=0.04, s_hi=0.08, head_lo=0.0,
+         head_hi=math.radians(45.0), resample_s=3.0, jitter=0.2,
+         stop_frac=0.10, blend_lo=0.5, blend_hi=0.9, dr=0.0,
+         stop_gate=0.015, gate=WALKCURR_GATE_V4_JOYSTICK),
+    dict(name="joystick_40s", duration_s=40.0, min_command_changes=10,
+         s_lo=0.04, s_hi=0.08, head_lo=0.0,
+         head_hi=math.radians(45.0), resample_s=3.0, jitter=0.2,
+         stop_frac=0.10, blend_lo=0.5, blend_hi=0.9, dr=0.0,
+         stop_gate=0.015, gate=WALKCURR_GATE_V4_JOYSTICK),
+    dict(name="joystick_60s", duration_s=60.0, min_command_changes=15,
+         s_lo=0.04, s_hi=0.08, head_lo=0.0,
+         head_hi=math.radians(45.0), resample_s=3.0, jitter=0.2,
+         stop_frac=0.10, blend_lo=0.5, blend_hi=0.9, dr=0.0,
+         stop_gate=0.015, gate=WALKCURR_GATE_V4_JOYSTICK),
+    # B5: widen speed and make joystick timing less predictable.
+    dict(name="full_band_60s", duration_s=60.0, min_command_changes=9,
+         s_lo=0.03, s_hi=0.10, head_lo=0.0,
+         head_hi=math.radians(45.0), resample_s=4.0, jitter=0.5,
+         stop_frac=0.15, blend_lo=0.25, blend_hi=0.75, dr=0.0,
+         stop_gate=0.015, gate=WALKCURR_GATE_V4_JOYSTICK),
+    # B6/B7: retain the full 60-second joystick task under DR.
+    dict(name="dr01_60s", duration_s=60.0, min_command_changes=9,
+         s_lo=0.03, s_hi=0.10, head_lo=0.0,
+         head_hi=math.radians(45.0), resample_s=4.0, jitter=0.5,
+         stop_frac=0.15, blend_lo=0.25, blend_hi=0.75, dr=0.1,
+         stop_gate=0.015, gate=WALKCURR_GATE_V4_JOYSTICK),
+    dict(name="dr03_60s", duration_s=60.0, min_command_changes=9,
+         s_lo=0.03, s_hi=0.10, head_lo=0.0,
+         head_hi=math.radians(45.0), resample_s=4.0, jitter=0.5,
+         stop_frac=0.15, blend_lo=0.25, blend_hi=0.75, dr=0.3,
+         stop_gate=0.015, gate=WALKCURR_GATE_V4_JOYSTICK),
+    # B8/B9: lateral and rear commands remain locked behind retained
+    # 60-second front-cone competence under DR0.3.
+    dict(name="lateral_60s", duration_s=60.0, min_command_changes=9,
+         s_lo=0.03, s_hi=0.10, head_lo=math.radians(45.0),
+         head_hi=math.radians(90.0), resample_s=4.0, jitter=0.5,
+         stop_frac=0.15, blend_lo=0.25, blend_hi=0.75, dr=0.3,
+         stop_gate=0.015, gate=WALKCURR_GATE_V4_JOYSTICK),
+    dict(name="rear_60s", duration_s=60.0, min_command_changes=9,
+         s_lo=0.03, s_hi=0.10, head_lo=math.radians(90.0),
+         head_hi=math.pi, resample_s=4.0, jitter=0.5,
+         stop_frac=0.15, blend_lo=0.25, blend_hi=0.75, dr=0.3,
+         stop_gate=0.015, gate=WALKCURR_GATE_V4_JOYSTICK),
+)
+
 # Sampling mixture over unlocked buckets (operator spec): 50% frontier,
 # 25% weakest mastered, 15% uniform over mastered, 10% the rung just
 # prior to the frontier. Empty components fold back to the frontier.
@@ -435,6 +516,8 @@ class WalkTrajectory(GoalTrajectory):
     vy: np.ndarray = None
     wz: np.ndarray = None  # (n_steps,) rad/s; None = no yaw channel
     cmd_mode: str = "legacy"
+    duration_steps: int | None = None
+    command_changes: int = 0
 
     def at(self, step: int) -> WalkGoal:
         i = min(max(step, 0), len(self.roll) - 1)
@@ -587,7 +670,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         self._lp_weights = None
         self._walk_bucket = None
         # Adaptive competence+retention walk-command curriculum state
-        # (goal.walk_curriculum=1 or 2; see WALKCURR_BUCKETS/_V2).
+        # (goal.walk_curriculum=1..4; see WALKCURR_BUCKETS*).
         # PERSISTENT across episodes like _lp_weights/_rec_* — never in
         # SNAP_ATTRS. _wc_results is certification-only: stochastic
         # rollouts must never move the frontier; the trainer broadcasts
@@ -599,12 +682,23 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # the original V1 table; version 1 stays bit-exact unchanged.
         wc_version = float(cfg_get(self.cfg, "goal", "walk_curriculum",
                                    default=0.0))
-        self._wc_on = wc_version in (1.0, 2.0, 3.0)
+        self._wc_on = wc_version in (1.0, 2.0, 3.0, 4.0)
         self._wc_version = int(wc_version) if self._wc_on else 0
-        self._wc_table = (WALKCURR_BUCKETS_V3 if self._wc_version == 3
+        self._wc_table = (WALKCURR_BUCKETS_V4 if self._wc_version == 4
+                          else WALKCURR_BUCKETS_V3
+                          if self._wc_version == 3
                           else WALKCURR_BUCKETS_V2
                           if self._wc_version == 2
                           else WALKCURR_BUCKETS)
+        if self._wc_version == 4:
+            required_s = max(float(b["duration_s"])
+                             for b in self._wc_table)
+            available_s = self.episode_steps * self.dt
+            if available_s + 0.5 * self.dt < required_s:
+                raise ValueError(
+                    "walk curriculum V4 requires episode_seconds >= "
+                    f"{required_s:g} (got {available_s:g}); long-horizon "
+                    "certification must not be silently shortened")
         self._wc_active_n = 1
         self._wc_results: dict = {}   # bucket -> {passed, score, cert_round}
         self._wc_bucket = None        # this episode's curriculum bucket
@@ -920,6 +1014,9 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             "h_err_mm": h_err_m * 1000.0,
             "height_factor": height_factor,
             "return": w["ret"], "ep_len": float(w["n"]),
+            "survival_s": float(w["n"] * self.dt),
+            "command_changes": float(getattr(
+                self._goal_traj, "command_changes", 0)),
             "early_term": float(term),
             "peak_roll_deg": w["peak_roll"] * rad2deg,
             "peak_pitch_deg": w["peak_pitch"] * rad2deg,
@@ -1134,6 +1231,10 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         spec = self._wc_table[b]
         n = self.episode_steps + 1
         rng = self.rng
+        duration_steps = int(round(float(spec.get(
+            "duration_s", self.episode_steps * self.dt)) / self.dt))
+        command_n = min(n, duration_steps + 1)
+        command_changes = 0
 
         def draw_cmd() -> tuple[float, float]:
             speed = float(rng.uniform(spec["s_lo"], spec["s_hi"]))
@@ -1174,26 +1275,29 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
 
             cvx, cvy = vx_t, vy_t
             i = hold_n + ramp_n + seg_len()
-            while i < n:
+            while i < command_n:
                 if rng.random() < float(spec["stop_frac"]):
                     nvx = nvy = 0.0
                 else:
                     nvx, nvy = draw_cmd()
                 n_blend = blend_len()
-                end_b = min(i + n_blend, n)
+                end_b = min(i + n_blend, command_n)
                 if n_blend:
                     vx[i:end_b] = np.linspace(cvx, nvx, end_b - i)
                     vy[i:end_b] = np.linspace(cvy, nvy, end_b - i)
-                vx[end_b:] = nvx
-                vy[end_b:] = nvy
+                vx[end_b:command_n] = nvx
+                vy[end_b:command_n] = nvy
                 cvx, cvy = nvx, nvy
+                command_changes += 1
                 i += seg_len()
         zeros = np.zeros(n)
         self._walk_bucket = None
         traj = WalkTrajectory(mode="walk", roll=zeros, pitch=zeros,
                               height=zeros, unload_leg=None,
                               start_at="plant", vx=vx, vy=vy, wz=None,
-                              cmd_mode="walkcurr")
+                              cmd_mode="walkcurr",
+                              duration_steps=duration_steps,
+                              command_changes=command_changes)
         return traj
 
     def set_walk_bucket_weights(self, w) -> None:
@@ -2383,6 +2487,8 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # identical to the historical step() override, including on the
         # rejected-action early return.
         obs, reward, term, trunc, info = super()._post_step(result)
+        if self._step_i >= self._active_episode_steps():
+            trunc = True
         if (self._goal_traj is not None
                 and getattr(self._goal_traj, "mode", "")
                 in ("walk", "quadwalk")):

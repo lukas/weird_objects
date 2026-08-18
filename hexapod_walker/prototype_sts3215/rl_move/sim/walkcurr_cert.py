@@ -83,6 +83,22 @@ def walkcurr_bucket_pass(m: dict, spec: dict,
         "roll": _ok_max("peak_roll_deg", gate["peak_roll_deg_max"]),
         "slew": _ok_max("slew_sat", gate["slew_sat_max"]),
     }
+    if "cmd_prog_frac_p10_min" in gate:
+        checks["progress_p10"] = _ok_min(
+            "cmd_prog_frac_p10", gate["cmd_prog_frac_p10_min"])
+    if "height_factor_min" in gate:
+        checks["height"] = _ok_min(
+            "height_factor", gate["height_factor_min"])
+    duration_s = spec.get("duration_s")
+    if duration_s is not None:
+        # Allow one integration tick of rounding, but never let a short
+        # cert masquerade as a long-horizon survival pass.
+        checks["duration"] = _ok_min(
+            "survival_s_min", 0.99 * float(duration_s))
+    min_changes = spec.get("min_command_changes")
+    if min_changes is not None:
+        checks["command_changes"] = _ok_min(
+            "command_changes_min", float(min_changes))
     stop_gate = spec.get("stop_gate")
     if stop_gate is not None:
         v = m.get("stop_speed_m_s")
@@ -142,7 +158,7 @@ WALK_PROBE_KEYS = (
     # configured sigma (operator order fb_20260818T085648_2a0a60:
     # height on B0 cert + all panels — the walkcurr3 crouch-shuffle was
     # invisible in cert telemetry).
-    "h_err_mm", "height_factor")
+    "h_err_mm", "height_factor", "survival_s", "command_changes")
 
 # nan = "not measurable this episode" for the command-conditional keys
 # (same set + reasoning as eval_task's _nan_ok).
@@ -179,4 +195,14 @@ def aggregate_walk_probe(rows: list[dict]) -> dict:
                       if np.any(~np.isnan(arr)) else float("nan"))
         else:
             out[k] = float(np.mean(arr))
+    for key in ("cmd_prog_frac", "height_factor"):
+        arr = np.asarray([float(r.get(key, float("nan"))) for r in rows])
+        out[f"{key}_p10"] = (float(np.quantile(arr, 0.10))
+                              if np.all(np.isfinite(arr))
+                              else float("nan"))
+    for key in ("survival_s", "command_changes"):
+        arr = np.asarray([float(r.get(key, float("nan"))) for r in rows])
+        out[f"{key}_min"] = (float(np.min(arr))
+                              if np.all(np.isfinite(arr))
+                              else float("nan"))
     return out

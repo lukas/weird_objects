@@ -289,6 +289,24 @@ def test_aggregate_nan_rules_match_eval_task():
     assert agg["early_term_rate"] == pytest.approx(0.5)
 
 
+def test_aggregate_exposes_long_horizon_tail_and_minimum_metrics():
+    rows = []
+    for progress, height, survival, changes in (
+            (0.50, 0.70, 20.0, 4.0),
+            (0.90, 0.90, 19.5, 5.0)):
+        row = failed_probe_row()
+        row.update({k: 1.0 for k in row})
+        row.update(early_term=0.0, cmd_prog_frac=progress,
+                   height_factor=height, survival_s=survival,
+                   command_changes=changes)
+        rows.append(row)
+    agg = aggregate_walk_probe(rows)
+    assert agg["cmd_prog_frac_p10"] == pytest.approx(0.54)
+    assert agg["height_factor_p10"] == pytest.approx(0.72)
+    assert agg["survival_s_min"] == pytest.approx(19.5)
+    assert agg["command_changes_min"] == pytest.approx(4.0)
+
+
 def test_failed_probe_row_fails_every_gate():
     m = aggregate_walk_probe([failed_probe_row()])
     passed, checks = walkcurr_bucket_pass(
