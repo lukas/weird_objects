@@ -830,3 +830,25 @@ Entry format (append; newest last; update status in place):
 - rulebook change: none needed — the 'declined part 4' judgment is
   moot; the goal-mix construction hook the decline worried about now
   exists (cfg goal.walk_pure, construction-time, test-pinned).
+
+## q_20260818T1035Z — OPEN
+- cycle: operator KICK 2026-08-18 ~09:0x (walkcurr4 tournament)
+- operator order: fb_20260818T085648_2a0a60 — 4M same-seed A/B/C
+  "canary" tournament with a BEHAVIORAL admission gate, then a 40M
+  winner launch.
+- conflicted with: RESEARCH_RULES.md "Phases and budgets" — CANARY
+  caps at 2M and is "mechanism health only; mature behavior is
+  explicitly not judged"; the ordered 4M behavior-judged canaries fit
+  neither CANARY nor DISCOVERY (2M cap, launcher-enforced).
+- why the cycle would have declined: no phase admits a 4M
+  behavior-gated probe; policy objections are not blockers.
+- what was executed: the three arms launched as --phase acquisition
+  (inherited from walkcurr3 via respec) with the operator's behavioral
+  admission gate pre-registered verbatim in each --gate; budgets
+  (52M GPU steps, 4 launches) inside per-cycle caps. Also executed en
+  route: train-7/9/11 recreated from the fixed 4Gi-dshm manifest
+  (CAPACITY.md caveat — idle pods only, documented manifest) after the
+  64M-shm SIGBUS killed attempt canA-r1.
+- ANSWER (operator): —
+- rulebook change: consider a "tournament" phase or a
+  behavior-gated-canary budget note in RESEARCH_RULES.md.
