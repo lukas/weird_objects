@@ -22,6 +22,26 @@ unresolved blockers between the robot and reliable joystick control.
 
 ## Now
 
+- **08-18 ~16:1x (operator kick, fb_20260818T152717_278879): the
+  tall walker's steering-tangle diagnosis is DONE and the fix is in
+  flight.** New probe `probe_dirswitch_tangle` (48 matched 120 s
+  direction-switch episodes, rot60 ON vs OFF, det DR-0 + sto
+  DR-0.35, six schedule families): ZERO falls anywhere, and rot60
+  ON is strictly SAFER on every tangle proxy (yaw-limit saturation
+  1-4% of ticks vs 2-10% OFF; min inter-foot 110 mm vs 98 mm) —
+  **sector crossings exonerated; item-6 wrapper surgery NOT
+  triggered.** Confirmed gaps: post-switch yaw joints pressed
+  to/past hard limits and legs pausing (min legs-cycling-after-
+  change 0-4/6). Smallest fix = the ordered transition fine-tune:
+  `cw-dep-bcgait1-hard1-steer1c` (2M canary, RUNNING train-5, W&B
+  bpz63iwd) — 120 s episodes, stress_mix all six families, INSTANT
+  no-blend switches, irregular 2-20 s dwells (resample 11 s ± 82%),
+  actor-lr 1e-4 / target-kl 0.01 / kl-rollback 0.04,
+  term_cost_per_remaining_s=12 cap 240. Larger continuation is
+  pre-registered behind canary PASS (STATUS.md WAITING-ON entry has
+  the admission panel). Probe artifacts:
+  logs/probe_dirswitch/hard1_{a,b,c,dr_a,dr_b,dr_c}.json.
+
 - **08-17 ~22:3x (idle-drain): the postlower `[operator]` fork is
   PRICED — fork (a) (align the eval to train==deploy semantics) is
   the measured-best answer.** Built the `--rise-from-h` eval flag
