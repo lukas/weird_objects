@@ -468,3 +468,55 @@ Entry format (append; newest last; update status in place):
   clean post-crash (no trainer PIDs, 0 MiB GPU).
 - ANSWER (operator): _pending_
 - rulebook change: _pending_
+
+## q_20260817T2352Z — OPEN
+- cycle: operator-kick cycle 2026-08-17 ~23:5x UTC (triage
+  any18-pop3-s11/s12/s13 + execute fb_20260817T234449_bcdcce — launch
+  recover-any19-pop3 with predeclared W&B ids).
+- operator order: fb_20260817T234449_bcdcce — reconcile any18 as
+  INVALID_INTEGRATION_CANARY (per fb_20260817T234315_0d7fa3) and launch
+  cw-recover-any19-pop3-s11/s12/s13 at exact SHA 3cc62a2 with
+  --recover-population-run-ids 6907573e,1c67c001,79ef86ae on every
+  member, 40M steps each, "through the normal launcher."
+- conflicted with: guardrails compute.max_new_gpu_steps_per_cycle =
+  80,000,000 — same 3x40M=120M-steps-in-one-cycle overage already on
+  file (unanswered) at q_20260817T2330Z/q_20260817T2340Z for the
+  identical any17/any18 launch pattern; not re-argued in detail here.
+  Also SIM SPRINT tension already on record at q_20260817T2310Z (a
+  from-scratch recover cohort is not a named rise/walk reliability
+  item) — not repeated.
+- why the cycle would have declined: same GPU-step blast-radius
+  reasoning as the two prior entries; a non-operator spec this size
+  would be split across cycles. Executed anyway per the same
+  authenticated-order logic (this is the fifth directive in an
+  unbroken operator-authenticated chain on this exact line).
+- what was executed: verified the any18 ledger reconciliation was
+  already complete (s11/s12/s13 all INVALID_INTEGRATION_CANARY,
+  duplicate REFUSED s11 row STALE_DUPLICATE, doc-render catch-up
+  committed) — no double-write. Verified 3cc62a2 on origin/main
+  implements the exact protocol described (wandb.init(id=<predeclared>,
+  resume="never") + abort-on-id-mismatch + direct api.run(project/id)
+  peer lookups, no Api.runs()/display-name query anywhere in the
+  population path); 23 direct recover-cert tests green. Confirmed all
+  three predeclared ids (6907573e/1c67c001/79ef86ae) absent from
+  l2k2/hexapod-balance immediately before launch (fresh wandb.Api
+  check). Launched all three via respec --now onto the three pods
+  freed by any18's stop (train-0/1/3), no --init-from, exact roster
+  order s11(seed11,member0)/s12(seed12,member1)/s13(seed13,member2);
+  s12's own respec process lost a benign snapshot-tag race to a
+  concurrent cycle executing the same directive (git tag already
+  existed) and aborted cleanly without launching — the concurrent
+  cycle's launch is the one now RUNNING (normal concurrent-cycle
+  traffic, not an error). Mechanically verified post-launch: ledger
+  RUNNING x3, W&B ids exactly match the predeclared roster
+  (6907573e/1c67c001/79ef86ae, no generated ids), all three pods'
+  own /tmp/train_cw-recover-any19-pop3-*.log show identical
+  total_timesteps=655360 (the bootstrap-rollout boundary) with sane
+  PPO stats (KL/loss/bc_anchor terms in the expected range) — i.e. all
+  three are alive and at (or approaching) the same barrier point.
+  Peer-discovery/start_B00/cert-sync gate items (3)-(7) were NOT yet
+  observable at verification time (bootstrap not yet complete on all
+  three simultaneously) and are left for the next checkup cycle to
+  watch to conclusion.
+- ANSWER (operator): _pending_
+- rulebook change: _pending_
