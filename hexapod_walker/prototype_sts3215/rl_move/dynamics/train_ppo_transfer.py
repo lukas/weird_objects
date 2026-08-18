@@ -935,6 +935,22 @@ def main() -> None:
                          "comparable to the fixed-sampling parent. "
                          "Best checkpoint = last retention-clean "
                          "promotion, never reward/latest")
+    ap.add_argument("--walk-curriculum-version", type=int, default=1,
+                    choices=(1, 2),
+                    help="1 = original WALKCURR_BUCKETS ladder "
+                         "(cw-dynrep-criticD-walkcurr1); 2 = "
+                         "WALKCURR_BUCKETS_V2 (walkcurr2, operator MCP "
+                         "note fb_20260818T060044): B0/B1 ignition "
+                         "speed 0.08-0.12 m/s + heading spread from "
+                         "step 0 instead of a dead-ahead 0.04-0.05 m/s "
+                         "band that sits inside the velocity-tracking "
+                         "kernel's SIGMA_V=0.05 (parking scored ~67%% "
+                         "of peak), and slew_sat_max relaxed 0.5->0.95 "
+                         "in the cert gate (the known-good 6M "
+                         "criticD-40m1 checkpoint runs slew_sat~0.925 "
+                         "and would fail the original hard bar "
+                         "outright). Only meaningful with "
+                         "--walk-curriculum; ignored otherwise.")
     ap.add_argument("--walkcurr-cert-every", type=int, default=500_000,
                     help="steps between deterministic held-out "
                          "certification rounds (per unlocked bucket)")
@@ -945,6 +961,43 @@ def main() -> None:
                     help="consecutive retained-failure rounds before "
                          "rollback to the last retention-clean "
                          "promotion")
+    # -- update-path health (walkcurr2, operator MCP note
+    #    fb_20260818T060044 root cause 3): this trainer's PPO() call
+    #    has always run SB3 defaults (n_epochs=10, one LR for both
+    #    actor+critic, no target_kl, no realized-KL rollback) — the
+    #    exact update-path gap cw-arch-joystick-long-scratch3 already
+    #    diagnosed and fixed in train_ppo_mjx.py via
+    #    rl_move/sim/update_health.py. cw-dynrep-criticD-40m1
+    #    independently reproduced the same signature (loco_quality
+    #    peaked at 6M, never again in 34M more steps, approx_kl/
+    #    clip_frac climbing by 38M). All default OFF/0 = bit-exact
+    #    unchanged (plain PPO(**common), no n_epochs override, no
+    #    target_kl, no optimizer-group rebuild, no rollback wrapper).
+    ap.add_argument("--n-epochs", type=int, default=10,
+                    help="SB3 PPO n_epochs (default = SB3's own "
+                         "default, bit-exact unchanged; walkcurr2 "
+                         "uses 3)")
+    ap.add_argument("--target-kl", type=float, default=0.0,
+                    help="SB3 PPO target_kl early-stop (0 = off, SB3 "
+                         "default None; walkcurr2 uses 0.01)")
+    ap.add_argument("--actor-lr", type=float, default=0.0,
+                    help="split the policy optimizer into actor/critic "
+                         "param groups via update_health."
+                         "attach_actor_critic_lr, actor group at this "
+                         "LR (0 = off, single shared --lr as today)")
+    ap.add_argument("--actor-lr-final", type=float, default=0.0,
+                    help="linear-decay target for --actor-lr over the "
+                         "run (0 = constant at --actor-lr)")
+    ap.add_argument("--critic-lr", type=float, default=0.0,
+                    help="constant critic-group LR (0 = --actor-lr); "
+                         "requires --actor-lr")
+    ap.add_argument("--kl-rollback", type=float, default=0.0,
+                    help="update_health.attach_kl_rollback threshold: "
+                         "snapshot->train->verify realized approx_kl, "
+                         "roll back + cut actor-LR scale on overshoot "
+                         "(0 = off; requires --actor-lr)")
+    ap.add_argument("--kl-rollback-lr-factor", type=float, default=0.5,
+                    help="actor-LR scale multiplier per rollback")
     args = ap.parse_args()
     if args.walk_curriculum:
         if args.task != "walk":
@@ -952,6 +1005,13 @@ def main() -> None:
         if args.walkcurr_cert_episodes < 8:
             ap.error("--walkcurr-cert-episodes must be >= 8 "
                      "(operator-ordered assay floor)")
+    if args.critic_lr > 0.0 and args.actor_lr <= 0.0:
+        ap.error("--critic-lr requires --actor-lr")
+    if args.actor_lr_final > 0.0 and args.actor_lr <= 0.0:
+        ap.error("--actor-lr-final requires --actor-lr")
+    if args.kl_rollback > 0.0 and args.actor_lr <= 0.0:
+        ap.error("--kl-rollback requires --actor-lr (the rollback "
+                 "reduces the actor-LR scale)")
     goal_set = {}
     for kv in args.goal_set:
         key, sep, val = kv.partition("=")
@@ -1007,7 +1067,7 @@ def main() -> None:
     # applies each bucket's own DR scale per episode.
     train_goal_set = dict(goal_set)
     if args.walk_curriculum:
-        train_goal_set["walk_curriculum"] = 1.0
+        train_goal_set["walk_curriculum"] = float(args.walk_curriculum_version)
     venv = VecMonitor(SubprocVecEnv(
         [_env_factory(args.task, args.seed * 1000 + i, args.dr_scale,
                       args.episode_seconds, args.term_penalty,
@@ -1024,6 +1084,8 @@ def main() -> None:
         n_steps=256, batch_size=min(2048, 256 * args.n_envs),
         learning_rate=args.lr, gamma=0.99, gae_lambda=0.95,
         ent_coef=1e-3, clip_range=0.2, seed=args.seed, verbose=0,
+        n_epochs=args.n_epochs,
+        target_kl=(args.target_kl if args.target_kl > 0.0 else None),
         device=device, tensorboard_log=str(LOG_DIR / "tensorboard"))
     enc_kwargs = dict(ckpt_path=str(ROOT / args.encoder),
                       frame_width=frame_width, history=HISTORY)
@@ -1064,6 +1126,43 @@ def main() -> None:
         model.policy.load_state_dict(params["policy"])
     if args.condition == "C":
         set_group_lrs(model.policy, args.lr, args.encoder_lr_scale)
+
+    if args.actor_lr > 0.0:
+        # update-path health (walkcurr2 root cause 3): separate actor/
+        # critic optimizer groups + optional transactional-update
+        # rollback, ported from train_ppo_mjx.py's proven
+        # update_health.py. Condition D/E/F's PredictiveCriticPolicy
+        # adds two critic-only modules (value_gate, latent_adapter)
+        # that share no substring with the stock SB3 markers — extend
+        # them so those modules ride the CRITIC lr, not the (smaller,
+        # decaying) actor one (test_dynrep_predictive_critic.py pins
+        # this).
+        from rl_move.sim.update_health import (
+            CRITIC_MARKERS, attach_actor_critic_lr, attach_kl_rollback,
+        )
+        markers = (CRITIC_MARKERS + ("value_gate", "latent_adapter")
+                   if args.condition in ("D", "E", "F") else None)
+        attach_actor_critic_lr(
+            model, args.actor_lr,
+            (args.actor_lr_final if args.actor_lr_final > 0.0
+             else args.actor_lr),
+            (args.critic_lr if args.critic_lr > 0.0 else args.actor_lr),
+            critic_markers=markers)
+        st = model._ac_state
+        print(f"[{args.name}] update-health: actor/critic LR groups "
+              f"{st['n_actor']} actor tensors @ {st['actor_lr']:.2e}"
+              f"{' -> %.2e' % st['actor_lr_final'] if st['actor_lr_final'] != st['actor_lr'] else ''}, "
+              f"{st['n_critic']} critic tensors @ "
+              f"{st['critic_lr']:.2e} (constant)")
+        if args.kl_rollback > 0.0:
+            attach_kl_rollback(model, args.kl_rollback,
+                               lr_factor=args.kl_rollback_lr_factor)
+            print(f"[{args.name}] update-health: transactional "
+                  f"rollback + actor-LR x{args.kl_rollback_lr_factor} "
+                  f"on realized KL > {args.kl_rollback}")
+    elif args.kl_rollback > 0.0:
+        raise SystemExit("--kl-rollback requires --actor-lr (the "
+                         "rollback reduces the actor-LR scale)")
 
     n_train = sum(p.numel() for p in model.policy.parameters()
                   if p.requires_grad)
@@ -1317,13 +1416,18 @@ def main() -> None:
                 return True
             self._next += args.walkcurr_cert_every
             self.cert_round += 1
-            from rl_move.sim.walk_task import WALKCURR_BUCKETS
+            from rl_move.sim.walk_task import (
+                WALKCURR_BUCKETS, WALKCURR_BUCKETS_V2,
+            )
+            WALKCURR_BUCKETS_TABLE = (
+                WALKCURR_BUCKETS_V2 if args.walk_curriculum_version == 2
+                else WALKCURR_BUCKETS)
             active_n = int(self.model.env.env_method(
                 "walkcurr_state", indices=0)[0]["active_n"])
             payload: dict = {"walkcurr/cert_round": self.cert_round}
             t_cert = time.time()
             for b in range(active_n):
-                spec = WALKCURR_BUCKETS[b]
+                spec = WALKCURR_BUCKETS_TABLE[b]
                 m = eval_task(self.model, args.task,
                               args.walkcurr_cert_episodes,
                               args.dr_scale, args.episode_seconds,

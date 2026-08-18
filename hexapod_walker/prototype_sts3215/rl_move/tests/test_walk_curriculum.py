@@ -37,7 +37,9 @@ pytest.importorskip("mujoco")
 from rl_move.config import load_config  # noqa: E402
 from rl_move.sim.servo_model import SimServoParams  # noqa: E402
 from rl_move.sim.walk_task import (  # noqa: E402
-    WALKCURR_BUCKETS, WALKCURR_MIX, SimHexapodJointWalkEnv,
+    WALKCURR_BUCKETS, WALKCURR_BUCKETS_V2, WALKCURR_GATE_V2_IGNITION,
+    WALKCURR_GATE_V2_QUALITY, WALKCURR_MIX, SIGMA_V,
+    SimHexapodJointWalkEnv,
 )
 
 
@@ -327,3 +329,119 @@ def test_cert_gate_arithmetic():
     assert WALKCURR_GATE["cmd_prog_frac_min"] == 0.75
     assert WALKCURR_GATE["slip_per_m_max"] == 2.0
     assert WALKCURR_GATE["peak_roll_deg_max"] == 6.0
+
+
+# -- walkcurr2 (operator MCP note fb_20260818T060044): B0/B1 ignition
+# band fix + relaxed slew admission ------------------------------------
+CURR_V2_ON = {("goal", "walk_curriculum"): 2.0}
+
+
+def test_v2_default_is_v1_bit_exact():
+    """goal.walk_curriculum=1 is untouched: same table object, same
+    per-episode trajectories as before this change (regression guard
+    for the version-selection refactor)."""
+    env = _env(seed=5, extra=CURR_ON)
+    assert env._wc_version == 1
+    assert env._wc_table is WALKCURR_BUCKETS
+    env.close()
+
+
+def test_v2_selects_the_v2_table():
+    env = _env(seed=5, extra=CURR_V2_ON)
+    assert env._wc_version == 2
+    assert env._wc_table is WALKCURR_BUCKETS_V2
+    assert len(WALKCURR_BUCKETS_V2) == len(WALKCURR_BUCKETS)
+    env.close()
+
+
+def test_v2_ignition_band_is_outside_the_velocity_kernel_park_zone():
+    """Root cause 1 (walkcurr1 stalled at B0, 0/10 promotions): V1's B0
+    (0.04-0.05 m/s, dead ahead) sits entirely inside one SIGMA_V of a
+    PARKED robot, so standing still scores close to peak reward. V2's
+    B0 must put a parked robot's error multiple sigma away, and must
+    vary heading from the very first bucket (not deferred to a later
+    rung)."""
+    import math as _m
+
+    def _park_reward_frac(speed: float) -> float:
+        """A zero-output (parked) robot's velocity-kernel reward as a
+        fraction of peak, when the commanded speed is ``speed``."""
+        return _m.exp(-(speed ** 2) / (2.0 * SIGMA_V ** 2))
+
+    b0_v1, b0_v2 = WALKCURR_BUCKETS[0], WALKCURR_BUCKETS_V2[0]
+    assert b0_v2["name"] == "ignition"
+    park_v1 = _park_reward_frac(b0_v1["s_lo"])
+    park_v2 = _park_reward_frac(b0_v2["s_lo"])
+    assert park_v1 > 0.5, "documents the V1 bug: parking near-peaks B0"
+    assert park_v2 < 0.35, (
+        f"V2 ignition (s_lo={b0_v2['s_lo']}) must make parking score "
+        f"well under half of what V1's B0 gave it (got {park_v2:.2f} "
+        f"vs V1's {park_v1:.2f})")
+    assert b0_v2["head_hi"] > 0.0, (
+        "ignition must vary heading from step 0, not defer it to a "
+        "later bucket the way V1's B0/B1 did")
+    # the original V1 park-zone bucket must NOT reappear in V2 at all
+    assert not any(0.0 < b["s_hi"] <= SIGMA_V for b in WALKCURR_BUCKETS_V2)
+
+
+def test_v2_gate_admits_the_known_good_checkpoint_v1_gate_rejects():
+    """The retained 6M-best cw-dynrep-criticD-40m1 checkpoint (matched
+    task/backend/mostly-matched budget, the best real evidence of a
+    genuinely good policy at this scale) runs slew_sat ~0.925 — V1's
+    hard slew_sat_max=0.5 admission bar would reject it outright; V2's
+    gate must admit the same numbers, without loosening the OTHER
+    bars V1 already had right."""
+    from rl_move.dynamics.train_ppo_transfer import (
+        WALKCURR_GATE, walkcurr_bucket_pass,
+    )
+    known_good = dict(early_term_rate=0.0, contact_sw_per_s=12.0,
+                      foot_sw_min_per_s=1.0, cmd_prog_frac=0.78,
+                      wrong_way=0.0, cross_track_frac=0.05,
+                      slip_per_m=1.77, peak_roll_deg=4.49,
+                      slew_sat=0.925, stop_speed_m_s=float("nan"))
+    spec_v1 = {"stop_gate": None}         # v1 buckets carry no "gate" key
+    ok_v1, checks_v1 = walkcurr_bucket_pass(known_good, spec_v1)
+    assert not ok_v1 and not checks_v1["slew"], (
+        "this test documents the V1 gate bug — if it starts passing, "
+        "the V1 gate dict changed and this run's postmortem is stale")
+    for spec in (dict(WALKCURR_BUCKETS_V2[0], stop_gate=None),
+                dict(WALKCURR_BUCKETS_V2[6], stop_gate=None)):
+        ok_v2, checks_v2 = walkcurr_bucket_pass(known_good, spec)
+        assert ok_v2 and checks_v2["slew"], (
+            f"V2 bucket {spec['name']} must admit the known-good "
+            "checkpoint's slew_sat=0.925")
+
+
+def test_v2_tiers_the_progress_bar_ignition_vs_quality():
+    assert WALKCURR_GATE_V2_IGNITION["cmd_prog_frac_min"] < (
+        WALKCURR_GATE_V2_QUALITY["cmd_prog_frac_min"])
+    assert WALKCURR_BUCKETS_V2[0]["gate"] is WALKCURR_GATE_V2_IGNITION
+    assert WALKCURR_BUCKETS_V2[1]["gate"] is WALKCURR_GATE_V2_QUALITY
+
+
+def test_v2_bucket_commands_and_dr_swap():
+    """Same physical-sanity sweep as V1's test_bucket_commands_and_
+    dr_swap, run against the V2 table."""
+    env = _env(seed=31, extra=CURR_V2_ON, episode_seconds=10.0)
+    hold_n = max(1, int(round(1.0 / env.dt)))
+    ramp_n = max(1, int(round(1.0 / env.dt)))
+    for b, spec in enumerate(WALKCURR_BUCKETS_V2):
+        env.force_walk_curr_bucket = b
+        for _ in range(4):
+            t = _sample_traj(env)
+            assert t.cmd_mode == "walkcurr"
+            assert env._wc_bucket == b
+            assert env.randomizer.scale == pytest.approx(spec["dr"])
+            body = np.hypot(t.vx, t.vy)[hold_n + ramp_n:]
+            active = body[body > 1e-9]
+            assert active.size, f"bucket {b} produced no motion command"
+            # only the max bound is asserted here (matches V1's own
+            # test_bucket_commands_and_dr_swap): a resampled segment's
+            # LINEAR vx/vy blend between two in-band commands can
+            # transiently dip below s_lo in speed-magnitude even
+            # though both endpoints are in-band.
+            assert active.max() <= spec["s_hi"] + 1e-9
+            ang = abs(math.atan2(t.vy[hold_n + ramp_n],
+                                 t.vx[hold_n + ramp_n]))
+            assert spec["head_lo"] - 1e-9 <= ang <= spec["head_hi"] + 1e-9
+    env.close()
