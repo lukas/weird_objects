@@ -666,14 +666,85 @@ def is_recurrent_checkpoint(path: str | Path) -> bool:
         return False
 
 
+def repair_legacy_actor_critic_optimizer(path: str | Path,
+                                         out_path: str | Path | None = None
+                                         ) -> bool:
+    """Fix checkpoints saved by the pre-2026-08-18 attach_actor_critic_lr
+    bug (rl_move/sim/update_health.py, found via cw-dynrep-criticD-
+    walkcurr3's eval crash): ``save_stock_optimizer`` built the
+    save-time stock optimizer over ALL ``model.policy.parameters()``
+    (including frozen submodules, e.g. condition-D's frozen dynamics-
+    transformer encoder) instead of trainable params only — so its
+    single param group has more entries than the trainable-param
+    optimizer a freshly-constructed policy builds, and
+    ``PPO.load``/``set_parameters`` raises "loaded state dict contains
+    a parameter group that doesn't match the size of optimizer's
+    group" on every eval/warm-start of the checkpoint. The saved
+    optimizer ``state`` is always EMPTY (it is a throwaway fresh Adam
+    built only for the zip write, never stepped) so resizing
+    ``param_groups[0]['params']`` to the true trainable-param count
+    (recorded in ``_ac_state`` as ``n_actor + n_critic``) loses no
+    information — it only fixes torch's group-size sanity check.
+    Returns True if a repair was written, False if the checkpoint
+    didn't need one (no ``_ac_state``, or already correct size).
+    """
+    import io
+    import zipfile
+    from stable_baselines3.common.save_util import load_from_zip_file
+
+    path = Path(path)
+    data, params, _pv = load_from_zip_file(str(path), device="cpu")
+    ac_state = data.get("_ac_state") if isinstance(data, dict) else None
+    opt_sd = params.get("policy.optimizer") if params else None
+    if not ac_state or not opt_sd or not opt_sd.get("param_groups"):
+        return False
+    n_true = int(ac_state["n_actor"]) + int(ac_state["n_critic"])
+    grp = opt_sd["param_groups"][0]
+    if len(grp["params"]) == n_true:
+        return False
+    grp["params"] = list(range(n_true))
+    dest = Path(out_path) if out_path is not None else path
+    buf = io.BytesIO()
+    with zipfile.ZipFile(path) as zin, \
+            zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zout:
+        for name in zin.namelist():
+            if name == "policy.optimizer.pth":
+                inner = io.BytesIO()
+                th.save(opt_sd, inner)
+                zout.writestr(name, inner.getvalue())
+            else:
+                zout.writestr(name, zin.read(name))
+    dest.write_bytes(buf.getvalue())
+    return True
+
+
 def load_checkpoint_auto(path: str | Path, device: str = "cpu", env=None):
     """Load an SB3 checkpoint as PPO or RecurrentPPO, whichever wrote it.
 
     Every eval/viewer code path that used to hardcode ``PPO.load``
-    should go through this so GRU checkpoints just work.
+    should go through this so GRU checkpoints just work. Falls back to
+    ``repair_legacy_actor_critic_optimizer`` (into a sibling
+    ``*.optfix.zip``, never mutating the original) on the specific
+    optimizer-group-size ValueError those pre-fix checkpoints raise —
+    see that function's docstring.
     """
+    cls = None
+    kwargs = dict(env=env, device=device)
     if is_recurrent_checkpoint(path):
         from sb3_contrib import RecurrentPPO
-        return RecurrentPPO.load(path, env=env, device=device)
-    from stable_baselines3 import PPO
-    return PPO.load(path, env=env, device=device)
+        cls = RecurrentPPO
+    else:
+        from stable_baselines3 import PPO
+        cls = PPO
+    try:
+        return cls.load(path, **kwargs)
+    except ValueError as exc:
+        if "parameter group" not in str(exc):
+            raise
+        path = Path(path)
+        fixed = path.with_suffix(".optfix.zip")
+        if not repair_legacy_actor_critic_optimizer(path, fixed):
+            raise
+        print(f"[load_checkpoint_auto] repaired legacy optimizer group "
+              f"size (pre-08-18 attach_actor_critic_lr bug): {fixed}")
+        return cls.load(fixed, **kwargs)

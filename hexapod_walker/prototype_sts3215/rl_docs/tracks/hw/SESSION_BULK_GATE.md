@@ -508,3 +508,184 @@ Aggregate: `logs/bulk_session/c4/aggregate.json` + `episodes.jsonl`;
   rise directly in reward) — escalated to `[operator]` WAITING-ON in
   STATUS.md / hw/STATUS.md, not launched. Product baseline (c1
   hierarchy) unaffected either way.
+
+## Cohort c5rr — pre-registered "rise-from-h" semantics probe (prices the postlower `[operator]` fork)
+
+Registered: 2026-08-17 ~22:0x UTC (idle-drain cycle), BEFORE any
+shard ran. Not a promotion gate for a new arm — an EVAL-SIDE probe
+that answers the exact open question the c4 verdict escalated: c4's
+FAIL was attributed to a train/eval schedule MISMATCH (postlower4
+was trained under `goal.mode_seq_rise_from_h=1` — the mid-sequence
+rise holds at the robot's CURRENT height then ramps to the stand
+target — but `bulk_session_eval`/`eval_modeseq` always reanchors the
+post-lower rise with the LEGACY schedule, hold-at-belly then ramp,
+i.e. it evaluates the robot on a task it wasn't trained for). If
+c5rr shows c4 crossing the c1 parent's bars under the MATCHED
+schedule, operator fork option (a) — "align the runner/instrument to
+train==deploy semantics" — is measured-best and the pick becomes
+data, not taste; if it still falls short, the mismatch was not (the
+whole) story and option (b)/(c) (reward-side pricing / accept the
+ceiling) stay live.
+
+- **New code** (this cycle, tests green): a first pass tried a pure
+  post-hoc rewrite of the legacy schedule array; a PRIOR cycle this
+  same window had already confirmed (on-pod, byte-identical A/B) that
+  a naive `--cfg-set goal.mode_seq_rise_from_h=1` is a NO-OP through
+  this harness — that key is only read inside
+  `_sample_mode_seq_stance`, gated on `goal.mode_seq_stance>0`, a
+  code path the reanchor-based composed-specialist sequencing never
+  enters (`_sample_goal` falls straight to the legacy
+  `GoalGenerator.sample`) — and specified the correct fix as calling
+  the REAL trained generator directly. Implemented per that spec:
+  `eval_modeseq.py --rise-from-h` (default off, bit-exact legacy when
+  unset) — after the post-lower reanchor (physical state already
+  restored), calls `rise_from_h_traj()` which invokes
+  `SimHexapodGoalEnv._seq_segment_traj("rise", tick=0)` with
+  `goal.mode_seq_rise_from_h` forced to 1 for that one call only (cfg
+  restored immediately after, verified to leak neither an absent key
+  nor an explicit prior value) — the SAME method and 1.0s-hold/ramp-
+  jitter formula postlower4 was trained on, not a re-derived
+  approximation. `_seq_stand_z` is left at its natural `None` (a bare
+  reanchored env has no in-context `_seq_plan`, so the call takes the
+  same `rng.uniform(*gen.rise_m)` amplitude draw the legacy sampler
+  would). `bulk_session_eval.py`: shards carry a `rise_from_h` bool
+  (`COHORT_RISE_FROM_H`), `shard_cmd` passes `--rise-from-h` only
+  when set. Tests: new `test_eval_modeseq_rise_from_h.py` (4/4, real
+  mujoco env — holds at current height then ramps to target, cfg
+  toggle scoped/restored exactly, works without `_seq_stand_z`, and a
+  locked regression proving the legacy path is still a no-op with the
+  cfg key set but the flag NOT passed) + `test_bulk_session_eval.py`
+  +2 (shard-cmd opt-in, cohort wiring + fresh bank) — 14/14 across
+  both banks; real-checkpoint smoke reads (2-3 episodes each, both
+  `spec` and `spec-pl4`) confirm the mechanism fires only on
+  post-lower rises (`rise_from_h_start_mm` ~40mm present) and cold
+  rises are untouched.
+- Instrument + grammar identical to c1-c4 EXCEPT `--rise-from-h`
+  is now on: `rise,walk,lower,rise,walk`, entry-slew on, speed
+  0.05-0.06, drive 14s. Candidates: **`spec`** (parent,
+  `footlow2_hard1`+`bcgait1_hard1`, re-read under the new schedule —
+  its OWN c1 numbers are NOT reusable here since the schedule
+  changed) and **`spec-pl4`** (`postlower4`+`bcgait1_hard1`, the c4
+  candidate). Volume: 50 shards x 6 episodes = 300 det + 300 sto per
+  candidate (1,200 total) — same n as c1/c4 so the read is directly
+  comparable to their bars.
+- FRESH bank (c1-c4 bases all retired): **det = 980000..980049, sto =
+  990000..990049** (`COHORT_SEED_BASE["c5rr"]`).
+- **Readout (no pass/fail bar — a comparative price, not a gate):**
+  report, for BOTH candidates under the matched schedule: det/sto
+  post-lower-rise (`rise_by_ordinal.1`) rate + CI, det complete-
+  session zero-fall + CI, first-rise/lower retention (must stay
+  parity — any drop here is a NEW problem, not this probe's
+  question), fall-reason histogram, visual medians (slip/m, drive
+  height, switch tilt), and a handful of watched re-renders of any
+  post-lower-rise failure (the eye clause: confirm no NEW exploit
+  from the schedule change itself).
+  - If `spec-pl4`'s post-lower rise (det AND sto) is >= `spec`'s
+    OWN number under this SAME schedule (not the stale c1 number),
+    with CIs not both worse: **fork (a) is supported** — write it up
+    for the operator as the measured answer, do not auto-promote
+    (postlower4 is not yet a product change without the operator's
+    sign-off on the runner/instrument contract).
+  - If `spec` ALSO changes materially (up or down) from its c1
+    numbers under `--rise-from-h`, that is itself a finding about
+    the runner (the legacy schedule was doing SOMETHING for the
+    parent too) and gets reported plainly, not smoothed over.
+  - If `spec-pl4` still trails `spec` under the matched schedule,
+    the mismatch was not (the whole) explanation for c4's FAIL — say
+    so plainly; fork (b)/(c) stay live for the operator.
+- Banks retire on aggregate read regardless of outcome.
+
+### Cohort c5rr — RESULTS (2026-08-17, idle-drain cycle)
+
+n=1,200 (300 det + 300 sto per candidate), both `spec` and `spec-pl4`
+re-read under `--rise-from-h`. Banks 980000../990000.. now RETIRED.
+Aggregate: `logs/bulk_session/c5rr/aggregate.json` +
+`episodes.jsonl`; 14 watched re-renders (8 `spec` det failures + 1
+targeted `spec-pl4` det failure + 6 random clean, sample-seed 0, plus
+1 more targeted pl4 fail check): `logs/bulk_session/c5rr/rerender/
+strips/` + `/tmp/pl4_fail_strip` (the extra targeted pull, not
+copied into the tree).
+
+**Headline post-lower-rise numbers, matched schedule (this is the
+question c5rr exists to answer):**
+
+| | det | sto |
+|---|---|---|
+| `spec` (parent), OLD legacy-schedule (c1) | 0.967 | 0.801 |
+| `spec` (parent), THIS schedule (c5rr) | **0.950** [0.919,0.970] | **0.779** [0.729,0.823] |
+| `spec-pl4` (c4), OLD legacy-schedule (c4) | 0.872 | 0.690 |
+| `spec-pl4` (c4), THIS schedule (c5rr) | **0.963** [0.935,0.979] | **0.799** [0.750,0.841] |
+
+- **`spec-pl4` crosses `spec`'s OWN number on BOTH det and sto under
+  the matched schedule** (0.963 vs 0.950 det; 0.799 vs 0.779 sto) —
+  small margins with heavily overlapping CIs (not a decisive
+  statistical separation), but the DIRECTION is right on both, and
+  the pre-registered bar was ">= with CIs not both worse", which
+  this clears. **Per the pre-registration: fork (a) — align the
+  runner/instrument to train==deploy semantics — is SUPPORTED.**
+- **`spec` ALSO moved from its c1 numbers** (0.967->0.950 det,
+  0.801->0.779 sto) — both drops sit INSIDE c5rr's own CI for spec
+  (0.967 is inside [0.919,0.970]; 0.801 is inside [0.729,0.823]), so
+  this reads as noise/a mild schedule-sensitivity of the parent too,
+  not a material regression — reported per the pre-registration
+  clause, not smoothed over.
+- **`spec-pl4` recovered MOST of its apparent c4 deficit** (det
+  0.872->0.963, +9.1pp; sto 0.690->0.799, +10.9pp) simply by being
+  judged on the schedule it was trained for — confirming the c4
+  verdict's own escalated hypothesis (the mismatch was doing most of
+  the damage, not a genuine competence gap).
+- **Session-level effect: `spec-pl4`'s sto zero-fall (0.91 [0.872,
+  0.937]) is HIGHER than `spec`'s sto zero-fall (0.84 [0.794,
+  0.877])** — CIs nearly separated (0.872 vs 0.877, a hair of
+  overlap) — i.e. under a FAIR schedule, the postlower4 stance
+  candidate is arguably a better stochastic-session performer than
+  the current product parent, driven entirely by its post-lower-rise
+  advantage (first-rise and lower/walk segments are at parity between
+  candidates, see below).
+- **Retention (must stay parity, not this probe's question): clean.**
+  First (cold) rise: spec det 1.0 [0.987,1.0] vs spec-pl4 det 0.987
+  [0.966,0.995] (overlapping, both very high, every start-kind
+  stratum >=0.96 for both); lower: 1.0/1.0 both candidates both
+  modes. No new problem introduced by the schedule change or by the
+  candidate swap.
+- **Fall reasons, both candidates, both schedule reads:** the same
+  qualitative family as every prior cohort — `tilt_roll`/`tilt_pitch`
+  (balance loss mid-push) and `over_current` (actuation-effort
+  ceiling) — no new failure mode appeared from switching the
+  schedule.
+- **Eye clause: PASS, cleanly, on BOTH candidates.** Reviewed 8
+  `spec` det failures (all: robot rises from the post-lower crouch,
+  holds a low stance for several seconds while stepping is masked by
+  the hold window, then a DIRECT push attempt topples/rolls in the
+  final 1-2 frames — no belly-flop, no detour) + a targeted
+  `spec-pl4` det failure (seed 980000 ep0, `tilt_roll`: identical
+  qualitative shape — direct push, topples near the top) + 8 random
+  clean draws (both candidates, both modes: clean, direct,
+  continuous push from crouch to full stand height, e.g.
+  `spec-pl4/sto/seed990000/ep4`). No belly-flop detour, no new
+  exploit, in any of the 16 reviewed episodes — the schedule swap did
+  not teach or reveal a shortcut.
+- Visual-quality medians in-band and matched across candidates/
+  schedules: slip/m 1.71-1.75 (both candidates, both modes, same
+  range as every prior cohort), drive height 135.0-135.3mm, switch
+  tilt med 1.7-1.9° (max 11.5-14.3°, no new outlier).
+- **Verdict: fork (a) is the MEASURED-BEST answer to the operator's
+  postlower fork, escalated as a finding, NOT auto-promoted.** The
+  train/eval schedule mismatch this probe was built to test explains
+  MOST of c4's apparent shortfall (a ~9-11pp swing on exactly the
+  metric that mattered) and, once removed, `spec-pl4` is
+  statistically indistinguishable from (and directionally slightly
+  ahead of) the current product parent on post-lower rise, while
+  actually beating it on overall sto session zero-fall. This does
+  NOT retroactively invalidate the c4 ledger verdict (FAIL was the
+  correct call under the schedule that existed then) — it answers
+  the exact question the c4 verdict escalated to the operator.
+  Product-contract actions still needing the operator's sign-off
+  (not this cycle's to take): (i) whether the runner/instrument
+  should be upgraded to `rise_from_h` semantics generally (a
+  deploy-time contract change, not just an eval one — the real
+  hardware runner's post-lower rise reference would need the same
+  fix); (ii) whether `spec-pl4`/postlower4 should replace
+  `footlow2_hard1` as the stance half of the product hierarchy given
+  this reads. WAITING-ON updated in STATUS.md/hw/STATUS.md with this
+  result; no promotion made autonomously.

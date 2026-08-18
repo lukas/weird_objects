@@ -158,28 +158,48 @@ def node_host_load(pod: str) -> dict:
             "cores": int(out[-1])}
 
 
-def pod_trainers(pod: str) -> list[str]:
-    """Names (--run-name values) of main trainer processes on the pod.
+# Module invocations counted as "a trainer is running" by pod_trainers()
+# (2026-08-09 c37: anchored on literal `-m <module> ` prefixes, never a
+# loose `*train_ppo_*` glob — that matched cycle-agent processes whose
+# cmdline embeds the standing prompt, 371 phantom trainers on the
+# controller node would have refused every smoke launch there).
+# 2026-08-15 (dynrep triage cycle): `rl_move.dynamics.train_ppo_transfer`
+# (the condition A/B/C PPO-transfer cohorts, e.g. risewalk-single2/
+# futurewalk-C) was MISSING — capacity.py/ops.sh census/the launcher's
+# own pre-launch free-pod check all read those pods as free while they
+# were genuinely busy (confirmed live via direct kubectl exec /proc
+# reads on train-4/5/6/7/8/9 while capacity.py reported them FREE).
+# Not just a cosmetic report bug: launch_run.py's own pod_trainers()
+# call gates real launches (line ~1159/1567) and dedup (line ~683) —
+# added here so a future launch/dedupe check sees these pods correctly.
+TRAINER_MODULES = [
+    "rl_move.sim.train_ppo_",  # prefix: train_ppo_sim / train_ppo_mjx
+    "rl_move.dynamics.train ",  # exact module, trailing space
+    "rl_move.dynamics.fresh_pipeline ",
+    "rl_move.dynamics.train_ppo_transfer ",
+]
 
-    Matches main trainers of BOTH stacks (`train_ppo_sim` on CPU pods,
-    `train_ppo_mjx` on GPU pods); the forkserver/spawn workers have -c
-    or empty cmdlines and are excluded, as is this scan's own bash
-    wrapper. Anchored on the literal `-m rl_move.sim.train_ppo_`
-    module invocation (2026-08-09 c37: the loose `*train_ppo_*` glob
-    matched cycle-agent processes whose cmdline embeds the standing
-    prompt — 371 phantom trainers on the controller node would have
-    refused every smoke launch there).
+# {proc} defaults to /proc; tests substitute a fabricated directory tree
+# (numeric-named dirs each holding a NUL-separated `cmdline` file) so the
+# real glob/case logic is exercised without touching a live pod.
+_TRAINER_SCAN_SCRIPT = (
+    "for p in {proc}/[0-9]*; do c=$(tr '\\0' ' ' < $p/cmdline 2>/dev/null); "
+    "case \"$c\" in " +
+    "|".join(
+        f"python*' -m {m}'*|*/python*' -m {m}'*" for m in TRAINER_MODULES
+    ) +
+    ") case \"$c\" in *' -c '*) ;; *) echo \"$c\";; esac;; esac; done | sort -u"
+)
+
+
+def pod_trainers(pod: str) -> list[str]:
+    """Names (--run-name/--name values) of main trainer processes on the pod.
+
+    Matches main trainers of every stack (TRAINER_MODULES above); the
+    forkserver/spawn workers have -c or empty cmdlines and are excluded,
+    as is this scan's own bash wrapper.
     """
-    script = (
-        "for p in /proc/[0-9]*; do c=$(tr '\\0' ' ' < $p/cmdline "
-        "2>/dev/null); case \"$c\" in python*' -m rl_move.sim.train_ppo_'*|"
-        "*/python*' -m rl_move.sim.train_ppo_'*|"
-        "python*' -m rl_move.dynamics.train '*|"
-        "*/python*' -m rl_move.dynamics.train '*|"
-        "python*' -m rl_move.dynamics.fresh_pipeline '*|"
-        "*/python*' -m rl_move.dynamics.fresh_pipeline '*) case \"$c\" in *' -c '*) ;; *) "
-        "echo \"$c\";; esac;; esac; done | sort -u"
-    )
+    script = _TRAINER_SCAN_SCRIPT.format(proc="/proc")
     names = []
     for line in kexec(pod, script).splitlines():
         toks = line.split()
@@ -251,15 +271,43 @@ def now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
+def _recover_population_waiting(summary: object) -> dict | None:
+    """Return the newest unreleased recovery-population start barrier."""
+    try:
+        keys = list(summary.keys())
+    except (AttributeError, TypeError):
+        return None
+    ready = []
+    for key in keys:
+        match = re.fullmatch(r"recover_population/ready_B(\d+)", str(key))
+        if match:
+            ready.append((int(match.group(1)), str(key)))
+    for bucket, key in sorted(ready, reverse=True):
+        start_key = f"recover_population/start_B{bucket:02d}"
+        try:
+            is_ready = bool(summary.get(key))
+            is_started = bool(summary.get(start_key))
+        except (AttributeError, TypeError):
+            return None
+        if is_ready and not is_started:
+            return {"bucket": bucket, "ready_key": key,
+                    "start_key": start_key}
+    return None
+
+
 def wandb_running_runs() -> dict[str, dict]:
-    """name -> {id, state, global_step} for runs currently 'running'."""
+    """Name -> liveness fields for runs currently reported as running."""
     import wandb
     api = wandb.Api()
     out = {}
     for r in api.runs(WANDB_PROJECT, order="-created_at")[:25]:
         if r.state == "running":
             step = r.summary.get("global_step") or r.summary.get("_step")
-            out[r.name] = {"id": r.id, "state": r.state, "global_step": step}
+            out[r.name] = {"id": r.id, "state": r.state,
+                           "global_step": step}
+            barrier = _recover_population_waiting(r.summary)
+            if barrier is not None:
+                out[r.name]["recover_population_barrier"] = barrier
     return out
 
 
@@ -865,6 +913,15 @@ def _launch_locked(g: dict, a: argparse.Namespace,
     # UI then filters per track on tag `track:<id>`.
     if not a.smoke:
         envp += f"WANDB_TAGS={shlex.quote(_tracks.tag(track))} "
+    # PYTHONUNBUFFERED (08-18, recover-predictive1-pop3 silent-death dig-in):
+    # a trainer that dies by SIGKILL/native crash loses every buffered-but-
+    # unflushed stdout/stderr line — cw-recover-predictive1-pop3-s11/s12 both
+    # zombied with zero traceback right at the recover-population bootstrap
+    # barrier, and block buffering (writing to a file, not a tty) is the
+    # prime suspect for why nothing after the last full block reached the
+    # log. Purely diagnostic: unbuffered I/O changes no training semantics,
+    # only whether a genuine crash leaves a readable trace next time.
+    envp += "PYTHONUNBUFFERED=1 "
     # `< /dev/null` is load-bearing: without it the nohup'd trainer inherits
     # the kubectl-exec stream and `kubectl exec` hangs until the trainer
     # exits (observed cycle 10: launch verified fine but kexec timed out at
@@ -919,6 +976,7 @@ def _pod_trainer_pid(pod: str, run: str) -> str | None:
         "2>/dev/null); case \"$c\" in *' -m rl_move.sim.train_ppo_'*"
         f"'--run-name {run} '*|*' -m rl_move.dynamics.train '*"
         f"'--name {run} '*|*' -m rl_move.dynamics.fresh_pipeline '*"
+        f"'--name {run} '*|*' -m rl_move.dynamics.train_ppo_transfer '*"
         f"'--name {run} '*) case \"$c\" in *' -c '*) ;; *) "
         "echo ${p#/proc/};; esac;; esac; done"
     )
@@ -1131,6 +1189,18 @@ def cmd_checkup(g: dict, a: argparse.Namespace) -> int:
 
     def live_wandb() -> dict:
         running = wandb_running_runs()
+        # Script-owned cohorts (pod_tfwalk.sh / pod_risewalk.sh, 08-15):
+        # their W&B run names carry per-attempt/per-phase suffixes that
+        # never equal the ledger run name (dynrep-tfwalk-A-s5.0815-2221Z,
+        # rw_rise_C_s5) — three false checkup alarms 08-15 22:37. An
+        # optional `wandb_match` regex on the entry matches any running
+        # W&B name; absent field = old exact-name behavior, bit-exact.
+        wm = entry.get("wandb_match")
+        if wm:
+            for name in running:
+                if re.search(wm, name):
+                    return running[name]
+            return {}
         return next((running[name] for name in wb_names if name in running),
                     {})
 
@@ -1157,7 +1227,14 @@ def cmd_checkup(g: dict, a: argparse.Namespace) -> int:
             save_ledger(led)
 
     trainers = pod_trainers(pod)
-    facts["process_alive"] = a.run in trainers
+    # Optional `proc_match` regex (script-owned cohorts whose trainer
+    # --name is per-phase, e.g. rw_rise_C_s5 for ledger run
+    # risewalk-single2-s5 — false DEAD x3 on 08-15). Absent field =
+    # old exact-membership behavior, bit-exact.
+    pm = entry.get("proc_match")
+    live_names = ([t for t in trainers if re.search(pm, t)] if pm
+                  else [t for t in trainers if t == a.run])
+    facts["process_alive"] = bool(live_names)
     if not facts["process_alive"]:
         tail = kexec(pod, f"tail -c 2000 {log} 2>/dev/null || true")
         # A missing process is NOT necessarily a death: short runs and
@@ -1210,6 +1287,14 @@ def cmd_checkup(g: dict, a: argparse.Namespace) -> int:
             problems.append("W&B no longer reports the run as running")
             if log_stalled:
                 problems.append("log stopped growing")
+        elif s2 <= s1 and wb2.get("recover_population_barrier"):
+            barrier = wb2["recover_population_barrier"]
+            facts["recover_population_barrier"] = barrier
+            facts["placement"] = "recovery-population start barrier"
+            facts["note"] = (
+                f"intentionally waiting at recovery-population B"
+                f"{int(barrier['bucket'])} start barrier at global_step "
+                f"{s2}; ready is published and start is not yet released")
         elif s2 <= s1:
             # W&B logs once per PPO iteration, and an iteration's wall
             # time is floored by its rollout (n_envs * n_steps). Small-
@@ -1222,7 +1307,8 @@ def cmd_checkup(g: dict, a: argparse.Namespace) -> int:
             # 08-11 cw-arch-gru-r4 fix): cumulative CPU time flat across
             # two 30 s samples. A genuinely hung/starved process goes
             # CPU-flat; a slow-cadence healthy one keeps burning cores.
-            pid = _pod_trainer_pid(pod, a.run)
+            pid = _pod_trainer_pid(
+                pod, live_names[0] if live_names else a.run)
             cpu = [_pod_pid_cputime(pod, pid) if pid else None]
             for _ in range(2):
                 time.sleep(30)
@@ -1247,7 +1333,41 @@ def cmd_checkup(g: dict, a: argparse.Namespace) -> int:
             # 30-core pod runs slower but should beat 60.
             limit = pod_cpu_limit(pod)
             solo = len(trainers) == 1
-            if pod in g["compute"].get("gpu_pods", []):
+            # train_ppo_transfer added 08-15: the dynamics-track transfer
+            # PPO runs 8 SB3 envs (measured healthy 49 fps risewalk_s5,
+            # ~560 fps tfwalk-A) — nothing like MJX's 19-20k rollout fps;
+            # the 5000 floor false-SUSPECTed healthy risewalk-single2-s5.
+            # A genuine stall still lands near zero, under the 5.0 floor.
+            # 08-15 23:xx: the gpu1 tfwalk relaunch entries were
+            # registered without the `trainer` field, so all three
+            # healthy CUDA runs (fps 228-401, steps advancing) fell
+            # through to the 5000 MJX floor — false SUSPECT x3 at
+            # 22:59. Fall back to the entry's command/args/log blob so
+            # a script-owned dynamics-track entry missing the field
+            # still classifies; entries WITH the field are unchanged.
+            _tblob = (" ".join(str(x) for x in entry.get("extra_args", []))
+                      + " " + str(entry.get("command", ""))
+                      + " " + str(entry.get("log", "")))
+            is_dynrep_trainer = (
+                entry.get("trainer") in (
+                    "dynrep", "dynrep-fresh", "train_ppo_transfer")
+                or "train_ppo_transfer" in _tblob
+                or "rl_move/dynamics/logs/" in _tblob)
+            if is_dynrep_trainer and pod in g["compute"].get("gpu_pods", []):
+                # dynrep/dynrep-fresh's "global_step" is a GRADIENT step
+                # over pre-collected windows, not a PPO physics env-step —
+                # a completely different unit from the ~19-20k fps floor
+                # below, which is calibrated for MJX rollout throughput.
+                # Two independent healthy runs (cw-dynrep-tf-state1,
+                # cw-dynrep-tf-state2-recovered1 — both the same 13.6M
+                # CUDA transformer) steady-state at ~41-42 step/s and both
+                # false-SUSPECTed against the 5000 floor (found 08-15,
+                # recovered1 checkup). Floor calibrated well below that
+                # steady-state so a genuine stall/starvation (CPU-flat or
+                # near-zero step/s) still catches, healthy training doesn't.
+                floor = 5.0
+                facts["placement"] = "solo on GPU-MJX pod (dynrep trainer)"
+            elif pod in g["compute"].get("gpu_pods", []):
                 floor = 5000.0
                 facts["placement"] = "solo on GPU-MJX pod"
                 # Scale the floor for configs that are legitimately
@@ -1424,14 +1544,28 @@ def cmd_respec(g: dict, a: argparse.Namespace) -> int:
         else:
             args.extend([flag, val])
 
+    def set_bare_flag(flag: str) -> None:
+        # store_true-style flag: takes no value. Adding [flag, ""]
+        # (the old set_flag behavior for a missing '=') crashed
+        # train_ppo_mjx.py's argparse with a trailing empty
+        # "unrecognized arguments" (found the hard way, 08-18:
+        # --arg='--best-ckpt' launched, argparse-crashed pre-boot,
+        # zero GPU-seconds lost, fixed here). Idempotent: a bare flag
+        # already present is left alone.
+        if flag not in args:
+            args.append(flag)
+
     if a.seed is not None:
         set_flag("--seed", str(a.seed))
     for spec in a.arg or []:
-        flag, _, val = spec.partition("=")
+        flag, eq, val = spec.partition("=")
         if not flag.startswith("--"):
-            print(f"bad --arg (need --flag=value): {spec}")
+            print(f"bad --arg (need --flag=value or bare --flag): {spec}")
             return 1
-        set_flag(flag, val)
+        if eq:
+            set_flag(flag, val)
+        else:
+            set_bare_flag(flag)
     for spec in a.cfg or []:
         key = spec.split("=", 1)[0]
         # replace an existing --cfg-set for the same key, else append
@@ -1441,12 +1575,28 @@ def cmd_respec(g: dict, a: argparse.Namespace) -> int:
                 break
         else:
             args.extend(["--cfg-set", spec])
+    # dynrep/dynrep-fresh trainers (rl_move.dynamics.train /
+    # fresh_pipeline) have no --out-name / --init-from flags at all --
+    # they derive their own checkpoint name from --name and don't warm
+    # -start from a PPO-style zip. respec used to add --out-name
+    # unconditionally (mirroring the ppo-only convention the `launch`
+    # command already guards with `is_dynrep`), which crashed
+    # argparse the first time it respec'd a dynrep-fresh run (08-15,
+    # `cw-dynrep-tf-state2-fresh3`: "unrecognized arguments: --out-name
+    # ..." after burning a full stage-1 data-collection cycle first).
+    is_dynrep_source = entry.get("trainer") in ("dynrep", "dynrep-fresh")
     if a.init_from_source:
+        if is_dynrep_source:
+            print("REFUSED: --init-from-source has no meaning for a "
+                  "dynrep/dynrep-fresh source (no --out-name checkpoint "
+                  "to warm-start from)")
+            return 1
         xa = entry["extra_args"]
         src_out = (xa[xa.index("--out-name") + 1] if "--out-name" in xa
                    else "ppo_goal_" + a.source.replace("-", "_"))
         set_flag("--init-from", f"rl_move/sim/policies/{src_out}.zip")
-    set_flag("--out-name", "ppo_goal_" + a.run.replace("-", "_"))
+    if not is_dynrep_source:
+        set_flag("--out-name", "ppo_goal_" + a.run.replace("-", "_"))
     if "--notes" not in (a.arg or []) and not any(
             s.startswith("--notes=") for s in a.arg or []):
         set_flag("--notes", f"respec of {a.source}: {a.hypothesis}")

@@ -18,6 +18,7 @@ if str(ROOT) not in sys.path:
 
 from rl_move.dynamics import data as dd          # noqa: E402
 from rl_move.dynamics import frames as fr        # noqa: E402
+from rl_move.dynamics.memutil import mem_checkpoint  # noqa: E402
 from rl_move.dynamics.model import (             # noqa: E402
     STATE_GROUPS, DynamicsModel, dynamics_loss,
 )
@@ -226,6 +227,7 @@ def _init_wandb(args, config: dict):
     run.define_metric("generalization/*", step_metric="global_step")
     run.define_metric("test/*", step_metric="global_step", summary="last")
     run.define_metric("data/*", summary="last")
+    run.define_metric("mem/*", summary="last")
     print(f"[wandb] logging to {run.url or 'offline run dir'}")
     return run
 
@@ -321,7 +323,23 @@ def main() -> None:
         "priv_future": args.lam_priv_future,
     }
 
+    # Init W&B BEFORE the memory-heavy dataset load/stats/sampler/model
+    # steps below (08-15 incident: `cw-dynrep-tf-state2-fresh2`'s pod
+    # hard-OOMKilled ~65s into this exact stretch, and because init used
+    # to happen only after all of it, there was no durable record at
+    # all -- the stage-2 W&B run never existed and the pod's own stdout
+    # log died with it. Config gets filled in properly once the
+    # dataset/model numbers exist; this early run just gives every
+    # later step somewhere durable, off-pod, to report memory to.
+    early_config = {**vars(args), "torch": torch.__version__,
+                     "cuda": torch.version.cuda, "gpu": gpu_name}
+    run = _init_wandb(args, early_config)
+    if run is not None:
+        run.log(mem_checkpoint("00_start"))
+
     eps = dd.load_dataset(ROOT / args.data)
+    if run is not None:
+        run.log(mem_checkpoint("01_load_dataset"))
     coverage = dd.full_priv_fraction(eps)
     if coverage < 1.0 and not args.allow_legacy_priv:
         raise RuntimeError(f"dataset has full 14-label supervision for only "
@@ -330,6 +348,8 @@ def main() -> None:
     print(dd.describe(eps))
     print(f"privileged-label coverage: {coverage:.1%}")
     stats = dd.compute_stats(eps)
+    if run is not None:
+        run.log(mem_checkpoint("02_compute_stats"))
     budget = dd.window_budget(eps, args.history, horizons)
     diagnostics = dd.split_diagnostics(eps, args.history, horizons)
     dd.validate_split_coverage(diagnostics)
@@ -351,10 +371,16 @@ def main() -> None:
     sampler_kw = {"device": device} if device.type == "cuda" else {}
     train_s = sampler_cls(eps, stats, args.history, horizons, split="train",
                           seed=args.seed, **sampler_kw)
+    if run is not None:
+        run.log(mem_checkpoint("03a_sampler_train"))
     val_s = sampler_cls(eps, stats, args.history, horizons, split="val",
                         seed=args.seed, **sampler_kw)
+    if run is not None:
+        run.log(mem_checkpoint("03b_sampler_val"))
     test_s = sampler_cls(eps, stats, args.history, horizons, split="test",
                          seed=args.seed, **sampler_kw)
+    if run is not None:
+        run.log(mem_checkpoint("03c_sampler_test"))
     print(f"windows: train {len(train_s)}, val {len(val_s)}, "
           f"test {len(test_s)}; "
           f"planned draws={planned_draws:,}; reuse={planned_reuse:.2f}x; "
@@ -382,6 +408,8 @@ def main() -> None:
           f"input_set={args.input_set}; z={args.z_dim}")
     opt = torch.optim.AdamW(model.parameters(), lr=args.lr,
                             weight_decay=args.weight_decay)
+    if run is not None:
+        run.log(mem_checkpoint("04_model_built"))
 
     config = {**vars(args), "n_params": n_params,
               "dataset_summary": dd.describe(eps),
@@ -395,7 +423,8 @@ def main() -> None:
               "data_planned_window_reuse": planned_reuse,
               "split_version": dd.SPLIT_VERSION,
               "split_diagnostics": diagnostics}
-    run = _init_wandb(args, config)
+    if run is not None:
+        run.config.update(config, allow_val_change=True)
     if run is not None:
         data_payload = {
             "global_step": 0,

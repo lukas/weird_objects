@@ -65,6 +65,7 @@ Total = kernel income + weak shaping + weak regularizers.
 | `alive` | 0.0 | keep at 0 (see principles). |
 | `safety_termination_penalty` | 10.0 | one-time −10 on safety termination (tilt trip etc.). |
 | `term_cost_per_remaining_s` | 0.0 (off) | early-fall horizon cost (08-15, operator directive fb_20260815T114414): adds k × REMAINING episode seconds to the flat penalty on safety terminations (never on truncation), so a drag-then-fall cannot bank income a survivor would keep earning — `cw-mt-c2` retained ~+166/ep from ~6 s drag-then-fall at the flat −10. Bank-calibrated in the FULLCIRCLE bank (`test_task_semantics.py`): at k=12 a 6 s fall in a 60 s episode goes negative while the tripod gait/freeze orderings survive. Logged inside `reward_termination`. |
+| `term_cost_max` | 0.0 (off = uncapped) | BOUNDED terminal cost (08-17, operator-approved fb_20260817T005114 item 5): caps the ADDED horizon component only (flat penalty untouched). The uncapped charge reached ~−730 on an early 60 s fall and the critic never learned to predict the cliff — explained variance ~0 through all 40M of `cw-arch-joystick-long-scratch3` (frozen-rollout audit `test_value_learning.py` proves the critic CAN fit returns, so the cliff, not the code, blocked value learning). Bank-calibrated in the JOYCANARY bank: cap 60 REOPENED the c2 drag-then-fall exploit (+81/ep — the skate banks ~151 in the gait-gate grace window); cap 240 (20 s-equivalent) prices it back underwater with freeze ≫ death. Pair with dense k_roll/k_pitch shaping so falls stay dense-priced, not cliff-priced. |
 
 ## 2) Rise / lower / raise terms
 
@@ -150,7 +151,7 @@ Income gates (each in [0,1]; scale kernel + positive progress only):
 | `walk_kernel_yaw_gate` | 0 | the turn-in-place freeze floor (collapsed `cw-omni-mirror1-r1`, 08-11): on yaw-commanded ticks with NO linear command the LINEAR kernel pays a frozen robot full income (v_lin=0=ref; the prog gate needs s_ref>1e-3). Linear kernel × clip(wz/wz_ref, 0, 1) on those ticks; genuine stop segments (both refs ~0) stay paid. Freeze-floor bank in test_task_semantics.py pins it. |
 | `walk_anchor_gate` / `anchor_tol_mm` | 0 / 10 | paddling: income × anchored fraction of loaded feet (loaded and within tol of own touchdown point). |
 | `walk_loadslip_gate` / `loadslip_ok` 0.75 / `loadslip_max` 1.50 / `loadslip_floor_m` 0.05 | 0 | cadence-reset exploit of the anchor gate: income × factor of EPISODE-ACCUMULATED loaded slip per meter of progress (the same ratio the eval harness scores — no touchdown resets it). The `walk_loadslip_ratio` metric logs regardless of the gate. |
-| `walk_height_gate` / `walk_height_sigma_mm` | 0 / 30 | hardware sag (08-10): deployed walk policies ride a COMMANDED crouch 54–70 mm below the spawn stance; base `k_height` (~0.36/tick at 60 mm) is outbid by walk income (~3/tick). Income × Gaussian on body height vs the episode `_z0` anchor — upright gait keeps 0.99 of income, the −51 mm crouch keeps 0.13 (probe + MDP_PREFLIGHT height bank). Symmetric, so stilting up is never a strategy. The `walk_height_factor` metric logs regardless of the gate. |
+| `walk_height_gate` / `walk_height_sigma_mm` | 0 / 30 | hardware sag (08-10): deployed walk policies ride a COMMANDED crouch 54–70 mm below the spawn stance; base `k_height` (~0.36/tick at 60 mm) is outbid by walk income (~3/tick). Income × Gaussian on body height vs the episode `_z0` anchor — upright gait keeps 0.99 of income, the −51 mm crouch keeps 0.13 (probe + MDP_PREFLIGHT height bank). Symmetric, so stilting up is never a strategy. The `walk_height_factor` metric logs regardless of the gate. CALIBRATED 08-17 (`calibrate_walk_height.py`, fb_20260817T005114 item 6): the honest scripted gaits (tripod + noslip_clean, 3 seeds × 3 directions) ride +0.7..+7.3 mm around the anchor — sigma 11 mm keeps the honest gait ≥0.8 income while the bench-measured 40–77 mm crouch band keeps ≤0.001; pair with `safety.walk_max_height_drop_mm=25` (between the honest band and the collapse band; the guessed 90 mm let scratch3 live 40–77 mm low). |
 
 Charges:
 
@@ -217,15 +218,19 @@ SIX feet loaded, hold it 0.5 s continuously — then the episode ENDS
 (one-shot bonus). Zero velocity command throughout. Falls are NOT
 terminal: runs must set `safety.max_roll/pitch_deg=185` (an inverted
 settle reads ~179.5°); ends are held success / timeout / safety only.
-Start states come from the adaptive reset-family curriculum
-(`_sample_recover`: onefoot/park → crouch/partial/bank → zero/tangle
-→ flip). The curriculum begins with ONLY onefoot/park, admits the next
-family only after every kind in the frontier has EMA ≥0.8 with at
-least `goal.recover_admit_n` episodes (default 4, EMA beta .25), never
-samples an unadmitted probe, and may retreat all the way to bucket 1
-when the frontier falls below 0.2 (`recover_retreat_n`, default 6). v1
-families 5-6 — pushed-walking falling states + on-policy failure
-harvests — are the pre-registered next rung. Unlike getup there is
+Start states come from a zero-indexed adaptive backward curriculum:
+`B0 plant_catch` (plant ±2°) → `B1 onefoot_micro` (3–8°) →
+`B2 onefoot_mid` (8–15°) → `B3 onefoot` (15–30°) → `B4 park`
+(full tripod) → `B5-B7` shallow/mid/deep crouch → `B8-B10`
+high/mid/low partial curl → `B11 zero` → `B12-B15` increasingly hard
+tangles (`B15` also includes the configured bank) → `B16 flip`. The
+curriculum begins with ONLY B0 and never samples an unadmitted probe.
+MJX admission is deterministic: a frontier pass (every kind ≥0.8 with
+at least `goal.recover_admit_n` episodes, default 4) triggers a fresh
+same-round assay of EVERY unlocked earlier bucket, and promotion occurs
+only if that whole retention suite also passes. Routine non-promotion
+rounds remain frontier + weakest + rotating retention assays. Unlike
+getup there is
 NO occupancy/ratchet/hold income and no alive bonus: income is a
 potential DIFFERENCE, so re-farming any feature pays 0 and stalling
 anywhere bleeds the time tax.
@@ -245,26 +250,44 @@ wP·g(U)·g(H)·P`, all features bounded [0,1], g = smoothstep.
 | `rec_b_success` | 50.0 | one-shot on the first completed 0.5 s (`rec_hold_s`) hold of: \|z−z_full\|≤`rec_h_tol_mm` 15, tilt≤`rec_level_deg` 6°, min per-foot load≥`rec_load_min` 0.35 AND pad spread≤`rec_pad_spread_mm` 30 (all six near ground and loaded — no mean loophole), P≥0.5 (support proxy), qd rms≤`rec_qd_max_rad_s` 0.7, \|v_xy\|≤`rec_v_max_m_s` 0.08, max current≤`rec_cur_max_a` 3.0. Terminates the episode. |
 | `rec_c_time` | 1.0/s | rate-normalized time tax, every tick until termination (the directive's speed incentive; a ~4 s recovery costs ~8% of the bonus). |
 | `rec_fail_cost` | 0 → auto 1.25·c_time·horizon | charged at timeout/safety end without success — ≥ the max remaining time tax, so early abort never out-earns trying. |
-| `goal.recover_start_bank` | unset | npz (`q_rad` (K,18)) harvested start poses for the "bank" kind (family 2). |
+| `goal.recover_start_bank` | unset | npz (`q_rad` (K,18)) harvested start poses for the "bank" kind (B5). |
+| `goal.recover_rsi_frac` / `recover_rsi_kinds` | 0 / "zero" | RECOVER RSI (08-16, after cw-recover-any8/any9 both stalled at B11): with prob `frac`, a NATURALLY drawn episode of a listed kind spawns on a random row of `reward.rise_ref_path` (belly curl → ~90% of ramp, the rise-RSI row formula) instead of the family pose — the ladder's partial_* rungs are linear curls, not states on the executable rise path, so a stuck policy never practices mid-rise states. Forced CERT/eval kinds never carry the flag (cert purity by construction); RSI episodes log under `recover_*_{kind}_rsi` and never touch rollout EMA/counters or self-cert stats. Default 0 = off, bit-exact. Semantics: `test_recover_rsi_*`. |
+| `goal.recover_rsi_bank_frac` / `_bank_kinds` / `_bank_path` | 0 / "" / unset | RECOVER RSI, HARVESTED-BANK variant (08-16, after cw-recover-any7/any11/any12's 3rd matching miss closed curriculum-weight for the tangle family): with prob `bank_frac`, a NATURALLY drawn episode of a listed kind spawns on a random row of `bank_path` (npz, `q_rad` (K,18)) + ±2° joint noise, instead of the ref-path row above. The ref-path mechanism is hardcoded to the belly→plant reference, which has no equivalent for tangle's non-monotonic untangling motion; this bank is built by `harvest_recover_rsi_bank.py`, which rolls a checkpoint DETERMINISTICALLY through forced episodes of the target kind(s) and keeps a subsample of the joint poses from the MIDDLE of every episode that reaches `recover_success` (skips the raw start slice and the final settled-stance slice, both already covered by other families) — an on-path bank harvested from the policy's own occasional successes, not a hand-built reference. Independent cfg axis from `recover_rsi_frac`/`_kinds` above (mutually exclusive per-episode via `not traj.recover_rsi`); forced CERT/eval kinds never carry the flag. RSI episodes log under `recover_*_{kind}_rsibank` and never touch rollout EMA/counters or self-cert stats. Default 0 = off, bit-exact. Semantics: `test_recover_rsi_bank_*`. |
+| `goal.recover_training_error_mix` | .10 | Bounded adaptive replay overlay. Global non-RSI training terminals update a per-bucket EMA of goal-potential shortfall (`1-Φ`; safety termination = 1, success = 0). After `recover_training_error_min_episodes` (8), the overlay shifts up to 10% of sampling toward high-error buckets, squared by `recover_training_error_power` (2). This graded signal avoids the known stochastic strict-hold false-negative and can NEVER certify or promote a bucket. EMA beta: `recover_training_error_ema_beta` (.25). |
+| `--recover-full-retention-every` / `--recover-rollback-after-steps` / `--recover-rollback-fraction` | 2 cert rounds / 4M / .60 | Promotion guard and rollback. Every promotion writes a unique policy + curriculum checkpoint. A fresh full retention suite also runs every N cert rounds; if the SAME retained bucket stays below the severe-regression fraction for the elapsed-step window, parameters and curriculum are restored to the latest promotion checkpoint before the next rollout. Training-error debt is retained so replay still targets the regression. Defaults make this a repeated deterministic failure, not a one-batch fluctuation. Set rollback steps to 0 to monitor without restoring. |
+| `--recover-population-id` / `--recover-population-member` / `--recover-population-runs` / `--recover-population-run-ids` | off | Best-of-N seeded recovery cohort. Every launch predeclares both the fixed display-name roster and one unique W&B id per member; `wandb.init(id=..., resume="never")` removes eventually-consistent name discovery from the protocol. Peer existence and summaries use `InternalApi.run_resume_status`, a fresh GraphQL read intended to observe a run that did not exist on an earlier call; this exact miss→create→same-process-read transition has an online integration probe (`4f77961a`). Public `Api.run(s)` is never used for rendezvous because its active-run service caches early misses; it is deferred until an elected candidate file must be downloaded, after the complete roster exists. Each independent learner starts from the same curriculum stage. Before the first race, every member trains exactly `--recover-population-bootstrap-rollouts` (10) PPO rollouts, publishes identity-bound readiness, and BLOCKS; member 0 releases B0 only after the full roster reaches that same root and budget. The first member whose deterministic promotion assay passes the frontier AND the fresh full retention suite publishes a policy/optimizer + curriculum candidate to W&B. Member 0 elects the earliest candidate; every member verifies, loads and ACKs that exact checkpoint, then BLOCKS at the rollout boundary. Only after all roster members ACK the same hash does member 0 publish a release and let all branches begin the next bucket; the next winner cannot be elected before that release. Parent hashes reject candidates learned on stale pre-sync branches. A candidate named Bk is the retained checkpoint that unlocks Bk (so B1 means B0 passed and B1 is now the frontier). The start and release barriers fail closed after `--recover-population-barrier-timeout-seconds` (900). Use unique run names and ids in fixed member order and distinct `--seed` values. |
 | `train.bc_anchor_recover` (+`_tilt_deg` 25) | 0 | state-aligned rise BC anchor (the cw-getup3 lever), eligibility-gated to the mastered rise manifold: upright ≤25°, real foot ground-reaction, at/below plant height. Matching is restricted by current absolute belly→plant height before nearest-q selection. |
 | `train.bc_anchor_lookahead_s` / `bc_anchor_min_h_ahead_mm` | .25 / 0 | recovery uses the same pursuit controls as rise. The recovery arm uses the proven footlow2 values `.5` / `15`; the height floor is computed above the absolute belly datum, not above a near-standing recovery spawn. |
 | `train.bc_anchor_foot_z` / `bc_anchor_foot_z_mm` | 0 / 10 | additional contact-coordinate loss. The replacement recovery arm enables `1` / `3` so a millimetre-scale parked foot cannot hide inside the 18-joint MSE. |
 
 Training telemetry includes stable numeric start-kind/bucket ids,
-active-family count, per-kind curriculum EMA/count and terminal success,
-post-settle height/tilt/min-load/pad-spread by kind, BC eligibility and
-matched/target reference indices. Periodic eval forces equal `onefoot`
-and `park` episodes and logs separate success, return, and time panels;
-gate eval and video carry the start-kind label and treat the named
-`recover_success` termination as success.
+frontier bucket, per-kind and per-bucket curriculum EMA/count and
+terminal success, per-bucket training-error EMA/count and sampler
+probability, fresh retention-suite pass/fail and failed-bucket count,
+promotion-checkpoint events, per-bucket regression age, and rollback events,
+post-settle height/tilt/min-load/pad-spread by kind,
+BC eligibility, and matched/target reference indices. Periodic eval
+ignores the changing training mixture and forces every available kind
+in every bucket. It logs `SCORE/recover_bucket_<N>_success`, return,
+time, and explicit episode denominators, plus the per-kind equivalents.
+Gate eval uses the same all-bucket coverage; video carries the start-kind
+label and the named `recover_success` termination counts as success.
+The curriculum authority broadcasts every certification observation and
+admission update to every training environment; divergence is fatal, and
+`CERT/recover_training_envs_synchronized` reports the verified fleet size.
+Population cohorts additionally log candidate, winner, ACK/adopted/released
+bucket, release wait, winner member, and sync count under
+`RECOVER_POPULATION/*`.
 
 Bank: RECOVER section of `test_task_semantics.py` (replay succeeds +
 terminates, dominates flagleg/freeze/stilt/thrash by >20; flag leg
 blocks success with M≪L; no height charge; fail cost ≥ max remaining
 tax; flip spawns settle >60° and survive; a nominal plant teacher
-reaches held success after the real settled onefoot/park resets;
-bucket-1-only sampling/admission/retreat; empty-interval rng parity;
-anchor state gating).
+reaches held success after every near-goal B0–B4 reset; B0-only initial
+sampling, admission, retreat and no-probe semantics; forced bucket
+aggregation; empty-interval rng parity; anchor state gating).
+
+| `reward.term_penalty` | 0 | One-time charge subtracted on early TERMINATION (term, never trunc), applied at the very end of the walk-family `_post_step` stack. Cfg-gated in-env twin of `train_ppo_transfer`'s TRAINING-ONLY `_term_penalty_wrapper` (the dynrep pilots' anti-suicide terminal charge, default `--term-penalty 30` there) so the batched MJX trainers — which construct shim envs internally and cannot wrap them — can train on the exact walkcurr2 reward contract (cw-dynrep-criticD-walkcurr3, operator order 2026-08-18 fb_20260818T065930_03b422). Eval/cert envs leave it 0: evals run the raw reward, the same rule the transfer trainer's eval_task follows. Default 0 = bit-exact legacy. Tests: `test_walkcurr_mjx.py::test_term_penalty_charges_exactly_on_term`. |
 
 ## 5) Changing the reward — checklist
 

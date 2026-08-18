@@ -41,6 +41,7 @@ import numpy as np
 
 from rl_move.config import cfg_get
 from rl_move.env import GOAL_DIM, TaskGoal
+from rl_move.robot_state import DEG2RAD, N_JOINTS
 from .joint_task import SimHexapodJointGoalEnv
 from .goal_task import GoalTrajectory
 from .sim_env import N_OBS
@@ -75,6 +76,26 @@ WALK_CMD_MODE_IDS = {"legacy": 0, **{
     name: i + 1 for i, name in enumerate(WALK_CMD_SCHEDULES)
 }}
 
+# In-run command curriculum for stress_mix (08-17, operator-approved
+# fb_20260817T005114 item 7): the from-scratch joystick recipe threw
+# every schedule family at a newborn policy at once, four arms died
+# without ever surviving takeoff. goal.walk_cmd_stage (default -1 =
+# off, stress_mix draw-stream bit-exact) restricts which families
+# stress_mix may draw, CUMULATIVE so earlier skills stay in the mix:
+#   stage 0: forward/back stepping only (flip_180 + stop_go, heading
+#            forced to 0) — learn to survive and reverse;
+#   stage 1: + headings / circles / squares (random_hold,
+#            sweep_circle, square), full heading scope;
+#   stage >=2: the full stress_mix family set (adds jitter).
+# Transitions inside an episode stay INSTANTANEOUS (blend cfg is
+# untouched); ramp the stage with the sched.* in-run scheduler
+# (sched.key=goal.walk_cmd_stage) so promotion is by global steps.
+WALK_CMD_STAGE_FAMILIES = (
+    ("flip_180", "stop_go"),
+    ("random_hold", "sweep_circle", "square"),
+    ("jitter",),
+)
+
 
 def walk_cmd_track_score(vx: float, vy: float, vx_ref: float,
                          vy_ref: float, stop_speed_m_s: float = 0.03
@@ -104,6 +125,299 @@ def walk_cmd_track_score(vx: float, vy: float, vx_ref: float,
 # global widenings to 0.07/0.08 both regressed). Default off = legacy.
 LP_BUCKETS = ((0.02, 0.03), (0.03, 0.04), (0.04, 0.05), (0.05, 0.06),
               (0.06, 0.07), (0.07, 0.08), (0.08, 0.10), (0.10, 0.12))
+# Adaptive competence+retention walk-command curriculum
+# (goal.walk_curriculum=1; operator order 2026-08-18, run
+# cw-dynrep-criticD-walkcurr1). Replaces the FIXED broad command
+# sampling with a certification-gated frontier ladder: episodes draw a
+# BUCKET (50% frontier / 25% weakest mastered / 15% uniform mastered /
+# 10% the rung just prior to the frontier), never a locked future
+# bucket, and never promote on time — only on a deterministic held-out
+# certification pass of the frontier AND every retained bucket
+# (apply_walkcurr_certification / walkcurr_update_admission, driven by
+# the trainer exactly like the recover-mode ladder). Default 0 = off,
+# bit-exact legacy: no rng draws, no randomizer swap, no cfg reads
+# beyond __init__.
+#   fields: s_lo/s_hi commanded speed band (m/s); head_lo/head_hi
+#   heading magnitude band (rad, sign drawn ±; 0/0 = pure forward);
+#   resample_s mid-episode command resampling period (0 = one command
+#   held the whole episode = "long holds"); jitter/stop_frac/blend as
+#   the legacy goal.walk_cmd_* keys; dr = this bucket's DR scale (the
+#   env swaps its DomainRandomizer per episode); stop_gate = cert-time
+#   max mean measured speed (m/s) during commanded-stop ticks (None =
+#   bucket has no stop segments to gate).
+WALKCURR_BUCKETS = (
+    # B0 slow forward, long holds, DR0
+    dict(name="fwd_slow", s_lo=0.04, s_hi=0.05, head_lo=0.0, head_hi=0.0,
+         resample_s=0.0, jitter=0.0, stop_frac=0.0, blend_lo=1.0,
+         blend_hi=1.0, dr=0.0, stop_gate=None),
+    # B1 forward speed band widens
+    dict(name="fwd_band", s_lo=0.03, s_hi=0.06, head_lo=0.0, head_hi=0.0,
+         resample_s=0.0, jitter=0.0, stop_frac=0.0, blend_lo=1.0,
+         blend_hi=1.0, dr=0.0, stop_gate=None),
+    # B2-B4 heading cones open ±15/±30/±45 deg
+    dict(name="head15", s_lo=0.03, s_hi=0.06, head_lo=0.0,
+         head_hi=math.radians(15.0), resample_s=0.0, jitter=0.0,
+         stop_frac=0.0, blend_lo=1.0, blend_hi=1.0, dr=0.0,
+         stop_gate=None),
+    dict(name="head30", s_lo=0.03, s_hi=0.06, head_lo=0.0,
+         head_hi=math.radians(30.0), resample_s=0.0, jitter=0.0,
+         stop_frac=0.0, blend_lo=1.0, blend_hi=1.0, dr=0.0,
+         stop_gate=None),
+    dict(name="head45", s_lo=0.03, s_hi=0.06, head_lo=0.0,
+         head_hi=math.radians(45.0), resample_s=0.0, jitter=0.0,
+         stop_frac=0.0, blend_lo=1.0, blend_hi=1.0, dr=0.0,
+         stop_gate=None),
+    # B5 blended front-cone transitions (no stops yet)
+    dict(name="front_blend", s_lo=0.03, s_hi=0.06, head_lo=0.0,
+         head_hi=math.radians(45.0), resample_s=6.0, jitter=0.0,
+         stop_frac=0.0, blend_lo=1.0, blend_hi=1.0, dr=0.0,
+         stop_gate=None),
+    # B6 the joystick mix: 4s segments + jitter + stop/restart
+    dict(name="stop_restart", s_lo=0.03, s_hi=0.06, head_lo=0.0,
+         head_hi=math.radians(45.0), resample_s=4.0, jitter=0.5,
+         stop_frac=0.15, blend_lo=1.0, blend_hi=1.0, dr=0.0,
+         stop_gate=0.015),
+    # B7/B8 same commands under DR 0.1 then 0.3
+    dict(name="dr01", s_lo=0.03, s_hi=0.06, head_lo=0.0,
+         head_hi=math.radians(45.0), resample_s=4.0, jitter=0.5,
+         stop_frac=0.15, blend_lo=1.0, blend_hi=1.0, dr=0.1,
+         stop_gate=0.015),
+    dict(name="dr03", s_lo=0.03, s_hi=0.06, head_lo=0.0,
+         head_hi=math.radians(45.0), resample_s=4.0, jitter=0.5,
+         stop_frac=0.15, blend_lo=1.0, blend_hi=1.0, dr=0.3,
+         stop_gate=0.015),
+    # B9/B10 lateral then rear/reverse — locked until every earlier
+    # rung certifies AND retains (operator: "lateral/rear/reverse only
+    # after retained passes").
+    dict(name="lateral", s_lo=0.03, s_hi=0.06,
+         head_lo=math.radians(45.0), head_hi=math.radians(90.0),
+         resample_s=4.0, jitter=0.5, stop_frac=0.15, blend_lo=1.0,
+         blend_hi=1.0, dr=0.3, stop_gate=0.015),
+    dict(name="rear", s_lo=0.03, s_hi=0.06,
+         head_lo=math.radians(90.0), head_hi=math.pi,
+         resample_s=4.0, jitter=0.5, stop_frac=0.15, blend_lo=1.0,
+         blend_hi=1.0, dr=0.3, stop_gate=0.015),
+)
+
+# WALKCURR_BUCKETS_V2 (walkcurr2, operator MCP note fb_20260818T060044,
+# "figure out how to make a great run and then launch it"): corrects
+# two root causes the matched walkcurr1-vs-40m1 data exposed in V1's
+# B0/B1 (see cw-dynrep-criticD-40m1 triage + walkcurr1 in-flight reads).
+#
+# Root cause 1: V1's B0 command band (0.04-0.05 m/s, dead ahead) sits
+# ENTIRELY inside SIGMA_V=0.05 (walk_task's velocity-tracking kernel
+# width) of a PARKED (zero-output) robot — standing still nets
+# exp(-(0.045/0.05)^2/2) = ~67% of peak reward, so PPO has little
+# incentive to ever start walking before B0 can certify. V2's B0
+# ("ignition") instead commands 0.08-0.12 m/s with a small heading
+# spread from the very first bucket (a parked policy is now 1.6-2.4
+# sigma off target, i.e. <15% of peak reward) — command diversity from
+# step 0, not deferred to later rungs.
+#
+# Root cause 2: V1's gate (WALKCURR_GATE, train_ppo_transfer.py)
+# applies slew_sat<=0.5 as a hard admission check on every bucket. The
+# best real evidence of what a good policy at this budget looks like —
+# cw-dynrep-criticD-40m1's retained 6M-best checkpoint, matched task,
+# matched budget-ish, matched everything but curriculum — runs
+# slew_sat~0.925, i.e. it would FAIL V1's own admission gate outright.
+# A hard bar the best known-good policy cannot clear is not a quality
+# floor, it is a wall between "parked" (low slew) and "walking" (high
+# slew, because directional command changes cost joint-speed). V2
+# raises slew_sat_max to 0.95 (WALKCURR_GATE_V2_*, monitored/
+# selection-relevant like every other quality metric here, not
+# vetoing) and otherwise keeps V1's floors (progress/slip/roll) intact
+# — tightened, if anything, on later buckets via the per-bucket "gate"
+# key (walkcurr_bucket_pass reads spec["gate"] when present).
+#
+# Buckets B2+ reuse V1's heading/resample/DR ladder verbatim (proven
+# shape, not the thing that broke); only B0/B1 (ignition speed +
+# immediate heading spread) and the gate calibration change.
+WALKCURR_GATE_V2_IGNITION = dict(
+    cmd_prog_frac_min=0.65, slip_per_m_max=2.5, peak_roll_deg_max=8.0,
+    slew_sat_max=0.95, cross_track_frac_max=0.30,
+    contact_sw_per_s_min=3.0, foot_sw_min_per_s_min=0.5)
+WALKCURR_GATE_V2_QUALITY = dict(
+    cmd_prog_frac_min=0.75, slip_per_m_max=2.0, peak_roll_deg_max=6.0,
+    slew_sat_max=0.95, cross_track_frac_max=0.30,
+    contact_sw_per_s_min=3.0, foot_sw_min_per_s_min=0.5)
+WALKCURR_BUCKETS_V2 = (
+    # B0 ignition: real speed + heading spread from step 0 (root cause 1)
+    dict(name="ignition", s_lo=0.08, s_hi=0.12, head_lo=0.0,
+         head_hi=math.radians(15.0), resample_s=0.0, jitter=0.0,
+         stop_frac=0.0, blend_lo=1.0, blend_hi=1.0, dr=0.0,
+         stop_gate=None, gate=WALKCURR_GATE_V2_IGNITION),
+    # B1 speed band widens toward the legacy range, heading unchanged
+    dict(name="quality_band", s_lo=0.06, s_hi=0.12, head_lo=0.0,
+         head_hi=math.radians(15.0), resample_s=0.0, jitter=0.0,
+         stop_frac=0.0, blend_lo=1.0, blend_hi=1.0, dr=0.0,
+         stop_gate=None, gate=WALKCURR_GATE_V2_QUALITY),
+    dict(name="full_band_head15", s_lo=0.03, s_hi=0.12, head_lo=0.0,
+         head_hi=math.radians(15.0), resample_s=0.0, jitter=0.0,
+         stop_frac=0.0, blend_lo=1.0, blend_hi=1.0, dr=0.0,
+         stop_gate=None, gate=WALKCURR_GATE_V2_QUALITY),
+    dict(name="head30", s_lo=0.03, s_hi=0.12, head_lo=0.0,
+         head_hi=math.radians(30.0), resample_s=0.0, jitter=0.0,
+         stop_frac=0.0, blend_lo=1.0, blend_hi=1.0, dr=0.0,
+         stop_gate=None, gate=WALKCURR_GATE_V2_QUALITY),
+    dict(name="head45", s_lo=0.03, s_hi=0.12, head_lo=0.0,
+         head_hi=math.radians(45.0), resample_s=0.0, jitter=0.0,
+         stop_frac=0.0, blend_lo=1.0, blend_hi=1.0, dr=0.0,
+         stop_gate=None, gate=WALKCURR_GATE_V2_QUALITY),
+    # B5 blended front-cone transitions (no stops yet)
+    dict(name="front_blend", s_lo=0.03, s_hi=0.12, head_lo=0.0,
+         head_hi=math.radians(45.0), resample_s=6.0, jitter=0.0,
+         stop_frac=0.0, blend_lo=1.0, blend_hi=1.0, dr=0.0,
+         stop_gate=None, gate=WALKCURR_GATE_V2_QUALITY),
+    # B6 the joystick mix: 4s segments + jitter + stop/restart
+    dict(name="stop_restart", s_lo=0.03, s_hi=0.12, head_lo=0.0,
+         head_hi=math.radians(45.0), resample_s=4.0, jitter=0.5,
+         stop_frac=0.15, blend_lo=1.0, blend_hi=1.0, dr=0.0,
+         stop_gate=0.015, gate=WALKCURR_GATE_V2_QUALITY),
+    # B7/B8 same commands under DR 0.1 then 0.3
+    dict(name="dr01", s_lo=0.03, s_hi=0.12, head_lo=0.0,
+         head_hi=math.radians(45.0), resample_s=4.0, jitter=0.5,
+         stop_frac=0.15, blend_lo=1.0, blend_hi=1.0, dr=0.1,
+         stop_gate=0.015, gate=WALKCURR_GATE_V2_QUALITY),
+    dict(name="dr03", s_lo=0.03, s_hi=0.12, head_lo=0.0,
+         head_hi=math.radians(45.0), resample_s=4.0, jitter=0.5,
+         stop_frac=0.15, blend_lo=1.0, blend_hi=1.0, dr=0.3,
+         stop_gate=0.015, gate=WALKCURR_GATE_V2_QUALITY),
+    # B9/B10 lateral then rear/reverse — locked until every earlier
+    # rung certifies AND retains
+    dict(name="lateral", s_lo=0.03, s_hi=0.12,
+         head_lo=math.radians(45.0), head_hi=math.radians(90.0),
+         resample_s=4.0, jitter=0.5, stop_frac=0.15, blend_lo=1.0,
+         blend_hi=1.0, dr=0.3, stop_gate=0.015,
+         gate=WALKCURR_GATE_V2_QUALITY),
+    dict(name="rear", s_lo=0.03, s_hi=0.12,
+         head_lo=math.radians(90.0), head_hi=math.pi,
+         resample_s=4.0, jitter=0.5, stop_frac=0.15, blend_lo=1.0,
+         blend_hi=1.0, dr=0.3, stop_gate=0.015,
+         gate=WALKCURR_GATE_V2_QUALITY),
+)
+# WALKCURR_BUCKETS_V3 ("bridge" ladder, operator order
+# fb_20260818T102844_116d4c, walkcurr4 evidence-based correction):
+# ignition must be ADJACENT TO THE TRANSPLANTED SOURCE SKILL, not to a
+# park-proof speed band. The gaitinit canaries showed the two failure
+# directions of V2's ignition on an actor-init recipe: a scratch actor
+# reaches cmd_prog 0.74 but crouches/falls (canB-r1 at 2.1M), while the
+# proven tall-walk actor keeps posture/safety but LOSES commanded
+# travel chasing V2's 0.08-0.12 m/s band it never walked at
+# (gaitinit-bcinit final cert: cmd_prog_frac 0.0575, height_factor
+# 0.5847). V3's first two rungs are a SHORT BRIDGE at the source
+# checkpoint's own operating point (ppo_goal_cw_dep_bcgait1_hard1
+# walks ~0.05 m/s straight, height -12.7mm, slip 1.3, zero falls):
+# B0 = straight forward 0.05-0.06 m/s, NO heading jitter / resampling /
+# stops, DR0; B1 widens speed to 0.05-0.10 still dead straight; every
+# later rung is V2's own direction/heading/stop/DR ladder verbatim, so
+# the eventual multi-direction joystick goal is preserved. NOTE
+# V3 B0 deliberately sits near the SIGMA_V park zone V2 removed — that
+# is safe ONLY on an actor-init recipe whose init already walks
+# (pre-PPO deterministic cert required: --walkcurr-cert-at-init), and
+# is why V3 is not a scratch-acquisition ladder.
+WALKCURR_GATE_V3_BRIDGE = dict(
+    cmd_prog_frac_min=0.60, slip_per_m_max=2.0, peak_roll_deg_max=8.0,
+    slew_sat_max=0.95, cross_track_frac_max=0.30,
+    contact_sw_per_s_min=3.0, foot_sw_min_per_s_min=0.5)
+WALKCURR_BUCKETS_V3 = (
+    # B0 bridge: the source gait's own command, held all episode, DR0
+    dict(name="bridge_fwd", s_lo=0.05, s_hi=0.06, head_lo=0.0,
+         head_hi=0.0, resample_s=0.0, jitter=0.0, stop_frac=0.0,
+         blend_lo=1.0, blend_hi=1.0, dr=0.0, stop_gate=None,
+         gate=WALKCURR_GATE_V3_BRIDGE),
+    # B1 bridge: speed band widens upward, still dead straight
+    dict(name="bridge_band", s_lo=0.05, s_hi=0.10, head_lo=0.0,
+         head_hi=0.0, resample_s=0.0, jitter=0.0, stop_frac=0.0,
+         blend_lo=1.0, blend_hi=1.0, dr=0.0, stop_gate=None,
+         gate=WALKCURR_GATE_V3_BRIDGE),
+) + WALKCURR_BUCKETS_V2[2:]   # V2 direction/heading/stop/DR ladder
+
+# WALKCURR_BUCKETS_V4: sustained joystick curriculum. V3 spends its
+# first five rungs on one fixed command per 10-second episode, even
+# though the observed deployment failure is falling only after several
+# direction changes. V4 keeps one short source-skill bridge, introduces
+# command changes immediately at B1, then holds the command distribution
+# fixed while extending continuous survival to 20/40/60 seconds. Only
+# after the 60-second joystick task is retained does it widen speed, add
+# DR, and open lateral/rear travel. ``duration_s`` controls both training
+# episode truncation and the deterministic certification horizon;
+# ``min_command_changes`` is a fail-closed check that a cert actually
+# exercised the intended joystick transitions.
+WALKCURR_GATE_V4_BRIDGE = dict(
+    cmd_prog_frac_min=0.60, cmd_prog_frac_p10_min=0.50,
+    slip_per_m_max=2.0, peak_roll_deg_max=8.0, slew_sat_max=0.95,
+    cross_track_frac_max=0.30, contact_sw_per_s_min=3.0,
+    foot_sw_min_per_s_min=0.5, height_factor_min=0.80)
+WALKCURR_GATE_V4_JOYSTICK = dict(
+    cmd_prog_frac_min=0.65, cmd_prog_frac_p10_min=0.50,
+    slip_per_m_max=2.0, peak_roll_deg_max=8.0, slew_sat_max=0.95,
+    cross_track_frac_max=0.30, contact_sw_per_s_min=3.0,
+    foot_sw_min_per_s_min=0.5, height_factor_min=0.80)
+
+WALKCURR_BUCKETS_V4 = (
+    # B0: prove the imported gait survives at its own operating point.
+    dict(name="bridge_10s", duration_s=10.0, min_command_changes=0,
+         s_lo=0.05, s_hi=0.06, head_lo=0.0, head_hi=0.0,
+         resample_s=0.0, jitter=0.0, stop_frac=0.0, blend_lo=1.0,
+         blend_hi=1.0, dr=0.0, stop_gate=None,
+         gate=WALKCURR_GATE_V4_BRIDGE),
+    # B1-B4: joystick changes happen immediately, then only duration grows.
+    dict(name="joystick_10s", duration_s=10.0, min_command_changes=2,
+         s_lo=0.04, s_hi=0.08, head_lo=0.0,
+         head_hi=math.radians(45.0), resample_s=3.0, jitter=0.2,
+         stop_frac=0.10, blend_lo=0.5, blend_hi=0.9, dr=0.0,
+         stop_gate=0.015, gate=WALKCURR_GATE_V4_JOYSTICK),
+    dict(name="joystick_20s", duration_s=20.0, min_command_changes=4,
+         s_lo=0.04, s_hi=0.08, head_lo=0.0,
+         head_hi=math.radians(45.0), resample_s=3.0, jitter=0.2,
+         stop_frac=0.10, blend_lo=0.5, blend_hi=0.9, dr=0.0,
+         stop_gate=0.015, gate=WALKCURR_GATE_V4_JOYSTICK),
+    dict(name="joystick_40s", duration_s=40.0, min_command_changes=10,
+         s_lo=0.04, s_hi=0.08, head_lo=0.0,
+         head_hi=math.radians(45.0), resample_s=3.0, jitter=0.2,
+         stop_frac=0.10, blend_lo=0.5, blend_hi=0.9, dr=0.0,
+         stop_gate=0.015, gate=WALKCURR_GATE_V4_JOYSTICK),
+    dict(name="joystick_60s", duration_s=60.0, min_command_changes=15,
+         s_lo=0.04, s_hi=0.08, head_lo=0.0,
+         head_hi=math.radians(45.0), resample_s=3.0, jitter=0.2,
+         stop_frac=0.10, blend_lo=0.5, blend_hi=0.9, dr=0.0,
+         stop_gate=0.015, gate=WALKCURR_GATE_V4_JOYSTICK),
+    # B5: widen speed and make joystick timing less predictable.
+    dict(name="full_band_60s", duration_s=60.0, min_command_changes=9,
+         s_lo=0.03, s_hi=0.10, head_lo=0.0,
+         head_hi=math.radians(45.0), resample_s=4.0, jitter=0.5,
+         stop_frac=0.15, blend_lo=0.25, blend_hi=0.75, dr=0.0,
+         stop_gate=0.015, gate=WALKCURR_GATE_V4_JOYSTICK),
+    # B6/B7: retain the full 60-second joystick task under DR.
+    dict(name="dr01_60s", duration_s=60.0, min_command_changes=9,
+         s_lo=0.03, s_hi=0.10, head_lo=0.0,
+         head_hi=math.radians(45.0), resample_s=4.0, jitter=0.5,
+         stop_frac=0.15, blend_lo=0.25, blend_hi=0.75, dr=0.1,
+         stop_gate=0.015, gate=WALKCURR_GATE_V4_JOYSTICK),
+    dict(name="dr03_60s", duration_s=60.0, min_command_changes=9,
+         s_lo=0.03, s_hi=0.10, head_lo=0.0,
+         head_hi=math.radians(45.0), resample_s=4.0, jitter=0.5,
+         stop_frac=0.15, blend_lo=0.25, blend_hi=0.75, dr=0.3,
+         stop_gate=0.015, gate=WALKCURR_GATE_V4_JOYSTICK),
+    # B8/B9: lateral and rear commands remain locked behind retained
+    # 60-second front-cone competence under DR0.3.
+    dict(name="lateral_60s", duration_s=60.0, min_command_changes=9,
+         s_lo=0.03, s_hi=0.10, head_lo=math.radians(45.0),
+         head_hi=math.radians(90.0), resample_s=4.0, jitter=0.5,
+         stop_frac=0.15, blend_lo=0.25, blend_hi=0.75, dr=0.3,
+         stop_gate=0.015, gate=WALKCURR_GATE_V4_JOYSTICK),
+    dict(name="rear_60s", duration_s=60.0, min_command_changes=9,
+         s_lo=0.03, s_hi=0.10, head_lo=math.radians(90.0),
+         head_hi=math.pi, resample_s=4.0, jitter=0.5,
+         stop_frac=0.15, blend_lo=0.25, blend_hi=0.75, dr=0.3,
+         stop_gate=0.015, gate=WALKCURR_GATE_V4_JOYSTICK),
+)
+
+# Sampling mixture over unlocked buckets (operator spec): 50% frontier,
+# 25% weakest mastered, 15% uniform over mastered, 10% the rung just
+# prior to the frontier. Empty components fold back to the frontier.
+WALKCURR_MIX = dict(frontier=0.50, weakest=0.25, uniform=0.15,
+                    prior=0.10)
 # Phase-based alternating-tripod reward (Siekmann-style periodic reward
 # composition, plan §Walk item c; enabled by goal.walk_phase_obs=1 +
 # reward.k_phase_contact>0). An internal clock at goal.walk_phase_hz
@@ -203,6 +517,8 @@ class WalkTrajectory(GoalTrajectory):
     vy: np.ndarray = None
     wz: np.ndarray = None  # (n_steps,) rad/s; None = no yaw channel
     cmd_mode: str = "legacy"
+    duration_steps: int | None = None
+    command_changes: int = 0
 
     def at(self, step: int) -> WalkGoal:
         i = min(max(step, 0), len(self.roll) - 1)
@@ -244,7 +560,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                           "_ls_slip_m", "_ls_prog_m",
                           "_yaw_still_ema", "_stance_slip_acc",
                           "_gait_last_step", "_gait_cmd_tick",
-                          "_gait_gate_qfactor")
+                          "_gait_gate_qfactor", "_wp")
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -268,14 +584,34 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         self._goal_gen.p_recover = 0.0
         # Adaptive reset-bank curriculum state (recover mode only).
         # PERSISTENT across episodes (like _lp_weights, NOT in
-        # SNAP_ATTRS): per-start-kind success EMA + episode count, and
-        # the number of admitted difficulty families.
+        # SNAP_ATTRS).  _rec_stats is certification-only: stochastic
+        # PPO rollouts are deliberately too noisy to certify the 0.5 s
+        # six-foot hold, so they must never advance the ladder.
+        # _rec_rollout_stats remains visible as diagnostic telemetry.
         self._rec_stats = {}
+        self._rec_cert_rounds = {}
+        self._rec_rollout_stats = {}
+        self._rec_rollout_counts = {}
+        # Global MJX training batches are folded into this per-bucket
+        # terminal-shortfall EMA by the trainer callback.  It affects only
+        # replay probability; deterministic certification remains the sole
+        # authority for admission.
+        self._rec_training_error_stats = {}
+        self._rec_external_certification = bool(float(cfg_get(
+            self.cfg, "goal", "recover_external_certification",
+            default=0.0)))
         # Recovery must prove the easy six-foot correction before floor
         # starts enter the diet.  any1 started with families 1+2 and also
         # probed family 3, so there was no bucket-1 acquisition phase to
-        # measure or retreat to.
+        # measure.
+        # _rec_active_n is the MONOTONIC number of unlocked buckets.
+        # _rec_focus_bucket is the hardest unlocked acquisition bucket;
+        # _rec_weak_bucket is the weakest previously certified bucket and
+        # receives extra spaced-replay pressure.  Keeping these concepts
+        # separate prevents a noisy assay from deleting learned starts.
         self._rec_active_n = 1
+        self._rec_focus_bucket = 0
+        self._rec_weak_bucket = None
         # Swing-bonus bookkeeping (see step()): per-foot contact state
         # and world XY at the moment of liftoff.
         self._pad_bids = [self.model.body(f"L{i}_pad").id
@@ -334,6 +670,74 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # walk episode (surfaced in step info for the LP callback).
         self._lp_weights = None
         self._walk_bucket = None
+        # Adaptive competence+retention walk-command curriculum state
+        # (goal.walk_curriculum=1..4; see WALKCURR_BUCKETS*).
+        # PERSISTENT across episodes like _lp_weights/_rec_* — never in
+        # SNAP_ATTRS. _wc_results is certification-only: stochastic
+        # rollouts must never move the frontier; the trainer broadcasts
+        # deterministic held-out assay results via
+        # apply_walkcurr_certification and promotes via
+        # walkcurr_update_admission. version 2 (walkcurr2, operator MCP
+        # note fb_20260818T060044) selects WALKCURR_BUCKETS_V2 (fixed
+        # B0/B1 ignition band + per-bucket gate calibration) instead of
+        # the original V1 table; version 1 stays bit-exact unchanged.
+        wc_version = float(cfg_get(self.cfg, "goal", "walk_curriculum",
+                                   default=0.0))
+        self._wc_on = wc_version in (1.0, 2.0, 3.0, 4.0)
+        self._wc_version = int(wc_version) if self._wc_on else 0
+        self._wc_table = (WALKCURR_BUCKETS_V4 if self._wc_version == 4
+                          else WALKCURR_BUCKETS_V3
+                          if self._wc_version == 3
+                          else WALKCURR_BUCKETS_V2
+                          if self._wc_version == 2
+                          else WALKCURR_BUCKETS)
+        if self._wc_version == 4:
+            required_s = max(float(b["duration_s"])
+                             for b in self._wc_table)
+            available_s = self.episode_steps * self.dt
+            if available_s + 0.5 * self.dt < required_s:
+                raise ValueError(
+                    "walk curriculum V4 requires episode_seconds >= "
+                    f"{required_s:g} (got {available_s:g}); long-horizon "
+                    "certification must not be silently shortened")
+        self._wc_active_n = 1
+        self._wc_results: dict = {}   # bucket -> {passed, score, cert_round}
+        self._wc_bucket = None        # this episode's curriculum bucket
+        self._wc_randomizers: dict = {}   # dr scale -> DomainRandomizer
+        if self._wc_on and float(cfg_get(
+                self.cfg, "goal", "walk_lp_curriculum",
+                default=0.0)) == 1.0:
+            raise ValueError("goal.walk_curriculum and "
+                             "goal.walk_lp_curriculum are mutually "
+                             "exclusive command samplers")
+        # goal.walk_pure (2026-08-18, operator order
+        # fb_20260818T065930_03b422): pure-walk diet fixed at
+        # CONSTRUCTION time — every p_<mode> on the goal generator is
+        # zeroed and p_walk set to 1.0 before the first reset, so the
+        # batched MJX vec envs (which build their shim envs internally
+        # and mint reset pools immediately) can never sample a mixed
+        # diet before a post-construction set_goal_mix lands. Default
+        # 0 = off, bit-exact legacy (no draws, no attribute writes).
+        if float(cfg_get(self.cfg, "goal", "walk_pure",
+                         default=0.0)) > 0.0:
+            gen = self._goal_gen
+            for _name in dir(gen):
+                if (_name.startswith("p_")
+                        and isinstance(getattr(gen, _name),
+                                       (int, float))):
+                    setattr(gen, _name, 0.0)
+            gen.p_walk = 1.0
+        # In-env walk quality probe (measurement only, default OFF;
+        # walkcurr MJX certification, fb_20260818T065930_03b422): when
+        # walk_probe_on is set (VecEnv set_attr on cert envs), each
+        # episode accumulates the eval_task quality metrics from the
+        # same mirrored fields the reward stack reads (pad-body XY,
+        # touch sensors, safety slew, IMU state, goal refs) and emits
+        # them as info["walk_probe"] on the terminal tick. Never
+        # affects obs, reward, termination or rng on any backend.
+        self.walk_probe_on = bool(float(cfg_get(
+            self.cfg, "goal", "walk_probe", default=0.0)) > 0.0)
+        self._wp = None
         # Tripod phase clock (default OFF = legacy obs width; see module
         # docstring on the phase reward). Obs order: [base, vel, phase].
         self._phase_obs = float(cfg_get(self.cfg, "goal", "walk_phase_obs",
@@ -364,12 +768,21 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # Default OFF = bit-exact obs for every existing lineage.
         self._mode_cmd = float(cfg_get(self.cfg, "obs", "mode_onehot_cmd",
                                        default=0.0)) == 1.0
+        # Recovery needs a task-stable pose frame.  q-q_nom is zero at
+        # every reset because q_nom is the arbitrary settled bad pose, so
+        # two very different tangles can otherwise begin with identical
+        # joint-position observations.  Append q-q_plant at the frame tail
+        # (recover ticks only); the pretrained dynamics adapter deliberately
+        # consumes only the original first 59 proprio fields.
+        self._recover_plant_q_obs = float(cfg_get(
+            self.cfg, "obs", "recover_plant_q", default=0.0)) == 1.0
         if _gym is not None:
             self.observation_space = self._obs_space_box(
                 N_OBS - 6 + self.n_act + WALK_GOAL_DIM + N_VEL_OBS
                 + (N_PHASE_OBS if self._phase_obs else 0)
                 + (1 if self._yaw_cmd else 0)
-                + (N_MODE_OBS if self._mode_obs else 0))
+                + (N_MODE_OBS if self._mode_obs else 0)
+                + (N_JOINTS if self._recover_plant_q_obs else 0))
 
     def _augment_obs(self, obs: np.ndarray, *,
                      reset: bool = False) -> np.ndarray:
@@ -456,6 +869,17 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                     [obs, mode_onehot("hold" if stopped else "walk")])
             else:
                 obs = np.concatenate([obs, mode_onehot(mode)])
+        if self._recover_plant_q_obs:
+            mode = (getattr(self._goal_traj, "mode", "hold")
+                    if self._goal_traj is not None else "hold")
+            q_plant = np.zeros(N_JOINTS, dtype=float)
+            if mode == "recover" and self._state is not None:
+                qs = float(cfg_get(self.cfg, "obs", "q_scale",
+                                   default=1.0))
+                q_plant = ((self._state.joint_position
+                            - self._plant_deg * DEG2RAD)
+                           / max(qs, 1e-6))
+            obs = np.concatenate([obs, q_plant])
         return obs.astype(np.float32)
 
     def _reset_begin(self, seed: int | None = None):
@@ -480,9 +904,422 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         self._gait_gate_qfactor = 1.0
         self._phase = 0.0
         self._yaw_still_ema = 0.0
+        if self._wc_on:
+            # Bucket must be chosen BEFORE super() samples this
+            # episode's DR (_ep_rand) so the bucket's dr scale applies
+            # to the same episode. Off = zero rng draws, randomizer
+            # untouched (bit-exact legacy).
+            self._walkcurr_prepare_episode()
         return super()._reset_begin(seed)
 
+    def _reset_finalize(self):
+        obs, info = super()._reset_finalize()
+        if self.walk_probe_on:
+            self._walk_probe_start()
+        return obs, info
+
     # ------------------------------------------------------------------
+    # In-env walk quality probe (walk_probe_on; measurement only).
+    # Same formulas as train_ppo_transfer.eval_task's external loop,
+    # with ONE sourcing difference: foot XY comes from the pad BODIES
+    # (self._pad_bids — mirrored per tick into the MJX shims' FakeData,
+    # exactly what the reward stack reads) instead of the foot sites
+    # (which the batched backend does not mirror). Identical code runs
+    # on the C env and both MJX vec envs, so cert numbers are directly
+    # comparable across backends.
+
+    def _walk_probe_start(self) -> None:
+        self._wp = dict(
+            tr=tuple(self._tilt_ref0),
+            sat_limit=0.98 * self.safety.max_dq,
+            prev_cmd=self.safety._last_safe.copy(),
+            prev_on=None, prev_xy=[None] * 6,
+            peak_roll=0.0, peak_pitch=0.0, peak_gyro=0.0,
+            slip=0.0, sw=0, sat_jt=0, sat_all=0,
+            sw_foot=[0] * 6, on_ticks=0,
+            h0=float(self.data.xpos[self._chassis_bid, 2]),
+            xy0=self.data.xpos[self._chassis_bid, :2].copy(),
+            h_sum=0.0, vx_se=0.0, vy_se=0.0, wz_se=0.0, vx_n=0,
+            cmd_dist=0.0, prog_m=0.0, cross_m=0.0,
+            stop_v_sum=0.0, stop_ticks=0,
+            head_ticks=int(round(2.0 / self.dt)),
+            ret=0.0, n=0)
+
+    def _walk_probe_tick(self, reward: float, term: bool, trunc: bool,
+                         info: dict) -> None:
+        w = self._wp
+        w["ret"] += reward
+        w["n"] += 1
+        n = w["n"]
+        st = self._state
+        w["peak_roll"] = max(w["peak_roll"],
+                             abs(st.imu_roll - w["tr"][0]))
+        w["peak_pitch"] = max(w["peak_pitch"],
+                              abs(st.imu_pitch - w["tr"][1]))
+        w["peak_gyro"] = max(w["peak_gyro"],
+                             float(np.max(np.abs(st.imu_gyro[:2]))))
+        cmd = self.safety._last_safe
+        n_sat = int(np.sum(np.abs(cmd - w["prev_cmd"])
+                           >= w["sat_limit"]))
+        w["sat_jt"] += n_sat
+        w["sat_all"] += int(n_sat >= 6)
+        w["prev_cmd"] = cmd.copy()
+        on: list[bool] = []
+        for f in range(6):
+            adr = self._touch_adr[f]
+            is_on = bool(adr >= 0
+                         and float(self.data.sensordata[adr]) > 0.5)
+            b = self._pad_bids[f]
+            xy = self.data.xpos[b, :2].copy() if b >= 0 else None
+            if w["prev_on"] is not None:
+                if is_on != w["prev_on"][f]:
+                    w["sw"] += 1
+                    w["sw_foot"][f] += 1
+                if (is_on and w["prev_on"][f] and xy is not None
+                        and w["prev_xy"][f] is not None):
+                    w["slip"] += float(np.hypot(*(xy - w["prev_xy"][f])))
+            w["prev_xy"][f] = xy
+            on.append(is_on)
+            w["on_ticks"] += int(is_on)
+        w["prev_on"] = on
+        w["h_sum"] += float(self.data.xpos[self._chassis_bid, 2])
+        vxr = getattr(self._goal_traj, "vx", None)
+        if vxr is not None:
+            j = min(max(n - 1, 0), len(vxr) - 1)
+            vyr = getattr(self._goal_traj, "vy", None)
+            wzr = getattr(self._goal_traj, "wz", None)
+            vx_meas, vy_meas = self._body_vel_xy()
+            vx_c = float(vxr[j])
+            vy_c = float(vyr[j]) if vyr is not None else 0.0
+            w["vx_se"] += (vx_c - float(vx_meas)) ** 2
+            w["vy_se"] += (vy_c - float(vy_meas)) ** 2
+            wz_c = float(wzr[j]) if wzr is not None else 0.0
+            w["wz_se"] += (wz_c - float(self._body_wz())) ** 2
+            w["vx_n"] += 1
+            s_ref = float(np.hypot(vx_c, vy_c))
+            w["cmd_dist"] += s_ref * self.dt
+            if s_ref > 1e-6:
+                w["prog_m"] += ((float(vx_meas) * vx_c
+                                 + float(vy_meas) * vy_c) / s_ref
+                                * self.dt)
+                w["cross_m"] += ((float(vy_meas) * vx_c
+                                  - float(vx_meas) * vy_c) / s_ref
+                                 * self.dt)
+            elif n > w["head_ticks"]:
+                w["stop_v_sum"] += float(np.hypot(vx_meas, vy_meas))
+                w["stop_ticks"] += 1
+        if term or trunc:
+            info["walk_probe"] = self._walk_probe_summary(bool(term))
+
+    def _walk_probe_summary(self, term: bool) -> dict:
+        w, nan = self._wp, float("nan")
+        n = max(w["n"], 1)
+        rad2deg = 180.0 / math.pi
+        xyN = self.data.xpos[self._chassis_bid, :2]
+        vx_n = w["vx_n"]
+        # Body-height telemetry vs the SAME anchor the reward gate uses
+        # (z0 + goal.height_ref; walk_height_gate block below). Emitted
+        # unconditionally so cert panels can show the crouch depth and
+        # the income factor a gated run would keep, whether or not the
+        # gate is enabled (operator order fb_20260818T085648_2a0a60:
+        # body-height/height-factor on B0 cert + all W&B panels).
+        goal = self._current_goal()
+        h_ref = float(getattr(goal, "height_ref", 0.0))
+        h_err_m = (w["h_sum"] / n - self._z0) - h_ref
+        sig_m = float(cfg_get(self.cfg, "reward",
+                              "walk_height_sigma_mm",
+                              default=30.0)) / 1000.0
+        height_factor = math.exp(
+            -0.5 * (h_err_m / max(sig_m, 1e-6)) ** 2)
+        return {
+            "h_err_mm": h_err_m * 1000.0,
+            "height_factor": height_factor,
+            "return": w["ret"], "ep_len": float(w["n"]),
+            "survival_s": float(w["n"] * self.dt),
+            "command_changes": float(getattr(
+                self._goal_traj, "command_changes", 0)),
+            "early_term": float(term),
+            "peak_roll_deg": w["peak_roll"] * rad2deg,
+            "peak_pitch_deg": w["peak_pitch"] * rad2deg,
+            "peak_gyro_dps": w["peak_gyro"] * rad2deg,
+            "slip_m": w["slip"],
+            "fwd_m": float(np.hypot(*(xyN - w["xy0"]))),
+            "contact_sw_per_s": w["sw"] / max(w["n"] * self.dt, 1e-9),
+            "slew_sat": w["sat_jt"] / max(w["n"] * 18, 1),
+            "slew_sat_all": w["sat_all"] / n,
+            "mean_h_m": w["h_sum"] / n,
+            "dh_m": (float(self.data.xpos[self._chassis_bid, 2])
+                     - w["h0"]),
+            "vx_rmse": (float(np.sqrt(w["vx_se"] / vx_n))
+                        if vx_n else nan),
+            "vy_rmse": (float(np.sqrt(w["vy_se"] / vx_n))
+                        if vx_n else nan),
+            "wz_rmse_dps": (float(np.sqrt(w["wz_se"] / vx_n)) * rad2deg
+                            if vx_n else nan),
+            "cmd_prog_m": w["prog_m"],
+            "cmd_prog_frac": (w["prog_m"] / w["cmd_dist"]
+                              if w["cmd_dist"] > 0.01 else nan),
+            "slip_per_m": w["slip"] / max(w["prog_m"], 0.05),
+            "cross_track_frac": (abs(w["cross_m"]) / w["cmd_dist"]
+                                 if w["cmd_dist"] > 0.01 else nan),
+            "wrong_way": (float(w["prog_m"] < 0.0)
+                          if w["cmd_dist"] > 0.01 else nan),
+            "stop_speed_m_s": (w["stop_v_sum"] / w["stop_ticks"]
+                               if w["stop_ticks"] else nan),
+            "foot_sw_min_per_s": (min(w["sw_foot"])
+                                  / max(w["n"] * self.dt, 1e-9)),
+            "duty_factor": w["on_ticks"] / max(w["n"] * 6, 1),
+        }
+
+    # ------------------------------------------------------------------
+    # Adaptive competence+retention walk-command curriculum
+    # (goal.walk_curriculum=1; WALKCURR_BUCKETS/WALKCURR_MIX above).
+    # Same contract as the recover-mode ladder: sampling weights are
+    # derived env-side from certification results, the trainer is the
+    # only writer of those results (deterministic held-out assays,
+    # broadcast to every env), stochastic rollouts can never move the
+    # frontier, and locked future buckets are never trained.
+
+    def _walkcurr_prepare_episode(self) -> None:
+        gen = self._goal_gen
+        if float(getattr(gen, "p_walk", 0.0)) != 1.0:
+            raise ValueError(
+                "goal.walk_curriculum=1 requires a pure walk diet "
+                f"(p_walk=1.0, got {getattr(gen, 'p_walk', 0.0)}); the "
+                "curriculum owns the whole command distribution")
+        if float(cfg_get(self.cfg, "goal", "mode_seq",
+                         default=0.0)) > 0.0:
+            raise ValueError("goal.walk_curriculum is incompatible "
+                             "with goal.mode_seq")
+        force = getattr(self, "force_walk_curr_bucket", None)
+        if force is not None:
+            b = int(force)
+            if not 0 <= b < len(self._wc_table):
+                raise ValueError(f"force_walk_curr_bucket {b} out of "
+                                 f"range 0..{len(self._wc_table) - 1}")
+        else:
+            b = self._walkcurr_draw_bucket()
+        self._wc_bucket = b
+        dr = float(self._wc_table[b]["dr"])
+        self.randomizer = self._walkcurr_randomizer(dr)
+
+    def _walkcurr_draw_bucket(self) -> int:
+        w = self._walkcurr_weights()
+        r = float(self.rng.random())
+        return int(np.searchsorted(np.cumsum(w), r,
+                                   side="right").clip(0, len(w) - 1))
+
+    def _walkcurr_weights(self) -> np.ndarray:
+        """Sampling mixture over UNLOCKED buckets only (operator spec):
+        50% frontier, 25% weakest mastered, 15% uniform mastered, 10%
+        the rung just prior to the frontier. With no mastered buckets
+        every component folds back to the frontier. Locked buckets
+        (index >= active_n) get exactly zero mass by construction."""
+        n = max(1, int(self._wc_active_n))
+        frontier = n - 1
+        w = np.zeros(n, dtype=float)
+        w[frontier] += WALKCURR_MIX["frontier"]
+        mastered = list(range(frontier))
+        if mastered:
+            weakest = min(
+                mastered,
+                key=lambda b: self._wc_results.get(
+                    b, {}).get("score", float("inf")))
+            w[weakest] += WALKCURR_MIX["weakest"]
+            for b in mastered:
+                w[b] += WALKCURR_MIX["uniform"] / len(mastered)
+            w[frontier - 1] += WALKCURR_MIX["prior"]
+        else:
+            w[frontier] += (WALKCURR_MIX["weakest"]
+                            + WALKCURR_MIX["uniform"]
+                            + WALKCURR_MIX["prior"])
+        return w / w.sum()
+
+    def _walkcurr_randomizer(self, scale: float):
+        """Per-bucket DomainRandomizer (cached), with the same cfg
+        dr.* absolute-override semantics as sim_env.__init__."""
+        key = round(float(scale), 6)
+        r = self._wc_randomizers.get(key)
+        if r is None:
+            from .domain_rand import DomainRandomizer
+            r = DomainRandomizer.from_params(self.params, scale=key)
+            for _k, _v in (self.cfg.get("dr") or {}).items():
+                if not hasattr(r.ranges, _k):
+                    raise ValueError(f"unknown DR override dr.{_k}")
+                if isinstance(_v, str):
+                    _parts = tuple(float(x) for x in _v.split(","))
+                    _v = _parts[0] if len(_parts) == 1 else _parts
+                setattr(r.ranges, _k, _v)
+            self._wc_randomizers[key] = r
+        return r
+
+    def apply_walkcurr_certification(self, bucket: int, passed: bool,
+                                     score: float,
+                                     cert_round: int) -> dict:
+        """Record one bucket's deterministic held-out assay (trainer
+        broadcast; the ONLY write path into the curriculum). ``score``
+        is a continuous competence proxy (cert cmd_prog_frac) used only
+        to pick the weakest mastered bucket for replay pressure."""
+        bucket = int(bucket)
+        if not 0 <= bucket < len(self._wc_table):
+            raise ValueError(f"unknown walkcurr bucket {bucket}")
+        self._wc_results[bucket] = {
+            "passed": bool(passed), "score": float(score),
+            "cert_round": int(cert_round)}
+        return dict(self._wc_results[bucket], bucket=bucket)
+
+    def walkcurr_update_admission(self, cert_round: int) -> dict:
+        """Promote ONLY if the frontier AND every retained bucket
+        passed a FRESH assay of this cert round. Never time-based."""
+        n = int(self._wc_active_n)
+        frontier = n - 1
+        rows = {}
+        for b in range(n):
+            row = self._wc_results.get(b)
+            fresh = (row is not None
+                     and row.get("cert_round") == int(cert_round))
+            rows[b] = {"passed": bool(fresh and row["passed"]),
+                       "fresh": bool(fresh),
+                       "score": (float(row["score"]) if row is not None
+                                 else float("nan"))}
+        frontier_passed = rows[frontier]["passed"]
+        retained_failed = [b for b in range(frontier)
+                           if not rows[b]["passed"]]
+        retention_passed = not retained_failed
+        promoted = False
+        if (frontier_passed and retention_passed
+                and self._wc_active_n < len(self._wc_table)):
+            self._wc_active_n += 1
+            promoted = True
+        return {
+            "cert_round": int(cert_round),
+            "frontier_bucket": frontier,
+            "frontier_passed": bool(frontier_passed),
+            "retention_passed": bool(retention_passed),
+            "retained_failed_buckets": retained_failed,
+            "promoted": bool(promoted),
+            "active_n": int(self._wc_active_n),
+            "buckets": rows,
+        }
+
+    def walkcurr_state(self) -> dict:
+        """Serializable telemetry snapshot (weights + results)."""
+        w = self._walkcurr_weights()
+        frontier = self._wc_active_n - 1
+        mastered = list(range(frontier))
+        weakest = (min(mastered,
+                       key=lambda b: self._wc_results.get(
+                           b, {}).get("score", float("inf")))
+                   if mastered else -1)
+        return {
+            "total_buckets": len(self._wc_table),
+            "active_n": int(self._wc_active_n),
+            "frontier_bucket": int(frontier),
+            "weakest_mastered": int(weakest),
+            "sample_probabilities": {str(b): float(p)
+                                     for b, p in enumerate(w)},
+            "results": {str(b): dict(r)
+                        for b, r in self._wc_results.items()},
+        }
+
+    def walkcurr_checkpoint_state(self) -> dict:
+        """State paired with a promotion checkpoint (rollback/resume)."""
+        return {"active_n": int(self._wc_active_n),
+                "results": {str(b): dict(r)
+                            for b, r in self._wc_results.items()}}
+
+    def restore_walkcurr_checkpoint_state(self, state: dict) -> None:
+        active_n = int(state["active_n"])
+        if not 1 <= active_n <= len(self._wc_table):
+            raise ValueError(f"invalid walkcurr active_n {active_n}")
+        self._wc_active_n = active_n
+        self._wc_results = {
+            int(b): {"passed": bool(r["passed"]),
+                     "score": float(r["score"]),
+                     "cert_round": int(r["cert_round"])}
+            for b, r in dict(state["results"]).items()}
+
+    def _sample_walk_curr(self) -> WalkTrajectory:
+        """Curriculum walk episode: the stashed bucket's spec fully
+        defines the command distribution (legacy goal.walk_cmd_* keys
+        are ignored while the curriculum owns sampling). Command
+        grammar matches the legacy sampler: 1 s zero hold + 1 s ramp,
+        then optional resampled segments with blends and stops."""
+        b = self._wc_bucket
+        if b is None:
+            raise RuntimeError("walkcurr episode without a prepared "
+                               "bucket (reset ordering bug)")
+        spec = self._wc_table[b]
+        n = self.episode_steps + 1
+        rng = self.rng
+        duration_steps = int(round(float(spec.get(
+            "duration_s", self.episode_steps * self.dt)) / self.dt))
+        command_n = min(n, duration_steps + 1)
+        command_changes = 0
+
+        def draw_cmd() -> tuple[float, float]:
+            speed = float(rng.uniform(spec["s_lo"], spec["s_hi"]))
+            if spec["head_hi"] <= 0.0:
+                ang = 0.0
+            else:
+                mag = float(rng.uniform(spec["head_lo"],
+                                        spec["head_hi"]))
+                ang = mag if rng.random() < 0.5 else -mag
+            return speed * math.cos(ang), speed * math.sin(ang)
+
+        vx_t, vy_t = draw_cmd()
+        hold_n = max(1, int(round(1.0 / self.dt)))
+        ramp_n = max(1, int(round(1.0 / self.dt)))
+        vx = np.full(n, vx_t)
+        vy = np.full(n, vy_t)
+        vx[:hold_n] = 0.0
+        vy[:hold_n] = 0.0
+        end = min(hold_n + ramp_n, n)
+        vx[hold_n:end] = np.linspace(0.0, vx_t, end - hold_n)
+        vy[hold_n:end] = np.linspace(0.0, vy_t, end - hold_n)
+        rs_s = float(spec["resample_s"])
+        if rs_s > 0.0:
+            jit = float(spec["jitter"])
+            bl_lo, bl_hi = float(spec["blend_lo"]), float(spec["blend_hi"])
+
+            def seg_len() -> int:
+                s = rs_s if jit <= 0.0 \
+                    else rs_s * float(rng.uniform(1.0 - jit, 1.0 + jit))
+                return max(1, int(round(max(s, self.dt) / self.dt)))
+
+            def blend_len() -> int:
+                bl = bl_lo if bl_hi <= bl_lo \
+                    else float(rng.uniform(bl_lo, bl_hi))
+                if bl <= 0.0:
+                    return 0
+                return max(1, int(round(max(bl, self.dt) / self.dt)))
+
+            cvx, cvy = vx_t, vy_t
+            i = hold_n + ramp_n + seg_len()
+            while i < command_n:
+                if rng.random() < float(spec["stop_frac"]):
+                    nvx = nvy = 0.0
+                else:
+                    nvx, nvy = draw_cmd()
+                n_blend = blend_len()
+                end_b = min(i + n_blend, command_n)
+                if n_blend:
+                    vx[i:end_b] = np.linspace(cvx, nvx, end_b - i)
+                    vy[i:end_b] = np.linspace(cvy, nvy, end_b - i)
+                vx[end_b:command_n] = nvx
+                vy[end_b:command_n] = nvy
+                cvx, cvy = nvx, nvy
+                command_changes += 1
+                i += seg_len()
+        zeros = np.zeros(n)
+        self._walk_bucket = None
+        traj = WalkTrajectory(mode="walk", roll=zeros, pitch=zeros,
+                              height=zeros, unload_leg=None,
+                              start_at="plant", vx=vx, vy=vy, wz=None,
+                              cmd_mode="walkcurr",
+                              duration_steps=duration_steps,
+                              command_changes=command_changes)
+        return traj
 
     def set_walk_bucket_weights(self, w) -> None:
         """LP-curriculum hook (called via VecEnv.env_method)."""
@@ -491,6 +1328,10 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         self._lp_weights = (w / s) if s > 0 else None
 
     def _sample_walk(self) -> WalkTrajectory:
+        if self._wc_on:
+            # Adaptive curriculum owns the whole command distribution
+            # (bucket stashed by _walkcurr_prepare_episode pre-DR).
+            return self._sample_walk_curr()
         n = self.episode_steps + 1
         rng = self.rng
         # Command range is configurable for speed curricula: cw-walk2-gait
@@ -536,8 +1377,23 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 ang = float(rng.uniform(-math.pi, math.pi))  # anywhere
         cmd_mode = str(cfg_get(self.cfg, "goal", "walk_cmd_mode",
                                default="legacy")).strip().lower()
+        # goal.walk_cmd_stage curriculum (see WALK_CMD_STAGE_FAMILIES
+        # above): only shapes stress_mix draws; default -1 keeps the
+        # legacy uniform family choice draw-stream bit-exact.
+        stage_f = float(cfg_get(self.cfg, "goal", "walk_cmd_stage",
+                                default=-1.0))
+        stage0 = False
         if cmd_mode == "stress_mix":
-            cmd_mode = str(rng.choice(WALK_CMD_SCHEDULES))
+            if stage_f >= 0.0:
+                s = min(int(stage_f), len(WALK_CMD_STAGE_FAMILIES) - 1)
+                fams = tuple(f for tier in WALK_CMD_STAGE_FAMILIES[:s + 1]
+                             for f in tier)
+                cmd_mode = str(rng.choice(fams))
+                if s == 0:
+                    stage0 = True
+                    ang = 0.0    # pure forward/back stepping first
+            else:
+                cmd_mode = str(rng.choice(WALK_CMD_SCHEDULES))
         elif cmd_mode != "legacy" and cmd_mode not in WALK_CMD_SCHEDULES:
             raise ValueError(
                 f"unknown goal.walk_cmd_mode={cmd_mode!r}; expected "
@@ -589,6 +1445,8 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                                       default=0.15))
 
             def draw_heading() -> float:
+                if stage0:
+                    return 0.0   # stage-0 curriculum: fwd/back only
                 if h_max >= 0.0:
                     return 0.0 if h_max == 0.0 \
                         else float(rng.uniform(-h_max, h_max))
@@ -961,106 +1819,408 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
     # start, then HOLD it 0.5 s — the episode ends on held success.
     # Zero velocity command throughout (this is the recovery
     # specialist; walking is another mode's job). Start-state
-    # curriculum = difficulty FAMILIES of start kinds, admitted
-    # adaptively from per-kind success EMAs (bucket 1 alone first).
+    # curriculum = difficulty FAMILIES of start kinds, unlocked
+    # monotonically from per-kind deterministic certification fractions
+    # (bucket 0 alone first), with bucket-level spaced replay forever.
     # Reward is a potential DIFFERENCE (PBRS) on
     # bounded [0,1] features + one-shot success bonus + a
     # rate-normalized time tax — no occupancy/hold income, no alive
     # bonus (see _recover_reward / REWARD.md §4c).
     #
-    # v1 family map (directive families 1-4 + 7; families 5-6 —
-    # walking-under-push falling states and on-policy failure
-    # harvests — need harvest infra and are the pre-registered next
-    # rung, recorded as a deviation in the run's ledger entry):
-    #   fam 0 (bucket 1): "onefoot" (plant with ONE leg lifted),
-    #                     "park"    (tripod lifted)
-    #   fam 1 (bucket 2): "crouch", "partial" (interrupted rise),
-    #                     "bank"    (harvested post-lower endpoints,
-    #                                only when goal.recover_start_bank
-    #                                is configured)
-    #   fam 2 (bucket 3): "zero" (belly), "tangle" (random legal
-    #                     joints, settles however it lands incl.
-    #                     tipped — the dropped/settled coverage family)
-    #   fam 3 (bucket 4): "flip" (random base orientation drop:
-    #                     side/back/upside-down)
-    RECOVER_FAMILIES = (("onefoot", "park"),
-                        ("crouch", "partial", "bank"),
-                        ("zero", "tangle"),
+    # Backward curriculum from the goal boundary.  Buckets are
+    # zero-indexed in telemetry and forced eval:
+    #   B0 plant_catch: nominal plant + <=2 deg joint noise; hold it.
+    #   B1 onefoot_micro: one foot perturbed 3-8 deg.
+    #   B2 onefoot_mid:   one foot perturbed 8-15 deg.
+    #   B3 onefoot:       one foot perturbed 15-30 deg.
+    #   B4 park:          a full alternating tripod is lifted.
+    #   B5-B7 shallow/medium/deep all-feet crouches.
+    #   B8-B10 high/mid/low partial curls toward the belly-zero pose.
+    #   B11 zero: belly-zero with small joint jitter.
+    #   B12-B13 25/50% blends toward random legal tangles.
+    #   B14-B15 full-height terminal repairs with one/two badly misplaced
+    #   legs. These explicitly teach the failure seen at the old B14:
+    #   upright and quiet, but parked forever on only four/five feet.
+    #   B16-B20 60/70/80/90/100% random-legal tangle blends.
+    #   B21 harvested on-path bank states; B22 side/back/upside-down drops.
+    #   Sub-90-degree
+    #   constructor tilts roll back upright during limp settle, so they
+    #   are deliberately not represented as fake curriculum rungs.
+    # Keeping the one-foot severities separate matters: the original
+    # bucket 1 mixed a 12-30 deg single-foot correction with a tripod
+    # park, and produced zero success despite millions of steps.
+    RECOVER_FAMILIES = (("plant_catch",),
+                        ("onefoot_micro",),
+                        ("onefoot_mid",),
+                        ("onefoot",),
+                        ("park",),
+                        ("crouch_shallow",),
+                        ("crouch_mid",),
+                        ("crouch_deep",),
+                        ("partial_high",),
+                        ("partial_mid",),
+                        ("partial_low",),
+                        ("zero",),
+                        ("tangle_mild",),
+                        ("tangle_mid",),
+                        ("repair_one",),
+                        ("repair_two",),
+                        ("tangle_60",),
+                        ("tangle_70",),
+                        ("tangle_80",),
+                        ("tangle_90",),
+                        ("tangle",),
+                        ("bank",),
                         ("flip",))
     RECOVER_KIND_IDS = {
         kind: i for i, kind in enumerate(
             kind for family in RECOVER_FAMILIES for kind in family)
     }
+    RECOVER_KIND_BUCKETS = {
+        kind: bucket for bucket, family in enumerate(RECOVER_FAMILIES)
+        for kind in family
+    }
 
-    def _recover_active_kinds(self) -> list:
-        """Kinds in the currently admitted families ("bank" only when a
-        bank file is configured)."""
-        kinds = []
+    def _recover_family_kinds(self, bucket: int) -> list:
+        """Available kinds in one bucket (bank requires a configured file)."""
         has_bank = cfg_get(self.cfg, "goal", "recover_start_bank",
                            default=None) is not None
-        for fam in self.RECOVER_FAMILIES[:self._rec_active_n]:
-            kinds += [k for k in fam if k != "bank" or has_bank]
+        return [k for k in self.RECOVER_FAMILIES[bucket]
+                if k != "bank" or has_bank]
+
+    def _recover_active_kinds(self) -> list:
+        """Kinds in every monotonically unlocked family."""
+        kinds = []
+        for bucket in range(self._rec_active_n):
+            kinds += self._recover_family_kinds(bucket)
         return kinds
 
-    def _recover_kind_weights(self, kinds: list) -> np.ndarray:
-        """Adaptive sampler weights (directive proportions): frontier
-        kinds (success EMA 20-80%, or <8 episodes seen) carry the bulk
-        (0.55), mastered kinds (>80%) keep retention pressure (0.20),
-        struggling kinds (<20%) stay pressured but reduced (0.35), and
-        a uniform fresh floor (0.10 split) keeps every ADMITTED kind
-        alive.  Unadmitted families receive no probes: admission means
-        the preceding family has already passed its gate.
-        Pure function of self._rec_stats; unit-tested in the semantics
-        bank."""
-        w = []
-        for k in kinds:
-            ema, n = self._rec_stats.get(k, (0.5, 0))
-            if n < 8 or 0.2 <= ema <= 0.8:
-                w.append(0.55)          # frontier
-            elif ema > 0.8:
-                w.append(0.20)          # mastered retention
-            else:
-                w.append(0.35)          # struggling: keep pressure
-        w = np.asarray(w, dtype=float)
-        w += 0.10 / max(len(kinds), 1)  # fresh floor
+    def _recover_bucket_certification(self, bucket: int) -> dict | None:
+        """Latest complete deterministic assay for one bucket."""
+        kinds = self._recover_family_kinds(bucket)
+        stats = [self._rec_stats.get(k, (0, 0)) for k in kinds]
+        if not stats or any(episodes <= 0 for _successes, episodes in stats):
+            return None
+        successes = sum(v[0] for v in stats)
+        episodes = sum(v[1] for v in stats)
+        fractions = [s / n for s, n in stats]
+        return {
+            "success_fraction": successes / episodes,
+            # Multi-kind buckets promote and remediate on their weakest
+            # kind so an easy bank cannot hide a failing random tangle.
+            "gate_fraction": min(fractions),
+            "successes": successes,
+            "episodes": episodes,
+        }
+
+    def _recover_refresh_weak_bucket(self) -> None:
+        """Point replay pressure at the weakest certified old bucket."""
+        candidates = []
+        for bucket in range(self._rec_focus_bucket):
+            row = self._recover_bucket_certification(bucket)
+            if row is not None:
+                candidates.append((row["gate_fraction"], -bucket, bucket))
+        self._rec_weak_bucket = min(candidates)[2] if candidates else None
+
+    def _recover_training_error_distribution(
+            self, n: int | None = None) -> np.ndarray | None:
+        """Evidence-weighted replay priority from training shortfall.
+
+        Raw stochastic recovery success is a deliberately strict and noisy
+        signal (exploration can break the continuous six-foot hold).  The
+        sampler therefore uses terminal goal-potential shortfall instead,
+        with safety terminations recorded as maximum error.  This signal can
+        allocate a bounded replay slice but can never certify a bucket.
+        """
+        n = max(1, int(self._rec_active_n if n is None else n))
+        min_episodes = max(1, int(float(cfg_get(
+            self.cfg, "goal", "recover_training_error_min_episodes",
+            default=8))))
+        power = max(0.0, float(cfg_get(
+            self.cfg, "goal", "recover_training_error_power",
+            default=2.0)))
+        priority = np.zeros(n, dtype=float)
+        for bucket in range(n):
+            error, episodes = self._rec_training_error_stats.get(
+                bucket, (0.0, 0))
+            if episodes < min_episodes:
+                continue
+            confidence = min(float(episodes) / min_episodes, 1.0)
+            priority[bucket] = confidence * max(float(error), 0.0) ** power
+        total = float(priority.sum())
+        return priority / total if total > 0.0 else None
+
+    def apply_recover_training_error_batch(self, rows: dict) -> None:
+        """Fold global non-RSI training outcomes into sampler-only EMAs."""
+        beta = float(np.clip(cfg_get(
+            self.cfg, "goal", "recover_training_error_ema_beta",
+            default=0.25), 0.0, 1.0))
+        for raw_bucket, values in rows.items():
+            bucket = int(raw_bucket)
+            if not 0 <= bucket < len(self.RECOVER_FAMILIES):
+                continue
+            error_sum, episodes = values
+            episodes = int(episodes)
+            if episodes <= 0:
+                continue
+            batch_error = float(np.clip(
+                float(error_sum) / episodes, 0.0, 1.0))
+            old_error, old_n = self._rec_training_error_stats.get(
+                bucket, (batch_error, 0))
+            updated = (batch_error if old_n == 0 else
+                       (1.0 - beta) * old_error + beta * batch_error)
+            self._rec_training_error_stats[bucket] = (
+                float(updated), int(old_n) + episodes)
+
+    def _recover_bucket_weights(self) -> np.ndarray:
+        """Spaced-replay probabilities over unlocked recovery buckets.
+
+        The mass is assigned by BUCKET, not by start kind: 50% to the
+        acquisition frontier, 25% geometrically over its three immediate
+        predecessors, 15% to the weakest certified old bucket, and 10%
+        uniformly over all remaining unlocked buckets. Empty components
+        fall back to the frontier. A multi-kind family splits its bucket
+        probability later, so adding a bank never doubles that level's
+        training share.  Once enough terminal evidence exists, a bounded
+        sampler-only slice is redistributed toward buckets with the largest
+        terminal goal-potential shortfall.
+        """
+        n = max(1, int(self._rec_active_n))
+        focus = min(max(int(self._rec_focus_bucket), 0), n - 1)
+        w = np.zeros(n, dtype=float)
+        focus_mass = float(cfg_get(
+            self.cfg, "goal", "recover_focus_mix", default=0.50))
+        recent_mass = float(cfg_get(
+            self.cfg, "goal", "recover_recent_mix", default=0.25))
+        weak_mass = float(cfg_get(
+            self.cfg, "goal", "recover_weak_mix", default=0.15))
+        uniform_mass = float(cfg_get(
+            self.cfg, "goal", "recover_uniform_mix", default=0.10))
+        masses = np.maximum(
+            np.asarray([focus_mass, recent_mass, weak_mass, uniform_mass],
+                       dtype=float), 0.0)
+        if float(masses.sum()) <= 0.0:
+            masses[0] = 1.0
+        masses /= masses.sum()
+        focus_mass, recent_mass, weak_mass, uniform_mass = masses
+        w[focus] += focus_mass
+
+        recent = [focus - d for d in range(1, 4) if focus - d >= 0]
+        if recent:
+            shape = np.asarray((0.50, 0.30, 0.20)[:len(recent)],
+                               dtype=float)
+            shape /= shape.sum()
+            for bucket, share in zip(recent, shape):
+                w[bucket] += recent_mass * share
+        else:
+            w[focus] += recent_mass
+
+        weak = self._rec_weak_bucket
+        if weak is not None and 0 <= int(weak) < n and int(weak) != focus:
+            w[int(weak)] += weak_mass
+        else:
+            w[focus] += weak_mass
+
+        reserved = {focus, *recent}
+        if weak is not None and 0 <= int(weak) < n:
+            reserved.add(int(weak))
+        others = [bucket for bucket in range(n) if bucket not in reserved]
+        if others:
+            for bucket in others:
+                w[bucket] += uniform_mass / len(others)
+        else:
+            w[focus] += uniform_mass
+        w /= w.sum()
+        error_distribution = self._recover_training_error_distribution(n)
+        error_mix = float(np.clip(cfg_get(
+            self.cfg, "goal", "recover_training_error_mix", default=0.10),
+            0.0, 1.0))
+        if error_distribution is not None and error_mix > 0.0:
+            w = (1.0 - error_mix) * w + error_mix * error_distribution
         return w / w.sum()
 
-    def _recover_update_admission(self) -> None:
-        """Advance/retreat the family ladder from the stats: admit the
-        next family when every kind of the HARDEST ACTIVE family has
-        enough evidence and success EMA >=0.8; retreat (down to bucket
-        1) when any kind of the last-admitted family has enough evidence
-        and EMA
-        <0.2 (directive: >=80% advance, <20% retreat)."""
-        hard = [k for k in self.RECOVER_FAMILIES[self._rec_active_n - 1]
-                if k != "bank" or cfg_get(self.cfg, "goal",
-                                          "recover_start_bank",
-                                          default=None) is not None]
-        st = self._rec_stats
+    def _recover_kind_weights(self, kinds: list) -> np.ndarray:
+        """Map bucket replay mass to kinds, splitting families evenly."""
+        bucket_w = self._recover_bucket_weights()
+        w = []
+        for kind in kinds:
+            bucket = self.RECOVER_KIND_BUCKETS[kind]
+            family_n = len(self._recover_family_kinds(bucket))
+            w.append(bucket_w[bucket] / max(family_n, 1))
+        w = np.asarray(w, dtype=float)
+        return w / w.sum()
+
+    def _recover_admission_status(self,
+                                  cert_round: int | None = None) -> dict:
+        """Return the frontier and retention-suite gate state."""
+        self._rec_focus_bucket = self._rec_active_n - 1
         admit_n = int(float(cfg_get(
             self.cfg, "goal", "recover_admit_n", default=4)))
-        retreat_n = int(float(cfg_get(
-            self.cfg, "goal", "recover_retreat_n", default=6)))
+        threshold = float(cfg_get(
+            self.cfg, "goal", "recover_admit_fraction", default=0.8))
+        bucket_rows = {}
+        for bucket in range(self._rec_active_n):
+            kinds = self._recover_family_kinds(bucket)
+            passed = bool(kinds)
+            fresh = bool(kinds)
+            fractions = []
+            for kind in kinds:
+                successes, episodes = self._rec_stats.get(kind, (0, 0))
+                fraction = successes / episodes if episodes else 0.0
+                fractions.append(fraction)
+                passed = (passed and episodes >= admit_n
+                          and fraction >= threshold)
+                if cert_round is not None:
+                    fresh = (fresh and self._rec_cert_rounds.get(kind)
+                             == int(cert_round))
+            bucket_rows[bucket] = {
+                "passed": bool(passed and fresh),
+                "score_passed": bool(passed),
+                "fresh": bool(fresh),
+                "gate_fraction": (min(fractions) if fractions else 0.0),
+            }
+        focus = self._rec_focus_bucket
+        frontier_passed = bool(bucket_rows.get(
+            focus, {}).get("passed", False))
+        retention = [bucket_rows[b] for b in range(focus)]
+        retention_passed = all(row["passed"] for row in retention)
+        failed = [bucket for bucket, row in bucket_rows.items()
+                  if not row["passed"]]
+        retention_failed = [bucket for bucket in range(focus)
+                            if not bucket_rows[bucket]["passed"]]
+        return {
+            "cert_round": (-1 if cert_round is None else int(cert_round)),
+            "frontier_bucket": int(focus),
+            "frontier_passed": frontier_passed,
+            "retention_passed": bool(retention_passed),
+            "suite_passed": bool(frontier_passed and retention_passed),
+            "retention_bucket_count": int(focus),
+            "failed_buckets": failed,
+            "retention_failed_buckets": retention_failed,
+            "retention_min_gate_fraction": min(
+                (row["gate_fraction"] for row in retention), default=1.0),
+            "min_gate_fraction": min(
+                (row["gate_fraction"] for row in bucket_rows.values()),
+                default=0.0),
+            "buckets": bucket_rows,
+        }
+
+    def _recover_update_admission(
+            self, cert_round: int | None = None) -> dict:
+        """Unlock only after frontier plus retention suite pass."""
+        status = self._recover_admission_status(cert_round)
+        before = self._rec_active_n
         if (self._rec_active_n < len(self.RECOVER_FAMILIES)
-                and hard
-                and all(st.get(k, (0.0, 0))[1] >= admit_n
-                        and st.get(k, (0.0, 0))[0] >= 0.8
-                        for k in hard)):
+                and status["suite_passed"]):
             self._rec_active_n += 1
-        elif (self._rec_active_n > 1
-                and any(st.get(k, (1.0, 0))[1] >= retreat_n
-                        and st.get(k, (1.0, 0))[0] < 0.2
-                        for k in hard)):
-            self._rec_active_n -= 1
-            # Re-certify the easier frontier before trying the failed
-            # family again.  Without this reset, its old mastered EMA
-            # immediately re-admitted the failed family on the very next
-            # reset, so "retreat" lasted zero training episodes.
-            for k in self.RECOVER_FAMILIES[self._rec_active_n - 1]:
-                if k != "bank" or cfg_get(
-                        self.cfg, "goal", "recover_start_bank",
-                        default=None) is not None:
-                    st[k] = (0.5, 0)
+            self._rec_focus_bucket = self._rec_active_n - 1
+        self._recover_refresh_weak_bucket()
+        status.update({
+            "active_before": int(before),
+            "active_after": int(self._rec_active_n),
+            "promoted": bool(self._rec_active_n > before),
+        })
+        return status
+
+    def recover_score_state(self) -> dict:
+        """Serializable deterministic curriculum/scoreboard snapshot."""
+        self._recover_refresh_weak_bucket()
+        bucket_w = self._recover_bucket_weights()
+        error_priority = self._recover_training_error_distribution()
+        if error_priority is None:
+            error_priority = np.zeros(self._rec_active_n, dtype=float)
+        buckets = {}
+        for bucket in range(len(self.RECOVER_FAMILIES)):
+            row = self._recover_bucket_certification(bucket)
+            if row is not None:
+                buckets[str(bucket)] = row
+        return {
+            "total_buckets": len(self.RECOVER_FAMILIES),
+            "max_unlocked_bucket": self._rec_active_n - 1,
+            "focus_bucket": self._rec_focus_bucket,
+            "weakest_bucket": (-1 if self._rec_weak_bucket is None
+                                else int(self._rec_weak_bucket)),
+            "buckets": buckets,
+            "sample_probabilities": {
+                str(bucket): float(probability)
+                for bucket, probability in enumerate(bucket_w)
+            },
+            "training_errors": {
+                str(bucket): {
+                    "ema": float(self._rec_training_error_stats.get(
+                        bucket, (0.0, 0))[0]),
+                    "episodes": int(self._rec_training_error_stats.get(
+                        bucket, (0.0, 0))[1]),
+                    "priority": float(error_priority[bucket]),
+                }
+                for bucket in range(self._rec_active_n)
+            },
+        }
+
+    def recover_curriculum_checkpoint_state(self) -> dict:
+        """State paired with a policy snapshot at a proven promotion."""
+        return {
+            "active_n": int(self._rec_active_n),
+            "focus_bucket": int(self._rec_focus_bucket),
+            "stats": dict(self._rec_stats),
+            "cert_rounds": dict(self._rec_cert_rounds),
+        }
+
+    def restore_recover_curriculum_checkpoint_state(self,
+                                                    state: dict) -> None:
+        """Restore promotion-time curriculum state, retaining error debt."""
+        active_n = int(state["active_n"])
+        if not 1 <= active_n <= len(self.RECOVER_FAMILIES):
+            raise ValueError(f"invalid recovery active_n {active_n}")
+        self._rec_active_n = active_n
+        self._rec_focus_bucket = active_n - 1
+        self._rec_stats = {
+            str(kind): (int(values[0]), int(values[1]))
+            for kind, values in dict(state["stats"]).items()
+        }
+        self._rec_cert_rounds = {
+            str(kind): int(cert_round)
+            for kind, cert_round in dict(state["cert_rounds"]).items()
+        }
+        self._recover_refresh_weak_bucket()
+
+    def apply_recover_certification(self, kind: str,
+                                    outcomes: list[bool],
+                                    update_admission: bool = True,
+                                    cert_round: int | None = None) -> dict:
+        """Apply deterministic same-backend outcomes to the curriculum.
+
+        The MJX trainer calls this on every training env after a held-out
+        deterministic certification pass.  Keeping this mutation here
+        makes the admission contract identical for C, MJX and sharded
+        host envs while ensuring ordinary stochastic rollout terminals
+        cannot move the frontier.
+        """
+        kind = str(kind)
+        if kind not in self.RECOVER_KIND_BUCKETS:
+            raise ValueError(f"unknown recover certification kind {kind!r}")
+        ys = [bool(v) for v in outcomes]
+        if not ys:
+            raise ValueError("recover certification needs at least one outcome")
+        successes = sum(1 for ok in ys if ok)
+        n = len(ys)
+        fraction = successes / n
+        # A certification is a fixed-size held-out assay. Store exactly
+        # this batch, rather than blending it into an EMA whose numerator
+        # and denominator cannot be interpreted from a chart.
+        self._rec_stats[kind] = (successes, n)
+        if cert_round is not None:
+            self._rec_cert_rounds[kind] = int(cert_round)
+        before = self._rec_active_n
+        focus_before = self._rec_focus_bucket
+        if update_admission:
+            self._recover_update_admission(cert_round)
+        return {"kind": kind, "success_fraction": float(fraction),
+                "successes": int(successes), "episodes": int(n),
+                "active_before": int(before),
+                "active_after": int(self._rec_active_n),
+                "focus_before": int(focus_before),
+                "focus_after": int(self._rec_focus_bucket)}
 
     def _sample_recover(self) -> WalkTrajectory:
         """One recover_to_plant episode: adaptive start-kind draw, zero
@@ -1081,7 +2241,8 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                              "recover mode (frame probes vs flip "
                              "spawns); run recover as a single-mode "
                              "diet")
-        self._recover_update_admission()
+        if not self._rec_external_certification:
+            self._recover_update_admission()
         kinds = self._recover_active_kinds()
         w = self._recover_kind_weights(kinds)
         r = float(self.rng.random())
@@ -1098,6 +2259,55 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                               unload_leg=None, start_at="any",
                               vx=zeros.copy(), vy=zeros.copy(), wz=None)
         traj.start_kind = kind
+        # RECOVER RSI (08-16, zero-family mechanism fix after
+        # cw-recover-any8/any9 both stalled on B11): with probability
+        # goal.recover_rsi_frac, an episode whose kind was NATURALLY
+        # drawn from goal.recover_rsi_kinds (default "zero") spawns ON
+        # the demonstrated belly->plant path instead of the family
+        # pose (sim_env._reset_begin builds the waypoint — the same
+        # proven goal.rise_rsi_frac lever, extended to recover). The
+        # decision lives HERE, goal-side, because only the sampler
+        # knows whether the kind was FORCED: force_recover_start is
+        # the deterministic CERT/eval path and must stay pure, so a
+        # forced episode never carries the flag. Default 0.0 = off,
+        # bit-exact (no extra rng draw).
+        traj.recover_rsi = False
+        _rsi_f = float(cfg_get(self.cfg, "goal", "recover_rsi_frac",
+                               default=0.0))
+        if _rsi_f > 0.0 and force is None:
+            _rsi_kinds = [k.strip() for k in str(cfg_get(
+                self.cfg, "goal", "recover_rsi_kinds",
+                default="zero")).split(",") if k.strip()]
+            if kind in _rsi_kinds and float(self.rng.random()) < _rsi_f:
+                traj.recover_rsi = True
+        # RECOVER RSI, HARVESTED-BANK variant (08-16, tangle-wall
+        # mechanism fix after any7/any11/any12's 3rd matching miss on
+        # curriculum-weight): the ref-path mechanism above is
+        # hardcoded to the belly->plant rise trajectory (a single
+        # monotonic-height reference), which has no equivalent for
+        # tangle's non-monotonic untangling motion. This second,
+        # independent axis instead samples a spawn pose from a
+        # harvested bank of ON-PATH states from a checkpoint's OWN
+        # successful recoveries of the target kind
+        # (harvest_recover_rsi_bank.py), so a policy stuck on a hard
+        # kind practices from states partway through the motion that
+        # is already known to work sometimes, not just the family's
+        # raw start pose. Fully independent cfg keys/kind-list from
+        # the ref-path axis above (no interaction when the target
+        # kinds don't overlap); default frac 0.0 = off, bit-exact (no
+        # extra rng draw). `not traj.recover_rsi` keeps the two
+        # mechanisms mutually exclusive on a single episode if a kind
+        # is ever listed in both.
+        traj.recover_rsi_bank = False
+        _rsi_bank_f = float(cfg_get(self.cfg, "goal",
+                                    "recover_rsi_bank_frac", default=0.0))
+        if _rsi_bank_f > 0.0 and force is None and not traj.recover_rsi:
+            _rsi_bank_kinds = [k.strip() for k in str(cfg_get(
+                self.cfg, "goal", "recover_rsi_bank_kinds",
+                default="")).split(",") if k.strip()]
+            if (kind in _rsi_bank_kinds
+                    and float(self.rng.random()) < _rsi_bank_f):
+                traj.recover_rsi_bank = True
         return traj
 
     # ---- mode sequencing (goal.mode_seq; TRANSITIONS_DIRECTIVE item 1)
@@ -1309,6 +2519,8 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # identical to the historical step() override, including on the
         # rejected-action early return.
         obs, reward, term, trunc, info = super()._post_step(result)
+        if self._step_i >= self._active_episode_steps():
+            trunc = True
         if (self._goal_traj is not None
                 and getattr(self._goal_traj, "mode", "")
                 in ("walk", "quadwalk")):
@@ -2049,6 +3261,27 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         elif getattr(self, "_is_recover", False):
             reward, term, info = self._recover_reward(
                 float(reward), term, trunc, info)
+        # reward.term_penalty (2026-08-18, fb_20260818T065930_03b422):
+        # cfg-gated in-env twin of train_ppo_transfer's TRAINING-ONLY
+        # _term_penalty_wrapper (one-time charge on early termination,
+        # the dynrep pilots' anti-suicide term) so the batched MJX
+        # trainers — which construct shim envs internally and cannot
+        # wrap them — can train on the exact walkcurr2 reward contract.
+        # Default 0.0 = bit-exact legacy. Eval/cert envs leave it 0
+        # (evals run the raw reward, same rule as the transfer trainer).
+        if term and not trunc:
+            _tp = float(cfg_get(self.cfg, "reward", "term_penalty",
+                                default=0.0))
+            if _tp > 0.0:
+                reward = float(reward) - _tp
+        if self.walk_probe_on and self._wp is not None:
+            # Measurement-only walk quality probe (walkcurr MJX cert,
+            # fb_20260818T065930_03b422): accumulate AFTER the full
+            # reward stack so per-episode return matches what the
+            # trainer sees; on the terminal tick the summary rides the
+            # info dict. Zero effect on obs/reward/rng.
+            self._walk_probe_tick(float(reward), bool(term),
+                                  bool(trunc), info)
         return obs, reward, term, trunc, info
 
     def _quad_income(self, reward: float, info: dict) -> tuple:
@@ -2570,17 +3803,67 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             reward -= fail
             info["reward_recover_fail"] = -fail
         if term or trunc:
-            # adaptive-curriculum bookkeeping (persistent across
-            # episodes; the sampler reads it at the next reset)
+            # Stochastic rollout bookkeeping is diagnostic only.  The
+            # adaptive sampler/admission state is updated exclusively by
+            # apply_recover_certification() from deterministic MJX passes.
             kind = getattr(self._goal_traj, "start_kind", "?")
-            ema, n = self._rec_stats.get(kind, (0.5, 0))
-            beta = float(cfg_get(self.cfg, "goal",
-                                 "recover_ema_beta", default=0.25))
-            self._rec_stats[kind] = (
-                (1.0 - beta) * ema + beta * (1.0 if success else 0.0),
-                n + 1)
-            info[f"recover_episode_{kind}"] = 1.0
-            info[f"recover_success_{kind}"] = 1.0 if success else 0.0
+            bucket = self.RECOVER_KIND_BUCKETS.get(kind, -1)
+            if (getattr(self._goal_traj, "recover_rsi", False)
+                    or getattr(self._goal_traj, "recover_rsi_bank",
+                              False)):
+                # RSI episodes (ref-path goal.recover_rsi_frac OR
+                # harvested-bank goal.recover_rsi_bank_frac) practice
+                # on-path waypoints, not the family's own start: keep
+                # them OUT of the rollout EMA/counters and the
+                # C-trainer self-cert stats so no curriculum or
+                # diagnostic signal is inflated by easier on-path
+                # spawns. Each logs under its own suffix.
+                suffix = ("_rsi" if getattr(self._goal_traj,
+                                            "recover_rsi", False)
+                         else "_rsibank")
+                info[f"recover_episode_{kind}{suffix}"] = 1.0
+                info[f"recover_success_{kind}{suffix}"] = (
+                    1.0 if success else 0.0)
+            else:
+                # Do not use the strict stochastic success bit as replay
+                # error: exploration noise can interrupt an otherwise good
+                # 0.5 s hold.  Terminal potential shortfall preserves a
+                # graded signal; a true safety termination is maximal error.
+                training_error = (0.0 if success else
+                                  (1.0 if term and not trunc else
+                                   float(np.clip(1.0 - phi, 0.0, 1.0))))
+                info["recover_training_error"] = training_error
+                ema, n = self._rec_rollout_stats.get(kind, (0.5, 0))
+                beta = float(cfg_get(self.cfg, "goal",
+                                     "recover_ema_beta", default=0.25))
+                updated = (
+                    (1.0 - beta) * ema
+                    + beta * (1.0 if success else 0.0),
+                    n + 1)
+                self._rec_rollout_stats[kind] = updated
+                successes, episodes = self._rec_rollout_counts.get(
+                    kind, (0, 0))
+                self._rec_rollout_counts[kind] = (
+                    successes + int(success), episodes + 1)
+                # Preserve the legacy self-certified curriculum for the
+                # C trainer.  MJX recovery runs opt into external
+                # certification in train_ppo_mjx._env_kwargs, so their
+                # noisy PPO actions can never mutate _rec_stats.
+                if not self._rec_external_certification:
+                    cert_successes, cert_episodes = self._rec_stats.get(
+                        kind, (0, 0))
+                    self._rec_stats[kind] = (
+                        cert_successes + int(success), cert_episodes + 1)
+                    if bucket >= 0:
+                        self.apply_recover_training_error_batch({
+                            bucket: (training_error, 1)})
+                info[f"recover_episode_{kind}"] = 1.0
+                info[f"recover_success_{kind}"] = (
+                    1.0 if success else 0.0)
+                if bucket >= 0:
+                    info[f"recover_episode_bucket_{bucket}"] = 1.0
+                    info[f"recover_success_bucket_{bucket}"] = (
+                        1.0 if success else 0.0)
 
         info["reward_recover_pot"] = r_pot
         info["reward_recover_bonus"] = r_bonus
@@ -2593,15 +3876,26 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         info["recover_P"] = feat_p
         info["recover_hold_n"] = float(self._rec_hold_n)
         info["recover_success"] = 1.0 if success else 0.0
+        info["recover_rsi_episode"] = (
+            1.0 if getattr(self._goal_traj, "recover_rsi", False)
+            else 0.0)
+        info["recover_rsi_bank_episode"] = (
+            1.0 if getattr(self._goal_traj, "recover_rsi_bank", False)
+            else 0.0)
         info["recover_min_load"] = float(np.min(x))
         info["recover_tilt_deg"] = tilt_deg
         kind = getattr(self._goal_traj, "start_kind", "?")
+        bucket = self.RECOVER_KIND_BUCKETS.get(kind, -1)
         info["recover_start_kind_id"] = float(
             self.RECOVER_KIND_IDS.get(kind, -1))
-        info["recover_start_bucket"] = float(next(
-            (i + 1 for i, fam in enumerate(self.RECOVER_FAMILIES)
-             if kind in fam), 0))
+        info["recover_start_bucket"] = float(bucket)
         info["recover_active_families"] = float(self._rec_active_n)
+        info["recover_frontier_bucket"] = float(self._rec_active_n - 1)
+        info["recover_max_unlocked_bucket"] = float(
+            self._rec_active_n - 1)
+        info["recover_focus_bucket"] = float(self._rec_focus_bucket)
+        info["recover_weakest_bucket"] = float(
+            -1 if self._rec_weak_bucket is None else self._rec_weak_bucket)
         info[f"recover_reset_height_mm_{kind}"] = float(
             self._rec_reset_height_mm)
         info[f"recover_reset_tilt_deg_{kind}"] = float(
@@ -2611,7 +3905,50 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         info[f"recover_reset_pad_spread_mm_{kind}"] = float(
             self._rec_reset_pad_spread_mm)
         for rec_kind in self._recover_active_kinds():
-            ema, n = self._rec_stats.get(rec_kind, (0.5, 0))
-            info[f"recover_curriculum_ema_{rec_kind}"] = float(ema)
-            info[f"recover_curriculum_n_{rec_kind}"] = float(n)
+            cert_successes, cert_episodes = self._rec_stats.get(
+                rec_kind, (0, 0))
+            cert_fraction = (cert_successes / cert_episodes
+                             if cert_episodes else 0.0)
+            info[f"recover_curriculum_fraction_{rec_kind}"] = float(
+                cert_fraction)
+            info[f"recover_curriculum_successes_{rec_kind}"] = float(
+                cert_successes)
+            info[f"recover_curriculum_episodes_{rec_kind}"] = float(
+                cert_episodes)
+            roll_ema, roll_n = self._rec_rollout_stats.get(
+                rec_kind, (0.5, 0))
+            info[f"recover_rollout_ema_{rec_kind}"] = float(roll_ema)
+            info[f"recover_rollout_n_{rec_kind}"] = float(roll_n)
+            roll_successes, roll_episodes = self._rec_rollout_counts.get(
+                rec_kind, (0, 0))
+            info[f"recover_rollout_fraction_{rec_kind}"] = float(
+                roll_successes / roll_episodes if roll_episodes else 0.0)
+        error_priority = self._recover_training_error_distribution()
+        if error_priority is None:
+            error_priority = np.zeros(self._rec_active_n, dtype=float)
+        for rec_bucket in range(self._rec_active_n):
+            stats = [self._rec_stats.get(k, (0, 0))
+                     for k in self._recover_family_kinds(rec_bucket)]
+            if stats:
+                successes = sum(v[0] for v in stats)
+                episodes = sum(v[1] for v in stats)
+                info[
+                    f"recover_curriculum_bucket_{rec_bucket}_success_fraction"
+                ] = float(successes / episodes if episodes else 0.0)
+                info[f"recover_curriculum_bucket_{rec_bucket}_successes"] = (
+                    float(successes))
+                info[f"recover_curriculum_bucket_{rec_bucket}_episodes"] = (
+                    float(episodes))
+            error_ema, error_episodes = (
+                self._rec_training_error_stats.get(rec_bucket, (0.0, 0)))
+            info[f"recover_training_error_ema_bucket_{rec_bucket}"] = (
+                float(error_ema))
+            info[f"recover_training_error_n_bucket_{rec_bucket}"] = (
+                float(error_episodes))
+            info[f"recover_training_error_priority_bucket_{rec_bucket}"] = (
+                float(error_priority[rec_bucket]))
+        for rec_bucket, probability in enumerate(
+                self._recover_bucket_weights()):
+            info[f"recover_sample_probability_bucket_{rec_bucket}"] = (
+                float(probability))
         return reward, term, info

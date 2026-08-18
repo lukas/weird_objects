@@ -76,7 +76,19 @@ COHORT_SEED_BASE: dict[str, tuple[int, int]] = {
     "c2": (920000, 930000),   # cw-stand-postlower1 gate (retire on read)
     "c3": (940000, 950000),   # postlower3 lineage gate (retire on read)
     "c4": (960000, 970000),   # postlower4 gate (retire on read)
+    "c5rr": (980000, 990000),  # rise-from-h probe (retire on read)
 }
+
+# Cohorts whose shards run eval_modeseq's --rise-from-h (WAITING-ON
+# 08-17, hw): the post-lower rise segment's height schedule mirrors
+# `goal.mode_seq_rise_from_h`'s trained "hold at current height, ramp
+# to target" shape instead of the legacy "hold at belly, ramp to
+# target" one. Prices the operator's postlower fork option (a) —
+# aligning the runner/instrument to train==deploy semantics — by
+# reading BOTH the parent (`spec`) and the c4 candidate (`spec-pl4`)
+# under the SAME matched schedule (SESSION_BULK_GATE.md Cohort c4
+# verdict named this exact mismatch as the open question).
+COHORT_RISE_FROM_H: set[str] = {"c5rr"}
 
 CANDIDATES: dict[str, dict] = {
     # A. product baseline: hierarchical frozen specialists
@@ -143,6 +155,14 @@ def shard_cmd(sh: dict) -> list[str]:
            "--out", sh["out"]]
     if sh["mode"] == "sto":
         cmd.append("--stochastic")
+    if sh.get("rise_from_h"):
+        # WAITING-ON 08-17 (hw): the eval-side "remaining rise"
+        # semantics probe — mirrors goal.mode_seq_rise_from_h so the
+        # post-lower rise segment is judged under the SAME schedule
+        # shape postlower4 was trained on (SESSION_BULK_GATE.md
+        # Cohort c4 verdict named this train/eval mismatch as the
+        # reason c4 fell short of parity under the legacy schedule).
+        cmd.append("--rise-from-h")
     if "single" in cand:
         cmd += ["--single", cand["single"]]
     else:
@@ -157,6 +177,7 @@ def plan(cohort: str, cands=None, modes=MODES, n_shards: int = N_SHARDS,
     """Deterministic shard manifest — identical on every host."""
     cands = list(cands or CANDIDATES)
     det_base, sto_base = COHORT_SEED_BASE.get(cohort, (SEED_DET, SEED_STO))
+    rise_from_h = cohort in COHORT_RISE_FROM_H
     shards, sid = [], 0
     for cand in cands:
         for mode in modes:
@@ -166,6 +187,7 @@ def plan(cohort: str, cands=None, modes=MODES, n_shards: int = N_SHARDS,
                 shards.append({
                     "id": sid, "cand": cand, "mode": mode,
                     "seed": seed, "eps": eps,
+                    "rise_from_h": rise_from_h,
                     "out": str(OUT_ROOT / cohort /
                                f"{cand}_{mode}_s{seed}.json"),
                 })
@@ -250,6 +272,13 @@ def _flatten(cohort: str, cands, modes) -> tuple[list[dict], list[dict]]:
                 "clean": all(s.get("success") for s in segs)
                           and len(segs) == len(ep["segments"]),
                 "segments": ep["segments"],
+                # carried through so cmd_rerender reconstructs the
+                # EXACT shard invocation (a rise_from_h cohort's
+                # rerender must also pass --rise-from-h, or the
+                # eye-clause re-render silently checks the wrong
+                # schedule -- bug found + fixed 08-17 while reading
+                # Cohort c5rr's failures).
+                "rise_from_h": bool(sh.get("rise_from_h", False)),
             }
             rows.append(row)
     return rows, missing
@@ -397,6 +426,7 @@ def cmd_rerender(args) -> int:
             name = f"{r['cand']}_{r['mode']}_s{r['seed']}_ep{r['ep']}"
             sh = {"cand": r["cand"], "mode": r["mode"], "seed": r["seed"],
                   "eps": r["ep"] + 1,
+                  "rise_from_h": bool(r.get("rise_from_h", False)),
                   "out": str(outdir / f"{tag}_{name}.json")}
             # per-episode strips subdir: eval_modeseq names the strip
             # modeseq_ep<k>.png, so a SHARED dir would overwrite
