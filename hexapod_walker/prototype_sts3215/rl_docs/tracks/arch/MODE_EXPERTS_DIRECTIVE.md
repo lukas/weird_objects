@@ -363,6 +363,73 @@ a skill that scored 0/6 in scratch2 = real progress; still 0/6 at
 Evidence: `rl_docs/runs/cw-arch-modeexperts-scratch2.md`, W&B
 `1t6rmexz`, `logs/ckpt_eval/cw_arch_modeexperts_scratch2_{gate,owncfg}`.
 
+**SCRATCH3 RESULT (08-18 ~19:2x UTC, triage cycle): STOP — known
+exploit dominates, no scratch4.** Finished clean 40.04M, no NaN/crash.
+Cumulative lineage active ticks reached the ≥20M target (rise
+0.70+12.48+10.14=**23.32M**, loco 0.53+9.45+9.27=**19.25M**, lower
+0.44+9.65+9.03=**19.12M**) — this is NOT the "still short of exposure"
+case. Exposure clause (b) at end: rise .253/loco .231/lower .226 (all
+~0.05-0.07 low of the .30 target — mild), **hold .290, a WORSE miss
+than scratch2's .211** (nearly 2x the ~0.15 target this stage even
+after cutting mode_seq 0.2→0.10 AND hold's single-mode share to
+.011) — sequence-leakage into hold got worse, not better, at the
+lower mode_seq. Per-expert std (clause c): loco converged healthily
+to 1.13 (walk stayed genuinely good); **rise 4.73, lower 4.64, and
+especially hold 13.48 (vs 1.84 last stage) — hold's std more than
+7x'd**, a implementation/collapse-scale signal the gate's own clause
+(c) flags.
+
+**The bulk harness fork read is the real story: rise, hold, AND lower
+have each independently collapsed into the IDENTICAL cheat** — plant
+3 legs (duty_cycle ~0.85-1.0, end_clear ≈0mm), freeze the other 3 up
+in the air for the ENTIRE episode (duty_cycle 0.0, end_clear
+30-320mm), a static tripod hold. Confirmed on ALL 48 non-walk test
+episodes (rise/hold/lower × det/sto × DR0/DR0.5) — every single
+episode shows this exact duty-cycle signature, video-checked on
+multiple episodes per mode per pass. hold is the most degenerate:
+its deterministic action is byte-identical across all 6 nominally
+different test episodes (`end_clear_mm=[317.3,113.0,-0.2,115.7,
+-0.2,-0.1]` every time, leg 0 folded ~317mm off the ground) — the
+policy ignores its input entirely. The 2/6 "success" flags logged on
+`lower/det` under own-DR (0.5) are the SAME cheat at a smaller
+raised-leg clearance (33-38mm vs 60-90mm elsewhere) that happened to
+cross the coarse `end_posture_ok` threshold (this eval did not use
+`--valid-plant-gate`) — video-confirmed identical posture pattern to
+the "failed" episodes, not a real completion. Walk is unaffected:
+gait_valid 6/6 both DR passes, genuine six-leg cycling, prog_ratio
+1.0-1.1, matching scratch2.
+
+**This is a REGRESSION vs scratch2**, whose read was genuine
+(non-exploit) if incomplete motion on all three non-walk modes (rise
+curled, lower descended, hold stood stable). Between scratch2 and
+scratch3 the mix cut `mode_seq` 0.2→0.10 and hold's single-mode share
+7.5x→.011 — apparently NOT enough to starve the sequence-leakage
+pathway that feeds hold ticks, and the extra ~10-12M active ticks on
+rise/lower let each converge into a reward-satisfying but
+task-failing fixed point instead of continuing to close the gap.
+
+Per `RUN_INTERPRETATION_RULES.md`, a known exploit dominating video is
+a complete verdict at any behavioral checkpoint, and the SCRATCH3
+gate's own pre-registered kill clause ("a proven exploit dominating a
+milestone video") fires here: **no scratch4, no re-run with more
+steps.** Root-cause hint for whoever reopens this line: `walk`'s
+reward carries explicit anti-park/anti-flag-leg terms
+(`reward.k_step_event`, `k_drag_loaded`, `k_park_duty`,
+`walk_kernel_prog_gate`, `walk_anchor_gate`) that `rise`/`hold`/
+`lower` apparently lack an equivalent of — nothing in those three
+modes' reward currently prices "sacrifice half the legs and freeze,"
+so once an expert finds the fixed point under isolated-expert
+training (where it can't be pulled back out by shared-parameter
+interference from the other experts, unlike the shared-trunk
+lineages) it has no incentive to leave. Banking a tripod/flag-leg
+ordering clause into rise/hold/lower's `test_task_semantics.py` (the
+MDP_PREFLIGHT bank), mirroring walk's, is the concrete next lever —
+not queued this cycle (SIM SPRINT: no new arch launches unless
+sim-rise/walk-serving). Evidence: `rl_docs/runs/cw-arch-modeexperts-
+scratch3.md`, W&B `puvo5i2y`,
+`logs/ckpt_eval/cw_arch_modeexperts_scratch3_{gate,owncfg}` (contact
+sheets + per-episode `duty_cycle`/`end_clear_mm` are the smoking gun).
+
 ## Decision interpretation (operator's, binding)
 
 - A passes, B fails → one-checkpoint composition solved;

@@ -93740,7 +93740,7 @@
       "rl_move/sim/policies/ppo_goal_cw_arch_modeexperts_scratch2.zip"
     ],
     "created": "2026-08-17T15:18:00+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -93783,7 +93783,9 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-arch-modeexperts-scratch3 since 2026-08-18T18:52:11"
+    "triage": "done",
+    "hardware_ready": false,
+    "verdict": "STOP -- reward/eval specification bug (known exploit dominates video), per the gate's own pre-registered kill clause. Clean 40.04M finish, no NaN/crash; cumulative lineage active ticks reach the >=20M target (rise ~23.3M, loco ~19.25M, lower ~19.12M) so this is NOT an exposure shortfall. But rise, hold AND lower have each collapsed into the SAME cheat: 3 of 6 legs planted (duty~0.85-1.0) while the other 3 are held frozen in the air the ENTIRE episode (duty=0.0, end_clear 30-320mm) -- a static tripod hold, not stand-up/hold-still/sit-down. Confirmed on ALL 48 non-walk episodes (rise/hold/lower x det/sto x DR0/DR0.5), video-checked on multiple episodes per mode; hold's det output is byte-identical across all 6 nominally-different episodes (end_clear literally [317.3,113.0,-0.2,115.7,-0.2,-0.1] every time) -- a fully collapsed/degenerate policy, matching its exploded std (13.48, vs 1.84 last stage) while loco's std converged healthily to 1.13. The 2/6 lower/det 'success' flags under own-DR are the IDENTICAL tripod cheat with smaller raised-leg clearance (33-38mm) crossing the coarse posture-ok threshold by luck -- not real completions (video-confirmed same pattern as the failures). Walk remains genuinely good and unchanged from last stage: gait_valid 6/6 both DR passes, real six-leg cycling, prog_ratio 1.0-1.1. This is a REGRESSION vs scratch2 (which showed genuine, non-exploit motion on all three non-walk modes) -- per RUN_INTERPRETATION_RULES a known exploit dominating video is a complete verdict: no forensic chain, no scratch4, no more-steps re-run. Root-cause hint (not required to close this verdict): rise/hold/lower's reward apparently lacks an equivalent to walk's anti-park/anti-flag-leg terms (k_step_event/k_drag_loaded/k_park_duty), so a 3-planted+3-frozen-raised configuration can satisfy final-height/tilt reward without any per-foot requirement -- an arch-track follow-up (bank the tripod/flag-leg ordering into rise/hold/lower's MDP_PREFLIGHT, mirroring walk's) whenever arch resumes; not queued now (peripheral to the SIM SPRINT, no new arch launches this cycle). Scope: arch track only (isolated mode-experts architecture, cw-arch-modeexperts lineage) -- no bearing on the hw-track deployed champions (footlow2_hard1/bcgait1_hard1), which already carry these anti-cheat terms and were never at risk of this specific collapse."
   },
   {
     "run": "cw-recover-any14-retentiongate-cont1",
@@ -98518,7 +98520,7 @@
       "ppo_goal_cw_recover_any21c2_pop3_s11"
     ],
     "created": "2026-08-18T06:30:35+00:00",
-    "status": "RUNNING",
+    "status": "PASS",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -98561,7 +98563,9 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-dep-bcgait1-hard1-steer2-stagecurric1-cw-recover-any21c2- since 2026-08-18T19:07:25"
+    "triage": "done",
+    "hardware_ready": "False",
+    "verdict": "Operator-ordered +100M/member continuation (\"keep it rumbling\") finished clean (100,007,936 steps, no traceback; all 6 integration-gate clauses held: '[recover-init] curriculum restored...active_n=15' at B14, bootstrap barrier crossed at B14 x3, CERT/recover_training_envs_synchronized=512 every round, member ACKed the shared B15 winner with matching hash, no partial-cohort breach). Own matched gate-eval score is essentially FLAT vs this member's pre-continuation checkpoint: det 14/18 DR-0 (was 13/18), 15/18 DR-0.1 (was 16/18) -- a +1/-1 wash, same size as the noise the sibling members showed in opposite directions (s12 fell 16->8, s13 rose 13->16). Video-checked det misses (bank, crouch_mid, crouch_shallow, flip) show the robot ending upright on six feet, short-of-height non-falls -- no flag/stilt/park exploit, matching the established pattern. NEW datum: RECOVER_GUARD fired once at step 72,024,064 (same exact step as sibling s13's single rollback -- both restored the same B15 checkpoint after bucket B7 fell below 0.60; s12 never fired) restoring frontier B15; final-cert bucket detail still oscillates (crouch_shallow/mid/deep full 1.0/1.0/1.0 here, but b9/b10/b14 down at 0.5-0.69) -- the SAME oscillating-retention wall named in CURRENT_TRUTHS, not a new mechanism. COHORT COMPLETE (s11/s12/s13 all verdicted): population sync worked end-to-end at 100M/member scale on all three (frontier held at B15 cohort-wide), but 'does more training help' has no clean answer -- one member up, one down, one flat, all within the same wall. Not hardware-ready. No follow-up -- recover/tangle redesign stays operator-gated, outside the SIM SPRINT."
   },
   {
     "run": "cw-recover-any21c2-pop3-s12",
