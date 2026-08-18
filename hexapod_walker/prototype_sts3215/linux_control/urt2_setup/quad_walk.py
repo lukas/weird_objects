@@ -31,8 +31,10 @@ FRONT_LEGS = (0, 5)
 SUPPORT_LEGS = (1, 2, 3, 4)
 
 # Tucked front "claw" (yaw, hip, knee deg) — quadruped_feasibility
-# FRONT_POSES["tuck"], static sweep GO (c57).
-TUCK_DEG = (0.0, -63.0, 137.5)
+# FRONT_POSES["tuck"], static sweep GO (c57).  Knee was 137.5 but the
+# real servo hard-stops at ~120 (08-18 telemetry: cmd clamped to 128,
+# present pinned at 119.9, 2.2 A grind for the whole run) — stay under.
+TUCK_DEG = (0.0, -63.0, 112.0)
 
 # Sim-tuned gait constants (probe_quad_rear walk, 08-18). Calm regime:
 # tilt stays within ~1 deg of the commanded pitch; stride >= 50 mm or
@@ -53,11 +55,15 @@ WALK_PHASE = {2: 0.0, 1: 0.25, 3: 0.5, 4: 0.75}   # LH LF RH RF
 # cycle; supports are L1=LF, L4=RF, L2=LH, L3=RH in the reared quad).
 # "walk"  = the sim-tuned lateral-sequence animal walk (one foot up).
 # "trot"  = horse trot: DIAGONAL pairs (LF+RH, then RF+LH) — only two
-#           feet down mid-beat. Tuned 08-18 under the hardware-speed
-#           servo profile (write ~1500 counts/s, verify_noslip's
-#           convention — the default fitted 350 profile is 8x slower
-#           than what the demo streamer actually writes and turns every
-#           gait into a shuffle in sim).
+#           feet down mid-beat. Tuned 08-18 under a ~1500 counts/s
+#           servo profile.  IMPORTANT (08-18 hardware debug): every
+#           WritePosEx restarts the servo trapezoid from zero velocity,
+#           so the realized speed ceiling is set by acc x write period,
+#           NOT the commanded speed — at the old 20 Hz stream this was
+#           ~500 counts/s and the trot pranced in place.  The demo
+#           streamer now writes quad gaits at 10 Hz / acc 254
+#           (QUAD_STREAM_TICK_S), which realizes ~14 mm/s with 25-33 mm
+#           front apex in the restart-accurate sim.
 #           The key to real foot CLEARANCE is the deep rear lean
 #           (body_dx -80 mm, pitch -20): with the stock -40/-17 stance,
 #           lifting a front tips the body about the stance diagonal

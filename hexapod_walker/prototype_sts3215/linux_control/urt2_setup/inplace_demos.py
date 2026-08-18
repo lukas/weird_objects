@@ -765,6 +765,14 @@ def _yaw_hip_knee(leg: int, pose: list[float], *,
 # ---------------------------------------------------------------------------
 STREAM_TICK_S = 0.05          # ~20 Hz host tick
 STREAM_LOOKAHEAD_S = 0.12     # carrot: command ~2 ticks ahead of schedule
+# Quad gaits stream at 10 Hz with max accel: every WritePosEx restarts
+# the servo's internal trapezoid from ZERO velocity, so at 20 Hz the
+# ramp (acc register x100 counts/s^2) only ever reaches ~500 counts/s —
+# the 08-18 trot pranced in place (front-swing knees demanded ~900).
+# Halving the write rate doubles realized swing speed and foot apex
+# (restart-accurate sim: 6.8 -> 14 mm/s, apex 18 -> 33 mm).
+QUAD_STREAM_TICK_S = 0.10
+QUAD_STREAM_ACC = 254
 STREAM_GUARD_A = 3.0          # stall-fight: joint over this while not moving
 STREAM_HARD_CAP_A = 4.0       # instantaneous hard cap, trips regardless
 STAND_DANCE_TORQUE = 900      # weight-bearing motion (end-hold restores 1000)
@@ -786,7 +794,8 @@ def stream_pose_fn(bus: FeetechBus, live: set[int], pose_fn, *,
                    tracker: CurrentPeakTracker | None = None,
                    guard_a: float = STREAM_GUARD_A,
                    log: MotionLog | None = None,
-                   max_speed: int = 3000, max_acc: int = 200) -> str:
+                   max_speed: int = 3000, max_acc: int = 200,
+                   tick_s: float = STREAM_TICK_S) -> str:
     """Stream ``pose_fn(t)`` at ~20 Hz with a live tempo multiplier.
 
     Demo time ``t`` advances by wall-dt x ``speed_fn()`` every tick, so
@@ -800,6 +809,9 @@ def stream_pose_fn(bus: FeetechBus, live: set[int], pose_fn, *,
     if tracker is None:
         tracker = CurrentPeakTracker()
     seconds = float(seconds)
+    # Carrot scales with the tick so slower write rates still command
+    # ~2+ ticks ahead of schedule.
+    lookahead_s = max(STREAM_LOOKAHEAD_S, 2.4 * tick_s)
     q0 = pose_fn(0.0)
     # Align onto the start pose first (quick, abortable) so the streamer
     # never has to cover a big gap in one tick.
@@ -830,7 +842,7 @@ def stream_pose_fn(bus: FeetechBus, live: set[int], pose_fn, *,
         rate = _clamp_live_speed(spd())
         t += (wall - wall_prev) * rate
         wall_prev = wall
-        q = pose_fn(min(t + STREAM_LOOKAHEAD_S * rate, seconds))
+        q = pose_fn(min(t + lookahead_s * rate, seconds))
         # dt*0.75 cancels _speed_for_delta's 0.9 undershoot and commands
         # slightly above the carrot rate so accumulated lag drains —
         # same sizing as the stand-up pursuit.
@@ -864,7 +876,7 @@ def stream_pose_fn(bus: FeetechBus, live: set[int], pose_fn, *,
                               f"x{rate:.2f} peak {tracker.peak_a:.2f}A")
                 except Exception:
                     pass
-        time.sleep(STREAM_TICK_S)
+        time.sleep(tick_s)
     return "done"
 
 
@@ -1717,9 +1729,10 @@ def run_streamed_demo(bus: FeetechBus, name: str, *,
     pose_fn = (factory(dur) if getattr(factory, "duration_aware", False)
                else factory())
     tracker = CurrentPeakTracker()
+    tick_s = QUAD_STREAM_TICK_S if quad else STREAM_TICK_S
     title = DEMOS[name][0] if name in DEMOS else name
     print(f"  {name} — {title}")
-    print(f"    streamed @ ~{1.0 / STREAM_TICK_S:.0f} Hz for ~{dur:.0f}s "
+    print(f"    streamed @ ~{1.0 / tick_s:.0f} Hz for ~{dur:.0f}s "
           f"(live speed x{_clamp_live_speed(speed_fn()):.2f}) τ{tlim}")
     print("  Any key aborts.")
 
@@ -1730,7 +1743,8 @@ def run_streamed_demo(bus: FeetechBus, name: str, *,
         st = stream_pose_fn(
             bus, live, pose_fn, seconds=dur, abort_check=check,
             speed_fn=speed_fn, status_cb=status_cb, label=name,
-            tracker=tracker, log=log_cm)
+            tracker=tracker, log=log_cm, tick_s=tick_s,
+            max_acc=QUAD_STREAM_ACC if quad else 200)
         if st == "aborted":
             return "aborted"
         if st == "guard":
