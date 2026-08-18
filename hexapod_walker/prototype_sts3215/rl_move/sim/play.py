@@ -175,76 +175,73 @@ _PROMOTED = [
     "ppo_goal_cw_walk_anchorgate",
 ]
 
-# One-liners distilled from RL_LOG.md / rl_docs / archive (2026-08-11).
+# Plain-English one-liners (facts from RL_LOG.md / rl_docs; keep each
+# under ~58 chars so it fits the 330px description column).
 _DESC = {
     # --- stance group (obs 68) ---------------------------------------
-    "ppo_goal_cw_friction": "rise 5/5 w/ friction DR 0.3-1.6x; sim2real proof",
-    "ppo_goal_cw_long5m": "rise 5/5 @DR0.4; raise stuck ~1/2 at 5M",
-    "ppo_goal_cw_lower": "stand-flat round trip solved; early flagship",
-    "ppo_goal_cw_stance_clear": "clearance pen broke tripod; raise 0/6 FAIL",
-    "ppo_goal_cw_stance_dr08": "even-stance line DR 0.8 PASS, raise 5/6",
+    "ppo_goal_cw_friction": "stands up reliably even on slick or grippy floors",
+    "ppo_goal_cw_long5m": "stands fine; raising taller works about half the time",
+    "ppo_goal_cw_lower": "first model to stand up AND lie back down cleanly",
+    "ppo_goal_cw_stance_clear": "failed experiment - can't raise height; skip",
+    "ppo_goal_cw_stance_dr08": "solid stand/sit; raises height most of the time",
     "ppo_goal_cw_stance_dr10":
-        "stance line solved at DR 1.0; hw stand-up didn't transfer",
-    "ppo_goal_cw_stance_even": "hot-current fix partial; tripod unchanged",
-    "ppo_goal_cw_stance_raisefix": "raise exempt from clearance; gate PASS",
-    "ppo_goal_cw_stand_dr05": "plain stand line, DR 0.5 rung PASS 6/6",
-    "ppo_goal_cw_stand_dr08": "plain stand line, DR 0.8 rung PASS",
-    "ppo_goal_cw_stand_dr10": "plain stand DR 1.0 PASS; was hw candidate",
+        "old sim champion for stand/sit; didn't transfer to hw",
+    "ppo_goal_cw_stance_even": "tried to stop servos running hot; barely helped",
+    "ppo_goal_cw_stance_raisefix": "fixed height-raise; all stance moves pass",
+    "ppo_goal_cw_stand_dr05": "basic stand-up, easy physics setting",
+    "ppo_goal_cw_stand_dr08": "basic stand-up, medium physics setting",
+    "ppo_goal_cw_stand_dr10": "basic stand-up, hardest physics; once a hw pick",
     "ppo_goal_cw_stand_crouchrise1":
-        "crouch-stand FIX 16/16 (vs 0/8) but hold broke",
+        "learned to rise from a crouch but wobbles standing",
     "ppo_goal_cw_stand_crouchrise3":
-        "mid-dose retry: crouch-rise 4/4 but hold parks 2 legs; FAIL",
+        "crouch-rise retry; leaves two legs parked - broken",
     "ppo_goal_cw_stand_holdbc1_hard1":
-        "ON ROBOT (live stance): good hold; its LOWER tips over in "
-        "this sim (pitch, 08-13) - lower with footlow2",
+        "ON ROBOT: rock-steady stand, but tips when sitting here",
     "ppo_goal_cw_stand_footlow2_hard1":
-        "ON ROBOT (stand/lower roles): rise+hold+lower all-PASS "
-        "08-12; full 148mm rise; not bench-tested",
-    "ppo_joint_goal": "local default-name ckpt; 512-step smoke overwrote",
-    "ppo_joint_goal_bc": "BC-from-IK-teacher variant (no log entry)",
-    "ppo_joint_goal_bc2m": "BC warm 2M net negative: rise 3/4 + overcurrent",
-    "ppo_joint_goal_scratch2m": "scratch 2M, belly-rise 5/5; raw joints proof",
+        "ON ROBOT: full stand-up AND sit both work; default here",
+    "ppo_joint_goal": "leftover smoke-test file; ignore",
+    "ppo_joint_goal_bc": "imitation-learning tryout; never documented",
+    "ppo_joint_goal_bc2m": "imitation warm-start that made things worse",
+    "ppo_joint_goal_scratch2m": "early proof raw joint control can learn to stand",
     # --- walk group (obs 72) -----------------------------------------
-    "ppo_goal_cw_dep_quad1_c2": "quad-hold +12M ext PASS; height err 2.9mm",
-    "ppo_goal_cw_dep_tip1": "tipped-start DR FAIL; 0 recovery, gait hurt",
+    "ppo_goal_cw_dep_quad1_c2": "holds a four-leg stance very precisely",
+    "ppo_goal_cw_dep_tip1": "tried to learn tip-over recovery; never did",
     "ppo_goal_cw_dep_vref1_r1":
-        "ON ROBOT (walk): meas:=ref contract, 0.05-0.06",
-    "ppo_goal_cw_walk2_gait": "swing bonus: stride 2x, tracking still 0/6",
-    "ppo_goal_cw_walk_anchorgate": "income gate, less slip than longdist",
-    "ppo_goal_cw_walk_curr08": "widen 0.02-0.08 unconsolidated; missed gate",
-    "ppo_goal_cw_walk_dr04": "DR 0.2->0.4 near-miss, 3/6 stop @0.031",
-    "ppo_goal_cw_walk_fresh_gait": "fresh-init ablation; same skate, refuted",
+        "ON ROBOT: the walk the real robot runs today",
+    "ppo_goal_cw_walk2_gait": "longer strides but still can't hold a speed",
+    "ppo_goal_cw_walk_anchorgate": "walks with less foot slip than the sim champ",
+    "ppo_goal_cw_walk_curr08": "wider speed-range attempt; fell short",
+    "ppo_goal_cw_walk_dr04": "tougher-physics attempt; almost but not quite",
+    "ppo_goal_cw_walk_fresh_gait": "control experiment; same foot-skating",
     "ppo_goal_cw_walk_longdist_r2":
-        "long-distance sim walk; paddle-slide, not hw-ready",
-    "ppo_goal_cw_walk_prog3": "3x progress reward refuted; motion, 0 track",
-    "ppo_goal_cw_walk_slow": "slow band 0.02-0.06; first tracking gain",
-    "ppo_goal_cw_walk_slow2": "slow-band consolidation; gate 5/6 @0.028",
-    "ppo_goal_cw_walk_w08": "widen to 0.08 regressed 1/6; rise eroded",
-    "ppo_goal_cw_walk_w08_s1": "INVALID seed twin; bit-identical, seed bug",
-    "ppo_goal_cw_walk_wander30": "30s drive endurance PASS; speedband base",
-    "ppo_mjx_joint_walk": "MJX trainer default-name artifact (no log)",
+        "fast sim walker but it skates its feet; sim-only",
+    "ppo_goal_cw_walk_prog3": "reward tweak: lots of motion, zero speed control",
+    "ppo_goal_cw_walk_slow": "first model to actually follow a speed command",
+    "ppo_goal_cw_walk_slow2": "dependable slow walker",
+    "ppo_goal_cw_walk_w08": "faster-speed attempt that got worse",
+    "ppo_goal_cw_walk_w08_s1": "accidental exact copy of walk_w08; ignore",
+    "ppo_goal_cw_walk_wander30": "drives around for 30s straight without falling",
+    "ppo_mjx_joint_walk": "leftover from the GPU trainer; ignore",
     "noslip_scripted_gait":
-        "SCRIPTED (no RL): world-pinned feet, zero scrub; U/O turn",
+        "hand-coded gait: feet never slide; U/O to turn",
     "noslip_hybrid_a50":
-        "SCRIPTED alpha=0.5: same anchors, body drifts through swings",
+        "hand-coded, smoother body glide, still no slide",
     "noslip_clampfit_gait":
-        "SCRIPTED clamp-fit: fits the 31deg/s servo clamp, cleanest",
+        "hand-coded, tuned to real servo speed; smoothest",
     "ppo_goal_cw_arch_noslipphase1_r4":
-        "ON ROBOT (picker): no-slip RL, gate PASS 943, loadslip "
-        "0.54; obs 74, needs --phase-obs",
+        "ON ROBOT: best RL walk, near-zero slip; needs --phase-obs",
     "ppo_goal_cw_bcnoslip_phase2_init":
-        "BC clone of the clamp-fit no-slip teacher (obs 74, "
-        "--phase-obs); log_std -3, pretrained critic",
+        "imitation copy of the hand-coded gait; just a seed",
     "ppo_goal_cw_arch_noslipphase1_r1":
-        "no-slip RL, 2M-step arm: anchoring eroded (loadslip 0.11)",
+        "overtrained sibling; feet started sliding again",
     "ppo_goal_cw_arch_noslipphase1_r3":
-        "no-slip RL, 1M-step arm: near-miss (889, loadslip 0.45)",
+        "shorter-trained sibling; just missed the bar",
     "ppo_goal_cw_dep_bcnoslip2":
-        "FAILED no-clock arm: pitch-rocking, teacher phase unobservable",
+        "failed: rocks its body, never found the rhythm",
     "ppo_goal_cw_walk_joyheadfric":
-        "widest driving env: +-90deg steer, fric, 3-seed",
+        "steers hard left/right, handles varied floors",
     "ppo_goal_cw_walk_joyheadfric_payload_r1":
-        "joyheadfric + payload 1.0-1.4x; gate PASS",
+        "same steering but also carries extra weight",
 }
 
 
