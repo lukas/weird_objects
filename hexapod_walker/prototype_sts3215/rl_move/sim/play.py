@@ -641,24 +641,33 @@ def main() -> None:
     # prance's own write regime (speed 1500 / ACC 80 — what
     # run_dance_prance writes on hardware); RL + no-slip rows keep the
     # fitted contract they were trained/calibrated against.
+    # The profile object is REBUILT by every env.reset() (with the same
+    # numbers — randomize=False), so the baseline is captured lazily off
+    # the first live profile and the regime is re-asserted every frame
+    # (an 18-float copy; resets would otherwise silently revert it).
     _WALK_WRITE_COUNTS = 1500.0
     _PRANCE_ACC_UNITS = 80.0
     servo_fit_counts = float(getattr(SimServoParams.load(),
                                      "speed_counts_s", 350.0))
-    base_vel_default = env._profile._vel_default.copy()
-    base_write_speed = env.write_speed_deg_s
-    base_write_acc = env.write_acc_units
+    _regime_base: dict = {}
 
     def apply_servo_regime() -> None:
+        prof = env._profile
+        if prof is None:
+            return
+        if not _regime_base:
+            _regime_base["vel"] = prof._vel_default.copy()
+            _regime_base["speed"] = env.write_speed_deg_s
+            _regime_base["acc"] = env.write_acc_units
         if walk_list[wi] in _SCRIPTED_TRIPOD:
             s = _WALK_WRITE_COUNTS / max(servo_fit_counts, 1.0)
-            env._profile._vel_default[:] = base_vel_default * s
+            prof._vel_default[:] = _regime_base["vel"] * s
             env.write_speed_deg_s = _WALK_WRITE_COUNTS * 360.0 / 4096.0
             env.write_acc_units = _PRANCE_ACC_UNITS
         else:
-            env._profile._vel_default[:] = base_vel_default
-            env.write_speed_deg_s = base_write_speed
-            env.write_acc_units = base_write_acc
+            prof._vel_default[:] = _regime_base["vel"]
+            env.write_speed_deg_s = _regime_base["speed"]
+            env.write_acc_units = _regime_base["acc"]
 
     try:
         pad = _Gamepad()
@@ -949,6 +958,7 @@ def main() -> None:
 
     while True:
         t0 = time.monotonic()
+        apply_servo_regime()   # survives the profile rebuild in resets
         cmd_speed = float(np.hypot(traj.vx, traj.vy))
         scripted = walk is None
         walking = ((cmd_speed > 1e-3 or (scripted and abs(om_cmd) > 1e-3))
