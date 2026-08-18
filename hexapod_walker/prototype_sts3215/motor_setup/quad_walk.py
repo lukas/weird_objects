@@ -48,7 +48,10 @@ SWAY_M = 0.025
 SWAY_PHASE_RAD = math.radians(125.0)
 WALK_PHASE = {2: 0.0, 1: 0.25, 3: 0.5, 4: 0.75}   # LH LF RH RF
 
-ENTRY_S = (2.0, 2.0, 2.5)   # shift back · tuck fronts · rear up
+# entry: shift back · step mids out to the splayed stance (one at a
+# time, 5 feet down — scrubbing 25 deg of loaded mid yaw was the v1
+# blemish) · tuck fronts · rear up
+ENTRY_S = (2.0, 1.2, 2.0, 2.5)
 # exit: regather · re-step mids to plant footprint (still reared —
 # that's where the rear margin is) · pitch level (body stays aft) ·
 # untuck fronts onto their plant offsets · shift forward
@@ -189,22 +192,41 @@ class QuadRearWalk:
         plant_feet = {leg: tuple(self.anchors[leg])
                       for leg in SUPPORT_LEGS}
 
-        e1, e2, e3 = ENTRY_S
+        e1, e1b, e2, e3 = ENTRY_S
+        plant_home = {leg: tuple(self.plant_anchors[leg])
+                      for leg in SUPPORT_LEGS}
         if t < e1:                       # entry 1: shift back, 6 planted
             u = _smooth(t / e1)
             bx = u * BODY_DX_M
-            pose = self._solve(bx, 0.0, 0.0, plant_feet, self.base)
+            pose = self._solve(bx, 0.0, 0.0, plant_home, self.base)
             for leg in FRONT_LEGS:       # fronts still planted
                 wx, wy, wz = self.anchors[leg]
                 pose[3 * leg: 3 * leg + 3] = self._leg_deg(
                     leg, wx, wy, wz, bx, 0.0, 0.0)
             return pose
-        if t < e1 + e2:                  # entry 2: tuck the fronts
-            u = _smooth((t - e1) / e2)
+        if t < e1 + e1b:                 # entry 1b: mids step out to splay
+            prog = (t - e1) / e1b        # (L1 then L4; 5 feet stay down)
+            feet = dict(plant_home)
+            for j, leg in enumerate((1, 4)):
+                u = _smooth(min(1.0, max(0.0, 2.0 * prog - j)))
+                px, py, pz = self.plant_anchors[leg]
+                sx, sy, sz = self.anchors[leg]
+                lift = LIFT_M * math.sin(math.pi * min(
+                    1.0, max(0.0, 2.0 * prog - j)))
+                feet[leg] = (px + u * (sx - px), py + u * (sy - py),
+                             pz + lift)
+            pose = self._solve(BODY_DX_M, 0.0, 0.0, feet, self.base)
+            for leg in FRONT_LEGS:
+                wx, wy, wz = self.anchors[leg]
+                pose[3 * leg: 3 * leg + 3] = self._leg_deg(
+                    leg, wx, wy, wz, BODY_DX_M, 0.0, 0.0)
+            return pose
+        if t < e1 + e1b + e2:            # entry 2: tuck the fronts
+            u = _smooth((t - e1 - e1b) / e2)
             fq = [a + u * (b - a) for a, b in zip(self.base, tuckq)]
             return self._solve(BODY_DX_M, 0.0, 0.0, plant_feet, fq)
         if t < ENTRY_TOTAL_S:            # entry 3: rear up
-            u = _smooth((t - e1 - e2) / e3)
+            u = _smooth((t - e1 - e1b - e2) / e3)
             return self._solve(BODY_DX_M, 0.0, u * PITCH_RAD,
                                plant_feet, tuckq)
 
