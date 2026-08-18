@@ -109,9 +109,11 @@ document.getElementById('errbar-copy').onclick = async ()=>{
   b.textContent = 'Copied ✓';
   setTimeout(()=>{ b.textContent = 'Copy'; }, 1200);
 };
-function showSent(line){
+function showSent(line, isErr){
   sentEl.textContent = line;
-  if(/refus|fail|error|not ready|missing|timeout|no bus/i.test(String(line)))
+  if(isErr ||
+     /refus|fail|error|not ready|missing|timeout|no bus|unknown|denied|abort/i
+       .test(String(line)))
     showErr(line);
 }
 
@@ -216,7 +218,7 @@ async function padRunDemo(name, label){
       body: JSON.stringify(body)});
     const j = await res.json();
     if(j.ok) showSent('demo '+name+(j.home?(' via '+j.home):''));
-    else showSent(j.error||('demo '+name+' failed'));
+    else showSent(j.error||('demo '+name+' failed'), true);
     if(j.demo) paintDemoStatus(j.demo);
     if(j.robot) paintRobotActivity(j.robot);
     startDemoPoll();
@@ -2379,7 +2381,7 @@ function demoButton(item){
           if(p.torque!=null) msg += ' τ'+p.torque;
           showSent(msg);
         } else {
-          showSent(j.error||'failed');
+          showSent(j.error||'failed', true);
           if(j.zero){ lastZero = j.zero; paintZeroHint(j.zero); }
         }
         if(j.demo) paintDemoStatus(j.demo);
@@ -2432,7 +2434,7 @@ async function quadRun(name, label){
   const j = await res.json();
   if(j.ok) showSent(label+' @ '+sp.toFixed(2)+'× for '+body.seconds+'s'
                     +(j.home?' (via '+j.home+' zero)':''));
-  else showSent(j.error||'failed');
+  else showSent(j.error||'failed', true);
   if(j.demo) paintDemoStatus(j.demo);
   if(j.robot) paintRobotActivity(j.robot);
   startDemoPoll();

@@ -308,11 +308,25 @@ class Handler(BaseHTTPRequestHandler):
                         n = int(qs[1].split("n=")[1].split("&")[0])
                     except ValueError:
                         n = 100
-                errs = [e for e in recent(500)
-                        if e.get("level") == "error"][-max(1, n):]
+                n = max(1, min(1000, n))
+                # Read the persisted errors.jsonl so history survives
+                # service restarts (the in-memory ring starts empty).
+                errs = []
+                ep = errors_path()
+                if ep.is_file():
+                    tail = ep.read_bytes()[-512 * 1024:]
+                    for ln in tail.decode("utf-8", "replace").splitlines():
+                        try:
+                            errs.append(json.loads(ln))
+                        except ValueError:
+                            continue   # partial first line of the tail
+                    errs = errs[-n:]
+                else:
+                    errs = [e for e in recent(500)
+                            if e.get("level") == "error"][-n:]
                 self._json(200, {
                     "ok": True,
-                    "path": str(errors_path()),
+                    "path": str(ep),
                     "errors": errs,
                 })
             except Exception as e:
