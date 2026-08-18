@@ -1,5 +1,42 @@
 # dynrep — Dynamics-representation pretraining
 
+**08-18 ~10:3x UTC (reconciliation note, this cycle): the tournament now
+has SIX canary arms, not three — `canB-r1`/`canC-r1` (train-9/train-5,
+scratch actor + LR variants, `canB-r1` FINISHED / `canC-r1` RUNNING,
+un-triaged by this cycle) are the PRE-addendum design from
+fb_20260818T085648_2a0a60; `cw-dynrep-criticD-walkcurr4-gaitinit-bcinit`
+(train-11, RUNNING) and `-gaitinit-hard1` (train-7, RUNNING) are the
+ADDENDUM-COMPLIANT actor-init arms from fb_20260818T085834_588d9a
+(filed ~08:58:34 UTC, correcting fb_20260818T085648_2a0a60 AFTER
+canA-r1/canB-r1 were already in flight — the addendum was easy to miss
+mid-flight; it explicitly supersedes a scratch-actor design for arms
+B/C). NOT named `canB`/`canC` to avoid any collision with the
+already-launched pre-addendum runs of the same letters — read them as
+completing the same tournament, not duplicating it. NEW CODE this
+cycle enables them: `--init-from-actor-only` (`train_ppo_mjx.py` +
+`predictive_critic.actor_only_transplant`, default off) builds the
+FRESH condition-D model (fresh critic, fresh zero-gated predictive
+residual) then copies ONLY the actor tensors from `--init-from`
+(`ppo_goal_cw_bcgait_init.zip` regenerated this cycle via
+`bc_init_gait.py`, and the proven `ppo_goal_cw_dep_bcgait1_hard1.zip`),
+zero-padding the policy trunk's first-layer columns across the obs
+widening (single frame -> hist16-stacked, newest-first) so the
+transplanted actor reproduces the source policy bit-for-bit at init
+regardless of the older-history tail — unit-tested
+(`test_actor_only_transplant.py` 9/9) and CUDA-canary-proven on-pod
+(`canary-walkcurr4-gaitinit-bcinit`, train-11, 600k steps: backend
+verified, transplant confirmed 7 tensors, clean training). **This
+matters more given canA-r2's FAIL below**: gates+LR alone could not
+lift a SCRATCH actor out of the crouch; the gaitinit arms are the
+sharper test of the addendum's actual claim (the fix is actor
+COMPETENCE at init, not the LR/gate recipe) — if they ALSO collapse
+back to the crouch under the frozen-critic-D + walkcurr income, that
+is strong evidence the problem is structural to the critic-D/reward
+wiring, not the actor's starting point. Track containment: this
+stays dynrep-only per the SIM SPRINT; a genuine cross-track escalation
+only if a gaitinit arm PASSES (a working actor-init recipe would be
+directly relevant to hw's tall-walk line).
+
 **08-18 ~10:2x UTC: tournament arm A (`cw-dynrep-criticD-walkcurr4-
 canA-r2`) FINISHED its 4M canary budget — FAIL, same failure shape as
 walkcurr3.** Turning the calibrated `walk_height_gate`/
