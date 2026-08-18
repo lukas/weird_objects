@@ -1,5 +1,8 @@
 # nobc — Learn without BC anchor
 
+**SIM SPRINT (operator 08-17 ~18:05 UTC — binding while the robot is off the bench for repair): NO NEW LAUNCHES on this track unless an arm directly serves reliable rise+walk in the MuJoCo sim (the fleet's single deliverable; download answer: `rl_docs/DOWNLOAD_ANSWER.md`). In-flight runs finish and get triaged normally. Full text: RL_PLAN.md "SIM SPRINT".**
+
+
 W&B: tag `track:nobc`. Excess-capacity research.
 
 **Goal:** learn standing — and honest skill discovery generally,

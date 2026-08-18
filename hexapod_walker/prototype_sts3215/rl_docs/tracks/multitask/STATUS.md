@@ -1,5 +1,8 @@
 # multitask — Multitask learning
 
+**SIM SPRINT (operator 08-17 ~18:05 UTC — binding while the robot is off the bench for repair): NO NEW LAUNCHES on this track unless an arm directly serves reliable rise+walk in the MuJoCo sim (the fleet's single deliverable; download answer: `rl_docs/DOWNLOAD_ANSWER.md`). In-flight runs finish and get triaged normally. Full text: RL_PLAN.md "SIM SPRINT".**
+
+
 W&B: tag `track:multitask`. Excess-capacity research; run prefix
 `cw-mt-`. Design + verdict labels: **rl_docs/MULTITASK.md** (read it
 before triaging anything here — this track has its own binding rules
@@ -87,6 +90,41 @@ new command later (the phase-2 transfer test).
 
 ## Now
 
+- **CROSS-TRACK INSIGHT (08-16 ~11:xx UTC, from arch):
+  `cw-arch-joystick-long-scratch3` (from-scratch transformer, 60s
+  full-session episodes + a new walk-only low-height collapse
+  termination) is the 4th independently-varied from-scratch attempt
+  at this exact command-switch recipe to fail. The termination fix
+  DID kill the previous seated-scooting/leg-park cheat (gait_valid
+  6/6, all six legs cycling normally) — but the robot still can't
+  survive: 0/6 det+sto at both DR0 and DR0.3, every det episode a
+  genuine fall (over_current/tilt_roll/tilt_pitch) within a few
+  seconds having moved 1-6cm. This closes out the fix ladder this
+  track's earlier entries predicted would be needed (architecture,
+  fall pricing, rollout horizon, and now the exploit-closing
+  termination itself all tried, all insufficient) — a genuine
+  command-tracking reward/curriculum redesign remains the only open
+  lever, still this track's call. No further variants queued from
+  arch. Detail: arch/STATUS.md "Now", ledger
+  `cw-arch-joystick-long-scratch3`.
+- **CROSS-TRACK INSIGHT (08-15 ~20:0x UTC, from arch):
+  `cw-arch-tf-joymodes-scratch1-fallfix1` (the same from-scratch
+  transformer lineage already noted below) was continued to its full
+  40M budget with a 14x harsher fall charge (operator-ordered,
+  `reward.term_cost_per_remaining_s=12.0`) specifically to test
+  whether underpriced falls, not the recipe, were the blocker.
+  Result: FAIL — survival stayed at 0/6 det+sto (569/571 episodes
+  tilt-terminated) even with falls costing ~-141 instead of ~-10,
+  while direction-following held up fine (wrong_way_frac 0.042,
+  dir_valid_frac 0.96). This rules OUT fall-pricing as the fix and
+  sharpens the earlier finding: it isn't that the recipe rewards
+  cheap survival over motion (undercharged falls) alone — under this
+  stress-mix command curriculum, a walk that both follows commands
+  AND survives doesn't currently exist for this reward/task setup at
+  any fall price tried. Reinforces that a genuine command-tracking
+  reward/curriculum redesign (this track's call) is the only lever
+  left; no further arch-side resweep is coming. Detail:
+  arch/STATUS.md "Now", ledger `cw-arch-tf-joymodes-scratch1-fallfix1`.
 - **08-15 ~18:3x UTC: `cw-mt-b1-dualgru1` FINISHED (2M discovery) —
   VERDICT: FAIL(no-benefit), the arch-recurrence-transplant option
   is CLOSED.** This was the first of the 08-13 withdrawn-pause

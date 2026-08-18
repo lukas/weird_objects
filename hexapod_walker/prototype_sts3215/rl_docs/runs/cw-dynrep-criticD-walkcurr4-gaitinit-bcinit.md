@@ -1,0 +1,24 @@
+# cw-dynrep-criticD-walkcurr4-gaitinit-bcinit
+
+<!-- GENERATED from experiments.json by launch_run.py — do not edit -->
+
+**status**: done
+
+**created**: 2026-08-18T10:21:01+00:00
+
+**pod**: hexapod-mjx-train-11
+
+**steps**: 4000000
+
+**parent**: cw-dynrep-criticD-walkcurr4-canA-r1
+
+**wandb_id**: fi47q06m
+
+**hardware_ready**: False
+
+**hypothesis**: Can actor-only initialization from the RAW scripted-gait BC clone (zero RL fine-tuning yet) beat scratch acquisition under the SAME B0 gates + LR recipe as arm A (cw-dynrep-criticD-walkcurr4-canA-r1/-r2, seed 8, actor-lr 2e-4 x5 epochs held to B0 promotion)? Operator addendum fb_20260818T085834_588d9a (filed ~08:58:34 UTC, correcting fb_20260818T085648_2a0a60 AFTER canA-r1/canB-r1 were already in flight): height/progress gates alone are a CLOSED lever (cw-dep-hgt1/hgt2 stayed -52..-77mm); the positive mechanism in the campaign is actor initialization from the scripted tripod gait, not the acquisition LR. bc_init_gait.py regenerated this cycle (holdout |action err| 0.0136, probe_tall_wall +4..+28mm across 3 seeds, matching the historical bcgait_init contract). NEW CODE this cycle: --init-from-actor-only (train_ppo_mjx.py + predictive_critic.actor_only_transplant, default off, unit-tested test_actor_only_transplant.py 9/9): builds the FRESH condition-D model (fresh critic, fresh zero-gated predictive residual, scratch-A actor shape) then copies ONLY the actor tensors from --init-from, zero-padding the policy trunk's first-layer columns across the obs widening (single frame -> hist16-stacked, newest-first) so the transplanted actor reproduces the source policy bit-for-bit at init regardless of the older-history tail; critic/frozen-encoder NEVER read from --init-from (asserted by the test bank). CUDA canary canary-walkcurr4-gaitinit-bcinit (train-11, this exact CLI at 600k steps) verified: backend VERIFIED MjxShardedVecEnv impl=warp n_envs=4096, transplant log confirms exactly 7 actor tensors copied, clean training (approx_kl~0.007, zero KL rollbacks, ep_rew_mean 112->138, fps ~4000), clean exit. NAMED DISTINCTLY (not reusing the 'canB' letter) because a concurrent cycle already launched cw-dynrep-criticD-walkcurr4-canB-r1 under the PRE-addendum design (scratch + LR 3e-4x5) before this addendum was read; that run remains a valid LR-sensitivity control, not a mistake — see dynrep/STATUS.md reconciliation note. Prediction-if-true: B0 certs upright (height_factor>=0.8, cmd_prog_frac>=0.5) much earlier than the scratch actors on canA/canB-r1/canC-r1, since the init already walks tall and in-band; if-false: the actor-only transplant still gets erased by the frozen-critic-D optimizer dynamics into the same crouch-shuffle. Strongest alternative: gait-init survives ignition but the condition-D critic's income still argues for the crouch at higher buckets (informative either way).
+
+**gate**: Behavioral admission at 4M, judged on B0 cert telemetry (NOT crash-free): cmd_prog_frac>=0.50, height_factor>=0.8, falls==0 in final cert round, slip_per_m<=3.0, positive recent B0 progress slope; B0 promotion preferred. Compare against canA/canB-r1/canC-r1 (scratch actors, same gates) on retention-clean frontier reached, THEN cmd_prog_frac, slip, roll, and TIME-TO-B0-PROMOTION (the actor-init hypothesis predicts much faster ignition). Winner across ALL SIX canaries contributes its RECIPE to the 40M cw-dynrep-criticD-walkcurr4; never launch the 40M on a failing recipe.
+
+**verdict**: FAIL — B0 ignition never certifies (frontier/promotions stuck at 0 through 4M, b0_ignition/pass=0: cmd_prog_frac 0.009 vs bar 0.50, height_factor 0.76 vs bar 0.8, slip_per_m 7.8 vs bar 3.0). Gate-eval confirms behaviorally: DR-0 det gait_valid 0/6, prog_ratio 0.01, slip/m 9.97, 4/6 legs sacrificed (parked/frozen); own-DR sto gait_valid 0/6, 5-6/6 legs sacrificed — video is a static low crouch, same known park/tripod exploit shape as canA-r2 and walkcurr3, not a gait. Actor-only transplant from the competent BC-gait actor did NOT survive: it collapsed into the identical crouch-shuffle within 4M steps despite starting tall and in-band, confirming the runs own if-false prediction — the frozen-critic-D/reward wiring re-teaches the crouch regardless of actor init quality.
+

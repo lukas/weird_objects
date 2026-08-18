@@ -638,10 +638,10 @@ $('dbgtestall').onclick = dbgTestAll;
 $('dbgteststop').onclick = ()=>{ dbgTestAbort = true; cmd('C'); showSent('C'); dbgStatus('Stopping…'); };
 
 // --- tab switching ----------------------------------------------------------
-const VIEWS = ['drive','motors','demos','quad','rl','experiments','measure',
-               'calibrate','debug'];
+const VIEWS = ['drive','motors','demos','dance','quad','rl','experiments',
+               'measure','calibrate','debug'];
 const TAB_TITLES = {drive:'Drive', motors:'Motors', demos:'Demos',
-                    quad:'Quad', rl:'RL',
+                    dance:'Dance', quad:'Quad', rl:'RL',
                     measure:'Measure', calibrate:'Calibrate', debug:'Debug'};
 function showView(which){
   activeView = which;
@@ -667,6 +667,11 @@ function showView(which){
   else stopMotorsPoll();
   if(which === 'demos'){ loadDemos(); refreshDemoStatus(); startDemoPoll(); }
   else if(which === 'quad'){ refreshRobotState(true); startDemoPoll(); }
+  else if(which === 'dance'){
+    loadDance(); refreshDemoStatus(); startDemoPoll();
+    $('dancespeed').value = $('dspeed').value;   // stay in sync with Demos
+    $('dancespeedlab').textContent = demoSpeed().toFixed(2);
+  }
   else stopDemoPoll();
   if(which === 'calibrate'){
     if(servosArmed){ cmd('HOLD'); forceResend(); }
@@ -679,6 +684,7 @@ function showView(which){
 $('tab-drive').onclick = ()=> showView('drive');
 $('tab-motors').onclick = ()=> showView('motors');
 $('tab-demos').onclick = ()=> showView('demos');
+$('tab-dance').onclick = ()=> showView('dance');
 $('tab-quad').onclick = ()=> showView('quad');
 $('tab-rl').onclick = ()=> showView('rl');
 $('tab-experiments').onclick = ()=> showView('experiments');
@@ -1838,7 +1844,8 @@ function startDemoPoll(){
   demoPollN = 0;
   // Status every 0.5s; zero probe every 2s (bus read — don't spam while demoing).
   demoTimer = setInterval(()=>{
-    if(activeView!=='demos' && activeView!=='quad') return;
+    if(activeView!=='demos' && activeView!=='dance'
+       && activeView!=='quad') return;
     demoPollN++;
     refreshRobotState(demoPollN % 4 === 0);
   }, 500);
@@ -1866,6 +1873,9 @@ function paintDemoStatus(d){
   else if(String(st).startsWith('error') || st === 'aborted' || st === 'stopping')
     el.className = 'pill bad';
   else el.className = 'pill';
+  // Mirror onto the Dance tab's status line (same payload, own ids).
+  const del = $('dancestatus');
+  if(del){ del.textContent = el.textContent; del.className = el.className; }
   const detail = $('dstatusdetail');
   if(detail){
     const bits = [];
@@ -1880,6 +1890,8 @@ function paintDemoStatus(d){
     else if(String(st).startsWith('done')) bits.push('finished');
     else if(st === 'aborted') bits.push('stopped');
     detail.textContent = bits.length ? (' · '+bits.join(' · ')) : '';
+    const ddet = $('dancestatusdetail');
+    if(ddet) ddet.textContent = detail.textContent;
   }
   const telemEl = $('dtelem');
   if(telemEl){
@@ -2402,6 +2414,37 @@ $('dstop').onclick = async ()=>{
   showSent('demo stop');
   refreshRobotState(true);
 };
+// --- Dance tab: curated show list, reusing the demo machinery ----------------
+const DANCE_SETS = [
+  ['SITTING SHOWS', 'chassis stays down — safe on a desk',
+   ['air_meet', 'air_pendulum', 'air_orbits']],
+  ['FULL SHOWS', 'stands up mid-routine — clear floor space',
+   ['dance', 'dance_walk', 'rise_show']],
+];
+async function loadDance(){
+  try{
+    const r = await fetch('/api/demos'); const d = await r.json();
+    const byName = {};
+    (d.demos||[]).forEach(it=>{ byName[it.name] = it; });
+    const g = $('dancegrid'); g.innerHTML='';
+    DANCE_SETS.forEach(([title, sub, names])=>{
+      const items = names.map(n=>byName[n]).filter(Boolean);
+      if(!items.length) return;
+      const h = document.createElement('div');
+      h.className = 'demo-group';
+      h.innerHTML = title+' <span class="sub">· '+sub+'</span>';
+      g.appendChild(h);
+      items.forEach(item=> g.appendChild(demoButton(item)));
+    });
+  }catch(e){ $('dancegrid').innerHTML = '<div class="hint">Failed to load shows</div>'; }
+}
+$('dancestop').onclick = ()=> $('dstop').onclick();
+$('dancespeed').oninput = ()=>{
+  $('dspeed').value = $('dancespeed').value;   // one shared speed setting
+  $('dancespeedlab').textContent = demoSpeed().toFixed(2);
+  $('dspeed').oninput();                       // live-push if a show runs
+};
+
 $('dzero').onclick = ()=> goPoseZero('sit', 'sit zero');
 $('dstand').onclick = ()=> goPoseZero('stand', 'stand zero');
 

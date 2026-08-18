@@ -622,6 +622,16 @@ def _wandb_push(report: dict, out: Path, args) -> None:
                     by[e["start_kind"]] = (ok + e["success"], tot + 1)
                 for kind, (ok, tot) in by.items():
                     flat[f"{pre}/{kind}"] = f"{ok}/{tot}"
+                if mode == "recover":
+                    by_bucket: dict[int, tuple[int, int]] = {}
+                    for e in eps:
+                        bucket = int(e["start_bucket"])
+                        ok, tot = by_bucket.get(bucket, (0, 0))
+                        by_bucket[bucket] = (
+                            ok + int(e["success"]), tot + 1)
+                    for bucket, (ok, tot) in by_bucket.items():
+                        flat[f"{pre}/bucket_{bucket}_success"] = ok / tot
+                        flat[f"{pre}/bucket_{bucket}_episodes"] = tot
         run.summary.update({k: v for k, v in flat.items()
                             if v is not None})
         for fname in ("report.json", "contact_sheet.png"):
@@ -820,12 +830,21 @@ def main() -> None:
                     if hasattr(gen, f"p_{m}"):
                         setattr(gen, f"p_{m}", 1.0 if m == mode else 0.0)
                 eps = []
-                for k in range(args.per_mode):
+                recover_kinds: list[str] = []
+                if mode == "recover":
+                    recover_kinds = [
+                        kind
+                        for bucket in range(len(env.RECOVER_FAMILIES))
+                        for kind in env._recover_family_kinds(bucket)]
+                mode_episodes = (max(args.per_mode, len(recover_kinds))
+                                 if recover_kinds else args.per_mode)
+                for k in range(mode_episodes):
                     if mode == "recover":
-                        # Bucket-1 acquisition must be readable without
-                        # depending on random start composition.
-                        env.force_recover_start = (
-                            "onefoot" if k % 2 == 0 else "park")
+                        # Fixed all-bucket assay: every available kind is
+                        # represented at least once, independent of the
+                        # training sampler's current frontier.
+                        env.force_recover_start = recover_kinds[
+                            k % len(recover_kinds)]
                     elif hasattr(env, "force_recover_start"):
                         env.force_recover_start = None
                     # sto passes get video too: an unwatched success cannot
@@ -855,6 +874,9 @@ def main() -> None:
                             f"the env sampled '{_got}' — goal-generator "
                             f"forcing is broken for this mode/env; "
                             f"report would be mislabeled, aborting.")
+                    if mode == "recover":
+                        ep["start_bucket"] = int(
+                            env.RECOVER_KIND_BUCKETS[ep["start_kind"]])
                     eps.append(ep)
                     if frames and (scheduled
                                    or not ep.get("gait_valid", True)):
@@ -875,6 +897,16 @@ def main() -> None:
                     kinds = " [" + " ".join(
                         f"{k}:{a}/{b}"
                         for k, (a, b) in sorted(by.items())) + "]"
+                    if mode == "recover":
+                        by_bucket: dict[int, tuple[int, int]] = {}
+                        for e in eps:
+                            bucket = int(e["start_bucket"])
+                            ok, tot = by_bucket.get(bucket, (0, 0))
+                            by_bucket[bucket] = (
+                                ok + int(e["success"]), tot + 1)
+                        kinds += " [" + " ".join(
+                            f"b{b}:{a}/{n}" for b, (a, n) in
+                            sorted(by_bucket.items())) + "]"
                 extra = ""
                 if any("vel_err_mean" in e for e in eps):
                     ve = [e["vel_err_mean"] for e in eps

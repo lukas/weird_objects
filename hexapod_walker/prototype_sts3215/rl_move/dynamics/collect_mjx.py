@@ -37,6 +37,7 @@ from rl_move.dynamics.collect import (                       # noqa: E402
 from rl_move.dynamics.collector_env import (                 # noqa: E402
     DynrepCollectWalkEnv,
 )
+from rl_move.dynamics.memutil import mem_checkpoint           # noqa: E402
 from rl_move.sim.joint_task import q_rad_to_action           # noqa: E402
 from rl_move.sim.servo_model import SimServoParams           # noqa: E402
 
@@ -488,14 +489,19 @@ def main() -> None:
                         "data/target_train_windows": target_train_windows,
                         "data/planned_window_reuse": reuse,
                         "data/env_steps_per_second": total_steps / elapsed,
+                        **mem_checkpoint("collect_loop", print_it=False),
                     })
                 last_report = now
     finally:
         venv.close()
+        if run is not None:
+            run.log(mem_checkpoint("after_venv_close"))
 
     if shard:
         path = _write_shard(out, shard_idx, shard, args.compressed)
         print(f"wrote {path.name}: {len(shard)} episodes")
+    if run is not None:
+        run.log(mem_checkpoint("after_final_shard_write"))
 
     meta_path = out / "meta.json"
     meta = json.loads(meta_path.read_text()) if meta_path.exists() else {
@@ -538,6 +544,7 @@ def main() -> None:
                 args.optimizer_steps * args.batch / train_windows),
             "data/env_steps_per_second": total_steps / max(elapsed, 1e-6),
             "data/complete": 1,
+            **mem_checkpoint("collector_done"),
         })
         run.finish()
     print(f"done: {completed} eps, {total_steps:,} steps, "

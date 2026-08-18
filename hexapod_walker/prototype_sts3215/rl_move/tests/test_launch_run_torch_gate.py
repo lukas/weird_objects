@@ -12,6 +12,7 @@ These tests exercise `_launch_locked` with every external call
 so nothing here touches a real pod or experiments.json.
 """
 import argparse
+import contextlib
 import importlib.util
 import sys
 from pathlib import Path
@@ -219,3 +220,110 @@ def test_respec_now_preserves_dynrep_fresh_trainer(monkeypatch):
     assert lr.cmd_respec({}, args) == 0
     assert captured["ns"].trainer == "dynrep-fresh"
     assert captured["args"][captured["args"].index("--data") + 1] == "new_ds"
+    # 08-15 regression: respec used to append --out-name unconditionally
+    # (a ppo-only convention) — rl_move.dynamics.train/fresh_pipeline has
+    # no such flag and argparse crashes on it (cw-dynrep-tf-state2-fresh3
+    # burned a full stage-1 recollection before hitting this on stage 2).
+    assert "--out-name" not in captured["args"]
+
+
+def test_respec_init_from_source_refused_for_dynrep(monkeypatch):
+    source = {
+        "run": "cw-dynrep-source", "trainer": "dynrep-fresh",
+        "steps": 40_000, "track": "dynrep", "phase": "discovery",
+        "extra_args": ["--data", "old_ds", "--device", "cuda"],
+        "checks": {"pid": "123"},
+    }
+    monkeypatch.setattr(lr, "load_ledger", lambda: [source])
+    args = argparse.Namespace(
+        source="cw-dynrep-source", run="cw-dynrep-copy", seed=None,
+        steps=None, parent="", hypothesis="h", gate="g", phase="",
+        evidence="", arg=None, cfg=None,
+        init_from_source=True, now=False, pod=None,
+        operator_override=None, track="")
+    assert lr.cmd_respec({}, args) == 1
+
+
+def test_dynrep_checkup_floor_is_not_the_ppo_physics_fps_floor(monkeypatch):
+    """Regression (found 08-15 on cw-dynrep-tf-state2-recovered1, and
+    reproduced retroactively in the ledger on cw-dynrep-tf-state1):
+    dynrep/dynrep-fresh's W&B "global_step" is a GRADIENT step over a
+    fixed pre-collected window dataset, not a PPO physics env-step —
+    a completely different unit from the ~19-20k-fps GPU-MJX floor
+    calibrated for MJX rollout throughput. Both real runs steady-state
+    at ~41 step/s and both false-SUSPECTed against the flat 5000 floor.
+    A healthy ~41 step/s dynrep trainer must read HEALTHY."""
+    entry = {
+        "run": "cw-dynrep-gatecheck-checkup", "pod": "hexapod-mjx-train-1",
+        "created": "2026-08-15T00:00:00+00:00", "status": "RUNNING",
+        "trainer": "dynrep", "log": "/tmp/train_cw-dynrep-gatecheck-checkup.log",
+    }
+    monkeypatch.setattr(lr, "load_ledger", lambda: [entry])
+    monkeypatch.setattr(lr, "save_ledger", lambda entries: None)
+    monkeypatch.setattr(lr, "ledger_lock", lambda: contextlib.nullcontext())
+    monkeypatch.setattr(lr, "pod_trainers",
+                        lambda pod: ["cw-dynrep-gatecheck-checkup"])
+    monkeypatch.setattr(lr, "pod_cpu_limit", lambda pod: 26)
+    monkeypatch.setattr(lr, "kexec", lambda pod, script, timeout=60: "0")
+    monkeypatch.setattr(lr.time, "sleep", lambda s: None)
+    steps = iter([27750, 27750 + 41 * 45])  # matches recovered1's steady-state
+    monkeypatch.setattr(
+        lr, "wandb_running_runs",
+        lambda: {"cw-dynrep-gatecheck-checkup": {"global_step": next(steps)}})
+    a = SimpleNamespace(run="cw-dynrep-gatecheck-checkup")
+    g = {"compute": {"gpu_pods": ["hexapod-mjx-train-1"]}}
+    assert lr.cmd_checkup(g, a) == 0
+
+
+def test_recover_population_waiting_detects_only_unreleased_ready_bucket():
+    ready = '{"population_id":"recover-test-pop3","bucket":0}'
+    summary = {"recover_population/ready_B00": ready}
+    assert lr._recover_population_waiting(summary) == {
+        "bucket": 0,
+        "ready_key": "recover_population/ready_B00",
+        "start_key": "recover_population/start_B00",
+    }
+    summary["recover_population/start_B00"] = '{"bucket":0}'
+    assert lr._recover_population_waiting(summary) is None
+
+
+def test_recover_population_barrier_is_healthy_during_checkup(monkeypatch):
+    run = "cw-recover-barrier-checkup"
+    entry = {
+        "run": run,
+        "pod": "hexapod-mjx-train-1",
+        "created": "2026-08-18T00:00:00+00:00",
+        "status": "RUNNING",
+        "trainer": "ppo",
+        "log": f"/tmp/train_{run}.log",
+    }
+    saved = []
+    monkeypatch.setattr(lr, "load_ledger", lambda: [entry])
+    monkeypatch.setattr(lr, "save_ledger", lambda entries: saved.extend(entries))
+    monkeypatch.setattr(lr, "ledger_lock", lambda: contextlib.nullcontext())
+    monkeypatch.setattr(lr, "pod_trainers", lambda pod: [run])
+    monkeypatch.setattr(lr.time, "sleep", lambda seconds: None)
+
+    def fake_kexec(pod, script, timeout=60):
+        if "grep -c 'Traceback'" in script:
+            return "0"
+        if "stat -c %s" in script:
+            return "1234"
+        raise AssertionError(f"unexpected command while barrier is healthy: {script}")
+
+    monkeypatch.setattr(lr, "kexec", fake_kexec)
+    barrier = {"bucket": 0, "ready_key": "recover_population/ready_B00",
+               "start_key": "recover_population/start_B00"}
+    monkeypatch.setattr(
+        lr, "wandb_running_runs",
+        lambda: {run: {"id": "abc12345", "state": "running",
+                       "global_step": 655_360,
+                       "recover_population_barrier": barrier}})
+
+    a = SimpleNamespace(run=run)
+    g = {"compute": {"gpu_pods": ["hexapod-mjx-train-1"]}}
+    assert lr.cmd_checkup(g, a) == 0
+    checkup = saved[-1]["checkups"][-1]
+    assert checkup["verdict"] == "HEALTHY"
+    assert checkup["recover_population_barrier"] == barrier
+    assert "intentionally waiting" in checkup["note"]

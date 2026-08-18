@@ -105,12 +105,44 @@ only their boundaries once destructive shared gradients are removed?
   same buffered-log profile as transdagger — do not mistake silence
   for a stall), `--out
   rl_move/sim/policies/ppo_goal_cw_arch_modeexperts_bc2.zip`, log
-  `/tmp/modeexperts_bc2.log`. Next cycle: re-run the same VERIFY
-  (single-mode det vs teacher bars + `--single` sequence eval) before
-  any Stage 1 PPO launch — if bc2 also misses the rise bar, escalate
-  to `[operator]` (BC/DAgger may not be sufficient for this maneuver
-  at all, per the existing dual-line rise history) rather than a
-  third recipe variant.
+  `/tmp/modeexperts_bc2.log`. (Original plan, superseded by the
+  RESULT below: re-run the same VERIFY before any Stage 1 PPO
+  launch — if bc2 also misses the rise bar, escalate to `[operator]`
+  rather than a third recipe variant.)
+  **RESULT (08-16 ~11:5x UTC): VERIFY ran — MIXED, and per the
+  pre-registered branch this is a SECOND MISS -> escalate to
+  `[operator]`, no Stage 1 PPO, no third recipe variant.** The
+  rise-targeted DAgger top-up DID move isolated single-mode rise the
+  right way (det 0/6 -> **3/6**, real non-crouch wins this time:
+  bridge 1/1, flat 1/1, rsi 1/3; hold 6/6, lower 6/6 both retained;
+  walk gait honest, gv 6/6 det + 6/6 sto, prog 1.01/0.88) — but it is
+  still short of the teacher bar (footlow2_hard1 cold rises stall
+  0.5-3.4mm; this checkpoint's sto rise is still 0/6). **The sequence
+  metric NET REGRESSED and changed character**: overall det
+  zero-fall 10/12 (bc1) -> **6/12** (bc2); by ordinal, first-rise
+  improved 6/12->7/12 but the POST-LOWER rise went from stalling
+  short (bc1) to **actually falling 6/6 of its 6 failures** (rise_by_
+  ordinal[1] = 6 success/6 falls out of 12) — sto is worse across the
+  board (seq 3/12->4/12 barely, but first-rise sto is now 0/12, was
+  some nonzero in bc1). Video (contact sheet,
+  `logs/ckpt_eval/arch_modeexperts_bc2_verify_stance2/contact_sheet.png`)
+  confirms genuine rise/hold/lower motion, no park/flag-leg exploit —
+  this is a real skill trade-off, not a measurement artifact. **This
+  is the SAME zero-sum DAgger-correction signature the transdagger3
+  line already found** (topping up one segment's correction density
+  measurably erodes another's) — now reproduced on the isolated
+  4-expert architecture too, independent of the shared-GRU mechanism
+  transdagger/dual2 blamed. Two misses (bc1: rise+sequence both miss;
+  bc2: rise partially fixed, sequence gets WORSE via a harsher failure
+  mode) closes the DAgger-recipe-variant ladder for Arm A Stage 0 per
+  the pre-registered branch — no bc3. Open question for the operator:
+  whether BC/DAgger distillation can produce a single checkpoint that
+  holds isolated-rise AND post-lower-rise simultaneously at all under
+  this architecture, or whether Stage 1 needs to start RL-based
+  correction (unfreezing rise) rather than waiting for a better
+  distill. Evidence: `logs/ckpt_eval/arch_modeexperts_bc2_verify_
+  {stance2,walk}`, `logs/ckpt_eval/arch_modeexperts_bc2_seq_{det,sto}.json`.
+  No Stage 1 PPO launched from this result.
 - Stage 1 (pre-registered, [precondition: stage-0 artifact passes
   verification]): `cw-arch-modeexperts1` — 2M discovery PPO, warm
   from the distill, `--gru-experts --gru-experts-freeze` (expert
@@ -269,6 +301,134 @@ training); if a skill is flat at full exposure, its verdict is
 "reward/start curriculum bottleneck", per the operator's decision
 table — no capacity claim either way without seed twins + bulk
 cohorts.
+
+**SCRATCH2 RESULT + SCRATCH3 EXECUTED (08-17 ~15:2x UTC, triage
+cycle):** scratch2 finished its full 40.04M clean (no NaN/crash).
+Exposure clause drifted exactly as pre-classified — at 10M rise .394
+(over band), loco .283/lower .299 (in band), hold .024 (fine); at end
+rise .312 (back in band), loco .236/lower .241 (just under band),
+hold .211 (~2× the .15 cap) — driven by sequence episodes' hold
+segment banking more ticks as rise got reliably completed (more
+sequences now survive rise long enough to reach hold). Per-expert
+stds diverged independently (hold 1.84 > rise 1.51 > lower 1.33 >
+loco 0.74, shared 0.39 init) and per-mode in-loop eval trends
+improved (hold survived_frac 0→~1.0 by ~12M; walk/lower stayed high
+throughout). **Bulk harness fork read** (DR0 gate + DR0.5 own-cfg,
+det+sto, 6 eps/mode): 0/6 success on all 4 skills both passes, but NO
+proven dominating exploit — walk gait_valid 6/6 both passes (0
+sacrificed legs), real forward travel matching the commanded speed
+(1.4–1.8 m/30s) and prog_ratio ~1.0–1.1, just too much slip to clear
+the bar (slip/m 1.8–2.4 vs a trained champion's ~1.0–1.3); rise curls
+upward genuinely on video but over-currents in 3/6 det episodes both
+passes (worst_clear ~100–140mm); lower descends genuinely but never
+reaches the flat-plant target (worst_clear ~275–305mm, drag
+~1.0–1.6m/ep, 0 terminations); hold stays upright and stable (roll
+tail 0.4–0.8°) but off the target height band (worst_clear
+~130–215mm). Reads as real, uniform under-training at ~9–13M active
+ticks/skill so far — exactly the case this gate defers judging, not a
+reward/eval bug.
+
+Cumulative lineage active ticks (canary + scratch2):
+rise 0.70+12.48=**13.18M**, loco 0.53+9.45=**9.98M**,
+lower 0.44+9.65=**10.09M** — all still short of the ≥20M target
+(need +6.8M / +10.0M / +9.9M respectively). Per-skill acquisition HAS
+partially appeared (real, non-exploit motion in all 4 videos) but not
+uniformly, and hold is already 2× over its cap purely from sequence
+leakage even at `mode_seq=0.2` — raising `mode_seq` toward 0.5 now
+would only inflate hold further and starve loco/lower more, so this
+stage instead CUTS `mode_seq` 0.2→0.10 (less sequence-driven hold
+leakage) and re-solves the single-mode mix from the measured
+realized/commanded RATIO at end-of-run (realized_i/commanded_i:
+loco 0.68×, lower 0.74×, rise 1.03×, hold 7.5×) inverted and
+renormalized to target realized ≈.30/.30/.30/≤.10 →
+**rise 0.303→0.254, walk 0.345→0.383, lower 0.324→0.352,
+hold 0.028→0.011** (sums to 1.000). This is a pragmatic ratio-based
+re-solve, not an exact stationary-f_seq solve (attempting the
+original two-equation form on scratch2's non-stationary realized
+values produced an impossible negative f_seq for loco — the
+mix/hold-leakage relationship shifted over the run as rise got more
+reliable, so a single constant f_seq cannot fit both the 10M and
+end-of-run reads). At 40M new steps and a realized rate anywhere near
+this estimate, rise/loco/lower each clear +10-12M new active ticks,
+comfortably closing the ≥20M cumulative gap.
+
+**`cw-arch-modeexperts-scratch3` LAUNCHED same cycle** (`respec --from
+cw-arch-modeexperts-scratch2 --init-from-source --steps 40000000
+--phase hardening --arg='--goal-mix=walk=0.383,rise=0.254,
+lower=0.352,hold=0.011' --cfg goal.mode_seq=0.10 --now --pod
+hexapod-mjx-train-2`), VERIFIED RUNNING (W&B `puvo5i2y`). Gate now
+additionally requires a skill SUCCESS verdict at this fork (≥1/6 on
+a skill that scored 0/6 in scratch2 = real progress; still 0/6 at
+≥20M cumulative ticks = reward/curriculum bottleneck, not capacity).
+Evidence: `rl_docs/runs/cw-arch-modeexperts-scratch2.md`, W&B
+`1t6rmexz`, `logs/ckpt_eval/cw_arch_modeexperts_scratch2_{gate,owncfg}`.
+
+**SCRATCH3 RESULT (08-18 ~19:2x UTC, triage cycle): STOP — known
+exploit dominates, no scratch4.** Finished clean 40.04M, no NaN/crash.
+Cumulative lineage active ticks reached the ≥20M target (rise
+0.70+12.48+10.14=**23.32M**, loco 0.53+9.45+9.27=**19.25M**, lower
+0.44+9.65+9.03=**19.12M**) — this is NOT the "still short of exposure"
+case. Exposure clause (b) at end: rise .253/loco .231/lower .226 (all
+~0.05-0.07 low of the .30 target — mild), **hold .290, a WORSE miss
+than scratch2's .211** (nearly 2x the ~0.15 target this stage even
+after cutting mode_seq 0.2→0.10 AND hold's single-mode share to
+.011) — sequence-leakage into hold got worse, not better, at the
+lower mode_seq. Per-expert std (clause c): loco converged healthily
+to 1.13 (walk stayed genuinely good); **rise 4.73, lower 4.64, and
+especially hold 13.48 (vs 1.84 last stage) — hold's std more than
+7x'd**, a implementation/collapse-scale signal the gate's own clause
+(c) flags.
+
+**The bulk harness fork read is the real story: rise, hold, AND lower
+have each independently collapsed into the IDENTICAL cheat** — plant
+3 legs (duty_cycle ~0.85-1.0, end_clear ≈0mm), freeze the other 3 up
+in the air for the ENTIRE episode (duty_cycle 0.0, end_clear
+30-320mm), a static tripod hold. Confirmed on ALL 48 non-walk test
+episodes (rise/hold/lower × det/sto × DR0/DR0.5) — every single
+episode shows this exact duty-cycle signature, video-checked on
+multiple episodes per mode per pass. hold is the most degenerate:
+its deterministic action is byte-identical across all 6 nominally
+different test episodes (`end_clear_mm=[317.3,113.0,-0.2,115.7,
+-0.2,-0.1]` every time, leg 0 folded ~317mm off the ground) — the
+policy ignores its input entirely. The 2/6 "success" flags logged on
+`lower/det` under own-DR (0.5) are the SAME cheat at a smaller
+raised-leg clearance (33-38mm vs 60-90mm elsewhere) that happened to
+cross the coarse `end_posture_ok` threshold (this eval did not use
+`--valid-plant-gate`) — video-confirmed identical posture pattern to
+the "failed" episodes, not a real completion. Walk is unaffected:
+gait_valid 6/6 both DR passes, genuine six-leg cycling, prog_ratio
+1.0-1.1, matching scratch2.
+
+**This is a REGRESSION vs scratch2**, whose read was genuine
+(non-exploit) if incomplete motion on all three non-walk modes (rise
+curled, lower descended, hold stood stable). Between scratch2 and
+scratch3 the mix cut `mode_seq` 0.2→0.10 and hold's single-mode share
+7.5x→.011 — apparently NOT enough to starve the sequence-leakage
+pathway that feeds hold ticks, and the extra ~10-12M active ticks on
+rise/lower let each converge into a reward-satisfying but
+task-failing fixed point instead of continuing to close the gap.
+
+Per `RUN_INTERPRETATION_RULES.md`, a known exploit dominating video is
+a complete verdict at any behavioral checkpoint, and the SCRATCH3
+gate's own pre-registered kill clause ("a proven exploit dominating a
+milestone video") fires here: **no scratch4, no re-run with more
+steps.** Root-cause hint for whoever reopens this line: `walk`'s
+reward carries explicit anti-park/anti-flag-leg terms
+(`reward.k_step_event`, `k_drag_loaded`, `k_park_duty`,
+`walk_kernel_prog_gate`, `walk_anchor_gate`) that `rise`/`hold`/
+`lower` apparently lack an equivalent of — nothing in those three
+modes' reward currently prices "sacrifice half the legs and freeze,"
+so once an expert finds the fixed point under isolated-expert
+training (where it can't be pulled back out by shared-parameter
+interference from the other experts, unlike the shared-trunk
+lineages) it has no incentive to leave. Banking a tripod/flag-leg
+ordering clause into rise/hold/lower's `test_task_semantics.py` (the
+MDP_PREFLIGHT bank), mirroring walk's, is the concrete next lever —
+not queued this cycle (SIM SPRINT: no new arch launches unless
+sim-rise/walk-serving). Evidence: `rl_docs/runs/cw-arch-modeexperts-
+scratch3.md`, W&B `puvo5i2y`,
+`logs/ckpt_eval/cw_arch_modeexperts_scratch3_{gate,owncfg}` (contact
+sheets + per-episode `duty_cycle`/`end_clear_mm` are the smoking gun).
 
 ## Decision interpretation (operator's, binding)
 

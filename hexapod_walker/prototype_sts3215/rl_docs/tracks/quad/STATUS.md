@@ -1,5 +1,8 @@
 # quad — Quadruped with two hands
 
+**SIM SPRINT (operator 08-17 ~18:05 UTC — binding while the robot is off the bench for repair): NO NEW LAUNCHES on this track unless an arm directly serves reliable rise+walk in the MuJoCo sim (the fleet's single deliverable; download answer: `rl_docs/DOWNLOAD_ANSWER.md`). In-flight runs finish and get triaged normally. Full text: RL_PLAN.md "SIM SPRINT".**
+
+
 W&B: tag `track:quad`. Excess-capacity research.
 
 **Goal:** walk on four legs with the front pair lifted as hands/arms.

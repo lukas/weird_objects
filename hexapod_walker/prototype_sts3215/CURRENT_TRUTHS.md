@@ -73,6 +73,14 @@ operator calls at regeneration time).
 
 ## Campaign rulings in force
 
+- **SIM SPRINT (operator 08-17, ~18:05 UTC — CURRENT top ruling):**
+  robot off the bench ~a day for repair; until the operator says it
+  is back, the fleet's single deliverable is RELIABLE RISE + WALK in
+  MuJoCo at download quality (named checkpoints + gate evidence;
+  post-lower rise and takeoff transient are the known gaps). No new
+  research-track launches unless they directly serve that; bench
+  [operator] items parked; no hardware steering. Full text:
+  RL_PLAN.md "SIM SPRINT".
 - KPI = blockers to the next joystick hardware test, not occupancy.
   08-11 night: sim stand/walk blockers are THE focus; write needed
   code same-cycle (cfg-gated, default-off, tests, snapshot).
@@ -138,6 +146,23 @@ operator calls at regeneration time).
   held-success termination, adaptive reset-family curriculum,
   default-off) built + banked (RECOVER section,
   test_task_semantics.py), REWARD.md §4c, run launched on the
-  footlow2_hard1 lineage (hw track).
+  footlow2_hard1 lineage (hw track). **CORRECTION 08-17 (any15
+  retention-rollback dig-in): every pre-retention-gate recover LADDER
+  FRONTIER number is INFLATED — promotions were certified on a
+  rotating bucket subset where stale passes counted (any11 read
+  frontier 13 while scoring b1=0.06/b2=0.00/b3=0.00, frontier 15
+  while scoring b0=0.06). Under same-round conjunctive retention the
+  lineage's honest frontier is B8, and matched one-shot gate evals
+  score any11 == any15 (det 10/18 DR-0, 11/18 DR-0.1, sto 0/18) — so
+  quote gate-eval counts, never frontier buckets, when comparing
+  recover policies. The real recover wall is STABILITY at
+  crouch_deep/partial_high (pass rates 0.47/0.14 per cert round,
+  oscillating 0.00↔1.00), not tangle exposure; failures are
+  short-of-height non-falls, not collapses. The promotion-checkpoint
+  + timed rollback guard is built and its checkpoint/retention/
+  error-priority paths are PROVEN live, but the timer keys on
+  consecutive sub-threshold age and therefore cannot fire on
+  oscillation (windowed pass rate is the fix). Recover/tangle
+  redesign remains operator-gated and outside the SIM SPRINT.**
 - Bench/UI: sit NEVER refuses on pose delta (stand-only refusal);
   errors stay copyable; thermal reads debounced (phantom wall).

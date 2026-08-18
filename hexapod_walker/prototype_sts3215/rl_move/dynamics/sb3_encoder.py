@@ -168,6 +168,31 @@ class ScaledLRPPO(PPO):
             for group in opt.param_groups:
                 group["lr"] = lr * group.get("lr_scale", 1.0)
 
+    def set_parameters(self, load_path_or_dict, exact_match: bool = True,
+                       device="auto") -> None:
+        # Checkpoint round-trip fix (tfwalk-joint1 diagnosis, 08-17):
+        # checkpoints written after set_group_lrs() carry a TWO-group
+        # Adam state ({heads, encoder w/ lr_scale}); a freshly
+        # constructed model has SB3's single default group, so torch
+        # refuses the optimizer restore ("loaded state dict has a
+        # different number of parameter groups") and `.load()` dies.
+        # Rebuild the matching group structure (same deterministic
+        # rest/encoder split as set_group_lrs) before delegating.
+        if isinstance(load_path_or_dict, dict):
+            opt_state = load_path_or_dict.get("policy.optimizer")
+            saved = (opt_state or {}).get("param_groups", [])
+            have = self.policy.optimizer.param_groups
+            if (len(saved) == 2 and len(have) != 2
+                    and all("lr_scale" in g for g in saved)):
+                base = next((g["lr"] for g in saved
+                             if g.get("lr_scale", 1.0) == 1.0),
+                            saved[0]["lr"])
+                enc_scale = next((g["lr_scale"] for g in saved
+                                  if g.get("lr_scale", 1.0) != 1.0), 1.0)
+                set_group_lrs(self.policy, base, enc_scale)
+        super().set_parameters(load_path_or_dict, exact_match=exact_match,
+                               device=device)
+
 
 def set_group_lrs(policy, base_lr: float, encoder_lr_scale: float):
     """Rebuild the policy optimizer with the features extractor's

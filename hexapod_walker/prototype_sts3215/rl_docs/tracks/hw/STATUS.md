@@ -2,6 +2,19 @@
 
 W&B: tag `track:hw`. THE MAINLINE — pod priority, operator bench time.
 
+**SIM SPRINT (operator 08-17 ~18:05 UTC — binding while the robot is
+off the bench for repair): the fleet's single deliverable is RELIABLE
+RISE + WALK IN THE MUJOCO SIM, download-ready. The maintained download
+answer is `rl_docs/DOWNLOAD_ANSWER.md` (hierarchy: `footlow2_hard1` +
+`bcgait1_hard1` + session controller, det 0.967 / sto 0.853 at n=600).
+Sprint gap status: post-lower rise = the ELEVATED `[operator]` fork in
+STATUS.md WAITING-ON (+ a queued `[code]` remaining-rise eval probe to
+price option (a)); takeoff transient = sim-side complete (entry-slew
+composed), bench reps parked; no live session-gate regressions. All
+bench-owned `[operator]` items stay parked; recover/tangle redesign
+stays `[operator]`-gated and is NOT a sprint item. Full text:
+RL_PLAN.md "SIM SPRINT".**
+
 **Goal:** a walking, joystick-driven, standing/sitting/holding robot
 working ON HARDWARE by any means necessary. Anchors, scripted blends,
 rot-60 wrappers, specialist checkpoints — all fair game. KPI:
@@ -9,6 +22,845 @@ unresolved blockers between the robot and reliable joystick control.
 
 ## Now
 
+- **08-18 ~19:1x (triage cycle): recover "keep it rumbling" continuation,
+  member `s13`, finished its +100M — the OPPOSITE direction from
+  s12: this member's own matched gate score IMPROVED (det 16/18 DR-0
+  + 16/18 DR-0.1, was 13/18 + 10/18), with the same B15 frontier
+  (video-verified genuine tangle_mid/tangle/bank recoveries, no
+  exploit; only clean miss is `tangle_deep` over_current + the
+  still-unreached `flip` bucket).** NEW datum: `RECOVER_GUARD/
+  rollback_count`=1 this run (fired once at step 72,024,064,
+  restoring a B15-frontier checkpoint) — the guard CAN fire, but
+  training-time bucket stats at the final cert still oscillate on
+  easy buckets (crouch_shallow/mid/deep 0.125/0.375/0.25) even after
+  that rollback, so it didn't cure the wall. Cohort-level read now:
+  s12 regressed, s13 improved on the IDENTICAL recipe/budget — the
+  oscillating-retention wall's direction on any one member is not
+  predictable from the recipe, answering the operator's "does more
+  training help" with genuine both-directions evidence rather than a
+  clean call either way. Not hardware-ready. s11 still training, no
+  full cohort verdict yet. No follow-up (recover stays
+  `[operator]`-gated, outside the SIM SPRINT). Detail: STATUS.md,
+  `rl_docs/runs/cw-recover-any21c2-pop3-s13.md`,
+  `rl_docs/SKILLS.md` "Fall recovery".
+- **08-18 ~18:5x (triage cycle): recover "keep it rumbling" continuation,
+  member `s12`, finished its +100M — mechanism PASS, behavior a wash.**
+  Frontier genuinely advanced past B14 to B15 (video-verified genuine
+  tangle/bank recoveries), but this member's own matched gate score
+  FELL (det 8/18 vs 16/18 before) as previously-solved easy buckets
+  now fail — the same oscillating-retention wall CURRENT_TRUTHS
+  already named, one rung deeper; `rollback_count` still 0 the whole
+  run. Not hardware-ready, not an upgrade. s11/s13 still training, no
+  cohort verdict yet. No follow-up (recover stays `[operator]`-gated,
+  outside the SIM SPRINT). Detail: STATUS.md, `rl_docs/runs/
+  cw-recover-any21c2-pop3-s12.md`.
+- **08-18 ~18:3x (triage cycle): `cw-dep-bcgait1-hard1-steer1-hard20m1`
+  FAILED its pre-registered 5-clause gate — the ~20M full-stress-mix
+  hardening pass did NOT cure the direction-switch tangle/stall.**
+  Standard harness eval under the run's own trained stress_mix cfg
+  (24 episodes, 120s each, all six schedule families, instant
+  switches, DR-0 + own-DR-0.35): 3/24 ended in a hard `over_current`
+  safety termination (a servo jammed against a limit fighting a
+  direction change — the exact yaw-limit-saturation stall this arm
+  targeted; robot stays upright, doesn't tip over) and 1/24 (det)
+  is a severe leg-tangle (gait_valid False, 3 legs sacrificed
+  [0,2,4], slip 32/m, progress_ratio 0.03, 17cm of travel in 120s —
+  video confirms near-stationary struggling). Base gait quality
+  partially retained on the other 23 episodes (gait_valid 6/6, roll
+  clean/recovered, slip 1.3-2.4/m on the clean ones) — this is not a
+  collapse of the whole skill, just the direction-switch handling.
+  Clause (2) alone ("zero falls/tangles") already fails the gate, so
+  no further compute went into the dedicated `probe_dirswitch_tangle`
+  script or the legacy fixed-command matched panel (clause 1) — the
+  result was already decisive. This CONFIRMS the run's own
+  pre-registered prediction-if-false: full-mix exposure from step 0
+  isn't enough, a staged-dwell curriculum is needed. **Queued same
+  cycle** (agent-doable, no new code — the `sched.*` in-run
+  scheduler + `goal.walk_cmd_stage` curriculum landed 08-17 for
+  exactly this failure class and is untried on this lineage):
+  `cw-dep-bcgait1-hard1-steer2-stagecurric1`, a 2M canary
+  warm-started from `cw-dep-bcgait1-hard1` (the clean base, same
+  parent steer1c used) that ramps `goal.walk_cmd_stage` 0->2 via
+  `sched.key=goal.walk_cmd_stage` over the first 60% of the budget
+  (forward/back-only switches first, full family set incl. jitter by
+  the end) instead of throwing the hardest mix at it from tick 0.
+  Gate: mechanism health (finite losses, no early collapse, tall
+  gait retained on periodic eval/video) AND a first informational
+  read on whether the same 24-episode tangle panel shows fewer
+  over_current/tangle events than hard20m1's 3+1/24 — informational
+  only at 2M, no final behavioral verdict until a matched hardening
+  continuation. Does not touch today's download answer (still plain
+  `bcgait1_hard1`, never asked to survive mid-walk switches).
+  Detail: ledger verdict + W&B `w3fbxfj7` OUTCOME note.
+
+- **08-18 ~16:5x (triage cycle): `cw-recover-predictive1-canary1` CANARY
+  PASSED** (frozen dynamics-transformer context in the recover
+  actor+critic, 15-tick reset probe, obs 1440; operator order
+  fb_20260818T161001Z) — mechanism-health only, licenses the
+  from-scratch 3-seed `predictive1-pop3` cohort. **First launch
+  attempt (`cw-recover-predictive1-pop3-s11/s12/s13`) hit THREE
+  distinct pod-level problems, none of them behavioral**: (1) s11's
+  first pod (train-6) has a CPU-only torch build despite showing an
+  H200 (`torch.cuda.is_available()=False`) — avoid train-6 until
+  reimaged; (2) s13's first pod (train-8, also train-0) is missing
+  the `rl_move/dynamics/datasets/v5_mjx_fresh` shard directory that
+  `--predictive-actor` loads at startup — clean `FileNotFoundError`,
+  not present on train-4/5/7/9/11; (3) **s11 (train-5) and s12
+  (train-7), both relaunched clean, ran ~10 healthy PPO iterations
+  each and then went silently zombie (`ps` state Z, no traceback, no
+  cgroup OOM, no k8s eviction) within ~90s of each other, both at
+  EXACTLY the recover-population bootstrap barrier step count
+  (655,360) — the first time `--predictive-actor` has ever been
+  combined with the population-sync barrier code.** Root cause not
+  isolated (buffered stdout most likely ate a real traceback); fixed
+  forward with a diagnostic-only launcher change,
+  `PYTHONUNBUFFERED=1` on every trainer launch (commit 4a62f80a,
+  tests green) so a repeat gives real evidence. A concurrent cycle
+  independently relaunched attempt 2 as
+  `cw-recover-predictive1b-pop3-s11/s12/s13` under the operator's
+  retry-once clause before the unbuffered fix reached those pods (old
+  buffered stdout still in effect there) — **left untouched, their
+  run; watch whether it also dies at 655,360** (s13 crossed the
+  barrier and sat waiting >5 min without dying on this attempt, a
+  mildly encouraging but inconclusive sign since the first attempt's
+  s11 also survived a similar wait before dying). If predictive1b also
+  dies at the barrier, that is TWO independent failures at the same
+  code path — stop blind-retrying a third time and dig into
+  `_RecoverPopulation.wait_for_start`/`_peer_rows` directly (next
+  attempt should at least carry the unbuffered fix). No behavioral
+  verdict on recovery skill from any of this — mechanism-integration
+  only. Detail: ledger verdicts on all `predictive1-pop3-*` entries.
+  **RESOLVED 08-18 ~17:3x (operator-kick cycle): the "silent zombie
+  at 655,360" was NOT a code-path failure — it was this cycle's own
+  deliberate fail-closed kill of s11/s12 (pkill ~17:00–17:02, both
+  parked healthy at the barrier), executed because s13's burned
+  single-use id 200e6aac made the roster permanently un-rendezvousable
+  (ledger verdicts on both entries, written before the zombie note).
+  Z-state within ~90s on two pods at exactly the barrier step =
+  watching the reap of that kill. Only mystery #1 (train-6 CPU-only
+  torch) and #2 (train-0/train-8 missing v5_mjx_fresh) are real infra
+  gaps. And the barrier code is fine with --predictive-actor:
+  attempt 2 `cw-recover-predictive1b-pop3-s11/s12/s13` (ids
+  7901e7bb/304ac843/95414586, pods train-5/7/9, pids 94552/41455/37398)
+  crossed the bootstrap barrier (leader released after all 3 at
+  655,360), and ALL THREE posted the first synchronized cert at
+  1,048,576: B0 plant_catch 16/16, frontier B0->B1,
+  CERT/recover_training_envs_synchronized=512, predictive_enabled=1
+  with finite gates. 40M from-scratch cohort now training; judge at
+  the pre-registered 40M checkpoints vs the any21 B14 wall.**
+
+- **08-18 ~16:3x (triage cycle): `cw-dep-bcgait1-hard1-steer1c`
+  canary PASSED (mechanism-health only) — found already finished on
+  the pod (ledger said RUNNING; W&B state=finished + no live process
+  on train-5 confirmed it was stale).** All bars: finite losses;
+  `train/approx_kl`=0.0069 (well under the 0.04 rollback trigger),
+  `kl_rollback_count`=0 for the whole run; the last periodic eval
+  (1,003,520 steps) and final video reel both show the tall gait
+  intact (walk err 0.052 m/s, tipped 2/2, rolltrap 2/2,
+  `walk_height_factor`=0.895 — not re-crouched, no fall explosion).
+  One wrinkle worth banking: the gate's literal "episodes average
+  >60s" bar is ARITHMETICALLY UNREACHABLE for a 2M-step/4096-env
+  canary against 120s episodes (2M/4096 ≈ 496 steps/env ≈ 19.8s total
+  budget — no env could ever be truncated) — judged instead on the
+  proxy that's actually available (`env/reward_termination`≈0 at the
+  final log, `ep_len_mean` tracking ~93% of the run's own
+  max-possible per-env elapsed budget throughout, i.e. essentially no
+  early terminations), which is what the bar was actually trying to
+  measure. Per the pre-registered rule, PASS launches the ~20M
+  hardening continuation with the operator's admission panel —
+  VERIFIED RUNNING on train-4 as `cw-dep-bcgait1-hard1-steer1-hard20m1`
+  (W&B `w3fbxfj7`, `--best-ckpt` retention guard, same stress-mix
+  recipe, warm-started from steer1c). Launch note: the first attempt
+  crashed at argparse (a real bug in `launch_run.py respec`'s
+  `--arg` handling for bare boolean flags — `--arg='--best-ckpt'`
+  with no `=value` appends a stray empty string that
+  `train_ppo_mjx.py` rejects) before spending any GPU time; fixed by
+  hand (stripped the trailing empty arg, re-queued via
+  `backlog add` with the raw arg vector instead of `--arg`), and a
+  duplicate stale ledger row + a misdirected W&B note (the launcher's
+  own retry loop briefly mis-verified the broken row as RUNNING, and
+  a ledger tool mirrored a correction onto the WRONG run's W&B page)
+  were both reconciled same-cycle. A supplementary DR-0/own-DR
+  harness eval kicked off on steer1c's checkpoint got reaped by the
+  pod-repair step before finishing (no artifacts) — not reissued,
+  since the canary verdict already stands on training telemetry.
+  Evidence: ledger verdict + W&B `bpz63iwd` OUTCOME note.
+
+- **08-18 ~16:1x (operator kick, fb_20260818T152717_278879): the
+  tall walker's steering-tangle diagnosis is DONE and the fix is in
+  flight.** New probe `probe_dirswitch_tangle` (48 matched 120 s
+  direction-switch episodes, rot60 ON vs OFF, det DR-0 + sto
+  DR-0.35, six schedule families): ZERO falls anywhere, and rot60
+  ON is strictly SAFER on every tangle proxy (yaw-limit saturation
+  1-4% of ticks vs 2-10% OFF; min inter-foot 110 mm vs 98 mm) —
+  **sector crossings exonerated; item-6 wrapper surgery NOT
+  triggered.** Confirmed gaps: post-switch yaw joints pressed
+  to/past hard limits and legs pausing (min legs-cycling-after-
+  change 0-4/6). Smallest fix = the ordered transition fine-tune:
+  `cw-dep-bcgait1-hard1-steer1c` (2M canary, RUNNING train-5, W&B
+  bpz63iwd) — 120 s episodes, stress_mix all six families, INSTANT
+  no-blend switches, irregular 2-20 s dwells (resample 11 s ± 82%),
+  actor-lr 1e-4 / target-kl 0.01 / kl-rollback 0.04,
+  term_cost_per_remaining_s=12 cap 240. Larger continuation is
+  pre-registered behind canary PASS (STATUS.md WAITING-ON entry has
+  the admission panel). Probe artifacts:
+  logs/probe_dirswitch/hard1_{a,b,c,dr_a,dr_b,dr_c}.json.
+
+- **08-17 ~22:3x (idle-drain): the postlower `[operator]` fork is
+  PRICED — fork (a) (align the eval to train==deploy semantics) is
+  the measured-best answer.** Built the `--rise-from-h` eval flag
+  (calls the REAL trained `_seq_segment_traj` generator instead of
+  the legacy cold sampler — a naive `--cfg-set` is a confirmed no-op
+  through this harness) and re-read `spec` (parent) + `spec-pl4` (c4)
+  under it, matched, n=1,200 fresh sessions (Cohort c5rr). Result:
+  `spec-pl4` crosses `spec`'s OWN post-lower-rise number on BOTH det
+  (0.963 vs 0.950) and sto (0.799 vs 0.779) under the fair schedule —
+  recovering ~9-11pp of its apparent c4 deficit just from the
+  schedule fix — and actually BEATS `spec` on overall sto session
+  zero-fall (0.91 vs 0.84). Retention at parity, eye clause PASS (16
+  reviewed episodes, both candidates: direct push-ups, no belly
+  detour, no new exploit), visual medians in-band. This does NOT
+  retroactively flip the c4 ledger verdict (correct under the
+  schedule that existed then) — it answers exactly the question that
+  verdict escalated. Two product-contract decisions still need the
+  operator: upgrade the runner/instrument (and real hardware
+  reference) to rise-from-h semantics generally, and/or promote
+  `spec-pl4` over `footlow2_hard1` as the stance half of the
+  hierarchy. No promotion made autonomously. Detail:
+  SESSION_BULK_GATE.md "Cohort c5rr — RESULTS".
+- **08-17 ~23:xx (operator order fb_20260817T221115_78b688):
+  `cw-recover-any15-retentionrollback-cont1` re-verdicted
+  scientifically INVALID — the dig-in bullet below is SUPERSEDED.**
+  The cert callback called `_recover_update_admission` with
+  `indices=0`, so only training env 0 advanced through the curriculum;
+  the other 511 PPO envs trained on the base bucket all run
+  (signature: `env/recover_focus_bucket=0.03125`,
+  `env/recover_active_families=1.03125`; ~94,510 B0 training episodes
+  vs 12-32 each for B1-B8). Every reward/frontier/stall/retention
+  conclusion from that run describes the cert probes, not the PPO
+  rollout distribution. Fix landed at main `4d1b45d` (admission
+  broadcast to all 512 envs + divergence abort;
+  `CERT/recover_training_envs_synchronized` must equal 512).
+  Per the same order, launched the from-scratch synchronized cohort
+  **recover-any16-pop3**: `cw-recover-any16-pop3-s11/s12/s13`
+  (seeds 11/12/13, member 0/1/2, NO init-from, 40M each, any11
+  recipe + 1M cert / 16 cert envs / retention gate / rollback 4M@0.60).
+  **UPDATE (~22:4x-23:0x): the any16 cohort was STOPPED and marked
+  INVALID_INTEGRATION_CANARY by operator amendment
+  fb_20260817T223644_c8bc48** — the 512-env cert broadcast worked on
+  all three, but population sync did not (member 0 self-adopted B1
+  and ran ahead to B2/B3; s12/s13 never adopted; root causes: cached
+  `wandb.Api` summaries in `_peer_rows` + no post-ACK release
+  barrier). Codex landed the fix (72d4c53 + f5aee3f: bootstrap
+  barrier at exactly 10 rollouts/655,360 steps, forced summary
+  refresh, leader release_BNN after all identity-bound ACKs) and the
+  successor cohort **recover-any17-pop3**
+  (`cw-recover-any17-pop3-s11/s12/s13`, same recipe +
+  `bootstrap-rollouts 10` / `barrier-timeout 900s`, still NO
+  init-from) is live per operator directive fb_20260817T225114_a31958
+  with a 7-point live integration gate (bootstrap WAIT before
+  start_B00, sync=512 certs, single B1 winner, all-ACK before
+  release_B01, fail-closed).
+  **OUTCOME 08-17 ~23:2x UTC (operator MCP note
+  fb_20260817T231211_ba01c4): any17 ALSO stopped at the bootstrap
+  barrier, all three rows INVALID_INTEGRATION_CANARY.** The barrier
+  itself worked exactly as designed (all three stopped at 655,360
+  steps with valid ready_B00 records; no cert/candidate/winner/
+  post-boundary training), but start_B00 was never released: a THIRD
+  distinct bug — `wandb.Api.runs()` caches the initially EMPTY peer
+  page queried before s13 existed, so s11/s12 were stuck at 2/3
+  discovery forever. Fix landed at main `686f5628` (fresh
+  `wandb.Api(timeout=15)` per unresolved-peer retry + regression
+  test). PIDs verified absent on train-0/1/3; evidence preserved; the
+  stale duplicate s11 REFUSED ledger row reconciled as
+  STALE_DUPLICATE. Relaunch remains `[operator]`-gated on Codex's
+  any18 directive (main STATUS WAITING-ON); do not resume any17
+  names. No behavioral conclusions from any cohort member.
+  **any18 LAUNCHED then FAILED CLOSED 08-17 ~23:2x-23:4x UTC per
+  operator directive fb_20260817T231336_93cacc (exact any17 recipe,
+  from-scratch, on 686f5628-or-descendant) — a FOURTH distinct sync
+  bug, not the one 686f5628 fixed.** `cw-recover-any18-pop3-s11/s12/
+  s13` ran on train-0/1/3 (distinct W&B ids `18q6to9f`/`e8qr91fq`/
+  `1z5ejwe4`, no init_from). Gate items (1)-(2) PASSED live: all three
+  stopped exactly at 655,360 steps with valid, distinct `ready_B00`
+  records (correct member/run_id/run_name/population_id/
+  root_fingerprint/bootstrap_steps — the exact spot any17 failed, now
+  clean). **Item (3) FAILED differently**: the leader (s11) crashed
+  with `RuntimeError` at its own 900s `barrier_timeout` having logged
+  ZERO "start poll deferred" exceptions the whole wait (`_peer_rows()`
+  never raised, it just silently never reached 3/3) — while a manual
+  replica of the identical peer-discovery query, run from the
+  controller at matching wall-clock times, resolved all three names
+  instantly, and W&B confirmed all three correct `ready_B00` records
+  were live well before the timeout. So the empty-page-cache fix
+  (686f5628) is real but insufficient — something inside the leader
+  process itself, not reproducible from the controller, still blocks
+  peer resolution, and `wait_for_start` has no diagnostic print for a
+  short peer count (unlike `poll()`), so only the crash surfaced it
+  at all. Stopped mechanically + cleanly: s11 self-terminated; s12/
+  s13 (pre-deadline) were killed once the leader was confirmed dead
+  (no member 0 left to ever release the race); PIDs verified absent
+  on train-0/1/3. All three ledger rows INVALID_INTEGRATION_CANARY,
+  W&B notes updated. Escalated `q_20260817T2340Z` (full analysis + a
+  concrete next diagnostic for Codex); per the directive's own
+  instruction, no fix attempted this cycle. `[operator]`-gated again
+  — do NOT relaunch any16/17/18 names without a fifth, root-caused
+  directive.
+  **any19 LAUNCHED 2026-08-17 ~23:5x UTC per operator directive
+  fb_20260817T234449_bcdcce, replacing display-name peer discovery
+  entirely** (fix at exact SHA `3cc62a2` — every member predeclares
+  its W&B id, `wandb.init(id=..., resume="never")` aborts on
+  mismatch, peers resolved by direct `api.run(project/id)`, no
+  `Api.runs()` anywhere). `cw-recover-any19-pop3-s11/s12/s13` running
+  on train-0/1/3 with ids exactly matching the predeclared roster
+  (`6907573e`/`1c67c001`/`79ef86ae`); bootstrap-boundary
+  (`total_timesteps=655360`) reached on all three at verification
+  time, sync-gate outcome not yet known — **see main STATUS
+  WAITING-ON, next checkup watches the full 7-point gate.**
+  `q_20260817T2352Z` filed (same GPU-step-cap overage as the two
+  prior launches).
+  **OUTCOME 08-18 ~00:2x UTC: any19 ALSO failed closed at the
+  barrier (no start_B00; all ready_B00 valid) — and the checkup
+  cycle that watched it live root-caused the ENTIRE any17/18/19
+  freeze family: a long-lived trainer process is pinned to the
+  stale W&B backend view from its first connect (wandb 0.28 shares
+  one authenticated session per process), so runs created after it
+  starts stay 404/invisible to it — by-id and by-name alike — while
+  out-of-process reads always see truth. One backend-view pinning
+  defect, not four client bugs. Second defect: all three members
+  hung PAST their 900s deadlines blocked in W&B calls (fail-closed
+  timeout unenforceable without call-level timeouts/watchdog).
+  Cohort killed + INVALID_INTEGRATION_CANARY x3, no behavioral
+  conclusions. Read-path fix landed at `8fbb7b21` ("Read recovery
+  peers through fresh GraphQL"); relaunch is `[operator]`-gated on
+  the sixth directive. Evidence: `q_20260817T2352Z` addendum.**
+  **OUTCOME 08-18 ~00:5x UTC: SOLVED — `cw-recover-any21-pop3-
+  s11/s12/s13` cleared the FULL 7-point gate live** (per operator
+  fallback `fb_20260818T002830_3d14e2`, roster ids `f14d9993/
+  a705c488/fe8501ac`): all 3 stopped exactly at 655,360, leader
+  released `start_B00`, all 3 crossed, each independently passed B0
+  cert (plant_catch 16/16), exactly one B1 winner elected (member
+  0), all 3 ADOPTED the identical checkpoint + ACKed, `release_B01`
+  fired, all 3 now racing B2. `8fbb7b21`'s InternalApi rendezvous is
+  PROVEN, not just tested. Getting here ate one more intermediate
+  cohort (`any20-pop3`): it also fully released (same mechanism
+  proof) but a concurrent checkup killed member 2 20s early because
+  checkups didn't yet know a barrier-wait looks like a stall — fixed
+  in the same window by the operator's own `4001b57c`; the partial
+  survivor was correctly stopped per never-continue-partial, and
+  any21 is the clean from-scratch replacement. No behavioral verdict
+  yet (integration win, not a recovery-quality one) — next checkup
+  watches for the first real cert/retention frontier. Detail: main
+  STATUS.md WAITING-ON, pod logs `/tmp/train_cw-recover-any21-pop3-
+  s1{1,2,3}.log`.**
+  **FIRST BEHAVIORAL READOUT 08-18 ~05:3x UTC: `cw-recover-any21-pop3-s12`
+  ran its full 40M budget — real progress, still not hardware-ready.**
+  Matched gate-eval (n=18, any11/any15 convention): DET 16/18 @DR-0
+  and 14/18 @DR-0.1, a new best for the line (prior 10/18 & 11/18)
+  and the first checkpoint to clear genuine tangle poses (frontier
+  reached B14 `tangle_deep`/B15 `tangle+bank`, past the old B8
+  `partial_high` wall); only real miss is `tangle_mid` (over_current,
+  a real torque fumble) + the never-trained `flip`. STO is still
+  0/18 both DR levels — unchanged — but reviewed sto video (plant_
+  catch, partial_high) shows clean level six-foot stands with no
+  fall/tangle; failures are timeouts against the strict quiet-hold
+  check (no TERM logged), the same known evaluator false-negative,
+  not a new defect. Even DET successes carry a real ~24° residual
+  lean (roll_settled 0/18) — not clean/level. Training-side: this
+  member's own curriculum hit B14 by ~15M steps then STALLED for the
+  remaining ~25M (62% of budget), oscillating on retention (bucket 0
+  itself dipped to 0-44% mid-run) before recovering at the final
+  round — the SAME stability wall already diagnosed at any11/any15's
+  B7/B8, just recurring one rung higher; the sync fix proved the
+  MECHANISM, not the wall. Verdict scoped to s12 only (post-B14
+  training diverged per-member); s11/s13 verdicts are the concurrent
+  cycle's. No follow-up queued — recover/tangle redesign stays
+  `[operator]`-gated. Detail: `rl_docs/runs/cw-recover-any21-pop3-
+  s12.md`.
+  **s11/s13 READOUT (this concurrent cycle, 08-18 ~05:3x UTC):
+  same story, both PASS, neither hardware-ready.** Both also
+  completed the full 40M budget with frontier B14 held from 16M
+  onward (shared cohort history through the last promotion).
+  Matched gate-eval: s11 13/18 det-DR0 + 16/18 DR-0.1, s13 13/18 +
+  10/18 — s11 roughly matches s12's strength, s13 is the cohort's
+  weak point (its DR-0.1 read is the only one at/below the prior
+  10/18-11/18 baseline). Video-verified genuine six-foot recoveries
+  on both, including s13's failures (short-of-height non-falls, not
+  collapses) — no flag/stilt/park exploit anywhere in the cohort.
+  Same confirmed new finding as s12: `RECOVER_GUARD/rollback_count`
+  stayed 0 for all 40M on both members despite repeated per-round
+  collapses on foundational buckets — s13's final cert round is the
+  starkest example (B0/B1/B2 at 7/3/2 of 16 right at step
+  40,042,496, no rollback triggered even though the guard's own
+  4M-regressed-steps design should have had ample opportunity). This
+  is the clearest evidence yet that once the population frontier
+  plateaus at a wall, members drift independently and the individual
+  rollback guard's consecutive-sub-threshold-age trigger cannot
+  catch oscillating retention loss — confirms the any15 dig-in's
+  predicted fix (judge a WINDOWED PASS RATE, not consecutive age) on
+  a run the sync bug does not confound. No follow-up queued —
+  recover/tangle redesign (incl. the rollback-trigger fix) stays
+  `[operator]`-gated and outside the SIM SPRINT. Detail:
+  `rl_docs/runs/cw-recover-any21-pop3-s11.md`,
+  `rl_docs/runs/cw-recover-any21-pop3-s13.md`.
+  **OUTCOME 08-17 ~23:0x UTC (operator MCP note
+  fb_20260817T223644_c8bc48): integration gate FAILED — cohort
+  STOPPED, all three ledger rows INVALID_INTEGRATION_CANARY.** The
+  512-env broadcast fix works (all certs synchronized=512), but the
+  population sync does not: s11 (member 0) elected+ADOPTED its own
+  B1 at local step 1,966,080 and ran ahead to publish B2/B3, while
+  s12/s13 never adopted anything and promoted private B1/B2 lineages
+  (log-verified on train-0/1/3). Root causes per the note: cached
+  `wandb.Api` summaries in `_peer_rows` (needs `load(force=True)`)
+  and no release barrier — all-ACK only blocks election, not the
+  leader training ahead. Codex is fixing and will issue one clean
+  relaunch directive; relaunch is `[operator]`-gated (main STATUS
+  WAITING-ON). No behavioral conclusions from any of the three runs;
+  checkpoints preserved on pods; /dev/shm cleaned on train-0/1/3.
+- **[SUPERSEDED by the 08-17 ~23:xx INVALID correction above — its
+  frontier/stall/retention conclusions are void] 08-17 ~22:xx
+  (dig-in): `cw-recover-any15-retentionrollback-cont1`
+  FAIL by its gate's frontier clause, but the clause was the invalid
+  part — the retention-gated promotion mechanism is PROVEN and it
+  proved the recovery line's ladder numbers were INFLATED.** Guard
+  items (1)-(3) all live: 8 promotions (B1@1.05M … B8@25.03M), each
+  with a saved policy ZIP + curriculum JSON on pod and W&B, every
+  `recover_promoted=1` paired with a same-round
+  `retention_suite_passed=1`, training-error priority responding to
+  fumbles (b4 0.00→0.20, sample prob 0.45→0.06-0.26). Item (4)
+  (timed rollback) never fired and is MIS-TARGETED: the observed
+  failure is OSCILLATION (a bucket reads 0.00 then 1.00 in adjacent
+  1M cert rounds, resetting the consecutive-failure timer; max age
+  3.01M vs the 4M trigger), not the monotone forgetting the timer
+  assumes. Root cause of the B8 stall: nothing was forgotten —
+  over the last 15M steps buckets 0-3 pass 100% of rounds, b4 0.85,
+  b5/b6 0.90; the wall is the frontier neighborhood, b7 `crouch_deep`
+  (pass rate 0.47, mean 0.59) and b8 `partial_high` (0.14, mean
+  0.31), and promotion was correctly denied at 28M/34M because b7
+  dipped in the same round the frontier passed. **Measurement
+  correction (the real result): `any11`'s "B15" was earned under
+  rotating-subset certification with stale passes — its own history
+  reads b1=0.06/b2=0.00/b3=0.00 at 15M with frontier 13, and
+  b0=0.06/b1=0.31 at 38M with frontier 15 — while matched one-shot
+  gate evals put any11 and any15 at EQUAL capability (det 10/18 at
+  DR-0 and 11/18 at DR-0.1 for both; sto 0/18 for both). So the
+  lineage's honest same-round-certified frontier is B8, not B15, and
+  "B8 vs B15" is a certification-standard artifact.** Video honest:
+  successes are genuine six-foot recoveries (no flag/stilt/park) and
+  the b8 failures are not falls — upright, roll_tail 0.1°,
+  end_posture_ok, valid_plant, just short of the held-success height
+  (plant_margin 128.8mm vs 143.3mm on a success). Also noted:
+  warm-start does NOT carry curriculum state (frontier restarts at
+  0). No follow-up arm — recover/tangle redesign stays `[operator]`
+  and is outside the SIM SPRINT. **Next, if the line reopens:** make
+  the rollback trigger judge a windowed pass RATE instead of
+  consecutive sub-threshold age, and aim the first lever at
+  crouch_deep/partial_high STABILITY, not at more ladder rungs.
+- **08-16 ~21:xx (triage cycle): `cw-recover-any13-tanglersi-bank1` FAIL —
+  on-path-bank RSI does NOT crack tangle either; CLOSES the exposure-
+  side lever class for tangle entirely (2nd new-mechanism miss,
+  after 3 curriculum-weight misses any7/any11/any12) and surfaces a
+  new starvation regression.** Tangle CERT success_fraction touched
+  0.75 twice in a row (24.1M/25.0M) but never sustained ≥0.7 through
+  the 30M budget — it decayed to a 0.1875 trough at 28M and closed
+  at 0.5. Independently, the retention floor the gate was watching
+  broke: zero-bucket (RSI-protected) read 1.0 four times through 24M
+  then crashed to 0/16 at its last reading (29M); bucket 10 crashed
+  to 0/16 at BOTH of its last two readings (28M, 29M) right after
+  reading 1.0 at 23-24M — the same starvation signature any12 showed
+  under 0.80 focus, now appearing even with the DEFAULT curriculum
+  mix restored (16-ep readings, so 1.0→0/16 is a real regression,
+  not noise). Root-cause note for the redesign: the recover BC
+  anchor is eligibility-gated OFF whenever the robot isn't already
+  near-upright/near-plant (08-15 anchor directive, by design), so it
+  structurally cannot supervise the tangled→upright transition
+  itself — fixing this needs a tangle-specific reference trajectory
+  or a relaxed eligibility gate, a design call, not another
+  automatic exposure knob (see WAITING-ON, `[operator]`). `any11`
+  stays the recovery line's reference checkpoint — independently
+  corroborated by MCP note `fb_20260816T203228_bc9bad` (operator
+  review recommending any11 as canonical; already the parent here).
+  No further recover/tangle arm queued this cycle pending that call.
+- **08-16 ~18:xx (triage cycle): `cw-recover-any12-hifocus-cont1` FAIL —
+  curriculum-weight for tangle is CLOSED (3rd miss: any7, any11,
+  any12), extreme focus concentration also actively HURTS retention,
+  and the named next-lever CODE (a harvested on-path RSI bank for
+  tangle) is BUILT and launching this same cycle.** Pushing
+  `recover_focus_mix` to 0.80 (from the proven 0.50/0.25/0.15/0.10
+  default) did not just fail to crack the tangle-family plateau — the
+  run's curriculum frontier never even reached the wall bucket (B15,
+  `tangle`+`bank`) inside its full 20M budget, stalling at B13
+  (`tangle_mid`) for the last 3M steps, TWO rungs behind any11's own
+  pace at a matched step count (any11, default mix, reached B15 by
+  21.1M from scratch). Extreme concentration made ladder-climbing
+  throughput WORSE, not better — reinforcing rather than merely
+  matching the closure. Unplanned second finding: buckets 0-10
+  retention broadly COLLAPSED under the 80% frontier mass (final-cert
+  training gate_fraction 0.0 on b0/b1/b5/b6/b7, 0.125-0.1875 on
+  b2/b8/b9; harness det agrees, 7/11 early buckets 0/1) — RSI
+  protection is wired only to the `zero` family, and the remaining 20%
+  recent/weak/uniform mass can't sustain 10 other buckets under that
+  much starvation. **`any12` must NOT replace `any11` as the recovery
+  line's reference checkpoint — `any11` stays best** (it held buckets
+  0-10 solidly at ≥0.8). Video: zero/tangle_mid/tangle_mild det
+  successes are genuine six-foot settles; tangle/tangle_deep/bank det
+  failures are a genuine low-splay stall, no exploit.
+  **CODE-FIRST, built this cycle:** the pre-registered next lever
+  (RSI generalized beyond the belly→plant reference, which has no
+  equivalent for tangle's non-monotonic untangling motion) is now a
+  second, independent RSI axis — `goal.recover_rsi_bank_frac`/
+  `_bank_kinds`/`_bank_path` (default off, bit-exact, mutually
+  exclusive with the ref-path axis per-episode) plus
+  `harvest_recover_rsi_bank.py`, which rolls a checkpoint
+  DETERMINISTICALLY (this campaign's own "sto collapses to 0" recover
+  artifact would starve a stochastic harvester of successes even on
+  solved kinds) through forced episodes of a target kind and keeps a
+  subsample of the joint poses from the MIDDLE of every episode that
+  reaches `recover_success` — an on-path bank built from the policy's
+  own occasional wins, not a hand-choreographed reference. `test_
+  recover_rsi_bank_*` (3 tests) + full RECOVER bank green (150/150),
+  REWARD.md row, snapshot `1202b816`. Harvested a real bank from
+  `any11` on all four tangle-family kinds (350 episodes/kind,
+  deterministic, on train-0's idle CPU, ~4572 poses from 762
+  successful episodes) — per-kind success rates 0.926 (tangle_mild) /
+  0.497 (tangle_mid) / 0.377 (tangle) / 0.377 (tangle_deep), matching
+  the historical 0.25-0.44 band on the two hard kinds exactly and
+  confirming the source checkpoint's real, if partial, competence to
+  harvest from. **`cw-recover-any13-tanglersi-bank1`
+  LAUNCHED** (warm from `any11`, NOT `any12`; default curriculum mix
+  restored; `recover_rsi_frac=0.5`/`kinds=zero` kept for zero-safety;
+  new `recover_rsi_bank_frac=0.5`/`kinds=tangle,tangle_deep,
+  tangle_mid,tangle_mild` pointed at the harvested bank). Gate: read
+  at 30M or earlier plateau — `tangle` (the actual wall kind) CERT
+  success_fraction must sustain ≥0.7 across ≥2 consecutive late certs
+  once it reaches frontier; zero + buckets 0-10 retention must hold
+  ≥0.8 at the final cert (a regression there would mean the new axis
+  repeats any12's starvation mistake). FAIL closes the on-path-bank-
+  RSI lever for tangle too and escalates to a reward/BC-teacher-side
+  redesign (operator call, named in WAITING-ON if it comes to that).
+- **08-16 ~16:xx (triage cycle): `cw-recover-any11-rsi-scratch1` PASS —
+  RECOVER RSI genuinely generalizes to from-scratch protection; the
+  zero-bucket (flat-belly) wall is now SOLVED as a training recipe,
+  and the tangle wall gets its 2nd miss on curriculum-weight fixes.**
+  Genuinely from-scratch (any6's exact recipe, `recover_rsi_frac=0.5`
+  on kind `zero` from step 0), 40M budget. CERT frontier hit B11
+  (zero) at 12.1M steps and cleared it in <1M steps (promoted to B12
+  by 13.1M) — NO multi-cert stall, unlike any8/9/10's permanent
+  stalls (>27M steps stuck, three separate mechanisms). Frontier then
+  climbed cleanly through B12-14 and reached B15 (tangle+bank) by
+  21.1M, holding there through 40M — matching/beating any6/7's clean
+  pace. Harness eval confirms genuine capability, not an artifact:
+  det zero (b11) 1/1 `recover_success`, bank (b16... b15 bank kind)
+  1/1, video (recover_det_11, recover_det_16) shows real six-foot
+  settle from a fallen/awkward start, no flag-leg/stilt/park.
+  `tangle`/`tangle_deep` still fail (0/1 each) — this reconfirms the
+  EXACT same statistically-solid tangle wall any7 already named
+  (0.25-0.44 cert fraction band), now under a SECOND, differently-
+  mechanisms attempt (any7: bigger cert sample + more time; any11:
+  RSI + the current default spaced-replay sampler) — **two misses on
+  "exposure/curriculum-weight cracks tangle," closing that avenue
+  per the two-miss rule.** Secondary: a few early buckets (b0/1/2/9/
+  10) miss their single harness sample despite ~1.0 CERT history
+  throughout training — matches the already-named PPO-churn cert-
+  oscillation pattern, not new forgetting (video for b0/plant_catch
+  shows a stable, correctly-postured stance that simply never
+  crosses the strict consecutive-hold success threshold). `sto`
+  collapses to 0/18 across every bucket on both DR0 and own-cfg(0.1)
+  — matches the already-documented any4 action-noise/hold-criterion
+  artifact (video confirms a visually stable stance under noise,
+  just never holds the required consecutive ticks), not new
+  evidence. **Recovery line's best checkpoint is now `any11`**
+  (matches any6/7's frontier with RSI protection baked in from
+  scratch — the safer base for any future recover-line warm-start,
+  since it can never re-entrench the zero stall). One untried,
+  no-new-code lever launched same cycle as a genuine (not repeat)
+  test before calling tangle a NEW-MECHANISM-ONLY wall:
+  **`cw-recover-any12-hifocus-cont1`** (warm from any11, focus mass
+  pushed well above the ~0.50 both misses trained under —
+  `recover_focus_mix=0.80/recent=0.10/weak=0.05/uniform=0.05`, RSI
+  kept on for zero-safety, 20M budget) — if tangle still plateaus in
+  the same 0.25-0.44 band even at near-maximal frontier concentration,
+  that is the THIRD miss and definitively closes curriculum-weight
+  for tangle; the next lever would then be a genuinely new mechanism
+  (a tangle-specific on-path RSI bank harvested from successful
+  tangle-recovery rollouts, generalizing the rise-path RSI trick
+  beyond the belly->plant reference it's hardcoded to today) — CODE,
+  not yet built, named here for whichever cycle picks it up if
+  any12 also misses.
+- **08-16 ~13:xx (triage cycle): `cw-recover-any10-zerorsi-cont1` FAIL —
+  RECOVER RSI does NOT rescue an already-stuck policy; the any8/any9
+  stuck-lineage rescue is now CLOSED (no third warm-start).** Matched
+  A/B vs any9 (same stuck any8 checkpoint, same diffuse masses, ONE
+  delta: `recover_rsi_frac=0.5`). Bucket 11 (zero) CERT success stayed
+  <=0.125 across the whole 20M budget (last 5 certs: 0, 0, 0, 0,
+  0.0625 — no rising trend), and the single-sample harness gate eval
+  agrees exactly (zero 0/1 det, `over_current` termination). Video
+  (recover_det_11) is the same flat-splay-then-stall pathology as
+  any8/any9 — genuine capability gap, not an exploit. Buckets 0-10
+  retention also broke at the literal final cert (bucket 9
+  gate_fraction 0.5625 < 0.8), consistent with the PPO-churn
+  oscillation already named on any9, not new forgetting. Per the
+  pre-registered gate: **stuck-lineage rescue CLOSED entirely** (three
+  attempts now: any8 spaced-replay, any9 curriculum-mass, any10 RSI,
+  all FAIL identically on bucket 11); RECOVER RSI is RETAINED as a
+  mechanism, untested until now on a policy that ISN'T already stuck.
+  **Refilled same cycle: `cw-recover-any11-rsi-scratch1`** (genuinely
+  FROM SCRATCH, any6's exact recipe, `recover_rsi_frac=0.5` ON from
+  step 0 — VERIFIED RUNNING train-0, `--phase acquisition`, 40M
+  budget). Tests the live half of the hypothesis any8/9/10 never
+  reached: does RSI keep a policy from ever entrenching the zero stall
+  in the first place, rather than curing one that already has? Gate:
+  zero CERT must reach >=0.8 within 3M steps of becoming frontier (no
+  multi-cert stall) AND frontier must legitimately reach >=B12
+  (tangle_mild) by 40M with buckets 0-10 retained >=0.8. FAIL closes
+  RSI-for-zero entirely (from-scratch protection also fails) and calls
+  for a genuinely new mechanism (reward/BC-teacher-side) on the zero
+  family. Recovery line's best CURRENT checkpoint (until any11 lands)
+  stays any7 (B15, tangle+bank, bank solved / tangle contested,
+  10/10-episode video-confirmed genuine six-foot recover-to-stand,
+  no flag/stilt/park).
+- **08-16 ~12:xx (dig-in cycle): the zero-bucket (flat-belly) wall is
+  root-caused and the mechanism fix is TRAINING.** Dig-in on the any9
+  FAIL found the gap is start-distribution COVERAGE, not anchor
+  pressure or pricing: the recover BC anchor already fires everywhere
+  (eligible ~1.0) with a near-minimized loss (~0.05, no headroom), but
+  the ladder's partial_high/mid/low rungs are LINEAR joint blends
+  (f·q_crouch), NOT states on the executable belly→plant rise
+  trajectory — so a policy entrenched in the splay-to-low-crouch/
+  over-current local optimum never practices mid-rise states (the
+  exact exploration gap `goal.rise_rsi_frac` closed for the rise task
+  in the footlow2 lineage). The "retention regression" is cert-to-cert
+  OSCILLATION (crouch_deep 0.0→1.0→0.0, B10 0.06→0.94), i.e. PPO churn
+  from grinding a 0%-success frontier — secondary, not forgetting.
+  **Built this cycle: RECOVER RSI** (`goal.recover_rsi_frac` /
+  `recover_rsi_kinds`, default-off bit-exact; naturally drawn
+  zero-family episodes spawn on a random rise-reference row; forced
+  CERT/eval kinds never carry the flag so certification stays pure by
+  construction; RSI episodes excluded from rollout/self-cert stats;
+  `test_recover_rsi_*` + full RECOVER bank 24/24 green; snapshot
+  `a1994dee`, REWARD.md §4c row). **`cw-recover-any10-zerorsi-cont1`
+  VERIFIED RUNNING (train-1): matched A/B vs any9** — same stuck any8
+  checkpoint, same diffuse masses, same seed, ONE delta
+  (`recover_rsi_frac=0.5`, the footlow2-proven fraction). Gate: B11
+  pure-CERT ≥0.5 in a late cert + buckets 0-10 ≥0.8 at final cert;
+  FAIL closes the stuck-lineage rescue (no third warm-start) and
+  returns the line's frontier to any7's tangle wall.
+- **08-16 ~10:1x (triage cycle): `cw-recover-any9-lessfocus-cont1` FAIL —
+  the SECOND miss on the curriculum-mass hypothesis, CLOSES that
+  avenue, plus a new retention regression.** De-concentrating replay
+  mass off the stuck B11 (zero/flat-belly) frontier (focus 0.50→0.20,
+  recent 0.25→0.35, uniform 0.10→0.30, warm-started from any8's exact
+  stuck checkpoint) did NOT unstick it: CERT bucket 11 success_fraction
+  went 0.25→0.25 (inherited) then flat 0.0 for the last 7/9 certs over
+  the full 20M budget, never reaching the pre-registered ≥0.5 bar —
+  frontier never promoted past B11. Video (recover_det_11) confirms a
+  genuine capability gap, not an exploit: robot stays flat/splayed on
+  its belly and trips over_current before rising — the same flat-
+  rise-stall pathology named elsewhere in the campaign. **Two misses
+  now on curriculum-mass (any8 concentrated, any9 diffuse), both FAIL
+  identically — the curriculum-mass avenue is CLOSED per the two-miss
+  rule; do not schedule a third mass resweep.** NEW, unpredicted
+  finding: the required buckets 0-10 ≥0.8 retention floor also broke —
+  crouch_mid (B6) dropped to 0.25 and crouch_deep (B7) to 0.0 at the
+  final CERT. Next lever named by the pre-registered gate: a
+  mechanism-level fix (targeted BC anchor exposure or a reward term
+  for the zero/flat-belly family), not another schedule tweak — this
+  needs new reward/env code, **flagged DIG-IN** rather than designed
+  here (see WAITING-ON). Universal-recovery's best result stays
+  any6/any7's plain-curriculum lineage (B15, tangle wall, bank
+  solved); no product baseline touched.
+- **08-16 ~08:1x (triage cycle): `cw-recover-any8-spacedreplay-scratch1`
+  FAIL, WORSE than the pre-registered if-false branch predicted —
+  spaced replay got permanently stuck THREE RUNGS SHORT of the
+  tangle wall, on a bucket neither sibling stalled on.** Same MDP/
+  recipe as any6/any7, genuinely from scratch, but with bucket-level
+  spaced replay (50% frontier / 25% previous-3 / 15% weakest / 10%
+  uniform, default masses) + 16-episode certs (was 8) + 3 retention
+  buckets. Frontier climbed cleanly B0→B11 by 13.0M steps (~1M/bucket,
+  matching any6/7's pace) then FLATLINED at B11 (`zero` — belly-flat
+  + small joint jitter) for the entire remaining 27M/40M steps: 28
+  consecutive 16-ep certs average 1.6% success (mostly exact 0/16,
+  best-ever 3/16) despite holding 50% of ALL training sample mass the
+  whole time. Never reached B12-15 (tangle/bank) any6 AND any7 both
+  climbed to — this is not "slower," it never got there. Video
+  (recover_det_17, the zero-bucket episode) confirms a genuine
+  capability gap, not a cheat: robot starts flat, splays into a low
+  crouch by frame 2, never completes the rise in the full 16s episode
+  — the flat-rise-stall pathology named elsewhere in the campaign, no
+  flag-leg/park/stilt. Single-sample harness eval agrees exactly
+  (zero 0/1 det AND sto, both DR-0 and own-DR-0.1 passes). Retention
+  of buckets 0-10 is solid at the FINAL read (≥0.8125, mostly 1.0)
+  but a non-frontier bucket dipped below 0.8 in 14/28 rounds while
+  B11 was frontier — the no-forgetting promise only partially held.
+  **Resolves any7's flagged open question: plant_catch (bucket 0) is
+  NOT a real retention regression** (training cert 16/16 solid
+  throughout, harness confirms 1/1 det; any7's sto 0/18-everywhere
+  and this run's identical pattern are the already-documented any4
+  action-noise artifact, not new evidence). **CONCLUSION: spaced
+  replay as specified is measured WORSE than any6/7's plain cert-
+  gated curriculum for climbing THIS ladder**, and additionally
+  exposes a THIRD wall (zero, B11) neither sibling hit — plausibly
+  because dedicating 50% of mass to a stuck frontier starves the
+  varied earlier-bucket exposure that apparently bootstraps the
+  flat-belly recovery. One miss on this exact hypothesis (not two) —
+  no resample without a mechanism change (e.g. cap/anneal the
+  frontier mass share, or attack the zero-bucket flat-rise stall
+  directly). The universal-recovery project's best result stays
+  any6/any7's plain-curriculum lineage (B15, tangle wall, bank
+  solved); no product baseline touched. **Refilled same cycle:
+  `cw-recover-any9-lessfocus-cont1`** (warm-started from any8's exact
+  stuck checkpoint, not from scratch — 20M budget, VERIFIED RUNNING
+  train-9) tests the named suspect directly: ONE coupled change (the
+  4 spaced-replay mass shares must renormalize together) — focus
+  0.50→0.20 / recent 0.25→0.35 / weak 0.15 unchanged / uniform
+  0.10→0.30 — de-concentrating replay off the stuck B11 frontier.
+  Gate: bucket 11 CERT success_fraction must show a clear rise and
+  reach ≥0.5 in some late cert (vs any8's flat ~0.016 mean) AND
+  buckets 0-10 stay ≥0.8 retained, or the curriculum-mass hypothesis
+  is refuted and the next lever is mechanism-level (BC anchor /
+  reward term for the zero family), not a third mass resweep.
+- **08-16 ~06:3x (triage cycle): `cw-recover-any7-tangle-cont1` FAIL on
+  its primary bar, but SHARPENS the any6 wall — bank is SOLVED,
+  tangle specifically is a statistically solid wall.** Warm-started
+  from any6, fresh 40M budget, doubled cert sample (8→16 eps/kind).
+  Frontier climbed 0→15 by 34M (curriculum state resets on warm-start;
+  network weights don't) then sat flat at B15 for the whole last 6M
+  steps — never promoted to B16 (flip). Splitting the combined
+  bucket-15 read: **bank cert fraction is now 0.56–1.0, trending to
+  1.0 the last 3 reads — solved.** **Tangle cert fraction is flat at
+  0.25–0.44 across all 6 late certs (n=16 each) — a real, statistically
+  solid wall, not curriculum noise** (any6 could only say "contested";
+  the bigger sample confirms it's a genuine plateau). Video (det, all
+  4 tangle severities) shows the skill is REAL when it fires: legs
+  start visibly crossed, the policy genuinely works them apart and
+  settles into a clean six-foot stance within ~2s, holds clean to
+  16s — no flag-leg/park/stilt. So this is a success-RATE gap under
+  held-out variation, not a missing skill. flip (B16, never trained)
+  fails as expected (genuine on-back flailing). Sample-size alone
+  didn't move tangle, so the next lever must be different exposure/
+  curriculum weight on tangle specifically, not more precise
+  measurement of the same mix — `cw-recover-any8-spacedreplay-scratch1`
+  (spaced replay, running) is testing one such lever now; if it also
+  misses on tangle, per two-miss discipline the next design needs a
+  named new mechanism, not a third resample.
+- **08-16 ~02:5x (triage cycle): micro-bucket curriculum CONFIRMED —
+  `cw-recover-any6-microbuckets-scratch1` PASSED its full 40M budget.**
+  The frontier climbed cleanly (every promotion CERT-gated ≥0.8, no
+  shortcuts) from B0 all the way to B15 by 22M/40M steps — the exact
+  B4/B5/B6 cliff any4/any5 were built to diagnose is GONE, and this is
+  the furthest the universal-recovery line has ever reached. It held
+  the B15 peak (tangle+bank) for 5 straight certs (tangle 62.5–100%,
+  bank 75–100%) before one bad bank-kind cert (12.5%) triggered the
+  designed retreat at 28M; the remaining ~12M steps oscillated B13–B14
+  (tangle_mid/deep, CERT ~0.25–0.75, never resettling ≥0.8), finishing
+  at B13. Video confirms genuine six-foot-loaded stable stands (roll
+  tail 0.1–0.3°, height err ~0mm) on every certified bucket incl.
+  tangle_mild/mid and bank — no flag-leg/stilt/park anywhere. NEW WALL
+  NAMED for the next arm: tangle-family recovery (self-tangled legs)
+  + the harvested bank poses, still actively contested (not
+  flatlined) when the budget ran out — a real capability gap, not a
+  curriculum artifact. Next: warm-start continuation from this
+  checkpoint targeting the tangle/bank wall specifically (see
+  `cw-recover-any7-tangle-cont1`, launched this cycle).
+- **08-15 ~23:1x (operator-kick cycle, fb_20260815T230538_a6f8d2):
+  micro-bucket curriculum live.** Operator found B4→B5 and B5→B6
+  were cliffs and replaced the coarse ladder with 17 baby-step
+  buckets (B0 plant_catch … B16 flip, commit `3d556232`); promotion
+  authority is now the literal latest deterministic held-out batch
+  fraction (≥0.8 promote, <0.2 retreat; EMA never gates), with exact
+  per-bucket stochastic training scores counting EVERY terminal env
+  (`TRAIN/recover_bucket_N_success_fraction/_successes/_episodes`)
+  and deterministic authority as
+  `CERT/recover_bucket_N_success_fraction/_successes/_episodes`.
+  `cw-recover-any5-mjxcert-scratch1` STOPPED at ~7.7M and preserved
+  as the coarse-bucket cert diagnostic (bucket identities changed —
+  no continuation). Successor **`cw-recover-any6-microbuckets-scratch1`**
+  launched FROM SCRATCH on train-1 (W&B 78xjmlov; no --init-from, no
+  transplant; clones any5's full 40M recipe), bank green (117/4/1).
+  Verified live: B0–B16 map in W&B config, TRAIN B0 metrics logging,
+  first 1M cert fired — CERT B0 fraction 1.0 (8/8 episodes), frontier
+  0→1 promoted by the deterministic authority. Watch: how far the
+  frontier climbs past the old B4/B5-equivalent rungs.
+- **08-15 ~22:3x (superseded by the entry above — any5 stopped at
+  ~7.7M under fb_20260815T230538_a6f8d2; triage + operator directive
+  fb_20260815T222943_d019de): `cw-recover-any4-b0scratch1` STOPPED at
+  ~10.8M/40M — the curriculum's judge, not the policy, was the bug.**
+  Reward quarters were flat/worsening (-103.9→-108.3) and B0 EMA
+  stuck near 0 under the stochastic rollout success signal used
+  below, but a deterministic same-checkpoint eval on the reference
+  C-MuJoCo simulator scores B0-B4=1.0, B5=0.667 — the policy already
+  catches itself from small disturbances. The gap: action noise
+  (~0.38 std) keeps nudging a foot off the ground and re-triggers the
+  strict 0.5 s six-foot hold requirement, so the *noisy* rollouts that
+  drove promotion never registered success even when the *calm*
+  policy already could. Fix (operator-approved, commit `3589f418`):
+  promotion now runs off a periodic deterministic certification pool
+  on the exact training backend (Warp/MJX) — `CERT/recover_bucket_*`
+  — with the old stochastic EMAs and the C-MuJoCo assay demoted to
+  telemetry-only. Successor **`cw-recover-any5-mjxcert-scratch1`**
+  launched FROM SCRATCH on train-1 (clones any4's full recipe +
+  `--recover-cert-every 1000000 --recover-cert-envs 8`), verified
+  live via `/proc`. Hard gate at ~1M: `CERT/recover_bucket_0_success`
+  must be PRESENT (8-episode denominator); if CERT B0 fails while the
+  background C-MuJoCo SCORE B0 still passes, that is a genuine
+  Warp-vs-C backend mismatch, not more curriculum tuning — report it,
+  do not promote. any4's checkpoint preserved on train-1 as the
+  backend-mismatch diagnostic. Ledger verdict + W&B OUTCOME note
+  complete on any4; no further action needed on it.
+- **08-15 ~22:0x (operator-kick cycle, fb_20260815T214555_008f42):
+  the RECOVERY LINE IS LIVE AGAIN — `cw-recover-any4-b0scratch1`
+  launched FROM SCRATCH on train-1 (W&B brjnwcnb, 40M,
+  hw/acquisition) on the operator's bucketed curriculum at exact
+  main c60c7ac** (zero-indexed ladder B0 plant_catch ±2° → B1-B3
+  onefoot micro/mid/full → B4 tripod park → B5 crouch/partial/bank
+  → B6 zero/tangle → B7 flip; promote EMA≥0.8 n≥4, retreat+re-certify
+  <0.2 n≥6, no harder probes). Genuinely scratch: no --init-from, no
+  --obs-pad-transplant, parent null; any2b is comparison evidence
+  only. Preflight green same cycle (recover 17/17, full bank 113
+  pass / 4 skip / 1 xfail — matches operator's numbers). Verified
+  live at ~1.2M: frontier B0-only (`env/recover_start_bucket=0`,
+  `recover_frontier_bucket=0`, `recover_active_families=1`), valid
+  settled B0 resets (tilt 0.44°, height 141 mm, min-load 3.3 N), BC
+  recover anchor filling (131k, footz loss 0.16), first forced eval
+  emitted `SCORE/recover_bucket_0..7_success` with explicit
+  denominators (2/2/2/2/2/6/4/2 episodes). Train-side B0 EMA ~0.12
+  (early, as expected from scratch). Watch: B0 success curve must
+  rise; promotion only at EMA≥0.8 n≥4.
+- ~~**08-15 ~20:5x (operator-kick cycle, fb_20260815T201417_5f7f0e +
+  superseding fb_20260815T201712_39279d): the RECOVERY LINE IS
+  PAUSED `[operator]`**~~ — CLEARED by the entry above; history:
+  waiting on the operator's bucket-0
+  curriculum (plant-catch / micro-onefoot rungs, tripod park moved
+  later, per-bucket SCORE metrics), a new exact main SHA, and the
+  final launch directive. Executed: `cw-recover-any2b` KILLED at
+  2.75M under the stop-the-warm-arm order (checkpoint preserved on
+  train-1 + W&B u9sp8dki, RESUMABLE); the ordered from-scratch
+  replacement `cw-recover-any3-scratch1` was NEVER LAUNCHED — the
+  supersede arrived first (ledger stub marked SUPERSEDED; RECOVER
+  preflight bank 13/13 PASS on main 6f909719 stands for the future
+  launch). **Honest read at kill: any2b was WORKING — split det eval
+  onefoot success=1 (fixed the foot in 1.58 s) AND park success=1
+  (rose from the crouch in 2.36 s), `SCORE/recover_success=1`,
+  `tipped_recovery_success=1`, BC recover anchor filling, curriculum
+  correctly bucket-1-only; train-side sto EMAs still ~0.1 (early).
+  The "warm-start flatlined at zero" premise behind the pause traces
+  to any2's blind evaluator, not to learning failure — decision
+  asked in OPERATOR_QUESTIONS q_20260815T2050Z (resume any2b vs
+  bucket-0 scratch, or both).**
+- **08-15 ~20:3x (operator-kick cycle, fb_20260815T194955_9441a0):
+  the replacement went LIVE as `cw-recover-any2b` (W&B u9sp8dki,
+  train-1, 40M, hw/acquisition)** — first attempt (`cw-recover-any2`,
+  W&B lf5afhd6) was a no-science FALSE START: train-1's fresh
+  bootstrap lacked sb3-contrib, the trainer's bg eval/video/canary
+  child died at first import and the run was permanently eval-blind;
+  killed at ~5M, pod env fixed, `bootstrap_train_pod.sh` patched
+  (sb3-contrib pinned + smoke import). any2b verified end-to-end at
+  1.2M: bucket-1-only curriculum active, per-kind EMAs/counts and
+  settled-reset telemetry live, `train/bc_anchor_*_recover` filling,
+  and the split eval already shows det onefoot 2/2 AND park 2/2
+  (`SCORE/recover_onefoot_success=1`, `park=1`) — the exact signal
+  any1 never produced in 13.5M. Bucket-1 gate as pre-registered.
+  (Superseded ~20 min later — see the entry above.)
 - **08-15 ~20:0x (operator-kick cycle, fb_20260815T193318_2cc049):
   `cw-recover-any1` KILLED at ~13.5M by OPERATOR ORDER (failed
   diagnostic: aggregate success 0, Phi/quality declining, NO
@@ -29,11 +881,25 @@ unresolved blockers between the robot and reliable joystick control.
   supervision (foot-z BC 1.0 @ 3mm, min-height-ahead 15mm above the
   BELLY datum, lookahead 0.5 s, height-matched state alignment).
   Preflight: plant-teacher held-success from settled onefoot AND park
-  is now a semantics-bank test (PASS). Gate: >=95% det / >=85% sto
-  held recovery on forced onefoot+park by 40M, no rise/hold/lower
-  regression. any1's other MDP pieces (PBRS reward, 5.1 s horizon,
-  185° envelope) carried unchanged. The paragraph below describes
-  the original any1 spec, kept for the mode's design record.**
+  is now a semantics-bank test (PASS; full bank 109-pass green).
+  any2 was launched by the CONCURRENT operator-kick cycle
+  (fb_20260815T194955_9441a0) on train-1, W&B `lf5afhd6`, SHA
+  local==pod 4f70cc13, verified advancing (1.44M @ ~20:1x) with
+  per-kind counts/EMAs live. Its gate: both forced onefoot/park
+  success curves must RISE, no promotion before per-kind EMA>=0.8
+  n>=4, STOP EARLY on invalid settled resets or zero BC
+  eligibility/fill; full-arm bar keeps any1's 95/85 held-recovery +
+  video + no rise/hold/lower regression. BASELINE (this cycle's
+  read): settled onefoot lands h~133mm tilt 3.3deg, park h~119mm
+  tilt 1.3deg, ALL feet grounded but under-loaded (min_load
+  2.3-2.7N — the limp settle mostly drops the lifted feet back
+  down, so bucket 1 = a load/height correction, not a re-plant);
+  zero-shot transplanted parent success = 0 through 1.4M (EMA ~0.23
+  from the 0.5 prior) — learning is genuinely required, and the
+  plant teacher proves the gate reachable. any1's other MDP pieces
+  (PBRS reward, 5.1 s horizon, 185° envelope) carried unchanged.
+  The paragraph below describes the original any1 spec, kept for
+  the mode's design record.**
 - 08-15 ~18:xx (operator-kick cycle): the getup/recovery sub-line
   REOPENED BY OPERATOR ORDER (authenticated KICK confirming the
   fb_20260815T165306_606974 directive after 5-6 correct

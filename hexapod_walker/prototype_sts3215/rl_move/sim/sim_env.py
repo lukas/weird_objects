@@ -573,9 +573,11 @@ class SimHexapodBalanceEnv(_GymBase):
         """
         return obs
 
-    def _final_obs(self, obs: np.ndarray, *, reset: bool) -> np.ndarray:
+    def _final_obs(self, obs: np.ndarray, *, reset: bool,
+                   augment_reset: bool | None = None) -> np.ndarray:
         """Apply the augment hook, then the obs-history stack."""
-        obs = self._augment_obs(obs, reset=reset).astype(np.float32)
+        aug_reset = reset if augment_reset is None else bool(augment_reset)
+        obs = self._augment_obs(obs, reset=aug_reset).astype(np.float32)
         if self._hist_n <= 1:
             return obs
         if reset or self._hist_buf is None:
@@ -585,6 +587,31 @@ class SimHexapodBalanceEnv(_GymBase):
             self._hist_buf.insert(0, obs.copy())
         # newest first: frame 0 is the current tick (transplant prefix).
         return np.concatenate(self._hist_buf).astype(np.float32)
+
+    def _reset_history_probe_steps(self) -> int:
+        """Controlled hold ticks used to seed a real observation history.
+
+        The legacy reset repeats one final frame K times.  That erases the
+        only dynamics available before the first policy action, precisely
+        where a recovery policy needs to infer support/contact.  This
+        opt-in probe keeps commanding the captured passive equilibrium and
+        records K-1 additional sensor frames without advancing the episode
+        clock or paying reward.  C MuJoCo and both MJX reset paths call the
+        same two helpers.
+        """
+        enabled = float(cfg_get(self.cfg, "obs", "reset_history_probe",
+                                default=0.0)) > 0.0
+        return self._hist_n - 1 if enabled and self._hist_n > 1 else 0
+
+    def _reset_history_probe_obs(self) -> np.ndarray:
+        """Read one controlled reset-probe tick into the history stack."""
+        self._state = self._read_state()
+        goal = self._current_goal()
+        return self._final_obs(
+            build_obs(self.cfg, self._state, self._q_nom,
+                      self._prev_action, goal=goal,
+                      tilt_ref=self._tilt_ref0),
+            reset=False, augment_reset=True)
 
     # ------------------------------------------------------------------
     # state readout (sim → RobotState, with DR sensor corruption)
@@ -982,6 +1009,28 @@ class SimHexapodBalanceEnv(_GymBase):
         self._rec_bank_cache = bank
         return bank
 
+    def _recover_rsi_bank(self) -> np.ndarray | None:
+        """Harvested ON-PATH recover-mode poses for the harvested-bank
+        RSI variant (08-16, tangle-wall mechanism fix; see the
+        sim_env spawn branch and walk_task._sample_recover). Lazy-
+        loads the npz named by cfg goal.recover_rsi_bank_path (key
+        ``q_rad``, shape (K,18)); caches None when unset. Same
+        contract as _recover_start_bank / _walk_park_bank."""
+        if hasattr(self, "_rec_rsi_bank_cache"):
+            return self._rec_rsi_bank_cache
+        path = cfg_get(self.cfg, "goal", "recover_rsi_bank_path",
+                       default=None)
+        bank = None
+        if path:
+            arr = np.asarray(np.load(str(path))["q_rad"], dtype=float)
+            if arr.ndim != 2 or arr.shape[1] != N_JOINTS or len(arr) == 0:
+                raise ValueError(
+                    f"recover_rsi_bank_path {path}: expected "
+                    f"(K,{N_JOINTS}) q_rad, got {arr.shape}")
+            bank = arr
+        self._rec_rsi_bank_cache = bank
+        return bank
+
     def _rise_start_bank(self) -> np.ndarray | None:
         """Harvested settled lower-endpoint poses (08-14, post-lower
         rise exposure — SESSION_BULK_GATE's named boundary). Lazy-loads
@@ -1202,6 +1251,66 @@ class SimHexapodBalanceEnv(_GymBase):
                         -2.0, 2.0, N_JOINTS) * DEG2RAD
                     self._rsi_pending = True
                     return self._clip_to_joint_limits(q_rsi)
+        # RECOVER RSI (08-16, zero-family mechanism fix): spawn a
+        # flagged recover episode ON the demonstrated belly->plant
+        # path instead of its family pose. Root cause (cw-recover-any8
+        # /any9, hw track): the recovery ladder's partial_* rungs are
+        # LINEAR curls (f * q_crouch), not states on the executable
+        # rise trajectory, so a policy stuck at the zero (belly-flat)
+        # family never PRACTICES from mid-rise states — the exact
+        # exploration gap the rise-mode RSI above closed for the rise
+        # task (row-range formula reused: belly curl through ~90% of
+        # the ramp, never the free-success top). The flag is set ONLY
+        # by walk_task._sample_recover on NATURALLY drawn kinds
+        # (goal.recover_rsi_frac/_kinds, default off); forced CERT/
+        # eval kinds never carry it, so certification stays pure by
+        # construction. The settle choreography (incl. limp sag) runs
+        # unchanged — same sag-robustness contract as rise RSI. Level
+        # tilt anchoring matches the recover "any" branch below.
+        if (self._goal_traj is not None
+                and getattr(self._goal_traj, "mode", "") == "recover"
+                and getattr(self._goal_traj, "recover_rsi", False)):
+            rsi_ref = cfg_get(self.cfg, "reward", "rise_ref_path",
+                              default=None)
+            if not rsi_ref:
+                raise ValueError("goal.recover_rsi_frac needs "
+                                 "reward.rise_ref_path")
+            ref = load_rise_ref(str(rsi_ref))
+            if "h" not in ref:
+                raise ValueError("goal.recover_rsi_frac needs a rise "
+                                 "reference with per-tick heights "
+                                 "(re-extract with extract_rise_ref)")
+            n, i0 = len(ref["q"]), int(ref["ramp_i0"])
+            j = int(self.rng.integers(0, i0 + int(0.9 * (n - 1 - i0))))
+            q_rsi = ref["q"][j] + self.rng.uniform(
+                -2.0, 2.0, N_JOINTS) * DEG2RAD
+            if self._ep_rand is not None:
+                q_rsi = q_rsi + self._ep_rand.start_offset_rad
+            self._tipped_applied = True
+            return self._clip_to_joint_limits(q_rsi)
+        # RECOVER RSI, HARVESTED-BANK variant (08-16, tangle-wall
+        # mechanism fix): spawn on a pose harvested from a checkpoint's
+        # OWN successful rollouts of the target kind
+        # (goal.recover_rsi_bank_path, built by
+        # harvest_recover_rsi_bank.py) instead of the belly->plant
+        # reference above, which has no equivalent for non-monotonic
+        # untangling motion. Flag set only by
+        # walk_task._sample_recover (goal.recover_rsi_bank_frac/
+        # _kinds, default off, forced CERT/eval kinds never carry it).
+        if (self._goal_traj is not None
+                and getattr(self._goal_traj, "mode", "") == "recover"
+                and getattr(self._goal_traj, "recover_rsi_bank", False)):
+            bank = self._recover_rsi_bank()
+            if bank is None:
+                raise ValueError("goal.recover_rsi_bank_frac needs "
+                                 "goal.recover_rsi_bank_path")
+            idx = int(self.rng.integers(0, len(bank)))
+            q_rsi = bank[idx] + self.rng.uniform(
+                -2.0, 2.0, N_JOINTS) * DEG2RAD
+            if self._ep_rand is not None:
+                q_rsi = q_rsi + self._ep_rand.start_offset_rad
+            self._tipped_applied = True
+            return self._clip_to_joint_limits(q_rsi)
         if start_at == "zero":
             q_start = np.zeros(N_JOINTS, dtype=float)
             # Bridge start (rise reverse-curriculum): blend the start
@@ -1316,26 +1425,64 @@ class SimHexapodBalanceEnv(_GymBase):
             # _sample_getup (goal side, where the force hook lives) and
             # rides on the trajectory.
             kind = getattr(self._goal_traj, "start_kind", "tangle")
-            if kind == "tangle":
+            tangle_blends = {
+                "tangle_mild": 0.25,
+                "tangle_mid": 0.50,
+                "tangle_60": 0.60,
+                "tangle_70": 0.70,
+                # Legacy forced-eval alias retained for old probes.
+                "tangle_deep": 0.75,
+                "tangle_80": 0.80,
+                "tangle_90": 0.90,
+                "tangle": 1.0,
+            }
+            if kind in tangle_blends:
                 from rl_move.safety import AXIS_LIMITS_DEG
-                q_start = np.array(
+                q_random = np.array(
                     [self.rng.uniform(*AXIS_LIMITS_DEG[j % 3])
                      for j in range(N_JOINTS)], dtype=float) * DEG2RAD
+                q_start = tangle_blends[kind] * q_random
             elif kind == "zero":
-                q_start = np.zeros(N_JOINTS, dtype=float)
-            elif kind in ("partial", "crouch"):
+                q_start = self.rng.uniform(
+                    -2.0, 2.0, N_JOINTS) * DEG2RAD
+            elif kind in ("partial", "crouch", "crouch_shallow",
+                          "crouch_mid", "crouch_deep", "partial_high",
+                          "partial_mid", "partial_low"):
                 from rl_move.body_ik import BodyOffset
+                crouch_ranges = {
+                    "crouch_shallow": (0.010, 0.025),
+                    "crouch_mid": (0.025, 0.045),
+                    "crouch_deep": (0.045, 0.070),
+                }
+                depth = (float(self.rng.uniform(*crouch_ranges[kind]))
+                         if kind in crouch_ranges
+                         else float(self.rng.uniform(0.03, 0.07)))
                 any_ik = FixedFootBodyIK()
                 any_ik.reset(self._plant_deg * DEG2RAD)
                 res = any_ik.solve(BodyOffset(
-                    height=-float(self.rng.uniform(0.03, 0.07))))
+                    height=-depth))
                 q_c = (res.q_rad if res.ok
                        else self._plant_deg * DEG2RAD)
-                f = (1.0 if kind == "crouch"
-                     else float(self.rng.uniform(0.10, 0.90)))
+                partial_ranges = {
+                    "partial_high": (0.70, 0.95),
+                    "partial_mid": (0.40, 0.70),
+                    "partial_low": (0.15, 0.40),
+                }
+                f = (1.0 if kind in ("crouch", "crouch_shallow",
+                                     "crouch_mid", "crouch_deep")
+                     else float(self.rng.uniform(
+                         *partial_ranges.get(kind, (0.10, 0.90)))))
                 # Zero pose is exactly q=0, so the belly->crouch blend
                 # is a plain scale (same construction as rise bridge).
                 q_start = f * np.asarray(q_c, dtype=float)
+            elif kind == "plant_catch":
+                # First backward-curriculum rung: already at the goal
+                # neighborhood, but the controller must catch and hold
+                # plant for the full success dwell instead of receiving
+                # a free terminal reward at reset.
+                q_start = (self._plant_deg * DEG2RAD).copy()
+                q_start += self.rng.uniform(
+                    -2.0, 2.0, N_JOINTS) * DEG2RAD
             elif kind == "park":
                 q_start = (self._plant_deg * DEG2RAD).copy()
                 tripod = ((1, 3, 5) if self.rng.random() < 0.5
@@ -1345,16 +1492,60 @@ class SimHexapodBalanceEnv(_GymBase):
                         self.rng.uniform(10.0, 25.0)) * DEG2RAD
                     q_start[3 * leg + 2] += float(
                         self.rng.uniform(-5.0, 10.0)) * DEG2RAD
-            elif kind == "onefoot":
-                # RECOVER family 1: near-standing with exactly ONE
-                # misplaced/unloaded foot (recover-only kind — never
-                # drawn by getup, so legacy rng streams are untouched).
+            elif kind in ("onefoot_micro", "onefoot_mid", "onefoot"):
+                # Progressive one-foot correction rungs.  They use the
+                # same construction and differ only in disturbance
+                # magnitude, so promotion measures a real expansion of
+                # the solved basin instead of a task-definition switch.
                 q_start = (self._plant_deg * DEG2RAD).copy()
                 leg = int(self.rng.integers(6))
+                if kind == "onefoot_micro":
+                    hip_deg = self.rng.uniform(3.0, 8.0)
+                    knee_deg = self.rng.uniform(-1.0, 3.0)
+                elif kind == "onefoot_mid":
+                    hip_deg = self.rng.uniform(8.0, 15.0)
+                    knee_deg = self.rng.uniform(-3.0, 6.0)
+                else:
+                    hip_deg = self.rng.uniform(15.0, 30.0)
+                    knee_deg = self.rng.uniform(-5.0, 12.0)
                 q_start[3 * leg + 1] -= float(
-                    self.rng.uniform(12.0, 30.0)) * DEG2RAD
-                q_start[3 * leg + 2] += float(
-                    self.rng.uniform(-5.0, 12.0)) * DEG2RAD
+                    hip_deg) * DEG2RAD
+                q_start[3 * leg + 2] += float(knee_deg) * DEG2RAD
+            elif kind in ("repair_one", "repair_two"):
+                # Terminal contact-repair rungs. Keep the chassis on a
+                # plant support polygon while one/two legs begin folded
+                # and laterally misplaced. Unlike the early one-foot
+                # rungs, yaw is wrong too: merely lowering the hip cannot
+                # satisfy footprint + six-load success, so the policy must
+                # identify and deliberately re-place the missing foot.
+                q_start = (self._plant_deg * DEG2RAD).copy()
+                n_bad = 1 if kind == "repair_one" else 2
+                first = int(self.rng.integers(6))
+                if n_bad == 1:
+                    legs = (first,)
+                else:
+                    # Adjacent lifted pairs put the four remaining feet
+                    # on one side and collapse the chassis during limp
+                    # settle. Non-adjacent pairs retain a true four-foot
+                    # support polygon, matching the quiet B14 failures.
+                    candidates = [leg for leg in range(6)
+                                  if leg != first
+                                  and (leg - first) % 6 not in (1, 5)]
+                    legs = (first, int(self.rng.choice(candidates)))
+                for leg in np.asarray(legs, dtype=int):
+                    sign = -1.0 if self.rng.random() < 0.5 else 1.0
+                    q_start[3 * leg] += sign * float(
+                        self.rng.uniform(15.0, 35.0)) * DEG2RAD
+                    # The quadstance feasibility sweep's tucked claw is
+                    # known to stay clear while the other four feet form
+                    # a support polygon. Small jitter keeps this a family,
+                    # not one memorized target.
+                    q_start[3 * leg + 1] = (_QUAD_TUCK_RAD[1]
+                                             + self.rng.uniform(-3.0, 3.0)
+                                             * DEG2RAD)
+                    q_start[3 * leg + 2] = (_QUAD_TUCK_RAD[2]
+                                             + self.rng.uniform(-4.0, 4.0)
+                                             * DEG2RAD)
             elif kind == "bank":
                 # RECOVER family 2: harvested post-lower/interrupted
                 # poses (goal.recover_start_bank npz, key q_rad
@@ -1370,8 +1561,8 @@ class SimHexapodBalanceEnv(_GymBase):
                 q_start += self.rng.uniform(
                     -2.0, 2.0, N_JOINTS) * DEG2RAD
             elif kind == "flip":
-                # RECOVER family 4: side/back/upside-down. Random legal
-                # joints + a random base rotation of 90-180 deg about a
+                # Final recovery rung: random legal joints plus a base
+                # rotation about a
                 # random horizontal axis, applied by _place_at_plant
                 # (consume-once pending quat, both C and MJX paths go
                 # through place_env -> _place_at_plant), then the
@@ -1383,7 +1574,7 @@ class SimHexapodBalanceEnv(_GymBase):
                     [self.rng.uniform(*AXIS_LIMITS_DEG[j % 3])
                      for j in range(N_JOINTS)], dtype=float) * DEG2RAD
                 ax_ang = float(self.rng.uniform(0.0, 2.0 * math.pi))
-                ang = float(self.rng.uniform(math.pi / 2.0, math.pi))
+                ang = float(self.rng.uniform(90.0, 180.0)) * DEG2RAD
                 ax = (math.cos(ax_ang), math.sin(ax_ang), 0.0)
                 half = ang / 2.0
                 s = math.sin(half)
@@ -1595,7 +1786,15 @@ class SimHexapodBalanceEnv(_GymBase):
         self._profile.reset(self._q_nom)
         self._cmd = self._q_nom.copy()
         self._settle(0.3)
-        return self._reset_finalize()
+        obs, info = self._reset_finalize()
+        probe_n = self._reset_history_probe_steps()
+        for _ in range(probe_n):
+            self._advance()
+            obs = self._reset_history_probe_obs()
+        if probe_n:
+            info["reset_history_probe_ticks"] = probe_n
+            info["reset_history_probe_s"] = probe_n * self.dt
+        return obs, info
 
     def _reset_finalize(self):
         """Post-settle half of reset: episode references, filter resets,
@@ -1917,6 +2116,13 @@ class SimHexapodBalanceEnv(_GymBase):
         ik = self.ik.solve(offset)
         return ik.q_rad, ik.ok, ik.reason
 
+    def _active_episode_steps(self) -> int:
+        """Current trajectory horizon, bounded by the env's allocation."""
+        limit = getattr(self._goal_traj, "duration_steps", None)
+        if limit is None:
+            return int(self.episode_steps)
+        return min(int(self.episode_steps), max(1, int(limit)))
+
     def _step_begin(self, action):
         """Pre-physics half of step: action validation, IK, safety
         filter, and the servo command. Returns ``(early, ctx)`` —
@@ -1964,8 +2170,24 @@ class SimHexapodBalanceEnv(_GymBase):
                                   "term_cost_per_remaining_s",
                                   default=0.0))
             if k_rem > 0.0:
-                pen += k_rem * max(self.episode_steps - self._step_i,
-                                   0) * self.dt
+                rem_cost = k_rem * max(self._active_episode_steps()
+                                       - self._step_i,
+                                       0) * self.dt
+                # Bounded terminal cost (08-17, operator-approved
+                # fb_20260817T005114 item 5): the uncapped horizon
+                # charge reached ~-730 on an early 60 s fall and the
+                # critic never learned to predict that rare cliff
+                # (explained variance ~0 through 40M on
+                # cw-arch-joystick-long-scratch3). term_cost_max caps
+                # the ADDED horizon component only (flat penalty is
+                # untouched); falls stay decisively bad via the dense
+                # roll/pitch shaping + this bounded charge. Default
+                # 0 = off, legacy uncapped bit-exact.
+                cap = float(cfg_get(self.cfg, "reward",
+                                    "term_cost_max", default=0.0))
+                if cap > 0.0:
+                    rem_cost = min(rem_cost, cap)
+                pen += rem_cost
             parts = {"reward_termination": -pen}
             return (self._final_obs(
                         build_obs(self.cfg, self._state, self._q_nom,
@@ -2254,6 +2476,23 @@ class SimHexapodBalanceEnv(_GymBase):
         goal = self._current_goal()
         h_err = None
         h_rel = float(self.data.xpos[self._chassis_bid, 2]) - self._z0
+        # Optional walk-only collapse termination.  Tilt alone does not
+        # catch a level chassis resting on its belly, which lets a seated
+        # scoot survive and collect locomotion income for the full episode.
+        # Keep this opt-in so every existing task/config remains bit-exact.
+        walk_max_drop_mm = float(cfg_get(
+            self.cfg, "safety", "walk_max_height_drop_mm", default=0.0))
+        walk_height_grace_s = float(cfg_get(
+            self.cfg, "safety", "walk_height_grace_s", default=0.0))
+        if (not terminated and walk_max_drop_mm > 0.0
+                and self._goal_traj is not None
+                and getattr(self._goal_traj, "mode", "") == "walk"
+                and self._step_i * self.dt >= walk_height_grace_s
+                and h_rel < -walk_max_drop_mm * 0.001):
+            terminated = True
+            status.ok = False
+            status.terminate = True
+            status.reason = "walk_low_height"
         unload_f = None
         if goal is not None:
             # GETUP mode has no height reference at all: its staged
@@ -3111,11 +3350,20 @@ class SimHexapodBalanceEnv(_GymBase):
                                   "term_cost_per_remaining_s",
                                   default=0.0))
             if k_rem > 0.0:
-                pen += k_rem * max(self.episode_steps - self._step_i,
-                                   0) * self.dt
+                rem_cost = k_rem * max(self._active_episode_steps()
+                                       - self._step_i,
+                                       0) * self.dt
+                # reward.term_cost_max: same bounded-terminal-cost
+                # semantics as the _step_begin site above (08-17,
+                # fb_20260817T005114 item 5); default 0 = off.
+                cap = float(cfg_get(self.cfg, "reward",
+                                    "term_cost_max", default=0.0))
+                if cap > 0.0:
+                    rem_cost = min(rem_cost, cap)
+                pen += rem_cost
             parts["reward_termination"] = -pen
             reward -= pen
-        truncated = self._step_i >= self.episode_steps
+        truncated = self._step_i >= self._active_episode_steps()
         self._prev_action = clipped.copy()
         info = {"termination_reason": status.reason, **parts,
                 "safety_ok": status.ok,
@@ -3347,7 +3595,7 @@ class SimHexapodBalanceEnv(_GymBase):
                     # Carry the proven footlow2 height-floor pursuit into
                     # recovery.  Use absolute height above the belly datum,
                     # not height above this episode's spawn (_z0): a
-                    # onefoot/park episode starts near standing height.
+                    # near-goal recovery starts are already near standing.
                     _bc_min_h = float(cfg_get(
                         self.cfg, "train", "bc_anchor_min_h_ahead_mm",
                         default=0.0))

@@ -171,3 +171,44 @@ tracking error, energy/current, old-task retention, steps-to-threshold
 — the existing `SCORE/*` + eval harness conventions apply. Periodically
 save latents from standardized trajectories for the organization
 analysis (G3).
+
+## Condition C v2 — joint PPO+auxiliary update (2026-08-16, binding)
+
+Operator directive fb_20260816T203212_af7c64 (explicit Lukas request),
+after the metrics1 matched triple showed the v1 mechanism is UNSTABLE
+(not the transformer too large): v1 "AnchorCb" ran out-of-band Adam
+steps on the SHARED transformer after rollout collection and before
+PPO consumed the buffer — C led at 1M (~400 peak near 940k), regressed
+to dead last (262) by 2M, approx_kl ~0.085–0.089 vs A/B ~0.02, DR10
+early-term ~75%, while the anchor loss itself stayed flat (~1.83–1.98:
+the representation didn't break; the old-policy assumptions did).
+Moving the same callback after PPO would still ship an independently
+shifted representation into the next rollout, so v1 is REPLACED
+(`joint_aux.py`, `online_windows.py`; regression tests in
+`test_dynrep_joint_aux.py`):
+
+- transformer capacity unchanged; brief encoder-frozen head warmup
+  (default 50k steps), then actor + value + transformer train JOINTLY:
+  the future-state loss joins every PPO minibatch (same backward, same
+  optimizer step; transformer in a 0.1x-LR param group);
+- auxiliary batches are ONLINE windows captured from the policy's own
+  rollouts (collector frame contract, `OnlineEpisodeCapture`) with a
+  20–30% rehearsal mix from the recovered v5_mjx_fresh corpus (never
+  re-collected) so heading/yaw, velocity, contacts, currents and servo
+  state don't degrade — heldout prediction quality is re-measured on
+  the corpus val split at every heldout eval (`aux/heldout/*`);
+- the TOTAL action KL of the combined update is logged every update
+  (`aux/action_kl_total`, target ≈0.02); above the guard (0.04) the
+  whole update rolls back (params + optimizer) and is redone without
+  the auxiliary; repeated consecutive rejections stop the auxiliary;
+  latent drift and accepted/rejected auxiliary batches are logged;
+- out-of-band mutation of the shared transformer between rollout
+  collection and the PPO update now RAISES (bit-exact param check) —
+  the v1 failure mode is mechanically impossible;
+- periodic checkpoints + best-by-heldout-walk retention
+  (`ppo_<name>_best.zip`) for every condition.
+
+Cohort runner: `pod_tfwalk_joint.sh` (tfwalk-joint1; 1M-step
+pre-registered decision checkpoint, extension only if corrected C
+beats B; metrics1 seed-5 A/B reusable at their 1M eval points —
+config-equivalent by construction).
