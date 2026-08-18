@@ -143,9 +143,15 @@ def attach_actor_critic_lr(model, actor_lr: float,
         # (operator order fb_20260818T102844_116d4c item 3). The critic
         # group is never frozen.
         freeze_until = float(st.get("freeze_until", 0.0))
+        # EV-readiness hold (attach_ev_readiness_release; operator
+        # bridge2 spec fb_20260818T112826_9ed832 item 2, default
+        # absent = True = bit-exact prior behavior): while armed, the
+        # freeze window releases only when BOTH the step floor AND the
+        # critic-EV readiness flag are satisfied.
+        ready = bool(st.get("freeze_ready", True))
         frozen = (freeze_until > 0.0
-                  and float(getattr(self, "num_timesteps", 0))
-                  < freeze_until)
+                  and (float(getattr(self, "num_timesteps", 0))
+                       < freeze_until or not ready))
         if frozen:
             lr_a = 0.0
         opt = self.policy.optimizer
@@ -259,6 +265,131 @@ def set_actor_freeze(model, until_steps: int) -> None:
         raise ValueError("set_actor_freeze requires "
                          "attach_actor_critic_lr to be attached first")
     st["freeze_until"] = max(0.0, float(until_steps))
+
+
+def restore_actor_only_from_state(policy, saved_policy_state: dict,
+                                  optimizer=None,
+                                  critic_markers=None,
+                                  ) -> tuple[int, bool]:
+    """Restore ONLY the actor-side tensors of ``policy`` from a saved
+    ``policy.state_dict()`` snapshot; never touch critic/value tensors
+    or frozen buffers (operator bridge2 spec fb_20260818T112826_9ed832
+    item 1: whole-policy curriculum rollback repeatedly undid the
+    fresh condition-D critic's own adaptation — critic EV +.304 ->
+    -.183 across bridge1-retry1's three rollbacks — which is
+    structurally wrong for a fresh critic + pretrained actor).
+
+    ``critic_markers``: substrings marking NON-actor tensors (default
+    ``CRITIC_MARKERS``; condition-D callers add ``value_gate``/
+    ``latent_adapter``/``critic_predictor``/``obs_to_frames``/
+    ``snapshot_version``). Every state-dict key NOT matching a marker
+    is considered actor-side (matches split_actor_critic_params'
+    complement, plus ``log_std``, which carries no marker).
+
+    If ``optimizer`` is given and has the attach_actor_critic_lr
+    2-group shape, the ACTOR group's Adam moments are cleared (fresh
+    lazily-reinitialized state) while the critic group's moments are
+    PRESERVED untouched. Returns ``(n_restored,
+    critic_unchanged)`` where ``critic_unchanged`` verifies by value
+    that no non-actor tensor moved (assertion material for the
+    caller)."""
+    markers = (critic_markers if critic_markers is not None
+               else CRITIC_MARKERS)
+
+    def _is_actor(name: str) -> bool:
+        return not any(m in name for m in markers)
+
+    current = policy.state_dict()
+    critic_before = {k: v.detach().clone()
+                     for k, v in current.items() if not _is_actor(k)}
+    n = 0
+    for k in list(current.keys()):
+        if _is_actor(k) and k in saved_policy_state:
+            current[k] = saved_policy_state[k]
+            n += 1
+    policy.load_state_dict(current)
+    after = policy.state_dict()
+    import torch as th
+    critic_unchanged = all(
+        th.equal(after[k], critic_before[k]) for k in critic_before)
+    if optimizer is not None and len(optimizer.param_groups) == 2:
+        cleared = 0
+        for p in optimizer.param_groups[0]["params"]:
+            if p in optimizer.state:
+                del optimizer.state[p]
+                cleared += 1
+        print(f"  [actor-only rollback] {n} actor tensors restored, "
+              f"{len(critic_before)} critic/frozen tensors untouched "
+              f"(verified {'UNCHANGED' if critic_unchanged else 'CHANGED — BUG'}), "
+              f"{cleared} actor Adam-moment entries reset, critic "
+              "optimizer state preserved")
+    return n, critic_unchanged
+
+
+def attach_ev_readiness_release(model, ev_threshold: float,
+                                ev_windows: int,
+                                max_steps: int) -> None:
+    """Arm the critic-EV readiness gate on an existing actor-freeze
+    window (operator bridge2 spec fb_20260818T112826_9ed832 item 2,
+    default-off — only wired when the trainer passes
+    ``--actor-freeze-ev-threshold`` > 0): the frozen actor releases
+    only after ``train/explained_variance`` >= ``ev_threshold`` for
+    ``ev_windows`` CONSECUTIVE updates (and the existing
+    ``freeze_until`` step floor has passed — enforced in
+    ``_update_learning_rate``). If the critic is still not ready at
+    ``max_steps``, the run ABORTS fail-closed rather than training an
+    unfrozen actor against a critic that never converged.
+
+    Requires attach_actor_critic_lr + set_actor_freeze first. Wraps
+    ``model.train`` (same post-update logger read attach_kl_rollback
+    uses); logs ``train/actor_freeze_ready`` and
+    ``train/critic_ev_ready_windows`` every update while armed."""
+    st = getattr(model, "_ac_state", None)
+    if st is None or float(st.get("freeze_until", 0.0)) <= 0.0:
+        raise ValueError("attach_ev_readiness_release requires "
+                         "attach_actor_critic_lr + set_actor_freeze "
+                         "(it gates an armed freeze window)")
+    if ev_windows < 1 or max_steps <= 0:
+        raise ValueError("attach_ev_readiness_release: ev_windows>=1 "
+                         "and max_steps>0 required (fail-closed cap)")
+    st["freeze_ready"] = False
+    st["_ev_streak"] = 0
+    orig_train = model.train
+
+    @functools.wraps(orig_train)
+    def train_ev_gated() -> None:
+        orig_train()
+        if st.get("freeze_ready"):
+            return
+        logger = getattr(model, "logger", None)
+        ev = (logger.name_to_value.get("train/explained_variance")
+              if logger is not None else None)
+        if ev is not None:
+            st["_ev_streak"] = (st["_ev_streak"] + 1
+                                if float(ev) >= ev_threshold else 0)
+        if st["_ev_streak"] >= ev_windows:
+            st["freeze_ready"] = True
+            print(f"[ev-readiness] critic EV >= {ev_threshold} for "
+                  f"{ev_windows} consecutive updates @ "
+                  f"{model.num_timesteps:,} steps — actor freeze "
+                  "released (step floor still applies)")
+        elif int(getattr(model, "num_timesteps", 0)) >= max_steps:
+            raise RuntimeError(
+                f"[ev-readiness] FAIL-CLOSED: critic EV never held >= "
+                f"{ev_threshold} for {ev_windows} consecutive updates "
+                f"by the {max_steps:,}-step cap (last ev="
+                f"{'n/a' if ev is None else f'{float(ev):.3f}'}, "
+                f"streak={st['_ev_streak']}) — refusing to unfreeze "
+                "an actor against a critic that never converged "
+                "(fb_20260818T112826_9ed832 item 2)")
+        if logger is not None:
+            logger.record("train/actor_freeze_ready",
+                          float(bool(st.get("freeze_ready"))))
+            logger.record("train/critic_ev_ready_windows",
+                          float(st["_ev_streak"]))
+
+    model.train = train_ev_gated
+    _exclude_from_save(model, ("train",))
 
 
 def attach_kl_rollback(model, threshold: float,

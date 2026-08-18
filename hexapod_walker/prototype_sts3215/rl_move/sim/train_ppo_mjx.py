@@ -1506,6 +1506,41 @@ def main(argv: list[str] | None = None) -> int:
                     help="exit (rc 0 pass / 3 fail) right after the "
                          "pre-PPO certification — the on-pod preflight "
                          "mode; requires --walkcurr-cert-at-init")
+    ap.add_argument("--walkcurr-precert-buckets", type=int, default=1,
+                    help="how many curriculum buckets (b0..bN-1) the "
+                         "pre-PPO certification assays; b0 keeps the "
+                         "abort bar, b1+ are logged/summary-only "
+                         "(walkcurr/pre_bN_*; bridge2 spec "
+                         "fb_20260818T112826_9ed832 item 2 — requires "
+                         "--walkcurr-cert-at-init)")
+    ap.add_argument("--walkcurr-actor-only-rollback",
+                    action="store_true",
+                    help="curriculum retention rollback restores ONLY "
+                         "the actor tensors of the promotion "
+                         "checkpoint (critic/value head, predictive "
+                         "residual, frozen encoder and the critic "
+                         "optimizer moments are never reset; actor "
+                         "Adam moments restart fresh). Default off = "
+                         "bit-exact whole-policy rollback "
+                         "(fb_20260818T112826_9ed832 item 1)")
+    ap.add_argument("--actor-freeze-ev-threshold", type=float,
+                    default=0.0,
+                    help="arm the critic-EV readiness gate on the "
+                         "actor freeze: the actor stays frozen past "
+                         "--actor-freeze-steps until train/"
+                         "explained_variance >= this for "
+                         "--actor-freeze-ev-windows consecutive "
+                         "updates (0 = off, bit-exact fixed-step "
+                         "freeze; fb_20260818T112826_9ed832 item 2)")
+    ap.add_argument("--actor-freeze-ev-windows", type=int, default=3,
+                    help="consecutive updates the critic EV must hold "
+                         "the readiness threshold before the freeze "
+                         "may release")
+    ap.add_argument("--actor-freeze-max-steps", type=int, default=0,
+                    help="fail-closed cap: abort if the readiness "
+                         "gate has not released by this many env-"
+                         "steps (required >0 when "
+                         "--actor-freeze-ev-threshold is set)")
     ap.add_argument("--no-canary", action="store_true",
                     help="disable the fixed-seed canary probes + "
                          "regression auto-stop (on by default for warm "
@@ -1659,6 +1694,35 @@ def main(argv: list[str] | None = None) -> int:
         raise SystemExit("--actor-freeze-steps requires --actor-lr "
                          "(it zeroes the update_health actor param "
                          "group)")
+    if args.actor_freeze_ev_threshold > 0.0:
+        if args.actor_freeze_steps <= 0:
+            raise SystemExit("--actor-freeze-ev-threshold requires "
+                             "--actor-freeze-steps (it gates an armed "
+                             "freeze window)")
+        if args.actor_freeze_max_steps <= args.actor_freeze_steps:
+            raise SystemExit("--actor-freeze-ev-threshold requires "
+                             "--actor-freeze-max-steps > "
+                             "--actor-freeze-steps (the fail-closed "
+                             "cap)")
+    elif args.actor_freeze_max_steps > 0:
+        raise SystemExit("--actor-freeze-max-steps requires "
+                         "--actor-freeze-ev-threshold (it caps the "
+                         "readiness gate)")
+    if args.walkcurr_actor_only_rollback and not args.walk_curriculum:
+        raise SystemExit("--walkcurr-actor-only-rollback requires "
+                         "--walk-curriculum (it changes the "
+                         "curriculum's retention rollback)")
+    if args.walkcurr_actor_only_rollback and args.actor_lr <= 0.0:
+        raise SystemExit("--walkcurr-actor-only-rollback requires "
+                         "--actor-lr (the actor/critic optimizer "
+                         "split defines the actor group whose moments "
+                         "it resets)")
+    if (args.walkcurr_precert_buckets != 1
+            and not args.walkcurr_cert_at_init):
+        raise SystemExit("--walkcurr-precert-buckets requires "
+                         "--walkcurr-cert-at-init")
+    if args.walkcurr_precert_buckets < 1:
+        raise SystemExit("--walkcurr-precert-buckets must be >= 1")
     if args.walkcurr_cert_at_init and not args.walk_curriculum:
         raise SystemExit("--walkcurr-cert-at-init requires "
                          "--walk-curriculum (it runs the curriculum's "
@@ -2120,6 +2184,19 @@ def main(argv: list[str] | None = None) -> int:
                   f"{args.actor_freeze_steps:,} env-steps; critic "
                   "learns throughout (train/actor_frozen logged; "
                   "operator order fb_20260818T102844_116d4c)")
+            if args.actor_freeze_ev_threshold > 0.0:
+                from .update_health import attach_ev_readiness_release
+                attach_ev_readiness_release(
+                    model, args.actor_freeze_ev_threshold,
+                    args.actor_freeze_ev_windows,
+                    args.actor_freeze_max_steps)
+                print("[update-health] freeze release ALSO gated on "
+                      "critic readiness: train/explained_variance >= "
+                      f"{args.actor_freeze_ev_threshold} for "
+                      f"{args.actor_freeze_ev_windows} consecutive "
+                      "updates, fail-closed abort at "
+                      f"{args.actor_freeze_max_steps:,} steps "
+                      "(fb_20260818T112826_9ed832 item 2)")
         if args.kl_rollback > 0.0:
             attach_kl_rollback(model, args.kl_rollback,
                                lr_factor=args.kl_rollback_lr_factor)
@@ -3022,8 +3099,51 @@ def main(argv: list[str] | None = None) -> int:
                 assert self.promo_path is not None
                 _, params_, _ = load_from_zip_file(
                     str(self.promo_path), device=self.model.device)
-                self.model.policy.load_state_dict(params_["policy"])
-                if "policy.optimizer" in params_:
+                if args.walkcurr_actor_only_rollback:
+                    # Bridge2 spec fb_20260818T112826_9ed832 item 1:
+                    # restore the ACTOR only — bridge1-retry1 showed
+                    # whole-policy retention rollback repeatedly
+                    # undoing the fresh critic's own adaptation
+                    # (critic EV +.304 -> -.183 across 3 rollbacks).
+                    # Critic/value head, predictive residual, frozen
+                    # encoder and the critic optimizer moments are
+                    # never reset; actor Adam moments restart fresh.
+                    from .update_health import (
+                        restore_actor_only_from_state)
+                    non_actor = (("value_net", "vf_features_extractor",
+                                  "value_gate", "latent_adapter",
+                                  "critic_predictor", "obs_to_frames",
+                                  "snapshot_version"))
+                    logger = getattr(self.model, "logger", None)
+                    ev_now = (logger.name_to_value.get(
+                        "train/explained_variance")
+                        if logger is not None else None)
+                    n_rest, critic_ok = restore_actor_only_from_state(
+                        self.model.policy, params_["policy"],
+                        optimizer=self.model.policy.optimizer,
+                        critic_markers=non_actor)
+                    if not critic_ok:
+                        raise RuntimeError(
+                            "actor-only rollback mutated a critic/"
+                            "frozen tensor — marker set out of sync "
+                            "with the policy architecture")
+                    if run is not None:
+                        import wandb
+                        wandb.log({
+                            "global_step": self.num_timesteps,
+                            "walkcurr/rollback_actor_only": 1.0,
+                            "walkcurr/rollback_actor_tensors":
+                                float(n_rest),
+                            "walkcurr/rollback_critic_unchanged":
+                                float(critic_ok),
+                            **({"walkcurr/rollback_critic_ev":
+                                float(ev_now)}
+                               if ev_now is not None else {})})
+                else:
+                    self.model.policy.load_state_dict(
+                        params_["policy"])
+                if (not args.walkcurr_actor_only_rollback
+                        and "policy.optimizer" in params_):
                     # BUG FIX 2026-08-18 (bridge1 crash): a
                     # save_stock_optimizer checkpoint (any --actor-lr/
                     # condition-D run) carries a single-group stock
@@ -3239,43 +3359,53 @@ def main(argv: list[str] | None = None) -> int:
             walkcurr_cb.model = model
             if walkcurr_cb._env is None:
                 walkcurr_cb._env = walkcurr_cb._build()
-            spec0 = wc_table[0]
-            m0 = walkcurr_cb._assay(0)
-            passed0, checks0 = walkcurr_bucket_pass(m0, spec0)
-            fails0 = [k for k, ok in checks0.items() if not ok]
 
             def _f(v, bad):
                 v = float(v) if v is not None else float("nan")
                 return bad if v != v else v
-            prog0 = _f(m0.get("cmd_prog_frac"), 0.0)
-            falls0 = _f(m0.get("early_term_rate"), 1.0)
-            print(f"[walkcurr-precert] b0 {spec0['name']} @ step 0 "
-                  f"(pre-PPO, det, n={args.walkcurr_cert_episodes}): "
-                  f"{'PASS' if passed0 else 'FAIL ' + ','.join(fails0)}"
-                  f" prog={prog0:.3f} falls={falls0:.2f}"
-                  f" slip/m={_f(m0.get('slip_per_m'), -1):.2f}"
-                  f" roll={_f(m0.get('peak_roll_deg'), -1):.1f}"
-                  f" h_err={_f(m0.get('h_err_mm'), 0):+.1f}mm"
-                  f" hf={_f(m0.get('height_factor'), 0):.2f}"
-                  f" slew={_f(m0.get('slew_sat'), -1):.2f}")
-            if run is not None:
-                import wandb
-                pre = {f"walkcurr/pre_b0_{k}": float(m0[k])
-                       for k in ("cmd_prog_frac", "slip_per_m",
-                                 "peak_roll_deg", "early_term_rate",
-                                 "height_factor", "h_err_mm",
-                                 "mean_h_m", "contact_sw_per_s",
-                                 "foot_sw_min_per_s", "slew_sat",
-                                 "cross_track_frac", "wrong_way",
-                                 "return")
-                       if m0.get(k) is not None
-                       and float(m0[k]) == float(m0[k])}
-                wandb.log({"global_step": 0,
-                           "walkcurr/pre_b0_pass": float(passed0),
-                           **pre})
-                run.summary["walkcurr_precert_b0"] = {
-                    "pass": bool(passed0), "prog": prog0,
-                    "falls": falls0, "fails": fails0}
+            n_pre = min(int(args.walkcurr_precert_buckets),
+                        len(wc_table))
+            prog0 = falls0 = None
+            for bi in range(n_pre):
+                spec_b = wc_table[bi]
+                m_b = walkcurr_cb._assay(bi)
+                passed_b, checks_b = walkcurr_bucket_pass(m_b, spec_b)
+                fails_b = [k for k, ok in checks_b.items() if not ok]
+                prog_b = _f(m_b.get("cmd_prog_frac"), 0.0)
+                falls_b = _f(m_b.get("early_term_rate"), 1.0)
+                print(f"[walkcurr-precert] b{bi} {spec_b['name']} @ "
+                      "step 0 (pre-PPO, det, "
+                      f"n={args.walkcurr_cert_episodes}): "
+                      f"{'PASS' if passed_b else 'FAIL ' + ','.join(fails_b)}"
+                      f" prog={prog_b:.3f} falls={falls_b:.2f}"
+                      f" slip/m={_f(m_b.get('slip_per_m'), -1):.2f}"
+                      f" roll={_f(m_b.get('peak_roll_deg'), -1):.1f}"
+                      f" h_err={_f(m_b.get('h_err_mm'), 0):+.1f}mm"
+                      f" hf={_f(m_b.get('height_factor'), 0):.2f}"
+                      f" slew={_f(m_b.get('slew_sat'), -1):.2f}"
+                      + ("" if bi == 0 else "  [informational]"))
+                if run is not None:
+                    import wandb
+                    pre = {f"walkcurr/pre_b{bi}_{k}": float(m_b[k])
+                           for k in ("cmd_prog_frac", "slip_per_m",
+                                     "peak_roll_deg",
+                                     "early_term_rate",
+                                     "height_factor", "h_err_mm",
+                                     "mean_h_m", "contact_sw_per_s",
+                                     "foot_sw_min_per_s", "slew_sat",
+                                     "cross_track_frac", "wrong_way",
+                                     "return")
+                           if m_b.get(k) is not None
+                           and float(m_b[k]) == float(m_b[k])}
+                    wandb.log({"global_step": 0,
+                               f"walkcurr/pre_b{bi}_pass":
+                                   float(passed_b),
+                               **pre})
+                    run.summary[f"walkcurr_precert_b{bi}"] = {
+                        "pass": bool(passed_b), "prog": prog_b,
+                        "falls": falls_b, "fails": fails_b}
+                if bi == 0:
+                    prog0, falls0 = prog_b, falls_b
             ok0 = (falls0 == 0.0
                    and prog0 >= args.walkcurr_precert_min_prog)
             if args.walkcurr_precert_only:

@@ -435,6 +435,127 @@ def test_rollback_reload_survives_frozen_and_unfrozen_phases():
     assert opt.param_groups[1]["lr"] == pytest.approx(3e-4)
 
 
+# --- bridge2 mechanisms (fb_20260818T112826_9ed832, default-off) ----
+
+def test_restore_actor_only_leaves_critic_and_its_moments():
+    """Actor-only curriculum rollback: actor tensors restore to the
+    snapshot, critic tensors and the critic group's Adam moments are
+    untouched, actor moments reset."""
+    from rl_move.sim.update_health import restore_actor_only_from_state
+    th.manual_seed(3)
+    policy = _mlp_policy()
+    m = _stub_model(policy)
+    attach_actor_critic_lr(m, actor_lr=5e-5, critic_lr=3e-4)
+    opt = policy.optimizer
+    # populate Adam moments in BOTH groups with one real step
+    loss = sum((p ** 2).sum() for g in opt.param_groups
+               for p in g["params"])
+    loss.backward()
+    opt.step()
+    assert all(p in opt.state for g in opt.param_groups
+               for p in g["params"])
+    snap = {k: v.detach().clone()
+            for k, v in policy.state_dict().items()}
+    # drift every tensor
+    with th.no_grad():
+        for p in policy.parameters():
+            p.add_(0.1)
+    critic_drifted = {k: v.detach().clone()
+                      for k, v in policy.state_dict().items()
+                      if any(mk in k for mk in
+                             ("value_net", "vf_features_extractor"))}
+    critic_moments_before = [
+        {kk: vv.detach().clone() if th.is_tensor(vv) else vv
+         for kk, vv in opt.state[p].items()}
+        for p in opt.param_groups[1]["params"]]
+    n, ok = restore_actor_only_from_state(policy, snap, optimizer=opt)
+    assert ok is True and n > 0
+    after = policy.state_dict()
+    for k in after:
+        if k in critic_drifted:      # critic stays at drifted values
+            assert th.equal(after[k], critic_drifted[k]), k
+        elif k in snap:              # actor back at the snapshot
+            assert th.allclose(after[k], snap[k]), k
+    # actor moments cleared, critic moments preserved by value
+    assert all(p not in opt.state
+               for p in opt.param_groups[0]["params"])
+    for p, before in zip(opt.param_groups[1]["params"],
+                         critic_moments_before):
+        assert p in opt.state
+        for kk, vv in before.items():
+            cur = opt.state[p][kk]
+            if th.is_tensor(vv):
+                assert th.equal(cur, vv)
+            else:
+                assert cur == vv
+
+
+def test_ev_readiness_holds_freeze_releases_and_fails_closed():
+    """The critic-EV readiness gate: actor stays frozen past the step
+    floor until EV holds the threshold for N consecutive updates;
+    releases after; a never-ready critic aborts at the cap."""
+    from rl_move.sim.update_health import (
+        attach_ev_readiness_release, set_actor_freeze)
+    policy = _mlp_policy()
+    m = _stub_model(policy)
+    attach_actor_critic_lr(m, actor_lr=5e-5, critic_lr=3e-4)
+    set_actor_freeze(m, 100)
+    m.num_timesteps = 0
+    m.train = lambda: None
+    attach_ev_readiness_release(m, ev_threshold=0.2, ev_windows=2,
+                                max_steps=1000)
+    opt = policy.optimizer
+
+    def _update(ev, steps):
+        m.num_timesteps = steps
+        m.logger.name_to_value["train/explained_variance"] = ev
+        m.train()
+        m._update_learning_rate(opt)
+        return opt.param_groups[0]["lr"]
+
+    # past the 100-step floor but EV low -> still frozen
+    assert _update(0.05, 200) == 0.0
+    # one good window is not enough (needs 2 consecutive)
+    assert _update(0.30, 300) == 0.0
+    # a dip resets the streak
+    assert _update(0.10, 400) == 0.0
+    assert _update(0.25, 500) == 0.0
+    # second consecutive good window -> released at scheduled lr
+    assert _update(0.28, 600) == pytest.approx(5e-5)
+    # stays released
+    assert _update(-1.0, 700) == pytest.approx(5e-5)
+    # fail-closed: a fresh armed model that never becomes ready
+    p2 = _mlp_policy()
+    m2 = _stub_model(p2)
+    attach_actor_critic_lr(m2, actor_lr=5e-5, critic_lr=3e-4)
+    set_actor_freeze(m2, 100)
+    m2.num_timesteps = 0
+    m2.train = lambda: None
+    attach_ev_readiness_release(m2, ev_threshold=0.2, ev_windows=2,
+                                max_steps=1000)
+    m2.logger.name_to_value["train/explained_variance"] = 0.0
+    m2.num_timesteps = 1200
+    with pytest.raises(RuntimeError, match="FAIL-CLOSED"):
+        m2.train()
+
+
+def test_ev_readiness_off_is_bit_exact_fixed_step_freeze():
+    """Without attach_ev_readiness_release the freeze window behaves
+    exactly as before (freeze_ready defaults True)."""
+    from rl_move.sim.update_health import set_actor_freeze
+    policy = _mlp_policy()
+    m = _stub_model(policy)
+    attach_actor_critic_lr(m, actor_lr=5e-5, critic_lr=3e-4)
+    set_actor_freeze(m, 100)
+    opt = policy.optimizer
+    m.num_timesteps = 50
+    m._update_learning_rate(opt)
+    assert opt.param_groups[0]["lr"] == 0.0
+    m.num_timesteps = 150
+    m._update_learning_rate(opt)
+    assert opt.param_groups[0]["lr"] == pytest.approx(5e-5)
+
+
 def test_load_optimizer_state_real_state_dict_shape():
     """Regression-pin the exact shape save_stock_optimizer produces
     (param_groups list under that key) so the compatibility check
