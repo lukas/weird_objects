@@ -1796,12 +1796,30 @@ $('muntrap').onclick = async ()=>{
 };
 
 // --- Demos tab + global robot activity --------------------------------------
-function demoSpeed(){ return Math.max(0.25, Math.min(2.0, (+$('dspeed').value)/100)); }
+function demoSpeed(){ return Math.max(0.25, Math.min(3.0, (+$('dspeed').value)/100)); }
+function demoDuration(){ return Math.max(5, Math.min(300, +($('ddur').value)||60)); }
 function demoSize(){ return Math.max(0.5, Math.min(3.0, (+$('dsize').value)/100)); }
 function demoRate(){ return Math.max(0.08, Math.min(0.60, (+$('drate').value)/100)); }
 function demoSoft(){ return Math.max(0.5, Math.min(3.0, (+$('dsoft').value)/100)); }
 function demoTorque(){ return Math.max(150, Math.min(1000, Math.round((+$('dtorque').value)*10))); }
-$('dspeed').oninput = ()=> $('dspeedlab').textContent = demoSpeed().toFixed(2);
+// LIVE tempo: while a demo runs, dragging the slider retunes it in place
+// (streamed demos react next tick; breathe at the next half-breath).
+let liveSpeedTimer = null;
+$('dspeed').oninput = ()=>{
+  $('dspeedlab').textContent = demoSpeed().toFixed(2);
+  if(!(lastDemo && lastDemo.running)) return;
+  if(liveSpeedTimer) clearTimeout(liveSpeedTimer);
+  liveSpeedTimer = setTimeout(async ()=>{
+    liveSpeedTimer = null;
+    try{
+      const r = await fetch('/api/demo/speed',{method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({speed: demoSpeed()})});
+      const j = await r.json();
+      if(j.ok && j.running) showSent('live speed → '+j.speed.toFixed(2)+'×');
+    }catch(e){}
+  }, 150);
+};
 $('dsize').oninput = ()=> $('dsizelab').textContent = demoSize().toFixed(2);
 $('drate').oninput = ()=> $('dratelab').textContent = demoRate().toFixed(2);
 $('dsoft').oninput = ()=> $('dsoftlab').textContent = demoSoft().toFixed(2);
@@ -1948,6 +1966,22 @@ const DEMO_PREVIEW = {
     pose:(t,L)=>{ const c=t%4; let u=0;
       if(c<1.2) u=c/1.2; else if(c<2.6) u=1; else u=Math.max(0,1-(c-2.6)/1.2);
       for(let i=0;i<6;i++){ L[i].yaw=0; L[i].hip=-1.05*u; L[i].knee=0.4*u; } } },
+  stand_sway: { start:'stand', blurb:'Standing (streamed, LIVE speed): a crouch wave travels around the hex — the body leans in a slow circle around the plant.',
+    pose:(t,L)=>{ for(let i=0;i<6;i++){ const s=Math.sin(t*2.2+i*Math.PI/3);
+      L[i].yaw=0; L[i].hip=-0.55+0.14*s; L[i].knee=0.9-0.07*s; } } },
+  stand_bounce: { start:'stand', blurb:'Standing (streamed, LIVE speed): smooth squat bob — the streamed cousin of plant_bounce, tempo follows the slider.',
+    pose:(t,L)=>{ const c=0.5*(1-Math.cos(t*5));
+      for(let i=0;i<6;i++){ L[i].yaw=0; L[i].hip=-0.55-0.2*c; L[i].knee=0.9+0.1*c; } } },
+  stand_twist: { start:'stand', blurb:'Standing (streamed, LIVE speed): in-place body twist, zero-mean yaw — cord-safe.',
+    pose:(t,L)=>{ const y=0.35*Math.sin(t*2.8);
+      for(let i=0;i<6;i++){ L[i].yaw=y; L[i].hip=-0.55; L[i].knee=0.9; } } },
+  stand_wave: { start:'stand', blurb:'Standing (streamed, LIVE speed): one leg lifts off the plant and waves, sets down, next leg — smooth handoffs.',
+    pose:(t,L)=>{ const k=Math.floor(t/3)%6, u=(t%3)/3, e=Math.pow(Math.sin(Math.PI*u),2);
+      for(let i=0;i<6;i++){ const on=(i===k)?e:0;
+      L[i].yaw=0.4*on*Math.sin(t*9); L[i].hip=-0.55+0.55*on; L[i].knee=0.9-0.5*on; } } },
+  stand_ripple: { start:'stand', blurb:'Standing (streamed, LIVE speed): a sharp lift bump travels around the hex — about one foot airborne at a time.',
+    pose:(t,L)=>{ for(let i=0;i<6;i++){ const e=Math.pow(Math.max(0,Math.sin(t*2.8-i*Math.PI/3)),3);
+      L[i].yaw=0; L[i].hip=-0.55+0.5*e; L[i].knee=0.9-0.45*e; } } },
   stand_hands: { start:'stand', blurb:'Stand zero → lift three legs (0,2,4) way overhead; other three stay planted; back to stand.',
     pose:(t,L)=>{ const c=t%4; let u=0;
       if(c<1.1) u=c/1.1; else if(c<2.7) u=1; else u=Math.max(0,1-(c-2.7)/1.1);
@@ -2015,7 +2049,7 @@ let prevRaf = 0;
 let prevT0 = 0;
 function demoPreviewInfo(name){
   return DEMO_PREVIEW[name] || {
-    start: (name||'').startsWith('plant') || (name||'').startsWith('rise') ? 'stand' : 'sit',
+    start: /^(plant|rise|stand|walk)/.test(name||'') ? 'stand' : 'sit',
     blurb: 'Schematic motion preview.',
     pose:(t,L)=>{ for(let i=0;i<6;i++){ L[i].yaw=0; L[i].hip=-0.4; L[i].knee=0.7; } }
   };
@@ -2125,14 +2159,41 @@ function startDemoPreviewLoop(){
   prevRaf = requestAnimationFrame(drawDemoPreview);
 }
 
+const DEMO_GROUPS = [
+  ['air',   'In the air (sitting)', 'homes to sit zero · legs out'],
+  ['stand', 'Standing dances — streamed, live speed', 'homes via the 10× stand-up · dances around the plant'],
+  ['plant', 'Planted acts & shows', 'scripted glides · own timing'],
+  ['walk',  'Walk', 'open-loop tripod gait — floor + slack cord'],
+];
+function demoGroupOf(item){
+  if(item.group) return item.group;
+  if(item.air) return 'air';
+  return item.name.startsWith('walk') ? 'walk' : 'plant';
+}
 async function loadDemos(){
   try{
     const r = await fetch('/api/demos'); const d = await r.json();
     const g = $('dgrid'); g.innerHTML='';
-    (d.demos||[]).forEach(item=>{
+    const items = d.demos||[];
+    DEMO_GROUPS.forEach(([key, title, sub])=>{
+      const inGroup = items.filter(it=>demoGroupOf(it)===key);
+      if(!inGroup.length) return;
+      const h = document.createElement('div');
+      h.className = 'demo-group';
+      h.innerHTML = title+' <span class="sub">· '+sub+'</span>';
+      g.appendChild(h);
+      inGroup.forEach(item=> g.appendChild(demoButton(item)));
+    });
+    if(items.length) setDemoPreview(items[0].name);
+    startDemoPreviewLoop();
+  }catch(e){ $('dgrid').innerHTML = '<div class="hint">Failed to load demos</div>'; }
+}
+function demoButton(item){
       const b = document.createElement('button');
       b.dataset.name = item.name;
-      b.innerHTML = '<b>'+item.name+'</b><br><span style="color:#9aa3b2;font-weight:400;font-size:12px">'
+      b.innerHTML = '<b>'+item.name+'</b>'
+        +(item.live_speed?' <span style="color:#5fd08a;font-size:10px;font-weight:700">LIVE</span>':'')
+        +'<br><span style="color:#9aa3b2;font-weight:400;font-size:12px">'
         +item.title+'</span>';
       b.onmouseenter = ()=> setDemoPreview(item.name);
       b.onfocus = ()=> setDemoPreview(item.name);
@@ -2140,7 +2201,8 @@ async function loadDemos(){
         setDemoPreview(item.name);
         if(needArm()) return;
         const sp = demoSpeed();
-        const body = {name:item.name, speed:sp, torque:demoTorque()};
+        const body = {name:item.name, speed:sp, torque:demoTorque(),
+                      seconds:demoDuration()};
         if(item.name==='breathe' || item.name==='breathe_v' || item.has_size){
           body.size = demoSize();
           body.rate = demoRate();
@@ -2170,11 +2232,7 @@ async function loadDemos(){
         startDemoPoll();
         refreshRobotState(true);
       };
-      g.appendChild(b);
-    });
-    if((d.demos||[]).length) setDemoPreview(d.demos[0].name);
-    startDemoPreviewLoop();
-  }catch(e){ $('dgrid').innerHTML = '<div class="hint">Failed to load demos</div>'; }
+      return b;
 }
 $('dstop').onclick = async ()=>{
   showSent('stopping…');

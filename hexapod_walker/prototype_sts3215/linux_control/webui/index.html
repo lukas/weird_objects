@@ -196,8 +196,11 @@ feet, zero commanded scrub.">
     <div class="pad">
       <h2>In-place demos</h2>
       <div class="hint">Same list as <code>inplace_demos.py</code> / motor_setup
-        <b>f</b>, sorted gentle → spicy. Soft air demos first; then planted
-        moves (<b>plant_*</b> / <b>rise_*</b>). Cords OK for planted.<br>
+        <b>f</b>. <b>Streamed demos</b> (standing dances + air wiggles) use the
+        stand-up lab's 20&nbsp;Hz pursuit engine — the same technique as the
+        Experiments stand/sit — so the <b>speed slider works LIVE</b> while
+        they run. Standing demos home via the validated 10× stand-up and
+        dance around the captured plant. Cords OK for planted/standing.<br>
         <b>Pad:</b> hold LB/LT/RB/RT then tap X·Y·A·B —
         LB: breathe heartbeat twinkle shimmy ·
         LT: ripple conductor arms_up <b>walk</b> ·
@@ -211,12 +214,23 @@ feet, zero commanded scrub.">
       </div>
       <div class="hint">Homes: <b>sit zero</b> = legs out (0°) for air demos;
         <b>stand zero</b> = plant height (Calibrate → Plant height, else +20°/+80°).
-        Planted demos end at stand zero and stay up.</div>
-      <label class="slab">Demo speed: <span id="dspeedlab">1.0</span>×
-        <span style="color:#8089a0;font-weight:400">(all demos · 0.25× → 2×)</span></label>
-      <input id="dspeed" type="range" min="25" max="200" value="100" step="5">
+        Standing/planted demos end at stand zero and stay up.</div>
+      <label class="slab">Speed <span class="tag" style="color:#5fd08a;border-color:#2e7d47">LIVE</span>:
+        <span id="dspeedlab">1.0</span>×
+        <span style="color:#8089a0;font-weight:400">(0.25× → 3× · drag while a
+        demo runs — streamed demos react instantly, breathe at the next
+        half-breath)</span></label>
+      <input id="dspeed" type="range" min="25" max="300" value="100" step="5">
+      <label class="slab">Run for: <span style="color:#8089a0;font-weight:400">
+        (streamed + air demos · planted shows keep their own script)</span>
+        <select id="ddur">
+          <option value="15">15 s</option>
+          <option value="30">30 s</option>
+          <option value="60" selected>60 s</option>
+          <option value="120">2 min</option>
+        </select></label>
       <label class="slab">Air torque limit: <span id="dtorquelab">45</span>%
-        <span style="color:#8089a0;font-weight:400">(lower = less shake/hunt · air demos)</span></label>
+        <span style="color:#8089a0;font-weight:400">(lower = less shake/hunt · air demos; standing dances use τ900 + 3&nbsp;A stall guard)</span></label>
       <input id="dtorque" type="range" min="15" max="100" value="45" step="5">
       <div class="hint" style="margin-top:12px;color:#9aa3b2;font-weight:600;text-transform:uppercase;letter-spacing:.4px;font-size:11px">Breathe tunables <span style="font-weight:400;normal-case;letter-spacing:0;text-transform:none">(breathe + breathe_v)</span></div>
       <label class="slab">Size: <span id="dsizelab">1.0</span>×

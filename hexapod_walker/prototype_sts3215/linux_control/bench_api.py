@@ -24,11 +24,12 @@ REGISTRY_CANDIDATES = (
 )
 
 # Air demos must start near logical 0°. Planted/rise demos start from a stand.
-# "dance" goes planted mid-routine but starts AND ends at sit zero (limp),
-# so it homes like an air demo and must not enter stand-hold afterward.
 AIR_DEMO_NAMES = frozenset({
     "breathe", "breathe_v", "heartbeat", "twinkle", "shimmy", "ripple",
-    "conductor", "arms_up", "dance",
+    "conductor", "arms_up",
+    # dance goes planted mid-routine but starts AND ends at sit zero
+    # (limp), so it homes like an air demo and must not stand-hold after.
+    "dance",
 })
 ZERO_TOL_DEG = 6.0
 
@@ -105,6 +106,9 @@ class BenchAPI:
         self._demo_name: str | None = None
         self._demo_status = "idle"
         self._demo_params: dict = {}
+        # LIVE tempo multiplier (web slider while a demo runs). Streamed
+        # demos read it every tick; breathe at each half-breath.
+        self._demo_speed_live = 1.0
         # What the robot is *trying* to do (UI-facing intent).
         # idle | limp | armed | demo | zeroing | stopping | calibrating
         self._activity = "idle"
@@ -232,6 +236,7 @@ class BenchAPI:
                 "name": self._demo_name,
                 "status": self._demo_status,
                 "running": bool(self._demo_thread and self._demo_thread.is_alive()),
+                "speed_live": self._demo_speed_live,
                 "params": dict(self._demo_params),
                 # Live worker progress (msg + optional joint/index/total) —
                 # the TFT job panel renders counts/percent from this.
@@ -474,18 +479,50 @@ class BenchAPI:
             from inplace_demos import DEMOS
         except ImportError:
             return []
+        try:
+            from inplace_demos import (STAND_STREAM_DEMOS,
+                                       STREAM_POSE_FACTORIES)
+            stand_stream = set(STAND_STREAM_DEMOS)
+            live_names = set(STREAM_POSE_FACTORIES) | {"breathe"}
+        except ImportError:
+            stand_stream, live_names = set(), set()
         out = []
         for n, (t, _) in DEMOS.items():
             # breathe+ kept as alias; UI uses size slider on breathe.
             if n == "breathe+":
                 continue
+            if n in AIR_DEMO_NAMES:
+                group = "air"
+            elif n in stand_stream:
+                group = "stand"
+            elif n.startswith("walk"):
+                group = "walk"
+            else:
+                group = "plant"
             out.append({
                 "name": n,
                 "title": t,
                 "air": n in AIR_DEMO_NAMES,
+                "group": group,
+                "live_speed": n in live_names,
                 "has_size": n in ("breathe", "breathe_v", "dance"),
             })
         return out
+
+    def set_demo_speed(self, speed) -> dict:
+        """LIVE tempo (web slider): takes effect on the running demo."""
+        try:
+            v = float(speed)
+        except (TypeError, ValueError):
+            return {"ok": False, "error": "bad speed"}
+        v = max(0.25, min(3.0, v))
+        with self._lock:
+            self._demo_speed_live = v
+            running = bool(self._demo_thread and self._demo_thread.is_alive())
+            if running:
+                self._demo_params = {**self._demo_params, "speed_live": v}
+        return {"ok": True, "speed": v, "running": running,
+                "demo": self.demo_state()}
 
     # -- actions -------------------------------------------------------------
     def wiggle(self, joint: int, amp: float = 8.0) -> dict:
@@ -541,11 +578,17 @@ class BenchAPI:
 
     def run_demo(self, name: str, *, speed: float = 1.0,
                  size: float = 1.0, rate: float | None = None,
-                 torque: int | None = None, softness: float = 1.0) -> dict:
+                 torque: int | None = None, softness: float = 1.0,
+                 seconds: float | None = None) -> dict:
         try:
             from inplace_demos import DEMOS, run_demo
         except ImportError as e:
             return {"ok": False, "error": f"inplace_demos missing: {e}"}
+        try:
+            from inplace_demos import STREAM_POSE_FACTORIES
+            streamable = set(STREAM_POSE_FACTORIES)
+        except ImportError:
+            streamable = set()
         # Alias: breathe+ → breathe at size 2.
         if name == "breathe+":
             name = "breathe"
@@ -570,6 +613,11 @@ class BenchAPI:
         softness = _f(softness, 1.0, 0.5, 3.0)
         if rate is not None:
             rate = _f(rate, 0.28, 0.08, 0.60)
+        # ``seconds`` is a duration only for demos that take one (air +
+        # streamed); planted shows/glides keep their choreographed times.
+        duration_ok = name in AIR_DEMO_NAMES or name in streamable
+        if seconds is not None:
+            seconds = _f(seconds, 60.0, 5.0, 300.0) if duration_ok else None
         if torque is not None:
             try:
                 torque = int(round(float(torque)))
@@ -589,6 +637,8 @@ class BenchAPI:
                         "demo": self.demo_state(), "robot": self.robot_state()}
 
         params = {"speed": speed, "home": home}
+        if seconds is not None:
+            params["seconds"] = seconds
         if name in ("breathe", "breathe_v", "dance"):
             params.update({"size": size, "softness": softness})
             if rate is not None:
@@ -605,6 +655,9 @@ class BenchAPI:
             self._demo_name = name
             self._demo_status = "starting"
             self._demo_params = dict(params)
+            # Live tempo starts at the requested speed; /api/demo/speed
+            # can change it while the demo runs.
+            self._demo_speed_live = speed
         bits = [f"{name} @ {speed:.2f}×"]
         if switched_from:
             bits.insert(0, f"switch←{switched_from}")
@@ -671,9 +724,7 @@ class BenchAPI:
                         **dict(self._demo_params),
                         "log": log_path.name,
                     }
-                def _act_note(msg: str) -> None:
-                    # Live choreography annotation → demo status line
-                    # (the Demos tab polls it every 0.5 s).
+                def _live_status(msg: str) -> None:
                     if gen != self._demo_gen:
                         return
                     with self._lock:
@@ -682,12 +733,14 @@ class BenchAPI:
                 status = run_demo(
                     d.bus, name,
                     speed=speed,
+                    seconds=seconds,
                     size=size,
                     rate=rate,
                     torque=torque,
                     softness=softness,
                     abort_check=self._demo_abort.is_set,
-                    on_act=_act_note,
+                    speed_fn=lambda: self._demo_speed_live,
+                    status_cb=_live_status,
                     log_path=log_path,
                 )
                 telem = None
