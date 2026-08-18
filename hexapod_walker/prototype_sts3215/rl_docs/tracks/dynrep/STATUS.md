@@ -34,6 +34,16 @@ order asked for: the two early REFUSED `gaitinit-hard1` ledger rows
 were launcher retries, the third row genuinely RAN and FINISHED (triage
 below) — nothing was treated as running that isn't.
 
+**Independent corroboration (concurrent cycle, ~11:0x UTC): a second
+build of this exact recipe from the same committed code ran a
+standalone pre-launch mechanism smoke (`--walkcurr-precert-only`,
+100k-step budget, train-9) and got the same clean PASS on the bridge-B0
+cert (prog=1.164, falls=0, slip/m=0.93, hf=0.83) before its own full
+launch correctly lost the duplicate-run race to the train-11 job above
+and stood down (normal launcher traffic, no double-spend). Two
+independent readings of the transplant/obs mapping now agree it is
+sound going into the real run.**
+
 **08-18 ~10:5x UTC (triage cycle): `cw-dynrep-criticD-walkcurr4-gaitinit-hard1`
 FINISHED — the tournament's 6th and last canary, FAIL admission but the
 CLEAR outlier, and it CORRECTS the framing below.** B0 ignition never

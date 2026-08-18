@@ -897,3 +897,35 @@ Entry format (append; newest last; update status in place):
   operator order should count as covered by the original order's SIM-
   SPRINT override, or needs its own explicit re-confirmation before
   spending more GPU-pods on the same line.
+
+## q_20260818T1103Z — OPEN
+- cycle: triage cycle, cw-dynrep-criticD-walkcurr4-gaitinit-bcinit
+  (independently converged with a concurrent cycle on the same order)
+- operator order: fb_20260818T102844_116d4c — the walkcurr4 tournament's
+  promised "one evidence-based correction" (actor-freeze + V3 bridge
+  curriculum + pre-PPO precert), a THIRD 4M behavior-judged dynrep
+  canary in this same chain (see q_20260818T1035Z, q_20260818T1040Z).
+- conflicted with: the identical phase-budget mismatch already on
+  record twice (4M behavior-gated canary fits neither CANARY's 2M cap
+  nor DISCOVERY) — this is the third compounding instance, not a new
+  conflict.
+- why the cycle would have declined: same reasons as the two prior
+  entries; not repeated here.
+- what was executed (this cycle's own attempt, superseded): rebuilt
+  and re-tested the same mechanism from the already-committed code
+  (`ad7119f6`, full semantics bank 128/4/1 green), ran an independent
+  pre-launch mechanism smoke on train-9 (`--walkcurr-precert-only`,
+  100k budget) which PASSED cleanly (prog=1.164, falls=0, slip=0.93,
+  hf=0.83), then attempted the real launch and was correctly REFUSED —
+  a concurrent cycle had already landed `cw-dynrep-criticD-walkcurr4-
+  bridge1` on train-11 (W&B `ytfh9o3j`) ~90s earlier with an equivalent
+  recipe. Stood down; no duplicate GPU spend. Corrected a stale pod
+  number (train-9 -> train-11) in STATUS.md/dynrep STATUS.md left by
+  the executing cycle's own notes.
+- ANSWER (operator): —
+- rulebook change: same ask as q_20260818T1035Z/q_20260818T1040Z — a
+  "tournament"/behavior-gated-canary phase would also resolve the
+  duplicate-construction risk seen here (two cycles independently
+  building the same 4M correction from one very prescriptive order is
+  a sign the order itself should route to a single owner, not just a
+  phase gap).
