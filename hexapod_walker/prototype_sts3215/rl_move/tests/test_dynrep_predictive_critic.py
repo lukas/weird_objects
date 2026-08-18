@@ -41,6 +41,9 @@ from rl_move.dynamics.predictive_critic import (
 )
 from rl_move.dynamics.sb3_encoder import DynFeaturesExtractor
 from rl_move.dynamics.train_ppo_transfer import anchor_batch_to_torch
+from rl_move.sim.update_health import (
+    CRITIC_MARKERS, attach_actor_critic_lr, split_actor_critic_params,
+)
 
 HORIZONS = (1, 2, 5, 10, 25)
 HISTORY = 16
@@ -347,3 +350,67 @@ def test_save_roundtrip_small_and_bit_identical(encoder_ckpt, corpus,
                     loaded.policy.predict_values(obs_t))
     assert int(loaded.policy.snapshot_version.item()) == int(
         model.policy.snapshot_version.item())
+
+
+# -- update_health critic-marker extension (walkcurr2, root cause 3:
+# train_ppo_transfer had no target-KL/epoch-cap/LR-decay update-health
+# guardrails; porting update_health.py to conditions D/E/F requires the
+# stock CRITIC_MARKERS to also cover this policy's two critic-only
+# modules that share no substring with them, "value_gate" and
+# "latent_adapter" — otherwise attach_actor_critic_lr would silently
+# throttle them with the (smaller, decaying) ACTOR learning rate.) ----
+PREDICTIVE_CRITIC_MARKERS = CRITIC_MARKERS + ("value_gate", "latent_adapter")
+
+
+def test_stock_critic_markers_miss_predictive_critic_modules(encoder_ckpt,
+                                                              corpus):
+    """Pins the bug the extension fixes: with the plain SB3 markers,
+    value_gate/latent_adapter land in the ACTOR group (wrong)."""
+    model, _ = _build(encoder_ckpt, corpus, configure=False)
+    policy = model.policy
+    _actor, critic = split_actor_critic_params(policy)
+    critic_ids = {id(p) for p in critic}
+    assert id(policy.value_gate) not in critic_ids
+    assert id(policy.latent_adapter[0].weight) not in critic_ids
+
+
+def test_extended_critic_markers_cover_predictive_critic_modules(
+        encoder_ckpt, corpus):
+    """With the extended marker tuple, every predictive-critic-only
+    module (value_net trunk+head, latent_adapter, value_gate) lands in
+    the critic group and nothing else moves — actor still gets exactly
+    the action-distribution params."""
+    model, _ = _build(encoder_ckpt, corpus, configure=False)
+    policy = model.policy
+    actor, critic = split_actor_critic_params(
+        policy, critic_markers=PREDICTIVE_CRITIC_MARKERS)
+    actor_ids, critic_ids = {id(p) for p in actor}, {id(p) for p in critic}
+    assert not (actor_ids & critic_ids)
+    all_ids = {id(p) for p in policy.parameters() if p.requires_grad}
+    assert actor_ids | critic_ids == all_ids
+    assert id(policy.value_gate) in critic_ids
+    assert id(policy.latent_adapter[0].weight) in critic_ids
+    assert id(policy.latent_adapter[2].weight) in critic_ids
+    assert id(policy.value_net.weight) in critic_ids
+    assert id(policy.mlp_extractor.value_net[0].weight) in critic_ids
+    # actor keeps the action-distribution params
+    assert id(policy.log_std) in actor_ids
+    assert id(policy.action_net.weight) in actor_ids
+    assert id(policy.mlp_extractor.policy_net[0].weight) in actor_ids
+
+
+def test_attach_actor_critic_lr_with_predictive_critic_markers(
+        encoder_ckpt, corpus):
+    """attach_actor_critic_lr wires cleanly on this policy end-to-end
+    with the extended markers: separate optimizer groups, decay lever
+    present, no crash on a real PPO.train() step."""
+    model, _ = _build(encoder_ckpt, corpus, configure=False)
+    attach_actor_critic_lr(model, actor_lr=1e-4, actor_lr_final=1e-5,
+                          critic_lr=3e-4,
+                          critic_markers=PREDICTIVE_CRITIC_MARKERS)
+    n_actor_expected = sum(
+        1 for n, p in model.policy.named_parameters()
+        if p.requires_grad
+        and not any(m in n for m in PREDICTIVE_CRITIC_MARKERS))
+    assert model._ac_state["n_actor"] == n_actor_expected
+    model.learn(total_timesteps=32)  # must not raise

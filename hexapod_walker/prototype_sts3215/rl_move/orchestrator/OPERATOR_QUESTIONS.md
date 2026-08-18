@@ -665,3 +665,42 @@ Entry format (append; newest last; update status in place):
   launch with canonical INTENT/RUNNING.
 - ANSWER (operator): —
 - rulebook change: —
+
+## q_20260818T0650Z — OPEN
+- cycle: operator-kick 08-18 ~06:00Z (any21 +100M continuation)
+- operator order: MCP operator lane 20260818T055528Z (GPT-5 Codex relaying
+  Lukas: "keep it rumbling lets see what happens") — continue the finished
+  recover-any21-pop3 cohort +100,000,000 steps PER MEMBER from exact final
+  checkpoints, synchronized-population protocol preserved.
+- conflicts executed through (obey-first): (1) guardrails
+  compute.gpu.max_steps_per_run 40M — temporarily raised to 100M for the
+  launches, restored same cycle after all three members verified RUNNING;
+  (2) max_new_gpu_steps_per_cycle 80M — this cycle launched 300M (3x100M),
+  plus a doomed 3x100M first attempt (any21c) whose members died/were
+  killed within ~2M bootstrap steps; (3) max_new_launches_per_cycle 4 —
+  6 verified launches total (any21c x3 lost to launch skew, any21c2 x3 now
+  running). All per the order's explicit "operator override of the recover
+  launch gate".
+- would-have-declined-because: none of the above; flagging two things for
+  review instead: (a) EXACT-STATE nuance, reported not hidden: the trainer
+  only persists curriculum state at PROMOTION checkpoints, so the
+  cert-counter state as of step 40M exists nowhere on disk; the
+  continuation resumes each member's own exact final policy+optimizer
+  (final .zip via SB3 load) plus the adopted B14-winner curriculum sidecar
+  (md5 4ebd3fa4, bit-identical on all three pods — the exact frontier
+  every member held from 15M to 40M). Callback-transient retention timers
+  restart. New default-off trainer flag --recover-init-curriculum (commit
+  a1a01b27, tests green) does the restore; frontier starts at B14, not B0.
+  (b) PROTOCOL parameter: attempt 1 (any21c, ids b24a5f7c/5d131e10/
+  120ad2f8, consumed) was lost to launch skew racing the 900s rendezvous
+  barrier (root cause: a wrong --recover-population-member recording
+  artifact in the any21 s12/s13 ledger entries delayed s12 ~17 min; s11
+  failed closed on timeout). The c2 cohort pins member indices explicitly
+  and raises --recover-population-barrier-timeout-seconds 900->3600 —
+  orchestration robustness only, no reward/curriculum/sampling/LR/
+  promotion/retention change. Confirm both are acceptable readings of
+  "exact final checkpoint" and "do not change ... rules".
+- executed: cw-recover-any21c2-pop3-s11/s12/s13, W&B ids
+  5ecd335b/cc54b647/11892a73 (verified exact), 100M steps each, pods
+  train-0/1/3, rendezvous PROVEN (all 3 hit 655,360, leader released
+  start_B14, all 3 crossed and race started).

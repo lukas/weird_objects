@@ -440,12 +440,21 @@ WALKCURR_GATE = dict(
 
 
 def walkcurr_bucket_pass(m: dict, spec: dict,
-                         gate: dict = WALKCURR_GATE
+                         gate: dict | None = None
                          ) -> tuple[bool, dict]:
     """Apply the certification gate to one bucket's assay metrics.
     nan metrics FAIL their check (unmeasurable competence is not
     competence) except stop_speed, which is nan only when the assay
-    drew no stop segments (nothing to gate that round)."""
+    drew no stop segments (nothing to gate that round).
+
+    ``gate`` explicit arg > ``spec["gate"]`` (walkcurr2's per-bucket
+    calibration, WALKCURR_GATE_V2_IGNITION/_QUALITY in walk_task.py)
+    > the module WALKCURR_GATE default (walkcurr1, unchanged) — so the
+    one trainer call site (``walkcurr_bucket_pass(m, spec)``) auto-
+    selects the right tier for either curriculum version with no
+    caller change."""
+    if gate is None:
+        gate = spec.get("gate", WALKCURR_GATE)
     def _ok_min(key, lo):
         v = _nn(m.get(key), float("-inf"))
         return v >= lo

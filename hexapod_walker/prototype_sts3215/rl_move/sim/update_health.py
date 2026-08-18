@@ -64,21 +64,32 @@ def _exclude_from_save(model, names: tuple[str, ...]) -> None:
 CRITIC_MARKERS = ("value_net", "vf_features_extractor")
 
 
-def split_actor_critic_params(policy):
+def split_actor_critic_params(policy, critic_markers=None):
     """(actor_params, critic_params) — disjoint, covers every
-    trainable parameter of the policy exactly once."""
+    trainable parameter of the policy exactly once.
+
+    ``critic_markers`` overrides the module-level ``CRITIC_MARKERS``
+    (additive callers only — e.g. ``PredictiveCriticPolicy`` adds
+    ``value_gate``/``latent_adapter``, the critic-only residual path
+    that sits alongside the frozen predictive encoder and shares no
+    substring with the stock SB3 markers; using the stock set on that
+    policy would silently throttle those two modules with the ACTOR
+    learning rate instead of the critic's). Default preserves the
+    exact prior behavior for every existing caller."""
+    markers = critic_markers if critic_markers is not None else CRITIC_MARKERS
     actor, critic = [], []
     for name, p in policy.named_parameters():
         if not p.requires_grad:
             continue
-        (critic if any(m in name for m in CRITIC_MARKERS)
+        (critic if any(m in name for m in markers)
          else actor).append(p)
     return actor, critic
 
 
 def attach_actor_critic_lr(model, actor_lr: float,
                            actor_lr_final: float | None = None,
-                           critic_lr: float | None = None) -> None:
+                           critic_lr: float | None = None,
+                           critic_markers=None) -> None:
     """Rebuild the policy optimizer with separate actor/critic groups.
 
     - actor group: linear decay actor_lr -> actor_lr_final over the
@@ -95,7 +106,7 @@ def attach_actor_critic_lr(model, actor_lr: float,
         actor_lr_final = actor_lr
     if critic_lr is None:
         critic_lr = actor_lr
-    actor, critic = split_actor_critic_params(model.policy)
+    actor, critic = split_actor_critic_params(model.policy, critic_markers)
     if not actor or not critic:
         raise ValueError(
             "actor/critic param split failed (one group empty) — "

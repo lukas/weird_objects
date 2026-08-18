@@ -197,6 +197,103 @@ WALKCURR_BUCKETS = (
          resample_s=4.0, jitter=0.5, stop_frac=0.15, blend_lo=1.0,
          blend_hi=1.0, dr=0.3, stop_gate=0.015),
 )
+
+# WALKCURR_BUCKETS_V2 (walkcurr2, operator MCP note fb_20260818T060044,
+# "figure out how to make a great run and then launch it"): corrects
+# two root causes the matched walkcurr1-vs-40m1 data exposed in V1's
+# B0/B1 (see cw-dynrep-criticD-40m1 triage + walkcurr1 in-flight reads).
+#
+# Root cause 1: V1's B0 command band (0.04-0.05 m/s, dead ahead) sits
+# ENTIRELY inside SIGMA_V=0.05 (walk_task's velocity-tracking kernel
+# width) of a PARKED (zero-output) robot — standing still nets
+# exp(-(0.045/0.05)^2/2) = ~67% of peak reward, so PPO has little
+# incentive to ever start walking before B0 can certify. V2's B0
+# ("ignition") instead commands 0.08-0.12 m/s with a small heading
+# spread from the very first bucket (a parked policy is now 1.6-2.4
+# sigma off target, i.e. <15% of peak reward) — command diversity from
+# step 0, not deferred to later rungs.
+#
+# Root cause 2: V1's gate (WALKCURR_GATE, train_ppo_transfer.py)
+# applies slew_sat<=0.5 as a hard admission check on every bucket. The
+# best real evidence of what a good policy at this budget looks like —
+# cw-dynrep-criticD-40m1's retained 6M-best checkpoint, matched task,
+# matched budget-ish, matched everything but curriculum — runs
+# slew_sat~0.925, i.e. it would FAIL V1's own admission gate outright.
+# A hard bar the best known-good policy cannot clear is not a quality
+# floor, it is a wall between "parked" (low slew) and "walking" (high
+# slew, because directional command changes cost joint-speed). V2
+# raises slew_sat_max to 0.95 (WALKCURR_GATE_V2_*, monitored/
+# selection-relevant like every other quality metric here, not
+# vetoing) and otherwise keeps V1's floors (progress/slip/roll) intact
+# — tightened, if anything, on later buckets via the per-bucket "gate"
+# key (walkcurr_bucket_pass reads spec["gate"] when present).
+#
+# Buckets B2+ reuse V1's heading/resample/DR ladder verbatim (proven
+# shape, not the thing that broke); only B0/B1 (ignition speed +
+# immediate heading spread) and the gate calibration change.
+WALKCURR_GATE_V2_IGNITION = dict(
+    cmd_prog_frac_min=0.65, slip_per_m_max=2.5, peak_roll_deg_max=8.0,
+    slew_sat_max=0.95, cross_track_frac_max=0.30,
+    contact_sw_per_s_min=3.0, foot_sw_min_per_s_min=0.5)
+WALKCURR_GATE_V2_QUALITY = dict(
+    cmd_prog_frac_min=0.75, slip_per_m_max=2.0, peak_roll_deg_max=6.0,
+    slew_sat_max=0.95, cross_track_frac_max=0.30,
+    contact_sw_per_s_min=3.0, foot_sw_min_per_s_min=0.5)
+WALKCURR_BUCKETS_V2 = (
+    # B0 ignition: real speed + heading spread from step 0 (root cause 1)
+    dict(name="ignition", s_lo=0.08, s_hi=0.12, head_lo=0.0,
+         head_hi=math.radians(15.0), resample_s=0.0, jitter=0.0,
+         stop_frac=0.0, blend_lo=1.0, blend_hi=1.0, dr=0.0,
+         stop_gate=None, gate=WALKCURR_GATE_V2_IGNITION),
+    # B1 speed band widens toward the legacy range, heading unchanged
+    dict(name="quality_band", s_lo=0.06, s_hi=0.12, head_lo=0.0,
+         head_hi=math.radians(15.0), resample_s=0.0, jitter=0.0,
+         stop_frac=0.0, blend_lo=1.0, blend_hi=1.0, dr=0.0,
+         stop_gate=None, gate=WALKCURR_GATE_V2_QUALITY),
+    dict(name="full_band_head15", s_lo=0.03, s_hi=0.12, head_lo=0.0,
+         head_hi=math.radians(15.0), resample_s=0.0, jitter=0.0,
+         stop_frac=0.0, blend_lo=1.0, blend_hi=1.0, dr=0.0,
+         stop_gate=None, gate=WALKCURR_GATE_V2_QUALITY),
+    dict(name="head30", s_lo=0.03, s_hi=0.12, head_lo=0.0,
+         head_hi=math.radians(30.0), resample_s=0.0, jitter=0.0,
+         stop_frac=0.0, blend_lo=1.0, blend_hi=1.0, dr=0.0,
+         stop_gate=None, gate=WALKCURR_GATE_V2_QUALITY),
+    dict(name="head45", s_lo=0.03, s_hi=0.12, head_lo=0.0,
+         head_hi=math.radians(45.0), resample_s=0.0, jitter=0.0,
+         stop_frac=0.0, blend_lo=1.0, blend_hi=1.0, dr=0.0,
+         stop_gate=None, gate=WALKCURR_GATE_V2_QUALITY),
+    # B5 blended front-cone transitions (no stops yet)
+    dict(name="front_blend", s_lo=0.03, s_hi=0.12, head_lo=0.0,
+         head_hi=math.radians(45.0), resample_s=6.0, jitter=0.0,
+         stop_frac=0.0, blend_lo=1.0, blend_hi=1.0, dr=0.0,
+         stop_gate=None, gate=WALKCURR_GATE_V2_QUALITY),
+    # B6 the joystick mix: 4s segments + jitter + stop/restart
+    dict(name="stop_restart", s_lo=0.03, s_hi=0.12, head_lo=0.0,
+         head_hi=math.radians(45.0), resample_s=4.0, jitter=0.5,
+         stop_frac=0.15, blend_lo=1.0, blend_hi=1.0, dr=0.0,
+         stop_gate=0.015, gate=WALKCURR_GATE_V2_QUALITY),
+    # B7/B8 same commands under DR 0.1 then 0.3
+    dict(name="dr01", s_lo=0.03, s_hi=0.12, head_lo=0.0,
+         head_hi=math.radians(45.0), resample_s=4.0, jitter=0.5,
+         stop_frac=0.15, blend_lo=1.0, blend_hi=1.0, dr=0.1,
+         stop_gate=0.015, gate=WALKCURR_GATE_V2_QUALITY),
+    dict(name="dr03", s_lo=0.03, s_hi=0.12, head_lo=0.0,
+         head_hi=math.radians(45.0), resample_s=4.0, jitter=0.5,
+         stop_frac=0.15, blend_lo=1.0, blend_hi=1.0, dr=0.3,
+         stop_gate=0.015, gate=WALKCURR_GATE_V2_QUALITY),
+    # B9/B10 lateral then rear/reverse — locked until every earlier
+    # rung certifies AND retains
+    dict(name="lateral", s_lo=0.03, s_hi=0.12,
+         head_lo=math.radians(45.0), head_hi=math.radians(90.0),
+         resample_s=4.0, jitter=0.5, stop_frac=0.15, blend_lo=1.0,
+         blend_hi=1.0, dr=0.3, stop_gate=0.015,
+         gate=WALKCURR_GATE_V2_QUALITY),
+    dict(name="rear", s_lo=0.03, s_hi=0.12,
+         head_lo=math.radians(90.0), head_hi=math.pi,
+         resample_s=4.0, jitter=0.5, stop_frac=0.15, blend_lo=1.0,
+         blend_hi=1.0, dr=0.3, stop_gate=0.015,
+         gate=WALKCURR_GATE_V2_QUALITY),
+)
 # Sampling mixture over unlocked buckets (operator spec): 50% frontier,
 # 25% weakest mastered, 15% uniform over mastered, 10% the rung just
 # prior to the frontier. Empty components fold back to the frontier.
@@ -453,14 +550,22 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         self._lp_weights = None
         self._walk_bucket = None
         # Adaptive competence+retention walk-command curriculum state
-        # (goal.walk_curriculum=1; see WALKCURR_BUCKETS). PERSISTENT
-        # across episodes like _lp_weights/_rec_* — never in SNAP_ATTRS.
-        # _wc_results is certification-only: stochastic rollouts must
-        # never move the frontier; the trainer broadcasts deterministic
-        # held-out assay results via apply_walkcurr_certification and
-        # promotes via walkcurr_update_admission.
-        self._wc_on = float(cfg_get(self.cfg, "goal", "walk_curriculum",
-                                    default=0.0)) == 1.0
+        # (goal.walk_curriculum=1 or 2; see WALKCURR_BUCKETS/_V2).
+        # PERSISTENT across episodes like _lp_weights/_rec_* — never in
+        # SNAP_ATTRS. _wc_results is certification-only: stochastic
+        # rollouts must never move the frontier; the trainer broadcasts
+        # deterministic held-out assay results via
+        # apply_walkcurr_certification and promotes via
+        # walkcurr_update_admission. version 2 (walkcurr2, operator MCP
+        # note fb_20260818T060044) selects WALKCURR_BUCKETS_V2 (fixed
+        # B0/B1 ignition band + per-bucket gate calibration) instead of
+        # the original V1 table; version 1 stays bit-exact unchanged.
+        wc_version = float(cfg_get(self.cfg, "goal", "walk_curriculum",
+                                   default=0.0))
+        self._wc_on = wc_version in (1.0, 2.0)
+        self._wc_version = int(wc_version) if self._wc_on else 0
+        self._wc_table = (WALKCURR_BUCKETS_V2 if self._wc_version == 2
+                          else WALKCURR_BUCKETS)
         self._wc_active_n = 1
         self._wc_results: dict = {}   # bucket -> {passed, score, cert_round}
         self._wc_bucket = None        # this episode's curriculum bucket
@@ -648,13 +753,13 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         force = getattr(self, "force_walk_curr_bucket", None)
         if force is not None:
             b = int(force)
-            if not 0 <= b < len(WALKCURR_BUCKETS):
+            if not 0 <= b < len(self._wc_table):
                 raise ValueError(f"force_walk_curr_bucket {b} out of "
-                                 f"range 0..{len(WALKCURR_BUCKETS) - 1}")
+                                 f"range 0..{len(self._wc_table) - 1}")
         else:
             b = self._walkcurr_draw_bucket()
         self._wc_bucket = b
-        dr = float(WALKCURR_BUCKETS[b]["dr"])
+        dr = float(self._wc_table[b]["dr"])
         self.randomizer = self._walkcurr_randomizer(dr)
 
     def _walkcurr_draw_bucket(self) -> int:
@@ -715,7 +820,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         is a continuous competence proxy (cert cmd_prog_frac) used only
         to pick the weakest mastered bucket for replay pressure."""
         bucket = int(bucket)
-        if not 0 <= bucket < len(WALKCURR_BUCKETS):
+        if not 0 <= bucket < len(self._wc_table):
             raise ValueError(f"unknown walkcurr bucket {bucket}")
         self._wc_results[bucket] = {
             "passed": bool(passed), "score": float(score),
@@ -742,7 +847,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         retention_passed = not retained_failed
         promoted = False
         if (frontier_passed and retention_passed
-                and self._wc_active_n < len(WALKCURR_BUCKETS)):
+                and self._wc_active_n < len(self._wc_table)):
             self._wc_active_n += 1
             promoted = True
         return {
@@ -766,7 +871,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                            b, {}).get("score", float("inf")))
                    if mastered else -1)
         return {
-            "total_buckets": len(WALKCURR_BUCKETS),
+            "total_buckets": len(self._wc_table),
             "active_n": int(self._wc_active_n),
             "frontier_bucket": int(frontier),
             "weakest_mastered": int(weakest),
@@ -784,7 +889,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
 
     def restore_walkcurr_checkpoint_state(self, state: dict) -> None:
         active_n = int(state["active_n"])
-        if not 1 <= active_n <= len(WALKCURR_BUCKETS):
+        if not 1 <= active_n <= len(self._wc_table):
             raise ValueError(f"invalid walkcurr active_n {active_n}")
         self._wc_active_n = active_n
         self._wc_results = {
@@ -803,7 +908,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         if b is None:
             raise RuntimeError("walkcurr episode without a prepared "
                                "bucket (reset ordering bug)")
-        spec = WALKCURR_BUCKETS[b]
+        spec = self._wc_table[b]
         n = self.episode_steps + 1
         rng = self.rng
 
