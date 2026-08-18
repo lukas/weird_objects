@@ -1,5 +1,58 @@
 # dynrep — Dynamics-representation pretraining
 
+**08-18 ~11:3x UTC (triage cycle): the bridge tournament's single-
+authority gate resolves — BOTH `cw-dynrep-criticD-walkcurr4-bridge1-r1`
+(the operator-ordered resume) and `-retry1` (the from-zero twin)
+FAIL; NO 40M `cw-dynrep-criticD-walkcurr4` launches.** `bridge1-r1`
+never trained a step: its fail-closed pre-PPO precert on the resumed
+2M-step actor-only transplant scored falls=0.38 (bar: 0==falls)
+despite fine prog/hf/slip (1.15/.82/1.31) — the checkpoint it resumed
+from was itself mid-KL-breach when the parent crashed, so resuming it
+is not equivalent to a clean transplant (a genuine resume-artifact
+finding, not a recipe-wall one). `retry1` (clean from-zero hard1
+transplant, identical recipe) DID pass precert and ran the full 4M
+cleanly — 3 walkcurr rollbacks completed with no optimizer crash,
+confirming the mechanical fix holds — and hit frontier B2 with
+prog/height/slip all inside gate at every rung (B0/B1/B2 prog
+1.18/.84/.79, hf .87/.82/.87, slip 1.21/1.30/1.24). But falls
+ESCALATE with curriculum depth: 12.5% -> 37.5% -> 50%, the opposite of
+consolidation, and the gate's falls==0 bar fails hard. Per the
+pre-registered single-authority clause (bridge1-r1 owns the 40M call),
+no 40M follows from either arm.
+**MCP feedback `fb_20260818T112826_9ed832` (Codex/Lukas) reviewed and
+agrees with the no-40M call**, and additionally proposes a causal
+account (whole-policy retention rollback repeatedly undoes the fresh
+critic's own adaptation — critic EV went +.304 -> -.183 across
+rollbacks — while the source hard1 lineage's anti-drag/anti-park
+reward terms were dropped from this recipe) plus a concrete `bridge2`
+design: actor-only rollback (never reset the critic), a critic-EV-
+readiness gate before unfreezing the actor, and restoring hard1's
+`walk_anchor_gate`/`k_drag_loaded`/`k_park_duty` terms. Technically
+plausible and NOT executed this cycle: it is new dynrep code + a new
+4M-budget dynrep launch, this is advisory MCP input (not an operator
+order), and the SIM SPRINT bars new research-track launches unless
+they directly serve sim rise/walk reliability — this line has now run
+~10 canary-class arms today without beating the already-deployable
+`cw-dep-bcgait1-hard1` champion it's initialized from, and its trend
+(falls getting WORSE with curriculum depth) is a regression, not
+hardening. Left `[operator]` for explicit sign-off before a `bridge2`
+launch (references q_20260818T1035Z/1040Z/1103Z/1125Z, the four
+already-open questions about this exact tournament's SIM-SPRINT fit).
+Evidence: `rl_docs/runs/cw-dynrep-criticD-walkcurr4-bridge1-r1.md`,
+`-retry1.md`, W&B `wetc9jbc`/`q623592v`.
+**Superseding note (this cycle, concurrent with the above): a
+different concurrent cycle, still executing the same operator order
+(fb_20260818T111051Z), found r1's resume target scientifically
+invalid (it carries the KL-breached update its own fatal rollback was
+undoing) and instead restored the run's last VALID retention-clean
+checkpoint — the B1 promotion at step 524,288 — as
+`cw-dynrep-criticD-walkcurr4-bridge1-r2` (train-11, RUNNING, just
+started). Per r2's own pre-registration its SINGLE-AUTHORITY CLAUSE
+supersedes r1's for the 40M call; r1 (precert-aborted) and retry1
+(FAILED on falls) are now both corroborating evidence only. No 40M
+launches from this cycle's verdicts above — the live decision point
+is r2's own gate, not triaged here (off-limits, another cycle's run).**
+
 **08-18 ~11:2x UTC (triage cycle): `cw-dynrep-criticD-walkcurr4-bridge1`
 CRASHED at 2.007M/4M on a mechanical bug, not a behavioral result —
 fixed at the root and RETRIED as `cw-dynrep-criticD-walkcurr4-bridge1-
