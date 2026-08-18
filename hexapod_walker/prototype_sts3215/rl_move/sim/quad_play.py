@@ -129,9 +129,16 @@ class Player:
             return g.pose_at(QW.ENTRY_TOTAL_S + self.tw)
         return self.exit_fn(self.tx)
 
+    @property
+    def speed_eff(self) -> float:
+        """Live speed with the gait's cap (the deep-lean trot loses its
+        margin above 1x: 1.25x fell, 2x walks backward — sim-measured)."""
+        cap = QW.GAITS[self.gait_name].get("speed_cap", 2.0)
+        return min(self.speed, cap)
+
     def step(self) -> None:
         dt = 1.0 / CTRL_HZ
-        dg = dt * self.speed
+        dg = dt * self.speed_eff
         if self.state == self.ENTRY:
             self.t += dg
             if self.t >= QW.ENTRY_TOTAL_S:
@@ -244,9 +251,11 @@ def main() -> None:
         dist = 1000.0 * (float(pl.data.qpos[0]) - pl.x0)
         pending = ("" if pl.gait.phase == QW.GAITS[pl.gait_name]["phase"]
                    or pl.state == Player.PLANT else " (next rear-up)")
+        capped = (f" (capped {pl.speed_eff:.2f})"
+                  if pl.speed_eff < pl.speed else "")
         hud = [Player.NAMES[pl.state],
                f"gait {pl.gait_name.upper()}{pending}   "
-               f"speed {pl.speed:.2f}x   walked {dist:+.0f} mm   "
+               f"speed {pl.speed:.2f}x{capped}   walked {dist:+.0f} mm   "
                f"tilt {tilt:.0f} deg   cur {pl.cur:.1f} A "
                f"(peak {pl.peak_cur:.1f})"]
         if uz < 0.55:
