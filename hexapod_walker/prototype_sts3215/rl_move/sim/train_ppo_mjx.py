@@ -1593,10 +1593,14 @@ def main(argv: list[str] | None = None) -> int:
                 "--walk-curriculum owns best-checkpoint selection "
                 "(best = last retention-clean promotion, never reward/"
                 "latest); drop --best-ckpt/--ev-stop-min")
-        if args.init_from is not None:
+        if args.init_from is not None and not args.init_from_actor_only:
             raise SystemExit("--walk-curriculum is a fresh-actor "
                              "acquisition contract (walkcurr lineage); "
-                             "--init-from is not wired")
+                             "a full-checkpoint --init-from is not wired "
+                             "(pass --init-from-actor-only for an "
+                             "actor-init acquisition recipe — the "
+                             "curriculum still owns cert/reset-pool/"
+                             "promotion state fresh)")
         if (args.walkcurr_post_promo_actor_lr > 0.0
                 and args.actor_lr <= 0.0):
             raise SystemExit("--walkcurr-post-promo-actor-lr requires "
