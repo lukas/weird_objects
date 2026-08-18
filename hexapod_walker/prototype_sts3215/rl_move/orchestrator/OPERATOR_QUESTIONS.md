@@ -1004,3 +1004,13 @@ Entry format (append; newest last; update status in place):
   bars), and whether train-0/4/6/8 should be recreated with the 4G
   shm mount (today they cannot host hist16/predictive-live runs;
   placement constraint recorded in the ledger + CAPACITY.md).
+- **UPDATE 08-18 ~16:5x UTC (triage cycle): the run finished — FAIL,
+  not PASS, so the "auto-launch 40M" half of this question is now
+  MOOT** (2 of 5 pre-registered bars failed outright: heldout
+  prediction worsened, 0/4 guarded snapshots accepted; see ledger
+  verdict + dynrep/STATUS.md). Leaving this OPEN rather than CLOSED:
+  the shm-mount capacity question (train-0/4/6/8) is still
+  unanswered and outcome-only closure ("every ordered arm in this
+  tournament FAILed") is not the same as an explicit sprint-scope
+  ruling for any FUTURE dynrep arm — that needs the operator's own
+  word, not an inference from four failures.

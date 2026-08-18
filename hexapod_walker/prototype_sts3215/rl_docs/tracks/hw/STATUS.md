@@ -22,6 +22,43 @@ unresolved blockers between the robot and reliable joystick control.
 
 ## Now
 
+- **08-18 ~16:3x (triage cycle): `cw-dep-bcgait1-hard1-steer1c`
+  canary PASSED (mechanism-health only) — found already finished on
+  the pod (ledger said RUNNING; W&B state=finished + no live process
+  on train-5 confirmed it was stale).** All bars: finite losses;
+  `train/approx_kl`=0.0069 (well under the 0.04 rollback trigger),
+  `kl_rollback_count`=0 for the whole run; the last periodic eval
+  (1,003,520 steps) and final video reel both show the tall gait
+  intact (walk err 0.052 m/s, tipped 2/2, rolltrap 2/2,
+  `walk_height_factor`=0.895 — not re-crouched, no fall explosion).
+  One wrinkle worth banking: the gate's literal "episodes average
+  >60s" bar is ARITHMETICALLY UNREACHABLE for a 2M-step/4096-env
+  canary against 120s episodes (2M/4096 ≈ 496 steps/env ≈ 19.8s total
+  budget — no env could ever be truncated) — judged instead on the
+  proxy that's actually available (`env/reward_termination`≈0 at the
+  final log, `ep_len_mean` tracking ~93% of the run's own
+  max-possible per-env elapsed budget throughout, i.e. essentially no
+  early terminations), which is what the bar was actually trying to
+  measure. Per the pre-registered rule, PASS launches the ~20M
+  hardening continuation with the operator's admission panel —
+  VERIFIED RUNNING on train-4 as `cw-dep-bcgait1-hard1-steer1-hard20m1`
+  (W&B `w3fbxfj7`, `--best-ckpt` retention guard, same stress-mix
+  recipe, warm-started from steer1c). Launch note: the first attempt
+  crashed at argparse (a real bug in `launch_run.py respec`'s
+  `--arg` handling for bare boolean flags — `--arg='--best-ckpt'`
+  with no `=value` appends a stray empty string that
+  `train_ppo_mjx.py` rejects) before spending any GPU time; fixed by
+  hand (stripped the trailing empty arg, re-queued via
+  `backlog add` with the raw arg vector instead of `--arg`), and a
+  duplicate stale ledger row + a misdirected W&B note (the launcher's
+  own retry loop briefly mis-verified the broken row as RUNNING, and
+  a ledger tool mirrored a correction onto the WRONG run's W&B page)
+  were both reconciled same-cycle. A supplementary DR-0/own-DR
+  harness eval kicked off on steer1c's checkpoint got reaped by the
+  pod-repair step before finishing (no artifacts) — not reissued,
+  since the canary verdict already stands on training telemetry.
+  Evidence: ledger verdict + W&B `bpz63iwd` OUTCOME note.
+
 - **08-18 ~16:1x (operator kick, fb_20260818T152717_278879): the
   tall walker's steering-tangle diagnosis is DONE and the fix is in
   flight.** New probe `probe_dirswitch_tangle` (48 matched 120 s

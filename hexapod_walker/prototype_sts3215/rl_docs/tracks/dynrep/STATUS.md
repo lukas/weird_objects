@@ -1,8 +1,38 @@
 # dynrep — Dynamics-representation pretraining
 
-**08-18 ~16:0x UTC (operator focus-note session): the walkcurr line is
+**08-18 ~16:5x UTC (triage cycle): `cw-dynrep-tf-liveactor-walkcurr4-canary1-r1`
+FINISHED its full 4M — FAIL on the operator's own 5-bar gate, and the
+live-transformer-actor bet is now the FOURTH distinct failure mode in
+the walkcurr4 tournament.** Two of the five pre-registered bars fail
+outright: (4) online heldout prediction WORSENED over the run
+(`pred/heldout/total` 2.286 at step 0 -> 2.494 at the final cert
+round, monotone-ish across all 8 checks), and (5) the guarded
+boundary-snapshot safety gate rejected every offered update to the
+live encoder (`pred/boundary_accepted_total`=0,
+`pred/boundary_rejected_total`=4/4) — so despite `--predictive-live`
+being on, the actor's world model never actually incorporated
+anything it learned from its own walking. Bars 1-3 pass narrowly: B0
+retained zero falls all 8 cert rounds, one promotion b0->b1 at step
+125 (then stuck at B1 pass=0 for the remaining 7 rounds, no further
+promotion, no rollback), and the actor transformer residual is
+technically nonzero (2.5e-05) but negligible next to the critic's
+(15.8) — consistent with the encoder genuinely never updating.
+Per the pre-registered rule (FAIL on any bar => NO 40M): no 40M
+successor. This closes the walkcurr4 tournament's live-actor
+variant; every arm of the tournament (frozen-encoder canB/canC,
+fresh-critic bridge2, now live-actor canary1) has now failed for a
+distinct reason, and none has beaten the champion it warm-started
+from (`cw-dep-bcgait1-hard1`). **NO further walkcurr4 arms without a
+new explicit operator order** — SIM SPRINT still bars new dynrep
+launches, and this line's open sprint-fit questions
+(q_20260818T1035Z/1040Z/1103Z/1125Z/1615Z) are effectively answered
+by outcome (every ordered variant FAILed) rather than by ruling; see
+q_20260818T1615Z for the annotation. Evidence: ledger verdict + W&B
+`fpz5b59q` OUTCOME note.
+
+**08-18 ~16:0x UTC (operator focus-note session): the walkcurr line was
 REOPENED by explicit operator order** (fb 20260818T153944Z, MCP
-operator lane) — `cw-dynrep-tf-liveactor-walkcurr4-canary1-r1` is
+operator lane) — `cw-dynrep-tf-liveactor-walkcurr4-canary1-r1` was
 RUNNING on train-11 (4M, acquisition): the first LIVE-transformer arm
 (c6c19fde `--predictive-live`): the dynamics transformer now trains
 continuously on the run's own walking (25% corpus rehearsal, guarded
