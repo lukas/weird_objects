@@ -205,6 +205,44 @@ def attach_actor_critic_lr(model, actor_lr: float,
     _exclude_from_save(model, ("save",))
 
 
+def load_optimizer_state_if_compatible(optimizer, state_dict: dict,
+                                       context: str = "") -> bool:
+    """Load ``state_dict`` into ``optimizer`` iff the param-group COUNT
+    matches; else skip (fresh Adam moments) and print why.
+
+    BUG FIX 2026-08-18 (cw-dynrep-criticD-walkcurr4-bridge1 crash,
+    first walkcurr promotion+rollback ever reached on a
+    --actor-lr/condition-D checkpoint): ``save_stock_optimizer``
+    (above) deliberately writes every checkpoint's ``policy.optimizer``
+    as a FRESH, SINGLE-group stock optimizer state (so external
+    ``PPO.load``/eval never crashes on the live 2-group actor/critic
+    split) — but the walkcurr curriculum's own IN-TRAINING rollback
+    reloads a promotion checkpoint straight into the LIVE 2-group
+    optimizer with a blind ``load_state_dict``, which torch refuses
+    ("loaded state dict has a different number of parameter groups")
+    the moment a run actually reaches a promotion+rollback under
+    ``--actor-lr``. Every checkpoint saved by ``attach_actor_critic_lr``
+    now carries a group-count mismatch by DESIGN (that is the whole
+    point of the eval-compatibility fix); the correct rollback
+    behavior is the same one warm-starts already use: restore the
+    POLICY weights exactly, let the optimizer restart with fresh
+    moments. Returns True if the load happened, False if skipped."""
+    live_n = len(optimizer.param_groups)
+    saved_n = len(state_dict.get("param_groups", []))
+    if saved_n == live_n:
+        optimizer.load_state_dict(state_dict)
+        return True
+    print(f"  [optimizer-reload{': ' + context if context else ''}] "
+          f"skipping optimizer-state reload (checkpoint saved "
+          f"{saved_n} stock optimizer group(s), live optimizer has "
+          f"{live_n} group(s) — save_stock_optimizer's eval-"
+          "compatibility contract writes a single-group stock "
+          "snapshot regardless of the live split); policy WEIGHTS are "
+          "still restored exactly, optimizer momentum resets fresh, "
+          "same as any warm start.")
+    return False
+
+
 def set_actor_freeze(model, until_steps: int) -> None:
     """Arm the default-off actor-freeze window (operator order
     fb_20260818T102844_116d4c item 3): the update_health ACTOR param

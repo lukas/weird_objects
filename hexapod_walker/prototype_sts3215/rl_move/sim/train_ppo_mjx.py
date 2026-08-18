@@ -3017,13 +3017,29 @@ def main(argv: list[str] | None = None) -> int:
                 # log-probs here.
                 from stable_baselines3.common.save_util import (
                     load_from_zip_file)
+                from .update_health import (
+                    load_optimizer_state_if_compatible)
                 assert self.promo_path is not None
                 _, params_, _ = load_from_zip_file(
                     str(self.promo_path), device=self.model.device)
                 self.model.policy.load_state_dict(params_["policy"])
                 if "policy.optimizer" in params_:
-                    self.model.policy.optimizer.load_state_dict(
-                        params_["policy.optimizer"])
+                    # BUG FIX 2026-08-18 (bridge1 crash): a
+                    # save_stock_optimizer checkpoint (any --actor-lr/
+                    # condition-D run) carries a single-group stock
+                    # optimizer snapshot on purpose (eval
+                    # compatibility) — blindly loading it into the
+                    # live 2-group actor/critic optimizer raises
+                    # "different number of parameter groups" the first
+                    # time a run actually reaches promotion+rollback.
+                    # Group-count-gated: policy weights always
+                    # restore exactly; optimizer momentum resets fresh
+                    # only when the checkpoint's group shape differs
+                    # (same contract warm-starts already accept).
+                    load_optimizer_state_if_compatible(
+                        self.model.policy.optimizer,
+                        params_["policy.optimizer"],
+                        context="walkcurr rollback")
                 venv.env_method("restore_walkcurr_checkpoint_state",
                                 self.promo_state)
                 flushed = core_venv.flush_reset_pools()

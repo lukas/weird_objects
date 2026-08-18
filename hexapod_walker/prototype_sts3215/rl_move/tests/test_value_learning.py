@@ -46,7 +46,8 @@ from gymnasium import spaces  # noqa: E402
 
 from rl_move.sim.update_health import (  # noqa: E402
     EVTracker, HealthTracker, attach_actor_critic_lr,
-    attach_kl_rollback, split_actor_critic_params,
+    attach_kl_rollback, load_optimizer_state_if_compatible,
+    split_actor_critic_params,
 )
 
 ACT_DIM = 4
@@ -362,3 +363,52 @@ def test_actor_freeze_composes_with_kl_rollback_scale():
     m.num_timesteps = 200
     m._update_learning_rate(opt)
     assert opt.param_groups[0]["lr"] == pytest.approx(5e-5)
+
+
+# --- load_optimizer_state_if_compatible (bridge1 rollback crash fix) -
+
+def test_load_optimizer_state_matching_groups_loads():
+    """Same group count (the common case: no --actor-lr, or a
+    checkpoint saved by the SAME live optimizer shape) loads exactly
+    as a plain load_state_dict would."""
+    policy = _mlp_policy()
+    opt = policy.optimizer   # single stock group
+    saved = opt.state_dict()
+    # perturb live lr so we can tell the load actually happened
+    opt.param_groups[0]["lr"] = 0.999
+    ok = load_optimizer_state_if_compatible(opt, saved)
+    assert ok is True
+    assert opt.param_groups[0]["lr"] == saved["param_groups"][0]["lr"]
+
+
+def test_load_optimizer_state_group_mismatch_skips_not_crashes():
+    """The bridge1 crash: a save_stock_optimizer checkpoint (1 group)
+    reloaded into the live 2-group actor/critic optimizer must SKIP,
+    not raise torch's 'different number of parameter groups' error,
+    and must leave the live optimizer's groups/lrs untouched."""
+    policy = _mlp_policy()
+    m = _stub_model(policy)
+    attach_actor_critic_lr(m, actor_lr=5e-5, critic_lr=3e-4)
+    opt = policy.optimizer
+    assert len(opt.param_groups) == 2
+    before_lrs = [g["lr"] for g in opt.param_groups]
+    # a single-group "stock" state dict, as save_stock_optimizer writes
+    stock_opt = th.optim.Adam(policy.parameters(), lr=1e-2)
+    saved = stock_opt.state_dict()
+    assert len(saved["param_groups"]) == 1
+    ok = load_optimizer_state_if_compatible(opt, saved,
+                                           context="walkcurr rollback")
+    assert ok is False
+    assert len(opt.param_groups) == 2   # untouched, no crash
+    assert [g["lr"] for g in opt.param_groups] == before_lrs
+
+
+def test_load_optimizer_state_real_state_dict_shape():
+    """Regression-pin the exact shape save_stock_optimizer produces
+    (param_groups list under that key) so the compatibility check
+    keeps matching torch's real Optimizer.state_dict() format."""
+    policy = _mlp_policy()
+    opt = policy.optimizer
+    sd = opt.state_dict()
+    assert "param_groups" in sd
+    assert isinstance(sd["param_groups"], list)
