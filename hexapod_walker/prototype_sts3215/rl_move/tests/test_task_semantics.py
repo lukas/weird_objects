@@ -45,7 +45,7 @@ for _p in (ROOT, ROOT / "linux_control", ROOT / "linux_control" / "urt2_setup"):
 pytest.importorskip("mujoco")
 
 from rl_move.config import load_config  # noqa: E402
-from rl_move.robot_state import DEG2RAD  # noqa: E402
+from rl_move.robot_state import DEG2RAD, RAD2DEG  # noqa: E402
 from rl_move.sim.joint_task import (  # noqa: E402
     SimHexapodJointGoalEnv, q_rad_to_action)
 from rl_move.sim.servo_model import SimServoParams  # noqa: E402
@@ -844,6 +844,68 @@ def test_height_gate_light_tax_on_honest_gait(height_returns):
     assert on > 0.90 * off, (
         f"height gate taxes the upright gait ({on:.0f} vs {off:.0f} "
         f"ungated) — walk_height_sigma_mm too tight.")
+
+
+# --------------------------------------------------------------------------
+# WALKCURR4 bank — the EXACT reward/safety config of the
+# cw-dynrep-criticD-walkcurr4 lineage (operator order
+# fb_20260818T085648_2a0a60), which walkcurr1-3 omitted and paid for
+# with a crouched paid-shuffle (walkcurr3 at 7.5M: B0 height error
+# -65 mm, walk_height_factor 0.07, slip 4.6/m, zero promotions):
+# calibrated height gate (sigma 11 mm keeps the honest gait >= 0.8
+# income, the bench crouch band <= 0.001 — calibrate_walk_height.py
+# 08-17), kernel progress gate (kills the paid park), safety height
+# cutoff 25 mm after a 2 s grace, terminal charge 30. MDP_PREFLIGHT
+# ordering: honest gait > park/refusal AND honest gait >> the -51 mm
+# crouch shuffle (same exploit family as walkcurr3's -65 mm; anything
+# past 25 mm now terminates via safety and cannot keep its income).
+
+WALKCURR4_OVERRIDES = dict(WALK_OVERRIDES)
+WALKCURR4_OVERRIDES.update({
+    ("reward", "walk_height_gate"): 1.0,
+    ("reward", "walk_height_sigma_mm"): 11.0,
+    ("reward", "term_penalty"): 30.0,
+    ("safety", "walk_max_height_drop_mm"): 25.0,
+    ("safety", "walk_height_grace_s"): 2.0,
+})
+
+
+@pytest.fixture(scope="module")
+def walkcurr4_returns() -> dict[str, float]:
+    def mean(policy, stance):
+        return float(np.mean([
+            _walk_rollout(policy, s, overrides=WALKCURR4_OVERRIDES,
+                          stance=stance)
+            for s in SEEDS]))
+    return {
+        "gait": mean("gait", WALK_PLANT),
+        "park": mean("park", WALK_PLANT),
+        "crouch": mean("gait", WALK_CROUCH),
+    }
+
+
+def test_walkcurr4_honest_gait_beats_park(walkcurr4_returns):
+    """Under the full walkcurr4 stack the hardware-proven upright gait
+    must out-earn parking through the command by a wide margin — a
+    parked robot collecting kernel income was walkcurr1/2's root
+    cause 1 (V2 B0 fixed the speed band; the kernel progress gate
+    fixes the pay)."""
+    g, p = walkcurr4_returns["gait"], walkcurr4_returns["park"]
+    assert g > 1.5 * p and g > p + 150.0, (
+        f"parking rivals the honest gait under the walkcurr4 stack: "
+        f"{walkcurr4_returns}")
+
+
+def test_walkcurr4_honest_gait_beats_crouch_shuffle(walkcurr4_returns):
+    """The -51 mm crouch walker (same family as walkcurr3's measured
+    -65 mm shuffle) must earn FAR less than the upright gait: the
+    height gate strips its income (factor <= 0.001 at 40+ mm) and the
+    25 mm safety cutoff ends the episode after the grace with the
+    terminal charge. This is the ordering walkcurr3 trained without."""
+    g, c = walkcurr4_returns["gait"], walkcurr4_returns["crouch"]
+    assert g > 2.0 * max(c, 0.0) + 150.0, (
+        f"crouch-shuffling rivals upright walking under the walkcurr4 "
+        f"stack: {walkcurr4_returns}")
 
 
 # --------------------------------------------------------------------------
@@ -3713,6 +3775,104 @@ def test_fullcircle_drag_then_fall_cannot_retain_positive_return():
         f"death ({drag_income:.1f})")
 
 
+# JOYCANARY stack — the 08-17 operator-approved canary recipe
+# (fb_20260817T005114): FULLCIRCLE stack + BOUNDED terminal cost
+# (reward.term_cost_max) + the walk-height income gate CALIBRATED from
+# the honest scripted gait's measured height band (calibrate_walk_
+# height.py, 08-17: tripod/noslip ride +0.7..+7.3 mm around the
+# anchor; sigma 11 mm keeps the honest gait >=0.8 income while the
+# measured 40-77 mm hardware-crouch band keeps <=0.001; termination
+# 25 mm sits between the honest band and the collapse band). The cap
+# was first tried at 60 and the bank REOPENED the c2 exploit (+81/ep:
+# the zero-lift skate banks ~151 during the gait-gate's episode-start
+# grace); 240 (a 20 s-equivalent horizon, ~3x smaller than the -730
+# cliff) prices it back underwater. The cap
+# must not reopen the c2 drag-then-fall exploit: with the horizon
+# charge bounded, early death must STILL lose to freezing and to
+# honest walking.
+
+JC_TERM_COST_MAX = 240.0
+JC_OVERRIDES = dict(FC_OVERRIDES)
+JC_OVERRIDES.update({
+    ("reward", "term_cost_max"): JC_TERM_COST_MAX,
+    ("reward", "walk_height_gate"): 1.0,
+    ("reward", "walk_height_sigma_mm"): 11.0,
+    ("safety", "walk_max_height_drop_mm"): 25.0,
+    ("safety", "walk_height_grace_s"): 2.0,
+})
+
+
+def test_joycanary_bounded_term_cost_keeps_early_death_unpaid():
+    """The c2 exploit re-priced under the BOUNDED cap: accumulate the
+    zero-lift skate's real income for 6 s of a 60 s episode under the
+    canary stack, then charge the capped termination cost (flat +
+    min(k*remaining, cap)). Must stay NEGATIVE, and a full-session
+    freeze must still out-earn it — the cap trades the -730 critic
+    cliff for a bounded charge WITHOUT making early death a paying
+    strategy."""
+    from tripod_gait import TripodGait
+
+    fall_tick = None
+    drag_income = 0.0
+    env = _make_walk_env(0, overrides=JC_OVERRIDES, episode_seconds=60.0)
+    env.reset()
+    traj = env._goal_traj
+    n = len(traj.vx)
+    hold_n = ramp_n = int(round(1.0 / env.dt))
+    ramp = np.linspace(0.0, 1.0, ramp_n)
+    traj.vx[:] = WALK_CMD_VX
+    traj.vx[:hold_n] = 0.0
+    traj.vx[hold_n:hold_n + ramp_n] = WALK_CMD_VX * ramp
+    traj.vy[:] = 0.0
+    if traj.wz is not None:
+        traj.wz[:] = 0.0
+    gait = TripodGait(vx=0.0, lift=0.0)          # zero-lift skate/drag
+    gait.sync_plant_stance(*WALK_PLANT)
+    gait.reset_phase()
+    six_s = int(round(6.0 / env.dt))
+    for step in range(six_s):
+        i = min(step, n - 1)
+        gait.set_velocity(vx=float(traj.vx[i]), vy=0.0)
+        act = q_rad_to_action(
+            np.asarray(gait.desired_deg(step * env.dt)) * DEG2RAD)
+        _o, r, term, trunc, _i = env.step(act)
+        drag_income += float(r)
+        if term or trunc:
+            fall_tick = step + 1
+            break
+    if fall_tick is None:
+        fall_tick = six_s
+        pen = 10.0 + min(
+            FC_TERM_COST_PER_S * max(env.episode_steps - fall_tick, 0)
+            * env.dt, JC_TERM_COST_MAX)
+        drag_income -= pen
+    env.close()
+
+    park_total = _walk_rollout("park", 0, overrides=JC_OVERRIDES)
+    park_60s = park_total * 4.0
+    assert drag_income < 0.0, (
+        f"drag-then-fall at 6 s retains positive return "
+        f"({drag_income:.1f}) under the BOUNDED terminal cost — "
+        f"raise term_cost_max above {JC_TERM_COST_MAX}")
+    assert park_60s > drag_income + 200.0, (
+        f"freezing ({park_60s:.1f}) does not clearly out-earn early "
+        f"death ({drag_income:.1f}) under the bounded cap")
+
+
+def test_joycanary_honest_gait_beats_stall_and_park_forward():
+    """Sanity on the full canary stack (bounded cap + calibrated
+    height gate): the hardware-proven tripod gait must still out-earn
+    march-in-place and refusal (the calibrated 11 mm sigma must not
+    tax the honest gait into a stall basin)."""
+    r = {p: float(np.mean(
+        [_walk_rollout(p, s, overrides=JC_OVERRIDES) for s in SEEDS]))
+        for p in ("gait", "stall", "park")}
+    assert r["gait"] > r["stall"] + 50.0, (
+        f"stall rivals the gait under the canary stack: {r}")
+    assert r["gait"] > r["park"] + 50.0, (
+        f"parking rivals the gait under the canary stack: {r}")
+
+
 # ---------------------------------------------------------------------------
 # RECOVER bank — recover_to_plant (08-15 operator directive
 # fb_20260815T165306_606974): from any recoverable state, reach a
@@ -3920,13 +4080,18 @@ def test_recover_flip_spawn_is_nonupright():
         f"no flip spawn landed tipped (tilts {tilts})")
 
 
-@pytest.mark.parametrize("start", ("onefoot", "park"))
-def test_recover_bucket1_plant_teacher_reaches_held_success(start):
-    """Bucket 1 is mechanically an easy correction after the real
-    slippery/limp settle.  Holding the nominal six-foot plant command
-    must restore every foot and satisfy the exact held-success gate;
-    otherwise the curriculum's first rung is mislabeled or unreachable.
-    """
+@pytest.mark.parametrize("start,bucket", (
+    ("plant_catch", 0),
+    ("onefoot_micro", 1),
+    ("onefoot_mid", 2),
+    ("onefoot", 3),
+    ("park", 4),
+    ("repair_one", 14),
+    ("repair_two", 15),
+))
+def test_recover_near_goal_plant_teacher_reaches_held_success(
+        start, bucket):
+    """Every near-goal rung is reachable by the nominal plant teacher."""
     for seed in SEEDS[:2]:
         env = _make_recover_env(seed, start=start)
         _obs, reset_info = env.reset()
@@ -3944,53 +4109,312 @@ def test_recover_bucket1_plant_teacher_reaches_held_success(start):
         assert success, f"plant teacher cannot solve settled {start}"
         assert last.get("termination_reason") == "recover_success"
         assert last["recover_start_kind_id"] >= 0.0
-        assert last["recover_start_bucket"] == 1.0
+        assert last["recover_start_bucket"] == float(bucket)
         assert last["recover_active_families"] == 1.0
+        assert last["recover_frontier_bucket"] == 0.0
+        assert last[f"recover_episode_bucket_{bucket}"] == 1.0
+        assert last[f"recover_success_bucket_{bucket}"] == 1.0
 
 
-def test_recover_periodic_eval_is_forced_and_split_by_bucket1_kind():
-    from rl_move.sim.train_ppo_sim import _recover_split_stats
+def test_recover_near_goal_buckets_increase_settled_disturbance():
+    """B0-B4 must expand monotonically away from the plant manifold."""
+    kinds = ("plant_catch", "onefoot_micro", "onefoot_mid",
+             "onefoot", "park")
+    distances = []
+    for kind in kinds:
+        per_seed = []
+        for seed in SEEDS[:2]:
+            env = _make_recover_env(seed, start=kind)
+            env.reset()
+            per_seed.append(float(np.linalg.norm(
+                env.data.qpos[env._qadr]
+                - env._plant_deg * DEG2RAD)))
+            env.close()
+        distances.append(float(np.mean(per_seed)))
+    assert all(a < b for a, b in zip(distances, distances[1:])), (
+        f"recovery difficulty bins are not monotonic: {distances}")
+
+
+def test_recover_coarse_cliffs_are_split_into_single_distribution_rungs():
+    env = _make_recover_env(0, start="plant_catch")
+    expected = (
+        "plant_catch", "onefoot_micro", "onefoot_mid", "onefoot", "park",
+        "crouch_shallow", "crouch_mid", "crouch_deep", "partial_high",
+        "partial_mid", "partial_low", "zero", "tangle_mild", "tangle_mid",
+        "repair_one", "repair_two", "tangle_60", "tangle_70",
+        "tangle_80", "tangle_90", "tangle", "bank", "flip")
+    assert tuple(family[0] for family in env.RECOVER_FAMILIES) == expected
+    assert all(len(family) == 1 for family in env.RECOVER_FAMILIES)
+    assert env.RECOVER_FAMILIES[21] == ("bank",)
+    assert env.RECOVER_FAMILIES[22] == ("flip",)
+    env.close()
+
+
+def test_recover_floor_rungs_remain_distinct_after_physics_settle():
+    """The added labels must describe different settled reset banks."""
+    kinds = ("park", "crouch_shallow", "crouch_mid", "crouch_deep",
+             "partial_high", "partial_mid", "partial_low", "zero",
+             "tangle_mild", "tangle_mid", "tangle_60", "tangle_70",
+             "tangle_80", "tangle_90", "tangle")
+    sig = {}
+    for kind in kinds:
+        rows = []
+        for seed in SEEDS[:3]:
+            env = _make_recover_env(seed, start=kind)
+            env.reset()
+            q_dist = float(np.linalg.norm(
+                env.data.qpos[env._qadr]
+                - env._plant_deg * DEG2RAD))
+            rows.append((q_dist, env._rec_reset_height_mm,
+                         env._rec_reset_pad_spread_mm))
+            env.close()
+        sig[kind] = np.mean(rows, axis=0)
+
+    assert sig["park"][0] < sig["crouch_shallow"][0]
+    assert sig["crouch_shallow"][1] > sig["crouch_mid"][1] + 8.0
+    assert sig["crouch_mid"][1] > sig["crouch_deep"][1] + 8.0
+    assert sig["crouch_deep"][1] > sig["partial_high"][1] + 10.0
+    assert sig["partial_high"][1] > sig["partial_mid"][1] + 8.0
+    assert sig["partial_low"][0] > sig["partial_mid"][0] + 0.2
+    spreads = [sig[k][2] for k in (
+        "zero", "tangle_mild", "tangle_mid", "tangle_60", "tangle_70",
+        "tangle_80", "tangle_90", "tangle")]
+    assert all(a + 2.0 < b for a, b in zip(spreads, spreads[1:])), sig
+
+
+@pytest.mark.parametrize("kind,loaded", (
+    ("repair_one", 5),
+    ("repair_two", 4),
+))
+def test_recover_terminal_repairs_are_upright_missing_foot_states(
+        kind, loaded):
+    """Repair rungs model the old B14 timeout, not another belly start."""
+    for seed in range(8):
+        env = _make_recover_env(seed, start=kind)
+        env.reset()
+        loads = np.array([
+            max(float(env.data.sensordata[adr]), 0.0)
+            for adr in env._touch_adr])
+        roll, pitch = env._true_roll_pitch()
+        assert int(np.sum(loads >= 0.35)) == loaded, loads
+        assert max(abs(roll), abs(pitch)) * RAD2DEG < 8.0
+        assert env._rec_reset_height_mm > 115.0
+        env.close()
+
+
+def test_recover_observation_has_plant_pose_and_real_reset_history():
+    extra = {
+        ("obs", "history_frames"): 4,
+        ("obs", "reset_history_probe"): 1.0,
+        ("obs", "recover_plant_q"): 1.0,
+    }
+    env = _make_recover_env(2, start="repair_two", extra=extra)
+    obs, info = env.reset()
+    frames = obs.reshape(4, -1)
+
+    assert frames.shape == (4, 90)
+    assert info["reset_history_probe_ticks"] == 3
+    assert info["reset_history_probe_s"] == pytest.approx(3 * env.dt)
+    assert env._step_i == 0
+    assert all(not np.array_equal(frames[i], frames[i + 1])
+               for i in range(3))
+    q_scale = float(env.cfg["obs"].get("q_scale", 1.0))
+    expected = ((env._state.joint_position
+                 - env._plant_deg * DEG2RAD) / q_scale)
+    np.testing.assert_allclose(frames[0, -18:], expected, atol=1e-6)
+    assert np.linalg.norm(frames[0, -18:]) > 20.0 * np.linalg.norm(
+        frames[0, :18])
+    env.close()
+
+
+def test_recover_periodic_eval_is_forced_and_split_by_bucket():
+    from rl_move.sim.train_ppo_sim import (
+        _recover_bucket_stats, _recover_split_stats)
 
     env = _make_recover_env(7, start="onefoot")
     plant = q_rad_to_action(env._plant_deg * DEG2RAD)
-    split = _recover_split_stats(env, lambda _obs: plant, per_kind=1)
+    near_goal = ("plant_catch", "onefoot_micro", "onefoot_mid",
+                 "onefoot", "park")
+    split = _recover_split_stats(
+        env, lambda _obs: plant, per_kind=1, kinds=near_goal)
+    buckets = _recover_bucket_stats(split)
     env.close()
-    assert set(split) == {"onefoot", "park"}
-    assert split["onefoot"]["successes"] == 1
-    assert split["park"]["successes"] == 1
+    assert set(split) == set(near_goal)
+    assert {v["bucket"] for v in split.values()} == set(range(5))
+    assert all(v["successes"] == 1 for v in split.values())
     assert all(v["episodes"] == 1 for v in split.values())
+    assert set(buckets) == set(range(5))
+    assert all(v["success"] == 1.0 for v in buckets.values())
+    assert all(v["episodes"] == 1 for v in buckets.values())
 
 
-def test_recover_adaptive_sampler_proportions():
-    """Unit-level checks on the adaptive reset-bank curriculum:
-    frontier kinds out-weigh mastered kinds; admission advances only
-    when the hardest active family is mastered; no unadmitted family is
-    probed; retreat fires below 20%; the ladder can return to bucket 1."""
+def test_recover_spaced_replay_and_monotonic_unlock():
+    """The frontier stays dominant without ever deleting old buckets."""
     env = _make_recover_env(0, start="zero")
     env.force_recover_start = None
     assert env._rec_active_n == 1
+    assert env._rec_focus_bucket == 0
     assert set(env._sample_recover().start_kind
-               for _ in range(100)) <= {"onefoot", "park"}
-    # frontier vs mastered weights
-    env._rec_stats = {"onefoot": (0.5, 30), "park": (0.95, 30)}
-    kinds = env._recover_active_kinds()
-    assert "bank" not in kinds, "bank admitted without a bank file"
-    w = env._recover_kind_weights(kinds)
-    wi = dict(zip(kinds, w))
-    assert wi["onefoot"] > wi["park"] * 2.0, (
-        "frontier kind does not out-weigh mastered kind")
-    # admission: not yet (onefoot is frontier)
+               for _ in range(100)) == {"plant_catch"}
+
+    # Admission does not move before the deterministic gate passes.
+    env._rec_stats["plant_catch"] = (15, 30)
     env._recover_update_admission()
     assert env._rec_active_n == 1
-    # master bucket 1 -> admit bucket 2
-    env._rec_stats.update({"onefoot": (0.9, 4), "park": (0.85, 4)})
+    env._rec_stats["plant_catch"] = (4, 4)
     env._recover_update_admission()
     assert env._rec_active_n == 2
-    # collapse on bucket 2 -> retreat to bucket 1 and stay there
-    env._rec_stats.update({"crouch": (0.1, 6), "partial": (0.1, 6)})
+    assert env._rec_focus_bucket == 1
+    assert env._recover_active_kinds() == [
+        "plant_catch", "onefoot_micro"]
+    assert "bank" not in env._recover_active_kinds(), (
+        "bank admitted without a bank file")
+
+    # A failed frontier assay no longer relocks it or any learned starts.
+    env._rec_stats["onefoot_micro"] = (0, 6)
     env._recover_update_admission()
+    assert env._rec_active_n == 2
+    assert env._rec_focus_bucket == 1
+    assert env._rec_stats["plant_catch"] == (4, 4)
+    assert env._rec_stats["onefoot_micro"] == (0, 6)
+
+    # At a later frontier, bucket mass is 50% focus, 25% recent-three,
+    # 15% weakest old bucket, 10% all remaining old buckets.
+    env._rec_active_n = 6
+    env._rec_focus_bucket = 5
+    env._rec_stats = {
+        "plant_catch": (8, 8),
+        "onefoot_micro": (8, 8),
+        "onefoot_mid": (4, 8),
+        "onefoot": (7, 8),
+        "park": (8, 8),
+    }
+    env._recover_refresh_weak_bucket()
+    assert env._rec_weak_bucket == 2
+    np.testing.assert_allclose(
+        env._recover_bucket_weights(),
+        [0.05, 0.05, 0.20, 0.075, 0.125, 0.50])
+
+    # Global training shortfall adds only a bounded replay overlay. It
+    # increases the failing bucket's probability without touching certs.
+    cert_before = dict(env._rec_stats)
+    env.apply_recover_training_error_batch({0: (8.0, 8)})
+    error_weights = env._recover_bucket_weights()
+    assert error_weights[0] > 0.05
+    assert error_weights[5] < 0.50
+    assert np.isclose(error_weights.sum(), 1.0)
+    assert env._rec_stats == cert_before
+    assert env.recover_score_state()["training_errors"]["0"][
+        "priority"] == 1.0
+    env.close()
+
+
+def test_recover_curriculum_moves_only_from_certification():
+    """Noisy PPO outcomes are telemetry; deterministic cert owns admission."""
+    env = _make_recover_env(
+        0, start="plant_catch",
+        extra={("goal", "recover_external_certification"): 1.0})
     assert env._rec_active_n == 1
-    env._recover_update_admission()
+    assert env._rec_stats == {}
+
+    # Four deterministic successes cross the configured 0.8 fraction gate.
+    result = env.apply_recover_certification(
+        "plant_catch", [True, True, True, True])
+    assert result["success_fraction"] == 1.0
+    assert result["successes"] == 4
+    assert result["episodes"] == 4
+    assert result["active_before"] == 1
+    assert result["active_after"] == 2
+
+    # A failed assay keeps the frontier unlocked and replayable.
+    result = env.apply_recover_certification(
+        "onefoot_micro", [False] * 6)
+    assert result["success_fraction"] < 0.2
+    assert result["active_before"] == 2
+    assert result["active_after"] == 2
+    assert result["focus_after"] == 1
+    assert env._rec_stats["plant_catch"] == (4, 4)
+    assert env._rec_stats["onefoot_micro"] == (0, 6)
+
+    # Recovery on that same level advances normally.
+    result = env.apply_recover_certification(
+        "onefoot_micro", [True] * 6)
+    assert result["active_after"] == 3
+    assert result["focus_after"] == 2
+    env.close()
+
+
+def test_recover_promotion_requires_fresh_full_retention_suite():
+    env = _make_recover_env(
+        0, start="plant_catch",
+        extra={("goal", "recover_external_certification"): 1.0})
+    env._rec_active_n = 3
+    env._rec_focus_bucket = 2
+
+    # B0's old pass is not valid for round 2, even though frontier B2 and
+    # the other retained bucket pass in that round.
+    env.apply_recover_certification(
+        "plant_catch", [True] * 8, False, 1)
+    env.apply_recover_certification(
+        "onefoot_micro", [True] * 8, False, 2)
+    env.apply_recover_certification(
+        "onefoot_mid", [True] * 8, False, 2)
+    status = env._recover_update_admission(2)
+    assert not status["promoted"]
+    assert not status["retention_passed"]
+    assert status["failed_buckets"] == [0]
+    assert env._rec_active_n == 3
+    env.force_recover_start = None
+    env._sample_recover()
+    assert env._rec_active_n == 3, (
+        "external-cert reset bypassed the fresh retention gate")
+
+    # A fresh but failed retention assay also blocks promotion.
+    env.apply_recover_certification(
+        "plant_catch", [False] * 8, False, 2)
+    status = env._recover_update_admission(2)
+    assert not status["promoted"]
+    assert status["failed_buckets"] == [0]
+
+    # Promotion occurs only after that retained bucket passes in the same
+    # certification round as the frontier.
+    env.apply_recover_certification(
+        "plant_catch", [True] * 8, False, 2)
+    status = env._recover_update_admission(2)
+    assert status["suite_passed"]
+    assert status["promoted"]
+    assert env._rec_active_n == 4
+
+    checkpoint = env.recover_curriculum_checkpoint_state()
+    env.apply_recover_training_error_batch({0: (8.0, 8)})
+    error_debt = dict(env._rec_training_error_stats)
+    env._rec_active_n = 7
+    env._rec_focus_bucket = 6
+    env._rec_stats = {"plant_catch": (0, 8)}
+    env.restore_recover_curriculum_checkpoint_state(checkpoint)
+    assert env._rec_active_n == 4
+    assert env._rec_focus_bucket == 3
+    assert env._rec_stats == checkpoint["stats"]
+    assert env._rec_training_error_stats == error_debt, (
+        "rollback discarded the adaptive replay debt")
+    env.close()
+
+
+def test_recover_external_cert_ignores_stochastic_terminal_for_admission():
+    env = _make_recover_env(
+        0, start="plant_catch",
+        extra={("goal", "recover_external_certification"): 1.0})
+    env.reset()
+    plant = q_rad_to_action(env._plant_deg * DEG2RAD)
+    last = {}
+    while True:
+        _obs, _reward, term, trunc, last = env.step(plant)
+        if term or trunc:
+            break
+
+    assert last["termination_reason"] == "recover_success"
+    assert env._rec_stats == {}
+    assert env._rec_rollout_stats["plant_catch"][1] == 1
     assert env._rec_active_n == 1
     env.close()
 
@@ -4057,4 +4481,190 @@ def test_recover_bc_anchor_gated_by_state():
     env.reset()
     _obs, _r, _t, _tr, info = env.step(np.zeros(18))
     assert "bc_target" not in info, "anchor on without its cfg key"
+    env.close()
+
+
+def test_recover_rsi_default_off_and_cert_purity():
+    """goal.recover_rsi_frac: default off = the flat-belly zero spawn,
+    bit-exact; a FORCED kind (the deterministic CERT/eval path) never
+    carries the RSI flag even at frac=1.0 — certification stays pure
+    by construction."""
+    env = _make_recover_env(0, start="zero")           # key absent
+    env.reset()
+    assert not getattr(env._goal_traj, "recover_rsi", False), (
+        "RSI flag set without its cfg key")
+    z = float(env.data.xpos[env._chassis_bid, 2])
+    assert z < 0.050, (
+        f"default zero spawn settled at z={z:.3f} m — not belly-flat")
+    _obs, _r, _t, _tr, info = env.step(np.zeros(18))
+    assert info.get("recover_rsi_episode") == 0.0
+    env.close()
+
+    extra = {("goal", "recover_rsi_frac"): 1.0,
+             ("reward", "rise_ref_path"): RISE_REF}
+    env = _make_recover_env(1, start="zero", extra=extra)  # forced kind
+    env.reset()
+    assert not getattr(env._goal_traj, "recover_rsi", False), (
+        "RSI fired on a FORCED kind — CERT/eval purity broken")
+    env.close()
+
+
+def test_recover_rsi_spawns_on_ref_path():
+    """goal.recover_rsi_frac=1.0: naturally drawn zero episodes carry
+    the flag and spawn on the belly->plant reference path — the settle
+    reaches supported heights the pure belly-flat start never has."""
+    extra = {("goal", "recover_rsi_frac"): 1.0,
+             ("reward", "rise_ref_path"): RISE_REF}
+    env = _make_recover_env(2, start="zero", extra=extra)
+    env.force_recover_start = None
+    env._rec_active_n = 12          # unlock B0..B11 (zero = frontier)
+    zs, hits = [], 0
+    for _ in range(40):
+        env.reset()
+        kind = getattr(env._goal_traj, "start_kind", "")
+        if kind != "zero":
+            assert not getattr(env._goal_traj, "recover_rsi", False), (
+                f"RSI flag leaked onto kind {kind!r}")
+            continue
+        assert getattr(env._goal_traj, "recover_rsi", False), (
+            "naturally drawn zero episode missing the RSI flag at "
+            "frac=1.0")
+        zs.append(float(env.data.xpos[env._chassis_bid, 2]))
+        hits += 1
+        if hits >= 8:
+            break
+    assert hits >= 3, f"zero drawn only {hits} times with B11 unlocked"
+    assert max(zs) > 0.055, (
+        f"RSI spawns never settled above the belly (max z "
+        f"{max(zs):.3f} m) — waypoints are not reaching supported "
+        "mid-rise states")
+    env.close()
+
+
+def test_recover_rsi_stats_stay_clean():
+    """An RSI episode's outcome must never touch the rollout EMA/
+    counters or the C-trainer self-cert stats under the zero kind —
+    it logs under its own _rsi suffix."""
+    extra = {("goal", "recover_rsi_frac"): 1.0,
+             ("reward", "rise_ref_path"): RISE_REF}
+    env = _make_recover_env(3, start="zero", extra=extra)
+    env.reset()
+    env._goal_traj.recover_rsi = True   # forced kind: flag manually
+    act = q_rad_to_action(env.data.qpos[env._qadr].copy())
+    info = {}
+    for _ in range(env.episode_steps + 2):
+        _obs, _r, term, trunc, info = env.step(act)
+        if term or trunc:
+            break
+    assert term or trunc, "episode never ended"
+    assert info.get("recover_rsi_episode") == 1.0
+    assert ("recover_episode_zero_rsi" in info
+            or "recover_success_zero_rsi" in info), (
+        "RSI episode did not log under its own _rsi suffix")
+    assert "zero" not in env._rec_rollout_counts, (
+        "RSI episode polluted the rollout counters for kind 'zero'")
+    assert "zero" not in env._rec_stats, (
+        "RSI episode polluted the self-cert stats for kind 'zero'")
+    env.close()
+
+
+def _write_rsi_bank(tmp_path, n: int = 4) -> str:
+    """A tiny synthetic on-path bank for the harvested-bank RSI tests
+    below — small, safely-in-limits joint offsets, never real harvest
+    output (that's harvest_recover_rsi_bank.py's job, exercised
+    separately as an integration script, not unit-tested here)."""
+    rng = np.random.default_rng(0)
+    q = rng.uniform(-15.0, 15.0, size=(n, 18)) * DEG2RAD
+    path = tmp_path / "rsi_bank.npz"
+    np.savez(path, q_rad=q)
+    return str(path)
+
+
+def test_recover_rsi_bank_default_off_and_cert_purity(tmp_path):
+    """goal.recover_rsi_bank_frac: default off = the tangle family's
+    own spawn, bit-exact; a FORCED kind never carries the bank flag
+    even at frac=1.0 (CERT/eval purity, same contract as the ref-path
+    RSI above)."""
+    bank_path = _write_rsi_bank(tmp_path)
+    env = _make_recover_env(4, start="tangle")   # key absent
+    env.reset()
+    assert not getattr(env._goal_traj, "recover_rsi_bank", False), (
+        "bank RSI flag set without its cfg key")
+    env.close()
+
+    extra = {("goal", "recover_rsi_bank_frac"): 1.0,
+             ("goal", "recover_rsi_bank_kinds"): "tangle",
+             ("goal", "recover_rsi_bank_path"): bank_path}
+    env = _make_recover_env(5, start="tangle", extra=extra)  # forced
+    env.reset()
+    assert not getattr(env._goal_traj, "recover_rsi_bank", False), (
+        "bank RSI fired on a FORCED kind — CERT/eval purity broken")
+    env.close()
+
+
+def test_recover_rsi_bank_spawns_from_harvested_poses(tmp_path):
+    """goal.recover_rsi_bank_frac=1.0: naturally drawn tangle episodes
+    carry the bank flag (and only those, never a different kind); the
+    actual spawn pose is read back post-settle (same limp-sag
+    choreography as every other spawn path), so this checks the flag
+    plumbing, not an exact pre-settle pose match (see the ref-path
+    RSI test above for the same pattern)."""
+    bank_path = _write_rsi_bank(tmp_path)
+    extra = {("goal", "recover_rsi_bank_frac"): 1.0,
+             ("goal", "recover_rsi_bank_kinds"): "tangle",
+             ("goal", "recover_rsi_bank_path"): bank_path}
+    env = _make_recover_env(6, start="tangle", extra=extra)
+    env.force_recover_start = None
+    env._rec_active_n = 21          # unlock B0..B20 (tangle = bucket 20)
+    hits = 0
+    for _ in range(60):
+        env.reset()
+        kind = getattr(env._goal_traj, "start_kind", "")
+        if kind != "tangle":
+            assert not getattr(env._goal_traj, "recover_rsi_bank",
+                               False), (
+                f"bank RSI flag leaked onto kind {kind!r}")
+            continue
+        assert getattr(env._goal_traj, "recover_rsi_bank", False), (
+            "naturally drawn tangle episode missing the bank RSI flag "
+            "at frac=1.0")
+        assert env._tipped_applied, (
+            "bank RSI spawn did not go through the waypoint-placement "
+            "branch (_tipped_applied unset) — check sim_env dispatch")
+        hits += 1
+        if hits >= 5:
+            break
+    assert hits >= 2, f"tangle drawn only {hits} times with B20 unlocked"
+    env.close()
+
+
+def test_recover_rsi_bank_stats_stay_clean(tmp_path):
+    """A bank-RSI episode's outcome must never touch the rollout EMA/
+    counters or the C-trainer self-cert stats under the tangle kind —
+    it logs under its own _rsibank suffix, distinct from the ref-path
+    _rsi suffix."""
+    bank_path = _write_rsi_bank(tmp_path)
+    extra = {("goal", "recover_rsi_bank_frac"): 1.0,
+             ("goal", "recover_rsi_bank_kinds"): "tangle",
+             ("goal", "recover_rsi_bank_path"): bank_path}
+    env = _make_recover_env(7, start="tangle", extra=extra)
+    env.reset()
+    env._goal_traj.recover_rsi_bank = True   # forced kind: flag manually
+    act = q_rad_to_action(env.data.qpos[env._qadr].copy())
+    info = {}
+    for _ in range(env.episode_steps + 2):
+        _obs, _r, term, trunc, info = env.step(act)
+        if term or trunc:
+            break
+    assert term or trunc, "episode never ended"
+    assert info.get("recover_rsi_bank_episode") == 1.0
+    assert info.get("recover_rsi_episode") == 0.0, (
+        "bank RSI episode also set the ref-path RSI flag")
+    assert ("recover_episode_tangle_rsibank" in info
+            or "recover_success_tangle_rsibank" in info), (
+        "bank RSI episode did not log under its own _rsibank suffix")
+    assert "tangle" not in env._rec_rollout_counts, (
+        "bank RSI episode polluted the rollout counters for 'tangle'")
+    assert "tangle" not in env._rec_stats, (
+        "bank RSI episode polluted the self-cert stats for 'tangle'")
     env.close()

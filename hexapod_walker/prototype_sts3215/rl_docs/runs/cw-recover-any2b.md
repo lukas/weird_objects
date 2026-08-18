@@ -1,0 +1,22 @@
+# cw-recover-any2b
+
+<!-- GENERATED from experiments.json by launch_run.py — do not edit -->
+
+**status**: KILLED
+
+**created**: 2026-08-15T20:17:31+00:00
+
+**pod**: hexapod-mjx-train-1
+
+**steps**: 40000000
+
+**parent**: cw-stand-footlow2-hard1
+
+**wandb_id**: u9sp8dki
+
+**hypothesis**: Teach the robot to get up from the two easiest disturbed starts first -- one foot parked wrong (onefoot) and the parked crouch (park) -- and only admit harder falls once those are mastered; this arm tests whether the bucket-1-first recovery curriculum plus restored foot-height BC-anchor supervision (operator-implemented fix, main commit aa1023c: curriculum starts at bucket 1 only with re-certifying retreat, per-kind train/eval telemetry, named recover_success termination, height-conditioned anchor matching with min-height-ahead pursuit) lets recovery learning actually start, where cw-recover-any1 sat at zero success through 13.5M with declining stand quality. OPERATOR-ORDERED (fb_20260815T194955_9441a0, run named cw-recover-any2 there; this is attempt b -- nearest collision-free name after the eval-blind false start lf5afhd6 burned the original: train-1 lacked sb3-contrib so that attempt's background eval/video/canary child died at first import; env fixed + bootstrap patched, science content unchanged). Warm from cw-stand-footlow2-hard1 (never any1's degraded checkpoint), any1's MDP/PPO settings otherwise unchanged (512x128, gamma .995, lambda .98, DR .1, 16s episodes, ent .003, safety envelope, rise ref, recover bank, BC coef/recover gate, obs-pad transplant, 40M). Prediction-if-true: forced onefoot AND park success curves rise, per-kind EMAs cross 0.8, curriculum admits bucket 2 legitimately. Prediction-if-false: a kind stays flat with valid resets and nonzero BC fill -- pointing at reward/anchor coverage, not curriculum order.
+
+**gate**: Bucket-1 gate: both forced onefoot and park eval success curves must RISE; no curriculum promotion before both per-kind EMAs >=0.8 with count >=4; STOP EARLY if reset telemetry (post-settle height/tilt/min-load/pad-spread) proves either settled start invalid, or if BC eligibility/fill stays zero. Full-arm PASS keeps any1's bar: >=95 pct det / >=85 pct sto held recovery on the active mixture by 40M, VIDEO-verified genuine recover-to-stand (all six feet loaded, no flag/stilt/park), no rise/hold/lower regression vs cw-stand-footlow2-hard1.
+
+**verdict**: KILLED at 2.75M by operator directive chain (fb_20260815T201417_5f7f0e: stop the warm-started recovery arm; fb_20260815T201712_39279d: recovery line WAITS for the operator bucket-0 curriculum + new main SHA -- "execute, do not analyze"). HONEST READ AT KILL: this env-fixed relaunch was the FIRST run to show real recovery signal -- split eval det onefoot success 1.0 (solved in 1.58s) AND park success 1.0 (2.36s), SCORE/recover_success=1, tipped_recovery_success=1, BC recover anchor filling, curriculum correctly bucket-1-only; train-side sto EMAs still ~0.1 (early). Checkpoint ppo_goal_cw_recover_any2b.zip preserved on train-1 + W&B u9sp8dki for the operator to weigh in the bucket-0 respec decision.
+

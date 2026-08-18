@@ -1,5 +1,8 @@
 # arch — Advanced architectures
 
+**SIM SPRINT (operator 08-17 ~18:05 UTC — binding while the robot is off the bench for repair): NO NEW LAUNCHES on this track unless an arm directly serves reliable rise+walk in the MuJoCo sim (the fleet's single deliverable; download answer: `rl_docs/DOWNLOAD_ANSWER.md`). In-flight runs finish and get triaged normally. Full text: RL_PLAN.md "SIM SPRINT".**
+
+
 W&B: tag `track:arch`. Excess-capacity research.
 
 **Goal:** get a more advanced model (GRU/recurrent/temporal) to walk,
@@ -8,6 +11,196 @@ at what budget, with which failure modes.
 
 ## Now
 
+- **08-17 ~15:2x UTC (triage cycle) — `cw-arch-modeexperts-scratch2`
+  (Arm B's first 40M full-budget stage) TRIAGED ACQUISITION-STAGE
+  PASS (pre-registered mechanism/exposure gate) — genuinely still
+  learning, not yet succeeding, and NOT an exploit.** Finished 40.04M
+  clean; exposure clause drifted exactly as pre-classified (hold
+  banked ~2× its .15 cap via sequence leakage, loco/lower stayed
+  just under their .30 target, rise landed on-target) — never a kill
+  per the gate's own letter. Per-expert stds diverged independently
+  and per-mode eval trends improved — real per-expert learning. Bulk
+  harness fork read (DR0+DR0.5, det+sto): 0/6 success on all 4
+  skills, but video-confirmed NO park/flag-leg/freeze cheat anywhere
+  — walk has a genuine 6/6-gait-valid six-leg gait covering the
+  commanded distance (just too much slip to clear the bar), rise
+  genuinely curls but over-currents 3/6, lower genuinely descends but
+  stalls short of flat-plant, hold stays genuinely stable but
+  off-height. Cumulative lineage active ticks (canary+scratch2) are
+  13.2M/10.0M/10.1M for rise/loco/lower, still short of the ≥20M
+  target. **`cw-arch-modeexperts-scratch3` LAUNCHED same cycle**
+  (warm from scratch2, mode_seq 0.2→0.10 + single-mode mix re-solved
+  from scratch2's measured realized/commanded ratios, targeting
+  ≥20M cumulative active ticks/skill and now requiring a real skill
+  SUCCESS verdict at its own fork). Detail:
+  `MODE_EXPERTS_DIRECTIVE.md` "SCRATCH2 RESULT + SCRATCH3 EXECUTED";
+  evidence `rl_docs/runs/cw-arch-modeexperts-scratch2.md`, W&B
+  `1t6rmexz`/`puvo5i2y`,
+  `logs/ckpt_eval/cw_arch_modeexperts_scratch2_{gate,owncfg}`.
+- **08-17 ~03:xx UTC — `cw-arch-joystick-canary1` (the operator-approved
+  update-path redesign canary) TRIAGED CANARY FAIL - MECHANISM, auto-stopped
+  at 1.52M/2.5M steps by its own EV hard-failure check — no 40M clone,
+  reported back to the operator.** Critic explained_variance sat at ~0
+  (1e-7 range) from step 49k through the auto-stop, never rising, so the
+  redesigned update path (actor/critic LR groups, transactional rollback,
+  bounded term_cost=240, calibrated 25mm height gate) did NOT fix value
+  learning — even though the frozen-rollout audit proved the transformer
+  critic CAN fit returns. New root cause, different from scratch3's
+  unbounded cliff: `ep_len_mean` pinned at EXACTLY 50 steps (the 2.0s
+  walk-height grace period at 25Hz) for nearly the whole run — every
+  episode gets stopped by `walk_low_height` at the earliest legal tick, so
+  returns are near-identical across states (report.json: every det episode
+  height_err_end_mm=37.9, roll_class=fell, forward_dist~15mm, identical
+  duty/swing) — a return-variance collapse that trivially zeros EV. DR0
+  gate + own-DR(0.3): 0/6 det + 0/6 sto, prog_ratio 0.05-0.26, slip/m ~4
+  (dragging, not walking), roll settled 0/6; contact sheet shows a static
+  crouch, no stepping. Open lead for whoever designs the next attempt
+  (operator call, not an autonomous arch relaunch — the canary's FAIL
+  branch routes here by design): check whether the walk task's initial
+  pose/height reference already sits near/below the 25mm trip band before
+  the policy acts at all, independent of the reward redesign. Evidence:
+  W&B hkliaidm, `logs/ckpt_eval/cw_arch_joystick_canary1_{gate,owncfg}`.
+- **08-17 ~02:xx UTC — OPERATOR-APPROVED joystick-walking redesign
+  EXECUTED (fb_20260817T005114_775298) + `cw-arch-joystick-canary1`
+  (2.5M gated integration canary) launched.** The 08-16 closure of
+  the exact scratch3 recipe stands; the operator ordered a MECHANISM
+  redesign, not a clone. Audit answer first: the frozen-rollout
+  value-regression test (`test_value_learning.py`) PASSES for the
+  transformer critic — scratch3's EV~0 was the reward's fault (the
+  unbounded −730 remaining-horizon terminal cliff), NOT a critic
+  implementation bug. Landed this cycle (all default-off, tests
+  green): bounded terminal cost `reward.term_cost_max`
+  (bank-calibrated 240 after cap 60 REOPENED the c2 drag-then-fall
+  exploit at +81/ep — JOYCANARY bank), walk-height gate CALIBRATED
+  from the honest scripted gaits (`calibrate_walk_height.py`:
+  honest band +0.7..+7.3 mm ⇒ sigma 11 mm, low-height termination
+  25 mm instead of the guessed 90), actor/critic optimizer param
+  groups with linear actor-LR decay, transactional PPO updates
+  (snapshot → train → rollback + actor-LR cut on realized KL >0.03),
+  best-checkpoint retention + joint reward/survival/direction
+  regression auto-stop, critic-EV hard-failure auto-stop, and the
+  stress_mix in-run curriculum `goal.walk_cmd_stage` (fwd/back →
+  headings/circles/squares → full mix, instantaneous switches kept).
+  Promotion to any long run REQUIRES the canary gates (EV clearly >0
+  and rising; median KL ≤0.01, no accepted update >0.03; clip frac
+  controlled; no ep-len collapse; v_along + dir_err improving
+  together; upright/gait metrics + video stepping; NEVER
+  reward-only). Refusal = no 40M clone, line back to the operator.
+- **08-16 ~11:5x UTC — Arm A `bc2` (rise-targeted DAgger re-collection)
+  VERIFIED: MIXED result, SECOND MISS, escalated to `[operator]` —
+  no Stage 1 PPO, no bc3.** Isolated single-mode rise genuinely
+  improved (det 0/6 -> 3/6, real bridge/flat wins, hold/lower/walk
+  retained clean) but the sequence eval NET REGRESSED and got a worse
+  failure mode: overall det zero-fall 10/12 (bc1) -> 6/12 (bc2)
+  because the POST-LOWER rise went from stalling short to actually
+  FALLING (6/6 of its failures are falls, was 0 in bc1). Contact
+  sheet confirms genuine motion, no exploit — this is a real
+  trade-off, the SAME zero-sum DAgger-correction signature
+  transdagger3 already found, now reproduced on the fully-isolated
+  4-expert architecture too. Per the pre-registered branch this
+  closes the DAgger-recipe ladder for Arm A Stage 0 (two misses, no
+  bc3); open operator question: can BC/DAgger hold isolated-rise AND
+  post-lower-rise simultaneously at all under this architecture, or
+  does Stage 1 need RL correction instead of a better distill. Detail
+  + full numbers: `MODE_EXPERTS_DIRECTIVE.md` "Arm A" Stage 0 RESULT;
+  evidence `logs/ckpt_eval/arch_modeexperts_bc2_verify_{stance2,walk}`,
+  `logs/ckpt_eval/arch_modeexperts_bc2_seq_{det,sto}.json`.
+- **08-16 ~11:xx UTC — `cw-arch-joystick-long-scratch3` (from-scratch,
+  full 40M, 60s full-session episodes + walk-only low-height collapse
+  termination) TRIAGED FAIL — 4th independent from-scratch attempt at
+  the joystick command-switch recipe to fail, and the LAST planned
+  variant on this recipe.** DR0 gate + own-cfg (DR0.3) both 0/6 det +
+  0/6 sto walk success. The collapse-termination fix DID work as
+  designed — no more seated-scooting cheat, gait_valid 6/6 det/6/6
+  sto, all six legs cycling right up to the fall — but the robot
+  still can't survive: every one of the 6 det episodes ends
+  `roll_class=fell` (over_current x2, tilt_roll x2, tilt_pitch x2,
+  roll_peak 8.7-10.5deg), having moved 1-6cm. **CROSS-TRACK INSIGHT
+  (reinforces the 08-15 ~17:5x/~20:0x/08-16 ~11:xx chain below and
+  multitask/STATUS.md): this recipe has now failed under 4
+  independently-varied fixes** (plain from-scratch transformer, 14x
+  harsher fall pricing, full-episode rollout + dense roll/pitch
+  pricing, and now the collapse-termination redesign) **— the
+  instantaneous command-switch reward/curriculum itself is the
+  blocker, not architecture, init, rollout horizon, fall pricing, or
+  the scooting-exploit fix.** No further chunks or variants of this
+  exact recipe are queued from arch; the only remaining lever is a
+  redesign of the command-tracking task itself, which is a
+  multitask-track call. Arch's other in-flight lineages
+  (`cw-arch-tf-r1-*`, `cw-arch-modeexperts-scratch2`) are unrelated
+  and unaffected. Evidence: `rl_docs/runs/cw-arch-joystick-long-scratch3.md`,
+  W&B a7rtr3lq, `logs/ckpt_eval/cw_arch_joystick_long_scratch3_{gate,owncfg}`.
+- **08-16 ~11:xx UTC — `cw-arch-joystick-switch-scratch2` (from-scratch,
+  full 40M, redesigned recipe: n_steps=384/full-episode rollout,
+  ent-coef 0.001, dense k_roll/k_pitch=30) TRIAGED FAIL — full budget
+  spent, robot never learns to survive.** DR0 gate + own-cfg (DR0.3)
+  both 0/6 det + 0/6 sto walk success, gait_valid 0/6, every
+  deterministic episode `roll_class` fell, `TERMINATED: tilt_roll` at
+  t=0.84s (roll_peak 10.6deg) having moved 4mm; `sacrificed_legs`
+  [3,4]/[0,3,4] in all trials — same parked-leg habit as the closed
+  joymodes attempts. Training reward improved (-1015→-229 across
+  quarters) but real task metrics didn't: `eval/walk/survived_frac=0`
+  throughout, `dir_err_deg_mean` 90° (worse than fallfix1's 19°),
+  `wrong_dir_frac` 0.32. **This is the THIRD independent from-scratch
+  attempt at the joystick command-switch recipe to fail identically**
+  (after `tf-joymodes-scratch1` known-exploit FAIL and its
+  `fallfix1` FAIL) — reconfirms the standing CROSS-TRACK INSIGHT
+  (08-15 ~17:5x/~20:0x entries below, multitask/STATUS.md): the
+  command-tracking reward/curriculum recipe itself is the blocker,
+  not architecture, init, rollout horizon, or fall pricing. No
+  further chunks on this exact recipe. The sibling already in flight,
+  `cw-arch-joystick-long-scratch3` (spawned off an early
+  switch-scratch2 checkpoint read, 60s episodes + explicit low-height
+  collapse termination), is the standing next attempt at a different
+  fix — no new launch needed, it reports on its own schedule.
+  Evidence: `rl_docs/runs/cw-arch-joystick-switch-scratch2.md`,
+  W&B 9olozoz7, `logs/ckpt_eval/cw_arch_joystick_switch_scratch2_{gate,owncfg}`.
+- **08-15 ~21:0x UTC — `cw-arch-tf-r1-hard3` (2nd +40M continuation of
+  the transformer walk line) TRIAGED PASS, but the step-budget lever
+  is now DIMINISHING FAST: the ~24-27% slip drop hard1→hard2-r1
+  bought shrank to ~3% this round (det slip/m med 1.21→1.17, sto
+  1.32→1.28, both DR0 gate and DR0.5 own-cfg moved the same small
+  direction; gait_valid 6/6, zero falls/sacrificed legs both passes,
+  contact sheets clean six-leg cycling in all 12 episodes each pass).
+  PASS by the pre-registered gate's letter (clear direction, not
+  noise) but this is the same plateau shape the sibling hist16-r7
+  line eventually hit (r7→c1→c3→c4) — **no hard4 queued.** The
+  walk-only step-count lever on this lineage is deprioritized; the
+  gate's own named next question — does this architecture also learn
+  rise/hold/lower, not just walk (the track's actual goal) — is
+  untested and is the more valuable next arch lever whenever a design
+  cycle picks it up (needs a multi-skill/BC-anchor recipe ported to
+  `--transformer`, not yet speced). Evidence:
+  `rl_docs/runs/cw-arch-tf-r1-hard3.md`, SKILLS.md,
+  `logs/ckpt_eval/cw_arch_tf_r1_hard3_{gate,owncfg}`.
+- **08-15 ~20:0x UTC — `cw-arch-tf-joymodes-scratch1-fallfix1` TRIAGED
+  FAIL at the pre-registered full-40M-lineage gate; the joymodes
+  lineage is CLOSED, no further chunks.** The 14x harsher fall charge
+  (`reward.term_cost_per_remaining_s=12.0`, ~-141/fall vs the old
+  flat -10) did not buy survival: `eval/walk/survived_frac` stayed 0
+  at all 4 evals of this 4M chunk (same as the parent's 28M), DR0
+  gate 0/6 det + 0/6 sto, 12/12 episodes terminated tilt_pitch/
+  tilt_roll, `roll_class` fell 12/12. Video (contact sheets,
+  `walk_det_0/2`) shows genuine forward pitch-overs — not a stable
+  stilt/lean holding cheat, an actual crash. Over the whole 4M-step
+  chunk 569 of ~571 episodes ended in a tilt termination (only 2
+  truncated) — nowhere near the gate's required ≥50% cut from the
+  ~607 baseline. What DID hold: direction-following (`wrong_way_frac`
+  0.042, `dir_valid_frac` 0.96, `dir_err_deg_mean` 19°) — the
+  acquisition half of the lineage is real and didn't regress. Per the
+  gate's own letter this reclassifies the problem from pricing to
+  capability/curriculum, and the unchanged lineage gets no further
+  budget. **CROSS-TRACK INSIGHT (reinforces the 08-15 ~17:5x note
+  below and multitask/STATUS.md):** this is now the clearest evidence
+  that the joystick command-tracking reward/curriculum recipe itself
+  — not fall pricing, not architecture, not init — is what can't
+  currently produce a walk that survives; a redesign (multitask's
+  call) is the only lever left, not another reward-shaping resweep
+  on this recipe from arch. No new arch launch from this result;
+  arch's other two in-flight arms (`cw-arch-tf-r1-hard3`,
+  `cw-arch-modeexperts-scratch2`) are unrelated lineages and continue
+  unaffected. Evidence: ledger entry, W&B kt8w93ra,
+  `logs/ckpt_eval/cw_arch_tf_joymodes_scratch1_fallfix1_{gate,owncfg}`.
 - **08-15 ~19:5x UTC — operator-ordered stop + fall-fix relaunch of the
   joymodes lineage (fb_20260815T192912_15af2f).**
   `cw-arch-tf-joymodes-scratch1-acq1` KILLED at ckpt 34.06M/38M:

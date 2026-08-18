@@ -366,6 +366,26 @@ def _worker_main(conn, layout, task_cls, env_kwargs, lo, hi, seed,
                         infos.append(info)
                 conn.send(("ok", infos))
 
+            elif cmd == "reset_history_probe":
+                mode, final = args
+                for k, env in enumerate(envs):
+                    g = lo + k
+                    push_output_row(env, pad_bids, outs, g)
+                    obs = env._reset_history_probe_obs()
+                    shm["obs"][g] = obs
+                    if mode == "pool" and final:
+                        # reset_finalize created the matching LIFO entry;
+                        # replace its pre-probe host snapshot with the
+                        # actual end of the controlled history probe.
+                        pool[k][-1]["host"] = snapshot_env(env, attrs)
+                        pool[k][-1]["obs"] = obs.copy()
+                        pool[k][-1]["info"][
+                            "reset_history_probe_ticks"] = (
+                                env._reset_history_probe_steps())
+                        pool[k][-1]["info"]["reset_history_probe_s"] = (
+                            env._reset_history_probe_steps() * env.dt)
+                conn.send(("ok", None))
+
             elif cmd == "host_save":
                 saved = [(snapshot_env(env, attrs), env._profile)
                          for env in envs]
@@ -421,6 +441,11 @@ def _worker_main(conn, layout, task_cls, env_kwargs, lo, hi, seed,
                     shm["trunc"][g] = trunc
                     infos.append(dict(info))
                 conn.send(("ok", infos))
+
+            elif cmd == "pool_flush":
+                n_flushed = sum(len(p) for p in pool)
+                pool = [[] for _ in envs]
+                conn.send(("ok", n_flushed))
 
             elif cmd == "pop":
                 local_idx = args[0]
@@ -519,6 +544,7 @@ class MjxShardedVecEnv(VecEnv):
         obs_space, act_space = probe.observation_space, probe.action_space
         self._dt = probe.dt
         self._episode_steps = probe.episode_steps
+        self._reset_probe_n = probe._reset_history_probe_steps()
         probe.close()
 
         B = int(n_envs)
@@ -697,6 +723,17 @@ class MjxShardedVecEnv(VecEnv):
             out = st.tick(hold)
         self._copy_outs(out)
         infos = self._broadcast("reset_finalize", mode)
+        for probe_i in range(self._reset_probe_n):
+            out = st.tick(hold)
+            self._copy_outs(out)
+            self._broadcast("reset_history_probe", mode,
+                            probe_i == self._reset_probe_n - 1)
+        if self._reset_probe_n and mode != "pool":
+            for chunk in infos:
+                for info in chunk:
+                    info["reset_history_probe_ticks"] = self._reset_probe_n
+                    info["reset_history_probe_s"] = (
+                        self._reset_probe_n * dt)
         if mode == "pool":
             for i in range(B):
                 self._pool_dev[i].append(dict(
@@ -761,6 +798,14 @@ class MjxShardedVecEnv(VecEnv):
         self.stepper.inject_env_states(
             np.asarray(done_idx, dtype=int), np.asarray(qpos),
             np.asarray(qvel), np.asarray(q_nom))
+
+    def flush_reset_pools(self) -> int:
+        """Sharded twin of MjxVecEnv.flush_reset_pools: drop the parent
+        device rows AND every worker's host pool entries."""
+        n = sum(len(p) for p in self._pool_dev)
+        self._pool_dev = [[] for _ in range(self.num_envs)]
+        self._broadcast("pool_flush")
+        return n
 
     # -- SB3 VecEnv API --------------------------------------------------
 

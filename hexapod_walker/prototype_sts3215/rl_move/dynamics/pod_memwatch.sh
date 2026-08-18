@@ -4,18 +4,24 @@
 # taking the WHOLE pod and every overlay-fs artifact with it: pods mount
 # no persistent volume, so a cgroup OOM kill loses everything).
 #
-# Every 60s: append container memory.current + the largest-RSS process
-# to logs/memwatch.log. Above THRESH_GIB (default 85), kill -9 the
-# single largest python process — one job dies loudly, the pod (and all
-# other jobs/artifacts) survive.
+# Every POLL_S seconds (default 10 — tightened 08-15 after
+# `cw-dynrep-tf-state2-fresh2` hard-OOMKilled at the 96Gi hard limit in
+# the ~65s window between its stage-1 collector finishing and stage-2
+# training starting: the OLD 60s poll interval is wider than a fast
+# stage-transition spike, so it never got a chance to fire before the
+# whole pod died): append container memory.current + the largest-RSS
+# process to logs/memwatch.log. Above THRESH_GIB (default 85), kill -9
+# the single largest python process — one job dies loudly, the pod
+# (and all other jobs/artifacts) survive.
 #
 #   nohup sh rl_move/dynamics/pod_memwatch.sh > /dev/null 2>&1 &
 cd "$(dirname "$0")/../.."
 LOG=rl_move/dynamics/logs/memwatch.log
 THRESH_GIB=${THRESH_GIB:-85}
 THRESH_B=$((THRESH_GIB * 1024 * 1024 * 1024))
+POLL_S=${POLL_S:-10}
 mkdir -p "$(dirname "$LOG")"
-echo "== memwatch start $(date -u +%FT%TZ) thresh=${THRESH_GIB}GiB" >> "$LOG"
+echo "== memwatch start $(date -u +%FT%TZ) thresh=${THRESH_GIB}GiB poll=${POLL_S}s" >> "$LOG"
 while :; do
     CUR=$(cat /sys/fs/cgroup/memory.current 2>/dev/null || echo 0)
     TOP=$(ps -eo rss,pid,args --sort=-rss --no-headers 2>/dev/null \
@@ -29,5 +35,5 @@ while :; do
             kill -9 "$PID"
         fi
     fi
-    sleep 60
+    sleep "$POLL_S"
 done

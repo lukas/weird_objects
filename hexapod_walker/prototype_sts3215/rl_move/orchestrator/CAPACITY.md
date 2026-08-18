@@ -39,3 +39,21 @@ with the script, the script is right; fix the doc.**
   controller (`/workspace/relic_backup/`) and deleted on 2026-08-09.
   Only the controller `hexapod-sweep-friction` remains, and it is not
   a slot.
+
+- /dev/shm caveat (2026-08-18, walkcurr3 canary SIGBUS): the LIVE
+  mjx-train pods were created before the 4Gi dshm mount landed in
+  coreweave_pods_mjx_scaleout.yaml — they still have the 64M k8s
+  default, which SIGBUS-kills MjxShardedVecEnv workers on hist16-wide
+  layouts at n_envs 4096 (any21-class runs at n_envs 512 fit).
+  hexapod-mjx-train-5 was recreated 08-18 from the fixed spec (4Gi
+  tmpfs, verified) + re-bootstrapped + CUDA torch reinstalled
+  (pod_torch_capability.py install). Recreate other IDLE pods the same
+  way before scheduling wide sharded runs on them; note the pod-local
+  /workspace is wiped (re-copy encoder/dataset artifacts).
+  MEASURED 08-18 ~16:0x UTC: train-5/7/9/11 have the 4Gi tmpfs;
+  train-0/4/6/8 still 64M (train-1/2/3/10 unchecked, assume 64M).
+  A hist16 predictive-live 4096-env run uses ~75M shm — it BOOT-KILLS
+  on a 64M pod (cw-dynrep-tf-liveactor-walkcurr4-canary1 died exactly
+  this way on train-4; retried fine on train-11). CHECK
+  `df -h /dev/shm` on the target pod before placing any hist16/wide
+  sharded run.
