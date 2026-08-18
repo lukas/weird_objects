@@ -159,9 +159,14 @@ DANCE_PRANCE_PERIOD = 0.58   # s/cycle (gentle walk demo uses 0.85)
 DANCE_PRANCE_LIFT_MM = 32.0  # high knees (gentle walk demo uses 18)
 DANCE_PRANCE_VX = 0.09       # m/s out (RL band tops out at 0.06)
 DANCE_PRANCE_ACC = 80        # Feetech ACC units (×100 counts/s²)
-DANCE_PRANCE_FWD_S = 4.5     # ≈ 0.17–0.4 m out (slip-dependent)
-DANCE_PRANCE_SPIN_OMEGA = 0.85  # rad/s commanded — realizes a partial
-DANCE_PRANCE_SPIN_S = 7.4       # turn (sim ~110°); flourish, not a 360
+# Lap shape (operator 08-18): prance OUT further, ABOUT-FACE (true half
+# turn), prance HOME — no pirouette-for-no-reason. Out and home share
+# the same gait + duration, so the return distance matches the out leg
+# by symmetry no matter how much the feet slip.
+DANCE_PRANCE_FWD_S = 7.5     # sim: ~285 mm out (hardware slip-dependent)
+DANCE_PRANCE_TURN_OMEGA = 0.85  # rad/s commanded (gait clamps at 1.0)
+DANCE_PRANCE_HALFTURN_S = 9.3   # sim-measured 08-18: 19.3 deg/s realized
+                                # at ACC 80 regime → 180° in 9.3 s
 
 RISE_PRESETS = {
     "default": {
@@ -1892,8 +1897,8 @@ DEMOS = {
     "rise_show": ("[6 show] FULL planted show (all of the above)", None),
     "dance": ("[6 show] DANCE — heartbeat → breathe → hands up → RISE "
               "→ wild → sleep", None),
-    "dance_walk": ("[6 show] DANCE + VICTORY LAP — the dance, then an "
-                   "RL walk box (strut/sidestep/moonwalk), then sleep",
+    "dance_walk": ("[6 show] DANCE + VICTORY LAP — the dance, then "
+                   "prance out, about-face, prance home, sleep",
                    None),
     # --- real walk (open-loop tripod gait) --------------------------------
     "walk": ("[7 walk] tripod forward a few strides, then stand", None),
@@ -3345,16 +3350,18 @@ def run_walk_demo(bus: FeetechBus, name: str = "walk", *,
 
 def run_dance_prance(bus: FeetechBus, phase: str = "out", *,
                      abort_check=None, status_cb=None) -> str:
-    """Victory-lap gait phases — the aggressive open-loop half.
+    """Victory-lap gait phases — the aggressive open-loop tripod.
 
     ``phase="out"``: horse-prance forward (quick cadence, high knees).
-    ``phase="spin"``: pirouette flourish in place — the lap finale, run
-    at home where open-loop heading slip can't hurt anything (slip
-    means a partial turn, which is fine as a bow).
-    Both start by easing onto the walk plant (stand zero) and end
-    HOLDING it, so the RL moonwalk can run between them.
+    ``phase="halfturn"``: about-face — a sim-calibrated 180° spin in
+    place, so the "home" leg walks FORWARD back toward the start.
+    ``phase="home"``: prance back — identical gait and duration to
+    "out", so the return distance matches by symmetry however much
+    the feet slip on the day's floor.
+    Each phase starts by easing onto the walk plant (stand zero) and
+    ends HOLDING it, so phases chain cleanly.
     """
-    assert phase in ("out", "spin")
+    assert phase in ("out", "halfturn", "home")
     try:
         from tripod_gait import TripodGait
     except ImportError as e:
@@ -3390,10 +3397,13 @@ def run_dance_prance(bus: FeetechBus, phase: str = "out", *,
     if phase == "out":
         segments = [("PRANCE — high knees, quick cadence",
                      DANCE_PRANCE_VX, 0.0, 0.0, DANCE_PRANCE_FWD_S)]
+    elif phase == "halfturn":
+        segments = [("ABOUT-FACE — half turn in place",
+                     0.0, 0.0, DANCE_PRANCE_TURN_OMEGA,
+                     DANCE_PRANCE_HALFTURN_S)]
     else:
-        segments = [("PIROUETTE — spin flourish",
-                     0.0, 0.0, DANCE_PRANCE_SPIN_OMEGA,
-                     DANCE_PRANCE_SPIN_S)]
+        segments = [("PRANCE home — same strut back",
+                     DANCE_PRANCE_VX, 0.0, 0.0, DANCE_PRANCE_FWD_S)]
 
     gait.reset_phase(t=time.monotonic())
     for label, vx, vy, om, dur in segments:
@@ -3646,10 +3656,10 @@ def run_demo(bus: FeetechBus, name: str, *,
             speed=spd, log_path=log_path)
     if name in ("dance", "dance_walk"):
         # Choreographed times (like rise_show) — live tempo not wired in.
-        # dance_walk's RL victory lap needs the web bench (it owns the
-        # drive object); from the CLI it degrades to the full dance.
+        # dance_walk's victory lap is composed by the web bench (it owns
+        # the safety plumbing); from the CLI it degrades to the dance.
         if name == "dance_walk":
-            print("  (RL victory lap runs from the web bench only — "
+            print("  (victory lap runs from the web bench only — "
                   "playing the full dance)")
         return run_dance_demo(
             bus, abort_check=abort_check, speed=spd, size=size,
