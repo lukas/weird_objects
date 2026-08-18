@@ -929,3 +929,34 @@ Entry format (append; newest last; update status in place):
   building the same 4M correction from one very prescriptive order is
   a sign the order itself should route to a single owner, not just a
   phase gap).
+
+## q_20260818T1125Z — OPEN
+- cycle: bridge1 recovery (operator focus-note session, fb 20260818T111051Z)
+- operator order: fb 20260818T111051Z — resume bridge1 from the 2M
+  checkpoint under append-only bridge1-r1; "Do not restart from zero
+  unless no valid checkpoint exists".
+- conflicted with: (a) the generic DEAD protocol ("clean up + retry
+  once"), which a CONCURRENT triage cycle (spawned 1 s after this one,
+  without the focus note) had already followed — it launched the
+  from-zero cw-dynrep-criticD-walkcurr4-bridge1-retry1 at 11:15:18Z;
+  (b) the walkcurr/condition-D contract, which only wires
+  --init-from-actor-only, so a FULL resume (critic head + curriculum
+  frontier) is not mechanically possible — r1 resumes the 2M ACTOR
+  exactly, critic head + curriculum re-init fresh (same recipe shape
+  as bridge1 itself: 0.5M actor freeze + fail-closed pre-PPO cert).
+- why the cycle would have declined: it did not decline; judgment
+  calls to flag: (1) retry1 was already >50% complete when found, so
+  it was left to FINISH as a corroborating twin (killing it would
+  have discarded ~2M of its own progress — more waste than the order
+  prevents) but its gate was AMENDED: its PASS no longer auto-launches
+  the 40M; single 40M authority = r1's triage. (2) r1 is actor-only
+  resume, not a bit-exact optimizer/curriculum resume, for the wiring
+  reason above; recorded in r1's hypothesis.
+- what was executed: rollback-crash fix landed + 20/20 tests green
+  (load_optimizer_state_if_compatible); 2M ckpt CRC-verified
+  (md5 bf55d4f8244dc467a18a0b5f816ec423, num_timesteps 2,031,616);
+  ledger reconciled (train-11 entry CRASHED_BUG, REFUSED stubs
+  annotated); bridge1-r1 launched from the 2M ckpt on train-11 for
+  the remaining 2M with the original gate; retry1 gate amended.
+- ANSWER (operator): —
+- rulebook change: —
