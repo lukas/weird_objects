@@ -1,5 +1,25 @@
 # dynrep — Dynamics-representation pretraining
 
+**08-18 ~10:2x UTC: tournament arm A (`cw-dynrep-criticD-walkcurr4-
+canA-r2`) FINISHED its 4M canary budget — FAIL, same failure shape as
+walkcurr3.** Turning the calibrated `walk_height_gate`/
+`walk_kernel_prog_gate` income gates back ON *and* raising the actor
+update (2e-4 x 5 epochs, held pre-promotion) did NOT unblock
+acquisition: `walkcurr/frontier`/`promotions` stayed at 0 through all
+4M steps (cert_round 8, `b0_ignition/pass=0`), `cmd_prog_frac` 0.024
+(bar >=0.50), `height_factor` 0.55-0.70 (bar >=0.8), `slip_per_m` 5.4
+(bar <=3.0). Gate-eval: DR-0/DR-0.3 det `gait_valid` 0/6 both, median
+forward travel 0.05-0.06m over a 15s episode, video shows a static low
+crouch, not a gait. **Conclusion: gates+LR alone are refuted as the
+fix — whatever blocks ignition survives both.** Arms B/C (actor-only
+transplant from the proven BC-gait recipe, per URGENT addendum
+fb_20260818T085834_588d9a) are running under a concurrent cycle
+(`canB-r1` on train-9, `canC-r1` on train-5); per the pre-registered
+gate, if both of those also fail the tournament's own next step is
+"one evidence-based correction then re-canary" (not a same-recipe
+re-run) — no new dynrep launch queued from this arm alone. Evidence:
+`rl_docs/runs/cw-dynrep-criticD-walkcurr4-canA-r2.md`.
+
 **08-18 ~10:1x UTC: `cw-dynrep-criticD-walkcurr3` FINISHED its full 40M
 GPU-physics budget — FAIL.** `walkcurr/frontier` and `walkcurr/
 promotions` stayed at 0 for all 40M steps (never certified past B0);
