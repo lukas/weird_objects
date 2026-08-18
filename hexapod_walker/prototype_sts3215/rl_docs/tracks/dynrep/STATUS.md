@@ -2,6 +2,27 @@
 
 **SIM SPRINT (operator 08-17 ~18:05 UTC — binding while the robot is off the bench for repair): NO NEW LAUNCHES on this track unless an arm directly serves reliable rise+walk in the MuJoCo sim (the fleet's single deliverable; download answer: `rl_docs/DOWNLOAD_ANSWER.md`). In-flight runs finish and get triaged normally. Full text: RL_PLAN.md "SIM SPRINT".**
 
+**08-18 ~02:xx UTC (triage cycle): `cw-dynrep-livewalkrise1` (arm A, the
+10M live world-model continuation) is CLOSED — outcome (b) of its own
+pre-registered gate. Across all 10 boundary-gated snapshot attempts
+(every 1M steps) the value-jump retention gate rejected every
+candidate by ~5-7x its threshold (dv 30.7-43.3 vs
+`0.10*(|raw_value|+1)`~6.1; corpus-val 2.44-2.53 and live walk/rise
+candidates were themselves in-band — value_jump alone failed, every
+time). `snapshot_version` stayed pinned at 0 for the whole run, so the
+actor+critic ran on exactly frozen condition-D features throughout;
+the online predictor trained 10M steps that the policy never touched.
+Final gait is clean (walk slip_per_m 0.22, peak_roll ~4.4°, mean_h
+0.134m, zero early terms, return ~409-422) but that is D's behavior,
+not evidence for live adaptation — the run never got to test its own
+hypothesis. Per the gate text verbatim: record that live adaptation
+cannot beat frozen features under honest retention gates on this
+data, and close the online-critic-adaptation line for good (mirrors
+E's 1M closure — the retention machinery is doing its job, the live
+predictor just never earns a handoff). Now/Next: no follow-up online-
+adaptation (E/F-style) arm without new evidence; `cw-dynrep-criticD-
+40m1` (frozen-D, 40M, still training) remains the live candidate on
+this track. Full numbers: run ledger + W&B `1d1ro5dc` OUTCOME note.**
 
 **08-17 ~22:xx UTC (operator-kick cycle, order fb_20260817T210422_9df9c7
 executed — two parallel arms, both framed by the operator as serving

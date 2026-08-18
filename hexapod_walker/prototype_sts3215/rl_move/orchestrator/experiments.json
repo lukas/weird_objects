@@ -94334,7 +94334,7 @@
     "run": "cw-dynrep-livewalkrise1",
     "created": "2026-08-17T21:50:11+00:00",
     "note": "Script-owned (pod_livewalkrise.sh). Operator order fb_20260817T210422_9df9c7 arm A continuation: 10M steps, snapshot boundary 1M (up to ~9 gated update attempts), stratified live CUDA replay 75/25 walk/rise (75% fresh + 25% v5 rehearsal), command-rich env (uniform heading, resample 4s + jitter, 15% stops, commanded yaw, rise flat/bridge/crouch + 30% post-lower bank), exogenous cmd priv channels masked on live windows (canary1 finding, 3271920c). Actor raw-obs scratch; 13.62M transformer capacity unchanged; starts exact frozen D.",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "pod": "hexapod-mjx-train-5",
     "track": "dynrep",
     "phase": "acquisition",
@@ -94359,7 +94359,10 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "hardware_ready": false,
+    "verdict": "CLOSE (pre-registered gate clause b, live vs frozen critic features): across all 10 boundary-gated snapshot attempts (every 1M steps to 10M) the value-jump retention gate rejected every candidate by ~5-7x its threshold (observed dv 30.7-43.3 vs gate 0.10*(|raw_value|+1)~6.1; corpus-val 2.44-2.53 and live walk/rise candidates were themselves in-band -- only value_jump failed, every single time). snapshot_version stayed pinned at 0 for the whole run, so the actor+critic ran on exactly frozen condition-D features throughout; the online predictor trained the entire 10M for nothing the policy ever used. Final gait is clean (walk slip_per_m 0.22, peak_roll ~4.4 deg, mean_h 0.134m, zero early terms, walk return ~409-422) but that is D's behavior, not a live-adaptation result -- this run never actually tested its own hypothesis. Per the pre-registered gate text, this is exactly outcome (b): record that live adaptation cannot beat frozen features under honest retention gates on this data, and close the online-critic-adaptation line for good. No follow-up arm; SIM SPRINT also bans a new dynrep launch regardless.",
+    "triage": "done"
   },
   {
     "run": "cw-recover-any16-pop3-s11",
@@ -97499,7 +97502,19 @@
     "wandb_id": "a705c488",
     "verified": "2026-08-18T00:54:00+00:00",
     "reconcile_note": "Ledger reconciliation (not a new launch): process cw-recover-any21-pop3-s12 PID 664903 confirmed live on hexapod-mjx-train-1 via kubectl exec ps + growing log (total_timesteps 851968+ and climbing in lockstep with s11/s13); the two prior ledger rows for this run (SHA-mismatch REFUSED, then duplicate-process REFUSED) were launch_run.py attempts that failed AFTER an actual successful launch already had the process running (started between the SHA-mismatch refusal and the second refusal attempt, exact launch-time entry not captured in the ledger -- likely lost to a concurrent-cycle race on the ledger write). This entry corrects mechanical state to match ground truth per guardrails trust-only-mechanical-state; no kill, no relaunch.",
-    "note": "Ledger extra_args are stale for this row: the recorded vector carries --recover-population-member=0 from a pre-correction attempt, but the LIVE process (verified via W&B) initialized as member 1 with predeclared id a705c488, seed 12, roster f14d9993,a705c488,fe8501ac \u2014 correct per fb_20260818T002830 direct-relaunch prescription. Do not respec from this row without overriding all population flags."
+    "note": "Ledger extra_args are stale for this row: the recorded vector carries --recover-population-member=0 from a pre-correction attempt, but the LIVE process (verified via W&B) initialized as member 1 with predeclared id a705c488, seed 12, roster f14d9993,a705c488,fe8501ac \u2014 correct per fb_20260818T002830 direct-relaunch prescription. Do not respec from this row without overriding all population flags.",
+    "checkups": [
+      {
+        "time": "2026-08-18T00:59:44+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 4228,
+        "fps": 5825.4,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   },
   {
     "run": "cw-recover-any21-pop3-s13",
@@ -97617,6 +97632,18 @@
     "refused_reason": "hexapod-mjx-train-3 already runs cw-recover-any21-pop3-s13 \u2014 GPU pods host exactly one run; pick a free GPU pod.",
     "wandb_id": "fe8501ac",
     "verified": "2026-08-18T00:54:00+00:00",
-    "reconcile_note": "Ledger reconciliation (not a new launch): process cw-recover-any21-pop3-s13 PID 1348229 confirmed live on hexapod-mjx-train-3 via /proc cmdline scan + growing log (total_timesteps 851968+ and climbing in lockstep with s11/s12); the ledger row for this run (duplicate-process REFUSED) was a launch_run.py attempt that failed AFTER an actual successful launch already had the process running. This entry corrects mechanical state to match ground truth per guardrails trust-only-mechanical-state; no kill, no relaunch."
+    "reconcile_note": "Ledger reconciliation (not a new launch): process cw-recover-any21-pop3-s13 PID 1348229 confirmed live on hexapod-mjx-train-3 via /proc cmdline scan + growing log (total_timesteps 851968+ and climbing in lockstep with s11/s12); the ledger row for this run (duplicate-process REFUSED) was a launch_run.py attempt that failed AFTER an actual successful launch already had the process running. This entry corrects mechanical state to match ground truth per guardrails trust-only-mechanical-state; no kill, no relaunch.",
+    "checkups": [
+      {
+        "time": "2026-08-18T01:00:34+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 4200,
+        "fps": 5825.4,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   }
 ]
