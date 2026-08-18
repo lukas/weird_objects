@@ -98666,7 +98666,7 @@
       "ppo_goal_cw_recover_any21c2_pop3_s12"
     ],
     "created": "2026-08-18T06:32:09+00:00",
-    "status": "RUNNING",
+    "status": "PASS (partial)",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -98714,7 +98714,9 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-recover-any21c2-pop3-s12 since 2026-08-18T18:36:59"
+    "triage": "done",
+    "hardware_ready": false,
+    "verdict": "Operator-ordered +100M/member continuation (\"keep it rumbling\") finished clean (100,000,007 steps, no traceback, all 6 integration-gate clauses held: barrier crossed at B14, CERT/recover_training_envs_synchronized=512 every round, member ACKed adopting winner s11's B15 with matching policy hash, RECOVER_GUARD/rollback_count=0 the whole run, no partial-cohort breach). Behavioral read answers the operator's own question but not cleanly either way: the population DID push the frontier past the old B14 tangle wall to B15 (video-verified genuine tangle-untangle + bank recoveries, no flag/stilt/park exploit), but this member's OWN matched gate-eval score FELL vs its pre-continuation checkpoint (det 8/18 DR-0, 10/18 DR-0.1 vs the prior 16/18 / 14/18) because previously-solved EASY buckets (crouch_shallow/mid/deep, partial_mid/low, zero, plant_catch under DR-0.1) now fail on this snapshot -- over_current stalls and short-of-height timeouts, not new falls or exploits. This is the SAME oscillating-retention wall CURRENT_TRUTHS already named (any15/any21 corrections), caught at a worse phase of the oscillation by chance of exactly-100M-steps landing, not a new mechanism and not proof either that more training hardens or breaks the frontier -- rollback never fired despite the dips, confirming the guard still can't see oscillation. Not hardware-ready. Verdict scoped to s12 only; s11/s13 are sibling members still training, off-limits to this cycle. No follow-up queued -- recover/tangle redesign stays operator-gated and outside the SIM SPRINT."
   },
   {
     "run": "cw-recover-any21c2-pop3-s13",

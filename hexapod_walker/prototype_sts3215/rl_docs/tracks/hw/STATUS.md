@@ -22,6 +22,17 @@ unresolved blockers between the robot and reliable joystick control.
 
 ## Now
 
+- **08-18 ~18:5x (triage cycle): recover "keep it rumbling" continuation,
+  member `s12`, finished its +100M — mechanism PASS, behavior a wash.**
+  Frontier genuinely advanced past B14 to B15 (video-verified genuine
+  tangle/bank recoveries), but this member's own matched gate score
+  FELL (det 8/18 vs 16/18 before) as previously-solved easy buckets
+  now fail — the same oscillating-retention wall CURRENT_TRUTHS
+  already named, one rung deeper; `rollback_count` still 0 the whole
+  run. Not hardware-ready, not an upgrade. s11/s13 still training, no
+  cohort verdict yet. No follow-up (recover stays `[operator]`-gated,
+  outside the SIM SPRINT). Detail: STATUS.md, `rl_docs/runs/
+  cw-recover-any21c2-pop3-s12.md`.
 - **08-18 ~18:3x (triage cycle): `cw-dep-bcgait1-hard1-steer1-hard20m1`
   FAILED its pre-registered 5-clause gate — the ~20M full-stress-mix
   hardening pass did NOT cure the direction-switch tangle/stall.**
