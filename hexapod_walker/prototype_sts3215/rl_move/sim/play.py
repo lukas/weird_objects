@@ -215,6 +215,7 @@ _PROMOTED = [
     # walk group
     "ppo_goal_cw_dep_bcgait1_hard1",
     "ppo_goal_cw_arch_noslipphase1_r4",
+    "ppo_goal_cw_arch_hist16_dep1_c1",
     "ppo_goal_cw_arch_tf_r1_hard2_r1",
     "ppo_goal_cw_gru_dual_bc_transdagger2",
     "ppo_goal_cw_dep_vref1_r1",
@@ -250,6 +251,10 @@ _CURATED = {
     # walker + the one-brain rise/walk/sit GRU distillation
     "ppo_goal_cw_arch_tf_r1_hard2_r1",
     "ppo_goal_cw_gru_dual_bc_transdagger2",
+    # newest gate-PASS champion (08-18 sweep of recent verdicts): the
+    # dep-contract 16-frame memory walker — joystick-gated, slip in
+    # the on-robot vref1 band, "a real hardware-ladder rung"
+    "ppo_goal_cw_arch_hist16_dep1_c1",
 }
 
 # Plain-English one-liners (facts from RL_LOG.md / rl_docs; keep each
@@ -325,6 +330,8 @@ _DESC = {
         "same steering but also carries extra weight",
     "ppo_goal_cw_arch_tf_r1_hard2_r1":
         "NEW transformer memory: clean gait, low slip; sim-only",
+    "ppo_goal_cw_arch_hist16_dep1_c1":
+        "NEW memory walker on the robot's own senses; hw-ready",
     "ppo_goal_cw_gru_dual_bc_transdagger2":
         "NEW one GRU brain for rise+walk+sit (rise still shaky)",
     "ppo_goal_cw_recover_any21_pop3_B14":
