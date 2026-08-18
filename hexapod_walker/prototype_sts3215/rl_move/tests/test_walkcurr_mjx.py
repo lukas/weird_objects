@@ -314,3 +314,96 @@ def test_flush_reset_pools_exists_on_both_vec_envs():
     from rl_move.sim.mjx_vec_env import MjxVecEnv
     assert callable(getattr(MjxVecEnv, "flush_reset_pools"))
     assert callable(getattr(MjxShardedVecEnv, "flush_reset_pools"))
+
+
+# -- 7. height telemetry + realized DR + post-promo schedule ----------
+# (operator order fb_20260818T085648_2a0a60: the walkcurr3 crouch-
+# shuffle was invisible in cert telemetry, B0 must never silently
+# train at the CLI --dr-scale, and acquisition-strength updates hand
+# over to the consolidation recipe on the first promotion.)
+
+
+def test_probe_emits_height_telemetry_vs_reward_anchor():
+    import math
+
+    env = _env(extra={("goal", "walk_pure"): 1.0,
+                      ("goal", "walk_probe"): 1.0,
+                      ("reward", "walk_height_sigma_mm"): 11.0},
+               episode_seconds=2.0)
+    _ext, probe, _ = _external_mirror_episode(env, seed=3,
+                                              n_ticks=10_000)
+    assert probe is not None
+    goal = env._current_goal()
+    h_ref = float(getattr(goal, "height_ref", 0.0))
+    h_err_m = (probe["mean_h_m"] - env._z0) - h_ref
+    assert probe["h_err_mm"] == pytest.approx(h_err_m * 1000.0,
+                                              abs=1e-9)
+    assert probe["height_factor"] == pytest.approx(
+        math.exp(-0.5 * (h_err_m / 0.011) ** 2), abs=1e-9)
+    # aggregation carries the new keys (plain mean, not nan-ok)
+    agg = aggregate_walk_probe([probe])
+    assert agg["h_err_mm"] == pytest.approx(probe["h_err_mm"])
+    assert agg["height_factor"] == pytest.approx(
+        probe["height_factor"])
+    env.close()
+
+
+def test_walkcurr_realized_dr_is_bucket_dr_not_cli_scale():
+    # A curriculum env built with --dr-scale 0.3 must still run B0
+    # episodes at the BUCKET's dr (0.0 for V2 B0): the per-episode
+    # randomizer is rebuilt from the bucket table, so the CLI scale
+    # never leaks into ignition training.
+    env = SimHexapodJointWalkEnv(
+        params=SimServoParams.from_cfg(None), randomize=True,
+        dr_scale=0.3, episode_seconds=2.0, seed=0,
+        cfg=_cfg_with({("goal", "walk_pure"): 1.0,
+                       ("goal", "walk_curriculum"): 2.0}))
+    env.force_walk_curr_bucket = 0
+    env.reset(seed=0)
+    assert env._wc_bucket == 0
+    assert env.randomizer.scale == pytest.approx(0.0)
+    from rl_move.sim.walk_task import WALKCURR_BUCKETS_V2
+    assert env.randomizer.scale == pytest.approx(
+        float(WALKCURR_BUCKETS_V2[0]["dr"]))
+    env.close()
+
+
+def _cfg_with(extra):
+    cfg = load_config()
+    for (sec, leaf), val in (extra or {}).items():
+        cfg.setdefault(sec, {})[leaf] = val
+    return cfg
+
+
+def test_post_promo_schedule_mutates_model_and_default_off():
+    from rl_move.sim.train_ppo_mjx import (
+        apply_walkcurr_post_promo_schedule)
+
+    class Stub:
+        def __init__(self):
+            self.n_epochs = 5
+            self._ac_state = {"actor_lr": 3e-4, "actor_lr_final": 3e-4,
+                              "critic_lr": 3e-4, "actor_scale": 1.0,
+                              "n_actor": 1, "n_critic": 1}
+
+    m = Stub()
+    chg = apply_walkcurr_post_promo_schedule(m, 3, 1e-4, 1e-5)
+    assert m.n_epochs == 3
+    assert m._ac_state["actor_lr"] == pytest.approx(1e-4)
+    assert m._ac_state["actor_lr_final"] == pytest.approx(1e-5)
+    assert chg["n_epochs"] == (5, 3)
+    # final=0 -> constant at the post-promo LR
+    m2 = Stub()
+    apply_walkcurr_post_promo_schedule(m2, 0, 2e-4, 0.0)
+    assert m2.n_epochs == 5                     # epochs untouched
+    assert m2._ac_state["actor_lr_final"] == pytest.approx(2e-4)
+    # both knobs off -> no mutation at all (default-off contract)
+    m3 = Stub()
+    assert apply_walkcurr_post_promo_schedule(m3, 0, 0.0, 0.0) == {}
+    assert m3.n_epochs == 5
+    assert m3._ac_state["actor_lr"] == pytest.approx(3e-4)
+    # LR retarget without update_health groups is a hard error
+    class Bare:
+        n_epochs = 5
+    with pytest.raises(RuntimeError):
+        apply_walkcurr_post_promo_schedule(Bare(), 3, 1e-4, 1e-5)

@@ -136,7 +136,13 @@ WALK_PROBE_KEYS = (
     "fwd_m", "contact_sw_per_s", "slew_sat", "slew_sat_all", "mean_h_m",
     "dh_m", "vx_rmse", "vy_rmse", "wz_rmse_dps", "cmd_prog_m",
     "cmd_prog_frac", "slip_per_m", "cross_track_frac", "wrong_way",
-    "stop_speed_m_s", "foot_sw_min_per_s", "duty_factor")
+    "stop_speed_m_s", "foot_sw_min_per_s", "duty_factor",
+    # Body height vs the reward gate's own anchor (z0 + height_ref) and
+    # the Gaussian income factor a walk_height_gate run keeps at the
+    # configured sigma (operator order fb_20260818T085648_2a0a60:
+    # height on B0 cert + all panels — the walkcurr3 crouch-shuffle was
+    # invisible in cert telemetry).
+    "h_err_mm", "height_factor")
 
 # nan = "not measurable this episode" for the command-conditional keys
 # (same set + reasoning as eval_task's _nan_ok).

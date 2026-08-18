@@ -99057,6 +99057,18 @@
     "log": "/tmp/train_cw-dynrep-criticD-walkcurr3.log",
     "wandb_id": "4dih5ztm",
     "verified": "2026-08-18T08:37:20+00:00",
-    "git_sha": "f759b6ba260cd6d39814c4ea0809436d20cc6c2d"
+    "git_sha": "f759b6ba260cd6d39814c4ea0809436d20cc6c2d",
+    "checkups": [
+      {
+        "time": "2026-08-18T08:42:22+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 8769,
+        "fps": 8738.1,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   }
 ]

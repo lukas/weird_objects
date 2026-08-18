@@ -847,6 +847,68 @@ def test_height_gate_light_tax_on_honest_gait(height_returns):
 
 
 # --------------------------------------------------------------------------
+# WALKCURR4 bank — the EXACT reward/safety config of the
+# cw-dynrep-criticD-walkcurr4 lineage (operator order
+# fb_20260818T085648_2a0a60), which walkcurr1-3 omitted and paid for
+# with a crouched paid-shuffle (walkcurr3 at 7.5M: B0 height error
+# -65 mm, walk_height_factor 0.07, slip 4.6/m, zero promotions):
+# calibrated height gate (sigma 11 mm keeps the honest gait >= 0.8
+# income, the bench crouch band <= 0.001 — calibrate_walk_height.py
+# 08-17), kernel progress gate (kills the paid park), safety height
+# cutoff 25 mm after a 2 s grace, terminal charge 30. MDP_PREFLIGHT
+# ordering: honest gait > park/refusal AND honest gait >> the -51 mm
+# crouch shuffle (same exploit family as walkcurr3's -65 mm; anything
+# past 25 mm now terminates via safety and cannot keep its income).
+
+WALKCURR4_OVERRIDES = dict(WALK_OVERRIDES)
+WALKCURR4_OVERRIDES.update({
+    ("reward", "walk_height_gate"): 1.0,
+    ("reward", "walk_height_sigma_mm"): 11.0,
+    ("reward", "term_penalty"): 30.0,
+    ("safety", "walk_max_height_drop_mm"): 25.0,
+    ("safety", "walk_height_grace_s"): 2.0,
+})
+
+
+@pytest.fixture(scope="module")
+def walkcurr4_returns() -> dict[str, float]:
+    def mean(policy, stance):
+        return float(np.mean([
+            _walk_rollout(policy, s, overrides=WALKCURR4_OVERRIDES,
+                          stance=stance)
+            for s in SEEDS]))
+    return {
+        "gait": mean("gait", WALK_PLANT),
+        "park": mean("park", WALK_PLANT),
+        "crouch": mean("gait", WALK_CROUCH),
+    }
+
+
+def test_walkcurr4_honest_gait_beats_park(walkcurr4_returns):
+    """Under the full walkcurr4 stack the hardware-proven upright gait
+    must out-earn parking through the command by a wide margin — a
+    parked robot collecting kernel income was walkcurr1/2's root
+    cause 1 (V2 B0 fixed the speed band; the kernel progress gate
+    fixes the pay)."""
+    g, p = walkcurr4_returns["gait"], walkcurr4_returns["park"]
+    assert g > 1.5 * p and g > p + 150.0, (
+        f"parking rivals the honest gait under the walkcurr4 stack: "
+        f"{walkcurr4_returns}")
+
+
+def test_walkcurr4_honest_gait_beats_crouch_shuffle(walkcurr4_returns):
+    """The -51 mm crouch walker (same family as walkcurr3's measured
+    -65 mm shuffle) must earn FAR less than the upright gait: the
+    height gate strips its income (factor <= 0.001 at 40+ mm) and the
+    25 mm safety cutoff ends the episode after the grace with the
+    terminal charge. This is the ordering walkcurr3 trained without."""
+    g, c = walkcurr4_returns["gait"], walkcurr4_returns["crouch"]
+    assert g > 2.0 * max(c, 0.0) + 150.0, (
+        f"crouch-shuffling rivals upright walking under the walkcurr4 "
+        f"stack: {walkcurr4_returns}")
+
+
+# --------------------------------------------------------------------------
 # OMNI bank — the cw-omni-mirror lineage stack (08-10): full-circle
 # velocity commands + the yaw command set + the deployment contract
 # (meas := ref, 25 deg tilt) + k_current=0 (hardware ruling: walking

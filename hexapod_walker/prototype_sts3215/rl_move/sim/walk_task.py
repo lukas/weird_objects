@@ -863,7 +863,23 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         rad2deg = 180.0 / math.pi
         xyN = self.data.xpos[self._chassis_bid, :2]
         vx_n = w["vx_n"]
+        # Body-height telemetry vs the SAME anchor the reward gate uses
+        # (z0 + goal.height_ref; walk_height_gate block below). Emitted
+        # unconditionally so cert panels can show the crouch depth and
+        # the income factor a gated run would keep, whether or not the
+        # gate is enabled (operator order fb_20260818T085648_2a0a60:
+        # body-height/height-factor on B0 cert + all W&B panels).
+        goal = self._current_goal()
+        h_ref = float(getattr(goal, "height_ref", 0.0))
+        h_err_m = (w["h_sum"] / n - self._z0) - h_ref
+        sig_m = float(cfg_get(self.cfg, "reward",
+                              "walk_height_sigma_mm",
+                              default=30.0)) / 1000.0
+        height_factor = math.exp(
+            -0.5 * (h_err_m / max(sig_m, 1e-6)) ** 2)
         return {
+            "h_err_mm": h_err_m * 1000.0,
+            "height_factor": height_factor,
             "return": w["ret"], "ep_len": float(w["n"]),
             "early_term": float(term),
             "peak_roll_deg": w["peak_roll"] * rad2deg,

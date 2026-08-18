@@ -1029,6 +1029,37 @@ def _assert_gpu_physics(venv, impl: str | None) -> None:
           flush=True)
 
 
+def apply_walkcurr_post_promo_schedule(model, epochs: int,
+                                       actor_lr: float,
+                                       actor_lr_final: float) -> dict:
+    """Frontier-gated update-schedule handover (default OFF; operator
+    order fb_20260818T085648_2a0a60): on the walk curriculum's FIRST
+    promotion (B0 mastered) the acquisition-strength update (high
+    actor LR / extra epochs, needed to ignite walking from scratch)
+    hands over to the consolidation recipe proven by
+    cw-dynrep-criticD-40m1 (fewer epochs, decaying actor LR). Mutates
+    ``model.n_epochs`` and the update_health actor group in place;
+    returns {knob: (old, new)} for logging. Unit-tested in
+    rl_move/tests/test_walkcurr_mjx.py."""
+    changed: dict = {}
+    if epochs > 0:
+        changed["n_epochs"] = (int(model.n_epochs), int(epochs))
+        model.n_epochs = int(epochs)
+    if actor_lr > 0.0:
+        st = getattr(model, "_ac_state", None)
+        if st is None:
+            raise RuntimeError(
+                "--walkcurr-post-promo-actor-lr requires --actor-lr "
+                "(update_health actor/critic groups not attached)")
+        final = float(actor_lr_final) if actor_lr_final > 0.0 \
+            else float(actor_lr)
+        changed["actor_lr"] = (float(st["actor_lr"]), float(actor_lr))
+        changed["actor_lr_final"] = (float(st["actor_lr_final"]), final)
+        st["actor_lr"] = float(actor_lr)
+        st["actor_lr_final"] = final
+    return changed
+
+
 def _init_wandb(args, params: SimServoParams):
     if args.no_wandb:
         return None
@@ -1411,6 +1442,24 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--walkcurr-cert-episodes", type=int, default=8,
                     help="held-out episodes per bucket per cert round "
                          "(= cert vec-env size)")
+    ap.add_argument("--walkcurr-post-promo-epochs", type=int, default=0,
+                    help="frontier-gated update schedule (default 0 = "
+                         "OFF, bit-exact): on the walk curriculum's "
+                         "FIRST promotion switch PPO n_epochs to this "
+                         "value (operator order "
+                         "fb_20260818T085648_2a0a60: acquisition-"
+                         "strength updates until B0 certifies, then "
+                         "the proven consolidation recipe)")
+    ap.add_argument("--walkcurr-post-promo-actor-lr", type=float,
+                    default=0.0,
+                    help="frontier-gated schedule (0 = OFF): on the "
+                         "first promotion set the update_health actor "
+                         "group to this LR (requires --actor-lr)")
+    ap.add_argument("--walkcurr-post-promo-actor-lr-final", type=float,
+                    default=0.0,
+                    help="linear-decay target for the post-promotion "
+                         "actor LR over the remaining run (0 = "
+                         "constant at --walkcurr-post-promo-actor-lr)")
     ap.add_argument("--walkcurr-fail-streak", type=int, default=2,
                     help="consecutive retained-failure rounds before "
                          "rollback to the last promotion")
@@ -1532,6 +1581,11 @@ def main(argv: list[str] | None = None) -> int:
             raise SystemExit("--walk-curriculum is a fresh-actor "
                              "acquisition contract (walkcurr lineage); "
                              "--init-from is not wired")
+        if (args.walkcurr_post_promo_actor_lr > 0.0
+                and args.actor_lr <= 0.0):
+            raise SystemExit("--walkcurr-post-promo-actor-lr requires "
+                             "--actor-lr (it retargets the "
+                             "update_health actor param group)")
         # Pure-walk diet + curriculum version ride the env cfg so the
         # shim envs are born with them (no post-construction mutation;
         # the MJX vec envs mint reset pools during reset()). The
@@ -1549,6 +1603,11 @@ def main(argv: list[str] | None = None) -> int:
         print("[walkcurr] cfg injected at construction: "
               f"goal.walk_curriculum={args.walk_curriculum_version}, "
               "goal.walk_pure=1")
+    elif (args.walkcurr_post_promo_epochs > 0
+          or args.walkcurr_post_promo_actor_lr > 0.0):
+        raise SystemExit("--walkcurr-post-promo-* requires "
+                         "--walk-curriculum (the trigger is the "
+                         "curriculum's first promotion)")
     if args.critic_encoder is not None:
         if args.gru or args.gru_dual or args.gru_experts \
                 or args.transformer:
@@ -1778,6 +1837,19 @@ def main(argv: list[str] | None = None) -> int:
               f"{_wc_states[0]['total_buckets']} buckets, active_n="
               f"{_wc_states[0]['active_n']} (frontier B"
               f"{_wc_states[0]['frontier_bucket']})")
+        # Realized-DR proof line (operator order
+        # fb_20260818T085648_2a0a60: never silently train B0 at the
+        # CLI --dr-scale): each episode's DomainRandomizer is REBUILT
+        # from the drawn bucket's dr field
+        # (walk_task._walkcurr_prepare_episode), so the bucket table
+        # below — not --dr-scale — is the DR the curriculum realizes.
+        from .walk_task import WALKCURR_BUCKETS as _WC1
+        from .walk_task import WALKCURR_BUCKETS_V2 as _WC2
+        _tbl = _WC2 if args.walk_curriculum_version == 2 else _WC1
+        print("[walkcurr] realized per-bucket DR (overrides --dr-scale "
+              f"{args.dr_scale:g} per episode): "
+              + " ".join(f"b{i}={row['dr']:g}"
+                         for i, row in enumerate(_tbl)))
 
     run = _init_wandb(args, params)
     if args.recover_population_id and run is None:
@@ -2906,6 +2978,15 @@ def main(argv: list[str] | None = None) -> int:
                         f"{pfx}/slew_sat": m["slew_sat"],
                         f"{pfx}/stop_speed_m_s": m["stop_speed_m_s"],
                         f"{pfx}/return": m["return"],
+                        # Body height + income factor vs the reward
+                        # gate's anchor, and the DR the bucket REALIZES
+                        # in training (_walkcurr_prepare_episode
+                        # overrides --dr-scale per bucket) — operator
+                        # order fb_20260818T085648_2a0a60.
+                        f"{pfx}/mean_h_m": m["mean_h_m"],
+                        f"{pfx}/h_err_mm": m["h_err_mm"],
+                        f"{pfx}/height_factor": m["height_factor"],
+                        f"{pfx}/dr": float(spec["dr"]),
                     })
                     fails = [k for k, ok in checks.items() if not ok]
                     print(f"  walkcurr cert r{self.cert_round} b{b} "
@@ -2913,7 +2994,9 @@ def main(argv: list[str] | None = None) -> int:
                           f"{'PASS' if passed else 'FAIL ' + ','.join(fails)}"
                           f" prog={m['cmd_prog_frac']:.2f}"
                           f" slip/m={m['slip_per_m']:.2f}"
-                          f" roll={m['peak_roll_deg']:.1f}")
+                          f" roll={m['peak_roll_deg']:.1f}"
+                          f" h_err={m['h_err_mm']:+.1f}mm"
+                          f" hf={m['height_factor']:.2f}")
                 statuses = venv.env_method("walkcurr_update_admission",
                                            self.cert_round)
                 status = statuses[0]
@@ -2952,6 +3035,26 @@ def main(argv: list[str] | None = None) -> int:
                         except Exception as exc:
                             print("[walkcurr] W&B promotion upload "
                                   f"failed (non-fatal): {exc}")
+                    # Frontier-gated update-schedule handover on the
+                    # FIRST promotion only (default OFF; operator
+                    # order fb_20260818T085648_2a0a60).
+                    if self.ctl.promotions == 1 and (
+                            args.walkcurr_post_promo_epochs > 0
+                            or args.walkcurr_post_promo_actor_lr
+                            > 0.0):
+                        chg = apply_walkcurr_post_promo_schedule(
+                            self.model,
+                            args.walkcurr_post_promo_epochs,
+                            args.walkcurr_post_promo_actor_lr,
+                            args.walkcurr_post_promo_actor_lr_final)
+                        payload[
+                            "walkcurr/post_promo_schedule_applied"
+                        ] = 1.0
+                        print("  walkcurr POST-PROMO SCHEDULE "
+                              f"applied @ {self.num_timesteps}: "
+                              + ", ".join(
+                                  f"{k} {v[0]:g}->{v[1]:g}"
+                                  for k, v in chg.items()))
                 elif action == "rollback":
                     self._pending_rollback = True
                 state = venv.env_method("walkcurr_state", indices=0)[0]
@@ -2972,6 +3075,7 @@ def main(argv: list[str] | None = None) -> int:
                         float(self._pending_rollback),
                     "walkcurr/cert_wall_s":
                         round(time.time() - t_cert, 1),
+                    "walkcurr/base_dr_scale": float(args.dr_scale),
                 })
                 if run is not None:
                     import wandb
