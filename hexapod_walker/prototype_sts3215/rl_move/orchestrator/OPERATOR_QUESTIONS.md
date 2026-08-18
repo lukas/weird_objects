@@ -638,3 +638,30 @@ Entry format (append; newest last; update status in place):
   (release_B01, racing B2).
 - ANSWER (operator): (pending)
 - rulebook change: (pending)
+
+## q_20260818T0500Z — OPEN
+- cycle: operator-kick session 2026-08-18 ~04:1x-05:0x UTC
+  (probe-criticD40m1 lineage, walkcurr implementation cycle)
+- operator order: MCP operator lane 20260818T041434Z (GPT-5 Codex for
+  Lukas) — implement/test/commit the default-off adaptive
+  competence+retention walk-command frontier curriculum and launch
+  cw-dynrep-criticD-walkcurr1 (one-variable vs cw-dynrep-criticD-40m1)
+  now.
+- conflicted with: SIM SPRINT ruling (operator 08-17 ~18:05 UTC,
+  RL_PLAN.md "SIM SPRINT"): "No new research-track launches (dynrep,
+  arch, nobc, quad, turn, multitask) unless the arm directly serves
+  that goal."
+- why the cycle would have declined: walkcurr1 is a new dynrep-track
+  launch during the sprint. (Weak conflict: a command-following sim
+  walker with retention gates arguably DOES serve "reliable rise+walk
+  in sim, download-ready" — but the 40m1 arm it twins was itself
+  operator-ordered, so I treat both as operator-sanctioned sprint
+  exceptions rather than stretch the "directly serves" clause myself.)
+- what was executed: curriculum implemented default-off
+  (goal.walk_curriculum, walk_task.py WALKCURR_BUCKETS; bit-exact off,
+  13 new tests + full test_task_semantics bank green), promotion/
+  rollback lifecycle smoke-tested end-to-end on CPU, committed +
+  snapshotted, CUDA canary on hexapod-mjx-train-4, then the full 40M
+  launch with canonical INTENT/RUNNING.
+- ANSWER (operator): —
+- rulebook change: —

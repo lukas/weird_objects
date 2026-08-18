@@ -124,6 +124,84 @@ def walk_cmd_track_score(vx: float, vy: float, vx_ref: float,
 # global widenings to 0.07/0.08 both regressed). Default off = legacy.
 LP_BUCKETS = ((0.02, 0.03), (0.03, 0.04), (0.04, 0.05), (0.05, 0.06),
               (0.06, 0.07), (0.07, 0.08), (0.08, 0.10), (0.10, 0.12))
+# Adaptive competence+retention walk-command curriculum
+# (goal.walk_curriculum=1; operator order 2026-08-18, run
+# cw-dynrep-criticD-walkcurr1). Replaces the FIXED broad command
+# sampling with a certification-gated frontier ladder: episodes draw a
+# BUCKET (50% frontier / 25% weakest mastered / 15% uniform mastered /
+# 10% the rung just prior to the frontier), never a locked future
+# bucket, and never promote on time — only on a deterministic held-out
+# certification pass of the frontier AND every retained bucket
+# (apply_walkcurr_certification / walkcurr_update_admission, driven by
+# the trainer exactly like the recover-mode ladder). Default 0 = off,
+# bit-exact legacy: no rng draws, no randomizer swap, no cfg reads
+# beyond __init__.
+#   fields: s_lo/s_hi commanded speed band (m/s); head_lo/head_hi
+#   heading magnitude band (rad, sign drawn ±; 0/0 = pure forward);
+#   resample_s mid-episode command resampling period (0 = one command
+#   held the whole episode = "long holds"); jitter/stop_frac/blend as
+#   the legacy goal.walk_cmd_* keys; dr = this bucket's DR scale (the
+#   env swaps its DomainRandomizer per episode); stop_gate = cert-time
+#   max mean measured speed (m/s) during commanded-stop ticks (None =
+#   bucket has no stop segments to gate).
+WALKCURR_BUCKETS = (
+    # B0 slow forward, long holds, DR0
+    dict(name="fwd_slow", s_lo=0.04, s_hi=0.05, head_lo=0.0, head_hi=0.0,
+         resample_s=0.0, jitter=0.0, stop_frac=0.0, blend_lo=1.0,
+         blend_hi=1.0, dr=0.0, stop_gate=None),
+    # B1 forward speed band widens
+    dict(name="fwd_band", s_lo=0.03, s_hi=0.06, head_lo=0.0, head_hi=0.0,
+         resample_s=0.0, jitter=0.0, stop_frac=0.0, blend_lo=1.0,
+         blend_hi=1.0, dr=0.0, stop_gate=None),
+    # B2-B4 heading cones open ±15/±30/±45 deg
+    dict(name="head15", s_lo=0.03, s_hi=0.06, head_lo=0.0,
+         head_hi=math.radians(15.0), resample_s=0.0, jitter=0.0,
+         stop_frac=0.0, blend_lo=1.0, blend_hi=1.0, dr=0.0,
+         stop_gate=None),
+    dict(name="head30", s_lo=0.03, s_hi=0.06, head_lo=0.0,
+         head_hi=math.radians(30.0), resample_s=0.0, jitter=0.0,
+         stop_frac=0.0, blend_lo=1.0, blend_hi=1.0, dr=0.0,
+         stop_gate=None),
+    dict(name="head45", s_lo=0.03, s_hi=0.06, head_lo=0.0,
+         head_hi=math.radians(45.0), resample_s=0.0, jitter=0.0,
+         stop_frac=0.0, blend_lo=1.0, blend_hi=1.0, dr=0.0,
+         stop_gate=None),
+    # B5 blended front-cone transitions (no stops yet)
+    dict(name="front_blend", s_lo=0.03, s_hi=0.06, head_lo=0.0,
+         head_hi=math.radians(45.0), resample_s=6.0, jitter=0.0,
+         stop_frac=0.0, blend_lo=1.0, blend_hi=1.0, dr=0.0,
+         stop_gate=None),
+    # B6 the joystick mix: 4s segments + jitter + stop/restart
+    dict(name="stop_restart", s_lo=0.03, s_hi=0.06, head_lo=0.0,
+         head_hi=math.radians(45.0), resample_s=4.0, jitter=0.5,
+         stop_frac=0.15, blend_lo=1.0, blend_hi=1.0, dr=0.0,
+         stop_gate=0.015),
+    # B7/B8 same commands under DR 0.1 then 0.3
+    dict(name="dr01", s_lo=0.03, s_hi=0.06, head_lo=0.0,
+         head_hi=math.radians(45.0), resample_s=4.0, jitter=0.5,
+         stop_frac=0.15, blend_lo=1.0, blend_hi=1.0, dr=0.1,
+         stop_gate=0.015),
+    dict(name="dr03", s_lo=0.03, s_hi=0.06, head_lo=0.0,
+         head_hi=math.radians(45.0), resample_s=4.0, jitter=0.5,
+         stop_frac=0.15, blend_lo=1.0, blend_hi=1.0, dr=0.3,
+         stop_gate=0.015),
+    # B9/B10 lateral then rear/reverse — locked until every earlier
+    # rung certifies AND retains (operator: "lateral/rear/reverse only
+    # after retained passes").
+    dict(name="lateral", s_lo=0.03, s_hi=0.06,
+         head_lo=math.radians(45.0), head_hi=math.radians(90.0),
+         resample_s=4.0, jitter=0.5, stop_frac=0.15, blend_lo=1.0,
+         blend_hi=1.0, dr=0.3, stop_gate=0.015),
+    dict(name="rear", s_lo=0.03, s_hi=0.06,
+         head_lo=math.radians(90.0), head_hi=math.pi,
+         resample_s=4.0, jitter=0.5, stop_frac=0.15, blend_lo=1.0,
+         blend_hi=1.0, dr=0.3, stop_gate=0.015),
+)
+# Sampling mixture over unlocked buckets (operator spec): 50% frontier,
+# 25% weakest mastered, 15% uniform over mastered, 10% the rung just
+# prior to the frontier. Empty components fold back to the frontier.
+WALKCURR_MIX = dict(frontier=0.50, weakest=0.25, uniform=0.15,
+                    prior=0.10)
 # Phase-based alternating-tripod reward (Siekmann-style periodic reward
 # composition, plan §Walk item c; enabled by goal.walk_phase_obs=1 +
 # reward.k_phase_contact>0). An internal clock at goal.walk_phase_hz
@@ -374,6 +452,25 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # walk episode (surfaced in step info for the LP callback).
         self._lp_weights = None
         self._walk_bucket = None
+        # Adaptive competence+retention walk-command curriculum state
+        # (goal.walk_curriculum=1; see WALKCURR_BUCKETS). PERSISTENT
+        # across episodes like _lp_weights/_rec_* — never in SNAP_ATTRS.
+        # _wc_results is certification-only: stochastic rollouts must
+        # never move the frontier; the trainer broadcasts deterministic
+        # held-out assay results via apply_walkcurr_certification and
+        # promotes via walkcurr_update_admission.
+        self._wc_on = float(cfg_get(self.cfg, "goal", "walk_curriculum",
+                                    default=0.0)) == 1.0
+        self._wc_active_n = 1
+        self._wc_results: dict = {}   # bucket -> {passed, score, cert_round}
+        self._wc_bucket = None        # this episode's curriculum bucket
+        self._wc_randomizers: dict = {}   # dr scale -> DomainRandomizer
+        if self._wc_on and float(cfg_get(
+                self.cfg, "goal", "walk_lp_curriculum",
+                default=0.0)) == 1.0:
+            raise ValueError("goal.walk_curriculum and "
+                             "goal.walk_lp_curriculum are mutually "
+                             "exclusive command samplers")
         # Tripod phase clock (default OFF = legacy obs width; see module
         # docstring on the phase reward). Obs order: [base, vel, phase].
         self._phase_obs = float(cfg_get(self.cfg, "goal", "walk_phase_obs",
@@ -520,9 +617,256 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         self._gait_gate_qfactor = 1.0
         self._phase = 0.0
         self._yaw_still_ema = 0.0
+        if self._wc_on:
+            # Bucket must be chosen BEFORE super() samples this
+            # episode's DR (_ep_rand) so the bucket's dr scale applies
+            # to the same episode. Off = zero rng draws, randomizer
+            # untouched (bit-exact legacy).
+            self._walkcurr_prepare_episode()
         return super()._reset_begin(seed)
 
     # ------------------------------------------------------------------
+    # Adaptive competence+retention walk-command curriculum
+    # (goal.walk_curriculum=1; WALKCURR_BUCKETS/WALKCURR_MIX above).
+    # Same contract as the recover-mode ladder: sampling weights are
+    # derived env-side from certification results, the trainer is the
+    # only writer of those results (deterministic held-out assays,
+    # broadcast to every env), stochastic rollouts can never move the
+    # frontier, and locked future buckets are never trained.
+
+    def _walkcurr_prepare_episode(self) -> None:
+        gen = self._goal_gen
+        if float(getattr(gen, "p_walk", 0.0)) != 1.0:
+            raise ValueError(
+                "goal.walk_curriculum=1 requires a pure walk diet "
+                f"(p_walk=1.0, got {getattr(gen, 'p_walk', 0.0)}); the "
+                "curriculum owns the whole command distribution")
+        if float(cfg_get(self.cfg, "goal", "mode_seq",
+                         default=0.0)) > 0.0:
+            raise ValueError("goal.walk_curriculum is incompatible "
+                             "with goal.mode_seq")
+        force = getattr(self, "force_walk_curr_bucket", None)
+        if force is not None:
+            b = int(force)
+            if not 0 <= b < len(WALKCURR_BUCKETS):
+                raise ValueError(f"force_walk_curr_bucket {b} out of "
+                                 f"range 0..{len(WALKCURR_BUCKETS) - 1}")
+        else:
+            b = self._walkcurr_draw_bucket()
+        self._wc_bucket = b
+        dr = float(WALKCURR_BUCKETS[b]["dr"])
+        self.randomizer = self._walkcurr_randomizer(dr)
+
+    def _walkcurr_draw_bucket(self) -> int:
+        w = self._walkcurr_weights()
+        r = float(self.rng.random())
+        return int(np.searchsorted(np.cumsum(w), r,
+                                   side="right").clip(0, len(w) - 1))
+
+    def _walkcurr_weights(self) -> np.ndarray:
+        """Sampling mixture over UNLOCKED buckets only (operator spec):
+        50% frontier, 25% weakest mastered, 15% uniform mastered, 10%
+        the rung just prior to the frontier. With no mastered buckets
+        every component folds back to the frontier. Locked buckets
+        (index >= active_n) get exactly zero mass by construction."""
+        n = max(1, int(self._wc_active_n))
+        frontier = n - 1
+        w = np.zeros(n, dtype=float)
+        w[frontier] += WALKCURR_MIX["frontier"]
+        mastered = list(range(frontier))
+        if mastered:
+            weakest = min(
+                mastered,
+                key=lambda b: self._wc_results.get(
+                    b, {}).get("score", float("inf")))
+            w[weakest] += WALKCURR_MIX["weakest"]
+            for b in mastered:
+                w[b] += WALKCURR_MIX["uniform"] / len(mastered)
+            w[frontier - 1] += WALKCURR_MIX["prior"]
+        else:
+            w[frontier] += (WALKCURR_MIX["weakest"]
+                            + WALKCURR_MIX["uniform"]
+                            + WALKCURR_MIX["prior"])
+        return w / w.sum()
+
+    def _walkcurr_randomizer(self, scale: float):
+        """Per-bucket DomainRandomizer (cached), with the same cfg
+        dr.* absolute-override semantics as sim_env.__init__."""
+        key = round(float(scale), 6)
+        r = self._wc_randomizers.get(key)
+        if r is None:
+            from .domain_rand import DomainRandomizer
+            r = DomainRandomizer.from_params(self.params, scale=key)
+            for _k, _v in (self.cfg.get("dr") or {}).items():
+                if not hasattr(r.ranges, _k):
+                    raise ValueError(f"unknown DR override dr.{_k}")
+                if isinstance(_v, str):
+                    _parts = tuple(float(x) for x in _v.split(","))
+                    _v = _parts[0] if len(_parts) == 1 else _parts
+                setattr(r.ranges, _k, _v)
+            self._wc_randomizers[key] = r
+        return r
+
+    def apply_walkcurr_certification(self, bucket: int, passed: bool,
+                                     score: float,
+                                     cert_round: int) -> dict:
+        """Record one bucket's deterministic held-out assay (trainer
+        broadcast; the ONLY write path into the curriculum). ``score``
+        is a continuous competence proxy (cert cmd_prog_frac) used only
+        to pick the weakest mastered bucket for replay pressure."""
+        bucket = int(bucket)
+        if not 0 <= bucket < len(WALKCURR_BUCKETS):
+            raise ValueError(f"unknown walkcurr bucket {bucket}")
+        self._wc_results[bucket] = {
+            "passed": bool(passed), "score": float(score),
+            "cert_round": int(cert_round)}
+        return dict(self._wc_results[bucket], bucket=bucket)
+
+    def walkcurr_update_admission(self, cert_round: int) -> dict:
+        """Promote ONLY if the frontier AND every retained bucket
+        passed a FRESH assay of this cert round. Never time-based."""
+        n = int(self._wc_active_n)
+        frontier = n - 1
+        rows = {}
+        for b in range(n):
+            row = self._wc_results.get(b)
+            fresh = (row is not None
+                     and row.get("cert_round") == int(cert_round))
+            rows[b] = {"passed": bool(fresh and row["passed"]),
+                       "fresh": bool(fresh),
+                       "score": (float(row["score"]) if row is not None
+                                 else float("nan"))}
+        frontier_passed = rows[frontier]["passed"]
+        retained_failed = [b for b in range(frontier)
+                           if not rows[b]["passed"]]
+        retention_passed = not retained_failed
+        promoted = False
+        if (frontier_passed and retention_passed
+                and self._wc_active_n < len(WALKCURR_BUCKETS)):
+            self._wc_active_n += 1
+            promoted = True
+        return {
+            "cert_round": int(cert_round),
+            "frontier_bucket": frontier,
+            "frontier_passed": bool(frontier_passed),
+            "retention_passed": bool(retention_passed),
+            "retained_failed_buckets": retained_failed,
+            "promoted": bool(promoted),
+            "active_n": int(self._wc_active_n),
+            "buckets": rows,
+        }
+
+    def walkcurr_state(self) -> dict:
+        """Serializable telemetry snapshot (weights + results)."""
+        w = self._walkcurr_weights()
+        frontier = self._wc_active_n - 1
+        mastered = list(range(frontier))
+        weakest = (min(mastered,
+                       key=lambda b: self._wc_results.get(
+                           b, {}).get("score", float("inf")))
+                   if mastered else -1)
+        return {
+            "total_buckets": len(WALKCURR_BUCKETS),
+            "active_n": int(self._wc_active_n),
+            "frontier_bucket": int(frontier),
+            "weakest_mastered": int(weakest),
+            "sample_probabilities": {str(b): float(p)
+                                     for b, p in enumerate(w)},
+            "results": {str(b): dict(r)
+                        for b, r in self._wc_results.items()},
+        }
+
+    def walkcurr_checkpoint_state(self) -> dict:
+        """State paired with a promotion checkpoint (rollback/resume)."""
+        return {"active_n": int(self._wc_active_n),
+                "results": {str(b): dict(r)
+                            for b, r in self._wc_results.items()}}
+
+    def restore_walkcurr_checkpoint_state(self, state: dict) -> None:
+        active_n = int(state["active_n"])
+        if not 1 <= active_n <= len(WALKCURR_BUCKETS):
+            raise ValueError(f"invalid walkcurr active_n {active_n}")
+        self._wc_active_n = active_n
+        self._wc_results = {
+            int(b): {"passed": bool(r["passed"]),
+                     "score": float(r["score"]),
+                     "cert_round": int(r["cert_round"])}
+            for b, r in dict(state["results"]).items()}
+
+    def _sample_walk_curr(self) -> WalkTrajectory:
+        """Curriculum walk episode: the stashed bucket's spec fully
+        defines the command distribution (legacy goal.walk_cmd_* keys
+        are ignored while the curriculum owns sampling). Command
+        grammar matches the legacy sampler: 1 s zero hold + 1 s ramp,
+        then optional resampled segments with blends and stops."""
+        b = self._wc_bucket
+        if b is None:
+            raise RuntimeError("walkcurr episode without a prepared "
+                               "bucket (reset ordering bug)")
+        spec = WALKCURR_BUCKETS[b]
+        n = self.episode_steps + 1
+        rng = self.rng
+
+        def draw_cmd() -> tuple[float, float]:
+            speed = float(rng.uniform(spec["s_lo"], spec["s_hi"]))
+            if spec["head_hi"] <= 0.0:
+                ang = 0.0
+            else:
+                mag = float(rng.uniform(spec["head_lo"],
+                                        spec["head_hi"]))
+                ang = mag if rng.random() < 0.5 else -mag
+            return speed * math.cos(ang), speed * math.sin(ang)
+
+        vx_t, vy_t = draw_cmd()
+        hold_n = max(1, int(round(1.0 / self.dt)))
+        ramp_n = max(1, int(round(1.0 / self.dt)))
+        vx = np.full(n, vx_t)
+        vy = np.full(n, vy_t)
+        vx[:hold_n] = 0.0
+        vy[:hold_n] = 0.0
+        end = min(hold_n + ramp_n, n)
+        vx[hold_n:end] = np.linspace(0.0, vx_t, end - hold_n)
+        vy[hold_n:end] = np.linspace(0.0, vy_t, end - hold_n)
+        rs_s = float(spec["resample_s"])
+        if rs_s > 0.0:
+            jit = float(spec["jitter"])
+            bl_lo, bl_hi = float(spec["blend_lo"]), float(spec["blend_hi"])
+
+            def seg_len() -> int:
+                s = rs_s if jit <= 0.0 \
+                    else rs_s * float(rng.uniform(1.0 - jit, 1.0 + jit))
+                return max(1, int(round(max(s, self.dt) / self.dt)))
+
+            def blend_len() -> int:
+                bl = bl_lo if bl_hi <= bl_lo \
+                    else float(rng.uniform(bl_lo, bl_hi))
+                if bl <= 0.0:
+                    return 0
+                return max(1, int(round(max(bl, self.dt) / self.dt)))
+
+            cvx, cvy = vx_t, vy_t
+            i = hold_n + ramp_n + seg_len()
+            while i < n:
+                if rng.random() < float(spec["stop_frac"]):
+                    nvx = nvy = 0.0
+                else:
+                    nvx, nvy = draw_cmd()
+                n_blend = blend_len()
+                end_b = min(i + n_blend, n)
+                if n_blend:
+                    vx[i:end_b] = np.linspace(cvx, nvx, end_b - i)
+                    vy[i:end_b] = np.linspace(cvy, nvy, end_b - i)
+                vx[end_b:] = nvx
+                vy[end_b:] = nvy
+                cvx, cvy = nvx, nvy
+                i += seg_len()
+        zeros = np.zeros(n)
+        self._walk_bucket = None
+        traj = WalkTrajectory(mode="walk", roll=zeros, pitch=zeros,
+                              height=zeros, unload_leg=None,
+                              start_at="plant", vx=vx, vy=vy, wz=None,
+                              cmd_mode="walkcurr")
+        return traj
 
     def set_walk_bucket_weights(self, w) -> None:
         """LP-curriculum hook (called via VecEnv.env_method)."""
@@ -531,6 +875,10 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         self._lp_weights = (w / s) if s > 0 else None
 
     def _sample_walk(self) -> WalkTrajectory:
+        if self._wc_on:
+            # Adaptive curriculum owns the whole command distribution
+            # (bucket stashed by _walkcurr_prepare_episode pre-DR).
+            return self._sample_walk_curr()
         n = self.episode_steps + 1
         rng = self.rng
         # Command range is configurable for speed curricula: cw-walk2-gait

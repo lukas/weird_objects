@@ -257,6 +257,10 @@ def _init_wandb(args):
             "gate_rise_band": args.gate_rise_band,
             "gate_value_jump": args.gate_value_jump,
             "live_walk_frac": args.live_walk_frac,
+            "walk_curriculum": args.walk_curriculum,
+            "walkcurr_cert_every": args.walkcurr_cert_every,
+            "walkcurr_cert_episodes": args.walkcurr_cert_episodes,
+            "walkcurr_fail_streak": args.walkcurr_fail_streak,
             "metrics_contract": (
                 "transfer-v5-livecritic"
                 if args.condition.upper() == "F" else
@@ -274,6 +278,8 @@ def _init_wandb(args):
     run.define_metric("critic/*", step_metric="global_step",
                       summary="last")
     run.define_metric("data/*", step_metric="global_step",
+                      summary="last")
+    run.define_metric("walkcurr/*", step_metric="global_step",
                       summary="last")
     metadata = {"id": run.id, "url": run.url, "name": args.name,
                 "wandb_name": f"{args.name}.{attempt}"}
@@ -365,7 +371,15 @@ QUALITY_KEYS = ("peak_roll_deg", "peak_pitch_deg", "peak_gyro_dps",
                 # the commanded direction (m and fraction of commanded
                 # distance), and slip normalized per progress meter.
                 "vy_rmse", "wz_rmse_dps", "cmd_prog_m", "cmd_prog_frac",
-                "slip_per_m")
+                "slip_per_m",
+                # walk-curriculum certification metrics (operator order
+                # 2026-08-18, cw-dynrep-criticD-walkcurr1): net lateral
+                # deviation vs commanded distance, wrong-direction
+                # episodes, mean measured speed during commanded-stop
+                # ticks (post-head), weakest single foot's contact
+                # cycling rate, and stance duty factor.
+                "cross_track_frac", "wrong_way", "stop_speed_m_s",
+                "foot_sw_min_per_s", "duty_factor")
 
 
 def _nn(x, default=0.0) -> float:
@@ -406,6 +420,97 @@ def locomotion_quality(m: dict) -> float:
     return float(score)
 
 
+# Walk-curriculum certification gate (operator order 2026-08-18,
+# cw-dynrep-criticD-walkcurr1). A bucket passes its deterministic
+# held-out assay (n >= 8 episodes) only if ALL hold:
+#   no falls; six-leg gait cycling (aggregate switch rate AND the
+#   weakest single foot both cycling); commanded progress >= 0.75;
+#   correct direction (zero wrong-way episodes); bounded cross-track;
+#   slip <= 2 per progress meter; roll <= 6 deg; bounded slew; and the
+#   bucket's own stop threshold where stop segments exist.
+WALKCURR_GATE = dict(
+    cmd_prog_frac_min=0.75,
+    slip_per_m_max=2.0,
+    peak_roll_deg_max=6.0,
+    slew_sat_max=0.5,
+    cross_track_frac_max=0.30,
+    contact_sw_per_s_min=3.0,
+    foot_sw_min_per_s_min=0.5,
+)
+
+
+def walkcurr_bucket_pass(m: dict, spec: dict,
+                         gate: dict = WALKCURR_GATE
+                         ) -> tuple[bool, dict]:
+    """Apply the certification gate to one bucket's assay metrics.
+    nan metrics FAIL their check (unmeasurable competence is not
+    competence) except stop_speed, which is nan only when the assay
+    drew no stop segments (nothing to gate that round)."""
+    def _ok_min(key, lo):
+        v = _nn(m.get(key), float("-inf"))
+        return v >= lo
+    def _ok_max(key, hi):
+        v = _nn(m.get(key), float("inf"))
+        return v <= hi
+    checks = {
+        "no_falls": _nn(m.get("early_term_rate"), 1.0) == 0.0,
+        "six_leg_gait": (_ok_min("contact_sw_per_s",
+                                 gate["contact_sw_per_s_min"])
+                         and _ok_min("foot_sw_min_per_s",
+                                     gate["foot_sw_min_per_s_min"])),
+        "progress": _ok_min("cmd_prog_frac", gate["cmd_prog_frac_min"]),
+        "direction": _nn(m.get("wrong_way"), 1.0) == 0.0,
+        "cross_track": _ok_max("cross_track_frac",
+                               gate["cross_track_frac_max"]),
+        "slip": _ok_max("slip_per_m", gate["slip_per_m_max"]),
+        "roll": _ok_max("peak_roll_deg", gate["peak_roll_deg_max"]),
+        "slew": _ok_max("slew_sat", gate["slew_sat_max"]),
+    }
+    stop_gate = spec.get("stop_gate")
+    if stop_gate is not None:
+        v = m.get("stop_speed_m_s")
+        v = float(v) if v is not None else float("nan")
+        # nan = the fixed held-out seeds drew no stop segment this
+        # round — nothing to gate (possible but rare at n>=8).
+        checks["stop"] = (v != v) or v <= float(stop_gate)
+    return all(checks.values()), checks
+
+
+class WalkCurrController:
+    """Pure promotion/retention/rollback bookkeeping for the walk
+    curriculum (unit-tested without SB3): consumes one
+    walkcurr_update_admission status per cert round and answers
+    'promote' / 'rollback' / None. Rollback fires after
+    ``fail_streak_limit`` CONSECUTIVE rounds with a retained-bucket
+    failure, and only once a promotion checkpoint exists to roll back
+    to. A retention-clean round (retained all pass, whatever the
+    frontier did) resets the streak."""
+
+    def __init__(self, fail_streak_limit: int = 2):
+        self.limit = int(fail_streak_limit)
+        self.fail_streak = 0
+        self.promotions = 0
+        self.rollbacks = 0
+        self.has_promo = False
+
+    def record_round(self, status: dict) -> str | None:
+        if status.get("promoted"):
+            self.fail_streak = 0
+            self.promotions += 1
+            self.has_promo = True
+            return "promote"
+        if (status.get("frontier_bucket", 0) > 0
+                and not status.get("retention_passed", True)):
+            self.fail_streak += 1
+            if self.fail_streak >= self.limit and self.has_promo:
+                self.fail_streak = 0
+                self.rollbacks += 1
+                return "rollback"
+        else:
+            self.fail_streak = 0
+        return None
+
+
 def _foot_site_ids(env) -> list[int]:
     import mujoco
     return [mujoco.mj_name2id(env.model, mujoco.mjtObj.mjOBJ_SITE,
@@ -415,7 +520,8 @@ def _foot_site_ids(env) -> list[int]:
 def eval_task(model, task: str, episodes: int, dr_scale: float,
               episode_seconds: float, seed0: int = 10_000,
               dr_overrides: dict | None = None,
-              goal_set: dict | None = None) -> dict:
+              goal_set: dict | None = None,
+              force_walk_bucket: int | None = None) -> dict:
     """Deterministic episodes on fixed seeds -> mean return / length /
     early-termination (fall/trip) rate + physical quality metrics:
 
@@ -437,6 +543,12 @@ def eval_task(model, task: str, episodes: int, dr_scale: float,
     rets, lens, terms = [], [], 0
     env = make_task_env(task, seed0, dr_scale, episode_seconds,
                         dr_overrides, goal_set=goal_set)
+    if force_walk_bucket is not None:
+        # Walk-curriculum certification hook: pin every episode to one
+        # bucket (deterministic held-out assay; the env still applies
+        # the bucket's own DR scale via its per-episode randomizer
+        # swap, so the assay measures the distribution it certifies).
+        env.force_walk_curr_bucket = int(force_walk_bucket)
     sids = _foot_site_ids(env)
     rad2deg = 180.0 / np.pi
     agg = {k: [] for k in QUALITY_KEYS}
@@ -450,12 +562,17 @@ def eval_task(model, task: str, episodes: int, dr_scale: float,
         peak_roll = peak_pitch = peak_gyro = 0.0
         slip = 0.0
         sw = sat_jt = sat_all = 0
+        sw_foot = [0] * 6
+        on_ticks = 0
         h0 = float(env.data.xpos[env._chassis_bid, 2])
         xy0 = env.data.xpos[env._chassis_bid, :2].copy()
         h_sum = 0.0
         vx_se, vx_n = 0.0, 0
         vy_se = wz_se = 0.0
         cmd_dist = prog_m = 0.0
+        cross_m = 0.0
+        stop_v_sum, stop_ticks = 0.0, 0
+        head_ticks = int(round(2.0 / env.dt))   # 1 s hold + 1 s ramp
         ret, n = 0.0, 0
         while True:
             act, _ = model.predict(obs, deterministic=True)
@@ -482,11 +599,13 @@ def eval_task(model, task: str, episodes: int, dr_scale: float,
                 if prev_on is not None:
                     if is_on != prev_on[f]:
                         sw += 1
+                        sw_foot[f] += 1
                     if (is_on and prev_on[f] and xy is not None
                             and prev_xy[f] is not None):
                         slip += float(np.hypot(*(xy - prev_xy[f])))
                 prev_xy[f] = xy
                 on.append(is_on)
+                on_ticks += int(is_on)
             prev_on = on
             h_sum += float(env.data.xpos[env._chassis_bid, 2])
             vxr = getattr(env._goal_traj, "vx", None)
@@ -511,6 +630,15 @@ def eval_task(model, task: str, episodes: int, dr_scale: float,
                     prog_m += ((float(vx_meas) * vx_c
                                 + float(vy_meas) * vy_c) / s_ref
                                * env.dt)
+                    # signed lateral deviation vs the live command
+                    cross_m += ((float(vy_meas) * vx_c
+                                 - float(vx_meas) * vy_c) / s_ref
+                                * env.dt)
+                elif n > head_ticks:
+                    # commanded-stop tick (past the episode head):
+                    # measured speed here is the stop-quality signal
+                    stop_v_sum += float(np.hypot(vx_meas, vy_meas))
+                    stop_ticks += 1
             if term or trunc:
                 terms += int(term)
                 break
@@ -539,11 +667,33 @@ def eval_task(model, task: str, episodes: int, dr_scale: float,
         agg["cmd_prog_frac"].append(prog_m / cmd_dist
                                     if cmd_dist > 0.01 else float("nan"))
         agg["slip_per_m"].append(slip / max(prog_m, 0.05))
+        agg["cross_track_frac"].append(abs(cross_m) / cmd_dist
+                                       if cmd_dist > 0.01
+                                       else float("nan"))
+        agg["wrong_way"].append(float(prog_m < 0.0)
+                                if cmd_dist > 0.01 else float("nan"))
+        agg["stop_speed_m_s"].append(stop_v_sum / stop_ticks
+                                     if stop_ticks else float("nan"))
+        agg["foot_sw_min_per_s"].append(
+            min(sw_foot) / max(n * env.dt, 1e-9))
+        agg["duty_factor"].append(on_ticks / max(n * 6, 1))
     env.close()
     out = {"return": float(np.mean(rets)),
            "ep_len": float(np.mean(lens)),
            "early_term_rate": terms / episodes}
-    out.update({k: float(np.mean(v)) for k, v in agg.items()})
+    # nan = "not measurable this episode" for the NEW command-
+    # conditional keys (e.g. stop_speed on a bucket without stop
+    # segments) — a plain mean would poison the aggregate. The
+    # pre-existing keys keep their historical plain-mean aggregation
+    # bit-exact (cw-dynrep-criticD-40m1 comparability).
+    _nan_ok = {"cross_track_frac", "wrong_way", "stop_speed_m_s"}
+    for k, v in agg.items():
+        arr = np.asarray(v, dtype=float)
+        if k in _nan_ok:
+            out[k] = (float(np.nanmean(arr))
+                      if np.any(~np.isnan(arr)) else float("nan"))
+        else:
+            out[k] = float(np.mean(arr))
     return out
 
 
@@ -765,7 +915,34 @@ def main() -> None:
     ap.add_argument("--live-min-windows", type=int, default=512,
                     help="condition F: live windows required before "
                          "fresh data enters predictor batches")
+    # -- adaptive walk-command curriculum (operator order 2026-08-18,
+    #    cw-dynrep-criticD-walkcurr1) ------------------------------
+    ap.add_argument("--walk-curriculum", action="store_true",
+                    help="TRAINING envs sample commands from the "
+                         "certification-gated frontier curriculum "
+                         "(goal.walk_curriculum=1; WALKCURR_BUCKETS in "
+                         "walk_task). Periodic evals keep the plain "
+                         "--goal-set distribution so curves stay "
+                         "comparable to the fixed-sampling parent. "
+                         "Best checkpoint = last retention-clean "
+                         "promotion, never reward/latest")
+    ap.add_argument("--walkcurr-cert-every", type=int, default=500_000,
+                    help="steps between deterministic held-out "
+                         "certification rounds (per unlocked bucket)")
+    ap.add_argument("--walkcurr-cert-episodes", type=int, default=8,
+                    help="deterministic episodes per bucket per round "
+                         "(operator floor: >= 8)")
+    ap.add_argument("--walkcurr-fail-streak", type=int, default=2,
+                    help="consecutive retained-failure rounds before "
+                         "rollback to the last retention-clean "
+                         "promotion")
     args = ap.parse_args()
+    if args.walk_curriculum:
+        if args.task != "walk":
+            ap.error("--walk-curriculum requires --task walk")
+        if args.walkcurr_cert_episodes < 8:
+            ap.error("--walkcurr-cert-episodes must be >= 8 "
+                     "(operator-ordered assay floor)")
     goal_set = {}
     for kv in args.goal_set:
         key, sep, val = kv.partition("=")
@@ -814,10 +991,18 @@ def main() -> None:
     torch.set_num_threads(2)
     # C, E and F train a predictor on FRESH rollout windows.
     capture = args.condition in ("C", "E", "F")
+    # --walk-curriculum: ONLY the training envs get the adaptive
+    # sampler (goal.walk_curriculum=1); run_evals keeps the plain
+    # --goal-set distribution so eval curves stay directly comparable
+    # to the fixed-sampling parent (cw-dynrep-criticD-40m1). The env
+    # applies each bucket's own DR scale per episode.
+    train_goal_set = dict(goal_set)
+    if args.walk_curriculum:
+        train_goal_set["walk_curriculum"] = 1.0
     venv = VecMonitor(SubprocVecEnv(
         [_env_factory(args.task, args.seed * 1000 + i, args.dr_scale,
                       args.episode_seconds, args.term_penalty,
-                      capture_windows=capture, goal_set=goal_set)
+                      capture_windows=capture, goal_set=train_goal_set)
          for i in range(args.n_envs)]))
     # Frame width is derived from the live env: goal.walk_yaw_cmd=1
     # (--goal-set) appends the commanded yaw rate to the goal obs.
@@ -945,11 +1130,19 @@ def main() -> None:
                 selection = loco_score
             if selection > best_state["score"]:
                 best_state.update(score=selection, step=step)
-                model.save(str(best_path))
-                kind = ("loco-quality" if args.select_quality
-                        else f"heldout-{args.task}")
-                print(f"  new best {kind} checkpoint @ "
-                      f"{step}: {selection:.1f} -> {best_path.name}")
+                if args.walk_curriculum:
+                    # Curriculum runs: the best checkpoint is the last
+                    # retention-clean PROMOTION (WalkCurrCb owns
+                    # best_path); scores are tracked for telemetry only.
+                    print(f"  best-{'loco' if args.select_quality else 'heldout'}"
+                          f" score @ {step}: {selection:.1f} (telemetry "
+                          "only; best = last retention-clean promotion)")
+                else:
+                    model.save(str(best_path))
+                    kind = ("loco-quality" if args.select_quality
+                            else f"heldout-{args.task}")
+                    print(f"  new best {kind} checkpoint @ "
+                          f"{step}: {selection:.1f} -> {best_path.name}")
         heldout_pred = (aux_ctx["heldout_pred"]()
                         if heldout and aux_ctx.get("heldout_pred")
                         else None)
@@ -1082,7 +1275,146 @@ def main() -> None:
             self._early_terminations = 0
             self._time_limit_truncations = 0
 
+    class WalkCurrCb(BaseCallback):
+        """Deterministic certification loop for --walk-curriculum.
+
+        Every --walkcurr-cert-every steps: assay every UNLOCKED bucket
+        on fixed held-out seeds (same backend/env class as training,
+        forced bucket, the bucket's own DR scale), gate with
+        walkcurr_bucket_pass, BROADCAST the results to every training
+        env (env_method — the all-env admission contract), then let
+        the envs' shared admission logic decide promotion. Promotions
+        save a checkpoint + curriculum state and become the run's best
+        checkpoint (last retention-clean promotion, never
+        reward/latest). Two consecutive retained-failure rounds roll
+        policy weights, optimizer and curriculum state back to the
+        last promotion."""
+
+        def __init__(self):
+            super().__init__()
+            self._next = args.walkcurr_cert_every
+            self.ctl = WalkCurrController(args.walkcurr_fail_streak)
+            self.cert_round = 0
+            self.promo_path: Path | None = None
+            self.promo_state: dict | None = None
+
+        def _log(self, payload: dict) -> None:
+            if wandb_run is not None:
+                wandb_run.log({"global_step": self.num_timesteps,
+                               **payload})
+
+        def _on_step(self) -> bool:
+            if self.num_timesteps < self._next:
+                return True
+            self._next += args.walkcurr_cert_every
+            self.cert_round += 1
+            from rl_move.sim.walk_task import WALKCURR_BUCKETS
+            active_n = int(self.model.env.env_method(
+                "walkcurr_state", indices=0)[0]["active_n"])
+            payload: dict = {"walkcurr/cert_round": self.cert_round}
+            t_cert = time.time()
+            for b in range(active_n):
+                spec = WALKCURR_BUCKETS[b]
+                m = eval_task(self.model, args.task,
+                              args.walkcurr_cert_episodes,
+                              args.dr_scale, args.episode_seconds,
+                              seed0=70_000 + 1000 * b,
+                              goal_set=train_goal_set,
+                              force_walk_bucket=b)
+                passed, checks = walkcurr_bucket_pass(m, spec)
+                score = _nn(m.get("cmd_prog_frac"), 0.0)
+                # all-env admission broadcast — every training env
+                # must see the same certification results
+                self.model.env.env_method(
+                    "apply_walkcurr_certification", b, passed, score,
+                    self.cert_round)
+                pfx = f"walkcurr/b{b}_{spec['name']}"
+                payload.update({
+                    f"{pfx}/pass": float(passed),
+                    f"{pfx}/cmd_prog_frac": m["cmd_prog_frac"],
+                    f"{pfx}/wrong_way": m["wrong_way"],
+                    f"{pfx}/vx_rmse": m["vx_rmse"],
+                    f"{pfx}/vy_rmse": m["vy_rmse"],
+                    f"{pfx}/cross_track_frac": m["cross_track_frac"],
+                    f"{pfx}/slip_per_m": m["slip_per_m"],
+                    f"{pfx}/peak_roll_deg": m["peak_roll_deg"],
+                    f"{pfx}/falls": m["early_term_rate"],
+                    f"{pfx}/contact_sw_per_s": m["contact_sw_per_s"],
+                    f"{pfx}/foot_sw_min_per_s": m["foot_sw_min_per_s"],
+                    f"{pfx}/duty_factor": m["duty_factor"],
+                    f"{pfx}/slew_sat": m["slew_sat"],
+                    f"{pfx}/stop_speed_m_s": m["stop_speed_m_s"],
+                    f"{pfx}/return": m["return"],
+                })
+                fails = [k for k, ok in checks.items() if not ok]
+                print(f"  walkcurr cert r{self.cert_round} b{b} "
+                      f"{spec['name']}: "
+                      f"{'PASS' if passed else 'FAIL ' + ','.join(fails)}"
+                      f" prog={m['cmd_prog_frac']:.2f}"
+                      f" slip/m={m['slip_per_m']:.2f}"
+                      f" roll={m['peak_roll_deg']:.1f}")
+            statuses = self.model.env.env_method(
+                "walkcurr_update_admission", self.cert_round)
+            status = statuses[0]
+            actives = {s["active_n"] for s in statuses}
+            assert len(actives) == 1, \
+                f"admission diverged across envs: {actives}"
+            action = self.ctl.record_round(status)
+            if action == "promote":
+                new_frontier = status["active_n"] - 1
+                self.promo_path = MODEL_DIR / (
+                    f"ppo_{args.name}_promo_b{new_frontier}.zip")
+                self.model.save(str(self.promo_path))
+                self.promo_state = self.model.env.env_method(
+                    "walkcurr_checkpoint_state", indices=0)[0]
+                (MODEL_DIR / f"ppo_{args.name}_promo_b{new_frontier}"
+                 ".json").write_text(json.dumps(
+                     {"step": self.num_timesteps,
+                      "cert_round": self.cert_round,
+                      "state": self.promo_state}, indent=2) + "\n")
+                import shutil
+                shutil.copyfile(self.promo_path, best_path)
+                print(f"  walkcurr PROMOTION -> frontier b{new_frontier}"
+                      f" @ {self.num_timesteps} (saved "
+                      f"{self.promo_path.name}, now the best ckpt)")
+            elif action == "rollback":
+                assert self.promo_path is not None
+                from stable_baselines3.common.save_util import (
+                    load_from_zip_file,
+                )
+                _, params, _ = load_from_zip_file(
+                    str(self.promo_path), device=self.model.device)
+                self.model.policy.load_state_dict(params["policy"])
+                if "policy.optimizer" in params:
+                    self.model.policy.optimizer.load_state_dict(
+                        params["policy.optimizer"])
+                self.model.env.env_method(
+                    "restore_walkcurr_checkpoint_state",
+                    self.promo_state)
+                print(f"  walkcurr ROLLBACK to {self.promo_path.name} "
+                      f"@ {self.num_timesteps} (2 consecutive "
+                      "retained-failure rounds)")
+            state = self.model.env.env_method("walkcurr_state",
+                                              indices=0)[0]
+            payload.update({
+                "walkcurr/frontier": state["frontier_bucket"],
+                "walkcurr/active_n": state["active_n"],
+                "walkcurr/weakest_mastered": state["weakest_mastered"],
+                "walkcurr/promotions": self.ctl.promotions,
+                "walkcurr/rollbacks": self.ctl.rollbacks,
+                "walkcurr/retention_pass":
+                    float(status["retention_passed"]),
+                "walkcurr/frontier_pass":
+                    float(status["frontier_passed"]),
+                "walkcurr/fail_streak": self.ctl.fail_streak,
+                "walkcurr/cert_wall_s": round(time.time() - t_cert, 1),
+            })
+            self._log(payload)
+            return True
+
     callbacks = [RolloutMetricsCb(), EvalCb()]
+    if args.walk_curriculum:
+        callbacks.append(WalkCurrCb())
 
     if args.condition in ("D", "E", "F"):
         eps = dd.load_dataset(ROOT / args.anchor_data)
