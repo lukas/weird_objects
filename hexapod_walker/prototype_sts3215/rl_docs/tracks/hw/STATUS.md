@@ -8,9 +8,11 @@ RISE + WALK IN THE MUJOCO SIM, download-ready. The maintained download
 answer is `rl_docs/DOWNLOAD_ANSWER.md` (hierarchy: `footlow2_hard1` +
 `bcgait1_hard1` + session controller, det 0.967 / sto 0.853 at n=600).
 Sprint gap status: post-lower rise = the ELEVATED `[operator]` fork in
-STATUS.md WAITING-ON (+ a queued `[code]` remaining-rise eval probe to
-price option (a)); takeoff transient = sim-side complete (entry-slew
-composed), bench reps parked; no live session-gate regressions. All
+STATUS.md WAITING-ON (the remaining-rise eval probe that prices it is
+DONE — `[code]` PRICED 08-17 ~22:3x, fork (a) measured-best per
+Cohort c5rr — the fork itself is now purely `[operator]`); takeoff
+transient = sim-side complete (entry-slew composed), bench reps
+parked; no live session-gate regressions. All
 bench-owned `[operator]` items stay parked; recover/tangle redesign
 stays `[operator]`-gated and is NOT a sprint item. Full text:
 RL_PLAN.md "SIM SPRINT".**
@@ -22,6 +24,33 @@ unresolved blockers between the robot and reliable joystick control.
 
 ## Now
 
+- **08-18 ~21:1x (triage cycle): `cw-dep-bcgait1-hard1-steer2-hard20m1-r1`
+  FAILED its pre-registered gate clause (2) — the staged-curriculum
+  lineage's ~20M full hardening pass did NOT reach zero over_current
+  on the identical 24-episode direction-switch panel either.** 2/24
+  over_current terminations (down from steer1-hard20m1's 3/24, but
+  video confirms at least one of the two is a genuine tip-over FALL
+  this time, not a stayed-upright jam) + 0/24 severe tangle (clause 3
+  passes — only one isolated single-leg drag). NEW negative: slip/m
+  is elevated across nearly the whole panel (medians ~2.2-3.9/m vs
+  hard1's clean ~1.3-1.5/m and vs steer1-hard20m1's own healthy
+  episodes 1.3-2.4/m) — 20M more steps at full stage-2 mix traded a
+  little jam frequency for general gait-quality erosion, not a clean
+  fix. This is the SECOND miss on "more full-stage-2 exposure cures
+  the instant-flip jam" (steer1 full-mix-from-tick-0, now steer2's
+  staged-then-hardened lineage) — two-miss rule: change the lever,
+  not the step count. Queued+launched same cycle:
+  `cw-dep-bcgait1-hard1-steer2-blend1` (2M canary, warm from
+  stagecurric1) testing the run's own pre-registered structural
+  fallback — nonzero `goal.walk_cmd_blend_s_min/max` (0.4/1.2,
+  training-time ease) instead of the maximally-hard 0/0 instant
+  flick, judged informationally by forcing blend back to 0 at eval
+  time (the original hard bar) so the exam doesn't get easier, only
+  the practice. If it washes, the next lever is reward-side
+  yaw-margin pricing, not a third exposure resweep. Does not touch
+  today's download answer (still plain `bcgait1_hard1`, never asked
+  to survive mid-walk switches). Detail: ledger verdict + W&B
+  `zkjjztox` OUTCOME note.
 - **08-18 ~19:4x (triage cycle): `cw-dep-bcgait1-hard1-steer2-stagecurric1`
   CANARY PASSED with a favorable informational read — staged
   difficulty ramp looks like the right lever for the direction-switch
