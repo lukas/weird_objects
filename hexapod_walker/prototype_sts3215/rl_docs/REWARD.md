@@ -287,6 +287,8 @@ reaches held success after every near-goal B0–B4 reset; B0-only initial
 sampling, admission, retreat and no-probe semantics; forced bucket
 aggregation; empty-interval rng parity; anchor state gating).
 
+| `reward.term_penalty` | 0 | One-time charge subtracted on early TERMINATION (term, never trunc), applied at the very end of the walk-family `_post_step` stack. Cfg-gated in-env twin of `train_ppo_transfer`'s TRAINING-ONLY `_term_penalty_wrapper` (the dynrep pilots' anti-suicide terminal charge, default `--term-penalty 30` there) so the batched MJX trainers — which construct shim envs internally and cannot wrap them — can train on the exact walkcurr2 reward contract (cw-dynrep-criticD-walkcurr3, operator order 2026-08-18 fb_20260818T065930_03b422). Eval/cert envs leave it 0: evals run the raw reward, the same rule the transfer trainer's eval_task follows. Default 0 = bit-exact legacy. Tests: `test_walkcurr_mjx.py::test_term_penalty_charges_exactly_on_term`. |
+
 ## 5) Changing the reward — checklist
 
 1. New terms: cfg-gated, default 0 = byte-identical legacy. Income

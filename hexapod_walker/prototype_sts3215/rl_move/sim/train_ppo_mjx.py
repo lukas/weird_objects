@@ -992,6 +992,43 @@ def _resolve_impl(requested: str) -> str | None:
     return None if requested == "default" else requested
 
 
+def _unwrap_vec(venv):
+    """Innermost VecEnv under any wrapper chain (VecMonitor etc.)."""
+    core = venv
+    while hasattr(core, "venv"):
+        core = core.venv
+    return core
+
+
+def _assert_gpu_physics(venv, impl: str | None) -> None:
+    """Fail-closed all-GPU-physics guard (operator order 2026-08-18,
+    fb_20260818T065930_03b422): a run launched with
+    --require-gpu-physics must train on batched MJX/Warp physics — the
+    actual VecEnv class is checked, so a SubprocVecEnv/DummyVecEnv of
+    C-MuJoCo envs (CPU physics, whatever device Torch runs on) is
+    REFUSED, and so is the XLA/jax fallback impl. Raises SystemExit;
+    unit-tested in rl_move/tests/test_walkcurr_mjx.py."""
+    from .mjx_sharded_vec_env import MjxShardedVecEnv
+    from .mjx_vec_env import MjxVecEnv
+    core = _unwrap_vec(venv)
+    if not isinstance(core, (MjxVecEnv, MjxShardedVecEnv)):
+        raise SystemExit(
+            "--require-gpu-physics: the training VecEnv is "
+            f"{type(core).__name__}, not MjxVecEnv/MjxShardedVecEnv — "
+            "training physics would NOT run on the GPU. SubprocVecEnv/"
+            "C-MuJoCo training physics is forbidden for this run "
+            "(fb_20260818T065930_03b422).")
+    if impl != "warp":
+        raise SystemExit(
+            f"--require-gpu-physics: physics impl is {impl!r}, not "
+            "'warp' — the CUDA-batched Warp backend is required "
+            "(fb_20260818T065930_03b422).")
+    print(f"[backend] training physics VERIFIED: "
+          f"{type(core).__name__} impl=warp n_envs={core.num_envs} "
+          "(batched GPU physics; SubprocVecEnv refused by contract)",
+          flush=True)
+
+
 def _init_wandb(args, params: SimServoParams):
     if args.no_wandb:
         return None
@@ -1333,6 +1370,50 @@ def main(argv: list[str] | None = None) -> int:
                          "*.curriculum.json sidecar (exact-state "
                          "continuation of a finished recover run; "
                          "default off = fresh B0)")
+    # -- all-GPU condition-D + walk curriculum (operator order
+    # 2026-08-18, fb_20260818T065930_03b422; every flag default-off =
+    # bit-exact legacy trainer) -------------------------------------
+    ap.add_argument("--require-gpu-physics", action="store_true",
+                    help="fail-closed guard: refuse to train unless the "
+                         "training VecEnv is MjxVecEnv/MjxShardedVecEnv "
+                         "with impl=warp AND Torch runs on CUDA "
+                         "(_assert_gpu_physics)")
+    ap.add_argument("--critic-encoder", type=Path, default=None,
+                    help="condition-D decoupled predictive critic "
+                         "(rl_move/dynamics/predictive_critic.py): "
+                         "scratch-A actor + frozen dynamics-transformer "
+                         "critic residual. Path to the pretrained "
+                         "encoder checkpoint; requires "
+                         "--critic-encoder-md5 and --cfg-set "
+                         "obs.history_frames=16")
+    ap.add_argument("--critic-encoder-md5", type=str, default=None,
+                    help="md5 the encoder file must match (refuse to "
+                         "train otherwise)")
+    ap.add_argument("--anchor-data", type=str,
+                    default="rl_move/dynamics/datasets/v5_mjx_fresh",
+                    help="pretraining corpus for the predictive "
+                         "critic's fixed probe batch + start-of-run "
+                         "heldout reference (condition D reads, never "
+                         "trains on it)")
+    ap.add_argument("--walk-curriculum", action="store_true",
+                    help="adaptive competence+retention walk-command "
+                         "curriculum (walk_task WALKCURR_BUCKETS*), "
+                         "certified on THIS trainer's MJX backend; "
+                         "sets cfg goal.walk_curriculum + "
+                         "goal.walk_pure at env construction")
+    ap.add_argument("--walk-curriculum-version", type=int, default=1,
+                    choices=(1, 2),
+                    help="1 = WALKCURR_BUCKETS (walkcurr1), 2 = "
+                         "WALKCURR_BUCKETS_V2 ignition ladder "
+                         "(walkcurr2)")
+    ap.add_argument("--walkcurr-cert-every", type=int, default=500_000,
+                    help="deterministic certification cadence (steps)")
+    ap.add_argument("--walkcurr-cert-episodes", type=int, default=8,
+                    help="held-out episodes per bucket per cert round "
+                         "(= cert vec-env size)")
+    ap.add_argument("--walkcurr-fail-streak", type=int, default=2,
+                    help="consecutive retained-failure rounds before "
+                         "rollback to the last promotion")
     ap.add_argument("--no-canary", action="store_true",
                     help="disable the fixed-seed canary probes + "
                          "regression auto-stop (on by default for warm "
@@ -1431,7 +1512,79 @@ def main(argv: list[str] | None = None) -> int:
     args.canary = (bool(args.init_from) and not args.no_canary
                    and args.eval_every > 0)
 
+    # -- walk curriculum + condition-D wiring (fb_20260818T065930) ----
+    if args.walk_curriculum:
+        if args.task != "joint_walk":
+            raise SystemExit("--walk-curriculum requires --task "
+                             "joint_walk (the curriculum owns the walk "
+                             "command distribution)")
+        if args.goal_mix:
+            raise SystemExit(
+                "--walk-curriculum owns the whole command distribution "
+                "(cfg goal.walk_pure=1 is set at env CONSTRUCTION); "
+                "drop --goal-mix")
+        if args.best_ckpt or args.ev_stop_min > 0.0:
+            raise SystemExit(
+                "--walk-curriculum owns best-checkpoint selection "
+                "(best = last retention-clean promotion, never reward/"
+                "latest); drop --best-ckpt/--ev-stop-min")
+        if args.init_from is not None:
+            raise SystemExit("--walk-curriculum is a fresh-actor "
+                             "acquisition contract (walkcurr lineage); "
+                             "--init-from is not wired")
+        # Pure-walk diet + curriculum version ride the env cfg so the
+        # shim envs are born with them (no post-construction mutation;
+        # the MJX vec envs mint reset pools during reset()).
+        args.cfg_set = (args.cfg_set or []) + [
+            f"goal.walk_curriculum={args.walk_curriculum_version}",
+            "goal.walk_pure=1",
+        ]
+        print("[walkcurr] cfg injected at construction: "
+              f"goal.walk_curriculum={args.walk_curriculum_version}, "
+              "goal.walk_pure=1")
+    if args.critic_encoder is not None:
+        if args.gru or args.gru_dual or args.gru_experts \
+                or args.transformer:
+            raise SystemExit("--critic-encoder (condition D) uses the "
+                             "scratch-A MLP actor; drop --gru*/"
+                             "--transformer")
+        if args.init_from is not None:
+            raise SystemExit("--critic-encoder warm start is not "
+                             "wired; condition D trains a fresh actor")
+        if not args.critic_encoder_md5:
+            raise SystemExit("--critic-encoder requires "
+                             "--critic-encoder-md5 (refuse to train on "
+                             "an unverified transformer)")
+        enc_path = args.critic_encoder
+        if not enc_path.is_absolute():
+            enc_path = _PROTO / enc_path
+        if not enc_path.exists():
+            raise SystemExit(f"--critic-encoder {enc_path} not found")
+        import hashlib
+        got = hashlib.md5(enc_path.read_bytes()).hexdigest()
+        if got != args.critic_encoder_md5.strip().lower():
+            raise SystemExit(
+                f"encoder md5 mismatch: {enc_path} is {got}, expected "
+                f"{args.critic_encoder_md5} — wrong/corrupt pretrained "
+                "transformer, refusing to train")
+        print(f"[encoder] md5 verified: {got} ({enc_path.name})",
+              flush=True)
+        args.critic_encoder = enc_path
+
     impl = _resolve_impl(args.impl)
+    if args.require_gpu_physics:
+        if impl != "warp":
+            raise SystemExit(
+                f"--require-gpu-physics: resolved impl is "
+                f"{impl or 'jax(default)'}, not warp — refusing "
+                "(fb_20260818T065930_03b422)")
+        import torch as _th
+        if not _th.cuda.is_available():
+            raise SystemExit("--require-gpu-physics: torch.cuda is not "
+                             "available — refusing")
+        if args.device in ("cpu",):
+            raise SystemExit("--require-gpu-physics conflicts with "
+                             "--device cpu")
     iters = args.mjx_iterations if args.mjx_iterations is not None \
         else (1 if impl == "warp" else 8)
     ls_iters = args.mjx_ls_iterations if args.mjx_ls_iterations is not None \
@@ -1538,6 +1691,38 @@ def main(argv: list[str] | None = None) -> int:
               f"ff {args.tf_ff}, context {hist} frames "
               f"({hist / 25.0:.2f}s at 25 Hz), separate actor/critic")
 
+    if args.critic_encoder is not None:
+        # Condition-D decoupled predictive critic (operator order
+        # 2026-08-18 fb_20260818T065930_03b422: port the exact frozen
+        # vt2ovznc critic-D policy onto batched GPU physics). The
+        # policy/PPO classes are backend-agnostic torch; construction
+        # matches train_ppo_transfer's condition-D branch bit-for-bit
+        # (scratch-A actor init at the same seed, frozen snapshot
+        # inside the policy, zero-init value gate).
+        if args.gru or args.transformer:
+            raise SystemExit("--critic-encoder is MLP-actor only")
+        if mirror_coef > 0.0 or bc_coef > 0.0:
+            raise SystemExit("--critic-encoder does not compose with "
+                             "mirror/BC-anchor losses (untested "
+                             "optimizer interaction); drop them")
+        hist = int(float(_parse_cfg_set(args.cfg_set).get(
+            "obs.history_frames", 1)))
+        if hist < 2:
+            raise SystemExit(
+                "--critic-encoder needs the env-side frame stack: add "
+                "--cfg-set obs.history_frames=K (condition-D lineage "
+                "uses 16)")
+        from rl_move.dynamics.predictive_critic import (
+            PredictiveCriticPPO, PredictiveCriticPolicy)
+        algo_cls = PredictiveCriticPPO
+        policy_cls = PredictiveCriticPolicy
+        extra_pk = dict(predictor_ckpt=str(args.critic_encoder),
+                        history=hist)   # frame_width set after venv
+        print(f"[mjx-train] condition-D predictive critic: frozen "
+              f"snapshot {args.critic_encoder.name} "
+              f"(md5 {args.critic_encoder_md5}), history {hist}, "
+              "scratch-A actor")
+
     print(f"[mjx-train] task={args.task} n_envs={args.n_envs} "
           f"impl={impl or 'jax(default)'} iterations={iters}/{ls_iters} "
           f"host_workers={args.host_workers or 'in-process'} "
@@ -1562,6 +1747,25 @@ def main(argv: list[str] | None = None) -> int:
     venv = VecMonitor(venv)
     print(f"[mjx-train] vec env up in {time.monotonic() - t0:.1f}s "
           f"(compile + {args.pool_per_env + 1} reset choreographies)")
+    if args.require_gpu_physics:
+        _assert_gpu_physics(venv, impl)
+    if args.critic_encoder is not None:
+        n_obs = int(np.prod(venv.observation_space.shape))
+        hist = int(extra_pk["history"])
+        if n_obs % hist:
+            raise SystemExit(f"obs dim {n_obs} not divisible by "
+                             f"history {hist} — obs.history_frames "
+                             "mismatch with the env stack")
+        extra_pk["frame_width"] = n_obs // hist
+    if args.walk_curriculum:
+        # Construction proof: every training env must be born pure-walk
+        # with the curriculum armed (fail-closed; _walkcurr_prepare_
+        # episode re-asserts p_walk per episode on every backend).
+        _wc_states = venv.env_method("walkcurr_state", indices=0)
+        print("[walkcurr] armed at construction: "
+              f"{_wc_states[0]['total_buckets']} buckets, active_n="
+              f"{_wc_states[0]['active_n']} (frontier B"
+              f"{_wc_states[0]['frontier_bucket']})")
 
     run = _init_wandb(args, params)
     if args.recover_population_id and run is None:
@@ -1696,13 +1900,23 @@ def main(argv: list[str] | None = None) -> int:
                          task=args.task)
     # Update-path protection (fb_20260817T005114; default off).
     if args.actor_lr > 0.0:
-        from .update_health import (attach_actor_critic_lr,
+        from .update_health import (CRITIC_MARKERS,
+                                    attach_actor_critic_lr,
                                     attach_kl_rollback)
+        # Condition D adds two critic-only modules (value_gate,
+        # latent_adapter) that share no substring with the stock SB3
+        # markers — extend them so those modules ride the CRITIC lr,
+        # not the (smaller, decaying) actor one (same extension as
+        # train_ppo_transfer; test_dynrep_predictive_critic.py pins
+        # the split).
+        _markers = (CRITIC_MARKERS + ("value_gate", "latent_adapter")
+                    if args.critic_encoder is not None else None)
         attach_actor_critic_lr(
             model, args.actor_lr,
             (args.actor_lr_final if args.actor_lr_final > 0.0
              else None),
-            (args.critic_lr if args.critic_lr > 0.0 else args.lr))
+            (args.critic_lr if args.critic_lr > 0.0 else args.lr),
+            critic_markers=_markers)
         st = model._ac_state
         print(f"[update-health] actor/critic param groups: "
               f"{st['n_actor']} actor tensors @ {st['actor_lr']:.2e}"
@@ -1718,6 +1932,65 @@ def main(argv: list[str] | None = None) -> int:
     elif args.kl_rollback > 0.0:
         raise SystemExit("--kl-rollback requires --actor-lr (the "
                          "rollback reduces the actor-LR scale)")
+
+    if args.critic_encoder is not None:
+        # Arm the frozen-snapshot contract guards + start-of-run
+        # heldout reference (train_ppo_transfer condition-D parity:
+        # snapshot identity is bit-checked around every rollout+PPO
+        # iteration, snapshot_version must stay 0 in D).
+        import torch
+        from rl_move.dynamics import data as dd
+        from rl_move.dynamics.model import dynamics_loss
+        from rl_move.dynamics.predictive_critic import PredictorConfig
+        from rl_move.dynamics.train_ppo_transfer import (
+            anchor_batch_to_torch)
+        anchor_path = Path(args.anchor_data)
+        if not anchor_path.is_absolute():
+            anchor_path = _PROTO / anchor_path
+        eps = dd.load_dataset(anchor_path)
+        enc_ckpt = torch.load(args.critic_encoder, map_location="cpu",
+                              weights_only=False)
+        stats = dd.Stats.from_dict(enc_ckpt["stats"])
+        snap = model.policy.critic_predictor
+        pred_cfg = PredictorConfig(mode="frozen")
+        hist = int(extra_pk["history"])
+        rehearsal = dd.WindowSampler(eps, stats, hist, snap.horizons,
+                                     val=False, seed=args.seed)
+        heldout = dd.WindowSampler(eps, stats, hist, snap.horizons,
+                                   val=True, seed=args.seed)
+
+        def _pred_sink(payload: dict, step: int) -> None:
+            if run is not None:
+                import wandb
+                wandb.log({"global_step": step, **payload})
+
+        model.configure_predictor(pred_cfg, rehearsal,
+                                  anchor_batch_to_torch,
+                                  metrics_sink=_pred_sink)
+        snap.eval()
+        _sum, _n = 0.0, 0
+        with torch.no_grad():
+            for b in heldout.val_batches(1024, 256):
+                bt = anchor_batch_to_torch(b, device=model.device)
+                out_p = snap(bt["hist"], bt["fut_actions"])
+                loss, _ = dynamics_loss(out_p, bt, pred_cfg.lambdas,
+                                        snap)
+                _sum += float(loss)
+                _n += 1
+        _ref = _sum / max(_n, 1)
+        _sv = int(model.policy.snapshot_version.item())
+        print(f"[critic-D] frozen snapshot heldout pred loss at start: "
+              f"{_ref:.3f} (pretrained, untouched); "
+              f"snapshot_version={_sv}")
+        if run is not None:
+            import wandb
+            run.config.update(
+                {"critic_encoder": str(args.critic_encoder),
+                 "critic_encoder_md5": args.critic_encoder_md5,
+                 "pred_mode": "frozen"}, allow_val_change=True)
+            wandb.log({"global_step": 0,
+                       "anchor/pretrained_loss": _ref,
+                       "pred/snapshot_version": _sv})
 
     out_name = args.out_name or (
         f"ppo_mjx_{args.task}" + (f"_{args.run_name}" if args.run_name
@@ -2428,6 +2701,288 @@ def main(argv: list[str] | None = None) -> int:
               f"{args.recover_full_retention_every or 'promotion-only'} "
               "round(s), promotion checkpoints + rollback after "
               f"{args.recover_rollback_after_steps:,} regressed steps")
+
+    walkcurr_cb = None
+    if args.walk_curriculum:
+        import copy as _copy
+        import shutil
+
+        from .walk_task import WALKCURR_BUCKETS, WALKCURR_BUCKETS_V2
+        from .walkcurr_cert import (WalkCurrController,
+                                    aggregate_walk_probe,
+                                    failed_probe_row,
+                                    walkcurr_bucket_pass)
+        wc_table = (WALKCURR_BUCKETS_V2
+                    if args.walk_curriculum_version == 2
+                    else WALKCURR_BUCKETS)
+        core_venv = _unwrap_vec(venv)
+        wc_best_path = POLICY_DIR / f"{out_name}_best.zip"
+        wc_promo_dir = POLICY_DIR / "walkcurr_promotions"
+        wc_promo_dir.mkdir(parents=True, exist_ok=True)
+
+        class _MjxWalkCurrCert(BaseCallback):
+            """Deterministic walk-curriculum authority ON TRAINING
+            PHYSICS: assays run on a dedicated MJX/Warp cert env (same
+            backend/env class/cfg as training; C evaluation is never an
+            admission signal — the recover-cert precedent) with the
+            in-env walk probe measuring the eval_task quality metrics.
+            Same admission contract as train_ppo_transfer's WalkCurrCb:
+            all-env certification broadcast, frontier+retention
+            promotion, 2-consecutive-retained-failure rollback, best =
+            last retention-clean promotion. Rollbacks apply at the NEXT
+            _on_rollout_start (recover-cert pattern) so replacing the
+            policy never invalidates collected old-policy log-probs;
+            reset pools are flushed on every admission change so stale
+            pooled episodes cannot leak a re-locked bucket's
+            distribution into training."""
+
+            def __init__(self):
+                super().__init__()
+                self._next = int(args.walkcurr_cert_every)
+                self.ctl = WalkCurrController(args.walkcurr_fail_streak)
+                self.cert_round = 0
+                self._env = None
+                self.promo_path: Path | None = None
+                self.promo_state: dict | None = None
+                self._pending_rollback = False
+
+            def _build(self):
+                cert_kw = dict(vec_kw)
+                ek = _copy.deepcopy(env_kw)
+                cfg_d = ek.get("cfg")
+                if cfg_d is None:
+                    raise RuntimeError("walkcurr env kwargs carry no "
+                                       "cfg (goal.walk_curriculum "
+                                       "injection failed)")
+                cfg_d.setdefault("goal", {})["walk_probe"] = 1.0
+                cert_kw.update(env_kwargs=ek, seed=args.seed + 616161,
+                               pool_per_env=1, desync_episodes=False)
+                n_cert = int(args.walkcurr_cert_episodes)
+                if args.host_workers > 0:
+                    from .mjx_sharded_vec_env import MjxShardedVecEnv
+                    env = MjxShardedVecEnv(
+                        env_cls, n_cert,
+                        host_workers=min(n_cert,
+                                         max(1, args.host_workers)),
+                        **cert_kw)
+                else:
+                    from .mjx_vec_env import MjxVecEnv
+                    env = MjxVecEnv(env_cls, n_cert, **cert_kw)
+                print("[walkcurr-cert] deterministic MJX cert env "
+                      f"ready: {n_cert} episodes/bucket, "
+                      f"{impl or 'jax(default)'} backend, in-env walk "
+                      "probe ON")
+                return env
+
+            def _assay(self, bucket: int) -> dict:
+                """One bucket's deterministic held-out assay: fixed
+                seeds, forced bucket, first episode per cert env."""
+                env = self._env
+                env.flush_reset_pools()   # rebuild pools under the
+                # forced bucket + fresh rng (also bounds pool growth
+                # across rounds: reset() appends pool entries)
+                env.set_attr("force_walk_curr_bucket", int(bucket))
+                env.seed(70_000 + 1_000 * bucket)
+                obs = env.reset()
+                n_envs = int(env.num_envs)
+                finished = np.zeros(n_envs, dtype=bool)
+                rows: list = [None] * n_envs
+                ep_start = np.ones(n_envs, dtype=bool)
+                state = None
+                horizon = int(env.get_attr("episode_steps",
+                                           indices=0)[0]) + 2
+                ticks = 0
+                while not bool(np.all(finished)):
+                    actions, state = self.model.predict(
+                        obs, state=state, episode_start=ep_start,
+                        deterministic=True)
+                    obs, _r, dones, infos = env.step(actions)
+                    ticks += 1
+                    ep_start = np.asarray(dones, dtype=bool)
+                    for i in np.flatnonzero(np.asarray(dones)
+                                            & ~finished):
+                        info = infos[int(i)]
+                        wp = info.get("walk_probe")
+                        rows[i] = (dict(wp) if wp is not None
+                                   else failed_probe_row())
+                        finished[i] = True
+                    if ticks > horizon:
+                        missing = np.flatnonzero(~finished).tolist()
+                        raise RuntimeError(
+                            "walkcurr certification exceeded the "
+                            f"episode horizon for envs {missing}")
+                env.set_attr("force_walk_curr_bucket", None)
+                return aggregate_walk_probe(rows)
+
+            def _apply_rollback(self) -> None:
+                # After the preceding PPO update, before the next
+                # rollout: policy swap cannot invalidate old-policy
+                # log-probs here.
+                from stable_baselines3.common.save_util import (
+                    load_from_zip_file)
+                assert self.promo_path is not None
+                _, params_, _ = load_from_zip_file(
+                    str(self.promo_path), device=self.model.device)
+                self.model.policy.load_state_dict(params_["policy"])
+                if "policy.optimizer" in params_:
+                    self.model.policy.optimizer.load_state_dict(
+                        params_["policy.optimizer"])
+                venv.env_method("restore_walkcurr_checkpoint_state",
+                                self.promo_state)
+                flushed = core_venv.flush_reset_pools()
+                self.model._last_obs = venv.reset()
+                self.model._last_episode_starts = np.ones(
+                    venv.num_envs, dtype=bool)
+                print(f"  walkcurr ROLLBACK to {self.promo_path.name} "
+                      f"@ {self.num_timesteps} (2 consecutive "
+                      "retained-failure rounds; "
+                      f"{flushed} stale pool entries flushed, "
+                      "fresh rollout state)")
+                if run is not None:
+                    import wandb
+                    wandb.log({"global_step": self.num_timesteps,
+                               "walkcurr/rollback_applied": 1.0,
+                               "walkcurr/pool_flushed": float(flushed)})
+
+            def _on_rollout_start(self) -> None:
+                if self._pending_rollback:
+                    self._pending_rollback = False
+                    self._apply_rollback()
+
+            def _on_step(self) -> bool:
+                return True
+
+            def _on_rollout_end(self) -> None:
+                if self.num_timesteps < self._next:
+                    return
+                self._next = ((self.num_timesteps
+                               // args.walkcurr_cert_every) + 1
+                              ) * args.walkcurr_cert_every
+                if self._env is None:
+                    self._env = self._build()
+                self.cert_round += 1
+                active_n = int(venv.env_method(
+                    "walkcurr_state", indices=0)[0]["active_n"])
+                payload: dict = {"walkcurr/cert_round": self.cert_round}
+                t_cert = time.time()
+                for b in range(active_n):
+                    spec = wc_table[b]
+                    m = self._assay(b)
+                    passed, checks = walkcurr_bucket_pass(m, spec)
+                    score = m.get("cmd_prog_frac")
+                    score = (0.0 if score is None or score != score
+                             else float(score))
+                    # all-env admission broadcast — every training env
+                    # must see the same certification results
+                    venv.env_method("apply_walkcurr_certification",
+                                    b, passed, score, self.cert_round)
+                    pfx = f"walkcurr/b{b}_{spec['name']}"
+                    payload.update({
+                        f"{pfx}/pass": float(passed),
+                        f"{pfx}/cmd_prog_frac": m["cmd_prog_frac"],
+                        f"{pfx}/wrong_way": m["wrong_way"],
+                        f"{pfx}/vx_rmse": m["vx_rmse"],
+                        f"{pfx}/vy_rmse": m["vy_rmse"],
+                        f"{pfx}/cross_track_frac": m["cross_track_frac"],
+                        f"{pfx}/slip_per_m": m["slip_per_m"],
+                        f"{pfx}/peak_roll_deg": m["peak_roll_deg"],
+                        f"{pfx}/falls": m["early_term_rate"],
+                        f"{pfx}/contact_sw_per_s": m["contact_sw_per_s"],
+                        f"{pfx}/foot_sw_min_per_s":
+                            m["foot_sw_min_per_s"],
+                        f"{pfx}/duty_factor": m["duty_factor"],
+                        f"{pfx}/slew_sat": m["slew_sat"],
+                        f"{pfx}/stop_speed_m_s": m["stop_speed_m_s"],
+                        f"{pfx}/return": m["return"],
+                    })
+                    fails = [k for k, ok in checks.items() if not ok]
+                    print(f"  walkcurr cert r{self.cert_round} b{b} "
+                          f"{spec['name']}: "
+                          f"{'PASS' if passed else 'FAIL ' + ','.join(fails)}"
+                          f" prog={m['cmd_prog_frac']:.2f}"
+                          f" slip/m={m['slip_per_m']:.2f}"
+                          f" roll={m['peak_roll_deg']:.1f}")
+                statuses = venv.env_method("walkcurr_update_admission",
+                                           self.cert_round)
+                status = statuses[0]
+                actives = {s["active_n"] for s in statuses}
+                assert len(actives) == 1, \
+                    f"admission diverged across envs: {actives}"
+                action = self.ctl.record_round(status)
+                flushed = 0
+                if action == "promote":
+                    new_frontier = status["active_n"] - 1
+                    self.promo_path = wc_promo_dir / (
+                        f"{out_name}_promo_b{new_frontier}.zip")
+                    self.model.save(str(self.promo_path))
+                    self.promo_state = venv.env_method(
+                        "walkcurr_checkpoint_state", indices=0)[0]
+                    self.promo_path.with_suffix(".json").write_text(
+                        json.dumps({"step": self.num_timesteps,
+                                    "cert_round": self.cert_round,
+                                    "state": self.promo_state},
+                                   indent=2) + "\n")
+                    shutil.copyfile(self.promo_path, wc_best_path)
+                    flushed = core_venv.flush_reset_pools()
+                    print("  walkcurr PROMOTION -> frontier "
+                          f"b{new_frontier} @ {self.num_timesteps} "
+                          f"(saved {self.promo_path.name}, now the "
+                          f"best ckpt; {flushed} stale pool entries "
+                          "flushed)")
+                    if run is not None:
+                        try:
+                            run.save(str(self.promo_path),
+                                     base_path=str(POLICY_DIR),
+                                     policy="now")
+                            run.summary[
+                                "walkcurr_latest_promotion"] = (
+                                self.promo_path.name)
+                        except Exception as exc:
+                            print("[walkcurr] W&B promotion upload "
+                                  f"failed (non-fatal): {exc}")
+                elif action == "rollback":
+                    self._pending_rollback = True
+                state = venv.env_method("walkcurr_state", indices=0)[0]
+                payload.update({
+                    "walkcurr/frontier": state["frontier_bucket"],
+                    "walkcurr/active_n": state["active_n"],
+                    "walkcurr/weakest_mastered":
+                        state["weakest_mastered"],
+                    "walkcurr/promotions": self.ctl.promotions,
+                    "walkcurr/rollbacks": self.ctl.rollbacks,
+                    "walkcurr/retention_pass":
+                        float(status["retention_passed"]),
+                    "walkcurr/frontier_pass":
+                        float(status["frontier_passed"]),
+                    "walkcurr/fail_streak": self.ctl.fail_streak,
+                    "walkcurr/pool_flushed": float(flushed),
+                    "walkcurr/rollback_pending":
+                        float(self._pending_rollback),
+                    "walkcurr/cert_wall_s":
+                        round(time.time() - t_cert, 1),
+                })
+                if run is not None:
+                    import wandb
+                    wandb.log({"global_step": self.num_timesteps,
+                               **payload})
+
+            def close(self):
+                if self._env is not None:
+                    self._env.close()
+                    self._env = None
+
+            def _on_training_end(self) -> None:
+                self.close()
+
+        walkcurr_cb = _MjxWalkCurrCert()
+        callbacks.append(walkcurr_cb)
+        print("[walkcurr] armed: deterministic MJX certification every "
+              f"{args.walkcurr_cert_every:,} steps, "
+              f"{args.walkcurr_cert_episodes} episodes/bucket, V"
+              f"{args.walk_curriculum_version} buckets, promotion "
+              "checkpoints (best = last retention-clean promotion), "
+              f"rollback after {args.walkcurr_fail_streak} consecutive "
+              "retained-failure rounds")
     bg = None
     if run is not None and (args.eval_every > 0 or args.video_every > 0):
         # The campaign's background eval/video worker, reused verbatim:
@@ -2560,6 +3115,8 @@ def main(argv: list[str] | None = None) -> int:
     finally:
         if cert_cb is not None:
             cert_cb.close()
+        if walkcurr_cb is not None:
+            walkcurr_cb.close()
         if bg is not None:
             bg.shutdown()
     model.save(out_path)

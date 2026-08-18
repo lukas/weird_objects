@@ -420,104 +420,15 @@ def locomotion_quality(m: dict) -> float:
     return float(score)
 
 
-# Walk-curriculum certification gate (operator order 2026-08-18,
-# cw-dynrep-criticD-walkcurr1). A bucket passes its deterministic
-# held-out assay (n >= 8 episodes) only if ALL hold:
-#   no falls; six-leg gait cycling (aggregate switch rate AND the
-#   weakest single foot both cycling); commanded progress >= 0.75;
-#   correct direction (zero wrong-way episodes); bounded cross-track;
-#   slip <= 2 per progress meter; roll <= 6 deg; bounded slew; and the
-#   bucket's own stop threshold where stop segments exist.
-WALKCURR_GATE = dict(
-    cmd_prog_frac_min=0.75,
-    slip_per_m_max=2.0,
-    peak_roll_deg_max=6.0,
-    slew_sat_max=0.5,
-    cross_track_frac_max=0.30,
-    contact_sw_per_s_min=3.0,
-    foot_sw_min_per_s_min=0.5,
+# Walk-curriculum certification gate + controller: moved to the
+# backend-neutral rl_move/sim/walkcurr_cert.py (operator order
+# 2026-08-18 fb_20260818T065930_03b422 — the curriculum must also
+# run on the Warp/MJX GPU-physics trainer). Re-imported here so
+# every historical call site and test keeps working; behavior is
+# bit-identical to the walkcurr1/walkcurr2 originals.
+from rl_move.sim.walkcurr_cert import (  # noqa: E402
+    WALKCURR_GATE, WalkCurrController, walkcurr_bucket_pass,
 )
-
-
-def walkcurr_bucket_pass(m: dict, spec: dict,
-                         gate: dict | None = None
-                         ) -> tuple[bool, dict]:
-    """Apply the certification gate to one bucket's assay metrics.
-    nan metrics FAIL their check (unmeasurable competence is not
-    competence) except stop_speed, which is nan only when the assay
-    drew no stop segments (nothing to gate that round).
-
-    ``gate`` explicit arg > ``spec["gate"]`` (walkcurr2's per-bucket
-    calibration, WALKCURR_GATE_V2_IGNITION/_QUALITY in walk_task.py)
-    > the module WALKCURR_GATE default (walkcurr1, unchanged) — so the
-    one trainer call site (``walkcurr_bucket_pass(m, spec)``) auto-
-    selects the right tier for either curriculum version with no
-    caller change."""
-    if gate is None:
-        gate = spec.get("gate", WALKCURR_GATE)
-    def _ok_min(key, lo):
-        v = _nn(m.get(key), float("-inf"))
-        return v >= lo
-    def _ok_max(key, hi):
-        v = _nn(m.get(key), float("inf"))
-        return v <= hi
-    checks = {
-        "no_falls": _nn(m.get("early_term_rate"), 1.0) == 0.0,
-        "six_leg_gait": (_ok_min("contact_sw_per_s",
-                                 gate["contact_sw_per_s_min"])
-                         and _ok_min("foot_sw_min_per_s",
-                                     gate["foot_sw_min_per_s_min"])),
-        "progress": _ok_min("cmd_prog_frac", gate["cmd_prog_frac_min"]),
-        "direction": _nn(m.get("wrong_way"), 1.0) == 0.0,
-        "cross_track": _ok_max("cross_track_frac",
-                               gate["cross_track_frac_max"]),
-        "slip": _ok_max("slip_per_m", gate["slip_per_m_max"]),
-        "roll": _ok_max("peak_roll_deg", gate["peak_roll_deg_max"]),
-        "slew": _ok_max("slew_sat", gate["slew_sat_max"]),
-    }
-    stop_gate = spec.get("stop_gate")
-    if stop_gate is not None:
-        v = m.get("stop_speed_m_s")
-        v = float(v) if v is not None else float("nan")
-        # nan = the fixed held-out seeds drew no stop segment this
-        # round — nothing to gate (possible but rare at n>=8).
-        checks["stop"] = (v != v) or v <= float(stop_gate)
-    return all(checks.values()), checks
-
-
-class WalkCurrController:
-    """Pure promotion/retention/rollback bookkeeping for the walk
-    curriculum (unit-tested without SB3): consumes one
-    walkcurr_update_admission status per cert round and answers
-    'promote' / 'rollback' / None. Rollback fires after
-    ``fail_streak_limit`` CONSECUTIVE rounds with a retained-bucket
-    failure, and only once a promotion checkpoint exists to roll back
-    to. A retention-clean round (retained all pass, whatever the
-    frontier did) resets the streak."""
-
-    def __init__(self, fail_streak_limit: int = 2):
-        self.limit = int(fail_streak_limit)
-        self.fail_streak = 0
-        self.promotions = 0
-        self.rollbacks = 0
-        self.has_promo = False
-
-    def record_round(self, status: dict) -> str | None:
-        if status.get("promoted"):
-            self.fail_streak = 0
-            self.promotions += 1
-            self.has_promo = True
-            return "promote"
-        if (status.get("frontier_bucket", 0) > 0
-                and not status.get("retention_passed", True)):
-            self.fail_streak += 1
-            if self.fail_streak >= self.limit and self.has_promo:
-                self.fail_streak = 0
-                self.rollbacks += 1
-                return "rollback"
-        else:
-            self.fail_streak = 0
-        return None
 
 
 def _foot_site_ids(env) -> list[int]:

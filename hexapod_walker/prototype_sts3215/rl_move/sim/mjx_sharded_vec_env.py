@@ -422,6 +422,11 @@ def _worker_main(conn, layout, task_cls, env_kwargs, lo, hi, seed,
                     infos.append(dict(info))
                 conn.send(("ok", infos))
 
+            elif cmd == "pool_flush":
+                n_flushed = sum(len(p) for p in pool)
+                pool = [[] for _ in envs]
+                conn.send(("ok", n_flushed))
+
             elif cmd == "pop":
                 local_idx = args[0]
                 res = []
@@ -761,6 +766,14 @@ class MjxShardedVecEnv(VecEnv):
         self.stepper.inject_env_states(
             np.asarray(done_idx, dtype=int), np.asarray(qpos),
             np.asarray(qvel), np.asarray(q_nom))
+
+    def flush_reset_pools(self) -> int:
+        """Sharded twin of MjxVecEnv.flush_reset_pools: drop the parent
+        device rows AND every worker's host pool entries."""
+        n = sum(len(p) for p in self._pool_dev)
+        self._pool_dev = [[] for _ in range(self.num_envs)]
+        self._broadcast("pool_flush")
+        return n
 
     # -- SB3 VecEnv API --------------------------------------------------
 

@@ -377,6 +377,18 @@ class MjxVecEnv(VecEnv):
                                        np.asarray(q_nom))
         return res
 
+    def flush_reset_pools(self) -> int:
+        """Drop every pre-settled pool entry (returns the count). Used
+        by curriculum admission changes (walkcurr promote/rollback):
+        pool entries embed the bucket/DR draw made at MINT time, so
+        after an admission change stale entries could inject episodes
+        from a distribution the curriculum no longer allows (after a
+        rollback, even a re-LOCKED bucket). The next termination
+        triggers a refill under the current admission state."""
+        n = sum(len(p) for p in self._pool)
+        self._pool = [[] for _ in range(self.num_envs)]
+        return n
+
     # ------------------------------------------------------------------
     # SB3 VecEnv API
     # ------------------------------------------------------------------

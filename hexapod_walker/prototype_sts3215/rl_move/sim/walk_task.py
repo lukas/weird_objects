@@ -439,7 +439,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                           "_ls_slip_m", "_ls_prog_m",
                           "_yaw_still_ema", "_stance_slip_acc",
                           "_gait_last_step", "_gait_cmd_tick",
-                          "_gait_gate_qfactor")
+                          "_gait_gate_qfactor", "_wp")
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -576,6 +576,34 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             raise ValueError("goal.walk_curriculum and "
                              "goal.walk_lp_curriculum are mutually "
                              "exclusive command samplers")
+        # goal.walk_pure (2026-08-18, operator order
+        # fb_20260818T065930_03b422): pure-walk diet fixed at
+        # CONSTRUCTION time — every p_<mode> on the goal generator is
+        # zeroed and p_walk set to 1.0 before the first reset, so the
+        # batched MJX vec envs (which build their shim envs internally
+        # and mint reset pools immediately) can never sample a mixed
+        # diet before a post-construction set_goal_mix lands. Default
+        # 0 = off, bit-exact legacy (no draws, no attribute writes).
+        if float(cfg_get(self.cfg, "goal", "walk_pure",
+                         default=0.0)) > 0.0:
+            gen = self._goal_gen
+            for _name in dir(gen):
+                if (_name.startswith("p_")
+                        and isinstance(getattr(gen, _name),
+                                       (int, float))):
+                    setattr(gen, _name, 0.0)
+            gen.p_walk = 1.0
+        # In-env walk quality probe (measurement only, default OFF;
+        # walkcurr MJX certification, fb_20260818T065930_03b422): when
+        # walk_probe_on is set (VecEnv set_attr on cert envs), each
+        # episode accumulates the eval_task quality metrics from the
+        # same mirrored fields the reward stack reads (pad-body XY,
+        # touch sensors, safety slew, IMU state, goal refs) and emits
+        # them as info["walk_probe"] on the terminal tick. Never
+        # affects obs, reward, termination or rng on any backend.
+        self.walk_probe_on = bool(float(cfg_get(
+            self.cfg, "goal", "walk_probe", default=0.0)) > 0.0)
+        self._wp = None
         # Tripod phase clock (default OFF = legacy obs width; see module
         # docstring on the phase reward). Obs order: [base, vel, phase].
         self._phase_obs = float(cfg_get(self.cfg, "goal", "walk_phase_obs",
@@ -729,6 +757,146 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             # untouched (bit-exact legacy).
             self._walkcurr_prepare_episode()
         return super()._reset_begin(seed)
+
+    def _reset_finalize(self):
+        obs, info = super()._reset_finalize()
+        if self.walk_probe_on:
+            self._walk_probe_start()
+        return obs, info
+
+    # ------------------------------------------------------------------
+    # In-env walk quality probe (walk_probe_on; measurement only).
+    # Same formulas as train_ppo_transfer.eval_task's external loop,
+    # with ONE sourcing difference: foot XY comes from the pad BODIES
+    # (self._pad_bids — mirrored per tick into the MJX shims' FakeData,
+    # exactly what the reward stack reads) instead of the foot sites
+    # (which the batched backend does not mirror). Identical code runs
+    # on the C env and both MJX vec envs, so cert numbers are directly
+    # comparable across backends.
+
+    def _walk_probe_start(self) -> None:
+        self._wp = dict(
+            tr=tuple(self._tilt_ref0),
+            sat_limit=0.98 * self.safety.max_dq,
+            prev_cmd=self.safety._last_safe.copy(),
+            prev_on=None, prev_xy=[None] * 6,
+            peak_roll=0.0, peak_pitch=0.0, peak_gyro=0.0,
+            slip=0.0, sw=0, sat_jt=0, sat_all=0,
+            sw_foot=[0] * 6, on_ticks=0,
+            h0=float(self.data.xpos[self._chassis_bid, 2]),
+            xy0=self.data.xpos[self._chassis_bid, :2].copy(),
+            h_sum=0.0, vx_se=0.0, vy_se=0.0, wz_se=0.0, vx_n=0,
+            cmd_dist=0.0, prog_m=0.0, cross_m=0.0,
+            stop_v_sum=0.0, stop_ticks=0,
+            head_ticks=int(round(2.0 / self.dt)),
+            ret=0.0, n=0)
+
+    def _walk_probe_tick(self, reward: float, term: bool, trunc: bool,
+                         info: dict) -> None:
+        w = self._wp
+        w["ret"] += reward
+        w["n"] += 1
+        n = w["n"]
+        st = self._state
+        w["peak_roll"] = max(w["peak_roll"],
+                             abs(st.imu_roll - w["tr"][0]))
+        w["peak_pitch"] = max(w["peak_pitch"],
+                              abs(st.imu_pitch - w["tr"][1]))
+        w["peak_gyro"] = max(w["peak_gyro"],
+                             float(np.max(np.abs(st.imu_gyro[:2]))))
+        cmd = self.safety._last_safe
+        n_sat = int(np.sum(np.abs(cmd - w["prev_cmd"])
+                           >= w["sat_limit"]))
+        w["sat_jt"] += n_sat
+        w["sat_all"] += int(n_sat >= 6)
+        w["prev_cmd"] = cmd.copy()
+        on: list[bool] = []
+        for f in range(6):
+            adr = self._touch_adr[f]
+            is_on = bool(adr >= 0
+                         and float(self.data.sensordata[adr]) > 0.5)
+            b = self._pad_bids[f]
+            xy = self.data.xpos[b, :2].copy() if b >= 0 else None
+            if w["prev_on"] is not None:
+                if is_on != w["prev_on"][f]:
+                    w["sw"] += 1
+                    w["sw_foot"][f] += 1
+                if (is_on and w["prev_on"][f] and xy is not None
+                        and w["prev_xy"][f] is not None):
+                    w["slip"] += float(np.hypot(*(xy - w["prev_xy"][f])))
+            w["prev_xy"][f] = xy
+            on.append(is_on)
+            w["on_ticks"] += int(is_on)
+        w["prev_on"] = on
+        w["h_sum"] += float(self.data.xpos[self._chassis_bid, 2])
+        vxr = getattr(self._goal_traj, "vx", None)
+        if vxr is not None:
+            j = min(max(n - 1, 0), len(vxr) - 1)
+            vyr = getattr(self._goal_traj, "vy", None)
+            wzr = getattr(self._goal_traj, "wz", None)
+            vx_meas, vy_meas = self._body_vel_xy()
+            vx_c = float(vxr[j])
+            vy_c = float(vyr[j]) if vyr is not None else 0.0
+            w["vx_se"] += (vx_c - float(vx_meas)) ** 2
+            w["vy_se"] += (vy_c - float(vy_meas)) ** 2
+            wz_c = float(wzr[j]) if wzr is not None else 0.0
+            w["wz_se"] += (wz_c - float(self._body_wz())) ** 2
+            w["vx_n"] += 1
+            s_ref = float(np.hypot(vx_c, vy_c))
+            w["cmd_dist"] += s_ref * self.dt
+            if s_ref > 1e-6:
+                w["prog_m"] += ((float(vx_meas) * vx_c
+                                 + float(vy_meas) * vy_c) / s_ref
+                                * self.dt)
+                w["cross_m"] += ((float(vy_meas) * vx_c
+                                  - float(vx_meas) * vy_c) / s_ref
+                                 * self.dt)
+            elif n > w["head_ticks"]:
+                w["stop_v_sum"] += float(np.hypot(vx_meas, vy_meas))
+                w["stop_ticks"] += 1
+        if term or trunc:
+            info["walk_probe"] = self._walk_probe_summary(bool(term))
+
+    def _walk_probe_summary(self, term: bool) -> dict:
+        w, nan = self._wp, float("nan")
+        n = max(w["n"], 1)
+        rad2deg = 180.0 / math.pi
+        xyN = self.data.xpos[self._chassis_bid, :2]
+        vx_n = w["vx_n"]
+        return {
+            "return": w["ret"], "ep_len": float(w["n"]),
+            "early_term": float(term),
+            "peak_roll_deg": w["peak_roll"] * rad2deg,
+            "peak_pitch_deg": w["peak_pitch"] * rad2deg,
+            "peak_gyro_dps": w["peak_gyro"] * rad2deg,
+            "slip_m": w["slip"],
+            "fwd_m": float(np.hypot(*(xyN - w["xy0"]))),
+            "contact_sw_per_s": w["sw"] / max(w["n"] * self.dt, 1e-9),
+            "slew_sat": w["sat_jt"] / max(w["n"] * 18, 1),
+            "slew_sat_all": w["sat_all"] / n,
+            "mean_h_m": w["h_sum"] / n,
+            "dh_m": (float(self.data.xpos[self._chassis_bid, 2])
+                     - w["h0"]),
+            "vx_rmse": (float(np.sqrt(w["vx_se"] / vx_n))
+                        if vx_n else nan),
+            "vy_rmse": (float(np.sqrt(w["vy_se"] / vx_n))
+                        if vx_n else nan),
+            "wz_rmse_dps": (float(np.sqrt(w["wz_se"] / vx_n)) * rad2deg
+                            if vx_n else nan),
+            "cmd_prog_m": w["prog_m"],
+            "cmd_prog_frac": (w["prog_m"] / w["cmd_dist"]
+                              if w["cmd_dist"] > 0.01 else nan),
+            "slip_per_m": w["slip"] / max(w["prog_m"], 0.05),
+            "cross_track_frac": (abs(w["cross_m"]) / w["cmd_dist"]
+                                 if w["cmd_dist"] > 0.01 else nan),
+            "wrong_way": (float(w["prog_m"] < 0.0)
+                          if w["cmd_dist"] > 0.01 else nan),
+            "stop_speed_m_s": (w["stop_v_sum"] / w["stop_ticks"]
+                               if w["stop_ticks"] else nan),
+            "foot_sw_min_per_s": (min(w["sw_foot"])
+                                  / max(w["n"] * self.dt, 1e-9)),
+            "duty_factor": w["on_ticks"] / max(w["n"] * 6, 1),
+        }
 
     # ------------------------------------------------------------------
     # Adaptive competence+retention walk-command curriculum
@@ -2900,6 +3068,27 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         elif getattr(self, "_is_recover", False):
             reward, term, info = self._recover_reward(
                 float(reward), term, trunc, info)
+        # reward.term_penalty (2026-08-18, fb_20260818T065930_03b422):
+        # cfg-gated in-env twin of train_ppo_transfer's TRAINING-ONLY
+        # _term_penalty_wrapper (one-time charge on early termination,
+        # the dynrep pilots' anti-suicide term) so the batched MJX
+        # trainers — which construct shim envs internally and cannot
+        # wrap them — can train on the exact walkcurr2 reward contract.
+        # Default 0.0 = bit-exact legacy. Eval/cert envs leave it 0
+        # (evals run the raw reward, same rule as the transfer trainer).
+        if term and not trunc:
+            _tp = float(cfg_get(self.cfg, "reward", "term_penalty",
+                                default=0.0))
+            if _tp > 0.0:
+                reward = float(reward) - _tp
+        if self.walk_probe_on and self._wp is not None:
+            # Measurement-only walk quality probe (walkcurr MJX cert,
+            # fb_20260818T065930_03b422): accumulate AFTER the full
+            # reward stack so per-episode return matches what the
+            # trainer sees; on the terminal tick the summary rides the
+            # info dict. Zero effect on obs/reward/rng.
+            self._walk_probe_tick(float(reward), bool(term),
+                                  bool(trunc), info)
         return obs, reward, term, trunc, info
 
     def _quad_income(self, reward: float, info: dict) -> tuple:
