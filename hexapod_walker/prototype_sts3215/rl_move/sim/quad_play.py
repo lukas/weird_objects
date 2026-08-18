@@ -131,8 +131,8 @@ class Player:
 
     @property
     def speed_eff(self) -> float:
-        """Live speed with the gait's cap (the deep-lean trot loses its
-        margin above 1x: 1.25x fell, 2x walks backward — sim-measured)."""
+        """Live speed with the gait's cap (the calm trot survives 0.5-2x
+        in sim; the cap is prudence for hardware's two-foot beats)."""
         cap = QW.GAITS[self.gait_name].get("speed_cap", 2.0)
         return min(self.speed, cap)
 

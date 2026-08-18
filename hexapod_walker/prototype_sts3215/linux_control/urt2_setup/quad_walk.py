@@ -63,23 +63,27 @@ WALK_PHASE = {2: 0.0, 1: 0.25, 3: 0.5, 4: 0.75}   # LH LF RH RF
 #           lifting a front tips the body about the stance diagonal
 #           exactly as fast as the foot rises — the foot SLIDES along
 #           the floor (measured: 78% of mid-swing in contact, pitch
-#           -16 -> -1 deg). At -80/-20 the swing foot is airborne ~60%
-#           of mid-swing with a 54 mm apex at 1x, 15.5 mm/s realized
-#           (2.5x the walk), tilt band ~16 deg = mostly the commanded
-#           roll. body_dx -90 tips over; above 1x the deep stance loses
-#           its margin (1.1x rocks 30 deg, 1.25x FELL in the full
-#           entry/walk/exit run, 2x walks BACKWARD) — hence speed_cap
-#           1.0, enforced by the demo runner and quad_play.
+#           -16 -> -1 deg). body_dx -90 tips over.
+#           On top of the lean, the CALM cadence (period 3.2 s, duty
+#           0.68 = real 4-foot overlap between beats, roll 5, sway 22)
+#           dominates every faster/wilder variant in the 08-18 DR
+#           sweep: 20 mm/s realized (~3x the walk), ~11 deg tilt band,
+#           40 mm front apex, and it survives friction x0.6..x1.4,
+#           100 ms command latency, and the WHOLE 0.5-2x live-speed
+#           range without falling (the old period-2.4/roll-8 preset
+#           rocked 56 deg on grippy floors and FELL at 1.25x).
+#           speed_cap 1.5 is hardware prudence, not a sim limit —
+#           enforced by the demo runner and quad_play.
 GAITS: dict[str, dict] = {
     "walk": dict(stride=STRIDE_M, lift=LIFT_M, period=PERIOD_S, duty=DUTY,
                  sway=SWAY_M, sway_phase=SWAY_PHASE_RAD, phase=WALK_PHASE),
     "trot": dict(stride=0.080, lift=0.028, lift_front=0.045,
-                 period=2.4, duty=0.60,
+                 period=3.2, duty=0.68,
                  body_dx=-0.080, pitch=math.radians(-20.0),
-                 sway=0.030, sway_phase=math.radians(180.0),
-                 roll=math.radians(8.0), roll_phase=math.radians(270.0),
+                 sway=0.022, sway_phase=math.radians(180.0),
+                 roll=math.radians(5.0), roll_phase=math.radians(270.0),
                  phase={1: 0.0, 3: 0.0, 4: 0.5, 2: 0.5},
-                 speed_cap=1.0),
+                 speed_cap=1.5),
 }
 
 # entry: shift back · step mids out to the splayed stance (one at a

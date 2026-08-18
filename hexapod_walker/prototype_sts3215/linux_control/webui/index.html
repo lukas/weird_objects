@@ -275,12 +275,13 @@ feet, zero commanded scrub.">
         (footfalls LH·LF·RH·RF, one foot up at a time, statically stable,
         weight sway against the swing); the <b>trot</b> moves DIAGONAL leg
         pairs together like a horse, leaning deep on its haunches — real
-        high steps (~54&nbsp;mm foot clearance in sim at 1×) at ~2.5× the
-        walk's pace, with a horse-prance from the commanded weight-shift
-        roll. Only two feet hold the floor mid-beat, so treat it as the
-        more advanced act on hardware. The trot's live speed is
-        <b>auto-capped at 1×</b> (the deep lean loses its balance margin
-        past that; at 2× it walks backward — measured in sim).
+        high steps (~40&nbsp;mm foot clearance in sim at 1×) at ~3× the
+        walk's pace, with a gentle weight-shift prance. Its calm cadence
+        survives friction ×0.6–1.4, 100&nbsp;ms latency and the whole
+        0.5–2× speed range in sim without falling; still, only two feet
+        hold the floor mid-beat, so treat it as the more advanced act on
+        hardware. Live speed is <b>auto-capped at 1.5×</b> as hardware
+        prudence.
         Level-body 4-leg walking is geometrically impossible on this robot
         (CoM lands ahead of the 4-foot polygon) — rearing back is what
         makes it work. Sim-proven on the MuJoCo twin: walk margin never
@@ -314,7 +315,7 @@ feet, zero commanded scrub.">
       <div class="hint">Homes via the validated stand-up first (same as the
         standing dances), τ900 + 3&nbsp;A stall guard while moving. Realized
         pace at 1× (sim, hardware-speed servo profile): walk ~7&nbsp;mm/s,
-        trot ~15&nbsp;mm/s (feet pivot-slip under load, so commanded stride
+        trot ~20&nbsp;mm/s (feet pivot-slip under load, so commanded stride
         only partly realizes). Auto-logs cmd vs encoder →
         <code>logs/demo_quad_*.csv</code>.</div>
     </div>

@@ -1784,8 +1784,8 @@ def run_streamed_demo(bus: FeetechBus, name: str, *,
         spd0 = _clamp_live_speed(speed)
         speed_fn = lambda: spd0  # noqa: E731
     if name == "quad_trot":
-        # sim-measured: above 1x the deep-lean trot loses its margin
-        # (1.25x fell, 2x walks BACKWARD) — hard-cap the live slider.
+        # calm trot survives 0.5-2x in sim; the cap is hardware
+        # prudence for the two-foot support phases.
         from quad_walk import GAITS
         cap = GAITS["trot"].get("speed_cap", 2.0)
         base_fn = speed_fn
