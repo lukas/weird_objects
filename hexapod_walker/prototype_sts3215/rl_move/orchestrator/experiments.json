@@ -101577,7 +101577,7 @@
       "bridge2: actor-only curriculum rollback + critic-EV readiness release + hard1 retention reward stack, per operator spec fb_20260818T112826_9ed832 after retry1 solved geometry but failed retention (falls .125/.375/.50)"
     ],
     "created": "2026-08-18T11:52:26+00:00",
-    "status": "RUNNING",
+    "status": "FAILED",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -101607,6 +101607,17 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:dynrep nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-dynrep-criticD-walkcurr4-bridge2 --steps 4000000 --task joint_walk --seed 8 --n-envs 4096 --impl warp --host-workers 24 --require-gpu-physics --critic-encoder rl_move/dynamics/models/cw-dynrep-tf-state2-recovered1.pt --critic-encoder-md5 9df48f687967c25085ee50171e4110ff --anchor-data rl_move/dynamics/datasets/v5_mjx_fresh --walk-curriculum --walk-curriculum-version 3 --walkcurr-cert-every 500000 --walkcurr-cert-episodes 8 --n-epochs 3 --target-kl 0.01 --actor-lr 1e-5 --actor-lr-final 1e-5 --critic-lr 3e-4 --kl-rollback 0.03 --kl-rollback-lr-factor 0.5 --actor-freeze-steps 500000 --actor-freeze-ev-threshold 0.2 --actor-freeze-ev-windows 3 --actor-freeze-max-steps 2000000 --walkcurr-actor-only-rollback --walkcurr-cert-at-init --walkcurr-precert-min-prog 0.5 --walkcurr-precert-buckets 3 --dr-scale 0.3 --eval-every 1000000 --video-every 2000000 --save-every 2000000 --cfg-set obs.history_frames=16 --cfg-set goal.walk_cmd_resample_s=4.0 --cfg-set goal.walk_cmd_resample_jitter=0.5 --cfg-set goal.walk_stop_frac=0.15 --cfg-set reward.term_penalty=30 --cfg-set reward.walk_height_gate=1 --cfg-set reward.walk_height_sigma_mm=11 --cfg-set reward.walk_kernel_prog_gate=1 --cfg-set safety.walk_max_height_drop_mm=25 --cfg-set safety.walk_height_grace_s=2 --cfg-set reward.walk_anchor_gate=1 --cfg-set reward.anchor_tol_mm=10 --cfg-set reward.k_drag_loaded=10 --cfg-set reward.k_park_duty=1 --init-from rl_move/sim/policies/ppo_goal_cw_dep_bcgait1_hard1.zip --init-from-actor-only --out-name ppo_goal_cw_dynrep_criticD_walkcurr4_bridge2 --notes 'bridge2: actor-only curriculum rollback + critic-EV readiness release + hard1 retention reward stack, per operator spec fb_20260818T112826_9ed832 after retry1 solved geometry but failed retention (falls .125/.375/.50)' > /tmp/train_cw-dynrep-criticD-walkcurr4-bridge2.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-dynrep-criticD-walkcurr4-bridge2.log",
     "wandb_id": "leuz9fcr",
-    "verified": "2026-08-18T11:55:29+00:00"
+    "verified": "2026-08-18T11:55:29+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-18T12:01:16+00:00",
+        "process_alive": false,
+        "verdict": "DEAD",
+        "log_tail": "hold 1.42\u00b0, track 2.93\u00b0, unload 1.50\u00b0, raise 1/2, rise f0/2 b1/2 c0/2, walk err 0.060 m/s, tipped 2/2, rolltrap 1/2 | canary rise_flat_a=1 rise_flat_b=0 rise_bridge_a=1 rise_bridge_b=0 rise_crouch_a=0 rise_crouch_b=0 lower_a=0 lower_b=0 hold_a=1 hold_b=1 walk_fwd_a=1 walk_fwd_b=1\n[video] logged reel (2,007,040 steps | rise:TERM(tilt_pitch) walk:ok raise:ok hold:ok)\n/usr/local/lib/python3.11/multiprocessing/resource_tracker.py:254: UserWarning: resource_tracker: There appear to be 39 leaked shared_memory objects to clean up at shutdown\n  warnings.warn('resource_tracker: There appear to be %d '\n"
+      }
+    ],
+    "triage": "done",
+    "verdict": "FAIL \u2014 the run correctly self-aborted at its own pre-registered IN-RUN fail-closed gate at 2.007M/4M steps: critic explained-variance never held >=0.2 for 3 consecutive updates within the 2M actor-freeze cap (final EV=-0.345, streak=0), so the actor was never unfrozen. A NEW failure mode vs retry1 (falls escalating 12.5%->37.5%->50% with curriculum depth): even with the critic protected from any rollback reset (actor-only rollback) and hard1's anti-drag/anti-park terms restored, the fresh condition-D critic (frozen predictive-transformer encoder) never learned a usable value function in 2M steps. Per the single-authority gate: NO 40M. This was the operator's own bridge2 correction (fb_20260818T112826_9ed832, ratified 20260818T114821Z) and it also failed, one layer deeper than retry1's (critic competence, not curriculum falls). The walkcurr4 tournament (bridge1-r1 precert-refused, retry1 falls-FAIL, bridge2 critic-EV-FAIL = 3 corrections) has spent ~11 arms today without beating its own parent cw-dep-bcgait1-hard1; SIM-SPRINT fit stays an open operator question (q_20260818T1035Z/1040Z/1103Z/1125Z). No bridge3 without an explicit new operator order.",
+    "hardware_ready": false
   }
 ]

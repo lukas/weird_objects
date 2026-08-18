@@ -1,5 +1,37 @@
 # dynrep — Dynamics-representation pretraining
 
+**08-18 ~12:1x UTC (triage cycle): `cw-dynrep-criticD-walkcurr4-bridge2`
+FAILED — its own pre-registered IN-RUN fail-closed gate fired at
+2.007M/4M steps, and the walkcurr4 tournament's third distinct
+correction has now failed for a THIRD distinct reason.** bridge2's
+fix (actor-only rollback preserving the critic + a critic-EV
+readiness gate before releasing the actor + hard1's anti-drag/
+anti-park reward stack restored) never got to a behavioral rung: the
+critic's explained-variance never held >=0.2 for 3 consecutive
+updates within its 2M-step actor-freeze cap (final EV=-0.345,
+streak=0), so the trainer correctly refused to ever unfreeze the
+actor and self-aborted rather than train against an unconverged
+critic — exactly the mechanism working as designed, not a crash. This
+is one layer deeper than retry1's failure (falls escalating
+12.5%->37.5%->50% with curriculum depth at B0-B2, a behavioral/
+retention problem): here the fresh condition-D critic (frozen
+predictive-transformer encoder feeding the value function) never
+learned a usable value function AT ALL in 2M steps of critic-only
+training, even fully protected from rollback resets. Per the
+pre-registered single-authority clause: FAIL, NO 40M. **Now/Next: the
+walkcurr4 tournament (bridge1-r1 precert-refused, retry1
+falls-FAIL, bridge2 critic-EV-FAIL — 3 corrections, ~11 arms today)
+has never beaten the champion it's initialized from
+(`cw-dep-bcgait1-hard1`), and the failure has moved from a
+curriculum-tuning question to a critic-competence question — a
+different, deeper design problem than any fix tried so far. NO
+bridge3 without an explicit new operator order: this line's
+SIM-SPRINT fit is already an open operator question
+(q_20260818T1035Z/1040Z/1103Z/1125Z in OPERATOR_QUESTIONS.md), and a
+fourth same-tournament arm on a newly-discovered problem would be a
+new hypothesis, not a continuation the operator has already ordered.
+Evidence: ledger verdict + W&B `leuz9fcr` OUTCOME note.**
+
 **08-18 ~11:5x UTC (operator-order recovery cycle, fb 20260818T111051Z
 + fb_20260818T112826_9ed832): `cw-dynrep-criticD-walkcurr4-bridge2`
 LAUNCHED (train-11, 4M, snapshot 59a8befe) — the operator-specced
