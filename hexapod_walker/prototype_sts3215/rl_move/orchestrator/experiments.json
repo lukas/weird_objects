@@ -97226,7 +97226,7 @@
       "f14d9993,a705c488,fe8501ac"
     ],
     "created": "2026-08-18T00:44:31+00:00",
-    "status": "RUNNING",
+    "status": "PASS",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -97267,7 +97267,10 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "done",
+    "hardware_ready": false,
+    "verdict": "Population sync PROVEN live at FULL 40M budget (CERT/recover_training_envs_synchronized=512 every round, B1-B14 adoptions logged, no init-from) -- the mechanism the any16-20 saga chased is now demonstrated end-to-end, not just at the bootstrap barrier. Frontier reached B14 (tangle_deep) by 16M steps and held through 40M -- deeper than any15's 'honest' B8 (that number was itself an artifact of any15's indices=0 broadcast bug, which this cohort does not have). Matched one-shot gate eval (same harness/injection as the any11==any15 comparison): det 13/18 DR-0, 16/18 DR-0.1 -- beats the prior matched baseline (10/18 DR-0, 11/18 DR-0.1); sto 0/18 matches the known action-noise hold-criterion artifact, not new evidence. Video-verified genuine six-foot recoveries (tangle untangling, park/crouch/partial all clean), no flag/stilt/park exploit; failures are short-of-height non-falls (upright, roll-tail single digits on most), not collapses. NEW finding, this time unconfounded: RECOVER_GUARD/rollback_count stayed 0 the ENTIRE 40M despite per-cert-round dips to near-zero on foundational buckets (e.g. B0 plant_catch down to 5-7/16 more than once) -- confirms the any15 dig-in's predicted windowed-pass-rate rollback-trigger gap on a run that was NOT confounded by the sync bug. Tangle-family wall (B15 tangle+bank) still unbroken -- consistent with the existing CLOSED tangle ruling, not a new miss. Part of population recover-any21-pop3 (s11/s12/s13 all finished this cycle; s12 scored best of the three). Recover/tangle redesign stays operator-gated and outside the SIM SPRINT; no follow-up arm queued."
   },
   {
     "run": "cw-recover-any21-pop3-s12",
@@ -97487,7 +97490,7 @@
       "f14d9993,a705c488,fe8501ac"
     ],
     "created": "2026-08-18T00:49:23+00:00",
-    "status": "RUNNING",
+    "status": "PASS (partial)",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -97514,7 +97517,10 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "done",
+    "hardware_ready": false,
+    "verdict": "Full 40M budget complete (integration gate already proven live this cycle-window). Matched gate-eval (n=18, same convention as the any11/any15 reference): DET 16/18 at DR-0 and 14/18 at DR-0.1 \u2014 a genuine new best for the recover line (prior reference 10/18 and 11/18) and reaches a materially higher curriculum frontier (tangle_deep/tangle+bank, bucket 14/15, vs the old B8 partial_high wall); only real det miss is tangle_mid (over_current, a genuine torque-limit fumble, not an exploit) plus the never-trained flip bucket. STO is 0/18 at both DR levels, unchanged from the established baseline \u2014 but reviewed sto videos (plant_catch, partial_high) show clean, level, six-foot stands with no fall/tangle/exploit; the failures are timeouts against the strict quiet-hold criterion (report.json: no TERM at all, not a crash), matching REWARD.mds documented stochastic strict-hold false-negative, not a new defect. Visual-quality caveat: even successful DET recoveries carry a real residual lean (roll tail ~24 deg, roll_settled 0/18 by the <2 deg bar) \u2014 not clean/level, a genuine hardware-readiness gap. Training-side: this members own curriculum reached frontier B14 fast (~15M steps) then STALLED for the remaining ~25M steps (62% of budget) with retention oscillating (bucket 0/plant_catch itself repeatedly crashed to 0-44% pass mid-run) before recovering by the final round -- the SAME stability-wall pattern already diagnosed at any11/any15s B7/B8, now recurring one rung higher at the tangle boundary; the sync/broadcast fix proved the MECHANISM, not the underlying stability wall. No flag/stilt/park exploit in any reviewed video. Verdict scoped to s12 only (its own post-B14 training diverged from s11/s13); not hardware-ready; recover/tangle redesign stays operator-gated per CURRENT_TRUTHS -- no autonomous follow-up queued."
   },
   {
     "run": "cw-recover-any21-pop3-s13",
@@ -97617,7 +97623,7 @@
       "f14d9993,a705c488,fe8501ac"
     ],
     "created": "2026-08-18T00:49:46+00:00",
-    "status": "RUNNING",
+    "status": "PASS",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [
@@ -97644,7 +97650,10 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "done",
+    "hardware_ready": false,
+    "verdict": "Weakest of the any21-pop3 cohort but still a real, non-exploit result. Population sync PROVEN live at FULL 40M budget (synchronized=512 every round, adoptions B1-B14 logged, no init-from). Frontier reached B14 (tangle_deep) by 16M and held through 40M (shared cohort history through the last promotion). Matched one-shot gate eval: det 13/18 DR-0 (roughly matches the prior matched baseline of 10/18), 10/18 DR-0.1 (slightly below the prior baseline's 11/18 -- this member drifted worse post-plateau, consistent with its training-log cert history); sto 0/18 is the known action-noise hold-criterion artifact. Video-verified genuine six-foot recoveries on the failures too (upright, low roll-tail, short-of-height non-falls), no flag/stilt/park exploit. Clearest single demonstration of the cohort's shared NEW finding: RECOVER_GUARD/rollback_count stayed 0 the entire 40M even as this member's own foundational buckets (B0 plant_catch, B1 onefoot_micro, B2 onefoot_mid) collapsed to single digits out of 16 repeatedly in the back half of training, including at the FINAL cert round (7/16, 3/16, 2/16) -- exactly the windowed-pass-rate rollback-trigger gap the any15 dig-in predicted, now confirmed on a run the sync bug does not confound. Once the population stops promoting (frontier plateaus at the tangle wall), members drift independently with no guard catching regressions -- s13 is the clearest cost of that gap. Tangle-family wall (B15 tangle+bank) still unbroken, consistent with the existing CLOSED ruling. Recover/tangle redesign stays operator-gated and outside the SIM SPRINT; no follow-up arm queued."
   },
   {
     "run": "probe-criticD40m1-viscompare1",
@@ -97677,6 +97686,18 @@
     "evidence": "Mechanism precedent: the recover-mode certification ladder (same admission/broadcast/rollback contract) is the campaign's proven curriculum machinery; frozen-critic-D advantage precedent: dynrep-tfwalk-critic1-D 3/3 seeds at 1M (mean 375.1 vs 325.6 scratch). New code smoke-tested: 13-test bank + full test_task_semantics green at 5e7c1db3; CPU lifecycle smoke (promotion+rollback exercised); CUDA canary on train-4 PASS.",
     "wandb_id": "137olxtr",
     "pid": 2772192,
-    "device": "cuda (NVIDIA H200, verified '[device] CUDA required and active' at trainer start)"
+    "device": "cuda (NVIDIA H200, verified '[device] CUDA required and active' at trainer start)",
+    "checkups": [
+      {
+        "time": "2026-08-18T05:03:30+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 0,
+        "fps": 1001.2,
+        "placement": "solo on GPU-MJX pod (dynrep trainer)",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   }
 ]

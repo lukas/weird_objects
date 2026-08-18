@@ -169,6 +169,56 @@ unresolved blockers between the robot and reliable joystick control.
   watches for the first real cert/retention frontier. Detail: main
   STATUS.md WAITING-ON, pod logs `/tmp/train_cw-recover-any21-pop3-
   s1{1,2,3}.log`.**
+  **FIRST BEHAVIORAL READOUT 08-18 ~05:3x UTC: `cw-recover-any21-pop3-s12`
+  ran its full 40M budget — real progress, still not hardware-ready.**
+  Matched gate-eval (n=18, any11/any15 convention): DET 16/18 @DR-0
+  and 14/18 @DR-0.1, a new best for the line (prior 10/18 & 11/18)
+  and the first checkpoint to clear genuine tangle poses (frontier
+  reached B14 `tangle_deep`/B15 `tangle+bank`, past the old B8
+  `partial_high` wall); only real miss is `tangle_mid` (over_current,
+  a real torque fumble) + the never-trained `flip`. STO is still
+  0/18 both DR levels — unchanged — but reviewed sto video (plant_
+  catch, partial_high) shows clean level six-foot stands with no
+  fall/tangle; failures are timeouts against the strict quiet-hold
+  check (no TERM logged), the same known evaluator false-negative,
+  not a new defect. Even DET successes carry a real ~24° residual
+  lean (roll_settled 0/18) — not clean/level. Training-side: this
+  member's own curriculum hit B14 by ~15M steps then STALLED for the
+  remaining ~25M (62% of budget), oscillating on retention (bucket 0
+  itself dipped to 0-44% mid-run) before recovering at the final
+  round — the SAME stability wall already diagnosed at any11/any15's
+  B7/B8, just recurring one rung higher; the sync fix proved the
+  MECHANISM, not the wall. Verdict scoped to s12 only (post-B14
+  training diverged per-member); s11/s13 verdicts are the concurrent
+  cycle's. No follow-up queued — recover/tangle redesign stays
+  `[operator]`-gated. Detail: `rl_docs/runs/cw-recover-any21-pop3-
+  s12.md`.
+  **s11/s13 READOUT (this concurrent cycle, 08-18 ~05:3x UTC):
+  same story, both PASS, neither hardware-ready.** Both also
+  completed the full 40M budget with frontier B14 held from 16M
+  onward (shared cohort history through the last promotion).
+  Matched gate-eval: s11 13/18 det-DR0 + 16/18 DR-0.1, s13 13/18 +
+  10/18 — s11 roughly matches s12's strength, s13 is the cohort's
+  weak point (its DR-0.1 read is the only one at/below the prior
+  10/18-11/18 baseline). Video-verified genuine six-foot recoveries
+  on both, including s13's failures (short-of-height non-falls, not
+  collapses) — no flag/stilt/park exploit anywhere in the cohort.
+  Same confirmed new finding as s12: `RECOVER_GUARD/rollback_count`
+  stayed 0 for all 40M on both members despite repeated per-round
+  collapses on foundational buckets — s13's final cert round is the
+  starkest example (B0/B1/B2 at 7/3/2 of 16 right at step
+  40,042,496, no rollback triggered even though the guard's own
+  4M-regressed-steps design should have had ample opportunity). This
+  is the clearest evidence yet that once the population frontier
+  plateaus at a wall, members drift independently and the individual
+  rollback guard's consecutive-sub-threshold-age trigger cannot
+  catch oscillating retention loss — confirms the any15 dig-in's
+  predicted fix (judge a WINDOWED PASS RATE, not consecutive age) on
+  a run the sync bug does not confound. No follow-up queued —
+  recover/tangle redesign (incl. the rollback-trigger fix) stays
+  `[operator]`-gated and outside the SIM SPRINT. Detail:
+  `rl_docs/runs/cw-recover-any21-pop3-s11.md`,
+  `rl_docs/runs/cw-recover-any21-pop3-s13.md`.
   **OUTCOME 08-17 ~23:0x UTC (operator MCP note
   fb_20260817T223644_c8bc48): integration gate FAILED — cohort
   STOPPED, all three ledger rows INVALID_INTEGRATION_CANARY.** The
