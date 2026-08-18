@@ -99622,7 +99622,7 @@
       "safety.walk_height_grace_s=2"
     ],
     "created": "2026-08-18T10:12:22+00:00",
-    "status": "INTENT",
+    "status": "RUNNING",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -99630,7 +99630,18 @@
       "running_experiments_before": 5,
       "code_sha_local": "f26cd6bee14de08e0343d29a2e6f6c8bd24d8ad6",
       "code_sha_pod": "f26cd6bee14de08e0343d29a2e6f6c8bd24d8ad6",
-      "wandb_env_on_pod": true
+      "wandb_env_on_pod": true,
+      "pid": "4867",
+      "log_growth_bytes": [
+        7047,
+        11385
+      ],
+      "wandb_id": "1k9494ba",
+      "global_step_window": [
+        262144,
+        524288
+      ],
+      "fps_estimate": 8738.1
     },
     "trainer": "ppo",
     "stack": "gpu-mjx",
@@ -99638,6 +99649,8 @@
     "assessment_scope": "full_budget_skill_acquisition",
     "evidence": "Operator order fb_20260818T065930_03b422 (all-GPU replacement for the noncompliant CPU-physics walkcurr2). Code f759b6ba (tags exp/cw-dynrep-criticD-walkcurr3[-runner]): condition-D + walkcurr V2 ported to train_ppo_mjx; test_walkcurr_mjx 14/14, test_walk_curriculum 19/19, full test_task_semantics 126/4/1, on-pod parity suites 45/47 (2 fails reproduce bit-identically on PRE-change code 17af24dd = pre-existing float flakes). CUDA canary canary-walkcurr3 (train-5, 08:32Z, 400k steps, this exact CLI): backend VERIFIED MjxShardedVecEnv impl=warp n_envs=4096, encoder md5 match, snapshot_version 0, frozen-snapshot heldout 2.286, update-health 7 actor/11 critic split, 4 cert rounds on the V2 table with in-env walk-probe metrics, KL-rollback wired, clean exit. Full-budget precedent: cw-dynrep-criticD-40m1 + walkcurr1/2 (same contract, CPU backend).",
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:dynrep nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-dynrep-criticD-walkcurr4-canB-r1 --steps 4000000 --task joint_walk --seed 8 --n-envs 4096 --impl warp --host-workers 24 --require-gpu-physics --critic-encoder rl_move/dynamics/models/cw-dynrep-tf-state2-recovered1.pt --critic-encoder-md5 9df48f687967c25085ee50171e4110ff --anchor-data rl_move/dynamics/datasets/v5_mjx_fresh --walk-curriculum --walk-curriculum-version 2 --walkcurr-cert-every 500000 --walkcurr-cert-episodes 8 --n-epochs 5 --target-kl 0.01 --actor-lr 3e-4 --actor-lr-final 3e-4 --critic-lr 3e-4 --kl-rollback 0.03 --kl-rollback-lr-factor 0.5 --dr-scale 0.3 --eval-every 1000000 --video-every 2000000 --save-every 2000000 --cfg-set obs.history_frames=16 --cfg-set goal.walk_cmd_resample_s=4.0 --cfg-set goal.walk_cmd_resample_jitter=0.5 --cfg-set goal.walk_stop_frac=0.15 --cfg-set reward.term_penalty=30 --notes 'respec of cw-dynrep-criticD-walkcurr3: Can the walking robot START walking upright if we only pay for upright progress and update the brain more aggressively? walkcurr3 is numerically healthy but stuck in a crouched shuffle (-65mm, height_factor 0.07, slip 4.6/m, zero B0 promotions) because the calibrated height/progress income gates were left OFF and its actor update (1e-4 x 3 epochs) is far below the proven acquisition recipe. Arm B of the operator'\"'\"'s same-seed A/B/C tournament (fb_20260818T085648_2a0a60): gates ON (sigma 11mm, 25mm safety cutoff, kernel progress gate) + actor LR 3e-4 x 5 epochs (the known 40m1 acquisition strength) held until B0 promotes, then the default-off frontier-gated handover to 3 epochs / 1e-4->1e-5. Prediction-if-true: B0 certs upright (height_factor>=0.8) with cmd_prog_frac>=0.5 by 4M; if-false: crouch-terminates or KL blowups force rollbacks. Strongest alternative: acquisition needs BC/gait-entry help, not LR. (-r1: first attempt REFUSED on a stale code marker after pod recreation; re-synced.)' --out-name ppo_goal_cw_dynrep_criticD_walkcurr4_canB_r1 --walkcurr-post-promo-epochs 3 --walkcurr-post-promo-actor-lr 1e-4 --walkcurr-post-promo-actor-lr-final 1e-5 --cfg-set reward.walk_height_gate=1 --cfg-set reward.walk_height_sigma_mm=11 --cfg-set reward.walk_kernel_prog_gate=1 --cfg-set safety.walk_max_height_drop_mm=25 --cfg-set safety.walk_height_grace_s=2 > /tmp/train_cw-dynrep-criticD-walkcurr4-canB-r1.log 2>&1 < /dev/null & echo $!",
-    "log": "/tmp/train_cw-dynrep-criticD-walkcurr4-canB-r1.log"
+    "log": "/tmp/train_cw-dynrep-criticD-walkcurr4-canB-r1.log",
+    "wandb_id": "1k9494ba",
+    "verified": "2026-08-18T10:15:26+00:00"
   }
 ]
