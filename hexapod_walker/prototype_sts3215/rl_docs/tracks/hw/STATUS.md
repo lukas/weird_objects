@@ -135,6 +135,21 @@ unresolved blockers between the robot and reliable joystick control.
   WAITING-ON, next checkup watches the full 7-point gate.**
   `q_20260817T2352Z` filed (same GPU-step-cap overage as the two
   prior launches).
+  **OUTCOME 08-18 ~00:2x UTC: any19 ALSO failed closed at the
+  barrier (no start_B00; all ready_B00 valid) — and the checkup
+  cycle that watched it live root-caused the ENTIRE any17/18/19
+  freeze family: a long-lived trainer process is pinned to the
+  stale W&B backend view from its first connect (wandb 0.28 shares
+  one authenticated session per process), so runs created after it
+  starts stay 404/invisible to it — by-id and by-name alike — while
+  out-of-process reads always see truth. One backend-view pinning
+  defect, not four client bugs. Second defect: all three members
+  hung PAST their 900s deadlines blocked in W&B calls (fail-closed
+  timeout unenforceable without call-level timeouts/watchdog).
+  Cohort killed + INVALID_INTEGRATION_CANARY x3, no behavioral
+  conclusions. Read-path fix landed at `8fbb7b21` ("Read recovery
+  peers through fresh GraphQL"); relaunch is `[operator]`-gated on
+  the sixth directive. Evidence: `q_20260817T2352Z` addendum.**
   **OUTCOME 08-17 ~23:0x UTC (operator MCP note
   fb_20260817T223644_c8bc48): integration gate FAILED — cohort
   STOPPED, all three ledger rows INVALID_INTEGRATION_CANARY.** The
