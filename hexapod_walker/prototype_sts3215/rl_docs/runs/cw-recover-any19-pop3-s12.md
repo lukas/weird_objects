@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-08-17T23:53:47+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 40000000
 
 **parent**: cw-recover-any18-pop3-s12
+
+**wandb_id**: 1c67c001
 
 **hypothesis**: Teach the robot to stand back up from any fallen position by racing three fresh identical-recipe seeds in lockstep and always adopting the first retention-clean winner at each curriculum bucket; this relaunch (member 1, seed 12, of population recover-any19-pop3, roster s11,s12,s13) tests the DETERMINISTIC IDENTITY protocol at 3cc62a2: every member gets a predeclared W&B run id (roster 6907573e,1c67c001,79ef86ae; this member 1c67c001) via wandb.init(id=...,resume=never) and aborts on mismatch, and peers are fetched directly by immutable id with load(force=True) — NO Api.runs/display-name discovery remains, which killed any18: W&B display-name search is eventually consistent and the leader stayed at 1/3 discovery for the full 900s barrier and failed closed. From scratch, absolutely NO --init-from. Never reuse any16/17/18 names. Operator execution directive fb_20260817T234449_bcdcce.
 
