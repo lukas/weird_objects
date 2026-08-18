@@ -1713,6 +1713,137 @@ def run_streamed_demo(bus: FeetechBus, name: str, *,
         _set_torque_limit(bus, live, 1000)
 
 
+def frames_air_meet(seconds: float = 24.0):
+    """Six solos that LOCK into a lineup, scatter, and lock again.
+
+    Sitting show (no stand-up).  The act cycles: every leg churns on
+    its own incommensurate frequency (the chaos vocabulary), then all
+    six blend into one MEETING pose, breathe there in perfect unison
+    for a beat, and dissolve back into chaos.  Each cycle meets in a
+    different lineup — overhead, a wide star, an odd/even
+    checkerboard, and overhead again for the finale (bigger pulse).
+    The chaos clock runs on GLOBAL time so re-entry after each meet
+    looks like the same storm resuming, not a restart.
+    """
+    # (yaw per-leg fn, hip, knee, pulse gain) per meeting pose.
+    meets = (
+        (lambda leg: 0.0, ARMS_UP_HIP_DEG, ARMS_UP_KNEE_DEG, 1.0),
+        (lambda leg: 14.0 if leg % 2 == 0 else -14.0, -12.0, -6.0, 1.0),
+        (lambda leg: 0.0, None, None, 1.0),      # checkerboard (per-leg)
+        (lambda leg: 0.0, ARMS_UP_HIP_DEG, ARMS_UP_KNEE_DEG, 1.8),
+    )
+    n = max(1, int(seconds / DT))
+    cyc = max(1, n // len(meets))
+    for i in range(n):
+        t = i * DT
+        k = min(i // cyc, len(meets) - 1)
+        u = (i - k * cyc) / max(cyc - 1, 1)      # 0..1 inside this cycle
+        yaw_fn, hip_m, knee_m, gain = meets[k]
+        # lock weight: chaos <0.32, blend 0.32-0.52, hold 0.52-0.8,
+        # dissolve 0.8-1.0 (blend ~1.2 s at the default tempo — 0.9 s
+        # peaked 121 deg/s into the overhead lineup, past the servos'
+        # ~115 deg/s comfortable tracking at demo write speed).
+        if u < 0.32:
+            w = 0.0
+        elif u < 0.52:
+            w = (u - 0.32) / 0.20
+        elif u < 0.80:
+            w = 1.0
+        else:
+            w = 1.0 - (u - 0.80) / 0.20
+        w = 0.5 - 0.5 * math.cos(math.pi * w)    # ease both edges
+        # Unison breath while held (everyone identical = the payoff).
+        pulse = gain * math.sin(2.0 * math.pi * 1.1 * t) * w
+        pose = _zero_pose()
+        for leg in range(6):
+            j = leg * 3
+            wy = 2 * math.pi * _CHAOS_FREQ[j % 6]
+            wh = 2 * math.pi * _CHAOS_FREQ[(j + 1) % 6]
+            wk = 2 * math.pi * _CHAOS_FREQ[(j + 2) % 6]
+            yaw_c = 18.0 * math.sin(wy * t + j * _CHAOS_GOLD)
+            hip_c = -22.0 - 16.0 * math.sin(wh * t + (j + 1) * _CHAOS_GOLD)
+            knee_c = 6.0 + 20.0 * math.sin(wk * t + (j + 2) * _CHAOS_GOLD)
+            if hip_m is None:                    # checkerboard lineup
+                hip_t = -52.0 if leg % 2 else -10.0
+                knee_t = 16.0 if leg % 2 else -8.0
+            else:
+                hip_t, knee_t = hip_m, knee_m
+            _yaw_hip_knee(
+                leg, pose,
+                yaw=yaw_c * (1.0 - w) + yaw_fn(leg) * w,
+                hip=hip_c * (1.0 - w) + (hip_t + 4.0 * pulse) * w,
+                knee=knee_c * (1.0 - w) + (knee_t - 3.0 * pulse) * w)
+        yield pose
+
+
+def frames_air_pendulum(seconds: float = 20.0):
+    """Pendulum wave — six swings drift apart and SNAP back into sync.
+
+    Sitting show.  Leg k swings at f0 + k*df: the tiny frequency
+    stagger makes the arms fan into travelling waves, dissolve into
+    apparent chaos, pass through a perfect odd/even checkerboard at
+    the halfway mark, and land back in full unison — the classic
+    pendulum-wave illusion, nobody steers it.  Alignment period is
+    seconds/2, so a run shows sync → storm → checkerboard → storm →
+    sync twice.  Amplitude fades in over ~1.5 s and out over the last
+    ~1.5 s so it starts and ends at the lifted base pose.
+    """
+    n = max(1, int(seconds / DT))
+    f0 = 0.45
+    df = 2.0 / max(seconds, 4.0)     # full re-sync twice per run
+    for i in range(n):
+        t = i * DT
+        a = min(1.0, t / 1.5, max(0.0, (seconds - t) / 1.5))
+        pose = _zero_pose()
+        for leg in range(6):
+            s = math.sin(2.0 * math.pi * (f0 + leg * df) * t)
+            _yaw_hip_knee(leg, pose,
+                          yaw=14.0 * a * s,
+                          hip=-22.0 - 15.0 * a * s,
+                          knee=6.0 + 17.0 * a * s)
+        yield pose
+
+
+def frames_air_orbits(seconds: float = 18.0):
+    """Six independent orbits that MAGNETIZE into one, then let go.
+
+    Sitting show.  Every foot draws the same air-circle but at its own
+    golden-angle phase — six planets on private clocks.  Every ~6 s a
+    "magnet" pulls all six phases onto the shared clock over ~1 s:
+    suddenly one synchronized orbit, two revolutions in lockstep, then
+    the phases relax back out to the golden spread.  Phase-space
+    blending (not pose crossfade) keeps the circle radius constant, so
+    it reads as gathering, never shrinking.
+    """
+    n = max(1, int(seconds / DT))
+    w_orb = 2.0 * math.pi * 0.40     # 0.4 Hz orbit
+    per = 6.0                        # magnet period, s
+    for i in range(n):
+        t = i * DT
+        a = min(1.0, t / 1.2, max(0.0, (seconds - t) / 1.2))
+        # magnet strength: cosine bump, up ~1s -> hold ~2s -> release ~1s
+        ph = (t % per) / per
+        if ph < 0.30:
+            m = 0.0
+        elif ph < 0.45:
+            m = (ph - 0.30) / 0.15
+        elif ph < 0.80:
+            m = 1.0
+        else:
+            m = 1.0 - (ph - 0.80) / 0.20
+        m = 0.5 - 0.5 * math.cos(math.pi * m)
+        pose = _zero_pose()
+        for leg in range(6):
+            off = math.remainder(leg * _CHAOS_GOLD, 2.0 * math.pi)
+            th = w_orb * t + off * (1.0 - m)
+            _yaw_hip_knee(leg, pose,
+                          yaw=15.0 * a * math.sin(th),
+                          hip=-24.0 - 13.0 * a * math.cos(th),
+                          knee=6.0 + 15.0 * a * math.cos(th - 0.7))
+        yield pose
+
+
+
 # Ordered gentlest → spiciest (web UI + CLI menu follow this order).
 DEMOS = {
     # --- gentle air (offsets around logical 0° / legs out) ---------------
@@ -1726,6 +1857,12 @@ DEMOS = {
     "ripple": ("[2 easy] yaw wave around the hex (air)", frames_ripple),
     "conductor": ("[2 easy] one leg waves; others hold", frames_conductor),
     "arms_up": ("[2 easy] sit: all six arms way over head", None),
+    "air_meet": ("[3 air show] six solos LOCK into lineups, then scatter",
+                 frames_air_meet),
+    "air_pendulum": ("[3 air show] pendulum wave — drifts apart, snaps "
+                     "into sync", frames_air_pendulum),
+    "air_orbits": ("[3 air show] six orbits magnetize into one, release",
+                   frames_air_orbits),
     # --- standing dances (streamed · live speed · around the live plant) --
     "stand_sway": ("[3 stand] slow body sway — weight orbits the hex", None),
     "stand_bounce": ("[3 stand] squat bob — smooth streamed bounce", None),
@@ -1774,6 +1911,9 @@ AIR_DEMO_SECONDS = {
     "ripple": 8.0,
     "conductor": 8.0,
     "arms_up": 6.0,
+    "air_meet": 24.0,
+    "air_pendulum": 20.0,
+    "air_orbits": 18.0,
 }
 
 
@@ -2559,6 +2699,7 @@ def frames_air_converge(seconds: float = 7.0):
                 hip=hip_c * (1.0 - b) + hip_t * b,
                 knee=knee_c * (1.0 - b) + knee_t * b)
         yield pose
+
 
 
 def frames_air_canon(seconds: float = 3.0):
