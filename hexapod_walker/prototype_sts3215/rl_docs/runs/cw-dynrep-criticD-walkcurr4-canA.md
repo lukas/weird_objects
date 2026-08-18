@@ -16,5 +16,7 @@
 
 **gate**: Behavioral admission at 4M, judged on B0 cert telemetry (NOT crash-free): cmd_prog_frac>=0.50, height_factor>=0.8, falls==0 in final cert round, slip_per_m<=3.0, positive recent B0 progress slope; B0 promotion preferred. Rank passing arms by retention-clean frontier, then cmd_prog_frac, slip, roll. Winner contributes its RECIPE (fresh actor) to 40M cw-dynrep-criticD-walkcurr4; if all three fail, one evidence-based correction then re-canary — never launch the 40M on a failing recipe.
 
+**verdict**: No training verdict - launch infra failure: died at boot on train-6 (frozen critic encoder file absent on that pod). Superseded by canA-r2.
+
 **failed_reason**: run never appeared as 'running' in W&B within 240s
 

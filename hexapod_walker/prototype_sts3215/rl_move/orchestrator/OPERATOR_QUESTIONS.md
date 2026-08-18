@@ -852,3 +852,48 @@ Entry format (append; newest last; update status in place):
 - ANSWER (operator): —
 - rulebook change: consider a "tournament" phase or a
   behavior-gated-canary budget note in RESEARCH_RULES.md.
+
+## q_20260818T1040Z — OPEN
+- cycle: triage cycle, cw-dynrep-criticD-walkcurr4-canA-r1
+- operator order: fb_20260818T085834_588d9a — URGENT addendum to
+  fb_20260818T085648_2a0a60 (the walkcurr4 A/B/C tournament, see
+  q_20260818T1035Z), filed ~08:58:34 UTC AFTER canA-r1/canB-r1 were
+  already in flight: revises arms B/C from a scratch-actor LR sweep to
+  ACTOR-ONLY INITIALIZATION from a proven scripted-gait / gait-
+  hardened checkpoint (frozen condition-D critic untouched), since
+  height/progress gates alone are a campaign-CLOSED lever.
+- conflicted with: (1) RL_PLAN.md "SIM SPRINT" / STATUS.md: "no new
+  research-track launches (dynrep, ...) unless the arm directly serves
+  sim rise+walk reliability" — these are two NEW dynrep-track full-
+  budget (4M) launches; (2) same phase-budget mismatch already on
+  record at q_20260818T1035Z (4M behavior-gated "canary" fits neither
+  CANARY's 2M cap nor DISCOVERY); (3) no pre-existing
+  `--init-from-actor-only` mechanism — required writing + landing new
+  trainer code (condition-D previously hard-refused any `--init-from`)
+  before the order could be executed at all.
+- why the cycle would have declined: SIM SPRINT bars new dynrep
+  launches; the phase system has no slot for a 4M behavior-judged
+  canary; the requested mechanism didn't exist in the trainer.
+- what was executed: built `--init-from-actor-only` +
+  `predictive_critic.actor_only_transplant` (default off, bit-exact
+  when unused; unit-tested `test_actor_only_transplant.py` 9/9; full
+  `test_task_semantics.py` bank re-run green 128/4/1); regenerated
+  `ppo_goal_cw_bcgait_init.zip` via `bc_init_gait.py` (holdout action
+  err 0.0136, probe_tall_wall matches the historical contract); CUDA-
+  canary-verified the mechanism on-pod (train-11, 600k steps: backend
+  VERIFIED, transplant confirmed 7 actor tensors, clean training, zero
+  KL rollbacks); launched `cw-dynrep-criticD-walkcurr4-gaitinit-bcinit`
+  (train-11) and `-gaitinit-hard1` (train-7) as `--phase acquisition`
+  with the operator's verbatim behavioral gate, both RUNNING. Named
+  distinctly from `canB-r1`/`canC-r1` (a concurrent cycle's PRE-
+  addendum scratch+LR arms, launched before the addendum was read) to
+  avoid collision/confusion; reconciled in dynrep/STATUS.md + main
+  STATUS.md WAITING-ON (the latter had mis-described canB-r1/canC-r1
+  as already testing the addendum — corrected).
+- ANSWER (operator): —
+- rulebook change: consider (a) a "tournament"/behavior-gated-canary
+  phase per q_20260818T1035Z's note (this entry is the same class,
+  compounding it), and (b) whether an addendum to an ALREADY-EXECUTING
+  operator order should count as covered by the original order's SIM-
+  SPRINT override, or needs its own explicit re-confirmation before
+  spending more GPU-pods on the same line.
