@@ -93782,7 +93782,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "in-cycle cw-arch-modeexperts-scratch3 since 2026-08-18T18:52:11"
   },
   {
     "run": "cw-recover-any14-retentiongate-cont1",
@@ -98559,7 +98560,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "in-cycle cw-dep-bcgait1-hard1-steer2-stagecurric1-cw-recover-any21c2- since 2026-08-18T19:07:25"
   },
   {
     "run": "cw-recover-any21c2-pop3-s12",
@@ -98666,7 +98668,7 @@
       "ppo_goal_cw_recover_any21c2_pop3_s12"
     ],
     "created": "2026-08-18T06:32:09+00:00",
-    "status": "RUNNING",
+    "status": "PASS (partial)",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -98713,7 +98715,10 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "done",
+    "hardware_ready": false,
+    "verdict": "Operator-ordered +100M/member continuation (\"keep it rumbling\") finished clean (100,000,007 steps, no traceback, all 6 integration-gate clauses held: barrier crossed at B14, CERT/recover_training_envs_synchronized=512 every round, member ACKed adopting winner s11's B15 with matching policy hash, RECOVER_GUARD/rollback_count=0 the whole run, no partial-cohort breach). Behavioral read answers the operator's own question but not cleanly either way: the population DID push the frontier past the old B14 tangle wall to B15 (video-verified genuine tangle-untangle + bank recoveries, no flag/stilt/park exploit), but this member's OWN matched gate-eval score FELL vs its pre-continuation checkpoint (det 8/18 DR-0, 10/18 DR-0.1 vs the prior 16/18 / 14/18) because previously-solved EASY buckets (crouch_shallow/mid/deep, partial_mid/low, zero, plant_catch under DR-0.1) now fail on this snapshot -- over_current stalls and short-of-height timeouts, not new falls or exploits. This is the SAME oscillating-retention wall CURRENT_TRUTHS already named (any15/any21 corrections), caught at a worse phase of the oscillation by chance of exactly-100M-steps landing, not a new mechanism and not proof either that more training hardens or breaks the frontier -- rollback never fired despite the dips, confirming the guard still can't see oscillation. Not hardware-ready. Verdict scoped to s12 only; s11/s13 are sibling members still training, off-limits to this cycle. No follow-up queued -- recover/tangle redesign stays operator-gated and outside the SIM SPRINT."
   },
   {
     "run": "cw-recover-any21c2-pop3-s13",
@@ -98820,7 +98825,7 @@
       "ppo_goal_cw_recover_any21c2_pop3_s13"
     ],
     "created": "2026-08-18T06:33:41+00:00",
-    "status": "RUNNING",
+    "status": "PASS",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -98862,7 +98867,10 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "done",
+    "hardware_ready": false,
+    "verdict": "Operator-ordered +100M/member continuation (\"keep it rumbling\") finished clean (100,007,936 steps, no traceback, all 6 integration-gate clauses held: barrier crossed at B14, CERT/recover_training_envs_synchronized=512 every round, frontier confirmed at B15 via the shared population adoption, no partial-cohort breach). Unlike sibling s12 (own gate score FELL), this member's OWN matched gate score IMPROVED vs its pre-continuation baseline: det 16/18 DR-0 + 16/18 DR-0.1 (was 13/18 + 10/18), video-verified genuine tangle_mid/tangle/bank recoveries (full untangle-to-stand, no flag/stilt/park exploit); the only clean miss is tangle_deep (over_current, non-exploit) plus the still-unreached flip bucket (fully inverted, beyond frontier, expected). NEW datum: RECOVER_GUARD/rollback_count=1 this run (fired once at step 72,024,064, restored a B15-frontier checkpoint) -- the guard IS capable of firing (not dead code), but training-time bucket stats at the final cert still show oscillation on easy buckets (crouch_shallow/mid/deep 0.125/0.375/0.25) even after that rollback, so one firing did not cure the wall -- consistent with, not a refutation of, the any15 dig-in's age-vs-rate critique. Cohort-level: s12 regressed, s13 improved on the identical mechanism/budget -- answers the operator's question with genuine both-directions evidence, not a clean win or loss. Not hardware-ready. Verdict scoped to s13 only; s11 is a sibling member off-limits to this cycle (still training at prompt time). No follow-up queued -- recover/tangle redesign stays operator-gated, outside the SIM SPRINT."
   },
   {
     "run": "cw-dynrep-criticD-walkcurr2",
@@ -102665,7 +102673,7 @@
       "--best-ckpt"
     ],
     "created": "2026-08-18T16:39:50+00:00",
-    "status": "RUNNING",
+    "status": "DONE",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -102708,7 +102716,9 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-dep-bcgait1-hard1-steer1-hard20m1 since 2026-08-18T17:26:05"
+    "triage": "done",
+    "hardware_ready": false,
+    "verdict": "FAIL on pre-registered gate clause (2) \u2014 the ~20M full-stress-mix hardening did NOT eliminate the direction-switch tangle/stall it was built to fix. Standard harness eval under the runs OWN trained stress_mix cfg (120s episodes, all six schedule families, instant switches; 24 total episodes across DR-0 gate + own-DR-0.35 passes): 3/24 episodes ended in a hard over_current safety termination (gate/sto ep2 fwd=0.32m slip=4.76/m; gate/sto ep3 fwd=0.27m slip=4.66/m; owncfg/sto ep3 fwd=0.77m slip=2.44/m) -- a servo jammed against a limit long enough to trip the safety cutoff, exactly the yaw-limit-saturation stall this arm targeted. Separately, gate/det ep1 is a severe leg-tangle: gait_valid=False, 3 legs sacrificed [0,2,4], slip 32/m, progress_ratio 0.03, forward 0.17m over the full 120s (video confirms near-stationary struggling, not a clean walk). No clean rise/fall boundary -- video for the 3 over_current episodes shows the robot staying upright (not a tip-over), so these are jam/stall failures, not roll falls; the harness roll_class=fell tag is driven purely by term=True per eval_checkpoint.py, not by roll angle -- worth noting for anyone reading the raw json. Base gait quality partially retained (gait_valid 6/6 on the other 23 episodes, roll clean/recovered on all but the leaning det/4, slip 1.3-2.4/m on the healthy episodes) but the core hypothesis (best-ckpt retention guard + longer full-mix exposure would cure the tangle) is REFUTED -- confirming this runs own pre-registered prediction-if-false: staged-dwell exposure is needed, not more full-mix steps from step 0. Did not additionally run the dedicated probe_dirswitch_tangle script or a legacy fixed-command matched-parent panel (clause 1) since clause (2) alone already fails the gate decisively (FAIL on any bar, per the gate text) -- no further compute spent chasing a result already settled. Next lever (queued this cycle): a staged command-difficulty curriculum via the existing tested sched.* engine driving goal.walk_cmd_stage 0->2 over training (built 08-17 for exactly this failure class, unused on this lineage until now)."
   },
   {
     "run": "cw-recover-predictive1-pop3-s11",
@@ -104151,5 +104161,129 @@
     "verified": "2026-08-18T18:01:07+00:00",
     "verdict": "KILLED at ~2.9M/20M steps: this is a byte-for-byte duplicate of a CONCURRENT cycle's already-COMPLETED hardening continuation (cw-dep-bcgait1-hard1-steer1-hard20m1, W&B w3fbxfj7 \u2014 same parent steer1c checkpoint, same seed=11, same --best-ckpt, same full recipe, launched 16:39:50, ran its full 20M budget and finished before I checked pod status at 17:58). I triaged cw-dep-bcgait1-hard1-steer1c as CANARY PASS independently and launched this continuation without first checking whether a peer cycle had already acted on the same WAITING-ON entry; w3fbxfj7 existed but its ledger row (mechanically re-verified RUNNING by the launcher's self-repair loop) was stale by the time I read status, so train-4 looked free. Killed immediately on discovering the duplicate (no useful signal lost \u2014 it was 2.9M steps into reproducing a run that already has a full 20M-step answer). The real verdict belongs to w3fbxfj7; see its ledger entry.",
     "triage": "done"
+  },
+  {
+    "run": "cw-dep-bcgait1-hard1-steer2-stagecurric1",
+    "pod": "hexapod-mjx-train-4",
+    "steps": 2000000,
+    "smoke": false,
+    "hypothesis": "Teach the tall walker to survive abrupt joystick direction changes by RAMPING difficulty instead of maxing it from step 0: the previous attempt (-steer1-hard20m1, 20M full stress-mix from tick zero) FAILED its behavioral gate (3/24 long direction-switch episodes tripped an over_current safety cutoff from a jammed joint, 1/24 sacrificed 3 legs in a near-total tangle/stall), confirming that runs own pre-registered prediction-if-false: full-mix exposure from step 0 is not enough. This canary uses the existing, already-tested sched.* in-run scheduler (built 08-17 for exactly this failure class, unused on this lineage until now) to ramp goal.walk_cmd_stage 0->2 over the first 60% of a 2M-step budget -- forward/back-only switches first (stage 0: flip_180+stop_go, heading forced to 0), then headings/circles/squares (stage 1), full family set incl. jitter only by the end (stage 2) -- instead of throwing every schedule family at the policy from tick 0. Same reward/eval stack, same bcgait1_hard1 warm-start as steer1c. Prediction-if-true: mechanism stays healthy (finite losses, no KL-rollback storm, tall gait retained on periodic eval/video) AND the SAME 24-episode direction-switch panel run at hard20m1 shows fewer/zero over_current or tangle events at this small budget -- evidence the staged approach is the right lever, worth a full hardening-scale continuation. Prediction-if-false: the staged ramp still produces jamming/tangle events at a similar rate, meaning the problem is not exposure SCHEDULE but something structural (e.g. the yaw-limit margin itself, or the switch being genuinely instantaneous/no-blend) -- next lever would be blend-in time on switches or a yaw-margin reward term, not more curriculum tuning.",
+    "gate": "MECHANISM-HEALTH CANARY ONLY: do not judge skill acquisition, close a behavior/reward class, or require mature gait at this checkpoint. CANARY/DISCOVERY (2M): PASS requires (1) finite losses, no sustained KL-rollback storm, value loss not diverging; (2) periodic eval + final video keep the tall in-band height and six-leg cycling gait (no re-crouch, no permanent leg-sacrifice) -- mechanism health only, mature tangle-robustness NOT the final verdict at this budget. INFORMATIONAL (folded into the same-cycle verdict, not a separate gate): run the identical 24-episode (6 families x 2 seeds x det+sto, DR-0 + own-DR) direction-switch panel used to fail hard20m1 and report over_current-termination count + tangle(sacrificed-leg) count vs hard20m1s 3+1/24 -- fewer/zero = staged curriculum looks like the right lever (queue a matched ~20M hardening continuation with the SAME retention guard); same-or-worse = the schedule-vs-mechanism prediction-if-false fires, do not just re-run longer, redesign (blend-in time or yaw-margin pricing).",
+    "parent": "cw-dep-bcgait1-hard1-steer1c",
+    "track": "hw",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_dep_bcgait1_hard1.zip",
+      "--dr-scale",
+      "0.35",
+      "--episode-seconds",
+      "120",
+      "--ent-coef",
+      "0.001",
+      "--no-canary",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--seed",
+      "12",
+      "--goal-mix",
+      "walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0",
+      "--cfg-set",
+      "reward.k_drag_loaded=10.0",
+      "--cfg-set",
+      "reward.k_park_duty=1.0",
+      "--cfg-set",
+      "reward.walk_kernel_prog_gate=1.0",
+      "--cfg-set",
+      "goal.walk_park_start_frac=0.25",
+      "--cfg-set",
+      "reward.walk_anchor_gate=1.0",
+      "--cfg-set",
+      "reward.anchor_tol_mm=10.0",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.05",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.06",
+      "--cfg-set",
+      "goal.walk_obs_body_vel=2",
+      "--cfg-set",
+      "safety.max_roll_deg=25",
+      "--cfg-set",
+      "safety.max_pitch_deg=25",
+      "--n-envs",
+      "4096",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--out-name",
+      "ppo_goal_cw_dep_bcgait1_hard1_steer2_stagecurric1",
+      "--notes",
+      "respec of cw-dep-bcgait1-hard1-steer1c: Teach the tall walker to survive abrupt joystick direction changes by RAMPING difficulty instead of maxing it from step 0: the previous attempt (-steer1-hard20m1, 20M full stress-mix from tick zero) FAILED its behavioral gate (3/24 long direction-switch episodes tripped an over_current safety cutoff from a jammed joint, 1/24 sacrificed 3 legs in a near-total tangle/stall), confirming that runs own pre-registered prediction-if-false: full-mix exposure from step 0 is not enough. This canary uses the existing, already-tested sched.* in-run scheduler (built 08-17 for exactly this failure class, unused on this lineage until now) to ramp goal.walk_cmd_stage 0->2 over the first 60% of a 2M-step budget -- forward/back-only switches first (stage 0: flip_180+stop_go, heading forced to 0), then headings/circles/squares (stage 1), full family set incl. jitter only by the end (stage 2) -- instead of throwing every schedule family at the policy from tick 0. Same reward/eval stack, same bcgait1_hard1 warm-start as steer1c. Prediction-if-true: mechanism stays healthy (finite losses, no KL-rollback storm, tall gait retained on periodic eval/video) AND the SAME 24-episode direction-switch panel run at hard20m1 shows fewer/zero over_current or tangle events at this small budget -- evidence the staged approach is the right lever, worth a full hardening-scale continuation. Prediction-if-false: the staged ramp still produces jamming/tangle events at a similar rate, meaning the problem is not exposure SCHEDULE but something structural (e.g. the yaw-limit margin itself, or the switch being genuinely instantaneous/no-blend) -- next lever would be blend-in time on switches or a yaw-margin reward term, not more curriculum tuning.",
+      "--cfg-set",
+      "dr.tipped_start_prob=0.30",
+      "--target-kl",
+      "0.01",
+      "--cfg-set",
+      "reward.walk_height_gate=1.0",
+      "--cfg-set",
+      "reward.walk_height_sigma_mm=30.0",
+      "--actor-lr",
+      "0.0001",
+      "--critic-lr",
+      "0.0003",
+      "--kl-rollback",
+      "0.04",
+      "--cfg-set",
+      "goal.walk_cmd_mode=stress_mix",
+      "--cfg-set",
+      "goal.walk_cmd_resample_s=11.0",
+      "--cfg-set",
+      "goal.walk_cmd_resample_jitter=0.82",
+      "--cfg-set",
+      "goal.walk_cmd_blend_s_min=0.0",
+      "--cfg-set",
+      "goal.walk_cmd_blend_s_max=0.0",
+      "--cfg-set",
+      "reward.term_cost_per_remaining_s=12.0",
+      "--cfg-set",
+      "reward.term_cost_max=240.0",
+      "--cfg-set",
+      "goal.walk_cmd_stage=0.0",
+      "--cfg-set",
+      "sched.key=goal.walk_cmd_stage",
+      "--cfg-set",
+      "sched.v0=0",
+      "--cfg-set",
+      "sched.v1=2",
+      "--cfg-set",
+      "sched.t0_steps=0",
+      "--cfg-set",
+      "sched.t1_steps=1200000",
+      "--cfg-set",
+      "sched.n_envs=4096"
+    ],
+    "created": "2026-08-18T18:35:04+00:00",
+    "status": "INTENT",
+    "checks": {
+      "cpu_limit": 26,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-c7c481c8-b38e-d350-964a-7156462b21c8)",
+      "running_experiments_before": 3,
+      "code_sha_local": "0990d58513915badd6cd364c64bf37467c0a412c",
+      "code_sha_pod": "0990d58513915badd6cd364c64bf37467c0a412c",
+      "init_from_on_pod": true,
+      "wandb_env_on_pod": true
+    },
+    "trainer": "ppo",
+    "stack": "gpu-mjx",
+    "phase": "canary",
+    "assessment_scope": "mechanism_health",
+    "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:hw PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-dep-bcgait1-hard1-steer2-stagecurric1 --steps 2000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_dep_bcgait1_hard1.zip --dr-scale 0.35 --episode-seconds 120 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 12 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_dep_bcgait1_hard1_steer2_stagecurric1 --notes 'respec of cw-dep-bcgait1-hard1-steer1c: Teach the tall walker to survive abrupt joystick direction changes by RAMPING difficulty instead of maxing it from step 0: the previous attempt (-steer1-hard20m1, 20M full stress-mix from tick zero) FAILED its behavioral gate (3/24 long direction-switch episodes tripped an over_current safety cutoff from a jammed joint, 1/24 sacrificed 3 legs in a near-total tangle/stall), confirming that runs own pre-registered prediction-if-false: full-mix exposure from step 0 is not enough. This canary uses the existing, already-tested sched.* in-run scheduler (built 08-17 for exactly this failure class, unused on this lineage until now) to ramp goal.walk_cmd_stage 0->2 over the first 60% of a 2M-step budget -- forward/back-only switches first (stage 0: flip_180+stop_go, heading forced to 0), then headings/circles/squares (stage 1), full family set incl. jitter only by the end (stage 2) -- instead of throwing every schedule family at the policy from tick 0. Same reward/eval stack, same bcgait1_hard1 warm-start as steer1c. Prediction-if-true: mechanism stays healthy (finite losses, no KL-rollback storm, tall gait retained on periodic eval/video) AND the SAME 24-episode direction-switch panel run at hard20m1 shows fewer/zero over_current or tangle events at this small budget -- evidence the staged approach is the right lever, worth a full hardening-scale continuation. Prediction-if-false: the staged ramp still produces jamming/tangle events at a similar rate, meaning the problem is not exposure SCHEDULE but something structural (e.g. the yaw-limit margin itself, or the switch being genuinely instantaneous/no-blend) -- next lever would be blend-in time on switches or a yaw-margin reward term, not more curriculum tuning.' --cfg-set dr.tipped_start_prob=0.30 --target-kl 0.01 --cfg-set reward.walk_height_gate=1.0 --cfg-set reward.walk_height_sigma_mm=30.0 --actor-lr 0.0001 --critic-lr 0.0003 --kl-rollback 0.04 --cfg-set goal.walk_cmd_mode=stress_mix --cfg-set goal.walk_cmd_resample_s=11.0 --cfg-set goal.walk_cmd_resample_jitter=0.82 --cfg-set goal.walk_cmd_blend_s_min=0.0 --cfg-set goal.walk_cmd_blend_s_max=0.0 --cfg-set reward.term_cost_per_remaining_s=12.0 --cfg-set reward.term_cost_max=240.0 --cfg-set goal.walk_cmd_stage=0.0 --cfg-set sched.key=goal.walk_cmd_stage --cfg-set sched.v0=0 --cfg-set sched.v1=2 --cfg-set sched.t0_steps=0 --cfg-set sched.t1_steps=1200000 --cfg-set sched.n_envs=4096 > /tmp/train_cw-dep-bcgait1-hard1-steer2-stagecurric1.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-dep-bcgait1-hard1-steer2-stagecurric1.log",
+    "triage": "in-cycle cw-dep-bcgait1-hard1-steer2-stagecurric1-cw-recover-any21c2- since 2026-08-18T19:07:24"
   }
 ]

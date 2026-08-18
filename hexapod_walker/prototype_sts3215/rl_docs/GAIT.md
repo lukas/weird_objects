@@ -645,3 +645,23 @@ of the probe, not a new training arm. The remaining path to Gate 0 for
 `cw-dep-bcgait1-hard1` is hardware bench evidence (tape replay against
 a real bench session), not another sim DR axis. Raw data:
 `logs/probe_walk_push/bcgait1_hard1_vs_tip1.json` (train-1).
+
+**08-18: steering / direction-switch tangle line opened, first
+hardening attempt FAILED.** `probe_dirswitch_tangle.py` (matched
+rot60 ON/OFF, long direction-switch schedules) exonerated rot60
+sector crossings as the trigger — ON is strictly safer on every
+proxy — and pinned the real gap as post-switch yaw-limit saturation
++ legs pausing for seconds after a command change. `-steer1c` (2M
+canary, full stress_mix exposure from step 0) passed mechanism
+health; the follow-up `-steer1-hard20m1` (20M, `--best-ckpt`
+retention guard) FAILED its behavioral gate: 3/24 long stress-mix
+episodes ended in an `over_current` safety trip (jammed joint, no
+tip-over) and 1/24 was a severe 3-leg-sacrifice tangle (17cm/120s).
+Base tall-gait quality holds on the other 23/24 (gait_valid 6/6,
+clean/recovered roll). This confirms the pre-registered fallback:
+full-mix exposure from step 0 isn't enough; a staged-dwell curriculum
+(existing `sched.*` engine ramping `goal.walk_cmd_stage` 0->2) is the
+next lever, queued as `-steer2-stagecurric1`. Does not change the
+download-answer walker (`bcgait1_hard1`, never asked to survive
+mid-walk switches). Detail: hw/STATUS.md, ledger verdict on
+`cw-dep-bcgait1-hard1-steer1-hard20m1`.

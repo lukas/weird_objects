@@ -22,6 +22,77 @@ unresolved blockers between the robot and reliable joystick control.
 
 ## Now
 
+- **08-18 ~19:1x (triage cycle): recover "keep it rumbling" continuation,
+  member `s13`, finished its +100M — the OPPOSITE direction from
+  s12: this member's own matched gate score IMPROVED (det 16/18 DR-0
+  + 16/18 DR-0.1, was 13/18 + 10/18), with the same B15 frontier
+  (video-verified genuine tangle_mid/tangle/bank recoveries, no
+  exploit; only clean miss is `tangle_deep` over_current + the
+  still-unreached `flip` bucket).** NEW datum: `RECOVER_GUARD/
+  rollback_count`=1 this run (fired once at step 72,024,064,
+  restoring a B15-frontier checkpoint) — the guard CAN fire, but
+  training-time bucket stats at the final cert still oscillate on
+  easy buckets (crouch_shallow/mid/deep 0.125/0.375/0.25) even after
+  that rollback, so it didn't cure the wall. Cohort-level read now:
+  s12 regressed, s13 improved on the IDENTICAL recipe/budget — the
+  oscillating-retention wall's direction on any one member is not
+  predictable from the recipe, answering the operator's "does more
+  training help" with genuine both-directions evidence rather than a
+  clean call either way. Not hardware-ready. s11 still training, no
+  full cohort verdict yet. No follow-up (recover stays
+  `[operator]`-gated, outside the SIM SPRINT). Detail: STATUS.md,
+  `rl_docs/runs/cw-recover-any21c2-pop3-s13.md`,
+  `rl_docs/SKILLS.md` "Fall recovery".
+- **08-18 ~18:5x (triage cycle): recover "keep it rumbling" continuation,
+  member `s12`, finished its +100M — mechanism PASS, behavior a wash.**
+  Frontier genuinely advanced past B14 to B15 (video-verified genuine
+  tangle/bank recoveries), but this member's own matched gate score
+  FELL (det 8/18 vs 16/18 before) as previously-solved easy buckets
+  now fail — the same oscillating-retention wall CURRENT_TRUTHS
+  already named, one rung deeper; `rollback_count` still 0 the whole
+  run. Not hardware-ready, not an upgrade. s11/s13 still training, no
+  cohort verdict yet. No follow-up (recover stays `[operator]`-gated,
+  outside the SIM SPRINT). Detail: STATUS.md, `rl_docs/runs/
+  cw-recover-any21c2-pop3-s12.md`.
+- **08-18 ~18:3x (triage cycle): `cw-dep-bcgait1-hard1-steer1-hard20m1`
+  FAILED its pre-registered 5-clause gate — the ~20M full-stress-mix
+  hardening pass did NOT cure the direction-switch tangle/stall.**
+  Standard harness eval under the run's own trained stress_mix cfg
+  (24 episodes, 120s each, all six schedule families, instant
+  switches, DR-0 + own-DR-0.35): 3/24 ended in a hard `over_current`
+  safety termination (a servo jammed against a limit fighting a
+  direction change — the exact yaw-limit-saturation stall this arm
+  targeted; robot stays upright, doesn't tip over) and 1/24 (det)
+  is a severe leg-tangle (gait_valid False, 3 legs sacrificed
+  [0,2,4], slip 32/m, progress_ratio 0.03, 17cm of travel in 120s —
+  video confirms near-stationary struggling). Base gait quality
+  partially retained on the other 23 episodes (gait_valid 6/6, roll
+  clean/recovered, slip 1.3-2.4/m on the clean ones) — this is not a
+  collapse of the whole skill, just the direction-switch handling.
+  Clause (2) alone ("zero falls/tangles") already fails the gate, so
+  no further compute went into the dedicated `probe_dirswitch_tangle`
+  script or the legacy fixed-command matched panel (clause 1) — the
+  result was already decisive. This CONFIRMS the run's own
+  pre-registered prediction-if-false: full-mix exposure from step 0
+  isn't enough, a staged-dwell curriculum is needed. **Queued same
+  cycle** (agent-doable, no new code — the `sched.*` in-run
+  scheduler + `goal.walk_cmd_stage` curriculum landed 08-17 for
+  exactly this failure class and is untried on this lineage):
+  `cw-dep-bcgait1-hard1-steer2-stagecurric1`, a 2M canary
+  warm-started from `cw-dep-bcgait1-hard1` (the clean base, same
+  parent steer1c used) that ramps `goal.walk_cmd_stage` 0->2 via
+  `sched.key=goal.walk_cmd_stage` over the first 60% of the budget
+  (forward/back-only switches first, full family set incl. jitter by
+  the end) instead of throwing the hardest mix at it from tick 0.
+  Gate: mechanism health (finite losses, no early collapse, tall
+  gait retained on periodic eval/video) AND a first informational
+  read on whether the same 24-episode tangle panel shows fewer
+  over_current/tangle events than hard20m1's 3+1/24 — informational
+  only at 2M, no final behavioral verdict until a matched hardening
+  continuation. Does not touch today's download answer (still plain
+  `bcgait1_hard1`, never asked to survive mid-walk switches).
+  Detail: ledger verdict + W&B `w3fbxfj7` OUTCOME note.
+
 - **08-18 ~16:5x (triage cycle): `cw-recover-predictive1-canary1` CANARY
   PASSED** (frozen dynamics-transformer context in the recover
   actor+critic, 15-tick reset probe, obs 1440; operator order

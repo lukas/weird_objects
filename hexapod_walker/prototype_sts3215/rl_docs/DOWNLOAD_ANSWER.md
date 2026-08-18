@@ -47,14 +47,26 @@ test-locked, `rl_move/tests/test_stand_runner.py`).
 
 ## Known gaps shipping as-is (the sprint's named targets)
 
-1. **Post-lower rise** — the single weak boundary: sto 0.801
-   (over_current-dominated; 100% of the det session failures). Four
-   training attempts (postlower1–4) all closed WORSE-or-short of the
-   parent; best (c4) det 0.872 / sto 0.690 vs parent 0.967 / 0.801.
-   The download today ships the PARENT (best measured). Next lever is
-   the open `[operator]` fork (STATUS.md WAITING-ON): (a) remaining-
-   rise runner semantics (train==deploy) vs (b) price post-lower rise
-   in reward.
+1. **Post-lower rise** — the single weak boundary: sto ~0.78-0.80
+   (over_current-dominated; 100% of the det session failures on the
+   shipped parent). Four training attempts (postlower1–4) were
+   verdicted WORSE-or-short of the parent **under the legacy
+   train/eval schedule** — but a same-day matched-schedule re-read
+   (Cohort c5rr, n=1,200, `--rise-from-h`) found that comparison was
+   confounded: postlower4 was trained on "remaining rise from current
+   height" semantics the harness never actually tested it on. Judged
+   on the schedule it was trained for, postlower4 (`spec-pl4`)
+   crosses the parent's OWN post-lower-rise number on both det (0.963
+   vs 0.950) and sto (0.799 vs 0.779), and beats it outright on
+   overall sto session zero-fall (0.91 vs 0.84) — clean video, no
+   exploit, retention at parity. **This measured-best answer still
+   ships as-is today**: two contract decisions remain `[operator]`,
+   not autonomous — (i) upgrade the runner/instrument (and the real
+   hardware post-lower-rise reference) to rise-from-h semantics
+   generally, (ii) promote `postlower4` over `footlow2_hard1` as the
+   stance half of the hierarchy given this read. See STATUS.md
+   WAITING-ON + `SESSION_BULK_GATE.md` "Cohort c5rr" for the full
+   numbers.
 2. **Takeoff roll transient** — a hardware phenomenon sim survives
    (SIM.md gap 4); the composed entry-slew ramp is the best measured
    mitigation (saved 5/9 falls in the 144-rollout calibrated proxy,
