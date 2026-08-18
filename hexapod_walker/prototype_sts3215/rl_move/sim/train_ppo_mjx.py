@@ -1534,8 +1534,15 @@ def main(argv: list[str] | None = None) -> int:
                              "--init-from is not wired")
         # Pure-walk diet + curriculum version ride the env cfg so the
         # shim envs are born with them (no post-construction mutation;
-        # the MJX vec envs mint reset pools during reset()).
-        args.cfg_set = (args.cfg_set or []) + [
+        # the MJX vec envs mint reset pools during reset()). The
+        # injection is reverted right after the TRAINING env kwargs are
+        # built: the background C-env eval/video worker reads
+        # args.cfg_set and must keep the PLAIN command distribution
+        # (transfer-trainer parity — eval curves stay comparable to the
+        # fixed-sampling parents, and an eval env must never run the
+        # trainer-broadcast curriculum).
+        _plain_cfg_set = list(args.cfg_set or [])
+        args.cfg_set = _plain_cfg_set + [
             f"goal.walk_curriculum={args.walk_curriculum_version}",
             "goal.walk_pure=1",
         ]
@@ -1591,6 +1598,11 @@ def main(argv: list[str] | None = None) -> int:
         else (4 if impl == "warp" else 8)
 
     env_kw = _env_kwargs(args)      # resolves params via bus.servo_params
+    if args.walk_curriculum:
+        # training/cert envs keep the curriculum via env_kw's cfg; the
+        # C-env eval/video worker (which reads args.cfg_set) gets the
+        # plain distribution back (see the injection comment above)
+        args.cfg_set = _plain_cfg_set
     params = env_kw["params"]
     _warn_if_defaults(params)
     env_cls = ENV_CLASSES[args.task]
