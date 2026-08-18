@@ -23,10 +23,12 @@ sim_viewer/sim_walk.sh     # walk champion alone (cv2 drive window)
   `B` belly-down, `I/K/J/L` persistent cruise trim, `Space` stop,
   `=`/`-` height, `Q` quit.
 - **Model picker panel** on the right of the window (like the robot
-  webui): every non-`*_steps` checkpoint in `rl_move/sim/policies/` is
-  classified at startup by obs width read from the sb3 zip's JSON
-  metadata (68 → stance slot, 72 → walk slot; no torch load) and listed
-  in two groups — click a row to load it. `[` / `]` and `,` / `.` cycle
+  webui): checkpoints in `rl_move/sim/policies/` are classified at
+  startup by obs width read from the sb3 zip's JSON metadata (68 →
+  stance slot, 72 → walk slot; no torch load) and listed in two groups
+  — click a row to load it. The panel is CURATED by default (on-robot
+  + promoted checkpoints + the scripted gait rows; ~21 rows — the full
+  archive overflows the panel); `--all-models` lists everything. `[` / `]` and `,` / `.` cycle
   the same lists. Swaps load on the spot (~1 s stall) and work
   mid-walk; the active pair is highlighted. Each row carries a one-line
   description (distilled from RL_LOG.md into `_DESC` in `play.py`).

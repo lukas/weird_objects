@@ -39,13 +39,17 @@ gamepad can never collide with key bindings — which is also why this
 player renders into an OpenCV window instead of mujoco.viewer (cv2 has
 NO built-in bindings; in mujoco.viewer nearly every letter is a toggle).
 
-Model selection: every non-`*_steps` checkpoint in the policies dir is
-classified at startup by observation width read straight from the sb3
-zip's JSON metadata (no torch load): obs 68 -> STANCE slot, obs 72 ->
-WALK slot, anything else is not playable here. A clickable panel on the
-right of the window (like the robot webui's policy picker) lists both
-groups — click a row to load it (~1 s stall); `[ ]` / `, .` and the
-pad d-pad cycle the same lists. The current pair is highlighted.
+Model selection: checkpoints in the policies dir are classified at
+startup by observation width read straight from the sb3 zip's JSON
+metadata (no torch load): obs 68 -> STANCE slot, obs 72 -> WALK slot,
+anything else is not playable here. By default the panel is CURATED —
+only the on-robot/promoted checkpoints plus the scripted gait rows
+(the full archive is 55+ rows and overflows the fixed-height panel);
+pass --all-models for everything, and a --stance/--walk path is always
+listed even if not promoted. A clickable panel on the right of the
+window (like the robot webui's policy picker) lists both groups —
+click a row to load it (~1 s stall); `[ ]` / `, .` and the pad d-pad
+cycle the same lists. The current pair is highlighted.
 
 --phase-obs: enables the walk env's phase clock (goal.walk_phase_obs=1,
 sin/cos appended at the obs tail -> obs 74) so the PHASE-CLOCK no-slip
@@ -497,6 +501,10 @@ def main() -> None:
     ap.add_argument("--phase-hz", type=float, default=0.1666667,
                     help="phase clock rate; default 1/6 Hz = one "
                          "revolution per 6 s clamp-fit gait cycle")
+    ap.add_argument("--all-models", action="store_true",
+                    help="list EVERY checkpoint in policies/ (55+ rows, "
+                         "overflows the panel). Default: only the "
+                         "on-robot/promoted checkpoints + scripted rows")
     args = ap.parse_args()
 
     import cv2
@@ -532,6 +540,12 @@ def main() -> None:
     # --- checkpoint slots: one STANCE (obs 68) + one WALK (obs 72) ------
     cats = scan_policies(args.stance.parent)
     stance_list, walk_list = cats["stance"], cats["walk"]
+    if not args.all_models:
+        # Curated panel: the full archive is 55+ rows and overflows the
+        # fixed-height panel (bottom rows unreachable — operator 08-18).
+        keep = set(_PROMOTED) | _ON_ROBOT
+        stance_list = [p for p in stance_list if p.stem in keep]
+        walk_list = [p for p in walk_list if p.stem in keep]
 
     def ensure_listed(lst: list[Path], p: Path, want: tuple[int, ...],
                       ) -> int:
