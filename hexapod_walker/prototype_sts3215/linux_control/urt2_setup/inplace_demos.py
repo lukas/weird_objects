@@ -1735,6 +1735,9 @@ DEMOS = {
     "rise_show": ("[6 show] FULL planted show (all of the above)", None),
     "dance": ("[6 show] DANCE — heartbeat → breathe → hands up → RISE "
               "→ wild → sleep", None),
+    "dance_walk": ("[6 show] DANCE + VICTORY LAP — the dance, then an "
+                   "RL walk box (strut/sidestep/moonwalk), then sleep",
+                   None),
     # --- real walk (open-loop tripod gait) --------------------------------
     "walk": ("[7 walk] tripod forward a few strides, then stand", None),
     "walk_spin": ("[7 walk] in-place turn (tripod), then stand", None),
@@ -2468,10 +2471,17 @@ def frames_air_chaos(seconds: float = 4.5):
     incommensurate set) and a golden-angle phase, so no two joints move
     together and the whole body churns like static.  Hips stay lifted
     (−38..−6°) so the feet wave in the air instead of scraping the
-    floor.  A slow swell (0.4 → 1.0 over ~2 s) keeps it musical.
+    floor.  A slow swell (0.4 → 1.0 over ~2 s) keeps it musical, and
+    the last ~0.7 s FREEZES mid-churn — a statue beat before the
+    canon explodes.
     """
     n = max(1, int(seconds / DT))
+    n_freeze = min(int(0.7 / DT), n // 4)
+    last: list[float] | None = None
     for i in range(n):
+        if last is not None and i >= n - n_freeze:
+            yield list(last)
+            continue
         t = i * DT
         a = 0.4 + 0.6 * min(1.0, t / 2.0)
         pose = _zero_pose()
@@ -2485,6 +2495,7 @@ def frames_air_chaos(seconds: float = 4.5):
                 yaw=18.0 * a * math.sin(wy * t + j * _CHAOS_GOLD),
                 hip=-22.0 - 16.0 * a * math.sin(wh * t + (j + 1) * _CHAOS_GOLD),
                 knee=6.0 + 20.0 * a * math.sin(wk * t + (j + 2) * _CHAOS_GOLD))
+        last = pose
         yield pose
 
 
@@ -2507,6 +2518,24 @@ def frames_air_canon(seconds: float = 3.0):
                           yaw=22.0 * env * math.sin(2.0 * ph),
                           hip=-45.0 * env,
                           knee=55.0 * env)
+        yield pose
+
+
+def frames_wave_goodbye(seconds: float = 1.8):
+    """One last wave — leg 0 lifts and waves; everyone else asleep.
+
+    Runs at sit zero after the final heartbeats.  Lift/lower envelopes
+    (0.4 s each) mean it starts and ends exactly at zero.
+    """
+    n = max(1, int(seconds / DT))
+    for i in range(n):
+        t = i * DT
+        env = min(1.0, t / 0.4, max(0.0, (seconds - t) / 0.4))
+        pose = _zero_pose()
+        _yaw_hip_knee(0, pose,
+                      yaw=18.0 * env * math.sin(2 * math.pi * 1.4 * t),
+                      hip=-32.0 * env,
+                      knee=12.0 * env)
         yield pose
 
 
@@ -2535,6 +2564,7 @@ def run_dance_demo(bus: FeetechBus, *,
                    softness: float = 1.0,
                    torque: int | None = None,
                    status_cb=None,
+                   part: str = "full",
                    log_path: Path | None = None) -> str:
     """Full dance routine — quiet heartbeat to wild show and back to sleep.
 
@@ -2546,9 +2576,11 @@ def run_dance_demo(bus: FeetechBus, *,
     Act IV   THE RISE — one slow 12 s reach from overhead down to plant
     Act V    wild planted acts: bounce, look, orbit sway, ripple,
              canon (leg 0 leads — others echo at staggered offsets),
-             gallop, tripod, standing hands-up feature, counterwave
-             (two opposite traveling waves), fan, twist, stomp finale
-    Act VI   slow descend to sit, last heartbeats, one exhale, limp
+             gallop, tripod, slow stretch → DROP, standing hands-up
+             feature, counterwave, fan, twist, accelerating stomp
+             drumroll → dead stop → TA-DA
+    Act VI   slow descend to sit, last heartbeats, wave goodbye,
+             one exhale, limp
 
     Starts and ends at sit zero (air home).  All durations pre-scale
     with ``speed`` (choreographed times — no live tempo, like
@@ -2557,7 +2589,16 @@ def run_dance_demo(bus: FeetechBus, *,
     ``status_cb`` (optional callable) receives a short annotation
     string at each phase — the web UI shows it as the live demo
     status.  The CLI already narrates via prints.
+
+    ``part`` splits the routine for the bench's dance+walk show:
+    ``"full"`` (default) runs everything; ``"show"`` runs acts I–V and
+    returns ``"planted"`` still standing and holding (torque ON) so
+    the caller can hand off to the RL victory lap; ``"outro"`` assumes
+    a planted stance and runs act VI only (descend → heartbeats →
+    exhale → limp).
     """
+    if part not in ("full", "show", "outro"):
+        raise ValueError(f"bad dance part {part!r}")
     sc = _speed_scale(speed)
     spd = _clamp_demo_speed(speed)
     size = _clamp_breathe_size(size)
@@ -2615,6 +2656,53 @@ def run_dance_demo(bus: FeetechBus, *,
         max_acc=max(3, int(10 / soft)),
         max_speed=max(60, int(220 / (0.7 + 0.3 * soft))),
     )
+
+    def act6() -> str:
+        """Act VI: descend from the plant, last heartbeats, sleep."""
+        print("  → act VI — descend, last heartbeats, sleep")
+        note(f"act VI — slow descend to sit "
+             f"(~{max(4.0, DANCE_DESCEND_S * sc):.0f}s)")
+        # Full rise torque while lowering the body onto the stand.
+        if not ease_to_pose(bus, _zero_pose(), abort_check=check,
+                            seconds=max(4.0, DANCE_DESCEND_S * sc),
+                            label="act VI — descend to sit",
+                            current_tracker=peaks):
+            return bail("act6 descend")
+        _set_torque_limit(bus, live, tlim)
+        note("act VI — last heartbeats")
+        if not _run_frames(bus, live,
+                           frames_heartbeat(
+                               seconds=DANCE_OUTRO_HEARTBEAT_S * sc),
+                           check, label="act VI — last heartbeats"):
+            return bail("act6 heartbeat")
+        # One last wave from leg 0 — then sleep for real.
+        note("act VI — wave goodbye")
+        if not _run_frames(bus, live,
+                           frames_wave_goodbye(seconds=max(1.4, 1.8 * sc)),
+                           check, label="act VI — wave goodbye"):
+            return bail("act6 wave")
+        # One long exhale, then still.
+        note("act VI — one long exhale… asleep")
+        exhale = _breathe_pose(1.0, hip_deg=BREATHE_HIP_DEG * 0.6,
+                               knee_deg=BREATHE_KNEE_DEG * 0.6)
+        if not _soft_glide(bus, exhale, live, max(1.6, 2.2 * sc), check,
+                           **glide_kw):
+            return bail("act6 exhale")
+        if not _soft_glide(bus, _zero_pose(), live, max(1.6, 2.6 * sc),
+                           check, start=exhale, **glide_kw):
+            return bail("act6 exhale")
+
+        peaks.print_report(phase="dance")
+        peaks.write_log(peak_path, phase="dance")
+        _limp_all(bus, live)
+        _set_torque_limit(bus, live, 1000)
+        print("  Dance finished — asleep at sit zero (limp).")
+        return "done"
+
+    if part == "outro":
+        # Victory-lap handoff: resume from a planted stance, act VI only.
+        _set_torque_limit(bus, live, RISE_TORQUE_LIMIT)
+        return act6()
 
     # --- Act I: asleep — heartbeat, then breaths that grow ----------------
     note("act I — asleep: settling at sit zero")
@@ -2758,6 +2846,18 @@ def run_dance_demo(bus: FeetechBus, *,
         if not snap_to(planted, "plant", seconds=DANCE_SNAP_S * sc):
             return bail("act5 stream")
 
+    # Contrast beat: one luxurious slow stretch to full height… BAM.
+    note("act V — sloooow stretch up…")
+    if not snap_to(tall, "slow stretch…", seconds=1.3 * sc):
+        return bail("act5 stretch")
+    if _planted_pause(bus, live, check, peaks, 0.35 * sc):
+        return bail("act5 stretch")
+    note("act V — …DROP!")
+    if not snap_to(squatted, "DROP!", seconds=0.12 * sc):
+        return bail("act5 stretch")
+    if not snap_to(planted, "plant", seconds=DANCE_SNAP_S * sc):
+        return bail("act5 stretch")
+
     # Standing hands-up feature — echo of act III on a stable tripod.
     note("act V — HANDS UP, standing on a tripod")
     if not snap_to(evens_up, "HANDS UP (tripod)", seconds=0.4 * sc):
@@ -2789,53 +2889,33 @@ def run_dance_demo(bus: FeetechBus, *,
         if not snap_to(goal, label, seconds=0.32 * sc):
             return bail("act5 twist")
 
-    # Finale: stomp barrage + TA-DA.
-    note("act V — finale: stomp barrage + TA-DA")
-    for _ in range(4):
-        if not snap_to(squatted, "STOMP", seconds=DANCE_STOMP_S * sc):
+    # Finale: accelerating stomp drumroll → dead stop → TA-DA.
+    note("act V — finale: stomp drumroll + TA-DA")
+    for s in (0.20, 0.16, 0.13, 0.10):
+        if not snap_to(squatted, "STOMP", seconds=s * sc):
             return bail("act5 stomp")
-        if not snap_to(planted, "STOMP", seconds=DANCE_STOMP_S * sc):
+        if not snap_to(planted, "STOMP", seconds=s * sc):
             return bail("act5 stomp")
+    # Dead stop — the silence that sells the TA-DA.
+    if _planted_pause(bus, live, check, peaks, 0.5 * sc):
+        return bail("act5 finale")
     if not snap_to(odds_up, "★ TA-DA ★", seconds=0.3 * sc):
         return bail("act5 finale")
-    if _planted_pause(bus, live, check, peaks, 0.45 * sc):
+    if _planted_pause(bus, live, check, peaks, 0.8 * sc):
         return bail("act5 finale")
     if not snap_to(planted, "plant", seconds=0.25 * sc):
         return bail("act5 finale")
 
-    # --- Act VI: back to sleep ----------------------------------------------
-    print("  → act VI — descend, last heartbeats, sleep")
-    note(f"act VI — slow descend to sit (~{max(4.0, DANCE_DESCEND_S * sc):.0f}s)")
-    # Full rise torque while lowering the body onto the stand.
-    if not ease_to_pose(bus, _zero_pose(), abort_check=check,
-                        seconds=max(4.0, DANCE_DESCEND_S * sc),
-                        label="act VI — descend to sit",
-                        current_tracker=peaks):
-        return bail("act6 descend")
-    _set_torque_limit(bus, live, tlim)
-    note("act VI — last heartbeats")
-    if not _run_frames(bus, live,
-                       frames_heartbeat(
-                           seconds=DANCE_OUTRO_HEARTBEAT_S * sc),
-                       check, label="act VI — last heartbeats"):
-        return bail("act6 heartbeat")
-    # One long exhale, then still.
-    note("act VI — one long exhale… asleep")
-    exhale = _breathe_pose(1.0, hip_deg=BREATHE_HIP_DEG * 0.6,
-                           knee_deg=BREATHE_KNEE_DEG * 0.6)
-    if not _soft_glide(bus, exhale, live, max(1.6, 2.2 * sc), check,
-                       **glide_kw):
-        return bail("act6 exhale")
-    if not _soft_glide(bus, _zero_pose(), live, max(1.6, 2.6 * sc), check,
-                       start=exhale, **glide_kw):
-        return bail("act6 exhale")
+    if part == "show":
+        # Victory-lap handoff: stay planted and HOLDING (torque on) so
+        # the bench can run the RL walk from this stance.
+        note("show ends planted — holding for the victory lap")
+        peaks.print_report(phase="dance show")
+        peaks.write_log(peak_path, phase="dance show (planted)")
+        print("  Dance show finished — holding planted for the lap.")
+        return "planted"
 
-    peaks.print_report(phase="dance")
-    peaks.write_log(peak_path, phase="dance")
-    _limp_all(bus, live)
-    _set_torque_limit(bus, live, 1000)
-    print("  Dance finished — asleep at sit zero (limp).")
-    return "done"
+    return act6()
 
 
 # Open-loop walk demos (TripodGait → SyncWrite). Gentle defaults for
@@ -3173,8 +3253,13 @@ def run_demo(bus: FeetechBus, name: str, *,
             bus, abort_check=abort_check,
             rise_seconds=seconds, descend_seconds=seconds,
             speed=spd, log_path=log_path)
-    if name == "dance":
+    if name in ("dance", "dance_walk"):
         # Choreographed times (like rise_show) — live tempo not wired in.
+        # dance_walk's RL victory lap needs the web bench (it owns the
+        # drive object); from the CLI it degrades to the full dance.
+        if name == "dance_walk":
+            print("  (RL victory lap runs from the web bench only — "
+                  "playing the full dance)")
         return run_dance_demo(
             bus, abort_check=abort_check, speed=spd, size=size,
             softness=softness, torque=torque, status_cb=status_cb,

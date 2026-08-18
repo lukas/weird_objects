@@ -30,6 +30,7 @@ AIR_DEMO_NAMES = frozenset({
     # dance goes planted mid-routine but starts AND ends at sit zero
     # (limp), so it homes like an air demo and must not stand-hold after.
     "dance",
+    "dance_walk",
 })
 ZERO_TOL_DEG = 6.0
 
@@ -505,7 +506,8 @@ class BenchAPI:
                 "air": n in AIR_DEMO_NAMES,
                 "group": group,
                 "live_speed": n in live_names,
-                "has_size": n in ("breathe", "breathe_v", "dance"),
+                "has_size": n in ("breathe", "breathe_v", "dance",
+                              "dance_walk"),
             })
         return out
 
@@ -639,7 +641,7 @@ class BenchAPI:
         params = {"speed": speed, "home": home}
         if seconds is not None:
             params["seconds"] = seconds
-        if name in ("breathe", "breathe_v", "dance"):
+        if name in ("breathe", "breathe_v", "dance", "dance_walk"):
             params.update({"size": size, "softness": softness})
             if rate is not None:
                 params["rate"] = rate
@@ -661,7 +663,7 @@ class BenchAPI:
         bits = [f"{name} @ {speed:.2f}×"]
         if switched_from:
             bits.insert(0, f"switch←{switched_from}")
-        if name in ("breathe", "breathe_v", "dance"):
+        if name in ("breathe", "breathe_v", "dance", "dance_walk"):
             bits.append(f"size {size:.2f}×")
             if rate is not None:
                 bits.append(f"{rate:.2f} Hz")
@@ -730,19 +732,25 @@ class BenchAPI:
                     with self._lock:
                         self._demo_status = str(msg)
 
-                status = run_demo(
-                    d.bus, name,
-                    speed=speed,
-                    seconds=seconds,
-                    size=size,
-                    rate=rate,
-                    torque=torque,
-                    softness=softness,
-                    abort_check=self._demo_abort.is_set,
-                    speed_fn=lambda: self._demo_speed_live,
-                    status_cb=_live_status,
-                    log_path=log_path,
-                )
+                if name == "dance_walk":
+                    status = self._run_dance_walk(
+                        gen=gen, speed=speed, size=size,
+                        softness=softness, torque=torque,
+                        status_cb=_live_status, log_path=log_path)
+                else:
+                    status = run_demo(
+                        d.bus, name,
+                        speed=speed,
+                        seconds=seconds,
+                        size=size,
+                        rate=rate,
+                        torque=torque,
+                        softness=softness,
+                        abort_check=self._demo_abort.is_set,
+                        speed_fn=lambda: self._demo_speed_live,
+                        status_cb=_live_status,
+                        log_path=log_path,
+                    )
                 telem = None
                 summary_path = log_path.with_name(
                     log_path.stem + "_summary.json")
@@ -805,6 +813,129 @@ class BenchAPI:
                 "switched": bool(switched_from),
                 "switched_from": switched_from,
                 "demo": self.demo_state(), "robot": self.robot_state()}
+
+    # Victory-lap velocity schedule (body frame, unit direction): a
+    # closed box — strut toward the audience, sidestep, moonwalk back,
+    # sidestep home. Ends where it started (tether-friendly).
+    DANCE_LAP_V = 0.055          # m/s, just under the trained 0.06 band
+    DANCE_LAP_BOX = (
+        (6.0, 1.0, 0.0, "strut forward"),
+        (0.8, 0.0, 0.0, "…beat…"),
+        (4.0, 0.0, 1.0, "sidestep"),
+        (0.8, 0.0, 0.0, "…beat…"),
+        (6.0, -1.0, 0.0, "MOONWALK back"),
+        (0.8, 0.0, 0.0, "…beat…"),
+        (4.0, 0.0, -1.0, "sidestep home"),
+    )
+
+    def _run_dance_walk(self, *, gen: int, speed: float, size: float,
+                        softness: float, torque: int | None,
+                        status_cb, log_path: Path) -> str:
+        """dance acts I–V → RL walk victory lap → dance act VI.
+
+        Runs inside the demo worker thread (slot already claimed, sit
+        homing already done). A refused lap (rl_policy missing, walk
+        preflight fails) is never fatal — the outro still plays so the
+        robot always ends asleep at sit zero. A SAFETY-TRIPPED lap is
+        fatal: the robot is limped and stays limped (no blind outro
+        from an unknown pose — 2026-08-06 lesson).
+        """
+        from inplace_demos import run_dance_demo
+
+        d = self.drive
+        st = run_dance_demo(
+            d.bus, part="show", speed=speed, size=size, softness=softness,
+            torque=torque, abort_check=self._demo_abort.is_set,
+            status_cb=status_cb, log_path=log_path)
+        if st != "planted":
+            return st
+
+        lap_err, limped = self._victory_lap(gen=gen, status_cb=status_cb)
+        if self._demo_abort.is_set():
+            return "aborted"
+        if limped:
+            return f"error: lap safety-tripped ({lap_err}) — robot limp"
+        if lap_err:
+            status_cb(f"lap skipped ({lap_err}) — descending anyway")
+
+        outro_log = log_path.with_name(log_path.stem + "_outro.csv")
+        return run_dance_demo(
+            d.bus, part="outro", speed=speed, size=size, softness=softness,
+            torque=torque, abort_check=self._demo_abort.is_set,
+            status_cb=status_cb, log_path=outro_log)
+
+    def _victory_lap(self, *, gen: int,
+                     status_cb) -> tuple[str | None, bool]:
+        """RL-walk the closed box from the plant stance.
+
+        Returns ``(error, limped)`` — ``(None, False)`` on success.
+        Same start contract as rl_drive_start: read-only walk preflight
+        with the moderate-tilt auto-acquire fallback.
+        """
+        try:
+            from rl_policy import DriveCommand, preflight, run_drive_session
+        except ImportError as e:
+            return f"rl_policy missing: {e}", False
+        d = self.drive
+        status_cb("victory lap — walk preflight")
+        ok, reason, details = preflight(d.bus, "walk")
+        if not ok and (reason.startswith("pose is not")
+                       or reason.startswith("tilt too high")):
+            r = abs(float(details.get("roll_deg", 90.0)))
+            p = abs(float(details.get("pitch_deg", 90.0)))
+            if r <= 35.0 and p <= 35.0:
+                status_cb("victory lap — acquiring the walk stance")
+                res_a = self._acquire_start(
+                    "stand", gen=gen,
+                    on_progress=lambda pr: status_cb(
+                        str(pr.get("msg") or "acquiring stance…")))
+                if not res_a.get("ok"):
+                    return (str(res_a.get("error") or "stance not acquired"),
+                            False)
+                ok, reason, details = preflight(d.bus, "walk")
+        if not ok:
+            return f"preflight: {reason}", False
+
+        # Full torque for the weight-bearing walk (RL never touches the
+        # limit register; the dance show leaves it at rise torque).
+        try:
+            from inplace_demos import _live_robot_ids, _set_torque_limit
+            _set_torque_limit(d.bus, _live_robot_ids(d.bus), 1000)
+        except Exception:
+            pass
+
+        cmd = DriveCommand()
+        session_over = threading.Event()
+
+        def _sched():
+            for dur, fx, fy, label in self.DANCE_LAP_BOX:
+                if session_over.is_set() or self._demo_abort.is_set():
+                    break
+                status_cb(f"victory lap — {label}")
+                t_end = time.time() + float(dur)
+                while time.time() < t_end:
+                    if session_over.is_set() or self._demo_abort.is_set():
+                        break
+                    cmd.set(fx * self.DANCE_LAP_V, fy * self.DANCE_LAP_V)
+                    time.sleep(0.15)
+            cmd.request_stop()
+
+        sched = threading.Thread(target=_sched, daemon=True)
+        sched.start()
+        try:
+            res = run_drive_session(
+                d, cmd,
+                on_progress=lambda p: None,
+                abort_check=self._demo_abort.is_set,
+                walk_weights=self._role_weights("walk"),
+                hold_weights=self._role_weights("hold"))
+        finally:
+            session_over.set()
+        sched.join(timeout=2.0)
+        if not res.get("ok"):
+            return (str(res.get("error") or "drive session failed"),
+                    bool(res.get("limped")))
+        return None, bool(res.get("limped"))
 
     def _delta_vs_present(self, goal: list[float]
                           ) -> tuple[float | None, int | None]:
