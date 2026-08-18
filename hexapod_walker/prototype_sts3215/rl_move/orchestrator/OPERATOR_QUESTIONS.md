@@ -1014,3 +1014,12 @@ Entry format (append; newest last; update status in place):
   tournament FAILed") is not the same as an explicit sprint-scope
   ruling for any FUTURE dynrep arm — that needs the operator's own
   word, not an inference from four failures.
+
+## q_20260818T1740Z — OPEN
+- cycle: operator-kick 08-18 ~16:1x–17:4x UTC (predictive-state canary + cohort)
+- operator order: MCP operator lane fb 20260818T161001Z — run the predictive-state mechanism canary at d37fee09, then launch the from-scratch 3-seed 40M cohort named cw-recover-predictive1-pop3-s11/s12/s13.
+- conflicted with: (1) guardrails.yaml `max_new_gpu_steps_per_cycle: 80000000` — this cycle INTENT-launched 2M (canary) + 3x40M (attempt 1) + 3x40M (attempt 2 retry) = 242M, though attempt 1 consumed only ~2M real steps before its fail-closed stop; (2) the order's EXACT cohort names — attempt 2 runs as cw-recover-predictive1b-pop3-s11/s12/s13 because attempt 1's member-2 run name/id (cw-recover-predictive1-pop3-s13 / 200e6aac) were burned in W&B (names append-only, ids single-use resume=never) when a concurrently-launched member crashed at boot on train-8's missing v5_mjx_fresh dataset; the launcher mechanically refuses name reuse.
+- why the cycle would have declined: nothing on (1) — operator order + retry-once clause covers it; on (2) the exact-name clause was mechanically impossible after the burn, so the retry used the closest legal names (suffix b), same seeds/recipe/protocol.
+- what was executed: cw-recover-predictive1-canary1 CANARY PASS (all 8 proof items); attempt-1 cohort failed closed (3 ledger verdicts, no partial cohort continued); attempt-2 cohort cw-recover-predictive1b-pop3-s11/s12/s13 VERIFIED RUNNING on train-5/7/9, ids 7901e7bb/304ac843/95414586, barrier crossed, first synchronized cert 16/16 at 1,048,576 on all 3.
+- ANSWER (operator): —
+- rulebook change: —

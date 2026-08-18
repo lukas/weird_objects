@@ -59,6 +59,24 @@ unresolved blockers between the robot and reliable joystick control.
   attempt should at least carry the unbuffered fix). No behavioral
   verdict on recovery skill from any of this — mechanism-integration
   only. Detail: ledger verdicts on all `predictive1-pop3-*` entries.
+  **RESOLVED 08-18 ~17:3x (operator-kick cycle): the "silent zombie
+  at 655,360" was NOT a code-path failure — it was this cycle's own
+  deliberate fail-closed kill of s11/s12 (pkill ~17:00–17:02, both
+  parked healthy at the barrier), executed because s13's burned
+  single-use id 200e6aac made the roster permanently un-rendezvousable
+  (ledger verdicts on both entries, written before the zombie note).
+  Z-state within ~90s on two pods at exactly the barrier step =
+  watching the reap of that kill. Only mystery #1 (train-6 CPU-only
+  torch) and #2 (train-0/train-8 missing v5_mjx_fresh) are real infra
+  gaps. And the barrier code is fine with --predictive-actor:
+  attempt 2 `cw-recover-predictive1b-pop3-s11/s12/s13` (ids
+  7901e7bb/304ac843/95414586, pods train-5/7/9, pids 94552/41455/37398)
+  crossed the bootstrap barrier (leader released after all 3 at
+  655,360), and ALL THREE posted the first synchronized cert at
+  1,048,576: B0 plant_catch 16/16, frontier B0->B1,
+  CERT/recover_training_envs_synchronized=512, predictive_enabled=1
+  with finite gates. 40M from-scratch cohort now training; judge at
+  the pre-registered 40M checkpoints vs the any21 B14 wall.**
 
 - **08-18 ~16:3x (triage cycle): `cw-dep-bcgait1-hard1-steer1c`
   canary PASSED (mechanism-health only) — found already finished on
