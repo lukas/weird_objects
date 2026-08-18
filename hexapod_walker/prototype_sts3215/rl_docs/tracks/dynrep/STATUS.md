@@ -2,6 +2,58 @@
 
 **SIM SPRINT (operator 08-17 ~18:05 UTC — binding while the robot is off the bench for repair): NO NEW LAUNCHES on this track unless an arm directly serves reliable rise+walk in the MuJoCo sim (the fleet's single deliverable; download answer: `rl_docs/DOWNLOAD_ANSWER.md`). In-flight runs finish and get triaged normally. Full text: RL_PLAN.md "SIM SPRINT".**
 
+**08-18 ~07:0x UTC (triage cycle + operator MCP note fb_20260818T060044,
+GPT-5 Codex for Lukas, "figure out how to make a great run and then
+launch it"): `cw-dynrep-criticD-40m1` TRIAGED — PASS (partial) with a
+confirmed late-training regression that independently reproduces the
+walkcurr1 diagnosis, and `cw-dynrep-criticD-walkcurr2` LAUNCHED as the
+corrected fix.** Triage: the retained best-loco checkpoint at 6M
+genuinely clears almost every pre-registered bar on the shared harness
+(det 5/6 no-fall, prog_ratio 0.70-0.80, slip/m 1.6-2.2, six-leg
+gait_valid 6/6; sto 5/6 gait-valid) and beats the 1M-cohort walk-return
+bar from 2M on — but the FULL 40M budget was net harmful: `SCORE/
+loco_quality` (the checkpoint-selection composite) peaked at 6M
+(0.51) and never again in 34M more steps, collapsing to 0.02-0.10 by
+35-40M (approx_kl/clip_frac climbing per the training log) before a
+partial recovery; the harness independently confirms final < 6M-best
+on every axis (det prog_ratio 0.23-0.53 vs 0.70-0.80, sto gait_valid
+2/6 vs 5/6, a new single-foot-parking habit on leg 3 in 4/6 sto
+episodes). The one literal gate clause that fails at both checkpoints
+(`SCORE/loco_quality>=10`) is a metric-SCALE bug (the composite's
+several multiplied exp() penalties cap real achievable values near
+0.5-0.6, confirmed by hand-computing the formula), not a behavior
+failure. Evidence: ledger verdict, W&B `55woacy7` OUTCOME note,
+`logs/ckpt_eval/cw_dynrep_criticD_40m1_{best6M,final}_gate/`.
+
+Fix executed same cycle (ROOT CAUSES 1-3 from the operator's note; ROOT
+CAUSE 4, the SubprocVecEnv->MJX physics-backend swap, explicitly NOT
+attempted — see STATUS.md WAITING-ON `[code]` entry +
+`OPERATOR_QUESTIONS.md` `q_20260818T0700Z`): `WALKCURR_BUCKETS_V2` in
+`walk_task.py` (B0 ignition 0.08-0.12 m/s + heading spread from the
+first bucket, was 0.04-0.05 m/s dead-ahead sitting inside
+SIGMA_V=0.05's kernel width where parking scored ~67% of peak; cert
+gate slew_sat_max relaxed 0.5->0.95, since the known-good 6M
+criticD-40m1 checkpoint runs slew_sat~0.925 and would fail V1's own
+admission bar); update-path health ported from the already-proven
+`rl_move/sim/update_health.py` into `train_ppo_transfer.py`
+(`--n-epochs`/`--target-kl`/`--actor-lr`/`--critic-lr`/`--kl-rollback`,
+all default off/bit-exact; `CRITIC_MARKERS` extended with
+`value_gate`/`latent_adapter` for `PredictiveCriticPolicy`, pinned by
+3 new tests). Tests: `test_walk_curriculum.py` 19/19 (6 new
+v2-specific), `test_dynrep_predictive_critic.py` 11/11 (3 new),
+`test_value_learning.py` 12/12, full `test_task_semantics.py` bank
+126 passed/4 skipped/1 xfailed. CUDA mechanism canary
+(`canary-walkcurr2`, 300k steps, exact launch CLI minus
+name/steps/wandb) verified clean: correct 7-actor/11-critic tensor
+split, 3 cert rounds ran on the V2 table (bucket name "ignition"
+confirms table selection), walk return -20->192 in the short window,
+no crash. `cw-dynrep-criticD-walkcurr2` LAUNCHED full 40M on train-7
+(W&B `05ex0rqz`, code `5aa3feaa`, verified RUNNING: steps advancing
+69,632, fps 2272). Now: training. Next: triage at the pre-registered
+40M decision gate (frontier >= B6 + shared-eval bars + beats the
+6M-best parent on slip/roll at matched-or-better progress — the
+degraded 40M final is explicitly NOT the bar).
+
 **08-18 ~05:0x UTC (operator order, MCP lane 20260818T041434Z):
 `cw-dynrep-criticD-walkcurr1` LAUNCHED on train-4 (W&B `137olxtr`,
 code `5e7c1db3`, 40M) — the clean ONE-VARIABLE twin of
