@@ -127,16 +127,21 @@ STAND_HANDS_LEGS = (0, 2, 4)  # every other leg = stable tripod support
 # planted acts → sleep).  Durations below are at speed 1.0×.
 # Opening tightened per operator note (was ~40 s of quiet before the
 # rise; now ~25 s, with big air choreography instead of small wiggles).
-DANCE_HEARTBEAT_S = 3.3          # ~3 lub-dub pulses @ 1.1 s cycle
+DANCE_HEARTBEAT_S = 2.2          # 2 lub-dub pulses @ 1.1 s cycle
 DANCE_BREATH_GROWTH = (0.8, 1.6)        # per-breath amplitude (× size)
-DANCE_BREATH_HALF_S = 1.8        # inhale / exhale glide each
-DANCE_AIR_WAVE_S = 4.5           # spiral wave, amplitude grows
-DANCE_AIR_CANON_S = 5.0          # follow-the-leader, air-sized
-DANCE_OVERHEAD_SWAY_S = 2.2      # arms-overhead shimmer before the rise
-DANCE_OVERHEAD_HOLD_S = 0.8      # beat of stillness before the drop
-DANCE_DESCEND_S = 10.0           # planted → sit zero (body onto the stand)
-DANCE_OUTRO_HEARTBEAT_S = 2.4    # two final soft thumps
-DANCE_HANDS_HOLD_S = 1.2         # standing hands-up feature hold
+DANCE_BREATH_HALF_S = 1.5        # inhale / exhale glide each
+DANCE_AIR_WAVE_S = 3.0           # counter-rotating spiral wave
+DANCE_AIR_CHAOS_S = 4.5          # all 18 joints independent (lissajous)
+DANCE_AIR_CANON_S = 3.0          # follow-the-leader, air-sized
+DANCE_OVERHEAD_SWAY_S = 1.8      # arms-overhead shimmer before the rise
+DANCE_OVERHEAD_HOLD_S = 0.6      # beat of stillness before the drop
+DANCE_DESCEND_S = 8.0            # planted → sit zero
+DANCE_OUTRO_HEARTBEAT_S = 2.2    # two final soft thumps
+DANCE_HANDS_HOLD_S = 0.9         # standing hands-up feature hold
+# Act V show tempo (snap/stream seconds at 1.0×) — tightened per
+# operator note: "faster especially after it stands".
+DANCE_SNAP_S = 0.18
+DANCE_STOMP_S = 0.14
 
 RISE_PRESETS = {
     "default": {
@@ -2425,29 +2430,65 @@ def run_rise_show_demo(bus: FeetechBus, *,
                                 descend_s, "rise_show+descend")
 
 
-def frames_air_wave(seconds: float = 4.5):
-    """Spiral wave in the air — all six legs, each at its own phase.
+def frames_air_wave(seconds: float = 3.0):
+    """Counter-rotating spiral waves — evens go one way, odds the other.
 
-    Hip, knee and yaw all ride the same traveling wave with different
-    lags, so every leg is somewhere different in the figure at any
-    instant.  Amplitude ramps 0.25 → 1.0 over the segment (waking up).
-    Air-sized: hips dip ±28°, knees curl −14..+34° (safe from zero).
+    Even legs ride the traveling wave clockwise, odd legs counter-
+    clockwise, so neighbouring legs always move in opposite directions.
+    Hips are biased UP (−36..+8°) with the knee phase-locked so the
+    feet stay off the floor — this plays sitting on the ground, not on
+    the stand.  Amplitude ramps 0.3 → 1.0 (waking up).
     """
     n = max(1, int(seconds / DT))
     for i in range(n):
         t = i * DT
-        a = 0.25 + 0.75 * min(1.0, t / max(0.5, seconds * 0.7))
+        a = 0.3 + 0.7 * min(1.0, t / max(0.4, seconds * 0.5))
         pose = _zero_pose()
         for leg in range(6):
-            ph = 2.4 * t - leg * (math.pi / 3.0)
+            d = 1.0 if leg % 2 == 0 else -1.0
+            ph = 2.6 * t * d - leg * (math.pi / 3.0)
             _yaw_hip_knee(leg, pose,
-                          yaw=14.0 * a * math.sin(ph + 0.5),
-                          hip=-28.0 * a * math.sin(ph),
-                          knee=a * (10.0 + 24.0 * math.sin(ph - 0.8)))
+                          yaw=16.0 * a * d * math.sin(ph + 0.5),
+                          hip=-14.0 - 22.0 * a * math.sin(ph),
+                          knee=8.0 + 24.0 * a * math.sin(ph - 0.8))
         yield pose
 
 
-def frames_air_canon(seconds: float = 5.0):
+# Per-joint frequencies (Hz) and golden-angle phases for air chaos —
+# deterministic but incommensurate, so no two joints ever sync up.
+_CHAOS_GOLD = 2.399963  # golden angle, rad
+_CHAOS_FREQ = [0.38, 0.55, 0.47, 0.63, 0.41, 0.71]
+
+
+def frames_air_chaos(seconds: float = 4.5):
+    """Everything moving in a different direction — 18 independent
+    joints.
+
+    Each yaw, hip and knee gets its own frequency (from an
+    incommensurate set) and a golden-angle phase, so no two joints move
+    together and the whole body churns like static.  Hips stay lifted
+    (−38..−6°) so the feet wave in the air instead of scraping the
+    floor.  A slow swell (0.4 → 1.0 over ~2 s) keeps it musical.
+    """
+    n = max(1, int(seconds / DT))
+    for i in range(n):
+        t = i * DT
+        a = 0.4 + 0.6 * min(1.0, t / 2.0)
+        pose = _zero_pose()
+        for leg in range(6):
+            j = leg * 3
+            wy = 2 * math.pi * _CHAOS_FREQ[j % 6]
+            wh = 2 * math.pi * _CHAOS_FREQ[(j + 1) % 6]
+            wk = 2 * math.pi * _CHAOS_FREQ[(j + 2) % 6]
+            _yaw_hip_knee(
+                leg, pose,
+                yaw=18.0 * a * math.sin(wy * t + j * _CHAOS_GOLD),
+                hip=-22.0 - 16.0 * a * math.sin(wh * t + (j + 1) * _CHAOS_GOLD),
+                knee=6.0 + 20.0 * a * math.sin(wk * t + (j + 2) * _CHAOS_GOLD))
+        yield pose
+
+
+def frames_air_canon(seconds: float = 3.0):
     """Follow-the-leader in the air — big gesture, decaying echoes.
 
     Leg 0 leads a hip-dip + knee-curl + yaw-sweep gesture; each next
@@ -2460,7 +2501,7 @@ def frames_air_canon(seconds: float = 5.0):
         pose = _zero_pose()
         for leg in range(6):
             decay = 1.0 - 0.12 * leg
-            ph = 1.7 * t - leg * (2.0 * math.pi / 6.0)
+            ph = 2.1 * t - leg * (2.0 * math.pi / 6.0)
             env = decay * max(0.0, math.sin(ph)) ** 2.0
             _yaw_hip_knee(leg, pose,
                           yaw=22.0 * env * math.sin(2.0 * ph),
@@ -2498,7 +2539,9 @@ def run_dance_demo(bus: FeetechBus, *,
     """Full dance routine — quiet heartbeat to wild show and back to sleep.
 
     Act I    heartbeat pulses, then breaths that grow (``size`` scales)
-    Act II   air show: spiral wave (all legs, growing) + big air canon
+    Act II   air show: counter-rotating wave, air chaos (all 18 joints
+             independent — everything moving in a different direction),
+             then the big air canon
     Act III  all six hands over head + overhead sway (the inhale)
     Act IV   THE RISE — one slow 12 s reach from overhead down to plant
     Act V    wild planted acts: bounce, look, orbit sway, ripple,
@@ -2565,7 +2608,7 @@ def run_dance_demo(bus: FeetechBus, *,
         return bail("start")
 
     print("  ♥ DANCE — heartbeat → breathe → hands up → RISE → wild → sleep")
-    print(f"    speed {spd:.2f}×  breath size {size:.2f}×  (~100 s at 1×)")
+    print(f"    speed {spd:.2f}×  breath size {size:.2f}×  (~75 s at 1×)")
 
     glide_kw = dict(
         softness=soft,
@@ -2589,7 +2632,7 @@ def run_dance_demo(bus: FeetechBus, *,
         amp = min(2.5, growth * size)
         peak = _breathe_pose(1.0, hip_deg=BREATHE_HIP_DEG * amp,
                              knee_deg=BREATHE_KNEE_DEG * amp)
-        half = max(1.2, DANCE_BREATH_HALF_S * sc)
+        half = max(1.0, DANCE_BREATH_HALF_S * sc)
         note(f"act I — breath {i}/{len(DANCE_BREATH_GROWTH)} "
              f"(deeper, {amp:.1f}×)")
         print(f"  → act I — breath {i} ({amp:.2f}×)")
@@ -2604,8 +2647,11 @@ def run_dance_demo(bus: FeetechBus, *,
     # --- Act II: air show — big free-range choreography --------------------
     for frame_fn, label, secs in (
         (frames_air_wave,
-         "act II — air wave: spiral around the hex, growing",
+         "act II — air wave: evens spin one way, odds the other",
          DANCE_AIR_WAVE_S),
+        (frames_air_chaos,
+         "act II — AIR CHAOS: all 18 joints, no two alike",
+         DANCE_AIR_CHAOS_S),
         (frames_air_canon,
          "act II — air canon: leg 0 leads, others echo big",
          DANCE_AIR_CANON_S),
@@ -2618,7 +2664,7 @@ def run_dance_demo(bus: FeetechBus, *,
     # --- Act III: hands over head (the inhale) ------------------------------
     note("act III — all six hands over head")
     if not ease_to_pose(bus, _arms_up_pose(), abort_check=check,
-                        seconds=max(1.4, 1.8 * sc),
+                        seconds=max(1.2, 1.6 * sc),
                         label="act III — hands over head",
                         current_tracker=peaks):
         return bail("act3 arms up")
@@ -2631,7 +2677,7 @@ def run_dance_demo(bus: FeetechBus, *,
     # Re-square overhead: one beat of stillness before the drop.
     note("act III — still… (before the drop)")
     if not _soft_glide(bus, _arms_up_pose(), live,
-                       max(0.8, DANCE_OVERHEAD_HOLD_S * sc), check,
+                       max(0.6, DANCE_OVERHEAD_HOLD_S * sc), check,
                        **glide_kw):
         return bail("act3 hold")
 
@@ -2681,18 +2727,18 @@ def run_dance_demo(bus: FeetechBus, *,
     # Power bounce.
     note("act V — wild: power bounce ×3")
     for _ in range(3):
-        if not snap_to(squatted, "BOOM", seconds=0.22 * sc):
+        if not snap_to(squatted, "BOOM", seconds=DANCE_SNAP_S * sc):
             return bail("act5 bounce")
-        if not snap_to(tall, "POP", seconds=0.22 * sc):
+        if not snap_to(tall, "POP", seconds=DANCE_SNAP_S * sc):
             return bail("act5 bounce")
-    if not snap_to(planted, "plant", seconds=0.22 * sc):
+    if not snap_to(planted, "plant", seconds=DANCE_SNAP_S * sc):
         return bail("act5 bounce")
 
     # Look + nod (personality beat).
     note("act V — look left/right + nod")
-    for goal, label, s in ((look_l, "look L", 0.28), (look_r, "look R", 0.32),
-                           (planted, "center", 0.22), (nodded, "nod", 0.25),
-                           (planted, "plant", 0.22)):
+    for goal, label, s in ((look_l, "look L", 0.22), (look_r, "look R", 0.26),
+                           (planted, "center", 0.18), (nodded, "nod", 0.2),
+                           (planted, "plant", 0.18)):
         if not snap_to(goal, label, seconds=s * sc):
             return bail("act5 look")
 
@@ -2700,61 +2746,61 @@ def run_dance_demo(bus: FeetechBus, *,
     # orbit (every leg its own 60° phase), canon (leg 0 leads, the rest
     # echo at staggered offsets), plus the classic waves.
     for mode, secs, label in (
-        ("orbit", 4.0, "orbit sway — body leans in a slow circle"),
-        ("ripple", 3.2, "ripple — legs flying around"),
-        ("canon", 5.0, "canon — leg 0 leads, others echo in turn"),
-        ("gallop", 2.8, "gallop — opposite pairs"),
-        ("tripod", 2.6, "tripod flip — 3 up / 3 down"),
+        ("orbit", 2.8, "orbit sway — body leans in a slow circle"),
+        ("ripple", 2.4, "ripple — legs flying around"),
+        ("canon", 3.6, "canon — leg 0 leads, others echo in turn"),
+        ("gallop", 2.2, "gallop — opposite pairs"),
+        ("tripod", 2.0, "tripod flip — 3 up / 3 down"),
     ):
         note(f"act V — {label}")
         if not stream(mode, secs * sc, label):
             return bail("act5 stream")
-        if not snap_to(planted, "plant", seconds=0.2 * sc):
+        if not snap_to(planted, "plant", seconds=DANCE_SNAP_S * sc):
             return bail("act5 stream")
 
     # Standing hands-up feature — echo of act III on a stable tripod.
     note("act V — HANDS UP, standing on a tripod")
-    if not snap_to(evens_up, "HANDS UP (tripod)", seconds=0.5 * sc):
+    if not snap_to(evens_up, "HANDS UP (tripod)", seconds=0.4 * sc):
         return bail("act5 hands")
     if _planted_pause(bus, live, check, peaks, DANCE_HANDS_HOLD_S * sc):
         return bail("act5 hands")
     for goal, label in ((odds_up, "SWITCH"), (evens_up, "SWITCH"),
                         (planted, "plant")):
-        if not snap_to(goal, label, seconds=0.26 * sc):
+        if not snap_to(goal, label, seconds=0.22 * sc):
             return bail("act5 hands")
 
     note("act V — counterwave: two waves, no two legs alike")
-    if not stream("counterwave", 4.0 * sc,
+    if not stream("counterwave", 3.0 * sc,
                   "counterwave — knees ride CW, yaws ride CCW"):
         return bail("act5 counterwave")
-    if not snap_to(planted, "plant", seconds=0.2 * sc):
+    if not snap_to(planted, "plant", seconds=DANCE_SNAP_S * sc):
         return bail("act5 counterwave")
 
     note("act V — fan: all six dancing")
-    if not stream("fan", 2.4 * sc, "fan — all six dancing"):
+    if not stream("fan", 1.8 * sc, "fan — all six dancing"):
         return bail("act5 fan")
-    if not snap_to(planted, "plant", seconds=0.2 * sc):
+    if not snap_to(planted, "plant", seconds=DANCE_SNAP_S * sc):
         return bail("act5 fan")
 
     # Body twist (small, always returns to 0 — tether-safe).
     note("act V — body twist (and back)")
     for goal, label in ((twist_p, "twist +"), (twist_n, "twist −"),
                         (planted, "untwist")):
-        if not snap_to(goal, label, seconds=RISE_TURN_SECONDS * sc):
+        if not snap_to(goal, label, seconds=0.32 * sc):
             return bail("act5 twist")
 
     # Finale: stomp barrage + TA-DA.
     note("act V — finale: stomp barrage + TA-DA")
     for _ in range(4):
-        if not snap_to(squatted, "STOMP", seconds=0.16 * sc):
+        if not snap_to(squatted, "STOMP", seconds=DANCE_STOMP_S * sc):
             return bail("act5 stomp")
-        if not snap_to(planted, "STOMP", seconds=0.16 * sc):
+        if not snap_to(planted, "STOMP", seconds=DANCE_STOMP_S * sc):
             return bail("act5 stomp")
-    if not snap_to(odds_up, "★ TA-DA ★", seconds=0.35 * sc):
+    if not snap_to(odds_up, "★ TA-DA ★", seconds=0.3 * sc):
         return bail("act5 finale")
-    if _planted_pause(bus, live, check, peaks, 0.55 * sc):
+    if _planted_pause(bus, live, check, peaks, 0.45 * sc):
         return bail("act5 finale")
-    if not snap_to(planted, "plant", seconds=0.3 * sc):
+    if not snap_to(planted, "plant", seconds=0.25 * sc):
         return bail("act5 finale")
 
     # --- Act VI: back to sleep ----------------------------------------------
