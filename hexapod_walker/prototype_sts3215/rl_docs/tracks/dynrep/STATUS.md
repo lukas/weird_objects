@@ -1,5 +1,24 @@
 # dynrep — Dynamics-representation pretraining
 
+**08-18 ~11:2x UTC (triage cycle): `cw-dynrep-criticD-walkcurr4-bridge1`
+CRASHED at 2.007M/4M on a mechanical bug, not a behavioral result —
+fixed at the root and RETRIED as `cw-dynrep-criticD-walkcurr4-bridge1-
+retry1` (identical recipe/seed, VERIFIED RUNNING on train-5).** First
+run in the condition-D/`--actor-lr` walkcurr family to ever reach a
+walkcurr promotion+rollback; the rollback's blind
+`optimizer.load_state_dict` choked on `save_stock_optimizer`'s
+by-design single-group checkpoint snapshot vs the live 2-group
+actor/critic optimizer ("different number of parameter groups").
+Progress before the crash was clean PASS-shaped (cmd_prog_frac
+0.92-1.02, slip/m 1.3-1.4, height_factor 0.83-0.84, B0 promoted well
+inside the 1M gate) — this licenses the retry rather than a redesign.
+Fix: `load_optimizer_state_if_compatible()` (update_health.py) skips
+the optimizer reload on a group-count mismatch and keeps the exactly-
+restored policy weights; 3 new tests, 19/19 test_value_learning.py,
+full semantics bank green; snapshot `e827a55a`. No change to the
+bridge hypothesis or the pre-registered gate — same PASS/FAIL contract
+applies to the retry (PASS auto-launches the 40M successor).
+
 **08-18 ~11:xx UTC (operator-kick cycle, order fb_20260818T102844_116d4c
 + focus note executed): the walkcurr4 evidence-based correction is BUILT
 and the BRIDGE canary is the live arm —

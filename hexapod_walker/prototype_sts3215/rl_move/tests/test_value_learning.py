@@ -403,6 +403,38 @@ def test_load_optimizer_state_group_mismatch_skips_not_crashes():
     assert [g["lr"] for g in opt.param_groups] == before_lrs
 
 
+def test_rollback_reload_survives_frozen_and_unfrozen_phases():
+    """Operator order fb 20260818T111051Z (bridge1 recovery): the
+    walkcurr rollback reload must be safe in BOTH actor phases. A
+    stock 1-group checkpoint reloaded into the live 2-group optimizer
+    DURING the freeze window must skip without crashing and leave the
+    actor group at lr=0 after the next _update_learning_rate; the same
+    reload AFTER release must leave the scheduled actor lr intact."""
+    from rl_move.sim.update_health import set_actor_freeze
+    policy = _mlp_policy()
+    m = _stub_model(policy)
+    attach_actor_critic_lr(m, actor_lr=5e-5, critic_lr=3e-4)
+    set_actor_freeze(m, 100)
+    opt = policy.optimizer
+    stock = th.optim.Adam(policy.parameters(), lr=1e-2).state_dict()
+    # frozen phase: reload skips, freeze semantics keep actor lr 0
+    m.num_timesteps = 50
+    ok = load_optimizer_state_if_compatible(opt, stock,
+                                            context="frozen rollback")
+    assert ok is False
+    m._update_learning_rate(opt)
+    assert opt.param_groups[0]["lr"] == 0.0
+    assert opt.param_groups[1]["lr"] == pytest.approx(3e-4)
+    # unfrozen phase: reload skips, scheduled actor lr restored
+    m.num_timesteps = 200
+    ok = load_optimizer_state_if_compatible(opt, stock,
+                                            context="released rollback")
+    assert ok is False
+    m._update_learning_rate(opt)
+    assert opt.param_groups[0]["lr"] == pytest.approx(5e-5)
+    assert opt.param_groups[1]["lr"] == pytest.approx(3e-4)
+
+
 def test_load_optimizer_state_real_state_dict_shape():
     """Regression-pin the exact shape save_stock_optimizer produces
     (param_groups list under that key) so the compatibility check
