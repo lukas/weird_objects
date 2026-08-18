@@ -490,6 +490,8 @@ class BenchAPI:
                 continue
             if n in AIR_DEMO_NAMES:
                 group = "air"
+            elif n.startswith("quad"):
+                group = "quad"      # own web tab (tip-back 4-leg walk)
             elif n in stand_stream:
                 group = "stand"
             elif n.startswith("walk"):

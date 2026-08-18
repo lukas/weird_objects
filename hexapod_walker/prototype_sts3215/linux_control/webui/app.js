@@ -636,9 +636,10 @@ $('dbgtestall').onclick = dbgTestAll;
 $('dbgteststop').onclick = ()=>{ dbgTestAbort = true; cmd('C'); showSent('C'); dbgStatus('Stopping…'); };
 
 // --- tab switching ----------------------------------------------------------
-const VIEWS = ['drive','motors','demos','rl','experiments','measure',
+const VIEWS = ['drive','motors','demos','quad','rl','experiments','measure',
                'calibrate','debug'];
-const TAB_TITLES = {drive:'Drive', motors:'Motors', demos:'Demos', rl:'RL',
+const TAB_TITLES = {drive:'Drive', motors:'Motors', demos:'Demos',
+                    quad:'Quad', rl:'RL',
                     measure:'Measure', calibrate:'Calibrate', debug:'Debug'};
 function showView(which){
   activeView = which;
@@ -663,6 +664,7 @@ function showView(which){
   }
   else stopMotorsPoll();
   if(which === 'demos'){ loadDemos(); refreshDemoStatus(); startDemoPoll(); }
+  else if(which === 'quad'){ refreshRobotState(true); startDemoPoll(); }
   else stopDemoPoll();
   if(which === 'calibrate'){
     if(servosArmed){ cmd('HOLD'); forceResend(); }
@@ -675,6 +677,7 @@ function showView(which){
 $('tab-drive').onclick = ()=> showView('drive');
 $('tab-motors').onclick = ()=> showView('motors');
 $('tab-demos').onclick = ()=> showView('demos');
+$('tab-quad').onclick = ()=> showView('quad');
 $('tab-rl').onclick = ()=> showView('rl');
 $('tab-experiments').onclick = ()=> showView('experiments');
 $('tab-measure').onclick = ()=> showView('measure');
@@ -1833,7 +1836,7 @@ function startDemoPoll(){
   demoPollN = 0;
   // Status every 0.5s; zero probe every 2s (bus read — don't spam while demoing).
   demoTimer = setInterval(()=>{
-    if(activeView!=='demos') return;
+    if(activeView!=='demos' && activeView!=='quad') return;
     demoPollN++;
     refreshRobotState(demoPollN % 4 === 0);
   }, 500);
@@ -1894,6 +1897,14 @@ function paintDemoStatus(d){
       telemEl.innerHTML =
         'Demos auto-log cmd vs encoder → <code>logs/demo_*.csv</code> (+ summary).';
     }
+  }
+  // Quad tab mirrors the same demo state with its own pill.
+  const qel = $('qstatus');
+  if(qel){
+    qel.textContent = el.textContent;
+    qel.className = el.className;
+    const qd = $('qstatusdetail'), dd = $('dstatusdetail');
+    if(qd && dd) qd.textContent = dd.textContent;
   }
 }
 function paintZeroHint(z){
@@ -2391,6 +2402,54 @@ $('dstop').onclick = async ()=>{
 };
 $('dzero').onclick = ()=> goPoseZero('sit', 'sit zero');
 $('dstand').onclick = ()=> goPoseZero('stand', 'stand zero');
+
+// --- Quad tab (tip-back four-leg walk) --------------------------------------
+function quadSpeed(){ return Math.max(0.25, Math.min(2.0, (+$('qspeed').value)/100)); }
+$('qspeed').oninput = ()=>{
+  $('qspeedlab').textContent = quadSpeed().toFixed(2);
+  if(!(lastDemo && lastDemo.running)) return;
+  if(liveSpeedTimer) clearTimeout(liveSpeedTimer);
+  liveSpeedTimer = setTimeout(async ()=>{
+    liveSpeedTimer = null;
+    try{
+      const r = await fetch('/api/demo/speed',{method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({speed: quadSpeed()})});
+      const j = await r.json();
+      if(j.demo) paintDemoStatus(j.demo);
+    }catch(e){}
+  }, 150);
+};
+$('qstart').onclick = async ()=>{
+  if(needArm()) return;
+  const sp = quadSpeed();
+  const body = {name:'quad_walk', speed:sp,
+                seconds:Math.max(20, Math.min(300, +($('qdur').value)||40))};
+  showSent('quad walk @ '+sp.toFixed(2)+'×…');
+  const res = await fetch('/api/demo',{method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify(body)});
+  const j = await res.json();
+  if(j.ok) showSent('quad walk @ '+sp.toFixed(2)+'× for '+body.seconds+'s'
+                    +(j.home?' (via '+j.home+' zero)':''));
+  else showSent(j.error||'failed');
+  if(j.demo) paintDemoStatus(j.demo);
+  if(j.robot) paintRobotActivity(j.robot);
+  startDemoPoll();
+  refreshRobotState(true);
+};
+$('qstop').onclick = async ()=>{
+  showSent('stopping…');
+  const r = await fetch('/api/demo/stop',{method:'POST'});
+  try{
+    const j = await r.json();
+    if(j.demo) paintDemoStatus(j.demo);
+    if(j.robot) paintRobotActivity(j.robot);
+  }catch(e){}
+  showSent('quad stop');
+  refreshRobotState(true);
+};
+$('qstand').onclick = ()=> goPoseZero('stand', 'stand zero');
 $('dcheckz').onclick = async ()=>{
   showSent('checking zero…');
   await refreshRobotState(true);

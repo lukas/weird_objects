@@ -21,6 +21,7 @@
     <button id="tab-motors" class="tab">Motors</button>
     <span class="tabsep"></span>
     <button id="tab-demos" class="tab">Demos</button>
+    <button id="tab-quad" class="tab">Quad</button>
     <button id="tab-rl" class="tab">RL</button>
     <button id="tab-experiments" class="tab">Experiments</button>
     <button id="tab-measure" class="tab">Measure</button>
@@ -261,6 +262,53 @@ feet, zero commanded scrub.">
     </div>
   </div>
   </div><!-- /view-demos -->
+
+  <div id="view-quad" class="view">
+  <div class="row">
+    <div class="pad">
+      <h2>Quad mode — tip back, walk on four legs</h2>
+      <div class="hint">The robot rears up nose-high like a begging dog —
+        front legs tucked in the air — and walks forward on the four rear
+        legs with a real <b>animal walk</b> (lateral-sequence footfalls
+        LH·LF·RH·RF, body always moving, weight sway against the swinging
+        leg). One run = <b>rear up → walk → sit back down</b>, one scripted
+        pose stream at 20&nbsp;Hz; the <b>speed slider works LIVE</b>.
+        Level-body 4-leg walking is geometrically impossible on this robot
+        (CoM lands ahead of the 4-foot polygon) — rearing back is what
+        makes it work. Sim-proven on the MuJoCo twin: support margin never
+        below +34&nbsp;mm, peak ~2&nbsp;A, zero rocking at 1×.<br>
+        <b>Floor:</b> flat + non-slip, ~0.3&nbsp;m clear ahead, no cords
+        under the body. <b>Watch it the whole run</b> — first hardware runs
+        at 0.5–0.75×. Stop / E-STOP abort instantly.</div>
+      <div class="btns" style="margin:12px 0">
+        <button id="qstart" style="font-size:16px;background:#1c3d2a;border-color:#2e7d47">🐕 Rear up &amp; walk</button>
+        <button id="qstop" class="danger">■ Stop</button>
+        <button id="qstand">Stand zero</button>
+      </div>
+      <label class="slab">Speed <span class="tag" style="color:#5fd08a;border-color:#2e7d47">LIVE</span>:
+        <span id="qspeedlab">0.75</span>×
+        <span style="color:#8089a0;font-weight:400">(0.25× → 2× · drag while
+        it runs — gait tuned at 1×, start hardware at 0.5–0.75×)</span></label>
+      <input id="qspeed" type="range" min="25" max="200" value="75" step="5">
+      <label class="slab">Run for:
+        <span style="color:#8089a0;font-weight:400">(demo time · entry ~6.5 s
+        + exit ~7.5 s are inside it; the walk fills the middle)</span>
+        <select id="qdur">
+          <option value="20">20 s (rear up + a step + down)</option>
+          <option value="40" selected>40 s</option>
+          <option value="60">60 s</option>
+          <option value="120">2 min</option>
+        </select></label>
+      <div class="hint">Status: <span id="qstatus" class="pill">idle</span>
+        <span id="qstatusdetail" style="color:#8089a0"></span></div>
+      <div class="hint">Homes via the validated stand-up first (same as the
+        standing dances), τ900 + 3&nbsp;A stall guard while moving. Commanded
+        pace ~14&nbsp;mm/s at 1×; about half realizes (rear feet pivot under
+        load — measured in sim). Auto-logs cmd vs encoder →
+        <code>logs/demo_quad_walk_*.csv</code>.</div>
+    </div>
+  </div>
+  </div><!-- /view-quad -->
 
   <div id="view-rl" class="view">
   <div class="row">

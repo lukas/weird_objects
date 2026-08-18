@@ -44,6 +44,17 @@ FINDINGS (08-18, CPU twin, fitted air servo params):
   calm best ≈ +82 mm / 40 s at pitch -14, showcase pick pitch -17
   (+64 mm / 40 s, visibly reared):
 
+  gait=walk (08-18, later same day): a CONTINUOUS lateral-sequence
+  animal walk (footfalls LH,LF,RH,RF at quarter-cycle offsets, duty
+  0.8, body at constant velocity + sinusoidal sway) beats the creep on
+  every axis: +155 mm / 35 s at stride 45 mm, support margin never
+  below +34 mm, peak est current 2.0 A, tilt within 1 deg of commanded.
+  Sway phase is the key knob: 120-135 deg (lean lags the swing side)
+  keeps the margin positive; 0 deg kills progress, 180+ goes
+  margin-negative. Stride >= 50 mm slip-rocks like the creep.
+  Deployed as the ``quad_walk`` demo (motor_setup/quad_walk.py — the
+  hardware port, validated end-to-end in this sim incl. entry/exit):
+
     python probe_quad_rear.py walk --pitch -17 --body-dx -0.04 \
         --mid-yaw 25 --stride 0.035 --lift 0.02 \
         --t-shift 0.7 --t-swing 0.7 --video out.mp4
@@ -155,13 +166,23 @@ class RearQuadGait:
     """
 
     SWING_ORDER = (2, 4, 3, 1)   # rear-L, mid-R, rear-R, mid-L
+    # continuous walk: lateral-sequence footfalls (LH, LF, RH, RF), the
+    # slow-walk order every quadruped animal uses. "Hind" = the rear
+    # pair L2/L3, "front" = the mid pair L1/L4.
+    WALK_PHASE = {2: 0.0, 1: 0.25, 3: 0.5, 4: 0.75}
 
     def __init__(self, *, pitch: float, body_dx: float, mid_yaw: float,
                  stride: float = 0.03, lift: float = 0.03,
                  shift_gain: float = 0.8, shift_cap: float = 0.045,
                  t_shift: float = 0.9, t_swing: float = 0.8,
                  t_entry: tuple[float, float, float] = (2.0, 2.0, 2.5),
+                 gait: str = "creep", period: float = 3.2,
+                 duty: float = 0.8, sway: float = 0.025,
+                 sway_phase: float = 0.0,
                  plant_deg: np.ndarray | None = None):
+        self.gait = gait
+        self.period, self.duty = period, duty
+        self.sway, self.sway_phase = sway, sway_phase
         import mujoco_prototype as MP
         from rl_move.body_ik import fk_all_feet
         from rl_move.sim.sim_env import _default_plant_deg
@@ -195,7 +216,8 @@ class RearQuadGait:
                 [c * r[0] - s * r[1], s * r[0] + c * r[1]])
 
         self.t_entry_total = self.t_e1 + self.t_e2 + self.t_e3
-        self.cycle = 4 * (self.t_shift + self.t_swing)
+        self.cycle = (self.period if gait == "walk"
+                      else 4 * (self.t_shift + self.t_swing))
         # nominal body xy at rest within the reared stance
         self.rest_xy = np.array([body_dx, 0.0])
 
@@ -238,6 +260,32 @@ class RearQuadGait:
             d = d / n * min(self.shift_cap, self.shift_gain * n)
         return self.rest_xy + d
 
+    def _walk_cycle(self, tc: float, front_q: np.ndarray) -> np.ndarray:
+        """Continuous animal walk: body advances at constant velocity
+        with a lateral sway; each leg swings for (1-duty) of the cycle
+        at its lateral-sequence phase offset."""
+        T, S, beta = self.period, self.stride, self.duty
+        v = S / T
+        step_vec = np.array([S, 0.0, 0.0])
+        feet: dict[int, np.ndarray] = {}
+        for leg in SUPPORT_LEGS:
+            ph = tc / T - self.WALK_PHASE[leg]
+            n = math.floor(ph)
+            s = ph - n
+            # center each leg's stance sweep in its workspace
+            A = (self.anchors0[leg]
+                 - step_vec * (1.0 - self.WALK_PHASE[leg] - (2 - beta) / 2))
+            if s < (1.0 - beta):            # swing
+                u = s / (1.0 - beta)
+                feet[leg] = (A + (n + smooth(u)) * step_vec + np.array(
+                    [0.0, 0.0, self.lift * math.sin(math.pi * u)]))
+            else:                            # stance
+                feet[leg] = A + (n + 1) * step_vec
+        sway_y = self.sway * math.sin(
+            2 * math.pi * tc / T + self.sway_phase)
+        body_xy = np.array([self.body_dx + v * tc, sway_y])
+        return self._solve(body_xy, self.pitch, feet, front_q)
+
     # -- the pose function -------------------------------------------------
 
     def q_at(self, t: float) -> np.ndarray:
@@ -273,8 +321,10 @@ class RearQuadGait:
             return self._solve(np.array([self.body_dx, 0.0]),
                                u * self.pitch, anchors, front_tucked)
 
-        # ---- creep cycles --------------------------------------------------
+        # ---- gait cycles ---------------------------------------------------
         tc = t - self.t_entry_total
+        if self.gait == "walk":
+            return self._walk_cycle(tc, front_tucked)
         n_cyc = int(tc // self.cycle)
         ph = tc - n_cyc * self.cycle
         step_vec = np.array([self.stride, 0.0, 0.0])
@@ -337,7 +387,9 @@ def run_walk(args) -> None:
         pitch=args.pitch * DEG2RAD, body_dx=args.body_dx,
         mid_yaw=args.mid_yaw * DEG2RAD, stride=args.stride,
         lift=args.lift, t_shift=args.t_shift, t_swing=args.t_swing,
-        shift_cap=args.shift_cap)
+        shift_cap=args.shift_cap, gait=args.gait, period=args.period,
+        duty=args.duty, sway=args.sway,
+        sway_phase=args.sway_phase * DEG2RAD)
     gait.ik_fallbacks = 0
 
     model = build_model(mesh_visuals=False, flat_terrain=True)
@@ -473,6 +525,15 @@ def main() -> None:
     w.add_argument("--shift-cap", type=float, default=0.045)
     w.add_argument("--seconds", type=float, default=25.0)
     w.add_argument("--video", default="")
+    w.add_argument("--gait", choices=("creep", "walk"), default="creep")
+    w.add_argument("--period", type=float, default=3.2,
+                   help="walk gait: s per full cycle")
+    w.add_argument("--duty", type=float, default=0.8,
+                   help="walk gait: stance fraction")
+    w.add_argument("--sway", type=float, default=0.025,
+                   help="walk gait: lateral body sway amplitude (m)")
+    w.add_argument("--sway-phase", type=float, default=0.0,
+                   help="walk gait: sway phase offset (deg)")
     args = ap.parse_args()
     if args.cmd == "static":
         run_static(args)
