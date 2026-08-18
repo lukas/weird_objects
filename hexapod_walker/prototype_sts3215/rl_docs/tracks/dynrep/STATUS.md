@@ -1,5 +1,33 @@
 # dynrep — Dynamics-representation pretraining
 
+**08-18 ~10:1x UTC: `cw-dynrep-criticD-walkcurr3` FINISHED its full 40M
+GPU-physics budget — FAIL.** `walkcurr/frontier` and `walkcurr/
+promotions` stayed at 0 for all 40M steps (never certified past B0);
+gate-eval confirms it behaviorally (DR-0 det gait_valid 0/6, every
+episode falls forward from a low crouch, tilt_pitch, slip 2.6/m — see
+video). Root cause matches the operator's own 7.5M diagnosis
+(fb_20260818T085648_2a0a60): the calibrated `reward.walk_height_gate`/
+`reward.walk_kernel_prog_gate` income gates were left OFF and the
+actor update (1e-4 x 3 epochs) was far below the proven acquisition
+recipe. Backend proof line present and healthy (MjxShardedVecEnv/warp)
+— this is a recipe failure, not a mechanism one. Same cycle also
+root-caused + fixed a real eval-harness bug that silently broke
+evaluability of EVERY condition-D/criticD checkpoint saved with
+`--actor-lr` (walkcurr1/2/3 and the tournament below):
+`save_stock_optimizer` (`rl_move/sim/update_health.py`) built the
+save-time stock optimizer over ALL `model.policy.parameters()`
+(including the frozen dynamics-transformer encoder) instead of
+trainable-only, so `PPO.load`/eval crashed with "parameter group
+doesn't match the size of optimizer's group" on every one of these
+checkpoints — fixed at the root + a `load_checkpoint_auto` repair
+fallback for already-saved zips (`rl_move/sim/gru_policy.py`),
+frozen-encoder regression test added. No follow-up queued from
+walkcurr3 itself — already superseded in flight by the operator's
+same-seed canary tournament (`cw-dynrep-criticD-walkcurr4-canA-r2`
+arm A RUNNING; arms B/C actor-init from the proven BC-gait recipe per
+URGENT addendum fb_20260818T085834_588d9a are a concurrent cycle's
+in-flight build, not duplicated here).
+
 **08-18 ~08:5x UTC (operator order fb_20260818T065930_03b422 — ALL-GPU
 correction, executed same cycle): `cw-dynrep-criticD-walkcurr2` was
 STOPPED at ~9M/40M and marked SUPERSEDED_NONCOMPLIANT (its physics ran
