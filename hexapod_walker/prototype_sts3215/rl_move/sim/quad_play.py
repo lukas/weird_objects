@@ -73,6 +73,12 @@ class Player:
              STOPPING: "stopping — finishing the step…",
              EXIT: "SITTING BACK DOWN…"}
 
+    # Profile speed: the demo streamer (PoseStreamer) writes per-joint
+    # speeds up to 3000 counts/s; the fitted default (350 ≈ 31 deg/s)
+    # is the system-ID *test* speed and makes every gait a shuffle.
+    # Match verify_noslip's hardware write profile (1500 counts/s).
+    VEL_SCALE = 1500.0 / 350.0
+
     def __init__(self) -> None:
         self.model = build_model(mesh_visuals=False, flat_terrain=True)
         self.params = SimServoParams.load(SIM_MODEL_PATH)
@@ -97,7 +103,8 @@ class Player:
         mujoco.mj_resetData(self.model, self.data)
         place_at_plant(mujoco, self.model, self.data, self.qadr,
                        self.pos_act, self.q_plant)
-        self.profile = ServoProfile(self.params, self.q_plant)
+        self.profile = ServoProfile(self.params, self.q_plant,
+                                    vel_scale=self.VEL_SCALE)
         self.gait = QW.QuadRearWalk(list(ROBOT_PLANT_DEG), 1e6,
                                     gait=self.gait_name)
         self.state = self.PLANT

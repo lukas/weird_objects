@@ -274,10 +274,10 @@ feet, zero commanded scrub.">
         slider</b>: the <b>walk</b> is a lateral-sequence animal walk
         (footfalls LH·LF·RH·RF, one foot up at a time, statically stable,
         weight sway against the swing); the <b>trot</b> moves DIAGONAL leg
-        pairs together like a horse — twice the beat, ~+70% realized pace,
-        and in sim it rocks <i>less</i> than the walk (symmetric beat), but
-        only two feet hold the floor mid-beat, so treat it as the more
-        advanced act on hardware.
+        pairs together like a horse — high-stepping front legs (45&nbsp;mm
+        knee action), ~3× the walk's pace, with a visible horse-prance
+        (~10° tilt band, sim). Only two feet hold the floor mid-beat, so
+        treat it as the more advanced act on hardware.
         Level-body 4-leg walking is geometrically impossible on this robot
         (CoM lands ahead of the 4-foot polygon) — rearing back is what
         makes it work. Sim-proven on the MuJoCo twin: walk margin never
@@ -310,9 +310,10 @@ feet, zero commanded scrub.">
         <span id="qstatusdetail" style="color:#8089a0"></span></div>
       <div class="hint">Homes via the validated stand-up first (same as the
         standing dances), τ900 + 3&nbsp;A stall guard while moving. Realized
-        pace at 1× (sim): walk ~6&nbsp;mm/s, trot ~11&nbsp;mm/s (feet
-        pivot-slip under load, so commanded stride only partly realizes).
-        Auto-logs cmd vs encoder → <code>logs/demo_quad_*.csv</code>.</div>
+        pace at 1× (sim, hardware-speed servo profile): walk ~7&nbsp;mm/s,
+        trot ~20&nbsp;mm/s (feet pivot-slip under load, so commanded stride
+        only partly realizes). Auto-logs cmd vs encoder →
+        <code>logs/demo_quad_*.csv</code>.</div>
     </div>
   </div>
   </div><!-- /view-quad -->

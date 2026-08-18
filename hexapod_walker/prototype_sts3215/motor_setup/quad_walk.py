@@ -53,19 +53,27 @@ WALK_PHASE = {2: 0.0, 1: 0.25, 3: 0.5, 4: 0.75}   # LH LF RH RF
 # cycle; supports are L1=LF, L4=RF, L2=LH, L3=RH in the reared quad).
 # "walk"  = the sim-tuned lateral-sequence animal walk (one foot up).
 # "trot"  = horse trot: DIAGONAL pairs (LF+RH, then RF+LH) — only two
-#           feet down mid-beat. Sim sweep 08-18: never falls anywhere in
-#           period 0.8–2.0 s x stride 50–90 mm x duty 0.5–0.65 (the
-#           servo velocity clamp low-passes the fast end into a smooth
-#           shuffle), and it rocks LESS than the walk (symmetric beat,
-#           no sway needed). Preset = the realized-speed knee:
-#           10.6 mm/s over 40 s vs the walk's 6.2 (+71%); stride
-#           realization ~24% (servo clamp + slip bound it — bigger
-#           strides just slip more, ceiling ~11 mm/s).
+#           feet down mid-beat. Tuned 08-18 under the hardware-speed
+#           servo profile (write ~1500 counts/s, verify_noslip's
+#           convention — the default fitted 350 profile is 8x slower
+#           than what the demo streamer actually writes and turns every
+#           gait into a shuffle in sim). Never falls anywhere in the
+#           swept envelope. Preset: 20.5 mm/s realized over 16 s vs the
+#           walk's ~7 (3x), tilt band ~10 deg (visible horse-prance).
+#           lift_front 45 mm gives big knee articulation; TRUE ground
+#           clearance saturates ~10 mm — when a front swings, the body
+#           tips about the stance diagonal exactly as fast as the foot
+#           rises (measured pitch -16 -> -1 deg). The counter-roll
+#           (+8 deg @ 270) and the 30 mm CoM sway shuttle (@180) are
+#           what keep the beat propulsive instead of rocking; pushing
+#           clearance past ~10 mm just converts to 35-50 deg rocking.
 GAITS: dict[str, dict] = {
     "walk": dict(stride=STRIDE_M, lift=LIFT_M, period=PERIOD_S, duty=DUTY,
                  sway=SWAY_M, sway_phase=SWAY_PHASE_RAD, phase=WALK_PHASE),
-    "trot": dict(stride=0.070, lift=0.022, period=1.6, duty=0.60,
-                 sway=0.0, sway_phase=0.0,
+    "trot": dict(stride=0.080, lift=0.028, lift_front=0.045,
+                 period=2.4, duty=0.60,
+                 sway=0.030, sway_phase=math.radians(180.0),
+                 roll=math.radians(8.0), roll_phase=math.radians(270.0),
                  phase={1: 0.0, 3: 0.0, 4: 0.5, 2: 0.5}),
 }
 
@@ -103,11 +111,27 @@ class QuadRearWalk:
         g = GAITS[gait]
         self.stride = g["stride"]
         self.lift = g["lift"]
+        # Front pair (the splayed mids) may lift higher than the rears —
+        # horse-like knee action; purely visual, slip is at the rears.
+        self.lift_front = g.get("lift_front", g["lift"])
         self.period = g["period"]
         self.duty = g["duty"]
         self.sway = g["sway"]
         self.sway_phase = g["sway_phase"]
         self.phase = dict(g["phase"])
+        # Counter-roll (rad, about x, once per cycle): diagonal 2-foot
+        # support has no roll stiffness, so the body droops toward the
+        # swinging FRONT leg and eats the foot clearance — command the
+        # opposite roll, phased with the beat (horse weight transfer).
+        self.roll = g.get("roll", 0.0)
+        self.roll_phase = g.get("roll_phase", 0.0)
+        # Stance-push (m): when one MID (front) leg swings, its load
+        # dumps onto the other mid, whose servo springs compress and the
+        # nose sinks exactly as fast as the foot rises (measured: pitch
+        # -16 -> -1 deg, foot glued to the floor at 50 mm commanded
+        # lift). Pressing the stance mid DEEPER by push*sin(pi*u_swing)
+        # holds the nose up — the animal's stance-leg extension.
+        self.push = g.get("push", 0.0)
         # Walk window: exit starts EXIT_TOTAL before the end, but never
         # before the entry finishes (too-short runs just rear up + back).
         self.t_exit = max(ENTRY_TOTAL_S, self.seconds - EXIT_TOTAL_S)
@@ -147,14 +171,19 @@ class QuadRearWalk:
     # -- IK ----------------------------------------------------------------
 
     def _leg_deg(self, leg: int, wx: float, wy: float, wz: float,
-                 bx: float, by: float, pitch: float) -> tuple[float, ...]:
+                 bx: float, by: float, pitch: float,
+                 roll: float = 0.0) -> tuple[float, ...]:
         """World anchor → (yaw, hip, knee) deg for a body at (bx, by)
-        pitched ``pitch`` about y (R = rot_y; R.T maps world → body)."""
+        pitched ``pitch`` about y then rolled ``roll`` about x
+        (R = rot_y·rot_x; R.T maps world → body)."""
         dx, dy, dz = wx - bx, wy - by, wz
         c, s = math.cos(pitch), math.sin(pitch)
         px = c * dx - s * dz
         py = dy
         pz = s * dx + c * dz
+        if roll:
+            cr, sr = math.cos(roll), math.sin(roll)
+            py, pz = cr * py + sr * pz, -sr * py + cr * pz
         ox0, oy0 = self.origins[leg]
         rx, ry = px - ox0, py - oy0
         a = self.azim[leg]
@@ -172,7 +201,7 @@ class QuadRearWalk:
 
     def _solve(self, bx: float, by: float, pitch: float,
                feet: dict[int, tuple[float, float, float]],
-               front_deg) -> list[float]:
+               front_deg, roll: float = 0.0) -> list[float]:
         pose = list(self.base)
         for leg in FRONT_LEGS:
             pose[3 * leg: 3 * leg + 3] = front_deg[
@@ -180,7 +209,7 @@ class QuadRearWalk:
         for leg in SUPPORT_LEGS:
             wx, wy, wz = feet[leg]
             pose[3 * leg: 3 * leg + 3] = self._leg_deg(
-                leg, wx, wy, wz, bx, by, pitch)
+                leg, wx, wy, wz, bx, by, pitch, roll)
         return pose
 
     # -- walk-phase foot schedule -------------------------------------------
@@ -191,6 +220,7 @@ class QuadRearWalk:
         ``freeze_swing`` plants a mid-swing leg at its landing anchor
         (used to build the regather target of the exit)."""
         feet = {}
+        swing_u = {}
         for leg in SUPPORT_LEGS:
             ph = tw / self.period - self.phase[leg]
             n = math.floor(ph)
@@ -201,10 +231,19 @@ class QuadRearWalk:
                 1.0 - self.phase[leg] - (2 - self.duty) / 2)
             if sph < (1.0 - self.duty) and not freeze_swing:
                 u = sph / (1.0 - self.duty)
+                swing_u[leg] = u
+                lift = self.lift_front if leg in (1, 4) else self.lift
                 feet[leg] = (a0x + (n + _smooth(u)) * self.stride, ay,
-                             az + self.lift * math.sin(math.pi * u))
+                             az + lift * math.sin(math.pi * u))
             else:
                 feet[leg] = (a0x + (n + 1) * self.stride, ay, az)
+        if self.push and not freeze_swing:
+            # stance mid presses down while the other mid swings
+            for leg, other in ((1, 4), (4, 1)):
+                if leg not in swing_u and other in swing_u:
+                    fx, fy, fz = feet[leg]
+                    feet[leg] = (fx, fy, fz - self.push * math.sin(
+                        math.pi * swing_u[other]))
         return feet
 
     def _walk_body(self, tw: float) -> tuple[float, float]:
@@ -212,6 +251,12 @@ class QuadRearWalk:
         sway = self.sway * math.sin(2 * math.pi * tw / self.period
                                     + self.sway_phase)
         return BODY_DX_M + v * tw, sway
+
+    def _walk_roll(self, tw: float) -> float:
+        if not self.roll:
+            return 0.0
+        return self.roll * math.sin(2 * math.pi * tw / self.period
+                                    + self.roll_phase)
 
     # -- the pose function ---------------------------------------------------
 
@@ -266,7 +311,7 @@ class QuadRearWalk:
             tw = t - ENTRY_TOTAL_S
             bx, by = self._walk_body(tw)
             return self._solve(bx, by, PITCH_RAD, self._walk_feet(tw),
-                               tuckq)
+                               tuckq, roll=self._walk_roll(tw))
 
         # ---- exit (reverse of the entry, ending at the plant pose) ----
         x1, x2, x3, x4, x5 = EXIT_S
@@ -282,7 +327,8 @@ class QuadRearWalk:
         if tx < x1:                      # 1: regather to all-4-planted
             u = _smooth(tx / x1)
             q_end = self._solve(*self._walk_body(tw_end), PITCH_RAD,
-                                self._walk_feet(tw_end), tuckq)
+                                self._walk_feet(tw_end), tuckq,
+                                roll=self._walk_roll(tw_end))
             q_gather = self._solve(bx_end, 0.0, PITCH_RAD, feet_end,
                                    tuckq)
             return [a + u * (b - a) for a, b in zip(q_end, q_gather)]
