@@ -97223,7 +97223,7 @@
       "f14d9993,a705c488,fe8501ac"
     ],
     "created": "2026-08-18T00:44:31+00:00",
-    "status": "INTENT",
+    "status": "RUNNING",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -97231,7 +97231,18 @@
       "running_experiments_before": 3,
       "code_sha_local": "487feffe597ae54541db1002dbb1136803a892e1",
       "code_sha_pod": "487feffe597ae54541db1002dbb1136803a892e1",
-      "wandb_env_on_pod": true
+      "wandb_env_on_pod": true,
+      "pid": "2331120",
+      "log_growth_bytes": [
+        10354,
+        14903
+      ],
+      "wandb_id": "f14d9993",
+      "global_step_window": [
+        458752,
+        589824
+      ],
+      "fps_estimate": 4369.1
     },
     "trainer": "ppo",
     "stack": "gpu-mjx",
@@ -97239,6 +97250,8 @@
     "assessment_scope": "full_budget_skill_acquisition",
     "evidence": "Operator execution directive fb_20260817T234449_bcdcce: deterministic predeclared-W&B-id identity protocol implemented, tested (23 direct + 51 recovery-focused), pushed at origin/main 3cc62a2 (Predeclare recovery population run ids) -- replaces all Api.runs()/display-name peer discovery (root cause of the any16/17/18 sync failures) with wandb.init(id=<predeclared>, resume='never') + direct api.run(project/id) lookups. Comparable healthy full-budget from-scratch precedent: cw-recover-any11-rsi-scratch1.",
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:hw nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-recover-any21-pop3-s11 --steps 40000000 --task joint_walk --goal-mix recover=1.0,walk=0.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0,quad=0.0 --n-envs 512 --n-steps 128 --batch-size 8192 --gamma 0.995 --gae-lambda 0.98 --episode-seconds 16 --dr-scale 0.1 --ent-coef 0.003 --no-canary --eval-every 1000000 --video-every 2000000 --seed 11 --recover-cert-every 1000000 --recover-cert-envs 16 --recover-retention-buckets 3 --recover-full-retention-every 2 --recover-rollback-after-steps 4000000 --recover-rollback-fraction 0.60 --recover-population-id recover-any21-pop3 --recover-population-member 0 --recover-population-runs cw-recover-any21-pop3-s11,cw-recover-any21-pop3-s12,cw-recover-any21-pop3-s13 --cfg-set safety.max_roll_deg=185 --cfg-set safety.max_pitch_deg=185 --cfg-set goal.walk_obs_body_vel=2 --cfg-set reward.rise_ref_path=rl_move/sim/refs/rise_ref_belly2plant.npz --cfg-set train.bc_anchor_coef=1.0 --cfg-set train.bc_anchor_recover=1.0 --cfg-set goal.recover_start_bank=rl_move/sim/park_banks/footlow2_hard1_lower_endpoints_full.npz --cfg-set train.bc_anchor_foot_z=1.0 --cfg-set train.bc_anchor_foot_z_mm=3 --cfg-set train.bc_anchor_min_h_ahead_mm=15 --cfg-set train.bc_anchor_lookahead_s=0.5 --cfg-set goal.recover_admit_n=4 --cfg-set goal.recover_retreat_n=6 --cfg-set goal.recover_ema_beta=0.25 --cfg-set goal.recover_rsi_frac=0.5 --out-name ppo_goal_cw_recover_any21_pop3_s11 --impl warp --host-workers 24 --notes 'respec of cw-recover-any20-pop3-s13: Teach the robot to stand back up from any fallen position by racing three fresh identical-recipe seeds in lockstep and always adopting the first retention-clean winner at each curriculum bucket; this cohort (member 0, seed 11, of population recover-any21-pop3, roster s11,s12,s13, predeclared W&B ids f14d9993,a705c488,fe8501ac, this member f14d9993) re-runs the PROVEN cache-free InternalApi rendezvous at 8fbb7b2 after the any20 cohort was lost to a pure orchestration race, not a code defect: any20'\"'\"'s leader released start_B00 and two members crossed the barrier \u2014 the first full rendezvous success \u2014 but member 2 had been stopped 20s earlier by a fallback order that raced the successful s11/s12 repair, and predeclared ids are single-use (resume=never), so the partial cohort was stopped per the never-continue-partial rule. This launch is the operator-preauthorized fallback (fb_20260818T002830_3d14e2: fresh any21 3-seed cohort after pre-syncing all three pods to one HEAD, done at 2809cfa2), with fresh ids minted and verified absent. From scratch, absolutely NO --init-from. Never reuse any16-any20 names.' --recover-population-bootstrap-rollouts 10 --recover-population-barrier-timeout-seconds 900 --recover-population-run-ids f14d9993,a705c488,fe8501ac > /tmp/train_cw-recover-any21-pop3-s11.log 2>&1 < /dev/null & echo $!",
-    "log": "/tmp/train_cw-recover-any21-pop3-s11.log"
+    "log": "/tmp/train_cw-recover-any21-pop3-s11.log",
+    "wandb_id": "f14d9993",
+    "verified": "2026-08-18T00:47:37+00:00"
   }
 ]

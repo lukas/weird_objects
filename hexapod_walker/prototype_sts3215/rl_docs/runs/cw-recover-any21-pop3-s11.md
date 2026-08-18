@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-08-18T00:44:31+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 40000000
 
 **parent**: cw-recover-any20-pop3-s13
+
+**wandb_id**: f14d9993
 
 **hypothesis**: Teach the robot to stand back up from any fallen position by racing three fresh identical-recipe seeds in lockstep and always adopting the first retention-clean winner at each curriculum bucket; this cohort (member 0, seed 11, of population recover-any21-pop3, roster s11,s12,s13, predeclared W&B ids f14d9993,a705c488,fe8501ac, this member f14d9993) re-runs the PROVEN cache-free InternalApi rendezvous at 8fbb7b2 after the any20 cohort was lost to a pure orchestration race, not a code defect: any20's leader released start_B00 and two members crossed the barrier — the first full rendezvous success — but member 2 had been stopped 20s earlier by a fallback order that raced the successful s11/s12 repair, and predeclared ids are single-use (resume=never), so the partial cohort was stopped per the never-continue-partial rule. This launch is the operator-preauthorized fallback (fb_20260818T002830_3d14e2: fresh any21 3-seed cohort after pre-syncing all three pods to one HEAD, done at 2809cfa2), with fresh ids minted and verified absent. From scratch, absolutely NO --init-from. Never reuse any16-any20 names.
 
