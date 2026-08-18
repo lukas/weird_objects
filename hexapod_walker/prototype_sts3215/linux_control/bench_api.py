@@ -27,7 +27,7 @@ REGISTRY_CANDIDATES = (
 AIR_DEMO_NAMES = frozenset({
     "breathe", "breathe_v", "heartbeat", "twinkle", "shimmy", "ripple",
     "conductor", "arms_up",
-    "air_meet", "air_pendulum", "air_orbits",
+    "air_meet", "air_pendulum", "air_orbits", "dance_swarm",
     # dance goes planted mid-routine but starts AND ends at sit zero
     # (limp), so it homes like an air demo and must not stand-hold after.
     "dance",
