@@ -97088,7 +97088,7 @@
       "7ab95ed5,96e80076,0f713040"
     ],
     "created": "2026-08-18T00:30:12+00:00",
-    "status": "STOPPED_SUPERSEDED",
+    "status": "INVALID_INTEGRATION_CANARY",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -97118,7 +97118,7 @@
     "log": "/tmp/train_cw-recover-any20-pop3-s12.log",
     "wandb_id": "96e80076",
     "verified": "2026-08-18T00:37:59+00:00",
-    "verdict": "CORRECTION of the prior INVALID_SPEC note: id 96e80076 is NOT unused -- this row WAS relaunched (respec ~00:46Z with CORRECT any20 roster flags), verified RUNNING with predeclared W&B id 96e80076, crossed the B00 barrier and trained to ~917k steps before being killed ~00:5xZ per fb_20260818T002830 'do not leave a partial cohort running' (s13 stopped 00:39Z, 3-ACK B1 release impossible). CONSEQUENCE: W&B run 96e80076 EXISTS (state finished, step 851968) -- ALL THREE any20 ids are BURNED for resume=never; any21 must mint fresh ids. No behavioral conclusions (bootstrap-era steps). Superseded by cw-recover-any21-pop3.",
+    "verdict": "CORRECTED (W&B ground truth): the run DID train \u2014 a corrected direct relaunch (~00:36Z) took predeclared id 96e80076, reached the 655,360 barrier, observed the leader's start_B00 (wait 21.6s) and crossed to ~852k steps before being stopped ~00:41Z as an unrecoverable partial cohort (s13 had been stopped 20s before the release by the fb_20260818T002830 fallback racing the repair). Together with s11 this was the first successful live rendezvous of the 8fbb7b2 InternalApi protocol. Integration evidence only, no behavioral claims; superseded by recover-any21-pop3 which passed gates 1-4 live.",
     "triage": "done",
     "hardware_ready": false
   },
