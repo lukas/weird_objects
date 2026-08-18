@@ -150,6 +150,25 @@ unresolved blockers between the robot and reliable joystick control.
   conclusions. Read-path fix landed at `8fbb7b21` ("Read recovery
   peers through fresh GraphQL"); relaunch is `[operator]`-gated on
   the sixth directive. Evidence: `q_20260817T2352Z` addendum.**
+  **OUTCOME 08-18 ~00:5x UTC: SOLVED — `cw-recover-any21-pop3-
+  s11/s12/s13` cleared the FULL 7-point gate live** (per operator
+  fallback `fb_20260818T002830_3d14e2`, roster ids `f14d9993/
+  a705c488/fe8501ac`): all 3 stopped exactly at 655,360, leader
+  released `start_B00`, all 3 crossed, each independently passed B0
+  cert (plant_catch 16/16), exactly one B1 winner elected (member
+  0), all 3 ADOPTED the identical checkpoint + ACKed, `release_B01`
+  fired, all 3 now racing B2. `8fbb7b21`'s InternalApi rendezvous is
+  PROVEN, not just tested. Getting here ate one more intermediate
+  cohort (`any20-pop3`): it also fully released (same mechanism
+  proof) but a concurrent checkup killed member 2 20s early because
+  checkups didn't yet know a barrier-wait looks like a stall — fixed
+  in the same window by the operator's own `4001b57c`; the partial
+  survivor was correctly stopped per never-continue-partial, and
+  any21 is the clean from-scratch replacement. No behavioral verdict
+  yet (integration win, not a recovery-quality one) — next checkup
+  watches for the first real cert/retention frontier. Detail: main
+  STATUS.md WAITING-ON, pod logs `/tmp/train_cw-recover-any21-pop3-
+  s1{1,2,3}.log`.**
   **OUTCOME 08-17 ~23:0x UTC (operator MCP note
   fb_20260817T223644_c8bc48): integration gate FAILED — cohort
   STOPPED, all three ledger rows INVALID_INTEGRATION_CANARY.** The
