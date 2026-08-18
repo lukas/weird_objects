@@ -1132,3 +1132,28 @@ scratch. Primary metric: sample efficiency on a NEW task.
   phase).
 - Latent-size ablation (64/128/256) only after the first A/B/C
   comparison lands.
+
+**08-18 ~11:0x UTC (tournament closure, scratch arms): `canB-r1` and
+`canC-r1` FINISHED and FAIL the pre-registered admission gate, so all
+three PRE-addendum scratch arms are refuted and NO 40M walkcurr4
+launches from this tournament** (operator order's own no-pass branch).
+The failure is now sharply characterized: the income gates WORK — every
+arm climbed from the -54mm crouch toward upright (canC-r1 reached
+h_err -4.9mm / height_factor 0.90) — but upright commanded progress
+never ignites (best transient 0.74 @canB-r1 r4, final values ~0 or
+negative; slip 4-6/m; six_leg_gait fails once tall; canB-r1 dies on
+the 25mm height safety line each cert round). Update strength is not
+the lever: 2e-4x5, 3e-4x5, 3e-4x7 all land in the same basin, no KL
+rollbacks anywhere. `walkcurr3` (40M, 0 promotions in 80 rounds, final
+B0 prog 0.90 but falling/rolling 11 deg) marked
+SUPERSEDED_REWARD_EXPLOIT per the order, checkpoints preserved. The
+tournament's remaining live question is the addendum's: gaitinit-bcinit
+/ gaitinit-hard1 (actor-init from the scripted/hardened gait, running
+under the concurrent cycle). New cert telemetry (h_err_mm /
+height_factor / per-bucket realized DR) and the default-off
+`--walkcurr-post-promo-*` frontier-gated LR/epoch handover landed this
+cycle (f856030c); realized-DR proof: V2 buckets train B0-B6 at DR 0.0,
+B7 0.1, B8+ 0.3 regardless of --dr-scale (verified in code + logged
+per run). Exact-config MDP preflight added
+(test_task_semantics.py WALKCURR4 bank: gait 735 > stall 408 > park
+217 >> crouch 3 under the full gate stack; suite 128/4/1).
