@@ -137,6 +137,40 @@ _SCRIPTED_ALPHA = {_NOSLIP: 0.0, _NOSLIP_MID: 0.5, _NOSLIP_CLEAN: 1.0}
 _HOLD_S = 0.65
 _UP, _DOWN, _LEFT, _RIGHT = 63232, 63233, 63234, 63235   # macOS cv2 arrows
 
+# Optional agent/remote key feed (PLAY_KEY_FIFO=<path>): macOS blocks
+# synthetic keystrokes without per-app accessibility grants, so a
+# driving agent can instead write newline-separated tokens (UP/DOWN/
+# LEFT/RIGHT/SPACE or any single character) into a FIFO; each token is
+# consumed only on ticks where the real keyboard produced nothing, and
+# runs through the exact same key-handling code as the keyboard.
+_FIFO_TOKENS = {"UP": _UP, "DOWN": _DOWN, "LEFT": _LEFT,
+                "RIGHT": _RIGHT, "SPACE": ord(" ")}
+
+
+class _KeyFifo:
+    def __init__(self, path: str):
+        if not os.path.exists(path):
+            os.mkfifo(path)
+        self._fd = os.open(path, os.O_RDONLY | os.O_NONBLOCK)
+        self._buf = b""
+
+    def poll(self) -> int:
+        """Next key code, or -1. Non-blocking, EOF-tolerant."""
+        try:
+            chunk = os.read(self._fd, 256)
+            if chunk:
+                self._buf += chunk
+        except BlockingIOError:
+            pass
+        if b"\n" not in self._buf:
+            return -1
+        line, self._buf = self._buf.split(b"\n", 1)
+        tok = line.decode("utf-8", "replace").strip()
+        if not tok:
+            return -1
+        return _FIFO_TOKENS.get(tok.upper() if len(tok) > 1 else tok,
+                                ord(tok[0]))
+
 # Playable obs widths (see module docstring / sim_viewer/README.md).
 _ROLE_OBS = {68: "stance", 72: "walk"}
 
@@ -158,14 +192,16 @@ _ON_ROBOT = {
 # rest alphabetically.
 _PROMOTED = [
     # stance group
-    "ppo_goal_cw_stand_holdbc1_hard1",
     "ppo_goal_cw_stand_footlow2_hard1",
+    "ppo_goal_cw_stand_holdbc1_hard1",
+    "ppo_goal_cw_stand_footlow2_stable1",
     "ppo_goal_cw_stance_dr10",
     "ppo_goal_cw_stand_crouchrise1",
     "ppo_goal_cw_stance_raisefix",
     # walk group
-    "ppo_goal_cw_dep_vref1_r1",
+    "ppo_goal_cw_dep_bcgait1_hard1",
     "ppo_goal_cw_arch_noslipphase1_r4",
+    "ppo_goal_cw_dep_vref1_r1",
     "ppo_goal_cw_dep_tip1",
     "ppo_goal_cw_walk_joyheadfric",
     "ppo_goal_cw_walk_joyheadfric_payload_r1",
@@ -174,6 +210,13 @@ _PROMOTED = [
     "ppo_goal_cw_walk_slow2",
     "ppo_goal_cw_walk_anchorgate",
 ]
+
+# Default picker contents: only the rows worth a human's time (the
+# promoted set, whatever is on the robot, and the scripted gaits).
+# `--all` restores the full directory scan. The full list outgrew the
+# 720px panel (~55 rows by 08-18) — rows past the bottom were drawn
+# off-screen and could not be clicked, i.e. "I couldn't select gaits".
+_CURATED = set(_PROMOTED) | _ON_ROBOT
 
 # Plain-English one-liners (facts from RL_LOG.md / rl_docs; keep each
 # under ~58 chars so it fits the 330px description column).
@@ -198,7 +241,9 @@ _DESC = {
     "ppo_goal_cw_stand_holdbc1_hard1":
         "ON ROBOT: rock-steady stand, but tips when sitting here",
     "ppo_goal_cw_stand_footlow2_hard1":
-        "ON ROBOT: full stand-up AND sit both work; default here",
+        "BEST riser (08-17 eval: 14/14 rises, 0 falls); default",
+    "ppo_goal_cw_stand_footlow2_stable1":
+        "sibling of the best riser; failed half its rises here",
     "ppo_joint_goal": "leftover smoke-test file; ignore",
     "ppo_joint_goal_bc": "imitation-learning tryout; never documented",
     "ppo_joint_goal_bc2m": "imitation warm-start that made things worse",
@@ -206,6 +251,8 @@ _DESC = {
     # --- walk group (obs 72) -----------------------------------------
     "ppo_goal_cw_dep_quad1_c2": "holds a four-leg stance very precisely",
     "ppo_goal_cw_dep_tip1": "tried to learn tip-over recovery; never did",
+    "ppo_goal_cw_dep_bcgait1_hard1":
+        "BEST all-round walk (08-17 eval): tall, 0 falls; default",
     "ppo_goal_cw_dep_vref1_r1":
         "ON ROBOT: the walk the real robot runs today",
     "ppo_goal_cw_walk2_gait": "longer strides but still can't hold a speed",
@@ -302,15 +349,20 @@ def _obs_width(path: Path) -> int | None:
         return None
 
 
-def scan_policies(pdir: Path) -> dict[str, list[Path]]:
+def scan_policies(pdir: Path, all_models: bool = False,
+                  ) -> dict[str, list[Path]]:
     """Classify checkpoints in ``pdir`` into stance (68) / walk (72) lists.
 
     ``*_steps.zip`` autosaves are skipped — there are hundreds and the
-    named finals are the ones worth cycling through.
+    named finals are the ones worth cycling through. Unless
+    ``all_models``, only the ``_CURATED`` stems are listed (the full
+    scan no longer fits the panel).
     """
     out: dict[str, list[Path]] = {"stance": [], "walk": []}
     for p in sorted(pdir.glob("*.zip")):
         if p.stem.endswith("_steps"):
+            continue
+        if not all_models and p.stem not in _CURATED:
             continue
         role = _ROLE_OBS.get(_obs_width(p) or -1)
         if role:
@@ -451,9 +503,16 @@ def main() -> None:
     ap.add_argument("--stance", type=Path,
                     default=Path("rl_move/sim/policies/"
                                  "ppo_goal_cw_stand_footlow2_hard1.zip"))
+    # bcgait1_hard1: best all-round walker of the 08-17 operator-session
+    # eval (0 real falls, full-height gait, progress ~1.0 with
+    # footlow2_hard1) — see rl_docs/runs and the eval transcript.
     ap.add_argument("--walk", type=Path,
                     default=Path("rl_move/sim/policies/"
-                                 "ppo_goal_cw_walk_longdist_r2.zip"))
+                                 "ppo_goal_cw_dep_bcgait1_hard1.zip"))
+    ap.add_argument("--all", action="store_true",
+                    help="list every scanned checkpoint in the picker "
+                         "(default: curated set only — the full list "
+                         "overflows the panel)")
     ap.add_argument("--realtime", type=float, default=1.0)
     ap.add_argument("--phase-obs", action="store_true",
                     help="enable the walk env's phase clock (+2 obs) so "
@@ -494,7 +553,7 @@ def main() -> None:
                    **env_kw)
 
     # --- checkpoint slots: one STANCE (obs 68) + one WALK (obs 72) ------
-    cats = scan_policies(args.stance.parent)
+    cats = scan_policies(args.stance.parent, all_models=args.all)
     stance_list, walk_list = cats["stance"], cats["walk"]
 
     def ensure_listed(lst: list[Path], p: Path, want: tuple[int, ...],
@@ -512,8 +571,17 @@ def main() -> None:
     # Scripted-gait rows (alpha 0 and 0.5), bottom of the panel.
     walk_list.extend(_SCRIPTED_ALPHA)
 
+    def apply_vel_contract(stem: str) -> None:
+        # dep-line / noslip-line walkers train with meas := ref (the
+        # board has no velocity estimate — the deployment contract);
+        # everything else with privileged sim body velocity. The env
+        # reads cfg every tick, so this swaps live with the model.
+        mode = 1.0 if _sim_only_obs("walk", stem) else 2.0
+        env.cfg.setdefault("goal", {})["walk_obs_body_vel"] = mode
+
     stance = PPO.load(stance_list[si], device="cpu")
     walk = PPO.load(walk_list[wi], device="cpu")
+    apply_vel_contract(walk_list[wi].stem)
     n_stance = int(stance.observation_space.shape[0])
     n_walk = int(walk.observation_space.shape[0])
     n_env = int(env.observation_space.shape[0])
@@ -571,6 +639,7 @@ def main() -> None:
             return
         walk = m
         n_walk = int(m.observation_space.shape[0])
+        apply_vel_contract(walk_list[wi].stem)
         msg = f"walk model -> {walk_list[wi].stem}"
 
     try:
@@ -578,6 +647,10 @@ def main() -> None:
         pad_err = ""
     except Exception as e:                      # pygame missing/broken
         pad, pad_err = None, f"gamepad disabled ({e})"
+    key_fifo = (_KeyFifo(os.environ["PLAY_KEY_FIFO"])
+                if os.environ.get("PLAY_KEY_FIFO") else None)
+    frame_dump = os.environ.get("PLAY_FRAME_DUMP")
+    frame_dump_t = 0.0
     stick_live = False
     held: dict[int, float] = {}      # arrow keycode -> last press/repeat time
     arrows_live = False
@@ -779,8 +852,12 @@ def main() -> None:
     # Fixed-size canvas + WINDOW_AUTOSIZE so mouse coords map 1:1 to
     # pixels; sim view is upscaled to VIEW_W x VIEW_H, panel sits right.
     VIEW_W, VIEW_H, PANEL_W = 960, 720, 540
+    CANVAS_W = VIEW_W + PANEL_W
     n_rows = len(stance_list) + len(walk_list) + 2
-    ROW_H = int(min(20, max(14, (VIEW_H - 60) / n_rows)))
+    # Rows must all FIT — off-screen rows are unclickable (08-18 bug).
+    ROW_H = int(min(20, max(10, (VIEW_H - 60) / n_rows)))
+    F_NAME = max(0.28, 0.42 * ROW_H / 20.0)
+    F_DESC = max(0.25, 0.36 * ROW_H / 20.0)
     layout: list[tuple[int, str, int]] = []      # (y_top, role, index)
 
     def _lay_rows(role: str, lst: list[Path], y: int) -> int:
@@ -795,7 +872,21 @@ def main() -> None:
 
     mouse = {"hover": (-1, -1), "clicks": []}
 
+    def _to_canvas(mx: int, my: int) -> tuple[int, int]:
+        # macOS may display the window smaller than the canvas (screen
+        # clamp); cv2 then reports mouse coords in the shrunken view —
+        # unscaled, every panel click lands short of VIEW_W and is
+        # ignored. Rescale into canvas pixels.
+        try:
+            _, _, w, h = cv2.getWindowImageRect(win)
+            if w > 0 and h > 0 and (w != CANVAS_W or h != VIEW_H):
+                return int(mx * CANVAS_W / w), int(my * VIEW_H / h)
+        except cv2.error:
+            pass
+        return mx, my
+
     def on_mouse(ev, mx, my, _flags, _param) -> None:
+        mx, my = _to_canvas(mx, my)
         if ev == cv2.EVENT_LBUTTONDOWN:
             mouse["clicks"].append((mx, my))
         elif ev == cv2.EVENT_MOUSEMOVE:
@@ -838,11 +929,11 @@ def main() -> None:
                     else "*" if _sim_only_obs(role, stem) else " ")
             mark = (">" if sel else " ") + flag
             disp = stem.removeprefix("ppo_goal_").removeprefix("ppo_")
-            cv2.putText(panel, f"{mark} {disp}", (8, y + ROW_H - 6),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.42, color, 1,
+            cv2.putText(panel, f"{mark} {disp}", (8, y + ROW_H - 4),
+                        cv2.FONT_HERSHEY_SIMPLEX, F_NAME, color, 1,
                         cv2.LINE_AA)
-            cv2.putText(panel, _DESC.get(stem, ""), (208, y + ROW_H - 6),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.36,
+            cv2.putText(panel, _DESC.get(stem, ""), (208, y + ROW_H - 4),
+                        cv2.FONT_HERSHEY_SIMPLEX, F_DESC,
                         (140, 190, 190) if stem in _ON_ROBOT
                         else (135, 135, 135), 1, cv2.LINE_AA)
         return panel
@@ -997,10 +1088,19 @@ def main() -> None:
             cv2.putText(img, line, (10, 24 + 22 * i),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.55, color, 1,
                         cv2.LINE_AA)
-        cv2.imshow(win, np.hstack([img, draw_panel()]))
+        canvas = np.hstack([img, draw_panel()])
+        cv2.imshow(win, canvas)
+        if frame_dump and time.monotonic() - frame_dump_t > 0.5:
+            # Atomic-ish: write tmp then rename so readers never see a
+            # half-written PNG (PLAY_FRAME_DUMP agent/remote viewing).
+            cv2.imwrite(frame_dump + ".tmp.png", canvas)
+            os.replace(frame_dump + ".tmp.png", frame_dump)
+            frame_dump_t = time.monotonic()
 
         # --- keys (all ours: cv2 has no built-in bindings) ------------------
         k = cv2.waitKeyEx(1)
+        if k == -1 and key_fifo is not None:
+            k = key_fifo.poll()
 
         # --- panel clicks: load the model that was hit ---------------------
         while mouse["clicks"]:
