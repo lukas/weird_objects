@@ -273,3 +273,57 @@ def test_dynrep_checkup_floor_is_not_the_ppo_physics_fps_floor(monkeypatch):
     a = SimpleNamespace(run="cw-dynrep-gatecheck-checkup")
     g = {"compute": {"gpu_pods": ["hexapod-mjx-train-1"]}}
     assert lr.cmd_checkup(g, a) == 0
+
+
+def test_recover_population_waiting_detects_only_unreleased_ready_bucket():
+    ready = '{"population_id":"recover-test-pop3","bucket":0}'
+    summary = {"recover_population/ready_B00": ready}
+    assert lr._recover_population_waiting(summary) == {
+        "bucket": 0,
+        "ready_key": "recover_population/ready_B00",
+        "start_key": "recover_population/start_B00",
+    }
+    summary["recover_population/start_B00"] = '{"bucket":0}'
+    assert lr._recover_population_waiting(summary) is None
+
+
+def test_recover_population_barrier_is_healthy_during_checkup(monkeypatch):
+    run = "cw-recover-barrier-checkup"
+    entry = {
+        "run": run,
+        "pod": "hexapod-mjx-train-1",
+        "created": "2026-08-18T00:00:00+00:00",
+        "status": "RUNNING",
+        "trainer": "ppo",
+        "log": f"/tmp/train_{run}.log",
+    }
+    saved = []
+    monkeypatch.setattr(lr, "load_ledger", lambda: [entry])
+    monkeypatch.setattr(lr, "save_ledger", lambda entries: saved.extend(entries))
+    monkeypatch.setattr(lr, "ledger_lock", lambda: contextlib.nullcontext())
+    monkeypatch.setattr(lr, "pod_trainers", lambda pod: [run])
+    monkeypatch.setattr(lr.time, "sleep", lambda seconds: None)
+
+    def fake_kexec(pod, script, timeout=60):
+        if "grep -c 'Traceback'" in script:
+            return "0"
+        if "stat -c %s" in script:
+            return "1234"
+        raise AssertionError(f"unexpected command while barrier is healthy: {script}")
+
+    monkeypatch.setattr(lr, "kexec", fake_kexec)
+    barrier = {"bucket": 0, "ready_key": "recover_population/ready_B00",
+               "start_key": "recover_population/start_B00"}
+    monkeypatch.setattr(
+        lr, "wandb_running_runs",
+        lambda: {run: {"id": "abc12345", "state": "running",
+                       "global_step": 655_360,
+                       "recover_population_barrier": barrier}})
+
+    a = SimpleNamespace(run=run)
+    g = {"compute": {"gpu_pods": ["hexapod-mjx-train-1"]}}
+    assert lr.cmd_checkup(g, a) == 0
+    checkup = saved[-1]["checkups"][-1]
+    assert checkup["verdict"] == "HEALTHY"
+    assert checkup["recover_population_barrier"] == barrier
+    assert "intentionally waiting" in checkup["note"]
