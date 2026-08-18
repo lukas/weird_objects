@@ -738,6 +738,10 @@ class BenchAPI:
                         softness=softness, torque=torque,
                         status_cb=_live_status, log_path=log_path)
                 else:
+                    extra = {}
+                    if name == "dance":
+                        extra["standup_fn"] = self._step_standup_fn(
+                            gen=gen, speed=speed)
                     status = run_demo(
                         d.bus, name,
                         speed=speed,
@@ -750,6 +754,7 @@ class BenchAPI:
                         speed_fn=lambda: self._demo_speed_live,
                         status_cb=_live_status,
                         log_path=log_path,
+                        **extra,
                     )
                 telem = None
                 summary_path = log_path.with_name(
@@ -825,6 +830,21 @@ class BenchAPI:
     # the dangerous direction.
     DANCE_MOONWALK_S = 3.5
 
+    def _step_standup_fn(self, *, gen: int, speed: float):
+        """Bound STEP stand-up for the dance's act IV (inline, same gen).
+
+        The dance's own tempo never SLOWS the stand-up below 1x (the
+        experiments-tab pacing the operator liked, 08-18); speeding
+        the dance up speeds the stand-up too.
+        """
+        def fn() -> tuple[bool, str]:
+            res = self.standup(mode="step",
+                               speed=max(1.0, float(speed)),
+                               direction="up", torque=700,
+                               sync_gen=gen)
+            return bool(res.get("ok")), str(res.get("error") or "")
+        return fn
+
     def _run_dance_walk(self, *, gen: int, speed: float, size: float,
                         softness: float, torque: int | None,
                         status_cb, log_path: Path) -> str:
@@ -843,7 +863,8 @@ class BenchAPI:
         st = run_dance_demo(
             d.bus, part="show", speed=speed, size=size, softness=softness,
             torque=torque, abort_check=self._demo_abort.is_set,
-            status_cb=status_cb, log_path=log_path)
+            status_cb=status_cb, log_path=log_path,
+            standup_fn=self._step_standup_fn(gen=gen, speed=speed))
         if st != "planted":
             return st
 
