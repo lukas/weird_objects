@@ -1937,8 +1937,9 @@ async function refreshRobotState(wantZero){
 }
 async function refreshDemoStatus(){ return refreshRobotState(activeView==='demos'); }
 
-// --- schematic demo preview (top-down stick hexapod) ----------------------
-// Not a sim — just shows sit vs stand start + the intended motion idea.
+// --- demo motion schematics ------------------------------------------------
+// Stylised pose fns per demo, rendered by the 3D view below when idle /
+// hovering (while a demo RUNS the 3D view shows live encoders instead).
 const DEMO_PREVIEW = {
   breathe: { start:'sit', blurb:'From sit zero (legs out): all hips/knees gently flex in/out together like a breath.',
     pose:(t,L)=>{ const b=0.5*(1-Math.cos(t*Math.PI*2*0.35));
@@ -1966,22 +1967,36 @@ const DEMO_PREVIEW = {
     pose:(t,L)=>{ const c=t%4; let u=0;
       if(c<1.2) u=c/1.2; else if(c<2.6) u=1; else u=Math.max(0,1-(c-2.6)/1.2);
       for(let i=0;i<6;i++){ L[i].yaw=0; L[i].hip=-1.05*u; L[i].knee=0.4*u; } } },
-  stand_sway: { start:'stand', blurb:'Standing (streamed, LIVE speed): a crouch wave travels around the hex — the body leans in a slow circle around the plant.',
-    pose:(t,L)=>{ for(let i=0;i<6;i++){ const s=Math.sin(t*2.2+i*Math.PI/3);
-      L[i].yaw=0; L[i].hip=-0.55+0.14*s; L[i].knee=0.9-0.07*s; } } },
-  stand_bounce: { start:'stand', blurb:'Standing (streamed, LIVE speed): smooth squat bob — the streamed cousin of plant_bounce, tempo follows the slider.',
-    pose:(t,L)=>{ const c=0.5*(1-Math.cos(t*5));
-      for(let i=0;i<6;i++){ L[i].yaw=0; L[i].hip=-0.55-0.2*c; L[i].knee=0.9+0.1*c; } } },
-  stand_twist: { start:'stand', blurb:'Standing (streamed, LIVE speed): in-place body twist, zero-mean yaw — cord-safe.',
-    pose:(t,L)=>{ const y=0.35*Math.sin(t*2.8);
-      for(let i=0;i<6;i++){ L[i].yaw=y; L[i].hip=-0.55; L[i].knee=0.9; } } },
-  stand_wave: { start:'stand', blurb:'Standing (streamed, LIVE speed): one leg lifts off the plant and waves, sets down, next leg — smooth handoffs.',
-    pose:(t,L)=>{ const k=Math.floor(t/3)%6, u=(t%3)/3, e=Math.pow(Math.sin(Math.PI*u),2);
-      for(let i=0;i<6;i++){ const on=(i===k)?e:0;
-      L[i].yaw=0.4*on*Math.sin(t*9); L[i].hip=-0.55+0.55*on; L[i].knee=0.9-0.5*on; } } },
-  stand_ripple: { start:'stand', blurb:'Standing (streamed, LIVE speed): a sharp lift bump travels around the hex — about one foot airborne at a time.',
-    pose:(t,L)=>{ for(let i=0;i<6;i++){ const e=Math.pow(Math.max(0,Math.sin(t*2.8-i*Math.PI/3)),3);
-      L[i].yaw=0; L[i].hip=-0.55+0.5*e; L[i].knee=0.9-0.45*e; } } },
+  stand_sway: { start:'stand', blurb:'Standing (planted-foot IK, LIVE speed): the BODY leans side to side; all six feet stay glued to the floor.',
+    pose:(t,L)=>{ const s=Math.sin(t*1.9);
+      for(let i=0;i<6;i++){ const a=(i+0.5)*Math.PI/3;
+        L[i].yaw=0; L[i].hip=-0.55-0.12*s*Math.sin(a); L[i].knee=0.9+0.08*s*Math.sin(a); } } },
+  stand_hula: { start:'stand', blurb:'Standing (planted-foot IK, LIVE speed): the body circles like a hula hoop — the old robot\u2019s wiggle. Feet never move.',
+    pose:(t,L)=>{ for(let i=0;i<6;i++){ const a=(i+0.5)*Math.PI/3, c=Math.cos(t*3.1-a);
+        L[i].yaw=0; L[i].hip=-0.55-0.12*c; L[i].knee=0.9+0.08*c; } } },
+  stand_bounce: { start:'stand', blurb:'Standing (planted-foot IK, LIVE speed): pogo — the body dips straight down and back up, feet planted.',
+    pose:(t,L)=>{ const c=0.5*(1-Math.cos(t*5.6));
+      for(let i=0;i<6;i++){ L[i].yaw=0; L[i].hip=-0.55+0.16*c; L[i].knee=0.9+0.12*c; } } },
+  stand_twist: { start:'stand', blurb:'Standing (planted-foot IK, LIVE speed): twist & dip — the body yaws while the feet stay planted (IK counter-rotates them). Cord-safe.',
+    pose:(t,L)=>{ const y=0.2*Math.sin(t*2.8), d=0.5*(1-Math.cos(t*5.6));
+      for(let i=0;i<6;i++){ L[i].yaw=y; L[i].hip=-0.55+0.08*d; L[i].knee=0.9+0.06*d; } } },
+  stand_wave: { start:'stand', blurb:'Standing (planted-foot IK, LIVE speed): stadium wave — a narrow raised-leg crest circles the body, everyone else stays planted.',
+    pose:(t,L)=>{ for(let i=0;i<6;i++){ const a=(i+0.5)*Math.PI/3;
+        const e=Math.pow(0.5*(1+Math.cos(t*2.6-a)),3);
+        L[i].yaw=0; L[i].hip=-0.55+e*0.03; L[i].knee=0.9-e*0.38; } } },
+  stand_march: { start:'stand', blurb:'Standing (planted-foot IK, LIVE speed): tripod march in place — alternating tripods step straight up while the weight sways; never fewer than three feet down.',
+    pose:(t,L)=>{ const ph=t*3.9;
+      for(let i=0;i<6;i++){ const c=(i%2===0)?0:Math.PI;
+        let d=((ph-c)%(2*Math.PI)+2*Math.PI)%(2*Math.PI); if(d>Math.PI)d=2*Math.PI-d;
+        const p=(d<0.42*Math.PI)?0.5*(1+Math.cos(d/(0.42*Math.PI)*Math.PI)):0;
+        L[i].yaw=0; L[i].hip=-0.55-0.22*p; L[i].knee=0.9+0.1*p; } } },
+  stand_hi: { start:'stand', blurb:'Standing (planted-foot IK, LIVE speed): weight eases back and dips, then ONE front paw lifts and waves hello — five feet stay down.',
+    pose:(t,L)=>{ const sh=Math.min(t/0.8,1), ar=Math.max(0,Math.min((t-0.7)/1,1));
+      for(let i=0;i<6;i++){ const paw=(i===0);
+        const w=Math.sin(t*5);
+        L[i].yaw=paw?0.21*ar*w:0;
+        L[i].hip=-0.55-0.05*sh+(paw?ar*(-0.35):0.0);
+        L[i].knee=0.9+(paw?ar*(-0.55+0.2*w):0.05*sh); } } },
   stand_hands: { start:'stand', blurb:'Stand zero → lift three legs (0,2,4) way overhead; other three stay planted; back to stand.',
     pose:(t,L)=>{ const c=t%4; let u=0;
       if(c<1.1) u=c/1.1; else if(c<2.7) u=1; else u=Math.max(0,1-(c-2.7)/1.1);
@@ -2069,87 +2084,216 @@ function setDemoPreview(name){
     b.classList.toggle('previewing', b.dataset.name===prevName);
   });
 }
+// --- 3D demo view --------------------------------------------------------
+// Real leg geometry (coxa 12.5 / femur 90 / tibia 128 mm), perspective
+// camera with drag-orbit + wheel-zoom. While a demo runs it renders the
+// LIVE robot from /api/pose encoder angles; idle/hover shows the demo's
+// schematic motion mapped onto the same skeleton.
+const HEX3D = {
+  az: -38, el: 26, dist: 640, f: 430,
+  spin: true, drag: null, bound: false,
+  coxa: 12.5, femur: 90, tibia: 128, legR: 55, hexR: 63.5, bodyT: 14,
+};
+let livePose = { deg: null, ts: 0 };
+let livePoseBusy = false, livePollAt = 0;
+async function pollLivePose(){
+  if(livePoseBusy) return; livePoseBusy = true;
+  try{
+    const r = await fetch('/api/pose', {cache:'no-store'});
+    const j = await r.json();
+    if(j && j.ok && Array.isArray(j.degrees))
+      livePose = { deg: j.degrees.map(v=>v==null?0:Number(v)),
+                   ts: performance.now() };
+  }catch(e){ /* keep last */ }
+  finally{ livePoseBusy = false; }
+}
+function hex3dBind(cv){
+  if(HEX3D.bound) return; HEX3D.bound = true;
+  cv.style.touchAction = 'none';
+  cv.style.cursor = 'grab';
+  cv.addEventListener('pointerdown', e=>{
+    HEX3D.drag = {x:e.clientX, y:e.clientY}; HEX3D.spin = false;
+    cv.setPointerCapture(e.pointerId); cv.style.cursor='grabbing'; });
+  cv.addEventListener('pointermove', e=>{
+    if(!HEX3D.drag) return;
+    HEX3D.az += (e.clientX - HEX3D.drag.x)*0.5;
+    HEX3D.el = Math.max(8, Math.min(72, HEX3D.el + (e.clientY - HEX3D.drag.y)*0.35));
+    HEX3D.drag = {x:e.clientX, y:e.clientY}; });
+  const up = ()=>{ HEX3D.drag = null; cv.style.cursor='grab'; };
+  cv.addEventListener('pointerup', up);
+  cv.addEventListener('pointercancel', up);
+  cv.addEventListener('wheel', e=>{ e.preventDefault();
+    HEX3D.dist = Math.max(340, Math.min(1300,
+      HEX3D.dist * (e.deltaY>0 ? 1.08 : 0.93))); }, {passive:false});
+}
+// (yaw,hip,knee in DEG, robot convention: +hip/+knee fold down) → 4 pts, mm.
+function hex3dLeg(i, yawDeg, hipDeg, kneeDeg){
+  const A = (i+0.5)*Math.PI/3;
+  const yaw = yawDeg*Math.PI/180, hip = hipDeg*Math.PI/180,
+        knee = kneeDeg*Math.PI/180;
+  const dphi = A + yaw, dx = Math.cos(dphi), dy = Math.sin(dphi);
+  const p0 = [HEX3D.legR*Math.cos(A), HEX3D.legR*Math.sin(A), 0];
+  const p1 = [p0[0]+HEX3D.coxa*dx, p0[1]+HEX3D.coxa*dy, 0];
+  const ch = Math.cos(hip), sh = Math.sin(hip);
+  const p2 = [p1[0]+HEX3D.femur*ch*dx, p1[1]+HEX3D.femur*ch*dy,
+              -HEX3D.femur*sh];
+  const ck = Math.cos(hip+knee), sk = Math.sin(hip+knee);
+  const p3 = [p2[0]+HEX3D.tibia*ck*dx, p2[1]+HEX3D.tibia*ck*dy,
+              p2[2]-HEX3D.tibia*sk];
+  return [p0, p1, p2, p3];
+}
 function drawDemoPreview(ts){
   const cv = $('dprevcv'); if(!cv) return;
   if(activeView!=='demos'){ prevRaf = requestAnimationFrame(drawDemoPreview); return; }
+  hex3dBind(cv);
   const ctx = cv.getContext('2d');
   const W = cv.width, H = cv.height;
   ctx.clearRect(0,0,W,H);
-  // two panels: top-down | side
-  const mid = W*0.52;
-  ctx.fillStyle = '#12151c';
-  ctx.fillRect(0,0,mid-6,H);
-  ctx.fillRect(mid+6,0,W-(mid+6),H);
-  ctx.fillStyle = '#5a6478';
-  ctx.font = '11px system-ui,sans-serif';
-  ctx.fillText('TOP', 10, 16);
-  ctx.fillText('SIDE', mid+16, 16);
+  ctx.fillStyle = '#12151c'; ctx.fillRect(0,0,W,H);
 
+  // ---- joint angles: LIVE while a demo runs, else the hover schematic ----
+  const running = !!(lastDemo && lastDemo.running);
+  if(running && ts - livePollAt > 250){ livePollAt = ts; pollLivePose(); }
+  const liveFresh = livePose.deg && (performance.now() - livePose.ts) < 1500;
+  const useLive = running && liveFresh;
+  const deg = new Array(18).fill(0);
   const info = demoPreviewInfo(prevName);
-  if(!prevT0) prevT0 = ts;
-  const t = (ts - prevT0) / 1000;
-  const legs = [];
-  for(let i=0;i<6;i++) legs.push({yaw:0, hip:0, knee:0});
-  // base pose
-  if(info.start==='sit'){
-    for(let i=0;i<6;i++){ legs[i].yaw=0; legs[i].hip=0; legs[i].knee=0; }
+  if(useLive){
+    for(let k=0;k<18;k++) deg[k] = livePose.deg[k] || 0;
   } else {
-    for(let i=0;i<6;i++){ legs[i].yaw=0; legs[i].hip=-0.55; legs[i].knee=0.9; }
+    if(!prevT0) prevT0 = ts;
+    const t = (ts - prevT0) / 1000;
+    const legs = [];
+    for(let i=0;i<6;i++) legs.push(
+      info.start==='sit' ? {yaw:0, hip:0, knee:0}
+                         : {yaw:0, hip:-0.55, knee:0.9});
+    try{ info.pose(t, legs); }catch(e){}
+    // Schematic pose fns are stylised radians. Map onto the real robot
+    // convention (+hip/+knee = fold down): sit demos already use robot
+    // signs; stand demos are anchored so (-0.55, 0.9) = the real plant
+    // stance (hip +19.5°, knee +78.9°).
+    for(let i=0;i<6;i++){
+      const L = legs[i];
+      deg[3*i] = L.yaw*57.3;
+      if(info.start==='sit'){ deg[3*i+1] = L.hip*57.3; deg[3*i+2] = L.knee*57.3; }
+      else { deg[3*i+1] = -L.hip*57.3*0.62; deg[3*i+2] = L.knee*57.3*1.53; }
+    }
   }
-  try{ info.pose(t, legs); }catch(e){}
 
-  // --- top-down ---
-  const cx = (mid-6)/2, cy = H*0.55, R = Math.min(cx, cy)-28;
-  ctx.strokeStyle = '#2b6cff'; ctx.lineWidth = 2;
+  // ---- forward kinematics + body height ----
+  const legPts = [];
+  let minz = 0;
+  for(let i=0;i<6;i++){
+    const pts = hex3dLeg(i, deg[3*i], deg[3*i+1], deg[3*i+2]);
+    legPts.push(pts);
+    minz = Math.min(minz, pts[3][2]);
+  }
+  const bz = Math.max(24, -minz);            // lowest foot on the floor
+  if(HEX3D.spin && !useLive) HEX3D.az += 0.15;
+
+  // ---- camera ----
+  const az = HEX3D.az*Math.PI/180, el = HEX3D.el*Math.PI/180;
+  const ca = Math.cos(az), sa = Math.sin(az);
+  const ce = Math.cos(el), se = Math.sin(el);
+  const zc = Math.min(110, bz*0.75 + 30);    // look-at height
+  const cx = W/2, cy = H/2 + 14;
+  function proj(p){
+    const x1 = p[0]*ca - p[1]*sa;
+    const y1 = p[0]*sa + p[1]*ca;
+    const z1 = p[2] - zc;                     // p already in world z
+    const y2 = y1*ce + z1*se;
+    const z2 = -y1*se + z1*ce;
+    const d = HEX3D.dist - y2;
+    return {x: cx + HEX3D.f*x1/d, y: cy - HEX3D.f*z2/d, d};
+  }
+  const world = p => [p[0], p[1], p[2] + bz];
+
+  // ---- ground grid + shadows (always behind) ----
+  ctx.lineWidth = 1; ctx.strokeStyle = '#1c2331';
+  for(let g=-220; g<=220; g+=55){
+    let a = proj([g,-220,0]), b = proj([g,220,0]);
+    ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke();
+    a = proj([-220,g,0]); b = proj([220,g,0]);
+    ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke();
+  }
+  ctx.fillStyle = 'rgba(0,0,0,0.30)';
   ctx.beginPath();
   for(let i=0;i<6;i++){
-    const a = -Math.PI/2 + i*Math.PI/3;
-    const x = cx + Math.cos(a)*R*0.28, y = cy + Math.sin(a)*R*0.28;
-    if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    const v = proj([HEX3D.hexR*Math.cos(i*Math.PI/3),
+                    HEX3D.hexR*Math.sin(i*Math.PI/3), 0]);
+    if(i===0) ctx.moveTo(v.x,v.y); else ctx.lineTo(v.x,v.y);
   }
-  ctx.closePath(); ctx.stroke();
-  ctx.fillStyle = '#1b2744'; ctx.fill();
-  for(let i=0;i<6;i++){
-    const a = -Math.PI/2 + i*Math.PI/3 + legs[i].yaw*0.7;
-    const hipLen = R*(info.start==='sit' ? 0.55 : 0.38);
-    const kneeLen = R*(info.start==='sit' ? 0.45 : 0.34);
-    // fold shortens radial reach when hip/knee flex
-    const reach = hipLen*Math.cos(legs[i].hip*0.9) + kneeLen*Math.cos(legs[i].hip+legs[i].knee)*0.7;
-    const x0 = cx + Math.cos(a)*R*0.28, y0 = cy + Math.sin(a)*R*0.28;
-    const x1 = x0 + Math.cos(a)*hipLen*0.55;
-    const y1 = y0 + Math.sin(a)*hipLen*0.55;
-    const x2 = x0 + Math.cos(a)*Math.max(0.12*R, reach);
-    const y2 = y0 + Math.sin(a)*Math.max(0.12*R, reach);
-    ctx.strokeStyle = '#9aa3b2'; ctx.lineWidth = 3;
-    ctx.beginPath(); ctx.moveTo(x0,y0); ctx.lineTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
-    ctx.fillStyle = '#5fd08a';
-    ctx.beginPath(); ctx.arc(x2,y2,3.5,0,7); ctx.fill();
+  ctx.closePath(); ctx.fill();
+  for(const pts of legPts){
+    const f = proj([pts[3][0], pts[3][1], 0]);
+    ctx.beginPath(); ctx.ellipse(f.x, f.y, 5, 5*Math.max(0.25,se), 0, 0, 7);
+    ctx.fill();
   }
 
-  // --- side (one representative leg + body) ---
-  const sx0 = mid + 36, sy0 = H*0.72;
-  const bodyW = 54, bodyH = 18;
-  ctx.fillStyle = '#1b2744'; ctx.strokeStyle = '#2b6cff'; ctx.lineWidth = 2;
-  ctx.fillRect(sx0, sy0-bodyH, bodyW, bodyH); ctx.strokeRect(sx0, sy0-bodyH, bodyW, bodyH);
-  // ground
-  ctx.strokeStyle = '#333b52'; ctx.beginPath();
-  ctx.moveTo(mid+16, sy0+52); ctx.lineTo(W-12, sy0+52); ctx.stroke();
-  if(info.start==='sit'){
-    ctx.fillStyle = '#5a6478'; ctx.fillText('legs out / air', mid+16, 36);
-  } else {
-    ctx.fillStyle = '#5a6478'; ctx.fillText('planted / stand', mid+16, 36);
+  // ---- depth-sorted primitives: body + legs ----
+  const prims = [];
+  // body hexagonal prism
+  const topV = [], botV = [];
+  for(let i=0;i<6;i++){
+    const a = i*Math.PI/3;
+    topV.push(world([HEX3D.hexR*Math.cos(a), HEX3D.hexR*Math.sin(a),  HEX3D.bodyT]));
+    botV.push(world([HEX3D.hexR*Math.cos(a), HEX3D.hexR*Math.sin(a), -HEX3D.bodyT]));
   }
-  // average hip/knee for side view
-  let ah=0, ak=0; for(const L of legs){ ah+=L.hip; ak+=L.knee; } ah/=6; ak/=6;
-  const femur = 46, tibia = 40;
-  const hx = sx0 + bodyW*0.65, hy = sy0;
-  const kx = hx + Math.sin(ah)*femur, ky = hy + Math.cos(ah)*femur;
-  const fx = kx + Math.sin(ah+ak)*tibia, fy = ky + Math.cos(ah+ak)*tibia;
-  ctx.strokeStyle = '#e7eaf0'; ctx.lineWidth = 3;
-  ctx.beginPath(); ctx.moveTo(hx,hy); ctx.lineTo(kx,ky); ctx.lineTo(fx,fy); ctx.stroke();
-  ctx.fillStyle = '#5fd08a'; ctx.beginPath(); ctx.arc(fx,fy,4,0,7); ctx.fill();
-  ctx.fillStyle = '#8089a0'; ctx.font = '10px system-ui,sans-serif';
-  ctx.fillText('hip '+ (ah*57.3).toFixed(0)+'°  knee '+(ak*57.3).toFixed(0)+'°', mid+16, H-12);
+  prims.push({ d: proj(world([0,0,0])).d, draw(){
+    const t = topV.map(proj), b = botV.map(proj);
+    ctx.fillStyle = '#141c2c';
+    ctx.beginPath(); b.forEach((v,i)=> i?ctx.lineTo(v.x,v.y):ctx.moveTo(v.x,v.y));
+    ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = '#23304d'; ctx.lineWidth = 1.5;
+    for(let i=0;i<6;i++){ ctx.beginPath();
+      ctx.moveTo(t[i].x,t[i].y); ctx.lineTo(b[i].x,b[i].y); ctx.stroke(); }
+    ctx.fillStyle = '#1b2744';
+    ctx.beginPath(); t.forEach((v,i)=> i?ctx.lineTo(v.x,v.y):ctx.moveTo(v.x,v.y));
+    ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = '#2b6cff'; ctx.lineWidth = 2; ctx.stroke();
+    // heading notch: front is +x (between legs 0 and 5)
+    const n = proj(world([HEX3D.hexR*0.72, 0, HEX3D.bodyT]));
+    ctx.fillStyle = '#2b6cff';
+    ctx.beginPath(); ctx.arc(n.x, n.y, 3, 0, 7); ctx.fill();
+  }});
+  // legs
+  const segCol = ['#6c7891', '#9aa3b2', '#c3cad8'];
+  for(let i=0;i<6;i++){
+    const wp = legPts[i].map(world);
+    for(let s=0;s<3;s++){
+      const a = wp[s], b = wp[s+1];
+      prims.push({ d: proj([(a[0]+b[0])/2,(a[1]+b[1])/2,(a[2]+b[2])/2]).d,
+        draw(){
+          const pa = proj(a), pb = proj(b);
+          ctx.strokeStyle = segCol[s]; ctx.lineWidth = s===0?3:4;
+          ctx.lineCap = 'round';
+          ctx.beginPath(); ctx.moveTo(pa.x,pa.y); ctx.lineTo(pb.x,pb.y); ctx.stroke();
+          if(s===2){                       // foot
+            const onGround = b[2] < 6;
+            ctx.beginPath(); ctx.arc(pb.x, pb.y, onGround?4.5:3.5, 0, 7);
+            ctx.fillStyle = onGround ? '#5fd08a' : '#ffb24d'; ctx.fill();
+          } else {                          // joint
+            ctx.beginPath(); ctx.arc(pb.x, pb.y, 2.5, 0, 7);
+            ctx.fillStyle = '#39445c'; ctx.fill();
+          }
+        }});
+    }
+  }
+  prims.sort((p,q)=> q.d - p.d);            // far → near
+  prims.forEach(p=> p.draw());
+
+  // ---- labels ----
+  ctx.font = '11px system-ui,sans-serif';
+  if(useLive){
+    ctx.fillStyle = '#5fd08a';
+    ctx.fillText('● LIVE — robot encoder angles', 10, 17);
+  } else {
+    ctx.fillStyle = '#5a6478';
+    ctx.fillText(running ? 'connecting to live pose…'
+                         : 'preview — schematic motion', 10, 17);
+  }
+  ctx.fillStyle = '#3c455c';
+  ctx.fillText('drag = orbit · wheel = zoom', W-158, H-8);
 
   prevRaf = requestAnimationFrame(drawDemoPreview);
 }
@@ -2161,7 +2305,7 @@ function startDemoPreviewLoop(){
 
 const DEMO_GROUPS = [
   ['air',   'In the air (sitting)', 'homes to sit zero · legs out'],
-  ['stand', 'Standing dances — streamed, live speed', 'homes via the 10× stand-up · dances around the plant'],
+  ['stand', 'Standing dances — streamed, live speed', 'homes via the 10× stand-up · planted-foot body IK — feet stay glued'],
   ['plant', 'Planted acts & shows', 'scripted glides · own timing'],
   ['walk',  'Walk', 'open-loop tripod gait — floor + slack cord'],
 ];

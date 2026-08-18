@@ -1486,103 +1486,246 @@ def run_stand_hands_demo(bus: FeetechBus, *,
 
 
 # ---------------------------------------------------------------------------
-# Standing dances — streamed offsets around the LIVE captured plant.
+# Standing dances — streamed, around the LIVE captured plant (v2, 08-17).
 #
-# Built for the redone demos page (2026-08-17): they home via the
-# validated keyframe stand-up (the experiments-page 10x technique), then
-# dance AROUND standing_pose_degrees() — the stance the stand-up actually
-# ends on — instead of yanking to the tall hip+20/knee+80 display stilts.
-# All are zero-mean / cyclic, cord-safe (yaw averages 0), and run through
-# stream_pose_fn so the web speed slider works live.
+# v1 modulated raw joint offsets and looked chaotic on hardware: without
+# foot compensation every hip/knee offset scrubs the planted feet and
+# lurches the body ("the robot collapses" — operator). The previous
+# robot's dances looked good because of two tricks its firmware used
+# (prototype_v1 stepDance):
 #
-# FK note (foot drop ≈ 90·sin(hip) + 128·sin(hip+knee) mm): near the
-# plant, HIP dominates body height (~62 mm/rad) while knee barely moves
-# it — so bounce/sway modulate hips with a small knee assist.
+#   1. PLANTED-FOOT BODY IK — the feet stay glued to the stance
+#      footprint; the BODY is what sways / bobs / twists (hula, pogo,
+#      twist & dip). Ported here as PlantedBodyIK via tripod_gait's
+#      2-link IK.
+#   2. Raised-cosine lift pulses (legPulse) with half-width < pi/2, so
+#      alternating tripods NEVER overlap in the air — always >= 3 feet
+#      down, statically stable.
+#
+# Every dance ramps its amplitude in over ~1.5 s (nothing snaps) and is
+# cyclic / zero-mean (cord-safe). All run through stream_pose_fn, so
+# the web speed slider works live.
 # ---------------------------------------------------------------------------
-STAND_SWAY_HZ = 0.35
-STAND_SWAY_HIP_DEG = 5.0
-STAND_BOUNCE_HZ = 0.8
-STAND_BOUNCE_HIP_DEG = 7.0
-STAND_TWIST_HZ = 0.45
-STAND_TWIST_YAW_DEG = 10.0
-STAND_WAVE_LEG_S = 3.0        # seconds per leg (demo time)
-STAND_WAVE_LIFT_HIP_DEG = -12.0
-STAND_WAVE_LIFT_KNEE_DEG = -30.0
-STAND_WAVE_YAW_DEG = 12.0
-STAND_RIPPLE_HZ = 0.45
-STAND_RIPPLE_LIFT_HIP_DEG = -10.0
-STAND_RIPPLE_LIFT_KNEE_DEG = -24.0
+DANCE_RAMP_S = 1.5
+
+# Body-motion amplitudes (kept inside the IK reach at the plant stance).
+HULA_R_MM = 16.0
+HULA_HZ = 0.5
+SWAY_Y_MM = 18.0
+SWAY_HZ = 0.3
+POGO_DROP_MM = 16.0
+POGO_HZ = 0.9
+TWIST_DEG = 8.0
+TWIST_DIP_MM = 8.0
+TWIST_HZ = 0.45
+# Stadium wave: narrow crest (cosine cubed ~ 1-2 legs) circles the hex.
+# v2 08-17: the joint-blend lift (49 deg hip+knee swings) measured 3.15 A
+# support-hip spikes and 1.18 g lurches on hardware — lift the foot
+# STRAIGHT UP through the planted IK instead (march's recipe: 0.43 A).
+WAVE_PERIOD_S = 3.2
+WAVE_LIFT_MM = 30.0
+# Tripod march: legPulse half-width < pi/2 => always one tripod planted.
+MARCH_PERIOD_S = 1.6
+MARCH_LIFT_MM = 22.0
+MARCH_SWAY_MM = 8.0
+MARCH_PULSE_HW = 0.42 * math.pi
+# Say hi: weight eases back + dips, then ONE front paw lifts and waves.
+# v3 08-17: two-legs-up fell backward on hardware (az 0.42 g measured;
+# CoM lands ~1 mm from the L1-L4 support edge). One paw = 5 feet down.
+HI_SHIFT_BACK_MM = 22.0
+HI_DIP_MM = 10.0
+HI_WAVE_LEG = 0                # azimuth 30 deg (+x = forward): front-left
+HI_LIFT_HIP_DEG = -25.0
+HI_LIFT_KNEE_DEG = 45.0
+HI_WAVE_YAW_DEG = 12.0
+HI_WAVE_HZ = 0.8
+
+
+class PlantedBodyIK:
+    """Joint angles that keep all six feet PLANTED while the body moves.
+
+    ``pose(ox, oy, dz, twist)``: body displaced (ox, oy) metres in the
+    chassis frame, raised ``dz`` metres, yawed ``twist`` radians — feet
+    stay at the footprint the live plant pose puts them. Per-leg lift
+    overrides raise a foot straight up (still through the real IK).
+    Ported from prototype_v1's plantedLegAnglesZ.
+    """
+
+    def __init__(self, base: list[float] | None = None):
+        import tripod_gait as TG
+        self._TG = TG
+        self.base = list(base) if base is not None else _stand_zero_pose()
+        self.feet: list[tuple[float, float, float]] = []
+        self.origins: list[tuple[float, float]] = []
+        self.azim: list[float] = []
+        for leg in range(6):
+            a = (leg + 0.5) * math.pi / 3.0
+            yaw = math.radians(self.base[3 * leg + 0])
+            hip = math.radians(self.base[3 * leg + 1])
+            knee = math.radians(self.base[3 * leg + 2])
+            reach = (TG.COXA + TG.FEMUR * math.cos(hip)
+                     + TG.TIBIA * math.cos(hip + knee))
+            fz = -TG.FEMUR * math.sin(hip) - TG.TIBIA * math.sin(hip + knee)
+            ox0 = TG.LEG_RADIAL * math.cos(a)
+            oy0 = TG.LEG_RADIAL * math.sin(a)
+            self.feet.append((ox0 + reach * math.cos(a + yaw),
+                              oy0 + reach * math.sin(a + yaw), fz))
+            self.origins.append((ox0, oy0))
+            self.azim.append(a)
+
+    def leg_angles(self, leg: int, ox: float, oy: float, dz: float,
+                   twist: float, *, foot_raise: float = 0.0
+                   ) -> tuple[float, float, float]:
+        """(yaw, hip, knee) degrees for one leg; falls back to the base
+        pose when the target leaves the IK envelope."""
+        fx, fy, fz = self.feet[leg]
+        # Foot in the displaced/twisted body frame.
+        px, py = fx - ox, fy - oy
+        ct, st = math.cos(-twist), math.sin(-twist)
+        bx = ct * px - st * py
+        by = st * px + ct * py
+        o0x, o0y = self.origins[leg]
+        rx, ry = bx - o0x, by - o0y
+        a = self.azim[leg]
+        ca, sa = math.cos(a), math.sin(a)
+        x_yaw = ca * rx + sa * ry
+        y_yaw = -sa * rx + ca * ry
+        z = fz - dz + foot_raise
+        ik = self._TG._leg_ik((math.hypot(x_yaw, y_yaw), 0.0, z))
+        if ik is None:
+            return (self.base[3 * leg + 0], self.base[3 * leg + 1],
+                    self.base[3 * leg + 2])
+        hip, knee = ik
+        return (math.degrees(math.atan2(y_yaw, x_yaw)),
+                math.degrees(hip), math.degrees(knee))
+
+    def pose(self, ox: float = 0.0, oy: float = 0.0, dz: float = 0.0,
+             twist: float = 0.0,
+             foot_raise: dict[int, float] | None = None) -> list[float]:
+        out: list[float] = []
+        for leg in range(6):
+            fr = (foot_raise or {}).get(leg, 0.0)
+            out.extend(self.leg_angles(leg, ox, oy, dz, twist,
+                                       foot_raise=fr))
+        return out
+
+
+def _leg_pulse(phase: float, center: float, hw: float) -> float:
+    """Raised-cosine lift pulse (prototype_v1 legPulse): 1 at ``center``,
+    0 beyond ``hw`` radians either side. Two pulses pi apart with
+    hw < pi/2 never overlap — always a double-support window."""
+    d = (phase - center) % (2.0 * math.pi)
+    if d > math.pi:
+        d = 2.0 * math.pi - d
+    if d >= hw:
+        return 0.0
+    return 0.5 * (1.0 + math.cos(d / hw * math.pi))
 
 
 def make_stand_pose_fn(name: str):
     """Pose function for one standing dance, anchored to the live plant."""
     base = _stand_zero_pose()
+    ik = PlantedBodyIK(base)
     two_pi = 2.0 * math.pi
+    mm = 0.001
 
-    def _with_offsets(offs) -> list[float]:
-        pose = list(base)
-        for leg in range(6):
-            yaw, hip, knee = offs(leg)
-            _yaw_hip_knee(leg, pose, yaw=yaw, hip=hip, knee=knee)
-        return pose
+    def ramp(t: float) -> float:
+        return min(t / DANCE_RAMP_S, 1.0)
+
+    def _blend_leg(pose: list[float], leg: int, amt: float,
+                   yaw: float, hip: float, knee: float) -> None:
+        """Blend one leg from its current pose toward a raised target."""
+        b = 3 * leg
+        pose[b + 0] += amt * (yaw - pose[b + 0])
+        pose[b + 1] += amt * (hip - pose[b + 1])
+        pose[b + 2] += amt * (knee - pose[b + 2])
 
     if name == "stand_sway":
-        # Traveling crouch wave → the body leans in a slow circle.
+        # Old robot M18: slow gentle side-to-side body lean, feet planted.
         def fn(t: float) -> list[float]:
-            w = two_pi * STAND_SWAY_HZ * t
-            return _with_offsets(lambda leg: (
-                0.0,
-                STAND_SWAY_HIP_DEG * math.sin(w + leg * math.pi / 3.0),
-                -0.5 * STAND_SWAY_HIP_DEG
-                * math.sin(w + leg * math.pi / 3.0)))
+            oy = SWAY_Y_MM * mm * ramp(t) * math.sin(two_pi * SWAY_HZ * t)
+            return ik.pose(oy=oy)
+        return fn
+    if name == "stand_hula":
+        # Old robot B: feet planted, body circles — "the wiggle".
+        def fn(t: float) -> list[float]:
+            w = two_pi * HULA_HZ * t
+            r = HULA_R_MM * mm * ramp(t)
+            return ik.pose(ox=r * math.cos(w), oy=r * math.sin(w))
         return fn
     if name == "stand_bounce":
-        # Raised-cosine squat bob: starts and ends at the plant.
+        # Old robot M9 pogo: feet planted, body bobs straight down/up.
         def fn(t: float) -> list[float]:
-            crouch = 0.5 * (1.0 - math.cos(two_pi * STAND_BOUNCE_HZ * t))
-            return _with_offsets(lambda leg: (
-                0.0,
-                -STAND_BOUNCE_HIP_DEG * crouch,
-                0.5 * STAND_BOUNCE_HIP_DEG * crouch))
+            dz = (-POGO_DROP_MM * mm * ramp(t)
+                  * 0.5 * (1.0 - math.cos(two_pi * POGO_HZ * t)))
+            return ik.pose(dz=dz)
         return fn
     if name == "stand_twist":
-        # In-place body twist; zero-mean so cords never wind.
+        # Old robot T: body twists on its yaws while dipping — feet
+        # planted (the IK counter-rotates them), zero-mean, cord-safe.
         def fn(t: float) -> list[float]:
-            yaw = STAND_TWIST_YAW_DEG * math.sin(two_pi * STAND_TWIST_HZ * t)
-            return _with_offsets(lambda leg: (yaw, 0.0, 0.0))
+            w = two_pi * TWIST_HZ * t
+            tw = math.radians(TWIST_DEG) * ramp(t) * math.sin(w)
+            dz = (-TWIST_DIP_MM * mm * ramp(t)
+                  * 0.5 * (1.0 - math.cos(2.0 * w)))
+            return ik.pose(dz=dz, twist=tw)
         return fn
     if name == "stand_wave":
-        # One leg at a time lifts off the plant and waves, then sets
-        # down; the lift envelope is 0 at every leg handoff (smooth).
+        # Old robot V: stadium wave — a narrow raised-foot crest circles
+        # the body; cosine CUBED keeps it to ~1-2 legs, everyone else
+        # stays planted at the exact footprint. Feet rise STRAIGHT UP
+        # through the IK (no joint-space flailing — see WAVE_* note).
         def fn(t: float) -> list[float]:
-            k = int(t / STAND_WAVE_LEG_S) % 6
-            u = (t % STAND_WAVE_LEG_S) / STAND_WAVE_LEG_S
-            env = math.sin(math.pi * u) ** 2
-            wave = math.sin(two_pi * 1.5 * t)
-            return _with_offsets(lambda leg: (
-                STAND_WAVE_YAW_DEG * env * wave if leg == k else 0.0,
-                STAND_WAVE_LIFT_HIP_DEG * env if leg == k else 0.0,
-                STAND_WAVE_LIFT_KNEE_DEG * env if leg == k else 0.0))
+            ph = two_pi * (t / WAVE_PERIOD_S)
+            raise_m: dict[int, float] = {}
+            for leg in range(6):
+                c = 0.5 * (1.0 + math.cos(ph - ik.azim[leg]))
+                bump = (c ** 3) * ramp(t)
+                if bump > 1e-3:
+                    raise_m[leg] = WAVE_LIFT_MM * mm * bump
+            return ik.pose(foot_raise=raise_m)
         return fn
-    if name == "stand_ripple":
-        # Traveling lift bump around the hex — sharp enough that only
-        # ~one leg is meaningfully off the ground at a time.
+    if name == "stand_march":
+        # Old robot M5/M6: alternating tripod march with a weight-shift
+        # sway. legPulse half-width < pi/2 => the tripods never lift at
+        # the same time; lifted feet rise STRAIGHT UP through the IK.
         def fn(t: float) -> list[float]:
-            w = two_pi * STAND_RIPPLE_HZ * t
-
-            def offs(leg: int):
-                env = max(0.0, math.sin(w - leg * math.pi / 3.0)) ** 3
-                return (0.0,
-                        STAND_RIPPLE_LIFT_HIP_DEG * env,
-                        STAND_RIPPLE_LIFT_KNEE_DEG * env)
-            return _with_offsets(offs)
+            ph = two_pi * (t / MARCH_PERIOD_S)
+            r = ramp(t)
+            raise_m: dict[int, float] = {}
+            for leg in range(6):
+                center = 0.0 if leg % 2 == 0 else math.pi
+                p = _leg_pulse(ph, center, MARCH_PULSE_HW)
+                if p > 1e-3:
+                    raise_m[leg] = MARCH_LIFT_MM * mm * p * r
+            oy = MARCH_SWAY_MM * mm * r * math.sin(ph)
+            return ik.pose(oy=oy, foot_raise=raise_m)
+        return fn
+    if name == "stand_hi":
+        # Old robot O, v3: wave ONE paw. Both-front-legs-up measured a
+        # backward fall on 08-17 — the front support edge runs exactly
+        # through the two side feet and the raised legs pull the CoM
+        # onto it (~1 mm margin). One leg up keeps 5 feet down and the
+        # polygon reaches well forward. Weight still eases back + dips.
+        def fn(t: float) -> list[float]:
+            shift = min(t / 0.8, 1.0)
+            arm = max(0.0, min((t - 0.7) / 1.0, 1.0))
+            pose = ik.pose(ox=-HI_SHIFT_BACK_MM * mm * shift,
+                           dz=-HI_DIP_MM * mm * shift)
+            wph = two_pi * HI_WAVE_HZ * t
+            _blend_leg(pose, HI_WAVE_LEG, arm,
+                       HI_WAVE_YAW_DEG * math.sin(wph),
+                       HI_LIFT_HIP_DEG,
+                       HI_LIFT_KNEE_DEG + 12.0 * math.sin(wph))
+            return pose
         return fn
     raise SystemExit(f"unknown standing dance {name!r}")
 
 
 # Streamed demos (live speed): standing dances + the air wiggles.
-STAND_STREAM_DEMOS = ("stand_sway", "stand_bounce", "stand_twist",
-                      "stand_wave", "stand_ripple")
+STAND_STREAM_DEMOS = ("stand_sway", "stand_hula", "stand_bounce",
+                      "stand_twist", "stand_wave", "stand_march",
+                      "stand_hi")
 STREAM_POSE_FACTORIES = {
     "shimmy": lambda: pose_shimmy,
     "ripple": lambda: pose_ripple,
@@ -1693,12 +1836,14 @@ DEMOS = {
     "ripple": ("[2 easy] yaw wave around the hex (air)", frames_ripple),
     "conductor": ("[2 easy] one leg waves; others hold", frames_conductor),
     "arms_up": ("[2 easy] sit: all six arms way over head", None),
-    # --- standing dances (streamed · live speed · around the live plant) --
-    "stand_sway": ("[3 stand] slow body sway — weight orbits the hex", None),
-    "stand_bounce": ("[3 stand] squat bob — smooth streamed bounce", None),
-    "stand_twist": ("[3 stand] in-place body twist (cord-safe)", None),
-    "stand_wave": ("[3 stand] one leg lifts + waves, cycles legs", None),
-    "stand_ripple": ("[4 stand] traveling lift wave around the hex", None),
+    # --- standing dances (streamed · live speed · planted-foot body IK) ---
+    "stand_sway": ("[3 stand] body leans side to side, feet planted", None),
+    "stand_hula": ("[3 stand] body circles — the wiggle, feet planted", None),
+    "stand_bounce": ("[3 stand] pogo bob — body dips straight down", None),
+    "stand_twist": ("[3 stand] twist & dip, feet planted (cord-safe)", None),
+    "stand_wave": ("[4 stand] stadium wave — lift crest circles the hex", None),
+    "stand_march": ("[4 stand] tripod march in place + weight sway", None),
+    "stand_hi": ("[4 stand] weight back, one front paw waves HI", None),
     # --- mild planted ----------------------------------------------------
     "rise": ("[3 plant] deep reach; ends at stand zero", None),
     "rise+": ("[3 plant] higher + faster reach; ends at stand zero", None),
