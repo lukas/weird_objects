@@ -2038,6 +2038,13 @@ class SimHexapodBalanceEnv(_GymBase):
         ik = self.ik.solve(offset)
         return ik.q_rad, ik.ok, ik.reason
 
+    def _active_episode_steps(self) -> int:
+        """Current trajectory horizon, bounded by the env's allocation."""
+        limit = getattr(self._goal_traj, "duration_steps", None)
+        if limit is None:
+            return int(self.episode_steps)
+        return min(int(self.episode_steps), max(1, int(limit)))
+
     def _step_begin(self, action):
         """Pre-physics half of step: action validation, IK, safety
         filter, and the servo command. Returns ``(early, ctx)`` —
@@ -2085,7 +2092,8 @@ class SimHexapodBalanceEnv(_GymBase):
                                   "term_cost_per_remaining_s",
                                   default=0.0))
             if k_rem > 0.0:
-                rem_cost = k_rem * max(self.episode_steps - self._step_i,
+                rem_cost = k_rem * max(self._active_episode_steps()
+                                       - self._step_i,
                                        0) * self.dt
                 # Bounded terminal cost (08-17, operator-approved
                 # fb_20260817T005114 item 5): the uncapped horizon
@@ -3264,7 +3272,8 @@ class SimHexapodBalanceEnv(_GymBase):
                                   "term_cost_per_remaining_s",
                                   default=0.0))
             if k_rem > 0.0:
-                rem_cost = k_rem * max(self.episode_steps - self._step_i,
+                rem_cost = k_rem * max(self._active_episode_steps()
+                                       - self._step_i,
                                        0) * self.dt
                 # reward.term_cost_max: same bounded-terminal-cost
                 # semantics as the _step_begin site above (08-17,
@@ -3276,7 +3285,7 @@ class SimHexapodBalanceEnv(_GymBase):
                 pen += rem_cost
             parts["reward_termination"] = -pen
             reward -= pen
-        truncated = self._step_i >= self.episode_steps
+        truncated = self._step_i >= self._active_episode_steps()
         self._prev_action = clipped.copy()
         info = {"termination_reason": status.reason, **parts,
                 "safety_ok": status.ok,

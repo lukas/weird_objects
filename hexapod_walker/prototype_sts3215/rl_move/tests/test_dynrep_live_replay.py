@@ -43,7 +43,7 @@ from rl_move.dynamics.live_replay import (
     BIN_DIMS, CMD_DIR_BINS, FALL_BINS, META_KEYS, MODE_BINS,
     PROGRESS_BINS, RISE_START_BINS, SPEED_BINS, STARTSTOP_BINS,
     TRANS_BINS, YAW_BINS, LiveWindowStore, stratified_live_batch,
-    window_meta,
+    prediction_accuracy_metrics, window_meta,
 )
 from rl_move.dynamics.model import DynamicsModel
 from rl_move.dynamics.predictive_critic import (
@@ -153,6 +153,31 @@ def test_window_extraction_parity_with_windowsampler(stats):
     for k in ("state", "contact", "current", "priv", "fut_hist"):
         for kk in ref_t[k]:
             assert th.equal(got[k][kk], ref_t[k][kk]), f"{k}[{kk}]"
+
+
+def test_physical_accuracy_metrics_are_interpretable(stats):
+    store = _store(stats, val_every=10**9)
+    store.add_episode(_ep_dict(99))
+    bt, _ = store.sample(8, 0)
+    pred = {
+        "priv_now": bt["priv_now"].clone(),
+        "contact_now_logits": th.where(
+            bt["contact_now"] > 0.5, 20.0, -20.0),
+        "current_now": bt["current_now"].clone(),
+        "state": {k: v.clone() for k, v in bt["state"].items()},
+        "priv": {k: v.clone() for k, v in bt["priv"].items()},
+        "contact_logits": {
+            k: th.where(v > 0.5, 20.0, -20.0)
+            for k, v in bt["contact"].items()},
+        "current": {k: v.clone() for k, v in bt["current"].items()},
+    }
+    metrics = prediction_accuracy_metrics(pred, bt, stats[1], "physical/")
+    assert metrics["physical/now/velocity_rmse_m_s"] == 0.0
+    assert metrics["physical/now/heading_mae_deg"] == 0.0
+    assert metrics["physical/now/contact_accuracy"] == 1.0
+    assert metrics["physical/future/tilt_rmse_deg"] == 0.0
+    assert metrics["physical/future/joint_pos_rmse_deg"] == 0.0
+    assert metrics["physical/future/contact_accuracy"] == 1.0
 
 
 def test_bin_meta_correctness(stats):
@@ -316,7 +341,8 @@ def encoder_ckpt(tmp_path_factory, stats):
 
 
 def _build_live(encoder_ckpt, stats, *, boundary=64, gate_fns=None,
-                drift_guard=1e9, value_jump=1e9, seed=0):
+                drift_guard=1e9, value_jump=1e9, action_kl=1e9,
+                actor_residual=False, seed=0):
     eps_all, st = stats
     store = _store(stats, val_every=4)
     for i in range(12):
@@ -331,7 +357,8 @@ def _build_live(encoder_ckpt, stats, *, boundary=64, gate_fns=None,
         policy_kwargs=dict(
             net_arch=[16, 16], log_std_init=-1.0,
             predictor_ckpt=str(encoder_ckpt),
-            frame_width=FRAME_WIDTH, history=HISTORY),
+            frame_width=FRAME_WIDTH, history=HISTORY,
+            actor_residual_enabled=actor_residual),
         n_steps=32, batch_size=32, n_epochs=2, learning_rate=3e-4,
         seed=seed, verbose=0, device="cpu")
     payloads = []
@@ -340,7 +367,8 @@ def _build_live(encoder_ckpt, stats, *, boundary=64, gate_fns=None,
         steps_per_iter=1, lr=1e-3, drift_guard=drift_guard,
         probe_obs=32, snapshot_boundary_steps=boundary,
         gate_heldout_band=0.15, gate_live_improve=0.0,
-        gate_rise_band=0.05, gate_value_jump_frac=value_jump)
+        gate_rise_band=0.05, gate_value_jump_frac=value_jump,
+        gate_action_kl=action_kl)
 
     def live_batch_fn(n):
         return stratified_live_batch(
@@ -423,6 +451,22 @@ def test_rejection_path_keeps_snapshot_pinned(encoder_ckpt, stats):
     assert all(th.equal(a_.detach(), b_.detach()) for a_, b_ in zip(
         model.policy.critic_predictor.parameters(), ref.parameters())), \
         "rejected update still mutated the snapshot"
+
+
+def test_actor_action_kl_gate_rejects_unseen_snapshot(encoder_ckpt, stats):
+    """An actor-connected snapshot cannot cross a boundary when it changes
+    the live walking action distribution beyond the registered ceiling."""
+    model, payloads, _ = _build_live(
+        encoder_ckpt, stats, boundary=64, actor_residual=True,
+        action_kl=0.0)
+    with th.no_grad():
+        model.policy.actor_gate.fill_(1.0)
+    model.learn(total_timesteps=96)
+    attempt = next(p for p in payloads if "pred/gate/attempted" in p)
+    assert attempt["pred/gate/action_kl"] > 0.0
+    assert attempt["pred/gate/action"] == 0
+    assert attempt["pred/gate/accepted"] == 0
+    assert int(model.policy.snapshot_version.item()) == 0
 
 
 def test_checkpoint_roundtrip_no_live_runtime(encoder_ckpt, stats,

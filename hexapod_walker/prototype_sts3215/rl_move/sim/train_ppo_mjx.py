@@ -957,7 +957,8 @@ def _env_kwargs(args, params: SimServoParams | None = None) -> dict:
     (bus.servo_params: "" = air fit, "loaded" = loaded bench fit)."""
     kw = dict(randomize=not args.no_dr,
               dr_scale=args.dr_scale,
-              episode_seconds=args.episode_seconds)
+              episode_seconds=getattr(
+                  args, "training_episode_seconds", args.episode_seconds))
     overrides = _parse_cfg_set(args.cfg_set)
     external_recover_cert = (
         args.recover_cert_every > 0
@@ -1109,7 +1110,13 @@ def _init_wandb(args, params: SimServoParams):
                 "dr_scale": args.dr_scale, "no_dr": args.no_dr,
                 "cfg_set": args.cfg_set,
                 "reward_cfg": _resolved_reward_cfg(args.cfg_set),
-                "episode_seconds": args.episode_seconds,
+                "episode_seconds": getattr(
+                    args, "training_episode_seconds", args.episode_seconds),
+                "eval_episode_seconds": args.episode_seconds,
+                "walk_curriculum": bool(args.walk_curriculum),
+                "walk_curriculum_version": args.walk_curriculum_version,
+                "walkcurr_cert_every": args.walkcurr_cert_every,
+                "walkcurr_cert_episodes": args.walkcurr_cert_episodes,
                 "mjx_iterations": args.mjx_iterations,
                 "mjx_ls_iterations": args.mjx_ls_iterations,
                 "recover_cert_every": args.recover_cert_every,
@@ -1343,6 +1350,11 @@ def main(argv: list[str] | None = None) -> int:
                          "snapshot are never read from --init-from. "
                          "Operator addendum fb_20260818T085834_588d9a "
                          "(walkcurr4 tournament arms B/C).")
+    ap.add_argument("--init-from-policy-backbone", action="store_true",
+                    help="with --predictive-live: transplant the plain "
+                         "source actor AND ordinary raw critic across the "
+                         "history-stack widening; predictive adapters, "
+                         "gates and transformer snapshot stay fresh")
     ap.add_argument("--obs-pad-transplant", type=int, default=0,
                     help="warm-start across an obs WIDENING of N dims "
                          "appended at the obs tail (e.g. walk phase "
@@ -1442,6 +1454,30 @@ def main(argv: list[str] | None = None) -> int:
                          "critic's fixed probe batch + start-of-run "
                          "heldout reference (condition D reads, never "
                          "trains on it)")
+    ap.add_argument("--predictive-live", action="store_true",
+                    help="train the dynamics transformer continuously on "
+                         "live curriculum walking plus retained corpus "
+                         "rehearsal, and feed its boundary-gated stable "
+                         "snapshot to BOTH actor and critic")
+    ap.add_argument("--pred-batch-size", type=int, default=256)
+    ap.add_argument("--pred-steps-per-iter", type=int, default=8)
+    ap.add_argument("--pred-lr", type=float, default=1e-4)
+    ap.add_argument("--pred-rehearsal-frac", type=float, default=0.25)
+    ap.add_argument("--pred-capture-envs", type=int, default=128,
+                    help="MJX worlds harvested into live replay; bounded "
+                         "to avoid retaining every 60-second episode")
+    ap.add_argument("--pred-live-walk-frac", type=float, default=1.0)
+    ap.add_argument("--pred-live-min-windows", type=int, default=512)
+    ap.add_argument("--pred-snapshot-boundary-steps", type=int,
+                    default=1_000_000)
+    ap.add_argument("--pred-snapshot-drift-guard", type=float, default=0.05)
+    ap.add_argument("--pred-gate-heldout-band", type=float, default=0.15)
+    ap.add_argument("--pred-gate-live-improve", type=float, default=0.0)
+    ap.add_argument("--pred-gate-rise-band", type=float, default=0.05)
+    ap.add_argument("--pred-gate-value-jump", type=float, default=0.10)
+    ap.add_argument("--pred-gate-action-kl", type=float, default=0.002)
+    ap.add_argument("--pred-metrics-every", type=int, default=1_000_000,
+                    help="live heldout composition/per-bin W&B cadence")
     ap.add_argument("--walk-curriculum", action="store_true",
                     help="adaptive competence+retention walk-command "
                          "curriculum (walk_task WALKCURR_BUCKETS*), "
@@ -1449,12 +1485,14 @@ def main(argv: list[str] | None = None) -> int:
                          "sets cfg goal.walk_curriculum + "
                          "goal.walk_pure at env construction")
     ap.add_argument("--walk-curriculum-version", type=int, default=1,
-                    choices=(1, 2, 3),
+                    choices=(1, 2, 3, 4),
                     help="1 = WALKCURR_BUCKETS (walkcurr1), 2 = "
                          "WALKCURR_BUCKETS_V2 ignition ladder "
                          "(walkcurr2), 3 = WALKCURR_BUCKETS_V3 "
                          "actor-init bridge ladder (operator order "
-                         "fb_20260818T102844_116d4c)")
+                         "fb_20260818T102844_116d4c), 4 = sustained "
+                         "joystick ladder (10/20/40/60-second retained "
+                         "survival before DR/lateral/rear)")
     ap.add_argument("--walkcurr-cert-every", type=int, default=500_000,
                     help="deterministic certification cadence (steps)")
     ap.add_argument("--walkcurr-cert-episodes", type=int, default=8,
@@ -1655,7 +1693,8 @@ def main(argv: list[str] | None = None) -> int:
                 "--walk-curriculum owns best-checkpoint selection "
                 "(best = last retention-clean promotion, never reward/"
                 "latest); drop --best-ckpt/--ev-stop-min")
-        if args.init_from is not None and not args.init_from_actor_only:
+        if (args.init_from is not None and not args.init_from_actor_only
+                and not args.init_from_policy_backbone):
             raise SystemExit("--walk-curriculum is a fresh-actor "
                              "acquisition contract (walkcurr lineage); "
                              "a full-checkpoint --init-from is not wired "
@@ -1668,6 +1707,15 @@ def main(argv: list[str] | None = None) -> int:
             raise SystemExit("--walkcurr-post-promo-actor-lr requires "
                              "--actor-lr (it retargets the "
                              "update_health actor param group)")
+        if args.walk_curriculum_version == 4:
+            from .walk_task import WALKCURR_BUCKETS_V4
+            required_s = max(float(b["duration_s"])
+                             for b in WALKCURR_BUCKETS_V4)
+            args.training_episode_seconds = max(
+                float(args.episode_seconds), required_s)
+            print("[walkcurr] V4 training/cert horizon: "
+                  f"{args.training_episode_seconds:g}s maximum; plain "
+                  f"background eval remains {args.episode_seconds:g}s")
         # Pure-walk diet + curriculum version ride the env cfg so the
         # shim envs are born with them (no post-construction mutation;
         # the MJX vec envs mint reset pools during reset()). The
@@ -1740,21 +1788,61 @@ def main(argv: list[str] | None = None) -> int:
                          "--init-from)")
     if args.init_from_actor_only and args.init_from is None:
         raise SystemExit("--init-from-actor-only requires --init-from")
+    if args.init_from_policy_backbone:
+        if not args.predictive_live:
+            raise SystemExit("--init-from-policy-backbone requires "
+                             "--predictive-live")
+        if args.init_from is None:
+            raise SystemExit("--init-from-policy-backbone requires "
+                             "--init-from")
+        if args.init_from_actor_only:
+            raise SystemExit("--init-from-policy-backbone and "
+                             "--init-from-actor-only are exclusive")
+    if args.predictive_live:
+        if args.critic_encoder is None:
+            raise SystemExit("--predictive-live requires --critic-encoder "
+                             "to seed the online/stable transformers")
+        if not args.require_gpu_physics:
+            raise SystemExit("--predictive-live requires "
+                             "--require-gpu-physics (fail closed instead "
+                             "of silently moving physics or learning to CPU)")
+        if (args.task != "joint_walk" or not args.walk_curriculum
+                or args.walk_curriculum_version != 4):
+            raise SystemExit("--predictive-live currently requires "
+                             "--task joint_walk --walk-curriculum "
+                             "--walk-curriculum-version 4")
+        if args.pred_capture_envs <= 0 or args.pred_capture_envs > args.n_envs:
+            raise SystemExit("--pred-capture-envs must be in [1, --n-envs]")
+        if not 0.0 <= args.pred_rehearsal_frac <= 1.0:
+            raise SystemExit("--pred-rehearsal-frac must be in [0, 1]")
+        if not 0.0 <= args.pred_live_walk_frac <= 1.0:
+            raise SystemExit("--pred-live-walk-frac must be in [0, 1]")
+        if args.pred_snapshot_boundary_steps <= 0:
+            raise SystemExit("--pred-snapshot-boundary-steps must be > 0")
+        if args.pred_gate_action_kl < 0.0:
+            raise SystemExit("--pred-gate-action-kl must be >= 0")
     if args.critic_encoder is not None:
         if args.gru or args.gru_dual or args.gru_experts \
                 or args.transformer:
-            raise SystemExit("--critic-encoder (condition D) uses the "
-                             "scratch-A MLP actor; drop --gru*/"
-                             "--transformer")
-        if args.init_from is not None and not args.init_from_actor_only:
+            raise SystemExit("--critic-encoder uses a raw MLP policy plus "
+                             "the pretrained dynamics transformer; drop "
+                             "--gru*/--transformer (with --predictive-live, "
+                             "the dynamics transformer conditions both "
+                             "actor and critic)")
+        if (args.init_from is not None and not args.init_from_actor_only
+                and not args.init_from_policy_backbone):
             raise SystemExit("--critic-encoder warm start is not "
                              "wired for a full-checkpoint --init-from; "
                              "condition D trains a fresh critic — pass "
                              "--init-from-actor-only for the actor-only "
                              "transfer (operator addendum "
                              "fb_20260818T085834_588d9a)")
-        if args.init_from_actor_only and args.obs_pad_transplant:
-            raise SystemExit("--init-from-actor-only does not compose "
+        if ((args.init_from_actor_only or args.init_from_policy_backbone)
+                and args.obs_pad_transplant):
+            _transplant_flag = ("--init-from-policy-backbone"
+                                if args.init_from_policy_backbone
+                                else "--init-from-actor-only")
+            raise SystemExit(f"{_transplant_flag} does not compose "
                              "with --obs-pad-transplant (pick one obs-"
                              "widening transplant path)")
         if not args.critic_encoder_md5:
@@ -1805,6 +1893,12 @@ def main(argv: list[str] | None = None) -> int:
     params = env_kw["params"]
     _warn_if_defaults(params)
     env_cls = ENV_CLASSES[args.task]
+    if args.predictive_live:
+        # Same joint-walk task with pool-safe frame/privileged-label hooks.
+        # Only --pred-capture-envs rows emit per-tick arrays (enabled after
+        # VecEnv construction), so long V4 horizons stay memory-bounded.
+        from rl_move.dynamics.collector_env import DynrepCollectWalkEnv
+        env_cls = DynrepCollectWalkEnv
 
     from stable_baselines3 import PPO
     from stable_baselines3.common.callbacks import BaseCallback
@@ -1928,11 +2022,15 @@ def main(argv: list[str] | None = None) -> int:
         algo_cls = PredictiveCriticPPO
         policy_cls = PredictiveCriticPolicy
         extra_pk = dict(predictor_ckpt=str(args.critic_encoder),
-                        history=hist)   # frame_width set after venv
-        print(f"[mjx-train] condition-D predictive critic: frozen "
-              f"snapshot {args.critic_encoder.name} "
-              f"(md5 {args.critic_encoder_md5}), history {hist}, "
-              "scratch-A actor")
+                        history=hist,
+                        actor_residual_enabled=args.predictive_live)
+        # frame_width is set after venv construction.
+        pred_note = ("live online transformer + boundary-gated actor/critic "
+                     "snapshot" if args.predictive_live
+                     else "frozen critic-only snapshot")
+        print(f"[mjx-train] predictive representation: {pred_note}; "
+              f"seed {args.critic_encoder.name} "
+              f"(md5 {args.critic_encoder_md5}), history {hist}")
 
     print(f"[mjx-train] task={args.task} n_envs={args.n_envs} "
           f"impl={impl or 'jax(default)'} iterations={iters}/{ls_iters} "
@@ -1960,6 +2058,13 @@ def main(argv: list[str] | None = None) -> int:
           f"(compile + {args.pool_per_env + 1} reset choreographies)")
     if args.require_gpu_physics:
         _assert_gpu_physics(venv, impl)
+    if args.predictive_live:
+        capture_indices = list(range(args.pred_capture_envs))
+        venv.env_method("dynrep_capture_enable", True,
+                        indices=capture_indices)
+        print("[dynrep-live] capture armed on "
+              f"{len(capture_indices)}/{args.n_envs} MJX worlds; "
+              "physics, PPO, replay tensors and transformer updates use GPU")
     if args.critic_encoder is not None:
         n_obs = int(np.prod(venv.observation_space.shape))
         hist = int(extra_pk["history"])
@@ -1986,7 +2091,9 @@ def main(argv: list[str] | None = None) -> int:
         from .walk_task import WALKCURR_BUCKETS as _WC1
         from .walk_task import WALKCURR_BUCKETS_V2 as _WC2
         from .walk_task import WALKCURR_BUCKETS_V3 as _WC3
-        _tbl = {1: _WC1, 2: _WC2, 3: _WC3}[args.walk_curriculum_version]
+        from .walk_task import WALKCURR_BUCKETS_V4 as _WC4
+        _tbl = {1: _WC1, 2: _WC2, 3: _WC3,
+                4: _WC4}[args.walk_curriculum_version]
         print("[walkcurr] realized per-bucket DR (overrides --dr-scale "
               f"{args.dr_scale:g} per episode): "
               + " ".join(f"b{i}={row['dr']:g}"
@@ -2013,14 +2120,16 @@ def main(argv: list[str] | None = None) -> int:
 
     tb_dir = None if run is None else str(POLICY_DIR / "tb")
     net_arch = [int(x) for x in str(args.net_arch).split(",") if x.strip()]
-    if args.init_from is not None and args.init_from_actor_only:
+    if args.init_from is not None and (
+            args.init_from_actor_only or args.init_from_policy_backbone):
         # Condition-D actor-only transfer (operator addendum
         # fb_20260818T085834_588d9a, walkcurr4 tournament arms B/C):
         # build the model EXACTLY as the fresh (no-init-from) branch
         # below would — fresh critic, fresh zero-gated predictive
         # residual, scratch-A actor init — then overwrite ONLY the
         # actor-marked tensors with the source checkpoint's weights.
-        from rl_move.dynamics.predictive_critic import actor_only_transplant
+        from rl_move.dynamics.predictive_critic import (
+            actor_only_transplant, raw_policy_backbone_transplant)
         model = algo_cls(
             policy_cls, venv,
             n_steps=args.n_steps, batch_size=args.batch_size,
@@ -2037,11 +2146,15 @@ def main(argv: list[str] | None = None) -> int:
             seed=args.seed, verbose=1, device=args.device,
             tensorboard_log=tb_dir)
         old = PPO.load(args.init_from, device="cpu")
-        copied = actor_only_transplant(old, model)
+        copied = (raw_policy_backbone_transplant(old, model)
+                  if args.init_from_policy_backbone
+                  else actor_only_transplant(old, model))
         del old
-        print(f"[mjx-train] actor-only transplant from {args.init_from}: "
-              f"{len(copied)} actor tensors copied ({copied}); critic "
-              "+ frozen predictor snapshot untouched (fresh)")
+        scope = ("raw actor+critic backbone"
+                 if args.init_from_policy_backbone else "actor-only")
+        print(f"[mjx-train] {scope} transplant from {args.init_from}: "
+              f"{len(copied)} tensors copied ({copied}); predictive "
+              "adapters/gates + transformer snapshot untouched")
     elif args.init_from is not None:
         if args.obs_pad_transplant:
             # Obs-widening warm start (port of train_ppo_sim's
@@ -2207,13 +2320,18 @@ def main(argv: list[str] | None = None) -> int:
         raise SystemExit("--kl-rollback requires --actor-lr (the "
                          "rollback reduces the actor-LR scale)")
 
+    live_store = None
+    pred_live_cb = None
+    pred_online_path = None
     if args.critic_encoder is not None:
-        # Arm the frozen-snapshot contract guards + start-of-run
-        # heldout reference (train_ppo_transfer condition-D parity:
-        # snapshot identity is bit-checked around every rollout+PPO
-        # iteration, snapshot_version must stay 0 in D).
+        # The policy-facing transformer is immutable during each complete
+        # rollout+GAE+PPO iteration. In live mode a separate online copy
+        # learns on CUDA, then must pass every boundary gate before an atomic
+        # snapshot replacement can affect either actor or critic.
         import torch
         from rl_move.dynamics import data as dd
+        from rl_move.dynamics.joint_aux import priv_group_metrics
+        from rl_move.dynamics.live_replay import prediction_accuracy_metrics
         from rl_move.dynamics.model import dynamics_loss
         from rl_move.dynamics.predictive_critic import PredictorConfig
         from rl_move.dynamics.train_ppo_transfer import (
@@ -2226,50 +2344,168 @@ def main(argv: list[str] | None = None) -> int:
                               weights_only=False)
         stats = dd.Stats.from_dict(enc_ckpt["stats"])
         snap = model.policy.critic_predictor
-        pred_cfg = PredictorConfig(mode="frozen")
         hist = int(extra_pk["history"])
-        rehearsal = dd.WindowSampler(eps, stats, hist, snap.horizons,
-                                     val=False, seed=args.seed)
-        heldout = dd.WindowSampler(eps, stats, hist, snap.horizons,
-                                   val=True, seed=args.seed)
+        pred_cfg = PredictorConfig(
+            mode="live" if args.predictive_live else "frozen",
+            batch_size=args.pred_batch_size,
+            rehearsal_frac=args.pred_rehearsal_frac,
+            steps_per_iter=args.pred_steps_per_iter,
+            lr=args.pred_lr,
+            drift_guard=args.pred_snapshot_drift_guard,
+            snapshot_boundary_steps=args.pred_snapshot_boundary_steps,
+            gate_heldout_band=args.pred_gate_heldout_band,
+            gate_live_improve=args.pred_gate_live_improve,
+            gate_rise_band=args.pred_gate_rise_band,
+            gate_value_jump_frac=args.pred_gate_value_jump,
+            gate_action_kl=args.pred_gate_action_kl)
+
+        if args.predictive_live:
+            if model.device.type != "cuda":
+                raise SystemExit("--predictive-live resolved Torch device "
+                                 f"to {model.device}, not CUDA")
+            sampler_cls = dd.GpuWindowSampler
+            sampler_kw = {"device": model.device}
+        else:
+            sampler_cls = dd.WindowSampler
+            sampler_kw = {}
+        rehearsal = sampler_cls(
+            eps, stats, hist, snap.horizons, split="train",
+            seed=args.seed, **sampler_kw)
+        heldout = sampler_cls(
+            eps, stats, hist, snap.horizons, split="val",
+            seed=args.seed + 1, **sampler_kw)
 
         def _pred_sink(payload: dict, step: int) -> None:
             if run is not None:
                 import wandb
                 wandb.log({"global_step": step, **payload})
 
-        model.configure_predictor(pred_cfg, rehearsal,
-                                  anchor_batch_to_torch,
-                                  metrics_sink=_pred_sink)
+        def _model_val(m, sampler, n_windows=2048) -> tuple[float | None,
+                                                             dict]:
+            was_training = m.training
+            m.eval()
+            total, n_b, sums = 0.0, 0, {}
+            with torch.no_grad():
+                for b in sampler.val_batches(n_windows,
+                                             args.pred_batch_size):
+                    bt = anchor_batch_to_torch(b, device=model.device)
+                    out_p = m(bt["hist"], bt["fut_actions"])
+                    loss, metrics = dynamics_loss(
+                        out_p, bt, pred_cfg.lambdas, m)
+                    metrics.update(priv_group_metrics(out_p, bt, prefix=""))
+                    metrics.update(prediction_accuracy_metrics(
+                        out_p, bt, stats, prefix="physical/"))
+                    total += float(loss)
+                    n_b += 1
+                    for key, value in metrics.items():
+                        sums[key] = sums.get(key, 0.0) + float(value)
+            if was_training:
+                m.train()
+            return ((total / n_b if n_b else None),
+                    {k: v / max(n_b, 1) for k, v in sums.items()})
+
+        live_batch_fn = None
+        gate_fns = None
+        pretrained_ref = {"total": float("nan")}
+        if args.predictive_live:
+            from rl_move.dynamics.live_replay import (
+                LiveWindowStore, stratified_live_batch)
+            live_store = LiveWindowStore(
+                stats, hist, snap.horizons, model.device,
+                max_walk_windows=30_000, max_rise_windows=1,
+                max_val_windows=5_000, windows_per_episode=64,
+                val_every=8, seed=args.seed)
+            rise_eps = [ep for ep in eps if ep.mode in ("rise", "raise")]
+            if not rise_eps:
+                raise SystemExit("--predictive-live anchor corpus has no "
+                                 "rise episodes for retention gating")
+            rise_heldout = dd.GpuWindowSampler(
+                rise_eps, stats, hist, snap.horizons, split="val",
+                device=model.device, seed=args.seed + 2)
+
+            def live_batch_fn(n: int):
+                return stratified_live_batch(
+                    live_store, rehearsal, anchor_batch_to_torch,
+                    model.device, n,
+                    rehearsal_frac=args.pred_rehearsal_frac,
+                    walk_frac=args.pred_live_walk_frac,
+                    min_live_windows=args.pred_live_min_windows)
+
+            def corpus_val(m) -> float:
+                value, _ = _model_val(m, heldout)
+                return float(value)
+
+            def live_val(m, mode: str) -> float | None:
+                if mode == "rise":
+                    value, _ = _model_val(m, rise_heldout)
+                    return value
+                if live_store.num_windows("walk", "val") < 128:
+                    return None
+                was_training = m.training
+                m.eval()
+                total, n_b = 0.0, 0
+                with torch.no_grad():
+                    for bt in live_store.val_batches(
+                            "walk", args.pred_batch_size,
+                            max_windows=2048):
+                        out_p = m(bt["hist"], bt["fut_actions"])
+                        loss, _ = dynamics_loss(
+                            out_p, bt, pred_cfg.lambdas, m)
+                        total += float(loss)
+                        n_b += 1
+                if was_training:
+                    m.train()
+                return total / n_b if n_b else None
+
+            gate_fns = {
+                "corpus_val": corpus_val,
+                "live_val": live_val,
+                "pretrained_ref": lambda: pretrained_ref["total"],
+            }
+
+        model.configure_predictor(
+            pred_cfg, rehearsal, anchor_batch_to_torch,
+            metrics_sink=_pred_sink, live_batch_fn=live_batch_fn,
+            gate_fns=gate_fns)
         snap.eval()
-        _sum, _n = 0.0, 0
-        with torch.no_grad():
-            for b in heldout.val_batches(1024, 256):
-                bt = anchor_batch_to_torch(b, device=model.device)
-                out_p = snap(bt["hist"], bt["fut_actions"])
-                loss, _ = dynamics_loss(out_p, bt, pred_cfg.lambdas,
-                                        snap)
-                _sum += float(loss)
-                _n += 1
-        _ref = _sum / max(_n, 1)
+        _ref, _ref_metrics = _model_val(snap, heldout, n_windows=1024)
+        pretrained_ref["total"] = float(_ref)
         _sv = int(model.policy.snapshot_version.item())
-        print(f"[critic-D] frozen snapshot heldout pred loss at start: "
+        mode_note = "live actor+critic" if args.predictive_live else "frozen"
+        print(f"[dynrep-{mode_note}] heldout pred loss at start: "
               f"{_ref:.3f} (pretrained, untouched); "
               f"snapshot_version={_sv}")
         if run is not None:
             import wandb
-            run.config.update(
-                {"critic_encoder": str(args.critic_encoder),
-                 "critic_encoder_md5": args.critic_encoder_md5,
-                 "pred_mode": "frozen"}, allow_val_change=True)
-            wandb.log({"global_step": 0,
-                       "anchor/pretrained_loss": _ref,
-                       "pred/snapshot_version": _sv})
+            run.config.update({
+                "critic_encoder": str(args.critic_encoder),
+                "critic_encoder_md5": args.critic_encoder_md5,
+                "pred_mode": pred_cfg.mode,
+                "pred_actor_conditioning": args.predictive_live,
+                "pred_device": str(model.device),
+                "pred_batch_size": args.pred_batch_size,
+                "pred_steps_per_iter": args.pred_steps_per_iter,
+                "pred_rehearsal_frac": args.pred_rehearsal_frac,
+                "pred_capture_envs": (args.pred_capture_envs
+                                      if args.predictive_live else 0),
+                "pred_snapshot_boundary_steps":
+                    args.pred_snapshot_boundary_steps,
+                "pred_gate_action_kl": args.pred_gate_action_kl,
+            }, allow_val_change=True)
+            wandb.log({
+                "global_step": 0,
+                "anchor/pretrained_loss": _ref,
+                "pred/snapshot_version": _sv,
+                **{f"pred/heldout/{k}": v
+                   for k, v in _ref_metrics.items()},
+            })
 
     out_name = args.out_name or (
         f"ppo_mjx_{args.task}" + (f"_{args.run_name}" if args.run_name
                                   else ""))
     out_path = POLICY_DIR / f"{out_name}.zip"
+    if args.predictive_live:
+        pred_online_path = POLICY_DIR / f"dyn_online_{out_name}.pt"
     POLICY_DIR.mkdir(parents=True, exist_ok=True)
 
     class _Track(BaseCallback):
@@ -2596,6 +2832,106 @@ def main(argv: list[str] | None = None) -> int:
               f"{population.member}, initial B{initial_bucket}")
 
     callbacks: list = [_Track()]
+    if args.predictive_live:
+        class _LivePredictorCapture(BaseCallback):
+            """Harvest a bounded MJX subset into CUDA live replay."""
+
+            def __init__(self):
+                super().__init__()
+                self._episodes: dict[int, dict] = {}
+                self._next_metrics = int(args.pred_metrics_every)
+
+            def _start_episode(self, i: int, row: dict) -> None:
+                self._episodes[i] = {
+                    "frames": [np.asarray(row["frame"], dtype=np.float32)],
+                    "priv": [np.asarray(row["priv"], dtype=np.float32)],
+                    "actions": [],
+                    "mode": str(row["mode"]),
+                    "start_at": str(row["start_at"]),
+                    "q_nom": np.asarray(row["q_nom"], dtype=np.float32),
+                    "dr": float(row["dr"]),
+                }
+
+            def _on_training_start(self) -> None:
+                rows = venv.env_method("dynrep_episode_initial",
+                                       indices=capture_indices)
+                for i, row in zip(capture_indices, rows):
+                    self._start_episode(i, row)
+
+            def _on_step(self) -> bool:
+                infos = self.locals.get("infos", ())
+                dones = np.asarray(self.locals.get(
+                    "dones", np.zeros(len(infos), dtype=bool)))
+                finished = []
+                for i in capture_indices:
+                    info = infos[i]
+                    if "dynrep_frame" not in info:
+                        continue
+                    ep = self._episodes[i]
+                    ep["actions"].append(np.asarray(
+                        info["dynrep_action"], dtype=np.float32))
+                    ep["frames"].append(np.asarray(
+                        info["dynrep_frame"], dtype=np.float32))
+                    ep["priv"].append(np.asarray(
+                        info["dynrep_priv"], dtype=np.float32))
+                    if i < len(dones) and dones[i]:
+                        completed = {
+                            **ep,
+                            "frames": np.stack(ep["frames"]),
+                            "actions": np.stack(ep["actions"]),
+                            "priv": np.stack(ep["priv"]),
+                            "reason": ("trunc" if info.get(
+                                "TimeLimit.truncated") else "term"),
+                        }
+                        live_store.add_episode(completed)
+                        finished.append(i)
+                if finished:
+                    rows = venv.env_method("dynrep_episode_initial",
+                                           indices=finished)
+                    for i, row in zip(finished, rows):
+                        self._start_episode(i, row)
+                return True
+
+            def _save_online(self) -> None:
+                torch.save({
+                    "model": self.model._online_dyn.state_dict(),
+                    "config": self.model._online_dyn.config(),
+                    "source_encoder": str(args.critic_encoder),
+                    "global_step": int(self.num_timesteps),
+                    "snapshot_version": int(
+                        self.model.policy.snapshot_version.item()),
+                }, pred_online_path)
+
+            def _on_rollout_end(self) -> None:
+                payload = live_store.composition_report()
+                if (args.pred_metrics_every > 0
+                        and self.num_timesteps >= self._next_metrics):
+                    self._next_metrics = (
+                        (self.num_timesteps // args.pred_metrics_every) + 1
+                    ) * args.pred_metrics_every
+                    payload.update(live_store.bin_report(
+                        self.model._online_dyn, pred_cfg.lambdas))
+                    held_loss, held = _model_val(
+                        self.model._online_dyn, heldout)
+                    payload["pred/heldout/total"] = float(held_loss)
+                    payload.update({f"pred/heldout/{k}": v
+                                    for k, v in held.items()})
+                    self._save_online()
+                if run is not None:
+                    import wandb
+                    wandb.log({"global_step": self.num_timesteps,
+                               **payload})
+
+            def _on_training_end(self) -> None:
+                self._save_online()
+
+        pred_live_cb = _LivePredictorCapture()
+        callbacks.append(pred_live_cb)
+        print("[dynrep-live] online transformer training armed: "
+              f"{args.pred_steps_per_iter} CUDA updates/PPO iteration, "
+              f"{args.pred_rehearsal_frac:.0%} retained rehearsal, "
+              f"snapshot boundary every "
+              f"{args.pred_snapshot_boundary_steps:,} env-steps")
     if bc_coef > 0.0:
         from .bc_anchor import make_bc_collect_callback
         callbacks.append(make_bc_collect_callback())
@@ -2982,13 +3318,14 @@ def main(argv: list[str] | None = None) -> int:
         import shutil
 
         from .walk_task import (WALKCURR_BUCKETS, WALKCURR_BUCKETS_V2,
-                                WALKCURR_BUCKETS_V3)
+                                WALKCURR_BUCKETS_V3, WALKCURR_BUCKETS_V4)
         from .walkcurr_cert import (WalkCurrController,
                                     aggregate_walk_probe,
                                     failed_probe_row,
                                     walkcurr_bucket_pass)
         wc_table = {1: WALKCURR_BUCKETS, 2: WALKCURR_BUCKETS_V2,
-                    3: WALKCURR_BUCKETS_V3}[args.walk_curriculum_version]
+                    3: WALKCURR_BUCKETS_V3,
+                    4: WALKCURR_BUCKETS_V4}[args.walk_curriculum_version]
         core_venv = _unwrap_vec(venv)
         wc_best_path = POLICY_DIR / f"{out_name}_best.zip"
         wc_promo_dir = POLICY_DIR / "walkcurr_promotions"
@@ -3122,6 +3459,16 @@ def main(argv: list[str] | None = None) -> int:
                         self.model.policy, params_["policy"],
                         optimizer=self.model.policy.optimizer,
                         critic_markers=non_actor)
+                    saved_actor_version = params_["policy"].get(
+                        "actor_snapshot_version")
+                    if (saved_actor_version is not None
+                            and hasattr(self.model.policy,
+                                        "actor_snapshot_version")):
+                        with th.no_grad():
+                            self.model.policy.actor_snapshot_version.copy_(
+                                saved_actor_version.to(
+                                    self.model.policy.
+                                    actor_snapshot_version.device))
                     if not critic_ok:
                         raise RuntimeError(
                             "actor-only rollback mutated a critic/"
@@ -3235,6 +3582,19 @@ def main(argv: list[str] | None = None) -> int:
                         f"{pfx}/mean_h_m": m["mean_h_m"],
                         f"{pfx}/h_err_mm": m["h_err_mm"],
                         f"{pfx}/height_factor": m["height_factor"],
+                        f"{pfx}/height_factor_p10":
+                            m["height_factor_p10"],
+                        f"{pfx}/cmd_prog_frac_p10":
+                            m["cmd_prog_frac_p10"],
+                        f"{pfx}/survival_s": m["survival_s"],
+                        f"{pfx}/survival_s_min": m["survival_s_min"],
+                        f"{pfx}/duration_target_s": float(
+                            spec.get("duration_s", args.episode_seconds)),
+                        f"{pfx}/command_changes": m["command_changes"],
+                        f"{pfx}/command_changes_min":
+                            m["command_changes_min"],
+                        f"{pfx}/command_changes_target": float(
+                            spec.get("min_command_changes", 0)),
                         f"{pfx}/dr": float(spec["dr"]),
                     })
                     fails = [k for k, ok in checks.items() if not ok]
@@ -3245,7 +3605,9 @@ def main(argv: list[str] | None = None) -> int:
                           f" slip/m={m['slip_per_m']:.2f}"
                           f" roll={m['peak_roll_deg']:.1f}"
                           f" h_err={m['h_err_mm']:+.1f}mm"
-                          f" hf={m['height_factor']:.2f}")
+                          f" hf={m['height_factor']:.2f}"
+                          f" survive={m['survival_s_min']:.1f}s"
+                          f" changes={m['command_changes_min']:.0f}")
                 statuses = venv.env_method("walkcurr_update_admission",
                                            self.cert_round)
                 status = statuses[0]
@@ -3394,7 +3756,11 @@ def main(argv: list[str] | None = None) -> int:
                                      "mean_h_m", "contact_sw_per_s",
                                      "foot_sw_min_per_s", "slew_sat",
                                      "cross_track_frac", "wrong_way",
-                                     "return")
+                                     "return", "survival_s",
+                                     "survival_s_min", "command_changes",
+                                     "command_changes_min",
+                                     "cmd_prog_frac_p10",
+                                     "height_factor_p10")
                            if m_b.get(k) is not None
                            and float(m_b[k]) == float(m_b[k])}
                     wandb.log({"global_step": 0,

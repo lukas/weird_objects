@@ -117,7 +117,7 @@ class _TinyEnv(gym.Env):
 
 def _build(encoder_ckpt, corpus, *, mode="online", steps_per_iter=2,
            ema_tau=0.05, drift_guard=1e9, min_online_windows=10**9,
-           seed=0, configure=True):
+           seed=0, configure=True, actor_residual=False):
     episodes, stats = corpus
     venv = DummyVecEnv([_TinyEnv])
     model = PredictiveCriticPPO(
@@ -125,7 +125,8 @@ def _build(encoder_ckpt, corpus, *, mode="online", steps_per_iter=2,
         policy_kwargs=dict(
             net_arch=[16, 16], log_std_init=-1.0,
             predictor_ckpt=str(encoder_ckpt),
-            frame_width=FRAME_WIDTH, history=HISTORY),
+            frame_width=FRAME_WIDTH, history=HISTORY,
+            actor_residual_enabled=actor_residual),
         n_steps=32, batch_size=32, n_epochs=2, learning_rate=3e-4,
         seed=seed, verbose=0, device="cpu")
     payloads = []
@@ -202,6 +203,52 @@ def test_zero_gate_residual_is_bit_exact_noop(encoder_ckpt, corpus):
     assert th.equal(v_on, v_off) and th.equal(val_on, val_off)
     assert th.equal(fv_on, fv_off)
     policy.residual_enabled = True
+
+
+def test_zero_gate_actor_conditioning_is_bit_exact_noop(encoder_ckpt,
+                                                         corpus):
+    """The live architecture really has an actor transformer branch, but
+    enabling it starts at exactly the same action distribution as raw A."""
+    raw, _ = _build(encoder_ckpt, corpus, configure=False, seed=19)
+    live, _ = _build(encoder_ckpt, corpus, configure=False, seed=19,
+                     actor_residual=True)
+    assert float(live.policy.actor_gate.detach()) == 0.0
+    obs = np.random.default_rng(20).standard_normal(
+        (8, OBS_DIM)).astype(np.float32)
+    a_raw, _ = raw.predict(obs, deterministic=True)
+    a_live, _ = live.predict(obs, deterministic=True)
+    assert np.array_equal(a_raw, a_live)
+
+
+def test_actor_consumes_stable_snapshot_without_transformer_gradients(
+        encoder_ckpt, corpus):
+    """Once the gate opens, actions depend on snapshot z; policy gradients
+    reach the actor adapter/gate but never the transformer snapshot."""
+    model, _ = _build(encoder_ckpt, corpus, configure=False,
+                      actor_residual=True)
+    policy = model.policy
+    obs = th.as_tensor(np.random.default_rng(21).standard_normal(
+        (8, OBS_DIM)).astype(np.float32))
+    with th.no_grad():
+        policy.actor_gate.fill_(0.25)
+    dist = policy.get_distribution(obs).distribution
+    loss = dist.mean.square().mean()
+    policy.optimizer.zero_grad()
+    loss.backward()
+    assert policy.actor_gate.grad is not None
+    assert any(p.grad is not None for p in
+               policy.actor_latent_adapter.parameters())
+    assert all(p.grad is None for p in policy.critic_predictor.parameters())
+
+    mean_before = dist.mean.detach().clone()
+    candidate = _tiny_model()
+    candidate.load_state_dict(policy.critic_predictor.state_dict())
+    with th.no_grad():
+        next(iter(candidate.parameters())).add_(0.5)
+        mean_after = policy.distribution_with_predictor(
+            obs, candidate).distribution.mean
+    assert not th.equal(mean_before, mean_after), \
+        "opened actor gate ignored the candidate transformer snapshot"
 
 
 def test_obs_conversion_parity_with_features_extractor(encoder_ckpt,

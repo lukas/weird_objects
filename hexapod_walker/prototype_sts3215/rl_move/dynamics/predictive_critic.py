@@ -1,19 +1,14 @@
-"""predictive_critic.py — decoupled online world model feeding the
-CRITIC only (operator directive fb_20260817T052333_e5ae09, filed after
-the tfwalk-joint1 verdict: three cohorts agree the pretrained dynamics
-transformer does not transfer to walking through the ACTOR under any
-tried mechanism; Lukas: "ok try it" on the critic-only design).
+"""Predictive world model with stable-snapshot actor/critic residuals.
 
 Architecture contract (every clause below is asserted mechanically,
 either here or in rl_move/tests/test_dynrep_predictive_critic.py):
 
-  * The ACTOR is the proven scratch-A raw-observation policy: same
-    inputs, same net_arch, and — because the predictive modules are
-    constructed AFTER SB3's standard build consumes the RNG — the
-    actor's initial weights are BIT-IDENTICAL to a plain condition-A
-    ``PPO("MlpPolicy", ...)`` at the same seed. The actor NEVER
-    consumes transformer latents and shares no parameters or optimizer
-    state with any transformer.
+  * The raw ACTOR is the proven scratch-A observation policy. Optional
+    actor conditioning adds a zero-gated residual to its final latent:
+        latent_pi(obs) = raw_latent_pi(obs)
+                         + gate * adapter(stopgrad(z_snapshot(obs)))
+    The gate starts exactly at zero, preserving scratch-A actions and
+    log-probabilities. The raw path remains available throughout.
   * The CRITIC is the raw-observation value branch (identical to A's)
     plus a stop-gradient predictive-latent residual:
         value(obs) = value_net(latent_vf(obs))
@@ -22,23 +17,26 @@ either here or in rl_move/tests/test_dynrep_predictive_critic.py):
     model's behavior (actions, log-probs, values) starts bit-equivalent
     to scratch A. PPO value gradients reach ONLY the raw critic branch,
     the adapter, the gate, and the value head — never a transformer.
-  * TWO transformer instances:
+  * THREE transformer instances when actor conditioning is enabled:
       - the ONLINE predictor (condition E) trains continuously with its
         OWN optimizer on fresh rollout windows + rehearsal from the
         pretraining corpus; its gradients update only itself;
-      - the CRITIC SNAPSHOT (inference-only, requires_grad False) is
-        what the residual branch reads. It is updated ATOMICALLY only
-        BETWEEN complete rollout+PPO iterations via a guarded EMA:
+      - separate ACTOR and CRITIC POLICY SNAPSHOTS (inference-only,
+        requires_grad False) feed their respective residual branches.
+        Both are updated ATOMICALLY only BETWEEN complete rollout+PPO
+        iterations via a guarded EMA:
         a candidate whose probe-latent drift exceeds the guard is
         logged and SKIPPED. Its identity is frozen (params bit-checked,
         version asserted) for the entire rollout, GAE computation and
         all PPO epochs, preserving actor log-prob semantics and
-        value-clipping consistency. Condition D never updates it.
+        value-clipping consistency. Separate snapshots let curriculum
+        rollback restore the actor representation without rewinding the
+        critic representation. Condition D never updates either one.
   * Checkpoint hygiene: all runtime (samplers, buffers, online
     predictor, its optimizer, probes) is excluded from SB3's pickled
     ``data`` blob (the tfwalk-joint1 12.5GB-zip lesson); the snapshot
     transformer lives INSIDE the policy so saves stay ~60MB and a
-    round-tripped checkpoint reproduces values bit-for-bit. The online
+    round-tripped checkpoint reproduces actions and values bit-for-bit. The online
     predictor's weights are saved separately by the trainer
     (``models/dyn_online_<name>.pt``), not in the SB3 zip.
 """
@@ -56,6 +54,7 @@ from stable_baselines3.common.policies import ActorCriticPolicy
 
 from . import frames as fr
 from .joint_aux import default_lambdas, priv_group_metrics
+from .live_replay import prediction_accuracy_metrics
 from .model import dynamics_loss
 from .online_windows import mixed_batch
 from .sb3_encoder import PROPRIO_DIM, load_dyn_checkpoint
@@ -96,20 +95,23 @@ class ObsToDynFrames(nn.Module):
 
 
 class PredictiveCriticPolicy(ActorCriticPolicy):
-    """Scratch-A actor + raw critic with a zero-gated stop-gradient
-    predictive-latent residual (module docstring has the contract)."""
+    """Raw actor/critic plus zero-gated stable predictive residuals."""
 
     def __init__(self, observation_space, action_space, lr_schedule,
                  *args, predictor_ckpt: str, frame_width: int,
                  history: int, adapter_hidden: int = 64,
-                 residual_enabled: bool = True, **kwargs):
+                 residual_enabled: bool = True,
+                 actor_residual_enabled: bool = False,
+                 actor_adapter_hidden: int = 64, **kwargs):
         # Plain-python attrs must exist before super().__init__ calls
         # our _build override.
         self._predictor_ckpt = str(predictor_ckpt)
         self._frame_width = int(frame_width)
         self._history = int(history)
         self._adapter_hidden = int(adapter_hidden)
+        self._actor_adapter_hidden = int(actor_adapter_hidden)
         self.residual_enabled = bool(residual_enabled)
+        self.actor_residual_enabled = bool(actor_residual_enabled)
         super().__init__(observation_space, action_space, lr_schedule,
                          *args, **kwargs)
 
@@ -137,10 +139,24 @@ class PredictiveCriticPolicy(ActorCriticPolicy):
             nn.Linear(model.z_dim, self._adapter_hidden), nn.SiLU(),
             nn.Linear(self._adapter_hidden, 1))
         self.value_gate = nn.Parameter(th.zeros(()))
+        # Keep the legacy critic-only state dict unchanged when actor
+        # conditioning is disabled, so old D/E checkpoints still load.
+        if self.actor_residual_enabled:
+            self.actor_predictor = copy.deepcopy(model)
+            for p in self.actor_predictor.parameters():
+                p.requires_grad_(False)
+            self.actor_predictor.eval()
+            self.actor_latent_adapter = nn.Sequential(
+                nn.Linear(model.z_dim, self._actor_adapter_hidden), nn.SiLU(),
+                nn.Linear(self._actor_adapter_hidden,
+                          self.mlp_extractor.latent_dim_pi))
+            self.actor_gate = nn.Parameter(th.zeros(()))
+            self.register_buffer("actor_snapshot_version",
+                                 th.zeros((), dtype=th.long))
         self.register_buffer("snapshot_version",
                              th.zeros((), dtype=th.long))
-        # Rebuild the optimizer over TRAINABLE params only: actor,
-        # raw critic, adapter, gate — the frozen snapshot is excluded,
+        # Rebuild the optimizer over TRAINABLE params only: raw policy,
+        # residual adapters and gates — the frozen snapshot is excluded,
         # so no PPO optimizer state can ever touch a transformer.
         self.optimizer = self.optimizer_class(
             [p for p in self.parameters() if p.requires_grad],
@@ -150,15 +166,30 @@ class PredictiveCriticPolicy(ActorCriticPolicy):
         out = super().train(mode)
         if hasattr(self, "critic_predictor"):
             self.critic_predictor.eval()   # snapshot is inference-only
+        if hasattr(self, "actor_predictor"):
+            self.actor_predictor.eval()
         return out
 
     # -- predictive residual -------------------------------------------
 
-    def predictive_latent(self, obs: th.Tensor) -> th.Tensor:
-        """Stop-gradient snapshot latent for the critic branch."""
+    def predictive_latent(self, obs: th.Tensor,
+                          predictor=None, actor: bool = False) -> th.Tensor:
+        """Stop-gradient latent from the stable or supplied snapshot."""
+        if predictor is None:
+            predictor = (self.actor_predictor
+                         if actor and self.actor_residual_enabled
+                         else self.critic_predictor)
         with th.no_grad():
-            return self.critic_predictor.encode(
+            return predictor.encode(
                 self.obs_to_frames(obs)).detach()
+
+    def actor_latent_residual(self, obs: th.Tensor,
+                              predictor=None) -> th.Tensor:
+        if not self.actor_residual_enabled:
+            return obs.new_zeros((obs.shape[0],
+                                  self.mlp_extractor.latent_dim_pi))
+        return self.actor_gate * self.actor_latent_adapter(
+            self.predictive_latent(obs, predictor=predictor, actor=True))
 
     def value_residual(self, obs: th.Tensor) -> th.Tensor:
         if not self.residual_enabled:
@@ -167,15 +198,62 @@ class PredictiveCriticPolicy(ActorCriticPolicy):
         return self.value_gate * self.latent_adapter(
             self.predictive_latent(obs))
 
-    # -- SB3 API: values get the residual, actor path untouched --------
+    def _raw_latents(self, obs: th.Tensor):
+        features = self.extract_features(obs)
+        if self.share_features_extractor:
+            return self.mlp_extractor(features)
+        pi_features, vf_features = features
+        return (self.mlp_extractor.forward_actor(pi_features),
+                self.mlp_extractor.forward_critic(vf_features))
+
+    def distribution_with_predictor(self, obs: th.Tensor,
+                                    predictor=None):
+        """Action distribution under a candidate stable snapshot.
+
+        Used by the between-iteration snapshot gate; it never mutates the
+        policy's active snapshot.
+        """
+        latent_pi, _ = self._raw_latents(obs)
+        latent_pi = latent_pi + self.actor_latent_residual(
+            obs, predictor=predictor)
+        return self._get_action_dist_from_latent(latent_pi)
+
+    # -- SB3 API: both branches may consume the same stable snapshot ---
 
     def forward(self, obs: th.Tensor, deterministic: bool = False):
-        actions, values, log_prob = super().forward(obs, deterministic)
-        return actions, values + self.value_residual(obs), log_prob
+        latent_pi, latent_vf = self._raw_latents(obs)
+        z_value = self.predictive_latent(obs)
+        if self.actor_residual_enabled:
+            z_actor = self.predictive_latent(obs, actor=True)
+            latent_pi = (latent_pi + self.actor_gate
+                         * self.actor_latent_adapter(z_actor))
+        values = self.value_net(latent_vf)
+        if self.residual_enabled:
+            values = (values + self.value_gate
+                      * self.latent_adapter(z_value))
+        distribution = self._get_action_dist_from_latent(latent_pi)
+        actions = distribution.get_actions(deterministic=deterministic)
+        log_prob = distribution.log_prob(actions)
+        actions = actions.reshape((-1, *self.action_space.shape))
+        return actions, values, log_prob
 
     def evaluate_actions(self, obs: th.Tensor, actions: th.Tensor):
-        values, log_prob, entropy = super().evaluate_actions(obs, actions)
-        return values + self.value_residual(obs), log_prob, entropy
+        latent_pi, latent_vf = self._raw_latents(obs)
+        z_value = self.predictive_latent(obs)
+        if self.actor_residual_enabled:
+            z_actor = self.predictive_latent(obs, actor=True)
+            latent_pi = (latent_pi + self.actor_gate
+                         * self.actor_latent_adapter(z_actor))
+        distribution = self._get_action_dist_from_latent(latent_pi)
+        log_prob = distribution.log_prob(actions)
+        values = self.value_net(latent_vf)
+        if self.residual_enabled:
+            values = (values + self.value_gate
+                      * self.latent_adapter(z_value))
+        return values, log_prob, distribution.entropy()
+
+    def get_distribution(self, obs: th.Tensor):
+        return self.distribution_with_predictor(obs)
 
     def predict_values(self, obs: th.Tensor) -> th.Tensor:
         return super().predict_values(obs) + self.value_residual(obs)
@@ -249,6 +327,43 @@ def actor_only_transplant(old_model, new_model,
     return copied
 
 
+def raw_policy_backbone_transplant(old_model, new_model) -> list[str]:
+    """Warm-start the raw actor AND ordinary critic, but no predictive
+    module, from a plain MLP checkpoint.
+
+    This is the live actor+critic architecture's bridge recipe: the proven
+    gait and its already-useful value function survive the history-stack
+    widening, while both predictive adapters/gates and the transformer
+    snapshot retain their fresh/pretrained construction. Optimizer state is
+    intentionally fresh because the observation width changed.
+    """
+    sd_old = old_model.policy.state_dict()
+    sd_new = new_model.policy.state_dict()
+    copied: list[str] = []
+    with th.no_grad():
+        for name, v_new in sd_new.items():
+            if name not in sd_old:
+                continue
+            v_old = sd_old[name]
+            if v_new.shape == v_old.shape:
+                v_new.copy_(v_old)
+            elif (v_new.dim() == 2 and v_new.shape[0] == v_old.shape[0]
+                  and v_new.shape[1] > v_old.shape[1]):
+                v_new.zero_()
+                v_new[:, :v_old.shape[1]].copy_(v_old)
+            else:
+                raise SystemExit(
+                    "raw_policy_backbone_transplant: unexpected shape "
+                    f"change for {name}: {tuple(v_old.shape)} -> "
+                    f"{tuple(v_new.shape)}")
+            copied.append(name)
+    required = {"action_net.weight", "value_net.weight"}
+    if not required.issubset(copied):
+        raise SystemExit("raw_policy_backbone_transplant did not copy both "
+                         "raw actor and critic heads")
+    return copied
+
+
 @dataclass
 class PredictorConfig:
     mode: str = "frozen"            # "frozen" (D) | "online" (E) |
@@ -274,6 +389,7 @@ class PredictorConfig:
                                       # walk heldout by > this fraction
     gate_rise_band: float = 0.05      # live rise heldout retention band
     gate_value_jump_frac: float = 0.10  # mean |dV| <= frac*(mean|V|+1)
+    gate_action_kl: float = 0.002       # snapshot-swap action KL ceiling
 
 
 class PredictiveCriticPPO(PPO):
@@ -357,10 +473,17 @@ class PredictiveCriticPPO(PPO):
     def _snapshot_model(self):
         return self.policy.critic_predictor
 
+    def _snapshot_models(self):
+        models = [("critic", self.policy.critic_predictor)]
+        if self.policy.actor_residual_enabled:
+            models.append(("actor", self.policy.actor_predictor))
+        return models
+
     def _actor_param_names(self) -> list[str]:
         """Parameters whose mutation would change the action
         distribution: everything trainable except the pure-critic
-        modules (value_net, latent_adapter, value_gate)."""
+        modules (value_net, latent_adapter, value_gate). Actor residual
+        parameters are deliberately included because they change actions."""
         crit = ("value_net.", "latent_adapter.", "value_gate")
         return [n for n, p in self.policy.named_parameters()
                 if p.requires_grad and not n.startswith(crit)]
@@ -399,29 +522,38 @@ class PredictiveCriticPPO(PPO):
             # Freeze the snapshot's identity from the FIRST collected
             # transition: params cloned + version recorded here, both
             # asserted at train() start and after the PPO epochs.
-            self._snap_guard = self._clone_params(self._snapshot_model())
-            self._version_guard = int(
-                self.policy.snapshot_version.item())
+            self._snap_guard = {
+                name: self._clone_params(module)
+                for name, module in self._snapshot_models()
+            }
+            self._version_guard = {
+                "critic": int(self.policy.snapshot_version.item()),
+                **({"actor": int(
+                    self.policy.actor_snapshot_version.item())}
+                   if self.policy.actor_residual_enabled else {}),
+            }
         return super().collect_rollouts(*args, **kwargs)
 
     def _assert_snapshot_stable(self, where: str) -> None:
         if self._snap_guard is None:
             return
-        version = int(self.policy.snapshot_version.item())
-        if version != self._version_guard:
+        versions = {
+            "critic": int(self.policy.snapshot_version.item()),
+            **({"actor": int(self.policy.actor_snapshot_version.item())}
+               if self.policy.actor_residual_enabled else {}),
+        }
+        if versions != self._version_guard:
             raise RuntimeError(
-                f"critic snapshot VERSION changed inside a rollout+PPO "
+                f"policy snapshot VERSION changed inside a rollout+PPO "
                 f"iteration ({where}): {self._version_guard} -> "
-                f"{version}; snapshot updates are only legal between "
-                f"complete iterations (fb_20260817T052333_e5ae09)")
-        if not self._params_equal(self._snapshot_model(),
-                                  self._snap_guard):
-            raise RuntimeError(
-                f"critic snapshot transformer was MUTATED inside a "
-                f"rollout+PPO iteration ({where}); the snapshot is "
-                f"inference-only and may change only via the guarded "
-                f"between-iteration EMA update "
-                f"(fb_20260817T052333_e5ae09)")
+                f"{versions}; snapshot updates are only legal between "
+                "complete iterations")
+        for name, module in self._snapshot_models():
+            if not self._params_equal(module, self._snap_guard[name]):
+                raise RuntimeError(
+                    f"{name} snapshot transformer was MUTATED inside a "
+                    f"rollout+PPO iteration ({where}); snapshots are "
+                    "inference-only and boundary-updated")
 
     # -- online predictor training --------------------------------------
 
@@ -452,6 +584,8 @@ class PredictiveCriticPPO(PPO):
             re_fracs.append(info["pred/batch_rehearsal_frac"]
                             if cfg.mode == "live" else re_frac)
             metrics.update(priv_group_metrics(out, bt, prefix=""))
+            metrics.update(prediction_accuracy_metrics(
+                out, bt, self._rehearsal.stats, prefix="physical/"))
             for k, v in metrics.items():
                 sums[k] = sums.get(k, 0.0) + v
         n = max(len(re_fracs), 1)
@@ -513,14 +647,17 @@ class PredictiveCriticPPO(PPO):
         }
 
     def _copy_into_snapshot(self, source) -> None:
-        snap = self._snapshot_model()
         with th.no_grad():
-            for ps, po in zip(snap.parameters(), source.parameters()):
-                ps.copy_(po.detach())
-            for bs, bo in zip(snap.buffers(), source.buffers()):
-                bs.copy_(bo)
-        snap.eval()
-        self.policy.snapshot_version.add_(1)
+            for name, snap in self._snapshot_models():
+                for ps, po in zip(snap.parameters(), source.parameters()):
+                    ps.copy_(po.detach())
+                for bs, bo in zip(snap.buffers(), source.buffers()):
+                    bs.copy_(bo)
+                snap.eval()
+                if name == "critic":
+                    self.policy.snapshot_version.add_(1)
+                else:
+                    self.policy.actor_snapshot_version.add_(1)
 
     def _boundary_snapshot_update(self) -> dict:
         """LIVE mode: versioned critic-snapshot update, attempted at
@@ -537,6 +674,8 @@ class PredictiveCriticPPO(PPO):
             drift    probe-latent MSE(candidate, snapshot) <= drift_guard
             value    critic value jump from swapping the snapshot on the
                      probe obs <= gate_value_jump_frac * (mean|V|+1)
+            action   action-distribution KL from swapping the snapshot on
+                     live rollout obs <= gate_action_kl
 
         A failed gate leaves the snapshot untouched (rejection path);
         the attempt and every gate value are logged either way. The
@@ -547,6 +686,9 @@ class PredictiveCriticPPO(PPO):
         payload: dict[str, float] = {
             "pred/snapshot_version": int(
                 self.policy.snapshot_version.item()),
+            "pred/actor_snapshot_version": int(
+                self.policy.actor_snapshot_version.item())
+                if self.policy.actor_residual_enabled else 0,
             "pred/boundary_index": boundary,
             "pred/boundary_accepted_total": self._boundary_accepted,
             "pred/boundary_rejected_total": self._boundary_rejected,
@@ -556,18 +698,20 @@ class PredictiveCriticPPO(PPO):
         self._boundary_done = boundary
         cand = self._online_dyn
         snap = self._snapshot_model()
+        actor_snap = (self.policy.actor_predictor
+                      if self.policy.actor_residual_enabled else snap)
         gates: dict[str, bool] = {}
         ref = float(self._gate_fns["pretrained_ref"]())
         cand_corpus = float(self._gate_fns["corpus_val"](cand))
         gates["generic"] = (cand_corpus
                             <= ref * (1.0 + cfg.gate_heldout_band))
         cand_walk = self._gate_fns["live_val"](cand, "walk")
-        snap_walk = self._gate_fns["live_val"](snap, "walk")
+        snap_walk = self._gate_fns["live_val"](actor_snap, "walk")
         gates["live_walk"] = (
             cand_walk is not None and snap_walk is not None
             and cand_walk < snap_walk * (1.0 - cfg.gate_live_improve))
         cand_rise = self._gate_fns["live_val"](cand, "rise")
-        snap_rise = self._gate_fns["live_val"](snap, "rise")
+        snap_rise = self._gate_fns["live_val"](actor_snap, "rise")
         gates["live_rise"] = (
             cand_rise is not None and snap_rise is not None
             and cand_rise <= snap_rise * (1.0 + cfg.gate_rise_band))
@@ -576,7 +720,9 @@ class PredictiveCriticPPO(PPO):
             cand.eval()
             z_cand = cand.encode(self._probe_hist)
             z_snap = snap.encode(self._probe_hist)
-            drift = float(F.mse_loss(z_cand, z_snap))
+            z_actor_snap = actor_snap.encode(self._probe_hist)
+            drift = max(float(F.mse_loss(z_cand, z_snap)),
+                        float(F.mse_loss(z_cand, z_actor_snap)))
             gates["drift"] = drift <= cfg.drift_guard
             # value-jump: residual with candidate vs current snapshot
             # on the probe OBS through the critic's own adapter+gate.
@@ -590,6 +736,14 @@ class PredictiveCriticPPO(PPO):
             dv = float((res_cand - res_snap).abs().mean())
             v_scale = float(v_now.abs().mean()) + 1.0
             gates["value"] = dv <= cfg.gate_value_jump_frac * v_scale
+            dist_snap = self.policy.distribution_with_predictor(
+                obs, actor_snap) \
+                .distribution
+            dist_cand = self.policy.distribution_with_predictor(obs, cand) \
+                .distribution
+            action_kl = float(th.distributions.kl_divergence(
+                dist_snap, dist_cand).sum(dim=-1).mean())
+            gates["action"] = action_kl <= cfg.gate_action_kl
             if was_training:
                 cand.train()
         accepted = all(gates.values())
@@ -606,6 +760,7 @@ class PredictiveCriticPPO(PPO):
             "pred/gate/live_rise": int(gates["live_rise"]),
             "pred/gate/drift": int(gates["drift"]),
             "pred/gate/value": int(gates["value"]),
+            "pred/gate/action": int(gates["action"]),
             "pred/gate/corpus_val_candidate": cand_corpus,
             "pred/gate/corpus_val_ref": ref,
             "pred/gate/live_walk_candidate": float(cand_walk)
@@ -618,8 +773,13 @@ class PredictiveCriticPPO(PPO):
             if snap_rise is not None else float("nan"),
             "pred/gate/latent_drift": drift,
             "pred/gate/value_jump": dv,
+            "pred/gate/action_kl": action_kl,
+            "pred/gate/action_kl_max": cfg.gate_action_kl,
             "pred/snapshot_version": int(
                 self.policy.snapshot_version.item()),
+            "pred/actor_snapshot_version": int(
+                self.policy.actor_snapshot_version.item())
+                if self.policy.actor_residual_enabled else 0,
             "pred/boundary_accepted_total": self._boundary_accepted,
             "pred/boundary_rejected_total": self._boundary_rejected,
         })
@@ -682,6 +842,18 @@ class PredictiveCriticPPO(PPO):
                     (raw_v + res_v).mean()),
                 "critic/return_mean": float(
                     np.mean(self.rollout_buffer.returns)),
+                "actor/predictive_enabled": float(
+                    self.policy.actor_residual_enabled),
+                "actor/predictive_gate": float(
+                    self.policy.actor_gate.detach())
+                    if self.policy.actor_residual_enabled else 0.0,
+                "actor/predictive_residual_abs_mean": float(
+                    self.policy.actor_latent_residual(probe).abs().mean()),
+                "actor/predictive_adapter_out_abs_mean": float(
+                    self.policy.actor_latent_adapter(
+                        self.policy.predictive_latent(
+                            probe, actor=True)).abs().mean())
+                    if self.policy.actor_residual_enabled else 0.0,
             })
         if self._online is not None:
             payload["pred/online_windows"] = self._online.num_windows()

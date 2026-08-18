@@ -538,3 +538,90 @@ def test_v3_bucket_commands_and_dr_swap():
             assert active.min() >= spec["s_lo"] - 1e-9  # no resampling
             assert abs(float(t.vy[hold_n + ramp_n])) <= 1e-9  # straight
     env.close()
+
+
+# 4 ------------------------------------------------------------------
+# WALKCURR_BUCKETS_V4: joystick transitions at B1, then retained
+# 10/20/40/60-second survival before speed/DR/direction broadening.
+CURR_V4_ON = {("goal", "walk_curriculum"): 4.0}
+
+
+def test_v4_requires_a_real_60_second_training_horizon():
+    with pytest.raises(ValueError, match="requires episode_seconds >= 60"):
+        _env(seed=0, extra=CURR_V4_ON, episode_seconds=10.0)
+    env = _env(seed=0, extra=CURR_V4_ON, episode_seconds=60.0)
+    assert env._wc_version == 4
+    env.close()
+
+
+def test_v4_ladder_puts_joystick_and_duration_first():
+    from rl_move.sim.walk_task import WALKCURR_BUCKETS_V4
+    names = [b["name"] for b in WALKCURR_BUCKETS_V4]
+    assert names == [
+        "bridge_10s", "joystick_10s", "joystick_20s",
+        "joystick_40s", "joystick_60s", "full_band_60s",
+        "dr01_60s", "dr03_60s", "lateral_60s", "rear_60s",
+    ]
+    assert [b["duration_s"] for b in WALKCURR_BUCKETS_V4[:5]] == [
+        10.0, 10.0, 20.0, 40.0, 60.0]
+    assert WALKCURR_BUCKETS_V4[0]["resample_s"] == 0.0
+    assert WALKCURR_BUCKETS_V4[1]["resample_s"] > 0.0
+    # B1-B4 isolate sustained survival: command distributions are equal.
+    command_keys = ("s_lo", "s_hi", "head_lo", "head_hi", "resample_s",
+                    "jitter", "stop_frac", "blend_lo", "blend_hi", "dr")
+    baseline = tuple(WALKCURR_BUCKETS_V4[1][k] for k in command_keys)
+    for spec in WALKCURR_BUCKETS_V4[2:5]:
+        assert tuple(spec[k] for k in command_keys) == baseline
+    assert [b["dr"] for b in WALKCURR_BUCKETS_V4[5:]] == [
+        0.0, 0.1, 0.3, 0.3, 0.3]
+
+
+def test_v4_trajectories_encode_horizon_and_command_change_floor():
+    from rl_move.sim.walk_task import WALKCURR_BUCKETS_V4
+    env = _env(seed=41, extra=CURR_V4_ON, episode_seconds=60.0)
+    for b, spec in enumerate(WALKCURR_BUCKETS_V4):
+        env.force_walk_curr_bucket = b
+        for _ in range(3):
+            traj = _sample_traj(env)
+            assert traj.duration_steps * env.dt == pytest.approx(
+                spec["duration_s"])
+            assert traj.command_changes >= spec["min_command_changes"]
+    env.close()
+
+
+def test_v4_bucket_duration_actually_truncates_the_episode():
+    env = _env(seed=9, extra=CURR_V4_ON, episode_seconds=60.0)
+    env.force_walk_curr_bucket = 0
+    obs, _ = env.reset(seed=9)
+    limit = int(env._goal_traj.duration_steps)
+    env._step_i = limit - 1
+    *_, trunc_before, _ = env._post_step((obs, 0.0, False, False, {}))
+    assert not trunc_before
+    env._step_i = limit
+    *_, trunc_at, _ = env._post_step((obs, 0.0, False, False, {}))
+    assert trunc_at
+    assert limit < env.episode_steps
+    env.close()
+
+
+def test_v4_gate_checks_duration_changes_height_and_tail_tracking():
+    from rl_move.sim.walk_task import WALKCURR_BUCKETS_V4
+    from rl_move.sim.walkcurr_cert import walkcurr_bucket_pass
+    spec = WALKCURR_BUCKETS_V4[2]
+    good = dict(early_term_rate=0.0, contact_sw_per_s=5.0,
+                foot_sw_min_per_s=0.8, cmd_prog_frac=0.75,
+                cmd_prog_frac_p10=0.60, wrong_way=0.0,
+                cross_track_frac=0.10, slip_per_m=1.2,
+                peak_roll_deg=3.0, slew_sat=0.8,
+                stop_speed_m_s=0.01, height_factor=0.85,
+                survival_s_min=20.0, command_changes_min=4.0)
+    passed, checks = walkcurr_bucket_pass(good, spec)
+    assert passed and all(checks.values())
+    for key, value, check in (
+            ("survival_s_min", 19.0, "duration"),
+            ("command_changes_min", 3.0, "command_changes"),
+            ("height_factor", 0.79, "height"),
+            ("cmd_prog_frac_p10", 0.49, "progress_p10")):
+        passed, checks = walkcurr_bucket_pass(
+            dict(good, **{key: value}), spec)
+        assert not passed and not checks[check]

@@ -299,6 +299,10 @@ class LiveWindowStore:
         self.sampled_counts = {d: np.zeros(len(b), dtype=np.int64)
                                for d, b in BIN_DIMS.items()}
         self._next_idx = 0
+        self._frame_mean = th.as_tensor(stats.mean, device=device)
+        self._frame_std = th.as_tensor(stats.std, device=device)
+        self._priv_mean = th.as_tensor(stats.priv_mean, device=device)
+        self._priv_std = th.as_tensor(stats.priv_std, device=device)
 
     @property
     def min_episode_frames(self) -> int:
@@ -319,32 +323,21 @@ class LiveWindowStore:
         priv_mask = np.ones(fr.PRIV_DIM, dtype=np.float32)
         if self.mask_cmd_priv:
             priv_mask[_PRIV_EXOGENOUS] = 0.0
-        episode = dd.Episode(
-            frames=frames,
-            actions=np.asarray(ep["actions"], dtype=np.float32),
-            priv=fr.upgrade_priv(np.asarray(ep["priv"],
-                                            dtype=np.float32)),
-            priv_mask=priv_mask,
-            actor="ppo_live", mode=mode,
-            reason=str(ep.get("reason", "trunc")),
-            dr=float(ep.get("dr", 0.0)), global_idx=self._next_idx,
-            q_nom=ep.get("q_nom"))
-        episode.split = "train"
-        episode.is_val = False
-        self._next_idx += 1
-        sampler = dd.WindowSampler([episode], self.stats, self.H,
-                                   self.horizons, split="train")
-        n_valid = len(sampler)
+        actions = np.asarray(ep["actions"], dtype=np.float32)
+        priv = fr.upgrade_priv(np.asarray(ep["priv"], dtype=np.float32))
+        n_valid = dd.valid_window_count(len(frames), self.H,
+                                        self.horizons)
         take = min(n_valid, self.windows_per_episode)
         pos = (np.arange(n_valid) if take == n_valid else
                np.sort(self.rng.choice(n_valid, size=take,
                                        replace=False)))
-        batch = sampler.batch(0, idx=pos)
+        batch = self._device_episode_batch(
+            frames, actions, priv, priv_mask, pos)
         start_at = str(ep.get("start_at", "?"))
         metas = np.stack([
-            window_meta(episode.priv, episode.frames,
+            window_meta(priv, frames,
                         int(p) + self.H - 1, self.H, self.Kmax,
-                        mode, episode.reason, start_at)
+                        mode, str(ep.get("reason", "trunc")), start_at)
             for p in pos])
         for col, dim in enumerate(META_KEYS):
             np.add.at(self.added_counts[dim], metas[:, col], 1)
@@ -353,8 +346,59 @@ class LiveWindowStore:
                  else "train")
         self.groups[(key, split)].add(batch_to_device(batch, self.device),
                                       metas)
+        self._next_idx += 1
         self.episodes_added += 1
         return True
+
+    def _device_episode_batch(self, frames: np.ndarray,
+                              actions: np.ndarray,
+                              priv: np.ndarray,
+                              priv_mask: np.ndarray,
+                              pos: np.ndarray) -> dict:
+        """Build WindowSampler-equivalent targets directly on ``device``.
+
+        Live collection arrives as host observations because the task shim
+        computes reward/labels there. Normalization, window gathering and
+        every supervised target are assembled after one upload and remain
+        on the predictor device (CUDA in production).
+        """
+        raw_f = th.as_tensor(frames, device=self.device)
+        a = th.as_tensor(actions, device=self.device)
+        p = th.as_tensor(priv, device=self.device)
+        f = (raw_f - self._frame_mean) / self._frame_std
+        pn = (p - self._priv_mean) / self._priv_std
+        centers = (th.as_tensor(pos, dtype=th.long, device=self.device)
+                   + self.H - 1)
+        hist_off = th.arange(-self.H + 1, 1, device=self.device)
+        act_off = th.arange(self.Kmax, device=self.device)
+        hist = f[centers[:, None] + hist_off[None, :]]
+        fut_actions = a[centers[:, None] + act_off[None, :]]
+        state, contact, current, priv_fut, fut_hist = {}, {}, {}, {}, {}
+        for k in self.horizons:
+            tk = centers + k
+            target = f[tk]
+            state[k] = target[:, fr.STATE_SLICE]
+            current[k] = target[:, fr.CURRENT_SLICE]
+            contact[k] = (raw_f[tk, fr.CONTACT_SLICE]
+                          > fr.CONTACT_THRESH_N).float()
+            priv_fut[k] = pn[tk]
+            fut_hist[k] = f[tk[:, None] + hist_off[None, :]]
+        mask = th.as_tensor(priv_mask, device=self.device).expand(
+            len(pos), -1)
+        return {
+            "hist": hist,
+            "fut_actions": fut_actions,
+            "state": state,
+            "contact": contact,
+            "contact_now": (raw_f[centers, fr.CONTACT_SLICE]
+                            > fr.CONTACT_THRESH_N).float(),
+            "current": current,
+            "current_now": hist[:, -1, fr.CURRENT_SLICE],
+            "priv_now": pn[centers],
+            "priv_mask_now": mask,
+            "priv": priv_fut,
+            "fut_hist": fut_hist,
+        }
 
     def num_windows(self, mode: str, split: str = "train") -> int:
         return self.groups[(mode, split)].n
@@ -434,6 +478,8 @@ class LiveWindowStore:
                         pred = model(bt["hist"], bt["fut_actions"])
                         pfx = f"pred/bin/{mode}/{dim}={bname}"
                         out.update(_bin_errors(pred, bt, pfx))
+                        out.update(prediction_accuracy_metrics(
+                            pred, bt, self.stats, prefix=f"{pfx}/physical/"))
                         out[f"{pfx}/n"] = float(len(rows))
         if model_was_training:
             model.train()
@@ -479,6 +525,91 @@ def _bin_errors(pred: dict, bt: dict, pfx: str) -> dict:
             [float((pred["current"][k] - bt["current"][k])
                    .square().mean()) for k in pred["current"]])),
     }
+    return out
+
+
+@th.no_grad()
+def prediction_accuracy_metrics(pred: dict, bt: dict, stats: dd.Stats,
+                                prefix: str = "") -> dict:
+    """Interpretable physical-unit accuracy for W&B.
+
+    Losses remain normalized for optimization. These metrics denormalize
+    predictions and labels so a curve answers concrete questions such as
+    "velocity RMSE in m/s" and "which feet are touching?".
+    """
+    frame_std = th.as_tensor(stats.std, device=bt["hist"].device)
+    priv_mean = th.as_tensor(stats.priv_mean, device=bt["hist"].device)
+    priv_std = th.as_tensor(stats.priv_std, device=bt["hist"].device)
+    state_std = frame_std[fr.STATE_SLICE]
+    current_std = frame_std[fr.CURRENT_SLICE]
+
+    def rmse_scaled(a, b, scale, cols) -> float:
+        c = list(cols)
+        return float(th.sqrt((((a[:, c] - b[:, c]) * scale[c]) ** 2)
+                             .mean()))
+
+    def heading_mae_deg(a, b) -> float:
+        pa = a[:, 5:7] * priv_std[5:7] + priv_mean[5:7]
+        pb = b[:, 5:7] * priv_std[5:7] + priv_mean[5:7]
+        da = th.atan2(pa[:, 0], pa[:, 1])
+        db = th.atan2(pb[:, 0], pb[:, 1])
+        delta = th.atan2(th.sin(da - db), th.cos(da - db)).abs()
+        return float(delta.mean() * (180.0 / math.pi))
+
+    def contact_acc(logits, target) -> float:
+        return float(((logits.sigmoid() >= 0.5) == (target >= 0.5))
+                     .float().mean())
+
+    out = {
+        f"{prefix}now/velocity_rmse_m_s": rmse_scaled(
+            pred["priv_now"], bt["priv_now"], priv_std, (0, 1, 2)),
+        f"{prefix}now/yaw_rate_rmse_rad_s": rmse_scaled(
+            pred["priv_now"], bt["priv_now"], priv_std, (3,)),
+        f"{prefix}now/height_rmse_mm": 1000.0 * rmse_scaled(
+            pred["priv_now"], bt["priv_now"], priv_std, (4,)),
+        f"{prefix}now/heading_mae_deg": heading_mae_deg(
+            pred["priv_now"], bt["priv_now"]),
+        f"{prefix}now/contact_accuracy": contact_acc(
+            pred["contact_now_logits"], bt["contact_now"]),
+        f"{prefix}now/current_rmse_a": rmse_scaled(
+            pred["current_now"], bt["current_now"], current_std,
+            range(fr.CURRENT_DIM)),
+    }
+    horizons = list(pred["state"])
+    if horizons:
+        vals: dict[str, list[float]] = {
+            "velocity_rmse_m_s": [], "yaw_rate_rmse_rad_s": [],
+            "height_rmse_mm": [], "heading_mae_deg": [],
+            "tilt_rmse_deg": [], "joint_pos_rmse_deg": [],
+            "joint_vel_rmse_deg_s": [], "contact_accuracy": [],
+            "current_rmse_a": [],
+        }
+        for k in horizons:
+            vals["velocity_rmse_m_s"].append(rmse_scaled(
+                pred["priv"][k], bt["priv"][k], priv_std, (0, 1, 2)))
+            vals["yaw_rate_rmse_rad_s"].append(rmse_scaled(
+                pred["priv"][k], bt["priv"][k], priv_std, (3,)))
+            vals["height_rmse_mm"].append(1000.0 * rmse_scaled(
+                pred["priv"][k], bt["priv"][k], priv_std, (4,)))
+            vals["heading_mae_deg"].append(heading_mae_deg(
+                pred["priv"][k], bt["priv"][k]))
+            vals["tilt_rmse_deg"].append((180.0 / math.pi) * rmse_scaled(
+                pred["state"][k], bt["state"][k], state_std, (36, 37)))
+            vals["joint_pos_rmse_deg"].append(
+                (180.0 / math.pi) * rmse_scaled(
+                    pred["state"][k], bt["state"][k], state_std,
+                    range(18)))
+            vals["joint_vel_rmse_deg_s"].append(
+                (180.0 / math.pi) * rmse_scaled(
+                    pred["state"][k], bt["state"][k], state_std,
+                    range(18, 36)))
+            vals["contact_accuracy"].append(contact_acc(
+                pred["contact_logits"][k], bt["contact"][k]))
+            vals["current_rmse_a"].append(rmse_scaled(
+                pred["current"][k], bt["current"][k], current_std,
+                range(fr.CURRENT_DIM)))
+        out.update({f"{prefix}future/{name}": float(np.mean(rows))
+                    for name, rows in vals.items()})
     return out
 
 

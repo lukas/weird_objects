@@ -35,6 +35,7 @@ from rl_move.dynamics import frames as fr
 from rl_move.dynamics.model import DynamicsModel
 from rl_move.dynamics.predictive_critic import (
     PredictiveCriticPolicy, PredictiveCriticPPO, actor_only_transplant,
+    raw_policy_backbone_transplant,
 )
 from rl_move.sim.update_health import CRITIC_MARKERS
 from rl_move.sim import train_ppo_mjx
@@ -202,6 +203,28 @@ def test_transplant_raises_on_incompatible_shape(encoder_ckpt):
         actor_only_transplant(old, new)
 
 
+def test_backbone_transplant_warm_starts_raw_critic_only(encoder_ckpt):
+    old = _old_model()
+    new = _new_model(encoder_ckpt, seed=42)
+    baseline = {n: v.detach().clone()
+                for n, v in new.policy.state_dict().items()}
+    copied = raw_policy_backbone_transplant(old, new)
+    sd_old, sd_new = old.policy.state_dict(), new.policy.state_dict()
+    for name in ("action_net.weight", "value_net.weight",
+                 "mlp_extractor.policy_net.2.weight",
+                 "mlp_extractor.value_net.2.weight"):
+        assert name in copied
+        assert th.equal(sd_new[name], sd_old[name])
+    for name in ("value_gate", "snapshot_version"):
+        assert th.equal(sd_new[name], baseline[name])
+    assert all(th.equal(v, baseline[n]) for n, v in sd_new.items()
+               if n.startswith("critic_predictor."))
+    w_old = sd_old["mlp_extractor.value_net.0.weight"]
+    w_new = sd_new["mlp_extractor.value_net.0.weight"]
+    assert th.equal(w_new[:, :FRAME_WIDTH], w_old)
+    assert th.count_nonzero(w_new[:, FRAME_WIDTH:]) == 0
+
+
 # -- CLI wiring (train_ppo_mjx.main early validation) -------------------
 
 def _run_main_expect_exit(monkeypatch, argv, match):
@@ -253,3 +276,13 @@ def test_critic_encoder_plain_init_from_still_refused_without_flag(
          "--critic-encoder", str(fake), "--critic-encoder-md5", "deadbeef",
          "--cfg-set", "obs.history_frames=16"],
         "not wired for a full-checkpoint --init-from")
+
+
+def test_backbone_flag_requires_predictive_live(monkeypatch, tmp_path):
+    fake = tmp_path / "x.zip"
+    fake.write_bytes(b"0")
+    _run_main_expect_exit(
+        monkeypatch,
+        ["--run-name", "t", "--no-wandb", "--init-from", str(fake),
+         "--init-from-policy-backbone"],
+        "requires --predictive-live")
