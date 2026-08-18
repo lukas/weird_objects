@@ -1108,8 +1108,13 @@ def main() -> None:
         if frame_dump and time.monotonic() - frame_dump_t > 0.5:
             # Atomic-ish: write tmp then rename so readers never see a
             # half-written PNG (PLAY_FRAME_DUMP agent/remote viewing).
-            cv2.imwrite(frame_dump + ".tmp.png", canvas)
-            os.replace(frame_dump + ".tmp.png", frame_dump)
+            # NEVER fatal: a diagnostics dump must not kill the player
+            # (imwrite can fail silently -> os.replace ENOENT, 08-18).
+            try:
+                if cv2.imwrite(frame_dump + ".tmp.png", canvas):
+                    os.replace(frame_dump + ".tmp.png", frame_dump)
+            except OSError:
+                pass
             frame_dump_t = time.monotonic()
 
         # --- keys (all ours: cv2 has no built-in bindings) ------------------
