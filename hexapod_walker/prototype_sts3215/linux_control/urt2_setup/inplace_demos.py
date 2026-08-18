@@ -143,6 +143,12 @@ DANCE_HANDS_HOLD_S = 0.9         # standing hands-up feature hold
 # operator note: "faster especially after it stands".
 DANCE_SNAP_S = 0.18
 DANCE_STOMP_S = 0.14
+# Act V holding cap. 700 (the rise's contact-detection cap) let the
+# STS3215s sag 15-20 deg under body weight — the 08-18 video showed a
+# low wide crouch vs the sim's crisp ~144 mm stance (commanded poses
+# were identical; execution sagged). 950 stiffens the hold; current
+# guards (stream 3 A / hard 4 A) still protect against snags.
+DANCE_PLANT_TORQUE = 950
 # Victory-lap PRANCE (open-loop tripod, horse mode): quick cadence +
 # high knees — far more aggressive than the RL walk's trained band.
 # ACC 80 is deliberate (not WALK_ACC=30): sim sweep 08-18 showed the
@@ -2347,6 +2353,18 @@ def _show_stream_pose(mode: str, t: float, hip: float,
             lift = max(0.0, raw) ** 0.55
             yaw_amp = RISE_SHOW_WAVE_YAW_DEG * 0.4 * math.sin(
                 phase)
+        elif mode == "march":
+            # March in place — brisk alternating tripods, crisp partial
+            # lifts, zero yaw sway.  Every step RE-PLANTS three feet at
+            # the exact stance angles, so this act actively undoes the
+            # outward foot-skate the loaded sway moves accumulate on
+            # smooth floors (08-18 video analysis) — it self-corrects
+            # while reading as a strut.
+            group = 1.0 if (leg % 2) else -1.0
+            phase = 3.4 * t
+            raw = group * math.sin(phase)
+            lift = 0.7 * max(0.0, raw) ** 0.45
+            yaw_amp = 0.0
         elif mode == "fan":
             phase = 2.6 * t - leg * (math.pi / 3)
             lift = 0.5 + 0.5 * math.sin(phase)
@@ -2783,11 +2801,15 @@ def run_dance_demo(bus: FeetechBus, *,
              STEP routine (tripod tuck + push, via ``standup_fn`` from
              the bench); CLI without a bench falls back to the old
              slow contact-aware reach
-    Act V    wild planted acts: bounce, look, orbit sway, ripple,
-             canon (leg 0 leads — others echo at staggered offsets),
-             gallop, tripod, slow stretch → DROP, standing hands-up
-             feature, counterwave, fan, twist, accelerating stomp
-             drumroll → dead stop → TA-DA
+    Act V    wild planted acts at DANCE_PLANT_TORQUE (950 — the 700
+             rise cap sagged 15-20 deg under load, 08-18 video):
+             bounce, look, orbit sway, MARCH in place, ripple, canon
+             (leg 0 leads — others echo at staggered offsets), gallop,
+             tripod, slow stretch → DROP, standing hands-up feature,
+             counterwave, fan, twist, accelerating stomp drumroll →
+             dead stop → TA-DA.  Each streamed act ends in a tripod
+             double-stomp RE-PLANT (geometry reset as percussion —
+             clears the foot-skate that widened the stance open-loop)
     Act VI   slow descend to sit, last heartbeats, wave goodbye,
              one exhale, limp
 
@@ -2878,7 +2900,8 @@ def run_dance_demo(bus: FeetechBus, *,
         print("  → act VI — descend, last heartbeats, sleep")
         note(f"act VI — slow descend to sit "
              f"(~{max(4.0, DANCE_DESCEND_S * sc):.0f}s)")
-        # Full rise torque while lowering the body onto the stand.
+        # Show torque (DANCE_PLANT_TORQUE) stays on while lowering the
+        # body; the soft air cap returns right after.
         if not ease_to_pose(bus, _zero_pose(), abort_check=check,
                             seconds=max(4.0, DANCE_DESCEND_S * sc),
                             label="act VI — descend to sit",
@@ -3026,6 +3049,10 @@ def run_dance_demo(bus: FeetechBus, *,
                               label="act IV — THE RISE", contact=True):
             return bail("act4 rise")
     peaks.print_report(phase="rise")
+    # Stiffen for the show: the 700 rise cap sagged visibly (see
+    # DANCE_PLANT_TORQUE note); the acts need holding force, not the
+    # rise's contact sensitivity.
+    _set_torque_limit(bus, live, DANCE_PLANT_TORQUE)
 
     # --- Act V: wild (planted, rise_show vocabulary) ------------------------
     snap = RISE_SHOW_SNAP_S * sc
@@ -3059,6 +3086,29 @@ def run_dance_demo(bus: FeetechBus, *,
             _set_torque_limit(bus, live, 1000)
         return ok
 
+    stomp_flip = [False]
+
+    def replant_stomp() -> bool:
+        """Geometry reset AS a beat: tripod double-stomp onto the marks.
+
+        The loaded sway moves skate the feet outward a few mm per beat
+        and nothing re-plants them open-loop (08-18 video: the stance
+        ratchets wider through act V).  Lifting each tripod and snapping
+        it back down at the exact stance angles clears the slide — it
+        reads as stomp-stomp-stick punctuation, not a correction.
+        Alternates which tripod leads so the percussion isn't samey.
+        """
+        first, second = ((odds_up, evens_up) if stomp_flip[0]
+                         else (evens_up, odds_up))
+        stomp_flip[0] = not stomp_flip[0]
+        for goal, label, s in ((first, "re-STOMP", 0.20),
+                               (planted, "set", 0.15),
+                               (second, "STOMP", 0.20),
+                               (planted, "stick!", 0.15)):
+            if not snap_to(goal, label, seconds=s * sc):
+                return False
+        return True
+
     # Power bounce.
     note("act V — wild: power bounce ×3")
     for _ in range(3):
@@ -3082,6 +3132,7 @@ def run_dance_demo(bus: FeetechBus, *,
     # echo at staggered offsets), plus the classic waves.
     for mode, secs, label in (
         ("orbit", 2.8, "orbit sway — body leans in a slow circle"),
+        ("march", 2.4, "march in place — every step re-plants"),
         ("ripple", 2.4, "ripple — legs flying around"),
         ("canon", 3.6, "canon — leg 0 leads, others echo in turn"),
         ("gallop", 2.2, "gallop — opposite pairs"),
@@ -3090,7 +3141,10 @@ def run_dance_demo(bus: FeetechBus, *,
         note(f"act V — {label}")
         if not stream(mode, secs * sc, label):
             return bail("act5 stream")
-        if not snap_to(planted, "plant", seconds=DANCE_SNAP_S * sc):
+        # Stomp re-plant instead of a plain snap: clears the foot slide
+        # the act just skated in (marches/tripods barely need it; the
+        # loaded sways really do).
+        if not replant_stomp():
             return bail("act5 stream")
 
     # Contrast beat: one luxurious slow stretch to full height… BAM.
@@ -3120,21 +3174,25 @@ def run_dance_demo(bus: FeetechBus, *,
     if not stream("counterwave", 3.0 * sc,
                   "counterwave — knees ride CW, yaws ride CCW"):
         return bail("act5 counterwave")
-    if not snap_to(planted, "plant", seconds=DANCE_SNAP_S * sc):
+    if not replant_stomp():
         return bail("act5 counterwave")
 
     note("act V — fan: all six dancing")
     if not stream("fan", 1.8 * sc, "fan — all six dancing"):
         return bail("act5 fan")
-    if not snap_to(planted, "plant", seconds=DANCE_SNAP_S * sc):
+    if not replant_stomp():
         return bail("act5 fan")
 
-    # Body twist (small, always returns to 0 — tether-safe).
+    # Body twist (small, always returns to 0 — tether-safe).  Twists are
+    # the worst foot-skaters (all six feet loaded and shearing), so a
+    # stomp re-plant follows.
     note("act V — body twist (and back)")
     for goal, label in ((twist_p, "twist +"), (twist_n, "twist −"),
                         (planted, "untwist")):
         if not snap_to(goal, label, seconds=0.32 * sc):
             return bail("act5 twist")
+    if not replant_stomp():
+        return bail("act5 twist")
 
     # Finale: accelerating stomp drumroll → dead stop → TA-DA.
     note("act V — finale: stomp drumroll + TA-DA")
