@@ -157,12 +157,16 @@ def build_schedule(family: str, rng: np.random.Generator, n: int,
 
 
 def run_episode(env, model, rot_on: bool, vx: np.ndarray, vy: np.ndarray,
-                changes: list[int], tilt_scale: float) -> dict:
+                changes: list[int], tilt_scale: float,
+                deterministic: bool = True,
+                ep_seed: int | None = None) -> dict:
     import mujoco
 
     from .rot60 import Rot60Policy, sector_from_cmd
 
-    obs, _ = env.reset()
+    # ep_seed re-seeds the env so a rot60 ON/OFF pair draws the SAME
+    # DR physics + spawn — matched-pair comparison under randomize.
+    obs, _ = env.reset(seed=ep_seed)
     pol = Rot60Policy(model, tilt_scale=tilt_scale) if rot_on else model
     if hasattr(pol, "reset"):
         pol.reset()
@@ -197,7 +201,7 @@ def run_episode(env, model, rot_on: bool, vx: np.ndarray, vy: np.ndarray,
     fall_tick = -1
     ticks = n
     for i in range(n):
-        a, _ = pol.predict(obs, deterministic=True)
+        a, _ = pol.predict(obs, deterministic=deterministic)
         obs, _r, term, trunc, _info = env.step(a)
         k = pol.k if rot_on else sector_from_cmd(
             float(vx[i]), float(vy[i]), shadow_k)
@@ -299,6 +303,11 @@ def main() -> int:
     ap.add_argument("--seeds", type=int, default=2,
                     help="schedules per family (each run rot60 ON + OFF)")
     ap.add_argument("--seed0", type=int, default=0)
+    ap.add_argument("--dr-scale", type=float, default=0.0,
+                    help="own-DR physics randomization (matched draw "
+                         "per rot60 ON/OFF pair via per-episode seed)")
+    ap.add_argument("--stochastic", action="store_true",
+                    help="sample actions instead of deterministic")
     ap.add_argument("--out", type=Path, default=None)
     ap.add_argument("--cfg-set", action="append", default=None,
                     metavar="K=V")
@@ -325,8 +334,9 @@ def main() -> int:
             cfg.setdefault(sect, {})[name] = parsed
 
     env = SimHexapodJointWalkEnv(
-        params=SimServoParams.from_cfg(cfg), randomize=False,
-        dr_scale=0.0, episode_seconds=args.seconds + 5.0,
+        params=SimServoParams.from_cfg(cfg),
+        randomize=args.dr_scale > 0.0,
+        dr_scale=args.dr_scale, episode_seconds=args.seconds + 5.0,
         seed=args.seed0, cfg=cfg)
     gen = env._goal_gen
     gen.p_walk = 1.0
@@ -348,7 +358,9 @@ def main() -> int:
             rng = np.random.default_rng(abs(hash((fam, seed))) % 2**31)
             vx, vy, changes = build_schedule(fam, rng, n, env.dt)
             for rot_on in (True, False):
-                r = run_episode(env, model, rot_on, vx, vy, changes, ts)
+                r = run_episode(env, model, rot_on, vx, vy, changes, ts,
+                                deterministic=not args.stochastic,
+                                ep_seed=seed)
                 r["family"] = fam
                 r["sched_seed"] = seed
                 episodes.append(r)
