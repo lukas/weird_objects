@@ -1,5 +1,28 @@
 # dynrep — Dynamics-representation pretraining
 
+**08-18 ~08:5x UTC (operator order fb_20260818T065930_03b422 — ALL-GPU
+correction, executed same cycle): `cw-dynrep-criticD-walkcurr2` was
+STOPPED at ~9M/40M and marked SUPERSEDED_NONCOMPLIANT (its physics ran
+CPU C-MuJoCo via SubprocVecEnv; only Torch was on the GPU — not a
+behavioral FAIL, checkpoints preserved on train-7), and
+`cw-dynrep-criticD-walkcurr3` is RUNNING as the compliant replacement
+(W&B 4dih5ztm, train-5).** walkcurr3 = the exact walkcurr2 contract
+(frozen vt2ovznc critic D md5-pinned, fresh actor seed 8, V2 ignition
+curriculum + calibrated cert gates, update-health n_epochs 3 /
+target_kl 0.01 / actor-decay + critic-const groups / KL-rollback 0.03,
+terminal charge 30, 40M) ported onto batched GPU physics:
+`train_ppo_mjx` + MjxShardedVecEnv impl=warp, n_envs 4096 /
+host-workers 24 (proven geometry), fail-closed `--require-gpu-physics`
+backend assert (SubprocVecEnv refused, unit-tested), certification on
+the TRAINING backend via a dedicated MJX cert env + in-env walk probe
+(recover-cert precedent: C evaluation is never an admission signal;
+C-env periodic evals stay plain-distribution audit-only), reset-pool
+flush on admission changes. Code f759b6ba (tags
+exp/cw-dynrep-criticD-walkcurr3[-runner]); canary + on-pod parity
+evidence in the ledger entry; walkcurr1 (V1, CPU backend, train-4)
+left running as the V1 comparison. Gate: frontier >= B6 by 40M +
+40m1 bars + beat 40m1 best-loco on loco_quality (full text in ledger).
+
 **SIM SPRINT (operator 08-17 ~18:05 UTC — binding while the robot is off the bench for repair): NO NEW LAUNCHES on this track unless an arm directly serves reliable rise+walk in the MuJoCo sim (the fleet's single deliverable; download answer: `rl_docs/DOWNLOAD_ANSWER.md`). In-flight runs finish and get triaged normally. Full text: RL_PLAN.md "SIM SPRINT".**
 
 **08-18 ~07:0x UTC (triage cycle + operator MCP note fb_20260818T060044,

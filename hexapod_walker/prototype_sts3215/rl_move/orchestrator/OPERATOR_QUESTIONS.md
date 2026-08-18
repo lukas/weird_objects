@@ -166,8 +166,19 @@ Entry format (append; newest last; update status in place):
   once via setsid — see dynrep/STATUS.md); all six script-owned live
   runs registered in the ledger (dynrep-tfwalk-{A,B,C}-s5,
   risewalk-single2-s{5,6,7}).
-- ANSWER (operator): —
-- rulebook change: —
+- ANSWER (operator): fb_20260818T065930_03b422 + operator focus note
+  (08-18 ~07:06Z kick): the backend swap is REQUIRED, not optional
+  speed work — 'walkcurr2 is SubprocVecEnv CPU physics and is
+  noncompliant; pod name/CUDA Torch is insufficient.' Executed same
+  cycle: condition-D + walkcurr V2 ported into train_ppo_mjx
+  (MjxShardedVecEnv impl=warp, --require-gpu-physics fail-closed
+  backend assert, unit-tested), cw-dynrep-criticD-walkcurr3 launched,
+  walkcurr2 stopped/preserved SUPERSEDED_NONCOMPLIANT (not behavioral
+  FAIL). Commits 40bce908/f759b6ba, tags exp/cw-dynrep-criticD-
+  walkcurr3(-runner).
+- rulebook change: none needed — the 'declined part 4' judgment is
+  moot; the goal-mix construction hook the decline worried about now
+  exists (cfg goal.walk_pure, construction-time, test-pinned).
 
 ## q_20260815T2250Z — OPEN
 - cycle: operator-kick 20260815 ~22:2x-22:5xZ (executed
@@ -192,8 +203,19 @@ Entry format (append; newest last; update status in place):
   --recover-cert-every 1000000 --recover-cert-envs 8, out-name
   ppo_goal_cw_recover_any5_mjxcert_scratch1), verified live via /proc
   + "[recover-cert] armed" log line + advancing steps.
-- ANSWER (operator): —
-- rulebook change: —
+- ANSWER (operator): fb_20260818T065930_03b422 + operator focus note
+  (08-18 ~07:06Z kick): the backend swap is REQUIRED, not optional
+  speed work — 'walkcurr2 is SubprocVecEnv CPU physics and is
+  noncompliant; pod name/CUDA Torch is insufficient.' Executed same
+  cycle: condition-D + walkcurr V2 ported into train_ppo_mjx
+  (MjxShardedVecEnv impl=warp, --require-gpu-physics fail-closed
+  backend assert, unit-tested), cw-dynrep-criticD-walkcurr3 launched,
+  walkcurr2 stopped/preserved SUPERSEDED_NONCOMPLIANT (not behavioral
+  FAIL). Commits 40bce908/f759b6ba, tags exp/cw-dynrep-criticD-
+  walkcurr3(-runner).
+- rulebook change: none needed — the 'declined part 4' judgment is
+  moot; the goal-mix construction hook the decline worried about now
+  exists (cfg goal.walk_pure, construction-time, test-pinned).
 
 ## q_20260815T2255Z — OPEN
 - cycle: operator-kick 20260815 ~22:4x-22:5xZ (corrected GPU-only
@@ -228,8 +250,19 @@ Entry format (append; newest last; update status in place):
   required and active: NVIDIA H200" before W&B init; C anchor
   tensors on CUDA (anchor_batch_to_torch device=cuda); steps
   verified advancing on all three (86k/12k/49k at check).
-- ANSWER (operator): —
-- rulebook change: —
+- ANSWER (operator): fb_20260818T065930_03b422 + operator focus note
+  (08-18 ~07:06Z kick): the backend swap is REQUIRED, not optional
+  speed work — 'walkcurr2 is SubprocVecEnv CPU physics and is
+  noncompliant; pod name/CUDA Torch is insufficient.' Executed same
+  cycle: condition-D + walkcurr V2 ported into train_ppo_mjx
+  (MjxShardedVecEnv impl=warp, --require-gpu-physics fail-closed
+  backend assert, unit-tested), cw-dynrep-criticD-walkcurr3 launched,
+  walkcurr2 stopped/preserved SUPERSEDED_NONCOMPLIANT (not behavioral
+  FAIL). Commits 40bce908/f759b6ba, tags exp/cw-dynrep-criticD-
+  walkcurr3(-runner).
+- rulebook change: none needed — the 'declined part 4' judgment is
+  moot; the goal-mix construction hook the decline worried about now
+  exists (cfg goal.walk_pure, construction-time, test-pinned).
 
 ## q_20260816T2140Z — OPEN
 - cycle: operator-kick 08-16 ~21:xx UTC (dynrep joint-PPO directive)
@@ -302,8 +335,19 @@ Entry format (append; newest last; update status in place):
   curriculum JSON on pod and on W&B, RECOVER_GUARD/promotion_checkpoint_saved=1);
   stale auto-retry cw-recover-any14-retentiongate-cont1-r2 closed KILLED per
   the never-retry order.
-- ANSWER (operator): —
-- rulebook change: —
+- ANSWER (operator): fb_20260818T065930_03b422 + operator focus note
+  (08-18 ~07:06Z kick): the backend swap is REQUIRED, not optional
+  speed work — 'walkcurr2 is SubprocVecEnv CPU physics and is
+  noncompliant; pod name/CUDA Torch is insufficient.' Executed same
+  cycle: condition-D + walkcurr V2 ported into train_ppo_mjx
+  (MjxShardedVecEnv impl=warp, --require-gpu-physics fail-closed
+  backend assert, unit-tested), cw-dynrep-criticD-walkcurr3 launched,
+  walkcurr2 stopped/preserved SUPERSEDED_NONCOMPLIANT (not behavioral
+  FAIL). Commits 40bce908/f759b6ba, tags exp/cw-dynrep-criticD-
+  walkcurr3(-runner).
+- rulebook change: none needed — the 'declined part 4' judgment is
+  moot; the goal-mix construction hook the decline worried about now
+  exists (cfg goal.walk_pure, construction-time, test-pinned).
 
 ## q_20260817T2200Z — OPEN
 - cycle: operator-kick cycle 2026-08-17 ~21:5x-22:xx UTC (fb_20260817T210422_9df9c7 execution)
@@ -663,8 +707,19 @@ Entry format (append; newest last; update status in place):
   rollback lifecycle smoke-tested end-to-end on CPU, committed +
   snapshotted, CUDA canary on hexapod-mjx-train-4, then the full 40M
   launch with canonical INTENT/RUNNING.
-- ANSWER (operator): —
-- rulebook change: —
+- ANSWER (operator): fb_20260818T065930_03b422 + operator focus note
+  (08-18 ~07:06Z kick): the backend swap is REQUIRED, not optional
+  speed work — 'walkcurr2 is SubprocVecEnv CPU physics and is
+  noncompliant; pod name/CUDA Torch is insufficient.' Executed same
+  cycle: condition-D + walkcurr V2 ported into train_ppo_mjx
+  (MjxShardedVecEnv impl=warp, --require-gpu-physics fail-closed
+  backend assert, unit-tested), cw-dynrep-criticD-walkcurr3 launched,
+  walkcurr2 stopped/preserved SUPERSEDED_NONCOMPLIANT (not behavioral
+  FAIL). Commits 40bce908/f759b6ba, tags exp/cw-dynrep-criticD-
+  walkcurr3(-runner).
+- rulebook change: none needed — the 'declined part 4' judgment is
+  moot; the goal-mix construction hook the decline worried about now
+  exists (cfg goal.walk_pure, construction-time, test-pinned).
 
 ## q_20260818T0650Z — OPEN
 - cycle: operator-kick 08-18 ~06:00Z (any21 +100M continuation)
@@ -705,7 +760,7 @@ Entry format (append; newest last; update status in place):
   train-0/1/3, rendezvous PROVEN (all 3 hit 655,360, leader released
   start_B14, all 3 crossed and race started).
 
-## q_20260818T0700Z — OPEN
+## q_20260818T0700Z — CLOSED
 - cycle: triage cycle for cw-dynrep-criticD-40m1 (this cycle)
 - operator order: fb_20260818T060044_0fa0f5 (GPT-5 Codex for Lukas,
   "figure out how to make a great run and then launch it") — a
@@ -762,5 +817,16 @@ Entry format (append; newest last; update status in place):
   it is a real wall-clock-speed improvement (Warp/MJX batched physics
   is far cheaper per step than SubprocVecEnv), not a correctness
   requirement of the walkcurr2 launch itself.
-- ANSWER (operator): —
-- rulebook change: —
+- ANSWER (operator): fb_20260818T065930_03b422 + operator focus note
+  (08-18 ~07:06Z kick): the backend swap is REQUIRED, not optional
+  speed work — 'walkcurr2 is SubprocVecEnv CPU physics and is
+  noncompliant; pod name/CUDA Torch is insufficient.' Executed same
+  cycle: condition-D + walkcurr V2 ported into train_ppo_mjx
+  (MjxShardedVecEnv impl=warp, --require-gpu-physics fail-closed
+  backend assert, unit-tested), cw-dynrep-criticD-walkcurr3 launched,
+  walkcurr2 stopped/preserved SUPERSEDED_NONCOMPLIANT (not behavioral
+  FAIL). Commits 40bce908/f759b6ba, tags exp/cw-dynrep-criticD-
+  walkcurr3(-runner).
+- rulebook change: none needed — the 'declined part 4' judgment is
+  moot; the goal-mix construction hook the decline worried about now
+  exists (cfg goal.walk_pure, construction-time, test-pinned).
