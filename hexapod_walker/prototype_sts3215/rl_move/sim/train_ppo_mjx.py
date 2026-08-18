@@ -81,6 +81,32 @@ def _recover_episode_training_error(info: dict) -> tuple[int, float] | None:
     return bucket, error
 
 
+def _restore_recover_curriculum_from_sidecar(venv, sidecar_path) -> dict:
+    """Restore promotion-time recovery curriculum state on EVERY env.
+
+    Backs the default-off --recover-init-curriculum flag (operator order
+    2026-08-18: continue the finished recover-any21-pop3 cohort from its
+    exact final state instead of restarting the frontier at B0).  Accepts
+    a promotion ``*.curriculum.json`` sidecar (the ``curriculum`` key) or
+    a bare curriculum dict, applies it via the same env method the
+    in-run rollback/adoption machinery uses, and verifies the fleet is
+    synchronized afterwards.  Returns the curriculum dict applied.
+    """
+    payload = json.loads(Path(sidecar_path).read_text())
+    curriculum = payload.get("curriculum", payload)
+    venv.env_method("restore_recover_curriculum_checkpoint_state",
+                    curriculum)
+    active = [int(value) for value in venv.get_attr("_rec_active_n")]
+    expected = int(curriculum["active_n"])
+    if len(active) != venv.num_envs or set(active) != {expected}:
+        counts = {value: active.count(value)
+                  for value in sorted(set(active))}
+        raise RuntimeError(
+            "recover curriculum restore desynchronized the training "
+            f"fleet: expected active_n={expected}, counts={counts}")
+    return curriculum
+
+
 def _recover_cert_bucket_plan(frontier: int, retention_count: int,
                               cursor: int,
                               weak_bucket: int | None) -> tuple[list[int], int]:
@@ -1301,6 +1327,12 @@ def main(argv: list[str] | None = None) -> int:
                     default=10,
                     help="equal per-seed rollout budget before member 0 "
                          "releases the initial recovery race")
+    ap.add_argument("--recover-init-curriculum", type=Path, default=None,
+                    help="restore the recovery curriculum/frontier state "
+                         "on every env at startup from a promotion "
+                         "*.curriculum.json sidecar (exact-state "
+                         "continuation of a finished recover run; "
+                         "default off = fresh B0)")
     ap.add_argument("--no-canary", action="store_true",
                     help="disable the fixed-seed canary probes + "
                          "regression auto-stop (on by default for warm "
@@ -1370,6 +1402,14 @@ def main(argv: list[str] | None = None) -> int:
     elif (args.recover_population_runs or args.recover_population_run_ids
           or args.recover_population_member >= 0):
         ap.error("population roster/member requires --recover-population-id")
+
+    if args.recover_init_curriculum is not None:
+        if not args.recover_init_curriculum.is_file():
+            ap.error("--recover-init-curriculum: no such file "
+                     f"{args.recover_init_curriculum}")
+        if float(_parse_goal_mix(args.goal_mix).get("recover", 0.0)) <= 0.0:
+            ap.error("--recover-init-curriculum requires recover episodes "
+                     "in --goal-mix")
 
     if not mjx_is_available():
         raise SystemExit("mujoco-mjx / jax not installed — "
@@ -1988,6 +2028,15 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"[mjx-train] checkpoint @ {self.num_timesteps:,} "
                       f"-> {out_path} ({fps:,.0f} env-steps/s)")
 
+
+    if args.recover_init_curriculum is not None:
+        _restored = _restore_recover_curriculum_from_sidecar(
+            venv, args.recover_init_curriculum)
+        print("[recover-init] curriculum restored from "
+              f"{args.recover_init_curriculum}: "
+              f"active_n={int(_restored['active_n'])} "
+              f"(frontier B{int(_restored['active_n']) - 1}), "
+              "cert stats carried from the sidecar")
 
     population = None
     if args.recover_population_id:

@@ -726,3 +726,75 @@ def test_zero_sized_cert_pool_does_not_freeze_curriculum():
     kw = _env_kwargs(args, params=object())
 
     assert "cfg" not in kw
+
+
+class _FakeRestoreVenv:
+    """venv stub for the startup curriculum restore (env_method/get_attr)."""
+
+    def __init__(self, num_envs=4, desync=False):
+        self.num_envs = num_envs
+        self.desync = desync
+        self.restored = []
+        self._active_n = None
+
+    def env_method(self, name, *call_args, **kw):
+        assert name == "restore_recover_curriculum_checkpoint_state"
+        (state,) = call_args
+        self.restored.append(state)
+        self._active_n = int(state["active_n"])
+        return [None] * self.num_envs
+
+    def get_attr(self, name):
+        assert name == "_rec_active_n"
+        values = [self._active_n] * self.num_envs
+        if self.desync:
+            values[-1] = 1
+        return values
+
+
+def _sidecar_curriculum():
+    return {
+        "active_n": 15,
+        "focus_bucket": 14,
+        "stats": {"zero": [16, 16], "tangle_mid": [14, 16]},
+        "cert_rounds": {"zero": 15, "tangle_mid": 15},
+    }
+
+
+def test_recover_init_curriculum_restores_every_env(tmp_path):
+    sidecar = tmp_path / "promote_B14.curriculum.json"
+    sidecar.write_text(json.dumps({
+        "policy": "x.zip", "promotion_bucket": 14, "global_step": 15007744,
+        "cert_round": 15, "curriculum": _sidecar_curriculum()}))
+    venv = _FakeRestoreVenv()
+
+    out = train_ppo_mjx._restore_recover_curriculum_from_sidecar(
+        venv, sidecar)
+
+    assert len(venv.restored) == 1
+    assert out["active_n"] == 15
+    assert venv.restored[0] == _sidecar_curriculum()
+
+
+def test_recover_init_curriculum_accepts_bare_state(tmp_path):
+    sidecar = tmp_path / "bare.json"
+    sidecar.write_text(json.dumps(_sidecar_curriculum()))
+    venv = _FakeRestoreVenv()
+
+    out = train_ppo_mjx._restore_recover_curriculum_from_sidecar(
+        venv, sidecar)
+
+    assert out["active_n"] == 15
+
+
+def test_recover_init_curriculum_fails_closed_on_desync(tmp_path):
+    sidecar = tmp_path / "promote_B14.curriculum.json"
+    sidecar.write_text(json.dumps({"curriculum": _sidecar_curriculum()}))
+    venv = _FakeRestoreVenv(desync=True)
+
+    try:
+        train_ppo_mjx._restore_recover_curriculum_from_sidecar(venv, sidecar)
+    except RuntimeError as exc:
+        assert "desynchronized" in str(exc)
+    else:
+        raise AssertionError("desynchronized fleet must fail closed")
