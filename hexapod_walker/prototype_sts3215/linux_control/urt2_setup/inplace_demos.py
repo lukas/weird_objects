@@ -2116,6 +2116,88 @@ def _show_blend_leg(hip: float, knee: float, leg: int, lift: float,
     return y, h, k
 
 
+def _show_stream_pose(mode: str, t: float, hip: float,
+                      knee: float) -> list[float]:
+    """One frame of a streamed show mode at time ``t`` (pure math, no bus)."""
+    if mode == "jazz":
+        pose = _zero_pose()
+        for leg in range(6):
+            pose[leg * 3] = (
+                RISE_SHOW_WAVE_YAW_DEG
+                * math.sin(4.2 * t + leg * math.pi / 3))
+        return pose
+    if mode == "orbit":
+        # Body-lean circle (stand_sway math on the show plant): a
+        # traveling crouch wave — every leg at its own 60° phase, all
+        # feet loaded.  The chassis visibly leans in a slow circle.
+        pose = _elevated_stand_pose(hip=hip, knee=knee, yaw=0.0)
+        w = 2.0 * math.pi * 0.40 * t
+        for leg in range(6):
+            s = math.sin(w + leg * math.pi / 3.0)
+            _yaw_hip_knee(leg, pose, hip=8.0 * s, knee=-4.0 * s)
+        return pose
+    if mode == "counterwave":
+        # Two waves traveling in OPPOSITE directions around the hex —
+        # knees ride one, yaws ride the other — so at any instant no
+        # two legs are doing the same thing.  Small amplitudes; feet
+        # stay loaded (sway-class move, not a lift).
+        pose = _elevated_stand_pose(hip=hip, knee=knee, yaw=0.0)
+        for leg in range(6):
+            wk = 2.2 * t - leg * (math.pi / 3.0)   # knee wave, CW
+            wy = 2.2 * t + leg * (math.pi / 3.0)   # yaw wave, CCW
+            _yaw_hip_knee(leg, pose,
+                          yaw=10.0 * math.sin(wy),
+                          hip=5.0 * math.sin(wk + 0.6),
+                          knee=9.0 * math.sin(wk))
+        return pose
+
+    pose = _elevated_stand_pose(hip=hip, knee=knee, yaw=0.0)
+    for leg in range(6):
+        if mode == "ripple":
+            # 2–3 legs up at once; traveling wave around the hex.
+            phase = 2.8 * t - leg * (2 * math.pi / 6)
+            lift = max(0.0, math.sin(phase)) ** 0.65
+            yaw_amp = RISE_SHOW_WAVE_YAW_DEG * math.sin(
+                phase + 0.4)
+        elif mode == "canon":
+            # Follow-the-leader: leg 0 leads a lift+flourish gesture;
+            # each next leg repeats it a fixed offset later and a
+            # little smaller (decaying echo around the hex).  Narrow
+            # envelope → ~one leg mid-gesture at a time.
+            decay = 1.0 - 0.13 * leg
+            phase = 1.9 * t - leg * (2 * math.pi / 6)
+            lift = decay * max(0.0, math.sin(phase)) ** 2.0
+            yaw_amp = (RISE_SHOW_WAVE_YAW_DEG * decay
+                       * math.sin(2.0 * phase))
+        elif mode == "gallop":
+            # Opposite pairs pulse together (0+3, 1+4, 2+5).
+            pair = leg % 3
+            phase = 3.4 * t - pair * (2 * math.pi / 3)
+            lift = max(0.0, math.sin(phase)) ** 0.6
+            yaw_amp = 0.55 * RISE_SHOW_WAVE_YAW_DEG * math.sin(
+                phase)
+        elif mode == "tripod":
+            # Odds vs evens alternate — three legs flying.
+            group = 1.0 if (leg % 2) else -1.0
+            phase = 3.0 * t
+            raw = group * math.sin(phase)
+            lift = max(0.0, raw) ** 0.55
+            yaw_amp = RISE_SHOW_WAVE_YAW_DEG * 0.4 * math.sin(
+                phase)
+        elif mode == "fan":
+            phase = 2.6 * t - leg * (math.pi / 3)
+            lift = 0.5 + 0.5 * math.sin(phase)
+            lift = max(0.0, min(1.0, lift))
+            yaw_amp = RISE_SHOW_WAVE_YAW_DEG * math.sin(
+                2.6 * t + leg)
+        else:
+            lift, yaw_amp = 0.0, 0.0
+        y, h, k = _show_blend_leg(
+            hip, knee, leg, lift, wave_yaw=yaw_amp)
+        _set_leg(pose, leg, yaw=y, hip=h, knee=k)
+    return pose
+
+
 def _stream_multi_leg(bus: FeetechBus, live: set[int], *,
                       check, peaks, hip: float, knee: float,
                       seconds: float, mode: str,
@@ -2139,47 +2221,7 @@ def _stream_multi_leg(bus: FeetechBus, live: set[int], *,
                 _hold_here(bus, live)
                 return False
             t = i * dt
-            if mode == "jazz":
-                pose = _zero_pose()
-                for leg in range(6):
-                    pose[leg * 3] = (
-                        RISE_SHOW_WAVE_YAW_DEG
-                        * math.sin(4.2 * t + leg * math.pi / 3))
-            else:
-                pose = _elevated_stand_pose(hip=hip, knee=knee, yaw=0.0)
-                for leg in range(6):
-                    if mode == "ripple":
-                        # 2–3 legs up at once; traveling wave around the hex.
-                        phase = 2.8 * t - leg * (2 * math.pi / 6)
-                        lift = max(0.0, math.sin(phase)) ** 0.65
-                        yaw_amp = RISE_SHOW_WAVE_YAW_DEG * math.sin(
-                            phase + 0.4)
-                    elif mode == "gallop":
-                        # Opposite pairs pulse together (0+3, 1+4, 2+5).
-                        pair = leg % 3
-                        phase = 3.4 * t - pair * (2 * math.pi / 3)
-                        lift = max(0.0, math.sin(phase)) ** 0.6
-                        yaw_amp = 0.55 * RISE_SHOW_WAVE_YAW_DEG * math.sin(
-                            phase)
-                    elif mode == "tripod":
-                        # Odds vs evens alternate — three legs flying.
-                        group = 1.0 if (leg % 2) else -1.0
-                        phase = 3.0 * t
-                        raw = group * math.sin(phase)
-                        lift = max(0.0, raw) ** 0.55
-                        yaw_amp = RISE_SHOW_WAVE_YAW_DEG * 0.4 * math.sin(
-                            phase)
-                    elif mode == "fan":
-                        phase = 2.6 * t - leg * (math.pi / 3)
-                        lift = 0.5 + 0.5 * math.sin(phase)
-                        lift = max(0.0, min(1.0, lift))
-                        yaw_amp = RISE_SHOW_WAVE_YAW_DEG * math.sin(
-                            2.6 * t + leg)
-                    else:
-                        lift, yaw_amp = 0.0, 0.0
-                    y, h, k = _show_blend_leg(
-                        hip, knee, leg, lift, wave_yaw=yaw_amp)
-                    _set_leg(pose, leg, yaw=y, hip=h, knee=k)
+            pose = _show_stream_pose(mode, t, hip, knee)
             streamer.write(bus, pose, live, dt=dt)
             if peaks is not None and (i % 2 == 0):
                 peaks.sample(bus, live)
@@ -2414,8 +2456,10 @@ def run_dance_demo(bus: FeetechBus, *,
     Act II   waking: twinkle → shimmy → conductor wave
     Act III  all six hands over head + overhead sway (the inhale)
     Act IV   THE RISE — one slow 12 s reach from overhead down to plant
-    Act V    wild planted acts: bounce, look, ripple, gallop, tripod,
-             standing hands-up feature, fan, twist, stomp finale
+    Act V    wild planted acts: bounce, look, orbit sway, ripple,
+             canon (leg 0 leads — others echo at staggered offsets),
+             gallop, tripod, standing hands-up feature, counterwave
+             (two opposite traveling waves), fan, twist, stomp finale
     Act VI   slow descend to sit, last heartbeats, one exhale, limp
 
     Starts and ends at sit zero (air home).  All durations pre-scale
@@ -2606,10 +2650,16 @@ def run_dance_demo(bus: FeetechBus, *,
         if not snap_to(goal, label, seconds=s * sc):
             return bail("act5 look")
 
-    # Streamed crowd-pleasers.
-    for mode, secs, label in (("ripple", 3.2, "ripple — legs flying around"),
-                              ("gallop", 2.8, "gallop — opposite pairs"),
-                              ("tripod", 2.6, "tripod flip — 3 up / 3 down")):
+    # Streamed crowd-pleasers — heavy on all-legs-different material:
+    # orbit (every leg its own 60° phase), canon (leg 0 leads, the rest
+    # echo at staggered offsets), plus the classic waves.
+    for mode, secs, label in (
+        ("orbit", 4.0, "orbit sway — body leans in a slow circle"),
+        ("ripple", 3.2, "ripple — legs flying around"),
+        ("canon", 5.0, "canon — leg 0 leads, others echo in turn"),
+        ("gallop", 2.8, "gallop — opposite pairs"),
+        ("tripod", 2.6, "tripod flip — 3 up / 3 down"),
+    ):
         note(f"act V — {label}")
         if not stream(mode, secs * sc, label):
             return bail("act5 stream")
@@ -2626,6 +2676,13 @@ def run_dance_demo(bus: FeetechBus, *,
                         (planted, "plant")):
         if not snap_to(goal, label, seconds=0.26 * sc):
             return bail("act5 hands")
+
+    note("act V — counterwave: two waves, no two legs alike")
+    if not stream("counterwave", 4.0 * sc,
+                  "counterwave — knees ride CW, yaws ride CCW"):
+        return bail("act5 counterwave")
+    if not snap_to(planted, "plant", seconds=0.2 * sc):
+        return bail("act5 counterwave")
 
     note("act V — fan: all six dancing")
     if not stream("fan", 2.4 * sc, "fan — all six dancing"):
