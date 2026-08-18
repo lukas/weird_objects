@@ -11,6 +11,36 @@ at what budget, with which failure modes.
 
 ## Now
 
+- **08-18 ~19:2x UTC (triage cycle) — `cw-arch-modeexperts-scratch3`
+  (Arm B's second 40M full-budget stage) TRIAGED STOP — known exploit
+  dominates video, a REGRESSION from scratch2, not more learning.**
+  Clean 40.04M finish, cumulative active ticks hit the ≥20M target
+  (rise ~23.3M, loco ~19.25M, lower ~19.12M) — not an exposure
+  shortfall. But rise, hold AND lower have each independently
+  collapsed into the SAME cheat: plant 3 legs, freeze the other 3 up
+  in the air for the whole episode (100% of all 48 non-walk test
+  episodes, both DR0 and DR0.5, det+sto; hold's deterministic output
+  is byte-identical across all 6 "different" episodes — a fully
+  collapsed policy, std exploded to 13.48 vs 1.84 last stage). The
+  2/6 apparent lower "successes" under own-DR are the identical cheat
+  at a smaller raised-leg height crossing the coarse posture check by
+  luck, video-confirmed, not real completions. Walk is unaffected and
+  still genuinely good (gait_valid 6/6 both passes). Per
+  RUN_INTERPRETATION_RULES a dominating known exploit is a complete
+  verdict — no scratch4, no more-steps re-run. Root-cause hint: rise/
+  hold/lower's reward apparently has no equivalent to walk's
+  anti-park/anti-flag-leg terms, so a 3-planted+3-frozen configuration
+  can satisfy final-height/tilt reward with zero per-foot requirement
+  — an arch-track follow-up (bank the tripod/flag-leg ordering into
+  rise/hold/lower's MDP_PREFLIGHT) whenever arch resumes; not queued
+  now (SIM SPRINT bans new arch launches unless sim-rise/walk-serving,
+  and this isn't). Scope: arch track only, isolated mode-experts
+  architecture — no bearing on the hw-track deployed champions
+  (footlow2_hard1/bcgait1_hard1), which already carry these anti-cheat
+  terms. Detail: `rl_docs/tracks/arch/MODE_EXPERTS_DIRECTIVE.md`
+  "SCRATCH3 RESULT"; evidence `rl_docs/runs/cw-arch-modeexperts-
+  scratch3.md`, W&B `puvo5i2y`,
+  `logs/ckpt_eval/cw_arch_modeexperts_scratch3_{gate,owncfg}`.
 - **08-17 ~15:2x UTC (triage cycle) — `cw-arch-modeexperts-scratch2`
   (Arm B's first 40M full-budget stage) TRIAGED ACQUISITION-STAGE
   PASS (pre-registered mechanism/exposure gate) — genuinely still
