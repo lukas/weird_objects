@@ -283,36 +283,50 @@ def test_recover_population_start_is_bound_to_root_and_budget():
         summary, 0, "pop", "stale", 100) is None
 
 
-def test_recover_population_force_refreshes_cached_peer_summaries():
-    class ApiRun:
-        def __init__(self, summary):
-            self.summary = summary
-            self.loads = []
-
-        def load(self, force=False):
-            self.loads.append(force)
-
-    runs = {
-        "run-0": ApiRun({"remote": 0}),
-        "run-1": ApiRun({"remote": 1}),
-        "run-2": ApiRun({"remote": 2}),
+def test_recover_population_internal_reads_see_late_peers_and_updates():
+    payloads = {
+        "run-0": {
+            "name": "run-0", "displayName": "member-0",
+            "summaryMetrics": json.dumps({"remote": 0}),
+        },
     }
 
-    class Api:
-        def run(self, path):
-            return runs[path.rsplit("/", 1)[-1]]
+    class InternalApi:
+        def __init__(self):
+            self.calls = []
+
+        def run_resume_status(self, entity, project, run_id):
+            self.calls.append((entity, project, run_id))
+            return payloads.get(run_id)
 
     population = object.__new__(_RecoverPopulation)
     population.peer_names = ("member-0", "member-1", "member-2")
     population._peer_ids = {
         f"member-{member}": f"run-{member}" for member in range(3)
     }
-    population.project_path = "entity/project"
-    population.api = Api()
+    population.entity = "entity"
+    population.project = "project"
     population.run = SimpleNamespace(id="run-0")
     population._local_summary = {"local": True}
-    population._api_runs = {}
+    population._internal_api = InternalApi()
 
+    rows = population._peer_rows()
+
+    assert rows == [
+        (0, "run-0", "member-0", {"remote": 0, "local": True}),
+    ]
+
+    # The same InternalApi instance must see peers that did not exist on its
+    # earlier call, and fresh summary values on already-visible peers.
+    payloads["run-0"]["summaryMetrics"] = json.dumps({"remote": 10})
+    payloads["run-1"] = {
+        "name": "run-1", "displayName": "member-1",
+        "summaryMetrics": json.dumps({"remote": 1}),
+    }
+    payloads["run-2"] = {
+        "name": "run-2", "displayName": "member-2",
+        "summaryMetrics": json.dumps({"remote": 2}),
+    }
     rows = population._peer_rows()
 
     assert [row[:3] for row in rows] == [
@@ -320,16 +334,12 @@ def test_recover_population_force_refreshes_cached_peer_summaries():
         (1, "run-1", "member-1"),
         (2, "run-2", "member-2"),
     ]
-    assert rows[0][3] == {"remote": 0, "local": True}
-    assert all(run.loads == [True] for run in runs.values())
+    assert rows[0][3] == {"remote": 10, "local": True}
+    assert rows[1][3] == {"remote": 1}
+    assert rows[2][3] == {"remote": 2}
 
 
 def test_recover_population_uses_predeclared_wandb_run_ids(monkeypatch):
-    class Api:
-        def __init__(self, **_kwargs):
-            pass
-
-    monkeypatch.setitem(sys.modules, "wandb", SimpleNamespace(Api=Api))
     args = SimpleNamespace(
         recover_population_id="pop",
         recover_population_member=1,

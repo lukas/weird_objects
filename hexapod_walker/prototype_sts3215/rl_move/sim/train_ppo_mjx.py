@@ -348,7 +348,6 @@ class _RecoverPopulation:
     """W&B-backed best-of-N checkpoint election for recovery training."""
 
     def __init__(self, args, run, initial_bucket: int):
-        import wandb
         self.population_id = str(args.recover_population_id)
         self.member = int(args.recover_population_member)
         self.peer_names = tuple(
@@ -361,8 +360,15 @@ class _RecoverPopulation:
         if len(self.peer_ids) != len(self.peer_names):
             raise RuntimeError("recovery population W&B id roster mismatch")
         self.run = run
-        self.project_path = f"{run.entity}/{run.project}"
-        self.api = wandb.Api(timeout=15)
+        self.entity = str(run.entity)
+        self.project = str(run.project)
+        self.project_path = f"{self.entity}/{self.project}"
+        # Public Api run/list objects retain negative lookups inside the
+        # active W&B service process. InternalApi.run_resume_status issues a
+        # fresh GraphQL read and is specifically designed to see a run that
+        # did not exist on an earlier call.
+        self._internal_api = None
+        self.api = None
         self.poll_seconds = float(args.recover_population_poll_seconds)
         self.barrier_timeout = float(
             args.recover_population_barrier_timeout_seconds)
@@ -451,17 +457,33 @@ class _RecoverPopulation:
                   f"B{bucket} from member {self.member}")
 
     def _peer_rows(self) -> list[tuple[int, str, str, dict]]:
+        if self._internal_api is None:
+            from wandb.sdk.internal.internal_api import Api as InternalApi
+            self._internal_api = InternalApi()
         rows = []
         for member, name in enumerate(self.peer_names):
             run_id = self._peer_ids.get(name)
             if run_id is None:
                 continue
-            api_run = self.api.run(f"{self.project_path}/{run_id}")
-            # Public API Run objects cache summary fields. Without a forced
-            # reload, peers can train forever against the pre-election view.
-            api_run.load(force=True)
-            self._api_runs[run_id] = api_run
-            summary = dict(api_run.summary)
+            payload = self._internal_api.run_resume_status(
+                self.entity, self.project, run_id)
+            if payload is None:
+                continue
+            if str(payload.get("name", "")) != run_id:
+                raise RuntimeError(
+                    f"recovery population peer id mismatch for {run_id}")
+            display_name = str(payload.get("displayName", ""))
+            if display_name != name:
+                raise RuntimeError(
+                    "recovery population peer name mismatch for "
+                    f"{run_id}: expected {name}, got {display_name}")
+            raw_summary = payload.get("summaryMetrics") or {}
+            if isinstance(raw_summary, str):
+                raw_summary = json.loads(raw_summary)
+            if not isinstance(raw_summary, dict):
+                raise RuntimeError(
+                    f"invalid W&B summary for recovery peer {run_id}")
+            summary = dict(raw_summary)
             if run_id == str(self.run.id):
                 summary.update(self._local_summary)
             rows.append((member, run_id, name, summary))
@@ -551,8 +573,14 @@ class _RecoverPopulation:
             policy_path = POLICY_DIR / policy_rel
             curriculum_path = POLICY_DIR / curriculum_rel
         else:
-            api_run = self._api_runs.get(run_id) or self.api.run(
-                f"{self.project_path}/{run_id}")
+            import wandb
+            if self.api is None:
+                self.api = wandb.Api(timeout=15)
+            api_run = self._api_runs.get(run_id)
+            if api_run is None:
+                api_run = self.api.run(
+                    f"{self.project_path}/{run_id}")
+                self._api_runs[run_id] = api_run
             root = (POLICY_DIR / "recover_population" /
                     self.population_id /
                     f"B{int(winner['bucket']):02d}_m{int(winner['member'])}")
