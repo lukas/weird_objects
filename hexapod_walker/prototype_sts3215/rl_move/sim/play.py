@@ -105,7 +105,12 @@ freezes where it fell and waits — 7 tries an in-place recovery,
     B           reset belly-down (then 7 to rise)
     I/K J/L     persistent cruise trim (+-0.01 m/s per tap, engages WALK)
     U / O       turn left/right trim (scripted gait rows only)
-    P           pirouette toggle: full-rate spin in place (tripod rows)
+    V           VICTORY LAP — the dance_walk lap end-to-end: horse
+                PRANCE out (4.5 s) -> RL MOONWALK home (3.5 s) ->
+                PIROUETTE finale (7.4 s). Needs no row selection; if
+                the robot is sitting or low it stands up first and the
+                lap starts automatically. P/V/space/arrows cancel.
+    P           PIROUETTE alone (same auto-stand behavior)
     0 / Space   stop -> STANCE policy holds
     = / -       body height +/- 5 mm (stance)
     [ / ]       cycle STANCE model      , / .  cycle WALK model
@@ -588,6 +593,31 @@ def main() -> None:
     gait_t = 0.0
     om_cmd = 0.0        # rad/s turn command (scripted gait only)
 
+    # VICTORY LAP player (V key; P = pirouette only) — the sim twin of
+    # the robot's dance_walk lap. Independent of the model picker: the
+    # prance/spin phases run their own TripodGait at the prance write
+    # regime; the moonwalk uses the loaded RL walk champion driven
+    # backward (or the tripod, backward, if a scripted row is selected).
+    # dict: {"seq": [(phase, dur_s), ...], "i", "t", "gait", "gt"}
+    lap: dict | None = None
+    lap_pending: dict | None = None    # starts after an auto-stand ends
+    _PRANCE_KW = _SCRIPTED_TRIPOD[_TRIPOD_PRANCE]
+    LAP_V = 0.055                      # m/s moonwalk (matches bench_api)
+    _LAP_FULL = [("prance", 4.5), ("moonwalk", 3.5), ("spin", 7.4)]
+    _LAP_SPIN = [("spin", 7.4)]
+
+    def make_lap(seq) -> dict:
+        return {"seq": list(seq), "i": 0, "t": 0.0,
+                "gait": None, "gt": 0.0}
+
+    def lap_phase() -> str | None:
+        return lap["seq"][lap["i"]][0] if lap is not None else None
+
+    def nonlocal_lap_clear() -> None:
+        nonlocal lap, lap_pending
+        lap = None
+        lap_pending = None
+
     def set_stance(i: int) -> None:
         nonlocal stance, si, n_stance, msg
         si = i % len(stance_list)
@@ -673,7 +703,11 @@ def main() -> None:
             _regime_base["vel"] = prof._vel_default.copy()
             _regime_base["speed"] = env.write_speed_deg_s
             _regime_base["acc"] = env.write_acc_units
-        if walk_list[wi] in _SCRIPTED_TRIPOD:
+        tripod_live = (walk_list[wi] in _SCRIPTED_TRIPOD
+                       or (lap is not None
+                           and (lap_phase() != "moonwalk"
+                                or walk is None)))
+        if tripod_live:
             s = _WALK_WRITE_COUNTS / max(servo_fit_counts, 1.0)
             prof._vel_default[:] = _regime_base["vel"] * s
             env.write_speed_deg_s = _WALK_WRITE_COUNTS * 360.0 / 4096.0
@@ -702,12 +736,15 @@ def main() -> None:
 
     def do_reset(start: str, h_goal: float, note: str) -> None:
         nonlocal obs, msg, auto, downed, gait, om_cmd, sitting
+        nonlocal lap, lap_pending
         auto = None
         downed = False
         sitting = False
         held.clear()
         gait = None
         om_cmd = 0.0
+        lap = None
+        lap_pending = None
         traj.start_at = start
         traj.goal = TaskGoal()
         traj.goal.height_ref = h_goal
@@ -834,6 +871,7 @@ def main() -> None:
                        else "scripted transition - one moment")
                 return
         sitting = False
+        nonlocal_lap_clear()
         prof = apply_ramp("stand")
         if not downed and traj.start_at == "plant" and chassis_z() > 0.09:
             traj.goal.height_ref = 0.0
@@ -878,6 +916,7 @@ def main() -> None:
             msg = "scripted transition - one moment, then 8 again"
             return
         auto = None                     # cancels a running rise
+        nonlocal_lap_clear()
         traj.vx = traj.vy = 0.0
         om_cmd = 0.0
         prof = apply_ramp("lower")
@@ -973,6 +1012,17 @@ def main() -> None:
     while True:
         t0 = time.monotonic()
         apply_servo_regime()   # survives the profile rebuild in resets
+        # A queued lap (P/V pressed while sitting/rising) starts as soon
+        # as the robot is up, whatever stand-up path got it there.
+        if (lap_pending is not None and auto is None and not downed
+                and not sitting and chassis_z() >= 0.09):
+            traj.goal.roll_ref = traj.goal.pitch_ref = 0.0
+            traj.goal.height_ref = 0.0
+            traj._pub.roll_ref = traj._pub.pitch_ref = 0.0
+            traj._pub.height_ref = 0.0
+            lap = lap_pending
+            lap_pending = None
+            msg = "up - lap starting"
         cmd_speed = float(np.hypot(traj.vx, traj.vy))
         scripted = walk is None
         walking = ((cmd_speed > 1e-3 or (scripted and abs(om_cmd) > 1e-3))
@@ -1035,6 +1085,42 @@ def main() -> None:
             # q_now() re-read each tick, which self-chases and ratchets
             # the body back up (measured +1.5mm/tick, 08-13).
             action = q_rad_to_action(q_sit)
+        elif lap is not None:
+            phase, dur = lap["seq"][lap["i"]]
+            if phase == "moonwalk" and walk is not None:
+                traj.vx, traj.vy = -LAP_V, 0.0
+                action, _ = walk.predict(obs[:n_walk], deterministic=True)
+            else:
+                if lap["gait"] is None:
+                    g = TripodGait(period=_PRANCE_KW["period"],
+                                   lift=_PRANCE_KW["lift_mm"] * 0.001,
+                                   ramp=0.4)
+                    g.sync_plant_stance(math.degrees(q_plant[1]),
+                                        math.degrees(q_plant[2]))
+                    g.set_lift_mm(_PRANCE_KW["lift_mm"])
+                    g.reset_phase(t=0.0)
+                    lap["gait"], lap["gt"] = g, 0.0
+                g = lap["gait"]
+                if phase == "prance":
+                    g.set_velocity(vx=_PRANCE_KW["cruise"], vy=0.0,
+                                   omega=0.0)
+                elif phase == "spin":
+                    g.set_velocity(vx=0.0, vy=0.0,
+                                   omega=_PRANCE_KW["omega"])
+                else:   # moonwalk fallback: tripod, backward
+                    g.set_velocity(vx=-LAP_V, vy=0.0, omega=0.0)
+                action = q_rad_to_action(
+                    np.radians(g.desired_deg(lap["gt"])))
+                lap["gt"] += env.dt
+            lap["t"] += env.dt
+            if lap["t"] >= dur:
+                lap["i"] += 1
+                lap["t"] = 0.0
+                lap["gait"] = None      # re-pin anchors for the next phase
+                traj.vx = traj.vy = 0.0
+                if lap["i"] >= len(lap["seq"]):
+                    lap = None
+                    msg = "victory lap done - TA-DA"
         elif walking and scripted:
             if gait is None:
                 gait = new_gait()
@@ -1051,6 +1137,8 @@ def main() -> None:
             if (term or trunc) and not downed:
                 downed = True
                 auto = None
+                lap = None
+                lap_pending = None
                 held.clear()
                 traj.vx = traj.vy = 0.0
                 om_cmd = 0.0
@@ -1078,6 +1166,13 @@ def main() -> None:
         elif sitting:
             mode_txt = "LOWERED (parked) - 7 to rise, 9 to reset standing"
             mode_col = (0, 200, 255)
+        elif lap is not None:
+            _lap_names = {"prance": "PRANCE out (horse mode)",
+                          "moonwalk": "MOONWALK home",
+                          "spin": "PIROUETTE finale"}
+            mode_txt = (f"VICTORY LAP {lap['i'] + 1}/{len(lap['seq'])}: "
+                        f"{_lap_names[lap_phase()]}   (P/V/space cancels)")
+            mode_col = (0, 220, 255)
         elif walking and scripted:
             kw = _SCRIPTED_TRIPOD.get(walk_list[wi])
             if kw is not None:
@@ -1114,8 +1209,9 @@ def main() -> None:
              (120, 220, 220) if pad_name else (140, 140, 140)),
             ("keys: HOLD arrows to drive (release = stop)   "
              "7 rise  8 lower  9 reset  B belly", (180, 180, 180)),
-            ("keys: I/K/J/L cruise trim  U/O turn  P pirouette "
-             "(scripted gaits)  0/space stop  =/- height  "
+            ("keys: V VICTORY LAP (prance/moonwalk/pirouette)  "
+             "P pirouette  I/K/J/L cruise trim  U/O turn", (180, 180, 180)),
+            ("keys: 0/space stop  =/- height  "
              "[ ] stance model  , . walk model  Q quit", (180, 180, 180)),
         ]
         if msg:
@@ -1164,6 +1260,8 @@ def main() -> None:
             if chassis_z() < 0.09:
                 msg = "too low to walk - press 7 (pad: A) to rise first"
                 return False
+            # Manual drive input takes over from a running lap.
+            nonlocal_lap_clear()
             # Walk champion trained at height/tilt refs = 0: snap the
             # published stance refs to nominal so its obs is in-distribution.
             traj.goal.roll_ref = traj.goal.pitch_ref = 0.0
@@ -1240,20 +1338,39 @@ def main() -> None:
                 om_max = kw["omega"] if kw else 0.30
                 d = _STEP_W if k in (ord("u"), ord("U")) else -_STEP_W
                 om_cmd = float(np.clip(om_cmd + d, -om_max, om_max))
-        elif k in (ord("p"), ord("P")):
-            # Pirouette preset: full-rate spin in place (tap again to
-            # stop) — the dance_walk lap finale, tripod rows only.
-            kw = _SCRIPTED_TRIPOD.get(walk_list[wi])
-            if kw is None:
-                msg = "P pirouette needs a tripod row (, .)"
+        elif k in (ord("p"), ord("P"), ord("v"), ord("V")):
+            # P = pirouette, V = the full dance_walk victory lap (prance
+            # out -> RL moonwalk home -> pirouette). Self-sufficient: no
+            # row selection needed, and if the robot is sitting or low
+            # it stands up first and the lap starts when it's up.
+            spin_only = k in (ord("p"), ord("P"))
+            seq = _LAP_SPIN if spin_only else _LAP_FULL
+            name = "pirouette" if spin_only else "victory lap"
+            if lap is not None or lap_pending is not None:
+                lap = None
+                lap_pending = None
+                traj.vx = traj.vy = 0.0
+                msg = "lap cancelled - stance policy holds"
+            elif downed:
+                msg = "robot is down - 7 to rise or 9 to reset first"
+            elif auto is not None:
+                lap_pending = make_lap(seq)
+                msg = f"{name} queued - starts when the stand-up finishes"
+            elif sitting or chassis_z() < 0.09:
+                do_stand()
+                lap_pending = make_lap(seq)
+                msg = f"standing up first - {name} starts when up"
             elif engage_walk():
-                om_cmd = 0.0 if abs(om_cmd) > 1e-3 else kw["omega"]
-                msg = (f"PIROUETTE {kw['omega']:.2f} rad/s - P to stop"
-                       if om_cmd else "pirouette stopped")
+                lap = make_lap(seq)
+                msg = (f"{name.upper()} - here we go"
+                       + ("" if spin_only
+                          else " (prance -> moonwalk -> pirouette)"))
         elif k in (ord("0"), ord(" ")):
             held.clear()
             traj.vx = traj.vy = 0.0
             om_cmd = 0.0
+            lap = None
+            lap_pending = None
             msg = "stopped - HOLD (stance policy holding still)"
         elif k == ord("7"):
             do_stand()

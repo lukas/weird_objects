@@ -64,8 +64,12 @@ sim_viewer/sim_walk.sh     # walk champion alone (cv2 drive window)
   (speed 1500 counts/s, ACC 80): measured 08-18, the prance cadence is
   ACCELERATION-limited, not velocity-limited — ACC 20 smears it to
   0.012 m/s, ACC 80 realizes ~0.038 m/s upright at full height. `U`/`O`
-  turn up to the row's omega; `P` toggles a full-rate PIROUETTE in
-  place (slip makes it a partial turn — a flourish, not a 360).
+  turn up to the row's omega.
+  **`V` plays the whole dance_walk VICTORY LAP end-to-end** (horse
+  prance out 4.5 s → RL moonwalk home 3.5 s → pirouette 7.4 s) and `P`
+  plays the pirouette alone — both need NO row selection, auto-stand
+  the robot first if it's sitting/low, and cancel on P/V/space/arrows.
+  The pirouette slips to a partial turn (a flourish, not a 360).
 - **`--phase-obs`** (pass through `sim_play.sh`): enables the walk
   env's phase clock (+2 obs dims, sin/cos at the tail; `--phase-hz`
   default 1/6 = one revolution per 6 s clamp-fit cycle) so the
