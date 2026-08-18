@@ -414,3 +414,104 @@ def test_attach_actor_critic_lr_with_predictive_critic_markers(
         and not any(m in n for m in PREDICTIVE_CRITIC_MARKERS))
     assert model._ac_state["n_actor"] == n_actor_expected
     model.learn(total_timesteps=32)  # must not raise
+
+
+def test_attach_actor_critic_lr_save_load_roundtrip_frozen_encoder(
+        encoder_ckpt, corpus, tmp_path):
+    """Regression (cw-dynrep-criticD-walkcurr3, 08-18): the pre-staged
+    harness eval crashed on EVERY finished walkcurr checkpoint with
+    "loaded state dict contains a parameter group that doesn't match
+    the size of optimizer's group". Root cause: save_stock_optimizer
+    (update_health.attach_actor_critic_lr) built the save-time stock
+    optimizer over ALL model.policy.parameters() — including the
+    frozen dynamics-transformer encoder (requires_grad=False,
+    excluded from both the actor and critic optimizer groups) — 172
+    tensors on walkcurr3, instead of the 18 trainable ones a freshly
+    constructed policy's default optimizer actually contains. Every
+    condition-D/criticD run with --actor-lr set (all of walkcurr1/2/3
+    and the walkcurr4 canary tournament) saved an uneval-able
+    checkpoint. test_attachments_survive_save_load_roundtrip (plain
+    MlpPolicy, no frozen params) cannot catch this — it needs a real
+    frozen submodule, which this fixture has."""
+    model, _ = _build(encoder_ckpt, corpus, configure=False)
+    attach_actor_critic_lr(model, actor_lr=1e-4, actor_lr_final=1e-5,
+                          critic_lr=3e-4,
+                          critic_markers=PREDICTIVE_CRITIC_MARKERS)
+    model.learn(total_timesteps=32)
+    n_trainable = sum(1 for p in model.policy.parameters()
+                      if p.requires_grad)
+    n_total = sum(1 for _ in model.policy.parameters())
+    assert n_total > n_trainable, \
+        "fixture must have a frozen submodule to exercise the bug"
+    path = tmp_path / "roundtrip_frozen.zip"
+    model.save(str(path))
+    loaded = PredictiveCriticPPO.load(str(path), device="cpu")  # must not raise
+    assert len(loaded.policy.optimizer.param_groups) == 1
+    assert (len(loaded.policy.optimizer.param_groups[0]["params"])
+            == n_trainable)
+    obs_np = np.random.default_rng(1).standard_normal(
+        (3, OBS_DIM)).astype(np.float32)
+    loaded.predict(obs_np, deterministic=True)  # inference works
+
+
+def test_load_checkpoint_auto_repairs_legacy_broken_optimizer(
+        encoder_ckpt, corpus, tmp_path):
+    """load_checkpoint_auto must still open a checkpoint saved by the
+    OLD (pre-fix) save_stock_optimizer bug — e.g.
+    ppo_goal_cw_dynrep_criticD_walkcurr3.zip, already on disk before
+    this fix landed. Simulates the legacy bug (inflate the saved
+    optimizer's single param group to cover every policy.parameters()
+    tensor, not just the trainable ones) and checks
+    load_checkpoint_auto's repair fallback opens it anyway, into a
+    sibling *.optfix.zip that leaves the original untouched."""
+    import zipfile
+    import io
+    import torch as th
+    from rl_move.sim.gru_policy import (
+        load_checkpoint_auto, repair_legacy_actor_critic_optimizer,
+    )
+
+    model, _ = _build(encoder_ckpt, corpus, configure=False)
+    attach_actor_critic_lr(model, actor_lr=1e-4, actor_lr_final=1e-5,
+                          critic_lr=3e-4,
+                          critic_markers=PREDICTIVE_CRITIC_MARKERS)
+    model.learn(total_timesteps=32)
+    path = tmp_path / "legacy_broken.zip"
+    model.save(str(path))
+    n_total = sum(1 for _ in model.policy.parameters())
+
+    # Corrupt it back to the pre-fix shape: inflate param_groups[0]
+    # to n_total entries (what the old bug produced).
+    with zipfile.ZipFile(path) as z:
+        opt_sd = th.load(io.BytesIO(z.read("policy.optimizer.pth")),
+                         map_location="cpu")
+    opt_sd["param_groups"][0]["params"] = list(range(n_total))
+    buf = io.BytesIO()
+    with zipfile.ZipFile(path) as zin, \
+            zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zout:
+        for name in zin.namelist():
+            if name == "policy.optimizer.pth":
+                inner = io.BytesIO()
+                th.save(opt_sd, inner)
+                zout.writestr(name, inner.getvalue())
+            else:
+                zout.writestr(name, zin.read(name))
+    path.write_bytes(buf.getvalue())
+    orig_bytes = path.read_bytes()
+
+    with pytest.raises(ValueError, match="parameter group"):
+        PredictiveCriticPPO.load(str(path), device="cpu")
+
+    loaded = load_checkpoint_auto(str(path), device="cpu")
+    assert path.read_bytes() == orig_bytes, "original must be untouched"
+    fixed = path.with_suffix(".optfix.zip")
+    assert fixed.is_file()
+    obs_np = np.random.default_rng(2).standard_normal(
+        (3, OBS_DIM)).astype(np.float32)
+    loaded.predict(obs_np, deterministic=True)
+
+    # repair_legacy_actor_critic_optimizer itself: no-op on an
+    # already-correct checkpoint (the fixed-code save path).
+    good_path = tmp_path / "already_fine.zip"
+    model.save(str(good_path))
+    assert repair_legacy_actor_critic_optimizer(good_path) is False

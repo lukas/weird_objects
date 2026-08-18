@@ -1327,6 +1327,22 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--init-from", type=Path, default=None,
                     help="warm-start from a train_ppo_sim checkpoint "
                          "(same task/obs config)")
+    ap.add_argument("--init-from-actor-only", action="store_true",
+                    help="with --critic-encoder: copy ONLY the actor "
+                         "weights from --init-from (e.g. a scripted-"
+                         "gait BC-INIT or gait-hardened checkpoint "
+                         "trained on the plain single-frame obs) into "
+                         "a FRESH condition-D model — fresh critic, "
+                         "fresh frozen-encoder residual, zero-padded "
+                         "actor first-layer columns across the obs "
+                         "widening (single frame -> history-stacked, "
+                         "newest-first, so the extra dims are the "
+                         "OLDER frames appended at the tail). The "
+                         "critic (value_net/vf_*/value_gate/"
+                         "latent_adapter) and the frozen predictor "
+                         "snapshot are never read from --init-from. "
+                         "Operator addendum fb_20260818T085834_588d9a "
+                         "(walkcurr4 tournament arms B/C).")
     ap.add_argument("--obs-pad-transplant", type=int, default=0,
                     help="warm-start across an obs WIDENING of N dims "
                          "appended at the obs tail (e.g. walk phase "
@@ -1608,15 +1624,30 @@ def main(argv: list[str] | None = None) -> int:
         raise SystemExit("--walkcurr-post-promo-* requires "
                          "--walk-curriculum (the trigger is the "
                          "curriculum's first promotion)")
+    if args.init_from_actor_only and args.critic_encoder is None:
+        raise SystemExit("--init-from-actor-only requires "
+                         "--critic-encoder (condition D actor-only "
+                         "transfer; a plain run should just use "
+                         "--init-from)")
+    if args.init_from_actor_only and args.init_from is None:
+        raise SystemExit("--init-from-actor-only requires --init-from")
     if args.critic_encoder is not None:
         if args.gru or args.gru_dual or args.gru_experts \
                 or args.transformer:
             raise SystemExit("--critic-encoder (condition D) uses the "
                              "scratch-A MLP actor; drop --gru*/"
                              "--transformer")
-        if args.init_from is not None:
+        if args.init_from is not None and not args.init_from_actor_only:
             raise SystemExit("--critic-encoder warm start is not "
-                             "wired; condition D trains a fresh actor")
+                             "wired for a full-checkpoint --init-from; "
+                             "condition D trains a fresh critic — pass "
+                             "--init-from-actor-only for the actor-only "
+                             "transfer (operator addendum "
+                             "fb_20260818T085834_588d9a)")
+        if args.init_from_actor_only and args.obs_pad_transplant:
+            raise SystemExit("--init-from-actor-only does not compose "
+                             "with --obs-pad-transplant (pick one obs-"
+                             "widening transplant path)")
         if not args.critic_encoder_md5:
             raise SystemExit("--critic-encoder requires "
                              "--critic-encoder-md5 (refuse to train on "
@@ -1872,7 +1903,36 @@ def main(argv: list[str] | None = None) -> int:
 
     tb_dir = None if run is None else str(POLICY_DIR / "tb")
     net_arch = [int(x) for x in str(args.net_arch).split(",") if x.strip()]
-    if args.init_from is not None:
+    if args.init_from is not None and args.init_from_actor_only:
+        # Condition-D actor-only transfer (operator addendum
+        # fb_20260818T085834_588d9a, walkcurr4 tournament arms B/C):
+        # build the model EXACTLY as the fresh (no-init-from) branch
+        # below would — fresh critic, fresh zero-gated predictive
+        # residual, scratch-A actor init — then overwrite ONLY the
+        # actor-marked tensors with the source checkpoint's weights.
+        from rl_move.dynamics.predictive_critic import actor_only_transplant
+        model = algo_cls(
+            policy_cls, venv,
+            n_steps=args.n_steps, batch_size=args.batch_size,
+            n_epochs=args.n_epochs, learning_rate=args.lr,
+            gamma=(0.99 if args.gamma is None else args.gamma),
+            gae_lambda=(0.95 if args.gae_lambda is None
+                        else args.gae_lambda),
+            ent_coef=args.ent_coef,
+            clip_range=0.2,
+            target_kl=(args.target_kl if args.target_kl > 0 else None),
+            policy_kwargs=dict(net_arch=net_arch,
+                               log_std_init=args.log_std_init,
+                               **extra_pk),
+            seed=args.seed, verbose=1, device=args.device,
+            tensorboard_log=tb_dir)
+        old = PPO.load(args.init_from, device="cpu")
+        copied = actor_only_transplant(old, model)
+        del old
+        print(f"[mjx-train] actor-only transplant from {args.init_from}: "
+              f"{len(copied)} actor tensors copied ({copied}); critic "
+              "+ frozen predictor snapshot untouched (fresh)")
+    elif args.init_from is not None:
         if args.obs_pad_transplant:
             # Obs-widening warm start (port of train_ppo_sim's
             # --obs-pad-transplant): parent weights copy exactly, the

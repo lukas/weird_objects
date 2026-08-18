@@ -161,8 +161,26 @@ def attach_actor_critic_lr(model, actor_lr: float,
 
     def save_stock_optimizer(*a, **kw):
         real_opt = model.policy.optimizer
+        # BUG FIX 2026-08-18 (cw-dynrep-criticD-walkcurr3 eval crash):
+        # this MUST match what a freshly-constructed policy's default
+        # optimizer would contain, or PPO.load's set_parameters raises
+        # "parameter group that doesn't match the size of optimizer's
+        # group" on every eval/warm-start of this run's checkpoints.
+        # A policy with a frozen submodule (e.g. PredictiveCriticPolicy's
+        # frozen dynamics-transformer encoder) has model.policy.para-
+        # meters() >> trainable params — the encoder tensors sit in
+        # policy.parameters() with requires_grad=False but were never
+        # part of either the actor or critic optimizer group. The
+        # ORIGINAL "policy.parameters()" call silently included them,
+        # producing a stock optimizer with N=all-params instead of
+        # N=trainable-params (172 vs 18 on walkcurr3) — every
+        # attach_actor_critic_lr checkpoint of a policy with frozen
+        # parameters (all condition-D/criticD walkcurr runs using
+        # --actor-lr) saved an uneval-able optimizer. Filter to
+        # trainable params only, matching PredictiveCriticPolicy._build
+        # (and every other policy's default optimizer construction).
         model.policy.optimizer = opt_cls(
-            model.policy.parameters(),
+            [p for p in model.policy.parameters() if p.requires_grad],
             lr=model._ac_state["critic_lr"], **opt_kw)
         try:
             return orig_save(*a, **kw)

@@ -181,6 +181,74 @@ class PredictiveCriticPolicy(ActorCriticPolicy):
         return super().predict_values(obs) + self.value_residual(obs)
 
 
+def actor_only_transplant(old_model, new_model,
+                          critic_markers: tuple[str, ...] | None = None,
+                          ) -> list[str]:
+    """Copy ONLY the actor-side weights of ``old_model`` (a plain
+    ``ActorCriticPolicy`` checkpoint — e.g. a scripted-gait BC-INIT or
+    a gait-hardened RL checkpoint trained on the plain single-frame
+    obs) into ``new_model`` (a freshly-constructed condition-D
+    ``PredictiveCriticPolicy`` over the SAME per-frame observation,
+    history-stacked newest-first, e.g. ``obs.history_frames=16``).
+
+    Every critic-marked tensor (default: SB3's ``value_net``/
+    ``vf_features_extractor`` plus condition-D's ``value_gate``/
+    ``latent_adapter``) and every frozen buffer that has no counterpart
+    in ``old_model`` (``critic_predictor.*``, ``obs_to_frames.*``,
+    ``snapshot_version``) is left exactly as the fresh construction
+    built it — this function never even reads their old-model
+    counterparts, so the frozen predictor snapshot and the critic
+    residual start from the SAME zero-gated fresh state as a
+    from-scratch condition-D run.
+
+    The actor's first-layer weight matrix zero-pads the extra columns
+    for the additional (OLDER-history) dims appended at the observation
+    tail, so the transplanted actor reproduces ``old_model``'s action
+    distribution bit-for-bit at init for ANY value of those dims —
+    same obs-widening contract as ``train_ppo_sim.pad_obs_transplant``,
+    scoped to the actor half only. Optimizer state is fresh (not
+    copied).
+
+    Operator addendum fb_20260818T085834_588d9a (walkcurr4 tournament
+    arms B/C): actor-only initialization from a proven scripted-gait
+    or gait-hardened checkpoint with the frozen condition-D critic
+    left completely untouched. Returns the list of copied tensor
+    names (for logging/tests).
+    """
+    from rl_move.sim.update_health import CRITIC_MARKERS as _BASE
+    markers = (critic_markers if critic_markers is not None
+               else _BASE + ("value_gate", "latent_adapter"))
+
+    def _is_critic(name: str) -> bool:
+        return any(m in name for m in markers)
+
+    sd_old = old_model.policy.state_dict()
+    sd_new = new_model.policy.state_dict()
+    copied: list[str] = []
+    with th.no_grad():
+        for name, v_new in sd_new.items():
+            if _is_critic(name) or name not in sd_old:
+                continue  # critic / frozen-encoder-only: never touched
+            v_old = sd_old[name]
+            if v_new.shape == v_old.shape:
+                v_new.copy_(v_old)
+            elif (v_new.dim() == 2 and v_new.shape[0] == v_old.shape[0]
+                  and v_new.shape[1] > v_old.shape[1]):
+                v_new.zero_()
+                v_new[:, :v_old.shape[1]].copy_(v_old)
+            else:
+                raise SystemExit(
+                    f"actor_only_transplant: unexpected shape change "
+                    f"for {name}: {tuple(v_old.shape)} -> "
+                    f"{tuple(v_new.shape)}")
+            copied.append(name)
+    if not copied:
+        raise SystemExit(
+            "actor_only_transplant copied nothing — check the "
+            "checkpoint/policy architectures and critic_markers")
+    return copied
+
+
 @dataclass
 class PredictorConfig:
     mode: str = "frozen"            # "frozen" (D) | "online" (E) |
