@@ -91,11 +91,23 @@ Switching to this tab sends `HOLD` once if armed.
 
 ### Demos (`#demos`)
 
-Demo list from `GET /api/demos`; card click → `POST /api/demo
-{name, speed, torque[, size, rate, softness]}` · **Stop demo** →
+Demo list from `GET /api/demos` (each item carries `group`
+air/stand/plant/walk and `live_speed`); card click → `POST /api/demo
+{name, speed, torque, seconds[, size, rate, softness]}` · **Stop demo** →
 `POST /api/demo/stop` · sit/stand zero → `POST /api/zero` · status poll
 `GET /api/robot` at 0.5 s (zero probe every 4th poll). The canvas preview
 is schematic only — nothing is sent on hover.
+
+**Live speed** (2026-08-17): dragging the speed slider while a demo runs
+posts `POST /api/demo/speed {speed}` (debounced 150 ms, 0.25–3×).
+Streamed demos — the standing dances (`stand_*`) plus the air wiggles —
+run through `stream_pose_fn` in `inplace_demos.py`, the stand-up lab's
+20 Hz pursuit engine (carrot lookahead, per-tick speed/acc sizing,
+3 A stall-fight guard), and re-read the multiplier every tick; breathe
+stays glide-based and picks it up at the next half-breath. `seconds`
+only applies to air + streamed demos (5–300 s); planted shows keep
+their scripted timing. Standing dances home through the validated 10×
+keyframe stand-up and dance around the captured plant at τ900.
 
 ### RL (`#rl`)
 

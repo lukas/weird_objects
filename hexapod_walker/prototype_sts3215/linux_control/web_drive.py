@@ -411,7 +411,17 @@ class Handler(BaseHTTPRequestHandler):
                     kw["rate"] = float(data["rate"])
                 if "torque" in data and data.get("torque") is not None:
                     kw["torque"] = int(float(data["torque"]))
+                if "seconds" in data and data.get("seconds") is not None:
+                    kw["seconds"] = float(data["seconds"])
                 self._json(200, BENCH.run_demo(str(data.get("name", "")), **kw))
+            except Exception as e:
+                self._json(400, {"ok": False, "error": str(e)})
+        elif path == "/api/demo/speed":
+            # LIVE tempo: adjusts the running demo (streamed demos every
+            # tick; breathe at the next half-breath).
+            try:
+                data = json.loads(body or "{}")
+                self._json(200, BENCH.set_demo_speed(data.get("speed", 1.0)))
             except Exception as e:
                 self._json(400, {"ok": False, "error": str(e)})
         elif path == "/api/demo/stop":

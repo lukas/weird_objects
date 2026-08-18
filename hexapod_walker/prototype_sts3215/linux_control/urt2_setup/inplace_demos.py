@@ -713,40 +713,159 @@ def _yaw_hip_knee(leg: int, pose: list[float], *,
 
 
 # ---------------------------------------------------------------------------
+# Live-speed streamed demos — the stand-up lab technique (2026-08-17).
+#
+# The experiments page's stand/sit feel comes from HOST-OWNED timing:
+# sample a time-parameterized pose q(t) at ~20 Hz and stream it through
+# PoseStreamer with speed/acc sized to the ACTUAL elapsed tick, plus a
+# carrot lookahead so the servos never run out of goal and park between
+# writes (the ~18 Hz stutter the stand-up lab already fixed).  This is
+# that pursuit loop generalized for cyclic demos, with a LIVE speed
+# multiplier read every tick (web slider while the demo runs) and the
+# same stall-fight current guard as the stand-up lab.
+# ---------------------------------------------------------------------------
+STREAM_TICK_S = 0.05          # ~20 Hz host tick
+STREAM_LOOKAHEAD_S = 0.12     # carrot: command ~2 ticks ahead of schedule
+STREAM_GUARD_A = 3.0          # stall-fight: joint over this while not moving
+STREAM_HARD_CAP_A = 4.0       # instantaneous hard cap, trips regardless
+STAND_DANCE_TORQUE = 900      # weight-bearing motion (end-hold restores 1000)
+LIVE_SPEED_MIN = 0.25
+LIVE_SPEED_MAX = 3.0
+
+
+def _clamp_live_speed(x) -> float:
+    try:
+        v = float(x)
+    except (TypeError, ValueError):
+        v = 1.0
+    return max(LIVE_SPEED_MIN, min(LIVE_SPEED_MAX, v))
+
+
+def stream_pose_fn(bus: FeetechBus, live: set[int], pose_fn, *,
+                   seconds: float, abort_check=None,
+                   speed_fn=None, status_cb=None, label: str = "stream",
+                   tracker: CurrentPeakTracker | None = None,
+                   guard_a: float = STREAM_GUARD_A,
+                   log: MotionLog | None = None,
+                   max_speed: int = 3000, max_acc: int = 200) -> str:
+    """Stream ``pose_fn(t)`` at ~20 Hz with a live tempo multiplier.
+
+    Demo time ``t`` advances by wall-dt x ``speed_fn()`` every tick, so
+    the web speed slider changes tempo MID-MOTION.  ``seconds`` is demo
+    time (equals wall time at 1x).  Returns ``done`` / ``aborted`` /
+    ``guard`` — on ``guard`` the robot is already holding in place;
+    the caller decides how to surface it.
+    """
+    check = abort_check or (lambda: False)
+    spd = speed_fn or (lambda: 1.0)
+    if tracker is None:
+        tracker = CurrentPeakTracker()
+    seconds = float(seconds)
+    q0 = pose_fn(0.0)
+    # Align onto the start pose first (quick, abortable) so the streamer
+    # never has to cover a big gap in one tick.
+    present = _read_pose(bus, live)
+    worst0 = max((abs(a - b) for j, (a, b) in enumerate(zip(present, q0))
+                  if joint_to_servo_id(j) in live), default=0.0)
+    if worst0 > 5.0:
+        if not ease_to_pose(bus, q0, abort_check=check,
+                            seconds=max(0.6, worst0 / 90.0),
+                            label=f"{label} align",
+                            current_tracker=tracker):
+            return "aborted"
+    streamer = PoseStreamer()
+    streamer.last = list(q0)   # primed: skip the gentle first-write ease
+    stall_prev: set = set()
+    sweep_n = 0
+    t = 0.0
+    t0 = time.monotonic()
+    wall_prev = t0
+    t_prev = 0.0
+    last_sample = -1.0
+    while t < seconds:
+        if check():
+            # Return immediately — no bus ops here (concurrent hold from
+            # the web Stop handler was hanging the MCU link).
+            return "aborted"
+        wall = time.monotonic()
+        rate = _clamp_live_speed(spd())
+        t += (wall - wall_prev) * rate
+        wall_prev = wall
+        q = pose_fn(min(t + STREAM_LOOKAHEAD_S * rate, seconds))
+        # dt*0.75 cancels _speed_for_delta's 0.9 undershoot and commands
+        # slightly above the carrot rate so accumulated lag drains —
+        # same sizing as the stand-up pursuit.
+        streamer.write(
+            bus, q, live,
+            dt=min(max(wall - t0 - t_prev, 0.03), 0.25) * 0.75,
+            deadband=0.3, max_speed=max_speed, max_acc=max_acc)
+        t_prev = wall - t0
+        if wall - t0 - last_sample > 0.25:
+            # Feedback sweeps cost real bus time — sample sparsely.
+            tracker.sample(bus, live)
+            last_sample = wall - t0
+            sweep_n += 1
+            if log is not None and sweep_n % 2 == 0:
+                log.sample(bus, q, wrote={})
+            if tracker.peak_a > STREAM_HARD_CAP_A:
+                _hold_here(bus, live)
+                return "guard"
+            # Stall-fight semantics (same as the stand-up lab): a joint
+            # over the limit while NOT moving, two sweeps in a row.
+            now = {fb["joint"] for fb in tracker.last_fb
+                   if abs(fb["current_a"]) > guard_a
+                   and abs(fb["speed_deg_s"]) < 8.0}
+            if now & stall_prev:
+                _hold_here(bus, live)
+                return "guard"
+            stall_prev = now
+            if status_cb is not None:
+                try:
+                    status_cb(f"{label}: {t:.0f}/{seconds:.0f}s "
+                              f"x{rate:.2f} peak {tracker.peak_a:.2f}A")
+                except Exception:
+                    pass
+        time.sleep(STREAM_TICK_S)
+    return "done"
+
+
+# ---------------------------------------------------------------------------
 # Demos — offsets around zero (legs straight out / "arms in the air")
 # ---------------------------------------------------------------------------
 
 
-def frames_shimmy(seconds: float = 7.0):
+def pose_shimmy(t: float) -> list[float]:
     """Odd/even yaw wave — arms shimmy, no stand-up.
 
     Kept slow (~0.55 Hz, ±8°) so STS trapezoids can track without
     overshooting into gear backlash.
     """
-    base = _zero_pose()
-    n = max(1, int(seconds / DT))
-    for i in range(n):
-        t = i * DT
-        pose = list(base)
-        amp = 8.0 * math.sin(2 * math.pi * 0.55 * t)
-        for leg in range(6):
-            sign = 1.0 if leg % 2 == 0 else -1.0
-            _yaw_hip_knee(leg, pose, yaw=sign * amp)
-        yield pose
+    pose = _zero_pose()
+    amp = 8.0 * math.sin(2 * math.pi * 0.55 * t)
+    for leg in range(6):
+        sign = 1.0 if leg % 2 == 0 else -1.0
+        _yaw_hip_knee(leg, pose, yaw=sign * amp)
+    return pose
+
+
+def frames_shimmy(seconds: float = 7.0):
+    for i in range(max(1, int(seconds / DT))):
+        yield pose_shimmy(i * DT)
+
+
+def pose_ripple(t: float) -> list[float]:
+    """Yaw wave travels around the hex."""
+    pose = _zero_pose()
+    for leg in range(6):
+        phase = leg * (math.pi / 3.0)
+        yaw = 10.0 * math.sin(2 * math.pi * 0.45 * t - phase)
+        _yaw_hip_knee(leg, pose, yaw=yaw)
+    return pose
 
 
 def frames_ripple(seconds: float = 8.0):
-    """Yaw wave travels around the hex."""
-    base = _zero_pose()
-    n = max(1, int(seconds / DT))
-    for i in range(n):
-        t = i * DT
-        pose = list(base)
-        for leg in range(6):
-            phase = leg * (math.pi / 3.0)
-            yaw = 10.0 * math.sin(2 * math.pi * 0.45 * t - phase)
-            _yaw_hip_knee(leg, pose, yaw=yaw)
-        yield pose
+    for i in range(max(1, int(seconds / DT))):
+        yield pose_ripple(i * DT)
 
 
 # Breathe is glide-based (one SyncWrite per half-breath).  Host-streaming
@@ -846,6 +965,7 @@ def run_breathe_demo(bus: FeetechBus, *,
                      torque: int | None = None,
                      softness: float = 1.0,
                      big: bool = False,
+                     speed_fn=None,
                      log_path: Path | None = None) -> str:
     """Inhale / exhale via servo-side trapezoids (no host frame stream).
 
@@ -854,6 +974,8 @@ def run_breathe_demo(bus: FeetechBus, *,
       rate     — breath Hz (None → auto from size)
       torque   — SRAM torque limit 200–1000 (None → DEMO_TORQUE_LIMIT)
       softness — accel gentleness 0.5–3 (1 = nominal)
+      speed_fn — LIVE tempo multiplier, read at each half-breath (the
+                 glide itself stays servo-side — that's breathe's charm)
     """
     live = _live_robot_ids(bus)
     if len(live) < 3:
@@ -902,20 +1024,27 @@ def run_breathe_demo(bus: FeetechBus, *,
         log_cm = MotionLog(log_path, live)
         log_cm.__enter__()
         glide_kw["log"] = log_cm
+
+    def _half_s() -> float:
+        # Live tempo: each half-breath reads the web slider. Floor drops
+        # with speed (a fast breath may snap a little; that's the ask).
+        s = _clamp_live_speed(speed_fn()) if speed_fn is not None else 1.0
+        return max(0.8, half / s)
+
     status = "done"
     try:
-        if not _soft_glide(bus, open_pose, live, min(1.8, half), check,
+        if not _soft_glide(bus, open_pose, live, min(1.8, _half_s()), check,
                            **glide_kw):
             status = "aborted"
             return status
         here = open_pose
         for _i in range(n_cycles):
-            if not _soft_glide(bus, peak_pose, live, half, check,
+            if not _soft_glide(bus, peak_pose, live, _half_s(), check,
                                start=here, **glide_kw):
                 status = "aborted"
                 return status
             here = peak_pose
-            if not _soft_glide(bus, open_pose, live, half, check,
+            if not _soft_glide(bus, open_pose, live, _half_s(), check,
                                start=here, **glide_kw):
                 status = "aborted"
                 return status
@@ -1186,34 +1315,36 @@ def run_breathe_vel_demo(bus: FeetechBus, *,
     return status
 
 
-def frames_heartbeat(seconds: float = 6.0):
+def pose_heartbeat(t: float) -> list[float]:
     """Double-thump pulse on all knees (from zero)."""
-    base = _zero_pose()
-    n = max(1, int(seconds / DT))
-    for i in range(n):
-        t = i * DT
-        pose = list(base)
-        cycle = (t % 1.1) / 1.1
-        if cycle < 0.12:
-            k = 12.0 * math.sin(math.pi * cycle / 0.12)
-        elif 0.18 < cycle < 0.30:
-            k = 8.0 * math.sin(math.pi * (cycle - 0.18) / 0.12)
-        else:
-            k = 0.0
-        for leg in range(6):
-            _yaw_hip_knee(leg, pose, knee=k, hip=-0.5 * k)
-        yield pose
+    pose = _zero_pose()
+    cycle = (t % 1.1) / 1.1
+    if cycle < 0.12:
+        k = 12.0 * math.sin(math.pi * cycle / 0.12)
+    elif 0.18 < cycle < 0.30:
+        k = 8.0 * math.sin(math.pi * (cycle - 0.18) / 0.12)
+    else:
+        k = 0.0
+    for leg in range(6):
+        _yaw_hip_knee(leg, pose, knee=k, hip=-0.5 * k)
+    return pose
 
 
-def frames_twinkle(seconds: float = 6.0):
-    """Small independent wiggles — looks alive in the air."""
-    base = _zero_pose()
-    n = max(1, int(seconds / DT))
+def frames_heartbeat(seconds: float = 6.0):
+    for i in range(max(1, int(seconds / DT))):
+        yield pose_heartbeat(i * DT)
+
+
+def make_pose_twinkle():
+    """Small independent wiggles — looks alive in the air.
+
+    Factory: each run gets its own random phases/frequencies.
+    """
     phases = [random.random() * 2 * math.pi for _ in range(N_JOINTS)]
     freqs = [0.35 + 0.25 * random.random() for _ in range(N_JOINTS)]
-    for i in range(n):
-        t = i * DT
-        pose = list(base)
+
+    def pose_fn(t: float) -> list[float]:
+        pose = _zero_pose()
         for leg in range(6):
             j0 = leg * 3
             yaw = 6.0 * math.sin(2 * math.pi * freqs[j0] * t + phases[j0])
@@ -1222,25 +1353,34 @@ def frames_twinkle(seconds: float = 6.0):
             knee = 5.0 * math.sin(2 * math.pi * freqs[j0 + 2] * t
                                   + phases[j0 + 2])
             _yaw_hip_knee(leg, pose, yaw=yaw, hip=hip, knee=knee)
-        yield pose
+        return pose
+
+    return pose_fn
+
+
+def frames_twinkle(seconds: float = 6.0):
+    fn = make_pose_twinkle()
+    for i in range(max(1, int(seconds / DT))):
+        yield fn(i * DT)
+
+
+def pose_conductor(t: float) -> list[float]:
+    """One leg waves; others hold near zero."""
+    pose = _zero_pose()
+    pointer = int((t * 0.4) % 6)
+    for leg in range(6):
+        if leg == pointer:
+            yaw = 12.0 * math.sin(2 * math.pi * 0.7 * t)
+            hip = -5.0 * abs(math.sin(2 * math.pi * 0.7 * t))
+            _yaw_hip_knee(leg, pose, yaw=yaw, hip=hip)
+        elif abs(leg - pointer) % 6 in (1, 5):
+            _yaw_hip_knee(leg, pose, yaw=-3.0)
+    return pose
 
 
 def frames_conductor(seconds: float = 8.0):
-    """One leg waves; others hold near zero."""
-    base = _zero_pose()
-    n = max(1, int(seconds / DT))
-    for i in range(n):
-        t = i * DT
-        pose = list(base)
-        pointer = int((t * 0.4) % 6)
-        for leg in range(6):
-            if leg == pointer:
-                yaw = 12.0 * math.sin(2 * math.pi * 0.7 * t)
-                hip = -5.0 * abs(math.sin(2 * math.pi * 0.7 * t))
-                _yaw_hip_knee(leg, pose, yaw=yaw, hip=hip)
-            elif abs(leg - pointer) % 6 in (1, 5):
-                _yaw_hip_knee(leg, pose, yaw=-3.0)
-        yield pose
+    for i in range(max(1, int(seconds / DT))):
+        yield pose_conductor(i * DT)
 
 
 def run_arms_up_demo(bus: FeetechBus, *,
@@ -1345,6 +1485,201 @@ def run_stand_hands_demo(bus: FeetechBus, *,
                                 down_s, "stand_hands")
 
 
+# ---------------------------------------------------------------------------
+# Standing dances — streamed offsets around the LIVE captured plant.
+#
+# Built for the redone demos page (2026-08-17): they home via the
+# validated keyframe stand-up (the experiments-page 10x technique), then
+# dance AROUND standing_pose_degrees() — the stance the stand-up actually
+# ends on — instead of yanking to the tall hip+20/knee+80 display stilts.
+# All are zero-mean / cyclic, cord-safe (yaw averages 0), and run through
+# stream_pose_fn so the web speed slider works live.
+#
+# FK note (foot drop ≈ 90·sin(hip) + 128·sin(hip+knee) mm): near the
+# plant, HIP dominates body height (~62 mm/rad) while knee barely moves
+# it — so bounce/sway modulate hips with a small knee assist.
+# ---------------------------------------------------------------------------
+STAND_SWAY_HZ = 0.35
+STAND_SWAY_HIP_DEG = 5.0
+STAND_BOUNCE_HZ = 0.8
+STAND_BOUNCE_HIP_DEG = 7.0
+STAND_TWIST_HZ = 0.45
+STAND_TWIST_YAW_DEG = 10.0
+STAND_WAVE_LEG_S = 3.0        # seconds per leg (demo time)
+STAND_WAVE_LIFT_HIP_DEG = -12.0
+STAND_WAVE_LIFT_KNEE_DEG = -30.0
+STAND_WAVE_YAW_DEG = 12.0
+STAND_RIPPLE_HZ = 0.45
+STAND_RIPPLE_LIFT_HIP_DEG = -10.0
+STAND_RIPPLE_LIFT_KNEE_DEG = -24.0
+
+
+def make_stand_pose_fn(name: str):
+    """Pose function for one standing dance, anchored to the live plant."""
+    base = _stand_zero_pose()
+    two_pi = 2.0 * math.pi
+
+    def _with_offsets(offs) -> list[float]:
+        pose = list(base)
+        for leg in range(6):
+            yaw, hip, knee = offs(leg)
+            _yaw_hip_knee(leg, pose, yaw=yaw, hip=hip, knee=knee)
+        return pose
+
+    if name == "stand_sway":
+        # Traveling crouch wave → the body leans in a slow circle.
+        def fn(t: float) -> list[float]:
+            w = two_pi * STAND_SWAY_HZ * t
+            return _with_offsets(lambda leg: (
+                0.0,
+                STAND_SWAY_HIP_DEG * math.sin(w + leg * math.pi / 3.0),
+                -0.5 * STAND_SWAY_HIP_DEG
+                * math.sin(w + leg * math.pi / 3.0)))
+        return fn
+    if name == "stand_bounce":
+        # Raised-cosine squat bob: starts and ends at the plant.
+        def fn(t: float) -> list[float]:
+            crouch = 0.5 * (1.0 - math.cos(two_pi * STAND_BOUNCE_HZ * t))
+            return _with_offsets(lambda leg: (
+                0.0,
+                -STAND_BOUNCE_HIP_DEG * crouch,
+                0.5 * STAND_BOUNCE_HIP_DEG * crouch))
+        return fn
+    if name == "stand_twist":
+        # In-place body twist; zero-mean so cords never wind.
+        def fn(t: float) -> list[float]:
+            yaw = STAND_TWIST_YAW_DEG * math.sin(two_pi * STAND_TWIST_HZ * t)
+            return _with_offsets(lambda leg: (yaw, 0.0, 0.0))
+        return fn
+    if name == "stand_wave":
+        # One leg at a time lifts off the plant and waves, then sets
+        # down; the lift envelope is 0 at every leg handoff (smooth).
+        def fn(t: float) -> list[float]:
+            k = int(t / STAND_WAVE_LEG_S) % 6
+            u = (t % STAND_WAVE_LEG_S) / STAND_WAVE_LEG_S
+            env = math.sin(math.pi * u) ** 2
+            wave = math.sin(two_pi * 1.5 * t)
+            return _with_offsets(lambda leg: (
+                STAND_WAVE_YAW_DEG * env * wave if leg == k else 0.0,
+                STAND_WAVE_LIFT_HIP_DEG * env if leg == k else 0.0,
+                STAND_WAVE_LIFT_KNEE_DEG * env if leg == k else 0.0))
+        return fn
+    if name == "stand_ripple":
+        # Traveling lift bump around the hex — sharp enough that only
+        # ~one leg is meaningfully off the ground at a time.
+        def fn(t: float) -> list[float]:
+            w = two_pi * STAND_RIPPLE_HZ * t
+
+            def offs(leg: int):
+                env = max(0.0, math.sin(w - leg * math.pi / 3.0)) ** 3
+                return (0.0,
+                        STAND_RIPPLE_LIFT_HIP_DEG * env,
+                        STAND_RIPPLE_LIFT_KNEE_DEG * env)
+            return _with_offsets(offs)
+        return fn
+    raise SystemExit(f"unknown standing dance {name!r}")
+
+
+# Streamed demos (live speed): standing dances + the air wiggles.
+STAND_STREAM_DEMOS = ("stand_sway", "stand_bounce", "stand_twist",
+                      "stand_wave", "stand_ripple")
+STREAM_POSE_FACTORIES = {
+    "shimmy": lambda: pose_shimmy,
+    "ripple": lambda: pose_ripple,
+    "heartbeat": lambda: pose_heartbeat,
+    "conductor": lambda: pose_conductor,
+    "twinkle": make_pose_twinkle,
+    **{n: (lambda n=n: make_stand_pose_fn(n)) for n in STAND_STREAM_DEMOS},
+}
+# Default demo-time duration for standing dances (CLI; web sends its own).
+STAND_STREAM_SECONDS = 20.0
+STREAM_SECONDS_MAX = 300.0
+
+
+def run_streamed_demo(bus: FeetechBus, name: str, *,
+                      seconds: float | None = None,
+                      speed: float = 1.0,
+                      speed_fn=None,
+                      torque: int | None = None,
+                      abort_check=None,
+                      status_cb=None,
+                      log_path: Path | None = None) -> str:
+    """One streamed demo (stand dance or air wiggle) with live tempo."""
+    if name not in STREAM_POSE_FACTORIES:
+        raise SystemExit(f"unknown streamed demo {name!r}")
+    live = _live_robot_ids(bus)
+    if len(live) < 3:
+        print(f"  Only {len(live)} robot servo(s) on the bus — need more.")
+        return "skipped"
+    if len(live) < 18:
+        print(f"  Note: {len(live)}/18 robot IDs answering; animating "
+              f"those only: {sorted(live)}")
+    check = abort_check or (lambda: False)
+    if speed_fn is None:
+        spd0 = _clamp_live_speed(speed)
+        speed_fn = lambda: spd0  # noqa: E731
+    standing = name in STAND_STREAM_DEMOS
+    if seconds is None:
+        dur = STAND_STREAM_SECONDS if standing else AIR_DEMO_SECONDS.get(
+            name, 7.0)
+    else:
+        dur = float(seconds)
+    dur = max(2.0, min(STREAM_SECONDS_MAX, dur))
+
+    _enable_torque(bus, live)
+    if standing:
+        # Weight-bearing motion: near-full torque (knees buckle at the
+        # soft demo limit); the stall-fight guard is the safety net.
+        tlim = STAND_DANCE_TORQUE
+    else:
+        try:
+            tlim = int(torque) if torque is not None else DEMO_TORQUE_LIMIT
+        except (TypeError, ValueError):
+            tlim = DEMO_TORQUE_LIMIT
+        tlim = max(150, min(1000, tlim))
+    _set_torque_limit(bus, live, tlim)
+
+    pose_fn = STREAM_POSE_FACTORIES[name]()
+    tracker = CurrentPeakTracker()
+    title = DEMOS[name][0] if name in DEMOS else name
+    print(f"  {name} — {title}")
+    print(f"    streamed @ ~{1.0 / STREAM_TICK_S:.0f} Hz for ~{dur:.0f}s "
+          f"(live speed x{_clamp_live_speed(speed_fn()):.2f}) τ{tlim}")
+    print("  Any key aborts.")
+
+    log_cm = MotionLog(log_path, live) if log_path is not None else None
+    if log_cm is not None:
+        log_cm.__enter__()
+    try:
+        st = stream_pose_fn(
+            bus, live, pose_fn, seconds=dur, abort_check=check,
+            speed_fn=speed_fn, status_cb=status_cb, label=name,
+            tracker=tracker, log=log_cm)
+        if st == "aborted":
+            return "aborted"
+        if st == "guard":
+            msg = (f"stopped: {tracker.peak_a:.2f} A peak on joint "
+                   f"{tracker.peak_joint} — stall-fight, holding here")
+            print(f"  {msg}")
+            return msg
+        # Natural finish: settle back onto the base pose.
+        _set_torque_limit(bus, live, 1000)
+        if standing:
+            if not _soft_glide(bus, _stand_zero_pose(), live, 0.9, check,
+                               max_speed=600, max_acc=60):
+                return "aborted"
+            return "done"   # bench keeps holding the plant (stand hold)
+        print("  Demo finished — easing back to zero ...")
+        if not go_to_zero_pose(bus, abort_check=check, seconds=1.5):
+            return "aborted"
+        _limp_all(bus, live)
+        return "done"
+    finally:
+        if log_cm is not None:
+            log_cm.__exit__(None, None, None)
+        _set_torque_limit(bus, live, 1000)
+
+
 # Ordered gentlest → spiciest (web UI + CLI menu follow this order).
 DEMOS = {
     # --- gentle air (offsets around logical 0° / legs out) ---------------
@@ -1358,6 +1693,12 @@ DEMOS = {
     "ripple": ("[2 easy] yaw wave around the hex (air)", frames_ripple),
     "conductor": ("[2 easy] one leg waves; others hold", frames_conductor),
     "arms_up": ("[2 easy] sit: all six arms way over head", None),
+    # --- standing dances (streamed · live speed · around the live plant) --
+    "stand_sway": ("[3 stand] slow body sway — weight orbits the hex", None),
+    "stand_bounce": ("[3 stand] squat bob — smooth streamed bounce", None),
+    "stand_twist": ("[3 stand] in-place body twist (cord-safe)", None),
+    "stand_wave": ("[3 stand] one leg lifts + waves, cycles legs", None),
+    "stand_ripple": ("[4 stand] traveling lift wave around the hex", None),
     # --- mild planted ----------------------------------------------------
     "rise": ("[3 plant] deep reach; ends at stand zero", None),
     "rise+": ("[3 plant] higher + faster reach; ends at stand zero", None),
@@ -2301,12 +2642,18 @@ def run_demo(bus: FeetechBus, name: str, *,
              torque: int | None = None,
              softness: float = 1.0,
              abort_check=None,
+             speed_fn=None,
+             status_cb=None,
              log_path: Path | None = None,
              rise_high: bool = False,
              rise_fast: bool = False) -> str:
     """Run one demo.  Returns ``done`` / ``aborted`` / ``skipped``.
 
     ``speed``: 1.0 = nominal, 2.0 = twice as fast, 0.5 = half speed.
+    ``speed_fn``: LIVE tempo callable (web slider) — streamed demos read
+    it every tick, breathe at each half-breath.  When given, ``speed``
+    is just the initial value (durations are NOT pre-scaled).
+    ``status_cb``: optional live status-string callback (web UI).
     ``size`` / ``rate`` / ``softness``: breathe tunables.
     ``torque``: SRAM torque limit for air demos (None → default).
     ``seconds`` (optional) still overrides absolute durations when set;
@@ -2319,6 +2666,13 @@ def run_demo(bus: FeetechBus, name: str, *,
         raise SystemExit(f"unknown demo {name!r}; try: {', '.join(DEMOS)}")
     sc = _speed_scale(speed)
     spd = _clamp_demo_speed(speed)
+    if name in STREAM_POSE_FACTORIES:
+        # Streamed engine (standing dances + air wiggles): host-owned
+        # timing, live tempo — the stand-up lab technique.
+        return run_streamed_demo(
+            bus, name, seconds=seconds, speed=spd, speed_fn=speed_fn,
+            torque=torque, abort_check=abort_check, status_cb=status_cb,
+            log_path=log_path)
     if name in ("rise", "rise+"):
         use_high = name == "rise+" or rise_high
         use_fast = name == "rise+" or rise_fast
@@ -2365,6 +2719,9 @@ def run_demo(bus: FeetechBus, name: str, *,
 
     if seconds is not None:
         air_s = float(seconds)
+    elif speed_fn is not None:
+        # Live tempo owns the pace — don't pre-scale the duration too.
+        air_s = AIR_DEMO_SECONDS.get(name, 7.0)
     else:
         air_s = AIR_DEMO_SECONDS.get(name, 7.0) * sc
     print(f"  demo speed {spd:.2f}×  ({air_s:.1f}s)")
@@ -2373,7 +2730,8 @@ def run_demo(bus: FeetechBus, name: str, *,
     if name == "breathe":
         return run_breathe_demo(
             bus, seconds=air_s, abort_check=abort_check, size=size,
-            rate=rate, torque=torque, softness=softness, log_path=log_path)
+            rate=rate, torque=torque, softness=softness,
+            speed_fn=speed_fn, log_path=log_path)
     if name == "breathe_v":
         return run_breathe_vel_demo(
             bus, seconds=air_s, abort_check=abort_check, size=size,
