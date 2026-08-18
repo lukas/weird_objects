@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: FAILED
+**status**: CRASHED
 
 **created**: 2026-08-18T16:44:16+00:00
 
@@ -18,7 +18,7 @@
 
 **gate**: Live integration gate: (1) commands at d37fee09 or descendant; exact names/seeds 11/12/13; id roster 20827091,2dc580a7,200e6aac exact on every member and W&B pages exactly those ids; (2) from-scratch purity: no --init-from, no --recover-init-curriculum on any member; encoder md5 9df48f687967c25085ee50171e4110ff verified at load on all 3; (3) all 3 stop at the bootstrap barrier (655,360) with valid ready_B00, leader releases start_B00, all 3 cross; (4) first cert on all members reports CERT/recover_training_envs_synchronized=512; (5) every promotion follows the unchanged election protocol (one winner, identical-hash adoption+ACK on all 3 before release); (6) fail closed + preserve evidence on any breach; never silently continue a partial cohort. Behavioral verdict at the pre-registered 40M checkpoints on the 23-rung ladder: video-verified genuine six-foot recovery (no flag/stilt/park exploit), frontier judged against the any21 cohort's B14 wall.
 
-**verdict**: Stopped deliberately at the bootstrap barrier (pre-divergence): member 2 (s13) crashed at boot on train-8 missing v5_mjx_fresh dataset and burned its single-use predeclared id 200e6aac, so the baked-in roster can never rendezvous. Fail closed, never continue a partial cohort. Healthy while it ran. Re-run: cw-recover-predictive1b-pop3 with fresh ids on pods 5/7/9.
+**verdict**: Same silent-death pattern as sibling s11 (see its verdict for the full diagnosis): ran cleanly on hexapod-mjx-train-7 through the full 10-iteration bootstrap window, hit the recover-population barrier at exactly 655,360 steps, then went zombie with no traceback ~90s after s11 died the identical way on a different pod. Reproducible across both members that got that far -- treat 'predictive-actor + recover-population wait_for_start' as UNPROVEN, not proven, despite the plain population mechanism (any21c2, no predictive-actor) working fine at 40M. Diagnostic PYTHONUNBUFFERED launcher fix landed (4a62f80a) for the next attempt. A concurrent cycle already relaunched attempt 2 (cw-recover-predictive1b-pop3-*) under the operator retry-once clause; left untouched.
 
 **note**: INTENT->RUNNING verification completed manually: the launching cycle shell hit its own 10-min timeout after the trainer was already started; pid 34496 verified alive on train-7 with PPO update tables advancing and encoder md5 verified in the boot log.
 

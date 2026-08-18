@@ -22,6 +22,44 @@ unresolved blockers between the robot and reliable joystick control.
 
 ## Now
 
+- **08-18 ~16:5x (triage cycle): `cw-recover-predictive1-canary1` CANARY
+  PASSED** (frozen dynamics-transformer context in the recover
+  actor+critic, 15-tick reset probe, obs 1440; operator order
+  fb_20260818T161001Z) — mechanism-health only, licenses the
+  from-scratch 3-seed `predictive1-pop3` cohort. **First launch
+  attempt (`cw-recover-predictive1-pop3-s11/s12/s13`) hit THREE
+  distinct pod-level problems, none of them behavioral**: (1) s11's
+  first pod (train-6) has a CPU-only torch build despite showing an
+  H200 (`torch.cuda.is_available()=False`) — avoid train-6 until
+  reimaged; (2) s13's first pod (train-8, also train-0) is missing
+  the `rl_move/dynamics/datasets/v5_mjx_fresh` shard directory that
+  `--predictive-actor` loads at startup — clean `FileNotFoundError`,
+  not present on train-4/5/7/9/11; (3) **s11 (train-5) and s12
+  (train-7), both relaunched clean, ran ~10 healthy PPO iterations
+  each and then went silently zombie (`ps` state Z, no traceback, no
+  cgroup OOM, no k8s eviction) within ~90s of each other, both at
+  EXACTLY the recover-population bootstrap barrier step count
+  (655,360) — the first time `--predictive-actor` has ever been
+  combined with the population-sync barrier code.** Root cause not
+  isolated (buffered stdout most likely ate a real traceback); fixed
+  forward with a diagnostic-only launcher change,
+  `PYTHONUNBUFFERED=1` on every trainer launch (commit 4a62f80a,
+  tests green) so a repeat gives real evidence. A concurrent cycle
+  independently relaunched attempt 2 as
+  `cw-recover-predictive1b-pop3-s11/s12/s13` under the operator's
+  retry-once clause before the unbuffered fix reached those pods (old
+  buffered stdout still in effect there) — **left untouched, their
+  run; watch whether it also dies at 655,360** (s13 crossed the
+  barrier and sat waiting >5 min without dying on this attempt, a
+  mildly encouraging but inconclusive sign since the first attempt's
+  s11 also survived a similar wait before dying). If predictive1b also
+  dies at the barrier, that is TWO independent failures at the same
+  code path — stop blind-retrying a third time and dig into
+  `_RecoverPopulation.wait_for_start`/`_peer_rows` directly (next
+  attempt should at least carry the unbuffered fix). No behavioral
+  verdict on recovery skill from any of this — mechanism-integration
+  only. Detail: ledger verdicts on all `predictive1-pop3-*` entries.
+
 - **08-18 ~16:3x (triage cycle): `cw-dep-bcgait1-hard1-steer1c`
   canary PASSED (mechanism-health only) — found already finished on
   the pod (ledger said RUNNING; W&B state=finished + no live process
