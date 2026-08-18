@@ -22,6 +22,27 @@ unresolved blockers between the robot and reliable joystick control.
 
 ## Now
 
+- **08-18 ~19:1x (triage cycle): recover "keep it rumbling" continuation,
+  member `s13`, finished its +100M — the OPPOSITE direction from
+  s12: this member's own matched gate score IMPROVED (det 16/18 DR-0
+  + 16/18 DR-0.1, was 13/18 + 10/18), with the same B15 frontier
+  (video-verified genuine tangle_mid/tangle/bank recoveries, no
+  exploit; only clean miss is `tangle_deep` over_current + the
+  still-unreached `flip` bucket).** NEW datum: `RECOVER_GUARD/
+  rollback_count`=1 this run (fired once at step 72,024,064,
+  restoring a B15-frontier checkpoint) — the guard CAN fire, but
+  training-time bucket stats at the final cert still oscillate on
+  easy buckets (crouch_shallow/mid/deep 0.125/0.375/0.25) even after
+  that rollback, so it didn't cure the wall. Cohort-level read now:
+  s12 regressed, s13 improved on the IDENTICAL recipe/budget — the
+  oscillating-retention wall's direction on any one member is not
+  predictable from the recipe, answering the operator's "does more
+  training help" with genuine both-directions evidence rather than a
+  clean call either way. Not hardware-ready. s11 still training, no
+  full cohort verdict yet. No follow-up (recover stays
+  `[operator]`-gated, outside the SIM SPRINT). Detail: STATUS.md,
+  `rl_docs/runs/cw-recover-any21c2-pop3-s13.md`,
+  `rl_docs/SKILLS.md` "Fall recovery".
 - **08-18 ~18:5x (triage cycle): recover "keep it rumbling" continuation,
   member `s12`, finished its +100M — mechanism PASS, behavior a wash.**
   Frontier genuinely advanced past B14 to B15 (video-verified genuine
