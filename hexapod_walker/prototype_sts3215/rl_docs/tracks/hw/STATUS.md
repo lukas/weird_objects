@@ -24,6 +24,29 @@ unresolved blockers between the robot and reliable joystick control.
 
 ## Now
 
+- **08-19 ~01:5x (idle-drain triage): `cw-dep-bcgait1-hard1-steer3-yawm1`
+  CANARY PASS, and the yaw-margin term is VALIDATED as the
+  anti-jam/anti-tangle lever — but the slip bar missed, so per its own
+  pre-registration the steer sub-line STOPS here and the scale-up
+  decision is the operator's (4th lever used, no autonomous 5th).**
+  Evidence (24-ep stage-2-forced direction-switch panel, DR-0 +
+  own-DR-0.35, det+sto, same eval seed as blend1's): 0/24
+  over_current (vs steer1 3/24, hard20m1-r1 2/24); blend1's
+  reproducible park/freeze episode (det ep1, legs [4,5] sacrificed
+  at 10/28 swings) is CURED same-seed (all six legs 88–166 swings,
+  zero sacrificed legs in all 24 eps); probe yaw_sat_frac on the
+  deployed rot60-ON config 0.0052 (DR-0) / 0.0029 (DR-0.35) vs
+  parent 0.0105–0.0301 (3–10x better; rot60-OFF unimproved,
+  0.065–0.070 inside parent band). Retention clean (fixed-command
+  panel == hard1: slip 1.46/1.62 per m, zero falls, roll settled
+  6/6); mechanism clean (0 KL rollbacks). MISSED bar: panel slip
+  medians 2.51–3.54/m == blend1's 2.48–3.55 band, not < 2.0/m —
+  switch-schedule footwork quality unchanged at 2M. Net: steering is
+  now a QUALITY question, not a SAFETY question. Operator fork
+  (WAITING-ON): accept the slip band / pair k_yaw_margin with a
+  slip-priced ~20M continuation / park the sub-line. Download answer
+  unchanged. Detail: ledger verdict + W&B `qon84cv1` OUTCOME note.
+
 - **08-19 ~00:2x (idle-drain cycle): the pre-registered reward-side
   lever on the direction-flip jam is BUILT and its canary is
   TRAINING — `cw-dep-bcgait1-hard1-steer3-yawm1` (2M, train-0, W&B

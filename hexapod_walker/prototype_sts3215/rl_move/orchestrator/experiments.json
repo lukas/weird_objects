@@ -91374,7 +91374,7 @@
     "run": "risewalk-single2-s5",
     "created": "2026-08-15T22:32:46+00:00",
     "note": "Script-owned cohort (pod_risewalk.sh, COHORT_NAME=risewalk-single2, manifest on-pod); registered post-hoc per operator order 20260815T221231Z (register all live runs) -- was launched by the 18:1x repair cycle outside the launcher; wandb_id is the CURRENT phase run (rw_rise_C_s5 6thb0nwb), each of the 6 phases gets its own W&B run; verified live via check_cohort this cycle.",
-    "status": "RUNNING",
+    "status": "done",
     "pod": "hexapod-mjx-train-4",
     "steps": 4500000,
     "parent": "none",
@@ -91418,13 +91418,15 @@
     ],
     "log": "/workspace/prototype_sts3215/rl_move/dynamics/logs/risewalk_s5.log",
     "proc_match": "^rw_[a-z]+_[ABC]_s5$",
-    "wandb_match": "^rw_[a-z]+_[ABC]_s5"
+    "wandb_match": "^rw_[a-z]+_[ABC]_s5",
+    "verdict": "LEDGER-HYGIENE CLOSE (08-19 idle-drain cycle), no fresh evaluation of this run: ledger status was stale RUNNING since 08-15 -- W&B shows every phase of the relaunched cohort (rw_rise_A/B/C_s5/6/7, per-attempt names) state=finished on 08-15 evening, and /proc on train-4/5/6 confirms no train_ppo_transfer process remains (only leftover pod_memwatch.sh watchers, killed fleet-wide this cycle). The GRU-encoder condition-A/B/C science was absorbed into the dynrep line conclusion (dynrep/STATUS: scratch PPO best in every dynrep cohort; line stopped by pre-registered gate + operator order). Recorded only to clear stale drain-queue noise; no new science claimed.",
+    "triage": "done"
   },
   {
     "run": "risewalk-single2-s6",
     "created": "2026-08-15T22:32:46+00:00",
     "note": "Script-owned cohort (pod_risewalk.sh); registered post-hoc per operator order 20260815T221231Z; wandb_id = current phase run rw_rise_C_s6; verified live via check_cohort this cycle.",
-    "status": "RUNNING",
+    "status": "done",
     "pod": "hexapod-mjx-train-5",
     "steps": 4500000,
     "parent": "none",
@@ -91446,13 +91448,15 @@
     ],
     "log": "/workspace/prototype_sts3215/rl_move/dynamics/logs/risewalk_s6.log",
     "proc_match": "^rw_[a-z]+_[ABC]_s6$",
-    "wandb_match": "^rw_[a-z]+_[ABC]_s6"
+    "wandb_match": "^rw_[a-z]+_[ABC]_s6",
+    "verdict": "LEDGER-HYGIENE CLOSE (08-19 idle-drain cycle), no fresh evaluation of this run: ledger status was stale RUNNING since 08-15 -- W&B shows every phase of the relaunched cohort (rw_rise_A/B/C_s5/6/7, per-attempt names) state=finished on 08-15 evening, and /proc on train-4/5/6 confirms no train_ppo_transfer process remains (only leftover pod_memwatch.sh watchers, killed fleet-wide this cycle). The GRU-encoder condition-A/B/C science was absorbed into the dynrep line conclusion (dynrep/STATUS: scratch PPO best in every dynrep cohort; line stopped by pre-registered gate + operator order). Recorded only to clear stale drain-queue noise; no new science claimed.",
+    "triage": "done"
   },
   {
     "run": "risewalk-single2-s7",
     "created": "2026-08-15T22:32:46+00:00",
     "note": "Script-owned cohort (pod_risewalk.sh); registered post-hoc per operator order 20260815T221231Z; wandb_id = current phase run rw_rise_C_s7; verified live via check_cohort this cycle.",
-    "status": "RUNNING",
+    "status": "done",
     "pod": "hexapod-mjx-train-6",
     "steps": 4500000,
     "parent": "none",
@@ -91474,7 +91478,9 @@
     ],
     "log": "/workspace/prototype_sts3215/rl_move/dynamics/logs/risewalk_s7.log",
     "proc_match": "^rw_[a-z]+_[ABC]_s7$",
-    "wandb_match": "^rw_[a-z]+_[ABC]_s7"
+    "wandb_match": "^rw_[a-z]+_[ABC]_s7",
+    "verdict": "LEDGER-HYGIENE CLOSE (08-19 idle-drain cycle), no fresh evaluation of this run: ledger status was stale RUNNING since 08-15 -- W&B shows every phase of the relaunched cohort (rw_rise_A/B/C_s5/6/7, per-attempt names) state=finished on 08-15 evening, and /proc on train-4/5/6 confirms no train_ppo_transfer process remains (only leftover pod_memwatch.sh watchers, killed fleet-wide this cycle). The GRU-encoder condition-A/B/C science was absorbed into the dynrep line conclusion (dynrep/STATUS: scratch PPO best in every dynrep cohort; line stopped by pre-registered gate + operator order). Recorded only to clear stale drain-queue noise; no new science claimed.",
+    "triage": "done"
   },
   {
     "run": "cw-recover-any5-mjxcert-scratch1",
@@ -91605,7 +91611,7 @@
     "run": "dynrep-tfwalk-gpu1-A-s5",
     "created": "2026-08-15T22:53:10+00:00",
     "note": "Trainer exited cleanly at its 1M-step budget (POD_TFWALK_DONE in pod log, checkpoint ppo_dynrep-tfwalk-gpu1-A-s5.zip on pod); ledger row was stale-RUNNING. Corrected to FINISHED per operator order 20260816T042655Z. Learning-rate question (is C still learning at 1M?) superseded by the 2M dynrep-tfwalk-metrics1 cohort.",
-    "status": "FINISHED",
+    "status": "done",
     "pod": "hexapod-mjx-train-8",
     "track": "dynrep",
     "phase": "behavioral",
@@ -91641,13 +91647,15 @@
         "problems": []
       }
     ],
-    "trainer": "train_ppo_transfer"
+    "trainer": "train_ppo_transfer",
+    "verdict": "LEDGER-HYGIENE CLOSE (08-19 idle-drain cycle), no fresh evaluation of this run: cohort finished clean at 1M (operator corrected stale-RUNNING to FINISHED 08-16, order 20260816T042655Z) and was superseded by the operator-ordered 2M from-scratch rerun dynrep-tfwalk-metrics1-A/B/C-s5, which carries the per-condition verdicts. This cohort's results are absorbed into the line-level conclusion (dynrep/STATUS 08-17: gpu1, metrics1, joint1 all agree -- the pretrained dynamics transformer does not transfer to walking under any tried mechanism; scratch PPO stays best). Recorded only to clear a stale unverdicted entry from the drain queue; no new science claimed.",
+    "triage": "done"
   },
   {
     "run": "dynrep-tfwalk-gpu1-B-s5",
     "created": "2026-08-15T22:53:23+00:00",
     "note": "Trainer exited cleanly at its 1M-step budget (POD_TFWALK_DONE in pod log, checkpoint ppo_dynrep-tfwalk-gpu1-B-s5.zip on pod); ledger row was stale-RUNNING. Corrected to FINISHED per operator order 20260816T042655Z. Learning-rate question (is C still learning at 1M?) superseded by the 2M dynrep-tfwalk-metrics1 cohort.",
-    "status": "FINISHED",
+    "status": "done",
     "pod": "hexapod-mjx-train-7",
     "track": "dynrep",
     "phase": "behavioral",
@@ -91684,13 +91692,15 @@
         "problems": []
       }
     ],
-    "trainer": "train_ppo_transfer"
+    "trainer": "train_ppo_transfer",
+    "verdict": "LEDGER-HYGIENE CLOSE (08-19 idle-drain cycle), no fresh evaluation of this run: cohort finished clean at 1M (operator corrected stale-RUNNING to FINISHED 08-16, order 20260816T042655Z) and was superseded by the operator-ordered 2M from-scratch rerun dynrep-tfwalk-metrics1-A/B/C-s5, which carries the per-condition verdicts. This cohort's results are absorbed into the line-level conclusion (dynrep/STATUS 08-17: gpu1, metrics1, joint1 all agree -- the pretrained dynamics transformer does not transfer to walking under any tried mechanism; scratch PPO stays best). Recorded only to clear a stale unverdicted entry from the drain queue; no new science claimed.",
+    "triage": "done"
   },
   {
     "run": "dynrep-tfwalk-gpu1-C-s5",
     "created": "2026-08-15T22:53:42+00:00",
     "note": "Trainer exited cleanly at its 1M-step budget (POD_TFWALK_DONE in pod log, checkpoint ppo_dynrep-tfwalk-gpu1-C-s5.zip on pod); ledger row was stale-RUNNING. Corrected to FINISHED per operator order 20260816T042655Z. Learning-rate question (is C still learning at 1M?) superseded by the 2M dynrep-tfwalk-metrics1 cohort.",
-    "status": "FINISHED",
+    "status": "done",
     "pod": "hexapod-mjx-train-11",
     "track": "dynrep",
     "phase": "behavioral",
@@ -91727,7 +91737,9 @@
         "problems": []
       }
     ],
-    "trainer": "train_ppo_transfer"
+    "trainer": "train_ppo_transfer",
+    "verdict": "LEDGER-HYGIENE CLOSE (08-19 idle-drain cycle), no fresh evaluation of this run: cohort finished clean at 1M (operator corrected stale-RUNNING to FINISHED 08-16, order 20260816T042655Z) and was superseded by the operator-ordered 2M from-scratch rerun dynrep-tfwalk-metrics1-A/B/C-s5, which carries the per-condition verdicts. This cohort's results are absorbed into the line-level conclusion (dynrep/STATUS 08-17: gpu1, metrics1, joint1 all agree -- the pretrained dynamics transformer does not transfer to walking under any tried mechanism; scratch PPO stays best). Recorded only to clear a stale unverdicted entry from the drain queue; no new science claimed.",
+    "triage": "done"
   },
   {
     "run": "cw-recover-any6-microbuckets-scratch1",
@@ -104854,7 +104866,7 @@
       "reward.yaw_margin_allow_deg=3.0"
     ],
     "created": "2026-08-19T00:12:38+00:00",
-    "status": "RUNNING",
+    "status": "done",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -104882,6 +104894,26 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:hw PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-dep-bcgait1-hard1-steer3-yawm1 --steps 2000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_dep_bcgait1_hard1.zip --dr-scale 0.35 --episode-seconds 120 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 12 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_dep_bcgait1_hard1_steer3_yawm1 --notes 'respec of cw-dep-bcgait1-hard1-steer2-stagecurric1: Stop the joystick direction-switch leg tangle by charging the robot for riding its hip-yaw joints against their hard stops -- the measured precursor of every tangle -- instead of changing what commands it practices. Operator order fb_20260818T152717 lineage: three exposure-side levers each moved the symptom without curing it (steer1-hard20m1 3/24 over_current, steer2-hard20m1-r1 2/24 + slip eroded to 2.2-3.9/m, steer2-blend1 0/24 but a reproducible flip_180 park/freeze stall + slip still 2.5-3.6/m), and probe_dirswitch_tangle measured hard1 spending 1.3-9.3% of post-switch ticks within 2 deg of (and into, -0.65 deg) the yaw hard stop while rot60 sector crossings were exonerated. This arm adds the NEW reward.k_yaw_margin=2.0 / yaw_margin_allow_deg=3.0 term (built+bank-tested this cycle, snapshot d193bf1a: per walk tick each leg inside the 3-deg band pays k scaled by depth; honest tall gait rides 10-20+ deg and pays ~0, bank-proven) on top of the proven staged-curriculum recipe (stagecurric1'\"'\"'s exact cfg, same hard1 warm start, seed 12). Prediction-if-true: panel keeps 0/24 over_current, the flip_180 park/freeze stall disappears (the pinned pose now loses money every tick), slip/m moves back toward hard1'\"'\"'s 1.3-1.5 band, and probe yaw_sat_frac drops well under the parent'\"'\"'s 0.013-0.093. Prediction-if-false: stall/tangle persists even with yaw_sat_frac driven low -- the precursor theory is wrong; report to operator, no dose sweep.' --cfg-set dr.tipped_start_prob=0.30 --target-kl 0.01 --cfg-set reward.walk_height_gate=1.0 --cfg-set reward.walk_height_sigma_mm=30.0 --actor-lr 0.0001 --critic-lr 0.0003 --kl-rollback 0.04 --cfg-set goal.walk_cmd_mode=stress_mix --cfg-set goal.walk_cmd_resample_s=11.0 --cfg-set goal.walk_cmd_resample_jitter=0.82 --cfg-set goal.walk_cmd_blend_s_min=0.0 --cfg-set goal.walk_cmd_blend_s_max=0.0 --cfg-set reward.term_cost_per_remaining_s=12.0 --cfg-set reward.term_cost_max=240.0 --cfg-set goal.walk_cmd_stage=0.0 --cfg-set sched.key=goal.walk_cmd_stage --cfg-set sched.v0=0 --cfg-set sched.v1=2 --cfg-set sched.t0_steps=0 --cfg-set sched.t1_steps=1200000 --cfg-set sched.n_envs=4096 --cfg-set reward.k_yaw_margin=2.0 --cfg-set reward.yaw_margin_allow_deg=3.0 > /tmp/train_cw-dep-bcgait1-hard1-steer3-yawm1.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-dep-bcgait1-hard1-steer3-yawm1.log",
     "wandb_id": "qon84cv1",
-    "verified": "2026-08-19T00:17:15+00:00"
+    "verified": "2026-08-19T00:17:15+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-19T00:22:48+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 0,
+        "cpu_centisec_deltas": [
+          4,
+          0
+        ],
+        "verdict": "SUSPECT",
+        "problems": [
+          "W&B global_step stalled at 2031616",
+          "log stopped growing"
+        ]
+      }
+    ],
+    "triage": "done",
+    "hardware_ready": "False",
+    "verdict": "CANARY PASS (mechanism-health, 2.03M/2M): finite losses (approx_kl 0.0058, ZERO kl-rollbacks), reward quarters 93->346->590->749; tall six-leg walking retained (24/24 gait_valid on the stress panel, h_end all positive, strips clean); retention clause PASS -- fixed-command hard1 panel matches parent (slip 1.46/1.62 per m vs parent 1.1-1.9, zero falls, no sacrificed legs, roll settled 6/6). INFORMATIONAL stage-2-forced 24-ep direction-switch panel (DR-0 + own-DR-0.35, det+sto, same seed as blend1): the yaw-margin term does exactly what it was built to do -- 0/24 over_current (vs steer1 3/24, hard20m1-r1 2/24), blend1 reproducible park/freeze episode (det ep1: legs [4,5] sacrificed, 10/28 swings) is CURED same-seed (all legs 88-166 swings, zero sacrificed legs anywhere in 24 eps), and probe_dirswitch_tangle yaw_sat_frac on the DEPLOYED rot60-ON config drops 3-10x below parent (0.0052 DR-0 / 0.0029 DR-0.35 vs parent 0.0105-0.0301); rot60-OFF unimproved (0.065-0.070, parent band 0.038-0.093). BUT the 4th bar MISSES: panel slip medians 2.51-3.54/m across all four slices == blend1 band 2.48-3.55, not <2.0/m -- switch-schedule gait quality did not recover toward hard1 1.3-1.5 at this 2M budget. Pre-registration requires ALL bars to queue the 20M hardening continuation -> NOT queued; this was the pre-declared 4th lever on the steer sub-line and no autonomous 5th is permitted: sub-line STOPS, reported to operator (yaw-margin pricing validated as the anti-tangle/anti-jam lever; open question for operator = accept the slip band on switch schedules / combine k_yaw_margin with slip-priced continuation / park the sub-line). Download answer unchanged (bcgait1_hard1 never asked to survive mid-walk switches)."
   }
 ]
