@@ -371,8 +371,12 @@ def _speed_for_delta(delta_deg: float, dt: float, *,
     if STREAM_DENSE and dt <= 0.021:
         # Dense ticks pair with the lead goal (PoseStreamer.write):
         # speed cap ABOVE trajectory velocity (catch-up headroom; the
-        # lead goal bounds overshoot) and acc=0 (no ramp; a ramped
+        # lead goal bounds overshoot), a near-zero floor so reversals
+        # taper instead of jerking, and acc=0 (no ramp; a ramped
         # restart every 10 ms never leaves the slowest accel phase).
+        # NOTE: a lower floor (12) + speed EMA were tried 2026-08-19 to
+        # soften turnarounds — both made tracking AND shake worse (EMA
+        # lag fights the carrot's catch-up dynamics). Keep the plain cap.
         speed = int(min(hi, max(lo, counts / max(dt, 1e-3)
                                 * DENSE_SPEED_MARGIN)))
         return normalize_speed(speed), 0
@@ -1291,6 +1295,211 @@ def run_breathe_vel_demo(bus: FeetechBus, *,
     return status
 
 
+SHIMMY_V_AMP_DEG = 8.0
+SHIMMY_V_HZ = 0.55
+SHIMMY_V_KP = 4.0            # host P-gain: counts/s per count of error
+SHIMMY_V_MAX_CPS = 500       # wheel speed clamp (~44 deg/s)
+SHIMMY_V_WATCHDOG_DEG = 20.0
+# Per-servo GOAL_SPEED register writes cost ~1.5 ms each through the
+# MCU; six of them fit a 20 ms tick, not a 10 ms one. (SyncWritePosEx
+# would be one frame, but writing its position field in wheel mode
+# corrupts the servo's position bookkeeping — measured 2026-08-19 as a
+# ~2.6 count/write drift of the reported position in the direction of
+# motion, ~46° over 2 s, on all six yaws simultaneously.)
+SHIMMY_V_DT = 0.02
+SHIMMY_V_ACC = 30            # wheel accel, set once at mode switch
+
+
+def run_shimmy_vel_demo(bus: FeetechBus, *,
+                        seconds: float = 8.0,
+                        abort_check=None,
+                        log_path: Path | None = None) -> str:
+    """Shimmy in **wheel/speed mode** — 100 Hz velocity streaming.
+
+    Position-mode streaming (PoseStreamer) is limited by the STS
+    position PID dithering through gear backlash and restarting its
+    profile on every packet. Here the six yaws switch to wheel mode and
+    get a signed speed each tick: trajectory feed-forward velocity plus
+    a small host P-correction on measured position error (closed over
+    the ~200 Hz MCU position cache). No position goal, no profile
+    restarts, no PID hunt.
+
+    Each tick writes ONLY the goal-speed register (bit-15 signed) per
+    yaw servo — never the position field, which in wheel mode corrupts
+    the servo's position bookkeeping. ALWAYS restores mode 0 on exit.
+    """
+    live = _live_robot_ids(bus)
+    if len(live) < 3:
+        print(f"  Only {len(live)} robot servo(s) on the bus — need more.")
+        return "skipped"
+    check = abort_check or (lambda: False)
+    yaw_joints = [j for j in range(N_JOINTS)
+                  if j % 3 == 0 and joint_to_servo_id(j) in live]
+    yaw_sids = [joint_to_servo_id(j) for j in yaw_joints]
+    if not yaw_joints:
+        print("  No yaw servos live — skip.")
+        return "skipped"
+    read_all = getattr(bus, "read_all_positions", None)
+    if not callable(read_all):
+        print("  shimmy_v needs the MCU bulk-position path — skip.")
+        return "skipped"
+
+    print(f"  shimmy_v — VELOCITY mode, {len(yaw_joints)} yaws @ "
+          f"{1.0 / SHIMMY_V_DT:.0f} Hz, ±{SHIMMY_V_AMP_DEG:.0f}° "
+          f"{SHIMMY_V_HZ:.2f} Hz wave")
+    print("  Any key aborts.  Mode restored to position on exit.")
+
+    status = "done"
+    log_cm = None
+    if log_path is not None:
+        log_cm = MotionLog(log_path, live)
+        log_cm.__enter__()
+    try:
+        _enable_torque(bus, live)
+        _set_torque_limit(bus, live, DEMO_TORQUE_LIMIT)
+        if not ease_to_pose(bus, _zero_pose(), abort_check=check,
+                            seconds=2.5, label="zero before shimmy_v"):
+            status = "aborted"
+            return status
+        # Refuse wheel mode away from zero (mirrors breathe_v guard).
+        bad = [(j, d) for j in yaw_joints
+               if (d := bus.read_position_deg(j)) is not None
+               and abs(d) > 15.0]
+        if bad:
+            print("  shimmy_v: yaw(s) not near zero — skip wheel mode:")
+            for j, d in bad[:6]:
+                print(f"    j{j} at {d:.1f}°")
+            status = "aborted"
+            return status
+
+        print(f"  Switching {len(yaw_sids)} yaw servo(s) → wheel mode …")
+        for sid in yaw_sids:
+            if check():
+                status = "aborted"
+                return status
+            _set_servo_mode(bus, sid, 1)
+        # Verify — a servo stuck in position mode would slam on the
+        # first big signed-speed write, so refuse to run instead.
+        for sid in yaw_sids:
+            mode, r, _e = bus.pkt.read1ByteTxRx(sid, ADDR_MODE)
+            if r != bus.scs.COMM_SUCCESS or int(mode) != 1:
+                print(f"  mode verify failed on id={sid} — aborting.")
+                status = "aborted"
+                return status
+        _set_torque_limit(bus, live, DEMO_TORQUE_LIMIT)
+        # Wheel accel set ONCE — per-tick writes touch only GOAL_SPEED.
+        for sid in yaw_sids:
+            _write_wheel_speed(bus, sid, 0, SHIMMY_V_ACC)
+
+        # Wheel mode re-references the present-position register (mode
+        # switch at zero read ~149° once, 2026-08-19 — same quirk behind
+        # breathe_v's old ~170° watchdog false trips), so absolute
+        # angles are meaningless here. Control on DISPLACEMENT from a
+        # post-switch baseline instead; we just verified the true pose
+        # is zero, so displacement == logical angle for this wave.
+        base = read_all()
+        missing_base = [j for j in yaw_joints if base.get(j) is None]
+        if missing_base:
+            print(f"  no baseline reading for joints {missing_base} — abort.")
+            status = "aborted"
+            return status
+
+        def _disp(j: int, p: float) -> float:
+            """Displacement from baseline, unwrapped to (−180, 180]."""
+            return ((p - base[j] + 180.0) % 360.0) - 180.0
+
+        # Max believable per-tick move: speed clamp + margin. Sync-read
+        # glitches can fabricate ~45° single-tick jumps (seen 2026-08-19,
+        # j0); reject those instead of tripping the watchdog on them,
+        # but only for a few consecutive ticks — persistent readings win.
+        max_step = (SHIMMY_V_MAX_CPS / COUNTS_PER_DEG) * SHIMMY_V_DT * 4.0
+        last_d: dict[int, float] = {}
+        sus: dict[int, int] = {}
+
+        omega = 2 * math.pi * SHIMMY_V_HZ
+        n = max(1, int(float(seconds) / SHIMMY_V_DT))
+        t0 = time.monotonic()
+        tick_i = 0
+        for i in range(n):
+            if check():
+                status = "aborted"
+                return status
+            t = i * SHIMMY_V_DT
+            present = read_all()
+            for j in yaw_joints:
+                sign = 1.0 if (j // 3) % 2 == 0 else -1.0
+                ref = sign * SHIMMY_V_AMP_DEG * math.sin(omega * t)
+                vel = sign * SHIMMY_V_AMP_DEG * omega * math.cos(omega * t)
+                p = present.get(j)
+                if p is None:
+                    continue
+                d = _disp(j, p)
+                prev_d = last_d.get(j)
+                if prev_d is not None and abs(d - prev_d) > max_step:
+                    sus[j] = sus.get(j, 0) + 1
+                    if sus[j] < 3:
+                        continue  # skip the glitched sample, coast
+                else:
+                    sus[j] = 0
+                last_d[j] = d
+                # Watchdog: wheel mode has no angle goal.
+                if abs(d) > SHIMMY_V_WATCHDOG_DEG:
+                    print(f"    watchdog: j{j} moved {d:.1f}° — stopping")
+                    _wheel_stop(bus, yaw_sids)
+                    status = "aborted"
+                    return status
+                err = ref - d
+                cps = (vel + SHIMMY_V_KP * err) * COUNTS_PER_DEG
+                cps *= float(JOINT_SIGN[j])
+                cps = max(-SHIMMY_V_MAX_CPS, min(SHIMMY_V_MAX_CPS, cps))
+                sid = joint_to_servo_id(j)
+                bus.pkt.write2ByteTxRx(sid, ADDR_GOAL_SPEED,
+                                       _encode_sts_speed(int(cps)))
+            if log_cm is not None and i % 4 == 0:
+                cmd = _zero_pose()
+                for j in yaw_joints:
+                    sign = 1.0 if (j // 3) % 2 == 0 else -1.0
+                    cmd[j] = sign * SHIMMY_V_AMP_DEG * math.sin(omega * t)
+                log_cm.sample(bus, cmd, wrote={})
+            tick_i += 1
+            sleep_for = (t0 + tick_i * SHIMMY_V_DT) - time.monotonic()
+            if sleep_for > 0:
+                time.sleep(sleep_for)
+    finally:
+        if log_cm is not None:
+            try:
+                log_cm.__exit__(None, None, None)
+            except Exception:
+                pass
+        print("  Restoring position mode on yaw servos …")
+        _wheel_stop(bus, yaw_sids)
+        time.sleep(0.05)
+        for sid in yaw_sids:
+            try:
+                _set_servo_mode(bus, sid, 0)
+            except Exception as e:
+                print(f"    mode restore failed id={sid}: {e}")
+        _set_torque_limit(bus, live, 1000)
+        try:
+            if status != "aborted" and not check():
+                print("  Easing back to zero …")
+                go_to_zero_pose(bus, abort_check=check, seconds=2.0)
+                _limp_all(bus, live)
+            else:
+                try:
+                    _hold_here(bus, live)
+                except Exception:
+                    pass
+                _limp_all(bus, live)
+        except Exception as e:
+            print(f"  cleanup: {e}")
+            try:
+                _limp_all(bus, live)
+            except Exception:
+                pass
+    return status
+
+
 def frames_heartbeat(seconds: float = 6.0):
     """Double-thump pulse on all knees (from zero)."""
     base = _zero_pose()
@@ -1460,6 +1669,8 @@ DEMOS = {
     "heartbeat": ("[1 gentle] double-thump knee pulse", frames_heartbeat),
     "twinkle": ("[1 gentle] small random alive wiggles", frames_twinkle),
     "shimmy": ("[2 easy] odd/even yaw shimmy (from zero)", frames_shimmy),
+    "shimmy_v": ("[2 easy] shimmy in VELOCITY mode — no position hunt",
+                 None),
     "ripple": ("[2 easy] yaw wave around the hex (air)", frames_ripple),
     "conductor": ("[2 easy] one leg waves; others hold", frames_conductor),
     "arms_up": ("[2 easy] sit: all six arms way over head", None),
@@ -1497,6 +1708,7 @@ AIR_DEMO_SECONDS = {
     "heartbeat": 6.0,
     "twinkle": 6.0,
     "shimmy": 7.0,
+    "shimmy_v": 8.0,
     "ripple": 8.0,
     "conductor": 8.0,
     "arms_up": 6.0,
@@ -2497,6 +2709,9 @@ def run_demo(bus: FeetechBus, name: str, *,
         return run_breathe_vel_demo(
             bus, seconds=air_s, abort_check=abort_check, size=size,
             rate=rate, torque=torque, softness=softness, log_path=log_path)
+    if name == "shimmy_v":
+        return run_shimmy_vel_demo(
+            bus, seconds=air_s, abort_check=abort_check, log_path=log_path)
     if name == "arms_up":
         return run_arms_up_demo(
             bus, abort_check=abort_check, speed=spd, seconds=seconds,
