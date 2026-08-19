@@ -24,9 +24,32 @@ unresolved blockers between the robot and reliable joystick control.
 
 ## Now
 
-- **08-19 ~21:3x (operator-kick cycle): the operator ANSWERED the
+- **08-19 ~22:5x (idle-kick triage): `cw-dep-bcgait1-hard1-steer5-fastprof1`
+  verdicted CANARY FAIL - MECHANISM (as dosed) — but the matched-parent
+  control turns it into the line's most useful map update: the
+  walking-speed ceiling was ACTUATOR TIMING.** Under the raised
+  profile, hard1 and yawm1 re-evaluated untouched walk 0.154–0.155
+  m/s zero-shot (2.5x their commanded 0.05–0.06) with slip 3.1–4.0/m
+  fixed-command, dir_err ~60°, switch-panel slip 5.5–8.7/m, probe
+  yaw_sat 0.0229 (+1 fall); the 2M child does BETTER on every slice
+  (fixed slip 2.37/3.00 det/sto, dir_err 48–53°, switch slip
+  4.1–5.1/m, yaw_sat 0.0186, prog 1.48–1.76 overshoot) yet misses
+  every retention/tangle band — the profile itself breaks command
+  tracking, training was already repairing it. Zero over-current,
+  6/6 gait, no park/freeze/sacrificed-leg anywhere, tall six-leg
+  video, in-band height, one dynamic tip-over per 24 switch eps
+  (child and control alike). Informational 0.08 read: speed is
+  profile-driven, not command-driven (~0.15 m/s regardless of
+  command; prog 1.31, slip 2.17). Per pre-registration: STOP, fork
+  to operator (longer command-tracking adaptation vs intermediate
+  dose vs park; plus the bench write_speed=1500-under-load
+  question) — STATUS.md WAITING-ON. Artifacts on train-0:
+  `logs/ckpt_eval/*steer5_fastprof1*` + `*profilectl*` +
+  `logs/probe_dirswitch/{steer5_fastprof1_profile,yawm1_profilectl}.json`.
+  Download answer unchanged.
+- **Earlier 08-19 ~21:3x (operator-kick cycle): the operator ANSWERED the
   steer park-vs-retry fork — next lever = actuator/profile HEADROOM
-  (MCP lane 20260819T211434Z), and the bounded canary is queued:
+  (MCP lane 20260819T211434Z), and the bounded canary was queued:
   `cw-dep-bcgait1-hard1-steer5-fastprof1` (2M, CANARY, hw).**
   Root idea: the sim servo profile has been clamped to the ~350
   counts/s sys-ID fit no matter what `bus.write_speed` said, so the
