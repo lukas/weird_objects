@@ -81,7 +81,16 @@ WALK_PHASE = {2: 0.0, 1: 0.25, 3: 0.5, 4: 0.75}   # LH LF RH RF
 #           speed_cap 1.5 is hardware prudence, not a sim limit —
 #           enforced by the demo runner and quad_play.
 GAITS: dict[str, dict] = {
-    "walk": dict(stride=STRIDE_M, lift=LIFT_M, period=PERIOD_S, duty=DUTY,
+    # 08-18 hardware debug: the ORIGINAL shallow-stance walk (-40 mm /
+    # -17 deg) marched perfectly in place on the real floor — lifting a
+    # front foot just tipped the body onto it (restart-sim apex 2-5 mm
+    # no matter the commanded lift).  The trot's DEEP aft lean fixes
+    # the same mechanism for the walk: with body_dx -80 / pitch -20 +
+    # slower cadence, apex is a real 16-22 mm at ~10 mm/s with only a
+    # ~6 deg rock band across friction x0.5-1.4 and +80 ms latency.
+    "walk": dict(stride=STRIDE_M, lift=0.030, lift_front=0.040,
+                 period=4.0, duty=0.75,
+                 body_dx=-0.080, pitch=math.radians(-20.0),
                  sway=SWAY_M, sway_phase=SWAY_PHASE_RAD, phase=WALK_PHASE),
     "trot": dict(stride=0.080, lift=0.028, lift_front=0.045,
                  period=3.2, duty=0.68,

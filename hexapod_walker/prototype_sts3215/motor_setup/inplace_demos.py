@@ -779,6 +779,10 @@ STREAM_LOOKAHEAD_S = 0.12     # carrot: command ~2 ticks ahead of schedule
 # (restart-accurate sim: 6.8 -> 14 mm/s, apex 18 -> 33 mm).
 QUAD_STREAM_TICK_S = 0.10
 QUAD_STREAM_ACC = 254
+# Reared gaits command ~20 deg of lean and rock another ~13 in normal
+# running; past 45 deg the support diagonal is lost and the robot IS
+# falling — go limp (soft landing) instead of riding it down rigid.
+QUAD_TILT_GUARD_DEG = 45.0
 STREAM_GUARD_A = 3.0          # stall-fight: joint over this while not moving
 STREAM_HARD_CAP_A = 4.0       # instantaneous hard cap, trips regardless
 STAND_DANCE_TORQUE = 900      # weight-bearing motion (end-hold restores 1000)
@@ -801,7 +805,8 @@ def stream_pose_fn(bus: FeetechBus, live: set[int], pose_fn, *,
                    guard_a: float = STREAM_GUARD_A,
                    log: MotionLog | None = None,
                    max_speed: int = 3000, max_acc: int = 200,
-                   tick_s: float = STREAM_TICK_S) -> str:
+                   tick_s: float = STREAM_TICK_S,
+                   tilt_guard_deg: float | None = None) -> str:
     """Stream ``pose_fn(t)`` at ~20 Hz with a live tempo multiplier.
 
     Demo time ``t`` advances by wall-dt x ``speed_fn()`` every tick, so
@@ -809,6 +814,11 @@ def stream_pose_fn(bus: FeetechBus, live: set[int], pose_fn, *,
     time (equals wall time at 1x).  Returns ``done`` / ``aborted`` /
     ``guard`` — on ``guard`` the robot is already holding in place;
     the caller decides how to surface it.
+
+    ``tilt_guard_deg``: for gaits that can tip (the reared quad walks)
+    — if body tilt from the IMU exceeds this on two consecutive samples
+    the robot is going over; go LIMP immediately (per the incident
+    rules: never fight a tip) and return ``tilt:<deg>``.
     """
     check = abort_check or (lambda: False)
     spd = speed_fn or (lambda: 1.0)
@@ -833,6 +843,8 @@ def stream_pose_fn(bus: FeetechBus, live: set[int], pose_fn, *,
     streamer = PoseStreamer()
     streamer.last = list(q0)   # primed: skip the gentle first-write ease
     stall_prev: set = set()
+    tilt_prev = False
+    read_imu = getattr(bus, "read_imu", None)
     sweep_n = 0
     t = 0.0
     t0 = time.monotonic()
@@ -876,6 +888,30 @@ def stream_pose_fn(bus: FeetechBus, live: set[int], pose_fn, *,
                 _hold_here(bus, live)
                 return "guard"
             stall_prev = now
+            if tilt_guard_deg is not None and callable(read_imu):
+                try:
+                    imu = read_imu()
+                except Exception:
+                    imu = None
+                if imu and "az_g" in imu:
+                    norm = math.sqrt(imu.get("ax_g", 0.0) ** 2
+                                     + imu.get("ay_g", 0.0) ** 2
+                                     + imu["az_g"] ** 2) or 1.0
+                    tilt = math.degrees(
+                        math.acos(max(-1.0, min(1.0, imu["az_g"] / norm))))
+                    if tilt > tilt_guard_deg:
+                        if tilt_prev:
+                            # Going over — do NOT hold a fighting pose.
+                            for sid in sorted(live):
+                                try:
+                                    bus.pkt.write1ByteTxRx(
+                                        sid, ADDR_TORQUE_ENABLE, 0)
+                                except Exception:
+                                    pass
+                            return f"tilt:{tilt:.0f}"
+                        tilt_prev = True
+                    else:
+                        tilt_prev = False
             if status_cb is not None:
                 try:
                     status_cb(f"{label}: {t:.0f}/{seconds:.0f}s "
@@ -1750,9 +1786,16 @@ def run_streamed_demo(bus: FeetechBus, name: str, *,
             bus, live, pose_fn, seconds=dur, abort_check=check,
             speed_fn=speed_fn, status_cb=status_cb, label=name,
             tracker=tracker, log=log_cm, tick_s=tick_s,
-            max_acc=QUAD_STREAM_ACC if quad else 200)
+            max_acc=QUAD_STREAM_ACC if quad else 200,
+            tilt_guard_deg=QUAD_TILT_GUARD_DEG if quad else None)
         if st == "aborted":
             return "aborted"
+        if st.startswith("tilt:"):
+            msg = (f"stopped: body tilt {st[5:]} deg — tipping past "
+                   f"{QUAD_TILT_GUARD_DEG:.0f}, went limp for a soft "
+                   f"landing. Check the robot before the next run.")
+            print(f"  {msg}")
+            return msg
         if st == "guard":
             msg = (f"stopped: {tracker.peak_a:.2f} A peak on joint "
                    f"{tracker.peak_joint} — stall-fight, holding here")
