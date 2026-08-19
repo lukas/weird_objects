@@ -13,6 +13,12 @@ Streaming a fixed speed/acc at 25 Hz made idle joints (and backlashy
 yaws) buzz.  Demos now use ``PoseStreamer``: deadband skip + goal-speed
 matched to |Δθ|/dt, plus a soft SRAM torque limit while waving.
 
+On the MCU stream bridge (2026-08-19) ``configure_stream_profile``
+densifies waypoints to 50 Hz with a proportionally smaller deadband:
+dense + speed-matched, the trapezoid restarts blend into near-continuous
+velocity tracking instead of visible stair-steps.  Legacy buses keep the
+sparse 12.5 Hz profile.
+
 Examples
 --------
     python inplace_demos.py              # interactive menu
@@ -68,8 +74,29 @@ STAND_TORQUE_LIMIT = 1000
 STAND_OK_DEG = 8.0
 STAND_VERIFY_HOLD_S = 0.4
 ZERO_ACC = 8
-DT = 0.08  # slower host tick → fewer trapezoid restarts
-DEADBAND_DEG = 0.8  # skip tiny re-commands (was 0.4 — buzzed)
+# Waypoint density is picked per-bus by ``configure_stream_profile``:
+#
+# LEGACY (USB bus / pre-stream firmware): a SyncWrite + telemetry tick
+# costs >20 ms, so waypoints stay sparse (12.5 Hz) and the deadband big —
+# each WritePosEx restarts the servo trapezoid, and sparse restarts with
+# mismatched speeds are what made joints buzz through backlash.
+#
+# DENSE (MCU stream bridge, 2026-08-19): a SyncWrite round trip is
+# ~1.5-3 ms, so 50 Hz waypoints fit easily. Dense + goal-speed matched
+# to |Δθ|/dt means the servo never finishes a step before the next one
+# arrives — the restarts blend into near-continuous velocity tracking
+# instead of visible stair-steps. Deadband scales down with the tick so
+# per-tick deltas (4x smaller) still pass it near peak velocity while
+# turnaround jitter is still skipped.
+LEGACY_DT = 0.08
+LEGACY_SHOW_DT = 0.055
+LEGACY_DEADBAND_DEG = 0.8  # skip tiny re-commands (was 0.4 — buzzed)
+DENSE_DT = 0.02            # 50 Hz waypoints
+DENSE_SHOW_DT = 0.02
+DENSE_DEADBAND_DEG = 0.3
+DT = LEGACY_DT
+DEADBAND_DEG = LEGACY_DEADBAND_DEG
+STREAM_DENSE = False  # set by configure_stream_profile()
 MAX_STREAM_SPEED = 450
 MIN_STREAM_SPEED = 40
 # Rise: chassis sits on an elevated stand, so walking stance (−25°/+60°,
@@ -106,7 +133,7 @@ RISE_SHOW_SNAP_S = 0.28          # fire-and-wait between big poses
 RISE_SHOW_OVERHEAD_S = 0.85
 RISE_SHOW_PLANT_S = 2.0
 RISE_SHOW_DESCEND_S = 2.6
-RISE_SHOW_DT = 0.055             # planted multi-leg stream tick
+RISE_SHOW_DT = LEGACY_SHOW_DT    # planted multi-leg stream tick (see profile)
 # Lifted leg angles while others stay planted.
 RISE_SHOW_LIFT_HIP_DEG = 2.0
 RISE_SHOW_LIFT_KNEE_DEG = 28.0
@@ -302,6 +329,23 @@ def _set_torque_limit(bus: FeetechBus, live: set[int], limit: int) -> None:
             pass
 
 
+def configure_stream_profile(bus: FeetechBus) -> bool:
+    """Pick waypoint density from what the bus can sustain.
+
+    ``bus.streaming`` is True only on the MCU stream-bridge firmware
+    (2026-08-19), where a SyncWrite round trip costs ~1.5-3 ms — dense
+    50 Hz speed-matched waypoints then track like velocity control.
+    Legacy buses keep the sparse 12.5 Hz profile. Returns True if dense.
+    """
+    global DT, RISE_SHOW_DT, DEADBAND_DEG, STREAM_DENSE
+    STREAM_DENSE = bool(getattr(bus, "streaming", False))
+    DT = DENSE_DT if STREAM_DENSE else LEGACY_DT
+    RISE_SHOW_DT = DENSE_SHOW_DT if STREAM_DENSE else LEGACY_SHOW_DT
+    DEADBAND_DEG = (DENSE_DEADBAND_DEG if STREAM_DENSE
+                    else LEGACY_DEADBAND_DEG)
+    return STREAM_DENSE
+
+
 def _speed_for_delta(delta_deg: float, dt: float, *,
                      min_speed: int | None = None,
                      max_speed: int | None = None,
@@ -420,6 +464,23 @@ class PoseStreamer:
 
 def _read_pose(bus: FeetechBus, live: set[int]) -> list[float]:
     """Present joint angles (deg); missing IDs → 0."""
+    # MCU stream bridge: one cached bulk transaction beats 18 round trips.
+    read_all = getattr(bus, "read_all_positions", None)
+    if callable(read_all):
+        try:
+            bulk = read_all()
+        except Exception:
+            bulk = None
+        if bulk:
+            pose = [0.0] * N_JOINTS
+            got = 0
+            for joint in range(N_JOINTS):
+                deg = bulk.get(joint)
+                if deg is not None and joint_to_servo_id(joint) in live:
+                    pose[joint] = float(deg)
+                    got += 1
+            if got:
+                return pose
     pose = [0.0] * N_JOINTS
     for joint in range(N_JOINTS):
         sid = joint_to_servo_id(joint)
@@ -681,25 +742,29 @@ def _run_frames(bus: FeetechBus, live: set[int], frames, abort_check,
                 max_acc: int = 80) -> bool:
     """Play frames with velocity-matched streaming. False if aborted."""
     tick = DT if dt is None else float(dt)
+    # Telemetry reads are heavy; at dense ticks sample every Nth frame so
+    # logging keeps its old ~12.5 Hz cadence instead of eating the tick.
+    log_every = max(1, round(LEGACY_DT / tick)) if log is not None else 0
     print(f"  {label}  — any key aborts immediately")
     if log is not None:
-        print("  (querying motors each tick → CSV; loop will be a bit slower)")
+        print("  (querying motors during playback → CSV; a bit slower)")
     stream = PoseStreamer()
-    for pose in frames:
+    t0 = time.monotonic()
+    for i, pose in enumerate(frames):
         if abort_check():
             _hold_here(bus, live)
             print("    STOP — keystroke.  Holding pose.")
             return False
-        t0 = time.monotonic()
         wrote = stream.write(
             bus, pose, live, dt=tick, deadband=deadband,
             min_speed=min_speed, max_speed=max_speed, max_acc=max_acc)
-        if log is not None:
+        if log is not None and i % log_every == 0:
             log.sample(bus, pose, wrote=wrote)
-        # Sleep the remainder of DT so motion timing stays roughly honest
-        # even when telemetry reads eat into the tick.
-        elapsed = time.monotonic() - t0
-        time.sleep(max(0.0, tick - elapsed))
+        # Absolute schedule (not per-frame remainder) so dense ticks don't
+        # accumulate drift when a write/telemetry read runs long.
+        sleep_for = (t0 + (i + 1) * tick) - time.monotonic()
+        if sleep_for > 0:
+            time.sleep(sleep_for)
     return True
 
 
@@ -1775,7 +1840,8 @@ def _stream_multi_leg(bus: FeetechBus, live: set[int], *,
     old_max, old_min, old_db = MAX_STREAM_SPEED, MIN_STREAM_SPEED, DEADBAND_DEG
     MAX_STREAM_SPEED = 900
     MIN_STREAM_SPEED = 80
-    DEADBAND_DEG = 0.45
+    # Show moves are big/fast; deadband scales with tick like the profile.
+    DEADBAND_DEG = 0.3 if STREAM_DENSE else 0.45
     t0 = time.monotonic()
     try:
         for i in range(n):
@@ -2096,6 +2162,10 @@ def run_walk_demo(bus: FeetechBus, name: str = "walk", *,
     if log_path is not None:
         log_cm = MotionLog(log_path, live)
         log_cm.__enter__()
+    # The gait is time-based, so the tick only sets waypoint density —
+    # dense on the stream bridge tracks the leg curves much closer.
+    walk_dt = DENSE_DT if STREAM_DENSE else WALK_DEMO_DT
+    log_every = max(1, round(WALK_DEMO_DT / walk_dt))
     t0 = time.monotonic()
     gait.reset_phase(t=t0)
     try:
@@ -2105,29 +2175,33 @@ def run_walk_demo(bus: FeetechBus, name: str = "walk", *,
             print(f"    · {label}  vx={vx*1000:.0f} mm/s  ω={om:.2f}")
             gait.set_velocity(vx=vx, vy=vy, omega=om)
             seg_t0 = time.monotonic()
+            tick_i = 0
             while time.monotonic() - seg_t0 < dur:
                 if check():
                     break
                 now = time.monotonic()
                 pose = gait.desired_deg(now)
                 _write_pose(bus, pose, live, speed=WALK_SPEED, acc=WALK_ACC)
-                if log_cm is not None:
+                if log_cm is not None and tick_i % log_every == 0:
                     try:
                         log_cm.sample(bus, pose, wrote={})
                     except Exception:
                         pass
-                time.sleep(WALK_DEMO_DT)
+                tick_i += 1
+                sleep_for = (seg_t0 + tick_i * walk_dt) - time.monotonic()
+                if sleep_for > 0:
+                    time.sleep(sleep_for)
             if check():
                 break
         gait.stop()
         # Settle onto plant (kill residual swing).
-        for _ in range(8):
+        for _ in range(8 * max(1, round(WALK_DEMO_DT / walk_dt))):
             if check():
                 break
             now = time.monotonic()
             pose = gait.desired_deg(now)
             _write_pose(bus, pose, live, speed=WALK_SPEED, acc=WALK_ACC)
-            time.sleep(WALK_DEMO_DT)
+            time.sleep(walk_dt)
         if not ease_to_pose(bus, stand, abort_check=check,
                             seconds=max(1.2, 1.8 * sc),
                             label="stand after walk"):
@@ -2317,6 +2391,11 @@ def run_demo(bus: FeetechBus, name: str, *,
         size = max(_clamp_breathe_size(size), 2.0)
     if name not in DEMOS:
         raise SystemExit(f"unknown demo {name!r}; try: {', '.join(DEMOS)}")
+    if configure_stream_profile(bus):
+        print(f"  stream: DENSE waypoints ({1.0 / DT:.0f} Hz, "
+              f"deadband {DEADBAND_DEG:.2f}°) — MCU stream bridge")
+    else:
+        print(f"  stream: legacy waypoints ({1.0 / DT:.1f} Hz)")
     sc = _speed_scale(speed)
     spd = _clamp_demo_speed(speed)
     if name in ("rise", "rise+"):
