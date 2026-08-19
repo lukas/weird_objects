@@ -406,7 +406,7 @@ as a single body — no socket, no slip fit, no retention pin.
 
 | File | Function | Print orientation |
 |---|---|---|
-| `servo_clamp_cap.stl` | Sandwich-joint clamp cap that traps the hip/knee servo body; 2 x M3 x 8 SHCS self-tap into the cradle ±X wall-end pilots. Aug 18–19 2026: a 10 mm-wide L-shaped back-face hook (near the wire end of the +Y edge) — a 5.5 mm wall plus a shelf lapping 7.4 mm over the back of the motor toward its middle, riding flush with the back surface (the wire-end band steps up — no bite there), plus a tiny corner pad at the horn end (1 mm press-fit bite, ≥1.2 mm gap to the Ø20 passive horn) that preloads the body against the front retaining lip; the corridor beside the main hook stays open for the 5264 plugs and their cables, clear of the swinging yoke. | Flat |
+| `servo_clamp_cap.stl` | Sandwich-joint clamp cap that traps the hip/knee servo body; 2 x M3 x 8 SHCS self-tap into the cradle ±X wall-end pilots. Aug 18–19 2026: a 10 mm-wide L-shaped back-face hook (near the wire end of the +Y edge) — a 5.5 mm wall plus a shelf lapping 7.4 mm over the back of the motor toward its middle, riding flush with the back surface (the wire-end band steps up — no bite there), plus a tiny corner pad at the horn end (1 mm press-fit bite, ≥1.2 mm gap to the Ø20 passive horn) that preloads the body against the front retaining lip; the corridor beside the main hook stays open for the 5264 plugs and their cables, clear of the swinging yoke; 1 mm 45° chamfers on the outer face's vertical edges keep the sweeping yoke spine from catching a corner. | Flat |
 
 > **`passive_horn_adapter.stl` retired (Jul 2026 stock-horn refit):** the
 > passive side now uses the STS3215's own stock metal rear horn — its

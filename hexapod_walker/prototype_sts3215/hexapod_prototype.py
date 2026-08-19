@@ -1770,6 +1770,19 @@ CLAMP_BACK_HOOK_SHELF_Z = 0.0   # mm -- shelf top FLUSH with the back plane (rev
 # corner right at the end of the servo.
 CLAMP_HORN_HOOK_X0 = 18.5  # mm -- inner x edge (gap to the horn: r >= 11.2)
 CLAMP_HORN_HOOK_Y0 = 9.4   # mm -- inner y reach: 3 mm lap over the back face
+#
+# YOKE-SWEEP EDGE CHAMFER (Aug 19 2026, user: "rounding the edge on the
+# side where the yoke passes helps make sure theres not small friction").
+# The swinging yoke's SPINE sweeps across the cap's outer (+Y) face with
+# only ~3 mm at closest ROM, travelling in x -- so any graze catches on
+# the VERTICAL (z-parallel) edges standing on that face.  All six get a
+# 45 deg chamfer (leg = this): the two flange ends, the two wire-end hook
+# wall edges (below z = 0 only -- the flange face above stays flat), and
+# the two horn-end pad edges.  Horizontal edges are parallel to the sweep
+# and cannot snag; mating faces (tongue / lip / hook undersides) stay
+# sharp for registration.  Prints cleanly flange-down (edges rise at
+# 45 deg from the bed).
+CLAMP_YOKE_EDGE_CHAMFER = 1.0  # mm -- 45 deg chamfer leg on outer-face vertical edges
 
 
 def servo_clamp_bolt_centres():
@@ -6192,7 +6205,11 @@ def make_servo_clamp_cap() -> trimesh.Trimesh:
         pad (z -1..+1, 1 mm bite) gripping the back corner right at the
         end, with a >= 1.2 mm gap to the Phi 20 passive horn -- the yoke
         pad sweep forbids anything deeper at that end (see the
-        CLAMP_HORN_HOOK_* constants).
+        CLAMP_HORN_HOOK_* constants);
+      * 1 mm 45-deg chamfers on the six vertical edges of the outer +Y
+        face (flange ends, hook wall edges, horn pad edges) so the
+        sweeping yoke spine cannot catch a corner (see
+        CLAMP_YOKE_EDGE_CHAMFER).
 
     Same part for the hip-pitch (coxa_link) and knee (femur_link's knee
     cradle) joints -- 2 per leg, 12 per robot.  Prints flat on its +Z face.
@@ -6287,12 +6304,34 @@ def make_servo_clamp_cap() -> trimesh.Trimesh:
     horn = _cyl(HORN_CLEAR_OPENING_OD / 2.0, (WELL_H - WELL_RIM_Z) * 4.0)
     horn.apply_translation([SERVO_OUTPUT_X, 0.0, WELL_RIM_Z])
 
+    # Yoke-sweep edge chamfers (Aug 19 2026, user): 45 deg cuts along the
+    # six vertical edges standing on the outer (+Y) face, so the sweeping
+    # yoke spine cannot catch a sharp corner if it grazes.  Each cutter is
+    # a square prism rotated 45 deg about Z, centred on the edge line; the
+    # hook-edge cutters stop at z = 0 so the flat flange face above keeps
+    # its full bed contact.  See CLAMP_YOKE_EDGE_CHAMFER.
+    c = CLAMP_YOKE_EDGE_CHAMFER
+    chamfers = []
+    for (ex, ez0, ez1) in (
+        (-WELL_W / 2.0,       -1.0, cap_z1 + 1.0),   # flange -X end (full height)
+        (WELL_W / 2.0,        -1.0, cap_z1 + 1.0),   # flange +X end (full height)
+        (CLAMP_BACK_HOOK_X0,  -CLAMP_BACK_HOOK_T - 1.0, 0.0),  # hook wall -X edge
+        (CLAMP_BACK_HOOK_X1,  -CLAMP_BACK_HOOK_T - 1.0, 0.0),  # hook wall +X edge
+        (CLAMP_HORN_HOOK_X0,  -CLAMP_SEAT_DROP - 1.0, 0.0),    # horn pad -X edge
+        (cav_w / 2.0,         -CLAMP_SEAT_DROP - 1.0, 0.0),    # horn pad +X edge
+    ):
+        prism = _box((c * np.sqrt(2.0), c * np.sqrt(2.0), ez1 - ez0),
+                     center=(0.0, 0.0, 0.5 * (ez0 + ez1)))
+        prism.apply_transform(rotation_matrix(np.pi / 4.0, [0, 0, 1]))
+        prism.apply_translation([ex, flange_y1, 0.0])
+        chamfers.append(prism)
+
     # 2x M3 clearance holes through the flange (axis Y) onto the wall pilots.
     # The (x, z) centres come from ``servo_clamp_bolt_centres`` -- the SAME
     # source ``_servo_well_solid`` reads for the cradle pilots -- so the cap
     # holes can never drift out of coaxiality with the pilots they thread
     # into (guarded by check_clamp_cap_alignment).
-    cuts = [horn]
+    cuts = [horn] + chamfers
     flange_mid_y = 0.5 * (flange_y0 + flange_y1)
     for (bx, bz) in servo_clamp_bolt_centres():
         hole = _cyl(CLAMP_BOLT_CLEAR_OD / 2.0, (flange_y1 - flange_y0) + 4.0)
