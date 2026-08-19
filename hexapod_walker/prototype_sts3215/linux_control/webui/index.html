@@ -21,6 +21,8 @@
     <button id="tab-motors" class="tab">Motors</button>
     <span class="tabsep"></span>
     <button id="tab-demos" class="tab">Demos</button>
+    <button id="tab-dance" class="tab">Dance</button>
+    <button id="tab-quad" class="tab">Quad</button>
     <button id="tab-rl" class="tab">RL</button>
     <button id="tab-experiments" class="tab">Experiments</button>
     <button id="tab-measure" class="tab">Measure</button>
@@ -37,6 +39,8 @@
   <div id="errbar" style="display:none">
     <span id="errbar-text"></span>
     <button id="errbar-copy" title="Copy the error text">Copy</button>
+    <a id="errbar-log" href="/api/errors?n=50" target="_blank"
+       title="Recent errors as JSON (also: /api/events, /api/logs)">history</a>
     <button id="errbar-close" title="Dismiss">✕</button>
   </div>
   <div id="armbar" class="armbar disarmed">
@@ -196,8 +200,11 @@ feet, zero commanded scrub.">
     <div class="pad">
       <h2>In-place demos</h2>
       <div class="hint">Same list as <code>inplace_demos.py</code> / motor_setup
-        <b>f</b>, sorted gentle → spicy. Soft air demos first; then planted
-        moves (<b>plant_*</b> / <b>rise_*</b>). Cords OK for planted.<br>
+        <b>f</b>. <b>Streamed demos</b> (standing dances + air wiggles) use the
+        stand-up lab's 20&nbsp;Hz pursuit engine — the same technique as the
+        Experiments stand/sit — so the <b>speed slider works LIVE</b> while
+        they run. Standing demos home via the validated 10× stand-up and
+        dance around the captured plant. Cords OK for planted/standing.<br>
         <b>Pad:</b> hold LB/LT/RB/RT then tap X·Y·A·B —
         LB: breathe heartbeat twinkle shimmy ·
         LT: ripple conductor arms_up <b>walk</b> ·
@@ -211,12 +218,23 @@ feet, zero commanded scrub.">
       </div>
       <div class="hint">Homes: <b>sit zero</b> = legs out (0°) for air demos;
         <b>stand zero</b> = plant height (Calibrate → Plant height, else +20°/+80°).
-        Planted demos end at stand zero and stay up.</div>
-      <label class="slab">Demo speed: <span id="dspeedlab">1.0</span>×
-        <span style="color:#8089a0;font-weight:400">(all demos · 0.25× → 2×)</span></label>
-      <input id="dspeed" type="range" min="25" max="200" value="100" step="5">
+        Standing/planted demos end at stand zero and stay up.</div>
+      <label class="slab">Speed <span class="tag" style="color:#5fd08a;border-color:#2e7d47">LIVE</span>:
+        <span id="dspeedlab">1.0</span>×
+        <span style="color:#8089a0;font-weight:400">(0.25× → 3× · drag while a
+        demo runs — streamed demos react instantly, breathe at the next
+        half-breath)</span></label>
+      <input id="dspeed" type="range" min="25" max="300" value="100" step="5">
+      <label class="slab">Run for: <span style="color:#8089a0;font-weight:400">
+        (streamed + air demos · planted shows keep their own script)</span>
+        <select id="ddur">
+          <option value="15">15 s</option>
+          <option value="30">30 s</option>
+          <option value="60" selected>60 s</option>
+          <option value="120">2 min</option>
+        </select></label>
       <label class="slab">Air torque limit: <span id="dtorquelab">45</span>%
-        <span style="color:#8089a0;font-weight:400">(lower = less shake/hunt · air demos)</span></label>
+        <span style="color:#8089a0;font-weight:400">(lower = less shake/hunt · air demos; standing dances use τ900 + 3&nbsp;A stall guard)</span></label>
       <input id="dtorque" type="range" min="15" max="100" value="45" step="5">
       <div class="hint" style="margin-top:12px;color:#9aa3b2;font-weight:600;text-transform:uppercase;letter-spacing:.4px;font-size:11px">Breathe tunables <span style="font-weight:400;normal-case;letter-spacing:0;text-transform:none">(breathe + breathe_v)</span></div>
       <label class="slab">Size: <span id="dsizelab">1.0</span>×
@@ -238,14 +256,97 @@ feet, zero commanded scrub.">
         <div class="prev-meta">
           <h3 id="dprevtitle">Hover a demo</h3>
           <div id="dprevtags"></div>
-          <p id="dprevblurb">Schematic preview of the expected start pose and motion
-            (not a physics sim). Hover a card to scrub the idea; click to run.</p>
+          <p id="dprevblurb">3D view — shows the LIVE robot (real encoder angles)
+            while a demo runs; hover a card to preview its motion. Drag to
+            orbit, scroll to zoom.</p>
         </div>
       </div>
       <div class="demo-grid" id="dgrid" style="margin-top:12px"></div>
     </div>
   </div>
   </div><!-- /view-demos -->
+
+  <div id="view-quad" class="view">
+  <div class="row">
+    <div class="pad">
+      <h2>Quad mode — tip back, walk on four legs</h2>
+      <div class="hint">The robot rears up nose-high like a begging dog —
+        front legs tucked in the air — and moves on the four rear legs.
+        Two gaits, both one scripted 20&nbsp;Hz pose stream of
+        <b>rear up → go → sit back down</b>, both with a <b>LIVE speed
+        slider</b>: the <b>walk</b> is a lateral-sequence animal walk
+        (footfalls LH·LF·RH·RF, one foot up at a time, statically stable,
+        weight sway against the swing); the <b>trot</b> moves DIAGONAL leg
+        pairs together like a horse, leaning deep on its haunches — real
+        high steps (~40&nbsp;mm foot clearance in sim at 1×) at ~3× the
+        walk's pace, with a gentle weight-shift prance. Its calm cadence
+        survives friction ×0.6–1.4, 100&nbsp;ms latency and the whole
+        0.5–2× speed range in sim without falling; still, only two feet
+        hold the floor mid-beat, so treat it as the more advanced act on
+        hardware. Live speed is <b>auto-capped at 1.5×</b> as hardware
+        prudence.
+        Level-body 4-leg walking is geometrically impossible on this robot
+        (CoM lands ahead of the 4-foot polygon) — rearing back is what
+        makes it work. Sim-proven on the MuJoCo twin: walk margin never
+        below +34&nbsp;mm, peak ~2–2.6&nbsp;A, no falls anywhere in the
+        swept envelope (including 2×).<br>
+        <b>Floor:</b> flat + non-slip, ~0.4&nbsp;m clear ahead, no cords
+        under the body. <b>Watch it the whole run</b> — first hardware runs
+        at 0.5–0.75×, walk before trot. Stop / E-STOP abort instantly.</div>
+      <div class="btns" style="margin:12px 0">
+        <button id="qstart" style="font-size:16px;background:#1c3d2a;border-color:#2e7d47">🐕 Rear up &amp; walk</button>
+        <button id="qtrot" style="font-size:16px;background:#3d2a1c;border-color:#7d5a2e">🐎 Rear up &amp; trot</button>
+        <button id="qstop" class="danger">■ Stop</button>
+        <button id="qstand">Stand zero</button>
+      </div>
+      <label class="slab">Speed <span class="tag" style="color:#5fd08a;border-color:#2e7d47">LIVE</span>:
+        <span id="qspeedlab">0.75</span>×
+        <span style="color:#8089a0;font-weight:400">(0.25× → 2× · drag while
+        it runs — gait tuned at 1×, start hardware at 0.5–0.75×)</span></label>
+      <input id="qspeed" type="range" min="25" max="200" value="75" step="5">
+      <label class="slab">Run for:
+        <span style="color:#8089a0;font-weight:400">(demo time · entry ~7.7 s
+        + exit ~7.5 s are inside it; the gait fills the middle)</span>
+        <select id="qdur">
+          <option value="20">20 s (rear up + a step + down)</option>
+          <option value="40" selected>40 s</option>
+          <option value="60">60 s</option>
+          <option value="120">2 min</option>
+        </select></label>
+      <div class="hint">Status: <span id="qstatus" class="pill">idle</span>
+        <span id="qstatusdetail" style="color:#8089a0"></span></div>
+      <div class="hint">Homes via the validated stand-up first (same as the
+        standing dances), τ900 + 3&nbsp;A stall guard while moving. Realized
+        pace at 1× (sim, hardware-speed servo profile): walk ~7&nbsp;mm/s,
+        trot ~20&nbsp;mm/s (feet pivot-slip under load, so commanded stride
+        only partly realizes). Auto-logs cmd vs encoder →
+        <code>logs/demo_quad_*.csv</code>.</div>
+    </div>
+  </div>
+  </div><!-- /view-quad -->
+
+  <div id="view-dance" class="view">
+  <div class="row">
+    <div class="pad">
+      <h2>Dance</h2>
+      <div class="hint">The choreographed shows, in one place. <b>Sitting
+        shows</b> keep the chassis on the ground (legs in the air — safe
+        on a desk). <b>Full shows</b> stand up mid-routine: give the robot
+        clear floor. The speed slider works on the full shows LIVE while
+        they run. E-STOP (top right) stops any of them instantly.</div>
+      <div class="btns" style="margin:10px 0">
+        <button id="dancestop" class="danger">■ Stop show</button>
+      </div>
+      <label class="slab">Speed <span class="tag" style="color:#5fd08a;border-color:#2e7d47">LIVE</span>:
+        <span id="dancespeedlab">1.0</span>×
+        <span style="color:#8089a0;font-weight:400">(0.25× → 3×)</span></label>
+      <input id="dancespeed" type="range" min="25" max="300" value="100" step="5">
+      <div class="hint">Status: <span id="dancestatus" class="pill">idle</span>
+        <span id="dancestatusdetail" style="color:#8089a0"></span></div>
+      <div class="demo-grid" id="dancegrid" style="margin-top:12px"></div>
+    </div>
+  </div>
+  </div><!-- /view-dance -->
 
   <div id="view-rl" class="view">
   <div class="row">

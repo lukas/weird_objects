@@ -8,9 +8,11 @@ RISE + WALK IN THE MUJOCO SIM, download-ready. The maintained download
 answer is `rl_docs/DOWNLOAD_ANSWER.md` (hierarchy: `footlow2_hard1` +
 `bcgait1_hard1` + session controller, det 0.967 / sto 0.853 at n=600).
 Sprint gap status: post-lower rise = the ELEVATED `[operator]` fork in
-STATUS.md WAITING-ON (+ a queued `[code]` remaining-rise eval probe to
-price option (a)); takeoff transient = sim-side complete (entry-slew
-composed), bench reps parked; no live session-gate regressions. All
+STATUS.md WAITING-ON (the remaining-rise eval probe that prices it is
+DONE — `[code]` PRICED 08-17 ~22:3x, fork (a) measured-best per
+Cohort c5rr — the fork itself is now purely `[operator]`); takeoff
+transient = sim-side complete (entry-slew composed), bench reps
+parked; no live session-gate regressions. All
 bench-owned `[operator]` items stay parked; recover/tangle redesign
 stays `[operator]`-gated and is NOT a sprint item. Full text:
 RL_PLAN.md "SIM SPRINT".**
@@ -21,6 +23,227 @@ rot-60 wrappers, specialist checkpoints — all fair game. KPI:
 unresolved blockers between the robot and reliable joystick control.
 
 ## Now
+
+- **08-19 ~01:5x (idle-drain triage): `cw-dep-bcgait1-hard1-steer3-yawm1`
+  CANARY PASS, and the yaw-margin term is VALIDATED as the
+  anti-jam/anti-tangle lever — but the slip bar missed, so per its own
+  pre-registration the steer sub-line STOPS here and the scale-up
+  decision is the operator's (4th lever used, no autonomous 5th).**
+  Evidence (24-ep stage-2-forced direction-switch panel, DR-0 +
+  own-DR-0.35, det+sto, same eval seed as blend1's): 0/24
+  over_current (vs steer1 3/24, hard20m1-r1 2/24); blend1's
+  reproducible park/freeze episode (det ep1, legs [4,5] sacrificed
+  at 10/28 swings) is CURED same-seed (all six legs 88–166 swings,
+  zero sacrificed legs in all 24 eps); probe yaw_sat_frac on the
+  deployed rot60-ON config 0.0052 (DR-0) / 0.0029 (DR-0.35) vs
+  parent 0.0105–0.0301 (3–10x better; rot60-OFF unimproved,
+  0.065–0.070 inside parent band). Retention clean (fixed-command
+  panel == hard1: slip 1.46/1.62 per m, zero falls, roll settled
+  6/6); mechanism clean (0 KL rollbacks). MISSED bar: panel slip
+  medians 2.51–3.54/m == blend1's 2.48–3.55 band, not < 2.0/m —
+  switch-schedule footwork quality unchanged at 2M. Net: steering is
+  now a QUALITY question, not a SAFETY question. Operator fork
+  (WAITING-ON): accept the slip band / pair k_yaw_margin with a
+  slip-priced ~20M continuation / park the sub-line. Download answer
+  unchanged. Detail: ledger verdict + W&B `qon84cv1` OUTCOME note.
+
+- **08-19 ~00:2x (idle-drain cycle): the pre-registered reward-side
+  lever on the direction-flip jam is BUILT and its canary is
+  TRAINING — `cw-dep-bcgait1-hard1-steer3-yawm1` (2M, train-0, W&B
+  `qon84cv1`).** The steer2-hard20m1-r1 verdict pre-registered
+  "reward-side yaw-margin pricing" as the next lever if blend1
+  washed; blend1 washed (MIXED close, 08-18 ~22:3x), so this cycle
+  landed `reward.k_yaw_margin` / `yaw_margin_allow_deg` (walk-mode
+  per-tick charge on hip-yaw joints inside a 3° band of the hard
+  stop, scaled by depth — prices the probe-measured tangle precursor
+  directly; default 0 = bit-exact off, works identically on C and
+  MJX FakeData backends since it reads only qpos), REWARD.md row,
+  3 new bank tests (`test_yaw_margin_*`: default-off bit-exact,
+  ~free for the honest tall gait, a 0.5°-from-stop pinned stance
+  pays < −100/ep), full semantics bank green (136 passed), snapshot
+  `d193bf1a`. Canary = stagecurric1's exact recipe + the new term
+  (k=2.0); gate keeps the operator's fb_20260818T152717 item-7
+  admission bars + the informational panel bars (0/24 over_current
+  AND no flip_180 park/freeze AND slip < 2.0/m AND probe
+  yaw_sat_frac < 0.01) → PASS-shaped queues the ~20M hardening
+  continuation, worse on any bar = STOP and report (4th lever on
+  this sub-line, no autonomous 5th). Triage note: this cfg pins
+  `goal.walk_cmd_stage=0` pre-schedule — force stage=2.0 at eval,
+  same trap as blend1.
+
+- **08-18 ~23:3x (triage cycle): `cw-recover-predictive1b-pop3-s11` PASSES — third and final cohort member, COHORT COMPLETE: all three seeds of predictive1b-pop3 independently clear the full redesigned 23-rung recover ladder from scratch.** Frontier reached B22 (`flip`) by 34.7M and held clean to 40M (one `RECOVER_GUARD` rollback fired ~29-30M, correctly restored an earlier checkpoint, training re-progressed past it with no further oscillation). Raw matched gate eval looked weaker than the siblings (DR-0 det 18/23, own-DR-0.1 det 20/23), but per-episode instrumentation (`end_posture_ok`/`plant_fail`/`roll_tail_deg`) plus video confirm most of the extra "misses" are clean six-foot stands failing only the strict quiet-hold timing window (the same documented false-negative as s12/s13) — real success is ~22/23 on both passes, matching the siblings. The one genuinely reproducible weak point is `flip`: an imperfect partial recovery under DR-0 (matches s13), but a GENUINE full miss under own-DR and STO (ends near-inverted, `plant_fail`=[feet_down,no_flag,support]) — worse than s13 (solved flip both ways) and about the same as s12 (also fails flip under own-DR). No flag/tripod/stilt/park exploit anywhere. **This closes the cohort**: the population-sync mechanism plus predictive-context obs reliably breaks the old parked-on-4/5-feet wall on 3/3 independent from-scratch seeds; `flip` is the shared remaining weak rung (1/3 solves it cleanly, 2/3 partial-or-fail under harder conditions). Per the standing ruling recover/tangle redesign stays `[operator]`-gated — no follow-up arm queued despite the clean cohort result. Detail: ledger verdict + W&B `7901e7bb` OUTCOME note + `rl_docs/SKILLS.md` new row.
+- **08-18 ~23:2x (triage cycle): `cw-recover-predictive1b-pop3-s12` PASSES too — second of three cohort members to independently clear the full redesigned 23-rung ladder.** Frontier reached B22 (`flip`) by 35.1M and held clean to 40M (sync clean all 40 cert rounds, zero `RECOVER_GUARD` rollbacks this run, cleaner than s13's one-rollback run). Matched gate eval: DR-0 det 22/23, own-DR-0.1 det 22/23 — only miss both times is `flip` (video-confirmed genuine stuck-on-back attempt, no exploit; unlike s13, this member does NOT recover flip under own-DR either, so `flip` is confirmed the weak rung on both verdicted members so far). STO 0/23 both, same known quiet-hold-timing artifact on video. Spot-checked b14/b19/b21 plus both flip failures: no flag/tripod/stilt/park exploit. **Still single/dual-member evidence, not a cohort claim** — s11 (identical recipe) still training, gets its own verdict; per the standing ruling recover/tangle redesign stays `[operator]`-gated so no follow-up arm is queued regardless. Detail: ledger verdict + W&B `304ac843` OUTCOME note + `rl_docs/SKILLS.md` new row.
+- **08-18 ~23:0x (triage cycle): `cw-recover-predictive1b-pop3-s13` PASSES its pre-registered 40M checkpoint and is the first checkpoint in the WHOLE recover lineage to clear the redesigned 23-rung ladder end to end** — frontier reached B22 (`flip`) by 37.7M and held to 40M, sync clean all 40 cert rounds, and the retention guard correctly caught+recovered one regression mid-run. Matched gate eval: DR-0 det 21/23 recover_success (real miss = `flip`, no exploit; the other "miss" is video-confirmed a clean quiet stand, a known scoring artifact), own-DR-0.1 det 23/23 incl. a genuine flip recovery on video — no flag/tripod/stilt/park exploit anywhere in the reviewed ladder, including the B14/B15 rungs built specifically to teach the OLD parked-on-4/5-feet wall every prior any-line cohort stalled on. **Single-seed result only** — s11/s12 (identical recipe, same cohort) are still training and get their own verdicts; this is not yet a cohort-level or line-level claim, and per the standing ruling recover/tangle redesign stays `[operator]`-gated so no follow-up arm is queued regardless. Detail: ledger verdict + W&B `95414586` OUTCOME note + `rl_docs/SKILLS.md` new row.
+- **08-18 ~22:3x (triage cycle): `cw-dep-bcgait1-hard1-steer2-blend1`
+  CANARY PASSED mechanism health, but its own INFORMATIONAL read
+  CLOSES the pure command-side/exposure lever class on the joystick
+  direction-flip jam — three attempts, three different symptoms,
+  no cure.** Forced-eval note: this run's train cfg pins
+  `goal.walk_cmd_stage=0.0` as the pre-schedule base value, so the
+  auto pre-staged eval would have silently graded only the easy
+  2-family stage-0 subset — re-ran the panel by hand with
+  `--cfg-set goal.walk_cmd_stage=2.0` (full 6-family panel, matching
+  steer1/steer2-hard20m1-r1's own methodology) alongside the
+  pre-registered `blend_s_min/max=0` override. Result: 0/24
+  over_current across the full panel (best of three: steer1-hard20m1
+  3/24, steer2-hard20m1-r1 2/24, this run 0/24) — but 1/24 episode
+  (gate/det ep1) is a video-confirmed PARK/FREEZE stall (2 legs
+  sacrificed, feet-planted pattern frozen, v stuck ~0.02-0.06 m/s vs
+  ref the whole 120s, current never pinned at the safety limit) on
+  the identical flip_180 draw that also stalls (1-leg version) under
+  this run's own native training cfg — reproducible, not noise. So
+  the hard safety-trip is gone but the underlying flip_180 tangle
+  tendency just moved into a silent stall instead. Slip/m stays
+  elevated across all four panel slices (medians 2.48-3.55) — no
+  better than the FAILED steer2-hard20m1-r1's own elevated band
+  (2.2-3.9), still well above hard1's clean 1.3-1.5. Per the
+  pre-registered compound bar (zero/fewer over_current AND slip near
+  hard1's band) this is NOT a clean win — no matched ~20M hardening
+  continuation launched. CLOSING pure exposure/schedule/blend-ease
+  levers on this narrow sub-problem (3 attempts, 3 different
+  symptoms moved, none cured); the named fallback (reward-side
+  yaw-margin/joint-limit pricing) is real new CODE, not built this
+  cycle — recorded as a track finding, not queued, since mid-walk
+  instant-flip survivability is peripheral to the SIM SPRINT's named
+  deliverable (the shipped session controller re-anchors per
+  discrete segment change, never asks the walker to survive a
+  literal instant flip) and a new reward term deserves a dedicated
+  cycle. Does not touch today's download answer. Detail: ledger
+  verdict + W&B `608m9qc1` OUTCOME note.
+- **08-18 ~21:1x (triage cycle): `cw-dep-bcgait1-hard1-steer2-hard20m1-r1`
+  FAILED its pre-registered gate clause (2) — the staged-curriculum
+  lineage's ~20M full hardening pass did NOT reach zero over_current
+  on the identical 24-episode direction-switch panel either.** 2/24
+  over_current terminations (down from steer1-hard20m1's 3/24, but
+  video confirms at least one of the two is a genuine tip-over FALL
+  this time, not a stayed-upright jam) + 0/24 severe tangle (clause 3
+  passes — only one isolated single-leg drag). NEW negative: slip/m
+  is elevated across nearly the whole panel (medians ~2.2-3.9/m vs
+  hard1's clean ~1.3-1.5/m and vs steer1-hard20m1's own healthy
+  episodes 1.3-2.4/m) — 20M more steps at full stage-2 mix traded a
+  little jam frequency for general gait-quality erosion, not a clean
+  fix. This is the SECOND miss on "more full-stage-2 exposure cures
+  the instant-flip jam" (steer1 full-mix-from-tick-0, now steer2's
+  staged-then-hardened lineage) — two-miss rule: change the lever,
+  not the step count. Queued+launched same cycle:
+  `cw-dep-bcgait1-hard1-steer2-blend1` (2M canary, warm from
+  stagecurric1) testing the run's own pre-registered structural
+  fallback — nonzero `goal.walk_cmd_blend_s_min/max` (0.4/1.2,
+  training-time ease) instead of the maximally-hard 0/0 instant
+  flick, judged informationally by forcing blend back to 0 at eval
+  time (the original hard bar) so the exam doesn't get easier, only
+  the practice. If it washes, the next lever is reward-side
+  yaw-margin pricing, not a third exposure resweep. Does not touch
+  today's download answer (still plain `bcgait1_hard1`, never asked
+  to survive mid-walk switches). Detail: ledger verdict + W&B
+  `zkjjztox` OUTCOME note.
+- **08-18 ~19:4x (triage cycle): `cw-dep-bcgait1-hard1-steer2-stagecurric1`
+  CANARY PASSED with a favorable informational read — staged
+  difficulty ramp looks like the right lever for the direction-switch
+  jamming that FAILED steer1-hard20m1.** Same identical 24-episode
+  stress-mix panel (DR-0 + own-DR-0.35, det+sto): ZERO over_current
+  terminations (was 3/24) and only 1/24 episodes with a sacrificed
+  leg, and that one is a single-leg drag (video-verified, height and
+  five-of-six-leg cycling intact), not hard20m1's severe 3-leg
+  tangle/near-stall. Mechanism health clean (finite losses, kl_rollback
+  0, reward climbing all 4 quarters). Queued+launched same cycle:
+  `cw-dep-bcgait1-hard1-steer2-hard20m1-r1` (~20M, warm from this
+  checkpoint with the curriculum pinned at full stage 2, same
+  `--best-ckpt` retention guard as steer1-hard20m1) — a first launch
+  attempt crashed pre-boot on a respec-tool typo (`--arg='--best-ckpt='`
+  reintroduced the trailing-empty-arg bug the tool's own bare-flag fix
+  targets; zero GPU-seconds lost, fixed same cycle by using the true
+  bare-flag form). Not hardware-ready, still hardening-phase only.
+  Detail: ledger verdict + W&B `6ixhl7lq` OUTCOME note.
+- **08-18 ~19:3x (triage cycle): recover "keep it rumbling" cohort
+  COMPLETE — all three members (s11/s12/s13) verdicted, no clean
+  answer to "does more training help".** Member `s11`'s own matched
+  gate score is a wash (det 14/18 DR-0 was 13/18, DR-0.1 15/18 was
+  16/18 -- a +1/-1 shuffle), landing between s12 (fell 16->8) and
+  s13 (rose 13->16) on the identical recipe/budget/checkpoint
+  lineage. All three held the shared B15 frontier the whole 100M
+  (video-verified genuine recoveries, no exploit); s11 and s13 both
+  independently fired their `RECOVER_GUARD` rollback at the EXACT
+  same step (72,024,064, restoring the same B15 checkpoint) while
+  s12 never fired — worth a closer look if this line ever reopens,
+  but not dug into now (recover/tangle redesign stays
+  `[operator]`-gated, outside the SIM SPRINT). Cohort-level verdict:
+  the population-sync mechanism itself is now proven robust at 100M/
+  member scale on all three members across two cohorts (any21,
+  any21c2) — the remaining wall is the oscillating-retention plateau
+  named in CURRENT_TRUTHS, not sync. No follow-up queued. Detail:
+  `rl_docs/runs/cw-recover-any21c2-pop3-s11.md`, ledger verdicts on
+  s12/s13.
+- **08-18 ~19:1x (triage cycle): recover "keep it rumbling" continuation,
+  member `s13`, finished its +100M — the OPPOSITE direction from
+  s12: this member's own matched gate score IMPROVED (det 16/18 DR-0
+  + 16/18 DR-0.1, was 13/18 + 10/18), with the same B15 frontier
+  (video-verified genuine tangle_mid/tangle/bank recoveries, no
+  exploit; only clean miss is `tangle_deep` over_current + the
+  still-unreached `flip` bucket).** NEW datum: `RECOVER_GUARD/
+  rollback_count`=1 this run (fired once at step 72,024,064,
+  restoring a B15-frontier checkpoint) — the guard CAN fire, but
+  training-time bucket stats at the final cert still oscillate on
+  easy buckets (crouch_shallow/mid/deep 0.125/0.375/0.25) even after
+  that rollback, so it didn't cure the wall. Cohort-level read now:
+  s12 regressed, s13 improved on the IDENTICAL recipe/budget — the
+  oscillating-retention wall's direction on any one member is not
+  predictable from the recipe, answering the operator's "does more
+  training help" with genuine both-directions evidence rather than a
+  clean call either way. Not hardware-ready. s11 still training, no
+  full cohort verdict yet. No follow-up (recover stays
+  `[operator]`-gated, outside the SIM SPRINT). Detail: STATUS.md,
+  `rl_docs/runs/cw-recover-any21c2-pop3-s13.md`,
+  `rl_docs/SKILLS.md` "Fall recovery".
+- **08-18 ~18:5x (triage cycle): recover "keep it rumbling" continuation,
+  member `s12`, finished its +100M — mechanism PASS, behavior a wash.**
+  Frontier genuinely advanced past B14 to B15 (video-verified genuine
+  tangle/bank recoveries), but this member's own matched gate score
+  FELL (det 8/18 vs 16/18 before) as previously-solved easy buckets
+  now fail — the same oscillating-retention wall CURRENT_TRUTHS
+  already named, one rung deeper; `rollback_count` still 0 the whole
+  run. Not hardware-ready, not an upgrade. s11/s13 still training, no
+  cohort verdict yet. No follow-up (recover stays `[operator]`-gated,
+  outside the SIM SPRINT). Detail: STATUS.md, `rl_docs/runs/
+  cw-recover-any21c2-pop3-s12.md`.
+- **08-18 ~18:3x (triage cycle): `cw-dep-bcgait1-hard1-steer1-hard20m1`
+  FAILED its pre-registered 5-clause gate — the ~20M full-stress-mix
+  hardening pass did NOT cure the direction-switch tangle/stall.**
+  Standard harness eval under the run's own trained stress_mix cfg
+  (24 episodes, 120s each, all six schedule families, instant
+  switches, DR-0 + own-DR-0.35): 3/24 ended in a hard `over_current`
+  safety termination (a servo jammed against a limit fighting a
+  direction change — the exact yaw-limit-saturation stall this arm
+  targeted; robot stays upright, doesn't tip over) and 1/24 (det)
+  is a severe leg-tangle (gait_valid False, 3 legs sacrificed
+  [0,2,4], slip 32/m, progress_ratio 0.03, 17cm of travel in 120s —
+  video confirms near-stationary struggling). Base gait quality
+  partially retained on the other 23 episodes (gait_valid 6/6, roll
+  clean/recovered, slip 1.3-2.4/m on the clean ones) — this is not a
+  collapse of the whole skill, just the direction-switch handling.
+  Clause (2) alone ("zero falls/tangles") already fails the gate, so
+  no further compute went into the dedicated `probe_dirswitch_tangle`
+  script or the legacy fixed-command matched panel (clause 1) — the
+  result was already decisive. This CONFIRMS the run's own
+  pre-registered prediction-if-false: full-mix exposure from step 0
+  isn't enough, a staged-dwell curriculum is needed. **Queued same
+  cycle** (agent-doable, no new code — the `sched.*` in-run
+  scheduler + `goal.walk_cmd_stage` curriculum landed 08-17 for
+  exactly this failure class and is untried on this lineage):
+  `cw-dep-bcgait1-hard1-steer2-stagecurric1`, a 2M canary
+  warm-started from `cw-dep-bcgait1-hard1` (the clean base, same
+  parent steer1c used) that ramps `goal.walk_cmd_stage` 0->2 via
+  `sched.key=goal.walk_cmd_stage` over the first 60% of the budget
+  (forward/back-only switches first, full family set incl. jitter by
+  the end) instead of throwing the hardest mix at it from tick 0.
+  Gate: mechanism health (finite losses, no early collapse, tall
+  gait retained on periodic eval/video) AND a first informational
+  read on whether the same 24-episode tangle panel shows fewer
+  over_current/tangle events than hard20m1's 3+1/24 — informational
+  only at 2M, no final behavioral verdict until a matched hardening
+  continuation. Does not touch today's download answer (still plain
+  `bcgait1_hard1`, never asked to survive mid-walk switches).
+  Detail: ledger verdict + W&B `w3fbxfj7` OUTCOME note.
 
 - **08-18 ~16:5x (triage cycle): `cw-recover-predictive1-canary1` CANARY
   PASSED** (frozen dynamics-transformer context in the recover

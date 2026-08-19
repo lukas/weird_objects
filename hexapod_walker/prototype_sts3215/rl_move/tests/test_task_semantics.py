@@ -4668,3 +4668,81 @@ def test_recover_rsi_bank_stats_stay_clean(tmp_path):
     assert "tangle" not in env._rec_stats, (
         "bank RSI episode polluted the self-cert stats for 'tangle'")
     env.close()
+
+
+# --------------------------------------------------------------------------
+# YAW-MARGIN bank — reward.k_yaw_margin (2026-08-19, operator order
+# fb_20260818T152717 lineage). probe_dirswitch_tangle measured the
+# direction-switch tangle PRECURSOR: after abrupt command switches the
+# tall walker rides hip-yaw joints within ~2 deg of (and into) the hard
+# stop for 1-9% of ticks; three exposure/schedule/blend levers failed
+# to cure it. k_yaw_margin prices that precursor: per walk tick each
+# leg whose hip-yaw margin to the nearest hard limit is inside
+# reward.yaw_margin_allow_deg pays k scaled by depth into the band.
+# Required semantics: default off = bit-exact; ~free for the honest
+# tall gait (rides 10-20+ deg margins); a limit-riding pose pays hard.
+
+YAWM_ON = dict(WALK_OVERRIDES)
+YAWM_ON[("reward", "k_yaw_margin")] = 2.0
+YAWM_ON[("reward", "yaw_margin_allow_deg")] = 3.0
+
+
+def _yawm_pinned_rollout(seed: int, overrides: dict) -> dict:
+    """Hold the champion plant stance but with every hip-yaw commanded
+    0.5 deg from its hard stop — the scripted twin of the probe's
+    measured post-switch limit-riding. Returns total reward and the
+    accumulated yaw-margin charge (0.0 when the term is off)."""
+    env = _make_walk_env(seed, overrides)
+    env.reset()
+    hi = float(np.degrees(env.model.joint("L0_yaw").range[1]))
+    pinned = np.array([hi - 0.5, *WALK_PLANT] * 6) * DEG2RAD
+    act = q_rad_to_action(pinned)
+    total, charge = 0.0, 0.0
+    while True:
+        _obs, r, term, trunc, info = env.step(act)
+        total += float(r)
+        charge += float(info.get("reward_yaw_margin", 0.0))
+        if term or trunc:
+            break
+    env.close()
+    return {"return": total, "charge": charge}
+
+
+def test_yaw_margin_default_off_bit_exact():
+    """k_yaw_margin=0.0 (explicit) must equal the key absent on the
+    honest-gait walk rollout — no reward-path or rng change on the
+    default path."""
+    off = dict(WALK_OVERRIDES)
+    off[("reward", "k_yaw_margin")] = 0.0
+    a = _walk_rollout("gait", SEEDS[0])
+    b = _walk_rollout("gait", SEEDS[0], overrides=off)
+    assert a == b, (
+        f"k_yaw_margin=0 changed the walk reward path ({a} vs {b})")
+
+
+def test_yaw_margin_free_for_honest_gait():
+    """The hardware-proven scripted tall gait rides ~10-20+ deg of
+    hip-yaw margin (probe medians) — the term must be ~free for it
+    (the intended behavior keeps its income)."""
+    off = _walk_rollout("gait", SEEDS[0])
+    on = _walk_rollout("gait", SEEDS[0], overrides=YAWM_ON)
+    drop = off - on
+    assert drop < 0.02 * abs(off) + 5.0, (
+        f"k_yaw_margin cost the honest gait {drop:.1f} of {off:.1f} — "
+        "it must be ~free for the intended behavior")
+
+
+def test_yaw_margin_charges_limit_riding():
+    """A stance pinned 0.5 deg from the hip-yaw hard stop (the probe's
+    measured tangle precursor, scripted) must pay heavily and visibly
+    (info charge accumulates), and the SAME actor must earn strictly
+    less with the term on than off."""
+    off = _yawm_pinned_rollout(SEEDS[0], WALK_OVERRIDES)
+    on = _yawm_pinned_rollout(SEEDS[0], YAWM_ON)
+    assert off["charge"] == 0.0
+    assert on["charge"] < -100.0, (
+        f"limit-riding stance accumulated only {on['charge']:.1f} "
+        "yaw-margin charge — the term is not biting the precursor")
+    assert on["return"] < off["return"] - 100.0, (
+        f"term-on return {on['return']:.1f} vs off {off['return']:.1f} "
+        "— limit riding must be strictly money-losing")

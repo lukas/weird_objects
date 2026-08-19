@@ -308,11 +308,25 @@ class Handler(BaseHTTPRequestHandler):
                         n = int(qs[1].split("n=")[1].split("&")[0])
                     except ValueError:
                         n = 100
-                errs = [e for e in recent(500)
-                        if e.get("level") == "error"][-max(1, n):]
+                n = max(1, min(1000, n))
+                # Read the persisted errors.jsonl so history survives
+                # service restarts (the in-memory ring starts empty).
+                errs = []
+                ep = errors_path()
+                if ep.is_file():
+                    tail = ep.read_bytes()[-512 * 1024:]
+                    for ln in tail.decode("utf-8", "replace").splitlines():
+                        try:
+                            errs.append(json.loads(ln))
+                        except ValueError:
+                            continue   # partial first line of the tail
+                    errs = errs[-n:]
+                else:
+                    errs = [e for e in recent(500)
+                            if e.get("level") == "error"][-n:]
                 self._json(200, {
                     "ok": True,
-                    "path": str(errors_path()),
+                    "path": str(ep),
                     "errors": errs,
                 })
             except Exception as e:
@@ -390,8 +404,21 @@ class Handler(BaseHTTPRequestHandler):
             except Exception:
                 pass
         if path == "/cmd":
-            ok = LINK.send(body.strip())
-            self._send(200 if ok else 502, "ok" if ok else "link down")
+            line = body.strip()
+            # E-STOP / limp MUST go through the bench so the demo worker is
+            # aborted first — a bare drive-level X limps the bus but the
+            # still-running demo re-enables torque on its next write and
+            # keeps going (observed with the dance, 2026-08-18).
+            if line.upper() in ("X", "DISARM", "RELAX") and BENCH is not None:
+                BENCH.estop()
+                self._send(200, "limp")
+            else:
+                if BENCH is not None and line.upper() == "SETTLE":
+                    # Graceful power-off also preempts any demo so the
+                    # settle doesn't fight a running routine.
+                    BENCH._preempt_demo_thread(reason="settle", timeout=3.0)
+                ok = LINK.send(line)
+                self._send(200 if ok else 502, "ok" if ok else "link down")
         elif path == "/api/wiggle":
             try:
                 data = json.loads(body or "{}")
@@ -411,7 +438,17 @@ class Handler(BaseHTTPRequestHandler):
                     kw["rate"] = float(data["rate"])
                 if "torque" in data and data.get("torque") is not None:
                     kw["torque"] = int(float(data["torque"]))
+                if "seconds" in data and data.get("seconds") is not None:
+                    kw["seconds"] = float(data["seconds"])
                 self._json(200, BENCH.run_demo(str(data.get("name", "")), **kw))
+            except Exception as e:
+                self._json(400, {"ok": False, "error": str(e)})
+        elif path == "/api/demo/speed":
+            # LIVE tempo: adjusts the running demo (streamed demos every
+            # tick; breathe at the next half-breath).
+            try:
+                data = json.loads(body or "{}")
+                self._json(200, BENCH.set_demo_speed(data.get("speed", 1.0)))
             except Exception as e:
                 self._json(400, {"ok": False, "error": str(e)})
         elif path == "/api/demo/stop":

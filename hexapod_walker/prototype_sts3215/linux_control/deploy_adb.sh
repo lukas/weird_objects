@@ -85,8 +85,8 @@ done
 adb push "$SRC/urt2_setup/." "$REMOTE/urt2_setup/"
 adb push "$SRC/urt2_setup/." "$REMOTE/linux_control/urt2_setup/"
 # Canonical motor_setup copies (feetech + friends).
-for f in feetech_bus.py urt2_bench.py inplace_demos.py motion_telemetry.py \
-         motor_setup_registry.json; do
+for f in feetech_bus.py urt2_bench.py inplace_demos.py quad_walk.py \
+         motion_telemetry.py motor_setup_registry.json; do
   adb push "$SRC/../motor_setup/$f" "$REMOTE/motor_setup/"
 done
 adb shell "touch '$REMOTE/motor_setup/__init__.py' '$REMOTE/linux_control/__init__.py'"

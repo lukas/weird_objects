@@ -10,7 +10,18 @@ cd hexapod_walker/prototype_sts3215
 sim_viewer/sim_play.sh     # ← the one to use: stand up AND walk, one window
 sim_viewer/sim_stand.sh    # stance champion alone (mujoco.viewer)
 sim_viewer/sim_walk.sh     # walk champion alone (cv2 drive window)
+sim_viewer/sim_quad.sh     # tip-back QUAD walk playground (scripted, no RL)
 ```
+
+`sim_quad.sh` (no checkpoints involved) drives the webui Quad tab's
+scripted gaits — `motor_setup/quad_walk.py`, the tip-back 4-leg animal
+walk and the diagonal-pair TROT — as a live state machine in the
+fitted servo twin: `7`/`W` rear up (`W` auto-walks once reared), `T`
+toggle walk/trot (applies at the next rear-up), `Space` stop (freezes
+at the next all-feet-down window), `8` sit back down (ends at the
+plant pose), `9` reset, `-`/`=` gait speed 0.25–2× (the same live knob
+as the webui slider), `P` a 4 N forward shove to poke at robustness,
+drag to orbit, `Z`/`X` zoom, `Q` quit. Keys are drawn in the window.
 
 `sim_play.sh` controls (shown in the window too):
 
@@ -34,7 +45,8 @@ sim_viewer/sim_walk.sh     # walk champion alone (cv2 drive window)
   in two groups — click a row to load it. By default only a curated
   TOP TEN + the 08-18 experiments is shown (best per category: rise,
   all-round walk, no-slip, steering, speed, on-robot, the transformer
-  and transdagger experiments, plus the clamp-fit scripted gait) — the
+  and transdagger experiments, plus the clamp-fit scripted gait and
+  the two tripod dance rows) — the
   full scan outgrew the panel and off-screen rows were unclickable;
   pass `--all` for everything (rows shrink to fit). The mode one-hot
   (+6 obs) is always appended env-side now — prefix-slicing keeps every
@@ -68,6 +80,23 @@ sim_viewer/sim_walk.sh     # walk champion alone (cv2 drive window)
   yaw rate ±0.05 rad/s per tap, including turn-in-place.
   `sim_noslip.sh` drives the gait alone with live alpha keys
   (`4`/`5`/`6` = 0/0.5/1) and `7` = the clamp-fit preset.
+  Two more `S` rows run the TRIPOD gait (`linux_control/
+  tripod_gait.py`) — the dance_walk victory-lap drivers:
+  `tripod_prance_gait` (aggressive horse settings: 0.58 s cadence,
+  32 mm knees, cruise 0.09 m/s — 1.5× the RL band) and
+  `tripod_walk_gait` (stock gentle walk-demo settings, for
+  comparison). Tripod rows sim under the prance's own write regime
+  (speed 1500 counts/s, ACC 80): measured 08-18, the prance cadence is
+  ACCELERATION-limited, not velocity-limited — ACC 20 smears it to
+  0.012 m/s, ACC 80 realizes ~0.038 m/s upright at full height. `U`/`O`
+  turn up to the row's omega.
+  **`V` plays the whole dance_walk VICTORY LAP end-to-end** (horse
+  prance out 7.5 s → ABOUT-FACE 180° turn 9.3 s → prance home 7.5 s)
+  and `P` plays the about-face alone — both need NO row selection,
+  auto-stand the robot first if it's sitting/low, and cancel on
+  P/V/space/arrows. The turn duration is sim-calibrated (19.3 deg/s
+  realized at the prance regime); out and home share the same gait and
+  duration, so the return distance matches by symmetry.
 - **`--phase-obs`** (pass through `sim_play.sh`): enables the walk
   env's phase clock (+2 obs dims, sin/cos at the tail; `--phase-hz`
   default 1/6 = one revolution per 6 s clamp-fit cycle) so the

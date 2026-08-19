@@ -36,7 +36,46 @@ stance `footlow2_hard1` + walk `bcgait1_hard1` + session controller
 with entry-slew and STOP→stance-hold — det 0.967 / sto 0.853 on the
 n=600 held-out session gate; single weak boundary = post-lower rise).
 
-**Last updated: 2026-08-18 ~06:5x UTC (hw): the recover population
+**Last updated: 2026-08-18 ~23:3x UTC (hw): ALL THREE seeds of the
+from-scratch `predictive1b-pop3` recover cohort now independently
+clear the ENTIRE redesigned 23-rung get-up ladder — cohort COMPLETE.**
+`-s13`: frontier held B22 `flip` at 40M, gate 21/23 then 23/23
+own-DR, incl. a genuine flip recovery. `-s12`: frontier reached B22
+by 35.1M, held clean with zero retention-guard rollbacks, gate 22/23
+both passes (flip its one miss, no exploit). `-s11`: frontier reached
+B22 by 34.7M, held clean (one guard rollback fired and recovered);
+raw gate score looked weaker (18/23, 20/23) but video + per-episode
+metrics show most of that gap is the known quiet-hold-timing
+false-negative, not a real miss — real success ~22/23 both passes,
+matching its siblings. No flag/tripod/stilt/park exploit in any
+reviewed video on any member, incl. the rungs built specifically to
+teach the old parked-on-4/5-feet wall (now solved 3/3, from scratch).
+`flip` is the one shared weak rung across the cohort (1/3 solves it
+fully, 2/3 partial-or-fail under harder DR/noise) — the clearest
+target for a future hardening pass. This is a genuine line-level win
+for the population-sync + predictive-context recipe; per the
+standing ruling recover/tangle redesign stays `[operator]`-gated, no
+follow-up queued, and this does not change today's download answer
+(rise/walk session gate, unaffected). Detail: hw/STATUS.md "Now" +
+`rl_docs/SKILLS.md`.
+
+**Earlier — 2026-08-18 ~19:4x UTC (hw): the "keep it rumbling"
++100M recover cohort (below) is now FULLY COMPLETE — all three
+members (s11/s12/s13) verdicted. Answer to the operator's "does more
+training help": no clean answer — one member rose (13→16/18), one
+fell (16→8/18), one washed (13→14/18, 16→15/18), all on the
+identical recipe/budget, all holding the shared B15 frontier the
+whole 100M with no exploit. This is the same oscillating-retention
+wall CURRENT_TRUTHS already named, now confirmed at 100M/member
+scale, not a new mechanism. Separately (walk track): a staged
+difficulty-ramp fix for the joystick direction-switch jamming that
+failed at 20M (`steer1-hard20m1`) passed its 2M canary cleanly
+(`steer2-stagecurric1`: 0/24 over_current vs the failed run's 3/24,
+1/24 mild single-leg drag vs 1/24 severe tangle) and a matched ~20M
+hardening continuation is now running. Neither changes today's
+download answer. Detail: hw/STATUS.md "Now".**
+
+**Earlier — 2026-08-18 ~06:5x UTC (hw): the recover population
 saga has its first full win and is now RUMBLING ON BY OPERATOR ORDER.
 The any21 three-seed cohort finished its full 40M budget with the
 sync mechanism proven end-to-end (all certs synchronized=512, B1-B14
@@ -389,8 +428,16 @@ ORCHESTRATOR_PROMPT.md):**
   FIRST while the sprint runs):** the fleet is re-pointed at the
   operator's SIM SPRINT ruling (~18:05 UTC). Board: 1/12 training
   (`cw-arch-modeexperts-scratch3`, in-flight — finishes and gets
-  triaged normally per the sprint text), train-10 pod `Failed`
-  (watcher-owned, 10 slots still free), backlog EMPTY on purpose —
+  triaged normally per the sprint text), ~~train-10 pod `Failed`
+  (watcher-owned, 10 slots still free)~~ **train-10 REPAIRED 08-19
+  ~09:1x UTC (idle-drain cycle): the OOMKilled pod had sat Failed
+  3d8h with no watcher fix — deleted + recreated from the fixed
+  4Gi-dshm spec, bootstrapped (code @ c7c2919a, jax CUDA OK, ckpt
+  md5 verified), CUDA torch reinstalled + durably recorded
+  (pod_torch_capability.py). Fleet is 12/12 slots ready; dshm truth
+  updated in CAPACITY.md (train-1 measured 4Gi; train-2/3 measured
+  64M — still recreate-before-wide-sharded)**, backlog EMPTY on
+  purpose —
   **no new research-track launches (dynrep/arch/nobc/quad/turn/
   multitask) unless an arm directly serves sim rise+walk
   reliability.** The download answer exists TODAY and is written at
@@ -404,22 +451,23 @@ ORCHESTRATOR_PROMPT.md):**
   closed postlower training attempts; product baseline unaffected).
   Idle slots next to `[operator]`-typed waits are correct under the
   sprint; do not backfill them with research arms.
-- **[triage] hw / `cw-recover-predictive1b-pop3-s11/s12/s13` — normal
-  40M cohort triage when it finishes (since 2026-08-18 ~17:3x UTC).**
-  The barrier mystery is RESOLVED, not a code defect: attempt 1's
-  "silent zombie at 655,360" was the operator-kick cycle's own
-  deliberate fail-closed pkill of s11/s12 (both parked healthy at the
-  barrier; s13's burned single-use W&B id 200e6aac had made the roster
-  permanently un-rendezvousable — ledger verdicts written before the
-  zombie observation). Attempt 2 is fully healthy: all 3 members
-  (ids 7901e7bb/304ac843/95414586, pods train-5/7/9) crossed the
-  bootstrap barrier, leader released, and ALL THREE posted the first
-  synchronized cert at 1,048,576 (B0 plant_catch 16/16, frontier
-  B0->B1, CERT/recover_training_envs_synchronized=512,
-  predictive_enabled=1, finite gates). `--predictive-actor` +
-  population-sync composes fine. Judge at the pre-registered 40M
-  checkpoints vs the any21 B14 wall. Detail: hw/STATUS.md "Now",
-  ledger verdicts on `predictive1-pop3-*` / `predictive1b-pop3-*`.
+- **`[operator]` — steer sub-line scale-up decision (08-19 ~01:5x
+  UTC): the joystick direction-switch line is STOPPED awaiting an
+  operator pick.** The 4th and final autonomous lever
+  (`cw-dep-bcgait1-hard1-steer3-yawm1`, new `reward.k_yaw_margin`
+  term) VALIDATED on the safety half of the problem — 0/24
+  over_current, blend1's park/freeze episode cured same-seed, hip-yaw
+  saturation 3–10x below parent on the deployed rot60-ON config,
+  retention clean — but missed the pre-registered slip bar (panel
+  medians 2.51–3.54/m vs < 2.0/m target; unchanged from blend1).
+  Its own gate text forbids an autonomous 5th lever. Options for the
+  operator: (a) accept the slip band on switch schedules and order
+  the ~20M k_yaw_margin hardening continuation, (b) order a
+  continuation that pairs k_yaw_margin with slip-priced reward, or
+  (c) park the sub-line (download answer never needed mid-walk
+  switches). Evidence: ledger verdict + W&B `qon84cv1` +
+  hw/STATUS.md "Now".
+- **CLEARED 08-18 ~23:3x UTC (this cycle): `cw-recover-predictive1b-pop3-s11` triaged, PASS — the predictive1b-pop3 cohort is now COMPLETE (all three seeds s11/s12/s13 independently clear the full 23-rung ladder, no exploit; `flip` is the shared weak rung). See "Last updated" + hw/STATUS.md "Now" + `rl_docs/SKILLS.md`. Recover/tangle redesign stays `[operator]`-gated per the standing ruling — no follow-up queued.
 - **CLEARED 08-18 ~17:1x UTC (this cycle): both fleet preconditions
   from the predictive1 launch drained.** (1) train-6 torch CUDA
   capability installed + durably recorded via
@@ -453,6 +501,24 @@ ORCHESTRATOR_PROMPT.md):**
   step; fixed by hand, zero GPU-seconds lost, stale duplicate ledger
   rows reconciled). Detail: rl_docs/tracks/hw/STATUS.md, ledger
   verdict.
+  **ADDENDUM ~18:0x UTC (a SECOND concurrent cycle, independently
+  triaging the same steer1c finish): reached the identical CANARY
+  PASS verdict (own held-out re-eval: 24 episodes DR-0+own-DR-0.35
+  det+sto, zero falls, six-leg gait_valid 23/24) and, not yet aware
+  the peer above had already launched+finished the continuation,
+  respec'd + launched a byte-identical duplicate
+  (`cw-dep-bcgait1-hard1-steer1-hard1`, same parent/seed 11/
+  `--best-ckpt`) onto the pod the first attempt's crash had freed.
+  Caught at ~2.9M/20M steps by re-reading the ledger (two rows both
+  claiming train-4 RUNNING), confirmed via live pod process that only
+  one trainer was actually alive, killed the redundant one
+  immediately (verdict: KILLED_DUPLICATE on
+  `cw-dep-bcgait1-hard1-steer1-hard1`) — zero useful signal lost, no
+  double GPU-seconds beyond the ~15 min overlap. The real answer is
+  `cw-dep-bcgait1-hard1-steer1-hard20m1` (W&B `w3fbxfj7`) above,
+  finished its full 20M and is a PEER CYCLE'S in-progress triage as
+  of this addendum — not re-verdicted here to avoid a second
+  collision on the same run.**
 - **CLEARED 2026-08-18 ~08:5x UTC (dynrep): the SubprocVecEnv->GPU-
   physics backend swap is DONE and LIVE** (operator order
   fb_20260818T065930_03b422 executed same cycle): condition-D +
@@ -657,6 +723,51 @@ ORCHESTRATOR_PROMPT.md):**
   ~852k/786k/852k steps); first 1M cert not yet due — next checkup
   watches CERT/recover_training_envs_synchronized=512, no operator
   wait open on the mechanism itself.**
+  **UPDATE 08-18 ~18:5x UTC (triage cycle): `s12` finished its full
+  +100M — mechanism PASS, behavior AMBIGUOUS (answers the operator's
+  question with "a bit of both, not a clean win").** All 6
+  integration clauses held (clean 100M finish, barrier/cert/ACK
+  protocol intact, `RECOVER_GUARD/rollback_count`=0 throughout). The
+  population frontier DID push past the old B14 wall to B15 (this
+  member adopted winner s11's B15, video-verified genuine
+  tangle-untangle + bank recoveries, no exploit) — but this member's
+  OWN matched gate-eval score FELL vs its pre-continuation checkpoint
+  (det 8/18 DR-0, 10/18 DR-0.1, was 16/18 / 14/18) because
+  previously-solved easy buckets (crouch ×3, partial_mid/low, zero,
+  plant_catch) now fail (over_current stalls / short-of-height
+  timeouts, not falls). This is the SAME oscillating-retention wall
+  CURRENT_TRUTHS already named, caught one rung deeper — NOT proof
+  either that more training hardens or breaks the frontier; the
+  rollback guard still can't see oscillation. Not hardware-ready; not
+  an upgrade over the pre-continuation checkpoint. s11/s13 still
+  training (this cycle's assignment boundary) — no cohort-level
+  conclusion yet. No follow-up queued (recover/tangle redesign stays
+  `[operator]`-gated, outside the SIM SPRINT). Detail:
+  `rl_docs/runs/cw-recover-any21c2-pop3-s12.md`,
+  `rl_docs/SKILLS.md` "Fall recovery".**
+  **UPDATE 08-18 ~19:1x UTC (triage cycle): `s13` finished its full
+  +100M too — the OPPOSITE direction from s12.** Same 6 clauses held
+  clean; same shared B15 frontier (video-verified genuine
+  tangle_mid/tangle/bank recoveries, no exploit; clean miss is
+  `tangle_deep` over_current + the still-unreached `flip` bucket,
+  expected). But this member's OWN matched gate score IMPROVED vs
+  its pre-continuation checkpoint (det 16/18 DR-0 + 16/18 DR-0.1, was
+  13/18 + 10/18) — the reverse of s12's fall. NEW datum:
+  `RECOVER_GUARD/rollback_count`=1 this run (fired once at step
+  72,024,064, restoring a B15-frontier checkpoint — the guard IS
+  capable of firing), but training-time bucket stats at the final
+  cert still oscillate on easy buckets (crouch_shallow/mid/deep
+  0.125/0.375/0.25) even after that rollback, so the one firing did
+  not cure the wall — refines, does not refute, the "guard can't see
+  oscillation" framing (it can trigger on a genuine consecutive-age
+  condition; it just doesn't catch every dip). Cohort read with
+  s12+s13 both in: more training on this recipe genuinely helps one
+  member and hurts another — the operator's question has a real,
+  not-clean-either-way answer. s11 still training, no full
+  cohort verdict yet. No follow-up queued (recover/tangle redesign
+  stays `[operator]`-gated, outside the SIM SPRINT). Detail:
+  `rl_docs/runs/cw-recover-any21c2-pop3-s13.md`, `rl_docs/SKILLS.md`
+  "Fall recovery".**
 - **NEW WAIT (08-17 ~18:3x UTC) `[code]` (hw, sprint-serving,
   agent-doable — next idle cycle drains this): build + run the
   remaining-rise EVAL PROBE that prices the operator's postlower
