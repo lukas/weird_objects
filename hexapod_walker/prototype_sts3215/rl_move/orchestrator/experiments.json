@@ -11725,7 +11725,7 @@
       "Crouch envelope: cw-walk-lowgait PASSED -20mm (mean end-height err ~4mm, gait intact). One variable off it: height ref -20 -> -30mm. Plain: how low can it walk before leg workspace/clearance runs out, so stance height becomes a wide runtime knob. Prediction-if-true: same gait quality at -30mm, height err <=8mm, slip ~parent. Prediction-if-false: clearance/knee workspace runs out -> height err stays >8mm or drag/slip rises markedly = -30mm is outside the envelope (also a useful answer). Strongest alternative: height tracks but sto brittleness worsens in the deeper crouch. Parent: rl_move/sim/policies/ppo_goal_cw_walk_lowgait.zip. Gate: own-cfg DR0 15s 6+6 at -30mm: gv 12/12, 0 term, mean end-height err <=8mm, det agg slip/m <=1.35 (parent 1.14 + noise); frames watched det+sto"
     ],
     "created": "2026-08-09T13:49:22+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -11766,7 +11766,8 @@
     ],
     "verdict": "PASS \u2014 gate met at -30mm crouch: own-cfg DR0 det+sto gv 12/12, 0 term, mean end-height err 4.8/4.2mm (gate <=8); det agg slip/m 0.95 vs parent lowgait 1.14 (per-ep ranges non-overlapping \u2014 deeper crouch slightly REDUCED slip). One sto draw-stall ep (prog 0.14, slip/m 9.58) = same known lineage sto brittleness as parent's 1/6 (0.18/6.98), not worse. Frames watched det+sto: crouched, level, six legs cycling; transport still paddling-class. Next rung: -40mm.",
     "hardware_ready": "no",
-    "track": "hw"
+    "track": "hw",
+    "triage": "done"
   },
   {
     "run": "cw-walk-wander30",
@@ -13018,7 +13019,7 @@
       "OPERATOR BINDING TARGET: joystick operability - sudden command changes must never fall the robot. wander30 trained on gentle 5s resamples; a joystick means IRREGULAR instant flips. This run hardens transitions within +-45deg off wander30 with RANDOMIZED resampling: interval 1.5s +-60% jitter, blend 0.1-1.0s (flick to smooth), 20% stops, speed band 0.02-0.08. If-true: eval_drive JOYSTICK GATE passes with zero in-envelope falls (transition hardening works; combine with heading ladder); if-false: fast random resampling degrades base gait (needs explicit shaping/curriculum, not exposure). Parent: cw-walk-wander30. Gate: JOYSTICK GATE: python3 -m rl_move.sim.eval_drive <ckpt> --dr-scale 0.2 with own cfg-set - ZERO in-envelope falls across direction panel + flip-stress; plus own-cfg harness walk 12/12 gait_valid"
     ],
     "created": "2026-08-09T15:20:17+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -13059,7 +13060,8 @@
     ],
     "verdict": "PASS. JOYSTICK GATE (eval_drive DR0.2, own cfg): 0 in-envelope falls across fwd/diag/stop-go panel + 3 flip-stress eps (trk_err 0.029-0.035). Own-cfg DR0 harness 6+6: gv 12/12, 0 term, no sacrificed legs, prog med ~1.04, slip/m med 1.44 det / 1.58 sto = steering-lineage band (wander-dr05 1.39-1.70). Frames (det, incl worst-slip ep): level, all six legs cycling, no flag leg - known paddle foot-slide persists. Abrupt randomized resampling (1.5s +-60%, blend 0.1-1.0s, 20% stops) hardens flips at DR0 without degrading the base gait; DR0.5 pair = joyjit-dr05(-c1) in flight.",
     "hardware_ready": false,
-    "track": "hw"
+    "track": "hw",
+    "triage": "done"
   },
   {
     "run": "cw-walk-lowgait50",
@@ -64003,7 +64005,7 @@
       "train.mirror_loss_coef=1.0"
     ],
     "created": "2026-08-10T22:58:16+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
