@@ -4746,3 +4746,67 @@ def test_yaw_margin_charges_limit_riding():
     assert on["return"] < off["return"] - 100.0, (
         f"term-on return {on['return']:.1f} vs off {off['return']:.1f} "
         "— limit riding must be strictly money-losing")
+
+
+# --------------------------------------------------------------------------
+# FASTCLEAN combined-stack bank (2026-08-19, operator focus note "fast
+# non-slipping gait", MCP lane 20260819T175106Z). The steer4
+# continuation trains the bcgait1-hard1 walk stack with BOTH banked
+# terms ON together for the first time — k_yaw_margin (anti-jam,
+# validated by cw-dep-bcgait1-hard1-steer3-yawm1) + the structural
+# per-stance drag charge k_drag_stance (charge-magnitude audit
+# operating point) — and the command band widened to 0.05–0.08 m/s.
+# MDP_PREFLIGHT requires the WALK orderings under the FULL combined
+# stack the arm will train with, including at the raised 0.08 top
+# command: honest stepping must out-earn the zero-lift skate, the
+# march-in-place stall, and the park at BOTH ends of the band, and the
+# combined charges must stay ~free for the honest tall gait.
+
+FASTCLEAN_ON = dict(WALK_OVERRIDES)
+FASTCLEAN_ON.update({
+    ("reward", "k_yaw_margin"): 2.0,
+    ("reward", "yaw_margin_allow_deg"): 3.0,
+    ("reward", "k_drag_stance"): 8000.0,
+    ("reward", "drag_stance_allow_mm"): 6.0,
+    ("reward", "drag_stance_tick_floor_mm"): 0.25,
+    ("reward", "walk_height_gate"): 1.0,
+    ("reward", "walk_height_sigma_mm"): 30.0,
+    ("goal", "walk_speed_max_m_s"): 0.08,
+})
+
+
+def test_fastclean_combined_stack_orders_gait_over_cheats():
+    """Honest gait > skate/stall/park under the combined
+    yaw-margin + drag-stance + height-gate stack, at both the champion
+    command (0.05) and the raised top command (0.08)."""
+    for name, vx in (("band_low", 0.05), ("band_top", 0.08)):
+        r = {p: float(np.mean(
+            [_walk_rollout(p, s, vx=vx, overrides=FASTCLEAN_ON)
+             for s in SEEDS]))
+            for p in ("gait", "skate", "stall", "park")}
+        assert r["gait"] > r["skate"] + 50.0, (
+            f"{name}: skating rivals stepping under the combined "
+            f"stack: {r}")
+        assert r["gait"] > r["stall"] + 50.0, f"{name}: {r}"
+        assert r["gait"] > r["park"] + 50.0, f"{name}: {r}"
+
+
+def test_fastclean_combined_charges_stay_cheap_for_honest_gait():
+    """The combined charges must not tax the intended behavior into
+    the ground: the honest tall gait's return under the FULL combined
+    stack keeps the large majority of its charge-free income (the
+    audit priced the honest gait's drag cost at ~20-23% of income;
+    yaw-margin is ~free by its own bank)."""
+    base = dict(FASTCLEAN_ON)
+    base[("reward", "k_yaw_margin")] = 0.0
+    base[("reward", "k_drag_stance")] = 0.0
+    off = float(np.mean([_walk_rollout("gait", s, vx=0.05,
+                                       overrides=base)
+                         for s in SEEDS]))
+    on = float(np.mean([_walk_rollout("gait", s, vx=0.05,
+                                      overrides=FASTCLEAN_ON)
+                        for s in SEEDS]))
+    drop = off - on
+    assert drop < 0.30 * abs(off) + 5.0, (
+        f"combined charges cost the honest gait {drop:.1f} of "
+        f"{off:.1f} — too expensive for the intended behavior")

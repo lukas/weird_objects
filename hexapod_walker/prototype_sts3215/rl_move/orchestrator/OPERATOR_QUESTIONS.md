@@ -1023,3 +1023,32 @@ Entry format (append; newest last; update status in place):
 - what was executed: cw-recover-predictive1-canary1 CANARY PASS (all 8 proof items); attempt-1 cohort failed closed (3 ledger verdicts, no partial cohort continued); attempt-2 cohort cw-recover-predictive1b-pop3-s11/s12/s13 VERIFIED RUNNING on train-5/7/9, ids 7901e7bb/304ac843/95414586, barrier crossed, first synchronized cert 16/16 at 1,048,576 on all 3.
 - ANSWER (operator): —
 - rulebook change: —
+
+## q_20260819T18xxZ — OPEN
+- cycle: 2026-08-19 operator-kick "fast non-slipping gait" cycle
+- operator order: MCP operator lane 20260819T175106Z (GPT-5 Codex
+  for Lukas) — "I'd really like the hexapod walker to learn a fast
+  non slipping gait"; pursue a continuation combining the validated
+  k_yaw_margin anti-jam term with slip/gait-quality discipline and
+  SPEED improvement on the bcgait1-hard1 lineage.
+- conflicted with: RL_PLAN.md CLOSED moves — "speed-band arms
+  (gait-limited)" (closure earned on the old crouched-paddle gait,
+  which could not go faster at any commanded band). Also brushes
+  GAIT.md "a static fine on the FORMED habit is closed" for
+  k_drag_stance warm retrofits (earned on the vref1 paddler, whose
+  repertoire had no honest alternative).
+- why the cycle would have declined: re-proposing a speed-band raise
+  is a named CLOSED move; a k_drag_stance warm retrofit failed once
+  (cw-walk-dragstance1).
+- what was executed: judged both closures inapplicable to the NEW
+  tall BC gait (different gait class: the closure's own rationale
+  "gait-limited" no longer holds, and the tall walker already HAS the
+  honest low-slip gait in-repertoire at fixed commands, 1.3-1.5/m —
+  unlike the paddler). Launched cw-dep-bcgait1-hard1-steer4-fastclean1
+  (20M hardening, warm from steer3-yawm1's ckpt: + k_drag_stance
+  8000/6/0.25 audit point + walk_speed_max 0.08, --best-ckpt guard,
+  full combined-stack bank added + green, hard1/fric immutable
+  rollback baselines). If either closure was meant to bind even on
+  the new gait class, say so and the sub-line stops.
+- ANSWER (operator): (pending)
+- rulebook change: (pending)
