@@ -24,6 +24,34 @@ unresolved blockers between the robot and reliable joystick control.
 
 ## Now
 
+- **08-19 ~21:3x (operator-kick cycle): the operator ANSWERED the
+  steer park-vs-retry fork — next lever = actuator/profile HEADROOM
+  (MCP lane 20260819T211434Z), and the bounded canary is queued:
+  `cw-dep-bcgait1-hard1-steer5-fastprof1` (2M, CANARY, hw).**
+  Root idea: the sim servo profile has been clamped to the ~350
+  counts/s sys-ID fit no matter what `bus.write_speed` said, so the
+  feet physically could not exceed ~31°/s — the slip band may be
+  feet that cannot keep up, not mispriced rewards. Built + shipped
+  this cycle (snapshot `4a8a4561`): opt-in
+  `bus.servo_vel_max_counts_s` (sentinel `write_speed`) in
+  `SimServoParams.from_cfg` — one choke point, inherited by
+  ServoProfile (CPU), MJX TickParams, and every train/eval path;
+  default OFF bit-exact (`test_servo_vel_override.py` 12/12,
+  sim_env 43/43, walk semantics bank green). The canary is the EXACT
+  steer3-yawm1 recipe + only the profile keys (write_speed=1500 ≈
+  132°/s, write_acc=80 ≈ 703°/s², servo_vel_max_counts_s=write_speed,
+  safety.max_delta_q_deg=5.0 @25 Hz ≈ 125°/s; air fit kept —
+  `servo_params=loaded` is not this lineage's default and would
+  confound the A/B). Gate: mechanism health + hard1-panel retention
+  (slip ≤1.8/2.0, prog_ratio ≥ yawm1's 0.91–1.07, zero falls,
+  direction/heading not worse) + tangle no-regression (0/24
+  over_current, yaw_sat_frac ≤ 0.011) + MANDATORY matched-parent
+  control (hard1 + yawm1 re-evaled under the same raised profile,
+  same seed) + informational pinned-0.08 read. Any miss = STOP +
+  report; PASS proposes (not launches) the 20M hardening. If the
+  matched-parent control shows the parents zero-shot improve under
+  headroom alone, that is itself the finding (deploy-side write
+  profile change, no training needed).
 - **08-19 ~19:1x (triage cycle): `cw-dep-bcgait1-hard1-steer4-fastclean1`
   FAILS — the operator's own combined lever made the fast gait WORSE
   on every one of its four pre-registered bars, on both the final and
