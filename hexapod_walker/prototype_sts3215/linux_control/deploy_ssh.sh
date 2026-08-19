@@ -51,9 +51,16 @@ done
 # Setup bundle + canonical motor_setup copies.
 "${SCP[@]}" -r "$SRC/urt2_setup/." "$HOST:$REMOTE/urt2_setup/"
 "${SCP[@]}" -r "$SRC/urt2_setup/." "$HOST:$REMOTE/linux_control/urt2_setup/"
+# urt2_setup sits BEFORE motor_setup on the service PYTHONPATH, so a stale
+# bundle copy silently shadows the canonical file (bit us 2026-08-19:
+# demos ran an old inplace_demos.py for two test rounds). Overwrite the
+# shared modules in BOTH urt2_setup dirs from motor_setup so the deployed
+# tree can never disagree with the canonical copies.
 for f in feetech_bus.py urt2_bench.py inplace_demos.py \
          motion_telemetry.py motor_setup_registry.json; do
   "${SCP[@]}" "$SRC/../motor_setup/$f" "$HOST:$REMOTE/motor_setup/"
+  "${SCP[@]}" "$SRC/../motor_setup/$f" "$HOST:$REMOTE/urt2_setup/"
+  "${SCP[@]}" "$SRC/../motor_setup/$f" "$HOST:$REMOTE/linux_control/urt2_setup/"
 done
 "${SSH[@]}" "touch '$REMOTE/motor_setup/__init__.py' \
   '$REMOTE/linux_control/__init__.py'"

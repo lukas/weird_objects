@@ -14,7 +14,7 @@ yaws) buzz.  Demos now use ``PoseStreamer``: deadband skip + goal-speed
 matched to |Δθ|/dt, plus a soft SRAM torque limit while waving.
 
 On the MCU stream bridge (2026-08-19) ``configure_stream_profile``
-densifies waypoints to 50 Hz with a proportionally smaller deadband:
+densifies waypoints to 100 Hz with a proportionally smaller deadband:
 dense + speed-matched, the trapezoid restarts blend into near-continuous
 velocity tracking instead of visible stair-steps.  Legacy buses keep the
 sparse 12.5 Hz profile.
@@ -82,18 +82,29 @@ ZERO_ACC = 8
 # mismatched speeds are what made joints buzz through backlash.
 #
 # DENSE (MCU stream bridge, 2026-08-19): a SyncWrite round trip is
-# ~1.5-3 ms, so 50 Hz waypoints fit easily. Dense + goal-speed matched
-# to |Δθ|/dt means the servo never finishes a step before the next one
-# arrives — the restarts blend into near-continuous velocity tracking
-# instead of visible stair-steps. Deadband scales down with the tick so
-# per-tick deltas (4x smaller) still pass it near peak velocity while
-# turnaround jitter is still skipped.
+# ~1.5-3 ms, so 100 Hz waypoints fit in a 10 ms tick. Dense + goal-speed
+# matched to |Δθ|/dt means the servo never finishes a step before the
+# next one arrives — the restarts blend into near-continuous velocity
+# tracking instead of visible stair-steps. Deadband scales down with the
+# tick so per-tick deltas still pass it near peak velocity while
+# turnaround jitter is still skipped; below ~0.15° (≈2 encoder counts)
+# steps stop being expressible, so that is the floor — at 100 Hz a
+# typical air-demo peak step is only ~0.3° (~3 counts).
 LEGACY_DT = 0.08
 LEGACY_SHOW_DT = 0.055
 LEGACY_DEADBAND_DEG = 0.8  # skip tiny re-commands (was 0.4 — buzzed)
-DENSE_DT = 0.02            # 50 Hz waypoints
-DENSE_SHOW_DT = 0.02
-DENSE_DEADBAND_DEG = 0.3
+DENSE_DT = 0.01            # 100 Hz waypoints (was 0.02 in first cut)
+DENSE_SHOW_DT = 0.01
+DENSE_DEADBAND_DEG = 0.15
+# Goal lead for dense streaming (see PoseStreamer.write): the commanded
+# goal runs this far ahead of the trajectory so the STS position PID
+# always has a healthy error to chase (~ the error legacy 12.5 Hz steps
+# gave it implicitly). ~10 ticks at 100 Hz.
+DENSE_LEAD_S = 0.10
+# Speed-cap headroom over trajectory velocity. The speed register is a
+# CAP, not a setpoint: capped exactly at trajectory speed a servo that
+# falls behind can never catch back up to the receding goal.
+DENSE_SPEED_MARGIN = 1.3
 DT = LEGACY_DT
 DEADBAND_DEG = LEGACY_DEADBAND_DEG
 STREAM_DENSE = False  # set by configure_stream_profile()
@@ -357,6 +368,14 @@ def _speed_for_delta(delta_deg: float, dt: float, *,
     # Keep host-commanded speed below what finishes the step early —
     # overshooting + re-command is what makes the joints buzz.
     speed = int(min(hi, max(lo, counts / max(dt, 1e-3) * 0.9)))
+    if STREAM_DENSE and dt <= 0.021:
+        # Dense ticks pair with the lead goal (PoseStreamer.write):
+        # speed cap ABOVE trajectory velocity (catch-up headroom; the
+        # lead goal bounds overshoot) and acc=0 (no ramp; a ramped
+        # restart every 10 ms never leaves the slowest accel phase).
+        speed = int(min(hi, max(lo, counts / max(dt, 1e-3)
+                                * DENSE_SPEED_MARGIN)))
+        return normalize_speed(speed), 0
     # Soft accel: take most of the tick to ramp (acc reg = ×100 step/s²).
     acc = int(min(max_acc, max(4, speed / (100.0 * max(dt, 1e-3) * 0.85))))
     return normalize_speed(speed), normalize_acc(acc)
@@ -418,9 +437,11 @@ class PoseStreamer:
 
     def __init__(self):
         self.last: list[float] | None = None
+        self.prev: list[float] | None = None
 
     def reset(self) -> None:
         self.last = None
+        self.prev = None
 
     def write(self, bus: FeetechBus, degrees: list[float], live: set[int],
               *, dt: float = DT,
@@ -437,9 +458,15 @@ class PoseStreamer:
         if self.last is None:
             # First frame: ease toward the pose gently (no slam).
             self.last = list(degrees)
+            self.prev = list(degrees)
             _write_pose(bus, degrees, live, speed=120, acc=10)
             return {j: (120, 10) for j in range(N_JOINTS)
                     if joint_to_servo_id(j) in live}
+
+        # Dense mode: trajectory velocity for the lead goal (see below).
+        prev = getattr(self, "prev", None) or self.last
+        vel = [(d - p) / max(dt, 1e-3) for d, p in zip(degrees, prev)]
+        self.prev = list(degrees)
 
         wrote: dict[int, tuple[int, int]] = {}
         for joint, deg in enumerate(degrees):
@@ -452,7 +479,20 @@ class PoseStreamer:
             speed, acc = _speed_for_delta(
                 delta, dt, min_speed=min_speed, max_speed=max_speed,
                 max_acc=max_acc)
-            count = deg_to_count(joint, deg, bus.trims[joint])
+            goal = deg
+            if STREAM_DENSE and dt <= 0.021:
+                # Lead the goal along the trajectory ("carrot"). With
+                # 100 Hz waypoints the raw per-tick goal sits only 2-3
+                # encoder counts ahead; the STS position PID barely
+                # drives on an error that small and the servo creeps
+                # (measured 2026-08-19: yaw amplitude collapsed 5.0° →
+                # 3.7° std regardless of acc). Sparse 12.5 Hz ticks
+                # accidentally provided an ~80 ms lead; do it on purpose
+                # here — goal recedes ahead of the servo at matched
+                # speed, so it never decelerates into the tiny-error
+                # zone, and reversals still update within one tick.
+                goal = deg + vel[joint] * DENSE_LEAD_S
+            count = deg_to_count(joint, goal, bus.trims[joint])
             bus.pkt.SyncWritePosEx(sid, count, speed, acc)
             self.last[joint] = deg
             wrote[joint] = (speed, acc)
@@ -1841,7 +1881,7 @@ def _stream_multi_leg(bus: FeetechBus, live: set[int], *,
     MAX_STREAM_SPEED = 900
     MIN_STREAM_SPEED = 80
     # Show moves are big/fast; deadband scales with tick like the profile.
-    DEADBAND_DEG = 0.3 if STREAM_DENSE else 0.45
+    DEADBAND_DEG = DENSE_DEADBAND_DEG if STREAM_DENSE else 0.45
     t0 = time.monotonic()
     try:
         for i in range(n):

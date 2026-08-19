@@ -869,6 +869,8 @@ static void streamFullPass() {
   fillDefaultIds(ids, n);
   ensureSyncRead(FB_MEM_LEN, streaming ? 8 : 20);
   sts.syncReadPacketTx(ids, n, SMS_STS_PRESENT_POSITION_L, FB_MEM_LEN);
+  uint8_t failed[MAX_N];
+  uint8_t nFailed = 0;
   for (uint8_t k = 0; k < n; k++) {
     hostPump();
     uint8_t rx[FB_MEM_LEN];
@@ -877,6 +879,35 @@ static void streamFullPass() {
       uint16_t load = 0;
       uint8_t volt = 0, temp = 0, mov = 0;
       decodeFbPacket(rx, pos, spd, load, volt, temp, mov, cur);
+      posCache[k] = pos;
+      spdCache[k] = spd;
+      posOk[k] = 1;
+      fbLoad[k] = load;
+      fbVolt[k] = volt;
+      fbTemp[k] = temp;
+      fbMov[k] = mov;
+      fbCur[k] = cur;
+      fbOk[k] = 1;
+    } else {
+      failed[nFailed++] = k;
+    }
+  }
+  // Per-id FeedBack fallback for failed burst slots — same healing the
+  // legacy cmdBulkFeedback path always had. Observed 2026-08-19: one
+  // servo (ID 15) failed its slot in the 15-byte syncRead burst on
+  // EVERY pass while answering direct reads perfectly, which made the
+  // health watch report a healthy servo as missing. Direct reads are
+  // the tiebreaker; only a servo that also fails these is really gone.
+  for (uint8_t f = 0; f < nFailed; f++) {
+    uint8_t k = failed[f];
+    hostPump();
+    int nLen = sts.FeedBack((int)ids[k]);
+    if (nLen <= 0) nLen = sts.FeedBack((int)ids[k]);
+    if (nLen > 0) {
+      int16_t pos = 0, spd = 0, cur = 0;
+      uint16_t load = 0;
+      uint8_t volt = 0, temp = 0, mov = 0;
+      decodeFbFromMem(pos, spd, load, volt, temp, mov, cur);
       posCache[k] = pos;
       spdCache[k] = spd;
       posOk[k] = 1;
