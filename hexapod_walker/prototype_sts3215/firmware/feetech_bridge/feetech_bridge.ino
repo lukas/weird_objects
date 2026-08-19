@@ -153,6 +153,17 @@ static void streamFastPass();
 static void streamFullPass();
 static void streamImuPass();
 
+// The host-UART RX ring is SMALLER than one 113-byte 'W'/'S' frame
+// (measured 2026-08-19: a frame landing while the MCU is inside a 4-6 ms
+// acquisition pass loses bytes). So passes must keep draining host bytes
+// into the frame parser. Execution is DEFERRED: running a command
+// mid-pass would collide on the half-duplex servo bus, so a completed
+// frame is parked and run right after the pass.
+static bool deferHostExec = false;
+static uint8_t parkedKind = 0;  // 0 none, 1 binary frame, 2 ascii line
+static void hostPump();         // drain host bytes into the parser
+static void execParked();       // run a parked frame (servo bus free)
+
 static char lineBuf[640];
 static uint16_t lineLen = 0;
 
@@ -824,12 +835,15 @@ static void decodeFbPacket(const uint8_t *rx, int16_t &pos, int16_t &spd,
 
 // Fast pass: pos+speed for IDs 2..19 in one syncRead (~2-4 ms healthy).
 static void streamFastPass() {
+  bool prevDefer = deferHostExec;
+  deferHostExec = true;
   uint8_t ids[MAX_N];
   uint8_t n;
   fillDefaultIds(ids, n);
   ensureSyncRead(POS_SPD_MEM_LEN, streaming ? 5 : 20);
   sts.syncReadPacketTx(ids, n, SMS_STS_PRESENT_POSITION_L, POS_SPD_MEM_LEN);
   for (uint8_t k = 0; k < n; k++) {
+    hostPump();  // host RX ring < one command frame — keep draining
     uint8_t rx[POS_SPD_MEM_LEN];
     if (sts.syncReadPacketRx(ids[k], rx)) {
       posCache[k] = stsSigned15(stsLe16(rx[0], rx[1]));
@@ -839,19 +853,24 @@ static void streamFastPass() {
       posOk[k] = 0;
     }
   }
+  hostPump();
   posSeq++;
   posStampMs = millis();
+  deferHostExec = prevDefer;
 }
 
 // Full pass: 15-byte state block; refreshes the low-rate caches AND the
 // fast caches (positions ride along for free).
 static void streamFullPass() {
+  bool prevDefer = deferHostExec;
+  deferHostExec = true;
   uint8_t ids[MAX_N];
   uint8_t n;
   fillDefaultIds(ids, n);
   ensureSyncRead(FB_MEM_LEN, streaming ? 8 : 20);
   sts.syncReadPacketTx(ids, n, SMS_STS_PRESENT_POSITION_L, FB_MEM_LEN);
   for (uint8_t k = 0; k < n; k++) {
+    hostPump();
     uint8_t rx[FB_MEM_LEN];
     if (sts.syncReadPacketRx(ids[k], rx)) {
       int16_t pos = 0, spd = 0, cur = 0;
@@ -872,12 +891,24 @@ static void streamFullPass() {
       fbOk[k] = 0;
     }
   }
+  hostPump();
   posSeq++;
   posStampMs = millis();
   fbStampMs = posStampMs;
+  deferHostExec = prevDefer;
 }
 
+static void streamImuPassInner();
+
 static void streamImuPass() {
+  bool prevDefer = deferHostExec;
+  deferHostExec = true;
+  hostPump();
+  streamImuPassInner();
+  deferHostExec = prevDefer;
+}
+
+static void streamImuPassInner() {
   if (!mpuReady) {
     unsigned long now = millis();
     if (now - imuRetryMs < 1000) return;  // don't hammer a dead sensor
@@ -1155,6 +1186,10 @@ static void feedHostByte(uint8_t b) {
     }
     if (b == '\n') {
       lineBuf[lineLen] = '\0';
+      if (deferHostExec) {
+        parkedKind = 2;  // run after the pass (lineBuf/lineLen persist)
+        return;
+      }
       handleLine(lineBuf);
       lineLen = 0;
       return;
@@ -1205,9 +1240,13 @@ static void feedHostByte(uint8_t b) {
                    ? (binN <= MAX_N && binGot == binNeed)
                    : (binN > 0 && binN <= MAX_N && binGot == binNeed);
     if (b == binXor && okN) {
-      handleBinaryFrame();
+      if (deferHostExec) {
+        parkedKind = 1;  // binCmd/binN/binPayload persist until exec
+      } else {
+        handleBinaryFrame();
+      }
     } else {
-      replyErr();
+      replyErr();  // TX only — safe mid-pass
     }
     binState = 0;
     return;
@@ -1244,7 +1283,37 @@ static const unsigned long HOST_LOST_MS = 12000;
 static const unsigned long HOST_LIMP_MS = 30000;
 static bool autoLimped = false;
 
+// Drain host bytes into the frame parser (execution deferred — see
+// parkedKind). Called between servo reads inside acquisition passes so
+// the small host-UART RX ring can never overflow under a 113-byte
+// 'W'/'S' frame.
+static void hostPump() {
+  while (parkedKind == 0 && Serial1.available() > 0) {
+    hostSeen = true;
+    lastHostMs = millis();
+    autoLimped = false;
+    feedHostByte((uint8_t)Serial1.read());
+  }
+}
+
+static void execParked() {
+  uint8_t kind = parkedKind;
+  parkedKind = 0;
+  if (kind == 1) {
+    handleBinaryFrame();
+  } else if (kind == 2) {
+    handleLine(lineBuf);
+    lineLen = 0;
+  }
+}
+
 void loop() {
+  // A frame parked during the synchronous (non-streaming) 'S' passes
+  // must still run; parked work always precedes new ring bytes.
+  if (parkedKind != 0) execParked();
+  // Desync guard: a torn binary frame (host retry after timeout) must
+  // not eat the next frame's header as payload.
+  if (binState != 0 && millis() - lastHostMs > 100) binState = 0;
   if (Serial1.available() > 0) {
     hostSeen = true;
     lastHostMs = millis();
@@ -1258,13 +1327,17 @@ void loop() {
   if (streaming) {
     // Free-running acquisition while the host line is idle. ONE pass per
     // loop() iteration keeps worst-case host-command latency to a single
-    // pass (~3-8 ms). Host bytes arriving mid-pass sit in the UART ring
-    // buffer and are drained at the top of the next iteration.
+    // pass (~3-8 ms). Host bytes arriving mid-pass are pumped into the
+    // parser (hostPump) and a completed frame runs right after the pass.
     if (now - fbStampMs >= FB_PERIOD_MS) {
       streamFullPass();   // low-rate: current/load/volt/temp (~10 Hz)
     } else {
       streamFastPass();   // pos+speed, all 18 servos (~150-250 Hz)
       streamImuPass();
+    }
+    if (parkedKind != 0) {
+      execParked();
+      return;
     }
   }
   if (!hostSeen) {
