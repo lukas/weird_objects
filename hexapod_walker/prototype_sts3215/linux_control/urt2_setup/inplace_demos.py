@@ -2309,6 +2309,147 @@ def _win(u: float, a: float, b: float) -> float:
     return x * x * (3.0 - 2.0 * x)
 
 
+# ---------------------------------------------------------------------------
+# Dance primitives — composable oscillator layers (2026-08-19).
+#
+# One LAYER = a sinusoid on one joint channel (yaw / hip / knee) whose
+# per-leg phase comes from a GROUPING (which legs move together) and a
+# SPIN (does the phase travel around the hex, and which way).  Shows are
+# sums of layers at different frequencies: harmonically related layers
+# re-align periodically ("everything lines up" moments), incommensurate
+# ones weave forever, and counter-spinning ripples interfere into
+# standing-wave flashes.  Crossfade layer amplitudes to morph groupings
+# mid-show.  All angles are offsets from the seated zero pose.
+# ---------------------------------------------------------------------------
+_DP_GROUPS = {
+    "solo":     lambda leg: leg / 6.0,               # ripple around the hex
+    "unison":   lambda leg: 0.0,                     # everyone together
+    "oddeven":  lambda leg: 0.5 * (leg % 2),         # checkerboard
+    "pairsA":   lambda leg: (leg // 2) / 3.0,        # (0,1)(2,3)(4,5)
+    "pairsB":   lambda leg: (((leg + 5) % 6) // 2) / 3.0,  # (1,2)(3,4)(5,0)
+    "opposite": lambda leg: (leg % 3) / 3.0,         # (0,3)(1,4)(2,5)
+}
+
+
+def _dp(t: float, leg: int, *, amp: float, freq: float,
+        group: str = "solo", spin: float = 1.0, ph: float = 0.0) -> float:
+    """One dance-primitive layer, evaluated for one leg.
+
+    ``group`` picks which legs share a phase slot; ``spin`` scales how
+    far the slots spread the phase (+1 = wave travels CCW around the
+    hex, -1 = CW, 0 = whole group in perfect unison).  ``ph`` is a
+    fixed phase offset in turns.
+    """
+    u = _DP_GROUPS[group](leg)
+    return amp * math.sin(2.0 * math.pi * (freq * t - spin * u + ph))
+
+
+def frames_air_weave(seconds: float = 26.0):
+    """WEAVE — ripples, shimmies and bends braided at odd frequencies.
+
+    Sitting show.  Three layers run at incommensurate frequencies so the
+    pattern never quite repeats: a hip ripple traveling CCW, an odd/even
+    yaw shimmy, and a knee bend that counter-ripples CW.  Halfway, the
+    hip ripple's grouping crossfades from six solo slots to the three
+    thick-arm pairs (the wave suddenly has three blades), then to
+    opposite pairs for the finale — same layers, new symmetry.
+    """
+    n = max(1, int(seconds / DT))
+    for i in range(n):
+        t = i * DT
+        u = i / max(n - 1, 1)
+        a = min(1.0, t / 1.5, max(0.0, (seconds - t) / 1.5))
+        # grouping morph weights for the hip ripple
+        w_solo = 1.0 - _win(u, 0.38, 0.48)
+        w_pair = _win(u, 0.38, 0.48) - _win(u, 0.72, 0.82)
+        w_opp = _win(u, 0.72, 0.82)
+        pose = _zero_pose()
+        for leg in range(6):
+            hip = (-24.0
+                   + w_solo * _dp(t, leg, amp=14.0, freq=0.45)
+                   + w_pair * _dp(t, leg, amp=14.0, freq=0.45,
+                                  group="pairsA")
+                   + w_opp * _dp(t, leg, amp=14.0, freq=0.45,
+                                 group="opposite")
+                   + _dp(t, leg, amp=4.0, freq=0.13, group="unison"))
+            yaw = _dp(t, leg, amp=12.0, freq=0.70, group="oddeven",
+                      spin=1.0)
+            knee = (8.0
+                    + _dp(t, leg, amp=7.0, freq=0.31, group="unison")
+                    + _dp(t, leg, amp=6.0, freq=0.57, spin=-1.0))
+            _yaw_hip_knee(leg, pose, yaw=yaw * a, hip=hip * a,
+                          knee=knee * a)
+        yield pose
+
+
+def frames_air_gearbox(seconds: float = 24.0):
+    """GEARBOX — three joint layers meshed at a strict 1:2:3 gear ratio.
+
+    Sitting show.  Hips pump in thick-arm pairs at the base rate, yaws
+    shimmy in the OTHER pairing at exactly 2x, knees tick in opposite
+    pairs at exactly 3x — like watching three gears mesh.  Because the
+    ratios are harmonic, all three layers re-align every base period
+    (~2.9 s): the whole machine visibly clunks into phase, drifts into
+    complexity, and clunks back, over and over.
+    """
+    n = max(1, int(seconds / DT))
+    f0 = 0.35
+    for i in range(n):
+        t = i * DT
+        a = min(1.0, t / 1.5, max(0.0, (seconds - t) / 1.5))
+        # the "clunk": a subtle unison dip right on each alignment beat
+        # (_swarm_pulse ramps the attack — a raw exp jumps at the wrap)
+        hit = _swarm_pulse((t * f0) % 1.0)
+        pose = _zero_pose()
+        for leg in range(6):
+            hip = (-24.0
+                   + _dp(t, leg, amp=15.0, freq=f0, group="pairsA")
+                   - 3.0 * hit)
+            yaw = _dp(t, leg, amp=11.0, freq=2.0 * f0, group="pairsB")
+            knee = (8.0
+                    + _dp(t, leg, amp=8.0, freq=3.0 * f0,
+                          group="opposite")
+                    + 4.0 * hit)
+            _yaw_hip_knee(leg, pose, yaw=yaw * a, hip=hip * a,
+                          knee=knee * a)
+        yield pose
+
+
+def frames_air_tides(seconds: float = 28.0):
+    """TIDES — two waves circle the hex in opposite directions.
+
+    Sitting show.  A hip ripple travels CCW while a yaw ripple travels
+    CW at a different rate; where the crests meet, one side of the robot
+    blooms while the other flattens, and the bloom itself slowly orbits
+    (the interference pattern rotates at the frequency difference).
+    Knees breathe odd/even underneath.  For the last quarter both waves
+    collapse into opposite-pair unison — six arms snapping into a
+    two-phase finale from what looked like open water.
+    """
+    n = max(1, int(seconds / DT))
+    for i in range(n):
+        t = i * DT
+        u = i / max(n - 1, 1)
+        a = min(1.0, t / 1.5, max(0.0, (seconds - t) / 1.5))
+        w = _win(u, 0.70, 0.78)          # wave → opposite-pair collapse
+        pose = _zero_pose()
+        for leg in range(6):
+            hip = (-24.0
+                   + (1.0 - w) * _dp(t, leg, amp=13.0, freq=0.40,
+                                     spin=1.0)
+                   + w * _dp(t, leg, amp=13.0, freq=0.40,
+                             group="opposite", spin=0.0))
+            yaw = ((1.0 - w) * _dp(t, leg, amp=13.0, freq=0.55,
+                                   spin=-1.0)
+                   + w * _dp(t, leg, amp=10.0, freq=0.55,
+                             group="opposite", spin=0.0, ph=0.25))
+            knee = 8.0 + _dp(t, leg, amp=9.0, freq=0.27,
+                             group="oddeven")
+            _yaw_hip_knee(leg, pose, yaw=yaw * a, hip=hip * a,
+                          knee=knee * a)
+        yield pose
+
+
 def frames_air_trident(seconds: float = 34.0):
     """THREE THICK ARMS — pairs merge, swap partners, split 2 thick + 2 thin.
 
@@ -3126,6 +3267,13 @@ DEMOS = {
                    frames_air_orbits),
     "air_trident": ("[3 air show] THREE THICK ARMS — pairs merge, swap "
                     "partners, split 2 thick + 2 thin", frames_air_trident),
+    "air_weave": ("[3 air show] WEAVE — ripple + shimmy + bend braided "
+                  "at odd frequencies; grouping morphs mid-show",
+                  frames_air_weave),
+    "air_gearbox": ("[3 air show] GEARBOX — hips/yaws/knees meshed 1:2:3, "
+                    "clunks into alignment every ~3 s", frames_air_gearbox),
+    "air_tides": ("[3 air show] TIDES — counter-rotating waves interfere, "
+                  "collapse to an opposite-pair finale", frames_air_tides),
     "dance_swarm": ("[3 air show] SIMULATION SWARM — beat-synced to the "
                     "Big Thief song (4:07) · counts you in, press play "
                     "on GO", None),
@@ -3194,6 +3342,9 @@ AIR_DEMO_SECONDS = {
     "air_pendulum": 20.0,
     "air_orbits": 18.0,
     "air_trident": 34.0,
+    "air_weave": 26.0,
+    "air_gearbox": 24.0,
+    "air_tides": 28.0,
     "dance_swarm": 252.0,        # the song's length — the song is the clock
     "dance_swarm_stand": 252.0,  # same song, standing choruses
     "dance_steeple": 56.0,

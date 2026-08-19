@@ -27,7 +27,8 @@ REGISTRY_CANDIDATES = (
 AIR_DEMO_NAMES = frozenset({
     "breathe", "breathe_v", "heartbeat", "twinkle", "shimmy", "ripple",
     "conductor", "arms_up",
-    "air_meet", "air_pendulum", "air_orbits", "air_trident", "dance_swarm",
+    "air_meet", "air_pendulum", "air_orbits", "air_trident",
+    "air_weave", "air_gearbox", "air_tides", "dance_swarm",
     # stands mid-song but starts AND ends at sit zero (limp), like dance
     "dance_swarm_stand",
     # stands mid-show but starts AND ends at sit zero (limp)

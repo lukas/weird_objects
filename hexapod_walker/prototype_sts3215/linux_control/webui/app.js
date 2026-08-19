@@ -2417,7 +2417,8 @@ $('dstop').onclick = async ()=>{
 // --- Dance tab: curated show list, reusing the demo machinery ----------------
 const DANCE_SETS = [
   ['SITTING SHOWS', 'chassis stays down — safe on a desk',
-   ['dance_swarm', 'air_trident', 'air_meet', 'air_pendulum', 'air_orbits']],
+   ['dance_swarm', 'air_trident', 'air_weave', 'air_gearbox', 'air_tides',
+    'air_meet', 'air_pendulum', 'air_orbits']],
   ['FULL SHOWS', 'stands up mid-routine — clear floor space',
    ['dance_swarm_stand', 'dance_steeple', 'dance', 'dance_walk', 'rise_show']],
 ];
