@@ -2074,16 +2074,103 @@ def _swarm_pose(t: float) -> list[float]:
     return pose
 
 
-def run_swarm_dance(bus: FeetechBus, *, abort_check=None, status_cb=None,
-                    torque=None, log_path: Path | None = None) -> str:
-    """SIMULATION SWARM — sitting show synced to the Big Thief song.
+# Standing-version timeline (beat indices into the baked grid): sweep
+# down + STEP stand-up through the build, planted show from the first
+# chorus, descend as the outro cools, closing breaths seated.
+_SWARM_STAND_BEAT = 112      # ~64 s — the build: stand-up window opens
+_SWARM_CHORUS_BEAT = 144     # ~82 s — first chorus (planted show target)
+_SWARM_DESCEND_BEAT = 416    # ~236 s — outro cools: descend to sit
+_SWARM_SIT_BEAT = 424        # ~240 s — closing breaths, seated
 
-    The robot counts you in with four metronome nods (press play on the
-    GO nod), then dances the whole 4:07 on a WALL-CLOCK beat schedule:
-    each tick samples the choreography at true elapsed time, so timing
-    error never accumulates the way per-tick sleep drift would over
-    four minutes.  Tempo/speed sliders are ignored — the song owns the
-    clock.  Begins and ends with the breath, on the beat.
+# Seated move id → planted rise_show mode + (base, span) loudness scale.
+# march for the driving sections is deliberate: every step RE-PLANTS
+# three feet at stance angles, undoing the foot-skate that loaded sway
+# accumulates on smooth floors (08-18 video analysis).
+_SWARM_PLANT_MODE = {"0": "orbit", "1": "orbit", "2": "march",
+                     "3": "tripod"}
+_SWARM_PLANT_SCALE = {"0": (0.30, 0.25), "1": (0.45, 0.40),
+                      "2": (0.60, 0.40), "3": (0.65, 0.35)}
+_SWARM_PLANT_NOTES = {
+    "0": "standing breath — weight circling softly",
+    "1": "standing sway — the body orbits, on the beat",
+    "2": "MARCH — re-planting feet on every beat",
+    "3": "TRIPOD — three knees high, swapping on the beat",
+}
+
+
+def _swarm_plant_warp(mode: str, bi: float) -> float:
+    """Map the beat clock onto each planted mode's internal clock so
+    gesture cycles land ON the beat grid.
+
+    tripod sin(3.0 t): full cycle (both tripods) → 4 beats
+    march  sin(3.4 t): half cycle (one step)     → 1 beat
+    orbit  sin(2π·0.40 t): one lean lap          → 8 beats
+    """
+    if mode == "tripod":
+        return bi * (2.0 * math.pi / 3.0) / 4.0
+    if mode == "march":
+        return bi * (math.pi / 3.4)
+    return bi / (8.0 * 0.40)
+
+
+def _swarm_plant_pose(t: float, hip: float, knee: float) -> list[float]:
+    """Planted (standing) swarm pose at song time ``t``.
+
+    Reuses the hardware-proven rise_show vocabulary: beat-warped so the
+    lifts/swaps land on beats, and blended toward the flat stance by the
+    live loudness (louder song → bigger gestures).  2-beat crossfades at
+    section changes, feet loaded on both sides of every blend.
+    """
+    times, amps, moves, starts = _swarm_tables()
+    n = len(times)
+    idx = min(max(bisect.bisect_right(times, t) - 1, 0), n - 1)
+    nxt = times[idx + 1] if idx + 1 < n else times[idx] + 0.557
+    u = min(1.0, max(0.0, (t - times[idx]) / max(nxt - times[idx], 1e-6)))
+    bi = idx + u
+    a = amps[idx] + (amps[min(idx + 1, n - 1)] - amps[idx]) * u
+    base = _elevated_stand_pose(hip=hip, knee=knee, yaw=0.0)
+
+    def mode_pose(mid: str) -> list[float]:
+        mode = _SWARM_PLANT_MODE[mid]
+        lo, span = _SWARM_PLANT_SCALE[mid]
+        s = min(1.0, lo + span * a)
+        show = _show_stream_pose(mode, _swarm_plant_warp(mode, bi),
+                                 hip, knee)
+        return [b + (p - b) * s for b, p in zip(base, show)]
+
+    pose = mode_pose(moves[idx])
+    st = starts[idx]
+    if st > 0 and bi - st < 2.0:
+        w = 0.5 - 0.5 * math.cos(math.pi * min(1.0, (bi - st) / 2.0))
+        old = mode_pose(moves[st - 1])
+        pose = [o * (1.0 - w) + p * w for o, p in zip(old, pose)]
+    return pose
+
+
+def run_swarm_dance(bus: FeetechBus, *, abort_check=None, status_cb=None,
+                    torque=None, standup_fn=None, stand: bool = False,
+                    log_path: Path | None = None) -> str:
+    """SIMULATION SWARM — show synced to the Big Thief song (4:07).
+
+    Count-in: four metronome nods, one second apart — press play on the
+    GO nod; the choreography clock starts there and runs on WALL time
+    (stream_pose_fn accumulates true elapsed seconds), so sync never
+    drifts across the four minutes.  Tempo/speed sliders are ignored —
+    the recording owns the clock.  Opens and closes with the breath on
+    the beat.
+
+    ``stand=True`` (dance_swarm_stand, needs the bench ``standup_fn``):
+    seated verses, then the STEP stand-up rides the build (~64 s), the
+    planted rise_show vocabulary takes the choruses (tripod flips
+    swapping on the beat, marches that re-plant the feet), and the
+    robot sits back down as the outro fades.  Segment starts recompute
+    their song offset from wall time, so a slow/fast stand-up can't
+    knock the rest of the show off the beat.
+
+    Streaming uses the stand-up lab pursuit (carrot lookahead), which
+    also fixes the seated version's slow-move shudder: the old runner's
+    per-tick writes fell under the 0.8° deadband during breaths, so
+    joints parked and lurched ~1.4° at a time (operator report 08-18).
     """
     live = _live_robot_ids(bus)
     if len(live) < 3:
@@ -2100,71 +2187,181 @@ def run_swarm_dance(bus: FeetechBus, *, abort_check=None, status_cb=None,
         except Exception:
             pass
 
+    cur_note = [""]
+
+    def _progress(msg: str) -> None:
+        if status_cb is None:
+            return
+        try:
+            status_cb(f"{cur_note[0]} · {msg}" if cur_note[0] else str(msg))
+        except Exception:
+            pass
+
+    if stand and standup_fn is None:
+        note("no bench stand-up available — playing the seated version")
+        stand = False
+
     _enable_torque(bus, live)
     try:
         tlim = int(torque) if torque is not None else DEMO_TORQUE_LIMIT
     except (TypeError, ValueError):
         tlim = DEMO_TORQUE_LIMIT
-    _set_torque_limit(bus, live, max(150, min(1000, tlim)))
+    tlim = max(150, min(1000, tlim))
+    _set_torque_limit(bus, live, tlim)
 
     times, amps, moves, starts = _swarm_tables()
     t_end = times[-1] + 0.6
-    stream = PoseStreamer()
+    hip, knee = RISE_HIGH_HIP_DEG, RISE_HIGH_KNEE_DEG
+    peaks = CurrentPeakTracker()
 
-    def play(pose_at, seconds: float, *, t_off: float = 0.0) -> bool:
-        """Stream pose_at(t) on an ABSOLUTE schedule for `seconds`."""
-        t0 = time.monotonic()
-        i = 0
-        while True:
-            now = time.monotonic()
-            t = now - t0
-            if t >= seconds:
-                return True
-            if check():
-                _hold_here(bus, live)
-                return False
-            stream.write(bus, pose_at(t + t_off), live, dt=DT, max_acc=80)
-            i += 1
-            time.sleep(max(0.0, t0 + i * DT - time.monotonic()))
-
-    # Count-in: four metronome nods, one second apart. Press play as the
-    # GO nod lands — the choreography clock starts exactly there.
-    def nod(t: float) -> list[float]:
-        pose = _zero_pose()
-        k = 5.0 * _swarm_pulse(t % 1.0)
-        for leg in range(6):
-            _yaw_hip_knee(leg, pose, knee=k)
-        return pose
-
-    for cnt in ("3", "2", "1", "GO — PRESS PLAY NOW"):
-        note(f"SIMULATION SWARM count-in: {cnt}"
-             if cnt != "GO — PRESS PLAY NOW" else cnt)
-        if not play(nod, 1.0):
-            return "aborted"
+    def bail(label: str) -> str:
+        _hold_here(bus, live)
+        _set_torque_limit(bus, live, 1000)
+        return f"error: {label}"
 
     log_cm = MotionLog(log_path, live) if log_path is not None else None
     if log_cm is not None:
         log_cm.__enter__()
     try:
-        last_note = [""]
+        # --- count-in: 3, 2, 1, GO ------------------------------------
+        cnt_labels = ("count-in: 3", "count-in: 2", "count-in: 1",
+                      "GO — PRESS PLAY NOW ♪")
+        cnt_last = [-1]
 
-        def pose_with_notes(t: float) -> list[float]:
+        def nod(t: float) -> list[float]:
+            i = min(3, int(t))
+            if i != cnt_last[0]:
+                cnt_last[0] = i
+                note(cnt_labels[i])
+            pose = _zero_pose()
+            k = 5.0 * _swarm_pulse(t % 1.0)
+            for leg in range(6):
+                _yaw_hip_knee(leg, pose, knee=k)
+            return pose
+
+        st = stream_pose_fn(bus, live, nod, seconds=4.0,
+                            abort_check=check, speed_fn=lambda: 1.0,
+                            status_cb=None, label="count-in",
+                            tracker=peaks)
+        if st == "aborted":
+            _set_torque_limit(bus, live, 1000)
+            return "aborted"
+        if st == "guard":
+            return bail("count-in guard")
+        t0_wall = time.monotonic()
+
+        def segment(pose_at, t_until: float, label: str, *,
+                    max_speed: int = 3000, max_acc: int = 200) -> str:
+            """Stream pose_at(song_t) until song time ``t_until``.
+
+            The song offset is recomputed from WALL time at entry, so
+            variable-length acts (stand-up, descend) between segments
+            never accumulate schedule error.
+            """
+            t_off = time.monotonic() - t0_wall
+            secs = t_until - t_off
+            if secs <= 0.05:
+                return "done"
+            return stream_pose_fn(
+                bus, live, lambda tl: pose_at(t_off + tl),
+                seconds=secs, abort_check=check, speed_fn=lambda: 1.0,
+                status_cb=_progress, label=label, tracker=peaks,
+                log=log_cm, max_speed=max_speed, max_acc=max_acc)
+
+        def seated_pose(t: float) -> list[float]:
             idx = min(bisect.bisect_right(times, t) - 1, len(times) - 1)
             if idx >= 0:
-                m = moves[idx]
-                if m != last_note[0]:
-                    last_note[0] = m
-                    note(_SWARM_SECTION_NOTES.get(m, m))
+                m = _SWARM_SECTION_NOTES.get(moves[idx], "")
+                if m != cur_note[0]:
+                    cur_note[0] = m
+                    note(m)
             return _swarm_pose(t)
 
-        ok = play(pose_with_notes, t_end)
+        def planted_pose(t: float) -> list[float]:
+            idx = min(max(bisect.bisect_right(times, t) - 1, 0),
+                      len(times) - 1)
+            m = _SWARM_PLANT_NOTES.get(moves[idx], "")
+            if m != cur_note[0]:
+                cur_note[0] = m
+                note(m)
+            return _swarm_plant_pose(t, hip, knee)
+
+        if not stand:
+            st = segment(seated_pose, t_end, "swarm")
+            if st == "aborted":
+                _set_torque_limit(bus, live, 1000)
+                return "aborted"
+            if st == "guard":
+                return bail("current guard tripped")
+        else:
+            st = segment(seated_pose, times[_SWARM_STAND_BEAT],
+                         "swarm (seated)")
+            if st == "aborted":
+                _set_torque_limit(bus, live, 1000)
+                return "aborted"
+            if st == "guard":
+                return bail("current guard (seated)")
+
+            # The build: sweep to zero, STEP stand-up, set the stance.
+            # Same recipe as the dance's act IV — a refused stand-up
+            # ENDS the show (no improvised blends from unknown poses).
+            cur_note[0] = ""
+            note("the build — sweep down, STEP stand-up")
+            if not ease_to_pose(bus, _zero_pose(), abort_check=check,
+                                seconds=1.2, label="swarm sweep down",
+                                current_tracker=peaks):
+                return bail("sweep down")
+            _set_torque_limit(bus, live, RISE_TORQUE_LIMIT)
+            ok, err = standup_fn()
+            if check():
+                return bail("stand-up aborted")
+            if not ok:
+                note(f"stand-up stopped: {err}")
+                return bail(f"stand-up: {err}")
+            _set_torque_limit(bus, live, RISE_TORQUE_LIMIT)
+            planted = _elevated_stand_pose(hip=hip, knee=knee, yaw=0.0)
+            if not ease_to_pose(bus, planted, abort_check=check,
+                                seconds=0.7, label="swarm set stance",
+                                current_tracker=peaks):
+                return bail("set stance")
+            _set_torque_limit(bus, live, DANCE_PLANT_TORQUE)
+
+            # Planted show — groove rides in on whatever's left of the
+            # build, choruses land on the baked beat plan. Speed capped
+            # at the rise_show stream profile (900 counts): the show
+            # modes' power-law lift onsets are STEEP in pure pose math
+            # (~350 deg/s for one tick) and rely on this clamp for the
+            # servo-side smoothing the planted acts were proven with.
+            st = segment(planted_pose, times[_SWARM_DESCEND_BEAT],
+                         "swarm (standing)", max_speed=900, max_acc=80)
+            if st == "aborted":
+                _set_torque_limit(bus, live, 1000)
+                return "aborted"
+            if st == "guard":
+                return bail("current guard (standing)")
+
+            # Outro: descend to sit inside the cool-down window.
+            cur_note[0] = ""
+            note("the fade — coming back down to sit")
+            elapsed = time.monotonic() - t0_wall
+            desc_s = max(3.5, min(6.0, times[_SWARM_SIT_BEAT] - elapsed))
+            if not ease_to_pose(bus, _zero_pose(), abort_check=check,
+                                seconds=desc_s, label="swarm descend",
+                                current_tracker=peaks):
+                return bail("descend")
+            _set_torque_limit(bus, live, tlim)
+
+            st = segment(seated_pose, t_end, "swarm (goodnight)")
+            if st == "aborted":
+                _set_torque_limit(bus, live, 1000)
+                return "aborted"
+            if st == "guard":
+                return bail("current guard (goodnight)")
     finally:
         if log_cm is not None:
             log_cm.__exit__(None, None, None)
-    if not ok:
-        _set_torque_limit(bus, live, 1000)
-        return "aborted"
 
+    peaks.print_report(phase="swarm")
     note("song over — breathing out")
     if not go_to_zero_pose(bus, abort_check=check, seconds=2.5):
         _set_torque_limit(bus, live, 1000)
@@ -2222,6 +2419,10 @@ DEMOS = {
     "dance_walk": ("[6 show] DANCE + VICTORY LAP — the dance, then "
                    "prance out, about-face, prance home, sleep",
                    None),
+    "dance_swarm_stand": ("[6 show] SIMULATION SWARM ON ITS FEET — "
+                          "seated verses, stands up in the build, "
+                          "planted tripod/march choruses, sits for the "
+                          "fade (press play on GO)", None),
     # --- real walk (open-loop tripod gait) --------------------------------
     "walk": ("[7 walk] tripod forward a few strides, then stand", None),
     "walk_spin": ("[7 walk] in-place turn (tripod), then stand", None),
@@ -2252,7 +2453,8 @@ AIR_DEMO_SECONDS = {
     "air_meet": 24.0,
     "air_pendulum": 20.0,
     "air_orbits": 18.0,
-    "dance_swarm": 252.0,   # the song's length — the clock is the song's
+    "dance_swarm": 252.0,        # the song's length — the song is the clock
+    "dance_swarm_stand": 252.0,  # same song, standing choruses
 }
 
 
@@ -4031,11 +4233,14 @@ def run_demo(bus: FeetechBus, name: str, *,
         return run_arms_up_demo(
             bus, abort_check=abort_check, speed=spd, seconds=seconds,
             torque=torque, log_path=log_path)
-    if name == "dance_swarm":
+    if name in ("dance_swarm", "dance_swarm_stand"):
         # Song-locked: ignores speed/seconds — the recording is the clock.
+        # The standing version needs the bench standup_fn; without it,
+        # it degrades to the seated show.
         return run_swarm_dance(
             bus, abort_check=abort_check, status_cb=status_cb,
-            torque=torque, log_path=log_path)
+            torque=torque, standup_fn=standup_fn,
+            stand=(name == "dance_swarm_stand"), log_path=log_path)
 
     title, frame_fn = DEMOS[name]
     live = _live_robot_ids(bus)

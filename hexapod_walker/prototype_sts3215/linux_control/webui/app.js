@@ -2419,7 +2419,7 @@ const DANCE_SETS = [
   ['SITTING SHOWS', 'chassis stays down — safe on a desk',
    ['dance_swarm', 'air_meet', 'air_pendulum', 'air_orbits']],
   ['FULL SHOWS', 'stands up mid-routine — clear floor space',
-   ['dance', 'dance_walk', 'rise_show']],
+   ['dance_swarm_stand', 'dance', 'dance_walk', 'rise_show']],
 ];
 async function loadDance(){
   try{

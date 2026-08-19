@@ -28,6 +28,8 @@ AIR_DEMO_NAMES = frozenset({
     "breathe", "breathe_v", "heartbeat", "twinkle", "shimmy", "ripple",
     "conductor", "arms_up",
     "air_meet", "air_pendulum", "air_orbits", "dance_swarm",
+    # stands mid-song but starts AND ends at sit zero (limp), like dance
+    "dance_swarm_stand",
     # dance goes planted mid-routine but starts AND ends at sit zero
     # (limp), so it homes like an air demo and must not stand-hold after.
     "dance",
@@ -806,7 +808,7 @@ class BenchAPI:
                         status_cb=_live_status, log_path=log_path)
                 else:
                     extra = {}
-                    if name == "dance":
+                    if name in ("dance", "dance_swarm_stand"):
                         extra["standup_fn"] = self._step_standup_fn(
                             gen=gen, speed=speed)
                     status = run_demo(
