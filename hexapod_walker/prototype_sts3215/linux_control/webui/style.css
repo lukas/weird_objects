@@ -1,12 +1,32 @@
   :root { color-scheme: dark; }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-         background:#0f1115; color:#e7eaf0; }
-  header { padding:10px 16px; display:flex; align-items:center; gap:12px;
-           border-bottom:1px solid #232733; }
+         background:#0f1115; color:#e7eaf0;
+         display:flex; align-items:stretch; min-height:100vh; }
+  /* Left sidebar: brand + tab nav (operator 08-19: tabs moved off the
+     top bar to make room for the arm controls + status panel). */
+  #sidebar { flex:0 0 176px; display:flex; flex-direction:column; gap:14px;
+             padding:14px 12px; border-right:1px solid #232733;
+             position:sticky; top:0; height:100vh; overflow-y:auto; }
+  #main { flex:1 1 auto; min-width:0; }
+  /* Top bar: arm/E-STOP on the left, status panel on the right. Sticky so
+     EMERGENCY STOP is reachable no matter how far the page is scrolled. */
+  header { padding:8px 16px; display:flex; align-items:center; gap:16px;
+           justify-content:space-between; flex-wrap:wrap;
+           border-bottom:1px solid #232733;
+           position:sticky; top:0; z-index:500; background:#0f1115; }
   header h1 { font-size:16px; margin:0; font-weight:600; }
-  .brand { display:flex; flex-direction:column; gap:1px; }
-  #subtitle { font-size:11px; color:#5a6478; white-space:nowrap; }
+  .brand { display:flex; flex-direction:column; gap:2px; }
+  #subtitle { font-size:11px; color:#5a6478; line-height:1.4; }
+  #statusbox { display:flex; align-items:flex-start; gap:8px;
+               margin-left:auto; flex:0 1 460px; min-width:200px; }
+  #statuslines { flex:1 1 auto; min-width:0; display:flex;
+                 flex-direction:column; gap:2px; text-align:right; }
+  .statusline { font-size:12px; line-height:1.45; word-break:break-word;
+                user-select:text; -webkit-user-select:text; }
+  .statusline:empty { display:none; }
+  #statuscopy { flex:0 0 auto; min-width:0; padding:5px 10px; font-size:12px;
+                border-radius:8px; }
   #conn { font-size:12px; color:#9aa3b2; font-weight:600; }
   #conn.bad { color:#ff6b6b; } #conn.ok { color:#5fd08a; }
   #conn.warn { color:#e6b35a; }
@@ -22,8 +42,10 @@
   #zerohint.bad { color:#ff8a8a; } #zerohint.ok { color:#5fd08a; }
   /* Offline + error bars are FIXED top-right toasts (operator 08-11):
      they overlay content and never shift the page layout — the old
-     in-flow bars shoved everything up/down each time they appeared. */
-  #offlinebar { display:none; position:fixed; top:10px; right:10px;
+     in-flow bars shoved everything up/down each time they appeared.
+     Offset below the sticky header so they never cover the status
+     panel / its Copy button. */
+  #offlinebar { display:none; position:fixed; top:86px; right:10px;
                 z-index:1000; max-width:min(420px, calc(100vw - 20px));
                 padding:8px 12px; border-radius:10px;
                 background:#3a1818; border:1px solid #a33; color:#ffb4b4;
@@ -33,7 +55,7 @@
      errors must be selectable/copyable — for pasting to an LLM — and
      must not move the screen). Sits below the offline toast slot. */
   #errbar { display:flex; align-items:flex-start; gap:8px;
-            position:fixed; top:52px; right:10px; z-index:1000;
+            position:fixed; top:128px; right:10px; z-index:1000;
             max-width:min(420px, calc(100vw - 20px));
             padding:8px 12px; border-radius:10px; background:#3a1818;
             border:1px solid #a33; color:#ffb4b4; font-size:13px;
@@ -75,25 +97,26 @@
   kbd { background:#222838; border:1px solid #333b52; border-radius:4px; padding:1px 5px; font-size:11px; }
   #sent { font-family: ui-monospace, monospace; font-size:12px; color:#5fd08a; }
   #gp { font-size:12px; color:#8089a0; }
-  nav.tabs { display:flex; gap:6px; align-items:stretch; }
-  .tabsep { flex:0 0 1px; width:1px; margin:3px 4px; background:#2c3140; }
-  .tab { flex:0 0 auto; min-width:0; padding:7px 16px; font-size:13px; font-weight:600;
-         border-radius:8px; background:#161a22; border:1px solid #2c3140; color:#e7eaf0;
-         cursor:pointer; }
+  nav.tabs { display:flex; flex-direction:column; gap:6px; align-items:stretch; }
+  .tabsep { flex:0 0 1px; height:1px; width:auto; margin:4px 2px; background:#2c3140; }
+  .tab { flex:0 0 auto; min-width:0; padding:9px 14px; font-size:13px; font-weight:600;
+         text-align:left; border-radius:8px; background:#161a22;
+         border:1px solid #2c3140; color:#e7eaf0; cursor:pointer; }
   .tab.on { background:#2b6cff; border-color:#2b6cff; }
   .view { display:none; } .view.active { display:block; }
   code { background:#222838; border:1px solid #333b52; border-radius:4px; padding:0 4px;
          font-family: ui-monospace, monospace; font-size:11px; }
   .armbar { display:flex; align-items:center; gap:10px; flex-wrap:wrap;
-            padding:11px 14px; border-radius:12px; margin-bottom:14px;
+            padding:7px 12px; border-radius:12px;
             border:1px solid #2c3140; }
   .armbar.disarmed { background:#2a1416; border-color:#7a2b2b; }
   .armbar.armed    { background:#12271a; border-color:#2e7d47; }
-  .armstate { font-weight:800; font-size:15px; letter-spacing:.3px; }
+  .armstate { font-weight:800; font-size:14px; letter-spacing:.3px;
+              white-space:nowrap; }
   .armbar.disarmed .armstate { color:#ff6b6b; }
   .armbar.armed    .armstate { color:#5fd08a; }
-  .armbtn, .estop { flex:0 0 auto; min-width:0; padding:11px 16px; font-weight:700;
-            font-size:14px; border-radius:10px; cursor:pointer; }
+  .armbtn, .estop { flex:0 0 auto; min-width:0; padding:9px 14px; font-weight:700;
+            font-size:13px; border-radius:10px; cursor:pointer; }
   .armbtn { background:#2e7d47; border:1px solid #3a9a58; color:#fff; }
   .armbar.armed .armbtn { background:#1b2030; border-color:#2c3140; color:#e7eaf0; }
   .estop { background:#7a2b2b; border:1px solid #a33; color:#fff; }
@@ -169,3 +192,15 @@
   .cal-pill.green { color:#5fd08a; border-color:#2e7d47; }
   .cal-pill.yellow { color:#e0b34d; border-color:#8a6a1a; }
   .cal-pill.red { color:#ff7b72; border-color:#8a3030; }
+  /* Phone / narrow window: sidebar collapses to a wrapping tab strip on
+     top; the arm/status header stays sticky so E-STOP is always visible. */
+  @media (max-width: 760px){
+    body { flex-direction:column; min-height:0; }
+    #sidebar { position:static; height:auto; flex:none; width:auto;
+               overflow:visible; padding:10px 12px;
+               border-right:none; border-bottom:1px solid #232733; }
+    nav.tabs { flex-direction:row; flex-wrap:wrap; }
+    .tab { text-align:center; padding:7px 12px; }
+    .tabsep { display:none; }
+    #statusbox { flex:1 1 100%; }
+  }

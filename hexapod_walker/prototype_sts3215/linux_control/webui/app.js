@@ -109,6 +109,29 @@ document.getElementById('errbar-copy').onclick = async ()=>{
   b.textContent = 'Copied ✓';
   setTimeout(()=>{ b.textContent = 'Copy'; }, 1200);
 };
+// Header status panel copy button: grabs every status line (link state,
+// robot activity, controller, last command) as labelled text — for pasting
+// into a chat/issue without screenshotting the corner of the screen.
+document.getElementById('statuscopy').onclick = async ()=>{
+  const parts = [
+    'link: '+conn.textContent,
+    'robot: '+document.getElementById('robotact').textContent];
+  const gpT = gpEl.textContent.trim();
+  if(gpT) parts.push('controller: '+gpT);
+  const sentT = sentEl.textContent.trim();
+  if(sentT) parts.push('last: '+sentT);
+  const t = parts.join('\n');
+  try{
+    await navigator.clipboard.writeText(t);   // needs https / localhost
+  }catch(e){
+    const ta = document.createElement('textarea');   // http:// fallback
+    ta.value = t; document.body.appendChild(ta);
+    ta.select(); document.execCommand('copy'); ta.remove();
+  }
+  const b = document.getElementById('statuscopy');
+  b.textContent = '✓';
+  setTimeout(()=>{ b.textContent = 'Copy'; }, 1200);
+};
 function showSent(line, isErr){
   sentEl.textContent = line;
   if(isErr ||
@@ -2536,10 +2559,14 @@ function updateArmUI(){
   const bar = $('armbar');
   bar.classList.toggle('armed', servosArmed);
   bar.classList.toggle('disarmed', !servosArmed);
-  $('armstate').textContent = servosArmed ? '● ARMED — servos live'
-                                          : '● SERVOS OFF (disarmed)';
-  $('armbtn').textContent   = servosArmed ? 'Disarm (servos off)'
-                                          : 'Enable servos (power on)';
+  // Compact header labels (operator 08-19); the long explanation lives in
+  // the button tooltips instead of a hint paragraph.
+  $('armstate').textContent = servosArmed ? '● ARMED' : '● SERVOS OFF';
+  $('armbtn').textContent   = servosArmed ? 'Disarm' : 'Enable servos';
+  $('armbtn').title = servosArmed
+    ? 'Normal power-off (SETTLE): lowers gently to the ground, THEN cuts '
+      +'servo power. For an instant cut use EMERGENCY STOP (robot drops).'
+    : 'Power the servos on (ARM). Nothing moves until you press Stand.';
 }
 function setArmed(on){ servosArmed = on; if(!on) armed = false; updateArmUI(); }
 function armServos(){ cmd('ARM'); setArmed(true);

@@ -9,7 +9,7 @@
 <script>window.HEXAPOD_HTTPS_PORT = __HTTPS_PORT__;</script>
 </head>
 <body>
-<header>
+<aside id="sidebar">
   <div class="brand">
     <h1>Hexapod STS3215</h1>
     <div id="subtitle">STS3215 bench control · <span id="subhost">hexapod.local:8080</span></div>
@@ -28,11 +28,26 @@
     <button id="tab-measure" class="tab">Measure</button>
     <button id="tab-debug" class="tab">Debug</button>
   </nav>
-  <span id="conn" class="warn">checking…</span>
-  <span id="robotact" class="act-limp" title="What the robot is trying to do">limp</span>
-  <span id="gp"></span>
-  <span style="flex:1"></span>
-  <span id="sent"></span>
+</aside>
+<div id="main">
+<header>
+  <div id="armbar" class="armbar disarmed">
+    <span id="armstate" class="armstate">● SERVOS OFF</span>
+    <button id="armbtn" class="armbtn"
+      title="Power the servos on (ARM). Nothing moves until you press Stand. When armed this becomes Disarm: lowers gently to the ground, THEN cuts power.">Enable servos</button>
+    <button id="estop" class="estop" title="Cut all power to the servos IMMEDIATELY — the robot goes limp NOW and will drop. Use only in an emergency. For a normal, gentle power-off use Disarm / Sit &amp; power off.">■ EMERGENCY STOP</button>
+  </div>
+  <div id="statusbox">
+    <div id="statuslines">
+      <div class="statusline">
+        <span id="conn" class="warn">checking…</span>
+        <span id="robotact" class="act-limp" title="What the robot is trying to do">limp</span>
+      </div>
+      <div class="statusline" id="gp"></div>
+      <div class="statusline" id="sent"></div>
+    </div>
+    <button id="statuscopy" title="Copy all status text (link, robot activity, controller, last command)">Copy</button>
+  </div>
 </header>
 <div class="wrap">
   <div id="offlinebar">● Lost connection to Uno Q — retrying…</div>
@@ -42,15 +57,6 @@
     <a id="errbar-log" href="/api/errors?n=50" target="_blank"
        title="Recent errors as JSON (also: /api/events, /api/logs)">history</a>
     <button id="errbar-close" title="Dismiss">✕</button>
-  </div>
-  <div id="armbar" class="armbar disarmed">
-    <span id="armstate" class="armstate">● SERVOS OFF (disarmed)</span>
-    <span class="hint" style="margin:0;flex:1 1 160px">Servos receive <b>no signal</b>
-      and sit limp. Press Enable to arm, then Stand.
-      <b>Disarm</b> lowers gently first, THEN cuts power; <b>EMERGENCY STOP</b>
-      cuts power instantly (drops).</span>
-    <button id="armbtn" class="armbtn">Enable servos (power on)</button>
-    <button id="estop" class="estop" title="Cut all power to the servos IMMEDIATELY — the robot goes limp NOW and will drop. Use only in an emergency. For a normal, gentle power-off use Disarm / Sit &amp; power off.">■ EMERGENCY STOP</button>
   </div>
   <div id="view-drive" class="view active">
   <div class="pad telem">
@@ -815,7 +821,8 @@ the trained forward wedge — same policy, body walks backward.">▼ Back</butto
     </div>
   </div>
   </div><!-- /view-debug -->
-</div>
+</div><!-- /wrap -->
+</div><!-- /main -->
 <script src="/app.js"></script>
 </body>
 </html>
