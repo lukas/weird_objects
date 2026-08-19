@@ -42,9 +42,22 @@ Rules:
   URL — prefer them.
 
 - **Verify** the hub before trusting a server: read `~/.buildviz/server.json`
-  and confirm `GET http://127.0.0.1:5183/__buildviz/status` returns
-  `{ "service": "buildviz-hub" }`. A plain dev server also answers
-  `/builds/index.json`, so that alone never proves it is the hub.
+ and confirm `GET http://127.0.0.1:5183/__buildviz/status` returns
+ `{ "service": "buildviz-hub" }`. A plain dev server also answers
+ `/builds/index.json`, so that alone never proves it is the hub.
+- **Mirror to the CLOUD hub** (standing convention, Lukas, Aug 2026): after
+ publishing a new default version to the local hub, ALSO push it to the
+ CoreWeave-hosted hub at
+ `https://buildviz.cwd1f0-new-cluster.coreweave.app` so it is viewable off
+ this machine. For the hexapod this is automatic — the sts3215
+ `make verify-buildviz` target ends with a failure-tolerant cloud mirror
+ step (standalone: `make -C hexapod_walker/prototype_sts3215 push-cloud`,
+ script: `tools/push_cloud_buildviz.py`). Auth: the remote hub requires
+ `X-API-Key` = `BUILDVIZ_API_KEY` (same key as the local hub; canonical
+ source is the CoreWeave k8s secret `buildviz-api-key`:
+ `KUBECONFIG=~/.kube/coreweave.yaml kubectl get secret buildviz-api-key -o
+ jsonpath='{.data.key}' | base64 -d`). A dead network must never fail the
+ local publish — mirror later with `push-cloud`.
 
 Reference: `~/buildviz/README.md` ("How to run BuildViz") and
 `~/buildviz/BUILDVIZ_LLM_INTERFACE.md`.
