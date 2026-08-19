@@ -771,6 +771,18 @@ def _yaw_hip_knee(leg: int, pose: list[float], *,
 # ---------------------------------------------------------------------------
 STREAM_TICK_S = 0.05          # ~20 Hz host tick
 STREAM_LOOKAHEAD_S = 0.12     # carrot: command ~2 ticks ahead of schedule
+# Quad gaits stream at 10 Hz with max accel: every WritePosEx restarts
+# the servo's internal trapezoid from ZERO velocity, so at 20 Hz the
+# ramp (acc register x100 counts/s^2) only ever reaches ~500 counts/s —
+# the 08-18 trot pranced in place (front-swing knees demanded ~900).
+# Halving the write rate doubles realized swing speed and foot apex
+# (restart-accurate sim: 6.8 -> 14 mm/s, apex 18 -> 33 mm).
+QUAD_STREAM_TICK_S = 0.10
+QUAD_STREAM_ACC = 254
+# Reared gaits command ~20 deg of lean and rock another ~13 in normal
+# running; past 45 deg the support diagonal is lost and the robot IS
+# falling — go limp (soft landing) instead of riding it down rigid.
+QUAD_TILT_GUARD_DEG = 45.0
 STREAM_GUARD_A = 3.0          # stall-fight: joint over this while not moving
 STREAM_HARD_CAP_A = 4.0       # instantaneous hard cap, trips regardless
 STAND_DANCE_TORQUE = 900      # weight-bearing motion (end-hold restores 1000)
@@ -792,7 +804,9 @@ def stream_pose_fn(bus: FeetechBus, live: set[int], pose_fn, *,
                    tracker: CurrentPeakTracker | None = None,
                    guard_a: float = STREAM_GUARD_A,
                    log: MotionLog | None = None,
-                   max_speed: int = 3000, max_acc: int = 200) -> str:
+                   max_speed: int = 3000, max_acc: int = 200,
+                   tick_s: float = STREAM_TICK_S,
+                   tilt_guard_deg: float | None = None) -> str:
     """Stream ``pose_fn(t)`` at ~20 Hz with a live tempo multiplier.
 
     Demo time ``t`` advances by wall-dt x ``speed_fn()`` every tick, so
@@ -800,12 +814,20 @@ def stream_pose_fn(bus: FeetechBus, live: set[int], pose_fn, *,
     time (equals wall time at 1x).  Returns ``done`` / ``aborted`` /
     ``guard`` — on ``guard`` the robot is already holding in place;
     the caller decides how to surface it.
+
+    ``tilt_guard_deg``: for gaits that can tip (the reared quad walks)
+    — if body tilt from the IMU exceeds this on two consecutive samples
+    the robot is going over; go LIMP immediately (per the incident
+    rules: never fight a tip) and return ``tilt:<deg>``.
     """
     check = abort_check or (lambda: False)
     spd = speed_fn or (lambda: 1.0)
     if tracker is None:
         tracker = CurrentPeakTracker()
     seconds = float(seconds)
+    # Carrot scales with the tick so slower write rates still command
+    # ~2+ ticks ahead of schedule.
+    lookahead_s = max(STREAM_LOOKAHEAD_S, 2.4 * tick_s)
     q0 = pose_fn(0.0)
     # Align onto the start pose first (quick, abortable) so the streamer
     # never has to cover a big gap in one tick.
@@ -821,6 +843,8 @@ def stream_pose_fn(bus: FeetechBus, live: set[int], pose_fn, *,
     streamer = PoseStreamer()
     streamer.last = list(q0)   # primed: skip the gentle first-write ease
     stall_prev: set = set()
+    tilt_prev = False
+    read_imu = getattr(bus, "read_imu", None)
     sweep_n = 0
     t = 0.0
     t0 = time.monotonic()
@@ -836,7 +860,7 @@ def stream_pose_fn(bus: FeetechBus, live: set[int], pose_fn, *,
         rate = _clamp_live_speed(spd())
         t += (wall - wall_prev) * rate
         wall_prev = wall
-        q = pose_fn(min(t + STREAM_LOOKAHEAD_S * rate, seconds))
+        q = pose_fn(min(t + lookahead_s * rate, seconds))
         # dt*0.75 cancels _speed_for_delta's 0.9 undershoot and commands
         # slightly above the carrot rate so accumulated lag drains —
         # same sizing as the stand-up pursuit.
@@ -864,13 +888,37 @@ def stream_pose_fn(bus: FeetechBus, live: set[int], pose_fn, *,
                 _hold_here(bus, live)
                 return "guard"
             stall_prev = now
+            if tilt_guard_deg is not None and callable(read_imu):
+                try:
+                    imu = read_imu()
+                except Exception:
+                    imu = None
+                if imu and "az_g" in imu:
+                    norm = math.sqrt(imu.get("ax_g", 0.0) ** 2
+                                     + imu.get("ay_g", 0.0) ** 2
+                                     + imu["az_g"] ** 2) or 1.0
+                    tilt = math.degrees(
+                        math.acos(max(-1.0, min(1.0, imu["az_g"] / norm))))
+                    if tilt > tilt_guard_deg:
+                        if tilt_prev:
+                            # Going over — do NOT hold a fighting pose.
+                            for sid in sorted(live):
+                                try:
+                                    bus.pkt.write1ByteTxRx(
+                                        sid, ADDR_TORQUE_ENABLE, 0)
+                                except Exception:
+                                    pass
+                            return f"tilt:{tilt:.0f}"
+                        tilt_prev = True
+                    else:
+                        tilt_prev = False
             if status_cb is not None:
                 try:
                     status_cb(f"{label}: {t:.0f}/{seconds:.0f}s "
                               f"x{rate:.2f} peak {tracker.peak_a:.2f}A")
                 except Exception:
                     pass
-        time.sleep(STREAM_TICK_S)
+        time.sleep(tick_s)
     return "done"
 
 
@@ -1723,9 +1771,10 @@ def run_streamed_demo(bus: FeetechBus, name: str, *,
     pose_fn = (factory(dur) if getattr(factory, "duration_aware", False)
                else factory())
     tracker = CurrentPeakTracker()
+    tick_s = QUAD_STREAM_TICK_S if quad else STREAM_TICK_S
     title = DEMOS[name][0] if name in DEMOS else name
     print(f"  {name} — {title}")
-    print(f"    streamed @ ~{1.0 / STREAM_TICK_S:.0f} Hz for ~{dur:.0f}s "
+    print(f"    streamed @ ~{1.0 / tick_s:.0f} Hz for ~{dur:.0f}s "
           f"(live speed x{_clamp_live_speed(speed_fn()):.2f}) τ{tlim}")
     print("  Any key aborts.")
 
@@ -1736,9 +1785,17 @@ def run_streamed_demo(bus: FeetechBus, name: str, *,
         st = stream_pose_fn(
             bus, live, pose_fn, seconds=dur, abort_check=check,
             speed_fn=speed_fn, status_cb=status_cb, label=name,
-            tracker=tracker, log=log_cm)
+            tracker=tracker, log=log_cm, tick_s=tick_s,
+            max_acc=QUAD_STREAM_ACC if quad else 200,
+            tilt_guard_deg=QUAD_TILT_GUARD_DEG if quad else None)
         if st == "aborted":
             return "aborted"
+        if st.startswith("tilt:"):
+            msg = (f"stopped: body tilt {st[5:]} deg — tipping past "
+                   f"{QUAD_TILT_GUARD_DEG:.0f}, went limp for a soft "
+                   f"landing. Check the robot before the next run.")
+            print(f"  {msg}")
+            return msg
         if st == "guard":
             msg = (f"stopped: {tracker.peak_a:.2f} A peak on joint "
                    f"{tracker.peak_joint} — stall-fight, holding here")
