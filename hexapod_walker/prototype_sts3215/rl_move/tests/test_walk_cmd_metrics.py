@@ -5,7 +5,10 @@ checks are held-out EVAL tools; headline is raw signed v_along only):
 
   - goal.walk_cmd_metrics (walk_task): raw SIGNED v_along / v_cross /
     cmd_speed / wrong_way info keys, emitted only
-    on active-command ticks; default 0 = info dict bit-exact legacy.
+    on active-command ticks; with the default 0, those optional keys stay
+    absent.
+  - always-on walk direction telemetry: angular error on active-command
+    ticks moving at least 0.01 m/s, plus valid-motion and wrong-way flags.
   - reward.term_cost_per_remaining_s (sim_env): early-fall horizon
     cost, k * remaining episode seconds added to the flat
     safety_termination_penalty on safety terminations only; default
@@ -34,7 +37,10 @@ pytest.importorskip("mujoco")
 
 from rl_move.config import load_config  # noqa: E402
 from rl_move.sim.servo_model import SimServoParams  # noqa: E402
-from rl_move.sim.walk_task import walk_cmd_track_score  # noqa: E402
+from rl_move.sim.walk_task import (  # noqa: E402
+    walk_cmd_track_score,
+    walk_direction_error_deg,
+)
 
 METRIC_KEYS = ("v_along_cmd_m_s", "v_cross_abs_m_s", "cmd_speed_m_s",
                "wrong_way")
@@ -83,6 +89,49 @@ def test_direct_command_score_orders_exact_park_cross_and_wrong_way():
         (1.0, -1.0, -2.0, -3.0))
     assert walk_cmd_track_score(0.0, 0.0, 0.0, 0.0)[0] == 0.0
     assert walk_cmd_track_score(speed, 0.0, 0.0, 0.0)[0] < 0.0
+
+
+def test_direction_error_exact_cross_wrong_and_stationary():
+    speed = 0.05
+    assert walk_direction_error_deg(
+        speed, 0.0, speed, 0.0) == pytest.approx(0.0)
+    assert walk_direction_error_deg(
+        0.0, speed, speed, 0.0) == pytest.approx(90.0)
+    assert walk_direction_error_deg(
+        -speed, 0.0, speed, 0.0) == pytest.approx(180.0)
+    assert walk_direction_error_deg(
+        0.005, 0.0, speed, 0.0) is None
+    assert walk_direction_error_deg(
+        speed, 0.0, 0.0, 0.0) is None
+
+
+def test_periodic_eval_reduces_direction_metrics_over_valid_motion():
+    from rl_move.sim.train_ppo_sim import _rollout_stats
+
+    class DirectionEnv:
+        def reset(self):
+            self.i = 0
+            return np.zeros(1), {"goal_mode": "walk"}
+
+        def step(self, _action):
+            rows = (
+                {"walk_direction_valid": 1.0,
+                 "walk_direction_err_deg": 20.0,
+                 "walk_direction_wrong_way": 0.0},
+                {"walk_direction_valid": 0.0},
+                {"walk_direction_valid": 1.0,
+                 "walk_direction_err_deg": 100.0,
+                 "walk_direction_wrong_way": 1.0},
+            )
+            info = {"roll_deg": 0.0, "pitch_deg": 0.0, **rows[self.i]}
+            self.i += 1
+            return np.zeros(1), 0.0, False, self.i == len(rows), info
+
+    stats = _rollout_stats(DirectionEnv(), lambda _obs: np.zeros(1), 1)
+    assert stats["walk_direction_valid_frac"] == pytest.approx(2.0 / 3.0)
+    assert stats["walk_direction_err_deg_mean"] == pytest.approx(60.0)
+    assert stats["walk_direction_err_deg_p90"] == pytest.approx(92.0)
+    assert stats["walk_direction_wrong_way_frac"] == pytest.approx(0.5)
 
 
 def _mode_traj(mode: str, seed: int = 0):
@@ -163,6 +212,7 @@ def test_metrics_keys_present_on_active_ticks_only():
         s_ref = float(np.hypot(goal.vx_ref, goal.vy_ref))
         if s_ref > 1e-3:
             saw_active = True
+            assert "walk_direction_valid" in info
             for k in METRIC_KEYS:
                 assert k in info, f"missing {k} on active tick {step}"
             # fb_20260815T115650: per-heading bins are BANNED from the
@@ -174,26 +224,40 @@ def test_metrics_keys_present_on_active_ticks_only():
             assert abs(info["v_along_cmd_m_s"]) < 0.5
             assert info["wrong_way"] in (0.0, 1.0)
             assert abs(info["cmd_speed_m_s"] - s_ref) < 1e-9
+            if info["walk_direction_valid"]:
+                assert 0.0 <= info["walk_direction_err_deg"] <= 180.0
+                assert info["walk_direction_wrong_way"] in (0.0, 1.0)
+            else:
+                assert "walk_direction_err_deg" not in info
+                assert "walk_direction_wrong_way" not in info
         else:
             for k in METRIC_KEYS:
                 assert k not in info, f"{k} leaked onto inactive tick"
+            assert "walk_direction_valid" not in info
         if term or trunc:
             break
     env.close()
     assert saw_active, "no active-command ticks seen in 4 s"
 
 
-def test_metrics_default_off_is_bit_exact():
+def test_optional_signed_metrics_default_off_but_direction_is_on():
     env = _walk_env()              # walk_cmd_metrics unset -> 0
     env.reset()
+    saw_active = False
     for step in range(80):
         _o, _r, term, trunc, info = env.step(_hold_action(env))
+        goal = env._current_goal()
+        active = float(np.hypot(goal.vx_ref, goal.vy_ref)) > 1e-3
         for k in info:
             assert not k.startswith("v_along"), k
             assert k not in METRIC_KEYS, k
+        if active:
+            saw_active = True
+            assert "walk_direction_valid" in info
         if term or trunc:
             break
     env.close()
+    assert saw_active
 
 
 DIR_KEYS = ("walk_dir_valid", "walk_direction_err_deg")

@@ -1695,6 +1695,94 @@ CLAMP_HEAD_CB_DEPTH    = 3.0    # mm -- recess from flange OUTER face (= M3 head
 #     with the wall pilots -- guarded by check_clamp_cap_alignment).
 WELL_INSIDE_X_TIGHTEN  = 1.0    # mm -- total X-cavity reduction (0.5/side)
 CLAMP_SEAT_DROP        = 1.0    # mm -- clamp tongue reaches this far past z=0 (-Z)
+#
+# BACK-FACE HOOK (Aug 18 2026, user: "make the hip clamp cap and the knee
+# clamp cap have a small extra part that goes over part of the back of the
+# motor to help hold it in place without blocking where the wires come
+# out"; rev 3 same day: "it has to go over the back of the servo a bit ...
+# otherwise it isnt doing anything"; rev 4, Aug 19: "reduce the width of
+# that tab to 10mm to give more room for the servo plug but have it come
+# down 5mm further closer to the middle of the back of the servo").  An
+# L-shaped hook near the -X end of the +Y edge:
+#   * a WALL dropping CLAMP_BACK_HOOK_T = 5.5 mm past the back plane along
+#     the +Y edge strip (y >= tongue_y0 = 11.4 -- flat rim at z = 0, proven
+#     by the seated CLAMP_SEAT_DROP lip; the raised ~1.8 mm centre platform
+#     around the 5264 bay stops short of it);
+#   * a SHELF turning inboard (-Y) to y = CLAMP_BACK_HOOK_Y0 = 5.0, i.e.
+#     lapping 7.4 mm OVER the back of the servo, well toward its middle.
+#     Its top face sits FLUSH with the back plane at z =
+#     -CLAMP_BACK_HOOK_SHELF_Z = 0 (rev 8, Aug 19, user: "the bigger hook
+#     cant come 1mm [inside] it needs to be flush with the top" -- the STS
+#     back DOES step up in this wire-end band, so the rev-6 1 mm press
+#     bite jammed; flush rides the surface and still blocks any -Z
+#     back-out immediately).  History: rev 3 started 2.2 mm down "to
+#     clear the platform" (let the body float ~2 mm -- not a hold), rev 5
+#     rode 1 mm down, rev 6 bit 1 mm inside (jammed on the bump).  The
+#     HORN-SIDE mini hook below keeps its 1 mm press bite -- that end of
+#     the back is genuinely flat ("the small hook is perfect because the
+#     sts motor doesnt have a bump there"), so it alone preloads the body
+#     against the cradle's front retaining lip while this shelf takes the
+#     back-out load.
+# Keep-outs boxing it in:
+#   * the 10 mm x band [X0, X1] = [-17.7, -7.7] sits at the -X end of the
+#     edge: x >= -17.7 stays 0.5 mm clear of the cradle's rear retention
+#     tab (+X edge at -18.2), and stopping at -7.7 leaves the whole
+#     x > -7.7 corridor OPEN for the 5264 plugs' cables to bend out
+#     sideways (rev 4: the deep shelf now reaches beside the plug bay --
+#     ports centred (x -10, y 0), housings to y ~ +/-5 -- so the plugs
+#     still plug straight in below the shelf and their wires escape
+#     through the open corridor, not under the tab);
+#   * the deep corner (-7.7, 5.0) is r ~20.8 from the output axis at
+#     (+12.5, 0) -- comfortably outside the swinging yoke pad sweep
+#     (r 16.75) and the Phi 20 passive horn;
+#   * the depth stops at the REAR TAB's proven plane: the swinging yoke
+#     arm's inner face passes at z = -7, so 5.5 keeps the same 1.5 mm
+#     running clearance the tab has.
+# Cap install (slide -Y onto the well): the flush shelf skims the back
+# surface on the way in.  Plugs are inserted straight up into the
+# recessed bay AFTER capping (plug bodies stay at y <= ~5, beside the
+# shelf).
+CLAMP_BACK_HOOK_T       = 5.5  # mm -- hook depth past the back plane
+CLAMP_BACK_HOOK_X0      = -17.7 # mm -- -X end (0.5 mm clear of the rear tab edge)
+CLAMP_BACK_HOOK_X1      = -7.7  # mm -- +X end (10 mm wide; plug-cable corridor beyond)
+CLAMP_BACK_HOOK_Y0      = 5.0   # mm -- shelf inner reach: 7.4 mm over the back face
+CLAMP_BACK_HOOK_SHELF_Z = 0.0   # mm -- shelf top FLUSH with the back plane (rev 8;
+                                #       sign: top face = -CLAMP_BACK_HOOK_SHELF_Z)
+#
+# HORN-SIDE MINI HOOK (Aug 19 2026, user: "add a tiny hook on the other
+# side where the passive servo horn is?  It needs to be right at the end
+# and leave a gap for the servo horn").  A second, much smaller hook at
+# the +X (output) end corner of the +Y edge.  It MUST be tiny -- the
+# depth budget there is nothing like the wire end's:
+#   * the yoke pads sweep a FULL r 16.75 circle about the output axis
+#     (+12.5, 0) from z = -2 down to -7, and that circle covers the whole
+#     +X end of the back face (the body corner (22.7, 11.4) is at r 15.3)
+#     -- so NOTHING at this end may reach below z = -2.  The hook bottoms
+#     at z = -CLAMP_SEAT_DROP = -1.0, the plane the full-width tongue lip
+#     has bench-proven over the pad sweep (1 mm running clearance);
+#   * the Phi 20 passive horn itself stands 2 mm proud (z -2..0, r 10):
+#     the hook's inner corner (18.5, 9.4) sits at r 11.2 -- a >= 1.2 mm
+#     GAP all round the horn (and clear of the idler hub under it);
+#   * the top face bites 1 mm INSIDE the back surface, same press-fit as
+#     the big shelf, so BOTH ends of the body get preloaded against the
+#     cradle's front retaining lip.
+# Net: a 4.4 x 3 mm corner pad, 2 mm tall (z -1..+1), gripping the back
+# corner right at the end of the servo.
+CLAMP_HORN_HOOK_X0 = 18.5  # mm -- inner x edge (gap to the horn: r >= 11.2)
+CLAMP_HORN_HOOK_Y0 = 9.4   # mm -- inner y reach: 3 mm lap over the back face
+#
+# YOKE-SWEEP EDGE CHAMFER (Aug 19 2026, user: "rounding the edge on the
+# side where the yoke passes helps make sure theres not small friction").
+# The swinging yoke's SPINE sweeps across the cap's outer (+Y) face with
+# only ~3 mm at closest ROM, travelling in x -- so any graze catches on
+# the VERTICAL (z-parallel) edges standing on that face.  All six get a
+# 45 deg chamfer (leg = this): the two flange ends, the two wire-end hook
+# wall edges (below z = 0 only -- the flange face above stays flat), and
+# the two horn-end pad edges.  Horizontal edges are parallel to the sweep
+# and cannot snag; mating faces (tongue / lip / hook undersides) stay
+# sharp for registration.  Prints cleanly flange-down (edges rise at
+# 45 deg from the bed).
+CLAMP_YOKE_EDGE_CHAMFER = 1.0  # mm -- 45 deg chamfer leg on outer-face vertical edges
 
 
 def servo_clamp_bolt_centres():
@@ -2867,13 +2955,28 @@ COXA_HIP_DROP = (-(WELL_D / 2.0 + COXA_ARM_T / 2.0 + WELL_Z_DROP_EXTRA)
 # pan-head hinge pin, no nyloc.  Rationale (user, Aug 2026 design
 # review): the hinged pad's angled tang dug into the textured garage
 # floor and caught; the loose hinge added 2 printed parts + 2 fasteners
-# per leg and nothing measurable in traction.  The boot's flat TPU tip
-# face (chamfered rim, no corners) is the ground contact; TPU material
-# compliance absorbs the pitch/roll the hinge used to.
+# per leg and nothing measurable in traction.
+#
+# Aug 19 2026 DOME tip (user + GPT walking-gait review): the original
+# boot ended in a FLAT Ø10 chamfer-rimmed face.  On the textured garage
+# floor the flat tip caused BOTH observed failure modes -- whenever the
+# tibia is not perpendicular to the floor (i.e. most of stance) the boot
+# rides its chamfer EDGE: a tiny contact that catches texture ("stuck"),
+# then breaks free all at once ("slips") -- exactly opposite to what the
+# RL policy expects, because mujoco_prototype models the foot as a
+# SPHERE of radius FOOT_BOOT_OD/2 tangent at the kinematic tip (smooth
+# single-point contact at any leg angle).  The tip is now a
+# HEMISPHERICAL DOME of radius FOOT_BOOT_OD/2 with its apex at the
+# kinematic tip -- the physical foot IS the sim's contact sphere (dome
+# centre lands at tibia-local x = TIBIA_LENGTH - FOOT_BOOT_OD/2 =
+# mujoco's BOOT_TIP_CTR; no sim change needed).  The dome also deletes
+# the print-orientation coupling: the boot now prints MOUTH-DOWN with a
+# 45-deg internal blind-end cone (borrowed from the cone experiment) so
+# nothing bridges.
 #
 # Boot local frame (same convention the old fitting used): origin at the
 # tube end on the tube axis, tube enters from -X, ground tip toward +X.
-# The tip face lands exactly at tibia-local x = TIBIA_LENGTH, so the
+# The dome APEX lands exactly at tibia-local x = TIBIA_LENGTH, so the
 # 128 mm knee-axis→tip kinematic length is unchanged.
 FOOT_BOOT_OD           = 14.0  # mm -- boot outer diameter (3 mm TPU wall)
 FOOT_BOOT_BORE_D       =  8.1  # mm -- bore over the Ø8 tube: SAME Ø8.1 as
@@ -2888,13 +2991,30 @@ FOOT_BOOT_BORE_D       =  8.1  # mm -- bore over the Ø8 tube: SAME Ø8.1 as
                                #        ends up snug.  Dab of CA/epoxy for
                                #        keeps.
 FOOT_BOOT_SOCKET_DEPTH = 20.0  # mm -- tube insertion depth
-FOOT_BOOT_TIP_L        =  8.0  # mm -- solid TPU beyond the tube end;
+FOOT_BOOT_TIP_L        =  8.0  # mm -- solid tip beyond the tube end;
                                #        tube end at x = TIBIA_LENGTH - 8
-                               #        puts the tip face at TIBIA_LENGTH
-FOOT_BOOT_TIP_CHAMFER  =  2.0  # mm -- 45 deg rim chamfer on the tip face
-                               #        (flat Ø10 contact patch, no sharp
-                               #        edge to catch on floor texture)
+                               #        puts the dome apex at TIBIA_LENGTH.
+                               #        (>= 3-5 mm of material stays below
+                               #        the rod end: the 45-deg internal
+                               #        blind cone bottoms ~3.95 mm short
+                               #        of the apex.)
 FOOT_BOOT_MOUTH_LEAD   =  1.2  # mm -- bore lead-in chamfer at the mouth
+# (FOOT_BOOT_TIP_CHAMFER RETIRED Aug 19 2026 with the flat tip face --
+# the dome has no rim to chamfer.)
+#
+# EXPERIMENTAL PETG foot trio (Aug 19 2026, user has PETG on hand today,
+# TPU later).  Three test variants of the SAME dome geometry, walked on
+# the same gait to see which reduces catching / sudden release most:
+#   1. solid dome    = foot_boot.stl,      slice solid (4+ walls / dense)
+#   2. hollow dome   = foot_boot.stl,      slice 2 walls / ~8% infill
+#                      (GPT: thin PETG shell fakes a little compliance)
+#   3. wide hollow   = foot_boot_wide.stl, slice 2 walls / ~8% infill
+# PETG is rigid, so unlike TPU the Ø8.1 bore is a true slip fit (same
+# bore the rigid tibia yoke socket already proved on the bench) -- add a
+# CA/epoxy dab; PETG will not grip the tube the way TPU does.
+FOOT_BOOT_WIDE_OD      = 17.0  # mm -- wider experimental dome OD (dome
+                               #        R 8.5; apex still at TIBIA_LENGTH,
+                               #        wall over the bore >= 4.4 mm)
 #
 # EXPERIMENTAL conical boot (Aug 17 2026, user: "try making another
 # experimental version of these boots with more conical shape").  Same
@@ -2902,7 +3022,8 @@ FOOT_BOOT_MOUTH_LEAD   =  1.2  # mm -- bore lead-in chamfer at the mouth
 # x = TIBIA_LENGTH), but the outer profile is a cone: a gently tapered
 # sleeve (Phi 15 mouth -> Phi 13 at the nose start) flowing into a steep
 # nose cone down to a small Phi 6 flat ground contact (vs the straight
-# Phi 14 sleeve + Phi 10 flat of the production boot).  A true single
+# Phi 14 sleeve of the production boot, whose tip was a flat Phi 10 face
+# until the Aug 19 2026 dome).  A true single
 # straight cone from mouth to a small tip is impossible -- it would thin
 # the TPU wall over the bore below ~1.5 mm at the socket bottom; the
 # two-segment profile keeps >= 2.45 mm of wall everywhere over the bore.
@@ -6070,7 +6191,25 @@ def make_servo_clamp_cap() -> trimesh.Trimesh:
       * a centre TONGUE that reaches -Y into the open face and presses the
         servo body's +Y face (slight interference so the bolts clamp it);
       * a top LIP that laps the body's +Y front-face edge to stop +Z
-        pull-out, matching the cradle's -Y / corner lip.
+        pull-out, matching the cradle's -Y / corner lip;
+      * a back-face HOOK (Aug 18-19 2026) near the -X end of the +Y edge:
+        a 10 mm-wide wall dropping CLAMP_BACK_HOOK_T = 5.5 mm past the back
+        plane plus an inboard SHELF whose top face rides FLUSH with the
+        back surface (the wire-end band steps up, so a press bite jams
+        there), lapping 7.4 mm over the back of the motor toward its
+        middle -- an immediate -Z backstop.
+        Placed to leave the plug-cable corridor open beside it and to
+        clear the yoke pad sweep and the cradle's rear tab (see the
+        CLAMP_BACK_HOOK_* constants);
+      * a horn-side MINI hook (Aug 19 2026) at the +X end corner: a tiny
+        pad (z -1..+1, 1 mm bite) gripping the back corner right at the
+        end, with a >= 1.2 mm gap to the Phi 20 passive horn -- the yoke
+        pad sweep forbids anything deeper at that end (see the
+        CLAMP_HORN_HOOK_* constants);
+      * 1 mm 45-deg chamfers on the six vertical edges of the outer +Y
+        face (flange ends, hook wall edges, horn pad edges) so the
+        sweeping yoke spine cannot catch a corner (see
+        CLAMP_YOKE_EDGE_CHAMFER).
 
     Same part for the hip-pitch (coxa_link) and knee (femur_link's knee
     cradle) joints -- 2 per leg, 12 per robot.  Prints flat on its +Z face.
@@ -6125,17 +6264,74 @@ def make_servo_clamp_cap() -> trimesh.Trimesh:
     lip = _box((cav_w, lip_y1 - lip_y0, WELL_H - WELL_RIM_Z),
                center=(0.0, 0.5 * (lip_y0 + lip_y1),
                        0.5 * (WELL_RIM_Z + WELL_H)))
+
+    # Back-face HOOK (Aug 18 2026, user; rev 3): an L over the back of the
+    # motor on the -X half of the +Y edge -- a WALL dropping past the back
+    # plane plus a SHELF turning inboard UNDER the back face (below the
+    # raised centre platform) so the cap positively catches the body.  See
+    # the CLAMP_BACK_HOOK_* constants block for the exact keep-outs.  The
+    # wall spans y from the tongue's press face out to the flange outer face
+    # and buries 1 mm up into both (z +1) so it is solidly fused, not a
+    # coplanar seam; the shelf overlaps the wall 0.5 mm in y for the same
+    # reason.
+    hook_wall = _box((CLAMP_BACK_HOOK_X1 - CLAMP_BACK_HOOK_X0,
+                      flange_y1 - tongue_y0, CLAMP_BACK_HOOK_T + 1.0),
+                     center=(0.5 * (CLAMP_BACK_HOOK_X0 + CLAMP_BACK_HOOK_X1),
+                             0.5 * (tongue_y0 + flange_y1),
+                             0.5 * (1.0 - CLAMP_BACK_HOOK_T)))
+    shelf_y1 = tongue_y0 + 0.5
+    hook_shelf = _box((CLAMP_BACK_HOOK_X1 - CLAMP_BACK_HOOK_X0,
+                       shelf_y1 - CLAMP_BACK_HOOK_Y0,
+                       CLAMP_BACK_HOOK_T - CLAMP_BACK_HOOK_SHELF_Z),
+                      center=(0.5 * (CLAMP_BACK_HOOK_X0 + CLAMP_BACK_HOOK_X1),
+                              0.5 * (CLAMP_BACK_HOOK_Y0 + shelf_y1),
+                              -0.5 * (CLAMP_BACK_HOOK_SHELF_Z + CLAMP_BACK_HOOK_T)))
+
+    # Horn-side MINI hook (Aug 19 2026, user): a tiny corner pad at the +X
+    # end -- z -1 (the proven tongue-lip plane over the yoke pad sweep) up
+    # to +1 (press-fit bite), reaching to the cavity edge in x and 3 mm
+    # over the back face in y, with a >= 1.2 mm radial gap to the Phi 20
+    # passive horn.  See the CLAMP_HORN_HOOK_* constants block.
+    horn_hook = _box((cav_w / 2.0 - CLAMP_HORN_HOOK_X0,
+                      flange_y1 - CLAMP_HORN_HOOK_Y0,
+                      CLAMP_SEAT_DROP + 1.0),
+                     center=(0.5 * (CLAMP_HORN_HOOK_X0 + cav_w / 2.0),
+                             0.5 * (CLAMP_HORN_HOOK_Y0 + flange_y1),
+                             0.5 * (1.0 - CLAMP_SEAT_DROP)))
+
     # The lip must clear the dia-20 disc horn (centred on +SERVO_OUTPUT_X).
-    body = _union(flange, tongue, lip)
+    body = _union(flange, tongue, lip, hook_wall, hook_shelf, horn_hook)
     horn = _cyl(HORN_CLEAR_OPENING_OD / 2.0, (WELL_H - WELL_RIM_Z) * 4.0)
     horn.apply_translation([SERVO_OUTPUT_X, 0.0, WELL_RIM_Z])
+
+    # Yoke-sweep edge chamfers (Aug 19 2026, user): 45 deg cuts along the
+    # six vertical edges standing on the outer (+Y) face, so the sweeping
+    # yoke spine cannot catch a sharp corner if it grazes.  Each cutter is
+    # a square prism rotated 45 deg about Z, centred on the edge line; the
+    # hook-edge cutters stop at z = 0 so the flat flange face above keeps
+    # its full bed contact.  See CLAMP_YOKE_EDGE_CHAMFER.
+    c = CLAMP_YOKE_EDGE_CHAMFER
+    chamfers = []
+    for (ex, ez0, ez1) in (
+        (-WELL_W / 2.0,       -1.0, cap_z1 + 1.0),   # flange -X end (full height)
+        (WELL_W / 2.0,        -1.0, cap_z1 + 1.0),   # flange +X end (full height)
+        (CLAMP_BACK_HOOK_X0,  -CLAMP_BACK_HOOK_T - 1.0, 0.0),  # hook wall -X edge
+        (CLAMP_BACK_HOOK_X1,  -CLAMP_BACK_HOOK_T - 1.0, 0.0),  # hook wall +X edge
+        (CLAMP_HORN_HOOK_X0,  -CLAMP_SEAT_DROP - 1.0, 0.0),    # horn pad -X edge
+        (cav_w / 2.0,         -CLAMP_SEAT_DROP - 1.0, 0.0),    # horn pad +X edge
+    ):
+        prism = _box((c * np.sqrt(2.0), c * np.sqrt(2.0), ez1 - ez0),
+                     center=(0.0, 0.0, 0.5 * (ez0 + ez1)))
+        prism.apply_transform(rotation_matrix(np.pi / 4.0, [0, 0, 1]))
+        prism.apply_translation([ex, flange_y1, 0.0])
+        chamfers.append(prism)
 
     # 2x M3 clearance holes through the flange (axis Y) onto the wall pilots.
     # The (x, z) centres come from ``servo_clamp_bolt_centres`` -- the SAME
     # source ``_servo_well_solid`` reads for the cradle pilots -- so the cap
     # holes can never drift out of coaxiality with the pilots they thread
     # into (guarded by check_clamp_cap_alignment).
-    cuts = [horn]
+    cuts = [horn] + chamfers
     flange_mid_y = 0.5 * (flange_y0 + flange_y1)
     for (bx, bz) in servo_clamp_bolt_centres():
         hole = _cyl(CLAMP_BOLT_CLEAR_OD / 2.0, (flange_y1 - flange_y0) + 4.0)
@@ -10684,7 +10880,8 @@ def make_tibia_link() -> trimesh.Trimesh:
                  pin_hole, *lightening)
 
 
-def make_foot_boot(*, extra_tip: float = 0.0) -> trimesh.Trimesh:
+def make_foot_boot(*, extra_tip: float = 0.0,
+                   od: float = FOOT_BOOT_OD) -> trimesh.Trimesh:
     """TPU 95A boot pressed over the tibia CF-tube end (Aug 2026 --
     replaces tibia_foot_fitting + foot_pad + the M3x16/nyloc hinge).
 
@@ -10692,34 +10889,45 @@ def make_foot_boot(*, extra_tip: float = 0.0) -> trimesh.Trimesh:
     FOOT_BOOT_SOCKET_DEPTH mm of the Ø8 tube (Ø8.1 bore -- same slip fit
     as the tibia yoke's tube socket; see FOOT_BOOT_BORE_D for the two
     rounds of bench loosening), closed by a FOOT_BOOT_TIP_L solid tip
-    whose FLAT chamfer-rimmed face is the ground contact.  Print
-    tip-face on the bed, bore up -- no supports, flat bottom.
+    ending in a HEMISPHERICAL DOME of radius od/2 (Aug 19 2026 --
+    replaces the flat chamfer-rimmed face; the dome IS the MuJoCo
+    contact sphere, apex at the kinematic tip -- see the FOOT_BOOT_*
+    constants block for the stuck/slip rationale).  The bore's blind
+    end is a 45-deg internal cone so the boot prints MOUTH-DOWN with
+    no bridges (a dome tip cannot be the bed face).
 
     Local frame matches the old fitting: origin at the tube end on the
-    tube axis, tube enters from -X, tip face at +(FOOT_BOOT_TIP_L +
+    tube axis, tube enters from -X, dome apex at +(FOOT_BOOT_TIP_L +
     extra_tip).  ``extra_tip`` = FOOT_BOOT_SHORT_EXTRA for the 4 mm-short
     CF legs 0/4 so every tip lands at tibia-local x = TIBIA_LENGTH.
+    ``od`` = FOOT_BOOT_WIDE_OD for the experimental wide PETG variant.
     """
     tip_l = FOOT_BOOT_TIP_L + float(extra_tip)
     total_l = FOOT_BOOT_SOCKET_DEPTH + tip_l
-    r_out = FOOT_BOOT_OD / 2.0
+    r_out = float(od) / 2.0
     r_bore = FOOT_BOOT_BORE_D / 2.0
-    r_flat = r_out - FOOT_BOOT_TIP_CHAMFER
     lead = FOOT_BOOT_MOUTH_LEAD
-    # Revolved profile (r, z): z = 0 at the ground tip face, +z toward
-    # the open mouth.  Starts and ends on the axis -> watertight solid.
-    profile = np.array([
-        (0.0,            0.0),
-        (r_flat,         0.0),
-        (r_out,          FOOT_BOOT_TIP_CHAMFER),
-        (r_out,          total_l),
-        (r_bore + lead,  total_l),
-        (r_bore,         total_l - lead),
-        (r_bore,         tip_l),
-        (0.0,            tip_l),
+    # Revolved profile (r, z): z = 0 at the dome apex (ground contact),
+    # +z toward the open mouth.  Starts and ends on the axis ->
+    # watertight solid.  The dome arc runs apex -> equator at (r_out,
+    # r_out); a quarter circle sampled finely enough that the chord
+    # error is far below FDM resolution.
+    theta = np.linspace(0.0, np.pi / 2.0, 25)
+    dome = np.column_stack([r_out * np.sin(theta),
+                            r_out * (1.0 - np.cos(theta))])
+    profile = np.vstack([
+        dome,
+        [(r_out,          total_l),
+         (r_bore + lead,  total_l),
+         (r_bore,         total_l - lead),
+         (r_bore,         tip_l),
+         # 45-deg internal blind-end cone: the tube's end ring bottoms
+         # on the cone/bore corner at the same insertion depth as the
+         # old flat blind end, and mouth-down printing self-supports.
+         (0.0,            tip_l - r_bore)],
     ])
     boot = trimesh.creation.revolve(profile, sections=64)
-    # Ground face (z=0) -> local +X tip; mouth -> -X over the tube.
+    # Dome apex (z=0) -> local +X tip; mouth -> -X over the tube.
     boot.apply_transform(rotation_matrix(-np.pi / 2.0, [0, 1, 0]))
     boot.apply_translation([tip_l, 0.0, 0.0])
     return boot
@@ -10732,6 +10940,17 @@ def make_foot_boot_plus4() -> trimesh.Trimesh:
     ``stl_prototype/`` set).
     """
     return make_foot_boot(extra_tip=FOOT_BOOT_SHORT_EXTRA)
+
+
+def make_foot_boot_wide() -> trimesh.Trimesh:
+    """EXPERIMENTAL wider dome boot (Aug 19 2026) -- same geometry as
+    ``make_foot_boot`` but Ø FOOT_BOOT_WIDE_OD = 17 (dome R 8.5).  Third
+    leg of the PETG foot trio (see the FOOT_BOOT_* constants block):
+    slice it hollow-ish (2 walls / ~8% infill) so the PETG shell can
+    flex a little.  Lives in ``extra_stl/foot_boot_wide.stl``
+    (tools/make_extra_foot_boot_wide.py); NOT in the production print
+    set.  Apex still lands at tibia-local x = TIBIA_LENGTH."""
+    return make_foot_boot(od=FOOT_BOOT_WIDE_OD)
 
 
 def make_foot_boot_cone() -> trimesh.Trimesh:

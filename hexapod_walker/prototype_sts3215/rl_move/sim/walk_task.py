@@ -117,6 +117,43 @@ def walk_cmd_track_score(vx: float, vy: float, vx_ref: float,
     cross = abs(ux * vy - uy * vx)
     score = (along - abs(along - s_ref) - cross) / s_ref
     return score, along, cross
+
+
+WALK_DIRECTION_MIN_SPEED_M_S = 0.01
+
+
+def walk_direction_error_deg(
+        vx: float, vy: float, vx_ref: float, vy_ref: float,
+        min_speed_m_s: float = WALK_DIRECTION_MIN_SPEED_M_S,
+) -> float | None:
+    """Angle between actual and commanded planar velocity.
+
+    Returns None for stop commands and near-stationary motion, where a
+    velocity direction is undefined. Otherwise the result is in [0, 180].
+    """
+    cmd_speed = math.hypot(vx_ref, vy_ref)
+    speed = math.hypot(vx, vy)
+    if cmd_speed <= 1e-6 or speed < max(float(min_speed_m_s), 0.0):
+        return None
+    cos_err = (vx * vx_ref + vy * vy_ref) / (speed * cmd_speed)
+    return math.degrees(math.acos(min(max(cos_err, -1.0), 1.0)))
+
+
+def _add_walk_direction_info(
+        info: dict, vx: float, vy: float, vx_ref: float, vy_ref: float,
+        min_speed_m_s: float,
+) -> None:
+    """Emit active-command direction telemetry into an env info dict."""
+    if math.hypot(vx_ref, vy_ref) <= 1e-3:
+        return
+    err = walk_direction_error_deg(
+        vx, vy, vx_ref, vy_ref, min_speed_m_s=min_speed_m_s)
+    info["walk_direction_valid"] = 1.0 if err is not None else 0.0
+    if err is not None:
+        info["walk_direction_err_deg"] = float(err)
+        info["walk_direction_wrong_way"] = 1.0 if err > 90.0 else 0.0
+
+
 # Learning-progress curriculum (goal.walk_lp_curriculum=1): commanded
 # speed is drawn from one of these buckets instead of a single global
 # uniform range. Bucket weights start uniform and are re-weighted during
@@ -2948,6 +2985,12 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 info["reward_walk_cmd_track"] = r_cmd_track
             info["walk_vel_err"] = err
             info["walk_speed"] = float(np.hypot(*v))
+            _add_walk_direction_info(
+                info, float(v[0]), float(v[1]),
+                float(goal.vx_ref), float(goal.vy_ref),
+                min_speed_m_s=float(cfg_get(
+                    self.cfg, "goal", "walk_direction_min_speed_m_s",
+                    default=WALK_DIRECTION_MIN_SPEED_M_S)))
             # Raw commanded-direction speed telemetry (08-15, operator
             # directive fb_20260815T114414: judge command-following by
             # RAW SIGNED m/s along the requested direction, never by
@@ -3651,6 +3694,11 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             r_walk = s_gait * (kern + prog)
             info["walk_vel_err"] = err
             info["walk_speed"] = float(np.hypot(v[0], v[1]))
+            _add_walk_direction_info(
+                info, float(v[0]), float(v[1]), vx_ref, vy_ref,
+                min_speed_m_s=float(cfg_get(
+                    self.cfg, "goal", "walk_direction_min_speed_m_s",
+                    default=WALK_DIRECTION_MIN_SPEED_M_S)))
             info["getup_gait_gate"] = s_gait
 
         reward += r_prog + r_hold + r_walk

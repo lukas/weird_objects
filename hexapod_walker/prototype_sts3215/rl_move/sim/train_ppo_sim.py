@@ -612,7 +612,8 @@ def _make_reward_parts_callback():
                 "reward_quad_clear", "reward_quad_plant",
                 "quad_clear_mm", "quad_fronts_off", "quad_planted_frac")
         ABS_KEYS = ("track_err_deg", "height_err_mm",
-                    "mean_current_a", "walk_vel_err", "walk_speed")
+                    "mean_current_a", "walk_vel_err", "walk_speed",
+                    "walk_direction_err_deg")
         # Everything else numeric logs as a plain mean (operator 08-10:
         # whitelists drift behind the envs; W&B is the triage surface).
         SKIP = ("TimeLimit.truncated", "terminal_observation",
@@ -1070,8 +1071,21 @@ def _run_periodic_eval(env, act, args, env_cls, step,
                     stats["walk_dir_err_deg_mean"])
                 payload[f"eval/{mode}/dir_err_deg_p90"] = (
                     stats["walk_dir_err_deg_p90"])
+            if "walk_direction_valid_frac" in stats:
+                payload[f"eval/{mode}/direction_valid_frac"] = (
+                    stats["walk_direction_valid_frac"])
+            if "walk_direction_err_deg_mean" in stats:
+                payload[f"eval/{mode}/direction_err_deg"] = (
+                    stats["walk_direction_err_deg_mean"])
+                payload[f"eval/{mode}/direction_err_p90_deg"] = (
+                    stats["walk_direction_err_deg_p90"])
+            if "walk_direction_wrong_way_frac" in stats:
+                payload[f"eval/{mode}/wrong_direction_frac"] = (
+                    stats["walk_direction_wrong_way_frac"])
             brief.append(
-                f"{mode} err {stats['walk_vel_err_mean']:.3f} m/s")
+                f"{mode} err {stats['walk_vel_err_mean']:.3f} m/s"
+                + (f", dir {stats['walk_direction_err_deg_mean']:.1f}deg"
+                   if "walk_direction_err_deg_mean" in stats else ""))
         else:
             brief.append(
                 f"{mode} {stats.get('track_err_deg_mean', 0.0):.2f}°")
@@ -2028,6 +2042,7 @@ def _rollout_stats(env, act_fn, episodes: int) -> dict:
     lower_total, lower_done = 0, 0
     walk_errs, walk_speeds = [], []
     dir_errs, dir_valid, wrong_dirs = [], [], []
+    direction_valid, direction_wrong = [], []
     h_errs_end = []
     term_reasons: dict[str, int] = {}
     for _ in range(episodes):
@@ -2062,6 +2077,14 @@ def _rollout_stats(env, act_fn, episodes: int) -> dict:
                 wrong_dirs.append(float(info.get("wrong_way", 0.0)))
             if "walk_direction_err_deg" in info:
                 dir_errs.append(float(info["walk_direction_err_deg"]))
+            # Newer _add_walk_direction_info keys (08-18 telemetry):
+            # valid flag every walk tick, wrong_way only on valid ticks.
+            if "walk_direction_valid" in info:
+                direction_valid.append(
+                    float(info["walk_direction_valid"]))
+            if "walk_direction_wrong_way" in info:
+                direction_wrong.append(
+                    float(info["walk_direction_wrong_way"]))
             done = term or trunc
         returns.append(ret)
         tilts.append(max_tilt)
@@ -2125,6 +2148,15 @@ def _rollout_stats(env, act_fn, episodes: int) -> dict:
     if dir_errs:
         stats["walk_dir_err_deg_mean"] = float(np.mean(dir_errs))
         stats["walk_dir_err_deg_p90"] = float(np.percentile(dir_errs, 90))
+        stats["walk_direction_err_deg_mean"] = float(np.mean(dir_errs))
+        stats["walk_direction_err_deg_p90"] = float(
+            np.percentile(dir_errs, 90))
+    if direction_valid:
+        stats["walk_direction_valid_frac"] = float(
+            np.mean(direction_valid))
+    if direction_wrong:
+        stats["walk_direction_wrong_way_frac"] = float(
+            np.mean(direction_wrong))
     return stats
 
 

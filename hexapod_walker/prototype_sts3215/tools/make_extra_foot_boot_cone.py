@@ -6,13 +6,15 @@ tibia yoke socket's slip fit since the Aug 17 2026 loosen), 20 mm socket and
 28 mm overall length as the production ``foot_boot`` (the tip still
 lands at tibia-local x = TIBIA_LENGTH), but the outer profile is a
 cone: Phi 15 mouth -> Phi 13 at the nose start -> steep nose cone to a
-Phi 6 flat ground contact (vs the straight Phi 14 sleeve + Phi 10 flat
-of the production boot).  See the FOOT_BOOT_CONE_* constants block in
+Phi 6 flat ground contact (vs the straight Phi 14 sleeve of the
+production boot -- whose tip was a flat Phi 10 face when this
+experiment was cut; since Aug 19 2026 it is a hemispherical dome).
+See the FOOT_BOOT_CONE_* constants block in
 ``hexapod_prototype.py`` for the wall-thickness limits that shape it.
 
 Print in TPU 95A, MOUTH face on the bed (wide stable base; the bore's
-blind end is a 45-deg internal cone, so nothing bridges) -- NOT tip
-down like the production boot.
+blind end is a 45-deg internal cone, so nothing bridges).  The Aug 19
+2026 dome boot adopted the same mouth-down orientation + internal cone.
 
 EXPERIMENTAL: not in the production print set, the scene, or the BOM
 fastener counts.  If the bench likes it, promote it into
