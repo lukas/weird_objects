@@ -85,3 +85,54 @@ Append-only diary of hardware sessions. Newest entries at the bottom.
   on live joints.
 - Hardening: cursor rule + AGENTS.md; drive `C`/`P`/`#` Δq>25° refuse;
   `find_plant`/geometry require `force`; `enable_motion` default false.
+---
+
+## 2026-08-19
+
+### Bus plumbing upgrade (code only — NOT yet flashed/verified on robot)
+
+- External review (GPT, via operator): the 20-40 Hz ceiling was the
+  synchronous request/response plumbing, not the 1 Mbps servo bus. Also
+  found the USB `feetech_bus.py` still decoded present-speed with the
+  SCS 0.732 rpm/unit convention (~50x inflation, fixed in the MCU path
+  2026-08-07) — now fixed in both USB copies (`speed_counts_to_deg_s`).
+- Firmware `feetech_bridge` STREAM mode: MCU free-runs acquisition
+  (pos+speed syncRead + IMU every pass ~150-250 Hz; full current/load/
+  volt/temp state at ~10 Hz) into RAM caches; `P`/`F`/IMUR/PWR/DX serve
+  cached. New `S` binary op = SyncWrite + state snapshot in ONE host
+  round trip (`n=0` = read-only snapshot). Host driver enables STREAM on
+  open (`HEXAPOD_NO_STREAM=1` opts out); old firmware falls back to the
+  legacy paths everywhere.
+- `RobotStateEstimator.update()` uses the one-round-trip snapshot;
+  `McuFeetechBus.step_all()` available for future gym-style loops.
+  DriveController gait loop 20 → 50 Hz; per-joint pose reads bulked.
+- rl_policy stays 25 Hz — the trained contract (config `control.hz`
+  feeds the sim env dt). The "no 50 Hz chase" ruling above is now a
+  training-side decision only; the hardware blocker is gone.
+- Next bench session: flash `firmware/feetech_bridge`, then
+  `python3 linux_control/bus_bench.py` (read-only) — expect
+  read_snapshot well over 100 Hz and rl episode overruns 0.
+
+### Same day, bench session — flashed + verified (operator present)
+
+- Deploy + flash went through two firmware fixes found live:
+  1. Host bytes were lost whenever a 113-byte 'W'/'S' frame landed while
+     the MCU was inside a servo/IMU transaction → passes now pump host
+     bytes into the frame parser between servo reads (execution deferred
+     until the servo bus is free) + 100 ms torn-frame desync guard.
+  2. Root cause of the loss: the Arduino-Zephyr core's Serial ring
+     buffers are 64 BYTES — smaller than one frame. `flash_feetech_bridge.sh`
+     now patches the variant's generated config to 1024 (idempotent,
+     re-applies after core updates). Do not drop this patch: with 64-byte
+     rings, big binary frames fail ~60-75% under streaming.
+- Measured on the robot (bus_bench.py, stream mode ON):
+  read_snapshot 150-225 Hz, read_all_positions ~270 Hz,
+  read_all_feedback ~140-175 Hz, read_imu ~152 Hz,
+  **step_all (SyncWrite+snapshot, one round trip) 162 Hz, 647/647 ok**.
+  A full control tick's bus work is now ~6 ms vs >20 ms before.
+- Motion check (operator watching): ARM → wiggles j0 ±12°, j2 ±15°,
+  j9 ±12°, j4 ±8° via HTTP /cmd → X limp. Clean; 18/18 alive, no
+  alarms, temps ≤32 °C. web_drive log confirms "MCU stream mode ON".
+- Note: occasional single 800 ms transaction timeout (~0.2%, host
+  retries/fallbacks absorb it). mDNS from the Mac adds 1-3 s to curl —
+  use generous timeouts when driving over WiFi.

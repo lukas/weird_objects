@@ -35,6 +35,20 @@ scp_pw "$SKETCH/feetech_bridge.ino" "$SKETCH/st7789_tft.h" "$BOARD:$REMOTE_DIR/"
 echo ">> ensure FTServo library"
 ssh_pw "$BOARD" 'arduino-cli lib install FTServo >/dev/null 2>&1 || true'
 
+# The Arduino-Zephyr core's Serial ring buffers default to 64 bytes —
+# smaller than one 113-byte binary 'W'/'S' frame, so bytes get dropped
+# whenever a frame lands while the MCU is inside a servo/IMU
+# transaction (measured 2026-08-19). The size is compiled into the
+# sketch (llext), so patching the variant's generated config is safe
+# and takes effect on the next compile. Idempotent; re-applies after
+# core updates.
+echo ">> ensure 1024-byte Arduino serial ring buffers"
+ssh_pw "$BOARD" 'sed -i \
+  "s/#define CONFIG_ARDUINO_API_SERIAL_BUFFER_SIZE 64$/#define CONFIG_ARDUINO_API_SERIAL_BUFFER_SIZE 1024/" \
+  ~/.arduino15/packages/arduino/hardware/zephyr/*/variants/arduino_uno_q_stm32u585xx/llext-edk/include/zephyr/include/generated/zephyr/autoconf.h
+  grep -h "ARDUINO_API_SERIAL_BUFFER_SIZE" \
+  ~/.arduino15/packages/arduino/hardware/zephyr/*/variants/arduino_uno_q_stm32u585xx/llext-edk/include/zephyr/include/generated/zephyr/autoconf.h'
+
 echo ">> compile + flash via local remoteocd"
 ssh_pw "$BOARD" 'bash -s' <<'EOF'
 set -e

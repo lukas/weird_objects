@@ -1,8 +1,12 @@
 # Phase-1 stationary balance — see RL_PLAN.md
 
 control:
-  # 50 Hz is the plan target; measured SyncWrite+sense often >20 ms, so
-  # start HW motion tests at 25 Hz until the tick is slimmed.
+  # 25 Hz is the trained contract of every deployed checkpoint — this
+  # value feeds the SIM env dt (sim_env.py), so changing it changes what
+  # future policies are trained for AND breaks parity with existing
+  # champions. The old hardware blocker is GONE (2026-08-19 MCU stream
+  # bridge: tick bus work ~3-5 ms, was >20 ms), so a 50 Hz training run
+  # is now deployable whenever the RL side wants to take that on.
   hz: 25
 
 episode:
@@ -177,6 +181,10 @@ velocity_filter:
   max_jump_rad: 0.5          # reject single-frame Δq above this
 
 sensing:
+  # Current/load/volt/temp poll rate. The MCU stream bridge refreshes its
+  # full-state cache at ~10 Hz (FB_PERIOD_MS) and serves these reads from
+  # RAM, so polling faster than 10 buys nothing; positions + IMU are NOT
+  # throttled by this — they come fresh (~150-250 Hz cache) every tick.
   full_feedback_hz: 10
 
 plant:

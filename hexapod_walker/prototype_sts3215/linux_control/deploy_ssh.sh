@@ -31,7 +31,7 @@ echo ">> pushing code + vendored SDK -> $HOST:$REMOTE"
   "$SRC/event_log.py" "$SRC/status_display.py" "$SRC/servo_watch.py" \
   "$SRC/mpu_probe.py" "$SRC/rl_policy.py" "$SRC/safe_zero.py" \
   "$SRC/pinned_tip.py" "$SRC/noslip_gait.py" \
-  "$SRC/sysid_protocol.py" "$SRC/sysid_runner.py" \
+  "$SRC/sysid_protocol.py" "$SRC/sysid_runner.py" "$SRC/bus_bench.py" \
   "$SRC/rl_policy_weights.json" "$SRC/rl_walk_weights.json" \
   "$SRC/standup_modes.json" \
   "$HOST:$REMOTE/linux_control/"
@@ -51,9 +51,16 @@ done
 # Setup bundle + canonical motor_setup copies.
 "${SCP[@]}" -r "$SRC/urt2_setup/." "$HOST:$REMOTE/urt2_setup/"
 "${SCP[@]}" -r "$SRC/urt2_setup/." "$HOST:$REMOTE/linux_control/urt2_setup/"
+# urt2_setup sits BEFORE motor_setup on the service PYTHONPATH, so a stale
+# bundle copy silently shadows the canonical file (bit us 2026-08-19:
+# demos ran an old inplace_demos.py for two test rounds). Overwrite the
+# shared modules in BOTH urt2_setup dirs from motor_setup so the deployed
+# tree can never disagree with the canonical copies.
 for f in feetech_bus.py urt2_bench.py inplace_demos.py quad_walk.py \
          motion_telemetry.py motor_setup_registry.json; do
   "${SCP[@]}" "$SRC/../motor_setup/$f" "$HOST:$REMOTE/motor_setup/"
+  "${SCP[@]}" "$SRC/../motor_setup/$f" "$HOST:$REMOTE/urt2_setup/"
+  "${SCP[@]}" "$SRC/../motor_setup/$f" "$HOST:$REMOTE/linux_control/urt2_setup/"
 done
 "${SSH[@]}" "touch '$REMOTE/motor_setup/__init__.py' \
   '$REMOTE/linux_control/__init__.py'"

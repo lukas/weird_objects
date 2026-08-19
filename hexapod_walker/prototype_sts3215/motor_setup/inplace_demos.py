@@ -13,6 +13,12 @@ Streaming a fixed speed/acc at 25 Hz made idle joints (and backlashy
 yaws) buzz.  Demos now use ``PoseStreamer``: deadband skip + goal-speed
 matched to |Δθ|/dt, plus a soft SRAM torque limit while waving.
 
+On the MCU stream bridge (2026-08-19) ``configure_stream_profile``
+densifies waypoints to 100 Hz with a proportionally smaller deadband:
+dense + speed-matched, the trapezoid restarts blend into near-continuous
+velocity tracking instead of visible stair-steps.  Legacy buses keep the
+sparse 12.5 Hz profile.
+
 Examples
 --------
     python inplace_demos.py              # interactive menu
@@ -69,8 +75,40 @@ STAND_TORQUE_LIMIT = 1000
 STAND_OK_DEG = 8.0
 STAND_VERIFY_HOLD_S = 0.4
 ZERO_ACC = 8
-DT = 0.08  # slower host tick → fewer trapezoid restarts
-DEADBAND_DEG = 0.8  # skip tiny re-commands (was 0.4 — buzzed)
+# Waypoint density is picked per-bus by ``configure_stream_profile``:
+#
+# LEGACY (USB bus / pre-stream firmware): a SyncWrite + telemetry tick
+# costs >20 ms, so waypoints stay sparse (12.5 Hz) and the deadband big —
+# each WritePosEx restarts the servo trapezoid, and sparse restarts with
+# mismatched speeds are what made joints buzz through backlash.
+#
+# DENSE (MCU stream bridge, 2026-08-19): a SyncWrite round trip is
+# ~1.5-3 ms, so 100 Hz waypoints fit in a 10 ms tick. Dense + goal-speed
+# matched to |Δθ|/dt means the servo never finishes a step before the
+# next one arrives — the restarts blend into near-continuous velocity
+# tracking instead of visible stair-steps. Deadband scales down with the
+# tick so per-tick deltas still pass it near peak velocity while
+# turnaround jitter is still skipped; below ~0.15° (≈2 encoder counts)
+# steps stop being expressible, so that is the floor — at 100 Hz a
+# typical air-demo peak step is only ~0.3° (~3 counts).
+LEGACY_DT = 0.08
+LEGACY_SHOW_DT = 0.055
+LEGACY_DEADBAND_DEG = 0.8  # skip tiny re-commands (was 0.4 — buzzed)
+DENSE_DT = 0.01            # 100 Hz waypoints (was 0.02 in first cut)
+DENSE_SHOW_DT = 0.01
+DENSE_DEADBAND_DEG = 0.15
+# Goal lead for dense streaming (see PoseStreamer.write): the commanded
+# goal runs this far ahead of the trajectory so the STS position PID
+# always has a healthy error to chase (~ the error legacy 12.5 Hz steps
+# gave it implicitly). ~10 ticks at 100 Hz.
+DENSE_LEAD_S = 0.10
+# Speed-cap headroom over trajectory velocity. The speed register is a
+# CAP, not a setpoint: capped exactly at trajectory speed a servo that
+# falls behind can never catch back up to the receding goal.
+DENSE_SPEED_MARGIN = 1.3
+DT = LEGACY_DT
+DEADBAND_DEG = LEGACY_DEADBAND_DEG
+STREAM_DENSE = False  # set by configure_stream_profile()
 MAX_STREAM_SPEED = 450
 MIN_STREAM_SPEED = 40
 # Rise: chassis sits on an elevated stand, so walking stance (−25°/+60°,
@@ -107,7 +145,7 @@ RISE_SHOW_SNAP_S = 0.28          # fire-and-wait between big poses
 RISE_SHOW_OVERHEAD_S = 0.85
 RISE_SHOW_PLANT_S = 2.0
 RISE_SHOW_DESCEND_S = 2.6
-RISE_SHOW_DT = 0.055             # planted multi-leg stream tick
+RISE_SHOW_DT = LEGACY_SHOW_DT    # planted multi-leg stream tick (see profile)
 # Lifted leg angles while others stay planted.
 RISE_SHOW_LIFT_HIP_DEG = 2.0
 RISE_SHOW_LIFT_KNEE_DEG = 28.0
@@ -347,6 +385,23 @@ def _set_torque_limit(bus: FeetechBus, live: set[int], limit: int) -> None:
             pass
 
 
+def configure_stream_profile(bus: FeetechBus) -> bool:
+    """Pick waypoint density from what the bus can sustain.
+
+    ``bus.streaming`` is True only on the MCU stream-bridge firmware
+    (2026-08-19), where a SyncWrite round trip costs ~1.5-3 ms — dense
+    50 Hz speed-matched waypoints then track like velocity control.
+    Legacy buses keep the sparse 12.5 Hz profile. Returns True if dense.
+    """
+    global DT, RISE_SHOW_DT, DEADBAND_DEG, STREAM_DENSE
+    STREAM_DENSE = bool(getattr(bus, "streaming", False))
+    DT = DENSE_DT if STREAM_DENSE else LEGACY_DT
+    RISE_SHOW_DT = DENSE_SHOW_DT if STREAM_DENSE else LEGACY_SHOW_DT
+    DEADBAND_DEG = (DENSE_DEADBAND_DEG if STREAM_DENSE
+                    else LEGACY_DEADBAND_DEG)
+    return STREAM_DENSE
+
+
 def _speed_for_delta(delta_deg: float, dt: float, *,
                      min_speed: int | None = None,
                      max_speed: int | None = None,
@@ -358,6 +413,18 @@ def _speed_for_delta(delta_deg: float, dt: float, *,
     # Keep host-commanded speed below what finishes the step early —
     # overshooting + re-command is what makes the joints buzz.
     speed = int(min(hi, max(lo, counts / max(dt, 1e-3) * 0.9)))
+    if STREAM_DENSE and dt <= 0.021:
+        # Dense ticks pair with the lead goal (PoseStreamer.write):
+        # speed cap ABOVE trajectory velocity (catch-up headroom; the
+        # lead goal bounds overshoot), a near-zero floor so reversals
+        # taper instead of jerking, and acc=0 (no ramp; a ramped
+        # restart every 10 ms never leaves the slowest accel phase).
+        # NOTE: a lower floor (12) + speed EMA were tried 2026-08-19 to
+        # soften turnarounds — both made tracking AND shake worse (EMA
+        # lag fights the carrot's catch-up dynamics). Keep the plain cap.
+        speed = int(min(hi, max(lo, counts / max(dt, 1e-3)
+                                * DENSE_SPEED_MARGIN)))
+        return normalize_speed(speed), 0
     # Soft accel: take most of the tick to ramp (acc reg = ×100 step/s²).
     acc = int(min(max_acc, max(4, speed / (100.0 * max(dt, 1e-3) * 0.85))))
     return normalize_speed(speed), normalize_acc(acc)
@@ -419,9 +486,11 @@ class PoseStreamer:
 
     def __init__(self):
         self.last: list[float] | None = None
+        self.prev: list[float] | None = None
 
     def reset(self) -> None:
         self.last = None
+        self.prev = None
 
     def write(self, bus: FeetechBus, degrees: list[float], live: set[int],
               *, dt: float = DT,
@@ -438,9 +507,15 @@ class PoseStreamer:
         if self.last is None:
             # First frame: ease toward the pose gently (no slam).
             self.last = list(degrees)
+            self.prev = list(degrees)
             _write_pose(bus, degrees, live, speed=120, acc=10)
             return {j: (120, 10) for j in range(N_JOINTS)
                     if joint_to_servo_id(j) in live}
+
+        # Dense mode: trajectory velocity for the lead goal (see below).
+        prev = getattr(self, "prev", None) or self.last
+        vel = [(d - p) / max(dt, 1e-3) for d, p in zip(degrees, prev)]
+        self.prev = list(degrees)
 
         wrote: dict[int, tuple[int, int]] = {}
         for joint, deg in enumerate(degrees):
@@ -453,7 +528,20 @@ class PoseStreamer:
             speed, acc = _speed_for_delta(
                 delta, dt, min_speed=min_speed, max_speed=max_speed,
                 max_acc=max_acc)
-            count = deg_to_count(joint, deg, bus.trims[joint])
+            goal = deg
+            if STREAM_DENSE and dt <= 0.021:
+                # Lead the goal along the trajectory ("carrot"). With
+                # 100 Hz waypoints the raw per-tick goal sits only 2-3
+                # encoder counts ahead; the STS position PID barely
+                # drives on an error that small and the servo creeps
+                # (measured 2026-08-19: yaw amplitude collapsed 5.0° →
+                # 3.7° std regardless of acc). Sparse 12.5 Hz ticks
+                # accidentally provided an ~80 ms lead; do it on purpose
+                # here — goal recedes ahead of the servo at matched
+                # speed, so it never decelerates into the tiny-error
+                # zone, and reversals still update within one tick.
+                goal = deg + vel[joint] * DENSE_LEAD_S
+            count = deg_to_count(joint, goal, bus.trims[joint])
             bus.pkt.SyncWritePosEx(sid, count, speed, acc)
             self.last[joint] = deg
             wrote[joint] = (speed, acc)
@@ -465,6 +553,23 @@ class PoseStreamer:
 
 def _read_pose(bus: FeetechBus, live: set[int]) -> list[float]:
     """Present joint angles (deg); missing IDs → 0."""
+    # MCU stream bridge: one cached bulk transaction beats 18 round trips.
+    read_all = getattr(bus, "read_all_positions", None)
+    if callable(read_all):
+        try:
+            bulk = read_all()
+        except Exception:
+            bulk = None
+        if bulk:
+            pose = [0.0] * N_JOINTS
+            got = 0
+            for joint in range(N_JOINTS):
+                deg = bulk.get(joint)
+                if deg is not None and joint_to_servo_id(joint) in live:
+                    pose[joint] = float(deg)
+                    got += 1
+            if got:
+                return pose
     pose = [0.0] * N_JOINTS
     for joint in range(N_JOINTS):
         sid = joint_to_servo_id(joint)
@@ -726,25 +831,29 @@ def _run_frames(bus: FeetechBus, live: set[int], frames, abort_check,
                 max_acc: int = 80) -> bool:
     """Play frames with velocity-matched streaming. False if aborted."""
     tick = DT if dt is None else float(dt)
+    # Telemetry reads are heavy; at dense ticks sample every Nth frame so
+    # logging keeps its old ~12.5 Hz cadence instead of eating the tick.
+    log_every = max(1, round(LEGACY_DT / tick)) if log is not None else 0
     print(f"  {label}  — any key aborts immediately")
     if log is not None:
-        print("  (querying motors each tick → CSV; loop will be a bit slower)")
+        print("  (querying motors during playback → CSV; a bit slower)")
     stream = PoseStreamer()
-    for pose in frames:
+    t0 = time.monotonic()
+    for i, pose in enumerate(frames):
         if abort_check():
             _hold_here(bus, live)
             print("    STOP — keystroke.  Holding pose.")
             return False
-        t0 = time.monotonic()
         wrote = stream.write(
             bus, pose, live, dt=tick, deadband=deadband,
             min_speed=min_speed, max_speed=max_speed, max_acc=max_acc)
-        if log is not None:
+        if log is not None and i % log_every == 0:
             log.sample(bus, pose, wrote=wrote)
-        # Sleep the remainder of DT so motion timing stays roughly honest
-        # even when telemetry reads eat into the tick.
-        elapsed = time.monotonic() - t0
-        time.sleep(max(0.0, tick - elapsed))
+        # Absolute schedule (not per-frame remainder) so dense ticks don't
+        # accumulate drift when a write/telemetry read runs long.
+        sleep_for = (t0 + (i + 1) * tick) - time.monotonic()
+        if sleep_for > 0:
+            time.sleep(sleep_for)
     return True
 
 
@@ -1394,6 +1503,226 @@ def run_breathe_vel_demo(bus: FeetechBus, *,
                 _limp_all(bus, live)
             else:
                 # Freeze wherever we are, then limp — don't fight stiction.
+                try:
+                    _hold_here(bus, live)
+                except Exception:
+                    pass
+                _limp_all(bus, live)
+        except Exception as e:
+            print(f"  cleanup: {e}")
+            try:
+                _limp_all(bus, live)
+            except Exception:
+                pass
+    return status
+
+
+SHIMMY_V_AMP_DEG = 8.0
+SHIMMY_V_HZ = 0.55
+# Host P-gain (1/s): velocity correction per unit position error.
+# 4.0 rang at the swing peaks (feed-forward is zero there, so the
+# P-term alone unwinds the overshoot and oscillates through the
+# ~20-40 ms loop delay — user-visible wiggle, 2026-08-19). 2.5 leans
+# harder on the feed-forward and lets the peaks settle.
+SHIMMY_V_KP = 2.5
+SHIMMY_V_MAX_CPS = 500       # wheel speed clamp (~44 deg/s)
+SHIMMY_V_WATCHDOG_DEG = 20.0
+# Per-servo GOAL_SPEED register writes cost ~1.5 ms each through the
+# MCU; six of them fit a 20 ms tick, not a 10 ms one. (SyncWritePosEx
+# would be one frame, but writing its position field in wheel mode
+# corrupts the servo's position bookkeeping — measured 2026-08-19 as a
+# ~2.6 count/write drift of the reported position in the direction of
+# motion, ~46° over 2 s, on all six yaws simultaneously.)
+SHIMMY_V_DT = 0.02
+# Wheel accel, set once at mode switch. 30 (3000 counts/s²) added
+# ~0.1 s of speed-slew lag that carried joints ~20% past the peaks;
+# 60 halves it. Per-tick speed steps are ~22 counts/s, so a snappier
+# slew stays smooth.
+SHIMMY_V_ACC = 60
+# Wheel-mode speed calibration: actual speed runs ~28% above the
+# commanded counts/s on these STS3215s (measured 2026-08-19: amplitude
+# 7.35° std vs 5.67° target with pure feed-forward at Kp 2.5; the
+# earlier Kp 4.0 run was masking it by pulling back). Scale the
+# feed-forward so the P-term only trims residuals.
+SHIMMY_V_FF = 5.67 / 7.35
+
+
+def run_shimmy_vel_demo(bus: FeetechBus, *,
+                        seconds: float = 8.0,
+                        abort_check=None,
+                        log_path: Path | None = None) -> str:
+    """Shimmy in **wheel/speed mode** — 100 Hz velocity streaming.
+
+    Position-mode streaming (PoseStreamer) is limited by the STS
+    position PID dithering through gear backlash and restarting its
+    profile on every packet. Here the six yaws switch to wheel mode and
+    get a signed speed each tick: trajectory feed-forward velocity plus
+    a small host P-correction on measured position error (closed over
+    the ~200 Hz MCU position cache). No position goal, no profile
+    restarts, no PID hunt.
+
+    Each tick writes ONLY the goal-speed register (bit-15 signed) per
+    yaw servo — never the position field, which in wheel mode corrupts
+    the servo's position bookkeeping. ALWAYS restores mode 0 on exit.
+    """
+    live = _live_robot_ids(bus)
+    if len(live) < 3:
+        print(f"  Only {len(live)} robot servo(s) on the bus — need more.")
+        return "skipped"
+    check = abort_check or (lambda: False)
+    yaw_joints = [j for j in range(N_JOINTS)
+                  if j % 3 == 0 and joint_to_servo_id(j) in live]
+    yaw_sids = [joint_to_servo_id(j) for j in yaw_joints]
+    if not yaw_joints:
+        print("  No yaw servos live — skip.")
+        return "skipped"
+    read_all = getattr(bus, "read_all_positions", None)
+    if not callable(read_all):
+        print("  shimmy_v needs the MCU bulk-position path — skip.")
+        return "skipped"
+
+    print(f"  shimmy_v — VELOCITY mode, {len(yaw_joints)} yaws @ "
+          f"{1.0 / SHIMMY_V_DT:.0f} Hz, ±{SHIMMY_V_AMP_DEG:.0f}° "
+          f"{SHIMMY_V_HZ:.2f} Hz wave")
+    print("  Any key aborts.  Mode restored to position on exit.")
+
+    status = "done"
+    log_cm = None
+    if log_path is not None:
+        log_cm = MotionLog(log_path, live)
+        log_cm.__enter__()
+    try:
+        _enable_torque(bus, live)
+        _set_torque_limit(bus, live, DEMO_TORQUE_LIMIT)
+        if not ease_to_pose(bus, _zero_pose(), abort_check=check,
+                            seconds=2.5, label="zero before shimmy_v"):
+            status = "aborted"
+            return status
+        # Refuse wheel mode away from zero (mirrors breathe_v guard).
+        bad = [(j, d) for j in yaw_joints
+               if (d := bus.read_position_deg(j)) is not None
+               and abs(d) > 15.0]
+        if bad:
+            print("  shimmy_v: yaw(s) not near zero — skip wheel mode:")
+            for j, d in bad[:6]:
+                print(f"    j{j} at {d:.1f}°")
+            status = "aborted"
+            return status
+
+        print(f"  Switching {len(yaw_sids)} yaw servo(s) → wheel mode …")
+        for sid in yaw_sids:
+            if check():
+                status = "aborted"
+                return status
+            _set_servo_mode(bus, sid, 1)
+        # Verify — a servo stuck in position mode would slam on the
+        # first big signed-speed write, so refuse to run instead.
+        for sid in yaw_sids:
+            mode, r, _e = bus.pkt.read1ByteTxRx(sid, ADDR_MODE)
+            if r != bus.scs.COMM_SUCCESS or int(mode) != 1:
+                print(f"  mode verify failed on id={sid} — aborting.")
+                status = "aborted"
+                return status
+        _set_torque_limit(bus, live, DEMO_TORQUE_LIMIT)
+        # Wheel accel set ONCE — per-tick writes touch only GOAL_SPEED.
+        for sid in yaw_sids:
+            _write_wheel_speed(bus, sid, 0, SHIMMY_V_ACC)
+
+        # Wheel mode re-references the present-position register (mode
+        # switch at zero read ~149° once, 2026-08-19 — same quirk behind
+        # breathe_v's old ~170° watchdog false trips), so absolute
+        # angles are meaningless here. Control on DISPLACEMENT from a
+        # post-switch baseline instead; we just verified the true pose
+        # is zero, so displacement == logical angle for this wave.
+        base = read_all()
+        missing_base = [j for j in yaw_joints if base.get(j) is None]
+        if missing_base:
+            print(f"  no baseline reading for joints {missing_base} — abort.")
+            status = "aborted"
+            return status
+
+        def _disp(j: int, p: float) -> float:
+            """Displacement from baseline, unwrapped to (−180, 180]."""
+            return ((p - base[j] + 180.0) % 360.0) - 180.0
+
+        # Max believable per-tick move: speed clamp + margin. Sync-read
+        # glitches can fabricate ~45° single-tick jumps (seen 2026-08-19,
+        # j0); reject those instead of tripping the watchdog on them,
+        # but only for a few consecutive ticks — persistent readings win.
+        max_step = (SHIMMY_V_MAX_CPS / COUNTS_PER_DEG) * SHIMMY_V_DT * 4.0
+        last_d: dict[int, float] = {}
+        sus: dict[int, int] = {}
+
+        omega = 2 * math.pi * SHIMMY_V_HZ
+        n = max(1, int(float(seconds) / SHIMMY_V_DT))
+        t0 = time.monotonic()
+        tick_i = 0
+        for i in range(n):
+            if check():
+                status = "aborted"
+                return status
+            t = i * SHIMMY_V_DT
+            present = read_all()
+            for j in yaw_joints:
+                sign = 1.0 if (j // 3) % 2 == 0 else -1.0
+                ref = sign * SHIMMY_V_AMP_DEG * math.sin(omega * t)
+                vel = sign * SHIMMY_V_AMP_DEG * omega * math.cos(omega * t)
+                p = present.get(j)
+                if p is None:
+                    continue
+                d = _disp(j, p)
+                prev_d = last_d.get(j)
+                if prev_d is not None and abs(d - prev_d) > max_step:
+                    sus[j] = sus.get(j, 0) + 1
+                    if sus[j] < 3:
+                        continue  # skip the glitched sample, coast
+                else:
+                    sus[j] = 0
+                last_d[j] = d
+                # Watchdog: wheel mode has no angle goal.
+                if abs(d) > SHIMMY_V_WATCHDOG_DEG:
+                    print(f"    watchdog: j{j} moved {d:.1f}° — stopping")
+                    _wheel_stop(bus, yaw_sids)
+                    status = "aborted"
+                    return status
+                err = ref - d
+                cps = (vel * SHIMMY_V_FF + SHIMMY_V_KP * err) * COUNTS_PER_DEG
+                cps *= float(JOINT_SIGN[j])
+                cps = max(-SHIMMY_V_MAX_CPS, min(SHIMMY_V_MAX_CPS, cps))
+                sid = joint_to_servo_id(j)
+                bus.pkt.write2ByteTxRx(sid, ADDR_GOAL_SPEED,
+                                       _encode_sts_speed(int(cps)))
+            if log_cm is not None and i % 4 == 0:
+                cmd = _zero_pose()
+                for j in yaw_joints:
+                    sign = 1.0 if (j // 3) % 2 == 0 else -1.0
+                    cmd[j] = sign * SHIMMY_V_AMP_DEG * math.sin(omega * t)
+                log_cm.sample(bus, cmd, wrote={})
+            tick_i += 1
+            sleep_for = (t0 + tick_i * SHIMMY_V_DT) - time.monotonic()
+            if sleep_for > 0:
+                time.sleep(sleep_for)
+    finally:
+        if log_cm is not None:
+            try:
+                log_cm.__exit__(None, None, None)
+            except Exception:
+                pass
+        print("  Restoring position mode on yaw servos …")
+        _wheel_stop(bus, yaw_sids)
+        time.sleep(0.05)
+        for sid in yaw_sids:
+            try:
+                _set_servo_mode(bus, sid, 0)
+            except Exception as e:
+                print(f"    mode restore failed id={sid}: {e}")
+        _set_torque_limit(bus, live, 1000)
+        try:
+            if status != "aborted" and not check():
+                print("  Easing back to zero …")
+                go_to_zero_pose(bus, abort_check=check, seconds=2.0)
+                _limp_all(bus, live)
+            else:
                 try:
                     _hold_here(bus, live)
                 except Exception:
@@ -2438,6 +2767,8 @@ DEMOS = {
     "heartbeat": ("[1 gentle] double-thump knee pulse", frames_heartbeat),
     "twinkle": ("[1 gentle] small random alive wiggles", frames_twinkle),
     "shimmy": ("[2 easy] odd/even yaw shimmy (from zero)", frames_shimmy),
+    "shimmy_v": ("[2 easy] shimmy in VELOCITY mode — no position hunt",
+                 None),
     "ripple": ("[2 easy] yaw wave around the hex (air)", frames_ripple),
     "conductor": ("[2 easy] one leg waves; others hold", frames_conductor),
     "arms_up": ("[2 easy] sit: all six arms way over head", None),
@@ -2504,6 +2835,7 @@ AIR_DEMO_SECONDS = {
     "heartbeat": 6.0,
     "twinkle": 6.0,
     "shimmy": 7.0,
+    "shimmy_v": 8.0,
     "ripple": 8.0,
     "conductor": 8.0,
     "arms_up": 6.0,
@@ -2986,7 +3318,8 @@ def _stream_multi_leg(bus: FeetechBus, live: set[int], *,
     old_max, old_min, old_db = MAX_STREAM_SPEED, MIN_STREAM_SPEED, DEADBAND_DEG
     MAX_STREAM_SPEED = 900
     MIN_STREAM_SPEED = 80
-    DEADBAND_DEG = 0.45
+    # Show moves are big/fast; deadband scales with tick like the profile.
+    DEADBAND_DEG = DENSE_DEADBAND_DEG if STREAM_DENSE else 0.45
     t0 = time.monotonic()
     try:
         for i in range(n):
@@ -3885,6 +4218,10 @@ def run_walk_demo(bus: FeetechBus, name: str = "walk", *,
     if log_path is not None:
         log_cm = MotionLog(log_path, live)
         log_cm.__enter__()
+    # The gait is time-based, so the tick only sets waypoint density —
+    # dense on the stream bridge tracks the leg curves much closer.
+    walk_dt = DENSE_DT if STREAM_DENSE else WALK_DEMO_DT
+    log_every = max(1, round(WALK_DEMO_DT / walk_dt))
     t0 = time.monotonic()
     gait.reset_phase(t=t0)
     try:
@@ -3894,29 +4231,33 @@ def run_walk_demo(bus: FeetechBus, name: str = "walk", *,
             print(f"    · {label}  vx={vx*1000:.0f} mm/s  ω={om:.2f}")
             gait.set_velocity(vx=vx, vy=vy, omega=om)
             seg_t0 = time.monotonic()
+            tick_i = 0
             while time.monotonic() - seg_t0 < dur:
                 if check():
                     break
                 now = time.monotonic()
                 pose = gait.desired_deg(now)
                 _write_pose(bus, pose, live, speed=WALK_SPEED, acc=WALK_ACC)
-                if log_cm is not None:
+                if log_cm is not None and tick_i % log_every == 0:
                     try:
                         log_cm.sample(bus, pose, wrote={})
                     except Exception:
                         pass
-                time.sleep(WALK_DEMO_DT)
+                tick_i += 1
+                sleep_for = (seg_t0 + tick_i * walk_dt) - time.monotonic()
+                if sleep_for > 0:
+                    time.sleep(sleep_for)
             if check():
                 break
         gait.stop()
         # Settle onto plant (kill residual swing).
-        for _ in range(8):
+        for _ in range(8 * max(1, round(WALK_DEMO_DT / walk_dt))):
             if check():
                 break
             now = time.monotonic()
             pose = gait.desired_deg(now)
             _write_pose(bus, pose, live, speed=WALK_SPEED, acc=WALK_ACC)
-            time.sleep(WALK_DEMO_DT)
+            time.sleep(walk_dt)
         if not ease_to_pose(bus, stand, abort_check=check,
                             seconds=max(1.2, 1.8 * sc),
                             label="stand after walk"):
@@ -4203,6 +4544,11 @@ def run_demo(bus: FeetechBus, name: str, *,
         size = max(_clamp_breathe_size(size), 2.0)
     if name not in DEMOS:
         raise SystemExit(f"unknown demo {name!r}; try: {', '.join(DEMOS)}")
+    if configure_stream_profile(bus):
+        print(f"  stream: DENSE waypoints ({1.0 / DT:.0f} Hz, "
+              f"deadband {DEADBAND_DEG:.2f}°) — MCU stream bridge")
+    else:
+        print(f"  stream: legacy waypoints ({1.0 / DT:.1f} Hz)")
     sc = _speed_scale(speed)
     spd = _clamp_demo_speed(speed)
     if name in STREAM_POSE_FACTORIES:
@@ -4286,6 +4632,9 @@ def run_demo(bus: FeetechBus, name: str, *,
         return run_breathe_vel_demo(
             bus, seconds=air_s, abort_check=abort_check, size=size,
             rate=rate, torque=torque, softness=softness, log_path=log_path)
+    if name == "shimmy_v":
+        return run_shimmy_vel_demo(
+            bus, seconds=air_s, abort_check=abort_check, log_path=log_path)
     if name == "arms_up":
         return run_arms_up_demo(
             bus, abort_check=abort_check, speed=spd, seconds=seconds,

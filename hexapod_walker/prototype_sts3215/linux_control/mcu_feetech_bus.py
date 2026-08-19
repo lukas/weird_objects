@@ -10,6 +10,17 @@ Used by ``web_drive`` / ``DriveController`` and by ``urt2_motor_setup``.
     from mcu_feetech_bus import open_feetech_bus
     bus, port = open_feetech_bus()          # MCU preferred, else USB
     bus, port = open_feetech_bus("mcu")     # force MCU bridge
+
+STREAM mode (2026-08-19, the 50-100 Hz feedback upgrade): on open, the
+driver sends ``STREAM 1``. New firmware then free-runs the servo bus
+itself (pos+speed sync-read + IMU every pass, full current/load/volt/
+temp state at ~10 Hz) and serves ``read_all_positions`` /
+``read_all_feedback`` / ``read_imu`` from RAM caches with no servo-bus
+wait — each call collapses to one short host<->MCU UART round trip.
+``step_all()`` goes further: SyncWrite 18 goals AND get the freshest
+state snapshot back in a SINGLE round trip (the whole bus cost of a
+control tick). Old firmware answers ERR and everything falls back to
+the legacy synchronous paths. Opt out with ``HEXAPOD_NO_STREAM=1``.
 """
 from __future__ import annotations
 
@@ -47,6 +58,51 @@ MCU_BAUD_CANDIDATES = (921_600, 115_200)
 HELLO_TOKEN = "HELLO feetech_bridge"
 COMM_SUCCESS = 0
 COMM_FAIL = 1
+
+# 's' snapshot reply: fixed header (seq u16, pos_age u16, imu_age u16,
+# imu 7×i16) then 6 bytes per servo (id, ok, pos i16, spd i16).
+SNAP_HEAD_LEN = 20
+SNAP_REC_LEN = 6
+SNAP_AGE_INVALID = 0xFFFF
+
+
+def encode_sync_frame(cmd: int, items: list[tuple[int, int, int, int]]
+                      ) -> bytes:
+    """Binary ``A5 5A <cmd> n {id,pos,spd,acc}×n xor`` frame ('W' / 'S')."""
+    n = min(len(items), 18)
+    payload = bytearray([0xA5, 0x5A, cmd & 0xFF, n])
+    x = (cmd & 0xFF) ^ n
+    for sid, pos, speed, acc in items[:n]:
+        chunk = struct.pack("<BhHB", sid & 0xFF, int(pos),
+                            int(speed) & 0xFFFF, int(acc) & 0xFF)
+        payload.extend(chunk)
+        for b in chunk:
+            x ^= b
+    payload.append(x)
+    return bytes(payload)
+
+
+def parse_snapshot_payload(rn: int, payload: bytes) -> dict:
+    """Decode the 's' reply payload (header + ``rn`` servo records).
+
+    Returns raw integer fields; unit conversion happens in
+    ``McuFeetechBus.step_all`` (needs trims / IMU calib).
+    """
+    seq, pos_age, imu_age = struct.unpack_from("<HHH", payload, 0)
+    imu_raw = struct.unpack_from("<7h", payload, 6)
+    servos = []
+    for k in range(rn):
+        sid, ok, pos, spd = struct.unpack_from(
+            "<BBhh", payload, SNAP_HEAD_LEN + k * SNAP_REC_LEN)
+        servos.append({"id": sid, "ok": bool(ok),
+                       "pos_counts": pos, "spd_counts_s": spd})
+    return {
+        "seq": seq,
+        "pos_age_ms": pos_age,
+        "imu_age_ms": imu_age,
+        "imu_raw": imu_raw,
+        "servos": servos,
+    }
 
 
 def _sudo(cmd: list[str]) -> bool:
@@ -384,6 +440,19 @@ class McuFeetechBus:
                 f"No feetech_bridge on {port} (got {last_hello!r}). "
                 "Flash firmware/feetech_bridge and wire URT UART to D0/D1.")
 
+        # STREAM mode: ask the firmware to free-run acquisition so reads
+        # are cache-served (module docstring). ERR = old sketch → every
+        # path falls back to the legacy synchronous transactions.
+        self.streaming = False
+        self.has_stream = False
+        cmd = "STREAM" if os.environ.get("HEXAPOD_NO_STREAM") else "STREAM 1"
+        line = self._transact(cmd, timeout=1.5)
+        if line and line.startswith("OK STREAM"):
+            self.has_stream = True
+            self.streaming = line.strip().endswith("1")
+            print(f"[bus] MCU stream mode "
+                  f"{'ON' if self.streaming else 'off'}")
+
     def reload_imu_calib(self) -> dict | None:
         """Load ``logs/imu_calib.json`` (or clear if missing)."""
         try:
@@ -499,23 +568,14 @@ class McuFeetechBus:
                 time.sleep(0.0005)
         return bytes(buf) if len(buf) == n else None
 
-    def _bin_req(self, cmd: int, ids: list[int] | None, *,
-                 timeout: float = 1.2) -> tuple[int, bytes] | None:
-        """Send A5 5A cmd n [ids…] xor; return (n, payload_bytes) of reply."""
-        if ids is None:
-            id_bytes = b""
-            n = 0
-        else:
-            id_bytes = bytes(int(i) & 0xFF for i in ids)
-            n = len(id_bytes)
-            if n > 18:
-                id_bytes = id_bytes[:18]
-                n = 18
-        body = bytes([cmd & 0xFF, n]) + id_bytes
-        x = 0
-        for b in body:
-            x ^= b
-        frame = bytes([0xA5, 0x5A]) + body + bytes([x])
+    def _bin_txn(self, frame: bytes, want: int, rec_size: int,
+                 head_len: int = 0, *, timeout: float = 1.2
+                 ) -> tuple[int, bytes] | None:
+        """Send a binary frame; return (n, payload) of the A5 5A reply.
+
+        ``payload`` is ``head_len`` fixed bytes + n × ``rec_size`` records
+        (checksum verified, framing stripped).
+        """
         with self._lock:
             self._ser.reset_input_buffer()
             self._ser.write(frame)
@@ -534,28 +594,40 @@ class McuFeetechBus:
             else:
                 return None
             hdr = self._read_exact(3, timeout)  # 5A cmd n
-            if not hdr or hdr[0] != 0x5A:
+            if not hdr or hdr[0] != 0x5A or hdr[1] != want:
                 return None
-            rcmd, rn = hdr[1], hdr[2]
-            if cmd == ord("F") and rcmd != ord("f"):
-                return None
-            if cmd == ord("P") and rcmd != ord("p"):
-                return None
+            rn = hdr[2]
             if rn > 18:
                 return None
-            rec_size = 13 if rcmd == ord("f") else 4
-            payload = self._read_exact(rn * rec_size, timeout)
+            payload = self._read_exact(head_len + rn * rec_size, timeout)
             if payload is None:
                 return None
             chk = self._read_exact(1, timeout)
             if chk is None:
                 return None
-            x = rcmd ^ rn
+            x = hdr[1] ^ rn
             for b in payload:
                 x ^= b
             if chk[0] != x:
                 return None
             return rn, payload
+
+    def _bin_req(self, cmd: int, ids: list[int] | None, *,
+                 timeout: float = 1.2) -> tuple[int, bytes] | None:
+        """Send A5 5A cmd n [ids…] xor; return (n, payload_bytes) of reply."""
+        if ids is None:
+            id_bytes = b""
+        else:
+            id_bytes = bytes(int(i) & 0xFF for i in ids)[:18]
+        n = len(id_bytes)
+        body = bytes([cmd & 0xFF, n]) + id_bytes
+        x = 0
+        for b in body:
+            x ^= b
+        frame = bytes([0xA5, 0x5A]) + body + bytes([x])
+        want = ord("f") if cmd == ord("F") else ord("p")
+        rec_size = 13 if cmd == ord("F") else 4
+        return self._bin_txn(frame, want, rec_size, timeout=timeout)
 
     def _fb_dict_from_rec(self, rec: bytes) -> dict | None:
         if len(rec) < 13 or rec[1] == 0:
@@ -694,34 +766,93 @@ class McuFeetechBus:
         self.pkt.groupSyncWrite.txPacket()
         self.pkt.groupSyncWrite.clearParam()
 
+    def step_all(self, degrees, speed: int = 1500, acc: int = 30, *,
+                 allow_max_speed: bool = False, apply_calib: bool = True
+                 ) -> dict | None:
+        """SyncWrite all 18 goals AND get a state snapshot: ONE round trip.
+
+        The whole bus cost of a control tick. Requires stream-capable
+        firmware ('S' command); returns ``None`` when unsupported or on
+        a framing error — callers fall back to ``write_all`` +
+        ``read_all_positions`` / ``read_imu``.
+
+        Returns ``{"seq", "pos_age_ms", "imu_age_ms",
+        "pos_deg": {joint: deg}, "speed_deg_s": {joint: deg/s},
+        "imu": read_imu-style dict | None}``. Ages are how stale the
+        MCU's caches were at reply time (streaming: typically <= one
+        background pass, a few ms).
+        """
+        if not getattr(self, "has_stream", False):
+            return None
+        speed = normalize_speed(speed, allow_max=allow_max_speed)
+        acc = normalize_acc(acc)
+        items = []
+        for joint, deg in enumerate(degrees):
+            items.append((joint_to_servo_id(joint),
+                          deg_to_count(joint, deg, self.trims[joint]),
+                          speed, acc))
+        return self._snapshot_txn(items, apply_calib=apply_calib)
+
+    def read_snapshot(self, *, apply_calib: bool = True) -> dict | None:
+        """Positions + speed + IMU in ONE round trip ('S' n=0, no write).
+
+        Same return shape as ``step_all``; ``None`` on legacy firmware.
+        """
+        if not getattr(self, "has_stream", False):
+            return None
+        return self._snapshot_txn([], apply_calib=apply_calib)
+
+    def _snapshot_txn(self, items: list[tuple[int, int, int, int]], *,
+                      apply_calib: bool) -> dict | None:
+        frame = encode_sync_frame(ord("S"), items)
+        got = self._bin_txn(frame, ord("s"), SNAP_REC_LEN,
+                            head_len=SNAP_HEAD_LEN, timeout=0.5)
+        if not got:
+            return None
+        rn, payload = got
+        snap = parse_snapshot_payload(rn, payload)
+        pos_deg: dict[int, float] = {}
+        speed_deg_s: dict[int, float] = {}
+        for rec in snap["servos"]:
+            joint = int(rec["id"]) - 2
+            if not rec["ok"] or not 0 <= joint < N_JOINTS:
+                continue
+            deg = count_to_deg(joint, rec["pos_counts"])
+            pos_deg[joint] = deg
+            # STS speed unit is counts/s → deg/s = counts × 360/4096.
+            speed_deg_s[joint] = rec["spd_counts_s"] * 360.0 / 4096.0
+            self._pos_cache[joint] = deg
+        self._pos_cache_mono = time.monotonic()
+        imu = None
+        if (snap["imu_age_ms"] != SNAP_AGE_INVALID
+                and any(snap["imu_raw"])):
+            ax, ay, az, gx, gy, gz, temp_raw = snap["imu_raw"]
+            imu = self._imu_sample(ax, ay, az, gx, gy, gz, temp_raw,
+                                   apply_calib=apply_calib)
+        return {
+            "seq": snap["seq"],
+            "pos_age_ms": snap["pos_age_ms"],
+            "imu_age_ms": snap["imu_age_ms"],
+            "pos_deg": pos_deg,
+            "speed_deg_s": speed_deg_s,
+            "imu": imu,
+        }
+
     def _flush_sync(self) -> None:
         items = list(self._pending)
         self._pending.clear()
         if not items:
             return
-        n = min(len(items), 18)
-        items = items[:n]
-        payload = bytearray()
-        payload.append(0xA5)
-        payload.append(0x5A)
-        payload.append(ord("W"))
-        payload.append(n)
-        x = ord("W") ^ n
-        for sid, pos, speed, acc in items:
-            chunk = struct.pack("<BhHB", sid & 0xFF, int(pos),
-                                int(speed) & 0xFFFF, int(acc) & 0xFF)
-            payload.extend(chunk)
-            for b in chunk:
-                x ^= b
-        payload.append(x)
+        frame = encode_sync_frame(ord("W"), items)
         with self._lock:
             self._ser.reset_input_buffer()
-            self._ser.write(payload)
+            self._ser.write(frame)
             self._ser.flush()
             line = self._readline(0.8)
         if not line or not line.startswith("OK"):
+            n = min(len(items), 18)
             parts = ["SW", str(n)]
-            for sid, pos, speed, acc in items:
+            for sid, pos, speed, acc in items[:n]:
                 parts.extend([str(sid), str(int(pos)),
                               str(int(speed)), str(int(acc))])
             self._transact(" ".join(parts), timeout=1.0)
@@ -789,6 +920,13 @@ class McuFeetechBus:
                 return None
             if not any((ax, ay, az, gx, gy, gz, temp_raw)):
                 return None
+        return self._imu_sample(ax, ay, az, gx, gy, gz, temp_raw,
+                                apply_calib=apply_calib)
+
+    def _imu_sample(self, ax: int, ay: int, az: int, gx: int, gy: int,
+                    gz: int, temp_raw: int, *, apply_calib: bool = True
+                    ) -> dict:
+        """Raw int16 MPU sample → engineering units (mount + calib)."""
         # Mount orientation (chip frame -> chassis frame), before calib —
         # see reload_imu_mount. Accel and gyro rotate together.
         m = self._imu_mount
@@ -892,6 +1030,11 @@ class McuFeetechBus:
         return bool(line and line.startswith("OK"))
 
     def close(self) -> None:
+        try:
+            if getattr(self, "streaming", False):
+                self._transact("STREAM 0", timeout=0.5)
+        except Exception:
+            pass
         try:
             self._ser.close()
         except Exception:
