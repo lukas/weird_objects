@@ -3355,12 +3355,23 @@ def run_wild_dance(bus: FeetechBus, *, abort_check=None, status_cb=None,
         def seg(pose_fn, secs: float, label: str, *, max_speed=3000,
                 max_acc=200, tick_s=STREAM_TICK_S, tilt=None,
                 spd=None) -> str:
+            # Fresh tracker per segment: stream_pose_fn's 4 A hard cap
+            # checks the tracker's ALL-TIME peak, so a shared tracker
+            # would let one hot moment insta-guard every later act.
+            trk = CurrentPeakTracker()
             st = stream_pose_fn(
                 bus, live, pose_fn, seconds=secs, abort_check=check,
                 speed_fn=spd or base_spd, status_cb=status_cb,
-                label=label, tracker=peaks, log=log_cm,
+                label=label, tracker=trk, log=log_cm,
                 max_speed=max_speed, max_acc=max_acc, tick_s=tick_s,
                 tilt_guard_deg=tilt)
+            if trk.peak_a > peaks.peak_a:
+                peaks.peak_a = trk.peak_a
+                peaks.peak_joint = trk.peak_joint
+            for j, a in trk.max_a.items():
+                if a > peaks.max_a.get(j, 0.0):
+                    peaks.max_a[j] = a
+            peaks.samples += trk.samples
             return st
 
         def gate(st: str, label: str) -> str | None:
@@ -3544,11 +3555,15 @@ def run_wild_dance(bus: FeetechBus, *, abort_check=None, status_cb=None,
             r = gate(st, "front steeple")
             if r:
                 return r
-            note("act V — rampage: counterwave")
-            st = seg(lambda t: _show_stream_pose("counterwave", t, hip,
-                                                 knee),
-                     4.0, "counterwave", max_speed=900, max_acc=80)
-            r = gate(st, "counterwave")
+            # No counterwave here: it yaws all six LOADED legs in
+            # opposing directions — torsional lock the chassis can't
+            # relieve. Measured on hardware 08-19: yaw stall-fight
+            # >3 A within two sweeps of the first frame. Tripod flips
+            # move knees/hips with real lifts instead.
+            note("act V — rampage: tripod flips")
+            st = seg(lambda t: _show_stream_pose("tripod", t, hip, knee),
+                     6.0, "tripod flips", max_speed=900, max_acc=80)
+            r = gate(st, "tripod flips")
             if r:
                 return r
 
@@ -3572,22 +3587,12 @@ def run_wild_dance(bus: FeetechBus, *, abort_check=None, status_cb=None,
             _set_torque_limit(bus, live, DANCE_PLANT_TORQUE)
 
             # ---- Act VII (standing part): wave + descend -------------
-            note("act VII — victory wave")
-
-            def wave(t: float) -> list[float]:
-                a = min(1.0, t / 0.8, max(0.0, (4.0 - t) / 0.8))
-                pose = _zero_pose()
-                for leg in range(6):
-                    _yaw_hip_knee(
-                        leg, pose,
-                        yaw=8.0 * a * math.sin(
-                            2.0 * math.pi * 0.7 * t
-                            - leg * math.pi / 3.0),
-                        hip=hip, knee=knee)
-                return pose
-
-            st = seg(wave, 4.0, "victory wave", max_speed=900, max_acc=80)
-            r = gate(st, "victory wave")
+            # Knee ripple, not a yaw wave: loaded-yaw scrub stall-fights
+            # (see act V note).  Ripple lifts legs — friction releases.
+            note("act VII — victory ripple")
+            st = seg(lambda t: _show_stream_pose("ripple", t, hip, knee),
+                     4.0, "victory ripple", max_speed=900, max_acc=80)
+            r = gate(st, "victory ripple")
             if r:
                 return r
             note("coming back down …")
