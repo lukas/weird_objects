@@ -173,7 +173,8 @@ Then open `http://<board-ip>:8080` (and `https://…:8443` for gamepad).
 |---|---|
 | `web_drive.py` | HTTPS/HTTP server + bench glue (serves `webui/`) |
 | `webui/` | the browser UI — HTML/CSS/JS + favicon (see `webui/README.md`) |
-| `drive_controller.py` | command parser + 20 Hz gait → bus |
+| `drive_controller.py` | command parser + 50 Hz gait → bus |
+| `bus_bench.py` | measure feedback/tick rates over the bus (read-only) |
 | `tripod_gait.py` | open-loop tripod (stdlib only; plant-synced) |
 | `mcu_feetech_bus.py` | preferred MCU bridge client |
 | `xbox_drive.py` | Bluetooth pad on the board |

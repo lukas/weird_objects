@@ -134,10 +134,37 @@ class RobotStateEstimator:
         t0 = time.monotonic()
         timing = AcquisitionTiming()
 
-        # --- positions ---
-        t_a = time.monotonic()
-        pos_deg = self.bus.read_all_positions()
-        timing.t_pos = time.monotonic() - t_a
+        # --- positions + IMU ---
+        # Fast path (stream firmware): ONE host<->MCU round trip returns
+        # cached positions + IMU ('S' n=0 snapshot; caches are refreshed
+        # by the MCU's free-running acquisition loop at ~150-250 Hz).
+        # Legacy path: separate read_all_positions + read_imu
+        # transactions, each blocking on the servo bus.
+        pos_deg: dict | None = None
+        imu = None
+        snap = None
+        read_snap = getattr(self.bus, "read_snapshot", None)
+        if read_snap is not None:
+            t_a = time.monotonic()
+            try:
+                snap = read_snap()
+            except Exception:
+                snap = None
+            if snap is not None:
+                timing.t_pos = time.monotonic() - t_a
+                pos_deg = snap["pos_deg"]
+                imu = snap["imu"]
+        if snap is None:
+            t_a = time.monotonic()
+            pos_deg = self.bus.read_all_positions()
+            timing.t_pos = time.monotonic() - t_a
+            t_b = time.monotonic()
+            try:
+                imu = self.bus.read_imu(apply_calib=True)
+            except Exception:
+                imu = None
+            timing.t_imu = time.monotonic() - t_b
+
         bus_ok = isinstance(pos_deg, dict) and len(pos_deg) >= N_JOINTS
         q = np.zeros(N_JOINTS, dtype=float)
         if bus_ok:
@@ -153,15 +180,6 @@ class RobotStateEstimator:
 
         t_now = time.monotonic()
         qd = self._qd_filter.update(q, t_now)
-
-        # --- IMU ---
-        t_b = time.monotonic()
-        imu = None
-        try:
-            imu = self.bus.read_imu(apply_calib=True)
-        except Exception:
-            imu = None
-        timing.t_imu = time.monotonic() - t_b
         imu_ok = isinstance(imu, dict) and "ax_g" in imu
         if imu_ok:
             accel_g = (imu["ax_g"], imu["ay_g"], imu["az_g"])

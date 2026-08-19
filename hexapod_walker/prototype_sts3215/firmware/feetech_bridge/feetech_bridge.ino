@@ -43,6 +43,8 @@
     IMU                           → OK 0x68 | ERR ...   (wake + WHO_AM_I)
     IMUR                          → OK ax ay az gx gy gz temp
                                     (raw int16; temp = raw TEMP_OUT)
+    STREAM <0|1>                  → OK STREAM <0|1>  (free-run mode below)
+    STREAM                        → OK STREAM <0|1>  (query)
 
   Binary fast path (same UART):
     A5 5A 'W' n  {id u8, pos i16le, spd u16le, acc u8}×n  xor
@@ -53,6 +55,26 @@
     A5 5A 'P' n  {id u8}×n  xor     (n=0 → IDs 2..19)
     → A5 5A 'p' n {id,ok,pos_i16}×n xor
       (Feetech syncRead of PRESENT_POSITION only)
+    A5 5A 'S' n  {id u8, pos i16le, spd u16le, acc u8}×n  xor
+    → A5 5A 's' 18 {seq u16, pos_age_ms u16, imu_age_ms u16,
+                    imu i16×7 (ax ay az gx gy gz temp),
+                    18×{id u8, ok u8, pos i16le, spd i16le}} xor
+      (SyncWrite the commands, then reply with the latest state
+       snapshot — ONE host round-trip per control tick. n=0 = no
+       write, snapshot only: positions + speed + IMU in one round
+       trip for sense-compute-act loops.)
+
+  STREAM mode (the 50–100 Hz feedback architecture, 2026-08-19):
+    While STREAM 1 and the host line is idle, the MCU free-runs the
+    servo bus itself: a pos+speed syncRead of IDs 2..19 plus an IMU
+    read every pass (~150–250 Hz), and a full 15-byte state syncRead
+    (load/volt/temp/moving/current) every FB_PERIOD_MS (~10 Hz).
+    Results live in RAM caches. Host requests then return CACHED data
+    with zero servo-bus wait: 'P', 'F', 'S', IMUR, PWR and DX all
+    serve from the caches, so Linux never blocks on 18 servo replies
+    inside its control loop. Host still owns the conversation — the
+    MCU never pushes unsolicited bytes. Default OFF at boot; the
+    Linux bus driver enables it right after HELLO.
 */
 
 #include <Wire.h>
@@ -78,20 +100,58 @@ static const uint8_t MAX_N = 18;
 // syncRead: PRESENT_POSITION_L (56) .. PRESENT_CURRENT_H (70) = 15 bytes
 static const uint8_t FB_MEM_LEN = 15;
 static const uint8_t POS_MEM_LEN = 2;
+// PRESENT_POSITION_L (56) .. PRESENT_SPEED_H (59) — the stream fast block.
+static const uint8_t POS_SPD_MEM_LEN = 4;
 static bool syncReadReady = false;
 static uint8_t syncReadRxLen = 0;
+static uint32_t syncReadTimeoutMs = 20;
 
 SMS_STS sts;
 
 // FTServo readSCS waits until the buffer is full or timeout — size must match
-// the packet length we request, or short (pos-only) reads burn the whole timeout.
-static void ensureSyncRead(uint8_t rxLen) {
-  if (syncReadReady && syncReadRxLen == rxLen) return;
+// the packet length we request, or short (pos-only) reads burn the whole
+// timeout. Timeout is per missing servo: keep it short in stream mode so one
+// dead ID cannot eat the control period (20 ms legacy, ~5 ms streaming).
+static void ensureSyncRead(uint8_t rxLen, uint32_t timeoutMs) {
+  if (syncReadReady && syncReadRxLen == rxLen
+      && syncReadTimeoutMs == timeoutMs) return;
   if (syncReadReady) sts.syncReadEnd();
-  sts.syncReadBegin(MAX_N, rxLen, 20);
+  sts.syncReadBegin(MAX_N, rxLen, timeoutMs);
   syncReadReady = true;
   syncReadRxLen = rxLen;
+  syncReadTimeoutMs = timeoutMs;
 }
+
+// ---- STREAM mode state (free-running acquisition caches) ----
+static bool streaming = false;
+static int16_t posCache[MAX_N];
+static int16_t spdCache[MAX_N];       // counts/s, sign-decoded
+static uint8_t posOk[MAX_N];
+static uint16_t posSeq = 0;
+static unsigned long posStampMs = 0;
+static int16_t imuCache[7];           // ax ay az gx gy gz temp (raw)
+static bool imuCacheValid = false;
+static unsigned long imuStampMs = 0;
+static unsigned long imuRetryMs = 0;
+static uint16_t fbLoad[MAX_N];        // magnitude, tenths of %
+static uint8_t fbVolt[MAX_N];         // deci-volts
+static uint8_t fbTemp[MAX_N];
+static uint8_t fbMov[MAX_N];
+static int16_t fbCur[MAX_N];          // raw, ×6.5 mA
+static uint8_t fbOk[MAX_N];
+static unsigned long fbStampMs = 0;
+// Full-state pass cadence. Positions/speed/IMU refresh every pass
+// (~150-250 Hz); current/load/volt/temp only need ~10 Hz.
+static const unsigned long FB_PERIOD_MS = 100;
+
+static bool streaming_fb_fresh() {
+  return streaming && fbStampMs != 0;
+}
+
+// Defined below (need sts / bin helpers first).
+static void streamFastPass();
+static void streamFullPass();
+static void streamImuPass();
 
 static char lineBuf[640];
 static uint16_t lineLen = 0;
@@ -199,6 +259,17 @@ static void cmdImu() {
 }
 
 static void cmdImuRead() {
+  // STREAM mode: serve the background-refreshed cache (<= a few ms old)
+  // instead of a fresh I2C transaction.
+  if (streaming && imuCacheValid) {
+    Serial1.print(F("OK "));
+    for (uint8_t i = 0; i < 6; i++) {
+      Serial1.print(imuCache[i]);
+      Serial1.print(' ');
+    }
+    Serial1.println(imuCache[6]);
+    return;
+  }
   if (!mpuReady && mpuEnsureReady() == 0) {
     Serial1.println(F("ERR no_ack"));
     return;
@@ -292,29 +363,59 @@ static void cmdScan() {
   Serial1.println();
 }
 
-// Bus power snapshot for the TFT / web. Current LSB ≈ 6.5 mA.
-static void cmdPwr() {
+// Per-servo current (mA, optional) + bus totals. In STREAM mode this is
+// served from the ~10 Hz full-state cache — the legacy path is 54
+// individual servo reads (~30-60 ms) that used to stall the control
+// loop every TFT refresh.
+static void gatherPowerStats(int *maPerJoint, int &n, long &iMa,
+                             int &v10, int &maxLoad) {
   long sumRaw = 0;
-  int n = 0;
   int vSum = 0;
-  int maxLoad = 0;
-  for (int id = ID_LO; id <= ID_HI; id++) {
-    int cur = sts.ReadCurrent(id);
-    if (sts.getLastError()) continue;
-    // STS current is signed in some firmwares; use magnitude.
-    if (cur < 0) cur = -cur;
-    sumRaw += cur;
-    n++;
-    int v = sts.ReadVoltage(id);
-    if (!sts.getLastError() && v > 0) vSum += v;
-    int ld = sts.ReadLoad(id);
-    if (!sts.getLastError()) {
-      int mag = ld & 0x3FF;
+  n = 0;
+  maxLoad = 0;
+  if (maPerJoint) {
+    for (int k = 0; k < (int)MAX_N; k++) maPerJoint[k] = 0;
+  }
+  if (streaming_fb_fresh()) {
+    for (int k = 0; k < (int)MAX_N; k++) {
+      if (!fbOk[k]) continue;
+      int cur = fbCur[k];
+      if (cur < 0) cur = -cur;
+      sumRaw += cur;
+      if (maPerJoint) maPerJoint[k] = (int)((cur * 65L + 5) / 10);
+      n++;
+      if (fbVolt[k] > 0) vSum += fbVolt[k];
+      int mag = fbLoad[k] & 0x3FF;
       if (mag > maxLoad) maxLoad = mag;
     }
+  } else {
+    for (int id = ID_LO; id <= ID_HI; id++) {
+      int idx = id - (int)ID_LO;
+      int cur = sts.ReadCurrent(id);
+      if (sts.getLastError()) continue;
+      // STS current is signed in some firmwares; use magnitude.
+      if (cur < 0) cur = -cur;
+      sumRaw += cur;
+      if (maPerJoint) maPerJoint[idx] = (int)((cur * 65L + 5) / 10);
+      n++;
+      int v = sts.ReadVoltage(id);
+      if (!sts.getLastError() && v > 0) vSum += v;
+      int ld = sts.ReadLoad(id);
+      if (!sts.getLastError()) {
+        int mag = ld & 0x3FF;
+        if (mag > maxLoad) maxLoad = mag;
+      }
+    }
   }
-  long iMa = (sumRaw * 65L + 5) / 10;  // raw * 6.5 mA
-  int v10 = (n > 0) ? (vSum / n) : 0;  // deci-volts average
+  iMa = (sumRaw * 65L + 5) / 10;   // raw * 6.5 mA
+  v10 = (n > 0) ? (vSum / n) : 0;  // deci-volts average
+}
+
+// Bus power snapshot for the TFT / web. Current LSB ≈ 6.5 mA.
+static void cmdPwr() {
+  int n = 0, v10 = 0, maxLoad = 0;
+  long iMa = 0;
+  gatherPowerStats(nullptr, n, iMa, v10, maxLoad);
   Serial1.print(F("OK "));
   Serial1.print(n);
   Serial1.print(' ');
@@ -356,13 +457,19 @@ static void cmdReadPos(long id) {
   Serial1.println(pos);
 }
 
-static void doSyncWrite(uint8_t n, uint8_t *ids, s16 *pos, u16 *spd, u8 *acc) {
-  if (n == 0 || n > MAX_N) {
-    replyErr();
-    return;
-  }
+static bool applySyncWrite(uint8_t n, uint8_t *ids, s16 *pos, u16 *spd,
+                           u8 *acc) {
+  if (n == 0 || n > MAX_N) return false;
   sts.SyncWritePosEx(ids, n, pos, spd, acc);
-  replyOk();
+  return true;
+}
+
+static void doSyncWrite(uint8_t n, uint8_t *ids, s16 *pos, u16 *spd, u8 *acc) {
+  if (applySyncWrite(n, ids, pos, spd, acc)) {
+    replyOk();
+  } else {
+    replyErr();
+  }
 }
 
 static void cmdSyncWriteAscii(const char *s, int i) {
@@ -416,6 +523,21 @@ static void handleLine(char *line) {
   }
   if (strcmp(line, "IMUR") == 0) {
     cmdImuRead();
+    return;
+  }
+  if (strncmp(line, "STREAM", 6) == 0) {
+    int i = 6;
+    long on = 0;
+    if (parseInt(line, i, on)) {
+      streaming = (on != 0);
+      if (streaming) {
+        // Prime every cache so the first cached replies are real data.
+        streamFullPass();
+        streamImuPass();
+      }
+    }
+    Serial1.print(F("OK STREAM "));
+    Serial1.println(streaming ? 1 : 0);
     return;
   }
 
@@ -586,31 +708,12 @@ static void handleLine(char *line) {
     return;
   }
   if (strncmp(line, "DX", 2) == 0) {
-    // Read per-joint current (mA) for logo glow, then paint status text.
+    // Per-joint current (mA) for logo glow, then paint status text.
+    // Cache-served in STREAM mode (see gatherPowerStats).
     int ma[18];
-    long sumRaw = 0;
-    int n = 0;
-    int vSum = 0;
-    int maxLoad = 0;
-    for (int k = 0; k < 18; k++) ma[k] = 0;
-    for (int id = ID_LO; id <= ID_HI; id++) {
-      int idx = id - (int)ID_LO;
-      int cur = sts.ReadCurrent(id);
-      if (sts.getLastError()) continue;
-      if (cur < 0) cur = -cur;
-      sumRaw += cur;
-      ma[idx] = (int)((cur * 65L + 5) / 10);  // raw × 6.5 mA
-      n++;
-      int v = sts.ReadVoltage(id);
-      if (!sts.getLastError() && v > 0) vSum += v;
-      int ld = sts.ReadLoad(id);
-      if (!sts.getLastError()) {
-        int mag = ld & 0x3FF;
-        if (mag > maxLoad) maxLoad = mag;
-      }
-    }
-    long iMa = (sumRaw * 65L + 5) / 10;
-    int v10 = (n > 0) ? (vSum / n) : 0;
+    int n = 0, v10 = 0, maxLoad = 0;
+    long iMa = 0;
+    gatherPowerStats(ma, n, iMa, v10, maxLoad);
     int j = skipSpaces(line, 2);
     tft::pushPanel(line + j, ma, n, iMa, v10, maxLoad);
     Serial1.print(F("OK "));
@@ -689,32 +792,163 @@ static bool decodeFbFromMem(int16_t &pos, int16_t &spd, uint16_t &load,
   return true;
 }
 
+static int stsLe16(uint8_t lo, uint8_t hi) {
+  return (int)((uint16_t)lo | ((uint16_t)hi << 8));
+}
+
+static int16_t stsSigned15(int w) {
+  if (w & (1 << 15)) w = -(w & ~(1 << 15));
+  return (int16_t)w;
+}
+
+static int stsSigned10(int w) {
+  if (w & (1 << 10)) w = -(w & ~(1 << 10));
+  return w;
+}
+
 // Decode 15-byte syncRead payload (addr 56..70). End=0 → lo,hi in Mem.
 static void decodeFbPacket(const uint8_t *rx, int16_t &pos, int16_t &spd,
                            uint16_t &load, uint8_t &volt, uint8_t &temp,
                            uint8_t &mov, int16_t &cur) {
-  auto le16 = [](uint8_t lo, uint8_t hi) -> int {
-    return (int)((uint16_t)lo | ((uint16_t)hi << 8));
-  };
-  auto signed15 = [](int w) -> int16_t {
-    if (w & (1 << 15)) w = -(w & ~(1 << 15));
-    return (int16_t)w;
-  };
-  auto signed10 = [](int w) -> int {
-    if (w & (1 << 10)) w = -(w & ~(1 << 10));
-    return w;
-  };
-  pos = signed15(le16(rx[0], rx[1]));
-  spd = signed15(le16(rx[2], rx[3]));
-  int ld = signed10(le16(rx[4], rx[5]));
+  pos = stsSigned15(stsLe16(rx[0], rx[1]));
+  spd = stsSigned15(stsLe16(rx[2], rx[3]));
+  int ld = stsSigned10(stsLe16(rx[4], rx[5]));
   load = (uint16_t)(ld < 0 ? -ld : ld);
   volt = rx[6];
   temp = rx[7];
   mov = rx[10];  // reg 66; rx[8..9] and rx[11..12] unused
-  cur = signed15(le16(rx[13], rx[14]));
+  cur = stsSigned15(stsLe16(rx[13], rx[14]));
+}
+
+// ---- STREAM mode acquisition passes ----
+
+// Fast pass: pos+speed for IDs 2..19 in one syncRead (~2-4 ms healthy).
+static void streamFastPass() {
+  uint8_t ids[MAX_N];
+  uint8_t n;
+  fillDefaultIds(ids, n);
+  ensureSyncRead(POS_SPD_MEM_LEN, streaming ? 5 : 20);
+  sts.syncReadPacketTx(ids, n, SMS_STS_PRESENT_POSITION_L, POS_SPD_MEM_LEN);
+  for (uint8_t k = 0; k < n; k++) {
+    uint8_t rx[POS_SPD_MEM_LEN];
+    if (sts.syncReadPacketRx(ids[k], rx)) {
+      posCache[k] = stsSigned15(stsLe16(rx[0], rx[1]));
+      spdCache[k] = stsSigned15(stsLe16(rx[2], rx[3]));
+      posOk[k] = 1;
+    } else {
+      posOk[k] = 0;
+    }
+  }
+  posSeq++;
+  posStampMs = millis();
+}
+
+// Full pass: 15-byte state block; refreshes the low-rate caches AND the
+// fast caches (positions ride along for free).
+static void streamFullPass() {
+  uint8_t ids[MAX_N];
+  uint8_t n;
+  fillDefaultIds(ids, n);
+  ensureSyncRead(FB_MEM_LEN, streaming ? 8 : 20);
+  sts.syncReadPacketTx(ids, n, SMS_STS_PRESENT_POSITION_L, FB_MEM_LEN);
+  for (uint8_t k = 0; k < n; k++) {
+    uint8_t rx[FB_MEM_LEN];
+    if (sts.syncReadPacketRx(ids[k], rx)) {
+      int16_t pos = 0, spd = 0, cur = 0;
+      uint16_t load = 0;
+      uint8_t volt = 0, temp = 0, mov = 0;
+      decodeFbPacket(rx, pos, spd, load, volt, temp, mov, cur);
+      posCache[k] = pos;
+      spdCache[k] = spd;
+      posOk[k] = 1;
+      fbLoad[k] = load;
+      fbVolt[k] = volt;
+      fbTemp[k] = temp;
+      fbMov[k] = mov;
+      fbCur[k] = cur;
+      fbOk[k] = 1;
+    } else {
+      posOk[k] = 0;
+      fbOk[k] = 0;
+    }
+  }
+  posSeq++;
+  posStampMs = millis();
+  fbStampMs = posStampMs;
+}
+
+static void streamImuPass() {
+  if (!mpuReady) {
+    unsigned long now = millis();
+    if (now - imuRetryMs < 1000) return;  // don't hammer a dead sensor
+    imuRetryMs = now;
+    if (mpuEnsureReady() == 0) return;
+  }
+  uint8_t raw[14];
+  if (!mpuReadRegs(MPU_REG_ACCEL_XOUT_H, raw, 14)) {
+    mpuReady = false;
+    return;
+  }
+  imuCache[0] = be16(raw + 0);
+  imuCache[1] = be16(raw + 2);
+  imuCache[2] = be16(raw + 4);
+  imuCache[3] = be16(raw + 8);
+  imuCache[4] = be16(raw + 10);
+  imuCache[5] = be16(raw + 12);
+  imuCache[6] = be16(raw + 6);  // TEMP_OUT
+  imuCacheValid = true;
+  imuStampMs = millis();
+}
+
+static uint16_t ageMs(unsigned long stamp, bool valid) {
+  if (!valid) return 0xFFFF;
+  unsigned long d = millis() - stamp;
+  return (d > 0xFFFEUL) ? 0xFFFE : (uint16_t)d;
+}
+
+// Snapshot reply for the 'S' combined command.
+static void sendSnapshot() {
+  uint8_t ids[MAX_N];
+  uint8_t n;
+  fillDefaultIds(ids, n);
+  uint16_t posAge = ageMs(posStampMs, posStampMs != 0);
+  uint16_t imuAge = ageMs(imuStampMs, imuCacheValid);
+  uint8_t x = 0;
+  sendBinHeader('s', n, x);
+  sendBinByte((uint8_t)(posSeq & 0xFF), x);
+  sendBinByte((uint8_t)(posSeq >> 8), x);
+  sendBinByte((uint8_t)(posAge & 0xFF), x);
+  sendBinByte((uint8_t)(posAge >> 8), x);
+  sendBinByte((uint8_t)(imuAge & 0xFF), x);
+  sendBinByte((uint8_t)(imuAge >> 8), x);
+  for (uint8_t i = 0; i < 7; i++) {
+    uint16_t v = (uint16_t)imuCache[i];
+    sendBinByte((uint8_t)(v & 0xFF), x);
+    sendBinByte((uint8_t)(v >> 8), x);
+  }
+  for (uint8_t k = 0; k < n; k++) {
+    sendBinByte(ids[k], x);
+    sendBinByte(posOk[k], x);
+    uint16_t p = (uint16_t)posCache[k];
+    sendBinByte((uint8_t)(p & 0xFF), x);
+    sendBinByte((uint8_t)(p >> 8), x);
+    uint16_t s = (uint16_t)spdCache[k];
+    sendBinByte((uint8_t)(s & 0xFF), x);
+    sendBinByte((uint8_t)(s >> 8), x);
+  }
+  Serial1.write(x);
+}
+
+// True when every requested id is in the streamed set (2..19).
+static bool idsInStreamSet(uint8_t n, const uint8_t *ids) {
+  for (uint8_t i = 0; i < n; i++) {
+    if (ids[i] < ID_LO || ids[i] > ID_HI) return false;
+  }
+  return true;
 }
 
 // Full state: one syncRead TX for all IDs (15-byte block), FeedBack fallback.
+// In STREAM mode this serves the caches instead (no servo-bus wait).
 static void cmdBulkFeedback(uint8_t n, const uint8_t *ids) {
   uint8_t useN = n;
   uint8_t useIds[MAX_N];
@@ -724,9 +958,30 @@ static void cmdBulkFeedback(uint8_t n, const uint8_t *ids) {
     for (uint8_t i = 0; i < useN; i++) useIds[i] = ids[i];
   }
 
+  if (streaming && fbStampMs != 0 && idsInStreamSet(useN, useIds)) {
+    uint8_t x = 0;
+    sendBinHeader('f', useN, x);
+    for (uint8_t k = 0; k < useN; k++) {
+      uint8_t idx = useIds[k] - ID_LO;
+      uint8_t rec[13];
+      rec[0] = useIds[k];
+      rec[1] = (uint8_t)(posOk[idx] && fbOk[idx]);
+      binPutI16(rec + 2, posCache[idx]);
+      binPutI16(rec + 4, spdCache[idx]);
+      binPutU16(rec + 6, fbLoad[idx]);
+      rec[8] = fbVolt[idx];
+      rec[9] = fbTemp[idx];
+      rec[10] = fbMov[idx];
+      binPutI16(rec + 11, fbCur[idx]);
+      for (uint8_t i = 0; i < 13; i++) sendBinByte(rec[i], x);
+    }
+    Serial1.write(x);
+    return;
+  }
+
   bool usedSync = false;
   if (useN > 0) {
-    ensureSyncRead(FB_MEM_LEN);
+    ensureSyncRead(FB_MEM_LEN, 20);
     sts.syncReadPacketTx(useIds, useN, SMS_STS_PRESENT_POSITION_L, FB_MEM_LEN);
     usedSync = true;
   }
@@ -769,6 +1024,7 @@ static void cmdBulkFeedback(uint8_t n, const uint8_t *ids) {
 }
 
 // Position-only via syncRead (2 bytes); ReadPos fallback.
+// In STREAM mode this serves the position cache (no servo-bus wait).
 static void cmdBulkPositions(uint8_t n, const uint8_t *ids) {
   uint8_t useN = n;
   uint8_t useIds[MAX_N];
@@ -778,9 +1034,24 @@ static void cmdBulkPositions(uint8_t n, const uint8_t *ids) {
     for (uint8_t i = 0; i < useN; i++) useIds[i] = ids[i];
   }
 
+  if (streaming && posStampMs != 0 && idsInStreamSet(useN, useIds)) {
+    uint8_t x = 0;
+    sendBinHeader('p', useN, x);
+    for (uint8_t k = 0; k < useN; k++) {
+      uint8_t idx = useIds[k] - ID_LO;
+      sendBinByte(useIds[k], x);
+      sendBinByte(posOk[idx], x);
+      uint16_t p = (uint16_t)posCache[idx];
+      sendBinByte((uint8_t)(p & 0xFF), x);
+      sendBinByte((uint8_t)(p >> 8), x);
+    }
+    Serial1.write(x);
+    return;
+  }
+
   bool usedSync = false;
   if (useN > 0) {
-    ensureSyncRead(POS_MEM_LEN);
+    ensureSyncRead(POS_MEM_LEN, 20);
     sts.syncReadPacketTx(useIds, useN, SMS_STS_PRESENT_POSITION_L, POS_MEM_LEN);
     usedSync = true;
   }
@@ -813,7 +1084,16 @@ static void cmdBulkPositions(uint8_t n, const uint8_t *ids) {
 }
 
 static void handleBinaryFrame() {
-  if (binCmd == 'W') {
+  if (binCmd == 'S' && binN == 0) {
+    // Snapshot-only query (no write).
+    if (!streaming) {
+      streamFastPass();
+      streamImuPass();
+    }
+    sendSnapshot();
+    return;
+  }
+  if (binCmd == 'W' || binCmd == 'S') {
     if (binN == 0 || binN > MAX_N || binGot != binN * 6) {
       replyErr();
       return;
@@ -829,7 +1109,22 @@ static void handleBinaryFrame() {
       spd[k] = (u16)((uint16_t)p[3] | ((uint16_t)p[4] << 8));
       acc[k] = p[5];
     }
-    doSyncWrite(binN, ids, pos, spd, acc);
+    if (binCmd == 'W') {
+      doSyncWrite(binN, ids, pos, spd, acc);
+      return;
+    }
+    // 'S' — combined step: apply the command first (lowest actuation
+    // latency), then answer with the latest state snapshot. Without
+    // streaming, refresh synchronously so the snapshot is still real.
+    if (!applySyncWrite(binN, ids, pos, spd, acc)) {
+      replyErr();
+      return;
+    }
+    if (!streaming) {
+      streamFastPass();
+      streamImuPass();
+    }
+    sendSnapshot();
     return;
   }
   if (binCmd == 'F') {
@@ -887,7 +1182,7 @@ static void feedHostByte(uint8_t b) {
     binN = b;
     binGot = 0;
     binXor = (uint8_t)(binCmd ^ binN);
-    if (binCmd == 'W') {
+    if (binCmd == 'W' || binCmd == 'S') {
       binNeed = (uint8_t)(binN * 6);
       if (binN == 0 || binN > MAX_N) binNeed = 0;
     } else if (binCmd == 'F' || binCmd == 'P') {
@@ -905,8 +1200,8 @@ static void feedHostByte(uint8_t b) {
       binXor ^= b;
       return;
     }
-    // checksum
-    bool okN = (binCmd == 'F' || binCmd == 'P')
+    // checksum ('S' n=0 = snapshot-only query, no payload)
+    bool okN = (binCmd == 'F' || binCmd == 'P' || binCmd == 'S')
                    ? (binN <= MAX_N && binGot == binNeed)
                    : (binN > 0 && binN <= MAX_N && binGot == binNeed);
     if (b == binXor && okN) {
@@ -931,8 +1226,11 @@ void setup() {
   // 3) Rest of the bridge.
   Serial.begin(BUS_BAUD);
   sts.pSerial = &Serial;
-  ensureSyncRead(FB_MEM_LEN);
+  ensureSyncRead(FB_MEM_LEN, 20);
   Wire.begin();  // header SDA/SCL (D20/D21) → MPU-6050
+  // MPU-6050 supports 400 kHz fast-mode I2C — the 14-byte sample read
+  // drops from ~1.6 ms to ~0.5 ms, which matters at stream rates.
+  Wire.setClock(400000);
 }
 
 static bool hostSeen = false;
@@ -957,6 +1255,18 @@ void loop() {
     return;
   }
   unsigned long now = millis();
+  if (streaming) {
+    // Free-running acquisition while the host line is idle. ONE pass per
+    // loop() iteration keeps worst-case host-command latency to a single
+    // pass (~3-8 ms). Host bytes arriving mid-pass sit in the UART ring
+    // buffer and are drained at the top of the next iteration.
+    if (now - fbStampMs >= FB_PERIOD_MS) {
+      streamFullPass();   // low-rate: current/load/volt/temp (~10 Hz)
+    } else {
+      streamFastPass();   // pos+speed, all 18 servos (~150-250 Hz)
+      streamImuPass();
+    }
+  }
   if (!hostSeen) {
     // Boot counter until Linux first speaks; afterwards the host owns
     // the panel (DX schematic / DJ job screens).

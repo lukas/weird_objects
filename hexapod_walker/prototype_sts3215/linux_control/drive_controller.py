@@ -49,7 +49,11 @@ from mcu_feetech_bus import open_feetech_bus  # noqa: E402
 from noslip_gait import NoSlipGait  # noqa: E402
 from tripod_gait import TripodGait  # noqa: E402
 
-DT = 0.05  # 20 Hz walk loop
+# Scripted-gait loop rate. 50 Hz since the MCU stream bridge (2026-08-19)
+# made a SyncWrite ~1-2 ms; the gait itself is wall-clock-based, so this
+# only changes how often targets refresh, not the trajectory. (Was 20 Hz
+# when each write + telemetry read could eat >20 ms.)
+DT = 0.02  # 50 Hz walk loop
 SETTLE_SECONDS = 4.0
 LIVE_SCAN_PERIOD_S = 2.0
 # Refuse absolute centre/stand SyncWrites that yank any live joint farther
@@ -146,6 +150,17 @@ class DriveController:
     def _read_present_pose(self) -> list[float | None]:
         if not self.bus:
             return [None] * N_JOINTS
+        # One bulk sync-read transaction when the bus supports it — 18
+        # individual request/response reads can cost more than a whole
+        # control period on the legacy path.
+        bulk = getattr(self.bus, "read_all_positions", None)
+        if bulk is not None:
+            try:
+                pos = bulk()
+                if isinstance(pos, dict) and pos:
+                    return [pos.get(j) for j in range(N_JOINTS)]
+            except Exception:
+                pass
         out: list[float | None] = []
         for j in range(N_JOINTS):
             try:
@@ -210,10 +225,8 @@ class DriveController:
     def _hold_here(self) -> None:
         if not self.bus or not self.armed:
             return
-        pose = []
-        for j in range(N_JOINTS):
-            d = self.bus.read_position_deg(j)
-            pose.append(0.0 if d is None else d)
+        present = self._read_present_pose()
+        pose = [0.0 if d is None else float(d) for d in present]
         self._write_pose(pose, speed=250, acc=30)
 
     # -- gait selection --------------------------------------------------------
@@ -407,9 +420,10 @@ class DriveController:
             force = any(p.upper() == "FORCE" for p in parts[3:])
             # Always seed from *present* encoders — never yank other joints
             # toward a stale stand/zero _last_pose (2026-08-06 incident).
+            present = self._read_present_pose()
             pose: list[float] = []
             for i in range(N_JOINTS):
-                d = self.bus.read_position_deg(i) if self.bus else None
+                d = present[i]
                 if d is None:
                     d = self._last_pose[i] if i < len(self._last_pose) else 0.0
                 pose.append(float(d))
@@ -458,18 +472,18 @@ class DriveController:
                 self._torque_all(True)
                 self.armed = True
             self.mode = "idle"
-            # Prefer live encoder reading — _last_pose is often stale (e.g.
-            # after set-zero-here or hand-posing while limp).
-            base = self.bus.read_position_deg(joint)
+            # Prefer live encoder readings — _last_pose is often stale
+            # (e.g. after set-zero-here or hand-posing while limp). Seed
+            # ALL joints from present so a sync-write doesn't yank the
+            # rest of the body toward an old stand pose.
+            present = self._read_present_pose()
+            base = present[joint]
             if base is None:
                 base = self._last_pose[joint]
             pose = list(self._last_pose)
-            # Seed other joints from present too when we can, so a sync-write
-            # doesn't yank the rest of the body toward an old stand pose.
             for j in range(N_JOINTS):
-                d = self.bus.read_position_deg(j)
-                if d is not None:
-                    pose[j] = d
+                if present[j] is not None:
+                    pose[j] = present[j]
             self._last_pose = list(pose)
 
         for sign in (+1, -1, 0):

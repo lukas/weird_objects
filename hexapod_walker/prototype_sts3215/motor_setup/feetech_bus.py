@@ -366,6 +366,18 @@ def _signed_speed_counts(raw: int) -> int:
     return -mag if (raw & 0x8000) else mag
 
 
+def speed_counts_to_deg_s(counts_per_s: float) -> float:
+    """STS3215 speed registers are counts/s (steps/s), 4096 counts/rev.
+
+    deg/s = counts x 360/4096. The SCS-series 0.732 rpm/unit convention
+    does NOT apply to STS — using it inflates speeds by exactly 50x
+    (the 2026-08-07 "1537 deg/s" battery readings were the commanded
+    350 counts/s profile speed). mcu_feetech_bus was fixed then; this
+    USB path carried the bug until 2026-08-19.
+    """
+    return float(counts_per_s) * 360.0 / 4096.0
+
+
 class FeetechBus:
     def __init__(self, port: str, baud: int = BAUD_DEFAULT):
         scs = _import_sdk()
@@ -481,9 +493,9 @@ class FeetechBus:
         spd_raw, r_sp, _e = self.pkt.read2ByteTxRx(sid, ADDR_PRESENT_SPEED)
         # STS load: bit 10 = direction, lower 10 bits = magnitude (0.1%).
         load_pct = (load & 0x3FF) / 10.0
-        # Present speed ≈ 0.732 RPM / count → deg/s ≈ count * 0.732 * 6.
+        # Present speed unit is counts/s → deg/s = counts × 360/4096.
         if r_sp == self.scs.COMM_SUCCESS:
-            speed_deg_s = _signed_speed_counts(spd_raw) * 0.732 * 6.0
+            speed_deg_s = speed_counts_to_deg_s(_signed_speed_counts(spd_raw))
         else:
             speed_deg_s = 0.0
         return {

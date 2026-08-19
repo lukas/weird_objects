@@ -85,3 +85,30 @@ Append-only diary of hardware sessions. Newest entries at the bottom.
   on live joints.
 - Hardening: cursor rule + AGENTS.md; drive `C`/`P`/`#` Δq>25° refuse;
   `find_plant`/geometry require `force`; `enable_motion` default false.
+---
+
+## 2026-08-19
+
+### Bus plumbing upgrade (code only — NOT yet flashed/verified on robot)
+
+- External review (GPT, via operator): the 20-40 Hz ceiling was the
+  synchronous request/response plumbing, not the 1 Mbps servo bus. Also
+  found the USB `feetech_bus.py` still decoded present-speed with the
+  SCS 0.732 rpm/unit convention (~50x inflation, fixed in the MCU path
+  2026-08-07) — now fixed in both USB copies (`speed_counts_to_deg_s`).
+- Firmware `feetech_bridge` STREAM mode: MCU free-runs acquisition
+  (pos+speed syncRead + IMU every pass ~150-250 Hz; full current/load/
+  volt/temp state at ~10 Hz) into RAM caches; `P`/`F`/IMUR/PWR/DX serve
+  cached. New `S` binary op = SyncWrite + state snapshot in ONE host
+  round trip (`n=0` = read-only snapshot). Host driver enables STREAM on
+  open (`HEXAPOD_NO_STREAM=1` opts out); old firmware falls back to the
+  legacy paths everywhere.
+- `RobotStateEstimator.update()` uses the one-round-trip snapshot;
+  `McuFeetechBus.step_all()` available for future gym-style loops.
+  DriveController gait loop 20 → 50 Hz; per-joint pose reads bulked.
+- rl_policy stays 25 Hz — the trained contract (config `control.hz`
+  feeds the sim env dt). The "no 50 Hz chase" ruling above is now a
+  training-side decision only; the hardware blocker is gone.
+- Next bench session: flash `firmware/feetech_bridge`, then
+  `python3 linux_control/bus_bench.py` (read-only) — expect
+  read_snapshot well over 100 Hz and rl episode overruns 0.

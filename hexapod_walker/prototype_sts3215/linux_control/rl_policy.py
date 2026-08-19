@@ -100,6 +100,13 @@ except Exception:                                          # pragma: no cover
 
 WEIGHTS_PATH = _HERE / "rl_policy_weights.json"        # stance (obs 68)
 WALK_WEIGHTS_PATH = _HERE / "rl_walk_weights.json"     # walk (obs 72)
+# 25 Hz is the TRAINED CONTRACT of every deployed policy (sim env steps
+# at config control.hz = 25). Since the MCU stream bridge (2026-08-19)
+# the bus is no longer the limit — a full tick's bus work is ~3-5 ms
+# (snapshot read + SyncWrite) vs >20 ms before, so 50-100 Hz loops fit —
+# but do NOT raise HZ here until a policy is trained at that rate: the
+# obs/action dynamics (qd filter, action-delta costs, phase clocks) are
+# rate-conditioned.
 HZ = 25.0
 DT = 1.0 / HZ
 
