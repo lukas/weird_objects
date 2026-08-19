@@ -2556,6 +2556,7 @@ def main(argv: list[str] | None = None) -> int:
         AUX_ABS = ("roll_deg", "pitch_deg")       # logged as abs_<k>
         AUX = ("track_err_deg", "height_err_mm", "mean_current_a",
                "walk_vel_err", "walk_speed",
+               "walk_direction_err_deg",
                "phase_agreement",
                "walk_anchor_frac",
                "walk_step_denied", "walk_step_bank_m",

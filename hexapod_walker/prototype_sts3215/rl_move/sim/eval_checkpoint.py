@@ -229,6 +229,7 @@ def run_episode(env, model, *, deterministic: bool, video: bool,
     pad_xy_hist = []         # (T, 6, 2) world
     rolls_rel = []           # (T,) |roll − ref|, deg
     track_errs, vel_errs, speeds = [], [], []
+    direction_errs, direction_valid, direction_wrong = [], [], []
     getup_s_hist = []        # (T,) supported-stand score S (getup only)
     cmd_dist_m, along_dist_m = 0.0, 0.0
     h_err = None
@@ -261,6 +262,12 @@ def run_episode(env, model, *, deterministic: bool, video: bool,
         if "walk_vel_err" in info:
             vel_errs.append(float(info["walk_vel_err"]))
             speeds.append(float(info["walk_speed"]))
+        if "walk_direction_valid" in info:
+            direction_valid.append(float(info["walk_direction_valid"]))
+        if "walk_direction_err_deg" in info:
+            direction_errs.append(float(info["walk_direction_err_deg"]))
+        if "walk_direction_wrong_way" in info:
+            direction_wrong.append(float(info["walk_direction_wrong_way"]))
         if "getup_S" in info:
             getup_s_hist.append(float(info["getup_S"]))
         if mode in ("walk", "quadwalk", "getup"):
@@ -381,6 +388,17 @@ def run_episode(env, model, *, deterministic: bool, video: bool,
     if vel_errs:
         ep["vel_err_mean"] = round(float(np.mean(vel_errs)), 3)
         ep["speed_mean_m_s"] = round(float(np.mean(speeds)), 3)
+    if direction_valid:
+        ep["direction_valid_frac"] = round(
+            float(np.mean(direction_valid)), 3)
+    if direction_errs:
+        ep["direction_err_mean_deg"] = round(
+            float(np.mean(direction_errs)), 2)
+        ep["direction_err_p90_deg"] = round(
+            float(np.percentile(direction_errs, 90)), 2)
+    if direction_wrong:
+        ep["wrong_direction_frac"] = round(
+            float(np.mean(direction_wrong)), 3)
     if mode in ("walk", "quadwalk"):
         # Gait-validity gate (guardrails, external review §5b): a walking
         # checkpoint is INVALID if any leg is persistently sacrificed,
@@ -596,6 +614,14 @@ def _wandb_push(report: dict, out: Path, args) -> None:
                             ("progress_ratio", "prog_ratio_med"),
                             ("vel_err_mean", "vel_err_med"),
                             ("speed_mean_m_s", "speed_med"),
+                            ("direction_err_mean_deg",
+                             "direction_err_med_deg"),
+                            ("direction_err_p90_deg",
+                             "direction_err_p90_med_deg"),
+                            ("direction_valid_frac",
+                             "direction_valid_frac_med"),
+                            ("wrong_direction_frac",
+                             "wrong_direction_frac_med"),
                             ("roll_peak_deg", "roll_peak_med"),
                             ("roll_tail_deg", "roll_tail_med"),
                             ("slip_m_total", "drag_m_med")):
@@ -915,6 +941,10 @@ def main() -> None:
                           if "speed_mean_m_s" in e]
                     extra = (f" | vel_err {np.mean(ve):.3f} "
                              f"speed {np.mean(sp):.3f} m/s")
+                    de = [e["direction_err_mean_deg"] for e in eps
+                          if "direction_err_mean_deg" in e]
+                    if de:
+                        extra += f" dir_err {np.mean(de):.1f}deg"
                 if mode in ("walk", "quadwalk"):
                     n_valid = sum(bool(e.get("gait_valid")) for e in eps)
                     sac = sorted({f for e in eps
