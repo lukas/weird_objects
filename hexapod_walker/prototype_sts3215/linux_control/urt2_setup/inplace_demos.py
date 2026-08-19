@@ -1297,7 +1297,12 @@ def run_breathe_vel_demo(bus: FeetechBus, *,
 
 SHIMMY_V_AMP_DEG = 8.0
 SHIMMY_V_HZ = 0.55
-SHIMMY_V_KP = 4.0            # host P-gain: counts/s per count of error
+# Host P-gain (1/s): velocity correction per unit position error.
+# 4.0 rang at the swing peaks (feed-forward is zero there, so the
+# P-term alone unwinds the overshoot and oscillates through the
+# ~20-40 ms loop delay — user-visible wiggle, 2026-08-19). 2.5 leans
+# harder on the feed-forward and lets the peaks settle.
+SHIMMY_V_KP = 2.5
 SHIMMY_V_MAX_CPS = 500       # wheel speed clamp (~44 deg/s)
 SHIMMY_V_WATCHDOG_DEG = 20.0
 # Per-servo GOAL_SPEED register writes cost ~1.5 ms each through the
@@ -1307,7 +1312,17 @@ SHIMMY_V_WATCHDOG_DEG = 20.0
 # ~2.6 count/write drift of the reported position in the direction of
 # motion, ~46° over 2 s, on all six yaws simultaneously.)
 SHIMMY_V_DT = 0.02
-SHIMMY_V_ACC = 30            # wheel accel, set once at mode switch
+# Wheel accel, set once at mode switch. 30 (3000 counts/s²) added
+# ~0.1 s of speed-slew lag that carried joints ~20% past the peaks;
+# 60 halves it. Per-tick speed steps are ~22 counts/s, so a snappier
+# slew stays smooth.
+SHIMMY_V_ACC = 60
+# Wheel-mode speed calibration: actual speed runs ~28% above the
+# commanded counts/s on these STS3215s (measured 2026-08-19: amplitude
+# 7.35° std vs 5.67° target with pure feed-forward at Kp 2.5; the
+# earlier Kp 4.0 run was masking it by pulling back). Scale the
+# feed-forward so the P-term only trims residuals.
+SHIMMY_V_FF = 5.67 / 7.35
 
 
 def run_shimmy_vel_demo(bus: FeetechBus, *,
@@ -1449,7 +1464,7 @@ def run_shimmy_vel_demo(bus: FeetechBus, *,
                     status = "aborted"
                     return status
                 err = ref - d
-                cps = (vel + SHIMMY_V_KP * err) * COUNTS_PER_DEG
+                cps = (vel * SHIMMY_V_FF + SHIMMY_V_KP * err) * COUNTS_PER_DEG
                 cps *= float(JOINT_SIGN[j])
                 cps = max(-SHIMMY_V_MAX_CPS, min(SHIMMY_V_MAX_CPS, cps))
                 sid = joint_to_servo_id(j)
