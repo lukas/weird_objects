@@ -13,6 +13,11 @@ REMOTE="/home/arduino/hexapod_sts"
 SSH=(ssh -o BatchMode=yes -o ConnectTimeout=10 "$HOST")
 SCP=(scp -o BatchMode=yes -o ConnectTimeout=10 -q)
 
+# Serialize deploys across workspaces (lock ~/.hexapod/deploy.lock,
+# history ~/.hexapod/deploy.log — see deploy_lock.sh).
+source "$SRC/deploy_lock.sh"
+deploy_lock_acquire "ssh ${1:-push+restart}"
+
 if [ "${1:-}" = "--stop" ]; then
   "${SSH[@]}" 'pkill -f "[p]ython3 .*web_drive.py" || true'
   echo ">> stopped"

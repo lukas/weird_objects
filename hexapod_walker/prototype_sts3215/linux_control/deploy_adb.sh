@@ -23,6 +23,11 @@ for a in "$@"; do
   esac
 done
 
+# Serialize deploys across workspaces (lock ~/.hexapod/deploy.lock,
+# history ~/.hexapod/deploy.log — see deploy_lock.sh).
+source "$SRC/deploy_lock.sh"
+deploy_lock_acquire "adb $MODE"
+
 echo ">> waiting for Uno Q over adb ..."
 adb wait-for-device
 adb shell 'echo connected as $(whoami) on $(hostname)'

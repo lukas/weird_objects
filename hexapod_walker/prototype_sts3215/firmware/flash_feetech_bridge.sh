@@ -11,6 +11,11 @@ SKETCH="$HERE/feetech_bridge"
 REMOTE_DIR="~/feetech_bridge"
 PASS="${HEXAPOD_SSH_PASSWORD:-arduino}"
 
+# A firmware flash mid-deploy is the worst interleave — take the same
+# global lock the deploy scripts use (~/.hexapod/deploy.lock).
+source "$HERE/../linux_control/deploy_lock.sh"
+deploy_lock_acquire "flash feetech_bridge"
+
 ssh_pw() {
   if command -v sshpass >/dev/null 2>&1; then
     sshpass -p "$PASS" ssh -o PreferredAuthentications=password \
