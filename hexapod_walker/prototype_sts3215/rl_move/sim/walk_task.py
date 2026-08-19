@@ -3246,6 +3246,53 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                     r_eff = -k_eff * float(np.mean(cur))
                     reward += r_eff
                 info["reward_effort"] = r_eff
+            # Hip-yaw limit-margin charge (2026-08-19; operator order
+            # fb_20260818T152717 lineage — the direction-switch tangle).
+            # probe_dirswitch_tangle measured the tangle PRECURSOR:
+            # after abrupt command switches the walker rides hip-yaw
+            # joints within ~2 deg of (and into) the hard stop for
+            # 1-9% of ticks (yaw_sat_frac 0.013-0.093, margin min to
+            # -0.65 deg), while rot60 sector crossings were exonerated.
+            # Three exposure/schedule/blend levers (steer1-hard20m1,
+            # steer2-hard20m1-r1, steer2-blend1) moved the symptom
+            # without curing it, so this prices the precursor
+            # directly: per tick, each leg whose hip-yaw sits within
+            # reward.yaw_margin_allow_deg of either hard limit pays
+            # k_yaw_margin scaled linearly by depth into the band
+            # (margin >= allow -> 0, margin <= 0 [pressed into the
+            # stop] -> full k). WALK-mode block only; charged on every
+            # walk tick regardless of the commanded speed (saturation
+            # during a stop dwell is the same tangle precursor). The
+            # honest tall gait rides ~10-20+ deg of margin and pays
+            # ~0 by construction (semantics bank). Reads only
+            # data.qpos + model constants, so C env and MJX FakeData
+            # backends price identically. Default 0.0 = off, block
+            # skipped, bit-exact legacy.
+            k_yawm = float(cfg_get(self.cfg, "reward", "k_yaw_margin",
+                                   default=0.0))
+            if k_yawm > 0.0:
+                jr = getattr(self, "_yaw_margin_jrng", None)
+                if jr is None:
+                    jr = []
+                    for leg in range(6):
+                        j = self.model.joint(f"L{leg}_yaw")
+                        jr.append((int(np.asarray(j.qposadr).item()),
+                                   float(np.degrees(j.range[0])),
+                                   float(np.degrees(j.range[1]))))
+                    self._yaw_margin_jrng = jr
+                allow_deg = float(cfg_get(self.cfg, "reward",
+                                          "yaw_margin_allow_deg",
+                                          default=3.0))
+                r_yawm = 0.0
+                for adr, lo, hi in jr:
+                    q = float(np.degrees(self.data.qpos[adr]))
+                    margin = min(q - lo, hi - q)
+                    if margin < allow_deg:
+                        depth = 1.0 - max(margin, 0.0) / allow_deg
+                        r_yawm -= k_yawm * depth
+                if r_yawm:
+                    reward += r_yawm
+                info["reward_yaw_margin"] = r_yawm
             if mode_q:
                 # quadwalk: the lifted-fronts income (clear/plant,
                 # same cfg keys and grace as quad hold) rides on top
