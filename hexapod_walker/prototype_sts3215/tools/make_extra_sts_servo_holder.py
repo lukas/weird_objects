@@ -10,17 +10,25 @@ wire_exit=False, rear_tab=True)``: 4-wall clamshell, output-face lip with
 the 4 front-case self-tap counterbores, clamp-cap pilots for a
 ``servo_clamp_cap.stl``, and the rear retention tab) -- in the same
 orientation it has on the coxa (solid long wall DOWN, clamp mouth UP,
-output axis horizontal), fused onto a BOTTOM_T = 8 mm base plate spanning
-the cradle footprint + 1 mm.
+output axis horizontal), SUNK into a base plate spanning the cradle
+footprint + 1 mm.
+
+SEAT_H = 8 mm is the height the SERVO SITS above the base's bottom face
+(Aug 19 2026 rev 2, user: "the 8mm should be the height that the servo
+sits above the base - you have an additional raised thing here you need
+to remove that"): the cradle is sunk so its cavity floor IS the base
+top -- the cradle's own 3.8 mm bottom wall is swallowed by the slab
+instead of stacking a raised step on top of it.  One flat 8 mm floor,
+servo belly at exactly +8.
 
 Base mounting pattern: 4x M3 clearance bores (Phi 3.4) on a 23 x 23 mm
 square, CENTRED on the servo body centre (well x = 0, well z =
-SERVO_BODY_H/2), running vertically through base + cradle wall.  Each
-bore gets a Phi 6.0 head pocket sunk from the cradle's cavity floor so
-an M3 SHCS head sits FLUSH under the seated servo: drop the 4 screws in
-and torque them BEFORE the servo goes in (same head-access idea as the
-merged coxa's shafts).  Plastic under the head is ~8.4 mm, so an
-M3 x 12 leaves ~3.6 mm of thread proud of the base bottom.
+SERVO_BODY_H/2), running vertically through the floor.  Each bore gets
+a Phi 6.0 head pocket sunk from the floor top so an M3 SHCS head sits
+FLUSH under the seated servo: drop the 4 screws in and torque them
+BEFORE the servo goes in (same head-access idea as the merged coxa's
+shafts).  Plastic under the head is ~4.6 mm, so an M3 x 8 leaves
+~3.4 mm of thread proud of the base bottom (M3 x 10 -> ~5.4 mm).
 
 Assembly: bolt the base down, drop the 4 base screws first, seat the
 servo, close with ``servo_clamp_cap.stl`` (2x M3), then the 4x M2.5x6
@@ -49,7 +57,7 @@ OUT_DIR = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "..", "extra_stl"))
 OUT_NAME = "sts_servo_holder.stl"
 
-BOTTOM_T = 8.0          # mm -- base plate thickness (user spec)
+SEAT_H = 8.0            # mm -- servo seat height above the base bottom (user spec)
 MOUNT_SQUARE = 23.0     # mm -- centre-to-centre of the 4 base screws (user spec)
 MOUNT_BORE_OD = 3.4     # mm -- M3 clearance
 MOUNT_HEAD_OD = 6.0     # mm -- M3 SHCS head (5.5) + 0.5 pocket clearance
@@ -67,24 +75,28 @@ def main() -> None:
     # horizontal -Y), matching the cradle's pose on the coxa.
     R = rotation_matrix(np.pi / 2.0, [1, 0, 0])
     cradle.apply_transform(R)
-    b = cradle.bounds
-    # Lift so the base's bottom face is z = 0.
-    dz = BOTTOM_T - float(b[0][2])
+    # SINK the cradle so its cavity floor (the servo's resting plane,
+    # well y = -(SERVO_BODY_D/2 + CL) before rotation) lands exactly at
+    # z = SEAT_H.  The cradle's 3.8 mm bottom wall ends up INSIDE the
+    # base slab (no raised step -- rev 2).
+    wall_inner_y = -(hp.SERVO_BODY_D / 2.0 + hp.WELL_BODY_CL)
+    dz = SEAT_H - wall_inner_y          # rotation maps well y -> holder z
     cradle.apply_translation([0.0, 0.0, dz])
     b = cradle.bounds
 
+    # Base slab: full cradle footprint + 1 mm, from the bottom face (z=0)
+    # up to the cavity floor plane -- one flush floor under the servo.
     base = hp._box((float(b[1][0] - b[0][0]) + 2.0,
-                    float(b[1][1] - b[0][1]) + 2.0, BOTTOM_T),
+                    float(b[1][1] - b[0][1]) + 2.0, SEAT_H),
                    center=(0.5 * float(b[0][0] + b[1][0]),
-                           0.5 * float(b[0][1] + b[1][1]), BOTTOM_T / 2.0))
+                           0.5 * float(b[0][1] + b[1][1]), SEAT_H / 2.0))
     body = hp._union(base, cradle)
 
     # Frame bookkeeping for the screw pattern.  In holder coords the well
     # maps (x, y, z)_well -> (x, -z, y)_well + dz', so:
     #   pattern x = well x = +/-11.5 about the body centre (x = 0),
     #   pattern y = -(well z) = -(SERVO_BODY_H/2 +/- 11.5).
-    cav_floor_z = BOTTOM_T + (hp.WELL_D / 2.0
-                              - (hp.SERVO_BODY_D / 2.0 + hp.WELL_BODY_CL))
+    cav_floor_z = SEAT_H
     half = MOUNT_SQUARE / 2.0
     centres = [(sx * half, -(hp.SERVO_BODY_H / 2.0 + sy * half))
                for sx in (-1, 1) for sy in (-1, 1)]
@@ -124,12 +136,13 @@ def main() -> None:
     print(f"wrote {path}")
     print(f"  extents: {np.round(mesh.extents, 1)}  "
           f"volume: {mesh.volume / 1000.0:.1f} cm3")
-    print(f"  base: {BOTTOM_T:.0f} mm thick; 4x Phi {MOUNT_BORE_OD} bores on a "
+    print(f"  servo seat at z = {cav_floor_z:.0f} (one flush floor); "
+          f"4x Phi {MOUNT_BORE_OD} bores on a "
           f"{MOUNT_SQUARE:.0f} x {MOUNT_SQUARE:.0f} square, heads pocketed "
-          f"flush at the cavity floor (z = {cav_floor_z:.1f})")
+          f"flush at the floor")
     print("Print base-down.  Pairs with servo_clamp_cap.stl + 2x M3, "
           "4x M2.5x6 front-case self-tappers, 2x M2.5x6 rear-tab screws, "
-          "4x M3x12 base screws (dropped in before the servo).")
+          "4x M3x8 base screws (dropped in before the servo).")
 
 
 if __name__ == "__main__":
