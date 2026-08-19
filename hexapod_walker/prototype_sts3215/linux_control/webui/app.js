@@ -2420,7 +2420,8 @@ const DANCE_SETS = [
    ['dance_swarm', 'air_trident', 'air_weave', 'air_gearbox', 'air_tides',
     'air_meet', 'air_pendulum', 'air_orbits']],
   ['FULL SHOWS', 'stands up mid-routine — clear floor space',
-   ['dance_swarm_stand', 'dance_steeple', 'dance', 'dance_walk', 'rise_show']],
+   ['dance_wild', 'dance_swarm_stand', 'dance_steeple', 'dance',
+    'dance_walk', 'rise_show']],
 ];
 async function loadDance(){
   try{
