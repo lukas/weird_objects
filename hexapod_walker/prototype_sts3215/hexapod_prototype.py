@@ -1710,19 +1710,19 @@ CLAMP_SEAT_DROP        = 1.0    # mm -- clamp tongue reaches this far past z=0 (
 #     around the 5264 bay stops short of it);
 #   * a SHELF turning inboard (-Y) to y = CLAMP_BACK_HOOK_Y0 = 5.0, i.e.
 #     lapping 7.4 mm OVER the back of the servo, well toward its middle.
-#     Its top face sits at z = -CLAMP_BACK_HOOK_SHELF_Z = +1.0 -- 1 mm
-#     INSIDE the body's back surface, a deliberate PRESS-FIT interference
-#     exactly like CLAMP_TONGUE_INTERF on the +Y face (rev 5-6, Aug 19,
-#     user: "it can actually start 1mm inside the edge of the top to
-#     really hold the motor firmly" / "that hook could go even 1mm
-#     inside").  Bolting the cap therefore preloads the body +Z against
-#     the cradle's front retaining lip -- a real clamp, not a loose
-#     backstop.  This RETIRES the rev-3 assumption that the raised
-#     ~1.8 mm centre platform intrudes here: the user confirmed on the
-#     bench that within this 10 mm band at the wire end the back is flat
-#     (the platform/bay relief sits deeper or further centre).  The rev-3
-#     shelf started 2.2 mm down "to clear the platform", which let the
-#     body float ~2 mm before catching -- not a hold.
+#     Its top face sits FLUSH with the back plane at z =
+#     -CLAMP_BACK_HOOK_SHELF_Z = 0 (rev 8, Aug 19, user: "the bigger hook
+#     cant come 1mm [inside] it needs to be flush with the top" -- the STS
+#     back DOES step up in this wire-end band, so the rev-6 1 mm press
+#     bite jammed; flush rides the surface and still blocks any -Z
+#     back-out immediately).  History: rev 3 started 2.2 mm down "to
+#     clear the platform" (let the body float ~2 mm -- not a hold), rev 5
+#     rode 1 mm down, rev 6 bit 1 mm inside (jammed on the bump).  The
+#     HORN-SIDE mini hook below keeps its 1 mm press bite -- that end of
+#     the back is genuinely flat ("the small hook is perfect because the
+#     sts motor doesnt have a bump there"), so it alone preloads the body
+#     against the cradle's front retaining lip while this shelf takes the
+#     back-out load.
 # Keep-outs boxing it in:
 #   * the 10 mm x band [X0, X1] = [-17.7, -7.7] sits at the -X end of the
 #     edge: x >= -17.7 stays 0.5 mm clear of the cradle's rear retention
@@ -1738,18 +1738,16 @@ CLAMP_SEAT_DROP        = 1.0    # mm -- clamp tongue reaches this far past z=0 (
 #   * the depth stops at the REAR TAB's proven plane: the swinging yoke
 #     arm's inner face passes at z = -7, so 5.5 keeps the same 1.5 mm
 #     running clearance the tab has.
-# Cap install (slide -Y onto the well): like the tongue, the shelf rides
-# its 1 mm interference across the back face on the way in (PLA flexes;
-# the bolts pull it home).  Plugs are inserted straight up into the
+# Cap install (slide -Y onto the well): the flush shelf skims the back
+# surface on the way in.  Plugs are inserted straight up into the
 # recessed bay AFTER capping (plug bodies stay at y <= ~5, beside the
 # shelf).
 CLAMP_BACK_HOOK_T       = 5.5  # mm -- hook depth past the back plane
 CLAMP_BACK_HOOK_X0      = -17.7 # mm -- -X end (0.5 mm clear of the rear tab edge)
 CLAMP_BACK_HOOK_X1      = -7.7  # mm -- +X end (10 mm wide; plug-cable corridor beyond)
 CLAMP_BACK_HOOK_Y0      = 5.0   # mm -- shelf inner reach: 7.4 mm over the back face
-CLAMP_BACK_HOOK_SHELF_Z = -1.0  # mm -- shelf top at z = +1: 1 mm PRESS-FIT bite
-                                #       into the back surface (rev 6; sign: top
-                                #       face = -CLAMP_BACK_HOOK_SHELF_Z)
+CLAMP_BACK_HOOK_SHELF_Z = 0.0   # mm -- shelf top FLUSH with the back plane (rev 8;
+                                #       sign: top face = -CLAMP_BACK_HOOK_SHELF_Z)
 #
 # HORN-SIDE MINI HOOK (Aug 19 2026, user: "add a tiny hook on the other
 # side where the passive servo horn is?  It needs to be right at the end
@@ -6183,10 +6181,10 @@ def make_servo_clamp_cap() -> trimesh.Trimesh:
         pull-out, matching the cradle's -Y / corner lip;
       * a back-face HOOK (Aug 18-19 2026) near the -X end of the +Y edge:
         a 10 mm-wide wall dropping CLAMP_BACK_HOOK_T = 5.5 mm past the back
-        plane plus an inboard SHELF whose top face bites 1 mm INSIDE the
-        back surface (press-fit interference, like the tongue's), lapping
-        7.4 mm over the back of the motor toward its middle -- bolting the
-        cap preloads the body against the cradle's front retaining lip.
+        plane plus an inboard SHELF whose top face rides FLUSH with the
+        back surface (the wire-end band steps up, so a press bite jams
+        there), lapping 7.4 mm over the back of the motor toward its
+        middle -- an immediate -Z backstop.
         Placed to leave the plug-cable corridor open beside it and to
         clear the yoke pad sweep and the cradle's rear tab (see the
         CLAMP_BACK_HOOK_* constants);

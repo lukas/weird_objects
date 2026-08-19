@@ -105,7 +105,7 @@ parts:
     role: "frame"
     cots: false
     qty: 6
-    description: "Printed clamp cap that clamshells the hip servo cradle (bolts to the cradle wall ends), capturing the servo body. Aug 18\u201319 2026: a 10 mm-wide L-shaped back-face hook near the wire end \u2014 5.5 mm wall + shelf lapping 7.4 mm over the back of the motor with a 1 mm press-fit bite (plug-cable corridor open beside it, clear of the yoke pad sweep), plus a tiny corner pad at the horn end (1 mm bite, gap to the passive horn) \u2014 both ends clamp the body against the front lip."
+    description: "Printed clamp cap that clamshells the hip servo cradle (bolts to the cradle wall ends), capturing the servo body. Aug 18\u201319 2026: a 10 mm-wide L-shaped back-face hook near the wire end \u2014 5.5 mm wall + shelf lapping 7.4 mm over the back of the motor flush with its surface (the wire-end band steps up \u2014 no bite; plug-cable corridor open beside it, clear of the yoke pad sweep), plus a tiny corner pad at the horn end (1 mm press-fit bite, gap to the passive horn) that clamps the body against the front lip."
   hip_servo:
     label: "hip servo"
     role: "motor"
@@ -117,7 +117,7 @@ parts:
     role: "frame"
     cots: false
     qty: 6
-    description: "Printed clamp cap that clamshells the knee servo cradle (bolts to the cradle wall ends), capturing the servo body \u2014 same part as the hip cap. Aug 18\u201319 2026: 10 mm-wide L-shaped back-face hook (wall + shelf, 1 mm press-fit bite) plus a tiny horn-end corner pad \u2014 both ends clamp the body against the front lip; plug corridor open beside the hook."
+    description: "Printed clamp cap that clamshells the knee servo cradle (bolts to the cradle wall ends), capturing the servo body \u2014 same part as the hip cap. Aug 18\u201319 2026: 10 mm-wide L-shaped back-face hook (wall + flush shelf \u2014 the wire-end band steps up, no bite) plus a tiny horn-end corner pad (1 mm press-fit bite) that clamps the body against the front lip; plug corridor open beside the hook."
   knee_servo:
     label: "knee servo"
     role: "motor"
