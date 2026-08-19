@@ -136,13 +136,54 @@ class SimServoParams:
             from rl_move.config import cfg_get
             sel = str(cfg_get(cfg, "bus", "servo_params", default="") or "")
         if not sel:
-            return cls.load()
-        path = LOADED_MODEL_PATH if sel == "loaded" else Path(sel)
-        if not path.is_file():
-            raise FileNotFoundError(
-                f"bus.servo_params={sel!r} -> {path} does not exist; "
-                "run fit_loaded_actuator.py or fix the path")
-        return cls.load(path)
+            params = cls.load()
+        else:
+            path = LOADED_MODEL_PATH if sel == "loaded" else Path(sel)
+            if not path.is_file():
+                raise FileNotFoundError(
+                    f"bus.servo_params={sel!r} -> {path} does not exist; "
+                    "run fit_loaded_actuator.py or fix the path")
+            params = cls.load(path)
+
+        # Opt-in profile-speed ceiling override (operator order 08-19,
+        # fast-walker headroom): every fitted set carries the ~350
+        # counts/s sys-ID test speed as vel_max_deg_s, so raising
+        # bus.write_speed alone does nothing — ServoProfile.command and
+        # the MJX TickParams clamp the commanded speed right back to the
+        # old fit. ``bus.servo_vel_max_counts_s`` lifts that ceiling on
+        # all 18 joints:
+        #   absent / "" (default)  -> OFF, bit-exact legacy behavior;
+        #   "write_speed"          -> mirror bus.write_speed, so the
+        #                             profile ceiling always matches the
+        #                             STS write profile;
+        #   a number               -> that many counts/s.
+        # Anything unparsable or <= 0 raises — fail-closed, same class
+        # as the servo_params handling above (a silently dropped cfg
+        # override voided a verdict once; never fall back quietly).
+        raw = None
+        if cfg is not None:
+            raw = cfg_get(cfg, "bus", "servo_vel_max_counts_s",
+                          default=None)
+        if raw is not None and str(raw).strip() != "":
+            if str(raw).strip() == "write_speed":
+                counts = float(cfg_get(cfg, "bus", "write_speed",
+                                       default=400))
+            else:
+                try:
+                    counts = float(raw)
+                except (TypeError, ValueError):
+                    raise ValueError(
+                        f"bus.servo_vel_max_counts_s={raw!r} — expected "
+                        "a positive counts/s number or 'write_speed'")
+            if not counts > 0:
+                raise ValueError(
+                    f"bus.servo_vel_max_counts_s={raw!r} resolved to "
+                    f"{counts} counts/s — must be > 0")
+            deg_s = counts / COUNTS_PER_DEG
+            for ax in params.axes.values():
+                ax.vel_max_deg_s = deg_s
+            params.source += f"+vel_max={counts:g}cps"
+        return params
 
 
 # ---------------------------------------------------------------------------
