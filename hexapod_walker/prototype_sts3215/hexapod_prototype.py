@@ -540,7 +540,15 @@ YAW_BEARING_OD            = 37.0  # mm -- outer-race OD (unchanged vs 6706)
 YAW_BEARING_W             =  7.0  # mm -- bearing width (was 4)
 YAW_BEARING_INNER_OD      = 29.0  # mm -- approx inner-race OD (rotating band)
 YAW_BEARING_OUTER_ID      = 33.0  # mm -- approx outer-race ID (stationary band)
-YAW_BEARING_PRESS         =  0.0  # mm -- OD shrink for press fit (tune per printer)
+YAW_BEARING_PRESS         = -0.075  # mm -- OD shrink for press fit (tune per printer).
+                                  #     Aug 16 2026 bench fit: at 0.0 (bore Phi 37.00
+                                  #     exact) the race entered the chassis tower and
+                                  #     the cap but BOUND -- could not be pushed home
+                                  #     by finger (user).  FDM bores print a touch
+                                  #     undersize, so the modeled bore now carries
+                                  #     +0.15 diametral clearance (Phi 37.15): a firm
+                                  #     finger-press slip fit; the race is located
+                                  #     axially by shoulders + cap lip, not by grip.
 # Bearing Z bands (coxa-local; z = 0 = disc-horn top).  Jun 2026 FLUSH-HORN
 # refit: the real STS3215 disc horn is ~2 mm and sits recessed FLUSH with the
 # servo's output face -- there is no protruding horn pedestal, so BOTH
@@ -653,18 +661,45 @@ YAW_CAP_LIP_T             = YAW_TOWER_LIP_T          # 2 mm retaining lip thickn
 YAW_CAP_LIP_ID            = 32.0                     # mm -- lip bore (outer-race only)
 YAW_CAP_RIM_Z             = YAW_CAP_TOP_Z + YAW_CAP_LIP_T   # +16.5 cap structural rim (lip top)
 
+# Axial running gap between the STATIONARY cap rim / tower lip top (+16.5)
+# and the ROTATING hub's platform underside (= foot-slab bottom since the
+# Aug 17 2026 sink pass).  Was 0.5 mm; Aug 17 2026 bench (user: "the yaw
+# bearing cap scrapes against the coxa link"): FDM stack-up on this axis
+# runs ~1 mm (the same error the horn-screw seats showed), so 0.5 mm of
+# design gap can vanish on a real print.  1.5 mm keeps the labyrinth
+# (the dust skirt still overlaps the cap ring by 2.5 mm axially) while
+# guaranteeing a real gap.  The whole hub platform / cradle stack rides
+# this constant, so no screws move relative to their targets: the horn
+# screw seats stay horn-referenced and the cap's 3 join bolts are on the
+# stationary side.
+YAW_HUB_CAP_AXIAL_CL      = 1.5  # mm -- rotating platform over cap rim
+
 # Coxa yaw-hub turntable disc.
 YAW_HUB_OD                = 44.0  # mm -- hub pad OD (covers the bearing)
 # Bench-tuned fit history on the 6706: −0.2 felt loose, −0.05 was a snug
-# FDM slip fit that still slid on from below.  The same −0.05 diametral
-# offset carries over to the 6805's Phi 25 bore (expect one test print to
-# confirm on the new diameter).
-YAW_HUB_BOSS_OD           = YAW_BEARING_ID - 0.05  # mm -- boss rides both inner races (Phi 24.95)
+# FDM slip fit that still slid on from below.  Aug 16 2026 bench fit on the
+# 6805's Phi 25 bore: −0.05 (Phi 24.95) printed "touching but just barely"
+# (user) -- the boss spun freely inside the inner races instead of driving
+# them.  +0.05 (Phi 25.05) STILL measured Phi 25.0 printed, identical to
+# the 24.95 part: the coxa prints on its SIDE, so the boss is a horizontal
+# cylinder whose layer-stack axis quantizes to 0.2 mm layers (a +/-0.05
+# design delta vanishes into the process).  Now +0.15 nominal INTERFERENCE
+# (Phi 25.15) so even the quantized axis prints >= ~25.1 and the boss gets
+# a REAL ~0.1 mm press on the Phi 25.00 inner races -- a firm hand/tap fit
+# over the 14 mm band (scrape/sand if a given print runs fat; the races
+# still load from below over the lead-in).
+YAW_HUB_BOSS_OD           = YAW_BEARING_ID + 0.15  # mm -- boss presses both inner races (Phi 25.15)
 YAW_HUB_TOP_Z             = YAW_TOWER_TOP_Z + 1.5  # +8.5 -- hub top platform plane (clears tower lip)
 YAW_HUB_SKIRT_BORE        = 11.0  # mm -- r11 skirt bore = DISC_HORN_OD/2 + 1 (clears horn)
 YAW_HUB_DUST_LIP_WALL     = 3.2  # mm -- skirt radial wall (>=3 so it is not
                                  #       a flimsy thin flange)
-YAW_HUB_DUST_LIP_CL       = 0.6  # mm -- radial running gap over the tower OD
+YAW_HUB_DUST_LIP_CL       = 1.0  # mm -- radial running gap over the tower /
+                                 #       cap-ring OD (both Phi 44).  Was 0.6;
+                                 #       Aug 17 2026 bench scrape fix (user:
+                                 #       "the yaw bearing cap scrapes against
+                                 #       the coxa link") -- side-printed bores
+                                 #       ovalize enough to eat 0.6 mm.  Still
+                                 #       a grit labyrinth at 1.0.
 YAW_HUB_DUST_LIP_OD       = (YAW_BEARING_OD + 2.0 * YAW_TOWER_WALL
                              + 2.0 * (YAW_HUB_DUST_LIP_CL
                                       + YAW_HUB_DUST_LIP_WALL))  # Phi ~51.6
@@ -1141,9 +1176,14 @@ BRACKET_CABLE_POST_Z_CENTRE = 20.25  # mm well-local Z centre for the
 # the old centre the ~2.4 mm ligament between the port's outboard edge
 # and the body cutout ran the full 28 mm width and tripped the flimsy-
 # joints check (was fine when the 3 ribs broke it up); the shift gives a
-# ~3.9 mm outboard rib.  Still clear of the standoff holes (r 44 on the
-# az-45 diagonals, >17 mm away tangentially) and the yaw retainer pilots
-# (tangential +/-21; port edge +/-14).
+# ~3.9 mm outboard rib.  Clear of the yaw retainer pilots (tangential
+# +/-21; port edge +/-14) -- but NOT of the standoff holes: the original
+# claim of ">17 mm tangential" was wrong (a standoff site sits 15 deg
+# off the leg axis -> 44*sin(15) = 11.4 mm < the 14 mm half-width), so
+# the inboard shift clipped each standoff seat's corner.  Fixed Aug 16
+# 2026 with the CHASSIS_STANDOFF_SEAT_PAD_OD pads (see that block);
+# each pad bites a ~3.5 x 7 mm corner off the port, which
+# check_leg_harness_drop exempts.
 LEG_HARNESS_DROP_X_CENTRE  = -47.5  # mm bracket-x (inboard of body cutout)
 LEG_HARNESS_DROP_X_EXTENT  =  18.0  # mm along bracket X (radial)
 LEG_HARNESS_DROP_Y_EXTENT  =  28.0  # mm along bracket Y (tangential; was 8
@@ -1655,6 +1695,48 @@ CLAMP_HEAD_CB_DEPTH    = 3.0    # mm -- recess from flange OUTER face (= M3 head
 #     with the wall pilots -- guarded by check_clamp_cap_alignment).
 WELL_INSIDE_X_TIGHTEN  = 1.0    # mm -- total X-cavity reduction (0.5/side)
 CLAMP_SEAT_DROP        = 1.0    # mm -- clamp tongue reaches this far past z=0 (-Z)
+#
+# BACK-FACE HOOK (Aug 18 2026, user: "make the hip clamp cap and the knee
+# clamp cap have a small extra part that goes over part of the back of the
+# motor to help hold it in place without blocking where the wires come
+# out"; rev 3 same day: "it has to go over the back of the servo a bit ...
+# otherwise it isnt doing anything"; rev 4, Aug 19: "reduce the width of
+# that tab to 10mm to give more room for the servo plug but have it come
+# down 5mm further closer to the middle of the back of the servo").  An
+# L-shaped hook near the -X end of the +Y edge:
+#   * a WALL dropping CLAMP_BACK_HOOK_T = 5.5 mm past the back plane along
+#     the +Y edge strip (y >= tongue_y0 = 11.4 -- flat rim at z = 0, proven
+#     by the seated CLAMP_SEAT_DROP lip; the raised ~1.8 mm centre platform
+#     around the 5264 bay stops short of it);
+#   * a SHELF turning inboard (-Y) to y = CLAMP_BACK_HOOK_Y0 = 5.0, i.e.
+#     lapping 7.4 mm OVER the back of the servo, well toward its middle --
+#     but only below z = -CLAMP_BACK_HOOK_SHELF_Z = -2.2, so it passes
+#     UNDER the raised centre platform (1.8 mm proud) with 0.4 mm clearance
+#     and catches the body if it tries to back out of the open face.
+# Keep-outs boxing it in:
+#   * the 10 mm x band [X0, X1] = [-17.7, -7.7] sits at the -X end of the
+#     edge: x >= -17.7 stays 0.5 mm clear of the cradle's rear retention
+#     tab (+X edge at -18.2), and stopping at -7.7 leaves the whole
+#     x > -7.7 corridor OPEN for the 5264 plugs' cables to bend out
+#     sideways (rev 4: the deep shelf now reaches beside the plug bay --
+#     ports centred (x -10, y 0), housings to y ~ +/-5 -- so the plugs
+#     still plug straight in below the shelf and their wires escape
+#     through the open corridor, not under the tab);
+#   * the deep corner (-7.7, 5.0) is r ~20.8 from the output axis at
+#     (+12.5, 0) -- comfortably outside the swinging yoke pad sweep
+#     (r 16.75) and the Phi 20 passive horn;
+#   * the depth stops at the REAR TAB's proven plane: the swinging yoke
+#     arm's inner face passes at z = -7, so 5.5 keeps the same 1.5 mm
+#     running clearance the tab has.
+# Cap install (slide -Y onto the well) stays valid: the shelf's top face at
+# z = -2.2 passes under the platform the whole way in; plugs are inserted
+# straight up into the recessed bay AFTER capping (plug bodies stay at
+# y <= ~5, below/beside the shelf).
+CLAMP_BACK_HOOK_T       = 5.5  # mm -- hook depth past the back plane
+CLAMP_BACK_HOOK_X0      = -17.7 # mm -- -X end (0.5 mm clear of the rear tab edge)
+CLAMP_BACK_HOOK_X1      = -7.7  # mm -- +X end (10 mm wide; plug-cable corridor beyond)
+CLAMP_BACK_HOOK_Y0      = 5.0   # mm -- shelf inner reach: 7.4 mm over the back face
+CLAMP_BACK_HOOK_SHELF_Z = 2.2   # mm -- shelf top depth: clears the 1.8 mm platform
 
 
 def servo_clamp_bolt_centres():
@@ -2746,24 +2828,44 @@ WELL_TOP_PAD_Y_EXT = 13.25 # mm -- distance the pad extends PAST the
 # NB: + YAW_TOWER_RAISE lifts the hip-pitch axis in the coxa-local frame so
 # the spaced yaw-bearing tower fits below it; CHASSIS_YAW_OUTPUT_Z is lowered
 # by the same amount so the WORLD hip-axis Z is unchanged (kinematics fixed).
-# COXA_COAXIAL_FOOT_RAISE lifts the hip-pitch axis a few mm MORE so the
-# coaxially-stacked hip cradle's solid back seats on a real foot plate
-# (COXA_JOIN_FOOT_T thick) above the yaw-hub platform top
-# (YAW_HUB_PLATFORM_Z1, defined late) instead of resting straight on it.  The
-# seated servo-body bottom is at COXA_HIP_DROP - SERVO_BODY_D/2; we want
-# that = platform_top + 8.0 (platform top + COXA_JOIN_FOOT_T foot plate).
-# (World hip-axis Z rises by this small amount; the verifier re-derives the
-# pose consistently.)  NB: the 8.0 here MUST track COXA_JOIN_FOOT_T (defined
-# further down); the foot is the sole Part A<->B structural join so it is
-# deliberately >= 7.2 mm (out of the thin-sheet band).
+# COXA_COAXIAL_FOOT_RAISE lifts the hip-pitch axis so the coaxially-stacked
+# hip cradle's solid back seats on the hub.  The seated servo-body bottom
+# (= hip-servo well floor) is at COXA_HIP_DROP - SERVO_BODY_D/2; we want
+# that = yaw-hub platform TOP (YAW_HUB_PLATFORM_Z1, defined late)
+# + COXA_WELL_FLOOR_LIFT.
+#
+# History: the two-part era stacked an 8 mm foot plate (COXA_JOIN_FOOT_T)
+# ON TOP of the platform, putting the well floor at platform_top + 8 (+31)
+# -- the sole Part A<->B bolted join needed its own thick slab.  Aug 17
+# 2026 SINK PASS (user: the M3x30 heads were hard to reach down the 12 mm
+# shafts; "push the bracket holding the servo down to overlap with the cap
+# more ... making the height lower would help a lot getting the screws in
+# and remove unnecessary material"): the link has been one piece since the
+# Aug merge, so the separate raised slab serves nothing -- the foot now
+# SINKS INTO the platform band (see make_coxa_hip_bracket), spanning
+# z +18..+26.  The floor cannot drop all the way onto the platform top:
+# the slab bottom is pinned at +18 (YAW_HUB_CAP_AXIAL_CL = 1.5 mm running
+# gap over the stationary cap rim at +16.5 -- widened from 0.5 by the Aug
+# 17 2026 bench scrape fix), and a flush floor left a 6 mm sheet carrying
+# the whole cradle (flagged by the thin-sheet check, 43 x 40 mm cluster),
+# so the floor sits COXA_WELL_FLOOR_LIFT = 2 mm above the platform top
+# for the proven 8 mm slab.  Net: the cradle rides 5 mm lower, the screw
+# heads sit ~5.3 mm below the shaft mouths instead of ~9, and the world
+# hip axis drops 5 mm (58.65 -> 53.65 -- the verifier / sim re-derive the
+# pose consistently).  The INNER bearing interfaces (boss, uflange, dust
+# skirt) are untouched.
+COXA_WELL_FLOOR_LIFT = 2.0   # mm -- well floor above the platform top
 #
 # Jun 2026 flush-horn refit: the platform top is no longer the literal 13.5;
 # it tracks the bearing stack via YAW_TOWER_TOP_Z (= UPPER_race_top + lip).
-# YAW_HUB_PLATFORM_Z1 = YAW_TOWER_TOP_Z + 0.5 (boss over lip) + YAW_HUB_PAD_T
-# (6) -- expressed here from the EARLY-defined YAW_TOWER_TOP_Z because
+# YAW_HUB_PLATFORM_Z1 = YAW_TOWER_TOP_Z + YAW_HUB_CAP_AXIAL_CL (boss over
+# the cap rim -- 1.5 since the Aug 17 2026 scrape fix) + YAW_HUB_PAD_T (6)
+# -- expressed here from the EARLY-defined constants because
 # YAW_HUB_PLATFORM_Z1 itself is defined further down.
-_YAW_HUB_PLATFORM_TOP_EARLY = YAW_TOWER_TOP_Z + 0.5 + 6.0   # == YAW_HUB_PLATFORM_Z1
-COXA_COAXIAL_FOOT_RAISE = (_YAW_HUB_PLATFORM_TOP_EARLY + 8.0 + SERVO_BODY_D / 2.0) - (
+_YAW_HUB_PLATFORM_TOP_EARLY = (YAW_TOWER_TOP_Z + YAW_HUB_CAP_AXIAL_CL
+                               + 6.0)   # == YAW_HUB_PLATFORM_Z1
+COXA_COAXIAL_FOOT_RAISE = (_YAW_HUB_PLATFORM_TOP_EARLY + COXA_WELL_FLOOR_LIFT
+                           + SERVO_BODY_D / 2.0) - (
     -(WELL_D / 2.0 + COXA_ARM_T / 2.0 + WELL_Z_DROP_EXTRA)
     + COXA_LIFT + YAW_TOWER_RAISE)
 COXA_HIP_DROP = (-(WELL_D / 2.0 + COXA_ARM_T / 2.0 + WELL_Z_DROP_EXTRA)
@@ -2816,9 +2918,17 @@ COXA_HIP_DROP = (-(WELL_D / 2.0 + COXA_ARM_T / 2.0 + WELL_Z_DROP_EXTRA)
 # The tip face lands exactly at tibia-local x = TIBIA_LENGTH, so the
 # 128 mm knee-axis→tip kinematic length is unchanged.
 FOOT_BOOT_OD           = 14.0  # mm -- boot outer diameter (3 mm TPU wall)
-FOOT_BOOT_BORE_D       =  7.7  # mm -- bore over the Ø8 tube: 0.3 mm
-                               #        diametral interference; TPU 95A
-                               #        stretches on and grips.
+FOOT_BOOT_BORE_D       =  8.1  # mm -- bore over the Ø8 tube: SAME Ø8.1 as
+                               #        the tibia yoke's tube socket
+                               #        (LEG_TUBE_OD + 2*LEG_TUBE_SOCKET_CLEAR
+                               #        -- the fit the bench already proved
+                               #        slides on).  Aug 17 2026, two rounds:
+                               #        7.7 (0.3 interference) was unpressable
+                               #        by hand, 7.9 still too tight -- TPU
+                               #        bores print undersized from extrusion
+                               #        bulge, so a nominal slip fit still
+                               #        ends up snug.  Dab of CA/epoxy for
+                               #        keeps.
 FOOT_BOOT_SOCKET_DEPTH = 20.0  # mm -- tube insertion depth
 FOOT_BOOT_TIP_L        =  8.0  # mm -- solid TPU beyond the tube end;
                                #        tube end at x = TIBIA_LENGTH - 8
@@ -2827,6 +2937,27 @@ FOOT_BOOT_TIP_CHAMFER  =  2.0  # mm -- 45 deg rim chamfer on the tip face
                                #        (flat Ø10 contact patch, no sharp
                                #        edge to catch on floor texture)
 FOOT_BOOT_MOUTH_LEAD   =  1.2  # mm -- bore lead-in chamfer at the mouth
+#
+# EXPERIMENTAL conical boot (Aug 17 2026, user: "try making another
+# experimental version of these boots with more conical shape").  Same
+# bore / socket depth / overall length (tip still lands at tibia-local
+# x = TIBIA_LENGTH), but the outer profile is a cone: a gently tapered
+# sleeve (Phi 15 mouth -> Phi 13 at the nose start) flowing into a steep
+# nose cone down to a small Phi 6 flat ground contact (vs the straight
+# Phi 14 sleeve + Phi 10 flat of the production boot).  A true single
+# straight cone from mouth to a small tip is impossible -- it would thin
+# the TPU wall over the bore below ~1.5 mm at the socket bottom; the
+# two-segment profile keeps >= 2.45 mm of wall everywhere over the bore.
+# The bore's blind end is a 45-deg internal cone (not a flat face) so
+# the boot prints MOUTH-DOWN -- wide stable base on the bed, and the
+# blind end self-supports (tip-down would balance a 28 mm TPU part on a
+# Phi 6 tip).  The tube's end ring still bottoms on the cone/bore corner
+# at the same 20 mm socket depth.  Lives in extra_stl/foot_boot_cone.stl
+# (tools/make_extra_foot_boot_cone.py); NOT in the production print set.
+FOOT_BOOT_CONE_MOUTH_OD = 15.0  # mm -- sleeve OD at the open mouth
+FOOT_BOOT_CONE_BOT_OD   = 13.0  # mm -- sleeve OD where the nose cone starts
+                                #        (>= 2.45 mm wall over the 8.1 bore)
+FOOT_BOOT_CONE_TIP_OD   =  6.0  # mm -- flat ground-contact face diameter
 #
 # RETIRED hinged-foot constants below (FOOT_PAD_* / FOOT_HINGE_* /
 # FOOT_TANG_*): kept only because the legacy pre-sandwich cantilever
@@ -3503,24 +3634,33 @@ WAGO_V33_CENTRE = (0.0, -36.0)          # mount-plate XY of the nut centre
 MOUNT_PLATE_WIRE_PORT_D = 8.0
 MOUNT_PLATE_WIRE_PORT_XY = ((19.0, -44.0), (-19.0, -44.0))
 
-# As-built per-leg power splices (Aug 2026): one V+/GND PAIR of 3-port
-# Wago 221-413 at each of the 6 chassis_bottom hex CORNER FLATS -- the
-# straight plate-edge segments BETWEEN adjacent yaw cradles, outward
-# normals at az = i*60 deg, edge at chassis r = WAGO_MOUNT_EDGE_R -- with
-# the wire entries facing the chassis centre.  Each pair drops into an
-# open-top two-bay wall set that is INTEGRATED into the chassis_bottom
-# top face (``_chassis_wago_tray_solid``; late-Aug 2026 -- replaces the
-# 6 separately printed, VHB-taped ``make_wago_mount`` trays and their
-# over-edge lips).  The chassis prints face-down, so the top-face walls
-# print clean with no supports; the nuts now sit directly on the plate
-# top (no 3 mm tray floor) and the inward wire pull is reacted by solid
-# plate material instead of tape.
-WAGO_MOUNT_BAY_CLEAR = 0.6    # mm total bay clearance on width and depth
-WAGO_MOUNT_WALL_T    = 2.4    # mm side / divider / outer wall thickness
+# As-built per-leg power splices: ONE 5-port Wago 221-415 at each of the
+# 6 chassis_bottom hex CORNER FLATS -- the straight plate-edge segments
+# BETWEEN adjacent yaw cradles, outward normals at az = i*60 deg, edge at
+# chassis r = WAGO_MOUNT_EDGE_R -- with the wire entries facing the
+# chassis centre.  (Aug 16 2026, user: "5 slot waygos at each edge on the
+# hexagon instead of 2 3 slot waygos" -- replaces the previous V+/GND
+# PAIR of 3-port 221-413 per corner.  A side-by-side PAIR of 5-slot bays
+# would need ~67 mm but the corner flat is only ~53.6 mm long, so each
+# corner carries a single 30 mm bay, comfortably inside the flat.)  The
+# nut PRESS-FITS into an open-top wall set INTEGRATED into the
+# chassis_bottom top face (``_chassis_wago_tray_solid``; late-Aug 2026 --
+# replaces the 6 separately printed, VHB-taped ``make_wago_mount`` trays).
+# The chassis prints face-down, so the top-face walls print clean with no
+# supports; the nut sits directly on the plate top (no tray floor) and
+# the inward wire pull is reacted by solid plate material.
+WAGO_MOUNT_BAY_CLEAR = -0.15  # mm total bay allowance on width and depth.
+                              #   Aug 16 2026 (user: "make the holders
+                              #   about 0.5-1mm tighter so I can press fit
+                              #   in the waygo"): was +0.6 -- a drop-in
+                              #   slip fit that sat loose on the bench --
+                              #   now 0.75 tighter = 0.15 nominal
+                              #   INTERFERENCE, a light press fit
+WAGO_MOUNT_WALL_T    = 2.4    # mm side / outer wall thickness
                               #   (generous: a broken wall = chassis reprint)
 WAGO_MOUNT_WALL_H    = 6.5    # mm wall height above the plate top face --
-                              #   stops 1.8 mm below the 8.3 mm nut tops
-                              #   so the pair stays easy to grip
+                              #   stops ~1.9 mm below the 8.4 mm nut top
+                              #   so the nut stays easy to grip
 WAGO_MOUNT_EDGE_R    = 100.0  # mm chassis r of the corner-flat plate edge;
                               #   the outer wall's outboard face is flush
                               #   with this edge
@@ -3683,6 +3823,24 @@ CHASSIS_STANDOFF_HOLES_XY   = (
     (+_STANDOFF_D, -_STANDOFF_D),
 )
 
+# Aug 16 2026 standoff SEAT PADS (chassis_bottom only).  The Aug 2026
+# harness-port merge shifted each leg's open 18 x 28 drop port 1.5 mm
+# INBOARD (radial span 43.5..61.5), and that quietly broke the 4
+# standoff seats: each site sits 15 deg off a leg axis (44*sin(15) =
+# 11.4 mm tangential < the port's 14 mm half-width; the old block
+# comment claimed ">17 mm" -- a bad trig shortcut), so the port corner
+# clipped through the hole's annulus.  The Phi 3.4 bore survived as a
+# keyhole but a Phi 6 brass-standoff base / M3x14 head had nothing to
+# seat on ("no longer really has holes where I can put a spacer" --
+# user, bench).  Fix: union a Phi CHASSIS_STANDOFF_SEAT_PAD_OD pad
+# through the full -6..+2 floor stack at each site (re-drilled Phi 3.4),
+# restoring a >= 2.8 mm seat annulus.  Each pad nibbles a ~3.5 x 7 mm
+# bite out of ONE corner of the adjacent port (legs az 30/150/210/330);
+# the remaining L-shaped opening still passes the Molex connectors with
+# room to spare.  check_leg_harness_drop exempts probe points inside
+# the pads (it reads this constant -- single source of truth).
+CHASSIS_STANDOFF_SEAT_PAD_OD = 9.0  # mm -- seat annulus around the Phi 3.4 bore
+
 # Chassis-frame translation applied to the tray mesh by
 # ``build_prototype_assembly._body_battery_parts`` and the verifier's
 # ``_build_chassis_world`` / ``_build_world_leg0_printed_parts``.
@@ -3789,70 +3947,39 @@ BEC_CRADLE_CENTRE     = (+37.0, +22.5)
 # May 2026 "essentials" pass: the anti-spark XT60 on/off switch
 # ("LowPro RC", "HRB", typical body ~ 30 x 15 x 15 mm with 2 short
 # XT60 pigtails) used to be cable-tied wherever the user could fit
-# it.  Now it bolts to a printed holster on chassis_top's +X edge
+# it.  Now it lives in a printed holster on chassis_top's +X edge
 # between the L0 and L5 coxa_brackets, with the toggle protruding
 # past the chassis vertex so the user can flip it from outside the
 # chassis without opening the stack.
 #
-# Holster geometry summary:
+# Aug 16 2026 VELCRO pass (user): the bolt-down mount is RETIRED.
+# The old design had a -X mounting ear on the holster + 2 Phi 8 mm
+# insert bosses standing 5 mm proud of chassis_top, 2 M3 heat-set
+# inserts and 2 M3 x 10 SHCS.  The user velcros the holster to the
+# deck instead, so the holster is now JUST the socket (flat bottom
+# for the velcro patch) and chassis_top's top face is completely
+# flat again -- no bosses, no inserts, no ear, no bolts.
 #
-#   * SOCKET HALF (+X half): a SWITCH_BODY_L x _W x _H box-with-
+# Holster geometry summary (post-velcro):
+#
+#   * SOCKET (the whole body): a SWITCH_BODY_L x _W x _H box-with-
 #     5-walls (open top so the switch body drops in from above)
 #     that holds the switch body snugly (SWITCH_BODY_CL mm
 #     clearance per axis).  The +X end wall has a SWITCH_TOGGLE_W
 #     x SWITCH_TOGGLE_H rectangular cutout so the toggle protrudes
 #     for user access.  The -X end wall has 2 x Phi
-#     SWITCH_PIGTAIL_OD = 6 mm holes for the XT60 pigtails.
-#   * MOUNTING EAR (-X half): a flat SWITCH_EAR_L x _W x
-#     SWITCH_HOLSTER_FLOOR plate extending in -X from the socket
-#     half's -X wall.  Each ear holds one M3 brass heat-set
-#     insert (Phi INSERT_M3_PILOT_OD = 4 mm pocket inside a Phi
-#     CRADLE_BOSS_OD = 8 mm boss that extends both UP (into the
-#     ear's top face for the insert) and DOWN through chassis_top
-#     (via a matching clearance hole in chassis_top).  Bolt enters
-#     from ABOVE chassis_top, threads DOWN through chassis_top
-#     into the insert -- bolt head bears on chassis_top's TOP
-#     face from above; the boss extension DOWN through chassis_top
-#     keeps the insert pocket fully captive in plastic.
-#
-# Wait -- a simpler arrangement that avoids the "boss pokes through
-# chassis_top" complication: put the ear's floor flush with
-# chassis_top's TOP face and have the insert pocket open at the
-# ear's TOP face.  Then the bolt enters from above the holster, the
-# bolt head bears on the EAR's top face (not chassis_top's), the
-# bolt threads DOWN through the insert -- and a SHORTER bolt that
-# DOESN'T pass through chassis_top is needed.  That doesn't bolt
-# the holster to chassis_top though; it just bolts a switch into
-# the holster.
-#
-# Final design (matches the battery_holder feet pattern, just
-# rotated): the ear's heat-set insert pocket opens DOWNWARD at the
-# ear's BOTTOM face (= chassis_top's top face).  Bolt enters from
-# BELOW chassis_top (from inside the chassis cavity), threads UP
-# through chassis_top into the insert.  Bolt head bears on
-# chassis_top's BOTTOM face.  chassis_top carries a Phi
-# BRACKET_BOLT_HOLE = 3.4 mm M3 clearance hole at each bolt
-# position.  Insert is recessed 0.5 mm above the ear's bottom face
-# so the bolt head clamps chassis_top against PLASTIC, not brass
-# (same convention as the battery_holder feet inserts).  Bolts are
-# captive sub-assembly fasteners -- torqued before chassis_top is
-# clamped down with its 4 chassis-centre standoff bolts.
+#     SWITCH_PIGTAIL_OD = 6 mm holes for the XT60 pigtails.  The
+#     SWITCH_HOLSTER_FLOOR = 4 mm bottom slab is solid and FLAT --
+#     that is the velcro face.
 SWITCH_BODY_L         = 32.0   # mm -- switch body length (along X)
 SWITCH_BODY_W         = 17.0   # mm -- switch body width (along Y)
 SWITCH_BODY_H         = 17.0   # mm -- switch body height (along Z)
 SWITCH_BODY_CL        =  0.5   # mm clearance per axis between body and cavity
 SWITCH_HOLSTER_WALL   =  2.0   # mm -- holster outer wall thickness
-SWITCH_HOLSTER_FLOOR  =  4.0   # mm -- ear thickness.  Just enough
-                                #     plastic for the M3 SHCS to drive
-                                #     into without dishing the head into
-                                #     the printed face.  The insert
-                                #     LIVES IN CHASSIS_TOP (in a
-                                #     SWITCH_HOLSTER_BOSS_H-tall boss),
-                                #     NOT in the ear, so the ear only
-                                #     has a Phi BRACKET_BOLT_HOLE
-                                #     clearance hole.
-SWITCH_EAR_L          = 14.0   # mm -- mounting ear length (X) past
-                                #     socket -X face
+SWITCH_HOLSTER_FLOOR  =  4.0   # mm -- solid floor slab under the switch
+                                #     cavity.  Flat bottom = velcro face
+                                #     (Aug 16 2026: the -X mounting ear
+                                #     + bolt-down hardware are retired).
 SWITCH_TOGGLE_W       = 14.0   # mm -- toggle cutout width (Y) in +X face
 SWITCH_TOGGLE_H       = 10.0   # mm -- toggle cutout height (Z) in +X face
 SWITCH_PIGTAIL_OD     =  6.0   # mm -- Phi 6 mm pigtail exit (clears a
@@ -3861,10 +3988,11 @@ SWITCH_PIGTAIL_DY     =  5.0   # mm -- spacing between the 2 pigtail
                                 #     channels on the -X face (centres
                                 #     at +/- DY)
 
-# Derived outer envelope.
+# Derived outer envelope.  (Aug 16 2026: OUTER_L = SOCKET_OUTER_L --
+# the +14 mm mounting ear is retired with the bolt-down mount.)
 SWITCH_SOCKET_OUTER_L = (SWITCH_BODY_L + 2.0 * SWITCH_BODY_CL
-                          + 2.0 * SWITCH_HOLSTER_WALL)          # 39 mm
-SWITCH_HOLSTER_OUTER_L = SWITCH_SOCKET_OUTER_L + SWITCH_EAR_L   # 53 mm
+                          + 2.0 * SWITCH_HOLSTER_WALL)          # 37 mm
+SWITCH_HOLSTER_OUTER_L = SWITCH_SOCKET_OUTER_L                  # 37 mm (was 51 with the ear)
 SWITCH_HOLSTER_OUTER_W = (SWITCH_BODY_W + 2.0 * SWITCH_BODY_CL
                           + 2.0 * SWITCH_HOLSTER_WALL)          # 22 mm
 SWITCH_HOLSTER_OUTER_H = (SWITCH_BODY_H + SWITCH_BODY_CL
@@ -3894,60 +4022,19 @@ SWITCH_CHASSIS_EDGE_X = CHASSIS_TOP_FLAT_TO_FLAT / 2.0  # = 70 mm
 # another few mm of protrusion for the toggle stem.
 SWITCH_TOGGLE_REACH    = 15.0  # mm -- holster +X face past chassis edge
 # Holster MESH origin = holster X centre (midway between the
-# socket's +X face and the ear's -X face).  Place that origin so
-# the holster's +X face is at SWITCH_CHASSIS_EDGE_X + TOGGLE_REACH.
+# socket's +X and -X faces; ear retired Aug 16 2026).  Place that
+# origin so the holster's +X face is at SWITCH_CHASSIS_EDGE_X +
+# TOGGLE_REACH -- the toggle keeps its exact as-built reach past the
+# chassis edge; only the -X tail of the part got shorter.
 SWITCH_HOLSTER_CENTRE_X = (SWITCH_CHASSIS_EDGE_X
                            + SWITCH_TOGGLE_REACH
                            - SWITCH_HOLSTER_OUTER_L / 2.0)
 SWITCH_HOLSTER_CENTRE_Y = 0.0
 
-# 2 bolts through chassis_top into the holster's bottom-of-ear
-# heat-set inserts.  Placed on the ear (the -X half of the
-# holster) so the bolts thread through chassis_top material at
-# safe distance from the +X vertex.  Each bolt's HOLSTER-LOCAL
-# (x, y) is reported in SWITCH_HOLSTER_BOLT_OFFSETS; the absolute
-# chassis-frame positions land at SWITCH_HOLSTER_CENTRE +
-# offset.  chassis_top carries a matching Phi BRACKET_BOLT_HOLE =
-# 3.4 mm clearance hole at each bolt site (see
-# ``make_chassis_top`` -- it picks up SWITCH_HOLSTER_BOLT_OFFSETS
-# from this module).
-# Bolt at ear's CENTRE (X): 19.5 mm inboard from holster +X face
-# (= SWITCH_HOLSTER_OUTER_L / 2 - SWITCH_EAR_L / 2 = 26.5 - 7 = 19.5).
-SWITCH_HOLSTER_BOLT_DX = SWITCH_HOLSTER_OUTER_L / 2.0 - SWITCH_EAR_L / 2.0
-SWITCH_HOLSTER_BOLT_DY = 5.0      # mm -- bolts at +/- 5 mm in Y
-SWITCH_HOLSTER_BOLT_OFFSETS = (
-    (-SWITCH_HOLSTER_BOLT_DX, +SWITCH_HOLSTER_BOLT_DY),
-    (-SWITCH_HOLSTER_BOLT_DX, -SWITCH_HOLSTER_BOLT_DY),
-)
-
-# Chassis-top boss height under each switch_holster bolt position.
-# The boss raises the chassis_top top face by SWITCH_HOLSTER_BOSS_H
-# locally so the M3 heat-set insert (INSERT_M3_PILOT_DEPTH = 6 mm)
-# fits ENTIRELY above the chassis_top BOTTOM face without punching
-# through into the chassis cavity:
-#   boss top z          = chassis_top top + 3 mm = 41 (design frame)
-#   insert pocket depth = INSERT_M3_PILOT_DEPTH = 6 mm
-#   insert pocket bottom z = 41 - 6 = 35 (= chassis_top centre - 1)
-# Boss OD = SWITCH_HOLSTER_BOSS_OD (= 8 mm) leaves >= 2 mm of wall
-# material around the Phi 4 mm pocket on every azimuth -- same
-# captive-insert geometry as the electronics_tray standoff bosses.
-# The holster ear sits ON TOP of the 2 bosses (the rest of the ear
-# floats SWITCH_HOLSTER_BOSS_H above chassis_top's flat top face);
-# the bolt threads DOWN from above the ear into the insert.
-SWITCH_HOLSTER_BOSS_H  = 5.0   # mm above chassis_top top face.  Aug 2026:
-                               # was 3 -- the half-thickness (2 mm) top plate
-                               # needs a taller boss so the 6.2 mm insert
-                               # pocket keeps its 0.8 mm floor (5 + 2 - 6.2)
-                               # without any under-plate pad that would break
-                               # the plate's flat print bottom.
-SWITCH_HOLSTER_BOSS_OD = 8.0   # mm boss OD on chassis_top
-# CHASSIS-frame XY of the 2 bolt sites.  ``make_chassis_top`` calls
-# this to add 2 clearance holes; ``fastener_registry`` calls this
-# to enumerate the bolts + inserts.
-SWITCH_HOLSTER_BOLT_CHASSIS_XY = tuple(
-    (SWITCH_HOLSTER_CENTRE_X + ox, SWITCH_HOLSTER_CENTRE_Y + oy)
-    for ox, oy in SWITCH_HOLSTER_BOLT_OFFSETS
-)
+# (Aug 16 2026: SWITCH_HOLSTER_BOLT_* / SWITCH_HOLSTER_BOSS_* /
+# SWITCH_EAR_L are RETIRED with the bolt-down mount -- the holster
+# velcros to the flat deck.  chassis_top carries no holster bosses,
+# inserts, or clearance holes any more.)
 
 # ---- IMU pad (MPU-6050 vibration-isolated mount) ------------------------
 #
@@ -4001,8 +4088,8 @@ SWITCH_HOLSTER_BOLT_CHASSIS_XY = tuple(
 #                  IMU PCB rides on the 4 boss tops; M3 x 8 SHCS
 #                  thread DOWN through the PCB into the inserts.
 #
-# IMU_PAD_BOSS_H is deliberately TALLER than the SWITCH_HOLSTER_BOSS_H
-# pattern (5 mm vs 3 mm) so a full 6 mm-deep insert pocket fits
+# IMU_PAD_BOSS_H is deliberately TALLER than the (now retired)
+# switch-holster boss pattern (5 mm vs 3 mm) so a full 6 mm-deep insert pocket fits
 # ENTIRELY above the pad's bottom face.  With the standard 2 mm pad
 # floor + 5 mm bosses = 7 mm total, the 6.4 mm pocket overdrill ends
 # at z = 0.6 mm above the pad bottom, leaving the bottom face FLAT
@@ -5788,6 +5875,17 @@ YOKE_ARM_PAD = DRIVEN_HORN_REACH_DOWN                                  # 5 mm (b
 # light squeeze instead of dead-flush.  ~0.13 mm/side = ~0.26 mm off the inner
 # span -- well inside the +/-0.5 mm mating-face tolerance.
 YOKE_SEAT_INTERF = 0.13                                               # mm per side
+# Aug 2026 bench fit (user: "the tibia knee yoke still has a 1mm gap with
+# the two horns on the servo - can make each pad 0.5mm thicker?", then
+# "the femur link has the same issue"): BOTH printed clevises sat
+# ~0.5 mm/side off the real disc faces (FDM tolerance stack across the
+# clevis span), so both yokes' reach-down pads grow 0.5 mm/side PAST
+# nominal.  In nominal CAD that is ~0.63 mm/side of pad-into-disc
+# interference (an intended, bench-measured preload fill; the viz overlap
+# check ignores the yoke/horn pairs for this reason) -- on the real parts
+# it just closes the measured gaps, so screw grip lengths are unchanged
+# in practice.
+YOKE_PAD_EXTRA_REACH = 0.5                                            # mm per side
 # Real PASSIVE disc mating face (joint-local).  Jul 2026 stock-horn refit
 # (user): the STOCK metal passive horn's centre bore slides OVER the rear
 # idler boss, so the horn seats FLUSH on the servo back face -- its mating
@@ -5829,8 +5927,84 @@ def _disc_horn_bolt_centres():
 # no printed centering/standoff bushing is needed.
 
 
+# ---- Sandwich-cradle REAR TAB (Aug 2026, user: "add two holes on the other
+# side of the femur link - the one closer to the yoke because i dont want to
+# block the electronics coming out ... so i can screw into the body of the
+# sts on the other side"; Aug 17 2026 the coxa hip cradle grew the SAME tab
+# -- user: "copy that same part to be on the coxa link as well so I can
+# screw into the servo from both sides") -------------------------------------
+# The knee cradle holds its servo by the clamp cap + lip + the 4 front-case
+# self-tappers on the OUTPUT side only (its end-face bolts were dropped in
+# Jul 2026 -- the fused spar covers that wall).  This tab hangs under the
+# OPEN back (idler) face and picks up the servo's rear molded screw-hole
+# PAIR nearer the -X (spar / hip-yoke) end -- body-frame
+# (SADDLE_CASE_HOLE_X2 + SERVO_OUTPUT_X = -20.3, +/-10.2), the same hole
+# family the yaw saddle self-taps -- with 2x M2.5 x 6 self-tappers
+# (PN 96877A150, ~2.5 mm bite into the ~2.8 mm molded pilots).  The pair
+# nearer the output end (+4.2) is left OPEN so the back-face 5264 connector
+# bay / bus harness stays unblocked (user).  Clearances: the tab stays
+# z >= -FEMUR_REAR_TAB_T = -5.5 with the heads FLUSH in their recesses (see
+# the head-recess note below), the swinging tibia arm's inner face passes
+# at z = -7 (~1.5 mm running clearance), and the reachable tibia-spine sweep
+# sector never points at the -X azimuth (the well walls already stand
+# there).  The +Y corner is relieved 0.25 mm below the knee clamp cap's
+# dropped tongue (CLAMP_SEAT_DROP) so the cap still seats.
+#
+# THE 4 mm BUMP, clarified (Aug 15 2026 bench photo, user: "4 mm ... this is
+# absolute max 4 mm and should probably be 3.5 to give some tolerance for the
+# bump on the sts motor on this side" / "this green part sticks out too far"):
+# the bump is ON THE BACK FACE, not just the end flare.  Measured from the
+# servo's -X (wire) END FACE across the back face there is only a short FLAT
+# recessed ledge -- it carries the rear molded hole pair (centres 2.4 mm
+# in) -- and then the case shell STEPS UP (~1.8 mm proud, the raised centre
+# platform around the 5264 bay).  Any printed tab lying on the back face must
+# stop on that ledge, else it lands on the step and the screws can never pull
+# it flush.  Aug 17 2026 bench remeasure with the tab printed (user: "make
+# [it] 1 mm longer? It has a tiny bit more space"): the flat ledge is a hair
+# under 5 mm, not the ~4 mm read off the photo, so the reach grew 3.5 -> 4.5
+# past the end face (x <= -18.2).  That retires the open KEYHOLE compromise
+# of the 3.5 mm tab: the Phi 2.7 holes (rims at -18.95) are now fully
+# ENCLOSED with 0.75 mm of rim wall, and the Phi 4.6 pan head overhangs the
+# +X edge by only 0.2 mm (effectively fully seated), still in free air BELOW
+# the step (head bears at z = -3.5; the step only reaches -1.8).
+#
+# HEAD RECESS (Aug 17 2026, user: "you also need to have room to countersink
+# the screw head on the side with two holes just like on the side with four
+# holes"): the tab is 2 mm THICKER than the screw shank and each hole gets a
+# Phi 5.2 straight counterbore 2 mm deep from the outer face, so the Phi 4.6
+# pan head sits FLUSH in a pocket (like the output plate's 4 countersunk
+# case screws) instead of proud.  The counterbore floor stays at z = -3.5 =
+# -SADDLE_CASE_SHANK, so the clamp shank (3.5 mm of plastic under the head)
+# and the 2.5 mm self-tap bite into the ~2.8 mm molded pilot are UNCHANGED --
+# recessing into the old 3.5 mm tab instead would have bottomed the M2.5 x 6
+# out in the pilot.  The outer face moves to z = -5.5; the swinging yoke
+# arm's inner face passes at z = -7, so the flush head keeps the same
+# ~1.5 mm running clearance the proud head had.  The Phi 5.2 counterbore rim
+# (-17.7) breaks out of the +X edge by 0.5 mm -- a shallow cosmetic notch in
+# the recess wall only (z -3.5..-5.5, below the case step); the head still
+# bears on a nearly-full-ring counterbore floor.
+FEMUR_REAR_TAB_SHANK_T    = 3.5  # mm -- plastic under the head = SADDLE_CASE_SHANK
+FEMUR_REAR_TAB_HEAD_CB    = 2.0  # mm -- head-recess counterbore depth (~pan head H)
+FEMUR_REAR_TAB_HEAD_CB_OD = 5.2  # mm -- counterbore bore over the Phi 4.6 pan head
+FEMUR_REAR_TAB_T = FEMUR_REAR_TAB_SHANK_T + FEMUR_REAR_TAB_HEAD_CB  # 5.5 (z -5.5..0)
+FEMUR_REAR_TAB_X1     = -18.2 # mm -- +X edge = -SERVO_BODY_W/2 + 4.5: the tab
+                              #       stops on the flat ledge, clear of the
+                              #       back-face step (bump) ~5 mm in (Aug 17
+                              #       2026 bench remeasure; was 3.5/-19.2)
+FEMUR_REAR_TAB_Y1     = 12.8  # mm -- +Y edge (Phi 4.6 screw head fully seated);
+                              #       -Y edge is flush under the -Y wall (-16.9)
+# Riser height is CAPPED at 3.5 for the same bump family: on the wire (-X)
+# end the shell also flares outward starting ~3.7-4 mm above the rear mount
+# plane, so printed material standing next to that end face must stay BELOW
+# z ~ 3.5.  The riser exists only to fuse the tab into the -X wall bottom --
+# 3.5 mm of bury plus the full plate seam is plenty for two M2.5 self-tappers.
+FEMUR_REAR_TAB_FUSE_Z = 3.5   # mm -- riser burying into the -X wall bottom
+
+
 def _sandwich_fixed_side(*, end_face_bolts: bool = True,
-                         farwall_pad: bool = False) -> trimesh.Trimesh:
+                         farwall_pad: bool = False,
+                         rear_tab: bool = False,
+                         wire_exit: bool = True) -> trimesh.Trimesh:
     """The FIXED printed side of a sandwich joint: JUST the STS3215
     front-face mount cradle (4 walls + output-face mount lip + end-face body
     bolts).  The back is now OPEN -- the PASSIVE disc horn rides the servo's
@@ -5849,10 +6023,22 @@ def _sandwich_fixed_side(*, end_face_bolts: bool = True,
     the FEA).  The pad is unioned BEFORE the wire-exit diff so the
     harness corridor still pierces it.
 
-    The serial-bus harness exits the body's +X bottom-outboard corner via
-    the L-shaped wire-exit corridor + boot-clearance channel (well-local,
-    shared with every cradle) so ``check_wire_slot`` finds a clear exit
-    and the molded boot has a pocket to seat in."""
+    ``rear_tab=True`` adds the Aug 2026 rear retention tab under the open
+    back face with 2x M2.5 self-tap holes into the servo's rear molded
+    hole pair nearer the -X end (see the FEMUR_REAR_TAB_* block).  Both
+    remaining callers use it: the femur knee cradle (Aug 2026) and, since
+    Aug 17 2026, the coxa hip cradle (user: "copy that same part to be on
+    the coxa link as well").
+
+    ``wire_exit=False`` (Aug 2026 flatten pass, knee cradle; Aug 16 2026
+    also the hip cradle -- user: "a weird cutout channel on the opposite
+    side ... pointless") skips the L-shaped wire-exit corridor +
+    boot-clearance channel entirely: the real STS3215 has NO +X molded
+    boot -- its bus cables leave via the BACK-face 5264 ports through
+    the sandwich's open back -- so the corridor only pierced solid
+    walls for nothing.  NO caller passes wire_exit=True any more; the
+    default survives only so the legacy geometry stays reproducible for
+    verifier self-tests."""
     body = _servo_well_solid(end_face_bolts=end_face_bolts)
     if farwall_pad:
         pad_x0 = WELL_W / 2.0 - 1.0                       # 1 mm wall bite
@@ -5862,7 +6048,54 @@ def _sandwich_fixed_side(*, end_face_bolts: bool = True,
                     pad_z1),
                    center=(0.5 * (pad_x0 + pad_x1), 0.0, pad_z1 / 2.0))
         body = _union(body, pad)
-    return _diff(body, _wire_exit_slot())
+    cuts = [_wire_exit_slot()] if wire_exit else []
+    if rear_tab:
+        tab_x0 = -WELL_W / 2.0                            # flush with -X wall outer
+        tab_y0 = -WELL_D / 2.0                            # flush under the -Y wall
+        plate = _box((FEMUR_REAR_TAB_X1 - tab_x0,
+                      FEMUR_REAR_TAB_Y1 - tab_y0, FEMUR_REAR_TAB_T),
+                     center=(0.5 * (tab_x0 + FEMUR_REAR_TAB_X1),
+                             0.5 * (tab_y0 + FEMUR_REAR_TAB_Y1),
+                             -FEMUR_REAR_TAB_T / 2.0))
+        # Riser burying into the -X wall bottom so the tab is solidly fused
+        # (not just a coplanar face seam at z = 0).  Entirely inside the
+        # wall's own footprint, so it adds no outside material.
+        wall_in_x = -(SERVO_BODY_W / 2.0 + WELL_BODY_CL)
+        riser = _box((wall_in_x - tab_x0, FEMUR_REAR_TAB_Y1 - tab_y0,
+                      FEMUR_REAR_TAB_FUSE_Z),
+                     center=(0.5 * (tab_x0 + wall_in_x),
+                             0.5 * (tab_y0 + FEMUR_REAR_TAB_Y1),
+                             FEMUR_REAR_TAB_FUSE_Z / 2.0))
+        body = _union(body, plate, riser)
+        # Relief shelf under the knee clamp cap's dropped tongue (+Y corner):
+        # the tongue occupies y >= SERVO_BODY_D/2 - CLAMP_TONGUE_INTERF down
+        # to z = -CLAMP_SEAT_DROP; shave the tab 0.25 below it there.
+        tongue_y0 = SERVO_BODY_D / 2.0 - CLAMP_TONGUE_INTERF   # +11.4
+        relief = _box((abs(wall_in_x - (FEMUR_REAR_TAB_X1 + 0.5)) + 1.0,
+                       (FEMUR_REAR_TAB_Y1 + 2.0) - (tongue_y0 - 0.25),
+                       CLAMP_SEAT_DROP + 0.25),
+                      center=(0.5 * (wall_in_x + FEMUR_REAR_TAB_X1 + 0.5),
+                              0.5 * ((tongue_y0 - 0.25) + FEMUR_REAR_TAB_Y1 + 2.0),
+                              -(CLAMP_SEAT_DROP + 0.25) / 2.0))
+        cuts.append(relief)
+        # 2x M2.5 self-tap clearance holes onto the rear molded pair nearer
+        # the -X end (body-frame x = SADDLE_CASE_HOLE_X2 + SERVO_OUTPUT_X),
+        # each with a head-recess counterbore from the OUTER face up to the
+        # z = -3.5 shank plane so the pan head sits flush (Aug 17 2026,
+        # user: "room to countersink the screw head ... just like on the
+        # side with four holes").
+        hx = SADDLE_CASE_HOLE_X2 + SERVO_OUTPUT_X          # -20.3
+        for sy in (+1.0, -1.0):
+            h = _cyl(SADDLE_CASE_SCREW_OD / 2.0, FEMUR_REAR_TAB_T + 4.0)
+            h.apply_translation([hx, sy * SADDLE_CASE_HOLE_Y,
+                                 -FEMUR_REAR_TAB_T / 2.0])
+            cuts.append(h)
+            cb_h = FEMUR_REAR_TAB_HEAD_CB + 1.0            # 1 mm overshoot below
+            cb = _cyl(FEMUR_REAR_TAB_HEAD_CB_OD / 2.0, cb_h)
+            cb.apply_translation([hx, sy * SADDLE_CASE_HOLE_Y,
+                                  -FEMUR_REAR_TAB_SHANK_T - cb_h / 2.0])
+            cuts.append(cb)
+    return _diff(body, *cuts)
 
 
 def make_servo_clamp_cap() -> trimesh.Trimesh:
@@ -5879,7 +6112,15 @@ def make_servo_clamp_cap() -> trimesh.Trimesh:
       * a centre TONGUE that reaches -Y into the open face and presses the
         servo body's +Y face (slight interference so the bolts clamp it);
       * a top LIP that laps the body's +Y front-face edge to stop +Z
-        pull-out, matching the cradle's -Y / corner lip.
+        pull-out, matching the cradle's -Y / corner lip;
+      * a back-face HOOK (Aug 18-19 2026) near the -X end of the +Y edge:
+        a 10 mm-wide wall dropping CLAMP_BACK_HOOK_T = 5.5 mm past the back
+        plane plus an inboard SHELF (below the servo's raised centre
+        platform) lapping 7.4 mm over the back of the motor toward its
+        middle -- a -Z backstop against sliding out the open back, placed
+        to leave the plug-cable corridor open beside it and to clear the
+        yoke pad sweep and the cradle's rear tab (see the
+        CLAMP_BACK_HOOK_* constants).
 
     Same part for the hip-pitch (coxa_link) and knee (femur_link's knee
     cradle) joints -- 2 per leg, 12 per robot.  Prints flat on its +Z face.
@@ -5934,8 +6175,31 @@ def make_servo_clamp_cap() -> trimesh.Trimesh:
     lip = _box((cav_w, lip_y1 - lip_y0, WELL_H - WELL_RIM_Z),
                center=(0.0, 0.5 * (lip_y0 + lip_y1),
                        0.5 * (WELL_RIM_Z + WELL_H)))
+
+    # Back-face HOOK (Aug 18 2026, user; rev 3): an L over the back of the
+    # motor on the -X half of the +Y edge -- a WALL dropping past the back
+    # plane plus a SHELF turning inboard UNDER the back face (below the
+    # raised centre platform) so the cap positively catches the body.  See
+    # the CLAMP_BACK_HOOK_* constants block for the exact keep-outs.  The
+    # wall spans y from the tongue's press face out to the flange outer face
+    # and buries 1 mm up into both (z +1) so it is solidly fused, not a
+    # coplanar seam; the shelf overlaps the wall 0.5 mm in y for the same
+    # reason.
+    hook_wall = _box((CLAMP_BACK_HOOK_X1 - CLAMP_BACK_HOOK_X0,
+                      flange_y1 - tongue_y0, CLAMP_BACK_HOOK_T + 1.0),
+                     center=(0.5 * (CLAMP_BACK_HOOK_X0 + CLAMP_BACK_HOOK_X1),
+                             0.5 * (tongue_y0 + flange_y1),
+                             0.5 * (1.0 - CLAMP_BACK_HOOK_T)))
+    shelf_y1 = tongue_y0 + 0.5
+    hook_shelf = _box((CLAMP_BACK_HOOK_X1 - CLAMP_BACK_HOOK_X0,
+                       shelf_y1 - CLAMP_BACK_HOOK_Y0,
+                       CLAMP_BACK_HOOK_T - CLAMP_BACK_HOOK_SHELF_Z),
+                      center=(0.5 * (CLAMP_BACK_HOOK_X0 + CLAMP_BACK_HOOK_X1),
+                              0.5 * (CLAMP_BACK_HOOK_Y0 + shelf_y1),
+                              -0.5 * (CLAMP_BACK_HOOK_SHELF_Z + CLAMP_BACK_HOOK_T)))
+
     # The lip must clear the dia-20 disc horn (centred on +SERVO_OUTPUT_X).
-    body = _union(flange, tongue, lip)
+    body = _union(flange, tongue, lip, hook_wall, hook_shelf)
     horn = _cyl(HORN_CLEAR_OPENING_OD / 2.0, (WELL_H - WELL_RIM_Z) * 4.0)
     horn.apply_translation([SERVO_OUTPUT_X, 0.0, WELL_RIM_Z])
 
@@ -6126,7 +6390,8 @@ def _sandwich_moving_yoke(*, tube_socket: bool = True,
                           socket_pin_inset: float = None,
                           socket_pin: bool = True,
                           reinforced: bool = None,
-                          spine_extra_t: float = 0.0) -> trimesh.Trimesh:
+                          spine_extra_t: float = 0.0,
+                          pad_extra_reach: float = 0.0) -> trimesh.Trimesh:
     """The MOVING printed link of a sandwich joint: a C-clevis straddling
     the fixed servo/housing stack.
 
@@ -6139,6 +6404,11 @@ def _sandwich_moving_yoke(*, tube_socket: bool = True,
     (historical: the two-part femur used SHORT sockets; since the Jul 2026
     one-piece femur only the tibia knee yoke sockets a tube, at the default
     size).
+
+    ``pad_extra_reach`` deepens BOTH arms' reach-down pads by that many mm
+    past the nominal disc faces (Aug 2026 bench fit: the tibia knee yoke
+    AND the femur hip yoke both pass YOKE_PAD_EXTRA_REACH = 0.5 to close
+    a measured ~1 mm total clevis gap on each).
 
     ``spine_extra_t`` thickens the spine plate OUTBOARD (+X) by that many
     mm (Aug 2026 tibia spine-plate field crack; the tibia knee yoke passes
@@ -6208,7 +6478,7 @@ def _sandwich_moving_yoke(*, tube_socket: bool = True,
         cuts.append(centre)
         return _diff(arm, *cuts)
 
-    reach = YOKE_ARM_PAD + YOKE_SEAT_INTERF                        # symmetric, snug
+    reach = YOKE_ARM_PAD + YOKE_SEAT_INTERF + pad_extra_reach      # symmetric, snug
     top = _disc_arm(JOINT_HORN_TOP_Z, +1, reach)                   # driven (flush front)
     bot = _disc_arm(JOINT_HORN_BOT_Z, -1, reach)                   # passive (rear boss)
     top_z0 = JOINT_HORN_TOP_Z
@@ -6337,17 +6607,28 @@ FEMUR_YOKE_SPINE_PAD_T = 4.0   # mm added OUTBOARD to the femur yoke spine
 #     p95 1.48 -> 0.81 MPa, region peak 17 -> 9.7; pilot vicinity -70%;
 #     lateral-case global peak 36 -> 16 MPa vs 22.7 derated yield) with
 #     the plate strip unchanged from baseline.
-#   * T = 3.5 (1 mm bite into the wall for a volumetric union): the
-#     wire-exit corridor only reaches WIRE_SLOT_X_PAST_WALL = 4 past the
-#     wall face, so 3.5 keeps the harness exit pierced with margin.
-#   * half-Y = 13 < wall end 16.9: keeps the pad clear of the clamp-cap
-#     flange seat and keeps its swept corner (r ~26.2 about the knee
-#     axis) inside the cap flange's existing r ~29.1 sweep envelope, so
-#     the tibia yoke clears it everywhere the cap already fit.
+#   * T = 3.5 (1 mm bite into the wall for a volumetric union).
+#   * half-Y: FULL wall width (WELL_D/2 = 16.9) since the Aug 2026
+#     flatten pass (user: "this top can just be a flat wall with no
+#     weird cutouts") -- the outer face is now ONE flat rectangle over
+#     the whole wall band instead of a raised 26 mm pad ("two layers of
+#     a wall").  Clearances re-checked at full width: the pad's swept
+#     corner (r ~28.3 about the knee axis) stays inside the cap
+#     flange's existing r ~29.1 sweep envelope, and its +Y face is
+#     exactly COPLANAR with the wall end face the cap flange seats on
+#     (no overlap; mesh_overlap guards it).  The z span still STOPS at
+#     the plate underside (WELL_RIM_Z) -- that is the FEA lesson above,
+#     not a styling choice: the remaining small step under the 4 mm top
+#     plate must stay.
+# The same Aug 2026 pass DELETED the wire-exit L-corridor + boot channel
+# from the knee cradle (``_sandwich_fixed_side(wire_exit=False)``): the
+# real STS3215 exits its bus cables via the BACK-face 5264 ports through
+# the sandwich's open back (see the WIRE_BOOT_* legacy note), so the
+# DS3225-era corridor pierced the crack wall for nothing.
 # Knee cradle only -- the coxa hip cradle keeps the stock wall (its far
 # wall never cracked; revisit if it does).
 FEMUR_KNEE_FARWALL_PAD_T      = 3.5   # mm proud of the far wall outer face
-FEMUR_KNEE_FARWALL_PAD_HALF_Y = 13.0  # mm pad half-width along well Y
+FEMUR_KNEE_FARWALL_PAD_HALF_Y = WELL_D / 2.0  # 16.9 -- full flat wall face
 
 
 def _femur_fused_spar() -> trimesh.Trimesh:
@@ -6420,19 +6701,19 @@ def _servo_envelope() -> trimesh.Trimesh:
     idler = _cyl((SERVO_OUTPUT_BORE_OD - 1.0) / 2.0, 1.5)
     idler.apply_translation([SERVO_OUTPUT_X, 0, -0.75])
 
-    # Legacy +X stand-in "boot" (see WIRE_BOOT_* note): NOT the real
-    # STS3215 exit.  Real dual 5264 ports are on the BACK face (−Z),
-    # centre/−X half (STS3215_PORT_*); harness routes attach there.
-    boot_x_centre = SERVO_BODY_W / 2.0 + WIRE_BOOT_PROTRUSION / 2.0
-    boot_z_centre = WIRE_BOOT_Z_BASE + WIRE_BOOT_H / 2.0
-    boot = _box((WIRE_BOOT_PROTRUSION, WIRE_BOOT_W, WIRE_BOOT_H),
-                center=(boot_x_centre, 0.0, boot_z_centre))
+    # Legacy +X stand-in "boot" REMOVED (Aug 2026 flatten pass): the real
+    # STS3215 has NO DS3225-style molded boot on the +X end -- its dual
+    # 5264 ports are on the BACK face (−Z), centre/−X half (STS3215_PORT_*),
+    # and harness routes attach there.  The WIRE_BOOT_* constants survive
+    # only for the legacy corridor cuts still present in the hip/yaw
+    # cradles (harmless routing room); the knee cradle's far wall is now
+    # solid, which a modeled boot box would have interpenetrated.
     # Tiny visual markers at the real port cluster (back face, −X half).
     port_a = _box((6.0, 4.0, 2.0),
                   center=(STS3215_PORT_X_MM, 3.5, STS3215_PORT_Z_MM))
     port_b = _box((6.0, 4.0, 2.0),
                   center=(STS3215_PORT_X_MM, -3.5, STS3215_PORT_Z_MM))
-    return _union(body, coupling, spline, idler, boot, port_a, port_b)
+    return _union(body, coupling, spline, idler, port_a, port_b)
 
 
 def _servo_pocket() -> trimesh.Trimesh:
@@ -6935,15 +7216,11 @@ def make_chassis_top() -> trimesh.Trimesh:
     (see check_workspace_self_collision in _verify_prototype.py).  No
     per-leg bracket cutouts or M3 bolt holes are needed because the
     bottom plate already takes them.  Only the 4 centre-hole standoff
-    bolts (battery/electronics tray + arm baseplate) remain -- PLUS,
-    May 2026 "essentials" pass, 2 x switch_holster mount bosses on
-    the +X half of the plate at SWITCH_HOLSTER_BOLT_CHASSIS_XY.
-    Each boss is a Phi SWITCH_HOLSTER_BOSS_OD = 8 mm cylinder rising
-    SWITCH_HOLSTER_BOSS_H = 5 mm above the chassis_top top face, with
-    a Phi INSERT_M3_PILOT_OD = 4 mm x INSERT_M3_PILOT_DEPTH = 6 mm
-    heat-set insert pocket opening UPWARD from the boss top.  The
-    switch_holster ear sits ON TOP of these 2 bosses; an M3 x 10 SHCS
-    threads DOWN from above the ear into the insert.
+    bolts (battery/electronics tray + arm baseplate) remain.
+
+    (Aug 16 2026: the 2 switch_holster mount bosses -- Phi 8 mm, 5 mm
+    proud, with M3 heat-set inserts -- are RETIRED.  The user velcros
+    the holster to the deck, so the plate top face is completely flat.)
 
     Yaw-shaft pass-through cutouts (May 2026 chassis-bottom-integrated
     yaw-cradle redesign):
@@ -6999,45 +7276,9 @@ def make_chassis_top() -> trimesh.Trimesh:
         yaw_passthroughs.append(hole)
     plate = _diff(plate, *yaw_passthroughs)
 
-    # 2 switch_holster mounting bosses on the +X half of the plate.
-    # Each boss is a Phi SWITCH_HOLSTER_BOSS_OD cylinder centred on
-    # chassis (SWITCH_HOLSTER_BOLT_CHASSIS_XY[i]) that extends
-    # SWITCH_HOLSTER_BOSS_H above the plate's TOP face (= z =
-    # +CHASSIS_TOP_T/2 in plate-local coords, since ``_hex_plate``
-    # extrudes symmetrically about z = 0).  Then the Phi
-    # INSERT_M3_PILOT_OD insert pocket opens UPWARD from the boss top,
-    # depth INSERT_M3_PILOT_DEPTH (+0.4 mm overdrill for debris
-    # clearance, same convention as the cradle / battery_holder /
-    # electronics_tray insert pockets).
-    #
-    # Aug 2026 half-thickness plate: the 6.2 mm pocket no longer fits in
-    # a 3 mm boss + 2 mm plate, so SWITCH_HOLSTER_BOSS_H grew 3 -> 5 mm.
-    # Total column 5 + 2 = 7 mm keeps the same 0.8 mm of plastic under
-    # the pocket bottom as the old 4 mm plate, and the plate underside
-    # stays dead flat (an under-plate pad would trip the flat-bottom
-    # print guard on this bed-flat FDM part).
-    bosses = []
-    pockets = []
-    boss_h = SWITCH_HOLSTER_BOSS_H
-    boss_top_z = CHASSIS_TOP_T / 2.0 + boss_h
-    pocket_overdrill_h = INSERT_M3_PILOT_DEPTH + 0.4
-    for (cx, cy) in SWITCH_HOLSTER_BOLT_CHASSIS_XY:
-        # Boss: a Phi BOSS_OD cylinder centred at the bolt position,
-        # extending from a tiny bit BELOW plate-top (z = -0.2 mm, for
-        # clean CSG-union with the plate) UP to boss_top_z.
-        boss_bot_z = -0.2
-        boss = _cyl(SWITCH_HOLSTER_BOSS_OD / 2.0, boss_top_z - boss_bot_z)
-        boss.apply_translation([cx, cy, 0.5 * (boss_top_z + boss_bot_z)])
-        bosses.append(boss)
-
-        # Insert pocket: opens UPWARD from boss top, extends DOWN by
-        # INSERT_M3_PILOT_DEPTH + 0.4 (overdrill).  Pocket bottom at
-        # boss_top_z - 6.2 = -0.2, i.e. 0.8 mm above the plate underside
-        # at -1.0.
-        pocket = _cyl(INSERT_M3_PILOT_OD / 2.0, pocket_overdrill_h)
-        pocket_centre_z = boss_top_z - INSERT_M3_PILOT_DEPTH / 2.0
-        pocket.apply_translation([cx, cy, pocket_centre_z])
-        pockets.append(pocket)
+    # (Aug 16 2026: the 2 switch_holster insert bosses + pockets that
+    # used to be unioned here are RETIRED -- the holster velcros to the
+    # flat deck now.)
 
     # Electronics-deck standoff-column through-holes (Jun 2026 deck
     # redesign).  The Uno Q tray (lower) + buck tray (upper) bolt onto 4
@@ -7054,7 +7295,7 @@ def make_chassis_top() -> trimesh.Trimesh:
         h.apply_translation([cx, cy, 0.0])
         column_holes.append(h)
 
-    top = _diff(_union(plate, *bosses), *pockets, *column_holes)
+    top = _diff(plate, *column_holes)
 
     # Coaxial-coxa clearance clip (Jun 2026 re-centre): with the hip
     # bracket centred on the yaw axis, the coxa servo body sweeps INWARD
@@ -7317,6 +7558,22 @@ def make_chassis_bottom() -> trimesh.Trimesh:
 
     # Fold the flat floor slab onto the underside -> single ~8 mm part.
     merged = _union(high, _chassis_bottom_floor_solid())
+
+    # Standoff SEAT PADS (Aug 16 2026): the inboard-shifted harness ports
+    # clip the corner of every standoff site's seat annulus (see the
+    # CHASSIS_STANDOFF_SEAT_PAD_OD block).  Union a full-stack Phi 9 pad
+    # at each site BEFORE the through-cuts below re-drill the Phi 3.4
+    # bore, restoring a solid ring for the brass standoff base (+2 face)
+    # and the M3 x 14 head (-6 face).  Pad spans z [-6, +2] exactly so
+    # the bed face stays flat and nothing pokes into the inter-plate bay.
+    pad_top_z = CHASSIS_PLATE_T / 2.0                             # +2
+    pad_bot_z = CHASSIS_SPLIT_Z - CHASSIS_BOTTOM_FLOOR_T          # -6
+    pads = []
+    for (cx, cy) in CHASSIS_STANDOFF_HOLES_XY:
+        pad = _cyl(CHASSIS_STANDOFF_SEAT_PAD_OD / 2.0, pad_top_z - pad_bot_z)
+        pad.apply_translation([cx, cy, 0.5 * (pad_top_z + pad_bot_z)])
+        pads.append(pad)
+    merged = _union(merged, *pads)
 
     # Re-cut the through-features the floor slab would otherwise plug below the
     # plate underside.  The cutters are tall enough to clear the full merged
@@ -8001,29 +8258,34 @@ def make_wago5_visual() -> trimesh.Trimesh:
 
 
 def _chassis_wago_tray_solid() -> trimesh.Trimesh:
-    """Wall set of ONE two-bay corner power-Wago tray, INTEGRATED into
+    """Wall set of ONE single-bay corner power-Wago tray, INTEGRATED into
     the chassis_bottom top face (late-Aug 2026 -- replaces the separate
     printed + VHB-taped ``make_wago_mount``; -6 parts, no tape, and the
     inward wire pull is reacted by solid plate instead of adhesive).
 
-    Two side walls + centre divider + outer (outboard) wall growing
-    straight out of the plate top face; no floor (the plate IS the
-    floor) and no over-edge lip.  Wire entries + levers face INBOARD
-    (local -X = toward the chassis centre); the walls stop 1.8 mm below
-    the nut tops so the pair is easy to grip.  The chassis prints belly
-    on the bed / tower up, so these top-face walls print as plain
-    vertical extrusions -- no supports.
+    Aug 16 2026: ONE 5-port 221-415 bay per corner (user -- was a two-bay
+    3-port V+/GND pair), PRESS-FIT: WAGO_MOUNT_BAY_CLEAR is now a 0.15 mm
+    nominal interference, so the nut wedges between the walls instead of
+    rattling.
+
+    Two side walls + outer (outboard) wall growing straight out of the
+    plate top face; no floor (the plate IS the floor), no divider, no
+    over-edge lip.  Wire entries + levers face INBOARD (local -X = toward
+    the chassis centre); the walls stop ~1.9 mm below the nut top so the
+    nut is easy to grip.  The chassis prints belly on the bed / tower up,
+    so these top-face walls print as plain vertical extrusions -- no
+    supports.
 
     Local frame: origin = bay-envelope centre ON the plate top face,
     +X = outboard (radial), +Y = tangential, +Z = up.  Walls extend
     1 mm below z = 0 so the union into the plate is volumetric, never a
     coplanar kiss.
     """
-    bay_w = WAGO3_W + WAGO_MOUNT_BAY_CLEAR      # 19.3 tangential (Y)
-    bay_d = WAGO3_D + WAGO_MOUNT_BAY_CLEAR      # 19.2 radial (X)
+    bay_w = WAGO5_W + WAGO_MOUNT_BAY_CLEAR      # 29.85 tangential (Y)
+    bay_d = WAGO5_D + WAGO_MOUNT_BAY_CLEAR      # 18.45 radial (X)
     t = WAGO_MOUNT_WALL_T
     half_x = bay_d / 2.0 + t                    # outer wall + front ledge
-    half_y = bay_w + 1.5 * t                    # 2 bays + divider + 2 walls
+    half_y = bay_w / 2.0 + t                    # 1 bay + 2 side walls
     emb = 1.0                                   # plate-overlap embed depth
     h = WAGO_MOUNT_WALL_H + emb
     z_c = WAGO_MOUNT_WALL_H / 2.0 - emb / 2.0
@@ -8033,8 +8295,7 @@ def _chassis_wago_tray_solid() -> trimesh.Trimesh:
              center=(0, s * (half_y - t / 2.0), z_c))
         for s in (-1.0, 1.0)
     ]
-    divider = _box((2 * half_x, t, h), center=(0, 0, z_c))
-    return _union(outer, *walls, divider)
+    return _union(outer, *walls)
 
 
 def wago_tray_corner_transforms() -> "list[np.ndarray]":
@@ -8047,7 +8308,7 @@ def wago_tray_corner_transforms() -> "list[np.ndarray]":
         translation_matrix as _T,
         rotation_matrix as _R,
     )
-    bay_d = WAGO3_D + WAGO_MOUNT_BAY_CLEAR
+    bay_d = WAGO5_D + WAGO_MOUNT_BAY_CLEAR
     r0 = WAGO_MOUNT_EDGE_R - WAGO_MOUNT_WALL_T - bay_d / 2.0
     out = []
     for i in range(6):
@@ -8189,18 +8450,14 @@ def asbuilt_electronics_local_parts(
              @ _R(np.deg2rad(MPU_ASBUILT_YAW_DEG), [0, 0, 1]))
     out.append(("mpu6050", make_mpu6050_visual(), mpu_M))
 
-    # Per-leg power splices: one V+/GND pair of 3-port Wagos in the
-    # two-bay tray walls INTEGRATED into the chassis_bottom top face at
-    # each hex corner flat (between adjacent yaw cradles), wire entries
-    # facing the chassis centre.  The walls are part of the chassis
-    # mesh; only the nuts are placed here, sitting directly on the
-    # plate top face (no tray floor since the late-Aug 2026 merge).
-    bay_w = WAGO3_W + WAGO_MOUNT_BAY_CLEAR
+    # Per-leg power splices: ONE 5-port Wago 221-415 press-fit in the
+    # single-bay tray walls INTEGRATED into the chassis_bottom top face
+    # at each hex corner flat (Aug 16 2026, user -- was a V+/GND pair of
+    # 3-port nuts in a two-bay tray), wire entries facing the chassis
+    # centre.  The walls are part of the chassis mesh; only the nut is
+    # placed here, sitting directly on the plate top face.
     for M in wago_tray_corner_transforms():
-        for s in (-1.0, 1.0):
-            dy = s * (bay_w + WAGO_MOUNT_WALL_T) / 2.0
-            out.append(("wago_power", make_wago3_visual(),
-                        M @ _T([0.0, dy, 0.0])))
+        out.append(("wago_power", make_wago5_visual(), M))
 
     # Data Wagos under chassis, one per hex VERTEX azimuth (see WAGO_DATA_R:
     # the leg azimuths at low r now belong to the under-belly battery
@@ -8307,57 +8564,40 @@ def make_bec_cradle() -> trimesh.Trimesh:
 def make_switch_holster() -> trimesh.Trimesh:
     """Printed holster for the anti-spark XT60 on/off switch.
 
-    Mounts to chassis_top's +X edge between the L0 and L5
-    coxa_brackets.  Two-part body:
+    VELCROS to chassis_top's +X edge between the L0 and L5
+    coxa_brackets (Aug 16 2026: the bolt-down mounting ear + the 2
+    chassis_top insert bosses are RETIRED -- the user velcros the
+    holster down instead).  Single-part body:
 
-      * SOCKET (+X half): a 5-walled open-top box that snugs the
+      * SOCKET: a 5-walled open-top box that snugs the
         switch body in with SWITCH_BODY_CL mm clearance per axis.
         Toggle pokes out a SWITCH_TOGGLE_W x SWITCH_TOGGLE_H
         cutout in the +X end wall (= the chassis +X vertex); the
         2 XT60 pigtails exit out 2 x Phi SWITCH_PIGTAIL_OD = 6 mm
-        holes in the -X end wall.
-      * MOUNTING EAR (-X half): a flat SWITCH_EAR_L x outer_w x
-        SWITCH_HOLSTER_FLOOR plate that sits on chassis_top's TOP
-        face.  Two M3 brass heat-set inserts (McMaster 94459A130)
-        are pressed into Phi INSERT_M3_PILOT_DEPTH = 6 mm pockets
-        opening DOWNWARD at the ear's BOTTOM face -- 2 x M3 x 12
-        SHCS thread UP from below chassis_top into them.  Bolt
-        head bears on chassis_top's BOTTOM face; the ear's
-        plastic clamps chassis_top from above.
+        holes in the -X end wall.  The SWITCH_HOLSTER_FLOOR = 4 mm
+        bottom slab is solid and dead flat -- the velcro face.
 
     Local frame (mesh origin = MIDPOINT of the holster's X extent
     on chassis_top's TOP face):
         +X = toggle-exit direction (toggle pokes out +X face)
         +Y = tangential (along the chassis +X edge)
-        +Z = UP (ear bottom at z = 0, socket cavity opens UP at z
+        +Z = UP (floor bottom at z = 0, socket cavity opens UP at z
               = SWITCH_HOLSTER_FLOOR)
 
     CHASSIS-frame placement: ``(SWITCH_HOLSTER_CENTRE_X,
-    SWITCH_HOLSTER_CENTRE_Y, CHASSIS_TOP_TOP_Z)``.
-    ``make_chassis_top`` adds matching 2 x
-    Phi BRACKET_BOLT_HOLE = 3.4 mm clearance holes at
-    SWITCH_HOLSTER_BOLT_CHASSIS_XY.
+    SWITCH_HOLSTER_CENTRE_Y, CHASSIS_TOP_TOP_Z)`` -- flat on the deck.
     """
     outer_l = SWITCH_HOLSTER_OUTER_L
     outer_w = SWITCH_HOLSTER_OUTER_W
     socket_l = SWITCH_SOCKET_OUTER_L
 
-    # SOCKET solid block on the +X half.
-    socket_centre_x = outer_l / 2.0 - socket_l / 2.0
+    # SOCKET solid block (the whole body; ear retired).
+    socket_centre_x = outer_l / 2.0 - socket_l / 2.0    # = 0 now
     socket_outer_h = SWITCH_BODY_H + SWITCH_BODY_CL + SWITCH_HOLSTER_FLOOR
-    socket_block = _box(
+    block = _box(
         (socket_l, outer_w, socket_outer_h),
         center=(socket_centre_x, 0.0, socket_outer_h / 2.0),
     )
-
-    # EAR solid block on the -X half (flat).
-    ear_centre_x = -outer_l / 2.0 + SWITCH_EAR_L / 2.0
-    ear_block = _box(
-        (SWITCH_EAR_L, outer_w, SWITCH_HOLSTER_FLOOR),
-        center=(ear_centre_x, 0.0, SWITCH_HOLSTER_FLOOR / 2.0),
-    )
-
-    block = _union(socket_block, ear_block)
 
     # Switch body cavity (open top, inside socket block).
     cavity_l = SWITCH_BODY_L + 2.0 * SWITCH_BODY_CL
@@ -8394,23 +8634,9 @@ def make_switch_holster() -> trimesh.Trimesh:
         ch.apply_translation([cx, cy, cz])
         pigtails.append(ch)
 
-    # 2 M3 bolt clearance holes through the ear, top to bottom.
-    # The bolt enters from ABOVE (head bears on the ear's top face),
-    # passes DOWN through the Phi BRACKET_BOLT_HOLE = 3.4 mm
-    # clearance hole, and threads into the brass heat-set insert
-    # that lives in the matching chassis_top boss (see
-    # ``make_chassis_top``).  Insert is in chassis_top so the
-    # driver clearance probed by ``check_screwdriver_access``
-    # extends UPWARD into open air, not down into the chassis
-    # interior where the electronics_tray + battery_holder live.
-    clearance_holes = []
-    for (bx, by) in SWITCH_HOLSTER_BOLT_OFFSETS:
-        hole = _cyl(BRACKET_BOLT_HOLE / 2.0, SWITCH_HOLSTER_FLOOR * 4.0)
-        # Centre the cut vertically on the ear (ear z in [0, FLOOR]).
-        hole.apply_translation([bx, by, SWITCH_HOLSTER_FLOOR / 2.0])
-        clearance_holes.append(hole)
-
-    return _diff(block, cavity, toggle, *pigtails, *clearance_holes)
+    # (Aug 16 2026: the 2 M3 ear clearance holes are retired with the
+    # bolt-down mount -- velcro needs a flat, hole-free floor.)
+    return _diff(block, cavity, toggle, *pigtails)
 
 
 def make_belly_stilt() -> trimesh.Trimesh:
@@ -10535,11 +10761,12 @@ def make_foot_boot(*, extra_tip: float = 0.0) -> trimesh.Trimesh:
     """TPU 95A boot pressed over the tibia CF-tube end (Aug 2026 --
     replaces tibia_foot_fitting + foot_pad + the M3x16/nyloc hinge).
 
-    One revolved solid: a 3 mm-wall sleeve that stretches over the last
-    FOOT_BOOT_SOCKET_DEPTH mm of the Ø8 tube (Ø7.7 bore = 0.3 mm
-    diametral interference), closed by a FOOT_BOOT_TIP_L solid tip whose
-    FLAT chamfer-rimmed face is the ground contact.  Print tip-face on
-    the bed, bore up -- no supports, flat bottom.
+    One revolved solid: a ~3 mm-wall sleeve over the last
+    FOOT_BOOT_SOCKET_DEPTH mm of the Ø8 tube (Ø8.1 bore -- same slip fit
+    as the tibia yoke's tube socket; see FOOT_BOOT_BORE_D for the two
+    rounds of bench loosening), closed by a FOOT_BOOT_TIP_L solid tip
+    whose FLAT chamfer-rimmed face is the ground contact.  Print
+    tip-face on the bed, bore up -- no supports, flat bottom.
 
     Local frame matches the old fitting: origin at the tube end on the
     tube axis, tube enters from -X, tip face at +(FOOT_BOOT_TIP_L +
@@ -10578,6 +10805,42 @@ def make_foot_boot_plus4() -> trimesh.Trimesh:
     ``stl_prototype/`` set).
     """
     return make_foot_boot(extra_tip=FOOT_BOOT_SHORT_EXTRA)
+
+
+def make_foot_boot_cone() -> trimesh.Trimesh:
+    """EXPERIMENTAL conical foot boot (Aug 17 2026) -- same bore, socket
+    depth and overall length as ``make_foot_boot``, but with a conical
+    silhouette and a small Phi FOOT_BOOT_CONE_TIP_OD ground contact.  See
+    the FOOT_BOOT_CONE_* constants block for the shape rationale (wall
+    limits, mouth-down printing, internal 45-deg blind-end cone).
+
+    Same local frame as ``make_foot_boot``: origin at the tube end on the
+    tube axis, tube enters from -X, tip face at +FOOT_BOOT_TIP_L."""
+    tip_l = FOOT_BOOT_TIP_L
+    total_l = FOOT_BOOT_SOCKET_DEPTH + tip_l
+    r_mouth = FOOT_BOOT_CONE_MOUTH_OD / 2.0
+    r_bot = FOOT_BOOT_CONE_BOT_OD / 2.0
+    r_tip = FOOT_BOOT_CONE_TIP_OD / 2.0
+    r_bore = FOOT_BOOT_BORE_D / 2.0
+    lead = FOOT_BOOT_MOUTH_LEAD
+    # Revolved profile (r, z): z = 0 at the ground tip face, +z toward the
+    # open mouth.  The blind bore end is a 45-deg internal cone whose rim
+    # sits at z = tip_l, so the tube's end ring bottoms on the cone/bore
+    # corner at the same insertion depth as the production boot.
+    profile = np.array([
+        (0.0,            0.0),
+        (r_tip,          0.0),               # flat Phi 6 ground contact
+        (r_bot,          tip_l),             # nose cone
+        (r_mouth,        total_l),           # tapered sleeve
+        (r_bore + lead,  total_l),           # mouth face
+        (r_bore,         total_l - lead),    # lead-in chamfer
+        (r_bore,         tip_l),             # bore wall
+        (0.0,            tip_l - r_bore),    # 45-deg internal blind-end cone
+    ])
+    boot = trimesh.creation.revolve(profile, sections=64)
+    boot.apply_transform(rotation_matrix(-np.pi / 2.0, [0, 1, 0]))
+    boot.apply_translation([tip_l, 0.0, 0.0])
+    return boot
 
 
 # ===========================================================================
@@ -10657,10 +10920,13 @@ def _tube_between(p0, p1, radius: float) -> trimesh.Trimesh:
 # z = 0 is the disc-horn top (= CHASSIS_YAW_OUTPUT_Z, the coxa pad plane).
 YAW_HUB_PAD_T   = 6.0   # mm -- pad thickness (lets the 4 horn-bolt heads
                         #       counterbore FLUSH so Part B sits flat on top)
-COXA_JOIN_FOOT_T = 8.0  # mm -- Part B foot-plate thickness (>=7.2 so the
-                        #       flat plate clears the thin-sheet band; it is
-                        #       the sole Part A<->B structural join, so a
-                        #       stout plate is wanted anyway)
+# COXA_JOIN_FOOT_T: RETIRED Aug 17 2026.  The two-part era stacked an 8 mm
+# foot plate ABOVE the platform (well floor +31) because it was the sole
+# bolted Part A<->B join.  The one-piece coxa_link instead SINKS the foot
+# through the full platform band (z +18..+26) so the hip-servo well floor
+# sits just COXA_WELL_FLOOR_LIFT = 2 mm over the platform top -- 5 mm
+# shorter part, screw heads ~5.3 mm below the shaft mouths.  See
+# COXA_COAXIAL_FOOT_RAISE.
 LIP_RELIEF_CHAMFER = 5.0  # mm -- 45-deg chamfer leg cut into the foot's FRONT
                           #       (-Y) bottom-outer edge to kill the proud
                           #       print lip on the high-coxa-Z output face
@@ -10744,17 +11010,39 @@ YAW_HUB_BOSS_WIDE_BOT_Z = YAW_HUB_BOSS_BOT_Z + YAW_HUB_BOTTOM_RING_T  # -5: neck
 YAW_HUB_DRIVE_NUB_OD    = DISC_HORN_OD                 # Phi 20: == disc footprint
 assert YAW_HUB_DRIVE_NUB_OD <= HORN_CLEAR_OPENING_OD - 2.0, (
     "yaw drive nub must clear the chassis mount-plate bore by >=1 mm radial")
-# Aug 2026 bench: the hub is ~28 mm tall (platform at +19, horn at -9).
 # CAD had been calling for M3 x 8 / M3 x 10 with the head near the horn;
-# real assembly uses M3 x 20 from a mid-boss counterbore (head underside
-# ~z=+9, ~18 mm of plastic + 2 mm disc).  One length for the 4 horn bolts
-# + centre screw; shared seat / counterbore so all five heads line up.
-# Tip lands at the disc bottom for full DISC_HORN_H thread bite.
-YAW_HUB_HORN_BOLT_LEN = 20.0  # mm -- M3x20 (bench-confirmed stack)
+# the Aug 2026 bench build used M3 x 20 from a mid-boss counterbore (head
+# underside ~z=+9).  Aug 16 2026 (user: "use my m3x30 so that i can fit my
+# normal screwdriver in there more easily"): one size longer -- M3 x 30
+# lifts the shared head-seat plane to the top of the hub.
+#
+# Aug 17 2026 seat-depth fix (user: "the m3x30 screws only protrude about
+# 1 mm which i dont think is enough to really attach to the horn safely"):
+# the NOMINAL tip landed at the disc bottom (z = -11, full 2 mm bite), but
+# on the bench the tips protruded only ~1 mm from the drive nub -- the
+# printed counterbore floor + the M3x30's under-head length tolerance eat
+# about a millimetre.  Compensate in the seat plane:
+#   * BENCH_SEAT_SHORTFALL (1.0) sinks every seat by the measured loss;
+#   * TIP_POKE (0.25) sinks the 4 CORNER seats a hair further so their
+#     tips just break the disc's far face for full thread engagement.
+#     They cannot go deeper: the Phi 20 disc sits FLUSH on the servo's
+#     front face, so under the PCD-14 holes there is servo case -- a
+#     longer poke jams the disc off its seat.
+#   * The CENTRE station gets its own seat 1 mm deeper still
+#     (YAW_HUB_HORN_CENTRE_SEAT_Z): the centre screw threads into the
+#     output-spline's tapped bore (>= 8 mm deep -- the stock spline screw
+#     alone reaches ~-14), so "the middle one might go deeper" (user) is
+#     free extra engagement with no case-jam risk.
+YAW_HUB_HORN_BOLT_LEN = 30.0  # mm -- M3x30 (user's stock, Aug 16 2026)
+YAW_HORN_BOLT_BENCH_SEAT_SHORTFALL = 1.0   # mm -- measured print/screw loss
+YAW_HORN_BOLT_TIP_POKE = 0.25              # mm -- corner tips past disc bottom
 YAW_HUB_HORN_HEAD_SEAT_Z = (YAW_HUB_BOSS_BOT_Z - DISC_HORN_H
-                            + YAW_HUB_HORN_BOLT_LEN)  # head underside plane
+                            + YAW_HUB_HORN_BOLT_LEN
+                            - YAW_HORN_BOLT_BENCH_SEAT_SHORTFALL
+                            - YAW_HORN_BOLT_TIP_POKE)  # +17.75 corner seat
+YAW_HUB_HORN_CENTRE_SEAT_Z = YAW_HUB_HORN_HEAD_SEAT_Z - 1.0  # +16.75 centre seat
 YAW_HUB_HORN_HEAD_CB_OD = INSERT_M3_BOLT_HEAD_OD + 0.4  # mm -- shared head pocket
-YAW_HUB_BOSS_TOP_Z = YAW_TOWER_TOP_Z + 0.5             # +13.0 (just above tower lip)
+YAW_HUB_BOSS_TOP_Z = YAW_TOWER_TOP_Z + YAW_HUB_CAP_AXIAL_CL  # +18.0 (1.5 mm over tower/cap rim; Aug 17 2026 scrape fix)
 YAW_HUB_PLATFORM_Z1 = YAW_HUB_BOSS_TOP_Z + YAW_HUB_PAD_T  # +19.0 (Part B seats here)
 assert abs(YAW_HUB_PLATFORM_Z1 - _YAW_HUB_PLATFORM_TOP_EARLY) < 1e-9, (
     "YAW_HUB_PLATFORM_Z1 drifted from the early estimate used in "
@@ -10899,17 +11187,22 @@ def make_coxa_yaw_hub(*, one_piece: bool = False) -> trimesh.Trimesh:
     centre.apply_translation(
         [0.0, 0.0, 0.5 * (YAW_HUB_BOSS_BOT_Z + YAW_HUB_PLATFORM_Z1)])
     cuts.append(centre)
-    # Head counterbore from the platform top down to the shared seat plane.
+    # Head counterbore from the platform top down to the seat plane.
     # Aug 2026 seat fix: the old cut was shifted 0.5 mm LOW ("overshoot below
     # the seat"), so the physical counterbore floor sat 0.5 mm below the
     # declared YAW_HUB_HORN_HEAD_SEAT_Z -- the fastener registry places the
-    # M3x20 head undersides exactly AT the seat constant, so the engagement
+    # M3 head undersides exactly AT the seat constant, so the engagement
     # probe found 0.5 mm of air under every head ("head bearing in air").
     # The bore now bottoms exactly at the seat plane (overshoot upward only).
+    # Aug 17 2026: the CENTRE station has its own 1 mm-deeper seat (the
+    # spline tap can take the extra engagement; the corner seats are capped
+    # by the servo case under the disc -- see the seat constants block).
     cb_h = (YAW_HUB_PLATFORM_Z1 - YAW_HUB_HORN_HEAD_SEAT_Z) + 1.0
     cb_z = YAW_HUB_HORN_HEAD_SEAT_Z + cb_h / 2.0
-    centre_head = _cyl(YAW_HUB_HORN_HEAD_CB_OD / 2.0, cb_h)
-    centre_head.apply_translation([0.0, 0.0, cb_z])
+    cb_c_h = (YAW_HUB_PLATFORM_Z1 - YAW_HUB_HORN_CENTRE_SEAT_Z) + 1.0
+    centre_head = _cyl(YAW_HUB_HORN_HEAD_CB_OD / 2.0, cb_c_h)
+    centre_head.apply_translation(
+        [0.0, 0.0, YAW_HUB_HORN_CENTRE_SEAT_Z + cb_c_h / 2.0])
     cuts.append(centre_head)
     r = DISC_HORN_BOLT_PCD / 2.0
     # Aug 2026: was +0.8 (Phi 4.2) for a very compliant torque-only fit.
@@ -10950,25 +11243,37 @@ def _coxa_partA_envelope() -> trimesh.Trimesh:
 
 
 def make_coxa_hip_bracket(*, one_piece: bool = False) -> trimesh.Trimesh:
-    """Part B -- the hip bracket that bolts onto the yaw hub (Part A) and
-    carries the HIP joint's FIXED side (servo cradle + 688 bearing
-    housing).  Coxa-local frame, identical to Part A; its foot seats on the
-    hub PLATFORM top (z = YAW_HUB_PLATFORM_Z1) and bolts down with 4 x M3.
-    Part B is carved against the Part A envelope so the two printed parts
-    mate flush without interpenetrating.
+    """Part B -- the hip bracket that carries the HIP joint's FIXED side
+    (servo cradle + 688 bearing housing).  Coxa-local frame, identical to
+    Part A.  (Legacy two-part path: the foot bolts onto the hub platform
+    with 4 x M3 and is carved against the Part A envelope so the two
+    printed parts mate flush without interpenetrating.)
 
     Aug 2026 one-piece merge: with ``one_piece=True`` this is a SUB-SOLID of
     the merged printed ``coxa_link`` (see ``make_coxa_link_part``):
-      * the foot plate dips 1 mm INTO the hub platform (volumetric weld --
-        never a coplanar kiss for the boolean kernel; nothing else lives in
-        the z [+18, +19] band inside the platform footprint: dust-lip top is
-        +13, tower top +12.5, cap top +7);
       * the Part-A envelope carve is skipped (interpenetrating the hub is
         the whole point of a union);
       * the 4 M3 join clearance holes + head counterbores are skipped (the
-        joint no longer exists)."""
-    foot_z0 = YAW_HUB_PLATFORM_Z1 - (1.0 if one_piece else 0.0)
-    foot_z1 = YAW_HUB_PLATFORM_Z1 + COXA_JOIN_FOOT_T
+        joint no longer exists).
+
+    Aug 17 2026 sink pass (user: "push the bracket holding the servo down
+    to overlap with the cap more ... making the height lower would help a
+    lot getting the screws in and remove unnecessary material"): the foot
+    slab no longer stacks ABOVE the platform -- it spans the full platform
+    band plus COXA_WELL_FLOOR_LIFT (z YAW_HUB_BOSS_TOP_Z +18 ..
+    YAW_HUB_PLATFORM_Z1 + 2 = +26), fusing through the platform inside its
+    Phi ~52 footprint and hanging as an 8 mm slab outside it (a flush
+    floor left a 6 mm sheet carrying the whole cradle -- thin-sheet
+    FAIL; 8 mm is the thickness the old raised foot already proved).  The
+    hip-servo well floor drops +31 -> +26, so the whole cradle rides 5 mm
+    lower.  Clearances of the slab's exposed bottom face (+18):
+    stationary cap rim tops at +16.5 (YAW_HUB_CAP_AXIAL_CL = 1.5 mm --
+    widened from 0.5 by the Aug 17 2026 scrape fix), cap ear bosses top
+    at +8.5, and the chassis_top deck band sits at coxa-local z
+    6.75..8.75 and radius >= 42.5 mm (slab corner sweep 40.4).  The inner
+    bearing interfaces (boss, uflange, dust skirt) are untouched."""
+    foot_z0 = YAW_HUB_BOSS_TOP_Z                          # +18: platform underside plane
+    foot_z1 = YAW_HUB_PLATFORM_Z1 + COXA_WELL_FLOOR_LIFT  # +26: well floor
 
     # Hip fixed side, anchored so its disc-horn-top -> COXA_HIP_ANCHOR =
     # (COXA_LENGTH, COXA_HIP_ANCHOR_Y, DROP).  COXA_HIP_ANCHOR_Y slides the
@@ -10976,11 +11281,47 @@ def make_coxa_hip_bracket(*, one_piece: bool = False) -> trimesh.Trimesh:
     # rather than hanging off to +Y.  LEG_PITCH_AXIS (-Y) orients the cradle
     # OPEN face / clamp UP, so the cradle's solid back face seats DOWN onto
     # the foot/hub.
-    fixed = _sandwich_fixed_side()
+    #
+    # Aug 16 2026 flatten pass (user: "the coxa hub has four meaningless
+    # holes on one of the shorter sides where the servo sits and a weird
+    # cutout channel on the opposite side, both are pointless now"):
+    #   * end_face_bolts=False -- the 4x M2.5 end-face body screws through
+    #     the -X wall are RETIRED (same story as the knee's Jul 2026
+    #     retirement: the hip servo is already held by the clamp cap + lip
+    #     + output-face seat, and on the bench the screws were never
+    #     installed -- the empty holes only weakened the wall);
+    #   * wire_exit=False -- the DS3225-era L-corridor + boot channel
+    #     through the +X far wall is DELETED (the real STS3215's bus
+    #     cables leave via its BACK-face 5264 ports through the sandwich's
+    #     open clamp face; the corridor pierced a solid wall for nothing).
+    # This was the LAST cradle carrying either feature -- every sandwich
+    # cradle is now a clean 4-wall box.
+    #
+    # Aug 17 2026 rear tab (user: "copy that same part to be on the coxa
+    # link as well so I can screw into the servo from both sides"): the hip
+    # cradle grows the SAME rear retention tab as the femur knee cradle --
+    # 2x M2.5 self-tappers into the hip servo's rear molded hole pair
+    # nearer the -X (inboard/wire) end; the connector-end pair stays open
+    # for the bus harness.  See the FEMUR_REAR_TAB_* constants block for
+    # the shared geometry + the back-face step ("4 mm bump") constraint.
+    # In coxa frame the tab is a VERTICAL 5.5 mm plate standing on the
+    # +Y side of the cradle back face (joint-local -Z -> coxa +Y): screw
+    # axes run along coxa +Y, driven from outside before the femur yoke
+    # goes on; the heads sit FLUSH in 2 mm recesses (Aug 17 2026 head-
+    # recess pass) and the femur's swinging passive-side arm passes
+    # ~1.5 mm over the tab's outer face, exactly as at the knee.
+    fixed = _sandwich_fixed_side(end_face_bolts=False, wire_exit=False,
+                                 rear_tab=True)
     M = _joint_place(COXA_HIP_ANCHOR,
                      x_dir=(1, 0, 0), z_dir=LEG_PITCH_AXIS)
     fixed.apply_transform(M)
-    fb = fixed.bounds
+    # Foot sizing must NOT see the tab: the foot slab spans the CRADLE
+    # footprint (fb +/- 1); letting it grow +3.5 under the tab would push
+    # its +Y edge into the femur yoke-arm sweep band that the r=16.75
+    # relief cylinders keep clear (see make_coxa_link_part).
+    fixed_notab = _sandwich_fixed_side(end_face_bolts=False, wire_exit=False)
+    fixed_notab.apply_transform(M)
+    fb = fixed_notab.bounds
 
     # Foot plate on the hub platform, directly under the cradle's solid
     # back (now facing DOWN).  It spans the cradle's X/Y footprint so the
@@ -11012,22 +11353,25 @@ def make_coxa_hip_bracket(*, one_piece: bool = False) -> trimesh.Trimesh:
         body = _diff(body, _coxa_partA_envelope())
 
     # Femur-swing clearance: at the top of the femur up-pitch workspace
-    # (fem=+30) the femur swings DOWN-and-OUTBOARD past the hip and clips
-    # the bracket's OUTBOARD-BOTTOM corner (the foot overhang + the cradle
-    # wall's lower lip, coxa-local x ~ 30-32.7, z ~ 13.5-18).  Cut that
-    # corner back: remove all outboard (x >= FEMUR_CLEAR_X) material below
-    # FEMUR_CLEAR_Z.  Only the unsupported foot overhang + the cradle
-    # wall's bottom lip live there; the seating face, bolt pattern and the
-    # cradle proper (which starts higher) are untouched.
+    # (fem=+30) the femur swings DOWN-and-OUTBOARD past the hip and can
+    # clip the bracket's OUTBOARD-BOTTOM corner.  Cut that corner back:
+    # remove all outboard (x >= FEMUR_CLEAR_X) material below
+    # FEMUR_CLEAR_Z.  The sweep band rides RIGIDLY with the hip axis, so
+    # the Z threshold is expressed relative to COXA_HIP_DROP (originally
+    # bench-derived as 18.5 when the drop was 43.4, i.e. drop - 24.9).
+    # After the Aug 17 2026 8 mm sink the band sits at z ~5.5-10 while the
+    # foot slab bottom is +17, so the cut is currently a no-op safety
+    # margin -- kept so any future re-raise of the cradle stays safe
+    # (check_workspace_self_collision re-verifies either way).
     FEMUR_CLEAR_X = 27.5
-    FEMUR_CLEAR_Z = 18.5
+    FEMUR_CLEAR_Z = COXA_HIP_DROP - 24.9
     clr = _box((40.0, foot_y1 - foot_y0 + 4.0, FEMUR_CLEAR_Z - 4.0),
                center=(FEMUR_CLEAR_X + 20.0, 0.5 * (foot_y0 + foot_y1),
                        0.5 * (4.0 + FEMUR_CLEAR_Z)))
     body = _diff(body, clr)
 
     # Printability relief (Jun 2026): the foot is sized to the full cradle
-    # bbox (fb +/- 1 mm) and is a thick (COXA_JOIN_FOOT_T) slab, so on the
+    # bbox (fb +/- 1 mm) and is a thick (6 mm platform-band) slab, so on the
     # FRONT (-Y, LOW-Y) side -- the disc-horn / output face, where coxa-Z is
     # HIGHEST -- its bottom-outer edge is a proud, sharp lip that prints as a
     # fragile unsupported ledge.  Chamfer that front-bottom-outer edge back at
@@ -11068,22 +11412,23 @@ def make_coxa_link_part() -> trimesh.Trimesh:
 
     One printed body =
       yaw turntable hub (bolts the disc horn, rides the touching 6805 pair)
-      + hip bracket (foot plate + hip servo cradle + 688 housing),
-    with the foot plate welded 1 mm into the hub platform.  The 4 M3
-    hub<->bracket join bolts (and their pilots / counterbores) are GONE.
+      + hip bracket (foot slab + hip servo cradle + 688 housing),
+    with the foot slab fused through the full platform band (Aug 17 2026
+    sink pass -- see make_coxa_hip_bracket).  The 4 M3 hub<->bracket join
+    bolts (and their pilots / counterbores) are GONE.
 
     The split had existed only so the hub could be bolted to the disc horn
     before the bracket went on.  The merged part instead carries 5 vertical
     HEAD-ACCESS SHAFTS (Phi YAW_HUB_HORN_HEAD_CB_OD, same as the head
-    counterbores they extend): from the shared M3x20 head-seat plane
-    (YAW_HUB_HORN_HEAD_SEAT_Z) straight up through the foot plate, pedestal
-    and the hip cradle's solid back, opening into the (still empty) hip
-    servo well.  Assembly: drop the 4 drive bolts + centre spline screw
-    down the shafts and torque them with a long hex key BEFORE the hip
-    servo is lowered into its cradle -- same "captive sub-assembly
-    fastener" order the registry already documents.  The seated hip servo
-    then covers the shaft mouths (screw heads live ~10+ mm below the well
-    floor, so nothing touches the servo body).
+    counterbores they extend): from each head-seat plane (corner seats at
+    YAW_HUB_HORN_HEAD_SEAT_Z = +17.75; centre 1 mm deeper at
+    YAW_HUB_HORN_CENTRE_SEAT_Z) straight up through the platform/foot,
+    opening at the hip-servo well floor (+26).  Assembly: drop the 4
+    drive bolts + centre spline screw down the shafts and torque them
+    BEFORE the hip servo is lowered into its cradle -- the heads sit only
+    ~5.3 mm below the shaft mouths, so a normal driver bit reaches them.
+    The seated hip servo then covers the shaft mouths (head tops clear
+    the servo bottom by ~5.3 mm).
 
     Bearing assembly is unchanged: both 6805 inner races and the loose
     yaw_bearing_cap all slide onto the hub boss from BELOW (the cap's
@@ -11091,20 +11436,36 @@ def make_coxa_link_part() -> trimesh.Trimesh:
     then the whole stack drops into the chassis tower."""
     body = _union(make_coxa_yaw_hub(one_piece=True),
                   make_coxa_hip_bracket(one_piece=True))
+    # Yoke-end sweep clearance (Aug 17 2026, consequence of the sink pass):
+    # the femur hip yoke's arm ends are full discs of radius ~16 around the
+    # hip axis (they carry the horn pads), so their swept volume over ANY
+    # pitch angle is a solid cylinder.  Before the sink the slab/platform
+    # sat well below the hip axis and those cylinders cleared; now the
+    # slab's top corner pokes into the +Y arm's disc (13 mm^3 at the
+    # stance pose -- caught by check_interference).  Carve a Y-axis
+    # cylinder of r = disc 16 + 0.75 running clearance through each ARM
+    # BAND ONLY (walls at y ~[-23,-19]/[15,16] and the dust skirt, z <= 18
+    # < cut bottom ~21.65, are untouched; only the slab-edge lens at
+    # z ~21.65..26, x ~12.5 +/- 16 in the two narrow bands is removed).
+    hip_ax_x, _, hip_ax_z = COXA_HIP_ANCHOR
+    for (ylo, yhi) in ((21.75, 30.0), (-31.0, -24.75)):
+        sweep = _cyl(16.75, yhi - ylo)
+        sweep.apply_transform(rotation_matrix(np.pi / 2.0, [1, 0, 0]))
+        sweep.apply_translation([hip_ax_x, 0.5 * (ylo + yhi), hip_ax_z])
+        body = _diff(body, sweep)
     # Head-access shafts: extend the 5 shared head counterbores (4 drive
     # bolts on DISC_HORN_BOLT_PCD + the centre spline screw) up through
     # everything the bracket stacked over the platform top.  Bottom lands
     # exactly on the head-seat plane so the seat annulus is untouched.
     shaft_top_z = 80.0   # safely above the cradle's open clamp face
-    shaft_h = shaft_top_z - YAW_HUB_HORN_HEAD_SEAT_Z
-    stations = [(0.0, 0.0)]
+    stations = [(0.0, 0.0, YAW_HUB_HORN_CENTRE_SEAT_Z)]  # centre: deeper seat
     r = DISC_HORN_BOLT_PCD / 2.0
-    stations += [(r * np.cos(t), r * np.sin(t))
+    stations += [(r * np.cos(t), r * np.sin(t), YAW_HUB_HORN_HEAD_SEAT_Z)
                  for t in DISC_HORN_BOLT_ANGLES_RAD]
     cuts = []
-    for (sx, sy) in stations:
-        s = _cyl(YAW_HUB_HORN_HEAD_CB_OD / 2.0, shaft_h)
-        s.apply_translation([sx, sy, YAW_HUB_HORN_HEAD_SEAT_Z + shaft_h / 2.0])
+    for (sx, sy, seat_z) in stations:
+        s = _cyl(YAW_HUB_HORN_HEAD_CB_OD / 2.0, shaft_top_z - seat_z)
+        s.apply_translation([sx, sy, 0.5 * (seat_z + shaft_top_z)])
         cuts.append(s)
     return _diff(body, *cuts)
 
@@ -11138,8 +11499,19 @@ def _femur_knee_fixed_solid() -> trimesh.Trimesh:
 
     ``farwall_pad=True`` (Aug 2026): external buttress pad on the far
     (+X) wall -- the wall the field crack actually ran along; see the
-    FEMUR_KNEE_FARWALL_PAD_* constants block."""
-    return _sandwich_fixed_side(end_face_bolts=False, farwall_pad=True)
+    FEMUR_KNEE_FARWALL_PAD_* constants block.
+
+    ``rear_tab=True`` (Aug 2026, user): rear retention tab under the open
+    back face -- 2x M2.5 self-tappers into the servo's rear molded hole
+    pair nearer the spar/yoke end (the connector-end pair stays open for
+    the bus harness); see the FEMUR_REAR_TAB_* constants block.
+
+    ``wire_exit=False`` (Aug 2026, user: "this top can just be a flat wall
+    with no weird cutouts"): no DS3225-era wire corridor at the knee -- the
+    STS3215 bus cables leave via the back-face ports through the open back,
+    and the far (+X) wall is now one flat full-width doubled surface."""
+    return _sandwich_fixed_side(end_face_bolts=False, farwall_pad=True,
+                                rear_tab=True, wire_exit=False)
 
 
 def make_femur_link_part() -> trimesh.Trimesh:
@@ -11161,7 +11533,8 @@ def make_femur_link_part() -> trimesh.Trimesh:
     outboard (see _YOKE_SPINE_X0/X1), keeping the swept web clear of the
     fixed clamp cap and the coxa across the full femur ROM."""
     yoke = _sandwich_moving_yoke(tube_socket=False,
-                                 spine_extra_t=FEMUR_YOKE_SPINE_PAD_T)
+                                 spine_extra_t=FEMUR_YOKE_SPINE_PAD_T,
+                                 pad_extra_reach=YOKE_PAD_EXTRA_REACH)
     spar = _femur_fused_spar()
     kb = _femur_knee_fixed_solid()
     kb.apply_translation([FEMUR_LENGTH, 0.0, 0.0])
@@ -11172,10 +11545,13 @@ def make_tibia_knee_yoke() -> trimesh.Trimesh:
     """Tibia's KNEE end: the moving yoke (driven by the knee disc horn,
     stub into the knee 688 bearing) with the tibia CF-tube socket toward
     the foot.  Joint-local frame.  Aug 2026: the spine plate is doubled
-    (TIBIA_YOKE_SPINE_PAD_T) after the field crack through it, and the
-    retention-pin cross-hole is REMOVED (user: epoxy-only retention)."""
+    (TIBIA_YOKE_SPINE_PAD_T) after the field crack through it, the
+    retention-pin cross-hole is REMOVED (user: epoxy-only retention), and
+    both horn pads reach YOKE_PAD_EXTRA_REACH (0.5 mm) deeper to close
+    the bench-measured ~1 mm total clevis-to-horn gap."""
     return _sandwich_moving_yoke(tube_socket=True, socket_pin=False,
-                                 spine_extra_t=TIBIA_YOKE_SPINE_PAD_T)
+                                 spine_extra_t=TIBIA_YOKE_SPINE_PAD_T,
+                                 pad_extra_reach=YOKE_PAD_EXTRA_REACH)
 
 
 # make_tibia_foot_fitting / make_tibia_foot_fitting_plus4 /

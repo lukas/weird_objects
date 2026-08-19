@@ -112,6 +112,19 @@ def _lay_flat(mesh):
     return _drop_to_bed(best[1])
 
 
+def _reorient_servo_clamp_cap(mesh):
+    """servo_clamp_cap: FLANGE-DOWN (Aug 19 2026).  ``_lay_flat`` used to
+    pick +90 about X (shortest Z), but that lands the TONGUE side on the
+    bed -- fine when the tongue tip was the lowest feature, broken once the
+    back-face hook grew: its shelf reaches 6.4 mm below the tongue tip,
+    leaving ~1% bed contact (flat-bottom guard rightly rejects it).
+    Rotate -90 about X instead so the flange's broad OUTER (+Y) face is
+    the bed; the whole hook then prints as a straight vertical column at
+    the top, no supports, and the M3 head counterbores open at the bed."""
+    out = _rotate(mesh, -np.pi / 2, [1, 0, 0])
+    return _drop_to_bed(out)
+
+
 def _reorient_foot_boot(mesh):
     """TPU boot: rotate +90 deg about Y so the flat chamfer-rimmed ground
     tip face (local +X) becomes the bed face and the tube bore opens
@@ -165,5 +178,5 @@ PART_REGISTRY: list[tuple[str,
     ("yaw_bearing_cap.stl",    make_yaw_bearing_cap,    _reorient_yaw_bearing_cap, 6),
     # wago_mount.stl RETIRED late-Aug 2026 (tray walls integrated into
     # chassis_bottom's top face -- prints with the chassis, no supports).
-    ("servo_clamp_cap.stl",    make_servo_clamp_cap,    _lay_flat,               12),
+    ("servo_clamp_cap.stl",    make_servo_clamp_cap,    _reorient_servo_clamp_cap, 12),
 ]
