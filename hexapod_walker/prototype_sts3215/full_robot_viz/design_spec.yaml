@@ -117,7 +117,7 @@ parts:
     role: "frame"
     cots: false
     qty: 6
-    description: "Printed clamp cap that clamshells the knee servo cradle (bolts to the cradle wall ends), capturing the servo body \u2014 same part as the hip cap. Aug 18\u201319 2026: 10 mm-wide L-shaped back-face hook (wall + shelf) lapping 7.4 mm over the back of the motor, plug corridor open beside it."
+    description: "Printed clamp cap that clamshells the knee servo cradle (bolts to the cradle wall ends), capturing the servo body \u2014 same part as the hip cap. Aug 18\u201319 2026: 10 mm-wide L-shaped back-face hook (wall + shelf, 1 mm press-fit bite) plus a tiny horn-end corner pad \u2014 both ends clamp the body against the front lip; plug corridor open beside the hook."
   knee_servo:
     label: "knee servo"
     role: "motor"
