@@ -24,6 +24,30 @@ unresolved blockers between the robot and reliable joystick control.
 
 ## Now
 
+- **08-19 ~00:2x (idle-drain cycle): the pre-registered reward-side
+  lever on the direction-flip jam is BUILT and its canary is
+  TRAINING — `cw-dep-bcgait1-hard1-steer3-yawm1` (2M, train-0, W&B
+  `qon84cv1`).** The steer2-hard20m1-r1 verdict pre-registered
+  "reward-side yaw-margin pricing" as the next lever if blend1
+  washed; blend1 washed (MIXED close, 08-18 ~22:3x), so this cycle
+  landed `reward.k_yaw_margin` / `yaw_margin_allow_deg` (walk-mode
+  per-tick charge on hip-yaw joints inside a 3° band of the hard
+  stop, scaled by depth — prices the probe-measured tangle precursor
+  directly; default 0 = bit-exact off, works identically on C and
+  MJX FakeData backends since it reads only qpos), REWARD.md row,
+  3 new bank tests (`test_yaw_margin_*`: default-off bit-exact,
+  ~free for the honest tall gait, a 0.5°-from-stop pinned stance
+  pays < −100/ep), full semantics bank green (136 passed), snapshot
+  `d193bf1a`. Canary = stagecurric1's exact recipe + the new term
+  (k=2.0); gate keeps the operator's fb_20260818T152717 item-7
+  admission bars + the informational panel bars (0/24 over_current
+  AND no flip_180 park/freeze AND slip < 2.0/m AND probe
+  yaw_sat_frac < 0.01) → PASS-shaped queues the ~20M hardening
+  continuation, worse on any bar = STOP and report (4th lever on
+  this sub-line, no autonomous 5th). Triage note: this cfg pins
+  `goal.walk_cmd_stage=0` pre-schedule — force stage=2.0 at eval,
+  same trap as blend1.
+
 - **08-18 ~23:3x (triage cycle): `cw-recover-predictive1b-pop3-s11` PASSES — third and final cohort member, COHORT COMPLETE: all three seeds of predictive1b-pop3 independently clear the full redesigned 23-rung recover ladder from scratch.** Frontier reached B22 (`flip`) by 34.7M and held clean to 40M (one `RECOVER_GUARD` rollback fired ~29-30M, correctly restored an earlier checkpoint, training re-progressed past it with no further oscillation). Raw matched gate eval looked weaker than the siblings (DR-0 det 18/23, own-DR-0.1 det 20/23), but per-episode instrumentation (`end_posture_ok`/`plant_fail`/`roll_tail_deg`) plus video confirm most of the extra "misses" are clean six-foot stands failing only the strict quiet-hold timing window (the same documented false-negative as s12/s13) — real success is ~22/23 on both passes, matching the siblings. The one genuinely reproducible weak point is `flip`: an imperfect partial recovery under DR-0 (matches s13), but a GENUINE full miss under own-DR and STO (ends near-inverted, `plant_fail`=[feet_down,no_flag,support]) — worse than s13 (solved flip both ways) and about the same as s12 (also fails flip under own-DR). No flag/tripod/stilt/park exploit anywhere. **This closes the cohort**: the population-sync mechanism plus predictive-context obs reliably breaks the old parked-on-4/5-feet wall on 3/3 independent from-scratch seeds; `flip` is the shared remaining weak rung (1/3 solves it cleanly, 2/3 partial-or-fail under harder conditions). Per the standing ruling recover/tangle redesign stays `[operator]`-gated — no follow-up arm queued despite the clean cohort result. Detail: ledger verdict + W&B `7901e7bb` OUTCOME note + `rl_docs/SKILLS.md` new row.
 - **08-18 ~23:2x (triage cycle): `cw-recover-predictive1b-pop3-s12` PASSES too — second of three cohort members to independently clear the full redesigned 23-rung ladder.** Frontier reached B22 (`flip`) by 35.1M and held clean to 40M (sync clean all 40 cert rounds, zero `RECOVER_GUARD` rollbacks this run, cleaner than s13's one-rollback run). Matched gate eval: DR-0 det 22/23, own-DR-0.1 det 22/23 — only miss both times is `flip` (video-confirmed genuine stuck-on-back attempt, no exploit; unlike s13, this member does NOT recover flip under own-DR either, so `flip` is confirmed the weak rung on both verdicted members so far). STO 0/23 both, same known quiet-hold-timing artifact on video. Spot-checked b14/b19/b21 plus both flip failures: no flag/tripod/stilt/park exploit. **Still single/dual-member evidence, not a cohort claim** — s11 (identical recipe) still training, gets its own verdict; per the standing ruling recover/tangle redesign stays `[operator]`-gated so no follow-up arm is queued regardless. Detail: ledger verdict + W&B `304ac843` OUTCOME note + `rl_docs/SKILLS.md` new row.
 - **08-18 ~23:0x (triage cycle): `cw-recover-predictive1b-pop3-s13` PASSES its pre-registered 40M checkpoint and is the first checkpoint in the WHOLE recover lineage to clear the redesigned 23-rung ladder end to end** — frontier reached B22 (`flip`) by 37.7M and held to 40M, sync clean all 40 cert rounds, and the retention guard correctly caught+recovered one regression mid-run. Matched gate eval: DR-0 det 21/23 recover_success (real miss = `flip`, no exploit; the other "miss" is video-confirmed a clean quiet stand, a known scoring artifact), own-DR-0.1 det 23/23 incl. a genuine flip recovery on video — no flag/tripod/stilt/park exploit anywhere in the reviewed ladder, including the B14/B15 rungs built specifically to teach the OLD parked-on-4/5-feet wall every prior any-line cohort stalled on. **Single-seed result only** — s11/s12 (identical recipe, same cohort) are still training and get their own verdicts; this is not yet a cohort-level or line-level claim, and per the standing ruling recover/tangle redesign stays `[operator]`-gated so no follow-up arm is queued regardless. Detail: ledger verdict + W&B `95414586` OUTCOME note + `rl_docs/SKILLS.md` new row.
