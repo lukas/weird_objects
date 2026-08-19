@@ -1709,10 +1709,20 @@ CLAMP_SEAT_DROP        = 1.0    # mm -- clamp tongue reaches this far past z=0 (
 #     by the seated CLAMP_SEAT_DROP lip; the raised ~1.8 mm centre platform
 #     around the 5264 bay stops short of it);
 #   * a SHELF turning inboard (-Y) to y = CLAMP_BACK_HOOK_Y0 = 5.0, i.e.
-#     lapping 7.4 mm OVER the back of the servo, well toward its middle --
-#     but only below z = -CLAMP_BACK_HOOK_SHELF_Z = -2.2, so it passes
-#     UNDER the raised centre platform (1.8 mm proud) with 0.4 mm clearance
-#     and catches the body if it tries to back out of the open face.
+#     lapping 7.4 mm OVER the back of the servo, well toward its middle.
+#     Its top face sits at z = -CLAMP_BACK_HOOK_SHELF_Z = +1.0 -- 1 mm
+#     INSIDE the body's back surface, a deliberate PRESS-FIT interference
+#     exactly like CLAMP_TONGUE_INTERF on the +Y face (rev 5-6, Aug 19,
+#     user: "it can actually start 1mm inside the edge of the top to
+#     really hold the motor firmly" / "that hook could go even 1mm
+#     inside").  Bolting the cap therefore preloads the body +Z against
+#     the cradle's front retaining lip -- a real clamp, not a loose
+#     backstop.  This RETIRES the rev-3 assumption that the raised
+#     ~1.8 mm centre platform intrudes here: the user confirmed on the
+#     bench that within this 10 mm band at the wire end the back is flat
+#     (the platform/bay relief sits deeper or further centre).  The rev-3
+#     shelf started 2.2 mm down "to clear the platform", which let the
+#     body float ~2 mm before catching -- not a hold.
 # Keep-outs boxing it in:
 #   * the 10 mm x band [X0, X1] = [-17.7, -7.7] sits at the -X end of the
 #     edge: x >= -17.7 stays 0.5 mm clear of the cradle's rear retention
@@ -1728,15 +1738,40 @@ CLAMP_SEAT_DROP        = 1.0    # mm -- clamp tongue reaches this far past z=0 (
 #   * the depth stops at the REAR TAB's proven plane: the swinging yoke
 #     arm's inner face passes at z = -7, so 5.5 keeps the same 1.5 mm
 #     running clearance the tab has.
-# Cap install (slide -Y onto the well) stays valid: the shelf's top face at
-# z = -2.2 passes under the platform the whole way in; plugs are inserted
-# straight up into the recessed bay AFTER capping (plug bodies stay at
-# y <= ~5, below/beside the shelf).
+# Cap install (slide -Y onto the well): like the tongue, the shelf rides
+# its 1 mm interference across the back face on the way in (PLA flexes;
+# the bolts pull it home).  Plugs are inserted straight up into the
+# recessed bay AFTER capping (plug bodies stay at y <= ~5, beside the
+# shelf).
 CLAMP_BACK_HOOK_T       = 5.5  # mm -- hook depth past the back plane
 CLAMP_BACK_HOOK_X0      = -17.7 # mm -- -X end (0.5 mm clear of the rear tab edge)
 CLAMP_BACK_HOOK_X1      = -7.7  # mm -- +X end (10 mm wide; plug-cable corridor beyond)
 CLAMP_BACK_HOOK_Y0      = 5.0   # mm -- shelf inner reach: 7.4 mm over the back face
-CLAMP_BACK_HOOK_SHELF_Z = 2.2   # mm -- shelf top depth: clears the 1.8 mm platform
+CLAMP_BACK_HOOK_SHELF_Z = -1.0  # mm -- shelf top at z = +1: 1 mm PRESS-FIT bite
+                                #       into the back surface (rev 6; sign: top
+                                #       face = -CLAMP_BACK_HOOK_SHELF_Z)
+#
+# HORN-SIDE MINI HOOK (Aug 19 2026, user: "add a tiny hook on the other
+# side where the passive servo horn is?  It needs to be right at the end
+# and leave a gap for the servo horn").  A second, much smaller hook at
+# the +X (output) end corner of the +Y edge.  It MUST be tiny -- the
+# depth budget there is nothing like the wire end's:
+#   * the yoke pads sweep a FULL r 16.75 circle about the output axis
+#     (+12.5, 0) from z = -2 down to -7, and that circle covers the whole
+#     +X end of the back face (the body corner (22.7, 11.4) is at r 15.3)
+#     -- so NOTHING at this end may reach below z = -2.  The hook bottoms
+#     at z = -CLAMP_SEAT_DROP = -1.0, the plane the full-width tongue lip
+#     has bench-proven over the pad sweep (1 mm running clearance);
+#   * the Phi 20 passive horn itself stands 2 mm proud (z -2..0, r 10):
+#     the hook's inner corner (18.5, 9.4) sits at r 11.2 -- a >= 1.2 mm
+#     GAP all round the horn (and clear of the idler hub under it);
+#   * the top face bites 1 mm INSIDE the back surface, same press-fit as
+#     the big shelf, so BOTH ends of the body get preloaded against the
+#     cradle's front retaining lip.
+# Net: a 4.4 x 3 mm corner pad, 2 mm tall (z -1..+1), gripping the back
+# corner right at the end of the servo.
+CLAMP_HORN_HOOK_X0 = 18.5  # mm -- inner x edge (gap to the horn: r >= 11.2)
+CLAMP_HORN_HOOK_Y0 = 9.4   # mm -- inner y reach: 3 mm lap over the back face
 
 
 def servo_clamp_bolt_centres():
@@ -6115,12 +6150,18 @@ def make_servo_clamp_cap() -> trimesh.Trimesh:
         pull-out, matching the cradle's -Y / corner lip;
       * a back-face HOOK (Aug 18-19 2026) near the -X end of the +Y edge:
         a 10 mm-wide wall dropping CLAMP_BACK_HOOK_T = 5.5 mm past the back
-        plane plus an inboard SHELF (below the servo's raised centre
-        platform) lapping 7.4 mm over the back of the motor toward its
-        middle -- a -Z backstop against sliding out the open back, placed
-        to leave the plug-cable corridor open beside it and to clear the
-        yoke pad sweep and the cradle's rear tab (see the
-        CLAMP_BACK_HOOK_* constants).
+        plane plus an inboard SHELF whose top face bites 1 mm INSIDE the
+        back surface (press-fit interference, like the tongue's), lapping
+        7.4 mm over the back of the motor toward its middle -- bolting the
+        cap preloads the body against the cradle's front retaining lip.
+        Placed to leave the plug-cable corridor open beside it and to
+        clear the yoke pad sweep and the cradle's rear tab (see the
+        CLAMP_BACK_HOOK_* constants);
+      * a horn-side MINI hook (Aug 19 2026) at the +X end corner: a tiny
+        pad (z -1..+1, 1 mm bite) gripping the back corner right at the
+        end, with a >= 1.2 mm gap to the Phi 20 passive horn -- the yoke
+        pad sweep forbids anything deeper at that end (see the
+        CLAMP_HORN_HOOK_* constants).
 
     Same part for the hip-pitch (coxa_link) and knee (femur_link's knee
     cradle) joints -- 2 per leg, 12 per robot.  Prints flat on its +Z face.
@@ -6198,8 +6239,20 @@ def make_servo_clamp_cap() -> trimesh.Trimesh:
                               0.5 * (CLAMP_BACK_HOOK_Y0 + shelf_y1),
                               -0.5 * (CLAMP_BACK_HOOK_SHELF_Z + CLAMP_BACK_HOOK_T)))
 
+    # Horn-side MINI hook (Aug 19 2026, user): a tiny corner pad at the +X
+    # end -- z -1 (the proven tongue-lip plane over the yoke pad sweep) up
+    # to +1 (press-fit bite), reaching to the cavity edge in x and 3 mm
+    # over the back face in y, with a >= 1.2 mm radial gap to the Phi 20
+    # passive horn.  See the CLAMP_HORN_HOOK_* constants block.
+    horn_hook = _box((cav_w / 2.0 - CLAMP_HORN_HOOK_X0,
+                      flange_y1 - CLAMP_HORN_HOOK_Y0,
+                      CLAMP_SEAT_DROP + 1.0),
+                     center=(0.5 * (CLAMP_HORN_HOOK_X0 + cav_w / 2.0),
+                             0.5 * (CLAMP_HORN_HOOK_Y0 + flange_y1),
+                             0.5 * (1.0 - CLAMP_SEAT_DROP)))
+
     # The lip must clear the dia-20 disc horn (centred on +SERVO_OUTPUT_X).
-    body = _union(flange, tongue, lip, hook_wall, hook_shelf)
+    body = _union(flange, tongue, lip, hook_wall, hook_shelf, horn_hook)
     horn = _cyl(HORN_CLEAR_OPENING_OD / 2.0, (WELL_H - WELL_RIM_Z) * 4.0)
     horn.apply_translation([SERVO_OUTPUT_X, 0.0, WELL_RIM_Z])
 
