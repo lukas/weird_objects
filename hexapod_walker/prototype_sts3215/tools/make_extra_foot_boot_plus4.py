@@ -3,8 +3,10 @@
 Aug 2026: the hinged tibia_foot_fitting + foot_pad are retired; each
 tibia tube takes a pressed-on TPU 95A ``foot_boot`` instead.  Legs 0/4
 have CF tubes cut 4 mm short, so their boot gets a +4 mm longer solid
-tip (FOOT_BOOT_SHORT_EXTRA) and every tip still lands at tibia-local
-x = TIBIA_LENGTH.  Print in TPU 95A, tip face on the bed.
+tip (FOOT_BOOT_SHORT_EXTRA) and every dome apex still lands at
+tibia-local x = TIBIA_LENGTH.  Print in TPU 95A, MOUTH face on the bed
+(Aug 19 2026 dome tip -- the bore's blind end is a 45-deg internal
+cone, nothing bridges).
 
 TRANSITIONAL (late-Aug 2026 review round 2): this variant exists only
 because two as-built tubes came out 4 mm short.  When the tubes are

@@ -2909,13 +2909,28 @@ COXA_HIP_DROP = (-(WELL_D / 2.0 + COXA_ARM_T / 2.0 + WELL_Z_DROP_EXTRA)
 # pan-head hinge pin, no nyloc.  Rationale (user, Aug 2026 design
 # review): the hinged pad's angled tang dug into the textured garage
 # floor and caught; the loose hinge added 2 printed parts + 2 fasteners
-# per leg and nothing measurable in traction.  The boot's flat TPU tip
-# face (chamfered rim, no corners) is the ground contact; TPU material
-# compliance absorbs the pitch/roll the hinge used to.
+# per leg and nothing measurable in traction.
+#
+# Aug 19 2026 DOME tip (user + GPT walking-gait review): the original
+# boot ended in a FLAT Ø10 chamfer-rimmed face.  On the textured garage
+# floor the flat tip caused BOTH observed failure modes -- whenever the
+# tibia is not perpendicular to the floor (i.e. most of stance) the boot
+# rides its chamfer EDGE: a tiny contact that catches texture ("stuck"),
+# then breaks free all at once ("slips") -- exactly opposite to what the
+# RL policy expects, because mujoco_prototype models the foot as a
+# SPHERE of radius FOOT_BOOT_OD/2 tangent at the kinematic tip (smooth
+# single-point contact at any leg angle).  The tip is now a
+# HEMISPHERICAL DOME of radius FOOT_BOOT_OD/2 with its apex at the
+# kinematic tip -- the physical foot IS the sim's contact sphere (dome
+# centre lands at tibia-local x = TIBIA_LENGTH - FOOT_BOOT_OD/2 =
+# mujoco's BOOT_TIP_CTR; no sim change needed).  The dome also deletes
+# the print-orientation coupling: the boot now prints MOUTH-DOWN with a
+# 45-deg internal blind-end cone (borrowed from the cone experiment) so
+# nothing bridges.
 #
 # Boot local frame (same convention the old fitting used): origin at the
 # tube end on the tube axis, tube enters from -X, ground tip toward +X.
-# The tip face lands exactly at tibia-local x = TIBIA_LENGTH, so the
+# The dome APEX lands exactly at tibia-local x = TIBIA_LENGTH, so the
 # 128 mm knee-axis→tip kinematic length is unchanged.
 FOOT_BOOT_OD           = 14.0  # mm -- boot outer diameter (3 mm TPU wall)
 FOOT_BOOT_BORE_D       =  8.1  # mm -- bore over the Ø8 tube: SAME Ø8.1 as
@@ -2930,13 +2945,30 @@ FOOT_BOOT_BORE_D       =  8.1  # mm -- bore over the Ø8 tube: SAME Ø8.1 as
                                #        ends up snug.  Dab of CA/epoxy for
                                #        keeps.
 FOOT_BOOT_SOCKET_DEPTH = 20.0  # mm -- tube insertion depth
-FOOT_BOOT_TIP_L        =  8.0  # mm -- solid TPU beyond the tube end;
+FOOT_BOOT_TIP_L        =  8.0  # mm -- solid tip beyond the tube end;
                                #        tube end at x = TIBIA_LENGTH - 8
-                               #        puts the tip face at TIBIA_LENGTH
-FOOT_BOOT_TIP_CHAMFER  =  2.0  # mm -- 45 deg rim chamfer on the tip face
-                               #        (flat Ø10 contact patch, no sharp
-                               #        edge to catch on floor texture)
+                               #        puts the dome apex at TIBIA_LENGTH.
+                               #        (>= 3-5 mm of material stays below
+                               #        the rod end: the 45-deg internal
+                               #        blind cone bottoms ~3.95 mm short
+                               #        of the apex.)
 FOOT_BOOT_MOUTH_LEAD   =  1.2  # mm -- bore lead-in chamfer at the mouth
+# (FOOT_BOOT_TIP_CHAMFER RETIRED Aug 19 2026 with the flat tip face --
+# the dome has no rim to chamfer.)
+#
+# EXPERIMENTAL PETG foot trio (Aug 19 2026, user has PETG on hand today,
+# TPU later).  Three test variants of the SAME dome geometry, walked on
+# the same gait to see which reduces catching / sudden release most:
+#   1. solid dome    = foot_boot.stl,      slice solid (4+ walls / dense)
+#   2. hollow dome   = foot_boot.stl,      slice 2 walls / ~8% infill
+#                      (GPT: thin PETG shell fakes a little compliance)
+#   3. wide hollow   = foot_boot_wide.stl, slice 2 walls / ~8% infill
+# PETG is rigid, so unlike TPU the Ø8.1 bore is a true slip fit (same
+# bore the rigid tibia yoke socket already proved on the bench) -- add a
+# CA/epoxy dab; PETG will not grip the tube the way TPU does.
+FOOT_BOOT_WIDE_OD      = 17.0  # mm -- wider experimental dome OD (dome
+                               #        R 8.5; apex still at TIBIA_LENGTH,
+                               #        wall over the bore >= 4.4 mm)
 #
 # EXPERIMENTAL conical boot (Aug 17 2026, user: "try making another
 # experimental version of these boots with more conical shape").  Same
@@ -2944,7 +2976,8 @@ FOOT_BOOT_MOUTH_LEAD   =  1.2  # mm -- bore lead-in chamfer at the mouth
 # x = TIBIA_LENGTH), but the outer profile is a cone: a gently tapered
 # sleeve (Phi 15 mouth -> Phi 13 at the nose start) flowing into a steep
 # nose cone down to a small Phi 6 flat ground contact (vs the straight
-# Phi 14 sleeve + Phi 10 flat of the production boot).  A true single
+# Phi 14 sleeve of the production boot, whose tip was a flat Phi 10 face
+# until the Aug 19 2026 dome).  A true single
 # straight cone from mouth to a small tip is impossible -- it would thin
 # the TPU wall over the bore below ~1.5 mm at the socket bottom; the
 # two-segment profile keeps >= 2.45 mm of wall everywhere over the bore.
@@ -10757,7 +10790,8 @@ def make_tibia_link() -> trimesh.Trimesh:
                  pin_hole, *lightening)
 
 
-def make_foot_boot(*, extra_tip: float = 0.0) -> trimesh.Trimesh:
+def make_foot_boot(*, extra_tip: float = 0.0,
+                   od: float = FOOT_BOOT_OD) -> trimesh.Trimesh:
     """TPU 95A boot pressed over the tibia CF-tube end (Aug 2026 --
     replaces tibia_foot_fitting + foot_pad + the M3x16/nyloc hinge).
 
@@ -10765,34 +10799,45 @@ def make_foot_boot(*, extra_tip: float = 0.0) -> trimesh.Trimesh:
     FOOT_BOOT_SOCKET_DEPTH mm of the Ø8 tube (Ø8.1 bore -- same slip fit
     as the tibia yoke's tube socket; see FOOT_BOOT_BORE_D for the two
     rounds of bench loosening), closed by a FOOT_BOOT_TIP_L solid tip
-    whose FLAT chamfer-rimmed face is the ground contact.  Print
-    tip-face on the bed, bore up -- no supports, flat bottom.
+    ending in a HEMISPHERICAL DOME of radius od/2 (Aug 19 2026 --
+    replaces the flat chamfer-rimmed face; the dome IS the MuJoCo
+    contact sphere, apex at the kinematic tip -- see the FOOT_BOOT_*
+    constants block for the stuck/slip rationale).  The bore's blind
+    end is a 45-deg internal cone so the boot prints MOUTH-DOWN with
+    no bridges (a dome tip cannot be the bed face).
 
     Local frame matches the old fitting: origin at the tube end on the
-    tube axis, tube enters from -X, tip face at +(FOOT_BOOT_TIP_L +
+    tube axis, tube enters from -X, dome apex at +(FOOT_BOOT_TIP_L +
     extra_tip).  ``extra_tip`` = FOOT_BOOT_SHORT_EXTRA for the 4 mm-short
     CF legs 0/4 so every tip lands at tibia-local x = TIBIA_LENGTH.
+    ``od`` = FOOT_BOOT_WIDE_OD for the experimental wide PETG variant.
     """
     tip_l = FOOT_BOOT_TIP_L + float(extra_tip)
     total_l = FOOT_BOOT_SOCKET_DEPTH + tip_l
-    r_out = FOOT_BOOT_OD / 2.0
+    r_out = float(od) / 2.0
     r_bore = FOOT_BOOT_BORE_D / 2.0
-    r_flat = r_out - FOOT_BOOT_TIP_CHAMFER
     lead = FOOT_BOOT_MOUTH_LEAD
-    # Revolved profile (r, z): z = 0 at the ground tip face, +z toward
-    # the open mouth.  Starts and ends on the axis -> watertight solid.
-    profile = np.array([
-        (0.0,            0.0),
-        (r_flat,         0.0),
-        (r_out,          FOOT_BOOT_TIP_CHAMFER),
-        (r_out,          total_l),
-        (r_bore + lead,  total_l),
-        (r_bore,         total_l - lead),
-        (r_bore,         tip_l),
-        (0.0,            tip_l),
+    # Revolved profile (r, z): z = 0 at the dome apex (ground contact),
+    # +z toward the open mouth.  Starts and ends on the axis ->
+    # watertight solid.  The dome arc runs apex -> equator at (r_out,
+    # r_out); a quarter circle sampled finely enough that the chord
+    # error is far below FDM resolution.
+    theta = np.linspace(0.0, np.pi / 2.0, 25)
+    dome = np.column_stack([r_out * np.sin(theta),
+                            r_out * (1.0 - np.cos(theta))])
+    profile = np.vstack([
+        dome,
+        [(r_out,          total_l),
+         (r_bore + lead,  total_l),
+         (r_bore,         total_l - lead),
+         (r_bore,         tip_l),
+         # 45-deg internal blind-end cone: the tube's end ring bottoms
+         # on the cone/bore corner at the same insertion depth as the
+         # old flat blind end, and mouth-down printing self-supports.
+         (0.0,            tip_l - r_bore)],
     ])
     boot = trimesh.creation.revolve(profile, sections=64)
-    # Ground face (z=0) -> local +X tip; mouth -> -X over the tube.
+    # Dome apex (z=0) -> local +X tip; mouth -> -X over the tube.
     boot.apply_transform(rotation_matrix(-np.pi / 2.0, [0, 1, 0]))
     boot.apply_translation([tip_l, 0.0, 0.0])
     return boot
@@ -10805,6 +10850,17 @@ def make_foot_boot_plus4() -> trimesh.Trimesh:
     ``stl_prototype/`` set).
     """
     return make_foot_boot(extra_tip=FOOT_BOOT_SHORT_EXTRA)
+
+
+def make_foot_boot_wide() -> trimesh.Trimesh:
+    """EXPERIMENTAL wider dome boot (Aug 19 2026) -- same geometry as
+    ``make_foot_boot`` but Ø FOOT_BOOT_WIDE_OD = 17 (dome R 8.5).  Third
+    leg of the PETG foot trio (see the FOOT_BOOT_* constants block):
+    slice it hollow-ish (2 walls / ~8% infill) so the PETG shell can
+    flex a little.  Lives in ``extra_stl/foot_boot_wide.stl``
+    (tools/make_extra_foot_boot_wide.py); NOT in the production print
+    set.  Apex still lands at tibia-local x = TIBIA_LENGTH."""
+    return make_foot_boot(od=FOOT_BOOT_WIDE_OD)
 
 
 def make_foot_boot_cone() -> trimesh.Trimesh:

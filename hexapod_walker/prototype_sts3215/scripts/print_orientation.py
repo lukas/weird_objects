@@ -126,10 +126,11 @@ def _reorient_servo_clamp_cap(mesh):
 
 
 def _reorient_foot_boot(mesh):
-    """TPU boot: rotate +90 deg about Y so the flat chamfer-rimmed ground
-    tip face (local +X) becomes the bed face and the tube bore opens
-    straight up.  No supports; prints as a simple vertical tube."""
-    out = _rotate(mesh, np.pi / 2, [0, 1, 0])
+    """Foot boot: rotate -90 deg about Y so the MOUTH face (local -X)
+    becomes the bed face and the dome tip points straight up (Aug 19
+    2026 dome tip -- a dome cannot be the bed face; the bore's blind
+    end is a 45-deg internal cone so nothing bridges).  No supports."""
+    out = _rotate(mesh, -np.pi / 2, [0, 1, 0])
     return _drop_to_bed(out)
 
 

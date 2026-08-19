@@ -150,8 +150,8 @@ coordinate_systems:
     y_axis: "Knee pivot axis."
     z_axis: "Output-shaft direction; top arm bolts the driven knee disc horn, bottom arm bolts the passive rear-boss knee disc horn."
   foot_boot:
-    origin: "Tibia CF-tube END on the tube axis (the boot's socket mouth is 20 mm inboard at -X; the flat ground-contact tip face is at +X = FOOT_BOOT_TIP_L = 8)."
-    x_axis: "Tube / boot long axis (-X over the tube, +X to the ground tip face)."
+    origin: "Tibia CF-tube END on the tube axis (the boot's socket mouth is 20 mm inboard at -X; the hemispherical dome's ground-contact APEX is at +X = FOOT_BOOT_TIP_L = 8)."
+    x_axis: "Tube / boot long axis (-X over the tube, +X to the dome apex)."
     y_axis: "Knee axis direction (the boot is a solid of revolution -- Y/Z only fix the frame)."
     z_axis: "Perpendicular, in the leg's plane of motion."
   femur_link:
@@ -245,7 +245,7 @@ print_orientations:
   servo_clamp_cap:    {rotation_deg: [-90, 0, 0], note: "FLANGE-DOWN (Aug 19 2026): lay the flange's broad OUTER (+Y) face on the bed.  The old tongue-side-down lay stopped working when the back-face hook grew -- its shelf reaches 6.4 mm below the tongue tip, leaving 1.3% bed contact.  Flange-down the whole hook prints as a straight vertical column, no supports; the M3 head counterbores open at the bed (clean bridged mouths).  MJF PA12 is orientation-insensitive anyway."}
   femur_link:         {rotation_deg: [-90, 0, 0], note: "Rotate -90 about X (the femur_link.stl is in the ASSEMBLED-link frame) to recover the joint-local as-modelled pose: yoke spine-down so both disc-horn arms bridge cleanly, the solid Phi 18 spar horizontal, knee servo mount plate on top.  The knee mount plate bridges its servo well on FDM -- use supports in the well (removable through the open back); MJF is orientation-insensitive."}
   tibia_knee_yoke:    {rotation_deg: [0, 0, 0],   note: "Same clevis as the femur_link hip yoke; spine-down."}
-  foot_boot:          {rotation_deg: [0, 90, 0],  note: "Rotate +90 about Y: flat chamfer-rimmed ground tip face on the bed, tube bore opening straight up -- a simple vertical TPU tube, no supports."}
+  foot_boot:          {rotation_deg: [0, -90, 0], note: "Rotate -90 about Y: MOUTH face on the bed, dome tip up (Aug 19 2026 dome -- a dome cannot be the bed face; the bore's blind end is a 45-deg internal cone so nothing bridges).  No supports."}
   switch_holster:     {rotation_deg: [0, 0, 0],   note: "Flat socket floor (the velcro face) on bed, cavity opens +Z.  (Aug 16 2026: mounting ear retired.)"}
   # (late-Aug 2026: wago_mount retired -- the corner power-Wago tray
   # walls are integrated into chassis_bottom's top face and print with
@@ -920,15 +920,15 @@ parts:
           axis: x
 
   foot_boot:
-    description: "TPU 95A boot pressed over the tibia CF-tube end (Aug 2026 -- replaces tibia_foot_fitting + foot_pad + the M3 x 16/nyloc hinge pin; 12 printed parts + 12 fasteners retired).  One revolved solid: a ~3 mm-wall sleeve over the last FOOT_BOOT_SOCKET_DEPTH = 20 mm of the Phi 8 tube (Phi 8.1 bore = the SAME nominal slip fit as the tibia yoke's tube socket -- Aug 17 2026 bench, two rounds: 7.7/0.3-interference was unpressable by hand and 7.9 still too tight; TPU bores print undersized from extrusion bulge, so the nominal slip fit still ends up snug -- dab of CA/epoxy for keeps), closed by a FOOT_BOOT_TIP_L = 8 mm solid tip whose FLAT chamfer-rimmed face is the ground contact.  Local frame: origin at the tube end on the tube axis; tube enters from -X, tip face at +8.  A +4 mm-longer-tip variant (extra_stl/foot_boot_plus4.stl) rides the 4 mm-short CF tubes of legs 0/4 so every tip lands at tibia-local x = TIBIA_LENGTH.  TRANSITIONAL: the plus4 variant only absorbs an as-built tube-cutting error -- at the next tube recut standardize all six tubes at 128 mm and retire it (one boot SKU)."
+    description: "TPU 95A boot pressed over the tibia CF-tube end (Aug 2026 -- replaces tibia_foot_fitting + foot_pad + the M3 x 16/nyloc hinge pin; 12 printed parts + 12 fasteners retired).  One revolved solid: a ~3 mm-wall sleeve over the last FOOT_BOOT_SOCKET_DEPTH = 20 mm of the Phi 8 tube (Phi 8.1 bore = the SAME nominal slip fit as the tibia yoke's tube socket -- Aug 17 2026 bench, two rounds: 7.7/0.3-interference was unpressable by hand and 7.9 still too tight; TPU bores print undersized from extrusion bulge, so the nominal slip fit still ends up snug -- dab of CA/epoxy for keeps), closed by a FOOT_BOOT_TIP_L = 8 mm solid tip ending in a HEMISPHERICAL DOME of radius FOOT_BOOT_OD/2 = 7 (Aug 19 2026 -- replaces the flat Phi 10 chamfer-rimmed face, which rode its chamfer EDGE whenever the tibia was off-perpendicular: it caught floor texture then broke free abruptly, the observed stuck/slip gait failures; the dome IS the MuJoCo contact sphere -- mujoco_prototype models the foot as a sphere of radius FOOT_BOOT_OD/2 tangent at the kinematic tip, so contact now matches sim at any leg angle).  The bore's blind end is a 45-deg internal cone (mouth-down printing, no bridges).  Local frame: origin at the tube end on the tube axis; tube enters from -X, dome apex at +8.  A +4 mm-longer-tip variant (extra_stl/foot_boot_plus4.stl) rides the 4 mm-short CF tubes of legs 0/4 so every apex lands at tibia-local x = TIBIA_LENGTH.  TRANSITIONAL: the plus4 variant only absorbs an as-built tube-cutting error -- at the next tube recut standardize all six tubes at 128 mm and retire it (one boot SKU).  INTERIM MATERIAL (Aug 19 2026): PETG until TPU is on hand -- see extra_stl/foot_boot_wide.stl and the FOOT_BOOT_* constants block for the 3-variant PETG walk test (solid / hollow-sliced / wide hollow-sliced)."
     qty: 6
     bounds_mm: [28.0, 14.0, 14.0]       # x in [-20, +8] (20 mm socket + 8 mm tip), Phi 14 OD (FOOT_BOOT_OD)
     holes: []                            # the Phi 8.1 tube bore opens at -X (blind; not a through-hole)
     wire_channels: []
     keep_out_volumes: []
     shape:
-      overall_form: "Solid of revolution about X: Phi 14 OD sleeve with a Phi 8.1 x 20 mm blind bore (nominal slip fit over the Phi 8 tube -- matches the tibia yoke socket; 1.2 mm lead-in chamfer at the mouth) and an 8 mm solid tip ending in a flat ground face with a 2 mm 45-deg chamfer rim."
-      print_orientation_rationale: "Rotate +90 about Y: flat tip face on the bed, bore opening straight up -- a simple vertical TPU tube, no supports, and the ground face gets the bed's flatness."
+      overall_form: "Solid of revolution about X: Phi 14 OD sleeve with a Phi 8.1 x 20 mm blind bore (nominal slip fit over the Phi 8 tube -- matches the tibia yoke socket; 1.2 mm lead-in chamfer at the mouth; 45-deg internal cone at the blind end) and an 8 mm solid tip ending in a hemispherical R7 dome whose apex is the ground contact."
+      print_orientation_rationale: "Rotate -90 about Y: MOUTH face on the bed, dome tip up -- a dome cannot be the bed face, and the bore's 45-deg internal blind-end cone self-supports, so still no supports."
       features:
         - name: tube_socket
           type: cylindrical_boss
@@ -944,7 +944,7 @@ parts:
             mating_plane_z_local_mm: 0.0
         - name: ground_tip
           type: cylindrical_disc
-          description: "8 mm solid TPU tip; the flat +X face (Phi 10 flat inside a 2 mm 45-deg chamfer rim) is the ground contact -- compliant like the old foot_pad disk but with no hinge to work loose."
+          description: "8 mm solid tip ending in a hemispherical R7 dome (Aug 19 2026 -- replaced the flat chamfer-rimmed face that caused the stuck/slip gait failures); the dome apex at +X = 8 is the ground contact and coincides with the MuJoCo contact sphere (centre at tibia-local x = 121, R = 7)."
           centre_mm: [4.0, 0.0, 0.0]
           diameter_mm: 14.0
           thickness_mm: 8.0             # = FOOT_BOOT_TIP_L

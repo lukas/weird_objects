@@ -82,9 +82,12 @@ DAMP_PITCH = 0.45
 DAMP_KNEE = 0.40
 ARMATURE = 0.0004
 
-# Aug 2026 TPU boot: ground contact is the boot's chamfer-rimmed flat tip
-# on the tibia centerline, modelled as a sphere of the boot's outer radius
-# whose surface reaches exactly tibia-local x = TIBIA (the kinematic tip).
+# Aug 2026 TPU boot: ground contact is a sphere of the boot's outer radius
+# on the tibia centerline whose surface reaches exactly tibia-local
+# x = TIBIA (the kinematic tip).  Aug 19 2026: no longer an approximation
+# -- the printed boot's tip IS this hemisphere (the old flat chamfer-rimmed
+# face rode its rim edge at off-perpendicular tibia angles, causing the
+# real-floor stuck/slip failures the sim never saw).
 FOOT_R = HP.FOOT_BOOT_OD / 2.0 * M
 BOOT_TIP_CTR = HP.TIBIA_LENGTH * M - FOOT_R   # sphere centre along tibia +X
 
@@ -806,7 +809,8 @@ def _foot_boot_body_xml(i: int) -> str:
     the boot is pressed rigidly onto the tube; TPU compliance is
     approximated by the soft foot-contact solref (sim_env softens it 3x).
     Contact = sphere of the boot's outer radius on the tibia centerline,
-    surface tangent at the kinematic tip x = TIBIA.
+    surface tangent at the kinematic tip x = TIBIA.  Since the Aug 19
+    2026 dome boot the printed tip is this exact hemisphere.
     """
     return (
         f'            <body name="L{i}_pad" '
