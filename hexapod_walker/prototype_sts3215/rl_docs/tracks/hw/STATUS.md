@@ -24,6 +24,35 @@ unresolved blockers between the robot and reliable joystick control.
 
 ## Now
 
+- **08-19 ~18:1x (operator-kick cycle): the steer slip fork is
+  ANSWERED by the operator ("fast non slipping gait", MCP lane
+  20260819T175106Z — option (b) + speed) and the combined arm is
+  TRAINING: `cw-dep-bcgait1-hard1-steer4-fastclean1` (20M hardening,
+  train-0, W&B `ml1rja4v`).** Warm from steer3-yawm1's checkpoint
+  (anti-jam adapted, retention-clean); adds the banked structural
+  per-stance drag charge `reward.k_drag_stance=8000` @ 6mm allowance
+  / 0.25mm floor (charge-magnitude-audit operating point — prices the
+  dragging STROKE that per-tick k_drag_loaded provably cannot
+  separate from honest scuff) on top of the validated
+  `k_yaw_margin=2.0`, and widens the command band to 0.05–0.08 m/s
+  (operator asked for speed; old "speed-band arms" closure was earned
+  on the gait-limited crouch paddler, judged inapplicable to the tall
+  BC gait — obey-then-ask entry q_20260819T18xxZ). Causal logic:
+  hard20m1-r1 showed 20M of UNPRICED stage-2 exposure erodes slip to
+  2.2–3.9/m, so the missing piece is pricing the drag, not more
+  exposure. New combined-stack preflight (`test_fastclean_*`: gait >
+  skate/stall/park at 0.05 AND 0.08, charges ~free for the honest
+  gait) green with the full bank (138 passed), snapshot `f89863ca`.
+  `--best-ckpt` retention guard armed; hard1/fric immutable rollback
+  baselines. Pre-registered gate (all four or STOP, evals forcing
+  walk_cmd_stage=2.0): (A) retention == hard1/fric band (slip det
+  <=1.8/sto <=2.0, height >= -20mm, yaw margin positive, zero
+  falls); (B) anti-jam retained (0/24 over_current, no park/freeze,
+  yaw_sat_frac < 0.01 rot60-ON); (C) switch-panel slip medians
+  < 2.0/m all four slices (parent band 2.51–3.54; ideal 1.5); (D)
+  det DR-0 pinned 0.08 m/s command: prog_ratio >= 0.8 with slip
+  <= 1.8/m. Download answer unchanged until it passes.
+
 - **08-19 ~01:5x (idle-drain triage): `cw-dep-bcgait1-hard1-steer3-yawm1`
   CANARY PASS, and the yaw-margin term is VALIDATED as the
   anti-jam/anti-tangle lever — but the slip bar missed, so per its own

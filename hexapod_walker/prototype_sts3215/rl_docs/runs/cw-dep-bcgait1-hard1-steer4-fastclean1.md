@@ -1,0 +1,20 @@
+# cw-dep-bcgait1-hard1-steer4-fastclean1
+
+<!-- GENERATED from experiments.json by launch_run.py — do not edit -->
+
+**status**: RUNNING
+
+**created**: 2026-08-19T18:08:10+00:00
+
+**pod**: hexapod-mjx-train-0
+
+**steps**: 20000000
+
+**parent**: cw-dep-bcgait1-hard1-steer3-yawm1
+
+**wandb_id**: ml1rja4v
+
+**hypothesis**: Teach the tall walking champion a faster gait that keeps its feet from sliding: this arm tests whether pricing the two measured slip/jam defects directly — the validated hip-yaw limit-riding charge (k_yaw_margin, anti-jam, proven by steer3-yawm1) plus the structural per-stance loaded-drag charge (k_drag_stance, the charge-magnitude-audit term that separates honest stepping from dragging 3.3x where per-tick pricing cannot) — lets 20M steps of the proven staged direction-switch curriculum pull switch-schedule footwork back toward the champion's clean 1.3-1.5 slip/m band WHILE learning a raised 0.05-0.08 m/s command band. Operator order (MCP lane 20260819T175106Z): do not accept the 2.5-3.5/m switch-slip band; combine the validated yaw-margin mechanism with slip discipline and speed. Why this coupled bundle is causal, not blind re-shaping: steer2-hard20m1-r1 proved 20M of UNPRICED stage-2 exposure erodes gait quality (slip 2.2-3.9/m) — the erosion is exactly unpriced dragging, and the closed anti-slip arms were per-tick/income shaping on paddlers with no honest alternative in-repertoire; this walker already owns the honest low-slip gait at fixed commands (1.46/1.62 per m retention panel), so the per-stance charge only taxes the switch-transient dragging we want gone. Warm from steer3-yawm1's checkpoint (anti-jam adapted, retention-clean). Prediction-if-true: switch-panel slip drops below 2.0/m (toward 1.5), fixed-command slip stays 1.3-1.6, 0/24 over_current, no park/freeze, and the walker tracks 0.08 m/s with prog_ratio >= 0.8 — a genuinely faster AND cleaner download candidate. Prediction-if-false: the drag charge sits unresolved as a constant tax (dragstance1 pattern) or the faster band re-crouches/re-splays the gait — STOP and report, no k-rung sweep, and the speed axis re-closes for this gait class.
+
+**gate**: HARDENING 20M, all evals FORCING goal.walk_cmd_stage=2.0 (cfg pins stage=0 pre-schedule — blend1 triage trap). PASS requires ALL: (A) RETENTION vs the immutable frozen baselines hard1+fric (never overwritten, rollback answer if this run fails): fixed-command panel gait_valid >= 5/6 det+sto, probe_tall_wall height >= -20mm (no crouch re-drift), leg-yaw limit margin positive (not re-pinned), ZERO falls, slip/m det <= 1.8 / sto <= 2.0, roll settled — if the final ckpt misses, judge the --best-ckpt retained checkpoint instead; if that misses too the arm FAILS with hard1/fric unchanged as the download answer. (B) ANTI-JAM RETAINED: identical 24-ep direction-switch panel (6 families x 2 seeds x det+sto, DR-0 + own-DR-0.35, same eval seed as blend1/yawm1): 0/24 over_current AND zero park/freeze/sacrificed-leg episodes AND probe_dirswitch_tangle yaw_sat_frac < 0.01 on the deployed rot60-ON config. (C) SLIP DISCIPLINE (the operator's bar): switch-panel slip medians < 2.0/m on all four slices (report distance to the 1.5 ideal; parent band 2.51-3.54). (D) SPEED RAISED: det DR-0 pinned-command eval at 0.08 m/s shows prog_ratio >= 0.8 with slip <= 1.8/m and gait_valid — useful commanded travel above the 0.05-0.06 champion band. Verdict must quote roll_tail/drag/slip visual-quality stats vs parent. ANY bar missed = STOP and report to operator — no autonomous dose/k sweep or 5th lever (this run IS the operator-ordered combined lever).
+
