@@ -44,7 +44,9 @@ are not bakeable: their motion depends on live servo readings.
 
 CLI (runs on the Mac; needs the repo venv for bake):
     python dance_script.py bake dance_wild -o fever.json
+    python dance_script.py bake-all -d ../dances        # every bakeable demo
     python dance_script.py push fever.json --host http://hexapod.local:8080
+    python dance_script.py push-all -d ../dances --host http://robot-b.local:8080
     python dance_script.py pull fever_dream --host http://robot-b.local:8080
 """
 from __future__ import annotations
@@ -68,6 +70,11 @@ MAX_FRAMES = 20_000
 # glides, velocity mode, RL) — a baked frame table cannot reproduce them.
 UNBAKEABLE_PREFIXES = ("breathe", "shimmy_v", "rise", "walk", "quad",
                        "stand_hands", "plant_", "dance_walk")
+# dance: the classic runner does raw bus ops the recorder can't stub
+# (superseded by dance_wild).  dance_swarm_stand: its wall-clock pacing
+# records a distorted timeline against instant stubs (572 s vs the
+# 252 s song) — run the built-in instead.
+UNBAKEABLE_NAMES = ("dance", "dance_swarm_stand")
 
 
 def _clamp_pose(pose) -> list[float]:
@@ -330,10 +337,15 @@ def bake_demo(name: str, *, title: str | None = None,
 
     if name not in ID.DEMOS:
         raise SystemExit(f"unknown demo {name!r}")
-    if any(name.startswith(p) for p in UNBAKEABLE_PREFIXES):
+    if (any(name.startswith(p) for p in UNBAKEABLE_PREFIXES)
+            or name in UNBAKEABLE_NAMES):
         raise SystemExit(
             f"{name!r} depends on live feedback (contact / velocity / "
-            f"walking) — not bakeable into a frame script")
+            f"walking / raw bus ops) — not bakeable into a frame script")
+    # stand_* stream shows assume the bench already stood the robot up
+    # and leave it holding the plant; a self-contained script wraps them
+    # in the STEP stand-up and a gentle knee-fold descend.
+    stand_stream = name in getattr(ID, "STAND_STREAM_DEMOS", ())
 
     acts: list[dict] = []
     stands = [False]
@@ -436,6 +448,10 @@ def bake_demo(name: str, *, title: str | None = None,
             setattr(ID, k, v)
     if status != "done":
         raise SystemExit(f"bake replay ended {status!r} — not saving")
+    if stand_stream:
+        acts = ([{"kind": "standup", "mode": "step"}] + acts
+                + [{"kind": "sit_zero", "seconds": 4.5}, {"kind": "limp"}])
+        stands[0] = True
 
     script = {
         "format": FORMAT,
@@ -466,14 +482,31 @@ def _cli() -> None:
     b.add_argument("demo")
     b.add_argument("-o", "--out", default=None)
     b.add_argument("--name", default=None, help="script name on the robot")
+    ba = sub.add_parser("bake-all",
+                        help="bake every bakeable demo into a directory")
+    ba.add_argument("-d", "--dir", default="dances")
     p = sub.add_parser("push", help="upload a script to a robot")
     p.add_argument("file")
     p.add_argument("--host", default="http://hexapod.local:8080")
+    pa = sub.add_parser("push-all",
+                        help="upload every *.json in a directory")
+    pa.add_argument("-d", "--dir", default="dances")
+    pa.add_argument("--host", default="http://hexapod.local:8080")
     g = sub.add_parser("pull", help="download a script from a robot")
     g.add_argument("name")
     g.add_argument("--host", default="http://hexapod.local:8080")
     g.add_argument("-o", "--out", default=None)
     args = ap.parse_args()
+
+    def _push_one(path: Path, host: str) -> None:
+        body = path.read_bytes()
+        if len(body) > MAX_SCRIPT_BYTES:
+            raise SystemExit(f"{path} too big")
+        req = urllib.request.Request(
+            host.rstrip("/") + "/api/dances", data=body,
+            headers={"Content-Type": "application/json"})
+        with urllib.request.urlopen(req, timeout=60) as r:
+            print(f"{path.name}: {r.read().decode()}")
 
     if args.cmd == "bake":
         script = bake_demo(args.demo, out_name=args.name)
@@ -483,15 +516,34 @@ def _cli() -> None:
         print(f"baked {args.demo} -> {out}  ({out.stat().st_size/1024:.0f} KB, "
               f"{stats['acts']} acts, {stats['frames']} frames, "
               f"~{stats['seconds']:.0f}s, stands={script['stands']})")
+    elif args.cmd == "bake-all":
+        import inplace_demos as ID
+        outdir = Path(args.dir)
+        outdir.mkdir(parents=True, exist_ok=True)
+        n_ok = 0
+        for demo in ID.DEMOS:
+            if demo == "breathe+":
+                continue
+            if (any(demo.startswith(p) for p in UNBAKEABLE_PREFIXES)
+                    or demo in UNBAKEABLE_NAMES):
+                continue
+            script = bake_demo(demo)
+            out = outdir / f"{script['name']}.json"
+            out.write_text(json.dumps(script))
+            _, stats = validate_script(script)
+            print(f"  {demo:20s} -> {out.name:28s} "
+                  f"{out.stat().st_size/1024:5.0f} KB  "
+                  f"~{stats['seconds']:4.0f}s  stands={script['stands']}")
+            n_ok += 1
+        print(f"baked {n_ok} demos into {outdir}/")
+    elif args.cmd == "push-all":
+        files = sorted(Path(args.dir).glob("*.json"))
+        if not files:
+            raise SystemExit(f"no *.json in {args.dir}")
+        for f in files:
+            _push_one(f, args.host)
     elif args.cmd == "push":
-        body = Path(args.file).read_bytes()
-        if len(body) > MAX_SCRIPT_BYTES:
-            raise SystemExit(f"{args.file} too big")
-        req = urllib.request.Request(
-            args.host.rstrip("/") + "/api/dances", data=body,
-            headers={"Content-Type": "application/json"})
-        with urllib.request.urlopen(req, timeout=30) as r:
-            print(r.read().decode())
+        _push_one(Path(args.file), args.host)
     elif args.cmd == "pull":
         url = args.host.rstrip("/") + "/api/dances/" + args.name
         with urllib.request.urlopen(url, timeout=30) as r:
@@ -502,5 +554,8 @@ def _cli() -> None:
 
 
 if __name__ == "__main__":
-    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    _here = Path(__file__).resolve().parent
+    sys.path.insert(0, str(_here))
+    # tripod_gait & friends live in linux_control (quad_walk imports them)
+    sys.path.insert(0, str(_here.parent / "linux_control"))
     _cli()
