@@ -29,14 +29,15 @@ baseline.
 ## Live Runs
 
 Operator asked to test both fast-gait options A and B. The active ledger rows
-as of 2026-08-20 19:27 UTC are:
+as of 2026-08-20 19:40 UTC are:
 
-- `cw-dep-bcgait1-fastthru1` - RUNNING, waived full-profile B0 pre-cert so PPO can train through the wobble.
-- `cw-dep-bcgait1-midthru1` - INTENT, waived mid-profile B0 pre-cert.
-- `cw-dep-bcgait1-midramp1` - RUNNING, profile ramp-in to 750/40/3 deg.
-- `cw-dep-bcgait1-fastramp1` - RUNNING, profile ramp-in to 1500/80/5 deg.
+- `cw-dep-bcgait1-fastthru1` - RUNNING (another cycle owns triage), waived full-profile B0 pre-cert.
+- `cw-dep-bcgait1-midthru1` - RUNNING, waived mid-profile B0 pre-cert.
+- `cw-dep-bcgait1-midramp1` - CANARY FAIL, profile ramp-in to 750/40/3 deg. See Current Evidence.
+- `cw-dep-bcgait1-fastramp1` - CANARY FAIL, profile ramp-in to 1500/80/5 deg. See Current Evidence.
 
-Do not launch duplicates. Wait for these verdicts or poll the ledger.
+Do not launch duplicates. Wait for the two thru-arm verdicts before deciding
+the fast-gait fork.
 
 ## Current Evidence
 
@@ -48,7 +49,7 @@ Do not launch duplicates. Wait for these verdicts or poll the ledger.
 - `steer7-middose1` half dose improved over the matched parent but still missed in-band speed/tracking/slip bars.
 - V5 fast anti-skate curriculum and `reward.k_loadslip_excess` are implemented and tested.
 - Step-0 V5 raised-profile canaries failed before PPO, so the profile dose itself destabilizes the warm start.
-- Profile ramp-in is built and now being tested by live canaries.
+- Profile ramp-in FAILED its own pre-registered gate at BOTH tested doses (`cw-dep-bcgait1-midramp1` mid, `cw-dep-bcgait1-fastramp1` full): the B0 precert already fails at the ramp's fitted START profile (falsifying "stable at the low end"), and by 1M at target dose both show ~44-52 deg direction/heading error and slip well over budget (fastramp1 also terminates walk_low_height 6/6 at the DR-0 gate) - the robot spins in place instead of tracking command, the same steer6-style skating pattern as the non-ramped attempts. Ramping the actuator-profile onset in slowly does not fix the raised-speed destabilization; the dose itself is the problem, not its abruptness.
 - Recover/tangle results improved scientifically, but recovery is not in the current download answer.
 - Coxa length sweep is advisory only: geometry helps yaw margin/scrub, not straight walking speed; no sim pivot follows.
 
