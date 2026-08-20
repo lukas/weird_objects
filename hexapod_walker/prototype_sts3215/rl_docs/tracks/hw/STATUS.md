@@ -28,11 +28,19 @@ baseline.
 
 ## Live Runs
 
-- `cw-dep-bcgait2-fastbc1` (train-7, 2M, 08-20 ~23:0x UTC): fast-gait
-  fork REOPENED by operator order fb 20260820T224241Z. Fresh BC-INIT
-  from the scripted TripodGait teacher under the FULL servo profile
-  (1500/80/5 deg) at NATIVE cadence, band 0.05-0.08, trained under the
-  profile from step 0. Pre-registered gate in its ledger entry.
+- `cw-dep-bcgait2-fastbc1-track1` (train-7, 5M, `--phase hardening`,
+  08-20 ~23:3x UTC): warm from `cw-dep-bcgait2-fastbc1` (below), adds
+  `reward.k_walk_cmd_track=1.0` to price the overspeed the parent
+  canary showed. Pre-registered gate in its ledger entry (prog_ratio
+  back in 0.75-1.25 both det/sto, slip/roll no worse than parent).
+
+`cw-dep-bcgait2-fastbc1` itself finished: PASS as discovery canary
+(fresh BC-INIT from the scripted TripodGait teacher under the FULL
+servo profile at NATIVE cadence survives RL fine-tune — tall, clean
+6-leg gait, zero falls, direction correct, det slip/m 1.76, realized
+0.117 m/s ~2x deployed) but overspeeds the 0.05-0.08 command band 2x
+(prog ratio med 1.95); the hardening rung above is the pre-authorized
+fix attempt.
 
 Context: the ordered faster-cadence knob (`--tripod-period-scale`,
 landed 08-20, default-off) was REFUTED by its own teacher preflight —
