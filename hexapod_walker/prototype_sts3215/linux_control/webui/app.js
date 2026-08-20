@@ -11,6 +11,10 @@ let linkOk = null;           // null=unknown, true/false after first ping
 let linkFailStreak = 0;
 let lastPingOkAt = 0;
 let backendKind = 'robot';   // robot | sim
+let hubMode = false;
+let hubTarget = 'robot';
+let targetHasRobot = true;
+let targetHasSim = false;
 let simFrames = true;
 let simNativeViewer = false;
 let simTimer = null, simBusy = false, simFrameBusy = false;
@@ -35,26 +39,46 @@ function setLink(ok, detail){
     conn.textContent = detail || 'offline';
     conn.className = 'bad';
     const bar = document.getElementById('offlinebar');
-    const target = backendKind === 'sim' ? 'MuJoCo sim' : 'Uno Q';
+    const target = hubMode ? (hubTarget === 'both'
+      ? 'robot + MuJoCo sim' : hubTarget)
+      : (backendKind === 'sim' ? 'MuJoCo sim' : 'Uno Q');
     if(bar) bar.textContent = `● Lost connection to ${target} — retrying…`
       +(detail ? (' ('+detail+')') : '');
   }
 }
 function applyBackendMeta(meta){
   if(!meta) return;
-  const kind = meta.kind || (meta.service === 'hexapod-sim' ? 'sim' : 'robot');
+  hubMode = !!meta.hub || meta.service === 'hexapod-hub';
+  if(hubMode){
+    hubTarget = meta.target || 'sim';
+    targetHasRobot = !!(meta.active && meta.active.robot);
+    targetHasSim = !!(meta.active && meta.active.sim);
+  } else {
+    const kind0 = meta.kind
+      || (meta.service === 'hexapod-sim' ? 'sim' : 'robot');
+    targetHasSim = kind0 === 'sim';
+    targetHasRobot = kind0 !== 'sim';
+    hubTarget = targetHasSim ? 'sim' : 'robot';
+  }
+  const kind = targetHasRobot ? 'robot' : (targetHasSim ? 'sim' : 'robot');
   const frames = meta.frames !== false;
   const nativeViewer = !!meta.viewer;
   const changed = kind !== backendKind || frames !== simFrames
-    || nativeViewer !== simNativeViewer;
+    || nativeViewer !== simNativeViewer
+    || hubMode !== document.body.classList.contains('hub-backend')
+    || hubTarget !== (document.getElementById('targetsel')||{}).value;
   backendKind = kind;
   simFrames = frames;
   simNativeViewer = nativeViewer;
-  document.body.classList.toggle('sim-backend', backendKind === 'sim');
+  document.body.classList.toggle('hub-backend', hubMode);
+  document.body.classList.toggle('target-both', hubTarget === 'both');
+  document.body.classList.toggle('sim-backend', targetHasSim);
   document.body.classList.toggle('sim-native-viewer',
-    backendKind === 'sim' && simNativeViewer);
+    targetHasSim && simNativeViewer);
   document.body.classList.toggle('sim-browser-frames',
-    backendKind === 'sim' && simFrames);
+    targetHasSim && simFrames);
+  const sel = document.getElementById('targetsel');
+  if(sel && sel.value !== hubTarget) sel.value = hubTarget;
   if(!simFrames){
     const img = document.getElementById('simframe');
     if(img) img.removeAttribute('src');
@@ -77,9 +101,10 @@ async function heartbeat(){
     clearTimeout(t);
     if(!r.ok) throw new Error('HTTP '+r.status);
     const j = await r.json().catch(()=>({}));
-    if(j && j.ok === false) throw new Error(j.error || 'ping failed');
     applyBackendMeta(j);
-    setLink(true, backendKind === 'sim' ? 'sim connected' : undefined);
+    if(j && j.ok === false) throw new Error(j.error || 'ping failed');
+    setLink(true, hubMode ? `hub: ${hubTarget}`
+      : (backendKind === 'sim' ? 'sim connected' : undefined));
   }catch(e){
     clearTimeout(t);
     linkFailStreak++;
@@ -591,6 +616,25 @@ let dbgTestRunning = false, dbgTestAbort = false;
 const dbgIndex  = ()=> dbgLeg*3 + dbgAxis;
 const dbgLimits = ()=> AXIS_LIM[dbgAxis];
 const $ = id => document.getElementById(id);
+
+async function setHubTarget(target){
+  try{
+    const r = await fetch('/api/hub', {method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({target})});
+    const d = await r.json();
+    if(!d.ok) throw new Error(d.error || 'target switch failed');
+    applyBackendMeta(d);
+    setArmed(false);
+    showSent('target → '+target);
+    simPollMaybe();
+  }catch(e){
+    showSent('target switch failed: '+(e.message || e), true);
+  }
+}
+if(document.getElementById('targetsel'))
+  document.getElementById('targetsel').onchange =
+    e => setHubTarget(e.target.value);
 
 function dbgRefresh(){
   const idx = dbgIndex(), lim = dbgLimits();
@@ -1243,12 +1287,12 @@ function stopSimPoll(){
   simFrameBusy = false;
 }
 function simPollMaybe(){
-  if(backendKind !== 'sim' || activeView !== 'rl'){ stopSimPoll(); return; }
+  if(!targetHasSim || activeView !== 'rl'){ stopSimPoll(); return; }
   if(!simTimer) simTimer = setInterval(refreshSimPanel, 500);
   refreshSimPanel();
 }
 async function refreshSimPanel(){
-  if(backendKind !== 'sim' || activeView !== 'rl' || simBusy) return;
+  if(!targetHasSim || activeView !== 'rl' || simBusy) return;
   simBusy = true;
   try{
     const img = $('simframe');
@@ -2635,8 +2679,9 @@ window.addEventListener('hashchange', ()=>{
 // all PWM. needArm() gates every servo-driving send on both pages.
 function updateArmUI(){
   const bar = $('armbar');
-  bar.classList.toggle('sim', backendKind === 'sim');
-  if(backendKind === 'sim'){
+  const simOnly = targetHasSim && !targetHasRobot;
+  bar.classList.toggle('sim', simOnly);
+  if(simOnly){
     bar.classList.remove('armed', 'disarmed');
     $('armstate').textContent = '● SIM MODE — MuJoCo backend';
     $('armbtn').textContent = 'Reset sim stand';
@@ -2652,7 +2697,7 @@ function updateArmUI(){
 }
 function setArmed(on){ servosArmed = on; if(!on) armed = false; updateArmUI(); }
 function armServos(){
-  if(backendKind === 'sim'){
+  if(targetHasSim && !targetHasRobot){
     simPost('/api/sim/reset', {start:'plant'});
     showSent('SIM — reset to stand');
     return;
@@ -2670,13 +2715,13 @@ function settleServos(){ dbgTestAbort = true; cmd('SETTLE'); setArmed(false);
 // allowed, even while disarmed, and used for the boot-time safe default.
 function disarmServos(){
   dbgTestAbort = true; cmd('X'); setArmed(false);
-  showSent(backendKind === 'sim'
+  showSent(targetHasSim && !targetHasRobot
     ? 'SIM — stopped, stance policy holds'
     : 'EMERGENCY STOP — servos limp NOW');
 }
 // Returns true (and warns) when disarmed; every servo-driving action calls it.
 function needArm(){
-  if(backendKind === 'sim') return false;
+  if(targetHasSim && !targetHasRobot) return false;
   if(servosArmed) return false;
   showSent('⚠ Servos disarmed — press “Enable servos” first');
   return true;

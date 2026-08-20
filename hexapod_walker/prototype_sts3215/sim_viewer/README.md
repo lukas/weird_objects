@@ -26,6 +26,18 @@ The browser JPEG preview is off in native-viewer mode. For headless
 debugging, run `python3 -m rl_move.sim.web_server` without `--viewer`,
 or pass `--browser-frames on` if you intentionally want both surfaces.
 
+Laptop hub mode can also proxy the real robot while keeping the MuJoCo
+viewer running locally:
+
+```sh
+sim_viewer/sim_web.sh --robot-url http://hexapod.local:8080 --target sim
+```
+
+The header target picker switches between `sim`, `robot`, and `both`.
+`both` broadcasts the RL drive/stand/stop/policy routes and raw `/cmd`
+commands to both targets. Hardware-specific actions such as calibration,
+motor wiggles, demos, measurements, and zeroing stay robot-routed.
+
 If you run from a fresh git worktree, checkpoint zips may be absent
 because `rl_move/sim/policies/` is intentionally ignored. Point the
 server at the populated cache:

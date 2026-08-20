@@ -13,6 +13,10 @@ shapes stable; sim-only affordances are gated by `/api/ping` returning
 `service:"hexapod-sim"` and use `/api/sim/*`. In the normal sim path,
 the native MuJoCo viewer is the display and this page is only the
 controller; browser JPEG frames are an optional headless/debug mode.
+When `rl_move.sim.web_server` is started with `--robot-url`, it becomes
+a laptop hub: `/api/ping` returns `service:"hexapod-hub"` plus the
+active target, and the header target picker can route commands to
+`sim`, `robot`, or `both`.
 
 ## Files
 

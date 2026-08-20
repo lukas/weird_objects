@@ -10,6 +10,12 @@
   #conn { font-size:12px; color:#9aa3b2; font-weight:600; }
   #conn.bad { color:#ff6b6b; } #conn.ok { color:#5fd08a; }
   #conn.warn { color:#e6b35a; }
+  .hub-target { display:none; align-items:center; gap:6px; color:#98a2b8;
+                font-size:12px; font-weight:700; }
+  body.hub-backend .hub-target { display:inline-flex; }
+  .hub-target select { background:#151923; color:#e7e9ee;
+                       border:1px solid #30384a; border-radius:8px;
+                       padding:5px 24px 5px 8px; font-weight:800; }
   #robotact { font-size:12px; font-weight:700; padding:3px 10px; border-radius:999px;
               border:1px solid #333b52; background:#222838; color:#c5cce0;
               max-width:280px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }

@@ -230,6 +230,15 @@ def build_arg_parser() -> argparse.ArgumentParser:
                     default="auto",
                     help="serve JPEG frames to the browser: auto keeps "
                          "frames on for headless mode and off for --viewer")
+    ap.add_argument("--robot-url", default="",
+                    help="robot-side web_drive.py base URL, e.g. "
+                         "http://hexapod.local:8080; enables laptop hub mode")
+    ap.add_argument("--robot-insecure-tls", action="store_true",
+                    help="allow a self-signed HTTPS cert when proxying "
+                         "to the robot")
+    ap.add_argument("--target", choices=("sim", "robot", "both"),
+                    default="sim",
+                    help="initial hub target when --robot-url is set")
     ap.add_argument("--phase-obs", action="store_true")
     ap.add_argument("--phase-hz", type=float, default=0.1666667)
     ap.add_argument("--all-models", action="store_true")
@@ -265,6 +274,7 @@ def main(session_factory: Callable[..., Any] | None = None) -> None:
     args = build_arg_parser().parse_args()
     if args.viewer and session_factory is None:
         _reexec_under_mjpython_for_viewer()
+    use_hub = bool(args.robot_url)
     if session_factory is None:
         from .web_session import SimWebConfig, SimWebSession
         cfg = SimWebConfig(
@@ -281,16 +291,34 @@ def main(session_factory: Callable[..., Any] | None = None) -> None:
             all_models=args.all_models,
         )
         session_factory = SimWebSession
-        session = session_factory(cfg)
+        sim_session = session_factory(cfg)
+        if use_hub:
+            from .web_hub import (HubController, RobotProxyTarget, SimTarget,
+                                  make_hub_handler)
+            session = HubController(
+                sim=SimTarget(sim_session),
+                robot=RobotProxyTarget(
+                    args.robot_url,
+                    insecure_tls=args.robot_insecure_tls),
+                target=args.target)
+            handler_factory = lambda: make_hub_handler(
+                session, WEBUI_DIR, 8443, PAGE_PATHS, STATIC_FILES)
+        else:
+            session = sim_session
+            handler_factory = lambda: make_handler(session)
     else:
         session = session_factory(args)
+        handler_factory = lambda: make_handler(session)
     srv = None
     try:
-        handler = make_handler(session)
+        handler = handler_factory()
         srv = ThreadingHTTPServer((args.bind, args.http_port), handler)
         srv.daemon_threads = True
         url = f"http://{args.bind}:{args.http_port}/rl"
         print(f"sim web UI: {url}", flush=True)
+        if use_hub:
+            print(f"hub target: {args.target} | robot: {args.robot_url}",
+                  flush=True)
         run_viewer = getattr(session, "run_native_viewer", None)
         if args.viewer and run_viewer:
             server_thread = threading.Thread(target=srv.serve_forever,

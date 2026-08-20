@@ -92,6 +92,7 @@ class SimWebSession:
         self._frame_interval_s = 1.0 / 8.0
         self._last_frame_at = 0.0
         self.thread: threading.Thread | None = None
+        self.cv2 = None
 
         self._load_runtime()
         if not cfg.viewer:
@@ -115,8 +116,9 @@ class SimWebSession:
 
         self.mujoco = mujoco
         self.PPO = PPO
-        import cv2
-        self.cv2 = cv2
+        if self.cfg.web_frames:
+            import cv2
+            self.cv2 = cv2
         self.load_checkpoint_auto = self._load_checkpoint_auto
         self.NoSlipGait = NoSlipGait
         self.TripodGait = TripodGait
@@ -728,6 +730,8 @@ class SimWebSession:
 
     def _render_frame_locked(self) -> None:
         try:
+            if self.cv2 is None:
+                raise RuntimeError("browser frames disabled")
             frame = self.env.render()
             if frame is None:
                 raise RuntimeError("browser frames disabled")
@@ -1119,6 +1123,8 @@ class SimWebSession:
             if head == "ARM":
                 self.armed = True
                 self.msg = "sim armed"
+            elif head in {"P", "STAND"}:
+                self._do_reset("plant", 0.0, "reset plant")
             elif head in {"X", "DISARM", "RELAX"}:
                 self.armed = False
                 self.rl_stop()

@@ -4,7 +4,8 @@ import json
 from io import BytesIO
 import urllib.error
 
-from rl_move.sim.web_server import WEBUI_DIR, make_handler
+from rl_move.sim.web_hub import HubController, RouteResponse, make_hub_handler
+from rl_move.sim.web_server import PAGE_PATHS, STATIC_FILES, WEBUI_DIR, make_handler
 
 
 class FakeSession:
@@ -162,3 +163,98 @@ def test_unknown_route_returns_json_404():
         assert e.code == 404
         body = json.loads(e.read().decode())
         assert body["ok"] is False
+
+
+class FakeTarget:
+    def __init__(self, name):
+        self.name = name
+        self.calls = []
+
+    def available(self):
+        return True
+
+    def ping_meta(self):
+        return {"available": True, "ok": True, "name": self.name}
+
+    def request(self, method, full_path, body=b"", headers=None):
+        self.calls.append((method, full_path, body))
+        path = full_path.split("?", 1)[0]
+        if path == "/cmd":
+            return RouteResponse.text("ok")
+        try:
+            data = json.loads(body.decode()) if body else {}
+        except ValueError:
+            data = body.decode("utf-8", "replace")
+        return RouteResponse.json({
+            "ok": True,
+            "target": self.name,
+            "method": method,
+            "path": path,
+            "body": data,
+        })
+
+    def close(self):
+        pass
+
+
+def _hub_request(hub, path, method="GET", body=None):
+    handler_cls = make_hub_handler(
+        hub, WEBUI_DIR, 8443, PAGE_PATHS, STATIC_FILES)
+    h = handler_cls.__new__(handler_cls)
+    data = json.dumps(body).encode() if body is not None else b""
+    h.path = path
+    h.command = method
+    h.headers = {"Content-Length": str(len(data))}
+    h.rfile = BytesIO(data)
+    h.wfile = BytesIO()
+    h._headers = {}
+    h.send_response = lambda code: setattr(h, "_code", code)
+    h.send_header = lambda k, v: h._headers.__setitem__(k, v)
+    h.end_headers = lambda: None
+    if method == "POST":
+        handler_cls.do_POST(h)
+    else:
+        handler_cls.do_GET(h)
+    return h._code, h._headers, h.wfile.getvalue()
+
+
+def _hub_json(hub, path, method="GET", body=None):
+    code, _headers, payload = _hub_request(
+        hub, path, method=method, body=body)
+    if code >= 400:
+        raise urllib.error.HTTPError(path, code, "error", {}, BytesIO(payload))
+    return json.loads(payload.decode())
+
+
+def test_hub_ping_and_target_switch():
+    sim = FakeTarget("sim")
+    robot = FakeTarget("robot")
+    hub = HubController(sim=sim, robot=robot, target="both")
+    ping = _hub_json(hub, "/api/ping")
+    assert ping["service"] == "hexapod-hub"
+    assert ping["target"] == "both"
+    assert ping["active"] == {"robot": True, "sim": True}
+
+    switched = _hub_json(hub, "/api/hub", method="POST",
+                         body={"target": "sim"})
+    assert switched["target"] == "sim"
+    assert switched["active"] == {"robot": False, "sim": True}
+
+
+def test_hub_broadcasts_drive_commands_only_in_both_mode():
+    sim = FakeTarget("sim")
+    robot = FakeTarget("robot")
+    hub = HubController(sim=sim, robot=robot, target="both")
+    d = _hub_json(hub, "/api/rl/drive/cmd", method="POST",
+                  body={"vx": 0.04, "vy": 0.0})
+    assert d["ok"] is True
+    assert d["hub"]["robot"]["body"]["vx"] == 0.04
+    assert d["hub"]["sim"]["body"]["vx"] == 0.04
+    assert ("POST", "/api/rl/drive/cmd", b'{"vx": 0.04, "vy": 0.0}') in robot.calls
+    assert ("POST", "/api/rl/drive/cmd", b'{"vx": 0.04, "vy": 0.0}') in sim.calls
+
+    _hub_json(hub, "/api/hub", method="POST", body={"target": "robot"})
+    _hub_json(hub, "/api/wiggle", method="POST",
+              body={"joint": 1, "amp": 4})
+    assert robot.calls[-1][1] == "/api/wiggle"
+    assert sim.calls[-1][1] == "/api/rl/drive/cmd"
