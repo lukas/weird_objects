@@ -47,7 +47,7 @@
     margin-right:6px; color:#7e879a; font:850 10px/1 system-ui, sans-serif;
     letter-spacing:.65px; text-transform:uppercase;
   }
-  body.hub-backend #conn::before { content:'hub'; }
+  body.hub-backend #conn::before { content:'web'; }
   body:not(.hub-backend).sim-backend #conn::before { content:'sim'; }
   body:not(.hub-backend):not(.sim-backend) #conn::before { content:'robot'; }
   #gp:not(:empty)::before { content:'input'; }
