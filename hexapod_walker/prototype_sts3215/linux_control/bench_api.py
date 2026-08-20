@@ -902,16 +902,21 @@ class BenchAPI:
                 # 08-17: stand_wave turned into rare giant steps and
                 # tipped the robot. Same bug rl_policy_move fixed 08-10.
                 self._bus_hot = True
-                # Every web demo is also a calibrate run: cmd vs encoder CSV.
-                log_dir = Path(__file__).resolve().parent / "logs"
-                log_dir.mkdir(parents=True, exist_ok=True)
-                stamp = time.strftime("%Y%m%d_%H%M%S")
-                log_path = log_dir / f"demo_{name}_{stamp}.csv"
-                with self._lock:
-                    self._demo_params = {
-                        **dict(self._demo_params),
-                        "log": log_path.name,
-                    }
+                # Most web demos also write cmd-vs-encoder telemetry. Keep the
+                # quiet breathe variants truly quiet: they use servo-side
+                # glides, so frequent feedback reads add bus traffic and the
+                # endpoint-based summary looks falsely alarming mid-glide.
+                log_path = None
+                if name not in ("breathe", "breathe_v"):
+                    log_dir = Path(__file__).resolve().parent / "logs"
+                    log_dir.mkdir(parents=True, exist_ok=True)
+                    stamp = time.strftime("%Y%m%d_%H%M%S")
+                    log_path = log_dir / f"demo_{name}_{stamp}.csv"
+                    with self._lock:
+                        self._demo_params = {
+                            **dict(self._demo_params),
+                            "log": log_path.name,
+                        }
                 def _live_status(msg: str) -> None:
                     if gen != self._demo_gen:
                         return
@@ -955,20 +960,21 @@ class BenchAPI:
                         **extra,
                     )
                 telem = None
-                summary_path = log_path.with_name(
-                    log_path.stem + "_summary.json")
-                if summary_path.is_file():
-                    try:
-                        telem = json.loads(summary_path.read_text())
-                    except (OSError, ValueError):
-                        telem = None
-                if telem is None and log_path.is_file():
-                    telem = {
-                        "ok": True,
-                        "log": str(log_path),
-                        "log_name": log_path.name,
-                        "hint": "CSV written; summary pending",
-                    }
+                if log_path is not None:
+                    summary_path = log_path.with_name(
+                        log_path.stem + "_summary.json")
+                    if summary_path.is_file():
+                        try:
+                            telem = json.loads(summary_path.read_text())
+                        except (OSError, ValueError):
+                            telem = None
+                    if telem is None and log_path.is_file():
+                        telem = {
+                            "ok": True,
+                            "log": str(log_path),
+                            "log_name": log_path.name,
+                            "hint": "CSV written; summary pending",
+                        }
                 if gen != self._demo_gen:
                     return
                 with self._lock:

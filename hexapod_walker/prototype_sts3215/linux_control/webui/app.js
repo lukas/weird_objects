@@ -2441,7 +2441,7 @@ function paintDemoStatus(d){
       telemEl.textContent = 'Last run log: '+t.log_name;
     } else if(!running){
       telemEl.innerHTML =
-        'Demos auto-log cmd vs encoder → <code>logs/demo_*.csv</code> (+ summary).';
+        'Motion demos auto-log cmd vs encoder → <code>logs/demo_*.csv</code> (+ summary); breathe stays no-log.';
     }
   }
   // Quad tab mirrors the same demo state with its own pill.
