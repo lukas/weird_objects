@@ -1097,3 +1097,26 @@ Entry format (append; newest last; update status in place):
 - ANSWER (operator): —
 - rulebook change: pending answer; V5 init-from exception documented
   in train_ppo_mjx.py + hw/STATUS.md.
+- FOLLOW-UP (next cycle, 08-20 ~08:5x UTC, fb_20260820T080540_e2ea9b
+  "branch now pushed"): fetched + diffed origin/codex/recover-
+  retention @ 2cb2a7b7 verbatim against the controller
+  reconstruction. The B0 bridge_10s bucket + WALKCURR_GATE_V5_BRIDGE
+  the canaries actually exercised are BIT-IDENTICAL — the precert
+  FAILs above are genuine, not a reconstruction artifact. Two real
+  drifts found and fixed (neither touched by either canary, both
+  died at B0): (1) `slew_sat_max` was 0.95 here vs the authored 0.98
+  on both V5 gates, and B6-B9's min_command_changes/resample_s/
+  jitter/stop_frac/blend/s_lo/head_hi diverged — realigned to the
+  exact authored ladder in walk_task.py. (2) the note's dt-scaling
+  question is ANSWERED: the authored `k_loadslip_excess` term IS
+  dt-scaled (`* self.dt`, like every other per-second charge in the
+  file, e.g. `c_time`); the controller reconstruction had dropped
+  the dt factor, which would have made the charge ~1/dt = 25x too
+  strong for the intended k=6.0 the moment any dose ever reached
+  PPO. Fixed to `-k * max(ratio - ok, 0) * self.dt`; the hard-coded
+  test expectation in test_walk_fastprof_mdp.py and the REWARD.md
+  row updated to match; full semantics bank + test_walk_curriculum.py
+  re-run green after the fix. V5 + k_loadslip_excess are now verified
+  faithful to the authored patch and ready the moment the operator
+  picks (a)/(b)/(c) above — no new canary spent confirming this
+  (correctness-only code fix, not a new hypothesis).

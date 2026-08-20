@@ -473,14 +473,25 @@ WALKCURR_BUCKETS_V4 = (
 # band moves. V5 pairs with reward.k_loadslip_excess (direct loaded-
 # slip charge, below) so skating is punished in training, not merely
 # complained about at cert time.
+# 2026-08-20 ~08:5x UTC alignment (q_20260820T0830Z review): the
+# desktop branch (origin/codex/recover-retention @ 2cb2a7b7) is now
+# fetchable. Diffed verbatim against the controller reconstruction
+# above/below: the B0 bridge_10s bucket + WALKCURR_GATE_V5_BRIDGE the
+# canaries actually exercised are BIT-IDENTICAL (confirming the
+# fastnoslip1/midnoslip1 precert FAILs are genuine, not a
+# reconstruction artifact) — but slew_sat_max was 0.95 here vs the
+# authored 0.98, and B6-B9's min_command_changes/resample_s/jitter/
+# stop_frac/blend/s_lo/head_hi diverged from the authored ladder.
+# Realigned to the exact authored values below (never exercised by
+# either canary — both died at B0 — so no in-flight run is affected).
 WALKCURR_GATE_V5_BRIDGE = dict(
     cmd_prog_frac_min=0.65, cmd_prog_frac_p10_min=0.50,
-    slip_per_m_max=1.8, peak_roll_deg_max=8.0, slew_sat_max=0.95,
+    slip_per_m_max=1.8, peak_roll_deg_max=8.0, slew_sat_max=0.98,
     cross_track_frac_max=0.22, contact_sw_per_s_min=3.0,
     foot_sw_min_per_s_min=0.5, height_factor_min=0.80)
 WALKCURR_GATE_V5_FAST = dict(
     cmd_prog_frac_min=0.70, cmd_prog_frac_p10_min=0.55,
-    slip_per_m_max=1.6, peak_roll_deg_max=8.0, slew_sat_max=0.95,
+    slip_per_m_max=1.6, peak_roll_deg_max=8.0, slew_sat_max=0.98,
     cross_track_frac_max=0.20, contact_sw_per_s_min=3.0,
     foot_sw_min_per_s_min=0.5, height_factor_min=0.80)
 
@@ -497,50 +508,50 @@ WALKCURR_BUCKETS_V5 = (
          resample_s=0.0, jitter=0.0, stop_frac=0.0, blend_lo=1.0,
          blend_hi=1.0, dr=0.0, stop_gate=None,
          gate=WALKCURR_GATE_V5_FAST),
-    dict(name="fast_06_10_head15", duration_s=20.0,
-         min_command_changes=0, s_lo=0.06, s_hi=0.10, head_lo=0.0,
+    dict(name="fast_06_10_head15", duration_s=20.0, min_command_changes=0,
+         s_lo=0.06, s_hi=0.10, head_lo=0.0,
          head_hi=math.radians(15.0), resample_s=0.0, jitter=0.0,
          stop_frac=0.0, blend_lo=1.0, blend_hi=1.0, dr=0.0,
          stop_gate=None, gate=WALKCURR_GATE_V5_FAST),
     # B3-B5: fast joystick task, duration grows 20/40/60 s.
-    dict(name="fast_joystick_20s", duration_s=20.0,
-         min_command_changes=4, s_lo=0.06, s_hi=0.10, head_lo=0.0,
+    dict(name="fast_joystick_20s", duration_s=20.0, min_command_changes=4,
+         s_lo=0.06, s_hi=0.10, head_lo=0.0,
          head_hi=math.radians(30.0), resample_s=3.0, jitter=0.2,
          stop_frac=0.10, blend_lo=0.5, blend_hi=0.9, dr=0.0,
          stop_gate=0.015, gate=WALKCURR_GATE_V5_FAST),
-    dict(name="fast_joystick_40s", duration_s=40.0,
-         min_command_changes=10, s_lo=0.06, s_hi=0.10, head_lo=0.0,
+    dict(name="fast_joystick_40s", duration_s=40.0, min_command_changes=10,
+         s_lo=0.06, s_hi=0.10, head_lo=0.0,
          head_hi=math.radians(30.0), resample_s=3.0, jitter=0.2,
          stop_frac=0.10, blend_lo=0.5, blend_hi=0.9, dr=0.0,
          stop_gate=0.015, gate=WALKCURR_GATE_V5_FAST),
-    dict(name="fast_joystick_60s", duration_s=60.0,
-         min_command_changes=15, s_lo=0.06, s_hi=0.10, head_lo=0.0,
+    dict(name="fast_joystick_60s", duration_s=60.0, min_command_changes=15,
+         s_lo=0.06, s_hi=0.10, head_lo=0.0,
          head_hi=math.radians(30.0), resample_s=3.0, jitter=0.2,
          stop_frac=0.10, blend_lo=0.5, blend_hi=0.9, dr=0.0,
          stop_gate=0.015, gate=WALKCURR_GATE_V5_FAST),
     # B6/B7: retain the 60-second fast joystick task under DR, the
-    # heading cone opening to ±45 and the band widening down to 0.05.
-    dict(name="fast_dr01_60s", duration_s=60.0,
-         min_command_changes=15, s_lo=0.05, s_hi=0.10, head_lo=0.0,
-         head_hi=math.radians(45.0), resample_s=3.0, jitter=0.2,
-         stop_frac=0.10, blend_lo=0.5, blend_hi=0.9, dr=0.1,
+    # heading cone opening to ±45 and the band widening down to 0.04.
+    dict(name="fast_dr01_60s", duration_s=60.0, min_command_changes=9,
+         s_lo=0.05, s_hi=0.10, head_lo=0.0,
+         head_hi=math.radians(45.0), resample_s=4.0, jitter=0.5,
+         stop_frac=0.15, blend_lo=0.25, blend_hi=0.75, dr=0.1,
          stop_gate=0.015, gate=WALKCURR_GATE_V5_FAST),
-    dict(name="fast_dr03_60s", duration_s=60.0,
-         min_command_changes=15, s_lo=0.05, s_hi=0.10, head_lo=0.0,
-         head_hi=math.radians(45.0), resample_s=3.0, jitter=0.2,
-         stop_frac=0.10, blend_lo=0.5, blend_hi=0.9, dr=0.3,
+    dict(name="fast_dr03_60s", duration_s=60.0, min_command_changes=9,
+         s_lo=0.05, s_hi=0.10, head_lo=0.0,
+         head_hi=math.radians(45.0), resample_s=4.0, jitter=0.5,
+         stop_frac=0.15, blend_lo=0.25, blend_hi=0.75, dr=0.3,
          stop_gate=0.015, gate=WALKCURR_GATE_V5_FAST),
     # B8/B9: lateral and rear stay locked behind retained front-cone
     # competence under DR0.3.
-    dict(name="lateral_60s", duration_s=60.0, min_command_changes=15,
-         s_lo=0.05, s_hi=0.10, head_lo=math.radians(45.0),
-         head_hi=math.radians(90.0), resample_s=3.0, jitter=0.2,
-         stop_frac=0.10, blend_lo=0.5, blend_hi=0.9, dr=0.3,
+    dict(name="lateral_60s", duration_s=60.0, min_command_changes=9,
+         s_lo=0.04, s_hi=0.10, head_lo=math.radians(45.0),
+         head_hi=math.radians(90.0), resample_s=4.0, jitter=0.5,
+         stop_frac=0.15, blend_lo=0.25, blend_hi=0.75, dr=0.3,
          stop_gate=0.015, gate=WALKCURR_GATE_V5_FAST),
-    dict(name="rear_60s", duration_s=60.0, min_command_changes=15,
-         s_lo=0.05, s_hi=0.10, head_lo=math.radians(90.0),
-         head_hi=math.pi, resample_s=3.0, jitter=0.2,
-         stop_frac=0.10, blend_lo=0.5, blend_hi=0.9, dr=0.3,
+    dict(name="rear_60s", duration_s=60.0, min_command_changes=9,
+         s_lo=0.04, s_hi=0.10, head_lo=math.radians(90.0),
+         head_hi=math.pi, resample_s=4.0, jitter=0.5,
+         stop_frac=0.15, blend_lo=0.25, blend_hi=0.75, dr=0.3,
          stop_gate=0.015, gate=WALKCURR_GATE_V5_FAST),
 )
 
@@ -3016,19 +3027,28 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 # policy that also collects non-velocity reward is
                 # "complained about", never charged. This term charges
                 # the EPISODE-ACCUMULATED loaded-slip ratio's excess
-                # over loadslip_ok per tick while a velocity is
-                # commanded: r -= k * max(ratio - loadslip_ok, 0).
-                # Same ratio the gate and the eval harness score (no
-                # touchdown resets it); a policy that keeps skating
-                # keeps paying every tick, one that walks clean pays
-                # nothing. Additive penalty — never shrunk by income
-                # gates. Default 0 = off, bit-exact legacy (no new
-                # info keys). cfg: reward.k_loadslip_excess.
+                # over loadslip_ok per second while a velocity is
+                # commanded: r -= k * max(ratio - loadslip_ok, 0) * dt
+                # (2026-08-20 ~08:5x realign, q_20260820T0830Z: the
+                # authored desktop commit 2cb2a7b7 scales by self.dt
+                # like every other per-second reward charge in this
+                # file, e.g. c_time above — the controller
+                # reconstruction had dropped the dt factor, which
+                # would have made this term ~1/dt = 25x too strong
+                # for the intended k=6.0 dose the moment any dose ever
+                # reaches PPO; fixed before any training exercises it,
+                # both canaries died at the B0 precert before this
+                # term ever ran). Same ratio the gate and the eval
+                # harness score (no touchdown resets it); a policy
+                # that keeps skating keeps paying every tick, one that
+                # walks clean pays nothing. Additive penalty — never
+                # shrunk by income gates. Default 0 = off, bit-exact
+                # legacy (no new info keys). cfg: reward.k_loadslip_excess.
                 k_lse = float(cfg_get(self.cfg, "reward",
                                       "k_loadslip_excess",
                                       default=0.0))
                 if k_lse > 0.0:
-                    r_lse = -k_lse * max(ratio - ls_ok, 0.0)
+                    r_lse = -k_lse * max(ratio - ls_ok, 0.0) * self.dt
                     reward += r_lse
                     info["reward_loadslip_excess"] = r_lse
             # Height-keeping income gate (2026-08-10, hardware finding

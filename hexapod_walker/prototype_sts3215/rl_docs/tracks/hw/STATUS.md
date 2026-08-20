@@ -24,6 +24,18 @@ unresolved blockers between the robot and reliable joystick control.
 
 ## Now
 
+- **08-20 ~08:5x CODE FOLLOW-UP (q_20260820T0830Z): the desktop
+  branch became fetchable (fb_20260820T080540_e2ea9b) and was diffed
+  verbatim against the controller reconstruction below. The B0
+  bucket/gate the canaries actually exercised is BIT-IDENTICAL
+  (their FAILs are genuine); two never-exercised drifts were found
+  and fixed to match the authored 2cb2a7b7: `slew_sat_max`
+  0.95→0.98 on both V5 gates + B6-B9's exact command/DR shape, and
+  `k_loadslip_excess` was missing its `* self.dt` scaling (would
+  have been ~25x too strong the moment any dose reached PPO — fixed,
+  test + REWARD.md updated, full semantics bank green). No training
+  affected; V5 is now verified faithful and ready for the operator's
+  pick below.**
 - **08-20 ~08:4x OUTCOME: both ordered canaries CANARY FAIL -
   MECHANISM at the pre-PPO B0 bridge cert — ZERO training steps.
   The bcgait1_hard1 warm start zero-shot cannot survive 10s of its
