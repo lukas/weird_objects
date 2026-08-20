@@ -1217,13 +1217,15 @@ for(const b of document.querySelectorAll('#rldrivepad button[data-dv]')){
 }
 
 // ---- MuJoCo backend panel --------------------------------------------------
-let simTimer = null, simBusy = false;
+let simTimer = null, simBusy = false, simFrameBusy = false;
+let simFrameLastAt = 0;
 function stopSimPoll(){
   if(simTimer){ clearInterval(simTimer); simTimer = null; }
+  simFrameBusy = false;
 }
 function simPollMaybe(){
   if(backendKind !== 'sim' || activeView !== 'rl'){ stopSimPoll(); return; }
-  if(!simTimer) simTimer = setInterval(refreshSimPanel, 250);
+  if(!simTimer) simTimer = setInterval(refreshSimPanel, 500);
   refreshSimPanel();
 }
 async function refreshSimPanel(){
@@ -1231,7 +1233,13 @@ async function refreshSimPanel(){
   simBusy = true;
   try{
     const img = $('simframe');
-    if(img) img.src = '/api/sim/frame.jpg?t='+Date.now();
+    const now = Date.now();
+    if(img && !simFrameBusy && now - simFrameLastAt >= 1000){
+      simFrameBusy = true;
+      simFrameLastAt = now;
+      img.onload = img.onerror = ()=>{ simFrameBusy = false; };
+      img.src = '/api/sim/frame.jpg?t='+now;
+    }
     const d = await (await fetch('/api/sim/state?t='+Date.now(),
       {cache:'no-store'})).json();
     const live = d.live || {};
