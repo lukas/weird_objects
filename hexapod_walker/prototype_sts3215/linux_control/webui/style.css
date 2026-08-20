@@ -11,32 +11,65 @@
   #main { flex:1 1 auto; min-width:0; }
   /* Top bar: arm/E-STOP on the left, status panel on the right. Sticky so
      EMERGENCY STOP is reachable no matter how far the page is scrolled. */
-  header { padding:8px 16px; display:flex; align-items:center; gap:16px;
-           justify-content:space-between; flex-wrap:wrap;
+  header { padding:8px 16px; display:grid;
+           grid-template-columns:max-content minmax(360px,1fr);
+           align-items:center; gap:12px;
            border-bottom:1px solid #232733;
            position:sticky; top:0; z-index:500; background:#0f1115; }
   header h1 { font-size:16px; margin:0; font-weight:600; }
   .brand { display:flex; flex-direction:column; gap:2px; }
   #subtitle { font-size:11px; color:#5a6478; line-height:1.4; }
-  #statusbox { display:flex; align-items:flex-start; gap:8px;
-               margin-left:auto; flex:0 1 460px; min-width:200px; }
+  #opsbar { justify-self:end; min-width:0; max-width:100%;
+            display:flex; flex-direction:column; align-items:flex-end;
+            gap:6px; }
+  body.hub-backend #opsbar {
+    padding:7px; border-radius:12px; background:#11151e;
+    border:1px solid #232b3b; box-shadow:0 1px 0 rgba(255,255,255,.03) inset;
+  }
+  #statusbox { display:flex; align-items:center; justify-content:flex-end;
+               gap:8px; min-width:0; max-width:100%; }
   #statuslines { flex:1 1 auto; min-width:0; display:flex;
-                 flex-direction:column; gap:2px; text-align:right; }
-  .statusline { font-size:12px; line-height:1.45; word-break:break-word;
+                 flex-wrap:wrap; align-items:center; justify-content:flex-end;
+                 gap:6px; text-align:right; }
+  .statusline { display:flex; align-items:center; justify-content:flex-end;
+                gap:6px; min-height:24px; font-size:12px;
+                line-height:1.2; word-break:break-word;
                 user-select:text; -webkit-user-select:text; }
   .statusline:empty { display:none; }
   #statuscopy { flex:0 0 auto; min-width:0; padding:5px 10px; font-size:12px;
                 border-radius:8px; }
-  #conn { font-size:12px; color:#9aa3b2; font-weight:600; }
+  #conn { display:inline-flex; align-items:center; min-height:24px;
+          padding:3px 9px; border-radius:999px; border:1px solid #333b52;
+          background:#161b27; font-size:12px; color:#9aa3b2;
+          font-weight:800; white-space:nowrap; }
   #conn.bad { color:#ff6b6b; } #conn.ok { color:#5fd08a; }
   #conn.warn { color:#e6b35a; }
-  .hub-target { display:none; align-items:center; gap:6px; color:#98a2b8;
-                font-size:12px; font-weight:700; flex-wrap:wrap; }
+  .hub-target { display:none; align-items:center; justify-content:flex-end;
+                gap:6px; max-width:100%; padding:4px; border-radius:10px;
+                background:#151923; border:1px solid #273044;
+                color:#98a2b8; font-size:12px; font-weight:700;
+                flex-wrap:wrap; }
   body.hub-backend .hub-target { display:inline-flex; }
+  .target-label { padding:0 4px 0 2px; text-transform:uppercase;
+                  letter-spacing:.7px; font-size:10px; color:#7e879a; }
+  .routechips { display:flex; gap:4px; align-items:center; }
+  .routechip { min-height:24px; display:inline-flex; align-items:center;
+               padding:3px 8px; border-radius:999px;
+               border:1px solid #333b52; background:#11151e;
+               color:#687388; font-size:11px; font-weight:900; }
+  body.robot-active .route-robot {
+    color:#5fd08a; border-color:#2e7d47; background:#102218;
+  }
+  body.sim-active .route-sim {
+    color:#7eb6ff; border-color:#2b6cff; background:#101b2d;
+  }
+  body.target-both .routechip { box-shadow:0 0 0 1px rgba(255,255,255,.03) inset; }
   .hub-target select { background:#151923; color:#e7e9ee;
                        border:1px solid #30384a; border-radius:8px;
-                       padding:5px 24px 5px 8px; font-weight:800; }
-  .hub-target input { width:178px; max-width:34vw; background:#11151e;
+                       padding:5px 24px 5px 8px; font-weight:800;
+                       min-height:30px; }
+  .hub-target input { width:210px; max-width:34vw; min-height:30px;
+                      background:#11151e;
                       color:#e7e9ee; border:1px solid #30384a;
                       border-radius:8px; padding:6px 8px; font-size:12px;
                       font-weight:650; }
@@ -46,7 +79,8 @@
   body.robot-configured .hub-target input {
     border-color:#2e7d47; box-shadow:0 0 0 1px rgba(95,208,138,.08) inset;
   }
-  #robotact { font-size:12px; font-weight:700; padding:3px 10px; border-radius:999px;
+  #robotact { min-height:24px; display:inline-flex; align-items:center;
+              font-size:12px; font-weight:800; padding:3px 10px; border-radius:999px;
               border:1px solid #333b52; background:#222838; color:#c5cce0;
               max-width:280px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   #robotact.act-demo { color:#7eb6ff; border-color:#2b6cff; }
@@ -112,6 +146,9 @@
   .hint { font-size:12px; color:#8089a0; line-height:1.5; margin-top:8px; }
   kbd { background:#222838; border:1px solid #333b52; border-radius:4px; padding:1px 5px; font-size:11px; }
   #sent { font-family: ui-monospace, monospace; font-size:12px; color:#5fd08a; }
+  #sent:not(:empty) { max-width:360px; overflow:hidden; text-overflow:ellipsis;
+                      white-space:nowrap; padding:3px 8px; border-radius:8px;
+                      background:#101719; border:1px solid #23372b; }
   #gp { font-size:12px; color:#8089a0; }
   nav.tabs { display:flex; flex-direction:column; gap:6px; align-items:stretch; }
   .tabsep { flex:0 0 1px; height:1px; width:auto; margin:4px 2px; background:#2c3140; }
@@ -220,6 +257,16 @@
   .cal-pill.green { color:#5fd08a; border-color:#2e7d47; }
   .cal-pill.yellow { color:#e0b34d; border-color:#8a6a1a; }
   .cal-pill.red { color:#ff7b72; border-color:#8a3030; }
+  @media (max-width: 1100px){
+    header { grid-template-columns:1fr; align-items:stretch; gap:8px; }
+    #armbar { justify-content:center; }
+    #opsbar { justify-self:stretch; align-items:stretch; }
+    .hub-target { justify-content:center; }
+    .hub-target input { width:min(100%, 220px); max-width:100%; }
+    #statusbox { justify-content:center; }
+    #statuslines { justify-content:center; text-align:center; }
+    #sent:not(:empty) { max-width:calc(100vw - 100px); }
+  }
   /* Phone / narrow window: sidebar collapses to a wrapping tab strip on
      top; the arm/status header stays sticky so E-STOP is always visible. */
   @media (max-width: 760px){
@@ -230,5 +277,5 @@
     nav.tabs { flex-direction:row; flex-wrap:wrap; }
     .tab { text-align:center; padding:7px 12px; }
     .tabsep { display:none; }
-    #statusbox { flex:1 1 100%; }
+    header { padding:8px 10px; }
   }
