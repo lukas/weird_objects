@@ -95,7 +95,13 @@ class MjxVecEnv(VecEnv):
         self._jax = jax
 
         env_kwargs = dict(env_kwargs or {})
-        params = env_kwargs.setdefault("params", SimServoParams.load())
+        # from_cfg, not load(): honor bus.servo_params / the opt-in
+        # servo_vel_max_counts_s ceiling when the caller passes cfg but
+        # no explicit params (mjx_sharded_vec_env already did; this one
+        # silently dropped the override until 08-20). Bit-exact when
+        # cfg is absent or carries no bus keys.
+        params = env_kwargs.setdefault(
+            "params", SimServoParams.from_cfg(env_kwargs.get("cfg")))
 
         t_amp, t_seed = terrain_from_cfg(env_kwargs.get("cfg"))
         self.mj_model = prepare_shared_model(

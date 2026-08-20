@@ -845,8 +845,17 @@ def main() -> None:
 
         passes = [("det", True)] + ([("sto", False)]
                                     if args.stochastic else [])
+        # Resolved motor contract (fb_20260820T000059): report.json
+        # records the servo profile the eval envs actually enforced
+        # (same from_cfg resolution as make_env above) so profile-axis
+        # evals are auditable without the launch command.
+        from .servo_model import motor_contract, motor_contract_line
+        contract = motor_contract(cfg_kw.get("cfg"),
+                                  backend="servo_profile_np")
+        print(motor_contract_line(contract))
         report = {"checkpoint": str(checkpoint), "task": args.task,
                   "dr_scale": args.dr_scale, "seed": args.seed,
+                  "motor_contract": contract,
                   "policy_std": round(std, 3), "episodes": {}}
         sheet_strips: list[Path] = []
 

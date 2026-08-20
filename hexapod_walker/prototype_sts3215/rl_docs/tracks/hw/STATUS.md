@@ -24,6 +24,22 @@ unresolved blockers between the robot and reliable joystick control.
 
 ## Now
 
+- **08-20 ~00:xx (idle-kick, fb_20260820T000059): fast-profile
+  follow-up code item 4 LANDED — motor-contract logging + integration
+  tests.** Every train/eval path now records the resolved servo
+  profile (write_speed/acc/vel-override, resolved ceiling, slew, hz,
+  backend) in W&B config / report.json / a `[motor-contract]` log
+  line. The tests caught two latent gaps: `train_ppo_sim._build_env`
+  + its gate env ignored a vel-ceiling-only override (only
+  `bus.servo_params` triggered re-resolution) and `MjxVecEnv` default
+  params bypassed `from_cfg`. Audited: steer5-fastprof1 trained via
+  `train_ppo_mjx` (--impl warp), which always re-resolved — the
+  canary verdict stands. Remaining agent-doable prep (item 3: pinned
+  speed panels 0.04–0.10, opt-in overspeed/heading pricing, body-vel
+  obs audit) is a typed `[code]` WAITING-ON entry in STATUS.md; items
+  1–2 (profile restart semantics flag, 1500/80-under-load bench
+  characterization) are bench-gated; the fork itself stays
+  `[operator]`. No launch (SIM SPRINT).
 - **08-19 ~22:5x (idle-kick triage): `cw-dep-bcgait1-hard1-steer5-fastprof1`
   verdicted CANARY FAIL - MECHANISM (as dosed) — but the matched-parent
   control turns it into the line's most useful map update: the

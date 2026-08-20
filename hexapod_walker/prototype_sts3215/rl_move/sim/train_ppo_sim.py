@@ -175,11 +175,20 @@ def _build_env(env_cls, params, args, **extra):
                 node = node.setdefault(k, {})
             node[leaf] = val
         kw["cfg"] = cfg
-        # bus.servo_params selects the fitted actuator set ("loaded" =
-        # 08-10 loaded bench fit). Resolved HERE so every env built for
-        # this run (train / eval worker / update-parity) agrees, even
-        # though callers pass the default air params positionally.
-        if (cfg.get("bus") or {}).get("servo_params"):
+        # Either params-affecting bus key re-resolves the actuator set
+        # from cfg: bus.servo_params (fitted-set selection) OR the
+        # opt-in bus.servo_vel_max_counts_s ceiling. Resolved HERE so
+        # every env built for this run (train / eval worker /
+        # update-parity) agrees, even though callers pass the default
+        # air params positionally. Was gated on bus.servo_params ONLY
+        # until 08-20 — a run setting just the vel-ceiling override
+        # through this trainer would have silently trained WITHOUT it
+        # (latent: the one run that used the key, steer5-fastprof1,
+        # went through train_ppo_mjx._env_kwargs, which always
+        # re-resolves). Bit-exact when both keys are absent/empty.
+        _bus = cfg.get("bus") or {}
+        if (_bus.get("servo_params")
+                or str(_bus.get("servo_vel_max_counts_s", "") or "")):
             params = SimServoParams.from_cfg(cfg)
             kw["params"] = params
     fr = getattr(args, "friction_range", None)
@@ -388,18 +397,25 @@ zero-action baseline on pooled episodes.
 """.rstrip()
 
 
+def _resolved_cfg(cfg_set: list | None) -> dict:
+    """config.yaml resolved with the run's --cfg-set overrides — the
+    cfg the envs will ACTUALLY be built from (same override semantics
+    as _build_env)."""
+    from rl_move.config import load_config
+    cfg = load_config()
+    for key, parsed in _parse_cfg_set(cfg_set or []).items():
+        sect, name = key.split(".", 1)
+        cfg.setdefault(sect, {})[name] = parsed
+    return cfg
+
+
 def _resolved_reward_cfg(cfg_set: list | None) -> dict:
     """The reward section this run will ACTUALLY train with:
     config.yaml resolved with the run's --cfg-set overrides. Feeds the
     per-run reward auto-doc (W&B notes + config.reward_cfg) — operator
     08-10: the reward function of every run must be explicitly
     documented, not reverse-engineered from launch commands."""
-    from rl_move.config import load_config
-    cfg = load_config()
-    for key, parsed in _parse_cfg_set(cfg_set or []).items():
-        sect, name = key.split(".", 1)
-        cfg.setdefault(sect, {})[name] = parsed
-    return dict(cfg.get("reward", {}))
+    return dict(_resolved_cfg(cfg_set).get("reward", {}))
 
 
 def _reward_notes(cfg_set: list | None) -> str:
@@ -471,6 +487,14 @@ def _init_wandb(args, params: SimServoParams, parent: dict | None = None):
             "latency_ms": ax.latency_ms, "vel_max_deg_s": ax.vel_max_deg_s,
             "deadband_deg": ax.deadband_deg,
         }
+    # Resolved motor contract (fb_20260820T000059): resolved from the
+    # run's cfg-set overrides — the same from_cfg point the envs use —
+    # NOT from the positionally passed params (which predate cfg
+    # resolution and would under-report an opt-in vel-ceiling raise).
+    from .servo_model import motor_contract
+    config["motor_contract"] = motor_contract(
+        _resolved_cfg(getattr(args, "cfg_set", None)),
+        backend="servo_profile_np")
     config["parent_run"] = parent["run_id"] if parent else None
 
     # Plain-English objective FIRST (operator 08-10: the overview must
@@ -1710,6 +1734,10 @@ def train(args) -> int:
 
     params = SimServoParams.load()
     _warn_if_defaults(params)
+    from .servo_model import motor_contract, motor_contract_line
+    print(motor_contract_line(motor_contract(
+        _resolved_cfg(getattr(args, "cfg_set", None)),
+        backend="servo_profile_np")))
     POLICY_DIR.mkdir(parents=True, exist_ok=True)
     parent = _parent_record(args.init_from)
     run = _init_wandb(args, params, parent)
@@ -2197,6 +2225,14 @@ def evaluate(policy_path: Path, *, episodes: int = 10, no_dr: bool = False,
                     node = node.setdefault(k, {})
                 node[leaf] = val
             kw["cfg"] = cfg
+            # Params-affecting bus overrides (fitted-set selection /
+            # vel-ceiling raise) must reach the gate env's actuator
+            # params too — same 08-20 fix as _build_env; bit-exact
+            # when both keys are absent/empty.
+            _bus = cfg.get("bus") or {}
+            if (_bus.get("servo_params")
+                    or str(_bus.get("servo_vel_max_counts_s", "") or "")):
+                kw["params"] = SimServoParams.from_cfg(cfg)
         return env_cls(**kw)
 
     env = make_env()

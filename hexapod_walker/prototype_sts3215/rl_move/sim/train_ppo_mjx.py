@@ -1082,6 +1082,11 @@ def _init_wandb(args, params: SimServoParams):
     # open with what the run is learning, not lineage babble).
     notes = (_learning_line(args) + "\n\n" + (args.notes or "")).strip()
     notes += "\n\n" + _reward_notes(args.cfg_set)
+    _contract = getattr(args, "_motor_contract", None)
+    if _contract is None:
+        from .servo_model import motor_contract
+        _contract = motor_contract(params=params,
+                                   backend=f"mjx_tickparams:{args.impl}")
     wandb_identity = {}
     if args.recover_population_id:
         population_ids = tuple(
@@ -1104,6 +1109,11 @@ def _init_wandb(args, params: SimServoParams):
         **wandb_identity,
         sync_tensorboard=True,   # SB3 train/* metrics, like the campaign
         config={"trainer": "train_ppo_mjx", "task": args.task,
+                # Resolved motor contract (fb_20260820T000059): stashed
+                # on args by main from the actual env params/cfg;
+                # fallback resolves from the run's params (from_cfg is
+                # the single enforcement point either way).
+                "motor_contract": _contract,
                 "n_envs": args.n_envs, "impl": args.impl,
                 "n_steps": args.n_steps, "batch_size": args.batch_size,
                 "learning_rate": args.lr, "seed": args.seed,
@@ -1901,6 +1911,14 @@ def main(argv: list[str] | None = None) -> int:
         args.cfg_set = _plain_cfg_set
     params = env_kw["params"]
     _warn_if_defaults(params)
+    # Resolved motor contract (fb_20260820T000059): printed from the
+    # ACTUAL env params + cfg the shim envs are built from, so the pod
+    # log records the enforced velocity ceiling, not the launch args.
+    from .servo_model import motor_contract, motor_contract_line
+    _contract = motor_contract(env_kw.get("cfg"), params=params,
+                               backend=f"mjx_tickparams:{impl or 'mjx'}")
+    print(motor_contract_line(_contract))
+    args._motor_contract = _contract  # picked up by _init_wandb
     env_cls = ENV_CLASSES[args.task]
     if args.predictive_live:
         # Same joint-walk task with pool-safe frame/privileged-label hooks.
