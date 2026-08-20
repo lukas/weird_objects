@@ -49,7 +49,7 @@ from rl_move.sim.probe_walk_income import (  # noqa: E402
 )
 
 
-def _make_teacher(teacher: str):
+def _make_teacher(teacher: str, period_scale: float = 1.0):
     """Scripted teacher by name. Both share the TripodGait call surface.
 
     tripod = the hardware-proven drag gait (the original BC-INIT
@@ -58,15 +58,26 @@ def _make_teacher(teacher: str):
     drag, clamps commands to its own envelope (MAX_VX 0.04);
     noslip_clean = the same gait on NoSlipGait.CLAMP_FIT_KW — the 08-12
     sweep's cleanest timing under the fitted ~31 deg/s servo clamp
-    (zero true scrub IN the clamped training profile)."""
+    (zero true scrub IN the clamped training profile).
+
+    period_scale (fast-cadence lever, operator order 08-20): scales the
+    TripodGait clock period (default 0.75 s). 1.0 = bit-exact legacy
+    behavior; 0.75 = 0.5625 s cycle (33% faster cadence, SHORTER
+    strides at the same body speed — stride = v*t_eff/2 — so the servo
+    excursion per swing shrinks instead of the write_speed dose
+    rising). Tripod teacher only."""
     if teacher.startswith("noslip"):
+        if period_scale != 1.0:
+            raise SystemExit(
+                "--tripod-period-scale only applies to the tripod "
+                "teacher; noslip gaits own their timing")
         from noslip_gait import NoSlipGait
         gait = (NoSlipGait.clamp_fit() if teacher == "noslip_clean"
                 else NoSlipGait())
         gait.sync_plant_stance(*WALK_PLANT)
         return gait
     from tripod_gait import TripodGait
-    gait = TripodGait(vx=0.0)
+    gait = TripodGait(vx=0.0, period_scale=period_scale)
     gait.sync_plant_stance(*WALK_PLANT)
     gait.reset_phase()
     return gait
@@ -74,6 +85,7 @@ def _make_teacher(teacher: str):
 
 def collect(episodes: int, seed0: int, noise: float = 0.05,
             teacher: str = "tripod", stack: dict | None = None,
+            period_scale: float = 1.0,
             ) -> tuple[np.ndarray, np.ndarray, object]:
     """Roll the scripted gait under the env's OWN sampled walk goals
     (dep-contract obs, DR off) and record (obs_t, scripted_action_t).
@@ -99,6 +111,16 @@ def collect(episodes: int, seed0: int, noise: float = 0.05,
     # one gait cycle (the sin/cos <-> phase map must be one-to-one per
     # cycle for the feature to disambiguate).
     phase_obs = float(stack.get(("goal", "walk_phase_obs"), 0.0)) == 1.0
+    if phase_obs and not teacher.startswith("noslip"):
+        # The phase-obs <-> teacher-clock coupling (docstring above)
+        # must also hold for a SCALED clock: fail closed on mismatch.
+        _g = _make_teacher(teacher, period_scale)
+        _per = _g.period * _g.period_scale
+        _hz = float(stack.get(("goal", "walk_phase_hz"), 1.0))
+        if abs(_hz * _per - 1.0) > 1e-3:
+            raise SystemExit(
+                f"goal.walk_phase_hz={_hz} mismatches teacher period "
+                f"{_per:.4f}s; set goal.walk_phase_hz={1.0 / _per:.4f}")
     rng = np.random.default_rng(seed0)
     obs_rows, act_rows = [], []
     env = None
@@ -109,7 +131,7 @@ def collect(episodes: int, seed0: int, noise: float = 0.05,
         obs, _ = env.reset()
         traj = env._goal_traj
         n = len(traj.vx)
-        gait = _make_teacher(teacher)
+        gait = _make_teacher(teacher, period_scale)
         # A third of episodes are clean (the exact cycle must also be
         # in-distribution); the rest run noisy at two amplitudes.
         amp = (0.0, noise, 2.0 * noise)[ep % 3]
@@ -158,6 +180,14 @@ def main() -> None:
                     help="override a stack cfg leaf so the demo env "
                          "matches the training run (e.g. "
                          "goal.walk_speed_min_m_s=0.008); repeatable")
+    ap.add_argument("--tripod-period-scale", type=float, default=1.0,
+                    help="scale the TripodGait clock period (default "
+                         "1.0 = bit-exact legacy 0.75 s cycle; 0.75 -> "
+                         "0.5625 s cycle, 33%% faster cadence with "
+                         "proportionally SHORTER strides at the same "
+                         "body speed). Tripod teacher only; with "
+                         "goal.walk_phase_obs=1 collect() enforces "
+                         "goal.walk_phase_hz = 1/(0.75*scale)")
     ap.add_argument("--episodes", type=int, default=60)
     ap.add_argument("--epochs", type=int, default=80)
     ap.add_argument("--batch", type=int, default=1024)
@@ -197,9 +227,12 @@ def main() -> None:
     print(f"collecting {args.episodes} scripted-gait episodes "
           f"(teacher={args.teacher}, stack={args.stack}"
           + (f" +{len(args.sets)} overrides" if args.sets else "")
+          + (f", period_scale={args.tripod_period_scale}"
+             if args.tripod_period_scale != 1.0 else "")
           + ", dep-contract obs, DR off)...")
     X, Y, env = collect(args.episodes, args.seed, teacher=args.teacher,
-                        stack=stack)
+                        stack=stack,
+                        period_scale=args.tripod_period_scale)
     print(f"dataset: {X.shape[0]} pairs, obs {X.shape[1]}, act {Y.shape[1]}")
 
     # Fresh PPO with the trainer's EXACT policy shape (train_ppo_sim:

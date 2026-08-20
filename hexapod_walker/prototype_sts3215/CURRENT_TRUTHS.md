@@ -64,4 +64,4 @@ answer until a replacement beats the relevant gate and promotion contract.
 - `multitask` pause was lifted, but it remains secondary during SIM SPRINT unless directly serving download readiness or explicitly ordered.
 - `nobc` gait-from-scratch is closed absent new hardware evidence.
 - `quad`, `turn`, `arch`, and `dynrep` are secondary during SIM SPRINT unless directly serving download readiness or explicitly ordered.
-- Recover/tangle progress is real but not part of the current download answer and remains operator-gated.
+- Recover/tangle was reopened by operator order 08-20. The recover champion (`ppo_goal_cw_recover_predictive1b_pop3_s13` + frozen encoder `cw-dynrep-tf-state2-recovered1.pt`) is packaged and sim-gate-verified through the deployment runner (`rl_move/sim/recover_runner.py`; DR-0 21/23, own-DR 22/23 on the 23-rung ladder — equal to the training-path gate). Recovery is an ADDITIONAL operator-requested mode; it does not change the rise+walk download answer. Flip is out of envelope; hardware items are bench-parked (`rl_docs/RECOVER_DEPLOY.md`).
