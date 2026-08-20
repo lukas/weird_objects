@@ -597,7 +597,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                           "_ls_slip_m", "_ls_prog_m",
                           "_yaw_still_ema", "_stance_slip_acc",
                           "_gait_last_step", "_gait_cmd_tick",
-                          "_gait_gate_qfactor", "_wp")
+                          "_gait_gate_qfactor", "_wp", "_vel_est")
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -673,6 +673,12 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # Heading-hold drift EMA (reward.yaw_still_avg_s); per-episode,
         # reset in _reset_begin, snapshot via MJX_SNAPSHOT_EXTRA.
         self._yaw_still_ema = 0.0
+        # Leg-odometry velocity estimator (goal.walk_obs_body_vel=3
+        # only; None in every other mode = zero overhead). Per-episode
+        # stateful — recreated on reset in _augment_obs, snapshot via
+        # MJX_SNAPSHOT_EXTRA (instances deep-copy cleanly by design;
+        # estimator.py docstring).
+        self._vel_est = None
         # Loaded-slip income gate bookkeeping (operator ruling 2026-08-09
         # §3/WALK-SLIP): episode-accumulated loaded foot-XY travel and
         # along-command body progress. NEVER reset by touchdown — only
@@ -834,6 +840,17 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         #         (board has no velocity estimate; 08-09 walk deploy).
         #         Required for deployment-equivalence arms — zeroing is
         #         a DIFFERENT contract than the robot's ref-copy.
+        #   3.0 — DEPLOYABLE leg-odometry estimator
+        #         (rl_move.estimator.LegOdometryVelocity, the probe-
+        #         validated board-safe module): fed the OBSERVED state
+        #         (DR-corrupted encoders + gyro + tilt — the robot's own
+        #         view), so training sees hardware-realistic estimate
+        #         error. Built 08-20 (fb_20260820T000059 item 3c audit:
+        #         mode 2 carries ZERO body-velocity information by
+        #         construction — the fast-profile canary could not even
+        #         observe its own 2.5x overspeed; before 08-20 a cfg
+        #         value of 3 silently fell into the privileged branch).
+        #         Same obs WIDTH as every other mode.
         vel_mode = float(cfg_get(self.cfg, "goal", "walk_obs_body_vel",
                                  default=1.0))
         if vel_mode == 0.0:
@@ -843,6 +860,18 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             v = (np.array([float(getattr(goal, "vx_ref", 0.0)),
                            float(getattr(goal, "vy_ref", 0.0))])
                  / VEL_SCALE) if goal is not None else np.zeros(N_VEL_OBS)
+        elif vel_mode == 3.0:
+            if reset or self._vel_est is None:
+                from rl_move.estimator import LegOdometryVelocity
+                self._vel_est = LegOdometryVelocity(dt=self.dt)
+            st = self._state
+            if st is not None:
+                v_est = self._vel_est.update(
+                    st.joint_position, st.imu_gyro,
+                    st.imu_roll, st.imu_pitch)
+            else:
+                v_est = np.zeros(N_VEL_OBS)
+            v = np.asarray(v_est, dtype=float) / VEL_SCALE
         else:
             v = self._body_vel_xy() / VEL_SCALE
         obs = np.concatenate([obs, v])
@@ -941,6 +970,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         self._gait_gate_qfactor = 1.0
         self._phase = 0.0
         self._yaw_still_ema = 0.0
+        self._vel_est = None
         if self._wc_on:
             # Bucket must be chosen BEFORE super() samples this
             # episode's DR (_ep_rand) so the bucket's dr scale applies
@@ -2985,6 +3015,61 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 info["reward_walk_cmd_track"] = r_cmd_track
             info["walk_vel_err"] = err
             info["walk_speed"] = float(np.hypot(*v))
+            # Fast-profile command-tracking charges (08-20, operator
+            # note fb_20260820T000059 item 3b — the steer5-fastprof1
+            # canary: under the raised servo profile every checkpoint
+            # runs 0.13-0.16 m/s against a 0.05-0.06 command and drifts
+            # 50-60 deg off heading; the Gaussian kernel saturates ~2
+            # sigma out and the progress cap 1.25 still PAYS overspeed,
+            # so nothing prices the exceedance itself). Two opt-in
+            # CHARGES, walk/quadwalk block only, commanded-motion ticks
+            # only (s_ref > 1e-3 — stop/settle segments are priced by
+            # the stop->stance-hold contract, never charged here), added
+            # AFTER the income gates so penalties are never shrunk
+            # (gait-gate rule). Both default 0 = bit-exact legacy.
+            #  - reward.k_walk_overspeed: -k * min(over/s_ref, 3) where
+            #    over = max(0, |v| - (1+walk_overspeed_tol)*s_ref) —
+            #    fractional exceedance of the commanded band (tol
+            #    default 0.10 ~ the eval prog_ratio band), linear so the
+            #    gradient never saturates, capped at 3x for bounded
+            #    per-tick cost. At the canary's operating point
+            #    (0.14 m/s vs 0.06 cmd) k=2 charges ~2.4/tick — real
+            #    money vs the ~2/tick kernel income.
+            #  - reward.k_walk_heading: -k * (1 - cos(heading err)) on
+            #    ticks actually moving (|v| >=
+            #    reward.walk_heading_min_speed_m_s, default 0.01 —
+            #    heading is undefined near zero speed; parking is
+            #    priced by the prog gates, not here). Smooth, bounded
+            #    [0, 2k]; the canary's ~55 deg drift costs ~0.43k/tick,
+            #    perfect heading costs 0.
+            k_over = float(cfg_get(self.cfg, "reward",
+                                   "k_walk_overspeed", default=0.0))
+            k_head = float(cfg_get(self.cfg, "reward",
+                                   "k_walk_heading", default=0.0))
+            if (k_over > 0.0 or k_head > 0.0) and s_ref > 1e-3:
+                spd_now = float(np.hypot(v[0], v[1]))
+                if k_over > 0.0:
+                    tol = float(cfg_get(self.cfg, "reward",
+                                        "walk_overspeed_tol",
+                                        default=0.10))
+                    over = max(0.0, spd_now - (1.0 + tol) * s_ref)
+                    info["walk_overspeed_m_s"] = over
+                    if over > 0.0:
+                        r_over = -k_over * min(over / s_ref, 3.0)
+                        reward = float(reward) + r_over
+                        info["reward_walk_overspeed"] = r_over
+                if k_head > 0.0:
+                    v_min = float(cfg_get(
+                        self.cfg, "reward",
+                        "walk_heading_min_speed_m_s", default=0.01))
+                    if spd_now >= v_min:
+                        cos_h = max(-1.0, min(1.0, float(
+                            v[0] * goal.vx_ref + v[1] * goal.vy_ref)
+                            / (spd_now * s_ref)))
+                        r_head = -k_head * (1.0 - cos_h)
+                        reward = float(reward) + r_head
+                        info["reward_walk_heading"] = r_head
+                        info["walk_heading_cos"] = cos_h
             _add_walk_direction_info(
                 info, float(v[0]), float(v[1]),
                 float(goal.vx_ref), float(goal.vy_ref),

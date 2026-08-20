@@ -24,6 +24,25 @@ unresolved blockers between the robot and reliable joystick control.
 
 ## Now
 
+- **08-20 ~01:xx (idle-kick, fb_20260820T000059): fast-profile prep
+  item 3 LANDED — the fast-gait fork is now fully priced and
+  tool-ready, everything left on it is the operator's (full record:
+  `rl_docs/FAST_PROFILE.md`).** (a) `eval_checkpoint.py
+  --pinned-speed-panel` (0.04/0.06/0.08/0.10 m/s rows,
+  `walk@<speed>/<tag>`); smoke on hard1: achieved speed ~0.06
+  whether commanded 0.04 or 0.08 — the current generation has ONE
+  cadence, not speed control. (b) opt-in
+  `reward.k_walk_overspeed` (commanded-band exceedance, linear —
+  legacy kernel saturates and the progress cap PAYS overspeed) +
+  `reward.k_walk_heading` (1−cos charge); REWARD.md rows, FASTPROF
+  bank + full semantics bank green. (c) obs audit: the cw-dep
+  vel:=ref contract is BLIND to command error by construction —
+  and `walk_obs_body_vel=3` (estimator mode) turned out to be
+  UNIMPLEMENTED (silently privileged); now genuinely wired to
+  LegOdometryVelocity on the observed state, warm-start-compatible
+  width, modes 0/1/2 bit-exact. Recommended funded-arm contract
+  written up; no launch (SIM SPRINT; the fork + bench items stay
+  `[operator]`).
 - **08-20 ~00:xx (idle-kick, fb_20260820T000059): fast-profile
   follow-up code item 4 LANDED — motor-contract logging + integration
   tests.** Every train/eval path now records the resolved servo
