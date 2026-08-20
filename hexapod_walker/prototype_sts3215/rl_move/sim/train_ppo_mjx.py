@@ -2111,6 +2111,48 @@ def main(argv: list[str] | None = None) -> int:
           f"(compile + {args.pool_per_env + 1} reset choreographies)")
     if args.require_gpu_physics:
         _assert_gpu_physics(venv, impl)
+
+    # Servo-profile RAMP-IN (08-20, fast anti-skate option (b),
+    # q_20260820T0830Z): bus.profile_ramp_steps > 0 anneals the live
+    # write profile from the fitted regime to the cfg target dose over
+    # that many global env steps. Armed HERE (frac 0 before anything
+    # measures the policy — the V5 pre-PPO B0 cert then guards the
+    # transplant at the ramp START instead of dying zero-shot at the
+    # full dose); advanced once per rollout by _ProfileRampCb below;
+    # the walkcurr cert env mirrors the training frac so promotions
+    # certify the dose actually being trained. Envs constructed from a
+    # ramp cfg that never receive a broadcast (eval_checkpoint, play,
+    # the periodic C-env evals) sit at the TARGET dose by design.
+    _prof_ramp_steps = 0
+    if env_kw.get("cfg") is not None:
+        from rl_move.config import cfg_get as _cfg_get
+        _prof_ramp_steps = int(float(_cfg_get(
+            env_kw["cfg"], "bus", "profile_ramp_steps",
+            default=0) or 0))
+
+    def _profile_ramp_frac_at(step: int) -> float:
+        return min(1.0, float(step) / float(_prof_ramp_steps))
+
+    def _profile_ramp_apply(target_venv, step: int) -> dict | None:
+        """Broadcast the frac for ``step`` to a vec env; returns the
+        applied profile (first env's row). No-op when the ramp is off."""
+        if _prof_ramp_steps <= 0:
+            return None
+        f = _profile_ramp_frac_at(step)
+        return target_venv.env_method("apply_profile_ramp_frac", f)[0]
+
+    if _prof_ramp_steps > 0:
+        r0 = _profile_ramp_apply(venv, 0)
+        print(f"[profile-ramp] armed: {_prof_ramp_steps:,} global env "
+              "steps from fitted profile to target dose; step-0 "
+              f"profile: write_speed={r0['write_speed_counts_s']:.0f} "
+              f"counts/s acc={r0['write_acc']:g} "
+              f"max_delta_q={r0['max_delta_q_deg']:g} deg/tick")
+        if _prof_ramp_steps >= args.steps:
+            print("[profile-ramp] WARNING: profile_ramp_steps "
+                  f"({_prof_ramp_steps:,}) >= --steps ({args.steps:,}) "
+                  "— the policy will NEVER train at the full target "
+                  "dose in this run")
     if args.predictive_live:
         capture_indices = list(range(args.pred_capture_envs))
         venv.env_method("dynrep_capture_enable", True,
@@ -2887,6 +2929,41 @@ def main(argv: list[str] | None = None) -> int:
               f"{population.member}, initial B{initial_bucket}")
 
     callbacks: list = [_Track()]
+    if _prof_ramp_steps > 0:
+        class _ProfileRampCb(BaseCallback):
+            """Advance the servo-profile ramp once per rollout (see the
+            arming block after venv construction). Broadcasts stay on
+            after frac hits 1.0 for one extra round (idempotent), then
+            stop; W&B gets the live profile under profile_ramp/*."""
+
+            def __init__(self):
+                super().__init__()
+                self._finished = False
+
+            def _on_step(self) -> bool:
+                return True
+
+            def _on_rollout_end(self) -> None:
+                if self._finished:
+                    return
+                vals = _profile_ramp_apply(venv, self.num_timesteps)
+                if vals["frac"] >= 1.0:
+                    self._finished = True
+                    print("[profile-ramp] ramp complete @ "
+                          f"{self.num_timesteps:,} steps — training at "
+                          "the full target dose from here on")
+                if run is not None:
+                    import wandb
+                    wandb.log({
+                        "global_step": self.num_timesteps,
+                        "profile_ramp/frac": vals["frac"],
+                        "profile_ramp/write_speed_counts_s":
+                            vals["write_speed_counts_s"],
+                        "profile_ramp/write_acc": vals["write_acc"],
+                        "profile_ramp/max_delta_q_deg":
+                            vals["max_delta_q_deg"]})
+
+        callbacks.append(_ProfileRampCb())
     if args.predictive_live:
         class _LivePredictorCapture(BaseCallback):
             """Harvest a bounded MJX subset into CUDA live replay."""
@@ -3439,6 +3516,17 @@ def main(argv: list[str] | None = None) -> int:
                       f"ready: {n_cert} episodes/bucket, "
                       f"{impl or 'jax(default)'} backend, in-env walk "
                       "probe ON")
+                if _prof_ramp_steps > 0:
+                    # Mirror the TRAINING profile ramp: certs must
+                    # assay the dose the policy is actually training
+                    # under, not the cfg target (num_timesteps is 0 at
+                    # the pre-PPO init cert — the ramp START, which is
+                    # exactly what the transplant guard should see).
+                    rv = _profile_ramp_apply(
+                        env, getattr(self, "num_timesteps", 0) or 0)
+                    print("[walkcurr-cert] profile ramp mirrored: "
+                          f"frac={rv['frac']:.3f} write_speed="
+                          f"{rv['write_speed_counts_s']:.0f} counts/s")
                 return env
 
             def _assay(self, bucket: int) -> dict:
@@ -3596,6 +3684,9 @@ def main(argv: list[str] | None = None) -> int:
                               ) * args.walkcurr_cert_every
                 if self._env is None:
                     self._env = self._build()
+                elif _prof_ramp_steps > 0:
+                    # keep the cert env's profile at the training frac
+                    _profile_ramp_apply(self._env, self.num_timesteps)
                 self.cert_round += 1
                 active_n = int(venv.env_method(
                     "walkcurr_state", indices=0)[0]["active_n"])

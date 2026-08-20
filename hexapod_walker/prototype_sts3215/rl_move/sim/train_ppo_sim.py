@@ -2407,6 +2407,21 @@ def main(argv: list[str] | None = None) -> int:
                          "training mix (~40 s at 4 x 10 s episodes)")
     args = ap.parse_args(argv)
 
+    # Profile ramp-in (08-20) is wired in train_ppo_mjx ONLY (per-
+    # rollout apply_profile_ramp_frac broadcast). TRAINING through this
+    # entry point with ramp keys would construct envs at the TARGET
+    # dose and never anneal — a silently inert mechanism, the
+    # dropped-cfg failure class. Fail closed. (Eval-side construction
+    # of ramp cfgs stays legal everywhere: target dose is the correct
+    # eval contract.)
+    if int(float(_parse_cfg_set(getattr(args, "cfg_set", None) or [])
+                 .get("bus.profile_ramp_steps", 0) or 0)) > 0 \
+            and not args.eval:
+        raise SystemExit(
+            "bus.profile_ramp_steps is only wired in train_ppo_mjx — "
+            "this trainer would silently train at the full target dose; "
+            "use train_ppo_mjx or drop the ramp keys")
+
     if args.eval:
         evaluate(args.eval, no_dr=args.no_dr, dr_scale=args.dr_scale,
                  episode_seconds=args.episode_seconds, task=args.task,

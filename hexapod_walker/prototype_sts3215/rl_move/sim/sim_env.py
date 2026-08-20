@@ -398,6 +398,72 @@ class SimHexapodBalanceEnv(_GymBase):
         self.write_acc_units = float(
             cfg_get(self.cfg, "bus", "write_acc", default=20))
 
+        # Servo-profile RAMP-IN (2026-08-20, fast anti-skate option (b),
+        # q_20260820T0830Z: the bcgait1_hard1 transplant dies zero-shot
+        # under the raised 1500/80 profile at the V5 B0 precert, dose-
+        # graded — the PROFILE DOSE itself destabilizes the walker
+        # before any curriculum/penalty engages). When armed, the
+        # TRAINER anneals the commanded write profile from a gentle
+        # start (default = the fitted regime: 350 counts/s effective
+        # cruise, acc 20, 1.5 deg/tick slew) to the cfg TARGET
+        # (bus.write_speed / bus.write_acc / safety.max_delta_q_deg)
+        # linearly over ``bus.profile_ramp_steps`` GLOBAL env steps.
+        #   - Default (key absent/0) = OFF: no state, no new code path,
+        #     bit-exact legacy behavior.
+        #   - Armed but never applied = TARGET profile: construction
+        #     never moves the dials, so eval_checkpoint / play / the
+        #     periodic C-env evals judge checkpoints at the FULL dose
+        #     even when the training cfg carries ramp keys. Only an
+        #     explicit apply_profile_ramp_frac() call (train_ppo_mjx:
+        #     frac 0 before the pre-PPO cert, then per rollout) moves
+        #     the profile below target.
+        #   - Fail-closed: a ramp whose target write_speed exceeds the
+        #     resolved actuator velocity ceiling would be silently
+        #     clamped (the exact silent-no-op class the 08-19
+        #     servo_vel_max_counts_s override exists for) — raise at
+        #     construction instead.
+        self._profile_ramp: dict | None = None
+        self._profile_ramp_dq_rad: float | None = None
+        _ramp_steps = int(float(cfg_get(
+            self.cfg, "bus", "profile_ramp_steps", default=0) or 0))
+        if _ramp_steps > 0:
+            _r_start_ws = float(cfg_get(
+                self.cfg, "bus", "profile_ramp_start_write_speed",
+                default=350.0))
+            _r_start_acc = float(cfg_get(
+                self.cfg, "bus", "profile_ramp_start_write_acc",
+                default=20.0))
+            _r_start_dq = float(cfg_get(
+                self.cfg, "bus", "profile_ramp_start_max_delta_q_deg",
+                default=1.5))
+            _r_tgt_ws = float(cfg_get(self.cfg, "bus", "write_speed",
+                                      default=400))
+            _r_tgt_acc = float(cfg_get(self.cfg, "bus", "write_acc",
+                                       default=20))
+            _r_tgt_dq = float(cfg_get(self.cfg, "safety",
+                                      "max_delta_q_deg", default=2.0))
+            if min(_r_start_ws, _r_start_acc, _r_start_dq) <= 0.0:
+                raise ValueError(
+                    "bus.profile_ramp_start_* must all be > 0 (got "
+                    f"write_speed={_r_start_ws}, acc={_r_start_acc}, "
+                    f"max_delta_q_deg={_r_start_dq})")
+            _ceil_counts = (float(self.params.per_joint(
+                "vel_max_deg_s").min()) * 4096.0 / 360.0)
+            if _r_tgt_ws > _ceil_counts + 1e-6:
+                raise ValueError(
+                    f"bus.profile_ramp_steps={_ramp_steps} targets "
+                    f"write_speed={_r_tgt_ws:g} counts/s but the "
+                    "resolved actuator velocity ceiling is "
+                    f"{_ceil_counts:.0f} counts/s — the ramp would be "
+                    "silently clamped; set bus.servo_vel_max_counts_s "
+                    "(e.g. 'write_speed') so the profile ceiling "
+                    "matches the target dose")
+            self._profile_ramp = {
+                "steps": _ramp_steps, "frac": 1.0,
+                "start": (_r_start_ws, _r_start_acc, _r_start_dq),
+                "target": (_r_tgt_ws, _r_tgt_acc, _r_tgt_dq),
+            }
+
         # ``model``: a pre-built, fully PREPARED (contact-softened) MjModel
         # shared with other envs — the batched MJX vec env owns physics
         # and passes one model to all its per-env shims. A shared model
@@ -2123,6 +2189,36 @@ class SimHexapodBalanceEnv(_GymBase):
             return int(self.episode_steps)
         return min(int(self.episode_steps), max(1, int(limit)))
 
+    def apply_profile_ramp_frac(self, frac: float) -> dict:
+        """Move the live write profile to ``frac`` of the ramp
+        (0 = gentle start, 1 = the cfg target dose); trainer-driven —
+        see the ``bus.profile_ramp_steps`` block in ``__init__``.
+        Returns the applied values (counts/s, acc units, deg/tick) so
+        the trainer can print/log the active profile. Raises when the
+        ramp is not armed: a broadcast that silently no-ops is the
+        dropped-cfg failure class (gotcha 3), never fall back quietly.
+        """
+        if self._profile_ramp is None:
+            raise RuntimeError(
+                "apply_profile_ramp_frac called but bus."
+                "profile_ramp_steps is not set (>0) in this env's cfg "
+                "— the profile ramp is not armed")
+        f = min(max(float(frac), 0.0), 1.0)
+        s = self._profile_ramp["start"]
+        t = self._profile_ramp["target"]
+        ws, acc, dq = (s[i] + f * (t[i] - s[i]) for i in range(3))
+        self.write_speed_deg_s = ws * 360.0 / 4096.0
+        self.write_acc_units = float(acc)
+        # safety is deep-copied into MJX pool-restore snapshots
+        # (mjx_host.SNAP_ATTRS), so a restored episode would revive a
+        # stale max_dq — _step_begin re-asserts this value every tick
+        # while the ramp is armed (the commit-65edba7 bug class).
+        self._profile_ramp_dq_rad = math.radians(dq)
+        self.safety.max_dq = self._profile_ramp_dq_rad
+        self._profile_ramp["frac"] = f
+        return {"frac": f, "write_speed_counts_s": ws,
+                "write_acc": float(acc), "max_delta_q_deg": dq}
+
     def _step_begin(self, action):
         """Pre-physics half of step: action validation, IK, safety
         filter, and the servo command. Returns ``(early, ctx)`` —
@@ -2203,6 +2299,11 @@ class SimHexapodBalanceEnv(_GymBase):
                                           self.n_act), -1.0, 1.0)
 
         q_prop, q_ok, q_reason = self._act_to_q(clipped)
+        if self._profile_ramp_dq_rad is not None:
+            # Profile ramp armed: pool-restores revive a deep-copied
+            # SafetyLayer minted under an older ramp value — re-assert
+            # the live slew clamp every tick (see apply_profile_ramp_frac).
+            self.safety.max_dq = self._profile_ramp_dq_rad
         q_safe, status = self.safety.filter(
             q_prop, self._state, ik_ok=q_ok, ik_reason=q_reason,
             action=clipped)

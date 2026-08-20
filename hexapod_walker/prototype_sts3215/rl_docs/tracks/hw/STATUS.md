@@ -24,10 +24,81 @@ unresolved blockers between the robot and reliable joystick control.
 
 ## Now
 
+- **08-20 ~13:1x ADVISORY RECORDED (operator MCP client note
+  fb_20260820T130855_a17a35 — GPT-5 Codex geometry sweep on the
+  operator's machine, read-only, artifacts NOT in this repo): coxa
+  length is NOT a walking-speed/reliability lever, only a
+  yaw-margin/scrub one.** Env-backed sweep (SimHexapodJointGoalEnv +
+  SafetyLayer + servo profile, femur/tibia fixed 90/128 mm) over coxa
+  12.5→55 mm with tripod/tetrapod/wave gaits: suite-mean commanded
+  progress flat (0.518–0.526 across all lengths); worst-case yaw-limit
+  margin improves 12.3°→21.9° (12.5→55 mm; ~+2.4° avg at 30 mm),
+  scrub 135→101 mm/m, roll peak 1.64°→1.19°. Client recommendation:
+  do NOT pivot geometry; if steering/tangle stays the blocking
+  symptom, a CAD/build-checked 25–30 mm coxa-only variant is the
+  low-risk hardware follow-up (45–55 mm second-stage only).
+  Orchestrator action: recorded only — geometry/CAD is a bench/
+  `[operator]`-owned lever (parked with bench items, robot off
+  bench), it changes no sim verdict, and it does not alter the open
+  (a)/(b)/(c) fast anti-skate pick (that instability is profile-dose,
+  not geometry). Relevant when the operator next weighs the
+  steering/tangle line: the yaw-saturation axis `k_yaw_margin` +
+  the recover-ladder tangle work attack in reward-space has a
+  modest, quantified geometry alternative. Artifacts:
+  `/Users/lukas/Documents/Codex/2026-08-20/could-you-do-an-
+  exploration-using` (operator's machine).
+- **08-20 ~09:5x CODE FOLLOW-UP #2 (q_20260820T0830Z option (b),
+  idle-drain cycle): the profile RAMP-IN mechanism is BUILT —
+  `bus.profile_ramp_steps` (+ `profile_ramp_start_write_speed/
+  write_acc/max_delta_q_deg`, defaults 350/20/1.5 = the fitted
+  regime) anneals the live write profile linearly to the cfg target
+  dose over N global env steps.** Trainer-armed in `train_ppo_mjx`
+  only: frac-0 broadcast right after venv construction (so the V5
+  `--walkcurr-cert-at-init` B0 cert now guards the transplant at the
+  ramp START, where bcgait1_hard1 is stable, instead of dying
+  zero-shot at full dose), `_ProfileRampCb` advances it per rollout
+  (W&B `profile_ramp/*`), and the walkcurr cert env mirrors the
+  training frac so promotions certify the dose actually being
+  trained. Eval paths (eval_checkpoint / play / periodic C evals)
+  always judge at FULL target dose by construction. Default-off
+  bit-exact; fail-closed: target above the resolved vel ceiling
+  raises, train_ppo_sim refuses ramp cfgs, slew clamp survives MJX
+  pool-restores (re-asserted per tick). `test_profile_ramp.py` 8/8;
+  sim_env 43, walkcurr_mjx 18, walk_curriculum 33, fastprof 37, full
+  semantics bank 141/4skip/1xfail all green. NOTHING trained on it —
+  the (a)/(b)/(c) pick stays `[operator]`; (b) is now launch-ready.
+  Spec: `rl_docs/FAST_PROFILE.md` §(d).**
+- **08-20 ~08:5x CODE FOLLOW-UP (q_20260820T0830Z): the desktop
+  branch became fetchable (fb_20260820T080540_e2ea9b) and was diffed
+  verbatim against the controller reconstruction below. The B0
+  bucket/gate the canaries actually exercised is BIT-IDENTICAL
+  (their FAILs are genuine); two never-exercised drifts were found
+  and fixed to match the authored 2cb2a7b7: `slew_sat_max`
+  0.95→0.98 on both V5 gates + B6-B9's exact command/DR shape, and
+  `k_loadslip_excess` was missing its `* self.dt` scaling (would
+  have been ~25x too strong the moment any dose reached PPO — fixed,
+  test + REWARD.md updated, full semantics bank green). No training
+  affected; V5 is now verified faithful and ready for the operator's
+  pick below.**
+- **08-20 ~08:4x OUTCOME: both ordered canaries CANARY FAIL -
+  MECHANISM at the pre-PPO B0 bridge cert — ZERO training steps.
+  The bcgait1_hard1 warm start zero-shot cannot survive 10s of its
+  own 0.05-0.06 m/s straight walk under either raised profile:
+  `fastnoslip1` (1500/80) falls 6/8, slip 2.26/m, roll 10.2°, 2.09x
+  speed overshoot; `midnoslip1` (750/40) falls 2/8, slip 1.66/m,
+  roll 10.6°, 1.26x overshoot. Dose-graded on every axis ⇒ the
+  profile dose itself destabilizes the transplant before V5 or
+  k_loadslip_excess ever engage (the mechanism itself is
+  implemented, tested, and remains ready). Fail-closed
+  `--walkcurr-cert-at-init` aborted both per each run's own
+  pre-registered gate clause (1). Next lever is `[operator]`:
+  ease/waive the precert bar (train through the wobble in B0), a
+  profile ramp-in mechanism (CODE, unbuilt), or park. W&B
+  `2ioupj7g` / `lj0urac5`; STATUS.md WAITING-ON + q_20260820T0830Z.**
 - **08-20 ~08:xx: operator ANSWERED the fast-gait fork
   (fb_20260820T075230_4a90c6) with a mechanism change — walk-
   curriculum V5 "fast anti-skate" + `reward.k_loadslip_excess` —
-  and the two ordered 1M canaries are TRAINING.** Implemented on the
+  and the two ordered 1M canaries were launched.** Implemented on the
   controller (the operator's desktop commit 2cb2a7b7 couldn't push;
   recreated per the note): `WALKCURR_BUCKETS_V5` in walk_task.py — a
   bcgait1-hard1-adjacent ladder (B0 10s bridge at the source's own

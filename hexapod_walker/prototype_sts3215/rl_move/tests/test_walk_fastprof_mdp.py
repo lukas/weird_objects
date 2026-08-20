@@ -357,13 +357,16 @@ def test_loadslip_excess_charges_ratio_above_ok_only():
     assert info["walk_loadslip_ratio"] < 1.2
     assert info["reward_loadslip_excess"] == pytest.approx(0.0)
 
-    # skating: ratio ~3 -> pays k * (ratio - ok) this tick, exactly
+    # skating: ratio ~3 -> pays k * (ratio - ok) * dt this tick,
+    # exactly (dt-scaled like every other per-second reward charge in
+    # this file, e.g. c_time -- 2026-08-20 q_20260820T0830Z realign to
+    # match the authored desktop commit 2cb2a7b7).
     env._ls_slip_m, env._ls_prog_m = 0.30, 0.10
     _r, info = _step_info(env)
     ratio = info["walk_loadslip_ratio"]
     assert ratio > 1.2
     assert info["reward_loadslip_excess"] == pytest.approx(
-        -6.0 * (ratio - 1.2), abs=1e-9)
+        -6.0 * (ratio - 1.2) * env.dt, abs=1e-9)
     env.close()
 
 

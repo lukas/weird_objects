@@ -1084,6 +1084,56 @@ Entry format (append; newest last; update status in place):
   (undiscounted, additive, never shrunk by income gates). If the
   desktop 2cb2a7b7 implementation differs (e.g. dt-scaled or
   increment-based), say so and we re-align before any >1M dose.
+- OUTCOME (same cycle): BOTH canaries CANARY FAIL - MECHANISM at the
+  pre-PPO B0 bridge cert (zero training): bcgait1_hard1 zero-shot
+  under 1500/80 falls 6/8 (slip 2.26/m, roll 10.2°, 2.09x overshoot);
+  under 750/40 falls 2/8 (slip 1.66/m, roll 10.6°, 1.26x overshoot).
+  The --walkcurr-cert-at-init guard your spec included aborted both,
+  per each run's own gate clause (1). Dose-graded ⇒ profile dose
+  destabilizes before V5/k_loadslip_excess engage. OPERATOR PICK
+  NEEDED: (a) ease/waive precert and train through the B0 wobble,
+  (b) profile ramp-in mechanism (CODE, unbuilt), or (c) park. No
+  autonomous continuation queued.
 - ANSWER (operator): —
 - rulebook change: pending answer; V5 init-from exception documented
   in train_ppo_mjx.py + hw/STATUS.md.
+- FOLLOW-UP (next cycle, 08-20 ~08:5x UTC, fb_20260820T080540_e2ea9b
+  "branch now pushed"): fetched + diffed origin/codex/recover-
+  retention @ 2cb2a7b7 verbatim against the controller
+  reconstruction. The B0 bridge_10s bucket + WALKCURR_GATE_V5_BRIDGE
+  the canaries actually exercised are BIT-IDENTICAL — the precert
+  FAILs above are genuine, not a reconstruction artifact. Two real
+  drifts found and fixed (neither touched by either canary, both
+  died at B0): (1) `slew_sat_max` was 0.95 here vs the authored 0.98
+  on both V5 gates, and B6-B9's min_command_changes/resample_s/
+  jitter/stop_frac/blend/s_lo/head_hi diverged — realigned to the
+  exact authored ladder in walk_task.py. (2) the note's dt-scaling
+  question is ANSWERED: the authored `k_loadslip_excess` term IS
+  dt-scaled (`* self.dt`, like every other per-second charge in the
+  file, e.g. `c_time`); the controller reconstruction had dropped
+  the dt factor, which would have made the charge ~1/dt = 25x too
+  strong for the intended k=6.0 the moment any dose ever reached
+  PPO. Fixed to `-k * max(ratio - ok, 0) * self.dt`; the hard-coded
+  test expectation in test_walk_fastprof_mdp.py and the REWARD.md
+  row updated to match; full semantics bank + test_walk_curriculum.py
+  re-run green after the fix. V5 + k_loadslip_excess are now verified
+  faithful to the authored patch and ready the moment the operator
+  picks (a)/(b)/(c) above — no new canary spent confirming this
+  (correctness-only code fix, not a new hypothesis).
+- FOLLOW-UP #2 (08-20 ~09:5x UTC, idle-drain cycle): option (b) of the
+  pick above is no longer "CODE, unbuilt" — the profile ramp-in
+  mechanism is BUILT and launch-ready (CODE-FIRST rule: a named CODE
+  item in a WAITING-ON entry is agent-doable and must not park on the
+  operator). `bus.profile_ramp_steps` anneals write_speed/acc/slew
+  from the fitted regime (350 counts/s / 20 / 1.5°, overridable via
+  bus.profile_ramp_start_*) to the cfg target dose over N global env
+  steps; train_ppo_mjx-armed (frac 0 before the V5 pre-PPO B0 cert —
+  the transplant is certified at the ramp start where it is stable —
+  then per-rollout; cert env mirrors the training frac); evals always
+  run at FULL dose; default-off bit-exact + fail-closed edges;
+  test_profile_ramp.py 8/8 + sim_env/walkcurr/fastprof/semantics
+  banks green. NOTHING trained. The (a)/(b)/(c) pick is UNCHANGED and
+  still yours; if you pick (b), the launch is e.g.
+  `--cfg-set bus.profile_ramp_steps=<N>` on the existing canary spec
+  (suggest N ≈ half the budget so the run trains at full dose for its
+  second half). Spec: rl_docs/FAST_PROFILE.md §(d).
