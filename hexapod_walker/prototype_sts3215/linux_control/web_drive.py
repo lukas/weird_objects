@@ -355,6 +355,18 @@ class Handler(BaseHTTPRequestHandler):
             self._json(200, BENCH.pose() if BENCH else {"ok": False, "error": "no bench"})
         elif path == "/api/demos":
             self._json(200, {"demos": BENCH.list_demos() if BENCH else []})
+        elif path == "/api/dances":
+            self._json(200, {"dances": BENCH.list_dance_scripts()
+                             if BENCH else []})
+        elif path.startswith("/api/dances/"):
+            # Export one uploaded dance script (push it to another robot).
+            name = Path(path[len("/api/dances/"):]).name
+            script = BENCH.get_dance_script(name) if BENCH else None
+            if script is None:
+                self._json(404, {"ok": False,
+                                 "error": f"no uploaded dance {name!r}"})
+            else:
+                self._json(200, script)
         elif path == "/api/calibrate":
             self._json(200, BENCH.calibrate_state() if BENCH
                        else {"running": False, "error": "no bench"})
@@ -453,6 +465,25 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(400, {"ok": False, "error": str(e)})
         elif path == "/api/demo/stop":
             self._json(200, BENCH.stop_demo())
+        elif path == "/api/dances":
+            # Upload a dance script (dances as data — dance_script.py).
+            try:
+                import dance_script as DS
+                if n > DS.MAX_SCRIPT_BYTES:
+                    self._json(413, {"ok": False, "error": "script too big"})
+                    return
+                script = body_obj
+                if isinstance(script, dict) and "script" in script:
+                    script = script["script"]
+                self._json(200, BENCH.save_dance_script(script))
+            except Exception as e:
+                self._json(400, {"ok": False, "error": str(e)})
+        elif path == "/api/dances/delete":
+            try:
+                self._json(200, BENCH.delete_dance_script(
+                    str((body_obj or {}).get("name", ""))))
+            except Exception as e:
+                self._json(400, {"ok": False, "error": str(e)})
         elif path == "/api/zero":
             try:
                 data = json.loads(body or "{}") if body else {}

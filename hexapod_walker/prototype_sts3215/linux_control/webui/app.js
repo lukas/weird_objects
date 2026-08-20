@@ -2581,6 +2581,16 @@ async function loadDance(){
       g.appendChild(h);
       items.forEach(item=> g.appendChild(demoButton(item)));
     });
+    // Uploaded dance scripts (dances-as-data via POST /api/dances).
+    const up = (d.demos||[]).filter(it=> it.group === 'uploaded');
+    if(up.length){
+      const h = document.createElement('div');
+      h.className = 'demo-group';
+      h.innerHTML = 'UPLOADED <span class="sub">· dance scripts sent '
+        +'over the API — survive code deploys</span>';
+      g.appendChild(h);
+      up.forEach(item=> g.appendChild(demoButton(item)));
+    }
   }catch(e){ $('dancegrid').innerHTML = '<div class="hint">Failed to load shows</div>'; }
 }
 $('dancestop').onclick = ()=> $('dstop').onclick();

@@ -65,7 +65,7 @@ cp -R "$SRC/urt2_setup/." "$STAGE/linux_control/urt2_setup/"
 # shared modules in BOTH urt2_setup dirs from motor_setup so the deployed
 # tree can never disagree with the canonical copies.
 for f in feetech_bus.py urt2_bench.py inplace_demos.py quad_walk.py \
-         motion_telemetry.py motor_setup_registry.json; do
+         dance_script.py motion_telemetry.py motor_setup_registry.json; do
   cp "$SRC/../motor_setup/$f" "$STAGE/motor_setup/"
   cp "$SRC/../motor_setup/$f" "$STAGE/urt2_setup/"
   cp "$SRC/../motor_setup/$f" "$STAGE/linux_control/urt2_setup/"

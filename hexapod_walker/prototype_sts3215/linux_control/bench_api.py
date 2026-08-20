@@ -519,7 +519,99 @@ class BenchAPI:
                 "has_size": n in ("breathe", "breathe_v", "dance",
                               "dance_walk"),
             })
+        builtin = {d["name"] for d in out}
+        for meta in self.list_dance_scripts():
+            if meta["name"] in builtin:
+                continue
+            out.append({
+                "name": meta["name"],
+                "title": meta.get("title") or meta["name"],
+                "air": True,            # scripts start AND end at sit zero
+                "group": "uploaded",
+                "live_speed": True,
+                "has_size": False,
+                "uploaded": True,
+                "stands": bool(meta.get("stands")),
+                "seconds": meta.get("seconds"),
+            })
         return out
+
+    # -- uploaded dance scripts (dances as data) -----------------------------
+    # Portable JSON choreography (motor_setup/dance_script.py): baked from
+    # any dance runner, uploaded over HTTP, replayed through the same
+    # guarded primitives.  Stored OUTSIDE the deploy tree so code pushes
+    # never wipe them; the same file can be pushed to any robot.
+
+    DANCE_DIR = Path.home() / ".hexapod_dances"
+
+    def _dance_path(self, name: str) -> Path | None:
+        import dance_script as DS
+        if not isinstance(name, str) or not DS.NAME_RE.match(name):
+            return None
+        return self.DANCE_DIR / f"{name}.json"
+
+    def list_dance_scripts(self) -> list[dict]:
+        out = []
+        try:
+            paths = sorted(self.DANCE_DIR.glob("*.json"))
+        except OSError:
+            return out
+        for p in paths:
+            try:
+                s = json.loads(p.read_text())
+                out.append({"name": s["name"],
+                            "title": s.get("title") or s["name"],
+                            "stands": bool(s.get("stands")),
+                            "seconds": s.get("seconds"),
+                            "acts": len(s.get("acts") or []),
+                            "bytes": p.stat().st_size,
+                            "baked_from": s.get("baked_from")})
+            except (OSError, ValueError, KeyError):
+                continue
+        return out
+
+    def get_dance_script(self, name: str) -> dict | None:
+        p = self._dance_path(name)
+        if p is None or not p.is_file():
+            return None
+        try:
+            return json.loads(p.read_text())
+        except (OSError, ValueError):
+            return None
+
+    def save_dance_script(self, script) -> dict:
+        import dance_script as DS
+        errs, stats = DS.validate_script(script)
+        if errs:
+            return {"ok": False, "error": "; ".join(errs[:5])}
+        name = script["name"]
+        try:
+            from inplace_demos import DEMOS
+            if name in DEMOS:
+                return {"ok": False,
+                        "error": f"{name!r} is a built-in demo name"}
+        except ImportError:
+            pass
+        p = self._dance_path(name)
+        try:
+            self.DANCE_DIR.mkdir(parents=True, exist_ok=True)
+            tmp = p.with_suffix(".json.tmp")
+            tmp.write_text(json.dumps(script))
+            tmp.replace(p)
+        except OSError as e:
+            return {"ok": False, "error": f"save failed: {e}"}
+        return {"ok": True, "name": name, "stats": stats,
+                "bytes": p.stat().st_size}
+
+    def delete_dance_script(self, name: str) -> dict:
+        p = self._dance_path(name)
+        if p is None or not p.is_file():
+            return {"ok": False, "error": f"no uploaded dance {name!r}"}
+        try:
+            p.unlink()
+        except OSError as e:
+            return {"ok": False, "error": str(e)}
+        return {"ok": True, "deleted": name}
 
     def set_demo_speed(self, speed) -> dict:
         """LIVE tempo (web slider): takes effect on the running demo."""
@@ -663,9 +755,12 @@ class BenchAPI:
         if name == "breathe+":
             name = "breathe"
             size = max(float(size), 2.0)
+        script = None
         if name not in DEMOS:
-            return {"ok": False, "error": f"unknown demo {name!r}",
-                    "demos": [n for n in DEMOS if n != "breathe+"]}
+            script = self.get_dance_script(name)
+            if script is None:
+                return {"ok": False, "error": f"unknown demo {name!r}",
+                        "demos": [n for n in DEMOS if n != "breathe+"]}
         if self.drive.dry_run:
             return {"ok": False, "error": "dry-run — no bus"}
         if not self.drive.bus:
@@ -696,7 +791,9 @@ class BenchAPI:
             if torque is not None:
                 torque = max(150, min(1000, torque))
 
-        home = "sit" if name in AIR_DEMO_NAMES else "stand"
+        # Uploaded scripts start AND end at sit zero (like air demos).
+        home = ("sit" if (name in AIR_DEMO_NAMES or script is not None)
+                else "stand")
         switched_from = None
         if self._demo_thread and self._demo_thread.is_alive():
             switched_from = self._demo_name
@@ -806,7 +903,18 @@ class BenchAPI:
                     with self._lock:
                         self._demo_status = str(msg)
 
-                if name == "dance_walk":
+                if script is not None:
+                    import dance_script as DS
+                    status = DS.run_dance_script(
+                        d.bus, script,
+                        abort_check=self._demo_abort.is_set,
+                        speed=speed,
+                        speed_fn=lambda: self._demo_speed_live,
+                        status_cb=_live_status,
+                        standup_fn=self._step_standup_fn(
+                            gen=gen, speed=speed),
+                        log_path=log_path)
+                elif name == "dance_walk":
                     status = self._run_dance_walk(
                         gen=gen, speed=speed, size=size,
                         softness=softness, torque=torque,
@@ -878,7 +986,9 @@ class BenchAPI:
                     with self._lock:
                         self._demo_status = st
                 # Planted / rise demos finish at stand zero — keep re-holding.
-                if st == "done" and name not in AIR_DEMO_NAMES:
+                # Uploaded scripts end at sit zero like air demos.
+                if (st == "done" and name not in AIR_DEMO_NAMES
+                        and script is None):
                     self._enter_stand_hold()
                 else:
                     with d._lock:
@@ -910,8 +1020,16 @@ class BenchAPI:
         experiments-tab pacing the operator liked, 08-18); speeding
         the dance up speeds the stand-up too.
         """
-        def fn() -> tuple[bool, str]:
-            res = self.standup(mode="step",
+        def fn(mode: str = "step") -> tuple[bool, str]:
+            # Uploaded dance scripts may name another BAKED stand-up
+            # lab mode; anything unknown refuses rather than improvises.
+            try:
+                known = set(self._load_standup()["modes"])
+            except Exception:
+                known = {"step"}
+            if mode not in known:
+                return False, f"unknown stand-up mode {mode!r}"
+            res = self.standup(mode=mode,
                                speed=max(1.0, float(speed)),
                                direction="up", torque=700,
                                sync_gen=gen)
