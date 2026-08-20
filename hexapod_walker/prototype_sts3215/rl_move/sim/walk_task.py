@@ -412,6 +412,77 @@ WALKCURR_BUCKETS_V4 = (
          stop_gate=0.015, gate=WALKCURR_GATE_V4_JOYSTICK),
 )
 
+# WALKCURR_BUCKETS_V5: fast-profile anti-skate ladder. The 08-19 fast
+# motor-profile attempts proved the actuator headroom can produce
+# 0.10m/s-ish motion, but also that speed without training-time
+# anti-skate economics becomes diagonal/slipping paddle (steer6:
+# slip/m 3-7, direction errors 40-65deg). V5 starts from the proven
+# bcgait1-hard1 operating point, then widens speed adjacently under
+# strict slip/cross-track/height retention before long joystick/DR.
+WALKCURR_GATE_V5_BRIDGE = dict(
+    cmd_prog_frac_min=0.65, cmd_prog_frac_p10_min=0.50,
+    slip_per_m_max=1.8, peak_roll_deg_max=8.0, slew_sat_max=0.98,
+    cross_track_frac_max=0.22, contact_sw_per_s_min=3.0,
+    foot_sw_min_per_s_min=0.5, height_factor_min=0.80)
+WALKCURR_GATE_V5_FAST = dict(
+    cmd_prog_frac_min=0.70, cmd_prog_frac_p10_min=0.55,
+    slip_per_m_max=1.6, peak_roll_deg_max=8.0, slew_sat_max=0.98,
+    cross_track_frac_max=0.20, contact_sw_per_s_min=3.0,
+    foot_sw_min_per_s_min=0.5, height_factor_min=0.80)
+
+WALKCURR_BUCKETS_V5 = (
+    dict(name="bridge_10s", duration_s=10.0, min_command_changes=0,
+         s_lo=0.05, s_hi=0.06, head_lo=0.0, head_hi=0.0,
+         resample_s=0.0, jitter=0.0, stop_frac=0.0, blend_lo=1.0,
+         blend_hi=1.0, dr=0.0, stop_gate=None,
+         gate=WALKCURR_GATE_V5_BRIDGE),
+    dict(name="fast_08_10_10s", duration_s=10.0, min_command_changes=0,
+         s_lo=0.08, s_hi=0.10, head_lo=0.0, head_hi=0.0,
+         resample_s=0.0, jitter=0.0, stop_frac=0.0, blend_lo=1.0,
+         blend_hi=1.0, dr=0.0, stop_gate=None,
+         gate=WALKCURR_GATE_V5_FAST),
+    dict(name="fast_06_10_head15", duration_s=20.0, min_command_changes=0,
+         s_lo=0.06, s_hi=0.10, head_lo=0.0,
+         head_hi=math.radians(15.0), resample_s=0.0, jitter=0.0,
+         stop_frac=0.0, blend_lo=1.0, blend_hi=1.0, dr=0.0,
+         stop_gate=None, gate=WALKCURR_GATE_V5_FAST),
+    dict(name="fast_joystick_20s", duration_s=20.0, min_command_changes=4,
+         s_lo=0.06, s_hi=0.10, head_lo=0.0,
+         head_hi=math.radians(30.0), resample_s=3.0, jitter=0.2,
+         stop_frac=0.10, blend_lo=0.5, blend_hi=0.9, dr=0.0,
+         stop_gate=0.015, gate=WALKCURR_GATE_V5_FAST),
+    dict(name="fast_joystick_40s", duration_s=40.0, min_command_changes=10,
+         s_lo=0.06, s_hi=0.10, head_lo=0.0,
+         head_hi=math.radians(30.0), resample_s=3.0, jitter=0.2,
+         stop_frac=0.10, blend_lo=0.5, blend_hi=0.9, dr=0.0,
+         stop_gate=0.015, gate=WALKCURR_GATE_V5_FAST),
+    dict(name="fast_joystick_60s", duration_s=60.0, min_command_changes=15,
+         s_lo=0.06, s_hi=0.10, head_lo=0.0,
+         head_hi=math.radians(30.0), resample_s=3.0, jitter=0.2,
+         stop_frac=0.10, blend_lo=0.5, blend_hi=0.9, dr=0.0,
+         stop_gate=0.015, gate=WALKCURR_GATE_V5_FAST),
+    dict(name="fast_dr01_60s", duration_s=60.0, min_command_changes=9,
+         s_lo=0.05, s_hi=0.10, head_lo=0.0,
+         head_hi=math.radians(45.0), resample_s=4.0, jitter=0.5,
+         stop_frac=0.15, blend_lo=0.25, blend_hi=0.75, dr=0.1,
+         stop_gate=0.015, gate=WALKCURR_GATE_V5_FAST),
+    dict(name="fast_dr03_60s", duration_s=60.0, min_command_changes=9,
+         s_lo=0.05, s_hi=0.10, head_lo=0.0,
+         head_hi=math.radians(45.0), resample_s=4.0, jitter=0.5,
+         stop_frac=0.15, blend_lo=0.25, blend_hi=0.75, dr=0.3,
+         stop_gate=0.015, gate=WALKCURR_GATE_V5_FAST),
+    dict(name="lateral_60s", duration_s=60.0, min_command_changes=9,
+         s_lo=0.04, s_hi=0.10, head_lo=math.radians(45.0),
+         head_hi=math.radians(90.0), resample_s=4.0, jitter=0.5,
+         stop_frac=0.15, blend_lo=0.25, blend_hi=0.75, dr=0.3,
+         stop_gate=0.015, gate=WALKCURR_GATE_V5_FAST),
+    dict(name="rear_60s", duration_s=60.0, min_command_changes=9,
+         s_lo=0.04, s_hi=0.10, head_lo=math.radians(90.0),
+         head_hi=math.pi, resample_s=4.0, jitter=0.5,
+         stop_frac=0.15, blend_lo=0.25, blend_hi=0.75, dr=0.3,
+         stop_gate=0.015, gate=WALKCURR_GATE_V5_FAST),
+)
+
 # Sampling mixture over unlocked buckets (operator spec): 50% frontier,
 # 25% weakest mastered, 15% uniform over mastered, 10% the rung just
 # prior to the frontier. Empty components fold back to the frontier.
@@ -670,33 +741,34 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         self._lp_weights = None
         self._walk_bucket = None
         # Adaptive competence+retention walk-command curriculum state
-        # (goal.walk_curriculum=1..4; see WALKCURR_BUCKETS*).
+        # (goal.walk_curriculum=1..5; see WALKCURR_BUCKETS*).
         # PERSISTENT across episodes like _lp_weights/_rec_* — never in
         # SNAP_ATTRS. _wc_results is certification-only: stochastic
         # rollouts must never move the frontier; the trainer broadcasts
         # deterministic held-out assay results via
         # apply_walkcurr_certification and promotes via
-        # walkcurr_update_admission. version 2 (walkcurr2, operator MCP
-        # note fb_20260818T060044) selects WALKCURR_BUCKETS_V2 (fixed
-        # B0/B1 ignition band + per-bucket gate calibration) instead of
-        # the original V1 table; version 1 stays bit-exact unchanged.
+        # walkcurr_update_admission. Versions 2..5 select explicit
+        # postmortem ladders above; version 1 stays bit-exact unchanged.
         wc_version = float(cfg_get(self.cfg, "goal", "walk_curriculum",
                                    default=0.0))
-        self._wc_on = wc_version in (1.0, 2.0, 3.0, 4.0)
+        self._wc_on = wc_version in (1.0, 2.0, 3.0, 4.0, 5.0)
         self._wc_version = int(wc_version) if self._wc_on else 0
-        self._wc_table = (WALKCURR_BUCKETS_V4 if self._wc_version == 4
+        self._wc_table = (WALKCURR_BUCKETS_V5 if self._wc_version == 5
+                          else WALKCURR_BUCKETS_V4
+                          if self._wc_version == 4
                           else WALKCURR_BUCKETS_V3
                           if self._wc_version == 3
                           else WALKCURR_BUCKETS_V2
                           if self._wc_version == 2
                           else WALKCURR_BUCKETS)
-        if self._wc_version == 4:
+        if self._wc_version in (4, 5):
             required_s = max(float(b["duration_s"])
                              for b in self._wc_table)
             available_s = self.episode_steps * self.dt
             if available_s + 0.5 * self.dt < required_s:
                 raise ValueError(
-                    "walk curriculum V4 requires episode_seconds >= "
+                    f"walk curriculum V{self._wc_version} requires "
+                    "episode_seconds >= "
                     f"{required_s:g} (got {available_s:g}); long-horizon "
                     "certification must not be silently shortened")
         self._wc_active_n = 1
@@ -2814,6 +2886,21 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                     r_walk *= ls_factor
                     if r_prog > 0.0:
                         r_prog *= ls_factor
+                # Eval-aligned excess-slip penalty (2026-08-20 fast-profile
+                # postmortem): fasttrack reached ~0.10m/s by skating because
+                # loaded-slip was mostly an income gate and a held-out gate.
+                # Charge the SAME episode-level slip/m ratio the eval/cert
+                # reports once it rises above loadslip_ok. This is a direct
+                # negative reward, not just withheld income, and keeps the
+                # default off for old run reproducibility.
+                k_lsp = float(cfg_get(self.cfg, "reward",
+                                      "k_loadslip_excess", default=0.0))
+                if k_lsp > 0.0:
+                    excess = max(ratio - ls_ok, 0.0)
+                    r_lsp = -k_lsp * excess * self.dt
+                    reward = float(reward) + r_lsp
+                    info["reward_loadslip_excess"] = r_lsp
+                    info["walk_loadslip_excess"] = excess
             # Height-keeping income gate (2026-08-10, hardware finding
             # rl_docs/HARDWARE.md "sag": deployed walk policies migrate
             # to a crouch 54-70 mm below the spawn stance — measured on

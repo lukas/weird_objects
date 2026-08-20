@@ -202,6 +202,11 @@ bus:
   enable_motion: false
   write_speed: 400           # gentler after tip event
   write_acc: 20
+  # Sim-only fast-profile override. The fitted actuator files record the
+  # velocity ceiling of their sys-ID write speed (historically 350 counts/s),
+  # so fast retrains must raise this too or write_speed silently clamps back
+  # to the old fit. Set to a positive STS counts/s value, or "write_speed".
+  servo_vel_max_counts_s: null
   hold_speed: 250
   stand_speed: 200           # even slower during stand blend
 

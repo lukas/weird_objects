@@ -19,7 +19,7 @@ from rl_move.sim.domain_rand import (  # noqa: E402
     DomainRandomizer, RandRanges,
 )
 from rl_move.sim.servo_model import (  # noqa: E402
-    N_JOINTS, ServoProfile, SimServoParams,
+    COUNTS_PER_DEG, N_JOINTS, ServoProfile, SimServoParams,
 )
 from rl_move.sim.sim_env import N_ACT, N_OBS, SimHexapodBalanceEnv  # noqa: E402
 
@@ -52,6 +52,21 @@ def test_servo_profile_latency_and_slew():
     for _ in range(1000):
         t = prof.tick(dt)
     assert abs(t[1] - 10 * DEG) <= ax.deadband_deg * DEG + 1e-6
+
+
+def test_servo_velocity_ceiling_can_follow_write_speed():
+    cfg = {"bus": {"write_speed": 1500,
+                   "servo_vel_max_counts_s": "write_speed"}}
+    params = SimServoParams.from_cfg(cfg)
+    want = 1500.0 / COUNTS_PER_DEG
+    assert params.speed_counts_s == pytest.approx(1500.0)
+    assert np.allclose(params.per_joint("vel_max_deg_s"), want)
+
+
+def test_servo_velocity_ceiling_override_rejects_negative():
+    cfg = {"bus": {"servo_vel_max_counts_s": -1}}
+    with pytest.raises(ValueError, match="servo_vel_max_counts_s"):
+        SimServoParams.from_cfg(cfg)
 
 
 def test_zero_action_episode_holds_stand():

@@ -69,6 +69,7 @@ def _sample_traj(env):
 
 
 CURR_ON = {("goal", "walk_curriculum"): 1.0}
+CURR_V5_ON = {("goal", "walk_curriculum"): 5.0}
 
 
 # 1 ------------------------------------------------------------------
@@ -625,3 +626,61 @@ def test_v4_gate_checks_duration_changes_height_and_tail_tracking():
         passed, checks = walkcurr_bucket_pass(
             dict(good, **{key: value}), spec)
         assert not passed and not checks[check]
+
+
+def test_v5_fast_antiskate_bucket_table_is_adjacent_and_strict():
+    from rl_move.sim.walk_task import (
+        WALKCURR_BUCKETS_V5, WALKCURR_GATE_V5_BRIDGE,
+        WALKCURR_GATE_V5_FAST,
+    )
+    names = [b["name"] for b in WALKCURR_BUCKETS_V5]
+    assert names[:4] == [
+        "bridge_10s", "fast_08_10_10s", "fast_06_10_head15",
+        "fast_joystick_20s",
+    ]
+    assert WALKCURR_BUCKETS_V5[0]["s_hi"] == pytest.approx(0.06)
+    assert WALKCURR_BUCKETS_V5[1]["s_lo"] == pytest.approx(0.08)
+    assert WALKCURR_BUCKETS_V5[1]["s_hi"] == pytest.approx(0.10)
+    assert WALKCURR_BUCKETS_V5[2]["head_hi"] == pytest.approx(
+        math.radians(15.0))
+    assert [b["duration_s"] for b in WALKCURR_BUCKETS_V5[:6]] == [
+        10.0, 10.0, 20.0, 20.0, 40.0, 60.0]
+    assert WALKCURR_GATE_V5_BRIDGE["slip_per_m_max"] == pytest.approx(1.8)
+    assert WALKCURR_GATE_V5_FAST["slip_per_m_max"] == pytest.approx(1.6)
+    assert WALKCURR_GATE_V5_FAST["cross_track_frac_max"] < 0.30
+
+
+def test_v5_gate_rejects_fasttrack_slip_and_cross_track():
+    from rl_move.sim.walk_task import WALKCURR_BUCKETS_V5
+    from rl_move.sim.walkcurr_cert import walkcurr_bucket_pass
+    spec = WALKCURR_BUCKETS_V5[1]
+    good = dict(early_term_rate=0.0, contact_sw_per_s=5.0,
+                foot_sw_min_per_s=0.8, cmd_prog_frac=0.80,
+                cmd_prog_frac_p10=0.65, wrong_way=0.0,
+                cross_track_frac=0.08, slip_per_m=1.2,
+                peak_roll_deg=4.0, slew_sat=0.90,
+                stop_speed_m_s=float("nan"), height_factor=0.90,
+                survival_s_min=10.0, command_changes_min=0.0)
+    passed, checks = walkcurr_bucket_pass(good, spec)
+    assert passed and all(checks.values())
+
+    sloppy = dict(good, slip_per_m=3.39, cross_track_frac=0.30)
+    passed, checks = walkcurr_bucket_pass(sloppy, spec)
+    assert not passed
+    assert not checks["slip"]
+    assert not checks["cross_track"]
+
+
+def test_v5_requires_long_episode_and_samples_fast_bucket():
+    from rl_move.sim.walk_task import WALKCURR_BUCKETS_V5
+    with pytest.raises(ValueError, match="curriculum V5"):
+        _env(seed=1, extra=CURR_V5_ON, episode_seconds=20.0)
+
+    env = _env(seed=2, extra=CURR_V5_ON, episode_seconds=60.0)
+    env.force_walk_curr_bucket = 1
+    traj = _sample_traj(env)
+    speed = float(np.max(np.hypot(traj.vx, traj.vy)))
+    assert WALKCURR_BUCKETS_V5[1]["s_lo"] <= speed
+    assert speed <= WALKCURR_BUCKETS_V5[1]["s_hi"]
+    assert traj.duration_steps * env.dt == pytest.approx(10.0)
+    env.close()

@@ -22,7 +22,7 @@ import json
 import math
 import sys
 import time
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
 
 import numpy as np
@@ -45,6 +45,11 @@ SIM_MODEL_PATH = Path(__file__).resolve().parent / "sim_model.json"
 # selected with --cfg-set bus.servo_params=loaded; the default stays the
 # air fit so every existing lineage is untouched.
 LOADED_MODEL_PATH = Path(__file__).resolve().parent / "sim_model_loaded.json"
+
+
+def speed_counts_to_deg_s(counts_per_s: float) -> float:
+    """STS profile speed conversion: counts/s -> deg/s."""
+    return float(counts_per_s) / COUNTS_PER_DEG
 
 
 @dataclass
@@ -75,6 +80,26 @@ class SimServoParams:
         for j in range(N_JOINTS):
             out[j] = getattr(self.axes[AXES[j % 3]], attr)
         return out
+
+    def with_velocity_limit_counts(
+            self, counts_per_s: float) -> "SimServoParams":
+        """Copy with per-axis velocity ceilings set from an STS speed value.
+
+        The fitted ``vel_max_deg_s`` in historical sys-ID files is the
+        profile speed used by that measurement, not the motor's permanent
+        capability. Fast-profile retrains therefore need an explicit ceiling
+        override or ``bus.write_speed`` gets silently clamped back to the old
+        350-count fit.
+        """
+        deg_s = speed_counts_to_deg_s(counts_per_s)
+        return SimServoParams(
+            axes={ax: replace(p, vel_max_deg_s=deg_s)
+                  for ax, p in self.axes.items()},
+            spread={ax: dict(v) for ax, v in self.spread.items()},
+            source=f"{self.source}+vel_max_{float(counts_per_s):g}counts_s",
+            timestamp=self.timestamp,
+            speed_counts_s=float(counts_per_s),
+        )
 
     @classmethod
     def defaults(cls) -> "SimServoParams":
@@ -136,13 +161,30 @@ class SimServoParams:
             from rl_move.config import cfg_get
             sel = str(cfg_get(cfg, "bus", "servo_params", default="") or "")
         if not sel:
-            return cls.load()
-        path = LOADED_MODEL_PATH if sel == "loaded" else Path(sel)
-        if not path.is_file():
-            raise FileNotFoundError(
-                f"bus.servo_params={sel!r} -> {path} does not exist; "
-                "run fit_loaded_actuator.py or fix the path")
-        return cls.load(path)
+            params = cls.load()
+        else:
+            path = LOADED_MODEL_PATH if sel == "loaded" else Path(sel)
+            if not path.is_file():
+                raise FileNotFoundError(
+                    f"bus.servo_params={sel!r} -> {path} does not exist; "
+                    "run fit_loaded_actuator.py or fix the path")
+            params = cls.load(path)
+
+        if cfg is not None:
+            from rl_move.config import cfg_get
+            override = cfg_get(cfg, "bus", "servo_vel_max_counts_s",
+                               default=None)
+            if isinstance(override, str) and override.strip().lower() in (
+                    "write", "write_speed", "bus.write_speed"):
+                override = cfg_get(cfg, "bus", "write_speed", default=None)
+            if override not in (None, ""):
+                counts = float(override)
+                if counts < 0:
+                    raise ValueError(
+                        "bus.servo_vel_max_counts_s must be >= 0")
+                if counts > 0:
+                    params = params.with_velocity_limit_counts(counts)
+        return params
 
 
 # ---------------------------------------------------------------------------

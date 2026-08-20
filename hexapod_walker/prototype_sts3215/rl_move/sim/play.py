@@ -117,6 +117,24 @@ _SPEED_MAX = 0.06     # champion's trained command band tops out here
 _CRUISE = 0.05        # hold-to-drive speed (inside the trained band)
 _STEP_W = 0.05        # rad/s per keypress (scripted gait turn)
 
+_FAST_PROFILE_ROWS = {
+    "steer6_fasttrack1": dict(write_speed=1500.0, write_acc=80.0,
+                              max_delta=5.0, speed_max=0.10,
+                              vel_contract=3.0),
+    "fasttrack1": dict(write_speed=1500.0, write_acc=80.0,
+                       max_delta=5.0, speed_max=0.10,
+                       vel_contract=3.0),
+    "steer7_middose1": dict(write_speed=750.0, write_acc=40.0,
+                            max_delta=3.0, speed_max=0.10,
+                            vel_contract=3.0),
+    "middose1": dict(write_speed=750.0, write_acc=40.0,
+                     max_delta=3.0, speed_max=0.10,
+                     vel_contract=3.0),
+    "fastnoslip": dict(write_speed=1500.0, write_acc=80.0,
+                       max_delta=5.0, speed_max=0.10,
+                       vel_contract=3.0),
+}
+
 # Sentinel rows in the WALK panel: not checkpoints — they select the
 # scripted no-slip gait (linux_control/noslip_gait.py) as the walk
 # driver, at different alpha (body-motion overlap): 0.0 = the original
@@ -131,6 +149,14 @@ _NOSLIP = Path("noslip_scripted_gait")
 _NOSLIP_MID = Path("noslip_hybrid_a50")
 _NOSLIP_CLEAN = Path("noslip_clampfit_gait")
 _SCRIPTED_ALPHA = {_NOSLIP: 0.0, _NOSLIP_MID: 0.5, _NOSLIP_CLEAN: 1.0}
+
+
+def _fast_profile_contract(stem: str) -> dict | None:
+    """Training contract for fast-profile checkpoints."""
+    for needle, contract in _FAST_PROFILE_ROWS.items():
+        if needle in stem:
+            return contract
+    return None
 # cv2 can't see key-up events, but macOS auto-repeats a held arrow key.
 # "No repeat for _HOLD_S" therefore means "released" — a dead-man switch.
 # Must exceed the OS initial-repeat delay (default ~0.5 s).
@@ -479,22 +505,30 @@ def main() -> None:
         sys.path.insert(0, str(lc))
     from noslip_gait import NoSlipGait
 
-    env_kw: dict = {}
+    from ..config import load_config
+    cfg = load_config()
     walk_widths = (72,)
     if args.phase_obs:
-        from ..config import load_config
-        cfg = load_config()
         cfg.setdefault("goal", {})["walk_phase_obs"] = 1.0
         cfg["goal"]["walk_phase_hz"] = args.phase_hz
-        env_kw["cfg"] = cfg
         # 74-obs phase-clock checkpoints join the WALK panel; the phase
         # dims are appended after the vel tail, so 72-obs champions
         # keep working on obs[:72].
         _ROLE_OBS[74] = "walk"
         walk_widths = (72, 74)
-    env = _PlayEnv(params=SimServoParams.load(), randomize=False,
+    fast_contract = _fast_profile_contract(args.walk.stem)
+    policy_speed_max = _SPEED_MAX
+    if fast_contract is not None:
+        cfg.setdefault("bus", {})["write_speed"] = fast_contract["write_speed"]
+        cfg["bus"]["write_acc"] = fast_contract["write_acc"]
+        cfg["bus"]["servo_vel_max_counts_s"] = "write_speed"
+        cfg.setdefault("safety", {})["max_delta_q_deg"] = fast_contract["max_delta"]
+        cfg.setdefault("goal", {})["walk_obs_body_vel"] = fast_contract["vel_contract"]
+        cfg["goal"]["walk_speed_max_m_s"] = fast_contract["speed_max"]
+        policy_speed_max = float(fast_contract["speed_max"])
+    env = _PlayEnv(params=SimServoParams.from_cfg(cfg), randomize=False,
                    episode_seconds=3600.0, render_mode="rgb_array",
-                   **env_kw)
+                   cfg=cfg)
 
     # --- checkpoint slots: one STANCE (obs 68) + one WALK (obs 72) ------
     cats = scan_policies(args.stance.parent)
@@ -1057,8 +1091,8 @@ def main() -> None:
             if lx != 0.0 or ly != 0.0:
                 # Stick up = forward (+vx); stick left = strafe left (+vy).
                 if engage_walk():
-                    traj.vx = -ly * _SPEED_MAX
-                    traj.vy = -lx * _SPEED_MAX
+                    traj.vx = -ly * policy_speed_max
+                    traj.vy = -lx * policy_speed_max
                 stick_live = True
             elif stick_live:
                 traj.vx = traj.vy = 0.0     # released -> stance holds
@@ -1094,19 +1128,19 @@ def main() -> None:
         elif k in (ord("i"), ord("I")):
             if engage_walk():
                 traj.vx = float(np.clip(traj.vx + _STEP,
-                                        -_SPEED_MAX, _SPEED_MAX))
+                                        -policy_speed_max, policy_speed_max))
         elif k in (ord("k"), ord("K")):
             if engage_walk():
                 traj.vx = float(np.clip(traj.vx - _STEP,
-                                        -_SPEED_MAX, _SPEED_MAX))
+                                        -policy_speed_max, policy_speed_max))
         elif k in (ord("j"), ord("J")):
             if engage_walk():
                 traj.vy = float(np.clip(traj.vy + _STEP,
-                                        -_SPEED_MAX, _SPEED_MAX))
+                                        -policy_speed_max, policy_speed_max))
         elif k in (ord("l"), ord("L")):
             if engage_walk():
                 traj.vy = float(np.clip(traj.vy - _STEP,
-                                        -_SPEED_MAX, _SPEED_MAX))
+                                        -policy_speed_max, policy_speed_max))
         elif k in (ord("u"), ord("U"), ord("o"), ord("O")):
             if not scripted:
                 msg = "U/O turn needs the scripted no-slip walk driver (, .)"
@@ -1149,6 +1183,10 @@ def main() -> None:
         if held:
             traj.vx = _CRUISE * ((_UP in held) - (_DOWN in held))
             traj.vy = _CRUISE * ((_LEFT in held) - (_RIGHT in held))
+            norm = float(np.hypot(traj.vx, traj.vy))
+            if norm > policy_speed_max > 0.0:
+                traj.vx *= policy_speed_max / norm
+                traj.vy *= policy_speed_max / norm
             arrows_live = True
         elif arrows_live:
             traj.vx = traj.vy = 0.0     # all arrows released -> stance holds

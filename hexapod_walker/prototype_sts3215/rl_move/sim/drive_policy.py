@@ -27,6 +27,7 @@ commands arrived (same obs slot, same scaling).
 from __future__ import annotations
 
 import argparse
+import json
 import time
 from pathlib import Path
 
@@ -47,6 +48,17 @@ def main() -> None:
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--realtime", type=float, default=1.0,
                     help="1.0 = wall-clock speed, 2.0 = 2x, 0 = uncapped")
+    ap.add_argument("--history-frames", type=int, default=1,
+                    help="env-side observation history used by the checkpoint")
+    ap.add_argument("--predictor-ckpt", type=Path, default=None,
+                    help="local dynamics checkpoint replacing a pod-absolute "
+                         "predictor_ckpt saved in the PPO archive")
+    ap.add_argument("--goal-set", action="append", default=[], metavar="K=V",
+                    help="override a goal config key (repeatable; values are JSON)")
+    ap.add_argument("--scripted-demo", action="store_true",
+                    help="run a fixed multi-direction command sequence and exit")
+    ap.add_argument("--record", type=Path, default=None,
+                    help="write the rendered drive window to an MP4")
     args = ap.parse_args()
 
     import cv2
@@ -55,24 +67,66 @@ def main() -> None:
     from .servo_model import SimServoParams
     from .walk_task import SimHexapodJointWalkEnv
 
+    from ..config import load_config
+
+    cfg = load_config()
+    cfg.setdefault("obs", {})["history_frames"] = args.history_frames
+    for item in args.goal_set:
+        key, sep, raw = item.partition("=")
+        if not sep:
+            ap.error(f"--goal-set needs K=V, got {item!r}")
+        try:
+            value = json.loads(raw)
+        except json.JSONDecodeError:
+            value = raw
+        cfg.setdefault("goal", {})[key] = value
+
     env = SimHexapodJointWalkEnv(
         params=SimServoParams.load(),
         randomize=args.dr_scale > 0, dr_scale=args.dr_scale,
         episode_seconds=args.episode_seconds, seed=args.seed,
-        render_mode="rgb_array")
+        render_mode="rgb_array", cfg=cfg)
     # Force every episode to be a walk episode.
     gen = env._goal_gen
     gen.p_walk = 1.0
     for m in ("hold", "lean", "track", "unload", "raise", "rise", "lower"):
         setattr(gen, f"p_{m}", 0.0)
 
-    model = PPO.load(args.checkpoint, device="cpu")
+    load_kwargs = {}
+    if args.predictor_ckpt is not None:
+        # Predictive-critic archives retain the original pod-absolute
+        # transformer path in policy_kwargs. Replace only that path; the
+        # PPO archive still restores the exact saved snapshot parameters.
+        from stable_baselines3.common.save_util import load_from_zip_file
+
+        from rl_move.dynamics import predictive_critic  # noqa: F401
+
+        data, _, _ = load_from_zip_file(args.checkpoint, device="cpu")
+        policy_kwargs = dict(data["policy_kwargs"])
+        policy_kwargs["predictor_ckpt"] = str(args.predictor_ckpt.resolve())
+        load_kwargs["custom_objects"] = {"policy_kwargs": policy_kwargs}
+    model = PPO.load(args.checkpoint, device="cpu", **load_kwargs)
     assert model.observation_space.shape == env.observation_space.shape, (
         f"obs mismatch: policy {model.observation_space.shape} "
         f"vs env {env.observation_space.shape} — wrong cfg for this ckpt?")
 
     vx = vy = 0.0
     quad = False          # QUAD mode: lift fronts 0+5, stand on four
+    demo_time = 0.0
+    demo_segment = ""
+    # Includes in-envelope forward/diagonal commands, deliberately
+    # out-of-envelope lateral/reverse probes, stop/restart, and a hard flip.
+    demo = (
+        (2.0, 0.00, 0.00, "settle"),
+        (10.0, 0.05, 0.00, "forward"),
+        (18.0, 0.04, 0.04, "diagonal-left"),
+        (26.0, 0.00, 0.05, "lateral-left"),
+        (34.0, -0.04, 0.00, "reverse"),
+        (38.0, 0.00, 0.00, "stop"),
+        (46.0, 0.05, 0.00, "restart-forward"),
+        (54.0, -0.04, -0.04, "hard-flip-reverse-right"),
+        (58.0, 0.00, 0.00, "final-stop"),
+    )
 
     def clamp(v: float) -> float:
         return float(np.clip(v, -_SPEED_MAX, _SPEED_MAX))
@@ -95,12 +149,23 @@ def main() -> None:
     win = "hexapod drive"
     cv2.namedWindow(win, cv2.WINDOW_NORMAL)
     cv2.resizeWindow(win, 960, 720)
+    writer = None
     msg = ""
     while True:
         t0 = time.monotonic()
+        if args.scripted_demo:
+            segment = next((s for s in demo if demo_time < s[0]), None)
+            if segment is None:
+                break
+            _, vx, vy, label = segment
+            if label != demo_segment:
+                demo_segment = label
+                print(f"[demo {demo_time:5.1f}s] {label}: "
+                      f"vx={vx:+.3f} vy={vy:+.3f}", flush=True)
         apply_cmd()
         action, _ = model.predict(obs, deterministic=True)
         obs, _r, term, trunc, info = env.step(action)
+        demo_time += env.dt
         if term or trunc:
             msg = f"[{info.get('termination_reason') or 'episode end'}] reset"
             print(msg)
@@ -182,6 +247,15 @@ def main() -> None:
         if msg:
             cv2.putText(img, msg, (10, 140), cv2.FONT_HERSHEY_SIMPLEX,
                         0.55, (0, 200, 255), 1, cv2.LINE_AA)
+        if args.record is not None:
+            if writer is None:
+                args.record.parent.mkdir(parents=True, exist_ok=True)
+                writer = cv2.VideoWriter(
+                    str(args.record), cv2.VideoWriter_fourcc(*"mp4v"),
+                    round(1.0 / env.dt), (img.shape[1], img.shape[0]))
+                if not writer.isOpened():
+                    raise RuntimeError(f"could not open video {args.record}")
+            writer.write(img)
         cv2.imshow(win, img)
 
         k = cv2.waitKeyEx(1)
@@ -216,6 +290,9 @@ def main() -> None:
             if dt > 0:
                 time.sleep(dt)
 
+    if writer is not None:
+        writer.release()
+        print(f"recorded {args.record}")
     cv2.destroyAllWindows()
     print("closed — clean exit")
 
