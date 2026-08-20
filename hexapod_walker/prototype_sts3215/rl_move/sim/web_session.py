@@ -87,6 +87,12 @@ class SimWebSession:
         self.demo_duration = 0.0
         self.demo_started_sim_t = 0.0
         self.demo_telemetry: dict[str, Any] | None = None
+        # Dance scripts (dances-as-data, motor_setup/dance_script.py):
+        # notes = [(t, msg)] surfaced live; cap = tightest per-act speed cap.
+        self.demo_notes: list[tuple[float, str]] = []
+        self.demo_note: str = ""
+        self.demo_speed_cap: float | None = None
+        self.demo_is_script = False
         self.command_log: list[tuple[float, str, str | None]] = []
         self.last_command = ""
         self.log_dir = cfg.log_dir
@@ -120,6 +126,7 @@ class SimWebSession:
         from ..config import load_config
 
         root = Path(__file__).resolve().parents[2]
+        self._proto_root = root
         for p in (root / "linux_control", root / "motor_setup"):
             if str(p) not in sys.path:
                 sys.path.insert(0, str(p))
@@ -323,13 +330,35 @@ class SimWebSession:
     def _demo_running(self) -> bool:
         return self.demo_pose_fn is not None
 
+    def _set_demo_safety(self, wide: bool) -> None:
+        """Widen the tilt trip while an open-loop demo plays.
+
+        The RL episode terminates at 10 deg body tilt — correct for
+        policies, but scripted choreography legitimately exceeds it
+        (quad rear is -20 deg pitch by design; the robot guards these
+        acts at 45 deg). 60 deg still catches a genuine tip-over.
+        """
+        s = self.env.safety
+        if "tilt" not in self._regime_base:
+            self._regime_base["tilt"] = (s.max_roll, s.max_pitch)
+        if wide:
+            s.max_roll = s.max_pitch = math.radians(60.0)
+        else:
+            s.max_roll, s.max_pitch = self._regime_base["tilt"]
+
     def _stop_demo_locked(self, status: str = "aborted",
                           clear_name: bool = False) -> None:
+        if self._regime_base.get("tilt"):
+            self._set_demo_safety(False)
         self.demo_pose_fn = None
         self.demo_t = 0.0
         self.demo_duration = 0.0
         self.demo_status = status
         self.demo_params = {}
+        self.demo_notes = []
+        self.demo_note = ""
+        self.demo_speed_cap = None
+        self.demo_is_script = False
         if clear_name:
             self.demo_name = None
             self.demo_telemetry = None
@@ -343,6 +372,8 @@ class SimWebSession:
                 speed = min(speed, float(QW.GAITS["trot"].get("speed_cap", 2.0)))
             except Exception:
                 pass
+        if self.demo_speed_cap is not None:
+            speed = min(speed, float(self.demo_speed_cap))
         return max(0.25, min(3.0, speed))
 
     def _record_command(self, text: str, key: str | None = None) -> None:
@@ -697,12 +728,23 @@ class SimWebSession:
             pose_deg = self.demo_pose_fn(self.demo_t)
             action = q_rad_to_action(np.radians(pose_deg))
             self.demo_t += self.env.dt * self._demo_speed_eff_locked()
-            self.demo_status = f"running @ {self.demo_speed_live:.2f}x"
+            while self.demo_notes and self.demo_notes[0][0] <= self.demo_t:
+                self.demo_note = self.demo_notes.pop(0)[1]
+            self.demo_status = (
+                f"{self.demo_note} · x{self.demo_speed_live:.2f}"
+                if self.demo_note
+                else f"running @ {self.demo_speed_live:.2f}x")
             if self.demo_t >= self.demo_duration:
                 name = self.demo_name or "demo"
                 self.demo_pose_fn = None
+                self._set_demo_safety(False)
                 self.demo_status = "done"
                 self.msg = f"{name} done - holding"
+                if self.demo_is_script:
+                    # Scripts end at sit zero — hold the sit pose rather
+                    # than handing a belly-down robot to the stance policy.
+                    self.sitting = True
+                    self.q_sit = self._q_now()
                 self.demo_telemetry = {
                     "ok": True,
                     "sim_t_s": round(self.sim_t - self.demo_started_sim_t, 2),
@@ -955,7 +997,7 @@ class SimWebSession:
             }
 
     def list_demos(self) -> list[dict[str, Any]]:
-        return [
+        out = [
             {
                 "name": "quad_walk",
                 "title": ("[8 quad] TIP BACK - rear up on 4 legs, "
@@ -976,6 +1018,158 @@ class SimWebSession:
                 "has_size": False,
             },
         ]
+        for meta in self.list_dance_scripts():
+            out.append({
+                "name": meta["name"],
+                "title": meta.get("title") or meta["name"],
+                "air": True,            # scripts start AND end at sit zero
+                "group": "uploaded",
+                "live_speed": True,
+                "has_size": False,
+                "uploaded": True,
+                "stands": bool(meta.get("stands")),
+                "seconds": meta.get("seconds"),
+            })
+        return out
+
+    # -- dance scripts (dances as data — same API shape as the robot) --------
+    # Sources: the repo's baked library (dances/) is always available;
+    # uploads via POST /api/dances land in ~/.hexapod_dances (upload wins
+    # on a name clash, mirroring "robot-local state beats the repo").
+
+    @property
+    def _dance_upload_dir(self) -> Path:
+        return Path.home() / ".hexapod_dances"
+
+    def _dance_sources(self) -> list[Path]:
+        return [self._dance_upload_dir, self._proto_root / "dances"]
+
+    def _dance_file(self, name: str) -> Path | None:
+        import dance_script as DS
+        if not isinstance(name, str) or not DS.NAME_RE.match(name):
+            return None
+        for d in self._dance_sources():
+            p = d / f"{name}.json"
+            if p.is_file():
+                return p
+        return None
+
+    def list_dance_scripts(self) -> list[dict[str, Any]]:
+        out: dict[str, dict[str, Any]] = {}
+        for d in reversed(self._dance_sources()):   # uploads override repo
+            try:
+                paths = sorted(d.glob("*.json"))
+            except OSError:
+                continue
+            for p in paths:
+                try:
+                    s = json.loads(p.read_text())
+                    out[s["name"]] = {
+                        "name": s["name"],
+                        "title": s.get("title") or s["name"],
+                        "stands": bool(s.get("stands")),
+                        "seconds": s.get("seconds"),
+                        "acts": len(s.get("acts") or []),
+                        "bytes": p.stat().st_size,
+                        "baked_from": s.get("baked_from"),
+                    }
+                except (OSError, ValueError, KeyError):
+                    continue
+        return sorted(out.values(), key=lambda m: m["name"])
+
+    def get_dance_script(self, name: str) -> dict[str, Any] | None:
+        p = self._dance_file(name)
+        if p is None:
+            return None
+        try:
+            return json.loads(p.read_text())
+        except (OSError, ValueError):
+            return None
+
+    def save_dance_script(self, script: Any) -> dict[str, Any]:
+        import dance_script as DS
+        errs, stats = DS.validate_script(script)
+        if errs:
+            return {"ok": False, "error": "; ".join(errs[:5])}
+        name = script["name"]
+        if name in ("quad_walk", "quad_trot"):
+            return {"ok": False, "error": f"{name!r} is a built-in demo name"}
+        try:
+            self._dance_upload_dir.mkdir(parents=True, exist_ok=True)
+            p = self._dance_upload_dir / f"{name}.json"
+            tmp = p.with_suffix(".json.tmp")
+            tmp.write_text(json.dumps(script))
+            tmp.replace(p)
+        except OSError as e:
+            return {"ok": False, "error": f"save failed: {e}"}
+        return {"ok": True, "name": name, "stats": stats,
+                "bytes": p.stat().st_size}
+
+    def delete_dance_script(self, name: str) -> dict[str, Any]:
+        p = self._dance_file(name)
+        if p is None or p.parent != self._dance_upload_dir:
+            return {"ok": False,
+                    "error": f"no uploaded dance {name!r} (repo-baked "
+                             f"scripts can't be deleted here)"}
+        try:
+            p.unlink()
+        except OSError as e:
+            return {"ok": False, "error": str(e)}
+        return {"ok": True, "deleted": name}
+
+    def _run_dance_script(self, name: str, script: dict[str, Any],
+                          speed: float) -> dict[str, Any]:
+        """Compile a dance script to a sim timeline and start it."""
+        import dance_script as DS
+        try:
+            kfs = DS.load_standup_keyframes(
+                self._proto_root / "linux_control" / "standup_modes.json")
+        except (OSError, ValueError):
+            kfs = {}
+        try:
+            pose_fn, dur, notes, cap = DS.compile_script_timeline(
+                script, standup_keyframes=kfs)
+        except ValueError as e:
+            return {"ok": False, "error": str(e)}
+        switched_from = self.demo_name if self._demo_running() else None
+        self._record_command(f"/api/demo name={name} speed={speed:.2f}")
+        # Scripts start at sit zero (belly down, legs straight out).
+        self._do_reset("zero", 0.0, f"sit zero -> {name}")
+        self._set_demo_safety(True)
+        self.demo_pose_fn = pose_fn
+        self.demo_t = 0.0
+        self.demo_duration = dur
+        self.demo_notes = list(notes)
+        self.demo_note = ""
+        self.demo_speed_cap = cap
+        self.demo_is_script = True
+        self.demo_started_sim_t = self.sim_t
+        self.demo_name = name
+        self.demo_status = f"running @ {speed:.2f}x"
+        self.demo_speed_live = speed
+        self.demo_telemetry = None
+        params: dict[str, Any] = {"speed": speed, "home": "sit",
+                                  "seconds": round(dur, 1)}
+        if switched_from:
+            params["switched_from"] = switched_from
+        self.demo_params = params
+        self.drive_active = False
+        self.timed_walk_until = None
+        self.auto = None
+        self.gait = None
+        self.om_cmd = 0.0
+        self.armed = True
+        self.msg = f"{name} running"
+        self._open_log(f"demo_{name}")
+        return {
+            "ok": True,
+            "params": dict(params),
+            "home": "sit",
+            "switched": bool(switched_from),
+            "switched_from": switched_from,
+            "demo": self.demo_state(),
+            "robot": self.robot_state(),
+        }
 
     @staticmethod
     def _clamp_float(value: Any, default: float,
@@ -1006,9 +1200,15 @@ class SimWebSession:
                  seconds: float | None = None) -> dict[str, Any]:
         name = (name or "").strip()
         if name not in {"quad_walk", "quad_trot"}:
-            return {"ok": False,
-                    "error": f"demo {name!r} is not simulated yet",
-                    "demos": [d["name"] for d in self.list_demos()]}
+            script = self.get_dance_script(name)
+            if script is None:
+                return {"ok": False,
+                        "error": f"demo {name!r} is not simulated yet",
+                        "demos": [d["name"] for d in self.list_demos()]}
+            with self.lock:
+                return self._run_dance_script(
+                    name, script,
+                    self._clamp_float(speed, 1.0, 0.25, 3.0))
         with self.lock:
             try:
                 import quad_walk as QW
@@ -1023,6 +1223,7 @@ class SimWebSession:
                 f"/api/demo name={name} speed={speed:.2f} seconds={dur:.1f}")
 
             self._do_reset("plant", 0.0, f"stand zero -> {name}")
+            self._set_demo_safety(True)
             base_deg = [math.degrees(v) for v in self.q_plant]
             gait = "trot" if name == "quad_trot" else "walk"
             self.demo_pose_fn = QW.make_quad_walk_pose_fn(

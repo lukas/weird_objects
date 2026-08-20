@@ -139,6 +139,16 @@ def make_handler(session: Any, webui_dir: Path = WEBUI_DIR,
                 elif path == "/api/sim/frame.jpg":
                     self._send(200, session.frame_jpeg(),
                                "image/jpeg", cache="no-cache")
+                elif path == "/api/dances":
+                    self._json(200, {"dances": session.list_dance_scripts()})
+                elif path.startswith("/api/dances/"):
+                    name = Path(path[len("/api/dances/"):]).name
+                    script = session.get_dance_script(name)
+                    if script is None:
+                        self._json(404, {"ok": False,
+                                         "error": f"no dance {name!r}"})
+                    else:
+                        self._json(200, script)
                 elif path == "/api/logs":
                     self._json(200, session.logs())
                 elif path.startswith("/api/logs/"):
@@ -179,6 +189,14 @@ def make_handler(session: Any, webui_dir: Path = WEBUI_DIR,
                         kw["seconds"] = float(data["seconds"])
                     self._json(200, session.run_demo(
                         str(data.get("name", "")), **kw))
+                elif path == "/api/dances":
+                    script = data
+                    if isinstance(script, dict) and "script" in script:
+                        script = script["script"]
+                    self._json(200, session.save_dance_script(script))
+                elif path == "/api/dances/delete":
+                    self._json(200, session.delete_dance_script(
+                        str((data or {}).get("name", ""))))
                 elif path == "/api/demo/speed":
                     self._json(200, session.set_demo_speed(
                         data.get("speed", 1.0)))

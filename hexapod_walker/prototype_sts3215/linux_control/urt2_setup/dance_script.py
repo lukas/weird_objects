@@ -323,6 +323,101 @@ def run_dance_script(bus, script: dict, *, abort_check=None, status_cb=None,
 
 
 # ---------------------------------------------------------------------------
+# sim timeline (MuJoCo web session — no bus, no guards, pure pose math)
+
+def load_standup_keyframes(path) -> dict[str, list[dict]]:
+    """standup_modes.json → {mode: [{"q_deg": [...], "s": secs}, ...]}."""
+    data = json.loads(Path(path).read_text())
+    out = {}
+    for mode, m in (data.get("modes") or {}).items():
+        kfs = m.get("keyframes") or []
+        if kfs:
+            out[mode] = [{"q_deg": [float(v) for v in kf["q_deg"]],
+                          "s": float(kf.get("s", 0.5))} for kf in kfs]
+    return out
+
+
+def compile_script_timeline(script: dict, *, standup_keyframes=None,
+                            align_s: float = 0.7):
+    """Compile a script into one pure pose function for the simulator.
+
+    Returns ``(pose_fn_deg, duration_s, notes, speed_cap)`` where
+    ``pose_fn_deg(t)`` → 18 joint degrees, ``notes`` is ``[(t, msg)]``
+    for live status, and ``speed_cap`` is the tightest per-act cap (or
+    None).  Robot-side niceties map as: stream align glide → a short
+    ease onto frame 0 (same thing stream_pose_fn does); standup → the
+    mode's baked keyframes as chained eases (that IS what the stand-up
+    lab plays); torque/limp → no-ops (no servos to limit).
+    """
+    errs, _stats = validate_script(script)
+    if errs:
+        raise ValueError("bad script: " + "; ".join(errs[:3]))
+    segs: list[tuple[float, float, object]] = []
+    notes: list[tuple[float, str]] = []
+    cap: float | None = None
+    t = 0.0
+    cur = [0.0] * 18
+
+    def ease_to(target, secs):
+        nonlocal t, cur
+        a, b = list(cur), _clamp_pose(target)
+
+        def fn(u, a=a, b=b):
+            w = 0.5 - 0.5 * math.cos(math.pi * u)
+            return [x + (y - x) * w for x, y in zip(a, b)]
+
+        segs.append((t, t + max(0.05, secs), fn))
+        t += max(0.05, secs)
+        cur = b
+
+    for act in script["acts"]:
+        kind = act["kind"]
+        if kind == "note":
+            notes.append((t, str(act.get("msg", ""))))
+        elif kind in ("torque", "limp"):
+            continue
+        elif kind == "ease":
+            ease_to(act["pose"], float(act.get("seconds", 1.0)))
+        elif kind == "sit_zero":
+            ease_to([0.0] * 18, float(act.get("seconds", 1.5) or 1.5))
+        elif kind == "standup":
+            mode = str(act.get("mode", "step"))
+            kfs = (standup_keyframes or {}).get(mode)
+            if not kfs:
+                raise ValueError(f"no keyframes for stand-up mode {mode!r}")
+            for kf in kfs:
+                ease_to(kf["q_deg"], kf["s"])
+        elif kind == "stream":
+            frames = act["frames"]
+            hz = float(act["hz"])
+            if act.get("speed_cap"):
+                c = float(act["speed_cap"])
+                cap = c if cap is None else min(cap, c)
+            ease_to(frames[0], align_s)
+            secs = (len(frames) - 1) / hz
+            base = _frames_fn(frames, hz)
+
+            def fn(u, base=base, secs=secs):
+                return base(u * secs)
+
+            segs.append((t, t + secs, fn))
+            t += secs
+            cur = _clamp_pose(frames[-1])
+
+    duration = t
+    bounds = [s[1] for s in segs]
+
+    def pose_at(tt: float) -> list[float]:
+        import bisect
+        i = min(bisect.bisect_right(bounds, max(0.0, tt)), len(segs) - 1)
+        t0, t1, fn = segs[i]
+        u = (max(0.0, tt) - t0) / max(1e-9, t1 - t0)
+        return fn(min(1.0, max(0.0, u)))
+
+    return pose_at, duration, notes, cap
+
+
+# ---------------------------------------------------------------------------
 # baking
 
 def bake_demo(name: str, *, title: str | None = None,

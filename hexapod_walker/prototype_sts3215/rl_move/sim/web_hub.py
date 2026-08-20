@@ -190,6 +190,15 @@ class SimTarget:
         if path == "/api/sim/frame.jpg":
             return RouteResponse(200, s.frame_jpeg(), "image/jpeg",
                                  cache="no-cache")
+        if path == "/api/dances":
+            return RouteResponse.json({"dances": s.list_dance_scripts()})
+        if path.startswith("/api/dances/"):
+            name = Path(path[len("/api/dances/"):]).name
+            script = s.get_dance_script(name)
+            if script is None:
+                return RouteResponse.json(
+                    {"ok": False, "error": f"no dance {name!r}"}, 404)
+            return RouteResponse.json(script)
         if path == "/api/logs":
             return RouteResponse.json(s.logs())
         if path.startswith("/api/logs/"):
@@ -221,6 +230,14 @@ class SimTarget:
                 softness=float(data.get("softness", 1.0)),
                 seconds=(float(data["seconds"])
                          if data.get("seconds") is not None else None)))
+        if path == "/api/dances":
+            script = data
+            if isinstance(script, dict) and "script" in script:
+                script = script["script"]
+            return RouteResponse.json(s.save_dance_script(script))
+        if path == "/api/dances/delete":
+            return RouteResponse.json(s.delete_dance_script(
+                str((data or {}).get("name", ""))))
         if path == "/api/demo/speed":
             return RouteResponse.json(s.set_demo_speed(data.get("speed", 1.0)))
         if path == "/api/demo/stop":

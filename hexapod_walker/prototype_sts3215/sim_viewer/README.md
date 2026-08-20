@@ -26,6 +26,17 @@ The browser JPEG preview is off in native-viewer mode. For headless
 debugging, run `python3 -m rl_move.sim.web_server` without `--viewer`,
 or pass `--browser-frames on` if you intentionally want both surfaces.
 
+Dance scripts (`motor_setup/dance_script.py`, `/api/dances`) play in the
+sim too: the Dance tab lists every baked script from the repo's
+`dances/` library plus anything uploaded to `~/.hexapod_dances`, and
+running one compiles its acts (streams, eases, STEP stand-up keyframes,
+sit-zero) into a pose timeline played through the fitted servo twin —
+so a dance can be previewed in MuJoCo before pushing it to a robot.
+Act notes show live in the demo status; per-act speed caps baked into a
+script are enforced. While any demo plays, the RL episode's 10-deg
+tilt trip is widened to 60 deg (choreography like the quad rear-up is
+-20 deg pitch by design); a genuine tip-over still ends the run.
+
 Laptop hub mode can also proxy the real robot while keeping the MuJoCo
 viewer running locally. Either enter the robot URL in the page header
 after startup, or pass it on the command line:

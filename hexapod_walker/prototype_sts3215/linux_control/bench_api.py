@@ -520,7 +520,13 @@ class BenchAPI:
                               "dance_walk"),
             })
         builtin = {d["name"] for d in out}
-        for meta in self.list_dance_scripts():
+        try:
+            scripts = self.list_dance_scripts()
+        except AttributeError:
+            # The laptop hub calls this unbound with a stub self just to
+            # read the built-in catalog — no uploaded-script store there.
+            scripts = []
+        for meta in scripts:
             if meta["name"] in builtin:
                 continue
             out.append({
