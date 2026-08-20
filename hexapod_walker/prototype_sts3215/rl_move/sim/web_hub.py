@@ -107,6 +107,10 @@ class SimTarget:
             return RouteResponse.json(s.robot_state())
         if path == "/api/status":
             return RouteResponse.json(s.status())
+        if path == "/api/demo/status":
+            return RouteResponse.json(s.robot_state())
+        if path == "/api/demos":
+            return RouteResponse.json({"demos": s.list_demos()})
         if path == "/api/calibrate":
             return RouteResponse.json(s.operation_state())
         if path in ("/api/rl", "/api/rl/state"):
@@ -146,6 +150,30 @@ class SimTarget:
         data = _json_body(raw)
         if path == "/api/standup":
             return RouteResponse.json(s.sim_reset(start="plant"))
+        if path == "/api/demo":
+            return RouteResponse.json(s.run_demo(
+                str(data.get("name", "")),
+                speed=float(data.get("speed", 1.0)),
+                size=float(data.get("size", 1.0)),
+                rate=(float(data["rate"]) if data.get("rate") is not None
+                      else None),
+                torque=(int(float(data["torque"]))
+                        if data.get("torque") is not None else None),
+                softness=float(data.get("softness", 1.0)),
+                seconds=(float(data["seconds"])
+                         if data.get("seconds") is not None else None)))
+        if path == "/api/demo/speed":
+            return RouteResponse.json(s.set_demo_speed(data.get("speed", 1.0)))
+        if path == "/api/demo/stop":
+            return RouteResponse.json(s.stop_demo())
+        if path == "/api/zero":
+            return RouteResponse.json(s.go_zero(
+                pose=str(data.get("pose", "sit")),
+                force=bool(data.get("force", False))))
+        if path == "/api/safe_zero":
+            return RouteResponse.json(s.safe_zero())
+        if path == "/api/set_zero":
+            return RouteResponse.json(s.set_zero_here())
         if path == "/api/rl/capture_plant":
             return RouteResponse.json(s.rl_capture_plant())
         if path == "/api/rl/stop":
@@ -261,7 +289,12 @@ class HubController:
 
     BROADCAST_POSTS = {
         "/cmd",
+        "/api/demo",
+        "/api/demo/speed",
+        "/api/demo/stop",
         "/api/standup",
+        "/api/zero",
+        "/api/safe_zero",
         "/api/rl/stop",
         "/api/rl/stand",
         "/api/rl/lower",

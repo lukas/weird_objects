@@ -114,6 +114,10 @@ def make_handler(session: Any, webui_dir: Path = WEBUI_DIR,
                     self._json(200, session.robot_state())
                 elif path == "/api/status":
                     self._json(200, session.status())
+                elif path == "/api/demo/status":
+                    self._json(200, session.robot_state())
+                elif path == "/api/demos":
+                    self._json(200, {"demos": session.list_demos()})
                 elif path == "/api/calibrate":
                     self._json(200, session.operation_state())
                 elif path == "/api/rl/preflight":
@@ -161,6 +165,33 @@ def make_handler(session: Any, webui_dir: Path = WEBUI_DIR,
             try:
                 if path == "/api/standup":
                     self._json(200, session.sim_reset(start="plant"))
+                elif path == "/api/demo":
+                    kw = dict(
+                        speed=float(data.get("speed", 1.0)),
+                        size=float(data.get("size", 1.0)),
+                        softness=float(data.get("softness", 1.0)),
+                    )
+                    if data.get("rate") is not None:
+                        kw["rate"] = float(data["rate"])
+                    if data.get("torque") is not None:
+                        kw["torque"] = int(float(data["torque"]))
+                    if data.get("seconds") is not None:
+                        kw["seconds"] = float(data["seconds"])
+                    self._json(200, session.run_demo(
+                        str(data.get("name", "")), **kw))
+                elif path == "/api/demo/speed":
+                    self._json(200, session.set_demo_speed(
+                        data.get("speed", 1.0)))
+                elif path == "/api/demo/stop":
+                    self._json(200, session.stop_demo())
+                elif path == "/api/zero":
+                    pose = str(data.get("pose", "sit"))
+                    self._json(200, session.go_zero(
+                        pose=pose, force=bool(data.get("force", False))))
+                elif path == "/api/safe_zero":
+                    self._json(200, session.safe_zero())
+                elif path == "/api/set_zero":
+                    self._json(200, session.set_zero_here())
                 elif path == "/api/rl/capture_plant":
                     self._json(200, session.rl_capture_plant())
                 elif path == "/api/rl/stop":
