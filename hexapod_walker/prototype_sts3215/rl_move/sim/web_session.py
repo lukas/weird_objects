@@ -84,6 +84,11 @@ class SimWebSession:
         self._last_log_row_t = -1.0
         self.roles: dict[str, str] = {}
         self.role_models: dict[str, tuple[Any, Path, int] | str] = {}
+        self._frame_ready = threading.Event()
+        self._frame_jpeg: bytes | None = None
+        self._frame_error = ""
+        self._frame_interval_s = 1.0 / 8.0
+        self._last_frame_at = 0.0
 
         self._load_runtime()
         self.thread = threading.Thread(target=self._run, name="sim-web-tick",
@@ -105,6 +110,8 @@ class SimWebSession:
 
         self.mujoco = mujoco
         self.PPO = PPO
+        import cv2
+        self.cv2 = cv2
         self.load_checkpoint_auto = self._load_checkpoint_auto
         self.NoSlipGait = NoSlipGait
         self.TripodGait = TripodGait
@@ -658,10 +665,29 @@ class SimWebSession:
             t0 = time.monotonic()
             with self.lock:
                 self._tick_locked()
+                now = time.monotonic()
+                if now - self._last_frame_at >= self._frame_interval_s:
+                    self._last_frame_at = now
+                    self._render_frame_locked()
             if self.cfg.realtime > 0:
                 delay = self.env.dt / self.cfg.realtime - (time.monotonic() - t0)
                 if delay > 0:
                     self.stop_event.wait(delay)
+
+    def _render_frame_locked(self) -> None:
+        try:
+            frame = self.env.render()
+            img = self.cv2.cvtColor(frame, self.cv2.COLOR_RGB2BGR)
+            ok, data = self.cv2.imencode(
+                ".jpg", img, [int(self.cv2.IMWRITE_JPEG_QUALITY), 86])
+            if not ok:
+                raise RuntimeError("could not encode sim frame")
+            self._frame_jpeg = data.tobytes()
+            self._frame_error = ""
+        except Exception as e:
+            self._frame_error = str(e)
+        finally:
+            self._frame_ready.set()
 
     def _finish_job(self, ended: str, ok: bool = True) -> None:
         self.msg = ended
@@ -1083,14 +1109,13 @@ class SimWebSession:
             return {"ok": True, "status": self.msg, "live": self._live()}
 
     def frame_jpeg(self) -> bytes:
+        if not self._frame_ready.wait(2.0):
+            raise RuntimeError("sim frame not ready")
         with self.lock:
-            frame = self.env.render()
-        import cv2
-        img = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
-        ok, data = cv2.imencode(".jpg", img, [int(cv2.IMWRITE_JPEG_QUALITY), 86])
-        if not ok:
-            raise RuntimeError("could not encode sim frame")
-        return data.tobytes()
+            if self._frame_jpeg is not None:
+                return self._frame_jpeg
+            err = self._frame_error or "sim frame unavailable"
+        raise RuntimeError(err)
 
     def logs(self) -> dict[str, Any]:
         files = []

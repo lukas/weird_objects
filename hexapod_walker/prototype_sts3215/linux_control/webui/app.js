@@ -139,8 +139,9 @@ function makeStick(canvas, horizontalOnly){
     ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0); draw(); }
   function draw(){
     const w=canvas.width/devicePixelRatio, h=canvas.height/devicePixelRatio;
+    if(w <= 0 || h <= 0) return;
     ctx.clearRect(0,0,w,h);
-    const cx=w/2, cy=h/2, R=Math.min(w,h)/2-12;
+    const cx=w/2, cy=h/2, R=Math.max(1, Math.min(w,h)/2-12);
     ctx.strokeStyle='#2a3142'; ctx.lineWidth=2;
     ctx.beginPath();
     if(horizontalOnly){ ctx.moveTo(cx-R,cy); ctx.lineTo(cx+R,cy); }
@@ -152,7 +153,8 @@ function makeStick(canvas, horizontalOnly){
   }
   function set(e){
     const r=canvas.getBoundingClientRect();
-    const cx=r.width/2, cy=r.height/2, R=Math.min(r.width,r.height)/2-12;
+    const cx=r.width/2, cy=r.height/2;
+    const R=Math.max(1, Math.min(r.width,r.height)/2-12);
     let dx=(e.clientX-r.left-cx)/R, dy=-(e.clientY-r.top-cy)/R;
     const m=Math.hypot(dx,dy); if(m>1){ dx/=m; dy/=m; }
     nx=Math.max(-1,Math.min(1,dx)); ny=horizontalOnly?0:Math.max(-1,Math.min(1,dy));
