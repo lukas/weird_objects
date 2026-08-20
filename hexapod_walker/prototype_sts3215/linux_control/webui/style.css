@@ -77,6 +77,18 @@
                         background:#101b2d; }
   .target-badge.bad { color:#ff8a8a; border-color:#7a2b2b;
                       background:#241416; }
+  .target-msg { display:none; min-height:22px; align-items:center;
+                max-width:260px; overflow:hidden; text-overflow:ellipsis;
+                white-space:nowrap; padding:2px 8px; border-radius:999px;
+                border:1px solid #333b52; background:#11151e;
+                color:#9aa3b2; font-size:11px; font-weight:800; }
+  .target-msg.show { display:inline-flex; }
+  .target-msg.ok { color:#5fd08a; border-color:#2e7d47;
+                   background:#102218; }
+  .target-msg.warn { color:#e6b35a; border-color:#8a6a2a;
+                     background:#241d12; }
+  .target-msg.bad { color:#ffb4b4; border-color:#a33;
+                    background:#2a1416; }
   .target-label { padding:0 4px 0 2px; text-transform:uppercase;
                   letter-spacing:.7px; font-size:10px; color:#7e879a; }
   .routechips { display:flex; gap:4px; align-items:center; }
@@ -104,8 +116,8 @@
                       border-radius:8px; padding:4px 8px; font-size:12px;
                       font-weight:650; }
   .hub-target input::placeholder { color:#586275; }
-  .hub-target button { padding:5px 9px; font-size:12px; border-radius:8px;
-                       min-width:0; }
+  .hub-target button { flex:0 0 auto; padding:5px 9px; font-size:12px;
+                       border-radius:8px; min-width:0; }
   body.robot-configured .hub-target input {
     border-color:#2e7d47; box-shadow:0 0 0 1px rgba(95,208,138,.08) inset;
   }

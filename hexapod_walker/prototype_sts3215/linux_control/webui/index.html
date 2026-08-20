@@ -43,6 +43,7 @@
         <span class="target-name">Robot</span>
         <span id="robotlinesend" class="target-badge">idle</span>
         <span id="robotlineconn" class="target-badge">not connected</span>
+        <span id="robotlinemsg" class="target-msg"></span>
         <span id="robotact" class="act-limp" title="What the robot is trying to do">limp</span>
         <input id="roboturl" type="text" inputmode="url"
           autocomplete="url" spellcheck="false"
@@ -54,6 +55,7 @@
         <span class="target-name">MuJoCo</span>
         <span id="simlinesend" class="target-badge">idle</span>
         <span id="simlineconn" class="target-badge">not connected</span>
+        <span id="simlinemsg" class="target-msg"></span>
         <button id="hubsyncpose" class="sync-pose-top"
           title="Read the real robot's measured 18-joint pose and jump MuJoCo to that same joint pose.">Match pose</button>
         <button id="simconnect" title="Connect this web UI to MuJoCo">Connect</button>

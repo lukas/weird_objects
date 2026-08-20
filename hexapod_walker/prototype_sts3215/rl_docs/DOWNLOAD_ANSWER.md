@@ -76,6 +76,21 @@ test-locked, `rl_move/tests/test_stand_runner.py`).
    footlow2_hard1 never bench-tested). The scripted stand glide stays
    the hardware fallback until the new stance is bench-promoted.
 
+## Additional operator-requested mode: RECOVER (2026-08-20)
+
+Per the 08-20 operator order the recovery model is packaged and
+sim-gate-verified as an ADDITIONAL mode (this does NOT change the
+rise+walk answer above). Download: policy
+`ppo_goal_cw_recover_predictive1b_pop3_s13.zip` (md5 `cba811e6...`)
+PLUS the frozen encoder `cw-dynrep-tf-state2-recovered1.pt` (md5
+`9df48f68...`), loaded ONLY via
+`rl_move.sim.recover_runner.load_recover_policy` (the zip alone is
+not relocatable). Deployment-runner sim gate over the 23-rung ladder:
+DR-0 21/23 (= the training-path gate, both misses known/characterized),
+own-DR 22/23; flip is out of envelope (0/6 own-DR isolation) and
+ships unsupported pending an operator call. Full contract, gate
+evidence and the production blocker list: `rl_docs/RECOVER_DEPLOY.md`.
+
 ## Fallbacks already on the robot
 
 Deployed pair `holdbc1_hard1` (stance; fails the session gate) +

@@ -194,8 +194,14 @@ def make_env(seed: int, stack: dict, dr_scale: float = 0.0,
     # run's exact ledger cfg on top of the nearest base stack).
     for (sec, leaf), val in extra_sets:
         cfg.setdefault(sec, {})[leaf] = val
+    # from_cfg(CFG), not from_cfg(None): the probe must honor --set
+    # bus.* overrides (servo_params selection + the 08-19
+    # servo_vel_max_counts_s ceiling lift) or a raised-profile probe
+    # silently measures the legacy clamp — the exact "dropped cfg
+    # package voided a verdict" failure class. Bit-exact when no bus
+    # keys are set (sel="" -> same fitted load, override absent -> OFF).
     env = SimHexapodJointWalkEnv(
-        params=SimServoParams.from_cfg(None), randomize=dr_scale > 0.0,
+        params=SimServoParams.from_cfg(cfg), randomize=dr_scale > 0.0,
         dr_scale=dr_scale, episode_seconds=EPISODE_S, seed=seed, cfg=cfg)
     gen = env._goal_gen
     for m in ("hold", "lean", "track", "unload", "raise", "rise",
@@ -221,11 +227,28 @@ def pin_command(env, vx: float, vy: float) -> None:
         traj.wz[:] = 0.0
 
 
+def parse_policy_spec(policy: str) -> tuple[str, float]:
+    """Split '<name>[@p<scale>]' -> (base_name, tripod period_scale).
+
+    Fast-cadence lever (operator order 08-20): 'gait@p0.75' rolls the
+    scripted TripodGait with its clock period scaled by 0.75
+    (0.5625 s cycle instead of 0.75 s). No suffix = 1.0 = bit-exact
+    legacy behavior. Only meaningful for TripodGait-backed policies."""
+    base, _, sfx = policy.partition("@")
+    if not sfx:
+        return base, 1.0
+    if not sfx.startswith("p"):
+        raise SystemExit(f"bad policy suffix {policy!r}; want "
+                         f"<name>@p<scale>, e.g. gait@p0.75")
+    return base, float(sfx[1:])
+
+
 def rollout(policy: str, direction: str, seed: int, stack_name: str,
             deterministic: bool = True, dr_scale: float = 0.0,
             extra_sets: tuple = (), cmd: float = CMD_V) -> dict:
     from tripod_gait import TripodGait
 
+    base_pol, period_scale = parse_policy_spec(policy)
     stack = STACKS[stack_name]
     env = make_env(seed, stack, dr_scale, extra_sets)
     obs, _ = env.reset()
@@ -238,20 +261,20 @@ def rollout(policy: str, direction: str, seed: int, stack_name: str,
     model = None
     gait = None
     plant_rad = np.array([0.0, *WALK_PLANT] * 6) * DEG2RAD
-    if policy.startswith("ckpt:"):
+    if base_pol.startswith("ckpt:"):
         from stable_baselines3 import PPO
-        model = PPO.load(str(ROOT / policy[5:]), device="cpu")
-    elif policy.startswith("noslip"):
+        model = PPO.load(str(ROOT / base_pol[5:]), device="cpu")
+    elif base_pol.startswith("noslip"):
         from noslip_gait import NoSlipGait
-        if policy == "noslip_clean":
+        if base_pol == "noslip_clean":
             gait = NoSlipGait.clamp_fit()
         else:
             kw = (dict(period=8.0, shift_frac=0.20, swing_frac=0.26)
-                  if policy == "noslip_slow" else {})
+                  if base_pol == "noslip_slow" else {})
             gait = NoSlipGait(**kw)
         gait.sync_plant_stance(*WALK_PLANT)
     else:
-        gait = TripodGait(vx=0.0)
+        gait = TripodGait(vx=0.0, period_scale=period_scale)
         gait.sync_plant_stance(*WALK_PLANT)
         gait.reset_phase()
 
@@ -259,10 +282,20 @@ def rollout(policy: str, direction: str, seed: int, stack_name: str,
     factor_sums: dict[str, float] = defaultdict(float)
     factor_n: dict[str, int] = defaultdict(int)
     contact_hist = []
+    # Fast-cadence preflight metrics (operator order 08-20): loaded
+    # foot-XY slip (same accounting as eval_checkpoint slip_m_total:
+    # pad motion between ticks counted when the pad was in contact at
+    # the earlier tick) and chassis height, so the raw-teacher check
+    # (tall / no falls / reasonable slip / real travel) reads off one
+    # probe table.
+    z_hist: list[float] = []
+    slip_m = 0.0
+    pad_prev = None
+    contact_prev: list[bool] | None = None
     total, step, cmd_dist, along_dist = 0.0, 0, 0.0, 0.0
     wz_sum, wz_n = 0.0, 0
     term_reason = None
-    scale = VEL_SCALE.get(policy, 1.0)
+    scale = VEL_SCALE.get(base_pol, 1.0)
 
     # Actuator-feasibility accumulators (clean-vs-dirty directive):
     # requested target speed |Δq_cmd|/dt vs the profile's effective
@@ -283,15 +316,15 @@ def rollout(policy: str, direction: str, seed: int, stack_name: str,
         i = min(step, n - 1)
         if model is not None:
             act, _ = model.predict(obs, deterministic=deterministic)
-        elif policy == "freeze":
+        elif base_pol == "freeze":
             act = q_rad_to_action(plant_rad)
         else:
-            omega = (DRIFT_RIDE_OMEGA if policy == "driftride"
+            omega = (DRIFT_RIDE_OMEGA if base_pol == "driftride"
                      and t >= 2.0 else 0.0)
             gait.set_velocity(vx=float(traj.vx[i]) * scale,
                               vy=float(traj.vy[i]) * scale, omega=omega)
             q = np.asarray(gait.desired_deg(t)) * DEG2RAD
-            for leg in PIN.get(policy, ()):
+            for leg in PIN.get(base_pol, ()):
                 q[3 * leg:3 * leg + 3] = plant_rad[3 * leg:3 * leg + 3]
             act = q_rad_to_action(q)
         obs, r, term, trunc, info = env.step(act)
@@ -315,6 +348,13 @@ def rollout(policy: str, direction: str, seed: int, stack_name: str,
         contact_hist.append([
             float(env.data.sensordata[adr]) > 0.5
             for adr in env._touch_adr])
+        z_hist.append(float(env.data.xpos[env._chassis_bid, 2]))
+        pad_now = env.data.xpos[env._pad_bids, :2].copy()
+        if pad_prev is not None:
+            moved = np.linalg.norm(pad_now - pad_prev, axis=1)
+            slip_m += float(moved[np.asarray(contact_prev, bool)].sum())
+        pad_prev = pad_now
+        contact_prev = contact_hist[-1]
         cmd_now = env._cmd.copy()
         req_speed.append(np.abs(cmd_now - prev_cmd) / env.dt)
         prev_cmd = cmd_now
@@ -327,6 +367,7 @@ def rollout(policy: str, direction: str, seed: int, stack_name: str,
         if term or trunc:
             term_reason = info.get("termination_reason")
             break
+    dt_env = env.dt
     env.close()
 
     rs = np.asarray(req_speed) / DEG2RAD          # (T, 18) deg/s
@@ -362,6 +403,14 @@ def rollout(policy: str, direction: str, seed: int, stack_name: str,
                     for k in factor_sums},
         "progress_ratio": along_dist / cmd_dist if cmd_dist > 0 else 0.0,
         "wz_mean": wz_sum / wz_n if wz_n else 0.0,
+        # ruled skating metric: loaded foot-XY travel per meter of
+        # along-command progress (eval_checkpoint convention)
+        "slip_per_m": round(slip_m / max(along_dist, 0.05), 3),
+        "slip_m_total": round(slip_m, 3),
+        # chassis height after the 2 s hold+ramp prefix (tall-check)
+        "height_mm_mean": round(1000.0 * float(np.mean(
+            z_hist[min(len(z_hist) - 1, int(round(2.0 / dt_env))):])), 1)
+        if z_hist else None,
         "duty": [round(float(d), 3) for d in duty],
         "swings": swings,
         "feas": feas,
@@ -406,10 +455,14 @@ def summarize(records: list[dict]) -> None:
         print(row)
     print("\n--- behavior fingerprints (mean) ---")
     for lab, key in (("progress_ratio", "progress_ratio"),
-                     ("wz_mean", "wz_mean")):
+                     ("wz_mean", "wz_mean"),
+                     ("slip_per_m", "slip_per_m"),
+                     ("height_mm_mean", "height_mm_mean")):
         row = f"{lab:28s}"
         for p in pols:
-            row += f"{np.mean([r[key] for r in by_pol[p]]):14.2f}"
+            vals = [r[key] for r in by_pol[p]
+                    if r.get(key) is not None]
+            row += (f"{np.mean(vals):14.2f}" if vals else f"{'-':>14s}")
         print(row)
     row = f"{'terminated_eps':28s}"
     for p in pols:
