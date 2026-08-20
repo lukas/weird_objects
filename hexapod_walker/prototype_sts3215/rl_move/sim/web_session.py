@@ -169,6 +169,7 @@ class SimWebSession:
         self.walk_list.extend([_NOSLIP_CLEAN])
         self.walk_list.extend(_SCRIPTED_TRIPOD)
         self.policy_index = self._build_policy_index()
+        self._register_uploaded_policies()
 
         self.stance = self.PPO.load(self.stance_list[self.si], device="cpu")
         self.walk = self.load_checkpoint_auto(self.walk_list[self.wi],
@@ -206,6 +207,114 @@ class SimWebSession:
             from .gru_policy import load_checkpoint_auto
             return load_checkpoint_auto(path, device=device)
         return self.PPO.load(path, device=device)
+
+    # -- uploaded numpy policies (policies as data, rl_move/np_policy) ---
+    # The robot's export_policy_np.py JSON is an uploadable artifact:
+    # POST /api/rl/policies lands in ~/.hexapod_policies, the picker
+    # lists it next to the checkpoint zips, and select/role/run all
+    # work — the same file drives the sim and any robot.
+
+    @staticmethod
+    def _policy_obs_width(p: Path) -> int | None:
+        if p.suffix == ".json":
+            from ..np_policy import np_policy_obs_width
+            return np_policy_obs_width(p)
+        return _obs_width(p)
+
+    def _load_model(self, p: Path, device: str = "cpu"):
+        if p.suffix == ".json":
+            from ..np_policy import load_np_policy
+            m = load_np_policy(p)
+            prof = m.meta.get("profile")
+            if isinstance(prof, dict):
+                # Trained goal ramps travel with the file — same
+                # contract as the robot runner.
+                self.profiles[p.stem] = prof
+            return m
+        return self._load_checkpoint_auto(p, device=device)
+
+    def _register_uploaded_policies(self) -> None:
+        from ..np_policy import UPLOAD_DIR
+        try:
+            paths = sorted(UPLOAD_DIR.glob("*.json"))
+        except OSError:
+            paths = []
+        for p in paths:
+            w = self._policy_obs_width(p)
+            p = p.resolve()
+            if w == 68 and p not in self.stance_list:
+                self.stance_list.append(p)
+            elif w in (72, 74) and p not in self.walk_list:
+                self.walk_list.append(p)
+        self.policy_index = self._build_policy_index()
+
+    def save_rl_policy(self, obj, *, name: str = "") -> dict[str, Any]:
+        from ..np_policy import (UPLOAD_DIR, safe_policy_name,
+                                 validate_np_policy)
+        errs, info = validate_np_policy(obj)
+        if errs:
+            return {"ok": False, "error": "; ".join(errs[:5])}
+        stem = safe_policy_name(name or info.get("name") or "")
+        if stem is None:
+            return {"ok": False,
+                    "error": "need a name ([A-Za-z0-9._-]{1,64}) — "
+                             "?name=... or meta.name"}
+        try:
+            UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+            p = UPLOAD_DIR / f"{stem}.json"
+            tmp = p.with_suffix(".json.tmp")
+            tmp.write_text(json.dumps(obj))
+            tmp.replace(p)
+        except OSError as e:
+            return {"ok": False, "error": f"save failed: {e}"}
+        with self.lock:
+            self._record_command(f"/api/rl/policies upload {stem}")
+            self._register_uploaded_policies()
+        return {"ok": True, "file": p.name, "obs_dim": info["obs_dim"],
+                "slot": "stance" if info["obs_dim"] == 68 else "walk",
+                "hidden": info.get("hidden"), "bytes": p.stat().st_size}
+
+    def get_rl_policy(self, file: str) -> str | None:
+        name = Path(str(file)).name
+        if not name.endswith(".json"):
+            name += ".json"
+        from ..np_policy import UPLOAD_DIR
+        p = UPLOAD_DIR / name
+        try:
+            return p.read_text() if p.is_file() else None
+        except OSError:
+            return None
+
+    def delete_rl_policy(self, file: str) -> dict[str, Any]:
+        from ..np_policy import UPLOAD_DIR
+        name = Path(str(file)).name
+        if not name.endswith(".json"):
+            name += ".json"
+        p = (UPLOAD_DIR / name).resolve()
+        if not p.is_file():
+            return {"ok": False, "error": f"no uploaded policy {name!r}"}
+        with self.lock:
+            active = {self.stance_list[self.si], self.walk_list[self.wi]}
+            in_role = any(isinstance(e, tuple) and e[1] == p
+                          for e in self.role_models.values())
+            if p in active or in_role:
+                return {"ok": False,
+                        "error": f"{name} is selected/role-assigned — "
+                                 f"switch away first"}
+            try:
+                p.unlink()
+            except OSError as e:
+                return {"ok": False, "error": str(e)}
+            keep_s = self.stance_list[self.si]
+            keep_w = self.walk_list[self.wi]
+            if p in self.stance_list:
+                self.stance_list.remove(p)
+            if p in self.walk_list:
+                self.walk_list.remove(p)
+            self.si = self.stance_list.index(keep_s)
+            self.wi = self.walk_list.index(keep_w)
+            self.policy_index = self._build_policy_index()
+        return {"ok": True, "deleted": name}
 
     def _ensure_listed(self, lst: list[Path], p: Path,
                        want: tuple[int, ...]) -> int:
@@ -1367,6 +1476,13 @@ class SimWebSession:
                     if self.walk is not None else self._scripted_info()}
 
     def _model_info(self, model: Any, path: Path) -> dict[str, Any]:
+        if hasattr(model, "meta"):      # uploaded numpy policy
+            return {"source": str(path),
+                    "obs_dim": int(model.observation_space.shape[0]),
+                    "act_dim": int(model.action_space.shape[0]),
+                    "hidden": list(model.hidden),
+                    "activation": model.meta.get("activation", "tanh"),
+                    "uploaded": True}
         return {"source": str(path), "obs_dim": int(model.observation_space.shape[0]),
                 "act_dim": int(model.action_space.shape[0]),
                 "hidden": self._hidden_layers(model),
@@ -1398,17 +1514,27 @@ class SimWebSession:
                                                  p == self.walk_list[self.wi],
                                                  scripted=True))
                 else:
-                    rows.append(self._policy_row(p, "walk", _obs_width(p) or 0,
-                                                 p == self.walk_list[self.wi]))
+                    rows.append(self._policy_row(
+                        p, "walk", self._policy_obs_width(p) or 0,
+                        p == self.walk_list[self.wi]))
             return {"ok": True, "dir": str(self.cfg.policy_dir),
                     "policies": rows}
 
     def _policy_row(self, p: Path, slot: str, obs_dim: int, active: bool,
                     scripted: bool = False) -> dict[str, Any]:
         file = f"scripted:{p.name}" if scripted else p.name
-        return {"file": file, "name": p.stem, "slot": slot,
-                "obs_dim": obs_dim, "active": active,
-                "notes": _DESC.get(p.stem, "scripted gait" if scripted else "")}
+        row = {"file": file, "name": p.stem, "slot": slot,
+               "obs_dim": obs_dim, "active": active,
+               "notes": _DESC.get(p.stem, "scripted gait" if scripted else "")}
+        if p.suffix == ".json":
+            row["uploaded"] = True
+            try:
+                meta = json.loads(p.read_text())["meta"]
+                row["name"] = meta.get("name") or p.stem
+                row["notes"] = meta.get("notes") or "uploaded policy"
+            except (OSError, ValueError, KeyError):
+                row["notes"] = "uploaded policy"
+        return row
 
     def rl_roles(self) -> dict[str, Any]:
         with self.lock:
@@ -1450,13 +1576,12 @@ class SimWebSession:
             p = self.policy_index.get(file)
             if p is None or p in _SCRIPTED_ROWS:
                 return {"ok": False, "error": f"unknown policy {file!r}"}
-            w = _obs_width(p)
+            w = self._policy_obs_width(p)
             if role in {"stand", "lower"} and w != 68:
                 return {"ok": False, "error": f"{role} needs obs 68"}
             if role == "hold" and w not in (68, *self.walk_widths):
                 return {"ok": False, "error": "hold needs stance/walk obs"}
-            model = (self.PPO.load(p, device="cpu") if w == 68
-                     else self.load_checkpoint_auto(p, device="cpu"))
+            model = self._load_model(p)
             self.roles[role] = p.name
             self.role_models[role] = (model, p, int(w or 0))
             return self.rl_roles()
@@ -1470,18 +1595,19 @@ class SimWebSession:
             if p in _SCRIPTED_ROWS:
                 self._set_walk_path(p)
                 return {"ok": True, "name": p.stem, "slot": "walk"}
-            w = _obs_width(p)
+            w = self._policy_obs_width(p)
             if w == 68:
                 self._set_stance_path(p)
                 return {"ok": True, "name": p.stem, "slot": "stance"}
-            if w in self.walk_widths:
+            if w in self.walk_widths or (p.suffix == ".json"
+                                         and w in (72, 74)):
                 self._set_walk_path(p)
                 return {"ok": True, "name": p.stem, "slot": "walk"}
             return {"ok": False, "error": f"unsupported obs width {w}"}
 
     def _set_stance_path(self, p: Path) -> None:
         self.si = self.stance_list.index(p.resolve())
-        self.stance = self.PPO.load(p, device="cpu")
+        self.stance = self._load_model(p)
         self.n_stance = int(self.stance.observation_space.shape[0])
         self.msg = f"stance model -> {p.stem}"
 
@@ -1494,7 +1620,7 @@ class SimWebSession:
             self.walk_kind = "plain"
             self.msg = f"walk driver -> scripted {p.name}"
             return
-        self.walk = self.load_checkpoint_auto(p, device="cpu")
+        self.walk = self._load_model(p)
         self.n_walk = int(self.walk.observation_space.shape[0])
         self.walk_kind = self._walk_kind_of(self.n_walk)
         if self.walk_kind == "plain" and self.n_walk > self.n_env:

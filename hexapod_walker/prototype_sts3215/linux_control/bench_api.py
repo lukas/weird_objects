@@ -5,10 +5,19 @@ Uses the same Feetech bus as ``DriveController`` (shared lock).
 from __future__ import annotations
 
 import json
+import sys
 import threading
 import time
 from pathlib import Path
 from typing import TYPE_CHECKING
+
+# rl_move lives one level above linux_control (repo and robot alike);
+# web_drive only puts linux_control itself on sys.path, and the policy
+# upload route needs rl_move.np_policy before any RL button has run
+# rl_policy.py's own path shim.
+_PARENT = str(Path(__file__).resolve().parent.parent)
+if _PARENT not in sys.path:
+    sys.path.insert(0, _PARENT)
 
 from feetech_bus import N_JOINTS, joint_to_servo_id
 
@@ -2434,9 +2443,23 @@ class BenchAPI:
     # weights fresh at every episode start. Slot is inferred from the
     # obs dim (68 = stance stand/lower, 72 = walk).
     POLICIES_DIR = Path(__file__).resolve().parent / "policies"
+    # Uploaded policies (rl_move/np_policy.py, POST /api/rl/policies)
+    # live OUTSIDE the deploy tree so code pushes never wipe them —
+    # same convention as ~/.hexapod_dances. On a name clash the upload
+    # wins (robot-local state beats the repo).
+    UPLOAD_POLICIES_DIR = Path.home() / ".hexapod_policies"
     # obs 74 = walk + phase clock (sin/cos appended by the runner; the
     # cw-arch-noslipphase1 no-slip line). Same walk slot.
     _SLOT_OBS = {68: "stance", 72: "walk", 74: "walk"}
+
+    def _find_policy_file(self, file: str) -> Path | None:
+        """Resolve a picker file name to a path (uploads shadow repo)."""
+        name = Path(str(file)).name          # forbid path traversal
+        for d in (self.UPLOAD_POLICIES_DIR, self.POLICIES_DIR):
+            p = d / name
+            if p.is_file():
+                return p
+        return None
 
     def _policy_slot_targets(self) -> dict:
         from rl_policy import WALK_WEIGHTS_PATH, WEIGHTS_PATH
@@ -2455,22 +2478,35 @@ class BenchAPI:
         active = {slot: _md5(p)
                   for slot, p in self._policy_slot_targets().items()}
         out = []
-        for f in sorted(self.POLICIES_DIR.glob("*.json")):
+        seen = set()
+        for d, uploaded in ((self.UPLOAD_POLICIES_DIR, True),
+                            (self.POLICIES_DIR, False)):
             try:
-                meta = json.loads(f.read_text())["meta"]
-            except Exception as e:
-                out.append({"file": f.name, "error": str(e)})
+                files = sorted(d.glob("*.json"))
+            except OSError:
                 continue
-            slot = self._SLOT_OBS.get(meta.get("obs_dim"))
-            out.append({
-                "file": f.name,
-                "name": meta.get("name") or f.stem,
-                "slot": slot,
-                "obs_dim": meta.get("obs_dim"),
-                "source": (meta.get("source") or "").rsplit("/", 1)[-1],
-                "notes": meta.get("notes", ""),
-                "active": slot is not None and _md5(f) == active.get(slot),
-            })
+            for f in files:
+                if f.name in seen:       # upload shadows the repo copy
+                    continue
+                seen.add(f.name)
+                try:
+                    meta = json.loads(f.read_text())["meta"]
+                except Exception as e:
+                    out.append({"file": f.name, "error": str(e)})
+                    continue
+                slot = self._SLOT_OBS.get(meta.get("obs_dim"))
+                out.append({
+                    "file": f.name,
+                    "name": meta.get("name") or f.stem,
+                    "slot": slot,
+                    "obs_dim": meta.get("obs_dim"),
+                    "source": (meta.get("source") or "").rsplit("/", 1)[-1],
+                    "notes": meta.get("notes", ""),
+                    "uploaded": uploaded,
+                    "active": (slot is not None
+                               and _md5(f) == active.get(slot)),
+                })
+        out.sort(key=lambda r: r["file"])
         return {"ok": True, "dir": str(self.POLICIES_DIR), "policies": out}
 
     def rl_policy_select(self, *, file: str = "") -> dict:
@@ -2480,8 +2516,8 @@ class BenchAPI:
         if self._demo_thread and self._demo_thread.is_alive():
             return {"ok": False, "error": "stop the running job first"}
         name = Path(str(file)).name          # forbid path traversal
-        src = self.POLICIES_DIR / name
-        if not src.is_file():
+        src = self._find_policy_file(name)
+        if src is None:
             return {"ok": False, "error": f"no such policy file: {name}"}
         try:
             payload = src.read_text()
@@ -2539,8 +2575,7 @@ class BenchAPI:
         v = self._roles().get(role)
         if not v or v == "walk":
             return None
-        p = self.POLICIES_DIR / Path(str(v)).name
-        return p if p.is_file() else None
+        return self._find_policy_file(v)
 
     def rl_roles(self) -> dict:
         """Current role assignments + what each resolves to (no bus)."""
@@ -2582,8 +2617,8 @@ class BenchAPI:
             val = "walk"
         else:
             name = Path(str(file)).name        # forbid path traversal
-            p = self.POLICIES_DIR / name
-            if not p.is_file():
+            p = self._find_policy_file(name)
+            if p is None:
                 return {"ok": False, "error": f"no such policy: {name}"}
             try:
                 meta = json.loads(p.read_text())["meta"]
@@ -2610,6 +2645,66 @@ class BenchAPI:
         except Exception:
             pass
         return {"ok": True, **self.rl_roles()}
+
+    # -- Uploaded RL policies (policies as data) -------------------------
+    # rl_move/np_policy.py: the export_policy_np.py JSON is an
+    # uploadable artifact.  POST /api/rl/policies stores it in
+    # ~/.hexapod_policies (deploys never wipe it); it then appears in
+    # the picker and can be slot-selected / role-assigned and run by
+    # the normal /api/rl/* buttons.  Same file works in the MuJoCo sim.
+
+    def save_rl_policy(self, obj, *, name: str = "") -> dict:
+        from rl_move.np_policy import (safe_policy_name,
+                                       validate_np_policy)
+        errs, info = validate_np_policy(obj)
+        if errs:
+            return {"ok": False, "error": "; ".join(errs[:5])}
+        stem = safe_policy_name(name or info.get("name") or "")
+        if stem is None:
+            return {"ok": False,
+                    "error": "need a name ([A-Za-z0-9._-]{1,64}) — "
+                             "?name=... or meta.name"}
+        try:
+            self.UPLOAD_POLICIES_DIR.mkdir(parents=True, exist_ok=True)
+            p = self.UPLOAD_POLICIES_DIR / f"{stem}.json"
+            tmp = p.with_suffix(".json.tmp")
+            tmp.write_text(json.dumps(obj))
+            tmp.replace(p)
+        except OSError as e:
+            return {"ok": False, "error": f"save failed: {e}"}
+        try:
+            from event_log import emit
+            emit("rl_policy_upload", f"{stem}.json (obs {info['obs_dim']})",
+                 src="bench", data=info)
+        except Exception:
+            pass
+        return {"ok": True, "file": p.name, "obs_dim": info["obs_dim"],
+                "slot": self._SLOT_OBS.get(info["obs_dim"]),
+                "hidden": info.get("hidden"), "bytes": p.stat().st_size}
+
+    def get_rl_policy(self, file: str) -> str | None:
+        """Raw JSON text of a picker policy (push it to another robot)."""
+        p = self._find_policy_file(file if str(file).endswith(".json")
+                                   else f"{file}.json")
+        try:
+            return p.read_text() if p is not None else None
+        except OSError:
+            return None
+
+    def delete_rl_policy(self, file: str) -> dict:
+        name = Path(str(file)).name
+        if not name.endswith(".json"):
+            name += ".json"
+        p = self.UPLOAD_POLICIES_DIR / name
+        if not p.is_file():
+            return {"ok": False,
+                    "error": f"no uploaded policy {name!r} (repo-shipped "
+                             f"policies can't be deleted here)"}
+        try:
+            p.unlink()
+        except OSError as e:
+            return {"ok": False, "error": str(e)}
+        return {"ok": True, "deleted": name}
 
     # -- Live drive session (held-arrow-key driving, operator 08-11) ----
     def _drive_active(self) -> bool:

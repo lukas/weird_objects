@@ -48,7 +48,8 @@ cp -R "$SRC/webui" "$SRC/policies" "$SRC/vendor" "$STAGE/linux_control/"
 # rl_move core (numpy-only) + rot-60 canonicalizer + sagittal mirror —
 # same list as deploy_adb.sh.
 for f in __init__.py env.py robot_state.py attitude.py safety.py \
-         config.py config.yaml body_ik.py control_loop.py logger.py; do
+         config.py config.yaml body_ik.py control_loop.py logger.py \
+         np_policy.py; do
   cp "$SRC/../rl_move/$f" "$STAGE/rl_move/"
 done
 for f in __init__.py rot60.py mirror.py; do

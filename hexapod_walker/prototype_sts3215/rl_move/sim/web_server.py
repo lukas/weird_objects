@@ -130,6 +130,14 @@ def make_handler(session: Any, webui_dir: Path = WEBUI_DIR,
                     self._json(200, session.rl_policy_info())
                 elif path == "/api/rl/policies":
                     self._json(200, session.rl_policies())
+                elif path.startswith("/api/rl/policies/"):
+                    name = Path(path[len("/api/rl/policies/"):]).name
+                    text = session.get_rl_policy(name)
+                    if text is None:
+                        self._json(404, {"ok": False,
+                                         "error": f"no policy {name!r}"})
+                    else:
+                        self._send(200, text, "application/json")
                 elif path == "/api/rl/roles":
                     self._json(200, session.rl_roles())
                 elif path == "/api/rl/drive":
@@ -235,6 +243,15 @@ def make_handler(session: Any, webui_dir: Path = WEBUI_DIR,
                         vy=float(data.get("vy", 0.0))))
                 elif path == "/api/rl/drive/stop":
                     self._json(200, session.rl_drive_stop())
+                elif path == "/api/rl/policies":
+                    qs = self.path.split("?", 1)
+                    name = ""
+                    if len(qs) == 2 and "name=" in qs[1]:
+                        name = qs[1].split("name=", 1)[1].split("&", 1)[0]
+                    self._json(200, session.save_rl_policy(data, name=name))
+                elif path == "/api/rl/policies/delete":
+                    self._json(200, session.delete_rl_policy(
+                        str((data or {}).get("file", ""))))
                 elif path == "/api/rl/policy_select":
                     self._json(200, session.rl_policy_select(
                         file=str(data.get("file", ""))))

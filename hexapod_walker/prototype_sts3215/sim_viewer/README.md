@@ -37,6 +37,20 @@ script are enforced. While any demo plays, the RL episode's 10-deg
 tilt trip is widened to 60 deg (choreography like the quad rear-up is
 -20 deg pitch by design); a genuine tip-over still ends the run.
 
+RL policies are uploadable the same way (`rl_move/np_policy.py`,
+`POST /api/rl/policies?name=<n>`): the robot's `export_policy_np.py`
+JSON (numpy tanh-MLP, obs 68 stance / 72 walk / 74 phase-walk) lands
+in `~/.hexapod_policies`, appears in the RL-tab picker next to the
+checkpoint zips, and select / roles / stand / walk / drive all run it
+— verified at parity with the source zip (same brain stands to the
+same millimeter). The SAME file uploads to a real robot, so a policy
+can be previewed in sim, then pushed to any number of robots:
+`python -m rl_move.np_policy push foo.json --host http://hexapod.local:8080`.
+In hub "both" mode a single upload seeds sim and robot at once. Tip:
+keep the source checkpoint's tokens in the upload name (e.g.
+`fastnoslip`) — the sim's servo-regime/vel-contract heuristics key on
+the file stem.
+
 Laptop hub mode can also proxy the real robot while keeping the MuJoCo
 viewer running locally. Either enter the robot URL in the page header
 after startup, or pass it on the command line:

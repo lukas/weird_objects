@@ -150,7 +150,7 @@ class SimTarget:
             if method == "GET":
                 return self._get(path, full_path)
             if method == "POST":
-                return self._post(path, body)
+                return self._post(path, body, full_path)
         except FileNotFoundError as e:
             return RouteResponse.json({"ok": False, "error": str(e)}, 404)
         except Exception as e:
@@ -181,6 +181,14 @@ class SimTarget:
             return RouteResponse.json(s.rl_policy_info())
         if path == "/api/rl/policies":
             return RouteResponse.json(s.rl_policies())
+        if path.startswith("/api/rl/policies/"):
+            name = Path(path[len("/api/rl/policies/"):]).name
+            text = s.get_rl_policy(name)
+            if text is None:
+                return RouteResponse.json(
+                    {"ok": False, "error": f"no policy {name!r}"}, 404)
+            return RouteResponse(200, text.encode("utf-8"),
+                                 "application/json")
         if path == "/api/rl/roles":
             return RouteResponse.json(s.rl_roles())
         if path == "/api/rl/drive":
@@ -208,7 +216,8 @@ class SimTarget:
         return RouteResponse.json({"ok": False,
                                    "error": f"no sim route: {path}"}, 404)
 
-    def _post(self, path: str, raw: bytes) -> RouteResponse:
+    def _post(self, path: str, raw: bytes,
+              full_path: str = "") -> RouteResponse:
         s = self.session
         if path == "/cmd":
             line = raw.decode("utf-8", "ignore").strip()
@@ -275,6 +284,12 @@ class SimTarget:
                 vy=float(data.get("vy", 0.0))))
         if path == "/api/rl/drive/stop":
             return RouteResponse.json(s.rl_drive_stop())
+        if path == "/api/rl/policies":
+            return RouteResponse.json(s.save_rl_policy(
+                data, name=_query_value(full_path, "name", "")))
+        if path == "/api/rl/policies/delete":
+            return RouteResponse.json(s.delete_rl_policy(
+                str((data or {}).get("file", ""))))
         if path == "/api/rl/policy_select":
             return RouteResponse.json(s.rl_policy_select(
                 file=str(data.get("file", ""))))
@@ -391,6 +406,12 @@ class HubController:
         "/api/rl/drive/cmd",
         "/api/rl/drive/stop",
         "/api/rl/policy_select",
+        # Uploads are data, not motion — in "both" mode one POST seeds
+        # the same policy/dance onto the sim AND the robot.
+        "/api/rl/policies",
+        "/api/rl/policies/delete",
+        "/api/dances",
+        "/api/dances/delete",
     }
 
     def __init__(self, sim: Any | None, robot: Any | None,

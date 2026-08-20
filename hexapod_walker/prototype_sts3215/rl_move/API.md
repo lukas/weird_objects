@@ -23,7 +23,10 @@ the process rules below are what remain).
 |---|---|---|
 | GET | `/api/rl/state` | Pose + plant + IMU + status |
 | GET | `/api/rl/policy` | Deployed policy metadata (stance + walk) |
-| GET | `/api/rl/policies` | List swappable policies in `policies/` + active flags |
+| GET | `/api/rl/policies` | List swappable policies (`policies/` + uploaded `~/.hexapod_policies`) + active flags |
+| POST | `/api/rl/policies?name=<n>` | **Upload** an `export_policy_np.py` JSON (validated: obs 68/72/74, shape chain, finite, smoke pass) → `~/.hexapod_policies` — survives deploys; same route works on the MuJoCo sim (`rl_move/np_policy.py` CLI: `push`/`pull`/`validate`) |
+| GET | `/api/rl/policies/<name>` | Export one policy JSON (push it to another robot / the sim) |
+| POST | `/api/rl/policies/delete` | `{"file":"<name>.json"}` — remove an uploaded policy |
 | POST | `/api/rl/policy_select` | `{"file":"<name>.json"}` — make it live (file copy, no motion) |
 | GET | `/api/measure/list` | Saved measurements + pending record (Measure tab) |
 | POST | `/api/measure/walk` | Measured scripted-gait run `{"vx_mm":30,"omega":0,"duration_s":20}` (caps 60/40 mm/s, 0.5 rad/s, 60 s; acquires ARM+stand first when missing) |

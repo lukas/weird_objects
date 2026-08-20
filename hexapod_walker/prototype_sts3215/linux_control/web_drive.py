@@ -221,6 +221,15 @@ class Handler(BaseHTTPRequestHandler):
         elif path == "/api/rl/policies":
             self._json(200, BENCH.rl_policies() if BENCH
                        else {"ok": False, "error": "no bench"})
+        elif path.startswith("/api/rl/policies/"):
+            # Export one policy JSON (push it to another robot / sim).
+            name = Path(path[len("/api/rl/policies/"):]).name
+            text = BENCH.get_rl_policy(name) if BENCH else None
+            if text is None:
+                self._json(404, {"ok": False,
+                                 "error": f"no policy {name!r}"})
+            else:
+                self._send(200, text, "application/json")
         elif path == "/api/rl/roles":
             self._json(200, BENCH.rl_roles() if BENCH
                        else {"ok": False, "error": "no bench"})
@@ -465,6 +474,26 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(400, {"ok": False, "error": str(e)})
         elif path == "/api/demo/stop":
             self._json(200, BENCH.stop_demo())
+        elif path == "/api/rl/policies":
+            # Upload an RL policy (policies as data — rl_move/np_policy).
+            try:
+                from rl_move.np_policy import MAX_POLICY_BYTES
+                if n > MAX_POLICY_BYTES:
+                    self._json(413, {"ok": False, "error": "policy too big"})
+                    return
+                qs = self.path.split("?", 1)
+                name = ""
+                if len(qs) == 2 and "name=" in qs[1]:
+                    name = qs[1].split("name=", 1)[1].split("&", 1)[0]
+                self._json(200, BENCH.save_rl_policy(body_obj, name=name))
+            except Exception as e:
+                self._json(400, {"ok": False, "error": str(e)})
+        elif path == "/api/rl/policies/delete":
+            try:
+                self._json(200, BENCH.delete_rl_policy(
+                    str((body_obj or {}).get("file", ""))))
+            except Exception as e:
+                self._json(400, {"ok": False, "error": str(e)})
         elif path == "/api/dances":
             # Upload a dance script (dances as data — dance_script.py).
             try:

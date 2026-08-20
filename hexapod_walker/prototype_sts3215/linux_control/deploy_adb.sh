@@ -77,7 +77,8 @@ adb push "$SRC/vendor" "$REMOTE/linux_control/"
 # imported by rl_policy.py for the RL stand/lower buttons.
 adb shell "mkdir -p '$REMOTE/rl_move'"
 for f in __init__.py env.py robot_state.py attitude.py safety.py \
-         config.py config.yaml body_ik.py control_loop.py logger.py; do
+         config.py config.yaml body_ik.py control_loop.py logger.py \
+         np_policy.py; do
   adb push "$SRC/../rl_move/$f" "$REMOTE/rl_move/"
 done
 # rot-60 canonicalizer + sagittal mirror (numpy-only; sim/__init__.py
