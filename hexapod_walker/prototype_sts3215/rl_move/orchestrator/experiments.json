@@ -107606,7 +107606,7 @@
       "dr.walk_push_s=0.8,1.5"
     ],
     "created": "2026-08-20T19:34:34+00:00",
-    "status": "RUNNING",
+    "status": "done",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -107652,7 +107652,10 @@
           "log stopped growing"
         ]
       }
-    ]
+    ],
+    "triage": "done",
+    "verdict": "CANARY FAIL - MECHANISM: mid-dose (750/40/3deg) train-through does not repair the PPO-warm start, it collapses it, matching fastthru1/fastramp1/midramp1. Periodic B0 cert: round1(524k) falls=25% survival_min=2.6s, round2(1.05M) falls=37.5% survival_min=3.52s slip=1.71 -- falls got WORSE round-over-round (the pre-registered kill trigger) and the final round is not zero-falls (fails the gate's own PASS bar). Post-train eval: DR-0 gate 0/6 det + 0/6 sto walk success, all term walk_low_height/fell, dir_err 42-78deg (det) / 35-59deg (sto), slip/m 2.4-11.0 (det) / 2.1-3.1 (sto), budget was <=1.6 -- steer6-style skate/spin. own-DR(0.3) same pattern, 0/6 both modes. Video: robot barely translates, legs splay/kick outward through the clip, matching fastthru1's collapse description. Session-harness cross-check also FAILs (no_falls/rise/sit_descends all FAIL). This is the last of the 4 fast-gait A/B canaries; all 4 failed -- the raised actuator dose destabilizes direction/slip regardless of onset (ramp vs train-through) or magnitude (mid vs full). Fast-gait fork decision (continue/respec/park) is an operator gate.",
+    "hardware_ready": false
   },
   {
     "run": "cw-dep-bcgait1-midthru1",
