@@ -237,6 +237,32 @@ def _stand_zero_pose() -> list[float]:
     return standing_pose_degrees()
 
 
+# Canonical quad-gait stance. quad_walk's entry/exit and gait constants
+# were tuned (sim + hardware, 08-18) around the DEFAULT +20/+80 plant
+# geometry — its world-frame anchors and the -80 mm / -20 deg rear are
+# only reachable from there.
+QUAD_BASE_HIP_DEG = 20.0
+QUAD_BASE_KNEE_DEG = 80.0
+
+
+def _quad_base_pose() -> list[float]:
+    """Base pose for ALL quad (tip-back) moves — NOT the learned plant.
+
+    The learned plant snapshot can be captured anywhere (shallow, deep,
+    yawed, per-leg asymmetric) and quad_walk builds its foot anchors
+    from whatever base it is given.  Measured in the servo-fit sim
+    (08-20): from a shallow hip 10 / knee 55 capture the entry IK
+    can't reach its targets, the robot NEVER rears (nose-up -1.6 deg
+    instead of -20) while the fronts tuck anyway (they're joint-space),
+    and the exit's untuck pitches it 41 deg NOSE-DOWN — the dance_wild
+    face-plant.  A deep knee-104 capture halves the rear too.  Quads
+    therefore always build from the canonical stance; the streamer's
+    align glide (or the dance's base ease) walks the robot over from
+    wherever it happens to stand.
+    """
+    return [0.0, QUAD_BASE_HIP_DEG, QUAD_BASE_KNEE_DEG] * 6
+
+
 def _arms_up_pose() -> list[float]:
     """Sit pose with all six legs folded way overhead."""
     pose = _zero_pose()
@@ -2014,7 +2040,8 @@ QUAD_STREAM_DEMOS = ("quad_walk", "quad_trot")
 
 def _make_quad_walk_fn(seconds: float, gait: str = "walk"):
     from quad_walk import make_quad_walk_pose_fn
-    return make_quad_walk_pose_fn(_stand_zero_pose(), seconds, gait=gait)
+    # Canonical stance, NOT the learned plant — see _quad_base_pose.
+    return make_quad_walk_pose_fn(_quad_base_pose(), seconds, gait=gait)
 
 
 def _make_quad_trot_fn(seconds: float):
@@ -3262,7 +3289,8 @@ def _make_stallion_fn(seconds: float = STALLION_SECONDS):
     """
     from quad_walk import (ENTRY_TOTAL_S, EXIT_TOTAL_S, TUCK_DEG,
                            make_quad_walk_pose_fn)
-    quad = make_quad_walk_pose_fn(_stand_zero_pose(), seconds, gait="rear")
+    # Canonical stance, NOT the learned plant — see _quad_base_pose.
+    quad = make_quad_walk_pose_fn(_quad_base_pose(), seconds, gait="rear")
     t_exit = max(ENTRY_TOTAL_S, seconds - EXIT_TOTAL_S)
     hold = max(0.1, t_exit - ENTRY_TOTAL_S)
     uni0 = min(max(0.0, hold - 4.0), 4.4)     # 4 paw strokes, then merge
@@ -3570,7 +3598,7 @@ def run_wild_dance(bus: FeetechBus, *, abort_check=None, status_cb=None,
             # ---- Act VI: THE STALLION --------------------------------
             note("act VI — THE STALLION (tipping back …)")
             _set_torque_limit(bus, live, STAND_DANCE_TORQUE)
-            if not ease_to_pose(bus, _stand_zero_pose(),
+            if not ease_to_pose(bus, _quad_base_pose(),
                                 abort_check=check, seconds=0.8,
                                 label="stallion base",
                                 current_tracker=peaks):
