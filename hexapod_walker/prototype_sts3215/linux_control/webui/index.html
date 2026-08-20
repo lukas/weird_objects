@@ -292,59 +292,46 @@ in which legs swing together: tripod 3+3 (fastest), ripple opposite pairs
 
   <div id="view-quad" class="view">
   <div class="row">
-    <div class="pad">
-      <h2>Quad mode — tip back, walk on four legs</h2>
-      <div class="hint">The robot rears up nose-high like a begging dog —
-        front legs tucked in the air — and moves on the four rear legs.
-        Two gaits, both one scripted 20&nbsp;Hz pose stream of
-        <b>rear up → go → sit back down</b>, both with a <b>LIVE speed
-        slider</b>: the <b>walk</b> is a lateral-sequence animal walk
-        (footfalls LH·LF·RH·RF, one foot up at a time, statically stable,
-        weight sway against the swing); the <b>trot</b> moves DIAGONAL leg
-        pairs together like a horse, leaning deep on its haunches — real
-        high steps (~40&nbsp;mm foot clearance in sim at 1×) at ~3× the
-        walk's pace, with a gentle weight-shift prance. Its calm cadence
-        survives friction ×0.6–1.4, 100&nbsp;ms latency and the whole
-        0.5–2× speed range in sim without falling; still, only two feet
-        hold the floor mid-beat, so treat it as the more advanced act on
-        hardware. Live speed is <b>auto-capped at 1.5×</b> as hardware
-        prudence.
-        Level-body 4-leg walking is geometrically impossible on this robot
-        (CoM lands ahead of the 4-foot polygon) — rearing back is what
-        makes it work. Sim-proven on the MuJoCo twin: walk margin never
-        below +34&nbsp;mm, peak ~2–2.6&nbsp;A, no falls anywhere in the
-        swept envelope (including 2×).<br>
-        <b>Floor:</b> flat + non-slip, ~0.4&nbsp;m clear ahead, no cords
-        under the body. <b>Watch it the whole run</b> — first hardware runs
-        at 0.5–0.75×, walk before trot. Stop / E-STOP abort instantly.</div>
-      <div class="btns" style="margin:12px 0">
-        <button id="qstart" style="font-size:16px;background:#1c3d2a;border-color:#2e7d47">🐕 Rear up &amp; walk</button>
-        <button id="qtrot" style="font-size:16px;background:#3d2a1c;border-color:#7d5a2e">🐎 Rear up &amp; trot</button>
-        <button id="qstop" class="danger">■ Stop</button>
-        <button id="qstand">Stand zero</button>
-      </div>
-      <label class="slab">Speed <span class="tag" style="color:#5fd08a;border-color:#2e7d47">LIVE</span>:
+	    <div class="pad">
+	      <h2>Quad mode — tip back, walk on four legs</h2>
+	      <div class="hint">Split quad workflow: <b>Rear up</b> tips back and
+	        holds with the front legs tucked; <b>Walk</b> and <b>Trot</b> then
+	        run forward or backward while reared; <b>Come down</b> untucks the
+	        fronts and returns to stand. Walk is the steadier one-foot sequence;
+	        trot uses diagonal pairs and is the more advanced hardware act.
+	        Live speed is capped at 1.5× for trot. Use a flat non-slip floor,
+	        clear slack around the body, and watch the robot the whole time.</div>
+	      <div class="btns" style="margin:12px 0">
+	        <button id="qrear" style="font-size:16px;background:#1c3d2a;border-color:#2e7d47">Rear up</button>
+	        <button id="qfwd" style="font-size:16px;background:#1c3d2a;border-color:#2e7d47">Walk forward</button>
+	        <button id="qback" style="font-size:16px;background:#1c3d2a;border-color:#2e7d47">Walk backward</button>
+	        <button id="qtrot" style="font-size:16px;background:#3d2a1c;border-color:#7d5a2e">Trot forward</button>
+	        <button id="qtrotback" style="font-size:16px;background:#3d2a1c;border-color:#7d5a2e">Trot backward</button>
+	        <button id="qdown">Come down</button>
+	        <button id="qstop" class="danger">■ Stop / hold</button>
+	        <button id="qstand">Stand zero</button>
+	      </div>
+	      <label class="slab">Speed <span class="tag" style="color:#5fd08a;border-color:#2e7d47">LIVE</span>:
         <span id="qspeedlab">0.75</span>×
         <span style="color:#8089a0;font-weight:400">(0.25× → 2× · drag while
         it runs — gait tuned at 1×, start hardware at 0.5–0.75×)</span></label>
       <input id="qspeed" type="range" min="25" max="200" value="75" step="5">
-      <label class="slab">Run for:
-        <span style="color:#8089a0;font-weight:400">(demo time · entry ~7.7 s
-        + exit ~7.5 s are inside it; the gait fills the middle)</span>
-        <select id="qdur">
-          <option value="20">20 s (rear up + a step + down)</option>
-          <option value="40" selected>40 s</option>
-          <option value="60">60 s</option>
-          <option value="120">2 min</option>
-        </select></label>
+	      <label class="slab">Safety timeout:
+	        <span style="color:#8089a0;font-weight:400">(walk/rear hold stop
+	        here if you do nothing; Come down ignores this)</span>
+	        <select id="qdur">
+	          <option value="30">30 s</option>
+	          <option value="60">60 s</option>
+	          <option value="120">2 min</option>
+	          <option value="300" selected>5 min</option>
+	        </select></label>
       <div class="hint">Status: <span id="qstatus" class="pill">idle</span>
         <span id="qstatusdetail" style="color:#8089a0"></span></div>
-      <div class="hint">Homes via the validated stand-up first (same as the
-        standing dances), τ900 + 3&nbsp;A stall guard while moving. Realized
-        pace at 1× (sim, hardware-speed servo profile): walk ~7&nbsp;mm/s,
-        trot ~20&nbsp;mm/s (feet pivot-slip under load, so commanded stride
-        only partly realizes). Auto-logs cmd vs encoder →
-        <code>logs/demo_quad_*.csv</code>.</div>
+	      <div class="hint">Rear up homes via the validated stand-up first.
+	        Walk/trot/down require the reared hold, τ900 + 3&nbsp;A stall guard
+	        while moving. Stop holds the current reared pose; Come down returns
+	        to stand. Auto-logs cmd vs encoder →
+	        <code>logs/demo_quad_*.csv</code>.</div>
     </div>
   </div>
   </div><!-- /view-quad -->

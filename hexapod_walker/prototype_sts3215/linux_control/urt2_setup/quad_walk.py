@@ -13,10 +13,13 @@ probe_quad_rear.py (08-18) measured 40–74 mm static margin and this
 exact gait walking +155 mm / 35 s on the MuJoCo twin with the support
 margin never below +34 mm, peak est. current 2.0 A, zero rocking.
 
-Timeline of one demo run (demo time; live speed scales it):
+Original full-demo timeline (demo time; live speed scales it):
   entry  6.5 s  shift body back → tuck fronts → pitch nose up 17°
   walk          continuous animal walk (fills the middle)
   exit   5.4 s  regather → pitch level → untuck fronts → plant
+
+The web UI also uses the same generator as separate phases: rear up and
+hold, walk-only forward/backward while reared, then come down on request.
 
 Everything is world-frame foot anchors + full 3D body-frame IK (the
 planted feet truly stay put, including under body pitch — this is what
@@ -138,7 +141,7 @@ class QuadRearWalk:
     """Pure pose function t → 18 joint degrees for the tip-back walk."""
 
     def __init__(self, base_deg: list[float], seconds: float,
-                 gait: str = "walk"):
+                 gait: str = "walk", direction: float = 1.0):
         import tripod_gait as TG
         self._TG = TG
         self.base = list(base_deg)
@@ -149,7 +152,7 @@ class QuadRearWalk:
         # front swing (otherwise the body tips and the foot slides).
         self.body_dx = g.get("body_dx", BODY_DX_M)
         self.pitch = g.get("pitch", PITCH_RAD)
-        self.stride = g["stride"]
+        self.stride = g["stride"] * (-1.0 if float(direction) < 0.0 else 1.0)
         self.lift = g["lift"]
         # Front pair (the splayed mids) may lift higher than the rears —
         # horse-like knee action; purely visual, slip is at the rears.
@@ -298,6 +301,37 @@ class QuadRearWalk:
         return self.roll * math.sin(2 * math.pi * tw / self.period
                                     + self.roll_phase)
 
+    def _tucked_fronts(self) -> list[float]:
+        tuckq = list(self.base)
+        for leg in FRONT_LEGS:
+            tuckq[3 * leg: 3 * leg + 3] = TUCK_DEG
+        return tuckq
+
+    def _support_feet(self) -> dict[int, tuple[float, float, float]]:
+        return {leg: tuple(self.anchors[leg]) for leg in SUPPORT_LEGS}
+
+    def reared_pose(self) -> list[float]:
+        return self._solve(self.body_dx, 0.0, self.pitch,
+                           self._support_feet(), self._tucked_fronts())
+
+    def entry_hold_pose_at(self, t: float) -> list[float]:
+        """Entry choreography, then hold the reared stance indefinitely."""
+        t = max(0.0, float(t))
+        if t < ENTRY_TOTAL_S:
+            return self.pose_at(t)
+        return self.walk_only_pose_at(t - ENTRY_TOTAL_S)
+
+    def walk_only_pose_at(self, t: float) -> list[float]:
+        """Walk while already reared; no entry or automatic exit."""
+        tw = max(0.0, float(t))
+        bx, by = self._walk_body(tw)
+        return self._solve(bx, by, self.pitch, self._walk_feet(tw),
+                           self._tucked_fronts(), roll=self._walk_roll(tw))
+
+    def exit_pose_at(self, t: float) -> list[float]:
+        """Come down from a stable reared hold back to the plant stance."""
+        return self._exit_pose_at(max(0.0, float(t)), 0.0)
+
     # -- the pose function ---------------------------------------------------
 
     def pose_at(self, t: float) -> list[float]:
@@ -353,9 +387,18 @@ class QuadRearWalk:
             return self._solve(bx, by, self.pitch, self._walk_feet(tw),
                                tuckq, roll=self._walk_roll(tw))
 
-        # ---- exit (reverse of the entry, ending at the plant pose) ----
+        return self._exit_pose_at(t - self.t_exit, tw_end)
+
+    def _exit_pose_at(self, tx: float, tw_end: float) -> list[float]:
+        """Exit choreography ending at the plant pose.
+
+        ``tw_end`` is the walk-time whose support-foot layout should be
+        regathered first. For the standalone come-down command this is 0:
+        a stable all-four-support reared stance.
+        """
+        tx = max(0.0, float(tx))
+        tuckq = self._tucked_fronts()
         x1, x2, x3, x4, x5 = EXIT_S
-        tx = t - self.t_exit
         bx_end = self.body_dx + (self.stride / self.period) * tw_end
         feet_end = self._walk_feet(tw_end, freeze_swing=True)
         # Final body center xf: where the REAR feet already sit at their
@@ -420,7 +463,15 @@ class QuadRearWalk:
 
 
 def make_quad_walk_pose_fn(base_deg: list[float], seconds: float,
-                           gait: str = "walk"):
-    """Duration-aware factory: the exit is scripted into the last
-    ~7.5 s of ``seconds`` so the run ends back at the plant pose."""
-    return QuadRearWalk(base_deg, seconds, gait=gait).pose_at
+                           gait: str = "walk", direction: float = 1.0,
+                           phase: str = "full"):
+    """Duration-aware factory for full or split quad-mode phases."""
+    q = QuadRearWalk(base_deg, seconds, gait=gait, direction=direction)
+    phase = (phase or "full").strip().lower()
+    if phase in ("rear", "entry", "entry_hold", "hold"):
+        return q.entry_hold_pose_at
+    if phase in ("walk", "drive"):
+        return q.walk_only_pose_at
+    if phase in ("down", "exit"):
+        return q.exit_pose_at
+    return q.pose_at

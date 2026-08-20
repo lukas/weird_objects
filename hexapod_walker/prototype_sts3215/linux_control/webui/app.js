@@ -2654,16 +2654,21 @@ $('qspeed').oninput = ()=>{
 async function quadRun(name, label){
   if(needArm()) return;
   const sp = quadSpeed();
-  const body = {name, speed:sp,
-                seconds:Math.max(20, Math.min(300, +($('qdur').value)||40))};
+  const timeout = Math.max(30, Math.min(300, +($('qdur').value)||300));
+  const body = {name, speed:sp};
+  if(name !== 'quad_down') body.seconds = timeout;
   showSent(label+' request sent…');
   const res = await fetch('/api/demo',{method:'POST',
     headers:{'Content-Type':'application/json'},
     body: JSON.stringify(body)});
   const j = await res.json();
-  if(j.ok) showSent(requestReceiptLine(j, label+' @ '+sp.toFixed(2)
-                    +'× for '+body.seconds+'s'
-                    +(j.home?' (via '+j.home+' zero)':'')));
+  if(j.ok){
+    let msg = label+' @ '+sp.toFixed(2)+'×';
+    if(name === 'quad_down') msg = label;
+    else msg += ' · timeout '+body.seconds+'s';
+    if(j.home) msg += ' (via '+j.home+')';
+    showSent(requestReceiptLine(j, msg));
+  }
   else showSent(requestReceiptLine(j, label)+'; failed: '
     +(j.error||'unknown'), true);
   if(j.demo) paintDemoStatus(j.demo);
@@ -2671,8 +2676,12 @@ async function quadRun(name, label){
   startDemoPoll();
   refreshRobotState(true);
 }
-$('qstart').onclick = ()=> quadRun('quad_walk', 'quad walk');
-$('qtrot').onclick = ()=> quadRun('quad_trot', 'quad trot');
+$('qrear').onclick = ()=> quadRun('quad_rear', 'quad rear up');
+$('qfwd').onclick = ()=> quadRun('quad_walk', 'quad walk forward');
+$('qback').onclick = ()=> quadRun('quad_walk_back', 'quad walk backward');
+$('qtrot').onclick = ()=> quadRun('quad_trot', 'quad trot forward');
+$('qtrotback').onclick = ()=> quadRun('quad_trot_back', 'quad trot backward');
+$('qdown').onclick = ()=> quadRun('quad_down', 'quad come down');
 $('qstop').onclick = async ()=>{
   showSent('quad stop request sent…');
   const r = await fetch('/api/demo/stop',{method:'POST'});

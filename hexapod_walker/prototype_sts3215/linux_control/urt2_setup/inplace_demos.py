@@ -2005,24 +2005,53 @@ def make_stand_pose_fn(name: str):
 # Streamed demos (live speed): standing dances + the air wiggles.
 STAND_STREAM_DEMOS = ("stand_sway", "stand_bounce", "stand_twist",
                       "stand_wave", "stand_ripple")
-# Quad demos: weight-bearing like the stand dances (τ900 + stall guard,
-# home = stand) but grouped on their own web tab. The pose function is
-# DURATION-AWARE: the exit choreography (pitch level, untuck fronts)
-# is scripted into the last ~5.4 s, so the run ends back at the plant.
-QUAD_STREAM_DEMOS = ("quad_walk", "quad_trot")
+# Quad mode: weight-bearing like the stand dances (τ900 + stall guard,
+# home = stand for rear-up, then "quad" for walk/down). These are split
+# into operator-sized primitives: rear up and hold; walk/trot forward or
+# backward while reared; come down on request.
+QUAD_REARED_END_DEMOS = (
+    "quad_rear", "quad_walk", "quad_walk_back", "quad_trot", "quad_trot_back")
+QUAD_REQUIRES_REAR = (
+    "quad_walk", "quad_walk_back", "quad_trot", "quad_trot_back", "quad_down")
+QUAD_STREAM_DEMOS = (*QUAD_REARED_END_DEMOS, "quad_down")
 
 
-def _make_quad_walk_fn(seconds: float, gait: str = "walk"):
+def _make_quad_fn(seconds: float, *, gait: str = "walk",
+                  direction: float = 1.0, phase: str = "walk"):
     from quad_walk import make_quad_walk_pose_fn
-    return make_quad_walk_pose_fn(_stand_zero_pose(), seconds, gait=gait)
+    return make_quad_walk_pose_fn(
+        _stand_zero_pose(), seconds, gait=gait, direction=direction,
+        phase=phase)
+
+
+def _make_quad_rear_fn(seconds: float):
+    return _make_quad_fn(seconds, gait="rear", phase="rear")
+
+
+def _make_quad_walk_fn(seconds: float):
+    return _make_quad_fn(seconds, gait="walk", phase="walk")
+
+
+def _make_quad_walk_back_fn(seconds: float):
+    return _make_quad_fn(seconds, gait="walk", direction=-1.0, phase="walk")
 
 
 def _make_quad_trot_fn(seconds: float):
-    return _make_quad_walk_fn(seconds, gait="trot")
+    return _make_quad_fn(seconds, gait="trot", phase="walk")
 
 
-_make_quad_walk_fn.duration_aware = True
-_make_quad_trot_fn.duration_aware = True
+def _make_quad_trot_back_fn(seconds: float):
+    return _make_quad_fn(seconds, gait="trot", direction=-1.0, phase="walk")
+
+
+def _make_quad_down_fn(seconds: float):
+    return _make_quad_fn(seconds, gait="rear", phase="down")
+
+
+for _quad_factory in (
+        _make_quad_rear_fn, _make_quad_walk_fn, _make_quad_walk_back_fn,
+        _make_quad_trot_fn, _make_quad_trot_back_fn, _make_quad_down_fn):
+    _quad_factory.duration_aware = True
 
 STREAM_POSE_FACTORIES = {
     "shimmy": lambda: pose_shimmy,
@@ -2031,8 +2060,12 @@ STREAM_POSE_FACTORIES = {
     "conductor": lambda: pose_conductor,
     "twinkle": make_pose_twinkle,
     **{n: (lambda n=n: make_stand_pose_fn(n)) for n in STAND_STREAM_DEMOS},
+    "quad_rear": _make_quad_rear_fn,
     "quad_walk": _make_quad_walk_fn,
+    "quad_walk_back": _make_quad_walk_back_fn,
     "quad_trot": _make_quad_trot_fn,
+    "quad_trot_back": _make_quad_trot_back_fn,
+    "quad_down": _make_quad_down_fn,
 }
 # Default demo-time duration for standing dances (CLI; web sends its own).
 STAND_STREAM_SECONDS = 20.0
@@ -2062,7 +2095,7 @@ def run_streamed_demo(bus: FeetechBus, name: str, *,
     if speed_fn is None:
         spd0 = _clamp_live_speed(speed)
         speed_fn = lambda: spd0  # noqa: E731
-    if name == "quad_trot":
+    if name in ("quad_trot", "quad_trot_back"):
         # calm trot survives 0.5-2x in sim; the cap is hardware
         # prudence for the two-foot support phases.
         from quad_walk import GAITS
@@ -2071,7 +2104,10 @@ def run_streamed_demo(bus: FeetechBus, name: str, *,
         speed_fn = lambda: min(cap, base_fn())  # noqa: E731
     quad = name in QUAD_STREAM_DEMOS
     standing = name in STAND_STREAM_DEMOS or quad
-    if seconds is None:
+    if name == "quad_down":
+        from quad_walk import EXIT_TOTAL_S
+        dur = EXIT_TOTAL_S
+    elif seconds is None:
         dur = (QUAD_STREAM_SECONDS if quad
                else STAND_STREAM_SECONDS if standing
                else AIR_DEMO_SECONDS.get(name, 7.0))
@@ -2079,9 +2115,15 @@ def run_streamed_demo(bus: FeetechBus, name: str, *,
         dur = float(seconds)
     dur = max(2.0, min(STREAM_SECONDS_MAX, dur))
     if quad:
-        # entry + exit choreography needs room (plus >= one gait cycle).
-        from quad_walk import MIN_SECONDS
-        dur = max(dur, MIN_SECONDS)
+        from quad_walk import ENTRY_TOTAL_S, MIN_SECONDS
+        if name == "quad_rear":
+            # Entry choreography needs room before the hold phase.
+            dur = max(dur, ENTRY_TOTAL_S + 0.5)
+        elif name == "quad_down":
+            pass
+        elif name not in QUAD_REQUIRES_REAR:
+            # Legacy/full timelines need entry + exit + >= one gait cycle.
+            dur = max(dur, MIN_SECONDS)
 
     _enable_torque(bus, live)
     if standing:
@@ -2130,8 +2172,11 @@ def run_streamed_demo(bus: FeetechBus, name: str, *,
                    f"{tracker.peak_joint} — stall-fight, holding here")
             print(f"  {msg}")
             return msg
-        # Natural finish: settle back onto the base pose.
+        # Natural finish. Split quad-mode walk/rear commands intentionally
+        # keep holding the reared stance; quad_down is the explicit exit.
         _set_torque_limit(bus, live, 1000)
+        if name in QUAD_REARED_END_DEMOS:
+            return "done"
         if standing:
             if not _soft_glide(bus, _stand_zero_pose(), live, 0.9, check,
                                max_speed=600, max_acc=60):
@@ -3721,10 +3766,12 @@ DEMOS = {
     "walk_spin": ("[7 walk] in-place turn (tripod), then stand", None),
     "walk_oval": ("[7 walk] forward → spin → reverse → stand", None),
     # --- quad mode (own web tab: tip back, walk on four legs) -------------
-    "quad_walk": ("[8 quad] TIP BACK — rear up on 4 legs, front paws in "
-                  "the air, animal walk forward, sit back down", None),
-    "quad_trot": ("[8 quad] TIP BACK + TROT — diagonal leg pairs like a "
-                  "horse, ~3x the walk's pace, sit back down", None),
+    "quad_rear": ("[8 quad] REAR UP — tip back on 4 legs and hold", None),
+    "quad_walk": ("[8 quad] WALK FORWARD — animal walk while reared", None),
+    "quad_walk_back": ("[8 quad] WALK BACKWARD — reverse animal walk while reared", None),
+    "quad_trot": ("[8 quad] TROT FORWARD — diagonal pairs while reared", None),
+    "quad_trot_back": ("[8 quad] TROT BACKWARD — reverse diagonal pairs while reared", None),
+    "quad_down": ("[8 quad] COME DOWN — untuck fronts and return to stand", None),
 }
 
 # Standalone planted acts (not the full rise_show script).
@@ -5437,7 +5484,8 @@ def run_demo(bus: FeetechBus, name: str, *,
              log_path: Path | None = None,
              rise_high: bool = False,
              rise_fast: bool = False,
-             standup_fn=None) -> str:
+             standup_fn=None,
+             quad_reared: bool = False) -> str:
     """Run one demo.  Returns ``done`` / ``aborted`` / ``skipped``.
 
     ``speed``: 1.0 = nominal, 2.0 = twice as fast, 0.5 = half speed.
@@ -5462,6 +5510,9 @@ def run_demo(bus: FeetechBus, name: str, *,
         print(f"  stream: legacy waypoints ({1.0 / DT:.1f} Hz)")
     sc = _speed_scale(speed)
     spd = _clamp_demo_speed(speed)
+    if name in QUAD_REQUIRES_REAR and not quad_reared:
+        print("  quad: rear up first, then walk/trot/down from the web Quad tab")
+        return "skipped"
     if name in STREAM_POSE_FACTORIES:
         # Streamed engine (standing dances + air wiggles): host-owned
         # timing, live tempo — the stand-up lab technique.

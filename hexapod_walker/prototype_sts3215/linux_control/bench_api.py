@@ -149,6 +149,9 @@ class BenchAPI:
         # Live drive session (rl_policy.DriveCommand) — set while an
         # rl_drive worker owns the demo slot, None otherwise.
         self._drive_cmd = None
+        # Quad-mode session state. Split quad controls require the operator
+        # to rear up first; walk/trot/down then run from that held stance.
+        self._quad_reared = False
 
     def start_status_display(self) -> None:
         """Mirror web status + Σ motor current onto the MCU ST7789."""
@@ -687,6 +690,14 @@ class BenchAPI:
         ``stopping`` forever."""
         prev = self._demo_name or ""
         ok = self._preempt_demo_thread(reason=prev or "stop", timeout=4.0)
+        try:
+            from inplace_demos import QUAD_REARED_END_DEMOS
+            if ok and prev in QUAD_REARED_END_DEMOS:
+                self._quad_reared = True
+            elif prev == "quad_down":
+                self._quad_reared = False
+        except ImportError:
+            pass
         with self._lock:
             if self._demo_status in ("stopping",):
                 self._demo_status = "aborted"
@@ -713,6 +724,7 @@ class BenchAPI:
            no matter what the dying worker wrote in between.
         """
         self._demo_abort.set()
+        self._quad_reared = False
         with self._lock:
             self._demo_gen += 1
             if self._demo_thread and self._demo_thread.is_alive():
@@ -758,7 +770,9 @@ class BenchAPI:
                  torque: int | None = None, softness: float = 1.0,
                  seconds: float | None = None) -> dict:
         try:
-            from inplace_demos import DEMOS, run_demo
+            from inplace_demos import (
+                DEMOS, QUAD_REQUIRES_REAR, QUAD_REARED_END_DEMOS,
+                QUAD_STREAM_DEMOS, run_demo)
         except ImportError as e:
             return {"ok": False, "error": f"inplace_demos missing: {e}"}
         try:
@@ -806,8 +820,19 @@ class BenchAPI:
             if torque is not None:
                 torque = max(150, min(1000, torque))
 
+        quad_any = name in QUAD_STREAM_DEMOS
+        quad_requires_rear = name in QUAD_REQUIRES_REAR
+        quad_current = bool(
+            self._demo_thread and self._demo_thread.is_alive()
+            and self._demo_name in QUAD_STREAM_DEMOS)
+        if quad_requires_rear and not (self._quad_reared or quad_current):
+            return {"ok": False,
+                    "error": "quad: rear up first, then walk/trot/down",
+                    "demo": self.demo_state(), "robot": self.robot_state()}
+
         # Uploaded scripts start AND end at sit zero (like air demos).
         home = ("sit" if (name in AIR_DEMO_NAMES or script is not None)
+                else "quad" if quad_requires_rear
                 else "stand")
         switched_from = None
         if self._demo_thread and self._demo_thread.is_alive():
@@ -868,18 +893,24 @@ class BenchAPI:
                 # (collision-aware zero, validated plant stand-up); if
                 # that fails the robot is already stopped/limped and the
                 # demo must NOT run.
-                with self._lock:
-                    self._demo_status = f"homing {home}"
-                self._set_activity("zeroing", f"{home} zero → {name}")
-
-                def _home_prog(p: dict) -> None:
+                if home == "quad":
                     with self._lock:
-                        self._demo_status = str(p.get("msg")
-                                                or f"homing {home}")
+                        self._demo_status = "using reared stance"
+                    self._set_activity("demo", f"reared → {name}")
+                    res_home = {"ok": True}
+                else:
+                    with self._lock:
+                        self._demo_status = f"homing {home}"
+                    self._set_activity("zeroing", f"{home} zero → {name}")
 
-                res_home = self._acquire_start(
-                    "zero" if home == "sit" else "stand",
-                    gen=gen, on_progress=_home_prog)
+                    def _home_prog(p: dict) -> None:
+                        with self._lock:
+                            self._demo_status = str(p.get("msg")
+                                                    or f"homing {home}")
+
+                    res_home = self._acquire_start(
+                        "zero" if home == "sit" else "stand",
+                        gen=gen, on_progress=_home_prog)
                 if gen != self._demo_gen:
                     return
                 if self._demo_abort.is_set():
@@ -945,6 +976,8 @@ class BenchAPI:
                                 "dance_steeple", "dance_wild"):
                         extra["standup_fn"] = self._step_standup_fn(
                             gen=gen, speed=speed)
+                    if quad_requires_rear:
+                        extra["quad_reared"] = True
                     status = run_demo(
                         d.bus, name,
                         speed=speed,
@@ -1007,17 +1040,41 @@ class BenchAPI:
                     with self._lock:
                         self._demo_status = st
                 # Planted / rise demos finish at stand zero — keep re-holding.
-                # Uploaded scripts end at sit zero like air demos.
-                if (st == "done" and name not in AIR_DEMO_NAMES
-                        and script is None):
-                    self._enter_stand_hold()
-                else:
+                # Uploaded scripts end at sit zero like air demos. Split quad
+                # mode keeps the reared pose until the explicit quad_down.
+                if st == "done" and name in QUAD_REARED_END_DEMOS:
+                    self._quad_reared = True
                     with d._lock:
                         if d.mode == "demo":
                             d.mode = "idle"
-                self._set_activity(
-                    "armed" if d.armed else "limp",
-                    st if st in ("done", "aborted", "skipped") else st)
+                        d.status = "quad reared hold"
+                    self._set_activity(
+                        "armed" if d.armed else "limp", "quad reared hold")
+                elif st == "aborted" and quad_any:
+                    self._quad_reared = name != "quad_down"
+                    with d._lock:
+                        if d.mode == "demo":
+                            d.mode = "idle"
+                    self._set_activity(
+                        "armed" if d.armed else "limp",
+                        "quad hold" if self._quad_reared else "aborted")
+                elif st == "done" and name == "quad_down":
+                    self._quad_reared = False
+                    self._enter_stand_hold()
+                    self._set_activity("armed", "quad down · at stand zero")
+                elif (st == "done" and name not in AIR_DEMO_NAMES
+                        and script is None):
+                    self._quad_reared = False
+                    self._enter_stand_hold()
+                else:
+                    if name in AIR_DEMO_NAMES or script is not None:
+                        self._quad_reared = False
+                    with d._lock:
+                        if d.mode == "demo":
+                            d.mode = "idle"
+                    self._set_activity(
+                        "armed" if d.armed else "limp",
+                        st if st in ("done", "aborted", "skipped") else st)
 
         self._demo_thread = threading.Thread(target=_worker, daemon=True)
         self._demo_thread.start()
@@ -1174,6 +1231,7 @@ class BenchAPI:
                 return {"ok": False,
                         "error": "previous demo did not stop — try Stop / E-STOP",
                         "robot": self.robot_state()}
+        self._quad_reared = False
 
         # Standard stand/sit = the validated tuck keyframes at 10x
         # (operator 08-10). When the robot sits at the tuck start

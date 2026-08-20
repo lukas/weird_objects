@@ -38,6 +38,12 @@ from .play import (
     scan_policies,
 )
 
+QUAD_REARED_END_DEMOS = (
+    "quad_rear", "quad_walk", "quad_walk_back", "quad_trot", "quad_trot_back")
+QUAD_REQUIRES_REAR = (
+    "quad_walk", "quad_walk_back", "quad_trot", "quad_trot_back", "quad_down")
+QUAD_STREAM_DEMOS = (*QUAD_REARED_END_DEMOS, "quad_down")
+
 
 @dataclass
 class SimWebConfig:
@@ -100,6 +106,7 @@ class SimWebSession:
         self.demo_write_speed_deg_s: float | None = None
         self.demo_write_acc_units: float | None = None
         self.demo_last_target_deg: list[float] | None = None
+        self.quad_reared = False
         self.pose_hold_q: np.ndarray | None = None
         self.command_log: list[tuple[float, str, str | None]] = []
         self.last_command = ""
@@ -422,6 +429,7 @@ class SimWebSession:
 
     def _do_reset(self, start: str, h_goal: float, note: str) -> None:
         self._stop_demo_locked(status="idle", clear_name=True)
+        self.quad_reared = False
         self.pose_hold_q = None
         self.auto = None
         self.downed = False
@@ -489,7 +497,7 @@ class SimWebSession:
 
     def _demo_speed_eff_locked(self) -> float:
         speed = float(self.demo_speed_live)
-        if self.demo_name == "quad_trot":
+        if self.demo_name in ("quad_trot", "quad_trot_back"):
             try:
                 import quad_walk as QW
                 speed = min(speed, float(QW.GAITS["trot"].get("speed_cap", 2.0)))
@@ -699,6 +707,7 @@ class SimWebSession:
                 and (max_lag is None or float(max_lag) <= 12.0))
             self.sitting = bool(ok)
             self.downed = not ok
+            self.quad_reared = False
             self.q_sit = self._q_now()
             self.pose_hold_q = self.q_sit.copy()
             self.msg = (f"{name} done - sitting" if ok
@@ -708,6 +717,7 @@ class SimWebSession:
             if ok:
                 self.sitting = False
                 self.downed = False
+                self.quad_reared = False
                 self.q_plant = self._q_now()
                 self.z_plant = self._chassis_z()
                 self.pose_hold_q = self.q_plant.copy()
@@ -721,6 +731,10 @@ class SimWebSession:
                 self.msg = (
                     f"{name} command ended low/tilted - did not stand")
         else:
+            self.sitting = False
+            self.downed = False
+            self.quad_reared = name in QUAD_REARED_END_DEMOS
+            self.pose_hold_q = self._q_now().copy()
             self.msg = f"{name} done - holding"
         self.demo_status = "done" if ok else "failed"
         self.demo_end_home = ""
@@ -1197,10 +1211,24 @@ class SimWebSession:
     def list_demos(self) -> list[dict[str, Any]]:
         out = [
             {
+                "name": "quad_rear",
+                "title": "[8 quad] REAR UP - tip back on 4 legs and hold",
+                "air": False,
+                "group": "quad",
+                "live_speed": True,
+                "has_size": False,
+            },
+            {
                 "name": "quad_walk",
-                "title": ("[8 quad] TIP BACK - rear up on 4 legs, "
-                          "front paws in the air, animal walk forward, "
-                          "sit back down"),
+                "title": "[8 quad] WALK FORWARD - animal walk while reared",
+                "air": False,
+                "group": "quad",
+                "live_speed": True,
+                "has_size": False,
+            },
+            {
+                "name": "quad_walk_back",
+                "title": "[8 quad] WALK BACKWARD - reverse animal walk while reared",
                 "air": False,
                 "group": "quad",
                 "live_speed": True,
@@ -1208,8 +1236,23 @@ class SimWebSession:
             },
             {
                 "name": "quad_trot",
-                "title": ("[8 quad] TIP BACK + TROT - diagonal leg pairs, "
-                          "then sit back down"),
+                "title": "[8 quad] TROT FORWARD - diagonal pairs while reared",
+                "air": False,
+                "group": "quad",
+                "live_speed": True,
+                "has_size": False,
+            },
+            {
+                "name": "quad_trot_back",
+                "title": "[8 quad] TROT BACKWARD - reverse diagonal pairs while reared",
+                "air": False,
+                "group": "quad",
+                "live_speed": True,
+                "has_size": False,
+            },
+            {
+                "name": "quad_down",
+                "title": "[8 quad] COME DOWN - untuck fronts and return to stand",
                 "air": False,
                 "group": "quad",
                 "live_speed": True,
@@ -1434,7 +1477,7 @@ class SimWebSession:
         if errs:
             return {"ok": False, "error": "; ".join(errs[:5])}
         name = script["name"]
-        if name in ("quad_walk", "quad_trot"):
+        if name in QUAD_STREAM_DEMOS:
             return {"ok": False, "error": f"{name!r} is a built-in demo name"}
         try:
             self._dance_upload_dir.mkdir(parents=True, exist_ok=True)
@@ -1541,7 +1584,7 @@ class SimWebSession:
                  torque: int | None = None, softness: float = 1.0,
                  seconds: float | None = None) -> dict[str, Any]:
         name = (name or "").strip()
-        if name not in {"quad_walk", "quad_trot"}:
+        if name not in QUAD_STREAM_DEMOS:
             script = self.get_dance_script(name)
             if script is None:
                 return {"ok": False,
@@ -1558,28 +1601,57 @@ class SimWebSession:
                 return {"ok": False, "error": f"quad_walk missing: {e}"}
 
             speed = self._clamp_float(speed, 1.0, 0.25, 3.0)
-            dur = self._clamp_float(seconds, 40.0, 2.0, 300.0)
-            dur = max(dur, float(QW.MIN_SECONDS))
+            if name == "quad_down":
+                dur = float(QW.EXIT_TOTAL_S)
+            else:
+                default_dur = 300.0 if name in QUAD_REQUIRES_REAR else 40.0
+                dur = self._clamp_float(seconds, default_dur, 2.0, 300.0)
+                if name == "quad_rear":
+                    dur = max(dur, float(QW.ENTRY_TOTAL_S) + 0.5)
             switched_from = self.demo_name if self._demo_running() else None
+            quad_current = self._demo_running() and self.demo_name in QUAD_STREAM_DEMOS
+            if name in QUAD_REQUIRES_REAR and not (self.quad_reared or quad_current):
+                return {
+                    "ok": False,
+                    "error": "quad: rear up first, then walk/trot/down",
+                    "demo": self.demo_state(),
+                    "robot": self.robot_state(),
+                }
             self._record_command(
                 f"/api/demo name={name} speed={speed:.2f} seconds={dur:.1f}")
 
-            self._do_reset("plant", 0.0, f"stand zero -> {name}")
+            if name == "quad_rear":
+                self._do_reset("plant", 0.0, f"stand zero -> {name}")
+            else:
+                if quad_current:
+                    self._stop_demo_locked(status="aborted")
+                self.pose_hold_q = None
+                self.drive_active = False
+                self.timed_walk_until = None
+                self.traj.vx = self.traj.vy = 0.0
+                self.auto = None
+                self.gait = None
+                self.om_cmd = 0.0
             self._set_demo_safety(True)
             base_deg = [math.degrees(v) for v in self.q_plant]
-            gait = "trot" if name == "quad_trot" else "walk"
+            gait = "trot" if name in ("quad_trot", "quad_trot_back") else "walk"
+            if name in ("quad_rear", "quad_down"):
+                gait = "rear"
+            phase = "rear" if name == "quad_rear" else "down" if name == "quad_down" else "walk"
+            direction = -1.0 if name in ("quad_walk_back", "quad_trot_back") else 1.0
             self.demo_pose_fn = QW.make_quad_walk_pose_fn(
-                base_deg, dur, gait=gait)
+                base_deg, dur, gait=gait, direction=direction, phase=phase)
             self.demo_t = 0.0
             self.demo_duration = dur
             self.demo_started_sim_t = self.sim_t
+            self.demo_end_home = "stand" if name == "quad_down" else ""
             self.demo_name = name
             self.demo_status = f"running @ {speed:.2f}x"
             self.demo_speed_live = speed
             self.demo_telemetry = None
             params: dict[str, Any] = {
                 "speed": speed,
-                "home": "stand",
+                "home": "stand" if name == "quad_rear" else "quad",
                 "seconds": dur,
             }
             if switched_from:
@@ -1596,7 +1668,7 @@ class SimWebSession:
             return {
                 "ok": True,
                 "params": dict(params),
-                "home": "stand",
+                "home": params["home"],
                 "switched": bool(switched_from),
                 "switched_from": switched_from,
                 "demo": self.demo_state(),
@@ -1607,7 +1679,13 @@ class SimWebSession:
         with self.lock:
             self._record_command("/api/demo/stop")
             was_running = self._demo_running()
+            prev = self.demo_name or ""
             self._stop_demo_locked(status="aborted" if was_running else "idle")
+            if was_running and prev in QUAD_REARED_END_DEMOS:
+                self.quad_reared = True
+                self.pose_hold_q = self._q_now().copy()
+            elif prev == "quad_down":
+                self.quad_reared = False
             self.drive_active = False
             self.timed_walk_until = None
             self.traj.vx = self.traj.vy = 0.0
@@ -1980,6 +2058,7 @@ class SimWebSession:
                 self._do_reset("plant", 0.0, "reset plant")
             elif head in {"X", "DISARM", "RELAX"}:
                 self.armed = False
+                self.quad_reared = False
                 self.rl_stop()
                 self.msg = "sim stopped"
             elif head == "SETTLE":
