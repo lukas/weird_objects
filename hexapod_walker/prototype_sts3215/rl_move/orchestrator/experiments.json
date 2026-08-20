@@ -105883,7 +105883,7 @@
       "reward.k_walk_heading=2.0"
     ],
     "created": "2026-08-20T01:42:38+00:00",
-    "status": "RUNNING",
+    "status": "FAILED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -105926,7 +105926,9 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-dep-bcgait1-hard1-steer7-middose1 since 2026-08-20T02:20:57"
+    "triage": "done",
+    "verdict": "Fails its own pre-registered gate at the funding question: pinned-speed panel (0.04/0.06/0.08/0.10 m/s, DR-0) is NOT monotone-in-band -- prog_ratio 1.65/1.25/1.02/0.85 det (needs 0.85-1.15 at EVERY speed), 1.25/1.00/0.85/0.75 sto (needs 0.8-1.2) -- one weakly-scaling cadence (~0.066->0.085 m/s achieved across a 0.04-0.10 commanded range), not real speed control. Stress-mix retention (stage0, DR0+DR0.35): zero falls, gait_valid 6/6, tall six-leg gait on video (no exploit), but slip 1.6-5.1/m (bar <=1.8/2.0), direction_err 24-67deg, roll mostly class=leaning (never fully settles, though tail only 0.7-5.2deg, no danger). Matched-parent control (steer3-yawm1 zero-shot under the identical 750/40 profile) is WORSE on every axis (slip 2.0-18.1/m, dir_err 40-85deg) -- so the 20M of middose training genuinely improved tracking/slip over the untrained-under-profile parent, same story as the fastprof1 2M canary, but even at the full 20M acquisition budget and half the full dose it still does not cross the pre-registered band. Per its own pre-registration: ANY miss = STOP + report, no autonomous dose interpolation.",
+    "hardware_ready": false
   },
   {
     "run": "cw-dep-bcgait1-hard1-steer6-fasttrack1",

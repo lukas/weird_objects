@@ -24,6 +24,30 @@ unresolved blockers between the robot and reliable joystick control.
 
 ## Now
 
+- **08-20 ~03:4x: `steer7-middose1` (750/40 dose) VERDICTED — FAIL,
+  and the profile-headroom fork is now FULLY closed (both doses in).**
+  Its own funding-question bar misses: the pinned-speed panel
+  (0.04/0.06/0.08/0.10 m/s, DR-0) is NOT monotone-in-band —
+  prog_ratio 1.65/1.25/1.02/0.85 det (needs 0.85-1.15 every row),
+  1.25/1.00/0.85/0.75 sto (needs 0.8-1.2) — the policy still rides
+  one weakly-scaling cadence (~0.066→0.085 m/s achieved across the
+  full 0.04-0.10 command range) instead of real speed control.
+  Stress-mix retention: zero falls, gait_valid 6/6, genuinely tall
+  six-leg gait on video (no exploit), but slip 1.6-5.1/m (bar
+  ≤1.8/2.0) and direction_err 24-67°. Mandatory matched-parent
+  control (steer3-yawm1 zero-shot under the identical 750/40 profile)
+  is WORSE on every axis (slip 2.0-18.1/m, dir_err 40-85°) — so 20M
+  of training genuinely improved tracking/slip over the untrained-
+  under-profile parent (same shape as the fastprof1 2M canary), it
+  just didn't reach the band even at half the full dose. Per
+  pre-registration: STOP, no autonomous dose interpolation. Combined
+  with steer6's FAIL below: **neither funded dose delivers a
+  deployable fast gait** — steer6 gets speed but not direction,
+  steer7 gets better-than-parent tracking but not in-band tracking.
+  Next call (third dose / longer budget / park the sub-line) is
+  `[operator]`; no autonomous continuation. Download answer
+  unchanged. Detail: W&B `wadldlj2`, `rl_docs/runs/
+  cw-dep-bcgait1-hard1-steer7-middose1.md`.
 - **08-20 ~03:2x: `steer6-fasttrack1` (full 1500/80 dose) VERDICTED —
   ACQUISITION FAIL, the predict-if-false branch.** After the full 20M
   budget: direction/heading error stayed pinned 41-57° (vs the
