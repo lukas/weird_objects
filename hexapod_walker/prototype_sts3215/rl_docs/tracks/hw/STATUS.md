@@ -24,6 +24,21 @@ unresolved blockers between the robot and reliable joystick control.
 
 ## Now
 
+- **08-20 ~01:5x (operator kick): the profile-headroom fork is
+  ANSWERED — both doses funded and RUNNING (operator chat ~01:4x
+  UTC).** `cw-dep-bcgait1-hard1-steer6-fasttrack1` (full 1500/80,
+  train-0, W&B `35z4dw4n`) + `cw-dep-bcgait1-hard1-steer7-middose1`
+  (750/40, train-1, W&B `wadldlj2`), 20M acquisition each on the
+  FAST_PROFILE.md recommended contract (`walk_obs_body_vel=3`,
+  `k_walk_overspeed=2.0`/tol 0.10, `k_walk_heading=2.0`, 0.05–0.10
+  m/s band), warm from steer3-yawm1, seed 12; only the three dose
+  keys differ between the arms. Pre-registered gates in the ledger
+  (pinned-speed panel monotone + slip/tangle retention bars); STOP +
+  report on any miss, no autonomous dose interpolation. Note: the
+  earlier REFUSED ledger stubs under both run names were phase-cap
+  noise from the canary→acquisition respec, not failed launches.
+  Bench items 1–2 (profile restart semantics, 1500/80-under-load
+  characterization) stay parked until the robot is back.
 - **08-20 ~01:xx (idle-kick, fb_20260820T000059): fast-profile prep
   item 3 LANDED — the fast-gait fork is now fully priced and
   tool-ready, everything left on it is the operator's (full record:
