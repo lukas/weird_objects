@@ -194,8 +194,14 @@ def make_env(seed: int, stack: dict, dr_scale: float = 0.0,
     # run's exact ledger cfg on top of the nearest base stack).
     for (sec, leaf), val in extra_sets:
         cfg.setdefault(sec, {})[leaf] = val
+    # from_cfg(CFG), not from_cfg(None): the probe must honor --set
+    # bus.* overrides (servo_params selection + the 08-19
+    # servo_vel_max_counts_s ceiling lift) or a raised-profile probe
+    # silently measures the legacy clamp — the exact "dropped cfg
+    # package voided a verdict" failure class. Bit-exact when no bus
+    # keys are set (sel="" -> same fitted load, override absent -> OFF).
     env = SimHexapodJointWalkEnv(
-        params=SimServoParams.from_cfg(None), randomize=dr_scale > 0.0,
+        params=SimServoParams.from_cfg(cfg), randomize=dr_scale > 0.0,
         dr_scale=dr_scale, episode_seconds=EPISODE_S, seed=seed, cfg=cfg)
     gen = env._goal_gen
     for m in ("hold", "lean", "track", "unload", "raise", "rise",
