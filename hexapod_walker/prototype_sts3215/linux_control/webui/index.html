@@ -383,22 +383,10 @@ feet, zero commanded scrub.">
       <div class="hint" id="simstatus" style="margin-top:8px">—</div>
     </div>
     <div class="pad" style="flex:1 1 340px">
-      <h2>Policy moves</h2>
-      <div class="hint"><b style="color:#ffb86b">⚠ RL Stand up does not
-        work on hardware yet</b> (08-10, two attempts: legs curl in the
-        air, no ground force, then a knee stalls or tilt trips —
-        pre-hardware-contract policy). <b>To stand up, use the
-        Experiments tab → tuck</b> (verified clean, 2.48&nbsp;A). RL
-        <b>Lower</b> and holds work once upright. <b>Lower</b>: from the
-        standing plant stance it descends gently over ~5&nbsp;s to the
-        belly, then goes limp. <b>Stop</b> holds the pose; <b>X</b>
-        (Drive tab) limps. <b>Watch the robot the whole time.</b></div>
+      <h2 title="RL stand-up is not validated on hardware yet. Use Experiments > tuck for the verified hardware stand-up. Watch the robot while any policy is running.">Policy moves</h2>
       <div class="btns" style="margin-top:12px">
-        <button id="rlstand" class="on" title="RL stand-up policy. Works
-from any level pose: if the robot isn't belly-down it first runs the safe
-scripted descent to zero, then stands. Refuses on tilt / missing servos /
-dead IMU.">⬆ Stand up</button>
-        <button id="rllower">⬇ Lower</button>
+        <button id="rlstand" class="on" title="RL stand-up policy. Not validated on hardware; use Experiments > tuck for the verified hardware stand-up. Refuses on tilt, missing servos, or dead IMU.">⬆ Stand up</button>
+        <button id="rllower" title="RL lower works once upright: descends from standing plant stance to belly over about 5 s, then goes limp.">⬇ Lower</button>
         <button id="rlglide" title="Scripted (not RL) fast sequence to the
 captured plant stance — the pose Walk expects. From belly-down it runs the
 full tuck stand-up; from any standing stance it re-seats the feet by
@@ -407,22 +395,13 @@ stance (scripted)</button>
         <button id="rlcapture" title="Save the current 18-joint pose as
 the plant stance (no motion). Lower and Walk start only from this pose —
 capture while the robot is standing well.">📌 Capture plant</button>
-        <button id="rlstop" class="danger">■ Stop</button>
+        <button id="rlstop" class="danger" title="Stop holds the current pose. Use X on the Drive tab to limp.">■ Stop</button>
       </div>
       <div class="hint" id="rlstatus" style="margin-top:10px">Idle.</div>
-      <h2 style="margin-top:16px">Drive — hold keys (like the sim viewer)</h2>
-      <div class="hint"><b>Start driving</b>, then hold <b>arrow keys /
-        WASD</b> (or the pad) to walk in that body direction — release
-        and the robot rolls off to a stop and <b>holds</b>. Stand up /
-        Lower above flip to those models (they end the session first).
-        Commands go stale in 0.6&nbsp;s, so a closed tab or dropped
-        WiFi stops the robot; the session itself ends after 5&nbsp;min
-        (or 2&nbsp;min unattended) and holds. All headings run through
-        the rot-60 canonicalizer. Starts from the captured plant
-        stance. <b>Watch the robot the whole time.</b></div>
+      <h2 style="margin-top:16px" title="Start driving, then hold arrow keys, WASD, or the pad. Release to roll off to a stop and hold. Commands go stale in 0.6 s; session timeout holds.">Drive — hold keys</h2>
       <div class="btns" style="margin-top:10px">
-        <button id="rldrivestart" class="on">▶ Start driving</button>
-        <button id="rldriveend">■ End session (stop &amp; hold)</button>
+        <button id="rldrivestart" class="on" title="Start from the captured plant stance. Hold arrow keys, WASD, or the pad to walk.">▶ Start driving</button>
+        <button id="rldriveend" title="Rolls to a stop and holds.">■ End session (stop &amp; hold)</button>
         <label class="hint">speed
           <select id="rlwalkspeed">
             <option value="0.02">0.02 m/s (below trained band)</option>
@@ -448,7 +427,8 @@ capture while the robot is standing well.">📌 Capture plant</button>
         <button data-dv="-1,0">▼ Back</button>
         <button data-dv="-1,-1">↘</button>
       </div>
-      <details style="margin-top:14px">
+      <details style="margin-top:14px"
+               title="Fixed-duration tape-measure runs. Commands ramp in over 1 s, walk, ramp out, and hold. Uses the speed picker above.">
         <summary class="hint" style="cursor:pointer">Timed walk
           (fixed-duration episodes — for tape-measured runs)</summary>
         <div style="margin-top:10px;display:grid;
@@ -472,17 +452,11 @@ the trained forward wedge — same policy, body walks backward.">▼ Back</butto
               <option value="6" selected>6 s</option>
               <option value="10">10 s</option>
             </select></label>
-          <span class="hint">Command ramps in over 1&nbsp;s, walks,
-            ramps out and holds. Uses the speed picker above.</span>
         </div>
       </details>
     </div>
     <div class="pad" style="flex:1 1 340px">
-      <h2>Readiness (no motion)</h2>
-      <div class="hint">Runs the same read-only preflight the buttons
-        use: all 18 servo IDs answering, IMU alive, tilt &lt; 12°, and
-        the present pose near the expected start. Refusals show the
-        exact reason.</div>
+      <h2 title="Read-only preflight: servo IDs, IMU, tilt, and expected start pose. Refusals show the exact reason.">Readiness (no motion)</h2>
       <div class="btns" style="margin-top:12px">
         <button id="rlcheckstand">Check: stand</button>
         <button id="rlchecklower">Check: lower</button>
@@ -491,29 +465,13 @@ the trained forward wedge — same policy, body walks backward.">▼ Back</butto
       <div class="hint" id="rlpreflight" style="margin-top:10px">—</div>
     </div>
     <div class="pad" style="flex:2 1 480px">
-      <h2>Policy</h2>
+      <h2 title="Policy info for the active exported numpy models.">Policy</h2>
       <div class="hint" id="rlpolicyinfo">loading…</div>
-      <h2 style="margin-top:16px">Model roles</h2>
-      <div class="hint">Which policy file runs each function — one file
-        can serve several roles (a walk champion that stops cleanly can
-        be both <b>Walk</b> and <b>Hold</b>). <b>Hold</b> is what runs
-        when no keys are pressed; default is the walk policy at zero
-        command (its trained stop). Applies at the next move / session
-        start.</div>
+      <h2 style="margin-top:16px" title="Select which policy file serves each role. Changes apply at the next move/session start, not mid-move.">Model roles</h2>
       <div id="rlroles" class="hint" style="margin-top:10px">loading…</div>
       <div class="hint" id="rlrolesmsg" style="margin-top:6px">—</div>
       <div id="rlpicktable" class="hint" style="margin-top:12px">loading…</div>
       <div class="hint" id="rlpickmsg" style="margin-top:8px">—</div>
-      <div class="hint" style="margin-top:10px">Trained in the MuJoCo
-        twin (PPO, raw 18-joint actions, domain randomization) and
-        exported to plain numpy — no torch on the board. Every command
-        passes the safety layer: 1.5°/tick rate clamp, joint limits,
-        tilt trip (10° stance / 25° walk), sustained &gt;2.5&nbsp;A
-        trip → instant limp. Swapping takes effect on the NEXT
-        stand/lower/walk (weights load at episode start; no restart,
-        never mid-move). Add policies to
-        <code>linux_control/policies/</code> via
-        <code>rl_move/sim/export_policy_np.py --name … --notes …</code>.</div>
     </div>
   </div>
   </div><!-- /view-rl -->
