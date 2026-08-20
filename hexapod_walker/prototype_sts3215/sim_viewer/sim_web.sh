@@ -10,12 +10,13 @@ if [[ -z "${VENV:-}" ]]; then
   fi
 fi
 POLICY_DIR="${POLICY_DIR:-rl_move/sim/policies}"
+# macOS ships bash 3.2, where "${EXTRA[@]}" on an empty array trips `set -u`
+# — prepend to "$@" instead of using an array.
 if [[ "${SIM_WEB_VIEWER:-1}" != "0" ]]; then
   PY="$VENV/bin/mjpython"
-  EXTRA=(--viewer)
+  set -- --viewer "$@"
 else
   PY="$VENV/bin/python"
-  EXTRA=()
 fi
 
 [ -x "$PY" ] || {
@@ -26,5 +27,4 @@ fi
 exec "$PY" -m rl_move.sim.web_server \
   --http-port "${SIM_WEB_PORT:-8898}" \
   --policy-dir "$POLICY_DIR" \
-  "${EXTRA[@]}" \
   "$@"
