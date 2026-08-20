@@ -24,6 +24,29 @@ unresolved blockers between the robot and reliable joystick control.
 
 ## Now
 
+- **08-20 ~03:2x: `steer6-fasttrack1` (full 1500/80 dose) VERDICTED —
+  ACQUISITION FAIL, the predict-if-false branch.** After the full 20M
+  budget: direction/heading error stayed pinned 41-57° (vs the
+  required ≤25°, essentially unchanged from the canary's 48-53°);
+  hard1-style fixed-band slip 2.99-3.43/m — WORSE than the canary's
+  own 2.37/3.00 despite 10x the training, nowhere near the 1.8/2.0
+  bar. `env/reward_walk_heading` barely moved (-1.16→-0.97) all run —
+  an unresolved standing tax, not noise. GOOD news buried in the FAIL:
+  the overspeed axis genuinely resolved (achieved speed converged
+  0.10-0.11 m/s near the band edge, from the canary's flat
+  0.13-0.16), and the anti-jam/tangle cure fully holds at the new
+  profile (probe_dirswitch_tangle yaw_sat_frac 0.0005-0.0023 on all 4
+  slices, 0/96 falls; stage2 switch panel 48 eps zero falls/
+  safety_flags/sacrificed-legs). So: raising actuator headroom buys
+  controllable SPEED but not controllable DIRECTION, and doesn't
+  erode the tangle fix. Per pre-registration: STOP, no autonomous
+  charge-k/dose sweep. `steer7-middose1` (the paired 750/40 dose) is
+  a separate concurrent cycle's verdict — not called here; the
+  operator's fork question ("did headroom + the new MDP produce a
+  faster AND steerable candidate") is answered NO for the full dose,
+  open pending the middose read. Download answer (hard1/fric +
+  footlow2) UNCHANGED. Detail: W&B `35z4dw4n`, `rl_docs/runs/
+  cw-dep-bcgait1-hard1-steer6-fasttrack1.md`.
 - **08-20 ~01:5x (operator kick): the profile-headroom fork is
   ANSWERED — both doses funded and RUNNING (operator chat ~01:4x
   UTC).** `cw-dep-bcgait1-hard1-steer6-fasttrack1` (full 1500/80,

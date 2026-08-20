@@ -105925,7 +105925,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "in-cycle cw-dep-bcgait1-hard1-steer7-middose1 since 2026-08-20T02:20:57"
   },
   {
     "run": "cw-dep-bcgait1-hard1-steer6-fasttrack1",
@@ -106051,7 +106052,7 @@
       "reward.k_walk_heading=2.0"
     ],
     "created": "2026-08-20T01:44:12+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -106081,6 +106082,21 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:hw PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-dep-bcgait1-hard1-steer6-fasttrack1 --steps 20000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_dep_bcgait1_hard1_steer3_yawm1.zip --dr-scale 0.35 --episode-seconds 120 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 12 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.10 --cfg-set goal.walk_obs_body_vel=3 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_dep_bcgait1_hard1_steer6_fasttrack1 --notes 'respec of cw-dep-bcgait1-hard1-steer5-fastprof1: Operator order (chat 2026-08-20 ~01:2x UTC \u2014 profile-headroom fork option A funded): full raised servo profile (write_speed=1500/acc=80, vel ceiling mirrors the write profile, 5 deg/tick slew \u2014 the sim twin of the 08-19 bench stream upgrade whose canary proved 2.5x zero-shot speed) trained for the first time on an MDP that can OBSERVE and PRICE command tracking: goal.walk_obs_body_vel=3 (board-safe leg-odometry velocity on DR-corrupted signals; the mode-2 contract was blind to command error by construction), reward.k_walk_overspeed=2.0/tol=0.10 (linear band-exceedance charge \u2014 the Gaussian kernel saturates 2sigma out and k_walk_prog PAID the canary its 2.5x overspeed), reward.k_walk_heading=2.0 (1-cos charge; the canary drifted 50-60 deg), and a widened 0.05-0.10 m/s command band so speed is trained as a controllable variable across the pinned-panel range. Warm from steer3-yawm1 (anti-jam adapted, retention-clean), exact yawm1 stress-mix recipe otherwise, 20M steps, seed 12 paired with the steer7-middose1 sibling which differs ONLY in the three dose keys. Prediction-if-true: the pinned-speed panel turns monotone (speed_med tracks the command 0.04-0.10, prog_ratio_med in band at every row) while fixed-command slip returns to the 1.8/2.0 per-m bars and the tangle cure holds \u2014 a faster AND steerable download candidate. Prediction-if-false: speed stays profile-driven (flat 0.13-0.16 m/s cadence regardless of command) or the charges sit as an unresolved standing tax \u2014 STOP, report to operator, no autonomous dose or charge-k sweep beyond the two funded arms.' --cfg-set dr.tipped_start_prob=0.30 --target-kl 0.01 --cfg-set reward.walk_height_gate=1.0 --cfg-set reward.walk_height_sigma_mm=30.0 --actor-lr 0.0001 --critic-lr 0.0003 --kl-rollback 0.04 --cfg-set goal.walk_cmd_mode=stress_mix --cfg-set goal.walk_cmd_resample_s=11.0 --cfg-set goal.walk_cmd_resample_jitter=0.82 --cfg-set goal.walk_cmd_blend_s_min=0.0 --cfg-set goal.walk_cmd_blend_s_max=0.0 --cfg-set reward.term_cost_per_remaining_s=12.0 --cfg-set reward.term_cost_max=240.0 --cfg-set goal.walk_cmd_stage=0.0 --cfg-set sched.key=goal.walk_cmd_stage --cfg-set sched.v0=0 --cfg-set sched.v1=2 --cfg-set sched.t0_steps=0 --cfg-set sched.t1_steps=1200000 --cfg-set sched.n_envs=4096 --cfg-set reward.k_yaw_margin=2.0 --cfg-set reward.yaw_margin_allow_deg=3.0 --cfg-set bus.write_speed=1500 --cfg-set bus.write_acc=80 --cfg-set bus.servo_vel_max_counts_s=write_speed --cfg-set safety.max_delta_q_deg=5.0 --best-ckpt --cfg-set reward.k_walk_overspeed=2.0 --cfg-set reward.walk_overspeed_tol=0.10 --cfg-set reward.k_walk_heading=2.0 > /tmp/train_cw-dep-bcgait1-hard1-steer6-fasttrack1.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-dep-bcgait1-hard1-steer6-fasttrack1.log",
     "wandb_id": "35z4dw4n",
-    "verified": "2026-08-20T01:47:20+00:00"
+    "verified": "2026-08-20T01:47:20+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-20T01:52:58+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 226,
+        "fps": 18932.6,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ],
+    "triage": "done",
+    "hardware_ready": "False",
+    "verdict": "ACQUISITION FAIL vs pre-registration (matches the pre-registered predict-if-false branch): after the full 20M-step budget, command TRACKING and slip RETENTION are still unresolved, while the tangle/anti-jam cure and raw-overspeed axis genuinely improved. (1) health: PASS, clean finish, no KL storm, no tracebacks. (2) video/gait: PASS-visually, tall in-band height held (h_err single-digit mm), six-leg cycling (duty 0.3-0.5/leg), roll settled (roll_tail 1.4-2.0deg), zero falls/park/sacrificed-leg across every eval slice run (fixedret DR0/DR35, stress-mix owncfg DR0.35, stage2-switch owncfg DR0.35 = 48 episodes, safety_flags==0 throughout). (3) COMMAND TRACKING (the funding question) FAILS: direction/heading error medians 41-57deg across every panel (fixedret DR0 44.8/48.9 det/sto, fixedret own-DR 45.7/49.8, stress-mix own-DR 57.0/56.9, stage2-switch own-DR 41-66 per-episode) -- essentially unchanged from the steer5 canary's 48-53deg despite 20M more steps and the new k_walk_heading=2.0 charge; W&B env/reward_walk_heading barely moved (-1.16 early to -0.97 final) and stayed deeply negative the whole run -- an unresolved standing tax (dragstance1 pattern), not noise. Overspeed DID partially resolve: reward_walk_overspeed shrank -5.7->-1.7/-2.5 and achieved speed converged 0.10-0.11 m/s near the new band edge (vs the canary's flat 0.13-0.16), so raised profile + pricing did buy real speed control, just not direction control. (4) RETENTION FAILS: hard1-style fixed-band (0.05-0.06) panel slip_per_m medians 2.99/3.43 (DR0 det/sto) and 3.33/3.32 (own-DR) -- worse than the canary's own 2.37/3.00, nowhere near the 1.8/2.0 bar, despite 10x the training; progress_ratio overshoots the narrow band (1.15-1.32) and undershoots the wide stress-mix band (0.6-0.9) -- still one cruise cadence, not a controlled variable. (5) TANGLE NO-REGRESSION PASSES cleanly: probe_dirswitch_tangle yaw_sat_frac rot60-ON 0.0005-0.0023 across all 4 det/sto x DR0/DR0.35 slices (bar <=0.011; matches/beats yawm1's own 0.0029-0.0052 clean band), 0/96 falls, 0/96 sector-change falls; the stage2 full-range switch panel (48 eps, own-DR 0.35) also shows zero falls/safety_flags/sacrificed-legs despite degraded slip (3.1-14.2/m) under the harder moving-target regime -- the anti-jam cure fully holds at the new profile+MDP. CHARGE HEALTH: overspeed resolving, heading NOT resolving -- mixed, net FAIL per the gate's explicit dragstance1-pattern criterion. Per pre-registration: STOP, report to operator, no autonomous charge-k/dose sweep -- this is one of the two funded arms, the sibling steer7-middose1 (paired dose comparison) is a SEPARATE concurrent cycle's verdict, not called here. Process note: the routine pre-staged DR-0 'gate' pass was killed by its own 45min pod_eval timeout (rc=-1, no report.json) because I ran 8 extra pre-registered eval/probe jobs concurrently on the same pod -- covered instead by the fixedret_gate pass (same checkpoint+profile+DR0, narrow band) which finished clean; owncfg (own-DR, run's own stress-mix contract) finished normally and is quoted above. Download answer (hard1/fric + footlow2 hierarchy) UNCHANGED -- this was an operator-funded speculative fast-gait fork, not the sim-sprint mainline."
   }
 ]
