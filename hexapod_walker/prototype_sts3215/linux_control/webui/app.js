@@ -1454,8 +1454,6 @@ async function refreshSimPanel(){
 }
 async function simPost(path, body){
   try{
-    if(path === '/api/sim/sync_robot_pose')
-      $('simstatus').textContent = 'reading robot pose…';
     const r = await fetch(path, {method:'POST',
       body: JSON.stringify(body || {})});
     const d = await r.json();
@@ -1464,14 +1462,49 @@ async function simPost(path, body){
     refreshSimPanel();
   }catch(e){ $('simstatus').textContent = 'sim command failed'; }
 }
+function setSyncPoseBusy(busy){
+  ['hubsyncpose', 'simsyncpose'].forEach(id=>{
+    const b = $(id);
+    if(!b) return;
+    b.disabled = busy;
+    if(id === 'hubsyncpose') b.textContent = busy ? 'Matching…' : 'Match pose';
+  });
+}
+async function syncRobotPoseToSim(){
+  if(!(targetHasRobot && targetHasSim)){
+    showSent('connect Robot + MuJoCo before matching pose', true);
+    return;
+  }
+  setSyncPoseBusy(true);
+  if($('simstatus')) $('simstatus').textContent = 'reading robot pose…';
+  showSent('matching MuJoCo pose to robot…');
+  try{
+    const r = await fetch('/api/sim/sync_robot_pose', {method:'POST'});
+    const d = await r.json();
+    const line = d.ok
+      ? 'matched pose · '+(d.live_joints || 0)+'/18 joints'
+      : (d.error || 'match pose failed');
+    if($('simstatus')) $('simstatus').textContent = d.ok
+      ? (d.status || line) : line;
+    showSent(line, !d.ok);
+    refreshSimPanel();
+  }catch(e){
+    if($('simstatus')) $('simstatus').textContent = 'match pose failed';
+    showSent('match pose failed', true);
+  }finally{
+    setSyncPoseBusy(false);
+  }
+}
 if($('simresetstand'))
   $('simresetstand').onclick = ()=> simPost('/api/sim/reset',
     {start:'plant'});
 if($('simresetbelly'))
   $('simresetbelly').onclick = ()=> simPost('/api/sim/reset',
     {start:'belly'});
+if($('hubsyncpose'))
+  $('hubsyncpose').onclick = syncRobotPoseToSim;
 if($('simsyncpose'))
-  $('simsyncpose').onclick = ()=> simPost('/api/sim/sync_robot_pose');
+  $('simsyncpose').onclick = syncRobotPoseToSim;
 if($('simfall')) $('simfall').onclick = ()=> simPost('/api/sim/fall');
 if($('simrecover')) $('simrecover').onclick =
   ()=> simPost('/api/sim/recover');

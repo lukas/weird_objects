@@ -64,6 +64,13 @@
     color:#7eb6ff; border-color:#2b6cff; background:#101b2d;
   }
   body.target-both .routechip { box-shadow:0 0 0 1px rgba(255,255,255,.03) inset; }
+  .sync-pose-top { display:none; flex:0 0 auto; min-width:0;
+                   padding:6px 10px; font-size:12px; border-radius:8px;
+                   background:#132438; border-color:#2b6cff;
+                   color:#7eb6ff; white-space:nowrap; }
+  body.robot-active.sim-active .sync-pose-top { display:inline-flex;
+    align-items:center; justify-content:center; }
+  .sync-pose-top:disabled { opacity:.65; cursor:wait; }
   .hub-target select { background:#151923; color:#e7e9ee;
                        border:1px solid #30384a; border-radius:8px;
                        padding:5px 24px 5px 8px; font-weight:800;
