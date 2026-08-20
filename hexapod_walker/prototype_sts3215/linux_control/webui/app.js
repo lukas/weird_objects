@@ -11,6 +11,10 @@ let linkOk = null;           // null=unknown, true/false after first ping
 let linkFailStreak = 0;
 let lastPingOkAt = 0;
 let backendKind = 'robot';   // robot | sim
+let simFrames = true;
+let simNativeViewer = false;
+let simTimer = null, simBusy = false, simFrameBusy = false;
+let simFrameLastAt = 0;
 // SERVO ARM GATE (separate from `armed`, which just means "a stick is pushed").
 // Defaults OFF on every page load and the firmware boots DISARMED, so nothing
 // drives a servo until the human presses Enable. All servo-driving sends are
@@ -39,9 +43,24 @@ function setLink(ok, detail){
 function applyBackendMeta(meta){
   if(!meta) return;
   const kind = meta.kind || (meta.service === 'hexapod-sim' ? 'sim' : 'robot');
-  if(kind !== backendKind){
-    backendKind = kind;
-    document.body.classList.toggle('sim-backend', backendKind === 'sim');
+  const frames = meta.frames !== false;
+  const nativeViewer = !!meta.viewer;
+  const changed = kind !== backendKind || frames !== simFrames
+    || nativeViewer !== simNativeViewer;
+  backendKind = kind;
+  simFrames = frames;
+  simNativeViewer = nativeViewer;
+  document.body.classList.toggle('sim-backend', backendKind === 'sim');
+  document.body.classList.toggle('sim-native-viewer',
+    backendKind === 'sim' && simNativeViewer);
+  document.body.classList.toggle('sim-browser-frames',
+    backendKind === 'sim' && simFrames);
+  if(!simFrames){
+    const img = document.getElementById('simframe');
+    if(img) img.removeAttribute('src');
+    simFrameBusy = false;
+  }
+  if(changed){
     updateArmUI();
     if(activeView === 'rl') simPollMaybe();
   }
@@ -1219,8 +1238,6 @@ for(const b of document.querySelectorAll('#rldrivepad button[data-dv]')){
 }
 
 // ---- MuJoCo backend panel --------------------------------------------------
-let simTimer = null, simBusy = false, simFrameBusy = false;
-let simFrameLastAt = 0;
 function stopSimPoll(){
   if(simTimer){ clearInterval(simTimer); simTimer = null; }
   simFrameBusy = false;
@@ -1236,7 +1253,7 @@ async function refreshSimPanel(){
   try{
     const img = $('simframe');
     const now = Date.now();
-    if(img && !simFrameBusy && now - simFrameLastAt >= 1000){
+    if(img && simFrames && !simFrameBusy && now - simFrameLastAt >= 1000){
       simFrameBusy = true;
       simFrameLastAt = now;
       img.onload = img.onerror = ()=>{ simFrameBusy = false; };
@@ -1253,6 +1270,7 @@ async function refreshSimPanel(){
     if(live.roll_deg!=null) bits.push(`tilt ${live.roll_deg}/`
       + `${live.pitch_deg}°`);
     if(live.t_s!=null) bits.push(`${live.t_s}s`);
+    if(d.viewer) bits.push('native viewer');
     $('simstatus').innerHTML = (live.status || d.status || 'ready')
       + (bits.length ? ' · '+bits.join(' · ') : '');
   }catch(e){

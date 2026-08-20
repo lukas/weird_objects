@@ -14,14 +14,17 @@ sim_viewer/sim_walk.sh     # walk champion alone (cv2 drive window)
 sim_viewer/sim_quad.sh     # tip-back QUAD walk playground (scripted, no RL)
 ```
 
-`sim_web.sh` starts `python3 -m rl_move.sim.web_server` on
-`http://127.0.0.1:8898/rl`. It serves the real robot's
-`linux_control/webui/` files unchanged, but `/api/ping` identifies the
-backend as `hexapod-sim`; the shared UI then shows a MuJoCo frame and
-routes the RL tab's stand/lower/held-key drive/policy-picker commands
-into the local sim session. Sim-only controls live under `/api/sim/*`
-and are shown only against this backend: reset stand, reset belly, fall,
-recover, and push.
+`sim_web.sh` starts a native `mujoco.viewer` window and serves the real
+robot's `linux_control/webui/` at `http://127.0.0.1:8898/rl`. The web
+page is the controller; the MuJoCo window is the visual surface. The
+shared UI routes the RL tab's stand/lower/held-key
+drive/policy-picker commands into the local sim session. Sim-only
+controls live under `/api/sim/*` and are shown only against this
+backend: reset stand, reset belly, fall, recover, and push.
+
+The browser JPEG preview is off in native-viewer mode. For headless
+debugging, run `python3 -m rl_move.sim.web_server` without `--viewer`,
+or pass `--browser-frames on` if you intentionally want both surfaces.
 
 If you run from a fresh git worktree, checkpoint zips may be absent
 because `rl_move/sim/policies/` is intentionally ignored. Point the

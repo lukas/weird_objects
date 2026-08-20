@@ -11,6 +11,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import sys
+import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any, Callable
@@ -220,6 +223,13 @@ def build_arg_parser() -> argparse.ArgumentParser:
                     default=Path("ppo_goal_cw_recover_any21_pop3_B14.zip"))
     ap.add_argument("--log-dir", type=Path, default=DEFAULT_LOG_DIR)
     ap.add_argument("--realtime", type=float, default=1.0)
+    ap.add_argument("--viewer", action="store_true",
+                    help="open a native MuJoCo viewer and use the web UI "
+                         "as a remote control surface")
+    ap.add_argument("--browser-frames", choices=("auto", "on", "off"),
+                    default="auto",
+                    help="serve JPEG frames to the browser: auto keeps "
+                         "frames on for headless mode and off for --viewer")
     ap.add_argument("--phase-obs", action="store_true")
     ap.add_argument("--phase-hz", type=float, default=0.1666667)
     ap.add_argument("--all-models", action="store_true")
@@ -230,8 +240,31 @@ def _resolve_policy(pdir: Path, p: Path) -> Path:
     return p if p.is_absolute() else pdir / p
 
 
+def _browser_frames(args: argparse.Namespace) -> bool:
+    if args.browser_frames == "on":
+        return True
+    if args.browser_frames == "off":
+        return False
+    return not args.viewer
+
+
+def _reexec_under_mjpython_for_viewer() -> None:
+    """macOS native MuJoCo viewer must run under mjpython."""
+    if sys.platform != "darwin" or os.environ.get("MJPYTHON_BIN"):
+        return
+    mjpython = Path(sys.executable).with_name("mjpython")
+    if not mjpython.is_file():
+        sys.exit("native MuJoCo viewer on macOS needs mjpython; run:\n"
+                 f"  {Path(sys.executable).parent}/mjpython "
+                 "-m rl_move.sim.web_server --viewer")
+    os.execv(str(mjpython), [str(mjpython), "-m",
+                             "rl_move.sim.web_server", *sys.argv[1:]])
+
+
 def main(session_factory: Callable[..., Any] | None = None) -> None:
     args = build_arg_parser().parse_args()
+    if args.viewer and session_factory is None:
+        _reexec_under_mjpython_for_viewer()
     if session_factory is None:
         from .web_session import SimWebConfig, SimWebSession
         cfg = SimWebConfig(
@@ -241,6 +274,8 @@ def main(session_factory: Callable[..., Any] | None = None) -> None:
             recover=_resolve_policy(args.policy_dir, args.recover),
             log_dir=args.log_dir,
             realtime=args.realtime,
+            viewer=args.viewer,
+            web_frames=_browser_frames(args),
             phase_obs=args.phase_obs,
             phase_hz=args.phase_hz,
             all_models=args.all_models,
@@ -249,12 +284,31 @@ def main(session_factory: Callable[..., Any] | None = None) -> None:
         session = session_factory(cfg)
     else:
         session = session_factory(args)
+    srv = None
     try:
         handler = make_handler(session)
         srv = ThreadingHTTPServer((args.bind, args.http_port), handler)
-        print(f"sim web UI: http://{args.bind}:{args.http_port}/rl", flush=True)
-        srv.serve_forever()
+        srv.daemon_threads = True
+        url = f"http://{args.bind}:{args.http_port}/rl"
+        print(f"sim web UI: {url}", flush=True)
+        run_viewer = getattr(session, "run_native_viewer", None)
+        if args.viewer and run_viewer:
+            server_thread = threading.Thread(target=srv.serve_forever,
+                                             name="sim-web-http",
+                                             daemon=True)
+            server_thread.start()
+            try:
+                run_viewer(url)
+            finally:
+                srv.shutdown()
+                server_thread.join(timeout=2.0)
+        else:
+            srv.serve_forever()
+    except KeyboardInterrupt:
+        pass
     finally:
+        if srv is not None:
+            srv.server_close()
         close = getattr(session, "close", None)
         if close:
             close()

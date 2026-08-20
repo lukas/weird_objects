@@ -10,7 +10,9 @@ these files fresh on every request and sends `Cache-Control: no-cache`).
 The same files are also served by `rl_move.sim.web_server` for local
 MuJoCo testing (`sim_viewer/sim_web.sh`). Keep robot-compatible route
 shapes stable; sim-only affordances are gated by `/api/ping` returning
-`service:"hexapod-sim"` and use `/api/sim/*`.
+`service:"hexapod-sim"` and use `/api/sim/*`. In the normal sim path,
+the native MuJoCo viewer is the display and this page is only the
+controller; browser JPEG frames are an optional headless/debug mode.
 
 ## Files
 

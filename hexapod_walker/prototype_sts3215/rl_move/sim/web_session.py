@@ -45,6 +45,8 @@ class SimWebConfig:
     recover: Path
     log_dir: Path
     realtime: float = 1.0
+    viewer: bool = False
+    web_frames: bool = True
     phase_obs: bool = False
     phase_hz: float = 0.1666667
     all_models: bool = False
@@ -89,11 +91,14 @@ class SimWebSession:
         self._frame_error = ""
         self._frame_interval_s = 1.0 / 8.0
         self._last_frame_at = 0.0
+        self.thread: threading.Thread | None = None
 
         self._load_runtime()
-        self.thread = threading.Thread(target=self._run, name="sim-web-tick",
-                                       daemon=True)
-        self.thread.start()
+        if not cfg.viewer:
+            self.thread = threading.Thread(target=self._run,
+                                           name="sim-web-tick",
+                                           daemon=True)
+            self.thread.start()
 
     def _load_runtime(self) -> None:
         import mujoco
@@ -125,9 +130,10 @@ class SimWebSession:
             cfg["goal"]["walk_phase_hz"] = self.cfg.phase_hz
             _ROLE_OBS[74] = "walk"
             self.walk_widths = (72, 74, 78, 1152)
+        render_mode = "rgb_array" if self.cfg.web_frames else None
         self.env = _PlayEnv(params=SimServoParams.from_cfg(cfg),
                             randomize=False, episode_seconds=3600.0,
-                            render_mode="rgb_array", cfg=cfg)
+                            render_mode=render_mode, cfg=cfg)
         self.traj = self.env.traj
         self.chassis_bid = self.env.model.body("chassis").id
         self.profiles = _load_profiles()
@@ -666,7 +672,8 @@ class SimWebSession:
             with self.lock:
                 self._tick_locked()
                 now = time.monotonic()
-                if now - self._last_frame_at >= self._frame_interval_s:
+                if (self.cfg.web_frames
+                        and now - self._last_frame_at >= self._frame_interval_s):
                     self._last_frame_at = now
                     self._render_frame_locked()
             if self.cfg.realtime > 0:
@@ -674,9 +681,56 @@ class SimWebSession:
                 if delay > 0:
                     self.stop_event.wait(delay)
 
+    def run_native_viewer(self, web_url: str = "") -> None:
+        """Run physics and a native MuJoCo viewer on this process thread."""
+        import mujoco
+        import mujoco.viewer
+
+        print("MuJoCo viewer: close the window to stop the sim server",
+              flush=True)
+        with mujoco.viewer.launch_passive(self.env.model,
+                                          self.env.data) as viewer:
+            while viewer.is_running() and not self.stop_event.is_set():
+                t0 = time.monotonic()
+                with self.lock:
+                    self._tick_locked()
+                    self._update_viewer_hud_locked(viewer, mujoco, web_url)
+                    now = time.monotonic()
+                    if (self.cfg.web_frames
+                            and now - self._last_frame_at >= self._frame_interval_s):
+                        self._last_frame_at = now
+                        self._render_frame_locked()
+                    viewer.sync()
+                if self.cfg.realtime > 0:
+                    delay = (self.env.dt / self.cfg.realtime
+                             - (time.monotonic() - t0))
+                    if delay > 0:
+                        self.stop_event.wait(delay)
+        self.stop_event.set()
+
+    def _update_viewer_hud_locked(self, viewer: Any, mujoco_mod: Any,
+                                  web_url: str) -> None:
+        set_texts = getattr(viewer, "set_texts", None)
+        if set_texts is None:
+            return
+        live = self._live()
+        title = "Hexapod MuJoCo web control"
+        detail = (f"{live['status']}\n"
+                  f"mode {live['mode']}  h {live['height_mm']} mm\n"
+                  f"cmd {live['vx_ref']:+.3f},{live['vy_ref']:+.3f} m/s  "
+                  f"body {live['vx_body']:+.3f},{live['vy_body']:+.3f} m/s\n"
+                  f"tilt {live['roll_deg']:+.1f},{live['pitch_deg']:+.1f} deg")
+        if web_url:
+            detail += f"\n{web_url}"
+        set_texts([(mujoco_mod.mjtFontScale.mjFONTSCALE_150,
+                    mujoco_mod.mjtGridPos.mjGRID_TOPRIGHT,
+                    title, detail)])
+
     def _render_frame_locked(self) -> None:
         try:
             frame = self.env.render()
+            if frame is None:
+                raise RuntimeError("browser frames disabled")
             img = self.cv2.cvtColor(frame, self.cv2.COLOR_RGB2BGR)
             ok, data = self.cv2.imencode(
                 ".jpg", img, [int(self.cv2.IMWRITE_JPEG_QUALITY), 86])
@@ -774,7 +828,9 @@ class SimWebSession:
 
     def ping(self) -> dict[str, Any]:
         return {"ok": True, "service": "hexapod-sim",
-                "kind": "sim", "mode": self.mode}
+                "kind": "sim", "mode": self.mode,
+                "viewer": self.cfg.viewer,
+                "frames": self.cfg.web_frames}
 
     def status(self) -> dict[str, Any]:
         with self.lock:
@@ -805,6 +861,8 @@ class SimWebSession:
             return {"ok": True, "active": self.drive_active,
                     "auto": self.auto[0] if self.auto else None,
                     "downed": self.downed, "sitting": self.sitting,
+                    "viewer": self.cfg.viewer,
+                    "frames": self.cfg.web_frames,
                     "live": self._live()}
 
     def rl_preflight(self, mode: str = "stand") -> dict[str, Any]:
@@ -1109,6 +1167,8 @@ class SimWebSession:
             return {"ok": True, "status": self.msg, "live": self._live()}
 
     def frame_jpeg(self) -> bytes:
+        if not self.cfg.web_frames:
+            raise RuntimeError("browser frames disabled; use native MuJoCo viewer")
         if not self._frame_ready.wait(2.0):
             raise RuntimeError("sim frame not ready")
         with self.lock:
