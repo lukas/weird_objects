@@ -231,6 +231,10 @@ def make_handler(session: Any, webui_dir: Path = WEBUI_DIR,
                     self._json(200, session.sim_push(
                         x=float(data.get("x", 4.0)),
                         y=float(data.get("y", 0.0))))
+                elif path == "/api/sim/pose":
+                    self._json(200, session.sim_pose(
+                        degrees=data.get("degrees"),
+                        source=str(data.get("source", "api"))))
                 else:
                     self._json(404, {"ok": False,
                                      "error": f"no sim route: {path}"})

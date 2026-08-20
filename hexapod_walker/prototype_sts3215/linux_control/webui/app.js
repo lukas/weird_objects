@@ -1454,6 +1454,8 @@ async function refreshSimPanel(){
 }
 async function simPost(path, body){
   try{
+    if(path === '/api/sim/sync_robot_pose')
+      $('simstatus').textContent = 'reading robot pose…';
     const r = await fetch(path, {method:'POST',
       body: JSON.stringify(body || {})});
     const d = await r.json();
@@ -1468,6 +1470,8 @@ if($('simresetstand'))
 if($('simresetbelly'))
   $('simresetbelly').onclick = ()=> simPost('/api/sim/reset',
     {start:'belly'});
+if($('simsyncpose'))
+  $('simsyncpose').onclick = ()=> simPost('/api/sim/sync_robot_pose');
 if($('simfall')) $('simfall').onclick = ()=> simPost('/api/sim/fall');
 if($('simrecover')) $('simrecover').onclick =
   ()=> simPost('/api/sim/recover');

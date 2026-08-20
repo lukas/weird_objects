@@ -4,7 +4,9 @@ import json
 from io import BytesIO
 import urllib.error
 
-from rl_move.sim.web_hub import HubController, RouteResponse, make_hub_handler
+from rl_move.sim.web_hub import (
+    HubController, RouteResponse, SimTarget, make_hub_handler,
+)
 from rl_move.sim.web_server import PAGE_PATHS, STATIC_FILES, WEBUI_DIR, make_handler
 
 
@@ -108,6 +110,11 @@ class FakeSession:
         self.calls.append(("sim_push", x, y))
         return {"ok": True}
 
+    def sim_pose(self, degrees, source="api"):
+        self.calls.append(("sim_pose", degrees, source))
+        return {"ok": True, "status": f"synced {source} pose",
+                "degrees": degrees, "live": {"mode": "hold"}}
+
     def rl_capture_plant(self):
         return {"ok": True}
 
@@ -184,8 +191,12 @@ def test_dispatches_rl_drive_and_sim_routes():
                  body={"vx": 0.05, "vy": -0.02})["active"]
     assert _json(fake, "/api/sim/reset", method="POST",
                  body={"start": "belly"})["status"] == "belly"
+    assert _json(fake, "/api/sim/pose", method="POST",
+                 body={"degrees": list(range(18)),
+                       "source": "test"})["status"] == "synced test pose"
     assert ("rl_drive_cmd", 0.05, -0.02) in fake.calls
     assert ("sim_reset", "belly") in fake.calls
+    assert ("sim_pose", list(range(18)), "test") in fake.calls
 
 
 def test_dispatches_robot_compatible_demo_routes():
@@ -305,6 +316,27 @@ class FailingDemoTarget(FakeTarget):
         return super().request(method, full_path, body, headers)
 
 
+class PoseFakeTarget(FakeTarget):
+    def __init__(self, name, degrees):
+        super().__init__(name)
+        self.degrees = degrees
+
+    def request(self, method, full_path, body=b"", headers=None,
+                timeout=None):
+        path = full_path.split("?", 1)[0]
+        if method == "GET" and path == "/api/pose":
+            self.calls.append((method, full_path, body))
+            return RouteResponse.json({
+                "ok": True,
+                "degrees": self.degrees,
+                "live": len([x for x in self.degrees if x is not None]),
+                "ts": 123.0,
+                "armed": True,
+                "mode": "idle",
+            })
+        return super().request(method, full_path, body, headers)
+
+
 def _hub_request(hub, path, method="GET", body=None):
     handler_cls = make_hub_handler(
         hub, WEBUI_DIR, 8443, PAGE_PATHS, STATIC_FILES)
@@ -416,6 +448,22 @@ def test_hub_demos_show_local_robot_catalog_before_robot_is_configured():
     assert "dance_walk" in names
     assert catalog["sources"]["robot"]["local"] is True
     assert catalog["sources"]["robot"]["configured"] is False
+
+
+def test_hub_syncs_sim_from_robot_pose():
+    fake = FakeSession()
+    degrees = [float(i) for i in range(18)]
+    hub = HubController(
+        sim=SimTarget(fake),
+        robot=PoseFakeTarget("robot", degrees),
+        target="both",
+    )
+    synced = _hub_json(hub, "/api/sim/sync_robot_pose", method="POST")
+
+    assert synced["ok"] is True
+    assert synced["status"] == "synced robot pose"
+    assert synced["robot_pose"]["live"] == 18
+    assert ("sim_pose", degrees, "robot") in fake.calls
 
 
 def test_hub_broadcasts_drive_commands_only_in_both_mode():
