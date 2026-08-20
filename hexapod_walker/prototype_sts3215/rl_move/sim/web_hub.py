@@ -9,9 +9,11 @@ from __future__ import annotations
 import importlib.util
 import json
 import queue
+import socket
 import ssl
 import sys
 import threading
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -59,6 +61,20 @@ def _json_body(raw: bytes) -> dict[str, Any]:
     except ValueError:
         return {"_text": raw.decode("utf-8", "ignore")}
     return obj if isinstance(obj, dict) else {"_value": obj}
+
+
+def _cmd_line(raw: bytes) -> str:
+    return raw.decode("utf-8", "ignore").strip().upper()
+
+
+def _header_value(headers: dict[str, str] | None, name: str) -> str:
+    if not headers:
+        return ""
+    want = name.lower()
+    for k, v in headers.items():
+        if k.lower() == want:
+            return str(v)
+    return ""
 
 
 def _query_value(full_path: str, key: str, default: str = "") -> str:
@@ -175,6 +191,8 @@ class SimTarget:
             return RouteResponse.json(s.robot_state())
         if path == "/api/demos":
             return RouteResponse.json({"demos": s.list_demos()})
+        if path == "/api/pose":
+            return RouteResponse.json(s.pose())
         if path == "/api/calibrate":
             return RouteResponse.json(s.operation_state())
         if path in ("/api/rl", "/api/rl/state"):
@@ -198,6 +216,8 @@ class SimTarget:
             return RouteResponse.json(s.rl_roles())
         if path == "/api/rl/drive":
             return RouteResponse.json(s.rl_drive_state())
+        if path == "/api/standup/modes":
+            return RouteResponse.json(s.standup_modes())
         if path == "/api/sim/state":
             return RouteResponse.json(s.sim_state())
         if path == "/api/sim/frame.jpg":
@@ -231,7 +251,12 @@ class SimTarget:
                                       200 if ok else 502)
         data = _json_body(raw)
         if path == "/api/standup":
-            return RouteResponse.json(s.sim_reset(start="plant"))
+            return RouteResponse.json(s.sim_standup(
+                mode=str(data.get("mode", "tuck")),
+                speed=float(data.get("speed", 1.0)),
+                direction=str(data.get("direction", "up"))))
+        if path == "/api/standup/stop":
+            return RouteResponse.json(s.stop_demo())
         if path == "/api/demo":
             return RouteResponse.json(s.run_demo(
                 str(data.get("name", "")),
@@ -336,11 +361,17 @@ class RobotProxyTarget:
         self.timeout = timeout
         self.ping_timeout = ping_timeout
         self.ssl_context = None
+        self._resolved_base_url = ""
+        self._resolved_host_header = ""
+        self._resolved_until = 0.0
         self.configure(self.base_url, insecure_tls=insecure_tls)
 
     def configure(self, base_url: str,
                   insecure_tls: bool | None = None) -> None:
         self.base_url = _normalize_base_url(base_url)
+        self._resolved_base_url = ""
+        self._resolved_host_header = ""
+        self._resolved_until = 0.0
         if insecure_tls is not None:
             self.ssl_context = (
                 ssl._create_unverified_context() if insecure_tls else None)
@@ -361,6 +392,25 @@ class RobotProxyTarget:
         return {"available": True, "url": self.base_url,
                 **obj, "ok": resp.ok()}
 
+    def _connect_base(self) -> tuple[str, str]:
+        p = urllib.parse.urlsplit(self.base_url)
+        host = p.hostname or ""
+        if p.scheme != "http" or not host.endswith(".local"):
+            return self.base_url, ""
+        now = time.monotonic()
+        if self._resolved_base_url and now < self._resolved_until:
+            return self._resolved_base_url, self._resolved_host_header
+        port = p.port or 80
+        infos = socket.getaddrinfo(
+            host, port, socket.AF_INET, socket.SOCK_STREAM)
+        ip = infos[0][4][0]
+        netloc = ip if p.port is None and port == 80 else f"{ip}:{port}"
+        self._resolved_base_url = urllib.parse.urlunsplit(
+            (p.scheme, netloc, "", "", ""))
+        self._resolved_host_header = p.netloc
+        self._resolved_until = now + 60.0
+        return self._resolved_base_url, self._resolved_host_header
+
     def request(self, method: str, full_path: str,
                 body: bytes = b"", headers: dict[str, str] | None = None,
                 timeout: float | None = None) -> RouteResponse:
@@ -368,12 +418,18 @@ class RobotProxyTarget:
             return RouteResponse.json({"ok": False,
                                        "error": "robot target not configured"},
                                       503)
-        url = self.base_url + full_path
         req_headers = {}
         if headers:
             for k, v in headers.items():
                 if k.lower() in {"content-type", "accept"}:
                     req_headers[k] = v
+        try:
+            connect_base, host_header = self._connect_base()
+        except Exception:
+            connect_base, host_header = self.base_url, ""
+        if host_header and "Host" not in req_headers:
+            req_headers["Host"] = host_header
+        url = connect_base + full_path
         data = body if method == "POST" else None
         if data and "Content-Type" not in req_headers:
             req_headers["Content-Type"] = "application/json"
@@ -404,6 +460,7 @@ class HubController:
         "/api/demo/speed",
         "/api/demo/stop",
         "/api/standup",
+        "/api/standup/stop",
         "/api/zero",
         "/api/safe_zero",
         "/api/rl/stop",
@@ -422,6 +479,13 @@ class HubController:
         "/api/dances",
         "/api/dances/delete",
     }
+    SAFETY_POSTS = {
+        "/api/demo/stop",
+        "/api/standup/stop",
+        "/api/rl/stop",
+        "/api/rl/drive/stop",
+    }
+    ESTOP_CMDS = {"X", "DISARM", "RELAX"}
 
     def __init__(self, sim: Any | None, robot: Any | None,
                  target: str = "sim"):
@@ -473,9 +537,16 @@ class HubController:
             "available": False}
         active_robot = target in {"robot", "both"}
         active_sim = target in {"sim", "both"}
-        robot_meta = (
-            self.robot.ping_meta() if active_robot and self._has_robot()
-            else self._robot_config_meta())
+        robot_meta = self._robot_config_meta()
+        if active_robot and self._has_robot():
+            robot_resp = self._request_with_timeout(
+                "robot", "GET", "/api/ping", b"", None, timeout=0.8)
+            robot_obj = robot_resp.json_obj()
+            robot_meta = {
+                **robot_meta,
+                **robot_obj,
+                "ok": robot_resp.ok() and robot_obj.get("ok") is not False,
+            }
         ok = True
         if active_robot:
             ok = ok and robot_meta.get("ok") is not False
@@ -535,9 +606,23 @@ class HubController:
             return self._send("sim", "POST", full_path, body, headers)
         with self.lock:
             target = self.target
+        if self._must_broadcast_safety(path, body, headers):
+            return self._broadcast_post(full_path, body, headers)
         if target == "both" and path in self.BROADCAST_POSTS:
             return self._broadcast_post(full_path, body, headers)
         return self._send(target, "POST", full_path, body, headers)
+
+    def _must_broadcast_safety(
+            self, path: str, body: bytes,
+            headers: dict[str, str] | None) -> bool:
+        if path in self.SAFETY_POSTS:
+            return self._has_sim() and self._has_robot()
+        global_stop = _header_value(
+            headers, "X-Hexapod-Global-Stop").lower() in {
+                "1", "true", "yes"}
+        if path == "/cmd" and global_stop and _cmd_line(body) in self.ESTOP_CMDS:
+            return self._has_sim() and self._has_robot()
+        return False
 
     def _request_with_timeout(self, target: str, method: str, full_path: str,
                               body: bytes,
@@ -720,8 +805,30 @@ class HubController:
 
     def _broadcast_post(self, full_path: str, body: bytes,
                         headers: dict[str, str] | None) -> RouteResponse:
-        robot_resp = self._send("robot", "POST", full_path, body, headers)
-        sim_resp = self._send("sim", "POST", full_path, body, headers)
+        q: queue.Queue[tuple[str, RouteResponse]] = queue.Queue(maxsize=2)
+
+        def send_robot() -> None:
+            try:
+                resp = self._request_with_timeout(
+                    "robot", "POST", full_path, body, headers, timeout=5.0)
+            except BaseException as e:
+                resp = RouteResponse.json({"ok": False, "error": str(e)},
+                                          502)
+            q.put(("robot", resp))
+
+        def send_sim() -> None:
+            try:
+                resp = self._send("sim", "POST", full_path, body, headers)
+            except BaseException as e:
+                resp = RouteResponse.json({"ok": False, "error": str(e)},
+                                          502)
+            q.put(("sim", resp))
+
+        threading.Thread(target=send_robot, daemon=True).start()
+        threading.Thread(target=send_sim, daemon=True).start()
+        results = {name: resp for name, resp in (q.get(), q.get())}
+        robot_resp = results["robot"]
+        sim_resp = results["sim"]
         path = full_path.split("?", 1)[0]
         if path == "/cmd":
             ok = robot_resp.ok() and sim_resp.ok()

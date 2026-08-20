@@ -19,6 +19,7 @@ let robotTargetAvailable = true;
 let simTargetAvailable = false;
 let robotTargetUrl = '';
 let targetLineMsg = {robot:null, sim:null};
+let lastTargetHealthMsg = '';
 let simFrames = true;
 let simNativeViewer = false;
 let simTimer = null, simBusy = false, simFrameBusy = false;
@@ -61,6 +62,35 @@ function setLink(ok, detail){
       +(detail ? (' ('+detail+')') : '');
   }
 }
+function targetHealthMsg(meta){
+  if(!meta || !meta.hub || meta.ok !== false) return '';
+  const targets = meta.targets || {};
+  const active = meta.active || {};
+  const bad = [];
+  [['robot', targets.robot || {}], ['MuJoCo sim', targets.sim || {}]]
+    .forEach(([name, t])=>{
+      const key = name === 'robot' ? 'robot' : 'sim';
+      if(active[key] && t.available && t.ok === false)
+        bad.push(name + ': ' + (t.error || 'not responding'));
+    });
+  return bad.length ? bad.join(' · ') : 'target not responding';
+}
+function requestReceiptLine(d, label){
+  const prefix = label ? label + ' received' : 'request received';
+  const h = d && d.hub;
+  if(!h || typeof h !== 'object' || !h.robot || !h.sim){
+    if(d && (d.sim || (d.robot && d.robot.sim))) return prefix + ' — MuJoCo OK';
+    if(d && d.robot && d.robot.ok !== false) return prefix + ' — robot OK';
+    return prefix;
+  }
+  const part = (name, x)=>{
+    const ok = x && x.ok !== false && !x.error;
+    return name + (ok ? ' OK' : ' failed'
+      + (x && x.error ? ': '+x.error : ''));
+  };
+  return prefix + ' — ' + part('robot', h.robot) + ' · '
+    + part('MuJoCo', h.sim);
+}
 function applyBackendMeta(meta){
   if(!meta) return;
   const prevBackendKind = backendKind;
@@ -78,8 +108,8 @@ function applyBackendMeta(meta){
     hubTarget = meta.target || 'sim';
     targetHasRobot = !!(meta.active && meta.active.robot);
     targetHasSim = !!(meta.active && meta.active.sim);
-    robotTargetAvailable = !!robotMeta.available;
-    simTargetAvailable = !!simMeta.available;
+    robotTargetAvailable = !!robotMeta.available && robotMeta.ok !== false;
+    simTargetAvailable = !!simMeta.available && simMeta.ok !== false;
     robotTargetUrl = robotMeta.url || robotTargetUrl || savedRobotUrl();
   } else {
     const kind0 = meta.kind
@@ -144,7 +174,17 @@ async function heartbeat(){
     if(!r.ok) throw new Error('HTTP '+r.status);
     const j = await r.json().catch(()=>({}));
     applyBackendMeta(j);
+    if(j && j.ok === false && j.hub){
+      setLink(true, 'online');
+      const msg = targetHealthMsg(j);
+      if(msg && msg !== lastTargetHealthMsg){
+        lastTargetHealthMsg = msg;
+        showSent(msg, true);
+      }
+      return;
+    }
     if(j && j.ok === false) throw new Error(j.error || 'ping failed');
+    lastTargetHealthMsg = '';
     setLink(true, 'online');
   }catch(e){
     clearTimeout(t);
@@ -172,9 +212,11 @@ document.addEventListener('visibilitychange', ()=>{
 });
 
 // --- command transport -----------------------------------------------------
-async function cmd(line){
+async function cmd(line, opts){
+  const headers = {};
+  if(opts && opts.globalStop) headers['X-Hexapod-Global-Stop'] = '1';
   try {
-    const r = await fetch('/cmd', {method:'POST', body:line});
+    const r = await fetch('/cmd', {method:'POST', body:line, headers});
     if(!r.ok) throw 0;
     setLink(true);
   } catch(e){ setLink(false, 'cmd failed'); }
@@ -330,7 +372,7 @@ function padBtnDown(gp, i){
 async function padRunDemo(name, label){
   if(needArm()) return;
   dancePaused = true;
-  showSent('pad '+label+' → '+name);
+  showSent('pad '+label+' → '+name+' sent…');
   try{
     const body = {name:name, speed:demoSpeed(), torque:demoTorque()};
     if(name==='breathe' || name==='breathe_v'){
@@ -340,7 +382,8 @@ async function padRunDemo(name, label){
       headers:{'Content-Type':'application/json'},
       body: JSON.stringify(body)});
     const j = await res.json();
-    if(j.ok) showSent('demo '+name+(j.home?(' via '+j.home):''));
+    if(j.ok) showSent(requestReceiptLine(j, 'demo '+name)
+      +(j.home?(' via '+j.home):''));
     else showSent(j.error||('demo '+name+' failed'), true);
     if(j.demo) paintDemoStatus(j.demo);
     if(j.robot) paintRobotActivity(j.robot);
@@ -357,7 +400,7 @@ async function goPoseZero(pose, label){
   if(pose === 'stand') armed = false;
   const tag = label || pose;
   const safe = pose !== 'stand';
-  showSent(tag + '…');
+  showSent(tag + ' request sent…');
   try{
     let r = await fetch(safe ? '/api/safe_zero' : '/api/zero',{method:'POST',
       headers:{'Content-Type':'application/json'},
@@ -370,17 +413,19 @@ async function goPoseZero(pose, label){
     }
     const j = await r.json();
     if(!j.ok){
-      showSent(tag + ' failed: '+(j.error||'unknown'));
+      showSent(requestReceiptLine(j, tag)+'; failed: '
+        +(j.error||'unknown'), true);
       if(j.demo) paintDemoStatus(j.demo);
       if(j.robot) paintRobotActivity(j.robot);
       return;
     }
     setArmed(true);
     if(safe && j.plan && j.plan.stages)
-      showSent(tag + ' — safe plan: '+j.plan.stages.length+' stage(s), ~'
-        +(j.plan.total_s||'?')+'s (limps on stall)');
+      showSent(requestReceiptLine(j, tag)+'; safe plan: '
+        +j.plan.stages.length+' stage(s), ~'
+        +(j.plan.total_s||'?')+'s');
     else
-      showSent(tag + ' — gliding (full torque)');
+      showSent(requestReceiptLine(j, tag)+'; gliding');
     if(j.demo) paintDemoStatus(j.demo);
     if(j.robot) paintRobotActivity(j.robot);
     startDemoPoll();
@@ -421,10 +466,11 @@ async function padSetZero(){
   }catch(e){ showSent('zero-here failed'); }
 }
 async function padStopDemo(){
-  showSent('pad B → stop demo');
+  showSent('pad B → stop demo sent…');
   try{
     const r = await fetch('/api/demo/stop',{method:'POST'});
     const j = await r.json();
+    showSent(requestReceiptLine(j, 'Stop demo'));
     if(j.demo) paintDemoStatus(j.demo);
     if(j.robot) paintRobotActivity(j.robot);
   }catch(e){}
@@ -1336,19 +1382,22 @@ async function rlMove(mode, body){
   // the server preflight refuses bad start poses.
   if(mode!=='stand' && mode!=='lower' && body)
     delete body.heading;   // UI-only label, not an API field
-  $('rlstatus').textContent = 'Preflight…';
+  $('rlstatus').textContent = 'Request sent…';
   rlButtons(true);
   try{
     const r = await fetch('/api/rl/'+mode, {method:'POST',
       body: body ? JSON.stringify(body) : undefined});
     const d = await r.json();
     if(!d.ok){
-      $('rlstatus').textContent = 'Refused: '+(d.error || 'unknown');
-      showErr('RL: '+(d.error || 'refused'));
+      $('rlstatus').textContent = requestReceiptLine(d, 'RL '+mode)
+        + '; refused: '+(d.error || 'unknown');
+      showErr('RL: '+requestReceiptLine(d, mode)+'; '
+        +(d.error || 'refused'));
       rlButtons(false);
       return;
     }
-    $('rlstatus').textContent = 'Running…';
+    $('rlstatus').textContent = requestReceiptLine(d, 'RL '+mode)
+      + '; running…';
     startRlPoll();
   }catch(e){
     $('rlstatus').textContent = 'Start failed (link?)';
@@ -1358,17 +1407,20 @@ async function rlMove(mode, body){
 $('rlstand').onclick = ()=> rlMove('stand');
 $('rllower').onclick = ()=> rlMove('lower');
 $('rlglide').onclick = async ()=>{
-  $('rlstatus').textContent = 'Scripted → plant stance…';
+  $('rlstatus').textContent = 'Plant stance request sent…';
   try{
     const r = await fetch('/api/standup', {method:'POST',
       body: JSON.stringify({mode:'plant', speed:10})});
     const d = await r.json();
     if(!d.ok){
-      $('rlstatus').textContent = 'Refused: '+(d.error || 'unknown');
-      showErr('Plant stance: '+(d.error || 'refused'));
+      $('rlstatus').textContent = requestReceiptLine(d, 'Plant stance')
+        + '; refused: '+(d.error || 'unknown');
+      showErr('Plant stance: '+requestReceiptLine(d, '')+'; '
+        +(d.error || 'refused'));
       return;
     }
-    $('rlstatus').textContent = 'Moving to plant stance…';
+    $('rlstatus').textContent = requestReceiptLine(d, 'Plant stance')
+      + '; moving…';
     startDemoPoll();
   }catch(e){ $('rlstatus').textContent = 'Start failed (link?)'; }
 };
@@ -1735,22 +1787,52 @@ function suSelect(name){
   $('sulab-desc').textContent = m
     ? `${m.description} (~${m.total_s}s, ${m.keyframes} keyframes)` : '—';
 }
+function suNameMode(name){
+  if(!name) return 'standup';
+  return String(name).replace(/^standup_/, '').replace(/_down$/, '');
+}
+function suDoneLine(robotState, calState){
+  const demo = (robotState && robotState.demo)
+    || (calState && calState.demo) || {};
+  const res = (calState && calState.result) || {};
+  const tel = demo.telemetry || {};
+  const params = demo.params || {};
+  const name = demo.name || calState?.name || '';
+  const mode = res.mode || params.mode || suNameMode(name);
+  const direction = res.direction || params.direction
+    || (String(name).endsWith('_down') ? 'down' : 'up');
+  const verb = direction === 'down' ? 'sit' : 'stand';
+  const ok = tel.ok != null ? !!tel.ok : res.ok !== false;
+  const bits = [(ok ? 'Done' : 'Failed'), mode, verb];
+  if(res.peak_a != null) bits.push(`peak ${res.peak_a} A`);
+  if(tel.height_mm != null) bits.push(`height ${tel.height_mm} mm`);
+  if(tel.max_lag_deg != null) bits.push(`lag ${tel.max_lag_deg}°`);
+  const msg = ok ? bits.join(' · ') : (res.error || robotState?.detail
+    || bits.join(' · '));
+  return msg + ' — holding (X to limp)';
+}
 function suPoll(){
   if(suTimer) clearInterval(suTimer);
   suTimer = setInterval(async ()=>{
     try{
-      const r = await fetch('/api/calibrate?t='+Date.now(), {cache:'no-store'});
-      const d = await r.json();
-      if(d.running && (d.name||'').startsWith('standup_')){
-        $('sulab-status').textContent = (d.progress||{}).msg || 'running…';
-      } else if(!d.running){
+      const [rr, cr] = await Promise.all([
+        fetch('/api/demo/status?t='+Date.now(), {cache:'no-store'}),
+        fetch('/api/calibrate?t='+Date.now(), {cache:'no-store'}),
+      ]);
+      const robotState = await rr.json();
+      const d = await cr.json();
+      const demo = robotState.demo || d.demo || {};
+      const name = demo.name || d.name || '';
+      const running = !!(demo.running || d.running);
+      if(running && String(name).startsWith('standup_')){
+        const p = demo.progress || d.progress || {};
+        $('sulab-status').textContent = p.msg || demo.status || 'running…';
+      } else if(!running){
         clearInterval(suTimer); suTimer = null;
         $('sulab-go').disabled = false; $('sulab-sit').disabled = false;
-        const res = d.result || {};
-        $('sulab-status').textContent = res.ok
-          ? `Done · ${res.mode} ${res.direction==='down'?'sit':'stand'} · `
-            + `peak ${res.peak_a ?? '?'} A — holding (X to limp)`
-          : (res.error || 'stopped — holding (X to limp)');
+        $('sulab-status').textContent = String(name).startsWith('standup_')
+          ? suDoneLine(robotState, d)
+          : 'Stopped — holding (X to limp)';
       }
     }catch(e){ /* keep polling */ }
   }, 500);
@@ -1760,19 +1842,22 @@ async function suRun(direction){
   // No confirm dialog (operator request 08-10): the server refuses a
   // bad start pose and that lands in the status line + error bar.
   $('sulab-go').disabled = true; $('sulab-sit').disabled = true;
-  $('sulab-status').textContent = 'Starting…';
+  $('sulab-status').textContent = 'Request sent…';
   try{
     const r = await fetch('/api/standup', {method:'POST',
       body: JSON.stringify({mode: suSel, direction,
                             speed: parseFloat($('sulab-speed').value)})});
     const d = await r.json();
     if(!d.ok){
-      $('sulab-status').textContent = 'Refused: '+(d.error || 'unknown');
-      showErr('Stand-up lab: '+(d.error || 'refused'));
+      $('sulab-status').textContent = requestReceiptLine(d, 'Stand-up lab')
+        + '; refused: '+(d.error || 'unknown');
+      showErr('Stand-up lab: '+requestReceiptLine(d, '')+'; '
+        +(d.error || 'refused'));
       $('sulab-go').disabled = false; $('sulab-sit').disabled = false;
       return;
     }
-    $('sulab-status').textContent = 'Running…';
+    $('sulab-status').textContent = requestReceiptLine(d, 'Stand-up lab')
+      + '; running…';
     suPoll();
   }catch(e){
     $('sulab-status').textContent = 'Start failed (link?)';
@@ -1782,8 +1867,11 @@ async function suRun(direction){
 $('sulab-go').onclick = ()=> suRun('up');
 $('sulab-sit').onclick = ()=> suRun('down');
 $('sulab-stop').onclick = async ()=>{
-  await fetch('/api/standup/stop', {method:'POST'});
-  $('sulab-status').textContent = 'Stopping (holds pose; X to limp)…';
+  $('sulab-status').textContent = 'Stop request sent…';
+  const r = await fetch('/api/standup/stop', {method:'POST'});
+  const d = await r.json().catch(()=>({ok:r.ok}));
+  $('sulab-status').textContent = requestReceiptLine(d, 'Stop')
+    + '; holding pose';
 };
 suLoadModes();
 
@@ -2406,372 +2494,6 @@ async function refreshRobotState(wantZero){
 }
 async function refreshDemoStatus(){ return refreshRobotState(activeView==='demos'); }
 
-// --- demo motion schematics ------------------------------------------------
-// Stylised pose fns per demo, rendered by the 3D view below when idle /
-// hovering (while a demo RUNS the 3D view shows live encoders instead).
-const DEMO_PREVIEW = {
-  breathe: { start:'sit', blurb:'From sit zero (legs out): all hips/knees gently flex in/out together like a breath.',
-    pose:(t,L)=>{ const b=0.5*(1-Math.cos(t*Math.PI*2*0.35));
-      for(let i=0;i<6;i++){ L[i].yaw=0; L[i].hip=-0.35*b; L[i].knee=0.45*b; } } },
-  breathe_v: { start:'sit', blurb:'Same as breathe, but velocity/speed-hold (no position hunt). Still starts at sit zero.',
-    pose:(t,L)=>DEMO_PREVIEW.breathe.pose(t,L) },
-  heartbeat: { start:'sit', blurb:'Sit zero → double knee thump pulse (lub-dub), then rest.',
-    pose:(t,L)=>{ const c=(t%1.1)/1.1; let k=0;
-      if(c<0.12) k=Math.sin(Math.PI*c/0.12); else if(c>0.18&&c<0.30) k=0.7*Math.sin(Math.PI*(c-0.18)/0.12);
-      for(let i=0;i<6;i++){ L[i].yaw=0; L[i].hip=-0.2*k; L[i].knee=0.55*k; } } },
-  twinkle: { start:'sit', blurb:'Sit zero → small independent wiggles on each joint (alive fidget).',
-    pose:(t,L)=>{ for(let i=0;i<6;i++){ L[i].yaw=0.25*Math.sin(t*2.1+i); L[i].hip=0.15*Math.sin(t*1.7+i*1.3);
-      L[i].knee=0.2*Math.sin(t*2.4+i*0.7); } } },
-  shimmy: { start:'sit', blurb:'Sit zero → odd/even legs yaw opposite ways (shimmy), hips/knees stay out.',
-    pose:(t,L)=>{ const a=0.45*Math.sin(t*Math.PI*2*0.55);
-      for(let i=0;i<6;i++){ L[i].yaw=(i%2? -a:a); L[i].hip=0; L[i].knee=0; } } },
-  ripple: { start:'sit', blurb:'Sit zero → yaw wave travels around the hex (phase per leg).',
-    pose:(t,L)=>{ for(let i=0;i<6;i++){ L[i].yaw=0.5*Math.sin(t*Math.PI*2*0.45 - i*Math.PI/3);
-      L[i].hip=0; L[i].knee=0; } } },
-  conductor: { start:'sit', blurb:'Sit zero → one leg waves as “pointer”; neighbors hold; pointer walks around.',
-    pose:(t,L)=>{ const p=Math.floor((t*0.4)%6);
-      for(let i=0;i<6;i++){ if(i===p){ L[i].yaw=0.55*Math.sin(t*4); L[i].hip=-0.25*Math.abs(Math.sin(t*4)); L[i].knee=0.15; }
-        else { L[i].yaw=(Math.abs(i-p)%6===1||Math.abs(i-p)%6===5)? -0.15:0; L[i].hip=0; L[i].knee=0; } } } },
-  arms_up: { start:'sit', blurb:'Sit zero → fold all six legs way overhead, hold, back to sit zero.',
-    pose:(t,L)=>{ const c=t%4; let u=0;
-      if(c<1.2) u=c/1.2; else if(c<2.6) u=1; else u=Math.max(0,1-(c-2.6)/1.2);
-      for(let i=0;i<6;i++){ L[i].yaw=0; L[i].hip=-1.05*u; L[i].knee=0.4*u; } } },
-  stand_sway: { start:'stand', blurb:'Standing (planted-foot IK, LIVE speed): the BODY leans side to side; all six feet stay glued to the floor.',
-    pose:(t,L)=>{ const s=Math.sin(t*1.9);
-      for(let i=0;i<6;i++){ const a=(i+0.5)*Math.PI/3;
-        L[i].yaw=0; L[i].hip=-0.55-0.12*s*Math.sin(a); L[i].knee=0.9+0.08*s*Math.sin(a); } } },
-  stand_hula: { start:'stand', blurb:'Standing (planted-foot IK, LIVE speed): the body circles like a hula hoop — the old robot\u2019s wiggle. Feet never move.',
-    pose:(t,L)=>{ for(let i=0;i<6;i++){ const a=(i+0.5)*Math.PI/3, c=Math.cos(t*3.1-a);
-        L[i].yaw=0; L[i].hip=-0.55-0.12*c; L[i].knee=0.9+0.08*c; } } },
-  stand_bounce: { start:'stand', blurb:'Standing (planted-foot IK, LIVE speed): pogo — the body dips straight down and back up, feet planted.',
-    pose:(t,L)=>{ const c=0.5*(1-Math.cos(t*5.6));
-      for(let i=0;i<6;i++){ L[i].yaw=0; L[i].hip=-0.55+0.16*c; L[i].knee=0.9+0.12*c; } } },
-  stand_twist: { start:'stand', blurb:'Standing (planted-foot IK, LIVE speed): twist & dip — the body yaws while the feet stay planted (IK counter-rotates them). Cord-safe.',
-    pose:(t,L)=>{ const y=0.2*Math.sin(t*2.8), d=0.5*(1-Math.cos(t*5.6));
-      for(let i=0;i<6;i++){ L[i].yaw=y; L[i].hip=-0.55+0.08*d; L[i].knee=0.9+0.06*d; } } },
-  stand_wave: { start:'stand', blurb:'Standing (planted-foot IK, LIVE speed): stadium wave — a narrow raised-leg crest circles the body, everyone else stays planted.',
-    pose:(t,L)=>{ for(let i=0;i<6;i++){ const a=(i+0.5)*Math.PI/3;
-        const e=Math.pow(0.5*(1+Math.cos(t*2.6-a)),3);
-        L[i].yaw=0; L[i].hip=-0.55+e*0.03; L[i].knee=0.9-e*0.38; } } },
-  stand_march: { start:'stand', blurb:'Standing (planted-foot IK, LIVE speed): tripod march in place — alternating tripods step straight up while the weight sways; never fewer than three feet down.',
-    pose:(t,L)=>{ const ph=t*3.9;
-      for(let i=0;i<6;i++){ const c=(i%2===0)?0:Math.PI;
-        let d=((ph-c)%(2*Math.PI)+2*Math.PI)%(2*Math.PI); if(d>Math.PI)d=2*Math.PI-d;
-        const p=(d<0.42*Math.PI)?0.5*(1+Math.cos(d/(0.42*Math.PI)*Math.PI)):0;
-        L[i].yaw=0; L[i].hip=-0.55-0.22*p; L[i].knee=0.9+0.1*p; } } },
-  stand_hi: { start:'stand', blurb:'Standing (planted-foot IK, LIVE speed): weight eases back and dips, then ONE front paw lifts and waves hello — five feet stay down.',
-    pose:(t,L)=>{ const sh=Math.min(t/0.8,1), ar=Math.max(0,Math.min((t-0.7)/1,1));
-      for(let i=0;i<6;i++){ const paw=(i===0);
-        const w=Math.sin(t*5);
-        L[i].yaw=paw?0.21*ar*w:0;
-        L[i].hip=-0.55-0.05*sh+(paw?ar*(-0.35):0.0);
-        L[i].knee=0.9+(paw?ar*(-0.55+0.2*w):0.05*sh); } } },
-  stand_hands: { start:'stand', blurb:'Stand zero → lift three legs (0,2,4) way overhead; other three stay planted; back to stand.',
-    pose:(t,L)=>{ const c=t%4; let u=0;
-      if(c<1.1) u=c/1.1; else if(c<2.7) u=1; else u=Math.max(0,1-(c-2.7)/1.1);
-      for(let i=0;i<6;i++){ const up=(i%2===0)?1:0;
-        L[i].yaw=0; L[i].hip=-0.55+0.75*u*up; L[i].knee=0.9-0.6*u*up; } } },
-  rise: { start:'stand', blurb:'From stand → reach deeper toward the floor (plant), hold, return to stand zero.',
-    pose:(t,L)=>{ const u=0.5*(1-Math.cos(Math.min(1,t%4/2)*Math.PI)); // 0..1..0 over ~4s loop
-      const phase=((t%4)<2)? u : 1-u;
-      for(let i=0;i<6;i++){ L[i].yaw=0; L[i].hip=-0.55-0.35*phase; L[i].knee=0.85+0.25*phase; } } },
-  'rise+': { start:'stand', blurb:'Like rise but higher/faster plant reach, then back to stand zero.',
-    pose:(t,L)=>{ const u=0.5*(1-Math.cos(Math.min(1,(t%3)/1.4)*Math.PI));
-      const phase=((t%3)<1.4)? u : 1-u;
-      for(let i=0;i<6;i++){ L[i].yaw=0; L[i].hip=-0.35+0.55*phase; L[i].knee=0.85+0.2*phase; } } },
-  rise_turn: { start:'stand', blurb:'Stand → plant → small yaw twist → untwist → stand zero (cord-safe).',
-    pose:(t,L)=>{ const c=t%5; let hip=-0.55, knee=0.9, yaw=0;
-      if(c<1.2){ const u=c/1.2; hip=-0.55+0.75*u; knee=0.9+0.15*u; }
-      else if(c<2.0){ hip=0.2; knee=1.05; yaw=0.35*((c-1.2)/0.8); }
-      else if(c<2.8){ hip=0.2; knee=1.05; yaw=0.35*(1-(c-2.0)/0.8); }
-      else { const u=Math.min(1,(c-2.8)/1.2); hip=0.2-0.75*u; knee=1.05-0.15*u; }
-      for(let i=0;i<6;i++){ L[i].yaw=yaw; L[i].hip=hip; L[i].knee=knee; } } },
-  plant_look: { start:'stand', blurb:'Standing: body look left/right + nod (small yaw/pitch on plant).',
-    pose:(t,L)=>{ const yaw=0.35*Math.sin(t*1.2), nod=0.12*Math.sin(t*2.0);
-      for(let i=0;i<6;i++){ L[i].yaw=yaw; L[i].hip=-0.55+nod; L[i].knee=0.9; } } },
-  walk: { start:'stand', blurb:'Real tripod gait: walk forward a few strides (~45 mm/s), then hold stand.',
-    pose:(t,L)=>{ for(let i=0;i<6;i++){ const ph=(t*2.2)+(i%2)*Math.PI; const sw=Math.max(0,Math.sin(ph));
-      L[i].yaw=0.12*Math.sin(ph); L[i].hip=0.35-0.15*sw; L[i].knee=1.2-0.2*sw; } } },
-  walk_spin: { start:'stand', blurb:'In-place tripod turn (spin), then hold stand. Cord-friendlier than walking away.',
-    pose:(t,L)=>{ for(let i=0;i<6;i++){ const ph=(t*2.5)+(i%2)*Math.PI; const sw=Math.max(0,Math.sin(ph));
-      L[i].yaw=0.25*Math.sin(t*1.5); L[i].hip=0.35-0.12*sw; L[i].knee=1.2-0.15*sw; } } },
-  walk_oval: { start:'stand', blurb:'Tripod: forward → spin → reverse → stand. Keep cord slack / clear floor.',
-    pose:(t,L)=>{ DEMO_PREVIEW.walk.pose(t,L); } },
-  plant_bounce: { start:'stand', blurb:'Standing boom/pop: chassis bobs by flexing hips/knees together.',
-    pose:(t,L)=>{ const b=0.5*(1-Math.cos(t*Math.PI*2*1.1));
-      for(let i=0;i<6;i++){ L[i].yaw=0; L[i].hip=-0.55-0.25*b; L[i].knee=0.9+0.2*b; } } },
-  plant_ripple: { start:'stand', blurb:'Standing: ripple around the hex — legs lift in a traveling wave.',
-    pose:(t,L)=>{ for(let i=0;i<6;i++){ const w=0.5*(1+Math.sin(t*3 - i*Math.PI/3));
-      L[i].yaw=0.15*Math.sin(t*2+i); L[i].hip=-0.55+0.45*w; L[i].knee=0.9-0.35*w; } } },
-  plant_gallop: { start:'stand', blurb:'Standing gallop: opposite leg pairs lift/plant in antiphase.',
-    pose:(t,L)=>{ for(let i=0;i<6;i++){ const s=(i%2)?1:-1; const w=0.5*(1+Math.sin(t*4)*s);
-      L[i].yaw=0; L[i].hip=-0.55+0.4*w; L[i].knee=0.9-0.3*w; } } },
-  plant_tripod: { start:'stand', blurb:'Tripod flip: three legs up while three stay planted, then swap.',
-    pose:(t,L)=>{ const side=Math.sin(t*2.2)>0?1:0;
-      for(let i=0;i<6;i++){ const up=((i%2)===side)?1:0;
-      L[i].yaw=0; L[i].hip=-0.55+0.5*up; L[i].knee=0.9-0.4*up; } } },
-  plant_fan: { start:'stand', blurb:'All six legs dance outward/inward in a fan pattern.',
-    pose:(t,L)=>{ const a=0.4*Math.sin(t*2.5);
-      for(let i=0;i<6;i++){ L[i].yaw=a*((i%2)?-1:1); L[i].hip=-0.45+0.2*Math.sin(t*3+i);
-      L[i].knee=0.85+0.15*Math.cos(t*3+i); } } },
-  plant_star: { start:'stand', blurb:'Odds/evens + star snaps — quick planted accents.',
-    pose:(t,L)=>{ const snap=Math.pow(Math.max(0,Math.sin(t*5)),8);
-      for(let i=0;i<6;i++){ const o=i%2; L[i].yaw=(o?1:-1)*(0.2+0.35*snap);
-      L[i].hip=-0.55+0.35*snap*(1-o); L[i].knee=0.9-0.25*snap*o; } } },
-  plant_stomp: { start:'stand', blurb:'Stomp barrage then ta-da pose; stays planted / returns to stand.',
-    pose:(t,L)=>{ const st=Math.abs(Math.sin(t*6));
-      for(let i=0;i<6;i++){ const hit=((Math.floor(t*3)+i)%3===0)?st:0;
-      L[i].yaw=0; L[i].hip=-0.55+0.35*hit; L[i].knee=0.9-0.25*hit; } } },
-  rise_show: { start:'stand', blurb:'Full planted show: plant, then look/bounce/ripple/gallop/… finale → stand zero.',
-    pose:(t,L)=>{ // mash of plant_ripple + bounce
-      DEMO_PREVIEW.plant_ripple.pose(t,L);
-      const b=0.15*(1-Math.cos(t*2));
-      for(let i=0;i<6;i++){ L[i].hip-=b; L[i].knee+=b*0.5; } } },
-};
-let prevName = 'breathe';
-let prevRaf = 0;
-let prevT0 = 0;
-function demoPreviewInfo(name){
-  return DEMO_PREVIEW[name] || {
-    start: /^(plant|rise|stand|walk)/.test(name||'') ? 'stand' : 'sit',
-    blurb: 'Schematic motion preview.',
-    pose:(t,L)=>{ for(let i=0;i<6;i++){ L[i].yaw=0; L[i].hip=-0.4; L[i].knee=0.7; } }
-  };
-}
-function setDemoPreview(name){
-  prevName = name || prevName;
-  const info = demoPreviewInfo(prevName);
-  const title = $('dprevtitle'); if(title) title.textContent = prevName;
-  const blurb = $('dprevblurb'); if(blurb) blurb.textContent = info.blurb;
-  const tags = $('dprevtags');
-  if(tags){
-    tags.innerHTML = info.start==='sit'
-      ? '<span class="tag sit">starts sit zero</span><span class="tag">air</span>'
-      : '<span class="tag stand">starts stand zero</span><span class="tag">planted</span>';
-  }
-  document.querySelectorAll('#dgrid button').forEach(b=>{
-    b.classList.toggle('previewing', b.dataset.name===prevName);
-  });
-}
-// --- 3D demo view --------------------------------------------------------
-// Real leg geometry (coxa 12.5 / femur 90 / tibia 128 mm), perspective
-// camera with drag-orbit + wheel-zoom. While a demo runs it renders the
-// LIVE robot from /api/pose encoder angles; idle/hover shows the demo's
-// schematic motion mapped onto the same skeleton.
-const HEX3D = {
-  az: -38, el: 26, dist: 640, f: 430,
-  spin: true, drag: null, bound: false,
-  coxa: 12.5, femur: 90, tibia: 128, legR: 55, hexR: 63.5, bodyT: 14,
-};
-let livePose = { deg: null, ts: 0 };
-let livePoseBusy = false, livePollAt = 0;
-async function pollLivePose(){
-  if(livePoseBusy) return; livePoseBusy = true;
-  try{
-    const r = await fetch('/api/pose', {cache:'no-store'});
-    const j = await r.json();
-    if(j && j.ok && Array.isArray(j.degrees))
-      livePose = { deg: j.degrees.map(v=>v==null?0:Number(v)),
-                   ts: performance.now() };
-  }catch(e){ /* keep last */ }
-  finally{ livePoseBusy = false; }
-}
-function hex3dBind(cv){
-  if(HEX3D.bound) return; HEX3D.bound = true;
-  cv.style.touchAction = 'none';
-  cv.style.cursor = 'grab';
-  cv.addEventListener('pointerdown', e=>{
-    HEX3D.drag = {x:e.clientX, y:e.clientY}; HEX3D.spin = false;
-    cv.setPointerCapture(e.pointerId); cv.style.cursor='grabbing'; });
-  cv.addEventListener('pointermove', e=>{
-    if(!HEX3D.drag) return;
-    HEX3D.az += (e.clientX - HEX3D.drag.x)*0.5;
-    HEX3D.el = Math.max(8, Math.min(72, HEX3D.el + (e.clientY - HEX3D.drag.y)*0.35));
-    HEX3D.drag = {x:e.clientX, y:e.clientY}; });
-  const up = ()=>{ HEX3D.drag = null; cv.style.cursor='grab'; };
-  cv.addEventListener('pointerup', up);
-  cv.addEventListener('pointercancel', up);
-  cv.addEventListener('wheel', e=>{ e.preventDefault();
-    HEX3D.dist = Math.max(340, Math.min(1300,
-      HEX3D.dist * (e.deltaY>0 ? 1.08 : 0.93))); }, {passive:false});
-}
-// (yaw,hip,knee in DEG, robot convention: +hip/+knee fold down) → 4 pts, mm.
-function hex3dLeg(i, yawDeg, hipDeg, kneeDeg){
-  const A = (i+0.5)*Math.PI/3;
-  const yaw = yawDeg*Math.PI/180, hip = hipDeg*Math.PI/180,
-        knee = kneeDeg*Math.PI/180;
-  const dphi = A + yaw, dx = Math.cos(dphi), dy = Math.sin(dphi);
-  const p0 = [HEX3D.legR*Math.cos(A), HEX3D.legR*Math.sin(A), 0];
-  const p1 = [p0[0]+HEX3D.coxa*dx, p0[1]+HEX3D.coxa*dy, 0];
-  const ch = Math.cos(hip), sh = Math.sin(hip);
-  const p2 = [p1[0]+HEX3D.femur*ch*dx, p1[1]+HEX3D.femur*ch*dy,
-              -HEX3D.femur*sh];
-  const ck = Math.cos(hip+knee), sk = Math.sin(hip+knee);
-  const p3 = [p2[0]+HEX3D.tibia*ck*dx, p2[1]+HEX3D.tibia*ck*dy,
-              p2[2]-HEX3D.tibia*sk];
-  return [p0, p1, p2, p3];
-}
-function drawDemoPreview(ts){
-  const cv = $('dprevcv'); if(!cv) return;
-  if(activeView!=='demos'){ prevRaf = requestAnimationFrame(drawDemoPreview); return; }
-  hex3dBind(cv);
-  const ctx = cv.getContext('2d');
-  const W = cv.width, H = cv.height;
-  ctx.clearRect(0,0,W,H);
-  ctx.fillStyle = '#12151c'; ctx.fillRect(0,0,W,H);
-
-  // ---- joint angles: LIVE while a demo runs, else the hover schematic ----
-  const running = !!(lastDemo && lastDemo.running);
-  if(running && ts - livePollAt > 250){ livePollAt = ts; pollLivePose(); }
-  const liveFresh = livePose.deg && (performance.now() - livePose.ts) < 1500;
-  const useLive = running && liveFresh;
-  const deg = new Array(18).fill(0);
-  const info = demoPreviewInfo(prevName);
-  if(useLive){
-    for(let k=0;k<18;k++) deg[k] = livePose.deg[k] || 0;
-  } else {
-    if(!prevT0) prevT0 = ts;
-    const t = (ts - prevT0) / 1000;
-    const legs = [];
-    for(let i=0;i<6;i++) legs.push(
-      info.start==='sit' ? {yaw:0, hip:0, knee:0}
-                         : {yaw:0, hip:-0.55, knee:0.9});
-    try{ info.pose(t, legs); }catch(e){}
-    // Schematic pose fns are stylised radians. Map onto the real robot
-    // convention (+hip/+knee = fold down): sit demos already use robot
-    // signs; stand demos are anchored so (-0.55, 0.9) = the real plant
-    // stance (hip +19.5°, knee +78.9°).
-    for(let i=0;i<6;i++){
-      const L = legs[i];
-      deg[3*i] = L.yaw*57.3;
-      if(info.start==='sit'){ deg[3*i+1] = L.hip*57.3; deg[3*i+2] = L.knee*57.3; }
-      else { deg[3*i+1] = -L.hip*57.3*0.62; deg[3*i+2] = L.knee*57.3*1.53; }
-    }
-  }
-
-  // ---- forward kinematics + body height ----
-  const legPts = [];
-  let minz = 0;
-  for(let i=0;i<6;i++){
-    const pts = hex3dLeg(i, deg[3*i], deg[3*i+1], deg[3*i+2]);
-    legPts.push(pts);
-    minz = Math.min(minz, pts[3][2]);
-  }
-  const bz = Math.max(24, -minz);            // lowest foot on the floor
-  if(HEX3D.spin && !useLive) HEX3D.az += 0.15;
-
-  // ---- camera ----
-  const az = HEX3D.az*Math.PI/180, el = HEX3D.el*Math.PI/180;
-  const ca = Math.cos(az), sa = Math.sin(az);
-  const ce = Math.cos(el), se = Math.sin(el);
-  const zc = Math.min(110, bz*0.75 + 30);    // look-at height
-  const cx = W/2, cy = H/2 + 14;
-  function proj(p){
-    const x1 = p[0]*ca - p[1]*sa;
-    const y1 = p[0]*sa + p[1]*ca;
-    const z1 = p[2] - zc;                     // p already in world z
-    const y2 = y1*ce + z1*se;
-    const z2 = -y1*se + z1*ce;
-    const d = HEX3D.dist - y2;
-    return {x: cx + HEX3D.f*x1/d, y: cy - HEX3D.f*z2/d, d};
-  }
-  const world = p => [p[0], p[1], p[2] + bz];
-
-  // ---- ground grid + shadows (always behind) ----
-  ctx.lineWidth = 1; ctx.strokeStyle = '#1c2331';
-  for(let g=-220; g<=220; g+=55){
-    let a = proj([g,-220,0]), b = proj([g,220,0]);
-    ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke();
-    a = proj([-220,g,0]); b = proj([220,g,0]);
-    ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke();
-  }
-  ctx.fillStyle = 'rgba(0,0,0,0.30)';
-  ctx.beginPath();
-  for(let i=0;i<6;i++){
-    const v = proj([HEX3D.hexR*Math.cos(i*Math.PI/3),
-                    HEX3D.hexR*Math.sin(i*Math.PI/3), 0]);
-    if(i===0) ctx.moveTo(v.x,v.y); else ctx.lineTo(v.x,v.y);
-  }
-  ctx.closePath(); ctx.fill();
-  for(const pts of legPts){
-    const f = proj([pts[3][0], pts[3][1], 0]);
-    ctx.beginPath(); ctx.ellipse(f.x, f.y, 5, 5*Math.max(0.25,se), 0, 0, 7);
-    ctx.fill();
-  }
-
-  // ---- depth-sorted primitives: body + legs ----
-  const prims = [];
-  // body hexagonal prism
-  const topV = [], botV = [];
-  for(let i=0;i<6;i++){
-    const a = i*Math.PI/3;
-    topV.push(world([HEX3D.hexR*Math.cos(a), HEX3D.hexR*Math.sin(a),  HEX3D.bodyT]));
-    botV.push(world([HEX3D.hexR*Math.cos(a), HEX3D.hexR*Math.sin(a), -HEX3D.bodyT]));
-  }
-  prims.push({ d: proj(world([0,0,0])).d, draw(){
-    const t = topV.map(proj), b = botV.map(proj);
-    ctx.fillStyle = '#141c2c';
-    ctx.beginPath(); b.forEach((v,i)=> i?ctx.lineTo(v.x,v.y):ctx.moveTo(v.x,v.y));
-    ctx.closePath(); ctx.fill();
-    ctx.strokeStyle = '#23304d'; ctx.lineWidth = 1.5;
-    for(let i=0;i<6;i++){ ctx.beginPath();
-      ctx.moveTo(t[i].x,t[i].y); ctx.lineTo(b[i].x,b[i].y); ctx.stroke(); }
-    ctx.fillStyle = '#1b2744';
-    ctx.beginPath(); t.forEach((v,i)=> i?ctx.lineTo(v.x,v.y):ctx.moveTo(v.x,v.y));
-    ctx.closePath(); ctx.fill();
-    ctx.strokeStyle = '#2b6cff'; ctx.lineWidth = 2; ctx.stroke();
-    // heading notch: front is +x (between legs 0 and 5)
-    const n = proj(world([HEX3D.hexR*0.72, 0, HEX3D.bodyT]));
-    ctx.fillStyle = '#2b6cff';
-    ctx.beginPath(); ctx.arc(n.x, n.y, 3, 0, 7); ctx.fill();
-  }});
-  // legs
-  const segCol = ['#6c7891', '#9aa3b2', '#c3cad8'];
-  for(let i=0;i<6;i++){
-    const wp = legPts[i].map(world);
-    for(let s=0;s<3;s++){
-      const a = wp[s], b = wp[s+1];
-      prims.push({ d: proj([(a[0]+b[0])/2,(a[1]+b[1])/2,(a[2]+b[2])/2]).d,
-        draw(){
-          const pa = proj(a), pb = proj(b);
-          ctx.strokeStyle = segCol[s]; ctx.lineWidth = s===0?3:4;
-          ctx.lineCap = 'round';
-          ctx.beginPath(); ctx.moveTo(pa.x,pa.y); ctx.lineTo(pb.x,pb.y); ctx.stroke();
-          if(s===2){                       // foot
-            const onGround = b[2] < 6;
-            ctx.beginPath(); ctx.arc(pb.x, pb.y, onGround?4.5:3.5, 0, 7);
-            ctx.fillStyle = onGround ? '#5fd08a' : '#ffb24d'; ctx.fill();
-          } else {                          // joint
-            ctx.beginPath(); ctx.arc(pb.x, pb.y, 2.5, 0, 7);
-            ctx.fillStyle = '#39445c'; ctx.fill();
-          }
-        }});
-    }
-  }
-  prims.sort((p,q)=> q.d - p.d);            // far → near
-  prims.forEach(p=> p.draw());
-
-  // ---- labels ----
-  ctx.font = '11px system-ui,sans-serif';
-  if(useLive){
-    ctx.fillStyle = '#5fd08a';
-    ctx.fillText('● LIVE — robot encoder angles', 10, 17);
-  } else {
-    ctx.fillStyle = '#5a6478';
-    ctx.fillText(running ? 'connecting to live pose…'
-                         : 'preview — schematic motion', 10, 17);
-  }
-  ctx.fillStyle = '#3c455c';
-  ctx.fillText('drag = orbit · wheel = zoom', W-158, H-8);
-
-  prevRaf = requestAnimationFrame(drawDemoPreview);
-}
-function startDemoPreviewLoop(){
-  if(prevRaf) cancelAnimationFrame(prevRaf);
-  prevT0 = 0;
-  prevRaf = requestAnimationFrame(drawDemoPreview);
-}
-
 const DEMO_GROUPS = [
   ['air',   'In the air (sitting)', 'homes to sit zero · legs out'],
   ['stand', 'Standing dances — streamed, live speed', 'homes via the 10× stand-up · planted-foot body IK — feet stay glued'],
@@ -2797,8 +2519,6 @@ async function loadDemos(){
       g.appendChild(h);
       inGroup.forEach(item=> g.appendChild(demoButton(item)));
     });
-    if(items.length) setDemoPreview(items[0].name);
-    startDemoPreviewLoop();
   }catch(e){ $('dgrid').innerHTML = '<div class="hint">Failed to load demos</div>'; }
 }
 function demoButton(item){
@@ -2808,10 +2528,7 @@ function demoButton(item){
         +(item.live_speed?' <span style="color:#5fd08a;font-size:10px;font-weight:700">LIVE</span>':'')
         +'<br><span style="color:#9aa3b2;font-weight:400;font-size:12px">'
         +item.title+'</span>';
-      b.onmouseenter = ()=> setDemoPreview(item.name);
-      b.onfocus = ()=> setDemoPreview(item.name);
       b.onclick = async ()=>{
-        setDemoPreview(item.name);
         if(!(await ensureDemoTarget(item))) return;
         if(needArm()) return;
         const sp = demoSpeed();
@@ -2822,6 +2539,7 @@ function demoButton(item){
           body.rate = demoRate();
           body.softness = demoSoft();
         }
+        showSent('demo '+item.name+' request sent…');
         const res = await fetch('/api/demo',{method:'POST',
           headers:{'Content-Type':'application/json'},
           body: JSON.stringify(body)});
@@ -2836,9 +2554,10 @@ function demoButton(item){
           if(p.rate!=null) msg += ' '+Number(p.rate).toFixed(2)+'Hz';
           if(p.softness!=null) msg += ' soft '+Number(p.softness).toFixed(2)+'×';
           if(p.torque!=null) msg += ' τ'+p.torque;
-          showSent(msg);
+          showSent(requestReceiptLine(j, msg));
         } else {
-          showSent(j.error||'failed', true);
+          showSent(requestReceiptLine(j, 'demo '+item.name)+'; failed: '
+            +(j.error||'unknown'), true);
           if(j.zero){ lastZero = j.zero; paintZeroHint(j.zero); }
         }
         if(j.demo) paintDemoStatus(j.demo);
@@ -2849,10 +2568,11 @@ function demoButton(item){
       return b;
 }
 $('dstop').onclick = async ()=>{
-  showSent('stopping…');
+  showSent('stop request sent…');
   const r = await fetch('/api/demo/stop',{method:'POST'});
   try{
     const j = await r.json();
+    showSent(requestReceiptLine(j, 'Stop'));
     if(j.demo) paintDemoStatus(j.demo);
     if(j.robot) paintRobotActivity(j.robot);
   }catch(e){}
@@ -2936,14 +2656,16 @@ async function quadRun(name, label){
   const sp = quadSpeed();
   const body = {name, speed:sp,
                 seconds:Math.max(20, Math.min(300, +($('qdur').value)||40))};
-  showSent(label+' @ '+sp.toFixed(2)+'×…');
+  showSent(label+' request sent…');
   const res = await fetch('/api/demo',{method:'POST',
     headers:{'Content-Type':'application/json'},
     body: JSON.stringify(body)});
   const j = await res.json();
-  if(j.ok) showSent(label+' @ '+sp.toFixed(2)+'× for '+body.seconds+'s'
-                    +(j.home?' (via '+j.home+' zero)':''));
-  else showSent(j.error||'failed', true);
+  if(j.ok) showSent(requestReceiptLine(j, label+' @ '+sp.toFixed(2)
+                    +'× for '+body.seconds+'s'
+                    +(j.home?' (via '+j.home+' zero)':'')));
+  else showSent(requestReceiptLine(j, label)+'; failed: '
+    +(j.error||'unknown'), true);
   if(j.demo) paintDemoStatus(j.demo);
   if(j.robot) paintRobotActivity(j.robot);
   startDemoPoll();
@@ -2952,14 +2674,14 @@ async function quadRun(name, label){
 $('qstart').onclick = ()=> quadRun('quad_walk', 'quad walk');
 $('qtrot').onclick = ()=> quadRun('quad_trot', 'quad trot');
 $('qstop').onclick = async ()=>{
-  showSent('stopping…');
+  showSent('quad stop request sent…');
   const r = await fetch('/api/demo/stop',{method:'POST'});
   try{
     const j = await r.json();
+    showSent(requestReceiptLine(j, 'Quad stop'));
     if(j.demo) paintDemoStatus(j.demo);
     if(j.robot) paintRobotActivity(j.robot);
   }catch(e){}
-  showSent('quad stop');
   refreshRobotState(true);
 };
 $('qstand').onclick = ()=> goPoseZero('stand', 'stand zero');
@@ -3001,14 +2723,18 @@ window.addEventListener('hashchange', ()=>{
 function updateArmUI(){
   const bar = $('armbar');
   const simOnly = targetHasSim && !targetHasRobot;
+  const robotConfigured = robotTargetAvailable || !!robotTargetUrl;
   bar.classList.toggle('sim', simOnly);
   if(simOnly){
     bar.classList.remove('armed', 'disarmed');
     $('armstate').textContent = '● SIM';
     $('armbtn').textContent = 'Stand';
     $('armbtn').title = 'Reset the MuJoCo sim to the standing plant stance.';
-    $('estop').textContent = '■ Stop';
-    $('estop').title = 'Stop the sim motion — the stance policy holds.';
+    $('estop').textContent = robotConfigured ? '■ E-STOP' : '■ Stop';
+    $('estop').title = robotConfigured
+      ? 'Global emergency stop: cut robot servo power immediately and stop '
+        +'MuJoCo, even while the active target is sim.'
+      : 'Stop the sim motion — the stance policy holds.';
     return;
   }
   bar.classList.toggle('armed', servosArmed);
@@ -3046,8 +2772,9 @@ function settleServos(){ dbgTestAbort = true; cmd('SETTLE'); setArmed(false);
 // INSTANT limp: cut all PWM NOW (true emergency stop; the robot drops). Always
 // allowed, even while disarmed, and used for the boot-time safe default.
 function disarmServos(){
-  dbgTestAbort = true; cmd('X'); setArmed(false);
+  dbgTestAbort = true; cmd('X', {globalStop:true}); setArmed(false);
   showSent(targetHasSim && !targetHasRobot
+    && !(robotTargetAvailable || !!robotTargetUrl)
     ? 'SIM — stopped, stance policy holds'
     : 'EMERGENCY STOP — servos limp NOW');
 }

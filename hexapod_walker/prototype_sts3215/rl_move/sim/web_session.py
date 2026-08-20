@@ -14,7 +14,7 @@ from typing import Any
 
 import numpy as np
 
-from rl_move.env import TaskGoal
+from rl_move.env import TaskGoal, build_obs
 
 from .joint_task import q_rad_to_action
 from .play import (
@@ -95,6 +95,11 @@ class SimWebSession:
         self.demo_note: str = ""
         self.demo_speed_cap: float | None = None
         self.demo_is_script = False
+        self.demo_end_home = ""
+        self.demo_direct_profile = False
+        self.demo_write_speed_deg_s: float | None = None
+        self.demo_write_acc_units: float | None = None
+        self.demo_last_target_deg: list[float] | None = None
         self.pose_hold_q: np.ndarray | None = None
         self.command_log: list[tuple[float, str, str | None]] = []
         self.last_command = ""
@@ -472,6 +477,11 @@ class SimWebSession:
         self.demo_note = ""
         self.demo_speed_cap = None
         self.demo_is_script = False
+        self.demo_end_home = ""
+        self.demo_direct_profile = False
+        self.demo_write_speed_deg_s = None
+        self.demo_write_acc_units = None
+        self.demo_last_target_deg = None
         if clear_name:
             self.demo_name = None
             self.demo_telemetry = None
@@ -487,7 +497,8 @@ class SimWebSession:
                 pass
         if self.demo_speed_cap is not None:
             speed = min(speed, float(self.demo_speed_cap))
-        return max(0.25, min(3.0, speed))
+        hi = 10.0 if (self.demo_name or "").startswith("standup_") else 3.0
+        return max(0.25, min(hi, speed))
 
     def _record_command(self, text: str, key: str | None = None) -> None:
         clean = " ".join(str(text).split())
@@ -642,6 +653,92 @@ class SimWebSession:
         roll, pitch = self._roll_pitch_deg()
         return (self._chassis_z() > 0.10 and abs(roll) < 17.0
                 and abs(pitch) < 17.0)
+
+    def _direct_profile_step_locked(self, q_rad: np.ndarray) -> None:
+        """Issue a bus-like joint target directly to MuJoCo's servo model."""
+        self.env._cmd = q_rad.copy()
+        self.env._profile.command(
+            q_rad,
+            speed_deg_s=self.demo_write_speed_deg_s,
+            acc_units=self.demo_write_acc_units)
+        self.env._advance()
+        self.env._state = self.env._read_state()
+        self.env._step_i += 1
+        goal = self.env._current_goal()
+        self.obs = self.env._final_obs(
+            build_obs(self.env.cfg, self.env._state, self.env._q_nom,
+                      self.env._prev_action, goal=goal,
+                      tilt_ref=self.env._tilt_ref0),
+            reset=False)
+
+    def _demo_end_live_locked(self) -> dict[str, Any]:
+        roll, pitch = self._roll_pitch_deg()
+        out: dict[str, Any] = {
+            "height_mm": round(self._chassis_z() * 1000.0, 1),
+            "roll_deg": roll,
+            "pitch_deg": pitch,
+        }
+        if self.demo_last_target_deg is not None:
+            actual = [math.degrees(float(v)) for v in self._q_now()]
+            out["max_lag_deg"] = round(max(
+                abs(a - b) for a, b in zip(actual, self.demo_last_target_deg)
+            ), 2)
+        return out
+
+    def _finish_demo_locked(self) -> None:
+        name = self.demo_name or "demo"
+        end_home = self.demo_end_home
+        self.demo_pose_fn = None
+        self._set_demo_safety(False)
+        live = self._demo_end_live_locked()
+        max_lag = live.get("max_lag_deg")
+        ok = True
+        if self.demo_is_script or end_home == "sit":
+            ok = (
+                self._chassis_z() < 0.09
+                and (max_lag is None or float(max_lag) <= 12.0))
+            self.sitting = bool(ok)
+            self.downed = not ok
+            self.q_sit = self._q_now()
+            self.pose_hold_q = self.q_sit.copy()
+            self.msg = (f"{name} done - sitting" if ok
+                        else f"{name} did not reach sit cleanly")
+        elif end_home == "stand":
+            ok = self._upright()
+            if ok:
+                self.sitting = False
+                self.downed = False
+                self.q_plant = self._q_now()
+                self.z_plant = self._chassis_z()
+                self.pose_hold_q = self.q_plant.copy()
+                self.traj.start_at = "plant"
+                self.msg = f"{name} done - standing"
+            else:
+                self.sitting = False
+                self.downed = True
+                self.pose_hold_q = self._q_now().copy()
+                self.traj.start_at = "zero"
+                self.msg = (
+                    f"{name} command ended low/tilted - did not stand")
+        else:
+            self.msg = f"{name} done - holding"
+        self.demo_status = "done" if ok else "failed"
+        self.demo_end_home = ""
+        self.demo_direct_profile = False
+        self.demo_write_speed_deg_s = None
+        self.demo_write_acc_units = None
+        self.demo_telemetry = {
+            "ok": ok,
+            "ended": end_home or "hold",
+            **live,
+            "sim_t_s": round(self.sim_t - self.demo_started_sim_t, 2),
+            "demo_time_s": round(self.demo_t, 2),
+            "log_name": self._log_name or None,
+            "log": str(self.log_dir / self._log_name)
+            if self._log_name else None,
+        }
+        self.demo_last_target_deg = None
+        self._close_log()
 
     def _do_fall(self) -> None:
         roll = 0.4
@@ -839,7 +936,11 @@ class SimWebSession:
                 self._finish_job("recovery timed out", ok=False)
         elif demo_running:
             pose_deg = self.demo_pose_fn(self.demo_t)
-            action = q_rad_to_action(np.radians(pose_deg))
+            self.demo_last_target_deg = [float(v) for v in pose_deg]
+            if self.demo_direct_profile:
+                self._direct_profile_step_locked(np.radians(pose_deg))
+            else:
+                action = q_rad_to_action(np.radians(pose_deg))
             self.demo_t += self.env.dt * self._demo_speed_eff_locked()
             while self.demo_notes and self.demo_notes[0][0] <= self.demo_t:
                 self.demo_note = self.demo_notes.pop(0)[1]
@@ -848,25 +949,7 @@ class SimWebSession:
                 if self.demo_note
                 else f"running @ {self.demo_speed_live:.2f}x")
             if self.demo_t >= self.demo_duration:
-                name = self.demo_name or "demo"
-                self.demo_pose_fn = None
-                self._set_demo_safety(False)
-                self.demo_status = "done"
-                self.msg = f"{name} done - holding"
-                if self.demo_is_script:
-                    # Scripts end at sit zero — hold the sit pose rather
-                    # than handing a belly-down robot to the stance policy.
-                    self.sitting = True
-                    self.q_sit = self._q_now()
-                self.demo_telemetry = {
-                    "ok": True,
-                    "sim_t_s": round(self.sim_t - self.demo_started_sim_t, 2),
-                    "demo_time_s": round(self.demo_t, 2),
-                    "log_name": self._log_name or None,
-                    "log": str(self.log_dir / self._log_name)
-                    if self._log_name else None,
-                }
-                self._close_log()
+                self._finish_demo_locked()
         elif self.sitting:
             action = q_rad_to_action(self.q_sit)
         elif self.pose_hold_q is not None:
@@ -1146,6 +1229,150 @@ class SimWebSession:
                 "seconds": meta.get("seconds"),
             })
         return out
+
+    def standup_modes(self) -> dict[str, Any]:
+        path = self._proto_root / "linux_control" / "standup_modes.json"
+        try:
+            data = json.loads(path.read_text())
+        except (OSError, ValueError) as e:
+            return {"ok": False, "error": f"standup_modes.json: {e}"}
+        return {
+            "ok": True,
+            "frame": data.get("frame", ""),
+            "modes": [
+                {"name": name,
+                 "description": m.get("description", ""),
+                 "keyframes": len(m.get("keyframes", [])),
+                 "total_s": m.get("total_s")}
+                for name, m in (data.get("modes") or {}).items()],
+        }
+
+    def pose(self) -> dict[str, Any]:
+        with self.lock:
+            deg = [round(math.degrees(float(v)), 2) for v in self._q_now()]
+            return {"ok": True, "sim": True, "degrees": deg, "live": 18,
+                    "armed": self.armed, "mode": self.mode,
+                    "ts": time.time()}
+
+    def _standup_frames(self, mode: str,
+                        direction: str) -> list[tuple[list[float], float]]:
+        data = json.loads(
+            (self._proto_root / "linux_control" / "standup_modes.json")
+            .read_text())
+        mode = (mode or "tuck").strip()
+        if mode == "plant":
+            kfs = data["modes"]["tuck"]["keyframes"]
+            plant = [math.degrees(float(v)) for v in self.q_plant]
+            keyframes = list(kfs[:-1]) + [{"q_deg": plant, "s": 0.5}]
+        else:
+            keyframes = data["modes"][mode]["keyframes"]
+        frames = [([float(v) for v in kf["q_deg"]], float(kf["s"]))
+                  for kf in keyframes]
+        if (direction or "up").strip().lower() in {"down", "lower", "sit"}:
+            qs = [q for q, _ in frames]
+            ss = [s for _, s in frames]
+            frames = [(qs[-1], 0.8)] + [
+                (qs[i], ss[i + 1]) for i in range(len(qs) - 2, -1, -1)]
+        return frames
+
+    @staticmethod
+    def _pose_fn_from_frames(
+            start_deg: list[float],
+            frames: list[tuple[list[float], float]]):
+        import bisect
+        segs: list[tuple[float, float, Any]] = []
+        bounds: list[float] = []
+        t = 0.0
+        cur = [float(v) for v in start_deg]
+        for target, seconds in frames:
+            a = list(cur)
+            b = [float(v) for v in target]
+            dur = max(0.05, float(seconds))
+
+            def fn(u: float, a=a, b=b) -> list[float]:
+                w = 0.5 - 0.5 * math.cos(math.pi * u)
+                return [x + (y - x) * w for x, y in zip(a, b)]
+
+            segs.append((t, t + dur, fn))
+            t += dur
+            bounds.append(t)
+            cur = b
+
+        def pose_at(tt: float) -> list[float]:
+            if not segs:
+                return list(start_deg)
+            i = min(bisect.bisect_right(bounds, max(0.0, tt)),
+                    len(segs) - 1)
+            t0, t1, fn = segs[i]
+            u = (max(0.0, tt) - t0) / max(1e-9, t1 - t0)
+            return fn(min(1.0, max(0.0, u)))
+
+        return pose_at, t
+
+    def sim_standup(self, *, mode: str = "tuck", speed: float = 1.0,
+                    direction: str = "up") -> dict[str, Any]:
+        with self.lock:
+            try:
+                frames = self._standup_frames(mode, direction)
+            except (OSError, ValueError, KeyError) as e:
+                return {"ok": False,
+                        "error": f"unknown stand-up mode: {e}"}
+            speed = self._clamp_float(speed, 1.0, 0.25, 10.0)
+            direction = (direction or "up").strip().lower()
+            down = direction in {"down", "lower", "sit"}
+            home = "sit" if down else "stand"
+            name = f"standup_{mode}" + ("_down" if down else "")
+            switched_from = self.demo_name if self._demo_running() else None
+            self._record_command(
+                f"/api/standup mode={mode} direction={direction} "
+                f"speed={speed:.2f}")
+            self._do_reset("plant" if down else "zero", 0.0,
+                           f"{name}: command playback")
+            start_deg = [math.degrees(float(v)) for v in self._q_now()]
+            pose_fn, dur = self._pose_fn_from_frames(start_deg, frames)
+            self._set_demo_safety(True)
+            self.demo_pose_fn = pose_fn
+            self.demo_t = 0.0
+            self.demo_duration = dur
+            self.demo_notes = []
+            self.demo_note = ""
+            self.demo_speed_cap = 10.0
+            self.demo_is_script = False
+            self.demo_end_home = home
+            self.demo_direct_profile = True
+            # compare_standup.py validated these stand-up paths with a
+            # 90 deg/s bus profile; the ServoProfile still applies its
+            # fitted per-axis velocity ceiling, latency, deadband, and
+            # torque/friction limits.
+            self.demo_write_speed_deg_s = 90.0
+            self.demo_write_acc_units = self.env.write_acc_units
+            self.demo_last_target_deg = None
+            self.demo_started_sim_t = self.sim_t
+            self.demo_name = name
+            self.demo_status = f"running @ {speed:.2f}x"
+            self.demo_speed_live = speed
+            self.demo_telemetry = None
+            self.demo_params = {"mode": mode, "speed": speed,
+                                "direction": direction,
+                                "home": home,
+                                "seconds": round(dur / speed, 2)}
+            if switched_from:
+                self.demo_params["switched_from"] = switched_from
+            self.drive_active = False
+            self.timed_walk_until = None
+            self.auto = None
+            self.gait = None
+            self.om_cmd = 0.0
+            self.armed = True
+            self.sitting = False
+            self.pose_hold_q = None
+            self.msg = f"{name} running"
+            self._open_log(name)
+            return {"ok": True, "params": dict(self.demo_params),
+                    "home": home, "switched": bool(switched_from),
+                    "switched_from": switched_from,
+                    "demo": self.demo_state(),
+                    "robot": self.robot_state()}
 
     # -- dance scripts (dances as data — same API shape as the robot) --------
     # Sources: the repo's baked library (dances/) is always available;

@@ -118,6 +118,8 @@ def make_handler(session: Any, webui_dir: Path = WEBUI_DIR,
                     self._json(200, session.robot_state())
                 elif path == "/api/demos":
                     self._json(200, {"demos": session.list_demos()})
+                elif path == "/api/pose":
+                    self._json(200, session.pose())
                 elif path == "/api/calibrate":
                     self._json(200, session.operation_state())
                 elif path == "/api/rl/preflight":
@@ -142,6 +144,8 @@ def make_handler(session: Any, webui_dir: Path = WEBUI_DIR,
                     self._json(200, session.rl_roles())
                 elif path == "/api/rl/drive":
                     self._json(200, session.rl_drive_state())
+                elif path == "/api/standup/modes":
+                    self._json(200, session.standup_modes())
                 elif path == "/api/sim/state":
                     self._json(200, session.sim_state())
                 elif path == "/api/sim/frame.jpg":
@@ -182,7 +186,10 @@ def make_handler(session: Any, webui_dir: Path = WEBUI_DIR,
             data = _json_body(self)
             try:
                 if path == "/api/standup":
-                    self._json(200, session.sim_reset(start="plant"))
+                    self._json(200, session.sim_standup(
+                        mode=str(data.get("mode", "tuck")),
+                        speed=float(data.get("speed", 1.0)),
+                        direction=str(data.get("direction", "up"))))
                 elif path == "/api/demo":
                     kw = dict(
                         speed=float(data.get("speed", 1.0)),
@@ -209,6 +216,8 @@ def make_handler(session: Any, webui_dir: Path = WEBUI_DIR,
                     self._json(200, session.set_demo_speed(
                         data.get("speed", 1.0)))
                 elif path == "/api/demo/stop":
+                    self._json(200, session.stop_demo())
+                elif path == "/api/standup/stop":
                     self._json(200, session.stop_demo())
                 elif path == "/api/zero":
                     pose = str(data.get("pose", "sit"))
