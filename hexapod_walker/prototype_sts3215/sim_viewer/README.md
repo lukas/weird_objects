@@ -27,13 +27,15 @@ debugging, run `python3 -m rl_move.sim.web_server` without `--viewer`,
 or pass `--browser-frames on` if you intentionally want both surfaces.
 
 Laptop hub mode can also proxy the real robot while keeping the MuJoCo
-viewer running locally:
+viewer running locally. Either enter the robot URL in the page header
+after startup, or pass it on the command line:
 
 ```sh
 sim_viewer/sim_web.sh --robot-url http://hexapod.local:8080 --target sim
 ```
 
-The header target picker switches between `sim`, `robot`, and `both`.
+The header target picker switches between `sim`, `robot`, and `both`
+once a robot URL is configured.
 `both` broadcasts the RL drive/stand/stop/policy routes and raw `/cmd`
 commands to both targets. Hardware-specific actions such as calibration,
 motor wiggles, demos, measurements, and zeroing stay robot-routed.

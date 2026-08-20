@@ -13,16 +13,17 @@ shapes stable; sim-only affordances are gated by `/api/ping` returning
 `service:"hexapod-sim"` and use `/api/sim/*`. In the normal sim path,
 the native MuJoCo viewer is the display and this page is only the
 controller; browser JPEG frames are an optional headless/debug mode.
-When `rl_move.sim.web_server` is started with `--robot-url`, it becomes
-a laptop hub: `/api/ping` returns `service:"hexapod-hub"` plus the
-active target, and the header target picker can route commands to
-`sim`, `robot`, or `both`.
+`rl_move.sim.web_server` serves through the laptop hub: `/api/ping`
+returns `service:"hexapod-hub"` plus the active target, and the header
+target picker can route commands to `sim`, `robot`, or `both`. The robot
+target can be passed at startup with `--robot-url` or attached later from
+the header's robot URL field (`POST /api/hub {robot_url, target}`).
 
 ## Files
 
 | File | What it is |
 |---|---|
-| `index.html` | Page markup for all six tabs (one page, tabs toggle views). Contains the `__HTTPS_PORT__` placeholder (see below). |
+| `index.html` | Page markup: left sidebar nav + sticky header (arm bar, status panel) + all tab views (one page, tabs toggle views). Contains the `__HTTPS_PORT__` placeholder (see below). |
 | `style.css` | All styling. Dark theme; accent blue `#2b6cff`. |
 | `app.js` | All behavior: tab routing, joysticks, keyboard, Xbox gamepad, polling loops, arm/disarm gate, every API call. |
 | `favicon.svg` | Hand-written hexapod mark (hexagon + six legs) so the tab is findable in a crowded browser. |
@@ -56,10 +57,23 @@ everything else is JSON over `/api/*`. **Do not change server routes or JSON
 shapes** — `rl_move/remote.py`, `rl_move/scripts/tape_measure_walk.py`, and
 the RL tooling depend on them.
 
-### Header (always visible)
+### Layout (2026-08-19 redesign)
+
+- **Left sidebar** (`#sidebar`): brand + the vertical tab nav. Collapses to
+  a wrapping tab strip on top below 760 px (phones).
+- **Sticky top header**: the compact arm bar on the left, the status panel
+  on the right. Sticky so EMERGENCY STOP stays reachable while scrolled.
+- **Status panel** (`#statusbox`, top right): link state (`#conn`), robot
+  activity pill (`#robotact`), controller hint (`#gp`) and the last-command
+  line (`#sent`) each get a full line, all text-selectable, plus a **Copy**
+  button that puts every line, labelled, on the clipboard (for pasting into
+  a chat/issue without screenshotting the corner of the screen).
+
+### Header arm bar (always visible)
 
 - **Enable servos** → `ARM` · **Disarm** → `SETTLE` (gentle lower, then
-  power off) · **EMERGENCY STOP** → `X` (instant limp, robot drops).
+  power off) · **EMERGENCY STOP** → `X` (instant limp, robot drops). The
+  long lower-vs-drop explanation lives in the button tooltips.
 - Link heartbeat: `GET /api/ping` every 1.5 s. Robot activity pill:
   `GET /api/robot` every 2 s.
 - Every servo-driving control in every tab is gated on the arm state
@@ -157,8 +171,9 @@ stream) · **Test this servo** → `Q <joint> <amp>` · **Test ALL** → `C` the
 - `document.title` follows the active tab (`Hexapod · Drive`, …).
 - The subtitle under the H1 shows which robot host this tab is talking to
   (filled from `location.host`).
-- Tab bar is grouped by use: **Drive** (operate) · **Calibrate, Motors**
-  (setup/tuning) · **Demos, RL, Debug**.
+- The sidebar nav is grouped by use: **Drive** (operate) · **Calibrate,
+  Motors** (setup/tuning) · **Demos, Dance, Quad, RL, Experiments, Measure,
+  Debug**.
 
 ## Testing locally without a robot
 

@@ -15,6 +15,8 @@ let hubMode = false;
 let hubTarget = 'robot';
 let targetHasRobot = true;
 let targetHasSim = false;
+let robotTargetAvailable = true;
+let robotTargetUrl = '';
 let simFrames = true;
 let simNativeViewer = false;
 let simTimer = null, simBusy = false, simFrameBusy = false;
@@ -25,6 +27,17 @@ let simFrameLastAt = 0;
 // gated on this flag; ARM/DISARM/E-stop are the only power controls.
 let servosArmed = false;
 let maxVx = 40, maxVy = 29, maxOmega = 0.7;
+
+function savedRobotUrl(){
+  try{ return localStorage.getItem('hexapod.robotUrl') || ''; }
+  catch(e){ return ''; }
+}
+function saveRobotUrl(url){
+  try{
+    if(url) localStorage.setItem('hexapod.robotUrl', url);
+    else localStorage.removeItem('hexapod.robotUrl');
+  }catch(e){}
+}
 
 // --- link heartbeat --------------------------------------------------------
 function setLink(ok, detail){
@@ -50,14 +63,20 @@ function applyBackendMeta(meta){
   if(!meta) return;
   hubMode = !!meta.hub || meta.service === 'hexapod-hub';
   if(hubMode){
+    const targets = meta.targets || {};
+    const robotMeta = targets.robot || {};
     hubTarget = meta.target || 'sim';
     targetHasRobot = !!(meta.active && meta.active.robot);
     targetHasSim = !!(meta.active && meta.active.sim);
+    robotTargetAvailable = !!robotMeta.available;
+    robotTargetUrl = robotMeta.url || robotTargetUrl || savedRobotUrl();
   } else {
     const kind0 = meta.kind
       || (meta.service === 'hexapod-sim' ? 'sim' : 'robot');
     targetHasSim = kind0 === 'sim';
     targetHasRobot = kind0 !== 'sim';
+    robotTargetAvailable = targetHasRobot;
+    robotTargetUrl = '';
     hubTarget = targetHasSim ? 'sim' : 'robot';
   }
   const kind = targetHasRobot ? 'robot' : (targetHasSim ? 'sim' : 'robot');
@@ -72,13 +91,26 @@ function applyBackendMeta(meta){
   simNativeViewer = nativeViewer;
   document.body.classList.toggle('hub-backend', hubMode);
   document.body.classList.toggle('target-both', hubTarget === 'both');
+  document.body.classList.toggle('robot-configured',
+    hubMode && robotTargetAvailable);
   document.body.classList.toggle('sim-backend', targetHasSim);
   document.body.classList.toggle('sim-native-viewer',
     targetHasSim && simNativeViewer);
   document.body.classList.toggle('sim-browser-frames',
     targetHasSim && simFrames);
   const sel = document.getElementById('targetsel');
-  if(sel && sel.value !== hubTarget) sel.value = hubTarget;
+  if(sel){
+    const robotOpt = sel.querySelector('option[value="robot"]');
+    const bothOpt = sel.querySelector('option[value="both"]');
+    if(robotOpt) robotOpt.disabled = hubMode && !robotTargetAvailable;
+    if(bothOpt) bothOpt.disabled = hubMode && !robotTargetAvailable;
+    if(sel.value !== hubTarget) sel.value = hubTarget;
+  }
+  const robotInput = document.getElementById('roboturl');
+  if(robotInput && robotTargetUrl
+      && document.activeElement !== robotInput
+      && robotInput.value !== robotTargetUrl)
+    robotInput.value = robotTargetUrl;
   if(!simFrames){
     const img = document.getElementById('simframe');
     if(img) img.removeAttribute('src');
@@ -164,6 +196,29 @@ document.getElementById('errbar-copy').onclick = async ()=>{
   }
   const b = document.getElementById('errbar-copy');
   b.textContent = 'Copied ✓';
+  setTimeout(()=>{ b.textContent = 'Copy'; }, 1200);
+};
+// Header status panel copy button: grabs every status line (link state,
+// robot activity, controller, last command) as labelled text — for pasting
+// into a chat/issue without screenshotting the corner of the screen.
+document.getElementById('statuscopy').onclick = async ()=>{
+  const parts = [
+    'link: '+conn.textContent,
+    'robot: '+document.getElementById('robotact').textContent];
+  const gpT = gpEl.textContent.trim();
+  if(gpT) parts.push('controller: '+gpT);
+  const sentT = sentEl.textContent.trim();
+  if(sentT) parts.push('last: '+sentT);
+  const t = parts.join('\n');
+  try{
+    await navigator.clipboard.writeText(t);   // needs https / localhost
+  }catch(e){
+    const ta = document.createElement('textarea');   // http:// fallback
+    ta.value = t; document.body.appendChild(ta);
+    ta.select(); document.execCommand('copy'); ta.remove();
+  }
+  const b = document.getElementById('statuscopy');
+  b.textContent = '✓';
   setTimeout(()=>{ b.textContent = 'Copy'; }, 1200);
 };
 function showSent(line, isErr){
@@ -617,24 +672,96 @@ const dbgIndex  = ()=> dbgLeg*3 + dbgAxis;
 const dbgLimits = ()=> AXIS_LIM[dbgAxis];
 const $ = id => document.getElementById(id);
 
-async function setHubTarget(target){
+const robotUrlInput = $('roboturl');
+if(robotUrlInput && savedRobotUrl()) robotUrlInput.value = savedRobotUrl();
+
+function robotUrlValue(){
+  const el = $('roboturl');
+  return el ? el.value.trim() : '';
+}
+
+async function connectRobotTarget(nextTarget){
+  const url = robotUrlValue();
+  if(!url){
+    showSent('enter robot URL first', true);
+    const el = $('roboturl');
+    if(el) el.focus();
+    return false;
+  }
+  saveRobotUrl(url);
+  showSent('connecting robot…');
   try{
     const r = await fetch('/api/hub', {method:'POST',
       headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({target})});
+      body: JSON.stringify({robot_url:url, target:nextTarget || 'robot'})});
+    const d = await r.json().catch(()=>({ok:false, error:'bad response'}));
+    if(!r.ok) throw new Error(d.error || 'connect failed');
+    applyBackendMeta(d);
+    setArmed(false);
+    const resolved = d.targets && d.targets.robot && d.targets.robot.url;
+    simPollMaybe();
+    if(d.ok){
+      setLink(true, 'hub: '+(d.target || nextTarget || 'robot'));
+      showSent('robot connected → '+(resolved || url));
+      return true;
+    } else {
+      setLink(false, d.error || 'robot unavailable');
+      showSent('robot connect failed: '+(d.error || 'unreachable'), true);
+      return false;
+    }
+  }catch(e){
+    showSent('robot connect failed: '+(e.message || e), true);
+    return false;
+  }
+}
+
+async function setHubTarget(target){
+  if((target === 'robot' || target === 'both') && !robotTargetAvailable)
+    return connectRobotTarget(target);
+  try{
+    const body = {target};
+    const typedUrl = robotUrlValue();
+    if((target === 'robot' || target === 'both')
+        && typedUrl && typedUrl !== robotTargetUrl){
+      body.robot_url = typedUrl;
+      saveRobotUrl(typedUrl);
+    }
+    const r = await fetch('/api/hub', {method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(body)});
     const d = await r.json();
     if(!d.ok) throw new Error(d.error || 'target switch failed');
     applyBackendMeta(d);
     setArmed(false);
     showSent('target → '+target);
     simPollMaybe();
+    return true;
   }catch(e){
     showSent('target switch failed: '+(e.message || e), true);
+    return false;
   }
 }
 if(document.getElementById('targetsel'))
   document.getElementById('targetsel').onchange =
     e => setHubTarget(e.target.value);
+if($('robotconnect')) $('robotconnect').onclick =
+  ()=> connectRobotTarget('robot');
+if($('roboturl')) $('roboturl').addEventListener('keydown', e=>{
+  if(e.key === 'Enter') connectRobotTarget('robot');
+});
+
+async function ensureDemoTarget(item){
+  if(!hubMode || !item || !item.target) return true;
+  if(item.target === 'robot' && hubTarget !== 'robot'){
+    showSent('switching target → robot for '+item.name);
+    return await setHubTarget('robot');
+  }
+  if(item.target === 'sim' && hubTarget !== 'sim'){
+    showSent('switching target → sim for '+item.name);
+    return await setHubTarget('sim');
+  }
+  return true;
+}
 
 function dbgRefresh(){
   const idx = dbgIndex(), lim = dbgLimits();
@@ -2511,6 +2638,7 @@ function demoButton(item){
       b.onfocus = ()=> setDemoPreview(item.name);
       b.onclick = async ()=>{
         setDemoPreview(item.name);
+        if(!(await ensureDemoTarget(item))) return;
         if(needArm()) return;
         const sp = demoSpeed();
         const body = {name:item.name, speed:sp, torque:demoTorque(),
@@ -2572,9 +2700,11 @@ async function loadDance(){
     const byName = {};
     (d.demos||[]).forEach(it=>{ byName[it.name] = it; });
     const g = $('dancegrid'); g.innerHTML='';
+    let shown = 0;
     DANCE_SETS.forEach(([title, sub, names])=>{
       const items = names.map(n=>byName[n]).filter(Boolean);
       if(!items.length) return;
+      shown += items.length;
       const h = document.createElement('div');
       h.className = 'demo-group';
       h.innerHTML = title+' <span class="sub">· '+sub+'</span>';
@@ -2584,12 +2714,19 @@ async function loadDance(){
     // Uploaded dance scripts (dances-as-data via POST /api/dances).
     const up = (d.demos||[]).filter(it=> it.group === 'uploaded');
     if(up.length){
+      shown += up.length;
       const h = document.createElement('div');
       h.className = 'demo-group';
       h.innerHTML = 'UPLOADED <span class="sub">· dance scripts sent '
         +'over the API — survive code deploys</span>';
       g.appendChild(h);
       up.forEach(item=> g.appendChild(demoButton(item)));
+    }
+    if(!shown){
+      const src = d.sources && d.sources.robot;
+      const why = src && src.error ? ' ('+src.error+')' : '';
+      g.innerHTML = '<div class="hint">No robot dance demos loaded'
+        +why+'. Connect the robot target or switch to Robot.</div>';
     }
   }catch(e){ $('dancegrid').innerHTML = '<div class="hint">Failed to load shows</div>'; }
 }
@@ -2693,17 +2830,28 @@ function updateArmUI(){
   bar.classList.toggle('sim', simOnly);
   if(simOnly){
     bar.classList.remove('armed', 'disarmed');
-    $('armstate').textContent = '● SIM MODE — MuJoCo backend';
+    $('armstate').textContent = '● SIM — MuJoCo';
     $('armbtn').textContent = 'Reset sim stand';
+    $('armbtn').title = 'Reset the MuJoCo sim to the standing plant stance.';
     $('estop').textContent = '■ Stop sim';
+    $('estop').title = 'Stop the sim motion — the stance policy holds.';
     return;
   }
   bar.classList.toggle('armed', servosArmed);
   bar.classList.toggle('disarmed', !servosArmed);
-  $('armstate').textContent = servosArmed ? '● ARMED — servos live'
-                                          : '● SERVOS OFF (disarmed)';
-  $('armbtn').textContent   = servosArmed ? 'Disarm (servos off)'
-                                          : 'Enable servos (power on)';
+  // Compact header labels (operator 08-19); the long explanation lives in
+  // the button tooltips instead of a hint paragraph. Labels + titles are
+  // restored here because sim mode rewrites all of them.
+  $('armstate').textContent = servosArmed ? '● ARMED' : '● SERVOS OFF';
+  $('armbtn').textContent   = servosArmed ? 'Disarm' : 'Enable servos';
+  $('armbtn').title = servosArmed
+    ? 'Normal power-off (SETTLE): lowers gently to the ground, THEN cuts '
+      +'servo power. For an instant cut use EMERGENCY STOP (robot drops).'
+    : 'Power the servos on (ARM). Nothing moves until you press Stand.';
+  $('estop').textContent = '■ EMERGENCY STOP';
+  $('estop').title = 'Cut all power to the servos IMMEDIATELY — the robot '
+    +'goes limp NOW and will drop. Use only in an emergency. For a normal, '
+    +'gentle power-off use Disarm / Sit & power off.';
 }
 function setArmed(on){ servosArmed = on; if(!on) armed = false; updateArmUI(); }
 function armServos(){

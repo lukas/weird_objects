@@ -6,12 +6,16 @@ server remains the hardware safety boundary for the Feetech bus.
 """
 from __future__ import annotations
 
+import importlib.util
 import json
+import queue
 import ssl
+import sys
 import threading
 import urllib.error
 import urllib.parse
 import urllib.request
+import warnings
 from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler
 from pathlib import Path
@@ -61,6 +65,61 @@ def _query_value(full_path: str, key: str, default: str = "") -> str:
     qs = urllib.parse.urlsplit(full_path).query
     vals = urllib.parse.parse_qs(qs)
     return vals.get(key, [default])[0]
+
+
+def _normalize_base_url(base_url: str) -> str:
+    raw = (base_url or "").strip()
+    if not raw:
+        return ""
+    if "://" not in raw:
+        raw = "http://" + raw
+    p = urllib.parse.urlsplit(raw)
+    if p.scheme not in {"http", "https"}:
+        raise ValueError("robot URL must start with http:// or https://")
+    if not p.netloc:
+        raise ValueError("robot URL needs a host")
+    return urllib.parse.urlunsplit((p.scheme, p.netloc, "", "", ""))
+
+
+_LOCAL_ROBOT_DEMOS: list[dict[str, Any]] | None = None
+_LOCAL_ROBOT_DEMOS_ERROR: str | None = None
+_LOCAL_ROBOT_DEMOS_LOCK = threading.Lock()
+
+
+def _local_robot_demos() -> tuple[list[dict[str, Any]], str | None]:
+    """Return the checked-in robot demo catalog without contacting hardware."""
+    global _LOCAL_ROBOT_DEMOS, _LOCAL_ROBOT_DEMOS_ERROR
+    with _LOCAL_ROBOT_DEMOS_LOCK:
+        if _LOCAL_ROBOT_DEMOS is not None:
+            return [dict(x) for x in _LOCAL_ROBOT_DEMOS], None
+        if _LOCAL_ROBOT_DEMOS_ERROR is not None:
+            return [], _LOCAL_ROBOT_DEMOS_ERROR
+
+        root = Path(__file__).resolve().parents[2]
+        web_control = root / "linux_control"
+        urt2 = web_control / "urt2_setup"
+        bench_path = web_control / "bench_api.py"
+        old_path = list(sys.path)
+        try:
+            for p in (str(web_control), str(urt2)):
+                if p not in sys.path:
+                    sys.path.insert(0, p)
+            spec = importlib.util.spec_from_file_location(
+                "_hexapod_local_bench_api", bench_path)
+            if spec is None or spec.loader is None:
+                raise ImportError(f"cannot load {bench_path}")
+            mod = importlib.util.module_from_spec(spec)
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", SyntaxWarning)
+                spec.loader.exec_module(mod)
+                demos = mod.BenchAPI.list_demos(object())
+            _LOCAL_ROBOT_DEMOS = [dict(x) for x in demos]
+            return [dict(x) for x in _LOCAL_ROBOT_DEMOS], None
+        except Exception as e:
+            _LOCAL_ROBOT_DEMOS_ERROR = str(e)
+            return [], _LOCAL_ROBOT_DEMOS_ERROR
+        finally:
+            sys.path[:] = old_path
 
 
 class SimTarget:
@@ -232,15 +291,26 @@ class RobotProxyTarget:
 
     def __init__(self, base_url: str, *, timeout: float = 5.0,
                  ping_timeout: float = 0.7, insecure_tls: bool = False):
-        self.base_url = base_url.rstrip("/")
+        self.base_url = _normalize_base_url(base_url)
         self.timeout = timeout
         self.ping_timeout = ping_timeout
         self.ssl_context = None
-        if insecure_tls:
-            self.ssl_context = ssl._create_unverified_context()
+        self.configure(self.base_url, insecure_tls=insecure_tls)
+
+    def configure(self, base_url: str,
+                  insecure_tls: bool | None = None) -> None:
+        self.base_url = _normalize_base_url(base_url)
+        if insecure_tls is not None:
+            self.ssl_context = (
+                ssl._create_unverified_context() if insecure_tls else None)
 
     def available(self) -> bool:
         return bool(self.base_url)
+
+    def config_meta(self) -> dict[str, Any]:
+        if not self.available():
+            return {"available": False}
+        return {"available": True, "url": self.base_url}
 
     def ping_meta(self) -> dict[str, Any]:
         if not self.available():
@@ -331,15 +401,34 @@ class HubController:
         with self.lock:
             self.target = target
 
+    def configure_robot(self, base_url: str,
+                        insecure_tls: bool | None = None) -> None:
+        if self.robot is None or not hasattr(self.robot, "configure"):
+            self.robot = RobotProxyTarget(
+                "", insecure_tls=bool(insecure_tls))
+        self.robot.configure(base_url, insecure_tls=insecure_tls)
+        with self.lock:
+            if not self._has_robot() and self.target in {"robot", "both"}:
+                self.target = "sim"
+
+    def _robot_config_meta(self) -> dict[str, Any]:
+        if not self._has_robot():
+            return {"available": False}
+        config_meta = getattr(self.robot, "config_meta", None)
+        if config_meta:
+            return config_meta()
+        return {"available": True}
+
     def ping(self) -> dict[str, Any]:
         with self.lock:
             target = self.target
         sim_meta = self.sim.ping_meta() if self._has_sim() else {
             "available": False}
-        robot_meta = self.robot.ping_meta() if self._has_robot() else {
-            "available": False}
         active_robot = target in {"robot", "both"}
         active_sim = target in {"sim", "both"}
+        robot_meta = (
+            self.robot.ping_meta() if active_robot and self._has_robot()
+            else self._robot_config_meta())
         ok = True
         if active_robot:
             ok = ok and robot_meta.get("ok") is not False
@@ -365,6 +454,8 @@ class HubController:
             return RouteResponse.json(self.ping(), 200)
         if path == "/api/hub":
             return RouteResponse.json(self.ping(), 200)
+        if path == "/api/demos":
+            return self._demo_catalog(headers)
         if path.startswith("/api/sim/"):
             return self._send("sim", "GET", full_path, b"", headers)
         with self.lock:
@@ -379,7 +470,15 @@ class HubController:
         if path == "/api/hub":
             data = _json_body(body)
             try:
-                self.set_target(str(data.get("target", "")))
+                if "robot_url" in data:
+                    insecure = (
+                        bool(data["robot_insecure_tls"])
+                        if "robot_insecure_tls" in data else None)
+                    self.configure_robot(str(data.get("robot_url", "")),
+                                         insecure_tls=insecure)
+                target = str(data.get("target", "")).strip()
+                if target:
+                    self.set_target(target)
             except Exception as e:
                 return RouteResponse.json({"ok": False, "error": str(e)}, 400)
             return RouteResponse.json({"ok": True, **self.ping()})
@@ -390,6 +489,120 @@ class HubController:
         if target == "both" and path in self.BROADCAST_POSTS:
             return self._broadcast_post(full_path, body, headers)
         return self._send(target, "POST", full_path, body, headers)
+
+    def _request_with_timeout(self, target: str, method: str, full_path: str,
+                              body: bytes,
+                              headers: dict[str, str] | None,
+                              timeout: float | None = None) -> RouteResponse:
+        if target != "robot" or timeout is None:
+            return self._send(target, method, full_path, body, headers)
+        if not self._has_robot():
+            return RouteResponse.json({"ok": False,
+                                       "error": "robot target unavailable"},
+                                      503)
+        q: queue.Queue[RouteResponse | BaseException] = queue.Queue(maxsize=1)
+
+        def work() -> None:
+            try:
+                try:
+                    resp = self.robot.request(method, full_path, body, headers,
+                                              timeout=timeout)
+                except TypeError:
+                    resp = self.robot.request(method, full_path, body,
+                                              headers)
+                q.put(resp)
+            except BaseException as e:
+                q.put(e)
+
+        threading.Thread(target=work, daemon=True).start()
+        try:
+            out = q.get(timeout=timeout)
+        except queue.Empty:
+            return RouteResponse.json({
+                "ok": False,
+                "error": f"robot proxy timed out after {timeout:.1f}s",
+            }, 504)
+        if isinstance(out, BaseException):
+            return RouteResponse.json({"ok": False, "error": str(out)}, 502)
+        return out
+
+    def _demo_catalog(self, headers: dict[str, str] | None) -> RouteResponse:
+        rows: dict[str, dict[str, Any]] = {}
+        sources: dict[str, dict[str, Any]] = {}
+
+        def merge_items(target: str, demos: list[Any]) -> None:
+            for item in demos:
+                if not isinstance(item, dict) or not item.get("name"):
+                    continue
+                row = dict(item)
+                row.setdefault("target", target)
+                row["available_on"] = sorted({
+                    *rows.get(row["name"], {}).get("available_on", []),
+                    target,
+                })
+                # Prefer robot metadata for duplicate names so the full
+                # hardware catalog wins over the sim's narrow subset.
+                if target == "robot" or row["name"] not in rows:
+                    rows[row["name"]] = row
+                else:
+                    rows[row["name"]]["available_on"] = row["available_on"]
+
+        def add_from(target: str, timeout: float | None = None,
+                     optional: bool = False) -> None:
+            if target == "sim" and not self._has_sim():
+                sources[target] = {"ok": False, "error": "sim unavailable"}
+                return
+            if target == "robot" and not self._has_robot():
+                sources[target] = {"ok": False, "error": "robot unavailable"}
+                return
+            resp = self._request_with_timeout(
+                target, "GET", "/api/demos", b"", headers, timeout=timeout)
+            obj = resp.json_obj()
+            prev_source = sources.get(target)
+            live_source = {
+                "ok": resp.ok(),
+                "status": resp.code,
+                "error": obj.get("error"),
+            }
+            if optional and prev_source:
+                # Keep an already-useful local catalog source green; expose the
+                # live failure as diagnostic detail instead of hiding the demos.
+                if prev_source.get("ok") and not resp.ok():
+                    prev_source["live_status"] = resp.code
+                    prev_source["live_error"] = obj.get("error")
+                    return
+            sources[target] = live_source
+            if resp.ok():
+                merge_items(target, obj.get("demos", []))
+
+        def add_local_robot() -> None:
+            demos, err = _local_robot_demos()
+            if demos:
+                sources["robot"] = {
+                    "ok": True,
+                    "status": "local",
+                    "local": True,
+                    "configured": self._has_robot(),
+                }
+                merge_items("robot", demos)
+                return
+            sources["robot"] = {
+                "ok": False,
+                "status": "local",
+                "error": err or "local robot catalog unavailable",
+            }
+
+        add_from("sim")
+        add_local_robot()
+        if self._has_robot():
+            add_from("robot", timeout=0.4, optional=True)
+        return RouteResponse.json({
+            "ok": any(s.get("ok") for s in sources.values()),
+            "hub": True,
+            "target": self.target,
+            "sources": sources,
+            "demos": list(rows.values()),
+        })
 
     def _send(self, target: str, method: str, full_path: str, body: bytes,
               headers: dict[str, str] | None) -> RouteResponse:

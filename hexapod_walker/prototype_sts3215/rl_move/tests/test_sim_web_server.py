@@ -251,6 +251,60 @@ class FakeTarget:
         pass
 
 
+class ConfigurableFakeTarget(FakeTarget):
+    def __init__(self, name):
+        super().__init__(name)
+        self.base_url = ""
+
+    def available(self):
+        return bool(self.base_url)
+
+    def configure(self, base_url, insecure_tls=None):
+        self.base_url = (
+            base_url if "://" in base_url else "http://" + base_url
+        ).rstrip("/")
+
+    def config_meta(self):
+        if not self.available():
+            return {"available": False}
+        return {"available": True, "url": self.base_url}
+
+    def ping_meta(self):
+        return {**self.config_meta(), "ok": self.available(),
+                "name": self.name}
+
+
+class DemoFakeTarget(FakeTarget):
+    def __init__(self, name, demos):
+        super().__init__(name)
+        self.demos = demos
+
+    def config_meta(self):
+        return {"available": True, "url": f"http://{self.name}.local"}
+
+    def request(self, method, full_path, body=b"", headers=None,
+                timeout=None):
+        path = full_path.split("?", 1)[0]
+        if method == "GET" and path == "/api/demos":
+            self.calls.append((method, full_path, body))
+            return RouteResponse.json({"ok": True, "demos": self.demos})
+        return super().request(method, full_path, body, headers)
+
+
+class FailingDemoTarget(FakeTarget):
+    def config_meta(self):
+        return {"available": True, "url": f"http://{self.name}.local"}
+
+    def request(self, method, full_path, body=b"", headers=None,
+                timeout=None):
+        path = full_path.split("?", 1)[0]
+        if method == "GET" and path == "/api/demos":
+            self.calls.append((method, full_path, body))
+            return RouteResponse.json(
+                {"ok": False, "error": "offline"}, 502)
+        return super().request(method, full_path, body, headers)
+
+
 def _hub_request(hub, path, method="GET", body=None):
     handler_cls = make_hub_handler(
         hub, WEBUI_DIR, 8443, PAGE_PATHS, STATIC_FILES)
@@ -293,6 +347,75 @@ def test_hub_ping_and_target_switch():
                          body={"target": "sim"})
     assert switched["target"] == "sim"
     assert switched["active"] == {"robot": False, "sim": True}
+
+
+def test_hub_can_configure_robot_target_at_runtime():
+    sim = FakeTarget("sim")
+    robot = ConfigurableFakeTarget("robot")
+    hub = HubController(sim=sim, robot=robot, target="sim")
+    ping = _hub_json(hub, "/api/ping")
+    assert ping["target"] == "sim"
+    assert ping["targets"]["robot"] == {"available": False}
+
+    connected = _hub_json(hub, "/api/hub", method="POST",
+                          body={"robot_url": "hexapod.local:8080",
+                                "target": "robot"})
+    assert connected["ok"] is True
+    assert connected["target"] == "robot"
+    assert connected["active"] == {"robot": True, "sim": False}
+    assert connected["targets"]["robot"]["url"] == "http://hexapod.local:8080"
+
+    r = _hub_json(hub, "/api/status")
+    assert r["target"] == "robot"
+    assert robot.calls[-1][1] == "/api/status"
+
+
+def test_hub_demos_include_robot_catalog_while_target_is_sim():
+    sim = DemoFakeTarget("sim", [
+        {"name": "quad_walk", "title": "sim quad", "group": "quad"},
+    ])
+    robot = DemoFakeTarget("robot", [
+        {"name": "dance_wild", "title": "wild", "group": "plant"},
+        {"name": "quad_walk", "title": "robot quad", "group": "quad"},
+    ])
+    hub = HubController(sim=sim, robot=robot, target="sim")
+    catalog = _hub_json(hub, "/api/demos")
+    by_name = {d["name"]: d for d in catalog["demos"]}
+
+    assert catalog["ok"] is True
+    assert catalog["target"] == "sim"
+    assert by_name["dance_wild"]["target"] == "robot"
+    assert by_name["quad_walk"]["target"] == "robot"
+    assert by_name["quad_walk"]["available_on"] == ["robot", "sim"]
+
+
+def test_hub_demos_keep_local_robot_catalog_when_live_robot_fails():
+    sim = DemoFakeTarget("sim", [
+        {"name": "quad_walk", "title": "sim quad", "group": "quad"},
+    ])
+    robot = FailingDemoTarget("robot")
+    hub = HubController(sim=sim, robot=robot, target="sim")
+    catalog = _hub_json(hub, "/api/demos")
+    names = {d["name"] for d in catalog["demos"]}
+
+    assert catalog["ok"] is True
+    assert "dance_walk" in names
+    assert catalog["sources"]["robot"]["local"] is True
+    assert catalog["sources"]["robot"]["live_error"] == "offline"
+
+
+def test_hub_demos_show_local_robot_catalog_before_robot_is_configured():
+    sim = DemoFakeTarget("sim", [
+        {"name": "quad_walk", "title": "sim quad", "group": "quad"},
+    ])
+    hub = HubController(sim=sim, robot=None, target="sim")
+    catalog = _hub_json(hub, "/api/demos")
+    names = {d["name"] for d in catalog["demos"]}
+
+    assert catalog["ok"] is True
+    assert "dance_walk" in names
+    assert catalog["sources"]["robot"]["local"] is True
+    assert catalog["sources"]["robot"]["configured"] is False
 
 
 def test_hub_broadcasts_drive_commands_only_in_both_mode():
