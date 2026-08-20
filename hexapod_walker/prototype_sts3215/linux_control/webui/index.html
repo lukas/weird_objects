@@ -37,6 +37,14 @@
       title="Power the servos on (ARM). Nothing moves until you press Stand. When armed this becomes Disarm: lowers gently to the ground, THEN cuts power.">Enable servos</button>
     <button id="estop" class="estop" title="Cut all power to the servos IMMEDIATELY — the robot goes limp NOW and will drop. Use only in an emergency. For a normal, gentle power-off use Disarm / Sit &amp; power off.">■ EMERGENCY STOP</button>
   </div>
+  <span id="hubtarget" class="hub-target">
+    <span>target</span>
+    <select id="targetsel" title="Route commands from this web UI">
+      <option value="sim">Sim</option>
+      <option value="robot">Robot</option>
+      <option value="both">Both</option>
+    </select>
+  </span>
   <div id="statusbox">
     <div id="statuslines">
       <div class="statusline">
@@ -356,6 +364,19 @@ feet, zero commanded scrub.">
 
   <div id="view-rl" class="view">
   <div class="row">
+    <div class="pad sim-only" id="sim-panel" style="flex:2 1 520px">
+      <h2>MuJoCo</h2>
+      <div id="simnative" class="native-viewer-note">Native MuJoCo viewer active</div>
+      <img id="simframe" class="sim-frame" alt="MuJoCo hexapod view">
+      <div class="btns" style="margin-top:10px">
+        <button id="simresetstand">Reset stand</button>
+        <button id="simresetbelly">Reset belly</button>
+        <button id="simfall">Fall</button>
+        <button id="simrecover">Recover</button>
+        <button id="simpush">Push</button>
+      </div>
+      <div class="hint" id="simstatus" style="margin-top:8px">—</div>
+    </div>
     <div class="pad" style="flex:1 1 340px">
       <h2>Policy moves</h2>
       <div class="hint"><b style="color:#ffb86b">⚠ RL Stand up does not

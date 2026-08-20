@@ -99,6 +99,17 @@ GAITS: dict[str, dict] = {
                  roll=math.radians(5.0), roll_phase=math.radians(270.0),
                  phase={1: 0.0, 3: 0.0, 4: 0.5, 2: 0.5},
                  speed_cap=1.5),
+    # "rear" = HOLD the reared stance without stepping: stride/lift 0
+    # turns the walk-phase math into a no-op (all four support feet stay
+    # planted) while a gentle sway keeps the pose alive.  Deep aft lean
+    # (the trot's proven -80 mm / -20 deg) for maximum rear margin.
+    # Used by the dance's stallion act, which overlays front-paw
+    # gestures on the hold window (inplace_demos._make_stallion_fn).
+    "rear": dict(stride=0.0, lift=0.0, lift_front=0.0,
+                 period=4.0, duty=0.75,
+                 body_dx=-0.080, pitch=math.radians(-20.0),
+                 sway=0.015, sway_phase=SWAY_PHASE_RAD, phase=WALK_PHASE,
+                 speed_cap=1.5),
 }
 
 # entry: shift back · step mids out to the splayed stance (one at a

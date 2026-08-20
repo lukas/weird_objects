@@ -560,6 +560,39 @@ def _ep_median(eps: list[dict], key: str) -> float | None:
     return round(float(np.median(v)), 3) if v else None
 
 
+# Pinned-speed panel (08-20, operator note fb_20260820T000059 item 3a
+# — the fast-profile fork needs "speed as a controllable variable" to
+# be MEASURABLE per checkpoint): each panel row evaluates walk mode
+# with the command pinned to ONE speed, pure-forward heading, no
+# mid-episode resample, no stops, wz=0 and every command curriculum
+# disabled — so prog_ratio/speed_mean per row read directly as "what
+# does this policy do when asked for exactly X m/s". Default speeds
+# bracket the current band (0.05-0.06) and the fast-profile ask (0.08+).
+PINNED_SPEED_DEFAULTS = (0.04, 0.06, 0.08, 0.10)
+_PIN_MISSING = object()
+
+
+def pinned_speed_cfg(speed: float) -> dict:
+    """goal.* overrides that pin the walk command to one speed.
+
+    All keys are read at SAMPLE time by walk_task._sample_walk, so they
+    can be applied to a live env's cfg between episodes (and restored
+    after) without rebuilding it. Kept as a named helper so tests and
+    other harnesses (bulk_session_eval and friends) share one truth.
+    """
+    return {
+        "walk_speed_min_m_s": float(speed),
+        "walk_speed_max_m_s": float(speed),
+        "walk_heading_max_rad": 0.0,    # pure forward
+        "walk_cmd_mode": "legacy",      # one fixed command
+        "walk_cmd_stage": -1.0,
+        "walk_cmd_resample_s": 0.0,     # no mid-episode resample
+        "walk_stop_frac": 0.0,
+        "walk_yaw_zero_frac": 1.0,      # wz_ref = 0 throughout
+        "walk_lp_curriculum": 0.0,      # no bucket sampler
+    }
+
+
 def _wandb_push(report: dict, out: Path, args) -> None:
     """Best-effort: mirror the harness summary into the training run's
     W&B page (operator 08-10: slip/m & friends must be findable in W&B,
@@ -701,6 +734,14 @@ def main() -> None:
                     action=argparse.BooleanOptionalAction, default=False,
                     help="require the geometric valid-plant criterion "
                          "for rise/raise success")
+    ap.add_argument("--pinned-speed-panel", nargs="*", type=float,
+                    default=None, metavar="M_S",
+                    help="extra walk rows with the command PINNED to "
+                         "each given speed (pure forward, no resample/"
+                         "stops/yaw — see pinned_speed_cfg); no values "
+                         f"= defaults {PINNED_SPEED_DEFAULTS}. Rows "
+                         "report as walk@<speed>/<det|sto>. Default "
+                         "absent = off, report unchanged.")
     ap.add_argument("--no-video", action="store_true")
     ap.add_argument("--video-every", type=int, default=3,
                     help="record every Nth episode per mode (1st always)")
@@ -845,8 +886,17 @@ def main() -> None:
 
         passes = [("det", True)] + ([("sto", False)]
                                     if args.stochastic else [])
+        # Resolved motor contract (fb_20260820T000059): report.json
+        # records the servo profile the eval envs actually enforced
+        # (same from_cfg resolution as make_env above) so profile-axis
+        # evals are auditable without the launch command.
+        from .servo_model import motor_contract, motor_contract_line
+        contract = motor_contract(cfg_kw.get("cfg"),
+                                  backend="servo_profile_np")
+        print(motor_contract_line(contract))
         report = {"checkpoint": str(checkpoint), "task": args.task,
                   "dr_scale": args.dr_scale, "seed": args.seed,
+                  "motor_contract": contract,
                   "policy_std": round(std, 3), "episodes": {}}
         sheet_strips: list[Path] = []
 
@@ -987,6 +1037,77 @@ def main() -> None:
                       f"Imax {hot:.2f}A | imbal "
                       f"{max(e['cur_leg_imbalance'] for e in eps):.2f}"
                       f"{extra}")
+
+        if args.pinned_speed_panel is not None:
+            speeds = (tuple(args.pinned_speed_panel)
+                      or PINNED_SPEED_DEFAULTS)
+            report["pinned_speed_panel"] = list(speeds)
+            # Force pure walk sampling for the whole panel.
+            for m in ALL_MODES:
+                if hasattr(gen, f"p_{m}"):
+                    setattr(gen, f"p_{m}", 1.0 if m == "walk" else 0.0)
+            goal_cfg = env.cfg.setdefault("goal", {})
+            pin_keys = pinned_speed_cfg(0.0).keys()
+            saved = {k: goal_cfg.get(k, _PIN_MISSING) for k in pin_keys}
+            wc_saved = getattr(env, "_wc_on", False)
+            env._wc_on = False   # curriculum must not own the command
+            try:
+                for tag, det in passes:
+                    for s in speeds:
+                        goal_cfg.update(pinned_speed_cfg(s))
+                        label = f"walk@{s:.3f}"
+                        eps = []
+                        for k in range(args.per_mode):
+                            scheduled = (k == 0
+                                         or k % args.video_every == 0)
+                            ep, frames = run_episode(
+                                env, model, deterministic=det,
+                                video=not args.no_video,
+                                annotate=_annotate_frame,
+                                end_posture_gate=args.end_posture_gate,
+                                valid_plant_gate=args.valid_plant_gate)
+                            if ep.get("mode", "walk") != "walk":
+                                raise SystemExit(
+                                    f"[eval_checkpoint] pinned-speed "
+                                    f"row {label} sampled mode "
+                                    f"'{ep.get('mode')}' — walk "
+                                    f"forcing broke; aborting.")
+                            eps.append(ep)
+                            if frames and (scheduled
+                                           or not ep.get("gait_valid",
+                                                         True)):
+                                _save_video(
+                                    frames, out / f"{label}_{tag}_{k}")
+                        report["episodes"][f"{label}/{tag}"] = eps
+                        n_ok = sum(e["success"] for e in eps)
+                        sp = [e["speed_mean_m_s"] for e in eps
+                              if "speed_mean_m_s" in e]
+                        pr = [e["progress_ratio"] for e in eps
+                              if e.get("progress_ratio") is not None]
+                        spm = [e["slip_per_m"] for e in eps
+                               if e.get("slip_per_m") is not None]
+                        de = [e["direction_err_mean_deg"] for e in eps
+                              if "direction_err_mean_deg" in e]
+                        n_valid = sum(bool(e.get("gait_valid"))
+                                      for e in eps)
+                        line = (f"[{tag}] {label}: {n_ok}/{len(eps)}"
+                                f" | cmd {s:.3f} m/s")
+                        if sp:
+                            line += f" speed {np.mean(sp):.3f}"
+                        if pr:
+                            line += (f" | prog_ratio {np.mean(pr):.2f}"
+                                     f" slip/m {np.mean(spm):.2f}")
+                        if de:
+                            line += f" dir_err {np.mean(de):.1f}deg"
+                        line += f" | gait_valid {n_valid}/{len(eps)}"
+                        print(line)
+            finally:
+                env._wc_on = wc_saved
+                for k, old in saved.items():
+                    if old is _PIN_MISSING:
+                        goal_cfg.pop(k, None)
+                    else:
+                        goal_cfg[k] = old
 
         if sheet_strips:
             _save_contact_sheet(sheet_strips, out)

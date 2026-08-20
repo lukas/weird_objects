@@ -136,13 +136,125 @@ class SimServoParams:
             from rl_move.config import cfg_get
             sel = str(cfg_get(cfg, "bus", "servo_params", default="") or "")
         if not sel:
-            return cls.load()
-        path = LOADED_MODEL_PATH if sel == "loaded" else Path(sel)
-        if not path.is_file():
-            raise FileNotFoundError(
-                f"bus.servo_params={sel!r} -> {path} does not exist; "
-                "run fit_loaded_actuator.py or fix the path")
-        return cls.load(path)
+            params = cls.load()
+        else:
+            path = LOADED_MODEL_PATH if sel == "loaded" else Path(sel)
+            if not path.is_file():
+                raise FileNotFoundError(
+                    f"bus.servo_params={sel!r} -> {path} does not exist; "
+                    "run fit_loaded_actuator.py or fix the path")
+            params = cls.load(path)
+
+        # Opt-in profile-speed ceiling override (operator order 08-19,
+        # fast-walker headroom): every fitted set carries the ~350
+        # counts/s sys-ID test speed as vel_max_deg_s, so raising
+        # bus.write_speed alone does nothing — ServoProfile.command and
+        # the MJX TickParams clamp the commanded speed right back to the
+        # old fit. ``bus.servo_vel_max_counts_s`` lifts that ceiling on
+        # all 18 joints:
+        #   absent / "" (default)  -> OFF, bit-exact legacy behavior;
+        #   "write_speed"          -> mirror bus.write_speed, so the
+        #                             profile ceiling always matches the
+        #                             STS write profile;
+        #   a number               -> that many counts/s.
+        # Anything unparsable or <= 0 raises — fail-closed, same class
+        # as the servo_params handling above (a silently dropped cfg
+        # override voided a verdict once; never fall back quietly).
+        raw = None
+        if cfg is not None:
+            raw = cfg_get(cfg, "bus", "servo_vel_max_counts_s",
+                          default=None)
+        if raw is not None and str(raw).strip() != "":
+            if str(raw).strip() == "write_speed":
+                counts = float(cfg_get(cfg, "bus", "write_speed",
+                                       default=400))
+            else:
+                try:
+                    counts = float(raw)
+                except (TypeError, ValueError):
+                    raise ValueError(
+                        f"bus.servo_vel_max_counts_s={raw!r} — expected "
+                        "a positive counts/s number or 'write_speed'")
+            if not counts > 0:
+                raise ValueError(
+                    f"bus.servo_vel_max_counts_s={raw!r} resolved to "
+                    f"{counts} counts/s — must be > 0")
+            deg_s = counts / COUNTS_PER_DEG
+            for ax in params.axes.values():
+                ax.vel_max_deg_s = deg_s
+            params.source += f"+vel_max={counts:g}cps"
+        return params
+
+
+def motor_contract(cfg: dict | None = None,
+                   params: "SimServoParams | None" = None,
+                   backend: str = "servo_profile_np") -> dict:
+    """The resolved actuator/command contract this process runs under.
+
+    Operator follow-up fb_20260820T000059 (after the steer5-fastprof1
+    profile-headroom canary): every train/eval path must RECORD which
+    servo profile it actually used — bus.write_speed / write_acc, the
+    opt-in vel-ceiling override, the RESOLVED per-joint velocity
+    ceiling, the safety slew clamp, the control rate, and which profile
+    backend enforces it — so "what motor contract did this checkpoint
+    train under?" is answerable from the run page / report.json alone,
+    never reverse-engineered from launch args.
+
+    ``cfg=None`` reports the stock config.yaml contract. ``params``
+    defaults to ``SimServoParams.from_cfg(cfg)`` — the single
+    resolution point both backends feed from (ServoProfile on CPU,
+    TickParams.vel_max on MJX), so the reported ceiling is the enforced
+    one by construction.
+    """
+    from rl_move.config import cfg_get, load_config
+    resolved = cfg if cfg is not None else load_config()
+    if params is None:
+        params = SimServoParams.from_cfg(cfg)
+    vel_deg = params.per_joint("vel_max_deg_s")
+    hz = float(cfg_get(resolved, "control", "hz", default=25.0))
+    max_dq = float(cfg_get(resolved, "safety", "max_delta_q_deg",
+                           default=1.5))
+    return {
+        "bus.write_speed": float(cfg_get(resolved, "bus", "write_speed",
+                                         default=400.0)),
+        "bus.write_acc": float(cfg_get(resolved, "bus", "write_acc",
+                                       default=20.0)),
+        "bus.servo_vel_max_counts_s": str(
+            cfg_get(resolved, "bus", "servo_vel_max_counts_s",
+                    default="") or ""),
+        "bus.servo_params": str(
+            cfg_get(resolved, "bus", "servo_params", default="") or ""),
+        "resolved_vel_max_deg_s_min": float(vel_deg.min()),
+        "resolved_vel_max_deg_s_max": float(vel_deg.max()),
+        "resolved_vel_max_counts_s_max": float(
+            vel_deg.max() * COUNTS_PER_DEG),
+        "safety.max_delta_q_deg": max_dq,
+        "control.hz": hz,
+        "slew_limit_deg_s": max_dq * hz,
+        # Profile ramp-in (08-20, fast anti-skate option (b)): 0 = no
+        # ramp; > 0 = train_ppo_mjx anneals the live write profile from
+        # bus.profile_ramp_start_* to the target keys above over this
+        # many global env steps (the values above are the TARGET dose).
+        "bus.profile_ramp_steps": float(cfg_get(
+            resolved, "bus", "profile_ramp_steps", default=0) or 0),
+        "servo_params_source": params.source,
+        "backend_profile": backend,
+    }
+
+
+def motor_contract_line(contract: dict) -> str:
+    """One greppable log line for the pod stdout ([motor-contract] ...)."""
+    c = contract
+    return ("[motor-contract] write_speed=%g acc=%g vel_override=%r "
+            "resolved_vel_max=%.1f deg/s (%.0f counts/s) "
+            "slew=%g deg/tick @ %g Hz (= %g deg/s) src=%s backend=%s"
+            % (c["bus.write_speed"], c["bus.write_acc"],
+               c["bus.servo_vel_max_counts_s"],
+               c["resolved_vel_max_deg_s_max"],
+               c["resolved_vel_max_counts_s_max"],
+               c["safety.max_delta_q_deg"], c["control.hz"],
+               c["slew_limit_deg_s"], c["servo_params_source"],
+               c["backend_profile"]))
 
 
 # ---------------------------------------------------------------------------

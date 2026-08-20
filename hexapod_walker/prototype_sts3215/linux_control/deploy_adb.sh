@@ -23,6 +23,11 @@ for a in "$@"; do
   esac
 done
 
+# Serialize deploys across workspaces (lock ~/.hexapod/deploy.lock,
+# history ~/.hexapod/deploy.log — see deploy_lock.sh).
+source "$SRC/deploy_lock.sh"
+deploy_lock_acquire "adb $MODE"
+
 echo ">> waiting for Uno Q over adb ..."
 adb wait-for-device
 adb shell 'echo connected as $(whoami) on $(hostname)'
@@ -59,6 +64,7 @@ adb push "$SRC/pinned_tip.py" "$REMOTE/linux_control/"
 adb push "$SRC/noslip_gait.py" "$REMOTE/linux_control/"
 adb push "$SRC/sysid_protocol.py" "$REMOTE/linux_control/"
 adb push "$SRC/sysid_runner.py" "$REMOTE/linux_control/"
+adb push "$SRC/bus_bench.py" "$REMOTE/linux_control/"
 adb push "$SRC/rl_policy_weights.json" "$REMOTE/linux_control/"
 adb push "$SRC/rl_walk_weights.json" "$REMOTE/linux_control/"
 # Swappable policy registry (bench_api rl_policies/rl_policy_select):

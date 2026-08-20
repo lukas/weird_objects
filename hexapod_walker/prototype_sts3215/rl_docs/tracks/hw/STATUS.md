@@ -24,6 +24,253 @@ unresolved blockers between the robot and reliable joystick control.
 
 ## Now
 
+- **08-20 ~13:1x ADVISORY RECORDED (operator MCP client note
+  fb_20260820T130855_a17a35 — GPT-5 Codex geometry sweep on the
+  operator's machine, read-only, artifacts NOT in this repo): coxa
+  length is NOT a walking-speed/reliability lever, only a
+  yaw-margin/scrub one.** Env-backed sweep (SimHexapodJointGoalEnv +
+  SafetyLayer + servo profile, femur/tibia fixed 90/128 mm) over coxa
+  12.5→55 mm with tripod/tetrapod/wave gaits: suite-mean commanded
+  progress flat (0.518–0.526 across all lengths); worst-case yaw-limit
+  margin improves 12.3°→21.9° (12.5→55 mm; ~+2.4° avg at 30 mm),
+  scrub 135→101 mm/m, roll peak 1.64°→1.19°. Client recommendation:
+  do NOT pivot geometry; if steering/tangle stays the blocking
+  symptom, a CAD/build-checked 25–30 mm coxa-only variant is the
+  low-risk hardware follow-up (45–55 mm second-stage only).
+  Orchestrator action: recorded only — geometry/CAD is a bench/
+  `[operator]`-owned lever (parked with bench items, robot off
+  bench), it changes no sim verdict, and it does not alter the open
+  (a)/(b)/(c) fast anti-skate pick (that instability is profile-dose,
+  not geometry). Relevant when the operator next weighs the
+  steering/tangle line: the yaw-saturation axis `k_yaw_margin` +
+  the recover-ladder tangle work attack in reward-space has a
+  modest, quantified geometry alternative. Artifacts:
+  `/Users/lukas/Documents/Codex/2026-08-20/could-you-do-an-
+  exploration-using` (operator's machine).
+- **08-20 ~09:5x CODE FOLLOW-UP #2 (q_20260820T0830Z option (b),
+  idle-drain cycle): the profile RAMP-IN mechanism is BUILT —
+  `bus.profile_ramp_steps` (+ `profile_ramp_start_write_speed/
+  write_acc/max_delta_q_deg`, defaults 350/20/1.5 = the fitted
+  regime) anneals the live write profile linearly to the cfg target
+  dose over N global env steps.** Trainer-armed in `train_ppo_mjx`
+  only: frac-0 broadcast right after venv construction (so the V5
+  `--walkcurr-cert-at-init` B0 cert now guards the transplant at the
+  ramp START, where bcgait1_hard1 is stable, instead of dying
+  zero-shot at full dose), `_ProfileRampCb` advances it per rollout
+  (W&B `profile_ramp/*`), and the walkcurr cert env mirrors the
+  training frac so promotions certify the dose actually being
+  trained. Eval paths (eval_checkpoint / play / periodic C evals)
+  always judge at FULL target dose by construction. Default-off
+  bit-exact; fail-closed: target above the resolved vel ceiling
+  raises, train_ppo_sim refuses ramp cfgs, slew clamp survives MJX
+  pool-restores (re-asserted per tick). `test_profile_ramp.py` 8/8;
+  sim_env 43, walkcurr_mjx 18, walk_curriculum 33, fastprof 37, full
+  semantics bank 141/4skip/1xfail all green. NOTHING trained on it —
+  the (a)/(b)/(c) pick stays `[operator]`; (b) is now launch-ready.
+  Spec: `rl_docs/FAST_PROFILE.md` §(d).**
+- **08-20 ~08:5x CODE FOLLOW-UP (q_20260820T0830Z): the desktop
+  branch became fetchable (fb_20260820T080540_e2ea9b) and was diffed
+  verbatim against the controller reconstruction below. The B0
+  bucket/gate the canaries actually exercised is BIT-IDENTICAL
+  (their FAILs are genuine); two never-exercised drifts were found
+  and fixed to match the authored 2cb2a7b7: `slew_sat_max`
+  0.95→0.98 on both V5 gates + B6-B9's exact command/DR shape, and
+  `k_loadslip_excess` was missing its `* self.dt` scaling (would
+  have been ~25x too strong the moment any dose reached PPO — fixed,
+  test + REWARD.md updated, full semantics bank green). No training
+  affected; V5 is now verified faithful and ready for the operator's
+  pick below.**
+- **08-20 ~08:4x OUTCOME: both ordered canaries CANARY FAIL -
+  MECHANISM at the pre-PPO B0 bridge cert — ZERO training steps.
+  The bcgait1_hard1 warm start zero-shot cannot survive 10s of its
+  own 0.05-0.06 m/s straight walk under either raised profile:
+  `fastnoslip1` (1500/80) falls 6/8, slip 2.26/m, roll 10.2°, 2.09x
+  speed overshoot; `midnoslip1` (750/40) falls 2/8, slip 1.66/m,
+  roll 10.6°, 1.26x overshoot. Dose-graded on every axis ⇒ the
+  profile dose itself destabilizes the transplant before V5 or
+  k_loadslip_excess ever engage (the mechanism itself is
+  implemented, tested, and remains ready). Fail-closed
+  `--walkcurr-cert-at-init` aborted both per each run's own
+  pre-registered gate clause (1). Next lever is `[operator]`:
+  ease/waive the precert bar (train through the wobble in B0), a
+  profile ramp-in mechanism (CODE, unbuilt), or park. W&B
+  `2ioupj7g` / `lj0urac5`; STATUS.md WAITING-ON + q_20260820T0830Z.**
+- **08-20 ~08:xx: operator ANSWERED the fast-gait fork
+  (fb_20260820T075230_4a90c6) with a mechanism change — walk-
+  curriculum V5 "fast anti-skate" + `reward.k_loadslip_excess` —
+  and the two ordered 1M canaries were launched.** Implemented on the
+  controller (the operator's desktop commit 2cb2a7b7 couldn't push;
+  recreated per the note): `WALKCURR_BUCKETS_V5` in walk_task.py — a
+  bcgait1-hard1-adjacent ladder (B0 10s bridge at the source's own
+  0.05-0.06 m/s → B1/B2 fast band 0.08-0.10 / 0.06-0.10 ±15° →
+  B3-B5 fast joystick 20/40/60s → B6/B7 DR 0.1/0.3 → B8/B9
+  lateral/rear) with strict cert gates on EXACTLY the axes both
+  steer forks failed (fast rungs: cmd_prog ≥0.70/p10 ≥0.55, slip
+  ≤1.6/m, cross-track ≤0.20, roll ≤8°, height ≥0.80; bridge
+  slightly softer); `reward.k_loadslip_excess` (default-off, −k ·
+  max(episode loadslip_ratio − loadslip_ok, 0) per commanded tick —
+  skating now CHARGED in training, not merely income-gated; REWARD.md
+  row, semantics `test_loadslip_excess_*`); trainer V5 wiring incl.
+  the full-checkpoint `--init-from` exception for this adjacent
+  continuation; play.py fast-profile viewer contract (fasttrack1/
+  steer6/fastnoslip → 1500/80 + 5° clamp, middose/midnoslip →
+  750/40 + 3°, both 0.10 m/s band + mode-3 velocity obs). Canaries
+  (phase CANARY, 1M, mechanism health only): `cw-dep-bcgait1-
+  fastnoslip1` (1500/80, 5°, seed 21) and `cw-dep-bcgait1-midnoslip1`
+  (750/40, 3°, seed 22), both `--init-from bcgait1_hard1`, V5 +
+  loadslip gate 1.2/2.0 + k_loadslip_excess 6.0, pre-PPO B0 cert
+  (`--walkcurr-cert-at-init`, precert min prog 0.50). Gate: init
+  cert survives, B0 retained + B1 improving by 1M, slip trending
+  ≤1.6/m, zero falls; FAIL = steer6-style skating recurs (slip
+  >2.5/m, direction/cross-track failure, tilt exits).
+- **08-20 ~03:4x: `steer7-middose1` (750/40 dose) VERDICTED — FAIL,
+  and the profile-headroom fork is now FULLY closed (both doses in).**
+  Its own funding-question bar misses: the pinned-speed panel
+  (0.04/0.06/0.08/0.10 m/s, DR-0) is NOT monotone-in-band —
+  prog_ratio 1.65/1.25/1.02/0.85 det (needs 0.85-1.15 every row),
+  1.25/1.00/0.85/0.75 sto (needs 0.8-1.2) — the policy still rides
+  one weakly-scaling cadence (~0.066→0.085 m/s achieved across the
+  full 0.04-0.10 command range) instead of real speed control.
+  Stress-mix retention: zero falls, gait_valid 6/6, genuinely tall
+  six-leg gait on video (no exploit), but slip 1.6-5.1/m (bar
+  ≤1.8/2.0) and direction_err 24-67°. Mandatory matched-parent
+  control (steer3-yawm1 zero-shot under the identical 750/40 profile)
+  is WORSE on every axis (slip 2.0-18.1/m, dir_err 40-85°) — so 20M
+  of training genuinely improved tracking/slip over the untrained-
+  under-profile parent (same shape as the fastprof1 2M canary), it
+  just didn't reach the band even at half the full dose. Per
+  pre-registration: STOP, no autonomous dose interpolation. Combined
+  with steer6's FAIL below: **neither funded dose delivers a
+  deployable fast gait** — steer6 gets speed but not direction,
+  steer7 gets better-than-parent tracking but not in-band tracking.
+  Next call (third dose / longer budget / park the sub-line) is
+  `[operator]`; no autonomous continuation. Download answer
+  unchanged. Detail: W&B `wadldlj2`, `rl_docs/runs/
+  cw-dep-bcgait1-hard1-steer7-middose1.md`.
+- **08-20 ~03:2x: `steer6-fasttrack1` (full 1500/80 dose) VERDICTED —
+  ACQUISITION FAIL, the predict-if-false branch.** After the full 20M
+  budget: direction/heading error stayed pinned 41-57° (vs the
+  required ≤25°, essentially unchanged from the canary's 48-53°);
+  hard1-style fixed-band slip 2.99-3.43/m — WORSE than the canary's
+  own 2.37/3.00 despite 10x the training, nowhere near the 1.8/2.0
+  bar. `env/reward_walk_heading` barely moved (-1.16→-0.97) all run —
+  an unresolved standing tax, not noise. GOOD news buried in the FAIL:
+  the overspeed axis genuinely resolved (achieved speed converged
+  0.10-0.11 m/s near the band edge, from the canary's flat
+  0.13-0.16), and the anti-jam/tangle cure fully holds at the new
+  profile (probe_dirswitch_tangle yaw_sat_frac 0.0005-0.0023 on all 4
+  slices, 0/96 falls; stage2 switch panel 48 eps zero falls/
+  safety_flags/sacrificed-legs). So: raising actuator headroom buys
+  controllable SPEED but not controllable DIRECTION, and doesn't
+  erode the tangle fix. Per pre-registration: STOP, no autonomous
+  charge-k/dose sweep. `steer7-middose1` (the paired 750/40 dose) is
+  a separate concurrent cycle's verdict — not called here; the
+  operator's fork question ("did headroom + the new MDP produce a
+  faster AND steerable candidate") is answered NO for the full dose,
+  open pending the middose read. Download answer (hard1/fric +
+  footlow2) UNCHANGED. Detail: W&B `35z4dw4n`, `rl_docs/runs/
+  cw-dep-bcgait1-hard1-steer6-fasttrack1.md`.
+- **08-20 ~01:5x (operator kick): the profile-headroom fork is
+  ANSWERED — both doses funded and RUNNING (operator chat ~01:4x
+  UTC).** `cw-dep-bcgait1-hard1-steer6-fasttrack1` (full 1500/80,
+  train-0, W&B `35z4dw4n`) + `cw-dep-bcgait1-hard1-steer7-middose1`
+  (750/40, train-1, W&B `wadldlj2`), 20M acquisition each on the
+  FAST_PROFILE.md recommended contract (`walk_obs_body_vel=3`,
+  `k_walk_overspeed=2.0`/tol 0.10, `k_walk_heading=2.0`, 0.05–0.10
+  m/s band), warm from steer3-yawm1, seed 12; only the three dose
+  keys differ between the arms. Pre-registered gates in the ledger
+  (pinned-speed panel monotone + slip/tangle retention bars); STOP +
+  report on any miss, no autonomous dose interpolation. Note: the
+  earlier REFUSED ledger stubs under both run names were phase-cap
+  noise from the canary→acquisition respec, not failed launches.
+  Bench items 1–2 (profile restart semantics, 1500/80-under-load
+  characterization) stay parked until the robot is back.
+- **08-20 ~01:xx (idle-kick, fb_20260820T000059): fast-profile prep
+  item 3 LANDED — the fast-gait fork is now fully priced and
+  tool-ready, everything left on it is the operator's (full record:
+  `rl_docs/FAST_PROFILE.md`).** (a) `eval_checkpoint.py
+  --pinned-speed-panel` (0.04/0.06/0.08/0.10 m/s rows,
+  `walk@<speed>/<tag>`); smoke on hard1: achieved speed ~0.06
+  whether commanded 0.04 or 0.08 — the current generation has ONE
+  cadence, not speed control. (b) opt-in
+  `reward.k_walk_overspeed` (commanded-band exceedance, linear —
+  legacy kernel saturates and the progress cap PAYS overspeed) +
+  `reward.k_walk_heading` (1−cos charge); REWARD.md rows, FASTPROF
+  bank + full semantics bank green. (c) obs audit: the cw-dep
+  vel:=ref contract is BLIND to command error by construction —
+  and `walk_obs_body_vel=3` (estimator mode) turned out to be
+  UNIMPLEMENTED (silently privileged); now genuinely wired to
+  LegOdometryVelocity on the observed state, warm-start-compatible
+  width, modes 0/1/2 bit-exact. Recommended funded-arm contract
+  written up; no launch (SIM SPRINT; the fork + bench items stay
+  `[operator]`).
+- **08-20 ~00:xx (idle-kick, fb_20260820T000059): fast-profile
+  follow-up code item 4 LANDED — motor-contract logging + integration
+  tests.** Every train/eval path now records the resolved servo
+  profile (write_speed/acc/vel-override, resolved ceiling, slew, hz,
+  backend) in W&B config / report.json / a `[motor-contract]` log
+  line. The tests caught two latent gaps: `train_ppo_sim._build_env`
+  + its gate env ignored a vel-ceiling-only override (only
+  `bus.servo_params` triggered re-resolution) and `MjxVecEnv` default
+  params bypassed `from_cfg`. Audited: steer5-fastprof1 trained via
+  `train_ppo_mjx` (--impl warp), which always re-resolved — the
+  canary verdict stands. Remaining agent-doable prep (item 3: pinned
+  speed panels 0.04–0.10, opt-in overspeed/heading pricing, body-vel
+  obs audit) is a typed `[code]` WAITING-ON entry in STATUS.md; items
+  1–2 (profile restart semantics flag, 1500/80-under-load bench
+  characterization) are bench-gated; the fork itself stays
+  `[operator]`. No launch (SIM SPRINT).
+- **08-19 ~22:5x (idle-kick triage): `cw-dep-bcgait1-hard1-steer5-fastprof1`
+  verdicted CANARY FAIL - MECHANISM (as dosed) — but the matched-parent
+  control turns it into the line's most useful map update: the
+  walking-speed ceiling was ACTUATOR TIMING.** Under the raised
+  profile, hard1 and yawm1 re-evaluated untouched walk 0.154–0.155
+  m/s zero-shot (2.5x their commanded 0.05–0.06) with slip 3.1–4.0/m
+  fixed-command, dir_err ~60°, switch-panel slip 5.5–8.7/m, probe
+  yaw_sat 0.0229 (+1 fall); the 2M child does BETTER on every slice
+  (fixed slip 2.37/3.00 det/sto, dir_err 48–53°, switch slip
+  4.1–5.1/m, yaw_sat 0.0186, prog 1.48–1.76 overshoot) yet misses
+  every retention/tangle band — the profile itself breaks command
+  tracking, training was already repairing it. Zero over-current,
+  6/6 gait, no park/freeze/sacrificed-leg anywhere, tall six-leg
+  video, in-band height, one dynamic tip-over per 24 switch eps
+  (child and control alike). Informational 0.08 read: speed is
+  profile-driven, not command-driven (~0.15 m/s regardless of
+  command; prog 1.31, slip 2.17). Per pre-registration: STOP, fork
+  to operator (longer command-tracking adaptation vs intermediate
+  dose vs park; plus the bench write_speed=1500-under-load
+  question) — STATUS.md WAITING-ON. Artifacts on train-0:
+  `logs/ckpt_eval/*steer5_fastprof1*` + `*profilectl*` +
+  `logs/probe_dirswitch/{steer5_fastprof1_profile,yawm1_profilectl}.json`.
+  Download answer unchanged.
+- **Earlier 08-19 ~21:3x (operator-kick cycle): the operator ANSWERED the
+  steer park-vs-retry fork — next lever = actuator/profile HEADROOM
+  (MCP lane 20260819T211434Z), and the bounded canary was queued:
+  `cw-dep-bcgait1-hard1-steer5-fastprof1` (2M, CANARY, hw).**
+  Root idea: the sim servo profile has been clamped to the ~350
+  counts/s sys-ID fit no matter what `bus.write_speed` said, so the
+  feet physically could not exceed ~31°/s — the slip band may be
+  feet that cannot keep up, not mispriced rewards. Built + shipped
+  this cycle (snapshot `4a8a4561`): opt-in
+  `bus.servo_vel_max_counts_s` (sentinel `write_speed`) in
+  `SimServoParams.from_cfg` — one choke point, inherited by
+  ServoProfile (CPU), MJX TickParams, and every train/eval path;
+  default OFF bit-exact (`test_servo_vel_override.py` 12/12,
+  sim_env 43/43, walk semantics bank green). The canary is the EXACT
+  steer3-yawm1 recipe + only the profile keys (write_speed=1500 ≈
+  132°/s, write_acc=80 ≈ 703°/s², servo_vel_max_counts_s=write_speed,
+  safety.max_delta_q_deg=5.0 @25 Hz ≈ 125°/s; air fit kept —
+  `servo_params=loaded` is not this lineage's default and would
+  confound the A/B). Gate: mechanism health + hard1-panel retention
+  (slip ≤1.8/2.0, prog_ratio ≥ yawm1's 0.91–1.07, zero falls,
+  direction/heading not worse) + tangle no-regression (0/24
+  over_current, yaw_sat_frac ≤ 0.011) + MANDATORY matched-parent
+  control (hard1 + yawm1 re-evaled under the same raised profile,
+  same seed) + informational pinned-0.08 read. Any miss = STOP +
+  report; PASS proposes (not launches) the 20M hardening. If the
+  matched-parent control shows the parents zero-shot improve under
+  headroom alone, that is itself the finding (deploy-side write
+  profile change, no training needed).
 - **08-19 ~19:1x (triage cycle): `cw-dep-bcgait1-hard1-steer4-fastclean1`
   FAILS — the operator's own combined lever made the fast gait WORSE
   on every one of its four pre-registered bars, on both the final and

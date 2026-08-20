@@ -1082,6 +1082,11 @@ def _init_wandb(args, params: SimServoParams):
     # open with what the run is learning, not lineage babble).
     notes = (_learning_line(args) + "\n\n" + (args.notes or "")).strip()
     notes += "\n\n" + _reward_notes(args.cfg_set)
+    _contract = getattr(args, "_motor_contract", None)
+    if _contract is None:
+        from .servo_model import motor_contract
+        _contract = motor_contract(params=params,
+                                   backend=f"mjx_tickparams:{args.impl}")
     wandb_identity = {}
     if args.recover_population_id:
         population_ids = tuple(
@@ -1104,6 +1109,11 @@ def _init_wandb(args, params: SimServoParams):
         **wandb_identity,
         sync_tensorboard=True,   # SB3 train/* metrics, like the campaign
         config={"trainer": "train_ppo_mjx", "task": args.task,
+                # Resolved motor contract (fb_20260820T000059): stashed
+                # on args by main from the actual env params/cfg;
+                # fallback resolves from the run's params (from_cfg is
+                # the single enforcement point either way).
+                "motor_contract": _contract,
                 "n_envs": args.n_envs, "impl": args.impl,
                 "n_steps": args.n_steps, "batch_size": args.batch_size,
                 "learning_rate": args.lr, "seed": args.seed,
@@ -1492,14 +1502,18 @@ def main(argv: list[str] | None = None) -> int:
                          "sets cfg goal.walk_curriculum + "
                          "goal.walk_pure at env construction")
     ap.add_argument("--walk-curriculum-version", type=int, default=1,
-                    choices=(1, 2, 3, 4),
+                    choices=(1, 2, 3, 4, 5),
                     help="1 = WALKCURR_BUCKETS (walkcurr1), 2 = "
                          "WALKCURR_BUCKETS_V2 ignition ladder "
                          "(walkcurr2), 3 = WALKCURR_BUCKETS_V3 "
                          "actor-init bridge ladder (operator order "
                          "fb_20260818T102844_116d4c), 4 = sustained "
                          "joystick ladder (10/20/40/60-second retained "
-                         "survival before DR/lateral/rear)")
+                         "survival before DR/lateral/rear), 5 = fast "
+                         "anti-skate ladder adjacent to bcgait1-hard1 "
+                         "(operator order fb_20260820T075230_4a90c6; "
+                         "strict slip/direction/height gates, pairs "
+                         "with reward.k_loadslip_excess)")
     ap.add_argument("--walkcurr-cert-every", type=int, default=500_000,
                     help="deterministic certification cadence (steps)")
     ap.add_argument("--walkcurr-cert-episodes", type=int, default=8,
@@ -1701,26 +1715,35 @@ def main(argv: list[str] | None = None) -> int:
                 "(best = last retention-clean promotion, never reward/"
                 "latest); drop --best-ckpt/--ev-stop-min")
         if (args.init_from is not None and not args.init_from_actor_only
-                and not args.init_from_policy_backbone):
+                and not args.init_from_policy_backbone
+                and args.walk_curriculum_version != 5):
             raise SystemExit("--walk-curriculum is a fresh-actor "
                              "acquisition contract (walkcurr lineage); "
                              "a full-checkpoint --init-from is not wired "
                              "(pass --init-from-actor-only for an "
                              "actor-init acquisition recipe — the "
                              "curriculum still owns cert/reset-pool/"
-                             "promotion state fresh)")
+                             "promotion state fresh; EXCEPTION: V5 is "
+                             "an adjacent-continuation ladder by "
+                             "operator order fb_20260820T075230_4a90c6 "
+                             "— warm full-checkpoint --init-from is "
+                             "allowed there, curriculum state still "
+                             "starts fresh)")
         if (args.walkcurr_post_promo_actor_lr > 0.0
                 and args.actor_lr <= 0.0):
             raise SystemExit("--walkcurr-post-promo-actor-lr requires "
                              "--actor-lr (it retargets the "
                              "update_health actor param group)")
-        if args.walk_curriculum_version == 4:
-            from .walk_task import WALKCURR_BUCKETS_V4
-            required_s = max(float(b["duration_s"])
-                             for b in WALKCURR_BUCKETS_V4)
+        if args.walk_curriculum_version in (4, 5):
+            if args.walk_curriculum_version == 5:
+                from .walk_task import WALKCURR_BUCKETS_V5 as _wc_tbl
+            else:
+                from .walk_task import WALKCURR_BUCKETS_V4 as _wc_tbl
+            required_s = max(float(b["duration_s"]) for b in _wc_tbl)
             args.training_episode_seconds = max(
                 float(args.episode_seconds), required_s)
-            print("[walkcurr] V4 training/cert horizon: "
+            print(f"[walkcurr] V{args.walk_curriculum_version} "
+                  "training/cert horizon: "
                   f"{args.training_episode_seconds:g}s maximum; plain "
                   f"background eval remains {args.episode_seconds:g}s")
         # Pure-walk diet + curriculum version ride the env cfg so the
@@ -1901,6 +1924,14 @@ def main(argv: list[str] | None = None) -> int:
         args.cfg_set = _plain_cfg_set
     params = env_kw["params"]
     _warn_if_defaults(params)
+    # Resolved motor contract (fb_20260820T000059): printed from the
+    # ACTUAL env params + cfg the shim envs are built from, so the pod
+    # log records the enforced velocity ceiling, not the launch args.
+    from .servo_model import motor_contract, motor_contract_line
+    _contract = motor_contract(env_kw.get("cfg"), params=params,
+                               backend=f"mjx_tickparams:{impl or 'mjx'}")
+    print(motor_contract_line(_contract))
+    args._motor_contract = _contract  # picked up by _init_wandb
     env_cls = ENV_CLASSES[args.task]
     if args.predictive_live:
         # Same joint-walk task with pool-safe frame/privileged-label hooks.
@@ -2080,6 +2111,48 @@ def main(argv: list[str] | None = None) -> int:
           f"(compile + {args.pool_per_env + 1} reset choreographies)")
     if args.require_gpu_physics:
         _assert_gpu_physics(venv, impl)
+
+    # Servo-profile RAMP-IN (08-20, fast anti-skate option (b),
+    # q_20260820T0830Z): bus.profile_ramp_steps > 0 anneals the live
+    # write profile from the fitted regime to the cfg target dose over
+    # that many global env steps. Armed HERE (frac 0 before anything
+    # measures the policy — the V5 pre-PPO B0 cert then guards the
+    # transplant at the ramp START instead of dying zero-shot at the
+    # full dose); advanced once per rollout by _ProfileRampCb below;
+    # the walkcurr cert env mirrors the training frac so promotions
+    # certify the dose actually being trained. Envs constructed from a
+    # ramp cfg that never receive a broadcast (eval_checkpoint, play,
+    # the periodic C-env evals) sit at the TARGET dose by design.
+    _prof_ramp_steps = 0
+    if env_kw.get("cfg") is not None:
+        from rl_move.config import cfg_get as _cfg_get
+        _prof_ramp_steps = int(float(_cfg_get(
+            env_kw["cfg"], "bus", "profile_ramp_steps",
+            default=0) or 0))
+
+    def _profile_ramp_frac_at(step: int) -> float:
+        return min(1.0, float(step) / float(_prof_ramp_steps))
+
+    def _profile_ramp_apply(target_venv, step: int) -> dict | None:
+        """Broadcast the frac for ``step`` to a vec env; returns the
+        applied profile (first env's row). No-op when the ramp is off."""
+        if _prof_ramp_steps <= 0:
+            return None
+        f = _profile_ramp_frac_at(step)
+        return target_venv.env_method("apply_profile_ramp_frac", f)[0]
+
+    if _prof_ramp_steps > 0:
+        r0 = _profile_ramp_apply(venv, 0)
+        print(f"[profile-ramp] armed: {_prof_ramp_steps:,} global env "
+              "steps from fitted profile to target dose; step-0 "
+              f"profile: write_speed={r0['write_speed_counts_s']:.0f} "
+              f"counts/s acc={r0['write_acc']:g} "
+              f"max_delta_q={r0['max_delta_q_deg']:g} deg/tick")
+        if _prof_ramp_steps >= args.steps:
+            print("[profile-ramp] WARNING: profile_ramp_steps "
+                  f"({_prof_ramp_steps:,}) >= --steps ({args.steps:,}) "
+                  "— the policy will NEVER train at the full target "
+                  "dose in this run")
     if args.predictive_live:
         capture_indices = list(range(args.pred_capture_envs))
         venv.env_method("dynrep_capture_enable", True,
@@ -2114,8 +2187,9 @@ def main(argv: list[str] | None = None) -> int:
         from .walk_task import WALKCURR_BUCKETS_V2 as _WC2
         from .walk_task import WALKCURR_BUCKETS_V3 as _WC3
         from .walk_task import WALKCURR_BUCKETS_V4 as _WC4
-        _tbl = {1: _WC1, 2: _WC2, 3: _WC3,
-                4: _WC4}[args.walk_curriculum_version]
+        from .walk_task import WALKCURR_BUCKETS_V5 as _WC5
+        _tbl = {1: _WC1, 2: _WC2, 3: _WC3, 4: _WC4,
+                5: _WC5}[args.walk_curriculum_version]
         print("[walkcurr] realized per-bucket DR (overrides --dr-scale "
               f"{args.dr_scale:g} per episode): "
               + " ".join(f"b{i}={row['dr']:g}"
@@ -2855,6 +2929,41 @@ def main(argv: list[str] | None = None) -> int:
               f"{population.member}, initial B{initial_bucket}")
 
     callbacks: list = [_Track()]
+    if _prof_ramp_steps > 0:
+        class _ProfileRampCb(BaseCallback):
+            """Advance the servo-profile ramp once per rollout (see the
+            arming block after venv construction). Broadcasts stay on
+            after frac hits 1.0 for one extra round (idempotent), then
+            stop; W&B gets the live profile under profile_ramp/*."""
+
+            def __init__(self):
+                super().__init__()
+                self._finished = False
+
+            def _on_step(self) -> bool:
+                return True
+
+            def _on_rollout_end(self) -> None:
+                if self._finished:
+                    return
+                vals = _profile_ramp_apply(venv, self.num_timesteps)
+                if vals["frac"] >= 1.0:
+                    self._finished = True
+                    print("[profile-ramp] ramp complete @ "
+                          f"{self.num_timesteps:,} steps — training at "
+                          "the full target dose from here on")
+                if run is not None:
+                    import wandb
+                    wandb.log({
+                        "global_step": self.num_timesteps,
+                        "profile_ramp/frac": vals["frac"],
+                        "profile_ramp/write_speed_counts_s":
+                            vals["write_speed_counts_s"],
+                        "profile_ramp/write_acc": vals["write_acc"],
+                        "profile_ramp/max_delta_q_deg":
+                            vals["max_delta_q_deg"]})
+
+        callbacks.append(_ProfileRampCb())
     if args.predictive_live:
         class _LivePredictorCapture(BaseCallback):
             """Harvest a bounded MJX subset into CUDA live replay."""
@@ -3341,14 +3450,15 @@ def main(argv: list[str] | None = None) -> int:
         import shutil
 
         from .walk_task import (WALKCURR_BUCKETS, WALKCURR_BUCKETS_V2,
-                                WALKCURR_BUCKETS_V3, WALKCURR_BUCKETS_V4)
+                                WALKCURR_BUCKETS_V3, WALKCURR_BUCKETS_V4,
+                                WALKCURR_BUCKETS_V5)
         from .walkcurr_cert import (WalkCurrController,
                                     aggregate_walk_probe,
                                     failed_probe_row,
                                     walkcurr_bucket_pass)
         wc_table = {1: WALKCURR_BUCKETS, 2: WALKCURR_BUCKETS_V2,
-                    3: WALKCURR_BUCKETS_V3,
-                    4: WALKCURR_BUCKETS_V4}[args.walk_curriculum_version]
+                    3: WALKCURR_BUCKETS_V3, 4: WALKCURR_BUCKETS_V4,
+                    5: WALKCURR_BUCKETS_V5}[args.walk_curriculum_version]
         core_venv = _unwrap_vec(venv)
         wc_best_path = POLICY_DIR / f"{out_name}_best.zip"
         wc_promo_dir = POLICY_DIR / "walkcurr_promotions"
@@ -3406,6 +3516,17 @@ def main(argv: list[str] | None = None) -> int:
                       f"ready: {n_cert} episodes/bucket, "
                       f"{impl or 'jax(default)'} backend, in-env walk "
                       "probe ON")
+                if _prof_ramp_steps > 0:
+                    # Mirror the TRAINING profile ramp: certs must
+                    # assay the dose the policy is actually training
+                    # under, not the cfg target (num_timesteps is 0 at
+                    # the pre-PPO init cert — the ramp START, which is
+                    # exactly what the transplant guard should see).
+                    rv = _profile_ramp_apply(
+                        env, getattr(self, "num_timesteps", 0) or 0)
+                    print("[walkcurr-cert] profile ramp mirrored: "
+                          f"frac={rv['frac']:.3f} write_speed="
+                          f"{rv['write_speed_counts_s']:.0f} counts/s")
                 return env
 
             def _assay(self, bucket: int) -> dict:
@@ -3563,6 +3684,9 @@ def main(argv: list[str] | None = None) -> int:
                               ) * args.walkcurr_cert_every
                 if self._env is None:
                     self._env = self._build()
+                elif _prof_ramp_steps > 0:
+                    # keep the cert env's profile at the training frac
+                    _profile_ramp_apply(self._env, self.num_timesteps)
                 self.cert_round += 1
                 active_n = int(venv.env_method(
                     "walkcurr_state", indices=0)[0]["active_n"])

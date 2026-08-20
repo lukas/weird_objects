@@ -8,9 +8,43 @@ Written 2026-08-09 after re-deriving all of this one too many times.
 ```sh
 cd hexapod_walker/prototype_sts3215
 sim_viewer/sim_play.sh     # ← the one to use: stand up AND walk, one window
+sim_viewer/sim_web.sh      # same web UI as the robot, routed to MuJoCo
 sim_viewer/sim_stand.sh    # stance champion alone (mujoco.viewer)
 sim_viewer/sim_walk.sh     # walk champion alone (cv2 drive window)
 sim_viewer/sim_quad.sh     # tip-back QUAD walk playground (scripted, no RL)
+```
+
+`sim_web.sh` starts a native `mujoco.viewer` window and serves the real
+robot's `linux_control/webui/` at `http://127.0.0.1:8898/rl`. The web
+page is the controller; the MuJoCo window is the visual surface. The
+shared UI routes the RL tab's stand/lower/held-key
+drive/policy-picker commands into the local sim session. Sim-only
+controls live under `/api/sim/*` and are shown only against this
+backend: reset stand, reset belly, fall, recover, and push.
+
+The browser JPEG preview is off in native-viewer mode. For headless
+debugging, run `python3 -m rl_move.sim.web_server` without `--viewer`,
+or pass `--browser-frames on` if you intentionally want both surfaces.
+
+Laptop hub mode can also proxy the real robot while keeping the MuJoCo
+viewer running locally:
+
+```sh
+sim_viewer/sim_web.sh --robot-url http://hexapod.local:8080 --target sim
+```
+
+The header target picker switches between `sim`, `robot`, and `both`.
+`both` broadcasts the RL drive/stand/stop/policy routes and raw `/cmd`
+commands to both targets. Hardware-specific actions such as calibration,
+motor wiggles, demos, measurements, and zeroing stay robot-routed.
+
+If you run from a fresh git worktree, checkpoint zips may be absent
+because `rl_move/sim/policies/` is intentionally ignored. Point the
+server at the populated cache:
+
+```sh
+POLICY_DIR=/Users/lukas/weird_objects/hexapod_walker/prototype_sts3215/rl_move/sim/policies \
+  sim_viewer/sim_web.sh
 ```
 
 `sim_quad.sh` (no checkpoints involved) drives the webui Quad tab's

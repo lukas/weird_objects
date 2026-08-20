@@ -10,6 +10,15 @@ let motorsTimer = null;
 let linkOk = null;           // null=unknown, true/false after first ping
 let linkFailStreak = 0;
 let lastPingOkAt = 0;
+let backendKind = 'robot';   // robot | sim
+let hubMode = false;
+let hubTarget = 'robot';
+let targetHasRobot = true;
+let targetHasSim = false;
+let simFrames = true;
+let simNativeViewer = false;
+let simTimer = null, simBusy = false, simFrameBusy = false;
+let simFrameLastAt = 0;
 // SERVO ARM GATE (separate from `armed`, which just means "a stick is pushed").
 // Defaults OFF on every page load and the firmware boots DISARMED, so nothing
 // drives a servo until the human presses Enable. All servo-driving sends are
@@ -30,8 +39,54 @@ function setLink(ok, detail){
     conn.textContent = detail || 'offline';
     conn.className = 'bad';
     const bar = document.getElementById('offlinebar');
-    if(bar) bar.textContent = '● Lost connection to Uno Q — retrying…'
+    const target = hubMode ? (hubTarget === 'both'
+      ? 'robot + MuJoCo sim' : hubTarget)
+      : (backendKind === 'sim' ? 'MuJoCo sim' : 'Uno Q');
+    if(bar) bar.textContent = `● Lost connection to ${target} — retrying…`
       +(detail ? (' ('+detail+')') : '');
+  }
+}
+function applyBackendMeta(meta){
+  if(!meta) return;
+  hubMode = !!meta.hub || meta.service === 'hexapod-hub';
+  if(hubMode){
+    hubTarget = meta.target || 'sim';
+    targetHasRobot = !!(meta.active && meta.active.robot);
+    targetHasSim = !!(meta.active && meta.active.sim);
+  } else {
+    const kind0 = meta.kind
+      || (meta.service === 'hexapod-sim' ? 'sim' : 'robot');
+    targetHasSim = kind0 === 'sim';
+    targetHasRobot = kind0 !== 'sim';
+    hubTarget = targetHasSim ? 'sim' : 'robot';
+  }
+  const kind = targetHasRobot ? 'robot' : (targetHasSim ? 'sim' : 'robot');
+  const frames = meta.frames !== false;
+  const nativeViewer = !!meta.viewer;
+  const changed = kind !== backendKind || frames !== simFrames
+    || nativeViewer !== simNativeViewer
+    || hubMode !== document.body.classList.contains('hub-backend')
+    || hubTarget !== (document.getElementById('targetsel')||{}).value;
+  backendKind = kind;
+  simFrames = frames;
+  simNativeViewer = nativeViewer;
+  document.body.classList.toggle('hub-backend', hubMode);
+  document.body.classList.toggle('target-both', hubTarget === 'both');
+  document.body.classList.toggle('sim-backend', targetHasSim);
+  document.body.classList.toggle('sim-native-viewer',
+    targetHasSim && simNativeViewer);
+  document.body.classList.toggle('sim-browser-frames',
+    targetHasSim && simFrames);
+  const sel = document.getElementById('targetsel');
+  if(sel && sel.value !== hubTarget) sel.value = hubTarget;
+  if(!simFrames){
+    const img = document.getElementById('simframe');
+    if(img) img.removeAttribute('src');
+    simFrameBusy = false;
+  }
+  if(changed){
+    updateArmUI();
+    if(activeView === 'rl') simPollMaybe();
   }
 }
 async function heartbeat(){
@@ -46,8 +101,10 @@ async function heartbeat(){
     clearTimeout(t);
     if(!r.ok) throw new Error('HTTP '+r.status);
     const j = await r.json().catch(()=>({}));
+    applyBackendMeta(j);
     if(j && j.ok === false) throw new Error(j.error || 'ping failed');
-    setLink(true);
+    setLink(true, hubMode ? `hub: ${hubTarget}`
+      : (backendKind === 'sim' ? 'sim connected' : undefined));
   }catch(e){
     clearTimeout(t);
     linkFailStreak++;
@@ -149,8 +206,9 @@ function makeStick(canvas, horizontalOnly){
     ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0); draw(); }
   function draw(){
     const w=canvas.width/devicePixelRatio, h=canvas.height/devicePixelRatio;
+    if(w <= 0 || h <= 0) return;
     ctx.clearRect(0,0,w,h);
-    const cx=w/2, cy=h/2, R=Math.min(w,h)/2-12;
+    const cx=w/2, cy=h/2, R=Math.max(1, Math.min(w,h)/2-12);
     ctx.strokeStyle='#2a3142'; ctx.lineWidth=2;
     ctx.beginPath();
     if(horizontalOnly){ ctx.moveTo(cx-R,cy); ctx.lineTo(cx+R,cy); }
@@ -162,7 +220,8 @@ function makeStick(canvas, horizontalOnly){
   }
   function set(e){
     const r=canvas.getBoundingClientRect();
-    const cx=r.width/2, cy=r.height/2, R=Math.min(r.width,r.height)/2-12;
+    const cx=r.width/2, cy=r.height/2;
+    const R=Math.max(1, Math.min(r.width,r.height)/2-12);
     let dx=(e.clientX-r.left-cx)/R, dy=-(e.clientY-r.top-cy)/R;
     const m=Math.hypot(dx,dy); if(m>1){ dx/=m; dy/=m; }
     nx=Math.max(-1,Math.min(1,dx)); ny=horizontalOnly?0:Math.max(-1,Math.min(1,dy));
@@ -581,6 +640,25 @@ const dbgIndex  = ()=> dbgLeg*3 + dbgAxis;
 const dbgLimits = ()=> AXIS_LIM[dbgAxis];
 const $ = id => document.getElementById(id);
 
+async function setHubTarget(target){
+  try{
+    const r = await fetch('/api/hub', {method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({target})});
+    const d = await r.json();
+    if(!d.ok) throw new Error(d.error || 'target switch failed');
+    applyBackendMeta(d);
+    setArmed(false);
+    showSent('target → '+target);
+    simPollMaybe();
+  }catch(e){
+    showSent('target switch failed: '+(e.message || e), true);
+  }
+}
+if(document.getElementById('targetsel'))
+  document.getElementById('targetsel').onchange =
+    e => setHubTarget(e.target.value);
+
 function dbgRefresh(){
   const idx = dbgIndex(), lim = dbgLimits();
   $('dbgidx').textContent = idx;
@@ -701,7 +779,8 @@ function showView(which){
     refreshCalibrate(); startCalPoll();
   }
   else stopCalPoll();
-  if(which === 'rl'){ refreshRlTab(); }
+  if(which === 'rl'){ refreshRlTab(); simPollMaybe(); }
+  else stopSimPoll();
   if(which === 'measure'){ muRefresh(); muPollMaybe(); }
 }
 $('tab-drive').onclick = ()=> showView('drive');
@@ -1224,6 +1303,70 @@ for(const b of document.querySelectorAll('#rldrivepad button[data-dv]')){
   b.addEventListener('pointerleave', up);
   b.addEventListener('pointercancel', up);
 }
+
+// ---- MuJoCo backend panel --------------------------------------------------
+function stopSimPoll(){
+  if(simTimer){ clearInterval(simTimer); simTimer = null; }
+  simFrameBusy = false;
+}
+function simPollMaybe(){
+  if(!targetHasSim || activeView !== 'rl'){ stopSimPoll(); return; }
+  if(!simTimer) simTimer = setInterval(refreshSimPanel, 500);
+  refreshSimPanel();
+}
+async function refreshSimPanel(){
+  if(!targetHasSim || activeView !== 'rl' || simBusy) return;
+  simBusy = true;
+  try{
+    const img = $('simframe');
+    const now = Date.now();
+    if(img && simFrames && !simFrameBusy && now - simFrameLastAt >= 1000){
+      simFrameBusy = true;
+      simFrameLastAt = now;
+      img.onload = img.onerror = ()=>{ simFrameBusy = false; };
+      img.src = '/api/sim/frame.jpg?t='+now;
+    }
+    const d = await (await fetch('/api/sim/state?t='+Date.now(),
+      {cache:'no-store'})).json();
+    const live = d.live || {};
+    const bits = [];
+    if(live.mode) bits.push(`<b>${live.mode}</b>`);
+    if(live.height_mm!=null) bits.push(`h ${live.height_mm} mm`);
+    if(live.vx_ref!=null) bits.push(`v ${Math.round(live.vx_ref*1000)},`
+      + `${Math.round(live.vy_ref*1000)} mm/s`);
+    if(live.roll_deg!=null) bits.push(`tilt ${live.roll_deg}/`
+      + `${live.pitch_deg}°`);
+    if(live.t_s!=null) bits.push(`${live.t_s}s`);
+    if(d.viewer) bits.push('native viewer');
+    $('simstatus').innerHTML = (live.status || d.status || 'ready')
+      + (bits.length ? ' · '+bits.join(' · ') : '');
+  }catch(e){
+    $('simstatus').textContent = 'sim state unavailable';
+  } finally {
+    simBusy = false;
+  }
+}
+async function simPost(path, body){
+  try{
+    const r = await fetch(path, {method:'POST',
+      body: JSON.stringify(body || {})});
+    const d = await r.json();
+    $('simstatus').textContent = d.ok
+      ? (d.status || 'ok') : (d.error || 'failed');
+    refreshSimPanel();
+  }catch(e){ $('simstatus').textContent = 'sim command failed'; }
+}
+if($('simresetstand'))
+  $('simresetstand').onclick = ()=> simPost('/api/sim/reset',
+    {start:'plant'});
+if($('simresetbelly'))
+  $('simresetbelly').onclick = ()=> simPost('/api/sim/reset',
+    {start:'belly'});
+if($('simfall')) $('simfall').onclick = ()=> simPost('/api/sim/fall');
+if($('simrecover')) $('simrecover').onclick =
+  ()=> simPost('/api/sim/recover');
+if($('simpush')) $('simpush').onclick = ()=> simPost('/api/sim/push',
+  {x:4, y:0});
 
 // ---- Model roles (which policy file serves each function) ------------------
 const RL_ROLE_DEFS = [
@@ -2440,9 +2583,11 @@ $('dstop').onclick = async ()=>{
 // --- Dance tab: curated show list, reusing the demo machinery ----------------
 const DANCE_SETS = [
   ['SITTING SHOWS', 'chassis stays down — safe on a desk',
-   ['dance_swarm', 'air_meet', 'air_pendulum', 'air_orbits']],
+   ['dance_swarm', 'air_trident', 'air_weave', 'air_gearbox', 'air_tides',
+    'air_meet', 'air_pendulum', 'air_orbits']],
   ['FULL SHOWS', 'stands up mid-routine — clear floor space',
-   ['dance_swarm_stand', 'dance', 'dance_walk', 'rise_show']],
+   ['dance_wild', 'dance_swarm_stand', 'dance_steeple', 'dance',
+    'dance_walk', 'rise_show']],
 ];
 async function loadDance(){
   try{
@@ -2557,20 +2702,43 @@ window.addEventListener('hashchange', ()=>{
 // all PWM. needArm() gates every servo-driving send on both pages.
 function updateArmUI(){
   const bar = $('armbar');
+  const simOnly = targetHasSim && !targetHasRobot;
+  bar.classList.toggle('sim', simOnly);
+  if(simOnly){
+    bar.classList.remove('armed', 'disarmed');
+    $('armstate').textContent = '● SIM — MuJoCo';
+    $('armbtn').textContent = 'Reset sim stand';
+    $('armbtn').title = 'Reset the MuJoCo sim to the standing plant stance.';
+    $('estop').textContent = '■ Stop sim';
+    $('estop').title = 'Stop the sim motion — the stance policy holds.';
+    return;
+  }
   bar.classList.toggle('armed', servosArmed);
   bar.classList.toggle('disarmed', !servosArmed);
   // Compact header labels (operator 08-19); the long explanation lives in
-  // the button tooltips instead of a hint paragraph.
+  // the button tooltips instead of a hint paragraph. Labels + titles are
+  // restored here because sim mode rewrites all of them.
   $('armstate').textContent = servosArmed ? '● ARMED' : '● SERVOS OFF';
   $('armbtn').textContent   = servosArmed ? 'Disarm' : 'Enable servos';
   $('armbtn').title = servosArmed
     ? 'Normal power-off (SETTLE): lowers gently to the ground, THEN cuts '
       +'servo power. For an instant cut use EMERGENCY STOP (robot drops).'
     : 'Power the servos on (ARM). Nothing moves until you press Stand.';
+  $('estop').textContent = '■ EMERGENCY STOP';
+  $('estop').title = 'Cut all power to the servos IMMEDIATELY — the robot '
+    +'goes limp NOW and will drop. Use only in an emergency. For a normal, '
+    +'gentle power-off use Disarm / Sit & power off.';
 }
 function setArmed(on){ servosArmed = on; if(!on) armed = false; updateArmUI(); }
-function armServos(){ cmd('ARM'); setArmed(true);
-  showSent('ARM — servos enabled (nothing moves; press Stand to stand)'); }
+function armServos(){
+  if(targetHasSim && !targetHasRobot){
+    simPost('/api/sim/reset', {start:'plant'});
+    showSent('SIM — reset to stand');
+    return;
+  }
+  cmd('ARM'); setArmed(true);
+  showSent('ARM — servos enabled (nothing moves; press Stand to stand)');
+}
 // GRACEFUL power-off: lower to the ground first (firmware SETTLE = SIT then
 // DISARM), only THEN cut power. This is the NORMAL disarm/relax/off path so the
 // robot settles instead of collapsing. UI shows disarmed once the command is
@@ -2579,10 +2747,15 @@ function settleServos(){ dbgTestAbort = true; cmd('SETTLE'); setArmed(false);
   showSent('DISARM — lowering gently, then servos off'); }
 // INSTANT limp: cut all PWM NOW (true emergency stop; the robot drops). Always
 // allowed, even while disarmed, and used for the boot-time safe default.
-function disarmServos(){ dbgTestAbort = true; cmd('X'); setArmed(false);
-  showSent('EMERGENCY STOP — servos limp NOW'); }
+function disarmServos(){
+  dbgTestAbort = true; cmd('X'); setArmed(false);
+  showSent(targetHasSim && !targetHasRobot
+    ? 'SIM — stopped, stance policy holds'
+    : 'EMERGENCY STOP — servos limp NOW');
+}
 // Returns true (and warns) when disarmed; every servo-driving action calls it.
 function needArm(){
+  if(targetHasSim && !targetHasRobot) return false;
   if(servosArmed) return false;
   showSent('⚠ Servos disarmed — press “Enable servos” first');
   return true;

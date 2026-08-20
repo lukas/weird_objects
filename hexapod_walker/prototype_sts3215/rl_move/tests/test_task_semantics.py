@@ -1030,6 +1030,112 @@ def test_drag_stance_stack_prices_skating_below_stepping():
         assert r["gait"] > r["park"] + 50.0, f"{name}: {r}"
 
 
+# --------------------------------------------------------------------------
+# FASTPROF bank — fast-profile command-tracking charges (08-20, operator
+# note fb_20260820T000059 item 3b). The steer5-fastprof1 canary: under
+# the raised servo profile every checkpoint runs 2.5x the commanded
+# speed (prog_ratio 1.27-1.76 vs band 0.91-1.07) and drifts 50-60 deg
+# off heading — the Gaussian kernel saturates ~2 sigma out and the
+# progress cap still PAYS overspeed. The new charges must make OBEYING
+# the command out-earn the same honest gait driven past the band or off
+# the commanded heading — the exact behaviors the canary showed —
+# without new keys taxing the obedient gait itself (charge is zero in
+# band / aligned by construction, unit-proven in
+# test_walk_fastprof_mdp.py).
+
+FASTPROF_KEYS = {
+    ("reward", "k_walk_overspeed"): 2.0,
+    ("reward", "walk_overspeed_tol"): 0.10,
+    ("reward", "k_walk_heading"): 2.0,
+}
+FASTPROF_CMD = 0.02          # commanded speed; the gait can overspeed
+FASTPROF_SEEDS = (0, 1)
+
+
+def _fastprof_rollout(drive: str, seed: int,
+                      overrides: dict | None) -> float:
+    """Scripted tripod gait under a pinned FASTPROF_CMD forward command,
+    DRIVEN either at the command ('obey'), at 2.5x it ('overspeed' —
+    the canary's measured ratio), or at the command rotated 55 deg
+    ('skew' — the canary's measured heading drift)."""
+    from tripod_gait import TripodGait
+
+    stack = dict(WALK_OVERRIDES)
+    stack.update(overrides or {})
+    env = _make_walk_env(seed, stack, episode_seconds=10.0)
+    env.reset()
+    traj = env._goal_traj
+    n = len(traj.vx)
+    hold_n = ramp_n = int(round(1.0 / env.dt))
+    ramp = np.linspace(0.0, 1.0, ramp_n)
+    traj.vx[:] = FASTPROF_CMD
+    traj.vx[:hold_n] = 0.0
+    traj.vx[hold_n:hold_n + ramp_n] = FASTPROF_CMD * ramp
+    traj.vy[:] = 0.0
+    if getattr(traj, "wz", None) is not None:
+        traj.wz[:] = 0.0
+
+    ang = math.radians(55.0) if drive == "skew" else 0.0
+    factor = 2.5 if drive == "overspeed" else 1.0
+    gait = TripodGait(vx=0.0, lift=0.025)
+    gait.sync_plant_stance(*WALK_PLANT)
+    gait.reset_phase()
+
+    total, step = 0.0, 0
+    while True:
+        t = step * env.dt
+        i = min(step, n - 1)
+        s_cmd = float(traj.vx[i]) * factor
+        gait.set_velocity(vx=s_cmd * math.cos(ang),
+                          vy=s_cmd * math.sin(ang))
+        act = q_rad_to_action(np.asarray(gait.desired_deg(t)) * DEG2RAD)
+        _obs, r, term, trunc, _info = env.step(act)
+        total += float(r)
+        step += 1
+        if term or trunc:
+            break
+    env.close()
+    return total
+
+
+@pytest.fixture(scope="module")
+def fastprof_returns() -> dict[str, float]:
+    out = {}
+    for tag, keys in (("on", FASTPROF_KEYS), ("off", None)):
+        for drive in ("obey", "overspeed", "skew"):
+            out[f"{drive}_{tag}"] = float(np.mean(
+                [_fastprof_rollout(drive, s, keys)
+                 for s in FASTPROF_SEEDS]))
+    return out
+
+
+def test_fastprof_obeying_the_command_beats_overspeed(fastprof_returns):
+    """With the charges on, the gait that tracks the commanded band
+    must decisively out-earn the same gait blasting past it."""
+    r = fastprof_returns
+    assert r["obey_on"] > r["overspeed_on"] + 50.0, (
+        f"overspeeding still pays under k_walk_overspeed: {r}")
+
+
+def test_fastprof_overspeed_charge_bites_the_exceedance(fastprof_returns):
+    """The margin must come from the NEW charge, not from the legacy
+    kernel already pricing it (the canary proved the legacy stack lets
+    2.5x overspeed through training unpunished)."""
+    r = fastprof_returns
+    margin_on = r["obey_on"] - r["overspeed_on"]
+    margin_off = r["obey_off"] - r["overspeed_off"]
+    assert margin_on > margin_off + 50.0, (
+        f"charge adds no ordering pressure beyond legacy: {r}")
+
+
+def test_fastprof_heading_error_is_priced(fastprof_returns):
+    """The 55-deg-skewed drive (the canary's measured heading drift)
+    must earn less than the aligned drive with the charges on."""
+    r = fastprof_returns
+    assert r["obey_on"] > r["skew_on"] + 50.0, (
+        f"heading drift still pays under k_walk_heading: {r}")
+
+
 def test_omni_turn_ordering_survives_repricing():
     """The TURN bank ordering (turn > partial > drift > park) must hold
     under the omni stack too (k_current=0 + dep contract could in

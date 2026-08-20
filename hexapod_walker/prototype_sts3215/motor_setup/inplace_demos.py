@@ -13,6 +13,12 @@ Streaming a fixed speed/acc at 25 Hz made idle joints (and backlashy
 yaws) buzz.  Demos now use ``PoseStreamer``: deadband skip + goal-speed
 matched to |Δθ|/dt, plus a soft SRAM torque limit while waving.
 
+On the MCU stream bridge (2026-08-19) ``configure_stream_profile``
+densifies waypoints to 100 Hz with a proportionally smaller deadband:
+dense + speed-matched, the trapezoid restarts blend into near-continuous
+velocity tracking instead of visible stair-steps.  Legacy buses keep the
+sparse 12.5 Hz profile.
+
 Examples
 --------
     python inplace_demos.py              # interactive menu
@@ -69,8 +75,40 @@ STAND_TORQUE_LIMIT = 1000
 STAND_OK_DEG = 8.0
 STAND_VERIFY_HOLD_S = 0.4
 ZERO_ACC = 8
-DT = 0.08  # slower host tick → fewer trapezoid restarts
-DEADBAND_DEG = 0.8  # skip tiny re-commands (was 0.4 — buzzed)
+# Waypoint density is picked per-bus by ``configure_stream_profile``:
+#
+# LEGACY (USB bus / pre-stream firmware): a SyncWrite + telemetry tick
+# costs >20 ms, so waypoints stay sparse (12.5 Hz) and the deadband big —
+# each WritePosEx restarts the servo trapezoid, and sparse restarts with
+# mismatched speeds are what made joints buzz through backlash.
+#
+# DENSE (MCU stream bridge, 2026-08-19): a SyncWrite round trip is
+# ~1.5-3 ms, so 100 Hz waypoints fit in a 10 ms tick. Dense + goal-speed
+# matched to |Δθ|/dt means the servo never finishes a step before the
+# next one arrives — the restarts blend into near-continuous velocity
+# tracking instead of visible stair-steps. Deadband scales down with the
+# tick so per-tick deltas still pass it near peak velocity while
+# turnaround jitter is still skipped; below ~0.15° (≈2 encoder counts)
+# steps stop being expressible, so that is the floor — at 100 Hz a
+# typical air-demo peak step is only ~0.3° (~3 counts).
+LEGACY_DT = 0.08
+LEGACY_SHOW_DT = 0.055
+LEGACY_DEADBAND_DEG = 0.8  # skip tiny re-commands (was 0.4 — buzzed)
+DENSE_DT = 0.01            # 100 Hz waypoints (was 0.02 in first cut)
+DENSE_SHOW_DT = 0.01
+DENSE_DEADBAND_DEG = 0.15
+# Goal lead for dense streaming (see PoseStreamer.write): the commanded
+# goal runs this far ahead of the trajectory so the STS position PID
+# always has a healthy error to chase (~ the error legacy 12.5 Hz steps
+# gave it implicitly). ~10 ticks at 100 Hz.
+DENSE_LEAD_S = 0.10
+# Speed-cap headroom over trajectory velocity. The speed register is a
+# CAP, not a setpoint: capped exactly at trajectory speed a servo that
+# falls behind can never catch back up to the receding goal.
+DENSE_SPEED_MARGIN = 1.3
+DT = LEGACY_DT
+DEADBAND_DEG = LEGACY_DEADBAND_DEG
+STREAM_DENSE = False  # set by configure_stream_profile()
 MAX_STREAM_SPEED = 450
 MIN_STREAM_SPEED = 40
 # Rise: chassis sits on an elevated stand, so walking stance (−25°/+60°,
@@ -107,7 +145,7 @@ RISE_SHOW_SNAP_S = 0.28          # fire-and-wait between big poses
 RISE_SHOW_OVERHEAD_S = 0.85
 RISE_SHOW_PLANT_S = 2.0
 RISE_SHOW_DESCEND_S = 2.6
-RISE_SHOW_DT = 0.055             # planted multi-leg stream tick
+RISE_SHOW_DT = LEGACY_SHOW_DT    # planted multi-leg stream tick (see profile)
 # Lifted leg angles while others stay planted.
 RISE_SHOW_LIFT_HIP_DEG = 2.0
 RISE_SHOW_LIFT_KNEE_DEG = 28.0
@@ -347,6 +385,23 @@ def _set_torque_limit(bus: FeetechBus, live: set[int], limit: int) -> None:
             pass
 
 
+def configure_stream_profile(bus: FeetechBus) -> bool:
+    """Pick waypoint density from what the bus can sustain.
+
+    ``bus.streaming`` is True only on the MCU stream-bridge firmware
+    (2026-08-19), where a SyncWrite round trip costs ~1.5-3 ms — dense
+    50 Hz speed-matched waypoints then track like velocity control.
+    Legacy buses keep the sparse 12.5 Hz profile. Returns True if dense.
+    """
+    global DT, RISE_SHOW_DT, DEADBAND_DEG, STREAM_DENSE
+    STREAM_DENSE = bool(getattr(bus, "streaming", False))
+    DT = DENSE_DT if STREAM_DENSE else LEGACY_DT
+    RISE_SHOW_DT = DENSE_SHOW_DT if STREAM_DENSE else LEGACY_SHOW_DT
+    DEADBAND_DEG = (DENSE_DEADBAND_DEG if STREAM_DENSE
+                    else LEGACY_DEADBAND_DEG)
+    return STREAM_DENSE
+
+
 def _speed_for_delta(delta_deg: float, dt: float, *,
                      min_speed: int | None = None,
                      max_speed: int | None = None,
@@ -358,6 +413,18 @@ def _speed_for_delta(delta_deg: float, dt: float, *,
     # Keep host-commanded speed below what finishes the step early —
     # overshooting + re-command is what makes the joints buzz.
     speed = int(min(hi, max(lo, counts / max(dt, 1e-3) * 0.9)))
+    if STREAM_DENSE and dt <= 0.021:
+        # Dense ticks pair with the lead goal (PoseStreamer.write):
+        # speed cap ABOVE trajectory velocity (catch-up headroom; the
+        # lead goal bounds overshoot), a near-zero floor so reversals
+        # taper instead of jerking, and acc=0 (no ramp; a ramped
+        # restart every 10 ms never leaves the slowest accel phase).
+        # NOTE: a lower floor (12) + speed EMA were tried 2026-08-19 to
+        # soften turnarounds — both made tracking AND shake worse (EMA
+        # lag fights the carrot's catch-up dynamics). Keep the plain cap.
+        speed = int(min(hi, max(lo, counts / max(dt, 1e-3)
+                                * DENSE_SPEED_MARGIN)))
+        return normalize_speed(speed), 0
     # Soft accel: take most of the tick to ramp (acc reg = ×100 step/s²).
     acc = int(min(max_acc, max(4, speed / (100.0 * max(dt, 1e-3) * 0.85))))
     return normalize_speed(speed), normalize_acc(acc)
@@ -419,9 +486,11 @@ class PoseStreamer:
 
     def __init__(self):
         self.last: list[float] | None = None
+        self.prev: list[float] | None = None
 
     def reset(self) -> None:
         self.last = None
+        self.prev = None
 
     def write(self, bus: FeetechBus, degrees: list[float], live: set[int],
               *, dt: float = DT,
@@ -438,9 +507,15 @@ class PoseStreamer:
         if self.last is None:
             # First frame: ease toward the pose gently (no slam).
             self.last = list(degrees)
+            self.prev = list(degrees)
             _write_pose(bus, degrees, live, speed=120, acc=10)
             return {j: (120, 10) for j in range(N_JOINTS)
                     if joint_to_servo_id(j) in live}
+
+        # Dense mode: trajectory velocity for the lead goal (see below).
+        prev = getattr(self, "prev", None) or self.last
+        vel = [(d - p) / max(dt, 1e-3) for d, p in zip(degrees, prev)]
+        self.prev = list(degrees)
 
         wrote: dict[int, tuple[int, int]] = {}
         for joint, deg in enumerate(degrees):
@@ -453,7 +528,20 @@ class PoseStreamer:
             speed, acc = _speed_for_delta(
                 delta, dt, min_speed=min_speed, max_speed=max_speed,
                 max_acc=max_acc)
-            count = deg_to_count(joint, deg, bus.trims[joint])
+            goal = deg
+            if STREAM_DENSE and dt <= 0.021:
+                # Lead the goal along the trajectory ("carrot"). With
+                # 100 Hz waypoints the raw per-tick goal sits only 2-3
+                # encoder counts ahead; the STS position PID barely
+                # drives on an error that small and the servo creeps
+                # (measured 2026-08-19: yaw amplitude collapsed 5.0° →
+                # 3.7° std regardless of acc). Sparse 12.5 Hz ticks
+                # accidentally provided an ~80 ms lead; do it on purpose
+                # here — goal recedes ahead of the servo at matched
+                # speed, so it never decelerates into the tiny-error
+                # zone, and reversals still update within one tick.
+                goal = deg + vel[joint] * DENSE_LEAD_S
+            count = deg_to_count(joint, goal, bus.trims[joint])
             bus.pkt.SyncWritePosEx(sid, count, speed, acc)
             self.last[joint] = deg
             wrote[joint] = (speed, acc)
@@ -465,6 +553,23 @@ class PoseStreamer:
 
 def _read_pose(bus: FeetechBus, live: set[int]) -> list[float]:
     """Present joint angles (deg); missing IDs → 0."""
+    # MCU stream bridge: one cached bulk transaction beats 18 round trips.
+    read_all = getattr(bus, "read_all_positions", None)
+    if callable(read_all):
+        try:
+            bulk = read_all()
+        except Exception:
+            bulk = None
+        if bulk:
+            pose = [0.0] * N_JOINTS
+            got = 0
+            for joint in range(N_JOINTS):
+                deg = bulk.get(joint)
+                if deg is not None and joint_to_servo_id(joint) in live:
+                    pose[joint] = float(deg)
+                    got += 1
+            if got:
+                return pose
     pose = [0.0] * N_JOINTS
     for joint in range(N_JOINTS):
         sid = joint_to_servo_id(joint)
@@ -726,25 +831,29 @@ def _run_frames(bus: FeetechBus, live: set[int], frames, abort_check,
                 max_acc: int = 80) -> bool:
     """Play frames with velocity-matched streaming. False if aborted."""
     tick = DT if dt is None else float(dt)
+    # Telemetry reads are heavy; at dense ticks sample every Nth frame so
+    # logging keeps its old ~12.5 Hz cadence instead of eating the tick.
+    log_every = max(1, round(LEGACY_DT / tick)) if log is not None else 0
     print(f"  {label}  — any key aborts immediately")
     if log is not None:
-        print("  (querying motors each tick → CSV; loop will be a bit slower)")
+        print("  (querying motors during playback → CSV; a bit slower)")
     stream = PoseStreamer()
-    for pose in frames:
+    t0 = time.monotonic()
+    for i, pose in enumerate(frames):
         if abort_check():
             _hold_here(bus, live)
             print("    STOP — keystroke.  Holding pose.")
             return False
-        t0 = time.monotonic()
         wrote = stream.write(
             bus, pose, live, dt=tick, deadband=deadband,
             min_speed=min_speed, max_speed=max_speed, max_acc=max_acc)
-        if log is not None:
+        if log is not None and i % log_every == 0:
             log.sample(bus, pose, wrote=wrote)
-        # Sleep the remainder of DT so motion timing stays roughly honest
-        # even when telemetry reads eat into the tick.
-        elapsed = time.monotonic() - t0
-        time.sleep(max(0.0, tick - elapsed))
+        # Absolute schedule (not per-frame remainder) so dense ticks don't
+        # accumulate drift when a write/telemetry read runs long.
+        sleep_for = (t0 + (i + 1) * tick) - time.monotonic()
+        if sleep_for > 0:
+            time.sleep(sleep_for)
     return True
 
 
@@ -1408,6 +1517,226 @@ def run_breathe_vel_demo(bus: FeetechBus, *,
     return status
 
 
+SHIMMY_V_AMP_DEG = 8.0
+SHIMMY_V_HZ = 0.55
+# Host P-gain (1/s): velocity correction per unit position error.
+# 4.0 rang at the swing peaks (feed-forward is zero there, so the
+# P-term alone unwinds the overshoot and oscillates through the
+# ~20-40 ms loop delay — user-visible wiggle, 2026-08-19). 2.5 leans
+# harder on the feed-forward and lets the peaks settle.
+SHIMMY_V_KP = 2.5
+SHIMMY_V_MAX_CPS = 500       # wheel speed clamp (~44 deg/s)
+SHIMMY_V_WATCHDOG_DEG = 20.0
+# Per-servo GOAL_SPEED register writes cost ~1.5 ms each through the
+# MCU; six of them fit a 20 ms tick, not a 10 ms one. (SyncWritePosEx
+# would be one frame, but writing its position field in wheel mode
+# corrupts the servo's position bookkeeping — measured 2026-08-19 as a
+# ~2.6 count/write drift of the reported position in the direction of
+# motion, ~46° over 2 s, on all six yaws simultaneously.)
+SHIMMY_V_DT = 0.02
+# Wheel accel, set once at mode switch. 30 (3000 counts/s²) added
+# ~0.1 s of speed-slew lag that carried joints ~20% past the peaks;
+# 60 halves it. Per-tick speed steps are ~22 counts/s, so a snappier
+# slew stays smooth.
+SHIMMY_V_ACC = 60
+# Wheel-mode speed calibration: actual speed runs ~28% above the
+# commanded counts/s on these STS3215s (measured 2026-08-19: amplitude
+# 7.35° std vs 5.67° target with pure feed-forward at Kp 2.5; the
+# earlier Kp 4.0 run was masking it by pulling back). Scale the
+# feed-forward so the P-term only trims residuals.
+SHIMMY_V_FF = 5.67 / 7.35
+
+
+def run_shimmy_vel_demo(bus: FeetechBus, *,
+                        seconds: float = 8.0,
+                        abort_check=None,
+                        log_path: Path | None = None) -> str:
+    """Shimmy in **wheel/speed mode** — 100 Hz velocity streaming.
+
+    Position-mode streaming (PoseStreamer) is limited by the STS
+    position PID dithering through gear backlash and restarting its
+    profile on every packet. Here the six yaws switch to wheel mode and
+    get a signed speed each tick: trajectory feed-forward velocity plus
+    a small host P-correction on measured position error (closed over
+    the ~200 Hz MCU position cache). No position goal, no profile
+    restarts, no PID hunt.
+
+    Each tick writes ONLY the goal-speed register (bit-15 signed) per
+    yaw servo — never the position field, which in wheel mode corrupts
+    the servo's position bookkeeping. ALWAYS restores mode 0 on exit.
+    """
+    live = _live_robot_ids(bus)
+    if len(live) < 3:
+        print(f"  Only {len(live)} robot servo(s) on the bus — need more.")
+        return "skipped"
+    check = abort_check or (lambda: False)
+    yaw_joints = [j for j in range(N_JOINTS)
+                  if j % 3 == 0 and joint_to_servo_id(j) in live]
+    yaw_sids = [joint_to_servo_id(j) for j in yaw_joints]
+    if not yaw_joints:
+        print("  No yaw servos live — skip.")
+        return "skipped"
+    read_all = getattr(bus, "read_all_positions", None)
+    if not callable(read_all):
+        print("  shimmy_v needs the MCU bulk-position path — skip.")
+        return "skipped"
+
+    print(f"  shimmy_v — VELOCITY mode, {len(yaw_joints)} yaws @ "
+          f"{1.0 / SHIMMY_V_DT:.0f} Hz, ±{SHIMMY_V_AMP_DEG:.0f}° "
+          f"{SHIMMY_V_HZ:.2f} Hz wave")
+    print("  Any key aborts.  Mode restored to position on exit.")
+
+    status = "done"
+    log_cm = None
+    if log_path is not None:
+        log_cm = MotionLog(log_path, live)
+        log_cm.__enter__()
+    try:
+        _enable_torque(bus, live)
+        _set_torque_limit(bus, live, DEMO_TORQUE_LIMIT)
+        if not ease_to_pose(bus, _zero_pose(), abort_check=check,
+                            seconds=2.5, label="zero before shimmy_v"):
+            status = "aborted"
+            return status
+        # Refuse wheel mode away from zero (mirrors breathe_v guard).
+        bad = [(j, d) for j in yaw_joints
+               if (d := bus.read_position_deg(j)) is not None
+               and abs(d) > 15.0]
+        if bad:
+            print("  shimmy_v: yaw(s) not near zero — skip wheel mode:")
+            for j, d in bad[:6]:
+                print(f"    j{j} at {d:.1f}°")
+            status = "aborted"
+            return status
+
+        print(f"  Switching {len(yaw_sids)} yaw servo(s) → wheel mode …")
+        for sid in yaw_sids:
+            if check():
+                status = "aborted"
+                return status
+            _set_servo_mode(bus, sid, 1)
+        # Verify — a servo stuck in position mode would slam on the
+        # first big signed-speed write, so refuse to run instead.
+        for sid in yaw_sids:
+            mode, r, _e = bus.pkt.read1ByteTxRx(sid, ADDR_MODE)
+            if r != bus.scs.COMM_SUCCESS or int(mode) != 1:
+                print(f"  mode verify failed on id={sid} — aborting.")
+                status = "aborted"
+                return status
+        _set_torque_limit(bus, live, DEMO_TORQUE_LIMIT)
+        # Wheel accel set ONCE — per-tick writes touch only GOAL_SPEED.
+        for sid in yaw_sids:
+            _write_wheel_speed(bus, sid, 0, SHIMMY_V_ACC)
+
+        # Wheel mode re-references the present-position register (mode
+        # switch at zero read ~149° once, 2026-08-19 — same quirk behind
+        # breathe_v's old ~170° watchdog false trips), so absolute
+        # angles are meaningless here. Control on DISPLACEMENT from a
+        # post-switch baseline instead; we just verified the true pose
+        # is zero, so displacement == logical angle for this wave.
+        base = read_all()
+        missing_base = [j for j in yaw_joints if base.get(j) is None]
+        if missing_base:
+            print(f"  no baseline reading for joints {missing_base} — abort.")
+            status = "aborted"
+            return status
+
+        def _disp(j: int, p: float) -> float:
+            """Displacement from baseline, unwrapped to (−180, 180]."""
+            return ((p - base[j] + 180.0) % 360.0) - 180.0
+
+        # Max believable per-tick move: speed clamp + margin. Sync-read
+        # glitches can fabricate ~45° single-tick jumps (seen 2026-08-19,
+        # j0); reject those instead of tripping the watchdog on them,
+        # but only for a few consecutive ticks — persistent readings win.
+        max_step = (SHIMMY_V_MAX_CPS / COUNTS_PER_DEG) * SHIMMY_V_DT * 4.0
+        last_d: dict[int, float] = {}
+        sus: dict[int, int] = {}
+
+        omega = 2 * math.pi * SHIMMY_V_HZ
+        n = max(1, int(float(seconds) / SHIMMY_V_DT))
+        t0 = time.monotonic()
+        tick_i = 0
+        for i in range(n):
+            if check():
+                status = "aborted"
+                return status
+            t = i * SHIMMY_V_DT
+            present = read_all()
+            for j in yaw_joints:
+                sign = 1.0 if (j // 3) % 2 == 0 else -1.0
+                ref = sign * SHIMMY_V_AMP_DEG * math.sin(omega * t)
+                vel = sign * SHIMMY_V_AMP_DEG * omega * math.cos(omega * t)
+                p = present.get(j)
+                if p is None:
+                    continue
+                d = _disp(j, p)
+                prev_d = last_d.get(j)
+                if prev_d is not None and abs(d - prev_d) > max_step:
+                    sus[j] = sus.get(j, 0) + 1
+                    if sus[j] < 3:
+                        continue  # skip the glitched sample, coast
+                else:
+                    sus[j] = 0
+                last_d[j] = d
+                # Watchdog: wheel mode has no angle goal.
+                if abs(d) > SHIMMY_V_WATCHDOG_DEG:
+                    print(f"    watchdog: j{j} moved {d:.1f}° — stopping")
+                    _wheel_stop(bus, yaw_sids)
+                    status = "aborted"
+                    return status
+                err = ref - d
+                cps = (vel * SHIMMY_V_FF + SHIMMY_V_KP * err) * COUNTS_PER_DEG
+                cps *= float(JOINT_SIGN[j])
+                cps = max(-SHIMMY_V_MAX_CPS, min(SHIMMY_V_MAX_CPS, cps))
+                sid = joint_to_servo_id(j)
+                bus.pkt.write2ByteTxRx(sid, ADDR_GOAL_SPEED,
+                                       _encode_sts_speed(int(cps)))
+            if log_cm is not None and i % 4 == 0:
+                cmd = _zero_pose()
+                for j in yaw_joints:
+                    sign = 1.0 if (j // 3) % 2 == 0 else -1.0
+                    cmd[j] = sign * SHIMMY_V_AMP_DEG * math.sin(omega * t)
+                log_cm.sample(bus, cmd, wrote={})
+            tick_i += 1
+            sleep_for = (t0 + tick_i * SHIMMY_V_DT) - time.monotonic()
+            if sleep_for > 0:
+                time.sleep(sleep_for)
+    finally:
+        if log_cm is not None:
+            try:
+                log_cm.__exit__(None, None, None)
+            except Exception:
+                pass
+        print("  Restoring position mode on yaw servos …")
+        _wheel_stop(bus, yaw_sids)
+        time.sleep(0.05)
+        for sid in yaw_sids:
+            try:
+                _set_servo_mode(bus, sid, 0)
+            except Exception as e:
+                print(f"    mode restore failed id={sid}: {e}")
+        _set_torque_limit(bus, live, 1000)
+        try:
+            if status != "aborted" and not check():
+                print("  Easing back to zero …")
+                go_to_zero_pose(bus, abort_check=check, seconds=2.0)
+                _limp_all(bus, live)
+            else:
+                try:
+                    _hold_here(bus, live)
+                except Exception:
+                    pass
+                _limp_all(bus, live)
+        except Exception as e:
+            print(f"  cleanup: {e}")
+            try:
+                _limp_all(bus, live)
+            except Exception:
+                pass
+    return status
+
+
 def pose_heartbeat(t: float) -> list[float]:
     """Double-thump pulse on all knees (from zero)."""
     pose = _zero_pose()
@@ -1949,6 +2278,260 @@ def frames_air_orbits(seconds: float = 18.0):
         yield pose
 
 
+# Adjacent-pair merges ("thick arms"): legs sit 60° apart and yaw stops
+# at ±35°, so two neighbours can only converge 5° each past parallel —
+# their tips bottom out ~64 mm apart (MuJoCo FK, 2026-08-19; the legs
+# live in vertical planes through their yaw axes, and within reach the
+# planes never get closer).  With the foot boots that's ~an inch of
+# daylight: a pair moving in perfect sync at max convergence reads as
+# ONE thick arm from any audience distance.  ±33 keeps 2° of margin.
+AIR_PAIR_YAW_DEG = 33.0
+
+
+def _pair_sign(leg: int, grouping: int) -> float:
+    """Yaw direction (+ = CCW) that merges ``leg`` with its partner.
+
+    Grouping 0 pairs (0,1)(2,3)(4,5); grouping 1 pairs (1,2)(3,4)(5,0).
+    Legs run CCW around the hex, so the lower leg of each pair yaws CCW
+    and the higher yaws CW; grouping 1 is the exact sign flip.
+    """
+    s = 1.0 if leg % 2 == 0 else -1.0
+    return s if grouping == 0 else -s
+
+
+def _win(u: float, a: float, b: float) -> float:
+    """Smoothstep 0→1 as u crosses [a, b]."""
+    if u <= a:
+        return 0.0
+    if u >= b:
+        return 1.0
+    x = (u - a) / (b - a)
+    return x * x * (3.0 - 2.0 * x)
+
+
+# ---------------------------------------------------------------------------
+# Dance primitives — composable oscillator layers (2026-08-19).
+#
+# One LAYER = a sinusoid on one joint channel (yaw / hip / knee) whose
+# per-leg phase comes from a GROUPING (which legs move together) and a
+# SPIN (does the phase travel around the hex, and which way).  Shows are
+# sums of layers at different frequencies: harmonically related layers
+# re-align periodically ("everything lines up" moments), incommensurate
+# ones weave forever, and counter-spinning ripples interfere into
+# standing-wave flashes.  Crossfade layer amplitudes to morph groupings
+# mid-show.  All angles are offsets from the seated zero pose.
+# ---------------------------------------------------------------------------
+_DP_GROUPS = {
+    "solo":     lambda leg: leg / 6.0,               # ripple around the hex
+    "unison":   lambda leg: 0.0,                     # everyone together
+    "oddeven":  lambda leg: 0.5 * (leg % 2),         # checkerboard
+    "pairsA":   lambda leg: (leg // 2) / 3.0,        # (0,1)(2,3)(4,5)
+    "pairsB":   lambda leg: (((leg + 5) % 6) // 2) / 3.0,  # (1,2)(3,4)(5,0)
+    "opposite": lambda leg: (leg % 3) / 3.0,         # (0,3)(1,4)(2,5)
+}
+
+
+def _dp(t: float, leg: int, *, amp: float, freq: float,
+        group: str = "solo", spin: float = 1.0, ph: float = 0.0) -> float:
+    """One dance-primitive layer, evaluated for one leg.
+
+    ``group`` picks which legs share a phase slot; ``spin`` scales how
+    far the slots spread the phase (+1 = wave travels CCW around the
+    hex, -1 = CW, 0 = whole group in perfect unison).  ``ph`` is a
+    fixed phase offset in turns.
+    """
+    u = _DP_GROUPS[group](leg)
+    return amp * math.sin(2.0 * math.pi * (freq * t - spin * u + ph))
+
+
+def frames_air_weave(seconds: float = 26.0):
+    """WEAVE — ripples, shimmies and bends braided at odd frequencies.
+
+    Sitting show.  Three layers run at incommensurate frequencies so the
+    pattern never quite repeats: a hip ripple traveling CCW, an odd/even
+    yaw shimmy, and a knee bend that counter-ripples CW.  Halfway, the
+    hip ripple's grouping crossfades from six solo slots to the three
+    thick-arm pairs (the wave suddenly has three blades), then to
+    opposite pairs for the finale — same layers, new symmetry.
+    """
+    n = max(1, int(seconds / DT))
+    for i in range(n):
+        t = i * DT
+        u = i / max(n - 1, 1)
+        a = min(1.0, t / 1.5, max(0.0, (seconds - t) / 1.5))
+        # grouping morph weights for the hip ripple
+        w_solo = 1.0 - _win(u, 0.38, 0.48)
+        w_pair = _win(u, 0.38, 0.48) - _win(u, 0.72, 0.82)
+        w_opp = _win(u, 0.72, 0.82)
+        pose = _zero_pose()
+        for leg in range(6):
+            hip = (-24.0
+                   + w_solo * _dp(t, leg, amp=14.0, freq=0.45)
+                   + w_pair * _dp(t, leg, amp=14.0, freq=0.45,
+                                  group="pairsA")
+                   + w_opp * _dp(t, leg, amp=14.0, freq=0.45,
+                                 group="opposite")
+                   + _dp(t, leg, amp=4.0, freq=0.13, group="unison"))
+            yaw = _dp(t, leg, amp=12.0, freq=0.70, group="oddeven",
+                      spin=1.0)
+            knee = (8.0
+                    + _dp(t, leg, amp=7.0, freq=0.31, group="unison")
+                    + _dp(t, leg, amp=6.0, freq=0.57, spin=-1.0))
+            _yaw_hip_knee(leg, pose, yaw=yaw * a, hip=hip * a,
+                          knee=knee * a)
+        yield pose
+
+
+def frames_air_gearbox(seconds: float = 24.0):
+    """GEARBOX — three joint layers meshed at a strict 1:2:3 gear ratio.
+
+    Sitting show.  Hips pump in thick-arm pairs at the base rate, yaws
+    shimmy in the OTHER pairing at exactly 2x, knees tick in opposite
+    pairs at exactly 3x — like watching three gears mesh.  Because the
+    ratios are harmonic, all three layers re-align every base period
+    (~2.9 s): the whole machine visibly clunks into phase, drifts into
+    complexity, and clunks back, over and over.
+    """
+    n = max(1, int(seconds / DT))
+    f0 = 0.35
+    for i in range(n):
+        t = i * DT
+        a = min(1.0, t / 1.5, max(0.0, (seconds - t) / 1.5))
+        # the "clunk": a subtle unison dip right on each alignment beat
+        # (_swarm_pulse ramps the attack — a raw exp jumps at the wrap)
+        hit = _swarm_pulse((t * f0) % 1.0)
+        pose = _zero_pose()
+        for leg in range(6):
+            hip = (-24.0
+                   + _dp(t, leg, amp=15.0, freq=f0, group="pairsA")
+                   - 3.0 * hit)
+            yaw = _dp(t, leg, amp=11.0, freq=2.0 * f0, group="pairsB")
+            knee = (8.0
+                    + _dp(t, leg, amp=8.0, freq=3.0 * f0,
+                          group="opposite")
+                    + 4.0 * hit)
+            _yaw_hip_knee(leg, pose, yaw=yaw * a, hip=hip * a,
+                          knee=knee * a)
+        yield pose
+
+
+def frames_air_tides(seconds: float = 28.0):
+    """TIDES — two waves circle the hex in opposite directions.
+
+    Sitting show.  A hip ripple travels CCW while a yaw ripple travels
+    CW at a different rate; where the crests meet, one side of the robot
+    blooms while the other flattens, and the bloom itself slowly orbits
+    (the interference pattern rotates at the frequency difference).
+    Knees breathe odd/even underneath.  For the last quarter both waves
+    collapse into opposite-pair unison — six arms snapping into a
+    two-phase finale from what looked like open water.
+    """
+    n = max(1, int(seconds / DT))
+    for i in range(n):
+        t = i * DT
+        u = i / max(n - 1, 1)
+        a = min(1.0, t / 1.5, max(0.0, (seconds - t) / 1.5))
+        w = _win(u, 0.70, 0.78)          # wave → opposite-pair collapse
+        pose = _zero_pose()
+        for leg in range(6):
+            hip = (-24.0
+                   + (1.0 - w) * _dp(t, leg, amp=13.0, freq=0.40,
+                                     spin=1.0)
+                   + w * _dp(t, leg, amp=13.0, freq=0.40,
+                             group="opposite", spin=0.0))
+            yaw = ((1.0 - w) * _dp(t, leg, amp=13.0, freq=0.55,
+                                   spin=-1.0)
+                   + w * _dp(t, leg, amp=10.0, freq=0.55,
+                             group="opposite", spin=0.0, ph=0.25))
+            knee = 8.0 + _dp(t, leg, amp=9.0, freq=0.27,
+                             group="oddeven")
+            _yaw_hip_knee(leg, pose, yaw=yaw * a, hip=hip * a,
+                          knee=knee * a)
+        yield pose
+
+
+def frames_air_trident(seconds: float = 34.0):
+    """THREE THICK ARMS — pairs merge, swap partners, split 2 thick + 2 thin.
+
+    Sitting show (no stand-up).  Adjacent arms yaw to max convergence
+    and move in perfect sync — each pair reads as one thick arm (see
+    AIR_PAIR_YAW_DEG).  Acts: pairs gather into a rolling three-arm
+    trident → PARTNER SWAP (every arm sweeps 60° and re-merges with its
+    other neighbour) → a bowing round, one thick arm dipping at a time
+    → swap back → two pairs stay merged as slow heavy arms while legs 2
+    and 5 break out as fast fluttering thin arms → all six gather
+    overhead for one unison pulse and breathe back down.
+    """
+    n = max(1, int(seconds / DT))
+    for i in range(n):
+        t = i * DT
+        u = i / max(n - 1, 1)
+        pose = _zero_pose()
+
+        # Grouping morph: 0 = pairing A, 1 = pairing B, back to A.
+        grp = _win(u, 0.25, 0.30) - _win(u, 0.46, 0.51)
+        # Formation weight (pairs merged at all?) and the final gather.
+        form = _win(u, 0.0, 0.09)
+        gather = _win(u, 0.74, 0.82)
+        fade = _win(u, 0.88, 1.0)          # overhead → flat, ends at zero
+        split = _win(u, 0.51, 0.56) - _win(u, 0.71, 0.74)  # 2+2+2 act
+
+        for leg in range(6):
+            pair_a = leg // 2              # pair index in grouping A
+            ph_a = 2.0 * math.pi * pair_a / 3.0
+            # --- merged trident motion (rolls around the three arms) --
+            sway = 2.5 * math.sin(2.0 * math.pi * 0.35 * t + ph_a)
+            hip_m = -26.0 + 12.0 * math.sin(2.0 * math.pi * 0.5 * t + ph_a)
+            knee_m = 10.0 - 7.0 * math.sin(2.0 * math.pi * 0.5 * t + ph_a)
+            # --- bowing round (grouping B, one thick arm dips) --------
+            wb = _win(u, 0.30, 0.335) - _win(u, 0.425, 0.46)
+            if wb > 0.0:
+                pair_b = ((leg + 5) % 6) // 2   # pair index in grouping B
+                bow_t = (u - 0.30) / 0.16 * 3.0  # three dips in the act
+                bump = max(0.0, math.sin(math.pi * min(1.0, max(
+                    0.0, bow_t - pair_b))))
+                hip_m = hip_m * (1.0 - wb) + (-34.0 + 26.0 * bump) * wb
+                knee_m = knee_m * (1.0 - wb) + (8.0 + 10.0 * bump) * wb
+                sway *= 1.0 - wb
+            # --- partner-swap yaw: blend the SIGN, keep magnitude -----
+            sgn = (_pair_sign(leg, 0) * (1.0 - grp)
+                   + _pair_sign(leg, 1) * grp)
+            yaw = sgn * (AIR_PAIR_YAW_DEG - 1.0 + sway)
+            # During the sweep lift the arms clear (looks like a salute).
+            mid = 4.0 * grp * (1.0 - grp)   # 1 at the half-swapped point
+            hip = hip_m - 14.0 * mid
+            knee = knee_m - 6.0 * mid
+
+            # --- 2 thick + 2 thin: legs 2 & 5 break out ---------------
+            if split > 0.0 and leg in (2, 5):
+                wob = 2.0 * math.pi * 1.0 * t + leg
+                yaw_s = 10.0 * math.sin(wob)
+                hip_s = -44.0 + 8.0 * math.sin(wob * 1.13 + 0.8)
+                knee_s = 12.0 + 9.0 * math.sin(wob + 1.1)
+                yaw = yaw * (1.0 - split) + yaw_s * split
+                hip = hip * (1.0 - split) + hip_s * split
+                knee = knee * (1.0 - split) + knee_s * split
+            elif split > 0.0:
+                # Thick arms slow way down while the thin arms flutter.
+                slow = math.sin(2.0 * math.pi * 0.4 * t
+                                + math.pi * (leg // 3))
+                hip = hip * (1.0 - split) + (-24.0 + 14.0 * slow) * split
+                knee = knee * (1.0 - split) + (10.0 - 8.0 * slow) * split
+
+            # --- final gather: everyone overhead, one unison pulse ----
+            pulse = 4.0 * math.sin(2.0 * math.pi * 1.1 * t)
+            yaw = yaw * (1.0 - gather)
+            hip = (hip * (1.0 - gather)
+                   + (ARMS_UP_HIP_DEG + pulse) * gather)
+            knee = (knee * (1.0 - gather)
+                    + (ARMS_UP_KNEE_DEG - 0.75 * pulse) * gather)
+
+            w = form * (1.0 - fade)
+            _yaw_hip_knee(leg, pose, yaw=yaw * w, hip=hip * w,
+                          knee=knee * w)
+        yield pose
+
+
 
 # ---------------------------------------------------------------------------
 # SIMULATION SWARM — a sitting air dance choreographed to the song
@@ -2428,6 +3011,641 @@ def run_swarm_dance(bus: FeetechBus, *, abort_check=None, status_cb=None,
     return "done"
 
 
+# Steeple show: which adjacent pair lifts, in playing order (front,
+# back-left, back-right — merged azimuths ≈ −5°, +115°, −125°).
+STEEPLE_PAIRS = ((5, 0), (1, 2), (3, 4))
+STEEPLE_LIFT_HIP = -62.0
+STEEPLE_LIFT_KNEE = 28.0
+STEEPLE_ACT_S = 8.0
+# Leg mount azimuths (deg, CCW from +x — MuJoCo FK 2026-08-19).
+_LEG_AZ_DEG = (25.5, 85.5, 145.5, -154.5, -94.5, -34.5)
+# Weight shift while a pair is up: the four planted legs yaw their feet
+# TOWARD the lifted side, so with the feet pinned by friction the body
+# slides away from the open edge.  Without it the CoM sits ON the
+# tipping edge at full lift (MuJoCo statics: −2 mm margin — the edge
+# between the two legs flanking the lifted pair passes through the body
+# center, and the merged arm's mass leans over it); 18° of yaw plus the
+# near-vertical lift pose buys ~+19 mm of margin.
+STEEPLE_SHIFT_YAW_DEG = 18.0
+
+
+def _steeple_act_pose(pair: tuple[int, int], t: float,
+                      hip: float, knee: float) -> list[float]:
+    """One steeple act: lift the pair, merge overhead, sway, replant.
+
+    ``t`` runs 0..STEEPLE_ACT_S.  The four planted legs stay at the
+    stance (hip/knee) with a micro-bounce while the merged arm is up.
+    Lifting two adjacent legs leaves a wide 4-foot support polygon —
+    strictly easier than the rise_show tripod lifts already proven on
+    hardware.
+    """
+    u = t / STEEPLE_ACT_S
+    lift = _win(u, 0.0, 0.20) - _win(u, 0.78, 1.0)
+    # Weight shift LEADS the lift and releases after the replant, so the
+    # margin is already bought while the pair is only half airborne.
+    shift_env = _win(u, 0.0, 0.12) - _win(u, 0.86, 1.0)
+    sway = math.sin(2.0 * math.pi * 0.5 * (t - 1.6)) * _win(u, 0.22, 0.30) \
+        * (1.0 - _win(u, 0.70, 0.78))
+    pose = _zero_pose()
+    a, b = pair
+    az_up = _LEG_AZ_DEG[a] + 30.0            # merged-arm azimuth
+    for leg in range(6):
+        if leg in (a, b):
+            sgn = 1.0 if leg == a else -1.0   # a yaws CCW into b
+            yaw_l = sgn * AIR_PAIR_YAW_DEG + 2.0 * sway
+            hip_l = STEEPLE_LIFT_HIP + 5.0 * sway
+            knee_l = STEEPLE_LIFT_KNEE - 4.0 * sway
+            _yaw_hip_knee(leg, pose,
+                          yaw=yaw_l * lift,
+                          hip=hip * (1.0 - lift) + hip_l * lift,
+                          knee=knee * (1.0 - lift) + knee_l * lift)
+        else:
+            # Weight shift: swing this foot toward the lifted side.
+            diff = math.remainder(az_up - _LEG_AZ_DEG[leg], 360.0)
+            shift = math.copysign(STEEPLE_SHIFT_YAW_DEG, diff) * shift_env
+            bounce = 2.5 * math.sin(2.0 * math.pi * 0.9 * t) * lift
+            _yaw_hip_knee(leg, pose, yaw=shift, hip=hip,
+                          knee=knee + bounce)
+    return pose
+
+
+def run_steeple_dance(bus: FeetechBus, *, abort_check=None, status_cb=None,
+                      torque=None, speed: float = 1.0, speed_fn=None,
+                      standup_fn=None, log_path: Path | None = None) -> str:
+    """THE STEEPLE — stand up, then adjacent arms merge overhead in turns.
+
+    Seated teaser (pairs flash the three-thick-arms pose), STEP stand-up
+    (bench ``standup_fn`` — same recipe as the dance's act IV), then
+    each adjacent pair takes a turn: lift, converge to the ±33° merge
+    (one thick arm pointing front / back-left / back-right), sway as a
+    unit while the four planted legs micro-bounce, replant with a stomp
+    accent.  A traveling yaw wave closes the show before the descend.
+
+    Planted segments stream at the rise_show clamp (900 counts ≈
+    79 deg/s) with the stall-fight current guard; a refused stand-up
+    ends the show, per the incident rules.
+    """
+    live = _live_robot_ids(bus)
+    if len(live) < 3:
+        print(f"  Only {len(live)} robot servo(s) — need more.")
+        return "skipped"
+    check = abort_check or (lambda: False)
+    spd = speed_fn or (lambda: _clamp_demo_speed(speed))
+
+    def note(msg: str) -> None:
+        print(f"  {msg}")
+        if status_cb is not None:
+            try:
+                status_cb(str(msg))
+            except Exception:
+                pass
+
+    if standup_fn is None:
+        # run_demo degrades to the seated trident before getting here.
+        note("no bench stand-up available — skipping")
+        return "skipped"
+
+    hip, knee = RISE_HIGH_HIP_DEG, RISE_HIGH_KNEE_DEG
+    peaks = CurrentPeakTracker()
+    _enable_torque(bus, live)
+    _set_torque_limit(bus, live, DEMO_TORQUE_LIMIT)
+
+    def bail(label: str) -> str:
+        _hold_here(bus, live)
+        _set_torque_limit(bus, live, 1000)
+        return f"error: {label}"
+
+    log_cm = MotionLog(log_path, live) if log_path is not None else None
+    if log_cm is not None:
+        log_cm.__enter__()
+    try:
+        # --- seated teaser: breath, then the pairs flash the merge ----
+        note("teaser — the arms find their partners")
+
+        def teaser(t: float) -> list[float]:
+            w = _win(t, 1.2, 2.6) - _win(t, 4.4, 5.8)
+            pose = _zero_pose()
+            for leg in range(6):
+                br = 6.0 * math.sin(2.0 * math.pi * 0.45 * t)
+                _yaw_hip_knee(
+                    leg, pose,
+                    yaw=_pair_sign(leg, 0) * AIR_PAIR_YAW_DEG * w,
+                    hip=-4.0 + br * 0.4 + (-22.0 - br * 0.4) * w,
+                    knee=(-0.6 * br) * (1.0 - w) + (10.0 + br) * w)
+            return pose
+
+        st = stream_pose_fn(bus, live, teaser, seconds=6.0,
+                            abort_check=check, speed_fn=spd,
+                            status_cb=status_cb, label="steeple teaser",
+                            tracker=peaks, log=log_cm)
+        if st == "aborted":
+            _set_torque_limit(bus, live, 1000)
+            return "aborted"
+        if st == "guard":
+            return bail("teaser guard")
+
+        # --- STEP stand-up (same recipe as the dance's act IV) --------
+        note("STEP stand-up")
+        if not ease_to_pose(bus, _zero_pose(), abort_check=check,
+                            seconds=1.2, label="steeple sweep down",
+                            current_tracker=peaks):
+            return bail("sweep down")
+        _set_torque_limit(bus, live, RISE_TORQUE_LIMIT)
+        ok, err = standup_fn()
+        if check():
+            return bail("stand-up aborted")
+        if not ok:
+            note(f"stand-up stopped: {err}")
+            return bail(f"stand-up: {err}")
+        _set_torque_limit(bus, live, RISE_TORQUE_LIMIT)
+        planted = _elevated_stand_pose(hip=hip, knee=knee, yaw=0.0)
+        if not ease_to_pose(bus, planted, abort_check=check,
+                            seconds=0.7, label="steeple set stance",
+                            current_tracker=peaks):
+            return bail("set stance")
+        _set_torque_limit(bus, live, DANCE_PLANT_TORQUE)
+
+        # --- three steeples: front, back-left, back-right -------------
+        labels = ("steeple FRONT — one thick arm",
+                  "steeple BACK-LEFT",
+                  "steeple BACK-RIGHT")
+        for pair, lbl in zip(STEEPLE_PAIRS, labels):
+            note(lbl)
+            st = stream_pose_fn(
+                bus, live,
+                lambda t, p=pair: _steeple_act_pose(p, t, hip, knee),
+                seconds=STEEPLE_ACT_S, abort_check=check, speed_fn=spd,
+                status_cb=status_cb, label=lbl, tracker=peaks,
+                log=log_cm, max_speed=900, max_acc=80)
+            if st == "aborted":
+                _set_torque_limit(bus, live, 1000)
+                return "aborted"
+            if st == "guard":
+                return bail(f"current guard ({lbl})")
+
+            def stomp(t: float) -> list[float]:
+                pose = _zero_pose()
+                dip = 8.0 * math.sin(math.pi * min(1.0, t))
+                for leg in range(6):
+                    _yaw_hip_knee(leg, pose, hip=hip, knee=knee + dip)
+                return pose
+
+            st = stream_pose_fn(bus, live, stomp, seconds=1.0,
+                                abort_check=check, speed_fn=spd,
+                                status_cb=None, label="stomp",
+                                tracker=peaks, log=log_cm,
+                                max_speed=900, max_acc=80)
+            if st == "aborted":
+                _set_torque_limit(bus, live, 1000)
+                return "aborted"
+            if st == "guard":
+                return bail("current guard (stomp)")
+
+        # --- closing wave: planted yaw ripple around the hex ----------
+        note("victory wave")
+
+        def wave(t: float) -> list[float]:
+            a = min(1.0, t / 0.8, max(0.0, (4.0 - t) / 0.8))
+            pose = _zero_pose()
+            for leg in range(6):
+                _yaw_hip_knee(
+                    leg, pose,
+                    yaw=8.0 * a * math.sin(
+                        2.0 * math.pi * 0.7 * t - leg * math.pi / 3.0),
+                    hip=hip, knee=knee)
+            return pose
+
+        st = stream_pose_fn(bus, live, wave, seconds=4.0,
+                            abort_check=check, speed_fn=spd,
+                            status_cb=status_cb, label="victory wave",
+                            tracker=peaks, log=log_cm,
+                            max_speed=900, max_acc=80)
+        if st == "aborted":
+            _set_torque_limit(bus, live, 1000)
+            return "aborted"
+        if st == "guard":
+            return bail("current guard (wave)")
+
+        # --- descend to sit -------------------------------------------
+        note("coming back down")
+        _set_torque_limit(bus, live, RISE_TORQUE_LIMIT)
+        if not ease_to_pose(bus, _zero_pose(), abort_check=check,
+                            seconds=4.5, label="steeple descend",
+                            current_tracker=peaks):
+            return bail("descend")
+    finally:
+        if log_cm is not None:
+            log_cm.__exit__(None, None, None)
+
+    peaks.print_report(phase="steeple")
+    note("goodnight")
+    _limp_all(bus, live)
+    _set_torque_limit(bus, live, 1000)
+    return "done"
+
+
+# The stallion's sky-reach (both fronts merged overhead while reared).
+STALLION_SKY_HIP = -75.0
+STALLION_SKY_KNEE = 45.0
+STALLION_SECONDS = 26.0
+
+
+def _make_stallion_fn(seconds: float = STALLION_SECONDS):
+    """Reared 'stallion': quad entry → paw strokes → unicorn merge → exit.
+
+    Rides quad_walk's proven tip-back entry/exit with the zero-stride
+    "rear" gait (all four support feet stay planted).  During the hold
+    window the front paws take over: alternating air-strokes like a
+    pawing horse, then both fronts converge to the ±33° pair merge
+    overhead — one thick horn.  Gestures blend in/out of the tuck so
+    the entry/exit choreography is untouched.
+    """
+    from quad_walk import (ENTRY_TOTAL_S, EXIT_TOTAL_S, TUCK_DEG,
+                           make_quad_walk_pose_fn)
+    quad = make_quad_walk_pose_fn(_stand_zero_pose(), seconds, gait="rear")
+    t_exit = max(ENTRY_TOTAL_S, seconds - EXIT_TOTAL_S)
+    hold = max(0.1, t_exit - ENTRY_TOTAL_S)
+    uni0 = min(max(0.0, hold - 4.0), 4.4)     # 4 paw strokes, then merge
+
+    def gesture(tg: float, leg: int) -> tuple[float, float, float]:
+        y0, h0, k0 = TUCK_DEG
+        if tg < uni0:                          # alternating paw strokes
+            k = int(tg / 1.1)
+            active = 5 if k % 2 == 0 else 0
+            if leg == active:
+                b = math.sin(math.pi * (tg / 1.1 - k))
+                return (y0, h0 + 18.0 * b, k0 - 35.0 * b)
+            return (float(y0), float(h0), float(k0))
+        uw = _win(tg, uni0, uni0 + 1.0)        # the unicorn
+        trem = 2.0 * math.sin(2.0 * math.pi * 1.8 * tg) * uw
+        sgn = 1.0 if leg == 5 else -1.0
+        return (sgn * AIR_PAIR_YAW_DEG * uw,
+                h0 + (STALLION_SKY_HIP - h0) * uw + trem,
+                k0 + (STALLION_SKY_KNEE - k0) * uw)
+
+    def pose_at(t: float) -> list[float]:
+        pose = quad(t)
+        tg = t - ENTRY_TOTAL_S
+        if 0.0 <= tg < hold:
+            w = min(1.0, tg / 0.8, max(0.0, (hold - tg) / 1.2))
+            w = 0.5 - 0.5 * math.cos(math.pi * w)
+            for leg in (0, 5):
+                j = leg * 3
+                gy, gh, gk = gesture(tg, leg)
+                pose[j] = pose[j] * (1.0 - w) + gy * w
+                pose[j + 1] = pose[j + 1] * (1.0 - w) + gh * w
+                pose[j + 2] = pose[j + 2] * (1.0 - w) + gk * w
+        return pose
+
+    return pose_at
+
+
+def run_wild_dance(bus: FeetechBus, *, abort_check=None, status_cb=None,
+                   torque=None, speed: float = 1.0, speed_fn=None,
+                   standup_fn=None, log_path: Path | None = None) -> str:
+    """THE FEVER DREAM — the everything show (~2 min).
+
+    I   resurrection: flatline, one weak twitch, a heartbeat that
+        strengthens and accelerates into a full-body pulse
+    II  drum solo: the feet TAP THE FLOOR — audible percussion cycling
+        the hex, odd/even doubles, all-six triplets, two big slams
+    III the storm: primitive layers accelerating ~1.7x, hard freeze in
+        the three-thick-arms merge, sweep down
+    IV  fake-outs: two comedy failed stand-ups (quarter-rise, wobble,
+        flop), then the STEP stand-up nails it
+    V   planted rampage: march → front steeple → counterwave
+    VI  THE STALLION: tips back onto four legs (quad machinery, tilt
+        guard armed), paws the air, merges both fronts into one horn
+        overhead, comes back down
+    VII finale: victory wave, descend, overhead gather + pulse,
+        collapse, one last heartbeat
+
+    Without the bench ``standup_fn`` (CLI): plays the seated acts and
+    the finale only.  Live speed slider works everywhere; the stallion
+    caps it at 1.5x (quad prudence, same as the trot).
+    """
+    live = _live_robot_ids(bus)
+    if len(live) < 3:
+        print(f"  Only {len(live)} robot servo(s) — need more.")
+        return "skipped"
+    check = abort_check or (lambda: False)
+    base_spd = speed_fn or (lambda: _clamp_demo_speed(speed))
+
+    def note(msg: str) -> None:
+        print(f"  {msg}")
+        if status_cb is not None:
+            try:
+                status_cb(str(msg))
+            except Exception:
+                pass
+
+    _enable_torque(bus, live)
+    _set_torque_limit(bus, live, DEMO_TORQUE_LIMIT)
+    peaks = CurrentPeakTracker()
+
+    def bail(label: str) -> str:
+        _hold_here(bus, live)
+        _set_torque_limit(bus, live, 1000)
+        return f"error: {label}"
+
+    log_cm = MotionLog(log_path, live) if log_path is not None else None
+    if log_cm is not None:
+        log_cm.__enter__()
+    try:
+        def seg(pose_fn, secs: float, label: str, *, max_speed=3000,
+                max_acc=200, tick_s=STREAM_TICK_S, tilt=None,
+                spd=None) -> str:
+            # Fresh tracker per segment: stream_pose_fn's 4 A hard cap
+            # checks the tracker's ALL-TIME peak, so a shared tracker
+            # would let one hot moment insta-guard every later act.
+            trk = CurrentPeakTracker()
+            st = stream_pose_fn(
+                bus, live, pose_fn, seconds=secs, abort_check=check,
+                speed_fn=spd or base_spd, status_cb=status_cb,
+                label=label, tracker=trk, log=log_cm,
+                max_speed=max_speed, max_acc=max_acc, tick_s=tick_s,
+                tilt_guard_deg=tilt)
+            if trk.peak_a > peaks.peak_a:
+                peaks.peak_a = trk.peak_a
+                peaks.peak_joint = trk.peak_joint
+            for j, a in trk.max_a.items():
+                if a > peaks.max_a.get(j, 0.0):
+                    peaks.max_a[j] = a
+            peaks.samples += trk.samples
+            return st
+
+        def gate(st: str, label: str) -> str | None:
+            if st == "aborted":
+                _set_torque_limit(bus, live, 1000)
+                return "aborted"
+            if st == "guard":
+                return bail(f"current guard ({label})")
+            if st.startswith("tilt:"):
+                # stream already went limp for the soft landing
+                _set_torque_limit(bus, live, 1000)
+                return f"error: tilt {st[5:]} deg during {label} — went limp"
+            return None
+
+        # ---- Act I: resurrection -------------------------------------
+        note("act I — flatline …")
+        said = [False]
+
+        def resurrect(t: float) -> list[float]:
+            pose = _zero_pose()
+            if t < 3.0:
+                return pose
+            if t < 6.0:
+                for t0, amp in ((3.0, 4.0), (4.5, 6.0), (5.4, 6.0)):
+                    if t0 <= t < t0 + 0.35:
+                        pose[8] = amp * math.sin(math.pi * (t - t0) / 0.35)
+                return pose
+            if not said[0]:
+                said[0] = True
+                note("act I — it's ALIVE (heartbeat accelerating)")
+            # quadratic phase: beat accelerates 0.7 -> 1.6 Hz, smoothly
+            tt = t - 6.0
+            ph = 0.7 * tt + 0.45 * tt * tt / 6.0
+            prog = min(1.0, tt / 6.0)
+            k = (5.0 + 5.5 * prog) * _swarm_pulse(ph % 1.0)
+            for leg in range(6):
+                _yaw_hip_knee(leg, pose, knee=k, hip=-0.45 * k * prog)
+            return pose
+
+        st = seg(resurrect, 12.0, "resurrection")
+        r = gate(st, "resurrection")
+        if r:
+            return r
+
+        # ---- Act II: drum solo (floor-tap percussion) ----------------
+        note("act II — DRUM SOLO (feet on the floor)")
+
+        def drums(t: float) -> list[float]:
+            pose = _zero_pose()
+            hover = -8.0
+            w_in = _win(t, 0.2, 1.4)
+            w_out = 1.0 - _win(t, 14.0, 15.0)
+            tt = t - 1.4
+            hit = {leg: 0.0 for leg in range(6)}
+            if 0.0 <= tt < 6.0:            # singles around the hex, 2 Hz
+                idx = int(tt * 2.0)
+                u = tt * 2.0 - idx
+                if u < 0.5:
+                    hit[idx % 6] = math.sin(math.pi * u / 0.5)
+            elif tt < 9.6:                 # odd/even doubles, 3 Hz
+                idx = int((tt - 6.0) * 3.0)
+                u = (tt - 6.0) * 3.0 - idx
+                if u < 0.55:
+                    b = math.sin(math.pi * u / 0.55)
+                    for leg in range(idx % 2, 6, 2):
+                        hit[leg] = b
+            elif tt < 11.6:                # all six, triplet rhythm 4 Hz
+                idx = int((tt - 9.6) * 4.0)
+                u = (tt - 9.6) * 4.0 - idx
+                if idx % 4 != 3 and u < 0.6:
+                    b = math.sin(math.pi * u / 0.6)
+                    for leg in range(6):
+                        hit[leg] = b
+            else:                          # two big slams
+                for t0 in (12.0, 12.9):
+                    if t0 <= tt < t0 + 0.5:
+                        b = 1.3 * math.sin(math.pi * (tt - t0) / 0.5)
+                        for leg in range(6):
+                            hit[leg] = max(hit[leg], b)
+            for leg in range(6):
+                b = min(1.3, hit[leg])
+                _yaw_hip_knee(leg, pose,
+                              hip=(hover * (1.0 - b)) * w_in * w_out,
+                              knee=5.0 * b * w_in * w_out)
+            return pose
+
+        st = seg(drums, 15.0, "drum solo")
+        r = gate(st, "drum solo")
+        if r:
+            return r
+
+        # ---- Act III: the storm --------------------------------------
+        note("act III — the storm (hold on)")
+
+        def storm(t: float) -> list[float]:
+            a = min(1.0, t / 1.2)
+            ph_t = t + 0.7 * t * t / 32.0     # freq ramps ~1.7x by 16 s
+            g = 1.0 + 0.25 * (t / 16.0)
+            fz = _win(t, 12.6, 13.8)          # freeze into the trident
+            end = _win(t, 15.0, 16.0)         # sweep down
+            pose = _zero_pose()
+            for leg in range(6):
+                hip_s = (-24.0 + _dp(ph_t, leg, amp=12.0 * g, freq=0.45)
+                         + _dp(ph_t, leg, amp=5.0, freq=0.30,
+                               group="unison"))
+                yaw_s = _dp(ph_t, leg, amp=10.0 * g, freq=0.70,
+                            group="oddeven")
+                knee_s = 8.0 + _dp(ph_t, leg, amp=8.0 * g, freq=0.57,
+                                   spin=-1.0)
+                yaw = (yaw_s * (1.0 - fz)
+                       + _pair_sign(leg, 0) * 32.0 * fz)
+                hip = hip_s * (1.0 - fz) + (-26.0) * fz
+                knee = knee_s * (1.0 - fz) + 10.0 * fz
+                s = a * (1.0 - end)
+                _yaw_hip_knee(leg, pose, yaw=yaw * s, hip=hip * s,
+                              knee=knee * s)
+            return pose
+
+        st = seg(storm, 16.0, "the storm")
+        r = gate(st, "the storm")
+        if r:
+            return r
+
+        if standup_fn is not None:
+            # ---- Act IV: fake-outs, then the real stand-up -----------
+            _set_torque_limit(bus, live, RISE_TORQUE_LIMIT)
+            for att, (h, k, lbl) in enumerate(
+                    (( 8.0, 32.0, "act IV — attempt #1 …"),
+                     (11.0, 42.0, "act IV — attempt #2 …")), 1):
+                note(lbl)
+                part = _elevated_stand_pose(hip=h, knee=k)
+                if not ease_to_pose(bus, part, abort_check=check,
+                                    seconds=1.1, label=f"fakeout {att}",
+                                    current_tracker=peaks):
+                    return bail(f"fakeout {att}")
+
+                def wobble(t: float, base=part) -> list[float]:
+                    q = list(base)
+                    for leg in range(6):
+                        q[leg * 3 + 2] += 2.5 * math.sin(
+                            2.0 * math.pi * 3.0 * t + leg)
+                    return q
+
+                st = seg(wobble, 0.9, f"wobble {att}",
+                         max_speed=900, max_acc=80)
+                r = gate(st, f"wobble {att}")
+                if r:
+                    return r
+                note("… nope." if att == 1 else "… NOPE.")
+                if not ease_to_pose(bus, _zero_pose(), abort_check=check,
+                                    seconds=0.7, label=f"flop {att}",
+                                    current_tracker=peaks):
+                    return bail(f"flop {att}")
+            note("act IV — third time's the charm: STEP stand-up")
+            ok, err = standup_fn()
+            if check():
+                return bail("stand-up aborted")
+            if not ok:
+                note(f"stand-up stopped: {err}")
+                return bail(f"stand-up: {err}")
+            _set_torque_limit(bus, live, RISE_TORQUE_LIMIT)
+            hip, knee = RISE_HIGH_HIP_DEG, RISE_HIGH_KNEE_DEG
+            planted = _elevated_stand_pose(hip=hip, knee=knee, yaw=0.0)
+            if not ease_to_pose(bus, planted, abort_check=check,
+                                seconds=0.7, label="set stance",
+                                current_tracker=peaks):
+                return bail("set stance")
+            _set_torque_limit(bus, live, DANCE_PLANT_TORQUE)
+
+            # ---- Act V: planted rampage ------------------------------
+            note("act V — rampage: the march")
+            st = seg(lambda t: _show_stream_pose("march", t, hip, knee),
+                     6.0, "march", max_speed=900, max_acc=80)
+            r = gate(st, "march")
+            if r:
+                return r
+            note("act V — rampage: front steeple")
+            st = seg(lambda t: _steeple_act_pose((5, 0), t, hip, knee),
+                     STEEPLE_ACT_S, "front steeple",
+                     max_speed=900, max_acc=80)
+            r = gate(st, "front steeple")
+            if r:
+                return r
+            # No counterwave here: it yaws all six LOADED legs in
+            # opposing directions — torsional lock the chassis can't
+            # relieve. Measured on hardware 08-19: yaw stall-fight
+            # >3 A within two sweeps of the first frame. Tripod flips
+            # move knees/hips with real lifts instead.
+            note("act V — rampage: tripod flips")
+            st = seg(lambda t: _show_stream_pose("tripod", t, hip, knee),
+                     6.0, "tripod flips", max_speed=900, max_acc=80)
+            r = gate(st, "tripod flips")
+            if r:
+                return r
+
+            # ---- Act VI: THE STALLION --------------------------------
+            note("act VI — THE STALLION (tipping back …)")
+            _set_torque_limit(bus, live, STAND_DANCE_TORQUE)
+            if not ease_to_pose(bus, _stand_zero_pose(),
+                                abort_check=check, seconds=0.8,
+                                label="stallion base",
+                                current_tracker=peaks):
+                return bail("stallion base")
+            stallion_spd = lambda: min(1.5, _clamp_live_speed(  # noqa: E731
+                base_spd()))
+            st = seg(_make_stallion_fn(STALLION_SECONDS),
+                     STALLION_SECONDS, "the stallion",
+                     max_acc=QUAD_STREAM_ACC, tick_s=QUAD_STREAM_TICK_S,
+                     tilt=QUAD_TILT_GUARD_DEG, spd=stallion_spd)
+            r = gate(st, "the stallion")
+            if r:
+                return r
+            _set_torque_limit(bus, live, DANCE_PLANT_TORQUE)
+
+            # ---- Act VII (standing part): wave + descend -------------
+            # Knee ripple, not a yaw wave: loaded-yaw scrub stall-fights
+            # (see act V note).  Ripple lifts legs — friction releases.
+            note("act VII — victory ripple")
+            st = seg(lambda t: _show_stream_pose("ripple", t, hip, knee),
+                     4.0, "victory ripple", max_speed=900, max_acc=80)
+            r = gate(st, "victory ripple")
+            if r:
+                return r
+            note("coming back down …")
+            _set_torque_limit(bus, live, RISE_TORQUE_LIMIT)
+            if not ease_to_pose(bus, _zero_pose(), abort_check=check,
+                                seconds=4.5, label="descend",
+                                current_tracker=peaks):
+                return bail("descend")
+            _set_torque_limit(bus, live, DEMO_TORQUE_LIMIT)
+        else:
+            note("(no bench stand-up — skipping the standing acts)")
+
+        # ---- Finale (seated) ------------------------------------------
+        note("finale — hands to the sky")
+
+        def finale(t: float) -> list[float]:
+            pose = _zero_pose()
+            up = _win(t, 0.0, 2.5)
+            fall = 1.0 - _win(t, 5.5, 7.0)
+            pulse = 5.0 * math.sin(2.0 * math.pi * 1.1 * max(0.0, t - 2.5))
+            if t < 5.5:
+                pulse *= _win(t, 2.5, 3.0)
+            else:
+                pulse = 0.0
+            for leg in range(6):
+                _yaw_hip_knee(
+                    leg, pose,
+                    hip=(ARMS_UP_HIP_DEG + pulse) * up * fall,
+                    knee=(ARMS_UP_KNEE_DEG - 0.75 * pulse) * up * fall)
+            if 7.6 <= t < 8.1:              # one last heartbeat
+                b = 8.0 * math.sin(math.pi * (t - 7.6) / 0.5)
+                for leg in range(6):
+                    pose[leg * 3 + 2] += b
+            return pose
+
+        st = seg(finale, 9.0, "finale")
+        r = gate(st, "finale")
+        if r:
+            return r
+    finally:
+        if log_cm is not None:
+            log_cm.__exit__(None, None, None)
+
+    peaks.print_report(phase="fever dream")
+    note("goodnight.")
+    if not go_to_zero_pose(bus, abort_check=check, seconds=1.5):
+        _set_torque_limit(bus, live, 1000)
+        return "aborted"
+    _limp_all(bus, live)
+    _set_torque_limit(bus, live, 1000)
+    return "done"
+
+
 # Ordered gentlest → spiciest (web UI + CLI menu follow this order).
 DEMOS = {
     # --- gentle air (offsets around logical 0° / legs out) ---------------
@@ -2438,6 +3656,8 @@ DEMOS = {
     "heartbeat": ("[1 gentle] double-thump knee pulse", frames_heartbeat),
     "twinkle": ("[1 gentle] small random alive wiggles", frames_twinkle),
     "shimmy": ("[2 easy] odd/even yaw shimmy (from zero)", frames_shimmy),
+    "shimmy_v": ("[2 easy] shimmy in VELOCITY mode — no position hunt",
+                 None),
     "ripple": ("[2 easy] yaw wave around the hex (air)", frames_ripple),
     "conductor": ("[2 easy] one leg waves; others hold", frames_conductor),
     "arms_up": ("[2 easy] sit: all six arms way over head", None),
@@ -2447,6 +3667,15 @@ DEMOS = {
                      "into sync", frames_air_pendulum),
     "air_orbits": ("[3 air show] six orbits magnetize into one, release",
                    frames_air_orbits),
+    "air_trident": ("[3 air show] THREE THICK ARMS — pairs merge, swap "
+                    "partners, split 2 thick + 2 thin", frames_air_trident),
+    "air_weave": ("[3 air show] WEAVE — ripple + shimmy + bend braided "
+                  "at odd frequencies; grouping morphs mid-show",
+                  frames_air_weave),
+    "air_gearbox": ("[3 air show] GEARBOX — hips/yaws/knees meshed 1:2:3, "
+                    "clunks into alignment every ~3 s", frames_air_gearbox),
+    "air_tides": ("[3 air show] TIDES — counter-rotating waves interfere, "
+                  "collapse to an opposite-pair finale", frames_air_tides),
     "dance_swarm": ("[3 air show] SIMULATION SWARM — beat-synced to the "
                     "Big Thief song (4:07) · counts you in, press play "
                     "on GO", None),
@@ -2480,6 +3709,13 @@ DEMOS = {
                           "seated verses, stands up in the build, "
                           "planted tripod/march choruses, sits for the "
                           "fade (press play on GO)", None),
+    "dance_steeple": ("[6 show] THE STEEPLE — stands up, then adjacent "
+                      "arms merge into ONE thick arm overhead, each "
+                      "pair takes a turn", None),
+    "dance_wild": ("[6 show] THE FEVER DREAM — resurrection heartbeat, "
+                   "floor-drum solo, storm, fake-out stand-ups, planted "
+                   "rampage, REARS UP like a stallion, big finale "
+                   "(~2 min)", None),
     # --- real walk (open-loop tripod gait) --------------------------------
     "walk": ("[7 walk] tripod forward a few strides, then stand", None),
     "walk_spin": ("[7 walk] in-place turn (tripod), then stand", None),
@@ -2504,14 +3740,21 @@ AIR_DEMO_SECONDS = {
     "heartbeat": 6.0,
     "twinkle": 6.0,
     "shimmy": 7.0,
+    "shimmy_v": 8.0,
     "ripple": 8.0,
     "conductor": 8.0,
     "arms_up": 6.0,
     "air_meet": 24.0,
     "air_pendulum": 20.0,
     "air_orbits": 18.0,
+    "air_trident": 34.0,
+    "air_weave": 26.0,
+    "air_gearbox": 24.0,
+    "air_tides": 28.0,
     "dance_swarm": 252.0,        # the song's length — the song is the clock
     "dance_swarm_stand": 252.0,  # same song, standing choruses
+    "dance_steeple": 56.0,
+    "dance_wild": 125.0,
 }
 
 
@@ -2986,7 +4229,8 @@ def _stream_multi_leg(bus: FeetechBus, live: set[int], *,
     old_max, old_min, old_db = MAX_STREAM_SPEED, MIN_STREAM_SPEED, DEADBAND_DEG
     MAX_STREAM_SPEED = 900
     MIN_STREAM_SPEED = 80
-    DEADBAND_DEG = 0.45
+    # Show moves are big/fast; deadband scales with tick like the profile.
+    DEADBAND_DEG = DENSE_DEADBAND_DEG if STREAM_DENSE else 0.45
     t0 = time.monotonic()
     try:
         for i in range(n):
@@ -3885,6 +5129,10 @@ def run_walk_demo(bus: FeetechBus, name: str = "walk", *,
     if log_path is not None:
         log_cm = MotionLog(log_path, live)
         log_cm.__enter__()
+    # The gait is time-based, so the tick only sets waypoint density —
+    # dense on the stream bridge tracks the leg curves much closer.
+    walk_dt = DENSE_DT if STREAM_DENSE else WALK_DEMO_DT
+    log_every = max(1, round(WALK_DEMO_DT / walk_dt))
     t0 = time.monotonic()
     gait.reset_phase(t=t0)
     try:
@@ -3894,29 +5142,33 @@ def run_walk_demo(bus: FeetechBus, name: str = "walk", *,
             print(f"    · {label}  vx={vx*1000:.0f} mm/s  ω={om:.2f}")
             gait.set_velocity(vx=vx, vy=vy, omega=om)
             seg_t0 = time.monotonic()
+            tick_i = 0
             while time.monotonic() - seg_t0 < dur:
                 if check():
                     break
                 now = time.monotonic()
                 pose = gait.desired_deg(now)
                 _write_pose(bus, pose, live, speed=WALK_SPEED, acc=WALK_ACC)
-                if log_cm is not None:
+                if log_cm is not None and tick_i % log_every == 0:
                     try:
                         log_cm.sample(bus, pose, wrote={})
                     except Exception:
                         pass
-                time.sleep(WALK_DEMO_DT)
+                tick_i += 1
+                sleep_for = (seg_t0 + tick_i * walk_dt) - time.monotonic()
+                if sleep_for > 0:
+                    time.sleep(sleep_for)
             if check():
                 break
         gait.stop()
         # Settle onto plant (kill residual swing).
-        for _ in range(8):
+        for _ in range(8 * max(1, round(WALK_DEMO_DT / walk_dt))):
             if check():
                 break
             now = time.monotonic()
             pose = gait.desired_deg(now)
             _write_pose(bus, pose, live, speed=WALK_SPEED, acc=WALK_ACC)
-            time.sleep(WALK_DEMO_DT)
+            time.sleep(walk_dt)
         if not ease_to_pose(bus, stand, abort_check=check,
                             seconds=max(1.2, 1.8 * sc),
                             label="stand after walk"):
@@ -4203,6 +5455,11 @@ def run_demo(bus: FeetechBus, name: str, *,
         size = max(_clamp_breathe_size(size), 2.0)
     if name not in DEMOS:
         raise SystemExit(f"unknown demo {name!r}; try: {', '.join(DEMOS)}")
+    if configure_stream_profile(bus):
+        print(f"  stream: DENSE waypoints ({1.0 / DT:.0f} Hz, "
+              f"deadband {DEADBAND_DEG:.2f}°) — MCU stream bridge")
+    else:
+        print(f"  stream: legacy waypoints ({1.0 / DT:.1f} Hz)")
     sc = _speed_scale(speed)
     spd = _clamp_demo_speed(speed)
     if name in STREAM_POSE_FACTORIES:
@@ -4286,6 +5543,9 @@ def run_demo(bus: FeetechBus, name: str, *,
         return run_breathe_vel_demo(
             bus, seconds=air_s, abort_check=abort_check, size=size,
             rate=rate, torque=torque, softness=softness, log_path=log_path)
+    if name == "shimmy_v":
+        return run_shimmy_vel_demo(
+            bus, seconds=air_s, abort_check=abort_check, log_path=log_path)
     if name == "arms_up":
         return run_arms_up_demo(
             bus, abort_check=abort_check, speed=spd, seconds=seconds,
@@ -4298,6 +5558,25 @@ def run_demo(bus: FeetechBus, name: str, *,
             bus, abort_check=abort_check, status_cb=status_cb,
             torque=torque, standup_fn=standup_fn,
             stand=(name == "dance_swarm_stand"), log_path=log_path)
+    if name == "dance_wild":
+        # Without the bench standup_fn it plays the seated acts only.
+        return run_wild_dance(
+            bus, abort_check=abort_check, status_cb=status_cb,
+            torque=torque, speed=spd, speed_fn=speed_fn,
+            standup_fn=standup_fn, log_path=log_path)
+    if name == "dance_steeple":
+        if standup_fn is None:
+            # CLI degrade: the seated trident (same pair vocabulary).
+            print("  (stand-up runs from the web bench only — "
+                  "playing the seated trident)")
+            name = "air_trident"
+            if seconds is None:
+                air_s = AIR_DEMO_SECONDS[name] * (1.0 if speed_fn else sc)
+        else:
+            return run_steeple_dance(
+                bus, abort_check=abort_check, status_cb=status_cb,
+                torque=torque, speed=spd, speed_fn=speed_fn,
+                standup_fn=standup_fn, log_path=log_path)
 
     title, frame_fn = DEMOS[name]
     live = _live_robot_ids(bus)
