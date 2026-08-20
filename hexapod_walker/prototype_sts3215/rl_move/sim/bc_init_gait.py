@@ -223,7 +223,14 @@ def main() -> None:
     for spec in args.sets:
         key, _, val = spec.partition("=")
         sec, _, leaf = key.partition(".")
-        stack[(sec, leaf)] = float(val)
+        # float when numeric, else the raw string (e.g.
+        # bus.servo_vel_max_counts_s=write_speed) — same coercion as
+        # probe_walk_income --set; float() alone crashed on the 08-19
+        # profile-ceiling selector.
+        try:
+            stack[(sec, leaf)] = float(val)
+        except ValueError:
+            stack[(sec, leaf)] = val
     print(f"collecting {args.episodes} scripted-gait episodes "
           f"(teacher={args.teacher}, stack={args.stack}"
           + (f" +{len(args.sets)} overrides" if args.sets else "")
