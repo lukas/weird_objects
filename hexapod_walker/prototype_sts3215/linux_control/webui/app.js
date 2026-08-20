@@ -18,6 +18,7 @@ let targetHasSim = false;
 let robotTargetAvailable = true;
 let simTargetAvailable = false;
 let robotTargetUrl = '';
+let targetLineMsg = {robot:null, sim:null};
 let simFrames = true;
 let simNativeViewer = false;
 let simTimer = null, simBusy = false, simFrameBusy = false;
@@ -689,6 +690,34 @@ function paintTargetBadge(id, text, cls){
   el.textContent = text;
   el.className = 'target-badge' + (cls ? ' '+cls : '');
 }
+function paintTargetMsg(which){
+  const el = $(which === 'robot' ? 'robotlinemsg' : 'simlinemsg');
+  if(!el) return;
+  const msg = targetLineMsg[which];
+  if(!msg || !msg.text){
+    el.textContent = '';
+    el.title = '';
+    el.className = 'target-msg';
+    return;
+  }
+  el.textContent = msg.text;
+  el.title = msg.text;
+  el.className = 'target-msg show ' + (msg.level || 'warn');
+}
+function setTargetLineMsg(which, text, level){
+  if(which !== 'robot' && which !== 'sim') return;
+  targetLineMsg[which] = text ? {text:String(text), level:level || 'warn'} : null;
+  paintTargetMsg(which);
+}
+function clearTargetLineMsg(which){
+  setTargetLineMsg(which, '', '');
+}
+function classifyTargetError(text, fallback){
+  const low = String(text || '').toLowerCase();
+  if(/robot|hexapod|servo|bus|proxy/.test(low)) return 'robot';
+  if(/sim|mujoco|mj|policy/.test(low)) return 'sim';
+  return fallback || '';
+}
 function paintTargetRows(){
   paintTargetBadge('robotlinesend', targetHasRobot ? 'active' : 'idle',
     targetHasRobot ? 'route' : '');
@@ -717,6 +746,8 @@ function paintTargetRows(){
       ? 'Disconnect MuJoCo from this web UI; Robot stays active if connected'
       : 'Connect this web UI to MuJoCo';
   }
+  paintTargetMsg('robot');
+  paintTargetMsg('sim');
 }
 paintTargetRows();
 
@@ -735,6 +766,7 @@ async function connectRobotTarget(nextTarget){
   }
   saveRobotUrl(url);
   showSent('connecting robot…');
+  setTargetLineMsg('robot', 'connecting…', 'warn');
   try{
     const r = await fetch('/api/hub', {method:'POST',
       headers:{'Content-Type':'application/json'},
@@ -746,15 +778,18 @@ async function connectRobotTarget(nextTarget){
     const resolved = d.targets && d.targets.robot && d.targets.robot.url;
     simPollMaybe();
     if(d.ok){
+      clearTargetLineMsg('robot');
       setLink(true, 'online');
       showSent('robot target connected → '+(resolved || url));
       return true;
     } else {
+      setTargetLineMsg('robot', d.error || 'unreachable', 'bad');
       setLink(false, d.error || 'robot unavailable');
       showSent('robot connect failed: '+(d.error || 'unreachable'), true);
       return false;
     }
   }catch(e){
+    setTargetLineMsg('robot', e.message || e, 'bad');
     showSent('robot connect failed: '+(e.message || e), true);
     return false;
   }
@@ -777,6 +812,8 @@ async function setHubTarget(target){
     const d = await r.json();
     if(!d.ok) throw new Error(d.error || 'target switch failed');
     applyBackendMeta(d);
+    if(target === 'robot' || target === 'both') clearTargetLineMsg('robot');
+    if(target === 'sim' || target === 'both') clearTargetLineMsg('sim');
     setArmed(false);
     const label = target === 'both' ? 'Robot + MuJoCo'
       : (target === 'sim' ? 'MuJoCo' : 'Robot');
@@ -784,6 +821,9 @@ async function setHubTarget(target){
     simPollMaybe();
     return true;
   }catch(e){
+    const which = classifyTargetError(e.message || e,
+      target === 'sim' ? 'sim' : (target === 'robot' ? 'robot' : ''));
+    if(which) setTargetLineMsg(which, e.message || e, 'bad');
     showSent('target switch failed: '+(e.message || e), true);
     return false;
   }
@@ -1555,6 +1595,8 @@ async function syncRobotPoseToSim(){
     return;
   }
   setSyncPoseBusy(true);
+  setTargetLineMsg('robot', 'reading pose…', 'warn');
+  setTargetLineMsg('sim', 'waiting…', 'warn');
   if($('simstatus')) $('simstatus').textContent = 'reading robot pose…';
   showSent('matching MuJoCo pose to robot…');
   try{
@@ -1563,11 +1605,23 @@ async function syncRobotPoseToSim(){
     const line = d.ok
       ? 'matched pose · '+(d.live_joints || 0)+'/18 joints'
       : (d.error || 'match pose failed');
+    if(d.ok){
+      clearTargetLineMsg('robot');
+      setTargetLineMsg('sim', line, 'ok');
+      setTimeout(()=> clearTargetLineMsg('sim'), 2500);
+    } else {
+      const which = classifyTargetError(line, 'robot');
+      setTargetLineMsg(which, line, 'bad');
+      if(which === 'robot') clearTargetLineMsg('sim');
+      if(which === 'sim') clearTargetLineMsg('robot');
+    }
     if($('simstatus')) $('simstatus').textContent = d.ok
       ? (d.status || line) : line;
     showSent(line, !d.ok);
     refreshSimPanel();
   }catch(e){
+    setTargetLineMsg('sim', e.message || 'match pose failed', 'bad');
+    clearTargetLineMsg('robot');
     if($('simstatus')) $('simstatus').textContent = 'match pose failed';
     showSent('match pose failed', true);
   }finally{
