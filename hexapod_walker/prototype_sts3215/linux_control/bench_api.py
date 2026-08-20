@@ -5,6 +5,7 @@ Uses the same Feetech bus as ``DriveController`` (shared lock).
 from __future__ import annotations
 
 import json
+import os
 import sys
 import threading
 import time
@@ -50,6 +51,13 @@ AIR_DEMO_NAMES = frozenset({
     "dance_walk",
 })
 ZERO_TOL_DEG = 6.0
+
+
+def _env_truthy(name: str, default: bool = False) -> bool:
+    val = os.environ.get(name)
+    if val is None:
+        return default
+    return val.strip().lower() in ("1", "true", "yes", "on", "full", "csv")
 
 # Sit-from-stand exemption to the MAX_SAFE_DELTA_DEG guard: the present
 # pose counts as "at stand" when every live joint is within this many
@@ -768,7 +776,8 @@ class BenchAPI:
     def run_demo(self, name: str, *, speed: float = 1.0,
                  size: float = 1.0, rate: float | None = None,
                  torque: int | None = None, softness: float = 1.0,
-                 seconds: float | None = None) -> dict:
+                 seconds: float | None = None,
+                 motion_log: bool | None = None) -> dict:
         try:
             from inplace_demos import (
                 DEMOS, QUAD_REQUIRES_REAR, QUAD_REARED_END_DEMOS,
@@ -819,6 +828,10 @@ class BenchAPI:
                 torque = None
             if torque is not None:
                 torque = max(150, min(1000, torque))
+        if motion_log is None:
+            motion_log = _env_truthy("HEXAPOD_MOTION_LOG", False)
+        else:
+            motion_log = bool(motion_log)
 
         quad_any = name in QUAD_STREAM_DEMOS
         quad_requires_rear = name in QUAD_REQUIRES_REAR
@@ -852,6 +865,8 @@ class BenchAPI:
                 params["rate"] = rate
         if torque is not None and name in AIR_DEMO_NAMES:
             params["torque"] = torque
+        if motion_log:
+            params["motion_log"] = True
         if switched_from:
             params["switched_from"] = switched_from
 
@@ -862,6 +877,7 @@ class BenchAPI:
             self._demo_name = name
             self._demo_status = "starting"
             self._demo_params = dict(params)
+            self._demo_telemetry = None
             # Live tempo starts at the requested speed; /api/demo/speed
             # can change it while the demo runs.
             self._demo_speed_live = speed
@@ -933,12 +949,16 @@ class BenchAPI:
                 # 08-17: stand_wave turned into rare giant steps and
                 # tipped the robot. Same bug rl_policy_move fixed 08-10.
                 self._bus_hot = True
-                # Most web demos also write cmd-vs-encoder telemetry. Keep the
-                # quiet breathe variants truly quiet: they use servo-side
-                # glides, so frequent feedback reads add bus traffic and the
-                # endpoint-based summary looks falsely alarming mid-glide.
+                try:
+                    from event_log import emit
+                    emit("demo", f"{name} start", src="bench", data=params)
+                except Exception:
+                    pass
+                # Full cmd-vs-encoder CSV is diagnostic mode only. It reads
+                # feedback during motion, so the reliable default is the
+                # lightweight async event log plus start/finish breadcrumbs.
                 log_path = None
-                if name not in ("breathe", "breathe_v"):
+                if motion_log:
                     log_dir = Path(__file__).resolve().parent / "logs"
                     log_dir.mkdir(parents=True, exist_ok=True)
                     stamp = time.strftime("%Y%m%d_%H%M%S")
@@ -1024,6 +1044,17 @@ class BenchAPI:
                                 f"{c.get('yellow', 0)}y/"
                                 f"{c.get('red', 0)}r"
                             )
+                try:
+                    from event_log import emit
+                    emit("demo", f"{name} {status or 'done'}", src="bench",
+                         data={
+                             "name": name,
+                             "status": status or "done",
+                             "motion_log": bool(motion_log),
+                             "log": log_path.name if log_path else None,
+                         })
+                except Exception:
+                    pass
             except Exception as e:
                 if gen != self._demo_gen:
                     return

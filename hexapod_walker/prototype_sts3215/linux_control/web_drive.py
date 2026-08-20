@@ -121,7 +121,8 @@ HTTPS_PORT = None   # actual HTTPS port that bound (443 if privileged, else 8443
 # on a browser reload without restarting the server.
 WEBUI_DIR = HERE / "webui"
 PAGE_PATHS = ("/", "/index.html", "/debug", "/motors", "/demos",
-              "/rl", "/experiments", "/measure", "/calibrate")
+              "/dance", "/quad", "/rl", "/experiments", "/measure",
+              "/calibrate")
 # Exact whitelisted names only -- no generic static-dir handler, so nothing
 # else on disk is reachable (path-traversal safety).
 STATIC_FILES = {
@@ -292,7 +293,7 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(500, {"ok": False, "error": str(e)})
         elif path == "/api/events":
             try:
-                from event_log import recent, events_path
+                from event_log import recent, events_path, stats
                 n = 100
                 qs = self.path.split("?", 1)
                 if len(qs) == 2 and "n=" in qs[1]:
@@ -303,6 +304,7 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, {
                     "ok": True,
                     "path": str(events_path()),
+                    "stats": stats(),
                     "events": recent(n),
                 })
             except Exception as e:
@@ -461,6 +463,11 @@ class Handler(BaseHTTPRequestHandler):
                     kw["torque"] = int(float(data["torque"]))
                 if "seconds" in data and data.get("seconds") is not None:
                     kw["seconds"] = float(data["seconds"])
+                if "motion_log" in data:
+                    v = data.get("motion_log")
+                    kw["motion_log"] = (
+                        v.strip().lower() in ("1", "true", "yes", "on")
+                        if isinstance(v, str) else bool(v))
                 self._json(200, BENCH.run_demo(str(data.get("name", "")), **kw))
             except Exception as e:
                 self._json(400, {"ok": False, "error": str(e)})

@@ -363,6 +363,14 @@ function httpsUrl(){
   const p = window.HEXAPOD_HTTPS_PORT || 8443;   // substituted into index.html
   return 'https://'+location.hostname+(p===443?'':(':'+p))+location.pathname;
 }
+function demoMotionLog(){
+  const el = $('dmotionlog');
+  return !!(el && el.checked);
+}
+function quadMotionLog(){
+  const el = $('qmotionlog');
+  return !!(el && el.checked);
+}
 function padBtnDown(gp, i){
   const btn = gp.buttons[i];
   if(!btn) return false;
@@ -375,6 +383,7 @@ async function padRunDemo(name, label){
   showSent('pad '+label+' → '+name+' sent…');
   try{
     const body = {name:name, speed:demoSpeed(), torque:demoTorque()};
+    if(demoMotionLog()) body.motion_log = true;
     if(name==='breathe' || name==='breathe_v'){
       body.size = demoSize(); body.rate = demoRate(); body.softness = demoSoft();
     }
@@ -2441,7 +2450,7 @@ function paintDemoStatus(d){
       telemEl.textContent = 'Last run log: '+t.log_name;
     } else if(!running){
       telemEl.innerHTML =
-        'Motion demos auto-log cmd vs encoder → <code>logs/demo_*.csv</code> (+ summary); breathe stays no-log.';
+        'Standard event log is always on. Enable Full motion CSV for cmd vs encoder logs.';
     }
   }
   // Quad tab mirrors the same demo state with its own pill.
@@ -2534,6 +2543,7 @@ function demoButton(item){
         const sp = demoSpeed();
         const body = {name:item.name, speed:sp, torque:demoTorque(),
                       seconds:demoDuration()};
+        if(demoMotionLog()) body.motion_log = true;
         if(item.name==='breathe' || item.name==='breathe_v' || item.has_size){
           body.size = demoSize();
           body.rate = demoRate();
@@ -2656,6 +2666,7 @@ async function quadRun(name, label){
   const sp = quadSpeed();
   const timeout = Math.max(30, Math.min(300, +($('qdur').value)||300));
   const body = {name, speed:sp};
+  if(quadMotionLog()) body.motion_log = true;
   if(name !== 'quad_down') body.seconds = timeout;
   showSent(label+' request sent…');
   const res = await fetch('/api/demo',{method:'POST',

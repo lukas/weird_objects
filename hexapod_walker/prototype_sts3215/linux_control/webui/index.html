@@ -280,10 +280,13 @@ in which legs swing together: tripod 3+3 (fastest), ripple opposite pairs
       <label class="slab">Softness: <span id="dsoftlab">1.5</span>×
         <span style="color:#8089a0;font-weight:400">(higher = gentler accel, less bark)</span></label>
       <input id="dsoft" type="range" min="50" max="300" value="150" step="10">
+      <label class="slab"><input id="dmotionlog" type="checkbox">
+        Full motion CSV
+        <span style="color:#8089a0;font-weight:400">(diagnostic; reads encoders during motion)</span></label>
       <div class="hint">Status: <span id="dstatus" class="pill">idle</span>
         <span id="dstatusdetail" style="color:#8089a0"></span></div>
       <div class="hint" id="dtelem" style="margin-top:6px;color:#5a6478">
-        Motion demos auto-log cmd vs encoder → <code>logs/demo_*.csv</code> (+ summary); breathe stays no-log.</div>
+        Standard event log is always on. Full motion CSV writes <code>logs/demo_*.csv</code> (+ summary).</div>
       <div class="hint" id="zerohint">Click any demo anytime — it aborts the current one, homes to sit (air) or stand (planted), then starts. Switching mid-demo is OK.</div>
       <div class="demo-grid" id="dgrid" style="margin-top:12px"></div>
     </div>
@@ -325,13 +328,15 @@ in which legs swing together: tripod 3+3 (fastest), ripple opposite pairs
 	          <option value="120">2 min</option>
 	          <option value="300" selected>5 min</option>
 	        </select></label>
-      <div class="hint">Status: <span id="qstatus" class="pill">idle</span>
-        <span id="qstatusdetail" style="color:#8089a0"></span></div>
-	      <div class="hint">Rear up homes via the validated stand-up first.
-	        Walk/trot/down require the reared hold, τ900 + 3&nbsp;A stall guard
-	        while moving. Stop holds the current reared pose; Come down returns
-	        to stand. Auto-logs cmd vs encoder →
-	        <code>logs/demo_quad_*.csv</code>.</div>
+	      <div class="hint">Status: <span id="qstatus" class="pill">idle</span>
+	        <span id="qstatusdetail" style="color:#8089a0"></span></div>
+	      <label class="slab"><input id="qmotionlog" type="checkbox">
+	        Full motion CSV
+	        <span style="color:#8089a0;font-weight:400">(diagnostic; reads encoders during motion)</span></label>
+		      <div class="hint">Rear up homes via the validated stand-up first.
+		        Walk/trot/down require the reared hold, τ900 + 3&nbsp;A stall guard
+		        while moving. Stop holds the current reared pose; Come down returns
+		        to stand. Standard event logging stays on; full motion CSV is opt-in.</div>
     </div>
   </div>
   </div><!-- /view-quad -->
