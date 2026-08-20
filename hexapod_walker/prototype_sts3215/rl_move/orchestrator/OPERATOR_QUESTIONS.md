@@ -1120,3 +1120,20 @@ Entry format (append; newest last; update status in place):
   faithful to the authored patch and ready the moment the operator
   picks (a)/(b)/(c) above — no new canary spent confirming this
   (correctness-only code fix, not a new hypothesis).
+- FOLLOW-UP #2 (08-20 ~09:5x UTC, idle-drain cycle): option (b) of the
+  pick above is no longer "CODE, unbuilt" — the profile ramp-in
+  mechanism is BUILT and launch-ready (CODE-FIRST rule: a named CODE
+  item in a WAITING-ON entry is agent-doable and must not park on the
+  operator). `bus.profile_ramp_steps` anneals write_speed/acc/slew
+  from the fitted regime (350 counts/s / 20 / 1.5°, overridable via
+  bus.profile_ramp_start_*) to the cfg target dose over N global env
+  steps; train_ppo_mjx-armed (frac 0 before the V5 pre-PPO B0 cert —
+  the transplant is certified at the ramp start where it is stable —
+  then per-rollout; cert env mirrors the training frac); evals always
+  run at FULL dose; default-off bit-exact + fail-closed edges;
+  test_profile_ramp.py 8/8 + sim_env/walkcurr/fastprof/semantics
+  banks green. NOTHING trained. The (a)/(b)/(c) pick is UNCHANGED and
+  still yours; if you pick (b), the launch is e.g.
+  `--cfg-set bus.profile_ramp_steps=<N>` on the existing canary spec
+  (suggest N ≈ half the budget so the run trains at full dose for its
+  second half). Spec: rl_docs/FAST_PROFILE.md §(d).

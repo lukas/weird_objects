@@ -24,6 +24,27 @@ unresolved blockers between the robot and reliable joystick control.
 
 ## Now
 
+- **08-20 ~09:5x CODE FOLLOW-UP #2 (q_20260820T0830Z option (b),
+  idle-drain cycle): the profile RAMP-IN mechanism is BUILT —
+  `bus.profile_ramp_steps` (+ `profile_ramp_start_write_speed/
+  write_acc/max_delta_q_deg`, defaults 350/20/1.5 = the fitted
+  regime) anneals the live write profile linearly to the cfg target
+  dose over N global env steps.** Trainer-armed in `train_ppo_mjx`
+  only: frac-0 broadcast right after venv construction (so the V5
+  `--walkcurr-cert-at-init` B0 cert now guards the transplant at the
+  ramp START, where bcgait1_hard1 is stable, instead of dying
+  zero-shot at full dose), `_ProfileRampCb` advances it per rollout
+  (W&B `profile_ramp/*`), and the walkcurr cert env mirrors the
+  training frac so promotions certify the dose actually being
+  trained. Eval paths (eval_checkpoint / play / periodic C evals)
+  always judge at FULL target dose by construction. Default-off
+  bit-exact; fail-closed: target above the resolved vel ceiling
+  raises, train_ppo_sim refuses ramp cfgs, slew clamp survives MJX
+  pool-restores (re-asserted per tick). `test_profile_ramp.py` 8/8;
+  sim_env 43, walkcurr_mjx 18, walk_curriculum 33, fastprof 37, full
+  semantics bank 141/4skip/1xfail all green. NOTHING trained on it —
+  the (a)/(b)/(c) pick stays `[operator]`; (b) is now launch-ready.
+  Spec: `rl_docs/FAST_PROFILE.md` §(d).**
 - **08-20 ~08:5x CODE FOLLOW-UP (q_20260820T0830Z): the desktop
   branch became fetchable (fb_20260820T080540_e2ea9b) and was diffed
   verbatim against the controller reconstruction below. The B0

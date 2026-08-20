@@ -85,3 +85,45 @@ contract change: the hardware runner must compute the same estimator
 at 25 Hz (it is plain numpy on signals the board already produces —
 built for exactly that — but the runner wiring is deploy-side work
 that does not exist yet).
+
+## (d) Servo-profile RAMP-IN — `bus.profile_ramp_steps` (08-20, option (b) of q_20260820T0830Z)
+
+Built after both V5 fast anti-skate canaries died at the pre-PPO B0
+bridge cert with ZERO training steps: the `bcgait1_hard1` transplant
+cannot survive its own 0.05–0.06 m/s straight walk zero-shot under
+either raised profile (1500/80: falls 6/8; 750/40: falls 2/8 —
+dose-graded, so the PROFILE DOSE itself destabilizes the walker before
+V5 or `k_loadslip_excess` ever engage). The ramp removes the cliff:
+the run STARTS at the fitted regime the transplant is stable in and
+anneals linearly to the target dose while PPO adapts.
+
+Keys (all opt-in; default absent/0 = OFF, bit-exact):
+
+- `bus.profile_ramp_steps` — global env steps over which the live
+  write profile anneals from the start trio to the cfg TARGET
+  (`bus.write_speed` / `bus.write_acc` / `safety.max_delta_q_deg`).
+- `bus.profile_ramp_start_write_speed` (default 350 — the fitted
+  velocity ceiling that legacy write_speed=400 actually delivered),
+  `bus.profile_ramp_start_write_acc` (default 20),
+  `bus.profile_ramp_start_max_delta_q_deg` (default 1.5).
+
+Mechanics: `train_ppo_mjx` arms the ramp right after venv construction
+(broadcast `apply_profile_ramp_frac(0.0)`), advances it once per
+rollout (`_ProfileRampCb`, W&B `profile_ramp/*`), and mirrors the
+training frac onto the walkcurr cert env — so `--walkcurr-cert-at-init`
+now certifies the transplant at the ramp START (where it is stable)
+and every later cert round assays the dose actually being trained.
+Envs built from a ramp cfg that never receive a broadcast
+(eval_checkpoint, play, the periodic C-env evals) sit at the TARGET
+dose by design: checkpoints are always judged at full dose. Fail-closed
+edges: target write_speed above the resolved vel ceiling raises at
+construction (set `bus.servo_vel_max_counts_s`, e.g. `write_speed`);
+training through `train_ppo_sim` with ramp keys is refused (only the
+MJX trainer is wired); the slew clamp survives MJX pool-restores of
+stale SafetyLayer snapshots (re-asserted every tick). Trainer warns
+loudly if `profile_ramp_steps >= --steps` (the policy would never
+train at full dose). Tests: `rl_move/tests/test_profile_ramp.py` (8).
+
+Status: mechanism BUILT + tested, nothing trained on it — the
+(a) ease-precert / (b) ramp-in / (c) park pick on the fast anti-skate
+sub-line stays with the operator (q_20260820T0830Z).

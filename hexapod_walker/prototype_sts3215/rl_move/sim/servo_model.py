@@ -231,6 +231,12 @@ def motor_contract(cfg: dict | None = None,
         "safety.max_delta_q_deg": max_dq,
         "control.hz": hz,
         "slew_limit_deg_s": max_dq * hz,
+        # Profile ramp-in (08-20, fast anti-skate option (b)): 0 = no
+        # ramp; > 0 = train_ppo_mjx anneals the live write profile from
+        # bus.profile_ramp_start_* to the target keys above over this
+        # many global env steps (the values above are the TARGET dose).
+        "bus.profile_ramp_steps": float(cfg_get(
+            resolved, "bus", "profile_ramp_steps", default=0) or 0),
         "servo_params_source": params.source,
         "backend_profile": backend,
     }
