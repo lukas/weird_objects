@@ -1,0 +1,1126 @@
+"""MuJoCo session object controlled by the hexapod web UI API."""
+from __future__ import annotations
+
+import csv
+import json
+import math
+import os
+import sys
+import threading
+import time
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
+
+import numpy as np
+
+from rl_move.env import TaskGoal
+
+from .joint_task import q_rad_to_action
+from .play import (
+    _CRUISE,
+    _DESC,
+    _HIST_K,
+    _LEGACY_PROFILE,
+    _N_MODE,
+    _NOSLIP_CLEAN,
+    _ROLE_OBS,
+    _SCRIPTED_ALPHA,
+    _SCRIPTED_ROWS,
+    _SCRIPTED_TRIPOD,
+    _SPEED_MAX,
+    _load_profiles,
+    _obs_width,
+    _sim_only_obs,
+    _PlayEnv,
+    scan_policies,
+)
+
+
+@dataclass
+class SimWebConfig:
+    policy_dir: Path
+    stance: Path
+    walk: Path
+    recover: Path
+    log_dir: Path
+    realtime: float = 1.0
+    phase_obs: bool = False
+    phase_hz: float = 0.1666667
+    all_models: bool = False
+
+
+class SimWebSession:
+    """Route-compatible controller for one local MuJoCo hexapod."""
+
+    def __init__(self, cfg: SimWebConfig):
+        self.cfg = cfg
+        self.lock = threading.RLock()
+        self.stop_event = threading.Event()
+        self.msg = "starting MuJoCo"
+        self.armed = False
+        self.mode = "hold"
+        self.auto: list | None = None
+        self.downed = False
+        self.sitting = False
+        self.drive_active = False
+        self.last_drive_cmd_at = 0.0
+        self.timed_walk_until: float | None = None
+        self.job_kind: str | None = None
+        self.job_result: dict[str, Any] = {"ok": True, "ended": "idle"}
+        self.sim_t = 0.0
+        self.gait = None
+        self.gait_t = 0.0
+        self.om_cmd = 0.0
+        self.hist: list[np.ndarray] | None = None
+        self.gru = {"state": None, "start": np.ones((1,), dtype=bool)}
+        self.push_ticks = 0
+        self.push_force = np.zeros(3, dtype=float)
+        self.log_dir = cfg.log_dir
+        self.log_dir.mkdir(parents=True, exist_ok=True)
+        self._log_fp = None
+        self._log_writer = None
+        self._log_name = ""
+        self._last_log_row_t = -1.0
+        self.roles: dict[str, str] = {}
+        self.role_models: dict[str, tuple[Any, Path, int] | str] = {}
+
+        self._load_runtime()
+        self.thread = threading.Thread(target=self._run, name="sim-web-tick",
+                                       daemon=True)
+        self.thread.start()
+
+    def _load_runtime(self) -> None:
+        import mujoco
+        from stable_baselines3 import PPO
+
+        from .servo_model import SimServoParams
+        from ..config import load_config
+
+        lc = Path(__file__).resolve().parents[2] / "linux_control"
+        if str(lc) not in sys.path:
+            sys.path.insert(0, str(lc))
+        from noslip_gait import NoSlipGait
+        from tripod_gait import TripodGait
+
+        self.mujoco = mujoco
+        self.PPO = PPO
+        self.load_checkpoint_auto = self._load_checkpoint_auto
+        self.NoSlipGait = NoSlipGait
+        self.TripodGait = TripodGait
+
+        cfg = load_config()
+        cfg.setdefault("obs", {})["mode_onehot"] = 1.0
+        cfg["obs"]["mode_onehot_cmd"] = 1.0
+        self.walk_widths: tuple[int, ...] = (72, 78, 1152)
+        if self.cfg.phase_obs:
+            cfg.setdefault("goal", {})["walk_phase_obs"] = 1.0
+            cfg["goal"]["walk_phase_hz"] = self.cfg.phase_hz
+            _ROLE_OBS[74] = "walk"
+            self.walk_widths = (72, 74, 78, 1152)
+        self.env = _PlayEnv(params=SimServoParams.from_cfg(cfg),
+                            randomize=False, episode_seconds=3600.0,
+                            render_mode="rgb_array", cfg=cfg)
+        self.traj = self.env.traj
+        self.chassis_bid = self.env.model.body("chassis").id
+        self.profiles = _load_profiles()
+
+        cats = scan_policies(self.cfg.policy_dir,
+                             all_models=self.cfg.all_models)
+        self.stance_list = cats["stance"]
+        self.walk_list = cats["walk"]
+        self.si = self._ensure_listed(self.stance_list, self.cfg.stance, (68,))
+        self.wi = self._ensure_listed(self.walk_list, self.cfg.walk,
+                                      self.walk_widths)
+        self.walk_list.extend([_NOSLIP_CLEAN])
+        self.walk_list.extend(_SCRIPTED_TRIPOD)
+        self.policy_index = self._build_policy_index()
+
+        self.stance = self.PPO.load(self.stance_list[self.si], device="cpu")
+        self.walk = self.load_checkpoint_auto(self.walk_list[self.wi],
+                                              device="cpu")
+        self.n_stance = int(self.stance.observation_space.shape[0])
+        self.n_walk = int(self.walk.observation_space.shape[0])
+        self.walk_kind = self._walk_kind_of(self.n_walk)
+        self.n_env = int(self.env.observation_space.shape[0])
+        if self.walk_kind == "plain" and self.n_walk > self.n_env:
+            raise ValueError(f"{self.walk_list[self.wi]} needs --phase-obs")
+        self.recover = (self.load_checkpoint_auto(self.cfg.recover,
+                                                  device="cpu")
+                        if self.cfg.recover.exists() else None)
+
+        self._regime_base: dict[str, Any] = {}
+        self.servo_fit_counts = float(
+            getattr(SimServoParams.load(), "speed_counts_s", 350.0))
+        self._apply_vel_contract(self.walk_list[self.wi].stem)
+
+        self.traj.start_at = "plant"
+        self.obs, _ = self.env.reset()
+        self.q_plant = self._q_now()
+        self.z_plant = self._chassis_z()
+        self.q_sit = self.q_plant.copy()
+        self.msg = "ready"
+
+    def _load_checkpoint_auto(self, path: Path, device: str = "cpu"):
+        """Load plain PPO checkpoints without requiring sb3-contrib.
+
+        Only 78-obs recurrent GRU checkpoints need ``gru_policy`` and its
+        sb3-contrib dependency; the default web-sim stance/walk pair is
+        plain PPO and should start in a lean local venv.
+        """
+        if _obs_width(path) == 78:
+            from .gru_policy import load_checkpoint_auto
+            return load_checkpoint_auto(path, device=device)
+        return self.PPO.load(path, device=device)
+
+    def _ensure_listed(self, lst: list[Path], p: Path,
+                       want: tuple[int, ...]) -> int:
+        if not p.exists():
+            raise FileNotFoundError(
+                f"{p} not found; pass --policy-dir or pull checkpoints first")
+        w = _obs_width(p)
+        if w not in want:
+            raise ValueError(f"{p}: obs width {w}, need one of {want}")
+        p = p.resolve()
+        if p not in lst:
+            lst.insert(0, p)
+        return lst.index(p)
+
+    def _build_policy_index(self) -> dict[str, Path]:
+        out: dict[str, Path] = {}
+        for p in self.stance_list + self.walk_list:
+            out[p.name] = p
+            out[p.stem] = p
+        for p in _SCRIPTED_ROWS:
+            out[f"scripted:{p.name}"] = p
+            out[p.name] = p
+        return out
+
+    @staticmethod
+    def _ckpt_regime(stem: str) -> dict[str, float] | None:
+        regimes = (
+            (("fasttrack1", "steer6", "fastnoslip"),
+             dict(speed=1500.0, acc=80.0, clamp_deg=5.0,
+                  cruise=0.08, vmax=0.10)),
+            (("middose", "midnoslip"),
+             dict(speed=750.0, acc=40.0, clamp_deg=3.0,
+                  cruise=0.08, vmax=0.10)),
+        )
+        for tokens, regime in regimes:
+            if any(t in stem for t in tokens):
+                return regime
+        return None
+
+    @staticmethod
+    def _walk_kind_of(width: int) -> str:
+        return {1152: "hist", 78: "gru"}.get(width, "plain")
+
+    def _apply_vel_contract(self, stem: str) -> None:
+        if self._ckpt_regime(stem) is not None:
+            mode = 3.0
+        else:
+            mode = 1.0 if _sim_only_obs("walk", stem) else 2.0
+        self.env.cfg.setdefault("goal", {})["walk_obs_body_vel"] = mode
+
+    def _reset_memories(self, hard: bool) -> None:
+        self.hist = None
+        if hard:
+            self.gru["state"] = None
+            self.gru["start"] = np.ones((1,), dtype=bool)
+
+    def _walk_predict(self) -> np.ndarray:
+        if self.walk_kind == "hist":
+            frame = self.obs[:72].copy()
+            if self.hist is None:
+                self.hist = [frame.copy() for _ in range(_HIST_K)]
+            else:
+                self.hist.pop()
+                self.hist.insert(0, frame)
+            a, _ = self.walk.predict(np.concatenate(self.hist),
+                                     deterministic=True)
+            return a
+        if self.walk_kind == "gru":
+            o = np.concatenate([self.obs[:72], self.obs[-_N_MODE:]])
+            a, self.gru["state"] = self.walk.policy.predict(
+                o, state=self.gru["state"],
+                episode_start=self.gru["start"], deterministic=True)
+            self.gru["start"] = np.zeros((1,), dtype=bool)
+            return a
+        a, _ = self.walk.predict(self.obs[:self.n_walk], deterministic=True)
+        return a
+
+    def _chassis_z(self) -> float:
+        return float(self.env.data.xpos[self.chassis_bid, 2])
+
+    def _q_now(self) -> np.ndarray:
+        return self.env.data.qpos[7:25].copy()
+
+    def _roll_pitch_deg(self) -> tuple[float, float]:
+        qw, qx, qy, qz = self.env.data.qpos[3:7]
+        roll = math.atan2(2 * (qw * qx + qy * qz),
+                          1 - 2 * (qx * qx + qy * qy))
+        pitch = math.asin(max(-1.0, min(1.0, 2 * (qw * qy - qz * qx))))
+        return round(math.degrees(roll), 1), round(math.degrees(pitch), 1)
+
+    def _body_vel(self) -> tuple[float, float]:
+        try:
+            v = self.env._body_vel_xy()
+            return float(v[0]), float(v[1])
+        except Exception:
+            return 0.0, 0.0
+
+    def _do_reset(self, start: str, h_goal: float, note: str) -> None:
+        self.auto = None
+        self.downed = False
+        self.sitting = False
+        self.drive_active = False
+        self.timed_walk_until = None
+        self.gait = None
+        self.gait_t = 0.0
+        self.om_cmd = 0.0
+        self.traj.start_at = start
+        self.traj.goal = TaskGoal()
+        self.traj.goal.height_ref = h_goal
+        self.traj.vx = self.traj.vy = 0.0
+        self.traj.mode = "hold"
+        self.traj.reset_published()
+        self._reset_memories(hard=True)
+        self.obs, _ = self.env.reset()
+        if start == "plant":
+            self.q_plant = self._q_now()
+            self.z_plant = self._chassis_z()
+        self.msg = note
+        self._finish_job(note)
+
+    def _new_gait(self):
+        kw = _SCRIPTED_TRIPOD.get(self.walk_list[self.wi])
+        if kw is not None:
+            g = self.TripodGait(period=kw["period"],
+                                lift=kw["lift_mm"] * 0.001, ramp=0.4)
+            g.sync_plant_stance(math.degrees(self.q_plant[1]),
+                                math.degrees(self.q_plant[2]))
+            g.set_lift_mm(kw["lift_mm"])
+            g.reset_phase(t=0.0)
+            return g
+        if self.walk_list[self.wi] is _NOSLIP_CLEAN:
+            g = self.NoSlipGait.clamp_fit()
+        else:
+            g = self.NoSlipGait(
+                alpha=_SCRIPTED_ALPHA.get(self.walk_list[self.wi], 0.0))
+        g.sync_plant_stance(math.degrees(self.q_plant[1]),
+                            math.degrees(self.q_plant[2]))
+        return g
+
+    def _blend_ticks(self) -> int:
+        gap = max(self.z_plant - self._chassis_z(), 0.0)
+        return int(round(min(max(gap / 0.020, 0.5), 4.0) / self.env.dt))
+
+    def _stance_profile(self, kind: str) -> dict[str, float]:
+        path = self._role_path(kind) or self.stance_list[self.si]
+        prof = self.profiles.get(path.stem, {})
+        return {**_LEGACY_PROFILE[kind], **prof.get(kind, {})}
+
+    def _apply_ramp(self, kind: str) -> dict[str, float]:
+        prof = self._stance_profile(kind)
+        self.traj.HEIGHT_RATE = abs(prof["target_m"]) / max(prof["ramp_s"], 0.1)
+        self.traj.BELLY_HOLD_S = float(prof["hold_s"]) if kind == "stand" else 0.0
+        return prof
+
+    def _restore_phys(self, keep_q: np.ndarray, keep_v: np.ndarray) -> None:
+        self.env.data.qpos[:] = keep_q
+        self.env.data.qvel[:] = keep_v
+        self.mujoco.mj_forward(self.env.model, self.env.data)
+        self.env._profile.reset(self._q_now())
+        self.env.safety.set_nominal(self._q_now())
+
+    def _re_anchor_plant(self) -> None:
+        keep_q = self.env.data.qpos.copy()
+        keep_v = self.env.data.qvel.copy()
+        self.traj.start_at = "plant"
+        self.traj.goal = TaskGoal()
+        self.traj.vx = self.traj.vy = 0.0
+        self.traj.reset_published()
+        self._reset_memories(hard=False)
+        self.obs, _ = self.env.reset()
+        self._restore_phys(keep_q, keep_v)
+
+    def _re_anchor_belly(self) -> None:
+        keep_q = self.env.data.qpos.copy()
+        keep_v = self.env.data.qvel.copy()
+        self.traj.start_at = "zero"
+        self.traj.goal = TaskGoal()
+        self.traj.vx = self.traj.vy = 0.0
+        self.traj.reset_published()
+        self._reset_memories(hard=False)
+        self.obs, _ = self.env.reset()
+        self._restore_phys(keep_q, keep_v)
+
+    def _role_path(self, role: str) -> Path | None:
+        entry = self.role_models.get(role)
+        if isinstance(entry, tuple):
+            return entry[1]
+        return None
+
+    def _role_model(self, role: str):
+        entry = self.role_models.get(role)
+        if isinstance(entry, tuple):
+            return entry[0], entry[2]
+        if role == "hold" and entry == "walk":
+            return self.walk, self.n_walk
+        return self.stance, self.n_stance
+
+    def _stance_action(self, role: str) -> np.ndarray:
+        model, n = self._role_model(role)
+        a, _ = model.predict(self.obs[:n], deterministic=True)
+        return a
+
+    def _do_stand(self) -> None:
+        if self.auto is not None:
+            if self.auto[0] == "lower":
+                self.auto = None
+            elif self.auto[0] == "recover":
+                self.msg = "recovering - wait for the stand"
+                return
+            else:
+                self.msg = "rise already running"
+                return
+        self.sitting = False
+        prof = self._apply_ramp("stand")
+        if (not self.downed and self.traj.start_at == "plant"
+                and self._chassis_z() > 0.09):
+            self.traj.goal.height_ref = 0.0
+            self.msg = "rising back up (in place)"
+            return
+        keep_q = self.env.data.qpos.copy()
+        keep_v = self.env.data.qvel.copy()
+        self.downed = False
+        self.gait = None
+        self.om_cmd = 0.0
+        self.traj.start_at = "zero"
+        self.traj.goal = TaskGoal()
+        self.traj.goal.height_ref = float(prof["target_m"])
+        self.traj.vx = self.traj.vy = 0.0
+        self.traj.reset_published()
+        self._reset_memories(hard=False)
+        self.obs, _ = self.env.reset()
+        self._restore_phys(keep_q, keep_v)
+        rise_total = float(prof["hold_s"]) + float(prof["ramp_s"]) + 1.5
+        self.auto = ["rise", 0, rise_total]
+        self.msg = "RISE (in place)"
+
+    def _do_sit(self) -> None:
+        if self.downed:
+            self.msg = "robot is down - reset or recover first"
+            return
+        if self.sitting:
+            self.msg = "already lowered"
+            return
+        if self.auto is not None and self.auto[0] in ("blend", "fold", "fell"):
+            self.msg = "scripted transition in progress"
+            return
+        self.auto = None
+        self.traj.vx = self.traj.vy = 0.0
+        self.om_cmd = 0.0
+        prof = self._apply_ramp("lower")
+        if self.traj.start_at in ("zero", "belly"):
+            self.auto = ["fold", 0, int(6.0 / self.env.dt), self._chassis_z()]
+            self.msg = "LOWER: settling to the ground"
+            return
+        self.traj.goal.height_ref = float(prof["target_m"])
+        total = float(prof["hold_s"]) + float(prof["ramp_s"]) + 1.5
+        self.auto = ["lower", 0, total]
+        self.msg = "LOWER: crouch, then settle"
+
+    def _upright(self) -> bool:
+        roll, pitch = self._roll_pitch_deg()
+        return (self._chassis_z() > 0.10 and abs(roll) < 17.0
+                and abs(pitch) < 17.0)
+
+    def _do_fall(self) -> None:
+        roll = 0.4
+        pitch = 0.3
+        cr, sr = math.cos(roll / 2), math.sin(roll / 2)
+        cp, sp = math.cos(pitch / 2), math.sin(pitch / 2)
+        self.traj.vx = self.traj.vy = 0.0
+        self.env.data.qpos[2] = 0.20
+        self.env.data.qpos[3:7] = [cr * cp, sr * cp, cr * sp, sr * sp]
+        lo, hi = self.env.model.jnt_range[1:, 0], self.env.model.jnt_range[1:, 1]
+        self.env.data.qpos[7:25] = np.random.uniform(lo, hi)
+        self.env.data.qvel[:] = 0.0
+        self.mujoco.mj_forward(self.env.model, self.env.data)
+        self._reset_memories(hard=True)
+        self.sitting = False
+        self.downed = False
+        self.auto = ["fell", 0, int(4.0 / self.env.dt), self._chassis_z()]
+        self.msg = "FALLING into sprawled pose"
+
+    def _do_recover(self) -> None:
+        if self.recover is None:
+            self.msg = f"no recovery checkpoint ({self.cfg.recover.name})"
+            return
+        if self.auto is not None and self.auto[0] == "fell":
+            self.msg = "still tumbling - recover after it lands"
+            return
+        self.traj.vx = self.traj.vy = 0.0
+        self.om_cmd = 0.0
+        self._re_anchor_belly()
+        self.downed = False
+        self.sitting = False
+        self.upright_ticks = 0
+        self.env.cfg.setdefault("goal", {})["walk_obs_body_vel"] = 1.0
+        self.auto = ["recover", 0, int(20.0 / self.env.dt)]
+        self.msg = "RECOVER: policy getting up"
+
+    def _engage_walk(self) -> bool:
+        if self.auto is not None:
+            self.msg = "auto transition in progress"
+            return False
+        if self.downed:
+            self.msg = "robot is down - reset or recover first"
+            return False
+        if self.sitting:
+            self.msg = "lowered - stand first"
+            return False
+        if self._chassis_z() < 0.09:
+            self.msg = "too low to walk - stand first"
+            return False
+        self.traj.goal.roll_ref = self.traj.goal.pitch_ref = 0.0
+        self.traj.goal.height_ref = 0.0
+        self.traj._pub.roll_ref = self.traj._pub.pitch_ref = 0.0
+        self.traj._pub.height_ref = 0.0
+        if self.walk is not None:
+            self._apply_vel_contract(self.walk_list[self.wi].stem)
+        return True
+
+    def _drive_band(self) -> tuple[float, float]:
+        kw = _SCRIPTED_TRIPOD.get(self.walk_list[self.wi])
+        if kw is not None:
+            return kw["cruise"], kw["cruise"]
+        reg = None if self.walk is None else self._ckpt_regime(self.walk_list[self.wi].stem)
+        if reg is not None:
+            return reg["cruise"], reg["vmax"]
+        return _CRUISE, _SPEED_MAX
+
+    def _apply_servo_regime(self) -> None:
+        prof = self.env._profile
+        if prof is None:
+            return
+        if not self._regime_base:
+            self._regime_base["vel"] = prof._vel_default.copy()
+            self._regime_base["speed"] = self.env.write_speed_deg_s
+            self._regime_base["acc"] = self.env.write_acc_units
+            self._regime_base["dq"] = self.env.safety.max_dq
+        tripod_live = self.walk_list[self.wi] in _SCRIPTED_TRIPOD
+        reg = None if tripod_live or self.walk is None else self._ckpt_regime(
+            self.walk_list[self.wi].stem)
+        if tripod_live:
+            s = 1500.0 / max(self.servo_fit_counts, 1.0)
+            prof._vel_default[:] = self._regime_base["vel"] * s
+            self.env.write_speed_deg_s = 1500.0 * 360.0 / 4096.0
+            self.env.write_acc_units = 80.0
+            self.env.safety.max_dq = self._regime_base["dq"]
+        elif reg is not None:
+            s = reg["speed"] / max(self.servo_fit_counts, 1.0)
+            prof._vel_default[:] = self._regime_base["vel"] * s
+            self.env.write_speed_deg_s = reg["speed"] * 360.0 / 4096.0
+            self.env.write_acc_units = reg["acc"]
+            self.env.safety.max_dq = math.radians(reg["clamp_deg"])
+        else:
+            prof._vel_default[:] = self._regime_base["vel"]
+            self.env.write_speed_deg_s = self._regime_base["speed"]
+            self.env.write_acc_units = self._regime_base["acc"]
+            self.env.safety.max_dq = self._regime_base["dq"]
+
+    def _tick_locked(self) -> None:
+        self._apply_servo_regime()
+        now = time.monotonic()
+        if self.drive_active and now - self.last_drive_cmd_at > 0.6:
+            self.traj.vx = self.traj.vy = 0.0
+        if self.timed_walk_until is not None and self.sim_t >= self.timed_walk_until:
+            self.traj.vx = self.traj.vy = 0.0
+            self.timed_walk_until = None
+            self._finish_job("timed walk complete")
+
+        cmd_speed = float(np.hypot(self.traj.vx, self.traj.vy))
+        scripted = self.walk is None
+        walking = ((cmd_speed > 1e-3 or (scripted and abs(self.om_cmd) > 1e-3))
+                   and self.auto is None and not self.downed and not self.sitting)
+        if not walking:
+            self.gait = None
+            self.hist = None
+        self.mode = ("rise" if self.auto is not None and self.auto[0] in
+                     ("rise", "blend", "recover")
+                     else "lower" if self.auto is not None and self.auto[0] in
+                     ("lower", "fold", "fell")
+                     else "walk" if walking else "hold")
+        self.traj.mode = self.mode
+
+        action = None
+        if self.push_ticks > 0:
+            self.env.data.xfrc_applied[self.chassis_bid, :3] = self.push_force
+            self.push_ticks -= 1
+        else:
+            self.env.data.xfrc_applied[self.chassis_bid, :3] = 0.0
+
+        if self.downed:
+            action = q_rad_to_action(self._q_now())
+        elif self.auto is not None and self.auto[0] == "rise":
+            action = self._stance_action("stand")
+            self.auto[1] += 1
+            if self.auto[1] * self.env.dt >= self.auto[2]:
+                if self._chassis_z() > 0.06:
+                    self.q_blend_from = self._q_now()
+                    self.auto = ["blend", 0, self._blend_ticks()]
+                    self.msg = "aligning to walk stance"
+                else:
+                    self.auto = None
+                    self._finish_job("rise failed", ok=False)
+        elif self.auto is not None and self.auto[0] == "blend":
+            self.auto[1] += 1
+            s = min(self.auto[1] / max(self.auto[2], 1), 1.0)
+            action = q_rad_to_action((1.0 - s) * self.q_blend_from
+                                     + s * self.q_plant)
+            if self.auto[1] >= self.auto[2]:
+                self._re_anchor_plant()
+                self.auto = None
+                self._finish_job("up at walk stance")
+        elif self.auto is not None and self.auto[0] == "lower":
+            action = self._stance_action("lower")
+            self.auto[1] += 1
+            if self.auto[1] * self.env.dt >= self.auto[2]:
+                self.auto = ["fold", 0, int(6.0 / self.env.dt),
+                             self._chassis_z()]
+                self.msg = "settling to ground"
+        elif self.auto is not None and self.auto[0] == "fold":
+            self.env._advance(limp=True)
+            self.auto[1] += 1
+            z = self._chassis_z()
+            settled = self.auto[1] * self.env.dt > 1.0 and abs(z - self.auto[3]) < 2e-5
+            self.auto[3] = z
+            if settled or self.auto[1] >= self.auto[2]:
+                self._re_anchor_belly()
+                self.auto = None
+                self.sitting = True
+                self.q_sit = self._q_now()
+                self._finish_job("lowered, parked on ground")
+        elif self.auto is not None and self.auto[0] == "fell":
+            self.env._advance(limp=True)
+            self.auto[1] += 1
+            z = self._chassis_z()
+            settled = self.auto[1] * self.env.dt > 1.0 and abs(z - self.auto[3]) < 2e-5
+            self.auto[3] = z
+            if settled or self.auto[1] >= self.auto[2]:
+                self._re_anchor_belly()
+                self.auto = None
+                self.downed = True
+                self.msg = "FALLEN - recover or reset"
+        elif self.auto is not None and self.auto[0] == "recover":
+            action, _ = self.recover.predict(self.obs[:72], deterministic=True)
+            self.auto[1] += 1
+            self.upright_ticks = self.upright_ticks + 1 if self._upright() else 0
+            if self.upright_ticks >= int(1.0 / self.env.dt):
+                self._re_anchor_plant()
+                self.auto = None
+                self._finish_job("recovered - standing")
+            elif self.auto[1] >= self.auto[2]:
+                self.auto = None
+                self._finish_job("recovery timed out", ok=False)
+        elif self.sitting:
+            action = q_rad_to_action(self.q_sit)
+        elif walking and scripted:
+            if self.gait is None:
+                self.gait = self._new_gait()
+                self.gait_t = 0.0
+            self.gait.set_velocity(vx=self.traj.vx, vy=self.traj.vy,
+                                   omega=self.om_cmd)
+            action = q_rad_to_action(np.radians(self.gait.desired_deg(self.gait_t)))
+            self.gait_t += self.env.dt
+        elif walking:
+            action = self._walk_predict()
+        else:
+            action = self._stance_action("hold")
+
+        if action is not None:
+            self.obs, _r, term, trunc, info = self.env.step(action)
+            if term or trunc:
+                self.downed = True
+                self.auto = None
+                self.drive_active = False
+                self.timed_walk_until = None
+                self.traj.vx = self.traj.vy = 0.0
+                reason = info.get("termination_reason") or "episode end"
+                self._finish_job(f"{reason}; DOWN", ok=False)
+        self.sim_t += self.env.dt
+        self._write_log_row()
+
+    def _run(self) -> None:
+        while not self.stop_event.is_set():
+            t0 = time.monotonic()
+            with self.lock:
+                self._tick_locked()
+            if self.cfg.realtime > 0:
+                delay = self.env.dt / self.cfg.realtime - (time.monotonic() - t0)
+                if delay > 0:
+                    self.stop_event.wait(delay)
+
+    def _finish_job(self, ended: str, ok: bool = True) -> None:
+        self.msg = ended
+        if self.job_kind:
+            self.job_result = {
+                "ok": ok,
+                "ended": ended,
+                "mode": self.job_kind,
+                "sim_t_s": round(self.sim_t, 2),
+                "log": self._log_name or None,
+            }
+            self.job_kind = None
+            self._close_log()
+        elif ended:
+            self.job_result = {"ok": ok, "ended": ended,
+                               "sim_t_s": round(self.sim_t, 2)}
+
+    def _open_log(self, kind: str) -> None:
+        self._close_log()
+        stamp = time.strftime("%Y%m%d_%H%M%S")
+        self._log_name = f"sim_{kind}_{stamp}.csv"
+        self._log_fp = (self.log_dir / self._log_name).open("w", newline="")
+        self._log_writer = csv.DictWriter(self._log_fp, fieldnames=[
+            "t_s", "mode", "height_mm", "roll_deg", "pitch_deg",
+            "vx_ref_mps", "vy_ref_mps", "vx_body_mps", "vy_body_mps",
+            "stance", "walk", "msg",
+        ])
+        self._log_writer.writeheader()
+        self._last_log_row_t = -1.0
+
+    def _write_log_row(self) -> None:
+        if self._log_writer is None or self.sim_t - self._last_log_row_t < 0.04:
+            return
+        roll, pitch = self._roll_pitch_deg()
+        vx, vy = self._body_vel()
+        self._log_writer.writerow({
+            "t_s": round(self.sim_t, 3),
+            "mode": self.mode,
+            "height_mm": round(self._chassis_z() * 1000.0, 1),
+            "roll_deg": roll,
+            "pitch_deg": pitch,
+            "vx_ref_mps": round(float(self.traj.vx), 4),
+            "vy_ref_mps": round(float(self.traj.vy), 4),
+            "vx_body_mps": round(vx, 4),
+            "vy_body_mps": round(vy, 4),
+            "stance": self._active_stance_name(),
+            "walk": self._active_walk_name(),
+            "msg": self.msg,
+        })
+        self._last_log_row_t = self.sim_t
+
+    def _close_log(self) -> None:
+        if self._log_fp is not None:
+            self._log_fp.close()
+        self._log_fp = None
+        self._log_writer = None
+
+    def _active_stance_name(self) -> str:
+        return self.stance_list[self.si].name
+
+    def _active_walk_name(self) -> str:
+        p = self.walk_list[self.wi]
+        return f"scripted:{p.name}" if p in _SCRIPTED_ROWS else p.name
+
+    def _live(self) -> dict[str, Any]:
+        roll, pitch = self._roll_pitch_deg()
+        vx, vy = self._body_vel()
+        return {
+            "model": self._active_walk_name(),
+            "stance": self._active_stance_name(),
+            "mode": self.mode,
+            "status": self.msg,
+            "vx_ref": round(float(self.traj.vx), 4),
+            "vy_ref": round(float(self.traj.vy), 4),
+            "vx_body": round(vx, 4),
+            "vy_body": round(vy, 4),
+            "roll_deg": roll,
+            "pitch_deg": pitch,
+            "height_mm": round(self._chassis_z() * 1000.0, 1),
+            "t_s": round(self.sim_t, 1),
+        }
+
+    # Public API methods used by web_server.py -------------------------
+
+    def ping(self) -> dict[str, Any]:
+        return {"ok": True, "service": "hexapod-sim",
+                "kind": "sim", "mode": self.mode}
+
+    def status(self) -> dict[str, Any]:
+        with self.lock:
+            return {"ok": True, "sim": True, "motors": [],
+                    "live": self._live()}
+
+    def robot_state(self) -> dict[str, Any]:
+        with self.lock:
+            act = "armed" if self.armed else "limp"
+            if self.drive_active:
+                act = "driving"
+            elif self.auto is not None or self.job_kind:
+                act = "rl"
+            return {"ok": True, "activity": act, "detail": self.msg,
+                    "mode": self.mode, "armed": self.armed,
+                    "sim": True, "live": self._live()}
+
+    def operation_state(self) -> dict[str, Any]:
+        with self.lock:
+            running = bool(self.job_kind)
+            return {"ok": True, "running": running,
+                    "name": "rl_policy_sim" if running else "",
+                    "progress": {"msg": self.msg, "live": self._live()},
+                    "result": self.job_result}
+
+    def sim_state(self) -> dict[str, Any]:
+        with self.lock:
+            return {"ok": True, "active": self.drive_active,
+                    "auto": self.auto[0] if self.auto else None,
+                    "downed": self.downed, "sitting": self.sitting,
+                    "live": self._live()}
+
+    def rl_preflight(self, mode: str = "stand") -> dict[str, Any]:
+        with self.lock:
+            roll, pitch = self._roll_pitch_deg()
+            if self.auto is not None:
+                return {"ok": False, "error": "auto transition running",
+                        "roll_deg": roll, "pitch_deg": pitch}
+            if mode == "walk" and (self.downed or self.sitting
+                                   or self._chassis_z() < 0.09):
+                return {"ok": False, "error": "stand before walking",
+                        "roll_deg": roll, "pitch_deg": pitch}
+            return {"ok": True, "sim": True, "mode": mode,
+                    "roll_deg": roll, "pitch_deg": pitch,
+                    "max_pose_delta_deg": 0.0, "pose_tol_deg": 180.0}
+
+    def rl_policy_info(self) -> dict[str, Any]:
+        with self.lock:
+            return {"ok": True, **self._model_info(self.stance,
+                                                   self.stance_list[self.si]),
+                    "walk": self._model_info(self.walk, self.walk_list[self.wi])
+                    if self.walk is not None else self._scripted_info()}
+
+    def _model_info(self, model: Any, path: Path) -> dict[str, Any]:
+        return {"source": str(path), "obs_dim": int(model.observation_space.shape[0]),
+                "act_dim": int(model.action_space.shape[0]),
+                "hidden": self._hidden_layers(model),
+                "activation": getattr(getattr(model.policy, "activation_fn", None),
+                                      "__name__", model.policy.__class__.__name__)}
+
+    @staticmethod
+    def _hidden_layers(model: Any) -> list[int]:
+        try:
+            import torch.nn as nn
+            return [m.out_features for m in model.policy.mlp_extractor.policy_net
+                    if isinstance(m, nn.Linear)]
+        except Exception:
+            return []
+
+    def _scripted_info(self) -> dict[str, Any]:
+        return {"source": self._active_walk_name(), "obs_dim": 72,
+                "act_dim": 18, "hidden": [], "activation": "scripted"}
+
+    def rl_policies(self) -> dict[str, Any]:
+        with self.lock:
+            rows = []
+            for p in self.stance_list:
+                rows.append(self._policy_row(p, "stance", 68,
+                                             p == self.stance_list[self.si]))
+            for p in self.walk_list:
+                if p in _SCRIPTED_ROWS:
+                    rows.append(self._policy_row(p, "walk", 72,
+                                                 p == self.walk_list[self.wi],
+                                                 scripted=True))
+                else:
+                    rows.append(self._policy_row(p, "walk", _obs_width(p) or 0,
+                                                 p == self.walk_list[self.wi]))
+            return {"ok": True, "dir": str(self.cfg.policy_dir),
+                    "policies": rows}
+
+    def _policy_row(self, p: Path, slot: str, obs_dim: int, active: bool,
+                    scripted: bool = False) -> dict[str, Any]:
+        file = f"scripted:{p.name}" if scripted else p.name
+        return {"file": file, "name": p.stem, "slot": slot,
+                "obs_dim": obs_dim, "active": active,
+                "notes": _DESC.get(p.stem, "scripted gait" if scripted else "")}
+
+    def rl_roles(self) -> dict[str, Any]:
+        with self.lock:
+            roles = {}
+            for role in ("walk", "hold", "stand", "lower"):
+                roles[role] = {"file": self.roles.get(role, ""),
+                               "resolved": self._role_resolved(role)}
+            return {"ok": True,
+                    "allowed_obs": {"walk": list(self.walk_widths),
+                                    "hold": [68, *self.walk_widths],
+                                    "stand": [68], "lower": [68]},
+                    "roles": roles}
+
+    def _role_resolved(self, role: str) -> str:
+        if role == "walk":
+            return self._active_walk_name()
+        entry = self.role_models.get(role)
+        if isinstance(entry, tuple):
+            return entry[1].name
+        if entry == "walk":
+            return "walk policy @ zero command"
+        return self._active_stance_name()
+
+    def rl_role_set(self, role: str, file: str) -> dict[str, Any]:
+        role = role.strip().lower()
+        if role not in {"walk", "hold", "stand", "lower"}:
+            return {"ok": False, "error": f"bad role {role!r}"}
+        with self.lock:
+            if not file:
+                self.roles.pop(role, None)
+                self.role_models.pop(role, None)
+                return self.rl_roles()
+            if role == "hold" and file == "walk":
+                self.roles[role] = "walk"
+                self.role_models[role] = "walk"
+                return self.rl_roles()
+            p = self.policy_index.get(file)
+            if p is None or p in _SCRIPTED_ROWS:
+                return {"ok": False, "error": f"unknown policy {file!r}"}
+            w = _obs_width(p)
+            if role in {"stand", "lower"} and w != 68:
+                return {"ok": False, "error": f"{role} needs obs 68"}
+            if role == "hold" and w not in (68, *self.walk_widths):
+                return {"ok": False, "error": "hold needs stance/walk obs"}
+            model = (self.PPO.load(p, device="cpu") if w == 68
+                     else self.load_checkpoint_auto(p, device="cpu"))
+            self.roles[role] = p.name
+            self.role_models[role] = (model, p, int(w or 0))
+            return self.rl_roles()
+
+    def rl_policy_select(self, file: str) -> dict[str, Any]:
+        with self.lock:
+            p = self.policy_index.get(file)
+            if p is None:
+                return {"ok": False, "error": f"unknown policy {file!r}"}
+            if p in _SCRIPTED_ROWS:
+                self._set_walk_path(p)
+                return {"ok": True, "name": p.stem, "slot": "walk"}
+            w = _obs_width(p)
+            if w == 68:
+                self._set_stance_path(p)
+                return {"ok": True, "name": p.stem, "slot": "stance"}
+            if w in self.walk_widths:
+                self._set_walk_path(p)
+                return {"ok": True, "name": p.stem, "slot": "walk"}
+            return {"ok": False, "error": f"unsupported obs width {w}"}
+
+    def _set_stance_path(self, p: Path) -> None:
+        self.si = self.stance_list.index(p.resolve())
+        self.stance = self.PPO.load(p, device="cpu")
+        self.n_stance = int(self.stance.observation_space.shape[0])
+        self.msg = f"stance model -> {p.stem}"
+
+    def _set_walk_path(self, p: Path) -> None:
+        self.wi = self.walk_list.index(p)
+        self.gait = None
+        if p in _SCRIPTED_ROWS:
+            self.walk = None
+            self.n_walk = 72
+            self.walk_kind = "plain"
+            self.msg = f"walk driver -> scripted {p.name}"
+            return
+        self.walk = self.load_checkpoint_auto(p, device="cpu")
+        self.n_walk = int(self.walk.observation_space.shape[0])
+        self.walk_kind = self._walk_kind_of(self.n_walk)
+        if self.walk_kind == "plain" and self.n_walk > self.n_env:
+            raise ValueError(f"{p.stem} needs --phase-obs")
+        self._reset_memories(hard=True)
+        self._apply_vel_contract(p.stem)
+        self.msg = f"walk model -> {p.stem}"
+
+    def rl_capture_plant(self) -> dict[str, Any]:
+        with self.lock:
+            self.q_plant = self._q_now()
+            self.z_plant = self._chassis_z()
+            return {"ok": True, "sim": True,
+                    "hip_deg": round(math.degrees(self.q_plant[1]), 1),
+                    "knee_deg": round(math.degrees(self.q_plant[2]), 1)}
+
+    def rl_policy_move(self, mode: str, vx: float = 0.03, vy: float = 0.0,
+                       duration_s: float = 6.0) -> dict[str, Any]:
+        with self.lock:
+            self.drive_active = False
+            self.timed_walk_until = None
+            self._open_log(mode)
+            self.job_kind = mode
+            if mode == "stand":
+                self._do_stand()
+                if self.auto is None:
+                    self._finish_job(self.msg)
+            elif mode == "lower":
+                self._do_sit()
+            elif mode == "walk":
+                if not self._engage_walk():
+                    self._finish_job(self.msg, ok=False)
+                    return {"ok": False, "error": self.msg}
+                _, vmax = self._drive_band()
+                mag = float(np.hypot(vx, vy))
+                scale = min(vmax / mag, 1.0) if mag > 1e-9 else 0.0
+                self.traj.vx = float(vx * scale)
+                self.traj.vy = float(vy * scale)
+                self.timed_walk_until = self.sim_t + max(0.1, duration_s)
+                self.msg = "timed walk running"
+            else:
+                self._finish_job(f"bad mode {mode}", ok=False)
+                return {"ok": False, "error": f"bad mode {mode}"}
+            return {"ok": True, "status": self.msg,
+                    "active": self.drive_active, "live": self._live()}
+
+    def rl_stop(self) -> dict[str, Any]:
+        with self.lock:
+            self.drive_active = False
+            self.timed_walk_until = None
+            self.traj.vx = self.traj.vy = 0.0
+            self.auto = None
+            self._finish_job("stopped - holding")
+            return {"ok": True, "status": self.msg, "live": self._live()}
+
+    def rl_drive_start(self) -> dict[str, Any]:
+        with self.lock:
+            if self.auto is None and (self.sitting or self._chassis_z() < 0.09):
+                self._do_stand()
+            self.drive_active = True
+            self.last_drive_cmd_at = time.monotonic()
+            self.traj.vx = self.traj.vy = 0.0
+            self._open_log("drive")
+            self.msg = "drive session active"
+            return {"ok": True, "active": True, "status": self.msg,
+                    "live": self._live()}
+
+    def rl_drive_cmd(self, vx: float, vy: float) -> dict[str, Any]:
+        with self.lock:
+            if not self.drive_active:
+                return {"ok": True, "active": False, "status": "not active",
+                        "result": self.job_result}
+            self.last_drive_cmd_at = time.monotonic()
+            if self._engage_walk():
+                _, vmax = self._drive_band()
+                mag = float(np.hypot(vx, vy))
+                scale = min(vmax / mag, 1.0) if mag > 1e-9 else 0.0
+                self.traj.vx = float(vx * scale)
+                self.traj.vy = float(vy * scale)
+            return {"ok": True, "active": self.drive_active,
+                    "status": self.msg, "live": self._live()}
+
+    def rl_drive_stop(self) -> dict[str, Any]:
+        with self.lock:
+            self.drive_active = False
+            self.traj.vx = self.traj.vy = 0.0
+            self._close_log()
+            self.job_result = {"ok": True, "ended": "drive stopped",
+                               "sim_t_s": round(self.sim_t, 2),
+                               "log": self._log_name or None}
+            self.msg = "drive stopped - holding"
+            return {"ok": True, "active": False, "result": self.job_result,
+                    "live": self._live()}
+
+    def rl_drive_state(self) -> dict[str, Any]:
+        with self.lock:
+            return {"ok": True, "active": self.drive_active,
+                    "status": self.msg, "result": self.job_result,
+                    "live": self._live()}
+
+    def cmd(self, line: str) -> dict[str, Any]:
+        parts = line.strip().split()
+        head = parts[0].upper() if parts else ""
+        with self.lock:
+            if head == "ARM":
+                self.armed = True
+                self.msg = "sim armed"
+            elif head in {"X", "DISARM", "RELAX"}:
+                self.armed = False
+                self.rl_stop()
+                self.msg = "sim stopped"
+            elif head == "SETTLE":
+                self.armed = False
+                self._do_sit()
+            elif head == "HOLD":
+                self.traj.vx = self.traj.vy = 0.0
+                self.msg = "holding"
+            elif head == "J" and len(parts) >= 4:
+                if self._engage_walk():
+                    self.traj.vx = float(parts[1]) / 1000.0
+                    self.traj.vy = float(parts[2]) / 1000.0
+                    self.om_cmd = float(parts[3])
+                    self.msg = "J command routed to sim"
+            return {"ok": True, "status": self.msg}
+
+    def sim_reset(self, start: str = "plant") -> dict[str, Any]:
+        with self.lock:
+            if start not in {"plant", "zero", "belly"}:
+                start = "plant"
+            h = 0.0
+            self._do_reset("zero" if start in {"zero", "belly"} else "plant",
+                           h, f"reset {start}")
+            return {"ok": True, "status": self.msg, "live": self._live()}
+
+    def sim_fall(self) -> dict[str, Any]:
+        with self.lock:
+            self._do_fall()
+            return {"ok": True, "status": self.msg, "live": self._live()}
+
+    def sim_recover(self) -> dict[str, Any]:
+        with self.lock:
+            self.job_kind = "recover"
+            self._open_log("recover")
+            self._do_recover()
+            return {"ok": self.auto is not None and self.auto[0] == "recover",
+                    "status": self.msg, "live": self._live()}
+
+    def sim_push(self, x: float = 4.0, y: float = 0.0) -> dict[str, Any]:
+        with self.lock:
+            self.push_force[:] = [x, y, 0.0]
+            self.push_ticks = int(0.20 / self.env.dt)
+            self.msg = f"push {x:+.1f},{y:+.1f} N"
+            return {"ok": True, "status": self.msg, "live": self._live()}
+
+    def frame_jpeg(self) -> bytes:
+        with self.lock:
+            frame = self.env.render()
+        import cv2
+        img = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+        ok, data = cv2.imencode(".jpg", img, [int(cv2.IMWRITE_JPEG_QUALITY), 86])
+        if not ok:
+            raise RuntimeError("could not encode sim frame")
+        return data.tobytes()
+
+    def logs(self) -> dict[str, Any]:
+        files = []
+        self.log_dir.mkdir(parents=True, exist_ok=True)
+        for f in sorted(self.log_dir.iterdir()):
+            if f.is_file():
+                st = f.stat()
+                files.append({"name": f.name, "bytes": st.st_size,
+                              "mtime_unix": round(st.st_mtime, 1)})
+        files.sort(key=lambda x: -x["mtime_unix"])
+        return {"ok": True, "dir": str(self.log_dir), "files": files}
+
+    def log_file(self, name: str, request_path: str = "") -> tuple[bytes, str]:
+        f = self.log_dir / Path(name).name
+        if not f.is_file():
+            raise FileNotFoundError(f"no such log: {name!r}")
+        tail = 0
+        if "tail=" in request_path:
+            try:
+                tail = int(request_path.split("tail=", 1)[1].split("&", 1)[0])
+            except ValueError:
+                tail = 0
+        data = f.read_bytes()
+        if tail > 0:
+            lines = data.splitlines()[-tail:]
+            data = b"\n".join(lines) + (b"\n" if lines else b"")
+        return data, "text/csv; charset=utf-8"
+
+    def close(self) -> None:
+        self.stop_event.set()
+        if getattr(self, "thread", None):
+            self.thread.join(timeout=2.0)
+        self._close_log()

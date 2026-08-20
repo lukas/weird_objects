@@ -10,6 +10,7 @@ let motorsTimer = null;
 let linkOk = null;           // null=unknown, true/false after first ping
 let linkFailStreak = 0;
 let lastPingOkAt = 0;
+let backendKind = 'robot';   // robot | sim
 // SERVO ARM GATE (separate from `armed`, which just means "a stick is pushed").
 // Defaults OFF on every page load and the firmware boots DISARMED, so nothing
 // drives a servo until the human presses Enable. All servo-driving sends are
@@ -30,8 +31,19 @@ function setLink(ok, detail){
     conn.textContent = detail || 'offline';
     conn.className = 'bad';
     const bar = document.getElementById('offlinebar');
-    if(bar) bar.textContent = '● Lost connection to Uno Q — retrying…'
+    const target = backendKind === 'sim' ? 'MuJoCo sim' : 'Uno Q';
+    if(bar) bar.textContent = `● Lost connection to ${target} — retrying…`
       +(detail ? (' ('+detail+')') : '');
+  }
+}
+function applyBackendMeta(meta){
+  if(!meta) return;
+  const kind = meta.kind || (meta.service === 'hexapod-sim' ? 'sim' : 'robot');
+  if(kind !== backendKind){
+    backendKind = kind;
+    document.body.classList.toggle('sim-backend', backendKind === 'sim');
+    updateArmUI();
+    if(activeView === 'rl') simPollMaybe();
   }
 }
 async function heartbeat(){
@@ -47,7 +59,8 @@ async function heartbeat(){
     if(!r.ok) throw new Error('HTTP '+r.status);
     const j = await r.json().catch(()=>({}));
     if(j && j.ok === false) throw new Error(j.error || 'ping failed');
-    setLink(true);
+    applyBackendMeta(j);
+    setLink(true, backendKind === 'sim' ? 'sim connected' : undefined);
   }catch(e){
     clearTimeout(t);
     linkFailStreak++;
@@ -678,7 +691,8 @@ function showView(which){
     refreshCalibrate(); startCalPoll();
   }
   else stopCalPoll();
-  if(which === 'rl'){ refreshRlTab(); }
+  if(which === 'rl'){ refreshRlTab(); simPollMaybe(); }
+  else stopSimPoll();
   if(which === 'measure'){ muRefresh(); muPollMaybe(); }
 }
 $('tab-drive').onclick = ()=> showView('drive');
@@ -1201,6 +1215,63 @@ for(const b of document.querySelectorAll('#rldrivepad button[data-dv]')){
   b.addEventListener('pointerleave', up);
   b.addEventListener('pointercancel', up);
 }
+
+// ---- MuJoCo backend panel --------------------------------------------------
+let simTimer = null, simBusy = false;
+function stopSimPoll(){
+  if(simTimer){ clearInterval(simTimer); simTimer = null; }
+}
+function simPollMaybe(){
+  if(backendKind !== 'sim' || activeView !== 'rl'){ stopSimPoll(); return; }
+  if(!simTimer) simTimer = setInterval(refreshSimPanel, 250);
+  refreshSimPanel();
+}
+async function refreshSimPanel(){
+  if(backendKind !== 'sim' || activeView !== 'rl' || simBusy) return;
+  simBusy = true;
+  try{
+    const img = $('simframe');
+    if(img) img.src = '/api/sim/frame.jpg?t='+Date.now();
+    const d = await (await fetch('/api/sim/state?t='+Date.now(),
+      {cache:'no-store'})).json();
+    const live = d.live || {};
+    const bits = [];
+    if(live.mode) bits.push(`<b>${live.mode}</b>`);
+    if(live.height_mm!=null) bits.push(`h ${live.height_mm} mm`);
+    if(live.vx_ref!=null) bits.push(`v ${Math.round(live.vx_ref*1000)},`
+      + `${Math.round(live.vy_ref*1000)} mm/s`);
+    if(live.roll_deg!=null) bits.push(`tilt ${live.roll_deg}/`
+      + `${live.pitch_deg}°`);
+    if(live.t_s!=null) bits.push(`${live.t_s}s`);
+    $('simstatus').innerHTML = (live.status || d.status || 'ready')
+      + (bits.length ? ' · '+bits.join(' · ') : '');
+  }catch(e){
+    $('simstatus').textContent = 'sim state unavailable';
+  } finally {
+    simBusy = false;
+  }
+}
+async function simPost(path, body){
+  try{
+    const r = await fetch(path, {method:'POST',
+      body: JSON.stringify(body || {})});
+    const d = await r.json();
+    $('simstatus').textContent = d.ok
+      ? (d.status || 'ok') : (d.error || 'failed');
+    refreshSimPanel();
+  }catch(e){ $('simstatus').textContent = 'sim command failed'; }
+}
+if($('simresetstand'))
+  $('simresetstand').onclick = ()=> simPost('/api/sim/reset',
+    {start:'plant'});
+if($('simresetbelly'))
+  $('simresetbelly').onclick = ()=> simPost('/api/sim/reset',
+    {start:'belly'});
+if($('simfall')) $('simfall').onclick = ()=> simPost('/api/sim/fall');
+if($('simrecover')) $('simrecover').onclick =
+  ()=> simPost('/api/sim/recover');
+if($('simpush')) $('simpush').onclick = ()=> simPost('/api/sim/push',
+  {x:4, y:0});
 
 // ---- Model roles (which policy file serves each function) ------------------
 const RL_ROLE_DEFS = [
@@ -2536,6 +2607,14 @@ window.addEventListener('hashchange', ()=>{
 // all PWM. needArm() gates every servo-driving send on both pages.
 function updateArmUI(){
   const bar = $('armbar');
+  bar.classList.toggle('sim', backendKind === 'sim');
+  if(backendKind === 'sim'){
+    bar.classList.remove('armed', 'disarmed');
+    $('armstate').textContent = '● SIM MODE — MuJoCo backend';
+    $('armbtn').textContent = 'Reset sim stand';
+    $('estop').textContent = '■ Stop sim';
+    return;
+  }
   bar.classList.toggle('armed', servosArmed);
   bar.classList.toggle('disarmed', !servosArmed);
   $('armstate').textContent = servosArmed ? '● ARMED — servos live'
@@ -2544,8 +2623,15 @@ function updateArmUI(){
                                           : 'Enable servos (power on)';
 }
 function setArmed(on){ servosArmed = on; if(!on) armed = false; updateArmUI(); }
-function armServos(){ cmd('ARM'); setArmed(true);
-  showSent('ARM — servos enabled (nothing moves; press Stand to stand)'); }
+function armServos(){
+  if(backendKind === 'sim'){
+    simPost('/api/sim/reset', {start:'plant'});
+    showSent('SIM — reset to stand');
+    return;
+  }
+  cmd('ARM'); setArmed(true);
+  showSent('ARM — servos enabled (nothing moves; press Stand to stand)');
+}
 // GRACEFUL power-off: lower to the ground first (firmware SETTLE = SIT then
 // DISARM), only THEN cut power. This is the NORMAL disarm/relax/off path so the
 // robot settles instead of collapsing. UI shows disarmed once the command is
@@ -2554,10 +2640,15 @@ function settleServos(){ dbgTestAbort = true; cmd('SETTLE'); setArmed(false);
   showSent('DISARM — lowering gently, then servos off'); }
 // INSTANT limp: cut all PWM NOW (true emergency stop; the robot drops). Always
 // allowed, even while disarmed, and used for the boot-time safe default.
-function disarmServos(){ dbgTestAbort = true; cmd('X'); setArmed(false);
-  showSent('EMERGENCY STOP — servos limp NOW'); }
+function disarmServos(){
+  dbgTestAbort = true; cmd('X'); setArmed(false);
+  showSent(backendKind === 'sim'
+    ? 'SIM — stopped, stance policy holds'
+    : 'EMERGENCY STOP — servos limp NOW');
+}
 // Returns true (and warns) when disarmed; every servo-driving action calls it.
 function needArm(){
+  if(backendKind === 'sim') return false;
   if(servosArmed) return false;
   showSent('⚠ Servos disarmed — press “Enable servos” first');
   return true;

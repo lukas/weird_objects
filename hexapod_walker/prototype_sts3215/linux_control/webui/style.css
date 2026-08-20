@@ -82,6 +82,13 @@
          cursor:pointer; }
   .tab.on { background:#2b6cff; border-color:#2b6cff; }
   .view { display:none; } .view.active { display:block; }
+  .sim-only { display:none; }
+  body.sim-backend .sim-only { display:block; }
+  .sim-frame { width:100%; aspect-ratio:4/3; object-fit:contain;
+               display:block; border-radius:10px; background:#0c0e13;
+               border:1px solid #232733; }
+  .armbar.sim { background:#111d2a; border-color:#2b6cff; }
+  .armbar.sim .armstate { color:#7eb6ff; }
   code { background:#222838; border:1px solid #333b52; border-radius:4px; padding:0 4px;
          font-family: ui-monospace, monospace; font-size:11px; }
   .armbar { display:flex; align-items:center; gap:10px; flex-wrap:wrap;

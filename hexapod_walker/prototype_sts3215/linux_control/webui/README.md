@@ -7,6 +7,11 @@ embedded string; it is now plain files served raw — **no framework, no build
 step, no bundler**. Edit a file, reload the browser, done (the server reads
 these files fresh on every request and sends `Cache-Control: no-cache`).
 
+The same files are also served by `rl_move.sim.web_server` for local
+MuJoCo testing (`sim_viewer/sim_web.sh`). Keep robot-compatible route
+shapes stable; sim-only affordances are gated by `/api/ping` returning
+`service:"hexapod-sim"` and use `/api/sim/*`.
+
 ## Files
 
 | File | What it is |

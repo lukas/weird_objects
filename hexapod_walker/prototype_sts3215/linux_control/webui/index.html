@@ -350,6 +350,18 @@ feet, zero commanded scrub.">
 
   <div id="view-rl" class="view">
   <div class="row">
+    <div class="pad sim-only" id="sim-panel" style="flex:2 1 520px">
+      <h2>MuJoCo</h2>
+      <img id="simframe" class="sim-frame" alt="MuJoCo hexapod view">
+      <div class="btns" style="margin-top:10px">
+        <button id="simresetstand">Reset stand</button>
+        <button id="simresetbelly">Reset belly</button>
+        <button id="simfall">Fall</button>
+        <button id="simrecover">Recover</button>
+        <button id="simpush">Push</button>
+      </div>
+      <div class="hint" id="simstatus" style="margin-top:8px">—</div>
+    </div>
     <div class="pad" style="flex:1 1 340px">
       <h2>Policy moves</h2>
       <div class="hint"><b style="color:#ffb86b">⚠ RL Stand up does not

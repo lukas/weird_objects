@@ -8,9 +8,28 @@ Written 2026-08-09 after re-deriving all of this one too many times.
 ```sh
 cd hexapod_walker/prototype_sts3215
 sim_viewer/sim_play.sh     # ← the one to use: stand up AND walk, one window
+sim_viewer/sim_web.sh      # same web UI as the robot, routed to MuJoCo
 sim_viewer/sim_stand.sh    # stance champion alone (mujoco.viewer)
 sim_viewer/sim_walk.sh     # walk champion alone (cv2 drive window)
 sim_viewer/sim_quad.sh     # tip-back QUAD walk playground (scripted, no RL)
+```
+
+`sim_web.sh` starts `python3 -m rl_move.sim.web_server` on
+`http://127.0.0.1:8898/rl`. It serves the real robot's
+`linux_control/webui/` files unchanged, but `/api/ping` identifies the
+backend as `hexapod-sim`; the shared UI then shows a MuJoCo frame and
+routes the RL tab's stand/lower/held-key drive/policy-picker commands
+into the local sim session. Sim-only controls live under `/api/sim/*`
+and are shown only against this backend: reset stand, reset belly, fall,
+recover, and push.
+
+If you run from a fresh git worktree, checkpoint zips may be absent
+because `rl_move/sim/policies/` is intentionally ignored. Point the
+server at the populated cache:
+
+```sh
+POLICY_DIR=/Users/lukas/weird_objects/hexapod_walker/prototype_sts3215/rl_move/sim/policies \
+  sim_viewer/sim_web.sh
 ```
 
 `sim_quad.sh` (no checkpoints involved) drives the webui Quad tab's

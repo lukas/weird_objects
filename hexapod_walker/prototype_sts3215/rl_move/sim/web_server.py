@@ -1,0 +1,264 @@
+"""HTTP bridge that serves the robot web UI against a MuJoCo session.
+
+Run from ``hexapod_walker/prototype_sts3215``:
+
+    python3 -m rl_move.sim.web_server --http-port 8898
+
+The route shapes intentionally match ``linux_control/web_drive.py`` so the
+same browser UI can drive either the physical robot or the MuJoCo twin.
+"""
+from __future__ import annotations
+
+import argparse
+import json
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+from typing import Any, Callable
+
+
+ROOT = Path(__file__).resolve().parents[2]
+WEBUI_DIR = ROOT / "linux_control" / "webui"
+DEFAULT_LOG_DIR = ROOT / "logs" / "sim_web"
+
+PAGE_PATHS = {"/", "/index.html", "/motors", "/demos", "/dance", "/quad",
+              "/debug", "/rl", "/experiments", "/measure", "/calibrate"}
+STATIC_FILES = {
+    "/style.css": ("style.css", "text/css; charset=utf-8", "no-cache"),
+    "/app.js": ("app.js", "application/javascript; charset=utf-8",
+                "no-cache"),
+    "/favicon.svg": ("favicon.svg", "image/svg+xml", "max-age=86400"),
+}
+
+
+def _json_body(handler: BaseHTTPRequestHandler) -> dict[str, Any]:
+    n = int(handler.headers.get("Content-Length", 0) or 0)
+    raw = handler.rfile.read(n) if n else b""
+    if not raw:
+        return {}
+    try:
+        obj = json.loads(raw.decode("utf-8", "ignore"))
+    except ValueError:
+        return {"_text": raw.decode("utf-8", "ignore")}
+    return obj if isinstance(obj, dict) else {"_value": obj}
+
+
+def make_handler(session: Any, webui_dir: Path = WEBUI_DIR,
+                 https_port: int = 8443) -> type[BaseHTTPRequestHandler]:
+    """Create a request handler bound to ``session``.
+
+    ``session`` is deliberately duck-typed so tests can provide a small fake
+    while the real CLI uses ``SimWebSession``.
+    """
+
+    class Handler(BaseHTTPRequestHandler):
+        protocol_version = "HTTP/1.1"
+
+        def log_message(self, *args):
+            pass
+
+        def _send(self, code: int, body: bytes | str,
+                  ctype: str = "text/plain; charset=utf-8",
+                  cache: str | None = None) -> None:
+            data = body.encode("utf-8") if isinstance(body, str) else body
+            self.send_response(code)
+            self.send_header("Content-Type", ctype)
+            self.send_header("Content-Length", str(len(data)))
+            if cache:
+                self.send_header("Cache-Control", cache)
+            elif "text/html" in ctype:
+                self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            try:
+                self.wfile.write(data)
+            except OSError:
+                pass
+
+        def _json(self, code: int, obj: Any) -> None:
+            self._send(code, json.dumps(obj), "application/json")
+
+        def _static(self, path: str) -> bool:
+            if path in PAGE_PATHS:
+                index = webui_dir / "index.html"
+                try:
+                    page = index.read_text(encoding="utf-8")
+                except OSError as e:
+                    self._send(500, f"webui file missing: expected {index} ({e})")
+                    return True
+                page = page.replace("__HTTPS_PORT__", str(https_port))
+                self._send(200, page, "text/html; charset=utf-8",
+                           cache="no-cache")
+                return True
+            if path in STATIC_FILES:
+                name, ctype, cache = STATIC_FILES[path]
+                fpath = webui_dir / name
+                try:
+                    data = fpath.read_bytes()
+                except OSError as e:
+                    self._send(500, f"webui file missing: expected {fpath} ({e})")
+                    return True
+                self._send(200, data, ctype, cache=cache)
+                return True
+            return False
+
+        def do_GET(self) -> None:
+            path = self.path.split("?", 1)[0]
+            if self._static(path):
+                return
+            try:
+                if path == "/api/ping":
+                    self._json(200, session.ping())
+                elif path == "/api/robot":
+                    self._json(200, session.robot_state())
+                elif path == "/api/status":
+                    self._json(200, session.status())
+                elif path == "/api/calibrate":
+                    self._json(200, session.operation_state())
+                elif path == "/api/rl/preflight":
+                    mode = "stand"
+                    qs = self.path.split("?", 1)
+                    if len(qs) == 2 and "mode=" in qs[1]:
+                        mode = qs[1].split("mode=", 1)[1].split("&", 1)[0]
+                    self._json(200, session.rl_preflight(mode=mode))
+                elif path == "/api/rl/policy":
+                    self._json(200, session.rl_policy_info())
+                elif path == "/api/rl/policies":
+                    self._json(200, session.rl_policies())
+                elif path == "/api/rl/roles":
+                    self._json(200, session.rl_roles())
+                elif path == "/api/rl/drive":
+                    self._json(200, session.rl_drive_state())
+                elif path == "/api/sim/state":
+                    self._json(200, session.sim_state())
+                elif path == "/api/sim/frame.jpg":
+                    self._send(200, session.frame_jpeg(),
+                               "image/jpeg", cache="no-cache")
+                elif path == "/api/logs":
+                    self._json(200, session.logs())
+                elif path.startswith("/api/logs/"):
+                    name = Path(path[len("/api/logs/"):]).name
+                    data, ctype = session.log_file(name, self.path)
+                    self._send(200, data, ctype)
+                else:
+                    self._json(404, {"ok": False,
+                                     "error": f"no sim route: {path}"})
+            except FileNotFoundError as e:
+                self._json(404, {"ok": False, "error": str(e)})
+            except Exception as e:
+                self._json(500, {"ok": False, "error": str(e)})
+
+        def do_POST(self) -> None:
+            path = self.path.split("?", 1)[0]
+            if path == "/cmd":
+                n = int(self.headers.get("Content-Length", 0) or 0)
+                raw = self.rfile.read(n) if n else b""
+                line = raw.decode("utf-8", "ignore").strip()
+                self._send(200, "ok" if session.cmd(line).get("ok") else "failed")
+                return
+            data = _json_body(self)
+            try:
+                if path == "/api/standup":
+                    self._json(200, session.sim_reset(start="plant"))
+                elif path == "/api/rl/capture_plant":
+                    self._json(200, session.rl_capture_plant())
+                elif path == "/api/rl/stop":
+                    self._json(200, session.rl_stop())
+                elif path in ("/api/rl/stand", "/api/rl/lower"):
+                    self._json(200, session.rl_policy_move(
+                        mode=path.rsplit("/", 1)[-1]))
+                elif path == "/api/rl/walk":
+                    self._json(200, session.rl_policy_move(
+                        mode="walk",
+                        vx=float(data.get("vx", 0.03)),
+                        vy=float(data.get("vy", 0.0)),
+                        duration_s=float(data.get("duration_s", 6.0))))
+                elif path == "/api/rl/roles":
+                    self._json(200, session.rl_role_set(
+                        role=str(data.get("role", "")),
+                        file=str(data.get("file", ""))))
+                elif path == "/api/rl/drive/start":
+                    self._json(200, session.rl_drive_start())
+                elif path == "/api/rl/drive/cmd":
+                    self._json(200, session.rl_drive_cmd(
+                        vx=float(data.get("vx", 0.0)),
+                        vy=float(data.get("vy", 0.0))))
+                elif path == "/api/rl/drive/stop":
+                    self._json(200, session.rl_drive_stop())
+                elif path == "/api/rl/policy_select":
+                    self._json(200, session.rl_policy_select(
+                        file=str(data.get("file", ""))))
+                elif path == "/api/sim/reset":
+                    self._json(200, session.sim_reset(
+                        start=str(data.get("start", "plant"))))
+                elif path == "/api/sim/fall":
+                    self._json(200, session.sim_fall())
+                elif path == "/api/sim/recover":
+                    self._json(200, session.sim_recover())
+                elif path == "/api/sim/push":
+                    self._json(200, session.sim_push(
+                        x=float(data.get("x", 4.0)),
+                        y=float(data.get("y", 0.0))))
+                else:
+                    self._json(404, {"ok": False,
+                                     "error": f"no sim route: {path}"})
+            except Exception as e:
+                self._json(500, {"ok": False, "error": str(e)})
+
+    return Handler
+
+
+def build_arg_parser() -> argparse.ArgumentParser:
+    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap.add_argument("--bind", default="127.0.0.1")
+    ap.add_argument("--http-port", type=int, default=8898)
+    ap.add_argument("--policy-dir", type=Path,
+                    default=ROOT / "rl_move" / "sim" / "policies")
+    ap.add_argument("--stance", type=Path,
+                    default=Path("ppo_goal_cw_stand_footlow2_hard1.zip"))
+    ap.add_argument("--walk", type=Path,
+                    default=Path("ppo_goal_cw_dep_bcgait1_hard1.zip"))
+    ap.add_argument("--recover", type=Path,
+                    default=Path("ppo_goal_cw_recover_any21_pop3_B14.zip"))
+    ap.add_argument("--log-dir", type=Path, default=DEFAULT_LOG_DIR)
+    ap.add_argument("--realtime", type=float, default=1.0)
+    ap.add_argument("--phase-obs", action="store_true")
+    ap.add_argument("--phase-hz", type=float, default=0.1666667)
+    ap.add_argument("--all-models", action="store_true")
+    return ap
+
+
+def _resolve_policy(pdir: Path, p: Path) -> Path:
+    return p if p.is_absolute() else pdir / p
+
+
+def main(session_factory: Callable[..., Any] | None = None) -> None:
+    args = build_arg_parser().parse_args()
+    if session_factory is None:
+        from .web_session import SimWebConfig, SimWebSession
+        cfg = SimWebConfig(
+            policy_dir=args.policy_dir,
+            stance=_resolve_policy(args.policy_dir, args.stance),
+            walk=_resolve_policy(args.policy_dir, args.walk),
+            recover=_resolve_policy(args.policy_dir, args.recover),
+            log_dir=args.log_dir,
+            realtime=args.realtime,
+            phase_obs=args.phase_obs,
+            phase_hz=args.phase_hz,
+            all_models=args.all_models,
+        )
+        session_factory = SimWebSession
+        session = session_factory(cfg)
+    else:
+        session = session_factory(args)
+    try:
+        handler = make_handler(session)
+        srv = ThreadingHTTPServer((args.bind, args.http_port), handler)
+        print(f"sim web UI: http://{args.bind}:{args.http_port}/rl", flush=True)
+        srv.serve_forever()
+    finally:
+        close = getattr(session, "close", None)
+        if close:
+            close()
+
+
+if __name__ == "__main__":
+    main()
