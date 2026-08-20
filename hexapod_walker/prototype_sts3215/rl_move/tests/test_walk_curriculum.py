@@ -625,3 +625,112 @@ def test_v4_gate_checks_duration_changes_height_and_tail_tracking():
         passed, checks = walkcurr_bucket_pass(
             dict(good, **{key: value}), spec)
         assert not passed and not checks[check]
+
+
+# WALKCURR_BUCKETS_V5: fast anti-skate ladder adjacent to the proven
+# bcgait1-hard1 source gait (operator order fb_20260820T075230_4a90c6;
+# recreated on the controller — the desktop commit could not be
+# pushed). Strict slip/direction/height gates on every fast rung.
+CURR_V5_ON = {("goal", "walk_curriculum"): 5.0}
+
+
+def test_v5_selects_the_v5_table_and_earlier_versions_untouched():
+    from rl_move.sim.walk_task import (WALKCURR_BUCKETS_V4,
+                                       WALKCURR_BUCKETS_V5)
+    env = _env(seed=7, extra=CURR_V5_ON, episode_seconds=60.0)
+    assert env._wc_version == 5
+    assert env._wc_table is WALKCURR_BUCKETS_V5
+    env.close()
+    env4 = _env(seed=7, extra=CURR_V4_ON, episode_seconds=60.0)
+    assert env4._wc_version == 4
+    assert env4._wc_table is WALKCURR_BUCKETS_V4
+    env4.close()
+
+
+def test_v5_requires_a_real_60_second_training_horizon():
+    with pytest.raises(ValueError):
+        _env(seed=0, extra=CURR_V5_ON, episode_seconds=10.0)
+    env = _env(seed=0, extra=CURR_V5_ON, episode_seconds=60.0)
+    env.close()
+
+
+def test_v5_ladder_bridge_then_fast_band_then_dr_then_lateral_rear():
+    from rl_move.sim.walk_task import (WALKCURR_BUCKETS_V5,
+                                       WALKCURR_GATE_V5_BRIDGE,
+                                       WALKCURR_GATE_V5_FAST)
+    names = [b["name"] for b in WALKCURR_BUCKETS_V5]
+    assert names == [
+        "bridge_10s", "fast_08_10_10s", "fast_06_10_head15",
+        "fast_joystick_20s", "fast_joystick_40s", "fast_joystick_60s",
+        "fast_dr01_60s", "fast_dr03_60s", "lateral_60s", "rear_60s",
+    ]
+    b0 = WALKCURR_BUCKETS_V5[0]
+    # B0 bridge sits AT the source checkpoint's operating point
+    # (bcgait1-hard1 walks ~0.05-0.06 m/s dead straight), DR0.
+    assert (b0["s_lo"], b0["s_hi"]) == (0.05, 0.06)
+    assert b0["head_hi"] == 0.0 and b0["resample_s"] == 0.0
+    assert b0["dr"] == 0.0 and b0["gate"] is WALKCURR_GATE_V5_BRIDGE
+    # B1/B2 push the fast band before any joystick churn.
+    b1, b2 = WALKCURR_BUCKETS_V5[1], WALKCURR_BUCKETS_V5[2]
+    assert (b1["s_lo"], b1["s_hi"]) == (0.08, 0.10)
+    assert b1["head_hi"] == 0.0
+    assert (b2["s_lo"], b2["s_hi"]) == (0.06, 0.10)
+    assert b2["head_hi"] == pytest.approx(math.radians(15.0))
+    # B3-B5 joystick rungs share one command distribution; only the
+    # sustained-survival horizon grows 20/40/60 s.
+    command_keys = ("s_lo", "s_hi", "head_lo", "head_hi", "resample_s",
+                    "jitter", "stop_frac", "blend_lo", "blend_hi", "dr")
+    baseline = tuple(WALKCURR_BUCKETS_V5[3][k] for k in command_keys)
+    for spec in WALKCURR_BUCKETS_V5[4:6]:
+        assert tuple(spec[k] for k in command_keys) == baseline
+    assert [b["duration_s"] for b in WALKCURR_BUCKETS_V5[3:6]] == [
+        20.0, 40.0, 60.0]
+    # DR and lateral/rear stay locked behind the retained 60 s task.
+    assert [b["dr"] for b in WALKCURR_BUCKETS_V5] == [
+        0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.1, 0.3, 0.3, 0.3]
+    assert WALKCURR_BUCKETS_V5[8]["head_lo"] == pytest.approx(
+        math.radians(45.0))
+    assert WALKCURR_BUCKETS_V5[9]["head_hi"] == pytest.approx(math.pi)
+    for spec in WALKCURR_BUCKETS_V5[1:]:
+        assert spec["gate"] is WALKCURR_GATE_V5_FAST
+
+
+def test_v5_gates_are_strict_on_the_axes_the_steer_forks_failed():
+    """Both funded fast-gait forks (steer6 full-dose, steer7 half-dose)
+    failed on slip (1.6-5.1/m) and direction; V5's own bars must be at
+    least as strict as the pre-registered launch gate (slip<=1.6,
+    cross_track<=0.20 fast; slip<=1.8, cross_track<=0.22 bridge)."""
+    from rl_move.sim.walk_task import (WALKCURR_GATE_V5_BRIDGE,
+                                       WALKCURR_GATE_V5_FAST)
+    f, b = WALKCURR_GATE_V5_FAST, WALKCURR_GATE_V5_BRIDGE
+    assert f["slip_per_m_max"] == 1.6
+    assert f["cross_track_frac_max"] == 0.20
+    assert f["cmd_prog_frac_min"] == 0.70
+    assert f["cmd_prog_frac_p10_min"] == 0.55
+    assert f["height_factor_min"] == 0.80
+    assert f["peak_roll_deg_max"] == 8.0
+    assert b["slip_per_m_max"] == 1.8
+    assert b["cross_track_frac_max"] == 0.22
+    assert b["cmd_prog_frac_min"] == 0.65
+    assert b["cmd_prog_frac_p10_min"] == 0.50
+    # every fast bar is at least as strict as the V4 joystick gate
+    from rl_move.sim.walk_task import WALKCURR_GATE_V4_JOYSTICK as v4
+    assert f["slip_per_m_max"] < v4["slip_per_m_max"]
+    assert f["cross_track_frac_max"] < v4["cross_track_frac_max"]
+    assert f["cmd_prog_frac_min"] >= v4["cmd_prog_frac_min"]
+    # all-feet cycling minima retained
+    assert f["contact_sw_per_s_min"] == 3.0
+    assert f["foot_sw_min_per_s_min"] == 0.5
+
+
+def test_v5_trajectories_encode_horizon_and_command_change_floor():
+    from rl_move.sim.walk_task import WALKCURR_BUCKETS_V5
+    env = _env(seed=51, extra=CURR_V5_ON, episode_seconds=60.0)
+    for b, spec in enumerate(WALKCURR_BUCKETS_V5):
+        env.force_walk_curr_bucket = b
+        for _ in range(3):
+            traj = _sample_traj(env)
+            assert traj.duration_steps * env.dt == pytest.approx(
+                spec["duration_s"])
+            assert traj.command_changes >= spec["min_command_changes"]
+    env.close()

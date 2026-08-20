@@ -1052,3 +1052,38 @@ Entry format (append; newest last; update status in place):
   the new gait class, say so and the sub-line stops.
 - ANSWER (operator): (pending)
 - rulebook change: (pending)
+
+## q_20260820T0830Z — OPEN
+- cycle: operator kick 08-20 ~08:0x UTC (fast anti-skate V5 implement + launch)
+- operator order: fb_20260820T075230_4a90c6 + focus note (GPT-5 Codex
+  acting for Lukas): recreate the desktop V5 fast anti-skate patch
+  (commit 2cb2a7b7, unreachable — push blocked on desktop) and launch
+  1M canaries cw-dep-bcgait1-fastnoslip1 (1500/80, seed 21) and
+  cw-dep-bcgait1-midnoslip1 (750/40, seed 22) from bcgait1_hard1.
+- conflicted with: (a) the 08-20 ~03:4x fork verdicts' "no autonomous
+  continuation — next-dose/park call is operator's" (this order IS
+  that call, so no real conflict, noted for the record); (b) SIM
+  SPRINT's "no new research-track launches unless they directly serve
+  sim rise+walk" — the fast-gait sub-line was fork-closed data-for-
+  operator, and these canaries are an operator-ordered continuation of
+  it during the sprint; (c) the walkcurr fresh-actor contract
+  (train_ppo_mjx refused full-checkpoint --init-from with
+  --walk-curriculum) — per the order, V5 now carries an explicit
+  exception as an adjacent-continuation ladder.
+- why the cycle would have declined: it wouldn't have — operator
+  orders outrank (a)-(c); gaps were repaired as part of execution
+  (V5 exception + tests, semantics bank re-run green).
+- what was executed: WALKCURR_BUCKETS_V5 + gates, reward.k_loadslip_excess
+  (default-off; REWARD.md row; test_loadslip_excess_* +
+  test_v5_* green, full test_task_semantics 141 passed), trainer V5
+  wiring, play.py fast-profile viewer contract, snapshot, both
+  canaries launched (phase canary, track hw). NOTE FOR REVIEW: the
+  desktop commit was unreachable, so k_loadslip_excess semantics were
+  re-derived from the note's one-line description as
+  −k·max(episode_loadslip_ratio − loadslip_ok, 0) per commanded tick
+  (undiscounted, additive, never shrunk by income gates). If the
+  desktop 2cb2a7b7 implementation differs (e.g. dt-scaled or
+  increment-based), say so and we re-align before any >1M dose.
+- ANSWER (operator): —
+- rulebook change: pending answer; V5 init-from exception documented
+  in train_ppo_mjx.py + hw/STATUS.md.

@@ -1502,14 +1502,18 @@ def main(argv: list[str] | None = None) -> int:
                          "sets cfg goal.walk_curriculum + "
                          "goal.walk_pure at env construction")
     ap.add_argument("--walk-curriculum-version", type=int, default=1,
-                    choices=(1, 2, 3, 4),
+                    choices=(1, 2, 3, 4, 5),
                     help="1 = WALKCURR_BUCKETS (walkcurr1), 2 = "
                          "WALKCURR_BUCKETS_V2 ignition ladder "
                          "(walkcurr2), 3 = WALKCURR_BUCKETS_V3 "
                          "actor-init bridge ladder (operator order "
                          "fb_20260818T102844_116d4c), 4 = sustained "
                          "joystick ladder (10/20/40/60-second retained "
-                         "survival before DR/lateral/rear)")
+                         "survival before DR/lateral/rear), 5 = fast "
+                         "anti-skate ladder adjacent to bcgait1-hard1 "
+                         "(operator order fb_20260820T075230_4a90c6; "
+                         "strict slip/direction/height gates, pairs "
+                         "with reward.k_loadslip_excess)")
     ap.add_argument("--walkcurr-cert-every", type=int, default=500_000,
                     help="deterministic certification cadence (steps)")
     ap.add_argument("--walkcurr-cert-episodes", type=int, default=8,
@@ -1711,26 +1715,35 @@ def main(argv: list[str] | None = None) -> int:
                 "(best = last retention-clean promotion, never reward/"
                 "latest); drop --best-ckpt/--ev-stop-min")
         if (args.init_from is not None and not args.init_from_actor_only
-                and not args.init_from_policy_backbone):
+                and not args.init_from_policy_backbone
+                and args.walk_curriculum_version != 5):
             raise SystemExit("--walk-curriculum is a fresh-actor "
                              "acquisition contract (walkcurr lineage); "
                              "a full-checkpoint --init-from is not wired "
                              "(pass --init-from-actor-only for an "
                              "actor-init acquisition recipe — the "
                              "curriculum still owns cert/reset-pool/"
-                             "promotion state fresh)")
+                             "promotion state fresh; EXCEPTION: V5 is "
+                             "an adjacent-continuation ladder by "
+                             "operator order fb_20260820T075230_4a90c6 "
+                             "— warm full-checkpoint --init-from is "
+                             "allowed there, curriculum state still "
+                             "starts fresh)")
         if (args.walkcurr_post_promo_actor_lr > 0.0
                 and args.actor_lr <= 0.0):
             raise SystemExit("--walkcurr-post-promo-actor-lr requires "
                              "--actor-lr (it retargets the "
                              "update_health actor param group)")
-        if args.walk_curriculum_version == 4:
-            from .walk_task import WALKCURR_BUCKETS_V4
-            required_s = max(float(b["duration_s"])
-                             for b in WALKCURR_BUCKETS_V4)
+        if args.walk_curriculum_version in (4, 5):
+            if args.walk_curriculum_version == 5:
+                from .walk_task import WALKCURR_BUCKETS_V5 as _wc_tbl
+            else:
+                from .walk_task import WALKCURR_BUCKETS_V4 as _wc_tbl
+            required_s = max(float(b["duration_s"]) for b in _wc_tbl)
             args.training_episode_seconds = max(
                 float(args.episode_seconds), required_s)
-            print("[walkcurr] V4 training/cert horizon: "
+            print(f"[walkcurr] V{args.walk_curriculum_version} "
+                  "training/cert horizon: "
                   f"{args.training_episode_seconds:g}s maximum; plain "
                   f"background eval remains {args.episode_seconds:g}s")
         # Pure-walk diet + curriculum version ride the env cfg so the
@@ -2132,8 +2145,9 @@ def main(argv: list[str] | None = None) -> int:
         from .walk_task import WALKCURR_BUCKETS_V2 as _WC2
         from .walk_task import WALKCURR_BUCKETS_V3 as _WC3
         from .walk_task import WALKCURR_BUCKETS_V4 as _WC4
-        _tbl = {1: _WC1, 2: _WC2, 3: _WC3,
-                4: _WC4}[args.walk_curriculum_version]
+        from .walk_task import WALKCURR_BUCKETS_V5 as _WC5
+        _tbl = {1: _WC1, 2: _WC2, 3: _WC3, 4: _WC4,
+                5: _WC5}[args.walk_curriculum_version]
         print("[walkcurr] realized per-bucket DR (overrides --dr-scale "
               f"{args.dr_scale:g} per episode): "
               + " ".join(f"b{i}={row['dr']:g}"
@@ -3359,14 +3373,15 @@ def main(argv: list[str] | None = None) -> int:
         import shutil
 
         from .walk_task import (WALKCURR_BUCKETS, WALKCURR_BUCKETS_V2,
-                                WALKCURR_BUCKETS_V3, WALKCURR_BUCKETS_V4)
+                                WALKCURR_BUCKETS_V3, WALKCURR_BUCKETS_V4,
+                                WALKCURR_BUCKETS_V5)
         from .walkcurr_cert import (WalkCurrController,
                                     aggregate_walk_probe,
                                     failed_probe_row,
                                     walkcurr_bucket_pass)
         wc_table = {1: WALKCURR_BUCKETS, 2: WALKCURR_BUCKETS_V2,
-                    3: WALKCURR_BUCKETS_V3,
-                    4: WALKCURR_BUCKETS_V4}[args.walk_curriculum_version]
+                    3: WALKCURR_BUCKETS_V3, 4: WALKCURR_BUCKETS_V4,
+                    5: WALKCURR_BUCKETS_V5}[args.walk_curriculum_version]
         core_venv = _unwrap_vec(venv)
         wc_best_path = POLICY_DIR / f"{out_name}_best.zip"
         wc_promo_dir = POLICY_DIR / "walkcurr_promotions"

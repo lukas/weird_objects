@@ -450,6 +450,100 @@ WALKCURR_BUCKETS_V4 = (
          stop_gate=0.015, gate=WALKCURR_GATE_V4_JOYSTICK),
 )
 
+# WALKCURR_BUCKETS_V5 ("fast anti-skate" ladder, operator order
+# fb_20260820T075230_4a90c6, recreated on the controller because the
+# desktop commit 2cb2a7b7 could not be pushed): the fast-gait
+# profile-headroom fork (steer6-fasttrack1 full-dose, steer7-middose1
+# half-dose) FAILED on skating/slip and non-monotone speed control —
+# both kept a single weakly-scaling cadence and paid slip 1.6-5.1/m.
+# V5 is a fast-profile ladder ADJACENT to the proven tall-walk source
+# (ppo_goal_cw_dep_bcgait1_hard1, walks ~0.05-0.06 m/s straight):
+# B0 is a strict 10s bridge at the source's own operating point, B1/B2
+# push the commanded band up to 0.08-0.10 / 0.06-0.10 with a small
+# heading cone, B3-B5 are the V4-style joystick task (3s resamples,
+# jitter, stops, partial blends) at 20/40/60 s, and only after the
+# 60-second fast joystick task retains do B6/B7 add DR 0.1/0.3 and
+# B8/B9 open lateral/rear. Gates are deliberately STRICT on
+# direction/slip/height (the exact axes both steer forks failed):
+# fast rungs demand cmd_prog>=0.70 (p10>=0.55), slip_per_m<=1.6,
+# cross_track<=0.20, peak_roll<=8 deg, height_factor>=0.80 plus the
+# usual all-feet contact/switch minima; the B0 bridge is slightly
+# softer (cmd_prog>=0.65, p10>=0.50, slip<=1.8, cross_track<=0.22)
+# so the warm start can certify at its own operating point before the
+# band moves. V5 pairs with reward.k_loadslip_excess (direct loaded-
+# slip charge, below) so skating is punished in training, not merely
+# complained about at cert time.
+WALKCURR_GATE_V5_BRIDGE = dict(
+    cmd_prog_frac_min=0.65, cmd_prog_frac_p10_min=0.50,
+    slip_per_m_max=1.8, peak_roll_deg_max=8.0, slew_sat_max=0.95,
+    cross_track_frac_max=0.22, contact_sw_per_s_min=3.0,
+    foot_sw_min_per_s_min=0.5, height_factor_min=0.80)
+WALKCURR_GATE_V5_FAST = dict(
+    cmd_prog_frac_min=0.70, cmd_prog_frac_p10_min=0.55,
+    slip_per_m_max=1.6, peak_roll_deg_max=8.0, slew_sat_max=0.95,
+    cross_track_frac_max=0.20, contact_sw_per_s_min=3.0,
+    foot_sw_min_per_s_min=0.5, height_factor_min=0.80)
+
+WALKCURR_BUCKETS_V5 = (
+    # B0: prove the imported gait survives at its own operating point.
+    dict(name="bridge_10s", duration_s=10.0, min_command_changes=0,
+         s_lo=0.05, s_hi=0.06, head_lo=0.0, head_hi=0.0,
+         resample_s=0.0, jitter=0.0, stop_frac=0.0, blend_lo=1.0,
+         blend_hi=1.0, dr=0.0, stop_gate=None,
+         gate=WALKCURR_GATE_V5_BRIDGE),
+    # B1/B2: the fast band opens — straight first, then a small cone.
+    dict(name="fast_08_10_10s", duration_s=10.0, min_command_changes=0,
+         s_lo=0.08, s_hi=0.10, head_lo=0.0, head_hi=0.0,
+         resample_s=0.0, jitter=0.0, stop_frac=0.0, blend_lo=1.0,
+         blend_hi=1.0, dr=0.0, stop_gate=None,
+         gate=WALKCURR_GATE_V5_FAST),
+    dict(name="fast_06_10_head15", duration_s=20.0,
+         min_command_changes=0, s_lo=0.06, s_hi=0.10, head_lo=0.0,
+         head_hi=math.radians(15.0), resample_s=0.0, jitter=0.0,
+         stop_frac=0.0, blend_lo=1.0, blend_hi=1.0, dr=0.0,
+         stop_gate=None, gate=WALKCURR_GATE_V5_FAST),
+    # B3-B5: fast joystick task, duration grows 20/40/60 s.
+    dict(name="fast_joystick_20s", duration_s=20.0,
+         min_command_changes=4, s_lo=0.06, s_hi=0.10, head_lo=0.0,
+         head_hi=math.radians(30.0), resample_s=3.0, jitter=0.2,
+         stop_frac=0.10, blend_lo=0.5, blend_hi=0.9, dr=0.0,
+         stop_gate=0.015, gate=WALKCURR_GATE_V5_FAST),
+    dict(name="fast_joystick_40s", duration_s=40.0,
+         min_command_changes=10, s_lo=0.06, s_hi=0.10, head_lo=0.0,
+         head_hi=math.radians(30.0), resample_s=3.0, jitter=0.2,
+         stop_frac=0.10, blend_lo=0.5, blend_hi=0.9, dr=0.0,
+         stop_gate=0.015, gate=WALKCURR_GATE_V5_FAST),
+    dict(name="fast_joystick_60s", duration_s=60.0,
+         min_command_changes=15, s_lo=0.06, s_hi=0.10, head_lo=0.0,
+         head_hi=math.radians(30.0), resample_s=3.0, jitter=0.2,
+         stop_frac=0.10, blend_lo=0.5, blend_hi=0.9, dr=0.0,
+         stop_gate=0.015, gate=WALKCURR_GATE_V5_FAST),
+    # B6/B7: retain the 60-second fast joystick task under DR, the
+    # heading cone opening to ±45 and the band widening down to 0.05.
+    dict(name="fast_dr01_60s", duration_s=60.0,
+         min_command_changes=15, s_lo=0.05, s_hi=0.10, head_lo=0.0,
+         head_hi=math.radians(45.0), resample_s=3.0, jitter=0.2,
+         stop_frac=0.10, blend_lo=0.5, blend_hi=0.9, dr=0.1,
+         stop_gate=0.015, gate=WALKCURR_GATE_V5_FAST),
+    dict(name="fast_dr03_60s", duration_s=60.0,
+         min_command_changes=15, s_lo=0.05, s_hi=0.10, head_lo=0.0,
+         head_hi=math.radians(45.0), resample_s=3.0, jitter=0.2,
+         stop_frac=0.10, blend_lo=0.5, blend_hi=0.9, dr=0.3,
+         stop_gate=0.015, gate=WALKCURR_GATE_V5_FAST),
+    # B8/B9: lateral and rear stay locked behind retained front-cone
+    # competence under DR0.3.
+    dict(name="lateral_60s", duration_s=60.0, min_command_changes=15,
+         s_lo=0.05, s_hi=0.10, head_lo=math.radians(45.0),
+         head_hi=math.radians(90.0), resample_s=3.0, jitter=0.2,
+         stop_frac=0.10, blend_lo=0.5, blend_hi=0.9, dr=0.3,
+         stop_gate=0.015, gate=WALKCURR_GATE_V5_FAST),
+    dict(name="rear_60s", duration_s=60.0, min_command_changes=15,
+         s_lo=0.05, s_hi=0.10, head_lo=math.radians(90.0),
+         head_hi=math.pi, resample_s=3.0, jitter=0.2,
+         stop_frac=0.10, blend_lo=0.5, blend_hi=0.9, dr=0.3,
+         stop_gate=0.015, gate=WALKCURR_GATE_V5_FAST),
+)
+
 # Sampling mixture over unlocked buckets (operator spec): 50% frontier,
 # 25% weakest mastered, 15% uniform over mastered, 10% the rung just
 # prior to the frontier. Empty components fold back to the frontier.
@@ -726,23 +820,26 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # the original V1 table; version 1 stays bit-exact unchanged.
         wc_version = float(cfg_get(self.cfg, "goal", "walk_curriculum",
                                    default=0.0))
-        self._wc_on = wc_version in (1.0, 2.0, 3.0, 4.0)
+        self._wc_on = wc_version in (1.0, 2.0, 3.0, 4.0, 5.0)
         self._wc_version = int(wc_version) if self._wc_on else 0
-        self._wc_table = (WALKCURR_BUCKETS_V4 if self._wc_version == 4
+        self._wc_table = (WALKCURR_BUCKETS_V5 if self._wc_version == 5
+                          else WALKCURR_BUCKETS_V4
+                          if self._wc_version == 4
                           else WALKCURR_BUCKETS_V3
                           if self._wc_version == 3
                           else WALKCURR_BUCKETS_V2
                           if self._wc_version == 2
                           else WALKCURR_BUCKETS)
-        if self._wc_version == 4:
+        if self._wc_version in (4, 5):
             required_s = max(float(b["duration_s"])
                              for b in self._wc_table)
             available_s = self.episode_steps * self.dt
             if available_s + 0.5 * self.dt < required_s:
                 raise ValueError(
-                    "walk curriculum V4 requires episode_seconds >= "
-                    f"{required_s:g} (got {available_s:g}); long-horizon "
-                    "certification must not be silently shortened")
+                    f"walk curriculum V{self._wc_version} requires "
+                    f"episode_seconds >= {required_s:g} (got "
+                    f"{available_s:g}); long-horizon certification "
+                    "must not be silently shortened")
         self._wc_active_n = 1
         self._wc_results: dict = {}   # bucket -> {passed, score, cert_round}
         self._wc_bucket = None        # this episode's curriculum bucket
@@ -2913,6 +3010,27 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                     r_walk *= ls_factor
                     if r_prog > 0.0:
                         r_prog *= ls_factor
+                # Direct loaded-slip excess penalty (operator order
+                # fb_20260820T075230_4a90c6, fast anti-skate V5): the
+                # loadslip GATE can only zero income — a skating
+                # policy that also collects non-velocity reward is
+                # "complained about", never charged. This term charges
+                # the EPISODE-ACCUMULATED loaded-slip ratio's excess
+                # over loadslip_ok per tick while a velocity is
+                # commanded: r -= k * max(ratio - loadslip_ok, 0).
+                # Same ratio the gate and the eval harness score (no
+                # touchdown resets it); a policy that keeps skating
+                # keeps paying every tick, one that walks clean pays
+                # nothing. Additive penalty — never shrunk by income
+                # gates. Default 0 = off, bit-exact legacy (no new
+                # info keys). cfg: reward.k_loadslip_excess.
+                k_lse = float(cfg_get(self.cfg, "reward",
+                                      "k_loadslip_excess",
+                                      default=0.0))
+                if k_lse > 0.0:
+                    r_lse = -k_lse * max(ratio - ls_ok, 0.0)
+                    reward += r_lse
+                    info["reward_loadslip_excess"] = r_lse
             # Height-keeping income gate (2026-08-10, hardware finding
             # rl_docs/HARDWARE.md "sag": deployed walk policies migrate
             # to a crouch 54-70 mm below the spawn stance — measured on

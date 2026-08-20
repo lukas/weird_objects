@@ -24,6 +24,34 @@ unresolved blockers between the robot and reliable joystick control.
 
 ## Now
 
+- **08-20 ~08:xx: operator ANSWERED the fast-gait fork
+  (fb_20260820T075230_4a90c6) with a mechanism change — walk-
+  curriculum V5 "fast anti-skate" + `reward.k_loadslip_excess` —
+  and the two ordered 1M canaries are TRAINING.** Implemented on the
+  controller (the operator's desktop commit 2cb2a7b7 couldn't push;
+  recreated per the note): `WALKCURR_BUCKETS_V5` in walk_task.py — a
+  bcgait1-hard1-adjacent ladder (B0 10s bridge at the source's own
+  0.05-0.06 m/s → B1/B2 fast band 0.08-0.10 / 0.06-0.10 ±15° →
+  B3-B5 fast joystick 20/40/60s → B6/B7 DR 0.1/0.3 → B8/B9
+  lateral/rear) with strict cert gates on EXACTLY the axes both
+  steer forks failed (fast rungs: cmd_prog ≥0.70/p10 ≥0.55, slip
+  ≤1.6/m, cross-track ≤0.20, roll ≤8°, height ≥0.80; bridge
+  slightly softer); `reward.k_loadslip_excess` (default-off, −k ·
+  max(episode loadslip_ratio − loadslip_ok, 0) per commanded tick —
+  skating now CHARGED in training, not merely income-gated; REWARD.md
+  row, semantics `test_loadslip_excess_*`); trainer V5 wiring incl.
+  the full-checkpoint `--init-from` exception for this adjacent
+  continuation; play.py fast-profile viewer contract (fasttrack1/
+  steer6/fastnoslip → 1500/80 + 5° clamp, middose/midnoslip →
+  750/40 + 3°, both 0.10 m/s band + mode-3 velocity obs). Canaries
+  (phase CANARY, 1M, mechanism health only): `cw-dep-bcgait1-
+  fastnoslip1` (1500/80, 5°, seed 21) and `cw-dep-bcgait1-midnoslip1`
+  (750/40, 3°, seed 22), both `--init-from bcgait1_hard1`, V5 +
+  loadslip gate 1.2/2.0 + k_loadslip_excess 6.0, pre-PPO B0 cert
+  (`--walkcurr-cert-at-init`, precert min prog 0.50). Gate: init
+  cert survives, B0 retained + B1 improving by 1M, slip trending
+  ≤1.6/m, zero falls; FAIL = steer6-style skating recurs (slip
+  >2.5/m, direction/cross-track failure, tilt exits).
 - **08-20 ~03:4x: `steer7-middose1` (750/40 dose) VERDICTED — FAIL,
   and the profile-headroom fork is now FULLY closed (both doses in).**
   Its own funding-question bar misses: the pinned-speed panel

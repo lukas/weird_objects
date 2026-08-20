@@ -660,7 +660,12 @@ def main() -> None:
         # so 72-obs champions keep working on obs[:72].
         _ROLE_OBS[74] = "walk"
         walk_widths = (72, 74, 78, 1152)
-    env = _PlayEnv(params=SimServoParams.load(), randomize=False,
+    # from_cfg (not load): bit-exact to the fitted set when the config
+    # carries no bus.servo_params / bus.servo_vel_max_counts_s override,
+    # but honors them when set — the viewer must judge fast-profile
+    # checkpoints under the same resolved profile they trained with
+    # (operator order fb_20260820T075230_4a90c6).
+    env = _PlayEnv(params=SimServoParams.from_cfg(cfg), randomize=False,
                    episode_seconds=3600.0, render_mode="rgb_array",
                    cfg=cfg)
 
@@ -686,12 +691,40 @@ def main() -> None:
     walk_list.extend(_SCRIPTED_ALPHA if args.all else [_NOSLIP_CLEAN])
     walk_list.extend(_SCRIPTED_TRIPOD)
 
+    # Fast-profile checkpoint contract (operator order
+    # fb_20260820T075230_4a90c6, ported from the desktop V5 branch):
+    # checkpoints from the fast-gait lines trained under a RAISED STS
+    # write regime + slew clamp + 0.10 m/s command band + the
+    # leg-odometry velocity estimate (goal.walk_obs_body_vel=3).
+    # Playing them under the fitted 350-counts/s contract would judge
+    # them in the wrong body. Name tokens select the regime; None =
+    # the legacy fitted contract, bit-exact.
+    _CKPT_REGIMES = (
+        (("fasttrack1", "steer6", "fastnoslip"),
+         dict(speed=1500.0, acc=80.0, clamp_deg=5.0,
+              cruise=0.08, vmax=0.10)),
+        (("middose", "midnoslip"),
+         dict(speed=750.0, acc=40.0, clamp_deg=3.0,
+              cruise=0.08, vmax=0.10)),
+    )
+
+    def ckpt_regime(stem: str) -> dict | None:
+        for tokens, regime in _CKPT_REGIMES:
+            if any(t in stem for t in tokens):
+                return regime
+        return None
+
     def apply_vel_contract(stem: str) -> None:
         # dep-line / noslip-line walkers train with meas := ref (the
         # board has no velocity estimate — the deployment contract);
-        # everything else with privileged sim body velocity. The env
-        # reads cfg every tick, so this swaps live with the model.
-        mode = 1.0 if _sim_only_obs("walk", stem) else 2.0
+        # fast-profile checkpoints with the leg-odometry estimator
+        # (mode 3); everything else with privileged sim body velocity.
+        # The env reads cfg every tick, so this swaps live with the
+        # model.
+        if ckpt_regime(stem) is not None:
+            mode = 3.0
+        else:
+            mode = 1.0 if _sim_only_obs("walk", stem) else 2.0
         env.cfg.setdefault("goal", {})["walk_obs_body_vel"] = mode
 
     def walk_kind_of(width: int) -> str:
@@ -857,6 +890,9 @@ def main() -> None:
         kw = _SCRIPTED_TRIPOD.get(walk_list[wi])
         if kw is not None:
             return kw["cruise"], kw["cruise"]
+        reg = None if walk is None else ckpt_regime(walk_list[wi].stem)
+        if reg is not None:
+            return reg["cruise"], reg["vmax"]
         return _CRUISE, _SPEED_MAX
 
     # The fitted servo model (sim_model.json) was characterized at write
@@ -887,18 +923,33 @@ def main() -> None:
             _regime_base["vel"] = prof._vel_default.copy()
             _regime_base["speed"] = env.write_speed_deg_s
             _regime_base["acc"] = env.write_acc_units
+            _regime_base["dq"] = env.safety.max_dq
         # Every lap phase is now tripod-driven at the prance regime.
         tripod_live = (walk_list[wi] in _SCRIPTED_TRIPOD
                        or lap is not None)
+        # Fast-profile RL checkpoints (fasttrack1/steer6/fastnoslip →
+        # 1500/80 + 5° clamp; middose/midnoslip → 750/40 + 3° clamp)
+        # sim at their own trained write regime, exactly like the
+        # tripod rows sim at the prance regime.
+        reg = (None if tripod_live or walk is None
+               else ckpt_regime(walk_list[wi].stem))
         if tripod_live:
             s = _WALK_WRITE_COUNTS / max(servo_fit_counts, 1.0)
             prof._vel_default[:] = _regime_base["vel"] * s
             env.write_speed_deg_s = _WALK_WRITE_COUNTS * 360.0 / 4096.0
             env.write_acc_units = _PRANCE_ACC_UNITS
+            env.safety.max_dq = _regime_base["dq"]
+        elif reg is not None:
+            s = reg["speed"] / max(servo_fit_counts, 1.0)
+            prof._vel_default[:] = _regime_base["vel"] * s
+            env.write_speed_deg_s = reg["speed"] * 360.0 / 4096.0
+            env.write_acc_units = reg["acc"]
+            env.safety.max_dq = math.radians(reg["clamp_deg"])
         else:
             prof._vel_default[:] = _regime_base["vel"]
             env.write_speed_deg_s = _regime_base["speed"]
             env.write_acc_units = _regime_base["acc"]
+            env.safety.max_dq = _regime_base["dq"]
 
     try:
         pad = _Gamepad()

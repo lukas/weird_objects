@@ -313,3 +313,79 @@ def test_pinned_speed_cfg_is_applyable_to_a_live_env():
     assert np.allclose(traj.vx[late], 0.08, atol=1e-12)
     assert np.allclose(traj.vy[late], 0.0, atol=1e-12)
     env.close()
+
+
+# ------------------------------------------------------------------ #
+# direct loaded-slip excess penalty (reward.k_loadslip_excess —
+# operator order fb_20260820T075230_4a90c6, fast anti-skate V5: the
+# loadslip GATE only zeroes income; skating must be CHARGED)
+# ------------------------------------------------------------------ #
+
+LSE_OK_DEFAULT = 0.75   # reward.loadslip_ok default
+
+
+def test_loadslip_excess_default_off_is_bit_exact():
+    env_a = _walk_env(seed=11)
+    env_b = _walk_env(seed=11, extra={
+        ("reward", "k_loadslip_excess"): 0.0,
+    })
+    for env in (env_a, env_b):
+        env.reset()
+        _pin_forward(env)
+    for _ in range(8):
+        ra, ia = _step_info(env_a)
+        rb, ib = _step_info(env_b)
+        assert ra == pytest.approx(rb, abs=0.0)
+        assert "reward_loadslip_excess" not in ia
+        assert "reward_loadslip_excess" not in ib
+    env_a.close()
+    env_b.close()
+
+
+def test_loadslip_excess_charges_ratio_above_ok_only():
+    env = _walk_env(seed=12, extra={
+        ("reward", "k_loadslip_excess"): 6.0,
+        ("reward", "loadslip_ok"): 1.2,
+    })
+    env.reset()
+    _pin_forward(env)
+    _step_info(env)                      # warm one tick (prev-contact)
+
+    # clean walking: accumulated ratio far below loadslip_ok -> 0
+    env._ls_slip_m, env._ls_prog_m = 0.01, 0.50
+    _r, info = _step_info(env)
+    assert info["walk_loadslip_ratio"] < 1.2
+    assert info["reward_loadslip_excess"] == pytest.approx(0.0)
+
+    # skating: ratio ~3 -> pays k * (ratio - ok) this tick, exactly
+    env._ls_slip_m, env._ls_prog_m = 0.30, 0.10
+    _r, info = _step_info(env)
+    ratio = info["walk_loadslip_ratio"]
+    assert ratio > 1.2
+    assert info["reward_loadslip_excess"] == pytest.approx(
+        -6.0 * (ratio - 1.2), abs=1e-9)
+    env.close()
+
+
+def test_loadslip_excess_actually_reduces_return():
+    """Same forced accumulators, k on vs off: the charge lands in
+    reward (skating is punished, not merely income-gated)."""
+    env_on = _walk_env(seed=13, extra={
+        ("reward", "k_loadslip_excess"): 6.0,
+        ("reward", "loadslip_ok"): 1.2,
+    })
+    env_off = _walk_env(seed=13)
+    for env in (env_on, env_off):
+        env.reset()
+        _pin_forward(env)
+        _step_info(env)
+        env._ls_slip_m, env._ls_prog_m = 0.30, 0.10
+    r_on, i_on = _step_info(env_on)
+    r_off, i_off = _step_info(env_off)
+    assert i_on["walk_loadslip_ratio"] == pytest.approx(
+        i_off["walk_loadslip_ratio"], abs=1e-9)
+    assert r_on < r_off
+    assert r_on - r_off == pytest.approx(
+        i_on["reward_loadslip_excess"], abs=1e-6)
+    env_on.close()
+    env_off.close()
