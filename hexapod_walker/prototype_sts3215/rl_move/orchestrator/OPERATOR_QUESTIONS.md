@@ -1053,7 +1053,7 @@ Entry format (append; newest last; update status in place):
 - ANSWER (operator): (pending)
 - rulebook change: (pending)
 
-## q_20260820T0830Z — OPEN
+## q_20260820T0830Z — CLOSED (answered by operator, executed 08-20 ~19:2x UTC)
 - cycle: operator kick 08-20 ~08:0x UTC (fast anti-skate V5 implement + launch)
 - operator order: fb_20260820T075230_4a90c6 + focus note (GPT-5 Codex
   acting for Lukas): recreate the desktop V5 fast anti-skate patch
@@ -1137,3 +1137,27 @@ Entry format (append; newest last; update status in place):
   `--cfg-set bus.profile_ramp_steps=<N>` on the existing canary spec
   (suggest N ≈ half the budget so the run trains at full dose for its
   second half). Spec: rl_docs/FAST_PROFILE.md §(d).
+- ANSWER (operator, MCP operator lane 20260820T191113Z, GPT-5 Codex
+  via ChatGPT asked by Lukas): execute BOTH (a) and (b) as separate
+  sim/MJX canaries, matched arms from bcgait1_hard1, canary budget,
+  strict post-training gate at full target dose; prefer mid 750/40/3°
+  first, add full-dose 1500/80/5° siblings if capacity/guardrails
+  allow; DOWNLOAD_ANSWER untouched unless a gate passes.
+- EXECUTED (operator-kick cycle 08-20 ~19:1x–19:4x UTC): all four
+  arms launched, 1M canaries warm from bcgait1_hard1, V5 +
+  k_loadslip_excess=6.0, pre-registered A/B gates:
+  cw-dep-bcgait1-midthru1 / fastthru1 (option (a): precert flags
+  removed so PPO trains through the step-0 wobble; periodic 500k
+  certs + fail-streak rollback + canary auto-stop + tilt/height
+  terminations retained) and cw-dep-bcgait1-midramp1 / fastramp1
+  (option (b): --cfg bus.profile_ramp_steps=500000, init cert kept —
+  certs at the stable fitted start profile, evals at full target
+  dose). Seeds matched within dose (22 mid, 21 fast) for clean A/B.
+  Launch hiccup: midthru1's first placement (train-2) died pre-W&B
+  on a pod defect — train-2 had CPU-only torch (2.13.0+cpu, never
+  got the recorded cu128 install); relaunched VERIFIED RUNNING on
+  train-4 and train-2 repaired via pod_torch_capability.py install
+  (now CAPABLE, recorded). Verdicts belong to the finish-triage
+  cycles (fastthru1 already verdicted FAIL by one).
+- rulebook change: none needed — the pick was executed as ordered;
+  V5 init-from exception already documented.
