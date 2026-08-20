@@ -63,6 +63,20 @@ def _query_value(full_path: str, key: str, default: str = "") -> str:
     return vals.get(key, [default])[0]
 
 
+def _normalize_base_url(base_url: str) -> str:
+    raw = (base_url or "").strip()
+    if not raw:
+        return ""
+    if "://" not in raw:
+        raw = "http://" + raw
+    p = urllib.parse.urlsplit(raw)
+    if p.scheme not in {"http", "https"}:
+        raise ValueError("robot URL must start with http:// or https://")
+    if not p.netloc:
+        raise ValueError("robot URL needs a host")
+    return urllib.parse.urlunsplit((p.scheme, p.netloc, "", "", ""))
+
+
 class SimTarget:
     """Route adapter around ``SimWebSession``."""
 
@@ -232,15 +246,26 @@ class RobotProxyTarget:
 
     def __init__(self, base_url: str, *, timeout: float = 5.0,
                  ping_timeout: float = 0.7, insecure_tls: bool = False):
-        self.base_url = base_url.rstrip("/")
+        self.base_url = _normalize_base_url(base_url)
         self.timeout = timeout
         self.ping_timeout = ping_timeout
         self.ssl_context = None
-        if insecure_tls:
-            self.ssl_context = ssl._create_unverified_context()
+        self.configure(self.base_url, insecure_tls=insecure_tls)
+
+    def configure(self, base_url: str,
+                  insecure_tls: bool | None = None) -> None:
+        self.base_url = _normalize_base_url(base_url)
+        if insecure_tls is not None:
+            self.ssl_context = (
+                ssl._create_unverified_context() if insecure_tls else None)
 
     def available(self) -> bool:
         return bool(self.base_url)
+
+    def config_meta(self) -> dict[str, Any]:
+        if not self.available():
+            return {"available": False}
+        return {"available": True, "url": self.base_url}
 
     def ping_meta(self) -> dict[str, Any]:
         if not self.available():
@@ -331,15 +356,34 @@ class HubController:
         with self.lock:
             self.target = target
 
+    def configure_robot(self, base_url: str,
+                        insecure_tls: bool | None = None) -> None:
+        if self.robot is None or not hasattr(self.robot, "configure"):
+            self.robot = RobotProxyTarget(
+                "", insecure_tls=bool(insecure_tls))
+        self.robot.configure(base_url, insecure_tls=insecure_tls)
+        with self.lock:
+            if not self._has_robot() and self.target in {"robot", "both"}:
+                self.target = "sim"
+
+    def _robot_config_meta(self) -> dict[str, Any]:
+        if not self._has_robot():
+            return {"available": False}
+        config_meta = getattr(self.robot, "config_meta", None)
+        if config_meta:
+            return config_meta()
+        return {"available": True}
+
     def ping(self) -> dict[str, Any]:
         with self.lock:
             target = self.target
         sim_meta = self.sim.ping_meta() if self._has_sim() else {
             "available": False}
-        robot_meta = self.robot.ping_meta() if self._has_robot() else {
-            "available": False}
         active_robot = target in {"robot", "both"}
         active_sim = target in {"sim", "both"}
+        robot_meta = (
+            self.robot.ping_meta() if active_robot and self._has_robot()
+            else self._robot_config_meta())
         ok = True
         if active_robot:
             ok = ok and robot_meta.get("ok") is not False
@@ -379,7 +423,15 @@ class HubController:
         if path == "/api/hub":
             data = _json_body(body)
             try:
-                self.set_target(str(data.get("target", "")))
+                if "robot_url" in data:
+                    insecure = (
+                        bool(data["robot_insecure_tls"])
+                        if "robot_insecure_tls" in data else None)
+                    self.configure_robot(str(data.get("robot_url", "")),
+                                         insecure_tls=insecure)
+                target = str(data.get("target", "")).strip()
+                if target:
+                    self.set_target(target)
             except Exception as e:
                 return RouteResponse.json({"ok": False, "error": str(e)}, 400)
             return RouteResponse.json({"ok": True, **self.ping()})

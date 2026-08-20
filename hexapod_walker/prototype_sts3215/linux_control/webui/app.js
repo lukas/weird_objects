@@ -15,6 +15,8 @@ let hubMode = false;
 let hubTarget = 'robot';
 let targetHasRobot = true;
 let targetHasSim = false;
+let robotTargetAvailable = true;
+let robotTargetUrl = '';
 let simFrames = true;
 let simNativeViewer = false;
 let simTimer = null, simBusy = false, simFrameBusy = false;
@@ -25,6 +27,17 @@ let simFrameLastAt = 0;
 // gated on this flag; ARM/DISARM/E-stop are the only power controls.
 let servosArmed = false;
 let maxVx = 40, maxVy = 29, maxOmega = 0.7;
+
+function savedRobotUrl(){
+  try{ return localStorage.getItem('hexapod.robotUrl') || ''; }
+  catch(e){ return ''; }
+}
+function saveRobotUrl(url){
+  try{
+    if(url) localStorage.setItem('hexapod.robotUrl', url);
+    else localStorage.removeItem('hexapod.robotUrl');
+  }catch(e){}
+}
 
 // --- link heartbeat --------------------------------------------------------
 function setLink(ok, detail){
@@ -50,14 +63,20 @@ function applyBackendMeta(meta){
   if(!meta) return;
   hubMode = !!meta.hub || meta.service === 'hexapod-hub';
   if(hubMode){
+    const targets = meta.targets || {};
+    const robotMeta = targets.robot || {};
     hubTarget = meta.target || 'sim';
     targetHasRobot = !!(meta.active && meta.active.robot);
     targetHasSim = !!(meta.active && meta.active.sim);
+    robotTargetAvailable = !!robotMeta.available;
+    robotTargetUrl = robotMeta.url || robotTargetUrl || savedRobotUrl();
   } else {
     const kind0 = meta.kind
       || (meta.service === 'hexapod-sim' ? 'sim' : 'robot');
     targetHasSim = kind0 === 'sim';
     targetHasRobot = kind0 !== 'sim';
+    robotTargetAvailable = targetHasRobot;
+    robotTargetUrl = '';
     hubTarget = targetHasSim ? 'sim' : 'robot';
   }
   const kind = targetHasRobot ? 'robot' : (targetHasSim ? 'sim' : 'robot');
@@ -72,13 +91,26 @@ function applyBackendMeta(meta){
   simNativeViewer = nativeViewer;
   document.body.classList.toggle('hub-backend', hubMode);
   document.body.classList.toggle('target-both', hubTarget === 'both');
+  document.body.classList.toggle('robot-configured',
+    hubMode && robotTargetAvailable);
   document.body.classList.toggle('sim-backend', targetHasSim);
   document.body.classList.toggle('sim-native-viewer',
     targetHasSim && simNativeViewer);
   document.body.classList.toggle('sim-browser-frames',
     targetHasSim && simFrames);
   const sel = document.getElementById('targetsel');
-  if(sel && sel.value !== hubTarget) sel.value = hubTarget;
+  if(sel){
+    const robotOpt = sel.querySelector('option[value="robot"]');
+    const bothOpt = sel.querySelector('option[value="both"]');
+    if(robotOpt) robotOpt.disabled = hubMode && !robotTargetAvailable;
+    if(bothOpt) bothOpt.disabled = hubMode && !robotTargetAvailable;
+    if(sel.value !== hubTarget) sel.value = hubTarget;
+  }
+  const robotInput = document.getElementById('roboturl');
+  if(robotInput && robotTargetUrl
+      && document.activeElement !== robotInput
+      && robotInput.value !== robotTargetUrl)
+    robotInput.value = robotTargetUrl;
   if(!simFrames){
     const img = document.getElementById('simframe');
     if(img) img.removeAttribute('src');
@@ -640,11 +672,60 @@ const dbgIndex  = ()=> dbgLeg*3 + dbgAxis;
 const dbgLimits = ()=> AXIS_LIM[dbgAxis];
 const $ = id => document.getElementById(id);
 
-async function setHubTarget(target){
+const robotUrlInput = $('roboturl');
+if(robotUrlInput && savedRobotUrl()) robotUrlInput.value = savedRobotUrl();
+
+function robotUrlValue(){
+  const el = $('roboturl');
+  return el ? el.value.trim() : '';
+}
+
+async function connectRobotTarget(nextTarget){
+  const url = robotUrlValue();
+  if(!url){
+    showSent('enter robot URL first', true);
+    const el = $('roboturl');
+    if(el) el.focus();
+    return;
+  }
+  saveRobotUrl(url);
+  showSent('connecting robot…');
   try{
     const r = await fetch('/api/hub', {method:'POST',
       headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({target})});
+      body: JSON.stringify({robot_url:url, target:nextTarget || 'robot'})});
+    const d = await r.json().catch(()=>({ok:false, error:'bad response'}));
+    if(!r.ok) throw new Error(d.error || 'connect failed');
+    applyBackendMeta(d);
+    setArmed(false);
+    const resolved = d.targets && d.targets.robot && d.targets.robot.url;
+    if(d.ok){
+      setLink(true, 'hub: '+(d.target || nextTarget || 'robot'));
+      showSent('robot connected → '+(resolved || url));
+    } else {
+      setLink(false, d.error || 'robot unavailable');
+      showSent('robot connect failed: '+(d.error || 'unreachable'), true);
+    }
+    simPollMaybe();
+  }catch(e){
+    showSent('robot connect failed: '+(e.message || e), true);
+  }
+}
+
+async function setHubTarget(target){
+  if((target === 'robot' || target === 'both') && !robotTargetAvailable)
+    return connectRobotTarget(target);
+  try{
+    const body = {target};
+    const typedUrl = robotUrlValue();
+    if((target === 'robot' || target === 'both')
+        && typedUrl && typedUrl !== robotTargetUrl){
+      body.robot_url = typedUrl;
+      saveRobotUrl(typedUrl);
+    }
+    const r = await fetch('/api/hub', {method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(body)});
     const d = await r.json();
     if(!d.ok) throw new Error(d.error || 'target switch failed');
     applyBackendMeta(d);
@@ -658,6 +739,11 @@ async function setHubTarget(target){
 if(document.getElementById('targetsel'))
   document.getElementById('targetsel').onchange =
     e => setHubTarget(e.target.value);
+if($('robotconnect')) $('robotconnect').onclick =
+  ()=> connectRobotTarget('robot');
+if($('roboturl')) $('roboturl').addEventListener('keydown', e=>{
+  if(e.key === 'Enter') connectRobotTarget('robot');
+});
 
 function dbgRefresh(){
   const idx = dbgIndex(), lim = dbgLimits();

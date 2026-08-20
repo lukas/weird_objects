@@ -31,11 +31,21 @@
   #conn.bad { color:#ff6b6b; } #conn.ok { color:#5fd08a; }
   #conn.warn { color:#e6b35a; }
   .hub-target { display:none; align-items:center; gap:6px; color:#98a2b8;
-                font-size:12px; font-weight:700; }
+                font-size:12px; font-weight:700; flex-wrap:wrap; }
   body.hub-backend .hub-target { display:inline-flex; }
   .hub-target select { background:#151923; color:#e7e9ee;
                        border:1px solid #30384a; border-radius:8px;
                        padding:5px 24px 5px 8px; font-weight:800; }
+  .hub-target input { width:178px; max-width:34vw; background:#11151e;
+                      color:#e7e9ee; border:1px solid #30384a;
+                      border-radius:8px; padding:6px 8px; font-size:12px;
+                      font-weight:650; }
+  .hub-target input::placeholder { color:#586275; }
+  .hub-target button { padding:6px 10px; font-size:12px; border-radius:8px;
+                       min-width:0; }
+  body.robot-configured .hub-target input {
+    border-color:#2e7d47; box-shadow:0 0 0 1px rgba(95,208,138,.08) inset;
+  }
   #robotact { font-size:12px; font-weight:700; padding:3px 10px; border-radius:999px;
               border:1px solid #333b52; background:#222838; color:#c5cce0;
               max-width:280px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }

@@ -251,6 +251,29 @@ class FakeTarget:
         pass
 
 
+class ConfigurableFakeTarget(FakeTarget):
+    def __init__(self, name):
+        super().__init__(name)
+        self.base_url = ""
+
+    def available(self):
+        return bool(self.base_url)
+
+    def configure(self, base_url, insecure_tls=None):
+        self.base_url = (
+            base_url if "://" in base_url else "http://" + base_url
+        ).rstrip("/")
+
+    def config_meta(self):
+        if not self.available():
+            return {"available": False}
+        return {"available": True, "url": self.base_url}
+
+    def ping_meta(self):
+        return {**self.config_meta(), "ok": self.available(),
+                "name": self.name}
+
+
 def _hub_request(hub, path, method="GET", body=None):
     handler_cls = make_hub_handler(
         hub, WEBUI_DIR, 8443, PAGE_PATHS, STATIC_FILES)
@@ -293,6 +316,27 @@ def test_hub_ping_and_target_switch():
                          body={"target": "sim"})
     assert switched["target"] == "sim"
     assert switched["active"] == {"robot": False, "sim": True}
+
+
+def test_hub_can_configure_robot_target_at_runtime():
+    sim = FakeTarget("sim")
+    robot = ConfigurableFakeTarget("robot")
+    hub = HubController(sim=sim, robot=robot, target="sim")
+    ping = _hub_json(hub, "/api/ping")
+    assert ping["target"] == "sim"
+    assert ping["targets"]["robot"] == {"available": False}
+
+    connected = _hub_json(hub, "/api/hub", method="POST",
+                          body={"robot_url": "hexapod.local:8080",
+                                "target": "robot"})
+    assert connected["ok"] is True
+    assert connected["target"] == "robot"
+    assert connected["active"] == {"robot": True, "sim": False}
+    assert connected["targets"]["robot"]["url"] == "http://hexapod.local:8080"
+
+    r = _hub_json(hub, "/api/status")
+    assert r["target"] == "robot"
+    assert robot.calls[-1][1] == "/api/status"
 
 
 def test_hub_broadcasts_drive_commands_only_in_both_mode():
