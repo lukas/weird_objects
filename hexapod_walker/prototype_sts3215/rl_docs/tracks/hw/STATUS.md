@@ -24,6 +24,29 @@ unresolved blockers between the robot and reliable joystick control.
 
 ## Now
 
+- **08-20 ~13:1x ADVISORY RECORDED (operator MCP client note
+  fb_20260820T130855_a17a35 — GPT-5 Codex geometry sweep on the
+  operator's machine, read-only, artifacts NOT in this repo): coxa
+  length is NOT a walking-speed/reliability lever, only a
+  yaw-margin/scrub one.** Env-backed sweep (SimHexapodJointGoalEnv +
+  SafetyLayer + servo profile, femur/tibia fixed 90/128 mm) over coxa
+  12.5→55 mm with tripod/tetrapod/wave gaits: suite-mean commanded
+  progress flat (0.518–0.526 across all lengths); worst-case yaw-limit
+  margin improves 12.3°→21.9° (12.5→55 mm; ~+2.4° avg at 30 mm),
+  scrub 135→101 mm/m, roll peak 1.64°→1.19°. Client recommendation:
+  do NOT pivot geometry; if steering/tangle stays the blocking
+  symptom, a CAD/build-checked 25–30 mm coxa-only variant is the
+  low-risk hardware follow-up (45–55 mm second-stage only).
+  Orchestrator action: recorded only — geometry/CAD is a bench/
+  `[operator]`-owned lever (parked with bench items, robot off
+  bench), it changes no sim verdict, and it does not alter the open
+  (a)/(b)/(c) fast anti-skate pick (that instability is profile-dose,
+  not geometry). Relevant when the operator next weighs the
+  steering/tangle line: the yaw-saturation axis `k_yaw_margin` +
+  the recover-ladder tangle work attack in reward-space has a
+  modest, quantified geometry alternative. Artifacts:
+  `/Users/lukas/Documents/Codex/2026-08-20/could-you-do-an-
+  exploration-using` (operator's machine).
 - **08-20 ~09:5x CODE FOLLOW-UP #2 (q_20260820T0830Z option (b),
   idle-drain cycle): the profile RAMP-IN mechanism is BUILT —
   `bus.profile_ramp_steps` (+ `profile_ramp_start_write_speed/
