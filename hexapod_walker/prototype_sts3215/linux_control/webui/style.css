@@ -104,8 +104,8 @@
                       border-radius:8px; padding:4px 8px; font-size:12px;
                       font-weight:650; }
   .hub-target input::placeholder { color:#586275; }
-  .hub-target button { padding:5px 9px; font-size:12px; border-radius:8px;
-                       min-width:0; }
+  .hub-target button { flex:0 0 auto; padding:5px 9px; font-size:12px;
+                       border-radius:8px; min-width:0; }
   body.robot-configured .hub-target input {
     border-color:#2e7d47; box-shadow:0 0 0 1px rgba(95,208,138,.08) inset;
   }
