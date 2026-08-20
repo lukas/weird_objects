@@ -93,6 +93,7 @@ class SimWebSession:
         self.demo_note: str = ""
         self.demo_speed_cap: float | None = None
         self.demo_is_script = False
+        self.pose_hold_q: np.ndarray | None = None
         self.command_log: list[tuple[float, str, str | None]] = []
         self.last_command = ""
         self.log_dir = cfg.log_dir
@@ -414,6 +415,7 @@ class SimWebSession:
 
     def _do_reset(self, start: str, h_goal: float, note: str) -> None:
         self._stop_demo_locked(status="idle", clear_name=True)
+        self.pose_hold_q = None
         self.auto = None
         self.downed = False
         self.sitting = False
@@ -580,6 +582,7 @@ class SimWebSession:
         return a
 
     def _do_stand(self) -> None:
+        self.pose_hold_q = None
         if self.auto is not None:
             if self.auto[0] == "lower":
                 self.auto = None
@@ -614,6 +617,7 @@ class SimWebSession:
         self.msg = "RISE (in place)"
 
     def _do_sit(self) -> None:
+        self.pose_hold_q = None
         if self.downed:
             self.msg = "robot is down - reset or recover first"
             return
@@ -660,6 +664,7 @@ class SimWebSession:
         self.msg = "FALLING into sprawled pose"
 
     def _do_recover(self) -> None:
+        self.pose_hold_q = None
         if self.recover is None:
             self.msg = f"no recovery checkpoint ({self.cfg.recover.name})"
             return
@@ -693,6 +698,7 @@ class SimWebSession:
         self.traj.goal.height_ref = 0.0
         self.traj._pub.roll_ref = self.traj._pub.pitch_ref = 0.0
         self.traj._pub.height_ref = 0.0
+        self.pose_hold_q = None
         if self.walk is not None:
             self._apply_vel_contract(self.walk_list[self.wi].stem)
         return True
@@ -865,6 +871,8 @@ class SimWebSession:
                 self._close_log()
         elif self.sitting:
             action = q_rad_to_action(self.q_sit)
+        elif self.pose_hold_q is not None:
+            action = q_rad_to_action(self.pose_hold_q)
         elif walking and scripted:
             if self.gait is None:
                 self.gait = self._new_gait()
@@ -1772,6 +1780,56 @@ class SimWebSession:
             self._do_reset("zero" if start in {"zero", "belly"} else "plant",
                            h, f"reset {start}")
             return {"ok": True, "status": self.msg, "live": self._live()}
+
+    def sim_pose(self, degrees: Any, source: str = "robot") -> dict[str, Any]:
+        try:
+            if not isinstance(degrees, (list, tuple)) or len(degrees) != 18:
+                raise ValueError("expected 18 joint degrees")
+            q_deg = np.array([float(v) for v in degrees], dtype=float)
+            if not np.all(np.isfinite(q_deg)):
+                raise ValueError("joint degrees must be finite numbers")
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+
+        q_rad = np.radians(q_deg)
+        with self.lock:
+            self._record_command(f"/api/sim/pose source={source}")
+            self._stop_demo_locked(status="idle", clear_name=True)
+            self.auto = None
+            self.downed = False
+            self.sitting = False
+            self.drive_active = False
+            self.timed_walk_until = None
+            self.gait = None
+            self.gait_t = 0.0
+            self.om_cmd = 0.0
+            self.traj.start_at = "plant"
+            self.traj.goal = TaskGoal()
+            self.traj.vx = self.traj.vy = 0.0
+            self.traj.mode = "hold"
+            self.traj.reset_published()
+            self._reset_memories(hard=True)
+            if hasattr(self.env, "_place_at_plant"):
+                self.env._place_at_plant(q_rad)
+            else:
+                qpos = self.env.data.qpos.copy()
+                qpos[7:25] = q_rad
+                qvel = np.zeros_like(self.env.data.qvel)
+                self._restore_phys(qpos, qvel)
+            self.pose_hold_q = q_rad.copy()
+            self.q_plant = q_rad.copy()
+            self.z_plant = self._chassis_z()
+            self.env._profile.reset(self._q_now())
+            self.env.safety.set_nominal(self._q_now())
+            self._finish_job(f"synced {source} pose")
+            return {
+                "ok": True,
+                "status": self.msg,
+                "source": source,
+                "live_joints": 18,
+                "degrees": [round(float(v), 2) for v in q_deg],
+                "live": self._live(),
+            }
 
     def sim_fall(self) -> dict[str, Any]:
         with self.lock:

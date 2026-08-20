@@ -11,9 +11,9 @@
   #main { flex:1 1 auto; min-width:0; }
   /* Top bar: arm/E-STOP on the left, status panel on the right. Sticky so
      EMERGENCY STOP is reachable no matter how far the page is scrolled. */
-  header { padding:8px 16px; display:grid;
+  header { padding:5px 12px; display:grid;
            grid-template-columns:max-content minmax(360px,1fr);
-           align-items:center; gap:12px;
+           align-items:center; gap:10px;
            border-bottom:1px solid #232733;
            position:sticky; top:0; z-index:500; background:#0f1115; }
   header h1 { font-size:16px; margin:0; font-weight:600; }
@@ -42,14 +42,41 @@
           padding:3px 9px; border-radius:999px; border:1px solid #333b52;
           background:#161b27; font-size:12px; color:#9aa3b2;
           font-weight:800; white-space:nowrap; }
+  #conn::before,
+  #gp:not(:empty)::before, #sent:not(:empty)::before {
+    margin-right:6px; color:#7e879a; font:850 10px/1 system-ui, sans-serif;
+    letter-spacing:.65px; text-transform:uppercase;
+  }
+  body.hub-backend #conn::before { content:'web'; }
+  body:not(.hub-backend).sim-backend #conn::before { content:'sim'; }
+  body:not(.hub-backend):not(.sim-backend) #conn::before { content:'robot'; }
+  #gp:not(:empty)::before { content:'input'; }
+  #sent:not(:empty)::before { content:'last'; }
   #conn.bad { color:#ff6b6b; } #conn.ok { color:#5fd08a; }
   #conn.warn { color:#e6b35a; }
-  .hub-target { display:none; align-items:center; justify-content:flex-end;
-                gap:6px; max-width:100%; padding:4px; border-radius:10px;
+  .hub-target { display:none; flex-direction:column; align-items:stretch;
+                justify-content:flex-end; gap:4px; max-width:100%;
+                padding:4px; border-radius:10px;
                 background:#151923; border:1px solid #273044;
                 color:#98a2b8; font-size:12px; font-weight:700;
-                flex-wrap:wrap; }
-  body.hub-backend .hub-target { display:inline-flex; }
+                flex-wrap:nowrap; }
+  body.hub-backend .hub-target { display:flex; }
+  .target-row { display:flex; align-items:center; justify-content:flex-end;
+                gap:5px; min-height:27px; }
+  .target-name { flex:0 0 58px; color:#dfe4ee; font-size:11px;
+                 font-weight:900; letter-spacing:.6px;
+                 text-transform:uppercase; text-align:right; }
+  .target-badge { min-height:22px; display:inline-flex; align-items:center;
+                  padding:2px 7px; border-radius:999px;
+                  border:1px solid #333b52; background:#11151e;
+                  color:#687388; font-size:11px; font-weight:850;
+                  white-space:nowrap; }
+  .target-badge.ok { color:#5fd08a; border-color:#2e7d47;
+                     background:#102218; }
+  .target-badge.route { color:#7eb6ff; border-color:#2b6cff;
+                        background:#101b2d; }
+  .target-badge.bad { color:#ff8a8a; border-color:#7a2b2b;
+                      background:#241416; }
   .target-label { padding:0 4px 0 2px; text-transform:uppercase;
                   letter-spacing:.7px; font-size:10px; color:#7e879a; }
   .routechips { display:flex; gap:4px; align-items:center; }
@@ -64,25 +91,28 @@
     color:#7eb6ff; border-color:#2b6cff; background:#101b2d;
   }
   body.target-both .routechip { box-shadow:0 0 0 1px rgba(255,255,255,.03) inset; }
-  .hub-target select { background:#151923; color:#e7e9ee;
-                       border:1px solid #30384a; border-radius:8px;
-                       padding:5px 24px 5px 8px; font-weight:800;
-                       min-height:30px; }
-  .hub-target input { width:210px; max-width:34vw; min-height:30px;
+  .sync-pose-top { display:none; flex:0 0 auto; min-width:0;
+                   padding:6px 10px; font-size:12px; border-radius:8px;
+                   background:#132438; border-color:#2b6cff;
+                   color:#7eb6ff; white-space:nowrap; }
+  body.robot-configured.sim-configured .sync-pose-top { display:inline-flex;
+    align-items:center; justify-content:center; }
+  .sync-pose-top:disabled { opacity:.65; cursor:wait; }
+  .hub-target input { width:210px; max-width:34vw; min-height:26px;
                       background:#11151e;
                       color:#e7e9ee; border:1px solid #30384a;
-                      border-radius:8px; padding:6px 8px; font-size:12px;
+                      border-radius:8px; padding:4px 8px; font-size:12px;
                       font-weight:650; }
   .hub-target input::placeholder { color:#586275; }
-  .hub-target button { padding:6px 10px; font-size:12px; border-radius:8px;
+  .hub-target button { padding:5px 9px; font-size:12px; border-radius:8px;
                        min-width:0; }
   body.robot-configured .hub-target input {
     border-color:#2e7d47; box-shadow:0 0 0 1px rgba(95,208,138,.08) inset;
   }
-  #robotact { min-height:24px; display:inline-flex; align-items:center;
-              font-size:12px; font-weight:800; padding:3px 10px; border-radius:999px;
+  #robotact { min-height:22px; display:inline-flex; align-items:center;
+              font-size:11px; font-weight:850; padding:2px 8px; border-radius:999px;
               border:1px solid #333b52; background:#222838; color:#c5cce0;
-              max-width:280px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+              max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   #robotact.act-demo { color:#7eb6ff; border-color:#2b6cff; }
   #robotact.act-calibrating { color:#c9a0ff; border-color:#6b4aa0; }
   #robotact.act-zeroing { color:#e6b35a; border-color:#8a6a2a; }
@@ -171,17 +201,18 @@
   .armbar.sim .armstate { color:#7eb6ff; }
   code { background:#222838; border:1px solid #333b52; border-radius:4px; padding:0 4px;
          font-family: ui-monospace, monospace; font-size:11px; }
-  .armbar { display:flex; align-items:center; gap:10px; flex-wrap:wrap;
-            padding:7px 12px; border-radius:12px;
+  .armbar { display:flex; align-items:center; gap:6px; flex-wrap:nowrap;
+            padding:4px 6px; border-radius:9px;
             border:1px solid #2c3140; }
   .armbar.disarmed { background:#2a1416; border-color:#7a2b2b; }
   .armbar.armed    { background:#12271a; border-color:#2e7d47; }
-  .armstate { font-weight:800; font-size:14px; letter-spacing:.3px;
+  .armstate { font-weight:850; font-size:12px; letter-spacing:.2px;
               white-space:nowrap; }
   .armbar.disarmed .armstate { color:#ff6b6b; }
   .armbar.armed    .armstate { color:#5fd08a; }
-  .armbtn, .estop { flex:0 0 auto; min-width:0; padding:9px 14px; font-weight:700;
-            font-size:13px; border-radius:10px; cursor:pointer; }
+  .armbtn, .estop { flex:0 0 auto; min-width:0; padding:5px 9px;
+            font-weight:750; font-size:12px; border-radius:7px;
+            line-height:1.15; cursor:pointer; }
   .armbtn { background:#2e7d47; border:1px solid #3a9a58; color:#fff; }
   .armbar.armed .armbtn { background:#1b2030; border-color:#2c3140; color:#e7eaf0; }
   .estop { background:#7a2b2b; border:1px solid #a33; color:#fff; }

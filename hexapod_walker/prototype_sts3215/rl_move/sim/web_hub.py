@@ -112,7 +112,12 @@ def _local_robot_demos() -> tuple[list[dict[str, Any]], str | None]:
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore", SyntaxWarning)
                 spec.loader.exec_module(mod)
-                demos = mod.BenchAPI.list_demos(object())
+
+                class _DemoCatalogOnly:
+                    def list_dance_scripts(self) -> list[dict[str, Any]]:
+                        return []
+
+                demos = mod.BenchAPI.list_demos(_DemoCatalogOnly())
             _LOCAL_ROBOT_DEMOS = [dict(x) for x in demos]
             return [dict(x) for x in _LOCAL_ROBOT_DEMOS], None
         except Exception as e:
@@ -304,6 +309,10 @@ class SimTarget:
             return RouteResponse.json(s.sim_push(
                 x=float(data.get("x", 4.0)),
                 y=float(data.get("y", 0.0))))
+        if path == "/api/sim/pose":
+            return RouteResponse.json(s.sim_pose(
+                degrees=data.get("degrees"),
+                source=str(data.get("source", "api"))))
         return RouteResponse.json({"ok": False,
                                    "error": f"no sim route: {path}"}, 404)
 
@@ -520,6 +529,8 @@ class HubController:
             except Exception as e:
                 return RouteResponse.json({"ok": False, "error": str(e)}, 400)
             return RouteResponse.json({"ok": True, **self.ping()})
+        if path == "/api/sim/sync_robot_pose":
+            return self._sync_sim_from_robot_pose(headers)
         if path.startswith("/api/sim/"):
             return self._send("sim", "POST", full_path, body, headers)
         with self.lock:
@@ -641,6 +652,57 @@ class HubController:
             "sources": sources,
             "demos": list(rows.values()),
         })
+
+    def _sync_sim_from_robot_pose(
+            self, headers: dict[str, str] | None) -> RouteResponse:
+        if not self._has_robot():
+            return RouteResponse.json({"ok": False,
+                                       "error": "robot target unavailable"},
+                                      503)
+        if not self._has_sim():
+            return RouteResponse.json({"ok": False,
+                                       "error": "sim target unavailable"},
+                                      503)
+        robot_resp = self._request_with_timeout(
+            "robot", "GET", "/api/pose", b"", headers, timeout=5.0)
+        pose = robot_resp.json_obj()
+        if not robot_resp.ok() or pose.get("ok") is False:
+            return RouteResponse.json({
+                "ok": False,
+                "error": pose.get("error") or "robot pose unavailable",
+                "robot": pose,
+            }, 502)
+        degrees = pose.get("degrees")
+        if not isinstance(degrees, list) or len(degrees) != 18:
+            return RouteResponse.json({
+                "ok": False,
+                "error": "robot pose did not include 18 joint degrees",
+                "robot": pose,
+            }, 502)
+        missing = [i for i, v in enumerate(degrees) if v is None]
+        if missing:
+            return RouteResponse.json({
+                "ok": False,
+                "error": ("robot pose missing joints "
+                          + ",".join(str(i) for i in missing)),
+                "robot": pose,
+            }, 502)
+        sim_body = json.dumps({
+            "degrees": degrees,
+            "source": "robot",
+        }).encode("utf-8")
+        sim_resp = self._send("sim", "POST", "/api/sim/pose", sim_body,
+                              {"Content-Type": "application/json"})
+        sim_obj = sim_resp.json_obj()
+        out = dict(sim_obj)
+        out["hub"] = True
+        out["robot_pose"] = {
+            "live": pose.get("live"),
+            "ts": pose.get("ts"),
+            "armed": pose.get("armed"),
+            "mode": pose.get("mode"),
+        }
+        return RouteResponse.json(out, 200 if sim_resp.ok() else 502)
 
     def _send(self, target: str, method: str, full_path: str, body: bytes,
               headers: dict[str, str] | None) -> RouteResponse:

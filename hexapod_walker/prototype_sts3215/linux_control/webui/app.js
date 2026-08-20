@@ -16,6 +16,7 @@ let hubTarget = 'robot';
 let targetHasRobot = true;
 let targetHasSim = false;
 let robotTargetAvailable = true;
+let simTargetAvailable = false;
 let robotTargetUrl = '';
 let simFrames = true;
 let simNativeViewer = false;
@@ -46,7 +47,7 @@ function setLink(ok, detail){
   if(ok){
     linkFailStreak = 0;
     lastPingOkAt = Date.now();
-    conn.textContent = detail || 'connected';
+    conn.textContent = detail || 'online';
     conn.className = 'ok';
   } else {
     conn.textContent = detail || 'offline';
@@ -61,14 +62,23 @@ function setLink(ok, detail){
 }
 function applyBackendMeta(meta){
   if(!meta) return;
+  const prevBackendKind = backendKind;
+  const prevHubMode = hubMode;
+  const prevHubTarget = hubTarget;
+  const prevTargetHasRobot = targetHasRobot;
+  const prevTargetHasSim = targetHasSim;
+  const prevFrames = simFrames;
+  const prevNativeViewer = simNativeViewer;
   hubMode = !!meta.hub || meta.service === 'hexapod-hub';
   if(hubMode){
     const targets = meta.targets || {};
     const robotMeta = targets.robot || {};
+    const simMeta = targets.sim || {};
     hubTarget = meta.target || 'sim';
     targetHasRobot = !!(meta.active && meta.active.robot);
     targetHasSim = !!(meta.active && meta.active.sim);
     robotTargetAvailable = !!robotMeta.available;
+    simTargetAvailable = !!simMeta.available;
     robotTargetUrl = robotMeta.url || robotTargetUrl || savedRobotUrl();
   } else {
     const kind0 = meta.kind
@@ -76,16 +86,18 @@ function applyBackendMeta(meta){
     targetHasSim = kind0 === 'sim';
     targetHasRobot = kind0 !== 'sim';
     robotTargetAvailable = targetHasRobot;
+    simTargetAvailable = targetHasSim;
     robotTargetUrl = '';
     hubTarget = targetHasSim ? 'sim' : 'robot';
   }
   const kind = targetHasRobot ? 'robot' : (targetHasSim ? 'sim' : 'robot');
   const frames = meta.frames !== false;
   const nativeViewer = !!meta.viewer;
-  const changed = kind !== backendKind || frames !== simFrames
-    || nativeViewer !== simNativeViewer
-    || hubMode !== document.body.classList.contains('hub-backend')
-    || hubTarget !== (document.getElementById('targetsel')||{}).value;
+  const changed = kind !== prevBackendKind || frames !== prevFrames
+    || nativeViewer !== prevNativeViewer || hubMode !== prevHubMode
+    || hubTarget !== prevHubTarget
+    || targetHasRobot !== prevTargetHasRobot
+    || targetHasSim !== prevTargetHasSim;
   backendKind = kind;
   simFrames = frames;
   simNativeViewer = nativeViewer;
@@ -95,19 +107,13 @@ function applyBackendMeta(meta){
   document.body.classList.toggle('sim-active', targetHasSim);
   document.body.classList.toggle('robot-configured',
     hubMode && robotTargetAvailable);
+  document.body.classList.toggle('sim-configured',
+    hubMode && simTargetAvailable);
   document.body.classList.toggle('sim-backend', targetHasSim);
   document.body.classList.toggle('sim-native-viewer',
     targetHasSim && simNativeViewer);
   document.body.classList.toggle('sim-browser-frames',
     targetHasSim && simFrames);
-  const sel = document.getElementById('targetsel');
-  if(sel){
-    const robotOpt = sel.querySelector('option[value="robot"]');
-    const bothOpt = sel.querySelector('option[value="both"]');
-    if(robotOpt) robotOpt.disabled = hubMode && !robotTargetAvailable;
-    if(bothOpt) bothOpt.disabled = hubMode && !robotTargetAvailable;
-    if(sel.value !== hubTarget) sel.value = hubTarget;
-  }
   const robotInput = document.getElementById('roboturl');
   if(robotInput && robotTargetUrl
       && document.activeElement !== robotInput
@@ -122,6 +128,7 @@ function applyBackendMeta(meta){
     updateArmUI();
     if(activeView === 'rl') simPollMaybe();
   }
+  paintTargetRows();
 }
 async function heartbeat(){
   const ac = new AbortController();
@@ -137,8 +144,7 @@ async function heartbeat(){
     const j = await r.json().catch(()=>({}));
     applyBackendMeta(j);
     if(j && j.ok === false) throw new Error(j.error || 'ping failed');
-    setLink(true, hubMode ? 'connected'
-      : (backendKind === 'sim' ? 'sim connected' : undefined));
+    setLink(true, 'online');
   }catch(e){
     clearTimeout(t);
     linkFailStreak++;
@@ -677,6 +683,43 @@ const $ = id => document.getElementById(id);
 const robotUrlInput = $('roboturl');
 if(robotUrlInput && savedRobotUrl()) robotUrlInput.value = savedRobotUrl();
 
+function paintTargetBadge(id, text, cls){
+  const el = $(id);
+  if(!el) return;
+  el.textContent = text;
+  el.className = 'target-badge' + (cls ? ' '+cls : '');
+}
+function paintTargetRows(){
+  paintTargetBadge('robotlinesend', targetHasRobot ? 'active' : 'idle',
+    targetHasRobot ? 'route' : '');
+  paintTargetBadge('robotlineconn',
+    robotTargetAvailable ? 'connected' : 'not connected',
+    robotTargetAvailable ? 'ok' : 'bad');
+  paintTargetBadge('simlinesend', targetHasSim ? 'active' : 'idle',
+    targetHasSim ? 'route' : '');
+  paintTargetBadge('simlineconn',
+    simTargetAvailable ? 'connected' : 'not connected',
+    simTargetAvailable ? 'ok' : 'bad');
+  const rb = $('robotconnect');
+  if(rb){
+    rb.textContent = !robotTargetAvailable ? 'Connect'
+      : (targetHasRobot ? 'Connected' : 'Connect');
+    rb.classList.toggle('on', targetHasRobot);
+    rb.title = targetHasRobot
+      ? 'Robot is the active command target'
+      : 'Connect this laptop web UI to the real robot web server';
+  }
+  const sb = $('simconnect');
+  if(sb){
+    sb.textContent = targetHasSim ? 'Connected' : 'Connect';
+    sb.classList.toggle('on', targetHasSim);
+    sb.title = targetHasSim
+      ? 'MuJoCo is the active command target'
+      : 'Connect this web UI to MuJoCo';
+  }
+}
+paintTargetRows();
+
 function robotUrlValue(){
   const el = $('roboturl');
   return el ? el.value.trim() : '';
@@ -703,8 +746,8 @@ async function connectRobotTarget(nextTarget){
     const resolved = d.targets && d.targets.robot && d.targets.robot.url;
     simPollMaybe();
     if(d.ok){
-      setLink(true, 'connected');
-      showSent('robot connected → '+(resolved || url));
+      setLink(true, 'online');
+      showSent('robot target connected → '+(resolved || url));
       return true;
     } else {
       setLink(false, d.error || 'robot unavailable');
@@ -735,7 +778,7 @@ async function setHubTarget(target){
     if(!d.ok) throw new Error(d.error || 'target switch failed');
     applyBackendMeta(d);
     setArmed(false);
-    showSent('target → '+target);
+    showSent('connected → '+(target === 'sim' ? 'MuJoCo' : 'Robot'));
     simPollMaybe();
     return true;
   }catch(e){
@@ -743,13 +786,12 @@ async function setHubTarget(target){
     return false;
   }
 }
-if(document.getElementById('targetsel'))
-  document.getElementById('targetsel').onchange =
-    e => setHubTarget(e.target.value);
 if($('robotconnect')) $('robotconnect').onclick =
-  ()=> connectRobotTarget('robot');
+  ()=> setHubTarget('robot');
+if($('simconnect')) $('simconnect').onclick =
+  ()=> setHubTarget('sim');
 if($('roboturl')) $('roboturl').addEventListener('keydown', e=>{
-  if(e.key === 'Enter') connectRobotTarget('robot');
+  if(e.key === 'Enter') setHubTarget('robot');
 });
 
 async function ensureDemoTarget(item){
@@ -1462,12 +1504,49 @@ async function simPost(path, body){
     refreshSimPanel();
   }catch(e){ $('simstatus').textContent = 'sim command failed'; }
 }
+function setSyncPoseBusy(busy){
+  ['hubsyncpose', 'simsyncpose'].forEach(id=>{
+    const b = $(id);
+    if(!b) return;
+    b.disabled = busy;
+    if(id === 'hubsyncpose') b.textContent = busy ? 'Matching…' : 'Match pose';
+  });
+}
+async function syncRobotPoseToSim(){
+  if(!(robotTargetAvailable && simTargetAvailable)){
+    showSent('connect Robot + MuJoCo before matching pose', true);
+    return;
+  }
+  setSyncPoseBusy(true);
+  if($('simstatus')) $('simstatus').textContent = 'reading robot pose…';
+  showSent('matching MuJoCo pose to robot…');
+  try{
+    const r = await fetch('/api/sim/sync_robot_pose', {method:'POST'});
+    const d = await r.json();
+    const line = d.ok
+      ? 'matched pose · '+(d.live_joints || 0)+'/18 joints'
+      : (d.error || 'match pose failed');
+    if($('simstatus')) $('simstatus').textContent = d.ok
+      ? (d.status || line) : line;
+    showSent(line, !d.ok);
+    refreshSimPanel();
+  }catch(e){
+    if($('simstatus')) $('simstatus').textContent = 'match pose failed';
+    showSent('match pose failed', true);
+  }finally{
+    setSyncPoseBusy(false);
+  }
+}
 if($('simresetstand'))
   $('simresetstand').onclick = ()=> simPost('/api/sim/reset',
     {start:'plant'});
 if($('simresetbelly'))
   $('simresetbelly').onclick = ()=> simPost('/api/sim/reset',
     {start:'belly'});
+if($('hubsyncpose'))
+  $('hubsyncpose').onclick = syncRobotPoseToSim;
+if($('simsyncpose'))
+  $('simsyncpose').onclick = syncRobotPoseToSim;
 if($('simfall')) $('simfall').onclick = ()=> simPost('/api/sim/fall');
 if($('simrecover')) $('simrecover').onclick =
   ()=> simPost('/api/sim/recover');
@@ -2832,10 +2911,10 @@ function updateArmUI(){
   bar.classList.toggle('sim', simOnly);
   if(simOnly){
     bar.classList.remove('armed', 'disarmed');
-    $('armstate').textContent = '● SIM — MuJoCo';
-    $('armbtn').textContent = 'Reset sim stand';
+    $('armstate').textContent = '● SIM';
+    $('armbtn').textContent = 'Stand';
     $('armbtn').title = 'Reset the MuJoCo sim to the standing plant stance.';
-    $('estop').textContent = '■ Stop sim';
+    $('estop').textContent = '■ Stop';
     $('estop').title = 'Stop the sim motion — the stance policy holds.';
     return;
   }
@@ -2844,13 +2923,13 @@ function updateArmUI(){
   // Compact header labels (operator 08-19); the long explanation lives in
   // the button tooltips instead of a hint paragraph. Labels + titles are
   // restored here because sim mode rewrites all of them.
-  $('armstate').textContent = servosArmed ? '● ARMED' : '● SERVOS OFF';
-  $('armbtn').textContent   = servosArmed ? 'Disarm' : 'Enable servos';
+  $('armstate').textContent = servosArmed ? '● ON' : '● OFF';
+  $('armbtn').textContent   = servosArmed ? 'Disarm' : 'Enable';
   $('armbtn').title = servosArmed
     ? 'Normal power-off (SETTLE): lowers gently to the ground, THEN cuts '
       +'servo power. For an instant cut use EMERGENCY STOP (robot drops).'
     : 'Power the servos on (ARM). Nothing moves until you press Stand.';
-  $('estop').textContent = '■ EMERGENCY STOP';
+  $('estop').textContent = '■ E-STOP';
   $('estop').title = 'Cut all power to the servos IMMEDIATELY — the robot '
     +'goes limp NOW and will drop. Use only in an emergency. For a normal, '
     +'gentle power-off use Disarm / Sit & power off.';
@@ -2883,7 +2962,7 @@ function disarmServos(){
 function needArm(){
   if(targetHasSim && !targetHasRobot) return false;
   if(servosArmed) return false;
-  showSent('⚠ Servos disarmed — press “Enable servos” first');
+  showSent('⚠ Servos disarmed — press Enable first');
   return true;
 }
 // The Disarm toggle is a NORMAL power-off -> graceful lower then limp.
