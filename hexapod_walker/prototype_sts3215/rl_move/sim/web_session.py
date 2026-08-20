@@ -87,6 +87,8 @@ class SimWebSession:
         self.demo_duration = 0.0
         self.demo_started_sim_t = 0.0
         self.demo_telemetry: dict[str, Any] | None = None
+        self.command_log: list[tuple[float, str, str | None]] = []
+        self.last_command = ""
         self.log_dir = cfg.log_dir
         self.log_dir.mkdir(parents=True, exist_ok=True)
         self._log_fp = None
@@ -342,6 +344,18 @@ class SimWebSession:
             except Exception:
                 pass
         return max(0.25, min(3.0, speed))
+
+    def _record_command(self, text: str, key: str | None = None) -> None:
+        clean = " ".join(str(text).split())
+        if len(clean) > 80:
+            clean = clean[:77] + "..."
+        self.last_command = clean
+        row = (float(self.sim_t), clean, key)
+        if key and self.command_log and self.command_log[-1][2] == key:
+            self.command_log[-1] = row
+        else:
+            self.command_log.append(row)
+            del self.command_log[:-6]
 
     def _new_gait(self):
         kw = _SCRIPTED_TRIPOD.get(self.walk_list[self.wi])
@@ -778,16 +792,49 @@ class SimWebSession:
         if set_texts is None:
             return
         live = self._live()
-        title = "Hexapod MuJoCo web control"
-        detail = (f"{live['status']}\n"
-                  f"mode {live['mode']}  h {live['height_mm']} mm\n"
-                  f"cmd {live['vx_ref']:+.3f},{live['vy_ref']:+.3f} m/s  "
-                  f"body {live['vx_body']:+.3f},{live['vy_body']:+.3f} m/s\n"
-                  f"tilt {live['roll_deg']:+.1f},{live['pitch_deg']:+.1f} deg")
-        if web_url:
-            detail += f"\n{web_url}"
-        set_texts([(mujoco_mod.mjtFontScale.mjFONTSCALE_150,
-                    mujoco_mod.mjtGridPos.mjGRID_TOPRIGHT,
+        width = 54
+
+        def cell(text: str) -> str:
+            text = str(text)
+            if len(text) > width:
+                text = text[:width - 3] + "..."
+            return text.ljust(width)
+
+        commands = [
+            f"{t:7.1f}s  {cmd}" for t, cmd, _key in self.command_log[-4:]
+        ]
+        while len(commands) < 4:
+            commands.append("")
+
+        labels = [
+            "Hexapod sim",
+            "status",
+            "mode",
+            "cmd ref",
+            "body vel",
+            "tilt",
+            "url",
+            "last cmd",
+            "commands",
+            "",
+            "",
+            "",
+        ]
+        values = [
+            "MuJoCo web control",
+            live["status"],
+            f"{live['mode']}  h {live['height_mm']:>6.1f} mm",
+            f"{live['vx_ref']:+.3f},{live['vy_ref']:+.3f} m/s",
+            f"{live['vx_body']:+.3f},{live['vy_body']:+.3f} m/s",
+            f"{live['roll_deg']:+.1f},{live['pitch_deg']:+.1f} deg",
+            web_url or "",
+            self.last_command,
+            *commands,
+        ]
+        title = "\n".join(label.ljust(12) for label in labels)
+        detail = "\n".join(cell(value) for value in values)
+        set_texts([(mujoco_mod.mjtFontScale.mjFONTSCALE_100,
+                    mujoco_mod.mjtGridPos.mjGRID_TOPLEFT,
                     title, detail)])
 
     def _render_frame_locked(self) -> None:
@@ -942,6 +989,8 @@ class SimWebSession:
     def set_demo_speed(self, speed: Any) -> dict[str, Any]:
         v = self._clamp_float(speed, 1.0, 0.25, 3.0)
         with self.lock:
+            self._record_command(f"/api/demo/speed speed={v:.2f}",
+                                 key="demo-speed")
             self.demo_speed_live = v
             if self.demo_params:
                 self.demo_params = {**self.demo_params, "speed_live": v}
@@ -970,6 +1019,8 @@ class SimWebSession:
             dur = self._clamp_float(seconds, 40.0, 2.0, 300.0)
             dur = max(dur, float(QW.MIN_SECONDS))
             switched_from = self.demo_name if self._demo_running() else None
+            self._record_command(
+                f"/api/demo name={name} speed={speed:.2f} seconds={dur:.1f}")
 
             self._do_reset("plant", 0.0, f"stand zero -> {name}")
             base_deg = [math.degrees(v) for v in self.q_plant]
@@ -1011,6 +1062,7 @@ class SimWebSession:
 
     def stop_demo(self) -> dict[str, Any]:
         with self.lock:
+            self._record_command("/api/demo/stop")
             was_running = self._demo_running()
             self._stop_demo_locked(status="aborted" if was_running else "idle")
             self.drive_active = False
@@ -1026,6 +1078,7 @@ class SimWebSession:
         pose = (pose or "sit").strip().lower()
         pose = "stand" if pose in {"stand", "standing", "plant"} else "sit"
         with self.lock:
+            self._record_command(f"/api/zero pose={pose}")
             if pose == "stand":
                 self._do_reset("plant", 0.0, "at stand zero")
                 self.armed = True
@@ -1044,8 +1097,10 @@ class SimWebSession:
         return self.go_zero("sit")
 
     def set_zero_here(self) -> dict[str, Any]:
-        return {"ok": True, "sim": True, "ok_n": 18, "count": 18,
-                "message": "sim logical zero unchanged"}
+        with self.lock:
+            self._record_command("/api/set_zero")
+            return {"ok": True, "sim": True, "ok_n": 18, "count": 18,
+                    "message": "sim logical zero unchanged"}
 
     def ping(self) -> dict[str, Any]:
         return {"ok": True, "service": "hexapod-sim",
@@ -1181,6 +1236,8 @@ class SimWebSession:
         if role not in {"walk", "hold", "stand", "lower"}:
             return {"ok": False, "error": f"bad role {role!r}"}
         with self.lock:
+            self._record_command(
+                f"/api/rl/roles {role}={file or 'default'}")
             if not file:
                 self.roles.pop(role, None)
                 self.role_models.pop(role, None)
@@ -1205,6 +1262,7 @@ class SimWebSession:
 
     def rl_policy_select(self, file: str) -> dict[str, Any]:
         with self.lock:
+            self._record_command(f"/api/rl/policy_select file={file}")
             p = self.policy_index.get(file)
             if p is None:
                 return {"ok": False, "error": f"unknown policy {file!r}"}
@@ -1246,6 +1304,7 @@ class SimWebSession:
 
     def rl_capture_plant(self) -> dict[str, Any]:
         with self.lock:
+            self._record_command("/api/rl/capture_plant")
             self.q_plant = self._q_now()
             self.z_plant = self._chassis_z()
             return {"ok": True, "sim": True,
@@ -1255,6 +1314,12 @@ class SimWebSession:
     def rl_policy_move(self, mode: str, vx: float = 0.03, vy: float = 0.0,
                        duration_s: float = 6.0) -> dict[str, Any]:
         with self.lock:
+            if mode == "walk":
+                self._record_command(
+                    f"/api/rl/walk vx={vx:+.3f} vy={vy:+.3f} "
+                    f"duration={duration_s:.1f}")
+            else:
+                self._record_command(f"/api/rl/{mode}")
             self.drive_active = False
             self.timed_walk_until = None
             self._open_log(mode)
@@ -1284,6 +1349,7 @@ class SimWebSession:
 
     def rl_stop(self) -> dict[str, Any]:
         with self.lock:
+            self._record_command("/api/rl/stop")
             self.drive_active = False
             self.timed_walk_until = None
             self.traj.vx = self.traj.vy = 0.0
@@ -1293,6 +1359,7 @@ class SimWebSession:
 
     def rl_drive_start(self) -> dict[str, Any]:
         with self.lock:
+            self._record_command("/api/rl/drive/start")
             if self.auto is None and (self.sitting or self._chassis_z() < 0.09):
                 self._do_stand()
             self.drive_active = True
@@ -1305,6 +1372,9 @@ class SimWebSession:
 
     def rl_drive_cmd(self, vx: float, vy: float) -> dict[str, Any]:
         with self.lock:
+            self._record_command(
+                f"/api/rl/drive/cmd vx={vx:+.3f} vy={vy:+.3f}",
+                key="drive-cmd")
             if not self.drive_active:
                 return {"ok": True, "active": False, "status": "not active",
                         "result": self.job_result}
@@ -1320,6 +1390,7 @@ class SimWebSession:
 
     def rl_drive_stop(self) -> dict[str, Any]:
         with self.lock:
+            self._record_command("/api/rl/drive/stop")
             self.drive_active = False
             self.traj.vx = self.traj.vy = 0.0
             self._close_log()
@@ -1340,6 +1411,8 @@ class SimWebSession:
         parts = line.strip().split()
         head = parts[0].upper() if parts else ""
         with self.lock:
+            self._record_command(f"/cmd {line.strip()}",
+                                 key="cmd-j" if head == "J" else None)
             if head == "ARM":
                 self.armed = True
                 self.msg = "sim armed"
@@ -1367,6 +1440,7 @@ class SimWebSession:
         with self.lock:
             if start not in {"plant", "zero", "belly"}:
                 start = "plant"
+            self._record_command(f"/api/sim/reset start={start}")
             h = 0.0
             self._do_reset("zero" if start in {"zero", "belly"} else "plant",
                            h, f"reset {start}")
@@ -1374,11 +1448,13 @@ class SimWebSession:
 
     def sim_fall(self) -> dict[str, Any]:
         with self.lock:
+            self._record_command("/api/sim/fall")
             self._do_fall()
             return {"ok": True, "status": self.msg, "live": self._live()}
 
     def sim_recover(self) -> dict[str, Any]:
         with self.lock:
+            self._record_command("/api/sim/recover")
             self.job_kind = "recover"
             self._open_log("recover")
             self._do_recover()
@@ -1387,6 +1463,7 @@ class SimWebSession:
 
     def sim_push(self, x: float = 4.0, y: float = 0.0) -> dict[str, Any]:
         with self.lock:
+            self._record_command(f"/api/sim/push x={x:+.1f} y={y:+.1f}")
             self.push_force[:] = [x, y, 0.0]
             self.push_ticks = int(0.20 / self.env.dt)
             self.msg = f"push {x:+.1f},{y:+.1f} N"
