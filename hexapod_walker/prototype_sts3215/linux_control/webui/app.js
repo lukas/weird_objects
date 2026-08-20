@@ -686,7 +686,7 @@ async function connectRobotTarget(nextTarget){
     showSent('enter robot URL first', true);
     const el = $('roboturl');
     if(el) el.focus();
-    return;
+    return false;
   }
   saveRobotUrl(url);
   showSent('connecting robot…');
@@ -699,16 +699,19 @@ async function connectRobotTarget(nextTarget){
     applyBackendMeta(d);
     setArmed(false);
     const resolved = d.targets && d.targets.robot && d.targets.robot.url;
+    simPollMaybe();
     if(d.ok){
       setLink(true, 'hub: '+(d.target || nextTarget || 'robot'));
       showSent('robot connected → '+(resolved || url));
+      return true;
     } else {
       setLink(false, d.error || 'robot unavailable');
       showSent('robot connect failed: '+(d.error || 'unreachable'), true);
+      return false;
     }
-    simPollMaybe();
   }catch(e){
     showSent('robot connect failed: '+(e.message || e), true);
+    return false;
   }
 }
 
@@ -732,8 +735,10 @@ async function setHubTarget(target){
     setArmed(false);
     showSent('target → '+target);
     simPollMaybe();
+    return true;
   }catch(e){
     showSent('target switch failed: '+(e.message || e), true);
+    return false;
   }
 }
 if(document.getElementById('targetsel'))
@@ -744,6 +749,19 @@ if($('robotconnect')) $('robotconnect').onclick =
 if($('roboturl')) $('roboturl').addEventListener('keydown', e=>{
   if(e.key === 'Enter') connectRobotTarget('robot');
 });
+
+async function ensureDemoTarget(item){
+  if(!hubMode || !item || !item.target) return true;
+  if(item.target === 'robot' && hubTarget !== 'robot'){
+    showSent('switching target → robot for '+item.name);
+    return await setHubTarget('robot');
+  }
+  if(item.target === 'sim' && hubTarget !== 'sim'){
+    showSent('switching target → sim for '+item.name);
+    return await setHubTarget('sim');
+  }
+  return true;
+}
 
 function dbgRefresh(){
   const idx = dbgIndex(), lim = dbgLimits();
@@ -2620,6 +2638,7 @@ function demoButton(item){
       b.onfocus = ()=> setDemoPreview(item.name);
       b.onclick = async ()=>{
         setDemoPreview(item.name);
+        if(!(await ensureDemoTarget(item))) return;
         if(needArm()) return;
         const sp = demoSpeed();
         const body = {name:item.name, speed:sp, torque:demoTorque(),
@@ -2681,15 +2700,23 @@ async function loadDance(){
     const byName = {};
     (d.demos||[]).forEach(it=>{ byName[it.name] = it; });
     const g = $('dancegrid'); g.innerHTML='';
+    let shown = 0;
     DANCE_SETS.forEach(([title, sub, names])=>{
       const items = names.map(n=>byName[n]).filter(Boolean);
       if(!items.length) return;
+      shown += items.length;
       const h = document.createElement('div');
       h.className = 'demo-group';
       h.innerHTML = title+' <span class="sub">· '+sub+'</span>';
       g.appendChild(h);
       items.forEach(item=> g.appendChild(demoButton(item)));
     });
+    if(!shown){
+      const src = d.sources && d.sources.robot;
+      const why = src && src.error ? ' ('+src.error+')' : '';
+      g.innerHTML = '<div class="hint">No robot dance demos loaded'
+        +why+'. Connect the robot target or switch to Robot.</div>';
+    }
   }catch(e){ $('dancegrid').innerHTML = '<div class="hint">Failed to load shows</div>'; }
 }
 $('dancestop').onclick = ()=> $('dstop').onclick();
