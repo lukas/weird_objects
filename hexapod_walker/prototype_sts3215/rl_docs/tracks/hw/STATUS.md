@@ -28,16 +28,23 @@ baseline.
 
 ## Live Runs
 
-None. The operator's fast-gait A/B (4 canaries: train-through vs ramp-in, at
-mid and full dose) is fully triaged as of 2026-08-20 19:5x UTC, all FAIL:
+- `cw-dep-bcgait2-fastbc1` (train-7, 2M, 08-20 ~23:0x UTC): fast-gait
+  fork REOPENED by operator order fb 20260820T224241Z. Fresh BC-INIT
+  from the scripted TripodGait teacher under the FULL servo profile
+  (1500/80/5 deg) at NATIVE cadence, band 0.05-0.08, trained under the
+  profile from step 0. Pre-registered gate in its ledger entry.
 
-- `cw-dep-bcgait1-fastthru1` - CANARY FAIL, train-through, full 1500/80/5 deg.
-- `cw-dep-bcgait1-midthru1` - CANARY FAIL, train-through, mid 750/40/3 deg.
-- `cw-dep-bcgait1-midramp1` - CANARY FAIL, ramp-in, mid 750/40/3 deg.
-- `cw-dep-bcgait1-fastramp1` - CANARY FAIL, ramp-in, full 1500/80/5 deg.
-
-The sub-line is stopped. See Operator Gates for the fast-gait decision.
-Do not open a new fast-gait dose sweep without operator authorization.
+Context: the ordered faster-cadence knob (`--tripod-period-scale`,
+landed 08-20, default-off) was REFUTED by its own teacher preflight —
+period_scale 0.9/0.75/0.6 strictly worse than 1.0 in every cell of a
+3-cadence x 3-profile x 3-speed grid (progress collapses, slip
+explodes; stride auto-scales with period so a faster clock just scrubs).
+The same grid proved the full profile SAFE for the native-cadence
+teacher (prog 0.73-0.76 ≈ 0.073 m/s realized, slip/m 1.6-3.0, 147 mm,
+clean 6-leg tripod, zero falls) — the order's higher-profile branch.
+Prior A/B FAILs (fastthru/fastramp, mid+full) remain valid for
+transplanted policies; this arm is the fresh-clone counterexample test.
+No further fast-gait dose sweeps without operator authorization.
 
 ## Current Evidence
 
@@ -68,7 +75,7 @@ Do not open a new fast-gait dose sweep without operator authorization.
 ## Operator Gates
 
 - Promote `postlower4` and/or change the runner/eval contract to remaining-rise semantics.
-- Fast-gait fork closed by evidence: all 4 A/B canaries FAILed identically. Decide: respec with a different lever (e.g. much smaller dose, or reward changes targeting direction-holding under faster actuation) or park fast gait and keep the current download-answer walk speed.
+- Fast-gait fork reopened by the 08-20 order; the cycle substituted the full-profile BC-INIT arm after the ordered cadence knob failed its own preflight — confirm or redirect (q_20260820T2330Z in OPERATOR_QUESTIONS.md).
 - Bench-promote the download hierarchy when the robot returns.
 - Recover mode (reopened 08-20, sim-ready): decide flip handling (ship unsupported vs order a flip-hardening arm) and, when the robot is back, the recover-mode hardware safety contract (185 deg tilt envelope inside recover only) + on-robot transformer compute check. See `rl_docs/RECOVER_DEPLOY.md` blockers.
 - Reopen geometry/CAD only by explicit operator direction.

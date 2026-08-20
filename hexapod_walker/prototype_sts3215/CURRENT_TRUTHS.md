@@ -32,7 +32,7 @@ answer until a replacement beats the relevant gate and promotion contract.
 - Post-lower rise is the weak session boundary. `postlower4` looks better only under remaining-rise semantics; changing the contract and promoting it are operator decisions.
 - Takeoff roll transient is a hardware/sim-boundary issue; entry slew is the best measured sim mitigation so far.
 - Learned stand-up on hardware is unproven. Scripted stand/sit glides remain fallback hardware tools.
-- Fast gait is not deployable yet. Raised motor profile gives speed headroom but destabilizes direction/slip unless the new A/B canaries prove otherwise.
+- Fast gait is not deployable yet. The raised motor profile destabilizes WARM-STARTED/transplanted policies (all 4 A/B canaries failed identically); a faster TripodGait cadence is refuted at the teacher level (08-20 preflight grid: every rung strictly worse at every profile dose). The scripted teacher at native cadence IS stable and ~2x faster under the full profile (prog 0.76, zero falls) — the open question is whether a fresh BC-INIT clone of it survives RL fine-tune (`cw-dep-bcgait2-fastbc1`).
 
 ## Real Robot Facts
 
