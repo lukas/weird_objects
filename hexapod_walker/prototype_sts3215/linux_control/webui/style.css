@@ -95,13 +95,9 @@
                    padding:6px 10px; font-size:12px; border-radius:8px;
                    background:#132438; border-color:#2b6cff;
                    color:#7eb6ff; white-space:nowrap; }
-  body.robot-active.sim-active .sync-pose-top { display:inline-flex;
+  body.robot-configured.sim-configured .sync-pose-top { display:inline-flex;
     align-items:center; justify-content:center; }
   .sync-pose-top:disabled { opacity:.65; cursor:wait; }
-  .hub-target select { background:#151923; color:#e7e9ee;
-                       border:1px solid #30384a; border-radius:8px;
-                       padding:4px 22px 4px 8px; font-weight:800;
-                       min-height:26px; font-size:12px; }
   .hub-target input { width:210px; max-width:34vw; min-height:26px;
                       background:#11151e;
                       color:#e7e9ee; border:1px solid #30384a;

@@ -62,6 +62,13 @@ function setLink(ok, detail){
 }
 function applyBackendMeta(meta){
   if(!meta) return;
+  const prevBackendKind = backendKind;
+  const prevHubMode = hubMode;
+  const prevHubTarget = hubTarget;
+  const prevTargetHasRobot = targetHasRobot;
+  const prevTargetHasSim = targetHasSim;
+  const prevFrames = simFrames;
+  const prevNativeViewer = simNativeViewer;
   hubMode = !!meta.hub || meta.service === 'hexapod-hub';
   if(hubMode){
     const targets = meta.targets || {};
@@ -86,10 +93,11 @@ function applyBackendMeta(meta){
   const kind = targetHasRobot ? 'robot' : (targetHasSim ? 'sim' : 'robot');
   const frames = meta.frames !== false;
   const nativeViewer = !!meta.viewer;
-  const changed = kind !== backendKind || frames !== simFrames
-    || nativeViewer !== simNativeViewer
-    || hubMode !== document.body.classList.contains('hub-backend')
-    || hubTarget !== (document.getElementById('targetsel')||{}).value;
+  const changed = kind !== prevBackendKind || frames !== prevFrames
+    || nativeViewer !== prevNativeViewer || hubMode !== prevHubMode
+    || hubTarget !== prevHubTarget
+    || targetHasRobot !== prevTargetHasRobot
+    || targetHasSim !== prevTargetHasSim;
   backendKind = kind;
   simFrames = frames;
   simNativeViewer = nativeViewer;
@@ -106,14 +114,6 @@ function applyBackendMeta(meta){
     targetHasSim && simNativeViewer);
   document.body.classList.toggle('sim-browser-frames',
     targetHasSim && simFrames);
-  const sel = document.getElementById('targetsel');
-  if(sel){
-    const robotOpt = sel.querySelector('option[value="robot"]');
-    const bothOpt = sel.querySelector('option[value="both"]');
-    if(robotOpt) robotOpt.disabled = hubMode && !robotTargetAvailable;
-    if(bothOpt) bothOpt.disabled = hubMode && !robotTargetAvailable;
-    if(sel.value !== hubTarget) sel.value = hubTarget;
-  }
   const robotInput = document.getElementById('roboturl');
   if(robotInput && robotTargetUrl
       && document.activeElement !== robotInput
@@ -690,16 +690,27 @@ function paintTargetBadge(id, text, cls){
   el.className = 'target-badge' + (cls ? ' '+cls : '');
 }
 function paintTargetRows(){
-  paintTargetBadge('robotlinesend', targetHasRobot ? 'send on' : 'send off',
+  paintTargetBadge('robotlinesend', targetHasRobot ? 'sending' : 'idle',
     targetHasRobot ? 'route' : '');
   paintTargetBadge('robotlineconn',
     robotTargetAvailable ? 'connected' : 'not connected',
     robotTargetAvailable ? 'ok' : 'bad');
-  paintTargetBadge('simlinesend', targetHasSim ? 'send on' : 'send off',
+  paintTargetBadge('simlinesend', targetHasSim ? 'sending' : 'idle',
     targetHasSim ? 'route' : '');
   paintTargetBadge('simlineconn',
     simTargetAvailable ? 'connected' : 'not connected',
     simTargetAvailable ? 'ok' : 'bad');
+  const rb = $('robotconnect');
+  if(rb){
+    rb.textContent = !robotTargetAvailable ? 'Connect'
+      : (targetHasRobot ? 'Sending' : 'Send');
+    rb.classList.toggle('on', targetHasRobot);
+  }
+  const sb = $('simconnect');
+  if(sb){
+    sb.textContent = targetHasSim ? 'Sending' : 'Send';
+    sb.classList.toggle('on', targetHasSim);
+  }
 }
 paintTargetRows();
 
@@ -769,13 +780,12 @@ async function setHubTarget(target){
     return false;
   }
 }
-if(document.getElementById('targetsel'))
-  document.getElementById('targetsel').onchange =
-    e => setHubTarget(e.target.value);
 if($('robotconnect')) $('robotconnect').onclick =
-  ()=> connectRobotTarget('robot');
+  ()=> setHubTarget('robot');
+if($('simconnect')) $('simconnect').onclick =
+  ()=> setHubTarget('sim');
 if($('roboturl')) $('roboturl').addEventListener('keydown', e=>{
-  if(e.key === 'Enter') connectRobotTarget('robot');
+  if(e.key === 'Enter') setHubTarget('robot');
 });
 
 async function ensureDemoTarget(item){
@@ -1497,7 +1507,7 @@ function setSyncPoseBusy(busy){
   });
 }
 async function syncRobotPoseToSim(){
-  if(!(targetHasRobot && targetHasSim)){
+  if(!(robotTargetAvailable && simTargetAvailable)){
     showSent('connect Robot + MuJoCo before matching pose', true);
     return;
   }
