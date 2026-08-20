@@ -690,12 +690,12 @@ function paintTargetBadge(id, text, cls){
   el.className = 'target-badge' + (cls ? ' '+cls : '');
 }
 function paintTargetRows(){
-  paintTargetBadge('robotlinesend', targetHasRobot ? 'sending' : 'idle',
+  paintTargetBadge('robotlinesend', targetHasRobot ? 'active' : 'idle',
     targetHasRobot ? 'route' : '');
   paintTargetBadge('robotlineconn',
     robotTargetAvailable ? 'connected' : 'not connected',
     robotTargetAvailable ? 'ok' : 'bad');
-  paintTargetBadge('simlinesend', targetHasSim ? 'sending' : 'idle',
+  paintTargetBadge('simlinesend', targetHasSim ? 'active' : 'idle',
     targetHasSim ? 'route' : '');
   paintTargetBadge('simlineconn',
     simTargetAvailable ? 'connected' : 'not connected',
@@ -703,13 +703,19 @@ function paintTargetRows(){
   const rb = $('robotconnect');
   if(rb){
     rb.textContent = !robotTargetAvailable ? 'Connect'
-      : (targetHasRobot ? 'Sending' : 'Send');
+      : (targetHasRobot ? 'Connected' : 'Connect');
     rb.classList.toggle('on', targetHasRobot);
+    rb.title = targetHasRobot
+      ? 'Robot is the active command target'
+      : 'Connect this laptop web UI to the real robot web server';
   }
   const sb = $('simconnect');
   if(sb){
-    sb.textContent = targetHasSim ? 'Sending' : 'Send';
+    sb.textContent = targetHasSim ? 'Connected' : 'Connect';
     sb.classList.toggle('on', targetHasSim);
+    sb.title = targetHasSim
+      ? 'MuJoCo is the active command target'
+      : 'Connect this web UI to MuJoCo';
   }
 }
 paintTargetRows();
@@ -772,7 +778,7 @@ async function setHubTarget(target){
     if(!d.ok) throw new Error(d.error || 'target switch failed');
     applyBackendMeta(d);
     setArmed(false);
-    showSent('send to → '+target);
+    showSent('connected → '+(target === 'sim' ? 'MuJoCo' : 'Robot'));
     simPollMaybe();
     return true;
   }catch(e){
