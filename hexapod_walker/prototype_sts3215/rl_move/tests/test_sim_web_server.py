@@ -24,6 +24,12 @@ class FakeSession:
     def operation_state(self):
         return {"ok": True, "running": False, "result": {"ok": True}}
 
+    def list_demos(self):
+        return [{"name": "quad_walk", "group": "quad"}]
+
+    def demo_state(self):
+        return {"name": "quad_walk", "status": "idle", "running": False}
+
     def rl_preflight(self, mode="stand"):
         return {"ok": True, "mode": mode, "sim": True}
 
@@ -62,6 +68,33 @@ class FakeSession:
     def sim_reset(self, start="plant"):
         self.calls.append(("sim_reset", start))
         return {"ok": True, "status": start}
+
+    def run_demo(self, name, **kw):
+        self.calls.append(("run_demo", name, kw))
+        return {"ok": True, "params": kw, "home": "stand",
+                "demo": self.demo_state(), "robot": self.robot_state()}
+
+    def set_demo_speed(self, speed):
+        self.calls.append(("set_demo_speed", speed))
+        return {"ok": True, "speed": speed, "demo": self.demo_state()}
+
+    def stop_demo(self):
+        self.calls.append(("stop_demo",))
+        return {"ok": True, "demo": self.demo_state(),
+                "robot": self.robot_state()}
+
+    def go_zero(self, pose="sit", force=False):
+        self.calls.append(("go_zero", pose, force))
+        return {"ok": True, "pose": pose, "demo": self.demo_state(),
+                "robot": self.robot_state()}
+
+    def safe_zero(self):
+        self.calls.append(("safe_zero",))
+        return {"ok": True}
+
+    def set_zero_here(self):
+        self.calls.append(("set_zero_here",))
+        return {"ok": True}
 
     def sim_fall(self):
         self.calls.append(("sim_fall",))
@@ -153,6 +186,27 @@ def test_dispatches_rl_drive_and_sim_routes():
                  body={"start": "belly"})["status"] == "belly"
     assert ("rl_drive_cmd", 0.05, -0.02) in fake.calls
     assert ("sim_reset", "belly") in fake.calls
+
+
+def test_dispatches_robot_compatible_demo_routes():
+    fake = FakeSession()
+    demos = _json(fake, "/api/demos")
+    assert demos["demos"][0]["name"] == "quad_walk"
+
+    started = _json(fake, "/api/demo", method="POST",
+                    body={"name": "quad_walk", "speed": 1.25,
+                          "seconds": 40})
+    assert started["ok"] is True
+    assert started["home"] == "stand"
+    assert ("run_demo", "quad_walk",
+            {"speed": 1.25, "size": 1.0, "softness": 1.0,
+             "seconds": 40.0}) in fake.calls
+
+    assert _json(fake, "/api/demo/speed", method="POST",
+                 body={"speed": 0.75})["speed"] == 0.75
+    assert _json(fake, "/api/demo/stop", method="POST")["ok"] is True
+    assert _json(fake, "/api/zero", method="POST",
+                 body={"pose": "stand"})["pose"] == "stand"
 
 
 def test_unknown_route_returns_json_404():
@@ -258,3 +312,16 @@ def test_hub_broadcasts_drive_commands_only_in_both_mode():
               body={"joint": 1, "amp": 4})
     assert robot.calls[-1][1] == "/api/wiggle"
     assert sim.calls[-1][1] == "/api/rl/drive/cmd"
+
+
+def test_hub_broadcasts_demo_commands_in_both_mode():
+    sim = FakeTarget("sim")
+    robot = FakeTarget("robot")
+    hub = HubController(sim=sim, robot=robot, target="both")
+    d = _hub_json(hub, "/api/demo", method="POST",
+                  body={"name": "quad_walk", "speed": 1.0})
+    assert d["ok"] is True
+    assert d["hub"]["robot"]["body"]["name"] == "quad_walk"
+    assert d["hub"]["sim"]["body"]["name"] == "quad_walk"
+    assert ("POST", "/api/demo", b'{"name": "quad_walk", "speed": 1.0}') in robot.calls
+    assert ("POST", "/api/demo", b'{"name": "quad_walk", "speed": 1.0}') in sim.calls

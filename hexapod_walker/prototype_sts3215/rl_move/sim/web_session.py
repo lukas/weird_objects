@@ -78,6 +78,15 @@ class SimWebSession:
         self.gru = {"state": None, "start": np.ones((1,), dtype=bool)}
         self.push_ticks = 0
         self.push_force = np.zeros(3, dtype=float)
+        self.demo_name: str | None = None
+        self.demo_status = "idle"
+        self.demo_params: dict[str, Any] = {}
+        self.demo_speed_live = 1.0
+        self.demo_pose_fn = None
+        self.demo_t = 0.0
+        self.demo_duration = 0.0
+        self.demo_started_sim_t = 0.0
+        self.demo_telemetry: dict[str, Any] | None = None
         self.log_dir = cfg.log_dir
         self.log_dir.mkdir(parents=True, exist_ok=True)
         self._log_fp = None
@@ -108,9 +117,10 @@ class SimWebSession:
         from .servo_model import SimServoParams
         from ..config import load_config
 
-        lc = Path(__file__).resolve().parents[2] / "linux_control"
-        if str(lc) not in sys.path:
-            sys.path.insert(0, str(lc))
+        root = Path(__file__).resolve().parents[2]
+        for p in (root / "linux_control", root / "motor_setup"):
+            if str(p) not in sys.path:
+                sys.path.insert(0, str(p))
         from noslip_gait import NoSlipGait
         from tripod_gait import TripodGait
 
@@ -285,6 +295,7 @@ class SimWebSession:
             return 0.0, 0.0
 
     def _do_reset(self, start: str, h_goal: float, note: str) -> None:
+        self._stop_demo_locked(status="idle", clear_name=True)
         self.auto = None
         self.downed = False
         self.sitting = False
@@ -306,6 +317,31 @@ class SimWebSession:
             self.z_plant = self._chassis_z()
         self.msg = note
         self._finish_job(note)
+
+    def _demo_running(self) -> bool:
+        return self.demo_pose_fn is not None
+
+    def _stop_demo_locked(self, status: str = "aborted",
+                          clear_name: bool = False) -> None:
+        self.demo_pose_fn = None
+        self.demo_t = 0.0
+        self.demo_duration = 0.0
+        self.demo_status = status
+        self.demo_params = {}
+        if clear_name:
+            self.demo_name = None
+            self.demo_telemetry = None
+        self._close_log()
+
+    def _demo_speed_eff_locked(self) -> float:
+        speed = float(self.demo_speed_live)
+        if self.demo_name == "quad_trot":
+            try:
+                import quad_walk as QW
+                speed = min(speed, float(QW.GAITS["trot"].get("speed_cap", 2.0)))
+            except Exception:
+                pass
+        return max(0.25, min(3.0, speed))
 
     def _new_gait(self):
         kw = _SCRIPTED_TRIPOD.get(self.walk_list[self.wi])
@@ -556,19 +592,22 @@ class SimWebSession:
             self.timed_walk_until = None
             self._finish_job("timed walk complete")
 
+        demo_running = self._demo_running()
         cmd_speed = float(np.hypot(self.traj.vx, self.traj.vy))
         scripted = self.walk is None
         walking = ((cmd_speed > 1e-3 or (scripted and abs(self.om_cmd) > 1e-3))
-                   and self.auto is None and not self.downed and not self.sitting)
+                   and self.auto is None and not self.downed and not self.sitting
+                   and not demo_running)
         if not walking:
             self.gait = None
             self.hist = None
-        self.mode = ("rise" if self.auto is not None and self.auto[0] in
+        self.mode = ("demo" if demo_running
+                     else "rise" if self.auto is not None and self.auto[0] in
                      ("rise", "blend", "recover")
                      else "lower" if self.auto is not None and self.auto[0] in
                      ("lower", "fold", "fell")
                      else "walk" if walking else "hold")
-        self.traj.mode = self.mode
+        self.traj.mode = "hold" if self.mode == "demo" else self.mode
 
         action = None
         if self.push_ticks > 0:
@@ -640,6 +679,25 @@ class SimWebSession:
             elif self.auto[1] >= self.auto[2]:
                 self.auto = None
                 self._finish_job("recovery timed out", ok=False)
+        elif demo_running:
+            pose_deg = self.demo_pose_fn(self.demo_t)
+            action = q_rad_to_action(np.radians(pose_deg))
+            self.demo_t += self.env.dt * self._demo_speed_eff_locked()
+            self.demo_status = f"running @ {self.demo_speed_live:.2f}x"
+            if self.demo_t >= self.demo_duration:
+                name = self.demo_name or "demo"
+                self.demo_pose_fn = None
+                self.demo_status = "done"
+                self.msg = f"{name} done - holding"
+                self.demo_telemetry = {
+                    "ok": True,
+                    "sim_t_s": round(self.sim_t - self.demo_started_sim_t, 2),
+                    "demo_time_s": round(self.demo_t, 2),
+                    "log_name": self._log_name or None,
+                    "log": str(self.log_dir / self._log_name)
+                    if self._log_name else None,
+                }
+                self._close_log()
         elif self.sitting:
             action = q_rad_to_action(self.q_sit)
         elif walking and scripted:
@@ -658,6 +716,10 @@ class SimWebSession:
         if action is not None:
             self.obs, _r, term, trunc, info = self.env.step(action)
             if term or trunc:
+                if self._demo_running():
+                    self._stop_demo_locked(
+                        status=(info.get("termination_reason")
+                                or "episode end") + "; DOWN")
                 self.downed = True
                 self.auto = None
                 self.drive_active = False
@@ -830,6 +892,161 @@ class SimWebSession:
 
     # Public API methods used by web_server.py -------------------------
 
+    def demo_state(self) -> dict[str, Any]:
+        with self.lock:
+            return {
+                "name": self.demo_name,
+                "status": self.demo_status,
+                "running": self._demo_running(),
+                "speed_live": self.demo_speed_live,
+                "params": dict(self.demo_params),
+                "progress": {"msg": self.demo_status, "live": self._live()}
+                if self._demo_running() else None,
+                "telemetry": dict(self.demo_telemetry)
+                if self.demo_telemetry else None,
+                "bus_hot": False,
+            }
+
+    def list_demos(self) -> list[dict[str, Any]]:
+        return [
+            {
+                "name": "quad_walk",
+                "title": ("[8 quad] TIP BACK - rear up on 4 legs, "
+                          "front paws in the air, animal walk forward, "
+                          "sit back down"),
+                "air": False,
+                "group": "quad",
+                "live_speed": True,
+                "has_size": False,
+            },
+            {
+                "name": "quad_trot",
+                "title": ("[8 quad] TIP BACK + TROT - diagonal leg pairs, "
+                          "then sit back down"),
+                "air": False,
+                "group": "quad",
+                "live_speed": True,
+                "has_size": False,
+            },
+        ]
+
+    @staticmethod
+    def _clamp_float(value: Any, default: float,
+                     lo: float, hi: float) -> float:
+        try:
+            x = float(value)
+        except (TypeError, ValueError):
+            x = default
+        return max(lo, min(hi, x))
+
+    def set_demo_speed(self, speed: Any) -> dict[str, Any]:
+        v = self._clamp_float(speed, 1.0, 0.25, 3.0)
+        with self.lock:
+            self.demo_speed_live = v
+            if self.demo_params:
+                self.demo_params = {**self.demo_params, "speed_live": v}
+            if self._demo_running():
+                self.demo_status = f"running @ {v:.2f}x"
+            return {"ok": True, "speed": v,
+                    "running": self._demo_running(),
+                    "demo": self.demo_state()}
+
+    def run_demo(self, name: str, *, speed: float = 1.0,
+                 size: float = 1.0, rate: float | None = None,
+                 torque: int | None = None, softness: float = 1.0,
+                 seconds: float | None = None) -> dict[str, Any]:
+        name = (name or "").strip()
+        if name not in {"quad_walk", "quad_trot"}:
+            return {"ok": False,
+                    "error": f"demo {name!r} is not simulated yet",
+                    "demos": [d["name"] for d in self.list_demos()]}
+        with self.lock:
+            try:
+                import quad_walk as QW
+            except Exception as e:
+                return {"ok": False, "error": f"quad_walk missing: {e}"}
+
+            speed = self._clamp_float(speed, 1.0, 0.25, 3.0)
+            dur = self._clamp_float(seconds, 40.0, 2.0, 300.0)
+            dur = max(dur, float(QW.MIN_SECONDS))
+            switched_from = self.demo_name if self._demo_running() else None
+
+            self._do_reset("plant", 0.0, f"stand zero -> {name}")
+            base_deg = [math.degrees(v) for v in self.q_plant]
+            gait = "trot" if name == "quad_trot" else "walk"
+            self.demo_pose_fn = QW.make_quad_walk_pose_fn(
+                base_deg, dur, gait=gait)
+            self.demo_t = 0.0
+            self.demo_duration = dur
+            self.demo_started_sim_t = self.sim_t
+            self.demo_name = name
+            self.demo_status = f"running @ {speed:.2f}x"
+            self.demo_speed_live = speed
+            self.demo_telemetry = None
+            params: dict[str, Any] = {
+                "speed": speed,
+                "home": "stand",
+                "seconds": dur,
+            }
+            if switched_from:
+                params["switched_from"] = switched_from
+            self.demo_params = params
+            self.drive_active = False
+            self.timed_walk_until = None
+            self.auto = None
+            self.gait = None
+            self.om_cmd = 0.0
+            self.armed = True
+            self.msg = f"{name} running"
+            self._open_log(f"demo_{name}")
+            return {
+                "ok": True,
+                "params": dict(params),
+                "home": "stand",
+                "switched": bool(switched_from),
+                "switched_from": switched_from,
+                "demo": self.demo_state(),
+                "robot": self.robot_state(),
+            }
+
+    def stop_demo(self) -> dict[str, Any]:
+        with self.lock:
+            was_running = self._demo_running()
+            self._stop_demo_locked(status="aborted" if was_running else "idle")
+            self.drive_active = False
+            self.timed_walk_until = None
+            self.traj.vx = self.traj.vy = 0.0
+            self.mode = "hold"
+            self.traj.mode = "hold"
+            self.msg = "demo stopped - holding"
+            return {"ok": True, "demo": self.demo_state(),
+                    "robot": self.robot_state()}
+
+    def go_zero(self, pose: str = "sit", *, force: bool = False) -> dict[str, Any]:
+        pose = (pose or "sit").strip().lower()
+        pose = "stand" if pose in {"stand", "standing", "plant"} else "sit"
+        with self.lock:
+            if pose == "stand":
+                self._do_reset("plant", 0.0, "at stand zero")
+                self.armed = True
+            else:
+                self._do_reset("zero", 0.0, "at sit zero")
+                self.sitting = True
+                self.q_sit = self._q_now()
+                self.armed = True
+            self.demo_name = f"{pose}_zero"
+            self.demo_status = "done"
+            self.demo_params = {"home": pose, "force": bool(force)}
+            return {"ok": True, "pose": pose, "demo": self.demo_state(),
+                    "robot": self.robot_state()}
+
+    def safe_zero(self, *, dry_run: bool = False) -> dict[str, Any]:
+        return self.go_zero("sit")
+
+    def set_zero_here(self) -> dict[str, Any]:
+        return {"ok": True, "sim": True, "ok_n": 18, "count": 18,
+                "message": "sim logical zero unchanged"}
+
     def ping(self) -> dict[str, Any]:
         return {"ok": True, "service": "hexapod-sim",
                 "kind": "sim", "mode": self.mode,
@@ -846,11 +1063,14 @@ class SimWebSession:
             act = "armed" if self.armed else "limp"
             if self.drive_active:
                 act = "driving"
+            elif self._demo_running():
+                act = "demo"
             elif self.auto is not None or self.job_kind:
                 act = "rl"
             return {"ok": True, "activity": act, "detail": self.msg,
                     "mode": self.mode, "armed": self.armed,
-                    "sim": True, "live": self._live()}
+                    "sim": True, "live": self._live(),
+                    "demo": self.demo_state()}
 
     def operation_state(self) -> dict[str, Any]:
         with self.lock:
