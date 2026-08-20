@@ -16,6 +16,7 @@ let hubTarget = 'robot';
 let targetHasRobot = true;
 let targetHasSim = false;
 let robotTargetAvailable = true;
+let simTargetAvailable = false;
 let robotTargetUrl = '';
 let simFrames = true;
 let simNativeViewer = false;
@@ -46,7 +47,7 @@ function setLink(ok, detail){
   if(ok){
     linkFailStreak = 0;
     lastPingOkAt = Date.now();
-    conn.textContent = detail || 'connected';
+    conn.textContent = detail || 'online';
     conn.className = 'ok';
   } else {
     conn.textContent = detail || 'offline';
@@ -65,10 +66,12 @@ function applyBackendMeta(meta){
   if(hubMode){
     const targets = meta.targets || {};
     const robotMeta = targets.robot || {};
+    const simMeta = targets.sim || {};
     hubTarget = meta.target || 'sim';
     targetHasRobot = !!(meta.active && meta.active.robot);
     targetHasSim = !!(meta.active && meta.active.sim);
     robotTargetAvailable = !!robotMeta.available;
+    simTargetAvailable = !!simMeta.available;
     robotTargetUrl = robotMeta.url || robotTargetUrl || savedRobotUrl();
   } else {
     const kind0 = meta.kind
@@ -76,6 +79,7 @@ function applyBackendMeta(meta){
     targetHasSim = kind0 === 'sim';
     targetHasRobot = kind0 !== 'sim';
     robotTargetAvailable = targetHasRobot;
+    simTargetAvailable = targetHasSim;
     robotTargetUrl = '';
     hubTarget = targetHasSim ? 'sim' : 'robot';
   }
@@ -95,6 +99,8 @@ function applyBackendMeta(meta){
   document.body.classList.toggle('sim-active', targetHasSim);
   document.body.classList.toggle('robot-configured',
     hubMode && robotTargetAvailable);
+  document.body.classList.toggle('sim-configured',
+    hubMode && simTargetAvailable);
   document.body.classList.toggle('sim-backend', targetHasSim);
   document.body.classList.toggle('sim-native-viewer',
     targetHasSim && simNativeViewer);
@@ -122,6 +128,7 @@ function applyBackendMeta(meta){
     updateArmUI();
     if(activeView === 'rl') simPollMaybe();
   }
+  paintTargetRows();
 }
 async function heartbeat(){
   const ac = new AbortController();
@@ -137,8 +144,7 @@ async function heartbeat(){
     const j = await r.json().catch(()=>({}));
     applyBackendMeta(j);
     if(j && j.ok === false) throw new Error(j.error || 'ping failed');
-    setLink(true, hubMode ? 'connected'
-      : (backendKind === 'sim' ? 'sim connected' : undefined));
+    setLink(true, 'online');
   }catch(e){
     clearTimeout(t);
     linkFailStreak++;
@@ -677,6 +683,26 @@ const $ = id => document.getElementById(id);
 const robotUrlInput = $('roboturl');
 if(robotUrlInput && savedRobotUrl()) robotUrlInput.value = savedRobotUrl();
 
+function paintTargetBadge(id, text, cls){
+  const el = $(id);
+  if(!el) return;
+  el.textContent = text;
+  el.className = 'target-badge' + (cls ? ' '+cls : '');
+}
+function paintTargetRows(){
+  paintTargetBadge('robotlinesend', targetHasRobot ? 'send on' : 'send off',
+    targetHasRobot ? 'route' : '');
+  paintTargetBadge('robotlineconn',
+    robotTargetAvailable ? 'connected' : 'not connected',
+    robotTargetAvailable ? 'ok' : 'bad');
+  paintTargetBadge('simlinesend', targetHasSim ? 'send on' : 'send off',
+    targetHasSim ? 'route' : '');
+  paintTargetBadge('simlineconn',
+    simTargetAvailable ? 'connected' : 'not connected',
+    simTargetAvailable ? 'ok' : 'bad');
+}
+paintTargetRows();
+
 function robotUrlValue(){
   const el = $('roboturl');
   return el ? el.value.trim() : '';
@@ -703,8 +729,8 @@ async function connectRobotTarget(nextTarget){
     const resolved = d.targets && d.targets.robot && d.targets.robot.url;
     simPollMaybe();
     if(d.ok){
-      setLink(true, 'connected');
-      showSent('robot connected → '+(resolved || url));
+      setLink(true, 'online');
+      showSent('robot target connected → '+(resolved || url));
       return true;
     } else {
       setLink(false, d.error || 'robot unavailable');
@@ -735,7 +761,7 @@ async function setHubTarget(target){
     if(!d.ok) throw new Error(d.error || 'target switch failed');
     applyBackendMeta(d);
     setArmed(false);
-    showSent('target → '+target);
+    showSent('send to → '+target);
     simPollMaybe();
     return true;
   }catch(e){
@@ -2869,10 +2895,10 @@ function updateArmUI(){
   bar.classList.toggle('sim', simOnly);
   if(simOnly){
     bar.classList.remove('armed', 'disarmed');
-    $('armstate').textContent = '● SIM — MuJoCo';
-    $('armbtn').textContent = 'Reset sim stand';
+    $('armstate').textContent = '● SIM';
+    $('armbtn').textContent = 'Stand';
     $('armbtn').title = 'Reset the MuJoCo sim to the standing plant stance.';
-    $('estop').textContent = '■ Stop sim';
+    $('estop').textContent = '■ Stop';
     $('estop').title = 'Stop the sim motion — the stance policy holds.';
     return;
   }
@@ -2881,13 +2907,13 @@ function updateArmUI(){
   // Compact header labels (operator 08-19); the long explanation lives in
   // the button tooltips instead of a hint paragraph. Labels + titles are
   // restored here because sim mode rewrites all of them.
-  $('armstate').textContent = servosArmed ? '● ARMED' : '● SERVOS OFF';
-  $('armbtn').textContent   = servosArmed ? 'Disarm' : 'Enable servos';
+  $('armstate').textContent = servosArmed ? '● ON' : '● OFF';
+  $('armbtn').textContent   = servosArmed ? 'Disarm' : 'Enable';
   $('armbtn').title = servosArmed
     ? 'Normal power-off (SETTLE): lowers gently to the ground, THEN cuts '
       +'servo power. For an instant cut use EMERGENCY STOP (robot drops).'
     : 'Power the servos on (ARM). Nothing moves until you press Stand.';
-  $('estop').textContent = '■ EMERGENCY STOP';
+  $('estop').textContent = '■ E-STOP';
   $('estop').title = 'Cut all power to the servos IMMEDIATELY — the robot '
     +'goes limp NOW and will drop. Use only in an emergency. For a normal, '
     +'gentle power-off use Disarm / Sit & power off.';
@@ -2920,7 +2946,7 @@ function disarmServos(){
 function needArm(){
   if(targetHasSim && !targetHasRobot) return false;
   if(servosArmed) return false;
-  showSent('⚠ Servos disarmed — press “Enable servos” first');
+  showSent('⚠ Servos disarmed — press Enable first');
   return true;
 }
 // The Disarm toggle is a NORMAL power-off -> graceful lower then limp.
