@@ -703,18 +703,18 @@ function paintTargetRows(){
   const rb = $('robotconnect');
   if(rb){
     rb.textContent = !robotTargetAvailable ? 'Connect'
-      : (targetHasRobot ? 'Connected' : 'Connect');
+      : (targetHasRobot ? 'Disconnect' : 'Connect');
     rb.classList.toggle('on', targetHasRobot);
     rb.title = targetHasRobot
-      ? 'Robot is the active command target'
+      ? 'Disconnect Robot from this web UI; MuJoCo stays active if connected'
       : 'Connect this laptop web UI to the real robot web server';
   }
   const sb = $('simconnect');
   if(sb){
-    sb.textContent = targetHasSim ? 'Connected' : 'Connect';
+    sb.textContent = targetHasSim ? 'Disconnect' : 'Connect';
     sb.classList.toggle('on', targetHasSim);
     sb.title = targetHasSim
-      ? 'MuJoCo is the active command target'
+      ? 'Disconnect MuJoCo from this web UI; Robot stays active if connected'
       : 'Connect this web UI to MuJoCo';
   }
 }
@@ -778,7 +778,9 @@ async function setHubTarget(target){
     if(!d.ok) throw new Error(d.error || 'target switch failed');
     applyBackendMeta(d);
     setArmed(false);
-    showSent('connected → '+(target === 'sim' ? 'MuJoCo' : 'Robot'));
+    const label = target === 'both' ? 'Robot + MuJoCo'
+      : (target === 'sim' ? 'MuJoCo' : 'Robot');
+    showSent('connected → '+label);
     simPollMaybe();
     return true;
   }catch(e){
@@ -786,12 +788,47 @@ async function setHubTarget(target){
     return false;
   }
 }
+function targetWith(which){
+  if(which === 'robot')
+    return targetHasSim ? 'both' : 'robot';
+  return targetHasRobot ? 'both' : 'sim';
+}
+function targetWithout(which){
+  if(which === 'robot'){
+    if(targetHasSim || simTargetAvailable) return 'sim';
+    return '';
+  }
+  if(targetHasRobot || robotTargetAvailable) return 'robot';
+  return '';
+}
+async function toggleRobotTarget(){
+  if(targetHasRobot){
+    const next = targetWithout('robot');
+    if(!next){
+      showSent('connect MuJoCo before disconnecting Robot', true);
+      return false;
+    }
+    return await setHubTarget(next);
+  }
+  return await setHubTarget(targetWith('robot'));
+}
+async function toggleSimTarget(){
+  if(targetHasSim){
+    const next = targetWithout('sim');
+    if(!next){
+      showSent('connect Robot before disconnecting MuJoCo', true);
+      return false;
+    }
+    return await setHubTarget(next);
+  }
+  return await setHubTarget(targetWith('sim'));
+}
 if($('robotconnect')) $('robotconnect').onclick =
-  ()=> setHubTarget('robot');
+  ()=> toggleRobotTarget();
 if($('simconnect')) $('simconnect').onclick =
-  ()=> setHubTarget('sim');
+  ()=> toggleSimTarget();
 if($('roboturl')) $('roboturl').addEventListener('keydown', e=>{
-  if(e.key === 'Enter') setHubTarget('robot');
+  if(e.key === 'Enter' && !targetHasRobot) toggleRobotTarget();
 });
 
 async function ensureDemoTarget(item){
