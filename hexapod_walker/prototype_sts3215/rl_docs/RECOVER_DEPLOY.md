@@ -67,11 +67,12 @@ from raw sensor reads, deploy-honest q_nom + level tilt ref):
   the cause; flip is intrinsically unreliable in this checkpoint
   (s13's single own-DR flip success in the 08-18 gate was a favorable
   draw; s11/s12 also fail flip).
-- Detector agreement 17/23 (DR-0) / 19/23 (own-DR): silent on the 4
-  instant rungs that succeed during the entry hold (benign);
-  correctly fires on the zero false-negative; ONE false fire on DR-0
-  flip (fired @7.4 s on a transiently level partial recovery that
-  then leaned to 14.7 deg — see blocker 3).
+- Detector agreement (final shipped runner, 1.0 s handoff hold):
+  18/23 (DR-0) / 19/23 (own-DR). Silent on the 4 instant rungs that
+  succeed during the entry hold (benign); correctly fires on the
+  zero false-negative; NO false fires (the 0.5 s prototype detector
+  false-fired once on DR-0 flip — fixed same cycle, blocker 3).
+  Reports: `logs/recover_runner_gate/report_{dr0,owndr01}.json`.
 
 ## BLOCKER LIST to production (ordered)
 

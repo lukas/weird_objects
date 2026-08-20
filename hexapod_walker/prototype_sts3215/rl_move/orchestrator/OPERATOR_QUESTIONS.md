@@ -1161,3 +1161,42 @@ Entry format (append; newest last; update status in place):
   cycles (fastthru1 already verdicted FAIL by one).
 - rulebook change: none needed — the pick was executed as ordered;
   V5 init-from exception already documented.
+
+## q_20260820T2330Z — OPEN
+- cycle: operator-kick 08-20 (fast-cadence BC gait order, fb 20260820T224241Z)
+- operator order: design/launch a fresh BC-INIT variant from the scripted
+  TripodGait teacher with SHORTER PERIOD / faster cadence; preflight the
+  raw teacher/clone first; native servo profile unless a preflight proves
+  the higher profile safe; 1-2M canary if clone preflight passes.
+- conflicted with: nothing procedural — but the ordered knob failed its
+  own pre-registered preflight: TripodGait period_scale 0.9/0.75/0.6 is
+  STRICTLY worse than period 1.0 in every cell of a 3-scale x 3-profile
+  (native/mid/full write_speed) x 3-speed (0.055/0.07/0.10) grid —
+  progress collapses (e.g. full profile 0.76 -> 0.65 -> 0.57 -> 0.10-0.30)
+  and slip/m explodes; monotone, no sweet spot. Mechanism: stride is
+  auto-scaled by v*period/2, so a faster clock demands the same foot speed
+  over shorter strides at higher frequency; the servo profile attenuates
+  the higher-frequency cycle and the feet scrub instead of stepping.
+- why the cycle would have declined (the cadence canary only): the order
+  gates the canary on the teacher/clone preflight passing; the cadence
+  teacher fails at every dose, so cloning it would train on demos that
+  don't walk.
+- what was executed: the order's OWN conditional branch — the same
+  preflight grid shows the FULL raised profile (1500/80/5deg,
+  servo_vel_max=write_speed) is safe for the scripted teacher at NATIVE
+  cadence: progress 0.73-0.76 (≈2x native realized speed, ~0.073 m/s at
+  0.10 cmd), slip/m 1.6-3.0, height 147mm, clean 6-leg tripod duty
+  ~0.46-0.50, zero falls/terminations, wz≈0 (probe_fastcad_* logs/json,
+  pods train-0..6). So: fresh BC-INIT clone from the FULL-PROFILE
+  native-cadence teacher (ppo_goal_cw_bcgait_init_fullprof1.zip) +
+  2M canary analogous to cw-dep-bcgait1 trained under that profile, band
+  0.05-0.08 (ladder rung below 0.10). This differs from the four failed
+  A/B canaries in exactly the way the order's "fresh BC-INIT, not another
+  warm-start of bcgait1_hard1" clause demands: the actions are cloned from
+  a teacher that provably walks under the profile, instead of transplanting
+  a policy tuned for the slow profile. No DOWNLOAD_ANSWER change unless it
+  beats bcgait1_hard1 (per the order). Question: is the full-profile
+  BC-INIT substitution the intended reading, and should the cadence knob
+  be retired (code stays, default-off, refutation recorded)?
+- ANSWER (operator): _pending_
+- rulebook change: _pending_
