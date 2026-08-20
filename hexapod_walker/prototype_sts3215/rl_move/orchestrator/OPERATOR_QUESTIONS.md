@@ -1198,5 +1198,17 @@ Entry format (append; newest last; update status in place):
   beats bcgait1_hard1 (per the order). Question: is the full-profile
   BC-INIT substitution the intended reading, and should the cadence knob
   be retired (code stays, default-off, refutation recorded)?
+- UPDATE (triage cycle, 08-20 ~23:5x UTC): the pre-authorized successor
+  named above, `cw-dep-bcgait2-fastbc1-track1` (adds
+  `reward.k_walk_cmd_track=1.0` over 5M steps), has finished and FAILED
+  its own pre-registered gate — the command-tracking price made the
+  overspeed WORSE, not better (DR-0 prog_ratio det 1.88x->2.10x, sto
+  1.20x->1.76x; own-DR sto 1.12x->1.92x, was in-band, now overspeeds).
+  Zero falls, gait_valid 6/6, video still tall/clean six-leg (no
+  exploit). Per the gate's own text this is "wrong lever, STOP" — no
+  further respec of this reward line without a new hypothesis. The
+  fast-gait fork is now fully stalled on this question: confirming the
+  substitution no longer unblocks anything by itself, a new lever is
+  also needed. Full run record: `rl_docs/runs/cw-dep-bcgait2-fastbc1-track1.md`.
 - ANSWER (operator): _pending_
 - rulebook change: _pending_

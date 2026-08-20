@@ -28,13 +28,20 @@ baseline.
 
 ## Live Runs
 
-- `cw-dep-bcgait2-fastbc1-track1` (train-7, 5M, `--phase hardening`,
-  08-20 ~23:3x UTC): warm from `cw-dep-bcgait2-fastbc1` (below), adds
-  `reward.k_walk_cmd_track=1.0` to price the overspeed the parent
-  canary showed. Pre-registered gate in its ledger entry (prog_ratio
-  back in 0.75-1.25 both det/sto, slip/roll no worse than parent).
+None. `cw-dep-bcgait2-fastbc1-track1` finished and FAILED its own
+pre-registered gate (see below) — no fast-gait runs currently training.
 
-`cw-dep-bcgait2-fastbc1` itself finished: PASS as discovery canary
+`cw-dep-bcgait2-fastbc1-track1` (warm from `cw-dep-bcgait2-fastbc1`,
+adds `reward.k_walk_cmd_track=1.0`) FAILED: the added command-tracking
+price made the overspeed WORSE, not better — DR-0 prog_ratio det
+1.88x->2.10x, sto 1.20x->1.76x; own-DR sto went from already-in-band
+(1.12x) to overspeeding (1.92x). Zero falls, gait_valid 6/6, video
+still tall/clean six-leg (no exploit); slip and heading error improved
+slightly but that isn't the gate. This is the gate's own pre-registered
+"wrong lever, STOP" outcome — no further respec of this reward line;
+the fork returns to the operator (q_20260820T2330Z / STATUS.md).
+
+`cw-dep-bcgait2-fastbc1` itself finished earlier: PASS as discovery canary
 (fresh BC-INIT from the scripted TripodGait teacher under the FULL
 servo profile at NATIVE cadence survives RL fine-tune — tall, clean
 6-leg gait, zero falls, direction correct, det slip/m 1.76, realized
