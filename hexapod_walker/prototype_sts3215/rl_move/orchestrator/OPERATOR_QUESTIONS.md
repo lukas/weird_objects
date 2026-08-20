@@ -1084,6 +1084,16 @@ Entry format (append; newest last; update status in place):
   (undiscounted, additive, never shrunk by income gates). If the
   desktop 2cb2a7b7 implementation differs (e.g. dt-scaled or
   increment-based), say so and we re-align before any >1M dose.
+- OUTCOME (same cycle): BOTH canaries CANARY FAIL - MECHANISM at the
+  pre-PPO B0 bridge cert (zero training): bcgait1_hard1 zero-shot
+  under 1500/80 falls 6/8 (slip 2.26/m, roll 10.2°, 2.09x overshoot);
+  under 750/40 falls 2/8 (slip 1.66/m, roll 10.6°, 1.26x overshoot).
+  The --walkcurr-cert-at-init guard your spec included aborted both,
+  per each run's own gate clause (1). Dose-graded ⇒ profile dose
+  destabilizes before V5/k_loadslip_excess engage. OPERATOR PICK
+  NEEDED: (a) ease/waive precert and train through the B0 wobble,
+  (b) profile ramp-in mechanism (CODE, unbuilt), or (c) park. No
+  autonomous continuation queued.
 - ANSWER (operator): —
 - rulebook change: pending answer; V5 init-from exception documented
   in train_ppo_mjx.py + hw/STATUS.md.

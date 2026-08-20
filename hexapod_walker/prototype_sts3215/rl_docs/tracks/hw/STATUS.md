@@ -24,10 +24,25 @@ unresolved blockers between the robot and reliable joystick control.
 
 ## Now
 
+- **08-20 ~08:4x OUTCOME: both ordered canaries CANARY FAIL -
+  MECHANISM at the pre-PPO B0 bridge cert — ZERO training steps.
+  The bcgait1_hard1 warm start zero-shot cannot survive 10s of its
+  own 0.05-0.06 m/s straight walk under either raised profile:
+  `fastnoslip1` (1500/80) falls 6/8, slip 2.26/m, roll 10.2°, 2.09x
+  speed overshoot; `midnoslip1` (750/40) falls 2/8, slip 1.66/m,
+  roll 10.6°, 1.26x overshoot. Dose-graded on every axis ⇒ the
+  profile dose itself destabilizes the transplant before V5 or
+  k_loadslip_excess ever engage (the mechanism itself is
+  implemented, tested, and remains ready). Fail-closed
+  `--walkcurr-cert-at-init` aborted both per each run's own
+  pre-registered gate clause (1). Next lever is `[operator]`:
+  ease/waive the precert bar (train through the wobble in B0), a
+  profile ramp-in mechanism (CODE, unbuilt), or park. W&B
+  `2ioupj7g` / `lj0urac5`; STATUS.md WAITING-ON + q_20260820T0830Z.**
 - **08-20 ~08:xx: operator ANSWERED the fast-gait fork
   (fb_20260820T075230_4a90c6) with a mechanism change — walk-
   curriculum V5 "fast anti-skate" + `reward.k_loadslip_excess` —
-  and the two ordered 1M canaries are TRAINING.** Implemented on the
+  and the two ordered 1M canaries were launched.** Implemented on the
   controller (the operator's desktop commit 2cb2a7b7 couldn't push;
   recreated per the note): `WALKCURR_BUCKETS_V5` in walk_task.py — a
   bcgait1-hard1-adjacent ladder (B0 10s bridge at the source's own
