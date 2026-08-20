@@ -91,6 +91,8 @@ function applyBackendMeta(meta){
   simNativeViewer = nativeViewer;
   document.body.classList.toggle('hub-backend', hubMode);
   document.body.classList.toggle('target-both', hubTarget === 'both');
+  document.body.classList.toggle('robot-active', targetHasRobot);
+  document.body.classList.toggle('sim-active', targetHasSim);
   document.body.classList.toggle('robot-configured',
     hubMode && robotTargetAvailable);
   document.body.classList.toggle('sim-backend', targetHasSim);
@@ -135,7 +137,7 @@ async function heartbeat(){
     const j = await r.json().catch(()=>({}));
     applyBackendMeta(j);
     if(j && j.ok === false) throw new Error(j.error || 'ping failed');
-    setLink(true, hubMode ? `hub: ${hubTarget}`
+    setLink(true, hubMode ? 'connected'
       : (backendKind === 'sim' ? 'sim connected' : undefined));
   }catch(e){
     clearTimeout(t);
@@ -701,7 +703,7 @@ async function connectRobotTarget(nextTarget){
     const resolved = d.targets && d.targets.robot && d.targets.robot.url;
     simPollMaybe();
     if(d.ok){
-      setLink(true, 'hub: '+(d.target || nextTarget || 'robot'));
+      setLink(true, 'connected');
       showSent('robot connected → '+(resolved || url));
       return true;
     } else {
