@@ -141,6 +141,16 @@ drag to orbit, `Z`/`X` zoom, `Q` quit. Keys are drawn in the window.
   yaw rate ±0.05 rad/s per tap, including turn-in-place.
   `sim_noslip.sh` drives the gait alone with live alpha keys
   (`4`/`5`/`6` = 0/0.5/1) and `7` = the clamp-fit preset.
+  Two more `S` rows are the CLASSIC hexapod gaits on the same
+  world-pinned engine — same zero-scrub guarantee, different swing
+  groups: `noslip_ripple_gait` (opposite PAIRS step together, 4 feet
+  always planted; period 8 s, ~10 mm/s max) and `noslip_wave_gait`
+  (ONE leg at a time, alternating sides, 5 feet planted — the
+  steadiest and slowest, period 20 s, ~4 mm/s max). Both verified
+  08-20 (`verify_noslip --gait ripple/wave --vel-max 0`): 0.0 mm true
+  scrub, travel ratio 0.95-0.96, and clean turning. On the ROBOT the
+  same gaits are the web UI's scripted-walk "gait" picker
+  (`GAIT 2` = ripple, `GAIT 3` = wave; alpha only tunes gait 1).
   Two more `S` rows run the TRIPOD gait (`linux_control/
   tripod_gait.py`) — the dance_walk victory-lap drivers:
   `tripod_prance_gait` (aggressive horse settings: 0.58 s cadence,

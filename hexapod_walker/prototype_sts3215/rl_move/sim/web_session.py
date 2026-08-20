@@ -24,10 +24,12 @@ from .play import (
     _LEGACY_PROFILE,
     _N_MODE,
     _NOSLIP_CLEAN,
+    _NOSLIP_RIPPLE,
+    _NOSLIP_WAVE,
     _ROLE_OBS,
-    _SCRIPTED_ALPHA,
     _SCRIPTED_ROWS,
     _SCRIPTED_TRIPOD,
+    make_noslip_gait,
     _SPEED_MAX,
     _load_profiles,
     _obs_width,
@@ -167,7 +169,7 @@ class SimWebSession:
         self.si = self._ensure_listed(self.stance_list, self.cfg.stance, (68,))
         self.wi = self._ensure_listed(self.walk_list, self.cfg.walk,
                                       self.walk_widths)
-        self.walk_list.extend([_NOSLIP_CLEAN])
+        self.walk_list.extend([_NOSLIP_CLEAN, _NOSLIP_RIPPLE, _NOSLIP_WAVE])
         self.walk_list.extend(_SCRIPTED_TRIPOD)
         self.policy_index = self._build_policy_index()
         self._register_uploaded_policies()
@@ -509,11 +511,7 @@ class SimWebSession:
             g.set_lift_mm(kw["lift_mm"])
             g.reset_phase(t=0.0)
             return g
-        if self.walk_list[self.wi] is _NOSLIP_CLEAN:
-            g = self.NoSlipGait.clamp_fit()
-        else:
-            g = self.NoSlipGait(
-                alpha=_SCRIPTED_ALPHA.get(self.walk_list[self.wi], 0.0))
+        g = make_noslip_gait(self.walk_list[self.wi], self.NoSlipGait)
         g.sync_plant_stance(math.degrees(self.q_plant[1]),
                             math.degrees(self.q_plant[2]))
         return g

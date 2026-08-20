@@ -116,10 +116,14 @@
         <label class="hint">gait
           <select id="wgait" title="Which gait runs the J commands. Swaps are
 refused while walking — stop first. tripod = the legacy body-frame drag gait
-(known-good but loses ~50% of its stride to slip); no-slip = world-pinned
-feet, zero commanded scrub.">
+(known-good but loses ~50% of its stride to slip); the no-slip gaits pin
+planted feet to fixed world anchors (zero commanded scrub) and differ only
+in which legs swing together: tripod 3+3 (fastest), ripple opposite pairs
+(4 feet always down), wave one leg at a time (5 down — steadiest, slowest).">
             <option value="0" selected>tripod (legacy — drags feet)</option>
-            <option value="1">no-slip (world-pinned feet)</option>
+            <option value="1">no-slip tripod (world-pinned feet)</option>
+            <option value="2">no-slip ripple (pairs · 4 feet down)</option>
+            <option value="3">no-slip wave (1 leg · steadiest)</option>
           </select></label>
       </div>
       <div id="walphawrap" style="display:none">

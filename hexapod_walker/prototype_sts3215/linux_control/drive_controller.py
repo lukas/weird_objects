@@ -10,12 +10,16 @@ firmware enough that the web UI can stay familiar:
   J vx vy omega [gait] live drive (vx,vy in mm/s; omega rad/s)
   K <lift_mm>          swing foot lift
   GAIT <id> [alpha]    pick the walk gait: 0 = tripod (body-frame drag,
-                       legacy), 1 = no-slip world-pinned (noslip_gait);
-                       alpha 0..1 = body-motion overlap (0 = step-then-
-                       shift, 1 = continuous). Swaps are refused while
-                       walking — send J 0 0 0 first; alpha alone
-                       retunes the live no-slip gait at the next phase
-                       boundary.
+                       legacy), 1 = no-slip world-pinned tripod
+                       (noslip_gait), 2 = no-slip RIPPLE (opposite
+                       pairs, 4 feet down), 3 = no-slip WAVE (one leg
+                       at a time, 5 feet down — steadiest, slowest);
+                       alpha 0..1 = body-motion overlap for gait 1
+                       (0 = step-then-shift, 1 = continuous; ripple/
+                       wave run their clamp-tuned presets and ignore
+                       it). Swaps are refused while walking — send
+                       J 0 0 0 first; alpha alone retunes the live
+                       no-slip tripod at the next phase boundary.
   # <j> <deg>          set one joint
   Q <j> <amp>          wiggle one joint
   HOLD                 freeze at present pose
@@ -233,19 +237,25 @@ class DriveController:
         self._write_pose(pose, speed=250, acc=30)
 
     # -- gait selection --------------------------------------------------------
+    _GAIT_NAMES = {0: "tripod (drag)", 1: "noslip tripod",
+                   2: "noslip RIPPLE (pairs)", 3: "noslip WAVE (one leg)"}
+
     def _gait_desc(self) -> str:
         if self._gait_id == 1:
             return f"noslip alpha={self._noslip_alpha:.2f}"
-        return "tripod (drag)"
+        return self._GAIT_NAMES.get(self._gait_id, "tripod (drag)")
 
     def _set_gait(self, gait_id: int, alpha: float | None = None) -> str:
         """Swap / retune the walk gait (call with the lock held).
 
         Swaps only happen while NOT walking: a fresh gait re-pins its
         feet at neutral, which would yank mid-stride legs. Alpha alone
-        retunes a live no-slip gait safely (phase-boundary semantics).
+        retunes the live no-slip tripod safely (phase-boundary
+        semantics); ripple/wave run their clamp-tuned presets.
         """
-        gait_id = 1 if int(gait_id) == 1 else 0
+        gait_id = int(gait_id)
+        if gait_id not in self._GAIT_NAMES:
+            gait_id = 0
         if alpha is not None:
             self._noslip_alpha = max(0.0, min(1.0, float(alpha)))
             if gait_id == 1 and self._gait_id == 1:
@@ -256,8 +266,14 @@ class DriveController:
         if self.mode == "walk" or moving:
             self.status = "gait swap refused while walking (J 0 0 0 first)"
             return "refused gait swap while walking - send J 0 0 0 first"
-        self.gait = (NoSlipGait(alpha=self._noslip_alpha) if gait_id == 1
-                     else TripodGait())
+        if gait_id == 2:
+            self.gait = NoSlipGait.ripple()
+        elif gait_id == 3:
+            self.gait = NoSlipGait.wave()
+        elif gait_id == 1:
+            self.gait = NoSlipGait(alpha=self._noslip_alpha)
+        else:
+            self.gait = TripodGait()
         self.gait.sync_plant_stance()
         if self._lift_mm is not None:
             self.gait.set_lift_mm(self._lift_mm)

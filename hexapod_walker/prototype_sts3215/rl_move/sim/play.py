@@ -161,6 +161,28 @@ _NOSLIP = Path("noslip_scripted_gait")
 _NOSLIP_MID = Path("noslip_hybrid_a50")
 _NOSLIP_CLEAN = Path("noslip_clampfit_gait")
 _SCRIPTED_ALPHA = {_NOSLIP: 0.0, _NOSLIP_MID: 0.5, _NOSLIP_CLEAN: 1.0}
+# Classic-gait rows: same world-pinned engine, different swing groups
+# (NoSlipGait.ripple / .wave presets). Ripple swings opposite PAIRS
+# (4 feet always down); wave swings ONE leg at a time, alternating
+# sides (5 down — steadiest and slowest). Both verified zero true
+# scrub in verify_noslip (08-20), like the clampfit tripod.
+_NOSLIP_RIPPLE = Path("noslip_ripple_gait")
+_NOSLIP_WAVE = Path("noslip_wave_gait")
+_NOSLIP_FACTORY = {_NOSLIP_CLEAN: "clamp_fit", _NOSLIP_RIPPLE: "ripple",
+                   _NOSLIP_WAVE: "wave"}
+_NOSLIP_TAGS = {_NOSLIP: "tripod alpha=0.0", _NOSLIP_MID: "tripod alpha=0.5",
+                _NOSLIP_CLEAN: "clamp-fit tripod",
+                _NOSLIP_RIPPLE: "RIPPLE pairs (4 feet down)",
+                _NOSLIP_WAVE: "WAVE one-leg (5 feet down)"}
+_SCRIPTED_NOSLIP = frozenset(_SCRIPTED_ALPHA) | frozenset(_NOSLIP_FACTORY)
+
+
+def make_noslip_gait(row: Path, cls):
+    """Build the no-slip gait a picker row selects (cls = NoSlipGait)."""
+    preset = _NOSLIP_FACTORY.get(row)
+    if preset is not None:
+        return getattr(cls, preset)()
+    return cls(alpha=_SCRIPTED_ALPHA.get(row, 0.0))
 # Scripted TRIPOD gait rows (linux_control/tripod_gait.py) — the
 # dance_walk victory-lap gaits, previewable here before hardware runs.
 # "prance" = the aggressive horse settings (quick cadence, high knees,
@@ -175,7 +197,7 @@ _SCRIPTED_TRIPOD = {
     _TRIPOD_GENTLE: dict(period=0.85, lift_mm=18.0, cruise=0.045,
                          omega=0.40, tag="gentle 0.85s/18mm"),
 }
-_SCRIPTED_ROWS = frozenset(_SCRIPTED_ALPHA) | frozenset(_SCRIPTED_TRIPOD)
+_SCRIPTED_ROWS = _SCRIPTED_NOSLIP | frozenset(_SCRIPTED_TRIPOD)
 # cv2 can't see key-up events, but macOS auto-repeats a held arrow key.
 # "No repeat for _HOLD_S" therefore means "released" — a dead-man switch.
 # Must exceed the OS initial-repeat delay (default ~0.5 s).
@@ -350,6 +372,10 @@ _DESC = {
         "hand-coded, smoother body glide, still no slide",
     "noslip_clampfit_gait":
         "hand-coded, tuned to real servo speed; smoothest",
+    "noslip_ripple_gait":
+        "classic RIPPLE: pairs step, 4 feet down, no slide",
+    "noslip_wave_gait":
+        "classic WAVE: one leg at a time, steadiest, slow",
     "tripod_prance_gait":
         "hand-coded horse PRANCE - dance lap gait; P about-face",
     "tripod_walk_gait":
@@ -689,6 +715,7 @@ def main() -> None:
     # --all, otherwise just clamp-fit (the cleanest). The tripod dance
     # rows (prance/gentle) are always listed — they back the V/P keys.
     walk_list.extend(_SCRIPTED_ALPHA if args.all else [_NOSLIP_CLEAN])
+    walk_list.extend([_NOSLIP_RIPPLE, _NOSLIP_WAVE])
     walk_list.extend(_SCRIPTED_TRIPOD)
 
     # Fast-profile checkpoint contract (operator order
@@ -853,15 +880,12 @@ def main() -> None:
             msg = (f"walk driver -> SCRIPTED tripod {kw['tag']} "
                    f"(cruise {kw['cruise']:.2f}, U/O turn, P about-face)")
             return
-        if walk_list[wi] in _SCRIPTED_ALPHA:
+        if walk_list[wi] in _SCRIPTED_NOSLIP:
             walk = None                 # scripted driver, no checkpoint
             gait = None                 # re-pinned when driving engages
             apply_servo_regime()
-            msg = ("walk driver -> SCRIPTED no-slip gait "
-                   + ("clamp-fit preset "
-                      if walk_list[wi] is _NOSLIP_CLEAN else
-                      f"alpha={_SCRIPTED_ALPHA[walk_list[wi]]:.1f} ")
-                   + "(U/O to turn)")
+            msg = ("walk driver -> SCRIPTED no-slip "
+                   f"{_NOSLIP_TAGS[walk_list[wi]]} (U/O to turn)")
             return
         m = load_checkpoint_auto(walk_list[wi], device="cpu")
         if m.action_space.shape != env.action_space.shape:
@@ -1014,10 +1038,7 @@ def main() -> None:
             g.set_lift_mm(kw["lift_mm"])
             g.reset_phase(t=0.0)
             return g
-        if walk_list[wi] is _NOSLIP_CLEAN:
-            g = NoSlipGait.clamp_fit()
-        else:
-            g = NoSlipGait(alpha=_SCRIPTED_ALPHA.get(walk_list[wi], 0.0))
+        g = make_noslip_gait(walk_list[wi], NoSlipGait)
         g.sync_plant_stance(math.degrees(q_plant[1]),
                             math.degrees(q_plant[2]))
         return g
@@ -1565,8 +1586,8 @@ def main() -> None:
                                if abs(om_cmd) > 1e-3 and cmd_speed < 1e-3
                                else ""))
             else:
-                mode_txt = ("WALK: scripted no-slip gait "
-                            f"a={_SCRIPTED_ALPHA.get(walk_list[wi], 0.0):.1f}  "
+                mode_txt = ("WALK: scripted no-slip "
+                            f"{_NOSLIP_TAGS.get(walk_list[wi], '?')}  "
                             f"[{gait.phase_name() if gait else '-'}]")
             mode_col = (40, 240, 240)
         elif walking:

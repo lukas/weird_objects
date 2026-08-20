@@ -538,7 +538,9 @@ document.getElementById('wpreflight').onclick = async ()=>{
   }catch(e){ out.textContent = 'preflight failed (link?)'; }
 };
 
-// --- gait picker: tripod (0) vs no-slip (1) + overlap alpha ------------------
+// --- gait picker: 0 tripod drag · 1 no-slip tripod (+alpha) · 2 no-slip
+// ripple · 3 no-slip wave. Alpha only tunes gait 1 (ripple/wave run
+// clamp-tuned presets), so the slider hides for the others. --------------------
 // `gait` (top of file) also rides the manual-drive J stream, so the picker
 // applies to both the timed walk pad and the sticks. The controller refuses
 // swaps while walking (stop first) and applies alpha at the next phase

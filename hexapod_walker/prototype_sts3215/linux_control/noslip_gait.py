@@ -51,8 +51,24 @@ the other tripod (a statically stable triangle) holds the body; at
 alpha = 0 the gait is fully quasi-static: it can pause at any instant
 without falling.
 
+``groups`` generalizes the swing pattern to the other classic hexapod
+gaits — the phase machine becomes K repetitions of (shift, swing
+group_k, dwell) per cycle, and the world-anchor no-slip guarantee is
+untouched because it never depended on WHICH feet swing together:
+
+  TRIPOD  ((0,2,4), (1,3,5))            3 feet down, fastest
+  RIPPLE  ((0,3), (1,4), (2,5))         4 feet down — opposite pairs
+  WAVE    ((0,), (3,), (1,), (4,), (2,), (5,))   5 feet down, steadiest
+          (single legs, alternating sides so support stays centred)
+
+Presets ``NoSlipGait.ripple()`` / ``NoSlipGait.wave()`` follow the
+clamp-fit philosophy (alpha = 1 constant-rate drift, timing sized for
+the fitted ~31 deg/s servo cruise clamp).  Leg numbering: 0 front-left,
+1 mid-left, 2 rear-left, 3 rear-right, 4 mid-right, 5 front-right.
+
 Stdlib-only (like ``tripod_gait``) so it can be vendored to the Uno Q.
 Verify in sim with:  .venv/bin/python -m rl_move.sim.verify_noslip
+(``--gait ripple`` / ``--gait wave`` replay the presets).
 """
 from __future__ import annotations
 
@@ -130,11 +146,25 @@ class NoSlipGait:
 
     TRIPOD_A = (0, 2, 4)
     TRIPOD_B = (1, 3, 5)
+    GROUPS_TRIPOD = (TRIPOD_A, TRIPOD_B)
+    # Opposite pairs: removing any pair leaves a wide 4-foot quad with
+    # the CoM well inside — statically stable through every swing.
+    GROUPS_RIPPLE = ((0, 3), (1, 4), (2, 5))
+    # One leg at a time, alternating sides (each consecutive swing is
+    # the OPPOSITE leg of the previous one) so the 5-foot support never
+    # leans to one side for long.
+    GROUPS_WAVE = ((0,), (3,), (1,), (4,), (2,), (5,))
 
-    _SHIFTS = (0, 3)
-    _SWINGS = {1: TRIPOD_A, 4: TRIPOD_B}
-    _NAMES = ("shift", "swing A (0,2,4)", "dwell",
-              "shift", "swing B (1,3,5)", "dwell")
+    # Presets tuned like CLAMP_FIT_KW (alpha=1, sized so per-phase joint
+    # rates fit the ~31 deg/s fitted servo cruise clamp; validated with
+    # rl_move/sim/verify_noslip.py --gait ripple / wave).  Every swing
+    # must recover a full-cycle stride no matter how many groups there
+    # are, so more groups need a LONGER period to keep the same ~2.4 s
+    # swing the clamp-fit tripod uses — wave is inherently the slowest.
+    RIPPLE_KW = dict(period=8.0, lift=0.020, shift_frac=0.02,
+                     swing_frac=0.30, alpha=1.0)
+    WAVE_KW = dict(period=20.0, lift=0.018, shift_frac=0.008,
+                   swing_frac=0.155, alpha=1.0)
 
     def __init__(
         self,
@@ -147,16 +177,34 @@ class NoSlipGait:
         vy: float = 0.0,
         omega: float = 0.0,
         alpha: float = 0.0,
+        groups: tuple = GROUPS_TRIPOD,
     ):
         self.period = max(float(period), 0.4)
         self.lift = _clip(float(lift), 0.005, 0.05)
         self.alpha = _clip(float(alpha), 0.0, 1.0)
-        shift_frac = _clip(float(shift_frac), 0.10, 0.40)
-        swing_frac = _clip(float(swing_frac), 0.08, 0.5 - shift_frac)
-        dwell_frac = 0.5 - shift_frac - swing_frac
+        self.groups = tuple(tuple(int(i) for i in g) for g in groups)
+        k = len(self.groups)
+        assert k >= 2 and sorted(
+            i for g in self.groups for i in g) == list(range(6)), \
+            "groups must partition legs 0..5"
+        # Phase cycle: K x (shift, swing group_k, dwell). Fractions are
+        # of the WHOLE period; each subcycle spans 1/K of it (for the
+        # tripod K=2 this reduces exactly to the original math).
+        sub = 1.0 / k
+        shift_frac = _clip(float(shift_frac), 0.02, 0.8 * sub)
+        swing_frac = _clip(float(swing_frac), 0.04,
+                           sub - shift_frac - 0.005)
+        dwell_frac = sub - shift_frac - swing_frac
+        self._shifts = tuple(3 * j for j in range(k))
+        self._swings = {3 * j + 1: self.groups[j] for j in range(k)}
+        self._names = []
+        for g in self.groups:
+            legs = ",".join(str(i) for i in g)
+            self._names += ["shift", f"swing ({legs})", "dwell"]
+        self._names = tuple(self._names)
         self._durations = [
             f * self.period
-            for f in (shift_frac, swing_frac, dwell_frac) * 2]
+            for f in (shift_frac, swing_frac, dwell_frac) * k]
         self.vx = vx
         self.vy = vy
         self.omega = omega
@@ -179,6 +227,16 @@ class NoSlipGait:
     def clamp_fit(cls, **kw) -> "NoSlipGait":
         """The 'cleanest under the servo clamp' preset (08-12 sweep)."""
         return cls(**{**cls.CLAMP_FIT_KW, **kw})
+
+    @classmethod
+    def ripple(cls, **kw) -> "NoSlipGait":
+        """Classic ripple: opposite pairs swing, 4 feet always planted."""
+        return cls(**{**cls.RIPPLE_KW, "groups": cls.GROUPS_RIPPLE, **kw})
+
+    @classmethod
+    def wave(cls, **kw) -> "NoSlipGait":
+        """Classic wave: one leg at a time, 5 feet always planted."""
+        return cls(**{**cls.WAVE_KW, "groups": cls.GROUPS_WAVE, **kw})
 
     def _reset_anchors(self) -> None:
         """Re-pin every foot at neutral under the current body pose."""
@@ -251,7 +309,7 @@ class NoSlipGait:
         return self.px, self.py, self.pyaw
 
     def phase_name(self) -> str:
-        return self._NAMES[self._phase_idx]
+        return self._names[self._phase_idx]
 
     # ------------------------------------------------------------------
     # Internals.
@@ -298,27 +356,28 @@ class NoSlipGait:
         forward before the planted interval even begins.
         """
         a = self.alpha
-        n = len(self._NAMES)
+        n = len(self._names)
         nshift = self._nshift
         live = nshift >= 2
         swing = (a * self._durations[self._phase_idx] / self.period
                  if live else 0.0)
+        pulse = (1.0 - a) / len(self._shifts)   # ease share per shift
         planted = 0.0
-        for k in range(1, 6):          # the five phases the feet stay down
+        for k in range(1, n):          # the n-1 phases the feet stay down
             j = (self._phase_idx + k) % n
-            if j in self._SHIFTS:
+            if j in self._shifts:
                 nshift += 1
                 live = nshift >= 2
             if not live:
                 continue
             planted += a * self._durations[j] / self.period
-            if j in self._SHIFTS:
-                planted += 0.5 * (1.0 - a)
+            if j in self._shifts:
+                planted += pulse
         return swing + 0.5 * planted
 
     def _start_phase(self) -> None:
         idx = self._phase_idx
-        if idx in self._SHIFTS:
+        if idx in self._shifts:
             self._nshift += 1
         # No body motion before the second shift of a run (feet start
         # pinned at neutral), so neither tripod exceeds ~half a stride
@@ -332,11 +391,11 @@ class NoSlipGait:
         self._lin_rate = ((a * dx / self.period, a * dy / self.period,
                            a * dyaw / self.period)
                           if live else (0.0, 0.0, 0.0))
-        if idx in self._SHIFTS:                # shift: capture ease pulse
-            s = 0.5 * (1.0 - a) if live else 0.0
+        if idx in self._shifts:                # shift: capture ease pulse
+            s = (1.0 - a) / len(self._shifts) if live else 0.0
             self._shift_twist = (s * dx, s * dy, s * dyaw)
-        elif idx in self._SWINGS:              # swing: plan the step
-            tripod = self._SWINGS[idx]
+        elif idx in self._swings:              # swing: plan the step
+            tripod = self._swings[idx]
             f = self._swing_target_advance()
             saved = (self.px, self.py, self.pyaw)
             self._advance_pose(f * dx, f * dy, f * dyaw)
@@ -348,7 +407,7 @@ class NoSlipGait:
             self.px, self.py, self.pyaw = saved
 
     def _end_phase(self) -> None:
-        if self._phase_idx in self._SWINGS:
+        if self._phase_idx in self._swings:
             for i, (_ax, _ay, tx, ty) in self._swing.items():
                 self.anchors[i] = [tx, ty]
             self._swing = {}
@@ -360,7 +419,7 @@ class NoSlipGait:
             dur = self._durations[self._phase_idx]
             left = dur - self._phase_time
             step = min(remaining, left)
-            if self._phase_idx in self._SHIFTS and dur > 0.0:
+            if self._phase_idx in self._shifts and dur > 0.0:
                 p0 = self._phase_time / dur
                 p1 = (self._phase_time + step) / dur
                 ds = _ease(p1) - _ease(p0)
@@ -373,7 +432,7 @@ class NoSlipGait:
             remaining -= step
             if dur - self._phase_time <= 1e-12:
                 self._end_phase()
-                self._phase_idx = (self._phase_idx + 1) % len(self._NAMES)
+                self._phase_idx = (self._phase_idx + 1) % len(self._names)
                 self._phase_time = 0.0
                 self._start_phase()
 

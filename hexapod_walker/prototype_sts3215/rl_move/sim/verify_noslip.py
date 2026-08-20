@@ -249,6 +249,11 @@ def main() -> None:
     ap.add_argument("--vx", type=float, default=0.02)
     ap.add_argument("--vy", type=float, default=0.0)
     ap.add_argument("--omega", type=float, default=0.0)
+    ap.add_argument("--gait", default="tripod",
+                    choices=("tripod", "ripple", "wave"),
+                    help="swing grouping: tripod uses the timing flags "
+                    "below; ripple/wave replay their clamp-tuned presets "
+                    "(NoSlipGait.RIPPLE_KW / WAVE_KW) and ignore them")
     ap.add_argument("--alpha", type=float, default=0.0,
                     help="body-motion overlap: 0 = step-then-shift, "
                     "1 = continuous body drift (world anchors either way)")
@@ -287,10 +292,16 @@ def main() -> None:
             str(args.video), cv2.VideoWriter_fourcc(*"mp4v"),
             int(round(1.0 / env.dt)), (640, 480))
 
-    gait = NoSlipGait(period=args.period, lift=args.lift_mm * 1e-3,
-                      shift_frac=args.shift_frac, swing_frac=args.swing_frac,
-                      vx=args.vx, vy=args.vy, omega=args.omega,
-                      alpha=args.alpha)
+    vel = dict(vx=args.vx, vy=args.vy, omega=args.omega)
+    if args.gait == "ripple":
+        gait = NoSlipGait.ripple(**vel)
+    elif args.gait == "wave":
+        gait = NoSlipGait.wave(**vel)
+    else:
+        gait = NoSlipGait(period=args.period, lift=args.lift_mm * 1e-3,
+                          shift_frac=args.shift_frac,
+                          swing_frac=args.swing_frac,
+                          alpha=args.alpha, **vel)
     gait.sync_plant_stance(PLANT_HIP_DEG, PLANT_KNEE_DEG)
 
     def cmd_dist():
@@ -299,9 +310,10 @@ def main() -> None:
 
     r = rollout(env, gait, args.walk_s, cmd_dist_fn=cmd_dist,
                 video_writer=writer)
-    _report(f"noslip alpha={args.alpha}  vx={args.vx} vy={args.vy} "
-            f"omega={args.omega} period={args.period}s "
-            f"lift={args.lift_mm}mm  walk {args.walk_s}s "
+    _report(f"noslip {args.gait}  period={gait.period:g}s "
+            f"alpha={gait.alpha:g}  vx={args.vx} vy={args.vy} "
+            f"omega={args.omega} lift={gait.lift * 1000:g}mm  "
+            f"walk {args.walk_s}s "
             f"mu={'XML(2.0)' if args.mu <= 0 else args.mu}", r)
     if writer is not None:
         writer.release()
