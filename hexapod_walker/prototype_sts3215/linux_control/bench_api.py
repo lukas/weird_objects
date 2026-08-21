@@ -2684,7 +2684,8 @@ class BenchAPI:
     def _calibrate_quad_body_frame(self, bus, *, abort_check,
                                    on_progress) -> dict:
         try:
-            from imu_calibrate import (imu_body_frame_from_roll_pitch,
+            from imu_calibrate import (load_imu_calib,
+                                       imu_body_frame_from_roll_pitch,
                                        imu_tilt_deg, save_imu_body_frame)
             from inplace_demos import run_demo
             from quad_walk import GAITS
@@ -2781,9 +2782,29 @@ class BenchAPI:
             roll, pitch, expected_pitch_deg=expected,
             samples=len(samples), source="quad_rear_body_frame")
         if not body_frame.get("ok"):
+            existing = (load_imu_calib() or {}).get("body_frame")
+            if existing:
+                ts = existing.get("timestamp") or "saved calibration"
+                return {
+                    "ok": True,
+                    "mode": "imu_body_frame",
+                    "saved": False,
+                    "reused_existing": True,
+                    "warning": body_frame.get("error"),
+                    "rear_status": rear_status,
+                    "down_status": down_status,
+                    "body_frame": existing,
+                    "measured_roll_deg": body_frame.get("measured_roll_deg"),
+                    "measured_pitch_deg": body_frame.get("measured_pitch_deg"),
+                    "measured_lean_deg": body_frame.get("measured_lean_deg"),
+                    "msg": (
+                        "rear-lean sample too small; kept existing IMU "
+                        f"body-frame map from {ts}"),
+                }
             body_frame["mode"] = "imu_body_frame"
             body_frame["rear_status"] = rear_status
             body_frame["down_status"] = down_status
+            body_frame["non_blocking"] = down_status == "done"
             return body_frame
         path = save_imu_body_frame(body_frame)
         reload = getattr(bus, "reload_imu_calib", None)
@@ -3411,6 +3432,8 @@ class BenchAPI:
                 "error": result.get("error"),
                 "log": result.get("log") or result.get("path"),
                 "log_name": result.get("log_name"),
+                "non_blocking": bool(result.get("non_blocking")),
+                "warning": result.get("warning"),
                 "summary": (
                     result.get("msg")
                     or result.get("hint")
@@ -3536,7 +3559,11 @@ class BenchAPI:
                     **{k: v for k, v in p.items() if k != "msg"}))
             phase("imu_body_frame", bf_res)
             body_ok = bool(bf_res.get("ok")) and not bf_res.get("aborted")
+            body_non_blocking = (
+                bool(bf_res.get("non_blocking"))
+                and not bf_res.get("aborted"))
         else:
+            body_non_blocking = False
             phases.append({
                 "name": "imu_body_frame",
                 "ok": False,
@@ -3547,7 +3574,7 @@ class BenchAPI:
                 "summary": motion_block_reason,
             })
 
-        if motion_ok and body_ok and not abort_check():
+        if motion_ok and (body_ok or body_non_blocking) and not abort_check():
             progress("Traction / slip probe", "traction_probe")
             traction_res = self._run_leg_slip_probe(
                 bus, abort_check=abort_check,
@@ -3578,6 +3605,7 @@ class BenchAPI:
             p.get("name") in motion_phase_names
             and not p.get("ok")
             and not p.get("skipped")
+            and not p.get("non_blocking")
             for p in phases)
         if abort_check() or any(p.get("aborted") for p in phases):
             phases.append({
