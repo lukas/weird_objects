@@ -855,30 +855,20 @@ class BenchAPI:
 
         quad_any = name in QUAD_STREAM_DEMOS
         quad_balance = name in QUAD_BALANCE_TRIM_DEMOS
-        quad_rear = name in QUAD_REAR_DEMOS
         quad_requires_rear = name in QUAD_REQUIRES_REAR
         quad_current = bool(
             self._demo_thread and self._demo_thread.is_alive()
             and self._demo_name in QUAD_STREAM_DEMOS)
-        if quad_rear:
-            with self.drive._lock:
-                stand_ready = bool(
-                    self.drive.armed and self.drive.mode == "stand")
-            if not stand_ready:
-                return {"ok": False,
-                        "error": (
-                            "quad rear up requires Stand zero first; "
-                            "it no longer auto-stands before rearing"),
-                        "demo": self.demo_state(),
-                        "robot": self.robot_state()}
         if quad_requires_rear and not (self._quad_reared or quad_current):
             return {"ok": False,
                     "error": "quad: rear up first, then walk/trot/down",
                     "demo": self.demo_state(), "robot": self.robot_state()}
 
         # Uploaded scripts start AND end at sit zero (like air demos).
+        # Quad rear-up is the entry phase, so it acquires stand first; the
+        # later split-quad commands consume the held reared stance directly.
         home = ("sit" if (name in AIR_DEMO_NAMES or script is not None)
-                else "quad" if (quad_requires_rear or quad_rear)
+                else "quad" if quad_requires_rear
                 else "stand")
         switched_from = None
         if self._demo_thread and self._demo_thread.is_alive():
