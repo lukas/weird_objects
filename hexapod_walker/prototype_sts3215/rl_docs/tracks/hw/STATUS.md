@@ -1,6 +1,6 @@
 # hw - hardware joystick mainline
 
-Last compacted: 2026-08-20 UTC. This is the current mainline status, not a
+Last updated: 2026-08-21 UTC. This is the current mainline status, not a
 run history. Details live in `rl_docs/runs/`, W&B, `RL_LOG.md`, and topic docs.
 
 ## Goal
@@ -28,25 +28,25 @@ baseline.
 
 ## Live Runs
 
-`cw-dep-bcgait3-speedbc1` (discovery, 2M, train-7, launched 08-21 ~23:0x
-UTC by operator order 20260821T224150Z — the new fast-gait lever that
-closed q_20260820T2330Z). Speed-conditioned BC: fresh clone of the
-NATIVE-cadence tripod teacher under the FULL profile across a
-0.06-0.10 m/s band (stride geometry is the speed knob), trained with the
-DEPLOYABLE leg-odometry velocity obs (`goal.walk_obs_body_vel=3`) so the
-policy can actually see its speed next to the command (fastbc1/track1
-were blind under vel:=ref), plus the semantics-tested
-`k_walk_overspeed=2.0/tol=0.10` + `k_walk_heading=2.0` charges (fastprof
-bank: obey out-earns overspeed by >50, margin from the charge). Teacher
-preflight (this cycle, logs/probe_speedband/): realized speed strictly
-monotone in command, slip/m 1.5-2.8, 147mm, zero falls at
-0.06/0.08/0.10; 0.04/0.05 bands REFUTED (slip/m 2.9-3.8). Clone
-preflight: zero falls, six-leg, slip 1.8-2.8, holdout act err 0.0119.
-Gate: pinned-speed panel 0.06/0.08/0.10 det+sto DR-0 — prog_ratio
-0.75-1.25 at EVERY band, zero falls, gait_valid 6/6, dir err <=30 deg,
-slip det <=2.2 / sto <=3.0. PASS -> fixed-headings rung, then irregular
-direction changes (operator-preregistered). The scalar k_walk_cmd_track
-lever stays closed; no-BC scratch walking stays closed.
+`cw-dep-bcgait3-speedbc1` (discovery, 2M, operator order
+20260821T224150Z — speed-conditioned BC + leg-odometry vel obs +
+tested overspeed/heading charges) FAILED its gate on EVERY axis
+(pinned-speed panel 0.06/0.08/0.10 det+sto DR-0, triaged 08-21 ~23:5x
+UTC): 34/48 episodes end in tilt_pitch FALLS (gate: zero; parent
+fastbc1 had zero), dir err med 58-80 deg (gate <=30), slip/m det
+3.0-3.5 / sto 8-11 (gate 2.2/3.0), and raw speed 0.12-0.14 m/s
+COMMAND-INVARIANT across the band — overspeed persists even though the
+policy could see its own speed. RL under the charges destabilized a
+previously stable clone instead of buying obedience. Pre-registered
+FAIL mode -> STOP; the fast-gait speed-obedience fork returns to the
+operator. Now refuted for making the fast walker obey a speed band:
+faster cadence (teacher-level), k_walk_cmd_track scalar, and
+speed-obs + overspeed/heading charges. Fast walking itself still
+exists (fastbc1: zero falls, straight, ~2x overspeed). No-BC scratch
+walking stays closed. Teacher/clone preflights and the gate eval all
+used the repo-nominal sysid plant at cfe8160a (08-21 calibration
+commits are bench tooling only; no calibrated plant values in repo —
+noted per MCP addendum fb_20260821T224209).
 
 `cw-dep-bcgait2-fastbc1-track1` (warm from `cw-dep-bcgait2-fastbc1`,
 adds `reward.k_walk_cmd_track=1.0`) FAILED: the added command-tracking
@@ -95,19 +95,15 @@ No further fast-gait dose sweeps without operator authorization.
 
 ## Next Agent Actions
 
-When live fast-profile runs finish:
-
-1. Triage each run against its own pre-registered gate.
-2. Update ledger, W&B note, run doc, `RL_LOG.md`, this file, and `STATUS.md` only if the story changes.
-3. If one arm passes, propose or launch only the pre-registered successor allowed by its gate.
-4. If all arms fail, stop the sub-line and report the operator choice: respec from evidence or park fast gait.
-
-Do not open a new fast-gait dose sweep without operator authorization.
+Nothing training; no fast-gait launches without an operator-chosen
+lever. On any new order: triage against its pre-registered gate,
+update ledger/W&B/run doc/RL_LOG, and touch this file + STATUS.md only
+if the story changes.
 
 ## Operator Gates
 
 - Promote `postlower4` and/or change the runner/eval contract to remaining-rise semantics.
-- Fast-gait fork: q_20260820T2330Z CLOSED by order 20260821T224150Z (speed-conditioned BC lever, executing as cw-dep-bcgait3-speedbc1). Next operator decision only if the canary fails its gate.
+- Fast-gait fork: OPEN again — `cw-dep-bcgait3-speedbc1` (order 20260821T224150Z lever) FAILED its gate; refuted levers so far: faster cadence, k_walk_cmd_track, speed-obs + overspeed/heading charges. Next lever is an operator choice.
 - Bench-promote the download hierarchy when the robot returns.
 - Recover mode (reopened 08-20, sim-ready): decide flip handling (ship unsupported vs order a flip-hardening arm) and, when the robot is back, the recover-mode hardware safety contract (185 deg tilt envelope inside recover only) + on-robot transformer compute check. See `rl_docs/RECOVER_DEPLOY.md` blockers.
 - Reopen geometry/CAD only by explicit operator direction.

@@ -108666,7 +108666,7 @@
       "reward.k_walk_heading=2.0"
     ],
     "created": "2026-08-21T22:56:48+00:00",
-    "status": "RUNNING",
+    "status": "FAILED",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -108695,6 +108695,17 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:hw PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-dep-bcgait3-speedbc1 --steps 2000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_bcgait_init_fullprof_speed1.zip --dr-scale 0.35 --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 11 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.06 --cfg-set goal.walk_speed_max_m_s=0.10 --cfg-set goal.walk_obs_body_vel=3 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_dep_bcgait3_speedbc1 --notes 'respec of cw-dep-bcgait2-fastbc1: Teach the fast walker to obey the joystick'\"'\"'s commanded speed instead of blasting past it. Operator order 20260821T224150Z (fast-gait lever): fresh BC clone of the native-cadence tripod teacher under the FULL fast servo profile, speed-conditioned across a 0.06-0.10 m/s band (speed varied by stride geometry at fixed clock \u2014 the physically valid knob; period_scale refuted 08-20), with the policy able to SEE its real speed via the deployable leg-odometry velocity obs (goal.walk_obs_body_vel=3) next to the separate command refs \u2014 the failed fastbc1/track1 arms trained blind under vel:=ref and could not observe their own 2x overspeed. The tested band-exceedance + heading charges (k_walk_overspeed=2.0/tol=0.10, k_walk_heading=2.0) make in-band travel the best-paying behavior (fastprof semantics bank green: obey out-earns overspeed by >50 and the margin comes from the charge, not the legacy kernel). Teacher preflight THIS cycle (logs/probe_speedband/full_*.json, pods train-0..3): realized speed strictly monotone in command, slip/m 1.5-2.8, 147mm tall, zero falls, clean 6-leg at 0.06/0.08/0.10; the 0.04/0.05 bands are REFUTED at teacher level (slip/m 2.9-3.8 vs the <=2-3 budget) and excluded. Clone preflight (ckpt closed-loop, mode-3 obs): zero falls, 146-147mm, all six legs cycling, slip/m 1.8-2.8, realized speed monotone; holdout act err 0.0119. Prediction-if-true: pinned-speed panel goes in-band at every band. Prediction-if-false: overspeed persists despite observable speed + charge = the pricing/obs lever is insufficient, STOP and report; strongest alternative: charges sit as an unresolved standing tax and speed collapses instead.' --cfg-set dr.tipped_start_prob=0.30 --target-kl 0.02 --cfg-set reward.walk_height_gate=1.0 --cfg-set reward.walk_height_sigma_mm=30.0 --cfg-set bus.write_speed=1500 --cfg-set bus.write_acc=80 --cfg-set bus.servo_vel_max_counts_s=write_speed --cfg-set safety.max_delta_q_deg=5.0 --cfg-set reward.k_walk_overspeed=2.0 --cfg-set reward.walk_overspeed_tol=0.10 --cfg-set reward.k_walk_heading=2.0 > /tmp/train_cw-dep-bcgait3-speedbc1.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-dep-bcgait3-speedbc1.log",
     "wandb_id": "4yitv3cc",
-    "verified": "2026-08-21T23:00:04+00:00"
+    "verified": "2026-08-21T23:00:04+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-21T23:05:44+00:00",
+        "process_alive": false,
+        "verdict": "FINISHED_BEFORE_CHECKUP",
+        "log_tail": "err_mm 17.11681\nwandb:       env/height_mm 12.6849\nwandb:   env/height_ref_mm 0\nwandb:   env/max_current_a 1.73567\nwandb:  env/mean_current_a 0.64222\nwandb: env/pct_within_1deg 0.03906\nwandb:   env/pitch_ref_deg 0\nwandb:   env/reward_action -0.02933\nwandb:                 +90 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-dep-bcgait3-speedbc1 at: https://wandb.ai/l2k2/hexapod-balance/runs/4yitv3cc\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 3 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260821_225740-4yitv3cc/logs\n"
+      }
+    ],
+    "hardware_ready": false,
+    "verdict": "FAIL on every gate axis at DR-0 (pinned-speed panel 0.06/0.08/0.10, det+sto): 34/48 episodes ended in tilt_pitch falls (gate: ZERO), direction error med 58-80 deg (gate <=30), slip/m det ~3.0-3.5 / sto 8-11 (gate 2.2/3.0), and raw speed 0.12-0.14 m/s COMMAND-INVARIANT across the band \u2014 overspeed persists despite the leg-odometry vel obs + overspeed/heading charges. Strictly worse than parent cw-dep-bcgait2-fastbc1 (zero falls, correct direction, clean overspeed): RL under the charges destabilized the clone instead of buying obedience. Pre-registered FAIL mode hit: obs+charge lever insufficient AND falls -> STOP, fork returns to operator. Eval on repo-nominal sysid plant at snapshot cfe8160a (08-21 calibration commits add bench tooling only; no calibrated plant values committed in repo).",
+    "triage": "done"
   }
 ]
