@@ -2355,7 +2355,7 @@ function paintDemoStatus(d){
       telemEl.textContent = 'Last run log: '+t.log_name;
     } else if(!running){
       telemEl.innerHTML =
-        'Standard event log is always on. Enable Full motion CSV for cmd vs encoder logs.';
+        'Standard event log includes low-rate command telemetry. Enable Full motion CSV for cmd vs encoder logs.';
     }
   }
   // Quad tab mirrors the same demo state with its own pill.

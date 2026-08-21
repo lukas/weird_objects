@@ -39,6 +39,7 @@ from __future__ import annotations
 import argparse
 import bisect
 import math
+import os
 import random
 import statistics
 import sys
@@ -372,6 +373,96 @@ class CurrentPeakTracker:
         print(f"  Current peaks → {path}")
 
 
+MOTION_CMD_LOG_HZ = 2.0
+
+
+def _motion_cmd_period_s() -> float:
+    """Low-rate command telemetry period; 0 disables via environment."""
+    try:
+        hz = float(os.environ.get("HEXAPOD_MOTION_CMD_HZ",
+                                  MOTION_CMD_LOG_HZ))
+    except (TypeError, ValueError):
+        hz = MOTION_CMD_LOG_HZ
+    if hz <= 0.0:
+        return 0.0
+    return 1.0 / max(0.1, min(10.0, hz))
+
+
+def _compact_imu(imu: dict | None) -> dict | None:
+    if not imu:
+        return None
+    out: dict = {}
+    for key in ("ax_g", "ay_g", "az_g", "gx_dps", "gy_dps",
+                "gz_dps", "temp_c", "body_pitch_deg",
+                "body_roll_deg", "body_pitch_target_deg",
+                "body_frame_calibrated"):
+        if key not in imu:
+            continue
+        val = imu.get(key)
+        if isinstance(val, (int, float)):
+            out[key] = round(float(val), 4)
+        else:
+            out[key] = val
+    return out or None
+
+
+def _emit_motion_cmd(label: str, q: list[float],
+                     wrote: dict[int, tuple[int, int]], *,
+                     t_s: float, seconds: float, wall_s: float,
+                     rate: float, tick_s: float, lookahead_s: float,
+                     tracker: CurrentPeakTracker,
+                     balance_trim: QuadPitchTrim | None = None,
+                     imu: dict | None = None,
+                     servo_goals: dict[int, float] | None = None,
+                     reason: str = "periodic") -> None:
+    """Always-on, nonblocking command telemetry.
+
+    This records the targets the host gave the servos without performing
+    any extra servo feedback reads. The intrusive cmd-vs-encoder CSV stays
+    opt-in; this path only serializes data already in memory.
+    """
+    try:
+        from event_log import emit
+    except Exception:
+        return
+    try:
+        writes = [
+            {
+                "j": int(j),
+                "id": joint_to_servo_id(int(j)),
+                "deg": round(float(q[int(j)]), 2),
+                "servo_goal_deg": round(float(
+                    (servo_goals or {}).get(int(j), q[int(j)])), 2),
+                "speed": int(sa[0]),
+                "acc": int(sa[1]),
+            }
+            for j, sa in sorted((wrote or {}).items())
+        ]
+        data = {
+            "label": str(label),
+            "reason": str(reason),
+            "t_s": round(float(t_s), 3),
+            "duration_s": round(float(seconds), 3),
+            "wall_s": round(float(wall_s), 3),
+            "rate": round(float(rate), 3),
+            "tick_s": round(float(tick_s), 4),
+            "lookahead_s": round(float(lookahead_s), 4),
+            "cmd_deg": [round(float(x), 2) for x in q],
+            "wrote_n": len(writes),
+            "wrote": writes,
+            "peak_a": round(float(tracker.peak_a), 3),
+            "peak_joint": tracker.peak_joint,
+        }
+        if balance_trim is not None:
+            data["balance"] = balance_trim.event_data()
+        imu_compact = _compact_imu(imu)
+        if imu_compact is not None:
+            data["imu"] = imu_compact
+        emit("motion_cmd", f"{label} command", src="motion", data=data)
+    except Exception:
+        pass
+
+
 def _enable_torque(bus: FeetechBus, live: set[int]) -> None:
     for sid in sorted(live):
         bus.pkt.write1ByteTxRx(sid, ADDR_TORQUE_ENABLE, 1)
@@ -487,10 +578,12 @@ class PoseStreamer:
     def __init__(self):
         self.last: list[float] | None = None
         self.prev: list[float] | None = None
+        self.last_written_goal: dict[int, float] = {}
 
     def reset(self) -> None:
         self.last = None
         self.prev = None
+        self.last_written_goal = {}
 
     def write(self, bus: FeetechBus, degrees: list[float], live: set[int],
               *, dt: float = DT,
@@ -509,6 +602,9 @@ class PoseStreamer:
             self.last = list(degrees)
             self.prev = list(degrees)
             _write_pose(bus, degrees, live, speed=120, acc=10)
+            self.last_written_goal = {
+                j: float(degrees[j]) for j in range(N_JOINTS)
+                if joint_to_servo_id(j) in live}
             return {j: (120, 10) for j in range(N_JOINTS)
                     if joint_to_servo_id(j) in live}
 
@@ -518,6 +614,7 @@ class PoseStreamer:
         self.prev = list(degrees)
 
         wrote: dict[int, tuple[int, int]] = {}
+        written_goal: dict[int, float] = {}
         for joint, deg in enumerate(degrees):
             sid = joint_to_servo_id(joint)
             if sid not in live:
@@ -545,9 +642,11 @@ class PoseStreamer:
             bus.pkt.SyncWritePosEx(sid, count, speed, acc)
             self.last[joint] = deg
             wrote[joint] = (speed, acc)
+            written_goal[joint] = float(goal)
         if wrote:
             bus.pkt.groupSyncWrite.txPacket()
             bus.pkt.groupSyncWrite.clearParam()
+        self.last_written_goal = written_goal
         return wrote
 
 
@@ -1390,10 +1489,20 @@ def stream_pose_fn(bus: FeetechBus, live: set[int], pose_fn, *,
     wall_prev = t0
     t_prev = 0.0
     last_sample = -1.0
+    motion_period_s = _motion_cmd_period_s()
+    last_motion_cmd = t0 - motion_period_s if motion_period_s else t0
+    last_imu: dict | None = None
     while t < seconds:
         if check():
             # Return immediately — no bus ops here (concurrent hold from
             # the web Stop handler was hanging the MCU link).
+            _emit_motion_cmd(
+                label, q0 if streamer.last is None else streamer.last, {},
+                t_s=t, seconds=seconds, wall_s=time.monotonic() - t0,
+                rate=0.0, tick_s=tick_s, lookahead_s=lookahead_s,
+                tracker=tracker, balance_trim=balance_trim, imu=last_imu,
+                servo_goals=getattr(streamer, "last_written_goal", {}),
+                reason="aborted")
             return "aborted"
         wall = time.monotonic()
         rate = _clamp_live_speed(spd())
@@ -1406,7 +1515,7 @@ def stream_pose_fn(bus: FeetechBus, live: set[int], pose_fn, *,
         # dt*0.75 cancels _speed_for_delta's 0.9 undershoot and commands
         # slightly above the carrot rate so accumulated lag drains —
         # same sizing as the stand-up pursuit.
-        streamer.write(
+        wrote = streamer.write(
             bus, q, live,
             dt=min(max(wall - t0 - t_prev, 0.03), 0.25) * 0.75,
             deadband=0.3, max_speed=max_speed, max_acc=max_acc)
@@ -1419,8 +1528,15 @@ def stream_pose_fn(bus: FeetechBus, live: set[int], pose_fn, *,
             if log is not None and sweep_n % 2 == 0:
                 extra = (balance_trim.csv_cols()
                          if balance_trim is not None else None)
-                log.sample(bus, q, wrote={}, extra=extra)
+                log.sample(bus, q, wrote=wrote, extra=extra)
             if tracker.peak_a > STREAM_HARD_CAP_A:
+                _emit_motion_cmd(
+                    label, q, wrote, t_s=t, seconds=seconds,
+                    wall_s=wall - t0, rate=rate, tick_s=tick_s,
+                    lookahead_s=lookahead_s, tracker=tracker,
+                    balance_trim=balance_trim, imu=last_imu,
+                    servo_goals=getattr(streamer, "last_written_goal", {}),
+                    reason="current_guard")
                 _hold_here(bus, live)
                 return "guard"
             # Stall-fight semantics (same as the stand-up lab): a joint
@@ -1429,6 +1545,13 @@ def stream_pose_fn(bus: FeetechBus, live: set[int], pose_fn, *,
                    if abs(fb["current_a"]) > guard_a
                    and abs(fb["speed_deg_s"]) < 8.0}
             if now & stall_prev:
+                _emit_motion_cmd(
+                    label, q, wrote, t_s=t, seconds=seconds,
+                    wall_s=wall - t0, rate=rate, tick_s=tick_s,
+                    lookahead_s=lookahead_s, tracker=tracker,
+                    balance_trim=balance_trim, imu=last_imu,
+                    servo_goals=getattr(streamer, "last_written_goal", {}),
+                    reason="stall_guard")
                 _hold_here(bus, live)
                 return "guard"
             stall_prev = now
@@ -1437,6 +1560,7 @@ def stream_pose_fn(bus: FeetechBus, live: set[int], pose_fn, *,
                     imu = read_imu()
                 except Exception:
                     imu = None
+                last_imu = imu
                 if balance_trim is not None:
                     updated = balance_trim.update(imu, wall)
                     if updated and balance_trim.should_emit(wall):
@@ -1449,6 +1573,14 @@ def stream_pose_fn(bus: FeetechBus, live: set[int], pose_fn, *,
                             pass
                         balance_trim.mark_emitted(wall)
                     if balance_trim.abort_reason:
+                        _emit_motion_cmd(
+                            label, q, wrote, t_s=t, seconds=seconds,
+                            wall_s=wall - t0, rate=rate, tick_s=tick_s,
+                            lookahead_s=lookahead_s, tracker=tracker,
+                            balance_trim=balance_trim, imu=last_imu,
+                            servo_goals=getattr(
+                                streamer, "last_written_goal", {}),
+                            reason="balance_guard")
                         for sid in sorted(live):
                             try:
                                 bus.pkt.write1ByteTxRx(
@@ -1465,6 +1597,15 @@ def stream_pose_fn(bus: FeetechBus, live: set[int], pose_fn, *,
                     if tilt > tilt_guard_deg:
                         if tilt_prev:
                             # Going over — do NOT hold a fighting pose.
+                            _emit_motion_cmd(
+                                label, q, wrote, t_s=t, seconds=seconds,
+                                wall_s=wall - t0, rate=rate,
+                                tick_s=tick_s, lookahead_s=lookahead_s,
+                                tracker=tracker, balance_trim=balance_trim,
+                                imu=last_imu,
+                                servo_goals=getattr(
+                                    streamer, "last_written_goal", {}),
+                                reason="tilt_guard")
                             for sid in sorted(live):
                                 try:
                                     bus.pkt.write1ByteTxRx(
@@ -1484,7 +1625,22 @@ def stream_pose_fn(bus: FeetechBus, live: set[int], pose_fn, *,
                               f"{suffix}")
                 except Exception:
                     pass
+        if motion_period_s and wall - last_motion_cmd >= motion_period_s:
+            _emit_motion_cmd(
+                label, q, wrote, t_s=t, seconds=seconds,
+                wall_s=wall - t0, rate=rate, tick_s=tick_s,
+                lookahead_s=lookahead_s, tracker=tracker,
+                balance_trim=balance_trim, imu=last_imu,
+                servo_goals=getattr(streamer, "last_written_goal", {}))
+            last_motion_cmd = wall
         time.sleep(tick_s)
+    _emit_motion_cmd(
+        label, pose_fn(seconds), {}, t_s=seconds, seconds=seconds,
+        wall_s=time.monotonic() - t0, rate=0.0, tick_s=tick_s,
+        lookahead_s=lookahead_s, tracker=tracker,
+        balance_trim=balance_trim, imu=last_imu,
+        servo_goals=getattr(streamer, "last_written_goal", {}),
+        reason="done")
     return "done"
 
 
