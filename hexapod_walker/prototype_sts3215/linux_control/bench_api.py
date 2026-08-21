@@ -700,6 +700,31 @@ class BenchAPI:
                 self.drive.mode = "idle"
         return True
 
+    def _running_calibration_name(self) -> str | None:
+        t = self._demo_thread
+        if t is None or not t.is_alive():
+            return None
+        with self._lock:
+            name = self._demo_name or ""
+        if name.startswith("calibrate:"):
+            return name
+        return None
+
+    def _calibration_busy_response(self, action: str) -> dict:
+        name = self._running_calibration_name() or "calibrate"
+        bits = name.split(":")
+        mode = bits[1] if len(bits) > 1 and bits[1] else "checkup"
+        return {
+            "ok": False,
+            "busy": "calibration",
+            "error": (
+                f"calibration {mode} is running — press Stop in Calibrate "
+                f"before {action}"
+            ),
+            "calibrate": self.calibrate_state(),
+            "robot": self.robot_state(),
+        }
+
     def stop_demo(self) -> dict:
         """Abort the demo thread. Do NOT touch the bus here — concurrent
         SyncWrite + HOLD was hanging the MCU bridge and leaving status at
@@ -823,6 +848,8 @@ class BenchAPI:
             return {"ok": False, "error": "dry-run — no bus"}
         if not self.drive.bus:
             return {"ok": False, "error": "no bus"}
+        if self._running_calibration_name():
+            return self._calibration_busy_response(f"starting {name}")
 
         def _f(val, default, lo, hi):
             try:
@@ -1291,6 +1318,8 @@ class BenchAPI:
             return {"ok": True, "dry_run": True, "pose": pose}
         if not self.drive.bus:
             return {"ok": False, "error": "no bus"}
+        if self._running_calibration_name():
+            return self._calibration_busy_response(f"{pose} zero")
         if self._demo_thread and self._demo_thread.is_alive():
             if not self._preempt_demo_thread(
                     reason=f"→ {pose} zero", timeout=5.0):
@@ -1786,6 +1815,8 @@ class BenchAPI:
         bus = self.drive.bus
         if not bus:
             return {"ok": False, "error": "no bus"}
+        if self._running_calibration_name():
+            return self._calibration_busy_response("safe zero")
 
         present, missing = self._present_pose18()
         if missing:
@@ -2464,11 +2495,13 @@ class BenchAPI:
                 "mode": "imu_body_frame",
             }))
         if abort_check() or rear_status != "done":
+            msg = f"quad rear interrupted ({rear_status})"
             return {
                 "ok": False,
                 "aborted": bool(abort_check()),
                 "mode": "imu_body_frame",
-                "error": f"quad rear did not finish ({rear_status})",
+                "error": msg,
+                "msg": msg,
                 "rear_status": rear_status,
             }
 
@@ -2504,10 +2537,23 @@ class BenchAPI:
             self._quad_reared = False
 
         if abort_check():
+            msg = f"interrupted while coming down ({down_status})"
             return {
                 "ok": False,
                 "aborted": True,
                 "mode": "imu_body_frame",
+                "error": msg,
+                "msg": msg,
+                "rear_status": rear_status,
+                "down_status": down_status,
+            }
+        if down_status != "done":
+            msg = f"quad down did not finish ({down_status})"
+            return {
+                "ok": False,
+                "mode": "imu_body_frame",
+                "error": msg,
+                "msg": msg,
                 "rear_status": rear_status,
                 "down_status": down_status,
             }
@@ -2516,6 +2562,7 @@ class BenchAPI:
                 "ok": False,
                 "mode": "imu_body_frame",
                 "error": "no valid IMU samples while reared",
+                "msg": "no valid IMU samples while reared",
                 "rear_status": rear_status,
                 "down_status": down_status,
             }
@@ -3156,7 +3203,11 @@ class BenchAPI:
                 "error": result.get("error"),
                 "log": result.get("log") or result.get("path"),
                 "log_name": result.get("log_name"),
-                "summary": result.get("msg") or result.get("hint"),
+                "summary": (
+                    result.get("msg")
+                    or result.get("hint")
+                    or result.get("error")
+                ),
             })
 
         def progress(msg: str, phase_id: str | None = None,
