@@ -54,7 +54,7 @@ cp "$SRC/tripod_gait.py" "$SRC/drive_controller.py" \
   "$SRC/plant_calibrate.py" "$SRC/geometry_plant.py" "$SRC/imu_calibrate.py" \
   "$SRC/event_log.py" "$SRC/status_display.py" "$SRC/servo_watch.py" \
   "$SRC/mpu_probe.py" "$SRC/rl_policy.py" "$SRC/safe_zero.py" \
-  "$SRC/pinned_tip.py" "$SRC/noslip_gait.py" \
+  "$SRC/pinned_tip.py" "$SRC/noslip_gait.py" "$SRC/se2_foot_gait.py" \
   "$SRC/sysid_protocol.py" "$SRC/sysid_runner.py" "$SRC/bus_bench.py" \
   "$SRC/rl_policy_weights.json" "$SRC/rl_walk_weights.json" \
   "$SRC/standup_modes.json" \

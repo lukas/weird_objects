@@ -121,11 +121,16 @@ refused while walking — stop first. tripod = the legacy body-frame drag gait
 (known-good but loses ~50% of its stride to slip); the no-slip gaits pin
 planted feet to fixed world anchors (zero commanded scrub) and differ only
 in which legs swing together: tripod 3+3 (fastest), ripple opposite pairs
-(4 feet always down), wave one leg at a time (5 down — steadiest, slowest).">
+(4 feet always down), wave one leg at a time (5 down — steadiest, slowest).
+The SE2 gaits are also world-pinned but plan on per-leg foot workspaces
+with Bézier swings, and auto-scale a too-fast command down to what the
+legs can reach instead of clipping it.">
             <option value="0" selected>tripod (legacy — drags feet)</option>
             <option value="1">no-slip tripod (world-pinned feet)</option>
             <option value="2">no-slip ripple (pairs · 4 feet down)</option>
             <option value="3">no-slip wave (1 leg · steadiest)</option>
+            <option value="4">SE2 tetrapod (auto-scaled · 4 down)</option>
+            <option value="5">SE2 wave (auto-scaled · 5 down)</option>
           </select></label>
       </div>
       <div id="walphawrap" style="display:none">
