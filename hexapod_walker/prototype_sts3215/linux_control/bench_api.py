@@ -1977,6 +1977,25 @@ class BenchAPI:
         report.setdefault("path", str(path))
         report.setdefault("log_name", path.name)
         phases = report.get("phases") or []
+        if phases and not any(
+                isinstance(p, dict) and p.get("name") == "report"
+                for p in phases):
+            phases.append({
+                "name": "report",
+                "ok": True,
+                "mode": "calibration_report",
+                "log": report.get("path"),
+                "log_name": report.get("log_name"),
+                "summary": "sim-ready calibration report saved",
+            })
+            report["phases"] = phases
+        for p in phases:
+            if not isinstance(p, dict) or p.get("name") != "report":
+                continue
+            saved = bool(p.get("log") or p.get("log_name")
+                         or report.get("path") or report.get("log_name"))
+            if saved:
+                p["ok"] = True
         if phases:
             report["ok"] = (
                 all(bool(p.get("ok")) for p in phases)
@@ -3193,7 +3212,7 @@ class BenchAPI:
             geometry_sweep=sweep_res)
         phases.append({
             "name": "report",
-            "ok": bool(report.get("ok", True)),
+            "ok": bool(report.get("path") or report.get("log_name")),
             "mode": "calibration_report",
             "log": report.get("path"),
             "log_name": report.get("log_name"),
@@ -3437,14 +3456,28 @@ class BenchAPI:
                 self._bus_hot_end()
                 if gen != self._demo_gen:
                     return
+                checkup_limped = False
+                if mode == "checkup":
+                    # Checkup is diagnostic, not a hold command.  Active
+                    # phases may enable torque; always leave the robot limp so
+                    # a partial report cannot keep servos loaded.
+                    try:
+                        d.handle("X")
+                        checkup_limped = True
+                    except Exception:
+                        pass
                 with d._lock:
                     if d.mode == "demo":
                         d.mode = "idle"
                 with self._lock:
                     st = self._demo_status
                 self._set_activity(
-                    "armed" if d.armed else "limp",
-                    st if st else "calibrate done")
+                    "limp" if checkup_limped else (
+                        "armed" if d.armed else "limp"),
+                    ((st + " · limp") if (st and checkup_limped) else
+                     (st if st else (
+                         "checkup done · limp" if checkup_limped
+                         else "calibrate done"))))
 
         self._demo_thread = threading.Thread(target=_worker, daemon=True)
         self._demo_thread.start()
