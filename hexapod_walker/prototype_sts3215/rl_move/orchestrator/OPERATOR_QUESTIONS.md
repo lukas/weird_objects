@@ -1162,7 +1162,18 @@ Entry format (append; newest last; update status in place):
 - rulebook change: none needed — the pick was executed as ordered;
   V5 init-from exception already documented.
 
-## q_20260820T2330Z — OPEN
+## q_20260820T2330Z — CLOSED (answered by operator order 20260821T224150Z)
+- resolution (08-21 kick cycle): the operator confirmed the fast-gait
+  BC/scaffold line and supplied the new lever — speed-conditioned BC from
+  the NATIVE-cadence teacher under the full profile, pinned speed bands,
+  obs contract fixed so the policy sees actual body velocity separately
+  from the command (no more vel:=ref blindness), speed varied by stride
+  geometry only; no reopening of no-BC scratch walking; the scalar
+  k_walk_cmd_track reward-only lever stays closed. Executed as
+  cw-dep-bcgait3-speedbc1 (mode-3 leg-odometry obs + 0.06-0.10 band +
+  tested k_walk_overspeed/k_walk_heading charges; 0.04/0.05 bands
+  honestly refuted at teacher preflight, slip/m 2.9-3.8). The cadence
+  knob stays retired (code default-off, refutation recorded).
 - cycle: operator-kick 08-20 (fast-cadence BC gait order, fb 20260820T224241Z)
 - operator order: design/launch a fresh BC-INIT variant from the scripted
   TripodGait teacher with SHORTER PERIOD / faster cadence; preflight the

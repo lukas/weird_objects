@@ -28,8 +28,25 @@ baseline.
 
 ## Live Runs
 
-None. `cw-dep-bcgait2-fastbc1-track1` finished and FAILED its own
-pre-registered gate (see below) — no fast-gait runs currently training.
+`cw-dep-bcgait3-speedbc1` (discovery, 2M, train-7, launched 08-21 ~23:0x
+UTC by operator order 20260821T224150Z — the new fast-gait lever that
+closed q_20260820T2330Z). Speed-conditioned BC: fresh clone of the
+NATIVE-cadence tripod teacher under the FULL profile across a
+0.06-0.10 m/s band (stride geometry is the speed knob), trained with the
+DEPLOYABLE leg-odometry velocity obs (`goal.walk_obs_body_vel=3`) so the
+policy can actually see its speed next to the command (fastbc1/track1
+were blind under vel:=ref), plus the semantics-tested
+`k_walk_overspeed=2.0/tol=0.10` + `k_walk_heading=2.0` charges (fastprof
+bank: obey out-earns overspeed by >50, margin from the charge). Teacher
+preflight (this cycle, logs/probe_speedband/): realized speed strictly
+monotone in command, slip/m 1.5-2.8, 147mm, zero falls at
+0.06/0.08/0.10; 0.04/0.05 bands REFUTED (slip/m 2.9-3.8). Clone
+preflight: zero falls, six-leg, slip 1.8-2.8, holdout act err 0.0119.
+Gate: pinned-speed panel 0.06/0.08/0.10 det+sto DR-0 — prog_ratio
+0.75-1.25 at EVERY band, zero falls, gait_valid 6/6, dir err <=30 deg,
+slip det <=2.2 / sto <=3.0. PASS -> fixed-headings rung, then irregular
+direction changes (operator-preregistered). The scalar k_walk_cmd_track
+lever stays closed; no-BC scratch walking stays closed.
 
 `cw-dep-bcgait2-fastbc1-track1` (warm from `cw-dep-bcgait2-fastbc1`,
 adds `reward.k_walk_cmd_track=1.0`) FAILED: the added command-tracking
@@ -90,7 +107,7 @@ Do not open a new fast-gait dose sweep without operator authorization.
 ## Operator Gates
 
 - Promote `postlower4` and/or change the runner/eval contract to remaining-rise semantics.
-- Fast-gait fork reopened by the 08-20 order; the cycle substituted the full-profile BC-INIT arm after the ordered cadence knob failed its own preflight — confirm or redirect (q_20260820T2330Z in OPERATOR_QUESTIONS.md).
+- Fast-gait fork: q_20260820T2330Z CLOSED by order 20260821T224150Z (speed-conditioned BC lever, executing as cw-dep-bcgait3-speedbc1). Next operator decision only if the canary fails its gate.
 - Bench-promote the download hierarchy when the robot returns.
 - Recover mode (reopened 08-20, sim-ready): decide flip handling (ship unsupported vs order a flip-hardening arm) and, when the robot is back, the recover-mode hardware safety contract (185 deg tilt envelope inside recover only) + on-robot transformer compute check. See `rl_docs/RECOVER_DEPLOY.md` blockers.
 - Reopen geometry/CAD only by explicit operator direction.
