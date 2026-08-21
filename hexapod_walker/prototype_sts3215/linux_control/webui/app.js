@@ -2646,6 +2646,20 @@ $('dstand').onclick = ()=> goPoseZero('stand', 'stand zero');
 
 // --- Quad tab (tip-back four-leg walk) --------------------------------------
 function quadSpeed(){ return Math.max(0.25, Math.min(2.0, (+$('qspeed').value)/100)); }
+function quadSuffix(){
+  const v = $('qstance') ? $('qstance').value : '';
+  if(v === 'pitch') return '_pitch';
+  if(v === 'aggressive') return '_aggressive';
+  return '';
+}
+function quadVariantLabel(){
+  const v = $('qstance') ? $('qstance').value : '';
+  if(v === 'pitch') return 'pitched';
+  if(v === 'aggressive') return 'aggressive';
+  return 'stable';
+}
+function quadName(action){ return 'quad_'+action+quadSuffix(); }
+function isQuadDown(name){ return name.indexOf('quad_down') === 0; }
 $('qspeed').oninput = ()=>{
   $('qspeedlab').textContent = quadSpeed().toFixed(2);
   if(!(lastDemo && lastDemo.running)) return;
@@ -2667,7 +2681,7 @@ async function quadRun(name, label){
   const timeout = Math.max(30, Math.min(300, +($('qdur').value)||300));
   const body = {name, speed:sp};
   if(quadMotionLog()) body.motion_log = true;
-  if(name !== 'quad_down') body.seconds = timeout;
+  if(!isQuadDown(name)) body.seconds = timeout;
   showSent(label+' request sent…');
   const res = await fetch('/api/demo',{method:'POST',
     headers:{'Content-Type':'application/json'},
@@ -2675,7 +2689,7 @@ async function quadRun(name, label){
   const j = await res.json();
   if(j.ok){
     let msg = label+' @ '+sp.toFixed(2)+'×';
-    if(name === 'quad_down') msg = label;
+    if(isQuadDown(name)) msg = label;
     else msg += ' · timeout '+body.seconds+'s';
     if(j.home) msg += ' (via '+j.home+')';
     showSent(requestReceiptLine(j, msg));
@@ -2687,23 +2701,20 @@ async function quadRun(name, label){
   startDemoPoll();
   refreshRobotState(true);
 }
-$('qrear').onclick = ()=> quadRun('quad_rear', 'quad rear up');
-$('qfwd').onclick = ()=> quadRun('quad_walk', 'quad walk forward');
-$('qback').onclick = ()=> quadRun('quad_walk_back', 'quad walk backward');
-$('qtrot').onclick = ()=> quadRun('quad_trot', 'quad trot forward');
-$('qtrotback').onclick = ()=> quadRun('quad_trot_back', 'quad trot backward');
-$('qdown').onclick = ()=> quadRun('quad_down', 'quad come down');
-$('qstop').onclick = async ()=>{
-  showSent('quad stop request sent…');
-  const r = await fetch('/api/demo/stop',{method:'POST'});
-  try{
-    const j = await r.json();
-    showSent(requestReceiptLine(j, 'Quad stop'));
-    if(j.demo) paintDemoStatus(j.demo);
-    if(j.robot) paintRobotActivity(j.robot);
-  }catch(e){}
-  refreshRobotState(true);
-};
+$('qrear').onclick = ()=> quadRun(
+  quadName('rear'), 'quad '+quadVariantLabel()+' rear up');
+$('qfwd').onclick = ()=> quadRun(
+  quadName('walk'), 'quad '+quadVariantLabel()+' walk forward');
+$('qback').onclick = ()=> quadRun(
+  quadName('walk_back'), 'quad '+quadVariantLabel()+' walk backward');
+$('qtrot').onclick = ()=> quadRun(
+  quadName('trot'), 'quad '+quadVariantLabel()+' trot forward');
+$('qtrotback').onclick = ()=> quadRun(
+  quadName('trot_back'), 'quad '+quadVariantLabel()+' trot backward');
+$('qdown').onclick = ()=> quadRun(
+  quadName('down'), 'quad '+quadVariantLabel()+' come down');
+$('qstop').onclick = ()=> quadRun(
+  quadName('hold'), 'quad '+quadVariantLabel()+' settle hold');
 $('qstand').onclick = ()=> goPoseZero('stand', 'stand zero');
 $('dcheckz').onclick = async ()=>{
   showSent('checking zero…');

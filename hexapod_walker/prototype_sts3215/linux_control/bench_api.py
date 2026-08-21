@@ -699,10 +699,11 @@ class BenchAPI:
         prev = self._demo_name or ""
         ok = self._preempt_demo_thread(reason=prev or "stop", timeout=4.0)
         try:
-            from inplace_demos import QUAD_REARED_END_DEMOS
-            if ok and prev in QUAD_REARED_END_DEMOS:
-                self._quad_reared = True
-            elif prev == "quad_down":
+            from inplace_demos import QUAD_STREAM_DEMOS
+            if prev in QUAD_STREAM_DEMOS:
+                # Generic abort is not a stable quad stop: it may catch the
+                # gait mid-step. The Quad tab uses quad_hold for a deliberate
+                # settle; after a generic stop require a fresh rear-up.
                 self._quad_reared = False
         except ImportError:
             pass
@@ -711,7 +712,9 @@ class BenchAPI:
                 self._demo_status = "aborted"
             if ok and self._activity == "stopping":
                 self._activity = "armed" if self.drive.armed else "limp"
-                self._activity_detail = "aborted"
+                self._activity_detail = (
+                    "quad stop aborted; check robot"
+                    if prev.startswith("quad_") else "aborted")
         return {"ok": True, "demo": self.demo_state(), "robot": self.robot_state()}
 
     def estop(self) -> dict:
@@ -780,8 +783,8 @@ class BenchAPI:
                  motion_log: bool | None = None) -> dict:
         try:
             from inplace_demos import (
-                DEMOS, QUAD_REQUIRES_REAR, QUAD_REARED_END_DEMOS,
-                QUAD_STREAM_DEMOS, run_demo)
+                DEMOS, QUAD_DOWN_DEMOS, QUAD_REQUIRES_REAR,
+                QUAD_REARED_END_DEMOS, QUAD_STREAM_DEMOS, run_demo)
         except ImportError as e:
             return {"ok": False, "error": f"inplace_demos missing: {e}"}
         try:
@@ -1082,17 +1085,25 @@ class BenchAPI:
                     self._set_activity(
                         "armed" if d.armed else "limp", "quad reared hold")
                 elif st == "aborted" and quad_any:
-                    self._quad_reared = name != "quad_down"
+                    self._quad_reared = False
                     with d._lock:
                         if d.mode == "demo":
                             d.mode = "idle"
                     self._set_activity(
                         "armed" if d.armed else "limp",
-                        "quad hold" if self._quad_reared else "aborted")
-                elif st == "done" and name == "quad_down":
+                        "quad aborted; check robot before next quad")
+                elif st == "done" and name in QUAD_DOWN_DEMOS:
                     self._quad_reared = False
                     self._enter_stand_hold()
                     self._set_activity("armed", "quad down · at stand zero")
+                elif quad_any:
+                    self._quad_reared = False
+                    with d._lock:
+                        if d.mode == "demo":
+                            d.mode = "idle"
+                    self._set_activity(
+                        "armed" if d.armed else "limp",
+                        st if st else "quad stopped; check robot")
                 elif (st == "done" and name not in AIR_DEMO_NAMES
                         and script is None):
                     self._quad_reared = False

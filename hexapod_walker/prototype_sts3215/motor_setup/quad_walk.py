@@ -81,38 +81,78 @@ WALK_PHASE = {2: 0.0, 1: 0.25, 3: 0.5, 4: 0.75}   # LH LF RH RF
 #           100 ms command latency, and the WHOLE 0.5-2x live-speed
 #           range without falling (the old period-2.4/roll-8 preset
 #           rocked 56 deg on grippy floors and FELL at 1.25x).
-#           speed_cap 1.5 is hardware prudence, not a sim limit —
-#           enforced by the demo runner and quad_play.
+#           Hardware note 08-20: the real robot was still falling forward
+#           on walk/trot, so the deployed presets below are deliberately
+#           more conservative than the 08-18 sim showcase: more nose-up
+#           pitch without pushing the mid-yaw joints into stops, shorter
+#           steps, slower cadence, and a hard trot cap.
 GAITS: dict[str, dict] = {
     # 08-18 hardware debug: the ORIGINAL shallow-stance walk (-40 mm /
     # -17 deg) marched perfectly in place on the real floor — lifting a
     # front foot just tipped the body onto it (restart-sim apex 2-5 mm
     # no matter the commanded lift).  The trot's DEEP aft lean fixes
-    # the same mechanism for the walk: with body_dx -80 / pitch -20 +
-    # slower cadence, apex is a real 16-22 mm at ~10 mm/s with only a
-    # ~6 deg rock band across friction x0.5-1.4 and +80 ms latency.
-    "walk": dict(stride=STRIDE_M, lift=0.030, lift_front=0.040,
-                 period=4.0, duty=0.75,
-                 body_dx=-0.080, pitch=math.radians(-20.0),
-                 sway=SWAY_M, sway_phase=SWAY_PHASE_RAD, phase=WALK_PHASE),
-    "trot": dict(stride=0.080, lift=0.028, lift_front=0.045,
-                 period=3.2, duty=0.68,
-                 body_dx=-0.080, pitch=math.radians(-20.0),
-                 sway=0.022, sway_phase=math.radians(180.0),
-                 roll=math.radians(5.0), roll_phase=math.radians(270.0),
+    # the same mechanism for the walk. Hardware now gets more body pitch
+    # (-24 deg) with less rearward translation (-70 mm), which keeps the
+    # mid-leg yaw joints off their hard stops better than -80/-20 did.
+    "walk": dict(stride=0.035, lift=0.026, lift_front=0.035,
+                 period=5.0, duty=0.82,
+                 body_dx=-0.070, pitch=math.radians(-24.0),
+                 sway=0.020, sway_phase=SWAY_PHASE_RAD, phase=WALK_PHASE),
+    "walk_pitch": dict(stride=0.030, lift=0.024, lift_front=0.032,
+                       period=5.4, duty=0.84,
+                       body_dx=-0.060, pitch=math.radians(-28.0),
+                       sway=0.018, sway_phase=SWAY_PHASE_RAD,
+                       phase=WALK_PHASE, speed_cap=0.8),
+    "walk_aggressive": dict(stride=0.025, lift=0.022, lift_front=0.028,
+                            period=6.0, duty=0.86,
+                            body_dx=-0.050, pitch=math.radians(-32.0),
+                            sway=0.014, sway_phase=SWAY_PHASE_RAD,
+                            phase=WALK_PHASE, speed_cap=0.6),
+    "trot": dict(stride=0.050, lift=0.022, lift_front=0.032,
+                 period=4.8, duty=0.76,
+                 body_dx=-0.070, pitch=math.radians(-24.0),
+                 sway=0.016, sway_phase=math.radians(180.0),
+                 roll=math.radians(3.0), roll_phase=math.radians(270.0),
                  phase={1: 0.0, 3: 0.0, 4: 0.5, 2: 0.5},
-                 speed_cap=1.5),
+                 speed_cap=0.7),
+    "trot_pitch": dict(stride=0.040, lift=0.020, lift_front=0.030,
+                       period=5.2, duty=0.80,
+                       body_dx=-0.060, pitch=math.radians(-28.0),
+                       sway=0.014, sway_phase=math.radians(180.0),
+                       roll=math.radians(2.5),
+                       roll_phase=math.radians(270.0),
+                       phase={1: 0.0, 3: 0.0, 4: 0.5, 2: 0.5},
+                       speed_cap=0.6),
+    "trot_aggressive": dict(stride=0.032, lift=0.018, lift_front=0.024,
+                            period=5.8, duty=0.82,
+                            body_dx=-0.050, pitch=math.radians(-32.0),
+                            sway=0.012,
+                            sway_phase=math.radians(180.0),
+                            roll=math.radians(2.0),
+                            roll_phase=math.radians(270.0),
+                            phase={1: 0.0, 3: 0.0, 4: 0.5, 2: 0.5},
+                            speed_cap=0.5),
     # "rear" = HOLD the reared stance without stepping: stride/lift 0
     # turns the walk-phase math into a no-op (all four support feet stay
-    # planted) while a gentle sway keeps the pose alive.  Deep aft lean
-    # (the trot's proven -80 mm / -20 deg) for maximum rear margin.
+    # planted) while a gentle sway keeps the pose alive.  The -24 deg
+    # nose-up hold gives the walking phases a safer launch pose.
     # Used by the dance's stallion act, which overlays front-paw
     # gestures on the hold window (inplace_demos._make_stallion_fn).
     "rear": dict(stride=0.0, lift=0.0, lift_front=0.0,
                  period=4.0, duty=0.75,
-                 body_dx=-0.080, pitch=math.radians(-20.0),
+                 body_dx=-0.070, pitch=math.radians(-24.0),
                  sway=0.015, sway_phase=SWAY_PHASE_RAD, phase=WALK_PHASE,
                  speed_cap=1.5),
+    "rear_pitch": dict(stride=0.0, lift=0.0, lift_front=0.0,
+                       period=4.0, duty=0.75,
+                       body_dx=-0.060, pitch=math.radians(-28.0),
+                       sway=0.012, sway_phase=SWAY_PHASE_RAD,
+                       phase=WALK_PHASE, speed_cap=1.0),
+    "rear_aggressive": dict(stride=0.0, lift=0.0, lift_front=0.0,
+                            period=4.0, duty=0.75,
+                            body_dx=-0.050, pitch=math.radians(-32.0),
+                            sway=0.010, sway_phase=SWAY_PHASE_RAD,
+                            phase=WALK_PHASE, speed_cap=0.8),
 }
 
 # entry: shift back · step mids out to the splayed stance (one at a
@@ -314,6 +354,15 @@ class QuadRearWalk:
         return self._solve(self.body_dx, 0.0, self.pitch,
                            self._support_feet(), self._tucked_fronts())
 
+    def reared_hold_pose_at(self, _t: float) -> list[float]:
+        """Static all-four-support reared hold.
+
+        Used by the Quad tab's Stop/Hold action. It intentionally has no
+        entry timeline: when already reared, the safest stop target is the
+        known stable support pose, not an arbitrary frozen gait frame.
+        """
+        return self.reared_pose()
+
     def entry_hold_pose_at(self, t: float) -> list[float]:
         """Entry choreography, then hold the reared stance indefinitely."""
         t = max(0.0, float(t))
@@ -468,8 +517,10 @@ def make_quad_walk_pose_fn(base_deg: list[float], seconds: float,
     """Duration-aware factory for full or split quad-mode phases."""
     q = QuadRearWalk(base_deg, seconds, gait=gait, direction=direction)
     phase = (phase or "full").strip().lower()
-    if phase in ("rear", "entry", "entry_hold", "hold"):
+    if phase in ("rear", "entry", "entry_hold"):
         return q.entry_hold_pose_at
+    if phase in ("hold", "hold_only", "settle", "static", "reared_hold"):
+        return q.reared_hold_pose_at
     if phase in ("walk", "drive"):
         return q.walk_only_pose_at
     if phase in ("down", "exit"):

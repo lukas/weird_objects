@@ -2009,11 +2009,44 @@ STAND_STREAM_DEMOS = ("stand_sway", "stand_bounce", "stand_twist",
 # home = stand for rear-up, then "quad" for walk/down). These are split
 # into operator-sized primitives: rear up and hold; walk/trot forward or
 # backward while reared; come down on request.
-QUAD_REARED_END_DEMOS = (
-    "quad_rear", "quad_walk", "quad_walk_back", "quad_trot", "quad_trot_back")
-QUAD_REQUIRES_REAR = (
-    "quad_walk", "quad_walk_back", "quad_trot", "quad_trot_back", "quad_down")
-QUAD_STREAM_DEMOS = (*QUAD_REARED_END_DEMOS, "quad_down")
+QUAD_VARIANTS = {
+    "": ("rear", "walk", "trot", "stable"),
+    "_pitch": ("rear_pitch", "walk_pitch", "trot_pitch", "pitched"),
+    "_aggressive": (
+        "rear_aggressive", "walk_aggressive", "trot_aggressive",
+        "aggressive"),
+}
+
+
+def _quad_name(action: str, suffix: str) -> str:
+    return f"quad_{action}{suffix}"
+
+
+QUAD_REAR_DEMOS = tuple(
+    _quad_name("rear", suffix) for suffix in QUAD_VARIANTS)
+QUAD_DOWN_DEMOS = tuple(
+    _quad_name("down", suffix) for suffix in QUAD_VARIANTS)
+QUAD_REARED_END_DEMOS = tuple(
+    _quad_name(action, suffix)
+    for suffix in QUAD_VARIANTS
+    for action in ("rear", "hold", "walk", "walk_back",
+                   "trot", "trot_back"))
+QUAD_REQUIRES_REAR = tuple(
+    _quad_name(action, suffix)
+    for suffix in QUAD_VARIANTS
+    for action in ("hold", "walk", "walk_back", "trot",
+                   "trot_back", "down"))
+QUAD_STREAM_DEMOS = (*QUAD_REARED_END_DEMOS, *QUAD_DOWN_DEMOS)
+QUAD_DEMO_GAITS = {}
+for _quad_suffix, (_rear_gait, _walk_gait, _trot_gait, _label) in (
+        QUAD_VARIANTS.items()):
+    QUAD_DEMO_GAITS[_quad_name("rear", _quad_suffix)] = _rear_gait
+    QUAD_DEMO_GAITS[_quad_name("hold", _quad_suffix)] = _rear_gait
+    QUAD_DEMO_GAITS[_quad_name("down", _quad_suffix)] = _rear_gait
+    QUAD_DEMO_GAITS[_quad_name("walk", _quad_suffix)] = _walk_gait
+    QUAD_DEMO_GAITS[_quad_name("walk_back", _quad_suffix)] = _walk_gait
+    QUAD_DEMO_GAITS[_quad_name("trot", _quad_suffix)] = _trot_gait
+    QUAD_DEMO_GAITS[_quad_name("trot_back", _quad_suffix)] = _trot_gait
 
 
 def _make_quad_fn(seconds: float, *, gait: str = "walk",
@@ -2024,34 +2057,34 @@ def _make_quad_fn(seconds: float, *, gait: str = "walk",
         phase=phase)
 
 
-def _make_quad_rear_fn(seconds: float):
-    return _make_quad_fn(seconds, gait="rear", phase="rear")
+def _make_quad_variant_fn(action: str, suffix: str):
+    rear_gait, walk_gait, trot_gait, _label = QUAD_VARIANTS[suffix]
+    if action in ("rear", "hold", "down"):
+        gait = rear_gait
+    elif action in ("walk", "walk_back"):
+        gait = walk_gait
+    else:
+        gait = trot_gait
+    phase = ("rear" if action == "rear"
+             else "hold" if action == "hold"
+             else "down" if action == "down"
+             else "walk")
+    direction = -1.0 if action in ("walk_back", "trot_back") else 1.0
+
+    def _fn(seconds: float):
+        return _make_quad_fn(
+            seconds, gait=gait, direction=direction, phase=phase)
+
+    _fn.duration_aware = True
+    return _fn
 
 
-def _make_quad_walk_fn(seconds: float):
-    return _make_quad_fn(seconds, gait="walk", phase="walk")
-
-
-def _make_quad_walk_back_fn(seconds: float):
-    return _make_quad_fn(seconds, gait="walk", direction=-1.0, phase="walk")
-
-
-def _make_quad_trot_fn(seconds: float):
-    return _make_quad_fn(seconds, gait="trot", phase="walk")
-
-
-def _make_quad_trot_back_fn(seconds: float):
-    return _make_quad_fn(seconds, gait="trot", direction=-1.0, phase="walk")
-
-
-def _make_quad_down_fn(seconds: float):
-    return _make_quad_fn(seconds, gait="rear", phase="down")
-
-
-for _quad_factory in (
-        _make_quad_rear_fn, _make_quad_walk_fn, _make_quad_walk_back_fn,
-        _make_quad_trot_fn, _make_quad_trot_back_fn, _make_quad_down_fn):
-    _quad_factory.duration_aware = True
+QUAD_STREAM_FACTORIES = {
+    _quad_name(action, suffix): _make_quad_variant_fn(action, suffix)
+    for suffix in QUAD_VARIANTS
+    for action in ("rear", "hold", "walk", "walk_back",
+                   "trot", "trot_back", "down")
+}
 
 STREAM_POSE_FACTORIES = {
     "shimmy": lambda: pose_shimmy,
@@ -2060,12 +2093,7 @@ STREAM_POSE_FACTORIES = {
     "conductor": lambda: pose_conductor,
     "twinkle": make_pose_twinkle,
     **{n: (lambda n=n: make_stand_pose_fn(n)) for n in STAND_STREAM_DEMOS},
-    "quad_rear": _make_quad_rear_fn,
-    "quad_walk": _make_quad_walk_fn,
-    "quad_walk_back": _make_quad_walk_back_fn,
-    "quad_trot": _make_quad_trot_fn,
-    "quad_trot_back": _make_quad_trot_back_fn,
-    "quad_down": _make_quad_down_fn,
+    **QUAD_STREAM_FACTORIES,
 }
 # Default demo-time duration for standing dances (CLI; web sends its own).
 STAND_STREAM_SECONDS = 20.0
@@ -2095,16 +2123,17 @@ def run_streamed_demo(bus: FeetechBus, name: str, *,
     if speed_fn is None:
         spd0 = _clamp_live_speed(speed)
         speed_fn = lambda: spd0  # noqa: E731
-    if name in ("quad_trot", "quad_trot_back"):
-        # calm trot survives 0.5-2x in sim; the cap is hardware
-        # prudence for the two-foot support phases.
+    if name in QUAD_DEMO_GAITS:
+        # Per-gait speed caps are hardware prudence: trot and the more
+        # pitched variants use fewer support margins than the stable walk.
         from quad_walk import GAITS
-        cap = GAITS["trot"].get("speed_cap", 2.0)
-        base_fn = speed_fn
-        speed_fn = lambda: min(cap, base_fn())  # noqa: E731
+        cap = GAITS.get(QUAD_DEMO_GAITS[name], {}).get("speed_cap")
+        if cap is not None:
+            base_fn = speed_fn
+            speed_fn = lambda: min(cap, base_fn())  # noqa: E731
     quad = name in QUAD_STREAM_DEMOS
     standing = name in STAND_STREAM_DEMOS or quad
-    if name == "quad_down":
+    if name in QUAD_DOWN_DEMOS:
         from quad_walk import EXIT_TOTAL_S
         dur = EXIT_TOTAL_S
     elif seconds is None:
@@ -2116,10 +2145,10 @@ def run_streamed_demo(bus: FeetechBus, name: str, *,
     dur = max(2.0, min(STREAM_SECONDS_MAX, dur))
     if quad:
         from quad_walk import ENTRY_TOTAL_S, MIN_SECONDS
-        if name == "quad_rear":
+        if name in QUAD_REAR_DEMOS:
             # Entry choreography needs room before the hold phase.
             dur = max(dur, ENTRY_TOTAL_S + 0.5)
-        elif name == "quad_down":
+        elif name in QUAD_DOWN_DEMOS:
             pass
         elif name not in QUAD_REQUIRES_REAR:
             # Legacy/full timelines need entry + exit + >= one gait cycle.
@@ -3767,11 +3796,26 @@ DEMOS = {
     "walk_oval": ("[7 walk] forward → spin → reverse → stand", None),
     # --- quad mode (own web tab: tip back, walk on four legs) -------------
     "quad_rear": ("[8 quad] REAR UP — tip back on 4 legs and hold", None),
+    "quad_hold": ("[8 quad] HOLD — settle to stable reared hold", None),
     "quad_walk": ("[8 quad] WALK FORWARD — animal walk while reared", None),
     "quad_walk_back": ("[8 quad] WALK BACKWARD — reverse animal walk while reared", None),
     "quad_trot": ("[8 quad] TROT FORWARD — diagonal pairs while reared", None),
     "quad_trot_back": ("[8 quad] TROT BACKWARD — reverse diagonal pairs while reared", None),
     "quad_down": ("[8 quad] COME DOWN — untuck fronts and return to stand", None),
+    "quad_rear_pitch": ("[8 quad] REAR UP PITCHED — -28 deg nose-up hold", None),
+    "quad_hold_pitch": ("[8 quad] HOLD PITCHED — settle to -28 deg hold", None),
+    "quad_walk_pitch": ("[8 quad] WALK FORWARD PITCHED — -28 deg stance", None),
+    "quad_walk_back_pitch": ("[8 quad] WALK BACKWARD PITCHED — -28 deg stance", None),
+    "quad_trot_pitch": ("[8 quad] TROT FORWARD PITCHED — capped diagonal pairs", None),
+    "quad_trot_back_pitch": ("[8 quad] TROT BACKWARD PITCHED — capped diagonal pairs", None),
+    "quad_down_pitch": ("[8 quad] COME DOWN PITCHED — exit from -28 deg hold", None),
+    "quad_rear_aggressive": ("[8 quad] REAR UP AGGRESSIVE — -32 deg nose-up hold", None),
+    "quad_hold_aggressive": ("[8 quad] HOLD AGGRESSIVE — settle to -32 deg hold", None),
+    "quad_walk_aggressive": ("[8 quad] WALK FORWARD AGGRESSIVE — -32 deg stance", None),
+    "quad_walk_back_aggressive": ("[8 quad] WALK BACKWARD AGGRESSIVE — -32 deg stance", None),
+    "quad_trot_aggressive": ("[8 quad] TROT FORWARD AGGRESSIVE — heavily capped diagonal pairs", None),
+    "quad_trot_back_aggressive": ("[8 quad] TROT BACKWARD AGGRESSIVE — heavily capped diagonal pairs", None),
+    "quad_down_aggressive": ("[8 quad] COME DOWN AGGRESSIVE — exit from -32 deg hold", None),
 }
 
 # Standalone planted acts (not the full rise_show script).

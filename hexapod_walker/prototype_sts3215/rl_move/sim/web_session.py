@@ -38,11 +38,51 @@ from .play import (
     scan_policies,
 )
 
-QUAD_REARED_END_DEMOS = (
-    "quad_rear", "quad_walk", "quad_walk_back", "quad_trot", "quad_trot_back")
-QUAD_REQUIRES_REAR = (
-    "quad_walk", "quad_walk_back", "quad_trot", "quad_trot_back", "quad_down")
-QUAD_STREAM_DEMOS = (*QUAD_REARED_END_DEMOS, "quad_down")
+QUAD_VARIANTS = {
+    "": ("rear", "walk", "trot", "stable"),
+    "_pitch": ("rear_pitch", "walk_pitch", "trot_pitch", "pitched"),
+    "_aggressive": (
+        "rear_aggressive", "walk_aggressive", "trot_aggressive",
+        "aggressive"),
+}
+
+
+def _quad_name(action: str, suffix: str) -> str:
+    return f"quad_{action}{suffix}"
+
+
+QUAD_REAR_DEMOS = tuple(
+    _quad_name("rear", suffix) for suffix in QUAD_VARIANTS)
+QUAD_DOWN_DEMOS = tuple(
+    _quad_name("down", suffix) for suffix in QUAD_VARIANTS)
+QUAD_REARED_END_DEMOS = tuple(
+    _quad_name(action, suffix)
+    for suffix in QUAD_VARIANTS
+    for action in ("rear", "hold", "walk", "walk_back",
+                   "trot", "trot_back"))
+QUAD_REQUIRES_REAR = tuple(
+    _quad_name(action, suffix)
+    for suffix in QUAD_VARIANTS
+    for action in ("hold", "walk", "walk_back", "trot",
+                   "trot_back", "down"))
+QUAD_STREAM_DEMOS = (*QUAD_REARED_END_DEMOS, *QUAD_DOWN_DEMOS)
+QUAD_DEMO_GAITS = {}
+for _quad_suffix, (_rear_gait, _walk_gait, _trot_gait, _label) in (
+        QUAD_VARIANTS.items()):
+    QUAD_DEMO_GAITS[_quad_name("rear", _quad_suffix)] = _rear_gait
+    QUAD_DEMO_GAITS[_quad_name("hold", _quad_suffix)] = _rear_gait
+    QUAD_DEMO_GAITS[_quad_name("down", _quad_suffix)] = _rear_gait
+    QUAD_DEMO_GAITS[_quad_name("walk", _quad_suffix)] = _walk_gait
+    QUAD_DEMO_GAITS[_quad_name("walk_back", _quad_suffix)] = _walk_gait
+    QUAD_DEMO_GAITS[_quad_name("trot", _quad_suffix)] = _trot_gait
+    QUAD_DEMO_GAITS[_quad_name("trot_back", _quad_suffix)] = _trot_gait
+
+
+def _quad_action(name: str) -> str:
+    for suffix in sorted(QUAD_VARIANTS, key=len, reverse=True):
+        if suffix and name.endswith(suffix):
+            return name[:-len(suffix)].removeprefix("quad_")
+    return name.removeprefix("quad_")
 
 
 @dataclass
@@ -497,10 +537,13 @@ class SimWebSession:
 
     def _demo_speed_eff_locked(self) -> float:
         speed = float(self.demo_speed_live)
-        if self.demo_name in ("quad_trot", "quad_trot_back"):
+        if self.demo_name in QUAD_DEMO_GAITS:
             try:
                 import quad_walk as QW
-                speed = min(speed, float(QW.GAITS["trot"].get("speed_cap", 2.0)))
+                gait = QUAD_DEMO_GAITS[self.demo_name]
+                cap = QW.GAITS.get(gait, {}).get("speed_cap")
+                if cap is not None:
+                    speed = min(speed, float(cap))
             except Exception:
                 pass
         if self.demo_speed_cap is not None:
@@ -1209,56 +1252,28 @@ class SimWebSession:
             }
 
     def list_demos(self) -> list[dict[str, Any]]:
-        out = [
-            {
-                "name": "quad_rear",
-                "title": "[8 quad] REAR UP - tip back on 4 legs and hold",
-                "air": False,
-                "group": "quad",
-                "live_speed": True,
-                "has_size": False,
-            },
-            {
-                "name": "quad_walk",
-                "title": "[8 quad] WALK FORWARD - animal walk while reared",
-                "air": False,
-                "group": "quad",
-                "live_speed": True,
-                "has_size": False,
-            },
-            {
-                "name": "quad_walk_back",
-                "title": "[8 quad] WALK BACKWARD - reverse animal walk while reared",
-                "air": False,
-                "group": "quad",
-                "live_speed": True,
-                "has_size": False,
-            },
-            {
-                "name": "quad_trot",
-                "title": "[8 quad] TROT FORWARD - diagonal pairs while reared",
-                "air": False,
-                "group": "quad",
-                "live_speed": True,
-                "has_size": False,
-            },
-            {
-                "name": "quad_trot_back",
-                "title": "[8 quad] TROT BACKWARD - reverse diagonal pairs while reared",
-                "air": False,
-                "group": "quad",
-                "live_speed": True,
-                "has_size": False,
-            },
-            {
-                "name": "quad_down",
-                "title": "[8 quad] COME DOWN - untuck fronts and return to stand",
-                "air": False,
-                "group": "quad",
-                "live_speed": True,
-                "has_size": False,
-            },
-        ]
+        out: list[dict[str, Any]] = []
+        actions = (
+            ("rear", "REAR UP", "tip back on 4 legs and hold"),
+            ("hold", "HOLD", "settle to reared hold"),
+            ("walk", "WALK FORWARD", "animal walk while reared"),
+            ("walk_back", "WALK BACKWARD", "reverse animal walk while reared"),
+            ("trot", "TROT FORWARD", "diagonal pairs while reared"),
+            ("trot_back", "TROT BACKWARD", "reverse diagonal pairs while reared"),
+            ("down", "COME DOWN", "untuck fronts and return to stand"),
+        )
+        for suffix, (_rear_gait, _walk_gait, _trot_gait, label) in (
+                QUAD_VARIANTS.items()):
+            tag = "" if not suffix else f" {label.upper()}"
+            for action, title, desc in actions:
+                out.append({
+                    "name": _quad_name(action, suffix),
+                    "title": f"[8 quad] {title}{tag} - {desc}",
+                    "air": False,
+                    "group": "quad",
+                    "live_speed": True,
+                    "has_size": False,
+                })
         for meta in self.list_dance_scripts():
             out.append({
                 "name": meta["name"],
@@ -1601,12 +1616,13 @@ class SimWebSession:
                 return {"ok": False, "error": f"quad_walk missing: {e}"}
 
             speed = self._clamp_float(speed, 1.0, 0.25, 3.0)
-            if name == "quad_down":
+            action = _quad_action(name)
+            if name in QUAD_DOWN_DEMOS:
                 dur = float(QW.EXIT_TOTAL_S)
             else:
                 default_dur = 300.0 if name in QUAD_REQUIRES_REAR else 40.0
                 dur = self._clamp_float(seconds, default_dur, 2.0, 300.0)
-                if name == "quad_rear":
+                if name in QUAD_REAR_DEMOS:
                     dur = max(dur, float(QW.ENTRY_TOTAL_S) + 0.5)
             switched_from = self.demo_name if self._demo_running() else None
             quad_current = self._demo_running() and self.demo_name in QUAD_STREAM_DEMOS
@@ -1620,7 +1636,7 @@ class SimWebSession:
             self._record_command(
                 f"/api/demo name={name} speed={speed:.2f} seconds={dur:.1f}")
 
-            if name == "quad_rear":
+            if name in QUAD_REAR_DEMOS:
                 self._do_reset("plant", 0.0, f"stand zero -> {name}")
             else:
                 if quad_current:
@@ -1634,24 +1650,26 @@ class SimWebSession:
                 self.om_cmd = 0.0
             self._set_demo_safety(True)
             base_deg = [math.degrees(v) for v in self.q_plant]
-            gait = "trot" if name in ("quad_trot", "quad_trot_back") else "walk"
-            if name in ("quad_rear", "quad_down"):
-                gait = "rear"
-            phase = "rear" if name == "quad_rear" else "down" if name == "quad_down" else "walk"
-            direction = -1.0 if name in ("quad_walk_back", "quad_trot_back") else 1.0
+            gait = QUAD_DEMO_GAITS[name]
+            phase = (
+                "rear" if action == "rear"
+                else "hold" if action == "hold"
+                else "down" if action == "down"
+                else "walk")
+            direction = -1.0 if action in ("walk_back", "trot_back") else 1.0
             self.demo_pose_fn = QW.make_quad_walk_pose_fn(
                 base_deg, dur, gait=gait, direction=direction, phase=phase)
             self.demo_t = 0.0
             self.demo_duration = dur
             self.demo_started_sim_t = self.sim_t
-            self.demo_end_home = "stand" if name == "quad_down" else ""
+            self.demo_end_home = "stand" if name in QUAD_DOWN_DEMOS else ""
             self.demo_name = name
             self.demo_status = f"running @ {speed:.2f}x"
             self.demo_speed_live = speed
             self.demo_telemetry = None
             params: dict[str, Any] = {
                 "speed": speed,
-                "home": "stand" if name == "quad_rear" else "quad",
+                "home": "stand" if name in QUAD_REAR_DEMOS else "quad",
                 "seconds": dur,
             }
             if switched_from:
@@ -1681,11 +1699,9 @@ class SimWebSession:
             was_running = self._demo_running()
             prev = self.demo_name or ""
             self._stop_demo_locked(status="aborted" if was_running else "idle")
-            if was_running and prev in QUAD_REARED_END_DEMOS:
-                self.quad_reared = True
-                self.pose_hold_q = self._q_now().copy()
-            elif prev == "quad_down":
+            if was_running and prev in QUAD_STREAM_DEMOS:
                 self.quad_reared = False
+                self.pose_hold_q = self._q_now().copy()
             self.drive_active = False
             self.timed_walk_until = None
             self.traj.vx = self.traj.vy = 0.0

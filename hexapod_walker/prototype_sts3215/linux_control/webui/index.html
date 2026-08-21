@@ -301,9 +301,17 @@ in which legs swing together: tripod 3+3 (fastest), ripple opposite pairs
 	        holds with the front legs tucked; <b>Walk</b> and <b>Trot</b> then
 	        run forward or backward while reared; <b>Come down</b> untucks the
 	        fronts and returns to stand. Walk is the steadier one-foot sequence;
-	        trot uses diagonal pairs and is the more advanced hardware act.
-	        Live speed is capped at 1.5× for trot. Use a flat non-slip floor,
-	        clear slack around the body, and watch the robot the whole time.</div>
+	        trot uses diagonal pairs and is experimental on hardware.
+	        Pitched/aggressive variants lean farther back with shorter,
+	        slower steps. Use a flat non-slip floor, clear slack around the
+	        body, and watch the robot the whole time.</div>
+	      <label class="slab">Stance:
+	        <select id="qstance">
+	          <option value="" selected>Stable -24°</option>
+	          <option value="pitch">Pitched -28°</option>
+	          <option value="aggressive">Aggressive -32°</option>
+	        </select>
+	        <span style="color:#8089a0;font-weight:400">(aggressive has the lowest speed caps)</span></label>
 	      <div class="btns" style="margin:12px 0">
 	        <button id="qrear" style="font-size:16px;background:#1c3d2a;border-color:#2e7d47">Rear up</button>
 	        <button id="qfwd" style="font-size:16px;background:#1c3d2a;border-color:#2e7d47">Walk forward</button>
@@ -311,7 +319,7 @@ in which legs swing together: tripod 3+3 (fastest), ripple opposite pairs
 	        <button id="qtrot" style="font-size:16px;background:#3d2a1c;border-color:#7d5a2e">Trot forward</button>
 	        <button id="qtrotback" style="font-size:16px;background:#3d2a1c;border-color:#7d5a2e">Trot backward</button>
 	        <button id="qdown">Come down</button>
-	        <button id="qstop" class="danger">■ Stop / hold</button>
+	        <button id="qstop">Settle hold</button>
 	        <button id="qstand">Stand zero</button>
 	      </div>
 	      <label class="slab">Speed <span class="tag" style="color:#5fd08a;border-color:#2e7d47">LIVE</span>:
@@ -335,8 +343,9 @@ in which legs swing together: tripod 3+3 (fastest), ripple opposite pairs
 	        <span style="color:#8089a0;font-weight:400">(diagnostic; reads encoders during motion)</span></label>
 		      <div class="hint">Rear up homes via the validated stand-up first.
 		        Walk/trot/down require the reared hold, τ900 + 3&nbsp;A stall guard
-		        while moving. Stop holds the current reared pose; Come down returns
-		        to stand. Standard event logging stays on; full motion CSV is opt-in.</div>
+		        while moving. Settle hold returns to the stable reared pose;
+		        Come down returns to stand. Standard event logging stays on;
+		        full motion CSV is opt-in.</div>
     </div>
   </div>
   </div><!-- /view-quad -->
