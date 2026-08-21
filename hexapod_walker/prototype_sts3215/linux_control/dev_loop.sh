@@ -60,6 +60,7 @@ files = [
     "linux_control/event_log.py",
     "linux_control/status_display.py",
     "linux_control/deploy_status_display.py",
+    "linux_control/video_contact_sheet.py",
     "linux_control/safe_zero.py",
     "linux_control/pinned_tip.py",
     "linux_control/test_calibration_checkup.py",

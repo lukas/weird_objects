@@ -3713,13 +3713,21 @@ class BenchAPI:
                     "path": report.get("path"), "log_name": report.get("log_name")}
 
         progress("Ground contact / plant search", "geometry_plant")
-        geo_res = run_geometry_plant(
-            bus, abort_check=abort_check,
-            on_progress=lambda p: progress(
-                "Geo plant: " + str(p.get("msg") or "running"),
-                "geometry_plant",
-                **{k: v for k, v in p.items() if k != "msg"}),
-            clearance_mm=clearance_mm)
+        try:
+            geo_res = run_geometry_plant(
+                bus, abort_check=abort_check,
+                on_progress=lambda p: progress(
+                    "Geo plant: " + str(p.get("msg") or "running"),
+                    "geometry_plant",
+                    **{k: v for k, v in p.items() if k != "msg"}),
+                clearance_mm=clearance_mm)
+        except RuntimeError as e:
+            geo_res = {
+                "ok": False,
+                "aborted": True,
+                "mode": "geometry_plant",
+                "error": f"ground contact command failed: {e}",
+            }
         phase("geometry_plant", geo_res)
 
         traction_res = None
@@ -3732,12 +3740,20 @@ class BenchAPI:
 
         if motion_ok:
             progress("Geometry dimension sweep", "geometry_sweep")
-            sweep_res = run_geometry_contact_sweep(
-                bus, abort_check=abort_check,
-                on_progress=lambda p: progress(
-                    "Geo sweep: " + str(p.get("msg") or "running"),
-                    "geometry_sweep",
-                    **{k: v for k, v in p.items() if k != "msg"}))
+            try:
+                sweep_res = run_geometry_contact_sweep(
+                    bus, abort_check=abort_check,
+                    on_progress=lambda p: progress(
+                        "Geo sweep: " + str(p.get("msg") or "running"),
+                        "geometry_sweep",
+                        **{k: v for k, v in p.items() if k != "msg"}))
+            except RuntimeError as e:
+                sweep_res = {
+                    "ok": False,
+                    "aborted": True,
+                    "mode": "geometry_sweep",
+                    "error": f"dimension sweep command failed: {e}",
+                }
             phase("geometry_sweep", sweep_res)
             if (abort_check() or sweep_res.get("aborted")
                     or not sweep_res.get("ok")):

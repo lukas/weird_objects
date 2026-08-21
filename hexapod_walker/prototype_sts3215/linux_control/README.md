@@ -88,6 +88,20 @@ Identical repeats (a poll loop hitting the same failure) are deduped
 to once per 10 s. Browse the recent ones without SSH:
 `GET /api/errors?n=100`.
 
+### Phone-video diagnosis
+
+When a run fails, save the phone video and generate timestamped stills plus a
+contact sheet before guessing from memory:
+
+```bash
+make robot-video VIDEO=/Users/lukas/Downloads/IMG_3613.MOV
+# optional: exact timestamps and a fractional crop around the robot
+make robot-video VIDEO=/path/run.mov TIMES=0,8,16,24,32 CROP=0,0.33,1,0.98
+```
+
+The helper lives at `linux_control/video_contact_sheet.py` and writes under
+`artifacts/video_frames/...`.
+
 ## Fast test / deploy loop
 
 For UI and controller edits, use the local helper instead of retyping the

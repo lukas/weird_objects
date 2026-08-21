@@ -34,17 +34,23 @@ def _phase(phases: list[dict], name: str) -> dict:
 
 def _run_checkup(*, sweep_res: dict,
                  body_res: dict | None = None,
-                 traction_res: dict | None = None) -> tuple[dict, list[str]]:
+                 traction_res: dict | None = None,
+                 plant_exc: Exception | None = None,
+                 sweep_exc: Exception | None = None) -> tuple[dict, list[str]]:
     calls: list[str] = []
     old_geometry = sys.modules.get("geometry_plant")
     old_imu = sys.modules.get("imu_calibrate")
 
     def run_geometry_plant(*_args, **_kwargs) -> dict:
         calls.append("plant")
+        if plant_exc is not None:
+            raise plant_exc
         return {"ok": True, "mode": "geometry_plant", "msg": "plant ok"}
 
     def run_geometry_contact_sweep(*_args, **_kwargs) -> dict:
         calls.append("sweep")
+        if sweep_exc is not None:
+            raise sweep_exc
         return sweep_res
 
     def run_imu_calibrate(*_args, **_kwargs) -> dict:
@@ -131,6 +137,34 @@ def test_partial_sweep_stops_dynamic_phases() -> None:
     assert "dimension sweep" in _phase(phases, "imu_body_frame")["summary"]
     assert _phase(phases, "traction_probe")["skipped"] is True
     assert _phase(phases, "return_zero")["skipped"] is True
+
+
+def test_sweep_command_failure_is_reported_as_phase_error() -> None:
+    result, calls = _run_checkup(
+        sweep_res={"ok": True, "mode": "geometry_sweep"},
+        sweep_exc=RuntimeError("SyncWrite failed: fallback='ERR'"))
+    phases = result["phases"]
+    assert "sweep" in calls, calls
+    assert "body" not in calls, calls
+    sweep = _phase(phases, "geometry_sweep")
+    assert sweep["aborted"] is True
+    assert "SyncWrite failed" in sweep["summary"]
+    assert result["error"].startswith("geometry_sweep: dimension sweep command failed")
+    assert _phase(phases, "imu_body_frame")["skipped"] is True
+
+
+def test_plant_command_failure_is_reported_as_phase_error() -> None:
+    result, calls = _run_checkup(
+        sweep_res={"ok": True, "mode": "geometry_sweep"},
+        plant_exc=RuntimeError("SyncWrite failed: fallback='ERR'"))
+    phases = result["phases"]
+    assert "plant" in calls, calls
+    assert "sweep" not in calls, calls
+    plant = _phase(phases, "geometry_plant")
+    assert plant["aborted"] is True
+    assert "SyncWrite failed" in plant["summary"]
+    assert result["error"].startswith("geometry_plant: ground contact command failed")
+    assert _phase(phases, "geometry_sweep")["skipped"] is True
 
 
 def test_body_frame_failure_skips_return_zero() -> None:

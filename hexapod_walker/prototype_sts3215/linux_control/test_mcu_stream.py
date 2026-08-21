@@ -225,6 +225,29 @@ def test_read_imu_prefers_stream_snapshot():
     assert bytes(bus._ser.tx) == encode_sync_frame(ord("S"), [])
 
 
+def test_flush_sync_raises_when_binary_and_ascii_fallback_fail():
+    bus = _mk_bus(b"ERR\nERR\n")
+    bus._pending = [(2, 2048, 400, 20)]
+    try:
+        bus._flush_sync()
+    except RuntimeError as e:
+        assert "SyncWrite failed" in str(e)
+    else:
+        raise AssertionError("expected SyncWrite failure to raise")
+
+
+def test_flush_sync_uses_wp_fallback_for_slow_sync_failure():
+    bus = _mk_bus(b"ERR\nERR\nOK\n")
+    bus._pending = [(2, 2048, 160, 12)]
+
+    bus._flush_sync()
+
+    tx = bytes(bus._ser.tx)
+    assert encode_sync_frame(ord("W"), [(2, 2048, 160, 12)]) in tx
+    assert b"SW 1 2 2048 160 12\n" in tx
+    assert b"WP 2 2048 160 12\n" in tx
+
+
 def _main() -> int:
     fails = 0
     for name, fn in sorted(globals().items()):

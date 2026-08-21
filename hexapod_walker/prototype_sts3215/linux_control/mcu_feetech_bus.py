@@ -855,7 +855,33 @@ class McuFeetechBus:
             for sid, pos, speed, acc in items[:n]:
                 parts.extend([str(sid), str(int(pos)),
                               str(int(speed)), str(int(acc))])
-            self._transact(" ".join(parts), timeout=1.0)
+            fallback = self._transact(" ".join(parts), timeout=1.0)
+            if not fallback or not fallback.startswith("OK"):
+                cause = (
+                    f"binary={line!r} fallback={fallback!r}")
+                self._flush_sync_slow_wp_fallback(items, cause=cause)
+
+    def _flush_sync_slow_wp_fallback(
+            self, items: list[tuple[int, int, int, int]], *,
+            cause: str) -> None:
+        """Last-resort slow-pose fallback for calibration/search glides."""
+        max_speed = max(int(speed) for _, _, speed, _ in items)
+        max_acc = max(int(acc) for _, _, _, acc in items)
+        if max_speed > 250 or max_acc > 30:
+            raise RuntimeError(f"SyncWrite failed: {cause}")
+        failures: list[str] = []
+        for sid, pos, speed, acc in items:
+            reply = self._transact(
+                f"WP {int(sid)} {int(pos)} {int(speed)} {int(acc)}",
+                timeout=0.6)
+            if not reply or not reply.startswith("OK"):
+                failures.append(f"{sid}:{reply!r}")
+        if failures:
+            preview = ", ".join(failures[:4])
+            if len(failures) > 4:
+                preview += f", +{len(failures) - 4} more"
+            raise RuntimeError(
+                f"SyncWrite failed: {cause}; WP fallback failed {preview}")
 
     def power_summary(self, *, timeout: float = 2.5) -> dict:
         """One-shot bus power: live count, sum current, avg volt, max load.
