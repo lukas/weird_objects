@@ -2040,21 +2040,28 @@ class BenchAPI:
         with self._lock:
             result = dict(self._cal_result) if self._cal_result else None
             progress = dict(self._cal_progress)
+            demo_name = self._demo_name
         # rl_policy_* and rl_probe_* jobs share the same worker slot and
         # progress/result plumbing — report them as running too, or their
         # pollers see running=false mid-job and give up.
         running = bool(self._demo_thread and self._demo_thread.is_alive()
-                       and (self._demo_name or "").startswith(
+                       and (demo_name or "").startswith(
                            ("calibrate", "rl_", "standup_", "measure_")))
+        latest_report = None if running else self._latest_calibration_report()
         if result is None and not running:
-            result = self._latest_calibration_report()
+            result = latest_report
+        elif (not running and latest_report is not None
+              and not (demo_name or "").startswith(
+                  ("calibrate", "rl_", "standup_", "measure_"))):
+            result = latest_report
         plant = self.plant_state()
         imu = self.imu_state()
         return {
             "running": running,
-            "name": self._demo_name,
+            "name": demo_name,
             "progress": progress,
             "result": result,
+            "latest_report": latest_report,
             "plant": plant,
             "imu": imu,
             "demo": self.demo_state(),
@@ -2429,6 +2436,9 @@ class BenchAPI:
         return report
 
     def calibration_report(self) -> dict:
+        report = self._latest_calibration_report()
+        if report is not None:
+            return report
         bus = None if self.drive.dry_run else getattr(self.drive, "bus", None)
         return self._save_calibration_report(bus=bus)
 
@@ -3163,21 +3173,25 @@ class BenchAPI:
         except ImportError as e:
             return {"ok": False, "mode": "checkup", "error": str(e)}
 
-        progress("Safe zero start pose", "safe_zero")
-        zero_res = self._safe_zero_sync(
-            abort_check=abort_check,
-            on_progress=lambda p: progress(
-                "Zero: " + str(p.get("msg") or "running"),
-                "safe_zero",
-                **{k: v for k, v in p.items() if k != "msg"}))
-        zero_res.setdefault("mode", "safe_zero")
-        if zero_res.get("ok"):
-            if zero_res.get("already_at_zero"):
-                zero_res["msg"] = "already at zero"
-            else:
-                zero_res["msg"] = (
-                    f"zero pose ready; {zero_res.get('stages_done', 0)} "
-                    "safe stages")
+        def run_safe_zero_phase(phase_id: str, label: str) -> dict:
+            progress(label, phase_id)
+            res = self._safe_zero_sync(
+                abort_check=abort_check,
+                on_progress=lambda p: progress(
+                    label + ": " + str(p.get("msg") or "running"),
+                    phase_id,
+                    **{k: v for k, v in p.items() if k != "msg"}))
+            res.setdefault("mode", phase_id)
+            if res.get("ok"):
+                if res.get("already_at_zero"):
+                    res["msg"] = "already at zero"
+                else:
+                    res["msg"] = (
+                        f"zero pose ready; {res.get('stages_done', 0)} "
+                        "safe stages")
+            return res
+
+        zero_res = run_safe_zero_phase("safe_zero", "Safe zero start pose")
         phase("safe_zero", zero_res)
         if (abort_check() or zero_res.get("aborted")
                 or not zero_res.get("ok")):
@@ -3283,6 +3297,19 @@ class BenchAPI:
                     "not run because a prior motion phase did not finish "
                     "cleanly"),
             })
+
+        if abort_check() or any(p.get("aborted") for p in phases):
+            phases.append({
+                "name": "return_zero",
+                "ok": False,
+                "aborted": True,
+                "mode": "return_zero",
+                "summary": "not run because checkup was aborted",
+            })
+        else:
+            return_zero_res = run_safe_zero_phase(
+                "return_zero", "Return zero before torque-off")
+            phase("return_zero", return_zero_res)
 
         progress("Actuator health snapshot", "actuator_snapshot")
         phases.append({

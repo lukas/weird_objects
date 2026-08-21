@@ -1128,6 +1128,8 @@ const CHECKUP_STEPS = [
    detail:'Rear up and come down while mapping mounted IMU axes to body pitch.'},
   {id:'traction_probe', name:'Traction / slip',
    detail:'Compare five-foot loaded drags against lifted and seated references.'},
+  {id:'return_zero', name:'Return to zero',
+   detail:'Move back through the collision-aware zero path before torque-off.'},
   {id:'actuator_snapshot', name:'Actuator snapshot',
    detail:'Read live joint angle, current, load, voltage, and temperature.'},
   {id:'report', name:'Report',
@@ -1136,6 +1138,7 @@ const CHECKUP_STEPS = [
 function checkupPhaseFromProgress(p){
   if(p && p.phase) return p.phase;
   const msg = String((p && p.msg) || '').toLowerCase();
+  if(msg.includes('return zero') || msg.includes('zero return')) return 'return_zero';
   if(msg.includes('safe_zero') || msg.includes('safe zero') || msg.includes('zero:')) return 'safe_zero';
   if(msg.includes('sweep') || msg.includes('dimension')) return 'geometry_sweep';
   if(msg.includes('traction') || msg.includes('slip')) return 'traction_probe';
@@ -1152,6 +1155,18 @@ function checkupPhaseMap(result){
     if(p && p.name) m[p.name] = p;
   }
   return m;
+}
+function isCalibrationResult(res){
+  if(!res) return false;
+  const mode = String(res.mode || '');
+  return mode === 'checkup' || mode === 'calibration_report' ||
+    Array.isArray(res.phases) || !!res.geometry || !!res.report;
+}
+function calibrationDisplayResult(state){
+  if(!state) return null;
+  if(state.running) return state.result || null;
+  if(isCalibrationResult(state.result)) return state.result;
+  return state.latest_report || state.result || null;
 }
 function checkupPill(status){
   const cls = status === 'ok' ? 'green'
@@ -1373,22 +1388,27 @@ async function refreshCalibrate(){
     if(d.plant) paintPlantInfo(d.plant);
     if(d.imu) paintImuInfo(d.imu);
     const p = d.progress || {};
-    renderCheckupSteps({running: !!d.running, progress: p, result: d.result});
+    const displayResult = calibrationDisplayResult(d);
+    renderCheckupSteps({
+      running: !!d.running,
+      progress: p,
+      result: displayResult,
+    });
     if(d.running){
       $('calstatus').textContent = p.msg || 'Running…';
       $('calrun').disabled = true;
     } else {
       $('calrun').disabled = false;
-      if(d.result && d.result.ok){
-        $('calstatus').textContent = d.result.aborted ? 'Aborted.' : 'Done.';
-        renderCalResult(d.result);
-      } else if(d.result && d.result.error){
-        $('calstatus').textContent = 'Error: '+d.result.error;
+      if(displayResult && displayResult.ok){
+        $('calstatus').textContent = displayResult.aborted ? 'Aborted.' : 'Done.';
+        renderCalResult(displayResult);
+      } else if(displayResult && displayResult.error){
+        $('calstatus').textContent = 'Error: '+displayResult.error;
       } else if(!($('calstatus').textContent||'').match(/Done|Error|Aborted/)){
         // keep last status
       }
     }
-    if(d.result) renderCalResult(d.result);
+    if(displayResult) renderCalResult(displayResult);
   }catch(e){
     $('calstatus').textContent = 'Calibrate status failed (link?)';
   }
