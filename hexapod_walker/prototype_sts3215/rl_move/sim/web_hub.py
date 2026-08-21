@@ -26,6 +26,21 @@ from typing import Any
 ROBOT_PING_TIMEOUT_S = 2.0
 ROBOT_CATALOG_TIMEOUT_S = 1.5
 ROBOT_RESOLVE_TTL_S = 30.0
+ROBOT_DEFAULT_TIMEOUT_S = 5.0
+ROBOT_SET_ZERO_TIMEOUT_S = 20.0
+ROBOT_MOTION_START_TIMEOUT_S = 12.0
+
+ROBOT_ROUTE_TIMEOUTS_S = {
+    # Feetech middle-calibrate touches every live servo. It is non-motion, but
+    # routinely takes longer than a generic proxy request; timing out here is
+    # especially confusing because the robot may still finish and redefine
+    # zero after the hub has already reported failure.
+    "/api/set_zero": ROBOT_SET_ZERO_TIMEOUT_S,
+    # These can spend a few seconds preempting or starting a guarded motion
+    # before returning the accepted/failed JSON receipt.
+    "/api/safe_zero": ROBOT_MOTION_START_TIMEOUT_S,
+    "/api/zero": ROBOT_MOTION_START_TIMEOUT_S,
+}
 
 
 @dataclass
@@ -369,7 +384,7 @@ class RobotProxyTarget:
 
     name = "robot"
 
-    def __init__(self, base_url: str, *, timeout: float = 5.0,
+    def __init__(self, base_url: str, *, timeout: float = ROBOT_DEFAULT_TIMEOUT_S,
                  ping_timeout: float = ROBOT_PING_TIMEOUT_S,
                  insecure_tls: bool = False):
         self.base_url = _normalize_base_url(base_url)
@@ -671,6 +686,13 @@ class HubController:
             return self._has_sim() and self._has_robot()
         return False
 
+    @staticmethod
+    def _robot_route_timeout(method: str, full_path: str) -> float:
+        path = full_path.split("?", 1)[0]
+        if method == "POST":
+            return ROBOT_ROUTE_TIMEOUTS_S.get(path, ROBOT_DEFAULT_TIMEOUT_S)
+        return ROBOT_DEFAULT_TIMEOUT_S
+
     def _request_with_timeout(self, target: str, method: str, full_path: str,
                               body: bytes,
                               headers: dict[str, str] | None,
@@ -848,7 +870,9 @@ class HubController:
             return RouteResponse.json({"ok": False,
                                        "error": "robot target unavailable"},
                                       503)
-        return self.robot.request(method, full_path, body, headers)
+        return self.robot.request(
+            method, full_path, body, headers,
+            timeout=self._robot_route_timeout(method, full_path))
 
     def _broadcast_post(self, full_path: str, body: bytes,
                         headers: dict[str, str] | None) -> RouteResponse:
@@ -857,7 +881,8 @@ class HubController:
         def send_robot() -> None:
             try:
                 resp = self._request_with_timeout(
-                    "robot", "POST", full_path, body, headers, timeout=5.0)
+                    "robot", "POST", full_path, body, headers,
+                    timeout=self._robot_route_timeout("POST", full_path))
             except BaseException as e:
                 resp = RouteResponse.json({"ok": False, "error": str(e)},
                                           502)
