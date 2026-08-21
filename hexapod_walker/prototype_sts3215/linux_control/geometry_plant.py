@@ -67,9 +67,9 @@ CONTACT_POSITION_LAG_DEG = 6.0
 # Only let lag vote once the search reached the normal plant depth.
 CONTACT_LAG_MIN_KNEE_DEG = 80.0
 CONTACT_LAG_MAX_KNEE_SPEED = 55.0
-MAX_TILT_DELTA_DEG = 15.0       # abort before new lean turns into a tip
-MAX_TILT_ABS_DEG = 25.0         # hard cap even if start/platform is tilted
-TILT_TRIP_HOLD_S = 0.25         # ignore one-sample accel/IMU bumps
+MAX_TILT_DELTA_DEG = 24.0       # sustained search lean before limp
+MAX_TILT_ABS_DEG = 40.0         # hard cap even if start/platform is tilted
+TILT_TRIP_HOLD_S = 0.60         # ignore short accel/IMU bumps
 SOFT_SUPPORT_MIN_KNEE_DEG = 85.0
 SOFT_SUPPORT_MAX_KNEE_SPEED = 12.0
 SOFT_SUPPORT_MIN_LEGS = 2
@@ -81,14 +81,16 @@ SWEEP_MAX_TARGETS_PER_LEG = 4
 SWEEP_LIFT_MM = 18.0
 SWEEP_OVERRUN_MM = 7.0
 SWEEP_TORQUE = 620
-SWEEP_MAX_TILT_DELTA_DEG = 8.0
-SWEEP_HARD_TILT_DELTA_DEG = 14.0
-SWEEP_TILT_RECOVERY_S = 0.25
-SWEEP_MAX_TILT_SKIPS = 6
+SWEEP_MAX_TILT_DELTA_DEG = 18.0
+SWEEP_HARD_TILT_DELTA_DEG = 32.0
+SWEEP_TILT_RECOVERY_S = 0.55
+SWEEP_MAX_TILT_SKIPS = 12
 SWEEP_FLOOR_SETTLE_S = 1.2
 SWEEP_FLOOR_SETTLE_DT = 0.08
 SWEEP_MAX_LEG_CURRENT_A = 2.6
 SWEEP_FLOOR_BAND_MM = 4.0
+SWEEP_WEAK_CONTACT_CURRENT_RISE_A = 0.012
+SWEEP_WEAK_CONTACT_LOAD_RISE_PCT = 2.4
 SWEEP_CONTACT_CURRENT_RISE_A = 0.055
 SWEEP_CONTACT_LOAD_RISE_PCT = 5.5
 SWEEP_CONTACT_LAG_DEG = 4.0
@@ -392,6 +394,7 @@ def _fit_zero_offsets_for_leg(rows: list[dict], *,
 def fit_contact_sweep(samples: list[dict]) -> dict:
     """Summarize multi-pose floor contacts into effective geometry hints."""
     valid = []
+    contact_strength_counts: dict[str, int] = {}
     for s in samples or []:
         try:
             if (
@@ -412,6 +415,9 @@ def fit_contact_sweep(samples: list[dict]) -> dict:
                 "hip_deg": float(s["hip_deg"]),
                 "knee_deg": float(s["knee_deg"]),
             })
+            strength = str(s.get("contact_strength") or "unlabeled")
+            contact_strength_counts[strength] = (
+                contact_strength_counts.get(strength, 0) + 1)
         except (KeyError, TypeError, ValueError):
             continue
 
@@ -487,12 +493,15 @@ def fit_contact_sweep(samples: list[dict]) -> dict:
             "servo_height_spread_mm": (
                 None if not heights else round(max(heights) - min(heights), 2)),
             "max_zero_hint_deg": round(max_zero, 2),
+            "contact_strength_counts": contact_strength_counts,
         },
         "observability": [
             "Multiple floor contacts estimate contact-height consistency when "
             "interpreted through the configured contact-point link model.",
             "Zero offsets are hints from contact-height consistency, not an "
             "absolute encoder truth.",
+            "Weak first-contact samples are useful for geometry; firm samples "
+            "also include boot/chassis compliance under load.",
             "Absolute femur/tibia lengths, coxa length, and chassis width are "
             "not observable from vertical floor contact alone.",
         ],
@@ -662,7 +671,9 @@ def run_geometry_contact_sweep(
             leg: int, goal: list[float], *, target: dict,
             detected: bool, reason: str, step: int,
             accepted: bool | None = None,
-            tilt_trip: tuple[float, float] | None = None) -> dict:
+            tilt_trip: tuple[float, float] | None = None,
+            state: dict | None = None,
+            contact_strength: str | None = None) -> dict:
         q = median_pose(3) or goal
         j = leg * 3
         fb_rows = [read_feedback(j + k) or {} for k in range(3)]
@@ -685,6 +696,19 @@ def run_geometry_contact_sweep(
             "max_leg_current_a": round(max(currents or [0.0]), 3),
             "max_leg_load_pct": round(max(loads or [0.0]), 1),
         }
+        if contact_strength:
+            row["contact_strength"] = contact_strength
+        if state is not None:
+            row["current_rise_a"] = round(
+                float(state.get("current_rise") or 0.0), 3)
+            row["load_rise_pct"] = round(
+                float(state.get("load_rise") or 0.0), 1)
+            row["position_lag_deg"] = round(
+                float(state.get("lag") or 0.0), 2)
+            row["foot_z_now_mm"] = round(
+                float(state.get("z_now") or 0.0), 2)
+            row["foot_z_cmd_mm"] = round(
+                float(state.get("z_cmd") or 0.0), 2)
         td = tilt_delta(base_tilt)
         if td is not None:
             row["roll_delta_deg"] = round(td[0], 2)
@@ -783,7 +807,12 @@ def run_geometry_contact_sweep(
             load_rise = max(0.0, max(loads or [0.0]) - base_load)
             cmd_reached_floor = z_cmd <= base_z + SWEEP_FLOOR_BAND_MM
             measured_reached_floor = z_now <= base_z + SWEEP_FLOOR_BAND_MM
-            contact_signal = (
+            weak_contact_signal = (
+                current_rise >= SWEEP_WEAK_CONTACT_CURRENT_RISE_A
+                or load_rise >= SWEEP_WEAK_CONTACT_LOAD_RISE_PCT
+                or (measured_reached_floor and lag >= SWEEP_CONTACT_LAG_DEG)
+            )
+            firm_contact_signal = (
                 current_rise >= SWEEP_CONTACT_CURRENT_RISE_A
                 or load_rise >= SWEEP_CONTACT_LOAD_RISE_PCT
                 or (measured_reached_floor and lag >= SWEEP_CONTACT_LAG_DEG)
@@ -798,7 +827,9 @@ def run_geometry_contact_sweep(
                 "load_rise": load_rise,
                 "cmd_reached_floor": cmd_reached_floor,
                 "measured_reached_floor": measured_reached_floor,
-                "contact_signal": contact_signal,
+                "contact_signal": weak_contact_signal,
+                "weak_contact_signal": weak_contact_signal,
+                "firm_contact_signal": firm_contact_signal,
             }
 
         detected = False
@@ -826,7 +857,7 @@ def run_geometry_contact_sweep(
             if state["max_current"] > SWEEP_MAX_LEG_CURRENT_A:
                 sample_contact(
                     leg, last_goal, target=target, detected=False,
-                    reason="current abort", step=step)
+                    reason="current abort", step=step, state=state)
                 retreat_probe_leg()
                 return False, "current abort"
 
@@ -837,10 +868,16 @@ def run_geometry_contact_sweep(
                     f"(z {state['z_now']:.1f} vs floor {base_z:.1f})")
                 continue
             if state["measured_reached_floor"] and state["contact_signal"]:
+                firm = bool(state.get("firm_contact_signal"))
                 sample_contact(
                     leg, last_goal, target=target,
                     detected=True, accepted=True,
-                    reason="floor contact signal", step=step)
+                    reason=(
+                        "firm floor contact signal" if firm
+                        else "first-contact brush; backed off"),
+                    step=step, state=state,
+                    contact_strength="firm" if firm else "weak")
+                retreat_probe_leg()
                 return True, None
             if (step == steps and state["cmd_reached_floor"]
                     and state["measured_reached_floor"]):
@@ -848,7 +885,7 @@ def run_geometry_contact_sweep(
                     leg, last_goal, target=target,
                     detected=False, accepted=False,
                     reason="measured floor pose reached without contact signal",
-                    step=step)
+                    step=step, state=state)
                 retreat_probe_leg()
                 return True, None
 
@@ -872,7 +909,8 @@ def run_geometry_contact_sweep(
                 if last_state["max_current"] > SWEEP_MAX_LEG_CURRENT_A:
                     sample_contact(
                         leg, last_goal, target=target, detected=False,
-                        reason="current abort", step=settle_step)
+                        reason="current abort", step=settle_step,
+                        state=last_state)
                     retreat_probe_leg()
                     return False, "current abort"
                 if (last_state["contact_signal"]
@@ -880,18 +918,23 @@ def run_geometry_contact_sweep(
                     continue
                 if (last_state["measured_reached_floor"]
                         and last_state["contact_signal"]):
+                    firm = bool(last_state.get("firm_contact_signal"))
                     sample_contact(
                         leg, last_goal, target=target,
                         detected=True, accepted=True,
-                        reason="floor contact signal after settle",
-                        step=settle_step)
+                        reason=(
+                            "firm floor contact signal after settle" if firm
+                            else "first-contact brush after settle; backed off"),
+                        step=settle_step, state=last_state,
+                        contact_strength="firm" if firm else "weak")
+                    retreat_probe_leg()
                     return True, None
                 if last_state["measured_reached_floor"]:
                     sample_contact(
                         leg, last_goal, target=target,
                         detected=False, accepted=False,
                         reason="measured floor pose reached without contact signal",
-                        step=settle_step)
+                        step=settle_step, state=last_state)
                     retreat_probe_leg()
                     return True, None
 
@@ -909,7 +952,7 @@ def run_geometry_contact_sweep(
                 sample_contact(
                     leg, last_goal, target=target,
                     detected=detected, accepted=False,
-                    reason=reason, step=settle_step)
+                    reason=reason, step=settle_step, state=last_state)
                 retreat_probe_leg()
                 return True, None
 

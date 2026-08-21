@@ -1174,16 +1174,26 @@ const CHECKUP_STEPS = [
    detail:'Reach down until contact is detected, then save the plant pose.'},
   {id:'geometry_sweep', name:'Dimension sweep',
    detail:'Collect several floor contact poses to estimate heights and zero hints.'},
+  {id:'geometry_plausibility', name:'Geometry plausibility',
+   detail:'Check whether contact/FK geometry should be trusted or treated as diagnostic only.'},
   {id:'imu_body_frame', name:'Quad IMU body frame',
    detail:'Rear up and come down while mapping mounted IMU axes to body pitch.'},
+  {id:'imu_frame_validation', name:'IMU frame validation',
+   detail:'Validate that the saved IMU body-frame map is strong enough for balance trim.'},
+  {id:'stability_margin', name:'Stability margin',
+   detail:'Bias the planted stance in four directions and record reversible tilt margin.'},
+  {id:'mass_shift_response', name:'Mass shift response',
+   detail:'Lift small limb groups and measure how much pitch and roll change.'},
   {id:'traction_probe', name:'Traction / slip',
-   detail:'Compare five-foot loaded drags against lifted and seated references.'},
+   detail:'Run repeated gentle planted yaw shears to flag floor slip.'},
   {id:'return_zero', name:'Return to zero',
    detail:'Move back through the collision-aware zero path before torque-off.'},
   {id:'proprioception_check', name:'Proprioception check',
    detail:'Compare expected pose with live encoder, current, voltage, and temperature feedback.'},
   {id:'camera_witness', name:'Camera witness',
    detail:'Optional synced video/photo evidence for visible body and foot motion.'},
+  {id:'bus_power_health', name:'Bus / power health',
+   detail:'Check live servos, bus voltage, peak current, and servo temperature.'},
   {id:'actuator_snapshot', name:'Actuator snapshot',
    detail:'Read live joint angle, current, load, voltage, and temperature.'},
   {id:'report', name:'Report',
@@ -1195,7 +1205,12 @@ function checkupPhaseFromProgress(p){
   if(msg.includes('return zero') || msg.includes('zero return')) return 'return_zero';
   if(msg.includes('proprio')) return 'proprioception_check';
   if(msg.includes('camera')) return 'camera_witness';
+  if(msg.includes('bus') || msg.includes('power')) return 'bus_power_health';
   if(msg.includes('safe_zero') || msg.includes('safe zero') || msg.includes('zero:')) return 'safe_zero';
+  if(msg.includes('plausibility')) return 'geometry_plausibility';
+  if(msg.includes('frame validation')) return 'imu_frame_validation';
+  if(msg.includes('stability')) return 'stability_margin';
+  if(msg.includes('mass shift')) return 'mass_shift_response';
   if(msg.includes('sweep') || msg.includes('dimension')) return 'geometry_sweep';
   if(msg.includes('traction') || msg.includes('slip')) return 'traction_probe';
   if(msg.includes('imu body') || msg.includes('quad rear')) return 'imu_body_frame';
@@ -1509,6 +1524,10 @@ function renderCalResult(res){
   const snap = (act && act.snapshot) || {};
   const learned = act && act.learned_model;
   const prop = res.proprioception || report.proprioception || {};
+  const bus = res.bus_power || report.bus_power || {};
+  const busSnap = bus.snapshot || {};
+  const stability = res.stability_margin || report.stability_margin || {};
+  const mass = res.mass_shift || report.mass_shift || {};
   $('calcounts').innerHTML =
     (res.ok
       ? '<span class="cal-pill green">saved</span> checkup complete'
@@ -1519,6 +1538,11 @@ function renderCalResult(res){
       (esum.mean_servo_height_mm!=null ? ` · FK height ${Number(esum.mean_servo_height_mm).toFixed(1)}mm` : ''))+
     (gsum.model_minus_manual_height_mm!=null ? ` · FK err ${calDelta(gsum.model_minus_manual_height_mm)}` : '')+
     (prop.max_abs_error_deg!=null ? ` · zero err ${Number(prop.max_abs_error_deg).toFixed(1)}°` : '')+
+    (stability.max_measured_tilt_delta_deg!=null ? ` · margin tilt ${Number(stability.max_measured_tilt_delta_deg).toFixed(1)}°` : '')+
+    (mass.max_pitch_delta_deg!=null ? ` · mass pitch ${Number(mass.max_pitch_delta_deg).toFixed(1)}°` : '')+
+    (mass.max_roll_delta_deg!=null ? ` · roll ${Number(mass.max_roll_delta_deg).toFixed(1)}°` : '')+
+    (busSnap.min_volt!=null ? ` · Vmin ${Number(busSnap.min_volt).toFixed(2)}V` : '')+
+    (busSnap.max_current_a!=null ? ` · Ipeak ${Number(busSnap.max_current_a).toFixed(2)}A` : '')+
     (snap.live_joints!=null ? ` · ${snap.live_joints} actuator snapshots` : '')+
     (learned ? ' · motor model loaded' : '')+
     (res.msg ? `<div class="hint" style="margin-top:6px">${res.msg}</div>` : '');

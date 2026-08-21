@@ -3088,6 +3088,58 @@ class BenchAPI:
         }
         return out
 
+    def _bus_power_check(self, bus=None) -> dict:
+        """Read-only bus/power/thermal check from the actuator snapshot."""
+        if bus is None:
+            return {
+                "ok": False,
+                "skipped": True,
+                "non_blocking": True,
+                "mode": "bus_power_health",
+                "msg": "no bus; power health not available",
+            }
+        act = self._actuator_report(bus)
+        snap = act.get("snapshot") or {}
+        live = int(snap.get("live_joints") or 0)
+        min_volt = self._maybe_float(snap.get("min_volt"))
+        max_temp = self._maybe_float(snap.get("max_temp_c"))
+        max_current = self._maybe_float(snap.get("max_current_a"))
+        issues: list[str] = []
+        warnings: list[str] = []
+        if live < N_JOINTS:
+            issues.append(f"{live}/{N_JOINTS} servos live")
+        if min_volt is not None and min_volt < 10.8:
+            warnings.append(f"low bus voltage {min_volt:.2f}V")
+        if max_temp is not None and max_temp > 65.0:
+            warnings.append(f"hot servo {max_temp:.1f}C")
+        if max_current is not None and max_current > 2.8:
+            warnings.append(f"high holding current {max_current:.2f}A")
+        ok = not issues
+        bits = [f"{live}/{N_JOINTS} servos live"]
+        if min_volt is not None:
+            bits.append(f"Vmin {min_volt:.2f}")
+        if max_current is not None:
+            bits.append(f"Ipeak {max_current:.2f}A")
+        if max_temp is not None:
+            bits.append(f"Tmax {max_temp:.1f}C")
+        msg = "; ".join(bits)
+        if issues:
+            msg += "; " + "; ".join(issues)
+        if warnings:
+            msg += "; " + "; ".join(warnings)
+        return {
+            "ok": ok,
+            "non_blocking": True,
+            "mode": "bus_power_health",
+            "error": None if ok else msg,
+            "warning": "; ".join(warnings) if warnings else None,
+            "msg": msg,
+            "snapshot": snap,
+            "benefit": (
+                "separates bus/power/thermal problems from bad gaits or bad "
+                "geometry"),
+        }
+
     def _proprioception_check(
             self, bus=None, *, expected_pose: list[float] | None = None,
             expected_name: str = "pose", tol_deg: float = 8.0,
@@ -3213,12 +3265,448 @@ class BenchAPI:
             ],
         }
 
+    def _run_stability_margin_check(self, bus, *, abort_check,
+                                    on_progress) -> dict:
+        """Gentle stance-bias probe for tilt margin.
+
+        This intentionally estimates a usable/reversible margin. It does not
+        try to discover the true fall angle by knocking the robot over.
+        """
+        try:
+            from feetech_bus import AXIS_LIMITS_DEG, standing_pose_degrees
+            from imu_calibrate import imu_tilt_deg
+            from inplace_demos import (
+                _enable_torque, _hold_here, _live_robot_ids,
+                _set_torque_limit, _write_pose, ease_to_pose,
+            )
+        except ImportError as e:
+            return {"ok": False, "mode": "stability_margin",
+                    "non_blocking": True, "error": str(e), "msg": str(e)}
+
+        def progress(msg: str, **extra) -> None:
+            on_progress({"msg": msg, "mode": "stability_margin", **extra})
+
+        def clamp(x: float, lo: float, hi: float) -> float:
+            return max(float(lo), min(float(hi), float(x)))
+
+        def read_imu():
+            fn = getattr(bus, "read_imu", None)
+            if not callable(fn):
+                return None
+            try:
+                return fn(apply_calib=True)
+            except TypeError:
+                try:
+                    return fn()
+                except Exception:
+                    return None
+            except Exception:
+                return None
+
+        def read_tilt() -> tuple[float, float] | None:
+            imu = read_imu()
+            if not isinstance(imu, dict):
+                return None
+            tilt = imu_tilt_deg(imu)
+            if not tilt or tilt[0] is None or tilt[1] is None:
+                return None
+            return float(tilt[0]), float(tilt[1])
+
+        def read_peak_current() -> float:
+            fb = self._read_feedback_map(bus)
+            vals = [abs(float((row or {}).get("current_a") or 0.0))
+                    for row in fb.values()]
+            return max(vals or [0.0])
+
+        def recover_base(live: set[int], base: list[float]) -> None:
+            try:
+                _write_pose(bus, base, live, speed=120, acc=10)
+                time.sleep(0.45)
+                _hold_here(bus, live)
+            except Exception:
+                pass
+
+        live = _live_robot_ids(bus)
+        if len(live) < 12:
+            return {"ok": False, "mode": "stability_margin",
+                    "skipped": True, "non_blocking": True,
+                    "msg": f"need more servos (live={len(live)})",
+                    "live": sorted(live)}
+        try:
+            base = [float(x) for x in standing_pose_degrees()]
+        except Exception as e:
+            return {"ok": False, "mode": "stability_margin",
+                    "skipped": True, "non_blocking": True,
+                    "msg": f"stand pose unavailable: {e}"}
+        if len(base) != N_JOINTS:
+            return {"ok": False, "mode": "stability_margin",
+                    "skipped": True, "non_blocking": True,
+                    "msg": "stand pose is not 18 joints"}
+
+        base_tilt = read_tilt()
+        if base_tilt is None:
+            return {
+                "ok": False,
+                "mode": "stability_margin",
+                "skipped": True,
+                "non_blocking": True,
+                "msg": "no calibrated IMU tilt; margin probe skipped",
+            }
+
+        hip_lo, hip_hi = AXIS_LIMITS_DEG.get(1, (-80.0, 30.0))
+        knee_lo, knee_hi = AXIS_LIMITS_DEG.get(2, (-20.0, 150.0))
+        samples: list[dict] = []
+        directions = [
+            ("front", (1.0, 0.0)),
+            ("rear", (-1.0, 0.0)),
+            ("left", (0.0, 1.0)),
+            ("right", (0.0, -1.0)),
+        ]
+        amps = (1.5, 3.0, 4.5, 6.0)
+        soft_tilt = 14.0
+        hard_tilt = 28.0
+        current_warn = 2.3
+        current_hard = 2.9
+
+        def pose_for(vec: tuple[float, float], amp: float) -> list[float]:
+            q = list(base)
+            dx, dy = vec
+            for leg in range(6):
+                a = (leg + 0.5) * math.pi / 3.0
+                weight = math.cos(a) * dx + math.sin(a) * dy
+                j = leg * 3
+                q[j + 1] = clamp(base[j + 1] + weight * amp, hip_lo, hip_hi)
+                q[j + 2] = clamp(
+                    base[j + 2] - weight * amp * 0.20, knee_lo, knee_hi)
+            return q
+
+        def sample(label: str, amp: float) -> dict:
+            tilt = read_tilt()
+            if tilt is None:
+                roll_delta = pitch_delta = 0.0
+            else:
+                roll_delta = tilt[0] - base_tilt[0]
+                pitch_delta = tilt[1] - base_tilt[1]
+            row = {
+                "direction": label,
+                "cmd_amp_deg": round(float(amp), 2),
+                "roll_delta_deg": round(float(roll_delta), 2),
+                "pitch_delta_deg": round(float(pitch_delta), 2),
+                "tilt_delta_deg": round(
+                    max(abs(roll_delta), abs(pitch_delta)), 2),
+                "max_current_a": round(read_peak_current(), 3),
+            }
+            samples.append(row)
+            return row
+
+        _enable_torque(bus, live)
+        _set_torque_limit(bus, live, 650)
+        try:
+            progress("Stability: settle plant")
+            if not ease_to_pose(bus, base, abort_check=abort_check,
+                                seconds=1.8, label="stability plant"):
+                _set_torque_limit(bus, live, 1000)
+                return {"ok": False, "aborted": True,
+                        "mode": "stability_margin",
+                        "error": "plant settle aborted"}
+            for label, vec in directions:
+                direction_rows: list[dict] = []
+                for amp in amps:
+                    if abort_check():
+                        _hold_here(bus, live)
+                        return {"ok": False, "aborted": True,
+                                "mode": "stability_margin",
+                                "samples": samples}
+                    progress(f"Stability: {label} bias {amp:.1f} deg")
+                    _write_pose(bus, pose_for(vec, amp), live,
+                                speed=105, acc=10)
+                    time.sleep(0.38)
+                    row = sample(label, amp)
+                    direction_rows.append(row)
+                    if float(row["max_current_a"]) > current_hard:
+                        recover_base(live, base)
+                        return {
+                            "ok": False,
+                            "recoverable": True,
+                            "guard_stop": True,
+                            "mode": "stability_margin",
+                            "error": (
+                                f"{label} current guard "
+                                f"{row['max_current_a']:.2f}A"),
+                            "samples": samples,
+                        }
+                    if float(row["tilt_delta_deg"]) > hard_tilt:
+                        recover_base(live, base)
+                        return {
+                            "ok": False,
+                            "recoverable": True,
+                            "guard_stop": True,
+                            "mode": "stability_margin",
+                            "error": (
+                                f"{label} hard tilt guard "
+                                f"{row['tilt_delta_deg']:.1f} deg"),
+                            "samples": samples,
+                        }
+                    if (float(row["tilt_delta_deg"]) >= soft_tilt
+                            or float(row["max_current_a"]) >= current_warn):
+                        break
+                recover_base(live, base)
+                if direction_rows:
+                    last = direction_rows[-1]
+                    progress(
+                        f"Stability: {label} usable through "
+                        f"{last['cmd_amp_deg']:.1f} deg")
+        finally:
+            _set_torque_limit(bus, live, 1000)
+
+        max_tilt = max([float(r.get("tilt_delta_deg") or 0.0)
+                        for r in samples] or [0.0])
+        max_current = max([float(r.get("max_current_a") or 0.0)
+                           for r in samples] or [0.0])
+        by_direction: dict[str, dict] = {}
+        for label, _vec in directions:
+            rows = [r for r in samples if r.get("direction") == label]
+            if not rows:
+                continue
+            by_direction[label] = {
+                "max_cmd_amp_deg": max(
+                    float(r.get("cmd_amp_deg") or 0.0) for r in rows),
+                "max_tilt_delta_deg": max(
+                    float(r.get("tilt_delta_deg") or 0.0) for r in rows),
+                "max_current_a": max(
+                    float(r.get("max_current_a") or 0.0) for r in rows),
+            }
+        msg = (
+            f"stable through bias tests; max tilt {max_tilt:.1f} deg, "
+            f"Ipeak {max_current:.2f}A")
+        return {
+            "ok": bool(samples),
+            "mode": "stability_margin",
+            "margin_is_lower_bound": True,
+            "max_measured_tilt_delta_deg": round(max_tilt, 2),
+            "max_current_a": round(max_current, 3),
+            "by_direction": by_direction,
+            "samples": samples,
+            "msg": msg,
+            "benefit": (
+                "estimates reversible tilt margin for gait trim without "
+                "intentionally falling"),
+        }
+
+    def _run_mass_shift_response_check(self, bus, *, abort_check,
+                                       on_progress) -> dict:
+        """Measure how lifted limb groups change steady pitch/roll."""
+        try:
+            from feetech_bus import AXIS_LIMITS_DEG, standing_pose_degrees
+            from imu_calibrate import imu_tilt_deg
+            from inplace_demos import (
+                _enable_torque, _hold_here, _live_robot_ids,
+                _set_torque_limit, _write_pose, ease_to_pose,
+            )
+        except ImportError as e:
+            return {"ok": False, "mode": "mass_shift_response",
+                    "non_blocking": True, "error": str(e), "msg": str(e)}
+
+        def progress(msg: str, **extra) -> None:
+            on_progress({"msg": msg, "mode": "mass_shift_response", **extra})
+
+        def clamp(x: float, lo: float, hi: float) -> float:
+            return max(float(lo), min(float(hi), float(x)))
+
+        def read_imu():
+            fn = getattr(bus, "read_imu", None)
+            if not callable(fn):
+                return None
+            try:
+                return fn(apply_calib=True)
+            except TypeError:
+                try:
+                    return fn()
+                except Exception:
+                    return None
+            except Exception:
+                return None
+
+        def read_tilt() -> tuple[float, float] | None:
+            imu = read_imu()
+            if not isinstance(imu, dict):
+                return None
+            tilt = imu_tilt_deg(imu)
+            if not tilt or tilt[0] is None or tilt[1] is None:
+                return None
+            return float(tilt[0]), float(tilt[1])
+
+        def read_peak_current() -> float:
+            fb = self._read_feedback_map(bus)
+            vals = [abs(float((row or {}).get("current_a") or 0.0))
+                    for row in fb.values()]
+            return max(vals or [0.0])
+
+        def recover_base(live: set[int], base: list[float]) -> None:
+            try:
+                _write_pose(bus, base, live, speed=120, acc=10)
+                time.sleep(0.45)
+                _hold_here(bus, live)
+            except Exception:
+                pass
+
+        live = _live_robot_ids(bus)
+        if len(live) < 12:
+            return {"ok": False, "mode": "mass_shift_response",
+                    "skipped": True, "non_blocking": True,
+                    "msg": f"need more servos (live={len(live)})",
+                    "live": sorted(live)}
+        try:
+            base = [float(x) for x in standing_pose_degrees()]
+        except Exception as e:
+            return {"ok": False, "mode": "mass_shift_response",
+                    "skipped": True, "non_blocking": True,
+                    "msg": f"stand pose unavailable: {e}"}
+        if len(base) != N_JOINTS:
+            return {"ok": False, "mode": "mass_shift_response",
+                    "skipped": True, "non_blocking": True,
+                    "msg": "stand pose is not 18 joints"}
+
+        base_tilt = read_tilt()
+        if base_tilt is None:
+            return {
+                "ok": False,
+                "mode": "mass_shift_response",
+                "skipped": True,
+                "non_blocking": True,
+                "msg": "no calibrated IMU tilt; mass-shift probe skipped",
+            }
+
+        yaw_lo, yaw_hi = AXIS_LIMITS_DEG.get(0, (-35.0, 35.0))
+        hip_lo, hip_hi = AXIS_LIMITS_DEG.get(1, (-80.0, 30.0))
+        knee_lo, knee_hi = AXIS_LIMITS_DEG.get(2, (-20.0, 150.0))
+        lift_hip = 8.0
+        lift_knee = 18.0
+        trials = [
+            ("front_pair_up", (0, 5)),
+            ("rear_pair_up", (2, 3)),
+            ("left_pair_up", (1, 2)),
+            ("right_pair_up", (3, 4)),
+            ("tripod_024_up", (0, 2, 4)),
+        ]
+        samples: list[dict] = []
+        hard_tilt = 28.0
+        current_hard = 2.9
+
+        def pose_for(legs: tuple[int, ...]) -> list[float]:
+            q = list(base)
+            for leg in legs:
+                j = leg * 3
+                q[j] = clamp(0.0, yaw_lo, yaw_hi)
+                q[j + 1] = clamp(lift_hip, hip_lo, hip_hi)
+                q[j + 2] = clamp(lift_knee, knee_lo, knee_hi)
+            return q
+
+        def sample(label: str, legs: tuple[int, ...]) -> dict:
+            tilt = read_tilt()
+            if tilt is None:
+                roll_delta = pitch_delta = 0.0
+            else:
+                roll_delta = tilt[0] - base_tilt[0]
+                pitch_delta = tilt[1] - base_tilt[1]
+            row = {
+                "pose": label,
+                "legs": list(legs),
+                "roll_delta_deg": round(float(roll_delta), 2),
+                "pitch_delta_deg": round(float(pitch_delta), 2),
+                "tilt_delta_deg": round(
+                    max(abs(roll_delta), abs(pitch_delta)), 2),
+                "max_current_a": round(read_peak_current(), 3),
+            }
+            samples.append(row)
+            return row
+
+        _enable_torque(bus, live)
+        _set_torque_limit(bus, live, 650)
+        try:
+            progress("Mass shift: settle plant")
+            if not ease_to_pose(bus, base, abort_check=abort_check,
+                                seconds=1.8, label="mass shift plant"):
+                _set_torque_limit(bus, live, 1000)
+                return {"ok": False, "aborted": True,
+                        "mode": "mass_shift_response",
+                        "error": "plant settle aborted"}
+            for label, legs in trials:
+                if abort_check():
+                    _hold_here(bus, live)
+                    return {"ok": False, "aborted": True,
+                            "mode": "mass_shift_response",
+                            "samples": samples}
+                progress(f"Mass shift: {label}")
+                _write_pose(bus, pose_for(legs), live, speed=105, acc=10)
+                time.sleep(0.75)
+                row = sample(label, legs)
+                recover_base(live, base)
+                if float(row["max_current_a"]) > current_hard:
+                    return {
+                        "ok": False,
+                        "recoverable": True,
+                        "guard_stop": True,
+                        "mode": "mass_shift_response",
+                        "error": (
+                            f"{label} current guard "
+                            f"{row['max_current_a']:.2f}A"),
+                        "samples": samples,
+                    }
+                if float(row["tilt_delta_deg"]) > hard_tilt:
+                    return {
+                        "ok": False,
+                        "recoverable": True,
+                        "guard_stop": True,
+                        "mode": "mass_shift_response",
+                        "error": (
+                            f"{label} hard tilt guard "
+                            f"{row['tilt_delta_deg']:.1f} deg"),
+                        "samples": samples,
+                    }
+        finally:
+            _set_torque_limit(bus, live, 1000)
+
+        max_pitch = max([abs(float(r.get("pitch_delta_deg") or 0.0))
+                         for r in samples] or [0.0])
+        max_roll = max([abs(float(r.get("roll_delta_deg") or 0.0))
+                        for r in samples] or [0.0])
+        max_current = max([float(r.get("max_current_a") or 0.0)
+                           for r in samples] or [0.0])
+        largest = max(
+            samples,
+            key=lambda r: float(r.get("tilt_delta_deg") or 0.0),
+            default=None)
+        msg = (
+            f"mass shift max pitch {max_pitch:.1f} deg, "
+            f"max roll {max_roll:.1f} deg")
+        if largest:
+            msg += f"; largest {largest.get('pose')}"
+        return {
+            "ok": bool(samples),
+            "mode": "mass_shift_response",
+            "max_pitch_delta_deg": round(max_pitch, 2),
+            "max_roll_delta_deg": round(max_roll, 2),
+            "max_current_a": round(max_current, 3),
+            "largest_response": largest,
+            "samples": samples,
+            "msg": msg,
+            "benefit": (
+                "estimates limb mass/center-of-mass coupling for MuJoCo mass "
+                "distribution and dance/quad balance tuning"),
+        }
+
     def _save_calibration_report(
             self, *, phases: list[dict] | None = None,
             bus=None, traction: dict | None = None,
             geometry_sweep: dict | None = None,
+            geometry_check: dict | None = None,
+            imu_frame_check: dict | None = None,
+            stability_margin: dict | None = None,
+            mass_shift: dict | None = None,
             proprioception: dict | None = None,
-            camera_witness: dict | None = None) -> dict:
+            camera_witness: dict | None = None,
+            bus_power: dict | None = None) -> dict:
         log_dir = Path(__file__).resolve().parent / "logs"
         log_dir.mkdir(parents=True, exist_ok=True)
         stamp = time.strftime("%Y%m%d_%H%M%S")
@@ -3238,10 +3726,15 @@ class BenchAPI:
             "geometry": self._geometry_report(
                 geometry_sweep=geometry_sweep,
                 use_latest_sweep=(not phase_rows)),
+            "geometry_check": geometry_check,
             "imu": self.imu_state(),
+            "imu_frame_check": imu_frame_check,
+            "stability_margin": stability_margin,
+            "mass_shift": mass_shift,
             "traction": traction,
             "proprioception": proprioception,
             "camera_witness": camera_witness,
+            "bus_power": bus_power,
             "actuators": self._actuator_report(bus),
             "path": str(path),
             "log_name": path.name,
@@ -3257,13 +3750,26 @@ class BenchAPI:
                 "absolute femur/tibia lengths without independent height/scale",
                 "geometry.contact_sweep samples are raw per-leg contact poses "
                 "used to estimate contact-height residuals and zero hints",
-                "traction is an onboard loaded-vs-hover slip signature, "
-                "not an exact coefficient of friction",
+                "geometry_check says whether contact/FK dimensions should be "
+                "trusted as dimensions or treated as diagnostics only",
+                "imu_frame_check validates the saved body-pitch axis/sign map; "
+                "weak maps are warnings unless motion safety is involved",
+                "stability_margin uses small reversible stance biases to "
+                "estimate usable tilt margin; it is a lower bound, not a fall "
+                "test",
+                "mass_shift measures how lifted limb groups change steady "
+                "pitch/roll, which helps tune sim mass distribution",
+                "traction is an onboard planted shear slip signature during "
+                "checkup; the standalone slip tool runs the heavier "
+                "loaded-vs-hover drag, and neither is an exact coefficient of "
+                "friction",
                 "proprioception compares commanded joint angles with live "
                 "encoder feedback; camera/vision is the independent witness "
                 "needed to observe body/foot motion and slip",
                 "camera_witness is currently a non-blocking hook unless a "
                 "synced camera source is supplied",
+                "bus_power is read-only health evidence: live servos, voltage, "
+                "current, and temperature",
                 "actuators.learned_model comes from the optional motor "
                 "dynamics/sysid run when present",
             ],
@@ -3526,6 +4032,24 @@ class BenchAPI:
              for j in yaw_joints] or [0.0])
 
         samples: list[dict] = []
+        repeats = 2
+        tilt_soft_limit = 16.0
+        tilt_hard_limit = 32.0
+        tilt_hold_samples = 3
+        tilt_hot = 0
+        tilt_stop_reason = None
+
+        def probe_stop(reason: str) -> dict:
+            stopped_by_operator = reason == "aborted" or abort_check()
+            return {
+                "ok": False,
+                "aborted": stopped_by_operator,
+                "recoverable": not stopped_by_operator,
+                "guard_stop": not stopped_by_operator,
+                "mode": "traction_probe",
+                "error": reason,
+                "samples": samples,
+            }
 
         def shear_pose(amp: float) -> list[float]:
             q = list(base)
@@ -3534,7 +4058,8 @@ class BenchAPI:
                 q[j] = clamp(base[j] + sign * float(amp), yaw_lo, yaw_hi)
             return q
 
-        def sample(goal: list[float], amp: float, tag: str) -> bool:
+        def sample(goal: list[float], amp: float, tag: str, cycle: int) -> bool:
+            nonlocal tilt_hot, tilt_stop_reason
             fb = read_feedback()
             imu = read_imu()
             tilt = imu_tilt_deg(imu) if isinstance(imu, dict) else None
@@ -3555,6 +4080,7 @@ class BenchAPI:
                 pitch_delta = float(tilt[1] - base_tilt[1])
             row = {
                 "tag": tag,
+                "cycle": cycle,
                 "cmd_amp_deg": round(float(amp), 2),
                 "max_yaw_lag_deg": round(max(yaw_lags or [0.0]), 2),
                 "mean_yaw_track_deg": round(
@@ -3568,48 +4094,80 @@ class BenchAPI:
             if roll_delta is not None and pitch_delta is not None:
                 row["roll_delta_deg"] = round(roll_delta, 2)
                 row["pitch_delta_deg"] = round(pitch_delta, 2)
+                row["tilt_delta_deg"] = round(
+                    max(abs(roll_delta), abs(pitch_delta)), 2)
             samples.append(row)
 
             if roll_delta is not None and pitch_delta is not None:
-                if max(abs(roll_delta), abs(pitch_delta)) > 6.0:
+                tilt_delta = max(abs(roll_delta), abs(pitch_delta))
+                if tilt_delta > tilt_hard_limit:
                     _hold_here(bus, live)
+                    tilt_stop_reason = (
+                        f"hard tilt delta > {tilt_hard_limit:.0f} deg")
                     progress(
-                        "Traction: tilt abort "
+                        "Traction: hard tilt guard "
                         f"Δroll={roll_delta:+.1f}° Δpitch={pitch_delta:+.1f}°")
                     return False
+                if tilt_delta > tilt_soft_limit:
+                    tilt_hot += 1
+                    if tilt_hot >= tilt_hold_samples:
+                        _hold_here(bus, live)
+                        tilt_stop_reason = (
+                            f"sustained tilt delta > "
+                            f"{tilt_soft_limit:.0f} deg")
+                        progress(
+                            "Traction: sustained tilt guard "
+                            f"Δroll={roll_delta:+.1f}° "
+                            f"Δpitch={pitch_delta:+.1f}°")
+                        return False
+                else:
+                    tilt_hot = 0
             return True
 
         try:
-            for amp in (1.5, 3.0, 4.5):
-                for sign in (1.0, -1.0):
-                    if abort_check():
-                        return {"ok": False, "aborted": True,
-                                "mode": "traction_probe",
-                                "samples": samples}
-                    cmd_amp = sign * amp
-                    goal = shear_pose(cmd_amp)
-                    progress(f"Traction: shear {cmd_amp:+.1f}°")
-                    _write_pose(bus, goal, live, speed=140, acc=18)
-                    t0 = time.monotonic()
-                    while time.monotonic() - t0 < 0.75:
+            for cycle in range(repeats):
+                for amp in (1.5, 3.0, 4.5):
+                    for sign in (1.0, -1.0):
                         if abort_check():
-                            _hold_here(bus, live)
                             return {"ok": False, "aborted": True,
                                     "mode": "traction_probe",
                                     "samples": samples}
-                        time.sleep(0.12)
-                        if not sample(goal, cmd_amp, "shear"):
-                            _set_torque_limit(bus, live, 1000)
-                            return {"ok": False, "aborted": True,
-                                    "mode": "traction_probe",
-                                    "error": "tilt abort during traction probe",
-                                    "samples": samples}
+                        cmd_amp = sign * amp
+                        goal = shear_pose(cmd_amp)
+                        progress(
+                            f"Traction: shear {cmd_amp:+.1f}° "
+                            f"trial {cycle + 1}/{repeats}")
+                        _write_pose(bus, goal, live, speed=140, acc=18)
+                        t0 = time.monotonic()
+                        while time.monotonic() - t0 < 0.75:
+                            if abort_check():
+                                _hold_here(bus, live)
+                                return {"ok": False, "aborted": True,
+                                        "mode": "traction_probe",
+                                        "samples": samples}
+                            time.sleep(0.12)
+                            if not sample(goal, cmd_amp, "shear", cycle + 1):
+                                _set_torque_limit(bus, live, 1000)
+                                return probe_stop(
+                                    tilt_stop_reason
+                                    or "tilt guard during traction probe")
             progress("Traction: return to plant")
             _write_pose(bus, base, live, speed=140, acc=18)
             time.sleep(0.5)
             _hold_here(bus, live)
         finally:
             _set_torque_limit(bus, live, 1000)
+
+        def metric_range(key: str) -> dict:
+            vals = [float(s.get(key) or 0.0) for s in samples]
+            if not vals:
+                return {"min": 0.0, "max": 0.0, "mean": 0.0, "spread": 0.0}
+            return {
+                "min": round(min(vals), 3),
+                "max": round(max(vals), 3),
+                "mean": round(sum(vals) / len(vals), 3),
+                "spread": round(max(vals) - min(vals), 3),
+            }
 
         max_lag = max([float(s.get("max_yaw_lag_deg") or 0.0)
                        for s in samples] or [0.0])
@@ -3636,14 +4194,32 @@ class BenchAPI:
             grade = "good"
         else:
             grade = "mixed"
+        lag_range = metric_range("max_yaw_lag_deg")
+        current_range = metric_range("max_current_a")
+        load_range = metric_range("max_load_pct")
+        tilt_range = {}
+        tilt_vals = [
+            max(abs(float(s.get("roll_delta_deg") or 0.0)),
+                abs(float(s.get("pitch_delta_deg") or 0.0)))
+            for s in samples
+        ]
+        if tilt_vals:
+            tilt_range = {
+                "min": round(min(tilt_vals), 3),
+                "max": round(max(tilt_vals), 3),
+                "mean": round(sum(tilt_vals) / len(tilt_vals), 3),
+                "spread": round(max(tilt_vals) - min(tilt_vals), 3),
+            }
         msg = (
             f"traction {grade}; yaw lag {max_lag:.1f}°, "
-            f"current +{current_rise:.2f}A, load +{load_rise:.0f}%")
+            f"current +{current_rise:.2f}A, load +{load_rise:.0f}%, "
+            f"range lag {lag_range['min']:.1f}-{lag_range['max']:.1f}°")
         return {
             "ok": True,
             "mode": "traction_probe",
             "grade": grade,
             "slip_suspected": slip_suspected,
+            "repeat_count": repeats,
             "max_yaw_lag_deg": round(max_lag, 2),
             "max_yaw_track_deg": round(max_track, 2),
             "max_current_a": round(max_current, 3),
@@ -3651,6 +4227,12 @@ class BenchAPI:
             "max_load_pct": round(max_load, 1),
             "load_rise_pct": round(load_rise, 1),
             "max_tilt_delta_deg": round(max_tilt_delta, 2),
+            "ranges": {
+                "yaw_lag_deg": lag_range,
+                "current_a": current_range,
+                "load_pct": load_range,
+                "tilt_delta_deg": tilt_range,
+            },
             "samples": samples[-24:],
             "msg": msg,
         }
@@ -3755,6 +4337,8 @@ class BenchAPI:
         hip_lo, hip_hi = AXIS_LIMITS_DEG.get(1, (-80.0, 30.0))
         knee_lo, knee_hi = AXIS_LIMITS_DEG.get(2, (-20.0, 150.0))
         amp = 4.0
+        tilt_hard_limit = 35.0
+        tilt_hold_samples = 3
         samples: list[dict] = []
 
         def probe_stop(label: str, reason: str) -> dict:
@@ -3839,16 +4423,30 @@ class BenchAPI:
                      current_limit: float) -> tuple[bool, str | None]:
             _write_pose(bus, goal, live, speed=speed, acc=acc)
             rows: list[dict] = []
+            tilt_hot = 0
             t0 = time.monotonic()
             while time.monotonic() - t0 < seconds:
                 if abort_check():
                     _hold_here(bus, live)
                     return False, "aborted"
                 time.sleep(0.09)
-                rows.append(sample_fn())
-                if max_tilt_delta(rows) > tilt_limit:
+                row = sample_fn()
+                rows.append(row)
+                row_tilt = max(
+                    abs(float(row.get("roll_delta_deg") or 0.0)),
+                    abs(float(row.get("pitch_delta_deg") or 0.0)))
+                if row_tilt > tilt_hard_limit:
                     _hold_here(bus, live)
-                    return False, f"tilt delta > {tilt_limit:.0f} deg"
+                    return False, (
+                        f"hard tilt delta > {tilt_hard_limit:.0f} deg")
+                if row_tilt > tilt_limit:
+                    tilt_hot += 1
+                else:
+                    tilt_hot = 0
+                if tilt_hot >= tilt_hold_samples:
+                    _hold_here(bus, live)
+                    return False, (
+                        f"sustained tilt delta > {tilt_limit:.0f} deg")
                 if max(float(r.get("max_leg_current_a") or 0.0)
                        for r in rows) > current_limit:
                     _hold_here(bus, live)
@@ -3873,7 +4471,7 @@ class BenchAPI:
                                          c=hover_center: sample(
                                              g, l, y, "five_foot_hover", c),
                         seconds=0.34, speed=125, acc=12,
-                        tilt_limit=8.0, current_limit=2.8)
+                        tilt_limit=18.0, current_limit=2.8)
                     if not ok:
                         return probe_stop(f"L{leg} hover", str(reason))
 
@@ -3889,7 +4487,7 @@ class BenchAPI:
                                          c=drag_center: sample(
                                              g, l, y, "five_foot_drag", c),
                         seconds=0.40, speed=105, acc=12,
-                        tilt_limit=8.0, current_limit=2.8)
+                        tilt_limit=18.0, current_limit=2.8)
                     if not ok:
                         return probe_stop(f"L{leg} drag", str(reason))
                 _write_pose(bus, base, live, speed=130, acc=14)
@@ -3924,7 +4522,7 @@ class BenchAPI:
                         sample_fn=lambda g=goal, l=leg, y=yaw: sample(
                             g, l, y, "seated_drag", sit),
                         seconds=0.28, speed=110, acc=12,
-                        tilt_limit=12.0, current_limit=2.8)
+                        tilt_limit=24.0, current_limit=2.8)
                     if not ok:
                         return probe_stop(f"seated L{leg}", str(reason))
             progress("Slip: return to plant")
@@ -4146,11 +4744,18 @@ class BenchAPI:
 
         traction_res = None
         sweep_res = None
+        geometry_check_res = None
+        bf_res = None
+        imu_frame_check_res = None
+        stability_res = None
+        mass_shift_res = None
+        bus_power_res = None
         motion_ok = (not abort_check() and not geo_res.get("aborted")
                      and bool(geo_res.get("ok")))
         motion_block_reason = (
             "not run because ground contact geometry did not finish cleanly")
         body_ok = False
+        body_non_blocking = False
 
         if motion_ok:
             progress("Geometry dimension sweep", "geometry_sweep")
@@ -4169,16 +4774,10 @@ class BenchAPI:
                     "error": f"dimension sweep command failed: {e}",
                 }
             phase("geometry_sweep", sweep_res)
-            if (abort_check() or sweep_res.get("aborted")
-                    or not sweep_res.get("ok")):
+            if abort_check() or sweep_res.get("aborted"):
                 motion_ok = False
-                if abort_check() or sweep_res.get("aborted"):
-                    motion_block_reason = (
-                        "not run because dimension sweep was aborted")
-                else:
-                    motion_block_reason = (
-                        "not run because dimension sweep did not finish "
-                        "cleanly")
+                motion_block_reason = (
+                    "not run because dimension sweep was aborted")
         else:
             phases.append({
                 "name": "geometry_sweep",
@@ -4188,6 +4787,11 @@ class BenchAPI:
                 "mode": "geometry_sweep",
                 "summary": motion_block_reason,
             })
+
+        progress("Geometry plausibility", "geometry_plausibility")
+        geometry_check_res = self._geometry_plausibility_check(
+            geometry_sweep=sweep_res)
+        phase("geometry_plausibility", geometry_check_res)
 
         if motion_ok:
             progress("IMU body-frame map from quad rear", "imu_body_frame")
@@ -4202,7 +4806,6 @@ class BenchAPI:
                 bool(bf_res.get("non_blocking"))
                 and not bf_res.get("aborted"))
         else:
-            body_non_blocking = False
             phases.append({
                 "name": "imu_body_frame",
                 "ok": False,
@@ -4213,9 +4816,72 @@ class BenchAPI:
                 "summary": motion_block_reason,
             })
 
+        if motion_ok:
+            progress("IMU frame validation", "imu_frame_validation")
+            imu_frame_check_res = self._imu_frame_validation_check(bf_res)
+            phase("imu_frame_validation", imu_frame_check_res)
+        else:
+            phases.append({
+                "name": "imu_frame_validation",
+                "ok": False,
+                "skipped": True,
+                "mode": "imu_frame_validation",
+                "summary": motion_block_reason,
+            })
+
+        if motion_ok and (body_ok or body_non_blocking) and not abort_check():
+            progress("Stability margin", "stability_margin")
+            stability_res = self._run_stability_margin_check(
+                bus, abort_check=abort_check,
+                on_progress=lambda p: progress(
+                    str(p.get("msg") or "running"), "stability_margin",
+                    **{k: v for k, v in p.items() if k != "msg"}))
+            phase("stability_margin", stability_res)
+            if (abort_check() or stability_res.get("aborted")
+                    or stability_res.get("guard_stop")):
+                motion_ok = False
+                motion_block_reason = (
+                    "not run because stability margin guard stopped motion")
+        else:
+            phases.append({
+                "name": "stability_margin",
+                "ok": False,
+                "aborted": bool(abort_check()
+                                or any(p.get("aborted") for p in phases)),
+                "skipped": True,
+                "mode": "stability_margin",
+                "summary": (
+                    "not run because IMU body-frame motion did not finish "
+                    "cleanly"),
+            })
+
+        if motion_ok and (body_ok or body_non_blocking) and not abort_check():
+            progress("Mass shift response", "mass_shift_response")
+            mass_shift_res = self._run_mass_shift_response_check(
+                bus, abort_check=abort_check,
+                on_progress=lambda p: progress(
+                    str(p.get("msg") or "running"), "mass_shift_response",
+                    **{k: v for k, v in p.items() if k != "msg"}))
+            phase("mass_shift_response", mass_shift_res)
+            if (abort_check() or mass_shift_res.get("aborted")
+                    or mass_shift_res.get("guard_stop")):
+                motion_ok = False
+                motion_block_reason = (
+                    "not run because mass-shift guard stopped motion")
+        else:
+            phases.append({
+                "name": "mass_shift_response",
+                "ok": False,
+                "aborted": bool(abort_check()
+                                or any(p.get("aborted") for p in phases)),
+                "skipped": True,
+                "mode": "mass_shift_response",
+                "summary": motion_block_reason,
+            })
+
         if motion_ok and (body_ok or body_non_blocking) and not abort_check():
             progress("Traction / slip probe", "traction_probe")
-            traction_res = self._run_leg_slip_probe(
+            traction_res = self._run_traction_probe(
                 bus, abort_check=abort_check,
                 on_progress=lambda p: progress(
                     str(p.get("msg") or "running"), "traction_probe",
@@ -4238,6 +4904,14 @@ class BenchAPI:
             "geometry_plant",
             "geometry_sweep",
             "imu_body_frame",
+            "stability_margin",
+            "mass_shift_response",
+            "traction_probe",
+        }
+        recoverable_measurement_names = {
+            "geometry_sweep",
+            "stability_margin",
+            "mass_shift_response",
             "traction_probe",
         }
         returned_zero = False
@@ -4256,6 +4930,9 @@ class BenchAPI:
             and not p.get("skipped")
             and not p.get("non_blocking")
             and not p.get("recoverable")
+            and not (
+                p.get("name") in recoverable_measurement_names
+                and not p.get("aborted"))
             for p in phases)
         if abort_check() or unrecoverable_abort:
             phases.append({
@@ -4304,6 +4981,10 @@ class BenchAPI:
         camera_res = self._camera_witness_check()
         phase("camera_witness", camera_res)
 
+        progress("Bus/power health", "bus_power_health")
+        bus_power_res = self._bus_power_check(bus)
+        phase("bus_power_health", bus_power_res)
+
         progress("Actuator health snapshot", "actuator_snapshot")
         phases.append({
             "name": "actuator_snapshot",
@@ -4314,8 +4995,11 @@ class BenchAPI:
         progress("Saving calibration report", "report")
         report = self._save_calibration_report(
             phases=phases, bus=bus, traction=traction_res,
-            geometry_sweep=sweep_res, proprioception=proprio_res,
-            camera_witness=camera_res)
+            geometry_sweep=sweep_res, geometry_check=geometry_check_res,
+            imu_frame_check=imu_frame_check_res,
+            stability_margin=stability_res, mass_shift=mass_shift_res,
+            proprioception=proprio_res,
+            camera_witness=camera_res, bus_power=bus_power_res)
         phases.append({
             "name": "report",
             "ok": bool(report.get("path") or report.get("log_name")),
@@ -4346,7 +5030,15 @@ class BenchAPI:
             "phases": phases,
             "report": report,
             "geometry": report.get("geometry"),
+            "geometry_check": report.get("geometry_check"),
             "imu": report.get("imu"),
+            "imu_frame_check": report.get("imu_frame_check"),
+            "stability_margin": report.get("stability_margin"),
+            "mass_shift": report.get("mass_shift"),
+            "traction": report.get("traction"),
+            "proprioception": report.get("proprioception"),
+            "camera_witness": report.get("camera_witness"),
+            "bus_power": report.get("bus_power"),
             "actuators": report.get("actuators"),
             "path": report.get("path"),
             "log_name": report.get("log_name"),
@@ -4449,7 +5141,7 @@ class BenchAPI:
         elif mode == "checkup":
             label = (
                 "calibration checkup "
-                "(IMU + contact/sweep geometry + quad IMU + traction + report)")
+                "(IMU + geometry + stability/mass + traction + report)")
         elif mode == "shake":
             label = f"shake +{nudge_deg:.1f}° hold ({axis})"
         else:
@@ -6725,6 +7417,461 @@ class BenchAPI:
         self._demo_thread.start()
         return {"ok": True, "stamp": stamp, "label": label,
                 "duration_s": secs}
+
+    def measure_axis_geometry(
+            self, *, knee_height_mm: float | None = None,
+            knee_to_boot_tip_mm: float | None = None,
+            boot_diameter_mm: float | None = None) -> dict:
+        """Run simple hip/knee isolation sweeps for geometry sanity.
+
+        This is intentionally simpler than the dimension sweep: all yaw joints
+        stay at zero, then the robot runs two static families from safe zero:
+        hip=0 with increasing knee, and knee=0 with increasing hip.  The output
+        records where current/load first rises, which is the practical contact
+        envelope for the real boot/footpad rather than a pin-foot FK fantasy.
+        MOTION: operator must be watching.
+        """
+        d = self.drive
+        if d.dry_run or not d.bus:
+            return {"ok": False, "error": "no bus"}
+        if self._demo_thread and self._demo_thread.is_alive():
+            return {"ok": False, "error": "stop the running job first"}
+        stamp = time.strftime("%Y%m%d_%H%M%S")
+        title = "measure axis geometry"
+
+        self._demo_gen += 1
+        gen = self._demo_gen
+        self._demo_abort.clear()
+        with self._lock:
+            self._demo_name = "measure_axis_geometry"
+            self._demo_status = title
+            self._demo_params = {}
+            self._cal_result = None
+            self._cal_progress = {"msg": title}
+        self._set_activity("measure", title)
+
+        def _worker():
+            result: dict = {"ok": False, "mode": "axis_geometry"}
+            live: set[int] = set()
+            rec: dict = {
+                "kind": "axis_geometry",
+                "stamp": stamp,
+                "samples": [],
+                "input_measurements": {
+                    "knee_height_mm": knee_height_mm,
+                    "knee_to_boot_tip_mm": knee_to_boot_tip_mm,
+                    "boot_diameter_mm": boot_diameter_mm,
+                },
+                "notes": [
+                    "All yaw joints stay at zero.",
+                    "knee_only keeps hip at zero and increases knee.",
+                    "hip_only keeps knee at zero and increases hip.",
+                    "Contact is inferred from current/load rise; the boot "
+                    "makes this a contact envelope, not a pin-foot endpoint.",
+                ],
+            }
+
+            def progress(msg: str, **extra) -> None:
+                with self._lock:
+                    self._cal_progress = {
+                        "msg": msg,
+                        "mode": "axis_geometry",
+                        **extra,
+                    }
+                    self._demo_status = msg
+
+            try:
+                from feetech_bus import AXIS_LIMITS_DEG
+                from imu_calibrate import imu_tilt_deg
+                from inplace_demos import (
+                    _enable_torque, _hold_here, _limp_all, _live_robot_ids,
+                    _set_torque_limit, _write_pose,
+                )
+            except ImportError as e:
+                result = {"ok": False, "mode": "axis_geometry",
+                          "error": str(e)}
+            else:
+                def clamp_axis(axis: int, value: float) -> float:
+                    lo, hi = AXIS_LIMITS_DEG.get(axis, (-180.0, 180.0))
+                    return max(float(lo), min(float(hi), float(value)))
+
+                def pose(hip: float, knee: float) -> list[float]:
+                    q: list[float] = []
+                    h = clamp_axis(1, hip)
+                    k = clamp_axis(2, knee)
+                    for _leg in range(6):
+                        q.extend([0.0, h, k])
+                    return q
+
+                def read_tilt() -> tuple[float, float] | None:
+                    try:
+                        imu = d.bus.read_imu(apply_calib=True)
+                    except TypeError:
+                        try:
+                            imu = d.bus.read_imu()
+                        except Exception:
+                            imu = None
+                    except Exception:
+                        imu = None
+                    if not isinstance(imu, dict):
+                        return None
+                    try:
+                        tilt = imu_tilt_deg(imu)
+                    except Exception:
+                        return None
+                    if not tilt or tilt[0] is None or tilt[1] is None:
+                        return None
+                    return float(tilt[0]), float(tilt[1])
+
+                def expected_angles() -> dict:
+                    manual = self.manual_geometry_state()
+                    h_mm = self._maybe_float(
+                        manual.get("hip_pitch_height_mm"))
+                    femur = self._maybe_float(manual.get("femur_mm"))
+                    tibia = self._maybe_float(manual.get("tibia_mm"))
+                    out = {"manual": manual if manual.get("learned") else None}
+                    kh = self._maybe_float(knee_height_mm)
+                    kt = self._maybe_float(knee_to_boot_tip_mm)
+                    boot = self._maybe_float(boot_diameter_mm)
+                    try:
+                        if kh is not None and kt is not None and 0.0 < kh < kt:
+                            out["knee_only_tip_contact_deg"] = round(
+                                math.degrees(math.asin(kh / kt)), 2)
+                            if boot is not None and boot > 0.0:
+                                radius = boot * 0.5
+                                center_drop = max(0.0, kh - radius)
+                                effective_len = max(1.0, kt - radius)
+                                if center_drop < effective_len:
+                                    out["knee_only_boot_radius_deg"] = round(
+                                        math.degrees(
+                                            math.asin(
+                                                center_drop / effective_len)),
+                                        2)
+                                    out["knee_only_boot_formula"] = (
+                                        "(tip_mm - boot_radius_mm) * "
+                                        "sin(theta) + boot_radius_mm")
+                        if h_mm is None or femur is None or tibia is None:
+                            return out
+                        if 0.0 < h_mm < tibia:
+                            out["knee_only_ideal_deg"] = round(
+                                math.degrees(math.asin(h_mm / tibia)), 2)
+                        if 0.0 < h_mm < (femur + tibia):
+                            out["hip_only_ideal_deg"] = round(
+                                math.degrees(math.asin(
+                                    h_mm / (femur + tibia))), 2)
+                    except ValueError:
+                        pass
+                    return out
+
+                def sample_once(label: str, hip: float, knee: float,
+                                baseline: dict[int, dict],
+                                base_tilt: tuple[float, float] | None
+                                ) -> dict:
+                    fb = self._read_feedback_map(d.bus)
+                    per_leg = []
+                    hip_knee_currents: list[float] = []
+                    hip_knee_loads: list[float] = []
+                    current_excess = 0.0
+                    load_excess = 0.0
+                    hip_vals: list[float] = []
+                    knee_vals: list[float] = []
+                    for leg in range(6):
+                        jh = leg * 3 + 1
+                        jk = leg * 3 + 2
+                        rh = fb.get(jh) or {}
+                        rk = fb.get(jk) or {}
+                        bh = baseline.get(jh) or {}
+                        bk = baseline.get(jk) or {}
+                        hcur = abs(float(rh.get("current_a") or 0.0))
+                        kcur = abs(float(rk.get("current_a") or 0.0))
+                        hload = float(rh.get("load_pct") or 0.0)
+                        kload = float(rk.get("load_pct") or 0.0)
+                        hip_knee_currents.extend([hcur, kcur])
+                        hip_knee_loads.extend([hload, kload])
+                        current_excess = max(
+                            current_excess,
+                            hcur - abs(float(bh.get("current_a") or 0.0)),
+                            kcur - abs(float(bk.get("current_a") or 0.0)))
+                        load_excess = max(
+                            load_excess,
+                            hload - float(bh.get("load_pct") or 0.0),
+                            kload - float(bk.get("load_pct") or 0.0))
+                        hdeg = self._maybe_float(rh.get("deg"))
+                        kdeg = self._maybe_float(rk.get("deg"))
+                        if hdeg is not None:
+                            hip_vals.append(hdeg)
+                        if kdeg is not None:
+                            knee_vals.append(kdeg)
+                        per_leg.append({
+                            "leg": leg,
+                            "hip_deg": None if hdeg is None else round(hdeg, 2),
+                            "knee_deg": None if kdeg is None else round(kdeg, 2),
+                            "hip_current_a": round(hcur, 3),
+                            "knee_current_a": round(kcur, 3),
+                            "hip_load_pct": round(hload, 1),
+                            "knee_load_pct": round(kload, 1),
+                        })
+                    tilt = read_tilt()
+                    roll_delta = pitch_delta = None
+                    if tilt is not None and base_tilt is not None:
+                        roll_delta = tilt[0] - base_tilt[0]
+                        pitch_delta = tilt[1] - base_tilt[1]
+                    weak_contact = (
+                        current_excess >= 0.012 or load_excess >= 2.4)
+                    firm_contact = (
+                        current_excess >= 0.055 or load_excess >= 5.5)
+                    row = {
+                        "family": label,
+                        "cmd_hip_deg": round(float(hip), 2),
+                        "cmd_knee_deg": round(float(knee), 2),
+                        "mean_hip_deg": (
+                            None if not hip_vals else
+                            round(sum(hip_vals) / len(hip_vals), 2)),
+                        "mean_knee_deg": (
+                            None if not knee_vals else
+                            round(sum(knee_vals) / len(knee_vals), 2)),
+                        "max_hip_knee_current_a": round(
+                            max(hip_knee_currents or [0.0]), 3),
+                        "mean_hip_knee_current_a": round(
+                            sum(hip_knee_currents)
+                            / max(1, len(hip_knee_currents)), 3),
+                        "max_hip_knee_load_pct": round(
+                            max(hip_knee_loads or [0.0]), 1),
+                        "current_excess_a": round(max(0.0, current_excess), 3),
+                        "load_excess_pct": round(max(0.0, load_excess), 1),
+                        "contact_hint": bool(weak_contact),
+                        "firm_contact_hint": bool(firm_contact),
+                        "per_leg": per_leg,
+                    }
+                    if firm_contact:
+                        row["contact_strength"] = "firm"
+                    elif weak_contact:
+                        row["contact_strength"] = "weak"
+                    if tilt is not None:
+                        row["roll_deg"] = round(tilt[0], 2)
+                        row["pitch_deg"] = round(tilt[1], 2)
+                    if roll_delta is not None and pitch_delta is not None:
+                        row["roll_delta_deg"] = round(roll_delta, 2)
+                        row["pitch_delta_deg"] = round(pitch_delta, 2)
+                        row["tilt_delta_deg"] = round(
+                            max(abs(roll_delta), abs(pitch_delta)), 2)
+                    return row
+
+                def summarize(rows: list[dict], angle_key: str) -> dict:
+                    first = next(
+                        (r for r in rows if r.get("contact_hint")), None)
+                    first_firm = next(
+                        (r for r in rows if r.get("firm_contact_hint")), None)
+                    return {
+                        "samples": len(rows),
+                        "first_contact_hint_deg": (
+                            None if first is None else first.get(angle_key)),
+                        "first_contact_strength": (
+                            None if first is None
+                            else first.get("contact_strength")),
+                        "first_firm_contact_deg": (
+                            None if first_firm is None
+                            else first_firm.get(angle_key)),
+                        "max_current_a": round(max([
+                            float(r.get("max_hip_knee_current_a") or 0.0)
+                            for r in rows
+                        ] or [0.0]), 3),
+                        "max_load_pct": round(max([
+                            float(r.get("max_hip_knee_load_pct") or 0.0)
+                            for r in rows
+                        ] or [0.0]), 1),
+                        "max_tilt_delta_deg": round(max([
+                            float(r.get("tilt_delta_deg") or 0.0)
+                            for r in rows
+                        ] or [0.0]), 2),
+                    }
+
+                try:
+                    self._bus_hot_begin()
+                    with d._lock:
+                        d.mode = "demo"
+                        d.gait.stop()
+                    live = _live_robot_ids(d.bus)
+                    if len(live) < 12:
+                        result = {
+                            "ok": False,
+                            "mode": "axis_geometry",
+                            "error": f"need more servos (live={len(live)})",
+                            "live": sorted(live),
+                        }
+                    else:
+                        rec["expected"] = expected_angles()
+                        progress("axis geometry: safe zero")
+                        zero_start = self._safe_zero_sync(
+                            abort_check=self._demo_abort.is_set,
+                            on_progress=lambda p: progress(
+                                "axis geometry zero: "
+                                + str(p.get("msg") or "running")))
+                        rec["zero_start"] = zero_start
+                        if (gen != self._demo_gen
+                                or self._demo_abort.is_set()
+                                or not zero_start.get("ok")):
+                            result = {
+                                "ok": False,
+                                "aborted": bool(self._demo_abort.is_set()
+                                                or zero_start.get("aborted")),
+                                "mode": "axis_geometry",
+                                "error": (zero_start.get("error")
+                                          or "safe zero failed"),
+                                "record": rec,
+                            }
+                        else:
+                            _enable_torque(d.bus, live)
+                            _set_torque_limit(d.bus, live, 520)
+                            time.sleep(0.25)
+                            base_tilt = read_tilt()
+                            baseline = self._read_feedback_map(d.bus)
+                            baseline_row = sample_once(
+                                "baseline", 0.0, 0.0, baseline, base_tilt)
+                            rec["baseline"] = baseline_row
+                            families = [
+                                ("knee_only", "cmd_knee_deg", [
+                                    (0.0, 0.0), (0.0, 10.0),
+                                    (0.0, 15.0), (0.0, 20.0),
+                                    (0.0, 25.0), (0.0, 30.0),
+                                    (0.0, 35.0), (0.0, 40.0),
+                                    (0.0, 45.0), (0.0, 48.0),
+                                    (0.0, 50.0), (0.0, 52.0),
+                                    (0.0, 54.0), (0.0, 56.0),
+                                    (0.0, 58.0), (0.0, 60.0),
+                                ]),
+                                ("hip_only", "cmd_hip_deg", [
+                                    (0.0, 0.0), (8.0, 0.0),
+                                    (12.0, 0.0), (16.0, 0.0),
+                                    (20.0, 0.0), (23.0, 0.0),
+                                    (25.0, 0.0), (28.0, 0.0),
+                                    (30.0, 0.0), (32.0, 0.0),
+                                    (34.0, 0.0),
+                                ]),
+                            ]
+                            guard_error = None
+                            by_family: dict[str, dict] = {}
+                            for family, angle_key, targets in families:
+                                if guard_error or self._demo_abort.is_set():
+                                    break
+                                progress(f"axis geometry: {family} sweep")
+                                # Return to the real zero between families so
+                                # any load in the second family is not inherited.
+                                _write_pose(
+                                    d.bus, pose(0.0, 0.0), live,
+                                    speed=120, acc=10)
+                                time.sleep(0.55)
+                                rows: list[dict] = []
+                                for hip, knee in targets:
+                                    if self._demo_abort.is_set():
+                                        guard_error = "aborted"
+                                        break
+                                    progress(
+                                        f"axis geometry: {family} "
+                                        f"hip {hip:+.0f} / knee {knee:+.0f}")
+                                    _write_pose(
+                                        d.bus, pose(hip, knee), live,
+                                        speed=90, acc=8)
+                                    time.sleep(0.48)
+                                    row = sample_once(
+                                        family, hip, knee,
+                                        baseline, base_tilt)
+                                    rec["samples"].append(row)
+                                    rows.append(row)
+                                    max_cur = float(
+                                        row.get("max_hip_knee_current_a")
+                                        or 0.0)
+                                    tilt_delta = float(
+                                        row.get("tilt_delta_deg") or 0.0)
+                                    if max_cur >= 2.2:
+                                        guard_error = (
+                                            f"{family} current guard "
+                                            f"{max_cur:.2f}A")
+                                        break
+                                    if tilt_delta >= 14.0:
+                                        guard_error = (
+                                            f"{family} tilt guard "
+                                            f"{tilt_delta:.1f} deg")
+                                        break
+                                by_family[family] = summarize(rows, angle_key)
+                            rec["summary"] = by_family
+                            rec["guard_error"] = guard_error
+
+                            progress("axis geometry: return zero")
+                            zero_end = (
+                                {"ok": False, "skipped": True,
+                                 "error": "operator aborted"}
+                                if self._demo_abort.is_set() else
+                                self._safe_zero_sync(
+                                    abort_check=self._demo_abort.is_set,
+                                    on_progress=lambda p: progress(
+                                        "axis geometry return zero: "
+                                        + str(p.get("msg") or "running"))))
+                            rec["zero_end"] = zero_end
+
+                            log_dir = self._meas_dir()
+                            log_dir.mkdir(parents=True, exist_ok=True)
+                            path = log_dir / f"axis_geometry_{stamp}.json"
+                            rec["log_name"] = path.name
+                            rec["path"] = str(path)
+                            path.write_text(json.dumps(rec, indent=2) + "\n")
+                            if guard_error:
+                                result = {
+                                    "ok": False,
+                                    "mode": "axis_geometry",
+                                    "recoverable": True,
+                                    "guard_stop": guard_error != "aborted",
+                                    "aborted": guard_error == "aborted",
+                                    "error": guard_error,
+                                    "record": rec,
+                                }
+                            else:
+                                result = self._meas_finalize(rec)
+                                result["mode"] = "axis_geometry"
+                except Exception as e:
+                    result = {"ok": False, "mode": "axis_geometry",
+                              "error": str(e), "record": rec}
+                finally:
+                    try:
+                        if live:
+                            _set_torque_limit(d.bus, live, 1000)
+                    except Exception:
+                        pass
+                    try:
+                        if live:
+                            _limp_all(d.bus, live)
+                    except Exception:
+                        try:
+                            d.handle("X")
+                        except Exception:
+                            pass
+                    self._bus_hot_end()
+
+            if gen != self._demo_gen:
+                return
+            with d._lock:
+                if d.mode == "demo":
+                    d.mode = "idle"
+                d.armed = False
+            with self._lock:
+                self._cal_result = result
+                if result.get("ok"):
+                    summ = (result.get("record") or {}).get("summary") or {}
+                    k = (summ.get("knee_only") or {}).get(
+                        "first_contact_hint_deg")
+                    h = (summ.get("hip_only") or {}).get(
+                        "first_contact_hint_deg")
+                    self._demo_status = (
+                        f"done · knee contact ~{k}°, hip contact ~{h}°")
+                else:
+                    self._demo_status = (
+                        "error: " + str(result.get("error") or "failed"))
+                self._cal_progress = {"msg": self._demo_status}
+            self._set_activity("limp", self._demo_status)
+
+        self._demo_thread = threading.Thread(target=_worker, daemon=True)
+        self._demo_thread.start()
+        return {"ok": True, "stamp": stamp, "mode": "axis_geometry"}
 
     def measure_slip(self) -> dict:
         """Run the onboard loaded-vs-hover slip probe and save immediately."""

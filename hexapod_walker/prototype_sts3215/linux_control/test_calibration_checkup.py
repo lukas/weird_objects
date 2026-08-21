@@ -35,6 +35,8 @@ def _phase(phases: list[dict], name: str) -> dict:
 def _run_checkup(*, sweep_res: dict,
                  body_res: dict | None = None,
                  traction_res: dict | None = None,
+                 stability_res: dict | None = None,
+                 mass_res: dict | None = None,
                  plant_exc: Exception | None = None,
                  sweep_exc: Exception | None = None) -> tuple[dict, list[str]]:
     calls: list[str] = []
@@ -87,6 +89,40 @@ def _run_checkup(*, sweep_res: dict,
                 "msg": "traction ok",
             }
 
+        def stability(*_args, **_kwargs) -> dict:
+            calls.append("stability")
+            return stability_res or {
+                "ok": True,
+                "mode": "stability_margin",
+                "msg": "stable through bias tests",
+            }
+
+        def mass_shift(*_args, **_kwargs) -> dict:
+            calls.append("mass_shift")
+            return mass_res or {
+                "ok": True,
+                "mode": "mass_shift_response",
+                "msg": "mass shift ok",
+            }
+
+        def geometry_check(*_args, **_kwargs) -> dict:
+            calls.append("geometry_check")
+            return {
+                "ok": True,
+                "non_blocking": True,
+                "mode": "geometry_plausibility",
+                "msg": "geometry plausible",
+            }
+
+        def imu_frame_check(*_args, **_kwargs) -> dict:
+            calls.append("imu_frame_check")
+            return {
+                "ok": True,
+                "non_blocking": True,
+                "mode": "imu_frame_validation",
+                "msg": "IMU frame ok",
+            }
+
         def proprio(*_args, **_kwargs) -> dict:
             calls.append("proprio")
             return {
@@ -106,6 +142,15 @@ def _run_checkup(*, sweep_res: dict,
                 "msg": "camera witness not configured",
             }
 
+        def bus_power(*_args, **_kwargs) -> dict:
+            calls.append("bus_power")
+            return {
+                "ok": True,
+                "non_blocking": True,
+                "mode": "bus_power_health",
+                "msg": "18/18 servos live",
+            }
+
         def report(**_kwargs) -> dict:
             calls.append("report")
             return {
@@ -113,14 +158,23 @@ def _run_checkup(*, sweep_res: dict,
                 "log_name": "calibration_report_test.json",
                 "geometry": {},
                 "imu": {},
+                "stability_margin": _kwargs.get("stability_margin"),
+                "mass_shift": _kwargs.get("mass_shift"),
+                "bus_power": _kwargs.get("bus_power"),
                 "actuators": {},
             }
 
         api._safe_zero_sync = safe_zero
         api._calibrate_quad_body_frame = body_frame
+        api._run_traction_probe = traction
         api._run_leg_slip_probe = traction
+        api._run_stability_margin_check = stability
+        api._run_mass_shift_response_check = mass_shift
+        api._geometry_plausibility_check = geometry_check
+        api._imu_frame_validation_check = imu_frame_check
         api._proprioception_check = proprio
         api._camera_witness_check = camera
+        api._bus_power_check = bus_power
         api._save_calibration_report = report
 
         return (
@@ -142,24 +196,28 @@ def _run_checkup(*, sweep_res: dict,
             sys.modules["imu_calibrate"] = old_imu
 
 
-def test_partial_sweep_stops_dynamic_phases() -> None:
+def test_partial_sweep_keeps_collecting_independent_checks() -> None:
     result, calls = _run_checkup(sweep_res={
         "ok": False,
         "mode": "geometry_sweep",
         "msg": "dimension sweep partial",
     })
     phases = result["phases"]
-    assert calls.count("safe_zero") == 1, calls
-    assert "body" not in calls, calls
-    assert "traction" not in calls, calls
+    assert calls.count("safe_zero") == 2, calls
+    assert "body" in calls, calls
+    assert "stability" in calls, calls
+    assert "mass_shift" in calls, calls
+    assert "traction" in calls, calls
     assert not result["ok"], result
     assert "geometry_sweep: dimension sweep partial" == result["error"]
-    assert _phase(phases, "imu_body_frame")["skipped"] is True
-    assert "dimension sweep" in _phase(phases, "imu_body_frame")["summary"]
-    assert _phase(phases, "traction_probe")["skipped"] is True
-    assert _phase(phases, "return_zero")["skipped"] is True
-    assert _phase(phases, "proprioception_check")["skipped"] is True
-    assert "proprio" not in calls, calls
+    assert _phase(phases, "geometry_plausibility")["ok"] is True
+    assert _phase(phases, "imu_body_frame")["ok"] is True
+    assert _phase(phases, "stability_margin")["ok"] is True
+    assert _phase(phases, "mass_shift_response")["ok"] is True
+    assert _phase(phases, "traction_probe")["ok"] is True
+    assert _phase(phases, "return_zero")["ok"] is True
+    assert _phase(phases, "proprioception_check")["ok"] is True
+    assert "proprio" in calls, calls
 
 
 def test_sweep_command_failure_is_reported_as_phase_error() -> None:
@@ -203,8 +261,12 @@ def test_body_frame_failure_skips_return_zero() -> None:
     phases = result["phases"]
     assert calls.count("safe_zero") == 1, calls
     assert "body" in calls, calls
+    assert "stability" not in calls, calls
+    assert "mass_shift" not in calls, calls
     assert "traction" not in calls, calls
     assert result["error"] == "imu_body_frame: rear-lean reading too small"
+    assert _phase(phases, "stability_margin")["skipped"] is True
+    assert _phase(phases, "mass_shift_response")["skipped"] is True
     assert _phase(phases, "traction_probe")["skipped"] is True
     assert _phase(phases, "return_zero")["skipped"] is True
     assert _phase(phases, "proprioception_check")["skipped"] is True
@@ -217,12 +279,44 @@ def test_clean_checkup_returns_zero() -> None:
     assert result["ok"], result
     assert calls.count("safe_zero") == 2, calls
     assert "body" in calls, calls
+    assert "stability" in calls, calls
+    assert "mass_shift" in calls, calls
     assert "traction" in calls, calls
     assert "proprio" in calls, calls
     assert "camera" in calls, calls
     assert _phase(result["phases"], "return_zero")["ok"] is True
     assert _phase(result["phases"], "proprioception_check")["ok"] is True
+    assert _phase(result["phases"], "stability_margin")["ok"] is True
+    assert _phase(result["phases"], "mass_shift_response")["ok"] is True
     assert _phase(result["phases"], "camera_witness")["skipped"] is True
+    assert _phase(result["phases"], "bus_power_health")["ok"] is True
+
+
+def test_recoverable_stability_guard_skips_later_motion_but_returns_zero() -> None:
+    result, calls = _run_checkup(
+        sweep_res={"ok": True, "mode": "geometry_sweep", "msg": "sweep ok"},
+        stability_res={
+            "ok": False,
+            "mode": "stability_margin",
+            "recoverable": True,
+            "guard_stop": True,
+            "error": "front hard tilt guard 29.0 deg",
+        })
+    assert not result["ok"], result
+    assert result["error"] == (
+        "stability_margin: front hard tilt guard 29.0 deg")
+    assert "stability" in calls, calls
+    assert "mass_shift" not in calls, calls
+    assert "traction" not in calls, calls
+    assert calls.count("safe_zero") == 2, calls
+    assert "proprio" in calls, calls
+    stability = _phase(result["phases"], "stability_margin")
+    assert stability["aborted"] is False
+    assert stability["recoverable"] is True
+    assert _phase(result["phases"], "mass_shift_response")["skipped"] is True
+    assert _phase(result["phases"], "traction_probe")["skipped"] is True
+    assert _phase(result["phases"], "return_zero")["ok"] is True
+    assert _phase(result["phases"], "proprioception_check")["ok"] is True
 
 
 def test_recoverable_traction_guard_still_returns_zero() -> None:
@@ -233,11 +327,11 @@ def test_recoverable_traction_guard_still_returns_zero() -> None:
             "mode": "traction_probe",
             "recoverable": True,
             "guard_stop": True,
-            "error": "L0 hover stopped: tilt delta > 8 deg",
+            "error": "L0 hover stopped: sustained tilt delta > 18 deg",
         })
     assert not result["ok"], result
     assert result["error"] == (
-        "traction_probe: L0 hover stopped: tilt delta > 8 deg")
+        "traction_probe: L0 hover stopped: sustained tilt delta > 18 deg")
     assert calls.count("safe_zero") == 2, calls
     assert "proprio" in calls, calls
     traction = _phase(result["phases"], "traction_probe")

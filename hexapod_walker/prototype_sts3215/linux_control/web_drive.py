@@ -92,20 +92,26 @@ class Link:
         self.drive = drive
         self.lock = threading.Lock()
 
-    def send(self, line: str) -> bool:
+    def send(self, line: str) -> tuple[bool, str]:
         with self.lock:
             try:
+                result = self.drive.handle(line)
                 try:
                     from event_log import emit
                     emit("cmd", line.strip(), src="drive",
-                         data={"line": line.strip()})
+                         data={"line": line.strip(), "result": result})
                 except Exception:
                     pass
-                self.drive.handle(line)
-                return True
+                msg = str(result or "ok")
+                ok = not (
+                    msg.startswith("refused")
+                    or msg.startswith("need ")
+                    or msg.startswith("bad ")
+                )
+                return ok, msg
             except Exception as e:
                 print(f"[link] handle failed: {e}")
-                return False
+                return False, str(e)
 
 
 LINK = None   # set in main()
@@ -451,8 +457,8 @@ class Handler(BaseHTTPRequestHandler):
                     # Graceful power-off also preempts any demo so the
                     # settle doesn't fight a running routine.
                     BENCH._preempt_demo_thread(reason="settle", timeout=3.0)
-                ok = LINK.send(line)
-                self._send(200 if ok else 502, "ok" if ok else "link down")
+                ok, msg = LINK.send(line)
+                self._send(200 if ok else 409, msg if ok else msg or "failed")
         elif path == "/api/tft/ready":
             self._json(200, BENCH.tft_ready() if BENCH
                        else {"ok": False, "error": "no bench"})
@@ -745,6 +751,11 @@ class Handler(BaseHTTPRequestHandler):
                     duration_s=float(data.get("duration_s", 30.0))))
             elif path == "/api/measure/slip":
                 self._json(200, BENCH.measure_slip())
+            elif path == "/api/measure/axis_geometry":
+                self._json(200, BENCH.measure_axis_geometry(
+                    knee_height_mm=data.get("knee_height_mm"),
+                    knee_to_boot_tip_mm=data.get("knee_to_boot_tip_mm"),
+                    boot_diameter_mm=data.get("boot_diameter_mm")))
             elif path == "/api/measure/annotate":
                 self._json(200, BENCH.measure_annotate(
                     fields=data if isinstance(data, dict) else {}))

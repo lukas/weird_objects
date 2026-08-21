@@ -108,10 +108,16 @@ sim-ready report `GET /api/calibration/report` · **Stop** →
 `POST /api/calibrate/stop` · status/results poll `GET /api/calibrate` at
 0.8 s · **Reset plant default** → `POST /api/plant/reset` (confirm) ·
 **Clear IMU calib** → `POST /api/imu/reset` (confirm). Checkup rows are
-backend-reported phases; the proprioception row scores expected zero pose vs
-live servo feedback, while the camera witness row is intentionally optional
-until a synced camera source is supplied. Switching to this tab sends `HOLD`
-once if armed (freezes the background re-hold).
+backend-reported phases; geometry plausibility and IMU-frame validation are
+advisory gates, stability margin records safe reversible lean response, mass
+shift records pitch/roll change from lifted limb groups, the traction row
+records repeated gentle shear ranges for slip triage, and the bus/power row
+records live servo count, voltage, current, and temperature. The standalone
+slip tool keeps the more aggressive per-leg loaded-vs-hover drag. The
+proprioception row scores expected zero pose vs live servo feedback, while the
+camera witness row is intentionally optional until a synced camera source is
+supplied. Switching to this tab sends `HOLD` once if armed (freezes the
+background re-hold).
 
 ### Motors (`#motors`)
 

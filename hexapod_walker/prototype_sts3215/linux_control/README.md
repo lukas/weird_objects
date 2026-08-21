@@ -155,17 +155,27 @@ hex_commit_push "Add safer robot telemetry" \
 ## Calibration checkup / geometry sweep
 
 The Web UI **Checkup** route runs, in order: safe zero, IMU rest/bias,
-ground-contact plant search, per-leg dimension sweep, quad IMU body-frame map,
-traction/slip probe, return-to-zero, a proprioception consistency score,
-optional camera witness metadata, actuator snapshot, then one calibration
-report.  The proprioception phase is read-only after return-to-zero: it compares
-the expected zero pose with live servo encoders/current/voltage/temperature and
-flags large command-vs-feedback errors.  It cannot prove where the feet moved in
-the room; synced camera/video is the separate witness needed for slip and body
-translation.  The traction/slip probe is deliberately recoverable: if its own
-tilt/current guard trips, the phase is reported as an issue but the checkup still
-attempts the staged safe-zero return unless the operator stop/E-stop was active.
-The dimension sweep
+ground-contact plant search, per-leg dimension sweep, geometry plausibility,
+quad IMU body-frame map, IMU-frame validation, stability-margin probe,
+mass-shift response, traction/slip probe, return-to-zero, a proprioception
+consistency score, optional camera witness metadata, bus/power health,
+actuator snapshot, then one calibration report.  The
+proprioception phase is read-only after return-to-zero: it compares the expected
+zero pose with live servo encoders/current/voltage/temperature and flags large
+command-vs-feedback errors.  It cannot prove where the feet moved in the room;
+synced camera/video is the separate witness needed for slip and body
+translation.  The moving checks are deliberately less conservative than older
+runs: weak geometry, small IMU-frame samples, and recoverable slip-probe guards
+are recorded as issues/warnings while the checkup continues to collect
+independent evidence. Operator stop/E-stop, hard command failure, high current,
+or sustained large tilt still stop motion. The stability-margin phase uses small
+reversible stance biases in four directions and reports a lower-bound usable
+tilt, not a fall angle. The mass-shift phase lifts small limb groups and records
+steady pitch/roll response, which is the first useful proxy for center-of-mass
+and limb-mass mismatch in MuJoCo. The standard checkup traction phase uses two
+repeated planted shear trials at several small yaw amplitudes and reports
+min/max ranges; the more aggressive per-leg loaded-vs-hover drag remains the
+explicit standalone slip probe. The dimension sweep
 keeps five feet planted and probes several same-floor hip/knee contact poses
 with the sixth leg.  Treat it as a contact-height consistency diagnostic:
 vertical floor contacts alone do **not** identify absolute femur/tibia lengths
@@ -174,8 +184,13 @@ height/vision measurement.  The report therefore keeps configured/manual link
 lengths as the dimension source and uses the sweep for per-leg height residuals,
 zero-offset hints, and mismatch warnings.  Boot edges, footpad angle, floor
 compliance, and servo lag can all make first contact differ from the ideal tibia
-endpoint.  Coxa length and chassis width remain nominal/manual because vertical
-floor contacts do not observe horizontal geometry.
+endpoint.  The sweep records weak first-contact brushes separately from firm
+loaded contacts and backs the probe leg off immediately after a contact hint;
+continuing to push mostly measures boot/chassis flex.  When the operator
+measures knee-to-boot-tip, use the boot-radius contact model
+`height = (tip_mm - boot_radius_mm) * sin(theta) + boot_radius_mm`, not a
+pin-foot line to the tip.  Coxa length and chassis width remain nominal/manual
+because vertical floor contacts do not observe horizontal geometry.
 
 Deploys paint a temporary TFT **DEPLOYING** banner while the web service is
 stopped.  After `/api/ping` succeeds, the deploy scripts now call
