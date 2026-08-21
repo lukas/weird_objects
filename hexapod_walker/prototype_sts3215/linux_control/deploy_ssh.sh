@@ -35,7 +35,7 @@ mkdir -p "$STAGE/linux_control" "$STAGE/motor_setup" \
 cp "$SRC/tripod_gait.py" "$SRC/drive_controller.py" \
   "$SRC/mcu_feetech_bus.py" "$SRC/bench_api.py" "$SRC/web_drive.py" \
   "$SRC/xbox_drive.py" "$SRC/joint_calibrate.py" \
-  "$SRC/plant_calibrate.py" "$SRC/imu_calibrate.py" \
+  "$SRC/plant_calibrate.py" "$SRC/geometry_plant.py" "$SRC/imu_calibrate.py" \
   "$SRC/event_log.py" "$SRC/status_display.py" "$SRC/servo_watch.py" \
   "$SRC/mpu_probe.py" "$SRC/rl_policy.py" "$SRC/safe_zero.py" \
   "$SRC/pinned_tip.py" "$SRC/noslip_gait.py" \
