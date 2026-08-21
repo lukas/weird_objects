@@ -1353,6 +1353,20 @@ function renderCalDimensions(res){
       ? `absolute-knee FK ${calMm(gsum.manual_absolute_height_mm)} (${calDelta(gsum.manual_absolute_minus_manual_height_mm)})`
       : null,
   ].filter(Boolean);
+  const zeroHyp = gsum.manual_zero_hypotheses || {};
+  const zeroModels = zeroHyp.models || {};
+  function zeroHypBit(label, row){
+    if(!row || !row.ok) return null;
+    return `${label} ${calSigned(row.hip_zero_deg)}° hip / `+
+      `${calSigned(row.knee_zero_deg)}° knee `+
+      `(rms ${calMm(row.rms_error_mm)})`;
+  }
+  const zeroHypBits = [
+    zeroHypBit('serial best', zeroHyp.best_serial),
+    zeroHypBit('hip-only', zeroModels.serial_hip_only),
+    zeroHypBit('knee-only', zeroModels.serial_knee_only),
+    zeroHypBit('abs-knee check', zeroModels.absolute_knee_no_offset),
+  ].filter(Boolean);
   const rows = [
     ['manual measurements',
       manualBits.length ? manualBits.join(' · ') : 'not saved',
@@ -1378,6 +1392,11 @@ function renderCalDimensions(res){
     ['manual FK consistency',
       consistencyBits.length ? consistencyBits.join(' · ') : 'waiting for measured links + hip height',
       'positive delta means FK predicts a taller robot than tape'],
+    ['manual zero hypothesis',
+      zeroHypBits.length ? zeroHypBits.join(' · ') : 'waiting for measured links + sweep contacts',
+      zeroHyp.sample_count
+        ? `${zeroHyp.sample_count} contacts fit to measured height/link lengths`
+        : 'report-only diagnostic'],
     ['dimension sweep',
       sweepSource,
       contactSweep && sweepRaw

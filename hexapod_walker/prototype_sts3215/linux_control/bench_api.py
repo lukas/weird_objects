@@ -2032,7 +2032,10 @@ class BenchAPI:
             geom_schema = int((geom or {}).get("schema_version") or 0)
         except (TypeError, ValueError):
             geom_schema = 0
-        if not isinstance(geom, dict) or geom_schema < 3:
+        # Keep status reads cheap.  Older reports stay readable as-is; the
+        # next checkup writes the current schema instead of recomputing every
+        # polled /api/calibrate GET.
+        if not isinstance(geom, dict):
             try:
                 report["geometry"] = self._geometry_report()
             except Exception:
@@ -2259,6 +2262,137 @@ class BenchAPI:
         path.write_text(json.dumps(out, indent=2) + "\n")
         return self.manual_geometry_state()
 
+    def _manual_zero_hypotheses(
+            self, samples: list[dict], *,
+            manual_height_mm: float | None,
+            manual_femur_mm: float | None,
+            manual_tibia_mm: float | None) -> dict | None:
+        """Fit measured links/height against contact angles for zero clues."""
+        if (
+                manual_height_mm is None or manual_femur_mm is None
+                or manual_tibia_mm is None):
+            return None
+        rows = []
+        for s in samples or []:
+            try:
+                if (
+                        not bool(s.get("accepted", False))
+                        or not bool(s.get("contact_detected", False))):
+                    continue
+                reason = str(s.get("reason") or "").lower()
+                if "without contact signal" in reason:
+                    continue
+                base_z = s.get("base_z_mm")
+                nominal_z = s.get("nominal_z_mm")
+                if base_z is not None and nominal_z is not None:
+                    if float(nominal_z) > float(base_z) + 4.0:
+                        continue
+                rows.append({
+                    "leg": int(s.get("leg", 0)),
+                    "hip_deg": float(s["hip_deg"]),
+                    "knee_deg": float(s["knee_deg"]),
+                })
+            except (KeyError, TypeError, ValueError):
+                continue
+        if len(rows) < 3:
+            return {
+                "ok": False,
+                "status": "not_enough_contacts",
+                "sample_count": len(rows),
+                "target_height_mm": round(float(manual_height_mm), 2),
+            }
+
+        target = float(manual_height_mm)
+        femur = float(manual_femur_mm)
+        tibia = float(manual_tibia_mm)
+
+        def _height(row: dict, hip_off: float, knee_off: float,
+                    convention: str) -> float:
+            hip = math.radians(float(row["hip_deg"]) + hip_off)
+            knee = math.radians(float(row["knee_deg"]) + knee_off)
+            if convention == "absolute_knee":
+                return femur * math.sin(hip) + tibia * math.sin(knee)
+            return femur * math.sin(hip) + tibia * math.sin(hip + knee)
+
+        def _eval(hip_off: float, knee_off: float,
+                  convention: str) -> dict:
+            heights = [_height(r, hip_off, knee_off, convention) for r in rows]
+            errs = [h - target for h in heights]
+            mean_h = sum(heights) / len(heights)
+            rms = math.sqrt(sum(e * e for e in errs) / len(errs))
+            spread = max(heights) - min(heights)
+            penalty = 0.03 * (abs(hip_off) + abs(knee_off))
+            return {
+                "ok": True,
+                "angle_convention": (
+                    "hip_deg+knee_deg is tibia angle"
+                    if convention == "serial" else "knee_deg is tibia angle"),
+                "hip_zero_deg": round(float(hip_off), 2),
+                "knee_zero_deg": round(float(knee_off), 2),
+                "mean_height_mm": round(mean_h, 2),
+                "mean_error_mm": round(mean_h - target, 2),
+                "height_spread_mm": round(spread, 2),
+                "rms_error_mm": round(rms, 2),
+                "score": round(rms + penalty, 3),
+            }
+
+        def _frange(lo: float, hi: float, step: float) -> list[float]:
+            n = int(round((hi - lo) / step))
+            return [round(lo + i * step, 4) for i in range(n + 1)]
+
+        def _fit(convention: str, hip_vals: list[float],
+                 knee_vals: list[float], *, refine: bool = True) -> dict:
+            best: dict | None = None
+            for hip_off in hip_vals:
+                for knee_off in knee_vals:
+                    row = _eval(hip_off, knee_off, convention)
+                    if best is None or row["score"] < best["score"]:
+                        best = row
+            if refine and best is not None:
+                hip0 = float(best["hip_zero_deg"])
+                knee0 = float(best["knee_zero_deg"])
+                for hip_off in _frange(hip0 - 0.6, hip0 + 0.6, 0.1):
+                    for knee_off in _frange(knee0 - 0.6, knee0 + 0.6, 0.1):
+                        row = _eval(hip_off, knee_off, convention)
+                        if row["score"] < best["score"]:
+                            best = row
+            return best or {
+                "ok": False,
+                "angle_convention": convention,
+                "status": "no_candidates",
+            }
+
+        coarse = _frange(-30.0, 30.0, 1.0)
+        fine = _frange(-30.0, 30.0, 0.5)
+        zero = [0.0]
+        models = {
+            "serial_no_offset": _eval(0.0, 0.0, "serial"),
+            "serial_hip_only": _fit("serial", fine, zero),
+            "serial_knee_only": _fit("serial", zero, fine),
+            "serial_best_pair": _fit("serial", coarse, coarse),
+            "absolute_knee_no_offset": _eval(0.0, 0.0, "absolute_knee"),
+        }
+        best_serial = min(
+            (models[k] for k in (
+                "serial_hip_only", "serial_knee_only", "serial_best_pair")
+             if models[k].get("ok")),
+            key=lambda r: float(r.get("score", 1e9)),
+            default=None)
+        return {
+            "ok": True,
+            "status": "fit_to_operator_measurements",
+            "sample_count": len(rows),
+            "target_height_mm": round(target, 2),
+            "femur_mm": round(femur, 2),
+            "tibia_mm": round(tibia, 2),
+            "best_serial": best_serial,
+            "models": models,
+            "note": (
+                "If the best serial zero shift is large while measured links "
+                "look right, the likely bug is joint zero/reference "
+                "convention rather than physical segment length."),
+        }
+
     def _geometry_report(
             self, *, geometry_sweep: dict | None = None,
             use_latest_sweep: bool = True) -> dict:
@@ -2465,6 +2599,11 @@ class BenchAPI:
             manual_absolute_height_mm = round(
                 manual_femur_mm * math.sin(hip)
                 + manual_tibia_mm * math.sin(knee), 2)
+        manual_zero_hypotheses = self._manual_zero_hypotheses(
+            sweep_samples,
+            manual_height_mm=manual_height_mm,
+            manual_femur_mm=manual_femur_mm,
+            manual_tibia_mm=manual_tibia_mm)
         nominal_center_radius_mm = round(CHASSIS_FLAT_TO_FLAT_MM / 2.0
                                          + COXA_MM, 2)
         center_radius_delta_mm = (
@@ -2491,7 +2630,7 @@ class BenchAPI:
                     manual_center_radius_mm * 0.001, 5)
         return {
             "ok": True,
-            "schema_version": 3,
+            "schema_version": 4,
             "nominal_mm": {
                 "coxa": COXA_MM,
                 "femur": FEMUR_MM,
@@ -2543,6 +2682,7 @@ class BenchAPI:
                 "manual_center_minus_nominal_mm": center_radius_delta_mm,
                 "manual_link_fit": manual_link_fit or None,
                 "manual_link_mismatch": manual_link_mismatch,
+                "manual_zero_hypotheses": manual_zero_hypotheses,
                 "height_source": (
                     "manual_operator_measurement"
                     if manual_height_mm is not None

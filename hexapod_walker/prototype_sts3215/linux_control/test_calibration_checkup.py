@@ -180,13 +180,29 @@ def test_manual_geometry_is_reported_separately_from_fk() -> None:
             "knee_deg": 33.0,
             "pose": [0.0, 18.0, 33.0] * 6,
         }
-        geom = api._geometry_report(use_latest_sweep=False)
+        sweep_samples = [
+            {"accepted": True, "contact_detected": True, "leg": i % 6,
+             "hip_deg": hip, "knee_deg": knee,
+             "reason": "floor contact signal"}
+            for i, (hip, knee) in enumerate((
+                (18.0, 28.0), (14.0, 32.0), (22.0, 24.0),
+                (17.0, 30.0), (21.0, 26.0), (15.0, 31.0),
+            ))
+        ]
+        geom = api._geometry_report(
+            geometry_sweep={"ok": True, "samples": sweep_samples},
+            use_latest_sweep=False)
         summary = geom["summary"]
-        assert geom["schema_version"] >= 3
+        assert geom["schema_version"] >= 4
         assert summary["manual_hip_pitch_height_mm"] == 95.0
         assert summary["manual_hip_center_radius_mm"] == 114.0
         assert summary["manual_center_minus_nominal_mm"] == 1.5
         assert summary["manual_relative_minus_manual_height_mm"] > 0.0
+        hyp = summary["manual_zero_hypotheses"]
+        assert hyp["ok"], hyp
+        assert hyp["sample_count"] == len(sweep_samples)
+        assert hyp["models"]["serial_best_pair"]["rms_error_mm"] < (
+            hyp["models"]["serial_no_offset"]["rms_error_mm"])
         assert geom["mujoco_hint"]["neutral_foot_z_m"] == -0.095
         assert geom["mujoco_hint"]["per_leg_servo_height_m"]["0"] == 0.095
         assert geom["mujoco_hint"]["per_leg_servo_height_source"] == (
