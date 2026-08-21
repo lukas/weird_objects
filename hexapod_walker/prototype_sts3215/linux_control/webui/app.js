@@ -2896,6 +2896,7 @@ window.addEventListener('hashchange', ()=>{
 // all PWM. needArm() gates every servo-driving send on both pages.
 function updateArmUI(){
   const bar = $('armbar');
+  const zeroBtn = $('armzero');
   const simOnly = targetHasSim && !targetHasRobot;
   const robotConfigured = robotTargetAvailable || !!robotTargetUrl;
   bar.classList.toggle('sim', simOnly);
@@ -2904,6 +2905,10 @@ function updateArmUI(){
     $('armstate').textContent = '● SIM';
     $('armbtn').textContent = 'Stand';
     $('armbtn').title = 'Reset the MuJoCo sim to the standing plant stance.';
+    zeroBtn.disabled = true;
+    zeroBtn.title = robotConfigured
+      ? 'Switch Robot active to run safe zero on the real robot.'
+      : 'Connect the robot to run safe zero.';
     $('estop').textContent = robotConfigured ? '■ E-STOP' : '■ Stop';
     $('estop').title = robotConfigured
       ? 'Global emergency stop: cut robot servo power immediately and stop '
@@ -2922,6 +2927,11 @@ function updateArmUI(){
     ? 'Normal power-off (SETTLE): lowers gently to the ground, THEN cuts '
       +'servo power. For an instant cut use EMERGENCY STOP (robot drops).'
     : 'Power the servos on (ARM). Nothing moves until you press Stand.';
+  zeroBtn.disabled = !robotTargetAvailable;
+  zeroBtn.title = robotTargetAvailable
+    ? 'Move to logical sit zero using the collision-aware safe-zero plan. '
+      +'This may enable torque while it moves, then leaves the robot at zero.'
+    : 'Robot target is not connected.';
   $('estop').textContent = '■ E-STOP';
   $('estop').title = 'Cut all power to the servos IMMEDIATELY — the robot '
     +'goes limp NOW and will drop. Use only in an emergency. For a normal, '
@@ -2943,6 +2953,17 @@ function armServos(){
 // sent (the firmware does the lower, then goes limp on its own).
 function settleServos(){ dbgTestAbort = true; cmd('SETTLE'); setArmed(false);
   showSent('DISARM — lowering gently, then servos off'); }
+async function topSafeZero(){
+  if(targetHasSim && !targetHasRobot){
+    showSent('switch Robot active before safe zero', true);
+    return;
+  }
+  if(!robotTargetAvailable){
+    showSent('robot target not connected', true);
+    return;
+  }
+  await goPoseZero('sit', 'safe zero');
+}
 // INSTANT limp: cut all PWM NOW (true emergency stop; the robot drops). Always
 // allowed, even while disarmed, and used for the boot-time safe default.
 function disarmServos(){
@@ -2961,6 +2982,8 @@ function needArm(){
 }
 // The Disarm toggle is a NORMAL power-off -> graceful lower then limp.
 $('armbtn').onclick = ()=> servosArmed ? settleServos() : armServos();
+// Safe zero is a staged motion into logical sit zero, not an E-stop.
+$('armzero').onclick = topSafeZero;
 // EMERGENCY STOP is the ONLY instant-limp control (cuts PWM immediately).
 $('estop').onclick  = disarmServos;
 // Enforce the safe default on EVERY page load: show disarmed AND tell the

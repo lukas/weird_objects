@@ -5,10 +5,12 @@
 #   source linux_control/dev_loop.sh
 #   hex_check
 #   hex_deploy
+#   hex_deploy_fast
 #
 # Or run as a command:
 #   linux_control/dev_loop.sh check
 #   linux_control/dev_loop.sh deploy
+#   linux_control/dev_loop.sh deploy-fast
 if [ -n "${BASH_VERSION:-}" ]; then
   _HEX_SCRIPT="${BASH_SOURCE[0]}"
   if [ "${BASH_SOURCE[0]}" = "$0" ]; then
@@ -60,6 +62,7 @@ files = [
     "linux_control/deploy_status_display.py",
     "linux_control/safe_zero.py",
     "linux_control/pinned_tip.py",
+    "linux_control/test_calibration_checkup.py",
     "linux_control/plant_calibrate.py",
     "linux_control/geometry_plant.py",
     "linux_control/test_geometry_sweep_fit.py",
@@ -170,6 +173,7 @@ hex_unit_check() {
   hex_note "off-robot unit tests (fake buses only)"
   (
     cd "$HEX_LC_DIR"
+    python3 test_calibration_checkup.py &&
     python3 test_mcu_stream.py &&
     python3 test_geometry_sweep_fit.py &&
     python3 test_quad_pitch_trim.py &&
@@ -261,6 +265,14 @@ hex_deploy() {
   hex_status
 }
 
+hex_deploy_fast() {
+  hex_check || return
+  hex_note "fast deploy over SSH (skip remote compile/status; deploy waits for /api/ping)"
+  HEXAPOD_HOST="$HEXAPOD_HOST" HEXAPOD_SSH="$HEXAPOD_SSH" \
+    HEXAPOD_SSH_HOSTKEY_ALIAS="$HEXAPOD_SSH_HOSTKEY_ALIAS" \
+    "$HEX_LC_DIR/deploy_ssh.sh"
+}
+
 hex_commit_push() {
   if [ "$#" -lt 2 ]; then
     echo "usage: hex_commit_push 'commit message' path [path ...]" >&2
@@ -284,6 +296,7 @@ Fast hexapod dev-loop helpers:
   hex_resolve        Print current mDNS IPv4 answer for hexapod.local.
   hex_status         Read-only /api/ping + compact /api/robot summary.
   hex_deploy         hex_check, deploy_ssh.sh, remote compile, hex_status.
+  hex_deploy_fast    hex_check, deploy_ssh.sh only; deploy waits for /api/ping.
   hex_commit_push    Commit/push explicit paths only:
                     hex_commit_push "message" path [path ...]
 
@@ -304,6 +317,7 @@ if [ "$_HEX_EXECUTED" = "1" ]; then
     resolve) hex_resolve "$@" ;;
     status) hex_status "$@" ;;
     deploy) hex_deploy "$@" ;;
+    deploy-fast) hex_deploy_fast "$@" ;;
     remote-compile) hex_remote_compile "$@" ;;
     commit-push) hex_commit_push "$@" ;;
     help|-h|--help) hex_help ;;

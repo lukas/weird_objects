@@ -210,6 +210,21 @@ def test_snapshot_imu_invalid_age():
     assert bytes(bus._ser.tx) == encode_sync_frame(ord("S"), [])
 
 
+def test_read_imu_prefers_stream_snapshot():
+    imu_raw = (0, 0, 16384, 131, -131, 0, 0)
+    servos = [(2 + j, 1, 2048, 0) for j in range(18)]
+    reply = _fw_snapshot_frame(
+        _fw_snapshot_payload(5, 2, 1, imu_raw, servos), 18)
+    bus = _mk_bus(reply)
+
+    imu = bus.read_imu()
+    assert imu is not None
+    assert abs(imu["az_g"] - 1.0) < 1e-6
+    assert abs(imu["gx_dps"] - 1.0) < 1e-6
+    assert abs(imu["gy_dps"] + 1.0) < 1e-6
+    assert bytes(bus._ser.tx) == encode_sync_frame(ord("S"), [])
+
+
 def _main() -> int:
     fails = 0
     for name, fn in sorted(globals().items()):

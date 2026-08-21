@@ -888,6 +888,14 @@ class McuFeetechBus:
         config. When ``logs/imu_calib.json`` exists and ``apply_calib``,
         subtracts rest gyro/accel biases from Calibrate → IMU.
         """
+        if getattr(self, "has_stream", False):
+            try:
+                snap = self.read_snapshot(apply_calib=apply_calib)
+            except Exception:
+                snap = None
+            if isinstance(snap, dict) and isinstance(snap.get("imu"), dict):
+                return snap["imu"]
+
         line = self._transact("IMUR", timeout=timeout)
         if not line or not line.startswith("OK"):
             return None

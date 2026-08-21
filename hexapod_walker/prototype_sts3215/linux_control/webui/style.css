@@ -224,11 +224,13 @@
               white-space:nowrap; }
   .armbar.disarmed .armstate { color:#ff6b6b; }
   .armbar.armed    .armstate { color:#5fd08a; }
-  .armbtn, .estop { flex:0 0 auto; min-width:0; padding:5px 9px;
+  .armbtn, .armzero, .estop { flex:0 0 auto; min-width:0; padding:5px 9px;
             font-weight:750; font-size:12px; border-radius:7px;
             line-height:1.15; cursor:pointer; }
   .armbtn { background:#2e7d47; border:1px solid #3a9a58; color:#fff; }
   .armbar.armed .armbtn { background:#1b2030; border-color:#2c3140; color:#e7eaf0; }
+  .armzero { background:#1b2030; border:1px solid #44506a; color:#dfe4ee; }
+  .armzero:disabled { opacity:.45; cursor:not-allowed; }
   .estop { background:#7a2b2b; border:1px solid #a33; color:#fff; }
   .estop:active { background:#5a2020; }
   table.motors { width:100%; border-collapse:collapse; font-size:12px; }

@@ -3286,6 +3286,8 @@ class BenchAPI:
         sweep_res = None
         motion_ok = (not abort_check() and not geo_res.get("aborted")
                      and bool(geo_res.get("ok")))
+        motion_block_reason = (
+            "not run because ground contact geometry did not finish cleanly")
         body_ok = False
 
         if motion_ok:
@@ -3297,17 +3299,24 @@ class BenchAPI:
                     "geometry_sweep",
                     **{k: v for k, v in p.items() if k != "msg"}))
             phase("geometry_sweep", sweep_res)
-            if abort_check() or sweep_res.get("aborted"):
+            if (abort_check() or sweep_res.get("aborted")
+                    or not sweep_res.get("ok")):
                 motion_ok = False
+                if abort_check() or sweep_res.get("aborted"):
+                    motion_block_reason = (
+                        "not run because dimension sweep was aborted")
+                else:
+                    motion_block_reason = (
+                        "not run because dimension sweep did not finish "
+                        "cleanly")
         else:
             phases.append({
                 "name": "geometry_sweep",
                 "ok": False,
                 "aborted": bool(geo_res.get("aborted") or abort_check()),
+                "skipped": True,
                 "mode": "geometry_sweep",
-                "summary": (
-                    "not run because ground contact geometry did not finish "
-                    "cleanly"),
+                "summary": motion_block_reason,
             })
 
         if motion_ok:
@@ -3323,11 +3332,11 @@ class BenchAPI:
             phases.append({
                 "name": "imu_body_frame",
                 "ok": False,
-                "aborted": bool(geo_res.get("aborted") or abort_check()),
+                "aborted": bool(abort_check()
+                                or any(p.get("aborted") for p in phases)),
+                "skipped": True,
                 "mode": "imu_body_frame",
-                "summary": (
-                    "not run because ground contact geometry did not finish "
-                    "cleanly"),
+                "summary": motion_block_reason,
             })
 
         if motion_ok and body_ok and not abort_check():
@@ -3342,20 +3351,45 @@ class BenchAPI:
             phases.append({
                 "name": "traction_probe",
                 "ok": False,
-                "aborted": bool(geo_res.get("aborted") or abort_check()),
+                "aborted": bool(abort_check()
+                                or any(p.get("aborted") for p in phases)),
+                "skipped": True,
                 "mode": "traction_probe",
                 "summary": (
                     "not run because a prior motion phase did not finish "
                     "cleanly"),
             })
 
+        motion_phase_names = {
+            "geometry_plant",
+            "geometry_sweep",
+            "imu_body_frame",
+            "traction_probe",
+        }
+        prior_motion_issue = any(
+            p.get("name") in motion_phase_names
+            and not p.get("ok")
+            and not p.get("skipped")
+            for p in phases)
         if abort_check() or any(p.get("aborted") for p in phases):
             phases.append({
                 "name": "return_zero",
                 "ok": False,
                 "aborted": True,
+                "skipped": True,
                 "mode": "return_zero",
                 "summary": "not run because checkup was aborted",
+            })
+        elif prior_motion_issue:
+            phases.append({
+                "name": "return_zero",
+                "ok": False,
+                "aborted": False,
+                "skipped": True,
+                "mode": "return_zero",
+                "summary": (
+                    "not run because a motion phase had issues; robot left "
+                    "limp for inspection"),
             })
         else:
             return_zero_res = run_safe_zero_phase(

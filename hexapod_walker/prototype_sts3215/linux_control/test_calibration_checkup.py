@@ -1,0 +1,171 @@
+"""Off-robot tests for the all-in-one calibration checkup coordinator.
+
+Run locally:  python3 linux_control/test_calibration_checkup.py
+No hardware: tests monkeypatch the motion phases and assert sequencing.
+"""
+from __future__ import annotations
+
+import sys
+import types
+from pathlib import Path
+
+_HERE = Path(__file__).resolve().parent
+for _p in (_HERE, _HERE.parent / "motor_setup"):
+    if str(_p) not in sys.path:
+        sys.path.insert(0, str(_p))
+
+from bench_api import BenchAPI  # noqa: E402
+
+
+def _module(name: str, **attrs) -> types.ModuleType:
+    mod = types.ModuleType(name)
+    for key, value in attrs.items():
+        setattr(mod, key, value)
+    return mod
+
+
+def _phase(phases: list[dict], name: str) -> dict:
+    for phase in phases:
+        if phase.get("name") == name:
+            return phase
+    raise AssertionError(f"missing phase {name}: {phases}")
+
+
+def _run_checkup(*, sweep_res: dict,
+                 body_res: dict | None = None,
+                 traction_res: dict | None = None) -> tuple[dict, list[str]]:
+    calls: list[str] = []
+    old_geometry = sys.modules.get("geometry_plant")
+    old_imu = sys.modules.get("imu_calibrate")
+
+    def run_geometry_plant(*_args, **_kwargs) -> dict:
+        calls.append("plant")
+        return {"ok": True, "mode": "geometry_plant", "msg": "plant ok"}
+
+    def run_geometry_contact_sweep(*_args, **_kwargs) -> dict:
+        calls.append("sweep")
+        return sweep_res
+
+    def run_imu_calibrate(*_args, **_kwargs) -> dict:
+        calls.append("imu")
+        return {"ok": True, "mode": "imu", "msg": "imu ok"}
+
+    sys.modules["geometry_plant"] = _module(
+        "geometry_plant",
+        run_geometry_plant=run_geometry_plant,
+        run_geometry_contact_sweep=run_geometry_contact_sweep)
+    sys.modules["imu_calibrate"] = _module(
+        "imu_calibrate", run_imu_calibrate=run_imu_calibrate)
+
+    try:
+        api = BenchAPI(object())
+
+        def safe_zero(**_kwargs) -> dict:
+            calls.append("safe_zero")
+            return {"ok": True, "stages_done": 1}
+
+        def body_frame(*_args, **_kwargs) -> dict:
+            calls.append("body")
+            return body_res or {
+                "ok": True,
+                "mode": "imu_body_frame",
+                "msg": "body ok",
+            }
+
+        def traction(*_args, **_kwargs) -> dict:
+            calls.append("traction")
+            return traction_res or {
+                "ok": True,
+                "mode": "traction_probe",
+                "msg": "traction ok",
+            }
+
+        def report(**_kwargs) -> dict:
+            calls.append("report")
+            return {
+                "path": "/tmp/calibration_report_test.json",
+                "log_name": "calibration_report_test.json",
+                "geometry": {},
+                "imu": {},
+                "actuators": {},
+            }
+
+        api._safe_zero_sync = safe_zero
+        api._calibrate_quad_body_frame = body_frame
+        api._run_leg_slip_probe = traction
+        api._save_calibration_report = report
+
+        return (
+            api._run_calibration_checkup(
+                None,
+                clearance_mm=25.0,
+                abort_check=lambda: False,
+                on_progress=lambda _p: None),
+            calls,
+        )
+    finally:
+        if old_geometry is None:
+            sys.modules.pop("geometry_plant", None)
+        else:
+            sys.modules["geometry_plant"] = old_geometry
+        if old_imu is None:
+            sys.modules.pop("imu_calibrate", None)
+        else:
+            sys.modules["imu_calibrate"] = old_imu
+
+
+def test_partial_sweep_stops_dynamic_phases() -> None:
+    result, calls = _run_checkup(sweep_res={
+        "ok": False,
+        "mode": "geometry_sweep",
+        "msg": "dimension sweep partial",
+    })
+    phases = result["phases"]
+    assert calls.count("safe_zero") == 1, calls
+    assert "body" not in calls, calls
+    assert "traction" not in calls, calls
+    assert not result["ok"], result
+    assert "geometry_sweep: dimension sweep partial" == result["error"]
+    assert _phase(phases, "imu_body_frame")["skipped"] is True
+    assert "dimension sweep" in _phase(phases, "imu_body_frame")["summary"]
+    assert _phase(phases, "traction_probe")["skipped"] is True
+    assert _phase(phases, "return_zero")["skipped"] is True
+
+
+def test_body_frame_failure_skips_return_zero() -> None:
+    result, calls = _run_checkup(
+        sweep_res={"ok": True, "mode": "geometry_sweep", "msg": "sweep ok"},
+        body_res={
+            "ok": False,
+            "mode": "imu_body_frame",
+            "error": "rear-lean reading too small",
+        })
+    phases = result["phases"]
+    assert calls.count("safe_zero") == 1, calls
+    assert "body" in calls, calls
+    assert "traction" not in calls, calls
+    assert result["error"] == "imu_body_frame: rear-lean reading too small"
+    assert _phase(phases, "traction_probe")["skipped"] is True
+    assert _phase(phases, "return_zero")["skipped"] is True
+
+
+def test_clean_checkup_returns_zero() -> None:
+    result, calls = _run_checkup(
+        sweep_res={"ok": True, "mode": "geometry_sweep", "msg": "sweep ok"})
+    assert result["ok"], result
+    assert calls.count("safe_zero") == 2, calls
+    assert "body" in calls, calls
+    assert "traction" in calls, calls
+    assert _phase(result["phases"], "return_zero")["ok"] is True
+
+
+def _main() -> int:
+    for name, fn in sorted(globals().items()):
+        if name.startswith("test_") and callable(fn):
+            fn()
+            print(f"PASS {name}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(_main())

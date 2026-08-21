@@ -18,7 +18,7 @@ else
 MJ_PY  := $(REPO_ROOT)/.venv/bin/python
 endif
 
-.PHONY: check-cad check-cad-fast check-strength validate render build verify-prototype verify-fast verify-changed clean-artifacts view view-static view-build view-buildviz verify-buildviz regen-fasteners bom-fasteners robot-check robot-unit-check robot-resolve robot-status robot-deploy help
+.PHONY: check-cad check-cad-fast check-strength validate render build verify-prototype verify-fast verify-changed clean-artifacts view view-static view-build view-buildviz verify-buildviz regen-fasteners bom-fasteners robot-check robot-unit-check robot-resolve robot-status robot-deploy robot-deploy-fast help
 
 # Path to the BuildViz web inspector (https://github.com/lukas/buildviz).
 # Override with `make view-buildviz BUILDVIZ_ROOT=/path/to/buildviz`.
@@ -51,6 +51,7 @@ help:
 	@echo "  robot-resolve     Print the current hexapod.local mDNS IPv4 answer."
 	@echo "  robot-status      Read-only robot web health summary."
 	@echo "  robot-deploy      robot-check + SSH deploy + remote compile + health."
+	@echo "  robot-deploy-fast robot-check + SSH deploy only; deploy waits for /api/ping."
 
 check-cad:
 	$(RUN) hexapod_walker/prototype_sts3215/scripts/check_cad.py
@@ -256,3 +257,6 @@ robot-status:
 
 robot-deploy:
 	bash $(CURDIR)/linux_control/dev_loop.sh deploy
+
+robot-deploy-fast:
+	bash $(CURDIR)/linux_control/dev_loop.sh deploy-fast
