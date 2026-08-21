@@ -609,14 +609,11 @@ lift.oninput=()=>{ document.getElementById('klab').textContent=lift.value; };
 lift.onchange=()=>cmd('K '+lift.value);
 maxVx = +vmax.value; maxVy = Math.round(maxVx*0.73);
 
-// --- Drive bench workflow ----------------------------------------------------
-// Mirrors rl_move/scripts/tape_measure_walk.py: the operator limps, hand-poses,
-// POST /api/set_zero, ARMs, Stands (P glide), preflights, then the gait gets
-// plain `J vx vy omega` and `J 0 0 0` over /cmd — nothing else.
-document.getElementById('wlimp').onclick = ()=>{
-  dbgTestAbort = true; cmd('X'); setArmed(false);
-  showSent('limp — torque off; hand-pose legs, then Set zero HERE');
-};
+// --- Bench zero workflow -------------------------------------------------------
+// Mirrors rl_move/scripts/tape_measure_walk.py: the operator limps (Motors →
+// Limp all, or E-STOP), hand-poses, POST /api/set_zero (top bar), ARMs,
+// Stands (P glide), preflights, then the gait gets plain `J vx vy omega`
+// and `J 0 0 0` over /cmd — nothing else.
 async function setZeroHere(fromMotors){
   // No confirm (operator 08-11: no warning modals). Motors do not
   // move — only the zero point is rewritten.
@@ -630,7 +627,7 @@ async function setZeroHere(fromMotors){
   }catch(e){ showSent('zero-here failed'); }
   if(fromMotors) refreshMotors();
 }
-document.getElementById('wsetzero').onclick = ()=> setZeroHere(false);
+document.getElementById('topsetzero').onclick = ()=> setZeroHere(false);
 document.getElementById('wpreflight').onclick = async ()=>{
   const out = document.getElementById('wpfout');
   out.textContent = 'Preflight (read-only)…';

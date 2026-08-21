@@ -37,6 +37,8 @@
       title="Power the servos on (ARM). Nothing moves until you press Stand. When armed this becomes Disarm: lowers gently to the ground, THEN cuts power.">Enable</button>
     <button id="armzero" class="armzero"
       title="Move to logical sit zero using the collision-aware safe-zero plan. This may enable torque while it moves, then leaves the robot at zero.">Zero</button>
+    <button id="topsetzero" class="armsetzero"
+      title="POST /api/set_zero — Feetech middle-calibrate on every live servo. No motion: the CURRENT hand pose becomes logical 0°. Limp (Motors → Limp all, or E-STOP) and hand-pose the legs first.">Set zero HERE</button>
     <button id="estop" class="estop" title="Cut all power to the servos IMMEDIATELY — the robot goes limp NOW and will drop. Use only in an emergency. For a normal, gentle power-off use Disarm / Sit &amp; power off.">■ E-STOP</button>
   </div>
   <div id="opsbar">
@@ -97,14 +99,11 @@
     <div class="pad">
       <h2>1 · Zero &amp; stand</h2>
       <div class="hint" style="margin-top:0">
-        Bench order: <b>Limp</b>, hand-pose legs straight out →
-        <b>Set zero HERE</b> → <b>Enable servos</b> (top bar) →
+        Bench order: limp (Motors → <b>Limp all</b>, or E-STOP), hand-pose
+        legs straight out → <b>Set zero HERE</b> (top bar) →
+        <b>Enable servos</b> (top bar) →
         <b>Stand</b> → <b>Preflight</b>, then walk.</div>
       <div class="btns" style="margin-top:10px">
-        <button id="wlimp" title="Torque off (firmware X). Servos go limp NOW so you can hand-pose the legs.">Limp (torque off)</button>
-        <button id="wsetzero" class="danger" title="POST /api/set_zero — Feetech middle-calibrate on every live servo. No motion: the CURRENT hand pose becomes logical 0°.">Set zero HERE</button>
-      </div>
-      <div class="btns">
         <button data-cmd="P" title="Verified glide to the captured plant stance (arms the bus itself). Controller: Y · keyboard: Space.">▲ Stand (plant)</button>
         <button id="wpreflight" title="Read-only check (same as the tape script): all 18 servos answering, IMU alive, present pose near the plant stance.">Preflight</button>
       </div>
@@ -782,8 +781,8 @@ the trained forward wedge — same policy, body walks backward.">▼ Back</butto
         <code>Q&nbsp;&lt;j&gt;&nbsp;&lt;deg&gt;</code>). <b>Test ALL</b> centers
         every joint, then wiggles each one in turn (0→17) with a pause between,
         so you can watch each servo respond. Press <b>Stop test</b> to abort.
-        Stand / Center / limp live on the Drive tab and the header
-        (E-STOP = instant limp).</div>
+        Stand / Center live on the Drive tab; limp lives on the header
+        (E-STOP = instant limp) and Motors (Limp all).</div>
     </div>
   </div>
   </div><!-- /view-debug -->

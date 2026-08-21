@@ -72,7 +72,9 @@ the RL tooling depend on them.
 ### Header arm bar (always visible)
 
 - **Enable servos** → `ARM` · **Disarm** → `SETTLE` (gentle lower, then
-  power off) · **EMERGENCY STOP** → `X` (instant limp, robot drops). The
+  power off) · **Set zero HERE** → `POST /api/set_zero` (no motion; the
+  current hand pose becomes logical 0° — limp + hand-pose first) ·
+  **EMERGENCY STOP** → `X` (instant limp, robot drops). The
   long lower-vs-drop explanation lives in the button tooltips.
 - Link heartbeat: `GET /api/ping` every 1.5 s. Robot activity pill:
   `GET /api/robot` every 2 s.
@@ -81,8 +83,8 @@ the RL tooling depend on them.
 
 ### Drive (`#drive`) — bench-test workflow, in order of use
 
-1. *Zero & stand*: **Limp** → `X` · **Set zero HERE** →
-   `POST /api/set_zero` (confirm dialog; no motion) · **Stand (plant)** →
+1. *Zero & stand*: limp (Motors → **Limp all**, or E-STOP) + hand-pose,
+   **Set zero HERE** (top bar) · **Stand (plant)** →
    verified glide via `POST /api/zero {pose:"stand"}` · **Preflight** →
    `GET /api/rl/preflight?mode=lower` (read-only).
 2. *Scripted gait walk*: **Start walk** sends `J vx vy ω` (confirm dialog;
