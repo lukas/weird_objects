@@ -1243,6 +1243,16 @@ Entry format (append; newest last; update status in place):
   discovery, track nobc, from scratch, pure forward command).
   Verification: full walk-family semantics banks + walk unit + MJX
   vec-env tests green; launcher two-phase INTENT->RUNNING.
+- outcome: `cw-nobc-slipwalk1` SIGBUS'd at boot (train-0 /dev/shm) and
+  was relaunched as `cw-nobc-slipwalk1-r1`, which trained 2M and FAILED
+  its gate: 0.001 m travel/episode, slip/m 6.75, gait_valid 0/6, zero
+  falls only because nothing moved. Sub-line stopped per the order's own
+  instruction. The useful new fact for the operator: the reward stack was
+  preflight-proven correct (SLIPWALK bank), so from-scratch gait's
+  blocker is EXPLORATION from a blank init, not reward specification —
+  reopening should change the START (scripted kickstart / mid-stride RSI
+  / physics ramp), not the pricing.
 - ANSWER (operator):
 - rulebook change: CURRENT_TRUTHS "Track Facts" nobc line amended to
-  record the 08-21 operator reopening of the anti-slip sub-line.
+  record the 08-21 reopening, the canary result, and the
+  exploration-not-specification conclusion.

@@ -31,18 +31,30 @@ rise+walk download answer or the operator explicitly orders them.
   `test_task_semantics.py` pins the ordering: fast(0.44 m) +851 >
   gait(0.22 m) +417 > creep(0.16 m) +108 > stall -143 > park -244 >
   skate -1195.
-- Live canary: `cw-nobc-slipwalk1` (2M, discovery, from scratch, pure
-  forward command, dr 0.3). Gate is plain behavior — zero falls, median
-  along-command travel >= 0.15 m per 15 s episode, direction error
-  <= 30 deg, gait_valid >= 4/6, slip/m <= 3.0 with slip_m_total <= 1.0 m.
-  Harness walk "success" (in-band speed) is NOT part of this gate.
+- RESULT (08-21): `cw-nobc-slipwalk1-r1` FAILED its pre-registered gate —
+  the freeze again. DR-0 det: travel 0.001 m/episode (bar 0.15), slip/m
+  6.75 (bar 3.0) on 0.34 m of absolute scuffing, gait_valid 0/6 with four
+  legs sacrificed, zero falls only because nothing moved. Sto: 0.04 m,
+  slip/m 14.5. Training return fell monotonically (-70 -> -1241).
+- The discriminating fact: the SPEC was clean this time. The SLIPWALK
+  preflight bank (green pre-launch) prices real travel 300-2000 points
+  above stall/park/skate under this exact stack, so the failure is
+  EXPLORATION from a blank init, not reward specification. Six
+  from-scratch gait arms now end in the same freeze.
+- Sub-line STOPPED per the operator's instruction ("if it freezes/marches/
+  skates like prior nobc arms, verdict it honestly and stop"). No re-run
+  with more steps. DOWNLOAD_ANSWER unchanged.
 
 ## Next
 
-- Triage `cw-nobc-slipwalk1` on video + travel/slip/direction medians.
-  PASS -> stage rung 2 (two directions, then commanded changes).
-  FAIL (freeze / march / skate fingerprint) -> verdict honestly and stop
-  the sub-line; do not re-run with more steps.
+- Nothing agent-doable on this sub-line. If the operator reopens it, the
+  honest lever is a START THAT ALREADY MOVES (short scripted-gait
+  kickstart, mid-stride RSI starts, or a physics-easing ramp), not
+  another reward term — reward pricing is now preflight-proven correct.
+- The new mechanisms stay in the repo, default-off and tested:
+  `reward.k_walk_freeprog` / `walk_freeprog_cap_m_s` (direction-first
+  income, no speed target) and `reward.k_walk_idle_charge` /
+  `walk_idle_speed_m_s` / `walk_idle_tau_s` (anti-park travel floor).
 
 ## Older State
 
