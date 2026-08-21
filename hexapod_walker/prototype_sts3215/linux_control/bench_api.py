@@ -146,11 +146,10 @@ class BenchAPI:
         self._cal_progress: dict = {}
         # Last demo cmd-vs-actual telemetry (auto-logged from web demos).
         self._demo_telemetry: dict | None = None
-        # True while a motion job is actively streaming pose writes —
-        # the TFT display thread must NOT transact on the MCU link
-        # (a job-panel text redraw holds it ~1.5 s; measured 08-10,
-        # the "big pause in the middle of standing").
-        self._bus_hot = False
+        # Refcount while a motion/test job owns timing on the MCU link.
+        # The TFT display thread must NOT transact then: even "display only"
+        # DJ redraws hold the shared serial path long enough to pause motion.
+        self._bus_hot = 0
         # Measure tab: finished run awaiting the operator's tape reading.
         self._meas_pending: dict | None = None
         self._status_display = None
@@ -187,6 +186,14 @@ class BenchAPI:
         if self._status_display is not None:
             self._status_display.stop()
             self._status_display = None
+
+    def _bus_hot_begin(self) -> None:
+        with self._lock:
+            self._bus_hot = int(self._bus_hot) + 1
+
+    def _bus_hot_end(self) -> None:
+        with self._lock:
+            self._bus_hot = max(0, int(self._bus_hot) - 1)
 
     def start_servo_watch(self) -> None:
         """Liveness + over-temp watchdog (TFT error panel, 65C cutoff)."""
@@ -978,7 +985,7 @@ class BenchAPI:
                 # starved the 20 Hz demo stream to ~2 Hz — measured
                 # 08-17: stand_wave turned into rare giant steps and
                 # tipped the robot. Same bug rl_policy_move fixed 08-10.
-                self._bus_hot = True
+                self._bus_hot_begin()
                 try:
                     from event_log import emit
                     emit("demo", f"{name} start", src="bench", data=params)
@@ -1091,7 +1098,7 @@ class BenchAPI:
                 with self._lock:
                     self._demo_status = f"error: {e}"
             finally:
-                self._bus_hot = False
+                self._bus_hot_end()
                 if gen != self._demo_gen:
                     return
                 with self._lock:
@@ -1347,7 +1354,7 @@ class BenchAPI:
                     d.armed = True
             result: dict = {}
             try:
-                self._bus_hot = True
+                self._bus_hot_begin()
 
                 def _prog(p: dict) -> None:
                     with self._lock:
@@ -1377,7 +1384,7 @@ class BenchAPI:
                 with self._lock:
                     self._demo_status = f"error: {e}"
             finally:
-                self._bus_hot = False
+                self._bus_hot_end()
                 if gen != self._demo_gen:
                     return
                 if result.get("limp"):
@@ -1678,7 +1685,7 @@ class BenchAPI:
             except Exception:
                 pass
             try:
-                self._bus_hot = True
+                self._bus_hot_begin()
 
                 def _prog(dct: dict) -> None:
                     with self._lock:
@@ -1691,7 +1698,7 @@ class BenchAPI:
             except Exception as e:
                 result = {"ok": False, "error": str(e)}
             finally:
-                self._bus_hot = False
+                self._bus_hot_end()
                 if gen != self._demo_gen:
                     return
                 limp = bool(result.get("limp"))
@@ -1867,7 +1874,7 @@ class BenchAPI:
             except Exception:
                 pass
             try:
-                self._bus_hot = True
+                self._bus_hot_begin()
 
                 def _prog(dct: dict) -> None:
                     with self._lock:
@@ -1884,7 +1891,7 @@ class BenchAPI:
             except Exception as e:
                 result = {"ok": False, "error": str(e)}
             finally:
-                self._bus_hot = False
+                self._bus_hot_end()
                 if gen != self._demo_gen:
                     return
                 limp = bool(result.get("limp"))
@@ -3167,6 +3174,7 @@ class BenchAPI:
                     self._demo_status = str(p.get("msg") or "calibrating")
 
             try:
+                self._bus_hot_begin()
                 if mode == "plant":
                     result = run_plant_calibrate(
                         d.bus,
@@ -3254,6 +3262,7 @@ class BenchAPI:
                     self._cal_result = {"ok": False, "error": str(e)}
                     self._demo_status = f"error: {e}"
             finally:
+                self._bus_hot_end()
                 if gen != self._demo_gen:
                     return
                 with d._lock:
@@ -3416,6 +3425,7 @@ class BenchAPI:
                     self._demo_status = str(p.get("msg") or "dynamics")
 
             try:
+                self._bus_hot_begin()
                 result = run_motor_dynamics(
                     d.bus,
                     amp_deg=amp_deg,
@@ -3448,6 +3458,7 @@ class BenchAPI:
                                        "mode": "dynamics"}
                     self._demo_status = f"error: {e}"
             finally:
+                self._bus_hot_end()
                 if gen != self._demo_gen:
                     return
                 # Probe limp's the bus; keep drive disarmed.
@@ -3519,6 +3530,7 @@ class BenchAPI:
                     self._demo_status = str(p.get("msg") or "sysid")
 
             try:
+                self._bus_hot_begin()
                 result = run_sysid_protocol(
                     d.bus,
                     protocol,
@@ -3546,6 +3558,7 @@ class BenchAPI:
                                        "mode": "sysid"}
                     self._demo_status = f"error: {e}"
             finally:
+                self._bus_hot_end()
                 if gen != self._demo_gen:
                     return
                 # Runner limps the bus; keep drive disarmed.
@@ -4017,6 +4030,7 @@ class BenchAPI:
                     self._demo_status = str(p.get("msg") or "RL drive")
 
             try:
+                self._bus_hot_begin()
                 if acquire_first:
                     with d._lock:
                         d.mode = "demo"
@@ -4064,6 +4078,7 @@ class BenchAPI:
                                         "mode": "drive"}
                     self._demo_status = f"error: {e}"
             finally:
+                self._bus_hot_end()
                 if gen != self._demo_gen:
                     return
                 res = self._cal_result or {}
@@ -4188,7 +4203,7 @@ class BenchAPI:
                 # (a DJ redraw holds the MCU link ~1.5 s — the measured
                 # "big pause in the middle of standing"). Same guard as
                 # every other motion worker.
-                self._bus_hot = True
+                self._bus_hot_begin()
                 if acquire_first:
                     with d._lock:
                         d.mode = "demo"
@@ -4264,7 +4279,7 @@ class BenchAPI:
                                         "mode": mode}
                     self._demo_status = f"error: {e}"
             finally:
-                self._bus_hot = False
+                self._bus_hot_end()
                 if gen != self._demo_gen:
                     return
                 res = self._cal_result or {}
@@ -4351,6 +4366,7 @@ class BenchAPI:
                     d.armed = True
             live = _live_robot_ids(d.bus)
             try:
+                self._bus_hot_begin()
                 if acquire_zero_first:
                     res_a = self._acquire_start("zero", gen=gen)
                     if gen != self._demo_gen:
@@ -4397,6 +4413,7 @@ class BenchAPI:
                     self._cal_result = {"ok": False, "error": str(e),
                                        "mode": "set_stance"}
             finally:
+                self._bus_hot_end()
                 if gen != self._demo_gen:
                     return
                 try:
@@ -4600,7 +4617,7 @@ class BenchAPI:
             except Exception:
                 pass
             try:
-                self._bus_hot = True
+                self._bus_hot_begin()
 
                 def _acq_prog(p: dict) -> None:
                     with self._lock:
@@ -4967,7 +4984,7 @@ class BenchAPI:
                     self._cal_result = {"ok": False, "error": str(e),
                                         "mode": mode}
             finally:
-                self._bus_hot = False
+                self._bus_hot_end()
                 if gen != self._demo_gen:
                     return
                 try:
@@ -5215,6 +5232,7 @@ class BenchAPI:
                                        "shorter than |v|*T"),
             }
             try:
+                self._bus_hot_begin()
                 # Acquire ARM + planted stand when missing (08-11):
                 # safe zero → validated plant stand-up → stand hold.
                 need_stand = True
@@ -5289,6 +5307,7 @@ class BenchAPI:
                     self._cal_result = {"ok": False, "error": str(e)}
                     self._demo_status = f"error: {e}"
             finally:
+                self._bus_hot_end()
                 if gen == self._demo_gen:
                     with self._lock:
                         st = self._demo_status
@@ -5338,6 +5357,7 @@ class BenchAPI:
             rec: dict = {"kind": "hold_current", "label": label,
                          "stamp": stamp, "planned_s": secs}
             try:
+                self._bus_hot_begin()
                 # Hold the PRESENT pose: same never-yank arm sequence
                 # the RL runner uses.
                 with d._lock:
@@ -5367,6 +5387,7 @@ class BenchAPI:
                     self._cal_result = {"ok": False, "error": str(e)}
                     self._demo_status = f"error: {e}"
             finally:
+                self._bus_hot_end()
                 if gen == self._demo_gen:
                     with d._lock:
                         if d.mode == "demo":
@@ -5404,6 +5425,7 @@ class BenchAPI:
 
         def _worker():
             try:
+                self._bus_hot_begin()
                 with d._lock:
                     d.mode = "demo"
                     d.gait.stop()
@@ -5444,6 +5466,7 @@ class BenchAPI:
                     self._cal_result = {"ok": False, "error": str(e)}
                     self._demo_status = f"error: {e}"
             finally:
+                self._bus_hot_end()
                 if gen == self._demo_gen:
                     with d._lock:
                         if d.mode == "demo":

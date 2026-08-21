@@ -871,10 +871,15 @@ def _main_after_bus(args) -> None:
     DRIVE.bench = BENCH
     LINK = Link(DRIVE)
     if not args.dry_run:
-        # StatusDisplay hard-reinits the ST7789 at start (covers ribbon
-        # reseat while MCU still thinks the panel is up).
-        BENCH.start_status_display()
-        print("[web] TFT status display started (MCU ST7789)")
+        # The ST7789 shares the MCU serial path with motion/test commands.
+        # Keep it opt-in so cosmetic screen repaints cannot delay robot work.
+        tft_status = os.environ.get("HEXAPOD_TFT_STATUS", "").strip().lower()
+        if tft_status in ("1", "true", "yes", "on"):
+            BENCH.start_status_display()
+            print("[web] TFT status display started (MCU ST7789)")
+        else:
+            print("[web] TFT status display disabled "
+                  "(set HEXAPOD_TFT_STATUS=1 to enable)")
         BENCH.start_servo_watch()
         print("[web] servo watch started (liveness + 65C cutoff)")
 

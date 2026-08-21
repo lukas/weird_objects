@@ -1014,9 +1014,10 @@ class McuFeetechBus:
         """Job-mode TFT (MCU ``DJ``): full-screen text + progress bar.
 
         Rows are positional — title, 4 body lines, footer — 26 chars each.
-        ``pct`` −1 hides the bar. Pure display command (no servo reads),
-        so it is safe to refresh while a job owns the servo bus. The next
-        ``display_push`` returns the panel to the normal schematic.
+        ``pct`` −1 hides the bar. This does not read servos, but it still
+        transacts over the shared MCU serial link; callers must skip it while
+        motion or calibration timing owns the bus. The next ``display_push``
+        returns the panel to the normal schematic.
         """
         clean = []
         for s in list(lines)[:6]:
