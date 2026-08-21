@@ -1414,7 +1414,11 @@ class BenchAPI:
                 "robot": self.robot_state()}
 
     def set_zero_here(self) -> dict:
-        """Feetech middle-calibrate: current pose becomes logical 0° (no move)."""
+        """Feetech middle-calibrate: current pose becomes logical 0°.
+
+        This rewrites the absolute joint frame, so any learned plant/home pose
+        from the previous frame is invalid and must be cleared immediately.
+        """
         try:
             from urt2_bench import redefine_zero_here
         except ImportError as e:
@@ -1441,7 +1445,35 @@ class BenchAPI:
                 return {"ok": False, "error": str(e)}
             d.status = (f"zero-here {result.get('ok_n', 0)}/"
                         f"{result.get('count', 0)} (limp)")
-        self._set_activity("limp", "zero redefined here")
+        if result.get("ok"):
+            try:
+                from plant_calibrate import reset_plant_pose
+                plant = reset_plant_pose()
+                result["plant_reset"] = plant
+                result["plant_cleared"] = bool(plant.get("cleared"))
+            except Exception as e:
+                result["plant_reset_error"] = str(e)
+            try:
+                from event_log import emit
+                emit("zero",
+                     "logical zero redefined; learned plant cleared",
+                     src="bench",
+                     data={
+                         "count": result.get("count"),
+                         "ok_n": result.get("ok_n"),
+                         "plant_cleared": result.get("plant_cleared"),
+                         "plant_reset_error": result.get(
+                             "plant_reset_error"),
+                     })
+            except Exception:
+                pass
+        with self._lock:
+            self._cal_result = None
+            self._cal_progress = {}
+        detail = (
+            "zero redefined here; plant reset"
+            if result.get("ok") else "zero redefine failed")
+        self._set_activity("limp", detail)
         return result
 
     def _present_pose18(self) -> tuple[list, list[int]]:

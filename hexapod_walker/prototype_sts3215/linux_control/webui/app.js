@@ -471,7 +471,7 @@ async function padSetZero(){
     const r = await fetch('/api/set_zero',{method:'POST'});
     const j = await r.json();
     setArmed(false);
-    if(j.ok) showSent('zero-here OK — '+(j.ok_n||'?')+'/'+(j.count||'?')+' (limp)');
+    if(j.ok) showSent('zero-here OK — '+(j.ok_n||'?')+'/'+(j.count||'?')+' (limp) · plant reset');
     else showSent('zero-here '+(j.error||'failed'));
   }catch(e){ showSent('zero-here failed'); }
 }
@@ -570,7 +570,7 @@ async function setZeroHere(fromMotors){
     const r = await fetch('/api/set_zero',{method:'POST'});
     const j = await r.json();
     setArmed(false);
-    if(j.ok) showSent('zero-here OK — '+j.ok_n+'/'+j.count+' (limp)');
+    if(j.ok) showSent('zero-here OK — '+j.ok_n+'/'+j.count+' (limp) · plant reset');
     else showSent('zero-here '+(j.error || ((j.ok_n||0)+'/'+(j.count||0)+' — check Motors table')));
   }catch(e){ showSent('zero-here failed'); }
   if(fromMotors) refreshMotors();
