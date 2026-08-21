@@ -36,4 +36,10 @@ start at the entry point for the one you're working on:
 make -C hexapod_walker/prototype_sts3215 help
 make -C hexapod_walker/prototype_sts3215 build
 make -C hexapod_walker/prototype_sts3215 verify-fast
+make -C hexapod_walker/prototype_sts3215 robot-check       # safe local robot/web checks
+make -C hexapod_walker/prototype_sts3215 robot-deploy      # check + SSH deploy + remote health
 ```
+
+Robot-control dev loop details live in `linux_control/README.md` and
+`linux_control/dev_loop.sh`. Use `robot-resolve` for a temporary IP when
+`hexapod.local` is flaky; do not commit fixed board IPs.

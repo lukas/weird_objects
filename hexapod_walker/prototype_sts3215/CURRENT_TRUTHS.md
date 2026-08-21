@@ -41,6 +41,12 @@ answer until a replacement beats the relevant gate and promotion contract.
 - Learned stand-up previously tripped tilt_roll reliably on hardware; do not treat sim success alone as bench promotion.
 - Servo/control facts in force: 25 Hz loop, 1.5 deg/tick stateful slew, loaded servo settle about 250-325 ms, air settle about 9 ms.
 - No physical motion without an explicit operator ask.
+- Robot-control/web edits should use the fast dev loop in
+  `linux_control/dev_loop.sh`: `make robot-check`, `make robot-unit-check`,
+  `make robot-status`, and `make robot-deploy`. These helpers do not move
+  the robot; `robot-deploy` only restarts the web service. Use
+  `make robot-resolve` for temporary IP overrides when `hexapod.local` is
+  flaky; never commit a fixed board IP.
 
 ## Policy And Eval Facts
 
