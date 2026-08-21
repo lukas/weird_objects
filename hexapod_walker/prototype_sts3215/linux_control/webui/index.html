@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>Hexapod · Drive</title>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-<link rel="stylesheet" href="/style.css?v=checkup3">
+<link rel="stylesheet" href="/style.css?v=slip1">
 <script>window.HEXAPOD_HTTPS_PORT = __HTTPS_PORT__;</script>
 </head>
 <body>
@@ -630,6 +630,16 @@ the trained forward wedge — same policy, body walks backward.">▼ Back</butto
       </div>
     </div>
     <div class="pad" style="flex:1 1 340px">
+      <h2>Onboard slip</h2>
+      <div class="hint">No tape. Stands on five feet, lifts then drags
+        each test foot through the same yaw sweep, then repeats a seated
+        yaw reference. Saves loaded-vs-hover ratios for MuJoCo contact
+        tuning.</div>
+      <div class="btns" style="margin-top:10px">
+        <button id="mu-slipgo" class="on">▶ Run slip probe</button>
+      </div>
+    </div>
+    <div class="pad" style="flex:1 1 340px">
       <h2>RL walk tape note</h2>
       <div class="hint">Ran an RL walk from the RL tab? Enter the tape
         reading here — it attaches to the newest RL episode trace so
@@ -759,6 +769,6 @@ the trained forward wedge — same policy, body walks backward.">▼ Back</butto
   </div><!-- /view-debug -->
 </div><!-- /wrap -->
 </div><!-- /main -->
-<script src="/app.js?v=checkup3"></script>
+<script src="/app.js?v=slip1"></script>
 </body>
 </html>

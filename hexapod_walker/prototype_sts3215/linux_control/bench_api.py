@@ -2185,8 +2185,8 @@ class BenchAPI:
                 "geometry.nominal_mm is the CAD/link model",
                 "geometry.plant_joint_deg and geometry.per_leg are measured "
                 "stand/ground-contact calibration outputs",
-                "traction is an onboard planted shear probe, not an exact "
-                "coefficient of friction",
+                "traction is an onboard loaded-vs-hover slip signature, "
+                "not an exact coefficient of friction",
                 "actuators.learned_model comes from the optional motor "
                 "dynamics/sysid run when present",
             ],
@@ -2543,6 +2543,366 @@ class BenchAPI:
             "msg": msg,
         }
 
+    def _run_leg_slip_probe(self, bus, *, abort_check, on_progress) -> dict:
+        """Compare loaded foot drag against lifted/seated references.
+
+        No tape-measure truth is available onboard, so this builds a
+        repeatable slip signature: sweep one yaw joint with the foot lifted,
+        then sweep the same joint with that foot lightly pressed into the
+        floor while the other five feet support the robot.  The loaded/hover
+        ratio is what we want to match in MuJoCo.
+        """
+        try:
+            from feetech_bus import AXIS_LIMITS_DEG, standing_pose_degrees
+            from imu_calibrate import imu_tilt_deg
+            from inplace_demos import (
+                _enable_torque, _hold_here, _live_robot_ids,
+                _set_torque_limit, _write_pose, ease_to_pose,
+                go_to_zero_pose,
+            )
+            from tripod_gait import COXA_MM, FEMUR_MM, TIBIA_MM, LEG_RADIAL
+        except ImportError as e:
+            return {"ok": False, "mode": "traction_probe", "error": str(e)}
+
+        def progress(msg: str, **extra) -> None:
+            on_progress({"msg": msg, "mode": "traction_probe", **extra})
+
+        def clamp(x: float, lo: float, hi: float) -> float:
+            return max(float(lo), min(float(hi), float(x)))
+
+        def mean(vals: list[float]) -> float:
+            vals = [float(v) for v in vals]
+            return sum(vals) / len(vals) if vals else 0.0
+
+        def read_imu():
+            fn = getattr(bus, "read_imu", None)
+            if not callable(fn):
+                return None
+            try:
+                return fn(apply_calib=True)
+            except TypeError:
+                try:
+                    return fn()
+                except Exception:
+                    return None
+            except Exception:
+                return None
+
+        def read_feedback() -> dict[int, dict]:
+            read_all = getattr(bus, "read_all_feedback", None)
+            if callable(read_all):
+                try:
+                    got = read_all()
+                    if isinstance(got, dict):
+                        return got
+                except Exception:
+                    pass
+            out: dict[int, dict] = {}
+            for j in range(N_JOINTS):
+                try:
+                    row = bus.read_feedback(j)
+                except Exception:
+                    row = None
+                if row is not None:
+                    out[j] = row
+            return out
+
+        def foot_radius_mm(q: list[float], leg: int) -> float:
+            hip = math.radians(float(q[leg * 3 + 1]))
+            knee = math.radians(float(q[leg * 3 + 2]))
+            reach = (COXA_MM + FEMUR_MM * math.cos(hip)
+                     + TIBIA_MM * math.cos(hip + knee))
+            return float(LEG_RADIAL * 1000.0 + reach)
+
+        def arc_mm(q: list[float], leg: int, amp_deg: float) -> float:
+            return round(
+                2.0 * foot_radius_mm(q, leg)
+                * math.sin(math.radians(abs(float(amp_deg)))), 1)
+
+        def max_tilt_delta(rows: list[dict]) -> float:
+            return max([
+                max(abs(float(r.get("roll_delta_deg") or 0.0)),
+                    abs(float(r.get("pitch_delta_deg") or 0.0)))
+                for r in rows
+            ] or [0.0])
+
+        live = _live_robot_ids(bus)
+        if len(live) < 12:
+            return {"ok": False, "mode": "traction_probe",
+                    "error": f"need more servos (live={len(live)})",
+                    "live": sorted(live)}
+        try:
+            base = [float(x) for x in standing_pose_degrees()]
+        except Exception as e:
+            return {"ok": False, "mode": "traction_probe",
+                    "error": f"stand pose unavailable: {e}"}
+        if len(base) != N_JOINTS:
+            return {"ok": False, "mode": "traction_probe",
+                    "error": "stand pose is not 18 joints"}
+
+        yaw_lo, yaw_hi = AXIS_LIMITS_DEG.get(0, (-35.0, 35.0))
+        hip_lo, hip_hi = AXIS_LIMITS_DEG.get(1, (-80.0, 30.0))
+        knee_lo, knee_hi = AXIS_LIMITS_DEG.get(2, (-20.0, 150.0))
+        amp = 7.0
+        samples: list[dict] = []
+
+        progress("Slip: settle plant")
+        _enable_torque(bus, live)
+        _set_torque_limit(bus, live, 650)
+        if not ease_to_pose(bus, base, abort_check=abort_check, seconds=2.5,
+                            label="slip plant"):
+            _set_torque_limit(bus, live, 1000)
+            return {"ok": False, "aborted": True, "mode": "traction_probe",
+                    "error": "stand settle aborted"}
+        base_imu = read_imu()
+        base_tilt = imu_tilt_deg(base_imu) if isinstance(base_imu, dict) else None
+
+        def pose_for(leg: int, yaw: float, mode: str,
+                     center: list[float] | None = None) -> list[float]:
+            q = list(center if center is not None else base)
+            j = leg * 3
+            q[j] = clamp(float((center or base)[j]) + float(yaw),
+                         yaw_lo, yaw_hi)
+            if mode == "hover":
+                q[j + 1] = clamp(float(base[j + 1]) - 6.0, hip_lo, hip_hi)
+                q[j + 2] = clamp(float(base[j + 2]) + 14.0,
+                                 knee_lo, knee_hi)
+            elif mode == "loaded":
+                q[j + 1] = clamp(float(base[j + 1]) + 3.0, hip_lo, hip_hi)
+            return q
+
+        def sample(goal: list[float], leg: int, yaw: float,
+                   subtest: str, center: list[float]) -> dict:
+            fb = read_feedback()
+            j = leg * 3
+            rows = [fb.get(j + k) or {} for k in range(3)]
+            present = float(rows[0].get("deg") or 0.0)
+            currents = [abs(float(r.get("current_a") or 0.0)) for r in rows]
+            loads = [float(r.get("load_pct") or 0.0) for r in rows]
+            row = {
+                "subtest": subtest,
+                "leg": leg,
+                "cmd_yaw_deg": round(float(yaw), 2),
+                "present_yaw_deg": round(present, 2),
+                "yaw_lag_deg": round(abs(float(goal[j]) - present), 2),
+                "yaw_track_deg": round(abs(present - float(center[j])), 2),
+                "yaw_current_a": round(currents[0], 3),
+                "leg_current_a": round(sum(currents), 3),
+                "max_leg_current_a": round(max(currents or [0.0]), 3),
+                "yaw_load_pct": round(loads[0], 1),
+                "max_leg_load_pct": round(max(loads or [0.0]), 1),
+                "cmd_arc_mm": arc_mm(center, leg, yaw),
+            }
+            imu = read_imu()
+            tilt = imu_tilt_deg(imu) if isinstance(imu, dict) else None
+            if tilt is not None:
+                row["roll_deg"] = round(float(tilt[0]), 2)
+                row["pitch_deg"] = round(float(tilt[1]), 2)
+                if base_tilt is not None:
+                    row["roll_delta_deg"] = round(float(tilt[0] - base_tilt[0]), 2)
+                    row["pitch_delta_deg"] = round(float(tilt[1] - base_tilt[1]), 2)
+            samples.append(row)
+            return row
+
+        def run_pose(goal: list[float], *, sample_fn, seconds: float,
+                     speed: int, acc: int, tilt_limit: float,
+                     current_limit: float) -> tuple[bool, str | None]:
+            _write_pose(bus, goal, live, speed=speed, acc=acc)
+            rows: list[dict] = []
+            t0 = time.monotonic()
+            while time.monotonic() - t0 < seconds:
+                if abort_check():
+                    _hold_here(bus, live)
+                    return False, "aborted"
+                time.sleep(0.09)
+                rows.append(sample_fn())
+                if max_tilt_delta(rows) > tilt_limit:
+                    _hold_here(bus, live)
+                    return False, f"tilt delta > {tilt_limit:.0f} deg"
+                if max(float(r.get("max_leg_current_a") or 0.0)
+                       for r in rows) > current_limit:
+                    _hold_here(bus, live)
+                    return False, f"current > {current_limit:.1f} A"
+            return True, None
+
+        try:
+            for leg in range(6):
+                if abort_check():
+                    _hold_here(bus, live)
+                    return {"ok": False, "aborted": True,
+                            "mode": "traction_probe", "samples": samples}
+                hover_center = pose_for(leg, 0.0, "hover")
+                progress(f"Slip: L{leg} lifted reference")
+                _write_pose(bus, hover_center, live, speed=130, acc=14)
+                time.sleep(0.35)
+                for yaw in (-amp, amp, -amp, 0.0):
+                    goal = pose_for(leg, yaw, "hover")
+                    ok, reason = run_pose(
+                        goal,
+                        sample_fn=lambda g=goal, l=leg, y=yaw,
+                                         c=hover_center: sample(
+                                             g, l, y, "five_foot_hover", c),
+                        seconds=0.34, speed=125, acc=12,
+                        tilt_limit=8.0, current_limit=2.8)
+                    if not ok:
+                        return {"ok": False, "aborted": True,
+                                "mode": "traction_probe",
+                                "error": f"L{leg} hover stopped: {reason}",
+                                "samples": samples}
+
+                drag_center = pose_for(leg, 0.0, "loaded")
+                progress(f"Slip: L{leg} floor drag")
+                _write_pose(bus, drag_center, live, speed=110, acc=12)
+                time.sleep(0.35)
+                for yaw in (-amp, amp, -amp, 0.0):
+                    goal = pose_for(leg, yaw, "loaded")
+                    ok, reason = run_pose(
+                        goal,
+                        sample_fn=lambda g=goal, l=leg, y=yaw,
+                                         c=drag_center: sample(
+                                             g, l, y, "five_foot_drag", c),
+                        seconds=0.40, speed=105, acc=12,
+                        tilt_limit=8.0, current_limit=2.8)
+                    if not ok:
+                        return {"ok": False, "aborted": True,
+                                "mode": "traction_probe",
+                                "error": f"L{leg} drag stopped: {reason}",
+                                "samples": samples}
+                _write_pose(bus, base, live, speed=130, acc=14)
+                time.sleep(0.25)
+
+            progress("Slip: seated yaw reference")
+            if not go_to_zero_pose(bus, abort_check=abort_check, seconds=2.5):
+                return {"ok": False, "aborted": True,
+                        "mode": "traction_probe",
+                        "error": "sit reference aborted", "samples": samples}
+            sit = [0.0] * N_JOINTS
+            for leg in range(6):
+                for yaw in (-amp, amp, 0.0):
+                    goal = list(sit)
+                    goal[leg * 3] = clamp(float(yaw), yaw_lo, yaw_hi)
+                    ok, reason = run_pose(
+                        goal,
+                        sample_fn=lambda g=goal, l=leg, y=yaw: sample(
+                            g, l, y, "seated_drag", sit),
+                        seconds=0.28, speed=110, acc=12,
+                        tilt_limit=12.0, current_limit=2.8)
+                    if not ok:
+                        return {"ok": False, "aborted": True,
+                                "mode": "traction_probe",
+                                "error": f"seated L{leg} stopped: {reason}",
+                                "samples": samples}
+            progress("Slip: return to plant")
+            ease_to_pose(bus, base, abort_check=abort_check, seconds=2.5,
+                         label="slip return plant")
+            _hold_here(bus, live)
+        finally:
+            _set_torque_limit(bus, live, 1000)
+
+        def summarize(subtest: str, leg: int) -> dict:
+            rows = [s for s in samples
+                    if s.get("subtest") == subtest and s.get("leg") == leg]
+            return {
+                "samples": len(rows),
+                "mean_yaw_current_a": round(mean([
+                    float(r.get("yaw_current_a") or 0.0) for r in rows]), 3),
+                "mean_leg_current_a": round(mean([
+                    float(r.get("leg_current_a") or 0.0) for r in rows]), 3),
+                "max_yaw_lag_deg": round(max([
+                    float(r.get("yaw_lag_deg") or 0.0) for r in rows
+                ] or [0.0]), 2),
+                "mean_yaw_track_deg": round(mean([
+                    float(r.get("yaw_track_deg") or 0.0) for r in rows]), 2),
+                "max_leg_load_pct": round(max([
+                    float(r.get("max_leg_load_pct") or 0.0) for r in rows
+                ] or [0.0]), 1),
+                "max_tilt_delta_deg": round(max_tilt_delta(rows), 2),
+                "cmd_arc_mm": round(max([
+                    float(r.get("cmd_arc_mm") or 0.0) for r in rows
+                ] or [0.0]), 1),
+            }
+
+        per_leg = []
+        ratios: list[float] = []
+        extra_current: list[float] = []
+        extra_lag: list[float] = []
+        extra_load: list[float] = []
+        for leg in range(6):
+            hover = summarize("five_foot_hover", leg)
+            loaded = summarize("five_foot_drag", leg)
+            seated = summarize("seated_drag", leg)
+
+            def score(row: dict) -> float:
+                return (
+                    float(row.get("mean_yaw_current_a") or 0.0) * 12.0
+                    + float(row.get("max_yaw_lag_deg") or 0.0) * 1.2
+                    + float(row.get("max_leg_load_pct") or 0.0) * 0.04
+                    + float(row.get("max_tilt_delta_deg") or 0.0) * 0.35)
+
+            ratio = score(loaded) / max(score(hover), 0.2)
+            cur_excess = max(
+                0.0, float(loaded["mean_yaw_current_a"])
+                - float(hover["mean_yaw_current_a"]))
+            lag_excess = max(
+                0.0, float(loaded["max_yaw_lag_deg"])
+                - float(hover["max_yaw_lag_deg"]))
+            load_excess = max(
+                0.0, float(loaded["max_leg_load_pct"])
+                - float(hover["max_leg_load_pct"]))
+            ratios.append(ratio)
+            extra_current.append(cur_excess)
+            extra_lag.append(lag_excess)
+            extra_load.append(load_excess)
+            per_leg.append({
+                "leg": leg,
+                "hover": hover,
+                "loaded_drag": loaded,
+                "seated": seated,
+                "loaded_over_hover_score": round(ratio, 2),
+                "yaw_current_excess_a": round(cur_excess, 3),
+                "yaw_lag_excess_deg": round(lag_excess, 2),
+                "load_excess_pct": round(load_excess, 1),
+            })
+
+        mean_ratio = mean(ratios)
+        mean_cur = mean(extra_current)
+        mean_lag = mean(extra_lag)
+        mean_load = mean(extra_load)
+        if mean_ratio < 1.35 and mean_cur < 0.06 and mean_lag < 0.8:
+            grade = "low"
+        elif (mean_ratio >= 2.0 or mean_cur >= 0.14
+              or mean_lag >= 2.0 or mean_load >= 8.0):
+            grade = "good"
+        else:
+            grade = "mixed"
+        msg = (
+            f"slip {grade}; loaded/hover x{mean_ratio:.2f}, "
+            f"extra yaw +{mean_cur:.2f}A, extra lag +{mean_lag:.1f} deg")
+        return {
+            "ok": True,
+            "mode": "traction_probe",
+            "grade": grade,
+            "slip_suspected": grade == "low",
+            "leg_drag": {
+                "mean_loaded_over_hover_score": round(mean_ratio, 2),
+                "mean_yaw_current_excess_a": round(mean_cur, 3),
+                "mean_yaw_lag_excess_deg": round(mean_lag, 2),
+                "mean_load_excess_pct": round(mean_load, 1),
+                "per_leg": per_leg,
+            },
+            "sample_count": len(samples),
+            "samples": samples,
+            "msg": msg,
+            "notes": [
+                "loaded/hover compares the same yaw path with the test foot "
+                "dragging vs lifted while five other feet support the body",
+                "low ratio means the floor interaction looks like unloaded "
+                "motor motion, which is a strong slip hint",
+                "this is a repeatable onboard traction signature, not an "
+                "absolute distance or friction coefficient",
+            ],
+        }
+
     def _run_calibration_checkup(self, bus, *, clearance_mm: float,
                                  quad_body_frame: bool = True,
                                  abort_check, on_progress) -> dict:
@@ -2625,7 +2985,7 @@ class BenchAPI:
 
         if motion_ok and body_ok and not abort_check():
             progress("Traction / slip probe", "traction_probe")
-            traction_res = self._run_traction_probe(
+            traction_res = self._run_leg_slip_probe(
                 bus, abort_check=abort_check,
                 on_progress=lambda p: progress(
                     str(p.get("msg") or "running"), "traction_probe",
@@ -5020,6 +5380,82 @@ class BenchAPI:
         self._demo_thread.start()
         return {"ok": True, "stamp": stamp, "label": label,
                 "duration_s": secs}
+
+    def measure_slip(self) -> dict:
+        """Run the onboard loaded-vs-hover slip probe and save immediately."""
+        d = self.drive
+        if d.dry_run or not d.bus:
+            return {"ok": False, "error": "no bus"}
+        if self._demo_thread and self._demo_thread.is_alive():
+            return {"ok": False, "error": "stop the running job first"}
+        stamp = time.strftime("%Y%m%d_%H%M%S")
+
+        self._demo_gen += 1
+        gen = self._demo_gen
+        self._demo_abort.clear()
+        title = "measure onboard slip"
+        with self._lock:
+            self._demo_name = "measure_slip"
+            self._demo_status = title
+            self._demo_params = {}
+            self._cal_result = None
+            self._cal_progress = {"msg": title}
+        self._set_activity("measure", title)
+
+        def _worker():
+            try:
+                with d._lock:
+                    d.mode = "demo"
+                    d.gait.stop()
+
+                def on_progress(p: dict) -> None:
+                    with self._lock:
+                        self._cal_progress = dict(p)
+                        self._demo_status = str(p.get("msg") or title)
+
+                result = self._run_leg_slip_probe(
+                    d.bus, abort_check=self._demo_abort.is_set,
+                    on_progress=on_progress)
+                if gen != self._demo_gen:
+                    return
+                rec = {
+                    "kind": "onboard_slip",
+                    "stamp": stamp,
+                    "result": result,
+                    "grade": result.get("grade"),
+                    "slip_suspected": result.get("slip_suspected"),
+                    "summary": result.get("msg"),
+                }
+                if result.get("ok"):
+                    out = self._meas_finalize(rec)
+                    with self._lock:
+                        self._cal_result = out
+                        self._demo_status = result.get("msg") or "slip saved"
+                        self._cal_progress = {"msg": self._demo_status}
+                else:
+                    with self._lock:
+                        self._cal_result = result
+                        self._demo_status = (
+                            "error: " + str(result.get("error") or "failed"))
+            except Exception as e:
+                if gen != self._demo_gen:
+                    return
+                with self._lock:
+                    self._cal_result = {"ok": False, "error": str(e)}
+                    self._demo_status = f"error: {e}"
+            finally:
+                if gen == self._demo_gen:
+                    with d._lock:
+                        if d.mode == "demo":
+                            d.mode = "idle"
+                    with self._lock:
+                        st = self._demo_status
+                    self._set_activity(
+                        "armed" if d.armed else "limp", st)
+
+        self._demo_thread = threading.Thread(target=_worker, daemon=True)
+        self._demo_thread.start()
+        return {"ok": True, "stamp": stamp}
 
     def measure_annotate(self, *, fields: dict | None = None) -> dict:
         """Merge operator readings into the pending record and save it.

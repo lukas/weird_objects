@@ -1118,7 +1118,7 @@ const CHECKUP_STEPS = [
   {id:'imu_body_frame', name:'Quad IMU body frame',
    detail:'Rear up and come down while mapping mounted IMU axes to body pitch.'},
   {id:'traction_probe', name:'Traction / slip',
-   detail:'Gentle planted yaw pulses estimate whether the feet pin or slide.'},
+   detail:'Compare five-foot loaded drags against lifted and seated references.'},
   {id:'actuator_snapshot', name:'Actuator snapshot',
    detail:'Read live joint angle, current, load, voltage, and temperature.'},
   {id:'report', name:'Report',
@@ -1823,6 +1823,8 @@ function muDescribeRecord(r){
   if(r.measured_mm != null) bits.push(`meas ${Math.round(r.measured_mm)}mm`);
   if(r.slip_ratio_measured_over_commanded != null)
     bits.push(`ratio ${r.slip_ratio_measured_over_commanded}`);
+  if(r.kind === 'onboard_slip' && r.grade) bits.push(`grade ${r.grade}`);
+  if(r.summary) bits.push(r.summary);
   if(r.observed_turn) bits.push(`turned ${r.observed_turn}`);
   if(r.measured_rot_deg != null) bits.push(`${r.measured_rot_deg}°`);
   if(r.bus_a_mean != null) bits.push(`bus ${r.bus_a_mean}A mean`);
@@ -1903,6 +1905,10 @@ $('mu-holdgo').onclick = ()=>{
         + 'torque on and HOLD the present pose (no motion). Ready?'
       : 'Robot will torque on and HOLD the present pose (no motion). '
         + 'Feet planted on the floor?');
+};
+$('mu-slipgo').onclick = ()=>{
+  muStart('/api/measure/slip', {},
+    'Robot will run the onboard loaded-vs-hover slip probe. Watching?');
 };
 $('mu-save').onclick = async ()=>{
   const fields = {

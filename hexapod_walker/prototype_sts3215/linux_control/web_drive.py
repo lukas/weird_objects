@@ -724,6 +724,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, BENCH.measure_hold(
                     label=str(data.get("label", "planted")),
                     duration_s=float(data.get("duration_s", 30.0))))
+            elif path == "/api/measure/slip":
+                self._json(200, BENCH.measure_slip())
             elif path == "/api/measure/annotate":
                 self._json(200, BENCH.measure_annotate(
                     fields=data if isinstance(data, dict) else {}))

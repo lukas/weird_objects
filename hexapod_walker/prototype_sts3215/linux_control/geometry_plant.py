@@ -24,6 +24,7 @@ from typing import Callable
 
 from feetech_bus import (
     N_JOINTS,
+    load_plant_pose,
     save_plant_pose,
     standing_pose_degrees,
 )
@@ -65,6 +66,11 @@ CONTACT_LAG_MAX_KNEE_SPEED = 55.0
 MAX_TILT_DELTA_DEG = 15.0       # abort before new lean turns into a tip
 MAX_TILT_ABS_DEG = 25.0         # hard cap even if start/platform is tilted
 TILT_TRIP_HOLD_S = 0.25         # ignore one-sample accel/IMU bumps
+SOFT_SUPPORT_MIN_KNEE_DEG = 85.0
+SOFT_SUPPORT_MAX_KNEE_SPEED = 12.0
+SOFT_SUPPORT_MIN_LEGS = 2
+SOFT_SUPPORT_CURRENT_A = 0.05
+SOFT_SUPPORT_LOAD_PCT = 8.0
 
 
 def _imu_tilt_deg(bus) -> tuple[float | None, float | None]:
@@ -227,6 +233,11 @@ def run_geometry_plant(
     contact_found = False
     contact_knee = None
     contact_joints: list[int] = []
+    last_hip_cmd = START_HIP_DEG
+    last_knee_cmd = START_KNEE_DEG
+    last_knee_now = 0.0
+    last_knee_spd = 999.0
+    last_support_legs: list[int] = []
 
     for i in range(n):
         if abort_check():
@@ -235,6 +246,7 @@ def run_geometry_plant(
         a = (i + 1) / n
         s = 0.5 - 0.5 * math.cos(math.pi * a)
         hip_cmd, knee_cmd = search_pose_at(s)
+        last_hip_cmd, last_knee_cmd = hip_cmd, knee_cmd
         goal = _pose(hip_cmd, knee_cmd)
         _write_pose(bus, goal, live, speed=160, acc=12)
         time.sleep(SAMPLE_DT)
@@ -293,6 +305,8 @@ def run_geometry_plant(
 
         knee_now = _median(knee_presents, 0.0)
         knee_spd = _median(knee_speeds, 999.0)
+        last_knee_now = knee_now
+        last_knee_spd = knee_spd
         i_thr = max(CONTACT_CURRENT_FLOOR_A,
                     (_median(base_I, 0.05) + CONTACT_CURRENT_DELTA_A))
         l_thr = max(CONTACT_LOAD_FLOOR_PCT,
@@ -300,6 +314,7 @@ def run_geometry_plant(
         armed = (knee_now >= CONTACT_ARM_KNEE_DEG
                  and knee_spd <= CONTACT_MAX_KNEE_SPEED)
 
+        support_legs: set[int] = set()
         for leg in range(6):
             jk = leg * 3 + 2
             fb = _fb(jk)
@@ -323,6 +338,17 @@ def run_geometry_plant(
             elif jk in hot_since:
                 if time.monotonic() - hot_since[jk] > CONTACT_WINDOW_S:
                     del hot_since[jk]
+            if (cur >= SOFT_SUPPORT_CURRENT_A
+                    or load >= SOFT_SUPPORT_LOAD_PCT
+                    or lag_contact):
+                support_legs.add(leg)
+            fh = _fb(leg * 3 + 1)
+            if fh is not None:
+                hcur = abs(float(fh.get("current_a") or 0.0))
+                hload = float(fh.get("load_pct") or 0.0)
+                if hcur >= SOFT_SUPPORT_CURRENT_A or hload >= SOFT_SUPPORT_LOAD_PCT:
+                    support_legs.add(leg)
+        last_support_legs = sorted(support_legs)
 
         t_wall = time.monotonic()
         agreed = [j for j, th in hot_since.items()
@@ -347,6 +373,55 @@ def run_geometry_plant(
         return {"ok": False, "aborted": True, "mode": "geometry_plant"}
 
     if not contact_found or contact_knee is None:
+        stable_full_reach = (
+            last_hip_cmd >= SEARCH_HIP_DEG - 1.0
+            and last_knee_cmd >= SEARCH_KNEE_DEG - 2.0
+            and last_knee_now >= SOFT_SUPPORT_MIN_KNEE_DEG
+            and last_knee_spd <= SOFT_SUPPORT_MAX_KNEE_SPEED
+            and len(last_support_legs) >= SOFT_SUPPORT_MIN_LEGS)
+        try:
+            plant = load_plant_pose()
+        except Exception:
+            plant = {}
+        using_existing = (
+            stable_full_reach
+            and bool(plant.get("learned"))
+            and isinstance(plant.get("joints_deg"), list)
+            and len(plant.get("joints_deg") or []) == N_JOINTS)
+        if using_existing:
+            pose = standing_pose_degrees()
+            hip = float(plant.get("hip_deg", TARGET_HIP_DEG))
+            knee = float(plant.get("knee_deg", TARGET_KNEE_DEG))
+            _progress(
+                "no sharp load spike, but reached stable support; "
+                "using existing learned plant")
+            if not ease_to_pose(
+                    bus, pose, abort_check=abort_check, seconds=2.0,
+                    label="existing learned plant"):
+                _set_torque_limit(bus, live, 1000)
+                return {"ok": False, "aborted": True,
+                        "mode": "geometry_plant",
+                        "contact_found": False,
+                        "used_existing_plant": True}
+            _set_torque_limit(bus, live, 1000)
+            _hold_here(bus, live)
+            return {
+                "ok": True,
+                "mode": "geometry_plant",
+                "contact_found": False,
+                "used_existing_plant": True,
+                "saved": False,
+                "soft_support_legs": last_support_legs,
+                "searched_hip_deg": round(last_hip_cmd, 2),
+                "searched_knee_deg": round(last_knee_cmd, 2),
+                "present_knee_deg": round(last_knee_now, 2),
+                "hip_deg": round(hip, 2),
+                "knee_deg": round(knee, 2),
+                "pose": pose,
+                "msg": (
+                    "no force spike; stable support reached, using existing "
+                    f"plant hip {hip:+.1f}° / knee {knee:+.1f}°"),
+            }
         _set_torque_limit(bus, live, 1000)
         _progress("no contact after full depth — not saving")
         return {
@@ -356,6 +431,9 @@ def run_geometry_plant(
                 f"hip {SEARCH_HIP_DEG:+.0f}° / knee {SEARCH_KNEE_DEG:.0f}°"),
             "mode": "geometry_plant",
             "contact_found": False,
+            "stable_full_reach": stable_full_reach,
+            "soft_support_legs": last_support_legs,
+            "present_knee_deg": round(last_knee_now, 2),
             "searched_hip_deg": SEARCH_HIP_DEG,
             "searched_knee_deg": SEARCH_KNEE_DEG,
         }
