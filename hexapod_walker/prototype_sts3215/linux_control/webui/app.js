@@ -17,10 +17,13 @@ let targetHasRobot = true;
 let targetHasSim = false;
 let robotTargetAvailable = true;
 let simTargetAvailable = false;
+let robotTargetTransient = false;
 let robotTargetUrl = '';
 let targetLineMsg = {robot:null, sim:null};
 let lastRobotState = null;
 let lastTargetHealthMsg = '';
+let targetReconnectSince = {robot:0, sim:0};
+const TARGET_RESTART_GRACE_MS = 15000;
 let simFrames = true;
 let simNativeViewer = false;
 let simTimer = null, simBusy = false, simFrameBusy = false;
@@ -68,18 +71,34 @@ function setLink(ok, detail){
       +(detail ? (' ('+detail+')') : '');
   }
 }
-function targetHealthMsg(meta){
-  if(!meta || !meta.hub || meta.ok !== false) return '';
+function isRobotRestartLikeError(text){
+  const low = String(text || '').toLowerCase();
+  return /robot proxy failed/.test(low)
+    && /(connection refused|errno 61|connection reset|connection aborted|temporarily unavailable|remote end closed)/.test(low);
+}
+function targetHealthItems(meta){
+  if(!meta || !meta.hub || meta.ok !== false) return [];
   const targets = meta.targets || {};
   const active = meta.active || {};
   const bad = [];
-  [['robot', targets.robot || {}], ['MuJoCo sim', targets.sim || {}]]
-    .forEach(([name, t])=>{
-      const key = name === 'robot' ? 'robot' : 'sim';
+  [['robot', 'robot', targets.robot || {}],
+   ['sim', 'MuJoCo sim', targets.sim || {}]]
+    .forEach(([key, name, t])=>{
       if(active[key] && t.available && t.ok === false)
-        bad.push(name + ': ' + (t.error || 'not responding'));
+        bad.push({
+          key,
+          name,
+          error: t.error || 'not responding',
+          transient: key === 'robot' && isRobotRestartLikeError(t.error),
+        });
     });
-  return bad.length ? bad.join(' · ') : 'target not responding';
+  return bad;
+}
+function targetHealthMsg(meta){
+  const bad = targetHealthItems(meta);
+  return bad.length
+    ? bad.map(t=> t.name + ': ' + t.error).join(' · ')
+    : 'target not responding';
 }
 function requestReceiptLine(d, label){
   const prefix = label ? label + ' received' : 'request received';
@@ -114,6 +133,8 @@ function applyBackendMeta(meta){
     hubTarget = meta.target || 'sim';
     targetHasRobot = !!(meta.active && meta.active.robot);
     targetHasSim = !!(meta.active && meta.active.sim);
+    robotTargetTransient = !!(targetHasRobot && robotMeta.available
+      && robotMeta.ok === false && isRobotRestartLikeError(robotMeta.error));
     robotTargetAvailable = !!robotMeta.available && robotMeta.ok !== false;
     simTargetAvailable = !!simMeta.available && simMeta.ok !== false;
     robotTargetUrl = robotMeta.url || robotTargetUrl || savedRobotUrl();
@@ -124,6 +145,7 @@ function applyBackendMeta(meta){
     targetHasRobot = kind0 !== 'sim';
     robotTargetAvailable = targetHasRobot;
     simTargetAvailable = targetHasSim;
+    robotTargetTransient = false;
     robotTargetUrl = '';
     hubTarget = targetHasSim ? 'sim' : 'robot';
   }
@@ -182,7 +204,25 @@ async function heartbeat(){
     applyBackendMeta(j);
     if(j && j.ok === false && j.hub){
       setLink(true, 'online');
-      const msg = targetHealthMsg(j);
+      const items = targetHealthItems(j);
+      const loud = [];
+      const now = Date.now();
+      items.forEach(item=>{
+        if(item.transient){
+          if(!targetReconnectSince[item.key])
+            targetReconnectSince[item.key] = now;
+          setTargetLineMsg(item.key, 'robot web restarting… reconnecting',
+            'warn');
+          if(now - targetReconnectSince[item.key]
+              > TARGET_RESTART_GRACE_MS)
+            loud.push(item.name + ': ' + item.error);
+        } else {
+          targetReconnectSince[item.key] = 0;
+          setTargetLineMsg(item.key, item.error, 'bad');
+          loud.push(item.name + ': ' + item.error);
+        }
+      });
+      const msg = loud.join(' · ');
       if(msg && msg !== lastTargetHealthMsg){
         lastTargetHealthMsg = msg;
         showSent(msg, true);
@@ -190,6 +230,16 @@ async function heartbeat(){
       return;
     }
     if(j && j.ok === false) throw new Error(j.error || 'ping failed');
+    if(hubMode){
+      if(robotTargetAvailable){
+        targetReconnectSince.robot = 0;
+        clearTargetLineMsg('robot');
+      }
+      if(simTargetAvailable){
+        targetReconnectSince.sim = 0;
+        clearTargetLineMsg('sim');
+      }
+    }
     lastTargetHealthMsg = '';
     setLink(true, 'online');
   }catch(e){
@@ -785,8 +835,10 @@ function paintTargetRows(){
   paintTargetBadge('robotlinesend', targetHasRobot ? 'active' : 'idle',
     targetHasRobot ? 'route' : '');
   paintTargetBadge('robotlineconn',
-    robotTargetAvailable ? 'connected' : 'not connected',
-    robotTargetAvailable ? 'ok' : 'bad');
+    robotTargetTransient ? 'restarting…'
+      : (robotTargetAvailable ? 'connected' : 'not connected'),
+    robotTargetTransient ? 'warn'
+      : (robotTargetAvailable ? 'ok' : 'bad'));
   paintTargetBadge('simlinesend', targetHasSim ? 'active' : 'idle',
     targetHasSim ? 'route' : '');
   paintTargetBadge('simlineconn',

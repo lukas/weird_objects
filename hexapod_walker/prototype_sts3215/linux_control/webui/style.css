@@ -75,6 +75,8 @@
                      background:#102218; }
   .target-badge.route { color:#7eb6ff; border-color:#2b6cff;
                         background:#101b2d; }
+  .target-badge.warn { color:#e6b35a; border-color:#8a6a2a;
+                       background:#241d12; }
   .target-badge.bad { color:#ff8a8a; border-color:#7a2b2b;
                       background:#241416; }
   .target-msg { display:none; min-height:22px; align-items:center;

@@ -83,6 +83,8 @@ SWEEP_OVERRUN_MM = 7.0
 SWEEP_TORQUE = 620
 SWEEP_MAX_TILT_DELTA_DEG = 8.0
 SWEEP_HARD_TILT_DELTA_DEG = 14.0
+SWEEP_TILT_RECOVERY_S = 0.25
+SWEEP_MAX_TILT_SKIPS = 2
 SWEEP_MAX_LEG_CURRENT_A = 2.6
 SWEEP_FLOOR_BAND_MM = 4.0
 SWEEP_CONTACT_CURRENT_RISE_A = 0.055
@@ -670,6 +672,24 @@ def run_geometry_contact_sweep(
             _angle_delta_deg(float(now[1]), base[1]),
         )
 
+    def settled_tilt_delta(
+            base: tuple[float, float] | None,
+            seconds: float = SWEEP_TILT_RECOVERY_S
+    ) -> tuple[float, float] | None:
+        rows: list[tuple[float, float]] = []
+        deadline = time.monotonic() + max(0.05, float(seconds))
+        while time.monotonic() < deadline:
+            td = tilt_delta(base)
+            if td is not None:
+                rows.append(td)
+            time.sleep(0.04)
+        if not rows:
+            return None
+        return (
+            _median([r for r, _p in rows], 0.0),
+            _median([p for _r, p in rows], 0.0),
+        )
+
     live = _live_robot_ids(bus)
     if len(live) < 12:
         return {"ok": False, "error": f"need more servos (live={len(live)})",
@@ -812,22 +832,30 @@ def run_geometry_contact_sweep(
 
             td = tilt_delta(base_tilt)
             if td is not None and max(abs(td[0]), abs(td[1])) > SWEEP_MAX_TILT_DELTA_DEG:
-                hard = max(abs(td[0]), abs(td[1])) > SWEEP_HARD_TILT_DELTA_DEG
+                hard_trip = (
+                    max(abs(td[0]), abs(td[1]))
+                    > SWEEP_HARD_TILT_DELTA_DEG
+                )
                 reason = (
-                    "tilt abort" if hard else
+                    "tilt backoff" if hard_trip else
                     f"tilt skip (Δ{td[0]:+.1f}°/{td[1]:+.1f}°)")
                 sample_contact(
                     leg, last_goal, target=target, detected=False,
                     accepted=False, reason=reason, step=step,
                     tilt_trip=td)
                 retreat_probe_leg()
-                if hard:
+                settled_td = settled_tilt_delta(base_tilt)
+                if (settled_td is not None
+                        and max(abs(settled_td[0]), abs(settled_td[1]))
+                        > SWEEP_HARD_TILT_DELTA_DEG):
                     return False, (
-                        f"tilt abort (Δ{td[0]:+.1f}°/{td[1]:+.1f}°)")
+                        "tilt abort "
+                        f"(Δ{settled_td[0]:+.1f}°/"
+                        f"{settled_td[1]:+.1f}° sustained)")
                 _progress(
                     f"dimension sweep: L{leg} backed off after tilt "
                     f"Δ{td[0]:+.1f}°/{td[1]:+.1f}°")
-                return True, None
+                return True, "tilt skip"
 
             fb_rows = [read_feedback(j + k) or {} for k in range(3)]
             currents = [abs(float(r.get("current_a") or 0.0)) for r in fb_rows]
@@ -892,8 +920,12 @@ def run_geometry_contact_sweep(
         retreat_probe_leg()
         return True, None
 
+    tilt_skips = 0
+    stop_sweep = False
     try:
         for leg in range(6):
+            if stop_sweep:
+                break
             if abort_check():
                 _hold_here(bus, live)
                 return {"ok": False, "aborted": True,
@@ -927,6 +959,16 @@ def run_geometry_contact_sweep(
                         "target_plan": target_plan,
                         "fit": fit_contact_sweep(samples),
                     }
+                if reason == "tilt skip":
+                    tilt_skips += 1
+                    _progress(
+                        f"dimension sweep: L{leg} skipped after tilt backoff")
+                    if tilt_skips >= SWEEP_MAX_TILT_SKIPS:
+                        _progress(
+                            "dimension sweep: stopping early after recovered "
+                            "tilt backoffs")
+                        stop_sweep = True
+                    break
                 _write_pose(bus, base, live, speed=125, acc=12)
                 time.sleep(0.18)
         _progress("dimension sweep: return to plant")
@@ -950,6 +992,8 @@ def run_geometry_contact_sweep(
         "target_plan": target_plan,
         "samples": samples,
         "fit": fit,
+        "tilt_skips": tilt_skips,
+        "stopped_early": bool(stop_sweep),
         "path": str(path),
         "log_name": path.name,
         "latest": str(latest),
@@ -966,6 +1010,8 @@ def run_geometry_contact_sweep(
             f", height {summary['mean_servo_height_mm']:.1f}mm"
             f" spread {summary.get('servo_height_spread_mm', 0.0):.1f}mm"
         )
+    if stop_sweep:
+        msg += f"; stopped early after {tilt_skips} tilt backoff(s)"
     payload["msg"] = msg
     return payload
 
