@@ -1132,10 +1132,13 @@ class QuadPitchTrim:
         return (roll_deg * self.imu_axis_roll
                 + pitch_deg * self.imu_axis_pitch)
 
-    def _update_body_pitch(self, cmd_pitch: float, now: float) -> bool:
+    def _update_body_pitch(self, cmd_pitch: float, now: float,
+                           target_pitch: float | None = None) -> bool:
         self.samples += 1
         if not self.ready:
-            target = self.expected_pitch_deg
+            target = target_pitch
+            if target is None:
+                target = self.expected_pitch_deg
             if target is None or abs(float(target)) <= 5.0:
                 target = cmd_pitch
             self.imu_axis = "body"
@@ -1207,8 +1210,12 @@ class QuadPitchTrim:
             return False
         if imu.get("body_frame_calibrated") and imu.get("body_pitch_deg") is not None:
             try:
+                target = None
+                if imu.get("body_pitch_target_deg") is not None:
+                    target = float(imu["body_pitch_target_deg"])
                 return self._update_body_pitch(
-                    float(imu["body_pitch_deg"]), now)
+                    float(imu["body_pitch_deg"]), now,
+                    target_pitch=target)
             except (TypeError, ValueError):
                 pass
         rp = _imu_roll_pitch_deg(imu)

@@ -129,6 +129,28 @@ def test_saved_body_frame_handles_off_axis_imu() -> None:
     assert forward["body_dx_trim_mm"] < 0.0
 
 
+def test_body_frame_trim_targets_measured_rear_lean() -> None:
+    body_frame = imu_body_frame_from_roll_pitch(
+        13.0, 13.0, expected_pitch_deg=-24.0, samples=10)
+    assert body_frame["ok"]
+    assert abs(body_frame["body_pitch_target_deg"]
+               + math.hypot(13.0, 13.0)) < 0.5
+    calib = {
+        "gyro_bias_dps": {"x": 0.0, "y": 0.0, "z": 0.0},
+        "accel_bias_g": {"x": 0.0, "y": 0.0, "z": 0.0},
+        "body_frame": body_frame,
+    }
+    trim = QuadPitchTrim(expected_pitch_deg=-24.0, gait="walk")
+    lean = 13.0
+    trim.update(apply_imu_calib(_imu_angles(lean, lean), calib), 0.0)
+    data = trim.event_data()
+    assert data["body_frame_mode"]
+    assert abs((data["target_pitch_deg"] or 0.0)
+               + math.hypot(13.0, 13.0)) < 0.5
+    assert abs(data["err_deg"]) < 0.5
+    assert abs(data["pitch_trim_deg"]) < 0.5
+
+
 def test_pose_factory_accepts_trim() -> None:
     base = [0.0, 20.0, 80.0] * 6
     trim = {"body_dx_m": -0.005, "pitch_rad": -0.05}

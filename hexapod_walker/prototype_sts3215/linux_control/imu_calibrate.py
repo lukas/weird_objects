@@ -95,8 +95,9 @@ def _valid_body_frame(data: dict | None) -> dict | None:
         "timestamp": data.get("timestamp"),
         "n_samples": int(data.get("n_samples") or data.get("samples") or 0),
     }
-    for k in ("expected_pitch_deg", "measured_roll_deg",
-              "measured_pitch_deg", "measured_lean_deg"):
+    for k in ("expected_pitch_deg", "body_pitch_target_deg",
+              "measured_roll_deg", "measured_pitch_deg",
+              "measured_lean_deg"):
         if data.get(k) is not None:
             try:
                 out[k] = float(data[k])
@@ -205,6 +206,7 @@ def imu_body_frame_from_roll_pitch(
         "measured_roll_deg": round(base_roll, 3),
         "measured_pitch_deg": round(base_pitch, 3),
         "measured_lean_deg": round(measured, 3),
+        "body_pitch_target_deg": round(sign * measured, 3),
         "pitch_axis": _axis_label(ar, ap),
         "pitch_axis_roll": round(ar, 6),
         "pitch_axis_pitch": round(ap, 6),
@@ -320,6 +322,8 @@ def apply_imu_calib(sample: dict, calib: dict | None) -> dict:
             out["body_roll_deg"] = body_roll
             out["body_frame_calibrated"] = True
             out["body_frame_axis"] = bf["pitch_axis"]
+            if bf.get("body_pitch_target_deg") is not None:
+                out["body_pitch_target_deg"] = bf["body_pitch_target_deg"]
         else:
             out["body_frame_calibrated"] = False
     return out
