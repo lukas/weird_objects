@@ -783,8 +783,9 @@ class BenchAPI:
                  motion_log: bool | None = None) -> dict:
         try:
             from inplace_demos import (
-                DEMOS, QUAD_DOWN_DEMOS, QUAD_REQUIRES_REAR,
-                QUAD_REARED_END_DEMOS, QUAD_STREAM_DEMOS, run_demo)
+                DEMOS, QUAD_BLOCKED_HARDWARE_DEMOS, QUAD_DOWN_DEMOS,
+                QUAD_REQUIRES_REAR, QUAD_REARED_END_DEMOS,
+                QUAD_STREAM_DEMOS, run_demo)
         except ImportError as e:
             return {"ok": False, "error": f"inplace_demos missing: {e}"}
         try:
@@ -802,6 +803,13 @@ class BenchAPI:
             if script is None:
                 return {"ok": False, "error": f"unknown demo {name!r}",
                         "demos": [n for n in DEMOS if n != "breathe+"]}
+        if name in QUAD_BLOCKED_HARDWARE_DEMOS:
+            return {"ok": False,
+                    "error": (
+                        "aggressive quad walk/trot is blocked on hardware "
+                        "after the forward fall; use pitched walk or "
+                        "simulate aggressive in MuJoCo only"),
+                    "demo": self.demo_state(), "robot": self.robot_state()}
         if self.drive.dry_run:
             return {"ok": False, "error": "dry-run — no bus"}
         if not self.drive.bus:

@@ -2037,6 +2037,9 @@ QUAD_REQUIRES_REAR = tuple(
     for action in ("hold", "walk", "walk_back", "trot",
                    "trot_back", "down"))
 QUAD_STREAM_DEMOS = (*QUAD_REARED_END_DEMOS, *QUAD_DOWN_DEMOS)
+QUAD_BLOCKED_HARDWARE_DEMOS = tuple(
+    _quad_name(action, "_aggressive")
+    for action in ("walk", "walk_back", "trot", "trot_back"))
 QUAD_DEMO_GAITS = {}
 for _quad_suffix, (_rear_gait, _walk_gait, _trot_gait, _label) in (
         QUAD_VARIANTS.items()):
@@ -5547,6 +5550,10 @@ def run_demo(bus: FeetechBus, name: str, *,
         size = max(_clamp_breathe_size(size), 2.0)
     if name not in DEMOS:
         raise SystemExit(f"unknown demo {name!r}; try: {', '.join(DEMOS)}")
+    if name in QUAD_BLOCKED_HARDWARE_DEMOS:
+        print("  aggressive quad walk/trot is blocked on hardware after "
+              "the forward fall; use pitched walk or simulate it only")
+        return "skipped"
     if configure_stream_profile(bus):
         print(f"  stream: DENSE waypoints ({1.0 / DT:.0f} Hz, "
               f"deadband {DEADBAND_DEG:.2f}°) — MCU stream bridge")

@@ -2660,6 +2660,20 @@ function quadVariantLabel(){
 }
 function quadName(action){ return 'quad_'+action+quadSuffix(); }
 function isQuadDown(name){ return name.indexOf('quad_down') === 0; }
+function quadRobotBlocked(action){
+  return targetHasRobot && quadSuffix() === '_aggressive'
+    && ['walk', 'walk_back', 'trot', 'trot_back'].includes(action);
+}
+function quadRunAction(action, label){
+  if(quadRobotBlocked(action)){
+    showSent(
+      'aggressive walk/trot is blocked on the robot after the forward fall; '
+      +'use Pitched for hardware or switch to MuJoCo-only to simulate it',
+      true);
+    return;
+  }
+  quadRun(quadName(action), label);
+}
 $('qspeed').oninput = ()=>{
   $('qspeedlab').textContent = quadSpeed().toFixed(2);
   if(!(lastDemo && lastDemo.running)) return;
@@ -2701,20 +2715,20 @@ async function quadRun(name, label){
   startDemoPoll();
   refreshRobotState(true);
 }
-$('qrear').onclick = ()=> quadRun(
-  quadName('rear'), 'quad '+quadVariantLabel()+' rear up');
-$('qfwd').onclick = ()=> quadRun(
-  quadName('walk'), 'quad '+quadVariantLabel()+' walk forward');
-$('qback').onclick = ()=> quadRun(
-  quadName('walk_back'), 'quad '+quadVariantLabel()+' walk backward');
-$('qtrot').onclick = ()=> quadRun(
-  quadName('trot'), 'quad '+quadVariantLabel()+' trot forward');
-$('qtrotback').onclick = ()=> quadRun(
-  quadName('trot_back'), 'quad '+quadVariantLabel()+' trot backward');
-$('qdown').onclick = ()=> quadRun(
-  quadName('down'), 'quad '+quadVariantLabel()+' come down');
-$('qstop').onclick = ()=> quadRun(
-  quadName('hold'), 'quad '+quadVariantLabel()+' settle hold');
+$('qrear').onclick = ()=> quadRunAction(
+  'rear', 'quad '+quadVariantLabel()+' rear up');
+$('qfwd').onclick = ()=> quadRunAction(
+  'walk', 'quad '+quadVariantLabel()+' walk forward');
+$('qback').onclick = ()=> quadRunAction(
+  'walk_back', 'quad '+quadVariantLabel()+' walk backward');
+$('qtrot').onclick = ()=> quadRunAction(
+  'trot', 'quad '+quadVariantLabel()+' trot forward');
+$('qtrotback').onclick = ()=> quadRunAction(
+  'trot_back', 'quad '+quadVariantLabel()+' trot backward');
+$('qdown').onclick = ()=> quadRunAction(
+  'down', 'quad '+quadVariantLabel()+' come down');
+$('qstop').onclick = ()=> quadRunAction(
+  'hold', 'quad '+quadVariantLabel()+' settle hold');
 $('qstand').onclick = ()=> goPoseZero('stand', 'stand zero');
 $('dcheckz').onclick = async ()=>{
   showSent('checking zero…');
