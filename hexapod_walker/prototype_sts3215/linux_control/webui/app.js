@@ -42,6 +42,11 @@ function saveRobotUrl(url){
     else localStorage.removeItem('hexapod.robotUrl');
   }catch(e){}
 }
+function htmlEscape(x){
+  return String(x == null ? '' : x).replace(/[&<>"']/g, ch => ({
+    '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;',
+  }[ch]));
+}
 
 // --- link heartbeat --------------------------------------------------------
 function setLink(ok, detail){
@@ -1186,9 +1191,92 @@ function renderCheckupSteps({running=false, progress=null, result=null}={}){
   });
   el.innerHTML = rows.join('');
 }
+function calNum(v, digits=1){
+  const n = Number(v);
+  return Number.isFinite(n) ? n.toFixed(digits) : '—';
+}
+function calSigned(v, digits=1){
+  const n = Number(v);
+  if(!Number.isFinite(n)) return '—';
+  return (n >= 0 ? '+' : '') + n.toFixed(digits);
+}
+function calMm(v, digits=1){
+  return calNum(v, digits) + ' mm';
+}
+function renderCalDimensions(res){
+  const el = $('caldims');
+  if(!el) return;
+  if(!res){
+    el.innerHTML = '';
+    return;
+  }
+  const report = res.report || res || {};
+  const geom = res.geometry || report.geometry || {};
+  const hasGeom = !!(
+    geom && (geom.nominal_mm || geom.summary || geom.per_leg || geom.ok));
+  if(!hasGeom || geom.ok === false){
+    const err = geom && geom.error ? ` (${htmlEscape(geom.error)})` : '';
+    el.innerHTML = `<div class="hint">Robot dimensions unavailable${err}</div>`;
+    return;
+  }
+  const nom = geom.nominal_mm || {};
+  const gsum = geom.summary || {};
+  const plant = geom.plant || {};
+  const hint = geom.mujoco_hint || {};
+  const links = hint.link_lengths_m || {};
+  const learned = plant.learned ? 'learned plant' : 'default plant';
+  const rows = [
+    ['link lengths',
+      `coxa ${calMm(nom.coxa)} · femur ${calMm(nom.femur)} · tibia ${calMm(nom.tibia)}`,
+      links.coxa != null
+        ? `MuJoCo m: ${calNum(links.coxa, 5)}, ${calNum(links.femur, 5)}, ${calNum(links.tibia, 5)}`
+        : 'CAD model'],
+    ['chassis',
+      `flat-to-flat ${calMm(nom.chassis_flat_to_flat)}`,
+      'CAD model'],
+    ['stand home',
+      `hip ${calSigned(plant.hip_deg)}° · knee ${calSigned(plant.knee_deg)}°`,
+      learned + (plant.timestamp ? ` · ${htmlEscape(plant.timestamp)}` : '')],
+    ['stance foot z',
+      `mean ${calMm(gsum.mean_foot_z_mm)} · spread ${calMm(gsum.foot_z_spread_mm)}`,
+      hint.neutral_foot_z_m != null
+        ? `MuJoCo neutral z ${calNum(hint.neutral_foot_z_m, 5)} m`
+        : 'hip-frame vertical'],
+    ['stance reach',
+      `radial ${calMm(gsum.mean_radial_mm)} · spread ${calMm(gsum.radial_spread_mm)}`,
+      'hip-yaw-frame reach'],
+  ];
+  const perLeg = Array.isArray(geom.per_leg) ? geom.per_leg : [];
+  const legRows = perLeg.map(row => (
+    `<tr>`+
+      `<td>L${htmlEscape(row.leg)}</td>`+
+      `<td>${calSigned(row.yaw_deg)}</td>`+
+      `<td>${calSigned(row.hip_deg)}</td>`+
+      `<td>${calSigned(row.knee_deg)}</td>`+
+      `<td>${calNum(row.z_mm)}</td>`+
+      `<td>${calNum(row.radial_mm)}</td>`+
+    `</tr>`
+  )).join('');
+  el.innerHTML =
+    `<div class="cal-dim-title">Robot dimensions used for sim</div>`+
+    `<table class="cal-table cal-dim-summary"><thead><tr>`+
+      `<th>item</th><th>value</th><th>source</th>`+
+    `</tr></thead><tbody>`+
+      rows.map(r => `<tr><td>${htmlEscape(r[0])}</td>`+
+        `<td>${r[1]}</td><td>${r[2]}</td></tr>`).join('')+
+    `</tbody></table>`+
+    (legRows ? (
+      `<div class="cal-dim-title sub">Per-leg plant geometry</div>`+
+      `<table class="cal-table"><thead><tr>`+
+        `<th>leg</th><th>yaw°</th><th>hip°</th><th>knee°</th>`+
+        `<th>foot z mm</th><th>radial mm</th>`+
+      `</tr></thead><tbody>${legRows}</tbody></table>`
+    ) : '');
+}
 function renderCalResult(res){
   if(!res){
     renderCheckupSteps();
+    renderCalDimensions(null);
     return;
   }
   const report = res.report || {};
@@ -1210,6 +1298,7 @@ function renderCalResult(res){
     ? `Report: logs/${res.log_name}`
     : (res.path ? `Report: ${res.path}` : 'Report: —');
   renderCheckupSteps({result: res});
+  renderCalDimensions(res);
   if(geom.plant) paintPlantInfo(geom.plant);
   if(res.imu || report.imu) paintImuInfo(res.imu || report.imu);
 }

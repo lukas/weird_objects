@@ -287,6 +287,10 @@
   .cal-pill.yellow { color:#e0b34d; border-color:#8a6a1a; }
   .cal-pill.red { color:#ff7b72; border-color:#8a3030; }
   .cal-option { display:block; margin-top:10px; }
+  .cal-dim-title { color:#9aa3b2; font-size:12px; font-weight:700;
+    text-transform:uppercase; letter-spacing:0; margin:12px 0 6px; }
+  .cal-dim-title.sub { margin-top:14px; color:#8089a0; }
+  .cal-dim-summary td:nth-child(2) { color:#e7eaf0; }
   .cal-steps { display:grid; gap:8px; margin-top:14px; }
   .cal-step { display:grid; grid-template-columns:minmax(140px, 220px) 88px 1fr;
     gap:10px; align-items:start; padding:10px 12px; border:1px solid #232733;

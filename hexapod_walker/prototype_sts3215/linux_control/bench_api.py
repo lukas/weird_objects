@@ -1961,6 +1961,28 @@ class BenchAPI:
         }
 
     # -- step calibrate (cmd vs encoder) -------------------------------------
+    def _latest_calibration_report(self) -> dict | None:
+        path = (Path(__file__).resolve().parent / "logs"
+                / "calibration_report_latest.json")
+        if not path.is_file():
+            return None
+        try:
+            report = json.loads(path.read_text())
+        except (OSError, ValueError):
+            return None
+        if not isinstance(report, dict):
+            return None
+        report.setdefault("mode", "calibration_report")
+        report.setdefault("latest", str(path))
+        report.setdefault("path", str(path))
+        report.setdefault("log_name", path.name)
+        phases = report.get("phases") or []
+        if phases:
+            report["ok"] = (
+                all(bool(p.get("ok")) for p in phases)
+                and not any(bool(p.get("aborted")) for p in phases))
+        return report
+
     def calibrate_state(self) -> dict:
         with self._lock:
             result = dict(self._cal_result) if self._cal_result else None
@@ -1971,6 +1993,8 @@ class BenchAPI:
         running = bool(self._demo_thread and self._demo_thread.is_alive()
                        and (self._demo_name or "").startswith(
                            ("calibrate", "rl_", "standup_", "measure_")))
+        if result is None and not running:
+            result = self._latest_calibration_report()
         plant = self.plant_state()
         imu = self.imu_state()
         return {
@@ -2201,15 +2225,26 @@ class BenchAPI:
         log_dir = Path(__file__).resolve().parent / "logs"
         log_dir.mkdir(parents=True, exist_ok=True)
         stamp = time.strftime("%Y%m%d_%H%M%S")
+        path = log_dir / f"calibration_report_{stamp}.json"
+        latest = log_dir / "calibration_report_latest.json"
+        phase_rows = phases or []
+        ok = (
+            True if not phase_rows
+            else (all(bool(p.get("ok")) for p in phase_rows)
+                  and not any(bool(p.get("aborted")) for p in phase_rows))
+        )
         report = {
-            "ok": True,
+            "ok": ok,
             "mode": "calibration_report",
             "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S"),
-            "phases": phases or [],
+            "phases": phase_rows,
             "geometry": self._geometry_report(),
             "imu": self.imu_state(),
             "traction": traction,
             "actuators": self._actuator_report(bus),
+            "path": str(path),
+            "log_name": path.name,
+            "latest": str(latest),
             "notes": [
                 "geometry.nominal_mm is the CAD/link model",
                 "geometry.plant_joint_deg and geometry.per_leg are measured "
@@ -2220,13 +2255,8 @@ class BenchAPI:
                 "dynamics/sysid run when present",
             ],
         }
-        path = log_dir / f"calibration_report_{stamp}.json"
-        latest = log_dir / "calibration_report_latest.json"
         path.write_text(json.dumps(report, indent=2) + "\n")
         latest.write_text(json.dumps(report, indent=2) + "\n")
-        report["path"] = str(path)
-        report["log_name"] = path.name
-        report["latest"] = str(latest)
         return report
 
     def calibration_report(self) -> dict:
