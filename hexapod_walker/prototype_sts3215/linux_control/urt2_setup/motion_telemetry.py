@@ -7,7 +7,11 @@ Columns per sample
 ------------------
 t_s, joint, id, name, cmd_deg, present_deg, err_deg, speed_deg_s,
 load_pct, current_a, volt, wrote, cmd_speed, cmd_acc, moving,
-ax_g, ay_g, az_g, gx_dps, gy_dps, gz_dps, temp_c
+ax_g, ay_g, az_g, gx_dps, gy_dps, gz_dps, temp_c,
+roll_deg, pitch_deg,
+balance_target_pitch_deg, balance_pitch_deg, balance_err_deg,
+balance_rate_deg_s, balance_pitch_trim_deg, balance_dx_trim_mm,
+balance_speed_scale
 
 IMU columns are chassis MPU-6050 (MCU Wire), repeated on every joint
 row for that tick so motor amps and body accel/gyro stay aligned.
@@ -21,6 +25,7 @@ from __future__ import annotations
 
 import csv
 import json
+import math
 import statistics
 import time
 from dataclasses import dataclass, field
@@ -103,6 +108,11 @@ class MotionLog:
             "wrote", "cmd_speed", "cmd_acc", "moving",
             "ax_g", "ay_g", "az_g",
             "gx_dps", "gy_dps", "gz_dps", "temp_c",
+            "roll_deg", "pitch_deg",
+            "balance_target_pitch_deg", "balance_pitch_deg",
+            "balance_err_deg", "balance_rate_deg_s",
+            "balance_pitch_trim_deg", "balance_dx_trim_mm",
+            "balance_speed_scale",
         ])
         self._w.writeheader()
         self._t0 = time.monotonic()
@@ -185,7 +195,8 @@ class MotionLog:
         }
 
     def sample(self, bus: FeetechBus, cmd: list[float],
-               *, wrote: dict[int, tuple[int, int]] | None = None) -> None:
+               *, wrote: dict[int, tuple[int, int]] | None = None,
+               extra: dict | None = None) -> None:
         """Read live joints and append CSV rows.
 
         ``wrote`` maps joint index → (cmd_speed, cmd_acc) for joints that
@@ -206,6 +217,11 @@ class MotionLog:
             except Exception:
                 imu = None
         if imu:
+            roll = math.degrees(math.atan2(
+                float(imu["ay_g"]), float(imu["az_g"])))
+            pitch = math.degrees(math.atan2(
+                -float(imu["ax_g"]),
+                math.hypot(float(imu["ay_g"]), float(imu["az_g"]))))
             imu_cols = {
                 "ax_g": f"{float(imu['ax_g']):.4f}",
                 "ay_g": f"{float(imu['ay_g']):.4f}",
@@ -214,12 +230,28 @@ class MotionLog:
                 "gy_dps": f"{float(imu['gy_dps']):.2f}",
                 "gz_dps": f"{float(imu['gz_dps']):.2f}",
                 "temp_c": f"{float(imu['temp_c']):.1f}",
+                "roll_deg": f"{roll:.2f}",
+                "pitch_deg": f"{pitch:.2f}",
             }
         else:
             imu_cols = {
                 "ax_g": "", "ay_g": "", "az_g": "",
                 "gx_dps": "", "gy_dps": "", "gz_dps": "", "temp_c": "",
+                "roll_deg": "", "pitch_deg": "",
             }
+        extra_cols = {
+            "balance_target_pitch_deg": "",
+            "balance_pitch_deg": "",
+            "balance_err_deg": "",
+            "balance_rate_deg_s": "",
+            "balance_pitch_trim_deg": "",
+            "balance_dx_trim_mm": "",
+            "balance_speed_scale": "",
+        }
+        if extra:
+            for k in extra_cols:
+                if k in extra:
+                    extra_cols[k] = extra[k]
 
         current_sum = 0.0
         n_fb = 0
@@ -280,6 +312,7 @@ class MotionLog:
                 "moving": moving,
             }
             row.update(imu_cols)
+            row.update(extra_cols)
             self._w.writerow(row)
 
             self._err.setdefault(joint, []).append(err)
@@ -303,6 +336,11 @@ class MotionLog:
                 "current_a": round(current_sum, 3),
             }
             if imu:
+                roll = math.degrees(math.atan2(
+                    float(imu["ay_g"]), float(imu["az_g"])))
+                pitch = math.degrees(math.atan2(
+                    -float(imu["ax_g"]),
+                    math.hypot(float(imu["ay_g"]), float(imu["az_g"]))))
                 data.update({
                     "ax_g": round(float(imu["ax_g"]), 4),
                     "ay_g": round(float(imu["ay_g"]), 4),
@@ -310,9 +348,13 @@ class MotionLog:
                     "gx_dps": round(float(imu["gx_dps"]), 2),
                     "gy_dps": round(float(imu["gy_dps"]), 2),
                     "gz_dps": round(float(imu["gz_dps"]), 2),
+                    "roll_deg": round(roll, 2),
+                    "pitch_deg": round(pitch, 2),
                     "temp_c": round(float(imu["temp_c"]), 1),
                     "imu_calibrated": bool(imu.get("calibrated")),
                 })
+            if extra:
+                data.update(extra)
             emit("telemetry", f"tick {self._tick}", src="motion", data=data)
         except Exception:
             pass

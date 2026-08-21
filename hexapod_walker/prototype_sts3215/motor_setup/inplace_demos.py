@@ -898,6 +898,233 @@ STAND_DANCE_TORQUE = 900      # weight-bearing motion (end-hold restores 1000)
 LIVE_SPEED_MIN = 0.25
 LIVE_SPEED_MAX = 3.0
 
+# Live quad balance trim: this is intentionally a small reflex around the
+# existing gait, not a new gait planner. It uses the same sparse IMU read
+# already used by the tilt guard, so normal operation adds no bus traffic.
+QUAD_TRIM_MAX_PITCH_DEG = 5.0
+QUAD_TRIM_MAX_DX_M = 0.012
+QUAD_TRIM_DEADBAND_DEG = 1.0
+QUAD_TRIM_GUARD_ERROR_DEG = 15.0
+
+
+def _imu_roll_pitch_deg(imu: dict) -> tuple[float, float] | None:
+    try:
+        ax = float(imu.get("ax_g", 0.0))
+        ay = float(imu.get("ay_g", 0.0))
+        az = float(imu.get("az_g", 0.0))
+    except (TypeError, ValueError):
+        return None
+    norm = math.sqrt(ax * ax + ay * ay + az * az)
+    if norm < 0.25:
+        return None
+    roll = math.degrees(math.atan2(ay, az))
+    pitch = math.degrees(math.atan2(-ax, math.hypot(ay, az)))
+    return roll, pitch
+
+
+def _clamp(x: float, lo: float, hi: float) -> float:
+    return max(lo, min(hi, x))
+
+
+def _deadband(x: float, band: float) -> float:
+    if x > band:
+        return x - band
+    if x < -band:
+        return x + band
+    return 0.0
+
+
+def _slew(current: float, desired: float, max_step: float) -> float:
+    if desired > current + max_step:
+        return current + max_step
+    if desired < current - max_step:
+        return current - max_step
+    return desired
+
+
+class QuadPitchTrim:
+    """Tiny IMU pitch reflex for split quad hold/walk/trot phases.
+
+    The trim baseline is the measured pitch at the start of the phase,
+    converted into quad_walk's command convention (negative = nose up).
+    If pitch drifts forward, the command nudges more nose-up/aft; if it
+    drifts backward, the command nudges less nose-up/forward. Large
+    relative pitch error for two IMU samples is treated as a fall onset
+    and the streamer goes limp rather than fighting it.
+    """
+
+    def __init__(self, *, expected_pitch_deg: float | None = None,
+                 gait: str = "quad"):
+        self.expected_pitch_deg = expected_pitch_deg
+        self.gait = gait
+        self.enabled = True
+        self.ready = False
+        self.disabled_reason = ""
+        self.samples = 0
+        self.sign_to_cmd = 1.0
+        self.target_pitch_deg: float | None = None
+        self.pitch_deg: float | None = None
+        self.pitch_error_deg = 0.0
+        self.pitch_rate_deg_s = 0.0
+        self.pitch_trim_deg = 0.0
+        self.body_dx_trim_m = 0.0
+        self.speed_scale = 1.0
+        self.abort_reason: str | None = None
+        self._warmup: list[float] = []
+        self._pitch_lp_meas: float | None = None
+        self._prev_cmd_pitch: float | None = None
+        self._prev_update_t: float | None = None
+        self._danger_samples = 0
+        self._last_emit_t = 0.0
+        self._last_emit_bucket: tuple[int, int] | None = None
+
+    def pose_trim(self) -> dict:
+        if not self.enabled or not self.ready:
+            return {"body_dx_m": 0.0, "pitch_rad": 0.0}
+        return {
+            "body_dx_m": self.body_dx_trim_m,
+            "pitch_rad": math.radians(self.pitch_trim_deg),
+        }
+
+    def update(self, imu: dict | None, now: float) -> bool:
+        if not self.enabled or not imu:
+            return False
+        rp = _imu_roll_pitch_deg(imu)
+        if rp is None:
+            return False
+        _roll, measured_pitch = rp
+        alpha = 0.35
+        if self._pitch_lp_meas is None:
+            self._pitch_lp_meas = measured_pitch
+        else:
+            self._pitch_lp_meas = (
+                (1.0 - alpha) * self._pitch_lp_meas
+                + alpha * measured_pitch)
+        self.samples += 1
+
+        if not self.ready:
+            self._warmup.append(self._pitch_lp_meas)
+            if len(self._warmup) < 3:
+                return True
+            measured_base = sum(self._warmup) / len(self._warmup)
+            if abs(measured_base) < 6.0:
+                self.enabled = False
+                self.disabled_reason = (
+                    f"imu pitch baseline too small ({measured_base:+.1f} deg)")
+                return True
+            expected = self.expected_pitch_deg
+            if expected is not None and abs(expected) > 5.0:
+                # quad_walk command convention is negative nose-up. If the
+                # IMU reports the opposite sign at the reared baseline,
+                # flip measured pitch into command convention.
+                self.sign_to_cmd = (
+                    -1.0 if expected * measured_base < 0 else 1.0)
+            self.target_pitch_deg = self.sign_to_cmd * measured_base
+            self.pitch_deg = self.target_pitch_deg
+            self._prev_cmd_pitch = self.target_pitch_deg
+            self._prev_update_t = now
+            self.ready = True
+            return True
+
+        cmd_pitch = self.sign_to_cmd * self._pitch_lp_meas
+        prev_t = self._prev_update_t if self._prev_update_t is not None else now
+        dt = max(0.05, min(0.75, now - prev_t))
+        prev_pitch = (self._prev_cmd_pitch if self._prev_cmd_pitch is not None
+                      else cmd_pitch)
+        rate = _clamp((cmd_pitch - prev_pitch) / dt, -120.0, 120.0)
+        target = (self.target_pitch_deg
+                  if self.target_pitch_deg is not None else cmd_pitch)
+        err = cmd_pitch - target
+        eff = _deadband(err, QUAD_TRIM_DEADBAND_DEG)
+
+        desired_pitch = -(0.55 * eff + 0.04 * rate)
+        desired_dx = -(0.0012 * eff + 0.00004 * rate)
+        desired_pitch = _clamp(
+            desired_pitch, -QUAD_TRIM_MAX_PITCH_DEG, QUAD_TRIM_MAX_PITCH_DEG)
+        desired_dx = _clamp(
+            desired_dx, -QUAD_TRIM_MAX_DX_M, QUAD_TRIM_MAX_DX_M)
+
+        self.pitch_trim_deg = _slew(
+            self.pitch_trim_deg, desired_pitch, 8.0 * dt)
+        self.body_dx_trim_m = _slew(
+            self.body_dx_trim_m, desired_dx, 0.030 * dt)
+        self.speed_scale = _clamp(
+            1.0 - min(0.35, abs(err) / 28.0)
+            - min(0.15, abs(rate) / 160.0),
+            0.55, 1.0)
+        self.pitch_deg = cmd_pitch
+        self.pitch_error_deg = err
+        self.pitch_rate_deg_s = rate
+        self._prev_cmd_pitch = cmd_pitch
+        self._prev_update_t = now
+
+        danger = (abs(err) > QUAD_TRIM_GUARD_ERROR_DEG
+                  or (abs(err) > 10.0 and abs(rate) > 45.0))
+        self._danger_samples = self._danger_samples + 1 if danger else 0
+        if self._danger_samples >= 2 and self.abort_reason is None:
+            self.abort_reason = (
+                f"balance:{err:+.1f}:{rate:+.0f}")
+        return True
+
+    def should_emit(self, now: float) -> bool:
+        if self.abort_reason:
+            return True
+        if self.disabled_reason:
+            return now - self._last_emit_t > 2.0
+        if not self.ready:
+            return False
+        bucket = (round(self.pitch_trim_deg), round(self.body_dx_trim_m * 1000))
+        if bucket != self._last_emit_bucket and now - self._last_emit_t > 0.35:
+            return True
+        return now - self._last_emit_t > 1.25
+
+    def mark_emitted(self, now: float) -> None:
+        self._last_emit_t = now
+        self._last_emit_bucket = (
+            round(self.pitch_trim_deg), round(self.body_dx_trim_m * 1000))
+
+    def event_data(self) -> dict:
+        return {
+            "gait": self.gait,
+            "ready": self.ready,
+            "enabled": self.enabled,
+            "disabled_reason": self.disabled_reason,
+            "target_pitch_deg": (
+                None if self.target_pitch_deg is None
+                else round(self.target_pitch_deg, 2)),
+            "pitch_deg": (
+                None if self.pitch_deg is None else round(self.pitch_deg, 2)),
+            "err_deg": round(self.pitch_error_deg, 2),
+            "rate_deg_s": round(self.pitch_rate_deg_s, 1),
+            "pitch_trim_deg": round(self.pitch_trim_deg, 2),
+            "body_dx_trim_mm": round(self.body_dx_trim_m * 1000.0, 1),
+            "speed_scale": round(self.speed_scale, 2),
+            "samples": self.samples,
+        }
+
+    def csv_cols(self) -> dict:
+        d = self.event_data()
+        return {
+            "balance_target_pitch_deg": "" if d["target_pitch_deg"] is None
+            else f"{d['target_pitch_deg']:.2f}",
+            "balance_pitch_deg": "" if d["pitch_deg"] is None
+            else f"{d['pitch_deg']:.2f}",
+            "balance_err_deg": f"{d['err_deg']:.2f}",
+            "balance_rate_deg_s": f"{d['rate_deg_s']:.2f}",
+            "balance_pitch_trim_deg": f"{d['pitch_trim_deg']:.2f}",
+            "balance_dx_trim_mm": f"{d['body_dx_trim_mm']:.2f}",
+            "balance_speed_scale": f"{d['speed_scale']:.2f}",
+        }
+
+    def status_suffix(self) -> str:
+        if self.disabled_reason:
+            return "trim off"
+        if not self.ready:
+            return "trim warmup"
+        return (f"trim {self.pitch_trim_deg:+.1f}deg "
+                f"{self.body_dx_trim_m * 1000:+.0f}mm "
+                f"err {self.pitch_error_deg:+.1f}")
+
 
 def _clamp_live_speed(x) -> float:
     try:
@@ -915,7 +1142,8 @@ def stream_pose_fn(bus: FeetechBus, live: set[int], pose_fn, *,
                    log: MotionLog | None = None,
                    max_speed: int = 3000, max_acc: int = 200,
                    tick_s: float = STREAM_TICK_S,
-                   tilt_guard_deg: float | None = None) -> str:
+                   tilt_guard_deg: float | None = None,
+                   balance_trim: QuadPitchTrim | None = None) -> str:
     """Stream ``pose_fn(t)`` at ~20 Hz with a live tempo multiplier.
 
     Demo time ``t`` advances by wall-dt x ``speed_fn()`` every tick, so
@@ -954,6 +1182,8 @@ def stream_pose_fn(bus: FeetechBus, live: set[int], pose_fn, *,
     stall_prev: set = set()
     tilt_prev = False
     read_imu = getattr(bus, "read_imu", None)
+    need_imu = ((tilt_guard_deg is not None or balance_trim is not None)
+                and callable(read_imu))
     sweep_n = 0
     t = 0.0
     t0 = time.monotonic()
@@ -967,6 +1197,9 @@ def stream_pose_fn(bus: FeetechBus, live: set[int], pose_fn, *,
             return "aborted"
         wall = time.monotonic()
         rate = _clamp_live_speed(spd())
+        if balance_trim is not None and balance_trim.ready:
+            rate = _clamp(rate * balance_trim.speed_scale,
+                          LIVE_SPEED_MIN, LIVE_SPEED_MAX)
         t += (wall - wall_prev) * rate
         wall_prev = wall
         q = pose_fn(min(t + lookahead_s * rate, seconds))
@@ -984,7 +1217,9 @@ def stream_pose_fn(bus: FeetechBus, live: set[int], pose_fn, *,
             last_sample = wall - t0
             sweep_n += 1
             if log is not None and sweep_n % 2 == 0:
-                log.sample(bus, q, wrote={})
+                extra = (balance_trim.csv_cols()
+                         if balance_trim is not None else None)
+                log.sample(bus, q, wrote={}, extra=extra)
             if tracker.peak_a > STREAM_HARD_CAP_A:
                 _hold_here(bus, live)
                 return "guard"
@@ -997,12 +1232,31 @@ def stream_pose_fn(bus: FeetechBus, live: set[int], pose_fn, *,
                 _hold_here(bus, live)
                 return "guard"
             stall_prev = now
-            if tilt_guard_deg is not None and callable(read_imu):
+            if need_imu:
                 try:
                     imu = read_imu()
                 except Exception:
                     imu = None
-                if imu and "az_g" in imu:
+                if balance_trim is not None:
+                    updated = balance_trim.update(imu, wall)
+                    if updated and balance_trim.should_emit(wall):
+                        try:
+                            from event_log import emit
+                            emit("quad_trim", balance_trim.status_suffix(),
+                                 src="balance",
+                                 data=balance_trim.event_data())
+                        except Exception:
+                            pass
+                        balance_trim.mark_emitted(wall)
+                    if balance_trim.abort_reason:
+                        for sid in sorted(live):
+                            try:
+                                bus.pkt.write1ByteTxRx(
+                                    sid, ADDR_TORQUE_ENABLE, 0)
+                            except Exception:
+                                pass
+                        return balance_trim.abort_reason
+                if tilt_guard_deg is not None and imu and "az_g" in imu:
                     norm = math.sqrt(imu.get("ax_g", 0.0) ** 2
                                      + imu.get("ay_g", 0.0) ** 2
                                      + imu["az_g"] ** 2) or 1.0
@@ -1023,8 +1277,11 @@ def stream_pose_fn(bus: FeetechBus, live: set[int], pose_fn, *,
                         tilt_prev = False
             if status_cb is not None:
                 try:
+                    suffix = (f" {balance_trim.status_suffix()}"
+                              if balance_trim is not None else "")
                     status_cb(f"{label}: {t:.0f}/{seconds:.0f}s "
-                              f"x{rate:.2f} peak {tracker.peak_a:.2f}A")
+                              f"x{rate:.2f} peak {tracker.peak_a:.2f}A"
+                              f"{suffix}")
                 except Exception:
                     pass
         time.sleep(tick_s)
@@ -2037,6 +2294,10 @@ QUAD_REQUIRES_REAR = tuple(
     for action in ("hold", "walk", "walk_back", "trot",
                    "trot_back", "down"))
 QUAD_STREAM_DEMOS = (*QUAD_REARED_END_DEMOS, *QUAD_DOWN_DEMOS)
+QUAD_BALANCE_TRIM_DEMOS = tuple(
+    _quad_name(action, suffix)
+    for suffix in QUAD_VARIANTS
+    for action in ("hold", "walk", "walk_back", "trot", "trot_back"))
 QUAD_BLOCKED_HARDWARE_DEMOS = tuple(
     _quad_name(action, "_aggressive")
     for action in ("walk", "walk_back", "trot", "trot_back"))
@@ -2053,11 +2314,12 @@ for _quad_suffix, (_rear_gait, _walk_gait, _trot_gait, _label) in (
 
 
 def _make_quad_fn(seconds: float, *, gait: str = "walk",
-                  direction: float = 1.0, phase: str = "walk"):
+                  direction: float = 1.0, phase: str = "walk",
+                  trim_fn=None):
     from quad_walk import make_quad_walk_pose_fn
     return make_quad_walk_pose_fn(
         _stand_zero_pose(), seconds, gait=gait, direction=direction,
-        phase=phase)
+        phase=phase, trim_fn=trim_fn)
 
 
 def _make_quad_variant_fn(action: str, suffix: str):
@@ -2074,9 +2336,10 @@ def _make_quad_variant_fn(action: str, suffix: str):
              else "walk")
     direction = -1.0 if action in ("walk_back", "trot_back") else 1.0
 
-    def _fn(seconds: float):
+    def _fn(seconds: float, trim_fn=None):
         return _make_quad_fn(
-            seconds, gait=gait, direction=direction, phase=phase)
+            seconds, gait=gait, direction=direction, phase=phase,
+            trim_fn=trim_fn)
 
     _fn.duration_aware = True
     return _fn
@@ -2170,9 +2433,27 @@ def run_streamed_demo(bus: FeetechBus, name: str, *,
         tlim = max(150, min(1000, tlim))
     _set_torque_limit(bus, live, tlim)
 
+    balance_trim = None
+    if quad and name in QUAD_BALANCE_TRIM_DEMOS:
+        from quad_walk import GAITS
+        gait_key = QUAD_DEMO_GAITS.get(name)
+        gait_cfg = GAITS.get(gait_key or "", {})
+        pitch = gait_cfg.get("pitch")
+        expected_pitch = (
+            math.degrees(float(pitch)) if pitch is not None else None)
+        balance_trim = QuadPitchTrim(
+            expected_pitch_deg=expected_pitch, gait=gait_key or name)
+
     factory = STREAM_POSE_FACTORIES[name]
-    pose_fn = (factory(dur) if getattr(factory, "duration_aware", False)
-               else factory())
+    if getattr(factory, "duration_aware", False):
+        if quad:
+            pose_fn = factory(
+                dur,
+                trim_fn=balance_trim.pose_trim if balance_trim else None)
+        else:
+            pose_fn = factory(dur)
+    else:
+        pose_fn = factory()
     tracker = CurrentPeakTracker()
     tick_s = QUAD_STREAM_TICK_S if quad else STREAM_TICK_S
     title = DEMOS[name][0] if name in DEMOS else name
@@ -2190,9 +2471,19 @@ def run_streamed_demo(bus: FeetechBus, name: str, *,
             speed_fn=speed_fn, status_cb=status_cb, label=name,
             tracker=tracker, log=log_cm, tick_s=tick_s,
             max_acc=QUAD_STREAM_ACC if quad else 200,
-            tilt_guard_deg=QUAD_TILT_GUARD_DEG if quad else None)
+            tilt_guard_deg=QUAD_TILT_GUARD_DEG if quad else None,
+            balance_trim=balance_trim)
         if st == "aborted":
             return "aborted"
+        if st.startswith("balance:"):
+            bits = st.split(":")
+            err = bits[1] if len(bits) > 1 else "?"
+            rate = bits[2] if len(bits) > 2 else "?"
+            msg = (f"stopped: pitch drift {err} deg, rate {rate} deg/s — "
+                   "balance trim saw a fall starting and went limp. "
+                   "Check the robot before the next run.")
+            print(f"  {msg}")
+            return msg
         if st.startswith("tilt:"):
             msg = (f"stopped: body tilt {st[5:]} deg — tipping past "
                    f"{QUAD_TILT_GUARD_DEG:.0f}, went limp for a soft "

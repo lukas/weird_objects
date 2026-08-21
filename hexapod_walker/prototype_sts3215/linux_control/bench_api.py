@@ -783,7 +783,8 @@ class BenchAPI:
                  motion_log: bool | None = None) -> dict:
         try:
             from inplace_demos import (
-                DEMOS, QUAD_BLOCKED_HARDWARE_DEMOS, QUAD_DOWN_DEMOS,
+                DEMOS, QUAD_BALANCE_TRIM_DEMOS,
+                QUAD_BLOCKED_HARDWARE_DEMOS, QUAD_DOWN_DEMOS,
                 QUAD_REAR_DEMOS, QUAD_REQUIRES_REAR, QUAD_REARED_END_DEMOS,
                 QUAD_STREAM_DEMOS, run_demo)
         except ImportError as e:
@@ -845,6 +846,7 @@ class BenchAPI:
             motion_log = bool(motion_log)
 
         quad_any = name in QUAD_STREAM_DEMOS
+        quad_balance = name in QUAD_BALANCE_TRIM_DEMOS
         quad_rear = name in QUAD_REAR_DEMOS
         quad_requires_rear = name in QUAD_REQUIRES_REAR
         quad_current = bool(
@@ -890,6 +892,8 @@ class BenchAPI:
             params["torque"] = torque
         if motion_log:
             params["motion_log"] = True
+        if quad_balance:
+            params["balance_trim"] = True
         if switched_from:
             params["switched_from"] = switched_from
 
@@ -914,6 +918,8 @@ class BenchAPI:
             bits.append(f"soft {softness:.2f}×")
         if torque is not None:
             bits.append(f"τ {torque}")
+        if quad_balance:
+            bits.append("balance trim")
         detail = " ".join(bits)
         self._set_activity("demo", detail)
 

@@ -2428,6 +2428,7 @@ function paintDemoStatus(d){
     if(p.rate!=null) bits.push(Number(p.rate).toFixed(2)+'Hz');
     if(p.softness!=null) bits.push('soft '+Number(p.softness).toFixed(2)+'×');
     if(p.torque!=null) bits.push('τ'+p.torque);
+    if(p.balance_trim) bits.push('trim');
     if(p.log) bits.push(p.log);
     if(running) bits.push('running');
     else if(String(st).startsWith('done')) bits.push('finished');

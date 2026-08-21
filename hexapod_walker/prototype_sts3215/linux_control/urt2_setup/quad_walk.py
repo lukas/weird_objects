@@ -181,7 +181,8 @@ class QuadRearWalk:
     """Pure pose function t → 18 joint degrees for the tip-back walk."""
 
     def __init__(self, base_deg: list[float], seconds: float,
-                 gait: str = "walk", direction: float = 1.0):
+                 gait: str = "walk", direction: float = 1.0,
+                 trim_fn=None):
         import tripod_gait as TG
         self._TG = TG
         self.base = list(base_deg)
@@ -202,6 +203,7 @@ class QuadRearWalk:
         self.sway = g["sway"]
         self.sway_phase = g["sway_phase"]
         self.phase = dict(g["phase"])
+        self.trim_fn = trim_fn
         # Counter-roll (rad, about x, once per cycle): diagonal 2-foot
         # support has no roll stiffness, so the body droops toward the
         # swinging FRONT leg and eats the foot clearance — command the
@@ -295,6 +297,36 @@ class QuadRearWalk:
                 leg, wx, wy, wz, bx, by, pitch, roll)
         return pose
 
+    def _trim(self) -> tuple[float, float]:
+        """Live balance trim as (body_dx_m, pitch_rad)."""
+        if not callable(self.trim_fn):
+            return 0.0, 0.0
+        try:
+            tr = self.trim_fn()
+        except Exception:
+            return 0.0, 0.0
+        if not tr:
+            return 0.0, 0.0
+        try:
+            if isinstance(tr, dict):
+                dx = float(tr.get("body_dx_m", 0.0))
+                pitch = float(tr.get("pitch_rad", 0.0))
+            else:
+                dx, pitch = tr
+                dx = float(dx)
+                pitch = float(pitch)
+        except (TypeError, ValueError):
+            return 0.0, 0.0
+        # Second-line safety clamp; the IMU controller also limits these.
+        dx = max(-0.018, min(0.018, dx))
+        pitch = max(math.radians(-7.0), min(math.radians(7.0), pitch))
+        return dx, pitch
+
+    def _trim_body_pitch(self, bx: float, pitch: float
+                         ) -> tuple[float, float]:
+        dx, dp = self._trim()
+        return bx + dx, pitch + dp
+
     # -- walk-phase foot schedule -------------------------------------------
 
     def _walk_feet(self, tw: float, *, freeze_swing: bool = False
@@ -351,7 +383,8 @@ class QuadRearWalk:
         return {leg: tuple(self.anchors[leg]) for leg in SUPPORT_LEGS}
 
     def reared_pose(self) -> list[float]:
-        return self._solve(self.body_dx, 0.0, self.pitch,
+        bx, pitch = self._trim_body_pitch(self.body_dx, self.pitch)
+        return self._solve(bx, 0.0, pitch,
                            self._support_feet(), self._tucked_fronts())
 
     def reared_hold_pose_at(self, _t: float) -> list[float]:
@@ -374,7 +407,8 @@ class QuadRearWalk:
         """Walk while already reared; no entry or automatic exit."""
         tw = max(0.0, float(t))
         bx, by = self._walk_body(tw)
-        return self._solve(bx, by, self.pitch, self._walk_feet(tw),
+        bx, pitch = self._trim_body_pitch(bx, self.pitch)
+        return self._solve(bx, by, pitch, self._walk_feet(tw),
                            self._tucked_fronts(), roll=self._walk_roll(tw))
 
     def exit_pose_at(self, t: float) -> list[float]:
@@ -433,7 +467,8 @@ class QuadRearWalk:
         if t < self.t_exit:              # ---- the animal walk ----
             tw = t - ENTRY_TOTAL_S
             bx, by = self._walk_body(tw)
-            return self._solve(bx, by, self.pitch, self._walk_feet(tw),
+            bx, pitch = self._trim_body_pitch(bx, self.pitch)
+            return self._solve(bx, by, pitch, self._walk_feet(tw),
                                tuckq, roll=self._walk_roll(tw))
 
         return self._exit_pose_at(t - self.t_exit, tw_end)
@@ -513,9 +548,10 @@ class QuadRearWalk:
 
 def make_quad_walk_pose_fn(base_deg: list[float], seconds: float,
                            gait: str = "walk", direction: float = 1.0,
-                           phase: str = "full"):
+                           phase: str = "full", trim_fn=None):
     """Duration-aware factory for full or split quad-mode phases."""
-    q = QuadRearWalk(base_deg, seconds, gait=gait, direction=direction)
+    q = QuadRearWalk(
+        base_deg, seconds, gait=gait, direction=direction, trim_fn=trim_fn)
     phase = (phase or "full").strip().lower()
     if phase in ("rear", "entry", "entry_hold"):
         return q.entry_hold_pose_at

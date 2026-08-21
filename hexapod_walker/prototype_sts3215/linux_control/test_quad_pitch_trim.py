@@ -1,0 +1,64 @@
+"""Off-robot smoke tests for live quad pitch trim."""
+from __future__ import annotations
+
+import math
+import sys
+from pathlib import Path
+
+_HERE = Path(__file__).resolve().parent
+_ROOT = _HERE.parent
+for _p in (_ROOT / "motor_setup", _HERE):
+    if str(_p) not in sys.path:
+        sys.path.insert(0, str(_p))
+
+from inplace_demos import QuadPitchTrim  # noqa: E402
+from quad_walk import make_quad_walk_pose_fn  # noqa: E402
+
+
+def _imu_pitch(pitch_deg: float) -> dict:
+    rad = math.radians(pitch_deg)
+    return {"ax_g": -math.sin(rad), "ay_g": 0.0, "az_g": math.cos(rad)}
+
+
+def test_trim_sign_and_direction() -> None:
+    trim = QuadPitchTrim(expected_pitch_deg=-24.0, gait="walk")
+    for i in range(3):
+        trim.update(_imu_pitch(+24.0), i * 0.25)
+    assert trim.ready
+    assert trim.sign_to_cmd == -1.0
+    assert abs((trim.target_pitch_deg or 0.0) + 24.0) < 0.5
+
+    trim.update(_imu_pitch(+18.0), 1.0)
+    trim.update(_imu_pitch(+18.0), 1.25)
+    forward = trim.event_data()
+    assert forward["err_deg"] > 0.0
+    assert forward["pitch_trim_deg"] < 0.0
+    assert forward["body_dx_trim_mm"] < 0.0
+
+    trim.update(_imu_pitch(+30.0), 1.75)
+    trim.update(_imu_pitch(+30.0), 2.0)
+    backward = trim.event_data()
+    assert backward["err_deg"] < 0.0
+    assert backward["pitch_trim_deg"] > forward["pitch_trim_deg"]
+
+
+def test_pose_factory_accepts_trim() -> None:
+    base = [0.0, 20.0, 80.0] * 6
+    trim = {"body_dx_m": -0.005, "pitch_rad": -0.05}
+    fn = make_quad_walk_pose_fn(
+        base, 30.0, gait="walk", phase="walk", trim_fn=lambda: trim)
+    pose = fn(1.0)
+    assert len(pose) == 18
+    assert all(isinstance(x, float) for x in pose)
+
+
+def _main() -> int:
+    for name, fn in sorted(globals().items()):
+        if name.startswith("test_") and callable(fn):
+            fn()
+            print(f"PASS {name}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(_main())

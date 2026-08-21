@@ -303,8 +303,10 @@ in which legs swing together: tripod 3+3 (fastest), ripple opposite pairs
 	        fronts and returns to stand. Walk is the steadier one-foot sequence;
 	        trot uses diagonal pairs and is experimental on hardware.
 	        Pitched/aggressive variants lean farther back with shorter,
-	        slower steps. Use a flat non-slip floor, clear slack around the
-	        body, and watch the robot the whole time.</div>
+	        slower steps. Hold/walk/trot use live IMU pitch trim to nudge
+	        the body fore/aft and slow the gait if pitch drifts. Use a flat
+	        non-slip floor, clear slack around the body, and watch the robot
+	        the whole time.</div>
 	      <label class="slab">Stance:
 	        <select id="qstance">
 	          <option value="" selected>Stable -24°</option>
@@ -344,9 +346,10 @@ in which legs swing together: tripod 3+3 (fastest), ripple opposite pairs
 		      <div class="hint">Press Stand zero first; Rear up starts only
 		        from that held plant stance and no longer auto-stands.
 		        Walk/trot/down require the reared hold, τ900 + 3&nbsp;A
-		        stall guard while moving. Settle hold returns to the stable
-		        reared pose; Come down returns to stand. Standard event
-		        logging stays on; full motion CSV is opt-in.</div>
+		        stall guard while moving. Hold/walk/trot also log live
+		        pitch-trim events. Settle hold returns to the stable reared
+		        pose; Come down returns to stand. Standard event logging
+		        stays on; full motion CSV is opt-in.</div>
     </div>
   </div>
   </div><!-- /view-quad -->
