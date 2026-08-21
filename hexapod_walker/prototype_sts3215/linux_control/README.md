@@ -155,6 +155,16 @@ Raw sweep samples are saved on the robot as
 coverage lives in `linux_control/test_geometry_sweep_fit.py` and is included
 in `make robot-unit-check`; it does not touch hardware.
 
+Hand measurements live separately from the moving checkup:
+`GET/POST /api/geometry/manual` reads or writes
+`linux_control/logs/geometry_manual.json` with `hip_pitch_height_mm`,
+`hip_center_radius_mm`, `femur_mm`, and `tibia_mm`.  The report shows these
+as operator measurements, uses manual hip height for MuJoCo height hints, and
+keeps FK-derived height plus current-vs-absolute knee convention comparisons
+visible as consistency checks.  Do not silently copy these values into live
+gait constants; change motion geometry only after the measurements, contact
+sweep residuals, and MuJoCo behavior agree.
+
 ### RL episode traces (automatic)
 
 Every RL stand / lower / walk run additionally writes per-tick telemetry

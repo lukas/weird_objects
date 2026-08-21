@@ -1116,6 +1116,7 @@ function showView(which){
   else stopDemoPoll();
   if(which === 'calibrate'){
     if(servosArmed){ cmd('HOLD'); forceResend(); }
+    refreshManualGeometry();
     refreshCalibrate(); startCalPoll();
   }
   else stopCalPoll();
@@ -1276,6 +1277,28 @@ function calSigned(v, digits=1){
 function calMm(v, digits=1){
   return calNum(v, digits) + ' mm';
 }
+function calMaybeMm(v, label, digits=1){
+  const n = Number(v);
+  return Number.isFinite(n) ? `${label} ${n.toFixed(digits)} mm` : null;
+}
+function calDelta(v, digits=1){
+  const n = Number(v);
+  if(!Number.isFinite(n)) return '—';
+  return (n >= 0 ? '+' : '') + n.toFixed(digits) + ' mm';
+}
+function fillCalInput(id, value){
+  const el = $(id);
+  if(!el) return;
+  const n = Number(value);
+  if(Number.isFinite(n) && document.activeElement !== el) el.value = n;
+}
+function paintManualGeometry(manual){
+  if(!manual || !manual.ok) return;
+  fillCalInput('calhipheight', manual.hip_pitch_height_mm);
+  fillCalInput('calhipradius', manual.hip_center_radius_mm);
+  fillCalInput('calfemur', manual.femur_mm);
+  fillCalInput('caltibia', manual.tibia_mm);
+}
 function renderCalDimensions(res){
   const el = $('caldims');
   if(!el) return;
@@ -1296,12 +1319,14 @@ function renderCalDimensions(res){
   const gsum = geom.summary || {};
   const plant = geom.plant || {};
   const hint = geom.mujoco_hint || {};
+  const manual = geom.manual_measurements || {};
   const fit = geom.effective_fit || {};
   const fitSummary = fit.summary || {};
   const seg = fit.segment_fit || {};
   const segLinks = seg.link_lengths_mm || {};
   const contactSweep = geom.contact_sweep || {};
   const links = hint.link_lengths_m || {};
+  const manualLinks = hint.manual_link_lengths_m || {};
   const effLinks = hint.effective_link_lengths_m || {};
   const learned = plant.learned ? 'learned plant' : 'default plant';
   const fitSource = fit.source === 'contact_sweep'
@@ -1311,17 +1336,48 @@ function renderCalDimensions(res){
   const sweepSource = contactSweep && sweepRaw
     ? `${contactSweep.status || 'unknown'} · ${contactSweep.sample_count || 0}/${sweepRaw} accepted`
     : 'not run';
+  const manualBits = [
+    calMaybeMm(manual.hip_pitch_height_mm, 'hip h'),
+    calMaybeMm(manual.hip_center_radius_mm, 'center→hip'),
+    calMaybeMm(manual.femur_mm, 'femur'),
+    calMaybeMm(manual.tibia_mm, 'tibia/boot'),
+  ].filter(Boolean);
+  const manualSource = manual.learned
+    ? `operator measurement${manual.timestamp ? (' · '+htmlEscape(manual.timestamp)) : ''}`
+    : 'not saved';
+  const consistencyBits = [
+    gsum.manual_relative_height_mm != null
+      ? `current knee FK ${calMm(gsum.manual_relative_height_mm)} (${calDelta(gsum.manual_relative_minus_manual_height_mm)})`
+      : null,
+    gsum.manual_absolute_height_mm != null
+      ? `absolute-knee FK ${calMm(gsum.manual_absolute_height_mm)} (${calDelta(gsum.manual_absolute_minus_manual_height_mm)})`
+      : null,
+  ].filter(Boolean);
   const rows = [
+    ['manual measurements',
+      manualBits.length ? manualBits.join(' · ') : 'not saved',
+      manualSource],
     ['link lengths',
       `coxa ${calMm(nom.coxa)} · femur ${calMm(nom.femur)} · tibia ${calMm(nom.tibia)}`,
       links.coxa != null
         ? `MuJoCo m: ${calNum(links.coxa, 5)}, ${calNum(links.femur, 5)}, ${calNum(links.tibia, 5)}`
         : 'CAD model'],
+    ['hip center radius',
+      `nominal ${calMm(gsum.nominal_hip_center_radius_mm)}`
+        +(gsum.manual_hip_center_radius_mm != null
+          ? ` · measured ${calMm(gsum.manual_hip_center_radius_mm)}`
+          : ''),
+      gsum.manual_center_minus_nominal_mm != null
+        ? `measured minus nominal ${calDelta(gsum.manual_center_minus_nominal_mm)}`
+        : 'flat-to-flat/2 + coxa'],
     ['effective segment fit',
       `coxa ${calMm(segLinks.coxa)} · femur ${calMm(segLinks.femur)} · tibia ${calMm(segLinks.tibia)}`,
       seg.status
         ? `${htmlEscape(seg.status)} · ${fitSource}`
         : 'waiting for dimension sweep'],
+    ['manual FK consistency',
+      consistencyBits.length ? consistencyBits.join(' · ') : 'waiting for measured links + hip height',
+      'positive delta means FK predicts a taller robot than tape'],
     ['dimension sweep',
       sweepSource,
       contactSweep && sweepRaw
@@ -1333,7 +1389,7 @@ function renderCalDimensions(res){
     ['stand home',
       `hip ${calSigned(plant.hip_deg)}° · knee ${calSigned(plant.knee_deg)}°`,
       learned + (plant.timestamp ? ` · ${htmlEscape(plant.timestamp)}` : '')],
-    ['servo/hip height',
+    ['FK height estimate',
       `mean ${calMm(fitSummary.mean_servo_height_mm)} · spread ${calMm(fitSummary.servo_height_spread_mm)}`,
       fitSource],
     ['zero offset hints',
@@ -1343,6 +1399,7 @@ function renderCalDimensions(res){
       `mean ${calMm(gsum.mean_foot_z_mm)} · spread ${calMm(gsum.foot_z_spread_mm)}`,
       hint.neutral_foot_z_m != null
         ? `MuJoCo neutral z ${calNum(hint.neutral_foot_z_m, 5)} m`
+          +(hint.neutral_foot_z_source ? ` · ${htmlEscape(hint.neutral_foot_z_source)}` : '')
         : 'hip-frame vertical'],
     ['stance reach',
       `radial ${calMm(gsum.mean_radial_mm)} · spread ${calMm(gsum.radial_spread_mm)}`,
@@ -1352,6 +1409,14 @@ function renderCalDimensions(res){
     rows.push(['MuJoCo effective links',
       `${calNum(effLinks.coxa, 5)}, ${calNum(effLinks.femur, 5)}, ${calNum(effLinks.tibia, 5)} m`,
       'from dimension sweep fit']);
+  }
+  if(manualLinks && (manualLinks.femur != null || manualLinks.tibia != null)){
+    rows.push(['MuJoCo measured links',
+      `${calNum(manualLinks.coxa, 5)}, ${calNum(manualLinks.femur, 5)}, ${calNum(manualLinks.tibia, 5)} m`
+        +(manualLinks.hip_center_radius != null
+          ? ` · center→hip ${calNum(manualLinks.hip_center_radius, 5)} m`
+          : ''),
+      'operator measurement; not applied to live gait constants']);
   }
   const perLeg = Array.isArray(geom.per_leg) ? geom.per_leg : [];
   const legRows = perLeg.map(row => (
@@ -1420,7 +1485,9 @@ function renderCalResult(res){
       : '<span class="cal-pill yellow">partial</span> checkup complete')+
     (gsum.mean_foot_z_mm!=null ? ` · foot z ${Number(gsum.mean_foot_z_mm).toFixed(1)}mm` : '')+
     (gsum.foot_z_spread_mm!=null ? ` · spread ${Number(gsum.foot_z_spread_mm).toFixed(1)}mm` : '')+
-    (esum.mean_servo_height_mm!=null ? ` · servo height ${Number(esum.mean_servo_height_mm).toFixed(1)}mm` : '')+
+    (gsum.manual_hip_pitch_height_mm!=null ? ` · measured hip ${Number(gsum.manual_hip_pitch_height_mm).toFixed(1)}mm` :
+      (esum.mean_servo_height_mm!=null ? ` · FK height ${Number(esum.mean_servo_height_mm).toFixed(1)}mm` : ''))+
+    (gsum.model_minus_manual_height_mm!=null ? ` · FK err ${calDelta(gsum.model_minus_manual_height_mm)}` : '')+
     (snap.live_joints!=null ? ` · ${snap.live_joints} actuator snapshots` : '')+
     (learned ? ' · motor model loaded' : '')+
     (res.msg ? `<div class="hint" style="margin-top:6px">${res.msg}</div>` : '');
@@ -1429,8 +1496,20 @@ function renderCalResult(res){
     : (res.path ? `Report: ${res.path}` : 'Report: —');
   renderCheckupSteps({result: res});
   renderCalDimensions(res);
+  if(geom.manual_measurements) paintManualGeometry(geom.manual_measurements);
   if(geom.plant) paintPlantInfo(geom.plant);
   if(res.imu || report.imu) paintImuInfo(res.imu || report.imu);
+}
+async function refreshManualGeometry(){
+  try{
+    const r = await fetch('/api/geometry/manual?t='+Date.now(), {cache:'no-store'});
+    if(!r.ok) return null;
+    const d = await r.json();
+    paintManualGeometry(d);
+    return d;
+  }catch(e){
+    return null;
+  }
 }
 async function refreshCalibrate(){
   try{
@@ -1466,6 +1545,38 @@ async function refreshCalibrate(){
   }
 }
 renderCheckupSteps();
+async function saveManualGeometry(){
+  const read = (id)=>{
+    const el = $(id);
+    if(!el || String(el.value).trim() === '') return null;
+    const n = Number(el.value);
+    return Number.isFinite(n) ? n : null;
+  };
+  const body = {
+    hip_pitch_height_mm: read('calhipheight'),
+    hip_center_radius_mm: read('calhipradius'),
+    femur_mm: read('calfemur'),
+    tibia_mm: read('caltibia'),
+  };
+  $('calstatus').textContent = 'Saving measured geometry…';
+  try{
+    const r = await fetch('/api/geometry/manual', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(body),
+    });
+    const d = await r.json();
+    if(!d.ok){
+      $('calstatus').textContent = d.error || 'Save failed';
+      return;
+    }
+    paintManualGeometry(d);
+    $('calstatus').textContent = 'Measured geometry saved.';
+    await refreshCalibrate();
+  }catch(e){
+    $('calstatus').textContent = 'Save failed';
+  }
+}
 $('calrun').onclick = async ()=>{
   $('calstatus').textContent = 'Starting…';
   $('calrun').disabled = true;
@@ -1497,6 +1608,7 @@ $('calstop').onclick = async ()=>{
   refreshCalibrate();
 };
 $('calrefresh').onclick = ()=> refreshCalibrate();
+$('calsavegeom').onclick = ()=> saveManualGeometry();
 let rlTimer = null;
 function startRlPoll(){
   if(rlTimer) clearInterval(rlTimer);

@@ -2028,7 +2028,11 @@ class BenchAPI:
             if saved:
                 p["ok"] = True
         geom = report.get("geometry")
-        if not isinstance(geom, dict) or geom.get("schema_version") != 2:
+        try:
+            geom_schema = int((geom or {}).get("schema_version") or 0)
+        except (TypeError, ValueError):
+            geom_schema = 0
+        if not isinstance(geom, dict) or geom_schema < 3:
             try:
                 report["geometry"] = self._geometry_report()
             except Exception:
@@ -2138,6 +2142,107 @@ class BenchAPI:
                 pass
         return out
 
+    def _manual_geometry_path(self) -> Path:
+        return Path(__file__).resolve().parent / "logs" / "geometry_manual.json"
+
+    @staticmethod
+    def _maybe_float(val) -> float | None:
+        if val is None:
+            return None
+        if isinstance(val, str) and not val.strip():
+            return None
+        try:
+            out = float(val)
+        except (TypeError, ValueError):
+            return None
+        return out if math.isfinite(out) else None
+
+    def manual_geometry_state(self) -> dict:
+        """Operator-measured dimensions, separate from FK-derived estimates."""
+        path = self._manual_geometry_path()
+        if not path.is_file():
+            return {
+                "ok": True,
+                "learned": False,
+                "path": str(path),
+                "log_name": path.name,
+            }
+        try:
+            data = json.loads(path.read_text())
+        except (OSError, ValueError) as e:
+            return {"ok": False, "error": str(e), "path": str(path)}
+        if not isinstance(data, dict):
+            return {"ok": False, "error": "manual geometry is not an object",
+                    "path": str(path)}
+        out = dict(data)
+        out.update({
+            "ok": True,
+            "learned": True,
+            "path": str(path),
+            "log_name": path.name,
+        })
+        for key in ("hip_pitch_height_mm", "hip_center_radius_mm",
+                    "femur_mm", "tibia_mm"):
+            val = self._maybe_float(out.get(key))
+            if val is not None:
+                out[key] = round(val, 2)
+            else:
+                out.pop(key, None)
+        return out
+
+    def set_manual_geometry(
+            self, *, hip_pitch_height_mm=None,
+            hip_center_radius_mm=None,
+            femur_mm=None, tibia_mm=None) -> dict:
+        """Save hand-measured geometry without moving the robot."""
+        def _bounded(name: str, val, lo: float, hi: float) -> float | None:
+            x = self._maybe_float(val)
+            if x is None:
+                return None
+            if not (lo <= x <= hi):
+                raise ValueError(
+                    f"{name} must be {lo:g}..{hi:g} mm, got {x:g}")
+            return round(x, 2)
+
+        path = self._manual_geometry_path()
+        current = self.manual_geometry_state()
+        out = {
+            "source": "operator_measurement",
+            "notes": (
+                "Hand measurements. hip_pitch_height_mm is floor to hip-pitch "
+                "servo center at zero/stand reference; tibia_mm is knee-servo "
+                "center to boot/contact end; hip_center_radius_mm is body "
+                "center to hip-pitch axis in the leg yaw frame."
+            ),
+        }
+        if current.get("ok") and current.get("learned"):
+            for key in ("hip_pitch_height_mm", "hip_center_radius_mm",
+                        "femur_mm", "tibia_mm", "source", "notes"):
+                if current.get(key) is not None:
+                    out[key] = current[key]
+        try:
+            updates = {
+                "hip_pitch_height_mm": _bounded(
+                    "hip_pitch_height_mm", hip_pitch_height_mm, 40.0, 180.0),
+                "hip_center_radius_mm": _bounded(
+                    "hip_center_radius_mm", hip_center_radius_mm, 50.0, 180.0),
+                "femur_mm": _bounded("femur_mm", femur_mm, 40.0, 140.0),
+                "tibia_mm": _bounded("tibia_mm", tibia_mm, 60.0, 220.0),
+            }
+        except ValueError as e:
+            return {"ok": False, "error": str(e)}
+        touched = False
+        for key, val in updates.items():
+            if val is not None:
+                out[key] = val
+                touched = True
+        if not touched:
+            return {"ok": False, "error": "no geometry values supplied"}
+        out["timestamp"] = time.strftime("%Y-%m-%dT%H:%M:%S")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(out, indent=2) + "\n")
+        return self.manual_geometry_state()
+
     def _geometry_report(
             self, *, geometry_sweep: dict | None = None,
             use_latest_sweep: bool = True) -> dict:
@@ -2149,6 +2254,19 @@ class BenchAPI:
         except ImportError as e:
             return {"ok": False, "error": str(e)}
         plant = self.plant_state()
+        manual = self.manual_geometry_state()
+        manual_height_mm = (
+            self._maybe_float(manual.get("hip_pitch_height_mm"))
+            if manual.get("ok") else None)
+        manual_center_radius_mm = (
+            self._maybe_float(manual.get("hip_center_radius_mm"))
+            if manual.get("ok") else None)
+        manual_femur_mm = (
+            self._maybe_float(manual.get("femur_mm"))
+            if manual.get("ok") else None)
+        manual_tibia_mm = (
+            self._maybe_float(manual.get("tibia_mm"))
+            if manual.get("ok") else None)
         try:
             pose = [float(x) for x in (plant.get("pose")
                     or standing_pose_degrees())]
@@ -2193,6 +2311,12 @@ class BenchAPI:
 
         z_vals = [float(row["z_mm"]) for row in per_leg]
         radial_vals = [float(row["radial_mm"]) for row in per_leg]
+        hip_vals = [float(row["hip_deg"]) for row in per_leg]
+        knee_vals = [float(row["knee_deg"]) for row in per_leg]
+        mean_hip_deg = (
+            None if not hip_vals else sum(hip_vals) / len(hip_vals))
+        mean_knee_deg = (
+            None if not knee_vals else sum(knee_vals) / len(knee_vals))
         plant_samples = [{
             "accepted": True,
             "contact_detected": bool(plant.get("contact_found", True)),
@@ -2258,22 +2382,74 @@ class BenchAPI:
         seg = (effective_fit or {}).get("segment_fit") or {}
         fit_links = seg.get("link_lengths_mm") or {}
         per_leg_heights_m = {}
-        for row in (effective_fit or {}).get("per_leg") or []:
-            try:
-                if row.get("servo_height_mm") is not None:
-                    per_leg_heights_m[str(int(row["leg"]))] = round(
-                        float(row["servo_height_mm"]) * 0.001, 5)
-            except (KeyError, TypeError, ValueError):
-                pass
+        if manual_height_mm is not None:
+            per_leg_heights_m = {
+                str(leg): round(manual_height_mm * 0.001, 5)
+                for leg in range(6)
+            }
+        elif using_sweep_fit:
+            for row in (effective_fit or {}).get("per_leg") or []:
+                try:
+                    if row.get("servo_height_mm") is not None:
+                        per_leg_heights_m[str(int(row["leg"]))] = round(
+                            float(row["servo_height_mm"]) * 0.001, 5)
+                except (KeyError, TypeError, ValueError):
+                    pass
+        mean_foot_z_mm = (
+            None if not z_vals else round(sum(z_vals) / len(z_vals), 2))
+        model_height_mm = self._maybe_float(
+            fit_summary.get("mean_servo_height_mm"))
+        if model_height_mm is None and mean_foot_z_mm is not None:
+            model_height_mm = round(-mean_foot_z_mm, 2)
+        height_delta_mm = (
+            None if model_height_mm is None or manual_height_mm is None
+            else round(model_height_mm - manual_height_mm, 2))
+        manual_relative_height_mm = None
+        manual_absolute_height_mm = None
+        if (manual_femur_mm is not None and manual_tibia_mm is not None
+                and mean_hip_deg is not None and mean_knee_deg is not None):
+            hip = math.radians(mean_hip_deg)
+            knee = math.radians(mean_knee_deg)
+            manual_relative_height_mm = round(
+                manual_femur_mm * math.sin(hip)
+                + manual_tibia_mm * math.sin(hip + knee), 2)
+            manual_absolute_height_mm = round(
+                manual_femur_mm * math.sin(hip)
+                + manual_tibia_mm * math.sin(knee), 2)
+        nominal_center_radius_mm = round(CHASSIS_FLAT_TO_FLAT_MM / 2.0
+                                         + COXA_MM, 2)
+        center_radius_delta_mm = (
+            None if manual_center_radius_mm is None
+            else round(manual_center_radius_mm - nominal_center_radius_mm, 2))
+        neutral_foot_z_m = (
+            round(-manual_height_mm * 0.001, 5)
+            if manual_height_mm is not None
+            else (None if mean_foot_z_mm is None
+                  else round(mean_foot_z_mm * 0.001, 5)))
+        manual_links_m = None
+        if manual_femur_mm is not None or manual_tibia_mm is not None:
+            manual_links_m = {
+                "coxa": round(COXA_MM * 0.001, 5),
+                "femur": (
+                    None if manual_femur_mm is None
+                    else round(manual_femur_mm * 0.001, 5)),
+                "tibia": (
+                    None if manual_tibia_mm is None
+                    else round(manual_tibia_mm * 0.001, 5)),
+            }
+            if manual_center_radius_mm is not None:
+                manual_links_m["hip_center_radius"] = round(
+                    manual_center_radius_mm * 0.001, 5)
         return {
             "ok": True,
-            "schema_version": 2,
+            "schema_version": 3,
             "nominal_mm": {
                 "coxa": COXA_MM,
                 "femur": FEMUR_MM,
                 "tibia": TIBIA_MM,
                 "chassis_flat_to_flat": CHASSIS_FLAT_TO_FLAT_MM,
             },
+            "manual_measurements": manual,
             "axis_limits_deg": {
                 k: [float(v[0]), float(v[1])]
                 for k, v in AXIS_LIMITS_DEG.items()
@@ -2282,8 +2458,7 @@ class BenchAPI:
             "plant_joint_deg": pose or None,
             "per_leg": per_leg,
             "summary": {
-                "mean_foot_z_mm": (
-                    None if not z_vals else round(sum(z_vals) / len(z_vals), 2)),
+                "mean_foot_z_mm": mean_foot_z_mm,
                 "foot_z_spread_mm": (
                     None if not z_vals else round(max(z_vals) - min(z_vals), 2)),
                 "mean_radial_mm": (
@@ -2297,6 +2472,30 @@ class BenchAPI:
                 "servo_height_spread_mm": (
                     fit_summary.get("servo_height_spread_mm")),
                 "max_zero_hint_deg": fit_summary.get("max_zero_hint_deg"),
+                "model_hip_pitch_height_mm": model_height_mm,
+                "manual_hip_pitch_height_mm": manual_height_mm,
+                "nominal_hip_center_radius_mm": nominal_center_radius_mm,
+                "manual_hip_center_radius_mm": manual_center_radius_mm,
+                "manual_femur_mm": manual_femur_mm,
+                "manual_tibia_mm": manual_tibia_mm,
+                "model_minus_manual_height_mm": height_delta_mm,
+                "manual_relative_height_mm": manual_relative_height_mm,
+                "manual_absolute_height_mm": manual_absolute_height_mm,
+                "manual_relative_minus_manual_height_mm": (
+                    None if (manual_relative_height_mm is None
+                             or manual_height_mm is None)
+                    else round(manual_relative_height_mm
+                               - manual_height_mm, 2)),
+                "manual_absolute_minus_manual_height_mm": (
+                    None if (manual_absolute_height_mm is None
+                             or manual_height_mm is None)
+                    else round(manual_absolute_height_mm
+                               - manual_height_mm, 2)),
+                "manual_center_minus_nominal_mm": center_radius_delta_mm,
+                "height_source": (
+                    "manual_operator_measurement"
+                    if manual_height_mm is not None
+                    else effective_fit.get("source")),
             },
             "effective_fit": effective_fit,
             "plant_only_fit": plant_fit,
@@ -2321,6 +2520,7 @@ class BenchAPI:
                     "femur": round(FEMUR_MM * 0.001, 5),
                     "tibia": round(TIBIA_MM * 0.001, 5),
                 },
+                "manual_link_lengths_m": manual_links_m,
                 "effective_link_lengths_m": (
                     None if not seg.get("ok") else {
                         "coxa": round(
@@ -2331,10 +2531,16 @@ class BenchAPI:
                             float(fit_links.get("tibia", TIBIA_MM)) * 0.001, 5),
                     }),
                 "per_leg_servo_height_m": per_leg_heights_m or None,
+                "per_leg_servo_height_source": (
+                    "manual_operator_measurement"
+                    if manual_height_mm is not None
+                    else ("contact_sweep" if using_sweep_fit else None)),
                 "plant_joint_deg": pose or None,
-                "neutral_foot_z_m": (
-                    None if not z_vals
-                    else round((sum(z_vals) / len(z_vals)) * 0.001, 5)),
+                "neutral_foot_z_m": neutral_foot_z_m,
+                "neutral_foot_z_source": (
+                    "manual_operator_measurement"
+                    if manual_height_mm is not None else "fk_model"),
+                "angle_convention": "hip_deg plus knee_deg gives tibia angle",
             },
         }
 
@@ -2449,6 +2655,8 @@ class BenchAPI:
             "latest": str(latest),
             "notes": [
                 "geometry.nominal_mm is the CAD/link model",
+                "geometry.manual_measurements are operator tape/caliper "
+                "values; they do not automatically change motion kinematics",
                 "geometry.plant_joint_deg and geometry.per_leg are measured "
                 "stand/ground-contact calibration outputs",
                 "geometry.effective_fit is a multi-contact estimate when "

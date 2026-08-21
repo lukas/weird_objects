@@ -700,6 +700,18 @@ the trained forward wedge — same policy, body walks backward.">▼ Back</butto
         <button id="calstop" class="danger">■ Stop</button>
         <button id="calrefresh">↻ Refresh</button>
       </div>
+      <div class="cal-manual-row">
+        <label>Measured geometry</label>
+        <input id="calhipheight" type="number" step="0.5" placeholder="95">
+        <span>hip h</span>
+        <input id="calhipradius" type="number" step="0.5" placeholder="114">
+        <span>center→hip</span>
+        <input id="calfemur" type="number" step="0.5" placeholder="88">
+        <span>femur</span>
+        <input id="caltibia" type="number" step="0.5" placeholder="152">
+        <span>tibia/boot</span>
+        <button id="calsavegeom">Save</button>
+      </div>
       <div class="hint" id="calstatus" style="margin-top:10px">Idle. Enable servos first.</div>
       <div class="hint" id="calcounts" style="margin-top:8px">No run yet.</div>
       <div id="caldims" style="margin-top:12px"></div>

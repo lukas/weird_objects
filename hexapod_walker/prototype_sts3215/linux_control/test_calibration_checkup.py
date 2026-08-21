@@ -6,6 +6,7 @@ No hardware: tests monkeypatch the motion phases and assert sequencing.
 from __future__ import annotations
 
 import sys
+import tempfile
 import types
 from pathlib import Path
 
@@ -157,6 +158,39 @@ def test_clean_checkup_returns_zero() -> None:
     assert "body" in calls, calls
     assert "traction" in calls, calls
     assert _phase(result["phases"], "return_zero")["ok"] is True
+
+
+def test_manual_geometry_is_reported_separately_from_fk() -> None:
+    api = BenchAPI(object())
+    with tempfile.TemporaryDirectory() as td:
+        api._manual_geometry_path = lambda: Path(td) / "geometry_manual.json"
+        saved = api.set_manual_geometry(
+            hip_pitch_height_mm=95.0,
+            hip_center_radius_mm=114.0,
+            femur_mm=88.0,
+            tibia_mm=152.0,
+        )
+        assert saved["ok"], saved
+        assert saved["hip_pitch_height_mm"] == 95.0
+
+        api.plant_state = lambda: {
+            "ok": True,
+            "learned": True,
+            "hip_deg": 18.0,
+            "knee_deg": 33.0,
+            "pose": [0.0, 18.0, 33.0] * 6,
+        }
+        geom = api._geometry_report(use_latest_sweep=False)
+        summary = geom["summary"]
+        assert geom["schema_version"] >= 3
+        assert summary["manual_hip_pitch_height_mm"] == 95.0
+        assert summary["manual_hip_center_radius_mm"] == 114.0
+        assert summary["manual_center_minus_nominal_mm"] == 1.5
+        assert summary["manual_relative_minus_manual_height_mm"] > 0.0
+        assert geom["mujoco_hint"]["neutral_foot_z_m"] == -0.095
+        assert geom["mujoco_hint"]["per_leg_servo_height_m"]["0"] == 0.095
+        assert geom["mujoco_hint"]["per_leg_servo_height_source"] == (
+            "manual_operator_measurement")
 
 
 def _main() -> int:

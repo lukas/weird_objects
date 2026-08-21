@@ -301,6 +301,12 @@
     border-radius:8px; background:#121722; }
   .cal-step-name { color:#e7eaf0; font-weight:700; }
   .cal-step-detail { color:#9aa3b2; line-height:1.35; }
+  .cal-manual-row { display:flex; align-items:center; flex-wrap:wrap; gap:8px;
+    margin-top:12px; padding:10px 12px; border:1px solid #232733;
+    border-radius:8px; background:#10151f; color:#9aa3b2; font-size:12px; }
+  .cal-manual-row label { color:#e7eaf0; font-weight:700; margin-right:4px; }
+  .cal-manual-row input[type=number] { width:82px; }
+  .cal-manual-row button { padding:7px 12px; }
   .cal-step.pending { opacity:.72; }
   .cal-step.running { border-color:#2f6df6; background:#111a2c; }
   .cal-step.ok .cal-step-name { color:#5fd08a; }

@@ -392,6 +392,9 @@ class Handler(BaseHTTPRequestHandler):
         elif path == "/api/imu":
             self._json(200, BENCH.imu_state() if BENCH
                        else {"ok": False, "error": "no bench"})
+        elif path == "/api/geometry/manual":
+            self._json(200, BENCH.manual_geometry_state() if BENCH
+                       else {"ok": False, "error": "no bench"})
         elif path == "/api/calibration/report":
             self._json(200, BENCH.calibration_report() if BENCH
                        else {"ok": False, "error": "no bench"})
@@ -598,6 +601,19 @@ class Handler(BaseHTTPRequestHandler):
         elif path == "/api/imu/reset":
             self._json(200, BENCH.reset_imu() if BENCH
                        else {"ok": False, "error": "no bench"})
+        elif path == "/api/geometry/manual":
+            try:
+                data = json.loads(body or "{}") if body else {}
+            except ValueError:
+                data = {}
+            if not isinstance(data, dict):
+                data = {}
+            self._json(200, BENCH.set_manual_geometry(
+                hip_pitch_height_mm=data.get("hip_pitch_height_mm"),
+                hip_center_radius_mm=data.get("hip_center_radius_mm"),
+                femur_mm=data.get("femur_mm"),
+                tibia_mm=data.get("tibia_mm")) if BENCH
+                else {"ok": False, "error": "no bench"})
         elif path == "/api/rl/find_plant":
             try:
                 data = json.loads(body or "{}") if body else {}
