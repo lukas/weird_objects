@@ -82,6 +82,7 @@ SWEEP_LIFT_MM = 18.0
 SWEEP_OVERRUN_MM = 7.0
 SWEEP_TORQUE = 620
 SWEEP_MAX_TILT_DELTA_DEG = 8.0
+SWEEP_HARD_TILT_DELTA_DEG = 14.0
 SWEEP_MAX_LEG_CURRENT_A = 2.6
 SWEEP_FLOOR_BAND_MM = 4.0
 SWEEP_CONTACT_CURRENT_RISE_A = 0.055
@@ -721,7 +722,8 @@ def run_geometry_contact_sweep(
     def sample_contact(
             leg: int, goal: list[float], *, target: dict,
             detected: bool, reason: str, step: int,
-            accepted: bool | None = None) -> dict:
+            accepted: bool | None = None,
+            tilt_trip: tuple[float, float] | None = None) -> dict:
         q = median_pose(3) or goal
         j = leg * 3
         fb_rows = [read_feedback(j + k) or {} for k in range(3)]
@@ -748,6 +750,11 @@ def run_geometry_contact_sweep(
         if td is not None:
             row["roll_delta_deg"] = round(td[0], 2)
             row["pitch_delta_deg"] = round(td[1], 2)
+        if tilt_trip is not None:
+            row["tilt_trip_delta_deg"] = [
+                round(float(tilt_trip[0]), 2),
+                round(float(tilt_trip[1]), 2),
+            ]
         samples.append(row)
         return row
 
@@ -767,6 +774,14 @@ def run_geometry_contact_sweep(
             deep_knee = knee
         start = make_pose(leg, hip, start_knee)
         goal = make_pose(leg, hip, deep_knee)
+
+        def retreat_probe_leg() -> None:
+            try:
+                _write_pose(bus, start, live, speed=140, acc=12)
+                time.sleep(0.22)
+            except Exception:
+                pass
+            _hold_here(bus, live)
 
         _write_pose(bus, start, live, speed=125, acc=12)
         time.sleep(0.25)
@@ -797,20 +812,31 @@ def run_geometry_contact_sweep(
 
             td = tilt_delta(base_tilt)
             if td is not None and max(abs(td[0]), abs(td[1])) > SWEEP_MAX_TILT_DELTA_DEG:
-                _hold_here(bus, live)
+                hard = max(abs(td[0]), abs(td[1])) > SWEEP_HARD_TILT_DELTA_DEG
+                reason = (
+                    "tilt abort" if hard else
+                    f"tilt skip (Δ{td[0]:+.1f}°/{td[1]:+.1f}°)")
                 sample_contact(
                     leg, last_goal, target=target, detected=False,
-                    reason="tilt abort", step=step)
-                return False, "tilt abort"
+                    accepted=False, reason=reason, step=step,
+                    tilt_trip=td)
+                retreat_probe_leg()
+                if hard:
+                    return False, (
+                        f"tilt abort (Δ{td[0]:+.1f}°/{td[1]:+.1f}°)")
+                _progress(
+                    f"dimension sweep: L{leg} backed off after tilt "
+                    f"Δ{td[0]:+.1f}°/{td[1]:+.1f}°")
+                return True, None
 
             fb_rows = [read_feedback(j + k) or {} for k in range(3)]
             currents = [abs(float(r.get("current_a") or 0.0)) for r in fb_rows]
             loads = [float(r.get("load_pct") or 0.0) for r in fb_rows]
             if max(currents or [0.0]) > SWEEP_MAX_LEG_CURRENT_A:
-                _hold_here(bus, live)
                 sample_contact(
                     leg, last_goal, target=target, detected=False,
                     reason="current abort", step=step)
+                retreat_probe_leg()
                 return False, "current abort"
 
             hip_row = fb_rows[1] or {}
@@ -842,6 +868,7 @@ def run_geometry_contact_sweep(
                         leg, last_goal, target=target,
                         detected=True, accepted=False,
                         reason=reason, step=step)
+                    retreat_probe_leg()
                     return True, None
                 continue
             if measured_reached_floor and contact_signal:
@@ -856,11 +883,13 @@ def run_geometry_contact_sweep(
                     detected=False, accepted=False,
                     reason="reached solved floor pose without contact signal",
                     step=step)
+                retreat_probe_leg()
                 return True, None
 
         sample_contact(
             leg, last_goal, target=target, detected=False,
             reason=reason, step=steps)
+        retreat_probe_leg()
         return True, None
 
     try:
@@ -886,7 +915,8 @@ def run_geometry_contact_sweep(
                 f"dimension sweep: L{leg} {len(targets)} contact poses")
             for target in targets:
                 ok, reason = probe_target(leg, target)
-                if not ok and reason in ("aborted", "tilt abort", "current abort"):
+                if (not ok and (reason in ("aborted", "current abort")
+                                or str(reason).startswith("tilt abort"))):
                     _set_torque_limit(bus, live, 1000)
                     return {
                         "ok": False,

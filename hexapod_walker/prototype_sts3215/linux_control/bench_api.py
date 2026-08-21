@@ -3333,9 +3333,22 @@ class BenchAPI:
         ok = all(p.get("ok") for p in phases)
         if abort_check() or any(p.get("aborted") for p in phases):
             ok = False
+        problem = (
+            next((p for p in phases if p.get("aborted")), None)
+            or next((p for p in phases if not p.get("ok")
+                     and not p.get("skipped")), None)
+        )
+        problem_msg = None
+        if not ok and isinstance(problem, dict):
+            problem_msg = (
+                str(problem.get("name") or "checkup")
+                + ": "
+                + str(problem.get("error") or problem.get("summary")
+                      or "failed"))
         return {
             "ok": ok,
             "mode": "checkup",
+            **({"error": problem_msg} if problem_msg else {}),
             "phases": phases,
             "report": report,
             "geometry": report.get("geometry"),
