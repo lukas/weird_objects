@@ -779,6 +779,179 @@ def test_walk_stall_beats_refusal_park(walk_returns):
 
 
 # --------------------------------------------------------------------------
+# SLIPWALK bank — FROM-SCRATCH ANTI-SLIP WALKING (operator order
+# 2026-08-21, MCP operator lane, asked by Lukas): learn walking with no
+# BC anchor and no pretrained locomotion actor, where loaded foot slip
+# is priced hard and the policy does NOT have to track a commanded
+# SPEED — it must travel in the commanded DIRECTION and actually cover
+# ground. Every earlier from-scratch gait arm (dragstance1, rsi1,
+# slowfirst1, sched1, ease1) collapsed into freeze or march-in-place,
+# so this bank's job is to prove, BEFORE any GPU burns, that under this
+# exact stack:
+#   - real travel out-earns every stationary behavior by a wide margin,
+#   - travelling FASTER than the command is never punished (no speed
+#     band — the operator's "does not need to track a speed"),
+#   - skating (loaded feet sliding, no travel) is the worst outcome,
+#   - and the park -> step -> walk discovery gradient still points
+#     uphill (a stepping stall must still beat a refusal park).
+# The honest reference is again the hardware-proven scripted tripod
+# gait; "fast" is that same gait driven at 2x the commanded speed,
+# "creep" at half, "skate" is the zero-lift sliding twin.
+# Stack: reward.k_walk_freeprog (direction-first income, no speed
+# target) + reward.k_loadslip_excess (structural episode-accumulated
+# loaded-slip charge; the per-tick drag forms are refuted) +
+# reward.walk_gait_gate (all six legs must really step) +
+# reward.k_walk_idle_charge (anti-park travel floor) +
+# reward.k_park_duty. Calibrated on the controller 2026-08-21.
+
+SLIPWALK_CMD_VX = 0.05
+SLIPWALK_OVERRIDES = {
+    ("reward", "k_step_event"): 1.0,
+    ("reward", "k_park_duty"): 2.0,
+    ("reward", "k_walk_freeprog"): 3.0,
+    ("reward", "walk_freeprog_cap_m_s"): 0.05,
+    ("reward", "walk_loadslip_gate"): 0.0,
+    ("reward", "loadslip_ok"): 1.5,
+    ("reward", "k_loadslip_excess"): 6.0,
+    ("reward", "walk_gait_gate"): 1.0,
+    ("reward", "k_walk_idle_charge"): 20.0,
+    ("reward", "walk_idle_speed_m_s"): 0.02,
+    ("reward", "walk_idle_tau_s"): 1.0,
+    ("goal", "walk_speed_min_m_s"): SLIPWALK_CMD_VX,
+    ("goal", "walk_speed_max_m_s"): SLIPWALK_CMD_VX,
+    ("goal", "walk_heading_max_rad"): 0.0,
+}
+
+
+def _slipwalk_rollout(policy: str, seed: int, *,
+                      gait_scale: float = 1.0) -> tuple[float, float]:
+    """Return (episode return, net forward body travel in m).
+
+    ``policy``: "gait" (scripted tripod at ``gait_scale`` x command),
+    "skate" (same gait, zero swing lift — feet slide), "stall"
+    (march in place), "park" (hold the plant stance and refuse).
+    """
+    from tripod_gait import TripodGait
+
+    env = _make_walk_env(seed, SLIPWALK_OVERRIDES)
+    env.reset()
+    traj = env._goal_traj
+    n = len(traj.vx)
+    hold_n = ramp_n = int(round(1.0 / env.dt))
+    ramp = np.linspace(0.0, 1.0, ramp_n)
+    traj.vx[:] = SLIPWALK_CMD_VX
+    traj.vx[:hold_n] = 0.0
+    traj.vx[hold_n:hold_n + ramp_n] = SLIPWALK_CMD_VX * ramp
+    traj.vy[:] = 0.0
+    if traj.wz is not None:
+        traj.wz[:] = 0.0
+
+    gait = TripodGait(vx=0.0, lift=0.0 if policy == "skate" else 0.025)
+    gait.sync_plant_stance(*WALK_PLANT)
+    plant_rad = np.array([0.0, *WALK_PLANT] * 6) * DEG2RAD
+    gait.reset_phase()
+
+    x0 = float(env.data.xpos[env._chassis_bid, 0])
+    total, step = 0.0, 0
+    while True:
+        t = step * env.dt
+        i = min(step, n - 1)
+        if policy in ("gait", "skate"):
+            gait.set_velocity(vx=float(traj.vx[i]) * gait_scale, vy=0.0)
+            act = q_rad_to_action(np.asarray(gait.desired_deg(t)) * DEG2RAD)
+        elif policy == "stall":
+            gait.set_velocity(vx=0.0, vy=0.0)
+            act = q_rad_to_action(np.asarray(gait.desired_deg(t)) * DEG2RAD)
+        else:
+            act = q_rad_to_action(plant_rad)
+        _obs, r, term, trunc, _info = env.step(act)
+        total += float(r)
+        step += 1
+        if term or trunc:
+            break
+    dx = float(env.data.xpos[env._chassis_bid, 0]) - x0
+    env.close()
+    return total, dx
+
+
+@pytest.fixture(scope="module")
+def slipwalk_returns() -> dict[str, float]:
+    """Mean return per behavior under the from-scratch anti-slip stack.
+
+    Controller measurement 2026-08-21 (3 seeds, 15 s episodes):
+    fast(0.44 m) +851 > gait(0.22 m) +417 > creep(0.16 m) +108 >
+    stall -143 > park -244 > skate -1195.
+    """
+    plan = {
+        "fast": ("gait", 2.0),
+        "gait": ("gait", 1.0),
+        "creep": ("gait", 0.5),
+        "skate": ("skate", 1.0),
+        "stall": ("stall", 1.0),
+        "park": ("park", 1.0),
+    }
+    out = {}
+    for name, (pol, scale) in plan.items():
+        runs = [_slipwalk_rollout(pol, s, gait_scale=scale) for s in SEEDS]
+        out[name] = float(np.mean([r[0] for r in runs]))
+        out[name + "_dx"] = float(np.mean([r[1] for r in runs]))
+    return out
+
+
+def test_slipwalk_travel_beats_every_stationary_behavior(slipwalk_returns):
+    """The whole point of the operator's arm: covering ground must beat
+    freezing, marching in place, and sliding — by a wide margin, not a
+    hair. Every prior from-scratch gait arm froze because the stack let
+    stillness stay competitive."""
+    gait = slipwalk_returns["gait"]
+    for cheat in ("stall", "park", "skate"):
+        assert gait > slipwalk_returns[cheat] + 300.0, (
+            f"stationary '{cheat}' is competitive with real walking: "
+            f"{slipwalk_returns} — the freeze exploit is open.")
+    assert slipwalk_returns["gait_dx"] > 0.15, (
+        "the reference gait did not actually travel; bank is broken")
+
+
+def test_slipwalk_skating_is_the_worst_outcome(slipwalk_returns):
+    """Loaded feet sliding with no travel is what the operator wants
+    priced hardest: the zero-lift skating twin must sit below every
+    other behavior in the bank, including outright refusal."""
+    assert slipwalk_returns["skate"] < slipwalk_returns["park"] - 300.0, (
+        f"skating is not the worst outcome: {slipwalk_returns}")
+
+
+def test_slipwalk_more_travel_earns_more(slipwalk_returns):
+    """Income must rise monotonically with real along-command distance
+    (0.16 m -> 0.22 m -> 0.44 m), so the gradient out of any partial
+    gait points at travelling further, not at settling."""
+    assert (slipwalk_returns["fast"] > slipwalk_returns["gait"]
+            > slipwalk_returns["creep"]), (
+        f"more travel does not earn more: {slipwalk_returns}")
+    assert slipwalk_returns["fast_dx"] > slipwalk_returns["gait_dx"] \
+        > slipwalk_returns["creep_dx"]
+
+
+def test_slipwalk_has_no_speed_band(slipwalk_returns):
+    """Operator constraint: the policy does NOT have to track a speed.
+    Walking at 2x the commanded speed must be paid at least as well as
+    matching it — the Gaussian kernel / progress cap stack would have
+    charged that exceedance."""
+    assert slipwalk_returns["fast"] >= slipwalk_returns["gait"], (
+        f"exceeding the commanded speed is punished: {slipwalk_returns} "
+        "— a speed target leaked back into the stack.")
+
+
+def test_slipwalk_stepping_stall_still_beats_refusal(slipwalk_returns):
+    """Discovery gradient: from a parked policy the first useful move is
+    to start lifting feet. A march-in-place must therefore still out-earn
+    a refusal park (both far below real walking), or a from-scratch run
+    has no uphill path out of the freeze."""
+    assert slipwalk_returns["stall"] > slipwalk_returns["park"], (
+        f"refusing to step out-earns stepping in place: {slipwalk_returns} "
+        "— the anti-slip charge has closed the discovery path.")
+
+
+# --------------------------------------------------------------------------
 # HEIGHT bank — the height-keeping income gate (08-10, hardware
 # finding rl_docs/HARDWARE.md "sag": every deployed walk policy
 # migrates to a crouch 54-70 mm below the spawn stance; knees track

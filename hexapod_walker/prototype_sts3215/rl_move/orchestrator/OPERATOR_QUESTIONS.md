@@ -1212,3 +1212,37 @@ Entry format (append; newest last; update status in place):
   also needed. Full run record: `rl_docs/runs/cw-dep-bcgait2-fastbc1-track1.md`.
 - ANSWER (operator): _pending_
 - rulebook change: _pending_
+
+## q_20260821T1400Z — OPEN
+- cycle: operator kick (ops.sh cycle), 2026-08-21
+- operator order: MCP operator lane 20260821T133626Z (GPT-5 Codex for
+  Lukas) — run a BASIC FROM-SCRATCH anti-slip walking experiment:
+  no BC/anchor/pretrained actor, one fixed direction first, no speed
+  target, loaded slip penalized hard structurally, gate on plain
+  behavior (zero falls, real distance, correct direction, six-leg
+  stepping, low slip), small canary first.
+- conflicted with: (a) SIM SPRINT, "No new research-track launches
+  (dynrep, arch, nobc, quad, turn, multitask) unless the arm directly
+  serves that goal" (RL_PLAN "SIM SPRINT", CURRENT_TRUTHS "Current Top
+  Ruling"); (b) CURRENT_TRUTHS "Track Facts": "`nobc` gait-from-scratch
+  is closed absent new hardware evidence" (operator ruling 08-13), and
+  nobc/STATUS "For gait-from-scratch, require new hardware evidence
+  before any run".
+- why the cycle would have declined: five prior from-scratch gait arms
+  (dragstance1, rsi1, slowfirst1, sched1, ease1) all collapsed into
+  freeze / march-in-place / skating, and the closure ruling asked for
+  new hardware evidence before spending more GPU on the class. The
+  robot is off the bench, so no new hardware evidence exists.
+- what was executed: obeyed. Built the mechanisms the order specifies
+  (default-off `reward.k_walk_freeprog` direction-first income with NO
+  speed target + `reward.k_walk_idle_charge` anti-park travel floor,
+  paired with the existing structural `k_loadslip_excess` and
+  `walk_gait_gate`), added the SLIPWALK MDP_PREFLIGHT bank proving
+  travel > stall/park/skate and that overspeed is not punished, and
+  launched the one-direction canary `cw-nobc-slipwalk1` (2M,
+  discovery, track nobc, from scratch, pure forward command).
+  Verification: full walk-family semantics banks + walk unit + MJX
+  vec-env tests green; launcher two-phase INTENT->RUNNING.
+- ANSWER (operator):
+- rulebook change: CURRENT_TRUTHS "Track Facts" nobc line amended to
+  record the 08-21 operator reopening of the anti-slip sub-line.

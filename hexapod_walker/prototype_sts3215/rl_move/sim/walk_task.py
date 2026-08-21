@@ -119,6 +119,35 @@ def walk_cmd_track_score(vx: float, vy: float, vx_ref: float,
     return score, along, cross
 
 
+def walk_freeprog_score(vx: float, vy: float, vx_ref: float,
+                        vy_ref: float, cap_m_s: float = 0.06
+                        ) -> tuple[float, float, float]:
+    """Direction-first command score with NO target speed.
+
+    Operator order 2026-08-21 (from-scratch anti-slip walking): the
+    policy must travel in the COMMANDED DIRECTION; it does not have to
+    hit a commanded speed. So this score pays travel along the command
+    direction, saturating at ``cap_m_s`` (faster earns the same, and is
+    never charged here), and charges cross-track and backward travel on
+    the same scale. +1 = along-command at or above the cap, 0 = parked,
+    -1 = pure backward (or pure cross-track) at/above the cap. Unlike
+    ``walk_cmd_track_score`` there is no ``|along - s_ref|`` band term:
+    the commanded vector sets the DIRECTION only. For a stop command
+    (``s_ref`` ~ 0) stillness is 0 and motion is charged up to -1.
+    """
+    cap = max(float(cap_m_s), 1e-6)
+    s_ref = math.hypot(vx_ref, vy_ref)
+    if s_ref <= 1e-6:
+        speed = math.hypot(vx, vy)
+        return -min(speed / cap, 1.0), 0.0, speed
+    ux, uy = vx_ref / s_ref, vy_ref / s_ref
+    along = vx * ux + vy * uy
+    cross = abs(ux * vy - uy * vx)
+    a = min(max(along / cap, -1.0), 1.0)
+    c = min(cross / cap, 1.0)
+    return a - c, along, cross
+
+
 WALK_DIRECTION_MIN_SPEED_M_S = 0.01
 
 
@@ -701,6 +730,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                           "_ls_prev_xy", "_ls_prev_on",
                           "_ls_slip_m", "_ls_prog_m",
                           "_yaw_still_ema", "_stance_slip_acc",
+                          "_walk_idle_ema",
                           "_gait_last_step", "_gait_cmd_tick",
                           "_gait_gate_qfactor", "_wp", "_vel_est")
 
@@ -792,6 +822,9 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         self._ls_prev_on = [False] * 6
         self._ls_slip_m = 0.0
         self._ls_prog_m = 0.0
+        # Anti-park travel-floor EMA (reward.k_walk_idle_charge);
+        # per-episode/per-segment, snapshot via MJX_SNAPSHOT_EXTRA.
+        self._walk_idle_ema = 0.0
         # Structural stance-slip charge (2026-08-11 charge-magnitude
         # audit, probe_drag_audit.py / GAIT.md P2): accumulated loaded
         # XY travel of the CURRENT stance period per foot. Reset at
@@ -1072,6 +1105,9 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         self._ls_prev_on = [False] * 6
         self._ls_slip_m = 0.0
         self._ls_prog_m = 0.0
+        # Anti-park travel-floor EMA (reward.k_walk_idle_charge);
+        # per-episode/per-segment, snapshot via MJX_SNAPSHOT_EXTRA.
+        self._walk_idle_ema = 0.0
         self._stance_slip_acc = [0.0] * 6
         self._gait_last_step = [0] * 6
         self._gait_cmd_tick = 0
@@ -2617,6 +2653,9 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         self._ls_prev_on = [False] * 6
         self._ls_slip_m = 0.0
         self._ls_prog_m = 0.0
+        # Anti-park travel-floor EMA (reward.k_walk_idle_charge);
+        # per-episode/per-segment, snapshot via MJX_SNAPSHOT_EXTRA.
+        self._walk_idle_ema = 0.0
         self._stance_slip_acc = [0.0] * 6
         self._gait_last_step = [0] * 6
         self._gait_cmd_tick = 0
@@ -2724,6 +2763,41 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 k_prog = float(cfg_get(self.cfg, "reward", "k_walk_prog",
                                        default=K_PROG))
                 r_prog = k_prog * min(along / s_ref, 1.25)
+            # Direction-first, SPEED-TARGET-FREE walk income (operator
+            # order 2026-08-21, from-scratch anti-slip walking line).
+            # The Gaussian kernel above and the linear progress term
+            # both price a commanded SPEED; the operator's task says the
+            # policy must move in the commanded DIRECTION and actually
+            # travel, but does NOT have to track a speed. When
+            # reward.k_walk_freeprog > 0 both are REPLACED by
+            # walk_freeprog_score (see its docstring): saturating
+            # along-command credit, cross-track/backward charge, no
+            # band term. The positive part rides every income gate
+            # below (anchor / loadslip / height / gait), the negative
+            # part is added ungated at the total so a gate can never
+            # shrink a penalty. Pair it with reward.walk_loadslip_gate +
+            # reward.k_loadslip_excess (structural loaded-slip
+            # accounting) and reward.k_walk_idle_charge (anti-park
+            # travel floor); do NOT enable walk_kernel_prog_gate with
+            # it — that gate re-introduces a speed target by scaling
+            # income with achieved fraction of the commanded speed.
+            # Default 0 = off, legacy bit-exact (no new info keys).
+            # cfg: reward.k_walk_freeprog, reward.walk_freeprog_cap_m_s.
+            k_free = float(cfg_get(self.cfg, "reward",
+                                   "k_walk_freeprog", default=0.0))
+            r_free_pen = 0.0
+            if k_free > 0.0 and s_ref > 1e-3:
+                f_score, f_along, f_cross = walk_freeprog_score(
+                    float(v[0]), float(v[1]), goal.vx_ref, goal.vy_ref,
+                    float(cfg_get(self.cfg, "reward",
+                                  "walk_freeprog_cap_m_s",
+                                  default=0.06)))
+                along = f_along
+                r_walk = k_free * max(f_score, 0.0)
+                r_free_pen = k_free * min(f_score, 0.0)
+                r_prog = 0.0
+                info["walk_freeprog_score"] = f_score
+                info["walk_freeprog_cross"] = f_cross
             # Simple physical joystick objective (default off). Unlike the
             # historical Gaussian/proxy stack, this is negative for parking,
             # cross-track travel, and wrong-way travel by construction.
@@ -3146,7 +3220,10 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 self._gait_gate_qfactor = gt_factor
                 info["walk_gait_min"] = g_score
                 info["walk_gait_gate_factor"] = gt_factor
-            reward = float(reward) + r_walk + r_prog + r_cmd_track
+            reward = float(reward) + r_walk + r_prog + r_cmd_track \
+                + r_free_pen
+            if r_free_pen != 0.0:
+                info["reward_walk_freeprog_pen"] = r_free_pen
             info["reward_walk"] = r_walk
             info["reward_walk_prog"] = r_prog
             if k_cmd_track > 0.0:
@@ -3208,6 +3285,43 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                         reward = float(reward) + r_head
                         info["reward_walk_heading"] = r_head
                         info["walk_heading_cos"] = cos_h
+            # Anti-park TRAVEL FLOOR charge (operator order 2026-08-21,
+            # from-scratch anti-slip walking): every prior from-scratch
+            # gait arm collapsed into freeze or march-in-place, and a
+            # slip-per-metre objective is meaningless at ~zero travel.
+            # This charges, per second of COMMANDED motion, the
+            # shortfall of the body's smoothed along-command speed below
+            # reward.walk_idle_speed_m_s: r -= k * clip((floor - ema)/
+            # floor, 0, 1) * dt. A parked or marching-in-place body pays
+            # the full k per second; a body creeping at half the floor
+            # pays half; anything travelling at or above the floor pays
+            # nothing, and there is no upper bound to hit (this is a
+            # FLOOR, not a speed band). The EMA (reward.walk_idle_tau_s,
+            # default 1 s) is what makes it smooth and gradient-bearing:
+            # a real gait's per-tick along speed oscillates through zero
+            # every stride and must not be charged for that. Added AFTER
+            # the income gates so no gate can shrink it. Default 0 =
+            # off, legacy bit-exact (no new info keys, no state use).
+            # cfg: reward.k_walk_idle_charge, reward.walk_idle_speed_m_s,
+            # reward.walk_idle_tau_s.
+            k_idle = float(cfg_get(self.cfg, "reward",
+                                   "k_walk_idle_charge", default=0.0))
+            if k_idle > 0.0 and s_ref > 1e-3:
+                tau = max(float(cfg_get(self.cfg, "reward",
+                                        "walk_idle_tau_s", default=1.0)),
+                          self.dt)
+                self._walk_idle_ema += (self.dt / tau) * (
+                    float(along) - self._walk_idle_ema)
+                floor_v = max(float(cfg_get(
+                    self.cfg, "reward", "walk_idle_speed_m_s",
+                    default=0.03)), 1e-6)
+                shortfall = min(max(
+                    (floor_v - self._walk_idle_ema) / floor_v, 0.0), 1.0)
+                r_idle = -k_idle * shortfall * self.dt
+                reward = float(reward) + r_idle
+                info["walk_along_ema_m_s"] = self._walk_idle_ema
+                info["walk_idle_shortfall"] = shortfall
+                info["reward_walk_idle"] = r_idle
             _add_walk_direction_info(
                 info, float(v[0]), float(v[1]),
                 float(goal.vx_ref), float(goal.vy_ref),
