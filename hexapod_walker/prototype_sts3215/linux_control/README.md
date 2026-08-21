@@ -158,10 +158,15 @@ The Web UI **Checkup** route runs, in order: IMU rest/bias, ground-contact
 plant search, per-leg dimension sweep, quad IMU body-frame map, traction/slip
 probe, actuator snapshot, then one calibration report.  The dimension sweep
 keeps five feet planted and probes several same-floor hip/knee contact poses
-with the sixth leg.  It estimates effective servo/hip height per leg,
-regularized femur/tibia lengths, and per-leg zero-offset hints with residuals.
-Coxa length and chassis width remain nominal because vertical floor contacts
-do not observe horizontal geometry.
+with the sixth leg.  Treat it as a contact-height consistency diagnostic:
+vertical floor contacts alone do **not** identify absolute femur/tibia lengths
+because link lengths and body height are scale-ambiguous without an independent
+height/vision measurement.  The report therefore keeps configured/manual link
+lengths as the dimension source and uses the sweep for per-leg height residuals,
+zero-offset hints, and mismatch warnings.  Boot edges, footpad angle, floor
+compliance, and servo lag can all make first contact differ from the ideal tibia
+endpoint.  Coxa length and chassis width remain nominal/manual because vertical
+floor contacts do not observe horizontal geometry.
 
 Raw sweep samples are saved on the robot as
 `linux_control/logs/geometry_sweep_*.json` and copied into
@@ -175,9 +180,11 @@ Hand measurements live separately from the moving checkup:
 `hip_center_radius_mm`, `femur_mm`, and `tibia_mm`.  The report shows these
 as operator measurements, uses manual hip height for MuJoCo height hints, and
 keeps FK-derived height plus current-vs-absolute knee convention comparisons
-visible as consistency checks.  Do not silently copy these values into live
-gait constants; change motion geometry only after the measurements, contact
-sweep residuals, and MuJoCo behavior agree.
+visible as consistency checks.  If the contact/FK height disagrees with the
+operator measurement, the sweep is marked `manual_geometry_mismatch` and is not
+used as a dimension source.  Do not silently copy these values into live gait
+constants; change motion geometry only after the measurements, contact sweep
+residuals, and MuJoCo behavior agree.
 
 ### RL episode traces (automatic)
 

@@ -2032,10 +2032,10 @@ class BenchAPI:
             geom_schema = int((geom or {}).get("schema_version") or 0)
         except (TypeError, ValueError):
             geom_schema = 0
-        # Keep status reads cheap.  Older reports stay readable as-is; the
-        # next checkup writes the current schema instead of recomputing every
-        # polled /api/calibrate GET.
-        if not isinstance(geom, dict):
+        # Keep status reads cheap.  Reports older than the current geometry
+        # semantics are refreshed once on read so stale dimension-fit wording
+        # does not survive a deploy.
+        if not isinstance(geom, dict) or geom_schema < 5:
             try:
                 report["geometry"] = self._geometry_report()
             except Exception:
@@ -2052,7 +2052,9 @@ class BenchAPI:
                     f"dimension sweep {status}; {n} accepted contacts"
                     if n is not None else f"dimension sweep {status}")
                 manual_fit = contact_sweep.get("manual_link_fit")
-                if status == "geometry_mismatch" and isinstance(manual_fit, dict):
+                if (status in ("geometry_mismatch",
+                               "manual_geometry_mismatch")
+                        and isinstance(manual_fit, dict)):
                     bits = []
                     for key in ("femur", "tibia"):
                         row = manual_fit.get(key)
@@ -2066,6 +2068,17 @@ class BenchAPI:
                             pass
                     if bits:
                         summary += "; " + "; ".join(bits)
+                manual_height = contact_sweep.get("manual_height_fit")
+                if (status == "manual_geometry_mismatch"
+                        and isinstance(manual_height, dict)):
+                    try:
+                        summary += (
+                            f"; FK/contact height "
+                            f"{float(manual_height['fit_mm']):.1f}"
+                            f" vs measured "
+                            f"{float(manual_height['manual_mm']):.1f}mm")
+                    except (KeyError, TypeError, ValueError):
+                        pass
                 p["summary"] = summary
         if phases:
             report["ok"] = (
@@ -2519,51 +2532,116 @@ class BenchAPI:
                 sweep_fit = fit_contact_sweep(sweep_samples)
             else:
                 sweep_fit = fit_contact_sweep(sweep_samples)
+        def compare_fit_to_manual(fit: dict | None) -> dict:
+            """Compare a contact/FK diagnostic fit to operator measurements."""
+            if not isinstance(fit, dict):
+                return {
+                    "link_fit": {},
+                    "link_mismatch": False,
+                    "height_fit": {},
+                    "height_mismatch": False,
+                    "mismatch": False,
+                    "notes": [],
+                }
+            fit_summary0 = fit.get("summary") or {}
+            seg0 = fit.get("segment_fit") or {}
+            fit_links0 = seg0.get("link_lengths_mm") or {}
+            link_fit: dict = {}
+            link_mismatch = False
+            notes = []
+            for name, manual_value in (
+                    ("femur", manual_femur_mm),
+                    ("tibia", manual_tibia_mm)):
+                fit_value = self._maybe_float(fit_links0.get(name))
+                if manual_value is None or fit_value is None:
+                    continue
+                delta = round(fit_value - manual_value, 2)
+                pct = round(100.0 * delta / manual_value, 1)
+                link_fit[name] = {
+                    "fit_mm": round(fit_value, 2),
+                    "manual_mm": round(manual_value, 2),
+                    "delta_mm": delta,
+                    "delta_pct": pct,
+                }
+                if abs(pct) > 20.0:
+                    link_mismatch = True
+                    notes.append(
+                        f"{name} model {fit_value:.1f}mm vs manual "
+                        f"{manual_value:.1f}mm ({pct:+.1f}%)")
+            height_fit: dict = {}
+            height_mismatch = False
+            model_height = self._maybe_float(
+                fit_summary0.get("mean_servo_height_mm"))
+            if model_height is not None and manual_height_mm is not None:
+                delta = round(model_height - manual_height_mm, 2)
+                pct = round(100.0 * delta / manual_height_mm, 1)
+                height_fit = {
+                    "fit_mm": round(model_height, 2),
+                    "manual_mm": round(manual_height_mm, 2),
+                    "delta_mm": delta,
+                    "delta_pct": pct,
+                }
+                if abs(delta) > 15.0:
+                    height_mismatch = True
+                    notes.append(
+                        f"contact/FK height {model_height:.1f}mm vs manual "
+                        f"{manual_height_mm:.1f}mm ({delta:+.1f}mm)")
+            mismatch = bool(link_mismatch or height_mismatch)
+            return {
+                "link_fit": link_fit,
+                "link_mismatch": link_mismatch,
+                "height_fit": height_fit,
+                "height_mismatch": height_mismatch,
+                "mismatch": mismatch,
+                "notes": notes,
+            }
+
+        sweep_manual = compare_fit_to_manual(sweep_fit)
         using_sweep_fit = bool(
-            isinstance(sweep_fit, dict) and sweep_fit.get("ok"))
+            isinstance(sweep_fit, dict)
+            and sweep_fit.get("ok")
+            and not sweep_manual["mismatch"])
         effective_fit = sweep_fit if using_sweep_fit else plant_fit
         effective_fit = dict(effective_fit or {})
         effective_fit["source"] = (
             "contact_sweep" if using_sweep_fit else "plant_only")
         if isinstance(sweep_fit, dict) and not using_sweep_fit:
-            effective_fit["rejected_contact_sweep_status"] = (
-                sweep_fit.get("status"))
+            rejected_status = (
+                "manual_geometry_mismatch" if sweep_manual["mismatch"]
+                else sweep_fit.get("status"))
+            effective_fit["rejected_contact_sweep_status"] = rejected_status
+            if sweep_manual["link_fit"]:
+                effective_fit["rejected_contact_sweep_manual_link_fit"] = (
+                    sweep_manual["link_fit"])
+            if sweep_manual["height_fit"]:
+                effective_fit["rejected_contact_sweep_manual_height_fit"] = (
+                    sweep_manual["height_fit"])
+            if sweep_manual["notes"]:
+                effective_fit.setdefault("notes", [])
+                effective_fit["notes"] = list(effective_fit["notes"]) + [
+                    "Contact sweep rejected as a dimension source because it "
+                    "does not agree with operator measurements.",
+                    "Manual mismatch: " + "; ".join(sweep_manual["notes"]),
+                    "Likely causes include hip zero/reference offset, boot "
+                    "edge first-contact, floor compliance, or measuring a "
+                    "different physical reference point than the FK model.",
+                ]
+        effective_manual = compare_fit_to_manual(effective_fit)
+        manual_link_fit = (
+            sweep_manual["link_fit"] or effective_manual["link_fit"])
+        manual_link_mismatch = bool(
+            sweep_manual["link_mismatch"]
+            or effective_manual["link_mismatch"])
+        manual_height_fit = (
+            sweep_manual["height_fit"] or effective_manual["height_fit"])
+        manual_height_mismatch = bool(
+            sweep_manual["height_mismatch"]
+            or effective_manual["height_mismatch"])
+        manual_geometry_mismatch = bool(
+            manual_link_mismatch or manual_height_mismatch)
         fit_summary = (effective_fit or {}).get("summary") or {}
         seg = (effective_fit or {}).get("segment_fit") or {}
         fit_links = seg.get("link_lengths_mm") or {}
-        manual_link_fit = {}
-        manual_link_mismatch = False
-        manual_link_notes = []
-        for name, manual_value in (
-                ("femur", manual_femur_mm),
-                ("tibia", manual_tibia_mm)):
-            fit_value = self._maybe_float(fit_links.get(name))
-            if manual_value is None or fit_value is None:
-                continue
-            delta = round(fit_value - manual_value, 2)
-            pct = round(100.0 * delta / manual_value, 1)
-            manual_link_fit[name] = {
-                "fit_mm": round(fit_value, 2),
-                "manual_mm": round(manual_value, 2),
-                "delta_mm": delta,
-                "delta_pct": pct,
-            }
-            if abs(pct) > 20.0:
-                manual_link_mismatch = True
-                manual_link_notes.append(
-                    f"{name} fit {fit_value:.1f}mm vs manual "
-                    f"{manual_value:.1f}mm ({pct:+.1f}%)")
-        if manual_link_mismatch:
-            effective_fit["manual_link_mismatch"] = True
-            effective_fit["manual_link_fit"] = manual_link_fit
-            effective_fit.setdefault("notes", [])
-            effective_fit["notes"] = list(effective_fit["notes"]) + [
-                "Contact angles fit the measured hip height only by using "
-                "effective segment lengths far from the operator's manual "
-                "measurements; check joint zero/sign conventions and link "
-                "measurement reference points.",
-                "Manual mismatch: " + "; ".join(manual_link_notes),
-            ]
         per_leg_heights_m = {}
         if manual_height_mm is not None:
             per_leg_heights_m = {
@@ -2630,7 +2708,7 @@ class BenchAPI:
                     manual_center_radius_mm * 0.001, 5)
         return {
             "ok": True,
-            "schema_version": 4,
+            "schema_version": 5,
             "nominal_mm": {
                 "coxa": COXA_MM,
                 "femur": FEMUR_MM,
@@ -2682,6 +2760,9 @@ class BenchAPI:
                 "manual_center_minus_nominal_mm": center_radius_delta_mm,
                 "manual_link_fit": manual_link_fit or None,
                 "manual_link_mismatch": manual_link_mismatch,
+                "manual_height_fit": manual_height_fit or None,
+                "manual_height_mismatch": manual_height_mismatch,
+                "manual_geometry_mismatch": manual_geometry_mismatch,
                 "manual_zero_hypotheses": manual_zero_hypotheses,
                 "height_source": (
                     "manual_operator_measurement"
@@ -2694,9 +2775,9 @@ class BenchAPI:
                 None if not isinstance(sweep, dict) else {
                     "ok": (
                         bool((sweep_fit or {}).get("ok"))
-                        and not manual_link_mismatch),
+                        and not sweep_manual["mismatch"]),
                     "status": (
-                        "geometry_mismatch" if manual_link_mismatch
+                        "manual_geometry_mismatch" if sweep_manual["mismatch"]
                         else (sweep_fit or {}).get("status")),
                     "sample_count": (
                         (sweep_fit or {}).get("sample_count")
@@ -2708,7 +2789,12 @@ class BenchAPI:
                     "latest": sweep.get("latest"),
                     "samples": sweep_samples,
                     "fit": sweep_fit,
-                    "manual_link_fit": manual_link_fit or None,
+                    "manual_link_fit": sweep_manual["link_fit"] or None,
+                    "manual_link_mismatch": sweep_manual["link_mismatch"],
+                    "manual_height_fit": sweep_manual["height_fit"] or None,
+                    "manual_height_mismatch": sweep_manual["height_mismatch"],
+                    "manual_geometry_mismatch": sweep_manual["mismatch"],
+                    "manual_mismatch_notes": sweep_manual["notes"] or None,
                 }),
             "mujoco_hint": {
                 "link_lengths_m": {
@@ -2855,11 +2941,11 @@ class BenchAPI:
                 "values; they do not automatically change motion kinematics",
                 "geometry.plant_joint_deg and geometry.per_leg are measured "
                 "stand/ground-contact calibration outputs",
-                "geometry.effective_fit is a multi-contact estimate when "
-                "geometry_sweep ran; otherwise it is plant-only and "
-                "underdetermined",
+                "geometry.effective_fit is a contact-height consistency "
+                "diagnostic; vertical floor contacts alone do not identify "
+                "absolute femur/tibia lengths without independent height/scale",
                 "geometry.contact_sweep samples are raw per-leg contact poses "
-                "used to estimate effective servo height and zero hints",
+                "used to estimate contact-height residuals and zero hints",
                 "traction is an onboard loaded-vs-hover slip signature, "
                 "not an exact coefficient of friction",
                 "actuators.learned_model comes from the optional motor "

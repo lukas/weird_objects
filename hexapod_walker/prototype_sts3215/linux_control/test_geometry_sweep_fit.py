@@ -58,16 +58,18 @@ def _samples_for_geometry(
     return samples
 
 
-def test_segment_fit_recovers_effective_femur_tibia() -> None:
+def test_contact_fit_keeps_configured_links_scale_is_ambiguous() -> None:
     fit = fit_contact_sweep(_samples_for_geometry(
         femur_mm=94.0, tibia_mm=124.0))
     seg = fit["segment_fit"]
     links = seg["link_lengths_mm"]
     assert fit["ok"], fit
     assert seg["ok"], seg
-    assert abs(links["femur"] - 94.0) < 1.0, links
-    assert abs(links["tibia"] - 124.0) < 1.0, links
-    assert seg["rms_residual_mm"] < 0.2, seg
+    assert links["femur"] == FEMUR_MM, links
+    assert links["tibia"] == TIBIA_MM, links
+    assert seg["link_lengths_observable"] is False
+    assert seg["status"] == "nominal_link_contact_height_fit"
+    assert "independent body-height" in " ".join(seg["notes"])
 
 
 def test_zero_offset_hint_recovers_leg_specific_offset() -> None:

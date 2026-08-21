@@ -244,47 +244,17 @@ def _rms(vals: list[float]) -> float:
     return math.sqrt(sum(v * v for v in vals) / len(vals)) if vals else 0.0
 
 
-def _linear_solve(a: list[list[float]], b: list[float]) -> list[float] | None:
-    """Small dense least-squares solver via normal equations."""
-    if not a or not a[0]:
-        return None
-    n = len(a[0])
-    ata = [[0.0 for _ in range(n)] for _ in range(n)]
-    atb = [0.0 for _ in range(n)]
-    for row, rhs in zip(a, b):
-        if len(row) != n:
-            return None
-        for i in range(n):
-            atb[i] += row[i] * rhs
-            for j in range(n):
-                ata[i][j] += row[i] * row[j]
-
-    # Gauss-Jordan with partial pivoting.
-    for col in range(n):
-        pivot = max(range(col, n), key=lambda r: abs(ata[r][col]))
-        if abs(ata[pivot][col]) < 1e-9:
-            return None
-        if pivot != col:
-            ata[col], ata[pivot] = ata[pivot], ata[col]
-            atb[col], atb[pivot] = atb[pivot], atb[col]
-        div = ata[col][col]
-        for j in range(col, n):
-            ata[col][j] /= div
-        atb[col] /= div
-        for r in range(n):
-            if r == col:
-                continue
-            factor = ata[r][col]
-            if abs(factor) < 1e-12:
-                continue
-            for j in range(col, n):
-                ata[r][j] -= factor * ata[col][j]
-            atb[r] -= factor * atb[col]
-    return atb
-
-
 def _fit_segment_lengths(valid: list[dict]) -> dict:
-    """Regularized vertical-contact fit for femur/tibia + per-leg height."""
+    """Fit contact-height consistency with configured links.
+
+    Vertical floor contacts alone do not identify absolute femur/tibia
+    lengths: scaling femur, tibia, and body height together leaves the
+    contact equations unchanged.  Earlier versions tried to regularize that
+    underdetermined solve and could report nonsense "learned" link lengths
+    when a boot edge or compliant contact tripped early.  Keep the historical
+    return shape, but make the math honest: use the configured contact-point
+    links and report per-leg height/residual diagnostics only.
+    """
     legs = sorted({int(s["leg"]) for s in valid})
     if len(valid) < 10 or len(legs) < 3:
         return {
@@ -299,95 +269,41 @@ def _fit_segment_lengths(valid: list[dict]) -> dict:
             },
             "notes": [
                 "Need several contact poses across multiple legs before "
-                "segment length estimates are meaningful.",
+                "contact-height residuals are meaningful.",
             ],
         }
 
-    leg_idx = {leg: i for i, leg in enumerate(legs)}
-    n = 2 + len(legs)
-    rows: list[list[float]] = []
-    rhs: list[float] = []
-    for s in valid:
-        hip = math.radians(float(s["hip_deg"]))
-        knee = math.radians(float(s["knee_deg"]))
-        row = [0.0 for _ in range(n)]
-        row[0] = math.sin(hip)
-        row[1] = math.sin(hip + knee)
-        row[2 + leg_idx[int(s["leg"])]] = -1.0
-        rows.append(row)
-        rhs.append(0.0)
-
-    # Priors prevent the homogeneous floor-contact fit from inventing silly
-    # scales when the sweep geometry is weak.  Deviations still show up when
-    # they reduce multi-pose residuals.
-    prior_w = 0.10
-    row = [0.0 for _ in range(n)]
-    row[0] = prior_w
-    rows.append(row)
-    rhs.append(prior_w * FEMUR_MM)
-    row = [0.0 for _ in range(n)]
-    row[1] = prior_w
-    rows.append(row)
-    rhs.append(prior_w * TIBIA_MM)
-
-    sol = _linear_solve(rows, rhs)
-    if sol is None:
-        return {
-            "ok": False,
-            "status": "singular_fit",
-            "sample_count": len(valid),
-            "leg_count": len(legs),
-            "link_lengths_mm": {
-                "coxa": COXA_MM,
-                "femur": FEMUR_MM,
-                "tibia": TIBIA_MM,
-            },
-        }
-    femur = float(sol[0])
-    tibia = float(sol[1])
-    plausible = 55.0 <= femur <= 130.0 and 80.0 <= tibia <= 180.0
-    if not plausible:
-        return {
-            "ok": False,
-            "status": "implausible_fit",
-            "sample_count": len(valid),
-            "leg_count": len(legs),
-            "raw_link_lengths_mm": {
-                "femur": round(femur, 2),
-                "tibia": round(tibia, 2),
-            },
-            "link_lengths_mm": {
-                "coxa": COXA_MM,
-                "femur": FEMUR_MM,
-                "tibia": TIBIA_MM,
-            },
-            "notes": [
-                "The sweep data is inconsistent enough that the segment fit "
-                "fell outside safe physical bounds; using nominal links.",
-            ],
-        }
-
-    per_leg_height = {
-        leg: float(sol[2 + leg_idx[leg]])
-        for leg in legs
-    }
+    per_leg_height: dict[int, float] = {}
+    for leg in legs:
+        rows = [s for s in valid if int(s["leg"]) == leg]
+        heights = []
+        for s in rows:
+            hip = math.radians(float(s["hip_deg"]))
+            knee = math.radians(float(s["knee_deg"]))
+            heights.append(
+                FEMUR_MM * math.sin(hip)
+                + TIBIA_MM * math.sin(hip + knee))
+        mean_h = _mean(heights)
+        per_leg_height[leg] = mean_h
     residuals = []
     for s in valid:
         leg = int(s["leg"])
         hip = math.radians(float(s["hip_deg"]))
         knee = math.radians(float(s["knee_deg"]))
-        pred_h = femur * math.sin(hip) + tibia * math.sin(hip + knee)
+        pred_h = FEMUR_MM * math.sin(hip) + TIBIA_MM * math.sin(hip + knee)
         residuals.append(pred_h - per_leg_height[leg])
     return {
         "ok": True,
-        "status": "regularized_floor_contact_fit",
+        "status": "nominal_link_contact_height_fit",
         "sample_count": len(valid),
         "leg_count": len(legs),
         "link_lengths_mm": {
             "coxa": COXA_MM,
-            "femur": round(femur, 2),
-            "tibia": round(tibia, 2),
+            "femur": FEMUR_MM,
+            "tibia": TIBIA_MM,
         },
+        "link_lengths_source": "configured_nominal_contact_model",
+        "link_lengths_observable": False,
         "nominal_mm": {
             "coxa": COXA_MM,
             "femur": FEMUR_MM,
@@ -401,10 +317,11 @@ def _fit_segment_lengths(valid: list[dict]) -> dict:
         "max_abs_residual_mm": round(
             max([abs(x) for x in residuals] or [0.0]), 2),
         "notes": [
-            "Floor contact observes vertical femur/tibia geometry; coxa and "
-            "chassis width stay nominal until a horizontal measurement exists.",
-            "This is regularized toward CAD lengths and should be treated as "
-            "an effective fit, not a metrology-grade measurement.",
+            "Vertical floor contacts do not identify absolute femur/tibia "
+            "lengths without an independent body-height or scale measurement; "
+            "configured contact-point links are used for diagnostics.",
+            "Boot edges, footpad angle, floor compliance, and servo lag can "
+            "move the first-contact pose away from the ideal tibia endpoint.",
         ],
     }
 
@@ -572,12 +489,12 @@ def fit_contact_sweep(samples: list[dict]) -> dict:
             "max_zero_hint_deg": round(max_zero, 2),
         },
         "observability": [
-            "Multiple floor contacts estimate vertical hip/servo height and "
-            "effective femur/tibia length.",
+            "Multiple floor contacts estimate contact-height consistency when "
+            "interpreted through the configured contact-point link model.",
             "Zero offsets are hints from contact-height consistency, not an "
             "absolute encoder truth.",
-            "Coxa length and chassis width are not observable from vertical "
-            "floor contact alone.",
+            "Absolute femur/tibia lengths, coxa length, and chassis width are "
+            "not observable from vertical floor contact alone.",
         ],
     }
 

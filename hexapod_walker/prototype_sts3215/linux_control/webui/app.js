@@ -1325,6 +1325,7 @@ function renderCalDimensions(res){
   const seg = fit.segment_fit || {};
   const segLinks = seg.link_lengths_mm || {};
   const contactSweep = geom.contact_sweep || {};
+  const manualHeightFit = gsum.manual_height_fit || contactSweep.manual_height_fit || {};
   const links = hint.link_lengths_m || {};
   const manualLinks = hint.manual_link_lengths_m || {};
   const effLinks = hint.effective_link_lengths_m || {};
@@ -1336,6 +1337,11 @@ function renderCalDimensions(res){
   const sweepSource = contactSweep && sweepRaw
     ? `${contactSweep.status || 'unknown'} · ${contactSweep.sample_count || 0}/${sweepRaw} accepted`
     : 'not run';
+  const sweepUseText = contactSweep && sweepRaw
+    ? (contactSweep.manual_geometry_mismatch
+      ? 'diagnostic only; disagrees with measured geometry'
+      : (contactSweep.ok ? 'usable contact consistency check' : 'rejected; using fallback geometry'))
+    : 'waiting for run';
   const manualBits = [
     calMaybeMm(manual.hip_pitch_height_mm, 'hip h'),
     calMaybeMm(manual.hip_center_radius_mm, 'center→hip'),
@@ -1384,10 +1390,11 @@ function renderCalDimensions(res){
       gsum.manual_center_minus_nominal_mm != null
         ? `measured minus nominal ${calDelta(gsum.manual_center_minus_nominal_mm)}`
         : 'flat-to-flat/2 + coxa'],
-    ['effective segment fit',
+    ['configured contact links',
       `coxa ${calMm(segLinks.coxa)} · femur ${calMm(segLinks.femur)} · tibia ${calMm(segLinks.tibia)}`,
       seg.status
-        ? `${htmlEscape(seg.status)} · ${fitSource}`
+        ? `${htmlEscape(seg.status)} · ${fitSource}`+
+          (seg.link_lengths_observable === false ? ' · links not learned from floor contacts' : '')
         : 'waiting for dimension sweep'],
     ['manual FK consistency',
       consistencyBits.length ? consistencyBits.join(' · ') : 'waiting for measured links + hip height',
@@ -1399,18 +1406,18 @@ function renderCalDimensions(res){
         : 'report-only diagnostic'],
     ['dimension sweep',
       sweepSource,
-      contactSweep && sweepRaw
-        ? (contactSweep.ok ? 'used for effective fit' : 'rejected; using plant-only')
-        : 'waiting for run'],
+      sweepUseText],
     ['chassis',
       `flat-to-flat ${calMm(nom.chassis_flat_to_flat)}`,
       'CAD model'],
     ['stand home',
       `hip ${calSigned(plant.hip_deg)}° · knee ${calSigned(plant.knee_deg)}°`,
       learned + (plant.timestamp ? ` · ${htmlEscape(plant.timestamp)}` : '')],
-    ['FK height estimate',
+    ['contact/FK height estimate',
       `mean ${calMm(fitSummary.mean_servo_height_mm)} · spread ${calMm(fitSummary.servo_height_spread_mm)}`,
-      fitSource],
+      (manualHeightFit.delta_mm != null
+        ? `diagnostic; vs measured hip ${calDelta(manualHeightFit.delta_mm)}`
+        : fitSource)],
     ['zero offset hints',
       `max ${calSigned(fitSummary.max_zero_hint_deg)}°`,
       'relative hints from contact-height residuals'],
@@ -1477,7 +1484,7 @@ function renderCalDimensions(res){
       `</tr></thead><tbody>${legRows}</tbody></table>`
     ) : '')+
     (fitLegRows ? (
-      `<div class="cal-dim-title sub">Per-leg effective height and zero hints</div>`+
+      `<div class="cal-dim-title sub">Per-leg contact-height diagnostic</div>`+
       `<table class="cal-table"><thead><tr>`+
         `<th>leg</th><th>samples</th><th>height mm</th>`+
         `<th>spread mm</th><th>rms mm</th><th>zero rms</th><th>hip zero°</th>`+

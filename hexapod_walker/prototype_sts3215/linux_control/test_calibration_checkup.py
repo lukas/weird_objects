@@ -243,6 +243,52 @@ def test_manual_geometry_is_reported_separately_from_fk() -> None:
             "manual_operator_measurement")
 
 
+def test_contact_sweep_mismatch_is_rejected_as_dimension_source() -> None:
+    api = BenchAPI(object())
+    with tempfile.TemporaryDirectory() as td:
+        api._manual_geometry_path = lambda: Path(td) / "geometry_manual.json"
+        assert api.set_manual_geometry(
+            hip_pitch_height_mm=95.0,
+            hip_center_radius_mm=114.0,
+            femur_mm=88.0,
+            tibia_mm=152.0,
+        )["ok"]
+        api.plant_state = lambda: {
+            "ok": True,
+            "learned": True,
+            "hip_deg": 18.6,
+            "knee_deg": 28.1,
+            "pose": [0.0, 18.6, 28.1] * 6,
+        }
+        sweep_samples = []
+        for leg in range(5):
+            for hip, knee in (
+                    (18.6, 28.1),
+                    (22.6, 20.4),
+                    (14.6, 36.2),
+                    (27.6, 11.2)):
+                sweep_samples.append({
+                    "accepted": True,
+                    "contact_detected": True,
+                    "leg": leg,
+                    "hip_deg": hip,
+                    "knee_deg": knee,
+                    "base_z_mm": -122.0,
+                    "nominal_z_mm": -122.0,
+                    "reason": "floor contact signal",
+                })
+        geom = api._geometry_report(
+            geometry_sweep={"ok": True, "samples": sweep_samples},
+            use_latest_sweep=False)
+        assert geom["contact_sweep"]["status"] == "manual_geometry_mismatch"
+        assert geom["contact_sweep"]["ok"] is False
+        assert geom["summary"]["manual_height_mismatch"] is True
+        assert geom["effective_fit"]["source"] == "plant_only"
+        assert geom["effective_fit"]["rejected_contact_sweep_status"] == (
+            "manual_geometry_mismatch")
+        assert geom["mujoco_hint"]["per_leg_servo_height_m"]["0"] == 0.095
+
+
 def _main() -> int:
     for name, fn in sorted(globals().items()):
         if name.startswith("test_") and callable(fn):
