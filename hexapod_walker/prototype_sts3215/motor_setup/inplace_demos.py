@@ -945,12 +945,14 @@ def _slew(current: float, desired: float, max_step: float) -> float:
 class QuadPitchTrim:
     """Tiny IMU pitch reflex for split quad hold/walk/trot phases.
 
-    The trim baseline is the measured pitch at the start of the phase,
-    converted into quad_walk's command convention (negative = nose up).
-    If pitch drifts forward, the command nudges more nose-up/aft; if it
-    drifts backward, the command nudges less nose-up/forward. Large
-    relative pitch error for two IMU samples is treated as a fall onset
-    and the streamer goes limp rather than fighting it.
+    The trim baseline is measured at the start of the reared phase. We
+    infer whether the rear lean appears on the IMU's pitch or roll axis,
+    then convert that chosen axis into quad_walk's command convention
+    (negative = nose up). If pitch drifts forward, the command nudges
+    more nose-up/aft; if it drifts backward, the command nudges less
+    nose-up/forward. Large relative pitch error for two IMU samples is
+    treated as a fall onset and the streamer goes limp rather than
+    fighting it.
     """
 
     def __init__(self, *, expected_pitch_deg: float | None = None,
@@ -961,6 +963,7 @@ class QuadPitchTrim:
         self.ready = False
         self.disabled_reason = ""
         self.samples = 0
+        self.imu_axis = "pitch"
         self.sign_to_cmd = 1.0
         self.target_pitch_deg: float | None = None
         self.pitch_deg: float | None = None
@@ -970,13 +973,16 @@ class QuadPitchTrim:
         self.body_dx_trim_m = 0.0
         self.speed_scale = 1.0
         self.abort_reason: str | None = None
-        self._warmup: list[float] = []
-        self._pitch_lp_meas: float | None = None
+        self._warmup: list[tuple[float, float]] = []
+        self._axis_lp_meas: float | None = None
         self._prev_cmd_pitch: float | None = None
         self._prev_update_t: float | None = None
         self._danger_samples = 0
         self._last_emit_t = 0.0
         self._last_emit_bucket: tuple[int, int] | None = None
+
+    def _selected_axis_deg(self, roll_deg: float, pitch_deg: float) -> float:
+        return roll_deg if self.imu_axis == "roll" else pitch_deg
 
     def pose_trim(self) -> dict:
         if not self.enabled or not self.ready:
@@ -992,41 +998,50 @@ class QuadPitchTrim:
         rp = _imu_roll_pitch_deg(imu)
         if rp is None:
             return False
-        _roll, measured_pitch = rp
-        alpha = 0.35
-        if self._pitch_lp_meas is None:
-            self._pitch_lp_meas = measured_pitch
-        else:
-            self._pitch_lp_meas = (
-                (1.0 - alpha) * self._pitch_lp_meas
-                + alpha * measured_pitch)
+        roll_deg, pitch_deg = rp
         self.samples += 1
 
         if not self.ready:
-            self._warmup.append(self._pitch_lp_meas)
+            self._warmup.append((roll_deg, pitch_deg))
             if len(self._warmup) < 3:
                 return True
-            measured_base = sum(self._warmup) / len(self._warmup)
+            base_roll = sum(r for r, _p in self._warmup) / len(self._warmup)
+            base_pitch = sum(p for _r, p in self._warmup) / len(self._warmup)
+            if abs(base_roll) > abs(base_pitch):
+                self.imu_axis = "roll"
+                measured_base = base_roll
+            else:
+                self.imu_axis = "pitch"
+                measured_base = base_pitch
             if abs(measured_base) < 6.0:
                 self.enabled = False
                 self.disabled_reason = (
-                    f"imu pitch baseline too small ({measured_base:+.1f} deg)")
+                    "imu rear-lean baseline too small "
+                    f"(roll {base_roll:+.1f}, pitch {base_pitch:+.1f} deg)")
                 return True
             expected = self.expected_pitch_deg
             if expected is not None and abs(expected) > 5.0:
                 # quad_walk command convention is negative nose-up. If the
-                # IMU reports the opposite sign at the reared baseline,
-                # flip measured pitch into command convention.
+                # selected IMU axis reports the opposite sign at the reared
+                # baseline, flip it into command convention.
                 self.sign_to_cmd = (
                     -1.0 if expected * measured_base < 0 else 1.0)
             self.target_pitch_deg = self.sign_to_cmd * measured_base
             self.pitch_deg = self.target_pitch_deg
+            self._axis_lp_meas = measured_base
             self._prev_cmd_pitch = self.target_pitch_deg
             self._prev_update_t = now
             self.ready = True
             return True
 
-        cmd_pitch = self.sign_to_cmd * self._pitch_lp_meas
+        selected = self._selected_axis_deg(roll_deg, pitch_deg)
+        alpha = 0.35
+        if self._axis_lp_meas is None:
+            self._axis_lp_meas = selected
+        else:
+            self._axis_lp_meas = (
+                (1.0 - alpha) * self._axis_lp_meas + alpha * selected)
+        cmd_pitch = self.sign_to_cmd * self._axis_lp_meas
         prev_t = self._prev_update_t if self._prev_update_t is not None else now
         dt = max(0.05, min(0.75, now - prev_t))
         prev_pitch = (self._prev_cmd_pitch if self._prev_cmd_pitch is not None
@@ -1089,6 +1104,8 @@ class QuadPitchTrim:
             "ready": self.ready,
             "enabled": self.enabled,
             "disabled_reason": self.disabled_reason,
+            "imu_axis": self.imu_axis,
+            "imu_sign_to_cmd": self.sign_to_cmd,
             "target_pitch_deg": (
                 None if self.target_pitch_deg is None
                 else round(self.target_pitch_deg, 2)),
@@ -1105,6 +1122,7 @@ class QuadPitchTrim:
     def csv_cols(self) -> dict:
         d = self.event_data()
         return {
+            "balance_axis": d["imu_axis"],
             "balance_target_pitch_deg": "" if d["target_pitch_deg"] is None
             else f"{d['target_pitch_deg']:.2f}",
             "balance_pitch_deg": "" if d["pitch_deg"] is None
@@ -1121,7 +1139,7 @@ class QuadPitchTrim:
             return "trim off"
         if not self.ready:
             return "trim warmup"
-        return (f"trim {self.pitch_trim_deg:+.1f}deg "
+        return (f"trim {self.imu_axis} {self.pitch_trim_deg:+.1f}deg "
                 f"{self.body_dx_trim_m * 1000:+.0f}mm "
                 f"err {self.pitch_error_deg:+.1f}")
 

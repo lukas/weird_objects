@@ -20,6 +20,11 @@ def _imu_pitch(pitch_deg: float) -> dict:
     return {"ax_g": -math.sin(rad), "ay_g": 0.0, "az_g": math.cos(rad)}
 
 
+def _imu_roll(roll_deg: float) -> dict:
+    rad = math.radians(roll_deg)
+    return {"ax_g": 0.0, "ay_g": math.sin(rad), "az_g": math.cos(rad)}
+
+
 def test_trim_sign_and_direction() -> None:
     trim = QuadPitchTrim(expected_pitch_deg=-24.0, gait="walk")
     for i in range(3):
@@ -40,6 +45,22 @@ def test_trim_sign_and_direction() -> None:
     backward = trim.event_data()
     assert backward["err_deg"] < 0.0
     assert backward["pitch_trim_deg"] > forward["pitch_trim_deg"]
+
+
+def test_trim_infers_roll_axis_when_imu_is_rotated() -> None:
+    trim = QuadPitchTrim(expected_pitch_deg=-24.0, gait="walk")
+    for i in range(3):
+        trim.update(_imu_roll(+24.0), i * 0.25)
+    assert trim.ready
+    assert trim.event_data()["imu_axis"] == "roll"
+    assert trim.sign_to_cmd == -1.0
+
+    trim.update(_imu_roll(+18.0), 1.0)
+    trim.update(_imu_roll(+18.0), 1.25)
+    forward = trim.event_data()
+    assert forward["err_deg"] > 0.0
+    assert forward["pitch_trim_deg"] < 0.0
+    assert forward["body_dx_trim_mm"] < 0.0
 
 
 def test_pose_factory_accepts_trim() -> None:
