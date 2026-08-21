@@ -84,7 +84,9 @@ SWEEP_TORQUE = 620
 SWEEP_MAX_TILT_DELTA_DEG = 8.0
 SWEEP_HARD_TILT_DELTA_DEG = 14.0
 SWEEP_TILT_RECOVERY_S = 0.25
-SWEEP_MAX_TILT_SKIPS = 2
+SWEEP_MAX_TILT_SKIPS = 6
+SWEEP_FLOOR_SETTLE_S = 1.2
+SWEEP_FLOOR_SETTLE_DT = 0.08
 SWEEP_MAX_LEG_CURRENT_A = 2.6
 SWEEP_FLOOR_BAND_MM = 4.0
 SWEEP_CONTACT_CURRENT_RISE_A = 0.055
@@ -812,6 +814,75 @@ def run_geometry_contact_sweep(
         base_load = max([
             float(r.get("load_pct") or 0.0) for r in base_fb
         ] or [0.0])
+        j = leg * 3
+
+        def check_tilt_trip(step: int, goal_pose: list[float]) -> tuple[bool, str | None] | None:
+            td = tilt_delta(base_tilt)
+            if td is None or max(abs(td[0]), abs(td[1])) <= SWEEP_MAX_TILT_DELTA_DEG:
+                return None
+            hard_trip = (
+                max(abs(td[0]), abs(td[1]))
+                > SWEEP_HARD_TILT_DELTA_DEG
+            )
+            trip_reason = (
+                "tilt backoff" if hard_trip else
+                f"tilt skip (Δ{td[0]:+.1f}°/{td[1]:+.1f}°)")
+            sample_contact(
+                leg, goal_pose, target=target, detected=False,
+                accepted=False, reason=trip_reason, step=step,
+                tilt_trip=td)
+            retreat_probe_leg()
+            settled_td = settled_tilt_delta(base_tilt)
+            if (settled_td is not None
+                    and max(abs(settled_td[0]), abs(settled_td[1]))
+                    > SWEEP_HARD_TILT_DELTA_DEG):
+                return False, (
+                    "tilt abort "
+                    f"(Δ{settled_td[0]:+.1f}°/"
+                    f"{settled_td[1]:+.1f}° sustained)")
+            _progress(
+                f"dimension sweep: L{leg} backed off after tilt "
+                f"Δ{td[0]:+.1f}°/{td[1]:+.1f}°")
+            return True, "tilt skip"
+
+        def probe_state(commanded_pose: list[float]) -> dict:
+            fb_rows = [read_feedback(j + k) or {} for k in range(3)]
+            currents = [abs(float(r.get("current_a") or 0.0)) for r in fb_rows]
+            loads = [float(r.get("load_pct") or 0.0) for r in fb_rows]
+            hip_row = fb_rows[1] or {}
+            knee_row = fb_rows[2] or {}
+            hip_cmd = float(commanded_pose[j + 1])
+            knee_cmd = float(commanded_pose[j + 2])
+            hip_now = float(
+                hip_row["deg"] if hip_row.get("deg") is not None
+                else hip_cmd)
+            knee_now = float(
+                knee_row["deg"] if knee_row.get("deg") is not None
+                else knee_cmd)
+            lag = max(abs(hip_cmd - hip_now), abs(knee_cmd - knee_now))
+            z_cmd = foot_z_mm(hip_cmd, knee_cmd)
+            z_now = foot_z_mm(hip_now, knee_now)
+            current_rise = max(0.0, max(currents or [0.0]) - base_current)
+            load_rise = max(0.0, max(loads or [0.0]) - base_load)
+            cmd_reached_floor = z_cmd <= base_z + SWEEP_FLOOR_BAND_MM
+            measured_reached_floor = z_now <= base_z + SWEEP_FLOOR_BAND_MM
+            contact_signal = (
+                current_rise >= SWEEP_CONTACT_CURRENT_RISE_A
+                or load_rise >= SWEEP_CONTACT_LOAD_RISE_PCT
+                or (measured_reached_floor and lag >= SWEEP_CONTACT_LAG_DEG)
+            )
+            return {
+                "max_current": max(currents or [0.0]),
+                "max_load": max(loads or [0.0]),
+                "lag": lag,
+                "z_cmd": z_cmd,
+                "z_now": z_now,
+                "current_rise": current_rise,
+                "load_rise": load_rise,
+                "cmd_reached_floor": cmd_reached_floor,
+                "measured_reached_floor": measured_reached_floor,
+                "contact_signal": contact_signal,
+            }
 
         detected = False
         reason = "no contact signal"
@@ -830,87 +901,98 @@ def run_geometry_contact_sweep(
             _write_pose(bus, q, live, speed=105, acc=10)
             time.sleep(0.075)
 
-            td = tilt_delta(base_tilt)
-            if td is not None and max(abs(td[0]), abs(td[1])) > SWEEP_MAX_TILT_DELTA_DEG:
-                hard_trip = (
-                    max(abs(td[0]), abs(td[1]))
-                    > SWEEP_HARD_TILT_DELTA_DEG
-                )
-                reason = (
-                    "tilt backoff" if hard_trip else
-                    f"tilt skip (Δ{td[0]:+.1f}°/{td[1]:+.1f}°)")
-                sample_contact(
-                    leg, last_goal, target=target, detected=False,
-                    accepted=False, reason=reason, step=step,
-                    tilt_trip=td)
-                retreat_probe_leg()
-                settled_td = settled_tilt_delta(base_tilt)
-                if (settled_td is not None
-                        and max(abs(settled_td[0]), abs(settled_td[1]))
-                        > SWEEP_HARD_TILT_DELTA_DEG):
-                    return False, (
-                        "tilt abort "
-                        f"(Δ{settled_td[0]:+.1f}°/"
-                        f"{settled_td[1]:+.1f}° sustained)")
-                _progress(
-                    f"dimension sweep: L{leg} backed off after tilt "
-                    f"Δ{td[0]:+.1f}°/{td[1]:+.1f}°")
-                return True, "tilt skip"
+            tilt_result = check_tilt_trip(step, last_goal)
+            if tilt_result is not None:
+                return tilt_result
 
-            fb_rows = [read_feedback(j + k) or {} for k in range(3)]
-            currents = [abs(float(r.get("current_a") or 0.0)) for r in fb_rows]
-            loads = [float(r.get("load_pct") or 0.0) for r in fb_rows]
-            if max(currents or [0.0]) > SWEEP_MAX_LEG_CURRENT_A:
+            state = probe_state(q)
+            if state["max_current"] > SWEEP_MAX_LEG_CURRENT_A:
                 sample_contact(
                     leg, last_goal, target=target, detected=False,
                     reason="current abort", step=step)
                 retreat_probe_leg()
                 return False, "current abort"
 
-            hip_row = fb_rows[1] or {}
-            knee_row = fb_rows[2] or {}
-            hip_now = float(
-                hip_row["deg"] if hip_row.get("deg") is not None
-                else q[j + 1])
-            knee_now = float(
-                knee_row["deg"] if knee_row.get("deg") is not None
-                else q[j + 2])
-            lag = max(abs(q[j + 1] - hip_now), abs(q[j + 2] - knee_now))
-            z_cmd = foot_z_mm(q[j + 1], q[j + 2])
-            z_now = foot_z_mm(hip_now, knee_now)
-            current_rise = max(0.0, max(currents or [0.0]) - base_current)
-            load_rise = max(0.0, max(loads or [0.0]) - base_load)
-            cmd_reached_floor = z_cmd <= base_z + SWEEP_FLOOR_BAND_MM
-            measured_reached_floor = z_now <= base_z + SWEEP_FLOOR_BAND_MM
-            contact_signal = (
-                current_rise >= SWEEP_CONTACT_CURRENT_RISE_A
-                or load_rise >= SWEEP_CONTACT_LOAD_RISE_PCT
-                or (measured_reached_floor and lag >= SWEEP_CONTACT_LAG_DEG)
-            )
-            if cmd_reached_floor and contact_signal and not measured_reached_floor:
+            if (state["cmd_reached_floor"] and state["contact_signal"]
+                    and not state["measured_reached_floor"]):
                 reason = (
                     "ignored pre-floor resistance "
-                    f"(z {z_now:.1f} vs floor {base_z:.1f})")
-                if step == steps:
-                    sample_contact(
-                        leg, last_goal, target=target,
-                        detected=True, accepted=False,
-                        reason=reason, step=step)
-                    retreat_probe_leg()
-                    return True, None
+                    f"(z {state['z_now']:.1f} vs floor {base_z:.1f})")
                 continue
-            if measured_reached_floor and contact_signal:
+            if state["measured_reached_floor"] and state["contact_signal"]:
                 sample_contact(
                     leg, last_goal, target=target,
                     detected=True, accepted=True,
                     reason="floor contact signal", step=step)
                 return True, None
-            if step == steps and cmd_reached_floor:
+            if (step == steps and state["cmd_reached_floor"]
+                    and state["measured_reached_floor"]):
                 sample_contact(
                     leg, last_goal, target=target,
                     detected=False, accepted=False,
-                    reason="reached solved floor pose without contact signal",
+                    reason="measured floor pose reached without contact signal",
                     step=step)
+                retreat_probe_leg()
+                return True, None
+
+        if foot_z_mm(last_goal[j + 1], last_goal[j + 2]) <= base_z + SWEEP_FLOOR_BAND_MM:
+            deadline = time.monotonic() + SWEEP_FLOOR_SETTLE_S
+            settle_step = steps
+            last_state = None
+            while time.monotonic() < deadline:
+                if abort_check():
+                    _hold_here(bus, live)
+                    return False, "aborted"
+                _write_pose(bus, last_goal, live, speed=95, acc=8)
+                time.sleep(SWEEP_FLOOR_SETTLE_DT)
+                settle_step += 1
+
+                tilt_result = check_tilt_trip(settle_step, last_goal)
+                if tilt_result is not None:
+                    return tilt_result
+
+                last_state = probe_state(last_goal)
+                if last_state["max_current"] > SWEEP_MAX_LEG_CURRENT_A:
+                    sample_contact(
+                        leg, last_goal, target=target, detected=False,
+                        reason="current abort", step=settle_step)
+                    retreat_probe_leg()
+                    return False, "current abort"
+                if (last_state["contact_signal"]
+                        and not last_state["measured_reached_floor"]):
+                    continue
+                if (last_state["measured_reached_floor"]
+                        and last_state["contact_signal"]):
+                    sample_contact(
+                        leg, last_goal, target=target,
+                        detected=True, accepted=True,
+                        reason="floor contact signal after settle",
+                        step=settle_step)
+                    return True, None
+                if last_state["measured_reached_floor"]:
+                    sample_contact(
+                        leg, last_goal, target=target,
+                        detected=False, accepted=False,
+                        reason="measured floor pose reached without contact signal",
+                        step=settle_step)
+                    retreat_probe_leg()
+                    return True, None
+
+            if last_state is not None:
+                if last_state["contact_signal"]:
+                    reason = (
+                        "ignored pre-floor resistance "
+                        f"(z {last_state['z_now']:.1f} vs floor {base_z:.1f})")
+                    detected = True
+                else:
+                    reason = (
+                        "servo did not reach solved floor pose "
+                        f"(z {last_state['z_now']:.1f} vs floor {base_z:.1f})")
+                    detected = False
+                sample_contact(
+                    leg, last_goal, target=target,
+                    detected=detected, accepted=False,
+                    reason=reason, step=settle_step)
                 retreat_probe_leg()
                 return True, None
 
