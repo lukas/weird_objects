@@ -10,7 +10,7 @@ import math
 # Geometry (mm) — keep in sync with hexapod_prototype / mujoco_prototype.
 COXA_MM = 12.5
 FEMUR_MM = 90.0
-TIBIA_MM = 128.0
+TIBIA_MM = 150.0
 CHASSIS_FLAT_TO_FLAT_MM = 200.0  # matches hexapod_prototype.CHASSIS_FLAT_TO_FLAT
 # Legacy gait crouch (used only if plant pose can't be loaded).
 STANCE_FEMUR_DEG = -25.0

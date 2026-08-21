@@ -35,7 +35,7 @@ from feetech_bus import (
 # Link lengths (mm) — match tripod_gait / hexapod_prototype.
 COXA_MM = 12.5
 FEMUR_MM = 90.0
-TIBIA_MM = 128.0
+TIBIA_MM = 150.0
 
 # Search down through the real standing family.  Hip 0 / knee 80 reaches
 # much lower than the old -20 / 55 crouch; if that still does not load the

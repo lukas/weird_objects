@@ -481,7 +481,7 @@ class BenchAPI:
         geom = {
             "coxa_mm": 12.5,
             "femur_mm": 90.0,
-            "tibia_mm": 128.0,
+            "tibia_mm": 150.0,
             "body_r_mm": 55.0,
         }
         demo = self.demo_state()

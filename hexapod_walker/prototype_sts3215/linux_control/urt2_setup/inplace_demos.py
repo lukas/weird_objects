@@ -60,6 +60,7 @@ from feetech_bus import (  # noqa: E402
 from motion_telemetry import (  # noqa: E402
     MotionLog, default_log_path, joint_name, run_hold_log,
 )
+from tripod_gait import FEMUR_MM, TIBIA_MM  # noqa: E402
 from urt2_bench import default_port, keystroke_abort_watch, limp_now  # noqa: E402
 
 # SRAM torque limit (0..1000). Softened for demos so PID can't hammer
@@ -117,8 +118,8 @@ MIN_STREAM_SPEED = 40
 # femur angled down (~+20°) and tibia steep (+80° knee ≈ right-angle plant).
 #
 # Presets (foot drop ≈ −FEMUR·sin(hip) − TIBIA·sin(hip+knee), mm):
-#   default / stand  hip +20° / knee +80° / 12 s  → ~159 mm
-#   high+fast        same angles / 5 s            → ~159 mm (faster)
+#   default / stand  hip +20° / knee +80° / 12 s  -> ~179 mm
+#   high+fast        same angles / 5 s            -> ~179 mm (faster)
 RISE_SECONDS = 12.0
 DESCEND_SECONDS = 12.0
 RISE_HIP_DEG = 20.0
@@ -4648,9 +4649,9 @@ def run_rise_demo(bus: FeetechBus, *,
                   log_path: Path | None = None) -> str:
     """Deep reach from the elevated stand, then key → descend to zero.
 
-    Default: hip +20° / knee +80° over ~12 s (~159 mm drop).
+    Default: hip +20° / knee +80° over ~12 s (~179 mm drop).
     ``rise+`` / preset ``high_fast``: hip +20° / knee +80° over ~5 s
-    (~159 mm).  One SyncWrite (no host streaming).  Logs peak current;
+    (~179 mm).  One SyncWrite (no host streaming).  Logs peak current;
     stops early on hip/knee current spike (contact).  Key during motion
     aborts; key while holding starts the descent.
     """
@@ -4664,7 +4665,7 @@ def run_rise_demo(bus: FeetechBus, *,
     # Rough foot drop (mm) matching mujoco femur/tibia FK.
     _p = math.radians(hip)
     _pt = math.radians(hip + knee)
-    drop_mm = int(round(90.0 * math.sin(_p) + 128.0 * math.sin(_pt)))
+    drop_mm = int(round(FEMUR_MM * math.sin(_p) + TIBIA_MM * math.sin(_pt)))
     if abs(hip - RISE_HIGH_HIP_DEG) < 0.5 and rise_s <= RISE_FAST_SECONDS + 0.1:
         label = "higher + faster reach"
     elif abs(hip - RISE_HIGH_HIP_DEG) < 0.5:

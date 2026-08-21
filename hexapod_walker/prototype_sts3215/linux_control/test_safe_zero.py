@@ -129,9 +129,11 @@ def test_ik_hip_knee_roundtrip():
 
 def test_low_drag_descent_from_plant_stand():
     # Plant-like stance: feet tucked nearly under the hip pivots. The
-    # legacy blend slid them ~190 mm loaded; fold-first must cut that
-    # to the geometric minimum (~65 mm).
-    present = _pose(hip=15.0, knee=104.0)
+    # legacy blend slides them far while loaded; fold-first must cut that
+    # to the geometric minimum.  With the measured 150 mm tibia, the old
+    # 15/104 fixture over-tucks beyond a realistic plant, while 20/80 keeps
+    # this test in the real stand/reach family.
+    present = _pose(hip=20.0, knee=80.0)
     p = plan_safe_zero(present)
     _check_plan_geometry(p, present)
     d = p.get("descent")
@@ -146,10 +148,10 @@ def test_low_drag_descent_from_plant_stand():
 def test_descent_fold_keeps_feet_planted():
     # Sampled paths of the fold stages must hold each foot at its
     # starting radius — that is the whole point of the crouch.
-    present = _pose(hip=15.0, knee=104.0)
+    present = _pose(hip=20.0, knee=80.0)
     p = plan_safe_zero(present)
     assert p.get("descent")
-    r_start = foot_r_mm(15.0, 104.0)
+    r_start = foot_r_mm(present[1], present[2])
     prev = present
     for s in p["stages"]:
         if "fold" not in s["label"]:

@@ -315,7 +315,12 @@ def test_curl_channel_enables_rise_from_zero_pose():
 
     ik = FixedFootBodyIK()
     q_zero = np.zeros(18)
-    q_plant = np.array([0.0, 20.0, 80.0] * 6) * DEG
+    # With the measured 150 mm knee->boot-tip tibia, the old 20/80 plant
+    # footprint is an extreme tuck for this fixed-foot rise test: solving
+    # 50 mm of body lift from that footprint asks for ~156 deg of knee, past
+    # the hardware cap.  20/60 has the same vertical foot drop but keeps the
+    # curled footprint inside the physical knee envelope.
+    q_plant = np.array([0.0, 20.0, 60.0] * 6) * DEG
     ik.reset(q_zero, plant_q_rad=q_plant)
 
     up = ik.solve(BodyOffset(height=0.05, curl=0.0))
@@ -347,7 +352,8 @@ def test_rise_episode_starts_on_belly():
     obs, info = env.reset()
     assert info["goal_mode"] == "rise"
     assert np.all(np.isfinite(obs))
-    # Belly rest is ~40 mm; the plant stance is ~160 mm.
+    # Belly rest is ~40 mm; the plant stance is roughly 180 mm with the
+    # measured 150 mm knee->boot-tip tibia.
     z = float(env.data.xpos[env._chassis_bid, 2])
     assert z < 0.09, f"rise episode started standing (chassis z={z:.3f} m)"
     for _ in range(10):

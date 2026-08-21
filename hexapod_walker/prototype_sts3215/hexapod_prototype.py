@@ -178,16 +178,14 @@ COXA_LENGTH    =  12.5   # mm -- yaw axis -> hip-pitch axis.  Set to
                          # coaxially RIGHT ON TOP of the yaw hub (Part A)
                          # instead of cantilevering off to the side.
 FEMUR_LENGTH   =  90.0   # mm -- hip-pitch axis -> knee axis
-# Knee axis → foot tip (kinematic).  Bench measure of CF span from the
-# distal face of ``tibia_knee_yoke`` to the foot tip: legs 1/2/3/5 ≈ 128 mm,
-# legs 0/4 ≈ 124 mm.  Model uses 128 mm (was 130).  Short legs print
-# ``extra_stl/foot_boot_plus4.stl`` (+4 mm longer solid tip) so all six
-# reach the same 128 mm tip with the same tube-end press fit.
-# TRANSITIONAL (late-Aug 2026 review round 2): the plus4 variant only
-# exists to absorb an as-built tube-cutting error.  Next time tubes are
-# cut, make all six 128 mm, set SHORT_CF_LEG_INDICES = (), and retire
-# foot_boot_plus4 + its tool -- one boot SKU for the whole robot.
-TIBIA_LENGTH   = 128.0   # mm -- knee axis -> foot tip
+# Knee axis -> boot apex/contact tip (kinematic).  The Aug 21 bench
+# re-measurement with calipers/video found the previous 128 mm constant was
+# the stale CAD/tube-only value; the physical robot's knee-center to boot-tip
+# span is about 150 mm.  The boot contact sphere below has radius 7 mm and
+# its apex lands at this length, so contact height uses
+#   (TIBIA_LENGTH - FOOT_BOOT_OD/2) * sin(theta) + FOOT_BOOT_OD/2
+# for the knee-only sanity check.
+TIBIA_LENGTH   = 150.0   # mm -- knee axis -> boot apex/contact tip
 SHORT_CF_LEG_INDICES = (0, 4)   # 4 mm short CF; use foot_boot_plus4
 FOOT_BOOT_SHORT_EXTRA = 4.0     # mm -- longer boot tip for SHORT_CF_LEG_INDICES
 
@@ -2977,7 +2975,7 @@ COXA_HIP_DROP = (-(WELL_D / 2.0 + COXA_ARM_T / 2.0 + WELL_Z_DROP_EXTRA)
 # Boot local frame (same convention the old fitting used): origin at the
 # tube end on the tube axis, tube enters from -X, ground tip toward +X.
 # The dome APEX lands exactly at tibia-local x = TIBIA_LENGTH, so the
-# 128 mm knee-axis→tip kinematic length is unchanged.
+# knee-axis -> tip kinematic length is unchanged.
 FOOT_BOOT_OD           = 14.0  # mm -- boot outer diameter (3 mm TPU wall)
 FOOT_BOOT_BORE_D       =  8.1  # mm -- bore over the Ø8 tube: SAME Ø8.1 as
                                #        the tibia yoke's tube socket

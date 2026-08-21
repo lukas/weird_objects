@@ -212,9 +212,16 @@ as operator measurements, uses manual hip height for MuJoCo height hints, and
 keeps FK-derived height plus current-vs-absolute knee convention comparisons
 visible as consistency checks.  If the contact/FK height disagrees with the
 operator measurement, the sweep is marked `manual_geometry_mismatch` and is not
-used as a dimension source.  Do not silently copy these values into live gait
-constants; change motion geometry only after the measurements, contact sweep
-residuals, and MuJoCo behavior agree.
+used as a dimension source.
+
+Measured-geometry decision, 2026-08-21: the old 128 mm tibia/contact length
+was retired.  MuJoCo, the gait IK, and the checkup geometry now use
+`femur_mm=90.0`, `tibia_mm=150.0` (knee axis to boot apex/contact tip), and
+`boot_diameter_mm=14.0`.  The nominal hip-center radius remains
+`200/2 + 12.5 = 112.5 mm`, close to the operator's about-114 mm measurement;
+keep using `/api/geometry/manual` for measured height/radius annotations.  For
+future geometry changes, update motion constants only after the measurements,
+contact sweep residuals, and MuJoCo behavior agree.
 
 ### RL episode traces (automatic)
 
