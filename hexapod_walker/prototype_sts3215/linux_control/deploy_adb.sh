@@ -154,6 +154,8 @@ fi
 adb forward --remove-all >/dev/null 2>&1 || true
 adb forward tcp:8080 tcp:8080
 adb forward tcp:8443 tcp:8443
+curl -fsS -m 3 -X POST http://127.0.0.1:8080/api/tft/ready \
+  >/dev/null 2>&1 || true
 
 echo ">> log / listen:"
 adb shell 'journalctl -u hexapod-web -n 20 --no-pager 2>/dev/null || tail -n 30 /tmp/hexapod_web.log || true'

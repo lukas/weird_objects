@@ -453,6 +453,9 @@ class Handler(BaseHTTPRequestHandler):
                     BENCH._preempt_demo_thread(reason="settle", timeout=3.0)
                 ok = LINK.send(line)
                 self._send(200 if ok else 502, "ok" if ok else "link down")
+        elif path == "/api/tft/ready":
+            self._json(200, BENCH.tft_ready() if BENCH
+                       else {"ok": False, "error": "no bench"})
         elif path == "/api/wiggle":
             try:
                 data = json.loads(body or "{}")

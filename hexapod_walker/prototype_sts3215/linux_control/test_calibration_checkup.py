@@ -87,6 +87,25 @@ def _run_checkup(*, sweep_res: dict,
                 "msg": "traction ok",
             }
 
+        def proprio(*_args, **_kwargs) -> dict:
+            calls.append("proprio")
+            return {
+                "ok": True,
+                "mode": "proprioception_check",
+                "msg": "zero max err 1.0deg",
+                "max_abs_error_deg": 1.0,
+            }
+
+        def camera(*_args, **_kwargs) -> dict:
+            calls.append("camera")
+            return {
+                "ok": True,
+                "skipped": True,
+                "non_blocking": True,
+                "mode": "camera_witness",
+                "msg": "camera witness not configured",
+            }
+
         def report(**_kwargs) -> dict:
             calls.append("report")
             return {
@@ -100,6 +119,8 @@ def _run_checkup(*, sweep_res: dict,
         api._safe_zero_sync = safe_zero
         api._calibrate_quad_body_frame = body_frame
         api._run_leg_slip_probe = traction
+        api._proprioception_check = proprio
+        api._camera_witness_check = camera
         api._save_calibration_report = report
 
         return (
@@ -137,6 +158,8 @@ def test_partial_sweep_stops_dynamic_phases() -> None:
     assert "dimension sweep" in _phase(phases, "imu_body_frame")["summary"]
     assert _phase(phases, "traction_probe")["skipped"] is True
     assert _phase(phases, "return_zero")["skipped"] is True
+    assert _phase(phases, "proprioception_check")["skipped"] is True
+    assert "proprio" not in calls, calls
 
 
 def test_sweep_command_failure_is_reported_as_phase_error() -> None:
@@ -151,6 +174,7 @@ def test_sweep_command_failure_is_reported_as_phase_error() -> None:
     assert "SyncWrite failed" in sweep["summary"]
     assert result["error"].startswith("geometry_sweep: dimension sweep command failed")
     assert _phase(phases, "imu_body_frame")["skipped"] is True
+    assert _phase(phases, "proprioception_check")["skipped"] is True
 
 
 def test_plant_command_failure_is_reported_as_phase_error() -> None:
@@ -165,6 +189,7 @@ def test_plant_command_failure_is_reported_as_phase_error() -> None:
     assert "SyncWrite failed" in plant["summary"]
     assert result["error"].startswith("geometry_plant: ground contact command failed")
     assert _phase(phases, "geometry_sweep")["skipped"] is True
+    assert _phase(phases, "proprioception_check")["skipped"] is True
 
 
 def test_body_frame_failure_skips_return_zero() -> None:
@@ -182,6 +207,8 @@ def test_body_frame_failure_skips_return_zero() -> None:
     assert result["error"] == "imu_body_frame: rear-lean reading too small"
     assert _phase(phases, "traction_probe")["skipped"] is True
     assert _phase(phases, "return_zero")["skipped"] is True
+    assert _phase(phases, "proprioception_check")["skipped"] is True
+    assert "proprio" not in calls, calls
 
 
 def test_clean_checkup_returns_zero() -> None:
@@ -191,7 +218,54 @@ def test_clean_checkup_returns_zero() -> None:
     assert calls.count("safe_zero") == 2, calls
     assert "body" in calls, calls
     assert "traction" in calls, calls
+    assert "proprio" in calls, calls
+    assert "camera" in calls, calls
     assert _phase(result["phases"], "return_zero")["ok"] is True
+    assert _phase(result["phases"], "proprioception_check")["ok"] is True
+    assert _phase(result["phases"], "camera_witness")["skipped"] is True
+
+
+class FakeFeedbackBus:
+    def __init__(self, *, off_joint: int | None = None,
+                 off_deg: float = 0.0, current_a: float = 0.15):
+        self.off_joint = off_joint
+        self.off_deg = off_deg
+        self.current_a = current_a
+
+    def read_all_feedback(self):
+        rows = {}
+        for joint in range(18):
+            rows[joint] = {
+                "deg": self.off_deg if joint == self.off_joint else 0.0,
+                "current_a": self.current_a,
+                "speed_deg_s": 0.0,
+                "load_pct": 1.0,
+                "volt": 12.1,
+                "temp_c": 32,
+            }
+        return rows
+
+
+def test_proprioception_check_scores_expected_pose() -> None:
+    api = BenchAPI(object())
+    res = api._proprioception_check(
+        FakeFeedbackBus(off_joint=5, off_deg=3.25),
+        expected_pose=[0.0] * 18,
+        expected_name="zero")
+    assert res["ok"], res
+    assert res["live_joints"] == 18
+    assert res["max_abs_error_deg"] == 3.25
+    assert res["worst_joints"][0]["joint"] == 5
+
+
+def test_proprioception_check_flags_large_pose_error() -> None:
+    api = BenchAPI(object())
+    res = api._proprioception_check(
+        FakeFeedbackBus(off_joint=8, off_deg=12.0),
+        expected_pose=[0.0] * 18,
+        expected_name="zero")
+    assert not res["ok"], res
+    assert "max err 12.0deg" in res["error"]
 
 
 def test_manual_geometry_is_reported_separately_from_fk() -> None:

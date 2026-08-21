@@ -28,6 +28,10 @@ wait_http() {
   curl -s -m 3 "$HTTP_URL/api/ping" || true
 }
 
+clear_deploy_screen() {
+  curl -fsS -m 3 -X POST "$HTTP_URL/api/tft/ready" >/dev/null 2>&1 || true
+}
+
 # Serialize deploys across workspaces (lock ~/.hexapod/deploy.lock,
 # history ~/.hexapod/deploy.log — see deploy_lock.sh).
 source "$SRC/deploy_lock.sh"
@@ -128,5 +132,6 @@ fi
 
 echo ">> verify over HTTP ($HTTP_URL)"
 wait_http
+clear_deploy_screen
 echo
 echo ">> done"

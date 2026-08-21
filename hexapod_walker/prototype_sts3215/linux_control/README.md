@@ -154,9 +154,15 @@ hex_commit_push "Add safer robot telemetry" \
 
 ## Calibration checkup / geometry sweep
 
-The Web UI **Checkup** route runs, in order: IMU rest/bias, ground-contact
-plant search, per-leg dimension sweep, quad IMU body-frame map, traction/slip
-probe, actuator snapshot, then one calibration report.  The dimension sweep
+The Web UI **Checkup** route runs, in order: safe zero, IMU rest/bias,
+ground-contact plant search, per-leg dimension sweep, quad IMU body-frame map,
+traction/slip probe, return-to-zero, a proprioception consistency score,
+optional camera witness metadata, actuator snapshot, then one calibration
+report.  The proprioception phase is read-only after return-to-zero: it compares
+the expected zero pose with live servo encoders/current/voltage/temperature and
+flags large command-vs-feedback errors.  It cannot prove where the feet moved in
+the room; synced camera/video is the separate witness needed for slip and body
+translation.  The dimension sweep
 keeps five feet planted and probes several same-floor hip/knee contact poses
 with the sixth leg.  Treat it as a contact-height consistency diagnostic:
 vertical floor contacts alone do **not** identify absolute femur/tibia lengths
@@ -167,6 +173,12 @@ zero-offset hints, and mismatch warnings.  Boot edges, footpad angle, floor
 compliance, and servo lag can all make first contact differ from the ideal tibia
 endpoint.  Coxa length and chassis width remain nominal/manual because vertical
 floor contacts do not observe horizontal geometry.
+
+Deploys paint a temporary TFT **DEPLOYING** banner while the web service is
+stopped.  After `/api/ping` succeeds, the deploy scripts now call
+`POST /api/tft/ready` to do one normal screen repaint and clear that banner
+without enabling the continuous TFT status loop.  The route skips if a motion or
+calibration already owns the MCU link.
 
 Raw sweep samples are saved on the robot as
 `linux_control/logs/geometry_sweep_*.json` and copied into

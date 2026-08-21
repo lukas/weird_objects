@@ -187,6 +187,46 @@ class BenchAPI:
             self._status_display.stop()
             self._status_display = None
 
+    def tft_ready(self) -> dict:
+        """Clear a stale deploy/job banner with one normal TFT repaint.
+
+        This is intentionally a one-shot endpoint for deploy scripts. The
+        continuous status-display thread stays opt-in because screen redraws
+        share the MCU serial link with robot motion.
+        """
+        d = self.drive
+        bus = getattr(d, "bus", None)
+        if getattr(d, "dry_run", False) or bus is None:
+            return {"ok": False, "skipped": True, "error": "no bus"}
+        with self._lock:
+            busy = (
+                self._bus_hot > 0
+                or bool(self._demo_thread and self._demo_thread.is_alive())
+                or self._activity in ("calibrating", "zeroing", "stopping", "demo")
+            )
+        if busy:
+            return {
+                "ok": False,
+                "skipped": True,
+                "error": "motion or calibration owns the MCU link",
+            }
+        push = getattr(bus, "display_push", None)
+        if not callable(push):
+            return {"ok": False, "skipped": True, "error": "no TFT display API"}
+        lines = [
+            "WEB READY",
+            "control online",
+            "servos unchanged",
+            time.strftime("%H:%M:%S"),
+        ]
+        try:
+            painted = push(lines, timeout=5.0)
+        except Exception as e:
+            return {"ok": False, "error": f"TFT ready repaint failed: {e}"}
+        if painted is None:
+            return {"ok": False, "error": "TFT ready repaint failed"}
+        return {"ok": True, "mode": "tft_ready", "display": painted}
+
     def _bus_hot_begin(self) -> None:
         with self._lock:
             self._bus_hot = int(self._bus_hot) + 1
@@ -2826,6 +2866,38 @@ class BenchAPI:
             },
         }
 
+    def _read_feedback_map(self, bus=None) -> dict[int, dict]:
+        if bus is None:
+            return {}
+        fb: dict[int, dict] = {}
+        read_all = getattr(bus, "read_all_feedback", None)
+        if callable(read_all):
+            try:
+                bulk = read_all()
+                if isinstance(bulk, dict):
+                    for key, row in bulk.items():
+                        try:
+                            joint = int(key)
+                        except (TypeError, ValueError):
+                            continue
+                        if 0 <= joint < N_JOINTS and isinstance(row, dict):
+                            fb[joint] = row
+            except Exception:
+                fb = {}
+        if len(fb) < N_JOINTS:
+            read_one = getattr(bus, "read_feedback", None)
+            if callable(read_one):
+                for joint in range(N_JOINTS):
+                    if joint in fb:
+                        continue
+                    try:
+                        row = read_one(joint)
+                    except Exception:
+                        row = None
+                    if isinstance(row, dict):
+                        fb[joint] = row
+        return fb
+
     def _actuator_report(self, bus=None) -> dict:
         log_dir = Path(__file__).resolve().parent / "logs"
         model_paths = (
@@ -2850,23 +2922,7 @@ class BenchAPI:
         }
         if bus is None:
             return out
-        fb = {}
-        read_all = getattr(bus, "read_all_feedback", None)
-        if callable(read_all):
-            try:
-                bulk = read_all()
-                if isinstance(bulk, dict):
-                    fb = bulk
-            except Exception:
-                fb = {}
-        if not fb:
-            for joint in range(N_JOINTS):
-                try:
-                    row = bus.read_feedback(joint)
-                except Exception:
-                    row = None
-                if row is not None:
-                    fb[joint] = row
+        fb = self._read_feedback_map(bus)
         rows = []
         volts = []
         temps = []
@@ -2906,10 +2962,137 @@ class BenchAPI:
         }
         return out
 
+    def _proprioception_check(
+            self, bus=None, *, expected_pose: list[float] | None = None,
+            expected_name: str = "pose", tol_deg: float = 8.0,
+            current_warn_a: float = 2.0) -> dict:
+        """Score command-vs-encoder feedback for a pose already reached."""
+        if bus is None:
+            return {"ok": False, "mode": "proprioception_check",
+                    "error": "no bus"}
+        expected = None
+        if expected_pose is not None and len(expected_pose) == N_JOINTS:
+            expected = [float(v) for v in expected_pose]
+        fb = self._read_feedback_map(bus)
+        if not fb:
+            return {"ok": False, "mode": "proprioception_check",
+                    "error": "no servo feedback"}
+
+        volts: list[float] = []
+        temps: list[float] = []
+        currents: list[float] = []
+        errors: list[float] = []
+        worst: list[dict] = []
+        joints: list[dict] = []
+        for joint in range(N_JOINTS):
+            row = fb.get(joint)
+            if not row:
+                continue
+            deg = float(row.get("deg") or 0.0)
+            cur = abs(float(row.get("current_a") or 0.0))
+            volt = float(row.get("volt") or 0.0)
+            temp = float(row.get("temp_c") or 0.0)
+            currents.append(cur)
+            if volt > 0:
+                volts.append(volt)
+            if temp > 0:
+                temps.append(temp)
+            item = {
+                "joint": joint,
+                "id": joint_to_servo_id(joint),
+                "name": joint_label(joint, self.names),
+                "axis": AXIS[joint % 3],
+                "leg": joint // 3,
+                "deg": round(deg, 3),
+                "current_a": round(cur, 3),
+                "load_pct": round(float(row.get("load_pct") or 0.0), 1),
+                "speed_deg_s": round(float(row.get("speed_deg_s") or 0.0), 2),
+            }
+            if expected is not None:
+                cmd = expected[joint]
+                err = deg - cmd
+                abs_err = abs(err)
+                errors.append(abs_err)
+                item["expected_deg"] = round(cmd, 3)
+                item["error_deg"] = round(err, 3)
+                worst.append({
+                    **item,
+                    "abs_error_deg": round(abs_err, 3),
+                })
+            joints.append(item)
+
+        live = len(fb)
+        max_err = max(errors) if errors else None
+        mean_err = (sum(errors) / len(errors)) if errors else None
+        worst.sort(key=lambda r: float(r.get("abs_error_deg") or 0.0),
+                   reverse=True)
+        max_cur = max(currents) if currents else None
+        ok = live == N_JOINTS
+        if max_err is not None and max_err > tol_deg:
+            ok = False
+        if max_cur is not None and max_cur > current_warn_a:
+            ok = False
+
+        msg_bits = [f"{live}/{N_JOINTS} joints live"]
+        if max_err is not None:
+            label = worst[0]["name"] if worst else "joint"
+            msg_bits.append(
+                f"{expected_name} max err {max_err:.1f}deg ({label})")
+        if max_cur is not None:
+            msg_bits.append(f"Ipeak {max_cur:.2f}A")
+        msg = "; ".join(msg_bits)
+        out = {
+            "ok": ok,
+            "mode": "proprioception_check",
+            "expected": expected_name if expected is not None else None,
+            "live_joints": live,
+            "max_abs_error_deg": (
+                None if max_err is None else round(max_err, 3)),
+            "mean_abs_error_deg": (
+                None if mean_err is None else round(mean_err, 3)),
+            "tol_deg": round(float(tol_deg), 3),
+            "max_current_a": (
+                None if max_cur is None else round(max_cur, 3)),
+            "current_warn_a": round(float(current_warn_a), 3),
+            "min_volt": None if not volts else round(min(volts), 2),
+            "max_temp_c": None if not temps else round(max(temps), 1),
+            "worst_joints": worst[:6],
+            "joints": joints,
+            "msg": msg,
+            "notes": [
+                "This compares the requested pose to encoder feedback; it "
+                "does not prove where the feet are in the room.",
+                "Camera or motion-capture evidence is needed to separate true "
+                "body motion from slip/compliance.",
+            ],
+        }
+        if not ok:
+            out["error"] = msg
+        return out
+
+    def _camera_witness_check(self) -> dict:
+        return {
+            "ok": True,
+            "skipped": True,
+            "non_blocking": True,
+            "mode": "camera_witness",
+            "msg": (
+                "camera witness not configured; use a synced bench video or "
+                "future camera feed to compare visible body/foot motion "
+                "against servo proprioception"),
+            "requires": [
+                "fixed camera view containing the whole robot",
+                "timestamped frame/video tied to the checkup phase",
+                "body/foot markers or a visual tracker before quantitative CV",
+            ],
+        }
+
     def _save_calibration_report(
             self, *, phases: list[dict] | None = None,
             bus=None, traction: dict | None = None,
-            geometry_sweep: dict | None = None) -> dict:
+            geometry_sweep: dict | None = None,
+            proprioception: dict | None = None,
+            camera_witness: dict | None = None) -> dict:
         log_dir = Path(__file__).resolve().parent / "logs"
         log_dir.mkdir(parents=True, exist_ok=True)
         stamp = time.strftime("%Y%m%d_%H%M%S")
@@ -2931,6 +3114,8 @@ class BenchAPI:
                 use_latest_sweep=(not phase_rows)),
             "imu": self.imu_state(),
             "traction": traction,
+            "proprioception": proprioception,
+            "camera_witness": camera_witness,
             "actuators": self._actuator_report(bus),
             "path": str(path),
             "log_name": path.name,
@@ -2948,6 +3133,11 @@ class BenchAPI:
                 "used to estimate contact-height residuals and zero hints",
                 "traction is an onboard loaded-vs-hover slip signature, "
                 "not an exact coefficient of friction",
+                "proprioception compares commanded joint angles with live "
+                "encoder feedback; camera/vision is the independent witness "
+                "needed to observe body/foot motion and slip",
+                "camera_witness is currently a non-blocking hook unless a "
+                "synced camera source is supplied",
                 "actuators.learned_model comes from the optional motor "
                 "dynamics/sysid run when present",
             ],
@@ -3912,6 +4102,7 @@ class BenchAPI:
             "imu_body_frame",
             "traction_probe",
         }
+        returned_zero = False
         prior_motion_issue = any(
             p.get("name") in motion_phase_names
             and not p.get("ok")
@@ -3942,6 +4133,28 @@ class BenchAPI:
             return_zero_res = run_safe_zero_phase(
                 "return_zero", "Return zero before torque-off")
             phase("return_zero", return_zero_res)
+            returned_zero = bool(return_zero_res.get("ok"))
+
+        proprio_res = None
+        if returned_zero and not abort_check():
+            progress("Proprioception consistency", "proprioception_check")
+            proprio_res = self._proprioception_check(
+                bus, expected_pose=[0.0] * N_JOINTS, expected_name="zero")
+            phase("proprioception_check", proprio_res)
+        else:
+            phases.append({
+                "name": "proprioception_check",
+                "ok": False,
+                "aborted": bool(abort_check()
+                                or any(p.get("aborted") for p in phases)),
+                "skipped": True,
+                "mode": "proprioception_check",
+                "summary": "not run because robot was not returned to zero",
+            })
+
+        progress("Camera witness", "camera_witness")
+        camera_res = self._camera_witness_check()
+        phase("camera_witness", camera_res)
 
         progress("Actuator health snapshot", "actuator_snapshot")
         phases.append({
@@ -3953,7 +4166,8 @@ class BenchAPI:
         progress("Saving calibration report", "report")
         report = self._save_calibration_report(
             phases=phases, bus=bus, traction=traction_res,
-            geometry_sweep=sweep_res)
+            geometry_sweep=sweep_res, proprioception=proprio_res,
+            camera_witness=camera_res)
         phases.append({
             "name": "report",
             "ok": bool(report.get("path") or report.get("log_name")),

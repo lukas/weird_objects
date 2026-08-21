@@ -105,8 +105,11 @@ Mode buttons (Checkup / Step / Shake / Plant height / Geo plant / IMU rest) →
 sim-ready report `GET /api/calibration/report` · **Stop** →
 `POST /api/calibrate/stop` · status/results poll `GET /api/calibrate` at
 0.8 s · **Reset plant default** → `POST /api/plant/reset` (confirm) ·
-**Clear IMU calib** → `POST /api/imu/reset` (confirm). Switching to this
-tab sends `HOLD` once if armed (freezes the background re-hold).
+**Clear IMU calib** → `POST /api/imu/reset` (confirm). Checkup rows are
+backend-reported phases; the proprioception row scores expected zero pose vs
+live servo feedback, while the camera witness row is intentionally optional
+until a synced camera source is supplied. Switching to this tab sends `HOLD`
+once if armed (freezes the background re-hold).
 
 ### Motors (`#motors`)
 

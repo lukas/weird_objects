@@ -1183,6 +1183,10 @@ const CHECKUP_STEPS = [
    detail:'Compare five-foot loaded drags against lifted and seated references.'},
   {id:'return_zero', name:'Return to zero',
    detail:'Move back through the collision-aware zero path before torque-off.'},
+  {id:'proprioception_check', name:'Proprioception check',
+   detail:'Compare expected pose with live encoder, current, voltage, and temperature feedback.'},
+  {id:'camera_witness', name:'Camera witness',
+   detail:'Optional synced video/photo evidence for visible body and foot motion.'},
   {id:'actuator_snapshot', name:'Actuator snapshot',
    detail:'Read live joint angle, current, load, voltage, and temperature.'},
   {id:'report', name:'Report',
@@ -1192,6 +1196,8 @@ function checkupPhaseFromProgress(p){
   if(p && p.phase) return p.phase;
   const msg = String((p && p.msg) || '').toLowerCase();
   if(msg.includes('return zero') || msg.includes('zero return')) return 'return_zero';
+  if(msg.includes('proprio')) return 'proprioception_check';
+  if(msg.includes('camera')) return 'camera_witness';
   if(msg.includes('safe_zero') || msg.includes('safe zero') || msg.includes('zero:')) return 'safe_zero';
   if(msg.includes('sweep') || msg.includes('dimension')) return 'geometry_sweep';
   if(msg.includes('traction') || msg.includes('slip')) return 'traction_probe';
@@ -1505,6 +1511,7 @@ function renderCalResult(res){
   const act = res.actuators || report.actuators || {};
   const snap = (act && act.snapshot) || {};
   const learned = act && act.learned_model;
+  const prop = res.proprioception || report.proprioception || {};
   $('calcounts').innerHTML =
     (res.ok
       ? '<span class="cal-pill green">saved</span> checkup complete'
@@ -1514,6 +1521,7 @@ function renderCalResult(res){
     (gsum.manual_hip_pitch_height_mm!=null ? ` · measured hip ${Number(gsum.manual_hip_pitch_height_mm).toFixed(1)}mm` :
       (esum.mean_servo_height_mm!=null ? ` · FK height ${Number(esum.mean_servo_height_mm).toFixed(1)}mm` : ''))+
     (gsum.model_minus_manual_height_mm!=null ? ` · FK err ${calDelta(gsum.model_minus_manual_height_mm)}` : '')+
+    (prop.max_abs_error_deg!=null ? ` · zero err ${Number(prop.max_abs_error_deg).toFixed(1)}°` : '')+
     (snap.live_joints!=null ? ` · ${snap.live_joints} actuator snapshots` : '')+
     (learned ? ' · motor model loaded' : '')+
     (res.msg ? `<div class="hint" style="margin-top:6px">${res.msg}</div>` : '');
