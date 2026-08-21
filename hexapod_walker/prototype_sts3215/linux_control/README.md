@@ -138,6 +138,23 @@ hex_commit_push "Add safer robot telemetry" \
   linux_control/web_drive.py linux_control/webui/app.js
 ```
 
+## Calibration checkup / geometry sweep
+
+The Web UI **Checkup** route runs, in order: IMU rest/bias, ground-contact
+plant search, per-leg dimension sweep, quad IMU body-frame map, traction/slip
+probe, actuator snapshot, then one calibration report.  The dimension sweep
+keeps five feet planted and probes several same-floor hip/knee contact poses
+with the sixth leg.  It estimates effective servo/hip height per leg,
+regularized femur/tibia lengths, and per-leg zero-offset hints with residuals.
+Coxa length and chassis width remain nominal because vertical floor contacts
+do not observe horizontal geometry.
+
+Raw sweep samples are saved on the robot as
+`linux_control/logs/geometry_sweep_*.json` and copied into
+`calibration_report_*.json` under `geometry.contact_sweep`.  Off-robot math
+coverage lives in `linux_control/test_geometry_sweep_fit.py` and is included
+in `make robot-unit-check`; it does not touch hardware.
+
 ### RL episode traces (automatic)
 
 Every RL stand / lower / walk run additionally writes per-tick telemetry

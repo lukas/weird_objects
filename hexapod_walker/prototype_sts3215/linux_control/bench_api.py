@@ -1981,6 +1981,29 @@ class BenchAPI:
             report["ok"] = (
                 all(bool(p.get("ok")) for p in phases)
                 and not any(bool(p.get("aborted")) for p in phases))
+        geom = report.get("geometry")
+        if not isinstance(geom, dict) or "effective_fit" not in geom:
+            try:
+                report["geometry"] = self._geometry_report()
+            except Exception:
+                pass
+        return report
+
+    def _latest_geometry_sweep_report(self) -> dict | None:
+        path = (Path(__file__).resolve().parent / "logs"
+                / "geometry_sweep_latest.json")
+        if not path.is_file():
+            return None
+        try:
+            report = json.loads(path.read_text())
+        except (OSError, ValueError):
+            return None
+        if not isinstance(report, dict):
+            return None
+        report.setdefault("mode", "geometry_sweep")
+        report.setdefault("latest", str(path))
+        report.setdefault("path", str(path))
+        report.setdefault("log_name", path.name)
         return report
 
     def calibrate_state(self) -> dict:
@@ -2047,9 +2070,12 @@ class BenchAPI:
                 pass
         return out
 
-    def _geometry_report(self) -> dict:
+    def _geometry_report(
+            self, *, geometry_sweep: dict | None = None,
+            use_latest_sweep: bool = True) -> dict:
         try:
             from feetech_bus import AXIS_LIMITS_DEG, standing_pose_degrees
+            from geometry_plant import fit_contact_sweep
             from tripod_gait import (CHASSIS_FLAT_TO_FLAT_MM, COXA_MM,
                                      FEMUR_MM, TIBIA_MM)
         except ImportError as e:
@@ -2099,6 +2125,39 @@ class BenchAPI:
 
         z_vals = [float(row["z_mm"]) for row in per_leg]
         radial_vals = [float(row["radial_mm"]) for row in per_leg]
+        plant_samples = [{
+            "accepted": True,
+            "contact_detected": bool(plant.get("contact_found", True)),
+            "leg": row["leg"],
+            "yaw_deg": row["yaw_deg"],
+            "hip_deg": row["hip_deg"],
+            "knee_deg": row["knee_deg"],
+            "reason": "plant_snapshot",
+        } for row in per_leg]
+        plant_fit = fit_contact_sweep(plant_samples)
+        sweep = (
+            geometry_sweep if geometry_sweep is not None
+            else (self._latest_geometry_sweep_report()
+                  if use_latest_sweep else None))
+        sweep_samples = []
+        sweep_fit = None
+        if isinstance(sweep, dict):
+            sweep_samples = sweep.get("samples") or []
+            sweep_fit = sweep.get("fit")
+            if not isinstance(sweep_fit, dict):
+                sweep_fit = fit_contact_sweep(sweep_samples)
+        effective_fit = sweep_fit if isinstance(sweep_fit, dict) else plant_fit
+        fit_summary = (effective_fit or {}).get("summary") or {}
+        seg = (effective_fit or {}).get("segment_fit") or {}
+        fit_links = seg.get("link_lengths_mm") or {}
+        per_leg_heights_m = {}
+        for row in (effective_fit or {}).get("per_leg") or []:
+            try:
+                if row.get("servo_height_mm") is not None:
+                    per_leg_heights_m[str(int(row["leg"]))] = round(
+                        float(row["servo_height_mm"]) * 0.001, 5)
+            except (KeyError, TypeError, ValueError):
+                pass
         return {
             "ok": True,
             "nominal_mm": {
@@ -2125,13 +2184,41 @@ class BenchAPI:
                 "radial_spread_mm": (
                     None if not radial_vals
                     else round(max(radial_vals) - min(radial_vals), 2)),
+                "mean_servo_height_mm": (
+                    fit_summary.get("mean_servo_height_mm")),
+                "servo_height_spread_mm": (
+                    fit_summary.get("servo_height_spread_mm")),
+                "max_zero_hint_deg": fit_summary.get("max_zero_hint_deg"),
             },
+            "effective_fit": effective_fit,
+            "plant_only_fit": plant_fit,
+            "contact_sweep": (
+                None if not isinstance(sweep, dict) else {
+                    "ok": bool(sweep.get("ok")),
+                    "status": (sweep_fit or {}).get("status"),
+                    "sample_count": len(sweep_samples),
+                    "log_name": sweep.get("log_name"),
+                    "path": sweep.get("path"),
+                    "latest": sweep.get("latest"),
+                    "samples": sweep_samples,
+                    "fit": sweep_fit,
+                }),
             "mujoco_hint": {
                 "link_lengths_m": {
                     "coxa": round(COXA_MM * 0.001, 5),
                     "femur": round(FEMUR_MM * 0.001, 5),
                     "tibia": round(TIBIA_MM * 0.001, 5),
                 },
+                "effective_link_lengths_m": (
+                    None if not seg.get("ok") else {
+                        "coxa": round(
+                            float(fit_links.get("coxa", COXA_MM)) * 0.001, 5),
+                        "femur": round(
+                            float(fit_links.get("femur", FEMUR_MM)) * 0.001, 5),
+                        "tibia": round(
+                            float(fit_links.get("tibia", TIBIA_MM)) * 0.001, 5),
+                    }),
+                "per_leg_servo_height_m": per_leg_heights_m or None,
                 "plant_joint_deg": pose or None,
                 "neutral_foot_z_m": (
                     None if not z_vals
@@ -2221,7 +2308,8 @@ class BenchAPI:
 
     def _save_calibration_report(
             self, *, phases: list[dict] | None = None,
-            bus=None, traction: dict | None = None) -> dict:
+            bus=None, traction: dict | None = None,
+            geometry_sweep: dict | None = None) -> dict:
         log_dir = Path(__file__).resolve().parent / "logs"
         log_dir.mkdir(parents=True, exist_ok=True)
         stamp = time.strftime("%Y%m%d_%H%M%S")
@@ -2238,7 +2326,9 @@ class BenchAPI:
             "mode": "calibration_report",
             "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S"),
             "phases": phase_rows,
-            "geometry": self._geometry_report(),
+            "geometry": self._geometry_report(
+                geometry_sweep=geometry_sweep,
+                use_latest_sweep=(not phase_rows)),
             "imu": self.imu_state(),
             "traction": traction,
             "actuators": self._actuator_report(bus),
@@ -2249,6 +2339,11 @@ class BenchAPI:
                 "geometry.nominal_mm is the CAD/link model",
                 "geometry.plant_joint_deg and geometry.per_leg are measured "
                 "stand/ground-contact calibration outputs",
+                "geometry.effective_fit is a multi-contact estimate when "
+                "geometry_sweep ran; otherwise it is plant-only and "
+                "underdetermined",
+                "geometry.contact_sweep samples are raw per-leg contact poses "
+                "used to estimate effective servo height and zero hints",
                 "traction is an onboard loaded-vs-hover slip signature, "
                 "not an exact coefficient of friction",
                 "actuators.learned_model comes from the optional motor "
@@ -2988,7 +3083,8 @@ class BenchAPI:
             on_progress(payload)
 
         try:
-            from geometry_plant import run_geometry_plant
+            from geometry_plant import (run_geometry_contact_sweep,
+                                        run_geometry_plant)
             from imu_calibrate import run_imu_calibrate
         except ImportError as e:
             return {"ok": False, "mode": "checkup", "error": str(e)}
@@ -3018,9 +3114,32 @@ class BenchAPI:
         phase("geometry_plant", geo_res)
 
         traction_res = None
+        sweep_res = None
         motion_ok = (not abort_check() and not geo_res.get("aborted")
                      and bool(geo_res.get("ok")))
         body_ok = False
+
+        if motion_ok:
+            progress("Geometry dimension sweep", "geometry_sweep")
+            sweep_res = run_geometry_contact_sweep(
+                bus, abort_check=abort_check,
+                on_progress=lambda p: progress(
+                    "Geo sweep: " + str(p.get("msg") or "running"),
+                    "geometry_sweep",
+                    **{k: v for k, v in p.items() if k != "msg"}))
+            phase("geometry_sweep", sweep_res)
+            if abort_check() or sweep_res.get("aborted"):
+                motion_ok = False
+        else:
+            phases.append({
+                "name": "geometry_sweep",
+                "ok": False,
+                "aborted": bool(geo_res.get("aborted") or abort_check()),
+                "mode": "geometry_sweep",
+                "summary": (
+                    "not run because ground contact geometry did not finish "
+                    "cleanly"),
+            })
 
         if motion_ok:
             progress("IMU body-frame map from quad rear", "imu_body_frame")
@@ -3070,7 +3189,8 @@ class BenchAPI:
         })
         progress("Saving calibration report", "report")
         report = self._save_calibration_report(
-            phases=phases, bus=bus, traction=traction_res)
+            phases=phases, bus=bus, traction=traction_res,
+            geometry_sweep=sweep_res)
         phases.append({
             "name": "report",
             "ok": bool(report.get("ok", True)),
@@ -3191,7 +3311,7 @@ class BenchAPI:
         elif mode == "checkup":
             label = (
                 "calibration checkup "
-                "(IMU + contact geometry + quad IMU + traction + report)")
+                "(IMU + contact/sweep geometry + quad IMU + traction + report)")
         elif mode == "shake":
             label = f"shake +{nudge_deg:.1f}° hold ({axis})"
         else:

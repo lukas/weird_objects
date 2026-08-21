@@ -18,11 +18,14 @@ Callable from hexapod-web (``/api/rl/find_plant``) — no SSH required.
 from __future__ import annotations
 
 import math
+import json
 import statistics
 import time
+from pathlib import Path
 from typing import Callable
 
 from feetech_bus import (
+    AXIS_LIMITS_DEG,
     N_JOINTS,
     load_plant_pose,
     save_plant_pose,
@@ -30,6 +33,7 @@ from feetech_bus import (
 )
 
 # Link lengths (mm) — match tripod_gait / hexapod_prototype.
+COXA_MM = 12.5
 FEMUR_MM = 90.0
 TIBIA_MM = 128.0
 
@@ -71,6 +75,14 @@ SOFT_SUPPORT_MAX_KNEE_SPEED = 12.0
 SOFT_SUPPORT_MIN_LEGS = 2
 SOFT_SUPPORT_CURRENT_A = 0.05
 SOFT_SUPPORT_LOAD_PCT = 8.0
+
+SWEEP_HIP_OFFSETS_DEG = (-14.0, -9.0, -4.0, 4.0, 9.0, 14.0)
+SWEEP_MAX_TARGETS_PER_LEG = 4
+SWEEP_LIFT_MM = 18.0
+SWEEP_OVERRUN_MM = 7.0
+SWEEP_TORQUE = 620
+SWEEP_MAX_TILT_DELTA_DEG = 8.0
+SWEEP_MAX_LEG_CURRENT_A = 2.6
 
 
 def _imu_tilt_deg(bus) -> tuple[float | None, float | None]:
@@ -125,6 +137,427 @@ def knee_for_foot_z(hip_deg: float, z_mm: float) -> float | None:
     return float(knee)
 
 
+def foot_r_mm(hip_deg: float, knee_deg: float) -> float:
+    """Foot radial reach in the yaw frame (mm), including coxa link."""
+    p = math.radians(hip_deg)
+    pt = math.radians(hip_deg + knee_deg)
+    return COXA_MM + FEMUR_MM * math.cos(p) + TIBIA_MM * math.cos(pt)
+
+
+def _foot_z_model_mm(
+        hip_deg: float, knee_deg: float, *,
+        femur_mm: float = FEMUR_MM, tibia_mm: float = TIBIA_MM,
+        hip_zero_deg: float = 0.0, knee_zero_deg: float = 0.0) -> float:
+    hip = math.radians(float(hip_deg) + float(hip_zero_deg))
+    knee = math.radians(float(knee_deg) + float(knee_zero_deg))
+    return (
+        -float(femur_mm) * math.sin(hip)
+        - float(tibia_mm) * math.sin(hip + knee)
+    )
+
+
+def _solve_knees_for_foot_z(hip_deg: float, z_mm: float) -> list[float]:
+    """Return all in-limit knee branches for ``foot_z_mm(hip, knee)=z``."""
+    hip = math.radians(float(hip_deg))
+    num = -(float(z_mm) + FEMUR_MM * math.sin(hip)) / TIBIA_MM
+    if abs(num) > 1.0:
+        return []
+    a = math.asin(max(-1.0, min(1.0, num)))
+    out: list[float] = []
+    lo, hi = AXIS_LIMITS_DEG.get(2, (-20.0, 150.0))
+    for pt in (a, math.pi - a):
+        knee = math.degrees(pt - hip)
+        if lo <= knee <= hi and all(abs(knee - x) > 0.1 for x in out):
+            out.append(float(knee))
+    return sorted(out)
+
+
+def _best_knee_for_foot_z(
+        hip_deg: float, z_mm: float, *,
+        prefer_deg: float | None = None) -> float | None:
+    knees = _solve_knees_for_foot_z(hip_deg, z_mm)
+    if not knees:
+        return None
+    if prefer_deg is None:
+        return knees[0]
+    return min(knees, key=lambda k: abs(k - float(prefer_deg)))
+
+
+def _candidate_sweep_targets(
+        base_hip_deg: float, base_knee_deg: float, base_z_mm: float,
+        *, max_targets: int = SWEEP_MAX_TARGETS_PER_LEG) -> list[dict]:
+    """Pick reachable same-floor contact targets near the plant pose."""
+    hip_lo, hip_hi = AXIS_LIMITS_DEG.get(1, (-80.0, 30.0))
+    knee_lo, knee_hi = AXIS_LIMITS_DEG.get(2, (-20.0, 150.0))
+    raw: list[dict] = []
+    for off in SWEEP_HIP_OFFSETS_DEG:
+        hip = max(float(hip_lo), min(float(hip_hi), base_hip_deg + off))
+        for knee in _solve_knees_for_foot_z(hip, base_z_mm):
+            if not (knee_lo <= knee <= knee_hi):
+                continue
+            dist = abs(hip - base_hip_deg) + 0.35 * abs(knee - base_knee_deg)
+            raw.append({
+                "hip_deg": float(hip),
+                "knee_deg": float(knee),
+                "score": float(dist),
+            })
+
+    # Include the learned plant itself as a sanity/contact reference.
+    raw.append({
+        "hip_deg": float(base_hip_deg),
+        "knee_deg": float(base_knee_deg),
+        "score": 0.1,
+    })
+    dedup: list[dict] = []
+    for row in sorted(raw, key=lambda r: r["score"]):
+        if any(
+                abs(row["hip_deg"] - got["hip_deg"]) < 0.5
+                and abs(row["knee_deg"] - got["knee_deg"]) < 0.8
+                for got in dedup):
+            continue
+        dedup.append(row)
+        if len(dedup) >= max_targets:
+            break
+    return [
+        {"hip_deg": round(r["hip_deg"], 3),
+         "knee_deg": round(r["knee_deg"], 3)}
+        for r in dedup
+    ]
+
+
+def _mean(vals: list[float]) -> float:
+    vals = [float(v) for v in vals]
+    return sum(vals) / len(vals) if vals else 0.0
+
+
+def _rms(vals: list[float]) -> float:
+    vals = [float(v) for v in vals]
+    return math.sqrt(sum(v * v for v in vals) / len(vals)) if vals else 0.0
+
+
+def _linear_solve(a: list[list[float]], b: list[float]) -> list[float] | None:
+    """Small dense least-squares solver via normal equations."""
+    if not a or not a[0]:
+        return None
+    n = len(a[0])
+    ata = [[0.0 for _ in range(n)] for _ in range(n)]
+    atb = [0.0 for _ in range(n)]
+    for row, rhs in zip(a, b):
+        if len(row) != n:
+            return None
+        for i in range(n):
+            atb[i] += row[i] * rhs
+            for j in range(n):
+                ata[i][j] += row[i] * row[j]
+
+    # Gauss-Jordan with partial pivoting.
+    for col in range(n):
+        pivot = max(range(col, n), key=lambda r: abs(ata[r][col]))
+        if abs(ata[pivot][col]) < 1e-9:
+            return None
+        if pivot != col:
+            ata[col], ata[pivot] = ata[pivot], ata[col]
+            atb[col], atb[pivot] = atb[pivot], atb[col]
+        div = ata[col][col]
+        for j in range(col, n):
+            ata[col][j] /= div
+        atb[col] /= div
+        for r in range(n):
+            if r == col:
+                continue
+            factor = ata[r][col]
+            if abs(factor) < 1e-12:
+                continue
+            for j in range(col, n):
+                ata[r][j] -= factor * ata[col][j]
+            atb[r] -= factor * atb[col]
+    return atb
+
+
+def _fit_segment_lengths(valid: list[dict]) -> dict:
+    """Regularized vertical-contact fit for femur/tibia + per-leg height."""
+    legs = sorted({int(s["leg"]) for s in valid})
+    if len(valid) < 10 or len(legs) < 3:
+        return {
+            "ok": False,
+            "status": "not_enough_multi_pose_contacts",
+            "sample_count": len(valid),
+            "leg_count": len(legs),
+            "link_lengths_mm": {
+                "coxa": COXA_MM,
+                "femur": FEMUR_MM,
+                "tibia": TIBIA_MM,
+            },
+            "notes": [
+                "Need several contact poses across multiple legs before "
+                "segment length estimates are meaningful.",
+            ],
+        }
+
+    leg_idx = {leg: i for i, leg in enumerate(legs)}
+    n = 2 + len(legs)
+    rows: list[list[float]] = []
+    rhs: list[float] = []
+    for s in valid:
+        hip = math.radians(float(s["hip_deg"]))
+        knee = math.radians(float(s["knee_deg"]))
+        row = [0.0 for _ in range(n)]
+        row[0] = math.sin(hip)
+        row[1] = math.sin(hip + knee)
+        row[2 + leg_idx[int(s["leg"])]] = -1.0
+        rows.append(row)
+        rhs.append(0.0)
+
+    # Priors prevent the homogeneous floor-contact fit from inventing silly
+    # scales when the sweep geometry is weak.  Deviations still show up when
+    # they reduce multi-pose residuals.
+    prior_w = 0.10
+    row = [0.0 for _ in range(n)]
+    row[0] = prior_w
+    rows.append(row)
+    rhs.append(prior_w * FEMUR_MM)
+    row = [0.0 for _ in range(n)]
+    row[1] = prior_w
+    rows.append(row)
+    rhs.append(prior_w * TIBIA_MM)
+
+    sol = _linear_solve(rows, rhs)
+    if sol is None:
+        return {
+            "ok": False,
+            "status": "singular_fit",
+            "sample_count": len(valid),
+            "leg_count": len(legs),
+            "link_lengths_mm": {
+                "coxa": COXA_MM,
+                "femur": FEMUR_MM,
+                "tibia": TIBIA_MM,
+            },
+        }
+    femur = float(sol[0])
+    tibia = float(sol[1])
+    plausible = 55.0 <= femur <= 130.0 and 80.0 <= tibia <= 180.0
+    if not plausible:
+        return {
+            "ok": False,
+            "status": "implausible_fit",
+            "sample_count": len(valid),
+            "leg_count": len(legs),
+            "raw_link_lengths_mm": {
+                "femur": round(femur, 2),
+                "tibia": round(tibia, 2),
+            },
+            "link_lengths_mm": {
+                "coxa": COXA_MM,
+                "femur": FEMUR_MM,
+                "tibia": TIBIA_MM,
+            },
+            "notes": [
+                "The sweep data is inconsistent enough that the segment fit "
+                "fell outside safe physical bounds; using nominal links.",
+            ],
+        }
+
+    per_leg_height = {
+        leg: float(sol[2 + leg_idx[leg]])
+        for leg in legs
+    }
+    residuals = []
+    for s in valid:
+        leg = int(s["leg"])
+        hip = math.radians(float(s["hip_deg"]))
+        knee = math.radians(float(s["knee_deg"]))
+        pred_h = femur * math.sin(hip) + tibia * math.sin(hip + knee)
+        residuals.append(pred_h - per_leg_height[leg])
+    return {
+        "ok": True,
+        "status": "regularized_floor_contact_fit",
+        "sample_count": len(valid),
+        "leg_count": len(legs),
+        "link_lengths_mm": {
+            "coxa": COXA_MM,
+            "femur": round(femur, 2),
+            "tibia": round(tibia, 2),
+        },
+        "nominal_mm": {
+            "coxa": COXA_MM,
+            "femur": FEMUR_MM,
+            "tibia": TIBIA_MM,
+        },
+        "per_leg_height_mm": {
+            str(leg): round(per_leg_height[leg], 2)
+            for leg in legs
+        },
+        "rms_residual_mm": round(_rms(residuals), 2),
+        "max_abs_residual_mm": round(
+            max([abs(x) for x in residuals] or [0.0]), 2),
+        "notes": [
+            "Floor contact observes vertical femur/tibia geometry; coxa and "
+            "chassis width stay nominal until a horizontal measurement exists.",
+            "This is regularized toward CAD lengths and should be treated as "
+            "an effective fit, not a metrology-grade measurement.",
+        ],
+    }
+
+
+def _fit_zero_offsets_for_leg(rows: list[dict], *,
+                              femur_mm: float, tibia_mm: float) -> dict:
+    """Find small per-leg zero offsets that flatten contact-height residuals."""
+    if len(rows) < 3:
+        return {
+            "ok": False,
+            "status": "not_enough_poses",
+            "hip_zero_hint_deg": 0.0,
+            "knee_zero_hint_deg": 0.0,
+        }
+
+    def score(hip_off: float, knee_off: float) -> tuple[float, float]:
+        zs = [
+            _foot_z_model_mm(
+                float(r["hip_deg"]), float(r["knee_deg"]),
+                femur_mm=femur_mm, tibia_mm=tibia_mm,
+                hip_zero_deg=hip_off, knee_zero_deg=knee_off)
+            for r in rows
+        ]
+        mean_z = _mean(zs)
+        resid = [z - mean_z for z in zs]
+        penalty = 0.005 * (abs(hip_off) + abs(knee_off))
+        return _rms(resid) + penalty, _rms(resid)
+
+    best = (1e9, 1e9, 0.0, 0.0)
+    for hip_i in range(-16, 17):
+        hip_off = hip_i * 0.5
+        for knee_i in range(-16, 17):
+            knee_off = knee_i * 0.5
+            total, resid = score(hip_off, knee_off)
+            if total < best[0]:
+                best = (total, resid, hip_off, knee_off)
+    hip_center = best[2]
+    knee_center = best[3]
+    for hip_i in range(-6, 7):
+        hip_off = hip_center + hip_i * 0.1
+        for knee_i in range(-6, 7):
+            knee_off = knee_center + knee_i * 0.1
+            total, resid = score(hip_off, knee_off)
+            if total < best[0]:
+                best = (total, resid, hip_off, knee_off)
+
+    hip_hint = best[2]
+    knee_hint = best[3]
+    zs = [
+        _foot_z_model_mm(
+            float(r["hip_deg"]), float(r["knee_deg"]),
+            femur_mm=femur_mm, tibia_mm=tibia_mm,
+            hip_zero_deg=hip_hint, knee_zero_deg=knee_hint)
+        for r in rows
+    ]
+    mean_z = _mean(zs)
+    return {
+        "ok": True,
+        "status": "relative_height_fit",
+        "hip_zero_hint_deg": round(hip_hint, 2),
+        "knee_zero_hint_deg": round(knee_hint, 2),
+        "height_mm": round(-mean_z, 2),
+        "rms_residual_mm": round(best[1], 2),
+        "spread_mm": round(max(zs) - min(zs), 2),
+    }
+
+
+def fit_contact_sweep(samples: list[dict]) -> dict:
+    """Summarize multi-pose floor contacts into effective geometry hints."""
+    valid = []
+    for s in samples or []:
+        try:
+            if not bool(s.get("accepted", s.get("contact_detected", False))):
+                continue
+            valid.append({
+                **s,
+                "leg": int(s["leg"]),
+                "hip_deg": float(s["hip_deg"]),
+                "knee_deg": float(s["knee_deg"]),
+            })
+        except (KeyError, TypeError, ValueError):
+            continue
+
+    seg = _fit_segment_lengths(valid)
+    links = seg.get("link_lengths_mm") or {}
+    femur = float(links.get("femur", FEMUR_MM))
+    tibia = float(links.get("tibia", TIBIA_MM))
+    seg_heights = seg.get("per_leg_height_mm") or {}
+    per_leg: list[dict] = []
+    heights: list[float] = []
+    max_zero = 0.0
+    for leg in range(6):
+        rows = [s for s in valid if int(s["leg"]) == leg]
+        zs = [
+            _foot_z_model_mm(
+                float(s["hip_deg"]), float(s["knee_deg"]),
+                femur_mm=femur, tibia_mm=tibia)
+            for s in rows
+        ]
+        # Zero hints are intentionally against the nominal CAD links.  The
+        # global segment fit and per-leg zero offsets can explain the same
+        # residuals; separating them keeps the report honest.
+        zero = _fit_zero_offsets_for_leg(
+            rows, femur_mm=FEMUR_MM, tibia_mm=TIBIA_MM)
+        try:
+            height = float(seg_heights[str(leg)])
+        except (KeyError, TypeError, ValueError):
+            height = (
+                float(zero.get("height_mm"))
+                if zero.get("ok") and zero.get("height_mm") is not None
+                else (-_mean(zs) if zs else None)
+            )
+        if height is not None:
+            heights.append(float(height))
+        max_zero = max(
+            max_zero,
+            abs(float(zero.get("hip_zero_hint_deg") or 0.0)),
+            abs(float(zero.get("knee_zero_hint_deg") or 0.0)))
+        per_leg.append({
+            "leg": leg,
+            "samples": len(rows),
+            "servo_height_mm": (
+                None if height is None else round(float(height), 2)),
+            "height_spread_mm": (
+                None if not zs else round(max(zs) - min(zs), 2)),
+            "rms_residual_mm": (
+                None if not zs else round(
+                    _rms([z - _mean(zs) for z in zs]), 2)),
+            "zero_rms_residual_mm": zero.get("rms_residual_mm"),
+            "hip_zero_hint_deg": zero.get("hip_zero_hint_deg"),
+            "knee_zero_hint_deg": zero.get("knee_zero_hint_deg"),
+            "zero_status": zero.get("status"),
+        })
+
+    ok = len(valid) >= 10 and sum(1 for r in per_leg if r["samples"] >= 2) >= 3
+    status = "ok" if ok else "partial"
+    if not valid:
+        status = "no_contacts"
+    return {
+        "ok": ok,
+        "status": status,
+        "sample_count": len(valid),
+        "segment_fit": seg,
+        "per_leg": per_leg,
+        "summary": {
+            "mean_servo_height_mm": (
+                None if not heights else round(_mean(heights), 2)),
+            "servo_height_spread_mm": (
+                None if not heights else round(max(heights) - min(heights), 2)),
+            "max_zero_hint_deg": round(max_zero, 2),
+        },
+        "observability": [
+            "Multiple floor contacts estimate vertical hip/servo height and "
+            "effective femur/tibia length.",
+            "Zero offsets are hints from contact-height consistency, not an "
+            "absolute encoder truth.",
+            "Coxa length and chassis width are not observable from vertical "
+            "floor contact alone.",
+        ],
+    }
+
+
 def search_pose_at(u: float) -> tuple[float, float]:
     """Piecewise downward search pose, shallow → normal plant → deeper."""
     u = max(0.0, min(1.0, float(u)))
@@ -141,6 +574,333 @@ def search_pose_at(u: float) -> tuple[float, float]:
         0.0 + s * (SEARCH_HIP_DEG - 0.0),
         TARGET_KNEE_DEG + s * (SEARCH_KNEE_DEG - TARGET_KNEE_DEG),
     )
+
+
+def run_geometry_contact_sweep(
+    bus,
+    *,
+    abort_check: Callable[[], bool] | None = None,
+    on_progress: Callable[[dict], None] | None = None,
+    max_targets_per_leg: int = SWEEP_MAX_TARGETS_PER_LEG,
+) -> dict:
+    """Collect several same-floor contact poses for each leg.
+
+    The current plant pose gives one floor contact.  This sweep keeps five
+    feet planted, lifts one leg, then searches that leg back to the same
+    floor height at a few nearby hip/knee combinations.  The collected
+    contacts are enough to estimate effective hip height, femur/tibia scale,
+    and likely zero offsets with residuals.
+    """
+    abort_check = abort_check or (lambda: False)
+    try:
+        from inplace_demos import (
+            _enable_torque, _hold_here, _live_robot_ids, _set_torque_limit,
+            _write_pose, ease_to_pose,
+        )
+    except ImportError as e:
+        return {"ok": False, "error": f"inplace_demos missing: {e}",
+                "mode": "geometry_sweep"}
+
+    def _progress(msg: str, **extra) -> None:
+        if on_progress:
+            try:
+                on_progress({"msg": msg, "mode": "geometry_sweep", **extra})
+            except Exception:
+                pass
+
+    def clamp(x: float, lo: float, hi: float) -> float:
+        return max(float(lo), min(float(hi), float(x)))
+
+    def read_feedback(j: int) -> dict | None:
+        try:
+            return bus.read_feedback(j)
+        except Exception:
+            return None
+
+    def read_pose() -> list[float] | None:
+        row: list[float] = []
+        for j in range(N_JOINTS):
+            try:
+                v = bus.read_position_deg(j)
+            except Exception:
+                v = None
+            if v is None:
+                return None
+            row.append(float(v))
+        return row
+
+    def median_pose(samples: int = 4) -> list[float] | None:
+        rows = []
+        for _ in range(samples):
+            q = read_pose()
+            if q is not None:
+                rows.append(q)
+            time.sleep(0.025)
+        if not rows:
+            return None
+        return [_median([r[j] for r in rows], rows[0][j])
+                for j in range(N_JOINTS)]
+
+    def tilt_delta(base: tuple[float, float] | None) -> tuple[float, float] | None:
+        now = _imu_tilt_deg(bus)
+        if now[0] is None or now[1] is None or base is None:
+            return None
+        return (
+            _angle_delta_deg(float(now[0]), base[0]),
+            _angle_delta_deg(float(now[1]), base[1]),
+        )
+
+    live = _live_robot_ids(bus)
+    if len(live) < 12:
+        return {"ok": False, "error": f"need more servos (live={len(live)})",
+                "mode": "geometry_sweep", "live": sorted(live)}
+    try:
+        plant = load_plant_pose()
+        base = [float(x) for x in standing_pose_degrees()]
+    except Exception as e:
+        return {"ok": False, "mode": "geometry_sweep",
+                "error": f"plant pose unavailable: {e}"}
+    if len(base) != N_JOINTS:
+        return {"ok": False, "mode": "geometry_sweep",
+                "error": "plant pose is not 18 joints"}
+
+    hip_lo, hip_hi = AXIS_LIMITS_DEG.get(1, (-80.0, 30.0))
+    knee_lo, knee_hi = AXIS_LIMITS_DEG.get(2, (-20.0, 150.0))
+    samples: list[dict] = []
+    target_plan: list[dict] = []
+
+    _progress("dimension sweep: settle learned plant")
+    _enable_torque(bus, live)
+    _set_torque_limit(bus, live, SWEEP_TORQUE)
+    if not ease_to_pose(bus, base, abort_check=abort_check, seconds=2.0,
+                        label="geometry dimension sweep plant"):
+        _set_torque_limit(bus, live, 1000)
+        return {"ok": False, "aborted": True, "mode": "geometry_sweep",
+                "error": "plant settle aborted"}
+    time.sleep(0.2)
+
+    tilts = []
+    for _ in range(5):
+        rp = _imu_tilt_deg(bus)
+        if rp[0] is not None and rp[1] is not None:
+            tilts.append((float(rp[0]), float(rp[1])))
+        time.sleep(0.025)
+    base_tilt = None
+    if tilts:
+        base_tilt = (
+            _median([r for r, _p in tilts], 0.0),
+            _median([p for _r, p in tilts], 0.0),
+        )
+
+    def make_pose(leg: int, hip: float, knee: float) -> list[float]:
+        q = list(base)
+        j = leg * 3
+        q[j + 1] = clamp(hip, hip_lo, hip_hi)
+        q[j + 2] = clamp(knee, knee_lo, knee_hi)
+        return q
+
+    def sample_contact(
+            leg: int, goal: list[float], *, target: dict,
+            detected: bool, reason: str, step: int,
+            accepted: bool | None = None) -> dict:
+        q = median_pose(3) or goal
+        j = leg * 3
+        fb_rows = [read_feedback(j + k) or {} for k in range(3)]
+        currents = [abs(float(r.get("current_a") or 0.0)) for r in fb_rows]
+        loads = [float(r.get("load_pct") or 0.0) for r in fb_rows]
+        row = {
+            "leg": leg,
+            "target_hip_deg": round(float(target["hip_deg"]), 3),
+            "target_knee_deg": round(float(target["knee_deg"]), 3),
+            "hip_deg": round(float(q[j + 1]), 3),
+            "knee_deg": round(float(q[j + 2]), 3),
+            "yaw_deg": round(float(q[j]), 3),
+            "contact_detected": bool(detected),
+            "accepted": bool(detected) if accepted is None else bool(accepted),
+            "reason": reason,
+            "search_step": int(step),
+            "nominal_z_mm": round(foot_z_mm(q[j + 1], q[j + 2]), 2),
+            "nominal_radial_mm": round(foot_r_mm(q[j + 1], q[j + 2]), 2),
+            "max_leg_current_a": round(max(currents or [0.0]), 3),
+            "max_leg_load_pct": round(max(loads or [0.0]), 1),
+        }
+        td = tilt_delta(base_tilt)
+        if td is not None:
+            row["roll_delta_deg"] = round(td[0], 2)
+            row["pitch_delta_deg"] = round(td[1], 2)
+        samples.append(row)
+        return row
+
+    def probe_target(leg: int, target: dict) -> tuple[bool, str | None]:
+        hip = float(target["hip_deg"])
+        knee = float(target["knee_deg"])
+        base_z = float(target["base_z_mm"])
+        start_knee = _best_knee_for_foot_z(
+            hip, base_z + SWEEP_LIFT_MM, prefer_deg=knee)
+        if start_knee is None:
+            return False, "no lifted start pose"
+        deep_knee = _best_knee_for_foot_z(
+            hip, base_z - SWEEP_OVERRUN_MM, prefer_deg=knee)
+        if deep_knee is None:
+            # Some plant poses already sit near maximum vertical reach.  In
+            # that case, probing to the solved floor pose is the safest stop.
+            deep_knee = knee
+        start = make_pose(leg, hip, start_knee)
+        goal = make_pose(leg, hip, deep_knee)
+
+        _write_pose(bus, start, live, speed=125, acc=12)
+        time.sleep(0.25)
+        base_fb = [read_feedback(leg * 3 + k) or {} for k in range(3)]
+        base_current = max([
+            abs(float(r.get("current_a") or 0.0)) for r in base_fb
+        ] or [0.0])
+        base_load = max([
+            float(r.get("load_pct") or 0.0) for r in base_fb
+        ] or [0.0])
+
+        detected = False
+        reason = "no contact signal"
+        last_goal = start
+        steps = 12
+        for step in range(1, steps + 1):
+            if abort_check():
+                _hold_here(bus, live)
+                return False, "aborted"
+            a = step / steps
+            q = list(base)
+            j = leg * 3
+            q[j + 1] = hip
+            q[j + 2] = start_knee + (deep_knee - start_knee) * a
+            last_goal = q
+            _write_pose(bus, q, live, speed=105, acc=10)
+            time.sleep(0.075)
+
+            td = tilt_delta(base_tilt)
+            if td is not None and max(abs(td[0]), abs(td[1])) > SWEEP_MAX_TILT_DELTA_DEG:
+                _hold_here(bus, live)
+                sample_contact(
+                    leg, last_goal, target=target, detected=False,
+                    reason="tilt abort", step=step)
+                return False, "tilt abort"
+
+            fb_rows = [read_feedback(j + k) or {} for k in range(3)]
+            currents = [abs(float(r.get("current_a") or 0.0)) for r in fb_rows]
+            loads = [float(r.get("load_pct") or 0.0) for r in fb_rows]
+            if max(currents or [0.0]) > SWEEP_MAX_LEG_CURRENT_A:
+                _hold_here(bus, live)
+                sample_contact(
+                    leg, last_goal, target=target, detected=False,
+                    reason="current abort", step=step)
+                return False, "current abort"
+
+            hip_row = fb_rows[1] or {}
+            knee_row = fb_rows[2] or {}
+            hip_now = float(
+                hip_row["deg"] if hip_row.get("deg") is not None
+                else q[j + 1])
+            knee_now = float(
+                knee_row["deg"] if knee_row.get("deg") is not None
+                else q[j + 2])
+            lag = max(abs(q[j + 1] - hip_now), abs(q[j + 2] - knee_now))
+            z_cmd = foot_z_mm(q[j + 1], q[j + 2])
+            current_rise = max(0.0, max(currents or [0.0]) - base_current)
+            load_rise = max(0.0, max(loads or [0.0]) - base_load)
+            reached_floor_band = z_cmd <= base_z + 2.5
+            if reached_floor_band and (
+                    current_rise >= 0.055
+                    or load_rise >= 5.5
+                    or lag >= 4.0
+                    or step == steps):
+                detected = current_rise >= 0.055 or load_rise >= 5.5 or lag >= 4.0
+                reason = (
+                    "current/load/lag contact" if detected
+                    else "reached solved floor pose")
+                sample_contact(
+                    leg, last_goal, target=target,
+                    detected=detected, accepted=True,
+                    reason=reason, step=step)
+                return True, None
+
+        sample_contact(
+            leg, last_goal, target=target, detected=False,
+            reason=reason, step=steps)
+        return True, None
+
+    try:
+        for leg in range(6):
+            if abort_check():
+                _hold_here(bus, live)
+                return {"ok": False, "aborted": True,
+                        "mode": "geometry_sweep", "samples": samples}
+            j = leg * 3
+            base_hip = float(base[j + 1])
+            base_knee = float(base[j + 2])
+            base_z = foot_z_mm(base_hip, base_knee)
+            targets = _candidate_sweep_targets(
+                base_hip, base_knee, base_z,
+                max_targets=max_targets_per_leg)
+            for t in targets:
+                t["base_z_mm"] = round(base_z, 3)
+                t["leg"] = leg
+                t["base_hip_deg"] = round(base_hip, 3)
+                t["base_knee_deg"] = round(base_knee, 3)
+            target_plan.extend(targets)
+            _progress(
+                f"dimension sweep: L{leg} {len(targets)} contact poses")
+            for target in targets:
+                ok, reason = probe_target(leg, target)
+                if not ok and reason in ("aborted", "tilt abort", "current abort"):
+                    _set_torque_limit(bus, live, 1000)
+                    return {
+                        "ok": False,
+                        "aborted": True,
+                        "mode": "geometry_sweep",
+                        "error": reason,
+                        "samples": samples,
+                        "target_plan": target_plan,
+                        "fit": fit_contact_sweep(samples),
+                    }
+                _write_pose(bus, base, live, speed=125, acc=12)
+                time.sleep(0.18)
+        _progress("dimension sweep: return to plant")
+        _write_pose(bus, base, live, speed=125, acc=12)
+        time.sleep(0.35)
+        _hold_here(bus, live)
+    finally:
+        _set_torque_limit(bus, live, 1000)
+
+    fit = fit_contact_sweep(samples)
+    log_dir = Path(__file__).resolve().parent / "logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    stamp = time.strftime("%Y%m%d_%H%M%S")
+    path = log_dir / f"geometry_sweep_{stamp}.json"
+    latest = log_dir / "geometry_sweep_latest.json"
+    payload = {
+        "ok": bool(fit.get("ok")),
+        "mode": "geometry_sweep",
+        "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S"),
+        "plant": plant,
+        "target_plan": target_plan,
+        "samples": samples,
+        "fit": fit,
+        "path": str(path),
+        "log_name": path.name,
+        "latest": str(latest),
+    }
+    path.write_text(json.dumps(payload, indent=2) + "\n")
+    latest.write_text(json.dumps(payload, indent=2) + "\n")
+    summary = fit.get("summary") or {}
+    msg = (
+        f"dimension sweep {fit.get('status')}; "
+        f"{fit.get('sample_count', 0)} contacts"
+    )
+    if summary.get("mean_servo_height_mm") is not None:
+        msg += (
+            f", height {summary['mean_servo_height_mm']:.1f}mm"
+            f" spread {summary.get('servo_height_spread_mm', 0.0):.1f}mm"
+        )
+    payload["msg"] = msg
+    return payload
 
 
 def _median(vals: list[float], default: float) -> float:

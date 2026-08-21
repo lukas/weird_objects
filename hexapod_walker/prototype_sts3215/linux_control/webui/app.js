@@ -1120,6 +1120,8 @@ const CHECKUP_STEPS = [
    detail:'Hold still while gyro and accel rest offsets are saved.'},
   {id:'geometry_plant', name:'Ground contact geometry',
    detail:'Reach down until contact is detected, then save the plant pose.'},
+  {id:'geometry_sweep', name:'Dimension sweep',
+   detail:'Collect several floor contact poses to estimate heights and zero hints.'},
   {id:'imu_body_frame', name:'Quad IMU body frame',
    detail:'Rear up and come down while mapping mounted IMU axes to body pitch.'},
   {id:'traction_probe', name:'Traction / slip',
@@ -1132,6 +1134,7 @@ const CHECKUP_STEPS = [
 function checkupPhaseFromProgress(p){
   if(p && p.phase) return p.phase;
   const msg = String((p && p.msg) || '').toLowerCase();
+  if(msg.includes('sweep') || msg.includes('dimension')) return 'geometry_sweep';
   if(msg.includes('traction') || msg.includes('slip')) return 'traction_probe';
   if(msg.includes('imu body') || msg.includes('quad rear')) return 'imu_body_frame';
   if(msg.includes('geo') || msg.includes('ground') || msg.includes('contact')) return 'geometry_plant';
@@ -1223,20 +1226,40 @@ function renderCalDimensions(res){
   const gsum = geom.summary || {};
   const plant = geom.plant || {};
   const hint = geom.mujoco_hint || {};
+  const fit = geom.effective_fit || {};
+  const fitSummary = fit.summary || {};
+  const seg = fit.segment_fit || {};
+  const segLinks = seg.link_lengths_mm || {};
+  const contactSweep = geom.contact_sweep || {};
   const links = hint.link_lengths_m || {};
+  const effLinks = hint.effective_link_lengths_m || {};
   const learned = plant.learned ? 'learned plant' : 'default plant';
+  const sweepSource = contactSweep && contactSweep.sample_count
+    ? `${contactSweep.sample_count} contact samples`
+    : 'plant-only estimate';
   const rows = [
     ['link lengths',
       `coxa ${calMm(nom.coxa)} · femur ${calMm(nom.femur)} · tibia ${calMm(nom.tibia)}`,
       links.coxa != null
         ? `MuJoCo m: ${calNum(links.coxa, 5)}, ${calNum(links.femur, 5)}, ${calNum(links.tibia, 5)}`
         : 'CAD model'],
+    ['effective segment fit',
+      `coxa ${calMm(segLinks.coxa)} · femur ${calMm(segLinks.femur)} · tibia ${calMm(segLinks.tibia)}`,
+      seg.status
+        ? `${htmlEscape(seg.status)} · ${sweepSource}`
+        : 'waiting for dimension sweep'],
     ['chassis',
       `flat-to-flat ${calMm(nom.chassis_flat_to_flat)}`,
       'CAD model'],
     ['stand home',
       `hip ${calSigned(plant.hip_deg)}° · knee ${calSigned(plant.knee_deg)}°`,
       learned + (plant.timestamp ? ` · ${htmlEscape(plant.timestamp)}` : '')],
+    ['servo/hip height',
+      `mean ${calMm(fitSummary.mean_servo_height_mm)} · spread ${calMm(fitSummary.servo_height_spread_mm)}`,
+      sweepSource],
+    ['zero offset hints',
+      `max ${calSigned(fitSummary.max_zero_hint_deg)}°`,
+      'relative hints from contact-height residuals'],
     ['stance foot z',
       `mean ${calMm(gsum.mean_foot_z_mm)} · spread ${calMm(gsum.foot_z_spread_mm)}`,
       hint.neutral_foot_z_m != null
@@ -1246,6 +1269,11 @@ function renderCalDimensions(res){
       `radial ${calMm(gsum.mean_radial_mm)} · spread ${calMm(gsum.radial_spread_mm)}`,
       'hip-yaw-frame reach'],
   ];
+  if(effLinks && effLinks.femur != null){
+    rows.push(['MuJoCo effective links',
+      `${calNum(effLinks.coxa, 5)}, ${calNum(effLinks.femur, 5)}, ${calNum(effLinks.tibia, 5)} m`,
+      'from dimension sweep fit']);
+  }
   const perLeg = Array.isArray(geom.per_leg) ? geom.per_leg : [];
   const legRows = perLeg.map(row => (
     `<tr>`+
@@ -1255,6 +1283,19 @@ function renderCalDimensions(res){
       `<td>${calSigned(row.knee_deg)}</td>`+
       `<td>${calNum(row.z_mm)}</td>`+
       `<td>${calNum(row.radial_mm)}</td>`+
+    `</tr>`
+  )).join('');
+  const fitLegs = Array.isArray(fit.per_leg) ? fit.per_leg : [];
+  const fitLegRows = fitLegs.map(row => (
+    `<tr>`+
+      `<td>L${htmlEscape(row.leg)}</td>`+
+      `<td>${htmlEscape(row.samples)}</td>`+
+      `<td>${calNum(row.servo_height_mm)}</td>`+
+      `<td>${calNum(row.height_spread_mm)}</td>`+
+      `<td>${calNum(row.rms_residual_mm)}</td>`+
+      `<td>${calNum(row.zero_rms_residual_mm)}</td>`+
+      `<td>${calSigned(row.hip_zero_hint_deg)}</td>`+
+      `<td>${calSigned(row.knee_zero_hint_deg)}</td>`+
     `</tr>`
   )).join('');
   el.innerHTML =
@@ -1271,6 +1312,14 @@ function renderCalDimensions(res){
         `<th>leg</th><th>yaw°</th><th>hip°</th><th>knee°</th>`+
         `<th>foot z mm</th><th>radial mm</th>`+
       `</tr></thead><tbody>${legRows}</tbody></table>`
+    ) : '')+
+    (fitLegRows ? (
+      `<div class="cal-dim-title sub">Per-leg effective height and zero hints</div>`+
+      `<table class="cal-table"><thead><tr>`+
+        `<th>leg</th><th>samples</th><th>height mm</th>`+
+        `<th>spread mm</th><th>rms mm</th><th>zero rms</th><th>hip zero°</th>`+
+        `<th>knee zero°</th>`+
+      `</tr></thead><tbody>${fitLegRows}</tbody></table>`
     ) : '');
 }
 function renderCalResult(res){
@@ -1282,6 +1331,7 @@ function renderCalResult(res){
   const report = res.report || {};
   const geom = res.geometry || report.geometry || {};
   const gsum = (geom && geom.summary) || {};
+  const esum = ((geom && geom.effective_fit) || {}).summary || {};
   const act = res.actuators || report.actuators || {};
   const snap = (act && act.snapshot) || {};
   const learned = act && act.learned_model;
@@ -1291,6 +1341,7 @@ function renderCalResult(res){
       : '<span class="cal-pill yellow">partial</span> checkup complete')+
     (gsum.mean_foot_z_mm!=null ? ` · foot z ${Number(gsum.mean_foot_z_mm).toFixed(1)}mm` : '')+
     (gsum.foot_z_spread_mm!=null ? ` · spread ${Number(gsum.foot_z_spread_mm).toFixed(1)}mm` : '')+
+    (esum.mean_servo_height_mm!=null ? ` · servo height ${Number(esum.mean_servo_height_mm).toFixed(1)}mm` : '')+
     (snap.live_joints!=null ? ` · ${snap.live_joints} actuator snapshots` : '')+
     (learned ? ' · motor model loaded' : '')+
     (res.msg ? `<div class="hint" style="margin-top:6px">${res.msg}</div>` : '');

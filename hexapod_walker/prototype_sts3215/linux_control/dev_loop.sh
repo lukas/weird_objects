@@ -61,6 +61,7 @@ files = [
     "linux_control/pinned_tip.py",
     "linux_control/plant_calibrate.py",
     "linux_control/geometry_plant.py",
+    "linux_control/test_geometry_sweep_fit.py",
     "linux_control/imu_calibrate.py",
     "linux_control/bus_bench.py",
     "linux_control/sysid_protocol.py",
@@ -169,6 +170,7 @@ hex_unit_check() {
   (
     cd "$HEX_LC_DIR"
     python3 test_mcu_stream.py &&
+    python3 test_geometry_sweep_fit.py &&
     python3 test_quad_pitch_trim.py &&
     python3 test_safe_zero.py &&
     python3 test_pinned_tip.py
