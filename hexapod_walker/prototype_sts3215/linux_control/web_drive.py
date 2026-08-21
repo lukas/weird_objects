@@ -126,8 +126,10 @@ PAGE_PATHS = ("/", "/index.html", "/debug", "/motors", "/demos",
 # Exact whitelisted names only -- no generic static-dir handler, so nothing
 # else on disk is reachable (path-traversal safety).
 STATIC_FILES = {
-    "/style.css": ("style.css", "text/css; charset=utf-8", "no-cache"),
-    "/app.js": ("app.js", "text/javascript; charset=utf-8", "no-cache"),
+    "/style.css": ("style.css", "text/css; charset=utf-8",
+                   "no-store, max-age=0, must-revalidate"),
+    "/app.js": ("app.js", "text/javascript; charset=utf-8",
+                "no-store, max-age=0, must-revalidate"),
     "/favicon.svg": ("favicon.svg", "image/svg+xml", "max-age=86400"),
 }
 
@@ -147,7 +149,8 @@ class Handler(BaseHTTPRequestHandler):
         if cache:
             self.send_header("Cache-Control", cache)
         elif "text/html" in ctype:
-            self.send_header("Cache-Control", "no-store")
+            self.send_header(
+                "Cache-Control", "no-store, max-age=0, must-revalidate")
         self.end_headers()
         try:
             self.wfile.write(data)
@@ -193,7 +196,9 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(500, f"webui file missing: expected {index} ({e})")
                 return
             page = page.replace("__HTTPS_PORT__", str(HTTPS_PORT or 8443))
-            self._send(200, page, "text/html; charset=utf-8", cache="no-cache")
+            self._send(
+                200, page, "text/html; charset=utf-8",
+                cache="no-store, max-age=0, must-revalidate")
         elif path in STATIC_FILES:
             name, ctype, cache = STATIC_FILES[path]
             fpath = WEBUI_DIR / name

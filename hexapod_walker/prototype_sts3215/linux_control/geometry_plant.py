@@ -62,7 +62,9 @@ CONTACT_POSITION_LAG_DEG = 6.0
 # Only let lag vote once the search reached the normal plant depth.
 CONTACT_LAG_MIN_KNEE_DEG = 80.0
 CONTACT_LAG_MAX_KNEE_SPEED = 55.0
-MAX_TILT_DEG = 8.0              # abort before tip (operator asked: don't tip)
+MAX_TILT_DELTA_DEG = 15.0       # abort before new lean turns into a tip
+MAX_TILT_ABS_DEG = 25.0         # hard cap even if start/platform is tilted
+TILT_TRIP_HOLD_S = 0.25         # ignore one-sample accel/IMU bumps
 
 
 def _imu_tilt_deg(bus) -> tuple[float | None, float | None]:
@@ -83,6 +85,11 @@ def _imu_tilt_deg(bus) -> tuple[float | None, float | None]:
     except Exception:
         pass
     return None, None
+
+
+def _angle_delta_deg(now: float, base: float) -> float:
+    """Small signed angle difference, robust to +/-180 wrap."""
+    return (float(now) - float(base) + 180.0) % 360.0 - 180.0
 
 
 def foot_z_mm(hip_deg: float, knee_deg: float) -> float:
@@ -193,6 +200,21 @@ def run_geometry_plant(
                         label="geo_start"):
         _set_torque_limit(bus, live, 1000)
         return {"ok": False, "aborted": True, "mode": "geometry_plant"}
+    base_tilts: list[tuple[float, float]] = []
+    for _ in range(5):
+        rp = _imu_tilt_deg(bus)
+        if rp[0] is not None and rp[1] is not None:
+            base_tilts.append((float(rp[0]), float(rp[1])))
+        time.sleep(0.04)
+    tilt_base = None
+    if base_tilts:
+        tilt_base = (
+            _median([r for r, _p in base_tilts], 0.0),
+            _median([p for _r, p in base_tilts], 0.0),
+        )
+        _progress(
+            f"tilt baseline roll={tilt_base[0]:+.1f}° "
+            f"pitch={tilt_base[1]:+.1f}°")
 
     # --- blend toward ground; contact usually appears before full depth ---
     _progress("reaching for ground (current/load/lag contact watch)…")
@@ -201,6 +223,7 @@ def run_geometry_plant(
     base_I: list[float] = []
     base_L: list[float] = []
     hot_since: dict[int, float] = {}
+    tilt_hot_since: float | None = None
     contact_found = False
     contact_knee = None
     contact_joints: list[int] = []
@@ -218,20 +241,44 @@ def run_geometry_plant(
 
         roll_d, pitch_d = _imu_tilt_deg(bus)
         if roll_d is not None and pitch_d is not None:
-            if abs(roll_d) > MAX_TILT_DEG or abs(pitch_d) > MAX_TILT_DEG:
+            if tilt_base is not None:
+                roll_trip = _angle_delta_deg(roll_d, tilt_base[0])
+                pitch_trip = _angle_delta_deg(pitch_d, tilt_base[1])
+            else:
+                roll_trip = float(roll_d)
+                pitch_trip = float(pitch_d)
+            trip_raw = (
+                max(abs(roll_trip), abs(pitch_trip)) > MAX_TILT_DELTA_DEG
+                or max(abs(float(roll_d)), abs(float(pitch_d))) > MAX_TILT_ABS_DEG)
+            now = time.monotonic()
+            if trip_raw:
+                if tilt_hot_since is None:
+                    tilt_hot_since = now
+            else:
+                tilt_hot_since = None
+            if tilt_hot_since is not None and now - tilt_hot_since >= TILT_TRIP_HOLD_S:
                 _hold_here(bus, live)
                 try:
                     _limp_all(bus, live)
                 except Exception:
                     pass
                 _set_torque_limit(bus, live, 1000)
-                _progress(f"TILT abort roll={roll_d:+.1f}° pitch={pitch_d:+.1f}° — limp")
+                _progress(
+                    f"TILT abort roll={roll_d:+.1f}° pitch={pitch_d:+.1f}° "
+                    f"(Δ{roll_trip:+.1f}°/{pitch_trip:+.1f}°) — limp")
                 return {
                     "ok": False,
                     "aborted": True,
-                    "error": f"tilt abort ({roll_d:+.1f}°, {pitch_d:+.1f}°)",
+                    "error": (
+                        f"tilt abort ({roll_d:+.1f}°, {pitch_d:+.1f}°; "
+                        f"Δ{roll_trip:+.1f}°/{pitch_trip:+.1f}°)"),
                     "mode": "geometry_plant",
                     "contact_found": contact_found,
+                    "tilt_baseline_deg": (
+                        None if tilt_base is None else
+                        [round(tilt_base[0], 2), round(tilt_base[1], 2)]),
+                    "tilt_delta_deg": [
+                        round(roll_trip, 2), round(pitch_trip, 2)],
                 }
 
         knee_presents: list[float] = []
