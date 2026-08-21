@@ -2168,7 +2168,7 @@ class BenchAPI:
 
     def _save_calibration_report(
             self, *, phases: list[dict] | None = None,
-            bus=None) -> dict:
+            bus=None, traction: dict | None = None) -> dict:
         log_dir = Path(__file__).resolve().parent / "logs"
         log_dir.mkdir(parents=True, exist_ok=True)
         stamp = time.strftime("%Y%m%d_%H%M%S")
@@ -2179,11 +2179,14 @@ class BenchAPI:
             "phases": phases or [],
             "geometry": self._geometry_report(),
             "imu": self.imu_state(),
+            "traction": traction,
             "actuators": self._actuator_report(bus),
             "notes": [
                 "geometry.nominal_mm is the CAD/link model",
                 "geometry.plant_joint_deg and geometry.per_leg are measured "
                 "stand/ground-contact calibration outputs",
+                "traction is an onboard planted shear probe, not an exact "
+                "coefficient of friction",
                 "actuators.learned_model comes from the optional motor "
                 "dynamics/sysid run when present",
             ],
@@ -2310,8 +2313,238 @@ class BenchAPI:
                 f"from roll {roll:+.1f} / pitch {pitch:+.1f} deg"),
         }
 
+    def _run_traction_probe(self, bus, *, abort_check, on_progress) -> dict:
+        """Gentle planted shear/yaw probe for floor traction.
+
+        This is intentionally an onboard traction indicator, not a literal
+        friction coefficient measurement.  If planted feet pin, small yaw
+        pulses should build joint lag/current/load; if they slide freely,
+        yaws track with little resistance.
+        """
+        try:
+            from feetech_bus import AXIS_LIMITS_DEG, standing_pose_degrees
+            from imu_calibrate import imu_tilt_deg
+            from inplace_demos import (
+                _enable_torque, _hold_here, _live_robot_ids,
+                _set_torque_limit, _write_pose, ease_to_pose,
+            )
+        except ImportError as e:
+            return {"ok": False, "mode": "traction_probe", "error": str(e)}
+
+        def progress(msg: str, **extra) -> None:
+            on_progress({"msg": msg, "mode": "traction_probe", **extra})
+
+        def clamp(x: float, lo: float, hi: float) -> float:
+            return max(float(lo), min(float(hi), float(x)))
+
+        def read_imu():
+            fn = getattr(bus, "read_imu", None)
+            if not callable(fn):
+                return None
+            try:
+                return fn(apply_calib=True)
+            except TypeError:
+                try:
+                    return fn()
+                except Exception:
+                    return None
+            except Exception:
+                return None
+
+        def read_feedback() -> dict[int, dict]:
+            read_all = getattr(bus, "read_all_feedback", None)
+            if callable(read_all):
+                try:
+                    got = read_all()
+                    if isinstance(got, dict):
+                        return got
+                except Exception:
+                    pass
+            out: dict[int, dict] = {}
+            for j in range(N_JOINTS):
+                try:
+                    row = bus.read_feedback(j)
+                except Exception:
+                    row = None
+                if row is not None:
+                    out[j] = row
+            return out
+
+        live = _live_robot_ids(bus)
+        if len(live) < 12:
+            return {"ok": False, "mode": "traction_probe",
+                    "error": f"need more servos (live={len(live)})",
+                    "live": sorted(live)}
+        try:
+            base = [float(x) for x in standing_pose_degrees()]
+        except Exception as e:
+            return {"ok": False, "mode": "traction_probe",
+                    "error": f"stand pose unavailable: {e}"}
+        if len(base) != N_JOINTS:
+            return {"ok": False, "mode": "traction_probe",
+                    "error": "stand pose is not 18 joints"}
+
+        progress("Traction: settle planted stand")
+        _enable_torque(bus, live)
+        _set_torque_limit(bus, live, 700)
+        if not ease_to_pose(bus, base, abort_check=abort_check, seconds=2.5,
+                            label="traction planted stand"):
+            _set_torque_limit(bus, live, 1000)
+            return {"ok": False, "aborted": True, "mode": "traction_probe",
+                    "error": "stand settle aborted"}
+        time.sleep(0.35)
+        if abort_check():
+            _set_torque_limit(bus, live, 1000)
+            return {"ok": False, "aborted": True, "mode": "traction_probe"}
+
+        yaw_lo, yaw_hi = AXIS_LIMITS_DEG.get(0, (-35.0, 35.0))
+        yaw_joints = [0, 3, 6, 9, 12, 15]
+        # Alternating signs press neighboring feet in opposite tangential
+        # directions without commanding a big body move.
+        pattern = [1.0, -1.0, 1.0, -1.0, 1.0, -1.0]
+
+        base_imu = read_imu()
+        base_tilt = imu_tilt_deg(base_imu) if isinstance(base_imu, dict) else None
+        base_fb = read_feedback()
+        base_current = max(
+            [abs(float((base_fb.get(j) or {}).get("current_a") or 0.0))
+             for j in yaw_joints] or [0.0])
+        base_load = max(
+            [float((base_fb.get(j) or {}).get("load_pct") or 0.0)
+             for j in yaw_joints] or [0.0])
+
+        samples: list[dict] = []
+
+        def shear_pose(amp: float) -> list[float]:
+            q = list(base)
+            for leg, sign in enumerate(pattern):
+                j = leg * 3
+                q[j] = clamp(base[j] + sign * float(amp), yaw_lo, yaw_hi)
+            return q
+
+        def sample(goal: list[float], amp: float, tag: str) -> bool:
+            fb = read_feedback()
+            imu = read_imu()
+            tilt = imu_tilt_deg(imu) if isinstance(imu, dict) else None
+            yaw_lags = []
+            yaw_currents = []
+            yaw_loads = []
+            yaw_track = []
+            for j in yaw_joints:
+                row = fb.get(j) or {}
+                present = float(row.get("deg") or 0.0)
+                yaw_lags.append(abs(float(goal[j]) - present))
+                yaw_track.append(abs(present - float(base[j])))
+                yaw_currents.append(abs(float(row.get("current_a") or 0.0)))
+                yaw_loads.append(float(row.get("load_pct") or 0.0))
+            roll_delta = pitch_delta = None
+            if tilt is not None and base_tilt is not None:
+                roll_delta = float(tilt[0] - base_tilt[0])
+                pitch_delta = float(tilt[1] - base_tilt[1])
+            row = {
+                "tag": tag,
+                "cmd_amp_deg": round(float(amp), 2),
+                "max_yaw_lag_deg": round(max(yaw_lags or [0.0]), 2),
+                "mean_yaw_track_deg": round(
+                    sum(yaw_track) / max(len(yaw_track), 1), 2),
+                "max_current_a": round(max(yaw_currents or [0.0]), 3),
+                "max_load_pct": round(max(yaw_loads or [0.0]), 1),
+            }
+            if tilt is not None:
+                row["roll_deg"] = round(float(tilt[0]), 2)
+                row["pitch_deg"] = round(float(tilt[1]), 2)
+            if roll_delta is not None and pitch_delta is not None:
+                row["roll_delta_deg"] = round(roll_delta, 2)
+                row["pitch_delta_deg"] = round(pitch_delta, 2)
+            samples.append(row)
+
+            if roll_delta is not None and pitch_delta is not None:
+                if max(abs(roll_delta), abs(pitch_delta)) > 6.0:
+                    _hold_here(bus, live)
+                    progress(
+                        "Traction: tilt abort "
+                        f"Δroll={roll_delta:+.1f}° Δpitch={pitch_delta:+.1f}°")
+                    return False
+            return True
+
+        try:
+            for amp in (1.5, 3.0, 4.5):
+                for sign in (1.0, -1.0):
+                    if abort_check():
+                        return {"ok": False, "aborted": True,
+                                "mode": "traction_probe",
+                                "samples": samples}
+                    cmd_amp = sign * amp
+                    goal = shear_pose(cmd_amp)
+                    progress(f"Traction: shear {cmd_amp:+.1f}°")
+                    _write_pose(bus, goal, live, speed=140, acc=18)
+                    t0 = time.monotonic()
+                    while time.monotonic() - t0 < 0.75:
+                        if abort_check():
+                            _hold_here(bus, live)
+                            return {"ok": False, "aborted": True,
+                                    "mode": "traction_probe",
+                                    "samples": samples}
+                        time.sleep(0.12)
+                        if not sample(goal, cmd_amp, "shear"):
+                            _set_torque_limit(bus, live, 1000)
+                            return {"ok": False, "aborted": True,
+                                    "mode": "traction_probe",
+                                    "error": "tilt abort during traction probe",
+                                    "samples": samples}
+            progress("Traction: return to plant")
+            _write_pose(bus, base, live, speed=140, acc=18)
+            time.sleep(0.5)
+            _hold_here(bus, live)
+        finally:
+            _set_torque_limit(bus, live, 1000)
+
+        max_lag = max([float(s.get("max_yaw_lag_deg") or 0.0)
+                       for s in samples] or [0.0])
+        max_current = max([float(s.get("max_current_a") or 0.0)
+                           for s in samples] or [0.0])
+        max_load = max([float(s.get("max_load_pct") or 0.0)
+                        for s in samples] or [0.0])
+        max_track = max([float(s.get("mean_yaw_track_deg") or 0.0)
+                         for s in samples] or [0.0])
+        max_tilt_delta = max([
+            max(abs(float(s.get("roll_delta_deg") or 0.0)),
+                abs(float(s.get("pitch_delta_deg") or 0.0)))
+            for s in samples
+        ] or [0.0])
+
+        current_rise = max(0.0, max_current - base_current)
+        load_rise = max(0.0, max_load - base_load)
+        slip_suspected = (
+            max_track >= 3.0 and max_lag <= 1.8
+            and current_rise < 0.06 and load_rise < 6.0)
+        if slip_suspected:
+            grade = "low"
+        elif max_lag >= 2.5 or current_rise >= 0.10 or load_rise >= 10.0:
+            grade = "good"
+        else:
+            grade = "mixed"
+        msg = (
+            f"traction {grade}; yaw lag {max_lag:.1f}°, "
+            f"current +{current_rise:.2f}A, load +{load_rise:.0f}%")
+        return {
+            "ok": True,
+            "mode": "traction_probe",
+            "grade": grade,
+            "slip_suspected": slip_suspected,
+            "max_yaw_lag_deg": round(max_lag, 2),
+            "max_yaw_track_deg": round(max_track, 2),
+            "max_current_a": round(max_current, 3),
+            "current_rise_a": round(current_rise, 3),
+            "max_load_pct": round(max_load, 1),
+            "load_rise_pct": round(load_rise, 1),
+            "max_tilt_delta_deg": round(max_tilt_delta, 2),
+            "samples": samples[-24:],
+            "msg": msg,
+        }
+
     def _run_calibration_checkup(self, bus, *, clearance_mm: float,
-                                 quad_body_frame: bool = False,
+                                 quad_body_frame: bool = True,
                                  abort_check, on_progress) -> dict:
         phases: list[dict] = []
 
@@ -2365,7 +2598,12 @@ class BenchAPI:
             clearance_mm=clearance_mm)
         phase("geometry_plant", geo_res)
 
-        if quad_body_frame and not abort_check():
+        traction_res = None
+        motion_ok = (not abort_check() and not geo_res.get("aborted")
+                     and bool(geo_res.get("ok")))
+        body_ok = False
+
+        if motion_ok:
             progress("IMU body-frame map from quad rear", "imu_body_frame")
             bf_res = self._calibrate_quad_body_frame(
                 bus, abort_check=abort_check,
@@ -2373,15 +2611,35 @@ class BenchAPI:
                     str(p.get("msg") or "running"), "imu_body_frame",
                     **{k: v for k, v in p.items() if k != "msg"}))
             phase("imu_body_frame", bf_res)
-        elif not quad_body_frame:
+            body_ok = bool(bf_res.get("ok")) and not bf_res.get("aborted")
+        else:
             phases.append({
                 "name": "imu_body_frame",
-                "ok": True,
+                "ok": False,
+                "aborted": bool(geo_res.get("aborted") or abort_check()),
                 "mode": "imu_body_frame",
                 "summary": (
-                    "skipped by default; enable quad body-frame phase "
-                    "when watching the robot"),
-                "skipped": True,
+                    "not run because ground contact geometry did not finish "
+                    "cleanly"),
+            })
+
+        if motion_ok and body_ok and not abort_check():
+            progress("Traction / slip probe", "traction_probe")
+            traction_res = self._run_traction_probe(
+                bus, abort_check=abort_check,
+                on_progress=lambda p: progress(
+                    str(p.get("msg") or "running"), "traction_probe",
+                    **{k: v for k, v in p.items() if k != "msg"}))
+            phase("traction_probe", traction_res)
+        else:
+            phases.append({
+                "name": "traction_probe",
+                "ok": False,
+                "aborted": bool(geo_res.get("aborted") or abort_check()),
+                "mode": "traction_probe",
+                "summary": (
+                    "not run because a prior motion phase did not finish "
+                    "cleanly"),
             })
 
         progress("Actuator health snapshot", "actuator_snapshot")
@@ -2392,7 +2650,8 @@ class BenchAPI:
             "summary": "live actuator snapshot captured in report",
         })
         progress("Saving calibration report", "report")
-        report = self._save_calibration_report(phases=phases, bus=bus)
+        report = self._save_calibration_report(
+            phases=phases, bus=bus, traction=traction_res)
         phases.append({
             "name": "report",
             "ok": bool(report.get("ok", True)),
@@ -2425,7 +2684,7 @@ class BenchAPI:
                       nudge_deg: float = 2.0,
                       axis: str = "all",
                       clearance_mm: float = 40.0,
-                      quad_body_frame: bool = False,
+                      quad_body_frame: bool = True,
                       force: bool = False) -> dict:
         """Background step, shake/hold, plant-height, geometry plant, or IMU."""
         mode = (mode or "step").strip().lower()
@@ -2439,6 +2698,8 @@ class BenchAPI:
             mode = "imu"
         if mode in ("checkup", "auto", "all", "calibration"):
             mode = "checkup"
+        if mode == "checkup":
+            quad_body_frame = True
 
         if mode == "plant":
             try:
@@ -2509,7 +2770,9 @@ class BenchAPI:
         elif mode == "imu":
             label = "IMU rest (hold still)"
         elif mode == "checkup":
-            label = "calibration checkup (IMU + contact geometry + report)"
+            label = (
+                "calibration checkup "
+                "(IMU + contact geometry + quad IMU + traction + report)")
         elif mode == "shake":
             label = f"shake +{nudge_deg:.1f}° hold ({axis})"
         else:

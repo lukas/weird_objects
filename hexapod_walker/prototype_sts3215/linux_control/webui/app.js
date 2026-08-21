@@ -1116,8 +1116,9 @@ const CHECKUP_STEPS = [
   {id:'geometry_plant', name:'Ground contact geometry',
    detail:'Reach down until contact is detected, then save the plant pose.'},
   {id:'imu_body_frame', name:'Quad IMU body frame',
-   detail:'Optional watched rear-up pose maps the mounted IMU axes to body pitch.',
-   optional:true},
+   detail:'Rear up and come down while mapping mounted IMU axes to body pitch.'},
+  {id:'traction_probe', name:'Traction / slip',
+   detail:'Gentle planted yaw pulses estimate whether the feet pin or slide.'},
   {id:'actuator_snapshot', name:'Actuator snapshot',
    detail:'Read live joint angle, current, load, voltage, and temperature.'},
   {id:'report', name:'Report',
@@ -1126,6 +1127,7 @@ const CHECKUP_STEPS = [
 function checkupPhaseFromProgress(p){
   if(p && p.phase) return p.phase;
   const msg = String((p && p.msg) || '').toLowerCase();
+  if(msg.includes('traction') || msg.includes('slip')) return 'traction_probe';
   if(msg.includes('imu body') || msg.includes('quad rear')) return 'imu_body_frame';
   if(msg.includes('geo') || msg.includes('ground') || msg.includes('contact')) return 'geometry_plant';
   if(msg.includes('actuator')) return 'actuator_snapshot';
@@ -1154,7 +1156,6 @@ function checkupPill(status){
 function renderCheckupSteps({running=false, progress=null, result=null}={}){
   const el = $('calsteps');
   if(!el) return;
-  const includeBody = !!($('calquadbody') && $('calquadbody').checked);
   const phases = checkupPhaseMap(result);
   const runningPhase = running ? checkupPhaseFromProgress(progress) : null;
   const runningIdx = CHECKUP_STEPS.findIndex(s=>s.id === runningPhase);
@@ -1162,12 +1163,8 @@ function renderCheckupSteps({running=false, progress=null, result=null}={}){
     const ph = phases[s.id];
     let status = 'pending';
     let detail = s.detail;
-    if(s.optional && !includeBody && !ph){
-      status = 'skipped';
-      detail = 'Skipped unless the watched quad rear option is enabled.';
-    }
     if(running){
-      if(idx < runningIdx && status !== 'skipped') status = 'ok';
+      if(idx < runningIdx) status = 'ok';
       if(idx === runningIdx) {
         status = 'running';
         detail = (progress && progress.msg) || detail;
@@ -1244,7 +1241,6 @@ async function refreshCalibrate(){
     $('calstatus').textContent = 'Calibrate status failed (link?)';
   }
 }
-if($('calquadbody')) $('calquadbody').onchange = ()=> renderCheckupSteps();
 renderCheckupSteps();
 $('calrun').onclick = async ()=>{
   $('calstatus').textContent = 'Starting…';
@@ -1256,7 +1252,6 @@ $('calrun').onclick = async ()=>{
       body: JSON.stringify({
         mode: 'checkup',
         clearance_mm: 25,
-        quad_body_frame: !!$('calquadbody').checked,
       }),
     });
     const d = await r.json();

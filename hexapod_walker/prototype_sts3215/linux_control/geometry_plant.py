@@ -57,7 +57,10 @@ CONTACT_WINDOW_S = 0.45
 CONTACT_BASELINE_POSE_DEG = 12.0
 CONTACT_MAX_KNEE_SPEED = 90.0
 CONTACT_POSITION_LAG_DEG = 6.0
-CONTACT_LAG_MIN_KNEE_DEG = 55.0
+# Lag-only contact is useful when current/load are quiet, but it is also the
+# easiest way to false-trigger while servos are simply catching up in air.
+# Only let lag vote once the search reached the normal plant depth.
+CONTACT_LAG_MIN_KNEE_DEG = 80.0
 CONTACT_LAG_MAX_KNEE_SPEED = 55.0
 MAX_TILT_DEG = 8.0              # abort before tip (operator asked: don't tip)
 
@@ -326,7 +329,10 @@ def run_geometry_plant(
     hip_c = _median(hips, TARGET_HIP_DEG)
     knee_c = _median(knees, contact_knee)
     z_c = foot_z_mm(hip_c, knee_c)
-    z_target = z_c + clearance_mm  # less negative = higher chassis
+    # Body-frame foot z is more negative when the chassis is higher above a
+    # fixed floor.  After contact, raising the chassis by ``clearance_mm``
+    # means the planted feet end up farther below the body.
+    z_target = z_c - clearance_mm
     knee_up = knee_for_foot_z(TARGET_HIP_DEG, z_target)
     if knee_up is None:
         # Fallback: knock ~25° off contact knee.
@@ -369,6 +375,28 @@ def run_geometry_plant(
     hip_med = _median([q_deg[i] for i in range(1, 18, 3)], TARGET_HIP_DEG)
     knee_med = _median([q_deg[i] for i in range(2, 18, 3)], knee_up)
 
+    z_plant = foot_z_mm(hip_med, knee_med)
+    body_raise_mm = z_c - z_plant
+    min_raise_mm = max(8.0, 0.45 * clearance_mm)
+    if body_raise_mm < min_raise_mm:
+        _set_torque_limit(bus, live, 1000)
+        _hold_here(bus, live)
+        err = (f"raise solve too shallow ({body_raise_mm:.1f} mm; "
+               f"wanted ~{clearance_mm:.0f} mm)")
+        _progress(err + " — not saving")
+        return {
+            "ok": False,
+            "error": err,
+            "mode": "geometry_plant",
+            "contact_found": True,
+            "contact_knee_deg": round(knee_c, 2),
+            "hip_deg": round(hip_med, 2),
+            "knee_deg": round(knee_med, 2),
+            "clearance_mm": clearance_mm,
+            "body_raise_mm": round(body_raise_mm, 2),
+            "contact_joints": contact_joints,
+        }
+
     path = save_plant_pose(
         hip_med, knee_med,
         extra={
@@ -377,9 +405,10 @@ def run_geometry_plant(
             "contact_found": True,
             "contact_knee_deg": round(knee_c, 3),
             "clearance_mm": clearance_mm,
+            "body_raise_mm": round(body_raise_mm, 2),
             "contact_joints": contact_joints,
             "foot_z_contact_mm": round(z_c, 2),
-            "foot_z_plant_mm": round(foot_z_mm(hip_med, knee_med), 2),
+            "foot_z_plant_mm": round(z_plant, 2),
             "target_hip_deg": TARGET_HIP_DEG,
             "target_knee_deg": TARGET_KNEE_DEG,
         },
@@ -395,10 +424,11 @@ def run_geometry_plant(
         "hip_deg": round(hip_med, 2),
         "knee_deg": round(knee_med, 2),
         "clearance_mm": clearance_mm,
+        "body_raise_mm": round(body_raise_mm, 2),
         "joints_deg": [round(x, 3) for x in q_deg],
         "pose": standing_pose_degrees(),
         "path": str(path),
         "contact_joints": contact_joints,
         "msg": (f"plant hip {hip_med:+.1f}° / knee {knee_med:+.1f}° "
-                f"(~{clearance_mm:.0f} mm above contact)"),
+                f"(~{body_raise_mm:.0f} mm above contact)"),
     }

@@ -581,7 +581,7 @@ class Handler(BaseHTTPRequestHandler):
                     nudge_deg=float(data.get("nudge_deg", 2)),
                     axis=str(data.get("axis", "all")),
                     clearance_mm=float(data.get("clearance_mm", 40)),
-                    quad_body_frame=bool(data.get("quad_body_frame", False)),
+                    quad_body_frame=bool(data.get("quad_body_frame", True)),
                     force=bool(data.get("force", False)),
                 ))
         elif path == "/api/calibrate/stop":
