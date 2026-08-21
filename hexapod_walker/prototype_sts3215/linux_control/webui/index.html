@@ -671,98 +671,32 @@ the trained forward wedge — same policy, body walks backward.">▼ Back</butto
 
   <div id="view-calibrate" class="view">
   <div class="row">
-    <div class="pad" style="flex:1 1 320px">
-      <h2>Calibrate</h2>
-      <label class="slab">Mode</label>
-      <div class="btns seg" id="calmode">
-        <button data-mode="checkup" class="on">Checkup</button>
-        <button data-mode="step">Step</button>
-        <button data-mode="shake">Shake / hold</button>
-        <button data-mode="plant">Plant height</button>
-        <button data-mode="geometry" title="Hips stay ~0° (straight), knees deepen toward +80–90° until contact, raise ~40 mm, save the full 18-joint plant.">Geo plant</button>
-        <button data-mode="imu">IMU rest</button>
-      </div>
-      <div class="hint" id="calhint-checkup">Runs the standard calibration
-        sequence and saves one sim-ready report: IMU rest/bias, contact
-        geometry/plant, actuator health snapshot, and any learned motor
-        model already on disk.</div>
-      <label class="hint" id="calquadbodywrap"
-             style="display:block;margin-top:10px">
+    <div class="pad" style="flex:1 1 700px">
+      <h2>Checkup</h2>
+      <div class="hint">Runs one calibration sequence and saves a sim-ready
+        report: IMU rest/bias, ground contact geometry, actuator health, and
+        any learned motor model already on disk.</div>
+      <label class="hint cal-option" id="calquadbodywrap">
         <input id="calquadbody" type="checkbox">
         Include watched quad rear IMU body-frame map
       </label>
-      <div class="hint" id="calhint-step">Glides to <b>sit zero</b>, then
-        <b>+step°</b> from 0° and scores tracking % + peak load.
-        Stuck / weak joints show red.</div>
-      <div class="hint" id="calhint-shake" style="display:none">Glides to
-        <b>sit zero</b>, nudges <b>+N°</b>, then <b>holds</b> and measures
-        position wobble (peak-to-peak / RMS). Catches hunt &amp; buzz that
-        a big step misses.</div>
-      <div class="hint" id="calhint-plant" style="display:none">From sit zero,
-        slowly reaches down (rise+ depth). When ≥3 hip/knee joints hit a
-        <b>current/load bump</b>, saves median hip/knee as <b>stand home</b>
-        for Stand zero + planted demos. Robot should be over its platform.</div>
-      <div class="hint" id="calhint-geometry" style="display:none">
-        <b>Preferred for RL.</b> Hip stays ~0° (straight), knees deepen toward
-        +80° (~90°) until force/current contact, then raises ~40&nbsp;mm and
-        saves full 18-joint plant. Same as <code>POST /api/rl/find_plant</code>.
-        Watch the robot — Stop if it tips.</div>
-      <div class="hint" id="calhint-imu" style="display:none">Hold the chassis
-        <b>still</b> (~2.5 s). Samples the MPU-6050, saves gyro bias + accel
-        sensor bias to <code>logs/imu_calib.json</code>. Motion logs then use
-        calibrated readings. No servo motion — limp is fine.</div>
-      <div id="calstepwrap">
-        <label class="slab">Step size: <span id="calsteplab">10</span>°</label>
-        <input id="calstep" type="range" min="5" max="15" step="1" value="10">
+      <div class="cal-steps" id="calsteps"></div>
+      <div class="btns" style="margin-top:12px">
+        <button id="calrun" class="on">▶ Run checkup</button>
+        <button id="calstop" class="danger">■ Stop</button>
+        <button id="calrefresh">↻ Refresh</button>
       </div>
-      <div id="calnudgewrap" style="display:none">
-        <label class="slab">Nudge: <span id="calnudgelab">2.0</span>°</label>
-        <input id="calnudge" type="range" min="1" max="4" step="0.5" value="2">
-      </div>
-      <div id="calaxiswrap">
-        <label class="slab">Axis</label>
-        <div class="btns seg" id="calaxis">
-          <button data-axis="all" class="on">All</button>
-          <button data-axis="yaw">Yaw</button>
-          <button data-axis="hip">Hip</button>
-          <button data-axis="knee">Knee</button>
-        </div>
-      </div>
-      <div class="hint" id="calplantinfo" style="margin-top:10px;display:none">
+      <div class="hint" id="calstatus" style="margin-top:10px">Idle. Enable servos first.</div>
+      <div class="hint" id="calcounts" style="margin-top:8px">No run yet.</div>
+      <div class="hint" id="callog" style="margin-top:6px;color:#5a6478">Report: —</div>
+      <div class="hint" id="calplantinfo" style="margin-top:10px">
         Stand home: <b id="calplanthip">+20</b>° hip /
         <b id="calplantknee">+80</b>° knee
         <span id="calplantsrc" style="color:#8089a0">(default)</span>
       </div>
-      <div class="hint" id="calimuinfo" style="margin-top:10px;display:none">
+      <div class="hint" id="calimuinfo" style="margin-top:10px">
         IMU: <b id="calimustatus">not calibrated</b>
         <span id="calimudetail" style="color:#8089a0"></span>
-      </div>
-      <div class="btns" style="margin-top:12px">
-        <button id="calrun" class="on">▶ Run test</button>
-        <button id="calstop" class="danger">■ Stop</button>
-        <button id="calrefresh">↻ Refresh</button>
-        <button id="calplantreset" style="display:none">Reset plant default</button>
-        <button id="calimureset" style="display:none">Clear IMU calib</button>
-      </div>
-      <div class="hint" id="calstatus" style="margin-top:10px">Idle. Enable servos first.</div>
-      <div class="hint" id="callog" style="margin-top:6px;color:#5a6478">Log: —</div>
-      <div class="hint" id="callegend" style="margin-top:12px">
-        <span class="cal-pill green">green</span> tracked ·
-        <span class="cal-pill yellow">yellow</span> partial / high load ·
-        <span class="cal-pill red">red</span> barely moved
-      </div>
-    </div>
-    <div class="pad" style="flex:2 1 420px">
-      <h2>Results</h2>
-      <div class="hint" id="calcounts" style="margin:0 0 8px">No run yet.</div>
-      <div style="overflow:auto; max-height:480px">
-        <table class="cal-table" id="caltab">
-          <thead id="calhead"><tr>
-            <th>Joint</th><th>Name</th><th>Δcmd</th><th>Δact</th>
-            <th>Track%</th><th>Load</th><th>Vmin</th><th>Grade</th>
-          </tr></thead>
-          <tbody id="calbody"><tr><td colspan="8">Run a test to fill this table.</td></tr></tbody>
-        </table>
       </div>
     </div>
   </div>

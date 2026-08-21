@@ -286,6 +286,18 @@
   .cal-pill.green { color:#5fd08a; border-color:#2e7d47; }
   .cal-pill.yellow { color:#e0b34d; border-color:#8a6a1a; }
   .cal-pill.red { color:#ff7b72; border-color:#8a3030; }
+  .cal-option { display:block; margin-top:10px; }
+  .cal-steps { display:grid; gap:8px; margin-top:14px; }
+  .cal-step { display:grid; grid-template-columns:minmax(140px, 220px) 88px 1fr;
+    gap:10px; align-items:start; padding:10px 12px; border:1px solid #232733;
+    border-radius:8px; background:#121722; }
+  .cal-step-name { color:#e7eaf0; font-weight:700; }
+  .cal-step-detail { color:#9aa3b2; line-height:1.35; }
+  .cal-step.pending { opacity:.72; }
+  .cal-step.running { border-color:#2f6df6; background:#111a2c; }
+  .cal-step.ok .cal-step-name { color:#5fd08a; }
+  .cal-step.issue .cal-step-name { color:#e0b34d; }
+  .cal-step.abort .cal-step-name { color:#ff7b72; }
   @media (max-width: 1100px){
     header { grid-template-columns:1fr; align-items:stretch; gap:8px; }
     #armbar { justify-content:center; }
@@ -307,4 +319,5 @@
     .tab { text-align:center; padding:7px 12px; }
     .tabsep { display:none; }
     header { padding:8px 10px; }
+    .cal-step { grid-template-columns:1fr; }
   }

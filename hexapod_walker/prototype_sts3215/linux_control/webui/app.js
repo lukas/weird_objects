@@ -1078,8 +1078,7 @@ $('tab-calibrate').onclick = ()=> showView('calibrate');
 $('tab-debug').onclick = ()=> showView('debug');
 dbgRefresh();
 
-// --- Calibrate (step + shake/hold + plant height + CSV log) -----------------
-let calMode = 'checkup';
+// --- Calibrate checkup -------------------------------------------------------
 function startCalPoll(){
   stopCalPoll();
   calTimer = setInterval(()=>{ if(activeView==='calibrate') refreshCalibrate(); }, 800);
@@ -1111,222 +1110,111 @@ function paintImuInfo(imu){
     $('calimudetail').textContent = ' · raw MPU until you run IMU rest';
   }
 }
-function syncCalModeUI(){
-  const checkup = calMode === 'checkup';
-  const shake = calMode === 'shake';
-  const plant = calMode === 'plant';
-  const geometry = calMode === 'geometry';
-  const imu = calMode === 'imu';
-  $('calhint-checkup').style.display = checkup ? '' : 'none';
-  $('calquadbodywrap').style.display = checkup ? 'block' : 'none';
-  $('calhint-step').style.display = (!checkup && !shake && !plant && !geometry && !imu) ? '' : 'none';
-  $('calhint-shake').style.display = shake ? '' : 'none';
-  $('calhint-plant').style.display = plant ? '' : 'none';
-  const geoEl = $('calhint-geometry');
-  if(geoEl) geoEl.style.display = geometry ? '' : 'none';
-  $('calhint-imu').style.display = imu ? '' : 'none';
-  $('calstepwrap').style.display = (!checkup && !shake && !plant && !geometry && !imu) ? '' : 'none';
-  $('calnudgewrap').style.display = shake ? '' : 'none';
-  $('calaxiswrap').style.display = (checkup || plant || geometry || imu) ? 'none' : '';
-  $('calplantinfo').style.display = (checkup || plant || geometry) ? '' : 'none';
-  $('calplantreset').style.display = (plant || geometry) ? '' : 'none';
-  $('calimuinfo').style.display = (checkup || imu) ? '' : 'none';
-  $('calimureset').style.display = imu ? '' : 'none';
-  if(checkup){
-    $('callegend').innerHTML =
-      '<span class="cal-pill green">saved</span> report complete · '+
-      '<span class="cal-pill yellow">partial</span> phase issue · '+
-      '<span class="cal-pill red">abort</span> stopped';
-  } else if(imu){
-    $('callegend').innerHTML =
-      '<span class="cal-pill green">green</span> still · saved · '+
-      '<span class="cal-pill yellow">yellow</span> mild shake · saved · '+
-      '<span class="cal-pill red">red</span> too much motion · not saved';
-  } else if(plant || geometry){
-    $('callegend').innerHTML =
-      '<span class="cal-pill green">saved</span> contact → new stand home · '+
-      '<span class="cal-pill yellow">no contact</span> not saved · '+
-      '<span class="cal-pill red">abort</span> stopped';
-  } else if(shake){
-    $('callegend').innerHTML =
-      '<span class="cal-pill green">green</span> quiet hold · '+
-      '<span class="cal-pill yellow">yellow</span> mild shake · '+
-      '<span class="cal-pill red">red</span> hunt / never settled';
-  } else {
-    $('callegend').innerHTML =
-      '<span class="cal-pill green">green</span> tracked · '+
-      '<span class="cal-pill yellow">yellow</span> partial / high load · '+
-      '<span class="cal-pill red">red</span> barely moved';
+const CHECKUP_STEPS = [
+  {id:'imu_rest', name:'IMU rest/bias',
+   detail:'Hold still while gyro and accel rest offsets are saved.'},
+  {id:'geometry_plant', name:'Ground contact geometry',
+   detail:'Reach down until contact is detected, then save the plant pose.'},
+  {id:'imu_body_frame', name:'Quad IMU body frame',
+   detail:'Optional watched rear-up pose maps the mounted IMU axes to body pitch.',
+   optional:true},
+  {id:'actuator_snapshot', name:'Actuator snapshot',
+   detail:'Read live joint angle, current, load, voltage, and temperature.'},
+  {id:'report', name:'Report',
+   detail:'Write one sim-ready calibration report on the robot.'},
+];
+function checkupPhaseFromProgress(p){
+  if(p && p.phase) return p.phase;
+  const msg = String((p && p.msg) || '').toLowerCase();
+  if(msg.includes('imu body') || msg.includes('quad rear')) return 'imu_body_frame';
+  if(msg.includes('geo') || msg.includes('ground') || msg.includes('contact')) return 'geometry_plant';
+  if(msg.includes('actuator')) return 'actuator_snapshot';
+  if(msg.includes('report') || msg.includes('saving')) return 'report';
+  if(msg.includes('imu')) return 'imu_rest';
+  return null;
+}
+function checkupPhaseMap(result){
+  const m = {};
+  for(const p of ((result && result.phases) || [])){
+    if(p && p.name) m[p.name] = p;
   }
+  return m;
+}
+function checkupPill(status){
+  const cls = status === 'ok' ? 'green'
+    : status === 'running' || status === 'issue' || status === 'skipped' ? 'yellow'
+    : status === 'abort' ? 'red' : '';
+  const label = status === 'ok' ? 'done'
+    : status === 'running' ? 'running'
+    : status === 'issue' ? 'issue'
+    : status === 'skipped' ? 'skipped'
+    : status === 'abort' ? 'stopped' : 'pending';
+  return `<span class="cal-pill ${cls}">${label}</span>`;
+}
+function renderCheckupSteps({running=false, progress=null, result=null}={}){
+  const el = $('calsteps');
+  if(!el) return;
+  const includeBody = !!($('calquadbody') && $('calquadbody').checked);
+  const phases = checkupPhaseMap(result);
+  const runningPhase = running ? checkupPhaseFromProgress(progress) : null;
+  const runningIdx = CHECKUP_STEPS.findIndex(s=>s.id === runningPhase);
+  const rows = CHECKUP_STEPS.map((s, idx)=>{
+    const ph = phases[s.id];
+    let status = 'pending';
+    let detail = s.detail;
+    if(s.optional && !includeBody && !ph){
+      status = 'skipped';
+      detail = 'Skipped unless the watched quad rear option is enabled.';
+    }
+    if(running){
+      if(idx < runningIdx && status !== 'skipped') status = 'ok';
+      if(idx === runningIdx) {
+        status = 'running';
+        detail = (progress && progress.msg) || detail;
+      }
+    }
+    if(ph){
+      status = ph.skipped ? 'skipped' : ph.aborted ? 'abort'
+        : ph.ok ? 'ok' : 'issue';
+      detail = ph.summary || ph.error || detail;
+    } else if(result && s.id === 'report' && result.log_name){
+      status = result.ok ? 'ok' : 'issue';
+      detail = `Saved ${result.log_name}`;
+    }
+    return `<div class="cal-step ${status}">`+
+      `<div class="cal-step-name">${s.name}</div>`+
+      `<div>${checkupPill(status)}</div>`+
+      `<div class="cal-step-detail">${detail || ''}</div>`+
+      `</div>`;
+  });
+  el.innerHTML = rows.join('');
 }
 function renderCalResult(res){
-  const body = $('calbody');
-  const head = $('calhead');
   if(!res){
-    if(body && !($('calstatus').textContent||'').includes('…'))
-      body.innerHTML = '<tr><td colspan="8">No rows yet.</td></tr>';
+    renderCheckupSteps();
     return;
   }
-  if(res.mode === 'checkup'){
-    const phases = res.phases || [];
-    const report = res.report || {};
-    const geom = res.geometry || report.geometry || {};
-    const gsum = (geom && geom.summary) || {};
-    const act = res.actuators || report.actuators || {};
-    const snap = (act && act.snapshot) || {};
-    const learned = act && act.learned_model;
-    $('calcounts').innerHTML =
-      (res.ok
-        ? '<span class="cal-pill green">saved</span> calibration report'
-        : '<span class="cal-pill yellow">partial</span> calibration report')+
-      (gsum.mean_foot_z_mm!=null ? ` · foot z ${Number(gsum.mean_foot_z_mm).toFixed(1)}mm` : '')+
-      (gsum.foot_z_spread_mm!=null ? ` · spread ${Number(gsum.foot_z_spread_mm).toFixed(1)}mm` : '')+
-      (snap.live_joints!=null ? ` · ${snap.live_joints} actuator snapshots` : '')+
-      (learned ? ' · motor model loaded' : '')+
-      (res.msg ? `<div class="hint" style="margin-top:6px">${res.msg}</div>` : '');
-    $('callog').textContent = res.log_name
-      ? `Report: logs/${res.log_name}`
-      : (res.path ? `Report: ${res.path}` : 'Report: —');
-    head.innerHTML = '<tr><th>Phase/Leg</th><th>Status</th><th>Hip°</th><th>Knee°</th>'+
-      '<th>Foot z</th><th>Radial</th><th>Detail</th><th></th></tr>';
-    const rows = [];
-    phases.forEach(p=>{
-      const cls = p.ok ? 'green' : (p.aborted ? 'red' : 'yellow');
-      rows.push(`<tr class="g-${cls}"><td>${p.name||'phase'}</td>`+
-        `<td><span class="cal-pill ${cls}">${p.ok?'ok':(p.aborted?'abort':'issue')}</span></td>`+
-        `<td></td><td></td><td></td><td></td>`+
-        `<td>${p.summary || p.error || ''}</td><td></td></tr>`);
-    });
-    (geom.per_leg || []).forEach(r=>{
-      rows.push(`<tr class="g-${res.ok?'green':'yellow'}"><td>L${r.leg}</td>`+
-        '<td>plant</td>'+
-        `<td>${Number(r.hip_deg).toFixed(1)}</td>`+
-        `<td>${Number(r.knee_deg).toFixed(1)}</td>`+
-        `<td>${Number(r.z_mm).toFixed(1)}mm</td>`+
-        `<td>${Number(r.radial_mm).toFixed(1)}mm</td>`+
-        '<td></td><td></td></tr>');
-    });
-    body.innerHTML = rows.length ? rows.join('')
-      : '<tr><td colspan="8">No report rows.</td></tr>';
-    if(geom.plant) paintPlantInfo(geom.plant);
-    if(res.imu || report.imu) paintImuInfo(res.imu || report.imu);
-    return;
-  }
-  if(res.mode === 'imu'){
-    const g = res.grade || (res.saved ? 'green' : 'red');
-    $('calcounts').innerHTML =
-      (res.saved
-        ? `<span class="cal-pill green">saved</span> IMU ${g}`
-        : `<span class="cal-pill ${g==='red'?'red':'yellow'}">not saved</span> IMU ${g}`) +
-      ` · |g|=${res.accel_mag_g!=null?Number(res.accel_mag_g).toFixed(3):'—'} · `+
-      `ω ptp ${res.gyro_ptp_dps!=null?Number(res.gyro_ptp_dps).toFixed(1):'—'} dps`+
-      (res.hint ? `<div class="hint" style="margin-top:6px">${res.hint}</div>` : '');
-    $('callog').textContent = res.log_name
-      ? `Log: logs/${res.log_name} (${res.samples||0} samples)`
-      : (res.log ? `Log: ${res.log}` : 'Log: —');
-    head.innerHTML = '<tr><th>Vector</th><th>X</th><th>Y</th><th>Z</th>'+
-      '<th>Unit</th><th></th><th></th><th></th></tr>';
-    const rows = res.rows || [];
-    if(rows.length){
-      body.innerHTML = rows.map(r=>
-        `<tr class="g-${g}"><td>${r.axis}</td>`+
-        `<td>${Number(r.x).toFixed(4)}</td>`+
-        `<td>${Number(r.y).toFixed(4)}</td>`+
-        `<td>${Number(r.z).toFixed(4)}</td>`+
-        `<td>${r.unit||''}</td><td colspan="3"></td></tr>`
-      ).join('');
-    } else {
-      body.innerHTML = '<tr><td colspan="8">No IMU vectors.</td></tr>';
-    }
-    if(res.imu) paintImuInfo(res.imu);
-    return;
-  }
-  if(res.mode === 'plant' || res.mode === 'geometry_plant'){
-    const saved = !!(res.saved || (res.ok && res.joints_deg));
-    const g = saved ? 'green' : 'yellow';
-    $('calcounts').innerHTML =
-      (saved
-        ? `<span class="cal-pill green">saved</span> hip ${res.hip_deg}° / knee ${res.knee_deg}°`
-        : `<span class="cal-pill yellow">not saved</span> `+
-          (res.contact_found?'':'no contact · ')+
-          `hip ${res.hip_deg!=null?res.hip_deg:'—'}° / knee ${res.knee_deg!=null?res.knee_deg:'—'}`) +
-      (res.clearance_mm!=null ? ` · +${res.clearance_mm}mm` : '') +
-      (res.msg ? `<div class="hint" style="margin-top:6px">${res.msg}</div>` : '') +
-      (res.hint ? `<div class="hint" style="margin-top:6px">${res.hint}</div>` : '') +
-      (res.error ? `<div class="hint" style="margin-top:6px;color:#f88">${res.error}</div>` : '');
-    $('callog').textContent = res.path
-      ? `Plant: ${res.path}`
-      : (res.log_name
-        ? `Log: logs/${res.log_name} (${res.samples||0} samples)`
-        : (res.log ? `Log: ${res.log}` : 'Log: —'));
-    head.innerHTML = '<tr><th>Leg</th><th>Hip°</th><th>Knee°</th><th></th>'+
-      '<th></th><th></th><th></th><th></th></tr>';
-    const legs = res.per_leg || [];
-    if(legs.length){
-      body.innerHTML = legs.map(r=>
-        `<tr class="g-${g}"><td>L${r.leg}</td><td>${r.hip_deg}</td>`+
-        `<td>${r.knee_deg}</td><td colspan="5"></td></tr>`
-      ).join('');
-    } else if(res.joints_deg && res.joints_deg.length===18){
-      let rows='';
-      for(let leg=0;leg<6;leg++){
-        const h=res.joints_deg[leg*3+1], k=res.joints_deg[leg*3+2];
-        rows += `<tr class="g-${g}"><td>L${leg}</td><td>${Number(h).toFixed(1)}</td>`+
-          `<td>${Number(k).toFixed(1)}</td><td colspan="5"></td></tr>`;
-      }
-      body.innerHTML = rows;
-    } else {
-      body.innerHTML = '<tr><td colspan="8">No per-leg snapshot.</td></tr>';
-    }
-    if(res.plant) paintPlantInfo(res.plant);
-    else if(saved) paintPlantInfo(res);
-    return;
-  }
-  if(!res.rows || !res.rows.length){
-    if(body && !($('calstatus').textContent||'').includes('…'))
-      body.innerHTML = '<tr><td colspan="8">No rows yet.</td></tr>';
-    return;
-  }
-  const shake = (res.mode || 'step') === 'shake';
-  const c = res.counts || {};
-  const size = shake
-    ? `nudge ${res.nudge_deg!=null?res.nudge_deg:res.step_deg}°`
-    : `step ${res.step_deg}°`;
+  const report = res.report || {};
+  const geom = res.geometry || report.geometry || {};
+  const gsum = (geom && geom.summary) || {};
+  const act = res.actuators || report.actuators || {};
+  const snap = (act && act.snapshot) || {};
+  const learned = act && act.learned_model;
   $('calcounts').innerHTML =
-    `<span class="cal-pill green">${c.green||0} green</span> `+
-    `<span class="cal-pill yellow">${c.yellow||0} yellow</span> `+
-    `<span class="cal-pill red">${c.red||0} red</span>`+
-    ` · ${res.joints_tested||0} joints · ${shake?'shake':'step'} · ${size}`+
-    (res.hint ? `<div class="hint" style="margin-top:6px">${res.hint}</div>` : '');
+    (res.ok
+      ? '<span class="cal-pill green">saved</span> checkup complete'
+      : '<span class="cal-pill yellow">partial</span> checkup complete')+
+    (gsum.mean_foot_z_mm!=null ? ` · foot z ${Number(gsum.mean_foot_z_mm).toFixed(1)}mm` : '')+
+    (gsum.foot_z_spread_mm!=null ? ` · spread ${Number(gsum.foot_z_spread_mm).toFixed(1)}mm` : '')+
+    (snap.live_joints!=null ? ` · ${snap.live_joints} actuator snapshots` : '')+
+    (learned ? ' · motor model loaded' : '')+
+    (res.msg ? `<div class="hint" style="margin-top:6px">${res.msg}</div>` : '');
   $('callog').textContent = res.log_name
-    ? `Log: logs/${res.log_name} (${res.samples||0} samples)`
-    : (res.log ? `Log: ${res.log}` : 'Log: —');
-  if(shake){
-    head.innerHTML = '<tr><th>Joint</th><th>Name</th><th>Nudge</th>'+
-      '<th>Overshoot</th><th>Hold pp°</th><th>RMS err</th>'+
-      '<th>Load pp</th><th>Grade</th></tr>';
-    body.innerHTML = res.rows.map(r=>{
-      const g = r.grade || 'red';
-      return `<tr class="g-${g}"><td>${r.joint}</td><td>${r.name}</td>`+
-        `<td>${r.nudge_deg!=null?r.nudge_deg:r.delta_cmd_deg}</td>`+
-        `<td>${r.overshoot_deg!=null?r.overshoot_deg:'—'}</td>`+
-        `<td>${r.hold_pp_deg!=null?r.hold_pp_deg:'—'}</td>`+
-        `<td>${r.hold_rms_err_deg!=null?r.hold_rms_err_deg:'—'}</td>`+
-        `<td>${r.hold_load_pp!=null?r.hold_load_pp+'%':'—'}</td>`+
-        `<td><span class="cal-pill ${g}">${g}</span></td></tr>`;
-    }).join('');
-  } else {
-    head.innerHTML = '<tr><th>Joint</th><th>Name</th><th>Δcmd</th><th>Δact</th>'+
-      '<th>Track%</th><th>Load</th><th>Vmin</th><th>Grade</th></tr>';
-    body.innerHTML = res.rows.map(r=>{
-      const g = r.grade || 'red';
-      return `<tr class="g-${g}"><td>${r.joint}</td><td>${r.name}</td>`+
-        `<td>${r.delta_cmd_deg}</td><td>${r.delta_actual_deg}</td>`+
-        `<td>${r.tracking_pct}</td><td>${r.peak_load_pct}%</td>`+
-        `<td>${r.min_volt==null?'—':r.min_volt}</td>`+
-        `<td><span class="cal-pill ${g}">${g}</span></td></tr>`;
-    }).join('');
-  }
+    ? `Report: logs/${res.log_name}`
+    : (res.path ? `Report: ${res.path}` : 'Report: —');
+  renderCheckupSteps({result: res});
+  if(geom.plant) paintPlantInfo(geom.plant);
+  if(res.imu || report.imu) paintImuInfo(res.imu || report.imu);
 }
 async function refreshCalibrate(){
   try{
@@ -1336,9 +1224,9 @@ async function refreshCalibrate(){
     if(d.plant) paintPlantInfo(d.plant);
     if(d.imu) paintImuInfo(d.imu);
     const p = d.progress || {};
+    renderCheckupSteps({running: !!d.running, progress: p, result: d.result});
     if(d.running){
-      $('calstatus').textContent = (p.msg || 'Running…') +
-        (p.index!=null ? ` (${(p.index|0)+1}/${p.total||'?'})` : '');
+      $('calstatus').textContent = p.msg || 'Running…';
       $('calrun').disabled = true;
     } else {
       $('calrun').disabled = false;
@@ -1351,36 +1239,14 @@ async function refreshCalibrate(){
         // keep last status
       }
     }
-    if(d.result && (d.result.rows || d.result.mode==='plant'
-        || d.result.mode==='geometry_plant' || d.result.mode==='imu'
-        || d.result.mode==='checkup'))
-      renderCalResult(d.result);
+    if(d.result) renderCalResult(d.result);
   }catch(e){
     $('calstatus').textContent = 'Calibrate status failed (link?)';
   }
 }
-$('calstep').oninput = ()=>{ $('calsteplab').textContent = $('calstep').value; };
-$('calnudge').oninput = ()=>{ $('calnudgelab').textContent = Number($('calnudge').value).toFixed(1); };
-document.querySelectorAll('#calmode button').forEach(b=>{
-  b.onclick = ()=>{
-    document.querySelectorAll('#calmode button').forEach(x=>x.classList.remove('on'));
-    b.classList.add('on');
-    calMode = b.dataset.mode || 'step';
-    syncCalModeUI();
-    if(calMode==='checkup' || calMode==='plant'
-       || calMode==='geometry' || calMode==='imu') refreshCalibrate();
-  };
-});
-document.querySelectorAll('#calaxis button').forEach(b=>{
-  b.onclick = ()=>{
-    document.querySelectorAll('#calaxis button').forEach(x=>x.classList.remove('on'));
-    b.classList.add('on');
-    calAxis = b.dataset.axis || 'all';
-  };
-});
-syncCalModeUI();
+if($('calquadbody')) $('calquadbody').onchange = ()=> renderCheckupSteps();
+renderCheckupSteps();
 $('calrun').onclick = async ()=>{
-  if(!['imu','checkup'].includes(calMode) && needArm()) return;
   $('calstatus').textContent = 'Starting…';
   $('calrun').disabled = true;
   try{
@@ -1388,10 +1254,8 @@ $('calrun').onclick = async ()=>{
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body: JSON.stringify({
-        mode: calMode,
-        step_deg: parseFloat($('calstep').value)||10,
-        nudge_deg: parseFloat($('calnudge').value)||2,
-        axis: calAxis,
+        mode: 'checkup',
+        clearance_mm: 25,
         quad_body_frame: !!$('calquadbody').checked,
       }),
     });
@@ -2245,25 +2109,6 @@ async function rlPickUse(slot, pick){
   }
   refreshRlTab();
 }
-$('calplantreset').onclick = async ()=>{
-  try{
-    const r = await fetch('/api/plant/reset', {method:'POST'});
-    const d = await r.json();
-    if(d.ok){ paintPlantInfo(d); showSent('plant reset to default'); }
-    else showSent(d.error || 'reset failed');
-    refreshCalibrate();
-  }catch(e){ showSent('plant reset failed'); }
-};
-$('calimureset').onclick = async ()=>{
-  try{
-    const r = await fetch('/api/imu/reset', {method:'POST'});
-    const d = await r.json();
-    if(d.ok){ paintImuInfo(d); showSent('IMU calib cleared'); }
-    else showSent(d.error || 'reset failed');
-    refreshCalibrate();
-  }catch(e){ showSent('IMU reset failed'); }
-};
-
 // --- Motors tab -------------------------------------------------------------
 function startMotorsPoll(){
   stopMotorsPoll();

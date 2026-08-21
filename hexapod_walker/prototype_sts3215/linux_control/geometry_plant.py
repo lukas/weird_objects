@@ -1,16 +1,16 @@
 """Geometry + contact plant finder for Phase-1 balance.
 
 Target stance (operator intent):
-  * hip ≈ 0° (femur straight / out)
-  * knee ≈ 90° (axis max is +80° — use that)
-  * chassis ~1–2 in above the ground after contact
+  * search through hip 0° / knee 80° and continue deeper if unloaded
+  * final saved stance raises roughly the requested clearance from contact
+  * abort instead of tipping if the body tilt grows while searching
 
 Method:
   1. Soft-torque, yaw=0, hip=0; start with shallow knees (feet high).
-  2. Slowly deepen knees toward +80° while watching knee current/load.
+  2. Slowly deepen knees, then hip, while watching current/load/lag.
   3. On multi-knee contact, hold and sample.
-  4. Compute a taller pose: same hip=0, reduce knee so FK foot-z rises by
-     ``clearance_mm`` (~40 mm ≈ 1.6 in).
+  4. Compute a taller pose: reduce knee so FK foot-z rises by
+     ``clearance_mm``.
   5. Ease to that pose and save full ``joints_deg[18]`` plant.
 
 Callable from hexapod-web (``/api/rl/find_plant``) — no SSH required.
@@ -32,16 +32,20 @@ from feetech_bus import (
 FEMUR_MM = 90.0
 TIBIA_MM = 128.0
 
-# Hip 0 + knee 80 = tall stilts (~126 mm foot drop). For ~1–2 in use crouch.
-TARGET_HIP_DEG = -20.0
-TARGET_KNEE_DEG = 55.0
+# Search down through the real standing family.  Hip 0 / knee 80 reaches
+# much lower than the old -20 / 55 crouch; if that still does not load the
+# feet, continue toward the captured hardware plant region.
+TARGET_HIP_DEG = 20.0
+TARGET_KNEE_DEG = 80.0
 START_HIP_DEG = 0.0
 START_KNEE_DEG = 25.0           # start mid; deepen hip/knee toward crouch
 CLEARANCE_MM = 25.0             # ~1 in above contact plane
-REACH_SECONDS = 14.0
+REACH_SECONDS = 22.0
 CLEARANCE_SECONDS = 6.0
 REACH_TORQUE = 500
 SAMPLE_DT = 0.08
+SEARCH_HIP_DEG = 20.0
+SEARCH_KNEE_DEG = 100.0
 
 CONTACT_CURRENT_FLOOR_A = 0.16
 CONTACT_CURRENT_DELTA_A = 0.08
@@ -52,6 +56,9 @@ CONTACT_MIN_KNEE_JOINTS = 3
 CONTACT_WINDOW_S = 0.45
 CONTACT_BASELINE_POSE_DEG = 12.0
 CONTACT_MAX_KNEE_SPEED = 90.0
+CONTACT_POSITION_LAG_DEG = 6.0
+CONTACT_LAG_MIN_KNEE_DEG = 55.0
+CONTACT_LAG_MAX_KNEE_SPEED = 55.0
 MAX_TILT_DEG = 8.0              # abort before tip (operator asked: don't tip)
 
 
@@ -92,14 +99,32 @@ def knee_for_foot_z(hip_deg: float, z_mm: float) -> float | None:
     pt = math.asin(max(-1.0, min(1.0, num)))
     # Prefer the "knee bent down" solution in our sign convention (pt > p).
     knee = math.degrees(pt - p)
-    if knee < -20.0 or knee > 80.0:
+    if knee < -20.0 or knee > 150.0:
         # Try π - asin branch
         pt2 = math.pi - pt
         knee2 = math.degrees(pt2 - p)
-        if -20.0 <= knee2 <= 80.0:
+        if -20.0 <= knee2 <= 150.0:
             return float(knee2)
         return None
     return float(knee)
+
+
+def search_pose_at(u: float) -> tuple[float, float]:
+    """Piecewise downward search pose, shallow → normal plant → deeper."""
+    u = max(0.0, min(1.0, float(u)))
+    if u <= 0.55:
+        a = u / 0.55
+        s = 0.5 - 0.5 * math.cos(math.pi * a)
+        return (
+            START_HIP_DEG + s * (0.0 - START_HIP_DEG),
+            START_KNEE_DEG + s * (TARGET_KNEE_DEG - START_KNEE_DEG),
+        )
+    a = (u - 0.55) / 0.45
+    s = 0.5 - 0.5 * math.cos(math.pi * a)
+    return (
+        0.0 + s * (SEARCH_HIP_DEG - 0.0),
+        TARGET_KNEE_DEG + s * (SEARCH_KNEE_DEG - TARGET_KNEE_DEG),
+    )
 
 
 def _median(vals: list[float], default: float) -> float:
@@ -151,8 +176,9 @@ def run_geometry_plant(
             return None
 
     clearance_mm = float(clearance_mm)
-    _progress(f"soft torque → crouch approach "
-              f"(end hip {TARGET_HIP_DEG:.0f}° / knee {TARGET_KNEE_DEG:.0f}°)")
+    _progress(f"soft torque → ground search "
+              f"(to hip {SEARCH_HIP_DEG:+.0f}° / "
+              f"knee {SEARCH_KNEE_DEG:.0f}° if needed)")
     _set_torque_limit(bus, live, REACH_TORQUE)
     _enable_torque(bus, live)
     if abort_check():
@@ -165,8 +191,8 @@ def run_geometry_plant(
         _set_torque_limit(bus, live, 1000)
         return {"ok": False, "aborted": True, "mode": "geometry_plant"}
 
-    # --- blend toward crouch; contact usually while still above target ---
-    _progress("reaching crouch / ground (watch knee current/load)…")
+    # --- blend toward ground; contact usually appears before full depth ---
+    _progress("reaching for ground (current/load/lag contact watch)…")
     n = max(2, int(reach_seconds / SAMPLE_DT))
     t0 = time.monotonic()
     base_I: list[float] = []
@@ -182,8 +208,7 @@ def run_geometry_plant(
             return {"ok": False, "aborted": True, "mode": "geometry_plant"}
         a = (i + 1) / n
         s = 0.5 - 0.5 * math.cos(math.pi * a)
-        hip_cmd = START_HIP_DEG + s * (TARGET_HIP_DEG - START_HIP_DEG)
-        knee_cmd = START_KNEE_DEG + s * (TARGET_KNEE_DEG - START_KNEE_DEG)
+        hip_cmd, knee_cmd = search_pose_at(s)
         goal = _pose(hip_cmd, knee_cmd)
         _write_pose(bus, goal, live, speed=160, acc=12)
         time.sleep(SAMPLE_DT)
@@ -233,11 +258,17 @@ def run_geometry_plant(
             present = float(fb["deg"])
             cur = abs(float(fb.get("current_a") or 0.0))
             load = float(fb.get("load_pct") or 0.0)
+            speed = abs(float(fb.get("speed_deg_s") or 0.0))
+            lag = float(knee_cmd) - present
             if (abs(present) < CONTACT_BASELINE_POSE_DEG
                     and (time.monotonic() - t0) < 3.0):
                 base_I.append(cur)
                 base_L.append(load)
-            if armed and (cur >= i_thr or load >= l_thr):
+            lag_contact = (
+                knee_cmd >= CONTACT_LAG_MIN_KNEE_DEG
+                and lag >= CONTACT_POSITION_LAG_DEG
+                and speed <= CONTACT_LAG_MAX_KNEE_SPEED)
+            if armed and (cur >= i_thr or load >= l_thr or lag_contact):
                 hot_since.setdefault(jk, time.monotonic())
             elif jk in hot_since:
                 if time.monotonic() - hot_since[jk] > CONTACT_WINDOW_S:
@@ -257,7 +288,8 @@ def run_geometry_plant(
             break
 
         if (i + 1) % 12 == 0:
-            _progress(f"reach {100 * a:.0f}%  knee≈{knee_now:.0f}°  "
+            _progress(f"reach {100 * a:.0f}%  cmd hip {hip_cmd:+.0f}° / "
+                      f"knee {knee_cmd:.0f}°  present knee≈{knee_now:.0f}°  "
                       f"hot={len(agreed)}")
 
     if abort_check():
@@ -266,12 +298,16 @@ def run_geometry_plant(
 
     if not contact_found or contact_knee is None:
         _set_torque_limit(bus, live, 1000)
-        _progress("no contact — feet never loaded; abort (not saving)")
+        _progress("no contact after full depth — not saving")
         return {
             "ok": False,
-            "error": "no ground contact detected — raise platform or start lower",
+            "error": (
+                "no ground contact detected after search to "
+                f"hip {SEARCH_HIP_DEG:+.0f}° / knee {SEARCH_KNEE_DEG:.0f}°"),
             "mode": "geometry_plant",
             "contact_found": False,
+            "searched_hip_deg": SEARCH_HIP_DEG,
+            "searched_knee_deg": SEARCH_KNEE_DEG,
         }
 
     # Sample contact pose.
@@ -295,7 +331,7 @@ def run_geometry_plant(
     if knee_up is None:
         # Fallback: knock ~25° off contact knee.
         knee_up = max(START_KNEE_DEG, knee_c - 25.0)
-    knee_up = max(START_KNEE_DEG, min(TARGET_KNEE_DEG, float(knee_up)))
+    knee_up = max(START_KNEE_DEG, min(SEARCH_KNEE_DEG, float(knee_up)))
 
     _progress(f"raise ~{clearance_mm:.0f} mm → hip {TARGET_HIP_DEG:.0f}° / "
               f"knee {knee_up:.0f}° (was {knee_c:.0f}°)")

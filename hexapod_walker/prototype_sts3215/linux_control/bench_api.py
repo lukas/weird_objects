@@ -2320,6 +2320,7 @@ class BenchAPI:
                 "name": name,
                 "ok": bool(result.get("ok")),
                 "aborted": bool(result.get("aborted")),
+                "skipped": bool(result.get("skipped")),
                 "mode": result.get("mode"),
                 "error": result.get("error"),
                 "log": result.get("log") or result.get("path"),
@@ -2327,8 +2328,12 @@ class BenchAPI:
                 "summary": result.get("msg") or result.get("hint"),
             })
 
-        def progress(msg: str, **extra) -> None:
-            on_progress({"msg": msg, "mode": "checkup", **extra})
+        def progress(msg: str, phase_id: str | None = None,
+                     **extra) -> None:
+            payload = {**extra, "msg": msg, "mode": "checkup"}
+            if phase_id:
+                payload["phase"] = phase_id
+            on_progress(payload)
 
         try:
             from geometry_plant import run_geometry_plant
@@ -2336,11 +2341,12 @@ class BenchAPI:
         except ImportError as e:
             return {"ok": False, "mode": "checkup", "error": str(e)}
 
-        progress("checkup: IMU rest/bias")
+        progress("IMU rest/bias", "imu_rest")
         imu_res = run_imu_calibrate(
             bus, abort_check=abort_check,
             on_progress=lambda p: progress(
                 "IMU rest: " + str(p.get("msg") or "sampling"),
+                "imu_rest",
                 **{k: v for k, v in p.items() if k != "msg"}))
         phase("imu_rest", imu_res)
         if abort_check() or imu_res.get("aborted"):
@@ -2349,19 +2355,23 @@ class BenchAPI:
                     "phases": phases, "report": report,
                     "path": report.get("path"), "log_name": report.get("log_name")}
 
-        progress("checkup: geometry/contact plant")
+        progress("Ground contact / plant search", "geometry_plant")
         geo_res = run_geometry_plant(
             bus, abort_check=abort_check,
             on_progress=lambda p: progress(
                 "Geo plant: " + str(p.get("msg") or "running"),
+                "geometry_plant",
                 **{k: v for k, v in p.items() if k != "msg"}),
             clearance_mm=clearance_mm)
         phase("geometry_plant", geo_res)
 
         if quad_body_frame and not abort_check():
-            progress("checkup: IMU body-frame map from quad rear")
+            progress("IMU body-frame map from quad rear", "imu_body_frame")
             bf_res = self._calibrate_quad_body_frame(
-                bus, abort_check=abort_check, on_progress=on_progress)
+                bus, abort_check=abort_check,
+                on_progress=lambda p: progress(
+                    str(p.get("msg") or "running"), "imu_body_frame",
+                    **{k: v for k, v in p.items() if k != "msg"}))
             phase("imu_body_frame", bf_res)
         elif not quad_body_frame:
             phases.append({
@@ -2374,8 +2384,23 @@ class BenchAPI:
                 "skipped": True,
             })
 
-        progress("checkup: actuator health snapshot")
+        progress("Actuator health snapshot", "actuator_snapshot")
+        phases.append({
+            "name": "actuator_snapshot",
+            "ok": True,
+            "mode": "actuator_snapshot",
+            "summary": "live actuator snapshot captured in report",
+        })
+        progress("Saving calibration report", "report")
         report = self._save_calibration_report(phases=phases, bus=bus)
+        phases.append({
+            "name": "report",
+            "ok": bool(report.get("ok", True)),
+            "mode": "calibration_report",
+            "log": report.get("path"),
+            "log_name": report.get("log_name"),
+            "summary": "sim-ready calibration report saved",
+        })
         ok = all(p.get("ok") for p in phases)
         if abort_check() or any(p.get("aborted") for p in phases):
             ok = False
