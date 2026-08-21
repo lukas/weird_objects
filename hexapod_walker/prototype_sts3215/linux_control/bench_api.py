@@ -3128,7 +3128,6 @@ class BenchAPI:
             from inplace_demos import (
                 _enable_torque, _hold_here, _live_robot_ids,
                 _set_torque_limit, _write_pose, ease_to_pose,
-                go_to_zero_pose,
             )
             from tripod_gait import COXA_MM, FEMUR_MM, TIBIA_MM, LEG_RADIAL
         except ImportError as e:
@@ -3342,10 +3341,24 @@ class BenchAPI:
                 time.sleep(0.25)
 
             progress("Slip: seated yaw reference")
-            if not go_to_zero_pose(bus, abort_check=abort_check, seconds=2.5):
-                return {"ok": False, "aborted": True,
-                        "mode": "traction_probe",
-                        "error": "sit reference aborted", "samples": samples}
+            zero_res = self._safe_zero_sync(
+                abort_check=abort_check,
+                on_progress=lambda p: progress(
+                    "Slip zero: " + str(p.get("msg") or "running"),
+                    **{k: v for k, v in p.items() if k != "msg"}))
+            if not zero_res.get("ok"):
+                stopped = bool(abort_check() or zero_res.get("aborted"))
+                return {
+                    "ok": False,
+                    "aborted": stopped,
+                    "mode": "traction_probe",
+                    "error": (
+                        "sit reference interrupted"
+                        if stopped else "sit reference failed: "
+                        + str(zero_res.get("error") or "safe_zero failed")),
+                    "zero_result": zero_res,
+                    "samples": samples,
+                }
             sit = [0.0] * N_JOINTS
             for leg in range(6):
                 for yaw in (-amp, amp, 0.0):
