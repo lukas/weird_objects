@@ -88,6 +88,56 @@ Identical repeats (a poll loop hitting the same failure) are deduped
 to once per 10 s. Browse the recent ones without SSH:
 `GET /api/errors?n=100`.
 
+## Fast test / deploy loop
+
+For UI and controller edits, use the local helper instead of retyping the
+whole cautious sequence. These commands do not move the robot; only
+`hex_deploy` restarts the web service.
+
+```bash
+# from prototype_sts3215/
+make robot-check       # syntax + web JS + git diff hygiene; no robot access
+make robot-unit-check  # robot-check + fake-bus/off-robot tests
+make robot-resolve     # print the current hexapod.local mDNS IPv4 answer
+make robot-status      # read-only /api/ping + compact /api/robot summary
+make robot-deploy      # robot-check + SSH deploy + remote compile + status
+```
+
+The same helpers are available as shell functions:
+
+```bash
+source linux_control/dev_loop.sh
+hex_check
+hex_unit_check
+hex_resolve
+hex_status
+hex_deploy
+```
+
+Useful overrides:
+
+```bash
+HEXAPOD_HOST=http://hexapod.local:8080
+HEXAPOD_SSH=arduino@hexapod.local
+HEXAPOD_SSH_HOSTKEY_ALIAS=hexapod.local
+```
+
+If `hexapod.local` resolution is flaky, do not commit an IP address. Resolve
+the current address and use it only for the command you are running:
+
+```bash
+IP=$(make -s robot-resolve)
+HEXAPOD_HOST=http://$IP:8080 HEXAPOD_SSH=arduino@$IP make robot-deploy
+```
+
+There is also an explicit-path commit helper, intended to avoid
+accidentally staging unrelated work from another process:
+
+```bash
+hex_commit_push "Add safer robot telemetry" \
+  linux_control/web_drive.py linux_control/webui/app.js
+```
+
 ### RL episode traces (automatic)
 
 Every RL stand / lower / walk run additionally writes per-tick telemetry
