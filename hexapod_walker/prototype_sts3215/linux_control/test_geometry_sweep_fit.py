@@ -97,6 +97,36 @@ def test_single_plant_snapshot_is_marked_partial() -> None:
     assert fit["segment_fit"]["status"] == "not_enough_multi_pose_contacts"
 
 
+def test_non_contact_and_prefloor_rows_are_rejected() -> None:
+    samples = _samples_for_geometry()
+    for row in samples:
+        row["base_z_mm"] = -125.0
+        row["nominal_z_mm"] = -125.0
+    samples.append({
+        "accepted": True,
+        "contact_detected": False,
+        "leg": 0,
+        "hip_deg": 10.0,
+        "knee_deg": 20.0,
+        "base_z_mm": -125.0,
+        "nominal_z_mm": -90.0,
+        "reason": "reached solved floor pose without contact signal",
+    })
+    samples.append({
+        "accepted": True,
+        "contact_detected": True,
+        "leg": 1,
+        "hip_deg": 10.0,
+        "knee_deg": 20.0,
+        "base_z_mm": -125.0,
+        "nominal_z_mm": -90.0,
+        "reason": "ignored pre-floor resistance",
+    })
+    fit = fit_contact_sweep(samples)
+    assert fit["ok"], fit
+    assert fit["sample_count"] == len(samples) - 2
+
+
 def _main() -> int:
     for name, fn in sorted(globals().items()):
         if name.startswith("test_") and callable(fn):

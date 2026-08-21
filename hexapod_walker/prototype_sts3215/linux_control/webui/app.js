@@ -1234,9 +1234,13 @@ function renderCalDimensions(res){
   const links = hint.link_lengths_m || {};
   const effLinks = hint.effective_link_lengths_m || {};
   const learned = plant.learned ? 'learned plant' : 'default plant';
-  const sweepSource = contactSweep && contactSweep.sample_count
-    ? `${contactSweep.sample_count} contact samples`
+  const fitSource = fit.source === 'contact_sweep'
+    ? `${fit.sample_count || contactSweep.sample_count || 0} contact samples`
     : 'plant-only estimate';
+  const sweepRaw = contactSweep.raw_sample_count || contactSweep.sample_count;
+  const sweepSource = contactSweep && sweepRaw
+    ? `${contactSweep.status || 'unknown'} · ${contactSweep.sample_count || 0}/${sweepRaw} accepted`
+    : 'not run';
   const rows = [
     ['link lengths',
       `coxa ${calMm(nom.coxa)} · femur ${calMm(nom.femur)} · tibia ${calMm(nom.tibia)}`,
@@ -1246,8 +1250,13 @@ function renderCalDimensions(res){
     ['effective segment fit',
       `coxa ${calMm(segLinks.coxa)} · femur ${calMm(segLinks.femur)} · tibia ${calMm(segLinks.tibia)}`,
       seg.status
-        ? `${htmlEscape(seg.status)} · ${sweepSource}`
+        ? `${htmlEscape(seg.status)} · ${fitSource}`
         : 'waiting for dimension sweep'],
+    ['dimension sweep',
+      sweepSource,
+      contactSweep && sweepRaw
+        ? (contactSweep.ok ? 'used for effective fit' : 'rejected; using plant-only')
+        : 'waiting for run'],
     ['chassis',
       `flat-to-flat ${calMm(nom.chassis_flat_to_flat)}`,
       'CAD model'],
@@ -1256,7 +1265,7 @@ function renderCalDimensions(res){
       learned + (plant.timestamp ? ` · ${htmlEscape(plant.timestamp)}` : '')],
     ['servo/hip height',
       `mean ${calMm(fitSummary.mean_servo_height_mm)} · spread ${calMm(fitSummary.servo_height_spread_mm)}`,
-      sweepSource],
+      fitSource],
     ['zero offset hints',
       `max ${calSigned(fitSummary.max_zero_hint_deg)}°`,
       'relative hints from contact-height residuals'],

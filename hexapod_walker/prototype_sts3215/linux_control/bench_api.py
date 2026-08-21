@@ -1996,16 +1996,27 @@ class BenchAPI:
                          or report.get("path") or report.get("log_name"))
             if saved:
                 p["ok"] = True
-        if phases:
-            report["ok"] = (
-                all(bool(p.get("ok")) for p in phases)
-                and not any(bool(p.get("aborted")) for p in phases))
         geom = report.get("geometry")
-        if not isinstance(geom, dict) or "effective_fit" not in geom:
+        if not isinstance(geom, dict) or geom.get("schema_version") != 2:
             try:
                 report["geometry"] = self._geometry_report()
             except Exception:
                 pass
+        contact_sweep = (report.get("geometry") or {}).get("contact_sweep")
+        if isinstance(contact_sweep, dict):
+            for p in phases:
+                if not isinstance(p, dict) or p.get("name") != "geometry_sweep":
+                    continue
+                p["ok"] = bool(contact_sweep.get("ok"))
+                status = contact_sweep.get("status") or "unknown"
+                n = contact_sweep.get("sample_count")
+                p["summary"] = (
+                    f"dimension sweep {status}; {n} accepted contacts"
+                    if n is not None else f"dimension sweep {status}")
+        if phases:
+            report["ok"] = (
+                all(bool(p.get("ok")) for p in phases)
+                and not any(bool(p.get("aborted")) for p in phases))
         return report
 
     def _latest_geometry_sweep_report(self) -> dict | None:
@@ -2161,11 +2172,50 @@ class BenchAPI:
         sweep_samples = []
         sweep_fit = None
         if isinstance(sweep, dict):
-            sweep_samples = sweep.get("samples") or []
+            sweep_samples = list(sweep.get("samples") or [])
+            plan = sweep.get("target_plan") or []
+            if plan:
+                by_target = {}
+                for t in plan:
+                    try:
+                        key = (
+                            int(t.get("leg")),
+                            round(float(t.get("hip_deg")), 3),
+                            round(float(t.get("knee_deg")), 3),
+                        )
+                        by_target[key] = float(t.get("base_z_mm"))
+                    except (TypeError, ValueError):
+                        continue
+                fixed = []
+                for s in sweep_samples:
+                    row = dict(s)
+                    if row.get("base_z_mm") is None:
+                        try:
+                            key = (
+                                int(row.get("leg")),
+                                round(float(row.get("target_hip_deg")), 3),
+                                round(float(row.get("target_knee_deg")), 3),
+                            )
+                            if key in by_target:
+                                row["base_z_mm"] = round(by_target[key], 2)
+                        except (TypeError, ValueError):
+                            pass
+                    fixed.append(row)
+                sweep_samples = fixed
             sweep_fit = sweep.get("fit")
             if not isinstance(sweep_fit, dict):
                 sweep_fit = fit_contact_sweep(sweep_samples)
-        effective_fit = sweep_fit if isinstance(sweep_fit, dict) else plant_fit
+            else:
+                sweep_fit = fit_contact_sweep(sweep_samples)
+        using_sweep_fit = bool(
+            isinstance(sweep_fit, dict) and sweep_fit.get("ok"))
+        effective_fit = sweep_fit if using_sweep_fit else plant_fit
+        effective_fit = dict(effective_fit or {})
+        effective_fit["source"] = (
+            "contact_sweep" if using_sweep_fit else "plant_only")
+        if isinstance(sweep_fit, dict) and not using_sweep_fit:
+            effective_fit["rejected_contact_sweep_status"] = (
+                sweep_fit.get("status"))
         fit_summary = (effective_fit or {}).get("summary") or {}
         seg = (effective_fit or {}).get("segment_fit") or {}
         fit_links = seg.get("link_lengths_mm") or {}
@@ -2179,6 +2229,7 @@ class BenchAPI:
                 pass
         return {
             "ok": True,
+            "schema_version": 2,
             "nominal_mm": {
                 "coxa": COXA_MM,
                 "femur": FEMUR_MM,
@@ -2213,9 +2264,13 @@ class BenchAPI:
             "plant_only_fit": plant_fit,
             "contact_sweep": (
                 None if not isinstance(sweep, dict) else {
-                    "ok": bool(sweep.get("ok")),
+                    "ok": bool((sweep_fit or {}).get("ok")),
                     "status": (sweep_fit or {}).get("status"),
-                    "sample_count": len(sweep_samples),
+                    "sample_count": (
+                        (sweep_fit or {}).get("sample_count")
+                        if isinstance(sweep_fit, dict)
+                        else len(sweep_samples)),
+                    "raw_sample_count": len(sweep_samples),
                     "log_name": sweep.get("log_name"),
                     "path": sweep.get("path"),
                     "latest": sweep.get("latest"),

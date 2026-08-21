@@ -83,6 +83,10 @@ SWEEP_OVERRUN_MM = 7.0
 SWEEP_TORQUE = 620
 SWEEP_MAX_TILT_DELTA_DEG = 8.0
 SWEEP_MAX_LEG_CURRENT_A = 2.6
+SWEEP_FLOOR_BAND_MM = 4.0
+SWEEP_CONTACT_CURRENT_RISE_A = 0.055
+SWEEP_CONTACT_LOAD_RISE_PCT = 5.5
+SWEEP_CONTACT_LAG_DEG = 4.0
 
 
 def _imu_tilt_deg(bus) -> tuple[float | None, float | None]:
@@ -468,7 +472,17 @@ def fit_contact_sweep(samples: list[dict]) -> dict:
     valid = []
     for s in samples or []:
         try:
-            if not bool(s.get("accepted", s.get("contact_detected", False))):
+            if (
+                    not bool(s.get("accepted", False))
+                    or not bool(s.get("contact_detected", False))):
+                continue
+            base_z = s.get("base_z_mm")
+            nominal_z = s.get("nominal_z_mm")
+            if base_z is not None and nominal_z is not None:
+                if float(nominal_z) > float(base_z) + SWEEP_FLOOR_BAND_MM:
+                    continue
+            reason = str(s.get("reason") or "").lower()
+            if "without contact signal" in reason:
                 continue
             valid.append({
                 **s,
@@ -530,10 +544,15 @@ def fit_contact_sweep(samples: list[dict]) -> dict:
             "zero_status": zero.get("status"),
         })
 
-    ok = len(valid) >= 10 and sum(1 for r in per_leg if r["samples"] >= 2) >= 3
+    enough = (
+        len(valid) >= 10
+        and sum(1 for r in per_leg if r["samples"] >= 2) >= 3)
+    ok = enough and bool(seg.get("ok"))
     status = "ok" if ok else "partial"
     if not valid:
         status = "no_contacts"
+    elif enough and not seg.get("ok"):
+        status = str(seg.get("status") or "unusable_fit")
     return {
         "ok": ok,
         "status": status,
@@ -719,6 +738,7 @@ def run_geometry_contact_sweep(
             "accepted": bool(detected) if accepted is None else bool(accepted),
             "reason": reason,
             "search_step": int(step),
+            "base_z_mm": round(float(target.get("base_z_mm", 0.0)), 2),
             "nominal_z_mm": round(foot_z_mm(q[j + 1], q[j + 2]), 2),
             "nominal_radial_mm": round(foot_r_mm(q[j + 1], q[j + 2]), 2),
             "max_leg_current_a": round(max(currents or [0.0]), 3),
@@ -803,22 +823,39 @@ def run_geometry_contact_sweep(
                 else q[j + 2])
             lag = max(abs(q[j + 1] - hip_now), abs(q[j + 2] - knee_now))
             z_cmd = foot_z_mm(q[j + 1], q[j + 2])
+            z_now = foot_z_mm(hip_now, knee_now)
             current_rise = max(0.0, max(currents or [0.0]) - base_current)
             load_rise = max(0.0, max(loads or [0.0]) - base_load)
-            reached_floor_band = z_cmd <= base_z + 2.5
-            if reached_floor_band and (
-                    current_rise >= 0.055
-                    or load_rise >= 5.5
-                    or lag >= 4.0
-                    or step == steps):
-                detected = current_rise >= 0.055 or load_rise >= 5.5 or lag >= 4.0
+            cmd_reached_floor = z_cmd <= base_z + SWEEP_FLOOR_BAND_MM
+            measured_reached_floor = z_now <= base_z + SWEEP_FLOOR_BAND_MM
+            contact_signal = (
+                current_rise >= SWEEP_CONTACT_CURRENT_RISE_A
+                or load_rise >= SWEEP_CONTACT_LOAD_RISE_PCT
+                or (measured_reached_floor and lag >= SWEEP_CONTACT_LAG_DEG)
+            )
+            if cmd_reached_floor and contact_signal and not measured_reached_floor:
                 reason = (
-                    "current/load/lag contact" if detected
-                    else "reached solved floor pose")
+                    "ignored pre-floor resistance "
+                    f"(z {z_now:.1f} vs floor {base_z:.1f})")
+                if step == steps:
+                    sample_contact(
+                        leg, last_goal, target=target,
+                        detected=True, accepted=False,
+                        reason=reason, step=step)
+                    return True, None
+                continue
+            if measured_reached_floor and contact_signal:
                 sample_contact(
                     leg, last_goal, target=target,
-                    detected=detected, accepted=True,
-                    reason=reason, step=step)
+                    detected=True, accepted=True,
+                    reason="floor contact signal", step=step)
+                return True, None
+            if step == steps and cmd_reached_floor:
+                sample_contact(
+                    leg, last_goal, target=target,
+                    detected=False, accepted=False,
+                    reason="reached solved floor pose without contact signal",
+                    step=step)
                 return True, None
 
         sample_contact(
