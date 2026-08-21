@@ -1005,6 +1005,31 @@ QUAD_TRIM_MAX_DX_M = 0.012
 QUAD_TRIM_DEADBAND_DEG = 1.0
 QUAD_TRIM_GUARD_ERROR_DEG = 15.0
 QUAD_TRIM_MIN_BASE_DEG = 6.0
+# Recovery band: between the small-trim reflex and the fall guard there
+# is a "tipped too far but not yet falling" regime.  Instead of marching
+# on with saturated 5-deg trim until the 15-deg guard limps, recovery
+# BRACE-HOLDS: stream_pose_fn finishes the current step at no more than
+# 1x, FREEZES the gait clock at the next all-stance window (the pose fn
+# exposes its stance schedule via ``all_stance_at``), and leans the
+# body against the tip with the full second-line trim authority
+# (quad_walk._trim clamps at +/-7 deg / +/-18 mm — recovery uses
+# exactly that).  The pacing rules were measured on the MuJoCo twin
+# (08-21): freezing mid-swing strands a foot on tripod support and
+# DEEPENS the tip; slowing a swing does the same (the nose hangs
+# unsupported for longer); and stepping on at full beat keeps rocking
+# the nose ~10 deg per swing on top of the tip.  Hence: swings run at
+# normal pace, stance freezes.  Resume normal walking once level again;
+# if the lean has not come back within the timeout, the tip is real —
+# go limp, never fight it.  Thresholds sized against the twin's walk,
+# which runs ~6 deg sagged from the reared-hold calibration target with
+# beat spikes past 12: enter above the steady sag at the spikes' onset;
+# exit must also sit just above the steady sag or recovery could never
+# release and would always time out into a needless limp.
+QUAD_TRIM_RECOVER_ERR_DEG = 9.0        # enter recovery (2 consecutive)
+QUAD_TRIM_RECOVER_EXIT_DEG = 5.0       # leave recovery (2 consecutive)
+QUAD_TRIM_RECOVER_MAX_PITCH_DEG = 7.0  # = quad_walk 2nd-line pitch clamp
+QUAD_TRIM_RECOVER_MAX_DX_M = 0.018     # = quad_walk 2nd-line dx clamp
+QUAD_TRIM_RECOVER_TIMEOUT_S = 8.0      # still tipped after this -> limp
 
 
 def _imu_roll_pitch_deg(imu: dict) -> tuple[float, float] | None:
@@ -1145,9 +1170,19 @@ class QuadPitchTrim:
     samples are projected onto that vector, then converted into
     quad_walk's command convention (negative = nose up). If pitch drifts
     forward, the command nudges more nose-up/aft; if it drifts backward,
-    the command nudges less nose-up/forward. Large relative pitch error
-    for two IMU samples is treated as a fall onset and the streamer goes
-    limp rather than fighting it.
+    the command nudges less nose-up/forward.
+
+    Three regimes by pitch error:
+      trim     |err| small: gentle nudges, capped at +/-5 deg / 12 mm.
+      recover  |err| past QUAD_TRIM_RECOVER_ERR_DEG sustained:
+               brace-hold — the streamer finishes the current step at
+               no more than 1x, freezes the gait clock at the next
+               all-stance window, and pushes the full second-line trim
+               authority against the tip until level again — or limp
+               on QUAD_TRIM_RECOVER_TIMEOUT_S.
+      guard    |err| past QUAD_TRIM_GUARD_ERROR_DEG (or fast + big) for
+               two IMU samples: fall onset — the streamer goes limp
+               rather than fighting it.
     """
 
     def __init__(self, *, expected_pitch_deg: float | None = None,
@@ -1174,13 +1209,18 @@ class QuadPitchTrim:
         self.body_dx_trim_m = 0.0
         self.speed_scale = 1.0
         self.abort_reason: str | None = None
+        self.recovering = False
+        self.recover_count = 0
+        self.recover_t0: float | None = None
+        self._recover_hi = 0
+        self._recover_lo = 0
         self._warmup: list[tuple[float, float]] = []
         self._axis_lp_meas: float | None = None
         self._prev_cmd_pitch: float | None = None
         self._prev_update_t: float | None = None
         self._danger_samples = 0
         self._last_emit_t = 0.0
-        self._last_emit_bucket: tuple[int, int] | None = None
+        self._last_emit_bucket: tuple | None = None
         if calibration:
             self._load_calibration(calibration)
 
@@ -1267,29 +1307,72 @@ class QuadPitchTrim:
         err = cmd_pitch - target
         eff = _deadband(err, QUAD_TRIM_DEADBAND_DEG)
 
-        desired_pitch = -(0.55 * eff + 0.04 * rate)
-        desired_dx = -(0.0012 * eff + 0.00004 * rate)
-        desired_pitch = _clamp(
-            desired_pitch, -QUAD_TRIM_MAX_PITCH_DEG, QUAD_TRIM_MAX_PITCH_DEG)
-        desired_dx = _clamp(
-            desired_dx, -QUAD_TRIM_MAX_DX_M, QUAD_TRIM_MAX_DX_M)
+        # Recovery entry/exit, two consecutive samples each way so one
+        # noisy IMU read cannot flip the mode.
+        if not self.recovering:
+            self._recover_hi = (self._recover_hi + 1
+                                if abs(err) >= QUAD_TRIM_RECOVER_ERR_DEG
+                                else 0)
+            if self._recover_hi >= 2:
+                self.recovering = True
+                self.recover_t0 = now
+                self.recover_count += 1
+                self._recover_lo = 0
+        else:
+            self._recover_lo = (self._recover_lo + 1
+                                if abs(err) <= QUAD_TRIM_RECOVER_EXIT_DEG
+                                else 0)
+            if self._recover_lo >= 2:
+                self.recovering = False
+                self.recover_t0 = None
+                self._recover_hi = 0
+
+        if self.recovering:
+            # Full second-line authority against the tip; the walk is
+            # brace-holding so the lean dominates the stride dynamics.
+            desired_pitch = -(0.9 * eff + 0.05 * rate)
+            desired_dx = -(0.0022 * eff + 0.00006 * rate)
+            max_pitch = QUAD_TRIM_RECOVER_MAX_PITCH_DEG
+            max_dx = QUAD_TRIM_RECOVER_MAX_DX_M
+        else:
+            desired_pitch = -(0.55 * eff + 0.04 * rate)
+            desired_dx = -(0.0012 * eff + 0.00004 * rate)
+            max_pitch = QUAD_TRIM_MAX_PITCH_DEG
+            max_dx = QUAD_TRIM_MAX_DX_M
+        desired_pitch = _clamp(desired_pitch, -max_pitch, max_pitch)
+        desired_dx = _clamp(desired_dx, -max_dx, max_dx)
 
         self.pitch_trim_deg = _slew(
             self.pitch_trim_deg, desired_pitch, 8.0 * dt)
         self.body_dx_trim_m = _slew(
             self.body_dx_trim_m, desired_dx, 0.030 * dt)
+        # speed_scale keeps the normal slowdown formula in recovery too:
+        # the streamer overrides pacing entirely (brace-hold) when the
+        # pose fn exposes its stance schedule, and this is the sane
+        # fallback when it does not.
         self.speed_scale = _clamp(
             1.0 - min(0.35, abs(err) / 28.0)
             - min(0.15, abs(rate) / 160.0),
             0.55, 1.0)
+        if (self.recovering and self.abort_reason is None
+                and self.recover_t0 is not None
+                and now - self.recover_t0 > QUAD_TRIM_RECOVER_TIMEOUT_S):
+            self.abort_reason = (
+                f"balance:{err:+.1f}:{rate:+.0f}:recovery_timeout")
         self.pitch_deg = cmd_pitch
         self.pitch_error_deg = err
         self.pitch_rate_deg_s = rate
         self._prev_cmd_pitch = cmd_pitch
         self._prev_update_t = now
 
+        # Rate branch is direction-aware: err and rate the SAME sign
+        # means tipping further (fall onset); opposite signs mean the
+        # body is swinging back toward level — that's a rock rebound or
+        # recovery working, not a fall (limping there was measured to
+        # cut off successful recoveries on the MuJoCo twin, 08-21).
         danger = (abs(err) > QUAD_TRIM_GUARD_ERROR_DEG
-                  or (abs(err) > 10.0 and abs(rate) > 45.0))
+                  or (abs(err) > 10.0 and abs(rate) > 45.0
+                      and err * rate > 0.0))
         self._danger_samples = self._danger_samples + 1 if danger else 0
         if self._danger_samples >= 2 and self.abort_reason is None:
             self.abort_reason = (
@@ -1362,7 +1445,8 @@ class QuadPitchTrim:
             return now - self._last_emit_t > 2.0
         if not self.ready:
             return False
-        bucket = (round(self.pitch_trim_deg), round(self.body_dx_trim_m * 1000))
+        bucket = (round(self.pitch_trim_deg),
+                  round(self.body_dx_trim_m * 1000), self.recovering)
         if bucket != self._last_emit_bucket and now - self._last_emit_t > 0.35:
             return True
         return now - self._last_emit_t > 1.25
@@ -1370,7 +1454,8 @@ class QuadPitchTrim:
     def mark_emitted(self, now: float) -> None:
         self._last_emit_t = now
         self._last_emit_bucket = (
-            round(self.pitch_trim_deg), round(self.body_dx_trim_m * 1000))
+            round(self.pitch_trim_deg),
+            round(self.body_dx_trim_m * 1000), self.recovering)
 
     def event_data(self) -> dict:
         return {
@@ -1395,6 +1480,12 @@ class QuadPitchTrim:
             "pitch_trim_deg": round(self.pitch_trim_deg, 2),
             "body_dx_trim_mm": round(self.body_dx_trim_m * 1000.0, 1),
             "speed_scale": round(self.speed_scale, 2),
+            "recovering": self.recovering,
+            "recover_count": self.recover_count,
+            "recover_s": (
+                0.0 if (self.recover_t0 is None
+                        or self._prev_update_t is None)
+                else round(self._prev_update_t - self.recover_t0, 2)),
             "samples": self.samples,
         }
 
@@ -1413,6 +1504,7 @@ class QuadPitchTrim:
             "balance_pitch_trim_deg": f"{d['pitch_trim_deg']:.2f}",
             "balance_dx_trim_mm": f"{d['body_dx_trim_mm']:.2f}",
             "balance_speed_scale": f"{d['speed_scale']:.2f}",
+            "balance_recovering": "1" if d["recovering"] else "0",
         }
 
     def status_suffix(self) -> str:
@@ -1420,7 +1512,8 @@ class QuadPitchTrim:
             return "trim off"
         if not self.ready:
             return "trim warmup"
-        return (f"trim {self.imu_axis} {self.pitch_trim_deg:+.1f}deg "
+        mode = "RECOVERING " if self.recovering else ""
+        return (f"{mode}trim {self.imu_axis} {self.pitch_trim_deg:+.1f}deg "
                 f"{self.body_dx_trim_m * 1000:+.0f}mm "
                 f"err {self.pitch_error_deg:+.1f}")
 
@@ -1478,6 +1571,9 @@ def stream_pose_fn(bus: FeetechBus, live: set[int], pose_fn, *,
             return "aborted"
     streamer = PoseStreamer()
     streamer.last = list(q0)   # primed: skip the gentle first-write ease
+    # Balance recovery brace-hold: quad pose fns expose their stance
+    # schedule so the clock can freeze ONLY with all four feet planted.
+    all_stance_at = getattr(pose_fn, "all_stance_at", None)
     stall_prev: set = set()
     tilt_prev = False
     read_imu = getattr(bus, "read_imu", None)
@@ -1507,8 +1603,25 @@ def stream_pose_fn(bus: FeetechBus, live: set[int], pose_fn, *,
         wall = time.monotonic()
         rate = _clamp_live_speed(spd())
         if balance_trim is not None and balance_trim.ready:
-            rate = _clamp(rate * balance_trim.speed_scale,
-                          LIVE_SPEED_MIN, LIVE_SPEED_MAX)
+            if balance_trim.recovering and all_stance_at is not None:
+                # Recovery brace-hold: finish the current step at no
+                # more than 1x, then FREEZE at the next all-stance
+                # window and let the trim lean against the tip
+                # (pose_fn re-reads the trim every tick).  Measured on
+                # the MuJoCo twin (08-21): freezing mid-swing strands a
+                # foot on tripod support and deepens the tip, and so
+                # does SLOWING a swing (the nose hangs unsupported for
+                # longer) — never drag the clock while a foot is in
+                # the air.
+                rate = min(rate, 1.0)
+                try:
+                    if all_stance_at(t):
+                        rate = 0.0
+                except Exception:
+                    pass
+            else:
+                rate = _clamp(rate * balance_trim.speed_scale,
+                              LIVE_SPEED_MIN, LIVE_SPEED_MAX)
         t += (wall - wall_prev) * rate
         wall_prev = wall
         q = pose_fn(min(t + lookahead_s * rate, seconds))
@@ -2835,9 +2948,16 @@ def run_streamed_demo(bus: FeetechBus, name: str, *,
             bits = st.split(":")
             err = bits[1] if len(bits) > 1 else "?"
             rate = bits[2] if len(bits) > 2 else "?"
-            msg = (f"stopped: pitch drift {err} deg, rate {rate} deg/s — "
-                   "balance trim saw a fall starting and went limp. "
-                   "Check the robot before the next run.")
+            if len(bits) > 3 and bits[3] == "recovery_timeout":
+                msg = (f"stopped: still tipped {err} deg after "
+                       f"{QUAD_TRIM_RECOVER_TIMEOUT_S:.0f}s of paused "
+                       "recovery — leaning against it did not level the "
+                       "body, went limp. Check the robot before the "
+                       "next run.")
+            else:
+                msg = (f"stopped: pitch drift {err} deg, rate {rate} deg/s "
+                       "— balance trim saw a fall starting and went limp. "
+                       "Check the robot before the next run.")
             print(f"  {msg}")
             return msg
         if st.startswith("tilt:"):

@@ -151,6 +151,71 @@ def test_body_frame_trim_targets_measured_rear_lean() -> None:
     assert abs(data["pitch_trim_deg"]) < 0.5
 
 
+def test_recovery_engages_and_releases() -> None:
+    trim = QuadPitchTrim(expected_pitch_deg=-24.0, gait="walk")
+    for i in range(3):
+        trim.update(_imu_pitch(+24.0), i * 0.25)
+    assert trim.ready
+
+    # Tip forward: the rear lean decays 24 -> 12 deg (err ~ +12 deg,
+    # inside the recovery band, below the 15-deg fall guard).
+    t = 1.0
+    for _ in range(12):
+        trim.update(_imu_pitch(+12.0), t)
+        t += 0.25
+    data = trim.event_data()
+    assert data["recovering"]
+    assert trim.abort_reason is None
+    # Beyond the normal +/-5 deg / 12 mm caps: full recovery authority.
+    assert data["pitch_trim_deg"] < -5.5
+    assert data["body_dx_trim_mm"] < -12.5
+
+    # Lean comes back to target: recovery releases and the walk resumes.
+    for _ in range(6):
+        trim.update(_imu_pitch(+24.0), t)
+        t += 0.25
+    data = trim.event_data()
+    assert not data["recovering"]
+    assert data["speed_scale"] >= 0.55
+    assert trim.abort_reason is None
+    assert data["recover_count"] == 1
+
+
+def test_recovery_backward_tip_pushes_nose_down() -> None:
+    trim = QuadPitchTrim(expected_pitch_deg=-24.0, gait="walk")
+    for i in range(3):
+        trim.update(_imu_pitch(+24.0), i * 0.25)
+    assert trim.ready
+
+    # Tipping backward: lean grows past the target (24 -> 36 deg).
+    t = 1.0
+    for _ in range(12):
+        trim.update(_imu_pitch(+36.0), t)
+        t += 0.25
+    data = trim.event_data()
+    assert data["recovering"]
+    assert data["err_deg"] < 0.0
+    assert data["pitch_trim_deg"] > 5.5      # push the nose back down
+    assert data["body_dx_trim_mm"] > 12.5    # and the body forward
+    assert trim.abort_reason is None
+
+
+def test_recovery_timeout_goes_limp() -> None:
+    trim = QuadPitchTrim(expected_pitch_deg=-24.0, gait="walk")
+    for i in range(3):
+        trim.update(_imu_pitch(+24.0), i * 0.25)
+    assert trim.ready
+
+    t = 1.0
+    for _ in range(48):      # ~12 s of sustained ~12 deg tip
+        trim.update(_imu_pitch(+12.0), t)
+        t += 0.25
+        if trim.abort_reason:
+            break
+    assert trim.abort_reason is not None
+    assert "recovery_timeout" in trim.abort_reason
+
+
 def test_pose_factory_accepts_trim() -> None:
     base = [0.0, 20.0, 80.0] * 6
     trim = {"body_dx_m": -0.005, "pitch_rad": -0.05}

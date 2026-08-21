@@ -361,6 +361,17 @@ class QuadRearWalk:
                         math.pi * swing_u[other]))
         return feet
 
+    def walk_all_stance_at(self, tw: float) -> bool:
+        """True when no support foot is in its swing window at walk-clock
+        ``tw`` — the only safe moment to freeze the gait (balance
+        recovery brace-hold): freezing mid-swing strands a foot in the
+        air on tripod support, which measurably deepens a tip."""
+        if self.stride == 0.0 and self.lift == 0.0 and self.lift_front == 0.0:
+            return True         # hold gaits: all four always planted
+        p = (tw / self.period) % 1.0
+        return all(((p - ph) % 1.0) >= (1.0 - self.duty)
+                   for ph in self.phase.values())
+
     def _walk_body(self, tw: float) -> tuple[float, float]:
         v = self.stride / self.period
         sway = self.sway * math.sin(2 * math.pi * tw / self.period
@@ -549,16 +560,45 @@ class QuadRearWalk:
 def make_quad_walk_pose_fn(base_deg: list[float], seconds: float,
                            gait: str = "walk", direction: float = 1.0,
                            phase: str = "full", trim_fn=None):
-    """Duration-aware factory for full or split quad-mode phases."""
+    """Duration-aware factory for full or split quad-mode phases.
+
+    The returned callable carries an ``all_stance_at(t)`` attribute
+    (streamer time -> "all four support feet planted") where the phase
+    schedule is known; balance recovery uses it to brace-hold only at
+    stance-stable moments.  ``None`` where a freeze is never safe.
+    """
     q = QuadRearWalk(
         base_deg, seconds, gait=gait, direction=direction, trim_fn=trim_fn)
     phase = (phase or "full").strip().lower()
     if phase in ("rear", "entry", "entry_hold"):
-        return q.entry_hold_pose_at
-    if phase in ("hold", "hold_only", "settle", "static", "reared_hold"):
-        return q.reared_hold_pose_at
-    if phase in ("walk", "drive"):
-        return q.walk_only_pose_at
-    if phase in ("down", "exit"):
-        return q.exit_pose_at
-    return q.pose_at
+        base_fn = q.entry_hold_pose_at
+
+        def all_stance_at(t: float) -> bool:
+            tw = float(t) - ENTRY_TOTAL_S
+            return tw >= 0.0 and q.walk_all_stance_at(tw)
+    elif phase in ("hold", "hold_only", "settle", "static", "reared_hold"):
+        base_fn = q.reared_hold_pose_at
+
+        def all_stance_at(t: float) -> bool:
+            return True
+    elif phase in ("walk", "drive"):
+        base_fn = q.walk_only_pose_at
+        all_stance_at = q.walk_all_stance_at
+    elif phase in ("down", "exit"):
+        # Exit choreography re-steps the mid feet on its own clock;
+        # never freeze it.
+        base_fn = q.exit_pose_at
+        all_stance_at = None
+    else:
+        base_fn = q.pose_at
+
+        def all_stance_at(t: float) -> bool:
+            tw = float(t) - ENTRY_TOTAL_S
+            return (0.0 <= tw and float(t) < q.t_exit
+                    and q.walk_all_stance_at(tw))
+
+    def pose_fn(t: float) -> list[float]:
+        return base_fn(t)
+
+    pose_fn.all_stance_at = all_stance_at
+    return pose_fn

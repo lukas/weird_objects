@@ -14,7 +14,10 @@ for _p in (_ROOT, _ROOT / "motor_setup", _ROOT / "linux_control"):
         sys.path.insert(0, str(_p))
 
 from imu_calibrate import apply_imu_calib, imu_body_frame_from_roll_pitch  # noqa: E402
-from inplace_demos import QuadPitchTrim  # noqa: E402
+from inplace_demos import (  # noqa: E402
+    LIVE_SPEED_MIN,
+    QuadPitchTrim,
+)
 
 try:
     from rl_move.sim.quad_play import Player  # noqa: E402
@@ -120,6 +123,90 @@ def test_mujoco_quad_walk_uses_calibrated_off_axis_trim() -> None:
         trim.update(apply_imu_calib(
             _imu_angles(sensor_roll, sensor_pitch), calib), t)
     assert trim.abort_reason is not None
+
+
+def test_mujoco_quad_walk_brace_holds_and_recovers_from_tip() -> None:
+    """Closed loop at the streamer's sparse (~4 Hz) IMU cadence: a
+    sustained ~8 deg tip (sensor fault injection on top of live walk
+    physics) must engage recovery — finish the step, brace-hold frozen
+    at all-stance, full trim authority — bring the lean back, release,
+    and never trip the limp guard.  Without recovery this exact run
+    limps on the fall guard at the first sustained tip."""
+    if Player is None:
+        print(f"SKIP MuJoCo quad recovery smoke: {_IMPORT_ERROR}")
+        return
+    from rl_move.sim.quad_play import all_stance
+
+    pl = Player()
+    pl.model.geom_friction[:, 0] *= 0.6
+    pl.model.actuator_forcerange[pl.pos_act] *= 0.85
+    pl.cmd_rear(then_walk=True)
+    for _ in range(int(9.0 * 25)):
+        pl.step()
+        if pl.state == Player.WALK:
+            break
+    assert pl.state == Player.WALK
+
+    expected_pitch = -24.0
+    calib = _calib_from_known_rear(expected_pitch)
+    trim = QuadPitchTrim(expected_pitch_deg=expected_pitch, gait="walk")
+    pl.gait.trim_fn = trim.pose_trim
+
+    def _fault_deg(t_s: float) -> float:
+        # Looks to the trim like the nose sagged 8 deg toward level:
+        # slow ramp in over 2 s, hold 3 s, ramp out by 12 s.
+        if t_s < 6.0 or t_s >= 12.0:
+            return 0.0
+        if t_s < 8.0:
+            return 8.0 * (t_s - 6.0) / 2.0
+        if t_s < 11.0:
+            return 8.0
+        return 8.0 * (12.0 - t_s)
+
+    rng = np.random.default_rng(20260821)
+    dt = 1.0 / 25.0
+    imu_every = 6           # ~0.24 s: stream_pose_fn's IMU sample pace
+    releases = 0
+    prev_recovering = False
+    min_pitch_trim = 0.0
+    frozen_s = 0.0
+    for i in range(int(16.0 * 25)):
+        t_s = i * dt
+        if trim.ready:
+            if trim.recovering:
+                # Mirror stream_pose_fn's brace-hold clock: finish the
+                # step at <= 1x, freeze at the next all-stance window.
+                if all_stance(pl.gait, pl.tw):
+                    pl.speed = 0.0
+                    frozen_s += dt
+                else:
+                    pl.speed = 1.0
+            else:
+                pl.speed = max(LIVE_SPEED_MIN, min(3.0, trim.speed_scale))
+        pl.step()
+        if i % imu_every:
+            continue
+        body_pitch = _body_pitch_deg(pl)
+        noisy = (body_pitch + _fault_deg(t_s)
+                 + float(rng.normal(0.0, 0.2)))
+        sensor_roll, sensor_pitch = _off_axis_sensor_from_body_pitch(noisy)
+        imu = apply_imu_calib(_imu_angles(sensor_roll, sensor_pitch), calib)
+        trim.update(imu, t_s)
+        if prev_recovering and not trim.recovering:
+            releases += 1
+        prev_recovering = trim.recovering
+        min_pitch_trim = min(min_pitch_trim, trim.pitch_trim_deg)
+        assert trim.abort_reason is None, trim.abort_reason
+
+    assert trim.recover_count >= 1
+    assert releases >= 1
+    # Brace-hold actually froze the gait clock on planted feet.
+    assert frozen_s > 1.0
+    # Recovery used more than the normal +/-5 deg trim cap.
+    assert min_pitch_trim < -5.5
+    # Fault gone: recovery released and the walk is still live.
+    assert not trim.recovering
+    assert pl.state == Player.WALK
 
 
 def _main() -> int:

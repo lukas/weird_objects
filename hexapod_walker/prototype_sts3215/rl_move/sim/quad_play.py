@@ -60,9 +60,7 @@ WIN = "quad_play — tip-back walk (7 rear · W walk · Space stop · 8 sit)"
 
 def all_stance(g: "QW.QuadRearWalk", tw: float) -> bool:
     """True when all 4 support feet are planted at walk-clock ``tw``."""
-    p = (tw / g.period) % 1.0
-    return all(((p - ph) % 1.0) >= (1.0 - g.duty)
-               for ph in g.phase.values())
+    return g.walk_all_stance_at(tw)
 
 
 class Player:
