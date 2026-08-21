@@ -2045,9 +2045,25 @@ class BenchAPI:
                 p["ok"] = bool(contact_sweep.get("ok"))
                 status = contact_sweep.get("status") or "unknown"
                 n = contact_sweep.get("sample_count")
-                p["summary"] = (
+                summary = (
                     f"dimension sweep {status}; {n} accepted contacts"
                     if n is not None else f"dimension sweep {status}")
+                manual_fit = contact_sweep.get("manual_link_fit")
+                if status == "geometry_mismatch" and isinstance(manual_fit, dict):
+                    bits = []
+                    for key in ("femur", "tibia"):
+                        row = manual_fit.get(key)
+                        if not isinstance(row, dict):
+                            continue
+                        try:
+                            bits.append(
+                                f"{key} fit {float(row['fit_mm']):.1f}"
+                                f" vs {float(row['manual_mm']):.1f}mm")
+                        except (KeyError, TypeError, ValueError):
+                            pass
+                    if bits:
+                        summary += "; " + "; ".join(bits)
+                p["summary"] = summary
         if phases:
             report["ok"] = (
                 all(bool(p.get("ok")) for p in phases)
@@ -2381,6 +2397,39 @@ class BenchAPI:
         fit_summary = (effective_fit or {}).get("summary") or {}
         seg = (effective_fit or {}).get("segment_fit") or {}
         fit_links = seg.get("link_lengths_mm") or {}
+        manual_link_fit = {}
+        manual_link_mismatch = False
+        manual_link_notes = []
+        for name, manual_value in (
+                ("femur", manual_femur_mm),
+                ("tibia", manual_tibia_mm)):
+            fit_value = self._maybe_float(fit_links.get(name))
+            if manual_value is None or fit_value is None:
+                continue
+            delta = round(fit_value - manual_value, 2)
+            pct = round(100.0 * delta / manual_value, 1)
+            manual_link_fit[name] = {
+                "fit_mm": round(fit_value, 2),
+                "manual_mm": round(manual_value, 2),
+                "delta_mm": delta,
+                "delta_pct": pct,
+            }
+            if abs(pct) > 20.0:
+                manual_link_mismatch = True
+                manual_link_notes.append(
+                    f"{name} fit {fit_value:.1f}mm vs manual "
+                    f"{manual_value:.1f}mm ({pct:+.1f}%)")
+        if manual_link_mismatch:
+            effective_fit["manual_link_mismatch"] = True
+            effective_fit["manual_link_fit"] = manual_link_fit
+            effective_fit.setdefault("notes", [])
+            effective_fit["notes"] = list(effective_fit["notes"]) + [
+                "Contact angles fit the measured hip height only by using "
+                "effective segment lengths far from the operator's manual "
+                "measurements; check joint zero/sign conventions and link "
+                "measurement reference points.",
+                "Manual mismatch: " + "; ".join(manual_link_notes),
+            ]
         per_leg_heights_m = {}
         if manual_height_mm is not None:
             per_leg_heights_m = {
@@ -2492,6 +2541,8 @@ class BenchAPI:
                     else round(manual_absolute_height_mm
                                - manual_height_mm, 2)),
                 "manual_center_minus_nominal_mm": center_radius_delta_mm,
+                "manual_link_fit": manual_link_fit or None,
+                "manual_link_mismatch": manual_link_mismatch,
                 "height_source": (
                     "manual_operator_measurement"
                     if manual_height_mm is not None
@@ -2501,8 +2552,12 @@ class BenchAPI:
             "plant_only_fit": plant_fit,
             "contact_sweep": (
                 None if not isinstance(sweep, dict) else {
-                    "ok": bool((sweep_fit or {}).get("ok")),
-                    "status": (sweep_fit or {}).get("status"),
+                    "ok": (
+                        bool((sweep_fit or {}).get("ok"))
+                        and not manual_link_mismatch),
+                    "status": (
+                        "geometry_mismatch" if manual_link_mismatch
+                        else (sweep_fit or {}).get("status")),
                     "sample_count": (
                         (sweep_fit or {}).get("sample_count")
                         if isinstance(sweep_fit, dict)
@@ -2513,6 +2568,7 @@ class BenchAPI:
                     "latest": sweep.get("latest"),
                     "samples": sweep_samples,
                     "fit": sweep_fit,
+                    "manual_link_fit": manual_link_fit or None,
                 }),
             "mujoco_hint": {
                 "link_lengths_m": {
