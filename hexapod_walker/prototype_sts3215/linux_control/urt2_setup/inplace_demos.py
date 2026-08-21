@@ -946,13 +946,14 @@ class QuadPitchTrim:
     """Tiny IMU pitch reflex for split quad hold/walk/trot phases.
 
     The trim baseline is measured at the start of the reared phase. We
-    infer whether the rear lean appears on the IMU's pitch or roll axis,
-    then convert that chosen axis into quad_walk's command convention
-    (negative = nose up). If pitch drifts forward, the command nudges
-    more nose-up/aft; if it drifts backward, the command nudges less
-    nose-up/forward. Large relative pitch error for two IMU samples is
-    treated as a fall onset and the streamer goes limp rather than
-    fighting it.
+    treat the baseline (roll, pitch) pair as a 2D lean vector, so an IMU
+    mounted off-axis can split rear lean across both computed axes. New
+    samples are projected onto that vector, then converted into
+    quad_walk's command convention (negative = nose up). If pitch drifts
+    forward, the command nudges more nose-up/aft; if it drifts backward,
+    the command nudges less nose-up/forward. Large relative pitch error
+    for two IMU samples is treated as a fall onset and the streamer goes
+    limp rather than fighting it.
     """
 
     def __init__(self, *, expected_pitch_deg: float | None = None,
@@ -964,7 +965,9 @@ class QuadPitchTrim:
         self.disabled_reason = ""
         self.samples = 0
         self.imu_axis = "pitch"
-        self.sign_to_cmd = 1.0
+        self.imu_axis_roll = 0.0
+        self.imu_axis_pitch = 1.0
+        self.sign_to_cmd = -1.0
         self.target_pitch_deg: float | None = None
         self.pitch_deg: float | None = None
         self.pitch_error_deg = 0.0
@@ -981,8 +984,16 @@ class QuadPitchTrim:
         self._last_emit_t = 0.0
         self._last_emit_bucket: tuple[int, int] | None = None
 
-    def _selected_axis_deg(self, roll_deg: float, pitch_deg: float) -> float:
-        return roll_deg if self.imu_axis == "roll" else pitch_deg
+    def _axis_label(self) -> str:
+        if abs(self.imu_axis_roll) < 0.25:
+            return "pitch"
+        if abs(self.imu_axis_pitch) < 0.25:
+            return "roll"
+        return "mix"
+
+    def _project_lean_deg(self, roll_deg: float, pitch_deg: float) -> float:
+        return (roll_deg * self.imu_axis_roll
+                + pitch_deg * self.imu_axis_pitch)
 
     def pose_trim(self) -> dict:
         if not self.enabled or not self.ready:
@@ -1007,23 +1018,21 @@ class QuadPitchTrim:
                 return True
             base_roll = sum(r for r, _p in self._warmup) / len(self._warmup)
             base_pitch = sum(p for _r, p in self._warmup) / len(self._warmup)
-            if abs(base_roll) > abs(base_pitch):
-                self.imu_axis = "roll"
-                measured_base = base_roll
-            else:
-                self.imu_axis = "pitch"
-                measured_base = base_pitch
-            if abs(measured_base) < 6.0:
+            measured_base = math.hypot(base_roll, base_pitch)
+            if measured_base < 6.0:
                 self.enabled = False
                 self.disabled_reason = (
                     "imu rear-lean baseline too small "
                     f"(roll {base_roll:+.1f}, pitch {base_pitch:+.1f} deg)")
                 return True
+            self.imu_axis_roll = base_roll / measured_base
+            self.imu_axis_pitch = base_pitch / measured_base
+            self.imu_axis = self._axis_label()
             expected = self.expected_pitch_deg
             if expected is not None and abs(expected) > 5.0:
                 # quad_walk command convention is negative nose-up. If the
-                # selected IMU axis reports the opposite sign at the reared
-                # baseline, flip it into command convention.
+                # projected rear-lean baseline reports the opposite sign,
+                # flip it into command convention.
                 self.sign_to_cmd = (
                     -1.0 if expected * measured_base < 0 else 1.0)
             self.target_pitch_deg = self.sign_to_cmd * measured_base
@@ -1034,7 +1043,7 @@ class QuadPitchTrim:
             self.ready = True
             return True
 
-        selected = self._selected_axis_deg(roll_deg, pitch_deg)
+        selected = self._project_lean_deg(roll_deg, pitch_deg)
         alpha = 0.35
         if self._axis_lp_meas is None:
             self._axis_lp_meas = selected
@@ -1105,6 +1114,8 @@ class QuadPitchTrim:
             "enabled": self.enabled,
             "disabled_reason": self.disabled_reason,
             "imu_axis": self.imu_axis,
+            "imu_axis_roll": round(self.imu_axis_roll, 3),
+            "imu_axis_pitch": round(self.imu_axis_pitch, 3),
             "imu_sign_to_cmd": self.sign_to_cmd,
             "target_pitch_deg": (
                 None if self.target_pitch_deg is None
@@ -1123,6 +1134,8 @@ class QuadPitchTrim:
         d = self.event_data()
         return {
             "balance_axis": d["imu_axis"],
+            "balance_axis_roll": f"{d['imu_axis_roll']:.3f}",
+            "balance_axis_pitch": f"{d['imu_axis_pitch']:.3f}",
             "balance_target_pitch_deg": "" if d["target_pitch_deg"] is None
             else f"{d['target_pitch_deg']:.2f}",
             "balance_pitch_deg": "" if d["pitch_deg"] is None

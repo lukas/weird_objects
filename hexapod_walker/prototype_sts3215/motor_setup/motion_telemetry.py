@@ -9,7 +9,8 @@ t_s, joint, id, name, cmd_deg, present_deg, err_deg, speed_deg_s,
 load_pct, current_a, volt, wrote, cmd_speed, cmd_acc, moving,
 ax_g, ay_g, az_g, gx_dps, gy_dps, gz_dps, temp_c,
 roll_deg, pitch_deg,
-balance_axis, balance_target_pitch_deg, balance_pitch_deg, balance_err_deg,
+balance_axis, balance_axis_roll, balance_axis_pitch,
+balance_target_pitch_deg, balance_pitch_deg, balance_err_deg,
 balance_rate_deg_s, balance_pitch_trim_deg, balance_dx_trim_mm,
 balance_speed_scale
 
@@ -109,7 +110,7 @@ class MotionLog:
             "ax_g", "ay_g", "az_g",
             "gx_dps", "gy_dps", "gz_dps", "temp_c",
             "roll_deg", "pitch_deg",
-            "balance_axis",
+            "balance_axis", "balance_axis_roll", "balance_axis_pitch",
             "balance_target_pitch_deg", "balance_pitch_deg",
             "balance_err_deg", "balance_rate_deg_s",
             "balance_pitch_trim_deg", "balance_dx_trim_mm",
@@ -242,6 +243,8 @@ class MotionLog:
             }
         extra_cols = {
             "balance_axis": "",
+            "balance_axis_roll": "",
+            "balance_axis_pitch": "",
             "balance_target_pitch_deg": "",
             "balance_pitch_deg": "",
             "balance_err_deg": "",
