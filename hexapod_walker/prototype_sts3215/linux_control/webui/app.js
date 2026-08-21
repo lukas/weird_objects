@@ -19,6 +19,7 @@ let robotTargetAvailable = true;
 let simTargetAvailable = false;
 let robotTargetUrl = '';
 let targetLineMsg = {robot:null, sim:null};
+let lastRobotState = null;
 let lastTargetHealthMsg = '';
 let simFrames = true;
 let simNativeViewer = false;
@@ -2394,6 +2395,7 @@ function startDemoPoll(){
 function stopDemoPoll(){ if(demoTimer){ clearInterval(demoTimer); demoTimer=null; } }
 function paintRobotActivity(robot){
   if(!robot) return;
+  lastRobotState = robot;
   const el = $('robotact');
   if(!el) return;
   const act = robot.activity || 'idle';
@@ -2664,12 +2666,20 @@ function quadRobotBlocked(action){
   return targetHasRobot && quadSuffix() === '_aggressive'
     && ['walk', 'walk_back', 'trot', 'trot_back'].includes(action);
 }
+function quadStandReadyKnown(){
+  if(!lastRobotState) return true;
+  return !!lastRobotState.armed && lastRobotState.mode === 'stand';
+}
 function quadRunAction(action, label){
   if(quadRobotBlocked(action)){
     showSent(
       'aggressive walk/trot is blocked on the robot after the forward fall; '
       +'use Pitched for hardware or switch to MuJoCo-only to simulate it',
       true);
+    return;
+  }
+  if(targetHasRobot && action === 'rear' && !quadStandReadyKnown()){
+    showSent('press Stand zero first; Rear up no longer auto-stands', true);
     return;
   }
   quadRun(quadName(action), label);

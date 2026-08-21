@@ -784,7 +784,7 @@ class BenchAPI:
         try:
             from inplace_demos import (
                 DEMOS, QUAD_BLOCKED_HARDWARE_DEMOS, QUAD_DOWN_DEMOS,
-                QUAD_REQUIRES_REAR, QUAD_REARED_END_DEMOS,
+                QUAD_REAR_DEMOS, QUAD_REQUIRES_REAR, QUAD_REARED_END_DEMOS,
                 QUAD_STREAM_DEMOS, run_demo)
         except ImportError as e:
             return {"ok": False, "error": f"inplace_demos missing: {e}"}
@@ -845,10 +845,22 @@ class BenchAPI:
             motion_log = bool(motion_log)
 
         quad_any = name in QUAD_STREAM_DEMOS
+        quad_rear = name in QUAD_REAR_DEMOS
         quad_requires_rear = name in QUAD_REQUIRES_REAR
         quad_current = bool(
             self._demo_thread and self._demo_thread.is_alive()
             and self._demo_name in QUAD_STREAM_DEMOS)
+        if quad_rear:
+            with self.drive._lock:
+                stand_ready = bool(
+                    self.drive.armed and self.drive.mode == "stand")
+            if not stand_ready:
+                return {"ok": False,
+                        "error": (
+                            "quad rear up requires Stand zero first; "
+                            "it no longer auto-stands before rearing"),
+                        "demo": self.demo_state(),
+                        "robot": self.robot_state()}
         if quad_requires_rear and not (self._quad_reared or quad_current):
             return {"ok": False,
                     "error": "quad: rear up first, then walk/trot/down",
@@ -856,7 +868,7 @@ class BenchAPI:
 
         # Uploaded scripts start AND end at sit zero (like air demos).
         home = ("sit" if (name in AIR_DEMO_NAMES or script is not None)
-                else "quad" if quad_requires_rear
+                else "quad" if (quad_requires_rear or quad_rear)
                 else "stand")
         switched_from = None
         if self._demo_thread and self._demo_thread.is_alive():
