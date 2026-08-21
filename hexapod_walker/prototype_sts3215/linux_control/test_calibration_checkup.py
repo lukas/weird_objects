@@ -225,6 +225,28 @@ def test_clean_checkup_returns_zero() -> None:
     assert _phase(result["phases"], "camera_witness")["skipped"] is True
 
 
+def test_recoverable_traction_guard_still_returns_zero() -> None:
+    result, calls = _run_checkup(
+        sweep_res={"ok": True, "mode": "geometry_sweep", "msg": "sweep ok"},
+        traction_res={
+            "ok": False,
+            "mode": "traction_probe",
+            "recoverable": True,
+            "guard_stop": True,
+            "error": "L0 hover stopped: tilt delta > 8 deg",
+        })
+    assert not result["ok"], result
+    assert result["error"] == (
+        "traction_probe: L0 hover stopped: tilt delta > 8 deg")
+    assert calls.count("safe_zero") == 2, calls
+    assert "proprio" in calls, calls
+    traction = _phase(result["phases"], "traction_probe")
+    assert traction["aborted"] is False
+    assert traction["recoverable"] is True
+    assert _phase(result["phases"], "return_zero")["ok"] is True
+    assert _phase(result["phases"], "proprioception_check")["ok"] is True
+
+
 class FakeFeedbackBus:
     def __init__(self, *, off_joint: int | None = None,
                  off_deg: float = 0.0, current_a: float = 0.15):

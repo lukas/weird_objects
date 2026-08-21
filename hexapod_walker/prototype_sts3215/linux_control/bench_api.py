@@ -2866,6 +2866,132 @@ class BenchAPI:
             },
         }
 
+    def _geometry_plausibility_check(
+            self, *, geometry_sweep: dict | None = None) -> dict:
+        """Read-only sanity gate for geometry evidence.
+
+        This deliberately does not move the robot.  It decides whether the
+        contact/sweep math is plausible enough to use as a dimension source,
+        and records why not when the data is weak.
+        """
+        geom = self._geometry_report(
+            geometry_sweep=geometry_sweep, use_latest_sweep=False)
+        if not geom.get("ok"):
+            return {
+                "ok": False,
+                "non_blocking": True,
+                "mode": "geometry_plausibility",
+                "error": geom.get("error") or "geometry report unavailable",
+                "msg": geom.get("error") or "geometry report unavailable",
+            }
+        summary = geom.get("summary") or {}
+        manual = geom.get("manual_measurements") or {}
+        contact = geom.get("contact_sweep") or {}
+        issues: list[str] = []
+        warnings: list[str] = []
+        if not manual.get("learned"):
+            warnings.append(
+                "no hand measurements saved; using nominal CAD/contact model")
+        if summary.get("manual_geometry_mismatch"):
+            issues.append(
+                "contact-derived geometry disagrees with hand measurements")
+        status = str(contact.get("status") or "").lower()
+        sample_count = int(contact.get("sample_count") or 0)
+        raw_count = int(contact.get("raw_sample_count") or sample_count or 0)
+        if status in ("partial", "no_contacts", "not_enough_contacts"):
+            warnings.append(
+                f"contact sweep weak ({sample_count}/{raw_count} accepted)")
+        if summary.get("max_zero_hint_deg") is not None:
+            try:
+                max_zero = float(summary["max_zero_hint_deg"])
+                if max_zero > 10.0:
+                    warnings.append(
+                        f"large relative zero hint ({max_zero:.1f} deg)")
+            except (TypeError, ValueError):
+                pass
+
+        ok = not issues
+        msg = (
+            "geometry plausible"
+            if ok and not warnings else
+            "geometry plausible with warnings: " + "; ".join(warnings)
+            if ok else
+            "geometry not trusted: " + "; ".join(issues)
+        )
+        return {
+            "ok": ok,
+            "non_blocking": True,
+            "mode": "geometry_plausibility",
+            "error": None if ok else msg,
+            "warning": "; ".join(warnings) if warnings else None,
+            "msg": msg,
+            "manual_geometry_mismatch": bool(
+                summary.get("manual_geometry_mismatch")),
+            "manual_measurements_saved": bool(manual.get("learned")),
+            "contact_sweep_status": contact.get("status"),
+            "contact_sample_count": sample_count,
+            "contact_raw_sample_count": raw_count,
+            "max_zero_hint_deg": summary.get("max_zero_hint_deg"),
+            "benefit": (
+                "prevents weak contact probes from silently becoming sim "
+                "dimensions"),
+        }
+
+    def _imu_frame_validation_check(
+            self, body_frame_result: dict | None = None) -> dict:
+        """Read-only summary of whether the IMU body-frame map is usable."""
+        imu = self.imu_state()
+        bf = None
+        if isinstance(body_frame_result, dict):
+            bf = body_frame_result.get("body_frame")
+        if not isinstance(bf, dict):
+            bf = imu.get("body_frame")
+        if not isinstance(bf, dict):
+            return {
+                "ok": False,
+                "non_blocking": True,
+                "mode": "imu_frame_validation",
+                "error": "no saved IMU body-frame map",
+                "msg": (
+                    "no saved IMU body-frame map; trim can use raw tilt only"),
+                "benefit": (
+                    "confirms calibrated pitch/roll signs before balance trim "
+                    "uses them"),
+            }
+        measured = self._maybe_float(bf.get("measured_lean_deg"))
+        axis = str(bf.get("pitch_axis") or "?")
+        source = str(bf.get("source") or "?")
+        warnings: list[str] = []
+        if measured is None:
+            warnings.append("saved map has no measured lean magnitude")
+        elif measured < 8.0:
+            warnings.append(f"lean sample small ({measured:.1f} deg)")
+        if isinstance(body_frame_result, dict) and body_frame_result.get("warning"):
+            warnings.append(str(body_frame_result["warning"]))
+        ok = measured is None or measured >= 6.0
+        msg = (
+            f"IMU body frame {axis}; rear-lean "
+            f"{measured:.1f} deg" if measured is not None
+            else f"IMU body frame {axis}"
+        )
+        if warnings:
+            msg += "; " + "; ".join(warnings)
+        return {
+            "ok": ok,
+            "non_blocking": True,
+            "mode": "imu_frame_validation",
+            "error": None if ok else msg,
+            "warning": "; ".join(warnings) if warnings else None,
+            "msg": msg,
+            "body_frame": bf,
+            "pitch_axis": axis,
+            "source": source,
+            "measured_lean_deg": measured,
+            "benefit": (
+                "checks that mounted IMU axes map to robot body pitch before "
+                "quad balance correction"),
+        }
+
     def _read_feedback_map(self, bus=None) -> dict[int, dict]:
         if bus is None:
             return {}
@@ -3628,8 +3754,27 @@ class BenchAPI:
         yaw_lo, yaw_hi = AXIS_LIMITS_DEG.get(0, (-35.0, 35.0))
         hip_lo, hip_hi = AXIS_LIMITS_DEG.get(1, (-80.0, 30.0))
         knee_lo, knee_hi = AXIS_LIMITS_DEG.get(2, (-20.0, 150.0))
-        amp = 7.0
+        amp = 4.0
         samples: list[dict] = []
+
+        def probe_stop(label: str, reason: str) -> dict:
+            """Return a phase failure that can still be recovered to zero.
+
+            A local traction guard means the probe learned "this motion is not
+            safe enough to keep sweeping"; it is different from an operator
+            stop / E-stop.  The checkup coordinator may still run safe-zero for
+            these recoverable stops.
+            """
+            stopped_by_operator = reason == "aborted" or abort_check()
+            return {
+                "ok": False,
+                "aborted": stopped_by_operator,
+                "recoverable": not stopped_by_operator,
+                "guard_stop": not stopped_by_operator,
+                "mode": "traction_probe",
+                "error": f"{label} stopped: {reason}",
+                "samples": samples,
+            }
 
         progress("Slip: settle plant")
         _enable_torque(bus, live)
@@ -3730,10 +3875,7 @@ class BenchAPI:
                         seconds=0.34, speed=125, acc=12,
                         tilt_limit=8.0, current_limit=2.8)
                     if not ok:
-                        return {"ok": False, "aborted": True,
-                                "mode": "traction_probe",
-                                "error": f"L{leg} hover stopped: {reason}",
-                                "samples": samples}
+                        return probe_stop(f"L{leg} hover", str(reason))
 
                 drag_center = pose_for(leg, 0.0, "loaded")
                 progress(f"Slip: L{leg} floor drag")
@@ -3749,10 +3891,7 @@ class BenchAPI:
                         seconds=0.40, speed=105, acc=12,
                         tilt_limit=8.0, current_limit=2.8)
                     if not ok:
-                        return {"ok": False, "aborted": True,
-                                "mode": "traction_probe",
-                                "error": f"L{leg} drag stopped: {reason}",
-                                "samples": samples}
+                        return probe_stop(f"L{leg} drag", str(reason))
                 _write_pose(bus, base, live, speed=130, acc=14)
                 time.sleep(0.25)
 
@@ -3787,10 +3926,7 @@ class BenchAPI:
                         seconds=0.28, speed=110, acc=12,
                         tilt_limit=12.0, current_limit=2.8)
                     if not ok:
-                        return {"ok": False, "aborted": True,
-                                "mode": "traction_probe",
-                                "error": f"seated L{leg} stopped: {reason}",
-                                "samples": samples}
+                        return probe_stop(f"seated L{leg}", str(reason))
             progress("Slip: return to plant")
             ease_to_pose(bus, base, abort_check=abort_check, seconds=2.5,
                          label="slip return plant")
@@ -3918,6 +4054,8 @@ class BenchAPI:
                 "log": result.get("log") or result.get("path"),
                 "log_name": result.get("log_name"),
                 "non_blocking": bool(result.get("non_blocking")),
+                "recoverable": bool(result.get("recoverable")),
+                "guard_stop": bool(result.get("guard_stop")),
                 "warning": result.get("warning"),
                 "summary": (
                     result.get("msg")
@@ -4109,7 +4247,17 @@ class BenchAPI:
             and not p.get("skipped")
             and not p.get("non_blocking")
             for p in phases)
-        if abort_check() or any(p.get("aborted") for p in phases):
+        unrecoverable_abort = any(
+            p.get("aborted") and not p.get("recoverable")
+            for p in phases)
+        unrecoverable_motion_issue = any(
+            p.get("name") in motion_phase_names
+            and not p.get("ok")
+            and not p.get("skipped")
+            and not p.get("non_blocking")
+            and not p.get("recoverable")
+            for p in phases)
+        if abort_check() or unrecoverable_abort:
             phases.append({
                 "name": "return_zero",
                 "ok": False,
@@ -4118,7 +4266,7 @@ class BenchAPI:
                 "mode": "return_zero",
                 "summary": "not run because checkup was aborted",
             })
-        elif prior_motion_issue:
+        elif prior_motion_issue and unrecoverable_motion_issue:
             phases.append({
                 "name": "return_zero",
                 "ok": False,

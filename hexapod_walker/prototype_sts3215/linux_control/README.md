@@ -162,7 +162,10 @@ report.  The proprioception phase is read-only after return-to-zero: it compares
 the expected zero pose with live servo encoders/current/voltage/temperature and
 flags large command-vs-feedback errors.  It cannot prove where the feet moved in
 the room; synced camera/video is the separate witness needed for slip and body
-translation.  The dimension sweep
+translation.  The traction/slip probe is deliberately recoverable: if its own
+tilt/current guard trips, the phase is reported as an issue but the checkup still
+attempts the staged safe-zero return unless the operator stop/E-stop was active.
+The dimension sweep
 keeps five feet planted and probes several same-floor hip/knee contact poses
 with the sixth leg.  Treat it as a contact-height consistency diagnostic:
 vertical floor contacts alone do **not** identify absolute femur/tibia lengths
