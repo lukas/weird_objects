@@ -1116,6 +1116,8 @@ function paintImuInfo(imu){
   }
 }
 const CHECKUP_STEPS = [
+  {id:'safe_zero', name:'Safe zero start pose',
+   detail:'Move through the collision-aware zero path before calibration.'},
   {id:'imu_rest', name:'IMU rest/bias',
    detail:'Hold still while gyro and accel rest offsets are saved.'},
   {id:'geometry_plant', name:'Ground contact geometry',
@@ -1134,6 +1136,7 @@ const CHECKUP_STEPS = [
 function checkupPhaseFromProgress(p){
   if(p && p.phase) return p.phase;
   const msg = String((p && p.msg) || '').toLowerCase();
+  if(msg.includes('safe_zero') || msg.includes('safe zero') || msg.includes('zero:')) return 'safe_zero';
   if(msg.includes('sweep') || msg.includes('dimension')) return 'geometry_sweep';
   if(msg.includes('traction') || msg.includes('slip')) return 'traction_probe';
   if(msg.includes('imu body') || msg.includes('quad rear')) return 'imu_body_frame';

@@ -3163,6 +3163,36 @@ class BenchAPI:
         except ImportError as e:
             return {"ok": False, "mode": "checkup", "error": str(e)}
 
+        progress("Safe zero start pose", "safe_zero")
+        zero_res = self._safe_zero_sync(
+            abort_check=abort_check,
+            on_progress=lambda p: progress(
+                "Zero: " + str(p.get("msg") or "running"),
+                "safe_zero",
+                **{k: v for k, v in p.items() if k != "msg"}))
+        zero_res.setdefault("mode", "safe_zero")
+        if zero_res.get("ok"):
+            if zero_res.get("already_at_zero"):
+                zero_res["msg"] = "already at zero"
+            else:
+                zero_res["msg"] = (
+                    f"zero pose ready; {zero_res.get('stages_done', 0)} "
+                    "safe stages")
+        phase("safe_zero", zero_res)
+        if (abort_check() or zero_res.get("aborted")
+                or not zero_res.get("ok")):
+            report = self._save_calibration_report(phases=phases, bus=bus)
+            return {
+                "ok": False,
+                "aborted": bool(abort_check() or zero_res.get("aborted")),
+                "mode": "checkup",
+                "error": zero_res.get("error"),
+                "phases": phases,
+                "report": report,
+                "path": report.get("path"),
+                "log_name": report.get("log_name"),
+            }
+
         progress("IMU rest/bias", "imu_rest")
         imu_res = run_imu_calibrate(
             bus, abort_check=abort_check,
