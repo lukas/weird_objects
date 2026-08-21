@@ -57,6 +57,7 @@ files = [
     "linux_control/mcu_feetech_bus.py",
     "linux_control/event_log.py",
     "linux_control/status_display.py",
+    "linux_control/deploy_status_display.py",
     "linux_control/safe_zero.py",
     "linux_control/pinned_tip.py",
     "linux_control/plant_calibrate.py",

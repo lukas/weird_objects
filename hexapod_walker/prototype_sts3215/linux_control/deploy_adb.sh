@@ -57,6 +57,7 @@ adb push "$SRC/geometry_plant.py" "$REMOTE/linux_control/"
 adb push "$SRC/imu_calibrate.py" "$REMOTE/linux_control/"
 adb push "$SRC/event_log.py" "$REMOTE/linux_control/"
 adb push "$SRC/status_display.py" "$REMOTE/linux_control/"
+adb push "$SRC/deploy_status_display.py" "$REMOTE/linux_control/"
 adb push "$SRC/servo_watch.py" "$REMOTE/linux_control/"
 adb push "$SRC/mpu_probe.py" "$REMOTE/linux_control/"
 adb push "$SRC/rl_policy.py" "$REMOTE/linux_control/"
@@ -118,14 +119,28 @@ else
   BUS_ARGS="--port mcu"
 fi
 
+paint_deploy_screen() {
+  adb shell "cd '$REMOTE/linux_control' && \
+    PYTHONPATH='$REMOTE/linux_control/vendor:$REMOTE/urt2_setup:$REMOTE/motor_setup:$REMOTE/linux_control' \
+    python3 deploy_status_display.py \
+      --title DEPLOYING \
+      --line 'code updated' \
+      --line 'web restarting' \
+      --line 'please wait' \
+      --footer 'screen will resume'" >/dev/null 2>&1 || true
+}
+
 echo ">> restarting web_drive.py"
 # Prefer the boot-enabled systemd unit when present.
 if adb shell 'systemctl is-enabled hexapod-web.service >/dev/null 2>&1'; then
-  adb shell 'echo arduino | sudo -S systemctl restart hexapod-web.service' >/dev/null
+  adb shell 'echo arduino | sudo -S systemctl stop hexapod-web.service' >/dev/null || true
+  paint_deploy_screen
+  adb shell 'echo arduino | sudo -S systemctl start hexapod-web.service' >/dev/null
   sleep 5
   adb shell 'systemctl --no-pager -l status hexapod-web.service | head -20 || true'
 else
   adb shell "pkill -f '[p]ython3 .*web_drive.py' || true" >/dev/null || true
+  paint_deploy_screen
   # Detach cleanly — a bare `adb shell '... &'` can hang until the child exits.
   adb shell "sh -c 'cd \"$REMOTE/linux_control\" && \
     PYTHONUNBUFFERED=1 \

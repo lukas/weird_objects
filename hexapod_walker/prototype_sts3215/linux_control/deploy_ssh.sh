@@ -52,7 +52,8 @@ cp "$SRC/tripod_gait.py" "$SRC/drive_controller.py" \
   "$SRC/mcu_feetech_bus.py" "$SRC/bench_api.py" "$SRC/web_drive.py" \
   "$SRC/xbox_drive.py" "$SRC/joint_calibrate.py" \
   "$SRC/plant_calibrate.py" "$SRC/geometry_plant.py" "$SRC/imu_calibrate.py" \
-  "$SRC/event_log.py" "$SRC/status_display.py" "$SRC/servo_watch.py" \
+  "$SRC/event_log.py" "$SRC/status_display.py" \
+  "$SRC/deploy_status_display.py" "$SRC/servo_watch.py" \
   "$SRC/mpu_probe.py" "$SRC/rl_policy.py" "$SRC/safe_zero.py" \
   "$SRC/pinned_tip.py" "$SRC/noslip_gait.py" "$SRC/se2_foot_gait.py" \
   "$SRC/sysid_protocol.py" "$SRC/sysid_runner.py" "$SRC/bus_bench.py" \
@@ -95,14 +96,29 @@ echo ">> pushing code + vendored SDK -> $HOST:$REMOTE (single tar|ssh)"
 COPYFILE_DISABLE=1 tar --no-xattrs -C "$STAGE" -czf - . \
   | "${SSH[@]}" "mkdir -p '$REMOTE' && tar -xzf - -C '$REMOTE'"
 
+paint_deploy_screen() {
+  "${SSH[@]}" "cd '$REMOTE/linux_control' && \
+    PYTHONPATH='$REMOTE/linux_control/vendor:$REMOTE/urt2_setup:$REMOTE/motor_setup:$REMOTE/linux_control' \
+    python3 deploy_status_display.py \
+      --title DEPLOYING \
+      --line 'code updated' \
+      --line 'web restarting' \
+      --line 'please wait' \
+      --footer 'screen will resume'" >/dev/null 2>&1 || true
+}
+
 echo ">> restarting web_drive.py"
 if "${SSH[@]}" 'systemctl is-enabled hexapod-web.service >/dev/null 2>&1'; then
-  "${SSH[@]}" 'echo arduino | sudo -S systemctl restart hexapod-web.service' \
+  "${SSH[@]}" 'echo arduino | sudo -S systemctl stop hexapod-web.service' \
+    >/dev/null || true
+  paint_deploy_screen
+  "${SSH[@]}" 'echo arduino | sudo -S systemctl start hexapod-web.service' \
     >/dev/null
   "${SSH[@]}" 'systemctl --no-pager -l status hexapod-web.service \
     | head -5 || true'
 else
   "${SSH[@]}" "pkill -f '[p]ython3 .*web_drive.py' || true" || true
+  paint_deploy_screen
   "${SSH[@]}" "sh -c 'cd \"$REMOTE/linux_control\" && \
     PYTHONUNBUFFERED=1 \
     PYTHONPATH=\"$REMOTE/linux_control/vendor:$REMOTE/urt2_setup:$REMOTE/motor_setup:$REMOTE/linux_control\" \
