@@ -199,6 +199,8 @@ class SimTarget:
             return RouteResponse.json(s.pose())
         if path == "/api/calibrate":
             return RouteResponse.json(s.operation_state())
+        if path == "/api/calibration/report":
+            return RouteResponse.json(s.calibration_report())
         if path in ("/api/rl", "/api/rl/state"):
             return RouteResponse.json(s.operation_state())
         if path == "/api/rl/preflight":
@@ -273,6 +275,14 @@ class SimTarget:
                 softness=float(data.get("softness", 1.0)),
                 seconds=(float(data["seconds"])
                          if data.get("seconds") is not None else None)))
+        if path == "/api/calibrate":
+            return RouteResponse.json(s.run_calibrate(
+                mode=str(data.get("mode", "checkup")),
+                step_deg=float(data.get("step_deg", 10)),
+                nudge_deg=float(data.get("nudge_deg", 2)),
+                axis=str(data.get("axis", "all")),
+                clearance_mm=float(data.get("clearance_mm", 40)),
+                quad_body_frame=bool(data.get("quad_body_frame", False))))
         if path == "/api/dances":
             script = data
             if isinstance(script, dict) and "script" in script:
@@ -491,6 +501,7 @@ class HubController:
 
     BROADCAST_POSTS = {
         "/cmd",
+        "/api/calibrate",
         "/api/demo",
         "/api/demo/speed",
         "/api/demo/stop",

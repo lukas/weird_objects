@@ -1079,7 +1079,7 @@ $('tab-debug').onclick = ()=> showView('debug');
 dbgRefresh();
 
 // --- Calibrate (step + shake/hold + plant height + CSV log) -----------------
-let calMode = 'step';
+let calMode = 'checkup';
 function startCalPoll(){
   stopCalPoll();
   calTimer = setInterval(()=>{ if(activeView==='calibrate') refreshCalibrate(); }, 800);
@@ -1112,24 +1112,32 @@ function paintImuInfo(imu){
   }
 }
 function syncCalModeUI(){
+  const checkup = calMode === 'checkup';
   const shake = calMode === 'shake';
   const plant = calMode === 'plant';
   const geometry = calMode === 'geometry';
   const imu = calMode === 'imu';
-  $('calhint-step').style.display = (!shake && !plant && !geometry && !imu) ? '' : 'none';
+  $('calhint-checkup').style.display = checkup ? '' : 'none';
+  $('calquadbodywrap').style.display = checkup ? 'block' : 'none';
+  $('calhint-step').style.display = (!checkup && !shake && !plant && !geometry && !imu) ? '' : 'none';
   $('calhint-shake').style.display = shake ? '' : 'none';
   $('calhint-plant').style.display = plant ? '' : 'none';
   const geoEl = $('calhint-geometry');
   if(geoEl) geoEl.style.display = geometry ? '' : 'none';
   $('calhint-imu').style.display = imu ? '' : 'none';
-  $('calstepwrap').style.display = (!shake && !plant && !geometry && !imu) ? '' : 'none';
+  $('calstepwrap').style.display = (!checkup && !shake && !plant && !geometry && !imu) ? '' : 'none';
   $('calnudgewrap').style.display = shake ? '' : 'none';
-  $('calaxiswrap').style.display = (plant || geometry || imu) ? 'none' : '';
-  $('calplantinfo').style.display = (plant || geometry) ? '' : 'none';
+  $('calaxiswrap').style.display = (checkup || plant || geometry || imu) ? 'none' : '';
+  $('calplantinfo').style.display = (checkup || plant || geometry) ? '' : 'none';
   $('calplantreset').style.display = (plant || geometry) ? '' : 'none';
-  $('calimuinfo').style.display = imu ? '' : 'none';
+  $('calimuinfo').style.display = (checkup || imu) ? '' : 'none';
   $('calimureset').style.display = imu ? '' : 'none';
-  if(imu){
+  if(checkup){
+    $('callegend').innerHTML =
+      '<span class="cal-pill green">saved</span> report complete · '+
+      '<span class="cal-pill yellow">partial</span> phase issue · '+
+      '<span class="cal-pill red">abort</span> stopped';
+  } else if(imu){
     $('callegend').innerHTML =
       '<span class="cal-pill green">green</span> still · saved · '+
       '<span class="cal-pill yellow">yellow</span> mild shake · saved · '+
@@ -1157,6 +1165,51 @@ function renderCalResult(res){
   if(!res){
     if(body && !($('calstatus').textContent||'').includes('…'))
       body.innerHTML = '<tr><td colspan="8">No rows yet.</td></tr>';
+    return;
+  }
+  if(res.mode === 'checkup'){
+    const phases = res.phases || [];
+    const report = res.report || {};
+    const geom = res.geometry || report.geometry || {};
+    const gsum = (geom && geom.summary) || {};
+    const act = res.actuators || report.actuators || {};
+    const snap = (act && act.snapshot) || {};
+    const learned = act && act.learned_model;
+    $('calcounts').innerHTML =
+      (res.ok
+        ? '<span class="cal-pill green">saved</span> calibration report'
+        : '<span class="cal-pill yellow">partial</span> calibration report')+
+      (gsum.mean_foot_z_mm!=null ? ` · foot z ${Number(gsum.mean_foot_z_mm).toFixed(1)}mm` : '')+
+      (gsum.foot_z_spread_mm!=null ? ` · spread ${Number(gsum.foot_z_spread_mm).toFixed(1)}mm` : '')+
+      (snap.live_joints!=null ? ` · ${snap.live_joints} actuator snapshots` : '')+
+      (learned ? ' · motor model loaded' : '')+
+      (res.msg ? `<div class="hint" style="margin-top:6px">${res.msg}</div>` : '');
+    $('callog').textContent = res.log_name
+      ? `Report: logs/${res.log_name}`
+      : (res.path ? `Report: ${res.path}` : 'Report: —');
+    head.innerHTML = '<tr><th>Phase/Leg</th><th>Status</th><th>Hip°</th><th>Knee°</th>'+
+      '<th>Foot z</th><th>Radial</th><th>Detail</th><th></th></tr>';
+    const rows = [];
+    phases.forEach(p=>{
+      const cls = p.ok ? 'green' : (p.aborted ? 'red' : 'yellow');
+      rows.push(`<tr class="g-${cls}"><td>${p.name||'phase'}</td>`+
+        `<td><span class="cal-pill ${cls}">${p.ok?'ok':(p.aborted?'abort':'issue')}</span></td>`+
+        `<td></td><td></td><td></td><td></td>`+
+        `<td>${p.summary || p.error || ''}</td><td></td></tr>`);
+    });
+    (geom.per_leg || []).forEach(r=>{
+      rows.push(`<tr class="g-${res.ok?'green':'yellow'}"><td>L${r.leg}</td>`+
+        '<td>plant</td>'+
+        `<td>${Number(r.hip_deg).toFixed(1)}</td>`+
+        `<td>${Number(r.knee_deg).toFixed(1)}</td>`+
+        `<td>${Number(r.z_mm).toFixed(1)}mm</td>`+
+        `<td>${Number(r.radial_mm).toFixed(1)}mm</td>`+
+        '<td></td><td></td></tr>');
+    });
+    body.innerHTML = rows.length ? rows.join('')
+      : '<tr><td colspan="8">No report rows.</td></tr>';
+    if(geom.plant) paintPlantInfo(geom.plant);
+    if(res.imu || report.imu) paintImuInfo(res.imu || report.imu);
     return;
   }
   if(res.mode === 'imu'){
@@ -1299,7 +1352,8 @@ async function refreshCalibrate(){
       }
     }
     if(d.result && (d.result.rows || d.result.mode==='plant'
-        || d.result.mode==='geometry_plant' || d.result.mode==='imu'))
+        || d.result.mode==='geometry_plant' || d.result.mode==='imu'
+        || d.result.mode==='checkup'))
       renderCalResult(d.result);
   }catch(e){
     $('calstatus').textContent = 'Calibrate status failed (link?)';
@@ -1313,7 +1367,8 @@ document.querySelectorAll('#calmode button').forEach(b=>{
     b.classList.add('on');
     calMode = b.dataset.mode || 'step';
     syncCalModeUI();
-    if(calMode==='plant' || calMode==='geometry' || calMode==='imu') refreshCalibrate();
+    if(calMode==='checkup' || calMode==='plant'
+       || calMode==='geometry' || calMode==='imu') refreshCalibrate();
   };
 });
 document.querySelectorAll('#calaxis button').forEach(b=>{
@@ -1325,7 +1380,7 @@ document.querySelectorAll('#calaxis button').forEach(b=>{
 });
 syncCalModeUI();
 $('calrun').onclick = async ()=>{
-  if(calMode !== 'imu' && needArm()) return;
+  if(!['imu','checkup'].includes(calMode) && needArm()) return;
   $('calstatus').textContent = 'Starting…';
   $('calrun').disabled = true;
   try{
@@ -1337,6 +1392,7 @@ $('calrun').onclick = async ()=>{
         step_deg: parseFloat($('calstep').value)||10,
         nudge_deg: parseFloat($('calnudge').value)||2,
         axis: calAxis,
+        quad_body_frame: !!$('calquadbody').checked,
       }),
     });
     const d = await r.json();

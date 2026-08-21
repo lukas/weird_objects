@@ -8,7 +8,7 @@ import os
 import sys
 import threading
 import time
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
@@ -1771,6 +1771,163 @@ class SimWebSession:
                     "name": "rl_policy_sim" if running else "",
                     "progress": {"msg": self.msg, "live": self._live()},
                     "result": self.job_result}
+
+    def calibration_report(self) -> dict[str, Any]:
+        with self.lock:
+            try:
+                import tripod_gait as TG
+            except Exception:
+                TG = None
+            plant_deg = [round(math.degrees(float(v)), 3)
+                         for v in self.q_plant]
+
+            def foot_from(hip_deg: float, knee_deg: float) -> dict[str, float]:
+                if TG is None:
+                    return {"radial_mm": 0.0, "z_mm": 0.0}
+                hip = math.radians(float(hip_deg))
+                knee = math.radians(float(knee_deg))
+                reach = (TG.COXA_MM + TG.FEMUR_MM * math.cos(hip)
+                         + TG.TIBIA_MM * math.cos(hip + knee))
+                z = (-TG.FEMUR_MM * math.sin(hip)
+                     - TG.TIBIA_MM * math.sin(hip + knee))
+                return {"radial_mm": round(reach, 2), "z_mm": round(z, 2)}
+
+            per_leg = []
+            for leg in range(6):
+                yaw, hip, knee = plant_deg[leg * 3:leg * 3 + 3]
+                per_leg.append({
+                    "leg": leg,
+                    "yaw_deg": yaw,
+                    "hip_deg": hip,
+                    "knee_deg": knee,
+                    **foot_from(hip, knee),
+                })
+            z_vals = [float(r["z_mm"]) for r in per_leg]
+            radial_vals = [float(r["radial_mm"]) for r in per_leg]
+            params = getattr(self.env, "params", None)
+            servo_params = None
+            if params is not None:
+                try:
+                    servo_params = {
+                        "source": getattr(params, "source", ""),
+                        "timestamp": getattr(params, "timestamp", ""),
+                        "speed_counts_s": getattr(params, "speed_counts_s", None),
+                        "axes": {
+                            ax: asdict(p)
+                            for ax, p in getattr(params, "axes", {}).items()
+                        },
+                        "spread": getattr(params, "spread", {}),
+                    }
+                except Exception:
+                    servo_params = {"source": str(getattr(params, "source", ""))}
+            report = {
+                "ok": True,
+                "mode": "calibration_report",
+                "sim": True,
+                "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S"),
+                "phases": [{
+                    "name": "sim_snapshot",
+                    "ok": True,
+                    "summary": "MuJoCo state and active servo contract",
+                }],
+                "geometry": {
+                    "ok": True,
+                    "nominal_mm": ({
+                        "coxa": TG.COXA_MM,
+                        "femur": TG.FEMUR_MM,
+                        "tibia": TG.TIBIA_MM,
+                        "chassis_flat_to_flat": TG.CHASSIS_FLAT_TO_FLAT_MM,
+                    } if TG is not None else {}),
+                    "plant_joint_deg": plant_deg,
+                    "per_leg": per_leg,
+                    "summary": {
+                        "mean_foot_z_mm": round(sum(z_vals) / len(z_vals), 2),
+                        "foot_z_spread_mm": round(max(z_vals) - min(z_vals), 2),
+                        "mean_radial_mm": round(
+                            sum(radial_vals) / len(radial_vals), 2),
+                        "radial_spread_mm": round(
+                            max(radial_vals) - min(radial_vals), 2),
+                    },
+                    "mujoco_hint": {
+                        "plant_joint_deg": plant_deg,
+                        "neutral_foot_z_m": round(
+                            (sum(z_vals) / len(z_vals)) * 0.001, 5),
+                    },
+                },
+                "imu": {
+                    "ok": True,
+                    "sim": True,
+                    "body_calibrated": True,
+                    "body_frame": {
+                        "pitch_axis": "pitch",
+                        "pitch_axis_roll": 0.0,
+                        "pitch_axis_pitch": 1.0,
+                        "pitch_sign": 1.0,
+                        "source": "mujoco_body_frame",
+                    },
+                },
+                "actuators": {
+                    "ok": True,
+                    "sim": True,
+                    "learned_model": servo_params,
+                    "snapshot": None,
+                },
+                "live": self._live(),
+            }
+            stamp = time.strftime("%Y%m%d_%H%M%S")
+            path = self.log_dir / f"calibration_report_{stamp}.json"
+            latest = self.log_dir / "calibration_report_latest.json"
+            path.write_text(json.dumps(report, indent=2) + "\n")
+            latest.write_text(json.dumps(report, indent=2) + "\n")
+            report["path"] = str(path)
+            report["log_name"] = path.name
+            report["latest"] = str(latest)
+            return report
+
+    def run_calibrate(self, *, mode: str = "checkup",
+                      clearance_mm: float = 40.0, **_kw) -> dict[str, Any]:
+        mode = (mode or "checkup").strip().lower()
+        with self.lock:
+            if mode not in {"checkup", "calibration", "auto", "all",
+                            "geometry", "imu"}:
+                self.job_result = {
+                    "ok": False,
+                    "mode": mode,
+                    "error": f"sim calibration mode {mode!r} is report-only",
+                }
+            else:
+                report = self.calibration_report()
+                phases = list(report.get("phases") or [])
+                if mode in {"checkup", "calibration", "auto", "all"}:
+                    phases = [
+                        {"name": "imu_rest", "ok": True,
+                         "summary": "sim IMU is body-frame exact"},
+                        {"name": "geometry_plant", "ok": True,
+                         "summary": "sim plant pose captured"},
+                        {"name": "actuator_contract", "ok": True,
+                         "summary": "active servo params captured"},
+                    ]
+                self.job_result = {
+                    "ok": True,
+                    "mode": "checkup" if mode in {"calibration", "auto",
+                                                 "all"} else mode,
+                    "phases": phases,
+                    "report": report,
+                    "geometry": report.get("geometry"),
+                    "imu": report.get("imu"),
+                    "actuators": report.get("actuators"),
+                    "path": report.get("path"),
+                    "log_name": report.get("log_name"),
+                    "latest": report.get("latest"),
+                    "clearance_mm": float(clearance_mm),
+                    "msg": "sim calibration report saved",
+                }
+            self.msg = self.job_result.get("msg") or self.job_result.get(
+                "error") or "sim calibration"
+            self.job_kind = None
+            return {"ok": bool(self.job_result.get("ok")),
+                    "calibrate": self.operation_state(),
+                    "result": dict(self.job_result)}
 
     def sim_state(self) -> dict[str, Any]:
         with self.lock:

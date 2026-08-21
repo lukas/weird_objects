@@ -387,6 +387,9 @@ class Handler(BaseHTTPRequestHandler):
         elif path == "/api/imu":
             self._json(200, BENCH.imu_state() if BENCH
                        else {"ok": False, "error": "no bench"})
+        elif path == "/api/calibration/report":
+            self._json(200, BENCH.calibration_report() if BENCH
+                       else {"ok": False, "error": "no bench"})
         elif path == "/api/rl/state" or path == "/api/rl":
             self._json(200, BENCH.rl_state() if BENCH
                        else {"ok": False, "error": "no bench"})
@@ -578,6 +581,7 @@ class Handler(BaseHTTPRequestHandler):
                     nudge_deg=float(data.get("nudge_deg", 2)),
                     axis=str(data.get("axis", "all")),
                     clearance_mm=float(data.get("clearance_mm", 40)),
+                    quad_body_frame=bool(data.get("quad_body_frame", False)),
                     force=bool(data.get("force", False)),
                 ))
         elif path == "/api/calibrate/stop":

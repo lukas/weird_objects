@@ -5,6 +5,7 @@ Uses the same Feetech bus as ``DriveController`` (shared lock).
 from __future__ import annotations
 
 import json
+import math
 import os
 import sys
 import threading
@@ -1993,11 +1994,413 @@ class BenchAPI:
                 pass
         return out
 
+    def _geometry_report(self) -> dict:
+        try:
+            from feetech_bus import AXIS_LIMITS_DEG, standing_pose_degrees
+            from tripod_gait import (CHASSIS_FLAT_TO_FLAT_MM, COXA_MM,
+                                     FEMUR_MM, TIBIA_MM)
+        except ImportError as e:
+            return {"ok": False, "error": str(e)}
+        plant = self.plant_state()
+        try:
+            pose = [float(x) for x in (plant.get("pose")
+                    or standing_pose_degrees())]
+        except Exception:
+            pose = []
+
+        def foot_from(hip_deg: float, knee_deg: float) -> dict:
+            hip = math.radians(float(hip_deg))
+            knee = math.radians(float(knee_deg))
+            reach = (COXA_MM + FEMUR_MM * math.cos(hip)
+                     + TIBIA_MM * math.cos(hip + knee))
+            z = -FEMUR_MM * math.sin(hip) - TIBIA_MM * math.sin(hip + knee)
+            return {
+                "radial_mm": round(reach, 2),
+                "z_mm": round(z, 2),
+            }
+
+        per_leg = []
+        if len(pose) == N_JOINTS:
+            for leg in range(6):
+                yaw, hip, knee = pose[leg * 3:leg * 3 + 3]
+                foot = foot_from(hip, knee)
+                per_leg.append({
+                    "leg": leg,
+                    "yaw_deg": round(yaw, 3),
+                    "hip_deg": round(hip, 3),
+                    "knee_deg": round(knee, 3),
+                    **foot,
+                })
+        else:
+            for leg in range(6):
+                hip = float(plant.get("hip_deg", 20.0))
+                knee = float(plant.get("knee_deg", 80.0))
+                foot = foot_from(hip, knee)
+                per_leg.append({
+                    "leg": leg,
+                    "yaw_deg": 0.0,
+                    "hip_deg": round(hip, 3),
+                    "knee_deg": round(knee, 3),
+                    **foot,
+                })
+
+        z_vals = [float(row["z_mm"]) for row in per_leg]
+        radial_vals = [float(row["radial_mm"]) for row in per_leg]
+        return {
+            "ok": True,
+            "nominal_mm": {
+                "coxa": COXA_MM,
+                "femur": FEMUR_MM,
+                "tibia": TIBIA_MM,
+                "chassis_flat_to_flat": CHASSIS_FLAT_TO_FLAT_MM,
+            },
+            "axis_limits_deg": {
+                k: [float(v[0]), float(v[1])]
+                for k, v in AXIS_LIMITS_DEG.items()
+            },
+            "plant": plant,
+            "plant_joint_deg": pose or None,
+            "per_leg": per_leg,
+            "summary": {
+                "mean_foot_z_mm": (
+                    None if not z_vals else round(sum(z_vals) / len(z_vals), 2)),
+                "foot_z_spread_mm": (
+                    None if not z_vals else round(max(z_vals) - min(z_vals), 2)),
+                "mean_radial_mm": (
+                    None if not radial_vals
+                    else round(sum(radial_vals) / len(radial_vals), 2)),
+                "radial_spread_mm": (
+                    None if not radial_vals
+                    else round(max(radial_vals) - min(radial_vals), 2)),
+            },
+            "mujoco_hint": {
+                "link_lengths_m": {
+                    "coxa": round(COXA_MM * 0.001, 5),
+                    "femur": round(FEMUR_MM * 0.001, 5),
+                    "tibia": round(TIBIA_MM * 0.001, 5),
+                },
+                "plant_joint_deg": pose or None,
+                "neutral_foot_z_m": (
+                    None if not z_vals
+                    else round((sum(z_vals) / len(z_vals)) * 0.001, 5)),
+            },
+        }
+
+    def _actuator_report(self, bus=None) -> dict:
+        log_dir = Path(__file__).resolve().parent / "logs"
+        model_paths = (
+            log_dir / "motor_model.json",
+            Path(__file__).resolve().parent.parent
+            / "rl_move" / "hardware_traces" / "motor_model.json",
+        )
+        learned = None
+        for path in model_paths:
+            if not path.is_file():
+                continue
+            try:
+                learned = json.loads(path.read_text())
+                learned["path"] = str(path)
+                break
+            except (OSError, ValueError):
+                continue
+        out: dict = {
+            "ok": True,
+            "learned_model": learned,
+            "snapshot": None,
+        }
+        if bus is None:
+            return out
+        fb = {}
+        read_all = getattr(bus, "read_all_feedback", None)
+        if callable(read_all):
+            try:
+                bulk = read_all()
+                if isinstance(bulk, dict):
+                    fb = bulk
+            except Exception:
+                fb = {}
+        if not fb:
+            for joint in range(N_JOINTS):
+                try:
+                    row = bus.read_feedback(joint)
+                except Exception:
+                    row = None
+                if row is not None:
+                    fb[joint] = row
+        rows = []
+        volts = []
+        temps = []
+        currents = []
+        for joint in range(N_JOINTS):
+            row = fb.get(joint)
+            if not row:
+                continue
+            sid = joint_to_servo_id(joint)
+            cur = abs(float(row.get("current_a") or 0.0))
+            volt = float(row.get("volt") or 0.0)
+            temp = float(row.get("temp_c") or 0.0)
+            if volt > 0.0:
+                volts.append(volt)
+            if temp > 0.0:
+                temps.append(temp)
+            currents.append(cur)
+            rows.append({
+                "joint": joint,
+                "id": sid,
+                "name": joint_label(joint, self.names),
+                "axis": AXIS[joint % 3],
+                "leg": joint // 3,
+                "deg": round(float(row.get("deg") or 0.0), 3),
+                "current_a": round(cur, 3),
+                "speed_deg_s": round(float(row.get("speed_deg_s") or 0.0), 2),
+                "load_pct": round(float(row.get("load_pct") or 0.0), 1),
+                "volt": round(volt, 2),
+                "temp_c": round(temp, 1),
+            })
+        out["snapshot"] = {
+            "live_joints": len(rows),
+            "joints": rows,
+            "min_volt": None if not volts else round(min(volts), 2),
+            "max_temp_c": None if not temps else round(max(temps), 1),
+            "max_current_a": None if not currents else round(max(currents), 3),
+        }
+        return out
+
+    def _save_calibration_report(
+            self, *, phases: list[dict] | None = None,
+            bus=None) -> dict:
+        log_dir = Path(__file__).resolve().parent / "logs"
+        log_dir.mkdir(parents=True, exist_ok=True)
+        stamp = time.strftime("%Y%m%d_%H%M%S")
+        report = {
+            "ok": True,
+            "mode": "calibration_report",
+            "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S"),
+            "phases": phases or [],
+            "geometry": self._geometry_report(),
+            "imu": self.imu_state(),
+            "actuators": self._actuator_report(bus),
+            "notes": [
+                "geometry.nominal_mm is the CAD/link model",
+                "geometry.plant_joint_deg and geometry.per_leg are measured "
+                "stand/ground-contact calibration outputs",
+                "actuators.learned_model comes from the optional motor "
+                "dynamics/sysid run when present",
+            ],
+        }
+        path = log_dir / f"calibration_report_{stamp}.json"
+        latest = log_dir / "calibration_report_latest.json"
+        path.write_text(json.dumps(report, indent=2) + "\n")
+        latest.write_text(json.dumps(report, indent=2) + "\n")
+        report["path"] = str(path)
+        report["log_name"] = path.name
+        report["latest"] = str(latest)
+        return report
+
+    def calibration_report(self) -> dict:
+        bus = None if self.drive.dry_run else getattr(self.drive, "bus", None)
+        return self._save_calibration_report(bus=bus)
+
+    def _calibrate_quad_body_frame(self, bus, *, abort_check,
+                                   on_progress) -> dict:
+        try:
+            from imu_calibrate import (imu_body_frame_from_roll_pitch,
+                                       imu_tilt_deg, save_imu_body_frame)
+            from inplace_demos import run_demo
+            from quad_walk import GAITS
+        except ImportError as e:
+            return {"ok": False, "mode": "imu_body_frame", "error": str(e)}
+
+        def progress(msg: str) -> None:
+            on_progress({"msg": msg, "mode": "imu_body_frame"})
+
+        progress("IMU body frame: rear up")
+        rear_status = run_demo(
+            bus, "quad_rear", seconds=8.0, speed=0.75,
+            abort_check=abort_check,
+            status_cb=lambda s: on_progress({
+                "msg": "IMU body frame: " + str(s),
+                "mode": "imu_body_frame",
+            }))
+        if abort_check() or rear_status != "done":
+            return {
+                "ok": False,
+                "aborted": bool(abort_check()),
+                "mode": "imu_body_frame",
+                "error": f"quad rear did not finish ({rear_status})",
+                "rear_status": rear_status,
+            }
+
+        samples: list[tuple[float, float]] = []
+        read_imu = getattr(bus, "read_imu", None)
+        if callable(read_imu):
+            for _ in range(10):
+                if abort_check():
+                    break
+                try:
+                    imu = read_imu(apply_calib=True)
+                except TypeError:
+                    imu = read_imu()
+                except Exception:
+                    imu = None
+                if isinstance(imu, dict):
+                    rp = imu_tilt_deg(imu)
+                    if rp is not None:
+                        samples.append(rp)
+                time.sleep(0.08)
+
+        down_status = "skipped"
+        try:
+            progress("IMU body frame: come down")
+            down_status = run_demo(
+                bus, "quad_down", speed=0.75, abort_check=abort_check,
+                quad_reared=True,
+                status_cb=lambda s: on_progress({
+                    "msg": "IMU body frame: " + str(s),
+                    "mode": "imu_body_frame",
+                }))
+        finally:
+            self._quad_reared = False
+
+        if abort_check():
+            return {
+                "ok": False,
+                "aborted": True,
+                "mode": "imu_body_frame",
+                "rear_status": rear_status,
+                "down_status": down_status,
+            }
+        if not samples:
+            return {
+                "ok": False,
+                "mode": "imu_body_frame",
+                "error": "no valid IMU samples while reared",
+                "rear_status": rear_status,
+                "down_status": down_status,
+            }
+        roll = sum(r for r, _p in samples) / len(samples)
+        pitch = sum(p for _r, p in samples) / len(samples)
+        expected = math.degrees(float(GAITS["rear"]["pitch"]))
+        body_frame = imu_body_frame_from_roll_pitch(
+            roll, pitch, expected_pitch_deg=expected,
+            samples=len(samples), source="quad_rear_body_frame")
+        if not body_frame.get("ok"):
+            body_frame["mode"] = "imu_body_frame"
+            body_frame["rear_status"] = rear_status
+            body_frame["down_status"] = down_status
+            return body_frame
+        path = save_imu_body_frame(body_frame)
+        reload = getattr(bus, "reload_imu_calib", None)
+        if callable(reload):
+            try:
+                reload()
+            except Exception:
+                pass
+        return {
+            "ok": True,
+            "mode": "imu_body_frame",
+            "saved": True,
+            "path": str(path),
+            "log": str(path),
+            "rear_status": rear_status,
+            "down_status": down_status,
+            "body_frame": body_frame,
+            "msg": (
+                f"body pitch axis {body_frame.get('pitch_axis')} "
+                f"from roll {roll:+.1f} / pitch {pitch:+.1f} deg"),
+        }
+
+    def _run_calibration_checkup(self, bus, *, clearance_mm: float,
+                                 quad_body_frame: bool = False,
+                                 abort_check, on_progress) -> dict:
+        phases: list[dict] = []
+
+        def phase(name: str, result: dict) -> None:
+            phases.append({
+                "name": name,
+                "ok": bool(result.get("ok")),
+                "aborted": bool(result.get("aborted")),
+                "mode": result.get("mode"),
+                "error": result.get("error"),
+                "log": result.get("log") or result.get("path"),
+                "log_name": result.get("log_name"),
+                "summary": result.get("msg") or result.get("hint"),
+            })
+
+        def progress(msg: str, **extra) -> None:
+            on_progress({"msg": msg, "mode": "checkup", **extra})
+
+        try:
+            from geometry_plant import run_geometry_plant
+            from imu_calibrate import run_imu_calibrate
+        except ImportError as e:
+            return {"ok": False, "mode": "checkup", "error": str(e)}
+
+        progress("checkup: IMU rest/bias")
+        imu_res = run_imu_calibrate(
+            bus, abort_check=abort_check,
+            on_progress=lambda p: progress(
+                "IMU rest: " + str(p.get("msg") or "sampling"),
+                **{k: v for k, v in p.items() if k != "msg"}))
+        phase("imu_rest", imu_res)
+        if abort_check() or imu_res.get("aborted"):
+            report = self._save_calibration_report(phases=phases, bus=bus)
+            return {"ok": False, "aborted": True, "mode": "checkup",
+                    "phases": phases, "report": report,
+                    "path": report.get("path"), "log_name": report.get("log_name")}
+
+        progress("checkup: geometry/contact plant")
+        geo_res = run_geometry_plant(
+            bus, abort_check=abort_check,
+            on_progress=lambda p: progress(
+                "Geo plant: " + str(p.get("msg") or "running"),
+                **{k: v for k, v in p.items() if k != "msg"}),
+            clearance_mm=clearance_mm)
+        phase("geometry_plant", geo_res)
+
+        if quad_body_frame and not abort_check():
+            progress("checkup: IMU body-frame map from quad rear")
+            bf_res = self._calibrate_quad_body_frame(
+                bus, abort_check=abort_check, on_progress=on_progress)
+            phase("imu_body_frame", bf_res)
+        elif not quad_body_frame:
+            phases.append({
+                "name": "imu_body_frame",
+                "ok": True,
+                "mode": "imu_body_frame",
+                "summary": (
+                    "skipped by default; enable quad body-frame phase "
+                    "when watching the robot"),
+                "skipped": True,
+            })
+
+        progress("checkup: actuator health snapshot")
+        report = self._save_calibration_report(phases=phases, bus=bus)
+        ok = all(p.get("ok") for p in phases)
+        if abort_check() or any(p.get("aborted") for p in phases):
+            ok = False
+        return {
+            "ok": ok,
+            "mode": "checkup",
+            "phases": phases,
+            "report": report,
+            "geometry": report.get("geometry"),
+            "imu": report.get("imu"),
+            "actuators": report.get("actuators"),
+            "path": report.get("path"),
+            "log_name": report.get("log_name"),
+            "latest": report.get("latest"),
+            "msg": (
+                "checkup complete"
+                if ok else "checkup complete with issues; see phases"),
+        }
+
     def run_calibrate(self, *, mode: str = "step",
                       step_deg: float = 10.0,
                       nudge_deg: float = 2.0,
                       axis: str = "all",
                       clearance_mm: float = 40.0,
+                      quad_body_frame: bool = False,
                       force: bool = False) -> dict:
         """Background step, shake/hold, plant-height, geometry plant, or IMU."""
         mode = (mode or "step").strip().lower()
@@ -2009,6 +2412,8 @@ class BenchAPI:
             mode = "geometry"
         if mode in ("imu", "mpu", "gyro", "accel"):
             mode = "imu"
+        if mode in ("checkup", "auto", "all", "calibration"):
+            mode = "checkup"
 
         if mode == "plant":
             try:
@@ -2033,6 +2438,8 @@ class BenchAPI:
                 from imu_calibrate import run_imu_calibrate
             except ImportError as e:
                 return {"ok": False, "error": f"imu_calibrate missing: {e}"}
+        elif mode == "checkup":
+            pass
         else:
             try:
                 from joint_calibrate import run_calibrate
@@ -2059,7 +2466,8 @@ class BenchAPI:
         except (TypeError, ValueError):
             nudge_deg = 2.0
         axis = (axis or "all").strip().lower()
-        if mode not in ("step", "shake", "plant", "geometry", "imu"):
+        if mode not in ("step", "shake", "plant", "geometry", "imu",
+                        "checkup"):
             mode = "step"
         try:
             clearance_mm = float(clearance_mm)
@@ -2075,6 +2483,8 @@ class BenchAPI:
             label = f"geometry plant (hip≈0 / knee≈90, +{clearance_mm:.0f}mm)"
         elif mode == "imu":
             label = "IMU rest (hold still)"
+        elif mode == "checkup":
+            label = "calibration checkup (IMU + contact geometry + report)"
         elif mode == "shake":
             label = f"shake +{nudge_deg:.1f}° hold ({axis})"
         else:
@@ -2086,6 +2496,7 @@ class BenchAPI:
                 "mode": mode, "step_deg": step_deg,
                 "nudge_deg": nudge_deg, "axis": axis,
                 "clearance_mm": clearance_mm,
+                "quad_body_frame": bool(quad_body_frame),
             }
             self._cal_result = None
             self._cal_progress = {"msg": "starting…"}
@@ -2096,8 +2507,9 @@ class BenchAPI:
             with d._lock:
                 d.mode = "demo"
                 d.gait.stop()
-                # IMU rest calib does not need torque; leave limp alone.
-                if mode != "imu" and not d.armed:
+                # IMU rest/checkup begin with stillness; active phases arm
+                # themselves when they need servo torque.
+                if mode not in ("imu", "checkup") and not d.armed:
                     d._torque_all(True)
                     d.armed = True
 
@@ -2124,6 +2536,14 @@ class BenchAPI:
                 elif mode == "imu":
                     result = run_imu_calibrate(
                         d.bus,
+                        abort_check=self._demo_abort.is_set,
+                        on_progress=_on_progress,
+                    )
+                elif mode == "checkup":
+                    result = self._run_calibration_checkup(
+                        d.bus,
+                        clearance_mm=clearance_mm,
+                        quad_body_frame=bool(quad_body_frame),
                         abort_check=self._demo_abort.is_set,
                         on_progress=_on_progress,
                     )
@@ -2165,6 +2585,10 @@ class BenchAPI:
                             self._demo_status = f"done · IMU {g} (saved)"
                         else:
                             self._demo_status = f"done · IMU {g} (not saved)"
+                    elif result.get("ok") and mode == "checkup":
+                        self._demo_status = (
+                            "done · checkup report "
+                            + str(result.get("log_name") or "saved"))
                     elif result.get("ok"):
                         c = result.get("counts") or {}
                         self._demo_status = (

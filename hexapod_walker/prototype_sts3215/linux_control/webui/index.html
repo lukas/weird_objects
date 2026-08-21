@@ -675,12 +675,22 @@ the trained forward wedge — same policy, body walks backward.">▼ Back</butto
       <h2>Calibrate</h2>
       <label class="slab">Mode</label>
       <div class="btns seg" id="calmode">
-        <button data-mode="step" class="on">Step</button>
+        <button data-mode="checkup" class="on">Checkup</button>
+        <button data-mode="step">Step</button>
         <button data-mode="shake">Shake / hold</button>
         <button data-mode="plant">Plant height</button>
         <button data-mode="geometry" title="Hips stay ~0° (straight), knees deepen toward +80–90° until contact, raise ~40 mm, save the full 18-joint plant.">Geo plant</button>
         <button data-mode="imu">IMU rest</button>
       </div>
+      <div class="hint" id="calhint-checkup">Runs the standard calibration
+        sequence and saves one sim-ready report: IMU rest/bias, contact
+        geometry/plant, actuator health snapshot, and any learned motor
+        model already on disk.</div>
+      <label class="hint" id="calquadbodywrap"
+             style="display:block;margin-top:10px">
+        <input id="calquadbody" type="checkbox">
+        Include watched quad rear IMU body-frame map
+      </label>
       <div class="hint" id="calhint-step">Glides to <b>sit zero</b>, then
         <b>+step°</b> from 0° and scores tracking % + peak load.
         Stuck / weak joints show red.</div>

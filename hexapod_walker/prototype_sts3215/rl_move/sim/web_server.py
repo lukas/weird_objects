@@ -122,6 +122,8 @@ def make_handler(session: Any, webui_dir: Path = WEBUI_DIR,
                     self._json(200, session.pose())
                 elif path == "/api/calibrate":
                     self._json(200, session.operation_state())
+                elif path == "/api/calibration/report":
+                    self._json(200, session.calibration_report())
                 elif path == "/api/rl/preflight":
                     mode = "stand"
                     qs = self.path.split("?", 1)
@@ -204,6 +206,15 @@ def make_handler(session: Any, webui_dir: Path = WEBUI_DIR,
                         kw["seconds"] = float(data["seconds"])
                     self._json(200, session.run_demo(
                         str(data.get("name", "")), **kw))
+                elif path == "/api/calibrate":
+                    self._json(200, session.run_calibrate(
+                        mode=str(data.get("mode", "checkup")),
+                        step_deg=float(data.get("step_deg", 10)),
+                        nudge_deg=float(data.get("nudge_deg", 2)),
+                        axis=str(data.get("axis", "all")),
+                        clearance_mm=float(data.get("clearance_mm", 40)),
+                        quad_body_frame=bool(data.get(
+                            "quad_body_frame", False))))
                 elif path == "/api/dances":
                     script = data
                     if isinstance(script, dict) and "script" in script:

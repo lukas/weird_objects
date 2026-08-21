@@ -905,6 +905,7 @@ QUAD_TRIM_MAX_PITCH_DEG = 5.0
 QUAD_TRIM_MAX_DX_M = 0.012
 QUAD_TRIM_DEADBAND_DEG = 1.0
 QUAD_TRIM_GUARD_ERROR_DEG = 15.0
+QUAD_TRIM_MIN_BASE_DEG = 6.0
 
 
 def _imu_roll_pitch_deg(imu: dict) -> tuple[float, float] | None:
@@ -942,6 +943,100 @@ def _slew(current: float, desired: float, max_step: float) -> float:
     return desired
 
 
+def _quad_trim_axis_label(axis_roll: float, axis_pitch: float) -> str:
+    if abs(axis_roll) < 0.25:
+        return "pitch"
+    if abs(axis_pitch) < 0.25:
+        return "roll"
+    return "mix"
+
+
+def _quad_trim_sign_to_cmd(expected_pitch_deg: float | None,
+                           measured_base_deg: float) -> float:
+    if expected_pitch_deg is not None and abs(expected_pitch_deg) > 5.0:
+        # quad_walk command convention is negative nose-up. If the measured
+        # rear-lean baseline reports the opposite sign, flip it into command
+        # convention.
+        return -1.0 if expected_pitch_deg * measured_base_deg < 0 else 1.0
+    return -1.0
+
+
+def quad_trim_calibration_from_roll_pitch(
+        roll_deg: float, pitch_deg: float, *,
+        expected_pitch_deg: float | None = None,
+        gait: str = "quad",
+        samples: int = 1,
+        source: str = "quad_rear_lean") -> dict:
+    """Build the saved quad-trim calibration payload from a rear lean."""
+    base_roll = float(roll_deg)
+    base_pitch = float(pitch_deg)
+    measured_base = math.hypot(base_roll, base_pitch)
+    if measured_base < QUAD_TRIM_MIN_BASE_DEG:
+        return {
+            "ok": False,
+            "source": source,
+            "gait": gait,
+            "error": (
+                "imu rear-lean baseline too small "
+                f"(roll {base_roll:+.1f}, pitch {base_pitch:+.1f} deg)"
+            ),
+            "roll_deg": round(base_roll, 3),
+            "pitch_deg": round(base_pitch, 3),
+            "measured_lean_deg": round(measured_base, 3),
+            "samples": int(samples),
+            "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S"),
+        }
+    axis_roll = base_roll / measured_base
+    axis_pitch = base_pitch / measured_base
+    sign_to_cmd = _quad_trim_sign_to_cmd(
+        expected_pitch_deg, measured_base)
+    return {
+        "ok": True,
+        "version": 1,
+        "source": source,
+        "gait": gait,
+        "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S"),
+        "samples": int(samples),
+        "roll_deg": round(base_roll, 3),
+        "pitch_deg": round(base_pitch, 3),
+        "measured_lean_deg": round(measured_base, 3),
+        "expected_pitch_deg": (
+            None if expected_pitch_deg is None
+            else round(float(expected_pitch_deg), 3)),
+        "imu_axis": _quad_trim_axis_label(axis_roll, axis_pitch),
+        "imu_axis_roll": round(axis_roll, 6),
+        "imu_axis_pitch": round(axis_pitch, 6),
+        "imu_sign_to_cmd": sign_to_cmd,
+        "target_pitch_deg": round(sign_to_cmd * measured_base, 3),
+    }
+
+
+def quad_trim_calibration_from_imu_samples(
+        samples: list[dict], *,
+        expected_pitch_deg: float | None = None,
+        gait: str = "quad",
+        source: str = "quad_rear_lean") -> dict:
+    vals: list[tuple[float, float]] = []
+    for sample in samples:
+        rp = _imu_roll_pitch_deg(sample)
+        if rp is not None:
+            vals.append(rp)
+    if not vals:
+        return {
+            "ok": False,
+            "source": source,
+            "gait": gait,
+            "error": "no valid IMU samples",
+            "samples": 0,
+            "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S"),
+        }
+    roll = sum(r for r, _p in vals) / len(vals)
+    pitch = sum(p for _r, p in vals) / len(vals)
+    return quad_trim_calibration_from_roll_pitch(
+        roll, pitch, expected_pitch_deg=expected_pitch_deg, gait=gait,
+        samples=len(vals), source=source)
+
+
 class QuadPitchTrim:
     """Tiny IMU pitch reflex for split quad hold/walk/trot phases.
 
@@ -957,12 +1052,16 @@ class QuadPitchTrim:
     """
 
     def __init__(self, *, expected_pitch_deg: float | None = None,
-                 gait: str = "quad"):
+                 gait: str = "quad",
+                 calibration: dict | None = None):
         self.expected_pitch_deg = expected_pitch_deg
         self.gait = gait
         self.enabled = True
         self.ready = False
         self.disabled_reason = ""
+        self.loaded_calibration = False
+        self.calibration_source = "warmup"
+        self.body_frame_mode = False
         self.samples = 0
         self.imu_axis = "pitch"
         self.imu_axis_roll = 0.0
@@ -983,74 +1082,79 @@ class QuadPitchTrim:
         self._danger_samples = 0
         self._last_emit_t = 0.0
         self._last_emit_bucket: tuple[int, int] | None = None
+        if calibration:
+            self._load_calibration(calibration)
 
     def _axis_label(self) -> str:
-        if abs(self.imu_axis_roll) < 0.25:
-            return "pitch"
-        if abs(self.imu_axis_pitch) < 0.25:
-            return "roll"
-        return "mix"
+        return _quad_trim_axis_label(self.imu_axis_roll, self.imu_axis_pitch)
+
+    def _load_calibration(self, calibration: dict) -> None:
+        try:
+            axis_roll = float(calibration.get("imu_axis_roll"))
+            axis_pitch = float(calibration.get("imu_axis_pitch"))
+        except (TypeError, ValueError):
+            return
+        norm = math.hypot(axis_roll, axis_pitch)
+        if norm < 0.5:
+            return
+        self.imu_axis_roll = axis_roll / norm
+        self.imu_axis_pitch = axis_pitch / norm
+        self.imu_axis = str(calibration.get("imu_axis") or self._axis_label())
+        try:
+            self.sign_to_cmd = float(
+                calibration.get("imu_sign_to_cmd", self.sign_to_cmd))
+        except (TypeError, ValueError):
+            self.sign_to_cmd = -1.0
+        if abs(self.sign_to_cmd) < 0.5:
+            self.sign_to_cmd = -1.0
+        try:
+            target = float(calibration["target_pitch_deg"])
+        except (KeyError, TypeError, ValueError):
+            try:
+                target = self.sign_to_cmd * float(
+                    calibration["measured_lean_deg"])
+            except (KeyError, TypeError, ValueError):
+                return
+        measured = target / self.sign_to_cmd
+        self.target_pitch_deg = target
+        self.pitch_deg = target
+        self._axis_lp_meas = measured
+        self._prev_cmd_pitch = target
+        self.ready = True
+        self.loaded_calibration = True
+        self.calibration_source = str(calibration.get("source") or "saved")
+        try:
+            self.samples = int(calibration.get("samples") or 0)
+        except (TypeError, ValueError):
+            self.samples = 0
 
     def _project_lean_deg(self, roll_deg: float, pitch_deg: float) -> float:
         return (roll_deg * self.imu_axis_roll
                 + pitch_deg * self.imu_axis_pitch)
 
-    def pose_trim(self) -> dict:
-        if not self.enabled or not self.ready:
-            return {"body_dx_m": 0.0, "pitch_rad": 0.0}
-        return {
-            "body_dx_m": self.body_dx_trim_m,
-            "pitch_rad": math.radians(self.pitch_trim_deg),
-        }
-
-    def update(self, imu: dict | None, now: float) -> bool:
-        if not self.enabled or not imu:
-            return False
-        rp = _imu_roll_pitch_deg(imu)
-        if rp is None:
-            return False
-        roll_deg, pitch_deg = rp
+    def _update_body_pitch(self, cmd_pitch: float, now: float) -> bool:
         self.samples += 1
-
         if not self.ready:
-            self._warmup.append((roll_deg, pitch_deg))
-            if len(self._warmup) < 3:
-                return True
-            base_roll = sum(r for r, _p in self._warmup) / len(self._warmup)
-            base_pitch = sum(p for _r, p in self._warmup) / len(self._warmup)
-            measured_base = math.hypot(base_roll, base_pitch)
-            if measured_base < 6.0:
-                self.enabled = False
-                self.disabled_reason = (
-                    "imu rear-lean baseline too small "
-                    f"(roll {base_roll:+.1f}, pitch {base_pitch:+.1f} deg)")
-                return True
-            self.imu_axis_roll = base_roll / measured_base
-            self.imu_axis_pitch = base_pitch / measured_base
-            self.imu_axis = self._axis_label()
-            expected = self.expected_pitch_deg
-            if expected is not None and abs(expected) > 5.0:
-                # quad_walk command convention is negative nose-up. If the
-                # projected rear-lean baseline reports the opposite sign,
-                # flip it into command convention.
-                self.sign_to_cmd = (
-                    -1.0 if expected * measured_base < 0 else 1.0)
-            self.target_pitch_deg = self.sign_to_cmd * measured_base
-            self.pitch_deg = self.target_pitch_deg
-            self._axis_lp_meas = measured_base
-            self._prev_cmd_pitch = self.target_pitch_deg
+            target = self.expected_pitch_deg
+            if target is None or abs(float(target)) <= 5.0:
+                target = cmd_pitch
+            self.imu_axis = "body"
+            self.imu_axis_roll = 0.0
+            self.imu_axis_pitch = 1.0
+            self.sign_to_cmd = 1.0
+            self.target_pitch_deg = float(target)
+            self.pitch_deg = cmd_pitch
+            self._axis_lp_meas = cmd_pitch
+            self._prev_cmd_pitch = cmd_pitch
             self._prev_update_t = now
             self.ready = True
+            self.loaded_calibration = True
+            self.calibration_source = "imu_body_frame"
+            self.body_frame_mode = True
             return True
+        return self._update_cmd_pitch(cmd_pitch, now)
 
-        selected = self._project_lean_deg(roll_deg, pitch_deg)
-        alpha = 0.35
-        if self._axis_lp_meas is None:
-            self._axis_lp_meas = selected
-        else:
-            self._axis_lp_meas = (
-                (1.0 - alpha) * self._axis_lp_meas + alpha * selected)
-        cmd_pitch = self.sign_to_cmd * self._axis_lp_meas
+    def _update_cmd_pitch(self, cmd_pitch: float, now: float) -> bool:
         prev_t = self._prev_update_t if self._prev_update_t is not None else now
         dt = max(0.05, min(0.75, now - prev_t))
         prev_pitch = (self._prev_cmd_pitch if self._prev_cmd_pitch is not None
@@ -1090,6 +1194,61 @@ class QuadPitchTrim:
                 f"balance:{err:+.1f}:{rate:+.0f}")
         return True
 
+    def pose_trim(self) -> dict:
+        if not self.enabled or not self.ready:
+            return {"body_dx_m": 0.0, "pitch_rad": 0.0}
+        return {
+            "body_dx_m": self.body_dx_trim_m,
+            "pitch_rad": math.radians(self.pitch_trim_deg),
+        }
+
+    def update(self, imu: dict | None, now: float) -> bool:
+        if not self.enabled or not imu:
+            return False
+        if imu.get("body_frame_calibrated") and imu.get("body_pitch_deg") is not None:
+            try:
+                return self._update_body_pitch(
+                    float(imu["body_pitch_deg"]), now)
+            except (TypeError, ValueError):
+                pass
+        rp = _imu_roll_pitch_deg(imu)
+        if rp is None:
+            return False
+        roll_deg, pitch_deg = rp
+        self.samples += 1
+
+        if not self.ready:
+            self._warmup.append((roll_deg, pitch_deg))
+            if len(self._warmup) < 3:
+                return True
+            base_roll = sum(r for r, _p in self._warmup) / len(self._warmup)
+            base_pitch = sum(p for _r, p in self._warmup) / len(self._warmup)
+            calib = quad_trim_calibration_from_roll_pitch(
+                base_roll, base_pitch,
+                expected_pitch_deg=self.expected_pitch_deg,
+                gait=self.gait, samples=len(self._warmup),
+                source="warmup")
+            if not calib.get("ok"):
+                self.enabled = False
+                self.disabled_reason = str(
+                    calib.get("error") or "imu rear-lean baseline invalid")
+                return True
+            self._load_calibration(calib)
+            self.loaded_calibration = False
+            self.calibration_source = "warmup"
+            self._prev_update_t = now
+            return True
+
+        selected = self._project_lean_deg(roll_deg, pitch_deg)
+        alpha = 0.35
+        if self._axis_lp_meas is None:
+            self._axis_lp_meas = selected
+        else:
+            self._axis_lp_meas = (
+                (1.0 - alpha) * self._axis_lp_meas + alpha * selected)
+        cmd_pitch = self.sign_to_cmd * self._axis_lp_meas
+        return self._update_cmd_pitch(cmd_pitch, now)
+
     def should_emit(self, now: float) -> bool:
         if self.abort_reason:
             return True
@@ -1113,6 +1272,9 @@ class QuadPitchTrim:
             "ready": self.ready,
             "enabled": self.enabled,
             "disabled_reason": self.disabled_reason,
+            "calibration_source": self.calibration_source,
+            "loaded_calibration": self.loaded_calibration,
+            "body_frame_mode": self.body_frame_mode,
             "imu_axis": self.imu_axis,
             "imu_axis_roll": round(self.imu_axis_roll, 3),
             "imu_axis_pitch": round(self.imu_axis_pitch, 3),

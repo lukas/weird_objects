@@ -11,6 +11,7 @@ for _p in (_ROOT / "motor_setup", _HERE):
     if str(_p) not in sys.path:
         sys.path.insert(0, str(_p))
 
+from imu_calibrate import apply_imu_calib, imu_body_frame_from_roll_pitch  # noqa: E402
 from inplace_demos import QuadPitchTrim  # noqa: E402
 from quad_walk import make_quad_walk_pose_fn  # noqa: E402
 
@@ -22,7 +23,10 @@ def _imu_angles(roll_deg: float, pitch_deg: float) -> dict:
     ay = math.tan(roll) * az
     h = math.hypot(ay, az)
     ax = -math.tan(pitch) * h
-    return {"ax_g": ax, "ay_g": ay, "az_g": az}
+    return {
+        "ax_g": ax, "ay_g": ay, "az_g": az,
+        "gx_dps": 0.0, "gy_dps": 0.0, "gz_dps": 0.0,
+    }
 
 
 def _imu_pitch(pitch_deg: float) -> dict:
@@ -87,6 +91,38 @@ def test_trim_projects_mixed_roll_pitch_axis() -> None:
     fwd = 18.0 / math.sqrt(2.0)
     trim.update(_imu_angles(fwd, fwd), 1.0)
     trim.update(_imu_angles(fwd, fwd), 1.25)
+    forward = trim.event_data()
+    assert forward["err_deg"] > 0.0
+    assert forward["pitch_trim_deg"] < 0.0
+    assert forward["body_dx_trim_mm"] < 0.0
+
+
+def test_saved_body_frame_handles_off_axis_imu() -> None:
+    body_frame = imu_body_frame_from_roll_pitch(
+        17.0, 17.0, expected_pitch_deg=-24.0, samples=10)
+    assert body_frame["ok"]
+    assert body_frame["pitch_axis"] == "mix"
+
+    calib = {
+        "gyro_bias_dps": {"x": 0.0, "y": 0.0, "z": 0.0},
+        "accel_bias_g": {"x": 0.0, "y": 0.0, "z": 0.0},
+        "body_frame": body_frame,
+    }
+    leaned = apply_imu_calib(_imu_angles(17.0, 17.0), calib)
+    assert leaned["body_frame_calibrated"]
+    assert abs(leaned["body_pitch_deg"] + math.hypot(17.0, 17.0)) < 0.5
+    assert abs(leaned["body_roll_deg"]) < 0.5
+
+    trim = QuadPitchTrim(expected_pitch_deg=-24.0, gait="walk")
+    trim.update(leaned, 0.0)
+    assert trim.ready
+    data = trim.event_data()
+    assert data["body_frame_mode"]
+    assert data["calibration_source"] == "imu_body_frame"
+
+    fwd = 18.0 / math.sqrt(2.0)
+    trim.update(apply_imu_calib(_imu_angles(fwd, fwd), calib), 0.5)
+    trim.update(apply_imu_calib(_imu_angles(fwd, fwd), calib), 0.75)
     forward = trim.event_data()
     assert forward["err_deg"] > 0.0
     assert forward["pitch_trim_deg"] < 0.0

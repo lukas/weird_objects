@@ -100,8 +100,9 @@ the RL tooling depend on them.
 
 ### Calibrate (`#calibrate`)
 
-Mode buttons (Step / Shake / Plant height / Geo plant / IMU rest) →
-`POST /api/calibrate {mode, step_deg, nudge_deg, axis}` · **Stop** →
+Mode buttons (Checkup / Step / Shake / Plant height / Geo plant / IMU rest) →
+`POST /api/calibrate {mode, step_deg, nudge_deg, axis, quad_body_frame}` ·
+sim-ready report `GET /api/calibration/report` · **Stop** →
 `POST /api/calibrate/stop` · status/results poll `GET /api/calibrate` at
 0.8 s · **Reset plant default** → `POST /api/plant/reset` (confirm) ·
 **Clear IMU calib** → `POST /api/imu/reset` (confirm). Switching to this
