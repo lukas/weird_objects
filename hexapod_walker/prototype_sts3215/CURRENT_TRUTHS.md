@@ -131,6 +131,29 @@ out-of-scope runs get honest triage but no agent follow-ups.
   out at ratio 1.84; the real cheat checkpoint is the bank behavior)
   + matched-env pod pricing A/B `logs/ckpt_eval/pd5_newband_ab_*`.
   Fix arm phasedir6 = band retighten only, A/B-gated.
+- DRAG-STANCE CHARGE IS A STEP FUNCTION, NOT A DOSE DIAL (08-22,
+  `cw-dep-bcgait4-phasedir7-dragstance` + `-phasedir7b-dragstance-
+  halfdose`): after phasedir6 verdicted the loadslip-band VALUE lever
+  refuted (FAIL, 1.611x clone slip, ratio never moved), the pricing
+  MECHANISM was switched to the already-built `reward.k_drag_stance`
+  (per-stance absolute-mm charge, bank-tested 08-11). At k=8000: real
+  bite on slip (1.611x->1.323x clone) and stride length recovered to
+  the clone's own value, but progress fell 0.961x->0.779x (below the
+  0.9x cap) and speed dropped 0.001 m/s under the [0.06,0.096] floor.
+  Halving to k=4000 (phasedir7b) to test the dose-response hypothesis
+  produced NO change: progress 0.804x, slip 1.346x, speed 0.0585 —
+  statistically identical to k=8000 on every gate axis AND on per-leg
+  gait metrics (swing count/leg, duty skew, stride length all
+  indistinguishable between the two doses), while W&B
+  env/reward_drag_stance and ep_rew_mean both scaled down exactly
+  proportionally to k (same fraction of stances pay the charge either
+  way). Reads as a STEP FUNCTION: any k_drag_stance>0 flips the
+  policy into one fixed second local optimum (vs phasedir6's k=0
+  optimum), and something in the course/anchor pricing — not the
+  drag charge's magnitude — pins that second optimum's speed just
+  under the gate floor. Dosing this lever further is refuted;
+  DIG-IN flagged on the course/anchor-vs-drag-charge interaction
+  before any further reward edit on this lineage.
 - direction_err_mean_deg has a ~35 deg tick-level floor from stride
   sway — judge deltas vs a matched clone, not raw values.
 - Every pre-08-22 checkpoint (incl. the download hierarchy) trained

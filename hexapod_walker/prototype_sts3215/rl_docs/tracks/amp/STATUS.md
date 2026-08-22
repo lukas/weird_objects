@@ -1,6 +1,6 @@
 # amp - AMP locomotion from scratch
 
-Last updated: 2026-08-22 (M1 motion-library tool + v1 dataset shipped).
+Last updated: 2026-08-22 (M1 discriminator core + bank landed).
 Charter:
 `rl_docs/AMP_LOCOMOTION.md` (binding, incl. the repo-adaptation
 section — no Isaac Lab, MJX/Warp is the primary trainer). Keep this a
@@ -30,8 +30,10 @@ Build every tool this needs; do not pause on operator input.
   motion library, replay buffer, and fault injection still open —
   see Now/Next)
 - M1 motion library: IN PROGRESS (generator tool built + v1 dataset
-  shipped 08-22, see Now; discriminator/replay-buffer consumers of it
-  still not started)
+  shipped 08-22; discriminator core + demo replay buffer + style
+  reward now built and bank-tested 08-22, see Now — NOT YET WIRED
+  into the live train_ppo_mjx reward loop, that integration is the
+  next concrete step)
 - M2 beautiful normal gait: NOT STARTED
 - M3 push recovery: NOT STARTED
 - M4 fault adaptation: NOT STARTED
@@ -107,14 +109,51 @@ now closed:
   confirm/override this to match the policy's own obs convention;
   the raw (non-relative) joint_position array is kept in the npz so
   this can be redone without re-running the sim.
-- **CONFIRMED NOT STARTED**: AMP discriminator, demonstration replay
-  buffer, style reward, fault injection, push-disturbance curriculum,
-  and the dedicated joystick eval suite (`eval/joystick_script.py`
-  etc. per brief §15). Zero lines exist for any of these. Motion
-  library v1 above has no augmentation yet (mirroring/speed/phase
-  scaling per §4.2) — the 15-family/1-seed base already clears the
-  20-60s target so augmentation is not currently a blocker, only a
-  future diversity improvement.
+- **DONE THIS CYCLE (08-22, discriminator core)**:
+  `rl_move/sim/amp_discriminator.py` — `MotionLibrary` (loads
+  `teacher_v1.npz`, samples real (s_t, s_t1) transitions that never
+  cross a clip boundary, fits dataset mean/std for input
+  normalization per §3.6), `AMPDiscriminator` (plain-torch MLP over
+  the concatenated 2x60-dim normalized transition, matching
+  `asym_policy.py`'s no-framework-beyond-torch style), least-squares
+  GAN `style_reward` (bounded [0,1], no reward cliff for a
+  not-yet-competent policy) and `discriminator_loss` (+ R1 gradient
+  penalty on real transitions only — the exact mechanism the brief
+  asks for "so the style reward does not saturate immediately").
+  Bank-tested (`rl_move/tests/test_amp_discriminator.py`, 8/8 PASS,
+  CPU, ~10s): after a short training loop the discriminator
+  separates held-out real motion-library transitions from BOTH i.i.d.
+  noise fakes and temporally-shuffled fakes (mean D(real) > D(fake) +
+  0.5 margin in both cases), gradient penalty and loss stay finite
+  throughout (no instant-saturation blowup), style reward correctly
+  prefers real transitions. Standalone CLI smoke
+  (`python3 -m rl_move.sim.amp_discriminator`) confirmed live: loss
+  1.09->0.40 over 200 steps, D(real) 0.04->0.57, D(fake) 0.03->-0.63.
+  **NOT YET WIRED into train_ppo_mjx's live reward loop** — that
+  requires computing this SAME 60-dim `obs_style` feature vector from
+  the batched Warp/MJX env each rollout tick. Scoped but not started:
+  the live env (`walk_task.py`) exposes `self.data.xpos` etc. on the
+  CPU/eval path only; the GPU/Warp vec-env path train_ppo_mjx actually
+  trains on does not currently expose per-foot Cartesian positions or
+  projected gravity as a reusable array the way `build_motion_library.py`
+  computes them off the CPU sim. Candidate lower-risk route (not yet
+  attempted): derive `obs_style` from the ACTOR'S OWN observation
+  vector at each step (which already contains joint pos/vel, IMU
+  angular velocity, projected gravity per §3.2) plus a forward-
+  kinematics-only foot-position reconstruction (reusing
+  `tripod_gait.foot_rz_from_hip_knee`/`_leg_ik`, as `extract_rise_ref.py`
+  already does), avoiding any new Warp-kernel-level work — this needs
+  its own dedicated cycle to build+bank-test the obs-vector-to-
+  obs_style mapping (index-matching the exact actor obs layout) before
+  it touches the reward loop, default-off, bit-exact-when-off per the
+  standing rule.
+- **CONFIRMED NOT STARTED**: demo replay-buffer <-> PPO co-training
+  loop, fault injection, push-disturbance curriculum, and the
+  dedicated joystick eval suite (`eval/joystick_script.py` etc. per
+  brief §15). Motion library v1 has no augmentation yet (mirroring/
+  speed/phase scaling per §4.2) — the 15-family/1-seed base already
+  clears the 20-60s target so augmentation is not currently a
+  blocker, only a future diversity improvement.
 
 ## Next (brief §17 order — M0/M1)
 
@@ -152,12 +191,23 @@ now closed:
    out to want more than 88s / more per-clip diversity than the
    single-seed deterministic base gives it — cheap to add later,
    not gating discriminator work from starting).
-3. AMP discriminator, demonstration replay buffer, style reward with
-   gradient penalty + input normalization — consumes
-   `rl_move/sim/motion_library/teacher_v1.npz`'s `obs_style` field
-   directly per §3.6/§4.5.
+3. **DONE 08-22 (core)**: `rl_move/sim/amp_discriminator.py` —
+   discriminator, real-transition replay sampler, style reward,
+   gradient penalty + input normalization, all consuming
+   `teacher_v1.npz`'s `obs_style` field directly per §3.6/§4.5. Bank
+   `test_amp_discriminator.py` 8/8 PASS (real-vs-noise AND
+   real-vs-shuffled separation, finite gradient penalty, bounded
+   style reward). STILL OPEN, next concrete step: compute `obs_style`
+   from the LIVE train_ppo_mjx rollout so the discriminator can see
+   policy-generated transitions (not just the demo library) — see
+   the candidate route in Now (actor-obs + FK foot reconstruction,
+   avoiding new Warp-kernel work), then a co-training loop that
+   updates the discriminator alongside PPO each rollout.
 4. Smoke test: gradients flow through PPO and the discriminator
-   trains without instant saturation (M0/M1 checks).
+   trains without instant saturation on POLICY rollouts specifically
+   (item 3's bank already proved this against a static real-vs-fake
+   split; this item is the live-rollout version, blocked on item 3's
+   remaining wiring).
 5. Wave 1 across 8 pods: 3 seeds at task/style 0.5/0.5, no-AMP
    ablation, recurrent vs fixed-history, higher/lower AMP weight.
    Select on videos + tracking/stability metrics, never scalar return.

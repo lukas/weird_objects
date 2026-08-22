@@ -1,8 +1,8 @@
 # joystick - RL from the programmatic gait to joystick control
 
-Last updated: 2026-08-22 (phasedir6 verdicted FAIL: band-value lever
-refuted; switched to the already-built k_drag_stance mechanism,
-phasedir7 running). Keep this a
+Last updated: 2026-08-22 (phasedir7/7b verdicted FAIL: k_drag_stance
+is a step function, not a dose dial — DIG-IN flagged on the course/
+anchor speed-floor interaction). Keep this a
 short screenful: Goal / Now / Next. Run detail lives in
 `rl_docs/runs/`, W&B, and `RL_LOG.md`.
 
@@ -223,6 +223,44 @@ with:
   `cw-dep-bcgait4-phasedir7-dragstance` (train-0, single change: add
   k_drag_stance=8000/allow=6mm/tick_floor=0.25 onto the phasedir6
   stack, nothing else touched).
+- 08-22 `cw-dep-bcgait4-phasedir7-dragstance` VERDICTED FAIL: the
+  per-stance drag charge (k=8000) has real bite — det slip/m improved
+  1.611x clone -> 1.323x clone and stride length recovered to the
+  clone's own value (0.0435m cheat -> 0.036-0.038m) — but it
+  overcorrected: progress fell 0.961x -> 0.779x clone (now below the
+  0.9x cap) and det speed dropped to 0.059 m/s, 0.001 under the
+  [0.06,0.096] floor (a new failure axis phasedir6 didn't have). W&B
+  env/reward_drag_stance sat flat -20..-25/step the WHOLE 2M-step run
+  (never trended toward 0 — the charge fired on nearly every stance
+  start to finish); env/walk_loadslip_ratio stayed 4.3-5.1 (unmoved).
+  Matches the run's own pre-registered branch (ii) (dose too strong)
+  more than a rising-reward case: ep_len_mean saturated at 375 by
+  ~800k steps and ep_rew_mean plateaued flat for the back half.
+  ACTED ON: launched `cw-dep-bcgait4-phasedir7b-dragstance-halfdose`
+  (train-0, single change: k_drag_stance 8000->4000, everything else
+  identical) to test the dose-response hypothesis directly.
+- 08-22 `cw-dep-bcgait4-phasedir7b-dragstance-halfdose` VERDICTED FAIL
+  — and REFUTES the dose-response hypothesis outright rather than
+  finding a better point on a curve. Halving k_drag_stance changed
+  almost nothing: progress 0.779x->0.804x clone (cap 0.9x, still
+  short), slip 1.323x->1.346x clone (cap 1.15x, actually a HAIR
+  worse), speed 0.059->0.0585 m/s (still under the 0.06 floor). Per-
+  leg gait signature (swing count/leg, duty skew, stride length) is
+  statistically indistinguishable between k=8000 and k=4000. W&B
+  env/reward_drag_stance and ep_rew_mean both scaled down EXACTLY
+  proportionally to k (halved), meaning the same fraction of stances
+  pay the charge at either dose — the policy is not adapting its
+  behavior to the charge's magnitude at all. 3-POINT TABLE: phasedir6
+  (k=0-equiv) progress 0.961x/slip 1.611x/speed PASS; phasedir7
+  (k=8000) progress 0.779x/slip 1.323x/speed FAIL; phasedir7b
+  (k=4000) progress 0.804x/slip 1.346x/speed FAIL. This is a STEP
+  FUNCTION (any k_drag_stance>0 flips the policy into a second, fixed
+  local optimum whose speed sits just under the gate floor) not a
+  smooth dose curve — dosing k_drag_stance further would not be
+  informative. DIG-IN FLAGGED: why do the course/anchor pricing terms
+  cap speed at ~0.058-0.059 m/s once ANY per-stance drag charge is
+  active, regardless of its magnitude? Root-cause that interaction
+  before any further reward edit on this lineage.
 
 ## Next
 
@@ -244,28 +282,32 @@ with:
    `test_task_semantics.py` bank proving the training reward ranks
    gate-passing behavior above every known cheat (park, paddle-creep,
    overspeed attractor, sacrificed leg).
-3. **DONE 08-22 — noise-band theory REFUTED (phasedir5 dig-in); band
-   retighten (phasedir6) FAIL, band VALUE lever now also refuted;
-   switched pricing MECHANISM instead (phasedir7, running).**
-   phasedir3/4 established the loadslip charge was unpriced/mistimed;
-   phasedir5's direct std override proved slip was NOT primarily
-   exploration noise (std held 0.13, slip still 1.59x clone) — the
-   real mechanism is slip-financed progress via a duty-skewed
-   dragging gait. phasedir6 retightened the (ok,max) band 7/10->3/6
-   to test the band-VALUE lever directly: FAIL, slightly worse
-   (1.611x), ratio never moved even though the charge collected did
-   — see the `Now` bullet above for full numbers. Rather than try a
-   third band value, found and enabled an existing-but-unused
-   mechanism (`reward.k_drag_stance`, per-stance absolute-mm charge,
-   bank-tested 08-11) and validated it flips the ordering on the
-   ACTUAL cheat checkpoint via a pod pricing A/B before launching.
-   `cw-dep-bcgait4-phasedir7-dragstance` is running now (train-0).
-   PASS -> rung B heading-set respec. FAIL branch (i) charge active +
-   reward/progress still rising -> continue from checkpoint, not a
-   fresh FAIL (08-21 ruling). FAIL branch (ii) progress collapse ->
-   half-dose retry (k=4000). FAIL branch (iii) charge bites but det
-   slip still misses -> reconcile the env-metric/harness-metric
-   divergence before any further reward edit.
+3. **DONE 08-22 — the whole loadslip-band AND drag-stance-dose family
+   of levers is now refuted for this lineage; DIG-IN required before
+   any further reward edit.** phasedir3/4 established the loadslip
+   charge was unpriced/mistimed; phasedir5's direct std override
+   proved slip was NOT primarily exploration noise (std held 0.13,
+   slip still 1.59x clone). phasedir6 retightened the (ok,max) band
+   7/10->3/6: FAIL, band VALUE lever refuted (ratio never moved even
+   though the charge collected did). phasedir7 switched pricing
+   MECHANISM to `reward.k_drag_stance` (per-stance absolute-mm
+   charge, bank-tested 08-11, A/B-validated on the actual cheat
+   checkpoint before launch): FAIL — real bite on slip (1.611x->
+   1.323x) and stride shape (recovered to the clone's own value) but
+   overcorrected progress (0.961x->0.779x, now below cap) and pushed
+   speed 0.001 m/s under the floor. phasedir7b halved the dose
+   (k=4000): FAIL, and this is the informative part — progress/slip/
+   speed are essentially IDENTICAL to phasedir7's k=8000 numbers
+   (see `Now` above for the full 3-point dose-response table), and
+   per-leg gait metrics are statistically indistinguishable between
+   the two doses. This is a STEP FUNCTION (any k_drag_stance>0 flips
+   the policy into one fixed second optimum) not a dose curve —
+   dosing this lever further is refuted, matching phasedir7b's own
+   pre-registered branch (ii). NEXT: DIG-IN on why the course/anchor
+   pricing terms cap speed at ~0.058-0.059 m/s once any per-stance
+   drag charge is active at all, independent of its size — that
+   interaction, not the charge's magnitude, is the real binding
+   constraint blocking both progress and the speed floor.
 4. RL fine-tune from the phase clone (and a walk-champion arm as
    control) with the reward aligned to the gate metrics, resuming
    the staged heading curriculum; extend budget while reward and
