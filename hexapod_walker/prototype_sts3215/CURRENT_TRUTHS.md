@@ -455,27 +455,27 @@ out-of-scope runs get honest triage but no agent follow-ups.
   future cycle re-derives it; confirms the lead above (needs a
   net-DISPLACEMENT floor, not a smoothed-velocity swap) — velocity-
   domain fixes are the wrong shape for this defect.
-- JOYSTICK REGIME-GAP FIX FOUND (08-22, drag-stance-allowance ramp):
-  the phasedir9 n=4 seed sample (seed13/23/29 FAIL 0.74-0.82x
-  progress/1.17-1.30x slip clone-relative, seed17 alone PASS-partial
-  1.02x/0.74x — see the operator's formal session-gate reading in
-  `tracks/joystick/STATUS.md`) closed the "more seeds" lever per its
-  own pre-registration. `reward.drag_stance_allow_ramp_steps/_mm`
+- DRAG-STANCE-ALLOWANCE RAMP BUILT + REFUTED AS A GENERAL FIX (08-22,
+  3-seed consolidated): `reward.drag_stance_allow_ramp_steps/_mm`
   (new, bank-tested `test_drag_allow_ramp.py` 6/6, mirrors
   `bus.profile_ramp_steps` exactly: cfg-armed/trainer-driven/default
-  off/bit-exact, armed-but-unbroadcast sits at the target allowance)
-  anneals the det-calibrated 24mm drag allowance from a loose 48mm
-  (sized to the pd8 dig-in's measured noisy-honest stance-travel
-  tail) down to 24mm over the same 1.2M-step window as the existing
-  log-std anneal — so noisy early exploration is never taxed harder
-  than the drag cheat itself. On seed13 (`-phasedir10-allowramp-a`):
-  progress 0.792x->0.831x AND slip 1.286x->1.159x moved together for
-  the first time in the 40+-arm lineage (still short of the 0.9x/
-  1.2x caps; UNDERTRAINED, reward still rising at the 4M cutoff).
-  Cross-seed generalization checks queued/running same cycle:
-  `-allowramp-seed23` (seed23, this cycle) and `-allowramp-seed29`
-  (seed29, concurrent cycle) — read together, not alone, before
-  arming the ramp as a lineage default or extending budget further.
+  off/bit-exact) anneals the det-calibrated 24mm drag allowance from
+  a loose 48mm (sized to the pd8 dig-in's measured noisy-honest
+  stance-travel tail) down to 24mm over the same 1.2M-step window as
+  the log-std anneal, so noisy early exploration is never taxed
+  harder than the drag cheat itself — a well-motivated regime-gap
+  repair. Tested on all 3 of the phasedir9 n=4 sample's FAILing seeds
+  (13/23/29): seed13 IMPROVED both axes (0.792x/1.286x->0.831x/
+  1.159x clone), but seed23 (0.818x/1.175x->0.792x/1.217x) and
+  seed29 (0.740x/1.296x->0.725x/1.466x) both WORSENED on both axes.
+  1/3, not a general pricing fix — same seed-dependent-basin-
+  selection signature as every other lever in this lineage (the
+  ramp changes WHICH basin noisy exploration lands in, it does not
+  uniformly reprice toward the honest gait). Do NOT arm as a
+  lineage-wide default off one good seed; do not spend further
+  budget on this exact ramp schedule without a new idea for why
+  seed13 differs. The mechanism itself (the ramp CODE) stays banked
+  and available — only its blind reuse across seeds is refuted.
   Also built: `reward.term_penalty_ramp_steps/_init` (same pattern,
   opposite direction — anneals a termination charge UP from lenient
   to the validated deterrent instead of an allowance down; targets
