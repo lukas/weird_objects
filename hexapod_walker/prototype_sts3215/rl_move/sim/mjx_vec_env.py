@@ -449,6 +449,7 @@ class MjxVecEnv(VecEnv):
         acc = np.zeros((B, 1), dtype=np.float32)
         valid = np.zeros(B, dtype=bool)
         push = np.zeros(B, dtype=np.float32)
+        push_fxy = np.zeros((B, 2), dtype=np.float32)
 
         for i, env in enumerate(self.envs):
             stub = env._profile
@@ -470,10 +471,13 @@ class MjxVecEnv(VecEnv):
                 # per-tick half-sine (same pre-_step_finish clock as the
                 # C env's _advance); the stepper applies it as xfrc.
                 push[i] = env._walk_push_torque_nm()
+                # dr.ext_push_* mid-episode push-recovery force: same
+                # pre-_step_finish clock, world-frame (fx, fy).
+                push_fxy[i] = env._ext_push_force_n()
 
         out = self.stepper.tick(self.stepper.make_command(
             cmd_q, speed_deg_s=speed, acc_units=acc, valid=valid),
-            push_nm=push)
+            push_nm=push, push_fxy=push_fxy)
         outs = self._jax.device_get(out)
 
         for i, env in enumerate(self.envs):
