@@ -4,9 +4,9 @@
 
 **status**: REFUSED
 
-**created**: 2026-08-22T16:38:56+00:00
+**created**: 2026-08-22T16:41:06+00:00
 
-**pod**: hexapod-mjx-train-3
+**pod**: hexapod-mjx-train-0
 
 **steps**: 2000000
 
@@ -16,5 +16,5 @@
 
 **gate**: Discovery (2M, DR-0 harness walk mode, 6 det + 6 sto, own cfg -- eval auto-matches this run's own fixed-command training cfg). PASS = median det fwd travel >= 0.10 m/15s AND gait_valid >= 4/6 det AND no sacrificed legs AND video shows six-leg cycling with net forward displacement, read against the SLIPWALK bank's own gait(+417,0.22m)/creep(+108,0.16m)/stall(-143)/park(-244) reference. Prediction-if-true: task complexity (not reward shape) was the barrier -- revisit stress_mix/stagecurric with a longer held stage-0. Prediction-if-false: statue persists at the bank's own simplest case -- genuine PPO exploration/basin-barrier problem; next lever is RSI or a stance-load curriculum, not another task/dose tweak.
 
-**refused_reason**: hexapod-mjx-train-3 code marker 7b104fe6bb2e50d577cbcdcd31bb27805cd3b888 != local HEAD fdbddb525899cacb6e575bc7c9f01ebd136405b3. Sync first: snapshot.sh --sync hexapod-mjx-train-3 (and snapshot/commit before that if the tree is dirty).
+**refused_reason**: hexapod-mjx-train-0 code marker 1450b0e06c159559dd2eb768d64cb30d6722052f != local HEAD c1ba4c922d9b883f85c99370e2d3963320908013. Sync first: snapshot.sh --sync hexapod-mjx-train-0 (and snapshot/commit before that if the tree is dirty).
 
