@@ -128178,7 +128178,7 @@
       "goal.walk_turn_in_place_frac=0.9"
     ],
     "created": "2026-08-22T22:45:52+00:00",
-    "status": "RUNNING",
+    "status": "FAIL-INFORMATIVE",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -128208,7 +128208,7 @@
     "log": "/tmp/train_cw-amp-m2-bcinit-sec5-style05-yawcmd-tip90.log",
     "wandb_id": "nqs2fby4",
     "verified": "2026-08-22T22:49:11+00:00",
-    "triage": "awaiting since 2026-08-22T22:53:49",
+    "triage": "done",
     "checkups": [
       {
         "time": "2026-08-22T22:54:34+00:00",
@@ -128216,7 +128216,8 @@
         "verdict": "DEAD",
         "log_tail": "al_mean 0.68389\nwandb:      amp/disc_updates 124\nwandb:                amp/gp 0.01015\nwandb:              amp/loss 0.209\nwandb: amp/pairs_per_rollout 65343\nwandb:        amp/replay_len 500000\nwandb: amp/style_reward_mean 0.15149\nwandb:                   +97 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-amp-m2-bcinit-sec5-style05-yawcmd-tip90 at: https://wandb.ai/l2k2/hexapod-balance/runs/nqs2fby4\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 3 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260822_224644-nqs2fby4/logs\n"
       }
-    ]
+    ],
+    "verdict": "Fires FAIL-park at the 0.9 dose too, completing the joint read with tip50-r2: COMMAND EXPOSURE IS REFUTED as the turn-in-place unlock on the AMP substrate. Even with 90% of training episodes as whole-episode dedicated turns (50/50 sign draw, the maximum-exposure arm where translation erosion was explicitly tolerated), eval_yaw (pod, run cfg, --speed 0.08 --wz-max 0.3; artifact logs/ckpt_eval/cw_amp_m2_bcinit_sec5_style05_yawcmd_tip90_yawgate.json) shows tip-left/right err 0.2982/0.2999 == |wz_ref| exactly -- the identical park fingerprint as the parent yawcmd (0.2995/0.3008) and the tip50-r2 twin (0.2996/0.3000); zero falls, hold_wz 0.0020 clean. No dose-response whatsoever between 0.5 and 0.9. Same secondary shape as the twin: yaw WHILE TRANSLATING did improve (fwd-hold drift err 0.169->0.075, arc-right 0.273->0.180) -- the policy modulates wz inside the walking gait but produces ZERO rotation from the parked stance at vx=0, at any exposure. Reward rose all run (quarters 43/103/160/186) while turning never emerged -- with 90% of income sitting on tip episodes the policy STILL prefers to park and collect style/still income; this is a motor-pattern DISCOVERY block, the same failure shape as the crouch-statue basin that 0/4 sec5 reward arms could not escape and only BC-init fixed. Standard DR-0 panel note: at 0.9 frac ~90% of harness episodes are tip commands the policy parks through, so panel medians are contamination, not gait erosion (see tip50-r2 verdict for the mechanism; its genuine translation episodes were fully preserved). Next (pre-registered structural branch, chosen assumption recorded in STATUS): inject the missing motor pattern directly -- extend bc_init_gait.py to drive the scripted teacher's native omega channel (TripodGait.set_velocity already supports it; the paper-CPG work measured teacher turns at yaw_along 0.99/1.01) under yaw-command episodes and BC-clone walk+turn, then RL with the sec5+yaw pricing stack from that clone. Mirror-symmetry regularizer stays the fallback if the turn-clone fails. hardware-ready: no (2M discovery, DR-0)."
   },
   {
     "run": "cw-amp-m3-pushsmoke1-noamp-r1",
