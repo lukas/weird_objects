@@ -1635,4 +1635,21 @@ Entry format (append; newest last; update status in place):
   right arm keeps term_penalty=400 (a section-5.4-compatible reward
   choice, not a termination-condition change) and picks modest
   regularizers carefully rather than just zeroing every SLIPWALK key.
+- UPDATE 08-22 ~18:2x (measured, not just textual, confirmation):
+  the two measurement arms this question's own diagnosis motivated
+  are both in. `cw-amp-m2-styleonly-v2` (task_weight 0.0, pure AMP
+  imitation) FAILED its own informative bar but proved the style
+  gradient is weakly alive (style_reward_mean 0.06->0.119, first-
+  ever rising `ep_rew_mean` in the family) — yet still statued on
+  video/gate (gait_valid 0/6 both modes). `cw-amp-m2-taskdown01-
+  style1-v3` (task_weight 0.1) then showed even 10% of the SLIPWALK
+  task charges erases that gain (style_reward_mean DROPS to 0.087,
+  reward reverts to declining). Task/style ratio 0.0/0.1/0.5/1.0/2.0
+  now spans the whole accessible range on this reward architecture
+  and every point fails — the dose ladder is exhausted, which is
+  exactly the evidence this question needed: the SLIPWALK apparatus
+  itself, not its weight, is the blocker. Assumed answer STANDS and
+  is now measured: the next M2 arm should be the section-5-literal
+  minimal-reward rewrite. Still not launched (real design work, not
+  a cfg toggle) — next cycle's or a DIG-IN cycle's job.
 - ANSWER (operator): _

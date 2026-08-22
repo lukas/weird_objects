@@ -723,11 +723,23 @@ out-of-scope runs get honest triage but no agent follow-ups.
   on its own to organize six-leg coordination at 2M budget — rules
   OUT "just remove the task reward" as a one-line fix. Twin
   `cw-amp-m2-taskdown01-style1-v3` (task_weight 0.1, retry of a
-  code-sync-REFUSED v2 that trained 0 steps) is RUNNING to complete
-  the pre-registered joint read (task=0 vs task=0.1) before deciding
-  between disc/GP retuning, a much longer style-only budget, or
-  proceeding straight to the section-5 minimal-Gaussian-task
-  rearchitecture.
+  code-sync-REFUSED v2 that trained 0 steps) completed the joint
+  read: FAIL, and the informative half — a task charge just 10% of
+  the SLIPWALK stack ALREADY erases styleonly-v2's fragile gain
+  (`amp/style_reward_mean` 0.087, LOWER than styleonly's 0.119;
+  `ep_rew_mean` declining -2.4/-30.4/-69.2/-85.2, opposite of
+  styleonly's rise) even though DR-0 gait_valid ticked up slightly
+  (det 1/6, sto 3/6 vs styleonly's 0/6 both) — still the same
+  near-static statue on video, legs [1,3,5] sacrificed. TASK/STYLE
+  DOSE LADDER ON THE SLIPWALK-DERIVED REWARD IS NOW FULLY CLOSED
+  (0.0/0.1/0.5/1.0/2.0 all tried, all FAIL, same failure family): no
+  ratio of task-vs-style income on the EXISTING SLIPWALK apparatus
+  works from scratch. This makes q_20260822T1815Z's diagnosis
+  (the reward ARCHITECTURE itself, not its dose, is the wrong shape)
+  a MEASURED finding, not just a textual reading of the brief — the
+  next real M2 arm is the section-5 minimal-Gaussian-task reward
+  rewrite (dropping freeprog/loadslip/drag-stance/idle-charge/
+  anchor/gait-gate wholesale), not another task/style ratio point.
 - FREEPROG-EMA REUSE TESTED + REFUTED, ZERO GPU SPENT (08-22): the
   obvious cheap fix — feed `reward.walk_kernel_vel_ema`'s already-
   validated stride-averaged velocity into `walk_freeprog_score`

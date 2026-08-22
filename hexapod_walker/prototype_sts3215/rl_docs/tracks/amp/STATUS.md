@@ -1,6 +1,29 @@
 # amp - AMP locomotion from scratch
 
-Last updated: 2026-08-22 ~18:2x (STYLEONLY-V2 VERDICTED FAIL, not a
+Last updated: 2026-08-22 ~18:2x (TASK/STYLE DOSE LADDER CLOSED on the
+SLIPWALK-derived reward architecture: `cw-amp-m2-taskdown01-style1-v3`
+(task_weight 0.1, the joint twin to styleonly-v2) VERDICTED FAIL —
+reward DECLINING every quarter (-2.4/-30.4/-69.2/-85.2, opposite of
+styleonly-v2's rise) and `amp/style_reward_mean` 0.087, actually
+LOWER than styleonly-v2's pure-style 0.119 — even 10% of the SLIPWALK
+task charges re-buries the fragile style gradient. DR-0 gate ticked
+up slightly (det gait_valid 1/6, sto 3/6, vs styleonly's 0/6 both)
+but video/contact-sheet is still the same near-static splayed statue,
+legs [1,3,5] sacrificed. Every task/style ratio on this reward
+architecture (0.0/0.1/0.5/1.0/2.0, spanning noamp through pure-style)
+has now failed — this CLOSES DOSE-TUNING as a lever on the SLIPWALK-
+derived stack entirely; the diagnosis in q_20260822T1815Z (the
+reward ARCHITECTURE — not its task/style ratio — is the wrong shape
+for a from-scratch AMP actor) is now measured, not just textual. NEXT
+REAL ARM (not yet launched, needs design care per the DIG-IN note
+below): a clean-slate implementation of `AMP_LOCOMOTION.md` section
+5.1-5.4's own minimal Gaussian-velocity/yaw/upright task reward + a
+dominant-enough style weight, dropping the SLIPWALK freeprog/
+loadslip/drag-stance/idle-charge/anchor/gait-gate apparatus wholesale
+— no more task/style ratio arms on the current stack until that
+redesign is tried.)
+
+Previous update ~18:2x (STYLEONLY-V2 VERDICTED FAIL, not a
 continuation — the podeval videos/gate the previous entry was
 waiting on are in: DR-0 gate + fresh eval contact sheet both show
 the SAME frozen-tripod statue signature as every prior M2 arm
@@ -78,8 +101,18 @@ below the 0.3 INFORMATIVE bar, but ep_rew (pure style income) rose
 MONOTONICALLY all four quarters (14.2/21.9/30.3/37.8) with no
 plateau and the discriminator stayed unsaturated (d_real 0.79 /
 d_fake -0.96) — the style gradient IS alive without task
-competition; 08-21 continue-longer branch applies. Triage/verdict +
-continuation decision pending its podeval videos.)
+competition. VERDICTED INFORMATIVE ~18:1x after harness+video:
+the behavior earning that income is a half-tripod STORK STATUE
+(legs 1,3,5 sacrificed in all 12 episodes, one front leg raised
+waving, fwd 0.02m/15s, prog ~0) — static pose resemblance, not
+cyclic motion. Since the gate metric here IS the reward and it was
+still rising at budget end (~1.3 ep/env), CONTINUED +10M as
+`cw-amp-m2-styleonly-v2-c1b` (policy + disc warm-started,
+acquisition): style >=0.3 + cyclic multi-leg motion => M2 fix is
+income rebalancing (feeds q_20260822T1815Z); plateau <=0.2 with the
+stork persisting => the 60-dim single-step transition feature set
+rewards static poses too well — dig-in goes to discriminator
+feature/temporal-horizon design, not pricing.)
 
 Previous update, 2026-08-22 ~18:0x (K_WALK_SWING LEVER CLOSED: both
 `cw-amp-m2-freeprog-term400-swing-{noamp,style05}` FAIL, landing in
