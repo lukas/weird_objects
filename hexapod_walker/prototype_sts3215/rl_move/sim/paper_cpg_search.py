@@ -308,6 +308,8 @@ def rollout(env, params: GaitParams, command: Command, *,
 
     xy0 = None
     yaw0 = None
+    yaw_prev = None
+    yaw_cum = 0.0
     u_world = None
     pad_prev = None
     touch_prev = None
@@ -332,9 +334,19 @@ def rollout(env, params: GaitParams, command: Command, *,
             if xy0 is None:
                 xy0 = env.data.xpos[env._chassis_bid, :2].copy()
                 yaw0 = _body_yaw(env)
+                yaw_prev = yaw0
                 if math.hypot(command.vx, command.vy) > 1e-6:
                     u_world = _body_command_dir_world(
                         env, command.vx, command.vy)
+            else:
+                # Unwrapped cumulative yaw: per-step deltas are far
+                # below pi, so summing wrapped increments never aliases.
+                # (A 20 s turn at 0.2 rad/s targets 4 rad > pi; wrapping
+                # the endpoint difference reported near-perfect turns as
+                # sign-inverted.)
+                yaw_now = _body_yaw(env)
+                yaw_cum += _wrap_angle(yaw_now - yaw_prev)
+                yaw_prev = yaw_now
             touch = np.asarray([
                 float(env.data.sensordata[a]) > 0.5
                 for a in env._touch_adr
@@ -365,14 +377,19 @@ def rollout(env, params: GaitParams, command: Command, *,
         progress = float(np.dot(delta, u_world))
         cross = abs(float(u_world[0] * delta[1] - u_world[1] * delta[0]))
 
-    yaw1 = _body_yaw(env)
-    yaw_delta = 0.0 if yaw0 is None else _wrap_angle(yaw1 - yaw0)
+    yaw_delta = 0.0 if yaw0 is None else yaw_cum
     yaw_target = command.wz * walk_s
     yaw_along = (yaw_delta * np.sign(command.wz)
                  if abs(command.wz) > 1e-6 else 0.0)
     cur = np.vstack(currents) if currents else np.zeros((1, 18))
 
-    slip_per_m = slip_m / max(progress, 0.05)
+    # Normalize slip by the commanded-equivalent path: translation
+    # progress plus the foot-arc length of the achieved rotation
+    # (mean stance foot radius ~0.17 m). Pure-turn commands otherwise
+    # divide by ~zero translation and saturate the slip penalty no
+    # matter how clean the pivot is.
+    slip_den = max(progress + 0.17 * abs(yaw_delta), 0.05)
+    slip_per_m = slip_m / slip_den
     return {
         "command": asdict(command),
         "steps": steps,
@@ -390,7 +407,7 @@ def rollout(env, params: GaitParams, command: Command, *,
         "yaw_along_frac": (
             yaw_along / abs(yaw_target) if abs(yaw_target) > 1e-6 else None),
         "yaw_err_rad": (
-            abs(_wrap_angle(yaw_delta - yaw_target))
+            abs(yaw_delta - yaw_target)
             if abs(yaw_target) > 1e-6 else None),
         "height_mean_m": float(np.mean(heights)) if heights else None,
         "roll_peak_deg": float(max(rolls)) if rolls else 0.0,
@@ -505,6 +522,15 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--vel-max", type=float, default=None,
                     help="servo cruise ceiling deg/s; default matches "
                          "write speed, 0 keeps fitted clamp")
+    ap.add_argument("--warm-json", default="",
+                    help="JSON list of GaitParams dicts evaluated as the "
+                         "first trials (warm-starts the GP history, e.g. "
+                         "with the straight-suite winner)")
+    ap.add_argument("--replay-json", default="",
+                    help="JSON GaitParams dict; skips the search and "
+                         "re-evaluates these exact params on "
+                         "--replay-seeds held-out seed bases")
+    ap.add_argument("--replay-seeds", type=int, default=5)
     ap.add_argument("--out", type=Path, default=None)
     args = ap.parse_args(argv)
 
@@ -530,13 +556,74 @@ def main(argv: list[str] | None = None) -> int:
         vel_max_deg_s=args.vel_max,
     )
     try:
+        if args.replay_json:
+            # Held-out verification of one exact parameter set: the
+            # search scored each trial on a single seed base, so a
+            # winner must reproduce on fresh seeds before promotion.
+            params = GaitParams(**json.loads(args.replay_json))
+            report["replay_params"] = asdict(params)
+            for k in range(args.replay_seeds):
+                seed_base = args.seed + k * 100_003
+                rec = evaluate_candidate(
+                    env, params, commands,
+                    walk_s=args.walk_s,
+                    seed_base=seed_base,
+                    slip_weight=args.slip_weight,
+                )
+                rec["iteration"] = k + 1
+                rec["seed_base"] = seed_base
+                rec["proposal_method"] = "replay"
+                report["history"].append(rec)
+                _write_report(out, report)
+                s = rec["summary"]
+                print(
+                    f"[replay {k + 1:02d}/{args.replay_seeds}] "
+                    f"seed_base={seed_base} score={rec['score']:+.3f} "
+                    f"prog={s['progress_frac_mean']} "
+                    f"slip/m={s['slip_per_m_mean']} falls={s['falls']}",
+                    flush=True,
+                )
+            scores = [r["score"] for r in report["history"]]
+            report["best"] = {
+                "params": asdict(params),
+                "score": float(np.mean(scores)),
+                "summary": {
+                    "score": float(np.mean(scores)),
+                    "score_min": float(np.min(scores)),
+                    "score_std": float(np.std(scores)),
+                    "progress_frac_mean": float(np.mean([
+                        r["summary"]["progress_frac_mean"]
+                        for r in report["history"]
+                        if r["summary"]["progress_frac_mean"] is not None
+                    ])),
+                    "slip_per_m_mean": float(np.mean([
+                        r["summary"]["slip_per_m_mean"]
+                        for r in report["history"]
+                        if r["summary"]["slip_per_m_mean"] is not None
+                    ])),
+                    "falls": int(sum(r["summary"]["falls"]
+                                     for r in report["history"])),
+                },
+            }
+            _write_report(out, report)
+            print(f"[paper_cpg_search] wrote {out}")
+            print("[paper_cpg_search] replay aggregate:")
+            print(json.dumps(report["best"]["summary"], indent=2,
+                             sort_keys=True))
+            return 0
+        warm = ([_clip_params(GaitParams(**d))
+                 for d in json.loads(args.warm_json)]
+                if args.warm_json else [])
         for i in range(args.iterations):
-            params, method = propose_next(
-                report["history"], rng,
-                init_random=args.init_random,
-                pool_size=args.pool_size,
-                optimizer=args.optimizer,
-            )
+            if i < len(warm):
+                params, method = warm[i], "warm"
+            else:
+                params, method = propose_next(
+                    report["history"], rng,
+                    init_random=args.init_random,
+                    pool_size=args.pool_size,
+                    optimizer=args.optimizer,
+                )
             rec = evaluate_candidate(
                 env, params, commands,
                 walk_s=args.walk_s,
