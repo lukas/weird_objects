@@ -283,13 +283,37 @@ out-of-scope runs get honest triage but no agent follow-ups.
   outbid the statue — a discriminator cannot rescue a misaligned
   task reward. Cheat encoded: `test_slipwalk_stork_statue_is_priced_
   out` (stork -238/ep vs gait +558 under the freeprog stack, bank
-  6/6 PASS, commit 911fcedf). Fix pair RUNNING (2M discovery, from
-  scratch per the init-basin rule): `cw-amp-m2-freeprog-{style05,
-  noamp}` = pilot config + SLIPWALK pricing + pure-walk diet +
-  branch-(iii) envelope narrowing (0-0.25 m/s, yaw ±0.5). Decisive
-  contrast: `cw-nobc-slipwalk1-r1` (same pricing, no AMP) froze at
-  2M — style05 stepping where its twin freezes is the first real
-  style-vs-control signal.
+  6/6 PASS, commit 911fcedf).
+- AMP M2 FREEPROG SUICIDE ECONOMICS ROOT-CAUSED (08-22 dig-in, both
+  `cw-amp-m2-freeprog-{noamp,style05}` FAIL final): the repriced
+  anti-slip stack's third failure mode (rapid topple, neither freeze
+  nor walk) is a PRICING DEFECT — per-tick charges ~-1.4 to -3/tick
+  with `reward.term_penalty=0` made death FREE; a scripted 1 s topple
+  nets +19/ep vs park -243 / stall -143 / skate -1023, i.e. dying was
+  the best-paying behavior in the bank short of real walking. Both
+  arms LEARNED survival first (ep_len 28->310) then flipped to fast
+  death in q4 (tilt terminations 59->132 / 90->241, ep_len falling,
+  ep_rew "recovering" purely by episode shortening) at CONSTANT std
+  0.367 — refuting log-std anneal AND charge ramp-in as fixes (the
+  flip happened at constant std; charges were maxed from step 0 yet
+  survival was still learned mid-run). style05's q4 reward recovery
+  is confirmed faster death; AMP itself stayed healthy but a style
+  channel cannot price termination. Cheat encoded:
+  `test_slipwalk_toppling_fast_is_not_an_escape` + `reward.
+  term_penalty=400` added to SLIPWALK_OVERRIDES (sized > worst-case
+  discounted survival cost ~-295; topple +19 -> -381 < park; bit-
+  exact for behaviors that survive to truncation; bank 7/7 PASS,
+  commit d9554b04). GENERAL LESSON for every harsh-charge from-
+  scratch stack: a reward whose alive per-tick income is net-negative
+  for an unskilled policy MUST carry a termination charge exceeding
+  the discounted worst-case cost of staying alive, or suicide is the
+  optimum. Fix pair QUEUED (single change, term_penalty=400):
+  `cw-amp-m2-freeprog-term400-{noamp,style05}` — re-runs the Wave-1
+  style-vs-control fork (still UNRESOLVED: the suicide basin
+  short-circuited both arms before the style gradient could matter).
+  Decisive contrast unchanged: `cw-nobc-slipwalk1-r1` (same pricing
+  class, no AMP) froze at 2M — style05 stepping where its twin
+  freezes/statues is the first real style-vs-control signal.
 - direction_err_mean_deg has a ~35 deg tick-level floor from stride
   sway — judge deltas vs a matched clone, not raw values.
 - Every pre-08-22 checkpoint (incl. the download hierarchy) trained
