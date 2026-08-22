@@ -469,6 +469,33 @@ class Handler(BaseHTTPRequestHandler):
                                             float(data.get("amp", 6))))
             except Exception as e:
                 self._json(400, {"ok": False, "error": str(e)})
+        elif path == "/api/pose":
+            try:
+                if BENCH is None:
+                    self._json(400, {"ok": False, "error": "no bench"})
+                    return
+                data = json.loads(body or "{}")
+                if not isinstance(data, dict):
+                    data = {}
+                def _truthy(v, default: bool = False) -> bool:
+                    if v is None:
+                        return default
+                    if isinstance(v, str):
+                        return v.strip().lower() in (
+                            "1", "true", "yes", "on")
+                    return bool(v)
+                q = data.get("q_deg")
+                if q is None:
+                    q = data.get("degrees")
+                self._json(200, BENCH.command_pose(
+                    q,
+                    seconds=float(data.get("seconds", 2.0)),
+                    torque=int(float(data.get("torque", 450))),
+                    force=_truthy(data.get("force", False)),
+                    limp_after=_truthy(data.get("limp_after", False)),
+                    label=str(data.get("label", "api_pose"))))
+            except Exception as e:
+                self._json(400, {"ok": False, "error": str(e)})
         elif path == "/api/demo":
             try:
                 data = json.loads(body or "{}")
