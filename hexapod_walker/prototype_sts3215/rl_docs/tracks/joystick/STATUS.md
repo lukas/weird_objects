@@ -1,6 +1,26 @@
 # joystick - RL from the programmatic gait to joystick control
 
-Last updated: 2026-08-22 (~18:5x: **THE DOSE LADDER IS SEED-SPECIFIC —
+Last updated: 2026-08-22 (~19:1x: **DOSE TRANSFER SPLIT — the -5.0
+rung CLOSES seed23's gap but WORSENS seed29's.** `stotight50-seed23`
+VERDICTED PASS on its pre-registered bar: joygate slip 2.543/dir
+35.31° (vs seed23@-4.5's 39.4°), own-DR-alone dir 36.94° — the 40.36°
+over-allowance gap that motivated the arm is closed by 3.4°; 0
+falls/48, gait 48/48, no det trade (15s DR-0 det prog 0.69/slip
+1.80), clean six-leg sheet. `stotight50-seed29` VERDICTED
+INFORMATIVE: evaluator still passes (0 falls/48, gait 48/48) but slip
+went the WRONG way — combined 2.748 vs its -4.5 reading 2.704, own-DR
+sto slip 2.986 over the 2.9 cap on that pass alone, det weakest of
+the batch (0.63/2.31). Reward rose and converged on both — honest
+basin answers. **Conclusion: dose response is seed-basin-specific and
+does NOT track gap type** (seed23's dir gap closed; seed29's slip gap
+widened). Per-seed bests now fully mapped: seed13@-4.5 (CHAMPION
+CANDIDATE, slip 2.407/dir 36.4), seed17@-5.5 (best dir 34.97),
+seed23@-5.0 (slip 2.543/dir 35.31), seed29@-4.5 (slip 2.704). Blanket
+per-seed dose sweeps are DONE — no further stotight dose arms except
+the two in-flight reads (`stotight60` knee search, `stotight55-seed13`
+stack test; evals running ~19:1x). Prior banner below.)
+
+Previous entry (~18:5x: **THE DOSE LADDER IS SEED-SPECIFIC —
 `stotight50-seed13` (best basin seed13 × -5.0) VERDICTED INFORMATIVE:
 still passes the 60s DONE-gate (0 falls/48, gait 48/48, clean six-leg
 video) but with WORSE margins than seed13's own -4.5 reading — slip

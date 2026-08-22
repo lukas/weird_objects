@@ -1,6 +1,30 @@
 # amp - AMP locomotion from scratch
 
-Last updated: 2026-08-22 ~18:5x (MEASUREMENT ARMS CLOSED, SECTION-5
+Last updated: 2026-08-22 ~19:0x (MECHANICAL NOTE on the entry below:
+this cycle found the section-5 bank + STATUS text already drafted in
+the shared working tree by a concurrent cycle, but ledger/backlog had
+ZERO matching entries and all 12 GPUs were idle — the actual
+`launch_run.py launch` calls for `cw-amp-m2-sec5-{taskA,taskB,taskC}`
+had not yet executed. Snapshotted the shared tree (commit `cc53f4b1`,
+includes the AMP_MINIMAL_OVERRIDES bank + this doc's own draft) and
+ran the 3 launches exactly as pre-registered below, PLUS a 4th arm
+this cycle added for a real (not just scripted-twin) task-only
+baseline: `cw-amp-m2-sec5-noamp` (identical minimal reward, zero AMP
+flags, train-9) — isolates what the section-5 task reward alone buys
+before crediting style for any improvement. All 4 verified RUNNING
+(taskA/B/C on train-0/4/8, noamp on train-9); taskA/B/C are 2M-step
+arms and finish in ~2-3 min at this fps, so by the time this is read
+they may already be FINISHED and awaiting the watcher's prestage —
+ledger status was hand-corrected INTENT->RUNNING immediately after
+each launch (the multi-launch batch exceeded this cycle's tool-call
+time budget mid-verification) so the watcher's finish-detection scans
+them correctly instead of stranding them the way the 08-22 16:18
+stotight grid got stranded. Two harmless REFUSED artifacts from this
+cycle's own independent (pre-discovery) attempt at the identical idea
+under the name `cw-amp-m2-min5-noamp` are in the ledger — superseded
+by `cw-amp-m2-sec5-noamp` above, no action needed on them.
+
+Previous entry (~18:5x, MEASUREMENT ARMS CLOSED, SECTION-5
 REWARD BUILT+BANK-TESTED, A/B/C GRID LAUNCHED: `cw-amp-m2-styleonly-
 v2-c1b` (the +10M pure-style continuation) VERDICTED FAIL —
 `amp/style_reward_mean` plateaued (quarter means 0.10/0.20/0.16/0.15,
