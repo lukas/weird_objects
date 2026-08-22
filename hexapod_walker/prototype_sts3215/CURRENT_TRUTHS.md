@@ -219,26 +219,38 @@ out-of-scope runs get honest triage but no agent follow-ups.
   raising `train.bc_anchor_coef` blind is NOT recommended before an
   on-pod per-tick trace (bc_target cadence vs realized policy cadence
   vs raw un-phase-locked teacher cadence) exists.
-- PHASEDIR9 BUDGET LEVER CLOSED (08-22, `phasedir9-longrun13`/
-  `-longrun17`, both FAIL): 2x the converged-regime steps (fresh
-  re-inits from the raw BC clone, same stacks/seeds as stdanneal/
-  seed17, `--steps` 2M->4M, `--log-std-anneal-frac` 0.6->0.3 so the
-  anneal still ends at the same absolute ~1.2M step but ~2.8M steps
-  now run converged vs ~800k) did NOT close the gap either direction:
-  `longrun13` (from the seed that near-passed at 2M) got WORSE
-  (progress 0.873x->0.792x clone, slip 1.08x->1.286x); `longrun17`
-  (from the seed that missed at 2M) stayed FLAT (0.727x->0.714x,
-  1.27x->1.323x), matching its own pre-registered prediction-if-false
-  exactly. Both runs' W&B ep_rew_mean rose STRONGLY through the extra
-  budget (ending quarters +187/+193, far above either 2M run's ~-300)
-  while the clone-relative gate got worse-or-flat — a genuine
-  reward<->eval DIVERGENCE (08-21 ruling): more training under this
-  reward stack finds more of the stack's OWN income, not more of the
-  honest clone's behavior. Zero falls, gait_valid 6/6, clean 6-leg
-  video on all four phasedir9 runs. Budget/anneal-timing is now
-  EXONERATED end to end for this lineage; do not retry a different
-  anneal-frac/--steps combination on this stack. Sole remaining
-  lever: the BC-anchor/phase-lock family-boundary on-pod trace above.
+- PHASEDIR9 BUDGET LEVER: SEED-DEPENDENT, NOT CLOSED (08-22,
+  `phasedir9-longrun13` FAIL / `-longrun17` CORRECTED TO PASS
+  (partial) — see correction note below): 2x the converged-regime
+  steps (fresh re-inits from the raw BC clone, same stacks/seeds as
+  stdanneal/seed17, `--steps` 2M->4M, `--log-std-anneal-frac`
+  0.6->0.3, anneal still ending ~1.2M, ~2.8M steps run converged vs
+  ~800k). `longrun13` (seed13, near-passed at 2M) got WORSE (progress
+  0.873x->0.792x clone, slip 1.08x->1.286x) — confirmed, unaffected
+  by the correction below. `longrun17` (seed17, missed at 2M) was
+  FIRST verdicted FAIL (~0.72x/1.32x) by a premature-verdict race —
+  that verdict was written at 14:03:08/14:07:02, BEFORE its own eval
+  finished syncing (14:03:45/14:04:04) — and did not match the real
+  data. CORRECTED (triple-confirmed: on-disk report.json, `ops.sh
+  report`, and the run's own W&B `eval/dr0/walk_det/*` summary all
+  agree): `longrun17` is a DET-mode PASS of the rung-A clone-relative
+  gate — the FIRST in the entire 34+-arm phasedir1-9/longrun lineage
+  — at both DR-0 (progress 1.02x clone, slip 0.74x, speed 0.069 m/s)
+  and its own DR-0.35 (0.94x/1.01x/0.067, thinner margin). Zero
+  falls, gait_valid 6/6, clean roll, no sacrificed legs, clean 6-leg
+  video both runs. So the budget lever is NOT uniformly closed —
+  it is seed-dependent: identical recipe, opposite basins. DIG-IN
+  QUEUED (not yet run): reproduce `longrun17` independently before
+  any promotion/champion-append, and root-cause the seed13/seed17
+  divergence — likely the same BC-anchor/phase-lock family-boundary
+  question (below): do not spend a further from-scratch budget arm,
+  and do not treat budget-scaling as refuted, until that lands.
+  PROCESS NOTE: a run's ledger verdict must wait for its eval's
+  SYNCED marker (per the orchestrator prompt's own instruction) —
+  this is the concrete failure mode that instruction exists to
+  prevent; a second concurrent-cycle "sync" commit inherited the
+  stale numbers without independently re-checking the by-then-
+  available real data, so the race survived one extra hop.
 - AMP M2 STATUE MISALIGNMENT ROOT-CAUSED (08-22 dig-in, both -c1
   arms verdicted MISALIGNED, Wave-1 NO-GO on legacy pricing): the
   frozen half-tripod (triad 0,2,4 planted, 1,3,5 airborne) is the

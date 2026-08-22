@@ -1,35 +1,41 @@
 # joystick - RL from the programmatic gait to joystick control
 
-Last updated: 2026-08-22 (phasedir9-seed17 VERDICTED FAIL-as-
-reproduction: pd9-stdanneal's 2M near-pass (0.873x progress, 1.08x
+Last updated: 2026-08-22 (CORRECTION to the previous entry below:
+`phasedir9-longrun17`'s FAIL verdict was written before its own eval
+finished syncing — a premature-verdict race, not a real reading.
+Recomputed from the synced report + this run's own W&B summary
+(triple-confirmed), `-longrun17` (seed17) is actually a **DET-mode
+PASS** of the rung-A clone-relative gate — the first in 34+ arms —
+at both DR-0 (progress 1.02x clone, slip 0.74x, speed 0.069 m/s) and
+its own DR-0.35 (0.94x/1.01x/0.067, thinner). `-longrun13` (seed13)
+stays correctly verdicted FAIL/worse (0.792x/1.286x). So the "budget
+lever is closed end-to-end" conclusion below is WRONG for seed17 and
+right for seed13 — a genuine seed-dependent divergence on an
+identical recipe, not a settled answer either way. Ledger set to
+`PASS (partial)` pending a DIG-IN (queued, not yet run): reproduce
+`-longrun17` independently before any promotion, and root-cause why
+seed13/seed17 landed in opposite basins — likely the same BC-anchor/
+phase-lock family-boundary question already flagged (W&B
+`train/bc_anchor_loss_walk` reads converged on every seed while
+realized `swing_s_mean` still lags the teacher ~30%). Do not spend a
+further from-scratch budget arm, and do not treat budget-scaling as
+refuted, until that dig-in lands. Superseded text below kept for the
+lineage record; treat its "FORK RESOLVED/EXONERATED end to end"
+language as void.
+
+Previous entry (08-22, phasedir9-seed17 VERDICTED FAIL-as-
+reproduction): pd9-stdanneal's 2M near-pass (0.873x progress, 1.08x
 slip) did NOT reproduce on a second seed. FOLLOW-UP `phasedir9-
 longrun13`/`-longrun17` (fresh re-inits, NOT continuations — same
 stacks/seeds, --steps 2M->4M, anneal still ending ~1.2M so ~2.8M
-steps run converged vs ~800k) BOTH VERDICTED FAIL, closing the
-"needs more budget" branch decisively: longrun13 (from the GOOD
-seed) got WORSE (progress 0.873x->0.792x clone, slip 1.08x->1.286x)
-and longrun17 (from the BAD seed) stayed FLAT (0.727x->0.714x,
-1.27x->1.323x) — this DESPITE both runs' W&B ep_rew_mean ending
-strongly positive and rising through the last 2 quarters (far above
-either 2M run's ending reward). Reward-up-but-gate-flat/worse is a
-genuine reward<->eval DIVERGENCE (08-21 ruling), not an undertrained
-false negative: more training under this reward stack finds more of
-the stack's OWN income without moving toward the honest clone's
-progress/slip. Zero falls, gait_valid 6/6, clean video on all four
-runs (stdanneal/seed17/longrun13/longrun17). Budget/anneal-timing is
-now EXONERATED end to end — all further investment redirects to the
-BC-anchor/phase-lock family-boundary DIG-IN: W&B shows
-train/bc_anchor_loss_walk already near-zero (0.00005-0.0007,
-converged) and env/walk_anchor_frac already high (0.80-0.93) on every
-seed, yet realized swing_s_mean runs ~30% slower than the teacher/
-clone (0.34-0.36s vs 0.25-0.27s) on every seed — the phase-locked
-BC-anchor supervision reads as tightly tracking its own target, so
-the gap looks like a target-vs-realized (stochastic-action/servo/
-plant) issue, not a supervision-strength one; raising bc_anchor_coef
-blind is NOT recommended before an on-pod per-tick trace exists.
-Condensed 08-22 for the <=120-line budget — full lineage detail
-lives in `RL_LOG.md` + ledger verdicts, not here. Keep this a short
-screenful: Goal / Now / Next.
+steps run converged vs ~800k): longrun13 (from the GOOD seed) got
+WORSE (progress 0.873x->0.792x clone, slip 1.08x->1.286x); longrun17
+(from the BAD seed) — SEE CORRECTION ABOVE, this is now a PASS
+(partial), not "stayed FLAT". Zero falls, gait_valid 6/6, clean video
+on all four runs (stdanneal/seed17/longrun13/longrun17). Condensed
+08-22 for the <=120-line budget — full lineage detail lives in
+`RL_LOG.md` + ledger verdicts, not here. Keep this a short screenful:
+Goal / Now / Next.
 
 ## Goal
 
@@ -139,24 +145,28 @@ with:
   absolute ~1.2M step; ~2.8M steps in the converged regime instead of
   ~800k) — tests the 08-21 "needs to go longer" branch on both seeds
   before committing to the phase-lock dig-in's on-pod tracing work.
-- **phasedir9-longrun13/-longrun17 BOTH VERDICTED FAIL** (08-22, same
-  cycle — this pipeline trains 2-4M steps in single-digit minutes, so
-  both finished before this triage did): the budget lever is now
-  CLOSED for this reward stack. `longrun13` (from the seed that
-  near-passed at 2M) got WORSE with 2x the budget (progress
-  0.873x->0.792x clone, slip 1.08x->1.286x); `longrun17` (from the
-  seed that missed at 2M) stayed FLAT (0.727x->0.714x, 1.27x->1.323x)
-  — matching its own pre-registered prediction-if-false exactly. BOTH
-  runs' W&B ep_rew_mean rose STRONGLY through the extra budget
-  (quarters ending +187/+193, far above either 2M run's ending
-  quarter of ~-300) while the clone-relative gate got worse-or-flat —
-  a genuine reward<->eval DIVERGENCE (08-21 ruling: more training
-  found more of the reward stack's own income, not more of the
-  clone's honest behavior). Zero falls, gait_valid 6/6, clean 6-leg
-  video, all four runs (stdanneal/seed17/longrun13/longrun17). Do not
-  respec a 3rd continuation off any converged phasedir9 checkpoint,
-  and do not retry a different anneal-frac/--steps combination on
-  this stack — spend the next unit of work on the on-pod per-tick
+- **phasedir9-longrun13 VERDICTED FAIL, -longrun17 CORRECTED TO
+  PASS (partial)** (08-22, same cycle — this pipeline trains 2-4M
+  steps in single-digit minutes, so both finished before triage did;
+  `-longrun17`'s first verdict was a premature-verdict race, written
+  before its own eval synced — see the top-of-file correction
+  banner): the budget lever is NOT uniformly closed. `longrun13`
+  (from the seed that near-passed at 2M) got WORSE with 2x the budget
+  (progress 0.873x->0.792x clone, slip 1.08x->1.286x, confirmed).
+  `longrun17` (from the seed that missed at 2M) actually CROSSED the
+  rung-A gate at 4M — DR-0 det progress 1.02x clone, slip 0.74x,
+  speed 0.069 m/s, zero falls, gait_valid 6/6, clean video — the
+  first full det-mode PASS in the entire phasedir1-9/longrun lineage.
+  Both runs' W&B ep_rew_mean rose strongly through the extra budget
+  (quarters ending +187/+193 vs either 2M run's ~-300), but only one
+  seed's gate metrics tracked that rise — a seed-dependent basin
+  outcome, not a clean reward<->eval divergence story for both. Zero
+  falls, gait_valid 6/6, clean 6-leg video, all four runs (stdanneal/
+  seed17/longrun13/longrun17). Do not respec a 3rd continuation off
+  any converged phasedir9 checkpoint, and do not retry another
+  anneal-frac/--steps combination blind — DIG-IN queued first: (a)
+  reproduce longrun17 independently, (b) root-cause the seed13-vs-
+  seed17 divergence, alongside the on-pod per-tick
   trace (bc_target cadence vs realized policy cadence vs raw
   un-phase-locked teacher cadence) before any anchor-dose/phase_hz
   reward edit.
@@ -214,21 +224,41 @@ with:
    lever family AND the "anneal noise, continue training" lever are
    both measured-refuted for this lineage (see Now: phasedir6/7/7b,
    and the `-9`/`-9b`/`-9-cont1` init-basin-flatness finding).
-   **FORK RESOLVED 08-22, BOTH BRANCHES CLOSED**: `-9`'s 2M near-pass
-   did NOT reproduce on seed17, AND the budget lever is now closed
-   too — `phasedir9-longrun13`/`-longrun17` (2x the converged-regime
-   steps, fresh re-inits, no lineage-rule conflict) got worse/flat
-   respectively despite reward rising strongly (see Now). The
-   from-scratch-full-envelope-curriculum branch (item 5) and any
-   further anneal-frac/--steps tuning on this stack are BOTH
-   de-prioritized. Sole remaining lever: the BC-anchor/phase-lock
-   family boundary (pd8 branch (ii)) via an on-pod per-tick trace of
-   `bc_target` cadence vs realized policy cadence vs raw
-   un-phase-locked teacher cadence — explaining why
-   `train/bc_anchor_loss_walk` reads converged while realized
-   `swing_s_mean` still runs ~30% slower than the teacher on every
-   seed tried. That trace, not a guessed anchor-dose/phase_hz edit or
-   another budget arm, is the next unit of work on this lineage.
+   **FORK CORRECTED 08-22 (was wrongly marked closed for ~15 min by
+   a race)**: `phasedir9-longrun13`'s ledger verdict (seed13, WORSE:
+   0.792x/1.286x) is correct and confirmed. But `-longrun17`'s FIRST
+   committed verdict (~0.72x/1.32x, FAIL) was written at 14:03:08,
+   BEFORE its own eval finished syncing (gate report synced 14:03:45,
+   owncfg 14:04:04) — a genuine premature-verdict race, not a
+   judgment call; a second concurrent-cycle sync at 14:07:02
+   inherited the same stale numbers without re-checking the by-then-
+   available real data. CORRECTED (triple-confirmed: on-disk
+   report.json, `ops.sh report`, and this run's own W&B
+   `eval/dr0/walk_det/*` summary all agree): `-longrun17` (seed17) is
+   a **DET-mode PASS** of this lineage's rung-A clone-relative
+   gate — the first in 34+ arms — at BOTH DR-0 (progress 1.02x clone,
+   slip 0.74x, speed 0.069 m/s, all caps cleared) and its own DR-0.35
+   (0.94x/1.01x/0.067, thinner margin). Zero falls, gait_valid 6/6,
+   clean roll, no sacrificed legs, video shows a clean 6-leg
+   alternating gait. STO still fails (as it always has lineage-wide —
+   the clone's own sto baseline is itself degenerate, so sto was
+   never part of the ratio criteria). Ledger status set to `PASS
+   (partial)`, not a closing PASS: own-DR margin is thin, sto is
+   still bad, and — the real puzzle — seed13 and seed17 ran the
+   IDENTICAL recipe/steps/anneal and landed on opposite outcomes
+   (worse vs. first-ever pass). That seed-dependent divergence, not a
+   uniform "budget helps" or "budget doesn't help" story, is now the
+   open question. **DIG-IN QUEUED** (flagged this cycle, not yet
+   run): (a) reproduce `-longrun17`'s reading independently before
+   any promotion/champion-append; (b) root-cause why the same recipe
+   put seed13 and seed17 in opposite basins — this bears directly on
+   the still-open BC-anchor/phase-lock family-boundary trace (pd8
+   branch (ii): `bc_target` cadence vs realized policy cadence vs raw
+   un-phase-locked teacher cadence, since `train/bc_anchor_loss_walk`
+   reads converged on every seed tried while realized `swing_s_mean`
+   lags ~30%). Do not spend a further from-scratch budget-scaling
+   arm on this stack until the dig-in lands; do not treat the budget
+   lever as closed either.
 4. RL fine-tune from the phase clone (and a walk-champion arm as
    control) with the reward aligned to the gate metrics, resuming
    the staged heading curriculum; extend budget while reward and
