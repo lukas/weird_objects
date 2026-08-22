@@ -1177,7 +1177,28 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 goal = self._current_goal()
                 s_ref = (float(np.hypot(goal.vx_ref, goal.vy_ref))
                          if goal is not None else 0.0)
-                if s_ref > 1e-3:
+                run = s_ref > 1e-3
+                if not run and float(cfg_get(
+                        self.cfg, "goal", "walk_phase_run_on_yaw",
+                        default=0.0)) > 0.0:
+                    # Turn-in-place clock fix (amp M2-yaw, 08-22): the
+                    # clock above only ran while a LINEAR velocity was
+                    # commanded, so during turn-in-place segments
+                    # (vx=vy=0, wz!=0) the phase obs FROZE — a
+                    # phase-locked policy (every BC-clone lineage) then
+                    # has no time-base to step with and parks. Measured:
+                    # yawcmd + tip50-r2 + tip90 all show tip err ==
+                    # |wz_ref| exactly (zero rotation at vx=0) while yaw
+                    # WHILE TRANSLATING (clock running) did improve —
+                    # exposure 0.5/0.9 gave zero dose-response because
+                    # the skill was unlearnable with a frozen clock, not
+                    # under-exposed. goal.walk_phase_run_on_yaw=1 also
+                    # advances the clock while a yaw rate is commanded
+                    # (default 0 = off, bit-exact legacy; pure-park
+                    # segments with wz_ref=0 still freeze the clock).
+                    run = abs(float(getattr(goal, "wz_ref", 0.0))
+                              if goal is not None else 0.0) > 1e-3
+                if run:
                     hz = float(cfg_get(self.cfg, "goal", "walk_phase_hz",
                                        default=PHASE_HZ_DEFAULT))
                     # Speed-coupled clock (default OFF = bit-exact

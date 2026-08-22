@@ -110,3 +110,69 @@ def test_env_phase_advance_tracks_command(scale, expect_ratio):
         assert d_hi / d_lo == pytest.approx(expect_ratio, rel=0.05)
     finally:
         env.close()
+
+
+# ---- turn-in-place clock (goal.walk_phase_run_on_yaw, amp M2-yaw 08-22)
+# Root cause: the clock only ran while a LINEAR velocity was commanded,
+# so phase-locked (BC-clone) policies had no time-base during
+# turn-in-place segments and parked — yawcmd/tip50-r2/tip90 all measured
+# tip err == |wz_ref| exactly, with zero dose-response to 0.5/0.9
+# exposure. Contract: default OFF = bit-exact legacy (clock frozen at
+# vx=vy=0 regardless of wz); ON = clock also advances while |wz_ref| is
+# non-trivial; pure park (all refs zero) stays frozen either way.
+
+def _phase_advance_cmd(env, vx, wz):
+    from types import SimpleNamespace
+    orig = env._current_goal
+    env._current_goal = lambda: SimpleNamespace(
+        vx_ref=float(vx), vy_ref=0.0, wz_ref=float(wz))
+    try:
+        p0 = float(env._phase)
+        env._augment_obs(np.zeros(1, dtype=np.float32), reset=False)
+        p1 = float(env._phase)
+    finally:
+        env._current_goal = orig
+    return (p1 - p0) % (2.0 * math.pi)
+
+
+def _mk_env(run_on_yaw):
+    from rl_move.sim.walk_task import SimHexapodJointWalkEnv
+    cfg = {
+        "goal": {
+            "walk_phase_obs": 1,
+            "walk_phase_hz": 1.333333,
+            "mix": {"walk": 1.0},
+        },
+    }
+    if run_on_yaw is not None:
+        cfg["goal"]["walk_phase_run_on_yaw"] = run_on_yaw
+    return SimHexapodJointWalkEnv(cfg=cfg)
+
+
+@pytest.mark.parametrize("run_on_yaw", [None, 0.0])
+def test_yaw_only_clock_frozen_by_default(run_on_yaw):
+    env = _mk_env(run_on_yaw)
+    try:
+        # legacy: turn-in-place command leaves the clock frozen
+        assert _phase_advance_cmd(env, 0.0, 0.3) == 0.0
+        # and translation still advances it (sanity)
+        assert _phase_advance_cmd(env, 0.08, 0.0) > 0.0
+    finally:
+        env.close()
+
+
+def test_yaw_only_clock_runs_when_enabled():
+    env = _mk_env(1.0)
+    try:
+        d_yaw = _phase_advance_cmd(env, 0.0, 0.3)
+        d_lin = _phase_advance_cmd(env, 0.08, 0.0)
+        # yaw-only advance matches the linear-command advance (same
+        # fixed hz — the teacher cadence), and pure park stays frozen
+        assert d_yaw > 0.0
+        assert d_yaw == pytest.approx(d_lin, rel=1e-9)
+        assert _phase_advance_cmd(env, 0.0, 0.0) == 0.0
+        # sign-independent
+        assert _phase_advance_cmd(env, 0.0, -0.3) \
+            == pytest.approx(d_lin, rel=1e-9)
+    finally:
+        env.close()
