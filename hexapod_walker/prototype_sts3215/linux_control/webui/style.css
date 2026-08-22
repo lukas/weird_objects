@@ -253,9 +253,16 @@
   table.policies td.polname { font-weight:600; color:#dfe4ee;
     min-width:130px; }
   table.policies td.polnotes { color:#8089a0; line-height:1.5; }
-  table.policies td.poluse { width:64px; }
-  table.policies td.poluse button { padding:6px 10px; font-size:12px;
-    min-width:52px; }
+  table.policies td.polroles { width:190px; text-align:right;
+    white-space:nowrap; }
+  button.rolechip { flex:0 0 auto; display:inline-block; min-width:0;
+    margin:0 0 3px 6px; padding:4px 10px; border:1px solid #3a4356;
+    border-radius:999px; background:transparent; color:#8089a0;
+    font-size:11px; font-weight:600; cursor:pointer; }
+  button.rolechip:active { background:#222838; }
+  button.rolechip.on { color:#5fd08a; border-color:#2e7d47;
+    background:#0f1e15; }
+  button.rolechip.zero { border-style:dashed; }
   .pill { display:inline-block; padding:2px 8px; border-radius:999px; font-size:11px;
     background:#222838; border:1px solid #333b52; }
   .pill.ok { color:#5fd08a; border-color:#2e7d47; }

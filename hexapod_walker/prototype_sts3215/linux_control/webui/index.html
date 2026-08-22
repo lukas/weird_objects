@@ -518,7 +518,7 @@ the trained forward wedge — same policy, body walks backward.">▼ Back</butto
       </details>
     </div>
     <div class="pad" style="flex:1 1 340px">
-      <h2 title="Read-only preflight: servo IDs, IMU, tilt, and expected start pose. Refusals show the exact reason.">Readiness (no motion)</h2>
+      <h2 title="Read-only preflight: servo IDs, IMU, tilt, and expected start pose. Refusals show the exact reason. The MuJoCo sim is always ready — these checks guard the real robot.">Readiness (no motion)</h2>
       <div class="btns" style="margin-top:12px">
         <button id="rlcheckstand">Check: stand</button>
         <button id="rlchecklower">Check: lower</button>
@@ -529,10 +529,13 @@ the trained forward wedge — same policy, body walks backward.">▼ Back</butto
     <div class="pad" style="flex:2 1 480px">
       <h2 title="Policy info for the active exported numpy models.">Policy</h2>
       <div class="hint" id="rlpolicyinfo">loading…</div>
-      <h2 style="margin-top:16px" title="Select which policy file serves each role. Changes apply at the next move/session start, not mid-move.">Model roles</h2>
-      <div id="rlroles" class="hint" style="margin-top:10px">loading…</div>
-      <div class="hint" id="rlrolesmsg" style="margin-top:6px">—</div>
-      <div id="rlpicktable" class="hint" style="margin-top:12px">loading…</div>
+      <div class="hint" style="margin-top:12px">Click a role chip to give
+        that model the job — one model can hold several roles.
+        <b>Stand</b>/<b>Sit</b>/<b>Hold</b> live on stance models,
+        <b>Walk</b>/<b>Hold</b> on walk models; lit chips show who does
+        what now. Changes apply at the NEXT move, and clicking a lit
+        Sit/Hold chip resets that role to its default.</div>
+      <div id="rlpicktable" class="hint" style="margin-top:10px">loading…</div>
       <div class="hint" id="rlpickmsg" style="margin-top:8px">—</div>
     </div>
   </div>

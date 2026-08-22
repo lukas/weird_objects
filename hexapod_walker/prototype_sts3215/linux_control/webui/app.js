@@ -189,6 +189,7 @@ function applyBackendMeta(meta){
   }
   if(changed){
     updateArmUI();
+    rlPaintReadinessDefault();
     if(activeView === 'rl') simPollMaybe();
   }
   paintTargetRows();
@@ -2059,68 +2060,6 @@ if($('simrecover')) $('simrecover').onclick =
 if($('simpush')) $('simpush').onclick = ()=> simPost('/api/sim/push',
   {x:4, y:0});
 
-// ---- Model roles (which policy file serves each function) ------------------
-const RL_ROLE_DEFS = [
-  ['walk',  'Walk (keys held)'],
-  ['hold',  'Hold (no keys)'],
-  ['stand', 'Stand up'],
-  ['lower', 'Sit / lower'],
-];
-async function rlRolesRefresh(){
-  const box = $('rlroles');
-  try{
-    const d = await (await fetch('/api/rl/roles', {cache:'no-store'})).json();
-    if(!d.ok) throw new Error(d.error || 'roles failed');
-    const allowed = d.allowed_obs || {};
-    box.innerHTML = '';
-    for(const [role, label] of RL_ROLE_DEFS){
-      const cur = (d.roles[role] || {});
-      const row = document.createElement('label');
-      row.className = 'hint';
-      row.style.cssText = 'display:flex;gap:8px;align-items:center;'
-        + 'margin-top:4px';
-      const span = document.createElement('span');
-      span.style.cssText = 'min-width:120px;display:inline-block';
-      span.innerHTML = `<b>${label}</b>`;
-      const sel = document.createElement('select');
-      const def = document.createElement('option');
-      def.value = '';
-      def.textContent = role === 'hold'
-        ? 'walk policy @ zero command (default)'
-        : `live ${role === 'walk' ? 'walk' : 'stance'} slot (default)`;
-      sel.appendChild(def);
-      const dims = allowed[role] || [];
-      for(const p of rlPolicies){
-        if(!dims.includes(p.obs_dim)) continue;
-        const o = document.createElement('option');
-        o.value = p.file;
-        o.textContent = `${p.name} (obs ${p.obs_dim})`;
-        sel.appendChild(o);
-      }
-      sel.value = (cur.file && cur.file !== 'walk') ? cur.file : '';
-      sel.onchange = async ()=>{
-        $('rlrolesmsg').textContent = `setting ${role}…`;
-        try{
-          const r = await fetch('/api/rl/roles', {method:'POST',
-            body: JSON.stringify({role, file: sel.value})});
-          const dd = await r.json();
-          $('rlrolesmsg').textContent = dd.ok
-            ? `${label} → ${(dd.roles[role]||{}).resolved} ✔ `
-              + '(next session/move)'
-            : `failed: ${dd.error || 'unknown'}`;
-          if(!dd.ok) showErr('Role: '+(dd.error || 'failed'));
-        }catch(e){ $('rlrolesmsg').textContent = 'role set failed (link?)'; }
-        rlRolesRefresh();
-      };
-      const now = document.createElement('span');
-      now.style.color = '#8089a0';
-      now.textContent = cur.resolved ? `→ ${cur.resolved}` : '';
-      row.appendChild(span); row.appendChild(sel); row.appendChild(now);
-      box.appendChild(row);
-    }
-  }catch(e){ box.textContent = 'roles unavailable (link?)'; }
-}
-
 // ---- Stand-up lab (baked strategies from rl_move/sim/compare_standup.py) --
 let suModes = [], suSel = null, suTimer = null;
 async function suLoadModes(){
@@ -2398,6 +2337,7 @@ $('mu-stop').onclick = async ()=>{
 $('mu-refresh').onclick = ()=> muRefresh();
 
 async function rlCheck(mode){
+  $('rlpreflight').dataset.checked = '1';
   $('rlpreflight').textContent = 'Checking '+mode+'…';
   try{
     const r = await fetch('/api/rl/preflight?mode='+mode, {cache:'no-store'});
@@ -2408,7 +2348,8 @@ async function rlCheck(mode){
     if(d.max_pose_delta_deg!=null)
       det.push(`pose Δ ${d.max_pose_delta_deg}° (tol ${d.pose_tol_deg}°)`);
     $('rlpreflight').innerHTML = d.ok
-      ? `<b style="color:#5fd08a">READY for ${mode}</b> · ${det.join(' · ')}`
+      ? `<b style="color:#5fd08a">READY for ${mode}</b>`
+        + (d.sim ? ' (sim — always ready)' : '') + ` · ${det.join(' · ')}`
       : `<b style="color:#ff7b72">NOT ready</b>: ${d.error||'?'}`
         + (det.length ? ` · ${det.join(' · ')}` : '');
   }catch(e){ $('rlpreflight').textContent = 'check failed (link?)'; }
@@ -2416,7 +2357,20 @@ async function rlCheck(mode){
 $('rlcheckstand').onclick = ()=> rlCheck('stand');
 $('rlchecklower').onclick = ()=> rlCheck('lower');
 $('rlcheckwalk').onclick = ()=> rlCheck('walk');
+// The Readiness checks guard REAL hardware (servo IDs, IMU, tilt, start
+// pose); the MuJoCo sim passes them by construction. Say so instead of
+// showing an empty box — but never clobber a result the operator asked
+// for (dataset.checked). Re-painted when the backend target flips.
+function rlPaintReadinessDefault(){
+  const pf = $('rlpreflight');
+  if(pf && pf.dataset.checked !== '1')
+    pf.textContent = (targetHasSim && !targetHasRobot)
+      ? 'SIM target — always READY. These checks (servo IDs, IMU, tilt, '
+        + 'start pose) guard the real robot.'
+      : '—';
+}
 async function refreshRlTab(){
+  rlPaintReadinessDefault();
   try{
     const r = await fetch('/api/rl/policy', {cache:'no-store'});
     const d = await r.json();
@@ -2433,7 +2387,6 @@ async function refreshRlTab(){
       : (d.error || 'no policy');
   }catch(e){ $('rlpolicyinfo').textContent = 'policy info unavailable'; }
   await rlLoadPicker();
-  await rlRolesRefresh();
   try{
     const r = await fetch('/api/calibrate?t='+Date.now(), {cache:'no-store'});
     const d = await r.json();
@@ -2458,17 +2411,75 @@ async function refreshRlTab(){
 }
 
 // ---- Policy picker (linux_control/policies/ registry) ---------------------
-// Rendered as a table (name / description / Use) instead of dropdowns —
-// operator request 08-11: the descriptions ARE the interface.
+// Rendered as a table (name / description / role chips). Operator
+// requests: 08-11 "the descriptions ARE the interface" (table, not
+// dropdowns); 08-22 roles are picked HERE, per row — no separate
+// "Model roles" dropdown section. One model can hold several roles.
+// Walk/Stand chips load the live slot (the default every role follows);
+// Sit/Hold chips set per-role overrides and toggle back to default.
 let rlPolicies = [];
+let rlRoles = {};        // role -> {file, resolved} from /api/rl/roles
+let rlAllowedObs = {};   // role -> [allowed obs widths]
 const RL_SLOT_TITLES = {stance: 'Stand / sit / hold', walk: 'Walk'};
+const RL_ROLE_CHIPS = [  // [role, chip label, slot whose rows offer it]
+  ['stand', 'Stand', 'stance'],
+  ['lower', 'Sit',   'stance'],
+  ['walk',  'Walk',  'walk'],
+  ['hold',  'Hold',  null],          // any row with an allowed obs width
+];
+const RL_HOLD_ZERO = 'walk policy @ zero command';
+
+function rlRoleHome(role){
+  // Which picker row serves `role` right now: a row file name, 'zero'
+  // (hold default = the walk policy's trained stop), or null. Trust
+  // `resolved` over the raw assignment — each backend reports there
+  // what actually RUNS (e.g. the sim ignores stale walk-role
+  // overrides and drives the live slot).
+  const cur = rlRoles[role] || {};
+  const res = cur.resolved || '';
+  if(role === 'hold' && res === RL_HOLD_ZERO) return 'zero';
+  const hit = rlPolicies.find(p => p.file === res || p.name === res);
+  if(hit) return hit.file;                 // sim: file; robot: meta name
+  // Anything else (a "live … slot" label, or a dangling override the
+  // backend ignored) means the live slot runs — light the slot row.
+  const slot = (role === 'walk' || role === 'hold') ? 'walk' : 'stance';
+  const act = rlPolicies.find(p => p.slot === slot && p.active);
+  return act ? act.file : null;
+}
+
+function rlChipTitle(role, on, zero){
+  if(zero)
+    return 'Default hold: the walk policy holds at zero command (its '
+      + 'trained stop). Click Hold on another model to override.';
+  const what = {walk: 'walk when drive keys are held',
+                hold: 'hold in place when no keys are held',
+                stand: 'stand up (also the stance default for Sit/Hold)',
+                lower: 'sit / lower'}[role];
+  if(on)
+    return (role === 'walk' || role === 'stand')
+      ? `Current ${role === 'walk' ? 'walk' : 'stand-up'} model (the live `
+        + `${role === 'walk' ? 'walk' : 'stance'} slot).`
+      : `This model currently does "${what}" — click to reset the role `
+        + 'to its default.';
+  return `Use this model to ${what}. Applies at the next move/session.`;
+}
+
 async function rlLoadPicker(){
   const box = $('rlpicktable');
   try{
-    const r = await fetch('/api/rl/policies', {cache:'no-store'});
-    const d = await r.json();
+    const [pr, rr] = await Promise.all([
+      fetch('/api/rl/policies', {cache:'no-store'}),
+      fetch('/api/rl/roles', {cache:'no-store'})]);
+    const d = await pr.json();
     if(!d.ok) throw new Error(d.error || 'list failed');
     rlPolicies = (d.policies || []).filter(p => !p.error);
+    try{
+      const dr = await rr.json();
+      rlRoles = (dr.ok && dr.roles) || {};
+      rlAllowedObs = (dr.ok && dr.allowed_obs) || {};
+    }catch(e){ rlRoles = {}; rlAllowedObs = {}; }
+    const home = {};
+    for(const [role] of RL_ROLE_CHIPS) home[role] = rlRoleHome(role);
     box.innerHTML = '';
     for(const slot of ['stance','walk']){
       const items = rlPolicies.filter(p => p.slot === slot);
@@ -2489,23 +2500,28 @@ async function rlLoadPicker(){
         const name = tr.insertCell();
         name.className = 'polname';
         name.textContent = p.name;
-        if(p.active){
-          const pill = document.createElement('span');
-          pill.className = 'pill ok';
-          pill.textContent = 'ACTIVE';
-          pill.style.marginLeft = '6px';
-          name.appendChild(pill);
-        }
         const notes = tr.insertCell();
         notes.className = 'polnotes';
         notes.textContent = p.notes || '—';
-        const use = tr.insertCell();
-        use.className = 'poluse';
-        if(!p.active){
+        const roles = tr.insertCell();
+        roles.className = 'polroles';
+        for(const [role, label, roleSlot] of RL_ROLE_CHIPS){
+          if(roleSlot && roleSlot !== slot) continue;
+          if(role === 'hold'){
+            const dims = rlAllowedObs.hold || [68, 72, 74];
+            if(!dims.includes(p.obs_dim)) continue;
+            // Scripted gaits can't serve the RL hold role.
+            if((p.file || '').startsWith('scripted:')) continue;
+          }
+          const zero = role === 'hold' && home.hold === 'zero'
+            && slot === 'walk' && p.active;
+          const on = zero || home[role] === p.file;
           const b = document.createElement('button');
-          b.textContent = 'Use';
-          b.onclick = ()=> rlPickUse(slot, p);
-          use.appendChild(b);
+          b.className = 'rolechip' + (on ? ' on' : '') + (zero ? ' zero' : '');
+          b.textContent = zero ? 'Hold @0' : label;
+          b.title = rlChipTitle(role, on, zero);
+          b.onclick = ()=> rlChipClick(role, slot, p, on, zero);
+          roles.appendChild(b);
         }
       }
       box.appendChild(tbl);
@@ -2514,7 +2530,35 @@ async function rlLoadPicker(){
     box.textContent = 'policy list unavailable (link?)';
   }
 }
-async function rlPickUse(slot, pick){
+
+async function rlChipClick(role, slot, pick, on, zero){
+  if(role === 'walk' || role === 'stand'){
+    await rlSlotSelect(role, slot, pick);
+  } else if(zero){
+    $('rlpickmsg').textContent =
+      'already the default hold (walk policy @ zero command)';
+  } else {
+    // Sit / Hold are per-role overrides; clicking the lit chip resets
+    // the role to its default.
+    const label = role === 'lower' ? 'Sit' : 'Hold';
+    const file = on ? '' : pick.file;
+    $('rlpickmsg').textContent = on
+      ? `resetting ${label} to default…` : `setting ${label} → ${pick.name}…`;
+    try{
+      const r = await fetch('/api/rl/roles', {method:'POST',
+        body: JSON.stringify({role, file})});
+      const dd = await r.json();
+      $('rlpickmsg').textContent = dd.ok
+        ? (file ? `${label} → ${pick.name} ✔ (next move)`
+                : `${label} reset to default ✔`)
+        : `failed: ${dd.error || 'unknown'}`;
+      if(!dd.ok) showErr('Role: '+(dd.error || 'failed'));
+    }catch(e){ $('rlpickmsg').textContent = 'role set failed (link?)'; }
+  }
+  refreshRlTab();
+}
+
+async function rlSlotSelect(role, slot, pick){
   // Check the LIVE registry before swapping: a page loaded hours ago
   // has stale active flags, and blind-applying page state silently
   // reverted the stance policy once (08-11). Confirm swaps by name.
@@ -2522,29 +2566,36 @@ async function rlPickUse(slot, pick){
   try{
     const live = (await (await fetch('/api/rl/policies',
       {cache:'no-store'})).json()).policies || [];
-    const cur = live.find(p => p.slot === slot && p.active);
-    if(cur && cur.file === pick.file){
+    const cur = live.find(q => q.slot === slot && q.active);
+    if(!cur || cur.file !== pick.file){
+      if(!confirm(`Swap ${RL_SLOT_TITLES[slot] || slot} policy:\n`
+                  + `${cur ? cur.name : '(none)'}\n→ ${pick.name}?\n\n`
+                  + 'Takes effect at the NEXT stand/lower/walk.')){
+        $('rlpickmsg').textContent = `kept ${cur ? cur.name : '(none)'}`;
+        return;
+      }
+      const r = await fetch('/api/rl/policy_select', {
+        method:'POST', body: JSON.stringify({file: pick.file})});
+      const d = await r.json();
+      if(!d.ok){
+        $('rlpickmsg').textContent = `swap failed: ${d.error || 'unknown'}`;
+        showErr('Policy select: '+(d.error || 'failed'));
+        return;
+      }
+      $('rlpickmsg').textContent = `${RL_SLOT_TITLES[slot] || slot} → `
+        + `${d.name} ✔`;
+    } else {
       $('rlpickmsg').textContent = `${pick.name} is already active`;
-      refreshRlTab();
-      return;
     }
-    if(!confirm(`Swap ${RL_SLOT_TITLES[slot] || slot} policy:\n`
-                + `${cur ? cur.name : '(none)'}\n→ ${pick.name}?\n\n`
-                + 'Takes effect at the NEXT stand/lower/walk.')){
-      $('rlpickmsg').textContent = `kept ${cur ? cur.name : '(none)'}`;
-      return;
-    }
-    const r = await fetch('/api/rl/policy_select', {
-      method:'POST', body: JSON.stringify({file: pick.file})});
-    const d = await r.json();
-    $('rlpickmsg').textContent = d.ok
-      ? `${RL_SLOT_TITLES[slot] || slot} → ${d.name} ✔`
-      : `swap failed: ${d.error || 'unknown'}`;
-    if(!d.ok) showErr('Policy select: '+(d.error || 'failed'));
+    // Walk/Stand chips mean "the live slot drives this role": drop any
+    // explicit override so the slot pick is what actually runs.
+    const curRole = rlRoles[role] || {};
+    if(curRole.file && curRole.file !== 'walk')
+      await fetch('/api/rl/roles', {method:'POST',
+        body: JSON.stringify({role, file: ''})});
   }catch(e){
     $('rlpickmsg').textContent = 'policy select failed (link?)';
   }
-  refreshRlTab();
 }
 // --- Motors tab -------------------------------------------------------------
 function startMotorsPoll(){
