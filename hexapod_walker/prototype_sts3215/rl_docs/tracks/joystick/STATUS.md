@@ -1,6 +1,18 @@
 # joystick - RL from the programmatic gait to joystick control
 
-Last updated: 2026-08-22 (~18:1x: **DONE-GATE PASS REPRODUCES ON
+Last updated: 2026-08-22 (~18:2x: **DEEPER NOISE FLOOR WIDENS EVERY
+MARGIN — `stotight50` (seed17, log-std-final -4.5→-5.0) VERDICTED
+PASS on the 60s joystick session gate: slip 2.569 (parent 2.671),
+dir 38.02° (best of any passer), own-DR slip 2.623 (vs 2.736), 0
+falls/48, gait 48/48; and the feared det-progress trade did NOT
+appear — 15s det prog 0.69/slip 1.72 vs parent 0.65/1.83, det
+IMPROVED. Dose ladder -3.6/-4.0/-4.5/-5.0 still monotone. Follow-ups
+launched per the gate's own PASS branch: `stotight55` (seed17,
+-5.5 — find the knee) and `stotight50-seed13` (best-basin seed ×
+deeper dose — fattest-margin champion candidate, target slip <
+seed13@-4.5's 2.407). Prior banner below.)
+
+Previous entry (~18:1x: **DONE-GATE PASS REPRODUCES ON
 EVERY TESTED SEED — recipe 4/4, seed-robustness question CLOSED.**
 `stotight45-seed13` and `-seed29` both VERDICTED PASS on the full
 60s randomized joystick session gate, completing the n=4 sample:

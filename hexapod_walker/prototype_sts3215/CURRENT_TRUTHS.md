@@ -700,6 +700,34 @@ out-of-scope runs get honest triage but no agent follow-ups.
   design (which modest regularizers to keep so the OLD freeze cheat
   does not reopen) before training, i.e. real dig-in work, not a
   cfg toggle — flagged, not launched, this cycle.
+- MEASUREMENT ARMS FOR THE REDESIGN, FIRST READING (08-22): before
+  spending design effort on the section-5 minimal-reward rewrite,
+  `cw-amp-m2-styleonly-v2` (amp-task-weight 0.0 / amp-style-weight
+  1.0, teacher_v2, canonical pure-imitation AMP pretraining, NO task
+  income or charges at all) directly tested whether the style
+  gradient is learnable in isolation. VERDICT: FAIL, not a
+  continuation, despite `ep_rew_mean` rising MONOTONICALLY every
+  quarter (14.2/21.9/30.3/37.8 — the first-ever rising trend in the
+  whole M2 freeprog family) and `amp/style_reward_mean` climbing
+  0.06->0.119 (2x the pinned floor, discriminator healthy: d_real
+  0.79/d_fake -0.96, unsaturated). DR-0 gate + fresh eval video both
+  show the SAME frozen-tripod statue as every prior arm — gait_valid
+  0/6 det AND sto, legs [1,3,5] (the mirror tripod of the swing/RSI
+  family's [0,2,4]) sacrificed/frozen, speed ~0.006-0.025 m/s,
+  prog_ratio ~0.00; the rising income bought a marginally more
+  discriminator-plausible STATIC pose, not progress toward six-leg
+  cycling — video overrides the reward-rising signal here (still
+  short of the arm's own pre-registered 0.3 informative-pass bar
+  too). READS AS: the AMP mechanism is confirmed alive (not
+  saturated/dead) even at zero task competition, but too weak/slow
+  on its own to organize six-leg coordination at 2M budget — rules
+  OUT "just remove the task reward" as a one-line fix. Twin
+  `cw-amp-m2-taskdown01-style1-v3` (task_weight 0.1, retry of a
+  code-sync-REFUSED v2 that trained 0 steps) is RUNNING to complete
+  the pre-registered joint read (task=0 vs task=0.1) before deciding
+  between disc/GP retuning, a much longer style-only budget, or
+  proceeding straight to the section-5 minimal-Gaussian-task
+  rearchitecture.
 - FREEPROG-EMA REUSE TESTED + REFUTED, ZERO GPU SPENT (08-22): the
   obvious cheap fix — feed `reward.walk_kernel_vel_ema`'s already-
   validated stride-averaged velocity into `walk_freeprog_score`
