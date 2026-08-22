@@ -13,9 +13,17 @@ from __future__ import annotations
 from rl_move.sim.eval_joystick_gate import aggregate_gate
 
 
-def _ep(*, terminated=False, slip=2.0, dir_err=34.0, gait_valid=True):
-    return {"terminated": terminated, "slip_per_m": slip,
-            "direction_err_mean_deg": dir_err, "gait_valid": gait_valid}
+def _ep(*, terminated=False, slip=2.0, dir_err=34.0, gait_valid=True,
+        duty_cycle=None, swing_count=None, sacrificed_legs=None):
+    ep = {"terminated": terminated, "slip_per_m": slip,
+          "direction_err_mean_deg": dir_err, "gait_valid": gait_valid}
+    if duty_cycle is not None:
+        ep["duty_cycle"] = duty_cycle
+    if swing_count is not None:
+        ep["swing_count"] = swing_count
+    if sacrificed_legs is not None:
+        ep["sacrificed_legs"] = sacrificed_legs
+    return ep
 
 
 def _report(eps_det, eps_sto, dr_scale=0.0):
@@ -99,3 +107,45 @@ def test_non_walk_modes_are_ignored():
     r = aggregate_gate({"dr0": report})
     assert r["pass"] is True
     assert r["n_total"] == 24
+
+
+def test_per_leg_metrics_absent_when_no_leg_fields():
+    good = [_ep(slip=1.8, dir_err=33.0) for _ in range(12)]
+    r = aggregate_gate({"dr0": _report(good, good)})
+    assert r["per_leg"] is None
+
+
+def test_per_leg_metrics_median_and_sacrificed_frac():
+    # a frozen-tripod pathology: legs 0,2,4 planted (duty~1, no
+    # swings), legs 1,3,5 held airborne (duty~0.02) every episode --
+    # this is exactly the AMP M2 pilot pathology (CURRENT_TRUTHS
+    # 08-22) the aggregate should surface without a manual video read.
+    frozen = [_ep(slip=9.0, dir_err=70.0, gait_valid=False,
+                  duty_cycle=[0.98, 0.02, 0.98, 0.02, 0.96, 0.02],
+                  swing_count=[4, 2, 5, 1, 10, 2],
+                  sacrificed_legs=[1, 3, 5])
+              for _ in range(12)]
+    r = aggregate_gate({"dr0": _report(frozen, frozen)})
+    assert r["per_leg"]["duty_median"] == [0.98, 0.02, 0.98, 0.02,
+                                            0.96, 0.02]
+    assert r["per_leg"]["sacrificed_episode_count"] == [0, 24, 0, 24,
+                                                          0, 24]
+    assert r["per_leg"]["sacrificed_frac"] == [0.0, 1.0, 0.0, 1.0,
+                                                0.0, 1.0]
+    assert r["pass"] is False  # gait_valid_all catches it independently
+
+
+def test_per_leg_metrics_mixed_sacrifice_pattern():
+    clean = _ep(slip=1.8, dir_err=33.0,
+                duty_cycle=[0.5, 0.5, 0.5, 0.5, 0.5, 0.5],
+                swing_count=[20, 20, 20, 20, 20, 20],
+                sacrificed_legs=[])
+    one_bad = _ep(slip=1.8, dir_err=33.0,
+                  duty_cycle=[0.5, 0.5, 0.5, 0.5, 0.5, 0.02],
+                  swing_count=[20, 20, 20, 20, 20, 1],
+                  sacrificed_legs=[5])
+    eps = [clean] * 11 + [one_bad]
+    r = aggregate_gate({"dr0": _report(eps, eps)})
+    assert r["per_leg"]["sacrificed_episode_count"] == [0, 0, 0, 0, 0, 2]
+    assert r["per_leg"]["sacrificed_frac"][5] == round(2 / 24, 3)
+    assert r["per_leg"]["duty_median"] == [0.5, 0.5, 0.5, 0.5, 0.5, 0.5]

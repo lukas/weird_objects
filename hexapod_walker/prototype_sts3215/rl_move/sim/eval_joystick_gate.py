@@ -91,20 +91,26 @@ SLIP_CAP_DEFAULT = 2.9               # teacher's own measured hardware
 def _run_eval_checkpoint(ckpt: Path, *, task: str, dr_scale: float,
                           seed: int, n: int, episode_seconds: float,
                           extra_cfg: list[str], out_dir: Path,
-                          log_path: Path) -> Path:
+                          log_path: Path, video: bool = False) -> Path:
     """Shell out to eval_checkpoint.py for one (dr_scale) pass.
 
     Returns the report.json path. Raises on non-zero-but-not-a-known
     exit (eval_checkpoint always writes report.json before exiting,
     even when episodes fail the harness's own success criteria, so we
     only treat a MISSING report.json as a real error).
+
+    `video` (08-22 follow-up, default False = prior behavior
+    unchanged): pass through to eval_checkpoint instead of the
+    hardcoded --no-video, for candidates close enough to the gate to
+    need visual triage of the actual 60s session.
     """
     out_dir.mkdir(parents=True, exist_ok=True)
     cmd = [sys.executable, "-m", "rl_move.sim.eval_checkpoint", str(ckpt),
            "--task", task, "--modes", "walk", "--per-mode", str(n),
            "--dr-scale", str(dr_scale), "--seed", str(seed),
            "--stochastic", "--episode-seconds", str(episode_seconds),
-           "--no-video", "--no-wandb", "--out", str(out_dir)]
+           "--no-wandb", "--out", str(out_dir)]
+    cmd += ["--video-every", "1"] if video else ["--no-video"]
     for kv in JOYSTICK_SESSION_CFG + list(extra_cfg):
         cmd += ["--cfg-set", kv]
     with open(log_path, "w") as fh:
@@ -181,6 +187,39 @@ def aggregate_gate(reports: dict[str, dict], *,
             "slip_med": round(statistics.median(s), 3) if s else None,
             "dir_err_med": round(statistics.median(d), 2) if d else None,
         }
+
+    # Per-leg gait metrics (08-22 follow-up): eval_checkpoint already
+    # reports duty_cycle/swing_count per episode as 6-element lists
+    # and sacrificed_legs as an index list; the gate script itself
+    # never summarized these across the panel. A walk without all six
+    # feet cycling contact/swing is not walking (ORCHESTRATOR_PROMPT
+    # judgment notes) -- this makes that check part of the gate's own
+    # printed record instead of a manual per-run video read every
+    # time. Pure aggregation, additive: does not affect `pass`.
+    per_leg = None
+    duty_lists = [e["duty_cycle"] for _l, e in all_eps
+                  if isinstance(e.get("duty_cycle"), (list, tuple))
+                  and len(e["duty_cycle"]) == 6]
+    swing_lists = [e["swing_count"] for _l, e in all_eps
+                   if isinstance(e.get("swing_count"), (list, tuple))
+                   and len(e["swing_count"]) == 6]
+    if duty_lists or swing_lists:
+        sac_counts = [0] * 6
+        for _l, e in all_eps:
+            for leg in e.get("sacrificed_legs") or []:
+                if 0 <= leg < 6:
+                    sac_counts[leg] += 1
+        per_leg = {
+            "duty_median": [
+                round(statistics.median(vals), 3)
+                for vals in zip(*duty_lists)] if duty_lists else None,
+            "swing_count_median": [
+                round(statistics.median(vals), 1)
+                for vals in zip(*swing_lists)] if swing_lists else None,
+            "sacrificed_episode_count": sac_counts,
+            "sacrificed_frac": [round(c / n_total, 3) for c in sac_counts],
+        }
+
     return {
         "pass": passed,
         "n_total": n_total,
@@ -194,6 +233,7 @@ def aggregate_gate(reports: dict[str, dict], *,
                            if gait_valid else None),
         "checks": checks,
         "per_pass": per_pass_summary,
+        "per_leg": per_leg,
     }
 
 
@@ -221,6 +261,12 @@ def main() -> None:
                          "REQUIRED for any checkpoint trained with a "
                          "non-default obs width")
     ap.add_argument("--out-dir", type=Path, default=None)
+    ap.add_argument("--video", action="store_true",
+                    help="pass --video-every 1 through to "
+                         "eval_checkpoint instead of --no-video "
+                         "(default off, matches prior behavior; "
+                         "turn on for visual triage of a near-gate "
+                         "candidate)")
     args = ap.parse_args()
 
     out_dir = args.out_dir or (
@@ -246,7 +292,7 @@ def main() -> None:
             seed=args.seed_base, n=args.n,
             episode_seconds=args.episode_seconds,
             extra_cfg=args.extra_cfg_set, out_dir=pass_dir,
-            log_path=log_path)
+            log_path=log_path, video=args.video)
         reports[label] = json.loads(report_path.read_text())
         print(f"[eval_joystick_gate] {label} done "
               f"({time.time() - t0:.0f}s elapsed)")
@@ -270,6 +316,11 @@ def main() -> None:
           f"(allow <= {verdict['direction_err_allow_deg']}) "
           f"gait_valid_frac={verdict['gait_valid_frac']}")
     print(f"  checks: {verdict['checks']}")
+    if verdict.get("per_leg"):
+        pl = verdict["per_leg"]
+        print(f"  per-leg duty_median: {pl['duty_median']}")
+        print(f"  per-leg swing_count_median: {pl['swing_count_median']}")
+        print(f"  per-leg sacrificed_frac: {pl['sacrificed_frac']}")
     print(f"  ==> {'PASS' if verdict['pass'] else 'FAIL'}")
     print(f"[eval_joystick_gate] verdict -> {out_dir / 'gate_verdict.json'}")
     sys.exit(0 if verdict["pass"] else 1)
