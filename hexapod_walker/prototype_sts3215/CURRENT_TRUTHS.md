@@ -187,6 +187,29 @@ out-of-scope runs get honest triage but no agent follow-ups.
   direction-first curriculum" and "joystick controllable" are
   measurably different bars; RL fine-tuning must close this gap, not
   just the shorter clone-relative phasedir rung gate.
+- PHASEDIR9-CONT1 CONFIRMS INIT-BASIN FLATNESS FROM THE OTHER
+  DIRECTION (08-22): continuing +4M steps from `-9` (the lineage-best
+  2M checkpoint, near-pass) regressed hard on every clone-relative
+  axis (progress 0.873x->0.66-0.71x, slip 1.08x->1.6-1.7x, speed
+  below the 0.06 floor; zero falls/gait-6-6 preserved) despite W&B
+  reward partially recovering after a mid-run collapse (27->-670
+  ep_rew, then only to 152-213) — a good init drifted to a worse
+  basin, mirroring `-9b`'s bad-init-stays-bad finding. VERDICTED
+  FAIL as a continuation (not a re-litigation of `-9`'s own reading).
+  `phasedir9-seed17` (same recipe, seed 13->17, no reward change)
+  tests whether `-9`'s near-pass reproduces before any further
+  lineage budget.
+- AMP M2 PILOT CONTINUATIONS: SAME FROZEN-TRIPOD LOCAL OPTIMUM AT
+  38M AS AT 2M (08-22, `cw-amp-m2-pilot-{noamp,style05}-c1`, DIG-IN
+  flagged not verdicted): 19x the pilot budget did not move either
+  arm off one leg triad (0,2,4) planted near-motionless (duty
+  ~0.97-1.0) while the other (1,3,5) is held airborne the whole
+  episode (duty ~0.02) — a static pose, gait_valid 0/6 every episode,
+  near-zero progress, slip med ~9-12/m (cap 2.9), NEW terminations
+  (tilt_pitch/over_current) not present at 2M. IDENTICAL in the
+  no-AMP control (style weight 0.0) as in style05 — proves this is a
+  base walk-task-reward/from-scratch-init issue, not an AMP-style
+  defect, and directly bears on the Wave-1 (8-pod) go/no-go decision.
 - direction_err_mean_deg has a ~35 deg tick-level floor from stride
   sway — judge deltas vs a matched clone, not raw values.
 - Every pre-08-22 checkpoint (incl. the download hierarchy) trained

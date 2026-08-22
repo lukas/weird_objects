@@ -1,10 +1,13 @@
 # amp - AMP locomotion from scratch
 
-Last updated: 2026-08-22 (M2 pilot pair VERDICTED at 2M: AMP
-machinery healthy at 4096-env scale — d_real 0.78 vs d_fake -0.96
-un-saturated, style reward off its pins — but both arms pre-gait at
-~1.3 episodes/env; matched continuations -c1 to the gate's own 40M
-comparison point launched).
+Last updated: 2026-08-22 (M2 pilot -c1 continuations finished at
+38M/40M: BOTH arms still stuck in the identical frozen-tripod local
+optimum seen at the 2M pilot — one leg triad planted, the other held
+airborne all episode, gait_valid 0/6, near-zero progress, NEW falls
+appearing. Identical in the no-AMP control, so this is a base
+walk-task-reward/from-scratch issue, not AMP-specific. DIG-IN
+flagged rather than verdicted — decides the Wave-1 go/no-go; see
+CURRENT_TRUTHS.md).
 Charter:
 `rl_docs/AMP_LOCOMOTION.md` (binding, incl. the repo-adaptation
 section — no Isaac Lab, MJX/Warp is the primary trainer). Keep this a
@@ -292,6 +295,19 @@ now closed:
   `-c1` runs (38M more each, policy + discriminator warm-started via
   `--amp-disc-init`) — wave-1 sizing decision moves to the 40M
   comparison.
+- **M2 -c1 RESULT (08-22, 38M/40M, DIG-IN flagged not verdicted)**:
+  the frozen-tripod pathology above did NOT resolve with 19x the
+  budget — same pattern exactly (legs 0,2,4 duty ~1.0/near-zero
+  swings, legs 1,3,5 duty ~0.02/airborne all episode), gait_valid
+  0/6 across all 12 held-out episodes both arms, near-zero progress,
+  slip med ~9-12/m, PLUS new tilt_pitch/over_current terminations
+  not seen at 2M. The no-AMP control shows the IDENTICAL pattern —
+  rules out the style reward as cause; this is the shared walk-task
+  reward/from-scratch-init setup. Decides Wave-1 go/no-go: do NOT
+  launch the 8-pod wave on this reward config until the dig-in
+  root-causes why one specific tripod half locks up and finds a
+  from-scratch-compatible fix (warm-starting AMP is out of scope per
+  the track's own from-scratch charter).
 
 ## Required status block (update after each wave)
 
