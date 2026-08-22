@@ -307,7 +307,7 @@ out-of-scope runs get honest triage but no agent follow-ups.
   scratch stack: a reward whose alive per-tick income is net-negative
   for an unskilled policy MUST carry a termination charge exceeding
   the discounted worst-case cost of staying alive, or suicide is the
-  optimum. Fix pair QUEUED (single change, term_penalty=400):
+  optimum. Fix pair LAUNCHED (single change, term_penalty=400; noamp accidentally duplicated as -rr1, a free repro replicate):
   `cw-amp-m2-freeprog-term400-{noamp,style05}` — re-runs the Wave-1
   style-vs-control fork (still UNRESOLVED: the suicide basin
   short-circuited both arms before the style gradient could matter).

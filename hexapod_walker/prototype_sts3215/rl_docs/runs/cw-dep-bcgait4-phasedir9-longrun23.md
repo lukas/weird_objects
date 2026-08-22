@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: RUNNING
+**status**: finished
 
 **created**: 2026-08-22T14:25:00+00:00
 

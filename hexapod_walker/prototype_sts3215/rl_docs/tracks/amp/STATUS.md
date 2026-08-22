@@ -13,7 +13,7 @@ AMP exonerated (healthy all run) but a style channel cannot price
 termination. Cheat encoded:
 test_slipwalk_toppling_fast_is_not_an_escape + term_penalty=400 in
 SLIPWALK_OVERRIDES (topple -381 < park; bit-exact for survivors; bank
-7/7 PASS, commit d9554b04). Fix pair QUEUED:
+7/7 PASS, commit d9554b04). Fix pair LAUNCHED (style05 train-1, noamp train-3, + accidental bit-identical dup noamp-rr1 train-2 = free repro replicate):
 cw-amp-m2-freeprog-term400-{noamp,style05}, single change
 reward.term_penalty=400 — re-runs the Wave-1 style-vs-control fork
 the suicide basin short-circuited. Prior finding for lineage: the

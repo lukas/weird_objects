@@ -4177,8 +4177,27 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         d_p = max(p_now - self._getup_best, 0.0)
         if d_p > 0.0:
             self._getup_best = p_now
+        # Recalibrated 08-22 (getup_honest_ordering dig-in,
+        # test_task_semantics.py's GETUP bank): at the old default 60
+        # a genuine partial rise (holding a real mid-ramp crouch, feet
+        # loaded) earned LESS than freezing at the untouched spawn
+        # pose (partial -12.16 vs freeze -11.26, bank-measured 3
+        # seeds) — not a values-need-remeasuring drift, a real
+        # under-pricing: the one-shot ratchet credit for the honest
+        # partial-stand's potential gain (~+10 at k=60) was smaller
+        # than the ADDITIONAL regularizer (gyro/action/current) cost
+        # of actually executing the rise motion the freeze never pays
+        # (measured other-than-prog totals -21.6 partial vs -11.7
+        # freeze, seed 11). Those regularizers are intentionally left
+        # untouched (they price real physics, not this task's shape;
+        # see the strip comment above) so the fix is sizing the
+        # progress ratchet to clear that physical cost with margin,
+        # not editing the physics charges. 200 gives partial +10.8 >
+        # freeze -11.5 (>=20 margin) while leaving every other GETUP
+        # bank ordering intact (replay/flagleg/stilt/thrash all keep
+        # their required gaps at this value, swept 60->500).
         k_prog = float(cfg_get(self.cfg, "reward", "getup_k_progress",
-                               default=60.0))
+                               default=200.0))
         r_prog = k_prog * d_p
 
         # 4) Gated steady income. Zero-command ticks: quiet-stand pay,
