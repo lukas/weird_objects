@@ -326,7 +326,7 @@ def _make_tick_fn(base_model, adr: _Addrs, substeps: int,
     h = float(base_model.opt.timestep)
 
     def substep(carry, _):
-        model, dx, prof, imu, params, limp, push_nm = carry
+        model, dx, prof, imu, params, limp, push_nm, push_fxy = carry
         gravity = model.opt.gravity
         prof, target = _profile_tick(jnp, prof, params, h)
         q = dx.qpos[adr.qadr]
@@ -344,6 +344,13 @@ def _make_tick_fn(base_model, adr: _Addrs, substeps: int,
         x_axis = dx.xmat[adr.chassis_bid].reshape(3, 3)[:, 0]
         dx = dx.replace(xfrc_applied=dx.xfrc_applied.at[
             adr.chassis_bid, 3:6].set(x_axis * push_nm))
+        # dr.ext_push_* mid-episode horizontal FORCE (M3 push-recovery
+        # curriculum, sim_env._ext_push_force_n): already world-frame,
+        # no rotation needed. Same overwrite-every-substep convention.
+        force3 = jnp.concatenate(
+            [push_fxy, jnp.zeros((1,), push_fxy.dtype)])
+        dx = dx.replace(xfrc_applied=dx.xfrc_applied.at[
+            adr.chassis_bid, 0:3].set(force3))
         dx = mjx.step(model, dx)
 
         omega, R, v_pt = _imu_point_velocity(jnp, dx, adr, params.imu_off)
@@ -361,15 +368,16 @@ def _make_tick_fn(base_model, adr: _Addrs, substeps: int,
             + dx.site_xmat[adr.gyro_site].reshape(3, 3).T @ omega,
             gyro_n=imu.gyro_n + 1,
         )
-        return (model, dx, prof, imu, params, limp, push_nm), None
+        return (model, dx, prof, imu, params, limp, push_nm, push_fxy), None
 
-    def tick(dr_vals, dx, prof, imu, params, cmd, limp, push_nm):
+    def tick(dr_vals, dx, prof, imu, params, cmd, limp, push_nm, push_fxy):
         model = base_model
         if dr_fields:
             model = model.tree_replace(dict(zip(dr_fields, dr_vals)))
         prof = _profile_enqueue(jnp, prof, params, cmd)
-        (_, dx, prof, imu, _, _, _), _ = jax.lax.scan(
-            substep, (model, dx, prof, imu, params, limp, push_nm), None,
+        (_, dx, prof, imu, _, _, _, _), _ = jax.lax.scan(
+            substep,
+            (model, dx, prof, imu, params, limp, push_nm, push_fxy), None,
             length=substeps)
         f_imu = jnp.where(imu.f_n > 0, imu.f_accum / jnp.maximum(imu.f_n, 1),
                           -model.opt.gravity)
@@ -591,14 +599,14 @@ class MjxTickStepper:
             tick = _make_tick_fn(self.model, self.adr, substeps,
                                  dr_fields=dr_f)
             self._tick_jit = jax.jit(jax.vmap(
-                tick, in_axes=(dr_ax, 0, 0, 0, 0, 0, 0, 0)))
+                tick, in_axes=(dr_ax, 0, 0, 0, 0, 0, 0, 0, 0)))
             self._tick_jit_slip = None
             if self.model_slip is not None:
                 dr_fs = self._SLIP_DR_FIELDS if self.model_dr else ()
                 tick_s = _make_tick_fn(self.model_slip, self.adr,
                                        substeps, dr_fields=dr_fs)
                 self._tick_jit_slip = jax.jit(jax.vmap(
-                    tick_s, in_axes=(dr_ax, 0, 0, 0, 0, 0, 0, 0)))
+                    tick_s, in_axes=(dr_ax, 0, 0, 0, 0, 0, 0, 0, 0)))
 
             def fwd(dr_vals, dx):
                 m = self.model

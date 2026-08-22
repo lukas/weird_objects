@@ -903,6 +903,12 @@ class SimHexapodBalanceEnv(_GymBase):
             Rp = self.data.xmat[self._chassis_bid].reshape(3, 3)
             self.data.xfrc_applied[self._chassis_bid, 3:6] = (
                 Rp[:, 0] * push_nm)
+            # Mid-episode external push (dr.ext_push_*): world-frame
+            # horizontal force, same overwrite-every-substep /
+            # zero-outside-window convention as the takeoff torque
+            # above (no state survives the pulse window).
+            self.data.xfrc_applied[self._chassis_bid, 0:3] = (
+                push_fx, push_fy, 0.0)
             mujoco.mj_step(self.model, self.data)
             # Accumulate the IMU-point specific force at the physics rate
             # (exact velocities, one FD) — includes the lever-arm
