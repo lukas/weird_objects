@@ -127195,7 +127195,8 @@
         "verdict": "DEAD",
         "log_tail": "ight_mm 8.21878\nwandb:   env/height_ref_mm 0\nwandb:   env/max_current_a 1.69685\nwandb:  env/mean_current_a 0.68746\nwandb: env/pct_within_1deg 0.10474\nwandb:   env/pitch_ref_deg 0\nwandb:   env/reward_action -0.01595\nwandb:                 +83 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-amp-m2-bcinit-sec5-style05-speedrange-fastphase-nostyle at: https://wandb.ai/l2k2/hexapod-balance/runs/hfvmy28b\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 3 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260822_222850-hfvmy28b/logs\n"
       }
-    ]
+    ],
+    "triage": "awaiting since 2026-08-22T22:38:31"
   },
   {
     "run": "cw-amp-m2-bcinit-sec5-noamp-speedrange",
@@ -127288,7 +127289,7 @@
       "respec of cw-amp-m2-bcinit-sec5-noamp-headingsfull: Plain English: task-only twin of cw-amp-m2-bcinit-sec5-style05-speedrange (VERDICTED INFORMATIVE/partial: gait stays clean 6/6 det+sto at the 0.05-0.25 m/s speed range but achieved speed barely modulates, clustering 0.08-0.14 m/s regardless of command -- a fixed-cadence cap). Does the noamp BC-init walker show the SAME compressed-speed signature (confirming the cap is cadence/actor-general, not an AMP-style artifact) or does it modulate speed noticeably better/worse without the style channel's pull toward the teacher's fixed-cadence clips? Continues from noamp-headingsfull (--init-from-source), single lever: goal.walk_speed_min/max_m_s 0.08/0.08 -> 0.05/0.25, identical to the style05 sibling. Prediction-if-true (matches style05): gait_valid stays >=5/6 det+sto, speed_mean again clusters ~0.08-0.14 m/s regardless of command -- confirms the cap is architecture/cadence-general, not style-induced (independent evidence alongside the same-cycle -fastphase-nostyle arm). Prediction-if-false: noamp modulates speed meaningfully better (wider realized range) or the gait degrades where style05 didn't -- either result would make style/no-style a real functional fork on this axis for the first time."
     ],
     "created": "2026-08-22T22:34:54+00:00",
-    "status": "INTENT",
+    "status": "RUNNING",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -127297,13 +127298,26 @@
       "code_sha_local": "b5c8ba53fbf2253ba01ee4288ff552b3e47628e2",
       "code_sha_pod": "b5c8ba53fbf2253ba01ee4288ff552b3e47628e2",
       "init_from_on_pod": true,
-      "wandb_env_on_pod": true
+      "wandb_env_on_pod": true,
+      "pid": "1965360",
+      "log_growth_bytes": [
+        5508,
+        5737
+      ],
+      "wandb_id": "xr8dp13c",
+      "global_step_window": [
+        1245184,
+        1900544
+      ],
+      "fps_estimate": 21845.3
     },
     "trainer": "ppo",
     "stack": "gpu-mjx",
     "phase": "discovery",
     "assessment_scope": "short_behavior_discovery",
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:amp PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-amp-m2-bcinit-sec5-noamp-speedrange --steps 2000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_amp_m2_bcinit_sec5_noamp_headingsfull.zip --episode-seconds 15 --no-canary --eval-every 1000000 --video-every 2000000 --n-envs 4096 --impl warp --host-workers 24 --seed 7 --ent-coef 0.001 --warm-log-std-override -2.0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set goal.walk_phase_obs=1 --cfg-set goal.walk_phase_hz=1.333333 --cfg-set goal.walk_obs_body_vel=2 --cfg-set goal.walk_heading_max_rad=-1 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.25 --cfg-set goal.walk_cmd_mode=stress_mix --cfg-set goal.walk_cmd_resample_s=4.0 --cfg-set goal.walk_cmd_resample_jitter=0.5 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set bus.write_speed=1500 --cfg-set bus.write_acc=80 --cfg-set bus.servo_vel_max_counts_s=write_speed --cfg-set safety.max_delta_q_deg=5.0 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --cfg-set reward.term_penalty=400.0 --cfg-set reward.k_step_event=0.0 --cfg-set reward.k_park_duty=0.0 --cfg-set reward.k_walk_freeprog=0.0 --cfg-set reward.walk_loadslip_gate=0.0 --cfg-set reward.k_loadslip_excess=0.0 --cfg-set reward.walk_gait_gate=0.0 --cfg-set reward.k_walk_idle_charge=0.0 --cfg-set reward.k_drag_stance=0.0 --out-name ppo_goal_cw_amp_m2_bcinit_sec5_noamp_speedrange --notes 'respec of cw-amp-m2-bcinit-sec5-noamp-headingsfull: Plain English: task-only twin of cw-amp-m2-bcinit-sec5-style05-speedrange (VERDICTED INFORMATIVE/partial: gait stays clean 6/6 det+sto at the 0.05-0.25 m/s speed range but achieved speed barely modulates, clustering 0.08-0.14 m/s regardless of command -- a fixed-cadence cap). Does the noamp BC-init walker show the SAME compressed-speed signature (confirming the cap is cadence/actor-general, not an AMP-style artifact) or does it modulate speed noticeably better/worse without the style channel'\"'\"'s pull toward the teacher'\"'\"'s fixed-cadence clips? Continues from noamp-headingsfull (--init-from-source), single lever: goal.walk_speed_min/max_m_s 0.08/0.08 -> 0.05/0.25, identical to the style05 sibling. Prediction-if-true (matches style05): gait_valid stays >=5/6 det+sto, speed_mean again clusters ~0.08-0.14 m/s regardless of command -- confirms the cap is architecture/cadence-general, not style-induced (independent evidence alongside the same-cycle -fastphase-nostyle arm). Prediction-if-false: noamp modulates speed meaningfully better (wider realized range) or the gait degrades where style05 didn'\"'\"'t -- either result would make style/no-style a real functional fork on this axis for the first time.' > /tmp/train_cw-amp-m2-bcinit-sec5-noamp-speedrange.log 2>&1 < /dev/null & echo $!",
-    "log": "/tmp/train_cw-amp-m2-bcinit-sec5-noamp-speedrange.log"
+    "log": "/tmp/train_cw-amp-m2-bcinit-sec5-noamp-speedrange.log",
+    "wandb_id": "xr8dp13c",
+    "verified": "2026-08-22T22:38:10+00:00"
   }
 ]
