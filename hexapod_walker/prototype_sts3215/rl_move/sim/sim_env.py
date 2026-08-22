@@ -1946,11 +1946,36 @@ class SimHexapodBalanceEnv(_GymBase):
             rms = np.sqrt(((ref["q"] - q_set[None, :]) ** 2).mean(axis=1))
             j0 = int(np.argmin(rms))
             self._rsi_ref_tick0 = j0
-            h_end = float(ref["h"][-1])
-            h_left = max(h_end - float(ref["h"][j0]), 0.002)
+            # STALE-REFERENCE-HEIGHT FIX (08-22, root-caused from
+            # cw-stand-footlow2-plant150-2c-heightfix's RSI-start
+            # height_err pinned at 22-29mm after 10M extra steps of
+            # training, zero movement — the pre-registered "stays
+            # pinned regardless of budget" FAIL branch). ref["h"] is
+            # the npz's OWN recorded per-tick chassis height, extracted
+            # before the tibia-150 geometry change; replaying the SAME
+            # q_rad trajectory on the CURRENT sim settles ~21mm higher
+            # (measured h_rel=131.94mm vs the npz's stored h_rel_end_m
+            # =110.96mm — CURRENT_TRUTHS rise_valid_plant finding).
+            # The old code anchored the RSI episode's ABSOLUTE height
+            # target to this stale h_end, silently training every RSI
+            # spawn to a target ~21mm below the corrected
+            # goal.rise_height_mm window — a genuine reward<->eval
+            # misalignment, not undertraining. Fix: anchor the
+            # ABSOLUTE target to this episode's own already-sampled,
+            # CURRENT-cfg height (self._goal_traj.height[-1], drawn
+            # from goal.rise_height_mm before this block runs) and use
+            # the reference array ONLY for the FRACTIONAL progress at
+            # the spawn point (robust to a uniform/stale h-scale
+            # mismatch; the q_rad geometry, and hence the progress
+            # ordering along the path, is unaffected by tibia length).
+            h_end_ref = float(ref["h"][-1])
+            h_target = float(np.asarray(self._goal_traj.height)[-1])
+            frac_done = float(ref["h"][j0]) / max(h_end_ref, 1e-6)
+            frac_done = min(max(frac_done, 0.0), 1.0)
+            h_left = max(h_target * (1.0 - frac_done), 0.002)
             ramp_s = float(cfg_get(self.cfg, "goal", "rise_ramp_s",
                                    default=6.0))
-            n_ramp = max(int(round(ramp_s * min(h_left / max(h_end, 1e-3),
+            n_ramp = max(int(round(ramp_s * min(h_left / max(h_target, 1e-3),
                                                 1.0) / self.dt)), 3)
             n_ep = len(np.asarray(self._goal_traj.height))
             self._goal_traj.height = h_left * np.clip(

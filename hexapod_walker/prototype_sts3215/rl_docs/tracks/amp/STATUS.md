@@ -196,10 +196,24 @@ Build every tool this needs; do not pause on operator input.
   next mechanism instead — `reward.k_walk_swing` (any-direction
   lift-swing-touchdown bonus, no along-command gate, unlike
   k_step_event) on `SLIPWALK_SWING_OVERRIDES`
-  (`test_task_semantics.py`, 11/11 passing, not yet committed/
-  launched as of this entry). Do not re-launch RSI or duplicate the
-  swing arm — pick up `SLIPWALK_SWING_OVERRIDES`'s own launch once
-  that cycle's work lands.
+  (`test_task_semantics.py`, 11/11 passing, commit 1fb65603).
+  **LAUNCHED 08-22 (this cycle)**: `cw-amp-m2-freeprog-term400-
+  swing-{noamp,style05}` (single lever, `reward.k_walk_swing=1.0` on
+  top of the verdicted -noamp and -style05-v2 configs respectively,
+  2M discovery, RUNNING on train-0/train-1). Bank numbers backing the
+  launch: real gait/creep income up ~11-23% (558->622, 103->126)
+  while every stationary twin (stall, park, skate) AND a new
+  realistic farming twin (`shuffle`: a genuine coordinated six-leg
+  gait reversing direction every 0.6s, ~0 net travel despite real
+  strides both ways — the direct analog of "farm the direction-
+  agnostic bonus without going anywhere") stay priced BELOW park —
+  the mechanism does not reopen a known stationary-cheat exploit.
+  Pre-registered live-monitoring cheat (no scripted twin could
+  trigger it, so NOT bank-cleared): a single-leg-farm pattern (one
+  leg cycling, five sacrificed/static, `env/reward_swing` > 0 with
+  det fwd travel still ~0.02-0.03m) — if seen on triage, FAIL
+  regardless of return and bank+fix a `walk_gait_gate`-style MIN-
+  across-six-legs gate on the swing bonus before any follow-up.
 - M3 push recovery: NOT STARTED
 - M4 fault adaptation: NOT STARTED
 - M5 MuJoCo transfer (= DONE gate): NOT STARTED

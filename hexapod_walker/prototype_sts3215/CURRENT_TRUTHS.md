@@ -509,10 +509,18 @@ out-of-scope runs get honest triage but no agent follow-ups.
   signature; a concurrent cycle read that as closing RSI for this
   family too and bank-tested the actual next mechanism instead —
   `reward.k_walk_swing` (any-direction lift-swing-touchdown bonus) on
-  `SLIPWALK_SWING_OVERRIDES` (`test_task_semantics.py`, 11/11 passing
-  as of this entry, not yet committed/launched). Next cycle: pick up
-  that launch rather than re-deriving RSI or duplicating the swing
-  arm.
+  `SLIPWALK_SWING_OVERRIDES` (`test_task_semantics.py`, 11/11 passing,
+  commit 1fb65603). **LAUNCHED 08-22**: `cw-amp-m2-freeprog-term400-
+  swing-{noamp,style05}`, single-lever `reward.k_walk_swing=1.0` on
+  top of the verdicted -noamp/-style05-v2 configs, 2M discovery,
+  RUNNING. Bank basis: real gait/creep income up ~11-23%
+  (558->622, 103->126) while stall/park/skate AND a new realistic
+  farming twin (`shuffle`: genuine six-leg strides reversing
+  direction every 0.6s, ~0 net travel) all stay priced below park.
+  Pre-registered live-monitoring-only cheat (not bank-cleared, no
+  scripted twin could trigger it): single-leg farm (one leg cycling,
+  five static, `env/reward_swing`>0 with fwd travel still ~0.02-
+  0.03m) — FAIL on sight regardless of return if seen.
 - FREEPROG-EMA REUSE TESTED + REFUTED, ZERO GPU SPENT (08-22): the
   obvious cheap fix — feed `reward.walk_kernel_vel_ema`'s already-
   validated stride-averaged velocity into `walk_freeprog_score`
