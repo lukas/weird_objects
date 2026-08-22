@@ -17,6 +17,13 @@ import numpy as np
 from rl_move.env import TaskGoal, build_obs
 
 from .joint_task import q_rad_to_action
+from rl_move.joint_frame import (
+    RAD2DEG,
+    robot_abs_deg_to_sim_rad,
+    robot_abs_rad_to_sim_rad,
+    robot_stand_degrees,
+    sim_rad_to_robot_abs_deg,
+)
 from .play import (
     _CRUISE,
     _DESC,
@@ -143,6 +150,7 @@ class SimWebSession:
         self.demo_is_script = False
         self.demo_end_home = ""
         self.demo_direct_profile = False
+        self.demo_pose_frame = "model"
         self.demo_write_speed_deg_s: float | None = None
         self.demo_write_acc_units: float | None = None
         self.demo_last_target_deg: list[float] | None = None
@@ -207,9 +215,11 @@ class SimWebSession:
             _ROLE_OBS[74] = "walk"
             self.walk_widths = (72, 74, 78, 1152)
         render_mode = "rgb_array" if self.cfg.web_frames else None
+        plant_model_deg = robot_abs_deg_to_sim_rad(robot_stand_degrees()) * RAD2DEG
         self.env = _PlayEnv(params=SimServoParams.from_cfg(cfg),
                             randomize=False, episode_seconds=3600.0,
-                            render_mode=render_mode, cfg=cfg)
+                            render_mode=render_mode, cfg=cfg,
+                            plant_deg=plant_model_deg)
         self.traj = self.env.traj
         self.chassis_bid = self.env.model.body("chassis").id
         self.profiles = _load_profiles()
@@ -527,6 +537,7 @@ class SimWebSession:
         self.demo_is_script = False
         self.demo_end_home = ""
         self.demo_direct_profile = False
+        self.demo_pose_frame = "model"
         self.demo_write_speed_deg_s = None
         self.demo_write_acc_units = None
         self.demo_last_target_deg = None
@@ -564,18 +575,17 @@ class SimWebSession:
             del self.command_log[:-6]
 
     def _new_gait(self):
+        plant_deg = sim_rad_to_robot_abs_deg(self.q_plant)
         kw = _SCRIPTED_TRIPOD.get(self.walk_list[self.wi])
         if kw is not None:
             g = self.TripodGait(period=kw["period"],
                                 lift=kw["lift_mm"] * 0.001, ramp=0.4)
-            g.sync_plant_stance(math.degrees(self.q_plant[1]),
-                                math.degrees(self.q_plant[2]))
+            g.sync_plant_stance(plant_deg[1], plant_deg[2])
             g.set_lift_mm(kw["lift_mm"])
             g.reset_phase(t=0.0)
             return g
         g = make_noslip_gait(self.walk_list[self.wi], self.NoSlipGait)
-        g.sync_plant_stance(math.degrees(self.q_plant[1]),
-                            math.degrees(self.q_plant[2]))
+        g.sync_plant_stance(plant_deg[1], plant_deg[2])
         return g
 
     def _blend_ticks(self) -> int:
@@ -707,11 +717,19 @@ class SimWebSession:
 
     def _direct_profile_step_locked(self, q_rad: np.ndarray) -> None:
         """Issue a bus-like joint target directly to MuJoCo's servo model."""
-        self.env._cmd = q_rad.copy()
-        self.env._profile.command(
-            q_rad,
-            speed_deg_s=self.demo_write_speed_deg_s,
-            acc_units=self.demo_write_acc_units)
+        if self.demo_pose_frame == "robot_abs":
+            q_model = robot_abs_rad_to_sim_rad(q_rad)
+            self.env._profile.command_robot_abs(
+                q_rad,
+                speed_deg_s=self.demo_write_speed_deg_s,
+                acc_units=self.demo_write_acc_units)
+        else:
+            q_model = np.asarray(q_rad, dtype=float).copy()
+            self.env._profile.command(
+                q_model,
+                speed_deg_s=self.demo_write_speed_deg_s,
+                acc_units=self.demo_write_acc_units)
+        self.env._cmd = q_model.copy()
         self.env._advance()
         self.env._state = self.env._read_state()
         self.env._step_i += 1
@@ -730,7 +748,10 @@ class SimWebSession:
             "pitch_deg": pitch,
         }
         if self.demo_last_target_deg is not None:
-            actual = [math.degrees(float(v)) for v in self._q_now()]
+            if self.demo_pose_frame == "robot_abs":
+                actual = sim_rad_to_robot_abs_deg(self._q_now())
+            else:
+                actual = [math.degrees(float(v)) for v in self._q_now()]
             out["max_lag_deg"] = round(max(
                 abs(a - b) for a, b in zip(actual, self.demo_last_target_deg)
             ), 2)
@@ -782,6 +803,7 @@ class SimWebSession:
         self.demo_status = "done" if ok else "failed"
         self.demo_end_home = ""
         self.demo_direct_profile = False
+        self.demo_pose_frame = "model"
         self.demo_write_speed_deg_s = None
         self.demo_write_acc_units = None
         self.demo_telemetry = {
@@ -994,10 +1016,13 @@ class SimWebSession:
         elif demo_running:
             pose_deg = self.demo_pose_fn(self.demo_t)
             self.demo_last_target_deg = [float(v) for v in pose_deg]
+            pose_rad = np.radians(pose_deg)
             if self.demo_direct_profile:
-                self._direct_profile_step_locked(np.radians(pose_deg))
+                self._direct_profile_step_locked(pose_rad)
             else:
-                action = q_rad_to_action(np.radians(pose_deg))
+                if self.demo_pose_frame == "robot_abs":
+                    pose_rad = robot_abs_rad_to_sim_rad(pose_rad)
+                action = q_rad_to_action(pose_rad)
             self.demo_t += self.env.dt * self._demo_speed_eff_locked()
             while self.demo_notes and self.demo_notes[0][0] <= self.demo_t:
                 self.demo_note = self.demo_notes.pop(0)[1]
@@ -1017,7 +1042,8 @@ class SimWebSession:
                 self.gait_t = 0.0
             self.gait.set_velocity(vx=self.traj.vx, vy=self.traj.vy,
                                    omega=self.om_cmd)
-            action = q_rad_to_action(np.radians(self.gait.desired_deg(self.gait_t)))
+            q_robot = np.radians(self.gait.desired_deg(self.gait_t))
+            action = q_rad_to_action(robot_abs_rad_to_sim_rad(q_robot))
             self.gait_t += self.env.dt
         elif walking:
             action = self._walk_predict()
@@ -1307,7 +1333,8 @@ class SimWebSession:
 
     def pose(self) -> dict[str, Any]:
         with self.lock:
-            deg = [round(math.degrees(float(v)), 2) for v in self._q_now()]
+            deg = [round(float(v), 2)
+                   for v in sim_rad_to_robot_abs_deg(self._q_now())]
             return {"ok": True, "sim": True, "degrees": deg, "live": 18,
                     "armed": self.armed, "mode": self.mode,
                     "ts": time.time()}
@@ -1320,7 +1347,7 @@ class SimWebSession:
         mode = (mode or "tuck").strip()
         if mode == "plant":
             kfs = data["modes"]["tuck"]["keyframes"]
-            plant = [math.degrees(float(v)) for v in self.q_plant]
+            plant = sim_rad_to_robot_abs_deg(self.q_plant)
             keyframes = list(kfs[:-1]) + [{"q_deg": plant, "s": 0.5}]
         else:
             keyframes = data["modes"][mode]["keyframes"]
@@ -1386,7 +1413,7 @@ class SimWebSession:
                 f"speed={speed:.2f}")
             self._do_reset("plant" if down else "zero", 0.0,
                            f"{name}: command playback")
-            start_deg = [math.degrees(float(v)) for v in self._q_now()]
+            start_deg = sim_rad_to_robot_abs_deg(self._q_now())
             pose_fn, dur = self._pose_fn_from_frames(start_deg, frames)
             self._set_demo_safety(True)
             self.demo_pose_fn = pose_fn
@@ -1398,6 +1425,7 @@ class SimWebSession:
             self.demo_is_script = False
             self.demo_end_home = home
             self.demo_direct_profile = True
+            self.demo_pose_frame = "robot_abs"
             # compare_standup.py validated these stand-up paths with a
             # 90 deg/s bus profile; the ServoProfile still applies its
             # fitted per-axis velocity ceiling, latency, deadband, and
@@ -1543,6 +1571,10 @@ class SimWebSession:
         self.demo_note = ""
         self.demo_speed_cap = cap
         self.demo_is_script = True
+        self.demo_direct_profile = True
+        self.demo_pose_frame = "robot_abs"
+        self.demo_write_speed_deg_s = self.env.write_speed_deg_s
+        self.demo_write_acc_units = self.env.write_acc_units
         self.demo_started_sim_t = self.sim_t
         self.demo_name = name
         self.demo_status = f"running @ {speed:.2f}x"
@@ -1649,7 +1681,7 @@ class SimWebSession:
                 self.gait = None
                 self.om_cmd = 0.0
             self._set_demo_safety(True)
-            base_deg = [math.degrees(v) for v in self.q_plant]
+            base_deg = sim_rad_to_robot_abs_deg(self.q_plant)
             gait = QUAD_DEMO_GAITS[name]
             phase = (
                 "rear" if action == "rear"
@@ -1663,6 +1695,10 @@ class SimWebSession:
             self.demo_duration = dur
             self.demo_started_sim_t = self.sim_t
             self.demo_end_home = "stand" if name in QUAD_DOWN_DEMOS else ""
+            self.demo_direct_profile = True
+            self.demo_pose_frame = "robot_abs"
+            self.demo_write_speed_deg_s = self.env.write_speed_deg_s
+            self.demo_write_acc_units = 254.0
             self.demo_name = name
             self.demo_status = f"running @ {speed:.2f}x"
             self.demo_speed_live = speed

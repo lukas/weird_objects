@@ -35,29 +35,15 @@ from __future__ import annotations
 import tripod_gait as _tg
 import noslip_gait as _ng
 from feetech_bus import standing_pose_degrees as _standing_abs_deg
+from rl_move.joint_frame import (
+    model_rel_to_robot_abs as knee_abs_18,
+    robot_abs_to_model_rel as knee_rel_18,
+)
 
 __all__ = [
     "TripodGait", "NoSlipGait",
     "knee_rel_18", "knee_abs_18", "standing_pose_degrees",
 ]
-
-
-def knee_rel_18(deg18) -> list[float]:
-    """18 joint angles absolute-tibia -> sim-relative knee (degrees or
-    radians — the conversion is a plain subtraction per leg)."""
-    out = [float(v) for v in deg18]
-    for i in range(6):
-        out[3 * i + 2] -= out[3 * i + 1]
-    return out
-
-
-def knee_abs_18(deg18) -> list[float]:
-    """Inverse of :func:`knee_rel_18`."""
-    out = [float(v) for v in deg18]
-    for i in range(6):
-        out[3 * i + 2] += out[3 * i + 1]
-    return out
-
 
 def standing_pose_degrees() -> list[float]:
     """Hardware stand home (learned plant or default +19/+28 absolute)

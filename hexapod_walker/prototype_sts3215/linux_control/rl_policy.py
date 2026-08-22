@@ -48,6 +48,7 @@ import math
 import sys
 import threading
 import time
+from dataclasses import replace
 from pathlib import Path
 
 import numpy as np
@@ -60,6 +61,11 @@ for _p in (_HERE.parent, _HERE, _HERE / "urt2_setup"):
 
 from rl_move.config import cfg_get, load_config            # noqa: E402
 from rl_move.env import TaskGoal, build_obs                # noqa: E402
+from rl_move.joint_frame import (                          # noqa: E402
+    FRAME_ROBOT_ABS, normalize_joint_frame,
+    policy_joint_frame_from_meta, policy_rad_to_robot_abs_rad,
+    robot_abs_rad_to_policy_rad,
+)
 from rl_move.robot_state import (                          # noqa: E402
     DEG2RAD, N_JOINTS, RAD2DEG, RobotStateEstimator,
 )
@@ -144,6 +150,33 @@ def policy_profile(policy: "NumpyPolicy", mode: str) -> dict:
     prof = dict(_LEGACY_PROFILE[mode])
     prof.update((policy.meta.get("profile") or {}).get(mode) or {})
     return prof
+
+
+def policy_joint_frame(policy: "NumpyPolicy", cfg: dict | None = None) -> str:
+    """Joint frame for policy observations/actions.
+
+    New/default exports use the robot's logical absolute-tibia frame.
+    Older MuJoCo-native checkpoints must carry meta["joint_frame"] =
+    "model_rel" (or cfg compat.policy_joint_frame=model_rel) so the
+    runner converts both observations and bus commands.
+    """
+    return policy_joint_frame_from_meta(policy.meta, cfg)
+
+
+def _state_for_policy_frame(state, joint_frame: str):
+    """Return a RobotState view in the policy's declared joint frame."""
+    frame = normalize_joint_frame(joint_frame)
+    if frame == FRAME_ROBOT_ABS:
+        return state
+    return replace(
+        state,
+        joint_position=robot_abs_rad_to_policy_rad(
+            state.joint_position, frame),
+        joint_velocity=robot_abs_rad_to_policy_rad(
+            state.joint_velocity, frame),
+        commanded_position=robot_abs_rad_to_policy_rad(
+            state.commanded_position, frame),
+    )
 
 PREFLIGHT_MAX_TILT_DEG = 12.0
 # Start-pose gates (max per-joint |delta| from the expected pose).
@@ -708,6 +741,10 @@ def run_policy_move(drive, mode: str, *, on_progress=None,
         prof = policy_profile(policy, mode)
         total_s = float(prof["total_s"]) + min(
             max(float(extra_hold_s or 0.0), 0.0), 15.0)
+    try:
+        joint_frame = policy_joint_frame(policy, cfg)
+    except ValueError as e:
+        return {"ok": False, "error": str(e)}
 
     ok, reason, details = preflight(bus, mode)
     if not ok:
@@ -752,21 +789,23 @@ def run_policy_move(drive, mode: str, *, on_progress=None,
 
     # Settle reads (no motion): q_nom = the pose we actually start from,
     # tilt reference = the attitude we actually start at (sim-identical).
-    state = None
+    state_robot = None
     for _ in range(5):
-        state = est.update(want_full_feedback=True)
+        state_robot = est.update(want_full_feedback=True)
         time.sleep(DT)
-    if state is None or not state.bus_ok:
+    if state_robot is None or not state_robot.bus_ok:
         limp()
         return {"ok": False, "error": "bus dropped during settle"}
-    q_nom = state.joint_position.copy()
-    est.set_commanded(q_nom)
-    bus.write_all((q_nom * RAD2DEG).tolist(), speed=write_speed,
+    q_nom_robot = state_robot.joint_position.copy()
+    q_nom = robot_abs_rad_to_policy_rad(q_nom_robot, joint_frame)
+    est.set_commanded(q_nom_robot)
+    bus.write_all((q_nom_robot * RAD2DEG).tolist(), speed=write_speed,
                   acc=write_acc)
     est.reset_episode_filters()
     for _ in range(3):
-        state = est.update()
+        state_robot = est.update()
         time.sleep(DT)
+    state = _state_for_policy_frame(state_robot, joint_frame)
     tilt_ref0 = (state.imu_roll, state.imu_pitch)
     safety.set_nominal(q_nom)
     safety.set_tilt_reference(*tilt_ref0)
@@ -779,11 +818,13 @@ def run_policy_move(drive, mode: str, *, on_progress=None,
     tilt_rel_max = 0.0
     t_end = 0.0
     t_next = time.monotonic()
-    result: dict = {"ok": True, "mode": mode}
+    result: dict = {"ok": True, "mode": mode,
+                    "policy_joint_frame": joint_frame}
     elog = _EpisodeLog(mode, obs_dim=int(policy.meta.get("obs_dim", 0)),
                        params={
         "mode": mode, "total_s": round(total_s, 1), "hz": HZ,
         "policy": dict(policy.meta),
+        "policy_joint_frame": joint_frame,
         "q_nom_deg": [round(float(q) * RAD2DEG, 2) for q in q_nom],
         "tilt_ref_deg": [round(tilt_ref0[0] * RAD2DEG, 2),
                          round(tilt_ref0[1] * RAD2DEG, 2)],
@@ -867,8 +908,9 @@ def run_policy_move(drive, mode: str, *, on_progress=None,
                           + (f" ({status.detail})" if status.detail else ""),
                           limped=True, ticks=i)
             break
-        est.set_commanded(q_safe)
-        bus.write_all((q_safe * RAD2DEG).tolist(), speed=write_speed,
+        q_robot_cmd = policy_rad_to_robot_abs_rad(q_safe, joint_frame)
+        est.set_commanded(q_robot_cmd)
+        bus.write_all((q_robot_cmd * RAD2DEG).tolist(), speed=write_speed,
                       acc=write_acc)
         prev_action = action.copy()
 
@@ -879,7 +921,8 @@ def run_policy_move(drive, mode: str, *, on_progress=None,
             t_next = time.monotonic()
         else:
             time.sleep(-lag)
-        state = est.update()
+        state_robot = est.update()
+        state = _state_for_policy_frame(state_robot, joint_frame)
         if state.servo_current is not None:
             max_cur = max(max_cur,
                           float(np.max(np.abs(state.servo_current))))
@@ -954,7 +997,8 @@ def run_policy_move(drive, mode: str, *, on_progress=None,
     for k in range(int(TAIL_S * 10)):
         time.sleep(0.1)
         try:
-            state = est.update()
+            state_robot = est.update()
+            state = _state_for_policy_frame(state_robot, joint_frame)
         except Exception:
             break
         if state is None or not state.bus_ok:
@@ -1055,6 +1099,16 @@ def run_drive_session(drive, cmd: DriveCommand, *, on_progress=None,
             return {"ok": False,
                     "error": (f"{Path(hold_weights).name} is obs-74 but "
                               "has no phase_hz in meta")}
+    try:
+        joint_frame = policy_joint_frame(walk_policy, cfg)
+        hold_joint_frame = (policy_joint_frame(hold_policy, cfg)
+                            if hold_policy is not None else joint_frame)
+    except ValueError as e:
+        return {"ok": False, "error": str(e)}
+    if hold_policy is not None and hold_joint_frame != joint_frame:
+        return {"ok": False,
+                "error": ("walk/hold policy joint_frame mismatch "
+                          f"({joint_frame} vs {hold_joint_frame})")}
 
     canon = (make_walk_canonicalizer(walk_policy, cfg)
              if rot60 and walk_obs == 72 else None)
@@ -1099,21 +1153,23 @@ def run_drive_session(drive, cmd: DriveCommand, *, on_progress=None,
     write_speed = int(cfg_get(cfg, "bus", "write_speed", default=400))
     write_acc = int(cfg_get(cfg, "bus", "write_acc", default=20))
 
-    state = None
+    state_robot = None
     for _ in range(5):
-        state = est.update(want_full_feedback=True)
+        state_robot = est.update(want_full_feedback=True)
         time.sleep(DT)
-    if state is None or not state.bus_ok:
+    if state_robot is None or not state_robot.bus_ok:
         limp()
         return {"ok": False, "error": "bus dropped during settle"}
-    q_nom = state.joint_position.copy()
-    est.set_commanded(q_nom)
-    bus.write_all((q_nom * RAD2DEG).tolist(), speed=write_speed,
+    q_nom_robot = state_robot.joint_position.copy()
+    q_nom = robot_abs_rad_to_policy_rad(q_nom_robot, joint_frame)
+    est.set_commanded(q_nom_robot)
+    bus.write_all((q_nom_robot * RAD2DEG).tolist(), speed=write_speed,
                   acc=write_acc)
     est.reset_episode_filters()
     for _ in range(3):
-        state = est.update()
+        state_robot = est.update()
         time.sleep(DT)
+    state = _state_for_policy_frame(state_robot, joint_frame)
     tilt_ref0 = (state.imu_roll, state.imu_pitch)
     safety.set_nominal(q_nom)
     safety.set_tilt_reference(*tilt_ref0)
@@ -1132,12 +1188,14 @@ def run_drive_session(drive, cmd: DriveCommand, *, on_progress=None,
     t = 0.0
     i = 0
     t_next = time.monotonic()
-    result: dict = {"ok": True, "mode": "drive"}
+    result: dict = {"ok": True, "mode": "drive",
+                    "policy_joint_frame": joint_frame}
     elog = _EpisodeLog("drive", obs_dim=int(walk_obs), params={
         "mode": "drive", "hz": HZ,
         "policy": dict(walk_policy.meta),
         "hold_policy": (dict(hold_policy.meta)
                         if hold_policy is not None else None),
+        "policy_joint_frame": joint_frame,
         "q_nom_deg": [round(float(q) * RAD2DEG, 2) for q in q_nom],
         "tilt_ref_deg": [round(tilt_ref0[0] * RAD2DEG, 2),
                          round(tilt_ref0[1] * RAD2DEG, 2)],
@@ -1231,8 +1289,9 @@ def run_drive_session(drive, cmd: DriveCommand, *, on_progress=None,
                           + (f" ({status.detail})" if status.detail else ""),
                           limped=True, ticks=i)
             break
-        est.set_commanded(q_safe)
-        bus.write_all((q_safe * RAD2DEG).tolist(), speed=write_speed,
+        q_robot_cmd = policy_rad_to_robot_abs_rad(q_safe, joint_frame)
+        est.set_commanded(q_robot_cmd)
+        bus.write_all((q_robot_cmd * RAD2DEG).tolist(), speed=write_speed,
                       acc=write_acc)
         prev_action = action.copy()
 
@@ -1243,7 +1302,8 @@ def run_drive_session(drive, cmd: DriveCommand, *, on_progress=None,
             t_next = time.monotonic()
         else:
             time.sleep(-lag)
-        state = est.update()
+        state_robot = est.update()
+        state = _state_for_policy_frame(state_robot, joint_frame)
         if state.servo_current is not None:
             max_cur = max(max_cur,
                           float(np.max(np.abs(state.servo_current))))
@@ -1290,7 +1350,8 @@ def run_drive_session(drive, cmd: DriveCommand, *, on_progress=None,
     for k in range(int(TAIL_S * 10)):
         time.sleep(0.1)
         try:
-            state = est.update()
+            state_robot = est.update()
+            state = _state_for_policy_frame(state_robot, joint_frame)
         except Exception:
             break
         if state is None or not state.bus_ok:
