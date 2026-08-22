@@ -40,20 +40,21 @@ REAR_SUPPORT_LEGS = (2, 3)
 # present pinned at 119.9, 2.2 A grind for the whole run) — stay under.
 TUCK_DEG = (0.0, -63.0, 112.0)
 
-# Sim-tuned gait constants (probe_quad_rear walk, 08-18). Calm regime:
-# tilt stays within ~1 deg of the commanded pitch; stride >= 50 mm or
-# sway phase far off 125 deg starts slip-rocking — retune in sim first.
-PITCH_RAD = math.radians(-17.0)   # rot_y convention: NEGATIVE = nose up
-BODY_DX_M = -0.040                # body shift aft in the reared stance
+# Conservative hardware bring-up defaults (08-22 video): the older
+# -70 mm aft-shift stance could peg the measured-plant mid hips at +30 deg
+# and the real robot sank/scraped instead of holding a clean rear-up.
+# Keep the default stance inside the measured robot's joint margin; use
+# the named aggressive presets for sim-only exploration.
+PITCH_RAD = math.radians(-24.0)   # rot_y convention: NEGATIVE = nose up
+BODY_DX_M = -0.030                # body shift aft in the reared stance
 BODY_Z_M = 0.020                  # extra body clearance while reared
-REAR_PRESS_M = 0.020              # rear pair reaches this much lower
-MID_SPLAY_RAD = math.radians(8.0)    # compact mid-foot splay; 25 deg braced
-                                     # the real robot too wide to rear back
-STRIDE_M = 0.045
-LIFT_M = 0.020
-PERIOD_S = 3.2                    # s per full 4-step cycle
-DUTY = 0.8                        # stance fraction (one leg up at a time)
-SWAY_M = 0.025
+REAR_PRESS_M = 0.024              # rear pair reaches this much lower
+MID_SPLAY_RAD = 0.0               # splay cost real hip margin on hardware
+STRIDE_M = 0.018
+LIFT_M = 0.018
+PERIOD_S = 7.0                    # s per full 4-step cycle
+DUTY = 0.90                       # stance fraction (one leg up at a time)
+SWAY_M = 0.006
 SWAY_PHASE_RAD = math.radians(125.0)
 WALK_PHASE = {2: 0.0, 1: 0.25, 3: 0.5, 4: 0.75}   # LH LF RH RF
 
@@ -92,89 +93,182 @@ WALK_PHASE = {2: 0.0, 1: 0.25, 3: 0.5, 4: 0.75}   # LH LF RH RF
 #           pitch without pushing the mid-yaw joints into stops, shorter
 #           steps, slower cadence, and a hard trot cap.
 GAITS: dict[str, dict] = {
-    # 08-18 hardware debug: the ORIGINAL shallow-stance walk (-40 mm /
-    # -17 deg) marched perfectly in place on the real floor — lifting a
-    # front foot just tipped the body onto it (restart-sim apex 2-5 mm
-    # no matter the commanded lift).  The trot's DEEP aft lean fixes
-    # the same mechanism for the walk. Hardware now gets more body pitch
-    # (-24 deg) with less rearward translation (-70 mm), which keeps the
-    # mid-leg yaw joints off their hard stops better than -80/-20 did.
-    "walk": dict(stride=0.035, lift=0.026, lift_front=0.035,
-                 period=5.0, duty=0.82,
-                 body_dx=-0.070, pitch=math.radians(-24.0),
-                 body_z=0.020, rear_press=0.020,
-                 splay=math.radians(8.0),
-                 sway=0.020, sway_phase=SWAY_PHASE_RAD, phase=WALK_PHASE),
-    "walk_pitch": dict(stride=0.030, lift=0.024, lift_front=0.032,
-                       period=5.4, duty=0.84,
-                       body_dx=-0.060, pitch=math.radians(-28.0),
-                       body_z=0.026, rear_press=0.024,
-                       splay=math.radians(6.0),
-                       sway=0.018, sway_phase=SWAY_PHASE_RAD,
-                       phase=WALK_PHASE, speed_cap=0.8),
-    "walk_aggressive": dict(stride=0.025, lift=0.022, lift_front=0.028,
-                            period=6.0, duty=0.86,
-                            body_dx=-0.050, pitch=math.radians(-32.0),
-                            body_z=0.032, rear_press=0.028,
-                            splay=math.radians(4.0),
-                            sway=0.014, sway_phase=SWAY_PHASE_RAD,
-                            phase=WALK_PHASE, speed_cap=0.6),
-    "trot": dict(stride=0.050, lift=0.022, lift_front=0.032,
-                 period=4.8, duty=0.76,
-                 body_dx=-0.070, pitch=math.radians(-24.0),
-                 body_z=0.020, rear_press=0.020,
-                 splay=math.radians(8.0),
-                 sway=0.016, sway_phase=math.radians(180.0),
-                 roll=math.radians(3.0), roll_phase=math.radians(270.0),
-                 phase={1: 0.0, 3: 0.0, 4: 0.5, 2: 0.5},
-                 speed_cap=0.7),
-    "trot_pitch": dict(stride=0.040, lift=0.020, lift_front=0.030,
-                       period=5.2, duty=0.80,
-                       body_dx=-0.060, pitch=math.radians(-28.0),
-                       body_z=0.026, rear_press=0.024,
-                       splay=math.radians(6.0),
-                       sway=0.014, sway_phase=math.radians(180.0),
-                       roll=math.radians(2.5),
-                       roll_phase=math.radians(270.0),
-                       phase={1: 0.0, 3: 0.0, 4: 0.5, 2: 0.5},
-                       speed_cap=0.6),
-    "trot_aggressive": dict(stride=0.032, lift=0.018, lift_front=0.024,
-                            period=5.8, duty=0.82,
-                            body_dx=-0.050, pitch=math.radians(-32.0),
-                            body_z=0.032, rear_press=0.028,
-                            splay=math.radians(4.0),
-                            sway=0.012,
-                            sway_phase=math.radians(180.0),
-                            roll=math.radians(2.0),
-                            roll_phase=math.radians(270.0),
-                            phase={1: 0.0, 3: 0.0, 4: 0.5, 2: 0.5},
-                            speed_cap=0.5),
-    # "rear" = HOLD the reared stance without stepping: stride/lift 0
-    # turns the walk-phase math into a no-op (all four support feet stay
-    # planted) while a gentle sway keeps the pose alive.  The -24 deg
-    # nose-up hold gives the walking phases a safer launch pose.
-    # Used by the dance's stallion act, which overlays front-paw
-    # gestures on the hold window (inplace_demos._make_stallion_fn).
+    # Safe crawl: the 08-22 baseline for checking that rear-up itself is
+    # survivable. It is intentionally boring; use it as the control video.
+    "rear_safe": dict(stride=0.0, lift=0.0, lift_front=0.0,
+                      period=4.0, duty=0.75,
+                      body_dx=BODY_DX_M, pitch=PITCH_RAD,
+                      body_z=BODY_Z_M, rear_press=REAR_PRESS_M,
+                      splay=MID_SPLAY_RAD,
+                      sway=0.0, sway_phase=SWAY_PHASE_RAD,
+                      phase=WALK_PHASE, speed_cap=0.75),
+    "walk_safe": dict(stride=STRIDE_M, lift=LIFT_M, lift_front=0.026,
+                      period=PERIOD_S, duty=DUTY,
+                      body_dx=BODY_DX_M, pitch=PITCH_RAD,
+                      body_z=BODY_Z_M, rear_press=REAR_PRESS_M,
+                      splay=MID_SPLAY_RAD,
+                      sway=SWAY_M, sway_phase=SWAY_PHASE_RAD,
+                      phase=WALK_PHASE, speed_cap=0.5),
+    "trot_safe": dict(stride=0.018, lift=0.014, lift_front=0.022,
+                      period=7.0, duty=0.88,
+                      body_dx=BODY_DX_M, pitch=PITCH_RAD,
+                      body_z=BODY_Z_M, rear_press=REAR_PRESS_M,
+                      splay=MID_SPLAY_RAD,
+                      sway=0.006, sway_phase=math.radians(180.0),
+                      roll=math.radians(1.0),
+                      roll_phase=math.radians(270.0),
+                      phase={1: 0.0, 3: 0.0, 4: 0.5, 2: 0.5},
+                      speed_cap=0.35),
+
+    # Default/cool: dynamic enough to video and learn from, but less
+    # extreme than the old -70 mm aft-shift that scraped the real frame.
     "rear": dict(stride=0.0, lift=0.0, lift_front=0.0,
                  period=4.0, duty=0.75,
-                 body_dx=-0.070, pitch=math.radians(-24.0),
-                 body_z=0.020, rear_press=0.020,
-                 splay=math.radians(8.0),
-                 sway=0.015, sway_phase=SWAY_PHASE_RAD, phase=WALK_PHASE,
-                 speed_cap=1.5),
+                 body_dx=-0.035, pitch=math.radians(-24.0),
+                 body_z=0.026, rear_press=0.024,
+                 splay=0.0,
+                 sway=0.0, sway_phase=SWAY_PHASE_RAD,
+                 phase=WALK_PHASE, speed_cap=0.75),
+    "walk": dict(stride=0.036, lift=0.024, lift_front=0.034,
+                 period=5.6, duty=0.80,
+                 body_dx=-0.040, pitch=math.radians(-26.0),
+                 body_z=0.030, rear_press=0.022,
+                 splay=math.radians(2.0),
+                 sway=0.014, sway_phase=SWAY_PHASE_RAD,
+                 phase=WALK_PHASE, speed_cap=0.65),
+    "trot": dict(stride=0.042, lift=0.022, lift_front=0.032,
+                 period=5.2, duty=0.76,
+                 body_dx=-0.045, pitch=math.radians(-26.0),
+                 body_z=0.030, rear_press=0.022,
+                 splay=math.radians(2.0),
+                 sway=0.014, sway_phase=math.radians(180.0),
+                 roll=math.radians(2.5), roll_phase=math.radians(270.0),
+                 phase={1: 0.0, 3: 0.0, 4: 0.5, 2: 0.5},
+                 speed_cap=0.65),
+
+    # Isolate one change at a time for camera-based diagnosis.
     "rear_pitch": dict(stride=0.0, lift=0.0, lift_front=0.0,
                        period=4.0, duty=0.75,
-                       body_dx=-0.060, pitch=math.radians(-28.0),
-                       body_z=0.026, rear_press=0.024,
-                       splay=math.radians(6.0),
-                       sway=0.012, sway_phase=SWAY_PHASE_RAD,
-                       phase=WALK_PHASE, speed_cap=1.0),
+                       body_dx=-0.030, pitch=math.radians(-28.0),
+                       body_z=0.030, rear_press=0.024,
+                       splay=0.0,
+                       sway=0.0, sway_phase=SWAY_PHASE_RAD,
+                       phase=WALK_PHASE, speed_cap=0.55),
+    "walk_pitch": dict(stride=0.030, lift=0.022, lift_front=0.030,
+                       period=6.0, duty=0.84,
+                       body_dx=-0.030, pitch=math.radians(-30.0),
+                       body_z=0.034, rear_press=0.022,
+                       splay=0.0,
+                       sway=0.010, sway_phase=SWAY_PHASE_RAD,
+                       phase=WALK_PHASE, speed_cap=0.55),
+    "trot_pitch": dict(stride=0.034, lift=0.018, lift_front=0.028,
+                       period=5.8, duty=0.80,
+                       body_dx=-0.030, pitch=math.radians(-24.0),
+                       body_z=0.020, rear_press=0.016,
+                       splay=0.0,
+                       sway=0.010, sway_phase=math.radians(180.0),
+                       roll=math.radians(1.8),
+                       roll_phase=math.radians(270.0),
+                       phase={1: 0.0, 3: 0.0, 4: 0.5, 2: 0.5},
+                       speed_cap=0.5),
+    "rear_aft": dict(stride=0.0, lift=0.0, lift_front=0.0,
+                     period=4.0, duty=0.75,
+                     body_dx=-0.050, pitch=math.radians(-22.0),
+                     body_z=0.030, rear_press=0.020,
+                     splay=0.0,
+                     sway=0.0, sway_phase=SWAY_PHASE_RAD,
+                     phase=WALK_PHASE, speed_cap=0.65),
+    "walk_aft": dict(stride=0.038, lift=0.022, lift_front=0.032,
+                     period=5.8, duty=0.80,
+                     body_dx=-0.055, pitch=math.radians(-24.0),
+                     body_z=0.032, rear_press=0.020,
+                     splay=0.0,
+                     sway=0.012, sway_phase=SWAY_PHASE_RAD,
+                     phase=WALK_PHASE, speed_cap=0.6),
+    "trot_aft": dict(stride=0.044, lift=0.020, lift_front=0.030,
+                     period=5.4, duty=0.78,
+                     body_dx=-0.055, pitch=math.radians(-24.0),
+                     body_z=0.032, rear_press=0.020,
+                     splay=0.0,
+                     sway=0.012, sway_phase=math.radians(180.0),
+                     roll=math.radians(2.0),
+                     roll_phase=math.radians(270.0),
+                     phase={1: 0.0, 3: 0.0, 4: 0.5, 2: 0.5},
+                     speed_cap=0.6),
+    "rear_high": dict(stride=0.0, lift=0.0, lift_front=0.0,
+                      period=4.0, duty=0.75,
+                      body_dx=-0.025, pitch=math.radians(-24.0),
+                      body_z=0.028, rear_press=0.014,
+                      splay=0.0,
+                      sway=0.0, sway_phase=SWAY_PHASE_RAD,
+                      phase=WALK_PHASE, speed_cap=0.65),
+    "walk_high": dict(stride=0.032, lift=0.024, lift_front=0.034,
+                      period=6.0, duty=0.82,
+                      body_dx=-0.030, pitch=math.radians(-24.0),
+                      body_z=0.046, rear_press=0.016,
+                      splay=0.0,
+                      sway=0.010, sway_phase=SWAY_PHASE_RAD,
+                      phase=WALK_PHASE, speed_cap=0.55),
+    "trot_high": dict(stride=0.034, lift=0.020, lift_front=0.030,
+                      period=5.8, duty=0.80,
+                      body_dx=-0.030, pitch=math.radians(-24.0),
+                      body_z=0.028, rear_press=0.014,
+                      splay=0.0,
+                      sway=0.010, sway_phase=math.radians(180.0),
+                      roll=math.radians(1.5),
+                      roll_phase=math.radians(270.0),
+                      phase={1: 0.0, 3: 0.0, 4: 0.5, 2: 0.5},
+                      speed_cap=0.55),
+    "rear_step": dict(stride=0.0, lift=0.0, lift_front=0.0,
+                      period=4.0, duty=0.75,
+                      body_dx=-0.035, pitch=math.radians(-24.0),
+                      body_z=0.032, rear_press=0.020,
+                      splay=0.0,
+                      sway=0.0, sway_phase=SWAY_PHASE_RAD,
+                      phase=WALK_PHASE, speed_cap=0.65),
+    "walk_step": dict(stride=0.030, lift=0.030, lift_front=0.044,
+                      period=6.4, duty=0.80,
+                      body_dx=-0.038, pitch=math.radians(-26.0),
+                      body_z=0.036, rear_press=0.020,
+                      splay=0.0,
+                      sway=0.010, sway_phase=SWAY_PHASE_RAD,
+                      phase=WALK_PHASE, speed_cap=0.5),
+    "trot_step": dict(stride=0.034, lift=0.028, lift_front=0.040,
+                      period=6.0, duty=0.78,
+                      body_dx=-0.038, pitch=math.radians(-26.0),
+                      body_z=0.036, rear_press=0.020,
+                      splay=0.0,
+                      sway=0.010, sway_phase=math.radians(180.0),
+                      roll=math.radians(1.5),
+                      roll_phase=math.radians(270.0),
+                      phase={1: 0.0, 3: 0.0, 4: 0.5, 2: 0.5},
+                      speed_cap=0.5),
+
+    # Aggressive remains available for sim and careful rear/hold tests.
+    "walk_aggressive": dict(stride=0.050, lift=0.022, lift_front=0.034,
+                            period=4.8, duty=0.76,
+                            body_dx=-0.070, pitch=math.radians(-24.0),
+                            body_z=0.020, rear_press=0.020,
+                            splay=math.radians(8.0),
+                            sway=0.016, sway_phase=SWAY_PHASE_RAD,
+                            phase=WALK_PHASE, speed_cap=0.7),
+    "trot_aggressive": dict(stride=0.050, lift=0.022, lift_front=0.032,
+                            period=4.8, duty=0.76,
+                            body_dx=-0.070, pitch=math.radians(-24.0),
+                            body_z=0.020, rear_press=0.020,
+                            splay=math.radians(8.0),
+                            sway=0.016,
+                            sway_phase=math.radians(180.0),
+                            roll=math.radians(3.0),
+                            roll_phase=math.radians(270.0),
+                            phase={1: 0.0, 3: 0.0, 4: 0.5, 2: 0.5},
+                            speed_cap=0.7),
     "rear_aggressive": dict(stride=0.0, lift=0.0, lift_front=0.0,
                             period=4.0, duty=0.75,
-                            body_dx=-0.050, pitch=math.radians(-32.0),
-                            body_z=0.032, rear_press=0.028,
-                            splay=math.radians(4.0),
-                            sway=0.010, sway_phase=SWAY_PHASE_RAD,
+                            body_dx=-0.070, pitch=math.radians(-24.0),
+                            body_z=0.020, rear_press=0.020,
+                            splay=math.radians(8.0),
+                            sway=0.0, sway_phase=SWAY_PHASE_RAD,
                             phase=WALK_PHASE, speed_cap=0.8),
 }
 

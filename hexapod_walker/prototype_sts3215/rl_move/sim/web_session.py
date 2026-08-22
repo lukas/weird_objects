@@ -46,8 +46,12 @@ from .play import (
 )
 
 QUAD_VARIANTS = {
-    "": ("rear", "walk", "trot", "stable"),
+    "_safe": ("rear_safe", "walk_safe", "trot_safe", "safe"),
+    "": ("rear", "walk", "trot", "cool"),
     "_pitch": ("rear_pitch", "walk_pitch", "trot_pitch", "pitched"),
+    "_aft": ("rear_aft", "walk_aft", "trot_aft", "aft-shift"),
+    "_high": ("rear_high", "walk_high", "trot_high", "high-body"),
+    "_step": ("rear_step", "walk_step", "trot_step", "high-step"),
     "_aggressive": (
         "rear_aggressive", "walk_aggressive", "trot_aggressive",
         "aggressive"),

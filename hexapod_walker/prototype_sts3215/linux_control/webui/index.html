@@ -308,16 +308,21 @@ legs can reach instead of clipping it.">
 	        run forward or backward while reared; <b>Come down</b> untucks the
 	        fronts and returns to stand. Walk is the steadier one-foot sequence;
 	        trot uses diagonal pairs and is experimental on hardware.
-	        Pitched/aggressive variants lean farther back with shorter,
-	        slower steps. Hold/walk/trot use live IMU pitch trim to nudge
+	        Use the stance menu as a test ladder: Safe is the control,
+	        Cool is the candidate, then pitch/aft/high/step isolate one
+	        change at a time. Hold/walk/trot use live IMU pitch trim to nudge
 	        the body fore/aft and slow the gait if pitch drifts. Use a flat
 	        non-slip floor, clear slack around the body, and watch the robot
 	        the whole time.</div>
 	      <label class="slab">Stance:
 	        <select id="qstance">
-	          <option value="" selected>Compact -24°</option>
-	          <option value="pitch">Pitched -28°</option>
-	          <option value="aggressive">Aggressive -32° rear/hold</option>
+	          <option value="safe">Safe control -24°</option>
+	          <option value="" selected>Cool candidate</option>
+	          <option value="pitch">More pitch</option>
+	          <option value="aft">More aft shift</option>
+	          <option value="high">Higher body</option>
+	          <option value="step">Higher steps</option>
+	          <option value="aggressive">Aggressive legacy aft</option>
 	        </select>
 	        <span style="color:#8089a0;font-weight:400">(aggressive walking is sim-only until retuned)</span></label>
 	      <div class="btns" style="margin:12px 0">

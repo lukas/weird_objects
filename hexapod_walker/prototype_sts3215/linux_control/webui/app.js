@@ -2949,15 +2949,23 @@ $('dstand').onclick = ()=> goPoseZero('stand', 'stand zero');
 function quadSpeed(){ return Math.max(0.25, Math.min(2.0, (+$('qspeed').value)/100)); }
 function quadSuffix(){
   const v = $('qstance') ? $('qstance').value : '';
+  if(v === 'safe') return '_safe';
   if(v === 'pitch') return '_pitch';
+  if(v === 'aft') return '_aft';
+  if(v === 'high') return '_high';
+  if(v === 'step') return '_step';
   if(v === 'aggressive') return '_aggressive';
   return '';
 }
 function quadVariantLabel(){
   const v = $('qstance') ? $('qstance').value : '';
+  if(v === 'safe') return 'safe';
   if(v === 'pitch') return 'pitched';
+  if(v === 'aft') return 'aft-shift';
+  if(v === 'high') return 'high-body';
+  if(v === 'step') return 'high-step';
   if(v === 'aggressive') return 'aggressive';
-  return 'stable';
+  return 'cool';
 }
 function quadName(action){ return 'quad_'+action+quadSuffix(); }
 function isQuadDown(name){ return name.indexOf('quad_down') === 0; }
@@ -2969,7 +2977,7 @@ function quadRunAction(action, label){
   if(quadRobotBlocked(action)){
     showSent(
       'aggressive walk/trot is blocked on the robot after the forward fall; '
-      +'use Pitched for hardware or switch to MuJoCo-only to simulate it',
+      +'use Safe/Cool for hardware or switch to MuJoCo-only to simulate it',
       true);
     return;
   }
