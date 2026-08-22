@@ -142,6 +142,30 @@ with:
   default (fix PLANT_SPEC/getup pricing first, since they don't need
   a training run to diagnose).
 
+- 08-22 rung A verdict (`cw-dep-bcgait4-phasedir4-entanneal`, the
+  ent-coef-anneal lever from item 3 below): FAIL, and WORSE than
+  phasedir3 on both axes the reprice was supposed to fix. The anneal
+  mechanism itself worked exactly as coded (wandb `ent_coef_anneal/
+  value` fell 0.000951->0.0001, monotone, confirmed) but the resulting
+  policy std barely moved (0.368->0.352 over the whole 2M-step run,
+  vs phasedir3's pegged 0.355-0.365) — entropy bonus is too small a
+  fraction of PPO's total loss to meaningfully drag a WARM-STARTED
+  log_std down in 2M steps. Clone-relative (same control as
+  phasedir3, `logs/ckpt_eval/phasedir3_clone_control_gate`): progress
+  0.830x clone (cap 0.9x, worse than phasedir3's 0.897x), slip 1.518x
+  clone (cap 1.15x, worse than phasedir3's 1.41x); zero falls, gait
+  6/6, dir_err/speed both pass. Exactly the pre-registered
+  "weak-anneal" branch. ACTED ON: built + on-pod smoke-tested a
+  DIRECT lever instead of the indirect entropy-coefficient one —
+  `train_ppo_mjx --warm-log-std-override <logstd>` forcibly resets a
+  warm-started policy's log_std parameter(s) right after `--init-from`
+  loads (works on plain-MLP `log_std` and gru-experts `_log_stds()`);
+  verified on-pod it lands exactly on the requested value (-2.0 ->
+  std=0.135 on all 18 dims) and is a no-op/no-print when unset.
+  Launched `cw-dep-bcgait4-phasedir5-stdoverride` (train-0, respec of
+  phasedir4, same unchanged reward stack, `--warm-log-std-override
+  -2.0`) as the direct test of the noise-band theory.
+
 ## Next
 
 1. **Close the last 2 rise-bank items with root-cause fixes, not
@@ -162,20 +186,26 @@ with:
    `test_task_semantics.py` bank proving the training reward ranks
    gate-passing behavior above every known cheat (park, paddle-creep,
    overspeed attractor, sacrificed leg).
-3. **DONE 08-22 — noise-taxed charges repriced (`cw-dep-bcgait4-
-   phasedir3-fwd-reprice`), verdicted FAIL, next lever built.** The
-   reprice (loadslip ok/max 2.2/4.0 -> 7.0/10.0, `reward.
-   walk_course_overspeed_along=1`, course floor 0.04 m/s) fixed the
-   predicted det-overspeed hole but, by widening the loadslip band to
-   the noisy clone's slip range, left DET-mode slip unpriced too:
-   slip/m 1.41x clone (cap 1.15x — the new failure), progress 0.897x
-   clone (cap 0.9x — narrower miss than phasedir2's 0.836x). See the
-   `Now` bullet above for the full tabulation. NEXT ARM: relaunch the
-   same repriced fwd-only config with the newly-built
-   `--ent-coef-final 0.0002 --ent-coef-anneal-frac 0.5` (std actually
-   allowed to shrink over training) — closes the sto/det noise gap a
-   flat threshold cannot, without touching the reward mechanism
-   again.
+3. **DONE 08-22 — noise-taxed charges repriced (phasedir3) FAIL; ent-
+   coef anneal (phasedir4) FAIL and worse; direct log_std override
+   built + launched as phasedir5.** phasedir3's reprice fixed
+   det-overspeed but left det slip unpriced (1.41x clone, cap 1.15x).
+   phasedir4 tested whether annealing `ent_coef` 10x would let std
+   actually shrink from its pegged 0.355-0.365: the anneal itself
+   worked (confirmed in wandb) but std barely moved (0.368->0.352),
+   and both slip (1.518x) and progress (0.830x) got WORSE than
+   phasedir3, not better — the entropy-coefficient lever is too
+   indirect/weak on a warm-started log_std. See the `Now` bullets
+   above for full tabulation. NEXT ARM (launched, `cw-dep-bcgait4-
+   phasedir5-stdoverride`, train-0): the newly-built default-off
+   `train_ppo_mjx --warm-log-std-override -2.0` forcibly resets the
+   warm-started log_std to std=0.135 right after `--init-from` loads
+   (verified on-pod: lands exactly on the requested value, no-op when
+   unset) — a direct test of the noise-band theory instead of hoping
+   gradients get there. PASS -> rung B heading-set respec. FAIL with
+   std confirmed low in eval = noise-band theory REFUTED, DIG-IN
+   required before any further reward edit (do not launch another
+   anneal/override variant blind).
 4. RL fine-tune from the phase clone (and a walk-champion arm as
    control) with the reward aligned to the gate metrics, resuming
    the staged heading curriculum; extend budget while reward and

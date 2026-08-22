@@ -98,6 +98,20 @@ out-of-scope runs get honest triage but no agent follow-ups.
   2 measured-velocity obs dims on the actor path). Discriminator,
   motion library, replay buffer, fault injection, and the joystick
   eval suite are confirmed NOT started (zero lines exist).
+- PHASE-RL NOISE-BAND LEVER 6 (08-22, `cw-dep-bcgait4-phasedir4-
+  entanneal`): FAIL, worse than phasedir3. Annealing PPO's `ent_coef`
+  10x (0.000951->0.0001, confirmed monotone in wandb) barely moved a
+  WARM-STARTED policy's action std (0.368->0.352 over 2M steps) —
+  the entropy bonus is too small a fraction of PPO's total loss to
+  drag a loaded log_std down. Clone-relative progress fell to 0.830x
+  (cap 0.9x, worse than phasedir3's 0.897x) and slip rose to 1.518x
+  (cap 1.15x, worse than phasedir3's 1.41x); zero falls, gait 6/6.
+  BUILT: `train_ppo_mjx --warm-log-std-override <logstd>` — a direct,
+  guaranteed-to-move lever that forcibly resets a warm-started
+  policy's log_std parameter(s) right after `--init-from` loads
+  (plain-MLP `log_std` and gru-experts `_log_stds()`), default off/
+  no-op, verified on-pod (`-2.0` -> std=0.135 exactly on all 18 dims).
+  `cw-dep-bcgait4-phasedir5-stdoverride` (train-0) tests it directly.
 - direction_err_mean_deg has a ~35 deg tick-level floor from stride
   sway — judge deltas vs a matched clone, not raw values.
 - Every pre-08-22 checkpoint (incl. the download hierarchy) trained
