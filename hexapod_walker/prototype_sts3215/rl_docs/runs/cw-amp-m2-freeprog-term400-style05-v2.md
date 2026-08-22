@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-08-22T16:07:15+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 2000000
 
 **parent**: cw-amp-m2-freeprog-term400-style05
+
+**wandb_id**: s8lnr8oo
 
 **hypothesis**: Plain English: re-run the Wave-1 style-vs-control fork with a motion library that actually contains the verified teacher's gait -- every AMP style arm so far trained against the frame-corrupted teacher_v1 (fb_20260822T145428 audit: raw absolute-tibia TripodGait fed unconverted, knee off up to 15.7deg vs the sim_gait_compat truth), so the discriminator has been pulling the policy toward a subtly WRONG gait and the 'AMP gave cleaner gait_valid, not real travel' fork resolution is contaminated. Single change vs cw-amp-m2-freeprog-term400-style05 (FAIL, statue): --amp-motion-lib=teacher_v2.npz (45/45 clips, slip in teacher band, built via the sim_gait_compat boundary). Everything else byte-identical: SLIPWALK pricing, term_penalty=400, style/task 0.5/0.5, from scratch, 2M discovery.
 
