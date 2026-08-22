@@ -112033,7 +112033,7 @@
       "ppo_smoke_logstd_anneal_v1"
     ],
     "created": "2026-08-22T11:41:03+00:00",
-    "status": "FINISHED",
+    "status": "DONE",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -112059,7 +112059,9 @@
         "verdict": "FINISHED_BEFORE_CHECKUP",
         "log_tail": "_a67f49d6 a67f49d load on device 'cuda:0' took 0.57 ms  (cached)\n[log-std-anneal] complete @ 24,576 steps \u2014 holding log_std=-3.200 (std=0.041)\n[video] logged reel (512 steps | rise:ok walk:ok raise:ok hold:ok)\n[video] logged reel (final | rise:ok walk:ok raise:ok hold:ok)\n[mjx-train] done: 40,000 steps in 123s (326 env-steps/s incl. setup) -> /workspace/prototype_sts3215/rl_move/sim/policies/ppo_smoke_logstd_anneal_v1.zip\n[mjx-train] evaluate with the C-env harness before trusting anything (MJX_PORT.md phase-2 item 4).\n[wandb] checkpoint artifact ckpt-ppo_smoke_logstd_anneal_v1 (md5 bd8a276c)\n"
       }
-    ]
+    ],
+    "verdict": "PASS (mechanism smoke, W&B-disabled): --warm-log-std-override -2.0 landed at load (std 0.135) and --log-std-final -3.2/--log-std-anneal-frac 0.5 completed and held at 24,576/40k steps (std 0.041) \u2014 the forced log_std schedule works on-pod; licenses cw-dep-bcgait4-phasedir9-stdanneal.",
+    "triage": "done"
   },
   {
     "run": "cw-amp-m2-pilot-style05-c1",
