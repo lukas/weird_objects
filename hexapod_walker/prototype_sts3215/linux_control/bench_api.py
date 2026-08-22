@@ -46,6 +46,8 @@ AIR_DEMO_NAMES = frozenset({
     "dance_steeple",
     # stands AND rears up mid-show; starts and ends at sit zero (limp)
     "dance_wild",
+    # stands, no-slip turns AND quad-walks mid-show; sit zero at both ends
+    "dance_encore",
     # dance goes planted mid-routine but starts AND ends at sit zero
     # (limp), so it homes like an air demo and must not stand-hold after.
     "dance",
@@ -1212,7 +1214,8 @@ class BenchAPI:
                 else:
                     extra = {}
                     if name in ("dance", "dance_swarm_stand",
-                                "dance_steeple", "dance_wild"):
+                                "dance_steeple", "dance_wild",
+                                "dance_encore"):
                         extra["standup_fn"] = self._step_standup_fn(
                             gen=gen, speed=speed)
                     if quad_requires_rear:
