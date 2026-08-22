@@ -1384,3 +1384,29 @@ Entry format (append; newest last; update status in place):
 - rulebook change: _pending_ (proposal: scope the WALK stall>park
   tail to from-scratch/no-BC arms; imitation-anchored arms require
   obey >> both instead).
+
+## 2026-08-22 — phasedir rung A stopped obedient-but-slow: approve charge repricing before relaunch?
+
+- context: `cw-dep-bcgait4-phasedir2-staged-fwd` (staged curriculum
+  rung A, forward-only 0.08) FAILED its pre-registered clone-relative
+  gate on the obedient-but-slow branch: zero falls, gait 6/6, slip
+  1.06x clone, dir_err -4.4deg better, but along-progress 0.836x
+  clone (<0.9x) with speed pinned at the 0.060 band floor. Per the
+  gate ("charges overpriced, STOP + report doses") rung B was NOT
+  launched. Doses paid per tick, flat all run: course -1.4 (k=2),
+  overspeed -2.2 (k=4), loadslip_excess -1.2 (k=10, ratio ~5.1 >
+  max 4.0). Diagnosis: charges are assessed per-tick on the
+  STOCHASTIC rollout; exploration noise (std stuck 0.36; the
+  untouched clone pays an identical sto bill: speed 0.122, slip
+  31/m) funds them, so PPO's cheapest gradient is a slower mean
+  gait — not a coefficient problem but a WHERE-the-charge-is-read
+  problem.
+- question: approve repricing overspeed + loadslip onto stride-EMA /
+  mean-behavior quantities (as k_walk_course already is), with a new
+  bank test asserting a clone rollout at std=0.36 pays ~zero
+  overspeed/loadslip charge, then relaunching rung A?
+- assumed answer (assume-and-go): YES — the stride-EMA repricing is
+  the minimal aligned fix; coefficient re-dosing alone cannot stop
+  noise taxation. No relaunch until the extended
+  test_phasedir_semantics.py bank is green.
+- ANSWER (operator): _pending_

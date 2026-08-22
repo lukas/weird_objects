@@ -109212,7 +109212,7 @@
       "reward.walk_height_sigma_mm=30.0"
     ],
     "created": "2026-08-22T04:03:42+00:00",
-    "status": "RUNNING",
+    "status": "done",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -109242,7 +109242,21 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:hw PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-dep-bcgait1-plant150-1 --steps 10000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_dep_bcgait1_hard1.zip --dr-scale 0.35 --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 11 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_dep_bcgait1_plant150_1 --notes 'respec of cw-dep-bcgait1-hard1: Re-harden the deployed walking champion on the corrected robot geometry: the sim'\"'\"'s shin length was re-measured at 150mm (was 128mm) and the old champion now falls when driving backwards, so this arm fine-tunes the same policy on the corrected body so it walks reliably again. Mechanism: warm-start from ppo_goal_cw_dep_bcgait1_hard1'\"'\"'s checkpoint, identical recipe/reward, only the plant is the measured tibia-150 tree; prediction-if-true the policy re-adapts its stance/gait within the budget and passes the tibia-150 session drive gate its parent fails; prediction-if-false falls persist (geometry shift too large for fine-tune), pointing at a fresh BC-INIT on the tibia-150 scripted teacher instead.' --cfg-set dr.tipped_start_prob=0.30 --target-kl 0.02 --cfg-set reward.walk_height_gate=1.0 --cfg-set reward.walk_height_sigma_mm=30.0 > /tmp/train_cw-dep-bcgait1-plant150-1.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-dep-bcgait1-plant150-1.log",
     "wandb_id": "ig0tnmh5",
-    "verified": "2026-08-22T04:06:55+00:00"
+    "verified": "2026-08-22T04:06:55+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-22T04:12:45+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 213,
+        "fps": 18932.6,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ],
+    "triage": "done",
+    "verdict": "PASS(core)/near-miss(soft): tibia-150 fine-tune fixes both fall pathologies the parent had at the corrected plant -- joint_walk gate zero falls DR-0+own-DR (6/6 gait_valid, slip/m 1.2-1.5, roll_tail/peak <= parent 128mm baseline) and eval_session back-segment tilt_roll FALL is gone. fwd yaw drift improved -21.8->-10.6deg (just over the +-10deg soft threshold) and back-segment net velocity ~0 (track_back soft miss); the remaining session \"sit\" FALL is the already-tracked stance-side defect (holdbc1_hard1), not this arm. No drive-segment fall remains and gait stays 6/6, so the pre-registered FAIL trigger did not fire. Promote as the walk half of the tibia-150 answer; full session PASS still needs the stance twin cw-stand-footlow2-plant150-1."
   },
   {
     "run": "cw-dep-bcgait4-phasedir2-staged-fwd",
@@ -109357,7 +109371,7 @@
       "train.bc_anchor_knee_abs=1.0"
     ],
     "created": "2026-08-22T04:05:23+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -109386,6 +109400,17 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:hw PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-dep-bcgait4-phasedir2-staged-fwd --steps 2000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_bcgait_init_fullprof_phase1.zip --dr-scale 0.35 --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 11 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.08 --cfg-set goal.walk_speed_max_m_s=0.08 --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_dep_bcgait4_phasedir2_staged_fwd --notes 'respec of cw-dep-bcgait4-phasedir1: Retry RL on the phase-clock walking clone with the reward aligned to what we actually grade, starting from the easiest ask: this rung trains FORWARD-ONLY at the one fixed 0.08 m/s speed, and the new pricing must keep PPO from trading command obedience for generic stable fast walking (phasedir1'\"'\"'s failure: reward up, dir_err 35.6->67.3, speed 0.068->0.139, slip/m 1.81->4.17). Aligned stack, preflight-proven (test_phasedir_semantics.py, 20 green): stride-averaged course charge (k_walk_course, EMA over one gait period so the ~35deg tick sway is NOT taxed), EMA-speed overspeed band (k_walk_course_overspeed), clone-banded loaded-slip gate+excess (loadslip_ok=2.2/max=4.0 around clone 1.56-2.07 vs degraded 4.17), anti-refusal travel floor (k_walk_idle_charge), plus STRONG gait preservation: phase-locked BC anchor to the clone'\"'\"'s own teacher (bc_anchor_coef=1.0, bc_anchor_phase_lock=1 keeps the anchor gait on the policy-visible command-gated clock; bc_anchor_knee_abs=1 keeps it in the clone lineage'\"'\"'s raw knee dialect). Staged curriculum per operator order fb_20260822T032514: forward-only first; heading set [0,+-45deg], full fixed headings, and irregular heading changes are LATER rungs, each launched only after the previous rung'\"'\"'s clone-relative PASS. Prediction-if-true: RL preserves or improves the clone per the gate (no overspeed drift, slip flat, zero falls). Prediction-if-false: reward-behavior divergence again = the misalignment is not in these terms, STOP + operator.' --cfg-set dr.tipped_start_prob=0.30 --target-kl 0.02 --cfg-set reward.walk_height_gate=1.0 --cfg-set reward.walk_height_sigma_mm=30.0 --cfg-set bus.write_speed=1500 --cfg-set bus.write_acc=80 --cfg-set bus.servo_vel_max_counts_s=write_speed --cfg-set safety.max_delta_q_deg=5.0 --cfg-set goal.walk_phase_obs=1 --cfg-set goal.walk_phase_hz=1.333333 --cfg-set goal.walk_heading_max_rad=0.0 --cfg-set reward.k_walk_course=2.0 --cfg-set reward.walk_course_tau_s=0.75 --cfg-set reward.k_walk_course_overspeed=4.0 --cfg-set reward.walk_course_overspeed_tol=0.05 --cfg-set reward.k_walk_idle_charge=1.0 --cfg-set reward.walk_idle_speed_m_s=0.04 --cfg-set reward.walk_loadslip_gate=1.0 --cfg-set reward.loadslip_ok=2.2 --cfg-set reward.loadslip_max=4.0 --cfg-set reward.k_loadslip_excess=10.0 --cfg-set train.bc_anchor_coef=1.0 --cfg-set train.bc_anchor_walk=1.0 --cfg-set train.bc_anchor_phase_lock=1.0 --cfg-set train.bc_anchor_knee_abs=1.0 > /tmp/train_cw-dep-bcgait4-phasedir2-staged-fwd.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-dep-bcgait4-phasedir2-staged-fwd.log",
     "wandb_id": "8zkde4y7",
-    "verified": "2026-08-22T04:08:36+00:00"
+    "verified": "2026-08-22T04:08:36+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-22T04:14:34+00:00",
+        "process_alive": false,
+        "verdict": "FINISHED_BEFORE_CHECKUP",
+        "log_tail": " 3\nwandb:   env/height_err_mm 18.41606\nwandb:       env/height_mm 17.82875\nwandb:   env/height_ref_mm 0\nwandb:   env/max_current_a 1.83592\nwandb:  env/mean_current_a 0.68238\nwandb: env/pct_within_1deg 0.09033\nwandb:   env/pitch_ref_deg 0\nwandb:                 +99 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-dep-bcgait4-phasedir2-staged-fwd at: https://wandb.ai/l2k2/hexapod-balance/runs/8zkde4y7\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 3 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260822_040612-8zkde4y7/logs\n"
+      }
+    ],
+    "verdict": "FAIL (pre-registered obedient-but-slow branch, rung A forward-only): clone-relative det panel \u2014 falls 0/6=clone, gait_valid 6/6=clone, slip/m 2.00 vs clone 1.89 (1.06x, <=1.15x OK), dir_err 31.2 vs 35.5 (-4.4deg, OK), speed 0.060 in [0.06,0.096] at the floor, BUT along-progress 0.694m vs clone 0.830m = 0.836x < 0.9x. Charges overpriced: per-tick overspeed/loadslip charges taxed stochastic rollout noise (train std stuck 0.3675->0.3609; training loadslip_ratio ~5.1 > max 4.0 and overspeed -2.2/tick FLAT all run; sto panel shows clone pays the same noise slip 24-31/m) so the cheapest gradient was shrinking the mean gait. ep_rew fall -209->-1103 is an ep_len artifact (75->375); components flat; NOT reward-up-behavior-down. Video clean: level, all 6 legs cycling, no pathology. Rung B NOT launched per gate. STOP + doses reported.",
+    "hardware_ready": "no",
+    "triage": "done"
   }
 ]

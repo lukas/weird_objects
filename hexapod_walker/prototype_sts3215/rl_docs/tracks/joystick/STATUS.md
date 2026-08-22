@@ -1,8 +1,8 @@
 # joystick - RL from the programmatic gait to joystick control
 
-Last updated: 2026-08-21 (track created by the operator two-track
-reset). Keep this a short screenful: Goal / Now / Next. Run detail
-lives in `rl_docs/runs/`, W&B, and `RL_LOG.md`.
+Last updated: 2026-08-22 (phasedir2-staged-fwd verdict). Keep this a
+short screenful: Goal / Now / Next. Run detail lives in
+`rl_docs/runs/`, W&B, and `RL_LOG.md`.
 
 ## Goal
 
@@ -43,9 +43,19 @@ with:
   not dead ends: RL on this track requires a reward whose optimum is
   the 60 s gate behavior, then enough budget. The 5th verdict
   (`cw-dep-bcgait4-phasedir1`) is additionally ENV-CONFOUNDED (it
-  trained on the convention-corrupted sim) — re-run on the repaired
-  sim; the operator's staged heading curriculum
-  (fb_20260822T003132) is untried.
+  trained on the convention-corrupted sim).
+- 08-22 rung A verdict (`cw-dep-bcgait4-phasedir2-staged-fwd`,
+  staged curriculum fb_20260822T032514, aligned-reward stack): FAIL
+  on the pre-registered obedient-but-slow branch — zero falls,
+  gait 6/6, slip 1.06x clone, dir_err -4.4deg BETTER, but progress
+  0.836x clone (<0.9x) at the 0.060 band floor. Rung B NOT launched
+  per gate. WIN inside the fail: the phase-locked BC anchor fully
+  preserved the gait (first phasedir arm with zero behavioral
+  damage). ROOT CAUSE: overspeed/loadslip charges are per-tick on
+  the stochastic rollout, so exploration noise (std stuck 0.36,
+  clone pays the same sto bill) pays them and the cheapest gradient
+  is a slower mean gait. Charges must price stride-EMA/mean
+  behavior, not tick noise, before any relaunch.
 - 08-22 findings inherited from the reset window: the semantics-bank
   convention leak is repaired (`sim_gait_compat.py`) with a 7-test
   tibia-150 recalibration residue (rise ref re-mint first); the
@@ -65,11 +75,20 @@ with:
    `test_task_semantics.py` bank proving the training reward ranks
    gate-passing behavior above every known cheat (park, paddle-creep,
    overspeed attractor, sacrificed leg).
-3. RL fine-tune from the phase clone (and a walk-champion arm as
-   control) with the reward aligned to the gate metrics, starting
-   from the staged heading curriculum on the repaired sim; extend
-   budget while reward and gate metrics rise together.
-4. Widen the command distribution toward the full joystick envelope
+3. **Fix the noise-taxed charges before any rung relaunch** (rung A
+   stopped 08-22 per its gate): move overspeed + loadslip pricing
+   onto stride-EMA/mean-behavior quantities (the course term already
+   does this) or the deterministic action, extend
+   `test_phasedir_semantics.py` to prove exploration noise at the
+   clone's std=0.36 pays ~zero charge on a clone rollout, then
+   relaunch rung A. Operator sign-off question filed
+   (OPERATOR_QUESTIONS.md 08-22); assume-and-go default is the
+   stride-EMA repricing.
+4. RL fine-tune from the phase clone (and a walk-champion arm as
+   control) with the reward aligned to the gate metrics, resuming
+   the staged heading curriculum; extend budget while reward and
+   gate metrics rise together.
+5. Widen the command distribution toward the full joystick envelope
    (speeds, yaw, strafe, stops) and DR-harden to own-DR zero-fall.
 
 ## Rules of the road
