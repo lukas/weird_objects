@@ -68,15 +68,21 @@ Build every tool this needs; do not pause on operator input.
   freeprog_pen flat ~-1.5/tick the whole run at constant std=0.368,
   genuine not-learning). style05 twin owned by a concurrent cycle —
   Wave-1 style-vs-control read still pending that verdict. Follow-up
-  QUEUED+RUNNING same cycle on idle capacity, single lever:
+  QUEUED+RAN same cycle on idle capacity, single lever:
   `cw-amp-m2-freeprog-term400-stdanneal` (--log-std-final=-2.0
-  --log-std-anneal-frac=0.5 on top of the noamp control) — NOTE this
-  is NOT the suicide-era anneal idea the banner above refutes (that
-  refutation is about std-anneal not explaining/fixing the
-  DEATH-TIMING flip, observed at constant std); this tests a
-  different, later question — does annealing exploration noise down
-  help a now-suicide-safe policy ORGANIZE cycling legs into net
-  directional travel, mirroring the joystick track's phasedir9 fix)
+  --log-std-anneal-frac=0.5 on top of the noamp control) — VERDICTED
+  FAIL, decisively: std 0.368->0.135 made the SAME stationary basin
+  MORE regular (gait_valid 6/6 det+sto vs noamp's 3-5/6, tight slip
+  10.3-11.5/m) while fwd travel got WORSE (0.005m vs noamp's 0.026m)
+  and reward_per_tick_ema got WORSE (-3.29 vs -2.84) — a textbook
+  in-place march. `env/reward_walk_freeprog_pen` plateaus flat
+  regardless of noise level. CONCLUSION: this is a REWARD-SHAPE
+  defect (`walk_freeprog_score` has a real local optimum at stable
+  in-place cycling, no net-displacement floor), NOT an exploration
+  problem — std/anneal/entropy levers CLOSED for this reward family.
+  Next candidate fix (untested, needs a semantics-bank test first):
+  a freeprog analog of `k_walk_idle_charge` keyed to episode-window
+  net displacement, not instantaneous speed.
 - M3 push recovery: NOT STARTED
 - M4 fault adaptation: NOT STARTED
 - M5 MuJoCo transfer (= DONE gate): NOT STARTED

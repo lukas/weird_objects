@@ -351,6 +351,29 @@ out-of-scope runs get honest triage but no agent follow-ups.
   identical) — tests whether annealing exploration noise down (the
   fix that unlocked phasedir9 on the joystick track) also unlocks
   organized locomotion here, before any freeprog reward-shape patch.
+- TERM400-STDANNEAL VERDICTED FAIL, EXPLORATION-NOISE HYPOTHESIS
+  CLEANLY REFUTED (08-22, same cycle): annealing std 0.368->0.135
+  (train/std confirmed on the exact schedule) did NOT unlock net
+  displacement — it made the SAME stationary basin more regular:
+  gait_valid improved to a clean 6/6 det AND 6/6 sto (noamp: 3-5/6)
+  with tight low-variance slip (10.3-11.5/m det), zero terminations,
+  but median fwd travel FELL to 0.005 m/15s det (noamp: 0.026 m) —
+  contact sheet shows the robot in the same spot all 10 mid-episode
+  frames. `env/reward_walk_freeprog_pen` plateaus at the same flat
+  ~-1.1 to -1.2/tick as noamp regardless of exploration noise, and
+  `optimization/reward_per_tick_ema` is WORSE here (-3.29 vs noamp's
+  -2.84) — a tighter, less-noisy policy just commits harder to the
+  same local optimum. CONCLUSION: this narrows the M2 freeprog
+  problem from "noisy exploration never organizes" to a genuine
+  REWARD-SHAPE defect — `walk_freeprog_score` (pays along-command
+  velocity, charges cross-track/backward, no net-displacement floor)
+  has a real local optimum at stable in-place marching. Std/anneal/
+  entropy levers are CLOSED for this reward family (mirrors the
+  joystick track's own init-basin-flatness finding — a flat reward
+  surface doesn't move by de-noising alone). Next candidate fix
+  (untested): a walk_freeprog analog of `k_walk_idle_charge` keyed to
+  episode-window NET DISPLACEMENT rather than instantaneous speed —
+  semantics-bank work before any further train.
 - direction_err_mean_deg has a ~35 deg tick-level floor from stride
   sway — judge deltas vs a matched clone, not raw values.
 - Every pre-08-22 checkpoint (incl. the download hierarchy) trained
