@@ -19,9 +19,7 @@ from rl_move.env import TaskGoal, build_obs
 from .joint_task import q_rad_to_action
 from rl_move.joint_frame import (
     RAD2DEG,
-    robot_abs_deg_to_sim_rad,
     robot_abs_rad_to_sim_rad,
-    robot_stand_degrees,
     sim_rad_to_robot_abs_deg,
 )
 from .play import (
@@ -219,11 +217,9 @@ class SimWebSession:
             _ROLE_OBS[74] = "walk"
             self.walk_widths = (72, 74, 78, 1152)
         render_mode = "rgb_array" if self.cfg.web_frames else None
-        plant_model_deg = robot_abs_deg_to_sim_rad(robot_stand_degrees()) * RAD2DEG
         self.env = _PlayEnv(params=SimServoParams.from_cfg(cfg),
                             randomize=False, episode_seconds=3600.0,
-                            render_mode=render_mode, cfg=cfg,
-                            plant_deg=plant_model_deg)
+                            render_mode=render_mode, cfg=cfg)
         self.traj = self.env.traj
         self.chassis_bid = self.env.model.body("chassis").id
         self.profiles = _load_profiles()
@@ -579,7 +575,10 @@ class SimWebSession:
             del self.command_log[:-6]
 
     def _new_gait(self):
-        plant_deg = sim_rad_to_robot_abs_deg(self.q_plant)
+        # sim_gait_compat gait classes accept MuJoCo/model-relative
+        # hip/knee inputs here. Robot-absolute knees are only for the
+        # hardware demo stack; using them here corrupts the neutral stance.
+        plant_deg = [float(v) * RAD2DEG for v in self.q_plant]
         kw = _SCRIPTED_TRIPOD.get(self.walk_list[self.wi])
         if kw is not None:
             g = self.TripodGait(period=kw["period"],
@@ -1046,8 +1045,12 @@ class SimWebSession:
                 self.gait_t = 0.0
             self.gait.set_velocity(vx=self.traj.vx, vy=self.traj.vy,
                                    omega=self.om_cmd)
-            q_robot = np.radians(self.gait.desired_deg(self.gait_t))
-            action = q_rad_to_action(robot_abs_rad_to_sim_rad(q_robot))
+            # _new_gait() builds the sim_gait_compat variants, whose
+            # desired_deg() already returns MuJoCo/model-relative knees.
+            # Converting again folds the knee by one hip angle and makes
+            # the scripted rows look broken in the web UI.
+            q_model = np.radians(self.gait.desired_deg(self.gait_t))
+            action = q_rad_to_action(q_model)
             self.gait_t += self.env.dt
         elif walking:
             action = self._walk_predict()
