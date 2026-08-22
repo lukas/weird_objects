@@ -1,6 +1,49 @@
 # amp - AMP locomotion from scratch
 
-Last updated: 2026-08-22 ~23:1x (**SPEED-CAP ROOT CAUSE CONFIRMED:
+Last updated: 2026-08-22 ~23:2x (**TIP PARK ROOT CAUSE FOUND: the
+gait clock FREEZES during turn-in-place commands — env defect, fixed
+this cycle, clock-fix dose pair launched.** Same defect FAMILY as the
+speed-cap finding in the next banner down — the phase clock ignores
+part of the command — but a different axis and a different key. The
+tip dose pair is in and BOTH arms park: `tip50-r2` and `tip90` both
+FAIL-INFORMATIVE, eval_yaw tip err 0.2996/0.3000 and 0.2982/0.2999
+== |wz_ref| exactly (parent fingerprint, artifacts
+`logs/ckpt_eval/..._yawcmd_tip{50_r2,90}_yawgate.json`) — zero
+dose-response 0.5→0.9, so COMMAND EXPOSURE IS REFUTED. Digging past
+that: `walk_task._augment_obs` only advances the `walk_phase_obs`
+clock while `s_ref>1e-3`, so during tip episodes (vx=vy=0, wz≠0) the
+phase obs this BC-clone substrate is phase-locked to simply STOPS —
+no time-base to step with, so it parks. Predicts every fingerprint:
+zero rotation exactly at vx=0, unlearnable at any exposure, yet
+yaw-while-TRANSLATING (clock running) improved in every arm
+(fwd-hold drift err 0.169→0.075-0.080, arc-right 0.273→0.150-0.180).
+FIX LANDED: `goal.walk_phase_run_on_yaw` (default 0 = bit-exact
+legacy; =1 also advances the clock while |wz_ref|>1e-3; pure park
+stays frozen) — walk_task.py + 3 new tests in
+test_phase_speed_coupling.py (10/10; sim_env+phasedir 78/78;
+semantics bank 163 pass / 1 PRE-EXISTING fail
+`test_fastprof_obeying_the_command_beats_overspeed`, fails
+identically on the pre-change tree — not this change). `_phase` is in
+MJX_SNAPSHOT_EXTRA → pool-safe on warp. Tag
+`exp/cw-amp-m2-bcinit-sec5-style05-yawcmd-tipclock-pair`. LAUNCHED
+(batch): `-tip50-clockyaw` / `-tip90-clockyaw` — byte-identical
+respecs of tip50-r2/tip90 + the clock key, so the parked arms are
+matched controls; joint read: clock binding ⇒ command-signed tip +
+dose-response reappears; both still park ⇒ clock refuted, next lever
+= BC-turn-clone (TripodGait native omega + bc_init_gait extension —
+which ALSO needs this key: collect() derives the teacher clock from
+the same frozen phase obs). TRIAGE NOTES: (1) eval_yaw for these arms
+MUST include goal.walk_phase_run_on_yaw=1 in the cfg-set or the eval
+clock freezes again; (2) goal.walk_turn_in_place_frac rides the run
+cfg into the standard harness eval — tip-arm DR-0 panels are
+~frac-fraction parked episodes; panel medians look like collapse but
+are contamination (tip50-r2's genuine translation episodes were fully
+preserved: prog 0.94-1.11, slip 2.9-4.2, fwd to 1.02m). Recorded
+assumption (no-operator-pause): clock-fix continuation funded before
+the BC-turn-clone because it is one cfg key vs new tool code and its
+control pair already exists. Speed-cap banner below.)
+
+Previous entry (~23:1x (**SPEED-CAP ROOT CAUSE CONFIRMED:
 the fixed-rate phase clock is the defect; style and clock RATE are
 both exonerated. Fix landed in code; coupled-clock pair launched.**
 The pre-registered fastphase / fastphase-nostyle joint read came back

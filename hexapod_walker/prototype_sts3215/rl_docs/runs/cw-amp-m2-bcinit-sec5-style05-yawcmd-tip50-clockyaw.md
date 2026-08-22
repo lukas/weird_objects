@@ -1,0 +1,18 @@
+# cw-amp-m2-bcinit-sec5-style05-yawcmd-tip50-clockyaw
+
+<!-- GENERATED from experiments.json by launch_run.py — do not edit -->
+
+**status**: INTENT
+
+**created**: 2026-08-22T23:18:43+00:00
+
+**pod**: hexapod-mjx-train-0
+
+**steps**: 2000000
+
+**parent**: cw-amp-m2-bcinit-sec5-style05-yawcmd-tip50-r2
+
+**hypothesis**: Plain English: the robot parked on turn-in-place commands because its gait CLOCK stops ticking whenever no linear velocity is commanded -- fixing the clock so it also runs during commanded turns should finally let it learn to turn on the spot. Root cause found this cycle (frozen-clock defect, walk_task._augment_obs): the walk_phase_obs clock only advanced while s_ref>1e-3, so during tip episodes (vx=vy=0, wz!=0) the phase obs FROZE -- this BC-clone substrate is phase-locked (steps by following the clock), so with a frozen time-base it structurally CANNOT step-turn, which is why pricing (yawcmd) and exposure (tip50-r2/tip90, zero dose-response 0.5->0.9) both failed with the identical park fingerprint (tip err == |wz_ref| exactly), while yaw-while-TRANSLATING (clock running) improved in every arm. Single lever vs tip50-r2: byte-identical config + goal.walk_phase_run_on_yaw=1 (new key landed+tested this cycle: 10/10 phase tests incl. 3 new, default-off bit-exact, snapshot tag exp/cw-amp-m2-bcinit-sec5-style05-yawcmd-tipclock-pair). Same init (yawcmd ckpt), same tip_frac=0.5, so tip50-r2 IS the matched control. Prediction-if-true: eval_yaw (WITH the clock key in its cfg-set!) shows command-SIGNED wz on tip-left AND tip-right with err well below the 0.30 park fingerprint; the policy already modulates wz inside the running-clock gait (arc scenarios), so given a time-base at vx=0 it should transfer. Prediction-if-false: still parks with a running clock -- the block is deeper than the clock (style/stance conflict), BC-turn-clone (teacher omega channel) becomes the next lever. Strongest alternative: it steps in place on tip commands (clock obeyed) but wz stays ~0 or wrong-signed -- stepping without rotating; that would still be progress (motor pattern present, rotation pricing then has something to bid on) and would fund the BC-turn-clone with the clock key on.
+
+**gate**: Discovery (2M, DR-0). PASS = eval_yaw run manually on the pod with the run's own cfg INCLUDING goal.walk_phase_run_on_yaw=1 (--speed 0.08 --wz-max 0.3): tip-left AND tip-right err <= 0.20 with achieved wz sign matching wz_ref both directions, zero falls, AND translation preserved on the non-tip episodes of the standard DR-0 panel (prog med >= 0.8, no new sacrificed legs on translation episodes; panel medians will be tip-contaminated at frac 0.5 -- judge per-episode, see tip50-r2 verdict gotcha). PARTIAL-step = visible stepping-in-place on tip video but |wz| < 0.1 -- motor pattern unlocked, rotation not yet; informative, funds BC-turn-clone + clock. FAIL-park = tip errs still ~0.30 WITH the running clock -- clock refuted as the binding constraint, next lever BC-turn-clone. Joint dose read with -tip90-clockyaw twin.
+
