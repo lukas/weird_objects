@@ -740,6 +740,39 @@ out-of-scope runs get honest triage but no agent follow-ups.
   next real M2 arm is the section-5 minimal-Gaussian-task reward
   rewrite (dropping freeprog/loadslip/drag-stance/idle-charge/
   anchor/gait-gate wholesale), not another task/style ratio point.
+- TASKDOWN01-V3 PER-COMPONENT REWARD TRACE, A DESIGN CONSTRAINT FOR
+  THE SECTION-5 REWRITE (08-22, read off `env/*` W&B history, no
+  GPU spent): the legacy `reward.k_track=1.0` attitude/height
+  Gaussian kernel (`env.compute_reward`'s `r_task`, the SAME
+  mechanism the M2 -c1 dig-in blamed for the pre-freeprog frozen-
+  statue exploit) stayed present, UN-ZEROED, in every freeprog-
+  family arm including this one — but it is NOT acting as a standing
+  bonus here: `env/reward_task` collapsed from 0.60 (reset pose) to
+  a pinned 0.03-0.07/tick for the whole run, because
+  `env/height_err_mm` sits at a chronic 50-86mm (sig_h=20mm ->
+  the height factor inside the kernel is ~exp(-16) to exp(-8), i.e.
+  near-zero) — the robot is NOT resting comfortably at the goal
+  stance height; it is stuck low/crouched the entire run and never
+  recovers, and the resulting `env/reward_height` quadratic charge
+  (-0.7 to -0.28/tick) is the SECOND-largest per-tick penalty after
+  `env/reward_walk_freeprog_pen` (-1.4 to -1.5/tick). So the ladder's
+  statue is NOT currently being financed by an active k_track
+  standing-still payoff (that channel is self-defeating here); it
+  coexists with a large, un-diagnosed CHRONIC HEIGHT-TRACKING FAILURE
+  that every arm in the ladder has been silently paying for and never
+  fixed. Two concrete implications for whoever does the section-5
+  redesign: (1) `reward.k_track`/`k_height`/`k_roll`/`k_pitch` (the
+  legacy `env.compute_reward` terms) are NOT bit-exact-off in any M2
+  freeprog arm to date — they still fire every walk tick unless
+  explicitly zeroed, so "drop the SLIPWALK apparatus" must also
+  either zero these or deliberately keep them as the brief's own
+  upright/height regularizer (5.1) with eyes open, not by omission;
+  (2) the chronic height error itself is worth a direct root-cause
+  pass (is the goal height reference reachable from this policy's
+  crouched stance, e.g. a walk-goal height sampled for a taller gait
+  than the sprawled statue can reach, or a genuine height-tracking
+  bug) BEFORE assuming the task-reward SHAPE alone explains the
+  ladder — an untested confound the redesign should rule out first.
 - FREEPROG-EMA REUSE TESTED + REFUTED, ZERO GPU SPENT (08-22): the
   obvious cheap fix — feed `reward.walk_kernel_vel_ema`'s already-
   validated stride-averaged velocity into `walk_freeprog_score`
