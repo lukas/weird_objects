@@ -1,6 +1,39 @@
 # amp - AMP locomotion from scratch
 
-Last updated: 2026-08-22 ~19:0x (MECHANICAL NOTE on the entry below:
+Last updated: 2026-08-22 ~20:0x (**SEC5 GRID FINAL 0/4 — the
+section-5 minimal reward is NOT the M2 fix; prediction-if-false
+branch fires. NEXT LEVER LAUNCHED: BC-clone-initialized batch.**
+taskB (0.5/0.5), taskC (0.3/0.7) and the task-only noamp control all
+VERDICTED FAIL-same-statue alongside taskA: DR-0 gate det gait_valid
+1-3/6 with sacrificed legs ([0,4]/[1,3]), prog med 0.01-0.02, fwd med
+0.01-0.03m/15s (bar 0.10), slip 9-14; contact sheets watched — the
+same crouched splayed statue holding one pose, zero translation.
+Shared mechanism: env/height_err_mm jumps 59->85mm in Q1 (the policy
+crouches away from upright the moment training starts) in EVERY arm
+including noamp — the basin exists WITHOUT AMP and no style dose
+(0.3/0.5/0.7) rescues it; disc stayed healthy/unsaturated (d_real
+~0.78/d_fake ~-0.96) while style_reward decayed (taskB 0.172->0.073,
+taskC 0.177->0.113). No arm had rising reward (taskB -27->-38, noamp
+-60->-132, taskC flat within noise with eval flat = stuck mechanism)
+— genuine FAILs per RUN_INTERPRETATION_RULES, reward-shape tuning on
+from-scratch M2 is CLOSED. Per the grid's own pre-registration and
+brief sec4.3 ('the gait as an initialization only') / sec14 (stop
+'raw PPO from random initialization'), LAUNCHED the BC-init batch:
+`cw-amp-m2-bcinit-sec5-{style05,noamp}` — the verified scripted-gait
+BC clone (`ppo_goal_cw_bcgait_init_fullprof_phase1`, walks with zero
+RL) as `--init-from`, sec5 minimal reward verbatim (bank PASS),
+clone-compatible obs/env (phase obs, body_vel=2, fast servo,
+stress_mix fixed 0.08; yaw-cmd obs + asym-critic dropped for
+init compatibility), warm-log-std -2.0, seed 7, DR-0, 2M each.
+Decides the fork: init escapes the basin (walking survives ->
+first controlled style-vs-noamp measurement on a locomoting actor)
+vs even a walking init collapses (the sec5 reward itself destroys
+locomotion -> task restructuring of height/upright/termination
+pricing is the next lever). Assumption re 'from-scratch by design'
+recorded in OPERATOR_QUESTIONS.md (q_20260822T2000Z). Prior banner
+below.)
+
+Previous entry (~19:0x, MECHANICAL NOTE on the entry below:
 this cycle found the section-5 bank + STATUS text already drafted in
 the shared working tree by a concurrent cycle, but ledger/backlog had
 ZERO matching entries and all 12 GPUs were idle — the actual

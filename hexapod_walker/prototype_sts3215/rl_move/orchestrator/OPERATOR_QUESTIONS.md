@@ -1653,3 +1653,20 @@ Entry format (append; newest last; update status in place):
   minimal-reward rewrite. Still not launched (real design work, not
   a cfg toggle) — next cycle's or a DIG-IN cycle's job.
 - ANSWER (operator): _
+
+## q_20260822T2000Z — amp track: BC-clone initialization vs "from-scratch by design" [assumed-and-moving]
+
+The sec5 minimal-reward grid closed 0/4 (taskA/B/C/noamp all crouch-statue,
+basin exists without AMP, no style dose rescues). The grid's own
+pre-registered prediction-if-false names "task restructuring or BC-pretrain
+phase" as the next real lever, and AMP_LOCOMOTION.md sec4.3 explicitly allows
+the scripted gait "as an initialization only" (sec14 says STOP raw PPO from
+random init). The standing prompt's "amp track is from-scratch by design"
+was interpreted as: no Isaac Lab, build the tools, no warm-starting from
+joystick RL CHAMPIONS — not a ban on the brief's own sanctioned
+gait-as-initialization. ASSUMED: initializing the M2 actor from the scripted
+teacher's BC clone (ppo_goal_cw_bcgait_init_fullprof_phase1, zero-RL walker)
+is in-scope; launched cw-amp-m2-bcinit-sec5-{style05,noamp} (2M discovery,
+pre-registered twin gates). If the operator intends strict from-scratch,
+these two 2M arms are cheap to discard and task restructuring becomes the
+only lever.
