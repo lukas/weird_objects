@@ -1,6 +1,36 @@
 # amp - AMP locomotion from scratch
 
-Last updated: 2026-08-22 ~22:2x (**STAGE-3 SPEEDRANGE VERDICTED
+Last updated: 2026-08-22 ~22:4x (**YAW-COMMAND QUESTION ANSWERED FOR
+PRICING: `cw-amp-m2-bcinit-sec5-style05-yawcmd` FAIL-INFORMATIVE —
+even on the drift-free AMP substrate with real turn clips in
+teacher_v2 and the full bank-verified yaw pricing stack, the walker
+does NOT turn on command.** eval_yaw panel (artifact
+`logs/ckpt_eval/cw_amp_m2_bcinit_sec5_style05_yawcmd_yawgate.json`):
+tip-left/right err 0.2995/0.3008 == |wz_ref| exactly — the robot
+PARKS on turn-in-place commands; while translating it carries a
+command-invariant LEFT drift ~0.12-0.17 rad/s. Alignment read per
+the 08-21 ruling: total reward rose 66->316 while env/walk_yaw_err
+ROSE 0.129->0.230 (yaw income outbid by translation+style), so this
+is misaligned/underexposed, NOT undertrained — no plain continuation.
+Gait and translation were fully preserved (gait_valid 6/6 det+sto,
+det prog 1.22/slip 2.81, dir_err det 32.9/sto 49.0 == headingsfull's
+band). **PRE-REGISTERED NEXT LEVER LAUNCHED THIS CYCLE:** the 08-10
+operator-directed command-EXPOSURE curriculum
+`goal.walk_turn_in_place_frac` (whole-episode dedicated turns, 50/50
+sign draw — already in walk_task.py, never tried on this substrate)
+as a dose pair from the yawcmd checkpoint:
+`cw-amp-m2-bcinit-sec5-style05-yawcmd-tip50-r2` (0.5, translation
+must hold) + `-tip90` (0.9, erosion tolerated). Joint read: either
+dose turns command-signed => exposure was the unlock, re-mix next;
+both still park => exposure refuted, next lever is STRUCTURAL
+(mirror-symmetry regularizer / turn-specific gait phase). NOTE for
+the triage cycle: the watcher's standard evals do NOT measure wz —
+run `rl_move/sim/eval_yaw.py` on the run's pod with the run's cfg
+(--speed 0.08 --wz-max 0.3), as done for yawcmd this cycle.
+`-tip50`/`-tip50-r1` are REFUSED launch stubs from snapshot races
+with a concurrent cycle, nothing trained. Prior banner below.)
+
+Previous entry (~22:2x (**STAGE-3 SPEEDRANGE VERDICTED
 INFORMATIVE (partial): the walker survives the 0.05-0.25 m/s speed
 command range cleanly but barely modulates speed on it.**
 `cw-amp-m2-bcinit-sec5-style05-speedrange` DR-0 gate: gait_valid 6/6

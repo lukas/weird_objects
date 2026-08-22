@@ -195,6 +195,26 @@ def test_xfrc_nonzero_only_during_push_window():
         env.close()
 
 
+def test_off_episode_never_touches_xfrc_row_0_3():
+    # Regression guard: xfrc_applied[chassis, 0:3] is ALSO used by
+    # unrelated interactive tools (web_session.py's manual push
+    # slider, quad probes) that never set dr.ext_push_prob. An episode
+    # that never draws a push (the default -- ext_push_prob=0, which
+    # is always true for those tools) must leave that row completely
+    # alone, so a caller who wrote a manual force there before calling
+    # step() sees it survive _advance() untouched.
+    env = _walk_env(ext_push_prob=0.0, seed=5)
+    try:
+        env.reset(seed=5)
+        assert env._ep_rand.ext_push_peak_n == 0.0
+        env.data.xfrc_applied[env._chassis_bid, 0:3] = [7.0, -3.0, 0.0]
+        env.step(np.zeros(env.n_act, dtype=np.float32))
+        np.testing.assert_array_equal(
+            env.data.xfrc_applied[env._chassis_bid, 0:3], [7.0, -3.0, 0.0])
+    finally:
+        env.close()
+
+
 def test_push_measurably_perturbs_chassis_vs_push_off_twin():
     # Same seed, same everything, only ext_push_prob differs -> the
     # push-on twin's chassis trajectory must diverge from the push-off

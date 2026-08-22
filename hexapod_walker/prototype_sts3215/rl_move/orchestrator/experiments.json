@@ -126872,7 +126872,7 @@
       "respec of cw-amp-m2-bcinit-sec5-noamp: Plain English: task-only twin of cw-amp-m2-bcinit-sec5-style05-seed1 -- does the BC-init-alone escape from the crouch-statue basin (no AMP style at all) also reproduce on an independent seed, matching the seed-7 result where noamp PASSED (gait_valid 6/6 det+sto, real fwd travel) just slightly worse than the style05 twin on every axis? Single lever vs the seed-7 parent: --seed 7->1, everything else byte-identical (BC-clone init, sec5 minimal reward, clone-compatible obs, zero AMP flags, 2M discovery, DR-0). Paired with the style05-seed1 twin: gives the FIRST 2-seed style-vs-noamp comparison on a genuinely locomoting actor, testing whether style's modest seed-7 edge is a recipe property or n=6 noise."
     ],
     "created": "2026-08-22T22:21:55+00:00",
-    "status": "FINISHED",
+    "status": "PASS",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -126909,7 +126909,9 @@
         "verdict": "FINISHED_BEFORE_CHECKUP",
         "log_tail": "8849\nwandb:       env/height_mm 23.97709\nwandb:   env/height_ref_mm 0\nwandb:   env/max_current_a 1.59659\nwandb:  env/mean_current_a 0.62561\nwandb: env/pct_within_1deg 0.05786\nwandb:   env/pitch_ref_deg 0\nwandb:   env/reward_action -0.02282\nwandb:                 +82 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-amp-m2-bcinit-sec5-noamp-seed1 at: https://wandb.ai/l2k2/hexapod-balance/runs/kb7pwf37\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 3 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260822_222246-kb7pwf37/logs\n"
       }
-    ]
+    ],
+    "verdict": "Seed-robustness check for the noamp (task-only) BC-init walking result reproduces cleanly. DR-0 gate: gait_valid 6/6 det+sto (matches seed7 parent's 6/6 both), zero sacrificed legs, det prog med 0.89/slip 2.48/fwd 0.53m (parent seed7: 1.09/2.13/0.64m -- softer but same walking-basin regime, no crouch), sto prog med 0.44/slip 6.24/fwd 0.25m (parent 0.52/5.38/0.24m -- comparable, fwd matches almost exactly). Frame-strip clean six-leg alternating-tripod cycling, no drag/skate/flag-leg. Confirms noamp also reproduces on a second seed -- both style05 and noamp lines are now seed-checked (2/2 each), the BC-init escape is a robust recipe property. hardware-ready: no (2M discovery, DR-0, forward-only, seed-check only).",
+    "triage": "done"
   },
   {
     "run": "cw-amp-m2-bcinit-sec5-style05-speedrange-fastphase",
@@ -127016,7 +127018,7 @@
       "respec of cw-amp-m2-bcinit-sec5-style05-speedrange: Plain English: the speedrange arm just showed the walker's achieved speed barely tracks the commanded 0.05-0.25 m/s range, clustering 0.08-0.14 m/s instead -- is that a fixed STEP-RATE cap (the phase-obs clock ticks at a constant 1.333 Hz no matter what speed is commanded, so the actor never learned to step faster for faster commands)? Continues from the speedrange checkpoint (same sec5 reward + amp 0.5/0.5, fresh disc per stage protocol), single lever: goal.walk_phase_hz 1.333333 -> 2.0 (50% faster reference clock, same speed range). Prediction-if-true: gait stays valid (>=5/6 det+sto) and speed_mean's realized range widens meaningfully above the parent's ~0.08-0.14m/15s band (evidence the actor now steps faster on faster commands). Prediction-if-false-A: gait destabilizes (terminations/sacrificed legs) -- the actor cannot resync to a faster clock this late in the curriculum. Prediction-if-false-B: gait stays clean but speed_mean stays pinned in the same ~0.08-0.14m/15s band regardless -- the cap is not the observation clock rate at all (candidates: motion-library/style reward anchored to the ORIGINAL teacher cadence, or actor capacity), which the paired -nostyle arm (same lever, style weight zeroed) is designed to disambiguate. Strongest alternative: partial -- low commands unaffected, only the high end widens a little."
     ],
     "created": "2026-08-22T22:24:04+00:00",
-    "status": "FINISHED",
+    "status": "INFORMATIVE",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -127053,7 +127055,9 @@
         "verdict": "FINISHED_BEFORE_CHECKUP",
         "log_tail": "0.595\nwandb:      amp/disc_updates 124\nwandb:                amp/gp 0.01051\nwandb:              amp/loss 0.27118\nwandb: amp/pairs_per_rollout 65341\nwandb:        amp/replay_len 500000\nwandb: amp/style_reward_mean 0.19225\nwandb:                   +93 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-amp-m2-bcinit-sec5-style05-speedrange-fastphase at: https://wandb.ai/l2k2/hexapod-balance/runs/n79getfy\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 3 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260822_222500-n79getfy/logs\n"
       }
-    ]
+    ],
+    "verdict": "A faster gait clock alone does not let the robot follow different speed commands - the realized speed stays pinned near 0.10 m/s no matter what is asked. Joint read with the -nostyle twin (pre-registered): walk_phase_hz 1.333->2.0 kept the gait perfectly healthy (DR-0 gate gait_valid 6/6 det + 6/6 sto, zero terminations/sacrificed legs, clean six-leg cycling on the det strip) but realized speed_mean spans only 0.075-0.112 det / 0.094-0.106 sto against commands of 0.053-0.171 in-sample - NO widening vs the speedrange parent's 0.084-0.136, and the band center did not even shift up despite a 1.5x faster reference clock. Why: the clock is still speed-INDEPENDENT (walk_task._augment_obs advances it at fixed hz whenever s_ref>1e-3), so no clock rate constant can create speed MODULATION - the actor has no cadence signal correlated with the command. Next: code fix - couple the phase-clock rate to commanded speed (new cfg key, default OFF), then continue this lineage with coupling ON.",
+    "triage": "done"
   },
   {
     "run": "cw-amp-m2-bcinit-sec5-style05-speedrange-fastphase-nostyle",
@@ -127160,7 +127164,7 @@
       "respec of cw-amp-m2-bcinit-sec5-style05-speedrange: Plain English: paired sibling to -fastphase, testing WHICH mechanism caps achieved speed at ~0.08-0.14 m/s despite a 0.05-0.25 m/s command range. Same single lever (goal.walk_phase_hz 1.333333 -> 2.0) but ALSO zeroes the AMP style weight (amp-task-weight 0.5->1.0, amp-style-weight 0.5->0.0) from the same speedrange checkpoint -- removes any pull from the discriminator toward the teacher_v2 library's ORIGINAL fixed-cadence clips while keeping every other lever (task reward, obs, faster clock) identical to the -fastphase sibling. Prediction-if-true (style is the cap): this arm's speed_mean spread widens past 0.08-0.14 while the style-keeping -fastphase sibling does not -- the discriminator was vetoing faster-than-demonstrated stepping. Prediction-if-false (style is not the cap): both arms behave the same (either both widen or both stay pinned) -- the cadence cap lives elsewhere (phase_hz itself, or actor/PPO capacity at this budget), not in AMP style pricing. Strongest alternative: removing style also destabilizes gait quality (paddle-creep/drag returns) even if speed widens -- a real task/style tradeoff, not a free fix."
     ],
     "created": "2026-08-22T22:27:55+00:00",
-    "status": "RUNNING",
+    "status": "INFORMATIVE",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -127198,7 +127202,8 @@
         "log_tail": "ight_mm 8.21878\nwandb:   env/height_ref_mm 0\nwandb:   env/max_current_a 1.69685\nwandb:  env/mean_current_a 0.68746\nwandb: env/pct_within_1deg 0.10474\nwandb:   env/pitch_ref_deg 0\nwandb:   env/reward_action -0.01595\nwandb:                 +83 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-amp-m2-bcinit-sec5-style05-speedrange-fastphase-nostyle at: https://wandb.ai/l2k2/hexapod-balance/runs/hfvmy28b\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 3 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260822_222850-hfvmy28b/logs\n"
       }
     ],
-    "triage": "awaiting since 2026-08-22T22:38:31"
+    "triage": "done",
+    "verdict": "Removing the AMP style reward entirely does NOT free the robot to track speed commands - the discriminator was never the speed cap. This twin ran the same faster clock (walk_phase_hz 2.0) with amp-task-weight=1.0/style-weight=0.0: gait stayed healthy (DR-0 gate gait_valid 6/6 det + 6/6 sto, zero terminations, clean six-leg cycling and real translation on the det strip; slip med 3.86 det, in family with the styled twin's 4.12) yet realized speed_mean spans 0.074-0.118 det / 0.090-0.113 sto against 0.053-0.171 commanded - statistically indistinguishable from the styled sibling and no wider than the speedrange parent (0.084-0.136). Joint pre-registered read = NO-CHANGE branch: neither the style channel (anchored to teacher_v2's original cadence) nor a uniformly faster clock is the cap. Reward rose monotonically 55->241 while vel_err stayed large at high commands - per the 08-21 ruling that is a mechanism/alignment defect, not undertraining: the phase clock advances at a FIXED rate regardless of commanded speed, so cadence cannot follow the command by construction. Next: implement speed-coupled phase clock (cfg-gated, default OFF, semantics-bank test first), continue from the speedrange checkpoint with coupling ON."
   },
   {
     "run": "cw-amp-m2-bcinit-sec5-noamp-speedrange",
@@ -128032,6 +128037,184 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:amp PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-amp-m2-bcinit-sec5-style05-yawcmd-tip50-r2 --steps 2000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_amp_m2_bcinit_sec5_style05_yawcmd.zip --episode-seconds 15 --no-canary --eval-every 1000000 --video-every 2000000 --n-envs 4096 --impl warp --host-workers 24 --seed 7 --ent-coef 0.001 --warm-log-std-override -2.0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set goal.walk_phase_obs=1 --cfg-set goal.walk_phase_hz=1.333333 --cfg-set goal.walk_obs_body_vel=2 --cfg-set goal.walk_heading_max_rad=-1 --cfg-set goal.walk_speed_min_m_s=0.08 --cfg-set goal.walk_speed_max_m_s=0.08 --cfg-set goal.walk_cmd_mode=stress_mix --cfg-set goal.walk_cmd_resample_s=4.0 --cfg-set goal.walk_cmd_resample_jitter=0.5 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set bus.write_speed=1500 --cfg-set bus.write_acc=80 --cfg-set bus.servo_vel_max_counts_s=write_speed --cfg-set safety.max_delta_q_deg=5.0 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --cfg-set reward.term_penalty=400.0 --cfg-set reward.k_step_event=0.0 --cfg-set reward.k_park_duty=0.0 --cfg-set reward.k_walk_freeprog=0.0 --cfg-set reward.walk_loadslip_gate=0.0 --cfg-set reward.k_loadslip_excess=0.0 --cfg-set reward.walk_gait_gate=0.0 --cfg-set reward.k_walk_idle_charge=0.0 --cfg-set reward.k_drag_stance=0.0 --amp-motion-lib rl_move/sim/motion_library/teacher_v2.npz --amp-disc-steps 4 --amp-disc-batch 512 --amp-gp-weight 10.0 --amp-replay 500000 --amp-task-weight 0.5 --amp-style-weight 0.5 --out-name ppo_goal_cw_amp_m2_bcinit_sec5_style05_yawcmd_tip50_r2 --notes 'respec of cw-amp-m2-bcinit-sec5-style05-yawcmd: Plain English: the AMP walker ignores turn commands because it almost never SEES them -- dedicated turn-in-place states are only ~7.5% of segments under independent sampling; does making HALF of all episodes whole-episode turns (goal.walk_turn_in_place_frac=0.5: zero linear command, guaranteed non-trivial wz with a 50/50 sign draw) finally teach command-signed turning, while the other half preserves translation? Continues from the yawcmd checkpoint (74-dim obs with the yaw channel + the full bank-verified yaw pricing stack already in place; teacher_v2 has REAL turn-in-place clips so the style channel rewards genuine turning). This is the operator-directed 08-10 lever (command EXPOSURE, not more price tuning -- see walk_task.py tip_frac comment) never yet tried on the AMP substrate; yawcmd just proved pricing alone is outbid (yaw_err rose while reward rose; robot parks on tip commands, err == |wz_ref|). Prediction-if-true: eval_yaw tip-left/right err drops well below the 0.30 park fingerprint with achieved wz SIGN matching wz_ref in both directions, gait_valid >=5/6 det+sto, translation dir_err within 15deg of yawcmd (det 32.9/sto 49.0). Prediction-if-false: robot still parks on tip episodes (err ~0.30) despite 50% exposure -- turning is blocked below the command level (phase-locked tripod / style conflict); next lever is a mirror-symmetry regularizer or turn-specific gait phase, not more exposure. Strongest alternative: it turns but only in one direction (chirality), or translation erodes >15deg (curriculum ordering problem). (-r2: attempts 1-2 refused on pod code-marker races with a concurrent cycle'\"'\"'s snapshots; nothing trained under earlier names.)' --obs-pad-transplant 0 --cfg-set goal.walk_yaw_cmd=1 --cfg-set goal.walk_yaw_max_rad_s=0.3 --cfg-set goal.walk_yaw_zero_frac=0.5 --cfg-set reward.k_walk_yaw=1.0 --cfg-set reward.walk_yaw_kernel_gate=1.0 --cfg-set reward.k_yaw_prog=1.0 --cfg-set reward.k_yaw_still=50 --cfg-set reward.walk_kernel_yaw_gate=1.0 --cfg-set reward.walk_yaw_hold_prog_gate=1.0 --cfg-set reward.yaw_still_avg_s=1.0 --cfg-set goal.walk_turn_in_place_frac=0.5 > /tmp/train_cw-amp-m2-bcinit-sec5-style05-yawcmd-tip50-r2.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-amp-m2-bcinit-sec5-style05-yawcmd-tip50-r2.log",
     "wandb_id": "266dask7",
-    "verified": "2026-08-22T22:45:20+00:00"
+    "verified": "2026-08-22T22:45:20+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-22T22:50:25+00:00",
+        "process_alive": false,
+        "verdict": "DEAD",
+        "log_tail": "ean 0.65832\nwandb:      amp/disc_updates 124\nwandb:                amp/gp 0.0102\nwandb:              amp/loss 0.21615\nwandb: amp/pairs_per_rollout 65341\nwandb:        amp/replay_len 500000\nwandb: amp/style_reward_mean 0.14429\nwandb:                  +103 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-amp-m2-bcinit-sec5-style05-yawcmd-tip50-r2 at: https://wandb.ai/l2k2/hexapod-balance/runs/266dask7\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 3 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260822_224257-266dask7/logs\n"
+      }
+    ],
+    "triage": "in-cycle cw-amp-m2-bcinit-sec5-noamp-seed1-cw-amp-m2-bcinit-sec5-styl since 2026-08-22T22:53:49"
+  },
+  {
+    "run": "cw-amp-m2-bcinit-sec5-style05-yawcmd-tip90",
+    "pod": "hexapod-mjx-train-1",
+    "steps": 2000000,
+    "smoke": false,
+    "hypothesis": "Plain English: the maximum-exposure dose twin of tip50-r2 -- if turn-in-place learning needs command DENSITY, making 90% of episodes whole-episode turns should show a clear dose-response over the 0.5 arm; the accepted cost is translation forgetting, which is fine for a curriculum STAGE (a later stage re-mixes translation back in; measured baseline: yawcmd det dir_err 32.9 / prog 1.22). Same substrate and single lever as tip50-r2: continue from the yawcmd checkpoint (74-dim obs + full bank-verified yaw pricing + teacher_v2 real turn clips), only goal.walk_turn_in_place_frac differs (0.9 vs 0.5). Prediction-if-true: tip-left/right err drops below tip50-r2's (dose-response) with command-signed wz both directions. Prediction-if-false: still parks at 90% exposure -- together with a tip50-r2 park this REFUTES command exposure as the unlock on this substrate and the next lever is structural (mirror-symmetry regularizer / turn-specific gait phase), not more exposure or pricing. Strongest alternative: turns emerge but gait degrades to a shuffle (style/gait conflict under rotation) -- read the tip-episode videos, not just wz.",
+    "gate": "Discovery (2M, DR-0). PASS = eval_yaw (manual, on the pod, --speed 0.08 --wz-max 0.3 + run cfg) tip-left AND tip-right err <= 0.20 with achieved wz sign matching wz_ref both directions, zero falls, gait_valid >=5/6 on the standard DR-0 gate (translation erosion TOLERATED on this arm -- stage read, compare dir_err vs yawcmd det 32.9/sto 49.0 and report it, but it does not fail the arm). FAIL-park = tip errs ~0.30 both arms -> command exposure refuted on the AMP substrate, next lever structural. Read jointly with tip50-r2 for the dose-response.",
+    "parent": "cw-amp-m2-bcinit-sec5-style05-yawcmd",
+    "track": "amp",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_amp_m2_bcinit_sec5_style05_yawcmd.zip",
+      "--episode-seconds",
+      "15",
+      "--no-canary",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--n-envs",
+      "4096",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--seed",
+      "7",
+      "--ent-coef",
+      "0.001",
+      "--warm-log-std-override",
+      "-2.0",
+      "--goal-mix",
+      "walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0",
+      "--cfg-set",
+      "goal.walk_phase_obs=1",
+      "--cfg-set",
+      "goal.walk_phase_hz=1.333333",
+      "--cfg-set",
+      "goal.walk_obs_body_vel=2",
+      "--cfg-set",
+      "goal.walk_heading_max_rad=-1",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.08",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.08",
+      "--cfg-set",
+      "goal.walk_cmd_mode=stress_mix",
+      "--cfg-set",
+      "goal.walk_cmd_resample_s=4.0",
+      "--cfg-set",
+      "goal.walk_cmd_resample_jitter=0.5",
+      "--cfg-set",
+      "goal.walk_park_start_frac=0.25",
+      "--cfg-set",
+      "bus.write_speed=1500",
+      "--cfg-set",
+      "bus.write_acc=80",
+      "--cfg-set",
+      "bus.servo_vel_max_counts_s=write_speed",
+      "--cfg-set",
+      "safety.max_delta_q_deg=5.0",
+      "--cfg-set",
+      "safety.max_roll_deg=25",
+      "--cfg-set",
+      "safety.max_pitch_deg=25",
+      "--cfg-set",
+      "reward.term_penalty=400.0",
+      "--cfg-set",
+      "reward.k_step_event=0.0",
+      "--cfg-set",
+      "reward.k_park_duty=0.0",
+      "--cfg-set",
+      "reward.k_walk_freeprog=0.0",
+      "--cfg-set",
+      "reward.walk_loadslip_gate=0.0",
+      "--cfg-set",
+      "reward.k_loadslip_excess=0.0",
+      "--cfg-set",
+      "reward.walk_gait_gate=0.0",
+      "--cfg-set",
+      "reward.k_walk_idle_charge=0.0",
+      "--cfg-set",
+      "reward.k_drag_stance=0.0",
+      "--amp-motion-lib",
+      "rl_move/sim/motion_library/teacher_v2.npz",
+      "--amp-disc-steps",
+      "4",
+      "--amp-disc-batch",
+      "512",
+      "--amp-gp-weight",
+      "10.0",
+      "--amp-replay",
+      "500000",
+      "--amp-task-weight",
+      "0.5",
+      "--amp-style-weight",
+      "0.5",
+      "--out-name",
+      "ppo_goal_cw_amp_m2_bcinit_sec5_style05_yawcmd_tip90",
+      "--notes",
+      "respec of cw-amp-m2-bcinit-sec5-style05-yawcmd: Plain English: the maximum-exposure dose twin of tip50-r2 -- if turn-in-place learning needs command DENSITY, making 90% of episodes whole-episode turns should show a clear dose-response over the 0.5 arm; the accepted cost is translation forgetting, which is fine for a curriculum STAGE (a later stage re-mixes translation back in; measured baseline: yawcmd det dir_err 32.9 / prog 1.22). Same substrate and single lever as tip50-r2: continue from the yawcmd checkpoint (74-dim obs + full bank-verified yaw pricing + teacher_v2 real turn clips), only goal.walk_turn_in_place_frac differs (0.9 vs 0.5). Prediction-if-true: tip-left/right err drops below tip50-r2's (dose-response) with command-signed wz both directions. Prediction-if-false: still parks at 90% exposure -- together with a tip50-r2 park this REFUTES command exposure as the unlock on this substrate and the next lever is structural (mirror-symmetry regularizer / turn-specific gait phase), not more exposure or pricing. Strongest alternative: turns emerge but gait degrades to a shuffle (style/gait conflict under rotation) -- read the tip-episode videos, not just wz.",
+      "--obs-pad-transplant",
+      "0",
+      "--cfg-set",
+      "goal.walk_yaw_cmd=1",
+      "--cfg-set",
+      "goal.walk_yaw_max_rad_s=0.3",
+      "--cfg-set",
+      "goal.walk_yaw_zero_frac=0.5",
+      "--cfg-set",
+      "reward.k_walk_yaw=1.0",
+      "--cfg-set",
+      "reward.walk_yaw_kernel_gate=1.0",
+      "--cfg-set",
+      "reward.k_yaw_prog=1.0",
+      "--cfg-set",
+      "reward.k_yaw_still=50",
+      "--cfg-set",
+      "reward.walk_kernel_yaw_gate=1.0",
+      "--cfg-set",
+      "reward.walk_yaw_hold_prog_gate=1.0",
+      "--cfg-set",
+      "reward.yaw_still_avg_s=1.0",
+      "--cfg-set",
+      "goal.walk_turn_in_place_frac=0.9"
+    ],
+    "created": "2026-08-22T22:45:52+00:00",
+    "status": "RUNNING",
+    "checks": {
+      "cpu_limit": 28,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-355c3628-64fd-3de4-c195-55797a8c64f4)",
+      "running_experiments_before": 1,
+      "code_sha_local": "8bef7aed300f90f412538231ea0a8855fded179c",
+      "code_sha_pod": "8bef7aed300f90f412538231ea0a8855fded179c",
+      "init_from_on_pod": true,
+      "wandb_env_on_pod": true,
+      "pid": "1078869",
+      "log_growth_bytes": [
+        9960,
+        20668
+      ],
+      "wandb_id": "nqs2fby4",
+      "global_step_window": [
+        917504,
+        1507328
+      ],
+      "fps_estimate": 19660.8
+    },
+    "trainer": "ppo",
+    "stack": "gpu-mjx",
+    "phase": "discovery",
+    "assessment_scope": "short_behavior_discovery",
+    "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:amp PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-amp-m2-bcinit-sec5-style05-yawcmd-tip90 --steps 2000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_amp_m2_bcinit_sec5_style05_yawcmd.zip --episode-seconds 15 --no-canary --eval-every 1000000 --video-every 2000000 --n-envs 4096 --impl warp --host-workers 24 --seed 7 --ent-coef 0.001 --warm-log-std-override -2.0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set goal.walk_phase_obs=1 --cfg-set goal.walk_phase_hz=1.333333 --cfg-set goal.walk_obs_body_vel=2 --cfg-set goal.walk_heading_max_rad=-1 --cfg-set goal.walk_speed_min_m_s=0.08 --cfg-set goal.walk_speed_max_m_s=0.08 --cfg-set goal.walk_cmd_mode=stress_mix --cfg-set goal.walk_cmd_resample_s=4.0 --cfg-set goal.walk_cmd_resample_jitter=0.5 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set bus.write_speed=1500 --cfg-set bus.write_acc=80 --cfg-set bus.servo_vel_max_counts_s=write_speed --cfg-set safety.max_delta_q_deg=5.0 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --cfg-set reward.term_penalty=400.0 --cfg-set reward.k_step_event=0.0 --cfg-set reward.k_park_duty=0.0 --cfg-set reward.k_walk_freeprog=0.0 --cfg-set reward.walk_loadslip_gate=0.0 --cfg-set reward.k_loadslip_excess=0.0 --cfg-set reward.walk_gait_gate=0.0 --cfg-set reward.k_walk_idle_charge=0.0 --cfg-set reward.k_drag_stance=0.0 --amp-motion-lib rl_move/sim/motion_library/teacher_v2.npz --amp-disc-steps 4 --amp-disc-batch 512 --amp-gp-weight 10.0 --amp-replay 500000 --amp-task-weight 0.5 --amp-style-weight 0.5 --out-name ppo_goal_cw_amp_m2_bcinit_sec5_style05_yawcmd_tip90 --notes 'respec of cw-amp-m2-bcinit-sec5-style05-yawcmd: Plain English: the maximum-exposure dose twin of tip50-r2 -- if turn-in-place learning needs command DENSITY, making 90% of episodes whole-episode turns should show a clear dose-response over the 0.5 arm; the accepted cost is translation forgetting, which is fine for a curriculum STAGE (a later stage re-mixes translation back in; measured baseline: yawcmd det dir_err 32.9 / prog 1.22). Same substrate and single lever as tip50-r2: continue from the yawcmd checkpoint (74-dim obs + full bank-verified yaw pricing + teacher_v2 real turn clips), only goal.walk_turn_in_place_frac differs (0.9 vs 0.5). Prediction-if-true: tip-left/right err drops below tip50-r2'\"'\"'s (dose-response) with command-signed wz both directions. Prediction-if-false: still parks at 90% exposure -- together with a tip50-r2 park this REFUTES command exposure as the unlock on this substrate and the next lever is structural (mirror-symmetry regularizer / turn-specific gait phase), not more exposure or pricing. Strongest alternative: turns emerge but gait degrades to a shuffle (style/gait conflict under rotation) -- read the tip-episode videos, not just wz.' --obs-pad-transplant 0 --cfg-set goal.walk_yaw_cmd=1 --cfg-set goal.walk_yaw_max_rad_s=0.3 --cfg-set goal.walk_yaw_zero_frac=0.5 --cfg-set reward.k_walk_yaw=1.0 --cfg-set reward.walk_yaw_kernel_gate=1.0 --cfg-set reward.k_yaw_prog=1.0 --cfg-set reward.k_yaw_still=50 --cfg-set reward.walk_kernel_yaw_gate=1.0 --cfg-set reward.walk_yaw_hold_prog_gate=1.0 --cfg-set reward.yaw_still_avg_s=1.0 --cfg-set goal.walk_turn_in_place_frac=0.9 > /tmp/train_cw-amp-m2-bcinit-sec5-style05-yawcmd-tip90.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-amp-m2-bcinit-sec5-style05-yawcmd-tip90.log",
+    "wandb_id": "nqs2fby4",
+    "verified": "2026-08-22T22:49:11+00:00",
+    "triage": "awaiting since 2026-08-22T22:53:49",
+    "checkups": [
+      {
+        "time": "2026-08-22T22:54:34+00:00",
+        "process_alive": false,
+        "verdict": "DEAD",
+        "log_tail": "al_mean 0.68389\nwandb:      amp/disc_updates 124\nwandb:                amp/gp 0.01015\nwandb:              amp/loss 0.209\nwandb: amp/pairs_per_rollout 65343\nwandb:        amp/replay_len 500000\nwandb: amp/style_reward_mean 0.15149\nwandb:                   +97 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-amp-m2-bcinit-sec5-style05-yawcmd-tip90 at: https://wandb.ai/l2k2/hexapod-balance/runs/nqs2fby4\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 3 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260822_224644-nqs2fby4/logs\n"
+      }
+    ]
   }
 ]

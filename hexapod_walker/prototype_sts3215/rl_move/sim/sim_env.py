@@ -875,6 +875,16 @@ class SimHexapodBalanceEnv(_GymBase):
         vel = np.zeros(6)
         push_nm = 0.0 if limp else self._walk_push_torque_nm()
         push_fx, push_fy = (0.0, 0.0) if limp else self._ext_push_force_n()
+        # Only claim xfrc_applied[chassis, 0:3] for episodes that actually
+        # drew an ext_push this episode (dr.ext_push_prob > 0 somewhere
+        # upstream) -- indices 0:3 are also used by unrelated interactive
+        # tools (web_session.py's manual push slider, quad probes) that
+        # never touch dr.ext_push_*; when this episode never drew a push
+        # (the default, and always true for those tools since they don't
+        # set dr.ext_push_prob), skip the write entirely so this axis
+        # stays a complete no-op and cannot clobber their state.
+        ext_push_owns_row = (not limp and self._ep_rand is not None
+                             and self._ep_rand.ext_push_peak_n != 0.0)
         for _ in range(self._substeps):
             target = self._profile.tick(h)
             q = self.data.qpos[self._qadr]
@@ -906,9 +916,11 @@ class SimHexapodBalanceEnv(_GymBase):
             # Mid-episode external push (dr.ext_push_*): world-frame
             # horizontal force, same overwrite-every-substep /
             # zero-outside-window convention as the takeoff torque
-            # above (no state survives the pulse window).
-            self.data.xfrc_applied[self._chassis_bid, 0:3] = (
-                push_fx, push_fy, 0.0)
+            # above (no state survives the pulse window) -- but ONLY
+            # for episodes that own this row (see ext_push_owns_row).
+            if ext_push_owns_row:
+                self.data.xfrc_applied[self._chassis_bid, 0:3] = (
+                    push_fx, push_fy, 0.0)
             mujoco.mj_step(self.model, self.data)
             # Accumulate the IMU-point specific force at the physics rate
             # (exact velocities, one FD) — includes the lever-arm
@@ -4079,7 +4091,43 @@ class SimHexapodBalanceEnv(_GymBase):
                         # = legacy wall-clock, bit-exact.
                         if math.hypot(_bc_goal.vx_ref,
                                       _bc_goal.vy_ref) > 1e-3:
-                            self._walk_bc_t += self.dt
+                            _dt_bc = self.dt
+                            # Speed-coupled clock (08-22, amp M2
+                            # speedrange root cause): when
+                            # goal.walk_phase_speed_scale>0 the obs
+                            # clock in walk_task._augment_obs runs at
+                            # hz_eff, not hz_base — scale the anchor
+                            # accumulator by the same ratio so the
+                            # anchor gait stays phase-locked to the
+                            # clock the policy sees. Default 0 =
+                            # legacy, bit-exact.
+                            _k_coup = float(cfg_get(
+                                self.cfg, "goal",
+                                "walk_phase_speed_scale", default=0.0))
+                            if _k_coup > 0.0:
+                                from rl_move.sim.walk_task import (
+                                    phase_hz_effective,
+                                    PHASE_HZ_DEFAULT,
+                                    PHASE_SPEED_NOM_DEFAULT)
+                                _hz0 = float(cfg_get(
+                                    self.cfg, "goal", "walk_phase_hz",
+                                    default=PHASE_HZ_DEFAULT))
+                                _hz_eff = phase_hz_effective(
+                                    _hz0,
+                                    math.hypot(_bc_goal.vx_ref,
+                                               _bc_goal.vy_ref),
+                                    _k_coup,
+                                    s_nom=float(cfg_get(
+                                        self.cfg, "goal",
+                                        "walk_phase_speed_nom",
+                                        default=PHASE_SPEED_NOM_DEFAULT)),
+                                    hz_max=float(cfg_get(
+                                        self.cfg, "goal",
+                                        "walk_phase_hz_max",
+                                        default=0.0)))
+                                if _hz0 > 0.0:
+                                    _dt_bc = self.dt * (_hz_eff / _hz0)
+                            self._walk_bc_t += _dt_bc
                         _t_bc = self._walk_bc_t
                     _q_bc = np.asarray(_g.desired_deg(_t_bc)) * DEG2RAD
                     info["bc_target"] = q_rad_to_action(

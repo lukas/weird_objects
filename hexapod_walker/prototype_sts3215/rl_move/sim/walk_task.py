@@ -606,6 +606,45 @@ N_PHASE_OBS = 2
 PHASE_TRIPOD_A = (0, 2, 4)      # alternating tripod around the body
 PHASE_HZ_DEFAULT = 1.0          # ~stride rate of the 0.02-0.06 lineage
 
+# Speed-coupled phase clock (2026-08-22, amp M2 speedrange root cause;
+# same fingerprint as joystick phasedir9-seed17): the clock above
+# advances at a FIXED rate whenever any linear velocity is commanded,
+# so commanded speed can never reach the actor's cadence — a 3x
+# command range compressed to ~0.10+/-0.02 m/s realized in BOTH the
+# fastphase (hz 1.333->2.0) and fastphase-nostyle (style weight 0)
+# probes: neither a faster constant clock nor removing AMP style
+# widened it. With goal.walk_phase_speed_scale=k (default 0.0 = OFF,
+# bit-exact legacy), the effective clock rate becomes
+#   hz_eff = hz_base * (1 + k * (s_ref / s_nom - 1))
+# i.e. k=1 -> cadence fully proportional to commanded speed, anchored
+# so s_ref == s_nom reproduces hz_base exactly (the teacher's cadence
+# at its natural ~0.08 m/s). goal.walk_phase_speed_nom sets the
+# anchor speed; goal.walk_phase_hz_max (default 0 = no clamp) caps
+# the rate so extreme commands cannot demand physically impossible
+# stepping. Consumers stay consistent by construction: obs sin/cos,
+# the k_phase_contact agreement reward, and (via sim_env's
+# bc_anchor_phase_lock branch) the walk BC anchor all read the same
+# advanced phase.
+PHASE_SPEED_NOM_DEFAULT = 0.08   # m/s; teacher's natural speed
+
+
+def phase_hz_effective(hz_base, s_ref, k_coup,
+                       s_nom=PHASE_SPEED_NOM_DEFAULT, hz_max=0.0):
+    """Effective phase-clock rate under speed coupling.
+
+    k_coup <= 0 (the default) returns hz_base exactly — legacy
+    fixed-rate clock, bit-exact. s_ref == s_nom also returns hz_base
+    exactly for any k_coup (anchor point). hz_max > 0 clamps the top;
+    the result is never negative.
+    """
+    if k_coup <= 0.0 or s_ref <= 0.0:
+        return hz_base
+    ratio = s_ref / max(float(s_nom), 1e-6)
+    hz = hz_base * (1.0 + k_coup * (ratio - 1.0))
+    if hz_max > 0.0:
+        hz = min(hz, hz_max)
+    return max(hz, 0.0)
+
 
 WZ_SCALE = 0.5            # rad/s; obs scale for the commanded yaw rate
 
@@ -1141,6 +1180,21 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 if s_ref > 1e-3:
                     hz = float(cfg_get(self.cfg, "goal", "walk_phase_hz",
                                        default=PHASE_HZ_DEFAULT))
+                    # Speed-coupled clock (default OFF = bit-exact
+                    # legacy fixed rate; see phase_hz_effective).
+                    k_coup = float(cfg_get(
+                        self.cfg, "goal", "walk_phase_speed_scale",
+                        default=0.0))
+                    if k_coup > 0.0:
+                        hz = phase_hz_effective(
+                            hz, s_ref, k_coup,
+                            s_nom=float(cfg_get(
+                                self.cfg, "goal",
+                                "walk_phase_speed_nom",
+                                default=PHASE_SPEED_NOM_DEFAULT)),
+                            hz_max=float(cfg_get(
+                                self.cfg, "goal", "walk_phase_hz_max",
+                                default=0.0)))
                     self._phase = (self._phase
                                    + 2.0 * math.pi * hz * self.dt) \
                         % (2.0 * math.pi)
