@@ -115603,7 +115603,7 @@
       "reward.drag_stance_allow_ramp_mm=48.0"
     ],
     "created": "2026-08-22T15:07:37+00:00",
-    "status": "FINISHED",
+    "status": "FAIL",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -115641,7 +115641,9 @@
         "verdict": "FINISHED_BEFORE_CHECKUP",
         "log_tail": "1\nwandb:        env/abs_pitch_deg 1.91286\nwandb:         env/abs_roll_deg 1.95372\nwandb:              env/bc_mode 3\nwandb:        env/height_err_mm 27.92177\nwandb:            env/height_mm 27.9192\nwandb:        env/height_ref_mm 0\nwandb:                     +106 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-dep-bcgait4-phasedir10-allowramp-a at: https://wandb.ai/l2k2/hexapod-balance/runs/fxhsnig3\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 4 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260822_150827-fxhsnig3/logs\n"
       }
-    ]
+    ],
+    "verdict": "FAIL vs the rung-A pass bar, but the regime-gap fix WORKS as predicted: single-change A/B vs longrun13 (identical seed13/4M-steps/anneal-frac-0.3 recipe, only reward.drag_stance_allow_ramp_steps=1.2M/ramp_mm=48 added) moved BOTH clone-relative axes in the pass direction simultaneously for the first time in the 9-arm phasedir9/longrun lineage: progress 0.792x->0.830x clone (still <0.9x cap), slip 1.284x->1.162x clone (still just above 1.15x cap, was 1.284x). Speed 0.061 in-band, zero falls, gait_valid 6/6 det+sto both DR-0/own-DR, clean 6-leg video (no sacrifice/drag pathology). Pod log confirms mechanism fired as designed: [drag-allow-ramp] armed at step0 (48mm) -> ramp complete @ 1,245,184 steps, exactly matching [log-std-anneal] complete @ 1,245,184 (std 0.041) -- the allowance tightened in lockstep with the noise anneal, not before it. This is the prediction-if-true branch (materially closer on both axes) short of full clearance -- not the prediction-if-false branch (which required landing at/below longrun13). Every earlier lineage lever (phasedir3-9) only ever traded one axis for the other; this is the first to move both together, real evidence the regime-gap diagnosis is correct, just under-dosed for seed13. Next: one more turn of the dial (slower/longer ramp) and a cross-seed check (does the same ramp rescue seed23/29's worse baselines) before promoting or abandoning.",
+    "triage": "done"
   },
   {
     "run": "cw-dep-bcgait4-phasedir10-dragallowramp-seed13",
