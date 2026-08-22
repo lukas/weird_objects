@@ -101,6 +101,27 @@ Build every tool this needs; do not pause on operator input.
   Next candidate fix (untested, needs a semantics-bank test first):
   a freeprog analog of `k_walk_idle_charge` keyed to episode-window
   net displacement, not instantaneous speed.
+  AUDIT (08-22, before spending a reward-shape rewrite): the SLIPWALK
+  bank's own scripted twins, run under this exact reward stack, ALREADY
+  rank a real gait far above marching-in-place (`creep` +108/ep, 0.16m
+  travel, vs `stall` (scripted march-in-place) -143/ep, vs `park` -244)
+  — the reward's THEORETICAL ranking is correctly aligned; the trained
+  policy's own march is even worse than the bank's clean `stall` twin
+  (ep_rew -1267 vs -143), i.e. a noisy, high-slip version of marching,
+  not evidence the reward ranks it well. So this reads as an RL
+  exploration/local-optimum problem, not a ranking defect — matching
+  this codebase's OWN prior fix for the identical failure signature on
+  the joystick track (`cw-dep-bcgait1-hard1-steer2-stagecurric1`:
+  "full-mix exposure from step 0 is not enough", PASSED once staged).
+  Neither term400 arm was ever exposed to a simple sub-task: both threw
+  the FULL stress_mix envelope (resample 1.75s, yaw, 15% stops) at a
+  from-scratch actor from step 0. LAUNCHED (single lever, no reward
+  edit): `cw-amp-m2-freeprog-term400-stagecurric` (train-3) — the
+  existing `sched.*` engine ramps `goal.walk_cmd_stage` 0->2 over the
+  first 60% of the 2M budget (forward/back-only, then headings/turns,
+  full family+jitter only by 1.2M), everything else byte-identical to
+  `-term400-noamp`. If this still shuffles even on the stage-0
+  sub-problem, the net-displacement-floor reward patch above is next.
 - M3 push recovery: NOT STARTED
 - M4 fault adaptation: NOT STARTED
 - M5 MuJoCo transfer (= DONE gate): NOT STARTED

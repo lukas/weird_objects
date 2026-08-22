@@ -236,7 +236,13 @@ with:
    tibia-150 stance source checkpoint exists, and a tibia-150 stance
    retrain arm can now be spec'd+launched (bank no longer red) —
    still gated only on joystick/amp GPU-budget priority, not on any
-   remaining test.
+   remaining test. **LAUNCHED 08-22**: `cw-stand-footlow2-plant150-1`
+   (train-1, warm-start from `ppo_goal_cw_stand_footlow2_hard1`,
+   byte-identical recipe, only the plant is now tibia-150) — mirrors
+   the already-PASSED `cw-dep-bcgait1-plant150-1` walk-half fix;
+   targets the session gate's tibia-150 sit-fall (the stance half of
+   the MEASURED-PLANT GATE BREAK, still open) so the download pair's
+   stance half can be re-promoted alongside the walk half.
 2. **Evaluator half DONE 08-22** (`rl_move/sim/eval_joystick_gate.py`
    + `test_eval_joystick_gate.py`, 8/8 pure-aggregation tests, no sim
    touched): a reusable, versioned 60 s randomized joystick-session
