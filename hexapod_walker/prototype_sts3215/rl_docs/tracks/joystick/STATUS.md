@@ -329,23 +329,25 @@ with:
    regime-gap (a fixed 24mm det-calibrated drag allowance overtaxes
    honest noisy exploration before the log-std anneal converges) by
    loosening the allowance early (48mm) and annealing it to the same
-   24mm target in lockstep with the noise anneal. Single-change A/B,
-   two seeds: on **seed13** (`phasedir10-allowramp-a`) it moved BOTH
-   clone-relative axes toward the gate at once for the first time in
-   the whole lineage (progress 0.792x->0.830x, slip 1.284x->1.162x)
-   — still a FAIL (short of 0.9x/1.15x) but the first lever ever to
-   help both axes together. On **seed29** (`phasedir10-allowramp-
-   seed29`), the identical ramp made BOTH axes WORSE (0.725x/1.466x
-   vs its own 0.740x/1.296x baseline) — FAIL, refuting it as a
-   general fix. Zero falls/gait 6/6/clean video, no pathology, both
-   arms — a real basin effect, not a regression. Reads as: the
+   24mm target in lockstep with the noise anneal. Single-change A/B
+   on all 3 FAILing seeds (13/23/29, run in parallel by concurrent
+   cycles): only **seed13** (`phasedir10-allowramp-a`) improved,
+   moving BOTH clone-relative axes toward the gate at once for the
+   first time in the whole lineage (progress 0.792x->0.830x, slip
+   1.284x->1.162x) — still a FAIL (short of 0.9x/1.15x) but the first
+   lever ever to help both axes together. **seed23** and **seed29**
+   both got WORSE on both axes (seed23 0.818x/1.175x->0.792x/1.217x;
+   seed29 0.740x/1.296x->0.725x/1.466x) — 1/3, FAIL, refuting it as a
+   general fix. Zero falls/gait 6/6/clean video, no pathology, all
+   three arms — a real basin effect, not a regression. Reads as: the
    regime-gap diagnosis is real, but a fixed ramp schedule is itself
    subject to the same per-seed basin lottery as every other lever
-   here. Two untried branches, neither spent: a slower/larger ramp
-   re-tested on seed29 specifically, or redirect to item (b)'s
-   matched-timing stance-slip mechanism directly (seed17 2.85/m vs
-   clone 1.89/m) instead of fighting the noise-regime price
-   seed-by-seed.
+   here. Mechanism/code stays banked; do not arm it as a default off
+   seed13 alone. Two untried branches, neither spent: a slower/larger
+   ramp re-tested on seed23/29 specifically, or redirect to item
+   (b)'s matched-timing stance-slip mechanism directly (seed17
+   2.85/m vs clone 1.89/m) instead of fighting the noise-regime price
+   seed-by-seed. Full detail: CURRENT_TRUTHS.md.
 4. RL fine-tune from the phase clone (and a walk-champion arm as
    control) with the reward aligned to the gate metrics, resuming
    the staged heading curriculum; extend budget while reward and

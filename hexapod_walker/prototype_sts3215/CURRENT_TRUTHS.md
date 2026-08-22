@@ -317,41 +317,6 @@ out-of-scope runs get honest triage but no agent follow-ups.
   gait_valid 6/6, clean video all 4 seeds. Pass rate too thin to farm
   by seed count alone; the next budget unit is pricing that survives
   the optimization regime, not more seeds.
-- DRAG-STANCE-ALLOWANCE RAMP: REAL BUT SEED-DEPENDENT EFFECT, NOT A
-  GENERAL FIX (08-22, `cw-dep-bcgait4-phasedir10-allowramp-{a,
-  seed29}`, both FAIL): built+bank-tested (`test_drag_allow_ramp.py`,
-  6/6) `reward.drag_stance_allow_ramp_steps`/`_ramp_mm` — mirrors
-  `bus.profile_ramp_steps`'s construction exactly (cfg-armed,
-  trainer-driven via `walk_task.apply_drag_allow_frac`, default OFF
-  = bit-exact legacy) — to directly attack the pd8 regime-gap finding
-  that a fixed 24mm det-calibrated drag_stance allowance taxes the
-  honest noisy-exploration gait 0.76-9.7x its own income while PPO's
-  std is still high (noisy-honest tail needs >=48mm, det drag cheat
-  pays zero past 36mm). Armed at 48mm->24mm over 1.2M steps (matching
-  the log-std-anneal end-step) as a single-change A/B against the
-  n=4 seed baselines: on **seed13** (`-a`), it moved BOTH
-  clone-relative axes toward the gate simultaneously for the first
-  time in the whole 10-arm lineage (progress 0.792x->0.830x, slip
-  1.284x->1.162x vs `longrun13`) — still short of the 0.9x/1.15x
-  caps, but the first lever ever to help both axes at once instead of
-  trading one for the other. On **seed29** (the worst baseline,
-  0.740x/1.296x), the IDENTICAL ramp made BOTH axes WORSE (0.725x
-  progress, 1.466x slip vs `longrun29`). Zero falls, gait_valid 6/6,
-  no sacrificed legs, clean 6-leg video both arms — the divergence is
-  a real basin effect, not a pathology. Mechanism confirmed firing
-  exactly as designed on-pod (`[drag-allow-ramp] ramp complete @
-  1,245,184` lockstepped with `[log-std-anneal] complete @
-  1,245,184`). READS AS: the regime-gap diagnosis is real (seed13's
-  simultaneous two-axis improvement is evidence no prior lever
-  produced), but a single fixed ramp schedule is not a uniform fix —
-  it is itself subject to the same seed-basin lottery as every other
-  lever in this lineage. Do NOT promote off seed13 alone. Open
-  branches, neither spent yet: (a) a slower/larger ramp re-tested on
-  seed29 specifically before writing the mechanism off; (b) redirect
-  to the still-open BC-anchor/phase-lock RESIDUAL finding (matched-
-  gait-timing stance slip, seed17 2.85/m vs clone 1.89/m) which
-  targets the slip mechanism directly rather than fighting the noise-
-  regime price seed-by-seed.
 - AMP M2 STATUE MISALIGNMENT ROOT-CAUSED (08-22 dig-in, both -c1
   arms verdicted MISALIGNED, Wave-1 NO-GO on legacy pricing): the
   frozen half-tripod (triad 0,2,4 planted, 1,3,5 airborne) is the
