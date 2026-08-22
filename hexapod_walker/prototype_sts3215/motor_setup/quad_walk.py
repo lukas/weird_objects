@@ -30,13 +30,13 @@ from __future__ import annotations
 
 import math
 
-# Hardware orientation note (08-22): after video review with L0/L5 facing
-# the operator, the physical front pair is L0/L5. The short-lived rotated
-# L2/L3 mapping reared the robot the opposite way.
-FRONT_LEGS = (0, 5)
-SUPPORT_LEGS = (1, 2, 3, 4)
+# Hardware orientation note (08-22): direct /api/pose probe on the real robot
+# proved the earlier L0/L5-front assumption was inverted. Loading L0/L5 and
+# tucking L2/L3 tips the body back; tucking L0/L5 tips it forward.
+FRONT_LEGS = (2, 3)
+SUPPORT_LEGS = (0, 1, 4, 5)
 MID_SUPPORT_LEGS = (1, 4)
-REAR_SUPPORT_LEGS = (2, 3)
+REAR_SUPPORT_LEGS = (0, 5)
 
 # Tucked front "claw" (yaw, hip, knee deg) — quadruped_feasibility
 # FRONT_POSES["tuck"], static sweep GO (c57).  Knee was 137.5 but the
@@ -45,10 +45,9 @@ REAR_SUPPORT_LEGS = (2, 3)
 TUCK_DEG = (0.0, -68.0, 118.0)
 
 # Conservative hardware bring-up defaults (08-22 video/logs): the old
-# rear-up raised the body almost as much as it pressed the rear pair down.
-# MuJoCo still reported four contacts, but the real L2/L3 pair carried near
-# zero current and the chassis fell forward. First bias is now rear support
-# loading; only then ask for a mild nose-up pitch.
+# rear-up raised the wrong end of the body. MuJoCo still reported four
+# contacts, but the real robot fell forward. First bias is now loading the
+# real rear support pair (L0/L5); only then ask for a mild nose-up pitch.
 PITCH_RAD = math.radians(-18.0)   # rot_y convention: NEGATIVE = rear-up
 BODY_DX_M = -0.040                # body shift aft in the reared stance
 BODY_Z_M = 0.020                  # extra body clearance while reared
@@ -60,7 +59,7 @@ PERIOD_S = 10.0                   # s per full 4-step cycle
 DUTY = 0.96                       # stance fraction (one leg up at a time)
 SWAY_M = 0.0
 SWAY_PHASE_RAD = math.radians(125.0)
-WALK_PHASE = {2: 0.0, 1: 0.25, 3: 0.5, 4: 0.75}   # LH LF RH RF
+WALK_PHASE = {0: 0.0, 1: 0.25, 5: 0.5, 4: 0.75}   # LH LF RH RF
 
 # Gait presets. Keys: stride/lift/body_z m, period s, duty (stance
 # fraction), sway m + phase rad, phase = per-leg footfall offsets

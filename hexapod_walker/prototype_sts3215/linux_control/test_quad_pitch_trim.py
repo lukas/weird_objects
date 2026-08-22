@@ -277,6 +277,11 @@ def test_pose_factory_accepts_trim() -> None:
 
 
 def test_hardware_quad_rear_presets_load_rear_support_pair() -> None:
+    # 08-22 live API probe: L0/L5 loaded + L2/L3 tucked is the direction that
+    # visually tipped the real robot back. The previous L0/L5 tuck direction
+    # tipped it forward.
+    assert QW.FRONT_LEGS == (2, 3)
+    assert QW.REAR_SUPPORT_LEGS == (0, 5)
     base = [0.0, 16.1, 43.5] * 6
     hardware_gaits = (
         "rear_safe", "walk_safe", "rear", "walk", "rear_pitch",
@@ -286,13 +291,17 @@ def test_hardware_quad_rear_presets_load_rear_support_pair() -> None:
     for gait in hardware_gaits:
         q = QW.QuadRearWalk(base, 30.0, gait=gait)
         pose = q.reared_pose()
-        rear_hips = (pose[3 * 2 + 1], pose[3 * 3 + 1])
-        rear_knees = (pose[3 * 2 + 2], pose[3 * 3 + 2])
+        rear_hips = tuple(pose[3 * leg + 1] for leg in QW.REAR_SUPPORT_LEGS)
+        rear_knees = tuple(pose[3 * leg + 2] for leg in QW.REAR_SUPPORT_LEGS)
+        front_hips = tuple(pose[3 * leg + 1] for leg in QW.FRONT_LEGS)
+        front_knees = tuple(pose[3 * leg + 2] for leg in QW.FRONT_LEGS)
         mid_hips = (pose[3 * 1 + 1], pose[3 * 4 + 1])
         assert q.rear_press - q.body_z >= 0.030, gait
         assert min(rear_hips) >= 18.0, (gait, rear_hips)
-        assert 32.0 <= min(rear_knees) <= max(rear_knees) <= 46.0, (
+        assert 60.0 <= min(rear_knees) <= max(rear_knees) <= 72.0, (
             gait, rear_knees)
+        assert max(front_hips) <= -60.0, (gait, front_hips)
+        assert min(front_knees) >= 110.0, (gait, front_knees)
         assert max(mid_hips) <= 29.8, (gait, mid_hips)
 
 
