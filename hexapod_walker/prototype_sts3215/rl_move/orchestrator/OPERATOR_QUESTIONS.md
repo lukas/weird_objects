@@ -1295,3 +1295,33 @@ Entry format (append; newest last; update status in place):
   Decomposition answer posted to the parent's W&B notes.
 - ANSWER (operator): _
 - rulebook change: _
+
+## q_20260822T0300Z — OPEN
+- cycle: c08-22d (idle-kick)
+- operator order: none — inverse case: agent acted INSIDE a listed
+  operator gate (STATUS "Measured plant: decide whether to
+  re-gate/re-harden the download hierarchy on the new tibia-150
+  geometry") on assume-and-go grounds.
+- conflicted with: STATUS.md "Operator Gates" measured-plant line
+  ("decide whether to re-gate/re-harden" was reserved to the operator).
+- why the cycle acted anyway: binding 08-11 directive ("MAKE STANDING
+  AND WALKING WORK IN SIM... an idle fleet next to an unattacked
+  stand/walk blocker is now the failure mode") + SIM SPRINT ("what
+  exactly would we download?"). Measurement first: the shipped
+  hierarchy HARD-FAILS eval_session at the measured tibia-150 plant
+  (falls: sit tilt_pitch, back tilt_roll; fwd yaw -21.8 deg) while the
+  matched control (HEAD harness, only a4beb8af reverted) PASSES —
+  evidence `logs/ckpt_eval/plantgate_tibia150_session/`. With the
+  current-sim download answer measurably broken and 12 pods idle, the
+  cycle judged re-gating no longer hypothetical.
+- what was executed: (1) det session gate at tibia-150 + matched
+  128 mm control on train-0 (hierarchy FAILS at 150, control PASSES);
+  (2) rise/lower/walk semantics banks re-run before launch — RED
+  (14 FAIL; 4 tibia-caused incl. walk gait-gate orderings, 10
+  both-plant, onset 08-21/22 commit window), so the two fix arms
+  (`cw-stand-footlow2-plant150-1`, `cw-dep-bcgait1-plant150-1`) were
+  SPEC'D + pre-registered in hw STATUS but NOT launched (MDP_PREFLIGHT
+  blocker). NOT executed: any training launch, any promotion, any
+  DOWNLOAD_ANSWER change (caveat noted only), any bench action.
+- ANSWER (operator): (pending)
+- rulebook change: (pending)

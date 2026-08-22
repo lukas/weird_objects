@@ -25,6 +25,18 @@ test-locked, `rl_move/tests/test_stand_runner.py`).
 
 ## Gate evidence
 
+**PLANT CAVEAT (2026-08-22):** every number below was measured on the
+OLD 128 mm-tibia plant. On the operator's MEASURED tibia-150 plant
+(commit a4beb8af, now the sim), this exact pair HARD-FAILS the
+interactive session gate — falls on sit (tilt_pitch) and reverse
+drive (tilt_roll), fwd yaw drift -21.8 deg — while the matched
+128 mm control (same harness) passes. Evidence:
+`logs/ckpt_eval/plantgate_tibia150_session/`. Plant-150 re-hardening
+fix arms (`cw-stand-footlow2-plant150-1`, `cw-dep-bcgait1-plant150-1`)
+are spec'd but launch-blocked on red semantics banks (STATUS.md
+WAITING-ON [code]); this answer stands until a successor passes its
+gate and the operator promotes.
+
 - **Bulk held-out session gate, Cohort c1 (n=600 fresh sessions,
   pre-registered `rl_docs/tracks/hw/SESSION_BULK_GATE.md`):** det
   complete-session zero-fall 290/300 = **0.967** CI [0.940, 0.982],
