@@ -4187,8 +4187,87 @@ def _swarm_encore_plant_pose(t: float, hip: float,
     return pose
 
 
+_SWUP_PLANT_NOTES = {
+    "0": "low breath — the body rides the beat",
+    "1": "RISING — the body climbs and falls with the sway",
+    "2": "PLIÉ — dropping and popping on every beat",
+    "3": "SKY STANCE — up TALL, bouncing the downbeats",
+}
+# Vertical show height range (knee joint deg on the measured stand
+# family, hip ~19-21): 22 ≈ 90 mm crouch … 62 ≈ 170 mm sky stance.
+# The proven presets sit at 28 (default plant) and 36 (rise high);
+# taller stances narrow the foot polygon, so the sky-stance bounces
+# stay small and unison (pure body elevator — no per-leg lifts).
+_SWUP_KNEE_MIN = 22.0
+_SWUP_KNEE_MAX = 62.0
+
+
+def _swarm_up_plant_pose(t: float, hip: float, knee: float) -> list[float]:
+    """VERTICAL planted vocabulary: the body is the instrument.
+
+    All six legs move in unison (plus a tiny traveling shimmer), so the
+    whole chassis rises, falls, pliés and bounces ON the beat — no leg
+    lifts, every foot loaded the whole time.  Louder song → taller and
+    deeper.  ``hip``/``knee`` args are unused (kept for call parity).
+    """
+    del hip, knee
+    times, amps, moves, starts = _swarm_tables()
+    n = len(times)
+    idx = min(max(bisect.bisect_right(times, t) - 1, 0), n - 1)
+    nxt = times[idx + 1] if idx + 1 < n else times[idx] + 0.557
+    u = min(1.0, max(0.0, (t - times[idx]) / max(nxt - times[idx], 1e-6)))
+    bi = idx + u
+    a = amps[idx] + (amps[min(idx + 1, n - 1)] - amps[idx]) * u
+
+    def mode_hk(mid: str, midx: int) -> tuple[float, float, float, float]:
+        """(hip, knee, yaw, shimmer) for one move id."""
+        pulse = _swarm_pulse(u)
+        if mid == "0":                  # low breath, 8-beat lung
+            k = 27.0 + (4.0 + 4.0 * a) * math.sin(2.0 * math.pi * bi / 8.0)
+            return 19.0, k, 0.0, 0.0
+        if mid == "1":                  # the climb — big slow rise/fall
+            k = 33.0 + (6.0 + 5.0 * a) * math.sin(2.0 * math.pi * bi / 8.0)
+            yaw = (3.0 + 3.0 * a) * math.sin(2.0 * math.pi * bi / 4.0)
+            return 19.5, k, yaw, 1.5 + 1.5 * a
+        if mid == "2":                  # plié on every beat
+            k = 38.0 + 6.0 * a
+            deep = 1.3 if midx % 16 == 0 else 1.0
+            if u < 0.55:                # drop …
+                k -= (7.0 + 5.0 * a) * deep * math.sin(math.pi * u / 0.55)
+            elif midx % 16 == 0:        # … and POP past neutral
+                k += 3.0 * math.sin(math.pi * (u - 0.55) / 0.45)
+            return 20.0, k, 0.0, 0.0
+        # sky stance — tall, downbeat bounces, tremolo at phrase end
+        k = 50.0 + 6.0 * a
+        if midx % 4 == 0:
+            k -= (6.0 + 4.0 * a) * pulse
+        if midx % 8 in (6, 7):
+            k += 1.5 * math.sin(2.0 * math.pi * 6.0 * u)
+        yaw = 2.0 * math.sin(2.0 * math.pi * bi / 8.0)
+        return 21.0, k, yaw, 0.0
+
+    def mode_pose(mid: str, midx: int) -> list[float]:
+        h, k, yaw, shim = mode_hk(mid, midx)
+        k = min(_SWUP_KNEE_MAX, max(_SWUP_KNEE_MIN, k))
+        pose = _elevated_stand_pose(hip=h, knee=k, yaw=yaw)
+        if shim > 0.0:
+            for leg in range(6):
+                pose[leg * 3 + 2] += shim * math.sin(
+                    2.0 * math.pi * bi / 4.0 - leg * math.pi / 3.0)
+        return pose
+
+    pose = mode_pose(moves[idx], idx)
+    st = starts[idx]
+    if st > 0 and bi - st < 2.0:        # 2-beat crossfade at sections
+        w = 0.5 - 0.5 * math.cos(math.pi * min(1.0, (bi - st) / 2.0))
+        old = mode_pose(moves[st - 1], idx)
+        pose = [o * (1.0 - w) + p * w for o, p in zip(old, pose)]
+    return pose
+
+
 def run_swarm_encore_dance(bus: FeetechBus, *, abort_check=None,
                            status_cb=None, torque=None, standup_fn=None,
+                           vertical: bool = False,
                            log_path: Path | None = None) -> str:
     """SIMULATION SWARM — GREATEST HITS (best moves, beat-synced).
 
@@ -4214,6 +4293,13 @@ def run_swarm_encore_dance(bus: FeetechBus, *, abort_check=None,
     Without the bench ``standup_fn``: the whole song plays seated with
     the greatest-hits air vocabulary.  Tempo sliders are ignored — the
     recording owns the clock.
+
+    ``vertical=True`` = SWARM: SKYWARD.  Same skeleton and horse
+    chorus, but every planted section swaps to the VERTICAL vocabulary
+    (``_swarm_up_plant_pose``): the whole body rides the beat as an
+    elevator — low crouch breaths in the verses, big climbs in the
+    sways, pliés dropping and popping on every beat, and TALL sky
+    stance (~170 mm) bouncing the downbeats through the choruses.
     """
     live = _live_robot_ids(bus)
     if len(live) < 3:
@@ -4314,14 +4400,18 @@ def run_swarm_encore_dance(bus: FeetechBus, *, abort_check=None,
                     note(m)
             return _swarm_encore_pose(t)
 
+        plant_fn = (_swarm_up_plant_pose if vertical
+                    else _swarm_encore_plant_pose)
+        plant_notes = _SWUP_PLANT_NOTES if vertical else _SWENC_PLANT_NOTES
+
         def planted_pose(t: float) -> list[float]:
             idx = min(max(bisect.bisect_right(times, t) - 1, 0),
                       len(times) - 1)
-            m = _SWENC_PLANT_NOTES.get(moves[idx], "")
+            m = plant_notes.get(moves[idx], "")
             if m != cur_note[0]:
                 cur_note[0] = m
                 note(m)
-            return _swarm_encore_plant_pose(t, hip, knee)
+            return plant_fn(t, hip, knee)
 
         def gate(st: str, label: str) -> str | None:
             if st == "aborted":
@@ -4381,7 +4471,8 @@ def run_swarm_encore_dance(bus: FeetechBus, *, abort_check=None,
                 return r
 
             # --- THE BIG CHORUS: the circus horse ---------------------
-            from quad_walk import ENTRY_TOTAL_S, EXIT_TOTAL_S, TUCK_DEG
+            from quad_walk import (ENTRY_TOTAL_S, EXIT_TOTAL_S,
+                                   FRONT_LEGS, TUCK_DEG)
             cur_note[0] = ""
             note("the BIG chorus — THE HORSE (tipping back …)")
             _set_torque_limit(bus, live, STAND_DANCE_TORQUE)
@@ -4449,12 +4540,14 @@ def run_swarm_encore_dance(bus: FeetechBus, *, abort_check=None,
                           len(times) - 2)
                 ub = ((t_song - times[idx])
                       / max(times[idx + 1] - times[idx], 1e-6))
-                # one stroke spans 2 beats; strokes alternate legs
+                # one stroke spans 2 beats; strokes alternate between
+                # the TUCKED airborne pair (FRONT_LEGS — L2/L3 since
+                # the 08-22 rotation; never gesture a support leg)
                 k2 = idx // 2
                 stroke_u = ((idx % 2) + min(1.0, max(0.0, ub))) / 2.0
-                for leg in (0, 5):
+                for leg in FRONT_LEGS:
                     if t < paws_s - 2.6:
-                        active = 5 if k2 % 2 == 0 else 0
+                        active = FRONT_LEGS[k2 % 2]
                         b = (math.sin(math.pi * stroke_u)
                              if leg == active else 0.0)
                         gy, gh, gk = y0, h0 + 18.0 * b, k0 - 35.0 * b
@@ -4770,9 +4863,14 @@ def _make_stallion_fn(seconds: float = STALLION_SECONDS):
     pawing horse, then both fronts converge to the ±33° pair merge
     overhead — one thick horn.  Gestures blend in/out of the tuck so
     the entry/exit choreography is untouched.
+
+    The gesturing pair is quad_walk.FRONT_LEGS — the TUCKED airborne
+    pair.  Hardware 08-22 rotated it to L2/L3 (the old L0/L5 pair is
+    now rear support): gesturing a planted support leg mid-rear would
+    drop the back of the robot.
     """
-    from quad_walk import (ENTRY_TOTAL_S, EXIT_TOTAL_S, TUCK_DEG,
-                           make_quad_walk_pose_fn)
+    from quad_walk import (ENTRY_TOTAL_S, EXIT_TOTAL_S, FRONT_LEGS,
+                           TUCK_DEG, make_quad_walk_pose_fn)
     quad = make_quad_walk_pose_fn(_stand_zero_pose(), seconds, gait="rear")
     t_exit = max(ENTRY_TOTAL_S, seconds - EXIT_TOTAL_S)
     hold = max(0.1, t_exit - ENTRY_TOTAL_S)
@@ -4782,14 +4880,14 @@ def _make_stallion_fn(seconds: float = STALLION_SECONDS):
         y0, h0, k0 = TUCK_DEG
         if tg < uni0:                          # alternating paw strokes
             k = int(tg / 1.1)
-            active = 5 if k % 2 == 0 else 0
+            active = FRONT_LEGS[k % 2]
             if leg == active:
                 b = math.sin(math.pi * (tg / 1.1 - k))
                 return (y0, h0 + 18.0 * b, k0 - 35.0 * b)
             return (float(y0), float(h0), float(k0))
         uw = _win(tg, uni0, uni0 + 1.0)        # the unicorn
         trem = 2.0 * math.sin(2.0 * math.pi * 1.8 * tg) * uw
-        sgn = 1.0 if leg == 5 else -1.0
+        sgn = _pair_sign(leg, 0)               # converge toward the pair
         return (sgn * AIR_PAIR_YAW_DEG * uw,
                 h0 + (STALLION_SKY_HIP - h0) * uw + trem,
                 k0 + (STALLION_SKY_KNEE - k0) * uw)
@@ -4800,7 +4898,7 @@ def _make_stallion_fn(seconds: float = STALLION_SECONDS):
         if 0.0 <= tg < hold:
             w = min(1.0, tg / 0.8, max(0.0, (hold - tg) / 1.2))
             w = 0.5 - 0.5 * math.cos(math.pi * w)
-            for leg in (0, 5):
+            for leg in FRONT_LEGS:
                 j = leg * 3
                 gy, gh, gk = gesture(tg, leg)
                 pose[j] = pose[j] * (1.0 - w) + gy * w
@@ -5489,8 +5587,8 @@ def run_encore_dance(bus: FeetechBus, *, abort_check=None, status_cb=None,
 
             # ---- Act VII: THE CIRCUS HORSE ----------------------------
             note("act VII — THE CIRCUS HORSE (tipping back …)")
-            from quad_walk import (ENTRY_TOTAL_S, EXIT_TOTAL_S, GAITS,
-                                   TUCK_DEG)
+            from quad_walk import (ENTRY_TOTAL_S, EXIT_TOTAL_S,
+                                   FRONT_LEGS, GAITS, TUCK_DEG)
             _set_torque_limit(bus, live, STAND_DANCE_TORQUE)
             if not ease_to_pose(bus, _stand_zero_pose(),
                                 abort_check=check, seconds=0.8,
@@ -5542,13 +5640,16 @@ def run_encore_dance(bus: FeetechBus, *, abort_check=None, status_cb=None,
             paws_s = 7.0
 
             def paws(t: float, pose: list[float]) -> list[float]:
+                # Gesture ONLY the tucked airborne pair (FRONT_LEGS —
+                # L2/L3 since the 08-22 rotation); touching a planted
+                # support leg mid-rear drops the back of the robot.
                 w = min(1.0, t / 0.8, max(0.0, (paws_s - t) / 1.2))
                 w = 0.5 - 0.5 * math.cos(math.pi * w)
                 y0, h0, k0 = TUCK_DEG
-                for leg in (0, 5):
+                for leg in FRONT_LEGS:
                     if t < 4.4:               # alternating paw strokes
                         k = int(t / 1.1)
-                        active = 5 if k % 2 == 0 else 0
+                        active = FRONT_LEGS[k % 2]
                         b = (math.sin(math.pi * (t / 1.1 - k))
                              if leg == active else 0.0)
                         gy, gh, gk = y0, h0 + 18.0 * b, k0 - 35.0 * b
@@ -5730,6 +5831,11 @@ DEMOS = {
                            "typewriter + steeple choruses, and the "
                            "CIRCUS HORSE rears up for the big chorus "
                            "(press play on GO)", None),
+    "dance_swarm_up": ("[6 show] SWARM: SKYWARD — the body IS the "
+                       "instrument: low crouch breaths, big climbs, "
+                       "pliés dropping on every beat, TALL sky-stance "
+                       "bounces in the choruses, and the horse rears "
+                       "for the big one (press play on GO)", None),
     "dance_steeple": ("[6 show] THE STEEPLE — stands up, then adjacent "
                       "arms merge into ONE thick arm overhead, each "
                       "pair takes a turn", None),
@@ -5815,6 +5921,7 @@ AIR_DEMO_SECONDS = {
     "dance_swarm": 252.0,        # the song's length — the song is the clock
     "dance_swarm_stand": 252.0,  # same song, standing choruses
     "dance_swarm_encore": 252.0,  # same song, greatest-hits vocabulary
+    "dance_swarm_up": 252.0,      # same song, vertical vocabulary
     "dance_steeple": 56.0,
     "dance_wild": 125.0,
     "dance_encore": 155.0,
@@ -7629,11 +7736,13 @@ def run_demo(bus: FeetechBus, name: str, *,
             bus, abort_check=abort_check, status_cb=status_cb,
             torque=torque, standup_fn=standup_fn,
             stand=(name == "dance_swarm_stand"), log_path=log_path)
-    if name == "dance_swarm_encore":
+    if name in ("dance_swarm_encore", "dance_swarm_up"):
         # Song-locked greatest-hits show; seated-only without the bench.
+        # dance_swarm_up = vertical vocabulary (body-elevator choruses).
         return run_swarm_encore_dance(
             bus, abort_check=abort_check, status_cb=status_cb,
-            torque=torque, standup_fn=standup_fn, log_path=log_path)
+            torque=torque, standup_fn=standup_fn,
+            vertical=(name == "dance_swarm_up"), log_path=log_path)
     if name == "dance_wild":
         # Without the bench standup_fn it plays the seated acts only.
         return run_wild_dance(
