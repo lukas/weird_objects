@@ -109869,7 +109869,7 @@
       "0.6"
     ],
     "created": "2026-08-22T06:08:44+00:00",
-    "status": "INTENT",
+    "status": "RUNNING",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -109885,6 +109885,20 @@
     "phase": "discovery",
     "assessment_scope": "short_behavior_discovery",
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:joystick PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-dep-bcgait4-phasedir4-entanneal --steps 2000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_bcgait_init_fullprof_phase1.zip --dr-scale 0.35 --episode-seconds 15 --ent-coef 0.001 --no-canary --eval-every 1000000 --video-every 2000000 --seed 12 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set goal.walk_speed_min_m_s=0.08 --cfg-set goal.walk_speed_max_m_s=0.08 --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_dep_bcgait4_phasedir4_entanneal --notes 'respec of cw-dep-bcgait4-phasedir3-fwd-reprice: Same fwd-only obedience task and repriced loadslip/overspeed reward as phasedir3-fwd-reprice, but let PPOs action noise actually shrink during training instead of staying pegged at std~0.355-0.365 the whole run: anneal ent_coef from 0.001 down to 0.0001 over the first 60% of steps (new default-off train_ppo_mjx --ent-coef-final/--ent-coef-anneal-frac, built+on-pod-smoke-tested this cycle). phasedir3 proved the loadslip repricing itself works as intended (factor never zeroed, det speed matched clone) but its band -- sized to spare the stochastic clones noisy slip (4.8-6.4) -- also spared a drifted deterministic mean once std stays wide forever, so det slip drifted to 1.41x clone (cap 1.15x) while progress reached 0.897x clone (cap 0.9x, narrowly short). If std actually shrinks, the same flat threshold should stop being loose for det-mode and progress/slip should both clear the clone-relative bars without any further reward-mechanism change. Prediction-if-true: det slip <=1.15x clone AND progress >=0.9x clone, zero falls, gait 6/6 -> PASS, launch rung B (heading-set respec). Prediction-if-false-weak-anneal: eval std still close to phasedir3s 0.355-0.365 (the anneal barely moved it, e.g. optimizer momentum or the BC anchor keeps forcing variance) -> escalate ent-coef-final lower / anneal-frac earlier, not a new charge. Prediction-if-false-anneal-worked-anyway: std demonstrably shrunk (e.g. <0.2) but slip/progress still miss the clone bars -> the sto/det-noise-band theory is wrong and this needs a full dig-in (per-leg gait metrics, video) before any further reward edit.' --cfg-set dr.tipped_start_prob=0.30 --target-kl 0.02 --cfg-set reward.walk_height_gate=1.0 --cfg-set reward.walk_height_sigma_mm=30.0 --cfg-set bus.write_speed=1500 --cfg-set bus.write_acc=80 --cfg-set bus.servo_vel_max_counts_s=write_speed --cfg-set safety.max_delta_q_deg=5.0 --cfg-set goal.walk_phase_obs=1 --cfg-set goal.walk_phase_hz=1.333333 --cfg-set goal.walk_heading_max_rad=0.0 --cfg-set reward.k_walk_course=2.0 --cfg-set reward.walk_course_tau_s=0.75 --cfg-set reward.k_walk_course_overspeed=4.0 --cfg-set reward.walk_course_overspeed_tol=0.05 --cfg-set reward.k_walk_idle_charge=1.0 --cfg-set reward.walk_idle_speed_m_s=0.04 --cfg-set reward.walk_loadslip_gate=1.0 --cfg-set reward.loadslip_ok=7.0 --cfg-set reward.loadslip_max=10.0 --cfg-set reward.k_loadslip_excess=10.0 --cfg-set train.bc_anchor_coef=1.0 --cfg-set train.bc_anchor_walk=1.0 --cfg-set train.bc_anchor_phase_lock=1.0 --cfg-set train.bc_anchor_knee_abs=1.0 --cfg-set reward.walk_course_overspeed_along=1 --cfg-set reward.walk_course_min_speed_m_s=0.04 --ent-coef-final 0.0001 --ent-coef-anneal-frac 0.6 > /tmp/train_cw-dep-bcgait4-phasedir4-entanneal.log 2>&1 < /dev/null & echo $!",
-    "log": "/tmp/train_cw-dep-bcgait4-phasedir4-entanneal.log"
+    "log": "/tmp/train_cw-dep-bcgait4-phasedir4-entanneal.log",
+    "checkups": [
+      {
+        "time": "2026-08-22T06:11:10+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 468,
+        "fps": 17476.3,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ],
+    "wandb_id": "n6zpuwvc",
+    "verified": "2026-08-22T06:12:21+00:00"
   }
 ]

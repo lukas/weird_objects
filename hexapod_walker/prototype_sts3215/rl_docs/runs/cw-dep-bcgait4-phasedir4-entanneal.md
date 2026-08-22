@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-08-22T06:08:44+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 2000000
 
 **parent**: cw-dep-bcgait4-phasedir3-fwd-reprice
+
+**wandb_id**: n6zpuwvc
 
 **hypothesis**: Same fwd-only obedience task and repriced loadslip/overspeed reward as phasedir3-fwd-reprice, but let PPOs action noise actually shrink during training instead of staying pegged at std~0.355-0.365 the whole run: anneal ent_coef from 0.001 down to 0.0001 over the first 60% of steps (new default-off train_ppo_mjx --ent-coef-final/--ent-coef-anneal-frac, built+on-pod-smoke-tested this cycle). phasedir3 proved the loadslip repricing itself works as intended (factor never zeroed, det speed matched clone) but its band -- sized to spare the stochastic clones noisy slip (4.8-6.4) -- also spared a drifted deterministic mean once std stays wide forever, so det slip drifted to 1.41x clone (cap 1.15x) while progress reached 0.897x clone (cap 0.9x, narrowly short). If std actually shrinks, the same flat threshold should stop being loose for det-mode and progress/slip should both clear the clone-relative bars without any further reward-mechanism change. Prediction-if-true: det slip <=1.15x clone AND progress >=0.9x clone, zero falls, gait 6/6 -> PASS, launch rung B (heading-set respec). Prediction-if-false-weak-anneal: eval std still close to phasedir3s 0.355-0.365 (the anneal barely moved it, e.g. optimizer momentum or the BC anchor keeps forcing variance) -> escalate ent-coef-final lower / anneal-frac earlier, not a new charge. Prediction-if-false-anneal-worked-anyway: std demonstrably shrunk (e.g. <0.2) but slip/progress still miss the clone bars -> the sto/det-noise-band theory is wrong and this needs a full dig-in (per-leg gait metrics, video) before any further reward edit.
 
