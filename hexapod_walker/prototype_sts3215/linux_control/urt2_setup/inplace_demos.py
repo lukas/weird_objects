@@ -308,7 +308,16 @@ def _planted_legs_up(hip: float, knee: float, legs: list[int], *,
 
 
 def _live_robot_ids(bus: FeetechBus) -> set[int]:
-    return {sid for sid in bus.scan(range(2, 20))}
+    ids = {sid for sid in bus.scan(range(2, 20))}
+    if not ids:
+        # One transient EMPTY scan aborted a dance mid-show (08-22,
+        # dance_encore act III): a single MCU-link hiccup reported zero
+        # servos on a healthy bus.  Zero live servos means nothing can
+        # move either way, so one short retry is always safe — a truly
+        # absent robot just takes 0.25 s longer to report.
+        time.sleep(0.25)
+        ids = {sid for sid in bus.scan(range(2, 20))}
+    return ids
 
 
 class CurrentPeakTracker:
@@ -3910,6 +3919,521 @@ def run_swarm_dance(bus: FeetechBus, *, abort_check=None, status_cb=None,
     return "done"
 
 
+# ---------------------------------------------------------------------------
+# SIMULATION SWARM — GREATEST HITS (dance_swarm_encore): the best moves
+# from every show, all locked to the same baked beat grid + loudness
+# envelope the swarm uses.  Seated verses get the encore vocabulary
+# (breath+heartbeat, gear mesh, floor drums, trident); the planted
+# choruses add typewriter taps and steeple lifts; the LONGEST chorus
+# (beats 320–367, ~26 s) belongs to the circus horse — rear up on the
+# swell, paw ON the beat, come down as it resolves.
+# ---------------------------------------------------------------------------
+_SWENC_HORSE_BEAT = 320       # ~182 s — big chorus: the horse rears
+_SWENC_HORSE_END_BEAT = 368   # ~208 s — chorus resolves: back on six
+
+
+def _swarm_encore_move_pose(move: str, bi: float, idx: int, u: float,
+                            a: float) -> list[float]:
+    """Seated greatest-hits vocabulary on the swarm beat clock.
+
+    Same call surface as ``_swarm_move_pose`` (beat index ``bi``, beat
+    ``idx``, in-beat fraction ``u``, loudness ``a``) so the crossfade
+    machinery is shared.
+    """
+    pose = _zero_pose()
+    pulse = _swarm_pulse(u)
+    if move == "0":                     # BREATH + heartbeat double-thump
+        br = 0.5 - 0.5 * math.cos(2.0 * math.pi * (bi % 4.0) / 4.0)
+        hip = -(3.0 + (7.0 + 9.0 * a) * br)
+        knee = 1.5 + (4.0 + 7.0 * a) * br
+        if idx % 4 == 0:                # two thumps inside the downbeat
+            for p0 in (0.0, 0.42):
+                if p0 <= u < p0 + 0.30:
+                    b = math.sin(math.pi * (u - p0) / 0.30)
+                    knee += (4.0 + 5.0 * a) * b
+                    hip -= 1.5 * a * b
+        for leg in range(6):
+            _yaw_hip_knee(leg, pose, hip=hip, knee=knee)
+    elif move == "1":                   # GEAR MESH — 1:2:3 on 8 beats
+        clunk = pulse if idx % 8 == 0 else 0.0
+        s = 0.55 + 0.45 * a
+        for leg in range(6):
+            hip = (-22.0
+                   + s * _dp(bi, leg, amp=13.0, freq=1.0 / 8.0,
+                             group="pairsA")
+                   - 3.0 * clunk)
+            yaw = s * _dp(bi, leg, amp=10.0, freq=2.0 / 8.0,
+                          group="pairsB")
+            knee = (7.0
+                    + s * _dp(bi, leg, amp=7.0, freq=3.0 / 8.0,
+                              group="opposite")
+                    + 4.0 * clunk)
+            _yaw_hip_knee(leg, pose, yaw=yaw, hip=hip, knee=knee)
+    elif move == "2":                   # FLOOR DRUMS — taps on the beat
+        hover = -(8.0 + 4.0 * a)
+        hit = math.sin(math.pi * u / 0.6) if u < 0.6 else 0.0
+        slam = idx % 16 == 0            # phrase downbeat: all six
+        for leg in range(6):
+            b = hit if (slam or leg % 2 == idx % 2) else 0.0
+            if slam:
+                b *= 1.3
+            _yaw_hip_knee(leg, pose, hip=hover * (1.0 - min(1.0, b)),
+                          knee=(4.0 + 4.0 * a) * b)
+    else:                               # TRIDENT BIG — merged, punching
+        punch = (5.0 + 4.0 * a) * pulse if idx % 4 == 0 else 0.0
+        for leg in range(6):
+            ph_a = 2.0 * math.pi * (leg // 2) / 3.0
+            roll = math.sin(2.0 * math.pi * bi / 8.0 + ph_a)
+            _yaw_hip_knee(
+                leg, pose,
+                yaw=_pair_sign(leg, 0) * (AIR_PAIR_YAW_DEG - 4.0
+                                          + 4.0 * a),
+                hip=-26.0 - 9.0 * a + (9.0 + 4.0 * a) * roll - punch,
+                knee=10.0 + 4.0 * a - (5.0 + 3.0 * a) * roll)
+    return pose
+
+
+def _swarm_encore_pose(t: float) -> list[float]:
+    """Seated greatest-hits pose at song time t (mirrors _swarm_pose)."""
+    times, amps, moves, starts = _swarm_tables()
+    n = len(times)
+    if t <= times[0]:
+        return _swarm_encore_move_pose("0", 0.0, 0, 1.0, amps[0])
+    idx = min(bisect.bisect_right(times, t) - 1, n - 1)
+    nxt = times[idx + 1] if idx + 1 < n else times[idx] + 0.557
+    u = min(1.0, (t - times[idx]) / max(nxt - times[idx], 1e-6))
+    bi = idx + u
+    a = amps[idx] + (amps[min(idx + 1, n - 1)] - amps[idx]) * u
+    pose = _swarm_encore_move_pose(moves[idx], bi, idx, u, a)
+    s = starts[idx]
+    if s > 0 and bi - s < 2.0:          # 2-beat crossfade between moves
+        w = 0.5 - 0.5 * math.cos(math.pi * min(1.0, (bi - s) / 2.0))
+        old = _swarm_encore_move_pose(moves[s - 1], bi, idx, u, a)
+        pose = [o * (1.0 - w) + p * w for o, p in zip(old, pose)]
+    return pose
+
+
+_SWENC_SECTION_NOTES = {
+    "0": "breathing — heartbeat on the downbeat",
+    "1": "GEAR MESH — 1:2:3, clunking into phase",
+    "2": "FLOOR DRUMS — tapping on the beat",
+    "3": "TRIDENT — three thick arms, punching the downbeats",
+}
+_SWENC_PLANT_NOTES = {
+    "0": "standing breath — weight circling softly",
+    "1": "standing sway — the body orbits, on the beat",
+    "2": "TYPEWRITER — one tap per beat around the hex",
+    "3": "chorus — tripod flips / steeple lifts by phrase",
+}
+
+
+def _swarm_encore_plant_pose(t: float, hip: float,
+                             knee: float) -> list[float]:
+    """Planted greatest-hits pose at song time ``t``.
+
+    Quiet/sway sections keep the proven orbit; driving sections play
+    the typewriter (one lifted tap per beat around the hex — lifts
+    before any yaw, and every tap RE-PLANTS a foot at stance); chorus
+    phrases alternate tripod flips with steeple pair lifts.
+    """
+    times, amps, moves, starts = _swarm_tables()
+    n = len(times)
+    idx = min(max(bisect.bisect_right(times, t) - 1, 0), n - 1)
+    nxt = times[idx + 1] if idx + 1 < n else times[idx] + 0.557
+    u = min(1.0, max(0.0, (t - times[idx]) / max(nxt - times[idx], 1e-6)))
+    bi = idx + u
+    a = amps[idx] + (amps[min(idx + 1, n - 1)] - amps[idx]) * u
+    base = _elevated_stand_pose(hip=hip, knee=knee, yaw=0.0)
+
+    def mode_pose(mid: str, midx: int) -> list[float]:
+        if mid in ("0", "1"):           # orbit (proven quiet vocabulary)
+            lo, span = _SWARM_PLANT_SCALE[mid]
+            s = min(1.0, lo + span * a)
+            show = _show_stream_pose("orbit",
+                                     _swarm_plant_warp("orbit", bi),
+                                     hip, knee)
+            return [b + (p - b) * s for b, p in zip(base, show)]
+        if mid == "2":                  # typewriter on the beat
+            pose = list(base)
+            leg = midx % 6
+            if midx % 16 in (0, 1):     # carriage return: all-six stomp
+                b = math.sin(math.pi * min(1.0, u / 0.9))
+                for lg in range(6):
+                    y, h, k = _show_blend_leg(hip, knee, lg,
+                                              (0.35 + 0.15 * a) * b)
+                    _set_leg(pose, lg, yaw=y, hip=h, knee=k)
+                return pose
+            b = math.sin(math.pi * min(1.0, u / 0.9))
+            flick = (6.0 + 5.0 * a) * math.sin(
+                2.0 * math.pi * 1.5 * u) * b
+            y, h, k = _show_blend_leg(hip, knee, leg,
+                                      (0.6 + 0.3 * a) * b,
+                                      wave_yaw=flick)
+            _set_leg(pose, leg, yaw=y, hip=h, knee=k)
+            return pose
+        # chorus: alternate tripod flips / steeple lifts by 16-beat
+        # phrase; steeple pairs cycle front → back-left → back-right.
+        phrase = midx // 16
+        if phrase % 2 == 0:
+            lo, span = _SWARM_PLANT_SCALE["3"]
+            s = min(1.0, lo + span * a)
+            show = _show_stream_pose("tripod",
+                                     _swarm_plant_warp("tripod", bi),
+                                     hip, knee)
+            return [b + (p - b) * s for b, p in zip(base, show)]
+        pair = STEEPLE_PAIRS[(phrase // 2) % len(STEEPLE_PAIRS)]
+        t_act = ((bi - 16.0 * phrase) / 16.0) * STEEPLE_ACT_S
+        t_act = min(max(t_act, 0.0), STEEPLE_ACT_S)
+        show = _steeple_act_pose(pair, t_act, hip, knee)
+        # Keep the steeple near full strength: a half-scaled lift
+        # would drag the merged pair's feet instead of clearing them.
+        s = 0.85 + 0.15 * a
+        return [b + (p - b) * s for b, p in zip(base, show)]
+
+    pose = mode_pose(moves[idx], idx)
+    st = starts[idx]
+    if st > 0 and bi - st < 2.0:
+        w = 0.5 - 0.5 * math.cos(math.pi * min(1.0, (bi - st) / 2.0))
+        old = mode_pose(moves[st - 1], idx)
+        pose = [o * (1.0 - w) + p * w for o, p in zip(old, pose)]
+    return pose
+
+
+def run_swarm_encore_dance(bus: FeetechBus, *, abort_check=None,
+                           status_cb=None, torque=None, standup_fn=None,
+                           log_path: Path | None = None) -> str:
+    """SIMULATION SWARM — GREATEST HITS (best moves, beat-synced).
+
+    Same song, same baked beat grid and loudness envelope, same
+    count-in ("press play on the GO nod") and wall-clock sync as
+    ``run_swarm_dance`` — but every section plays the strongest
+    vocabulary we have:
+
+    seated verses    breath + heartbeat downbeats, the 1:2:3 GEAR MESH
+                     clunking into phase every 8 beats, FLOOR DRUMS
+                     tapping the actual beat, the merged TRIDENT
+                     punching downbeats
+    the build        sweep down, STEP stand-up, stance set (~64 s)
+    planted sections orbit sways, TYPEWRITER taps (one leg per beat
+                     around the hex, stomps on phrase downbeats),
+                     choruses alternate tripod flips with STEEPLE pair
+                     lifts phrase by phrase
+    the BIG chorus   THE CIRCUS HORSE (beats 320–367): rears onto four
+                     legs on the swell, paws ON the beat (balance trim
+                     armed), comes down as the chorus resolves
+    the fade         descend to sit, closing breaths on the beat
+
+    Without the bench ``standup_fn``: the whole song plays seated with
+    the greatest-hits air vocabulary.  Tempo sliders are ignored — the
+    recording owns the clock.
+    """
+    live = _live_robot_ids(bus)
+    if len(live) < 3:
+        print(f"  Only {len(live)} robot servo(s) — need more.")
+        return "skipped"
+    check = abort_check or (lambda: False)
+
+    def note(msg: str) -> None:
+        print(f"  {msg}")
+        if status_cb is None:
+            return
+        try:
+            status_cb(str(msg))
+        except Exception:
+            pass
+
+    cur_note = [""]
+
+    def _progress(msg: str) -> None:
+        if status_cb is None:
+            return
+        try:
+            status_cb(f"{cur_note[0]} · {msg}" if cur_note[0] else str(msg))
+        except Exception:
+            pass
+
+    stand = standup_fn is not None
+    if not stand:
+        note("no bench stand-up — playing the whole song seated")
+
+    _enable_torque(bus, live)
+    try:
+        tlim = int(torque) if torque is not None else DEMO_TORQUE_LIMIT
+    except (TypeError, ValueError):
+        tlim = DEMO_TORQUE_LIMIT
+    tlim = max(150, min(1000, tlim))
+    _set_torque_limit(bus, live, tlim)
+
+    times, amps, moves, starts = _swarm_tables()
+    t_end = times[-1] + 0.6
+    hip, knee = RISE_HIGH_HIP_DEG, RISE_HIGH_KNEE_DEG
+    peaks = CurrentPeakTracker()
+
+    def bail(label: str) -> str:
+        _hold_here(bus, live)
+        _set_torque_limit(bus, live, 1000)
+        return f"error: {label}"
+
+    log_cm = MotionLog(log_path, live) if log_path is not None else None
+    if log_cm is not None:
+        log_cm.__enter__()
+    try:
+        # --- count-in: 3, 2, 1, GO ------------------------------------
+        cnt_labels = ("count-in: 3", "count-in: 2", "count-in: 1",
+                      "GO — PRESS PLAY NOW ♪")
+        cnt_last = [-1]
+
+        def nod(t: float) -> list[float]:
+            i = min(3, int(t))
+            if i != cnt_last[0]:
+                cnt_last[0] = i
+                note(cnt_labels[i])
+            pose = _zero_pose()
+            k = 5.0 * _swarm_pulse(t % 1.0)
+            for leg in range(6):
+                _yaw_hip_knee(leg, pose, knee=k)
+            return pose
+
+        st = stream_pose_fn(bus, live, nod, seconds=4.0,
+                            abort_check=check, speed_fn=lambda: 1.0,
+                            status_cb=None, label="count-in",
+                            tracker=peaks)
+        if st == "aborted":
+            _set_torque_limit(bus, live, 1000)
+            return "aborted"
+        if st == "guard":
+            return bail("count-in guard")
+        t0_wall = time.monotonic()
+
+        def segment(pose_at, t_until: float, label: str, *,
+                    max_speed: int = 3000, max_acc: int = 200) -> str:
+            t_off = time.monotonic() - t0_wall
+            secs = t_until - t_off
+            if secs <= 0.05:
+                return "done"
+            return stream_pose_fn(
+                bus, live, lambda tl: pose_at(t_off + tl),
+                seconds=secs, abort_check=check, speed_fn=lambda: 1.0,
+                status_cb=_progress, label=label, tracker=peaks,
+                log=log_cm, max_speed=max_speed, max_acc=max_acc)
+
+        def seated_pose(t: float) -> list[float]:
+            idx = min(bisect.bisect_right(times, t) - 1, len(times) - 1)
+            if idx >= 0:
+                m = _SWENC_SECTION_NOTES.get(moves[idx], "")
+                if m != cur_note[0]:
+                    cur_note[0] = m
+                    note(m)
+            return _swarm_encore_pose(t)
+
+        def planted_pose(t: float) -> list[float]:
+            idx = min(max(bisect.bisect_right(times, t) - 1, 0),
+                      len(times) - 1)
+            m = _SWENC_PLANT_NOTES.get(moves[idx], "")
+            if m != cur_note[0]:
+                cur_note[0] = m
+                note(m)
+            return _swarm_encore_plant_pose(t, hip, knee)
+
+        def gate(st: str, label: str) -> str | None:
+            if st == "aborted":
+                _set_torque_limit(bus, live, 1000)
+                return "aborted"
+            if st == "guard":
+                return bail(f"current guard ({label})")
+            if st.startswith("tilt:"):
+                _set_torque_limit(bus, live, 1000)
+                return f"error: tilt {st[5:]} deg during {label} — went limp"
+            if st.startswith("balance:"):
+                _set_torque_limit(bus, live, 1000)
+                return f"error: balance ({st[8:]}) during {label} — went limp"
+            return None
+
+        if not stand:
+            st = segment(seated_pose, t_end, "swarm encore")
+            r = gate(st, "swarm encore")
+            if r:
+                return r
+        else:
+            st = segment(seated_pose, times[_SWARM_STAND_BEAT],
+                         "swarm encore (seated)")
+            r = gate(st, "seated verses")
+            if r:
+                return r
+
+            # The build: sweep to zero, STEP stand-up, set the stance.
+            cur_note[0] = ""
+            note("the build — sweep down, STEP stand-up")
+            if not ease_to_pose(bus, _zero_pose(), abort_check=check,
+                                seconds=1.2, label="encore sweep down",
+                                current_tracker=peaks):
+                return bail("sweep down")
+            _set_torque_limit(bus, live, RISE_TORQUE_LIMIT)
+            ok, err = standup_fn()
+            if check():
+                return bail("stand-up aborted")
+            if not ok:
+                note(f"stand-up stopped: {err}")
+                return bail(f"stand-up: {err}")
+            _set_torque_limit(bus, live, RISE_TORQUE_LIMIT)
+            planted = _elevated_stand_pose(hip=hip, knee=knee, yaw=0.0)
+            if not ease_to_pose(bus, planted, abort_check=check,
+                                seconds=0.7, label="encore set stance",
+                                current_tracker=peaks):
+                return bail("set stance")
+            _set_torque_limit(bus, live, DANCE_PLANT_TORQUE)
+
+            # Planted show up to the big chorus (horse needs ~1 s of
+            # lead to ease onto its base before the downbeat).
+            st = segment(planted_pose, times[_SWENC_HORSE_BEAT] - 1.0,
+                         "swarm encore (standing)",
+                         max_speed=900, max_acc=80)
+            r = gate(st, "standing sections")
+            if r:
+                return r
+
+            # --- THE BIG CHORUS: the circus horse ---------------------
+            from quad_walk import ENTRY_TOTAL_S, EXIT_TOTAL_S, TUCK_DEG
+            cur_note[0] = ""
+            note("the BIG chorus — THE HORSE (tipping back …)")
+            _set_torque_limit(bus, live, STAND_DANCE_TORQUE)
+            if not ease_to_pose(bus, _stand_zero_pose(),
+                                abort_check=check, seconds=0.8,
+                                label="horse base",
+                                current_tracker=peaks):
+                return bail("horse base")
+
+            def horse_seg(label: str, secs: float, *, phase: str,
+                          gesture_fn=None,
+                          trimmed: bool = True) -> str | None:
+                trim = None
+                if trimmed:
+                    from quad_walk import GAITS
+                    pitch = GAITS["rear"].get("pitch")
+                    trim = QuadPitchTrim(
+                        expected_pitch_deg=(
+                            math.degrees(float(pitch))
+                            if pitch is not None else None),
+                        gait="rear")
+                fn = _make_quad_fn(
+                    secs, gait="rear", phase=phase,
+                    trim_fn=trim.pose_trim if trim else None)
+                if gesture_fn is not None:
+                    base_fn = fn
+
+                    def fn(t: float, _b=base_fn, _g=gesture_fn):  # noqa: E731
+                        return _g(t, _b(t))
+                    fn.all_stance_at = getattr(
+                        base_fn, "all_stance_at", None)
+                trk = CurrentPeakTracker()
+                st = stream_pose_fn(
+                    bus, live, fn, seconds=secs, abort_check=check,
+                    speed_fn=lambda: 1.0, status_cb=_progress,
+                    label=label, tracker=trk, log=log_cm,
+                    max_acc=QUAD_STREAM_ACC, tick_s=QUAD_STREAM_TICK_S,
+                    tilt_guard_deg=QUAD_TILT_GUARD_DEG,
+                    balance_trim=trim)
+                if trk.peak_a > peaks.peak_a:
+                    peaks.peak_a = trk.peak_a
+                    peaks.peak_joint = trk.peak_joint
+                peaks.samples += trk.samples
+                return gate(st, label)
+
+            r = horse_seg("horse rear", ENTRY_TOTAL_S + 2.0,
+                          phase="rear", trimmed=False)
+            if r:
+                return r
+
+            # Paws ON the beat until the chorus needs the exit.
+            t_now = time.monotonic() - t0_wall
+            t_exit = (times[_SWENC_HORSE_END_BEAT]
+                      - (EXIT_TOTAL_S + 1.0) - 1.0)
+            paws_s = max(4.0, t_exit - t_now)
+            t_off_paws = t_now
+            note("the horse PAWS on the beat")
+
+            def paws(t: float, pose: list[float]) -> list[float]:
+                w = min(1.0, t / 0.8, max(0.0, (paws_s - t) / 1.2))
+                w = 0.5 - 0.5 * math.cos(math.pi * w)
+                y0, h0, k0 = TUCK_DEG
+                t_song = t_off_paws + t
+                idx = min(max(bisect.bisect_right(times, t_song) - 1, 0),
+                          len(times) - 2)
+                ub = ((t_song - times[idx])
+                      / max(times[idx + 1] - times[idx], 1e-6))
+                # one stroke spans 2 beats; strokes alternate legs
+                k2 = idx // 2
+                stroke_u = ((idx % 2) + min(1.0, max(0.0, ub))) / 2.0
+                for leg in (0, 5):
+                    if t < paws_s - 2.6:
+                        active = 5 if k2 % 2 == 0 else 0
+                        b = (math.sin(math.pi * stroke_u)
+                             if leg == active else 0.0)
+                        gy, gh, gk = y0, h0 + 18.0 * b, k0 - 35.0 * b
+                    else:                 # final two beats: both salute
+                        b = math.sin(math.pi * min(
+                            1.0, (t - (paws_s - 2.6)) / 1.4))
+                        gy, gh, gk = y0, h0 + 22.0 * b, k0 - 30.0 * b
+                    j = leg * 3
+                    pose[j] = pose[j] * (1.0 - w) + gy * w
+                    pose[j + 1] = pose[j + 1] * (1.0 - w) + gh * w
+                    pose[j + 2] = pose[j + 2] * (1.0 - w) + gk * w
+                return pose
+
+            r = horse_seg("horse paws", paws_s, phase="hold",
+                          gesture_fn=paws)
+            if r:
+                return r
+
+            note("chorus resolves — the horse comes down")
+            r = horse_seg("horse down", EXIT_TOTAL_S + 1.0,
+                          phase="down", trimmed=False)
+            if r:
+                return r
+            _set_torque_limit(bus, live, DANCE_PLANT_TORQUE)
+            if not ease_to_pose(bus, planted, abort_check=check,
+                                seconds=0.8, label="back on six",
+                                current_tracker=peaks):
+                return bail("back on six")
+
+            # Planted show through the final chorus.
+            st = segment(planted_pose, times[_SWARM_DESCEND_BEAT],
+                         "swarm encore (final chorus)",
+                         max_speed=900, max_acc=80)
+            r = gate(st, "final chorus")
+            if r:
+                return r
+
+            # Outro: descend to sit inside the cool-down window.
+            cur_note[0] = ""
+            note("the fade — coming back down to sit")
+            _set_torque_limit(bus, live, RISE_TORQUE_LIMIT)
+            elapsed = time.monotonic() - t0_wall
+            desc_s = max(3.5, min(6.0, times[_SWARM_SIT_BEAT] - elapsed))
+            if not ease_to_pose(bus, _zero_pose(), abort_check=check,
+                                seconds=desc_s, label="encore descend",
+                                current_tracker=peaks):
+                return bail("descend")
+            _set_torque_limit(bus, live, tlim)
+
+            st = segment(seated_pose, t_end, "swarm encore (goodnight)")
+            r = gate(st, "goodnight")
+            if r:
+                return r
+    finally:
+        if log_cm is not None:
+            log_cm.__exit__(None, None, None)
+
+    peaks.print_report(phase="swarm encore")
+    note("song over — breathing out")
+    if not go_to_zero_pose(bus, abort_check=check, seconds=2.5):
+        _set_torque_limit(bus, live, 1000)
+        return "aborted"
+    _limp_all(bus, live)
+    _set_torque_limit(bus, live, 1000)
+    return "done"
+
+
 # Steeple show: which adjacent pair lifts, in playing order (front,
 # back-left, back-right — merged azimuths ≈ −5°, +115°, −125°).
 STEEPLE_PAIRS = ((5, 0), (1, 2), (3, 4))
@@ -5110,6 +5634,12 @@ DEMOS = {
                           "seated verses, stands up in the build, "
                           "planted tripod/march choruses, sits for the "
                           "fade (press play on GO)", None),
+    "dance_swarm_encore": ("[6 show] SWARM: GREATEST HITS — the best "
+                           "moves beat-synced to the song: heartbeat "
+                           "downbeats, gear mesh, floor drums, trident, "
+                           "typewriter + steeple choruses, and the "
+                           "CIRCUS HORSE rears up for the big chorus "
+                           "(press play on GO)", None),
     "dance_steeple": ("[6 show] THE STEEPLE — stands up, then adjacent "
                       "arms merge into ONE thick arm overhead, each "
                       "pair takes a turn", None),
@@ -5193,6 +5723,7 @@ AIR_DEMO_SECONDS = {
     "air_tides": 28.0,
     "dance_swarm": 252.0,        # the song's length — the song is the clock
     "dance_swarm_stand": 252.0,  # same song, standing choruses
+    "dance_swarm_encore": 252.0,  # same song, greatest-hits vocabulary
     "dance_steeple": 56.0,
     "dance_wild": 125.0,
     "dance_encore": 155.0,
@@ -7007,6 +7538,11 @@ def run_demo(bus: FeetechBus, name: str, *,
             bus, abort_check=abort_check, status_cb=status_cb,
             torque=torque, standup_fn=standup_fn,
             stand=(name == "dance_swarm_stand"), log_path=log_path)
+    if name == "dance_swarm_encore":
+        # Song-locked greatest-hits show; seated-only without the bench.
+        return run_swarm_encore_dance(
+            bus, abort_check=abort_check, status_cb=status_cb,
+            torque=torque, standup_fn=standup_fn, log_path=log_path)
     if name == "dance_wild":
         # Without the bench standup_fn it plays the seated acts only.
         return run_wild_dance(

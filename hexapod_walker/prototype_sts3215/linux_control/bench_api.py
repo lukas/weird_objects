@@ -42,6 +42,8 @@ AIR_DEMO_NAMES = frozenset({
     "air_weave", "air_gearbox", "air_tides", "dance_swarm",
     # stands mid-song but starts AND ends at sit zero (limp), like dance
     "dance_swarm_stand",
+    # stands AND rears up mid-song; starts and ends at sit zero (limp)
+    "dance_swarm_encore",
     # stands mid-show but starts AND ends at sit zero (limp)
     "dance_steeple",
     # stands AND rears up mid-show; starts and ends at sit zero (limp)
@@ -1221,7 +1223,7 @@ class BenchAPI:
                     extra = {}
                     if name in ("dance", "dance_swarm_stand",
                                 "dance_steeple", "dance_wild",
-                                "dance_encore"):
+                                "dance_encore", "dance_swarm_encore"):
                         extra["standup_fn"] = self._step_standup_fn(
                             gen=gen, speed=speed)
                     if quad_requires_rear:
