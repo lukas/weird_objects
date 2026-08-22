@@ -19,10 +19,14 @@ adherence loose (med ~50deg, single-ep p90 to 146deg) — later
 stages must tighten command-following. **STAGE-3 SINGLE-LEVER PAIR
 LAUNCHED from the headingsfull checkpoint (this cycle, 2M discovery
 each, DR-0, fresh disc):** `cw-amp-m2-bcinit-sec5-style05-{speedrange,
-yawcmd}` — speed 0.08 fixed -> 0.0-0.25 m/s (first stop/start
-demand) and yaw-rate commands +/-0.5 rad/s (first turning demand;
-adds the yaw-cmd obs dim via obs-pad transplant if needed — see
-ledger). Prior banner below.)
+yawcmd}` — speed 0.08 fixed -> 0.05-0.25 m/s (speed modulation on
+command; stops already trained via park_start_frac) and yaw-rate
+commands +/-0.3 rad/s (first turning demand; obs 73->74 via the
+proven --obs-pad-transplant 1 tail-append; FULL landed bank-verified
+turn pricing set, NOT the known-failed kernel-only subset — this
+substrate has no chirality drift and teacher_v2 has real turn clips,
+so the old champion-line turn failures do not pre-decide this).
+Prior banner below.)
 
 Previous entry (~21:5x (**FAULT INJECTION CLEARED FOR REAL
 TRAINING USE — both `cw-amp-m4-faultsmoke1-{control,noamp}` VERDICTED
