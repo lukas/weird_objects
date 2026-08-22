@@ -199,6 +199,32 @@ out-of-scope runs get honest triage but no agent follow-ups.
   `phasedir9-seed17` (same recipe, seed 13->17, no reward change)
   tests whether `-9`'s near-pass reproduces before any further
   lineage budget.
+- PHASEDIR9-SEED17: PD9'S NEAR-PASS DOES NOT REPRODUCE (08-22,
+  VERDICTED FAIL-as-reproduction): seed17 (identical stack, seed
+  13->17) landed at/below pd8's own level (progress 0.727x clone vs
+  pd9's 0.873x and pd8's 0.766x; slip 1.27x vs pd9's 1.08x and pd8's
+  1.254x), matching the pre-registered prediction-if-false almost
+  exactly. Zero falls, gait_valid 6/6, clean video both seeds. Reads
+  as pd9's near-pass being partly seed luck on top of the log-std-
+  anneal fix, not a reliably repeatable recipe. New telemetry lead
+  for the still-open "BC-anchor/phase-lock family boundary" question
+  (pd8/pd9's own pre-registered branch-(ii) item, never traced): W&B
+  `train/bc_anchor_loss_walk` is already tiny (0.00005-0.0007,
+  reads converged) and `env/walk_anchor_frac` already high
+  (0.80-0.93) on BOTH seed13 and seed17, yet realized `swing_s_mean`
+  runs ~30% slower than the teacher/clone (0.34-0.36s vs 0.25-0.27s)
+  on both — a near-zero action-space anchor loss coexisting with a
+  large realized-cadence gap points at stochastic-action/servo-slew/
+  plant realization as the boundary, not supervision strength;
+  raising `train.bc_anchor_coef` blind is NOT recommended before an
+  on-pod per-tick trace (bc_target cadence vs realized policy cadence
+  vs raw un-phase-locked teacher cadence) exists. LAUNCHED (fresh
+  re-init from the raw BC clone — NOT a continuation, lineage rule
+  intact) `phasedir9-longrun13`/`-longrun17`: same stacks/seeds,
+  `--steps` 2M->4M, `--log-std-anneal-frac` 0.6->0.3 (anneal still
+  ends ~1.2M, ~2.8M steps now run in the converged regime vs ~800k)
+  — tests the 08-21 "needs to go longer" branch on a fresh run before
+  spending the phase-lock dig-in's forensic time.
 - AMP M2 STATUE MISALIGNMENT ROOT-CAUSED (08-22 dig-in, both -c1
   arms verdicted MISALIGNED, Wave-1 NO-GO on legacy pricing): the
   frozen half-tripod (triad 0,2,4 planted, 1,3,5 airborne) is the

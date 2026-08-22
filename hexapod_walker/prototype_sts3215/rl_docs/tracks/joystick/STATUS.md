@@ -1,19 +1,30 @@
 # joystick - RL from the programmatic gait to joystick control
 
-Last updated: 2026-08-22 (phasedir9-cont1 VERDICTED FAIL-as-a-
-continuation: +4M steps from the lineage-best checkpoint regressed
-hard on every clone-relative axis — progress 0.873x->0.66-0.71x,
-slip 1.08x->1.6-1.7x, speed dropped below the floor — matching the
-SAME init-basin-flatness mechanism the concurrent phasedir9b dig-in
-just root-caused, from the opposite direction [good init drifting
-worse instead of bad init staying bad]. pd9 itself is unaffected,
-still UNDERTRAINED/near-pass on its own 2M reading. LAUNCHED
-phasedir9-seed17: same recipe, seed 13->17, tests whether pd9's
-near-pass reproduces before further lineage investment. Also this
-cycle: eval_joystick_gate.py per-leg-metrics + --video follow-up
-landed (7/7 new tests)). Condensed 08-22 for the <=120-line budget —
-full lineage detail lives in `RL_LOG.md` + ledger verdicts, not here.
-Keep this a short screenful: Goal / Now / Next.
+Last updated: 2026-08-22 (phasedir9-seed17 VERDICTED FAIL-as-
+reproduction: pd9-stdanneal's 2M near-pass (0.873x progress, 1.08x
+slip) did NOT reproduce on a second seed — seed17 landed at/below
+pd8's own level (0.727x progress, 1.27x slip), matching the
+pre-registered prediction-if-false almost exactly. Zero falls/gait
+6/6 preserved. DIG-IN flagged, not chased blind: W&B shows
+train/bc_anchor_loss_walk already near-zero (0.00005-0.0007,
+converged) and env/walk_anchor_frac already high (0.80-0.93) on BOTH
+seed13 and seed17, yet realized swing_s_mean runs ~30% slower than
+the teacher/clone (0.34-0.36s vs 0.25-0.27s) on both — the
+phase-locked BC-anchor supervision reads as tightly tracking its own
+target, so the gap looks like a target-vs-realized (stochastic-
+action/servo/plant) issue, not a supervision-strength one; raising
+bc_anchor_coef is NOT attempted blind. LAUNCHED (orthogonal, no
+lineage-rule violation — fresh re-init from the raw BC clone, not a
+continuation of a converged checkpoint) `phasedir9-longrun13` and
+`-longrun17`: identical stacks/seeds to stdanneal/seed17, only
+--steps 2M->4M and --log-std-anneal-frac 0.6->0.3 so the anneal still
+ends at the same absolute ~1.2M step but each policy now gets ~2.8M
+steps in the converged low-std regime (vs ~800k) — tests the 08-21
+"needs to go longer" branch on a FRESH run (not a banned continuation)
+before committing to the phase-lock dig-in's on-pod tracing work.
+Condensed 08-22 for the <=120-line budget — full lineage detail
+lives in `RL_LOG.md` + ledger verdicts, not here. Keep this a short
+screenful: Goal / Now / Next.
 
 ## Goal
 
@@ -96,12 +107,36 @@ with:
   climbing. Same mechanism as `-9b`, opposite direction: a GOOD init
   drifted into a WORSE basin because the reward surface can't tell
   them apart at annealed-low std. `-9` itself is unaffected, still
-  the lineage's best 2M reading. LAUNCHED `cw-dep-bcgait4-
-  phasedir9-seed17` (same recipe, seed 13->17, `--now`, no reward
-  change): tests whether `-9`'s near-pass reproduces on a second
-  seed before any further lineage investment — do not respec a 3rd
-  continuation off `-9`'s checkpoint without this reproducibility
-  read first.
+  the lineage's best 2M reading.
+- **phasedir9-seed17 VERDICTED FAIL-as-reproduction** (08-22): the
+  reproducibility replicate landed at/below pd8's own level (progress
+  0.727x clone vs pd9's 0.873x and pd8's 0.766x; slip 1.27x vs pd9's
+  1.08x and pd8's 1.254x), matching the pre-registered
+  prediction-if-false almost exactly ("lands far below pd9... back
+  near pd8 or worse"). Zero falls/gait-6-6 preserved both seeds.
+  READS AS: pd9's near-pass was partly seed luck riding the
+  log-std-anneal fix, not a reliably repeatable recipe — do not
+  trust a single good seed's numbers as the lineage's ceiling.
+  TELEMETRY LEAD for the dig-in this decides (see banner): W&B
+  `train/bc_anchor_loss_walk` is already tiny (0.00005-0.0007) and
+  `env/walk_anchor_frac` already high (0.80-0.93) on BOTH seed13 and
+  seed17 — the phase-locked BC-anchor aux loss reads as converged —
+  yet BOTH seeds' realized `swing_s_mean` runs ~30% slower than the
+  teacher/clone (0.34-0.36s vs 0.25-0.27s). A near-zero action-space
+  anchor loss coexisting with a large realized-cadence gap points at
+  stochastic-action/servo-slew/plant realization as the boundary, not
+  supervision strength — raising `train.bc_anchor_coef` blind is
+  unlikely to help and was NOT attempted. LAUNCHED (fresh re-init
+  from the raw BC clone, NOT a continuation — the lineage rule is
+  intact) `phasedir9-longrun13`/`-longrun17`: same stacks/seeds as
+  stdanneal/seed17, only `--steps` 2M->4M and
+  `--log-std-anneal-frac` 0.6->0.3 (anneal still ends at the same
+  absolute ~1.2M step; ~2.8M steps in the converged regime instead of
+  ~800k) — tests the 08-21 "needs to go longer" branch on both seeds
+  before committing to the phase-lock dig-in's on-pod tracing work.
+  Do not respec a 3rd continuation off any converged phasedir9
+  checkpoint; do not guess an anchor-dose/phase_hz reward edit before
+  that trace exists.
 
 ## Next
 
@@ -155,14 +190,21 @@ with:
 3. **CLOSED 08-22**: the loadslip-band/drag-stance-dose/allowance
    lever family AND the "anneal noise, continue training" lever are
    both measured-refuted for this lineage (see Now: phasedir6/7/7b,
-   and the `-9`/`-9b`/`-9-cont1` init-basin-flatness finding). The
-   open question is narrower now: is `-9`'s 2M near-pass itself
-   reproducible (`phasedir9-seed17`, running) — if yes, the next
-   coherent lever is a from-scratch run at 2M budget straight to the
-   full-envelope curriculum (item 5) rather than any further
-   continuation off an already-converged checkpoint; if the seed
-   doesn't reproduce, dig at the BC-anchor/phase-lock family boundary
-   next (pd8 branch (ii), never tried).
+   and the `-9`/`-9b`/`-9-cont1` init-basin-flatness finding).
+   **FORK RESOLVED 08-22**: `-9`'s 2M near-pass did NOT reproduce on
+   seed17 (see Now) — so the from-scratch-full-envelope-curriculum
+   branch is de-prioritized versus the BC-anchor/phase-lock family
+   boundary (pd8 branch (ii)). DIG-IN queued: an on-pod per-tick
+   trace of `bc_target` cadence vs realized policy cadence vs raw
+   un-phase-locked teacher cadence, to explain why
+   `train/bc_anchor_loss_walk` reads converged while realized
+   `swing_s_mean` still runs ~30% slower than the teacher on both
+   seeds — that trace, not a guessed anchor-dose/phase_hz edit, is
+   the next step for this specific mechanism. IN PARALLEL (no lineage-
+   rule conflict, fresh re-inits not continuations): `phasedir9-
+   longrun13`/`-longrun17` test whether 2x the converged-regime budget
+   (same anneal end-step, 2M->4M total) closes the gap on either seed
+   before the dig-in's forensic work is spent.
 4. RL fine-tune from the phase clone (and a walk-champion arm as
    control) with the reward aligned to the gate metrics, resuming
    the staged heading curriculum; extend budget while reward and
