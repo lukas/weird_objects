@@ -44,7 +44,6 @@ for _p in (_PROTO, _PROTO / "motor_setup", _PROTO / "linux_control",
     if str(_p) not in sys.path:
         sys.path.insert(0, str(_p))
 
-import cv2  # noqa: E402
 import mujoco  # noqa: E402
 
 from eval_dances import (CTRL_HZ, STREAM_ACC_UNITS,  # noqa: E402
@@ -64,6 +63,43 @@ WIN = "quad_play — tip-back walk (7 rear · W walk · Space stop · 8 sit)"
 def all_stance(g: "QW.QuadRearWalk", tw: float) -> bool:
     """True when all 4 support feet are planted at walk-clock ``tw``."""
     return g.walk_all_stance_at(tw)
+
+
+def apply_plant_override(pl: "Player", *,
+                         hip_deg: float | None = None,
+                         knee_deg: float | None = None) -> None:
+    """Override the learned stand pose for hardware-regression sweeps."""
+    if hip_deg is None and knee_deg is None:
+        return
+    plant = list(pl.robot_plant_deg)
+    for leg in range(6):
+        if hip_deg is not None:
+            plant[3 * leg + 1] = float(hip_deg)
+        if knee_deg is not None:
+            plant[3 * leg + 2] = float(knee_deg)
+    pl.robot_plant_deg = plant
+    pl.q_plant = clip_limits(robot_abs_deg_to_sim_rad(plant))
+
+
+def contact_snapshot(pl: "Player") -> tuple[set[str], set[str]]:
+    """Return (terrain-contacting legs, non-foot terrain contacts)."""
+    feet: set[str] = set()
+    bad: set[str] = set()
+    for i in range(pl.data.ncon):
+        con = pl.data.contact[i]
+        names = [
+            mujoco.mj_id2name(pl.model, mujoco.mjtObj.mjOBJ_GEOM, int(g))
+            or f"geom#{int(g)}"
+            for g in (con.geom1, con.geom2)
+        ]
+        if "terrain" not in names:
+            continue
+        other = names[1] if names[0] == "terrain" else names[0]
+        if other.endswith("_foot"):
+            feet.add(other.split("_", 1)[0])
+        else:
+            bad.add(other)
+    return feet, bad
 
 
 class Player:
@@ -216,31 +252,59 @@ class Player:
                                % len(names)]
 
 
-def run_headless(gaits: list[str], seconds: float) -> int:
+def run_headless(gaits: list[str], seconds: float, *,
+                 plant_hip: float | None = None,
+                 plant_knee: float | None = None) -> int:
+    failures = 0
     for gait in gaits:
         pl = Player()
         pl.gait_name = gait
+        apply_plant_override(pl, hip_deg=plant_hip, knee_deg=plant_knee)
         pl.reset()
-        rear_only = gait in ("rear", "rear_pitch", "rear_aggressive")
+        rear_only = gait.startswith("rear")
         pl.cmd_rear(then_walk=not rear_only)
         n = int((18.0 if rear_only else seconds) * CTRL_HZ)
         max_tilt = 0.0
         fell = False
+        support_legs = {"L1", "L2", "L3", "L4"}
+        front_hits: set[str] = set()
+        bad_contacts: set[str] = set()
+        support_min = 99
+        support_final: set[str] = set()
+        contact_samples = 0
         for _ in range(n):
             pl.step()
             uz = up_z(pl.data, pl.chassis)
             max_tilt = max(max_tilt, math.degrees(math.acos(
                 max(-1.0, min(1.0, uz)))))
             fell = fell or uz < 0.55 or float(pl.data.qpos[2]) < 0.05
+            if pl.state in (pl.REARED, pl.WALK, pl.STOPPING):
+                feet, bad = contact_snapshot(pl)
+                support_final = feet & support_legs
+                support_min = min(support_min, len(support_final))
+                front_hits.update(feet & {"L0", "L5"})
+                bad_contacts.update(bad)
+                contact_samples += 1
         dist_mm = 1000.0 * (float(pl.data.qpos[0]) - pl.x0)
+        expected_min = 4 if rear_only else 2
+        support_ok = (
+            contact_samples == 0 or support_min >= expected_min)
+        failed = fell or bool(front_hits) or bool(bad_contacts) or not support_ok
+        failures += int(failed)
+        contact_note = (
+            f"support={support_min if contact_samples else 0}"
+            f"/{','.join(sorted(support_final)) or '-'}"
+            f" front={','.join(sorted(front_hits)) or '-'}"
+            f" scrape={','.join(sorted(bad_contacts)) or '-'}")
         print(
             f"{gait:16s} dist={dist_mm:+7.1f} mm "
             f"max_tilt={max_tilt:5.1f} deg "
             f"peak_cur={pl.peak_cur:4.1f} A "
-            f"fell={int(fell)} state={Player.NAMES[pl.state].split()[0]}",
+            f"fell={int(fell)} bad={int(failed)} "
+            f"state={Player.NAMES[pl.state].split()[0]} {contact_note}",
             flush=True,
         )
-    return 0
+    return 1 if failures else 0
 
 
 def main() -> None:
@@ -248,15 +312,28 @@ def main() -> None:
     ap.add_argument("--headless", action="store_true",
                     help="run a fast non-rendered quad smoke test")
     ap.add_argument("--gaits",
-                    default=("rear,walk,trot,walk_pitch,trot_pitch,"
-                             "walk_aggressive,trot_aggressive"),
+                    default=(
+                        "rear,walk,trot,"
+                        "rear_safe,walk_safe,trot_safe,"
+                        "rear_pitch,walk_pitch,trot_pitch,"
+                        "rear_aft,walk_aft,trot_aft,"
+                        "rear_high,walk_high,trot_high,"
+                        "rear_step,walk_step,trot_step,"
+                        "rear_aggressive,walk_aggressive,trot_aggressive"),
                     help="comma-separated gait list for --headless")
     ap.add_argument("--seconds", type=float, default=35.0)
+    ap.add_argument("--plant-hip", type=float, default=None,
+                    help="override stand hip degrees for --headless")
+    ap.add_argument("--plant-knee", type=float, default=None,
+                    help="override stand knee degrees for --headless")
     args = ap.parse_args()
     if args.headless:
         gaits = [s.strip() for s in args.gaits.split(",") if s.strip()]
-        raise SystemExit(run_headless(gaits, args.seconds))
+        raise SystemExit(run_headless(
+            gaits, args.seconds,
+            plant_hip=args.plant_hip, plant_knee=args.plant_knee))
 
+    import cv2  # noqa: PLC0415
     pl = Player()
     renderer = mujoco.Renderer(pl.model, height=600, width=960)
     cam = mujoco.MjvCamera()

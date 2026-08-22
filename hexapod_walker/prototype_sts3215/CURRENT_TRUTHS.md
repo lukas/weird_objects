@@ -52,17 +52,39 @@ out-of-scope runs get honest triage but no agent follow-ups.
   absolute-tibia knee convention + new default stand home leaked into
   the femur-relative sim (full semantics bank 43 FAIL). Fixed at the
   boundary by `linux_control/sim_gait_compat.py` + a
-  `_default_plant_deg` guard; hardware untouched. Residue: 7 FAILs,
-  all true tibia-150 recalibration (rise ref re-mint first) —
-  agent-doable, and prerequisite for aligned-reward bank work.
+  `_default_plant_deg` guard; hardware untouched. Residue: 7 FAILs
+  (rise_valid_plant, rise_rock, trans_drag, getup_honest_ordering,
+  recover_floor_rungs, fastprof), all true tibia-150 recalibration.
+  SHARPENED (08-22): re-minting `rise_ref_belly2plant.npz` is NOT a
+  stale-file fix — `extract_rise_ref.py --blend-to-plant`'s open-loop
+  linear joint-angle interpolation from the champion's crouch-stand to
+  `env._plant_deg` now FALLS on every seed (0-24) at tibia-150; a 2x
+  slower blend makes tracking error worse (10.1 vs 8.5deg), ruling out
+  a timing retune. Needs an IK/foot-anchored blend, not a re-run;
+  prerequisite for aligned-reward bank work and likely shares a root
+  cause with the stance fix arm below.
 - MEASURED-PLANT GATE BREAK (08-22): the download hierarchy
   HARD-FAILS the interactive session gate at tibia-150 (sit
   tilt_pitch + reverse tilt_roll falls, fwd yaw -21.8 deg) while the
   matched 128 mm control PASSES — the plant correction alone breaks
   the shipped answer; DOWNLOAD_ANSWER's n=600 numbers are old-plant
-  facts. Fix arms: `cw-dep-bcgait1-plant150-1` (launched),
-  `cw-stand-footlow2-plant150-1` (blocked on the rise-family bank
-  residue). Evidence: `logs/ckpt_eval/plantgate_tibia150_session/`.
+  facts. Fix arm `cw-dep-bcgait1-plant150-1` PASSED (core): 0/6 falls
+  DR-0+own-DR, gait_valid 6/6, session back-fall gone, fwd yaw
+  -21.8->-10.6deg (soft threshold ±10deg, narrow miss); promoted as
+  the walk half. `cw-stand-footlow2-plant150-1` stays blocked on the
+  rise-family residue above. Evidence:
+  `logs/ckpt_eval/plantgate_tibia150_session/`,
+  `logs/ckpt_eval/cw_dep_bcgait1_plant150_1_{gate,owncfg,session}/`.
+- AMP M0 AUDIT + FIRST CODE (08-22): the GPU/Warp trainer
+  (`train_ppo_mjx.py`) already had GRU/history/transformer actors and
+  most of AMP §6's joystick-command shape (`walk_task.py`'s
+  `stress_mix` sampler) before this track's charter was even adopted;
+  the one confirmed M0 gap — asymmetric (privileged) critic — is now
+  ported (`--asym-critic`, additive-only, verified on-pod: checkpoint
+  loads as `AsymActorCriticPolicy`, privileged_idx correctly masks the
+  2 measured-velocity obs dims on the actor path). Discriminator,
+  motion library, replay buffer, fault injection, and the joystick
+  eval suite are confirmed NOT started (zero lines exist).
 - direction_err_mean_deg has a ~35 deg tick-level floor from stride
   sway — judge deltas vs a matched clone, not raw values.
 - Every pre-08-22 checkpoint (incl. the download hierarchy) trained

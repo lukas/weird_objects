@@ -1,9 +1,9 @@
 # amp - AMP locomotion from scratch
 
-Last updated: 2026-08-21 (track created by the operator two-track
-reset). Charter: `rl_docs/AMP_LOCOMOTION.md` (binding, incl. the
-repo-adaptation section — no Isaac Lab, MJX/Warp is the primary
-trainer). Keep this a short screenful: Goal / Milestones / Now / Next.
+Last updated: 2026-08-22 (first M0 audit + code cycle). Charter:
+`rl_docs/AMP_LOCOMOTION.md` (binding, incl. the repo-adaptation
+section — no Isaac Lab, MJX/Warp is the primary trainer). Keep this a
+short screenful: Goal / Milestones / Now / Next.
 
 ## Goal
 
@@ -23,7 +23,10 @@ Build every tool this needs; do not pause on operator input.
 
 ## Milestones (brief §13)
 
-- M0 infrastructure: NOT STARTED
+- M0 infrastructure: IN PROGRESS (actor/critic split + GRU/history +
+  most of the command generator now exist on the primary trainer;
+  fault injection + wired-up joystick env + auto video/metrics still
+  open — see Now/Next)
 - M1 motion library: NOT STARTED
 - M2 beautiful normal gait: NOT STARTED
 - M3 push recovery: NOT STARTED
@@ -32,26 +35,66 @@ Build every tool this needs; do not pause on operator input.
 
 ## Now
 
-Track just created. Nothing built yet. Reusable assets: the MJX/Warp
-PPO stack (per-world model DR, canaries, eval/video, desync), the
-asymmetric-critic flag, the scripted tripod teacher (clean at the
-measured plant, slip/m 1.4-2.9) as the seed of the motion-prior
-library, and the CPU MuJoCo eval harness as the independent
-cross-engine validator.
+08-22 audit of the shared MJX/Warp stack against the M0 checklist
+(§17 item 1: reuse before building) found more already reusable than
+the 08-21 "nothing built yet" note assumed, plus one real gap that's
+now closed:
+
+- **DONE THIS CYCLE**: `--asym-critic` (privileged critic obs split)
+  ported from `train_ppo_sim.py` (CPU/SB3) to `train_ppo_mjx.py`
+  (the GPU/Warp primary trainer) — it did not exist there before
+  (`git rev b69a46e2`). Reuses `asym_policy.AsymActorCriticPolicy`
+  and `train_ppo_sim._privileged_idx` verbatim (no duplicated logic);
+  additive-only (80 insertions, 0 deletions), new flag defaults off.
+  Verified on-pod (`hexapod-mjx-train-0`, smoke `smoke-amp-
+  asymcritic-mjx`): 2048/2048 steps trained, finite losses, and the
+  saved checkpoint loads as `AsymActorCriticPolicy` with
+  `privileged_idx=(70,71)` correctly masking the walk task's 2
+  measured-velocity obs dims on the actor path only. Warm-start
+  transplant path (MLP champion -> asym policy) ported too, mirroring
+  train_ppo_sim's proven weight-copy.
+- **ALREADY THERE (confirmed, not built this cycle)**: GRU/history
+  actor + deterministic recurrent eval (`--gru`, `--gru-dual`,
+  `--gru-experts`, `gru_policy.py`) and a causal-transformer
+  alternative (`--transformer`) are already live on `train_ppo_mjx.py`
+  — M0's "recurrent state resets correctly" checkbox is largely
+  covered already. Domain rand (`domain_rand.py`), per-world model DR,
+  canaries, eval/video logging, and desync are all live per
+  `guardrails.yaml`.
+- **ALREADY THERE, PARTIAL**: `walk_task.py`'s existing command
+  sampler (`goal.walk_cmd_mode=stress_mix` with
+  `random_hold/flip_180/sweep_circle/square/stop_go/jitter`, plus
+  `goal.walk_yaw_cmd` for yaw-rate) already draws continuous
+  (vx, vy[, wz]) commands with hold/ramp/resample/stop segments —
+  most of AMP §6's shape. Gaps vs. the brief: current defaults are a
+  narrower (speed, heading) envelope, not the full independent
+  vx in [-0.35,0.60] / vy in [-0.30,0.30] / yaw_rate in [-1.0,1.0]
+  band with the brief's exact resample (0.5-3.0 s) / zero (0.15) /
+  abrupt-change (0.35) probabilities, and the measured-velocity obs
+  goes to BOTH actor and critic today — the new `--asym-critic` flag
+  fixes the second half; the envelope is a cfg-tuning task, not new
+  code.
+- **CONFIRMED NOT STARTED**: AMP discriminator, demonstration replay
+  buffer, style reward, motion-library generation/validation tooling,
+  fault injection, push-disturbance curriculum, and the dedicated
+  joystick eval suite (`eval/joystick_script.py` etc. per brief §15).
+  Zero lines exist for any of these.
 
 ## Next (brief §17 order — M0/M1)
 
-1. Unified joystick-command env on the MJX stack with the
-   actor/critic observation split (deployable actor obs only).
-2. GRU/history actor support + deterministic recurrent evaluation.
-3. Motion-library generation from the teacher (all command families:
+1. Wire a `goal.walk_cmd_mode=joystick` (or widen `stress_mix`) preset
+   that matches AMP §6's exact envelope/probabilities on top of the
+   existing sampler, plus `--cfg-set` defaults for the §16 skeleton;
+   confirm `--asym-critic` composes with it end-to-end (n_envs>=1024
+   smoke).
+2. Motion-library generation from the teacher (all command families:
    fwd/back/lateral/turn/diagonal/accel/decel; mirroring + speed/phase
    augmentation) + validation metrics; reject dragging/collision clips.
-4. AMP discriminator, demonstration replay buffer, style reward with
+3. AMP discriminator, demonstration replay buffer, style reward with
    gradient penalty + input normalization.
-5. Smoke test: gradients flow through PPO and the discriminator
+4. Smoke test: gradients flow through PPO and the discriminator
    trains without instant saturation (M0/M1 checks).
-6. Wave 1 across 8 pods: 3 seeds at task/style 0.5/0.5, no-AMP
+5. Wave 1 across 8 pods: 3 seeds at task/style 0.5/0.5, no-AMP
    ablation, recurrent vs fixed-history, higher/lower AMP weight.
    Select on videos + tracking/stability metrics, never scalar return.
 

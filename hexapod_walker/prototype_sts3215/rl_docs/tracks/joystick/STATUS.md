@@ -58,17 +58,31 @@ with:
   behavior, not tick noise, before any relaunch.
 - 08-22 findings inherited from the reset window: the semantics-bank
   convention leak is repaired (`sim_gait_compat.py`) with a 7-test
-  tibia-150 recalibration residue (rise ref re-mint first); the
-  download hierarchy hard-fails the session gate at tibia-150 (fix
-  arms: `cw-dep-bcgait1-plant150-1` launched,
-  `cw-stand-footlow2-plant150-1` blocked on the rise-family banks).
+  tibia-150 recalibration residue; the download hierarchy hard-fails
+  the session gate at tibia-150. Fix arm `cw-dep-bcgait1-plant150-1`
+  landed PASS(core) this cycle (0/6 falls DR-0+own-DR, session
+  back-fall gone, fwd yaw -21.8->-10.6deg; promoted as the walk half).
+  `cw-stand-footlow2-plant150-1` stays blocked: re-minting the rise
+  reference is NOT a stale-file fix as first assumed — the scripted
+  OPEN-LOOP belly->plant blend in `extract_rise_ref.py` (linear
+  joint-angle interpolation from the champion's crouch-stand to
+  `env._plant_deg`) now FALLS on every seed (0-24) at tibia-150, and a
+  2x slower blend makes tracking error worse, not better (10.1 vs
+  8.5deg), ruling out a timing fix. The longer tibia likely makes the
+  linearly-interpolated intermediate pose invalid even though both
+  endpoints are fine; needs an IK-anchored or foot-locked blend, not a
+  re-run. This is probably the same root blocker under the stance fix.
 
 ## Next
 
-1. **Finish the 7-test tibia-150 bank recalibration** (rise-ref
-   re-mint first) — green banks are the prerequisite for all
-   aligned-reward work and unblock the stance fix arm; triage the
-   in-flight `cw-dep-bcgait1-plant150-1` when it lands.
+1. **Finish the 7-test tibia-150 bank recalibration.** Blocker
+   sharpened 08-22 (see above): fix `extract_rise_ref.py`'s
+   belly->plant blend to use an IK/foot-anchored path instead of raw
+   joint-angle lerp, re-mint `rise_ref_belly2plant.npz`, then
+   re-price the 7 threshold tests (rise_valid_plant, rise_rock,
+   trans_drag, getup_honest_ordering, recover_floor_rungs, fastprof)
+   against the corrected reference. Green banks unblock
+   `cw-stand-footlow2-plant150-1` and all aligned-reward work.
 2. **Build the gate harness**: a 60 s randomized joystick session
    evaluator (held-out command scripts, falls / heading obedience /
    slip-per-m / per-leg gait metrics, video) + a

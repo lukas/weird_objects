@@ -1527,6 +1527,52 @@ def _clamp_live_speed(x) -> float:
     return max(LIVE_SPEED_MIN, min(LIVE_SPEED_MAX, v))
 
 
+def _quad_recover_to_stand(bus: FeetechBus, live: set[int], check,
+                           tracker: CurrentPeakTracker | None = None,
+                           *, status_cb=None) -> str:
+    """Try to leave a front/back quad tip in the normal stand pose.
+
+    This is deliberately narrower than the hard tilt guard: if the robot
+    is mostly pitching forward/backward, a slow six-foot stand is usually
+    safer than dropping torque into a belly scrape.  If it is already far
+    sideways or the IMU says the total tilt is huge, stop adding commands.
+    """
+    imu = None
+    read_imu = getattr(bus, "read_imu", None)
+    if callable(read_imu):
+        try:
+            imu = read_imu()
+        except Exception:
+            imu = None
+    rp = _imu_roll_pitch_deg(imu) if imu else None
+    if rp is not None:
+        roll, pitch = rp
+        total = math.hypot(roll, pitch)
+        if abs(roll) > 30.0 or total > 55.0:
+            _limp_all(bus, live)
+            return (f"limped: tilt too large for auto-stand "
+                    f"(roll {roll:+.0f}, pitch {pitch:+.0f})")
+    try:
+        _enable_torque(bus, live)
+    except Exception:
+        pass
+    _set_torque_limit(bus, live, 850)
+    if status_cb is not None:
+        try:
+            status_cb("quad recovery: returning to stand")
+        except Exception:
+            pass
+    ok = _soft_glide(bus, _stand_zero_pose(), live, 2.5, check,
+                     max_speed=650, max_acc=60, softness=1.4)
+    if not ok:
+        _hold_here(bus, live)
+        return "recovery interrupted; holding current pose"
+    if tracker is not None:
+        tracker.sample(bus, live)
+    _set_torque_limit(bus, live, 1000)
+    return "recovered to stand"
+
+
 def stream_pose_fn(bus: FeetechBus, live: set[int], pose_fn, *,
                    seconds: float, abort_check=None,
                    speed_fn=None, status_cb=None, label: str = "stream",
@@ -1695,12 +1741,6 @@ def stream_pose_fn(bus: FeetechBus, live: set[int], pose_fn, *,
                             servo_goals=getattr(
                                 streamer, "last_written_goal", {}),
                             reason="balance_guard")
-                        for sid in sorted(live):
-                            try:
-                                bus.pkt.write1ByteTxRx(
-                                    sid, ADDR_TORQUE_ENABLE, 0)
-                            except Exception:
-                                pass
                         return balance_trim.abort_reason
                 if tilt_guard_deg is not None and imu and "az_g" in imu:
                     norm = math.sqrt(imu.get("ax_g", 0.0) ** 2
@@ -2737,8 +2777,12 @@ STAND_STREAM_DEMOS = ("stand_sway", "stand_bounce", "stand_twist",
 # into operator-sized primitives: rear up and hold; walk/trot forward or
 # backward while reared; come down on request.
 QUAD_VARIANTS = {
-    "": ("rear", "walk", "trot", "stable"),
+    "_safe": ("rear_safe", "walk_safe", "trot_safe", "safe"),
+    "": ("rear", "walk", "trot", "cool"),
     "_pitch": ("rear_pitch", "walk_pitch", "trot_pitch", "pitched"),
+    "_aft": ("rear_aft", "walk_aft", "trot_aft", "aft-shift"),
+    "_high": ("rear_high", "walk_high", "trot_high", "high-body"),
+    "_step": ("rear_step", "walk_step", "trot_step", "high-step"),
     "_aggressive": (
         "rear_aggressive", "walk_aggressive", "trot_aggressive",
         "aggressive"),
@@ -2949,15 +2993,19 @@ def run_streamed_demo(bus: FeetechBus, name: str, *,
             bits = st.split(":")
             err = bits[1] if len(bits) > 1 else "?"
             rate = bits[2] if len(bits) > 2 else "?"
+            recovery = (_quad_recover_to_stand(
+                bus, live, check, tracker, status_cb=status_cb)
+                if quad else "went limp")
             if len(bits) > 3 and bits[3] == "recovery_timeout":
                 msg = (f"stopped: still tipped {err} deg after "
                        f"{QUAD_TRIM_RECOVER_TIMEOUT_S:.0f}s of paused "
                        "recovery — leaning against it did not level the "
-                       "body, went limp. Check the robot before the "
+                       f"body; {recovery}. Check the robot before the "
                        "next run.")
             else:
                 msg = (f"stopped: pitch drift {err} deg, rate {rate} deg/s "
-                       "— balance trim saw a fall starting and went limp. "
+                       "— balance trim saw a fall starting; "
+                       f"{recovery}. "
                        "Check the robot before the next run.")
             print(f"  {msg}")
             return msg
@@ -2968,8 +3016,14 @@ def run_streamed_demo(bus: FeetechBus, name: str, *,
             print(f"  {msg}")
             return msg
         if st == "guard":
-            msg = (f"stopped: {tracker.peak_a:.2f} A peak on joint "
-                   f"{tracker.peak_joint} — stall-fight, holding here")
+            if quad:
+                recovery = _quad_recover_to_stand(
+                    bus, live, check, tracker, status_cb=status_cb)
+                msg = (f"stopped: {tracker.peak_a:.2f} A peak on joint "
+                       f"{tracker.peak_joint} — stall-fight; {recovery}")
+            else:
+                msg = (f"stopped: {tracker.peak_a:.2f} A peak on joint "
+                       f"{tracker.peak_joint} — stall-fight, holding here")
             print(f"  {msg}")
             return msg
         # Natural finish. Split quad-mode walk/rear commands intentionally
@@ -5087,14 +5141,31 @@ DEMOS = {
     "quad_trot_pitch": ("[8 quad] TROT FORWARD PITCHED — capped diagonal pairs", None),
     "quad_trot_back_pitch": ("[8 quad] TROT BACKWARD PITCHED — capped diagonal pairs", None),
     "quad_down_pitch": ("[8 quad] COME DOWN PITCHED — exit from -28 deg hold", None),
-    "quad_rear_aggressive": ("[8 quad] REAR UP AGGRESSIVE — -32 deg nose-up hold", None),
-    "quad_hold_aggressive": ("[8 quad] HOLD AGGRESSIVE — settle to -32 deg hold", None),
-    "quad_walk_aggressive": ("[8 quad] WALK FORWARD AGGRESSIVE — -32 deg stance", None),
-    "quad_walk_back_aggressive": ("[8 quad] WALK BACKWARD AGGRESSIVE — -32 deg stance", None),
+    "quad_rear_aggressive": ("[8 quad] REAR UP AGGRESSIVE — legacy aft-heavy hold", None),
+    "quad_hold_aggressive": ("[8 quad] HOLD AGGRESSIVE — settle to legacy aft-heavy hold", None),
+    "quad_walk_aggressive": ("[8 quad] WALK FORWARD AGGRESSIVE — legacy aft-heavy stance", None),
+    "quad_walk_back_aggressive": ("[8 quad] WALK BACKWARD AGGRESSIVE — legacy aft-heavy stance", None),
     "quad_trot_aggressive": ("[8 quad] TROT FORWARD AGGRESSIVE — heavily capped diagonal pairs", None),
     "quad_trot_back_aggressive": ("[8 quad] TROT BACKWARD AGGRESSIVE — heavily capped diagonal pairs", None),
-    "quad_down_aggressive": ("[8 quad] COME DOWN AGGRESSIVE — exit from -32 deg hold", None),
+    "quad_down_aggressive": ("[8 quad] COME DOWN AGGRESSIVE — exit from legacy aft-heavy hold", None),
 }
+
+_QUAD_ACTION_TITLES = {
+    "rear": "REAR UP",
+    "hold": "HOLD",
+    "walk": "WALK FORWARD",
+    "walk_back": "WALK BACKWARD",
+    "trot": "TROT FORWARD",
+    "trot_back": "TROT BACKWARD",
+    "down": "COME DOWN",
+}
+for _suffix, (_rear_gait, _walk_gait, _trot_gait, _label) in (
+        QUAD_VARIANTS.items()):
+    _tag = "" if _suffix == "" else f" {_label.upper()}"
+    for _action, _title in _QUAD_ACTION_TITLES.items():
+        DEMOS.setdefault(
+            _quad_name(_action, _suffix),
+            (f"[8 quad] {_title}{_tag} — {_label} quad test", None))
 
 # Standalone planted acts (not the full rise_show script).
 PLANTED_ACTS = frozenset({
@@ -6828,7 +6899,7 @@ def run_demo(bus: FeetechBus, name: str, *,
         raise SystemExit(f"unknown demo {name!r}; try: {', '.join(DEMOS)}")
     if name in QUAD_BLOCKED_HARDWARE_DEMOS:
         print("  aggressive quad walk/trot is blocked on hardware after "
-              "the forward fall; use pitched walk or simulate it only")
+              "the forward fall; use Safe/Cool on hardware or simulate it only")
         return "skipped"
     if configure_stream_profile(bus):
         print(f"  stream: DENSE waypoints ({1.0 / DT:.0f} Hz, "
