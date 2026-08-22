@@ -1485,3 +1485,29 @@ Entry format (append; newest last; update status in place):
   circularity without needing an exception to the bank-gate rule.
 - ANSWER (operator): (pending)
 - rulebook change: (pending)
+
+## q_20260822T0900Z — OPEN
+- cycle: c0822 (triage: cw-dep-bcgait4-phasedir6-slipband)
+- operator order: none — assume-and-go design choice while building
+  the AMP track's first motion-library tool
+  (`rl_move/sim/build_motion_library.py`, AMP_LOCOMOTION.md §4).
+- conflicted with: nothing written; §4.5's dataset format lists
+  "joint_position_t" etc. but does not pin what "relative to neutral"
+  (§3.6 discriminator feature list) means operationally.
+- why the cycle would have declined: the discriminator does not exist
+  yet, so there is no consumer to check the convention against; the
+  choice must be made now to ship a v1 dataset at all.
+- what was executed: defined "neutral" as PER-CLIP (the post-reset
+  spawn stance at that clip's own tick 0), not one global constant
+  across the whole library — documented in the script's docstring and
+  the manifest's `neutral_convention` field. Shipped
+  `rl_move/sim/motion_library/teacher_v1.npz` (15 clips, 88 s, all
+  §4.2 command families, all PASSED the drag/fall/discontinuity
+  validation gate) + `_manifest.json` on this assumption.
+- ANSWER (operator): _
+- rulebook change: whoever builds the AMP discriminator (§3.6) must
+  pick ONE neutral convention (global vs. per-clip) matching the
+  POLICY's own actor-observation convention, and re-derive
+  `joint_position_rel_neutral` from the raw `joint_position` array
+  (kept in the same npz) if the per-clip choice above doesn't match —
+  no need to re-run the sim, just re-subtract.

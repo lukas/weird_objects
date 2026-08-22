@@ -1,8 +1,8 @@
 # joystick - RL from the programmatic gait to joystick control
 
-Last updated: 2026-08-22 (phasedir5 dig-in verdicted: slip-financed
-progress cheat root-caused; band retighten queued as phasedir6). Keep
-this a
+Last updated: 2026-08-22 (phasedir6 verdicted FAIL: band-value lever
+refuted; switched to the already-built k_drag_stance mechanism,
+phasedir7 running). Keep this a
 short screenful: Goal / Now / Next. Run detail lives in
 `rl_docs/runs/`, W&B, and `RL_LOG.md`.
 
@@ -193,6 +193,36 @@ with:
   retighten the band to the std-0.13 regime (single change), gated on
   the A/B ordering flip (clone must out-earn the phasedir5 checkpoint
   under the new band in the training env).
+- 08-22 `cw-dep-bcgait4-phasedir6-slipband` VERDICTED: FAIL, and
+  slightly WORSE than phasedir5 (det slip 1.611x clone vs 1.590x, cap
+  1.15x) despite retightening loadslip_ok/max 7/10->3/6 — the
+  pre-registered branch (iii) fired exactly: W&B env/walk_loadslip_
+  ratio held 4.2-4.7 the entire run (never fell below ~4, same range
+  as phasedir5's unpriced band) even though walk_loadslip_factor DID
+  engage harder (0.99->0.48-0.56, so the tighter band did raise the
+  charge collected) — paying more didn't change the gait. Per-leg
+  signature (swings/leg, stride, duty skew) is statistically
+  unchanged from phasedir5's cheat family. Zero falls, gait 6/6,
+  progress/dir_err/speed all still PASS. ROOT CAUSE: the episode-
+  cumulative RATIO pricing (walk_loadslip_gate/k_loadslip_excess) is
+  dominated by the anchor/course/height reward terms at any (ok,max)
+  pair tried so far — the BAND VALUE lever is refuted for this
+  lineage, a third value would not be informative. ACTED ON (no new
+  code): found `reward.k_drag_stance` — a per-FOOT per-STANCE
+  absolute-mm drag charge, NOT diluted by episode-length progress —
+  already built and bank-tested 2026-08-11
+  (`test_drag_stance_stack_prices_skating_below_stepping`, k=8000/m
+  over a 6mm allowance) but never enabled in the phasedir lineage.
+  Validated with a matched-env pod pricing A/B before spending budget
+  (`logs/ckpt_eval/pd7_dragstance_ab_{clone,drag}`): under the full
+  phasedir6 stack + only this one new charge, the honest phase1 BC
+  clone (det slip/m 1.89) scores -1868 vs the phasedir6 cheat
+  checkpoint (det slip/m 3.04) scoring -3971 — a >2x swing in favor
+  of the honest gait, reproducing the 08-11 audit's calibration claim
+  on the ACTUAL cheat checkpoint. Launched
+  `cw-dep-bcgait4-phasedir7-dragstance` (train-0, single change: add
+  k_drag_stance=8000/allow=6mm/tick_floor=0.25 onto the phasedir6
+  stack, nothing else touched).
 
 ## Next
 
@@ -214,26 +244,28 @@ with:
    `test_task_semantics.py` bank proving the training reward ranks
    gate-passing behavior above every known cheat (park, paddle-creep,
    overspeed attractor, sacrificed leg).
-3. **DONE 08-22 — noise-taxed charges repriced (phasedir3) FAIL; ent-
-   coef anneal (phasedir4) FAIL and worse; direct log_std override
-   built + launched as phasedir5.** phasedir3's reprice fixed
-   det-overspeed but left det slip unpriced (1.41x clone, cap 1.15x).
-   phasedir4 tested whether annealing `ent_coef` 10x would let std
-   actually shrink from its pegged 0.355-0.365: the anneal itself
-   worked (confirmed in wandb) but std barely moved (0.368->0.352),
-   and both slip (1.518x) and progress (0.830x) got WORSE than
-   phasedir3, not better — the entropy-coefficient lever is too
-   indirect/weak on a warm-started log_std. See the `Now` bullets
-   above for full tabulation. NEXT ARM (launched, `cw-dep-bcgait4-
-   phasedir5-stdoverride`, train-0): the newly-built default-off
-   `train_ppo_mjx --warm-log-std-override -2.0` forcibly resets the
-   warm-started log_std to std=0.135 right after `--init-from` loads
-   (verified on-pod: lands exactly on the requested value, no-op when
-   unset) — a direct test of the noise-band theory instead of hoping
-   gradients get there. PASS -> rung B heading-set respec. FAIL with
-   std confirmed low in eval = noise-band theory REFUTED, DIG-IN
-   required before any further reward edit (do not launch another
-   anneal/override variant blind).
+3. **DONE 08-22 — noise-band theory REFUTED (phasedir5 dig-in); band
+   retighten (phasedir6) FAIL, band VALUE lever now also refuted;
+   switched pricing MECHANISM instead (phasedir7, running).**
+   phasedir3/4 established the loadslip charge was unpriced/mistimed;
+   phasedir5's direct std override proved slip was NOT primarily
+   exploration noise (std held 0.13, slip still 1.59x clone) — the
+   real mechanism is slip-financed progress via a duty-skewed
+   dragging gait. phasedir6 retightened the (ok,max) band 7/10->3/6
+   to test the band-VALUE lever directly: FAIL, slightly worse
+   (1.611x), ratio never moved even though the charge collected did
+   — see the `Now` bullet above for full numbers. Rather than try a
+   third band value, found and enabled an existing-but-unused
+   mechanism (`reward.k_drag_stance`, per-stance absolute-mm charge,
+   bank-tested 08-11) and validated it flips the ordering on the
+   ACTUAL cheat checkpoint via a pod pricing A/B before launching.
+   `cw-dep-bcgait4-phasedir7-dragstance` is running now (train-0).
+   PASS -> rung B heading-set respec. FAIL branch (i) charge active +
+   reward/progress still rising -> continue from checkpoint, not a
+   fresh FAIL (08-21 ruling). FAIL branch (ii) progress collapse ->
+   half-dose retry (k=4000). FAIL branch (iii) charge bites but det
+   slip still misses -> reconcile the env-metric/harness-metric
+   divergence before any further reward edit.
 4. RL fine-tune from the phase clone (and a walk-champion arm as
    control) with the reward aligned to the gate metrics, resuming
    the staged heading curriculum; extend budget while reward and

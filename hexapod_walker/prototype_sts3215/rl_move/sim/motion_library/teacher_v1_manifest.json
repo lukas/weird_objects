@@ -1,0 +1,189 @@
+{
+  "families": [
+    "accel_from_rest",
+    "backward_0.06",
+    "backward_0.08",
+    "decel_to_rest",
+    "diagonal_fl",
+    "diagonal_fr",
+    "forward_0.06",
+    "forward_0.08",
+    "forward_0.10",
+    "forward_turn_ccw",
+    "forward_turn_cw",
+    "lateral_left",
+    "lateral_right",
+    "turn_ccw",
+    "turn_cw"
+  ],
+  "clips": [
+    {
+      "name": "forward_0.06",
+      "seed": 0,
+      "n_ticks": 150,
+      "slip_per_m": 1.186,
+      "max_delta_q_deg": 2.65,
+      "fell": false,
+      "accepted": true,
+      "reason": "ok",
+      "quality_score": 0.843
+    },
+    {
+      "name": "forward_0.08",
+      "seed": 0,
+      "n_ticks": 150,
+      "slip_per_m": 0.928,
+      "max_delta_q_deg": 2.47,
+      "fell": false,
+      "accepted": true,
+      "reason": "ok",
+      "quality_score": 1.0
+    },
+    {
+      "name": "forward_0.10",
+      "seed": 0,
+      "n_ticks": 150,
+      "slip_per_m": 0.872,
+      "max_delta_q_deg": 3.21,
+      "fell": false,
+      "accepted": true,
+      "reason": "ok",
+      "quality_score": 1.0
+    },
+    {
+      "name": "backward_0.06",
+      "seed": 0,
+      "n_ticks": 150,
+      "slip_per_m": 1.219,
+      "max_delta_q_deg": 2.48,
+      "fell": false,
+      "accepted": true,
+      "reason": "ok",
+      "quality_score": 0.82
+    },
+    {
+      "name": "backward_0.08",
+      "seed": 0,
+      "n_ticks": 150,
+      "slip_per_m": 0.883,
+      "max_delta_q_deg": 2.42,
+      "fell": false,
+      "accepted": true,
+      "reason": "ok",
+      "quality_score": 1.0
+    },
+    {
+      "name": "lateral_left",
+      "seed": 0,
+      "n_ticks": 150,
+      "slip_per_m": 1.255,
+      "max_delta_q_deg": 2.57,
+      "fell": false,
+      "accepted": true,
+      "reason": "ok",
+      "quality_score": 0.797
+    },
+    {
+      "name": "lateral_right",
+      "seed": 0,
+      "n_ticks": 150,
+      "slip_per_m": 1.225,
+      "max_delta_q_deg": 1.99,
+      "fell": false,
+      "accepted": true,
+      "reason": "ok",
+      "quality_score": 0.816
+    },
+    {
+      "name": "turn_ccw",
+      "seed": 0,
+      "n_ticks": 150,
+      "slip_per_m": 3.073,
+      "max_delta_q_deg": 1.89,
+      "fell": false,
+      "accepted": true,
+      "reason": "ok",
+      "quality_score": 0.325
+    },
+    {
+      "name": "turn_cw",
+      "seed": 0,
+      "n_ticks": 150,
+      "slip_per_m": 2.721,
+      "max_delta_q_deg": 1.86,
+      "fell": false,
+      "accepted": true,
+      "reason": "ok",
+      "quality_score": 0.368
+    },
+    {
+      "name": "forward_turn_ccw",
+      "seed": 0,
+      "n_ticks": 150,
+      "slip_per_m": 0.784,
+      "max_delta_q_deg": 2.41,
+      "fell": false,
+      "accepted": true,
+      "reason": "ok",
+      "quality_score": 1.0
+    },
+    {
+      "name": "forward_turn_cw",
+      "seed": 0,
+      "n_ticks": 150,
+      "slip_per_m": 0.758,
+      "max_delta_q_deg": 2.59,
+      "fell": false,
+      "accepted": true,
+      "reason": "ok",
+      "quality_score": 1.0
+    },
+    {
+      "name": "diagonal_fl",
+      "seed": 0,
+      "n_ticks": 150,
+      "slip_per_m": 0.982,
+      "max_delta_q_deg": 2.69,
+      "fell": false,
+      "accepted": true,
+      "reason": "ok",
+      "quality_score": 1.0
+    },
+    {
+      "name": "diagonal_fr",
+      "seed": 0,
+      "n_ticks": 150,
+      "slip_per_m": 1.026,
+      "max_delta_q_deg": 2.88,
+      "fell": false,
+      "accepted": true,
+      "reason": "ok",
+      "quality_score": 0.975
+    },
+    {
+      "name": "accel_from_rest",
+      "seed": 0,
+      "n_ticks": 100,
+      "slip_per_m": 1.429,
+      "max_delta_q_deg": 2.57,
+      "fell": false,
+      "accepted": true,
+      "reason": "ok",
+      "quality_score": 0.7
+    },
+    {
+      "name": "decel_to_rest",
+      "seed": 0,
+      "n_ticks": 150,
+      "slip_per_m": 1.01,
+      "max_delta_q_deg": 2.91,
+      "fell": false,
+      "accepted": true,
+      "reason": "ok",
+      "quality_score": 0.99
+    }
+  ],
+  "source": "scripted_tripod_gait_teacher (linux_control/tripod_gait.py) @ tibia-150 plant, real MuJoCo physics, no RL",
+  "obs_style_layout": "joint_pos_rel_neutral(18) + joint_velocity(18) + base_angular_velocity(3) + projected_gravity(3) + foot_positions_rel_body(18) = 60",
+  "neutral_convention": "per-clip: qpos at clip tick 0 (post-reset spawn stance) -- see script docstring ASSUMPTION / OPERATOR_QUESTIONS.md q_20260822T0900Z"
+}

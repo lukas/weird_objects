@@ -1,6 +1,7 @@
 # amp - AMP locomotion from scratch
 
-Last updated: 2026-08-22 (first M0 audit + code cycle). Charter:
+Last updated: 2026-08-22 (M1 motion-library tool + v1 dataset shipped).
+Charter:
 `rl_docs/AMP_LOCOMOTION.md` (binding, incl. the repo-adaptation
 section — no Isaac Lab, MJX/Warp is the primary trainer). Keep this a
 short screenful: Goal / Milestones / Now / Next.
@@ -28,7 +29,9 @@ Build every tool this needs; do not pause on operator input.
   composable on the primary trainer, 08-22 smoke; discriminator,
   motion library, replay buffer, and fault injection still open —
   see Now/Next)
-- M1 motion library: NOT STARTED
+- M1 motion library: IN PROGRESS (generator tool built + v1 dataset
+  shipped 08-22, see Now; discriminator/replay-buffer consumers of it
+  still not started)
 - M2 beautiful normal gait: NOT STARTED
 - M3 push recovery: NOT STARTED
 - M4 fault adaptation: NOT STARTED
@@ -75,11 +78,43 @@ now closed:
   goes to BOTH actor and critic today — the new `--asym-critic` flag
   fixes the second half; the envelope is a cfg-tuning task, not new
   code.
+- **DONE THIS CYCLE (M1 start)**: `rl_move/sim/build_motion_library.py`
+  — generates + validates the §4 motion-prior dataset from the
+  hardware-proven scripted teacher (`linux_control/tripod_gait.py`
+  TripodGait) driven through REAL MuJoCo physics (not a bare
+  kinematic replay) at the measured tibia-150 plant. Covers all of
+  §4.2's required command families (forward x3 speeds, backward x2,
+  lateral left/right, turn CW/CCW, forward+turn both signs, diagonal
+  both signs, accel-from-rest, decel-to-rest) by driving the teacher's
+  own vx/vy/omega directly — no mirroring transform needed, the sim is
+  left/right symmetric so negative vy/omega already produces the true
+  trajectory. Records the §3.6 discriminator feature set per tick
+  (joint pos relative to a per-clip neutral, joint vel, base angular
+  velocity, projected gravity, foot positions relative to the body)
+  as `obs_style` (60-dim), plus phase/command/raw-pose metadata per
+  §4.5. Validates each clip against the SAME slip/m and fall
+  vocabulary the eval harness already uses elsewhere (reject on fall,
+  dragging, or joint discontinuity) — no new pass/fail definitions.
+  Shipped `rl_move/sim/motion_library/teacher_v1.npz` +
+  `_manifest.json`: 15/15 clips accepted, 88 s (spec target 20-60 s),
+  slip/m 0.76-1.43 for translational clips (inside the teacher's own
+  1.4-2.9 hardware band or better) and 2.72-3.07 for the two
+  turn-in-place clips (a rotation-as-speed proxy metric, noted as a
+  known rough edge in the script). CPU-only (no GPU pod used).
+  ASSUMPTION recorded (`OPERATOR_QUESTIONS.md` q_20260822T0900Z):
+  "neutral pose" is per-clip (that clip's own post-reset spawn stance),
+  not one global constant — whoever builds the discriminator must
+  confirm/override this to match the policy's own obs convention;
+  the raw (non-relative) joint_position array is kept in the npz so
+  this can be redone without re-running the sim.
 - **CONFIRMED NOT STARTED**: AMP discriminator, demonstration replay
-  buffer, style reward, motion-library generation/validation tooling,
-  fault injection, push-disturbance curriculum, and the dedicated
-  joystick eval suite (`eval/joystick_script.py` etc. per brief §15).
-  Zero lines exist for any of these.
+  buffer, style reward, fault injection, push-disturbance curriculum,
+  and the dedicated joystick eval suite (`eval/joystick_script.py`
+  etc. per brief §15). Zero lines exist for any of these. Motion
+  library v1 above has no augmentation yet (mirroring/speed/phase
+  scaling per §4.2) — the 15-family/1-seed base already clears the
+  20-60s target so augmentation is not currently a blocker, only a
+  future diversity improvement.
 
 ## Next (brief §17 order — M0/M1)
 
@@ -110,11 +145,17 @@ now closed:
    The independent-vx/vy-vs-polar-speed+heading gap noted below is
    NOT a blocker — full-circle heading + speed magnitude covers
    reverse/lateral/diagonal commands functionally.
-2. Motion-library generation from the teacher (all command families:
-   fwd/back/lateral/turn/diagonal/accel/decel; mirroring + speed/phase
-   augmentation) + validation metrics; reject dragging/collision clips.
+2. **DONE 08-22 (base library)**: motion-library generation from the
+   teacher (all §4.2 command families) + validation (reject dragging/
+   fall/joint-discontinuity clips) — see Now. STILL OPEN: mirroring +
+   speed/phase augmentation (only needed if the discriminator turns
+   out to want more than 88s / more per-clip diversity than the
+   single-seed deterministic base gives it — cheap to add later,
+   not gating discriminator work from starting).
 3. AMP discriminator, demonstration replay buffer, style reward with
-   gradient penalty + input normalization.
+   gradient penalty + input normalization — consumes
+   `rl_move/sim/motion_library/teacher_v1.npz`'s `obs_style` field
+   directly per §3.6/§4.5.
 4. Smoke test: gradients flow through PPO and the discriminator
    trains without instant saturation (M0/M1 checks).
 5. Wave 1 across 8 pods: 3 seeds at task/style 0.5/0.5, no-AMP
