@@ -61,9 +61,22 @@ Build every tool this needs; do not pause on operator input.
   landed and smoke-verified — see Now item on AMPStyleVecWrapper)
 - M2 beautiful normal gait: IN PROGRESS (pilot pair -> -c1 statue
   MISALIGNED -> freeprog pair FAIL by suicide economics (dig-in
-  resolved 08-22, see banner) -> term_penalty=400 fix pair
-  cw-amp-m2-freeprog-term400-{noamp,style05} QUEUED — the Wave-1
-  style-vs-control fork re-run with death priced out)
+  resolved 08-22, see banner) -> term_penalty=400 fix pair RAN:
+  noamp control (+bit-identical -rr1 repro) VERDICTED FAIL 08-22 —
+  suicide fix held (0/12 terminations) but the control still
+  shuffles in place (fwd travel 0.026-0.032m vs 0.10m bar,
+  freeprog_pen flat ~-1.5/tick the whole run at constant std=0.368,
+  genuine not-learning). style05 twin owned by a concurrent cycle —
+  Wave-1 style-vs-control read still pending that verdict. Follow-up
+  QUEUED+RUNNING same cycle on idle capacity, single lever:
+  `cw-amp-m2-freeprog-term400-stdanneal` (--log-std-final=-2.0
+  --log-std-anneal-frac=0.5 on top of the noamp control) — NOTE this
+  is NOT the suicide-era anneal idea the banner above refutes (that
+  refutation is about std-anneal not explaining/fixing the
+  DEATH-TIMING flip, observed at constant std); this tests a
+  different, later question — does annealing exploration noise down
+  help a now-suicide-safe policy ORGANIZE cycling legs into net
+  directional travel, mirroring the joystick track's phasedir9 fix)
 - M3 push recovery: NOT STARTED
 - M4 fault adaptation: NOT STARTED
 - M5 MuJoCo transfer (= DONE gate): NOT STARTED
