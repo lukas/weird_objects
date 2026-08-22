@@ -28,68 +28,47 @@ baseline.
 
 ## Live Runs
 
-`cw-dep-bcgait3-speedbc1-cont1` (acquisition, +4M warm from the failed
-speedbc1 ckpt, train-7, launched 08-22 ~00:2x UTC by operator order fb
-20260822T000318Z overriding the pre-registered STOP): tests whether
-more training escapes the charge basin. Pre-launch decomposition of
-the parent (4yitv3cc) says the late reward "recovery" was an
-episode-length artifact — per-tick reward worsened (-2.95 -> -3.13)
-while ep_len fell 317 -> 249 and pitch rose 4.7 -> 6.3 deg (falling
-earlier truncates the net-negative heading+overspeed tax); direction
-error (~78 deg) and speed (0.12 m/s) stayed command-invariant. Gate
-forces per-tick-vs-ep-len decomposition + pinned-speed panels at every
-1M snapshot (ckpts every 0.5M via --save-every); reward-only rise =
-MISALIGNED verdict, fork back to operator. No download change.
+None. All four fast-gait speed-obedience levers tried so far are
+refuted; the fork sits with the operator (see Operator Gates).
 
-`cw-dep-bcgait3-speedbc1` (discovery, 2M, operator order
-20260821T224150Z — speed-conditioned BC + leg-odometry vel obs +
-tested overspeed/heading charges) FAILED its gate on EVERY axis
-(pinned-speed panel 0.06/0.08/0.10 det+sto DR-0, triaged 08-21 ~23:5x
-UTC): 34/48 episodes end in tilt_pitch FALLS (gate: zero; parent
-fastbc1 had zero), dir err med 58-80 deg (gate <=30), slip/m det
-3.0-3.5 / sto 8-11 (gate 2.2/3.0), and raw speed 0.12-0.14 m/s
-COMMAND-INVARIANT across the band — overspeed persists even though the
-policy could see its own speed. RL under the charges destabilized a
-previously stable clone instead of buying obedience. Pre-registered
-FAIL mode -> STOP; the fast-gait speed-obedience fork returns to the
-operator. Now refuted for making the fast walker obey a speed band:
-faster cadence (teacher-level), k_walk_cmd_track scalar, and
-speed-obs + overspeed/heading charges. Fast walking itself still
-exists (fastbc1: zero falls, straight, ~2x overspeed). No-BC scratch
-walking stays closed. Teacher/clone preflights and the gate eval all
-used the repo-nominal sysid plant at cfe8160a (08-21 calibration
-commits are bench tooling only; no calibrated plant values in repo —
-noted per MCP addendum fb_20260821T224209).
+## Recently Finished
 
-`cw-dep-bcgait2-fastbc1-track1` (warm from `cw-dep-bcgait2-fastbc1`,
-adds `reward.k_walk_cmd_track=1.0`) FAILED: the added command-tracking
-price made the overspeed WORSE, not better — DR-0 prog_ratio det
-1.88x->2.10x, sto 1.20x->1.76x; own-DR sto went from already-in-band
-(1.12x) to overspeeding (1.92x). Zero falls, gait_valid 6/6, video
-still tall/clean six-leg (no exploit); slip and heading error improved
-slightly but that isn't the gate. This is the gate's own pre-registered
-"wrong lever, STOP" outcome — no further respec of this reward line;
-the fork returns to the operator (q_20260820T2330Z / STATUS.md).
+Fast-gait speed-obedience chain, 4 refuted levers in sequence (newest
+first), all warm from the `bcgait2-fastbc1` fresh-BC-INIT clone
+(itself a PASS: zero falls, straight, tall clean 6-leg gait, but
+~2x overspeeds the 0.05-0.08 command band):
 
-`cw-dep-bcgait2-fastbc1` itself finished earlier: PASS as discovery canary
-(fresh BC-INIT from the scripted TripodGait teacher under the FULL
-servo profile at NATIVE cadence survives RL fine-tune — tall, clean
-6-leg gait, zero falls, direction correct, det slip/m 1.76, realized
-0.117 m/s ~2x deployed) but overspeeds the 0.05-0.08 command band 2x
-(prog ratio med 1.95); the hardening rung above is the pre-authorized
-fix attempt.
+- `cw-dep-bcgait3-speedbc1-cont1` (+4M continuation, operator order
+  fb 20260822T000318Z overriding a pre-registered STOP): FAILED WORSE
+  than its parent. Rollout reward "recovered" (-137 -> -18) purely
+  because episodes got shorter (ep_len 44.5 -> 22.6); per-tick reward
+  stayed net-negative — the predicted artifact, confirmed. Our own
+  pinned-speed panel (0.06/0.08/0.10 m/s, det+sto, DR-0) on the final
+  checkpoint: 48/48 falls (parent 34/48 — worse), a NEW sacrificed-leg
+  pathology (legs [1,3,5] det / [0,3,4] sto unused), dir err
+  flat-to-worse (82-115 vs 58-80 deg), roll_tail unsettled at 9.2 deg,
+  speed still command-invariant (0.12-0.17 m/s). No download change.
+- `cw-dep-bcgait3-speedbc1` (speed-conditioned BC + leg-odometry vel
+  obs + overspeed/heading charges): FAILED every axis — 34/48 falls,
+  dir err 58-80 deg, slip det 3.0-3.5/sto 8-11, speed 0.12-0.14 m/s
+  command-invariant. RL under the charges destabilized a previously
+  stable clone instead of buying obedience.
+- `cw-dep-bcgait2-fastbc1-track1` (`reward.k_walk_cmd_track=1.0`):
+  FAILED — the tracking price made overspeed WORSE (DR-0 prog_ratio
+  det 1.88x->2.10x, sto 1.20x->1.76x). Zero falls, no exploit, wrong
+  lever.
+- Teacher-level faster cadence (`--tripod-period-scale`): REFUTED by
+  its own preflight grid — every faster rung strictly worse than 1.0
+  at every profile dose. The native-cadence full-profile cell is what
+  seeded `bcgait2-fastbc1`.
 
-Context: the ordered faster-cadence knob (`--tripod-period-scale`,
-landed 08-20, default-off) was REFUTED by its own teacher preflight —
-period_scale 0.9/0.75/0.6 strictly worse than 1.0 in every cell of a
-3-cadence x 3-profile x 3-speed grid (progress collapses, slip
-explodes; stride auto-scales with period so a faster clock just scrubs).
-The same grid proved the full profile SAFE for the native-cadence
-teacher (prog 0.73-0.76 ≈ 0.073 m/s realized, slip/m 1.6-3.0, 147 mm,
-clean 6-leg tripod, zero falls) — the order's higher-profile branch.
-Prior A/B FAILs (fastthru/fastramp, mid+full) remain valid for
-transplanted policies; this arm is the fresh-clone counterexample test.
-No further fast-gait dose sweeps without operator authorization.
+Refuted so far: faster cadence, command-tracking price, speed-obs +
+overspeed/heading charges, more training steps. Fast walking itself
+still exists (fastbc1, 2x overspeed); no download change from any of
+this chain. Teacher/clone preflights and gate evals used the
+repo-nominal sysid plant at cfe8160a (08-21 calibration commits are
+bench tooling only — no calibrated plant values in repo yet, per MCP
+addendum fb_20260821T224209).
 
 ## Current Evidence
 
@@ -108,15 +87,14 @@ No further fast-gait dose sweeps without operator authorization.
 
 ## Next Agent Actions
 
-Triage `cw-dep-bcgait3-speedbc1-cont1` against its gate (per-tick
-reward x ep_len decomposition + pinned-speed panels on the 0.5M/1M
-snapshots, det+sto, DR-0, vs the parent's 2M panel). Otherwise no
-fast-gait launches without an operator-chosen lever.
+No fast-gait launches without an operator-chosen lever (4 refuted so
+far). Otherwise: protect the download hierarchy, attack named session
+gaps if a concrete lever exists.
 
 ## Operator Gates
 
 - Promote `postlower4` and/or change the runner/eval contract to remaining-rise semantics.
-- Fast-gait fork: operator chose "just keep training" (fb 20260822T000318Z) — `cw-dep-bcgait3-speedbc1-cont1` running. Refuted levers so far: faster cadence, k_walk_cmd_track, speed-obs + overspeed/heading charges. If cont1's reward rise proves misaligned (predicted), next lever is again an operator choice.
+- Fast-gait fork: operator chose "just keep training" (fb 20260822T000318Z) — `cw-dep-bcgait3-speedbc1-cont1` FINISHED and FAILED worse than parent (48/48 falls, new sacrificed-leg pathology, no obedience gain — reward rise was the predicted episode-length artifact). Refuted levers now: faster cadence, k_walk_cmd_track, speed-obs + overspeed/heading charges, more training steps. Next lever is again an operator choice.
 - Bench-promote the download hierarchy when the robot returns.
 - Recover mode (reopened 08-20, sim-ready): decide flip handling (ship unsupported vs order a flip-hardening arm) and, when the robot is back, the recover-mode hardware safety contract (185 deg tilt envelope inside recover only) + on-robot transformer compute check. See `rl_docs/RECOVER_DEPLOY.md` blockers.
 - Reopen geometry/CAD only by explicit operator direction.

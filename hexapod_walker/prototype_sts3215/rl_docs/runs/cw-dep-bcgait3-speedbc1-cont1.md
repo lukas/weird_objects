@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: RUNNING
+**status**: STOPPED
 
 **created**: 2026-08-22T00:06:48+00:00
 
@@ -14,7 +14,11 @@
 
 **wandb_id**: m5higxu2
 
+**hardware_ready**: False
+
 **hypothesis**: Does the fast walker actually get better if we simply keep training it another 4M steps? The operator ordered this continuation because training reward was still recovering when the parent run hit its 2M budget, and wants to know whether reward keeps improving and whether that improvement is real behavior or reward hacking. This cycle's decomposition of the parent (W&B 4yitv3cc) predicts ARTIFACT: per-tick reward actually WORSENED late (-2.95 -> -3.13 across the last four windows) while ep_len_mean fell 317 -> 249 and mean pitch rose 4.7 -> 6.3 deg — the return 'recovery' from -952 to -780 is shorter episodes accumulating less of the net-negative heading+overspeed charges (heading -1.7/tick, overspeed -2.1/tick dominate), i.e. the reward currently pays the policy to fall earlier. Direction error (~78 deg) and speed (0.12 m/s) stayed command-invariant throughout. Prediction-if-operator-right: with more steps the policy escapes the charge basin, per-tick reward turns up WITH episode length, and pinned-speed panels improve. Prediction-if-artifact: rollout reward keeps 'improving' while ep_len shrinks, pitch grows, and the pinned-speed panels stay fallen/command-invariant.
 
 **gate**: Budget 4M (+snapshots every 0.5M via --save-every). At each 1M snapshot AND at finish: pinned-speed panel 0.06/0.08/0.10 det+sto at DR-0, reporting falls, direction err, slip/m, speed_mean/prog_ratio, gait_valid, height/roll vs the parent's 2M panel (34/48 tilt_pitch falls, dir err 58-80 deg, speed 0.12-0.14 command-invariant). STOP early if rollout reward clearly plateaus or reverses over multiple 0.5M windows. VERDICT MUST decompose reward vs ep_len: quote per-tick reward (ep_rew/ep_len) and ep_len trends; reward-up-while-per-tick-and-panels-flat = MISALIGNED/reward-length artifact, report as such, fork returns to operator. Real PASS requires panel movement toward the parent gate axes (falls toward zero, dir err toward <=30, prog 0.75-1.25, slip det<=2.2/sto<=3.0). NO DOWNLOAD_ANSWER change from this run under any outcome.
+
+**verdict**: FAIL, worse than parent — confirms the pre-registered reward-length-artifact prediction and then some. 4M-step continuation's rollout reward 'recovered' (-137->-18) purely by episodes getting SHORTER (ep_len 44.5->22.6 late-run) while per-tick reward stayed net-negative; our own pinned-speed panel (0.06/0.08/0.10, det+sto, DR-0) on the final 4.06M ckpt shows the behavior got WORSE, not better: 48/48 episodes now end in tilt_pitch falls (parent was 34/48), a NEW sacrificed-leg pathology appears in the base walk rows (legs [1,3,5] det / [0,3,4] sto dropped), direction error is flat-to-worse (82-115 deg vs parent's 58-80), roll_tail is unsettled at 9.2 deg (0/6 settled), and raw speed (0.12-0.17 m/s) stays command-invariant across the whole 0.06-0.10 band — no obedience bought. Slip/m improved numerically (sto 4.0-5.6 vs parent 8-11) but is moot given 100% falls. MISALIGNED per the pre-registered gate; do not train this line further without a new operator-chosen lever.
 
