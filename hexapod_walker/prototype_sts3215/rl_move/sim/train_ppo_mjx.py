@@ -1290,6 +1290,33 @@ def main(argv: list[str] | None = None) -> int:
                          "at the halfway point and hold.")
     ap.add_argument("--target-kl", type=float, default=0.02)
     ap.add_argument("--log-std-init", type=float, default=-1.0)
+    ap.add_argument("--warm-log-std-override", type=float, default=None,
+                    help="after a --init-from warm start loads the "
+                         "checkpoint's OWN log_std parameter(s), "
+                         "forcibly RESET them to this value (log-space; "
+                         "std=exp(value)) before training starts. Only "
+                         "applies with --init-from; a no-op otherwise "
+                         "(--log-std-init only affects from-scratch/"
+                         "transplant builds, never a plain warm start, "
+                         "so there was previously no way to start a "
+                         "warm-started fine-tune below the parent's own "
+                         "std). Default None = OFF, bit-exact (parent's "
+                         "log_std kept, current default behavior). "
+                         "Motivated by cw-dep-bcgait4-phasedir4-"
+                         "entanneal (08-22): --ent-coef-final annealed "
+                         "ent_coef 10x (0.000951->0.0001, confirmed via "
+                         "wandb ent_coef_anneal/value) but the warm-"
+                         "started log_std barely moved (std 0.368->"
+                         "0.352 over the full 2M-step run) because the "
+                         "entropy bonus is too small a fraction of the "
+                         "total PPO loss to meaningfully drag it down "
+                         "in 2M steps -- a direct override is a "
+                         "guaranteed-to-move lever instead of a slow, "
+                         "indirect one. Works on plain MLP policies "
+                         "(policy.log_std) and gru-experts policies "
+                         "(all four policy._log_stds() reset "
+                         "identically); a policy with neither attribute "
+                         "prints a warning and is left untouched.")
     ap.add_argument("--net-arch", type=str, default="128,128",
                     help="MLP hidden sizes, comma-separated (from-"
                          "scratch and transplant builds only — a plain "
@@ -2437,6 +2464,27 @@ def main(argv: list[str] | None = None) -> int:
                                **extra_pk),
             seed=args.seed, verbose=1, device=args.device,
             tensorboard_log=tb_dir)
+
+    if args.warm_log_std_override is not None and args.init_from is not None:
+        import math as _math
+        import torch as _th
+        with _th.no_grad():
+            pol = model.policy
+            _std = _math.exp(float(args.warm_log_std_override))
+            if hasattr(pol, "_log_stds"):
+                for _ls in pol._log_stds():
+                    _ls.data.fill_(float(args.warm_log_std_override))
+                print("[mjx-train] warm-log-std-override: reset ALL "
+                      f"per-expert log_std to "
+                      f"{args.warm_log_std_override} (std={_std:.3f})")
+            elif hasattr(pol, "log_std"):
+                pol.log_std.data.fill_(float(args.warm_log_std_override))
+                print("[mjx-train] warm-log-std-override: reset "
+                      f"log_std to {args.warm_log_std_override} "
+                      f"(std={_std:.3f})")
+            else:
+                print("[mjx-train] warm-log-std-override: WARNING no "
+                      "log_std attribute found on policy, skipped")
 
     if args.gru_experts_freeze:
         from .gru_policy import ModeExpertsGruActorCriticPolicy as _MEP
