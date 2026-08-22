@@ -199,17 +199,27 @@ out-of-scope runs get honest triage but no agent follow-ups.
   `phasedir9-seed17` (same recipe, seed 13->17, no reward change)
   tests whether `-9`'s near-pass reproduces before any further
   lineage budget.
-- AMP M2 PILOT CONTINUATIONS: SAME FROZEN-TRIPOD LOCAL OPTIMUM AT
-  38M AS AT 2M (08-22, `cw-amp-m2-pilot-{noamp,style05}-c1`, DIG-IN
-  flagged not verdicted): 19x the pilot budget did not move either
-  arm off one leg triad (0,2,4) planted near-motionless (duty
-  ~0.97-1.0) while the other (1,3,5) is held airborne the whole
-  episode (duty ~0.02) — a static pose, gait_valid 0/6 every episode,
-  near-zero progress, slip med ~9-12/m (cap 2.9), NEW terminations
-  (tilt_pitch/over_current) not present at 2M. IDENTICAL in the
-  no-AMP control (style weight 0.0) as in style05 — proves this is a
-  base walk-task-reward/from-scratch-init issue, not an AMP-style
-  defect, and directly bears on the Wave-1 (8-pod) go/no-go decision.
+- AMP M2 STATUE MISALIGNMENT ROOT-CAUSED (08-22 dig-in, both -c1
+  arms verdicted MISALIGNED, Wave-1 NO-GO on legacy pricing): the
+  frozen half-tripod (triad 0,2,4 planted, 1,3,5 airborne) is the
+  legacy walk reward's true optimum for a from-scratch policy —
+  statue income ~1.9/tick (rise_finish ~0.85 + posture/height
+  kernels ~0.6 + the sigma-0.05 velocity kernel paying ~0.45/tick to
+  v=0 across the stress_mix low/stop command fraction) vs realized
+  locomotion income ~0.05/tick; 100% of the 38M reward rise was
+  statue-polishing (rise_finish 0.09->0.86, walk_speed flat). The
+  AMP mechanism was healthy throughout (d_real 0.97 vs d_fake -0.96,
+  never saturated) but 0.5 x style_reward 0.06 = ~0.03/tick cannot
+  outbid the statue — a discriminator cannot rescue a misaligned
+  task reward. Cheat encoded: `test_slipwalk_stork_statue_is_priced_
+  out` (stork -238/ep vs gait +558 under the freeprog stack, bank
+  6/6 PASS, commit 911fcedf). Fix pair RUNNING (2M discovery, from
+  scratch per the init-basin rule): `cw-amp-m2-freeprog-{style05,
+  noamp}` = pilot config + SLIPWALK pricing + pure-walk diet +
+  branch-(iii) envelope narrowing (0-0.25 m/s, yaw ±0.5). Decisive
+  contrast: `cw-nobc-slipwalk1-r1` (same pricing, no AMP) froze at
+  2M — style05 stepping where its twin freezes is the first real
+  style-vs-control signal.
 - direction_err_mean_deg has a ~35 deg tick-level floor from stride
   sway — judge deltas vs a matched clone, not raw values.
 - Every pre-08-22 checkpoint (incl. the download hierarchy) trained
