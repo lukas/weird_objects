@@ -185,3 +185,4 @@ W&B OUTCOME notes. Do not use this file as current truth; read
 - 08-22 21:59 headingsfull PASS: full-circle jump works, intermediate rung unnecessary; gait 12/12, dir_err det 33/sto 50 vs 90 baseline; stage-3 speed+yaw pair launched 
 - 08-22 22:03 amp M2: noamp-headings90-r1 PASS -- survives +/-90deg dose too, style still not functionally protective at this dose (matches style05 sibling within noise). 
 - 08-22 22:08 AMP M2: noamp survives +/-90deg heading dose too -- style-vs-noamp is now a WASH (was a mild style edge at 0/25deg). BC-init basin robust to heading diversity through at least 90deg on both arms. 
+- 08-22 22:19 amp M2: speedrange PARTIAL -- gait survives speed-variety demand cleanly but achieved speed barely tracks command (0.08-0.14 realized vs 0.05-0.25 commanded), old fixed-cadence pin persists; names cadence/stride as the next lever, not more budget 

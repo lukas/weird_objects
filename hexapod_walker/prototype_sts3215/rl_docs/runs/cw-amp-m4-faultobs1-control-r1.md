@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-08-22T22:15:54+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 2000000
 
 **parent**: cw-amp-m4-faultsmoke1-control
+
+**wandb_id**: 459eenli
 
 **hypothesis**: Plain English: sanity control for cw-amp-m4-faultobs1-noamp -- does merely WIDENING the obs with the (all-ones-when-healthy) fault_health() vector cost anything on a healthy, unfaulted policy, or does the zero-padded transplant start and stay behaviorally identical to the faultsmoke1-control baseline the way the transplant math promises? Single lever vs faultsmoke1-control: obs.fault_health 0->1 + --obs-pad-transplant 18, dr.fault_prob stays 0.0 (no fault ever), same 2M budget, same everything else, same pre-fault ppo_goal_cw_amp_m2_bcinit_sec5_noamp parent checkpoint. (-r1 suffix: first attempt's run name collided with a tag pushed by a stale earlier REFUSED retry of this same launch.)
 
