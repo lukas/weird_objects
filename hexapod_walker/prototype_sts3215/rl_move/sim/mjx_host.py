@@ -13,9 +13,13 @@ import copy
 import numpy as np
 
 from .mjx_backend import MODEL_DR_FIELDS
-from .servo_model import SimServoParams, apply_params_to_model, build_model
+from .servo_model import (
+    SimServoParams, apply_params_to_model, build_model,
+    position_actuator_ids,
+)
 from .sim_env import (leg_chassis_collision_from_cfg,
                       set_foot_ground_friction, soften_contacts)
+from .struct_compliance import StructCompliance
 
 DEG2RAD = np.pi / 180.0
 
@@ -52,6 +56,10 @@ SNAP_ATTRS = (
     # per-episode TripodGait instance carrying phase/velocity state,
     # created in the reset path, read every walk tick.
     "_walk_bc_gait",
+    # Command-gated anchor clock (08-22, train.bc_anchor_phase_lock):
+    # accumulated commanded-tick seconds driving the anchor gait so it
+    # stays locked to the goal.walk_phase_obs clock the policy sees.
+    "_walk_bc_t",
     # Transition-drag bookkeeping (08-11 night, reward.k_drag_trans):
     # per-foot prev contact + XY plus the episode drag accumulator,
     # read every non-walk tick.
@@ -91,6 +99,10 @@ SNAP_ATTRS = (
     # in step info — a pool-restored episode must report the ease
     # values its own DR rows were minted with, not a later episode's.
     "_ease_g", "_ease_v",
+    # Structural compliance (08-21): sampled per-episode stiffness vector.
+    # The model rows and host-side encoder correction must agree after a
+    # pooled restore.
+    "_struct_comp_k",
 )
 
 
@@ -131,10 +143,20 @@ def leg_chassis_from_cfg(cfg) -> bool:
     return leg_chassis_collision_from_cfg(cfg)
 
 
+def _apply_nominal_struct_compliance(model, cfg) -> None:
+    if cfg is None:
+        from rl_move.config import load_config
+        cfg = load_config()
+    comp = StructCompliance.from_cfg(cfg)
+    if comp is not None:
+        comp.apply_effective_kp(model, position_actuator_ids(model),
+                                k=comp.nominal_k)
+
+
 def prepare_shared_model(params: SimServoParams, *, iterations: int,
                          ls_iterations: int, terrain_amp: float = 0.0,
                          terrain_seed: int = 0, foot_mu: float = 0.0,
-                         leg_chassis: bool = False):
+                         leg_chassis: bool = False, cfg=None):
     """The ONE model every shim (and the device stepper) uses: MJX-compat
     terrain, the C env's contact softening, fitted servo params, reduced
     solver iterations. Deterministic, so parent and worker processes
@@ -156,6 +178,7 @@ def prepare_shared_model(params: SimServoParams, *, iterations: int,
     if foot_mu > 0.0:
         set_foot_ground_friction(model, foot_mu)
     apply_params_to_model(model, params)
+    _apply_nominal_struct_compliance(model, cfg)
     model.opt.iterations = int(iterations)
     model.opt.ls_iterations = int(ls_iterations)
     return model
@@ -202,6 +225,7 @@ class ModelDrScratch:
                                   torque_scale=er.torque_scale)
         else:
             apply_params_to_model(m, self.params)
+        env._apply_struct_compliance_to_model(m)
         rows = {}
         for name in MODEL_DR_FIELDS:
             v = (m.opt.gravity if name == "opt.gravity"

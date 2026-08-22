@@ -44,6 +44,82 @@ def imu_calib_path() -> Path:
     return IMU_PATH_CANDIDATES[0]
 
 
+def imu_tilt_deg(sample: dict) -> tuple[float, float] | None:
+    """Return roll/pitch degrees from an accel reading."""
+    try:
+        ax = float(sample.get("ax_g", 0.0))
+        ay = float(sample.get("ay_g", 0.0))
+        az = float(sample.get("az_g", 0.0))
+    except (TypeError, ValueError):
+        return None
+    norm = math.sqrt(ax * ax + ay * ay + az * az)
+    if norm < 0.25:
+        return None
+    roll = math.degrees(math.atan2(ay, az))
+    pitch = math.degrees(math.atan2(-ax, math.hypot(ay, az)))
+    return roll, pitch
+
+
+def _axis_label(axis_roll: float, axis_pitch: float) -> str:
+    if abs(axis_roll) < 0.25:
+        return "pitch"
+    if abs(axis_pitch) < 0.25:
+        return "roll"
+    return "mix"
+
+
+def _valid_body_frame(data: dict | None) -> dict | None:
+    if not isinstance(data, dict):
+        return None
+    try:
+        ar = float(data["pitch_axis_roll"])
+        ap = float(data["pitch_axis_pitch"])
+    except (KeyError, TypeError, ValueError):
+        return None
+    norm = math.hypot(ar, ap)
+    if norm < 0.5:
+        return None
+    ar, ap = ar / norm, ap / norm
+    try:
+        sign = float(data.get("pitch_sign", -1.0))
+    except (TypeError, ValueError):
+        sign = -1.0
+    sign = -1.0 if sign < 0.0 else 1.0
+    out = {
+        "version": int(data.get("version") or 1),
+        "pitch_axis": str(data.get("pitch_axis") or _axis_label(ar, ap)),
+        "pitch_axis_roll": ar,
+        "pitch_axis_pitch": ap,
+        "pitch_sign": sign,
+        "source": data.get("source") or "imu_body_frame_calibrate",
+        "timestamp": data.get("timestamp"),
+        "n_samples": int(data.get("n_samples") or data.get("samples") or 0),
+    }
+    for k in ("expected_pitch_deg", "body_pitch_target_deg",
+              "measured_roll_deg", "measured_pitch_deg",
+              "measured_lean_deg"):
+        if data.get(k) is not None:
+            try:
+                out[k] = float(data[k])
+            except (TypeError, ValueError):
+                pass
+    return out
+
+
+def load_imu_calib_raw() -> dict | None:
+    for path in IMU_PATH_CANDIDATES:
+        if not path.is_file():
+            continue
+        try:
+            data = json.loads(path.read_text())
+        except (OSError, ValueError):
+            continue
+        if isinstance(data, dict):
+            data["path"] = str(path)
+            return data
+    return None
+
+
 def load_imu_calib() -> dict | None:
     """Return calib dict or None if missing/invalid."""
     for path in IMU_PATH_CANDIDATES:
@@ -78,6 +154,9 @@ def load_imu_calib() -> dict | None:
                 "gyro_ptp_dps": data.get("gyro_ptp_dps"),
                 "accel_mag_g": data.get("accel_mag_g"),
             }
+            bf = _valid_body_frame(data.get("body_frame"))
+            if bf:
+                out["body_frame"] = bf
             return out
         except (OSError, ValueError, KeyError, TypeError):
             continue
@@ -85,9 +164,75 @@ def load_imu_calib() -> dict | None:
 
 
 def save_imu_calib(payload: dict) -> Path:
+    old = load_imu_calib_raw()
+    if "body_frame" not in payload and isinstance(old, dict):
+        bf = _valid_body_frame(old.get("body_frame"))
+        if bf:
+            payload = {**payload, "body_frame": bf}
     path = imu_calib_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2) + "\n")
+    return path
+
+
+def imu_body_frame_from_roll_pitch(
+        roll_deg: float, pitch_deg: float, *,
+        expected_pitch_deg: float = -24.0,
+        samples: int = 1,
+        source: str = "imu_body_frame_calibrate") -> dict:
+    base_roll = float(roll_deg)
+    base_pitch = float(pitch_deg)
+    measured = math.hypot(base_roll, base_pitch)
+    if measured < 6.0:
+        return {
+            "ok": False,
+            "error": (
+                "rear-lean reading too small; rear up or tilt the chassis "
+                "to the known calibration pose first"),
+            "measured_roll_deg": round(base_roll, 3),
+            "measured_pitch_deg": round(base_pitch, 3),
+            "measured_lean_deg": round(measured, 3),
+            "n_samples": int(samples),
+        }
+    sign = -1.0 if float(expected_pitch_deg) < 0.0 else 1.0
+    ar, ap = base_roll / measured, base_pitch / measured
+    return {
+        "ok": True,
+        "version": 1,
+        "source": source,
+        "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S"),
+        "n_samples": int(samples),
+        "expected_pitch_deg": round(float(expected_pitch_deg), 3),
+        "measured_roll_deg": round(base_roll, 3),
+        "measured_pitch_deg": round(base_pitch, 3),
+        "measured_lean_deg": round(measured, 3),
+        "body_pitch_target_deg": round(sign * measured, 3),
+        "pitch_axis": _axis_label(ar, ap),
+        "pitch_axis_roll": round(ar, 6),
+        "pitch_axis_pitch": round(ap, 6),
+        "pitch_sign": sign,
+    }
+
+
+def save_imu_body_frame(body_frame: dict) -> Path:
+    if not body_frame.get("ok"):
+        raise ValueError(str(body_frame.get("error") or "bad body frame"))
+    raw = load_imu_calib_raw() or {
+        "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S"),
+        "source": "imu_body_frame_only",
+        "n_samples": 0,
+        "grade": "orientation-only",
+        "gyro_bias_dps": {"x": 0.0, "y": 0.0, "z": 0.0},
+        "accel_bias_g": {"x": 0.0, "y": 0.0, "z": 0.0},
+        "accel_rest_g": {"x": 0.0, "y": 0.0, "z": 1.0},
+        "accel_mag_g": 1.0,
+        "gyro_ptp_dps": 0.0,
+    }
+    raw.pop("path", None)
+    raw["body_frame"] = {k: v for k, v in body_frame.items() if k != "ok"}
+    path = imu_calib_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(raw, indent=2) + "\n")
     return path
 
 
@@ -112,8 +257,11 @@ def imu_state() -> dict:
             "path": str(imu_calib_path()),
             "gyro_bias_dps": {"x": 0.0, "y": 0.0, "z": 0.0},
             "accel_bias_g": {"x": 0.0, "y": 0.0, "z": 0.0},
+            "body_frame": None,
+            "body_calibrated": False,
             "msg": "no IMU calib yet",
         }
+    body_frame = c.get("body_frame")
     return {
         "ok": True,
         "learned": True,
@@ -127,6 +275,8 @@ def imu_state() -> dict:
         "accel_rest_g": c.get("accel_rest_g"),
         "gyro_ptp_dps": c.get("gyro_ptp_dps"),
         "accel_mag_g": c.get("accel_mag_g"),
+        "body_frame": body_frame,
+        "body_calibrated": bool(body_frame),
         "msg": f"learned · {c.get('grade') or '?'} · {c.get('timestamp') or ''}",
     }
 
@@ -141,7 +291,7 @@ def reset_imu_calib() -> dict:
 
 
 def apply_imu_calib(sample: dict, calib: dict | None) -> dict:
-    """Return a copy with gyro/accel biases subtracted when calib is set."""
+    """Return a copy with gyro/accel biases and body-frame tilt applied."""
     out = dict(sample)
     if not calib:
         out["calibrated"] = False
@@ -155,6 +305,27 @@ def apply_imu_calib(sample: dict, calib: dict | None) -> dict:
     out["ay_g"] = float(sample["ay_g"]) - float(ab["y"])
     out["az_g"] = float(sample["az_g"]) - float(ab["z"])
     out["calibrated"] = True
+    rp = imu_tilt_deg(out)
+    if rp is not None:
+        roll, pitch = rp
+        out["roll_deg"] = roll
+        out["pitch_deg"] = pitch
+        bf = _valid_body_frame(calib.get("body_frame"))
+        if bf:
+            body_pitch = bf["pitch_sign"] * (
+                roll * bf["pitch_axis_roll"]
+                + pitch * bf["pitch_axis_pitch"])
+            body_roll = (
+                roll * -bf["pitch_axis_pitch"]
+                + pitch * bf["pitch_axis_roll"])
+            out["body_pitch_deg"] = body_pitch
+            out["body_roll_deg"] = body_roll
+            out["body_frame_calibrated"] = True
+            out["body_frame_axis"] = bf["pitch_axis"]
+            if bf.get("body_pitch_target_deg") is not None:
+                out["body_pitch_target_deg"] = bf["body_pitch_target_deg"]
+        else:
+            out["body_frame_calibrated"] = False
     return out
 
 

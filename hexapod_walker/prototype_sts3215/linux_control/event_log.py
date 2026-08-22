@@ -21,10 +21,12 @@ from __future__ import annotations
 
 import json
 import os
+import queue
 import socket
 import struct
 import threading
 import time
+import atexit
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -33,6 +35,13 @@ _HERE = Path(__file__).resolve().parent
 DEFAULT_LOG_DIR = _HERE / "logs"
 DEFAULT_UDP_PORT = 9377
 DEFAULT_BEACON_PORT = 9378
+
+
+def _env_int(name: str, default: int) -> int:
+    try:
+        return int(os.environ.get(name, "") or default)
+    except ValueError:
+        return default
 
 # MCU line prefixes that are too chatty for the command stream (still
 # available if HEXAPOD_LOG_MCU=all).
@@ -52,6 +61,12 @@ _orig_print = print
 _mcu_mode = "cmds"  # cmds | all | off
 _ring: list[dict] = []
 _RING_MAX = 500
+_QUEUE_MAX = max(100, _env_int("HEXAPOD_LOG_QUEUE", 1000))
+_q: queue.Queue[tuple[str, bytes, bool]] = queue.Queue(maxsize=_QUEUE_MAX)
+_worker_thread: threading.Thread | None = None
+_worker_stop = threading.Event()
+_dropped_events = 0
+_last_worker_refresh = 0.0
 _beacon_thread: threading.Thread | None = None
 _beacon_stop = threading.Event()
 _configured = False
@@ -164,6 +179,120 @@ def _refresh_broadcast_targets(port: int) -> None:
     add_target("255.255.255.255", port)
 
 
+def _write_line(line: str, payload: bytes, is_error: bool) -> None:
+    """Worker-side durable write + UDP fanout. Never called by motion code."""
+    global _err_fh
+    with _lock:
+        try:
+            if _fh is not None:
+                _fh.write(line + "\n")
+                if is_error:
+                    _fh.flush()
+        except Exception:
+            pass
+        if is_error:
+            try:
+                if _err_fh is None:
+                    out = errors_path()
+                    out.parent.mkdir(parents=True, exist_ok=True)
+                    _err_fh = out.open("a", encoding="utf-8", buffering=1)
+                _err_fh.write(line + "\n")
+                _err_fh.flush()
+            except Exception:
+                pass
+        dests = list(_targets)
+        sock = _sock
+    if sock is not None:
+        for dest in dests:
+            try:
+                sock.sendto(payload, dest)
+            except OSError:
+                pass
+
+
+def _worker_emit_drop_notice(n: int) -> None:
+    ev = {
+        "ts": _utc_iso(),
+        "mono": round(time.monotonic(), 6),
+        "kind": "log",
+        "level": "warn",
+        "src": "event_log",
+        "msg": f"log queue dropped {n} low-priority event(s)",
+        "data": {"dropped": n, "queue_max": _QUEUE_MAX},
+    }
+    line = json.dumps(ev, default=str, separators=(",", ":"))
+    payload = (line + "\n").encode("utf-8")
+    with _lock:
+        _ring.append(ev)
+        if len(_ring) > _RING_MAX:
+            del _ring[: len(_ring) - _RING_MAX]
+    _write_line(line, payload, False)
+
+
+def _log_worker() -> None:
+    global _dropped_events, _last_worker_refresh
+    while not _worker_stop.is_set() or not _q.empty():
+        try:
+            line, payload, is_error = _q.get(timeout=0.25)
+        except queue.Empty:
+            continue
+
+        with _lock:
+            dropped = _dropped_events
+            _dropped_events = 0
+        if dropped:
+            _worker_emit_drop_notice(dropped)
+
+        now = time.monotonic()
+        if now - _last_worker_refresh > 30.0:
+            try:
+                port = int(os.environ.get("HEXAPOD_LOG_PORT", DEFAULT_UDP_PORT))
+            except ValueError:
+                port = DEFAULT_UDP_PORT
+            try:
+                _refresh_broadcast_targets(port)
+            except Exception:
+                pass
+            _last_worker_refresh = now
+
+        _write_line(line, payload, is_error)
+        _q.task_done()
+
+
+def _ensure_worker() -> None:
+    global _worker_thread
+    if _worker_thread is not None and _worker_thread.is_alive():
+        return
+    _worker_stop.clear()
+    _worker_thread = threading.Thread(
+        target=_log_worker, name="event-log-writer", daemon=True)
+    _worker_thread.start()
+
+
+def _enqueue(line: str, payload: bytes, is_error: bool) -> None:
+    """Queue a log write without allowing logging to block motion."""
+    global _dropped_events
+    try:
+        _q.put_nowait((line, payload, is_error))
+        return
+    except queue.Full:
+        pass
+    if is_error:
+        # Preserve safety/error breadcrumbs by evicting one older event.
+        try:
+            _q.get_nowait()
+            _q.task_done()
+        except queue.Empty:
+            pass
+        try:
+            _q.put_nowait((line, payload, is_error))
+            return
+        except queue.Full:
+            pass
+    with _lock:
+        _dropped_events += 1
+
+
 def _beacon_loop(beacon_port: int, event_port: int) -> None:
     """Listen for laptop ``log_sink`` beacons and learn their unicast IP."""
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -258,6 +387,7 @@ def configure(*, host: str | None = None, port: int | None = None,
         if _fh is None:
             _fh = out.open("a", encoding="utf-8", buffering=1)
         _ensure_sock()
+    _ensure_worker()
 
     _refresh_broadcast_targets(port)
     if host:
@@ -279,6 +409,7 @@ def configure(*, host: str | None = None, port: int | None = None,
         "beacon_port": beacon_port,
         "event_port": port,
         "mcu_mode": _mcu_mode,
+        "queue_max": _QUEUE_MAX,
         "auto": True,
     }
 
@@ -290,16 +421,14 @@ def _ensure() -> None:
 
 def emit(kind: str, msg: str = "", *, src: str = "robot",
          data: dict | None = None, level: str = "info") -> dict:
-    """Append one timestamped event and UDP-fanout to all known sinks."""
+    """Record one event.
+
+    The hot path updates the in-memory ring and queues disk/UDP work for a
+    bounded background writer. If the writer falls behind, low-priority log
+    traffic is dropped instead of delaying motion.
+    """
     global _seq
     _ensure()
-    # Periodically refresh broadcasts (DHCP / new interface).
-    if _seq % 200 == 0:
-        try:
-            port = int(os.environ.get("HEXAPOD_LOG_PORT", DEFAULT_UDP_PORT))
-        except ValueError:
-            port = DEFAULT_UDP_PORT
-        _refresh_broadcast_targets(port)
 
     with _lock:
         _seq += 1
@@ -324,41 +453,40 @@ def emit(kind: str, msg: str = "", *, src: str = "robot",
 
     line = json.dumps(ev, default=str, separators=(",", ":"))
     payload = (line + "\n").encode("utf-8")
-    global _err_fh
     with _lock:
-        try:
-            if _fh is not None:
-                _fh.write(line + "\n")
-                _fh.flush()
-        except Exception:
-            pass
-        if ev["level"] == "error":
-            try:
-                if _err_fh is None:
-                    out = errors_path()
-                    out.parent.mkdir(parents=True, exist_ok=True)
-                    _err_fh = out.open("a", encoding="utf-8", buffering=1)
-                _err_fh.write(line + "\n")
-                _err_fh.flush()
-            except Exception:
-                pass
         _ring.append(ev)
         if len(_ring) > _RING_MAX:
             del _ring[: len(_ring) - _RING_MAX]
-        dests = list(_targets)
-        sock = _sock
-    if sock is not None:
-        for dest in dests:
-            try:
-                sock.sendto(payload, dest)
-            except OSError:
-                pass
+    _enqueue(line, payload, ev["level"] == "error")
     return ev
 
 
 def recent(n: int = 100) -> list[dict]:
     with _lock:
         return list(_ring[-max(1, n):])
+
+
+def stats() -> dict:
+    with _lock:
+        dropped = _dropped_events
+    return {
+        "queue": _q.qsize(),
+        "queue_max": _QUEUE_MAX,
+        "dropped_pending_notice": dropped,
+        "writer_alive": bool(
+            _worker_thread is not None and _worker_thread.is_alive()),
+        "udp_targets": targets(),
+    }
+
+
+def flush(timeout: float = 1.0) -> bool:
+    """Best-effort drain for shutdown/tests; never used in motion loops."""
+    end = time.monotonic() + max(0.0, float(timeout))
+    while time.monotonic() < end:
+        if _q.empty():
+            return True
+        time.sleep(0.01)
+    return _q.empty()
 
 
 def should_log_mcu(cmd: str) -> bool:
@@ -474,3 +602,6 @@ try:
     configure()
 except Exception:
     pass
+
+
+atexit.register(flush, 1.5)

@@ -10,7 +10,27 @@ set -euo pipefail
 SRC="$(cd "$(dirname "$0")" && pwd)"
 HOST="${HEXAPOD_SSH:-arduino@hexapod.local}"
 REMOTE="/home/arduino/hexapod_sts"
-SSH=(ssh -o BatchMode=yes -o ConnectTimeout=10 "$HOST")
+SSH=(ssh -o BatchMode=yes -o ConnectTimeout=10 \
+  -o StrictHostKeyChecking=accept-new \
+  -o HostKeyAlias="${HEXAPOD_SSH_HOSTKEY_ALIAS:-hexapod.local}" \
+  "$HOST")
+HTTP_URL="${HEXAPOD_HOST:-http://hexapod.local:8080}"
+
+wait_http() {
+  local body i
+  for i in {1..20}; do
+    if body="$(curl -fsS -m 1 "$HTTP_URL/api/ping" 2>/dev/null)"; then
+      echo "$body"
+      return 0
+    fi
+    sleep 0.25
+  done
+  curl -s -m 3 "$HTTP_URL/api/ping" || true
+}
+
+clear_deploy_screen() {
+  curl -fsS -m 3 -X POST "$HTTP_URL/api/tft/ready" >/dev/null 2>&1 || true
+}
 
 # Serialize deploys across workspaces (lock ~/.hexapod/deploy.lock,
 # history ~/.hexapod/deploy.log — see deploy_lock.sh).
@@ -35,10 +55,11 @@ mkdir -p "$STAGE/linux_control" "$STAGE/motor_setup" \
 cp "$SRC/tripod_gait.py" "$SRC/drive_controller.py" \
   "$SRC/mcu_feetech_bus.py" "$SRC/bench_api.py" "$SRC/web_drive.py" \
   "$SRC/xbox_drive.py" "$SRC/joint_calibrate.py" \
-  "$SRC/plant_calibrate.py" "$SRC/imu_calibrate.py" \
-  "$SRC/event_log.py" "$SRC/status_display.py" "$SRC/servo_watch.py" \
+  "$SRC/plant_calibrate.py" "$SRC/geometry_plant.py" "$SRC/imu_calibrate.py" \
+  "$SRC/event_log.py" "$SRC/status_display.py" \
+  "$SRC/deploy_status_display.py" "$SRC/servo_watch.py" \
   "$SRC/mpu_probe.py" "$SRC/rl_policy.py" "$SRC/safe_zero.py" \
-  "$SRC/pinned_tip.py" "$SRC/noslip_gait.py" \
+  "$SRC/pinned_tip.py" "$SRC/noslip_gait.py" "$SRC/se2_foot_gait.py" \
   "$SRC/sysid_protocol.py" "$SRC/sysid_runner.py" "$SRC/bus_bench.py" \
   "$SRC/rl_policy_weights.json" "$SRC/rl_walk_weights.json" \
   "$SRC/standup_modes.json" \
@@ -76,27 +97,41 @@ touch "$STAGE/motor_setup/__init__.py" "$STAGE/linux_control/__init__.py"
 echo ">> pushing code + vendored SDK -> $HOST:$REMOTE (single tar|ssh)"
 # COPYFILE_DISABLE: keep macOS bsdtar from tucking ._* AppleDouble files
 # into the stream (GNU tar on the board would extract them as junk).
-COPYFILE_DISABLE=1 tar -C "$STAGE" -czf - . \
+COPYFILE_DISABLE=1 tar --no-xattrs -C "$STAGE" -czf - . \
   | "${SSH[@]}" "mkdir -p '$REMOTE' && tar -xzf - -C '$REMOTE'"
+
+paint_deploy_screen() {
+  "${SSH[@]}" "cd '$REMOTE/linux_control' && \
+    PYTHONPATH='$REMOTE/linux_control/vendor:$REMOTE/urt2_setup:$REMOTE/motor_setup:$REMOTE/linux_control' \
+    python3 deploy_status_display.py \
+      --title DEPLOYING \
+      --line 'code updated' \
+      --line 'web restarting' \
+      --line 'please wait' \
+      --footer 'screen will resume'" >/dev/null 2>&1 || true
+}
 
 echo ">> restarting web_drive.py"
 if "${SSH[@]}" 'systemctl is-enabled hexapod-web.service >/dev/null 2>&1'; then
-  "${SSH[@]}" 'echo arduino | sudo -S systemctl restart hexapod-web.service' \
+  "${SSH[@]}" 'echo arduino | sudo -S systemctl stop hexapod-web.service' \
+    >/dev/null || true
+  paint_deploy_screen
+  "${SSH[@]}" 'echo arduino | sudo -S systemctl start hexapod-web.service' \
     >/dev/null
-  sleep 5
   "${SSH[@]}" 'systemctl --no-pager -l status hexapod-web.service \
     | head -5 || true'
 else
   "${SSH[@]}" "pkill -f '[p]ython3 .*web_drive.py' || true" || true
+  paint_deploy_screen
   "${SSH[@]}" "sh -c 'cd \"$REMOTE/linux_control\" && \
     PYTHONUNBUFFERED=1 \
     PYTHONPATH=\"$REMOTE/linux_control/vendor:$REMOTE/urt2_setup:$REMOTE/motor_setup:$REMOTE/linux_control\" \
     nohup python3 web_drive.py --port mcu --http-port 8080 \
     --https-port 8443 > \"$REMOTE/web_drive.log\" 2>&1 < /dev/null &'"
-  sleep 5
 fi
 
-echo ">> verify over HTTP"
-curl -s -m 8 http://hexapod.local:8080/api/ping || true
+echo ">> verify over HTTP ($HTTP_URL)"
+wait_http
+clear_deploy_screen
 echo
 echo ">> done"

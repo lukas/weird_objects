@@ -132,8 +132,8 @@ def joint_name(j: int) -> str:
 def foot_z_mm(hip_deg: float, knee_deg: float) -> float:
     """Foot Z relative to the hip pivot (mm); negative = below."""
     p = math.radians(hip_deg)
-    pt = math.radians(hip_deg + knee_deg)
-    return -FEMUR_MM * math.sin(p) - TIBIA_MM * math.sin(pt)
+    k = math.radians(knee_deg)
+    return -FEMUR_MM * math.sin(p) - TIBIA_MM * math.sin(k)
 
 
 def knee_for_foot_z(hip_deg: float, z_mm: float) -> float | None:
@@ -144,9 +144,9 @@ def knee_for_foot_z(hip_deg: float, z_mm: float) -> float | None:
     num = -(z_mm + FEMUR_MM * math.sin(p)) / TIBIA_MM
     if abs(num) > 1.0:
         return None
-    pt = math.asin(max(-1.0, min(1.0, num)))
-    for cand in (pt, math.pi - pt):
-        knee = math.degrees(cand - p)
+    a = math.asin(max(-1.0, min(1.0, num)))
+    for cand in (a, math.pi - a):
+        knee = math.degrees(cand)
         if lo <= knee <= hi:
             return float(knee)
     return None
@@ -155,7 +155,7 @@ def knee_for_foot_z(hip_deg: float, z_mm: float) -> float | None:
 def foot_r_mm(hip_deg: float, knee_deg: float) -> float:
     """Foot radial distance from the hip pivot in the leg plane (mm)."""
     return (FEMUR_MM * math.cos(math.radians(hip_deg))
-            + TIBIA_MM * math.cos(math.radians(hip_deg + knee_deg)))
+            + TIBIA_MM * math.cos(math.radians(knee_deg)))
 
 
 def leg_reach_mm(knee_deg: float) -> float:
@@ -168,25 +168,36 @@ def leg_reach_mm(knee_deg: float) -> float:
 def ik_hip_knee(r_mm: float, z_mm: float) -> tuple[float, float] | None:
     """(hip, knee) placing the foot at ``(r, z)`` mm from the hip pivot.
 
-    Positive-fold (knee ≥ 0) branch only. None when out of reach or
-    outside the hip/knee axis limits.
+    Absolute-tibia convention: hip is femur angle, knee is tibia angle in
+    the same leg plane. None when out of reach or outside axis limits.
     """
-    d2 = r_mm * r_mm + z_mm * z_mm
-    d = math.sqrt(d2)
-    if d < 1e-6:
+    w = -float(z_mm)
+    u = float(r_mm)
+    L = math.hypot(u, w)
+    if L < 1e-6 or L > FEMUR_MM + TIBIA_MM - 1e-6:
         return None
-    ck = ((d2 - FEMUR_MM ** 2 - TIBIA_MM ** 2)
-          / (2.0 * FEMUR_MM * TIBIA_MM))
-    if not -1.0 <= ck <= 1.0:
+    if L < abs(FEMUR_MM - TIBIA_MM) + 1e-6:
         return None
-    knee = math.degrees(math.acos(ck))
-    cg = (FEMUR_MM ** 2 + d2 - TIBIA_MM ** 2) / (2.0 * FEMUR_MM * d)
-    hip = math.degrees(math.atan2(-z_mm, r_mm)
-                       - math.acos(max(-1.0, min(1.0, cg))))
     hip_lo, hip_hi = AXIS_LIMITS_DEG[1]
     knee_lo, knee_hi = AXIS_LIMITS_DEG[2]
-    if not (hip_lo <= hip <= hip_hi and knee_lo <= knee <= knee_hi):
+    gamma = math.atan2(w, u)
+    ca = (L * L + FEMUR_MM ** 2 - TIBIA_MM ** 2) / (2.0 * L * FEMUR_MM)
+    ca = max(-1.0, min(1.0, ca))
+    alpha = math.acos(ca)
+    candidates = []
+    for hip_r in (gamma - alpha, gamma + alpha):
+        knee_r = math.atan2(w - FEMUR_MM * math.sin(hip_r),
+                            u - FEMUR_MM * math.cos(hip_r))
+        hip = math.degrees(hip_r)
+        knee = math.degrees(knee_r)
+        if hip_lo <= hip <= hip_hi and knee_lo <= knee <= knee_hi:
+            score = abs(knee - hip)
+            if knee < hip:
+                score += 100.0
+            candidates.append((score, hip, knee))
+    if not candidates:
         return None
+    _score, hip, knee = min(candidates, key=lambda row: row[0])
     return float(hip), float(knee)
 
 
@@ -198,7 +209,7 @@ def leg_segment_2d(leg: int, yaw_deg: float, hip_deg: float,
     root = (LEG_RADIAL_MM * math.cos(az), LEG_RADIAL_MM * math.sin(az))
     ang = az + math.radians(yaw_deg)
     u = (COXA_MM + FEMUR_MM * math.cos(math.radians(hip_deg))
-         + TIBIA_MM * math.cos(math.radians(hip_deg + knee_deg)))
+         + TIBIA_MM * math.cos(math.radians(knee_deg)))
     return root, (root[0] + u * math.cos(ang), root[1] + u * math.sin(ang))
 
 
@@ -387,6 +398,8 @@ def _plan_descent(present: list[float], yaw_now: list[float],
     ``{"ok": False, "why": ...}`` (caller falls back to the legacy
     single-blend straighten).
     """
+    return {"ok": False, "why": "low-drag descent awaits absolute-knee retune"}
+
     h_belly = -ground_z_mm
     r0, z0 = [], []
     for leg in range(6):

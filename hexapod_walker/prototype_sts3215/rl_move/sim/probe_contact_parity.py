@@ -134,7 +134,7 @@ def build_stream(stream: str, ticks: int, vx: float) -> np.ndarray:
     """(T,18) joint goal commands in rad — identical for every config."""
     if stream == "freeze":
         return np.tile(PLANT_RAD, (ticks, 1))
-    from tripod_gait import TripodGait
+    from sim_gait_compat import TripodGait
     gait = TripodGait(vx=0.0)
     gait.sync_plant_stance(*WALK_PLANT)
     gait.reset_phase()

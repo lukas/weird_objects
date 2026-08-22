@@ -92,20 +92,26 @@ class Link:
         self.drive = drive
         self.lock = threading.Lock()
 
-    def send(self, line: str) -> bool:
+    def send(self, line: str) -> tuple[bool, str]:
         with self.lock:
             try:
+                result = self.drive.handle(line)
                 try:
                     from event_log import emit
                     emit("cmd", line.strip(), src="drive",
-                         data={"line": line.strip()})
+                         data={"line": line.strip(), "result": result})
                 except Exception:
                     pass
-                self.drive.handle(line)
-                return True
+                msg = str(result or "ok")
+                ok = not (
+                    msg.startswith("refused")
+                    or msg.startswith("need ")
+                    or msg.startswith("bad ")
+                )
+                return ok, msg
             except Exception as e:
                 print(f"[link] handle failed: {e}")
-                return False
+                return False, str(e)
 
 
 LINK = None   # set in main()
@@ -121,12 +127,15 @@ HTTPS_PORT = None   # actual HTTPS port that bound (443 if privileged, else 8443
 # on a browser reload without restarting the server.
 WEBUI_DIR = HERE / "webui"
 PAGE_PATHS = ("/", "/index.html", "/debug", "/motors", "/demos",
-              "/rl", "/experiments", "/measure", "/calibrate")
+              "/dance", "/quad", "/rl", "/experiments", "/measure",
+              "/calibrate")
 # Exact whitelisted names only -- no generic static-dir handler, so nothing
 # else on disk is reachable (path-traversal safety).
 STATIC_FILES = {
-    "/style.css": ("style.css", "text/css; charset=utf-8", "no-cache"),
-    "/app.js": ("app.js", "text/javascript; charset=utf-8", "no-cache"),
+    "/style.css": ("style.css", "text/css; charset=utf-8",
+                   "no-store, max-age=0, must-revalidate"),
+    "/app.js": ("app.js", "text/javascript; charset=utf-8",
+                "no-store, max-age=0, must-revalidate"),
     "/favicon.svg": ("favicon.svg", "image/svg+xml", "max-age=86400"),
 }
 
@@ -146,7 +155,8 @@ class Handler(BaseHTTPRequestHandler):
         if cache:
             self.send_header("Cache-Control", cache)
         elif "text/html" in ctype:
-            self.send_header("Cache-Control", "no-store")
+            self.send_header(
+                "Cache-Control", "no-store, max-age=0, must-revalidate")
         self.end_headers()
         try:
             self.wfile.write(data)
@@ -192,7 +202,9 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(500, f"webui file missing: expected {index} ({e})")
                 return
             page = page.replace("__HTTPS_PORT__", str(HTTPS_PORT or 8443))
-            self._send(200, page, "text/html; charset=utf-8", cache="no-cache")
+            self._send(
+                200, page, "text/html; charset=utf-8",
+                cache="no-store, max-age=0, must-revalidate")
         elif path in STATIC_FILES:
             name, ctype, cache = STATIC_FILES[path]
             fpath = WEBUI_DIR / name
@@ -292,7 +304,7 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(500, {"ok": False, "error": str(e)})
         elif path == "/api/events":
             try:
-                from event_log import recent, events_path
+                from event_log import recent, events_path, stats
                 n = 100
                 qs = self.path.split("?", 1)
                 if len(qs) == 2 and "n=" in qs[1]:
@@ -303,6 +315,7 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, {
                     "ok": True,
                     "path": str(events_path()),
+                    "stats": stats(),
                     "events": recent(n),
                 })
             except Exception as e:
@@ -385,6 +398,12 @@ class Handler(BaseHTTPRequestHandler):
         elif path == "/api/imu":
             self._json(200, BENCH.imu_state() if BENCH
                        else {"ok": False, "error": "no bench"})
+        elif path == "/api/geometry/manual":
+            self._json(200, BENCH.manual_geometry_state() if BENCH
+                       else {"ok": False, "error": "no bench"})
+        elif path == "/api/calibration/report":
+            self._json(200, BENCH.calibration_report() if BENCH
+                       else {"ok": False, "error": "no bench"})
         elif path == "/api/rl/state" or path == "/api/rl":
             self._json(200, BENCH.rl_state() if BENCH
                        else {"ok": False, "error": "no bench"})
@@ -438,8 +457,11 @@ class Handler(BaseHTTPRequestHandler):
                     # Graceful power-off also preempts any demo so the
                     # settle doesn't fight a running routine.
                     BENCH._preempt_demo_thread(reason="settle", timeout=3.0)
-                ok = LINK.send(line)
-                self._send(200 if ok else 502, "ok" if ok else "link down")
+                ok, msg = LINK.send(line)
+                self._send(200 if ok else 409, msg if ok else msg or "failed")
+        elif path == "/api/tft/ready":
+            self._json(200, BENCH.tft_ready() if BENCH
+                       else {"ok": False, "error": "no bench"})
         elif path == "/api/wiggle":
             try:
                 data = json.loads(body or "{}")
@@ -461,6 +483,11 @@ class Handler(BaseHTTPRequestHandler):
                     kw["torque"] = int(float(data["torque"]))
                 if "seconds" in data and data.get("seconds") is not None:
                     kw["seconds"] = float(data["seconds"])
+                if "motion_log" in data:
+                    v = data.get("motion_log")
+                    kw["motion_log"] = (
+                        v.strip().lower() in ("1", "true", "yes", "on")
+                        if isinstance(v, str) else bool(v))
                 self._json(200, BENCH.run_demo(str(data.get("name", "")), **kw))
             except Exception as e:
                 self._json(400, {"ok": False, "error": str(e)})
@@ -571,6 +598,7 @@ class Handler(BaseHTTPRequestHandler):
                     nudge_deg=float(data.get("nudge_deg", 2)),
                     axis=str(data.get("axis", "all")),
                     clearance_mm=float(data.get("clearance_mm", 40)),
+                    quad_body_frame=bool(data.get("quad_body_frame", True)),
                     force=bool(data.get("force", False)),
                 ))
         elif path == "/api/calibrate/stop":
@@ -582,6 +610,19 @@ class Handler(BaseHTTPRequestHandler):
         elif path == "/api/imu/reset":
             self._json(200, BENCH.reset_imu() if BENCH
                        else {"ok": False, "error": "no bench"})
+        elif path == "/api/geometry/manual":
+            try:
+                data = json.loads(body or "{}") if body else {}
+            except ValueError:
+                data = {}
+            if not isinstance(data, dict):
+                data = {}
+            self._json(200, BENCH.set_manual_geometry(
+                hip_pitch_height_mm=data.get("hip_pitch_height_mm"),
+                hip_center_radius_mm=data.get("hip_center_radius_mm"),
+                femur_mm=data.get("femur_mm"),
+                tibia_mm=data.get("tibia_mm")) if BENCH
+                else {"ok": False, "error": "no bench"})
         elif path == "/api/rl/find_plant":
             try:
                 data = json.loads(body or "{}") if body else {}
@@ -708,6 +749,13 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, BENCH.measure_hold(
                     label=str(data.get("label", "planted")),
                     duration_s=float(data.get("duration_s", 30.0))))
+            elif path == "/api/measure/slip":
+                self._json(200, BENCH.measure_slip())
+            elif path == "/api/measure/axis_geometry":
+                self._json(200, BENCH.measure_axis_geometry(
+                    knee_height_mm=data.get("knee_height_mm"),
+                    knee_to_boot_tip_mm=data.get("knee_to_boot_tip_mm"),
+                    boot_diameter_mm=data.get("boot_diameter_mm")))
             elif path == "/api/measure/annotate":
                 self._json(200, BENCH.measure_annotate(
                     fields=data if isinstance(data, dict) else {}))
@@ -853,10 +901,15 @@ def _main_after_bus(args) -> None:
     DRIVE.bench = BENCH
     LINK = Link(DRIVE)
     if not args.dry_run:
-        # StatusDisplay hard-reinits the ST7789 at start (covers ribbon
-        # reseat while MCU still thinks the panel is up).
-        BENCH.start_status_display()
-        print("[web] TFT status display started (MCU ST7789)")
+        # The ST7789 shares the MCU serial path with motion/test commands.
+        # Keep it opt-in so cosmetic screen repaints cannot delay robot work.
+        tft_status = os.environ.get("HEXAPOD_TFT_STATUS", "").strip().lower()
+        if tft_status in ("1", "true", "yes", "on"):
+            BENCH.start_status_display()
+            print("[web] TFT status display started (MCU ST7789)")
+        else:
+            print("[web] TFT status display disabled "
+                  "(set HEXAPOD_TFT_STATUS=1 to enable)")
         BENCH.start_servo_watch()
         print("[web] servo watch started (liveness + 65C cutoff)")
 

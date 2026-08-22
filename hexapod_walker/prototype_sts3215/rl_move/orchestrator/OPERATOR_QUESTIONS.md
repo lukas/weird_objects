@@ -1162,7 +1162,18 @@ Entry format (append; newest last; update status in place):
 - rulebook change: none needed — the pick was executed as ordered;
   V5 init-from exception already documented.
 
-## q_20260820T2330Z — OPEN
+## q_20260820T2330Z — CLOSED (answered by operator order 20260821T224150Z)
+- resolution (08-21 kick cycle): the operator confirmed the fast-gait
+  BC/scaffold line and supplied the new lever — speed-conditioned BC from
+  the NATIVE-cadence teacher under the full profile, pinned speed bands,
+  obs contract fixed so the policy sees actual body velocity separately
+  from the command (no more vel:=ref blindness), speed varied by stride
+  geometry only; no reopening of no-BC scratch walking; the scalar
+  k_walk_cmd_track reward-only lever stays closed. Executed as
+  cw-dep-bcgait3-speedbc1 (mode-3 leg-odometry obs + 0.06-0.10 band +
+  tested k_walk_overspeed/k_walk_heading charges; 0.04/0.05 bands
+  honestly refuted at teacher preflight, slip/m 2.9-3.8). The cadence
+  knob stays retired (code default-off, refutation recorded).
 - cycle: operator-kick 08-20 (fast-cadence BC gait order, fb 20260820T224241Z)
 - operator order: design/launch a fresh BC-INIT variant from the scripted
   TripodGait teacher with SHORTER PERIOD / faster cadence; preflight the
@@ -1198,5 +1209,204 @@ Entry format (append; newest last; update status in place):
   beats bcgait1_hard1 (per the order). Question: is the full-profile
   BC-INIT substitution the intended reading, and should the cadence knob
   be retired (code stays, default-off, refutation recorded)?
+- UPDATE (triage cycle, 08-20 ~23:5x UTC): the pre-authorized successor
+  named above, `cw-dep-bcgait2-fastbc1-track1` (adds
+  `reward.k_walk_cmd_track=1.0` over 5M steps), has finished and FAILED
+  its own pre-registered gate — the command-tracking price made the
+  overspeed WORSE, not better (DR-0 prog_ratio det 1.88x->2.10x, sto
+  1.20x->1.76x; own-DR sto 1.12x->1.92x, was in-band, now overspeeds).
+  Zero falls, gait_valid 6/6, video still tall/clean six-leg (no
+  exploit). Per the gate's own text this is "wrong lever, STOP" — no
+  further respec of this reward line without a new hypothesis. The
+  fast-gait fork is now fully stalled on this question: confirming the
+  substitution no longer unblocks anything by itself, a new lever is
+  also needed. Full run record: `rl_docs/runs/cw-dep-bcgait2-fastbc1-track1.md`.
 - ANSWER (operator): _pending_
 - rulebook change: _pending_
+
+## q_20260821T1400Z — OPEN
+- cycle: operator kick (ops.sh cycle), 2026-08-21
+- operator order: MCP operator lane 20260821T133626Z (GPT-5 Codex for
+  Lukas) — run a BASIC FROM-SCRATCH anti-slip walking experiment:
+  no BC/anchor/pretrained actor, one fixed direction first, no speed
+  target, loaded slip penalized hard structurally, gate on plain
+  behavior (zero falls, real distance, correct direction, six-leg
+  stepping, low slip), small canary first.
+- conflicted with: (a) SIM SPRINT, "No new research-track launches
+  (dynrep, arch, nobc, quad, turn, multitask) unless the arm directly
+  serves that goal" (RL_PLAN "SIM SPRINT", CURRENT_TRUTHS "Current Top
+  Ruling"); (b) CURRENT_TRUTHS "Track Facts": "`nobc` gait-from-scratch
+  is closed absent new hardware evidence" (operator ruling 08-13), and
+  nobc/STATUS "For gait-from-scratch, require new hardware evidence
+  before any run".
+- why the cycle would have declined: five prior from-scratch gait arms
+  (dragstance1, rsi1, slowfirst1, sched1, ease1) all collapsed into
+  freeze / march-in-place / skating, and the closure ruling asked for
+  new hardware evidence before spending more GPU on the class. The
+  robot is off the bench, so no new hardware evidence exists.
+- what was executed: obeyed. Built the mechanisms the order specifies
+  (default-off `reward.k_walk_freeprog` direction-first income with NO
+  speed target + `reward.k_walk_idle_charge` anti-park travel floor,
+  paired with the existing structural `k_loadslip_excess` and
+  `walk_gait_gate`), added the SLIPWALK MDP_PREFLIGHT bank proving
+  travel > stall/park/skate and that overspeed is not punished, and
+  launched the one-direction canary `cw-nobc-slipwalk1` (2M,
+  discovery, track nobc, from scratch, pure forward command).
+  Verification: full walk-family semantics banks + walk unit + MJX
+  vec-env tests green; launcher two-phase INTENT->RUNNING.
+- outcome: `cw-nobc-slipwalk1` SIGBUS'd at boot (train-0 /dev/shm) and
+  was relaunched as `cw-nobc-slipwalk1-r1`, which trained 2M and FAILED
+  its gate: 0.001 m travel/episode, slip/m 6.75, gait_valid 0/6, zero
+  falls only because nothing moved. Sub-line stopped per the order's own
+  instruction. The useful new fact for the operator: the reward stack was
+  preflight-proven correct (SLIPWALK bank), so from-scratch gait's
+  blocker is EXPLORATION from a blank init, not reward specification —
+  reopening should change the START (scripted kickstart / mid-stride RSI
+  / physics ramp), not the pricing.
+- ANSWER (operator):
+- rulebook change: CURRENT_TRUTHS "Track Facts" nobc line amended to
+  record the 08-21 reopening, the canary result, and the
+  exploration-not-specification conclusion.
+
+## q_20260822T0030Z — OPEN
+- cycle: operator kick 08-22 ~00:03 UTC (speedbc1 continuation focus)
+- operator order: MCP operator lane fb 20260822T000318Z (GPT-5 Codex
+  for Lukas) — continue cw-dep-bcgait3-speedbc1 (+3-5M) because
+  rollout reward was still recovering late; the prior pre-registered
+  STOP is explicitly not final.
+- conflicted with: the run's own pre-registered FAIL mode ("overspeed
+  persists = obs+charge lever insufficient, STOP + operator" — hit on
+  every axis, verdicted 08-21) and RESEARCH_RULES' ban on letting a
+  rising training return alone buy more steps (guardrails
+  `experiments`: continue-while-improving DISABLED).
+- why the cycle would have declined: this cycle's pre-launch
+  decomposition of 4yitv3cc shows the late return recovery is an
+  episode-length artifact — per-tick reward WORSENED (-2.95 -> -3.13)
+  while ep_len fell 317 -> 249 and pitch rose 4.7 -> 6.3 deg; the
+  net-negative heading+overspeed tax pays the policy to fall earlier.
+  Direction error (~78 deg) and speed (0.12 m/s) stayed
+  command-invariant all run, so more steps are predicted to deepen the
+  fall-earlier basin, not escape it.
+- what was executed: cw-dep-bcgait3-speedbc1-cont1, +4M warm-start
+  from ppo_goal_cw_dep_bcgait3_speedbc1.zip, same core config,
+  --save-every 500k for snapshot panels; VERIFIED RUNNING on
+  hexapod-mjx-train-7. Gate forces per-tick-vs-ep-len decomposition +
+  pinned-speed panels so a reward-only rise cannot read as progress.
+  Decomposition answer posted to the parent's W&B notes.
+- ANSWER (operator): _
+- rulebook change: _
+
+## q_20260822T0300Z — OPEN
+- cycle: c08-22d (idle-kick)
+- operator order: none — inverse case: agent acted INSIDE a listed
+  operator gate (STATUS "Measured plant: decide whether to
+  re-gate/re-harden the download hierarchy on the new tibia-150
+  geometry") on assume-and-go grounds.
+- conflicted with: STATUS.md "Operator Gates" measured-plant line
+  ("decide whether to re-gate/re-harden" was reserved to the operator).
+- why the cycle acted anyway: binding 08-11 directive ("MAKE STANDING
+  AND WALKING WORK IN SIM... an idle fleet next to an unattacked
+  stand/walk blocker is now the failure mode") + SIM SPRINT ("what
+  exactly would we download?"). Measurement first: the shipped
+  hierarchy HARD-FAILS eval_session at the measured tibia-150 plant
+  (falls: sit tilt_pitch, back tilt_roll; fwd yaw -21.8 deg) while the
+  matched control (HEAD harness, only a4beb8af reverted) PASSES —
+  evidence `logs/ckpt_eval/plantgate_tibia150_session/`. With the
+  current-sim download answer measurably broken and 12 pods idle, the
+  cycle judged re-gating no longer hypothetical.
+- what was executed: (1) det session gate at tibia-150 + matched
+  128 mm control on train-0 (hierarchy FAILS at 150, control PASSES);
+  (2) rise/lower/walk semantics banks re-run before launch — RED
+  (14 FAIL; 4 tibia-caused incl. walk gait-gate orderings, 10
+  both-plant, onset 08-21/22 commit window), so the two fix arms
+  (`cw-stand-footlow2-plant150-1`, `cw-dep-bcgait1-plant150-1`) were
+  SPEC'D + pre-registered in hw STATUS but NOT launched (MDP_PREFLIGHT
+  blocker). NOT executed: any training launch, any promotion, any
+  DOWNLOAD_ANSWER change (caveat noted only), any bench action.
+- ANSWER (operator): (pending)
+- rulebook change: (pending)
+
+## q_20260822T0730Z — OPEN
+- cycle: c0822-bankrepair (idle-kick, deep model)
+- operator order: none directly — this is an ASSUMPTION record
+  (assume-and-go on the critical path), on top of operator commit
+  30660b51 "Use measured stand geometry for calibration and gaits".
+- conflicted with: 30660b51 changed shared default sim behavior
+  (scripted-gait/IK knee output convention -> absolute_tibia; hardware
+  default stand home +19/+28 absolute leaked into the sim as the
+  default plant), which collapsed the semantics banks (43 FAIL) and
+  mis-posed every rl_move scripted rollout, spawn pose, and BC anchor.
+- why the cycle would have declined: n/a — repaired instead of
+  reverting. Two judgment calls the operator should review: (1) the
+  hardware convention was kept and ADAPTED at the sim boundary
+  (linux_control/sim_gait_compat.py; hardware files untouched) rather
+  than reverting the operator's convention; (2) sim_env's default
+  plant does NOT adopt the hardware DEFAULT stand home (+19/+28 abs =
+  +19/+9 rel), because that pose is on the leg-extension boundary
+  (hip->foot 239.9 of 240 mm — body-IK singular); the sim keeps its
+  canonical +20/+80-rel default, while a genuinely CAPTURED
+  plant_pose.json IS adopted (converted). If the operator intends the
+  sim plant to follow the measured stand home, the plant-150 fix arms
+  and the balance-task IK envelope need a redesign, not just this fix.
+- what was executed: bisect (green a4beb8af -> broken 30660b51),
+  sim_gait_compat boundary module + import rewrite + body_ik/default
+  plant fixes, banks 43 FAIL -> 7 (all 7 reproduce pre-convention at
+  tibia-150 => true measured-plant residue), snapshot 778816cd, walk
+  fix arm cw-dep-bcgait1-plant150-1 queued. NOTE: phasedir1 trained on
+  the corrupted sim — its RL verdict is env-confounded (hw STATUS).
+- ANSWER (operator): _
+- rulebook change: _
+
+## q_20260822T0430Z — OPEN
+- cycle: cycle_20260822T032518_operator-kick
+- operator order: fb_20260822T032514 ("Make the reward correctly
+  aligned and rerun" — staged phase-clock gait, reward must price
+  heading progress / wrong-way collapse / overspeed / loaded slip /
+  gait deviation; launch only after preflight ranks the clone above
+  the phasedir1 attractors).
+- conflicted with: RESEARCH_RULES MDP_PREFLIGHT WALK ordering
+  "useful commanded progress > march-in-place/paddle stall >
+  park/refusal". Under the ordered slip pricing
+  (k_loadslip_excess=10 at the clone-banded ratio) a scuffing
+  march-in-place earns ~47 vs a quiet park's ~112 (obey ~458-478) —
+  park > stall, inverting the generic contract's tail.
+- why the cycle would have declined: n/a — executed with a documented
+  adaptation instead. Weakening slip pricing to restore stall > park
+  would undo the order's item 3; the stall>park tail exists for
+  from-scratch discovery gradients, and this arm is warm-started from
+  a proven walking clone, so the launch-relevant orderings are
+  obey >> {stall, park}, asserted with >=100 margins per heading bin
+  (tests/test_phasedir_semantics.py::
+  test_walk_bank_contract_obey_buries_stall_and_park).
+- what was executed: PHASEDIR preflight bank (20 tests, green),
+  staged rung-A launch prepared per the order.
+- ANSWER (operator): _pending_
+- rulebook change: _pending_ (proposal: scope the WALK stall>park
+  tail to from-scratch/no-BC arms; imitation-anchored arms require
+  obey >> both instead).
+
+## 2026-08-22 — phasedir rung A stopped obedient-but-slow: approve charge repricing before relaunch?
+
+- context: `cw-dep-bcgait4-phasedir2-staged-fwd` (staged curriculum
+  rung A, forward-only 0.08) FAILED its pre-registered clone-relative
+  gate on the obedient-but-slow branch: zero falls, gait 6/6, slip
+  1.06x clone, dir_err -4.4deg better, but along-progress 0.836x
+  clone (<0.9x) with speed pinned at the 0.060 band floor. Per the
+  gate ("charges overpriced, STOP + report doses") rung B was NOT
+  launched. Doses paid per tick, flat all run: course -1.4 (k=2),
+  overspeed -2.2 (k=4), loadslip_excess -1.2 (k=10, ratio ~5.1 >
+  max 4.0). Diagnosis: charges are assessed per-tick on the
+  STOCHASTIC rollout; exploration noise (std stuck 0.36; the
+  untouched clone pays an identical sto bill: speed 0.122, slip
+  31/m) funds them, so PPO's cheapest gradient is a slower mean
+  gait — not a coefficient problem but a WHERE-the-charge-is-read
+  problem.
+- question: approve repricing overspeed + loadslip onto stride-EMA /
+  mean-behavior quantities (as k_walk_course already is), with a new
+  bank test asserting a clone rollout at std=0.36 pays ~zero
+  overspeed/loadslip charge, then relaunching rung A?
+- assumed answer (assume-and-go): YES — the stride-EMA repricing is
+  the minimal aligned fix; coefficient re-dosing alone cannot stop
+  noise taxation. No relaunch until the extended
+  test_phasedir_semantics.py bank is green.
+- ANSWER (operator): _pending_

@@ -61,6 +61,7 @@ meant for hardware.
 | kp / kv / frictionloss | 916 / 0.17 / 0.02 | sim-in-loop fit vs step shapes; holdout ±5° 20–40× better than air | shape-fit, load-dependent in reality | kp ±20%, kv ±25% per joint |
 | torque limit | 2.2 N·m | datasheet, never fitted | unknown under sag | torque_scale ×0.80–1.05 |
 | hip / yaw (all of the above) | knee latency delta +76 ms, shared ceiling; air kp/kv/deadband | **ASSUMPTION — no loaded ladder for these axes** (HARDWARE.md wishlist item 4) | large | same DR bands; latency band spans the assumption |
+| structural flex | yaw/hip/knee 300/180/120 N·m/rad | first-pass 2026-08-21 bench estimate from visible loaded flex; see COMPLIANCE.md | large — not yet camera-fitted | per-axis stiffness ×0.5–2.0 at dr_scale 1 |
 
 Deployed-path sanity check: cmd→response lag from the rl_stand traces
 (25 Hz derivative cross-correlation) is ~250 ms median on all axes —
@@ -75,11 +76,22 @@ absolute range override applied after dr_scale).
 ## Also randomized every episode (`domain_rand.py` RandRanges)
 
 Mass/inertia + CoM shift, per-link geometry scale, floor friction
-×0.6–1.4, contact stiffness ×0.7–2.0, ground tilt (gravity vector),
-battery-sag torque scale, dropped SyncWrites (≤5%/tick), IMU mount
-offset + sensor noise, hand-placement pose slop, bad-start joints,
-logical-zero drift, tipped starts. Model-field DR is applied in the C
-env and (as shared-model per-env fields) in the MJX path.
+×0.6–1.4, contact stiffness ×0.7–2.0, structural stiffness
+×0.5–2.0, ground tilt (gravity vector), battery-sag torque scale,
+dropped SyncWrites (≤5%/tick), IMU mount offset + sensor noise,
+hand-placement pose slop, bad-start joints, logical-zero drift, tipped
+starts. Model-field DR is applied in the C env and (as shared-model
+per-env fields) in the MJX path.
+
+**Structural compliance (`struct_comp.*`, active 08-21).** Each servo
+axis gets a torsional spring in series with the position actuator:
+`kp_eff = kp*k/(kp+k)`, and observations report
+`q_encoder ~= q_physical - tau/k`. This is intentionally simpler than
+full deformable-body modeling, but it trains against the specific gap
+we see on the real robot: loaded printed structure/boots bend while the
+servo encoder still reports the shaft angle. The sampled stiffness
+vector rides reset-pool snapshots so CPU and MJX observations use the
+same episode values as the uploaded model rows.
 
 **Tipped starts (`dr.tipped_start_prob/deg`, added 08-10):** with prob
 0.30×dr_scale a plant/park-start episode begins at a settled 6–18°

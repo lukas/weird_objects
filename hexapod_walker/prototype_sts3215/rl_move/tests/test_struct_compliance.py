@@ -74,3 +74,16 @@ def test_dr_sample_stays_in_band_and_is_axis_shared():
         for ax_i in range(3):
             s = scale[ax_i::3]
             assert np.allclose(s, s[0])
+
+
+def test_dr_scale_shrinks_band_to_nominal():
+    comp = StructCompliance(K, dr_lo=0.5, dr_hi=2.0)
+    rng = np.random.default_rng(0)
+    k0 = comp.sample(rng, scale=0.0)
+    assert k0 == pytest.approx(comp.nominal_k)
+
+    for _ in range(10):
+        k = comp.sample(rng, scale=0.25)
+        scale = k / comp.nominal_k
+        assert np.all(scale >= 0.875 - 1e-12)
+        assert np.all(scale <= 1.25 + 1e-12)

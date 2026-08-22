@@ -243,7 +243,8 @@ def _worker_main(conn, layout, task_cls, env_kwargs, lo, hi, seed,
                                      foot_mu=foot_mu_from_cfg(
                                          env_kwargs.get("cfg")),
                                      leg_chassis=leg_chassis_from_cfg(
-                                         env_kwargs.get("cfg")))
+                                         env_kwargs.get("cfg")),
+                                     cfg=env_kwargs.get("cfg"))
         pad_bids = _model_addrs(model).pad_bids
         scratch = mujoco.MjData(model)
         dr_scratch = ModelDrScratch(model, params) if model_dr else None
@@ -531,7 +532,8 @@ class MjxShardedVecEnv(VecEnv):
             ls_iterations=mjx_ls_iterations,
             terrain_amp=t_amp, terrain_seed=t_seed,
             foot_mu=foot_mu_from_cfg(env_kwargs.get("cfg")),
-            leg_chassis=leg_chassis_from_cfg(env_kwargs.get("cfg")))
+            leg_chassis=leg_chassis_from_cfg(env_kwargs.get("cfg")),
+            cfg=env_kwargs.get("cfg"))
         # Model-field DR — same default rule as MjxVecEnv.
         self._model_dr = (bool(env_kwargs.get("randomize", False))
                           if model_dr is None else bool(model_dr))

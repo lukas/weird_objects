@@ -9,6 +9,13 @@ control:
   # is now deployable whenever the RL side wants to take that on.
   hz: 25
 
+compat:
+  # Policy joint frame. Default is the real robot's logical convention:
+  # hip = femur angle, knee = absolute tibia angle. Older checkpoints
+  # trained directly against MuJoCo's femur-relative knee hinge should
+  # set this, or export metadata joint_frame, to "model_rel".
+  policy_joint_frame: robot_abs
+
 episode:
   seconds: 5
   settle_seconds: 2.5          # unused unless allow_stand_blend
@@ -186,6 +193,21 @@ sensing:
   # RAM, so polling faster than 10 buys nothing; positions + IMU are NOT
   # throttled by this — they come fresh (~150-250 Hz cache) every tick.
   full_feedback_hz: 10
+
+struct_comp:
+  # First-pass structural flex model for the MuJoCo twin. Units are
+  # N*m/rad torsional stiffness in series with each servo axis. These are
+  # deliberately conservative estimates from the 2026-08-21 bench session
+  # and should be refit once we have camera/proprioception compliance data.
+  enabled: 1
+  k_yaw_nm_rad: 300.0
+  k_hip_nm_rad: 180.0
+  k_knee_nm_rad: 120.0
+  # Per-axis episode randomization band around the nominal stiffnesses.
+  # The band is shrunk by --dr-scale like the other physical DR axes:
+  # dr-scale 0 => nominal, dr-scale 1 => 0.5x..2.0x.
+  dr_scale_lo: 0.5
+  dr_scale_hi: 2.0
 
 plant:
   hip_deg: null              # null → standing_pose / plant_pose.json

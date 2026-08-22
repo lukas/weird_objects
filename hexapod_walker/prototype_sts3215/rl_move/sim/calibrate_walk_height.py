@@ -50,7 +50,7 @@ DIRS = {"forward": (1.0, 0.0), "backward": (-1.0, 0.0),
 
 def measure(teacher: str, seed: int, direction: str, seconds: float,
             cmd: float, stack_name: str, skip_s: float) -> np.ndarray:
-    from tripod_gait import TripodGait
+    from sim_gait_compat import TripodGait
 
     env = make_env(seed, STACKS[stack_name])
     env.reset()
@@ -59,7 +59,7 @@ def measure(teacher: str, seed: int, direction: str, seconds: float,
     traj = env._goal_traj
     n = len(traj.vx)
     if teacher.startswith("noslip"):
-        from noslip_gait import NoSlipGait
+        from sim_gait_compat import NoSlipGait
         gait = (NoSlipGait.clamp_fit() if teacher == "noslip_clean"
                 else NoSlipGait())
     else:

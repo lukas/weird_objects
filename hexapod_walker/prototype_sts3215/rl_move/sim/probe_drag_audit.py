@@ -61,7 +61,7 @@ TICK_FLOOR_MM = 0.25
 
 
 def rollout(policy: str, seed: int, stack_name: str = "trans1") -> dict:
-    from tripod_gait import TripodGait
+    from sim_gait_compat import TripodGait
 
     if policy.startswith("ckptplain:"):
         # Legacy flat-obs checkpoint (e.g. the longdist_r2 champion —

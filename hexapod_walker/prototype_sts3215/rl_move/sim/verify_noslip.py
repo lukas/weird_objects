@@ -278,7 +278,7 @@ def main() -> None:
                     help="write an mp4 of the noslip rollout")
     args = ap.parse_args()
 
-    from noslip_gait import NoSlipGait
+    from sim_gait_compat import NoSlipGait
 
     episode_s = HOLD_S + args.walk_s + 1.0
     writer = None
@@ -321,7 +321,7 @@ def main() -> None:
     env.close()
 
     if args.compare:
-        from tripod_gait import TripodGait
+        from sim_gait_compat import TripodGait
 
         env2 = _make_env(args.mu, args.servo_params, args.seed, episode_s,
                          render=False, write_speed=args.write_speed,

@@ -13,13 +13,17 @@ firmware enough that the web UI can stay familiar:
                        legacy), 1 = no-slip world-pinned tripod
                        (noslip_gait), 2 = no-slip RIPPLE (opposite
                        pairs, 4 feet down), 3 = no-slip WAVE (one leg
-                       at a time, 5 feet down — steadiest, slowest);
-                       alpha 0..1 = body-motion overlap for gait 1
-                       (0 = step-then-shift, 1 = continuous; ripple/
-                       wave run their clamp-tuned presets and ignore
-                       it). Swaps are refused while walking — send
-                       J 0 0 0 first; alpha alone retunes the live
-                       no-slip tripod at the next phase boundary.
+                       at a time, 5 feet down — steadiest, slowest),
+                       4 = SE2 TETRAPOD (se2_foot_gait: per-leg
+                       workspaces, Bézier swings, command auto-scaled
+                       to reach), 5 = SE2 WAVE (same engine, one leg
+                       at a time); alpha 0..1 = body-motion overlap
+                       for gait 1 (0 = step-then-shift, 1 =
+                       continuous; ripple/wave/SE2 run their presets
+                       and ignore it). Swaps are refused while
+                       walking — send J 0 0 0 first; alpha alone
+                       retunes the live no-slip tripod at the next
+                       phase boundary.
   # <j> <deg>          set one joint
   Q <j> <amp>          wiggle one joint
   HOLD                 freeze at present pose
@@ -54,6 +58,7 @@ from feetech_bus import (  # noqa: E402
 )
 from mcu_feetech_bus import open_feetech_bus  # noqa: E402
 from noslip_gait import NoSlipGait  # noqa: E402
+from se2_foot_gait import SE2FootGait  # noqa: E402
 from tripod_gait import TripodGait  # noqa: E402
 
 # Scripted-gait loop rate. 50 Hz since the MCU stream bridge (2026-08-19)
@@ -65,7 +70,8 @@ SETTLE_SECONDS = 4.0
 LIVE_SCAN_PERIOD_S = 2.0
 # Refuse absolute centre/stand SyncWrites that yank any live joint farther
 # than this from its *present* angle (2026-08-06 cooked-motor incident).
-# Sit→default stand is ~80° on knees; operator OK'd 90° (2026-08-07).
+# Keep a broad emergency delta guard; default stand is now much shallower
+# (~+19°/+28°), but old learned poses and one-off tests can move farther.
 # Override with trailing FORCE on C / P only when the operator means it.
 MAX_SAFE_DELTA_DEG = 90.0
 
@@ -238,7 +244,9 @@ class DriveController:
 
     # -- gait selection --------------------------------------------------------
     _GAIT_NAMES = {0: "tripod (drag)", 1: "noslip tripod",
-                   2: "noslip RIPPLE (pairs)", 3: "noslip WAVE (one leg)"}
+                   2: "noslip RIPPLE (pairs)", 3: "noslip WAVE (one leg)",
+                   4: "SE2 TETRAPOD (auto-scaled)",
+                   5: "SE2 WAVE (auto-scaled)"}
 
     def _gait_desc(self) -> str:
         if self._gait_id == 1:
@@ -270,6 +278,10 @@ class DriveController:
             self.gait = NoSlipGait.ripple()
         elif gait_id == 3:
             self.gait = NoSlipGait.wave()
+        elif gait_id == 4:
+            self.gait = SE2FootGait.tetrapod()
+        elif gait_id == 5:
+            self.gait = SE2FootGait.wave()
         elif gait_id == 1:
             self.gait = NoSlipGait(alpha=self._noslip_alpha)
         else:
@@ -393,7 +405,8 @@ class DriveController:
                 # re-pins the world anchors, which would snap planted
                 # feet back to neutral under load.
                 self.gait.sync_plant_stance()
-                if moving and isinstance(self.gait, NoSlipGait):
+                if moving and isinstance(self.gait, (NoSlipGait,
+                                                     SE2FootGait)):
                     # Fresh cycle on engage: re-pin feet under the robot
                     # NOW and restart the startup-softened phase machine.
                     self.gait.reset_phase()
@@ -552,7 +565,7 @@ class DriveController:
                         # Occasional re-hold so stance doesn't droop.
                         # Must match stand zero / learned plant — NOT the
                         # old gait neutral (−25/+60), which yanked hips up
-                        # after feet had just planted at +20/+80.
+                        # after feet had just planted.
                         if int(tick * 2) % 5 == 0:
                             hold = (list(self._last_pose)
                                     if self._last_pose

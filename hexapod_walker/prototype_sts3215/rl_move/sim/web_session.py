@@ -8,7 +8,7 @@ import os
 import sys
 import threading
 import time
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
@@ -17,6 +17,13 @@ import numpy as np
 from rl_move.env import TaskGoal, build_obs
 
 from .joint_task import q_rad_to_action
+from rl_move.joint_frame import (
+    RAD2DEG,
+    robot_abs_deg_to_sim_rad,
+    robot_abs_rad_to_sim_rad,
+    robot_stand_degrees,
+    sim_rad_to_robot_abs_deg,
+)
 from .play import (
     _CRUISE,
     _DESC,
@@ -37,6 +44,52 @@ from .play import (
     _PlayEnv,
     scan_policies,
 )
+
+QUAD_VARIANTS = {
+    "": ("rear", "walk", "trot", "stable"),
+    "_pitch": ("rear_pitch", "walk_pitch", "trot_pitch", "pitched"),
+    "_aggressive": (
+        "rear_aggressive", "walk_aggressive", "trot_aggressive",
+        "aggressive"),
+}
+
+
+def _quad_name(action: str, suffix: str) -> str:
+    return f"quad_{action}{suffix}"
+
+
+QUAD_REAR_DEMOS = tuple(
+    _quad_name("rear", suffix) for suffix in QUAD_VARIANTS)
+QUAD_DOWN_DEMOS = tuple(
+    _quad_name("down", suffix) for suffix in QUAD_VARIANTS)
+QUAD_REARED_END_DEMOS = tuple(
+    _quad_name(action, suffix)
+    for suffix in QUAD_VARIANTS
+    for action in ("rear", "hold", "walk", "walk_back",
+                   "trot", "trot_back"))
+QUAD_REQUIRES_REAR = tuple(
+    _quad_name(action, suffix)
+    for suffix in QUAD_VARIANTS
+    for action in ("hold", "walk", "walk_back", "trot",
+                   "trot_back", "down"))
+QUAD_STREAM_DEMOS = (*QUAD_REARED_END_DEMOS, *QUAD_DOWN_DEMOS)
+QUAD_DEMO_GAITS = {}
+for _quad_suffix, (_rear_gait, _walk_gait, _trot_gait, _label) in (
+        QUAD_VARIANTS.items()):
+    QUAD_DEMO_GAITS[_quad_name("rear", _quad_suffix)] = _rear_gait
+    QUAD_DEMO_GAITS[_quad_name("hold", _quad_suffix)] = _rear_gait
+    QUAD_DEMO_GAITS[_quad_name("down", _quad_suffix)] = _rear_gait
+    QUAD_DEMO_GAITS[_quad_name("walk", _quad_suffix)] = _walk_gait
+    QUAD_DEMO_GAITS[_quad_name("walk_back", _quad_suffix)] = _walk_gait
+    QUAD_DEMO_GAITS[_quad_name("trot", _quad_suffix)] = _trot_gait
+    QUAD_DEMO_GAITS[_quad_name("trot_back", _quad_suffix)] = _trot_gait
+
+
+def _quad_action(name: str) -> str:
+    for suffix in sorted(QUAD_VARIANTS, key=len, reverse=True):
+        if suffix and name.endswith(suffix):
+            return name[:-len(suffix)].removeprefix("quad_")
+    return name.removeprefix("quad_")
 
 
 @dataclass
@@ -97,9 +150,11 @@ class SimWebSession:
         self.demo_is_script = False
         self.demo_end_home = ""
         self.demo_direct_profile = False
+        self.demo_pose_frame = "model"
         self.demo_write_speed_deg_s: float | None = None
         self.demo_write_acc_units: float | None = None
         self.demo_last_target_deg: list[float] | None = None
+        self.quad_reared = False
         self.pose_hold_q: np.ndarray | None = None
         self.command_log: list[tuple[float, str, str | None]] = []
         self.last_command = ""
@@ -138,8 +193,8 @@ class SimWebSession:
         for p in (root / "linux_control", root / "motor_setup"):
             if str(p) not in sys.path:
                 sys.path.insert(0, str(p))
-        from noslip_gait import NoSlipGait
-        from tripod_gait import TripodGait
+        from sim_gait_compat import NoSlipGait
+        from sim_gait_compat import TripodGait
 
         self.mujoco = mujoco
         self.PPO = PPO
@@ -160,9 +215,11 @@ class SimWebSession:
             _ROLE_OBS[74] = "walk"
             self.walk_widths = (72, 74, 78, 1152)
         render_mode = "rgb_array" if self.cfg.web_frames else None
+        plant_model_deg = robot_abs_deg_to_sim_rad(robot_stand_degrees()) * RAD2DEG
         self.env = _PlayEnv(params=SimServoParams.from_cfg(cfg),
                             randomize=False, episode_seconds=3600.0,
-                            render_mode=render_mode, cfg=cfg)
+                            render_mode=render_mode, cfg=cfg,
+                            plant_deg=plant_model_deg)
         self.traj = self.env.traj
         self.chassis_bid = self.env.model.body("chassis").id
         self.profiles = _load_profiles()
@@ -422,6 +479,7 @@ class SimWebSession:
 
     def _do_reset(self, start: str, h_goal: float, note: str) -> None:
         self._stop_demo_locked(status="idle", clear_name=True)
+        self.quad_reared = False
         self.pose_hold_q = None
         self.auto = None
         self.downed = False
@@ -479,6 +537,7 @@ class SimWebSession:
         self.demo_is_script = False
         self.demo_end_home = ""
         self.demo_direct_profile = False
+        self.demo_pose_frame = "model"
         self.demo_write_speed_deg_s = None
         self.demo_write_acc_units = None
         self.demo_last_target_deg = None
@@ -489,10 +548,13 @@ class SimWebSession:
 
     def _demo_speed_eff_locked(self) -> float:
         speed = float(self.demo_speed_live)
-        if self.demo_name == "quad_trot":
+        if self.demo_name in QUAD_DEMO_GAITS:
             try:
                 import quad_walk as QW
-                speed = min(speed, float(QW.GAITS["trot"].get("speed_cap", 2.0)))
+                gait = QUAD_DEMO_GAITS[self.demo_name]
+                cap = QW.GAITS.get(gait, {}).get("speed_cap")
+                if cap is not None:
+                    speed = min(speed, float(cap))
             except Exception:
                 pass
         if self.demo_speed_cap is not None:
@@ -513,18 +575,17 @@ class SimWebSession:
             del self.command_log[:-6]
 
     def _new_gait(self):
+        plant_deg = sim_rad_to_robot_abs_deg(self.q_plant)
         kw = _SCRIPTED_TRIPOD.get(self.walk_list[self.wi])
         if kw is not None:
             g = self.TripodGait(period=kw["period"],
                                 lift=kw["lift_mm"] * 0.001, ramp=0.4)
-            g.sync_plant_stance(math.degrees(self.q_plant[1]),
-                                math.degrees(self.q_plant[2]))
+            g.sync_plant_stance(plant_deg[1], plant_deg[2])
             g.set_lift_mm(kw["lift_mm"])
             g.reset_phase(t=0.0)
             return g
         g = make_noslip_gait(self.walk_list[self.wi], self.NoSlipGait)
-        g.sync_plant_stance(math.degrees(self.q_plant[1]),
-                            math.degrees(self.q_plant[2]))
+        g.sync_plant_stance(plant_deg[1], plant_deg[2])
         return g
 
     def _blend_ticks(self) -> int:
@@ -656,11 +717,19 @@ class SimWebSession:
 
     def _direct_profile_step_locked(self, q_rad: np.ndarray) -> None:
         """Issue a bus-like joint target directly to MuJoCo's servo model."""
-        self.env._cmd = q_rad.copy()
-        self.env._profile.command(
-            q_rad,
-            speed_deg_s=self.demo_write_speed_deg_s,
-            acc_units=self.demo_write_acc_units)
+        if self.demo_pose_frame == "robot_abs":
+            q_model = robot_abs_rad_to_sim_rad(q_rad)
+            self.env._profile.command_robot_abs(
+                q_rad,
+                speed_deg_s=self.demo_write_speed_deg_s,
+                acc_units=self.demo_write_acc_units)
+        else:
+            q_model = np.asarray(q_rad, dtype=float).copy()
+            self.env._profile.command(
+                q_model,
+                speed_deg_s=self.demo_write_speed_deg_s,
+                acc_units=self.demo_write_acc_units)
+        self.env._cmd = q_model.copy()
         self.env._advance()
         self.env._state = self.env._read_state()
         self.env._step_i += 1
@@ -679,7 +748,10 @@ class SimWebSession:
             "pitch_deg": pitch,
         }
         if self.demo_last_target_deg is not None:
-            actual = [math.degrees(float(v)) for v in self._q_now()]
+            if self.demo_pose_frame == "robot_abs":
+                actual = sim_rad_to_robot_abs_deg(self._q_now())
+            else:
+                actual = [math.degrees(float(v)) for v in self._q_now()]
             out["max_lag_deg"] = round(max(
                 abs(a - b) for a, b in zip(actual, self.demo_last_target_deg)
             ), 2)
@@ -699,6 +771,7 @@ class SimWebSession:
                 and (max_lag is None or float(max_lag) <= 12.0))
             self.sitting = bool(ok)
             self.downed = not ok
+            self.quad_reared = False
             self.q_sit = self._q_now()
             self.pose_hold_q = self.q_sit.copy()
             self.msg = (f"{name} done - sitting" if ok
@@ -708,6 +781,7 @@ class SimWebSession:
             if ok:
                 self.sitting = False
                 self.downed = False
+                self.quad_reared = False
                 self.q_plant = self._q_now()
                 self.z_plant = self._chassis_z()
                 self.pose_hold_q = self.q_plant.copy()
@@ -721,10 +795,15 @@ class SimWebSession:
                 self.msg = (
                     f"{name} command ended low/tilted - did not stand")
         else:
+            self.sitting = False
+            self.downed = False
+            self.quad_reared = name in QUAD_REARED_END_DEMOS
+            self.pose_hold_q = self._q_now().copy()
             self.msg = f"{name} done - holding"
         self.demo_status = "done" if ok else "failed"
         self.demo_end_home = ""
         self.demo_direct_profile = False
+        self.demo_pose_frame = "model"
         self.demo_write_speed_deg_s = None
         self.demo_write_acc_units = None
         self.demo_telemetry = {
@@ -937,10 +1016,13 @@ class SimWebSession:
         elif demo_running:
             pose_deg = self.demo_pose_fn(self.demo_t)
             self.demo_last_target_deg = [float(v) for v in pose_deg]
+            pose_rad = np.radians(pose_deg)
             if self.demo_direct_profile:
-                self._direct_profile_step_locked(np.radians(pose_deg))
+                self._direct_profile_step_locked(pose_rad)
             else:
-                action = q_rad_to_action(np.radians(pose_deg))
+                if self.demo_pose_frame == "robot_abs":
+                    pose_rad = robot_abs_rad_to_sim_rad(pose_rad)
+                action = q_rad_to_action(pose_rad)
             self.demo_t += self.env.dt * self._demo_speed_eff_locked()
             while self.demo_notes and self.demo_notes[0][0] <= self.demo_t:
                 self.demo_note = self.demo_notes.pop(0)[1]
@@ -960,7 +1042,8 @@ class SimWebSession:
                 self.gait_t = 0.0
             self.gait.set_velocity(vx=self.traj.vx, vy=self.traj.vy,
                                    omega=self.om_cmd)
-            action = q_rad_to_action(np.radians(self.gait.desired_deg(self.gait_t)))
+            q_robot = np.radians(self.gait.desired_deg(self.gait_t))
+            action = q_rad_to_action(robot_abs_rad_to_sim_rad(q_robot))
             self.gait_t += self.env.dt
         elif walking:
             action = self._walk_predict()
@@ -1195,27 +1278,28 @@ class SimWebSession:
             }
 
     def list_demos(self) -> list[dict[str, Any]]:
-        out = [
-            {
-                "name": "quad_walk",
-                "title": ("[8 quad] TIP BACK - rear up on 4 legs, "
-                          "front paws in the air, animal walk forward, "
-                          "sit back down"),
-                "air": False,
-                "group": "quad",
-                "live_speed": True,
-                "has_size": False,
-            },
-            {
-                "name": "quad_trot",
-                "title": ("[8 quad] TIP BACK + TROT - diagonal leg pairs, "
-                          "then sit back down"),
-                "air": False,
-                "group": "quad",
-                "live_speed": True,
-                "has_size": False,
-            },
-        ]
+        out: list[dict[str, Any]] = []
+        actions = (
+            ("rear", "REAR UP", "tip back on 4 legs and hold"),
+            ("hold", "HOLD", "settle to reared hold"),
+            ("walk", "WALK FORWARD", "animal walk while reared"),
+            ("walk_back", "WALK BACKWARD", "reverse animal walk while reared"),
+            ("trot", "TROT FORWARD", "diagonal pairs while reared"),
+            ("trot_back", "TROT BACKWARD", "reverse diagonal pairs while reared"),
+            ("down", "COME DOWN", "untuck fronts and return to stand"),
+        )
+        for suffix, (_rear_gait, _walk_gait, _trot_gait, label) in (
+                QUAD_VARIANTS.items()):
+            tag = "" if not suffix else f" {label.upper()}"
+            for action, title, desc in actions:
+                out.append({
+                    "name": _quad_name(action, suffix),
+                    "title": f"[8 quad] {title}{tag} - {desc}",
+                    "air": False,
+                    "group": "quad",
+                    "live_speed": True,
+                    "has_size": False,
+                })
         for meta in self.list_dance_scripts():
             out.append({
                 "name": meta["name"],
@@ -1249,7 +1333,8 @@ class SimWebSession:
 
     def pose(self) -> dict[str, Any]:
         with self.lock:
-            deg = [round(math.degrees(float(v)), 2) for v in self._q_now()]
+            deg = [round(float(v), 2)
+                   for v in sim_rad_to_robot_abs_deg(self._q_now())]
             return {"ok": True, "sim": True, "degrees": deg, "live": 18,
                     "armed": self.armed, "mode": self.mode,
                     "ts": time.time()}
@@ -1262,7 +1347,7 @@ class SimWebSession:
         mode = (mode or "tuck").strip()
         if mode == "plant":
             kfs = data["modes"]["tuck"]["keyframes"]
-            plant = [math.degrees(float(v)) for v in self.q_plant]
+            plant = sim_rad_to_robot_abs_deg(self.q_plant)
             keyframes = list(kfs[:-1]) + [{"q_deg": plant, "s": 0.5}]
         else:
             keyframes = data["modes"][mode]["keyframes"]
@@ -1328,7 +1413,7 @@ class SimWebSession:
                 f"speed={speed:.2f}")
             self._do_reset("plant" if down else "zero", 0.0,
                            f"{name}: command playback")
-            start_deg = [math.degrees(float(v)) for v in self._q_now()]
+            start_deg = sim_rad_to_robot_abs_deg(self._q_now())
             pose_fn, dur = self._pose_fn_from_frames(start_deg, frames)
             self._set_demo_safety(True)
             self.demo_pose_fn = pose_fn
@@ -1340,6 +1425,7 @@ class SimWebSession:
             self.demo_is_script = False
             self.demo_end_home = home
             self.demo_direct_profile = True
+            self.demo_pose_frame = "robot_abs"
             # compare_standup.py validated these stand-up paths with a
             # 90 deg/s bus profile; the ServoProfile still applies its
             # fitted per-axis velocity ceiling, latency, deadband, and
@@ -1434,7 +1520,7 @@ class SimWebSession:
         if errs:
             return {"ok": False, "error": "; ".join(errs[:5])}
         name = script["name"]
-        if name in ("quad_walk", "quad_trot"):
+        if name in QUAD_STREAM_DEMOS:
             return {"ok": False, "error": f"{name!r} is a built-in demo name"}
         try:
             self._dance_upload_dir.mkdir(parents=True, exist_ok=True)
@@ -1485,6 +1571,10 @@ class SimWebSession:
         self.demo_note = ""
         self.demo_speed_cap = cap
         self.demo_is_script = True
+        self.demo_direct_profile = True
+        self.demo_pose_frame = "robot_abs"
+        self.demo_write_speed_deg_s = self.env.write_speed_deg_s
+        self.demo_write_acc_units = self.env.write_acc_units
         self.demo_started_sim_t = self.sim_t
         self.demo_name = name
         self.demo_status = f"running @ {speed:.2f}x"
@@ -1541,7 +1631,7 @@ class SimWebSession:
                  torque: int | None = None, softness: float = 1.0,
                  seconds: float | None = None) -> dict[str, Any]:
         name = (name or "").strip()
-        if name not in {"quad_walk", "quad_trot"}:
+        if name not in QUAD_STREAM_DEMOS:
             script = self.get_dance_script(name)
             if script is None:
                 return {"ok": False,
@@ -1558,28 +1648,64 @@ class SimWebSession:
                 return {"ok": False, "error": f"quad_walk missing: {e}"}
 
             speed = self._clamp_float(speed, 1.0, 0.25, 3.0)
-            dur = self._clamp_float(seconds, 40.0, 2.0, 300.0)
-            dur = max(dur, float(QW.MIN_SECONDS))
+            action = _quad_action(name)
+            if name in QUAD_DOWN_DEMOS:
+                dur = float(QW.EXIT_TOTAL_S)
+            else:
+                default_dur = 300.0 if name in QUAD_REQUIRES_REAR else 40.0
+                dur = self._clamp_float(seconds, default_dur, 2.0, 300.0)
+                if name in QUAD_REAR_DEMOS:
+                    dur = max(dur, float(QW.ENTRY_TOTAL_S) + 0.5)
             switched_from = self.demo_name if self._demo_running() else None
+            quad_current = self._demo_running() and self.demo_name in QUAD_STREAM_DEMOS
+            if name in QUAD_REQUIRES_REAR and not (self.quad_reared or quad_current):
+                return {
+                    "ok": False,
+                    "error": "quad: rear up first, then walk/trot/down",
+                    "demo": self.demo_state(),
+                    "robot": self.robot_state(),
+                }
             self._record_command(
                 f"/api/demo name={name} speed={speed:.2f} seconds={dur:.1f}")
 
-            self._do_reset("plant", 0.0, f"stand zero -> {name}")
+            if name in QUAD_REAR_DEMOS:
+                self._do_reset("plant", 0.0, f"stand zero -> {name}")
+            else:
+                if quad_current:
+                    self._stop_demo_locked(status="aborted")
+                self.pose_hold_q = None
+                self.drive_active = False
+                self.timed_walk_until = None
+                self.traj.vx = self.traj.vy = 0.0
+                self.auto = None
+                self.gait = None
+                self.om_cmd = 0.0
             self._set_demo_safety(True)
-            base_deg = [math.degrees(v) for v in self.q_plant]
-            gait = "trot" if name == "quad_trot" else "walk"
+            base_deg = sim_rad_to_robot_abs_deg(self.q_plant)
+            gait = QUAD_DEMO_GAITS[name]
+            phase = (
+                "rear" if action == "rear"
+                else "hold" if action == "hold"
+                else "down" if action == "down"
+                else "walk")
+            direction = -1.0 if action in ("walk_back", "trot_back") else 1.0
             self.demo_pose_fn = QW.make_quad_walk_pose_fn(
-                base_deg, dur, gait=gait)
+                base_deg, dur, gait=gait, direction=direction, phase=phase)
             self.demo_t = 0.0
             self.demo_duration = dur
             self.demo_started_sim_t = self.sim_t
+            self.demo_end_home = "stand" if name in QUAD_DOWN_DEMOS else ""
+            self.demo_direct_profile = True
+            self.demo_pose_frame = "robot_abs"
+            self.demo_write_speed_deg_s = self.env.write_speed_deg_s
+            self.demo_write_acc_units = 254.0
             self.demo_name = name
             self.demo_status = f"running @ {speed:.2f}x"
             self.demo_speed_live = speed
             self.demo_telemetry = None
             params: dict[str, Any] = {
                 "speed": speed,
-                "home": "stand",
+                "home": "stand" if name in QUAD_REAR_DEMOS else "quad",
                 "seconds": dur,
             }
             if switched_from:
@@ -1596,7 +1722,7 @@ class SimWebSession:
             return {
                 "ok": True,
                 "params": dict(params),
-                "home": "stand",
+                "home": params["home"],
                 "switched": bool(switched_from),
                 "switched_from": switched_from,
                 "demo": self.demo_state(),
@@ -1607,7 +1733,11 @@ class SimWebSession:
         with self.lock:
             self._record_command("/api/demo/stop")
             was_running = self._demo_running()
+            prev = self.demo_name or ""
             self._stop_demo_locked(status="aborted" if was_running else "idle")
+            if was_running and prev in QUAD_STREAM_DEMOS:
+                self.quad_reared = False
+                self.pose_hold_q = self._q_now().copy()
             self.drive_active = False
             self.timed_walk_until = None
             self.traj.vx = self.traj.vy = 0.0
@@ -1677,6 +1807,163 @@ class SimWebSession:
                     "name": "rl_policy_sim" if running else "",
                     "progress": {"msg": self.msg, "live": self._live()},
                     "result": self.job_result}
+
+    def calibration_report(self) -> dict[str, Any]:
+        with self.lock:
+            try:
+                import tripod_gait as TG
+            except Exception:
+                TG = None
+            plant_deg = [round(math.degrees(float(v)), 3)
+                         for v in self.q_plant]
+
+            def foot_from(hip_deg: float, knee_deg: float) -> dict[str, float]:
+                if TG is None:
+                    return {"radial_mm": 0.0, "z_mm": 0.0}
+                hip = math.radians(float(hip_deg))
+                knee = math.radians(float(knee_deg))
+                reach = (TG.COXA_MM + TG.FEMUR_MM * math.cos(hip)
+                         + TG.TIBIA_MM * math.cos(hip + knee))
+                z = (-TG.FEMUR_MM * math.sin(hip)
+                     - TG.TIBIA_MM * math.sin(hip + knee))
+                return {"radial_mm": round(reach, 2), "z_mm": round(z, 2)}
+
+            per_leg = []
+            for leg in range(6):
+                yaw, hip, knee = plant_deg[leg * 3:leg * 3 + 3]
+                per_leg.append({
+                    "leg": leg,
+                    "yaw_deg": yaw,
+                    "hip_deg": hip,
+                    "knee_deg": knee,
+                    **foot_from(hip, knee),
+                })
+            z_vals = [float(r["z_mm"]) for r in per_leg]
+            radial_vals = [float(r["radial_mm"]) for r in per_leg]
+            params = getattr(self.env, "params", None)
+            servo_params = None
+            if params is not None:
+                try:
+                    servo_params = {
+                        "source": getattr(params, "source", ""),
+                        "timestamp": getattr(params, "timestamp", ""),
+                        "speed_counts_s": getattr(params, "speed_counts_s", None),
+                        "axes": {
+                            ax: asdict(p)
+                            for ax, p in getattr(params, "axes", {}).items()
+                        },
+                        "spread": getattr(params, "spread", {}),
+                    }
+                except Exception:
+                    servo_params = {"source": str(getattr(params, "source", ""))}
+            report = {
+                "ok": True,
+                "mode": "calibration_report",
+                "sim": True,
+                "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S"),
+                "phases": [{
+                    "name": "sim_snapshot",
+                    "ok": True,
+                    "summary": "MuJoCo state and active servo contract",
+                }],
+                "geometry": {
+                    "ok": True,
+                    "nominal_mm": ({
+                        "coxa": TG.COXA_MM,
+                        "femur": TG.FEMUR_MM,
+                        "tibia": TG.TIBIA_MM,
+                        "chassis_flat_to_flat": TG.CHASSIS_FLAT_TO_FLAT_MM,
+                    } if TG is not None else {}),
+                    "plant_joint_deg": plant_deg,
+                    "per_leg": per_leg,
+                    "summary": {
+                        "mean_foot_z_mm": round(sum(z_vals) / len(z_vals), 2),
+                        "foot_z_spread_mm": round(max(z_vals) - min(z_vals), 2),
+                        "mean_radial_mm": round(
+                            sum(radial_vals) / len(radial_vals), 2),
+                        "radial_spread_mm": round(
+                            max(radial_vals) - min(radial_vals), 2),
+                    },
+                    "mujoco_hint": {
+                        "plant_joint_deg": plant_deg,
+                        "neutral_foot_z_m": round(
+                            (sum(z_vals) / len(z_vals)) * 0.001, 5),
+                    },
+                },
+                "imu": {
+                    "ok": True,
+                    "sim": True,
+                    "body_calibrated": True,
+                    "body_frame": {
+                        "pitch_axis": "pitch",
+                        "pitch_axis_roll": 0.0,
+                        "pitch_axis_pitch": 1.0,
+                        "pitch_sign": 1.0,
+                        "source": "mujoco_body_frame",
+                    },
+                },
+                "actuators": {
+                    "ok": True,
+                    "sim": True,
+                    "learned_model": servo_params,
+                    "snapshot": None,
+                },
+                "live": self._live(),
+            }
+            stamp = time.strftime("%Y%m%d_%H%M%S")
+            path = self.log_dir / f"calibration_report_{stamp}.json"
+            latest = self.log_dir / "calibration_report_latest.json"
+            path.write_text(json.dumps(report, indent=2) + "\n")
+            latest.write_text(json.dumps(report, indent=2) + "\n")
+            report["path"] = str(path)
+            report["log_name"] = path.name
+            report["latest"] = str(latest)
+            return report
+
+    def run_calibrate(self, *, mode: str = "checkup",
+                      clearance_mm: float = 40.0, **_kw) -> dict[str, Any]:
+        mode = (mode or "checkup").strip().lower()
+        with self.lock:
+            if mode not in {"checkup", "calibration", "auto", "all",
+                            "geometry", "imu"}:
+                self.job_result = {
+                    "ok": False,
+                    "mode": mode,
+                    "error": f"sim calibration mode {mode!r} is report-only",
+                }
+            else:
+                report = self.calibration_report()
+                phases = list(report.get("phases") or [])
+                if mode in {"checkup", "calibration", "auto", "all"}:
+                    phases = [
+                        {"name": "imu_rest", "ok": True,
+                         "summary": "sim IMU is body-frame exact"},
+                        {"name": "geometry_plant", "ok": True,
+                         "summary": "sim plant pose captured"},
+                        {"name": "actuator_contract", "ok": True,
+                         "summary": "active servo params captured"},
+                    ]
+                self.job_result = {
+                    "ok": True,
+                    "mode": "checkup" if mode in {"calibration", "auto",
+                                                 "all"} else mode,
+                    "phases": phases,
+                    "report": report,
+                    "geometry": report.get("geometry"),
+                    "imu": report.get("imu"),
+                    "actuators": report.get("actuators"),
+                    "path": report.get("path"),
+                    "log_name": report.get("log_name"),
+                    "latest": report.get("latest"),
+                    "clearance_mm": float(clearance_mm),
+                    "msg": "sim calibration report saved",
+                }
+            self.msg = self.job_result.get("msg") or self.job_result.get(
+                "error") or "sim calibration"
+            self.job_kind = None
+            return {"ok": bool(self.job_result.get("ok")),
+                    "calibrate": self.operation_state(),
+                    "result": dict(self.job_result)}
 
     def sim_state(self) -> dict[str, Any]:
         with self.lock:
@@ -1980,6 +2267,7 @@ class SimWebSession:
                 self._do_reset("plant", 0.0, "reset plant")
             elif head in {"X", "DISARM", "RELAX"}:
                 self.armed = False
+                self.quad_reared = False
                 self.rl_stop()
                 self.msg = "sim stopped"
             elif head == "SETTLE":

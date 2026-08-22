@@ -5,7 +5,8 @@ from io import BytesIO
 import urllib.error
 
 from rl_move.sim.web_hub import (
-    HubController, RouteResponse, SimTarget, make_hub_handler,
+    HubController, ROBOT_DEFAULT_TIMEOUT_S, ROBOT_SET_ZERO_TIMEOUT_S,
+    RouteResponse, SimTarget, make_hub_handler,
 )
 from rl_move.sim.web_server import PAGE_PATHS, STATIC_FILES, WEBUI_DIR, make_handler
 
@@ -234,6 +235,7 @@ class FakeTarget:
     def __init__(self, name):
         self.name = name
         self.calls = []
+        self.timeouts = []
 
     def available(self):
         return True
@@ -241,8 +243,10 @@ class FakeTarget:
     def ping_meta(self):
         return {"available": True, "ok": True, "name": self.name}
 
-    def request(self, method, full_path, body=b"", headers=None):
+    def request(self, method, full_path, body=b"", headers=None,
+                timeout=None):
         self.calls.append((method, full_path, body))
+        self.timeouts.append(timeout)
         path = full_path.split("?", 1)[0]
         if path == "/cmd":
             return RouteResponse.text("ok")
@@ -496,3 +500,20 @@ def test_hub_broadcasts_demo_commands_in_both_mode():
     assert d["hub"]["sim"]["body"]["name"] == "quad_walk"
     assert ("POST", "/api/demo", b'{"name": "quad_walk", "speed": 1.0}') in robot.calls
     assert ("POST", "/api/demo", b'{"name": "quad_walk", "speed": 1.0}') in sim.calls
+
+
+def test_hub_uses_long_robot_timeout_for_set_zero():
+    sim = FakeTarget("sim")
+    robot = FakeTarget("robot")
+    hub = HubController(sim=sim, robot=robot, target="both")
+
+    d = _hub_json(hub, "/api/set_zero", method="POST")
+    assert d["ok"] is True
+    assert robot.calls[-1][1] == "/api/set_zero"
+    assert robot.timeouts[-1] == ROBOT_SET_ZERO_TIMEOUT_S
+    assert sim.calls == []
+
+    _hub_json(hub, "/api/wiggle", method="POST",
+              body={"joint": 1, "amp": 4})
+    assert robot.calls[-1][1] == "/api/wiggle"
+    assert robot.timeouts[-1] == ROBOT_DEFAULT_TIMEOUT_S

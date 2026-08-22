@@ -665,8 +665,8 @@ def main() -> None:
     lc = Path(__file__).resolve().parents[2] / "linux_control"
     if str(lc) not in sys.path:
         sys.path.insert(0, str(lc))
-    from noslip_gait import NoSlipGait
-    from tripod_gait import TripodGait
+    from sim_gait_compat import NoSlipGait
+    from sim_gait_compat import TripodGait
 
     from ..config import load_config
     cfg = load_config()

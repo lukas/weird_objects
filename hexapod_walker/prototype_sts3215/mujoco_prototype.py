@@ -417,20 +417,23 @@ def build_xml(obstacles_xml: str = "") -> str:
                 f'scale="0.001 0.001 0.001"/>'
             )
         if USE_PART_MESHES:
-            # tibia_link.stl is drawn ~29.5 mm LONGER than the kinematic
+            # tibia_link.stl is drawn from the old mesh landmark rather than
+            # the kinematic knee axis.  As of the Aug 21 measured-geometry
+            # update, physics / IK use the measured 150 mm knee->boot-tip
+            # span, while the legacy STL visual still lands its boot tip at
+            # about x=157.5 mm.  Squash only the visual so rendered parts
+            # line up with the contact sphere; do not move physics.
+            #
+            # Historical note: this used to be a much larger correction when
+            # the stale kinematic tibia was 128 mm:
+            #   tibia_link.stl is drawn ~29.5 mm LONGER than the kinematic
             # tibia: hexapod_prototype's sandwich make_tibia_link measures
             # the tube run from the yoke SOCKET (x ≈ +29.5) instead of the
-            # knee axis, so the boot tip lands at x ≈ 157.5 while physics,
-            # IK and firmware all put the foot tip at x = TIBIA_LENGTH =
-            # 128 (design intent per the foot-boot docstring). Rendered
-            # raw, the extra 29.5 mm of boot pokes through the floor in
+            # knee axis, so the boot tip landed at x ≈ 157.5 while physics,
+            # IK and firmware put the foot tip at x = 128. Rendered raw,
+            # that extra visual length poked through the floor in
             # every stance ("legs through the ground", operator 08-09) even
-            # though the contact sphere sits exactly at the 128 mm tip.
-            # Until the CAD builder / physical part is reconciled
-            # (OPERATOR: measure knee axis -> foot tip on the bench robot),
-            # squash the VISUAL along its long axis so the drawn tip
-            # coincides with the physics tip. Origin is the knee mating
-            # face, so the yoke end stays anchored at the knee.
+            # though the contact sphere sat at the physics tip.
             tibia_fix = TIBIA / 0.1575   # kinematic tip / measured mesh tip
             for name in _PART_STL_NAMES:
                 sx = 0.001 * tibia_fix if name == "tibia_link" else 0.001

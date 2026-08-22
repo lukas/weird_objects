@@ -19,9 +19,12 @@ from pathlib import Path
 
 import numpy as np
 
+from rl_move.joint_frame import FRAME_ROBOT_ABS, normalize_joint_frame
+
 
 def export(policy_path: str, out_path: str, *, name: str = "",
-           notes: str = "", extra_meta: dict | None = None) -> None:
+           notes: str = "", joint_frame: str = FRAME_ROBOT_ABS,
+           extra_meta: dict | None = None) -> None:
     from stable_baselines3 import PPO
     import torch
 
@@ -34,22 +37,30 @@ def export(policy_path: str, out_path: str, *, name: str = "",
         return t.detach().cpu().numpy().astype(np.float64).tolist()
 
     net = pol.mlp_extractor.policy_net
+    meta = {
+        "source": str(policy_path),
+        # Optional display fields for the robot's policy picker
+        # (linux_control/policies/ + /api/rl/policies).
+        **({"name": name} if name else {}),
+        **({"notes": notes} if notes else {}),
+        "obs_dim": int(pol.observation_space.shape[0]),
+        "act_dim": int(pol.action_space.shape[0]),
+        "hidden": [int(net[0].out_features), int(net[2].out_features)],
+        "activation": "tanh",
+        # New/default policies speak the real robot's logical
+        # absolute-tibia joint frame. Old MuJoCo-native checkpoints must
+        # be exported with --joint-frame model_rel.
+        "joint_frame": normalize_joint_frame(joint_frame),
+        # Free-form extras (e.g. the trained goal "profile" —
+        # hold/ramp/target shapes — which linux_control/rl_policy.py
+        # reads so runner constants can never drift from the config
+        # a checkpoint was actually trained with).
+        **(extra_meta or {}),
+    }
+    meta["joint_frame"] = normalize_joint_frame(meta.get("joint_frame"))
     payload = {
         "meta": {
-            "source": str(policy_path),
-            # Optional display fields for the robot's policy picker
-            # (linux_control/policies/ + /api/rl/policies).
-            **({"name": name} if name else {}),
-            **({"notes": notes} if notes else {}),
-            "obs_dim": int(pol.observation_space.shape[0]),
-            "act_dim": int(pol.action_space.shape[0]),
-            "hidden": [int(net[0].out_features), int(net[2].out_features)],
-            "activation": "tanh",
-            # Free-form extras (e.g. the trained goal "profile" —
-            # hold/ramp/target shapes — which linux_control/rl_policy.py
-            # reads so runner constants can never drift from the config
-            # a checkpoint was actually trained with).
-            **(extra_meta or {}),
+            **meta,
         },
         "W1": t2l(net[0].weight), "b1": t2l(net[0].bias),
         "W2": t2l(net[2].weight), "b2": t2l(net[2].bias),
@@ -88,7 +99,12 @@ if __name__ == "__main__":
     ap.add_argument("--extra-meta", default="",
                     help="JSON object merged into meta (e.g. the trained "
                          "goal 'profile' rl_policy.py reads)")
+    ap.add_argument("--joint-frame", default=FRAME_ROBOT_ABS,
+                    help=("policy joint frame: robot_abs (default, real "
+                          "robot logical knee) or model_rel (legacy "
+                          "MuJoCo femur-relative knee)"))
     args = ap.parse_args()
     export(args.policy, args.out, name=args.name, notes=args.notes,
+           joint_frame=args.joint_frame,
            extra_meta=json.loads(args.extra_meta) if args.extra_meta
            else None)

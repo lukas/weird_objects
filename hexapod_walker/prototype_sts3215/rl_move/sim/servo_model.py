@@ -536,6 +536,21 @@ class ServoProfile:
                 * DEG2RAD, (N_JOINTS,)).astype(float)
         self._queue.append((self._t, q, vel, acc))
 
+    def command_robot_abs(self, q_robot_abs_rad: np.ndarray, *,
+                          speed_deg_s: float | np.ndarray | None = None,
+                          acc_units: float | np.ndarray | None = None) -> None:
+        """Queue a real-robot logical-joint command into the MuJoCo model.
+
+        Robot scripts and the web API command the knee as an absolute tibia
+        angle.  MuJoCo's knee qpos is the physical hinge angle relative to
+        the femur.  This is the command-frame boundary: policy training may
+        still use native model qpos, but robot-authored command streams should
+        enter through this method.
+        """
+        from rl_move.joint_frame import robot_abs_rad_to_model_rel_rad
+        self.command(robot_abs_rad_to_model_rel_rad(q_robot_abs_rad),
+                     speed_deg_s=speed_deg_s, acc_units=acc_units)
+
     def tick(self, dt: float) -> np.ndarray:
         """Advance one physics step; returns the (18,) profile target."""
         self._t += dt

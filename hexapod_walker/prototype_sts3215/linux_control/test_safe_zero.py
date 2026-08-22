@@ -85,10 +85,10 @@ def _check_plan_geometry(p, present):
 
 
 def test_plan_from_default_stand():
-    present = _pose(hip=20.0, knee=80.0)
+    present = _pose(hip=19.0, knee=28.0)
     p = plan_safe_zero(present)
     _check_plan_geometry(p, present)
-    # No yaw motion needed; first stage is the drag-tolerant descent.
+    # No yaw motion needed; first stage lifts toward zero.
     assert p["stages"][0]["drag_ok"]
     assert all("yaw" not in s["label"] for s in p["stages"])
 
@@ -128,39 +128,36 @@ def test_ik_hip_knee_roundtrip():
 
 
 def test_low_drag_descent_from_plant_stand():
-    # Plant-like stance: feet tucked nearly under the hip pivots. The
-    # legacy blend slid them ~190 mm loaded; fold-first must cut that
-    # to the geometric minimum (~65 mm).
-    present = _pose(hip=15.0, knee=104.0)
+    # Under the absolute-knee convention the old low-drag descent planner is
+    # intentionally bypassed until retuned.  A measured stand should still
+    # return to zero by lifting/straightening without violating limits.
+    present = _pose(hip=19.0, knee=28.0)
     p = plan_safe_zero(present)
     _check_plan_geometry(p, present)
-    d = p.get("descent")
-    assert d, "standing start should plan the low-drag descent"
-    assert d["loaded_slide_mm"] <= 70.0, d
-    assert d["legacy_slide_mm"] - d["loaded_slide_mm"] >= 80.0, d
+    assert "descent" not in p
     labels = [s["label"] for s in p["stages"]]
-    assert any("fold" in l for l in labels), labels
+    assert any("straighten" in l for l in labels), labels
     assert p["stages"][0]["drag_ok"]
 
 
 def test_descent_fold_keeps_feet_planted():
-    # Sampled paths of the fold stages must hold each foot at its
-    # starting radius — that is the whole point of the crouch.
-    present = _pose(hip=15.0, knee=104.0)
+    # Regression check for the absolute-knee zero path: the first stage
+    # should move the feet upward, not press them deeper into the floor.
+    present = _pose(hip=19.0, knee=28.0)
     p = plan_safe_zero(present)
-    assert p.get("descent")
-    r_start = foot_r_mm(15.0, 104.0)
+    assert p["ok"], p
+    z_start = foot_z_mm(present[1], present[2])
     prev = present
     for s in p["stages"]:
-        if "fold" not in s["label"]:
+        if "straighten" not in s["label"]:
             break
         for k in range(1, 11):
             q = [a + (b - a) * (k / 10.0) for a, b in zip(prev, s["goal"])]
             for leg in range(6):
-                r = foot_r_mm(q[leg * 3 + 1], q[leg * 3 + 2])
-                assert abs(r - r_start) <= SLIDE_DEV_TOL_MM + 2.0, (
-                    f"fold stage slid a foot to r={r:.1f} "
-                    f"(start {r_start:.1f})")
+                z = foot_z_mm(q[leg * 3 + 1], q[leg * 3 + 2])
+                assert z >= z_start - GROUND_TOL_MM, (
+                    f"straighten stage pressed a foot to z={z:.1f} "
+                    f"(start {z_start:.1f})")
         prev = s["goal"]
 
 
@@ -170,8 +167,7 @@ def test_wide_stance_descends_without_slide():
     present = _pose(hip=10.0, knee=25.0)
     p = plan_safe_zero(present)
     _check_plan_geometry(p, present)
-    d = p.get("descent")
-    assert d and d["loaded_slide_mm"] <= 1.0, d
+    assert "descent" not in p
 
 
 def test_belly_start_keeps_legacy_plan():

@@ -8,7 +8,7 @@ start at the entry point for the one you're working on:
 |------------------|----------|
 | Design/print/assemble the robot (CAD, BOM) | [`PROTOTYPE.md`](PROTOTYPE.md) |
 | Run the physical robot (firmware, control, safety) | `firmware/`, `linux_control/`, `rl_move/API.md` — **read the hardware-safety rules in the repo root `AGENTS.md` first** |
-| Train it in simulation (RL campaign + autonomous agent loop) | [`rl_docs/AGENT.md`](rl_docs/AGENT.md) — how the agent works, learnings, future work; then [`rl_docs/README.md`](rl_docs/README.md) (doc index), `RL_PLAN.md`, `RL_LOG.md` |
+| Train it in simulation (RL campaign + autonomous agent loop) | [`RL_GOALS.md`](RL_GOALS.md) — the two goals in plain English; then [`rl_docs/README.md`](rl_docs/README.md) (doc index), `RL_PLAN.md`, `RL_LOG.md` |
 
 ## Layout
 
@@ -36,4 +36,10 @@ start at the entry point for the one you're working on:
 make -C hexapod_walker/prototype_sts3215 help
 make -C hexapod_walker/prototype_sts3215 build
 make -C hexapod_walker/prototype_sts3215 verify-fast
+make -C hexapod_walker/prototype_sts3215 robot-check       # safe local robot/web checks
+make -C hexapod_walker/prototype_sts3215 robot-deploy      # check + SSH deploy + remote health
 ```
+
+Robot-control dev loop details live in `linux_control/README.md` and
+`linux_control/dev_loop.sh`. Use `robot-resolve` for a temporary IP when
+`hexapod.local` is flaky; do not commit fixed board IPs.

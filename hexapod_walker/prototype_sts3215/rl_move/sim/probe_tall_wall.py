@@ -51,7 +51,7 @@ EPISODE_S = 15.0
 
 def rollout(policy: str, seed: int) -> dict:
     import mujoco
-    from tripod_gait import TripodGait
+    from sim_gait_compat import TripodGait
 
     stack = dict(STACKS["vref1"])
     stack[("goal", "walk_height_off_mm")] = HEIGHT_OFF_MM

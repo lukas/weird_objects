@@ -18,7 +18,7 @@ else
 MJ_PY  := $(REPO_ROOT)/.venv/bin/python
 endif
 
-.PHONY: check-cad check-cad-fast check-strength validate render build verify-prototype verify-fast verify-changed clean-artifacts view view-static view-build view-buildviz verify-buildviz regen-fasteners bom-fasteners help
+.PHONY: check-cad check-cad-fast check-strength validate render build verify-prototype verify-fast verify-changed clean-artifacts view view-static view-build view-buildviz verify-buildviz regen-fasteners bom-fasteners robot-video robot-check robot-unit-check robot-resolve robot-status robot-deploy robot-deploy-fast help
 
 # Path to the BuildViz web inspector (https://github.com/lukas/buildviz).
 # Override with `make view-buildviz BUILDVIZ_ROOT=/path/to/buildviz`.
@@ -46,6 +46,13 @@ help:
 	@echo "  regen-fasteners   Regenerate fasteners/<P/N>.cache.stl from real STEPs or parametric fallback."
 	@echo "  bom-fasteners     Inject the auto-derived fastener BOM into docs/BOM.md."
 	@echo "  clean-artifacts   Delete artifacts/ (renders + cad_report.md)."
+	@echo "  robot-check       Fast linux_control syntax/JS/diff checks; no robot access."
+	@echo "  robot-unit-check  robot-check plus fake-bus/off-robot control tests."
+	@echo "  robot-resolve     Print the current hexapod.local mDNS IPv4 answer."
+	@echo "  robot-status      Read-only robot web health summary."
+	@echo "  robot-deploy      robot-check + SSH deploy + remote compile + health."
+	@echo "  robot-deploy-fast robot-check + SSH deploy only; deploy waits for /api/ping."
+	@echo "  robot-video       Contact sheet from a diagnosis MOV/MP4: make robot-video VIDEO=/path/movie.mov."
 
 check-cad:
 	$(RUN) hexapod_walker/prototype_sts3215/scripts/check_cad.py
@@ -236,3 +243,26 @@ bom-fasteners:
 
 clean-artifacts:
 	rm -rf $(CURDIR)/artifacts
+
+robot-video:
+	@if [ -z "$(VIDEO)" ]; then echo "usage: make robot-video VIDEO=/path/movie.mov [TIMES=0,8,16] [CROP=.0,.33,1,.98]" >&2; exit 2; fi
+	$(RUN) hexapod_walker/prototype_sts3215/linux_control/video_contact_sheet.py \
+		"$(VIDEO)" $(if $(TIMES),--times "$(TIMES)",) $(if $(CROP),--crop "$(CROP)",)
+
+robot-check:
+	bash $(CURDIR)/linux_control/dev_loop.sh check
+
+robot-unit-check:
+	bash $(CURDIR)/linux_control/dev_loop.sh unit-check
+
+robot-resolve:
+	bash $(CURDIR)/linux_control/dev_loop.sh resolve
+
+robot-status:
+	bash $(CURDIR)/linux_control/dev_loop.sh status
+
+robot-deploy:
+	bash $(CURDIR)/linux_control/dev_loop.sh deploy
+
+robot-deploy-fast:
+	bash $(CURDIR)/linux_control/dev_loop.sh deploy-fast

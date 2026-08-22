@@ -93,6 +93,13 @@ Hard rules:
 1. **No motion** unless the user explicitly asks in the current turn.
 2. **HTTP over SSH** for control (`:8080` `/api/*`, `/cmd`). SSH = deploy
    only when asked.
+   For robot-control/web edits, use the documented fast loop:
+   `make -C hexapod_walker/prototype_sts3215 robot-check`,
+   `robot-unit-check`, `robot-status`, and `robot-deploy`
+   (`linux_control/dev_loop.sh`). These helpers do not move the robot;
+   `robot-deploy` only restarts the web service. If `hexapod.local` is
+   flaky, use `make ... robot-resolve` and pass the temporary IP via
+   `HEXAPOD_HOST`/`HEXAPOD_SSH` instead of hard-coding it.
 3. **Set-zero-here before absolute poses.** If encoders disagree with the
    photo, remap zero — do not command software 0°/stand/plant.
 4. **Basic controls first — not standing.** Dead IDs, zeros, single-joint

@@ -23,6 +23,25 @@ from http.server import BaseHTTPRequestHandler
 from pathlib import Path
 from typing import Any
 
+ROBOT_PING_TIMEOUT_S = 2.0
+ROBOT_CATALOG_TIMEOUT_S = 1.5
+ROBOT_RESOLVE_TTL_S = 30.0
+ROBOT_DEFAULT_TIMEOUT_S = 5.0
+ROBOT_SET_ZERO_TIMEOUT_S = 20.0
+ROBOT_MOTION_START_TIMEOUT_S = 12.0
+
+ROBOT_ROUTE_TIMEOUTS_S = {
+    # Feetech middle-calibrate touches every live servo. It is non-motion, but
+    # routinely takes longer than a generic proxy request; timing out here is
+    # especially confusing because the robot may still finish and redefine
+    # zero after the hub has already reported failure.
+    "/api/set_zero": ROBOT_SET_ZERO_TIMEOUT_S,
+    # These can spend a few seconds preempting or starting a guarded motion
+    # before returning the accepted/failed JSON receipt.
+    "/api/safe_zero": ROBOT_MOTION_START_TIMEOUT_S,
+    "/api/zero": ROBOT_MOTION_START_TIMEOUT_S,
+}
+
 
 @dataclass
 class RouteResponse:
@@ -195,6 +214,8 @@ class SimTarget:
             return RouteResponse.json(s.pose())
         if path == "/api/calibrate":
             return RouteResponse.json(s.operation_state())
+        if path == "/api/calibration/report":
+            return RouteResponse.json(s.calibration_report())
         if path in ("/api/rl", "/api/rl/state"):
             return RouteResponse.json(s.operation_state())
         if path == "/api/rl/preflight":
@@ -269,6 +290,14 @@ class SimTarget:
                 softness=float(data.get("softness", 1.0)),
                 seconds=(float(data["seconds"])
                          if data.get("seconds") is not None else None)))
+        if path == "/api/calibrate":
+            return RouteResponse.json(s.run_calibrate(
+                mode=str(data.get("mode", "checkup")),
+                step_deg=float(data.get("step_deg", 10)),
+                nudge_deg=float(data.get("nudge_deg", 2)),
+                axis=str(data.get("axis", "all")),
+                clearance_mm=float(data.get("clearance_mm", 40)),
+                quad_body_frame=bool(data.get("quad_body_frame", False))))
         if path == "/api/dances":
             script = data
             if isinstance(script, dict) and "script" in script:
@@ -355,14 +384,16 @@ class RobotProxyTarget:
 
     name = "robot"
 
-    def __init__(self, base_url: str, *, timeout: float = 5.0,
-                 ping_timeout: float = 0.7, insecure_tls: bool = False):
+    def __init__(self, base_url: str, *, timeout: float = ROBOT_DEFAULT_TIMEOUT_S,
+                 ping_timeout: float = ROBOT_PING_TIMEOUT_S,
+                 insecure_tls: bool = False):
         self.base_url = _normalize_base_url(base_url)
         self.timeout = timeout
         self.ping_timeout = ping_timeout
         self.ssl_context = None
         self._resolved_base_url = ""
         self._resolved_host_header = ""
+        self._resolved_ip = ""
         self._resolved_until = 0.0
         self.configure(self.base_url, insecure_tls=insecure_tls)
 
@@ -371,6 +402,7 @@ class RobotProxyTarget:
         self.base_url = _normalize_base_url(base_url)
         self._resolved_base_url = ""
         self._resolved_host_header = ""
+        self._resolved_ip = ""
         self._resolved_until = 0.0
         if insecure_tls is not None:
             self.ssl_context = (
@@ -382,7 +414,12 @@ class RobotProxyTarget:
     def config_meta(self) -> dict[str, Any]:
         if not self.available():
             return {"available": False}
-        return {"available": True, "url": self.base_url}
+        out = {"available": True, "url": self.base_url}
+        if self._resolved_ip:
+            out["resolved_ip"] = self._resolved_ip
+            out["resolve_ttl_s"] = max(
+                0.0, round(self._resolved_until - time.monotonic(), 1))
+        return out
 
     def ping_meta(self) -> dict[str, Any]:
         if not self.available():
@@ -408,8 +445,15 @@ class RobotProxyTarget:
         self._resolved_base_url = urllib.parse.urlunsplit(
             (p.scheme, netloc, "", "", ""))
         self._resolved_host_header = p.netloc
-        self._resolved_until = now + 60.0
+        self._resolved_ip = ip
+        self._resolved_until = now + ROBOT_RESOLVE_TTL_S
         return self._resolved_base_url, self._resolved_host_header
+
+    def _clear_resolved(self) -> None:
+        self._resolved_base_url = ""
+        self._resolved_host_header = ""
+        self._resolved_ip = ""
+        self._resolved_until = 0.0
 
     def request(self, method: str, full_path: str,
                 body: bytes = b"", headers: dict[str, str] | None = None,
@@ -423,32 +467,48 @@ class RobotProxyTarget:
             for k, v in headers.items():
                 if k.lower() in {"content-type", "accept"}:
                     req_headers[k] = v
-        try:
-            connect_base, host_header = self._connect_base()
-        except Exception:
-            connect_base, host_header = self.base_url, ""
-        if host_header and "Host" not in req_headers:
-            req_headers["Host"] = host_header
-        url = connect_base + full_path
         data = body if method == "POST" else None
         if data and "Content-Type" not in req_headers:
             req_headers["Content-Type"] = "application/json"
-        req = urllib.request.Request(url, data=data, method=method,
-                                     headers=req_headers)
-        try:
-            with urllib.request.urlopen(
-                    req, timeout=self.timeout if timeout is None else timeout,
-                    context=self.ssl_context) as r:
-                ctype = r.headers.get("Content-Type",
-                                      "application/octet-stream")
-                return RouteResponse(r.status, r.read(), ctype)
-        except urllib.error.HTTPError as e:
-            ctype = e.headers.get("Content-Type", "text/plain; charset=utf-8")
-            return RouteResponse(e.code, e.read(), ctype)
-        except Exception as e:
-            return RouteResponse.json({"ok": False,
-                                       "error": f"robot proxy failed: {e}"},
-                                      502)
+        budget = self.timeout if timeout is None else timeout
+        deadline = time.monotonic() + max(0.1, float(budget))
+        last_err: Exception | None = None
+        for attempt in range(2):
+            try:
+                connect_base, host_header = self._connect_base()
+            except Exception as e:
+                last_err = e
+                connect_base, host_header = self.base_url, ""
+            attempt_headers = dict(req_headers)
+            if host_header and "Host" not in attempt_headers:
+                attempt_headers["Host"] = host_header
+            url = connect_base + full_path
+            req = urllib.request.Request(url, data=data, method=method,
+                                         headers=attempt_headers)
+            try:
+                remaining = max(0.1, deadline - time.monotonic())
+                with urllib.request.urlopen(
+                        req, timeout=remaining,
+                        context=self.ssl_context) as r:
+                    ctype = r.headers.get("Content-Type",
+                                          "application/octet-stream")
+                    return RouteResponse(r.status, r.read(), ctype)
+            except urllib.error.HTTPError as e:
+                ctype = e.headers.get(
+                    "Content-Type", "text/plain; charset=utf-8")
+                return RouteResponse(e.code, e.read(), ctype)
+            except Exception as e:
+                last_err = e
+                if attempt == 0 and self._resolved_ip:
+                    # DHCP can change the robot address. If a cached IPv4
+                    # target fails, re-resolve once instead of sitting on a
+                    # stale address until the TTL expires.
+                    self._clear_resolved()
+                    continue
+                break
+        return RouteResponse.json(
+            {"ok": False, "error": f"robot proxy failed: {last_err}"},
+            502)
 
 
 class HubController:
@@ -456,6 +516,7 @@ class HubController:
 
     BROADCAST_POSTS = {
         "/cmd",
+        "/api/calibrate",
         "/api/demo",
         "/api/demo/speed",
         "/api/demo/stop",
@@ -540,7 +601,8 @@ class HubController:
         robot_meta = self._robot_config_meta()
         if active_robot and self._has_robot():
             robot_resp = self._request_with_timeout(
-                "robot", "GET", "/api/ping", b"", None, timeout=0.8)
+                "robot", "GET", "/api/ping", b"", None,
+                timeout=ROBOT_PING_TIMEOUT_S)
             robot_obj = robot_resp.json_obj()
             robot_meta = {
                 **robot_meta,
@@ -623,6 +685,13 @@ class HubController:
         if path == "/cmd" and global_stop and _cmd_line(body) in self.ESTOP_CMDS:
             return self._has_sim() and self._has_robot()
         return False
+
+    @staticmethod
+    def _robot_route_timeout(method: str, full_path: str) -> float:
+        path = full_path.split("?", 1)[0]
+        if method == "POST":
+            return ROBOT_ROUTE_TIMEOUTS_S.get(path, ROBOT_DEFAULT_TIMEOUT_S)
+        return ROBOT_DEFAULT_TIMEOUT_S
 
     def _request_with_timeout(self, target: str, method: str, full_path: str,
                               body: bytes,
@@ -729,7 +798,7 @@ class HubController:
         add_from("sim")
         add_local_robot()
         if self._has_robot():
-            add_from("robot", timeout=0.4, optional=True)
+            add_from("robot", timeout=ROBOT_CATALOG_TIMEOUT_S, optional=True)
         return RouteResponse.json({
             "ok": any(s.get("ok") for s in sources.values()),
             "hub": True,
@@ -801,7 +870,9 @@ class HubController:
             return RouteResponse.json({"ok": False,
                                        "error": "robot target unavailable"},
                                       503)
-        return self.robot.request(method, full_path, body, headers)
+        return self.robot.request(
+            method, full_path, body, headers,
+            timeout=self._robot_route_timeout(method, full_path))
 
     def _broadcast_post(self, full_path: str, body: bytes,
                         headers: dict[str, str] | None) -> RouteResponse:
@@ -810,7 +881,8 @@ class HubController:
         def send_robot() -> None:
             try:
                 resp = self._request_with_timeout(
-                    "robot", "POST", full_path, body, headers, timeout=5.0)
+                    "robot", "POST", full_path, body, headers,
+                    timeout=self._robot_route_timeout("POST", full_path))
             except BaseException as e:
                 resp = RouteResponse.json({"ok": False, "error": str(e)},
                                           502)

@@ -47,6 +47,40 @@ _JOB_TITLES = {
     "calibrate": "CALIBRATE",
 }
 
+_CAL_PHASE_TITLES = {
+    "checkup": "CHECKUP",
+    "step": "JOINT STEP",
+    "shake": "SHAKE HOLD",
+    "plant": "PLANT HEIGHT",
+    "geometry": "GEOMETRY",
+    "imu": "IMU REST",
+    "safe_zero": "SAFE ZERO",
+    "imu_rest": "IMU REST",
+    "geometry_plant": "GROUND CONTACT",
+    "geometry_sweep": "DIMENSION SWEEP",
+    "geometry_plausibility": "GEOMETRY CHECK",
+    "imu_body_frame": "IMU BODY FRAME",
+    "imu_frame_validation": "IMU FRAME CHECK",
+    "stability_margin": "STABILITY",
+    "mass_shift_response": "MASS SHIFT",
+    "traction_probe": "TRACTION / SLIP",
+    "return_zero": "RETURN ZERO",
+    "proprioception_check": "PROPRIOCEPTION",
+    "camera_witness": "CAMERA WITNESS",
+    "bus_power_health": "BUS / POWER",
+    "actuator_snapshot": "ACTUATORS",
+    "report": "SAVING REPORT",
+    "calibration_report": "REPORT",
+    "done": "DONE",
+}
+
+
+def calibration_phase_title(phase: str | None) -> str:
+    key = str(phase or "").strip().lower()
+    if not key:
+        return ""
+    return _CAL_PHASE_TITLES.get(key, key.replace("_", " ").upper()[:26])
+
 
 def _wrap(text: str, width: int, max_lines: int) -> list[str]:
     words = str(text).split()
@@ -70,9 +104,10 @@ def _wrap(text: str, width: int, max_lines: int) -> list[str]:
 def format_job_screen(robot: dict) -> tuple[int, list[str]] | None:
     """Job panel content (pct, [title, 4 body, footer]) or None when idle.
 
-    Used while a calibration/demo job is running: the full-screen ``DJ``
-    mode fits 26-char rows and a progress bar, versus the 11-char edge
-    slots of the normal schematic panel.
+    Used while a calibration/demo job is running when the MCU bus is idle
+    enough to paint: the full-screen ``DJ`` mode fits 26-char rows and a
+    progress bar, versus the 11-char edge slots of the normal schematic
+    panel.
     """
     activity = str(robot.get("activity") or "")
     demo = robot.get("demo") or {}
@@ -81,15 +116,25 @@ def format_job_screen(robot: dict) -> tuple[int, list[str]] | None:
         return None
 
     name = str(demo.get("name") or activity or "job")
-    title = _JOB_TITLES.get(
-        name, name.replace("rl_", "").replace("_", " ").upper())
+    if name.startswith("calibrate:") or name == "calibrate":
+        title = "CALIBRATING"
+    else:
+        title = _JOB_TITLES.get(
+            name, name.replace("rl_", "").replace("_", " ").upper())
     if activity == "stopping":
         title = "STOPPING"
 
     progress = demo.get("progress") or {}
     msg = str(progress.get("msg") or demo.get("status")
               or robot.get("detail") or "")
-    body = _wrap(msg, 26, 3)
+    body = []
+    phase_title = ""
+    if title == "CALIBRATING":
+        phase_title = calibration_phase_title(
+            progress.get("phase") or progress.get("mode"))
+    if phase_title:
+        body.append(phase_title)
+    body.extend(_wrap(msg, 26, 3 if not phase_title else 2))
 
     idx, total = progress.get("index"), progress.get("total")
     pct = -1
@@ -293,10 +338,18 @@ class StatusDisplay:
         while not self._stop.is_set():
             t0 = time.monotonic()
             job = None
+            robot = None
             try:
                 bus = self._get_bus()
                 if bus is None or not _has_display(bus):
                     self._stop.wait(self._period)
+                    continue
+                robot = self._get_robot()
+                if (robot.get("demo") or {}).get("bus_hot"):
+                    # A motion/test job owns timing on the shared MCU link.
+                    # Even DJ/DI screen-only commands can hold that link long
+                    # enough to pause a gait or calibration sweep.
+                    self._stop.wait(0.5)
                     continue
                 if not inited:
                     inited = recover_display(bus, attempts=3)
@@ -305,15 +358,6 @@ class StatusDisplay:
                         self._stop.wait(self._period)
                         continue
                     self._recovered = True
-                robot = self._get_robot()
-                if (robot.get("demo") or {}).get("bus_hot"):
-                    # A motion job is actively streaming pose writes.
-                    # A DJ job-panel redraw holds the MCU serial link
-                    # ~1.5 s (measured 08-10) — that was the "big
-                    # pause in the middle of standing". Leave the
-                    # panel stale until the job releases the bus.
-                    self._stop.wait(0.5)
-                    continue
                 now = time.monotonic()
                 if now - self._net_t > 10.0:
                     self._net = net_status()
@@ -345,10 +389,19 @@ class StatusDisplay:
                     self._last_err = "TFT DX failed"
                     # Panel may have been unplugged/replugged mid-run.
                     if self._fail_streak >= 2:
-                        inited = False
-                        self._recovered = False
-                        recover_display(bus, attempts=2)
-                        inited = True
+                        try:
+                            hot = bool((self._get_robot().get("demo") or {})
+                                       .get("bus_hot"))
+                        except Exception:
+                            hot = False
+                        if hot:
+                            inited = False
+                            self._recovered = False
+                        else:
+                            inited = False
+                            self._recovered = False
+                            recover_display(bus, attempts=2)
+                            inited = True
                         self._fail_streak = 0
                 else:
                     self._fail_streak = 0
@@ -362,7 +415,12 @@ class StatusDisplay:
                 painted_err = False
                 try:
                     bus = self._get_bus()
-                    if bus is not None and _has_display(bus):
+                    try:
+                        hot = bool((self._get_robot().get("demo") or {})
+                                   .get("bus_hot"))
+                    except Exception:
+                        hot = False
+                    if bus is not None and _has_display(bus) and not hot:
                         painted_err = bus.display_push(
                             ["ERR", "web error", str(e)[:20]],
                             timeout=6.0) is not None
@@ -374,10 +432,11 @@ class StatusDisplay:
             elapsed = time.monotonic() - t0
             period = self._period
             try:
-                demo = (self._get_robot().get("demo") or {})
-                # DX reads all servo currents on the MCU — throttle it while
-                # a job owns the bus. DJ is pure display, so the job panel
-                # can refresh at the normal rate.
+                if robot is None:
+                    robot = self._get_robot()
+                demo = (robot.get("demo") or {})
+                # DX reads all servo currents on the MCU. During jobs, the
+                # hot-bus check above leaves the panel stale instead.
                 if demo.get("running") and job is None:
                     period = max(period, 2.4)
             except Exception:

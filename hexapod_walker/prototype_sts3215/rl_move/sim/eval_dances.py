@@ -32,19 +32,17 @@ for p in (_PROTO, _PROTO / "linux_control", _PROTO / "motor_setup",
 from rl_move.body_ik import fk_all_feet  # noqa: E402
 from rl_move.robot_state import DEG2RAD, N_JOINTS  # noqa: E402
 from rl_move.safety import AXIS_LIMITS_DEG  # noqa: E402
+from rl_move.joint_frame import (  # noqa: E402
+    robot_abs_deg_to_sim_rad, robot_stand_degrees,
+)
 from rl_move.sim.servo_model import (  # noqa: E402
     SIM_MODEL_PATH, ServoProfile, SimServoParams, apply_params_to_model,
     build_model, joint_qpos_addrs, position_actuator_ids,
 )
 
-# The robot's captured plant (api_capture 2026-08-10) — the stance the
-# live dances anchor to. Falls back automatically if import-time plant
-# discovery works, but on a dev Mac there is no plant_pose.json.
-ROBOT_PLANT_DEG = [
-    -0.088, 19.512, 79.453, 0.264, 17.227, 78.574,
-    -0.176, 19.424, 79.102, 0.088, 17.666, 79.014,
-    -0.088, 18.896, 79.365, -0.088, 18.281, 78.223,
-]
+# Robot logical plant pose.  The command stream is converted to MuJoCo's
+# physical hinge frame at the servo-command boundary below.
+ROBOT_PLANT_DEG = robot_stand_degrees()
 
 CTRL_HZ = 20.0                 # the web stream's pursuit rate
 STREAM_ACC_UNITS = 200         # stream_pose_fn max_acc register units
@@ -107,7 +105,7 @@ def run_dance(name: str, *, seconds: float, speed: float,
     chassis_bid = mujoco.mj_name2id(
         model, mujoco.mjtObj.mjOBJ_BODY, "chassis")
 
-    q_plant = clip_limits(np.asarray(ROBOT_PLANT_DEG) * DEG2RAD)
+    q_plant = clip_limits(robot_abs_deg_to_sim_rad(ROBOT_PLANT_DEG))
     place_at_plant(mujoco, model, data, qadr, pos_act, q_plant)
     profile = ServoProfile(params, q_plant)
 
@@ -147,7 +145,7 @@ def run_dance(name: str, *, seconds: float, speed: float,
     fell_at = None
     for i in range(n_ticks):
         t = i / CTRL_HZ * speed          # dance/demo time
-        q_goal = clip_limits(np.asarray(pose_fn(t)) * DEG2RAD)
+        q_goal = clip_limits(robot_abs_deg_to_sim_rad(pose_fn(t)))
         profile.command(q_goal, acc_units=STREAM_ACC_UNITS)
         advance_tick()
         uz = up_z(data, chassis_bid)

@@ -1,67 +1,96 @@
 # CURRENT TRUTHS - accepted facts and rulings
 
-Last compacted: 2026-08-20 UTC. This file contains accepted current facts,
-not campaign narrative. If history, logs, or old status prose disagree with
-this file, this file wins.
+Last compacted: 2026-08-21 (two-track reset; folded the 08-22
+plant-gate/bank findings). Accepted current facts, not narrative. If
+history or old prose disagrees with this file, this file wins.
 
 ## Mission
 
-The goal is reliable real-robot joystick control: stand up, sit down, turn,
-and walk where pointed. Reliability and safety outrank speed. Slip is a
-calibration signal, not automatic failure.
+Two goals, and only two, until both gates are green (operator,
+08-21): (1) `joystick` — RL from the scripted programmatic gait to
+joystick control, gated on 60 s of command-following in MuJoCo with
+zero falls and teacher-band slip; (2) `amp` — the from-scratch AMP
+program in `rl_docs/AMP_LOCOMOTION.md` (no Isaac Lab; MJX stack;
+build all tools; done at M5 MuJoCo transfer). Operator-launched
+out-of-scope runs get honest triage but no agent follow-ups.
 
-## Current Top Ruling
+## Current top rulings (operator, 08-21)
 
-SIM SPRINT is binding while the robot is off the bench for repair. The fleet
-focuses on a download-ready MuJoCo rise+walk answer. Hardware attempts and
-bench-only items stay parked until the operator says the robot is back.
+- Bad evals/canaries with training reward still rising is NOT a fail:
+  continue the run longer and/or align the reward with the evals
+  (`RUN_INTERPRETATION_RULES.md`). A known exploit on video means
+  misalignment to repair, not a lineage kill.
+- No operator pauses: assume-and-go with recorded assumptions. Only
+  physical-robot access and spend approvals wait.
+- While either gate is unmet, an idle fleet next to an empty backlog
+  is the failure state; build tools, fund continuations, queue the
+  next milestone arm.
+- SIM SPRINT and the seven-track structure are superseded.
 
-## Current Download Answer
+## Facts that feed the two tracks
 
-The measured product baseline is the hierarchy in `rl_docs/DOWNLOAD_ANSWER.md`:
+- The scripted tripod teacher is verified clean at the measured
+  tibia-150 plant (commit a4beb8af): 0.06-0.10 m/s x 4 headings, zero
+  falls, slip/m 1.4-2.9, full fast servo profile. It is the joystick
+  starting point and the amp motion-prior seed.
+- The phase-conditioned BC clone
+  `ppo_goal_cw_bcgait_init_fullprof_phase1` (holdout act err 0.0040)
+  passes the entire direction-first curriculum with ZERO RL: all
+  fixed headings incl. rear, irregular heading changes, stops.
+- Five fast-gait RL levers failed AS RUN (faster cadence,
+  k_walk_cmd_track, speed-obs+charges, +4M steps,
+  phase-obs+fixed-speed). Under the 08-21 ruling these are
+  reward<->eval alignment failures, not proof RL cannot improve the
+  clone. CAVEAT (08-22): the 5th verdict (`cw-dep-bcgait4-phasedir1`)
+  is ENV-CONFOUNDED — it trained on the convention-corrupted sim
+  (30660b51) — so it needs a re-run on the repaired sim before any
+  phase-RL conclusion; the phase INPUT itself kept zero falls, and
+  the operator's staged heading curriculum (fb_20260822T003132:
+  forward-only -> small heading set -> full headings -> irregular) is
+  UNTRIED.
+- BANK BREAK ROOT-CAUSED + REPAIRED (08-22): 30660b51's
+  absolute-tibia knee convention + new default stand home leaked into
+  the femur-relative sim (full semantics bank 43 FAIL). Fixed at the
+  boundary by `linux_control/sim_gait_compat.py` + a
+  `_default_plant_deg` guard; hardware untouched. Residue: 7 FAILs,
+  all true tibia-150 recalibration (rise ref re-mint first) —
+  agent-doable, and prerequisite for aligned-reward bank work.
+- MEASURED-PLANT GATE BREAK (08-22): the download hierarchy
+  HARD-FAILS the interactive session gate at tibia-150 (sit
+  tilt_pitch + reverse tilt_roll falls, fwd yaw -21.8 deg) while the
+  matched 128 mm control PASSES — the plant correction alone breaks
+  the shipped answer; DOWNLOAD_ANSWER's n=600 numbers are old-plant
+  facts. Fix arms: `cw-dep-bcgait1-plant150-1` (launched),
+  `cw-stand-footlow2-plant150-1` (blocked on the rise-family bank
+  residue). Evidence: `logs/ckpt_eval/plantgate_tibia150_session/`.
+- direction_err_mean_deg has a ~35 deg tick-level floor from stride
+  sway — judge deltas vs a matched clone, not raw values.
+- Every pre-08-22 checkpoint (incl. the download hierarchy) trained
+  on the old 128 mm plant; cross-plant comparisons need matched
+  controls.
+- Fallback deployable answer: `footlow2_hard1` stance +
+  `bcgait1_hard1` walk + session controller (det 0.967, sto 0.853,
+  n=600 — old-plant numbers; see the gate break above;
+  `rl_docs/DOWNLOAD_ANSWER.md`).
 
-- stance: `ppo_goal_cw_stand_footlow2_hard1`
-- walk: `ppo_goal_cw_dep_bcgait1_hard1`
-- session controller: re-anchor per mode, entry slew, STOP->stance hold, rot60 wrapper
+## Real robot facts
 
-Held-out session gate: det 0.967, sto 0.853 at n=600. This remains the
-answer until a replacement beats the relevant gate and promotion contract.
+- The robot is off the bench; all physical items are operator-owned.
+  No physical motion without an explicit operator ask, ever.
+- Scripted tripod gait walks, crabs, and turns on hardware with
+  visible loaded-foot slip and roughly half commanded travel.
+- Servo/control facts: 25 Hz loop, 1.5 deg/tick stateful slew, loaded
+  settle ~250-325 ms, air settle ~9 ms. Working gaits rock 10-20 deg.
+- Robot-control/web edits use `linux_control/dev_loop.sh` helpers
+  (`make robot-check` / `robot-unit-check` / `robot-status` /
+  `robot-deploy`); these never move the robot.
 
-## Known Gaps
-
-- Post-lower rise is the weak session boundary. `postlower4` looks better only under remaining-rise semantics; changing the contract and promoting it are operator decisions.
-- Takeoff roll transient is a hardware/sim-boundary issue; entry slew is the best measured sim mitigation so far.
-- Learned stand-up on hardware is unproven. Scripted stand/sit glides remain fallback hardware tools.
-- Fast gait is not deployable yet. Raised motor profile gives speed headroom but destabilizes direction/slip unless the new A/B canaries prove otherwise.
-
-## Real Robot Facts
-
-- Scripted tripod gait walks, crabs, and turns, with visible loaded-foot slip and roughly half commanded travel.
-- Working gaits rock about 10-20 degrees; large roll/tilt events and falls matter more than scalar reward.
-- Learned stand-up previously tripped tilt_roll reliably on hardware; do not treat sim success alone as bench promotion.
-- Servo/control facts in force: 25 Hz loop, 1.5 deg/tick stateful slew, loaded servo settle about 250-325 ms, air settle about 9 ms.
-- No physical motion without an explicit operator ask.
-
-## Policy And Eval Facts
+## Policy and eval facts
 
 - Policies output 18 raw joint targets through the SafetyLayer.
-- `cw-dep-vref1-r1` established the vx/vy-measured-as-reference contract used by the hardware walking base.
-- `eval_session` is the main gate for stance/walk session candidates.
-- Video/physical behavior outranks reward alone. A reward-passing cheat is a metric bug, not a skill.
-- Matched-parent controls are mandatory for injected physics/sensor axes.
-
-## Research Rulings
-
-- Operator-authenticated orders obey first and ask after, unless blocked by safety, typos, failing tests/preflight, or mechanical impossibility.
-- One-variable-per-run is repealed. Coupled bundles are allowed when the operator orders them or the mechanism requires them; pre-registration and honest verdicts still bind.
-- Agent-doable work drains before backoff. If code/triage/precondition work is available, execute it instead of rereading docs.
-- No broad doc sweeps during execution cycles. Read the startup packet, inspect only files needed for the current decision, then launch, triage, code, or exit with the concrete gate.
-- Peripheral launches to fill GPUs are violations. Idle pods are acceptable when the blocker is operator, hardware, or specification-gated.
-
-## Track Facts
-
-- `hw` is the mainline.
-- `multitask` pause was lifted, but it remains secondary during SIM SPRINT unless directly serving download readiness or explicitly ordered.
-- `nobc` gait-from-scratch is closed absent new hardware evidence.
-- `quad`, `turn`, `arch`, and `dynrep` are secondary during SIM SPRINT unless directly serving download readiness or explicitly ordered.
-- Recover/tangle was reopened by operator order 08-20. The recover champion (`ppo_goal_cw_recover_predictive1b_pop3_s13` + frozen encoder `cw-dynrep-tf-state2-recovered1.pt`) is packaged and sim-gate-verified through the deployment runner (`rl_move/sim/recover_runner.py`; DR-0 21/23, own-DR 22/23 on the 23-rung ladder — equal to the training-path gate). Recovery is an ADDITIONAL operator-requested mode; it does not change the rise+walk download answer. Flip is out of envelope; hardware items are bench-parked (`rl_docs/RECOVER_DEPLOY.md`).
+- Video/physical behavior outranks reward alone; a reward-passing
+  cheat is a metric bug, not a skill.
+- Matched-parent controls are mandatory for injected physics/sensor
+  axes.
+- MJX/Warp GPU stack: 12 single-H200 train pods, ~4096 envs each,
+  per-world model DR, canary probes, eval/video logging, desync.

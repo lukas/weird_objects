@@ -29,6 +29,7 @@ Keys are drawn IN the window (cv2 owns every key — no viewer toggles):
 """
 from __future__ import annotations
 
+import argparse
 import math
 import sys
 import time
@@ -46,9 +47,11 @@ for _p in (_PROTO, _PROTO / "motor_setup", _PROTO / "linux_control",
 import cv2  # noqa: E402
 import mujoco  # noqa: E402
 
-from eval_dances import (CTRL_HZ, ROBOT_PLANT_DEG, STREAM_ACC_UNITS,  # noqa: E402
+from eval_dances import (CTRL_HZ, STREAM_ACC_UNITS,  # noqa: E402
                          clip_limits, place_at_plant, up_z)
-from rl_move.robot_state import DEG2RAD  # noqa: E402
+from rl_move.joint_frame import (  # noqa: E402
+    robot_abs_deg_to_sim_rad, robot_stand_degrees,
+)
 from rl_move.sim.servo_model import (SIM_MODEL_PATH, ServoProfile,  # noqa: E402
                                      SimServoParams, apply_params_to_model,
                                      build_model, joint_qpos_addrs,
@@ -60,9 +63,7 @@ WIN = "quad_play — tip-back walk (7 rear · W walk · Space stop · 8 sit)"
 
 def all_stance(g: "QW.QuadRearWalk", tw: float) -> bool:
     """True when all 4 support feet are planted at walk-clock ``tw``."""
-    p = (tw / g.period) % 1.0
-    return all(((p - ph) % 1.0) >= (1.0 - g.duty)
-               for ph in g.phase.values())
+    return g.walk_all_stance_at(tw)
 
 
 class Player:
@@ -91,7 +92,9 @@ class Player:
         self.vadr = np.array([self.model.jnt_dofadr[mujoco.mj_name2id(
             self.model, mujoco.mjtObj.mjOBJ_JOINT, f"L{i}_{ax}")]
             for i in range(6) for ax in ("yaw", "pitch", "knee")])
-        self.q_plant = clip_limits(np.asarray(ROBOT_PLANT_DEG) * DEG2RAD)
+        self.robot_plant_deg = robot_stand_degrees()
+        self.q_plant = clip_limits(
+            robot_abs_deg_to_sim_rad(self.robot_plant_deg))
         self.h = self.model.opt.timestep
         self.sub = max(1, int(round(1.0 / CTRL_HZ / self.h)))
         self.speed = 1.0
@@ -105,7 +108,7 @@ class Player:
                        self.pos_act, self.q_plant)
         self.profile = ServoProfile(self.params, self.q_plant,
                                     vel_scale=self.VEL_SCALE)
-        self.gait = QW.QuadRearWalk(list(ROBOT_PLANT_DEG), 1e6,
+        self.gait = QW.QuadRearWalk(list(self.robot_plant_deg), 1e6,
                                     gait=self.gait_name)
         self.state = self.PLANT
         self.t = 0.0            # entry clock
@@ -120,7 +123,7 @@ class Player:
     def _pose(self) -> list[float]:
         g = self.gait
         if self.state == self.PLANT:
-            return list(ROBOT_PLANT_DEG)
+            return list(self.robot_plant_deg)
         if self.state == self.ENTRY:
             return g.pose_at(min(self.t, QW.ENTRY_TOTAL_S - 1e-4))
         if self.state in (self.REARED, self.WALK, self.STOPPING):
@@ -153,7 +156,7 @@ class Player:
             if self.tx >= self.exit_fn_end:
                 self.state = self.PLANT
 
-        q = clip_limits(np.asarray(self._pose()) * DEG2RAD)
+        q = clip_limits(robot_abs_deg_to_sim_rad(self._pose()))
         self.profile.command(q, acc_units=STREAM_ACC_UNITS)
         db = self.profile.deadband_rad
         for _ in range(self.sub):
@@ -176,7 +179,7 @@ class Player:
     # ---- commands ----------------------------------------------------
     def cmd_rear(self, then_walk: bool = False) -> None:
         if self.state == self.PLANT:
-            self.gait = QW.QuadRearWalk(list(ROBOT_PLANT_DEG), 1e6,
+            self.gait = QW.QuadRearWalk(list(self.robot_plant_deg), 1e6,
                                         gait=self.gait_name)
             self.t, self.tw = 0.0, 0.0
             self.state = self.ENTRY
@@ -199,7 +202,7 @@ class Player:
         # the regather blend in exit phase 1 absorbs a mid-swing foot.
         tw = self.tw
         secs = QW.ENTRY_TOTAL_S + tw + QW.EXIT_TOTAL_S
-        self.exit_fn = QW.QuadRearWalk(list(ROBOT_PLANT_DEG), secs,
+        self.exit_fn = QW.QuadRearWalk(list(self.robot_plant_deg), secs,
                                        gait=self.gait_name).pose_at
         self.tx = QW.ENTRY_TOTAL_S + tw
         self.exit_fn_end = secs
@@ -213,7 +216,47 @@ class Player:
                                % len(names)]
 
 
+def run_headless(gaits: list[str], seconds: float) -> int:
+    for gait in gaits:
+        pl = Player()
+        pl.gait_name = gait
+        pl.reset()
+        rear_only = gait in ("rear", "rear_pitch", "rear_aggressive")
+        pl.cmd_rear(then_walk=not rear_only)
+        n = int((18.0 if rear_only else seconds) * CTRL_HZ)
+        max_tilt = 0.0
+        fell = False
+        for _ in range(n):
+            pl.step()
+            uz = up_z(pl.data, pl.chassis)
+            max_tilt = max(max_tilt, math.degrees(math.acos(
+                max(-1.0, min(1.0, uz)))))
+            fell = fell or uz < 0.55 or float(pl.data.qpos[2]) < 0.05
+        dist_mm = 1000.0 * (float(pl.data.qpos[0]) - pl.x0)
+        print(
+            f"{gait:16s} dist={dist_mm:+7.1f} mm "
+            f"max_tilt={max_tilt:5.1f} deg "
+            f"peak_cur={pl.peak_cur:4.1f} A "
+            f"fell={int(fell)} state={Player.NAMES[pl.state].split()[0]}",
+            flush=True,
+        )
+    return 0
+
+
 def main() -> None:
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--headless", action="store_true",
+                    help="run a fast non-rendered quad smoke test")
+    ap.add_argument("--gaits",
+                    default=("rear,walk,trot,walk_pitch,trot_pitch,"
+                             "walk_aggressive,trot_aggressive"),
+                    help="comma-separated gait list for --headless")
+    ap.add_argument("--seconds", type=float, default=35.0)
+    args = ap.parse_args()
+    if args.headless:
+        gaits = [s.strip() for s in args.gaits.split(",") if s.strip()]
+        raise SystemExit(run_headless(gaits, args.seconds))
+
     pl = Player()
     renderer = mujoco.Renderer(pl.model, height=600, width=960)
     cam = mujoco.MjvCamera()

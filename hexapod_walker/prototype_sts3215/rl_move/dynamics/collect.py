@@ -140,11 +140,11 @@ class _GaitActor:
                  noise: float):
         self.rng, self.noise = rng, noise
         if kind == "noslip":
-            from noslip_gait import NoSlipGait
+            from sim_gait_compat import NoSlipGait
             self.gait = NoSlipGait()
             self.gait.sync_plant_stance(*WALK_PLANT)
         else:
-            from tripod_gait import TripodGait
+            from sim_gait_compat import TripodGait
             self.gait = TripodGait(vx=0.0)
             self.gait.sync_plant_stance(*WALK_PLANT)
             self.gait.reset_phase()

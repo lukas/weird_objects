@@ -17,9 +17,13 @@ let targetHasRobot = true;
 let targetHasSim = false;
 let robotTargetAvailable = true;
 let simTargetAvailable = false;
+let robotTargetTransient = false;
 let robotTargetUrl = '';
 let targetLineMsg = {robot:null, sim:null};
+let lastRobotState = null;
 let lastTargetHealthMsg = '';
+let targetReconnectSince = {robot:0, sim:0};
+const TARGET_RESTART_GRACE_MS = 15000;
 let simFrames = true;
 let simNativeViewer = false;
 let simTimer = null, simBusy = false, simFrameBusy = false;
@@ -40,6 +44,11 @@ function saveRobotUrl(url){
     if(url) localStorage.setItem('hexapod.robotUrl', url);
     else localStorage.removeItem('hexapod.robotUrl');
   }catch(e){}
+}
+function htmlEscape(x){
+  return String(x == null ? '' : x).replace(/[&<>"']/g, ch => ({
+    '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;',
+  }[ch]));
 }
 
 // --- link heartbeat --------------------------------------------------------
@@ -62,18 +71,34 @@ function setLink(ok, detail){
       +(detail ? (' ('+detail+')') : '');
   }
 }
-function targetHealthMsg(meta){
-  if(!meta || !meta.hub || meta.ok !== false) return '';
+function isRobotRestartLikeError(text){
+  const low = String(text || '').toLowerCase();
+  return /robot proxy failed/.test(low)
+    && /(connection refused|errno 61|connection reset|connection aborted|temporarily unavailable|remote end closed)/.test(low);
+}
+function targetHealthItems(meta){
+  if(!meta || !meta.hub || meta.ok !== false) return [];
   const targets = meta.targets || {};
   const active = meta.active || {};
   const bad = [];
-  [['robot', targets.robot || {}], ['MuJoCo sim', targets.sim || {}]]
-    .forEach(([name, t])=>{
-      const key = name === 'robot' ? 'robot' : 'sim';
+  [['robot', 'robot', targets.robot || {}],
+   ['sim', 'MuJoCo sim', targets.sim || {}]]
+    .forEach(([key, name, t])=>{
       if(active[key] && t.available && t.ok === false)
-        bad.push(name + ': ' + (t.error || 'not responding'));
+        bad.push({
+          key,
+          name,
+          error: t.error || 'not responding',
+          transient: key === 'robot' && isRobotRestartLikeError(t.error),
+        });
     });
-  return bad.length ? bad.join(' · ') : 'target not responding';
+  return bad;
+}
+function targetHealthMsg(meta){
+  const bad = targetHealthItems(meta);
+  return bad.length
+    ? bad.map(t=> t.name + ': ' + t.error).join(' · ')
+    : 'target not responding';
 }
 function requestReceiptLine(d, label){
   const prefix = label ? label + ' received' : 'request received';
@@ -108,6 +133,8 @@ function applyBackendMeta(meta){
     hubTarget = meta.target || 'sim';
     targetHasRobot = !!(meta.active && meta.active.robot);
     targetHasSim = !!(meta.active && meta.active.sim);
+    robotTargetTransient = !!(targetHasRobot && robotMeta.available
+      && robotMeta.ok === false && isRobotRestartLikeError(robotMeta.error));
     robotTargetAvailable = !!robotMeta.available && robotMeta.ok !== false;
     simTargetAvailable = !!simMeta.available && simMeta.ok !== false;
     robotTargetUrl = robotMeta.url || robotTargetUrl || savedRobotUrl();
@@ -118,6 +145,7 @@ function applyBackendMeta(meta){
     targetHasRobot = kind0 !== 'sim';
     robotTargetAvailable = targetHasRobot;
     simTargetAvailable = targetHasSim;
+    robotTargetTransient = false;
     robotTargetUrl = '';
     hubTarget = targetHasSim ? 'sim' : 'robot';
   }
@@ -176,7 +204,25 @@ async function heartbeat(){
     applyBackendMeta(j);
     if(j && j.ok === false && j.hub){
       setLink(true, 'online');
-      const msg = targetHealthMsg(j);
+      const items = targetHealthItems(j);
+      const loud = [];
+      const now = Date.now();
+      items.forEach(item=>{
+        if(item.transient){
+          if(!targetReconnectSince[item.key])
+            targetReconnectSince[item.key] = now;
+          setTargetLineMsg(item.key, 'robot web restarting… reconnecting',
+            'warn');
+          if(now - targetReconnectSince[item.key]
+              > TARGET_RESTART_GRACE_MS)
+            loud.push(item.name + ': ' + item.error);
+        } else {
+          targetReconnectSince[item.key] = 0;
+          setTargetLineMsg(item.key, item.error, 'bad');
+          loud.push(item.name + ': ' + item.error);
+        }
+      });
+      const msg = loud.join(' · ');
       if(msg && msg !== lastTargetHealthMsg){
         lastTargetHealthMsg = msg;
         showSent(msg, true);
@@ -184,6 +230,16 @@ async function heartbeat(){
       return;
     }
     if(j && j.ok === false) throw new Error(j.error || 'ping failed');
+    if(hubMode){
+      if(robotTargetAvailable){
+        targetReconnectSince.robot = 0;
+        clearTargetLineMsg('robot');
+      }
+      if(simTargetAvailable){
+        targetReconnectSince.sim = 0;
+        clearTargetLineMsg('sim');
+      }
+    }
     lastTargetHealthMsg = '';
     setLink(true, 'online');
   }catch(e){
@@ -363,6 +419,14 @@ function httpsUrl(){
   const p = window.HEXAPOD_HTTPS_PORT || 8443;   // substituted into index.html
   return 'https://'+location.hostname+(p===443?'':(':'+p))+location.pathname;
 }
+function demoMotionLog(){
+  const el = $('dmotionlog');
+  return !!(el && el.checked);
+}
+function quadMotionLog(){
+  const el = $('qmotionlog');
+  return !!(el && el.checked);
+}
 function padBtnDown(gp, i){
   const btn = gp.buttons[i];
   if(!btn) return false;
@@ -375,6 +439,7 @@ async function padRunDemo(name, label){
   showSent('pad '+label+' → '+name+' sent…');
   try{
     const body = {name:name, speed:demoSpeed(), torque:demoTorque()};
+    if(demoMotionLog()) body.motion_log = true;
     if(name==='breathe' || name==='breathe_v'){
       body.size = demoSize(); body.rate = demoRate(); body.softness = demoSoft();
     }
@@ -461,7 +526,7 @@ async function padSetZero(){
     const r = await fetch('/api/set_zero',{method:'POST'});
     const j = await r.json();
     setArmed(false);
-    if(j.ok) showSent('zero-here OK — '+(j.ok_n||'?')+'/'+(j.count||'?')+' (limp)');
+    if(j.ok) showSent('zero-here OK — '+(j.ok_n||'?')+'/'+(j.count||'?')+' (limp) · plant reset');
     else showSent('zero-here '+(j.error||'failed'));
   }catch(e){ showSent('zero-here failed'); }
 }
@@ -544,14 +609,11 @@ lift.oninput=()=>{ document.getElementById('klab').textContent=lift.value; };
 lift.onchange=()=>cmd('K '+lift.value);
 maxVx = +vmax.value; maxVy = Math.round(maxVx*0.73);
 
-// --- Drive bench workflow ----------------------------------------------------
-// Mirrors rl_move/scripts/tape_measure_walk.py: the operator limps, hand-poses,
-// POST /api/set_zero, ARMs, Stands (P glide), preflights, then the gait gets
-// plain `J vx vy omega` and `J 0 0 0` over /cmd — nothing else.
-document.getElementById('wlimp').onclick = ()=>{
-  dbgTestAbort = true; cmd('X'); setArmed(false);
-  showSent('limp — torque off; hand-pose legs, then Set zero HERE');
-};
+// --- Bench zero workflow -------------------------------------------------------
+// Mirrors rl_move/scripts/tape_measure_walk.py: the operator limps (Motors →
+// Limp all, or E-STOP), hand-poses, POST /api/set_zero (top bar), ARMs,
+// Stands (P glide), preflights, then the gait gets plain `J vx vy omega`
+// and `J 0 0 0` over /cmd — nothing else.
 async function setZeroHere(fromMotors){
   // No confirm (operator 08-11: no warning modals). Motors do not
   // move — only the zero point is rewritten.
@@ -560,12 +622,12 @@ async function setZeroHere(fromMotors){
     const r = await fetch('/api/set_zero',{method:'POST'});
     const j = await r.json();
     setArmed(false);
-    if(j.ok) showSent('zero-here OK — '+j.ok_n+'/'+j.count+' (limp)');
+    if(j.ok) showSent('zero-here OK — '+j.ok_n+'/'+j.count+' (limp) · plant reset');
     else showSent('zero-here '+(j.error || ((j.ok_n||0)+'/'+(j.count||0)+' — check Motors table')));
   }catch(e){ showSent('zero-here failed'); }
   if(fromMotors) refreshMotors();
 }
-document.getElementById('wsetzero').onclick = ()=> setZeroHere(false);
+document.getElementById('topsetzero').onclick = ()=> setZeroHere(false);
 document.getElementById('wpreflight').onclick = async ()=>{
   const out = document.getElementById('wpfout');
   out.textContent = 'Preflight (read-only)…';
@@ -586,8 +648,8 @@ document.getElementById('wpreflight').onclick = async ()=>{
 };
 
 // --- gait picker: 0 tripod drag · 1 no-slip tripod (+alpha) · 2 no-slip
-// ripple · 3 no-slip wave. Alpha only tunes gait 1 (ripple/wave run
-// clamp-tuned presets), so the slider hides for the others. --------------------
+// ripple · 3 no-slip wave · 4 SE2 tetrapod · 5 SE2 wave. Alpha only tunes
+// gait 1 (the others run their presets), so the slider hides for them. --------
 // `gait` (top of file) also rides the manual-drive J stream, so the picker
 // applies to both the timed walk pad and the sticks. The controller refuses
 // swaps while walking (stop first) and applies alpha at the next phase
@@ -770,8 +832,10 @@ function paintTargetRows(){
   paintTargetBadge('robotlinesend', targetHasRobot ? 'active' : 'idle',
     targetHasRobot ? 'route' : '');
   paintTargetBadge('robotlineconn',
-    robotTargetAvailable ? 'connected' : 'not connected',
-    robotTargetAvailable ? 'ok' : 'bad');
+    robotTargetTransient ? 'restarting…'
+      : (robotTargetAvailable ? 'connected' : 'not connected'),
+    robotTargetTransient ? 'warn'
+      : (robotTargetAvailable ? 'ok' : 'bad'));
   paintTargetBadge('simlinesend', targetHasSim ? 'active' : 'idle',
     targetHasSim ? 'route' : '');
   paintTargetBadge('simlineconn',
@@ -1049,6 +1113,7 @@ function showView(which){
   else stopDemoPoll();
   if(which === 'calibrate'){
     if(servosArmed){ cmd('HOLD'); forceResend(); }
+    refreshManualGeometry();
     refreshCalibrate(); startCalPoll();
   }
   else stopCalPoll();
@@ -1068,8 +1133,7 @@ $('tab-calibrate').onclick = ()=> showView('calibrate');
 $('tab-debug').onclick = ()=> showView('debug');
 dbgRefresh();
 
-// --- Calibrate (step + shake/hold + plant height + CSV log) -----------------
-let calMode = 'step';
+// --- Calibrate checkup -------------------------------------------------------
 function startCalPoll(){
   stopCalPoll();
   calTimer = setInterval(()=>{ if(activeView==='calibrate') refreshCalibrate(); }, 800);
@@ -1082,7 +1146,7 @@ function paintPlantInfo(plant){
   $('calplantknee').textContent = (knee>=0?'+':'')+knee.toFixed(1);
   $('calplantsrc').textContent = plant.learned
     ? ('(learned'+(plant.timestamp?(' · '+plant.timestamp):'')+')')
-    : '(default +20 / +80)';
+    : '(default +19 / +28)';
 }
 function paintImuInfo(imu){
   if(!imu || !imu.ok) return;
@@ -1101,168 +1165,410 @@ function paintImuInfo(imu){
     $('calimudetail').textContent = ' · raw MPU until you run IMU rest';
   }
 }
-function syncCalModeUI(){
-  const shake = calMode === 'shake';
-  const plant = calMode === 'plant';
-  const geometry = calMode === 'geometry';
-  const imu = calMode === 'imu';
-  $('calhint-step').style.display = (!shake && !plant && !geometry && !imu) ? '' : 'none';
-  $('calhint-shake').style.display = shake ? '' : 'none';
-  $('calhint-plant').style.display = plant ? '' : 'none';
-  const geoEl = $('calhint-geometry');
-  if(geoEl) geoEl.style.display = geometry ? '' : 'none';
-  $('calhint-imu').style.display = imu ? '' : 'none';
-  $('calstepwrap').style.display = (!shake && !plant && !geometry && !imu) ? '' : 'none';
-  $('calnudgewrap').style.display = shake ? '' : 'none';
-  $('calaxiswrap').style.display = (plant || geometry || imu) ? 'none' : '';
-  $('calplantinfo').style.display = (plant || geometry) ? '' : 'none';
-  $('calplantreset').style.display = (plant || geometry) ? '' : 'none';
-  $('calimuinfo').style.display = imu ? '' : 'none';
-  $('calimureset').style.display = imu ? '' : 'none';
-  if(imu){
-    $('callegend').innerHTML =
-      '<span class="cal-pill green">green</span> still · saved · '+
-      '<span class="cal-pill yellow">yellow</span> mild shake · saved · '+
-      '<span class="cal-pill red">red</span> too much motion · not saved';
-  } else if(plant || geometry){
-    $('callegend').innerHTML =
-      '<span class="cal-pill green">saved</span> contact → new stand home · '+
-      '<span class="cal-pill yellow">no contact</span> not saved · '+
-      '<span class="cal-pill red">abort</span> stopped';
-  } else if(shake){
-    $('callegend').innerHTML =
-      '<span class="cal-pill green">green</span> quiet hold · '+
-      '<span class="cal-pill yellow">yellow</span> mild shake · '+
-      '<span class="cal-pill red">red</span> hunt / never settled';
-  } else {
-    $('callegend').innerHTML =
-      '<span class="cal-pill green">green</span> tracked · '+
-      '<span class="cal-pill yellow">yellow</span> partial / high load · '+
-      '<span class="cal-pill red">red</span> barely moved';
+const CHECKUP_STEPS = [
+  {id:'safe_zero', name:'Safe zero start pose',
+   detail:'Move through the collision-aware zero path before calibration.'},
+  {id:'imu_rest', name:'IMU rest/bias',
+   detail:'Hold still while gyro and accel rest offsets are saved.'},
+  {id:'geometry_plant', name:'Ground contact geometry',
+   detail:'Reach down until contact is detected, then save the plant pose.'},
+  {id:'geometry_sweep', name:'Dimension sweep',
+   detail:'Collect several floor contact poses to estimate heights and zero hints.'},
+  {id:'geometry_plausibility', name:'Geometry plausibility',
+   detail:'Check whether contact/FK geometry should be trusted or treated as diagnostic only.'},
+  {id:'imu_body_frame', name:'Quad IMU body frame',
+   detail:'Rear up and come down while mapping mounted IMU axes to body pitch.'},
+  {id:'imu_frame_validation', name:'IMU frame validation',
+   detail:'Validate that the saved IMU body-frame map is strong enough for balance trim.'},
+  {id:'stability_margin', name:'Stability margin',
+   detail:'Bias the planted stance in four directions and record reversible tilt margin.'},
+  {id:'mass_shift_response', name:'Mass shift response',
+   detail:'Lift small limb groups and measure how much pitch and roll change.'},
+  {id:'traction_probe', name:'Traction / slip',
+   detail:'Run repeated gentle planted yaw shears to flag floor slip.'},
+  {id:'return_zero', name:'Return to zero',
+   detail:'Move back through the collision-aware zero path before torque-off.'},
+  {id:'proprioception_check', name:'Proprioception check',
+   detail:'Compare expected pose with live encoder, current, voltage, and temperature feedback.'},
+  {id:'camera_witness', name:'Camera witness',
+   detail:'Optional synced video/photo evidence for visible body and foot motion.'},
+  {id:'bus_power_health', name:'Bus / power health',
+   detail:'Check live servos, bus voltage, peak current, and servo temperature.'},
+  {id:'actuator_snapshot', name:'Actuator snapshot',
+   detail:'Read live joint angle, current, load, voltage, and temperature.'},
+  {id:'report', name:'Report',
+   detail:'Write one sim-ready calibration report on the robot.'},
+];
+function checkupPhaseFromProgress(p){
+  if(p && p.phase) return p.phase;
+  const msg = String((p && p.msg) || '').toLowerCase();
+  if(msg.includes('return zero') || msg.includes('zero return')) return 'return_zero';
+  if(msg.includes('proprio')) return 'proprioception_check';
+  if(msg.includes('camera')) return 'camera_witness';
+  if(msg.includes('bus') || msg.includes('power')) return 'bus_power_health';
+  if(msg.includes('safe_zero') || msg.includes('safe zero') || msg.includes('zero:')) return 'safe_zero';
+  if(msg.includes('plausibility')) return 'geometry_plausibility';
+  if(msg.includes('frame validation')) return 'imu_frame_validation';
+  if(msg.includes('stability')) return 'stability_margin';
+  if(msg.includes('mass shift')) return 'mass_shift_response';
+  if(msg.includes('sweep') || msg.includes('dimension')) return 'geometry_sweep';
+  if(msg.includes('traction') || msg.includes('slip')) return 'traction_probe';
+  if(msg.includes('imu body') || msg.includes('quad rear')) return 'imu_body_frame';
+  if(msg.includes('geo') || msg.includes('ground') || msg.includes('contact')) return 'geometry_plant';
+  if(msg.includes('actuator')) return 'actuator_snapshot';
+  if(msg.includes('report') || msg.includes('saving')) return 'report';
+  if(msg.includes('imu')) return 'imu_rest';
+  return null;
+}
+function checkupPhaseMap(result){
+  const m = {};
+  for(const p of ((result && result.phases) || [])){
+    if(p && p.name) m[p.name] = p;
   }
+  return m;
+}
+function isCalibrationResult(res){
+  if(!res) return false;
+  const mode = String(res.mode || '');
+  return mode === 'checkup' || mode === 'calibration_report' ||
+    Array.isArray(res.phases) || !!res.geometry || !!res.report;
+}
+function calibrationDisplayResult(state){
+  if(!state) return null;
+  if(state.running) return state.result || null;
+  if(isCalibrationResult(state.result)) return state.result;
+  return state.latest_report || state.result || null;
+}
+function checkupPill(status){
+  const cls = status === 'ok' ? 'green'
+    : status === 'running' || status === 'issue' || status === 'skipped' ? 'yellow'
+    : status === 'abort' ? 'red' : '';
+  const label = status === 'ok' ? 'done'
+    : status === 'running' ? 'running'
+    : status === 'issue' ? 'issue'
+    : status === 'skipped' ? 'skipped'
+    : status === 'abort' ? 'stopped' : 'pending';
+  return `<span class="cal-pill ${cls}">${label}</span>`;
+}
+function renderCheckupSteps({running=false, progress=null, result=null}={}){
+  const el = $('calsteps');
+  if(!el) return;
+  const phases = checkupPhaseMap(result);
+  const runningPhase = running ? checkupPhaseFromProgress(progress) : null;
+  const runningIdx = CHECKUP_STEPS.findIndex(s=>s.id === runningPhase);
+  const rows = CHECKUP_STEPS.map((s, idx)=>{
+    const ph = phases[s.id];
+    let status = 'pending';
+    let detail = s.detail;
+    if(running){
+      if(idx < runningIdx) status = 'ok';
+      if(idx === runningIdx) {
+        status = 'running';
+        detail = (progress && progress.msg) || detail;
+      }
+    }
+    if(ph){
+      status = ph.skipped ? 'skipped' : ph.aborted ? 'abort'
+        : ph.ok ? 'ok' : 'issue';
+      detail = ph.summary || ph.error || detail;
+    } else if(result && s.id === 'report' && result.log_name){
+      status = result.ok ? 'ok' : 'issue';
+      detail = `Saved ${result.log_name}`;
+    }
+    return `<div class="cal-step ${status}">`+
+      `<div class="cal-step-name">${s.name}</div>`+
+      `<div>${checkupPill(status)}</div>`+
+      `<div class="cal-step-detail">${detail || ''}</div>`+
+      `</div>`;
+  });
+  el.innerHTML = rows.join('');
+}
+function calNum(v, digits=1){
+  const n = Number(v);
+  return Number.isFinite(n) ? n.toFixed(digits) : '—';
+}
+function calSigned(v, digits=1){
+  const n = Number(v);
+  if(!Number.isFinite(n)) return '—';
+  return (n >= 0 ? '+' : '') + n.toFixed(digits);
+}
+function calMm(v, digits=1){
+  return calNum(v, digits) + ' mm';
+}
+function calMaybeMm(v, label, digits=1){
+  const n = Number(v);
+  return Number.isFinite(n) ? `${label} ${n.toFixed(digits)} mm` : null;
+}
+function calDelta(v, digits=1){
+  const n = Number(v);
+  if(!Number.isFinite(n)) return '—';
+  return (n >= 0 ? '+' : '') + n.toFixed(digits) + ' mm';
+}
+function fillCalInput(id, value){
+  const el = $(id);
+  if(!el) return;
+  const n = Number(value);
+  if(Number.isFinite(n) && document.activeElement !== el) el.value = n;
+}
+function paintManualGeometry(manual){
+  if(!manual || !manual.ok) return;
+  fillCalInput('calhipheight', manual.hip_pitch_height_mm);
+  fillCalInput('calhipradius', manual.hip_center_radius_mm);
+  fillCalInput('calfemur', manual.femur_mm);
+  fillCalInput('caltibia', manual.tibia_mm);
+}
+function renderCalDimensions(res){
+  const el = $('caldims');
+  if(!el) return;
+  if(!res){
+    el.innerHTML = '';
+    return;
+  }
+  const report = res.report || res || {};
+  const geom = res.geometry || report.geometry || {};
+  const hasGeom = !!(
+    geom && (geom.nominal_mm || geom.summary || geom.per_leg || geom.ok));
+  if(!hasGeom || geom.ok === false){
+    const err = geom && geom.error ? ` (${htmlEscape(geom.error)})` : '';
+    el.innerHTML = `<div class="hint">Robot dimensions unavailable${err}</div>`;
+    return;
+  }
+  const nom = geom.nominal_mm || {};
+  const gsum = geom.summary || {};
+  const plant = geom.plant || {};
+  const hint = geom.mujoco_hint || {};
+  const manual = geom.manual_measurements || {};
+  const fit = geom.effective_fit || {};
+  const fitSummary = fit.summary || {};
+  const seg = fit.segment_fit || {};
+  const segLinks = seg.link_lengths_mm || {};
+  const contactSweep = geom.contact_sweep || {};
+  const manualHeightFit = gsum.manual_height_fit || contactSweep.manual_height_fit || {};
+  const links = hint.link_lengths_m || {};
+  const manualLinks = hint.manual_link_lengths_m || {};
+  const effLinks = hint.effective_link_lengths_m || {};
+  const learned = plant.learned ? 'learned plant' : 'default plant';
+  const fitSource = fit.source === 'contact_sweep'
+    ? `${fit.sample_count || contactSweep.sample_count || 0} contact samples`
+    : 'plant-only estimate';
+  const sweepRaw = contactSweep.raw_sample_count || contactSweep.sample_count;
+  const sweepSource = contactSweep && sweepRaw
+    ? `${contactSweep.status || 'unknown'} · ${contactSweep.sample_count || 0}/${sweepRaw} accepted`
+    : 'not run';
+  const sweepUseText = contactSweep && sweepRaw
+    ? (contactSweep.manual_geometry_mismatch
+      ? 'diagnostic only; disagrees with measured geometry'
+      : (contactSweep.ok ? 'usable contact consistency check' : 'rejected; using fallback geometry'))
+    : 'waiting for run';
+  const manualBits = [
+    calMaybeMm(manual.hip_pitch_height_mm, 'hip h'),
+    calMaybeMm(manual.hip_center_radius_mm, 'center→hip'),
+    calMaybeMm(manual.femur_mm, 'femur'),
+    calMaybeMm(manual.tibia_mm, 'tibia/boot'),
+  ].filter(Boolean);
+  const manualSource = manual.learned
+    ? `operator measurement${manual.timestamp ? (' · '+htmlEscape(manual.timestamp)) : ''}`
+    : 'not saved';
+  const consistencyBits = [
+    gsum.manual_relative_height_mm != null
+      ? `old hip+knee FK ${calMm(gsum.manual_relative_height_mm)} (${calDelta(gsum.manual_relative_minus_manual_height_mm)})`
+      : null,
+    gsum.manual_absolute_height_mm != null
+      ? `active tibia-angle FK ${calMm(gsum.manual_absolute_height_mm)} (${calDelta(gsum.manual_absolute_minus_manual_height_mm)})`
+      : null,
+  ].filter(Boolean);
+  const zeroHyp = gsum.manual_zero_hypotheses || {};
+  const zeroModels = zeroHyp.models || {};
+  function zeroHypBit(label, row){
+    if(!row || !row.ok) return null;
+    return `${label} ${calSigned(row.hip_zero_deg)}° hip / `+
+      `${calSigned(row.knee_zero_deg)}° knee `+
+      `(rms ${calMm(row.rms_error_mm)})`;
+  }
+  const zeroHypBits = [
+    zeroHypBit('best', zeroHyp.best_model),
+    zeroHypBit('serial best', zeroHyp.best_serial),
+    zeroHypBit('tibia-angle best', zeroModels.absolute_knee_best_pair),
+    zeroHypBit('hip-only', zeroModels.serial_hip_only),
+    zeroHypBit('knee-only', zeroModels.serial_knee_only),
+    zeroHypBit('tibia-angle check', zeroModels.absolute_knee_no_offset),
+  ].filter(Boolean);
+  const rows = [
+    ['manual measurements',
+      manualBits.length ? manualBits.join(' · ') : 'not saved',
+      manualSource],
+    ['link lengths',
+      `coxa ${calMm(nom.coxa)} · femur ${calMm(nom.femur)} · tibia ${calMm(nom.tibia)}`,
+      links.coxa != null
+        ? `MuJoCo m: ${calNum(links.coxa, 5)}, ${calNum(links.femur, 5)}, ${calNum(links.tibia, 5)}`
+        : 'CAD model'],
+    ['hip center radius',
+      `nominal ${calMm(gsum.nominal_hip_center_radius_mm)}`
+        +(gsum.manual_hip_center_radius_mm != null
+          ? ` · measured ${calMm(gsum.manual_hip_center_radius_mm)}`
+          : ''),
+      gsum.manual_center_minus_nominal_mm != null
+        ? `measured minus nominal ${calDelta(gsum.manual_center_minus_nominal_mm)}`
+        : 'flat-to-flat/2 + coxa'],
+    ['configured contact links',
+      `coxa ${calMm(segLinks.coxa)} · femur ${calMm(segLinks.femur)} · tibia ${calMm(segLinks.tibia)}`,
+      seg.status
+        ? `${htmlEscape(seg.status)} · ${fitSource}`+
+          (seg.link_lengths_observable === false ? ' · links not learned from floor contacts' : '')
+        : 'waiting for dimension sweep'],
+    ['manual FK consistency',
+      consistencyBits.length ? consistencyBits.join(' · ') : 'waiting for measured links + hip height',
+      'positive delta means FK predicts a taller robot than tape'],
+    ['angle convention',
+      gsum.active_angle_convention || hint.angle_convention_key || 'unknown',
+      hint.angle_convention || 'from calibration geometry model'],
+    ['manual zero hypothesis',
+      zeroHypBits.length ? zeroHypBits.join(' · ') : 'waiting for measured links + sweep contacts',
+      zeroHyp.sample_count
+        ? `${zeroHyp.sample_count} contacts fit to measured height/link lengths`
+        : 'report-only diagnostic'],
+    ['dimension sweep',
+      sweepSource,
+      sweepUseText],
+    ['chassis',
+      `flat-to-flat ${calMm(nom.chassis_flat_to_flat)}`,
+      'CAD model'],
+    ['stand home',
+      `hip ${calSigned(plant.hip_deg)}° · knee ${calSigned(plant.knee_deg)}°`,
+      learned + (plant.timestamp ? ` · ${htmlEscape(plant.timestamp)}` : '')],
+    ['contact/FK height estimate',
+      `mean ${calMm(fitSummary.mean_servo_height_mm)} · spread ${calMm(fitSummary.servo_height_spread_mm)}`,
+      (manualHeightFit.delta_mm != null
+        ? `diagnostic; vs measured hip ${calDelta(manualHeightFit.delta_mm)}`
+        : fitSource)],
+    ['zero offset hints',
+      `max ${calSigned(fitSummary.max_zero_hint_deg)}°`,
+      'relative hints from contact-height residuals'],
+    ['stance foot z',
+      `mean ${calMm(gsum.mean_foot_z_mm)} · spread ${calMm(gsum.foot_z_spread_mm)}`,
+      hint.neutral_foot_z_m != null
+        ? `MuJoCo neutral z ${calNum(hint.neutral_foot_z_m, 5)} m`
+          +(hint.neutral_foot_z_source ? ` · ${htmlEscape(hint.neutral_foot_z_source)}` : '')
+        : 'hip-frame vertical'],
+    ['stance reach',
+      `radial ${calMm(gsum.mean_radial_mm)} · spread ${calMm(gsum.radial_spread_mm)}`,
+      'hip-yaw-frame reach'],
+  ];
+  if(effLinks && effLinks.femur != null){
+    rows.push(['MuJoCo effective links',
+      `${calNum(effLinks.coxa, 5)}, ${calNum(effLinks.femur, 5)}, ${calNum(effLinks.tibia, 5)} m`,
+      'from dimension sweep fit']);
+  }
+  if(manualLinks && (manualLinks.femur != null || manualLinks.tibia != null)){
+    rows.push(['MuJoCo measured links',
+      `${calNum(manualLinks.coxa, 5)}, ${calNum(manualLinks.femur, 5)}, ${calNum(manualLinks.tibia, 5)} m`
+        +(manualLinks.hip_center_radius != null
+          ? ` · center→hip ${calNum(manualLinks.hip_center_radius, 5)} m`
+          : ''),
+      'operator measurement; check active convention before tuning gait']);
+  }
+  const perLeg = Array.isArray(geom.per_leg) ? geom.per_leg : [];
+  const legRows = perLeg.map(row => (
+    `<tr>`+
+      `<td>L${htmlEscape(row.leg)}</td>`+
+      `<td>${calSigned(row.yaw_deg)}</td>`+
+      `<td>${calSigned(row.hip_deg)}</td>`+
+      `<td>${calSigned(row.knee_deg)}</td>`+
+      `<td>${calNum(row.z_mm)}</td>`+
+      `<td>${calNum(row.radial_mm)}</td>`+
+    `</tr>`
+  )).join('');
+  const fitLegs = Array.isArray(fit.per_leg) ? fit.per_leg : [];
+  const fitLegRows = fitLegs.map(row => (
+    `<tr>`+
+      `<td>L${htmlEscape(row.leg)}</td>`+
+      `<td>${htmlEscape(row.samples)}</td>`+
+      `<td>${calNum(row.servo_height_mm)}</td>`+
+      `<td>${calNum(row.height_spread_mm)}</td>`+
+      `<td>${calNum(row.rms_residual_mm)}</td>`+
+      `<td>${calNum(row.zero_rms_residual_mm)}</td>`+
+      `<td>${calSigned(row.hip_zero_hint_deg)}</td>`+
+      `<td>${calSigned(row.knee_zero_hint_deg)}</td>`+
+    `</tr>`
+  )).join('');
+  el.innerHTML =
+    `<div class="cal-dim-title">Robot dimensions used for sim</div>`+
+    `<table class="cal-table cal-dim-summary"><thead><tr>`+
+      `<th>item</th><th>value</th><th>source</th>`+
+    `</tr></thead><tbody>`+
+      rows.map(r => `<tr><td>${htmlEscape(r[0])}</td>`+
+        `<td>${r[1]}</td><td>${r[2]}</td></tr>`).join('')+
+    `</tbody></table>`+
+    (legRows ? (
+      `<div class="cal-dim-title sub">Per-leg plant geometry</div>`+
+      `<table class="cal-table"><thead><tr>`+
+        `<th>leg</th><th>yaw°</th><th>hip°</th><th>knee°</th>`+
+        `<th>foot z mm</th><th>radial mm</th>`+
+      `</tr></thead><tbody>${legRows}</tbody></table>`
+    ) : '')+
+    (fitLegRows ? (
+      `<div class="cal-dim-title sub">Per-leg contact-height diagnostic</div>`+
+      `<table class="cal-table"><thead><tr>`+
+        `<th>leg</th><th>samples</th><th>height mm</th>`+
+        `<th>spread mm</th><th>rms mm</th><th>zero rms</th><th>hip zero°</th>`+
+        `<th>knee zero°</th>`+
+      `</tr></thead><tbody>${fitLegRows}</tbody></table>`
+    ) : '');
 }
 function renderCalResult(res){
-  const body = $('calbody');
-  const head = $('calhead');
   if(!res){
-    if(body && !($('calstatus').textContent||'').includes('…'))
-      body.innerHTML = '<tr><td colspan="8">No rows yet.</td></tr>';
+    renderCheckupSteps();
+    renderCalDimensions(null);
     return;
   }
-  if(res.mode === 'imu'){
-    const g = res.grade || (res.saved ? 'green' : 'red');
-    $('calcounts').innerHTML =
-      (res.saved
-        ? `<span class="cal-pill green">saved</span> IMU ${g}`
-        : `<span class="cal-pill ${g==='red'?'red':'yellow'}">not saved</span> IMU ${g}`) +
-      ` · |g|=${res.accel_mag_g!=null?Number(res.accel_mag_g).toFixed(3):'—'} · `+
-      `ω ptp ${res.gyro_ptp_dps!=null?Number(res.gyro_ptp_dps).toFixed(1):'—'} dps`+
-      (res.hint ? `<div class="hint" style="margin-top:6px">${res.hint}</div>` : '');
-    $('callog').textContent = res.log_name
-      ? `Log: logs/${res.log_name} (${res.samples||0} samples)`
-      : (res.log ? `Log: ${res.log}` : 'Log: —');
-    head.innerHTML = '<tr><th>Vector</th><th>X</th><th>Y</th><th>Z</th>'+
-      '<th>Unit</th><th></th><th></th><th></th></tr>';
-    const rows = res.rows || [];
-    if(rows.length){
-      body.innerHTML = rows.map(r=>
-        `<tr class="g-${g}"><td>${r.axis}</td>`+
-        `<td>${Number(r.x).toFixed(4)}</td>`+
-        `<td>${Number(r.y).toFixed(4)}</td>`+
-        `<td>${Number(r.z).toFixed(4)}</td>`+
-        `<td>${r.unit||''}</td><td colspan="3"></td></tr>`
-      ).join('');
-    } else {
-      body.innerHTML = '<tr><td colspan="8">No IMU vectors.</td></tr>';
-    }
-    if(res.imu) paintImuInfo(res.imu);
-    return;
-  }
-  if(res.mode === 'plant' || res.mode === 'geometry_plant'){
-    const saved = !!(res.saved || (res.ok && res.joints_deg));
-    const g = saved ? 'green' : 'yellow';
-    $('calcounts').innerHTML =
-      (saved
-        ? `<span class="cal-pill green">saved</span> hip ${res.hip_deg}° / knee ${res.knee_deg}°`
-        : `<span class="cal-pill yellow">not saved</span> `+
-          (res.contact_found?'':'no contact · ')+
-          `hip ${res.hip_deg!=null?res.hip_deg:'—'}° / knee ${res.knee_deg!=null?res.knee_deg:'—'}`) +
-      (res.clearance_mm!=null ? ` · +${res.clearance_mm}mm` : '') +
-      (res.msg ? `<div class="hint" style="margin-top:6px">${res.msg}</div>` : '') +
-      (res.hint ? `<div class="hint" style="margin-top:6px">${res.hint}</div>` : '') +
-      (res.error ? `<div class="hint" style="margin-top:6px;color:#f88">${res.error}</div>` : '');
-    $('callog').textContent = res.path
-      ? `Plant: ${res.path}`
-      : (res.log_name
-        ? `Log: logs/${res.log_name} (${res.samples||0} samples)`
-        : (res.log ? `Log: ${res.log}` : 'Log: —'));
-    head.innerHTML = '<tr><th>Leg</th><th>Hip°</th><th>Knee°</th><th></th>'+
-      '<th></th><th></th><th></th><th></th></tr>';
-    const legs = res.per_leg || [];
-    if(legs.length){
-      body.innerHTML = legs.map(r=>
-        `<tr class="g-${g}"><td>L${r.leg}</td><td>${r.hip_deg}</td>`+
-        `<td>${r.knee_deg}</td><td colspan="5"></td></tr>`
-      ).join('');
-    } else if(res.joints_deg && res.joints_deg.length===18){
-      let rows='';
-      for(let leg=0;leg<6;leg++){
-        const h=res.joints_deg[leg*3+1], k=res.joints_deg[leg*3+2];
-        rows += `<tr class="g-${g}"><td>L${leg}</td><td>${Number(h).toFixed(1)}</td>`+
-          `<td>${Number(k).toFixed(1)}</td><td colspan="5"></td></tr>`;
-      }
-      body.innerHTML = rows;
-    } else {
-      body.innerHTML = '<tr><td colspan="8">No per-leg snapshot.</td></tr>';
-    }
-    if(res.plant) paintPlantInfo(res.plant);
-    else if(saved) paintPlantInfo(res);
-    return;
-  }
-  if(!res.rows || !res.rows.length){
-    if(body && !($('calstatus').textContent||'').includes('…'))
-      body.innerHTML = '<tr><td colspan="8">No rows yet.</td></tr>';
-    return;
-  }
-  const shake = (res.mode || 'step') === 'shake';
-  const c = res.counts || {};
-  const size = shake
-    ? `nudge ${res.nudge_deg!=null?res.nudge_deg:res.step_deg}°`
-    : `step ${res.step_deg}°`;
+  const report = res.report || {};
+  const geom = res.geometry || report.geometry || {};
+  const gsum = (geom && geom.summary) || {};
+  const esum = ((geom && geom.effective_fit) || {}).summary || {};
+  const act = res.actuators || report.actuators || {};
+  const snap = (act && act.snapshot) || {};
+  const learned = act && act.learned_model;
+  const prop = res.proprioception || report.proprioception || {};
+  const bus = res.bus_power || report.bus_power || {};
+  const busSnap = bus.snapshot || {};
+  const stability = res.stability_margin || report.stability_margin || {};
+  const mass = res.mass_shift || report.mass_shift || {};
   $('calcounts').innerHTML =
-    `<span class="cal-pill green">${c.green||0} green</span> `+
-    `<span class="cal-pill yellow">${c.yellow||0} yellow</span> `+
-    `<span class="cal-pill red">${c.red||0} red</span>`+
-    ` · ${res.joints_tested||0} joints · ${shake?'shake':'step'} · ${size}`+
-    (res.hint ? `<div class="hint" style="margin-top:6px">${res.hint}</div>` : '');
+    (res.ok
+      ? '<span class="cal-pill green">saved</span> checkup complete'
+      : '<span class="cal-pill yellow">partial</span> checkup complete')+
+    (gsum.mean_foot_z_mm!=null ? ` · foot z ${Number(gsum.mean_foot_z_mm).toFixed(1)}mm` : '')+
+    (gsum.foot_z_spread_mm!=null ? ` · spread ${Number(gsum.foot_z_spread_mm).toFixed(1)}mm` : '')+
+    (gsum.manual_hip_pitch_height_mm!=null ? ` · measured hip ${Number(gsum.manual_hip_pitch_height_mm).toFixed(1)}mm` :
+      (esum.mean_servo_height_mm!=null ? ` · FK height ${Number(esum.mean_servo_height_mm).toFixed(1)}mm` : ''))+
+    (gsum.model_minus_manual_height_mm!=null ? ` · FK err ${calDelta(gsum.model_minus_manual_height_mm)}` : '')+
+    (prop.max_abs_error_deg!=null ? ` · zero err ${Number(prop.max_abs_error_deg).toFixed(1)}°` : '')+
+    (stability.max_measured_tilt_delta_deg!=null ? ` · margin tilt ${Number(stability.max_measured_tilt_delta_deg).toFixed(1)}°` : '')+
+    (mass.max_pitch_delta_deg!=null ? ` · mass pitch ${Number(mass.max_pitch_delta_deg).toFixed(1)}°` : '')+
+    (mass.max_roll_delta_deg!=null ? ` · roll ${Number(mass.max_roll_delta_deg).toFixed(1)}°` : '')+
+    (busSnap.min_volt!=null ? ` · Vmin ${Number(busSnap.min_volt).toFixed(2)}V` : '')+
+    (busSnap.max_current_a!=null ? ` · Ipeak ${Number(busSnap.max_current_a).toFixed(2)}A` : '')+
+    (snap.live_joints!=null ? ` · ${snap.live_joints} actuator snapshots` : '')+
+    (learned ? ' · motor model loaded' : '')+
+    (res.msg ? `<div class="hint" style="margin-top:6px">${res.msg}</div>` : '');
   $('callog').textContent = res.log_name
-    ? `Log: logs/${res.log_name} (${res.samples||0} samples)`
-    : (res.log ? `Log: ${res.log}` : 'Log: —');
-  if(shake){
-    head.innerHTML = '<tr><th>Joint</th><th>Name</th><th>Nudge</th>'+
-      '<th>Overshoot</th><th>Hold pp°</th><th>RMS err</th>'+
-      '<th>Load pp</th><th>Grade</th></tr>';
-    body.innerHTML = res.rows.map(r=>{
-      const g = r.grade || 'red';
-      return `<tr class="g-${g}"><td>${r.joint}</td><td>${r.name}</td>`+
-        `<td>${r.nudge_deg!=null?r.nudge_deg:r.delta_cmd_deg}</td>`+
-        `<td>${r.overshoot_deg!=null?r.overshoot_deg:'—'}</td>`+
-        `<td>${r.hold_pp_deg!=null?r.hold_pp_deg:'—'}</td>`+
-        `<td>${r.hold_rms_err_deg!=null?r.hold_rms_err_deg:'—'}</td>`+
-        `<td>${r.hold_load_pp!=null?r.hold_load_pp+'%':'—'}</td>`+
-        `<td><span class="cal-pill ${g}">${g}</span></td></tr>`;
-    }).join('');
-  } else {
-    head.innerHTML = '<tr><th>Joint</th><th>Name</th><th>Δcmd</th><th>Δact</th>'+
-      '<th>Track%</th><th>Load</th><th>Vmin</th><th>Grade</th></tr>';
-    body.innerHTML = res.rows.map(r=>{
-      const g = r.grade || 'red';
-      return `<tr class="g-${g}"><td>${r.joint}</td><td>${r.name}</td>`+
-        `<td>${r.delta_cmd_deg}</td><td>${r.delta_actual_deg}</td>`+
-        `<td>${r.tracking_pct}</td><td>${r.peak_load_pct}%</td>`+
-        `<td>${r.min_volt==null?'—':r.min_volt}</td>`+
-        `<td><span class="cal-pill ${g}">${g}</span></td></tr>`;
-    }).join('');
+    ? `Report: logs/${res.log_name}`
+    : (res.path ? `Report: ${res.path}` : 'Report: —');
+  renderCheckupSteps({result: res});
+  renderCalDimensions(res);
+  if(geom.manual_measurements) paintManualGeometry(geom.manual_measurements);
+  if(geom.plant) paintPlantInfo(geom.plant);
+  if(res.imu || report.imu) paintImuInfo(res.imu || report.imu);
+}
+async function refreshManualGeometry(){
+  try{
+    const r = await fetch('/api/geometry/manual?t='+Date.now(), {cache:'no-store'});
+    if(!r.ok) return null;
+    const d = await r.json();
+    paintManualGeometry(d);
+    return d;
+  }catch(e){
+    return null;
   }
 }
 async function refreshCalibrate(){
@@ -1273,49 +1579,65 @@ async function refreshCalibrate(){
     if(d.plant) paintPlantInfo(d.plant);
     if(d.imu) paintImuInfo(d.imu);
     const p = d.progress || {};
+    const displayResult = calibrationDisplayResult(d);
+    renderCheckupSteps({
+      running: !!d.running,
+      progress: p,
+      result: displayResult,
+    });
     if(d.running){
-      $('calstatus').textContent = (p.msg || 'Running…') +
-        (p.index!=null ? ` (${(p.index|0)+1}/${p.total||'?'})` : '');
+      $('calstatus').textContent = p.msg || 'Running…';
       $('calrun').disabled = true;
     } else {
       $('calrun').disabled = false;
-      if(d.result && d.result.ok){
-        $('calstatus').textContent = d.result.aborted ? 'Aborted.' : 'Done.';
-        renderCalResult(d.result);
-      } else if(d.result && d.result.error){
-        $('calstatus').textContent = 'Error: '+d.result.error;
+      if(displayResult && displayResult.ok){
+        $('calstatus').textContent = displayResult.aborted ? 'Aborted.' : 'Done.';
+        renderCalResult(displayResult);
+      } else if(displayResult && displayResult.error){
+        $('calstatus').textContent = 'Error: '+displayResult.error;
       } else if(!($('calstatus').textContent||'').match(/Done|Error|Aborted/)){
         // keep last status
       }
     }
-    if(d.result && (d.result.rows || d.result.mode==='plant'
-        || d.result.mode==='geometry_plant' || d.result.mode==='imu'))
-      renderCalResult(d.result);
+    if(displayResult) renderCalResult(displayResult);
   }catch(e){
     $('calstatus').textContent = 'Calibrate status failed (link?)';
   }
 }
-$('calstep').oninput = ()=>{ $('calsteplab').textContent = $('calstep').value; };
-$('calnudge').oninput = ()=>{ $('calnudgelab').textContent = Number($('calnudge').value).toFixed(1); };
-document.querySelectorAll('#calmode button').forEach(b=>{
-  b.onclick = ()=>{
-    document.querySelectorAll('#calmode button').forEach(x=>x.classList.remove('on'));
-    b.classList.add('on');
-    calMode = b.dataset.mode || 'step';
-    syncCalModeUI();
-    if(calMode==='plant' || calMode==='geometry' || calMode==='imu') refreshCalibrate();
+renderCheckupSteps();
+async function saveManualGeometry(){
+  const read = (id)=>{
+    const el = $(id);
+    if(!el || String(el.value).trim() === '') return null;
+    const n = Number(el.value);
+    return Number.isFinite(n) ? n : null;
   };
-});
-document.querySelectorAll('#calaxis button').forEach(b=>{
-  b.onclick = ()=>{
-    document.querySelectorAll('#calaxis button').forEach(x=>x.classList.remove('on'));
-    b.classList.add('on');
-    calAxis = b.dataset.axis || 'all';
+  const body = {
+    hip_pitch_height_mm: read('calhipheight'),
+    hip_center_radius_mm: read('calhipradius'),
+    femur_mm: read('calfemur'),
+    tibia_mm: read('caltibia'),
   };
-});
-syncCalModeUI();
+  $('calstatus').textContent = 'Saving measured geometry…';
+  try{
+    const r = await fetch('/api/geometry/manual', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(body),
+    });
+    const d = await r.json();
+    if(!d.ok){
+      $('calstatus').textContent = d.error || 'Save failed';
+      return;
+    }
+    paintManualGeometry(d);
+    $('calstatus').textContent = 'Measured geometry saved.';
+    await refreshCalibrate();
+  }catch(e){
+    $('calstatus').textContent = 'Save failed';
+  }
+}
 $('calrun').onclick = async ()=>{
-  if(calMode !== 'imu' && needArm()) return;
   $('calstatus').textContent = 'Starting…';
   $('calrun').disabled = true;
   try{
@@ -1323,10 +1645,8 @@ $('calrun').onclick = async ()=>{
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body: JSON.stringify({
-        mode: calMode,
-        step_deg: parseFloat($('calstep').value)||10,
-        nudge_deg: parseFloat($('calnudge').value)||2,
-        axis: calAxis,
+        mode: 'checkup',
+        clearance_mm: 25,
       }),
     });
     const d = await r.json();
@@ -1348,6 +1668,7 @@ $('calstop').onclick = async ()=>{
   refreshCalibrate();
 };
 $('calrefresh').onclick = ()=> refreshCalibrate();
+$('calsavegeom').onclick = ()=> saveManualGeometry();
 let rlTimer = null;
 function startRlPoll(){
   if(rlTimer) clearInterval(rlTimer);
@@ -1898,6 +2219,8 @@ function muDescribeRecord(r){
   if(r.measured_mm != null) bits.push(`meas ${Math.round(r.measured_mm)}mm`);
   if(r.slip_ratio_measured_over_commanded != null)
     bits.push(`ratio ${r.slip_ratio_measured_over_commanded}`);
+  if(r.kind === 'onboard_slip' && r.grade) bits.push(`grade ${r.grade}`);
+  if(r.summary) bits.push(r.summary);
   if(r.observed_turn) bits.push(`turned ${r.observed_turn}`);
   if(r.measured_rot_deg != null) bits.push(`${r.measured_rot_deg}°`);
   if(r.bus_a_mean != null) bits.push(`bus ${r.bus_a_mean}A mean`);
@@ -1978,6 +2301,10 @@ $('mu-holdgo').onclick = ()=>{
         + 'torque on and HOLD the present pose (no motion). Ready?'
       : 'Robot will torque on and HOLD the present pose (no motion). '
         + 'Feet planted on the floor?');
+};
+$('mu-slipgo').onclick = ()=>{
+  muStart('/api/measure/slip', {},
+    'Robot will run the onboard loaded-vs-hover slip probe. Watching?');
 };
 $('mu-save').onclick = async ()=>{
   const fields = {
@@ -2179,25 +2506,6 @@ async function rlPickUse(slot, pick){
   }
   refreshRlTab();
 }
-$('calplantreset').onclick = async ()=>{
-  try{
-    const r = await fetch('/api/plant/reset', {method:'POST'});
-    const d = await r.json();
-    if(d.ok){ paintPlantInfo(d); showSent('plant reset to default'); }
-    else showSent(d.error || 'reset failed');
-    refreshCalibrate();
-  }catch(e){ showSent('plant reset failed'); }
-};
-$('calimureset').onclick = async ()=>{
-  try{
-    const r = await fetch('/api/imu/reset', {method:'POST'});
-    const d = await r.json();
-    if(d.ok){ paintImuInfo(d); showSent('IMU calib cleared'); }
-    else showSent(d.error || 'reset failed');
-    refreshCalibrate();
-  }catch(e){ showSent('IMU reset failed'); }
-};
-
 // --- Motors tab -------------------------------------------------------------
 function startMotorsPoll(){
   stopMotorsPoll();
@@ -2385,6 +2693,7 @@ function startDemoPoll(){
 function stopDemoPoll(){ if(demoTimer){ clearInterval(demoTimer); demoTimer=null; } }
 function paintRobotActivity(robot){
   if(!robot) return;
+  lastRobotState = robot;
   const el = $('robotact');
   if(!el) return;
   const act = robot.activity || 'idle';
@@ -2417,6 +2726,7 @@ function paintDemoStatus(d){
     if(p.rate!=null) bits.push(Number(p.rate).toFixed(2)+'Hz');
     if(p.softness!=null) bits.push('soft '+Number(p.softness).toFixed(2)+'×');
     if(p.torque!=null) bits.push('τ'+p.torque);
+    if(p.balance_trim) bits.push('trim');
     if(p.log) bits.push(p.log);
     if(running) bits.push('running');
     else if(String(st).startsWith('done')) bits.push('finished');
@@ -2441,7 +2751,7 @@ function paintDemoStatus(d){
       telemEl.textContent = 'Last run log: '+t.log_name;
     } else if(!running){
       telemEl.innerHTML =
-        'Demos auto-log cmd vs encoder → <code>logs/demo_*.csv</code> (+ summary).';
+        'Standard event log includes low-rate command telemetry. Enable Full motion CSV for cmd vs encoder logs.';
     }
   }
   // Quad tab mirrors the same demo state with its own pill.
@@ -2534,6 +2844,7 @@ function demoButton(item){
         const sp = demoSpeed();
         const body = {name:item.name, speed:sp, torque:demoTorque(),
                       seconds:demoDuration()};
+        if(demoMotionLog()) body.motion_log = true;
         if(item.name==='breathe' || item.name==='breathe_v' || item.has_size){
           body.size = demoSize();
           body.rate = demoRate();
@@ -2636,6 +2947,34 @@ $('dstand').onclick = ()=> goPoseZero('stand', 'stand zero');
 
 // --- Quad tab (tip-back four-leg walk) --------------------------------------
 function quadSpeed(){ return Math.max(0.25, Math.min(2.0, (+$('qspeed').value)/100)); }
+function quadSuffix(){
+  const v = $('qstance') ? $('qstance').value : '';
+  if(v === 'pitch') return '_pitch';
+  if(v === 'aggressive') return '_aggressive';
+  return '';
+}
+function quadVariantLabel(){
+  const v = $('qstance') ? $('qstance').value : '';
+  if(v === 'pitch') return 'pitched';
+  if(v === 'aggressive') return 'aggressive';
+  return 'stable';
+}
+function quadName(action){ return 'quad_'+action+quadSuffix(); }
+function isQuadDown(name){ return name.indexOf('quad_down') === 0; }
+function quadRobotBlocked(action){
+  return targetHasRobot && quadSuffix() === '_aggressive'
+    && ['walk', 'walk_back', 'trot', 'trot_back'].includes(action);
+}
+function quadRunAction(action, label){
+  if(quadRobotBlocked(action)){
+    showSent(
+      'aggressive walk/trot is blocked on the robot after the forward fall; '
+      +'use Pitched for hardware or switch to MuJoCo-only to simulate it',
+      true);
+    return;
+  }
+  quadRun(quadName(action), label);
+}
 $('qspeed').oninput = ()=>{
   $('qspeedlab').textContent = quadSpeed().toFixed(2);
   if(!(lastDemo && lastDemo.running)) return;
@@ -2654,16 +2993,22 @@ $('qspeed').oninput = ()=>{
 async function quadRun(name, label){
   if(needArm()) return;
   const sp = quadSpeed();
-  const body = {name, speed:sp,
-                seconds:Math.max(20, Math.min(300, +($('qdur').value)||40))};
+  const timeout = Math.max(30, Math.min(300, +($('qdur').value)||300));
+  const body = {name, speed:sp};
+  if(quadMotionLog()) body.motion_log = true;
+  if(!isQuadDown(name)) body.seconds = timeout;
   showSent(label+' request sent…');
   const res = await fetch('/api/demo',{method:'POST',
     headers:{'Content-Type':'application/json'},
     body: JSON.stringify(body)});
   const j = await res.json();
-  if(j.ok) showSent(requestReceiptLine(j, label+' @ '+sp.toFixed(2)
-                    +'× for '+body.seconds+'s'
-                    +(j.home?' (via '+j.home+' zero)':'')));
+  if(j.ok){
+    let msg = label+' @ '+sp.toFixed(2)+'×';
+    if(isQuadDown(name)) msg = label;
+    else msg += ' · timeout '+body.seconds+'s';
+    if(j.home) msg += ' (via '+j.home+')';
+    showSent(requestReceiptLine(j, msg));
+  }
   else showSent(requestReceiptLine(j, label)+'; failed: '
     +(j.error||'unknown'), true);
   if(j.demo) paintDemoStatus(j.demo);
@@ -2671,19 +3016,20 @@ async function quadRun(name, label){
   startDemoPoll();
   refreshRobotState(true);
 }
-$('qstart').onclick = ()=> quadRun('quad_walk', 'quad walk');
-$('qtrot').onclick = ()=> quadRun('quad_trot', 'quad trot');
-$('qstop').onclick = async ()=>{
-  showSent('quad stop request sent…');
-  const r = await fetch('/api/demo/stop',{method:'POST'});
-  try{
-    const j = await r.json();
-    showSent(requestReceiptLine(j, 'Quad stop'));
-    if(j.demo) paintDemoStatus(j.demo);
-    if(j.robot) paintRobotActivity(j.robot);
-  }catch(e){}
-  refreshRobotState(true);
-};
+$('qrear').onclick = ()=> quadRunAction(
+  'rear', 'quad '+quadVariantLabel()+' rear up');
+$('qfwd').onclick = ()=> quadRunAction(
+  'walk', 'quad '+quadVariantLabel()+' walk forward');
+$('qback').onclick = ()=> quadRunAction(
+  'walk_back', 'quad '+quadVariantLabel()+' walk backward');
+$('qtrot').onclick = ()=> quadRunAction(
+  'trot', 'quad '+quadVariantLabel()+' trot forward');
+$('qtrotback').onclick = ()=> quadRunAction(
+  'trot_back', 'quad '+quadVariantLabel()+' trot backward');
+$('qdown').onclick = ()=> quadRunAction(
+  'down', 'quad '+quadVariantLabel()+' come down');
+$('qstop').onclick = ()=> quadRunAction(
+  'hold', 'quad '+quadVariantLabel()+' settle hold');
 $('qstand').onclick = ()=> goPoseZero('stand', 'stand zero');
 $('dcheckz').onclick = async ()=>{
   showSent('checking zero…');
@@ -2722,6 +3068,7 @@ window.addEventListener('hashchange', ()=>{
 // all PWM. needArm() gates every servo-driving send on both pages.
 function updateArmUI(){
   const bar = $('armbar');
+  const zeroBtn = $('armzero');
   const simOnly = targetHasSim && !targetHasRobot;
   const robotConfigured = robotTargetAvailable || !!robotTargetUrl;
   bar.classList.toggle('sim', simOnly);
@@ -2730,6 +3077,10 @@ function updateArmUI(){
     $('armstate').textContent = '● SIM';
     $('armbtn').textContent = 'Stand';
     $('armbtn').title = 'Reset the MuJoCo sim to the standing plant stance.';
+    zeroBtn.disabled = true;
+    zeroBtn.title = robotConfigured
+      ? 'Switch Robot active to run safe zero on the real robot.'
+      : 'Connect the robot to run safe zero.';
     $('estop').textContent = robotConfigured ? '■ E-STOP' : '■ Stop';
     $('estop').title = robotConfigured
       ? 'Global emergency stop: cut robot servo power immediately and stop '
@@ -2748,6 +3099,11 @@ function updateArmUI(){
     ? 'Normal power-off (SETTLE): lowers gently to the ground, THEN cuts '
       +'servo power. For an instant cut use EMERGENCY STOP (robot drops).'
     : 'Power the servos on (ARM). Nothing moves until you press Stand.';
+  zeroBtn.disabled = !robotTargetAvailable;
+  zeroBtn.title = robotTargetAvailable
+    ? 'Move to logical sit zero using the collision-aware safe-zero plan. '
+      +'This may enable torque while it moves, then leaves the robot at zero.'
+    : 'Robot target is not connected.';
   $('estop').textContent = '■ E-STOP';
   $('estop').title = 'Cut all power to the servos IMMEDIATELY — the robot '
     +'goes limp NOW and will drop. Use only in an emergency. For a normal, '
@@ -2769,6 +3125,17 @@ function armServos(){
 // sent (the firmware does the lower, then goes limp on its own).
 function settleServos(){ dbgTestAbort = true; cmd('SETTLE'); setArmed(false);
   showSent('DISARM — lowering gently, then servos off'); }
+async function topSafeZero(){
+  if(targetHasSim && !targetHasRobot){
+    showSent('switch Robot active before safe zero', true);
+    return;
+  }
+  if(!robotTargetAvailable){
+    showSent('robot target not connected', true);
+    return;
+  }
+  await goPoseZero('sit', 'safe zero');
+}
 // INSTANT limp: cut all PWM NOW (true emergency stop; the robot drops). Always
 // allowed, even while disarmed, and used for the boot-time safe default.
 function disarmServos(){
@@ -2787,6 +3154,8 @@ function needArm(){
 }
 // The Disarm toggle is a NORMAL power-off -> graceful lower then limp.
 $('armbtn').onclick = ()=> servosArmed ? settleServos() : armServos();
+// Safe zero is a staged motion into logical sit zero, not an E-stop.
+$('armzero').onclick = topSafeZero;
 // EMERGENCY STOP is the ONLY instant-limp control (cuts PWM immediately).
 $('estop').onclick  = disarmServos;
 // Enforce the safe default on EVERY page load: show disarmed AND tell the

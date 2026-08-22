@@ -4,6 +4,8 @@ scipy
 trimesh
 manifold3d
 matplotlib
+imageio
+imageio-ffmpeg
 rtree
 shapely
 mapbox_earcut

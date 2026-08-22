@@ -39,6 +39,7 @@ from __future__ import annotations
 import argparse
 import bisect
 import math
+import os
 import random
 import statistics
 import sys
@@ -59,6 +60,7 @@ from feetech_bus import (  # noqa: E402
 from motion_telemetry import (  # noqa: E402
     MotionLog, default_log_path, joint_name, run_hold_log,
 )
+from tripod_gait import FEMUR_MM, TIBIA_MM  # noqa: E402
 from urt2_bench import default_port, keystroke_abort_watch, limp_now  # noqa: E402
 
 # SRAM torque limit (0..1000). Softened for demos so PID can't hammer
@@ -111,19 +113,19 @@ DEADBAND_DEG = LEGACY_DEADBAND_DEG
 STREAM_DENSE = False  # set by configure_stream_profile()
 MAX_STREAM_SPEED = 450
 MIN_STREAM_SPEED = 40
-# Rise: chassis sits on an elevated stand, so walking stance (−25°/+60°,
-# only ~37 mm of foot drop) never reaches the floor.  Match stand home:
-# femur angled down (~+20°) and tibia steep (+80° knee ≈ right-angle plant).
+# Rise: chassis sits on an elevated stand, so the old walking crouch never
+# reaches the floor.  Match the measured stand family: femur angled down
+# around +19° and absolute tibia angle around +28° to +36°.
 #
-# Presets (foot drop ≈ −FEMUR·sin(hip) − TIBIA·sin(hip+knee), mm):
-#   default / stand  hip +20° / knee +80° / 12 s  → ~159 mm
-#   high+fast        same angles / 5 s            → ~159 mm (faster)
+# Presets (foot drop ≈ -FEMUR*sin(hip) - TIBIA*sin(knee), mm):
+#   default / stand  hip +19° / knee +28° / 12 s  -> ~100 mm
+#   high+fast        hip +20° / knee +36° / 5 s   -> ~119 mm
 RISE_SECONDS = 12.0
 DESCEND_SECONDS = 12.0
-RISE_HIP_DEG = 20.0
-RISE_KNEE_DEG = 80.0
+RISE_HIP_DEG = 19.0
+RISE_KNEE_DEG = 28.0
 RISE_HIGH_HIP_DEG = 20.0
-RISE_HIGH_KNEE_DEG = 80.0
+RISE_HIGH_KNEE_DEG = 36.0
 RISE_FAST_SECONDS = 5.0
 RISE_FAST_DESCEND_SECONDS = 6.0
 RISE_TORQUE_LIMIT = 700
@@ -213,7 +215,7 @@ RISE_PRESETS = {
         "knee": RISE_KNEE_DEG,
         "rise_seconds": RISE_SECONDS,
         "descend_seconds": DESCEND_SECONDS,
-        "drop_mm": 159,
+        "drop_mm": 100,
         "label": "stand plant",
     },
     "high_fast": {
@@ -221,7 +223,7 @@ RISE_PRESETS = {
         "knee": RISE_HIGH_KNEE_DEG,
         "rise_seconds": RISE_FAST_SECONDS,
         "descend_seconds": RISE_FAST_DESCEND_SECONDS,
-        "drop_mm": 159,
+        "drop_mm": 119,
         "label": "higher + faster reach",
     },
 }
@@ -233,34 +235,8 @@ def _zero_pose() -> list[float]:
 
 
 def _stand_zero_pose() -> list[float]:
-    """Stand home — learned plant or default +20°/+80° (femur down, tibia steep)."""
+    """Stand home — learned plant or measured fallback +19°/+28°."""
     return standing_pose_degrees()
-
-
-# Canonical quad-gait stance. quad_walk's entry/exit and gait constants
-# were tuned (sim + hardware, 08-18) around the DEFAULT +20/+80 plant
-# geometry — its world-frame anchors and the -80 mm / -20 deg rear are
-# only reachable from there.
-QUAD_BASE_HIP_DEG = 20.0
-QUAD_BASE_KNEE_DEG = 80.0
-
-
-def _quad_base_pose() -> list[float]:
-    """Base pose for ALL quad (tip-back) moves — NOT the learned plant.
-
-    The learned plant snapshot can be captured anywhere (shallow, deep,
-    yawed, per-leg asymmetric) and quad_walk builds its foot anchors
-    from whatever base it is given.  Measured in the servo-fit sim
-    (08-20): from a shallow hip 10 / knee 55 capture the entry IK
-    can't reach its targets, the robot NEVER rears (nose-up -1.6 deg
-    instead of -20) while the fronts tuck anyway (they're joint-space),
-    and the exit's untuck pitches it 41 deg NOSE-DOWN — the dance_wild
-    face-plant.  A deep knee-104 capture halves the rear too.  Quads
-    therefore always build from the canonical stance; the streamer's
-    align glide (or the dance's base ease) walks the robot over from
-    wherever it happens to stand.
-    """
-    return [0.0, QUAD_BASE_HIP_DEG, QUAD_BASE_KNEE_DEG] * 6
 
 
 def _arms_up_pose() -> list[float]:
@@ -287,8 +263,8 @@ def _elevated_stand_pose(*, hip: float = RISE_HIP_DEG,
                          yaw: float = 0.0) -> list[float]:
     """Deep reach so feet can find the floor from the elevated stand.
 
-    Walking plant (hip −25° / knee +60°) only drops the foot ~37 mm below
-    the hip.  Default / stand plant is hip +20° / knee +80° (~159 mm).
+    Default stand plant is hip +19° / knee +28° (~100 mm). The high
+    preset reaches about 119 mm.
     Contact current can stop early.
     ``yaw`` is applied the same on every leg (in-place body twist).
     """
@@ -396,6 +372,96 @@ class CurrentPeakTracker:
                     f"# peak,{joint_name(self.peak_joint)},"
                     f"{self.peak_a:.4f},t_s={self.peak_t_s:.2f}\n")
         print(f"  Current peaks → {path}")
+
+
+MOTION_CMD_LOG_HZ = 2.0
+
+
+def _motion_cmd_period_s() -> float:
+    """Low-rate command telemetry period; 0 disables via environment."""
+    try:
+        hz = float(os.environ.get("HEXAPOD_MOTION_CMD_HZ",
+                                  MOTION_CMD_LOG_HZ))
+    except (TypeError, ValueError):
+        hz = MOTION_CMD_LOG_HZ
+    if hz <= 0.0:
+        return 0.0
+    return 1.0 / max(0.1, min(10.0, hz))
+
+
+def _compact_imu(imu: dict | None) -> dict | None:
+    if not imu:
+        return None
+    out: dict = {}
+    for key in ("ax_g", "ay_g", "az_g", "gx_dps", "gy_dps",
+                "gz_dps", "temp_c", "body_pitch_deg",
+                "body_roll_deg", "body_pitch_target_deg",
+                "body_frame_calibrated"):
+        if key not in imu:
+            continue
+        val = imu.get(key)
+        if isinstance(val, (int, float)):
+            out[key] = round(float(val), 4)
+        else:
+            out[key] = val
+    return out or None
+
+
+def _emit_motion_cmd(label: str, q: list[float],
+                     wrote: dict[int, tuple[int, int]], *,
+                     t_s: float, seconds: float, wall_s: float,
+                     rate: float, tick_s: float, lookahead_s: float,
+                     tracker: CurrentPeakTracker,
+                     balance_trim: QuadPitchTrim | None = None,
+                     imu: dict | None = None,
+                     servo_goals: dict[int, float] | None = None,
+                     reason: str = "periodic") -> None:
+    """Always-on, nonblocking command telemetry.
+
+    This records the targets the host gave the servos without performing
+    any extra servo feedback reads. The intrusive cmd-vs-encoder CSV stays
+    opt-in; this path only serializes data already in memory.
+    """
+    try:
+        from event_log import emit
+    except Exception:
+        return
+    try:
+        writes = [
+            {
+                "j": int(j),
+                "id": joint_to_servo_id(int(j)),
+                "deg": round(float(q[int(j)]), 2),
+                "servo_goal_deg": round(float(
+                    (servo_goals or {}).get(int(j), q[int(j)])), 2),
+                "speed": int(sa[0]),
+                "acc": int(sa[1]),
+            }
+            for j, sa in sorted((wrote or {}).items())
+        ]
+        data = {
+            "label": str(label),
+            "reason": str(reason),
+            "t_s": round(float(t_s), 3),
+            "duration_s": round(float(seconds), 3),
+            "wall_s": round(float(wall_s), 3),
+            "rate": round(float(rate), 3),
+            "tick_s": round(float(tick_s), 4),
+            "lookahead_s": round(float(lookahead_s), 4),
+            "cmd_deg": [round(float(x), 2) for x in q],
+            "wrote_n": len(writes),
+            "wrote": writes,
+            "peak_a": round(float(tracker.peak_a), 3),
+            "peak_joint": tracker.peak_joint,
+        }
+        if balance_trim is not None:
+            data["balance"] = balance_trim.event_data()
+        imu_compact = _compact_imu(imu)
+        if imu_compact is not None:
+            data["imu"] = imu_compact
+        emit("motion_cmd", f"{label} command", src="motion", data=data)
+    except Exception:
+        pass
 
 
 def _enable_torque(bus: FeetechBus, live: set[int]) -> None:
@@ -513,10 +579,12 @@ class PoseStreamer:
     def __init__(self):
         self.last: list[float] | None = None
         self.prev: list[float] | None = None
+        self.last_written_goal: dict[int, float] = {}
 
     def reset(self) -> None:
         self.last = None
         self.prev = None
+        self.last_written_goal = {}
 
     def write(self, bus: FeetechBus, degrees: list[float], live: set[int],
               *, dt: float = DT,
@@ -535,6 +603,9 @@ class PoseStreamer:
             self.last = list(degrees)
             self.prev = list(degrees)
             _write_pose(bus, degrees, live, speed=120, acc=10)
+            self.last_written_goal = {
+                j: float(degrees[j]) for j in range(N_JOINTS)
+                if joint_to_servo_id(j) in live}
             return {j: (120, 10) for j in range(N_JOINTS)
                     if joint_to_servo_id(j) in live}
 
@@ -544,6 +615,7 @@ class PoseStreamer:
         self.prev = list(degrees)
 
         wrote: dict[int, tuple[int, int]] = {}
+        written_goal: dict[int, float] = {}
         for joint, deg in enumerate(degrees):
             sid = joint_to_servo_id(joint)
             if sid not in live:
@@ -571,9 +643,11 @@ class PoseStreamer:
             bus.pkt.SyncWritePosEx(sid, count, speed, acc)
             self.last[joint] = deg
             wrote[joint] = (speed, acc)
+            written_goal[joint] = float(goal)
         if wrote:
             bus.pkt.groupSyncWrite.txPacket()
             bus.pkt.groupSyncWrite.clearParam()
+        self.last_written_goal = written_goal
         return wrote
 
 
@@ -924,6 +998,526 @@ STAND_DANCE_TORQUE = 900      # weight-bearing motion (end-hold restores 1000)
 LIVE_SPEED_MIN = 0.25
 LIVE_SPEED_MAX = 3.0
 
+# Live quad balance trim: this is intentionally a small reflex around the
+# existing gait, not a new gait planner. It uses the same sparse IMU read
+# already used by the tilt guard, so normal operation adds no bus traffic.
+QUAD_TRIM_MAX_PITCH_DEG = 5.0
+QUAD_TRIM_MAX_DX_M = 0.012
+QUAD_TRIM_DEADBAND_DEG = 1.0
+QUAD_TRIM_GUARD_ERROR_DEG = 15.0
+QUAD_TRIM_MIN_BASE_DEG = 6.0
+# Recovery band: between the small-trim reflex and the fall guard there
+# is a "tipped too far but not yet falling" regime.  Instead of marching
+# on with saturated 5-deg trim until the 15-deg guard limps, recovery
+# BRACE-HOLDS: stream_pose_fn finishes the current step at no more than
+# 1x, FREEZES the gait clock at the next all-stance window (the pose fn
+# exposes its stance schedule via ``all_stance_at``), and leans the
+# body against the tip with the full second-line trim authority
+# (quad_walk._trim clamps at +/-7 deg / +/-18 mm — recovery uses
+# exactly that).  The pacing rules were measured on the MuJoCo twin
+# (08-21): freezing mid-swing strands a foot on tripod support and
+# DEEPENS the tip; slowing a swing does the same (the nose hangs
+# unsupported for longer); and stepping on at full beat keeps rocking
+# the nose ~10 deg per swing on top of the tip.  Hence: swings run at
+# normal pace, stance freezes.  Resume normal walking once level again;
+# if the lean has not come back within the timeout, the tip is real —
+# go limp, never fight it.  Thresholds sized against the twin's walk,
+# which runs ~6 deg sagged from the reared-hold calibration target with
+# beat spikes past 12: enter above the steady sag at the spikes' onset;
+# exit must also sit just above the steady sag or recovery could never
+# release and would always time out into a needless limp.
+QUAD_TRIM_RECOVER_ERR_DEG = 9.0        # enter recovery (2 consecutive)
+QUAD_TRIM_RECOVER_EXIT_DEG = 5.0       # leave recovery (2 consecutive)
+QUAD_TRIM_RECOVER_MAX_PITCH_DEG = 7.0  # = quad_walk 2nd-line pitch clamp
+QUAD_TRIM_RECOVER_MAX_DX_M = 0.018     # = quad_walk 2nd-line dx clamp
+QUAD_TRIM_RECOVER_TIMEOUT_S = 8.0      # still tipped after this -> limp
+
+
+def _imu_roll_pitch_deg(imu: dict) -> tuple[float, float] | None:
+    try:
+        ax = float(imu.get("ax_g", 0.0))
+        ay = float(imu.get("ay_g", 0.0))
+        az = float(imu.get("az_g", 0.0))
+    except (TypeError, ValueError):
+        return None
+    norm = math.sqrt(ax * ax + ay * ay + az * az)
+    if norm < 0.25:
+        return None
+    roll = math.degrees(math.atan2(ay, az))
+    pitch = math.degrees(math.atan2(-ax, math.hypot(ay, az)))
+    return roll, pitch
+
+
+def _clamp(x: float, lo: float, hi: float) -> float:
+    return max(lo, min(hi, x))
+
+
+def _deadband(x: float, band: float) -> float:
+    if x > band:
+        return x - band
+    if x < -band:
+        return x + band
+    return 0.0
+
+
+def _slew(current: float, desired: float, max_step: float) -> float:
+    if desired > current + max_step:
+        return current + max_step
+    if desired < current - max_step:
+        return current - max_step
+    return desired
+
+
+def _quad_trim_axis_label(axis_roll: float, axis_pitch: float) -> str:
+    if abs(axis_roll) < 0.25:
+        return "pitch"
+    if abs(axis_pitch) < 0.25:
+        return "roll"
+    return "mix"
+
+
+def _quad_trim_sign_to_cmd(expected_pitch_deg: float | None,
+                           measured_base_deg: float) -> float:
+    if expected_pitch_deg is not None and abs(expected_pitch_deg) > 5.0:
+        # quad_walk command convention is negative nose-up. If the measured
+        # rear-lean baseline reports the opposite sign, flip it into command
+        # convention.
+        return -1.0 if expected_pitch_deg * measured_base_deg < 0 else 1.0
+    return -1.0
+
+
+def quad_trim_calibration_from_roll_pitch(
+        roll_deg: float, pitch_deg: float, *,
+        expected_pitch_deg: float | None = None,
+        gait: str = "quad",
+        samples: int = 1,
+        source: str = "quad_rear_lean") -> dict:
+    """Build the saved quad-trim calibration payload from a rear lean."""
+    base_roll = float(roll_deg)
+    base_pitch = float(pitch_deg)
+    measured_base = math.hypot(base_roll, base_pitch)
+    if measured_base < QUAD_TRIM_MIN_BASE_DEG:
+        return {
+            "ok": False,
+            "source": source,
+            "gait": gait,
+            "error": (
+                "imu rear-lean baseline too small "
+                f"(roll {base_roll:+.1f}, pitch {base_pitch:+.1f} deg)"
+            ),
+            "roll_deg": round(base_roll, 3),
+            "pitch_deg": round(base_pitch, 3),
+            "measured_lean_deg": round(measured_base, 3),
+            "samples": int(samples),
+            "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S"),
+        }
+    axis_roll = base_roll / measured_base
+    axis_pitch = base_pitch / measured_base
+    sign_to_cmd = _quad_trim_sign_to_cmd(
+        expected_pitch_deg, measured_base)
+    return {
+        "ok": True,
+        "version": 1,
+        "source": source,
+        "gait": gait,
+        "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S"),
+        "samples": int(samples),
+        "roll_deg": round(base_roll, 3),
+        "pitch_deg": round(base_pitch, 3),
+        "measured_lean_deg": round(measured_base, 3),
+        "expected_pitch_deg": (
+            None if expected_pitch_deg is None
+            else round(float(expected_pitch_deg), 3)),
+        "imu_axis": _quad_trim_axis_label(axis_roll, axis_pitch),
+        "imu_axis_roll": round(axis_roll, 6),
+        "imu_axis_pitch": round(axis_pitch, 6),
+        "imu_sign_to_cmd": sign_to_cmd,
+        "target_pitch_deg": round(sign_to_cmd * measured_base, 3),
+    }
+
+
+def quad_trim_calibration_from_imu_samples(
+        samples: list[dict], *,
+        expected_pitch_deg: float | None = None,
+        gait: str = "quad",
+        source: str = "quad_rear_lean") -> dict:
+    vals: list[tuple[float, float]] = []
+    for sample in samples:
+        rp = _imu_roll_pitch_deg(sample)
+        if rp is not None:
+            vals.append(rp)
+    if not vals:
+        return {
+            "ok": False,
+            "source": source,
+            "gait": gait,
+            "error": "no valid IMU samples",
+            "samples": 0,
+            "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S"),
+        }
+    roll = sum(r for r, _p in vals) / len(vals)
+    pitch = sum(p for _r, p in vals) / len(vals)
+    return quad_trim_calibration_from_roll_pitch(
+        roll, pitch, expected_pitch_deg=expected_pitch_deg, gait=gait,
+        samples=len(vals), source=source)
+
+
+class QuadPitchTrim:
+    """Tiny IMU pitch reflex for split quad hold/walk/trot phases.
+
+    The trim baseline is measured at the start of the reared phase. We
+    treat the baseline (roll, pitch) pair as a 2D lean vector, so an IMU
+    mounted off-axis can split rear lean across both computed axes. New
+    samples are projected onto that vector, then converted into
+    quad_walk's command convention (negative = nose up). If pitch drifts
+    forward, the command nudges more nose-up/aft; if it drifts backward,
+    the command nudges less nose-up/forward.
+
+    Three regimes by pitch error:
+      trim     |err| small: gentle nudges, capped at +/-5 deg / 12 mm.
+      recover  |err| past QUAD_TRIM_RECOVER_ERR_DEG sustained:
+               brace-hold — the streamer finishes the current step at
+               no more than 1x, freezes the gait clock at the next
+               all-stance window, and pushes the full second-line trim
+               authority against the tip until level again — or limp
+               on QUAD_TRIM_RECOVER_TIMEOUT_S.
+      guard    |err| past QUAD_TRIM_GUARD_ERROR_DEG (or fast + big) for
+               two IMU samples: fall onset — the streamer goes limp
+               rather than fighting it.
+    """
+
+    def __init__(self, *, expected_pitch_deg: float | None = None,
+                 gait: str = "quad",
+                 calibration: dict | None = None):
+        self.expected_pitch_deg = expected_pitch_deg
+        self.gait = gait
+        self.enabled = True
+        self.ready = False
+        self.disabled_reason = ""
+        self.loaded_calibration = False
+        self.calibration_source = "warmup"
+        self.body_frame_mode = False
+        self.samples = 0
+        self.imu_axis = "pitch"
+        self.imu_axis_roll = 0.0
+        self.imu_axis_pitch = 1.0
+        self.sign_to_cmd = -1.0
+        self.target_pitch_deg: float | None = None
+        self.pitch_deg: float | None = None
+        self.pitch_error_deg = 0.0
+        self.pitch_rate_deg_s = 0.0
+        self.pitch_trim_deg = 0.0
+        self.body_dx_trim_m = 0.0
+        self.speed_scale = 1.0
+        self.abort_reason: str | None = None
+        self.recovering = False
+        self.recover_count = 0
+        self.recover_t0: float | None = None
+        self._recover_hi = 0
+        self._recover_lo = 0
+        self._warmup: list[tuple[float, float]] = []
+        self._axis_lp_meas: float | None = None
+        self._prev_cmd_pitch: float | None = None
+        self._prev_update_t: float | None = None
+        self._danger_samples = 0
+        self._last_emit_t = 0.0
+        self._last_emit_bucket: tuple | None = None
+        if calibration:
+            self._load_calibration(calibration)
+
+    def _axis_label(self) -> str:
+        return _quad_trim_axis_label(self.imu_axis_roll, self.imu_axis_pitch)
+
+    def _load_calibration(self, calibration: dict) -> None:
+        try:
+            axis_roll = float(calibration.get("imu_axis_roll"))
+            axis_pitch = float(calibration.get("imu_axis_pitch"))
+        except (TypeError, ValueError):
+            return
+        norm = math.hypot(axis_roll, axis_pitch)
+        if norm < 0.5:
+            return
+        self.imu_axis_roll = axis_roll / norm
+        self.imu_axis_pitch = axis_pitch / norm
+        self.imu_axis = str(calibration.get("imu_axis") or self._axis_label())
+        try:
+            self.sign_to_cmd = float(
+                calibration.get("imu_sign_to_cmd", self.sign_to_cmd))
+        except (TypeError, ValueError):
+            self.sign_to_cmd = -1.0
+        if abs(self.sign_to_cmd) < 0.5:
+            self.sign_to_cmd = -1.0
+        try:
+            target = float(calibration["target_pitch_deg"])
+        except (KeyError, TypeError, ValueError):
+            try:
+                target = self.sign_to_cmd * float(
+                    calibration["measured_lean_deg"])
+            except (KeyError, TypeError, ValueError):
+                return
+        measured = target / self.sign_to_cmd
+        self.target_pitch_deg = target
+        self.pitch_deg = target
+        self._axis_lp_meas = measured
+        self._prev_cmd_pitch = target
+        self.ready = True
+        self.loaded_calibration = True
+        self.calibration_source = str(calibration.get("source") or "saved")
+        try:
+            self.samples = int(calibration.get("samples") or 0)
+        except (TypeError, ValueError):
+            self.samples = 0
+
+    def _project_lean_deg(self, roll_deg: float, pitch_deg: float) -> float:
+        return (roll_deg * self.imu_axis_roll
+                + pitch_deg * self.imu_axis_pitch)
+
+    def _update_body_pitch(self, cmd_pitch: float, now: float,
+                           target_pitch: float | None = None) -> bool:
+        self.samples += 1
+        if not self.ready:
+            target = target_pitch
+            if target is None:
+                target = self.expected_pitch_deg
+            if target is None or abs(float(target)) <= 5.0:
+                target = cmd_pitch
+            self.imu_axis = "body"
+            self.imu_axis_roll = 0.0
+            self.imu_axis_pitch = 1.0
+            self.sign_to_cmd = 1.0
+            self.target_pitch_deg = float(target)
+            self.pitch_deg = cmd_pitch
+            self._axis_lp_meas = cmd_pitch
+            self._prev_cmd_pitch = cmd_pitch
+            self._prev_update_t = now
+            self.ready = True
+            self.loaded_calibration = True
+            self.calibration_source = "imu_body_frame"
+            self.body_frame_mode = True
+            return True
+        return self._update_cmd_pitch(cmd_pitch, now)
+
+    def _update_cmd_pitch(self, cmd_pitch: float, now: float) -> bool:
+        prev_t = self._prev_update_t if self._prev_update_t is not None else now
+        dt = max(0.05, min(0.75, now - prev_t))
+        prev_pitch = (self._prev_cmd_pitch if self._prev_cmd_pitch is not None
+                      else cmd_pitch)
+        rate = _clamp((cmd_pitch - prev_pitch) / dt, -120.0, 120.0)
+        target = (self.target_pitch_deg
+                  if self.target_pitch_deg is not None else cmd_pitch)
+        err = cmd_pitch - target
+        eff = _deadband(err, QUAD_TRIM_DEADBAND_DEG)
+
+        # Recovery entry/exit, two consecutive samples each way so one
+        # noisy IMU read cannot flip the mode.
+        if not self.recovering:
+            self._recover_hi = (self._recover_hi + 1
+                                if abs(err) >= QUAD_TRIM_RECOVER_ERR_DEG
+                                else 0)
+            if self._recover_hi >= 2:
+                self.recovering = True
+                self.recover_t0 = now
+                self.recover_count += 1
+                self._recover_lo = 0
+        else:
+            self._recover_lo = (self._recover_lo + 1
+                                if abs(err) <= QUAD_TRIM_RECOVER_EXIT_DEG
+                                else 0)
+            if self._recover_lo >= 2:
+                self.recovering = False
+                self.recover_t0 = None
+                self._recover_hi = 0
+
+        if self.recovering:
+            # Full second-line authority against the tip; the walk is
+            # brace-holding so the lean dominates the stride dynamics.
+            desired_pitch = -(0.9 * eff + 0.05 * rate)
+            desired_dx = -(0.0022 * eff + 0.00006 * rate)
+            max_pitch = QUAD_TRIM_RECOVER_MAX_PITCH_DEG
+            max_dx = QUAD_TRIM_RECOVER_MAX_DX_M
+        else:
+            desired_pitch = -(0.55 * eff + 0.04 * rate)
+            desired_dx = -(0.0012 * eff + 0.00004 * rate)
+            max_pitch = QUAD_TRIM_MAX_PITCH_DEG
+            max_dx = QUAD_TRIM_MAX_DX_M
+        desired_pitch = _clamp(desired_pitch, -max_pitch, max_pitch)
+        desired_dx = _clamp(desired_dx, -max_dx, max_dx)
+
+        self.pitch_trim_deg = _slew(
+            self.pitch_trim_deg, desired_pitch, 8.0 * dt)
+        self.body_dx_trim_m = _slew(
+            self.body_dx_trim_m, desired_dx, 0.030 * dt)
+        # speed_scale keeps the normal slowdown formula in recovery too:
+        # the streamer overrides pacing entirely (brace-hold) when the
+        # pose fn exposes its stance schedule, and this is the sane
+        # fallback when it does not.
+        self.speed_scale = _clamp(
+            1.0 - min(0.35, abs(err) / 28.0)
+            - min(0.15, abs(rate) / 160.0),
+            0.55, 1.0)
+        if (self.recovering and self.abort_reason is None
+                and self.recover_t0 is not None
+                and now - self.recover_t0 > QUAD_TRIM_RECOVER_TIMEOUT_S):
+            self.abort_reason = (
+                f"balance:{err:+.1f}:{rate:+.0f}:recovery_timeout")
+        self.pitch_deg = cmd_pitch
+        self.pitch_error_deg = err
+        self.pitch_rate_deg_s = rate
+        self._prev_cmd_pitch = cmd_pitch
+        self._prev_update_t = now
+
+        # Rate branch is direction-aware: err and rate the SAME sign
+        # means tipping further (fall onset); opposite signs mean the
+        # body is swinging back toward level — that's a rock rebound or
+        # recovery working, not a fall (limping there was measured to
+        # cut off successful recoveries on the MuJoCo twin, 08-21).
+        danger = (abs(err) > QUAD_TRIM_GUARD_ERROR_DEG
+                  or (abs(err) > 10.0 and abs(rate) > 45.0
+                      and err * rate > 0.0))
+        self._danger_samples = self._danger_samples + 1 if danger else 0
+        if self._danger_samples >= 2 and self.abort_reason is None:
+            self.abort_reason = (
+                f"balance:{err:+.1f}:{rate:+.0f}")
+        return True
+
+    def pose_trim(self) -> dict:
+        if not self.enabled or not self.ready:
+            return {"body_dx_m": 0.0, "pitch_rad": 0.0}
+        return {
+            "body_dx_m": self.body_dx_trim_m,
+            "pitch_rad": math.radians(self.pitch_trim_deg),
+        }
+
+    def update(self, imu: dict | None, now: float) -> bool:
+        if not self.enabled or not imu:
+            return False
+        if imu.get("body_frame_calibrated") and imu.get("body_pitch_deg") is not None:
+            try:
+                target = None
+                if imu.get("body_pitch_target_deg") is not None:
+                    target = float(imu["body_pitch_target_deg"])
+                return self._update_body_pitch(
+                    float(imu["body_pitch_deg"]), now,
+                    target_pitch=target)
+            except (TypeError, ValueError):
+                pass
+        rp = _imu_roll_pitch_deg(imu)
+        if rp is None:
+            return False
+        roll_deg, pitch_deg = rp
+        self.samples += 1
+
+        if not self.ready:
+            self._warmup.append((roll_deg, pitch_deg))
+            if len(self._warmup) < 3:
+                return True
+            base_roll = sum(r for r, _p in self._warmup) / len(self._warmup)
+            base_pitch = sum(p for _r, p in self._warmup) / len(self._warmup)
+            calib = quad_trim_calibration_from_roll_pitch(
+                base_roll, base_pitch,
+                expected_pitch_deg=self.expected_pitch_deg,
+                gait=self.gait, samples=len(self._warmup),
+                source="warmup")
+            if not calib.get("ok"):
+                self.enabled = False
+                self.disabled_reason = str(
+                    calib.get("error") or "imu rear-lean baseline invalid")
+                return True
+            self._load_calibration(calib)
+            self.loaded_calibration = False
+            self.calibration_source = "warmup"
+            self._prev_update_t = now
+            return True
+
+        selected = self._project_lean_deg(roll_deg, pitch_deg)
+        alpha = 0.35
+        if self._axis_lp_meas is None:
+            self._axis_lp_meas = selected
+        else:
+            self._axis_lp_meas = (
+                (1.0 - alpha) * self._axis_lp_meas + alpha * selected)
+        cmd_pitch = self.sign_to_cmd * self._axis_lp_meas
+        return self._update_cmd_pitch(cmd_pitch, now)
+
+    def should_emit(self, now: float) -> bool:
+        if self.abort_reason:
+            return True
+        if self.disabled_reason:
+            return now - self._last_emit_t > 2.0
+        if not self.ready:
+            return False
+        bucket = (round(self.pitch_trim_deg),
+                  round(self.body_dx_trim_m * 1000), self.recovering)
+        if bucket != self._last_emit_bucket and now - self._last_emit_t > 0.35:
+            return True
+        return now - self._last_emit_t > 1.25
+
+    def mark_emitted(self, now: float) -> None:
+        self._last_emit_t = now
+        self._last_emit_bucket = (
+            round(self.pitch_trim_deg),
+            round(self.body_dx_trim_m * 1000), self.recovering)
+
+    def event_data(self) -> dict:
+        return {
+            "gait": self.gait,
+            "ready": self.ready,
+            "enabled": self.enabled,
+            "disabled_reason": self.disabled_reason,
+            "calibration_source": self.calibration_source,
+            "loaded_calibration": self.loaded_calibration,
+            "body_frame_mode": self.body_frame_mode,
+            "imu_axis": self.imu_axis,
+            "imu_axis_roll": round(self.imu_axis_roll, 3),
+            "imu_axis_pitch": round(self.imu_axis_pitch, 3),
+            "imu_sign_to_cmd": self.sign_to_cmd,
+            "target_pitch_deg": (
+                None if self.target_pitch_deg is None
+                else round(self.target_pitch_deg, 2)),
+            "pitch_deg": (
+                None if self.pitch_deg is None else round(self.pitch_deg, 2)),
+            "err_deg": round(self.pitch_error_deg, 2),
+            "rate_deg_s": round(self.pitch_rate_deg_s, 1),
+            "pitch_trim_deg": round(self.pitch_trim_deg, 2),
+            "body_dx_trim_mm": round(self.body_dx_trim_m * 1000.0, 1),
+            "speed_scale": round(self.speed_scale, 2),
+            "recovering": self.recovering,
+            "recover_count": self.recover_count,
+            "recover_s": (
+                0.0 if (self.recover_t0 is None
+                        or self._prev_update_t is None)
+                else round(self._prev_update_t - self.recover_t0, 2)),
+            "samples": self.samples,
+        }
+
+    def csv_cols(self) -> dict:
+        d = self.event_data()
+        return {
+            "balance_axis": d["imu_axis"],
+            "balance_axis_roll": f"{d['imu_axis_roll']:.3f}",
+            "balance_axis_pitch": f"{d['imu_axis_pitch']:.3f}",
+            "balance_target_pitch_deg": "" if d["target_pitch_deg"] is None
+            else f"{d['target_pitch_deg']:.2f}",
+            "balance_pitch_deg": "" if d["pitch_deg"] is None
+            else f"{d['pitch_deg']:.2f}",
+            "balance_err_deg": f"{d['err_deg']:.2f}",
+            "balance_rate_deg_s": f"{d['rate_deg_s']:.2f}",
+            "balance_pitch_trim_deg": f"{d['pitch_trim_deg']:.2f}",
+            "balance_dx_trim_mm": f"{d['body_dx_trim_mm']:.2f}",
+            "balance_speed_scale": f"{d['speed_scale']:.2f}",
+            "balance_recovering": "1" if d["recovering"] else "0",
+        }
+
+    def status_suffix(self) -> str:
+        if self.disabled_reason:
+            return "trim off"
+        if not self.ready:
+            return "trim warmup"
+        mode = "RECOVERING " if self.recovering else ""
+        return (f"{mode}trim {self.imu_axis} {self.pitch_trim_deg:+.1f}deg "
+                f"{self.body_dx_trim_m * 1000:+.0f}mm "
+                f"err {self.pitch_error_deg:+.1f}")
+
 
 def _clamp_live_speed(x) -> float:
     try:
@@ -941,7 +1535,8 @@ def stream_pose_fn(bus: FeetechBus, live: set[int], pose_fn, *,
                    log: MotionLog | None = None,
                    max_speed: int = 3000, max_acc: int = 200,
                    tick_s: float = STREAM_TICK_S,
-                   tilt_guard_deg: float | None = None) -> str:
+                   tilt_guard_deg: float | None = None,
+                   balance_trim: QuadPitchTrim | None = None) -> str:
     """Stream ``pose_fn(t)`` at ~20 Hz with a live tempo multiplier.
 
     Demo time ``t`` advances by wall-dt x ``speed_fn()`` every tick, so
@@ -977,29 +1572,64 @@ def stream_pose_fn(bus: FeetechBus, live: set[int], pose_fn, *,
             return "aborted"
     streamer = PoseStreamer()
     streamer.last = list(q0)   # primed: skip the gentle first-write ease
+    # Balance recovery brace-hold: quad pose fns expose their stance
+    # schedule so the clock can freeze ONLY with all four feet planted.
+    all_stance_at = getattr(pose_fn, "all_stance_at", None)
     stall_prev: set = set()
     tilt_prev = False
     read_imu = getattr(bus, "read_imu", None)
+    need_imu = ((tilt_guard_deg is not None or balance_trim is not None)
+                and callable(read_imu))
     sweep_n = 0
     t = 0.0
     t0 = time.monotonic()
     wall_prev = t0
     t_prev = 0.0
     last_sample = -1.0
+    motion_period_s = _motion_cmd_period_s()
+    last_motion_cmd = t0 - motion_period_s if motion_period_s else t0
+    last_imu: dict | None = None
     while t < seconds:
         if check():
             # Return immediately — no bus ops here (concurrent hold from
             # the web Stop handler was hanging the MCU link).
+            _emit_motion_cmd(
+                label, q0 if streamer.last is None else streamer.last, {},
+                t_s=t, seconds=seconds, wall_s=time.monotonic() - t0,
+                rate=0.0, tick_s=tick_s, lookahead_s=lookahead_s,
+                tracker=tracker, balance_trim=balance_trim, imu=last_imu,
+                servo_goals=getattr(streamer, "last_written_goal", {}),
+                reason="aborted")
             return "aborted"
         wall = time.monotonic()
         rate = _clamp_live_speed(spd())
+        if balance_trim is not None and balance_trim.ready:
+            if balance_trim.recovering and all_stance_at is not None:
+                # Recovery brace-hold: finish the current step at no
+                # more than 1x, then FREEZE at the next all-stance
+                # window and let the trim lean against the tip
+                # (pose_fn re-reads the trim every tick).  Measured on
+                # the MuJoCo twin (08-21): freezing mid-swing strands a
+                # foot on tripod support and deepens the tip, and so
+                # does SLOWING a swing (the nose hangs unsupported for
+                # longer) — never drag the clock while a foot is in
+                # the air.
+                rate = min(rate, 1.0)
+                try:
+                    if all_stance_at(t):
+                        rate = 0.0
+                except Exception:
+                    pass
+            else:
+                rate = _clamp(rate * balance_trim.speed_scale,
+                              LIVE_SPEED_MIN, LIVE_SPEED_MAX)
         t += (wall - wall_prev) * rate
         wall_prev = wall
         q = pose_fn(min(t + lookahead_s * rate, seconds))
         # dt*0.75 cancels _speed_for_delta's 0.9 undershoot and commands
         # slightly above the carrot rate so accumulated lag drains —
         # same sizing as the stand-up pursuit.
-        streamer.write(
+        wrote = streamer.write(
             bus, q, live,
             dt=min(max(wall - t0 - t_prev, 0.03), 0.25) * 0.75,
             deadband=0.3, max_speed=max_speed, max_acc=max_acc)
@@ -1010,8 +1640,17 @@ def stream_pose_fn(bus: FeetechBus, live: set[int], pose_fn, *,
             last_sample = wall - t0
             sweep_n += 1
             if log is not None and sweep_n % 2 == 0:
-                log.sample(bus, q, wrote={})
+                extra = (balance_trim.csv_cols()
+                         if balance_trim is not None else None)
+                log.sample(bus, q, wrote=wrote, extra=extra)
             if tracker.peak_a > STREAM_HARD_CAP_A:
+                _emit_motion_cmd(
+                    label, q, wrote, t_s=t, seconds=seconds,
+                    wall_s=wall - t0, rate=rate, tick_s=tick_s,
+                    lookahead_s=lookahead_s, tracker=tracker,
+                    balance_trim=balance_trim, imu=last_imu,
+                    servo_goals=getattr(streamer, "last_written_goal", {}),
+                    reason="current_guard")
                 _hold_here(bus, live)
                 return "guard"
             # Stall-fight semantics (same as the stand-up lab): a joint
@@ -1020,15 +1659,50 @@ def stream_pose_fn(bus: FeetechBus, live: set[int], pose_fn, *,
                    if abs(fb["current_a"]) > guard_a
                    and abs(fb["speed_deg_s"]) < 8.0}
             if now & stall_prev:
+                _emit_motion_cmd(
+                    label, q, wrote, t_s=t, seconds=seconds,
+                    wall_s=wall - t0, rate=rate, tick_s=tick_s,
+                    lookahead_s=lookahead_s, tracker=tracker,
+                    balance_trim=balance_trim, imu=last_imu,
+                    servo_goals=getattr(streamer, "last_written_goal", {}),
+                    reason="stall_guard")
                 _hold_here(bus, live)
                 return "guard"
             stall_prev = now
-            if tilt_guard_deg is not None and callable(read_imu):
+            if need_imu:
                 try:
                     imu = read_imu()
                 except Exception:
                     imu = None
-                if imu and "az_g" in imu:
+                last_imu = imu
+                if balance_trim is not None:
+                    updated = balance_trim.update(imu, wall)
+                    if updated and balance_trim.should_emit(wall):
+                        try:
+                            from event_log import emit
+                            emit("quad_trim", balance_trim.status_suffix(),
+                                 src="balance",
+                                 data=balance_trim.event_data())
+                        except Exception:
+                            pass
+                        balance_trim.mark_emitted(wall)
+                    if balance_trim.abort_reason:
+                        _emit_motion_cmd(
+                            label, q, wrote, t_s=t, seconds=seconds,
+                            wall_s=wall - t0, rate=rate, tick_s=tick_s,
+                            lookahead_s=lookahead_s, tracker=tracker,
+                            balance_trim=balance_trim, imu=last_imu,
+                            servo_goals=getattr(
+                                streamer, "last_written_goal", {}),
+                            reason="balance_guard")
+                        for sid in sorted(live):
+                            try:
+                                bus.pkt.write1ByteTxRx(
+                                    sid, ADDR_TORQUE_ENABLE, 0)
+                            except Exception:
+                                pass
+                        return balance_trim.abort_reason
+                if tilt_guard_deg is not None and imu and "az_g" in imu:
                     norm = math.sqrt(imu.get("ax_g", 0.0) ** 2
                                      + imu.get("ay_g", 0.0) ** 2
                                      + imu["az_g"] ** 2) or 1.0
@@ -1037,6 +1711,15 @@ def stream_pose_fn(bus: FeetechBus, live: set[int], pose_fn, *,
                     if tilt > tilt_guard_deg:
                         if tilt_prev:
                             # Going over — do NOT hold a fighting pose.
+                            _emit_motion_cmd(
+                                label, q, wrote, t_s=t, seconds=seconds,
+                                wall_s=wall - t0, rate=rate,
+                                tick_s=tick_s, lookahead_s=lookahead_s,
+                                tracker=tracker, balance_trim=balance_trim,
+                                imu=last_imu,
+                                servo_goals=getattr(
+                                    streamer, "last_written_goal", {}),
+                                reason="tilt_guard")
                             for sid in sorted(live):
                                 try:
                                     bus.pkt.write1ByteTxRx(
@@ -1049,11 +1732,29 @@ def stream_pose_fn(bus: FeetechBus, live: set[int], pose_fn, *,
                         tilt_prev = False
             if status_cb is not None:
                 try:
+                    suffix = (f" {balance_trim.status_suffix()}"
+                              if balance_trim is not None else "")
                     status_cb(f"{label}: {t:.0f}/{seconds:.0f}s "
-                              f"x{rate:.2f} peak {tracker.peak_a:.2f}A")
+                              f"x{rate:.2f} peak {tracker.peak_a:.2f}A"
+                              f"{suffix}")
                 except Exception:
                     pass
+        if motion_period_s and wall - last_motion_cmd >= motion_period_s:
+            _emit_motion_cmd(
+                label, q, wrote, t_s=t, seconds=seconds,
+                wall_s=wall - t0, rate=rate, tick_s=tick_s,
+                lookahead_s=lookahead_s, tracker=tracker,
+                balance_trim=balance_trim, imu=last_imu,
+                servo_goals=getattr(streamer, "last_written_goal", {}))
+            last_motion_cmd = wall
         time.sleep(tick_s)
+    _emit_motion_cmd(
+        label, pose_fn(seconds), {}, t_s=seconds, seconds=seconds,
+        wall_s=time.monotonic() - t0, rate=0.0, tick_s=tick_s,
+        lookahead_s=lookahead_s, tracker=tracker,
+        balance_trim=balance_trim, imu=last_imu,
+        servo_goals=getattr(streamer, "last_written_goal", {}),
+        reason="done")
     return "done"
 
 
@@ -1939,13 +2640,13 @@ def run_stand_hands_demo(bus: FeetechBus, *,
 # Built for the redone demos page (2026-08-17): they home via the
 # validated keyframe stand-up (the experiments-page 10x technique), then
 # dance AROUND standing_pose_degrees() — the stance the stand-up actually
-# ends on — instead of yanking to the tall hip+20/knee+80 display stilts.
+# ends on — instead of yanking to the old hip+20/knee+80 display stilts.
 # All are zero-mean / cyclic, cord-safe (yaw averages 0), and run through
 # stream_pose_fn so the web speed slider works live.
 #
-# FK note (foot drop ≈ 90·sin(hip) + 128·sin(hip+knee) mm): near the
-# plant, HIP dominates body height (~62 mm/rad) while knee barely moves
-# it — so bounce/sway modulate hips with a small knee assist.
+# FK note (foot drop ≈ FEMUR*sin(hip) + TIBIA*sin(knee) mm): near the
+# plant, both hip and knee affect height; bounce/sway still mostly modulate
+# hips because they move the body without making the boot scrape as much.
 # ---------------------------------------------------------------------------
 STAND_SWAY_HZ = 0.35
 STAND_SWAY_HIP_DEG = 5.0
@@ -2031,25 +2732,95 @@ def make_stand_pose_fn(name: str):
 # Streamed demos (live speed): standing dances + the air wiggles.
 STAND_STREAM_DEMOS = ("stand_sway", "stand_bounce", "stand_twist",
                       "stand_wave", "stand_ripple")
-# Quad demos: weight-bearing like the stand dances (τ900 + stall guard,
-# home = stand) but grouped on their own web tab. The pose function is
-# DURATION-AWARE: the exit choreography (pitch level, untuck fronts)
-# is scripted into the last ~5.4 s, so the run ends back at the plant.
-QUAD_STREAM_DEMOS = ("quad_walk", "quad_trot")
+# Quad mode: weight-bearing like the stand dances (τ900 + stall guard,
+# home = stand for rear-up, then "quad" for walk/down). These are split
+# into operator-sized primitives: rear up and hold; walk/trot forward or
+# backward while reared; come down on request.
+QUAD_VARIANTS = {
+    "": ("rear", "walk", "trot", "stable"),
+    "_pitch": ("rear_pitch", "walk_pitch", "trot_pitch", "pitched"),
+    "_aggressive": (
+        "rear_aggressive", "walk_aggressive", "trot_aggressive",
+        "aggressive"),
+}
 
 
-def _make_quad_walk_fn(seconds: float, gait: str = "walk"):
+def _quad_name(action: str, suffix: str) -> str:
+    return f"quad_{action}{suffix}"
+
+
+QUAD_REAR_DEMOS = tuple(
+    _quad_name("rear", suffix) for suffix in QUAD_VARIANTS)
+QUAD_DOWN_DEMOS = tuple(
+    _quad_name("down", suffix) for suffix in QUAD_VARIANTS)
+QUAD_REARED_END_DEMOS = tuple(
+    _quad_name(action, suffix)
+    for suffix in QUAD_VARIANTS
+    for action in ("rear", "hold", "walk", "walk_back",
+                   "trot", "trot_back"))
+QUAD_REQUIRES_REAR = tuple(
+    _quad_name(action, suffix)
+    for suffix in QUAD_VARIANTS
+    for action in ("hold", "walk", "walk_back", "trot",
+                   "trot_back", "down"))
+QUAD_STREAM_DEMOS = (*QUAD_REARED_END_DEMOS, *QUAD_DOWN_DEMOS)
+QUAD_BALANCE_TRIM_DEMOS = tuple(
+    _quad_name(action, suffix)
+    for suffix in QUAD_VARIANTS
+    for action in ("hold", "walk", "walk_back", "trot", "trot_back"))
+QUAD_BLOCKED_HARDWARE_DEMOS = tuple(
+    _quad_name(action, "_aggressive")
+    for action in ("walk", "walk_back", "trot", "trot_back"))
+QUAD_DEMO_GAITS = {}
+for _quad_suffix, (_rear_gait, _walk_gait, _trot_gait, _label) in (
+        QUAD_VARIANTS.items()):
+    QUAD_DEMO_GAITS[_quad_name("rear", _quad_suffix)] = _rear_gait
+    QUAD_DEMO_GAITS[_quad_name("hold", _quad_suffix)] = _rear_gait
+    QUAD_DEMO_GAITS[_quad_name("down", _quad_suffix)] = _rear_gait
+    QUAD_DEMO_GAITS[_quad_name("walk", _quad_suffix)] = _walk_gait
+    QUAD_DEMO_GAITS[_quad_name("walk_back", _quad_suffix)] = _walk_gait
+    QUAD_DEMO_GAITS[_quad_name("trot", _quad_suffix)] = _trot_gait
+    QUAD_DEMO_GAITS[_quad_name("trot_back", _quad_suffix)] = _trot_gait
+
+
+def _make_quad_fn(seconds: float, *, gait: str = "walk",
+                  direction: float = 1.0, phase: str = "walk",
+                  trim_fn=None):
     from quad_walk import make_quad_walk_pose_fn
-    # Canonical stance, NOT the learned plant — see _quad_base_pose.
-    return make_quad_walk_pose_fn(_quad_base_pose(), seconds, gait=gait)
+    return make_quad_walk_pose_fn(
+        _stand_zero_pose(), seconds, gait=gait, direction=direction,
+        phase=phase, trim_fn=trim_fn)
 
 
-def _make_quad_trot_fn(seconds: float):
-    return _make_quad_walk_fn(seconds, gait="trot")
+def _make_quad_variant_fn(action: str, suffix: str):
+    rear_gait, walk_gait, trot_gait, _label = QUAD_VARIANTS[suffix]
+    if action in ("rear", "hold", "down"):
+        gait = rear_gait
+    elif action in ("walk", "walk_back"):
+        gait = walk_gait
+    else:
+        gait = trot_gait
+    phase = ("rear" if action == "rear"
+             else "hold" if action == "hold"
+             else "down" if action == "down"
+             else "walk")
+    direction = -1.0 if action in ("walk_back", "trot_back") else 1.0
+
+    def _fn(seconds: float, trim_fn=None):
+        return _make_quad_fn(
+            seconds, gait=gait, direction=direction, phase=phase,
+            trim_fn=trim_fn)
+
+    _fn.duration_aware = True
+    return _fn
 
 
-_make_quad_walk_fn.duration_aware = True
-_make_quad_trot_fn.duration_aware = True
+QUAD_STREAM_FACTORIES = {
+    _quad_name(action, suffix): _make_quad_variant_fn(action, suffix)
+    for suffix in QUAD_VARIANTS
+    for action in ("rear", "hold", "walk", "walk_back",
+                   "trot", "trot_back", "down")
+}
 
 STREAM_POSE_FACTORIES = {
     "shimmy": lambda: pose_shimmy,
@@ -2058,8 +2829,7 @@ STREAM_POSE_FACTORIES = {
     "conductor": lambda: pose_conductor,
     "twinkle": make_pose_twinkle,
     **{n: (lambda n=n: make_stand_pose_fn(n)) for n in STAND_STREAM_DEMOS},
-    "quad_walk": _make_quad_walk_fn,
-    "quad_trot": _make_quad_trot_fn,
+    **QUAD_STREAM_FACTORIES,
 }
 # Default demo-time duration for standing dances (CLI; web sends its own).
 STAND_STREAM_SECONDS = 20.0
@@ -2089,16 +2859,20 @@ def run_streamed_demo(bus: FeetechBus, name: str, *,
     if speed_fn is None:
         spd0 = _clamp_live_speed(speed)
         speed_fn = lambda: spd0  # noqa: E731
-    if name == "quad_trot":
-        # calm trot survives 0.5-2x in sim; the cap is hardware
-        # prudence for the two-foot support phases.
+    if name in QUAD_DEMO_GAITS:
+        # Per-gait speed caps are hardware prudence: trot and the more
+        # pitched variants use fewer support margins than the stable walk.
         from quad_walk import GAITS
-        cap = GAITS["trot"].get("speed_cap", 2.0)
-        base_fn = speed_fn
-        speed_fn = lambda: min(cap, base_fn())  # noqa: E731
+        cap = GAITS.get(QUAD_DEMO_GAITS[name], {}).get("speed_cap")
+        if cap is not None:
+            base_fn = speed_fn
+            speed_fn = lambda: min(cap, base_fn())  # noqa: E731
     quad = name in QUAD_STREAM_DEMOS
     standing = name in STAND_STREAM_DEMOS or quad
-    if seconds is None:
+    if name in QUAD_DOWN_DEMOS:
+        from quad_walk import EXIT_TOTAL_S
+        dur = EXIT_TOTAL_S
+    elif seconds is None:
         dur = (QUAD_STREAM_SECONDS if quad
                else STAND_STREAM_SECONDS if standing
                else AIR_DEMO_SECONDS.get(name, 7.0))
@@ -2106,9 +2880,15 @@ def run_streamed_demo(bus: FeetechBus, name: str, *,
         dur = float(seconds)
     dur = max(2.0, min(STREAM_SECONDS_MAX, dur))
     if quad:
-        # entry + exit choreography needs room (plus >= one gait cycle).
-        from quad_walk import MIN_SECONDS
-        dur = max(dur, MIN_SECONDS)
+        from quad_walk import ENTRY_TOTAL_S, MIN_SECONDS
+        if name in QUAD_REAR_DEMOS:
+            # Entry choreography needs room before the hold phase.
+            dur = max(dur, ENTRY_TOTAL_S + 0.5)
+        elif name in QUAD_DOWN_DEMOS:
+            pass
+        elif name not in QUAD_REQUIRES_REAR:
+            # Legacy/full timelines need entry + exit + >= one gait cycle.
+            dur = max(dur, MIN_SECONDS)
 
     _enable_torque(bus, live)
     if standing:
@@ -2123,9 +2903,27 @@ def run_streamed_demo(bus: FeetechBus, name: str, *,
         tlim = max(150, min(1000, tlim))
     _set_torque_limit(bus, live, tlim)
 
+    balance_trim = None
+    if quad and name in QUAD_BALANCE_TRIM_DEMOS:
+        from quad_walk import GAITS
+        gait_key = QUAD_DEMO_GAITS.get(name)
+        gait_cfg = GAITS.get(gait_key or "", {})
+        pitch = gait_cfg.get("pitch")
+        expected_pitch = (
+            math.degrees(float(pitch)) if pitch is not None else None)
+        balance_trim = QuadPitchTrim(
+            expected_pitch_deg=expected_pitch, gait=gait_key or name)
+
     factory = STREAM_POSE_FACTORIES[name]
-    pose_fn = (factory(dur) if getattr(factory, "duration_aware", False)
-               else factory())
+    if getattr(factory, "duration_aware", False):
+        if quad:
+            pose_fn = factory(
+                dur,
+                trim_fn=balance_trim.pose_trim if balance_trim else None)
+        else:
+            pose_fn = factory(dur)
+    else:
+        pose_fn = factory()
     tracker = CurrentPeakTracker()
     tick_s = QUAD_STREAM_TICK_S if quad else STREAM_TICK_S
     title = DEMOS[name][0] if name in DEMOS else name
@@ -2143,9 +2941,26 @@ def run_streamed_demo(bus: FeetechBus, name: str, *,
             speed_fn=speed_fn, status_cb=status_cb, label=name,
             tracker=tracker, log=log_cm, tick_s=tick_s,
             max_acc=QUAD_STREAM_ACC if quad else 200,
-            tilt_guard_deg=QUAD_TILT_GUARD_DEG if quad else None)
+            tilt_guard_deg=QUAD_TILT_GUARD_DEG if quad else None,
+            balance_trim=balance_trim)
         if st == "aborted":
             return "aborted"
+        if st.startswith("balance:"):
+            bits = st.split(":")
+            err = bits[1] if len(bits) > 1 else "?"
+            rate = bits[2] if len(bits) > 2 else "?"
+            if len(bits) > 3 and bits[3] == "recovery_timeout":
+                msg = (f"stopped: still tipped {err} deg after "
+                       f"{QUAD_TRIM_RECOVER_TIMEOUT_S:.0f}s of paused "
+                       "recovery — leaning against it did not level the "
+                       "body, went limp. Check the robot before the "
+                       "next run.")
+            else:
+                msg = (f"stopped: pitch drift {err} deg, rate {rate} deg/s "
+                       "— balance trim saw a fall starting and went limp. "
+                       "Check the robot before the next run.")
+            print(f"  {msg}")
+            return msg
         if st.startswith("tilt:"):
             msg = (f"stopped: body tilt {st[5:]} deg — tipping past "
                    f"{QUAD_TILT_GUARD_DEG:.0f}, went limp for a soft "
@@ -2157,8 +2972,11 @@ def run_streamed_demo(bus: FeetechBus, name: str, *,
                    f"{tracker.peak_joint} — stall-fight, holding here")
             print(f"  {msg}")
             return msg
-        # Natural finish: settle back onto the base pose.
+        # Natural finish. Split quad-mode walk/rear commands intentionally
+        # keep holding the reared stance; quad_down is the explicit exit.
         _set_torque_limit(bus, live, 1000)
+        if name in QUAD_REARED_END_DEMOS:
+            return "done"
         if standing:
             if not _soft_glide(bus, _stand_zero_pose(), live, 0.9, check,
                                max_speed=600, max_acc=60):
@@ -3289,8 +4107,7 @@ def _make_stallion_fn(seconds: float = STALLION_SECONDS):
     """
     from quad_walk import (ENTRY_TOTAL_S, EXIT_TOTAL_S, TUCK_DEG,
                            make_quad_walk_pose_fn)
-    # Canonical stance, NOT the learned plant — see _quad_base_pose.
-    quad = make_quad_walk_pose_fn(_quad_base_pose(), seconds, gait="rear")
+    quad = make_quad_walk_pose_fn(_stand_zero_pose(), seconds, gait="rear")
     t_exit = max(ENTRY_TOTAL_S, seconds - EXIT_TOTAL_S)
     hold = max(0.1, t_exit - ENTRY_TOTAL_S)
     uni0 = min(max(0.0, hold - 4.0), 4.4)     # 4 paw strokes, then merge
@@ -3598,7 +4415,7 @@ def run_wild_dance(bus: FeetechBus, *, abort_check=None, status_cb=None,
             # ---- Act VI: THE STALLION --------------------------------
             note("act VI — THE STALLION (tipping back …)")
             _set_torque_limit(bus, live, STAND_DANCE_TORQUE)
-            if not ease_to_pose(bus, _quad_base_pose(),
+            if not ease_to_pose(bus, _stand_zero_pose(),
                                 abort_check=check, seconds=0.8,
                                 label="stallion base",
                                 current_tracker=peaks):
@@ -3749,10 +4566,27 @@ DEMOS = {
     "walk_spin": ("[7 walk] in-place turn (tripod), then stand", None),
     "walk_oval": ("[7 walk] forward → spin → reverse → stand", None),
     # --- quad mode (own web tab: tip back, walk on four legs) -------------
-    "quad_walk": ("[8 quad] TIP BACK — rear up on 4 legs, front paws in "
-                  "the air, animal walk forward, sit back down", None),
-    "quad_trot": ("[8 quad] TIP BACK + TROT — diagonal leg pairs like a "
-                  "horse, ~3x the walk's pace, sit back down", None),
+    "quad_rear": ("[8 quad] REAR UP — tip back on 4 legs and hold", None),
+    "quad_hold": ("[8 quad] HOLD — settle to stable reared hold", None),
+    "quad_walk": ("[8 quad] WALK FORWARD — animal walk while reared", None),
+    "quad_walk_back": ("[8 quad] WALK BACKWARD — reverse animal walk while reared", None),
+    "quad_trot": ("[8 quad] TROT FORWARD — diagonal pairs while reared", None),
+    "quad_trot_back": ("[8 quad] TROT BACKWARD — reverse diagonal pairs while reared", None),
+    "quad_down": ("[8 quad] COME DOWN — untuck fronts and return to stand", None),
+    "quad_rear_pitch": ("[8 quad] REAR UP PITCHED — -28 deg nose-up hold", None),
+    "quad_hold_pitch": ("[8 quad] HOLD PITCHED — settle to -28 deg hold", None),
+    "quad_walk_pitch": ("[8 quad] WALK FORWARD PITCHED — -28 deg stance", None),
+    "quad_walk_back_pitch": ("[8 quad] WALK BACKWARD PITCHED — -28 deg stance", None),
+    "quad_trot_pitch": ("[8 quad] TROT FORWARD PITCHED — capped diagonal pairs", None),
+    "quad_trot_back_pitch": ("[8 quad] TROT BACKWARD PITCHED — capped diagonal pairs", None),
+    "quad_down_pitch": ("[8 quad] COME DOWN PITCHED — exit from -28 deg hold", None),
+    "quad_rear_aggressive": ("[8 quad] REAR UP AGGRESSIVE — -32 deg nose-up hold", None),
+    "quad_hold_aggressive": ("[8 quad] HOLD AGGRESSIVE — settle to -32 deg hold", None),
+    "quad_walk_aggressive": ("[8 quad] WALK FORWARD AGGRESSIVE — -32 deg stance", None),
+    "quad_walk_back_aggressive": ("[8 quad] WALK BACKWARD AGGRESSIVE — -32 deg stance", None),
+    "quad_trot_aggressive": ("[8 quad] TROT FORWARD AGGRESSIVE — heavily capped diagonal pairs", None),
+    "quad_trot_back_aggressive": ("[8 quad] TROT BACKWARD AGGRESSIVE — heavily capped diagonal pairs", None),
+    "quad_down_aggressive": ("[8 quad] COME DOWN AGGRESSIVE — exit from -32 deg hold", None),
 }
 
 # Standalone planted acts (not the full rise_show script).
@@ -3815,9 +4649,9 @@ def run_rise_demo(bus: FeetechBus, *,
                   log_path: Path | None = None) -> str:
     """Deep reach from the elevated stand, then key → descend to zero.
 
-    Default: hip +20° / knee +80° over ~12 s (~159 mm drop).
-    ``rise+`` / preset ``high_fast``: hip +20° / knee +80° over ~5 s
-    (~159 mm).  One SyncWrite (no host streaming).  Logs peak current;
+    Default: hip +19° / knee +28° over ~12 s (~100 mm drop).
+    ``rise+`` / preset ``high_fast``: hip +20° / knee +36° over ~5 s
+    (~119 mm).  One SyncWrite (no host streaming).  Logs peak current;
     stops early on hip/knee current spike (contact).  Key during motion
     aborts; key while holding starts the descent.
     """
@@ -3830,8 +4664,8 @@ def run_rise_demo(bus: FeetechBus, *,
                       else cfg["descend_seconds"])
     # Rough foot drop (mm) matching mujoco femur/tibia FK.
     _p = math.radians(hip)
-    _pt = math.radians(hip + knee)
-    drop_mm = int(round(90.0 * math.sin(_p) + 128.0 * math.sin(_pt)))
+    _k = math.radians(knee)
+    drop_mm = int(round(FEMUR_MM * math.sin(_p) + TIBIA_MM * math.sin(_k)))
     if abs(hip - RISE_HIGH_HIP_DEG) < 0.5 and rise_s <= RISE_FAST_SECONDS + 0.1:
         label = "higher + faster reach"
     elif abs(hip - RISE_HIGH_HIP_DEG) < 0.5:
@@ -3871,7 +4705,7 @@ def run_rise_demo(bus: FeetechBus, *,
     goal = _elevated_stand_pose(hip=hip, knee=knee)
     print(f"  Rise demo — {label} (stand is high — reach toward the floor):")
     print(f"    target yaw 0°, hip {hip:.0f}°, knee {knee:.0f}°  "
-          f"(~{drop_mm} mm foot drop; walk stance −25°/+60° is only ~37 mm)")
+          f"(~{drop_mm} mm foot drop)")
     print(f"    glide in ~{rise_s:.0f} s + max-current log; "
           f"contact stop ≥ {RISE_CONTACT_CURRENT_A:.2f} A")
     log_cm = MotionLog(motion_path, live) if motion_path is not None else None
@@ -5465,7 +6299,8 @@ def run_demo(bus: FeetechBus, name: str, *,
              log_path: Path | None = None,
              rise_high: bool = False,
              rise_fast: bool = False,
-             standup_fn=None) -> str:
+             standup_fn=None,
+             quad_reared: bool = False) -> str:
     """Run one demo.  Returns ``done`` / ``aborted`` / ``skipped``.
 
     ``speed``: 1.0 = nominal, 2.0 = twice as fast, 0.5 = half speed.
@@ -5483,6 +6318,10 @@ def run_demo(bus: FeetechBus, name: str, *,
         size = max(_clamp_breathe_size(size), 2.0)
     if name not in DEMOS:
         raise SystemExit(f"unknown demo {name!r}; try: {', '.join(DEMOS)}")
+    if name in QUAD_BLOCKED_HARDWARE_DEMOS:
+        print("  aggressive quad walk/trot is blocked on hardware after "
+              "the forward fall; use pitched walk or simulate it only")
+        return "skipped"
     if configure_stream_profile(bus):
         print(f"  stream: DENSE waypoints ({1.0 / DT:.0f} Hz, "
               f"deadband {DEADBAND_DEG:.2f}°) — MCU stream bridge")
@@ -5490,6 +6329,9 @@ def run_demo(bus: FeetechBus, name: str, *,
         print(f"  stream: legacy waypoints ({1.0 / DT:.1f} Hz)")
     sc = _speed_scale(speed)
     spd = _clamp_demo_speed(speed)
+    if name in QUAD_REQUIRES_REAR and not quad_reared:
+        print("  quad: rear up first, then walk/trot/down from the web Quad tab")
+        return "skipped"
     if name in STREAM_POSE_FACTORIES:
         # Streamed engine (standing dances + air wiggles): host-owned
         # timing, live tempo — the stand-up lab technique.
@@ -5803,7 +6645,7 @@ def main(argv=None) -> None:
     ap.add_argument("--demo", choices=list(DEMOS), default=None,
                     help="run one demo then exit (use rise+ for higher/faster)")
     ap.add_argument("--high", action="store_true",
-                    help="with --demo rise: taller reach (hip +20° / ~159 mm)")
+                    help="with --demo rise: taller reach (hip +20° / ~119 mm)")
     ap.add_argument("--fast", action="store_true",
                     help="with --demo rise: quicker glide (~5 s up, ~6 s down)")
     ap.add_argument("--zero", action="store_true",

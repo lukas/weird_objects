@@ -126,7 +126,7 @@ charts) and uploads report.json.
   first vs post-lower rise, gait_valid, stop-settle, fall reasons.
   Rerender re-runs every failed episode (+ clean sample) with frame
   strips via `eval_modeseq --strip-ep`. First cohort + gate:
-  `rl_docs/tracks/hw/SESSION_BULK_GATE.md` (c1, n=1800, seed banks
+  `archive/two_track_reset_2026-08-21/tracks/hw/SESSION_BULK_GATE.md` (c1, n=1800, seed banks
   900000../910000.. RETIRED for tuning). Tests:
   `rl_move/tests/test_bulk_session_eval.py`.
 - `eval_session.py` — the SESSION gate (08-11, model tour): drives a

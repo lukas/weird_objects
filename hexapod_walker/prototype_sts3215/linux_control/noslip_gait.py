@@ -75,7 +75,7 @@ from __future__ import annotations
 import math
 
 from tripod_gait import (COXA, FEMUR, TIBIA, LEG_RADIAL, _clip, _leg_ik,
-                         _plant_hip_knee_deg)
+                         _plant_hip_knee_deg, foot_rz_from_hip_knee)
 
 YAW_LIM = math.radians(35.0)
 HIP_LIM = (math.radians(-80.0), math.radians(30.0))
@@ -257,9 +257,8 @@ class NoSlipGait:
         self.plant_hip_deg = float(hip_deg)
         self.plant_knee_deg = float(knee_deg)
         p = math.radians(self.plant_hip_deg)
-        pt = math.radians(self.plant_hip_deg + self.plant_knee_deg)
-        self.foot_neutral_x = COXA + FEMUR * math.cos(p) + TIBIA * math.cos(pt)
-        self.foot_neutral_z = -FEMUR * math.sin(p) - TIBIA * math.sin(pt)
+        self.foot_neutral_x, self.foot_neutral_z = foot_rz_from_hip_knee(
+            self.plant_hip_deg, self.plant_knee_deg)
         self._foot_radius = LEG_RADIAL + self.foot_neutral_x
         self._fallback = (0.0, p, math.radians(self.plant_knee_deg))
         # The world anchors are derived from this geometry: re-pin them

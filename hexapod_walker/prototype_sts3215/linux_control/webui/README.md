@@ -72,7 +72,9 @@ the RL tooling depend on them.
 ### Header arm bar (always visible)
 
 - **Enable servos** → `ARM` · **Disarm** → `SETTLE` (gentle lower, then
-  power off) · **EMERGENCY STOP** → `X` (instant limp, robot drops). The
+  power off) · **Set zero HERE** → `POST /api/set_zero` (no motion; the
+  current hand pose becomes logical 0° — limp + hand-pose first) ·
+  **EMERGENCY STOP** → `X` (instant limp, robot drops). The
   long lower-vs-drop explanation lives in the button tooltips.
 - Link heartbeat: `GET /api/ping` every 1.5 s. Robot activity pill:
   `GET /api/robot` every 2 s.
@@ -81,8 +83,8 @@ the RL tooling depend on them.
 
 ### Drive (`#drive`) — bench-test workflow, in order of use
 
-1. *Zero & stand*: **Limp** → `X` · **Set zero HERE** →
-   `POST /api/set_zero` (confirm dialog; no motion) · **Stand (plant)** →
+1. *Zero & stand*: limp (Motors → **Limp all**, or E-STOP) + hand-pose,
+   **Set zero HERE** (top bar) · **Stand (plant)** →
    verified glide via `POST /api/zero {pose:"stand"}` · **Preflight** →
    `GET /api/rl/preflight?mode=lower` (read-only).
 2. *Scripted gait walk*: **Start walk** sends `J vx vy ω` (confirm dialog;
@@ -100,12 +102,22 @@ the RL tooling depend on them.
 
 ### Calibrate (`#calibrate`)
 
-Mode buttons (Step / Shake / Plant height / Geo plant / IMU rest) →
-`POST /api/calibrate {mode, step_deg, nudge_deg, axis}` · **Stop** →
+Mode buttons (Checkup / Step / Shake / Plant height / Geo plant / IMU rest) →
+`POST /api/calibrate {mode, step_deg, nudge_deg, axis, quad_body_frame}` ·
+sim-ready report `GET /api/calibration/report` · **Stop** →
 `POST /api/calibrate/stop` · status/results poll `GET /api/calibrate` at
 0.8 s · **Reset plant default** → `POST /api/plant/reset` (confirm) ·
-**Clear IMU calib** → `POST /api/imu/reset` (confirm). Switching to this
-tab sends `HOLD` once if armed (freezes the background re-hold).
+**Clear IMU calib** → `POST /api/imu/reset` (confirm). Checkup rows are
+backend-reported phases; geometry plausibility and IMU-frame validation are
+advisory gates, stability margin records safe reversible lean response, mass
+shift records pitch/roll change from lifted limb groups, the traction row
+records repeated gentle shear ranges for slip triage, and the bus/power row
+records live servo count, voltage, current, and temperature. The standalone
+slip tool keeps the more aggressive per-leg loaded-vs-hover drag. The
+proprioception row scores expected zero pose vs live servo feedback, while the
+camera witness row is intentionally optional until a synced camera source is
+supplied. Switching to this tab sends `HOLD` once if armed (freezes the
+background re-hold).
 
 ### Motors (`#motors`)
 

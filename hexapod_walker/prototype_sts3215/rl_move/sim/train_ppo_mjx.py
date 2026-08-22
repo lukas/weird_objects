@@ -1340,6 +1340,17 @@ def main(argv: list[str] | None = None) -> int:
                     help="attention heads")
     ap.add_argument("--tf-ff", type=int, default=256,
                     help="feed-forward hidden width inside each layer")
+    ap.add_argument("--asym-critic", action="store_true",
+                    help="asymmetric (privileged) actor-critic: mask the "
+                         "privileged measured-velocity obs on the actor "
+                         "path only, critic sees them (walk task). Port "
+                         "of train_ppo_sim's --asym-critic "
+                         "(asym_policy.AsymActorCriticPolicy) onto the "
+                         "GPU/Warp trainer — AMP_LOCOMOTION.md M0 "
+                         "'actor/critic observation split'. MLP-only "
+                         "(mutually exclusive with --gru/--transformer/"
+                         "--critic-encoder/--obs-pad-transplant); "
+                         "from-scratch or asym-parent warm starts only.")
     ap.add_argument("--device", default="auto",
                     help="torch device for PPO (auto: cuda if available "
                          "— the big-batch MLP pays off on GPU)")
@@ -2036,6 +2047,32 @@ def main(argv: list[str] | None = None) -> int:
               f"ff {args.tf_ff}, context {hist} frames "
               f"({hist / 25.0:.2f}s at 25 Hz), separate actor/critic")
 
+    if args.asym_critic:
+        # Privileged (asymmetric) critic, ported from train_ppo_sim.py
+        # (AMP_LOCOMOTION.md M0: "actor/critic observation split
+        # works" — the GPU/Warp trainer had GRU/history/transformer
+        # already but no obs-masked critic). Same policy class
+        # (asym_policy.AsymActorCriticPolicy); only the vec-env backend
+        # differs, so this is a straight wiring port, not a rewrite.
+        # privileged_idx needs the constructed venv's obs width, which
+        # doesn't exist yet here — filled in right after venv comes up,
+        # mirroring --critic-encoder's post-venv frame_width patch
+        # below.
+        if args.gru or args.transformer or args.critic_encoder is not None:
+            raise SystemExit(
+                "--asym-critic is MLP-actor only (mirrors train_ppo_"
+                "sim's --gru + --asym-critic restriction); drop "
+                "--gru/--transformer/--critic-encoder")
+        if args.obs_pad_transplant:
+            raise SystemExit(
+                "--obs-pad-transplant + --asym-critic is not "
+                "implemented (privileged_idx would shift); do one at "
+                "a time")
+        from .asym_policy import AsymActorCriticPolicy
+        policy_cls = AsymActorCriticPolicy
+        print("[mjx-train] asym (privileged) critic ON — obs split "
+              "resolved after venv construction")
+
     if args.critic_encoder is not None:
         # Condition-D decoupled predictive critic (operator order
         # 2026-08-18 fb_20260818T065930_03b422: port the exact frozen
@@ -2168,6 +2205,16 @@ def main(argv: list[str] | None = None) -> int:
                              f"history {hist} — obs.history_frames "
                              "mismatch with the env stack")
         extra_pk["frame_width"] = n_obs // hist
+    if args.asym_critic:
+        # Same helper train_ppo_sim uses (obs.history_frames/walk_phase_
+        # obs/walk_yaw_cmd/mode_onehot tail accounting) — reused, not
+        # duplicated, so the two trainers can never disagree about which
+        # obs dims are privileged.
+        from .train_ppo_sim import _privileged_idx
+        n_obs = int(np.prod(venv.observation_space.shape))
+        extra_pk["privileged_idx"] = _privileged_idx(args, n_obs)
+        print(f"[mjx-train] asym-critic privileged idx "
+              f"(obs width {n_obs}): {extra_pk['privileged_idx']}")
     if args.walk_curriculum:
         # Construction proof: every training env must be born pure-walk
         # with the curriculum armed (fail-closed; _walkcurr_prepare_
@@ -2319,6 +2366,39 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"[mjx-train] --net-arch {net_arch} matches the "
                       "warm-start checkpoint; proceeding")
             print(f"[mjx-train] warm start from {args.init_from}")
+            if args.asym_critic:
+                from .asym_policy import AsymActorCriticPolicy
+                if not isinstance(model.policy, AsymActorCriticPolicy):
+                    # Same transplant train_ppo_sim does: state_dict
+                    # keys match exactly (the actor mask is a
+                    # non-persistent buffer), so an MLP champion loads
+                    # into the asym policy with zero drift; optimizer
+                    # state is fresh (architecture changed).
+                    old = model
+                    model = algo_cls(
+                        AsymActorCriticPolicy, venv,
+                        n_steps=args.n_steps, batch_size=args.batch_size,
+                        n_epochs=args.n_epochs, learning_rate=args.lr,
+                        gamma=(0.99 if args.gamma is None
+                               else args.gamma),
+                        gae_lambda=(0.95 if args.gae_lambda is None
+                                    else args.gae_lambda),
+                        ent_coef=args.ent_coef, clip_range=0.2,
+                        target_kl=(args.target_kl if args.target_kl > 0
+                                   else None),
+                        policy_kwargs=dict(
+                            net_arch=net_arch,
+                            log_std_init=args.log_std_init,
+                            privileged_idx=extra_pk["privileged_idx"]),
+                        seed=args.seed, verbose=1, device=args.device,
+                        tensorboard_log=tb_dir)
+                    res = model.policy.load_state_dict(
+                        old.policy.state_dict(), strict=True)
+                    model.num_timesteps = old.num_timesteps
+                    del old
+                    print("[mjx-train] asym-critic transplant: champion "
+                          f"weights loaded ({res}); actor masks obs "
+                          f"dims {model.policy.privileged_idx}")
     else:
         model = algo_cls(
             policy_cls, venv,

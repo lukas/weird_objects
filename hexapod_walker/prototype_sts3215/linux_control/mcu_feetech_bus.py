@@ -524,6 +524,33 @@ class McuFeetechBus:
             pass
         return reply
 
+    def _transact_try(self, cmd: str, *, timeout: float = 0.8) -> str | None:
+        """Best-effort transaction: return immediately if the MCU link is busy."""
+        if not self._lock.acquire(blocking=False):
+            return None
+        t0 = time.monotonic()
+        try:
+            self._ser.reset_input_buffer()
+            self._ser.write((cmd.strip() + "\n").encode("ascii"))
+            self._ser.flush()
+            reply = None
+            for _ in range(8):
+                line = self._readline(timeout)
+                if line is None:
+                    break
+                if line.startswith("HELLO") and not cmd.startswith("HELLO"):
+                    continue
+                reply = line
+                break
+        finally:
+            self._lock.release()
+        try:
+            from event_log import emit_mcu
+            emit_mcu(cmd.strip(), reply, ms=(time.monotonic() - t0) * 1000.0)
+        except Exception:
+            pass
+        return reply
+
     def ping(self, sid: int) -> bool:
         line = self._transact(f"PING {int(sid)}", timeout=0.4)
         return bool(line and line.startswith("OK"))
@@ -855,7 +882,33 @@ class McuFeetechBus:
             for sid, pos, speed, acc in items[:n]:
                 parts.extend([str(sid), str(int(pos)),
                               str(int(speed)), str(int(acc))])
-            self._transact(" ".join(parts), timeout=1.0)
+            fallback = self._transact(" ".join(parts), timeout=1.0)
+            if not fallback or not fallback.startswith("OK"):
+                cause = (
+                    f"binary={line!r} fallback={fallback!r}")
+                self._flush_sync_slow_wp_fallback(items, cause=cause)
+
+    def _flush_sync_slow_wp_fallback(
+            self, items: list[tuple[int, int, int, int]], *,
+            cause: str) -> None:
+        """Last-resort slow-pose fallback for calibration/search glides."""
+        max_speed = max(int(speed) for _, _, speed, _ in items)
+        max_acc = max(int(acc) for _, _, _, acc in items)
+        if max_speed > 250 or max_acc > 30:
+            raise RuntimeError(f"SyncWrite failed: {cause}")
+        failures: list[str] = []
+        for sid, pos, speed, acc in items:
+            reply = self._transact(
+                f"WP {int(sid)} {int(pos)} {int(speed)} {int(acc)}",
+                timeout=0.6)
+            if not reply or not reply.startswith("OK"):
+                failures.append(f"{sid}:{reply!r}")
+        if failures:
+            preview = ", ".join(failures[:4])
+            if len(failures) > 4:
+                preview += f", +{len(failures) - 4} more"
+            raise RuntimeError(
+                f"SyncWrite failed: {cause}; WP fallback failed {preview}")
 
     def power_summary(self, *, timeout: float = 2.5) -> dict:
         """One-shot bus power: live count, sum current, avg volt, max load.
@@ -888,6 +941,14 @@ class McuFeetechBus:
         config. When ``logs/imu_calib.json`` exists and ``apply_calib``,
         subtracts rest gyro/accel biases from Calibrate → IMU.
         """
+        if getattr(self, "has_stream", False):
+            try:
+                snap = self.read_snapshot(apply_calib=apply_calib)
+            except Exception:
+                snap = None
+            if isinstance(snap, dict) and isinstance(snap.get("imu"), dict):
+                return snap["imu"]
+
         line = self._transact("IMUR", timeout=timeout)
         if not line or not line.startswith("OK"):
             return None
@@ -1014,9 +1075,10 @@ class McuFeetechBus:
         """Job-mode TFT (MCU ``DJ``): full-screen text + progress bar.
 
         Rows are positional — title, 4 body lines, footer — 26 chars each.
-        ``pct`` −1 hides the bar. Pure display command (no servo reads),
-        so it is safe to refresh while a job owns the servo bus. The next
-        ``display_push`` returns the panel to the normal schematic.
+        ``pct`` −1 hides the bar. This does not read servos, but it still
+        transacts over the shared MCU serial link; callers must skip it while
+        motion or calibration timing owns the bus. The next ``display_push``
+        returns the panel to the normal schematic.
         """
         clean = []
         for s in list(lines)[:6]:
@@ -1027,6 +1089,20 @@ class McuFeetechBus:
             clean.append("")
         payload = f"{int(pct)}|" + "|".join(clean)
         line = self._transact("DJ " + payload, timeout=timeout)
+        return bool(line and line.startswith("OK"))
+
+    def display_job_try(self, lines: list[str], *, pct: int = -1,
+                        timeout: float = 1.5) -> bool:
+        """Best-effort ``display_job`` that never waits to acquire the lock."""
+        clean = []
+        for s in list(lines)[:6]:
+            t = "".join(ch if 32 <= ord(ch) <= 126 and ch != "|" else " "
+                        for ch in str(s))
+            clean.append(t[:26])
+        while len(clean) < 6:
+            clean.append("")
+        payload = f"{int(pct)}|" + "|".join(clean)
+        line = self._transact_try("DJ " + payload, timeout=timeout)
         return bool(line and line.startswith("OK"))
 
     def close(self) -> None:

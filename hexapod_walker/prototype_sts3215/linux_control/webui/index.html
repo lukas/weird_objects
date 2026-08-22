@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>Hexapod · Drive</title>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-<link rel="stylesheet" href="/style.css">
+<link rel="stylesheet" href="/style.css?v=slip1">
 <script>window.HEXAPOD_HTTPS_PORT = __HTTPS_PORT__;</script>
 </head>
 <body>
@@ -35,6 +35,10 @@
     <span id="armstate" class="armstate">● OFF</span>
     <button id="armbtn" class="armbtn"
       title="Power the servos on (ARM). Nothing moves until you press Stand. When armed this becomes Disarm: lowers gently to the ground, THEN cuts power.">Enable</button>
+    <button id="armzero" class="armzero"
+      title="Move to logical sit zero using the collision-aware safe-zero plan. This may enable torque while it moves, then leaves the robot at zero.">Zero</button>
+    <button id="topsetzero" class="armsetzero"
+      title="POST /api/set_zero — Feetech middle-calibrate on every live servo. No motion: the CURRENT hand pose becomes logical 0°. Limp (Motors → Limp all, or E-STOP) and hand-pose the legs first.">Set zero HERE</button>
     <button id="estop" class="estop" title="Cut all power to the servos IMMEDIATELY — the robot goes limp NOW and will drop. Use only in an emergency. For a normal, gentle power-off use Disarm / Sit &amp; power off.">■ E-STOP</button>
   </div>
   <div id="opsbar">
@@ -95,14 +99,11 @@
     <div class="pad">
       <h2>1 · Zero &amp; stand</h2>
       <div class="hint" style="margin-top:0">
-        Bench order: <b>Limp</b>, hand-pose legs straight out →
-        <b>Set zero HERE</b> → <b>Enable servos</b> (top bar) →
+        Bench order: limp (Motors → <b>Limp all</b>, or E-STOP), hand-pose
+        legs straight out → <b>Set zero HERE</b> (top bar) →
+        <b>Enable servos</b> (top bar) →
         <b>Stand</b> → <b>Preflight</b>, then walk.</div>
       <div class="btns" style="margin-top:10px">
-        <button id="wlimp" title="Torque off (firmware X). Servos go limp NOW so you can hand-pose the legs.">Limp (torque off)</button>
-        <button id="wsetzero" class="danger" title="POST /api/set_zero — Feetech middle-calibrate on every live servo. No motion: the CURRENT hand pose becomes logical 0°.">Set zero HERE</button>
-      </div>
-      <div class="btns">
         <button data-cmd="P" title="Verified glide to the captured plant stance (arms the bus itself). Controller: Y · keyboard: Space.">▲ Stand (plant)</button>
         <button id="wpreflight" title="Read-only check (same as the tape script): all 18 servos answering, IMU alive, present pose near the plant stance.">Preflight</button>
       </div>
@@ -121,11 +122,16 @@ refused while walking — stop first. tripod = the legacy body-frame drag gait
 (known-good but loses ~50% of its stride to slip); the no-slip gaits pin
 planted feet to fixed world anchors (zero commanded scrub) and differ only
 in which legs swing together: tripod 3+3 (fastest), ripple opposite pairs
-(4 feet always down), wave one leg at a time (5 down — steadiest, slowest).">
+(4 feet always down), wave one leg at a time (5 down — steadiest, slowest).
+The SE2 gaits are also world-pinned but plan on per-leg foot workspaces
+with Bézier swings, and auto-scale a too-fast command down to what the
+legs can reach instead of clipping it.">
             <option value="0" selected>tripod (legacy — drags feet)</option>
             <option value="1">no-slip tripod (world-pinned feet)</option>
             <option value="2">no-slip ripple (pairs · 4 feet down)</option>
             <option value="3">no-slip wave (1 leg · steadiest)</option>
+            <option value="4">SE2 tetrapod (auto-scaled · 4 down)</option>
+            <option value="5">SE2 wave (auto-scaled · 5 down)</option>
           </select></label>
       </div>
       <div id="walphawrap" style="display:none">
@@ -251,8 +257,8 @@ in which legs swing together: tripod 3+3 (fastest), ripple opposite pairs
         <button id="dcheckz">Check sit zero</button>
       </div>
       <div class="hint">Homes: <b>sit zero</b> = legs out (0°) for air demos;
-        <b>stand zero</b> = plant height (Calibrate → Plant height, else +20°/+80°).
-        Standing/planted demos end at stand zero and stay up.</div>
+        <b>stand home</b> = plant height (Calibrate → Checkup, else +19°/+28°).
+        Standing/planted demos end at stand home and stay up.</div>
       <label class="slab">Speed <span class="tag" style="color:#5fd08a;border-color:#2e7d47">LIVE</span>:
         <span id="dspeedlab">1.0</span>×
         <span style="color:#8089a0;font-weight:400">(0.25× → 3× · drag while a
@@ -280,10 +286,13 @@ in which legs swing together: tripod 3+3 (fastest), ripple opposite pairs
       <label class="slab">Softness: <span id="dsoftlab">1.5</span>×
         <span style="color:#8089a0;font-weight:400">(higher = gentler accel, less bark)</span></label>
       <input id="dsoft" type="range" min="50" max="300" value="150" step="10">
+      <label class="slab"><input id="dmotionlog" type="checkbox">
+        Full motion CSV
+        <span style="color:#8089a0;font-weight:400">(diagnostic; reads encoders during motion)</span></label>
       <div class="hint">Status: <span id="dstatus" class="pill">idle</span>
         <span id="dstatusdetail" style="color:#8089a0"></span></div>
       <div class="hint" id="dtelem" style="margin-top:6px;color:#5a6478">
-        Demos auto-log cmd vs encoder → <code>logs/demo_*.csv</code> (+ summary).</div>
+        Standard event log includes low-rate command telemetry. Full motion CSV writes <code>logs/demo_*.csv</code> (+ summary).</div>
       <div class="hint" id="zerohint">Click any demo anytime — it aborts the current one, homes to sit (air) or stand (planted), then starts. Switching mid-demo is OK.</div>
       <div class="demo-grid" id="dgrid" style="margin-top:12px"></div>
     </div>
@@ -292,59 +301,61 @@ in which legs swing together: tripod 3+3 (fastest), ripple opposite pairs
 
   <div id="view-quad" class="view">
   <div class="row">
-    <div class="pad">
-      <h2>Quad mode — tip back, walk on four legs</h2>
-      <div class="hint">The robot rears up nose-high like a begging dog —
-        front legs tucked in the air — and moves on the four rear legs.
-        Two gaits, both one scripted 20&nbsp;Hz pose stream of
-        <b>rear up → go → sit back down</b>, both with a <b>LIVE speed
-        slider</b>: the <b>walk</b> is a lateral-sequence animal walk
-        (footfalls LH·LF·RH·RF, one foot up at a time, statically stable,
-        weight sway against the swing); the <b>trot</b> moves DIAGONAL leg
-        pairs together like a horse, leaning deep on its haunches — real
-        high steps (~40&nbsp;mm foot clearance in sim at 1×) at ~3× the
-        walk's pace, with a gentle weight-shift prance. Its calm cadence
-        survives friction ×0.6–1.4, 100&nbsp;ms latency and the whole
-        0.5–2× speed range in sim without falling; still, only two feet
-        hold the floor mid-beat, so treat it as the more advanced act on
-        hardware. Live speed is <b>auto-capped at 1.5×</b> as hardware
-        prudence.
-        Level-body 4-leg walking is geometrically impossible on this robot
-        (CoM lands ahead of the 4-foot polygon) — rearing back is what
-        makes it work. Sim-proven on the MuJoCo twin: walk margin never
-        below +34&nbsp;mm, peak ~2–2.6&nbsp;A, no falls anywhere in the
-        swept envelope (including 2×).<br>
-        <b>Floor:</b> flat + non-slip, ~0.4&nbsp;m clear ahead, no cords
-        under the body. <b>Watch it the whole run</b> — first hardware runs
-        at 0.5–0.75×, walk before trot. Stop / E-STOP abort instantly.</div>
-      <div class="btns" style="margin:12px 0">
-        <button id="qstart" style="font-size:16px;background:#1c3d2a;border-color:#2e7d47">🐕 Rear up &amp; walk</button>
-        <button id="qtrot" style="font-size:16px;background:#3d2a1c;border-color:#7d5a2e">🐎 Rear up &amp; trot</button>
-        <button id="qstop" class="danger">■ Stop</button>
-        <button id="qstand">Stand zero</button>
-      </div>
-      <label class="slab">Speed <span class="tag" style="color:#5fd08a;border-color:#2e7d47">LIVE</span>:
+	    <div class="pad">
+	      <h2>Quad mode — tip back, walk on four legs</h2>
+	      <div class="hint">Split quad workflow: <b>Rear up</b> tips back and
+	        holds with the front legs tucked; <b>Walk</b> and <b>Trot</b> then
+	        run forward or backward while reared; <b>Come down</b> untucks the
+	        fronts and returns to stand. Walk is the steadier one-foot sequence;
+	        trot uses diagonal pairs and is experimental on hardware.
+	        Pitched/aggressive variants lean farther back with shorter,
+	        slower steps. Hold/walk/trot use live IMU pitch trim to nudge
+	        the body fore/aft and slow the gait if pitch drifts. Use a flat
+	        non-slip floor, clear slack around the body, and watch the robot
+	        the whole time.</div>
+	      <label class="slab">Stance:
+	        <select id="qstance">
+	          <option value="" selected>Compact -24°</option>
+	          <option value="pitch">Pitched -28°</option>
+	          <option value="aggressive">Aggressive -32° rear/hold</option>
+	        </select>
+	        <span style="color:#8089a0;font-weight:400">(aggressive walking is sim-only until retuned)</span></label>
+	      <div class="btns" style="margin:12px 0">
+	        <button id="qrear" style="font-size:16px;background:#1c3d2a;border-color:#2e7d47">Rear up</button>
+	        <button id="qfwd" style="font-size:16px;background:#1c3d2a;border-color:#2e7d47">Walk forward</button>
+	        <button id="qback" style="font-size:16px;background:#1c3d2a;border-color:#2e7d47">Walk backward</button>
+	        <button id="qtrot" style="font-size:16px;background:#3d2a1c;border-color:#7d5a2e">Trot forward</button>
+	        <button id="qtrotback" style="font-size:16px;background:#3d2a1c;border-color:#7d5a2e">Trot backward</button>
+	        <button id="qdown">Come down</button>
+	        <button id="qstop">Settle hold</button>
+	        <button id="qstand">Stand zero</button>
+	      </div>
+	      <label class="slab">Speed <span class="tag" style="color:#5fd08a;border-color:#2e7d47">LIVE</span>:
         <span id="qspeedlab">0.75</span>×
         <span style="color:#8089a0;font-weight:400">(0.25× → 2× · drag while
         it runs — gait tuned at 1×, start hardware at 0.5–0.75×)</span></label>
       <input id="qspeed" type="range" min="25" max="200" value="75" step="5">
-      <label class="slab">Run for:
-        <span style="color:#8089a0;font-weight:400">(demo time · entry ~7.7 s
-        + exit ~7.5 s are inside it; the gait fills the middle)</span>
-        <select id="qdur">
-          <option value="20">20 s (rear up + a step + down)</option>
-          <option value="40" selected>40 s</option>
-          <option value="60">60 s</option>
-          <option value="120">2 min</option>
-        </select></label>
-      <div class="hint">Status: <span id="qstatus" class="pill">idle</span>
-        <span id="qstatusdetail" style="color:#8089a0"></span></div>
-      <div class="hint">Homes via the validated stand-up first (same as the
-        standing dances), τ900 + 3&nbsp;A stall guard while moving. Realized
-        pace at 1× (sim, hardware-speed servo profile): walk ~7&nbsp;mm/s,
-        trot ~20&nbsp;mm/s (feet pivot-slip under load, so commanded stride
-        only partly realizes). Auto-logs cmd vs encoder →
-        <code>logs/demo_quad_*.csv</code>.</div>
+	      <label class="slab">Safety timeout:
+	        <span style="color:#8089a0;font-weight:400">(walk/rear hold stop
+	        here if you do nothing; Come down ignores this)</span>
+	        <select id="qdur">
+	          <option value="30">30 s</option>
+	          <option value="60">60 s</option>
+	          <option value="120">2 min</option>
+	          <option value="300" selected>5 min</option>
+	        </select></label>
+	      <div class="hint">Status: <span id="qstatus" class="pill">idle</span>
+	        <span id="qstatusdetail" style="color:#8089a0"></span></div>
+	      <label class="slab"><input id="qmotionlog" type="checkbox">
+	        Full motion CSV
+	        <span style="color:#8089a0;font-weight:400">(diagnostic; reads encoders during motion)</span></label>
+		      <div class="hint">Rear up safely acquires Stand zero first when
+		        needed, then tips back and holds. Walk/trot/down require the
+		        reared hold, τ900 + 3&nbsp;A
+		        stall guard while moving. Hold/walk/trot also log live
+		        pitch-trim events. Settle hold returns to the stable reared
+		        pose; Come down returns to stand. Standard event logging
+		        includes low-rate command telemetry; full motion CSV is opt-in.</div>
     </div>
   </div>
   </div><!-- /view-quad -->
@@ -625,6 +636,16 @@ the trained forward wedge — same policy, body walks backward.">▼ Back</butto
       </div>
     </div>
     <div class="pad" style="flex:1 1 340px">
+      <h2>Onboard slip</h2>
+      <div class="hint">No tape. Stands on five feet, lifts then drags
+        each test foot through the same yaw sweep, then repeats a seated
+        yaw reference. Saves loaded-vs-hover ratios for MuJoCo contact
+        tuning.</div>
+      <div class="btns" style="margin-top:10px">
+        <button id="mu-slipgo" class="on">▶ Run slip probe</button>
+      </div>
+    </div>
+    <div class="pad" style="flex:1 1 340px">
       <h2>RL walk tape note</h2>
       <div class="hint">Ran an RL walk from the RL tab? Enter the tape
         reading here — it attaches to the newest RL episode trace so
@@ -666,88 +687,42 @@ the trained forward wedge — same policy, body walks backward.">▼ Back</butto
 
   <div id="view-calibrate" class="view">
   <div class="row">
-    <div class="pad" style="flex:1 1 320px">
-      <h2>Calibrate</h2>
-      <label class="slab">Mode</label>
-      <div class="btns seg" id="calmode">
-        <button data-mode="step" class="on">Step</button>
-        <button data-mode="shake">Shake / hold</button>
-        <button data-mode="plant">Plant height</button>
-        <button data-mode="geometry" title="Hips stay ~0° (straight), knees deepen toward +80–90° until contact, raise ~40 mm, save the full 18-joint plant.">Geo plant</button>
-        <button data-mode="imu">IMU rest</button>
-      </div>
-      <div class="hint" id="calhint-step">Glides to <b>sit zero</b>, then
-        <b>+step°</b> from 0° and scores tracking % + peak load.
-        Stuck / weak joints show red.</div>
-      <div class="hint" id="calhint-shake" style="display:none">Glides to
-        <b>sit zero</b>, nudges <b>+N°</b>, then <b>holds</b> and measures
-        position wobble (peak-to-peak / RMS). Catches hunt &amp; buzz that
-        a big step misses.</div>
-      <div class="hint" id="calhint-plant" style="display:none">From sit zero,
-        slowly reaches down (rise+ depth). When ≥3 hip/knee joints hit a
-        <b>current/load bump</b>, saves median hip/knee as <b>stand home</b>
-        for Stand zero + planted demos. Robot should be over its platform.</div>
-      <div class="hint" id="calhint-geometry" style="display:none">
-        <b>Preferred for RL.</b> Hip stays ~0° (straight), knees deepen toward
-        +80° (~90°) until force/current contact, then raises ~40&nbsp;mm and
-        saves full 18-joint plant. Same as <code>POST /api/rl/find_plant</code>.
-        Watch the robot — Stop if it tips.</div>
-      <div class="hint" id="calhint-imu" style="display:none">Hold the chassis
-        <b>still</b> (~2.5 s). Samples the MPU-6050, saves gyro bias + accel
-        sensor bias to <code>logs/imu_calib.json</code>. Motion logs then use
-        calibrated readings. No servo motion — limp is fine.</div>
-      <div id="calstepwrap">
-        <label class="slab">Step size: <span id="calsteplab">10</span>°</label>
-        <input id="calstep" type="range" min="5" max="15" step="1" value="10">
-      </div>
-      <div id="calnudgewrap" style="display:none">
-        <label class="slab">Nudge: <span id="calnudgelab">2.0</span>°</label>
-        <input id="calnudge" type="range" min="1" max="4" step="0.5" value="2">
-      </div>
-      <div id="calaxiswrap">
-        <label class="slab">Axis</label>
-        <div class="btns seg" id="calaxis">
-          <button data-axis="all" class="on">All</button>
-          <button data-axis="yaw">Yaw</button>
-          <button data-axis="hip">Hip</button>
-          <button data-axis="knee">Knee</button>
-        </div>
-      </div>
-      <div class="hint" id="calplantinfo" style="margin-top:10px;display:none">
-        Stand home: <b id="calplanthip">+20</b>° hip /
-        <b id="calplantknee">+80</b>° knee
-        <span id="calplantsrc" style="color:#8089a0">(default)</span>
-      </div>
-      <div class="hint" id="calimuinfo" style="margin-top:10px;display:none">
-        IMU: <b id="calimustatus">not calibrated</b>
-        <span id="calimudetail" style="color:#8089a0"></span>
-      </div>
+    <div class="pad" style="flex:1 1 700px">
+      <h2>Checkup</h2>
+      <div class="hint">Runs one calibration sequence and saves a sim-ready
+        report: IMU rest/bias, ground contact geometry plus dimension sweep,
+        quad IMU body-frame, traction/slip probe, actuator health, and any
+        learned motor model already on disk.</div>
+      <div class="cal-steps" id="calsteps"></div>
       <div class="btns" style="margin-top:12px">
-        <button id="calrun" class="on">▶ Run test</button>
+        <button id="calrun" class="on">▶ Run checkup</button>
         <button id="calstop" class="danger">■ Stop</button>
         <button id="calrefresh">↻ Refresh</button>
-        <button id="calplantreset" style="display:none">Reset plant default</button>
-        <button id="calimureset" style="display:none">Clear IMU calib</button>
+      </div>
+      <div class="cal-manual-row">
+        <label>Measured geometry</label>
+        <input id="calhipheight" type="number" step="0.5" placeholder="95">
+        <span>hip h</span>
+        <input id="calhipradius" type="number" step="0.5" placeholder="114">
+        <span>center→hip</span>
+        <input id="calfemur" type="number" step="0.5" placeholder="88">
+        <span>femur</span>
+        <input id="caltibia" type="number" step="0.5" placeholder="152">
+        <span>tibia/boot</span>
+        <button id="calsavegeom">Save</button>
       </div>
       <div class="hint" id="calstatus" style="margin-top:10px">Idle. Enable servos first.</div>
-      <div class="hint" id="callog" style="margin-top:6px;color:#5a6478">Log: —</div>
-      <div class="hint" id="callegend" style="margin-top:12px">
-        <span class="cal-pill green">green</span> tracked ·
-        <span class="cal-pill yellow">yellow</span> partial / high load ·
-        <span class="cal-pill red">red</span> barely moved
+      <div class="hint" id="calcounts" style="margin-top:8px">No run yet.</div>
+      <div id="caldims" style="margin-top:12px"></div>
+      <div class="hint" id="callog" style="margin-top:6px;color:#5a6478">Report: —</div>
+      <div class="hint" id="calplantinfo" style="margin-top:10px">
+        Stand home: <b id="calplanthip">+19</b>° hip /
+        <b id="calplantknee">+28</b>° knee
+        <span id="calplantsrc" style="color:#8089a0">(default)</span>
       </div>
-    </div>
-    <div class="pad" style="flex:2 1 420px">
-      <h2>Results</h2>
-      <div class="hint" id="calcounts" style="margin:0 0 8px">No run yet.</div>
-      <div style="overflow:auto; max-height:480px">
-        <table class="cal-table" id="caltab">
-          <thead id="calhead"><tr>
-            <th>Joint</th><th>Name</th><th>Δcmd</th><th>Δact</th>
-            <th>Track%</th><th>Load</th><th>Vmin</th><th>Grade</th>
-          </tr></thead>
-          <tbody id="calbody"><tr><td colspan="8">Run a test to fill this table.</td></tr></tbody>
-        </table>
+      <div class="hint" id="calimuinfo" style="margin-top:10px">
+        IMU: <b id="calimustatus">not calibrated</b>
+        <span id="calimudetail" style="color:#8089a0"></span>
       </div>
     </div>
   </div>
@@ -806,13 +781,13 @@ the trained forward wedge — same policy, body walks backward.">▼ Back</butto
         <code>Q&nbsp;&lt;j&gt;&nbsp;&lt;deg&gt;</code>). <b>Test ALL</b> centers
         every joint, then wiggles each one in turn (0→17) with a pause between,
         so you can watch each servo respond. Press <b>Stop test</b> to abort.
-        Stand / Center / limp live on the Drive tab and the header
-        (E-STOP = instant limp).</div>
+        Stand / Center live on the Drive tab; limp lives on the header
+        (E-STOP = instant limp) and Motors (Limp all).</div>
     </div>
   </div>
   </div><!-- /view-debug -->
 </div><!-- /wrap -->
 </div><!-- /main -->
-<script src="/app.js"></script>
+<script src="/app.js?v=slip1"></script>
 </body>
 </html>

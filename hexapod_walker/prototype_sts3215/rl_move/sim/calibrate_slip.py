@@ -89,7 +89,7 @@ def _make_env(mu: float, servo_params: str, seed: int = 0):
 def replay(mu: float, vx: float, *, lift_mm: float = 25.0,
            servo_params: str = "", seed: int = 0) -> dict:
     """One scripted-gait episode; returns travel/current stats."""
-    from tripod_gait import TripodGait
+    from sim_gait_compat import TripodGait
 
     from rl_move.sim.joint_task import q_rad_to_action
 

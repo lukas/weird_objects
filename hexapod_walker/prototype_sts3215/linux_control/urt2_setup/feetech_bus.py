@@ -36,7 +36,7 @@ check_workspace_self_collision in _verify_prototype.py):
 
     yaw:        -35 .. +35 deg
     hip pitch:  -80 .. +30 deg
-    knee pitch: -20 .. +80 deg
+    knee pitch: -20 .. +150 deg
 
 Trims: the old Arduino bridge used to persist per-joint trims in
 EEPROM.  Trims now live in a JSON file next to this script
@@ -143,11 +143,11 @@ TRIM_PATH = Path(__file__).resolve().parent / "feetech_trims.json"
 # Learned plant (stand home) from contact calibrate.  Prefer linux_control/logs.
 # Default stand when no plant_pose.json.
 # Sit zero = femur straight out (0°).  A real stand puts the femur down and
-# the tibia nearly vertical: hip ≈ +20° (toward floor; axis max +30°) and
-# knee +80° (axis max — as close to a right-angle tibia as we allow).
-# Foot drop ≈ 159 mm; feet sit more under the body than the old −25°/+60°.
-DEFAULT_STAND_HIP_DEG = 20.0
-DEFAULT_STAND_KNEE_DEG = 80.0
+# the tibia near the measured floor contact family: hip ≈ +19° and knee
+# ≈ +28° under the absolute-tibia convention.  The old +80° fallback was
+# from the retired serial ``hip+knee`` geometry and drives far too deep.
+DEFAULT_STAND_HIP_DEG = 19.0
+DEFAULT_STAND_KNEE_DEG = 28.0
 PLANT_PATH_CANDIDATES = (
     Path(__file__).resolve().parent.parent / "logs" / "plant_pose.json",
     Path.home() / "hexapod_sts" / "linux_control" / "logs" / "plant_pose.json",
@@ -263,7 +263,7 @@ def save_plant_pose(hip_deg: float, knee_deg: float, *,
 
 
 def clear_plant_pose() -> bool:
-    """Remove learned plant file(s); stand home falls back to +20°/+80°."""
+    """Remove learned plant file(s); stand home falls back to +19°/+28°."""
     removed = False
     for path in PLANT_PATH_CANDIDATES:
         if path.is_file():
@@ -279,7 +279,7 @@ def standing_pose_degrees() -> list[float]:
     """Stand / plant home.
 
     Prefer a captured 18-joint ``joints_deg`` snapshot. Otherwise expand
-    shared hip/knee (learned or default +20/+80). RL Phase 1 should not
+    shared hip/knee (learned or default +19/+28). RL Phase 1 should not
     use the default — capture a real stance first.
     """
     plant = load_plant_pose()

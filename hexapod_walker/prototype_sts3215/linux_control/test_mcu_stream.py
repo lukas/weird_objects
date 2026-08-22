@@ -210,6 +210,44 @@ def test_snapshot_imu_invalid_age():
     assert bytes(bus._ser.tx) == encode_sync_frame(ord("S"), [])
 
 
+def test_read_imu_prefers_stream_snapshot():
+    imu_raw = (0, 0, 16384, 131, -131, 0, 0)
+    servos = [(2 + j, 1, 2048, 0) for j in range(18)]
+    reply = _fw_snapshot_frame(
+        _fw_snapshot_payload(5, 2, 1, imu_raw, servos), 18)
+    bus = _mk_bus(reply)
+
+    imu = bus.read_imu()
+    assert imu is not None
+    assert abs(imu["az_g"] - 1.0) < 1e-6
+    assert abs(imu["gx_dps"] - 1.0) < 1e-6
+    assert abs(imu["gy_dps"] + 1.0) < 1e-6
+    assert bytes(bus._ser.tx) == encode_sync_frame(ord("S"), [])
+
+
+def test_flush_sync_raises_when_binary_and_ascii_fallback_fail():
+    bus = _mk_bus(b"ERR\nERR\n")
+    bus._pending = [(2, 2048, 400, 20)]
+    try:
+        bus._flush_sync()
+    except RuntimeError as e:
+        assert "SyncWrite failed" in str(e)
+    else:
+        raise AssertionError("expected SyncWrite failure to raise")
+
+
+def test_flush_sync_uses_wp_fallback_for_slow_sync_failure():
+    bus = _mk_bus(b"ERR\nERR\nOK\n")
+    bus._pending = [(2, 2048, 160, 12)]
+
+    bus._flush_sync()
+
+    tx = bytes(bus._ser.tx)
+    assert encode_sync_frame(ord("W"), [(2, 2048, 160, 12)]) in tx
+    assert b"SW 1 2 2048 160 12\n" in tx
+    assert b"WP 2 2048 160 12\n" in tx
+
+
 def _main() -> int:
     fails = 0
     for name, fn in sorted(globals().items()):

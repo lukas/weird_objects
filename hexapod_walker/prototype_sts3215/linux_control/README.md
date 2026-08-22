@@ -88,6 +88,141 @@ Identical repeats (a poll loop hitting the same failure) are deduped
 to once per 10 s. Browse the recent ones without SSH:
 `GET /api/errors?n=100`.
 
+### Phone-video diagnosis
+
+When a run fails, save the phone video and generate timestamped stills plus a
+contact sheet before guessing from memory:
+
+```bash
+make robot-video VIDEO=/Users/lukas/Downloads/IMG_3613.MOV
+# optional: exact timestamps and a fractional crop around the robot
+make robot-video VIDEO=/path/run.mov TIMES=0,8,16,24,32 CROP=0,0.33,1,0.98
+```
+
+The helper lives at `linux_control/video_contact_sheet.py` and writes under
+`artifacts/video_frames/...`.
+
+## Fast test / deploy loop
+
+For UI and controller edits, use the local helper instead of retyping the
+whole cautious sequence. These commands do not move the robot; only
+`hex_deploy` restarts the web service.
+
+```bash
+# from prototype_sts3215/
+make robot-check       # syntax + web JS + git diff hygiene; no robot access
+make robot-unit-check  # robot-check + fake-bus/off-robot tests
+make robot-resolve     # print the current hexapod.local mDNS IPv4 answer
+make robot-status      # read-only /api/ping + compact /api/robot summary
+make robot-deploy      # robot-check + SSH deploy + remote compile + status
+```
+
+The same helpers are available as shell functions:
+
+```bash
+source linux_control/dev_loop.sh
+hex_check
+hex_unit_check
+hex_resolve
+hex_status
+hex_deploy
+```
+
+Useful overrides:
+
+```bash
+HEXAPOD_HOST=http://hexapod.local:8080
+HEXAPOD_SSH=arduino@hexapod.local
+HEXAPOD_SSH_HOSTKEY_ALIAS=hexapod.local
+```
+
+If `hexapod.local` resolution is flaky, do not commit an IP address. Resolve
+the current address and use it only for the command you are running:
+
+```bash
+IP=$(make -s robot-resolve)
+HEXAPOD_HOST=http://$IP:8080 HEXAPOD_SSH=arduino@$IP make robot-deploy
+```
+
+There is also an explicit-path commit helper, intended to avoid
+accidentally staging unrelated work from another process:
+
+```bash
+hex_commit_push "Add safer robot telemetry" \
+  linux_control/web_drive.py linux_control/webui/app.js
+```
+
+## Calibration checkup / geometry sweep
+
+The Web UI **Checkup** route runs, in order: safe zero, IMU rest/bias,
+ground-contact plant search, per-leg dimension sweep, geometry plausibility,
+quad IMU body-frame map, IMU-frame validation, stability-margin probe,
+mass-shift response, traction/slip probe, return-to-zero, a proprioception
+consistency score, optional camera witness metadata, bus/power health,
+actuator snapshot, then one calibration report.  The
+proprioception phase is read-only after return-to-zero: it compares the expected
+zero pose with live servo encoders/current/voltage/temperature and flags large
+command-vs-feedback errors.  It cannot prove where the feet moved in the room;
+synced camera/video is the separate witness needed for slip and body
+translation.  The moving checks are deliberately less conservative than older
+runs: weak geometry, small IMU-frame samples, and recoverable slip-probe guards
+are recorded as issues/warnings while the checkup continues to collect
+independent evidence. Operator stop/E-stop, hard command failure, high current,
+or sustained large tilt still stop motion. The stability-margin phase uses small
+reversible stance biases in four directions and reports a lower-bound usable
+tilt, not a fall angle. The mass-shift phase lifts small limb groups and records
+steady pitch/roll response, which is the first useful proxy for center-of-mass
+and limb-mass mismatch in MuJoCo. The standard checkup traction phase uses two
+repeated planted shear trials at several small yaw amplitudes and reports
+min/max ranges; the more aggressive per-leg loaded-vs-hover drag remains the
+explicit standalone slip probe. The dimension sweep
+keeps five feet planted and probes several same-floor hip/knee contact poses
+with the sixth leg.  Treat it as a contact-height consistency diagnostic:
+vertical floor contacts alone do **not** identify absolute femur/tibia lengths
+because link lengths and body height are scale-ambiguous without an independent
+height/vision measurement.  The report therefore keeps configured/manual link
+lengths as the dimension source and uses the sweep for per-leg height residuals,
+zero-offset hints, and mismatch warnings.  Boot edges, footpad angle, floor
+compliance, and servo lag can all make first contact differ from the ideal tibia
+endpoint.  The sweep records weak first-contact brushes separately from firm
+loaded contacts and backs the probe leg off immediately after a contact hint;
+continuing to push mostly measures boot/chassis flex.  When the operator
+measures knee-to-boot-tip, use the boot-radius contact model
+`height = (tip_mm - boot_radius_mm) * sin(theta) + boot_radius_mm`, not a
+pin-foot line to the tip.  Coxa length and chassis width remain nominal/manual
+because vertical floor contacts do not observe horizontal geometry.
+
+Deploys paint a temporary TFT **DEPLOYING** banner while the web service is
+stopped.  After `/api/ping` succeeds, the deploy scripts now call
+`POST /api/tft/ready` to do one normal screen repaint and clear that banner
+without enabling the continuous TFT status loop.  The route skips if a motion or
+calibration already owns the MCU link.
+
+Raw sweep samples are saved on the robot as
+`linux_control/logs/geometry_sweep_*.json` and copied into
+`calibration_report_*.json` under `geometry.contact_sweep`.  Off-robot math
+coverage lives in `linux_control/test_geometry_sweep_fit.py` and is included
+in `make robot-unit-check`; it does not touch hardware.
+
+Hand measurements live separately from the moving checkup:
+`GET/POST /api/geometry/manual` reads or writes
+`linux_control/logs/geometry_manual.json` with `hip_pitch_height_mm`,
+`hip_center_radius_mm`, `femur_mm`, and `tibia_mm`.  The report shows these
+as operator measurements, uses manual hip height for MuJoCo height hints, and
+keeps FK-derived height plus current-vs-absolute knee convention comparisons
+visible as consistency checks.  If the contact/FK height disagrees with the
+operator measurement, the sweep is marked `manual_geometry_mismatch` and is not
+used as a dimension source.
+
+Measured-geometry decision, 2026-08-21: the old 128 mm tibia/contact length
+was retired.  MuJoCo, the gait IK, and the checkup geometry now use
+`femur_mm=90.0`, `tibia_mm=150.0` (knee axis to boot apex/contact tip), and
+`boot_diameter_mm=14.0`.  The nominal hip-center radius remains
+`200/2 + 12.5 = 112.5 mm`, close to the operator's about-114 mm measurement;
+keep using `/api/geometry/manual` for measured height/radius annotations.  For
+future geometry changes, update motion constants only after the measurements,
+contact sweep residuals, and MuJoCo behavior agree.
+
 ### RL episode traces (automatic)
 
 Every RL stand / lower / walk run additionally writes per-tick telemetry
@@ -133,7 +268,7 @@ chmod +x deploy_adb.sh
 | Input | Action |
 |---|---|
 | Enable servos | ARM (torque on; nothing moves yet) |
-| Stand | planted stand (default hip **+20°**, knee **+80°**, or learned plant) |
+| Stand | planted stand (default hip **+19°**, knee **+28°**, or learned plant) |
 | Left stick / WASD | walk (tripod gait) |
 | Turn stick / Q·E | yaw rate |
 | Sit & power off | gentle lower, then limp |
