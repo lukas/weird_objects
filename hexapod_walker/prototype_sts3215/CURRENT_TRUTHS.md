@@ -154,22 +154,24 @@ out-of-scope runs get honest triage but no agent follow-ups.
   under the gate floor. Dosing this lever further is refuted;
   DIG-IN flagged on the course/anchor-vs-drag-charge interaction
   before any further reward edit on this lineage.
-- STD-ANNEAL REPAIR IS CHECKPOINT-RECENCY SENSITIVE (08-22): the
-  regime-gap repair (`--log-std-final` schedule) applied to two
-  otherwise-identical launches diverged hugely by INIT checkpoint —
-  restarting from the raw BC phase clone (`cw-dep-bcgait4-
-  phasedir9-stdanneal`) landed the best arm of the whole phasedir
-  lineage (progress 0.873x clone, near-PASS, UNDERTRAINED verdict,
-  continuing as `-cont1`), while continuing from the already-
-  committed pd8 checkpoint (`cw-dep-bcgait4-phasedir9b-stdanneal`,
-  an accidental duplicate-name launch, NOT config-identical to `-9`
-  despite an earlier note here/in STATUS.md claiming otherwise) came
-  out WORSE than pd8 itself on every gate axis despite drag-stance
-  charge falling ~4x under the same anneal. DIG-IN flagged, not yet
-  root-caused: whether anneal-from-an-earlier/less-converged
-  checkpoint is a general escape-the-local-optimum lever or specific
-  to this reward stack's basin. `-9b` left UNVERDICTED pending the
-  dig-in (do not re-verdict it as a plain redundant duplicate).
+- INIT-BASIN SELECTION, NOT CHECKPOINT RECENCY (08-22, dig-in
+  resolved on `cw-dep-bcgait4-phasedir9b-stdanneal`, FAIL): the
+  std-anneal repair applied to two identical stacks diverged purely
+  by INIT. From the raw BC clone (`-9`): best arm of the lineage.
+  Continuing the cheat-committed pd8 checkpoint (`-9b`): WORSE than
+  pd8 on every det gate axis (prog 0.704x vs 0.770x, slip 1.506x vs
+  1.254x, speed 0.054) — it cut the drag bill 4x by shrinking
+  per-stance travel under the 24mm ABSOLUTE allowance (translating
+  less, not slipping less; video: six legs cycling, walking in
+  place). Decisive: `-9b`'s final TRAINING reward is equal-or-better
+  than `-9`'s (ep_rew -90 vs -138, rew/tick EMA -0.048 vs -0.141,
+  same prog income) — the optimization-regime reward surface is
+  ~FLAT across the honest and drag basins, so gradient never crosses
+  basins at annealed-low std; init decides which basin gets
+  polished. Anneal-from-an-earlier-checkpoint is NOT a general
+  escape lever. BINDING RULE for the lineage: apply pricing/regime
+  repairs by RE-INIT from a pre-cheat checkpoint (teacher/clone),
+  never by continuing a cheat-committed one.
 - JOYSTICK GATE HARNESS, evaluator half (08-22):
   `rl_move/sim/eval_joystick_gate.py` (+`test_eval_joystick_gate.py`,
   8/8, no sim) — a reusable, versioned wrapper around

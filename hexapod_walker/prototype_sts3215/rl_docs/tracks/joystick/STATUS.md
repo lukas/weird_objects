@@ -1,6 +1,9 @@
 # joystick - RL from the programmatic gait to joystick control
 
-Last updated: 2026-08-22 (phasedir9 VERDICTED UNDERTRAINED, not
+Last updated: 2026-08-22 (phasedir9b dig-in RESOLVED/FAIL:
+init-basin selection, not checkpoint recency — see bullet below;
+lineage rule adopted: repairs re-init from a pre-cheat checkpoint.
+Earlier same day: phasedir9 VERDICTED UNDERTRAINED, not
 FAIL: zero falls 24/24, gait_valid 6/6, slip/dir_err/speed all
 inside gate, only progress narrow-missed 0.873x clone vs 0.9x cap
 — best of lineage — while reward/tick was still climbing steeply
@@ -107,37 +110,28 @@ with:
   orderings survive / regime gap pinned). LAUNCHED
   `cw-dep-bcgait4-phasedir9-stdanneal` (pd8 stack + std anneal
   0.135->0.04 by 60% of run + ref floor 0.06). NOTE: a concurrent-cycle race left a duplicate in flight under a different name, `cw-dep-bcgait4-phasedir9b-stdanneal` (train-2), running the identical config+seed alongside the original (train-3) — harmless (~5-10 GPU-min), verdict off whichever finishes against its own gate first, treat the other as a redundant confirmation.
-- 08-22 CORRECTION: the "duplicate" note above is WRONG on inspection
-  — `cw-dep-bcgait4-phasedir9b-stdanneal` is NOT config-identical to
-  `-9-stdanneal`. Both share the pd8 reward stack + `--log-std-final`
-  anneal + seed 13, but `-9b` continues from the pd8 CHECKPOINT
-  (`--init-from ppo_goal_cw_dep_bcgait4_phasedir8_emakernel_
-  allow24.zip`, already committed to the drag-cheat gait) while `-9`
-  (the one just verdicted UNDERTRAINED above) restarts from the raw
-  BC phase clone (`--init-from ppo_goal_cw_bcgait_init_fullprof_
-  phase1.zip`). This turned out to be a highly informative accidental
-  natural experiment, not a wasted duplicate: `-9b`'s det gate reading
-  is WORSE than pd8's OWN numbers on every axis (progress 0.70x clone
-  vs pd8's 0.77x, slip 1.50x vs 1.25x, speed 0.054 vs 0.0575 — all
-  below pd8) despite drag-stance charge falling ~4x (-2.7/tick ->
-  -0.5..-0.9/tick, std fully annealed 0.135->0.04) — i.e. the SAME
-  reward-pricing repair that made `-9` the best arm of the lineage
-  (progress 0.873x, near-PASS) made `-9b` WORSE than its own parent
-  when applied by CONTINUING from the already-cheat-committed
-  checkpoint instead of restarting fresh. Video confirms: `-9b`'s
-  gait still cycles all six legs (no freeze/park, gait_valid 6/6) but
-  net translation is poor — walking mostly in place. Flagged DIG-IN
-  (see RL_LOG) rather than verdicted this cycle: the checkpoint-init
-  divergence is the strongest evidence yet for pd8's own predicted
-  branch (ii) ("annealing froze the policy in the same degenerate
-  optimum; would need to anneal from an earlier/less-converged
-  checkpoint") — anneal-from-an-earlier-checkpoint is EXACTLY what
-  `-9`'s from-scratch restart did, and it worked far better. Open
-  question for the dig-in: is checkpoint-recency-at-anneal-start a
-  general lever (anneal earlier = escape more local optima) or
-  specific to this reward stack's degenerate basin? `-9b` left
-  UNVERDICTED (status RUNNING in the ledger, awaiting the dig-in
-  cycle) — do not re-verdict it as a plain duplicate.
+- 08-22 CORRECTION + DIG-IN RESOLVED: the "duplicate" note above is
+  WRONG — `-9b` shares the pd8 stack + anneal + seed 13 but continues
+  from the cheat-committed pd8 CHECKPOINT while `-9` restarts from
+  the raw BC phase clone. VERDICTED FAIL as the accidental A/B
+  control: `-9b` came out WORSE than pd8 itself on every det gate
+  axis (prog 0.704x clone vs 0.770x, slip 1.506x vs 1.254x, speed
+  0.054 vs 0.0575; zero falls, gait 6/6, video: six legs cycling but
+  walking in place) despite drag charge falling 4x — it dodged the
+  bill by shrinking per-stance travel under the 24mm ABSOLUTE
+  allowance (translating less, not slipping less). ROOT CAUSE of the
+  -9/-9b divergence: INIT-BASIN SELECTION — `-9b`'s final TRAINING
+  reward is equal-or-better than `-9`'s (ep_rew -90 vs -138,
+  rew/tick EMA -0.048 vs -0.141, identical prog income 0.359), so
+  the optimization-regime reward surface is ~flat across the honest
+  and drag basins; at annealed-low std PPO is a local polisher and
+  init decides the basin. Checkpoint-recency-at-anneal-start is NOT
+  a general escape lever; pd8 branch (ii)'s "anneal earlier" framing
+  is resolved as "re-init from a pre-cheat checkpoint". LINEAGE
+  RULE: pricing/regime repairs re-init from teacher/clone, never
+  continue a cheat-committed checkpoint. No further budget on `-9b`;
+  the lineage's live arm is `-9-cont1` (finished, awaiting its own
+  triage cycle: W&B ep_rew climbed to +152 over +4M steps).
 
 ## Next
 
