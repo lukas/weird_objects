@@ -65,11 +65,27 @@ out-of-scope runs get honest triage but no agent follow-ups.
   slip penalty on pure turns — now normalized by progress +
   0.17·|yaw_delta| (foot-arc). Straight metrics shift <2%. (4)
   Contextual 250 x 20s (5 headings + 2 turns, wz 0.2, slip-weight 0.9,
-  GP warm-started with trial 43 via new `--warm-json`) launched in
-  background on the controller ~21:0x, ETA ~60 min:
-  `logs/paper_cpg_search/paper-cpg-contextual250-20260822T21Z.{json,log}`
-  — next cycle reads `best` there; trial-43 contextual baseline score
-  under the fixed scorer is +0.033.
+  GP warm-started with trial 43 via new `--warm-json`) COMPLETED
+  250/250 (~21:14, read 21:34):
+  `logs/paper_cpg_search/paper-cpg-contextual250-20260822T21Z.json`.
+  **Contextual winner (iter 76): tetrapod period=2.0,
+  swing_frac=0.2961, lift_m=0.0299, cmd_tau=0.1,
+  workspace_margin=0.7759 — score 0.166 vs trial-43's 0.033 under the
+  same fixed scorer (5x).** Per-context: headings prog_frac 0.84–0.89
+  / cross <=0.043 / slip 0.56–0.63; turns yaw_along_frac 0.993/1.012;
+  zero falls/terminations across all 7 contexts. Note the winner
+  moved AWAY from the straight-50 champion on 3 of 5 knobs (shorter
+  swing hold, faster cmd_tau 0.65->0.1, tighter workspace 0.93->0.78)
+  — the contextual objective genuinely prefers a different gait
+  parameterization than pure straight-line. score_min -0.205 (worst
+  single context still negative under slip-weight 0.9 pricing —
+  headroom exists but no context misbehaves behaviorally). The paper
+  adaptation question (does BO-on-CPG-params beat the hand-scripted
+  teacher on the paper's own objective, straight AND contextual) is
+  ANSWERED YES; any use of these params (regenerating the AMP motion
+  library / teacher-band refresh) is a separate pre-registered fork,
+  not an automatic swap — logged in OPERATOR_QUESTIONS.md
+  (q_20260822T2140Z).
 
 ## Facts that feed the two tracks
 

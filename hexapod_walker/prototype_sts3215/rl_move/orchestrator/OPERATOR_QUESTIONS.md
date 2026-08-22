@@ -1677,3 +1677,29 @@ Plain English: the straight-gait search result is real, but the scorer misread t
 2. Fixed two measurement defects in `paper_cpg_search.rollout` BEFORE the contextual run (yaw endpoint wrap aliasing >pi turns to look sign-inverted; pure-turn slip normalized by ~zero translation progress). This changes the objective for turn commands relative to the operator's local code. Straight-suite scores shift <2%. Tag: exp/c0822-paper-cpg-yawwrap-slipnorm-replay.
 3. Ran the 250x20s contextual search as a background CPU job on the controller (not via launch_run.py): it is a scripted-gait eval-harness search, not policy training; the launcher refuses CPU training and the GPU stack is the wrong tool. Artifacts under logs/paper_cpg_search/.
 4. Warm-started the contextual GP with the straight winner via new `--warm-json` (contextual-BO-from-prior, matching the paper's transfer idea).
+
+## q_20260822T2140Z — paper-CPG contextual winner: adopt as teacher / motion-library source? (assume-and-go)
+- cycle: c0822-triage-style05-headings20
+- context: the operator-directed Berkeley/Levine paper adaptation
+  (`paper_cpg_search`) finished both stages. Straight-50 winner
+  (trial 43) verified real 08-22; contextual-250 (5 headings + 2
+  turns, fixed yaw-wrap/slip-norm scorer, slip-weight 0.9) winner is
+  iter 76: tetrapod period=2.0, swing_frac=0.2961, lift_m=0.0299,
+  cmd_tau=0.1, workspace_margin=0.7759 — score 0.166 vs trial-43's
+  0.033 (5x), headings prog 0.84–0.89, turns yaw_along 0.99/1.01,
+  zero falls, slip 0.56–0.75 across all 7 contexts.
+- question: should the contextual winner replace the current scripted
+  teacher parameters anywhere downstream — (a) regenerate the AMP
+  motion library (`teacher_v1.npz`) from it, and/or (b) refresh the
+  joystick teacher slip band? Both are forks with lineage-wide
+  consequences (the AMP discriminator's "natural" target changes; the
+  joystick gate's slip bar is calibrated to the CURRENT teacher).
+- assumption adopted: NO automatic swap. The search question is
+  answered and recorded in CURRENT_TRUTHS.md; downstream adoption
+  waits for either an operator ruling or a cycle-level pre-registered
+  experiment that measures the swap's effect (e.g. motion-library-v2
+  arm vs v1 control at equal budget). Rationale: both track gates are
+  currently green/progressing on the v1 teacher; silently moving the
+  style target mid-M2-curriculum would confound every running
+  comparison.
+- status: OPEN
