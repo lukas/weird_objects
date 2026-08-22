@@ -222,3 +222,83 @@ def test_env_reset_applies_fault_and_steps_finite():
         env2.close()
     finally:
         env.close()
+
+
+# ------------------------------------------------ actor-obs wiring (M4)
+
+def _walk_env(*, fault_health: bool, fault_prob: float = 0.0, seed: int = 0):
+    from rl_move.config import load_config
+    from rl_move.sim.walk_task import SimHexapodJointWalkEnv
+
+    cfg = load_config()
+    if fault_health:
+        cfg.setdefault("obs", {})["fault_health"] = 1.0
+    if fault_prob:
+        cfg.setdefault("dr", {})["fault_prob"] = fault_prob
+    env = SimHexapodJointWalkEnv(cfg, seed=seed, randomize=bool(fault_prob))
+    gen = env._goal_gen
+    for name in dir(gen):
+        if name.startswith("p_") and isinstance(getattr(gen, name),
+                                                 (int, float)):
+            setattr(gen, name, 0.0)
+    gen.p_walk = 1.0
+    return env
+
+
+def test_fault_health_obs_default_off_width_unchanged():
+    from rl_move.sim.mirror import FRAME_WALK
+    env = _walk_env(fault_health=False)
+    obs, _ = env.reset(seed=0)
+    assert obs.shape == (FRAME_WALK,)
+    assert env.observation_space.shape == (FRAME_WALK,)
+
+
+def test_fault_health_obs_on_width_plus_18_all_healthy_when_fault_off():
+    from rl_move.sim.mirror import FRAME_WALK
+    env = _walk_env(fault_health=True, fault_prob=0.0, seed=1)
+    obs, _ = env.reset(seed=1)
+    assert obs.shape == (FRAME_WALK + N_JOINTS,)
+    assert env.observation_space.shape == (FRAME_WALK + N_JOINTS,)
+    np.testing.assert_array_equal(obs[-N_JOINTS:], np.ones(N_JOINTS))
+
+
+def test_fault_health_obs_reflects_the_episode_draw():
+    # fault_prob=1.0 -> every episode carries a fault; the obs tail
+    # must match this env's own _ep_rand.fault_health() exactly, at
+    # reset AND after stepping (constant per episode, not a one-shot).
+    env = _walk_env(fault_health=True, fault_prob=1.0, seed=3)
+    obs, _ = env.reset(seed=3)
+    want = env._ep_rand.fault_health()
+    assert want.sum() < N_JOINTS   # sanity: a fault really was drawn
+    np.testing.assert_array_equal(obs[-N_JOINTS:], want)
+    a = np.zeros(env.action_space.shape, dtype=np.float32)
+    for _ in range(5):
+        obs, _, term, trunc, _ = env.step(a)
+        np.testing.assert_array_equal(obs[-N_JOINTS:], want)
+        if term or trunc:
+            break
+
+
+def test_fault_health_obs_survives_history_stacking():
+    from rl_move.config import load_config
+    from rl_move.sim.walk_task import SimHexapodJointWalkEnv
+    from rl_move.sim.mirror import FRAME_WALK
+
+    cfg = load_config()
+    cfg.setdefault("obs", {})["fault_health"] = 1.0
+    cfg["obs"]["history_frames"] = 3
+    cfg.setdefault("dr", {})["fault_prob"] = 1.0
+    env = SimHexapodJointWalkEnv(cfg, seed=5, randomize=True)
+    gen = env._goal_gen
+    for name in dir(gen):
+        if name.startswith("p_") and isinstance(getattr(gen, name),
+                                                 (int, float)):
+            setattr(gen, name, 0.0)
+    gen.p_walk = 1.0
+    obs, _ = env.reset(seed=5)
+    w = FRAME_WALK + N_JOINTS
+    assert obs.shape == (3 * w,)
+    want = env._ep_rand.fault_health()
+    for k in range(3):
+        frame = obs[k * w:(k + 1) * w]
+        np.testing.assert_array_equal(frame[-N_JOINTS:], want)

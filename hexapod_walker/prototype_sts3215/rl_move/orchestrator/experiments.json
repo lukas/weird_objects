@@ -125112,7 +125112,7 @@
       "dr.fault_prob=1.0"
     ],
     "created": "2026-08-22T21:31:29+00:00",
-    "status": "FINISHED",
+    "status": "PASS",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -125149,7 +125149,9 @@
         "verdict": "FINISHED_BEFORE_CHECKUP",
         "log_tail": "r_mm 23.92478\nwandb:       env/height_mm 22.97057\nwandb:   env/height_ref_mm 0\nwandb:   env/max_current_a 1.68222\nwandb:  env/mean_current_a 0.63021\nwandb: env/pct_within_1deg 0.07642\nwandb:   env/pitch_ref_deg 0\nwandb:   env/reward_action -0.02\nwandb:                 +83 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-amp-m4-faultsmoke1-noamp at: https://wandb.ai/l2k2/hexapod-balance/runs/f3irueeu\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 3 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260822_213220-f3irueeu/logs\n"
       }
-    ]
+    ],
+    "verdict": "Mechanism-safety smoke PASS (own gate bar: finite losses/values the whole 2M + checkpoint loads + det video shows attempting locomotion/compensation under fault, not universal instant collapse -- NOT a graded M4 capability gate, obs-wiring for the fault health vector is separate future work). First-ever training use of dr.fault_prob=1.0 (fault_mix 0.45 weak/0.25 frozen/0.30 disabled-leg, one random fault per episode, policy has ZERO observation of which fault it has). Result: numerically clean the whole run (reward rose every quarter 9.3/46.1/140.0/209.0, finite, fps 12533, no NaN/crash), checkpoint loads fine. DR-0 gate: det gait_valid 5/6 (1 episode sacrificed leg [5], matching a disabled-leg draw, prog_ratio 0.49 slip/m 5.99 degraded-not-collapsed; other 5 episodes prog_ratio 0.48-1.28, mostly near-normal), sto gait_valid 6/6 (no sacrificed legs, prog_ratio 0.51-0.91, slip/m 3.1-5.9, softer than control's sto 0.8-1.04/3-5.5 but still coherent walking). Video/contact sheets watched across all 6 det episodes: visible six-leg cycling and net displacement every episode, including the degraded ones -- no frozen statue, no instant fall-and-stay. Matched control twin (fault_prob=0.0, same 2M continuation) confirms the softer numbers here are the fault's cost, not generic training noise: control stayed 6/6 gait_valid both modes with better prog_ratio/slip everywhere. Clears dr.fault_* for real training use per its own documented discipline; does not gate M4/M5. Next lever: wire the fault_health() vector into actor obs (M4 proper) so the policy can actually adapt to a known fault instead of compensating blind.",
+    "triage": "done"
   },
   {
     "run": "cw-amp-m4-faultsmoke1-control",
@@ -125244,7 +125246,7 @@
       "dr.fault_prob=0.0"
     ],
     "created": "2026-08-22T21:35:05+00:00",
-    "status": "INTENT",
+    "status": "PASS",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -125261,7 +125263,8 @@
     "assessment_scope": "short_behavior_discovery",
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:amp PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-amp-m4-faultsmoke1-control --steps 2000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_amp_m2_bcinit_sec5_noamp.zip --episode-seconds 15 --no-canary --eval-every 1000000 --video-every 2000000 --n-envs 4096 --impl warp --host-workers 24 --seed 7 --ent-coef 0.001 --warm-log-std-override -2.0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set goal.walk_phase_obs=1 --cfg-set goal.walk_phase_hz=1.333333 --cfg-set goal.walk_obs_body_vel=2 --cfg-set goal.walk_heading_max_rad=0.0 --cfg-set goal.walk_speed_min_m_s=0.08 --cfg-set goal.walk_speed_max_m_s=0.08 --cfg-set goal.walk_cmd_mode=stress_mix --cfg-set goal.walk_cmd_resample_s=4.0 --cfg-set goal.walk_cmd_resample_jitter=0.5 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set bus.write_speed=1500 --cfg-set bus.write_acc=80 --cfg-set bus.servo_vel_max_counts_s=write_speed --cfg-set safety.max_delta_q_deg=5.0 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --cfg-set reward.term_penalty=400.0 --cfg-set reward.k_step_event=0.0 --cfg-set reward.k_park_duty=0.0 --cfg-set reward.k_walk_freeprog=0.0 --cfg-set reward.walk_loadslip_gate=0.0 --cfg-set reward.k_loadslip_excess=0.0 --cfg-set reward.walk_gait_gate=0.0 --cfg-set reward.k_walk_idle_charge=0.0 --cfg-set reward.k_drag_stance=0.0 --out-name ppo_goal_cw_amp_m4_faultsmoke1_control --notes 'respec of cw-amp-m2-bcinit-sec5-noamp: Plain English: matched control for cw-amp-m4-faultsmoke1-noamp -- identical 2M-step continuation of the same BC-init walking checkpoint (cw-amp-m2-bcinit-sec5-noamp) with dr.fault_prob explicitly held at 0.0 (bit-exact no-op, same as the source run'\"'\"'s own default). Isolates whether any reward/eval/behavior delta seen in the fault-injection twin is caused by the fault mechanism itself or is just noise from continuing training 2M more steps on the same checkpoint/seed.' --cfg-set dr.fault_prob=0.0 > /tmp/train_cw-amp-m4-faultsmoke1-control.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-amp-m4-faultsmoke1-control.log",
-    "triage": "in-cycle cw-amp-m4-faultsmoke1-control since 2026-08-22T21:42:42"
+    "triage": "done",
+    "verdict": "Mechanism-safe control PASS. Matched no-op twin (dr.fault_prob=0.0) continuing the proven bcinit-sec5-noamp walking checkpoint 2M more steps: reward rose every quarter (31.7/134.0/237.9/320.8, finite throughout, fps 12731), DR-0 gate gait_valid 6/6 det+sto (was 6/6 at parent), prog_ratio improved to 1.16 det/0.88 sto (parent 1.04/0.55), slip/m held/improved (2.36 det/4.08 sto vs parent 2.17/5.34), dir_err improved (35.2 det/52.4 sto vs 44.2/63.4). Video/contact sheets watched: clean six-leg alternating gait, no crouch, no new sacrificed legs, height stable. Confirms the fault twin's own delta is attributable to the fault mechanism, not just 2M extra training steps. Closes the isolation half of the faultsmoke1 pair; see cw-amp-m4-faultsmoke1-noamp for the fault-injected read."
   },
   {
     "run": "cw-amp-m2-bcinit-sec5-style05-headings90",
@@ -125368,7 +125371,7 @@
       "respec of cw-amp-m2-bcinit-sec5-style05-headings20: Plain English: now that the AMP walker survived +/-25deg headings (headings20 PASS, gait_valid 12/12, sto and dir_err IMPROVED vs the forward-only parent), does it survive the intermediate curriculum dose of +/-90deg -- which for the first time demands genuinely LATERAL walking the BC tripod init never demonstrated? Continues from the headings20 checkpoint (--init-from-source, same sec5 minimal reward + amp 0.5/0.5, same clone-compatible obs, fresh disc per stage protocol), single lever: goal.walk_heading_max_rad 0.4363 -> 1.5708. Prediction-if-true: gait_valid stays >=5/6 det+sto, height_err stays in the 18-31mm band, dir_err does not blow past ~55deg. Prediction-if-false: lateral demand re-collapses the gait (statue/drag/sacrificed legs) or the policy ignores off-axis commands entirely (dir_err ~ command range while walking straight). Strongest alternative: it walks but adherence stalls -- style/task weights or missing yaw-cmd obs become the next lever. Paired dose arm: headingsfull tests the operator's small-set->full jump in one step."
     ],
     "created": "2026-08-22T21:40:50+00:00",
-    "status": "RUNNING",
+    "status": "PASS",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -125398,7 +125401,16 @@
     "log": "/tmp/train_cw-amp-m2-bcinit-sec5-style05-headings90.log",
     "wandb_id": "7dx5sfex",
     "verified": "2026-08-22T21:44:07+00:00",
-    "triage": "in-cycle cw-amp-m2-bcinit-sec5-noamp-headings20-cw-amp-m2-bcinit-sec5 since 2026-08-22T21:47:47"
+    "triage": "done",
+    "checkups": [
+      {
+        "time": "2026-08-22T21:50:07+00:00",
+        "process_alive": false,
+        "verdict": "DEAD",
+        "log_tail": "al_mean 0.50981\nwandb:      amp/disc_updates 124\nwandb:                amp/gp 0.01026\nwandb:              amp/loss 0.31339\nwandb: amp/pairs_per_rollout 65338\nwandb:        amp/replay_len 500000\nwandb: amp/style_reward_mean 0.22695\nwandb:                   +94 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-amp-m2-bcinit-sec5-style05-headings90 at: https://wandb.ai/l2k2/hexapod-balance/runs/7dx5sfex\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 3 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260822_214142-7dx5sfex/logs\n"
+      }
+    ],
+    "verdict": "Style twin SURVIVES the +/-90deg intermediate heading dose (first lateral-walking demand) cleanly, matching its noamp-headings90-r1 sibling in flight. DR-0 gate: gait_valid 6/6 det+sto, zero sacrificed legs/terminations, height_err_end_mm med 7.4 det / 4.7 sto (training env/height_err_mm held 14-26mm all 2M, no crouch). prog med det 1.13 / sto 0.89 -- within the pre-registered 30% band of headings20's 1.30/0.93. dir_err med det 35.2 / sto 49.6 -- within 15deg of headings20's 26.9/48.2 (both bands honored). Slip rose (det 3.03 vs headings20's 2.17, sto 3.69 vs 3.38) -- the honest cost of genuine lateral demand, not a pathology; no drag/skate signature on the frame strips (all six legs cycling, visible turning displacement across the sheet). Reward rose monotonically 51.8->269.6. Video watched det_2 + contact sheet: clean six-leg gait, real off-axis translation. hardware-ready: no (2M continuation, DR-0). Next: read jointly with noamp-headings90-r1 once it lands for the style-vs-noamp delta at this harder dose; if both clear, stage headingsfull is the natural next rung (already running)."
   },
   {
     "run": "cw-amp-m2-bcinit-sec5-style05-headingsfull",
@@ -125505,7 +125517,7 @@
       "respec of cw-amp-m2-bcinit-sec5-style05-headings20: Plain English: can the AMP walker jump straight from +/-25deg headings to FULL-CIRCLE commands (including backward walking the BC tripod init never demonstrated) in one curriculum step, or does the operator's small-set->full jump need the +/-90deg intermediate its paired dose arm (headings90) is testing? Continues from the headings20 checkpoint (--init-from-source, same sec5 minimal reward + amp 0.5/0.5, same clone-compatible obs, fresh disc per stage protocol), single lever: goal.walk_heading_max_rad 0.4363 -> -1 (full circle). Prediction-if-true: gait_valid stays >=5/6 det+sto, height_err stays in the 18-31mm band -- the walking basin generalizes around the clock. Prediction-if-false: backward/lateral demand re-collapses the gait (statue/drag/sacrificed legs) or commands are ignored (dir_err ~ uniform-heading baseline ~90deg while walking forward-only) -- then the curriculum needs the intermediate stage and/or a turn-in-place sub-skill. Strongest alternative: partial -- forward hemisphere followed, rear hemisphere ignored; per-episode dir_err spread in the report will show it."
     ],
     "created": "2026-08-22T21:45:01+00:00",
-    "status": "RUNNING",
+    "status": "PASS",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -125534,7 +125546,17 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:amp PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-amp-m2-bcinit-sec5-style05-headingsfull --steps 2000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_amp_m2_bcinit_sec5_style05_headings20.zip --episode-seconds 15 --no-canary --eval-every 1000000 --video-every 2000000 --n-envs 4096 --impl warp --host-workers 24 --seed 7 --ent-coef 0.001 --warm-log-std-override -2.0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set goal.walk_phase_obs=1 --cfg-set goal.walk_phase_hz=1.333333 --cfg-set goal.walk_obs_body_vel=2 --cfg-set goal.walk_heading_max_rad=-1 --cfg-set goal.walk_speed_min_m_s=0.08 --cfg-set goal.walk_speed_max_m_s=0.08 --cfg-set goal.walk_cmd_mode=stress_mix --cfg-set goal.walk_cmd_resample_s=4.0 --cfg-set goal.walk_cmd_resample_jitter=0.5 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set bus.write_speed=1500 --cfg-set bus.write_acc=80 --cfg-set bus.servo_vel_max_counts_s=write_speed --cfg-set safety.max_delta_q_deg=5.0 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --cfg-set reward.term_penalty=400.0 --cfg-set reward.k_step_event=0.0 --cfg-set reward.k_park_duty=0.0 --cfg-set reward.k_walk_freeprog=0.0 --cfg-set reward.walk_loadslip_gate=0.0 --cfg-set reward.k_loadslip_excess=0.0 --cfg-set reward.walk_gait_gate=0.0 --cfg-set reward.k_walk_idle_charge=0.0 --cfg-set reward.k_drag_stance=0.0 --amp-motion-lib rl_move/sim/motion_library/teacher_v2.npz --amp-disc-steps 4 --amp-disc-batch 512 --amp-gp-weight 10.0 --amp-replay 500000 --amp-task-weight 0.5 --amp-style-weight 0.5 --out-name ppo_goal_cw_amp_m2_bcinit_sec5_style05_headingsfull --notes 'respec of cw-amp-m2-bcinit-sec5-style05-headings20: Plain English: can the AMP walker jump straight from +/-25deg headings to FULL-CIRCLE commands (including backward walking the BC tripod init never demonstrated) in one curriculum step, or does the operator'\"'\"'s small-set->full jump need the +/-90deg intermediate its paired dose arm (headings90) is testing? Continues from the headings20 checkpoint (--init-from-source, same sec5 minimal reward + amp 0.5/0.5, same clone-compatible obs, fresh disc per stage protocol), single lever: goal.walk_heading_max_rad 0.4363 -> -1 (full circle). Prediction-if-true: gait_valid stays >=5/6 det+sto, height_err stays in the 18-31mm band -- the walking basin generalizes around the clock. Prediction-if-false: backward/lateral demand re-collapses the gait (statue/drag/sacrificed legs) or commands are ignored (dir_err ~ uniform-heading baseline ~90deg while walking forward-only) -- then the curriculum needs the intermediate stage and/or a turn-in-place sub-skill. Strongest alternative: partial -- forward hemisphere followed, rear hemisphere ignored; per-episode dir_err spread in the report will show it.' > /tmp/train_cw-amp-m2-bcinit-sec5-style05-headingsfull.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-amp-m2-bcinit-sec5-style05-headingsfull.log",
     "wandb_id": "hzwzrd5c",
-    "verified": "2026-08-22T21:48:27+00:00"
+    "verified": "2026-08-22T21:48:27+00:00",
+    "triage": "done",
+    "checkups": [
+      {
+        "time": "2026-08-22T21:54:09+00:00",
+        "process_alive": false,
+        "verdict": "FINISHED_BEFORE_CHECKUP",
+        "log_tail": "_mean 0.50332\nwandb:      amp/disc_updates 124\nwandb:                amp/gp 0.01064\nwandb:              amp/loss 0.31866\nwandb: amp/pairs_per_rollout 65339\nwandb:        amp/replay_len 500000\nwandb: amp/style_reward_mean 0.22049\nwandb:                   +94 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-amp-m2-bcinit-sec5-style05-headingsfull at: https://wandb.ai/l2k2/hexapod-balance/runs/hzwzrd5c\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 3 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260822_214604-hzwzrd5c/logs\n"
+      }
+    ],
+    "verdict": "The BC-init AMP walker jumped straight from +/-25deg headings to FULL-CIRCLE commands (including backward, never demonstrated by the BC init) in one curriculum step -- the intermediate +/-90deg rung is unnecessary. DR-0 gate at own full-circle range: gait_valid 6/6 det + 6/6 sto, zero sacrificed legs/terminations; det prog med 1.19 / slip 2.77 / fwd 0.47m, sto 0.87 / 3.57 / 0.56m -- all pre-registered bars met (travel >=0.3m, height_err 20.5mm inside 18-31 band all 2M, no crouch). Direction: NOT bimodal -- rear-hemisphere commands are followed (worst det episode dir_err mean 39deg, wrong-way frac <=0.11 det; along/cmd 1.0-1.4), det dir_err med ~33deg / sto ~50deg, far below the ~90deg ignore-the-command baseline. Matches or beats the headings90 intermediate rung run in parallel (det prog 1.13 / slip 3.03 / dir 35.2) -- so the operator's small-set->full jump WORKS from a walking basin. Reward rose 5.9->289 then plateaued (no continuation case); disc healthy unsaturated (d_real 0.50 / d_fake -0.80, style_reward 0.22). Frame strips watched (det_0, det_2): upright six-leg cycling, level body, real off-axis displacement, no flag leg/drag. Weak axis stated bluntly: sto direction adherence is loose (med ~50deg, p90 up to 146deg on single episodes) -- walks everywhere it is told only roughly; adherence tightening is a later stage gate. hardware-ready: no (2M discovery, DR-0). Next: stage-3 single-lever pair from THIS checkpoint -- speed range (0-0.25 m/s incl. stop/start, first stop demand) and yaw-rate commands (+/-0.5 rad/s), launched this cycle."
   },
   {
     "run": "cw-amp-m2-bcinit-sec5-noamp-headings90",
@@ -125642,5 +125664,136 @@
     "phase": "discovery",
     "assessment_scope": "short_behavior_discovery",
     "refused_reason": "init-from checkpoint missing on hexapod-mjx-train-2: /workspace/prototype_sts3215/rl_move/sim/policies/ppo_goal_cw_amp_m2_bcinit_sec5_noamp_headings20.zip. Push it first: ops.sh pushckpt hexapod-mjx-train-2 rl_move/sim/policies/ppo_goal_cw_amp_m2_bcinit_sec5_noamp_headings20.zip"
+  },
+  {
+    "run": "cw-amp-m2-bcinit-sec5-noamp-headings90-r1",
+    "pod": "hexapod-mjx-train-2",
+    "steps": 2000000,
+    "smoke": false,
+    "hypothesis": "Task-only twin of the concurrently-launched cw-amp-m2-bcinit-sec5-style05-headings90: does the noamp BC-init walker also survive the intermediate +/-90deg heading dose (the first stage demanding genuinely lateral walking, which the BC tripod init never demonstrated), or does style become protective exactly where the exploration/turning demand gets hard? Continues from the noamp-headings20 checkpoint (--init-from-source), single lever: goal.walk_heading_max_rad 0.4363 -> 1.5708, identical to the style05 sibling arm for a clean paired read. (-r1 suffix: first attempt's run name collided with a tag pushed by a stale earlier retry of this same launch.)",
+    "gate": "Discovery continuation (2M, judged on det video + DR-0 gate harness, read JOINTLY with the style05-headings90 sibling). INFORMATIVE-PASS = gait_valid stays >=5/6 det+sto, height_err stays in the 14-26mm walking-basin band, dir_err does not blow past ~55deg. FAIL-collapse = gait degrades (statue/drag/sacrificed legs) or the policy ignores off-axis commands. Joint read: style-vs-noamp delta at this harder dose is the batch's primary measurement -- if noamp collapses first, style is functionally protective for the first time.",
+    "parent": "cw-amp-m2-bcinit-sec5-noamp-headings20",
+    "track": "amp",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_amp_m2_bcinit_sec5_noamp_headings20.zip",
+      "--episode-seconds",
+      "15",
+      "--no-canary",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--n-envs",
+      "4096",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--seed",
+      "7",
+      "--ent-coef",
+      "0.001",
+      "--warm-log-std-override",
+      "-2.0",
+      "--goal-mix",
+      "walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0",
+      "--cfg-set",
+      "goal.walk_phase_obs=1",
+      "--cfg-set",
+      "goal.walk_phase_hz=1.333333",
+      "--cfg-set",
+      "goal.walk_obs_body_vel=2",
+      "--cfg-set",
+      "goal.walk_heading_max_rad=1.5708",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.08",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.08",
+      "--cfg-set",
+      "goal.walk_cmd_mode=stress_mix",
+      "--cfg-set",
+      "goal.walk_cmd_resample_s=4.0",
+      "--cfg-set",
+      "goal.walk_cmd_resample_jitter=0.5",
+      "--cfg-set",
+      "goal.walk_park_start_frac=0.25",
+      "--cfg-set",
+      "bus.write_speed=1500",
+      "--cfg-set",
+      "bus.write_acc=80",
+      "--cfg-set",
+      "bus.servo_vel_max_counts_s=write_speed",
+      "--cfg-set",
+      "safety.max_delta_q_deg=5.0",
+      "--cfg-set",
+      "safety.max_roll_deg=25",
+      "--cfg-set",
+      "safety.max_pitch_deg=25",
+      "--cfg-set",
+      "reward.term_penalty=400.0",
+      "--cfg-set",
+      "reward.k_step_event=0.0",
+      "--cfg-set",
+      "reward.k_park_duty=0.0",
+      "--cfg-set",
+      "reward.k_walk_freeprog=0.0",
+      "--cfg-set",
+      "reward.walk_loadslip_gate=0.0",
+      "--cfg-set",
+      "reward.k_loadslip_excess=0.0",
+      "--cfg-set",
+      "reward.walk_gait_gate=0.0",
+      "--cfg-set",
+      "reward.k_walk_idle_charge=0.0",
+      "--cfg-set",
+      "reward.k_drag_stance=0.0",
+      "--out-name",
+      "ppo_goal_cw_amp_m2_bcinit_sec5_noamp_headings90_r1",
+      "--notes",
+      "respec of cw-amp-m2-bcinit-sec5-noamp-headings20: Task-only twin of the concurrently-launched cw-amp-m2-bcinit-sec5-style05-headings90: does the noamp BC-init walker also survive the intermediate +/-90deg heading dose (the first stage demanding genuinely lateral walking, which the BC tripod init never demonstrated), or does style become protective exactly where the exploration/turning demand gets hard? Continues from the noamp-headings20 checkpoint (--init-from-source), single lever: goal.walk_heading_max_rad 0.4363 -> 1.5708, identical to the style05 sibling arm for a clean paired read. (-r1 suffix: first attempt's run name collided with a tag pushed by a stale earlier retry of this same launch.)"
+    ],
+    "created": "2026-08-22T21:49:34+00:00",
+    "status": "FINISHED",
+    "checks": {
+      "cpu_limit": 28,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-c6ce8fc2-ca9a-cc87-d687-1f3a603d664f)",
+      "running_experiments_before": 1,
+      "code_sha_local": "666ecf55b38ea6d37b5a79f9b186c1dcf61f951a",
+      "code_sha_pod": "666ecf55b38ea6d37b5a79f9b186c1dcf61f951a",
+      "init_from_on_pod": true,
+      "wandb_env_on_pod": true,
+      "pid": "2775606",
+      "log_growth_bytes": [
+        5507,
+        5739
+      ],
+      "wandb_id": "1lsrht17",
+      "global_step_window": [
+        4096,
+        1638400
+      ],
+      "fps_estimate": 54476.8
+    },
+    "trainer": "ppo",
+    "stack": "gpu-mjx",
+    "phase": "discovery",
+    "assessment_scope": "short_behavior_discovery",
+    "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:amp PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-amp-m2-bcinit-sec5-noamp-headings90-r1 --steps 2000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_amp_m2_bcinit_sec5_noamp_headings20.zip --episode-seconds 15 --no-canary --eval-every 1000000 --video-every 2000000 --n-envs 4096 --impl warp --host-workers 24 --seed 7 --ent-coef 0.001 --warm-log-std-override -2.0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set goal.walk_phase_obs=1 --cfg-set goal.walk_phase_hz=1.333333 --cfg-set goal.walk_obs_body_vel=2 --cfg-set goal.walk_heading_max_rad=1.5708 --cfg-set goal.walk_speed_min_m_s=0.08 --cfg-set goal.walk_speed_max_m_s=0.08 --cfg-set goal.walk_cmd_mode=stress_mix --cfg-set goal.walk_cmd_resample_s=4.0 --cfg-set goal.walk_cmd_resample_jitter=0.5 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set bus.write_speed=1500 --cfg-set bus.write_acc=80 --cfg-set bus.servo_vel_max_counts_s=write_speed --cfg-set safety.max_delta_q_deg=5.0 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --cfg-set reward.term_penalty=400.0 --cfg-set reward.k_step_event=0.0 --cfg-set reward.k_park_duty=0.0 --cfg-set reward.k_walk_freeprog=0.0 --cfg-set reward.walk_loadslip_gate=0.0 --cfg-set reward.k_loadslip_excess=0.0 --cfg-set reward.walk_gait_gate=0.0 --cfg-set reward.k_walk_idle_charge=0.0 --cfg-set reward.k_drag_stance=0.0 --out-name ppo_goal_cw_amp_m2_bcinit_sec5_noamp_headings90_r1 --notes 'respec of cw-amp-m2-bcinit-sec5-noamp-headings20: Task-only twin of the concurrently-launched cw-amp-m2-bcinit-sec5-style05-headings90: does the noamp BC-init walker also survive the intermediate +/-90deg heading dose (the first stage demanding genuinely lateral walking, which the BC tripod init never demonstrated), or does style become protective exactly where the exploration/turning demand gets hard? Continues from the noamp-headings20 checkpoint (--init-from-source), single lever: goal.walk_heading_max_rad 0.4363 -> 1.5708, identical to the style05 sibling arm for a clean paired read. (-r1 suffix: first attempt'\"'\"'s run name collided with a tag pushed by a stale earlier retry of this same launch.)' > /tmp/train_cw-amp-m2-bcinit-sec5-noamp-headings90-r1.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-amp-m2-bcinit-sec5-noamp-headings90-r1.log",
+    "wandb_id": "1lsrht17",
+    "verified": "2026-08-22T21:52:52+00:00",
+    "triage": "awaiting since 2026-08-22T21:57:56",
+    "checkups": [
+      {
+        "time": "2026-08-22T21:58:10+00:00",
+        "process_alive": false,
+        "verdict": "FINISHED_BEFORE_CHECKUP",
+        "log_tail": "db:       env/height_mm 18.31952\nwandb:   env/height_ref_mm 0\nwandb:   env/max_current_a 1.71838\nwandb:  env/mean_current_a 0.69984\nwandb: env/pct_within_1deg 0.08594\nwandb:   env/pitch_ref_deg 0\nwandb:   env/reward_action -0.01845\nwandb:                 +83 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-amp-m2-bcinit-sec5-noamp-headings90-r1 at: https://wandb.ai/l2k2/hexapod-balance/runs/1lsrht17\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 3 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260822_215029-1lsrht17/logs\n"
+      }
+    ]
   }
 ]

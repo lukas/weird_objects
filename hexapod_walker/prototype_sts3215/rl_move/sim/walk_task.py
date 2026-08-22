@@ -1055,13 +1055,31 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # consumes only the original first 59 proprio fields.
         self._recover_plant_q_obs = float(cfg_get(
             self.cfg, "obs", "recover_plant_q", default=0.0)) == 1.0
+        # Fault-health obs (obs.fault_health=1; AMP brief sec8.2 M4
+        # wiring — default OFF, bit-exact-when-off per every other obs
+        # flag here). Appends EpisodeRandomization.fault_health() (18,
+        # per-joint 1.0 healthy / 0.0 disabled-frozen / intermediate =
+        # degraded strength) at the frame tail every tick, so the
+        # policy can actually CONDITION ON a known joint fault instead
+        # of only compensating blind (the faultsmoke1 pair's innate-
+        # tolerance measurement). Same value all episode (fault draw is
+        # per-reset, not per-tick) but recomputed every tick like
+        # mode_onehot/wz_ref so it survives obs-history stacking and
+        # pool-restore without a new SNAP_ATTRS entry — _ep_rand IS the
+        # snapshotted state. All-ones (perfectly healthy) whenever
+        # dr.fault_prob=0 or _ep_rand is unset (CPU C-path corner
+        # before the first reset), so a fault-unaware DR-0 eval reads
+        # as "everything healthy", the correct semantics.
+        self._fault_obs = float(cfg_get(
+            self.cfg, "obs", "fault_health", default=0.0)) == 1.0
         if _gym is not None:
             self.observation_space = self._obs_space_box(
                 N_OBS - 6 + self.n_act + WALK_GOAL_DIM + N_VEL_OBS
                 + (N_PHASE_OBS if self._phase_obs else 0)
                 + (1 if self._yaw_cmd else 0)
                 + (N_MODE_OBS if self._mode_obs else 0)
-                + (N_JOINTS if self._recover_plant_q_obs else 0))
+                + (N_JOINTS if self._recover_plant_q_obs else 0)
+                + (N_JOINTS if self._fault_obs else 0))
 
     def _augment_obs(self, obs: np.ndarray, *,
                      reset: bool = False) -> np.ndarray:
@@ -1182,6 +1200,11 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                             - self._plant_deg * DEG2RAD)
                            / max(qs, 1e-6))
             obs = np.concatenate([obs, q_plant])
+        if self._fault_obs:
+            er = getattr(self, "_ep_rand", None)
+            fh = (er.fault_health() if er is not None
+                  else np.ones(N_JOINTS, dtype=np.float32))
+            obs = np.concatenate([obs, fh])
         return obs.astype(np.float32)
 
     def _reset_begin(self, seed: int | None = None):

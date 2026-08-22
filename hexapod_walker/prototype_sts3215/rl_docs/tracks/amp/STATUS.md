@@ -1,6 +1,57 @@
 # amp - AMP locomotion from scratch
 
-Last updated: 2026-08-22 ~21:4x (**HEADING CURRICULUM STAGE 1 PASS —
+Last updated: 2026-08-22 ~22:0x (**HEADING CURRICULUM COMPLETE AT
+DR-0 — `cw-amp-m2-bcinit-sec5-style05-headingsfull` VERDICTED PASS:
+the one-step jump from +/-25deg to FULL-CIRCLE headings (incl.
+backward, never in the BC init) WORKS; the +/-90deg intermediate
+rung is unnecessary.** DR-0 gate at own full-circle range:
+gait_valid 6/6 det + 6/6 sto, zero sacrificed legs/terminations;
+det prog med 1.19 / slip 2.77 / fwd 0.47m, sto 0.87 / 3.57 / 0.56m.
+Direction NOT bimodal — rear-hemisphere commands followed (worst
+det ep dir_err mean 39deg, wrong-way <=0.11, along/cmd 1.0-1.4);
+det dir_err med ~33 / sto ~50 vs the ~90deg ignore baseline.
+height_err 20.5mm all 2M (no crouch), reward 5.9->289 then plateau
+(no continuation case), disc healthy (d_real 0.50 / d_fake -0.80,
+style 0.22). Matches/beats the parallel headings90 rung (det prog
+1.13 / slip 3.03 / dir 35.2). Det frame strips watched: upright
+six-leg cycling, real off-axis displacement. Weak axis: sto
+adherence loose (med ~50deg, single-ep p90 to 146deg) — later
+stages must tighten command-following. **STAGE-3 SINGLE-LEVER PAIR
+LAUNCHED from the headingsfull checkpoint (this cycle, 2M discovery
+each, DR-0, fresh disc):** `cw-amp-m2-bcinit-sec5-style05-{speedrange,
+yawcmd}` — speed 0.08 fixed -> 0.0-0.25 m/s (first stop/start
+demand) and yaw-rate commands +/-0.5 rad/s (first turning demand;
+adds the yaw-cmd obs dim via obs-pad transplant if needed — see
+ledger). Prior banner below.)
+
+Previous entry (~21:5x (**FAULT INJECTION CLEARED FOR REAL
+TRAINING USE — both `cw-amp-m4-faultsmoke1-{control,noamp}` VERDICTED
+PASS** on the smoke's own mechanism-safety bar (NOT a graded M4
+gate): the fault twin (`dr.fault_prob=1.0`, one random weak/frozen/
+disabled-leg fault per episode, policy has ZERO observation of the
+fault) trained the full 2M with finite/rising reward (9.3->209.0/
+quarter, no NaN/crash) and its DR-0 gate shows visible compensation,
+not collapse — det gait_valid 5/6 (1 ep sacrificed leg, degraded not
+dead: prog_ratio 0.49 slip/m 5.99), sto 6/6, all 6 det episodes'
+video/contact-sheets show genuine six-leg cycling and net travel
+including the degraded one. The matched no-op control twin
+(`dr.fault_prob=0.0`) stayed clean 6/6 det+sto with BETTER numbers
+everywhere (prog_ratio 1.16/0.88, slip 2.36/4.08, reward 31.7->320.8)
+— isolates the fault twin's softer numbers as the fault's real cost,
+not just 2M more steps of noise. Ledger note: -control's status was
+stuck at stale INTENT despite the pod-side train log showing a clean
+finish at 2,031,616 steps; the prestage skipped its gate/owncfg evals
+(orchestrator.log shows only wandbdump+pullckpt ran, no eval spawn)
+so both gate evals were run manually on-pod (train-3/train-2) this
+cycle per the fallback instruction. SKILLS.md updated (AMP section).
+**NEXT LEVER: wire `fault_health()` (18-dim, already built) into
+actor obs** — this smoke proves the mechanism is safe to train
+against but the policy still can't SEE which fault it has, so it can
+only compensate blindly; obs-wiring is the real M4 milestone item,
+un-started, and the natural next step given free capacity. Prior
+banner below.)
+
+Previous entry (~21:4x (**HEADING CURRICULUM STAGE 1 PASS —
 `cw-amp-m2-bcinit-sec5-style05-headings20` VERDICTED PASS: the
 BC-init AMP walker survived +/-25deg headings AND got better.**
 DR-0 gate at own heading range: gait_valid 6/6 det + 6/6 sto, zero
