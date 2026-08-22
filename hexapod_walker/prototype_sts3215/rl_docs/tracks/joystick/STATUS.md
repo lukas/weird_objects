@@ -1,8 +1,9 @@
 # joystick - RL from the programmatic gait to joystick control
 
-Last updated: 2026-08-22 (phasedir7/7b verdicted FAIL: k_drag_stance
-is a step function, not a dose dial — DIG-IN flagged on the course/
-anchor speed-floor interaction). Keep this a
+Last updated: 2026-08-22 (step-function DIG-IN RESOLVED: two measured
+pricing defects — drag allowance under the honest tibia-150 stance
+tail + instantaneous kernel taxing stride sway left income flat in
+speed; both repaired, phasedir8 RUNNING). Keep this a
 short screenful: Goal / Now / Next. Run detail lives in
 `rl_docs/runs/`, W&B, and `RL_LOG.md`.
 
@@ -261,6 +262,38 @@ with:
   cap speed at ~0.058-0.059 m/s once ANY per-stance drag charge is
   active, regardless of its magnitude? Root-cause that interaction
   before any further reward edit on this lineage.
+- 08-22 DIG-IN RESOLVED (deep cycle; evidence
+  `logs/ckpt_eval/pd7b_digin_stancedist/`, new tool
+  `rl_move/sim/probe_stance_slip_dist.py` — per-stance travel
+  distribution with exact k_drag_stance accounting, verified against
+  the env's own charge to the decimal). TWO measured pricing defects,
+  both invisible until the drag charge removed all other slack:
+  (A) ALLOWANCE UNDER THE HONEST TAIL — the honest clone's per-stance
+  loaded travel at tibia-150 is median 3.4mm but p90 12.3/p95 19mm;
+  at allow=6mm/k=8000 the clone paid 2.87x its ENTIRE income in
+  drag-stance charge (pd6 cheat 5.57x, pd7's own gait 2.44x), i.e.
+  travel itself was net-negative for EVERY gait at ANY k — the same
+  gradient direction and the same boundary optimum at k=4000 and
+  8000, which IS the step function. (B) INCOME FLAT IN SPEED — the
+  velocity kernel's instantaneous 2D error taxes honest stride sway:
+  pd7's 0.059 m/s low-sway gait out-earned the 0.0716 clone on the
+  kernel itself (357.1 vs 325.6/ep), cancelling k_walk_prog's linear
+  speed payment (+34/ep), so nothing paid for recovering speed once
+  a travel tax pushed it down. REPAIRED: allow 6->24mm (clone ~p98:
+  pays 0.10x income on ~2% of stances; pd6 drag gait still 0.49x),
+  NEW `reward.walk_kernel_vel_ema=1`/`walk_kernel_vel_tau_s=0.75`
+  (kernel error on a stride-EMA of body velocity, the k_walk_course
+  convention; default OFF, bit-exact, in MJX_SNAPSHOT_EXTRA),
+  k_walk_prog 1->2. Full-stack checkpoint pricing now orders
+  clone 1031 > pd7-slow 978 > pd6-drag 639 (was clone -1536 at
+  allow=6; clone 684 < slow 806 at allow=20 without B — B is
+  necessary). Bank `test_phasedir_semantics.py` 29/29 incl 5 new
+  phasedir8 rows (EMA-kernel bit-exact inertness, obey>shrunk det +
+  at the std-0.13 training regime, anti-attractor orderings survive,
+  honest drag charge <35% of walk income, income slope positive).
+  LAUNCHED `cw-dep-bcgait4-phasedir8-emakernel-allow24` (train-0,
+  acquisition, 2M, snapshot 1aa37235; gate = same clone-relative
+  panel + frozen control, fail branches pre-registered).
 
 ## Next
 
@@ -303,11 +336,11 @@ with:
    the two doses. This is a STEP FUNCTION (any k_drag_stance>0 flips
    the policy into one fixed second optimum) not a dose curve —
    dosing this lever further is refuted, matching phasedir7b's own
-   pre-registered branch (ii). NEXT: DIG-IN on why the course/anchor
-   pricing terms cap speed at ~0.058-0.059 m/s once any per-stance
-   drag charge is active at all, independent of its size — that
-   interaction, not the charge's magnitude, is the real binding
-   constraint blocking both progress and the speed floor.
+   pre-registered branch (ii). DIG-IN DONE 08-22 (see Now): allowance
+   sat under the honest per-stance tail (travel net-negative at any
+   k) AND kernel income was flat in realized speed (instantaneous
+   error taxes stride sway). Both repaired + bank-pinned; phasedir8
+   (allow=24, EMA kernel, k_prog=2) is the live test.
 4. RL fine-tune from the phase clone (and a walk-champion arm as
    control) with the reward aligned to the gate metrics, resuming
    the staged heading curriculum; extend budget while reward and
