@@ -1,6 +1,17 @@
 # amp - AMP locomotion from scratch
 
-Last updated: 2026-08-22 (M2 freeprog DIG-IN RESOLVED: the topple was
+Last updated: 2026-08-22 (STYLE-DOSE LEVER CLOSED: both clean-lib
+style arms `-style05-v2` (0.5/0.5) and `-stylew2-v2` (2.0/1.0) FAIL,
+statistically indistinguishable from the -noamp control and from
+each other — the AMP-style-income route is refuted at 2M discovery
+scale across the whole tested dose range for the freeprog/term400
+pricing family. Follow-up `cw-amp-m2-freeprog-term400-fixedcmd{,
+-seed11}` launched same cycle to isolate task-command complexity
+from reward shape using the SLIPWALK bank's own literal fixed
+command; see M2 bullet below. Earlier 08-22 history retained below
+this line.)
+
+Previous update, 2026-08-22 (M2 freeprog DIG-IN RESOLVED: the topple was
 SUICIDE ECONOMICS, a pricing defect — with per-tick charges ~-1.4 to
 -3/tick and reward.term_penalty=0, dying was FREE; a scripted 1 s
 topple netted +19/ep vs park -243 / stall -143, the best-paying
@@ -137,15 +148,58 @@ Build every tool this needs; do not pause on operator input.
   The untried gradient SOURCE is the style channel itself: every style
   arm so far trained against the frame-corrupted teacher_v1 lib AND at
   a priced-out weight (max 0.5/tick style vs ~-1.5/tick statue
-  charges). LAUNCHED 08-22 (this cycle, judged against the existing
-  -noamp control + each other): `cw-amp-m2-freeprog-term400-style05-v2`
-  (train-3; single change vs -style05: teacher_v2 lib at 0.5/0.5) and
-  `-stylew2-v2` (train-0; teacher_v2 + style/task 2.0/1.0 so style
-  income can out-earn the statue; pre-registered new cheat to watch =
-  in-place teacher mimicry at high style weight). If BOTH statue at
-  2M, the AMP-income route is refuted at discovery scale for this
-  pricing family and the next lever is a new income mechanism
-  (foot-airtime/contact-phase income, bank-first).
+  charges). LAUNCHED 08-22: `cw-amp-m2-freeprog-term400-style05-v2`
+  (teacher_v2 lib at 0.5/0.5) and `-stylew2-v2` (teacher_v2 +
+  style/task 2.0/1.0). **BOTH VERDICTED FAIL 08-22, STYLE-DOSE LEVER
+  CLOSED PER THE PRE-REGISTERED RULE**: style05-v2 (det fwd med
+  0.03m, slip 8.09/m, gait_valid 5/6) and stylew2-v2 (0.03m,
+  10.45/m, 5/6) are visually and numerically indistinguishable from
+  each other AND from the plain -noamp control — the clean teacher_v2
+  lib retires the "corrupted v1 lib" caveat with no behavior change,
+  and 4x the style weight (2.0 vs 0.5) barely moved realized style
+  income (`env/reward_amp_style` final 0.135/tick vs 0.027/tick) —
+  both an order of magnitude short of freeprog_pen's flat
+  -1.4 to -1.5/tick. Discriminator stayed healthy both arms (d_real
+  0.78-0.79 vs d_fake -0.96, unsaturated) but style_reward_mean
+  itself stayed pinned low (0.05-0.07) the entire run in both — the
+  policy never learns to imitate even partially, so the pre-
+  registered in-place-mimicry cheat never had a chance to fire
+  either. W&B reward FELL every quarter in both (never rising) —
+  genuine flat/declining FAILs, not continue-longer cases. Per the
+  pre-registered decision rule: the AMP-style-income route is
+  refuted at 2M discovery scale for the freeprog/term400 pricing
+  family across the whole tested dose range (0.5x-2.0x).
+  **TASK-COMPLEXITY HYPOTHESIS REFUTED, n=2 SEEDS (08-22)**:
+  `cw-amp-m2-freeprog-term400-fixedcmd`/`-seed11` — single lever vs
+  -noamp: replaced the full stress_mix command stream with the
+  SLIPWALK bank's own literal fixed command (vx=0.05 m/s constant, no
+  heading/resample/yaw/stop, byte-identical reward stack, no AMP) —
+  the exact setup the bank already proves ranks real travel far above
+  stationary behaviors, to test whether command COMPLEXITY (not
+  reward shape) was ever the real barrier. BOTH seeds FAIL, and
+  WORSE than the harder stress_mix arms: det gait_valid 0/6 both
+  (seed7: legs 2,3,5 sacrificed every episode; seed11: legs 3,4),
+  fwd med 0.03-0.05m (bar 0.10m), same freeprog_pen (~-1.37/tick) and
+  walk_gait_min (~0.29) plateau as noamp, W&B reward falling every
+  quarter in both (never rising). Simplifying the task did not just
+  fail to help — it let MORE legs go idle/statue than the stress_mix
+  arms did (0-1 sacrificed there vs 2-3 here). CONCLUSION: the
+  from-scratch marching/statue basin is a genuine PPO exploration/
+  optimization pathology independent of command distribution — the
+  "is it reward-shape or task-complexity" question for M2 freeprog is
+  now closed on the task side. CORRECTION: `goal.walk_gait_start_frac`
+  RSI is NOT untried on `--impl warp` — `cw-gait-rsi1` (08-11, an
+  older pre-freeprog/pre-term400 from-scratch stack) already ran it
+  at frac=0.5 and was refuted for the identical freeze/statue
+  signature; a concurrent cycle has read that as closing RSI for
+  this family too and (same cycle as this entry) bank-tested the
+  next mechanism instead — `reward.k_walk_swing` (any-direction
+  lift-swing-touchdown bonus, no along-command gate, unlike
+  k_step_event) on `SLIPWALK_SWING_OVERRIDES`
+  (`test_task_semantics.py`, 11/11 passing, not yet committed/
+  launched as of this entry). Do not re-launch RSI or duplicate the
+  swing arm — pick up `SLIPWALK_SWING_OVERRIDES`'s own launch once
+  that cycle's work lands.
 - M3 push recovery: NOT STARTED
 - M4 fault adaptation: NOT STARTED
 - M5 MuJoCo transfer (= DONE gate): NOT STARTED

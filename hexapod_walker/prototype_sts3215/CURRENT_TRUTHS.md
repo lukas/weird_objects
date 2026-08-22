@@ -458,6 +458,61 @@ out-of-scope runs get honest triage but no agent follow-ups.
   (2.0/1.0 so max style income 2/tick out-earns the statue's
   ~-1.5/tick charges); pre-registered new cheat to watch = in-place
   teacher mimicry at high style weight.
+- AMP STYLE-DOSE LEVER CLOSED (08-22, both -v2 arms verdicted FAIL):
+  `cw-amp-m2-freeprog-term400-style05-v2` (teacher_v2 lib, 0.5/0.5)
+  and `-stylew2-v2` (teacher_v2, 2.0/1.0) land in the SAME in-place
+  march/shuffle basin as the plain `-noamp` control — det median fwd
+  travel 0.03m/15s both (bar 0.10m), slip 8.09/10.45 per m,
+  gait_valid 5/6 det + 6/6 sto both, video visually indistinguishable
+  from each other and from noamp. The clean teacher_v2 lib retires
+  the "corrupted v1 lib" caveat with zero behavior change. AMP stayed
+  mechanically healthy both arms (d_real 0.78-0.79 vs d_fake -0.96,
+  unsaturated, no in-place-mimicry degenerate loop — style_reward_mean
+  stayed pinned low 0.05-0.07 the whole run, meaning the policy never
+  even partially learned to imitate) but 4x the style weight only
+  moved realized style income from 0.027 to 0.135/tick
+  (`env/reward_amp_style`), an order of magnitude short of
+  freeprog_pen's flat -1.4 to -1.5/tick either way. W&B reward FELL
+  every quarter in both arms (never rising) — genuine flat/declining
+  FAILs per the 08-21 ruling, not continue-longer cases. Per the
+  pre-registered decision rule (STATUS.md): with BOTH doses statued
+  at 2M, the AMP-style-income route is refuted at this discovery
+  scale for the freeprog/term400 pricing family across the whole
+  tested range (0.5x-2.0x) — the fix is a genuinely new income
+  mechanism, not another blend dose.
+- AMP M2 TASK-COMPLEXITY ISOLATION LAUNCHED (08-22,
+  `cw-amp-m2-freeprog-term400-fixedcmd`/`-seed11`): every M2
+  from-scratch arm to date (noamp/style05/stylew2/stagecurric) threw
+  the full randomized `stress_mix` command stream (1.75s resample,
+  yaw, 15% stops) at the actor from step 0 or within a ramp window —
+  none held the task at its simplest for the FULL budget. This pair
+  replaces the goal.* command config with the SLIPWALK bank's own
+  literal fixed command (vx=0.05 m/s constant, no heading/resample/
+  yaw/stop; reward stack and everything else byte-identical to
+  -noamp, no AMP) — the exact setup the bank already proves ranks
+  real travel far above stationary behaviors. BOTH SEEDS VERDICTED
+  FAIL (08-22, n=2 agree): seed7 det gait_valid 0/6 (legs 2,3,5
+  sacrificed every episode, fwd med 0.05m, slip 7.14/m), seed11 det
+  gait_valid 0/6 (legs 3,4 sacrificed, fwd med 0.03m, slip 6.43/m) —
+  BOTH worse than the harder stress_mix arms (which sacrificed only
+  0-1 legs, gait_valid 5/6 det). Same freeprog_pen (~-1.37/tick) and
+  walk_gait_min (~0.29) plateau as -noamp in W&B; reward fell every
+  quarter both seeds, never rising. TASK-COMPLEXITY HYPOTHESIS
+  REFUTED: simplifying the command distribution to the bank's own
+  literal simplest validated case did not help — it let MORE legs go
+  idle/statue. The from-scratch marching/statue basin for this
+  reward family is a genuine PPO exploration/optimization pathology,
+  independent of command complexity. RSI (`goal.walk_gait_start_frac`)
+  is NOT a fresh lever here — `cw-gait-rsi1` already ran it at
+  frac=0.5 on `--impl warp` (08-11, an older pre-freeprog/term400
+  from-scratch stack) and was refuted for the identical freeze/statue
+  signature; a concurrent cycle read that as closing RSI for this
+  family too and bank-tested the actual next mechanism instead —
+  `reward.k_walk_swing` (any-direction lift-swing-touchdown bonus) on
+  `SLIPWALK_SWING_OVERRIDES` (`test_task_semantics.py`, 11/11 passing
+  as of this entry, not yet committed/launched). Next cycle: pick up
+  that launch rather than re-deriving RSI or duplicating the swing
+  arm.
 - FREEPROG-EMA REUSE TESTED + REFUTED, ZERO GPU SPENT (08-22): the
   obvious cheap fix — feed `reward.walk_kernel_vel_ema`'s already-
   validated stride-averaged velocity into `walk_freeprog_score`
@@ -491,6 +546,18 @@ out-of-scope runs get honest triage but no agent follow-ups.
   budget on this exact ramp schedule without a new idea for why
   seed13 differs. The mechanism itself (the ramp CODE) stays banked
   and available — only its blind reuse across seeds is refuted.
+  CLASS CLOSED 08-22 ~17:1x after the 4-arm dose grid
+  (`allowramp2slow-seed23/29` = ramp 1.2M->2.4M;
+  `allowramp2wide-seed23/29-b` = start 48->64mm): 3 arms worse on
+  BOTH clone-relative axes than both their baselines (0.62-0.65x
+  prog, 1.65-1.74x slip), 1 nominal improver (slow29 0.78x/1.25x,
+  prog delta at the edge of 6-ep noise, slip delta inside noise).
+  Across 6 ramp arms x 3 seeds every dose helps exactly one seed —
+  basin lottery, no dose-response; best ramp reading anywhere
+  (seed13 0.830x) still far from the 0.9x rung. Judgment closure
+  (the strict pre-registered 0-for-4 trigger did not literally fire
+  because of slow29's noise-edge read — recorded honestly). Next:
+  sto gap (stotight grid) + matched-timing stance-slip mechanism.
   Also built: `reward.term_penalty_ramp_steps/_init` (same pattern,
   opposite direction — anneals a termination charge UP from lenient
   to the validated deterrent instead of an allowance down; targets

@@ -1,6 +1,16 @@
 # joystick - RL from the programmatic gait to joystick control
 
-Last updated: 2026-08-22 (`-longrun17-cont1` VERDICTED FAIL on its
+Last updated: 2026-08-22 (~17:1x: RAMP LEVER CLASS CLOSED — the
+4-arm allowramp2{slow,wide}-seed{23,29} grid verdicted: 3 arms worse
+on both clone-relative axes, 1 (slow29) a noise-edge nominal
+improver; no dose generalizes across seeds, best-ever ramp reading
+0.830x still far from the 0.9x gate. Judgment closure, not the
+literal 0-for-4 trigger — see Next item 3. Redirect: stotight sto
+dose grid (evals manually launched — the 16:18 FINISHED-flip
+bypassed watcher prestage; TRIAGE NEXT CYCLE) then item (b)
+matched-timing stance-slip.)
+
+Previous entry (08-22): (`-longrun17-cont1` VERDICTED FAIL on its
 pre-registered prediction-if-false: the +4M continuation with std
 held at 0.041 RETAINED longrun17's full det DONE-gate pass (det slip
 2.38/2.65 vs cap 2.9, dir 34.5/37.6 vs 40, 0 falls 48/48) but sto
@@ -375,18 +385,32 @@ with:
    regime-gap diagnosis is real, but a fixed ramp schedule is itself
    subject to the same per-seed basin lottery as every other lever
    here. Mechanism/code stays banked; do not arm it as a default off
-   seed13 alone. Two untried branches, neither spent: a slower/larger
-   ramp re-tested on seed23/29 specifically, or redirect to item
-   (b)'s matched-timing stance-slip mechanism directly (seed17
-   2.85/m vs clone 1.89/m) instead of fighting the noise-regime price
-   seed-by-seed. Full detail: CURRENT_TRUTHS.md. **BRANCH IN FLIGHT
-  08-22 (~16:26-16:35)**: the untried ramp branch launched as a
-  4-arm single-change grid off the failing 48mm/1.2M arms —
-  `allowramp2slow-seed23/-seed29` (ramp_steps 1.2M->2.4M, post-anneal
-  grace) and `allowramp2wide-seed23/-seed29-b` (ramp_mm 48->64, same
-  schedule). 0-for-4 pre-registered to CLOSE the ramp lever class
-  for failing seeds and redirect to the matched-timing stance-slip
-  mechanism (item b).
+   seed13 alone. **RAMP LEVER CLASS CLOSED 08-22 (~17:1x, judgment
+   closure)**: the 4-arm grid (`allowramp2slow-seed23/-seed29`
+   ramp_steps 1.2M->2.4M; `allowramp2wide-seed23/-seed29-b` ramp_mm
+   48->64) came back 3 worse-on-both-axes (wide23 0.65x/1.65x,
+   wide29 0.62x/1.74x, slow23 0.65x/1.70x — each worse than BOTH its
+   no-ramp and 48mm baselines) and 1 nominal improver (slow29
+   0.78x/1.25x vs 0.740x/1.296x and 0.725x/1.466x — prediction-if-
+   true technically fired, so the strict 0-for-4 auto-closure did
+   NOT literally trigger; recorded honestly). But the improver's
+   prog delta (+0.044x) is at the edge of 6-ep noise, its slip delta
+   inside noise, and across 6 ramp arms x 3 seeds every dose helps
+   exactly one seed and hurts the rest (48mm->seed13 only,
+   slow->seed29 only, wide->nobody) — a per-seed basin lottery, not
+   a dose-response, with the best reading anywhere (seed13 0.830x)
+   still far from the 0.9x gate. Zero falls / gait 6/6 / clean video
+   all 4 arms; reward rose or peaked-then-tightened in all 4 while
+   gate metrics mostly fell (misaligned-surface signature, not
+   undertraining). CLASS CLOSED for failing seeds by judgment on
+   this evidence; redirect stands: sto gap first (stotight dose
+   grid — evals manually launched 17:0x after the 16:18 manual
+   FINISHED-flip bypassed the watcher's finish-detection prestage;
+   gate+joygate artifacts land in `logs/ckpt_eval/
+   cw_dep_bcgait4_phasedir9_longrun17_stotight{,40,45}_*` — TRIAGE
+   THEM NEXT CYCLE, no auto-spawn will fire for already-FINISHED
+   runs), then item (b)'s matched-timing stance-slip mechanism
+   (seed17 2.85/m vs clone 1.89/m).
 4. RL fine-tune from the phase clone (and a walk-champion arm as
    control) with the reward aligned to the gate metrics, resuming
    the staged heading curriculum; extend budget while reward and

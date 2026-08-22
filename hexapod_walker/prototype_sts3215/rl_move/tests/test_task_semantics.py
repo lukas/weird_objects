@@ -857,7 +857,10 @@ SLIPWALK_OVERRIDES = {
 
 
 def _slipwalk_rollout(policy: str, seed: int, *,
-                      gait_scale: float = 1.0) -> tuple[float, float, int]:
+                      gait_scale: float = 1.0,
+                      overrides: dict | None = None,
+                      shuffle_half_period_s: float = 0.6,
+                      ) -> tuple[float, float, int]:
     """Return (episode return, net forward body travel in m, steps).
 
     ``policy``: "gait" (scripted tripod at ``gait_scale`` x command),
@@ -870,11 +873,23 @@ def _slipwalk_rollout(policy: str, seed: int, *,
     "topple" (the cw-amp-m2-freeprog-{noamp,style05} 2M cheat, 08-22:
     lift the front pair from the plant stance so the body pitches over
     and the episode tilt-terminates in ~1 s — the fastest scripted way
-    to die and stop paying the per-tick charge stack).
+    to die and stop paying the per-tick charge stack),
+    "shuffle" (08-22, pre-registered cheat for reward.k_walk_swing: a
+    real coordinated six-leg tripod gait that reverses direction every
+    ``shuffle_half_period_s`` — every individual stride is a genuine,
+    physically valid swing, so a per-completed-swing bonus would pay
+    it in full, but net body displacement is ~0; this is the realistic
+    "farm the swing bonus without going anywhere" attack a single
+    accessible-income mechanism must not reopen).
+
+    ``overrides``: cfg overrides dict, default ``SLIPWALK_OVERRIDES``
+    (pass a superset to test an additional reward lever on top of the
+    calibrated stack without touching the base dict).
     """
     from sim_gait_compat import TripodGait
 
-    env = _make_walk_env(seed, SLIPWALK_OVERRIDES)
+    env = _make_walk_env(seed, overrides if overrides is not None
+                          else SLIPWALK_OVERRIDES)
     env.reset()
     traj = env._goal_traj
     n = len(traj.vx)
@@ -918,6 +933,11 @@ def _slipwalk_rollout(policy: str, seed: int, *,
             act = q_rad_to_action(np.asarray(gait.desired_deg(t)) * DEG2RAD)
         elif policy == "stall":
             gait.set_velocity(vx=0.0, vy=0.0)
+            act = q_rad_to_action(np.asarray(gait.desired_deg(t)) * DEG2RAD)
+        elif policy == "shuffle":
+            half_n = max(1, int(round(shuffle_half_period_s / env.dt)))
+            sign = 1.0 if (step // half_n) % 2 == 0 else -1.0
+            gait.set_velocity(vx=SLIPWALK_CMD_VX * sign, vy=0.0)
             act = q_rad_to_action(np.asarray(gait.desired_deg(t)) * DEG2RAD)
         elif policy == "stork":
             act = q_rad_to_action(stork_rad)
@@ -1064,6 +1084,157 @@ def test_slipwalk_stepping_stall_still_beats_refusal(slipwalk_returns):
     assert slipwalk_returns["stall"] > slipwalk_returns["park"], (
         f"refusing to step out-earns stepping in place: {slipwalk_returns} "
         "— the anti-slip charge has closed the discovery path.")
+
+
+# reward.k_walk_swing on the SLIPWALK/term400 stack (08-22, AMP M2
+# freeprog dig-in continuation): every non-reward lever (term_penalty,
+# std-anneal, stage curriculum, style-weight dose 0.5x-2.0x, RSI-for-
+# walk via goal.walk_gait_start_frac — see cw-gait-rsi1, refuted for
+# this exact failure signature) is now closed for the from-scratch
+# statue basin, and cw-amp-m2-freeprog-term400-fixedcmd-seed11 (the
+# bank's own literal simplest fixed-command case) still statues with
+# sacrificed legs — so command complexity is not the barrier either.
+# The one mechanism never armed for this family: k_walk_swing, an
+# EXISTING (2026-08 vintage, champion-proven on the older cw-walk
+# lineage) one-shot bonus for a foot completing a real lift-off ->
+# >=2-ticks-airborne -> touchdown swing of >=15 mm, paid in ANY
+# direction (no along-command gate, unlike k_step_event) — the
+# genuinely accessible "lift a foot at all" first rung the freeze
+# basin currently has zero income gradient toward (freeprog_pen sits
+# flat at its floor from step 0 in every prior arm; nothing pays for
+# an incomplete/exploratory swing that doesn't already net forward
+# progress). Bank-checked here BEFORE spending any GPU budget (the
+# 08-22 agreement rule: reward/task-mechanism changes need the
+# semantics bank first): does adding it reopen a stationary cheat?
+SLIPWALK_SWING_OVERRIDES = dict(SLIPWALK_OVERRIDES)
+SLIPWALK_SWING_OVERRIDES[("reward", "k_walk_swing")] = 1.0
+
+
+@pytest.fixture(scope="module")
+def slipwalk_swing_returns() -> dict[str, float]:
+    """Same behavior bank as ``slipwalk_returns``, plus "shuffle" (a
+    real coordinated tripod gait reversing direction every 0.6 s — see
+    ``_slipwalk_rollout``'s docstring), under
+    ``SLIPWALK_SWING_OVERRIDES``. Measured 2026-08-22 (3 seeds):
+    fast +874 (0.43 m) > gait +622 (0.27 m) > creep +126 (0.16 m) >
+    stall -155 > shuffle -297 (0.013 m, real strides both ways) >
+    park -243 > stork -238 > topple -381 (23 steps) > skate -1023.
+    Swing income raises gait/creep's take over the no-swing baseline
+    (gait 558->622, creep 103->126 — a real, if modest, ~11-23%
+    bump) while every stationary/non-progressing twin (stall, park,
+    skate, shuffle, topple) barely moves (single digits to ~+10),
+    never closing the gap to real travel — and shuffle, the realistic
+    "genuine six-leg strides both ways, zero net travel" farm
+    attempt, stays BELOW even park.
+    """
+    plan = {
+        "fast": ("gait", 2.0),
+        "gait": ("gait", 1.0),
+        "creep": ("gait", 0.5),
+        "skate": ("skate", 1.0),
+        "stall": ("stall", 1.0),
+        "shuffle": ("shuffle", 1.0),
+        "park": ("park", 1.0),
+        "stork": ("stork", 1.0),
+        "topple": ("topple", 1.0),
+    }
+    out = {}
+    for name, (pol, scale) in plan.items():
+        runs = [_slipwalk_rollout(pol, s, gait_scale=scale,
+                                  overrides=SLIPWALK_SWING_OVERRIDES)
+                for s in SEEDS]
+        out[name] = float(np.mean([r[0] for r in runs]))
+        out[name + "_dx"] = float(np.mean([r[1] for r in runs]))
+        out[name + "_steps"] = float(np.mean([r[2] for r in runs]))
+    return out
+
+
+def test_slipwalk_swing_bonus_boosts_real_travel_substantially(
+        slipwalk_returns, slipwalk_swing_returns):
+    """The whole point of arming this lever: it must make REAL gait
+    income materially bigger (a real, accessible gradient toward
+    stepping), not just add noise."""
+    assert (slipwalk_swing_returns["gait"]
+            > slipwalk_returns["gait"] + 40.0), (
+        f"k_walk_swing did not meaningfully raise real-gait income: "
+        f"base={slipwalk_returns['gait']} "
+        f"swing={slipwalk_swing_returns['gait']}")
+    assert (slipwalk_swing_returns["creep"]
+            > slipwalk_returns["creep"]), (
+        "k_walk_swing did not raise creep income at all: "
+        f"base={slipwalk_returns['creep']} "
+        f"swing={slipwalk_swing_returns['creep']}")
+
+
+def test_slipwalk_swing_bonus_preserves_travel_ordering(
+        slipwalk_swing_returns):
+    """The core SLIPWALK invariant (travel beats every stationary
+    behavior by a wide margin) must survive arming the swing bonus."""
+    gait = slipwalk_swing_returns["gait"]
+    for cheat in ("stall", "park", "skate", "shuffle"):
+        assert gait > slipwalk_swing_returns[cheat] + 300.0, (
+            f"stationary/non-progressing '{cheat}' is competitive "
+            f"with real walking once k_walk_swing is armed: "
+            f"{slipwalk_swing_returns} — the swing bonus reopened a "
+            "freeze exploit.")
+    assert (slipwalk_swing_returns["fast"] > slipwalk_swing_returns["gait"]
+            > slipwalk_swing_returns["creep"]), (
+        f"more travel does not earn more with the swing bonus armed: "
+        f"{slipwalk_swing_returns}")
+
+
+def test_slipwalk_swing_bonus_does_not_reward_marching_or_shuffling(
+        slipwalk_returns, slipwalk_swing_returns):
+    """The specific new risk this lever introduces: k_step_event only
+    pays for a stride that projects along the COMMANDED direction, but
+    k_walk_swing pays ANY completed swing regardless of direction — so
+    it must not turn stepping-in-place (stall) or a real gait that
+    reverses direction every beat (shuffle, zero net travel despite
+    genuine six-leg strides both ways) into a competitive income
+    source. Both must stay within a small band of their no-swing
+    reading and strictly below the honest creep."""
+    assert (slipwalk_swing_returns["stall"]
+            < slipwalk_returns["stall"] + 50.0), (
+        f"k_walk_swing pays marching-in-place: base="
+        f"{slipwalk_returns['stall']} swing="
+        f"{slipwalk_swing_returns['stall']} — the swing bonus is "
+        "gameable by stall, matching the historical stall/skate "
+        "failure signature.")
+    assert (slipwalk_swing_returns["shuffle"]
+            < slipwalk_swing_returns["stall"]), (
+        f"reversing-direction shuffling out-earns simple marching: "
+        f"{slipwalk_swing_returns} — the swing bonus rewards genuine "
+        "strides over a real net-zero-travel gait, the exact farm "
+        "attack this lever risks.")
+    assert (slipwalk_swing_returns["shuffle"]
+            < slipwalk_swing_returns["park"]), (
+        f"the realistic swing-farming twin (shuffle: real six-leg "
+        f"strides, ~0 net travel) beats refusing to move once "
+        f"k_walk_swing is armed: {slipwalk_swing_returns} — the "
+        "farm exploit is open.")
+    assert (slipwalk_swing_returns["creep"]
+            > slipwalk_swing_returns["shuffle"] + 300.0), (
+        f"honest partial travel does not clearly beat the shuffle "
+        f"farm attempt: {slipwalk_swing_returns}")
+
+
+def test_slipwalk_swing_bonus_keeps_topple_the_worst_live_option(
+        slipwalk_swing_returns):
+    """The anti-suicide invariant must also survive arming the swing
+    bonus (a toppling twin gets no swing credit — it never completes a
+    touchdown before terminating — but check it wasn't accidentally
+    reordered)."""
+    assert slipwalk_swing_returns["topple_steps"] < 75, (
+        "the topple twin did not die fast under the swing-armed "
+        f"stack; bank probe is broken: {slipwalk_swing_returns}")
+    assert (slipwalk_swing_returns["topple"]
+            < slipwalk_swing_returns["park"] - 100.0), (
+        f"dying fast is competitive once k_walk_swing is armed: "
+        f"{slipwalk_swing_returns}")
+    assert (slipwalk_swing_returns["topple"]
+            < slipwalk_swing_returns["stall"]), (
+        f"dying fast out-earns stepping in place once k_walk_swing is "
+        f"armed: {slipwalk_swing_returns}")
 
 
 # reward.walk_kernel_vel_ema on the freeprog stack (08-22,
