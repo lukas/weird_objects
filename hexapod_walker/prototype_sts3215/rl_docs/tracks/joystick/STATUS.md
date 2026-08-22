@@ -1,6 +1,29 @@
 # joystick - RL from the programmatic gait to joystick control
 
-Last updated: 2026-08-22 (CORRECTION to the previous entry below:
+Last updated: 2026-08-22 (operator-ordered FORMAL SESSION-GATE
+reading on `-longrun17`, after the operator live-accepted the
+checkpoint under real joystick input on the Mac viewer: the full 60s
+randomized DONE gate (`eval_joystick_gate.py`, held-out stress_mix,
+n=12 det+sto at DR-0 AND own-DR 0.35) is **FAIL overall but
+DET-ONLY PASSES EVERY AXIS at both DR scales** — zero falls 48/48,
+gait_valid 48/48, det slip 2.30 (cap 2.9), det dir_err 34.7deg DR-0
+/ 37.4deg own-DR (allow 40). The sto half alone fails it (slip
+4.0, dir 51-52deg -> combined medians 3.325/45.7). The
+operator-live-vs-gate delta is RESOLVED as det-vs-sto, NOT command
+distribution: the det policy follows held-out reverses/stops/turns
+it never trained on (trained forward-only fixed 0.08!) and beats the
+phase clone's own session reading ~5x on slip (15.9->3.3) and ~20deg
+on direction. PROMOTION NOT EXECUTED (operator conditional was
+pass-gated); sto-calibration question filed
+(OPERATOR_QUESTIONS q_20260822T1520Z, assumed answer: gate stands,
+sto gap is a policy property -> sto-robustness arm after
+longrun23/29 settle the seed pass rate). Presentation caveat
+(fb_20260822T145428): the phasedir lineage deliberately trains with
+the legacy `bc_anchor_knee_abs=1.0` dialect — do not present it as a
+clean current-convention imitation line. Artifacts:
+`logs/ckpt_eval/longrun17_joystick_session_gate_v1/`.
+
+Previous entry (08-22, CORRECTION to the entry below it:
 `phasedir9-longrun17`'s FAIL verdict was written before its own eval
 finished syncing — a premature-verdict race, not a real reading.
 Recomputed from the synced report + this run's own W&B summary
@@ -188,23 +211,32 @@ with:
 
 ## Next
 
-1. **Close the last 1 rise-bank item with a root-cause fix, not
-   re-measurement** (4/7 closed as of 08-22, see above): PLANT_SPEC's
-   height-window check on the demonstrated rise's final pose
-   (`height_ok: False` with everything else OK — likely the window
-   itself, not the pose, is stale for the corrected geometry).
-   `getup_honest_ordering`'s partial-crouch pricing CLOSED 08-22
-   (root-cause, not re-measurement): the one-shot progress ratchet
-   (`reward.getup_k_progress`) didn't clear the honest rise motion's
-   own extra regularizer cost over freezing (partial -12.16 <
-   freeze -11.26 at k=60); recalibrated 60->200 (partial +10.8 >
-   freeze -11.5, full GETUP-bank ordering preserved, swept 60-500).
-   Once the height-window item is green, `extract_rise_ref.py
-   --blend-mode ik` (built+tested 08-22) can remint a compliant
-   reference once a tibia-150 stance source checkpoint exists — which
-   itself needs the bank green first (circular; see finding above).
-   fastprof residue is a separate, already-tracked fast-gait item,
-   not a blocker here.
+1. **CLOSED 08-22, all 3 remaining rise-bank items, root-cause (not
+   re-measurement)** (7/7 tibia-150 residue now closed except
+   fastprof, a separate already-tracked item): PLANT_SPEC's
+   height-window "failure" was never the window — it was
+   `goal.rise_height_mm=[108,114]`/`actions.max_height_mm=115`, the
+   PRE-tibia-150 (128 mm) belly->plant height target, never updated
+   when the tibia grew ~22 mm; the demonstrated reference
+   deterministically settles at h_rel=131.94 mm (all seeds), ~24 mm
+   past the stale target, tripping only `height_ok` while every other
+   PLANT_SPEC check passed. Recalibrated the target to `[128,136]`/
+   `137` (brackets the measured settled height, `RISE_OVERRIDES`/
+   `SCORE_OVERRIDES` in `test_task_semantics.py` only — `LOWER_
+   OVERRIDES` and other rise_height_mm call sites weren't broken,
+   left untouched). `getup_honest_ordering`'s partial-crouch pricing:
+   the one-shot progress ratchet (`reward.getup_k_progress`) didn't
+   clear the honest rise motion's own extra regularizer cost over
+   freezing (partial -12.16 < freeze -11.26 at k=60); recalibrated
+   60->200 (partial +10.8 > freeze -11.5, full GETUP-bank ordering
+   preserved, swept 60-500). Bank now 152 pass / 1 known-red
+   (fastprof) / 4 skip / 1 xfail. The circular blocker is UNBLOCKED
+   on the bank side: `extract_rise_ref.py --blend-mode ik`
+   (built+tested 08-22) can remint a compliant reference once a
+   tibia-150 stance source checkpoint exists, and a tibia-150 stance
+   retrain arm can now be spec'd+launched (bank no longer red) —
+   still gated only on joystick/amp GPU-budget priority, not on any
+   remaining test.
 2. **Evaluator half DONE 08-22** (`rl_move/sim/eval_joystick_gate.py`
    + `test_eval_joystick_gate.py`, 8/8 pure-aggregation tests, no sim
    touched): a reusable, versioned 60 s randomized joystick-session

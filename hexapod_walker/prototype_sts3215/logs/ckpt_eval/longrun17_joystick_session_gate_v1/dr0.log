@@ -1,0 +1,4 @@
+[motor-contract] write_speed=1500 acc=80 vel_override='write_speed' resolved_vel_max=131.8 deg/s (1500 counts/s) slew=5 deg/tick @ 25 Hz (= 125 deg/s) src=/Users/lukas/weird_objects/hexapod_walker/prototype_sts3215/linux_control/logs/motor_model.json+vel_max=1500cps backend=servo_profile_np
+[det] walk  : 5/12 | Imax 2.42A | imbal 1.38 | vel_err 0.035 speed 0.047 m/s dir_err 34.9deg | gait_valid 12/12 | prog_ratio 0.72 slip/m 2.33 | roll peak/tail 2/0.6deg settled 12/12
+[sto] walk  : 0/12 | Imax 2.56A | imbal 1.24 | vel_err 0.066 speed 0.072 m/s dir_err 53.8deg | gait_valid 12/12 | prog_ratio 0.63 slip/m 4.69 | roll peak/tail 4/0.9deg settled 12/12
+[eval_checkpoint] artifacts → logs/ckpt_eval/longrun17_joystick_session_gate_v1/dr0

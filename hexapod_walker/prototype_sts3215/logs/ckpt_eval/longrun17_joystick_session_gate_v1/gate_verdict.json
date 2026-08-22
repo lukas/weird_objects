@@ -1,0 +1,71 @@
+{
+  "pass": false,
+  "n_total": 48,
+  "falls_total": 0,
+  "fall_labels": [],
+  "slip_per_m_med": 3.325,
+  "slip_cap": 2.9,
+  "direction_err_med_deg": 45.67,
+  "direction_err_allow_deg": 40.0,
+  "gait_valid_frac": 1.0,
+  "checks": {
+    "zero_falls": true,
+    "slip_ok": false,
+    "dir_ok": false,
+    "gait_valid_all": true
+  },
+  "per_pass": {
+    "dr0": {
+      "n": 24,
+      "falls": 0,
+      "slip_med": 3.068,
+      "dir_err_med": 43.38
+    },
+    "dr0p35": {
+      "n": 24,
+      "falls": 0,
+      "slip_med": 3.566,
+      "dir_err_med": 46.47
+    }
+  },
+  "per_leg": {
+    "duty_median": [
+      0.52,
+      0.41,
+      0.51,
+      0.47,
+      0.45,
+      0.52
+    ],
+    "swing_count_median": [
+      97.5,
+      93.5,
+      96.0,
+      91.0,
+      100.5,
+      88.0
+    ],
+    "sacrificed_episode_count": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "sacrificed_frac": [
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  "checkpoint": "rl_move/sim/policies/ppo_goal_cw_dep_bcgait4_phasedir9_longrun17.zip",
+  "dr_scales": [
+    0.0,
+    0.35
+  ],
+  "episode_seconds": 60.0
+}

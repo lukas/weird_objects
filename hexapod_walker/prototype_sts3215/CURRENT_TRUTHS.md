@@ -60,36 +60,53 @@ out-of-scope runs get honest triage but no agent follow-ups.
   `reward.drag_trans_allow_rise_m` 0.55->0.75), rise_rock_feedback
   (leveled peak 4.6-6.7->8.6deg, bound 8->9deg), recover_floor_rungs
   (tangle_70/80 gap margin 2.0->1.5mm, still strictly monotonic).
-  STILL RED (08-22, now 2/7): rise_valid_plant/score_replay
-  (PLANT_SPEC height-window miss on an otherwise-clean final pose),
-  fastprof (separate fast-gait item). `extract_rise_ref.py
-  --blend-mode ik` (foot-anchored FK/IK blend + fresh-seed robustness
-  validation, replacing the raw joint-lerp that fell on every seed
-  0-99) is BUILT+TESTED but did not ship a new reference: the best
-  candidate from the pre-tibia-150 stance checkpoint
-  (`ppo_goal_cw_stance_dr10`) still nets MORE bank failures than the
-  current file because that checkpoint's crouch pose is itself
-  asymmetric at the new geometry (blend method can't fix a bad source
-  shape) — reverted, not shipped. CIRCULAR blocker: the real fix is a
-  tibia-150 stance retrain (mirroring the walk fix arm), but that is
-  itself a reward-mechanism launch gated on the same still-red rise
-  test, which doesn't need a training run to fix. Next: root-cause
-  the PLANT_SPEC height-window directly.
-  `getup_honest_ordering` CLOSED 08-22 (root-cause, not
-  re-measurement): a genuine partial rise (held mid-ramp crouch, feet
-  loaded) earned LESS than freezing at the untouched spawn pose
-  (-12.16 vs -11.26, 3 seeds) because the one-shot progress-ratchet
-  credit (`reward.getup_k_progress`, was 60) for the honest
-  potential gain (~+10) didn't clear the EXTRA gyro/action/current
-  regularizer cost of actually executing the rise motion that
-  freezing never pays (measured other-than-prog totals -21.6 partial
-  vs -11.7 freeze, seed 11) — those regularizers are intentionally
-  untouched (they price real physics, not this task's shape).
-  Recalibrated `getup_k_progress` 60->200 (partial +10.8 > freeze
-  -11.5, >=20-pt margin; swept 60->500, every other GETUP-bank
-  ordering incl. flagleg/stilt/thrash preserved). Bank: 152 pass / 2
-  known-red (rise_valid_plant+score_replay share one root cause,
-  fastprof separate) / 4 skip / 1 xfail.
+  ALL 3 REMAINING CLOSED 08-22 with root-cause fixes (not blind
+  re-measurement — the operator's own bar for these last items):
+  `rise_valid_plant`/`score_replay` shared one cause — PLANT_SPEC's
+  height check was comparing the demonstrated (tibia-150-correct)
+  rise to a STALE commanded target: `goal.rise_height_mm=[108,114]`
+  + `actions.max_height_mm=115` were the PRE-tibia-150 (128 mm
+  tibia) belly->plant height gain, never updated when the tibia grew
+  ~22 mm. The reference deterministically settles at h_rel=131.94 mm
+  (all 3 seeds, open-loop so seed-invariant) — every other PLANT_SPEC
+  check (attitude/feet-down/no-flag/support/footprint/current) was
+  already clean, only `height_ok` tripped, ~24 mm outside the stale
+  target's 15 mm window. Recalibrated the TARGET (not the tolerance)
+  to `[128,136]`/`137` — brackets the physically-measured settled
+  height (consistent with GETUP's own ~22 mm rigid-FK sag finding at
+  this geometry) with margin either side of the 15 mm window. Scoped
+  to the two failing banks' own override dicts
+  (`RISE_OVERRIDES`/`SCORE_OVERRIDES` in `test_task_semantics.py`);
+  `LOWER_OVERRIDES` and the other rise_height_mm call sites
+  (`test_bc_anchor.py`, `test_rise_start_bank.py`) were left
+  untouched — not broken, no need to touch. `getup_honest_ordering`
+  CLOSED separately (root-cause, not re-measurement): a genuine
+  partial rise (held mid-ramp crouch, feet loaded) earned LESS than
+  freezing at the untouched spawn pose (-12.16 vs -11.26, 3 seeds)
+  because the one-shot progress-ratchet credit
+  (`reward.getup_k_progress`, was 60) for the honest potential gain
+  (~+10) didn't clear the EXTRA gyro/action/current regularizer cost
+  of actually executing the rise motion that freezing never pays
+  (measured other-than-prog totals -21.6 partial vs -11.7 freeze,
+  seed 11) — those regularizers are intentionally untouched (they
+  price real physics, not this task's shape). Recalibrated
+  `getup_k_progress` 60->200 (partial +10.8 > freeze -11.5, >=20-pt
+  margin; swept 60->500, every other GETUP-bank ordering incl.
+  flagleg/stilt/thrash preserved). Bank now 152 pass / 1 known-red
+  (fastprof, separate fast-gait item, untouched) / 4 skip / 1 xfail —
+  the rise-bank residue from the tibia-150 break is fully closed.
+  `extract_rise_ref.py --blend-mode ik` (foot-anchored FK/IK blend +
+  fresh-seed robustness validation, replacing the raw joint-lerp that
+  fell on every seed 0-99) is BUILT+TESTED but did not ship a new
+  reference: the best candidate from the pre-tibia-150 stance
+  checkpoint (`ppo_goal_cw_stance_dr10`) still nets MORE bank
+  failures than the current file because that checkpoint's crouch
+  pose is itself asymmetric at the new geometry (blend method can't
+  fix a bad source shape) — reverted, not shipped. The circular
+  blocker (a tibia-150 stance retrain needs the bank green, but a
+  training launch needs the retrain) is now UNBLOCKED on the bank
+  side: the bank is green, so a tibia-150 stance retrain arm can be
+  spec'd and launched whenever joystick/amp GPU budget allows it.
 - MEASURED-PLANT GATE BREAK (08-22): the download hierarchy
   HARD-FAILS the interactive session gate at tibia-150 (sit
   tilt_pitch + reverse tilt_roll falls, fwd yaw -21.8 deg) while the

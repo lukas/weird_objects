@@ -165,7 +165,20 @@ def _families(clip_s: float = 6.0):
 def run_clip(name: str, cmd_fn, clip_s: float, seed: int) -> dict:
     """Roll the scripted teacher through real physics for one command
     profile; return per-tick records + validation metrics."""
-    from tripod_gait import TripodGait
+    # FRAME FIX (08-22, fb_20260822T145428 audit): import through the
+    # ONE sim-side knee-convention boundary (sim_gait_compat), NOT raw
+    # tripod_gait. Since 30660b51 the raw class speaks the hardware's
+    # ABSOLUTE-tibia convention: feeding its desired_deg() straight to
+    # q_rad_to_action mis-poses every knee, and WALK_PLANT (20, 80) is
+    # the SIM-RELATIVE canonical plant, which the raw
+    # sync_plant_stance misreads as absolute. Measured divergence of
+    # the raw stream vs the verified compat stream at this plant:
+    # knee up to 15.7 deg (mean 80.6 vs 85.2), coxa up to 4.9 deg —
+    # teacher_v1.npz clips are physically valid (15/15 accepted, low
+    # slip) but are NOT the verified teacher's gait. Rebuilds from
+    # this script now produce the true convention-correct motion
+    # (default --out bumped to teacher_v2; v1 kept append-only).
+    from sim_gait_compat import TripodGait
 
     env = _make_env(seed, episode_seconds=clip_s + 1.0)
     env.reset()
@@ -288,7 +301,7 @@ def validate(clip: dict, reject_slip_per_m: float, min_ticks: int) -> tuple[bool
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--out", default="rl_move/sim/motion_library/teacher_v1")
+    ap.add_argument("--out", default="rl_move/sim/motion_library/teacher_v2")
     ap.add_argument("--seeds", type=int, nargs="+", default=[0, 1, 2])
     ap.add_argument("--clip-seconds", type=float, default=6.0)
     ap.add_argument("--reject-slip-per-m", type=float, default=3.5)
@@ -297,7 +310,9 @@ def main():
 
     families = _families(args.clip_seconds)
     manifest = {"families": sorted(families), "clips": [], "source":
-                "scripted_tripod_gait_teacher (linux_control/tripod_gait.py)"
+                "scripted_tripod_gait_teacher via sim_gait_compat "
+                "knee-convention boundary (linux_control/tripod_gait.py"
+                " + linux_control/sim_gait_compat.py)"
                 " @ tibia-150 plant, real MuJoCo physics, no RL",
                 "obs_style_layout": "joint_pos_rel_neutral(18) + "
                 "joint_velocity(18) + base_angular_velocity(3) + "

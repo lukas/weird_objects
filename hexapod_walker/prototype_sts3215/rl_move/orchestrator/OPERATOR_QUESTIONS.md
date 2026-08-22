@@ -1524,3 +1524,29 @@ Entry format (append; newest last; update status in place):
   library's own neutral — the policy-side feature can never drift
   from the demo-side convention. Question stays open only for the
   operator to veto the single-global choice.
+
+## q_20260822T1520Z — joystick DONE gate: is the STO half's slip/dir bar calibrated? (assume-and-go, cycle c0822-op-longrun17-sessiongate)
+
+- context: operator-ordered formal 60s session-gate reading on
+  `cw-dep-bcgait4-phasedir9-longrun17` (operator live-accepted the
+  checkpoint on the Mac viewer 08-22). Result: FAIL overall, but
+  DET-ONLY PASSES EVERY AXIS at both DR-0 and own-DR 0.35 (slip 2.30
+  vs cap 2.9; dir_err 34.7/37.4 deg vs allow 40; zero falls 48/48).
+  The sto half alone fails it (slip 4.0, dir 51-52 deg). The
+  operator-live-vs-gate delta is therefore det-vs-sto, NOT command
+  distribution (det passes the held-out stress_mix despite
+  forward-only training).
+- the question: the gate's slip cap (2.9) is the SCRIPTED teacher's
+  measured band — a deterministic system with no stochastic mode. No
+  sto baseline exists or can exist from the teacher; the clone's own
+  sto is degenerate (slip 69.9 in its reading). Is "sto must clear
+  the same det-calibrated caps" the intended bar, given deployment
+  (operator joystick + hardware runner) drives det actions?
+- assumed answer (acting on it): the pre-registered gate text stands
+  as written (det+sto) — no unilateral gate edit. We treat the sto
+  gap as a POLICY property to fix (sto-robustness arm: lower
+  --log-std-final re-init from the clone per the lineage rule), not
+  as an excuse; promotion stays blocked until a full det+sto pass OR
+  an explicit operator ruling that det-primary + sto-zero-falls
+  (which longrun17 already meets) is the deployment-honest bar.
+- ANSWER (operator): _

@@ -2388,10 +2388,14 @@ def main(argv: list[str] | None = None) -> int:
         return target_venv.env_method("apply_term_penalty_frac", f)[0]
 
     if _tp_ramp_steps > 0:
-        t0 = _term_penalty_ramp_apply(venv, 0)
+        # NOTE: must not be named t0 — that shadows the outer wall-clock
+        # timer (t0 = time.monotonic() near the top of this function),
+        # corrupting the final `dt = time.monotonic() - t0` computation
+        # for the rest of the run (caught on-pod smoke, 08-22).
+        _tp0 = _term_penalty_ramp_apply(venv, 0)
         print(f"[term-penalty-ramp] armed: {_tp_ramp_steps:,} global "
               "env steps from a lenient termination charge to the cfg "
-              f"target; step-0 term_penalty={t0['term_penalty']:.1f}")
+              f"target; step-0 term_penalty={_tp0['term_penalty']:.1f}")
         if _tp_ramp_steps >= args.steps:
             print("[term-penalty-ramp] WARNING: "
                   f"term_penalty_ramp_steps ({_tp_ramp_steps:,}) >= "

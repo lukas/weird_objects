@@ -58,7 +58,25 @@ Build every tool this needs; do not pause on operator input.
   see Now/Next)
 - M1 motion library: **DONE 08-22** (generator + v1 dataset;
   discriminator core + style reward + banks; live reward-loop wiring
-  landed and smoke-verified — see Now item on AMPStyleVecWrapper)
+  landed and smoke-verified — see Now item on AMPStyleVecWrapper).
+  **FRAME AUDIT 08-22 (fb_20260822T145428): teacher_v1.npz is
+  convention-corrupted** — `build_motion_library.py` imported RAW
+  `tripod_gait.TripodGait` (absolute-tibia since 30660b51) and fed
+  `desired_deg()` to the sim unconverted, with the SIM-RELATIVE
+  canonical plant (20,80) misread as absolute; measured stream
+  divergence vs the verified `sim_gait_compat` path: knee up to
+  15.7 deg (mean 80.6 vs 85.2), coxa up to 4.9 deg. v1's clips are
+  physically valid (15/15, low slip) but are NOT the verified
+  teacher's gait. FIXED + REBUILT same day: builder now imports via
+  the `sim_gait_compat` boundary; shipped
+  `rl_move/sim/motion_library/teacher_v2.npz` (45/45 clips accepted,
+  264 s, slip/m 0.45-2.03 all inside the teacher band; loads clean
+  through `MotionLibrary` incl. the neutral-consistency hard-fail;
+  discriminator bank 8/8 still green on the untouched v1 default).
+  v1 kept append-only; ALL FUTURE AMP launches must point the
+  discriminator/motion-prior at teacher_v2 (in-flight 08-22 runs
+  trained against v1 — interpret their style numbers with that
+  caveat).
 - M2 beautiful normal gait: IN PROGRESS (pilot pair -> -c1 statue
   MISALIGNED -> freeprog pair FAIL by suicide economics (dig-in
   resolved 08-22, see banner) -> term_penalty=400 fix pair RAN:

@@ -51,7 +51,9 @@ from rl_move.sim.joint_task import (  # noqa: E402
 from rl_move.sim.servo_model import SimServoParams  # noqa: E402
 
 # --------------------------------------------------------------------------
-# RISE bank — belly -> walkable plant stance (+111 mm), full shaping stack.
+# RISE bank — belly -> walkable plant stance (+132 mm at tibia-150,
+# was +111 mm pre-tibia-150; see the 08-22 rise_height_mm
+# recalibration below), full shaping stack.
 #
 # Exploits pinned here (all video-confirmed on real runs):
 #   freeze  the paid-plateau exploit (arrival-gate sign bug, cw-uni-rfix-*)
