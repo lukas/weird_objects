@@ -1,6 +1,37 @@
 # amp - AMP locomotion from scratch
 
-Last updated: 2026-08-22 ~21:2x (**BC-INIT BATCH BOTH ARMS PASS —
+Last updated: 2026-08-22 ~21:4x (**HEADING CURRICULUM STAGE 1 PASS —
+`cw-amp-m2-bcinit-sec5-style05-headings20` VERDICTED PASS: the
+BC-init AMP walker survived +/-25deg headings AND got better.**
+DR-0 gate at own heading range: gait_valid 6/6 det + 6/6 sto, zero
+sacrificed legs/terminations; det prog med 1.30 / slip 2.17 / fwd
+0.64m vs parent 1.16 / 1.88 / 0.69m; sto improved outright (prog
+0.58->0.93, slip 4.71->3.38, fwd 0.23->0.65m); dir_err improved both
+modes (det 33.8->26.9deg, sto 61.9->48.2deg). height_err held
+22-26mm all 2M (no crouch), reward rose 19->247 monotonically, disc
+healthy (d_real 0.47 / d_fake -0.75, style_reward 0.25). Frame
+strips watched (det_0 straight, det_4 off-axis): upright six-leg
+cycling, real displacement. Weak axis, stated bluntly: direction
+ADHERENCE is loose (det dir_err 26.9deg on a 25deg command range) —
+it walks well but only roughly where told; later stages must turn
+this into command-following (dir_err tracked explicitly in stage-2
+gates). Prediction-if-true fired exactly: heading diversity did NOT
+re-trigger the exploration collapse from a walking init. **STAGE-2
+DOSE PAIR LAUNCHED (this cycle):** `cw-amp-m2-bcinit-sec5-style05-
+{headings90,headingsfull}` — both continue from the headings20
+checkpoint, single lever each: walk_heading_max_rad 0.4363 ->
+1.5708 (+/-90deg, first lateral demand) and -> -1 (full circle,
+first backward demand — the operator's small-set->full jump tested
+in one step). 2M discovery each, DR-0, seed 7, fresh disc per stage
+protocol. The noamp-headings20 twin was still training and belongs
+to its own triage cycle; its lineage's stage-2 should mirror this
+pair if it passes. SIDE NOTE (cross-track): the paper-CPG
+contextual-250 search COMPLETED — winner beats trial-43 5x on the
+fixed contextual scorer (see CURRENT_TRUTHS.md); NO automatic
+teacher/motion-library swap — adoption is a pre-registered fork,
+q_20260822T2140Z. Prior banner below.)
+
+Previous entry (~21:2x (**BC-INIT BATCH BOTH ARMS PASS —
 first non-statue from-scratch-M2 result. Both `cw-amp-m2-bcinit-
 sec5-style05` and its noamp twin VERDICTED PASS**: DR-0 gate
 gait_valid 6/6 det+sto on BOTH arms, zero sacrificed legs, real net
