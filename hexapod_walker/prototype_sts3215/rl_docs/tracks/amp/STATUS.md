@@ -1,6 +1,39 @@
 # amp - AMP locomotion from scratch
 
-Last updated: 2026-08-22 ~20:0x (**SEC5 GRID FINAL 0/4 — the
+Last updated: 2026-08-22 ~21:2x (**BC-INIT BATCH BOTH ARMS PASS —
+first non-statue from-scratch-M2 result. Both `cw-amp-m2-bcinit-
+sec5-style05` and its noamp twin VERDICTED PASS**: DR-0 gate
+gait_valid 6/6 det+sto on BOTH arms, zero sacrificed legs, real net
+travel (style05 det fwd med 0.69m/15s prog med 1.16; noamp 0.64m/
+prog 1.09), env/height_err_mm stayed 18-31mm the WHOLE run on both
+(never the 59-85mm crouch signature of every from-scratch sec5 arm)
+— frame-strips of walk_det_4/walk_sto_3 watched, clean six-leg
+alternating-tripod cycling with visible checkerboard displacement,
+not the splayed statue. ROOT CAUSE: the 0/4 sec5-grid FAILs were an
+EXPLORATION problem (PPO from a random init never finds the walking
+basin under the minimal Gaussian-velocity+progress reward), NOT a
+reward-shape defect — confirms brief §4.3 ("gait as an initialization
+only") and §14 ("stop raw PPO from random initialization") exactly.
+Style read: style05 edges noamp on every axis (det slip 1.88 vs 2.13,
+sto slip 4.71 vs 5.38; prog both modes higher) — modest, consistent,
+not yet proven outside n=6 noise. Config is forward-only / clone-
+compatible obs (phase obs, body_vel=2, no yaw-cmd obs, no
+asym-critic) — NOT yet the full M2 milestone (turn both ways/
+backward/lateral untested). **NEXT LEVER LAUNCHED (this cycle):**
+`cw-amp-m2-bcinit-sec5-{style05,noamp}-headings20` — continuation
+from each checkpoint (`--init-from-source`), single lever change
+`goal.walk_heading_max_rad` 0.0->0.4363 rad (25°, stage 1 of the
+operator's own untried forward-only->small-set->full->irregular
+staged curriculum, fb_20260822T003132 — previously only pre-
+registered on the joystick track's phase-RL lineage, which reached
+its own DONE gate before trying it; applied here for the first time).
+Prediction-if-true: gait_valid stays >=5/6, height_err stays near
+18-31mm under turning demand. Prediction-if-false: heading diversity
+re-collapses the gait toward statue/drag even from a walking init —
+motivates a smaller first stage or a turn-in-place sub-skill.
+2M each, DR-0. Prior banner below.)
+
+Previous entry (~20:0x (**SEC5 GRID FINAL 0/4 — the
 section-5 minimal reward is NOT the M2 fix; prediction-if-false
 branch fires. NEXT LEVER LAUNCHED: BC-clone-initialized batch.**
 taskB (0.5/0.5), taskC (0.3/0.7) and the task-only noamp control all

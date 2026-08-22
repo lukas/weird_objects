@@ -259,6 +259,13 @@ Parent `ppo_goal_cw_dep_vref1_r1` itself (contract-exact obs + 25° tilt, no sta
   under the honest-obs contract was under-trained, not capped by
   removing privileged velocity.
 
+## AMP (from-scratch, M2 line)
+
+| Skill | Checkpoint (artifact `ckpt-<name>`) | Evidence | Envelope / limits |
+|---|---|---|---|
+| **FIRST NON-STATUE from-scratch-M2 walking result (08-22): BC-clone init + section-5 minimal reward + AMP style, forward-only** | `ppo_goal_cw_amp_m2_bcinit_sec5_style05` | this cycle PASS (INFORMATIVE per pre-registered gate): DR-0 gate det+sto gait_valid 6/6 each, zero sacrificed legs, real net travel (det fwd med 0.69m/15s prog med 1.16, sto fwd med 0.23m prog med 0.58); env/height_err_mm stayed 18-31mm the whole run (prior from-scratch sec5 arms crouched to 59-85mm in Q1); reward quarters 39.6->192.3 rising, amp/style_reward_mean 0.80->0.28 stable/unsaturated (disc healthy); frame-strips of walk_det_4 + walk_sto_3 watched, clean six-leg alternating-tripod cycling with visible forward displacement | init = `ppo_goal_cw_bcgait_init_fullprof_phase1.zip` (--init-from, not a from-scratch boot); forward-only (`goal.walk_heading_max_rad=0.0`, fixed 0.08 m/s); clone-compatible obs only (phase obs, body_vel=2; no yaw-cmd obs, no asym-critic); 2M discovery, DR-0 only; NOT the full M2 milestone (turning/backward/lateral untested — heading-diversity continuation launched this cycle); not hardware-ready |
+| **Task-only twin, ZERO AMP style — confirms BC-init alone (not style) is what breaks the statue basin** | `ppo_goal_cw_amp_m2_bcinit_sec5_noamp` | this cycle PASS: same DR-0 gate, gait_valid 6/6 det+sto, zero sacrificed legs, det fwd med 0.64m/15s prog med 1.09, sto fwd med 0.24m prog med 0.52, height_err 18-31mm stable; slightly WORSE than the style05 twin on every axis (det slip 2.13 vs 1.88, sto slip 5.38 vs 4.71) — first measurable style-vs-noamp delta on a genuinely locomoting actor (modest, consistent, not yet proven outside n=6 noise) | identical config to style05 twin minus all AMP flags; same forward-only/clone-obs/2M/DR-0 limits; not hardware-ready |
+
 ## Architecture (temporal-arch line)
 
 | Skill | Checkpoint (artifact `ckpt-<name>`) | Evidence | Envelope / limits |
