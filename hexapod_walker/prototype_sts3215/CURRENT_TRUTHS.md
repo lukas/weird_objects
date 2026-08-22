@@ -443,6 +443,45 @@ out-of-scope runs get honest triage but no agent follow-ups.
   (untested): a walk_freeprog analog of `k_walk_idle_charge` keyed to
   episode-window NET DISPLACEMENT rather than instantaneous speed —
   semantics-bank work before any further train.
+- FREEPROG-EMA REUSE TESTED + REFUTED, ZERO GPU SPENT (08-22): the
+  obvious cheap fix — feed `reward.walk_kernel_vel_ema`'s already-
+  validated stride-averaged velocity into `walk_freeprog_score`
+  instead of the instantaneous one (mirrors the phasedir7 kernel fix
+  exactly) — was built (default off, bit-exact) and checked on the
+  scripted SLIPWALK creep/stall twins BEFORE any training run: it
+  NARROWS the creep-vs-stall separation (raw gap 267.7 -> EMA gap
+  226.4), the opposite of the prediction. Banked as a measured
+  refutation (`test_freeprog_ema_creep_vs_stall_gap_measured`) so no
+  future cycle re-derives it; confirms the lead above (needs a
+  net-DISPLACEMENT floor, not a smoothed-velocity swap) — velocity-
+  domain fixes are the wrong shape for this defect.
+- JOYSTICK REGIME-GAP FIX FOUND (08-22, drag-stance-allowance ramp):
+  the phasedir9 n=4 seed sample (seed13/23/29 FAIL 0.74-0.82x
+  progress/1.17-1.30x slip clone-relative, seed17 alone PASS-partial
+  1.02x/0.74x — see the operator's formal session-gate reading in
+  `tracks/joystick/STATUS.md`) closed the "more seeds" lever per its
+  own pre-registration. `reward.drag_stance_allow_ramp_steps/_mm`
+  (new, bank-tested `test_drag_allow_ramp.py` 6/6, mirrors
+  `bus.profile_ramp_steps` exactly: cfg-armed/trainer-driven/default
+  off/bit-exact, armed-but-unbroadcast sits at the target allowance)
+  anneals the det-calibrated 24mm drag allowance from a loose 48mm
+  (sized to the pd8 dig-in's measured noisy-honest stance-travel
+  tail) down to 24mm over the same 1.2M-step window as the existing
+  log-std anneal — so noisy early exploration is never taxed harder
+  than the drag cheat itself. On seed13 (`-phasedir10-allowramp-a`):
+  progress 0.792x->0.831x AND slip 1.286x->1.159x moved together for
+  the first time in the 40+-arm lineage (still short of the 0.9x/
+  1.2x caps; UNDERTRAINED, reward still rising at the 4M cutoff).
+  Cross-seed generalization checks queued/running same cycle:
+  `-allowramp-seed23` (seed23, this cycle) and `-allowramp-seed29`
+  (seed29, concurrent cycle) — read together, not alone, before
+  arming the ramp as a lineage default or extending budget further.
+  Also built: `reward.term_penalty_ramp_steps/_init` (same pattern,
+  opposite direction — anneals a termination charge UP from lenient
+  to the validated deterrent instead of an allowance down; targets
+  the AMP freeprog-stall explore-vs-survive tension, not yet
+  deployed pending a sharper diagnosis than "exploration risk" — see
+  the freeprog reward-shape finding above).
 - direction_err_mean_deg has a ~35 deg tick-level floor from stride
   sway — judge deltas vs a matched clone, not raw values.
 - Every pre-08-22 checkpoint (incl. the download hierarchy) trained
