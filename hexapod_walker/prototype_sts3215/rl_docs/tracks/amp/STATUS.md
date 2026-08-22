@@ -1,6 +1,38 @@
 # amp - AMP locomotion from scratch
 
-Last updated: 2026-08-22 ~23:0x (**TURN-IN-PLACE EXPOSURE REFUTED —
+Last updated: 2026-08-22 ~23:1x (**SPEED-CAP ROOT CAUSE CONFIRMED:
+the fixed-rate phase clock is the defect; style and clock RATE are
+both exonerated. Fix landed in code; coupled-clock pair launched.**
+The pre-registered fastphase / fastphase-nostyle joint read came back
+NO-CHANGE on both arms: walk_phase_hz 1.333->2.0 kept the gait
+perfectly clean (gait_valid 6/6 det+sto both arms, zero terms/sac
+legs, clean six-leg strips) but realized speed stayed pinned
+(fastphase det 0.075-0.112, nostyle det 0.074-0.118, vs parent
+0.084-0.136) against 0.053-0.171 commanded — the band did not even
+shift up under a 1.5x faster clock, and zeroing AMP style changed
+nothing (twins statistically identical). Conclusion: no CONSTANT
+clock rate can produce speed MODULATION; the clock's
+speed-INDEPENDENCE (walk_task._augment_obs advances at fixed hz for
+any s_ref>1e-3) is the defect, same fingerprint joystick's
+phasedir9-seed17 found. **CODE LANDED (snapshot
+exp/cadcouple-phase-clock):** `goal.walk_phase_speed_scale` (default
+0.0 = bit-exact legacy) makes hz_eff = hz*(1+k*(s_ref/s_nom-1)) with
+`walk_phase_speed_nom` (0.08) + `walk_phase_hz_max` clamp; sim_env's
+bc_anchor_phase_lock branch scales its accumulator by the same ratio
+so the anchor stays locked; bank
+`rl_move/tests/test_phase_speed_coupling.py` 7/7 PASS +
+test_bc_anchor 63/63 + test_phasedir_semantics 34/34 green.
+**LAUNCHED:** `cw-amp-m2-bcinit-sec5-style05-speedrange-cadcouple-r1`
+(style 0.5/0.5, train-2) + `-cadcouple-nostyle` (train-3), 2M
+discovery each from the fastphase{,-nostyle} checkpoints, scale=1.0,
+hz cap 3.0. Joint read: both widen => timing was the cap, done; only
+nostyle widens => the fixed-cadence teacher_v2 library vetoes varying
+cadence => build the cadence/speed augmentation (Next item 2's
+STILL-OPEN half); both pinned => cap is stride/actuation or budget.
+(Plain `-cadcouple` ledger entry is a REFUSED launch-tag collision,
+not a run. Prior banner below.)
+
+Previous entry (~23:0x (**TURN-IN-PLACE EXPOSURE REFUTED —
 the tip dose pair is in and BOTH arms park.**
 `cw-amp-m2-bcinit-sec5-style05-yawcmd-tip50-r2` and `-tip90` both
 FAIL-INFORMATIVE (FAIL-park): eval_yaw tip-left/right err
@@ -732,7 +764,34 @@ Build every tool this needs; do not pause on operator input.
   det fwd travel still ~0.02-0.03m) — if seen on triage, FAIL
   regardless of return and bank+fix a `walk_gait_gate`-style MIN-
   across-six-legs gate on the swing bonus before any follow-up.
-- M3 push recovery: NOT STARTED
+- M3 push recovery: IN PROGRESS (08-22 ~23:1x) — built + bank-tested
+  `dr.ext_push_*` (brief §7.4/§9.3): a mid-episode random-direction
+  horizontal force pulse (10-25N/0.15-0.4s, half-sine, world-frame
+  direction, once per walk-mode episode at a random 1.5-9s delay),
+  distinct from the pre-existing `dr.walk_push_*` (a fixed roll TORQUE
+  confined to the first ~1.5s that reproduces the hardware TAKEOFF
+  wobble, not a recovery test). Wired across CPU sim_env AND the
+  MJX/Warp batched stepper (mjx_backend/mjx_vec_env/
+  mjx_sharded_vec_env); default OFF, bit-exact when off (guarded draw,
+  same convention as fault/kick/rock/tipped). `xfrc_applied[chassis,
+  0:3]` writes are OWNERSHIP-GATED to episodes that actually drew a
+  push this episode, so the mechanism cannot clobber unrelated
+  interactive tools that already use those same indices
+  (`web_session.py`'s manual push slider, quad probes) — a real
+  collision caught and fixed before launch, encoded as a permanent
+  regression test. Bank: `test_ext_push_injection.py` 12/12 (default-
+  off no-op + rng-stream guard, dose-range sampling, prob-not-dose
+  curriculum scaling, force-window math incl. direction, end-to-end
+  CPU env, xfrc-row ownership gate, measurable chassis perturbation
+  vs. a push-off twin); full suite still 163 pass/4 skip/1 xfail/1
+  pre-existing-red (fastprof, untouched). Verified on the actual
+  Warp/MJX GPU kernel (not just CPU): a direct `MjxTickStepper.tick(
+  push_fxy=...)` smoke showed the pushed env's chassis diverge
+  sharply from un-pushed sibling envs. First training use launched
+  (mechanism-safety smoke, not a graded gate, per the fault-injection
+  precedent): `cw-amp-m3-pushsmoke1-noamp-r4` (train-0, from
+  `cw-amp-m2-bcinit-sec5-noamp-headingsfull`, `dr.ext_push_prob=1.0`,
+  2M, DR-0) — VERIFIED RUNNING, verdict next cycle.
 - M4 fault adaptation: NOT STARTED
 - M5 MuJoCo transfer (= DONE gate): NOT STARTED
 
