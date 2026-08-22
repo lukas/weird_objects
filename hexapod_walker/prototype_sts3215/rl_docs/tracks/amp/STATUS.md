@@ -1,6 +1,27 @@
 # amp - AMP locomotion from scratch
 
-Last updated: 2026-08-22 ~22:0x (**HEADING CURRICULUM COMPLETE AT
+Last updated: 2026-08-22 ~22:2x (**noamp-headings90-r1 PASS closes
+the noamp lineage's own record of the +/-90deg rung** — gait_valid
+6/6 det+sto, zero sacrificed legs, prog med det 1.12/sto 0.85, dir_err
+med det 39.2/sto 51.9, height_err single-digit mm, essentially a wash
+vs the style05 twin (style still NOT functionally protective at this
+dose, matches headings20's read). No further noamp continuation
+queued on this specific rung (the style05 lineage already advanced
+past it via headingsfull); a concurrent cycle has since started
+`cw-amp-m2-bcinit-sec5-noamp-headingsfull` independently. **NEW M4
+LEVER LAUNCHED THIS CYCLE:** `cw-amp-m4-faultobs1-{noamp,control-r1}`
+— wires the already-built-but-untrained `obs.fault_health=1` (18-dim
+fault vector, test_fault_injection.py 14/14) into the faultsmoke1
+pair via `--obs-pad-transplant 18` (zero-padded, bit-identical at
+init), single lever vs faultsmoke1-{noamp,control}: can the policy
+actually use SIGHT of its own fault to compensate better than the
+faultsmoke1-noamp blind baseline (det gait_valid 5/6, faulted-episode
+prog_ratio 0.49/slip 5.99), with -control-r1 as the no-fault sanity
+twin isolating the obs-widening itself from the fault-seeing effect.
+First real M4 adaptation reading (M4 was NOT STARTED before this).
+Prior banner below.)
+
+Previous entry (~22:0x (**HEADING CURRICULUM COMPLETE AT
 DR-0 — `cw-amp-m2-bcinit-sec5-style05-headingsfull` VERDICTED PASS:
 the one-step jump from +/-25deg to FULL-CIRCLE headings (incl.
 backward, never in the BC init) WORKS; the +/-90deg intermediate
