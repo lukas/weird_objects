@@ -117082,7 +117082,7 @@
       "rl_move/sim/motion_library/teacher_v2.npz"
     ],
     "created": "2026-08-22T16:07:15+00:00",
-    "status": "FINISHED",
+    "status": "DONE",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -117118,7 +117118,9 @@
         "verdict": "FINISHED_BEFORE_CHECKUP",
         "log_tail": "_real_mean 0.78077\nwandb:      amp/disc_updates 124\nwandb:                amp/gp 0.00705\nwandb:              amp/loss 0.12565\nwandb: amp/pairs_per_rollout 65335\nwandb:        amp/replay_len 500000\nwandb: amp/style_reward_mean 0.05348\nwandb:                  +102 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-amp-m2-freeprog-term400-style05-v2 at: https://wandb.ai/l2k2/hexapod-balance/runs/s8lnr8oo\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 3 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260822_160809-s8lnr8oo/logs\n"
       }
-    ]
+    ],
+    "verdict": "FAIL, twin to stylew2-v2 (both triaged jointly this cycle, eval run by this cycle since it had finished unstaged): DR-0 det median fwd travel 0.03m/15s (bar 0.10m), slip med 8.09/m, gait_valid 5/6 det (leg3 sacrificed ep5) + 6/6 sto, zero terminations. Contact sheet/frame strips visually indistinguishable from stylew2-v2 and from -noamp -- same in-place march/shuffle basin, clean teacher_v2 lib made no visible difference. AMP healthy (d_real 0.781 vs d_fake -0.961) but style_reward_mean 0.053, env/reward_amp_style final 0.027/tick -- an order of magnitude below freeprog_pen's -1.49/tick. W&B reward fell every quarter (-72/-239/-451/-571), never rising -- genuine flat/declining FAIL. Retires the 'corrupted teacher_v1 lib' caveat definitively (clean teacher_v2, still statues) and confirms per the pre-registered decision rule: with stylew2-v2 ALSO statued at 4x dose, the AMP-style-income route is refuted at 2M discovery scale for this pricing family across the whole tested dose range. Next lever per STATUS.md's ladder: a genuinely new income mechanism, not another blend dose -- cw-amp-m2-freeprog-term400-fixedcmd{,-seed11} launched same cycle (isolates task-command complexity vs reward shape using the SLIPWALK bank's own literal fixed-command setup).",
+    "triage": "done"
   },
   {
     "run": "cw-dep-bcgait4-phasedir9-longrun17-stotight45",
@@ -117404,7 +117406,7 @@
       "rl_move/sim/motion_library/teacher_v2.npz"
     ],
     "created": "2026-08-22T16:11:12+00:00",
-    "status": "FINISHED",
+    "status": "DONE",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -117433,7 +117435,7 @@
     "log": "/tmp/train_cw-amp-m2-freeprog-term400-stylew2-v2.log",
     "wandb_id": "k2odtq4b",
     "verified": "2026-08-22T16:14:32+00:00",
-    "triage": "in-cycle cw-amp-m2-freeprog-term400-stylew2-v2 since 2026-08-22T16:18:23",
+    "triage": "done",
     "checkups": [
       {
         "time": "2026-08-22T16:19:49+00:00",
@@ -117441,7 +117443,8 @@
         "verdict": "FINISHED_BEFORE_CHECKUP",
         "log_tail": "_real_mean 0.78556\nwandb:      amp/disc_updates 124\nwandb:                amp/gp 0.00737\nwandb:              amp/loss 0.13028\nwandb: amp/pairs_per_rollout 65328\nwandb:        amp/replay_len 500000\nwandb: amp/style_reward_mean 0.06618\nwandb:                  +102 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-amp-m2-freeprog-term400-stylew2-v2 at: https://wandb.ai/l2k2/hexapod-balance/runs/k2odtq4b\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 3 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260822_161207-k2odtq4b/logs\n"
       }
-    ]
+    ],
+    "verdict": "FAIL against own gate, matching noamp/style05-v2: DR-0 det median fwd travel 0.03m/15s (bar 0.10m), slip med 10.45/m, gait_valid 5/6 det + 6/6 sto (one sacrificed leg det ep1), zero terminations. Video (contact sheet + 6 det + 6 sto frame strips) shows the same in-place march/shuffle basin as every other term400 arm -- legs cycling, body not translating across the episode. AMP mechanism stayed healthy (d_real 0.786 vs d_fake -0.957, unsaturated; style_reward_mean stayed LOW at 0.066 all run so the pre-registered in-place-mimicry cheat did NOT fire) but even at 4x style05-v2's dose (2.0/1.0 vs 0.5/0.5) realized style income only reached env/reward_amp_style=0.135/tick vs freeprog_pen's flat -1.42/tick -- an order of magnitude short, and W&B reward fell every quarter (-130/-469/-877/-1084, never rising) so this is a genuine flat/declining-reward FAIL, not continue-longer. Jointly with style05-v2 (0.5x dose, also FAIL, near-identical numbers): BOTH doses statued at 2M per the pre-registered decision rule -- the AMP-style-income route is refuted at this discovery scale for the freeprog/term400 pricing family regardless of dose (0.5-2.0x) or motion-lib cleanliness (teacher_v2). Per STATUS.md's own pre-committed ladder, next lever is a genuinely new income mechanism, not another blend dose. Follow-up launched same cycle: cw-amp-m2-freeprog-term400-fixedcmd{,-seed11} (task-complexity isolation, SLIPWALK bank's own exact fixed command)."
   },
   {
     "run": "cw-dep-bcgait4-phasedir10-allowramp2-slow-seed23",
@@ -118312,5 +118315,86 @@
     "assessment_scope": "short_behavior_discovery",
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:amp PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-amp-m2-freeprog-term400-fixedcmd-seed11 --steps 2000000 --task joint_walk --asym-critic --n-envs 4096 --impl warp --host-workers 24 --episode-seconds 15 --eval-every 1000000 --video-every 2000000 --no-canary --seed 11 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.05 --out-name ppo_goal_cw_amp_m2_freeprog_term400_fixedcmd_seed11 --notes 'Plain English: test whether a from-scratch policy can learn to walk forward AT ALL once the task is the exact simplest case the SLIPWALK semantics bank itself already validates -- one fixed slow forward speed (0.05 m/s) held the whole episode, no direction changes, no stops, no turns, no mid-episode resampling. Every AMP-M2 arm to date (noamp/style05/stylew2, all -v2 relaunches, and stagecurric) threw the FULL randomized stress_mix joystick command stream (resample every 1.75s, yaw commands, 15% stops) at a from-scratch actor from step 0 or within the first 60% of the budget; even stagecurric'\"'\"'s stage-0 sub-problem was a ramp window, never a fully-held simplest task for the WHOLE run. Single lever vs cw-amp-m2-freeprog-term400-noamp: replace the goal.* command config with the literal SLIPWALK_OVERRIDES fixed command (walk_speed_min_m_s=walk_speed_max_m_s=0.05, walk_heading_max_rad=0, no resample/yaw/stop keys at all) -- byte-identical reward stack, no AMP, same seed(s) as noamp/style05-v2/stylew2-v2 plus one fresh seed given this lineage'\"'\"'s repeated seed-basin-lottery finding. Prediction-if-true: det median fwd travel clears the bank'\"'\"'s own scripted gait reference at this speed (~0.16-0.22m/15s per slipwalk_returns) and gait_valid stays high -- task/command COMPLEXITY, not reward shape, was the barrier, and the stress_mix/stagecurric arms should be revisited with a longer, truly-held stage-0 phase before touching reward code again. Prediction-if-false: the same statue/march-in-place basin persists even at the bank'\"'\"'s own simplest already-validated case -- this is a genuine from-scratch PPO exploration/basin-barrier problem independent of command complexity, and the next lever is a structurally different mechanism (RSI from teacher_v2 motion-library poses matched to THIS stack, or a stance-load curriculum), not another task-distribution or reward-dose tweak.' --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_park_duty=2.0 --cfg-set reward.k_walk_freeprog=3.0 --cfg-set reward.walk_freeprog_cap_m_s=0.05 --cfg-set reward.walk_loadslip_gate=0.0 --cfg-set reward.loadslip_ok=1.5 --cfg-set reward.k_loadslip_excess=6.0 --cfg-set reward.walk_gait_gate=1.0 --cfg-set reward.k_walk_idle_charge=20.0 --cfg-set reward.walk_idle_speed_m_s=0.02 --cfg-set reward.walk_idle_tau_s=1.0 --cfg-set goal.walk_pure=1.0 --cfg-set reward.term_penalty=400.0 --cfg-set goal.walk_heading_max_rad=0.0 > /tmp/train_cw-amp-m2-freeprog-term400-fixedcmd-seed11.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-amp-m2-freeprog-term400-fixedcmd-seed11.log"
+  },
+  {
+    "run": "cw-amp-m2-freeprog-term400-fixedcmd",
+    "pod": "hexapod-mjx-train-3",
+    "steps": 2000000,
+    "smoke": false,
+    "hypothesis": "Plain English: test whether a from-scratch policy can learn to walk forward AT ALL once the task is the exact simplest case the SLIPWALK semantics bank itself already validates -- one fixed slow forward speed (0.05 m/s) held the whole episode, no direction changes, no stops, no turns, no mid-episode resampling. Single lever vs cw-amp-m2-freeprog-term400-noamp: replace the goal.* command config with the literal SLIPWALK_OVERRIDES fixed command; byte-identical reward stack, no AMP. See --notes on the launched run for the full writeup.",
+    "gate": "Discovery (2M, DR-0 harness walk mode, 6 det + 6 sto, own cfg -- eval auto-matches this run's own fixed-command training cfg). PASS = median det fwd travel >= 0.10 m/15s AND gait_valid >= 4/6 det AND no sacrificed legs AND video shows six-leg cycling with net forward displacement, read against the SLIPWALK bank's own gait(+417,0.22m)/creep(+108,0.16m)/stall(-143)/park(-244) reference. Prediction-if-true: task complexity (not reward shape) was the barrier -- revisit stress_mix/stagecurric with a longer held stage-0. Prediction-if-false: statue persists at the bank's own simplest case -- genuine PPO exploration/basin-barrier problem; next lever is RSI or a stance-load curriculum, not another task/dose tweak.",
+    "parent": "cw-amp-m2-freeprog-term400-noamp",
+    "track": "amp",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--asym-critic",
+      "--n-envs",
+      "4096",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--episode-seconds",
+      "15",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--no-canary",
+      "--seed",
+      "7",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.05",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.05",
+      "--out-name",
+      "ppo_goal_cw_amp_m2_freeprog_term400_fixedcmd",
+      "--notes",
+      "Plain English: test whether a from-scratch policy can learn to walk forward AT ALL once the task is the exact simplest case the SLIPWALK semantics bank itself already validates -- one fixed slow forward speed (0.05 m/s) held the whole episode, no direction changes, no stops, no turns, no mid-episode resampling. Every AMP-M2 arm to date (noamp/style05/stylew2, all -v2 relaunches, and stagecurric) threw the FULL randomized stress_mix joystick command stream (resample every 1.75s, yaw commands, 15% stops) at a from-scratch actor from step 0 or within the first 60% of the budget; even stagecurric's stage-0 sub-problem was a ramp window, never a fully-held simplest task for the WHOLE run. Single lever vs cw-amp-m2-freeprog-term400-noamp: replace the goal.* command config with the literal SLIPWALK_OVERRIDES fixed command (walk_speed_min_m_s=walk_speed_max_m_s=0.05, walk_heading_max_rad=0, no resample/yaw/stop keys at all) -- byte-identical reward stack, no AMP, same seed(s) as noamp/style05-v2/stylew2-v2 plus one fresh seed given this lineage's repeated seed-basin-lottery finding. Prediction-if-true: det median fwd travel clears the bank's own scripted gait reference at this speed (~0.16-0.22m/15s per slipwalk_returns) and gait_valid stays high -- task/command COMPLEXITY, not reward shape, was the barrier, and the stress_mix/stagecurric arms should be revisited with a longer, truly-held stage-0 phase before touching reward code again. Prediction-if-false: the same statue/march-in-place basin persists even at the bank's own simplest already-validated case -- this is a genuine from-scratch PPO exploration/basin-barrier problem independent of command complexity, and the next lever is a structurally different mechanism (RSI from teacher_v2 motion-library poses matched to THIS stack, or a stance-load curriculum), not another task-distribution or reward-dose tweak.",
+      "--cfg-set",
+      "reward.k_step_event=1.0",
+      "--cfg-set",
+      "reward.k_park_duty=2.0",
+      "--cfg-set",
+      "reward.k_walk_freeprog=3.0",
+      "--cfg-set",
+      "reward.walk_freeprog_cap_m_s=0.05",
+      "--cfg-set",
+      "reward.walk_loadslip_gate=0.0",
+      "--cfg-set",
+      "reward.loadslip_ok=1.5",
+      "--cfg-set",
+      "reward.k_loadslip_excess=6.0",
+      "--cfg-set",
+      "reward.walk_gait_gate=1.0",
+      "--cfg-set",
+      "reward.k_walk_idle_charge=20.0",
+      "--cfg-set",
+      "reward.walk_idle_speed_m_s=0.02",
+      "--cfg-set",
+      "reward.walk_idle_tau_s=1.0",
+      "--cfg-set",
+      "goal.walk_pure=1.0",
+      "--cfg-set",
+      "reward.term_penalty=400.0",
+      "--cfg-set",
+      "goal.walk_heading_max_rad=0.0"
+    ],
+    "created": "2026-08-22T16:38:56+00:00",
+    "status": "REFUSED",
+    "checks": {
+      "cpu_limit": 28,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-93430c9e-0899-c720-ef49-54639df125c0)",
+      "running_experiments_before": 3,
+      "code_sha_local": "fdbddb525899cacb6e575bc7c9f01ebd136405b3",
+      "code_sha_pod": "7b104fe6bb2e50d577cbcdcd31bb27805cd3b888"
+    },
+    "trainer": "ppo",
+    "stack": "gpu-mjx",
+    "phase": "discovery",
+    "assessment_scope": "short_behavior_discovery",
+    "refused_reason": "hexapod-mjx-train-3 code marker 7b104fe6bb2e50d577cbcdcd31bb27805cd3b888 != local HEAD fdbddb525899cacb6e575bc7c9f01ebd136405b3. Sync first: snapshot.sh --sync hexapod-mjx-train-3 (and snapshot/commit before that if the tree is dirty)."
   }
 ]
