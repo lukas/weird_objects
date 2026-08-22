@@ -13,6 +13,7 @@ for _p in (_ROOT / "motor_setup", _HERE):
 
 from imu_calibrate import apply_imu_calib, imu_body_frame_from_roll_pitch  # noqa: E402
 from inplace_demos import QuadPitchTrim  # noqa: E402
+import quad_walk as QW  # noqa: E402
 from quad_walk import make_quad_walk_pose_fn  # noqa: E402
 
 
@@ -129,6 +130,38 @@ def test_saved_body_frame_handles_off_axis_imu() -> None:
     assert forward["body_dx_trim_mm"] < 0.0
 
 
+def test_legacy_wrong_way_quad_body_frame_loads_as_forward_positive() -> None:
+    # 08-22 hardware bug: the old quad "rear-up" lifted the rear pair and
+    # tipped the body forward. That saved a raw positive pitch vector with a
+    # negative sign, making the UI/controller report forward as negative.
+    legacy_body_frame = {
+        "version": 1,
+        "source": "quad_rear_body_frame",
+        "timestamp": "2026-08-22T00:00:00",
+        "n_samples": 10,
+        "expected_pitch_deg": -30.0,
+        "measured_roll_deg": 0.4,
+        "measured_pitch_deg": 30.0,
+        "measured_lean_deg": math.hypot(0.4, 30.0),
+        "body_pitch_target_deg": -30.0,
+        "pitch_axis": "pitch",
+        "pitch_axis_roll": 0.4 / math.hypot(0.4, 30.0),
+        "pitch_axis_pitch": 30.0 / math.hypot(0.4, 30.0),
+        "pitch_sign": -1.0,
+    }
+    calib = {
+        "gyro_bias_dps": {"x": 0.0, "y": 0.0, "z": 0.0},
+        "accel_bias_g": {"x": 0.0, "y": 0.0, "z": 0.0},
+        "body_frame": legacy_body_frame,
+    }
+    forward = apply_imu_calib(_imu_pitch(+12.0), calib)
+    rearward = apply_imu_calib(_imu_pitch(-12.0), calib)
+    assert forward["body_frame_calibrated"]
+    assert forward["body_pitch_deg"] > 10.0
+    assert rearward["body_pitch_deg"] < -10.0
+    assert forward["body_pitch_target_deg"] < 0.0
+
+
 def test_body_frame_trim_targets_measured_rear_lean() -> None:
     body_frame = imu_body_frame_from_roll_pitch(
         13.0, 13.0, expected_pitch_deg=-24.0, samples=10)
@@ -149,6 +182,23 @@ def test_body_frame_trim_targets_measured_rear_lean() -> None:
                + math.hypot(13.0, 13.0)) < 0.5
     assert abs(data["err_deg"]) < 0.5
     assert abs(data["pitch_trim_deg"]) < 0.5
+
+
+def test_negative_command_quad_trim_pushes_more_negative_for_forward_tip() -> None:
+    trim = QuadPitchTrim(expected_pitch_deg=-30.0, gait="walk")
+    imu = {"body_frame_calibrated": True, "body_pitch_target_deg": -20.0}
+    for i in range(3):
+        trim.update({**imu, "body_pitch_deg": -20.0}, i * 0.25)
+    assert trim.ready
+
+    # Forward means adjusted pitch is too positive. Quad rear-up uses the
+    # negative body-pitch/body-x command convention.
+    trim.update({**imu, "body_pitch_deg": -8.0}, 1.0)
+    trim.update({**imu, "body_pitch_deg": -8.0}, 1.25)
+    data = trim.event_data()
+    assert data["err_deg"] > 0.0
+    assert data["pitch_trim_deg"] < 0.0
+    assert data["body_dx_trim_mm"] < 0.0
 
 
 def test_recovery_engages_and_releases() -> None:
@@ -224,6 +274,26 @@ def test_pose_factory_accepts_trim() -> None:
     pose = fn(1.0)
     assert len(pose) == 18
     assert all(isinstance(x, float) for x in pose)
+
+
+def test_hardware_quad_rear_presets_load_rear_support_pair() -> None:
+    base = [0.0, 16.1, 43.5] * 6
+    hardware_gaits = (
+        "rear_safe", "walk_safe", "rear", "walk", "rear_pitch",
+        "walk_pitch", "rear_aft", "walk_aft", "rear_high", "walk_high",
+        "rear_step", "walk_step",
+    )
+    for gait in hardware_gaits:
+        q = QW.QuadRearWalk(base, 30.0, gait=gait)
+        pose = q.reared_pose()
+        rear_hips = (pose[3 * 2 + 1], pose[3 * 3 + 1])
+        rear_knees = (pose[3 * 2 + 2], pose[3 * 3 + 2])
+        mid_hips = (pose[3 * 1 + 1], pose[3 * 4 + 1])
+        assert q.rear_press - q.body_z >= 0.030, gait
+        assert min(rear_hips) >= 18.0, (gait, rear_hips)
+        assert 32.0 <= min(rear_knees) <= max(rear_knees) <= 46.0, (
+            gait, rear_knees)
+        assert max(mid_hips) <= 29.8, (gait, mid_hips)
 
 
 def _main() -> int:

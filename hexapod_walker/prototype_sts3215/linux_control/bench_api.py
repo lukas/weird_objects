@@ -7659,8 +7659,8 @@ class BenchAPI:
         This is a small live sign/authority test: acquire the safer
         tuck-stand start, keep the same four support feet, command a list
         of body pitch angles, and record the adjusted IMU pitch/roll plus
-        currents after each settle. This chassis uses positive quad IK
-        pitch for rear-up, while adjusted IMU body pitch should become
+        currents after each settle. Quad IK uses negative body pitch for
+        rear-up, while adjusted IMU body pitch should become
         more negative when the physical body leans the intended way.
         """
         d = self.drive
@@ -7670,10 +7670,10 @@ class BenchAPI:
             return {"ok": False, "error": "stop the running job first"}
         try:
             targets = [float(x) for x in (pitches or
-                       [0.0, 4.0, 8.0, 12.0, 16.0, 20.0])]
+                       [0.0, -4.0, -8.0, -12.0, -16.0, -20.0])]
         except (TypeError, ValueError):
             return {"ok": False, "error": "pitches must be numbers"}
-        targets = [max(-4.0, min(32.0, x)) for x in targets[:12]]
+        targets = [max(-32.0, min(4.0, x)) for x in targets[:12]]
         if not targets:
             return {"ok": False, "error": "no pitch targets"}
         settle = max(0.4, min(3.0, float(settle_s)))

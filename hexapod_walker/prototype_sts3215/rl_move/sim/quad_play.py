@@ -263,7 +263,15 @@ def run_headless(gaits: list[str], seconds: float, *,
         pl.reset()
         rear_only = gait.startswith("rear")
         pl.cmd_rear(then_walk=not rear_only)
-        n = int((18.0 if rear_only else seconds) * CTRL_HZ)
+        # Headless uses wall time, while quad entry is slowed by each gait's
+        # hardware speed cap. Sim long enough to actually reach reared/walk;
+        # otherwise a too-short run can report "no contacts" as success.
+        min_demo_after_entry = 1.5 if rear_only else 4.0
+        min_wall = (
+            (QW.ENTRY_TOTAL_S + min_demo_after_entry)
+            / max(pl.speed_eff, 0.05)
+        )
+        n = int(max(18.0 if rear_only else seconds, min_wall) * CTRL_HZ)
         max_tilt = 0.0
         fell = False
         support_legs = {"L1", "L2", "L3", "L4"}
@@ -287,8 +295,7 @@ def run_headless(gaits: list[str], seconds: float, *,
                 contact_samples += 1
         dist_mm = 1000.0 * (float(pl.data.qpos[0]) - pl.x0)
         expected_min = 4 if rear_only else 2
-        support_ok = (
-            contact_samples == 0 or support_min >= expected_min)
+        support_ok = contact_samples > 0 and support_min >= expected_min
         failed = fell or bool(front_hits) or bool(bad_contacts) or not support_ok
         failures += int(failed)
         contact_note = (
