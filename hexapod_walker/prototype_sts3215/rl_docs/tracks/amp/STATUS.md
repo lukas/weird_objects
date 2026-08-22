@@ -1,9 +1,23 @@
 # amp - AMP locomotion from scratch
 
-Last updated: 2026-08-22 (M2 freeprog fix pair VERDICTED FAIL, both
-arms — see banner below: the repriced anti-slip stack neither froze
-nor walked, it destabilized. DIG-IN queued before another discovery
-arm. Prior finding for lineage: the M2 -c1 dig-in found both
+Last updated: 2026-08-22 (M2 freeprog DIG-IN RESOLVED: the topple was
+SUICIDE ECONOMICS, a pricing defect — with per-tick charges ~-1.4 to
+-3/tick and reward.term_penalty=0, dying was FREE; a scripted 1 s
+topple netted +19/ep vs park -243 / stall -143, the best-paying
+behavior in the bank short of walking. Both arms LEARNED survival
+first (ep_len 28->310) then flipped to fast death in q4 (tilt terms
+59->132 / 90->241) at CONSTANT std 0.367 — so log-std anneal and
+charge ramp-in are both REFUTED as fixes; style05's q4 reward
+"recovery" is confirmed faster death (ep_len 292->230, terms x2.7).
+AMP exonerated (healthy all run) but a style channel cannot price
+termination. Cheat encoded:
+test_slipwalk_toppling_fast_is_not_an_escape + term_penalty=400 in
+SLIPWALK_OVERRIDES (topple -381 < park; bit-exact for survivors; bank
+7/7 PASS, commit d9554b04). Fix pair QUEUED:
+cw-amp-m2-freeprog-term400-{noamp,style05}, single change
+reward.term_penalty=400 — re-runs the Wave-1 style-vs-control fork
+the suicide basin short-circuited. Prior finding for lineage: the
+M2 -c1 dig-in found both
 legacy-priced pilots MISALIGNED — a statue paid ~1.9/tick
 (rise_finish + posture/height kernels + the sigma-0.05 velocity
 kernel paying ~0.45/tick to v=0 across low/stop commands) while
@@ -45,11 +59,11 @@ Build every tool this needs; do not pause on operator input.
 - M1 motion library: **DONE 08-22** (generator + v1 dataset;
   discriminator core + style reward + banks; live reward-loop wiring
   landed and smoke-verified — see Now item on AMPStyleVecWrapper)
-- M2 beautiful normal gait: IN PROGRESS/BLOCKED (pilot pair -> -c1
-  MISALIGNED -> freeprog repriced fix pair FAIL, both 08-22: the
-  repriced stack destabilizes instead of freezing or walking; see
-  banner + Now. DIG-IN queued to find a survivable from-scratch
-  config before Wave-1 sizing)
+- M2 beautiful normal gait: IN PROGRESS (pilot pair -> -c1 statue
+  MISALIGNED -> freeprog pair FAIL by suicide economics (dig-in
+  resolved 08-22, see banner) -> term_penalty=400 fix pair
+  cw-amp-m2-freeprog-term400-{noamp,style05} QUEUED — the Wave-1
+  style-vs-control fork re-run with death priced out)
 - M3 push recovery: NOT STARTED
 - M4 fault adaptation: NOT STARTED
 - M5 MuJoCo transfer (= DONE gate): NOT STARTED

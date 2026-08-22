@@ -206,19 +206,36 @@ out-of-scope runs get honest triage but no agent follow-ups.
   1.254x), matching the pre-registered prediction-if-false almost
   exactly. Zero falls, gait_valid 6/6, clean video both seeds. Reads
   as pd9's near-pass being partly seed luck on top of the log-std-
-  anneal fix, not a reliably repeatable recipe. New telemetry lead
-  for the still-open "BC-anchor/phase-lock family boundary" question
-  (pd8/pd9's own pre-registered branch-(ii) item, never traced): W&B
-  `train/bc_anchor_loss_walk` is already tiny (0.00005-0.0007,
-  reads converged) and `env/walk_anchor_frac` already high
-  (0.80-0.93) on BOTH seed13 and seed17, yet realized `swing_s_mean`
-  runs ~30% slower than the teacher/clone (0.34-0.36s vs 0.25-0.27s)
-  on both — a near-zero action-space anchor loss coexisting with a
-  large realized-cadence gap points at stochastic-action/servo-slew/
-  plant realization as the boundary, not supervision strength;
-  raising `train.bc_anchor_coef` blind is NOT recommended before an
-  on-pod per-tick trace (bc_target cadence vs realized policy cadence
-  vs raw un-phase-locked teacher cadence) exists.
+  anneal fix, not a reliably repeatable recipe.
+- BC-ANCHOR/PHASE-LOCK FAMILY BOUNDARY: RESOLVED, NO CADENCE GAP
+  (08-22 dig-in on seed17; tool `rl_move/sim/trace_bc_cadence.py`,
+  evidence `logs/ckpt_eval/pd9seed17_bc_cadence_trace/trace.json`).
+  Per-tick trace of policy vs BC clone vs RAW un-phase-locked
+  scripted teacher in the identical env (DR-0 det, pinned 0.08 m/s
+  forward): ALL THREE cycle at 0.76 s == the bc_target's own period
+  == the 0.75 s phase-obs clock (TripodGait.period=0.75 ==
+  1/walk_phase_hz=1.333 by construction — the teacher's cadence is
+  speed-INDEPENDENT). The "realized swing_s_mean ~30% slower than
+  the teacher" premise was a CONTACT-SEGMENTATION ARTIFACT: the
+  clone's 0.25-0.27 s "swing" comes from double lift-offs per cycle
+  (24-36 lifts/leg/15 s vs ~19 true cycles; lift-to-lift median
+  0.44 s vs 0.76 s), which SPLITS its swings; the RL policy single-
+  swings cleanly (19-24 lifts/leg) at 0.372 s vs the raw teacher's
+  realized 0.345 s (+8%, minor). Supervision is honest in the eval
+  regime: policy-vs-bc_target action MSE 0.00136 (the clone's own is
+  4x worse, 0.00549), realized-vs-target xcorr ~1.00 at the same
+  ~3-tick (0.12 s) servo lag as the clone. LEVER CLASS CLOSED:
+  `train.bc_anchor_coef` dose, `goal.walk_phase_hz`, and phase-lock
+  plumbing are all exonerated — do not spend arms there. Failing
+  seeds' residual rung deficit is loaded-foot slip during stance at
+  MATCHED gait timing/stride/duty (seed17 slip 2.85/m vs clone
+  1.89), i.e. the pinned slip-financed-progress family; the
+  seed13/seed17 divergence is the init/seed-basin lottery on the
+  ~flat reward surface, so the next budget unit is the recipe's
+  SEED PASS RATE (longrun29 running, longrun23 queued), then promote
+  the best det passer. Also: `env/walk_anchor_frac` is the anchored-
+  stance INCOME-GATE fraction (walk_task), not a supervision-
+  coverage metric — do not read it as BC-anchor health.
 - PHASEDIR9 BUDGET LEVER: SEED-DEPENDENT, NOT CLOSED (08-22,
   `phasedir9-longrun13` FAIL / `-longrun17` CORRECTED TO PASS
   (partial) — see correction note below): 2x the converged-regime
@@ -240,11 +257,12 @@ out-of-scope runs get honest triage but no agent follow-ups.
   falls, gait_valid 6/6, clean roll, no sacrificed legs, clean 6-leg
   video both runs. So the budget lever is NOT uniformly closed —
   it is seed-dependent: identical recipe, opposite basins. DIG-IN
-  QUEUED (not yet run): reproduce `longrun17` independently before
-  any promotion/champion-append, and root-cause the seed13/seed17
-  divergence — likely the same BC-anchor/phase-lock family-boundary
-  question (below): do not spend a further from-scratch budget arm,
-  and do not treat budget-scaling as refuted, until that lands.
+  state: (a) reproduce `longrun17` independently before any
+  promotion/champion-append — `longrun29` (seed29) RUNNING,
+  `longrun23` (seed23) queued; (b) the family-boundary question is
+  RESOLVED (bullet above): supervision exonerated, the divergence is
+  the init/seed-basin lottery, so treat this recipe as a measurable
+  seed lottery and decide promotion on the n=4 pass rate.
   PROCESS NOTE: a run's ledger verdict must wait for its eval's
   SYNCED marker (per the orchestrator prompt's own instruction) —
   this is the concrete failure mode that instruction exists to

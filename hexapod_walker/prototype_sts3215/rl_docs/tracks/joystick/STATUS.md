@@ -12,16 +12,31 @@ stays correctly verdicted FAIL/worse (0.792x/1.286x). So the "budget
 lever is closed end-to-end" conclusion below is WRONG for seed17 and
 right for seed13 — a genuine seed-dependent divergence on an
 identical recipe, not a settled answer either way. Ledger set to
-`PASS (partial)` pending a DIG-IN (queued, not yet run): reproduce
-`-longrun17` independently before any promotion, and root-cause why
-seed13/seed17 landed in opposite basins — likely the same BC-anchor/
-phase-lock family-boundary question already flagged (W&B
-`train/bc_anchor_loss_walk` reads converged on every seed while
-realized `swing_s_mean` still lags the teacher ~30%). Do not spend a
-further from-scratch budget arm, and do not treat budget-scaling as
-refuted, until that dig-in lands. Superseded text below kept for the
-lineage record; treat its "FORK RESOLVED/EXONERATED end to end"
-language as void.
+`PASS (partial)` pending: reproduce `-longrun17` independently before
+any promotion (`-longrun29` seed29 RUNNING), and root-cause the
+seed13/seed17 divergence. **BC-anchor/phase-lock family-boundary
+DIG-IN RESOLVED same day** (per-tick trace,
+`rl_move/sim/trace_bc_cadence.py`,
+`logs/ckpt_eval/pd9seed17_bc_cadence_trace`): NO cadence gap exists —
+policy, clone AND raw teacher all cycle at 0.76 s == bc_target ==
+the 0.75 s phase clock (TripodGait.period=0.75 == 1/walk_phase_hz by
+construction). The "swing_s_mean ~30% slower" premise was a
+contact-segmentation ARTIFACT: the clone's 0.25 s "swing" is double
+lift-offs per cycle (24-36 lifts/leg/15 s vs ~19 cycles, lift-to-
+lift 0.44 s vs 0.76 s) splitting its swings; the policy single-
+swings cleanly at 0.372 s vs the raw teacher's realized 0.345 s
+(+8%). Supervision is honest in the eval regime (policy-vs-bc_target
+MSE 0.00136; the clone's own is 0.00549; xcorr ~1.00 at the same
+~3-tick servo lag). LEVER CLASS CLOSED: anchor dose, walk_phase_hz,
+phase-lock plumbing all exonerated. The seed divergence is therefore
+NOT a supervision defect — it is the known init/seed-basin lottery
+on a reward surface that is ~flat across honest and drag basins at
+annealed-low std; the residual rung deficit on failing seeds is
+loaded-foot slip during stance at MATCHED gait timing/stride/duty
+(seed17 slip 2.85/m vs clone 1.89). Next budget = measure the
+recipe's seed pass rate (longrun29 + longrun23), then promote the
+best det passer. Superseded text below kept for the lineage record;
+treat its "FORK RESOLVED/EXONERATED end to end" language as void.
 
 Previous entry (08-22, phasedir9-seed17 VERDICTED FAIL-as-
 reproduction): pd9-stdanneal's 2M near-pass (0.873x progress, 1.08x
@@ -248,17 +263,16 @@ with:
    IDENTICAL recipe/steps/anneal and landed on opposite outcomes
    (worse vs. first-ever pass). That seed-dependent divergence, not a
    uniform "budget helps" or "budget doesn't help" story, is now the
-   open question. **DIG-IN QUEUED** (flagged this cycle, not yet
-   run): (a) reproduce `-longrun17`'s reading independently before
-   any promotion/champion-append; (b) root-cause why the same recipe
-   put seed13 and seed17 in opposite basins — this bears directly on
-   the still-open BC-anchor/phase-lock family-boundary trace (pd8
-   branch (ii): `bc_target` cadence vs realized policy cadence vs raw
-   un-phase-locked teacher cadence, since `train/bc_anchor_loss_walk`
-   reads converged on every seed tried while realized `swing_s_mean`
-   lags ~30%). Do not spend a further from-scratch budget-scaling
-   arm on this stack until the dig-in lands; do not treat the budget
-   lever as closed either.
+   open question. DIG-IN state: (a) reproduce `-longrun17`'s reading
+   — `-longrun29` (seed29) RUNNING, `-longrun23` (seed23) queued this
+   cycle: with seed13 FAIL + seed17 PASS the question is the recipe's
+   PASS RATE, n=4 seeds decides promotion strategy (select-best-of-N
+   is legitimate if the surface is a seed lottery). (b) the family-
+   boundary trace is **RESOLVED 08-22** (see banner): no cadence gap,
+   supervision exonerated, `swing_s_mean` premise was clone contact-
+   chatter; the divergence is the init/seed-basin lottery, and the
+   failing seeds' deficit is stance slip at matched gait timing. Do
+   NOT spend arms on anchor dose / walk_phase_hz / phase-lock edits.
 4. RL fine-tune from the phase clone (and a walk-champion arm as
    control) with the reward aligned to the gate metrics, resuming
    the staged heading curriculum; extend budget while reward and
