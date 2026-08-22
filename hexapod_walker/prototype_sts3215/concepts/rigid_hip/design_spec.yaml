@@ -1,0 +1,182 @@
+# Design spec — sts3215-rigid-hip (CONCEPT BUILD, not production).
+#
+# User idea, Aug 2026: the production yaw joint rides a 6805-2RS pair in
+# chassis_bottom's tower, but the coxa link + hip servo above it are a
+# cantilever — leg loads twist the hip about the bearing pair.  This
+# variant adds a THIRD 6805 per leg above the hip: the hip clamp cap is
+# extended up along the yaw axis into an inner-race press boss, and a
+# second full-size (200 mm flat-to-flat) hex plate pockets all six outer
+# races from below.  Each yaw axis becomes simply-supported; the hip
+# servo is held rigidly between the two plates.
+#
+# Every fit reuses a bench-tuned production constant (YAW_HUB_BOSS_OD
+# press boss, YAW_TOWER_BORE_OD race pocket, YAW_TOWER_SHOULDER_OD
+# retaining lip, YAW_TOWER_WALL ring wall).
+#
+# Measured trade-off (build-time sweep in make_rigid_hip_variant.py):
+# the plate caps femur up-swing at -47.5 deg (production workspace
+# allowed -80).  Walking near STANCE_FEMUR_DEG = -25 keeps ~22 deg of
+# headroom; deep tucks (stand-up belly curl) must be re-checked before
+# this goes on the robot.
+
+parts:
+  hip_clamp_cap_rigid:
+    label: "Hip clamp cap + yaw-axis bearing boss (concept)"
+    aliases: ["rigid hip cap", "extended cap", "boss cap"]
+    description: >-
+      The stock make_servo_clamp_cap() hip clamshell lid grown UP along
+      the yaw axis: a phi 29 pedestal (inner-race seat shoulder, same
+      role as the yaw hub's flange) and a phi 25.15 press boss that the
+      third 6805-2RS presses onto, with a phi 24 x 0.8 stepped lead-in.
+      The stack is coaxial with the YAW axis (cap-local x = 0,
+      z = 15.65), landing on solid flange-bar material >9 mm clear of
+      the two M3 counterbores.  Same 2x M3 mounting into the same coxa
+      cradle pilots; knee caps stay stock.  6 per robot.
+    generated_by:
+      file: "concepts/rigid_hip/make_rigid_hip_variant.py"
+      function: "make_hip_cap_rigid"
+      output_stl: "stl/hip_clamp_cap_rigid.stl"
+    local_frame:
+      origin: "Hip servo well frame (body back-face centre)"
+      axes:
+        x: "Servo body long axis (radial, outboard = +x)"
+        y: "Out of the open well face — world UP at the hip"
+        z: "Hip servo output (pitch) axis direction"
+    features:
+      pedestal:
+        label: "Phi 29 inner-race seat pedestal"
+        kind: "boss"
+        purpose: >-
+          Axial seat for the bearing inner race (phi 29 = the 6805
+          inner-race outer diameter, so the race is fully backed).
+          Height 5.5 mm sets the whole stack; its top face is the race
+          seat plane at world z 81.05.
+        llm_context: >-
+          Taller pedestal = higher plate = more femur up-range but a
+          longer cantilever inside the bearing and taller standoffs.
+          The build-time sweep prices this trade; re-run it before
+          changing PED_H.
+        dimensions:
+          ped_od:
+            label: "Pedestal OD"
+            value: 29.0
+            code_name: PED_OD
+            description: "= YAW_BEARING_INNER_OD (full inner-race backing)."
+          ped_h:
+            label: "Pedestal height above the cap face"
+            value: 5.5
+            code_name: PED_H
+      press_boss:
+        label: "Phi 25.15 inner-race press boss"
+        kind: "boss"
+        purpose: >-
+          Presses into the 6805 bore with the same +0.15 diametral
+          interference the production yaw hub boss uses
+          (YAW_HUB_BOSS_OD); 6.2 mm press band + 0.8 mm stepped lead-in
+          tip at phi 24.
+        llm_context: >-
+          Print the boss as a VERTICAL cylinder (rest the cap on its
+          tongue face) or the press band gets support scars; the +0.15
+          constant assumes the production boss's bench history.
+        dimensions:
+          boss_od:
+            label: "Press boss OD"
+            value: 25.15
+            code_name: BOSS_OD
+            description: "= YAW_HUB_BOSS_OD, bench-tuned +0.15 press."
+
+  chassis_top_rigid:
+    label: "Full-size top chassis with bearing pockets (concept)"
+    aliases: ["top plate", "second chassis", "bearing plate"]
+    description: >-
+      A second 200 mm flat-to-flat, 4 mm hex sheet (chassis_bottom's
+      footprint) at world z 88.05..92.05.  Six phi 44 full-height
+      bosses — one per yaw axis, half-bulging outboard exactly like the
+      bottom towers — pocket the third bearings' outer races from BELOW
+      at phi 37.15, each retained by a complete 360-deg phi 34
+      shoulder.  Carries the existing standoff pattern (4x M3 at
+      +/-31.1), the electronics-deck pattern (+/-24.75), and a phi 40
+      centre access hole.  Replaces the 140 mm chassis_top deck.
+      1 per robot.
+    generated_by:
+      file: "concepts/rigid_hip/make_rigid_hip_variant.py"
+      function: "make_chassis_top_rigid"
+      output_stl: "stl/chassis_top_rigid.stl"
+    local_frame:
+      origin: "World/chassis frame (chassis_bottom sheet mid-plane z=0)"
+      axes:
+        x: "Chassis +x"
+        y: "Chassis +y"
+        z: "Up"
+    features:
+      race_pocket:
+        label: "Phi 37.15 outer-race pocket (x6)"
+        kind: "bore"
+        purpose: >-
+          Downward-opening pocket; the race presses up until its top
+          face hits the phi 34 shoulder (= sheet bottom plane).  0.8 mm
+          lead-in ring at the mouth; ring bottom sits 0.5 mm above the
+          race seat so the shoulder always contacts first.
+        dimensions:
+          pocket_bore:
+            label: "Pocket bore"
+            value: 37.15
+            code_name: POCKET_BORE
+            description: "= YAW_TOWER_BORE_OD, bench-tuned firm finger-press."
+          shoulder_od:
+            label: "Race shoulder bore"
+            value: 34.0
+            code_name: SHOULDER_OD
+            description: "= YAW_TOWER_SHOULDER_OD: retains the outer race, clears the spinning inner race."
+          ring_od:
+            label: "Pocket boss OD"
+            value: 44.0
+            code_name: RING_OD
+            description: "= bearing OD + 2x YAW_TOWER_WALL, same wall as the bottom tower."
+
+  bearing_6805:
+    label: "Third 6805-2RS (25x37x7) — COTS, not printed"
+    description: >-
+      Same bearing as the production yaw pair (now 3 per leg, 18 per
+      robot).  Modeled with its bore at phi 25.15 (= the boss OD) so
+      the seated scene has zero mesh overlap; the real bore is phi 25
+      and the 0.15 is the press.
+
+  chassis_bottom:
+    label: "Production chassis_bottom (unchanged, reference)"
+    description: "Print from the main stl_prototype/ — unchanged by this variant."
+  coxa_link:
+    label: "Production coxa_link (unchanged, reference)"
+    description: "Print from the main stl_prototype/ — unchanged by this variant."
+  femur_link:
+    label: "Production femur_link (unchanged, reference)"
+    description: "Print from the main stl_prototype/ — unchanged by this variant."
+  tibia_knee_yoke:
+    label: "Production tibia_knee_yoke (unchanged, reference)"
+    description: "Print from the main stl_prototype/ — unchanged by this variant."
+  foot_boot:
+    label: "Production foot_boot (unchanged, reference)"
+    description: "Print from the main stl_prototype/ — unchanged by this variant."
+  knee_clamp_cap:
+    label: "Production servo clamp cap at the KNEE (unchanged)"
+    description: >-
+      The knee keeps the stock cap; only the six HIP caps become
+      hip_clamp_cap_rigid.
+  yaw_bearing_cap:
+    label: "Production yaw bearing cap (unchanged, reference)"
+    description: "Print from the main stl_prototype/ — unchanged by this variant."
+  yaw_servo_retainer:
+    label: "Production yaw servo retainer (unchanged, reference)"
+    description: "Print from the main stl_prototype/ — unchanged by this variant."
+  servo_body:
+    label: "STS3215 servo body — COTS"
+    description: "Visual stand-in, 18 per robot."
+  yaw_bearing_lower:
+    label: "Production lower yaw 6805 — COTS"
+    description: "Unchanged production bearing pair, lower race."
+  yaw_bearing_upper:
+    label: "Production upper yaw 6805 — COTS"
+    description: "Unchanged production bearing pair, upper race."
+  tibia_tube:
+    label: "Phi 8 carbon tibia tube — COTS"
+    description: "Unchanged production part."

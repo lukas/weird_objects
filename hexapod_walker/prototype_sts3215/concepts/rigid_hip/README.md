@@ -1,0 +1,115 @@
+# Rigid-hip variant — third 6805 above each hip, full-size top chassis
+
+Concept (user idea, Aug 2026): the production yaw joint rides a 6805-2RS
+pair in chassis_bottom's tower, but everything above it — coxa link, hip
+servo — is a cantilever.  This variant closes the structure from the top:
+
+* **`hip_clamp_cap_rigid`** (print 6): the stock hip clamp cap
+  (`make_servo_clamp_cap`) grown UP along the yaw axis — a Φ29 pedestal
+  (inner-race seat, same role as the yaw hub's flange) and a Φ25.15
+  press boss that a **third 6805-2RS** presses onto.  The boss lands on
+  solid flange-bar material, >9 mm clear of the cap's M3 counterbores.
+  Knee caps stay stock.
+* **`chassis_top_rigid`** (print 1): a second 200 mm flat-to-flat, 4 mm
+  hex plate (same footprint/thickness as chassis_bottom's sheet).  Six
+  Φ44 full-height bosses pocket the bearings' outer races from below at
+  Φ37.15, each race retained by a complete 360° Φ34 shoulder.  Carries
+  the existing 4-hole standoff pattern (±31.1, ±31.1), the
+  electronics-deck pattern (±24.75, ±24.75), and a Φ40 centre access
+  hole.  The electronics deck moves up here; the 140 mm `chassis_top`
+  is not used in this variant.
+
+Load path: hip moment → cap boss → third bearing → top plate →
+standoffs + the five other legs.  Each yaw axis becomes
+simply-supported instead of cantilevered, holding the hip servo rigidly.
+
+## Stack (world Z, chassis_bottom sheet mid-plane = 0)
+
+| z (mm) | plane |
+|---|---|
+| 75.55 | hip cap outer face (stock) |
+| 81.05 | pedestal top = inner-race seat |
+| 81.55 | plate ring bottom (0.5 clearance over the race seat) |
+| 88.05 | race top = Φ34 shoulder = sheet bottom |
+| 92.05 | deck face |
+
+Yaw axes sit exactly on the hex edge midpoints (apothem 100), so each
+Φ44 boss bulges half-outboard — same as the bottom towers.
+
+## Fits — all bench-tuned production constants, nothing new
+
+| interface | Φ (mm) | source constant |
+|---|---|---|
+| boss → inner race | 25.15 (+0.15 press) | `YAW_HUB_BOSS_OD` |
+| pocket → outer race | 37.15 (+0.15 firm slip) | `YAW_TOWER_BORE_OD` |
+| race shoulder | 34 | `YAW_TOWER_SHOULDER_OD` |
+| ring wall | 44 = 37 + 2×3.5 | `YAW_TOWER_WALL` |
+
+Boss tip has a Φ24×0.8 stepped lead-in; pocket mouths have a 0.8 mm
+lead-in ring.
+
+## Measured workspace trade-off (from the build-time sweep)
+
+The full-size plate caps the femur's UP-swing (production workspace
+envelope was femur −80°…+30°):
+
+* femur vs plate: first contact at **−52.5°** (identical at yaw −35…+35)
+* femur vs the boss/bearing stack: first contact at **−60°**
+* ⇒ **safe femur up-limit −47.5°** (1 grid step + 2.5° margin), baked
+  into the scene's hip joint limits.
+
+Walking around `STANCE_FEMUR_DEG = −25` keeps ~22° of up-headroom.
+**Deep tucks (stand-up belly curl, self-righting) exceed this** — check
+those trajectories against −47.5° before putting this variant on the
+robot.  Sweep used the stance-relative tibia angle (+75°); knee-range
+variation only moves parts that stay outboard/below the plate.
+
+## BOM delta vs production
+
+* +6× 6805-2RS (25×37×7) — 18 total on the robot
+* 4× M3 standoff stacks, ~86 mm (bottom sheet top z≈2 → sheet bottom
+  88.05; e.g. 50+36 F-F, or M3 threaded rod in printed sleeves)
+* the 140 mm `chassis_top` deck + its 20 mm standoffs are not used
+
+## Assembly order
+
+1. Build the robot exactly as production, including hip caps
+   (`hip_clamp_cap_rigid` in place of the stock hip cap — same 2× M3
+   into the same cradle pilots).
+2. Press a 6805 onto each cap boss until it seats on the Φ29 pedestal.
+3. Lower `chassis_top_rigid` straight down onto all six races (pockets
+   are lead-in chamfered; descent path verified clear at build time),
+   press until the shoulders touch the race tops.
+4. Bolt the 4 standoffs.  Servicing a hip servo requires lifting the
+   plate off again — the inboard cap bolt is under the sheet.
+
+## Print notes
+
+* `chassis_top_rigid`: deck face down.  Pockets then print as upward
+  blind bores (clean press walls); the Φ34→37.15 shoulder is a short
+  internal bridge, same as the bottom tower prints.
+* `hip_clamp_cap_rigid`: rest on the tongue face (outer face + boss
+  up) so the press boss prints as a vertical cylinder; supports under
+  the flange wings and hooks.  Printing in the stock flat orientation
+  puts support scars on the press band — coupon-check the fit if you
+  do that.
+* Reused parts in `stl/` (coxa_link, femur_link, …) are for the viewer;
+  print those from the main `stl_prototype/`.  Only the two parts above
+  are new.  `*_DO_NOT_PRINT.stl` are COTS visuals.
+
+## Build & view
+
+```sh
+# from the repo venv
+python concepts/rigid_hip/make_rigid_hip_variant.py            # full checks
+python concepts/rigid_hip/make_rigid_hip_variant.py --skip-sweep  # fast iter
+
+npx buildviz register hexapod_walker/prototype_sts3215/concepts/rigid_hip \
+    --build-id sts3215-rigid-hip
+# http://127.0.0.1:5183/?build=sts3215-rigid-hip
+```
+
+Checks run at build time: watertightness, seated-stack placement, full
+360° yaw sweep vs the plate, straight-down plate descent over all six
+bearings, and the femur pitch×yaw contact sweep (fails the build if the
+safe limit ever eats into walking headroom at −45°).
