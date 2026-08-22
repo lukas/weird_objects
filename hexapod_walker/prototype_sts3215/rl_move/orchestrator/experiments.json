@@ -116280,7 +116280,7 @@
       "sched.n_envs=4096"
     ],
     "created": "2026-08-22T15:36:08+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -116316,7 +116316,9 @@
         "verdict": "DEAD",
         "log_tail": "andb:       env/height_mm -76.43033\nwandb:   env/height_ref_mm 0\nwandb:   env/max_current_a 1.66624\nwandb:  env/mean_current_a 0.47081\nwandb: env/pct_within_1deg 0.10645\nwandb:   env/pitch_ref_deg 0\nwandb:   env/reward_action -0.01331\nwandb:                 +92 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-amp-m2-freeprog-term400-stagecurric at: https://wandb.ai/l2k2/hexapod-balance/runs/6movvd1y\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 3 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260822_153658-6movvd1y/logs\n"
       }
-    ]
+    ],
+    "triage": "done",
+    "verdict": "FAIL \u2014 staged-command curriculum (sched goal.walk_cmd_stage 0->2 over 1.2M, verified ramping) did NOT unlock locomotion: det fwd travel med 0.02m (bar 0.10m, WORSE than noamp twin's 0.026-0.032m), gait_valid 0/6 det with sacrificed rear legs [3,5], video = sprawled statue. Reward/eval agreement: per-tick reward improved only during survival learning (-4.2->-2.7/tick by 0.6M) then FLAT; freeprog_pen flat -1.5/tick; eval flat/bad = stuck mechanism per 08-22 ruling, NOT undertraining. Even the stage-0 forward-only sub-problem never left the statue basin -> staging/exploration lever class CLOSED for this family; pre-registered fallback (net-displacement-floor reward patch, bank-first) is next."
   },
   {
     "run": "cw-stand-footlow2-plant150-1",
@@ -116441,6 +116443,7 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "in-cycle cw-stand-footlow2-plant150-1 since 2026-08-22T15:58:06"
   }
 ]
