@@ -27,7 +27,7 @@ def _solve_knee_for_height(
     a = math.asin(max(-1.0, min(1.0, num)))
     knees = []
     for pt in (a, math.pi - a):
-        knee = math.degrees(pt) - hip_deg
+        knee = math.degrees(pt)
         if -20.0 <= knee <= 150.0:
             knees.append(knee)
     assert knees, (hip_deg, height_mm)

@@ -70,7 +70,7 @@ import math
 
 from noslip_gait import HIP_LIM, HIP_Y, KNEE_LIM, YAW_LIM
 from tripod_gait import (COXA, FEMUR, TIBIA, LEG_RADIAL, _clip, _leg_ik,
-                         _plant_hip_knee_deg)
+                         _plant_hip_knee_deg, foot_rz_from_hip_knee)
 
 
 # ---------------------------------------------------------------------------
@@ -313,9 +313,8 @@ class SE2FootGait:
         self.plant_hip_deg = float(hip_deg)
         self.plant_knee_deg = float(knee_deg)
         p = math.radians(self.plant_hip_deg)
-        pt = math.radians(self.plant_hip_deg + self.plant_knee_deg)
-        self.foot_neutral_x = COXA + FEMUR * math.cos(p) + TIBIA * math.cos(pt)
-        self.foot_neutral_z = -FEMUR * math.sin(p) - TIBIA * math.sin(pt)
+        self.foot_neutral_x, self.foot_neutral_z = foot_rz_from_hip_knee(
+            self.plant_hip_deg, self.plant_knee_deg)
         self._fallback = (0.0, p, math.radians(self.plant_knee_deg))
         self._rebuild_geometry()
         if hasattr(self, "anchors"):
@@ -401,9 +400,8 @@ class SE2FootGait:
     def fk_foot_body(self, i: int, yaw: float, hip: float, knee: float
                      ) -> tuple[float, float, float]:
         """Body-frame foot position for one leg (inverse of leg_ik_body)."""
-        pt = hip + knee
-        r = COXA + FEMUR * math.cos(hip) + TIBIA * math.cos(pt)
-        z = -FEMUR * math.sin(hip) - TIBIA * math.sin(pt)
+        r = COXA + FEMUR * math.cos(hip) + TIBIA * math.cos(knee)
+        z = -FEMUR * math.sin(hip) - TIBIA * math.sin(knee)
         cy, sy = math.cos(yaw), math.sin(yaw)
         x_yaw = r * cy - HIP_Y * sy
         y_yaw = r * sy + HIP_Y * cy

@@ -12,9 +12,10 @@ COXA_MM = 12.5
 FEMUR_MM = 90.0
 TIBIA_MM = 150.0
 CHASSIS_FLAT_TO_FLAT_MM = 200.0  # matches hexapod_prototype.CHASSIS_FLAT_TO_FLAT
-# Legacy gait crouch (used only if plant pose can't be loaded).
-STANCE_FEMUR_DEG = -25.0
-STANCE_TIBIA_DEG = 60.0
+KNEE_ANGLE_CONVENTION = "absolute_tibia"
+# Fallback stand home if feetech_bus / learned plant cannot be loaded.
+STANCE_FEMUR_DEG = 19.0
+STANCE_TIBIA_DEG = 28.0
 
 M = 0.001
 COXA = COXA_MM * M
@@ -23,6 +24,8 @@ TIBIA = TIBIA_MM * M
 STANCE_FEMUR = math.radians(STANCE_FEMUR_DEG)
 STANCE_TIBIA = math.radians(STANCE_TIBIA_DEG)
 LEG_RADIAL = (CHASSIS_FLAT_TO_FLAT_MM / 2.0) * M
+HIP_LIMIT_DEG = (-80.0, 30.0)
+KNEE_LIMIT_DEG = (-20.0, 150.0)
 
 
 def _plant_hip_knee_deg() -> tuple[float, float]:
@@ -37,18 +40,52 @@ def _plant_hip_knee_deg() -> tuple[float, float]:
         return STANCE_FEMUR_DEG, STANCE_TIBIA_DEG
 
 
+def foot_rz_from_hip_knee(hip_deg: float, knee_deg: float) -> tuple[float, float]:
+    """Foot reach and z in the yaw frame.
+
+    The measured robot matches an absolute tibia convention: hip is the
+    femur angle and knee is the tibia angle in the same leg plane.  Logical
+    zero is still straight out because both angles are 0 there.
+    """
+    hip = math.radians(float(hip_deg))
+    knee = math.radians(float(knee_deg))
+    reach = COXA + FEMUR * math.cos(hip) + TIBIA * math.cos(knee)
+    z = -FEMUR * math.sin(hip) - TIBIA * math.sin(knee)
+    return reach, z
+
+
+def _in_limits(rad: float, limits_deg: tuple[float, float]) -> bool:
+    deg = math.degrees(rad)
+    return limits_deg[0] - 1e-6 <= deg <= limits_deg[1] + 1e-6
+
+
 def _leg_ik(target_xyz_in_yaw_frame):
     u = float(target_xyz_in_yaw_frame[0]) - COXA
     w = -float(target_xyz_in_yaw_frame[2])
     L = math.hypot(u, w)
     if L > FEMUR + TIBIA - 1e-6 or L < abs(FEMUR - TIBIA) + 1e-6:
         return None
-    cos_pt = (L * L - FEMUR * FEMUR - TIBIA * TIBIA) / (2 * FEMUR * TIBIA)
-    cos_pt = max(-1.0, min(1.0, cos_pt))
-    pt = math.acos(cos_pt)
-    p = math.atan2(w, u) - math.atan2(
-        TIBIA * math.sin(pt), FEMUR + TIBIA * math.cos(pt))
-    return p, pt
+    gamma = math.atan2(w, u)
+    cos_alpha = (L * L + FEMUR * FEMUR - TIBIA * TIBIA) / (2 * L * FEMUR)
+    cos_alpha = max(-1.0, min(1.0, cos_alpha))
+    alpha = math.acos(cos_alpha)
+    candidates = []
+    for hip in (gamma - alpha, gamma + alpha):
+        knee = math.atan2(w - FEMUR * math.sin(hip),
+                          u - FEMUR * math.cos(hip))
+        score = 0.0
+        if not _in_limits(hip, HIP_LIMIT_DEG):
+            score += 1000.0
+        if not _in_limits(knee, KNEE_LIMIT_DEG):
+            score += 1000.0
+        # Normal stand/walk poses have the tibia a little steeper than the
+        # femur.  This selects that branch when both circle intersections fit.
+        if knee < hip:
+            score += 10.0
+        score += 0.01 * abs(math.degrees(knee - hip))
+        candidates.append((score, hip, knee))
+    _score, hip, knee = min(candidates, key=lambda row: row[0])
+    return hip, knee
 
 
 def _clip(v: float, lo: float, hi: float) -> float:
@@ -105,8 +142,7 @@ class TripodGait:
         self._last_t = None
         self._phase = 0.0
         self._elapsed = 0.0
-        # Foot plant matches stand home (+20°/+80° or learned plant), not the
-        # old crouch −25°/+60° — otherwise walk yanks hips up off the bench.
+        # Foot plant matches stand home (+19°/+28° or learned plant).
         self.sync_plant_stance()
 
     def sync_plant_stance(self, hip_deg: float | None = None,
@@ -118,13 +154,15 @@ class TripodGait:
             knee_deg = k if knee_deg is None else knee_deg
         self.plant_hip_deg = float(hip_deg)
         self.plant_knee_deg = float(knee_deg)
-        p = math.radians(self.plant_hip_deg)
-        pt = math.radians(self.plant_hip_deg + self.plant_knee_deg)
-        self.foot_neutral_x = COXA + FEMUR * math.cos(p) + TIBIA * math.cos(pt)
-        self.foot_neutral_z = -FEMUR * math.sin(p) - TIBIA * math.sin(pt)
+        self.foot_neutral_x, self.foot_neutral_z = foot_rz_from_hip_knee(
+            self.plant_hip_deg, self.plant_knee_deg)
         self._foot_radius = LEG_RADIAL + self.foot_neutral_x
         self._foot_radius_eff = self._foot_radius * self.stance_radius_scale
-        self._fallback = (0.0, p, math.radians(self.plant_knee_deg))
+        self._fallback = (
+            0.0,
+            math.radians(self.plant_hip_deg),
+            math.radians(self.plant_knee_deg),
+        )
 
     def set_velocity(self, *, vx=None, vy=None, omega=None):
         if vx is not None:

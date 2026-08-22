@@ -1146,7 +1146,7 @@ function paintPlantInfo(plant){
   $('calplantknee').textContent = (knee>=0?'+':'')+knee.toFixed(1);
   $('calplantsrc').textContent = plant.learned
     ? ('(learned'+(plant.timestamp?(' · '+plant.timestamp):'')+')')
-    : '(default +20 / +80)';
+    : '(default +19 / +28)';
 }
 function paintImuInfo(imu){
   if(!imu || !imu.ok) return;
@@ -1371,10 +1371,10 @@ function renderCalDimensions(res){
     : 'not saved';
   const consistencyBits = [
     gsum.manual_relative_height_mm != null
-      ? `current knee FK ${calMm(gsum.manual_relative_height_mm)} (${calDelta(gsum.manual_relative_minus_manual_height_mm)})`
+      ? `old hip+knee FK ${calMm(gsum.manual_relative_height_mm)} (${calDelta(gsum.manual_relative_minus_manual_height_mm)})`
       : null,
     gsum.manual_absolute_height_mm != null
-      ? `absolute-knee FK ${calMm(gsum.manual_absolute_height_mm)} (${calDelta(gsum.manual_absolute_minus_manual_height_mm)})`
+      ? `active tibia-angle FK ${calMm(gsum.manual_absolute_height_mm)} (${calDelta(gsum.manual_absolute_minus_manual_height_mm)})`
       : null,
   ].filter(Boolean);
   const zeroHyp = gsum.manual_zero_hypotheses || {};
@@ -1386,10 +1386,12 @@ function renderCalDimensions(res){
       `(rms ${calMm(row.rms_error_mm)})`;
   }
   const zeroHypBits = [
+    zeroHypBit('best', zeroHyp.best_model),
     zeroHypBit('serial best', zeroHyp.best_serial),
+    zeroHypBit('tibia-angle best', zeroModels.absolute_knee_best_pair),
     zeroHypBit('hip-only', zeroModels.serial_hip_only),
     zeroHypBit('knee-only', zeroModels.serial_knee_only),
-    zeroHypBit('abs-knee check', zeroModels.absolute_knee_no_offset),
+    zeroHypBit('tibia-angle check', zeroModels.absolute_knee_no_offset),
   ].filter(Boolean);
   const rows = [
     ['manual measurements',
@@ -1417,6 +1419,9 @@ function renderCalDimensions(res){
     ['manual FK consistency',
       consistencyBits.length ? consistencyBits.join(' · ') : 'waiting for measured links + hip height',
       'positive delta means FK predicts a taller robot than tape'],
+    ['angle convention',
+      gsum.active_angle_convention || hint.angle_convention_key || 'unknown',
+      hint.angle_convention || 'from calibration geometry model'],
     ['manual zero hypothesis',
       zeroHypBits.length ? zeroHypBits.join(' · ') : 'waiting for measured links + sweep contacts',
       zeroHyp.sample_count
@@ -1460,7 +1465,7 @@ function renderCalDimensions(res){
         +(manualLinks.hip_center_radius != null
           ? ` · center→hip ${calNum(manualLinks.hip_center_radius, 5)} m`
           : ''),
-      'operator measurement; not applied to live gait constants']);
+      'operator measurement; check active convention before tuning gait']);
   }
   const perLeg = Array.isArray(geom.per_leg) ? geom.per_leg : [];
   const legRows = perLeg.map(row => (

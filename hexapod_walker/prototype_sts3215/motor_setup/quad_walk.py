@@ -231,9 +231,8 @@ class QuadRearWalk:
             yaw = math.radians(self.base[3 * leg + 0])
             hip = math.radians(self.base[3 * leg + 1])
             knee = math.radians(self.base[3 * leg + 2])
-            reach = (TG.COXA + TG.FEMUR * math.cos(hip)
-                     + TG.TIBIA * math.cos(hip + knee))
-            fz = -TG.FEMUR * math.sin(hip) - TG.TIBIA * math.sin(hip + knee)
+            reach, fz = TG.foot_rz_from_hip_knee(
+                math.degrees(hip), math.degrees(knee))
             ox0 = TG.LEG_RADIAL * math.cos(a)
             oy0 = TG.LEG_RADIAL * math.sin(a)
             self.anchors.append([ox0 + reach * math.cos(a + yaw),

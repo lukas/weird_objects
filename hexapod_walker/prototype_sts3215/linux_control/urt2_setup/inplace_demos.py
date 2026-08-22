@@ -113,19 +113,19 @@ DEADBAND_DEG = LEGACY_DEADBAND_DEG
 STREAM_DENSE = False  # set by configure_stream_profile()
 MAX_STREAM_SPEED = 450
 MIN_STREAM_SPEED = 40
-# Rise: chassis sits on an elevated stand, so walking stance (−25°/+60°,
-# only ~37 mm of foot drop) never reaches the floor.  Match stand home:
-# femur angled down (~+20°) and tibia steep (+80° knee ≈ right-angle plant).
+# Rise: chassis sits on an elevated stand, so the old walking crouch never
+# reaches the floor.  Match the measured stand family: femur angled down
+# around +19° and absolute tibia angle around +28° to +36°.
 #
-# Presets (foot drop ≈ −FEMUR·sin(hip) − TIBIA·sin(hip+knee), mm):
-#   default / stand  hip +20° / knee +80° / 12 s  -> ~179 mm
-#   high+fast        same angles / 5 s            -> ~179 mm (faster)
+# Presets (foot drop ≈ -FEMUR*sin(hip) - TIBIA*sin(knee), mm):
+#   default / stand  hip +19° / knee +28° / 12 s  -> ~100 mm
+#   high+fast        hip +20° / knee +36° / 5 s   -> ~119 mm
 RISE_SECONDS = 12.0
 DESCEND_SECONDS = 12.0
-RISE_HIP_DEG = 20.0
-RISE_KNEE_DEG = 80.0
+RISE_HIP_DEG = 19.0
+RISE_KNEE_DEG = 28.0
 RISE_HIGH_HIP_DEG = 20.0
-RISE_HIGH_KNEE_DEG = 80.0
+RISE_HIGH_KNEE_DEG = 36.0
 RISE_FAST_SECONDS = 5.0
 RISE_FAST_DESCEND_SECONDS = 6.0
 RISE_TORQUE_LIMIT = 700
@@ -215,7 +215,7 @@ RISE_PRESETS = {
         "knee": RISE_KNEE_DEG,
         "rise_seconds": RISE_SECONDS,
         "descend_seconds": DESCEND_SECONDS,
-        "drop_mm": 159,
+        "drop_mm": 100,
         "label": "stand plant",
     },
     "high_fast": {
@@ -223,7 +223,7 @@ RISE_PRESETS = {
         "knee": RISE_HIGH_KNEE_DEG,
         "rise_seconds": RISE_FAST_SECONDS,
         "descend_seconds": RISE_FAST_DESCEND_SECONDS,
-        "drop_mm": 159,
+        "drop_mm": 119,
         "label": "higher + faster reach",
     },
 }
@@ -235,7 +235,7 @@ def _zero_pose() -> list[float]:
 
 
 def _stand_zero_pose() -> list[float]:
-    """Stand home — learned plant or default +20°/+80° (femur down, tibia steep)."""
+    """Stand home — learned plant or measured fallback +19°/+28°."""
     return standing_pose_degrees()
 
 
@@ -263,8 +263,8 @@ def _elevated_stand_pose(*, hip: float = RISE_HIP_DEG,
                          yaw: float = 0.0) -> list[float]:
     """Deep reach so feet can find the floor from the elevated stand.
 
-    Walking plant (hip −25° / knee +60°) only drops the foot ~37 mm below
-    the hip.  Default / stand plant is hip +20° / knee +80° (~159 mm).
+    Default stand plant is hip +19° / knee +28° (~100 mm). The high
+    preset reaches about 119 mm.
     Contact current can stop early.
     ``yaw`` is applied the same on every leg (in-place body twist).
     """
@@ -2640,13 +2640,13 @@ def run_stand_hands_demo(bus: FeetechBus, *,
 # Built for the redone demos page (2026-08-17): they home via the
 # validated keyframe stand-up (the experiments-page 10x technique), then
 # dance AROUND standing_pose_degrees() — the stance the stand-up actually
-# ends on — instead of yanking to the tall hip+20/knee+80 display stilts.
+# ends on — instead of yanking to the old hip+20/knee+80 display stilts.
 # All are zero-mean / cyclic, cord-safe (yaw averages 0), and run through
 # stream_pose_fn so the web speed slider works live.
 #
-# FK note (foot drop ≈ 90·sin(hip) + 128·sin(hip+knee) mm): near the
-# plant, HIP dominates body height (~62 mm/rad) while knee barely moves
-# it — so bounce/sway modulate hips with a small knee assist.
+# FK note (foot drop ≈ FEMUR*sin(hip) + TIBIA*sin(knee) mm): near the
+# plant, both hip and knee affect height; bounce/sway still mostly modulate
+# hips because they move the body without making the boot scrape as much.
 # ---------------------------------------------------------------------------
 STAND_SWAY_HZ = 0.35
 STAND_SWAY_HIP_DEG = 5.0
@@ -4649,9 +4649,9 @@ def run_rise_demo(bus: FeetechBus, *,
                   log_path: Path | None = None) -> str:
     """Deep reach from the elevated stand, then key → descend to zero.
 
-    Default: hip +20° / knee +80° over ~12 s (~179 mm drop).
-    ``rise+`` / preset ``high_fast``: hip +20° / knee +80° over ~5 s
-    (~179 mm).  One SyncWrite (no host streaming).  Logs peak current;
+    Default: hip +19° / knee +28° over ~12 s (~100 mm drop).
+    ``rise+`` / preset ``high_fast``: hip +20° / knee +36° over ~5 s
+    (~119 mm).  One SyncWrite (no host streaming).  Logs peak current;
     stops early on hip/knee current spike (contact).  Key during motion
     aborts; key while holding starts the descent.
     """
@@ -4664,8 +4664,8 @@ def run_rise_demo(bus: FeetechBus, *,
                       else cfg["descend_seconds"])
     # Rough foot drop (mm) matching mujoco femur/tibia FK.
     _p = math.radians(hip)
-    _pt = math.radians(hip + knee)
-    drop_mm = int(round(FEMUR_MM * math.sin(_p) + TIBIA_MM * math.sin(_pt)))
+    _k = math.radians(knee)
+    drop_mm = int(round(FEMUR_MM * math.sin(_p) + TIBIA_MM * math.sin(_k)))
     if abs(hip - RISE_HIGH_HIP_DEG) < 0.5 and rise_s <= RISE_FAST_SECONDS + 0.1:
         label = "higher + faster reach"
     elif abs(hip - RISE_HIGH_HIP_DEG) < 0.5:
@@ -4705,7 +4705,7 @@ def run_rise_demo(bus: FeetechBus, *,
     goal = _elevated_stand_pose(hip=hip, knee=knee)
     print(f"  Rise demo — {label} (stand is high — reach toward the floor):")
     print(f"    target yaw 0°, hip {hip:.0f}°, knee {knee:.0f}°  "
-          f"(~{drop_mm} mm foot drop; walk stance −25°/+60° is only ~37 mm)")
+          f"(~{drop_mm} mm foot drop)")
     print(f"    glide in ~{rise_s:.0f} s + max-current log; "
           f"contact stop ≥ {RISE_CONTACT_CURRENT_A:.2f} A")
     log_cm = MotionLog(motion_path, live) if motion_path is not None else None
@@ -6645,7 +6645,7 @@ def main(argv=None) -> None:
     ap.add_argument("--demo", choices=list(DEMOS), default=None,
                     help="run one demo then exit (use rise+ for higher/faster)")
     ap.add_argument("--high", action="store_true",
-                    help="with --demo rise: taller reach (hip +20° / ~159 mm)")
+                    help="with --demo rise: taller reach (hip +20° / ~119 mm)")
     ap.add_argument("--fast", action="store_true",
                     help="with --demo rise: quicker glide (~5 s up, ~6 s down)")
     ap.add_argument("--zero", action="store_true",

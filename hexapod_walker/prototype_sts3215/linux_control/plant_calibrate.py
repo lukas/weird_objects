@@ -27,24 +27,24 @@ from feetech_bus import (  # noqa: E402
 
 LOG_DIR = _HERE / "logs"
 
-# Deep reach target (same family as rise+).
+# Deep reach target.  Knee is an absolute tibia angle, not the old
+# ``hip+knee`` serial convention; +80° would drive well past normal contact.
 REACH_HIP_DEG = 20.0
-REACH_KNEE_DEG = 80.0
+REACH_KNEE_DEG = 55.0
 REACH_SECONDS = 10.0
 REACH_TORQUE = 550
 
 # Contact: soft torque barely spikes absolute current.  Hips travel ~20°
-# while knees travel ~80° at the same SyncWrite speed, so hips arrive
-# early and stall/load — that looked like "contact" with knees still
-# short and feet in the air.  Arm only once knees are deep; require
-# knee joints in the agreement set; ignore while knees are still racing.
+# while knees travel toward the measured plant range, so hips can still
+# arrive early and stall/load.  Arm once knees are plausibly near the floor;
+# require knee joints in the agreement set; ignore while knees are racing.
 CONTACT_CURRENT_FLOOR_A = 0.16
 CONTACT_CURRENT_DELTA_A = 0.08
 CONTACT_CURRENT_REL = 3.0
 CONTACT_LOAD_FLOOR_PCT = 16.0
 CONTACT_LOAD_DELTA_PCT = 8.0
 CONTACT_BASELINE_POSE_DEG = 8.0   # |θ| below this → still free-air baseline
-CONTACT_ARM_KNEE_DEG = 65.0
+CONTACT_ARM_KNEE_DEG = 28.0
 CONTACT_MIN_JOINTS = 3
 CONTACT_MIN_KNEE_JOINTS = 2
 CONTACT_MAX_KNEE_ERR_DEG = 18.0   # |cmd − present| on median knee
@@ -53,7 +53,7 @@ CONTACT_WINDOW_S = 0.45
 HOLD_AFTER_S = 0.7
 SAMPLE_DT = 0.08
 MIN_SAVE_HIP_DEG = 5.0
-MIN_SAVE_KNEE_DEG = 65.0
+MIN_SAVE_KNEE_DEG = 18.0
 # Legacy kwargs (API); real thresholds are baseline-relative.
 CONTACT_CURRENT_A = CONTACT_CURRENT_FLOOR_A
 CONTACT_LOAD_PCT = CONTACT_LOAD_FLOOR_PCT
@@ -82,7 +82,7 @@ def reset_plant_pose() -> dict:
     cleared = clear_plant_pose()
     st = plant_state()
     st["cleared"] = cleared
-    st["msg"] = ("reset to default hip +20° / knee +80°"
+    st["msg"] = ("reset to default hip +19° / knee +28°"
                  if cleared or not st["learned"] else "already default")
     return st
 
@@ -166,7 +166,7 @@ def run_plant_calibrate(
             f"reaching plant (hip {REACH_HIP_DEG:.0f}° / "
             f"knee {REACH_KNEE_DEG:.0f}°)…")
 
-        # Per-joint speeds so hip (~20°) and knee (~80°) arrive together.
+        # Per-joint speeds so hip and knee arrive together.
         # Same speed for all made hips stall early → false "contact".
         from feetech_bus import COUNTS_PER_DEG, normalize_acc, normalize_speed
         start = [0.0] * N_JOINTS

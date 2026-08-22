@@ -1,8 +1,9 @@
 # Structural compliance — measurement protocol + sim hook
 
-Status: HOOK READY, MEASUREMENTS PENDING (hardware down ~2 days).
+Status: WIRED IN, FIRST-PASS ESTIMATES ACTIVE.
 Source directive: operator RISE_WALK_NEXT_48H (08-13), P3 "Prepare
-structural-compliance modeling". Companion code:
+structural-compliance modeling"; activated after the 2026-08-21 bench
+geometry session. Companion code:
 `rl_move/sim/struct_compliance.py` (+ unit tests
 `rl_move/tests/test_struct_compliance.py`).
 
@@ -17,11 +18,23 @@ rigid links, so on hardware
 
 and neither the policy obs nor the sim reward see the sag. The v1
 model is a per-axis torsional spring in series with each servo
-(quasi-static: deflection = tau / k). **No stiffness values are
-invented**: `struct_comp.enabled=1` hard-fails until the measured
-`k_yaw/hip/knee_nm_rad` are entered in `rl_move/config.yaml`.
+(quasi-static: deflection = tau / k).
 
-## What the operator should measure (once the robot is repaired)
+Current `rl_move/config.yaml` first-pass values:
+
+    struct_comp:
+      enabled: 1
+      k_yaw_nm_rad:  300.0
+      k_hip_nm_rad:  180.0
+      k_knee_nm_rad: 120.0
+      dr_scale_lo: 0.5
+      dr_scale_hi: 2.0
+
+These are deliberately conservative estimates, not final measurements.
+The DR band means `--dr-scale 0` uses the nominal values, while
+`--dr-scale 1` samples each axis class over 0.5x..2.0x.
+
+## What the operator should measure next
 
 All of this is camera + ruler + the existing sysid runner; no new
 sensing. Use the bench_blast camera workflow (`zero_check.jpg` style
@@ -73,21 +86,20 @@ code. Enter:
       k_yaw_nm_rad:  <fit>
       k_hip_nm_rad:  <fit>
       k_knee_nm_rad: <fit>
-      dr_scale_lo: <e.g. 0.7>   # DR band around the fit; set from the
-      dr_scale_hi: <e.g. 1.5>   # measurement spread + hysteresis width
+      dr_scale_lo: <e.g. 0.5>   # DR band around the fit; set from the
+      dr_scale_hi: <e.g. 2.0>   # measurement spread + hysteresis width
 
-## Wiring (follow-up commit; call sites are hot right now)
+## Wiring
 
-Two integration points, both documented in the module docstring:
+Two integration points are active:
 
 - `sim_env._read_state`: `q_reported = comp.reported_q(q_phys, tau)`
   with `tau = data.qfrc_actuator[dof_adr]` — obs/encoder side.
 - model prep after DR kp_scale: `comp.apply_effective_kp(model, rows)`
   — physics side ("equivalent compliant mount").
-- per-episode DR: `comp.sample(rng)` next to the other `_ep_rand`
-  draws; the stiffness vector must ride `SNAP_ATTRS` (pool-restore
-  lesson) once wired.
-
-Deliberately NOT wired in this change: `sim_env.py` is mid-flight with
-the mode-seq canonical-frame fix (08-13/14); the hook is inert,
-tested, and 3 lines per call site once that lands.
+- per-episode DR: `comp.sample(rng, scale=dr_scale)` stores
+  `_struct_comp_k`, which rides `mjx_host.SNAP_ATTRS` so reset pools keep
+  the same stiffness vector their model rows were minted with.
+- MJX: `prepare_shared_model` applies nominal compliance, and
+  `ModelDrScratch.rows_for` applies the episode stiffness before
+  uploading `actuator_gainprm` / `actuator_biasprm` rows.

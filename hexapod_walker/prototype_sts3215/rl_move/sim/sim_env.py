@@ -43,6 +43,7 @@ from .servo_model import (  # noqa: E402
     ServoProfile, SimServoParams, apply_params_to_model, build_model,
     joint_qpos_addrs, joint_qvel_addrs, position_actuator_ids,
 )
+from .struct_compliance import StructCompliance  # noqa: E402
 
 G0 = 9.80665
 N_OBS = 47
@@ -499,6 +500,8 @@ class SimHexapodBalanceEnv(_GymBase):
         self._qadr = joint_qpos_addrs(self.model)
         self._vadr = joint_qvel_addrs(self.model)
         self._pos_act = position_actuator_ids(self.model)
+        self._struct_comp = StructCompliance.from_cfg(self.cfg)
+        self._struct_comp_k: np.ndarray | None = None
         self._chassis_bid = mujoco.mj_name2id(
             self.model, mujoco.mjtObj.mjOBJ_BODY, "chassis")
         gid = mujoco.mj_name2id(
@@ -687,6 +690,10 @@ class SimHexapodBalanceEnv(_GymBase):
         mujoco = self._mujoco
         q = self.data.qpos[self._qadr].copy()
         qd = self.data.qvel[self._vadr].copy()
+        torque = self.data.qfrc_actuator[self._vadr].copy()
+        if self._struct_comp is not None and self._struct_comp_k is not None:
+            q = self._struct_comp.reported_q(q, torque,
+                                             k=self._struct_comp_k)
 
         # Attitude the way the hardware computes it: from the accelerometer
         # specific force f = a - g at the IMU's mounting point. Gravity may
@@ -755,7 +762,6 @@ class SimHexapodBalanceEnv(_GymBase):
         # the trip — SUSTAINED saturation = episode over. Low-pass with a
         # ~0.1 s time constant so a millisecond torque spike doesn't trip:
         # hardware reads current at ~10 Hz and never sees such transients.
-        torque = self.data.qfrc_actuator[self._vadr]
         # Cap at ~stall current: the same motor is on every joint, so the
         # estimate can't exceed what the winding physically draws at 12 V
         # (fitted per-axis torque limits would otherwise let some axes
@@ -788,6 +794,12 @@ class SimHexapodBalanceEnv(_GymBase):
     # ------------------------------------------------------------------
     # physics
     # ------------------------------------------------------------------
+
+    def _apply_struct_compliance_to_model(self, model) -> None:
+        if self._struct_comp is None or self._struct_comp_k is None:
+            return
+        self._struct_comp.apply_effective_kp(
+            model, self._pos_act, k=self._struct_comp_k)
 
     def _walk_push_torque_nm(self) -> float:
         """dr.walk_push_* (08-12, the takeoff mechanism the command-side
@@ -1215,6 +1227,13 @@ class SimHexapodBalanceEnv(_GymBase):
 
         self._ep_rand = (self.randomizer.sample(self.rng)
                          if self.randomizer is not None else None)
+        if self._struct_comp is not None:
+            dr = (getattr(self.randomizer, "scale", 1.0)
+                  if self.randomizer is not None else 0.0)
+            self._struct_comp_k = self._struct_comp.sample(
+                self.rng, scale=dr)
+        else:
+            self._struct_comp_k = None
 
         # Physics easing (see __init__): scale this episode's gravity /
         # servo velocity ceiling by the CURRENT cfg values, so an
@@ -1777,6 +1796,7 @@ class SimHexapodBalanceEnv(_GymBase):
                 torque_scale=self._ep_rand.torque_scale)
         else:
             apply_params_to_model(self.model, self.params)
+        self._apply_struct_compliance_to_model(self.model)
         if self._ease_g != 1.0:
             # Physics-easing fallback for randomize=False private-model
             # envs (_reset_begin); with DR on the scale already lives in
@@ -2123,6 +2143,9 @@ class SimHexapodBalanceEnv(_GymBase):
                              - self._tilt_ref0[0]) * RAD2DEG,
             "randomization": None if er is None else er.summary(),
         }
+        if self._struct_comp is not None and self._struct_comp_k is not None:
+            info["struct_compliance"] = self._struct_comp.summary(
+                self._struct_comp_k)
         goal = self._current_goal()
         if goal is not None:
             info["goal_mode"] = self._goal_traj.mode

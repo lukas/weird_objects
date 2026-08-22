@@ -109,7 +109,8 @@ class MjxVecEnv(VecEnv):
             ls_iterations=mjx_ls_iterations,
             terrain_amp=t_amp, terrain_seed=t_seed,
             foot_mu=foot_mu_from_cfg(env_kwargs.get("cfg")),
-            leg_chassis=leg_chassis_from_cfg(env_kwargs.get("cfg")))
+            leg_chassis=leg_chassis_from_cfg(env_kwargs.get("cfg")),
+            cfg=env_kwargs.get("cfg"))
 
         # Model-field DR (mass/geometry/friction/gravity/gains): per-world
         # device model rows, refreshed from each env's _ep_rand draw at

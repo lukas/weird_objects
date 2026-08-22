@@ -1,7 +1,8 @@
 """Geometry + contact plant finder for Phase-1 balance.
 
 Target stance (operator intent):
-  * search through hip 0° / knee 80° and continue deeper if unloaded
+  * search through the measured hip/knee stand family and continue deeper
+    only if unloaded
   * final saved stance raises roughly the requested clearance from contact
   * abort instead of tipping if the body tilt grows while searching
 
@@ -37,26 +38,26 @@ COXA_MM = 12.5
 FEMUR_MM = 90.0
 TIBIA_MM = 150.0
 
-# Search down through the real standing family.  Hip 0 / knee 80 reaches
-# much lower than the old -20 / 55 crouch; if that still does not load the
-# feet, continue toward the captured hardware plant region.
-TARGET_HIP_DEG = 20.0
-TARGET_KNEE_DEG = 80.0
+# Search down through the measured standing family.  Knee is the tibia's
+# absolute leg-plane angle, so the old +80° default would put the foot far
+# below the measured floor height.
+TARGET_HIP_DEG = 19.0
+TARGET_KNEE_DEG = 30.0
 START_HIP_DEG = 0.0
-START_KNEE_DEG = 25.0           # start mid; deepen hip/knee toward crouch
+START_KNEE_DEG = 8.0            # start high; deepen hip/knee toward floor
 CLEARANCE_MM = 25.0             # ~1 in above contact plane
 REACH_SECONDS = 22.0
 CLEARANCE_SECONDS = 6.0
 REACH_TORQUE = 500
 SAMPLE_DT = 0.08
 SEARCH_HIP_DEG = 20.0
-SEARCH_KNEE_DEG = 100.0
+SEARCH_KNEE_DEG = 55.0
 
 CONTACT_CURRENT_FLOOR_A = 0.16
 CONTACT_CURRENT_DELTA_A = 0.08
 CONTACT_LOAD_FLOOR_PCT = 16.0
 CONTACT_LOAD_DELTA_PCT = 8.0
-CONTACT_ARM_KNEE_DEG = 35.0     # arm earlier than old plant (hip stays 0)
+CONTACT_ARM_KNEE_DEG = 20.0     # arm before the measured stand region
 CONTACT_MIN_KNEE_JOINTS = 3
 CONTACT_WINDOW_S = 0.45
 CONTACT_BASELINE_POSE_DEG = 12.0
@@ -65,12 +66,12 @@ CONTACT_POSITION_LAG_DEG = 6.0
 # Lag-only contact is useful when current/load are quiet, but it is also the
 # easiest way to false-trigger while servos are simply catching up in air.
 # Only let lag vote once the search reached the normal plant depth.
-CONTACT_LAG_MIN_KNEE_DEG = 80.0
+CONTACT_LAG_MIN_KNEE_DEG = 28.0
 CONTACT_LAG_MAX_KNEE_SPEED = 55.0
 MAX_TILT_DELTA_DEG = 24.0       # sustained search lean before limp
 MAX_TILT_ABS_DEG = 40.0         # hard cap even if start/platform is tilted
 TILT_TRIP_HOLD_S = 0.60         # ignore short accel/IMU bumps
-SOFT_SUPPORT_MIN_KNEE_DEG = 85.0
+SOFT_SUPPORT_MIN_KNEE_DEG = 36.0
 SOFT_SUPPORT_MAX_KNEE_SPEED = 12.0
 SOFT_SUPPORT_MIN_LEGS = 2
 SOFT_SUPPORT_CURRENT_A = 0.05
@@ -124,24 +125,21 @@ def _angle_delta_deg(now: float, base: float) -> float:
 def foot_z_mm(hip_deg: float, knee_deg: float) -> float:
     """Foot Z in yaw frame (mm); more negative = lower / farther down."""
     p = math.radians(hip_deg)
-    pt = math.radians(hip_deg + knee_deg)
-    return -FEMUR_MM * math.sin(p) - TIBIA_MM * math.sin(pt)
+    k = math.radians(knee_deg)
+    return -FEMUR_MM * math.sin(p) - TIBIA_MM * math.sin(k)
 
 
 def knee_for_foot_z(hip_deg: float, z_mm: float) -> float | None:
     """Solve knee (deg) for desired foot z at fixed hip. None if unreachable."""
     p = math.radians(hip_deg)
-    # z = -F sin(p) - T sin(p+k)  →  sin(p+k) = -(z + F sin p)/T
+    # z = -F sin(p) - T sin(k) -> sin(k) = -(z + F sin p)/T
     num = -(z_mm + FEMUR_MM * math.sin(p)) / TIBIA_MM
     if abs(num) > 1.0:
         return None
-    pt = math.asin(max(-1.0, min(1.0, num)))
-    # Prefer the "knee bent down" solution in our sign convention (pt > p).
-    knee = math.degrees(pt - p)
+    a = math.asin(max(-1.0, min(1.0, num)))
+    knee = math.degrees(a)
     if knee < -20.0 or knee > 150.0:
-        # Try π - asin branch
-        pt2 = math.pi - pt
-        knee2 = math.degrees(pt2 - p)
+        knee2 = math.degrees(math.pi - a)
         if -20.0 <= knee2 <= 150.0:
             return float(knee2)
         return None
@@ -151,8 +149,8 @@ def knee_for_foot_z(hip_deg: float, z_mm: float) -> float | None:
 def foot_r_mm(hip_deg: float, knee_deg: float) -> float:
     """Foot radial reach in the yaw frame (mm), including coxa link."""
     p = math.radians(hip_deg)
-    pt = math.radians(hip_deg + knee_deg)
-    return COXA_MM + FEMUR_MM * math.cos(p) + TIBIA_MM * math.cos(pt)
+    k = math.radians(knee_deg)
+    return COXA_MM + FEMUR_MM * math.cos(p) + TIBIA_MM * math.cos(k)
 
 
 def _foot_z_model_mm(
@@ -163,7 +161,7 @@ def _foot_z_model_mm(
     knee = math.radians(float(knee_deg) + float(knee_zero_deg))
     return (
         -float(femur_mm) * math.sin(hip)
-        - float(tibia_mm) * math.sin(hip + knee)
+        - float(tibia_mm) * math.sin(knee)
     )
 
 
@@ -177,7 +175,7 @@ def _solve_knees_for_foot_z(hip_deg: float, z_mm: float) -> list[float]:
     out: list[float] = []
     lo, hi = AXIS_LIMITS_DEG.get(2, (-20.0, 150.0))
     for pt in (a, math.pi - a):
-        knee = math.degrees(pt - hip)
+        knee = math.degrees(pt)
         if lo <= knee <= hi and all(abs(knee - x) > 0.1 for x in out):
             out.append(float(knee))
     return sorted(out)
@@ -284,7 +282,7 @@ def _fit_segment_lengths(valid: list[dict]) -> dict:
             knee = math.radians(float(s["knee_deg"]))
             heights.append(
                 FEMUR_MM * math.sin(hip)
-                + TIBIA_MM * math.sin(hip + knee))
+                + TIBIA_MM * math.sin(knee))
         mean_h = _mean(heights)
         per_leg_height[leg] = mean_h
     residuals = []
@@ -292,7 +290,7 @@ def _fit_segment_lengths(valid: list[dict]) -> dict:
         leg = int(s["leg"])
         hip = math.radians(float(s["hip_deg"]))
         knee = math.radians(float(s["knee_deg"]))
-        pred_h = FEMUR_MM * math.sin(hip) + TIBIA_MM * math.sin(hip + knee)
+        pred_h = FEMUR_MM * math.sin(hip) + TIBIA_MM * math.sin(knee)
         residuals.append(pred_h - per_leg_height[leg])
     return {
         "ok": True,
@@ -306,6 +304,7 @@ def _fit_segment_lengths(valid: list[dict]) -> dict:
         },
         "link_lengths_source": "configured_nominal_contact_model",
         "link_lengths_observable": False,
+        "angle_convention": "absolute_tibia",
         "nominal_mm": {
             "coxa": COXA_MM,
             "femur": FEMUR_MM,

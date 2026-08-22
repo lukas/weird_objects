@@ -70,7 +70,8 @@ SETTLE_SECONDS = 4.0
 LIVE_SCAN_PERIOD_S = 2.0
 # Refuse absolute centre/stand SyncWrites that yank any live joint farther
 # than this from its *present* angle (2026-08-06 cooked-motor incident).
-# Sit→default stand is ~80° on knees; operator OK'd 90° (2026-08-07).
+# Keep a broad emergency delta guard; default stand is now much shallower
+# (~+19°/+28°), but old learned poses and one-off tests can move farther.
 # Override with trailing FORCE on C / P only when the operator means it.
 MAX_SAFE_DELTA_DEG = 90.0
 
@@ -564,7 +565,7 @@ class DriveController:
                         # Occasional re-hold so stance doesn't droop.
                         # Must match stand zero / learned plant — NOT the
                         # old gait neutral (−25/+60), which yanked hips up
-                        # after feet had just planted at +20/+80.
+                        # after feet had just planted.
                         if int(tick * 2) % 5 == 0:
                             hold = (list(self._last_pose)
                                     if self._last_pose

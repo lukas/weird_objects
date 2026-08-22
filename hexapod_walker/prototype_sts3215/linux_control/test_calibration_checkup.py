@@ -5,6 +5,7 @@ No hardware: tests monkeypatch the motion phases and assert sequencing.
 """
 from __future__ import annotations
 
+import math
 import sys
 import tempfile
 import types
@@ -389,56 +390,61 @@ def test_manual_geometry_is_reported_separately_from_fk() -> None:
     with tempfile.TemporaryDirectory() as td:
         api._manual_geometry_path = lambda: Path(td) / "geometry_manual.json"
         saved = api.set_manual_geometry(
-            hip_pitch_height_mm=95.0,
+            hip_pitch_height_mm=100.0,
             hip_center_radius_mm=114.0,
             femur_mm=88.0,
             tibia_mm=152.0,
         )
         assert saved["ok"], saved
-        assert saved["hip_pitch_height_mm"] == 95.0
+        assert saved["hip_pitch_height_mm"] == 100.0
 
         api.plant_state = lambda: {
             "ok": True,
             "learned": True,
-            "hip_deg": 18.0,
-            "knee_deg": 33.0,
-            "pose": [0.0, 18.0, 33.0] * 6,
+            "hip_deg": 18.6,
+            "knee_deg": 28.1,
+            "pose": [0.0, 18.6, 28.1] * 6,
         }
+        def knee_for_height(hip_deg: float, height_mm: float) -> float:
+            hip = math.radians(hip_deg)
+            x = (height_mm - 88.0 * math.sin(hip)) / 152.0
+            return math.degrees(math.asin(max(-1.0, min(1.0, x))))
+
         sweep_samples = [
             {"accepted": True, "contact_detected": True, "leg": i % 6,
-             "hip_deg": hip, "knee_deg": knee,
+             "hip_deg": hip, "knee_deg": knee_for_height(hip, 100.0),
              "reason": "floor contact signal"}
-            for i, (hip, knee) in enumerate((
-                (18.0, 28.0), (14.0, 32.0), (22.0, 24.0),
-                (17.0, 30.0), (21.0, 26.0), (15.0, 31.0),
-            ))
+            for i, hip in enumerate((18.0, 14.0, 22.0, 17.0, 21.0, 15.0))
         ]
         geom = api._geometry_report(
             geometry_sweep={"ok": True, "samples": sweep_samples},
             use_latest_sweep=False)
         summary = geom["summary"]
         assert geom["schema_version"] >= 4
-        assert summary["manual_hip_pitch_height_mm"] == 95.0
+        assert summary["manual_hip_pitch_height_mm"] == 100.0
         assert summary["manual_hip_center_radius_mm"] == 114.0
         assert summary["manual_center_minus_nominal_mm"] == 1.5
-        assert summary["manual_relative_minus_manual_height_mm"] > 0.0
+        assert abs(summary["manual_absolute_minus_manual_height_mm"]) < 1.0
+        assert summary["manual_serial_minus_manual_height_mm"] > 30.0
+        assert summary["active_angle_convention"] == "absolute_tibia"
         hyp = summary["manual_zero_hypotheses"]
         assert hyp["ok"], hyp
         assert hyp["sample_count"] == len(sweep_samples)
-        assert hyp["models"]["serial_best_pair"]["rms_error_mm"] < (
-            hyp["models"]["serial_no_offset"]["rms_error_mm"])
-        assert geom["mujoco_hint"]["neutral_foot_z_m"] == -0.095
-        assert geom["mujoco_hint"]["per_leg_servo_height_m"]["0"] == 0.095
+        assert hyp["recommended_angle_convention"] == "absolute_knee"
+        assert hyp["models"]["absolute_knee_no_offset"]["rms_error_mm"] < 1.0
+        assert hyp["models"]["serial_no_offset"]["rms_error_mm"] > 30.0
+        assert geom["mujoco_hint"]["neutral_foot_z_m"] == -0.1
+        assert geom["mujoco_hint"]["per_leg_servo_height_m"]["0"] == 0.1
         assert geom["mujoco_hint"]["per_leg_servo_height_source"] == (
             "manual_operator_measurement")
 
 
-def test_contact_sweep_mismatch_is_rejected_as_dimension_source() -> None:
+def test_contact_sweep_matching_manual_is_dimension_source() -> None:
     api = BenchAPI(object())
     with tempfile.TemporaryDirectory() as td:
         api._manual_geometry_path = lambda: Path(td) / "geometry_manual.json"
         assert api.set_manual_geometry(
-            hip_pitch_height_mm=95.0,
+            hip_pitch_height_mm=100.0,
             hip_center_radius_mm=114.0,
             femur_mm=88.0,
             tibia_mm=152.0,
@@ -451,12 +457,14 @@ def test_contact_sweep_mismatch_is_rejected_as_dimension_source() -> None:
             "pose": [0.0, 18.6, 28.1] * 6,
         }
         sweep_samples = []
+        def knee_for_height(hip_deg: float, height_mm: float) -> float:
+            hip = math.radians(hip_deg)
+            x = (height_mm - 88.0 * math.sin(hip)) / 152.0
+            return math.degrees(math.asin(max(-1.0, min(1.0, x))))
+
         for leg in range(5):
-            for hip, knee in (
-                    (18.6, 28.1),
-                    (22.6, 20.4),
-                    (14.6, 36.2),
-                    (27.6, 11.2)):
+            for hip in (18.6, 22.6, 14.6, 27.6):
+                knee = knee_for_height(hip, 100.0)
                 sweep_samples.append({
                     "accepted": True,
                     "contact_detected": True,
@@ -470,13 +478,10 @@ def test_contact_sweep_mismatch_is_rejected_as_dimension_source() -> None:
         geom = api._geometry_report(
             geometry_sweep={"ok": True, "samples": sweep_samples},
             use_latest_sweep=False)
-        assert geom["contact_sweep"]["status"] == "manual_geometry_mismatch"
-        assert geom["contact_sweep"]["ok"] is False
-        assert geom["summary"]["manual_height_mismatch"] is True
-        assert geom["effective_fit"]["source"] == "plant_only"
-        assert geom["effective_fit"]["rejected_contact_sweep_status"] == (
-            "manual_geometry_mismatch")
-        assert geom["mujoco_hint"]["per_leg_servo_height_m"]["0"] == 0.095
+        assert geom["contact_sweep"]["ok"] is True
+        assert geom["summary"]["manual_height_mismatch"] is False
+        assert geom["effective_fit"]["source"] == "contact_sweep"
+        assert geom["mujoco_hint"]["per_leg_servo_height_m"]["0"] == 0.1
 
 
 def _main() -> int:

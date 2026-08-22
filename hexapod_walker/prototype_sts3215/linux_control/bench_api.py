@@ -2380,6 +2380,7 @@ class BenchAPI:
                 "angle_convention": (
                     "hip_deg+knee_deg is tibia angle"
                     if convention == "serial" else "knee_deg is tibia angle"),
+                "angle_convention_key": convention,
                 "hip_zero_deg": round(float(hip_off), 2),
                 "knee_zero_deg": round(float(knee_off), 2),
                 "mean_height_mm": round(mean_h, 2),
@@ -2424,6 +2425,10 @@ class BenchAPI:
             "serial_knee_only": _fit("serial", zero, fine),
             "serial_best_pair": _fit("serial", coarse, coarse),
             "absolute_knee_no_offset": _eval(0.0, 0.0, "absolute_knee"),
+            "absolute_knee_hip_only": _fit("absolute_knee", fine, zero),
+            "absolute_knee_knee_only": _fit("absolute_knee", zero, fine),
+            "absolute_knee_best_pair": _fit(
+                "absolute_knee", coarse, coarse),
         }
         best_serial = min(
             (models[k] for k in (
@@ -2431,6 +2436,13 @@ class BenchAPI:
              if models[k].get("ok")),
             key=lambda r: float(r.get("score", 1e9)),
             default=None)
+        best_model = min(
+            (row for row in models.values() if row.get("ok")),
+            key=lambda r: float(r.get("score", 1e9)),
+            default=None)
+        recommended = (
+            best_model.get("angle_convention_key")
+            if isinstance(best_model, dict) else None)
         return {
             "ok": True,
             "status": "fit_to_operator_measurements",
@@ -2439,11 +2451,13 @@ class BenchAPI:
             "femur_mm": round(femur, 2),
             "tibia_mm": round(tibia, 2),
             "best_serial": best_serial,
+            "best_model": best_model,
+            "recommended_angle_convention": recommended,
             "models": models,
             "note": (
-                "If the best serial zero shift is large while measured links "
-                "look right, the likely bug is joint zero/reference "
-                "convention rather than physical segment length."),
+                "If absolute_knee_no_offset beats serial_no_offset, the knee "
+                "reading is best interpreted as the tibia's absolute angle, "
+                "not an angle relative to the femur."),
         }
 
     def _geometry_report(
@@ -2480,8 +2494,8 @@ class BenchAPI:
             hip = math.radians(float(hip_deg))
             knee = math.radians(float(knee_deg))
             reach = (COXA_MM + FEMUR_MM * math.cos(hip)
-                     + TIBIA_MM * math.cos(hip + knee))
-            z = -FEMUR_MM * math.sin(hip) - TIBIA_MM * math.sin(hip + knee)
+                     + TIBIA_MM * math.cos(knee))
+            z = -FEMUR_MM * math.sin(hip) - TIBIA_MM * math.sin(knee)
             return {
                 "radial_mm": round(reach, 2),
                 "z_mm": round(z, 2),
@@ -2501,8 +2515,8 @@ class BenchAPI:
                 })
         else:
             for leg in range(6):
-                hip = float(plant.get("hip_deg", 20.0))
-                knee = float(plant.get("knee_deg", 80.0))
+                hip = float(plant.get("hip_deg", 19.0))
+                knee = float(plant.get("knee_deg", 28.0))
                 foot = foot_from(hip, knee)
                 per_leg.append({
                     "leg": leg,
@@ -2705,13 +2719,13 @@ class BenchAPI:
         height_delta_mm = (
             None if model_height_mm is None or manual_height_mm is None
             else round(model_height_mm - manual_height_mm, 2))
-        manual_relative_height_mm = None
+        manual_serial_height_mm = None
         manual_absolute_height_mm = None
         if (manual_femur_mm is not None and manual_tibia_mm is not None
                 and mean_hip_deg is not None and mean_knee_deg is not None):
             hip = math.radians(mean_hip_deg)
             knee = math.radians(mean_knee_deg)
-            manual_relative_height_mm = round(
+            manual_serial_height_mm = round(
                 manual_femur_mm * math.sin(hip)
                 + manual_tibia_mm * math.sin(hip + knee), 2)
             manual_absolute_height_mm = round(
@@ -2748,7 +2762,7 @@ class BenchAPI:
                     manual_center_radius_mm * 0.001, 5)
         return {
             "ok": True,
-            "schema_version": 5,
+            "schema_version": 6,
             "nominal_mm": {
                 "coxa": COXA_MM,
                 "femur": FEMUR_MM,
@@ -2785,12 +2799,19 @@ class BenchAPI:
                 "manual_femur_mm": manual_femur_mm,
                 "manual_tibia_mm": manual_tibia_mm,
                 "model_minus_manual_height_mm": height_delta_mm,
-                "manual_relative_height_mm": manual_relative_height_mm,
+                "manual_relative_height_mm": manual_serial_height_mm,
+                "manual_serial_height_mm": manual_serial_height_mm,
                 "manual_absolute_height_mm": manual_absolute_height_mm,
+                "manual_active_height_mm": manual_absolute_height_mm,
                 "manual_relative_minus_manual_height_mm": (
-                    None if (manual_relative_height_mm is None
+                    None if (manual_serial_height_mm is None
                              or manual_height_mm is None)
-                    else round(manual_relative_height_mm
+                    else round(manual_serial_height_mm
+                               - manual_height_mm, 2)),
+                "manual_serial_minus_manual_height_mm": (
+                    None if (manual_serial_height_mm is None
+                             or manual_height_mm is None)
+                    else round(manual_serial_height_mm
                                - manual_height_mm, 2)),
                 "manual_absolute_minus_manual_height_mm": (
                     None if (manual_absolute_height_mm is None
@@ -2804,6 +2825,7 @@ class BenchAPI:
                 "manual_height_mismatch": manual_height_mismatch,
                 "manual_geometry_mismatch": manual_geometry_mismatch,
                 "manual_zero_hypotheses": manual_zero_hypotheses,
+                "active_angle_convention": "absolute_tibia",
                 "height_source": (
                     "manual_operator_measurement"
                     if manual_height_mm is not None
@@ -2862,7 +2884,8 @@ class BenchAPI:
                 "neutral_foot_z_source": (
                     "manual_operator_measurement"
                     if manual_height_mm is not None else "fk_model"),
-                "angle_convention": "hip_deg plus knee_deg gives tibia angle",
+                "angle_convention": "knee_deg is tibia absolute angle",
+                "angle_convention_key": "absolute_tibia",
             },
         }
 
@@ -4304,7 +4327,7 @@ class BenchAPI:
             hip = math.radians(float(q[leg * 3 + 1]))
             knee = math.radians(float(q[leg * 3 + 2]))
             reach = (COXA_MM + FEMUR_MM * math.cos(hip)
-                     + TIBIA_MM * math.cos(hip + knee))
+                     + TIBIA_MM * math.cos(knee))
             return float(LEG_RADIAL * 1000.0 + reach)
 
         def arc_mm(q: list[float], leg: int, amp_deg: float) -> float:
@@ -6322,7 +6345,8 @@ class BenchAPI:
         the worker first ACQUIRES the zero start safely (collision-
         aware, limps on stall) and eases to the stance from there. If
         acquisition fails the job errors out and the ease never runs.
-        Hip≈0°+knee≈80° is stilts — not a low plant.
+        Under the active absolute-tibia convention, hip≈0°+knee≈80° is
+        stilts — not a low plant.
         """
         try:
             from inplace_demos import (
@@ -6338,7 +6362,7 @@ class BenchAPI:
                 return {"ok": False, "error": "previous job still running"}
 
         hip_deg = max(-80.0, min(30.0, float(hip_deg)))
-        knee_deg = max(-20.0, min(80.0, float(knee_deg)))
+        knee_deg = max(-20.0, min(150.0, float(knee_deg)))
         yaw_deg = max(-35.0, min(35.0, float(yaw_deg)))
         seconds = max(2.0, min(30.0, float(seconds)))
         goal: list[float] = []

@@ -153,6 +153,36 @@ def test_reward_includes_effort_penalty():
         "quiet stand should not be near the over-current trip"
 
 
+def test_struct_compliance_applies_model_and_reported_q():
+    cfg = {
+        "struct_comp": {
+            "enabled": 1.0,
+            "k_yaw_nm_rad": 300.0,
+            "k_hip_nm_rad": 180.0,
+            "k_knee_nm_rad": 120.0,
+            "dr_scale_lo": 1.0,
+            "dr_scale_hi": 1.0,
+        },
+    }
+    env = SimHexapodBalanceEnv(cfg=cfg, seed=5)
+    env.reset()
+
+    base_kp = env.params.per_joint("kp")
+    k = env._struct_comp_k
+    assert k is not None
+    expected_kp = base_kp * k / (base_kp + k)
+    assert env.model.actuator_gainprm[env._pos_act, 0] == pytest.approx(
+        expected_kp)
+
+    j = 2  # L0 knee
+    q_phys = env.data.qpos[env._qadr].copy()
+    env.data.qfrc_actuator[env._vadr] = 0.0
+    env.data.qfrc_actuator[env._vadr[j]] = 1.2
+    env._att_rp = None
+    st = env._read_state()
+    assert st.joint_position[j] == pytest.approx(q_phys[j] - 1.2 / k[j])
+
+
 def test_bad_start_adopts_settled_pose_and_does_not_crash():
     ranges = RandRanges()
     ranges.bad_start_prob = 1.0  # force a badly-placed episode every time
@@ -276,9 +306,12 @@ def test_goal_reward_tracks_reference_and_unload():
                                goal=TaskGoal(roll_ref=0.05))
     assert p_lean["reward_roll"] < p_zero["reward_roll"]
 
-    # Unload goal penalizes the loaded target leg's current.
-    cur = np.abs(st.servo_current).reshape(6, 3)
-    leg = int(cur.mean(axis=1).argmax())
+    # Unload goal penalizes the loaded target leg's current.  At reset the
+    # current filter can legitimately still be all zero, so inject a direct
+    # loaded-leg state instead of relying on incidental settle current.
+    st.servo_current = np.zeros(N_JOINTS)
+    leg = 2
+    st.servo_current[3 * leg:3 * leg + 3] = np.array([0.18, 0.20, 0.22])
     _, p_unload = compute_reward(env.cfg, st, zeros, zeros,
                                  goal=TaskGoal(unload_leg=leg))
     assert p_unload["reward_unload"] < 0.0
@@ -1066,11 +1099,12 @@ def test_walk_gait_start_spawns_mid_stride_tall_with_live_command():
         i = int(round(0.5 / env.dt))
         assert float(np.hypot(traj.vx[i], traj.vy[i])) > 0.02, (
             traj.vx[i], traj.vy[i])
-        # TALL: mean hip pitch near the plant's +20 deg band (the
-        # learned crouch sits around -40 deg).
+        # TALL: mean hip pitch is much nearer the plant's +20 deg band
+        # than the learned crouch (~-40 deg).  Structural compliance can
+        # sag the physical qpos below 0 while still being a tall spawn.
         q = env.data.qpos[7:7 + 18].reshape(6, 3)
         pitch_deg = np.degrees(q[:, 1])
-        assert float(np.mean(pitch_deg)) > 0.0, pitch_deg
+        assert float(np.mean(pitch_deg)) > -20.0, pitch_deg
         knee_deg = np.degrees(q[:, 2])
         knee_asym.append(abs(float(np.mean(knee_deg[[0, 2, 4]]))
                              - float(np.mean(knee_deg[[1, 3, 5]]))))

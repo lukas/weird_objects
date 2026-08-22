@@ -268,7 +268,7 @@ chmod +x deploy_adb.sh
 | Input | Action |
 |---|---|
 | Enable servos | ARM (torque on; nothing moves yet) |
-| Stand | planted stand (default hip **+20°**, knee **+80°**, or learned plant) |
+| Stand | planted stand (default hip **+19°**, knee **+28°**, or learned plant) |
 | Left stick / WASD | walk (tripod gait) |
 | Turn stick / Q·E | yaw rate |
 | Sit & power off | gentle lower, then limp |

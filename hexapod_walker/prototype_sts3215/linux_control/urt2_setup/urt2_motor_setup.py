@@ -924,8 +924,8 @@ def zero_straight_out(bus: FeetechBus, reg: dict) -> None:
     print("  redefines that physical pose as logical 0° on each servo.")
     print("  Motors will NOT move — they only re-zero their encoders.")
     print()
-    print("  Note: walk plant uses standing_pose_degrees() (default hip +20° / "
-          "knee +80°, or logs/plant_pose.json) — not the old CAD crouch −25°/+60°.")
+    print("  Note: walk plant uses standing_pose_degrees() (default hip +19° / "
+          "knee +28°, or logs/plant_pose.json) — not the old CAD crouch −25°/+60°.")
     print("  as offsets from this mechanical zero.")
     print()
 
