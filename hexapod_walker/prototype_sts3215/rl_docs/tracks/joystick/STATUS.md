@@ -251,13 +251,30 @@ with:
    tibia-150 stance source checkpoint exists, and a tibia-150 stance
    retrain arm can now be spec'd+launched (bank no longer red) —
    still gated only on joystick/amp GPU-budget priority, not on any
-   remaining test. **LAUNCHED 08-22**: `cw-stand-footlow2-plant150-1`
-   (train-1, warm-start from `ppo_goal_cw_stand_footlow2_hard1`,
-   byte-identical recipe, only the plant is now tibia-150) — mirrors
-   the already-PASSED `cw-dep-bcgait1-plant150-1` walk-half fix;
-   targets the session gate's tibia-150 sit-fall (the stance half of
-   the MEASURED-PLANT GATE BREAK, still open) so the download pair's
-   stance half can be re-promoted alongside the walk half.
+   remaining test. `cw-stand-footlow2-plant150-1` (train-1, warm-start
+   from `ppo_goal_cw_stand_footlow2_hard1`, byte-identical recipe,
+   only the plant now tibia-150) VERDICTED FAIL 08-22 — but HALF
+   CONFIG BUG: rise/det 1/6, rise/sto 0/6 (parent 5/6 det, 6/6 sto),
+   yet the launch's copy-pasted `--cfg-set` list carried the
+   PRE-tibia-150 `actions.max_height_mm=115`/
+   `goal.rise_height_mm=[108,114]` unchanged, never picking up the
+   SAME 08-22 recalibration (`[128,136]`/137) already used by
+   `test_task_semantics.py`'s bank — a gap in that fix's own scoping
+   note (see CURRENT_TRUTHS). Re-evaluating the frozen checkpoint with
+   the corrected cfg (zero retraining) turns bridge/crouch/flat rise
+   CLEAN (1.4-3.9mm err, det 1/6->3/6, sto 0/6->4/6) — the policy had
+   been overshooting the stale target by the tibia-150 height delta.
+   Genuine residual, unmoved by the cfg fix: RSI-reset (mid-ramp
+   DeepMimic spawn) starts fail every episode (5/5, ~22-29mm
+   undershoot, more roll wobble) — passed fine at the 128mm parent
+   (4/5), so this is real and tibia-150-specific. hold/lower unaffected
+   (6/6 both). **LAUNCHED 08-22**: `cw-stand-footlow2-plant150-2c-
+   heightfix` (train-5, same checkpoint, ONLY the corrected cfg, 10M
+   more steps) — tests whether removing the reward-target fight also
+   helps the harder RSI case; still targets the session gate's
+   tibia-150 sit-fall (the stance half of the MEASURED-PLANT GATE
+   BREAK, still open) so the download pair's stance half can be
+   re-promoted alongside the walk half.
 2. **Evaluator half DONE 08-22** (`rl_move/sim/eval_joystick_gate.py`
    + `test_eval_joystick_gate.py`, 8/8 pure-aggregation tests, no sim
    touched): a reusable, versioned 60 s randomized joystick-session
@@ -362,7 +379,14 @@ with:
    ramp re-tested on seed23/29 specifically, or redirect to item
    (b)'s matched-timing stance-slip mechanism directly (seed17
    2.85/m vs clone 1.89/m) instead of fighting the noise-regime price
-   seed-by-seed. Full detail: CURRENT_TRUTHS.md.
+   seed-by-seed. Full detail: CURRENT_TRUTHS.md. **BRANCH IN FLIGHT
+  08-22 (~16:26-16:35)**: the untried ramp branch launched as a
+  4-arm single-change grid off the failing 48mm/1.2M arms —
+  `allowramp2slow-seed23/-seed29` (ramp_steps 1.2M->2.4M, post-anneal
+  grace) and `allowramp2wide-seed23/-seed29-b` (ramp_mm 48->64, same
+  schedule). 0-for-4 pre-registered to CLOSE the ramp lever class
+  for failing seeds and redirect to the matched-timing stance-slip
+  mechanism (item b).
 4. RL fine-tune from the phase clone (and a walk-champion arm as
    control) with the reward aligned to the gate metrics, resuming
    the staged heading curriculum; extend budget while reward and

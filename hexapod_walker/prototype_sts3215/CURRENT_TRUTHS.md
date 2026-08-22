@@ -123,10 +123,37 @@ out-of-scope runs get honest triage but no agent follow-ups.
   facts. Fix arm `cw-dep-bcgait1-plant150-1` PASSED (core): 0/6 falls
   DR-0+own-DR, gait_valid 6/6, session back-fall gone, fwd yaw
   -21.8->-10.6deg (soft threshold ±10deg, narrow miss); promoted as
-  the walk half. `cw-stand-footlow2-plant150-1` stays blocked on the
-  rise-family residue above. Evidence:
-  `logs/ckpt_eval/plantgate_tibia150_session/`,
-  `logs/ckpt_eval/cw_dep_bcgait1_plant150_1_{gate,owncfg,session}/`.
+  the walk half. `cw-stand-footlow2-plant150-1` (the stance-half fix)
+  VERDICTED FAIL 08-22, but half of it is a CONFIG BUG, not a
+  behavioral regression: rise/det 1/6, rise/sto 0/6 vs the 128mm
+  parent's 5/6 det, 6/6 sto — however this run's launch copy-pasted
+  the PRE-tibia-150 `actions.max_height_mm=115`/
+  `goal.rise_height_mm=[108,114]` unchanged, never picking up the
+  SAME 08-22 recalibration (`[128,136]`/137) that
+  `test_task_semantics.py`'s RISE_OVERRIDES/SCORE_OVERRIDES already
+  use — CORRECTING THE FIX'S OWN SCOPING NOTE ABOVE: "other
+  rise_height_mm call sites... not broken, no need to touch" is WRONG
+  for real training/eval launches, which hand-copy the same stale
+  pair and are not covered by the test file's override dicts.
+  Re-evaluating the SAME frozen checkpoint with the corrected cfg
+  (zero retraining) turns 3 of 4 rise start-kinds clean: bridge/
+  crouch/flat land within 1.4-3.9mm of the corrected target (det
+  1/6->3/6, sto 0/6->4/6) — the policy had been overshooting the
+  stale target by +18 to +29mm, almost exactly the tibia-150 height
+  delta. Genuine residual defect, unmoved by the cfg fix: RSI-reset
+  starts (DeepMimic-style mid-ramp spawn) fail every episode (5/5,
+  ~22-29mm undershoot, roll peak up to 9deg vs 0.5-0.8deg elsewhere)
+  — RSI's target already tracks the reference file's own (correct)
+  height, not the buggy cfg, so the cfg fix can't move it; RSI passed
+  fine at the 128mm parent (4/5). hold/lower unaffected (6/6 both
+  ways). Follow-up `cw-stand-footlow2-plant150-2c-heightfix` (train-5)
+  continues 10M steps from this checkpoint with ONLY the corrected
+  cfg. RULE for any future launch of this stance lineage at
+  tibia-150: use `actions.max_height_mm=137`
+  `goal.rise_height_mm=[128,136]`, never the old 115/[108,114] pair.
+  Evidence: `logs/ckpt_eval/plantgate_tibia150_session/`,
+  `logs/ckpt_eval/cw_dep_bcgait1_plant150_1_{gate,owncfg,session}/`,
+  `logs/ckpt_eval/cw_stand_footlow2_plant150_1_{gate,correctedheight}/`.
 - AMP M0 AUDIT + FIRST CODE (08-22): the GPU/Warp trainer
   (`train_ppo_mjx.py`) already had GRU/history/transformer actors and
   most of AMP §6's joystick-command shape (`walk_task.py`'s

@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-08-22T16:42:31+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 10000000
 
 **parent**: cw-stand-footlow2-plant150-1
+
+**wandb_id**: r3846sx5
 
 **hypothesis**: Plain English: fix a stale-config bug found by triage, then see if it also helps the one real remaining defect. cw-stand-footlow2-plant150-1 (10M steps, warm-start fine-tune for the tibia-150 geometry) FAILED its gate (rise det 1/6, sto 0/6, vs parent's 5/6 det, 6/6 sto), but a same-checkpoint re-eval with the height target corrected to the bank's own 08-22 recalibration (actions.max_height_mm 115->137, goal.rise_height_mm [108,114]->[128,136] -- the values test_task_semantics.py's RISE_OVERRIDES/SCORE_OVERRIDES already use, which this run's copy-pasted launch recipe never picked up) shows the checkpoint was ALREADY GOOD on 3 of 4 start kinds: bridge/crouch/flat rise cleanly to within 1.4-3.9mm of the corrected target (det 1/6->3/6, sto 0/6->4/6, zero new training). Only RSI-reset starts (DeepMimic-style mid-ramp spawn) still fail every episode (5/5, ~22-29mm undershoot, unmoved by the cfg fix -- proving RSI's target already tracked the reference file's own tibia-150-correct height, not the buggy cfg -- and roll peaks up to 9deg vs 0.5-0.8deg on the clean starts, a real wobble). RSI passed fine on the 128mm parent (4/5). This run trains 10M MORE steps from the SAME checkpoint with ONLY the corrected cfg (matching what test_task_semantics.py already validated), so the reward's height income term stops fighting the already-correct bc_anchor reference on bridge/crouch/flat and any freed-up gradient can go toward the harder RSI case.
 
