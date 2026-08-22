@@ -34,6 +34,9 @@ leave the next agent to rediscover it.
 | Finished but not yet analyzed? | ledger `triage` field (watcher-stamped: `awaiting…` → `in-cycle…` → `done` on verdict); shown on the status page "Analysis pipeline" |
 | Write the cycle's RL_LOG line | `ops.sh logline "c<N>: …"` — the ONLY way; never `cat >>` RL_LOG |
 | Frames from a video | harness already wrote `*.png` sheets; else `ops.sh frames <mp4> [n]` |
+| **What is the orchestrator doing RIGHT NOW?** | `ops.sh activity` — watcher heartbeat, pending kicks, every running cycle with the tail of its LIVE narration, recent finishes, newest ledger rows (works from the Mac) |
+| Watch one cycle work (thoughts + commands, live) | `ops.sh cyclelog [pattern] [n]` (one-shot tail) or `ops.sh waitcycle [pattern]` (follow until `=== CYCLE END`) — cycles stream since 08-21; never blind-poll a kick again |
+| What exactly was a cycle told? | its `.prompt.md` next to the cycle log (`/workspace/cycle_logs/`), or MCP `cycle_log(cycle, part='prompt')` |
 | Operator wants an overview in a browser | status page at http://127.0.0.1:8090 — full setup/restart runbook in "Operator status page" section below |
 | An external LLM (GPT/Claude) wants to read status | `https://hexapod.cwd1f0-new-cluster.coreweave.app/llms.txt` (no key) — see "LLM-readable mirror" in the status-page runbook |
 
@@ -126,6 +129,20 @@ report.json, and the W&B API for exactly these questions.
   no pkill, and a naive /proc scan KILLS ITSELF (your scan's cmdline
   contains the run name — a kill command suicided this way 08-09).
   Then record it: `launch_run.py update … status=KILLED verdict=…`.
+- `ops.sh activity` — the orchestrator in one shot: watcher heartbeat,
+  pending kicks, every RUNNING cycle with its live narration tail,
+  recent finishes, newest ledger rows, watcher log tail. Same view as
+  the MCP `orchestrator_activity` tool. Works from the operator Mac
+  (re-execs itself on the controller).
+- `ops.sh cyclelog [pattern] [lines]` — tail one cycle's narration log
+  (default newest). Cycles STREAM since 08-21: assistant thoughts,
+  every tool command, result previews, final verdict + cost, ending
+  `=== CYCLE END: <how> ===`. Siblings: `.prompt.md` (exact prompt),
+  `.jsonl` (raw events), `cycles.json` (registry).
+- `ops.sh waitcycle [pattern] [timeout]` — FOLLOW a cycle live until
+  it ends. The kick workflow is now `ops.sh cycle "focus"` then
+  `ops.sh waitcycle operator-kick` — no more sleep/poll loops guessing
+  whether a silent session is alive.
 
 ## Hard-won gotchas (each cost a cycle at least once)
 
@@ -207,8 +224,10 @@ report.json, and the W&B API for exactly these questions.
    cycles append too).
 9. Guardrails: `rl_move/orchestrator/guardrails.yaml` (from PROTO).
    Watcher log: `/workspace/orchestrator.log`. Cycle logs:
-   `/workspace/cycle_logs/`. Per-run train logs live ON THE POD at
-   `/tmp/train_<run>.log`.
+   `/workspace/cycle_logs/` — live-streaming narration since 08-21
+   (`ops.sh activity` / `cyclelog` / `waitcycle`; prompt in
+   `.prompt.md`, raw events in `.jsonl`, registry in `cycles.json`).
+   Per-run train logs live ON THE POD at `/tmp/train_<run>.log`.
 10. **Restart the watcher ONLY via `restart_watcher.sh`** (in the
     orchestrator dir; deployed at `/workspace/restart_watcher.sh`).
     It sets PAUSE + WRAPUP, waits for in-flight cycles, sanity-parses
