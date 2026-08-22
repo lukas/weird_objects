@@ -37,7 +37,7 @@ REGISTRY_CANDIDATES = (
 # Air demos must start near logical 0°. Planted/rise demos start from a stand.
 AIR_DEMO_NAMES = frozenset({
     "breathe", "breathe_v", "heartbeat", "twinkle", "shimmy", "ripple",
-    "conductor", "arms_up",
+    "conductor", "arms_up", "rock",
     "air_meet", "air_pendulum", "air_orbits", "air_trident",
     "air_weave", "air_gearbox", "air_tides", "dance_swarm",
     # stands mid-song but starts AND ends at sit zero (limp), like dance

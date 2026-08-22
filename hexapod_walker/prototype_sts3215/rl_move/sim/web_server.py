@@ -23,8 +23,9 @@ ROOT = Path(__file__).resolve().parents[2]
 WEBUI_DIR = ROOT / "linux_control" / "webui"
 DEFAULT_LOG_DIR = ROOT / "logs" / "sim_web"
 
-PAGE_PATHS = {"/", "/index.html", "/motors", "/demos", "/dance", "/quad",
-              "/debug", "/rl", "/experiments", "/measure", "/calibrate"}
+PAGE_PATHS = {"/", "/index.html", "/motors", "/demos", "/dance", "/rock",
+              "/quad", "/debug", "/rl", "/experiments", "/measure",
+              "/calibrate"}
 STATIC_FILES = {
     "/style.css": ("style.css", "text/css; charset=utf-8", "no-cache"),
     "/app.js": ("app.js", "application/javascript; charset=utf-8",

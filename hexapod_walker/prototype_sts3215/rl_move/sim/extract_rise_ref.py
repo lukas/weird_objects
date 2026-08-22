@@ -30,6 +30,7 @@ rejects); refuses to write a reference that does not stand.
 from __future__ import annotations
 
 import argparse
+import math
 import sys
 from pathlib import Path
 
@@ -46,6 +47,104 @@ from rl_move.robot_state import DEG2RAD  # noqa: E402
 
 from .servo_model import SimServoParams  # noqa: E402
 from .train_ppo_sim import ENV_CLASSES  # noqa: E402
+
+
+def _blend_pose_ik(q_from_rad: np.ndarray, q_plant_rad: np.ndarray,
+                   s: float) -> np.ndarray:
+    """Foot-anchored (Cartesian) blend between two model-relative poses.
+
+    08-22 tibia-150 finding: a raw joint-ANGLE lerp between the
+    champion's crouch-stand and the env plant pose falls on every seed
+    at the corrected (longer) tibia, even though both endpoints are
+    fine standing poses individually -- the linearly-interpolated
+    INTERMEDIATE joint angles do not correspond to a linearly moving
+    foot, so the mid-blend pose can transiently over-reach or dig a
+    foot into the ground. Fix: per leg, interpolate the FOOT position
+    in the leg's sagittal plane (reach, height) -- a straight-line
+    foot path is an ordinary, physically valid motion -- and IK back
+    to joint angles at every blend step, using the same
+    absolute-tibia FK/IK (``tripod_gait.foot_rz_from_hip_knee`` /
+    ``_leg_ik``) the hardware gait stack already trusts at this
+    geometry. Coxa (yaw) keeps the plain lerp: it only rotates the
+    leg's reach direction and was never implicated.
+    """
+    import tripod_gait as _tg
+    q_from = np.asarray(q_from_rad, dtype=float).reshape(18)
+    q_plant = np.asarray(q_plant_rad, dtype=float).reshape(18)
+    q_out = (1.0 - s) * q_from + s * q_plant
+    for leg in range(6):
+        hip_j, knee_j = 3 * leg + 1, 3 * leg + 2
+        hip_from_deg = math.degrees(q_from[hip_j])
+        hip_plant_deg = math.degrees(q_plant[hip_j])
+        # model-relative knee -> absolute-tibia knee (knee_abs = hip + knee_rel).
+        knee_abs_from_deg = math.degrees(q_from[knee_j] + q_from[hip_j])
+        knee_abs_plant_deg = math.degrees(q_plant[knee_j] + q_plant[hip_j])
+        r_from, z_from = _tg.foot_rz_from_hip_knee(hip_from_deg,
+                                                     knee_abs_from_deg)
+        r_plant, z_plant = _tg.foot_rz_from_hip_knee(hip_plant_deg,
+                                                       knee_abs_plant_deg)
+        r_s = (1.0 - s) * r_from + s * r_plant
+        z_s = (1.0 - s) * z_from + s * z_plant
+        ik = _tg._leg_ik((r_s, 0.0, z_s))
+        if ik is None:
+            continue  # keep the joint-space lerp fallback for this leg/tick
+        hip_rad, knee_abs_rad = ik
+        q_out[hip_j] = hip_rad
+        q_out[knee_j] = knee_abs_rad - hip_rad  # abs -> model-relative
+    return q_out
+
+
+def _validate_open_loop_robustness(qs: np.ndarray, ramp_i0: int, env_cls,
+                                   seeds, margin_deg: float) -> tuple[bool, str]:
+    """Replay the candidate reference open-loop into FRESH resets at
+    OTHER seeds than the one it was extracted from, mirroring exactly
+    how the consumers (test_task_semantics._rise_rollout, and any
+    reward.k_rise_ref_track training rollout) align it: hold
+    ``q_rad[0]`` until the new env's own ramp-start tick
+    (``env._rise_ramp_i0``), then play ``q_rad[ramp_i0:]`` verbatim.
+
+    08-22 finding: a candidate that stands cleanly when replayed into
+    the EXACT env instance it was recorded from (same seed, same
+    starting attitude) can still be one open-loop absolute-joint
+    trajectory blindly applied over a DIFFERENT starting attitude —
+    with no closed-loop correction, small attitude differences at the
+    start compound and can tip a marginal candidate over the hard
+    safety cutoff mid-blend. A reference only safe for its own
+    extraction seed is not safe to ship (PPO/the bank replay it
+    against arbitrary resets) -- this is the check that catches that
+    before it ships, not after a bank regression.
+    """
+    from .joint_task import q_rad_to_action
+    total = len(qs)
+    dt_guess = 0.04
+    for seed in seeds:
+        env = env_cls(params=SimServoParams.from_cfg(None),
+                      randomize=False, dr_scale=0.0,
+                      episode_seconds=total * dt_guess + 2.0, seed=seed)
+        gen = env._goal_gen
+        for m in ("hold", "lean", "track", "unload", "raise", "rise",
+                  "lower", "quad"):
+            if hasattr(gen, f"p_{m}"):
+                setattr(gen, f"p_{m}", 1.0 if m == "rise" else 0.0)
+        gen.force_rise_start = "flat"
+        obs, _ = env.reset()
+        peak = 0.0
+        term = trunc = False
+        step = 0
+        while True:
+            j = ramp_i0 + (step - env._rise_ramp_i0)
+            act = q_rad_to_action(qs[min(max(j, 0), total - 1)])
+            obs, _r, term, trunc, info = env.step(act)
+            peak = max(peak, abs(info.get("pitch_deg", 0.0)),
+                       abs(info.get("roll_deg", 0.0)))
+            step += 1
+            if term or trunc or step >= total + 40:
+                break
+        env.close()
+        if term or peak > margin_deg:
+            return False, (f"validate seed {seed}: term={term} "
+                           f"peak_tilt={peak:.1f}deg (margin {margin_deg})")
+    return True, "ok (%d validation seeds)" % len(seeds)
 
 
 def main() -> None:
@@ -73,8 +172,26 @@ def main() -> None:
                          "walk from that'). The blend is the same "
                          "recipe play.py's 7-key uses, validated to "
                          "hand off into the walk champion.")
+    ap.add_argument("--blend-mode", choices=["ik", "lerp"], default="ik",
+                    help="ik (default, 08-22 fix) = foot-anchored "
+                         "Cartesian blend per leg via FK/IK; lerp = the "
+                         "original raw joint-angle interpolation, kept "
+                         "only for regression comparison (falls on "
+                         "every seed at tibia-150).")
     ap.add_argument("--blend-s", type=float, default=1.5)
     ap.add_argument("--plant-hold-s", type=float, default=1.0)
+    ap.add_argument("--validate-seeds", type=str, default="500,501,502",
+                    help="comma-separated seeds (disjoint from --seeds "
+                         "by convention) to open-loop replay the "
+                         "candidate reference into fresh resets before "
+                         "accepting it -- catches an extraction-seed-"
+                         "only-safe trajectory (08-22 finding). Empty "
+                         "string disables (not recommended).")
+    ap.add_argument("--validate-margin-deg", type=float, default=8.0,
+                    help="max peak |pitch|/|roll| deg tolerated during "
+                         "validation replay (below the ~10deg hard "
+                         "safety cutoff, so a real training rollout at "
+                         "yet another seed still has headroom).")
     ap.add_argument("--out", type=Path,
                     default=_RL / "sim" / "refs" / "rise_ref.npz")
     args = ap.parse_args()
@@ -146,7 +263,11 @@ def main() -> None:
             fell = False
             for k in range(n_blend + n_hold):
                 s = min((k + 1) / n_blend, 1.0)
-                act = q_rad_to_action((1.0 - s) * q_from + s * q_plant)
+                if args.blend_mode == "ik":
+                    q_blend = _blend_pose_ik(q_from, q_plant, s)
+                else:
+                    q_blend = (1.0 - s) * q_from + s * q_plant
+                act = q_rad_to_action(q_blend)
                 obs, _r, term, trunc, info = env.step(act)
                 qs.append(env.data.qpos[env._qadr].copy())
                 hs.append(float(env.data.xpos[chassis_bid, 2]) - z_start)
@@ -169,6 +290,17 @@ def main() -> None:
 
         nz = np.nonzero(np.abs(h) > 1e-12)[0]
         ramp_i0 = int(nz[0]) if len(nz) else 0
+
+        if args.blend_to_plant and args.validate_seeds.strip():
+            vseeds = [int(v) for v in args.validate_seeds.split(",") if v.strip()]
+            v_ok, v_detail = _validate_open_loop_robustness(
+                np.asarray(qs), ramp_i0, env_cls, vseeds,
+                args.validate_margin_deg)
+            print(f"[seed {seed}] robustness validation: "
+                  f"{'PASS' if v_ok else 'FAIL'} ({v_detail})")
+            if not v_ok:
+                continue
+
         h_rel_end_m = (float(env.data.xpos[chassis_bid, 2]) - z_start)
         args.out.parent.mkdir(parents=True, exist_ok=True)
         np.savez(args.out, q_rad=np.asarray(qs), dt=env.dt,
