@@ -1,18 +1,34 @@
 # joystick - RL from the programmatic gait to joystick control
 
-Last updated: 2026-08-22 (~17:5x: **THE DONE-GATE PASS REPRODUCES ON
+Last updated: 2026-08-22 (~18:1x: **DONE-GATE PASS REPRODUCES ON
+EVERY TESTED SEED — recipe 4/4, seed-robustness question CLOSED.**
+`stotight45-seed13` and `-seed29` both VERDICTED PASS on the full
+60s randomized joystick session gate, completing the n=4 sample:
+seed17 (original) slip 2.671 / dir 38.6; seed23 2.78 / 39.4; seed13
+2.407 / 36.4 (widest margins of any passer); seed29 2.704 / 39.05.
+All four: pass=true, 0 falls/48, gait_valid 48/48, no sacrificed
+legs, videos watched det+sto both DR (clean upright six-leg gait);
+training reward rose all run with std annealed to 0.011 on every
+seed — reward and gate agree everywhere. Seeds 13 and 29 were the
+lineage's two historically WORST basins at the -3.2 dose (1/4 pass
+rate there) — the -4.5 noise floor converted a seed lottery into a
+reproducible recipe; recipe property, not seed luck. The
+seed-reproduction bar implied by q_20260822T1730Z is met; formal
+gate-green + champion promotion remain operator-confirmed. Honest
+residual margin gaps if the operator wants hardening: own-DR sto
+margins (thinnest: seed29 slip 2.736/2.9, dir 39.4/40; seed23
+own-DR-alone dir 40.36 a hair over on its own) and the 15s-rung det
+progress trade (~0.85x clone) shared by the -4.5 passers. Prior
+banner below.)
+
+Previous entry (~17:5x: **THE DONE-GATE PASS REPRODUCES ON
 A SECOND SEED** — `cw-dep-bcgait4-phasedir9-stotight45-seed23`
 (identical stotight45 recipe, only seed 17→23) VERDICTED PASS on the
 full 60s randomized joystick session gate: pass=true, 0 falls 48/48,
 gait_valid 48/48, no sacrificed legs, slip 2.78 (cap 2.9), dir 39.4°
-(allow 40); clean six-leg video at both DR scales; training reward
-rose all run with std annealed to 0.011 — reward and gate agree.
-Margins thinner than seed17 (own-DR-alone dir median 40.36°, a hair
-over the allowance on its own; combined gate passes). Recipe pass
-rate now 2/2 measured (seed13/29 owned by a concurrent cycle complete
-the n=4). Unlike the -3.2 longrun recipe's 1/4 lottery, stotight45
-looks like a REPRODUCIBLE recipe, strengthening the promotion case
-already filed as q_20260822T1730Z. Prior banner below.)
+(allow 40); clean six-leg video at both DR scales. Margins thinner
+than seed17 (own-DR-alone dir median 40.36°, a hair over the
+allowance on its own; combined gate passes).)
 
 Previous entry (~17:3x: **DONE GATE PASSED FOR THE FIRST
 TIME** — `cw-dep-bcgait4-phasedir9-longrun17-stotight45` (fresh

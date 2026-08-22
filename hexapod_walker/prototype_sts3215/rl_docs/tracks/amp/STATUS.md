@@ -36,7 +36,25 @@ never actually implemented. A clean-slate brief-literal reward arm
 is the next real experiment, but needs careful design (which modest
 regularizers prevent reopening the OLDER pre-freeprog freeze cheat)
 before training. See CURRENT_TRUTHS for full detail; earlier 08-22
-history retained below this line.)
+history retained below this line.
+
+MEASUREMENT ARMS FOR THAT REDESIGN, LAUNCHED ~18:0x (same cycle
+that verdicted rsi1-noamp): before writing the section-5 reward,
+directly measure whether the style gradient is learnable AT ALL and
+where the task/style burial threshold sits — `cw-amp-m2-styleonly-v2`
+(task 0.0 / style 1.0, teacher_v2, pure imitation, no task income or
+charges; canonical AMP pretraining) and `cw-amp-m2-taskdown01-
+style1-v3` (task 0.1 / style 1.0 — first arm ever with style
+capacity ~6x the task charge floor; v3 = launcher self-repair retry
+of a code-sync REFUSED v2, identical config). FIRST READING,
+styleonly-v2 (FINISHED, 2M): amp/style_reward_mean climbed 0.06 ->
+0.119 — 2x the 0.05-0.07 band every buried arm was pinned at, still
+below the 0.3 INFORMATIVE bar, but ep_rew (pure style income) rose
+MONOTONICALLY all four quarters (14.2/21.9/30.3/37.8) with no
+plateau and the discriminator stayed unsaturated (d_real 0.79 /
+d_fake -0.96) — the style gradient IS alive without task
+competition; 08-21 continue-longer branch applies. Triage/verdict +
+continuation decision pending its podeval videos.)
 
 Previous update, 2026-08-22 ~18:0x (K_WALK_SWING LEVER CLOSED: both
 `cw-amp-m2-freeprog-term400-swing-{noamp,style05}` FAIL, landing in

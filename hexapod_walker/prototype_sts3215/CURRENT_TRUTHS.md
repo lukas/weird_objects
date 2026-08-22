@@ -55,6 +55,16 @@ out-of-scope runs get honest triage but no agent follow-ups.
   operator confirmation (q_20260822T1730Z); until then treat
   stotight45 as the track's champion candidate — champions
   append-only.
+  **REPRODUCED 4/4 (08-22 ~18:1x): the recipe passes the DONE gate
+  on EVERY tested seed** — seed23 (slip 2.78 / dir 39.4), seed13
+  (2.407 / 36.4, widest margins) and seed29 (2.704 / 39.05) all
+  pass=true, 0 falls/48, gait_valid 48/48, no sacrificed legs,
+  videos watched det+sto both DR. Seeds 13/29 were the lineage's two
+  worst basins at the -3.2 dose (1/4 pass rate there): the -4.5
+  noise floor converted the seed lottery into a reproducible recipe.
+  Seed-robustness is CLOSED; the only honest hardening gaps left are
+  own-DR sto margins (thinnest: seed29 slip 2.736/2.9, dir 39.4/40)
+  and the shared 15s-rung det progress trade (~0.85x clone).
 
 - The scripted tripod teacher is verified clean at the measured
   tibia-150 plant (commit a4beb8af): 0.06-0.10 m/s x 4 headings, zero
@@ -201,10 +211,20 @@ out-of-scope runs get honest triage but no agent follow-ups.
   pre-existing known-red `fastprof` fails, unrelated). LAUNCHED:
   `cw-stand-footlow2-plant150-3-rsifix` (same checkpoint, ONLY the
   mechanism fix, 10M steps) — tests whether RSI now actually improves
-  with an aligned reward target; if it still stays pinned, the
-  remaining defect is the reference file's own intermediate joint
-  poses (candidate for `extract_rise_ref.py` re-extraction once a
-  clean tibia-150 stance source exists).
+  with an aligned reward target. **VERDICTED PASS 08-22 (~17:5x)**:
+  RSI-start rise went 0/5 -> 5/5 (det rsi height err 0.8/10.7/
+  11.7 mm, sto 3.2/1.2 mm, all <=15 mm), bridge/crouch/flat 7/7, 12/12
+  rise successes overall, zero terminations; training reward rose then
+  held — reward and eval now agree, confirming the misalignment
+  diagnosis end-to-end. Videos: mid-ramp sprawl -> symmetric rise ->
+  level planted stance. Caveats: 2/3 det RSI episodes end "leaning"
+  (roll 8.9-9.0 deg, height err at the window edge); and the
+  prestaged SESSION composition (this stance + vref1 walk) showed a
+  rise-segment FELL over_current — that harness likely carries the
+  stale pre-tibia-150 height cfg (the documented copy-paste trap), so
+  the stance-half promotion needs a corrected-cfg session-gate rerun
+  pairing this checkpoint with `cw-dep-bcgait1-plant150-1` before the
+  MEASURED-PLANT GATE BREAK's stance half can be declared closed.
 - AMP M0 AUDIT + FIRST CODE (08-22): the GPU/Warp trainer
   (`train_ppo_mjx.py`) already had GRU/history/transformer actors and
   most of AMP §6's joystick-command shape (`walk_task.py`'s
