@@ -303,7 +303,8 @@ def _phasedir_rollout(drive: str, seed: int, heading_rad: float,
         if collect is not None:
             for k in ("reward_loadslip_excess",
                       "reward_walk_course_overspeed",
-                      "reward_walk_course"):
+                      "reward_walk_course", "reward_drag_stance",
+                      "reward_walk", "reward_walk_prog"):
                 collect[k] = collect.get(k, 0.0) + float(info.get(k, 0.0))
             for k in ("walk_loadslip_ratio", "walk_loadslip_factor"):
                 if k in info:
@@ -737,3 +738,131 @@ def test_overspeed_along_projection_spares_sway_prices_directed():
         f"along projection charged wrong-way travel: {wrong_along}")
     assert obey_along > -5.0, (
         f"along projection taxes obedience: {obey_along}")
+
+
+# ---------------------------------------------------------------------------
+# PHASEDIR8 (2026-08-22 dig-in, phasedir7/7b step-function root cause).
+#
+# Measured on the ACTUAL checkpoints (logs/ckpt_eval/
+# pd7b_digin_stancedist/*.json + the decomposition A/B recorded in the
+# phasedir8 ledger entry), two coupled pricing defects:
+#
+#   A. drag_stance_allow_mm=6 sat BELOW the honest tibia-150 gait's
+#      per-stance travel tail (clone pooled p90 12.3 mm, p95 19 mm):
+#      the honest clone paid 2.87x its ENTIRE income in drag-stance
+#      charge — travel itself was net-negative at ANY k, which is why
+#      k=8000 and k=4000 produced the identical slow optimum (a step
+#      function, not a dose curve). At allow=24 (clone ~p98) the
+#      clone pays 0.10x income on ~2% of stances while the phasedir6
+#      drag gait still pays 0.49x (the 08-11 audit intent restored).
+#   B. the tracking kernel's INSTANTANEOUS 2D velocity error taxed
+#      honest stride sway so hard that income was FLAT in realized
+#      speed across [0.059, 0.08] m/s (slow pd7 gait kernel 357.1/ep
+#      vs clone 325.6 — the sway tax cancelled k_prog's speed
+#      payment). reward.walk_kernel_vel_ema=1 computes the kernel
+#      error from a stride-EMA of body velocity (tau=0.75 s, the
+#      course-term convention) so sway averages out; k_walk_prog=2
+#      restores a clearly positive income slope in speed.
+#
+# Checkpoint ordering under THIS stack (det, seed 0, 15 s):
+#   clone (0.0716 m/s) 1031  >  pd7 slow (0.0589) 978  >  pd6 drag 639
+# The rows below pin what scripted drives CAN express (the learned
+# drag regime itself cannot be scripted — pd5 dig-in lesson; the
+# checkpoint A/B artifacts are the launch evidence for that part).
+# ---------------------------------------------------------------------------
+
+STD_TRAIN = 0.13                 # the warm-log-std-override regime
+PHASEDIR8_STACK = dict(PHASEDIR2_STACK)
+PHASEDIR8_STACK.update({
+    # as launched since phasedir6 (band value refuted as a lever, kept)
+    ("reward", "loadslip_ok"): 3.0,
+    ("reward", "loadslip_max"): 6.0,
+    # defect A repair: allowance recalibrated to the measured honest
+    # tibia-150 per-stance tail (clone ~p98); k unchanged from pd7.
+    ("reward", "k_drag_stance"): 8000.0,
+    ("reward", "drag_stance_allow_mm"): 24.0,
+    ("reward", "drag_stance_tick_floor_mm"): 0.25,
+    # defect B repair: stride-EMA kernel + restored income slope.
+    ("reward", "walk_kernel_vel_ema"): 1.0,
+    ("reward", "walk_kernel_vel_tau_s"): 0.75,
+    ("reward", "k_walk_prog"): 2.0,
+})
+
+
+def test_kernel_vel_ema_default_off_is_inert():
+    """walk_kernel_vel_ema absent and =0.0 must be bit-exact equal
+    (no reward change, no state leak into pricing)."""
+    stack_off = dict(PHASEDIR2_STACK)
+    stack_zero = dict(PHASEDIR2_STACK)
+    stack_zero[("reward", "walk_kernel_vel_ema")] = 0.0
+    r_off = _phasedir_rollout("obey", 0, 0.0, stack_off)
+    r_zero = _phasedir_rollout("obey", 0, 0.0, stack_zero)
+    assert r_off == r_zero, (r_off, r_zero)
+
+
+@pytest.fixture(scope="module")
+def pd8_returns() -> dict[str, float]:
+    out = {}
+    for drive in ("obey", "shrunk", "fastcadence", "stall", "park"):
+        out[drive] = _mean(drive, HEADING_BINS["fwd"], PHASEDIR8_STACK)
+    for drive in ("obey", "shrunk"):
+        out[f"noisy_{drive}"] = _mean(
+            drive, HEADING_BINS["fwd"], PHASEDIR8_STACK,
+            noise_std=STD_TRAIN)
+    return out
+
+
+def test_pd8_obey_beats_slow_gait_det_and_noisy(pd8_returns):
+    """THE step-function repair: commanded-speed walking must
+    out-earn the 0.75x shrunken/slow basin (the class pd7/7b pinned
+    into) both deterministically and at the training exploration std.
+    Under the pd7 stack this ordering was inverted for the learned
+    checkpoints (clone 684 < slow 806 at allow=20; worse at 6)."""
+    r = pd8_returns
+    assert r["obey"] > r["shrunk"] + 10.0, r
+    assert r["noisy_obey"] > r["noisy_shrunk"] + 5.0, r
+
+
+def test_pd8_anti_attractor_orderings_survive_reprice(pd8_returns):
+    """Raising k_walk_prog and un-taxing sway must NOT resurrect the
+    known attractors: obey still out-earns the cadence-churned speed
+    chase, marching in place, and parking."""
+    r = pd8_returns
+    assert r["obey"] > r["fastcadence"] + 20.0, r
+    assert r["obey"] > r["stall"] + 20.0, r
+    assert r["obey"] > r["park"] + 20.0, r
+
+
+def test_pd8_obey_drag_charge_is_small_fraction_of_income():
+    """Defect A pinned: under the phasedir8 allowance the honest
+    drive's drag-stance charge must be a SMALL fraction of its gross
+    walk income (audit intent ~<=20-35%; at allow=6 the honest clone
+    paid 287%). Uses the scripted obey drive — the honest gait class
+    the allowance must spare."""
+    for s in SEEDS:
+        c: dict = {}
+        _phasedir_rollout("obey", s, 0.0, PHASEDIR8_STACK, collect=c)
+        income = c.get("reward_walk", 0.0) + c.get("reward_walk_prog", 0.0)
+        charge = -c.get("reward_drag_stance", 0.0)
+        assert income > 0.0, c
+        assert charge < 0.35 * income, (
+            f"allowance still taxes the honest gait: charge {charge:.1f}"
+            f" vs income {income:.1f}; {c}")
+
+
+def test_pd8_ema_kernel_restores_income_slope_in_speed():
+    """Defect B pinned at the mechanism level: under the phasedir8
+    stack the kernel+prog income of the commanded-speed drive must
+    exceed the 0.75x slow drive's — i.e. income is no longer flat in
+    realized speed. (Under the instantaneous kernel the slow gait's
+    lower sway out-earned the clone on the kernel itself.)"""
+    inc = {}
+    for drive in ("obey", "shrunk"):
+        tot = 0.0
+        for s in SEEDS:
+            c: dict = {}
+            _phasedir_rollout(drive, s, 0.0, PHASEDIR8_STACK, collect=c)
+            tot += (c.get("reward_walk", 0.0)
+                    + c.get("reward_walk_prog", 0.0))
+        inc[drive] = tot / len(SEEDS)
+    assert inc["obey"] > inc["shrunk"] + 10.0, inc

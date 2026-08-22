@@ -731,6 +731,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                           "_ls_slip_m", "_ls_prog_m",
                           "_yaw_still_ema", "_stance_slip_acc",
                           "_walk_idle_ema", "_walk_course_ema",
+                          "_walk_kernel_vema",
                           "_gait_last_step", "_gait_cmd_tick",
                           "_gait_gate_qfactor", "_wp", "_vel_est")
 
@@ -827,6 +828,9 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         self._walk_idle_ema = 0.0
         # Commanded-course EMA (reward.k_walk_course); same lifecycle.
         self._walk_course_ema = [0.0, 0.0]
+        # Stride-EMA velocity for the tracking kernel
+        # (reward.walk_kernel_vel_ema); same lifecycle.
+        self._walk_kernel_vema = [0.0, 0.0]
         # Structural stance-slip charge (2026-08-11 charge-magnitude
         # audit, probe_drag_audit.py / GAIT.md P2): accumulated loaded
         # XY travel of the CURRENT stance period per foot. Reset at
@@ -1112,6 +1116,9 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         self._walk_idle_ema = 0.0
         # Commanded-course EMA (reward.k_walk_course); same lifecycle.
         self._walk_course_ema = [0.0, 0.0]
+        # Stride-EMA velocity for the tracking kernel
+        # (reward.walk_kernel_vel_ema); same lifecycle.
+        self._walk_kernel_vema = [0.0, 0.0]
         self._stance_slip_acc = [0.0] * 6
         self._gait_last_step = [0] * 6
         self._gait_cmd_tick = 0
@@ -2684,6 +2691,9 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         self._walk_idle_ema = 0.0
         # Commanded-course EMA (reward.k_walk_course); same lifecycle.
         self._walk_course_ema = [0.0, 0.0]
+        # Stride-EMA velocity for the tracking kernel
+        # (reward.walk_kernel_vel_ema); same lifecycle.
+        self._walk_kernel_vema = [0.0, 0.0]
         self._stance_slip_acc = [0.0] * 6
         self._gait_last_step = [0] * 6
         self._gait_cmd_tick = 0
@@ -2779,6 +2789,40 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                     if (mode_q and goal.lift_legs) else ())
             v = self._body_vel_xy()
             err = float(np.hypot(v[0] - goal.vx_ref, v[1] - goal.vy_ref))
+            # Stride-EMA kernel error (phasedir7/7b dig-in, 2026-08-22;
+            # cfg reward.walk_kernel_vel_ema=1, default 0 = bit-exact
+            # legacy). MEASURED defect the flag repairs: the kernel's
+            # INSTANTANEOUS 2D velocity error taxes honest stride sway
+            # (the accepted ~35 deg tick-level sway floor), so under
+            # the phasedir7 stack a 0.059 m/s low-sway gait out-earned
+            # the 0.0716 m/s clone on the kernel itself (357.1 vs
+            # 325.6/ep) — the sway tax (-31/ep) cancelled k_prog's
+            # linear speed payment (+34/ep), leaving income FLAT in
+            # realized speed across [0.059, 0.08]. Any travel-
+            # proportional charge then pins speed below the gate floor
+            # at ANY dose (the pd7 step function). With the flag on,
+            # the kernel error uses an EMA of the body velocity over
+            # reward.walk_kernel_vel_tau_s (default 0.75 s = one
+            # teacher gait period, the k_walk_course convention) so
+            # zero-mean sway averages out and the kernel pays for the
+            # STRIDE-AVERAGED velocity the gate actually scores.
+            # Update is unconditional while the flag is on (stop
+            # segments included: the EMA lags a stop by ~tau for every
+            # candidate behavior equally).
+            if float(cfg_get(self.cfg, "reward", "walk_kernel_vel_ema",
+                             default=0.0)) > 0.0:
+                tau_kv = max(float(cfg_get(self.cfg, "reward",
+                                           "walk_kernel_vel_tau_s",
+                                           default=0.75)), self.dt)
+                a_kv = self.dt / tau_kv
+                self._walk_kernel_vema[0] += a_kv * (
+                    float(v[0]) - self._walk_kernel_vema[0])
+                self._walk_kernel_vema[1] += a_kv * (
+                    float(v[1]) - self._walk_kernel_vema[1])
+                err = float(np.hypot(
+                    self._walk_kernel_vema[0] - goal.vx_ref,
+                    self._walk_kernel_vema[1] - goal.vy_ref))
+                info["walk_kernel_vel_ema_err"] = err
             r_walk = K_WALK * math.exp(-(err ** 2) / (2.0 * SIGMA_V ** 2))
             # Linear progress: fraction of the commanded speed achieved
             # along the commanded direction. Negative when moving against
