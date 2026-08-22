@@ -81,15 +81,16 @@
       "--cfg-set",
       "reward.term_penalty=400.0"
     ],
-    "attempts": 0,
-    "added": "2026-08-22T14:23:29+00:00"
+    "attempts": 1,
+    "added": "2026-08-22T14:23:29+00:00",
+    "last_error": "REFUSED: hexapod-mjx-train-0 already runs cw-dep-bcgait4-phasedir9-longrun23 \u2014 GPU pods host exactly one run; pick a free GPU pod.\n"
   },
   {
-    "run": "cw-amp-m2-freeprog-term400-style05",
+    "run": "cw-amp-m2-freeprog-term400-noamp",
     "steps": 2000000,
-    "parent": "cw-amp-m2-freeprog-style05",
-    "hypothesis": "With the suicide basin closed (reward.term_penalty=400, the single change vs cw-amp-m2-freeprog-style05; dig-in proved both freeprog arms learned to die fast because termination was free while being alive cost ~-1.4 to -3/tick), does the AMP style reward supply the stepping-discovery gradient that pricing alone lacks? This re-runs the original Wave-1 fork \u2014 which the suicide basin short-circuited before the style channel could matter \u2014 under a stack where survival is strictly cheaper than death (bank 7/7 incl. the new topple test, commit d9554b04). Prediction-if-true: this arm steps (six legs cycling, median fwd >= 0.10 m/15s) while the matched term400-noamp control freezes/statues \u2014 the first real style-vs-control win. Prediction-if-false: both freeze identically (style gradient too weak -> raise style weight or disc-reward shaping next, not more steps). Strongest alternative: both step (pricing was the whole story; AMP buys gait quality only, judged on video).",
-    "gate": "Discovery (2M, DR-0 harness walk mode, 6 det + 6 sto episodes, own cfg): PASS = median fwd travel >= 0.10 m/15s AND gait_valid >= 4/6 det AND video shows six legs cycling, judged RELATIVE to cw-amp-m2-freeprog-term400-noamp at matched budget. AMP health side-gate: amp/d_real > amp/d_fake unsaturated, style_reward_mean not pinned 0/1 >80% of run. Secondary must-hold: no q4 termination explosion. Stepping here + freeze in twin unlocks Wave-1 sizing. No SKILLS/champion updates.",
+    "parent": "cw-amp-m2-freeprog-noamp",
+    "hypothesis": "Dying must stop paying before a from-scratch policy can discover stepping: the freeprog pair's dig-in proved the topple was suicide economics (per-tick charges ~-3/tick, termination free; scripted 1s topple netted +19/ep vs park -243, and both arms flipped to fast death in q4 after ALREADY learning survival to ep_len 310). Single change vs cw-amp-m2-freeprog-noamp: reward.term_penalty=400, the already-built 08-18 anti-suicide term, sized above the worst-case discounted survival cost (~-295) and bank-verified (topple -381 < park -243 < stall; test_slipwalk_toppling_fast_is_not_an_escape, bank 7/7, commit d9554b04). Prediction-if-true: no q4 termination explosion and the policy stays in the survival regime long enough for the pricing gradient to act; PASS if det video shows six legs cycling with median fwd >= 0.10 m/15s. Prediction-if-false: survives but freezes (park/stall basin, the cw-nobc-slipwalk1-r1 fingerprint) \u2014 then the discovery question moves to the style05 twin contrast. Strongest alternative: term fear + charge stack induce a conservative statue variant the stork test already prices.",
+    "gate": "Discovery (2M, DR-0 harness walk mode, 6 det + 6 sto episodes, own cfg): matched control for the term400-style05 twin. PASS = majority episodes zero terminations AND median fwd travel >= 0.10 m/15s AND gait_valid >= 4/6 det with video showing six legs cycling. Secondary must-hold: q4 termination counts do NOT explode (suicide basin closed). Statue/freeze here + stepping in the style05 twin = the style-vs-control Wave-1 unlock evidence. No SKILLS/champion updates.",
     "trainer": "ppo",
     "phase": "discovery",
     "evidence": "",
@@ -113,18 +114,6 @@
       "--no-canary",
       "--seed",
       "7",
-      "--amp-style-weight",
-      "0.5",
-      "--amp-task-weight",
-      "0.5",
-      "--amp-disc-steps",
-      "4",
-      "--amp-disc-batch",
-      "512",
-      "--amp-gp-weight",
-      "10.0",
-      "--amp-replay",
-      "500000",
       "--cfg-set",
       "goal.walk_cmd_mode=stress_mix",
       "--cfg-set",
@@ -148,9 +137,9 @@
       "--cfg-set",
       "goal.walk_stop_frac=0.15",
       "--out-name",
-      "ppo_goal_cw_amp_m2_freeprog_term400_style05",
+      "ppo_goal_cw_amp_m2_freeprog_term400_noamp",
       "--notes",
-      "respec of cw-amp-m2-freeprog-style05: With the suicide basin closed (reward.term_penalty=400, the single change vs cw-amp-m2-freeprog-style05; dig-in proved both freeprog arms learned to die fast because termination was free while being alive cost ~-1.4 to -3/tick), does the AMP style reward supply the stepping-discovery gradient that pricing alone lacks? This re-runs the original Wave-1 fork \u2014 which the suicide basin short-circuited before the style channel could matter \u2014 under a stack where survival is strictly cheaper than death (bank 7/7 incl. the new topple test, commit d9554b04). Prediction-if-true: this arm steps (six legs cycling, median fwd >= 0.10 m/15s) while the matched term400-noamp control freezes/statues \u2014 the first real style-vs-control win. Prediction-if-false: both freeze identically (style gradient too weak -> raise style weight or disc-reward shaping next, not more steps). Strongest alternative: both step (pricing was the whole story; AMP buys gait quality only, judged on video).",
+      "respec of cw-amp-m2-freeprog-noamp: Dying must stop paying before a from-scratch policy can discover stepping: the freeprog pair's dig-in proved the topple was suicide economics (per-tick charges ~-3/tick, termination free; scripted 1s topple netted +19/ep vs park -243, and both arms flipped to fast death in q4 after ALREADY learning survival to ep_len 310). Single change vs cw-amp-m2-freeprog-noamp: reward.term_penalty=400, the already-built 08-18 anti-suicide term, sized above the worst-case discounted survival cost (~-295) and bank-verified (topple -381 < park -243 < stall; test_slipwalk_toppling_fast_is_not_an_escape, bank 7/7, commit d9554b04). Prediction-if-true: no q4 termination explosion and the policy stays in the survival regime long enough for the pricing gradient to act; PASS if det video shows six legs cycling with median fwd >= 0.10 m/15s. Prediction-if-false: survives but freezes (park/stall basin, the cw-nobc-slipwalk1-r1 fingerprint) \u2014 then the discovery question moves to the style05 twin contrast. Strongest alternative: term fear + charge stack induce a conservative statue variant the stork test already prices.",
       "--cfg-set",
       "reward.k_step_event=1.0",
       "--cfg-set",
@@ -178,7 +167,8 @@
       "--cfg-set",
       "reward.term_penalty=400.0"
     ],
-    "attempts": 0,
-    "added": "2026-08-22T14:23:42+00:00"
+    "attempts": 1,
+    "added": "2026-08-22T14:26:33+00:00",
+    "last_error": "REFUSED: hexapod-mjx-train-1 already runs cw-amp-m2-freeprog-term400-style05 \u2014 GPU pods host exactly one run; pick a free GPU pod.\n"
   }
 ]
