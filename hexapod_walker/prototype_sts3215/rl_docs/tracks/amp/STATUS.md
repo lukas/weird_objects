@@ -1,6 +1,29 @@
 # amp - AMP locomotion from scratch
 
-Last updated: 2026-08-22 ~18:0x (K_WALK_SWING LEVER CLOSED: both
+Last updated: 2026-08-22 ~18:2x (RSI-FOR-WALK LEVER CLOSED: both
+`cw-amp-m2-freeprog-term400-rsi1-{noamp,style05b}` FAIL —
+`goal.walk_gait_start_frac=0.5` mid-gait spawn does not unlock
+sustained locomotion on the current freeprog+term400 pricing either
+[confirms `cw-gait-rsi1`'s 08-11 finding on the new stack]. Det fwd
+travel nominally rose to 0.046-0.058m [vs the ~0.03m statue ceiling]
+but `gait_valid` REGRESSED to 0/6 [worse than every reward-side arm,
+3-5/6] with 2-3 legs consistently near-frozen — reads as an RSI
+RESET ARTIFACT [coast on the seeded head start, then collapse into a
+partial-leg-drag], not real sustained six-leg walking. Style added
+nothing on top of RSI either. ep_rew_mean fell every quarter both
+arms — genuine flat-reward FAILs. This CLOSES EVERY ACCESSIBLE-
+GRADIENT LEVER tried for the M2 freeprog statue basin so far
+[term-penalty, std-anneal, staging, task-complexity, style-dose,
+swing, RSI — reward-side AND initial-state] — the basin is an INCOME
+problem, not a discovery-only one. NEXT (untested): task
+restructuring [shorter/denser episodes, or a whole-episode net-
+displacement score instead of per-tick cross-track charges] or a
+short BC-pretrain phase on the motion library before RL, still
+consistent with the "demo is training data" charter — not another
+coefficient/gradient-source/reset-state tweak. See CURRENT_TRUTHS
+for full detail; earlier 08-22 history retained below this line.)
+
+Previous update, 2026-08-22 ~18:0x (K_WALK_SWING LEVER CLOSED: both
 `cw-amp-m2-freeprog-term400-swing-{noamp,style05}` FAIL, landing in
 the SAME ~0.03m/15s statue-family ceiling as every prior arm
 [noamp/style05-v2/stylew2-v2/fixedcmd] — the swing-completion bonus

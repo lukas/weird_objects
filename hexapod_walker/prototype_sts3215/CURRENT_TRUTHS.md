@@ -602,6 +602,38 @@ out-of-scope runs get honest triage but no agent follow-ups.
   DISCOVERY and every accessible-gradient idea (dose or source) is
   closed for this family — next would be task restructuring or a
   short BC-pretrain phase, not another coefficient.
+- RSI-FOR-WALK LEVER CLOSED, BOTH STACKS NOW TESTED (08-22, both
+  `cw-amp-m2-freeprog-term400-rsi1-{noamp,style05b}` FAIL): mid-gait
+  spawn (`goal.walk_gait_start_frac=0.5`) did NOT unlock sustained
+  six-leg locomotion on the current freeprog+term400 pricing either
+  — confirms `cw-gait-rsi1`'s 08-11 finding transfers to the new
+  stack. Det fwd travel nominally rose (0.046-0.058m vs the
+  ~0.03m statue ceiling) but this reads as an RSI RESET ARTIFACT,
+  not real progress: `gait_valid` REGRESSED to 0/6 (worse than every
+  reward-side arm in the family, which reached 3-5/6), with 2-3 legs
+  consistently near-frozen (duty 0.9-0.99, swing_count as low as
+  1-2) while the rest cycle — episodes coast on the RSI-seeded head
+  start's already-moving state, then collapse into a partial-leg-
+  drag pattern rather than sustaining the seeded gait. Style added
+  nothing on top of RSI either (style05b statistically matches its
+  noamp twin, if anything slightly worse; `amp/style_reward_mean`
+  stayed low 0.03-0.09, no in-place-mimicry cheat). `ep_rew_mean`
+  fell every quarter both arms, `env/reward_walk_freeprog_pen`
+  pinned -1.5 to -1.7/tick — genuine flat-reward FAILs. CONCLUSION:
+  the M2 freeprog basin is an INCOME problem, not a discovery-only
+  one — changing WHERE episodes start does not help when nothing
+  ever prices sustaining the gait once discovered. Every
+  accessible-gradient idea tried for this family (term-penalty,
+  std-anneal, staging, task-complexity, style-dose 0.5x-2x, swing,
+  RSI) has now failed the same way. NEXT REAL LEVER (untested):
+  task restructuring (e.g. a shorter/denser episode so the
+  freeprog charge's ~500-step horizon stops dominating, or a
+  reward that scores the WHOLE episode's net displacement rather
+  than per-tick cross-track charges) or a short BC-pretrain phase
+  on the motion library before RL (still consistent with the
+  track's "demo is training data, not the controller" charter) —
+  not another reward coefficient, gradient source, or reset-state
+  tweak.
 - FREEPROG-EMA REUSE TESTED + REFUTED, ZERO GPU SPENT (08-22): the
   obvious cheap fix — feed `reward.walk_kernel_vel_ema`'s already-
   validated stride-averaged velocity into `walk_freeprog_score`
