@@ -45,6 +45,31 @@ out-of-scope runs get honest triage but no agent follow-ups.
   cross-track, loaded-foot slip, falls, tilt/height, and effort. Run
   straight 50 x 20s first, then contextual headings/turns 250 x 20s
   only if straight improves under the same metric.
+  **VERIFIED + EXTENDED (08-22 ~21:0x kick cycle):** (1) the straight-50
+  winner (trial 43: tetrapod period=2.0, swing_frac=0.18494,
+  lift_m=0.035, cmd_tau=0.65225, workspace_margin=0.92865) reproduces
+  BIT-EXACT on the controller (prog_frac 0.9028352617863246, slip/m
+  0.5368772921546681, 0 falls) — the rollout is DETERMINISTIC (no reset
+  randomization at mu=0), so seed replays are vacuous; robustness =
+  off-axis generalization, which PASSES: ±35°/±70° headings prog
+  0.78–0.87, slip 0.58–0.95, cross ≤0.05, 0 falls. The straight result
+  is REAL. (2) The operator's run used `--slip-weight 0.9` (score
+  0.36455 reproduces exactly at 0.9; default is 0.7). (3) TWO SCORER
+  DEFECTS found+fixed before the contextual launch (tag
+  `exp/c0822-paper-cpg-yawwrap-slipnorm-replay`): yaw_delta wrapped the
+  endpoint difference, so a 20 s turn at 0.2 rad/s (target 4 rad > pi)
+  that actually turned +3.9 rad scored as −0.6 of target (sim yaw
+  convention verified consistent with the gait by per-leg probe — the
+  turns were near-perfect: +0.96/+0.99 of target, yaw_err 0.16/0.03
+  rad); and slip_per_m divided by translation progress, saturating the
+  slip penalty on pure turns — now normalized by progress +
+  0.17·|yaw_delta| (foot-arc). Straight metrics shift <2%. (4)
+  Contextual 250 x 20s (5 headings + 2 turns, wz 0.2, slip-weight 0.9,
+  GP warm-started with trial 43 via new `--warm-json`) launched in
+  background on the controller ~21:0x, ETA ~60 min:
+  `logs/paper_cpg_search/paper-cpg-contextual250-20260822T21Z.{json,log}`
+  — next cycle reads `best` there; trial-43 contextual baseline score
+  under the fixed scorer is +0.033.
 
 ## Facts that feed the two tracks
 

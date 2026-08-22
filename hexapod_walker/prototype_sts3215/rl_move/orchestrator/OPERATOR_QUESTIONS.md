@@ -1670,3 +1670,10 @@ is in-scope; launched cw-amp-m2-bcinit-sec5-{style05,noamp} (2M discovery,
 pre-registered twin gates). If the operator intends strict from-scratch,
 these two 2M arms are cheap to discard and task restructuring becomes the
 only lever.
+
+## q_20260822T2110Z — paper-CPG scorer fixes + contextual launch assumptions (kick cycle, 08-22 ~21:0x)
+Plain English: the straight-gait search result is real, but the scorer misread turns; I fixed the scorer, then launched the contextual search the focus note asked for. Assumptions taken without waiting:
+1. Inferred the operator's straight-50 run used `--slip-weight 0.9` (score 0.36455 reproduces exactly at 0.9 vs default 0.7); the contextual 250 was launched with 0.9 for consistency. Confirm if a different weight was intended.
+2. Fixed two measurement defects in `paper_cpg_search.rollout` BEFORE the contextual run (yaw endpoint wrap aliasing >pi turns to look sign-inverted; pure-turn slip normalized by ~zero translation progress). This changes the objective for turn commands relative to the operator's local code. Straight-suite scores shift <2%. Tag: exp/c0822-paper-cpg-yawwrap-slipnorm-replay.
+3. Ran the 250x20s contextual search as a background CPU job on the controller (not via launch_run.py): it is a scripted-gait eval-harness search, not policy training; the launcher refuses CPU training and the GPU stack is the wrong tool. Artifacts under logs/paper_cpg_search/.
+4. Warm-started the contextual GP with the straight winner via new `--warm-json` (contextual-BO-from-prior, matching the paper's transfer idea).
