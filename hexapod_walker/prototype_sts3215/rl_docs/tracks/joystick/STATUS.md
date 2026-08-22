@@ -300,7 +300,34 @@ with:
    helps the harder RSI case; still targets the session gate's
    tibia-150 sit-fall (the stance half of the MEASURED-PLANT GATE
    BREAK, still open) so the download pair's stance half can be
-   re-promoted alongside the walk half.
+   re-promoted alongside the walk half. **VERDICTED FAIL 08-22,
+   ROOT-CAUSED**: RSI stayed pinned at 22-29mm height error through
+   the full 10M extra steps (det rsi 0/3, sto rsi 0/2, zero movement
+   from the pre-training baseline); bridge/crouch/flat held steady
+   (det 3/6, sto 4/6, no regression). Training reward flattened after
+   Q1 (120.6/201.1/198.1/200.6) — reward-flat + eval-flat, a genuine
+   stuck mechanism per the 08-21 ruling, exactly the gate's own
+   pre-registered FAIL branch. ROOT CAUSE found (not just
+   re-confirmed): `sim_env.py`'s RSI height-schedule rewrite anchored
+   the episode's ABSOLUTE height target to `rise_ref_belly2plant.npz`'s
+   OWN recorded final height (`ref["h"][-1]` = 110.96mm) — that npz
+   predates the tibia-150 change; the SAME `q_rad` trajectory settles
+   at 131.94mm on the current sim (the exact number the
+   `rise_valid_plant` fix already measured for a different bug). The
+   ~21mm gap matches the observed RSI error almost exactly: every RSI
+   episode was being TRAINED toward a target ~21mm below the real
+   `goal.rise_height_mm=[128,136]` window the eval actually grades
+   against. FIXED: the RSI schedule now anchors to the episode's own
+   live-cfg target (already correct post-tibia-150) and uses the
+   reference array only for FRACTIONAL progress at the spawn point —
+   robust to the stale absolute scale. 2 new regression tests
+   (`test_rise_rsi_height_target.py`, both pass) lock the fix; full
+   `test_task_semantics.py` bank re-run clean (159 pass, only the
+   pre-existing known-red `fastprof` fails, unrelated). **LAUNCHED
+   08-22**: `cw-stand-footlow2-plant150-3-rsifix` (train-5, same
+   checkpoint, ONLY the RSI mechanism fix, 10M more steps) — tests
+   whether RSI now actually improves once its own reward target
+   agrees with the eval target.
 2. **Evaluator half DONE 08-22** (`rl_move/sim/eval_joystick_gate.py`
    + `test_eval_joystick_gate.py`, 8/8 pure-aggregation tests, no sim
    touched): a reusable, versioned 60 s randomized joystick-session

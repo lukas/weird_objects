@@ -162,17 +162,49 @@ out-of-scope runs get honest triage but no agent follow-ups.
   delta. Genuine residual defect, unmoved by the cfg fix: RSI-reset
   starts (DeepMimic-style mid-ramp spawn) fail every episode (5/5,
   ~22-29mm undershoot, roll peak up to 9deg vs 0.5-0.8deg elsewhere)
-  — RSI's target already tracks the reference file's own (correct)
-  height, not the buggy cfg, so the cfg fix can't move it; RSI passed
-  fine at the 128mm parent (4/5). hold/lower unaffected (6/6 both
-  ways). Follow-up `cw-stand-footlow2-plant150-2c-heightfix` (train-5)
-  continues 10M steps from this checkpoint with ONLY the corrected
-  cfg. RULE for any future launch of this stance lineage at
+  — RSI passed fine at the 128mm parent (4/5). hold/lower unaffected
+  (6/6 both ways). Follow-up `cw-stand-footlow2-plant150-2c-heightfix`
+  (train-5) continued 10M steps from this checkpoint with ONLY the
+  corrected cfg. RULE for any future launch of this stance lineage at
   tibia-150: use `actions.max_height_mm=137`
   `goal.rise_height_mm=[128,136]`, never the old 115/[108,114] pair.
   Evidence: `logs/ckpt_eval/plantgate_tibia150_session/`,
   `logs/ckpt_eval/cw_dep_bcgait1_plant150_1_{gate,owncfg,session}/`,
   `logs/ckpt_eval/cw_stand_footlow2_plant150_1_{gate,correctedheight}/`.
+- RSI-START RSI-TARGET STALENESS ROOT-CAUSED + FIXED (08-22,
+  `cw-stand-footlow2-plant150-2c-heightfix` VERDICTED FAIL, exactly
+  the gate's own pre-registered branch): the RSI-reset defect above
+  was WRONGLY attributed to "RSI's target already tracks the
+  reference file's own (correct) height" — it does NOT. 10M more
+  training steps left RSI-start rise pinned at 22-29mm height error
+  (0/5 combined, zero movement) while bridge/crouch/flat held steady
+  (det 3/6, sto 4/6) and training reward flattened after Q1
+  (120.6/201.1/198.1/200.6) — reward-flat + eval-flat, a genuine
+  stuck mechanism. Root cause: `sim_env.py`'s RSI height-schedule
+  rewrite anchors the episode's ABSOLUTE height target to
+  `rise_ref_belly2plant.npz`'s OWN recorded final height
+  (`ref["h"][-1]` = 110.96mm) — that npz predates the tibia-150
+  change; replaying the SAME `q_rad` trajectory on the current sim
+  settles at 131.94mm (the exact number `rise_valid_plant` already
+  measured for a different bug, above). The ~21mm gap matches the
+  observed RSI error almost exactly: every RSI episode was being
+  TRAINED toward a target ~21mm below the real
+  `goal.rise_height_mm=[128,136]` window the eval grades against —
+  a genuine reward<->eval misalignment, not an unlearnable motion.
+  FIXED: the RSI schedule now anchors the absolute target to the
+  episode's own already-sampled, live-cfg height (correct
+  post-tibia-150) and uses the reference array only for FRACTIONAL
+  progress at the spawn point (robust to the stale absolute scale).
+  2 new regression tests (`rl_move/tests/test_rise_rsi_height_
+  target.py`, both pass) lock the fix against recurrence; full
+  `test_task_semantics.py` bank re-run clean (159 pass, only the
+  pre-existing known-red `fastprof` fails, unrelated). LAUNCHED:
+  `cw-stand-footlow2-plant150-3-rsifix` (same checkpoint, ONLY the
+  mechanism fix, 10M steps) — tests whether RSI now actually improves
+  with an aligned reward target; if it still stays pinned, the
+  remaining defect is the reference file's own intermediate joint
+  poses (candidate for `extract_rise_ref.py` re-extraction once a
+  clean tibia-150 stance source exists).
 - AMP M0 AUDIT + FIRST CODE (08-22): the GPU/Warp trainer
   (`train_ppo_mjx.py`) already had GRU/history/transformer actors and
   most of AMP §6's joystick-command shape (`walk_task.py`'s
