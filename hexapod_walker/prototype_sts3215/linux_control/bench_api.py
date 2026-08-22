@@ -5031,14 +5031,19 @@ class BenchAPI:
             "log_name": report.get("log_name"),
             "summary": "sim-ready calibration report saved",
         })
-        ok = all(p.get("ok") for p in phases)
-        if abort_check() or any(p.get("aborted") for p in phases):
-            ok = False
         problem = (
-            next((p for p in phases if p.get("aborted")), None)
+            next((p for p in phases
+                  if p.get("aborted") and not p.get("recoverable")), None)
             or next((p for p in phases if not p.get("ok")
-                     and not p.get("skipped")), None)
+                     and not p.get("skipped")
+                     and not p.get("non_blocking")), None)
         )
+        ok = not abort_check() and problem is None
+        diagnostic_issues = [
+            p for p in phases
+            if not p.get("ok") and not p.get("skipped")
+            and p.get("non_blocking")
+        ]
         problem_msg = None
         if not ok and isinstance(problem, dict):
             problem_msg = (
@@ -5067,8 +5072,11 @@ class BenchAPI:
             "log_name": report.get("log_name"),
             "latest": report.get("latest"),
             "msg": (
+                "checkup complete with diagnostic issues; see phases"
+                if ok and diagnostic_issues else
                 "checkup complete"
                 if ok else "checkup complete with issues; see phases"),
+            "diagnostic_issue_count": len(diagnostic_issues),
         }
 
     def run_calibrate(self, *, mode: str = "step",

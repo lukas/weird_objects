@@ -38,6 +38,7 @@ def _run_checkup(*, sweep_res: dict,
                  traction_res: dict | None = None,
                  stability_res: dict | None = None,
                  mass_res: dict | None = None,
+                 geometry_check_res: dict | None = None,
                  plant_exc: Exception | None = None,
                  sweep_exc: Exception | None = None) -> tuple[dict, list[str]]:
     calls: list[str] = []
@@ -108,7 +109,7 @@ def _run_checkup(*, sweep_res: dict,
 
         def geometry_check(*_args, **_kwargs) -> dict:
             calls.append("geometry_check")
-            return {
+            return geometry_check_res or {
                 "ok": True,
                 "non_blocking": True,
                 "mode": "geometry_plausibility",
@@ -291,6 +292,35 @@ def test_clean_checkup_returns_zero() -> None:
     assert _phase(result["phases"], "mass_shift_response")["ok"] is True
     assert _phase(result["phases"], "camera_witness")["skipped"] is True
     assert _phase(result["phases"], "bus_power_health")["ok"] is True
+
+
+def test_non_blocking_geometry_issue_is_not_final_error() -> None:
+    result, calls = _run_checkup(
+        sweep_res={"ok": True, "mode": "geometry_sweep", "msg": "sweep ok"},
+        geometry_check_res={
+            "ok": False,
+            "non_blocking": True,
+            "mode": "geometry_plausibility",
+            "error": (
+                "geometry not trusted: contact-derived geometry disagrees "
+                "with hand measurements"),
+            "msg": (
+                "geometry not trusted: contact-derived geometry disagrees "
+                "with hand measurements"),
+        })
+    phases = result["phases"]
+    assert result["ok"], result
+    assert "error" not in result, result
+    assert result["diagnostic_issue_count"] == 1
+    assert result["msg"] == (
+        "checkup complete with diagnostic issues; see phases")
+    assert calls.count("safe_zero") == 2, calls
+    assert "proprio" in calls, calls
+    geo = _phase(phases, "geometry_plausibility")
+    assert geo["ok"] is False
+    assert geo["non_blocking"] is True
+    assert _phase(phases, "return_zero")["ok"] is True
+    assert _phase(phases, "proprioception_check")["ok"] is True
 
 
 def test_recoverable_stability_guard_skips_later_motion_but_returns_zero() -> None:
