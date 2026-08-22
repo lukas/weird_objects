@@ -1,6 +1,6 @@
 # hw - hardware joystick mainline
 
-Last updated: 2026-08-22 UTC. Current mainline status, not a run history; details in `rl_docs/runs/`, W&B, `RL_LOG.md`.
+Last updated: 2026-08-22 ~04:4x UTC. Current mainline status, not a run history; details in `rl_docs/runs/`, W&B, `RL_LOG.md`.
 
 ## Goal
 
@@ -22,7 +22,10 @@ OLD-PLANT numbers, see Live Runs for the tibia-150 break).
 ## Live Runs
 
 `cw-dep-bcgait1-plant150-1` (walk fix arm, launched 08-22 after the
-bank repair below; gate in queue item 2). 08-22 finding: the shipped
+bank repair below; gate in queue item 2).
+`cw-dep-bcgait4-phasedir2-staged-fwd` (staged phase-RL rung A, queued
+08-22 per operator order fb_20260822T032514 — see Next Agent
+Actions). 08-22 finding: the shipped
 download pair HARD-FAILS eval_session at tibia-150 while the matched
 128 mm control PASSES — `logs/ckpt_eval/plantgate_tibia150_session/`
 (differential stands; absolute numbers predate the harness repair).
@@ -31,9 +34,10 @@ BANK REPAIR LANDED 08-22: the 08-21/22 bank collapse was bisected to
 leaking into the femur-relative sim (NOT the quad commits); fixed by
 `linux_control/sim_gait_compat.py` + `_default_plant_deg` guard.
 Walk banks GREEN; rise family retains 7 true tibia-150 residue FAILs
-=> stance fix arm still launch-blocked. Fast-gait fork still sits
-with the operator, BUT phasedir1 trained on the corrupted sim — its
-RL verdict is env-confounded (see queue item 3).
+=> stance fix arm still launch-blocked. phasedir1 trained on the corrupted
+sim — its RL verdict is env-confounded (queue item 3); the fork was
+then resolved by operator order fb_20260822T032514 (Next Agent
+Actions).
 
 ## Recently Finished
 
@@ -48,12 +52,8 @@ Fast-gait chain, 5 refuted RL levers in sequence (newest first):
   with zero RL (SKILLS). dir_err has a ~35 deg tick floor — judge
   deltas. Evidence: logs/probe_phasedir/. Scope: refutes
   full-heading-from-rung-1 phase RL only (fb_20260822T003132).
-- `cw-dep-bcgait3-speedbc1-cont1` (+4M, operator override of a STOP):
-  FAILED WORSE — 48/48 falls (parent 34/48), sacrificed-leg pathology.
-- `cw-dep-bcgait3-speedbc1` (speed obs + charges): FAILED every axis.
-- `cw-dep-bcgait2-fastbc1-track1` (tracking price): FAILED, overspeed
-  WORSE (det 1.88x->2.10x).
-- Teacher-level faster cadence: REFUTED by its own preflight grid.
+- `speedbc1` / `speedbc1-cont1` / `fastbc1-track1` / faster-cadence
+  grid: all FAILED (details in their run docs / CURRENT_TRUTHS).
 
 Refuted: faster cadence, tracking price, speed-obs+charges, more
 steps, full-heading-from-rung-1 phase RL (staged untried). fastbc1
@@ -70,25 +70,37 @@ bcgait2/3 evals were old-plant; phasedir1 + clone are tibia-150.
 
 ## Next Agent Actions
 
-No fast-gait launches without an operator-chosen lever. If the
-operator adopts the phase clone: pre-registered next rungs are a DR
-panel on the clone + board-side command-gated phase-clock CODE.
-PRE-REGISTERED (operator-permission required, fb_20260822T003132):
-`cw-dep-bcgait4-phasedir2-staged` — phase clone init as phasedir1,
-fixed 0.08 cmd, vel:=ref, no charges, STAGED headings (rung A
-forward-only `walk_heading_max_rad=0`, B +/-45 deg, C full fixed, D
-irregular changes); each rung gates on clone-vs-child DELTA (dir_err
-med within +5 deg of the matched un-RL'd clone, zero falls, slip/m
-<=2.2, speed 0.06-0.09); optional gait-preservation anchor if rung A
-drifts. Hypothesis: full-heading conditioning from step 0 pushes the
-clone off-manifold; staged exposure keeps it on.
+FAST-GAIT LEVER CHOSEN by operator order fb_20260822T032514 (08-22
+~03:2x): staged phase RL with ALIGNED reward. Rung A
+`cw-dep-bcgait4-phasedir2-staged-fwd` QUEUED at 1f0eadbd:
+forward-only (`walk_heading_max_rad=0`), fixed 0.08, phase clone
+init; NEW pricing per the order (stride-averaged course charge
+`k_walk_course`, EMA overspeed band `k_walk_course_overspeed`,
+clone-banded `walk_loadslip_gate`/`k_loadslip_excess` at ok=2.2/
+max=4.0, travel floor `k_walk_idle_charge`) + STRONG gait
+preservation (`bc_anchor_coef=1` with NEW `bc_anchor_phase_lock=1`
+command-gated anchor clock and `bc_anchor_knee_abs=1` clone-dialect
+teacher). Preflight `tests/test_phasedir_semantics.py` 20/20 GREEN:
+clone out-earns every measured phasedir1 attractor per heading bin
+incl. rear, margins attributable to the new terms (deviation filed
+q_20260822T0430Z: ordered slip pricing inverts the generic
+stall>park tail; obey buries both >=100). Gate is CLONE-RELATIVE per
+bin (progress >=0.9x, slip <=1.15x, dir_err <= clone+5deg, speed
+0.06-0.096, zero falls) + reward-vs-behavior table mandatory (order
+item 6). Rungs B `walk_heading_set=[0,+-0.7854]`, C full fixed
+headings, D irregular changes: each a respec of the prior PASS,
+same clone-relative per-bin gate.
 Plant flag RESOLVED TO A FINDING 08-22 (see Live Runs). AGENT QUEUE,
 in order:
 1. [code] DONE 08-22 (convention repair, this cycle) — residue: 7
    true tibia-150 recalibration FAILs (rise_valid_plant +
    score_replay = stale 128 mm `rise_ref_belly2plant.npz`, re-mint
    via extract_rise_ref at the measured plant; rise_rock; trans_drag;
-   getup_honest_ordering; recover_floor_rungs; fastprof_obeying).
+   getup_honest_ordering; recover_floor_rungs; fastprof_obeying —
+   ROOT-CAUSE HINT from the 08-22 phasedir2 preflight: at tibia-150
+   the overdriven teacher SATURATES near the commanded speed, so the
+   instant k_walk_overspeed band cannot separate the attractor;
+   re-band or adopt the EMA k_walk_course_overspeed form).
    Repair each per root cause (reward vs test/ref); REWARD.md +
    snapshot rules apply. Rise/lower family green = stance-arm
    precondition met.
