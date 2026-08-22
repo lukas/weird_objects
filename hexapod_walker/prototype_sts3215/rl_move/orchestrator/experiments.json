@@ -121057,7 +121057,7 @@
       "rl_move/sim/motion_library/teacher_v2.npz"
     ],
     "created": "2026-08-22T17:59:23+00:00",
-    "status": "FINISHED",
+    "status": "FAIL",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -121093,7 +121093,9 @@
         "verdict": "FINISHED_BEFORE_CHECKUP",
         "log_tail": "db:       amp/d_real_mean 0.78997\nwandb:      amp/disc_updates 124\nwandb:                amp/gp 0.00724\nwandb:              amp/loss 0.12217\nwandb: amp/pairs_per_rollout 65371\nwandb:        amp/replay_len 500000\nwandb: amp/style_reward_mean 0.11886\nwandb:                  +102 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-amp-m2-styleonly-v2 at: https://wandb.ai/l2k2/hexapod-balance/runs/lj5om8cc\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 3 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260822_180018-lj5om8cc/logs\n"
       }
-    ]
+    ],
+    "verdict": "FAIL on the pre-registered gate's INFORMATIVE-PASS bar (needed style_reward_mean>=0.3, got 0.119) and decisively on video/behavior, but genuinely informative: pure-imitation (amp-task-weight=0.0, amp-style-weight=1.0, no task income/charges at all) DID move the discriminator signal off the historic floor -- amp/style_reward_mean rose 0.06->0.12 (2x, confirmed by ep_rew_mean RISING every quarter 14.2/21.9/30.3/37.8, the FIRST monotonically-rising reward of the entire M2 freeprog family after 9 straight declining arms) -- so the AMP mechanism is not dead/saturated (d_real 0.79, d_fake -0.96, healthy separation, gradient penalty finite). But the achieved income stayed 2.5x short of the 0.3 informative bar, and DR-0 gate + video show the SAME frozen-tripod statue signature as every prior arm: gait_valid 0/6 det AND sto, legs [1,3,5] -- the OTHER tripod from the swing/RSI family's [0,2,4] pattern -- sacrificed/frozen in both passes, speed ~0.006-0.025 m/s, prog_ratio ~0.00, dir_err 89-109deg (expected, no command reward). Training video (2 late-run rollouts) and the fresh eval contact sheet all show the identical splayed, near-static pose across the whole clip -- no coordinated cyclic locomotion, just a milder version of the family statue. READS AS: the pure-style channel is weakly learnable (rules out complete discriminator failure) but far too slow/weak alone at 2M budget and 0.5/1.0 GP-regularized least-squares AMP settings to escape the basin unassisted -- confirms AMP_LOCOMOTION.md sec5's own worry ('style must be strong enough the policy cannot ignore it') cuts both ways: even at INFINITE relative weight (task=0) the realized income is still small. Read JOINTLY with its twin cw-amp-m2-taskdown01-style1-v3 (task_weight=0.1, RUNNING, retry of a REFUSED launch) per the pre-registered plan: if that arm ALSO stays statued, this closes 'AMP style alone/lightly-task-assisted can bootstrap M2 from scratch at 2M' and points the redesign toward either much higher amp-disc-steps/gp-weight/replay tuning, MUCH longer budget for the style channel specifically, or the section-5 minimal-Gaussian-task rearchitecture already flagged in q_20260822T1815Z.",
+    "triage": "done"
   },
   {
     "run": "cw-amp-m2-taskdown01-style1-v2",
@@ -121302,7 +121304,7 @@
       "rl_move/sim/motion_library/teacher_v2.npz"
     ],
     "created": "2026-08-22T18:06:22+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -121330,7 +121332,16 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:amp PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-amp-m2-taskdown01-style1-v3 --steps 2000000 --task joint_walk --asym-critic --n-envs 4096 --impl warp --host-workers 24 --episode-seconds 15 --eval-every 1000000 --video-every 2000000 --no-canary --seed 7 --amp-style-weight 1.0 --amp-task-weight 0.1 --amp-disc-steps 4 --amp-disc-batch 512 --amp-gp-weight 10.0 --amp-replay 500000 --cfg-set goal.walk_cmd_mode=stress_mix --cfg-set goal.walk_speed_min_m_s=0.0 --cfg-set goal.walk_speed_max_m_s=0.25 --cfg-set goal.walk_yaw_cmd=1 --cfg-set goal.walk_yaw_max_rad_s=0.5 --cfg-set goal.walk_yaw_zero_frac=0.15 --cfg-set goal.walk_cmd_resample_s=1.75 --cfg-set goal.walk_cmd_resample_jitter=0.714 --cfg-set goal.walk_cmd_blend_s_min=0.05 --cfg-set goal.walk_cmd_blend_s_max=1.0 --cfg-set goal.walk_stop_frac=0.15 --out-name ppo_goal_cw_amp_m2_taskdown01_style1_v3 --notes 'respec of cw-amp-m2-taskdown01-style1-v2: Retry of cw-amp-m2-taskdown01-style1-v2 (REFUSED at launch on a code_sha_local/pod mismatch from a concurrent snapshot race, never actually trained 0 steps) -- identical config, no changes. Plain English: twin to the currently-RUNNING cw-amp-m2-styleonly-v2, asking the dose question from the other side -- does keeping a SMALL task signal (amp-task-weight 0.1, ~10% of the freeprog stack) preserve command-following pressure without re-burying the AMP style gradient the way every 0.5/0.5 style arm did? Read JOINTLY with styleonly-v2 (task_weight=0): if styleonly climbs but this arm stays pinned, even 0.1x task charges re-bury the gradient; if both climb, this is the better base; if both stay pinned <=0.1, AMP-mechanism defect confirmed with n=2.' --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_park_duty=2.0 --cfg-set reward.k_walk_freeprog=3.0 --cfg-set reward.walk_freeprog_cap_m_s=0.05 --cfg-set reward.walk_loadslip_gate=0.0 --cfg-set reward.loadslip_ok=1.5 --cfg-set reward.k_loadslip_excess=6.0 --cfg-set reward.walk_gait_gate=1.0 --cfg-set reward.k_walk_idle_charge=20.0 --cfg-set reward.walk_idle_speed_m_s=0.02 --cfg-set reward.walk_idle_tau_s=1.0 --cfg-set goal.walk_pure=1.0 --cfg-set reward.term_penalty=400.0 --amp-motion-lib rl_move/sim/motion_library/teacher_v2.npz > /tmp/train_cw-amp-m2-taskdown01-style1-v3.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-amp-m2-taskdown01-style1-v3.log",
     "wandb_id": "7f7r8l0m",
-    "verified": "2026-08-22T18:09:38+00:00"
+    "verified": "2026-08-22T18:09:38+00:00",
+    "triage": "in-cycle cw-amp-m2-taskdown01-style1-v3 since 2026-08-22T18:15:04",
+    "checkups": [
+      {
+        "time": "2026-08-22T18:15:31+00:00",
+        "process_alive": false,
+        "verdict": "FINISHED_BEFORE_CHECKUP",
+        "log_tail": "  amp/d_real_mean 0.79348\nwandb:      amp/disc_updates 124\nwandb:                amp/gp 0.00711\nwandb:              amp/loss 0.12371\nwandb: amp/pairs_per_rollout 65343\nwandb:        amp/replay_len 500000\nwandb: amp/style_reward_mean 0.08707\nwandb:                  +102 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-amp-m2-taskdown01-style1-v3 at: https://wandb.ai/l2k2/hexapod-balance/runs/7f7r8l0m\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 3 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260822_180714-7f7r8l0m/logs\n"
+      }
+    ]
   },
   {
     "run": "cw-amp-m2-taskdown01-style1-v2b",
