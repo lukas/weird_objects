@@ -188,18 +188,23 @@ with:
 
 ## Next
 
-1. **Close the last 2 rise-bank items with root-cause fixes, not
-   re-measurement** (3/7 closed 08-22, see above): (a) PLANT_SPEC's
+1. **Close the last 1 rise-bank item with a root-cause fix, not
+   re-measurement** (4/7 closed as of 08-22, see above): PLANT_SPEC's
    height-window check on the demonstrated rise's final pose
    (`height_ok: False` with everything else OK — likely the window
-   itself, not the pose, is stale for the corrected geometry); (b)
-   `getup_honest_ordering`'s partial-crouch pricing (partial now pays
-   LESS than freezing — a real reward-shape defect). Once those are
-   green, `extract_rise_ref.py --blend-mode ik` (built+tested this
-   cycle) can remint a compliant reference once a tibia-150 stance
-   source checkpoint exists — which itself needs the bank green
-   first (circular; see finding above). fastprof residue is a
-   separate, already-tracked fast-gait item, not a blocker here.
+   itself, not the pose, is stale for the corrected geometry).
+   `getup_honest_ordering`'s partial-crouch pricing CLOSED 08-22
+   (root-cause, not re-measurement): the one-shot progress ratchet
+   (`reward.getup_k_progress`) didn't clear the honest rise motion's
+   own extra regularizer cost over freezing (partial -12.16 <
+   freeze -11.26 at k=60); recalibrated 60->200 (partial +10.8 >
+   freeze -11.5, full GETUP-bank ordering preserved, swept 60-500).
+   Once the height-window item is green, `extract_rise_ref.py
+   --blend-mode ik` (built+tested 08-22) can remint a compliant
+   reference once a tibia-150 stance source checkpoint exists — which
+   itself needs the bank green first (circular; see finding above).
+   fastprof residue is a separate, already-tracked fast-gait item,
+   not a blocker here.
 2. **Evaluator half DONE 08-22** (`rl_move/sim/eval_joystick_gate.py`
    + `test_eval_joystick_gate.py`, 8/8 pure-aggregation tests, no sim
    touched): a reusable, versioned 60 s randomized joystick-session

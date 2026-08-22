@@ -60,10 +60,9 @@ out-of-scope runs get honest triage but no agent follow-ups.
   `reward.drag_trans_allow_rise_m` 0.55->0.75), rise_rock_feedback
   (leveled peak 4.6-6.7->8.6deg, bound 8->9deg), recover_floor_rungs
   (tangle_70/80 gap margin 2.0->1.5mm, still strictly monotonic).
-  STILL RED: rise_valid_plant/score_replay (PLANT_SPEC height-window
-  miss on an otherwise-clean final pose), getup_honest_ordering
-  (partial-crouch now pays less than freezing — a real pricing
-  defect), fastprof (separate fast-gait item). `extract_rise_ref.py
+  STILL RED (08-22, now 2/7): rise_valid_plant/score_replay
+  (PLANT_SPEC height-window miss on an otherwise-clean final pose),
+  fastprof (separate fast-gait item). `extract_rise_ref.py
   --blend-mode ik` (foot-anchored FK/IK blend + fresh-seed robustness
   validation, replacing the raw joint-lerp that fell on every seed
   0-99) is BUILT+TESTED but did not ship a new reference: the best
@@ -73,9 +72,24 @@ out-of-scope runs get honest triage but no agent follow-ups.
   asymmetric at the new geometry (blend method can't fix a bad source
   shape) — reverted, not shipped. CIRCULAR blocker: the real fix is a
   tibia-150 stance retrain (mirroring the walk fix arm), but that is
-  itself a reward-mechanism launch gated on the same 2 still-red rise
-  tests, which don't need a training run to fix. Next: root-cause the
-  PLANT_SPEC height-window and getup partial-crouch pricing directly.
+  itself a reward-mechanism launch gated on the same still-red rise
+  test, which doesn't need a training run to fix. Next: root-cause
+  the PLANT_SPEC height-window directly.
+  `getup_honest_ordering` CLOSED 08-22 (root-cause, not
+  re-measurement): a genuine partial rise (held mid-ramp crouch, feet
+  loaded) earned LESS than freezing at the untouched spawn pose
+  (-12.16 vs -11.26, 3 seeds) because the one-shot progress-ratchet
+  credit (`reward.getup_k_progress`, was 60) for the honest
+  potential gain (~+10) didn't clear the EXTRA gyro/action/current
+  regularizer cost of actually executing the rise motion that
+  freezing never pays (measured other-than-prog totals -21.6 partial
+  vs -11.7 freeze, seed 11) — those regularizers are intentionally
+  untouched (they price real physics, not this task's shape).
+  Recalibrated `getup_k_progress` 60->200 (partial +10.8 > freeze
+  -11.5, >=20-pt margin; swept 60->500, every other GETUP-bank
+  ordering incl. flagleg/stilt/thrash preserved). Bank: 152 pass / 2
+  known-red (rise_valid_plant+score_replay share one root cause,
+  fastprof separate) / 4 skip / 1 xfail.
 - MEASURED-PLANT GATE BREAK (08-22): the download hierarchy
   HARD-FAILS the interactive session gate at tibia-150 (sit
   tilt_pitch + reverse tilt_roll falls, fwd yaw -21.8 deg) while the

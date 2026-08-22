@@ -2329,6 +2329,44 @@ def main(argv: list[str] | None = None) -> int:
                   f"({_prof_ramp_steps:,}) >= --steps ({args.steps:,}) "
                   "— the policy will NEVER train at the full target "
                   "dose in this run")
+
+    # Drag-stance allowance RAMP (08-22, phasedir9 seed-lottery dig-in
+    # follow-up — see walk_task.py's __init__ block for the full
+    # mechanism/why). Same cfg-armed / trainer-driven / default-OFF
+    # contract as the profile ramp above; deliberately NOT mirrored
+    # into the walkcurr certification env (that mechanism is
+    # walkcurr-specific and unused by this lineage) — periodic
+    # eval_checkpoint/C-env evals stay at the calibrated TARGET
+    # allowance by construction (armed-but-unbroadcast override is
+    # None, see walk_task.py).
+    _da_ramp_steps = 0
+    if env_kw.get("cfg") is not None:
+        from rl_move.config import cfg_get as _cfg_get_da
+        _da_ramp_steps = int(float(_cfg_get_da(
+            env_kw["cfg"], "reward", "drag_stance_allow_ramp_steps",
+            default=0) or 0))
+
+    def _drag_allow_ramp_frac_at(step: int) -> float:
+        return min(1.0, float(step) / float(_da_ramp_steps))
+
+    def _drag_allow_ramp_apply(target_venv, step: int) -> dict | None:
+        """Broadcast the frac for ``step`` to a vec env; returns the
+        applied allowance. No-op when the ramp is off."""
+        if _da_ramp_steps <= 0:
+            return None
+        f = _drag_allow_ramp_frac_at(step)
+        return target_venv.env_method("apply_drag_allow_frac", f)[0]
+
+    if _da_ramp_steps > 0:
+        d0 = _drag_allow_ramp_apply(venv, 0)
+        print(f"[drag-allow-ramp] armed: {_da_ramp_steps:,} global env "
+              f"steps from a loose allowance to the cfg target; step-0 "
+              f"allow={d0['allow_mm']:.1f}mm")
+        if _da_ramp_steps >= args.steps:
+            print("[drag-allow-ramp] WARNING: "
+                  f"drag_stance_allow_ramp_steps ({_da_ramp_steps:,}) "
+                  f">= --steps ({args.steps:,}) — the policy will "
+                  "NEVER train at the target allowance in this run")
     if args.predictive_live:
         capture_indices = list(range(args.pred_capture_envs))
         venv.env_method("dynrep_capture_enable", True,
@@ -3204,6 +3242,38 @@ def main(argv: list[str] | None = None) -> int:
                             vals["max_delta_q_deg"]})
 
         callbacks.append(_ProfileRampCb())
+    if _da_ramp_steps > 0:
+        class _DragAllowRampCb(BaseCallback):
+            """Advance the drag-stance allowance ramp once per rollout
+            (see the arming block after venv construction). Broadcasts
+            stay on after frac hits 1.0 for one extra round (idempotent),
+            then stop; W&B gets the live allowance under
+            drag_allow_ramp/*."""
+
+            def __init__(self):
+                super().__init__()
+                self._finished = False
+
+            def _on_step(self) -> bool:
+                return True
+
+            def _on_rollout_end(self) -> None:
+                if self._finished:
+                    return
+                vals = _drag_allow_ramp_apply(venv, self.num_timesteps)
+                if vals["frac"] >= 1.0:
+                    self._finished = True
+                    print("[drag-allow-ramp] ramp complete @ "
+                          f"{self.num_timesteps:,} steps — training at "
+                          "the target allowance from here on")
+                if run is not None:
+                    import wandb
+                    wandb.log({
+                        "global_step": self.num_timesteps,
+                        "drag_allow_ramp/frac": vals["frac"],
+                        "drag_allow_ramp/allow_mm": vals["allow_mm"]})
+
+        callbacks.append(_DragAllowRampCb())
     if args.ent_coef_final is not None:
         class _EntCoefAnnealCb(BaseCallback):
             """Linearly anneal model.ent_coef from args.ent_coef to

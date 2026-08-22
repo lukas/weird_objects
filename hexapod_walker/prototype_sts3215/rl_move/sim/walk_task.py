@@ -842,6 +842,51 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # them 3.3x (learned skaters median 9.8 mm vs scripted gait
         # 2.9 mm, p90 5.7) — charge the stroke, not the jitter.
         self._stance_slip_acc = [0.0] * 6
+        # Drag-stance allowance RAMP (08-22, phasedir9-seed-lottery
+        # dig-in / pd8 regime-gap follow-up): the det-calibrated
+        # drag_stance_allow_mm cannot separate honest walking from a
+        # drag cheat while PPO's action-noise std is still high early
+        # in training (pd8_digin_regime: at std 0.135 the honest
+        # clone's own per-stance travel needs an allowance >=48mm to
+        # stay untaxed while the det drag cheat pays zero past 36mm) —
+        # a FIXED tight allowance (24mm) taxes noisy honest exploration
+        # far harder than the cheat before basin selection happens,
+        # which the log-std anneal alone cannot fix (mirrors
+        # bus.profile_ramp_steps' construction exactly: cfg-armed,
+        # trainer-driven, default OFF = bit-exact legacy). When armed
+        # (reward.drag_stance_allow_ramp_steps > 0), the ALLOWANCE
+        # starts loose (reward.drag_stance_allow_ramp_mm, meant to sit
+        # above the noisy-honest tail) and anneals down to the normal
+        # reward.drag_stance_allow_mm target over that many GLOBAL env
+        # steps — armed but never broadcast (apply_drag_allow_frac)
+        # sits at the TARGET allowance, so eval_checkpoint/play/the
+        # periodic C-env evals always judge the calibrated final
+        # pricing even when the training cfg carries ramp keys, exactly
+        # like the profile ramp.
+        self._drag_allow_ramp: dict | None = None
+        self._drag_allow_override_m: float | None = None
+        _da_ramp_steps = int(float(cfg_get(
+            self.cfg, "reward", "drag_stance_allow_ramp_steps",
+            default=0) or 0))
+        if _da_ramp_steps > 0:
+            _da_target_mm = float(cfg_get(
+                self.cfg, "reward", "drag_stance_allow_mm", default=6.0))
+            _da_start_mm = float(cfg_get(
+                self.cfg, "reward", "drag_stance_allow_ramp_mm",
+                default=48.0))
+            if _da_start_mm < _da_target_mm:
+                raise ValueError(
+                    "reward.drag_stance_allow_ramp_mm "
+                    f"({_da_start_mm:g}) must be >= the target "
+                    f"reward.drag_stance_allow_mm ({_da_target_mm:g}) "
+                    "— the ramp only ever loosens, never tightens, "
+                    "the allowance")
+            self._drag_allow_ramp = {
+                "steps": _da_ramp_steps,
+                "start_m": _da_start_mm / 1000.0,
+                "target_m": _da_target_mm / 1000.0,
+                "frac": 1.0,
+            }
         # All-support-legs gait gate bookkeeping (08-13, quad track,
         # reward.walk_gait_gate): per-leg COMMANDED-tick index of the
         # last completed real swing (liftoff -> >=2 ticks airborne ->
@@ -1443,6 +1488,26 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             "results": {str(b): dict(r)
                         for b, r in self._wc_results.items()},
         }
+
+    def apply_drag_allow_frac(self, frac: float) -> dict:
+        """Move the live drag_stance allowance to ``frac`` of the ramp
+        (0 = loose/noisy-safe start, 1 = the cfg target allowance);
+        trainer-driven — see the ``reward.drag_stance_allow_ramp_steps``
+        block in ``__init__``. Mirrors ``apply_profile_ramp_frac``'s
+        contract exactly: raises when the ramp is not armed, so a
+        broadcast that silently no-ops is never a hidden failure mode.
+        """
+        if self._drag_allow_ramp is None:
+            raise RuntimeError(
+                "apply_drag_allow_frac called but reward."
+                "drag_stance_allow_ramp_steps is not set (>0) in this "
+                "env's cfg — the drag-allow ramp is not armed")
+        f = min(max(float(frac), 0.0), 1.0)
+        s = self._drag_allow_ramp["start_m"]
+        t = self._drag_allow_ramp["target_m"]
+        self._drag_allow_override_m = s + f * (t - s)
+        self._drag_allow_ramp["frac"] = f
+        return {"frac": f, "allow_mm": self._drag_allow_override_m * 1000.0}
 
     def walkcurr_checkpoint_state(self) -> dict:
         """State paired with a promotion checkpoint (rollback/resume)."""
@@ -3623,9 +3688,16 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             # Default 0 = off, legacy exact.
             k_ds = float(cfg_get(self.cfg, "reward", "k_drag_stance",
                                  default=0.0))
-            allow_m = float(cfg_get(self.cfg, "reward",
-                                    "drag_stance_allow_mm",
-                                    default=6.0)) / 1000.0
+            # Ramp override (see __init__/apply_drag_allow_frac): None
+            # unless reward.drag_stance_allow_ramp_steps is armed AND
+            # the trainer has broadcast at least one frac — bit-exact
+            # legacy cfg lookup otherwise.
+            if self._drag_allow_override_m is not None:
+                allow_m = self._drag_allow_override_m
+            else:
+                allow_m = float(cfg_get(self.cfg, "reward",
+                                        "drag_stance_allow_mm",
+                                        default=6.0)) / 1000.0
             # Contact-solver micro-jitter (~0.2 mm/tick on a motionless
             # loaded foot) must not integrate into the accumulator, or
             # any long stance eventually pays regardless of behavior:

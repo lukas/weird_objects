@@ -114338,7 +114338,7 @@
       "reward.walk_course_overspeed_ref_floor_m_s=0.06"
     ],
     "created": "2026-08-22T14:16:06+00:00",
-    "status": "FINISHED",
+    "status": "FAIL",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -114376,7 +114376,9 @@
         "verdict": "FINISHED_BEFORE_CHECKUP",
         "log_tail": " env/abs_roll_deg 1.8743\nwandb:           env/bc_mode 3\nwandb:     env/height_err_mm 29.80278\nwandb:         env/height_mm 29.80032\nwandb:     env/height_ref_mm 0\nwandb:     env/max_current_a 1.39182\nwandb:    env/mean_current_a 0.51447\nwandb:                  +104 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-dep-bcgait4-phasedir9-longrun29 at: https://wandb.ai/l2k2/hexapod-balance/runs/x4jwj5pn\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 4 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260822_141655-x4jwj5pn/logs\n"
       }
-    ]
+    ],
+    "verdict": "Seed29 twin of the pd9 std-anneal recipe (picked up this cycle -- finished+checkup'd but unclaimed, same lineage as longrun23 being triaged): DR-0 det progress 0.57/0.77=0.740x clone (FAIL, <0.9x cap), slip 2.45/1.89=1.296x clone (FAIL, >1.2x cap), speed 0.041 m/s, zero falls, gait_valid 6/6, own-DR0.35 matches (0.53-0.57 range). Clean 6-leg video. Worst of the 4-seed sample. n=4 complete: seed13 FAIL(0.792x/1.286x), seed17 PASS-partial(1.02x/0.74x), seed23 FAIL(0.818x/1.175x), seed29 FAIL(0.740x/1.296x) -- pass rate 1/4, matches the pre-registered 'seed lottery too thin to farm' branch exactly. Next lever per pre-registration: stance-slip pricing that survives the optimization regime, not more seeds.",
+    "triage": "done"
   },
   {
     "run": "cw-dep-bcgait4-phasedir9-longrun23",
@@ -114519,7 +114521,7 @@
       "reward.walk_course_overspeed_ref_floor_m_s=0.06"
     ],
     "created": "2026-08-22T14:25:00+00:00",
-    "status": "finished",
+    "status": "FAIL",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -114562,7 +114564,8 @@
         ]
       }
     ],
-    "triage": "in-cycle cw-amp-m2-freeprog-term400-style05-cw-dep-bcgait4-phasedir9- since 2026-08-22T14:34:51"
+    "triage": "done",
+    "verdict": "Seed23 twin of the pd9 std-anneal recipe: DR-0 det progress 0.63/0.77=0.818x clone (<0.9x cap, FAIL), slip 2.22/1.89=1.175x clone (<=1.2x cap, pass), speed 0.045 m/s, zero falls, gait_valid 6/6, own-DR0.35 matches (0.63/0.77, 2.23/1.89). Clean 6-leg video, no drag/sacrifice. Lands in the same 0.7-0.8x/1.15-1.3x regression basin as seed13/seed29 (see longrun29, evaluated same cycle) -- NOT a reproduction of longrun17's pass. n=4 seed sample now complete: 1/4 pass (seed17 only). See CURRENT_TRUTHS/joystick STATUS for the seed-pass-rate conclusion."
   },
   {
     "run": "cw-amp-m2-freeprog-term400-style05",
@@ -114658,7 +114661,7 @@
       "reward.term_penalty=400.0"
     ],
     "created": "2026-08-22T14:26:42+00:00",
-    "status": "FINISHED",
+    "status": "FAIL",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -114687,7 +114690,7 @@
     "log": "/tmp/train_cw-amp-m2-freeprog-term400-style05.log",
     "wandb_id": "u3rmvqly",
     "verified": "2026-08-22T14:29:56+00:00",
-    "triage": "in-cycle cw-amp-m2-freeprog-term400-style05-cw-dep-bcgait4-phasedir9- since 2026-08-22T14:34:51",
+    "triage": "done",
     "checkups": [
       {
         "time": "2026-08-22T14:35:17+00:00",
@@ -114695,7 +114698,8 @@
         "verdict": "FINISHED_BEFORE_CHECKUP",
         "log_tail": "mp/d_real_mean 0.77751\nwandb:      amp/disc_updates 124\nwandb:                amp/gp 0.00788\nwandb:              amp/loss 0.13905\nwandb: amp/pairs_per_rollout 65323\nwandb:        amp/replay_len 500000\nwandb: amp/style_reward_mean 0.0856\nwandb:                  +102 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-amp-m2-freeprog-term400-style05 at: https://wandb.ai/l2k2/hexapod-balance/runs/u3rmvqly\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 3 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260822_142733-u3rmvqly/logs\n"
       }
-    ]
+    ],
+    "verdict": "Discovery FAIL against own gate: DR-0 det/sto median fwd travel 0.02m/15s (bar 0.10m), slip 8-9/m, gait_valid 6/6 but video (contact sheet + 12-frame strips, 3 episodes) shows the body NOT translating across the full episode -- a marching-in-place / paddle-creep equilibrium, not a freeze and not a fall. Root cause (W&B trace): term_penalty=400 DID fix the prior suicide-economics failure (ep_len_mean climbs monotonically 13->365 over 2M steps with NO late-run collapse, terminations dominated by truncated not tilt_pitch/roll -- opposite of the prior arms' q4 death-flip). But env/walk_gait_min (continuous gait-quality factor) crashes 1.0->~0.3 by ~500k steps and never recovers, env/reward_walk_prog stays 0 throughout (freeprog-only stack), env/walk_freeprog_score and env/walk_speed stay flat ~0.03 the entire run, and env/reward_loadslip_excess gets MORE negative over training (increasing bill despite near-zero net motion) -- the policy is not learning locomotion, it found a lower-risk micro-stepping basin once falling stopped being free. AMP mechanism stayed healthy throughout (amp/d_real_mean 0.65-0.78 vs d_fake -0.95to-1.0, unsaturated, style_reward_mean 0.03-0.10) but had nothing to rescue. reward_per_tick_ema bottomed at -1.35 (step ~850k) then partially recovered to -1.35->-1.33 (essentially flat, not a real climb) while task metrics stayed dead flat -- this is the RUN_INTERPRETATION_RULES 'genuine FAIL' bucket (task metrics flat with adequate discovery budget), not a rising-reward case. Context (read-only, not verdicting): the noamp/noamp-rr1 twins' own W&B reward is monotonically worse with no tail recovery (-1163/-1162 vs style05's -538) -- suggestive that AMP may be doing SOMETHING here, but that comparison is the twins' own triage to make, not decided by this run alone. NEW pricing lead for the next arm: freeprog's cap (k_walk_freeprog=3, walk_freeprog_cap_m_s=0.05) may be too small relative to k_loadslip_excess=6 risk to reward pushing stride amplitude back up once death stops being the cheap option -- candidate fix is raising the freeprog cap/gain or adding a stride-length/gait_min floor charge, not touching term_penalty again."
   },
   {
     "run": "cw-amp-m2-freeprog-term400-noamp",
@@ -114969,7 +114973,7 @@
       "reward.term_penalty=400.0"
     ],
     "created": "2026-08-22T14:29:07+00:00",
-    "status": "FINISHED",
+    "status": "FAIL",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -115005,7 +115009,9 @@
         "verdict": "FINISHED_BEFORE_CHECKUP",
         "log_tail": "5673\nwandb:       env/height_mm -72.35495\nwandb:   env/height_ref_mm 0\nwandb:   env/max_current_a 1.66136\nwandb:  env/mean_current_a 0.46703\nwandb: env/pct_within_1deg 0.09985\nwandb:   env/pitch_ref_deg 0\nwandb:   env/reward_action -0.01354\nwandb:                 +91 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-amp-m2-freeprog-term400-noamp at: https://wandb.ai/l2k2/hexapod-balance/runs/yvpeo6ay\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 3 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260822_142957-yvpeo6ay/logs\n"
       }
-    ]
+    ],
+    "triage": "done",
+    "verdict": "Suicide fix WORKED (term_penalty=400: 0/12 terminations DR-0 det+sto, matches rr1 repro) but the walk gate FAILS on progress: median fwd travel 0.026m/15s (need 0.10m), gait_valid 3/6 det (rr1 5/6), high slip 6.6-22.7/m. W&B: reward_walk_prog=0 by freeprog design (expected), but the freeprog cross/backward penalty (env/reward_walk_freeprog_pen) sits flat ~-1.4 to -1.8/tick with NO improvement q1-end to q4 (per-tick reward_per_tick_ema worsens -1.17->-2.84 then flattens) -- flat reward + flat task metric = genuine stuck point, not reward-still-rising. This is the predicted-if-false outcome (park/stall basin, cw-nobc-slipwalk1-r1 fingerprint): six legs do cycle (not a pure statue) but slip in place without organizing into net commanded-direction travel. Matched to style05 twin (another cycle) to close the Wave-1 style-vs-control fork."
   },
   {
     "run": "cw-amp-m2-freeprog-term400-noamp",
@@ -115183,7 +115189,7 @@
       "reward.term_penalty=400.0"
     ],
     "created": "2026-08-22T14:32:10+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -115212,7 +115218,117 @@
     "log": "/tmp/train_cw-amp-m2-freeprog-term400-noamp-rr1.log",
     "wandb_id": "50sl2j2h",
     "verified": "2026-08-22T14:35:23+00:00",
-    "verdict": "ACCIDENTAL DUPLICATE of cw-amp-m2-freeprog-term400-noamp (backlog lost-update race c0822: the re-queue of an apparently-lost item met the watcher's parallel drain of the original; the drain's self-repair renamed the dup -rr1 and launched it). Bit-identical config+seed. Triage guidance for next cycle: no independent verdict needed \u2014 usable only as a free determinism/repro replicate vs the primary noamp control; judge the term400 hypothesis on the primary pair.",
-    "triage": "done"
+    "verdict": "Bit-identical accidental dup of cw-amp-m2-freeprog-term400-noamp (same config+seed). Independently confirms: 0/12 terminations DR-0 (suicide fix holds), median fwd travel 0.0315m/15s (need 0.10m) FAIL, gait_valid 5/6 det, slip 6.4-22.2/m. Repro-replicate, not a separate hypothesis test -- see primary noamp verdict for the reward-economics writeup.",
+    "triage": "done",
+    "checkups": [
+      {
+        "time": "2026-08-22T14:41:20+00:00",
+        "process_alive": false,
+        "verdict": "DEAD",
+        "log_tail": "\nwandb:       env/height_mm -73.02319\nwandb:   env/height_ref_mm 0\nwandb:   env/max_current_a 1.64994\nwandb:  env/mean_current_a 0.45826\nwandb: env/pct_within_1deg 0.10962\nwandb:   env/pitch_ref_deg 0\nwandb:   env/reward_action -0.01357\nwandb:                 +91 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-amp-m2-freeprog-term400-noamp-rr1 at: https://wandb.ai/l2k2/hexapod-balance/runs/50sl2j2h\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 3 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260822_143301-50sl2j2h/logs\n"
+      }
+    ],
+    "checkup_resolution": "c0822 checkup rc=1 was a FALSE DEAD: run completed its full 2M-step budget normally ([mjx-train] done: 2,000,000 steps in 389s), checkpoint saved on train-2 + W&B artifact ckpt md5 66407997, clean wandb final sync. No retry (would re-duplicate); prior ACCIDENTAL-DUPLICATE verdict stands, primary pair triage owned by concurrent cycle."
+  },
+  {
+    "run": "cw-amp-m2-freeprog-term400-stdanneal",
+    "pod": "hexapod-mjx-train-0",
+    "steps": 2000000,
+    "smoke": false,
+    "hypothesis": "Plain English: does making the robot's random leg-jitter calm down over training (not just pricing death out) let it stop thrashing in place and start actually walking? term400-noamp (0 terminations, suicide fixed) still failed the walk gate by shuffling in place: env/reward_walk_freeprog_pen (the cross-track/backward charge) sat flat ~-1.4 to -1.8/tick with NO improvement over the full 2M steps at CONSTANT policy std=0.368 (--log-std-init=-1.0 default, never annealed) -- the exact same 'noisy exploration never organizes' fingerprint the joystick track root-caused and fixed for phasedir9 via a log-std anneal. Single change vs cw-amp-m2-freeprog-term400-noamp: add --log-std-final=-2.0 --log-std-anneal-frac=0.5 (std 0.368->0.135 linearly over the first 1M of 2M steps, matching the joystick track's mechanism, ported to a from-scratch run instead of a warm start). Prediction-if-true: freeprog_pen improves over training and median fwd travel rises toward the 0.10m bar. Prediction-if-false: shuffle persists at low std too (the flailing is priced-in by the reward shape, not exploration noise) -- points at a genuine reward-shape defect (freeprog's cross-track charge with no net-displacement credit) needing a direct patch, not a training-lever fix.",
+    "gate": "Discovery (2M, DR-0 harness walk mode, 6 det + 6 sto episodes, own cfg), judged RELATIVE to cw-amp-m2-freeprog-term400-noamp at matched budget/config: PASS = median fwd travel >= 0.10 m/15s AND gait_valid >= 4/6 det AND zero/rare terminations held AND video shows six legs cycling with net displacement (not in-place shuffling). Secondary read regardless of PASS/FAIL: does env/reward_walk_freeprog_pen actually improve over the 4 quarters vs noamp's flat trace -- decides whether std-anneal is a viable lever for this reward family before any reward-shape patch.",
+    "parent": "cw-amp-m2-freeprog-term400-noamp",
+    "track": "amp",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--asym-critic",
+      "--n-envs",
+      "4096",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--episode-seconds",
+      "15",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--no-canary",
+      "--seed",
+      "7",
+      "--cfg-set",
+      "goal.walk_cmd_mode=stress_mix",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.0",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.25",
+      "--cfg-set",
+      "goal.walk_yaw_cmd=1",
+      "--cfg-set",
+      "goal.walk_yaw_max_rad_s=0.5",
+      "--cfg-set",
+      "goal.walk_yaw_zero_frac=0.15",
+      "--cfg-set",
+      "goal.walk_cmd_resample_s=1.75",
+      "--cfg-set",
+      "goal.walk_cmd_resample_jitter=0.714",
+      "--cfg-set",
+      "goal.walk_cmd_blend_s_min=0.05",
+      "--cfg-set",
+      "goal.walk_cmd_blend_s_max=1.0",
+      "--cfg-set",
+      "goal.walk_stop_frac=0.15",
+      "--out-name",
+      "ppo_goal_cw_amp_m2_freeprog_term400_stdanneal",
+      "--notes",
+      "respec of cw-amp-m2-freeprog-term400-noamp: Plain English: does making the robot's random leg-jitter calm down over training (not just pricing death out) let it stop thrashing in place and start actually walking? term400-noamp (0 terminations, suicide fixed) still failed the walk gate by shuffling in place: env/reward_walk_freeprog_pen (the cross-track/backward charge) sat flat ~-1.4 to -1.8/tick with NO improvement over the full 2M steps at CONSTANT policy std=0.368 (--log-std-init=-1.0 default, never annealed) -- the exact same 'noisy exploration never organizes' fingerprint the joystick track root-caused and fixed for phasedir9 via a log-std anneal. Single change vs cw-amp-m2-freeprog-term400-noamp: add --log-std-final=-2.0 --log-std-anneal-frac=0.5 (std 0.368->0.135 linearly over the first 1M of 2M steps, matching the joystick track's mechanism, ported to a from-scratch run instead of a warm start). Prediction-if-true: freeprog_pen improves over training and median fwd travel rises toward the 0.10m bar. Prediction-if-false: shuffle persists at low std too (the flailing is priced-in by the reward shape, not exploration noise) -- points at a genuine reward-shape defect (freeprog's cross-track charge with no net-displacement credit) needing a direct patch, not a training-lever fix.",
+      "--cfg-set",
+      "reward.k_step_event=1.0",
+      "--cfg-set",
+      "reward.k_park_duty=2.0",
+      "--cfg-set",
+      "reward.k_walk_freeprog=3.0",
+      "--cfg-set",
+      "reward.walk_freeprog_cap_m_s=0.05",
+      "--cfg-set",
+      "reward.walk_loadslip_gate=0.0",
+      "--cfg-set",
+      "reward.loadslip_ok=1.5",
+      "--cfg-set",
+      "reward.k_loadslip_excess=6.0",
+      "--cfg-set",
+      "reward.walk_gait_gate=1.0",
+      "--cfg-set",
+      "reward.k_walk_idle_charge=20.0",
+      "--cfg-set",
+      "reward.walk_idle_speed_m_s=0.02",
+      "--cfg-set",
+      "reward.walk_idle_tau_s=1.0",
+      "--cfg-set",
+      "goal.walk_pure=1.0",
+      "--cfg-set",
+      "reward.term_penalty=400.0",
+      "--log-std-final",
+      "-2.0",
+      "--log-std-anneal-frac",
+      "0.5"
+    ],
+    "created": "2026-08-22T14:51:14+00:00",
+    "status": "REFUSED",
+    "checks": {
+      "cpu_limit": 28,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-b29b4867-ac22-4270-8fa9-5d854396da05)",
+      "running_experiments_before": 0,
+      "code_sha_local": "f1f235001b336737d97dd915d9f2ead0e55697b1",
+      "code_sha_pod": "f1f235001b336737d97dd915d9f2ead0e55697b1-dirty"
+    },
+    "trainer": "ppo",
+    "stack": "gpu-mjx",
+    "phase": "discovery",
+    "assessment_scope": "short_behavior_discovery",
+    "refused_reason": "hexapod-mjx-train-0 code marker f1f235001b336737d97dd915d9f2ead0e55697b1-dirty != local HEAD f1f235001b336737d97dd915d9f2ead0e55697b1. Sync first: snapshot.sh --sync hexapod-mjx-train-0 (and snapshot/commit before that if the tree is dirty)."
   }
 ]

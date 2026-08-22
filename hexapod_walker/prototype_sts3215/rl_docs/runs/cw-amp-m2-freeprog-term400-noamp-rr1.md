@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: RUNNING
+**status**: FAIL
 
 **created**: 2026-08-22T14:32:10+00:00
 
@@ -18,5 +18,5 @@
 
 **gate**: Discovery (2M, DR-0 harness walk mode, 6 det + 6 sto episodes, own cfg): matched control for the term400-style05 twin. PASS = majority episodes zero terminations AND median fwd travel >= 0.10 m/15s AND gait_valid >= 4/6 det with video showing six legs cycling. Secondary must-hold: q4 termination counts do NOT explode (suicide basin closed). Statue/freeze here + stepping in the style05 twin = the style-vs-control Wave-1 unlock evidence. No SKILLS/champion updates.
 
-**verdict**: ACCIDENTAL DUPLICATE of cw-amp-m2-freeprog-term400-noamp (backlog lost-update race c0822: the re-queue of an apparently-lost item met the watcher's parallel drain of the original; the drain's self-repair renamed the dup -rr1 and launched it). Bit-identical config+seed. Triage guidance for next cycle: no independent verdict needed — usable only as a free determinism/repro replicate vs the primary noamp control; judge the term400 hypothesis on the primary pair.
+**verdict**: Bit-identical accidental dup of cw-amp-m2-freeprog-term400-noamp (same config+seed). Independently confirms: 0/12 terminations DR-0 (suicide fix holds), median fwd travel 0.0315m/15s (need 0.10m) FAIL, gait_valid 5/6 det, slip 6.4-22.2/m. Repro-replicate, not a separate hypothesis test -- see primary noamp verdict for the reward-economics writeup.
 
