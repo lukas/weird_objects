@@ -183,3 +183,4 @@ W&B OUTCOME notes. Do not use this file as current truth; read
 - 08-22 21:53 [amp] cw-amp-m4-faultsmoke1-noamp PASS -- first training use of dr.fault_prob=1.0 is mechanism-safe (finite reward rising 9->209/quarter, no crash), det gait_valid 5/6 with visible compensation not collapse, sto 6/6; control twin confirms softer numbers are the fault's real cost -- clears fault injection for training use, next = wire fault obs for M4 
 - 08-22 21:53 amp M2: style05-headings90 PASS -- survives +/-90deg lateral demand, gait_valid 6/6, prog/dir within pre-registered bands of headings20, slip cost honest not pathological. 
 - 08-22 21:59 headingsfull PASS: full-circle jump works, intermediate rung unnecessary; gait 12/12, dir_err det 33/sto 50 vs 90 baseline; stage-3 speed+yaw pair launched 
+- 08-22 22:03 amp M2: noamp-headings90-r1 PASS -- survives +/-90deg dose too, style still not functionally protective at this dose (matches style05 sibling within noise). 
