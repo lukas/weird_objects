@@ -112033,7 +112033,7 @@
       "ppo_smoke_logstd_anneal_v1"
     ],
     "created": "2026-08-22T11:41:03+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -112051,7 +112051,15 @@
     "stack": "gpu-mjx",
     "command": "cd /workspace/prototype_sts3215 && WANDB_MODE=disabled PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name smoke-logstd-anneal-v1 --steps 40000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_bcgait_init_fullprof_phase1.zip --warm-log-std-override -2.0 --log-std-final -3.2 --log-std-anneal-frac 0.5 --n-envs 512 --impl warp --host-workers 8 --no-canary --eval-every 1000000 --video-every 2000000 --cfg-set goal.walk_phase_obs=1 --cfg-set goal.walk_phase_hz=1.333333 --cfg-set goal.walk_speed_min_m_s=0.08 --cfg-set goal.walk_speed_max_m_s=0.08 --cfg-set goal.walk_obs_body_vel=2 --cfg-set goal.walk_heading_max_rad=0.0 --out-name ppo_smoke_logstd_anneal_v1 > /tmp/train_smoke-logstd-anneal-v1.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_smoke-logstd-anneal-v1.log",
-    "verified": "2026-08-22T11:43:41+00:00"
+    "verified": "2026-08-22T11:43:41+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-22T11:48:43+00:00",
+        "process_alive": false,
+        "verdict": "FINISHED_BEFORE_CHECKUP",
+        "log_tail": "_a67f49d6 a67f49d load on device 'cuda:0' took 0.57 ms  (cached)\n[log-std-anneal] complete @ 24,576 steps \u2014 holding log_std=-3.200 (std=0.041)\n[video] logged reel (512 steps | rise:ok walk:ok raise:ok hold:ok)\n[video] logged reel (final | rise:ok walk:ok raise:ok hold:ok)\n[mjx-train] done: 40,000 steps in 123s (326 env-steps/s incl. setup) -> /workspace/prototype_sts3215/rl_move/sim/policies/ppo_smoke_logstd_anneal_v1.zip\n[mjx-train] evaluate with the C-env harness before trusting anything (MJX_PORT.md phase-2 item 4).\n[wandb] checkpoint artifact ckpt-ppo_smoke_logstd_anneal_v1 (md5 bd8a276c)\n"
+      }
+    ]
   },
   {
     "run": "cw-amp-m2-pilot-style05-c1",
