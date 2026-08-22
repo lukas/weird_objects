@@ -806,6 +806,18 @@ def test_walk_stall_beats_refusal_park(walk_returns):
 
 SLIPWALK_CMD_VX = 0.05
 SLIPWALK_OVERRIDES = {
+    # reward.term_penalty (08-22, cw-amp-m2-freeprog-{noamp,style05}
+    # dig-in): the anti-suicide term. Under this stack WITHOUT it, a
+    # scripted topple-in-1s netted +19/ep — the best-paying behavior
+    # in the whole bank short of real walking (park -243, stall -143,
+    # skate -1023) — because death exits before the freeprog/idle/
+    # loadslip charges accrue, and both freeprog 2M arms duly learned
+    # suicide in q4 (tilt terminations 59->132 / 90->241 at constant
+    # std). Sized 400 > the worst-case discounted cost of staying
+    # alive (-3.1/tick x (1-0.99^375)/0.01 ~= -295), so dying never
+    # out-bids surviving in PPO's own view. Bit-exact for behaviors
+    # that survive to truncation (the charge fires on term only).
+    ("reward", "term_penalty"): 400.0,
     ("reward", "k_step_event"): 1.0,
     ("reward", "k_park_duty"): 2.0,
     ("reward", "k_walk_freeprog"): 3.0,
