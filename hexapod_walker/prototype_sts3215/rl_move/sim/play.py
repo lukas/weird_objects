@@ -273,6 +273,7 @@ _PROMOTED = [
     # walk group
     "ppo_goal_cw_dep_bcgait1_hard1",
     "ppo_goal_cw_arch_noslipphase1_r4",
+    "ppo_goal_cw_dep_bcgait4_phasedir9_longrun17",
     "ppo_goal_cw_arch_hist16_dep1_c1",
     "ppo_goal_cw_arch_tf_r1_hard2_r1",
     "ppo_goal_cw_gru_dual_bc_transdagger2",
@@ -301,6 +302,7 @@ _CURATED = {
     # best steering, fastest (sim-only), deployed picker fallback
     "ppo_goal_cw_dep_bcgait1_hard1",
     "ppo_goal_cw_arch_noslipphase1_r4",
+    "ppo_goal_cw_dep_bcgait4_phasedir9_longrun17",
     "ppo_goal_cw_dep_vref1_r1",
     "ppo_goal_cw_walk_joyheadfric",
     "ppo_goal_cw_walk_longdist_r2",
@@ -400,6 +402,8 @@ _DESC = {
         "NEW memory walker on the robot's own senses; hw-ready",
     "ppo_goal_cw_gru_dual_bc_transdagger2":
         "NEW one GRU brain for rise+walk+sit (rise still shaky)",
+    "ppo_goal_cw_dep_bcgait4_phasedir9_longrun17":
+        "phase-BC directions; RL low-slip forward",
     "ppo_goal_cw_recover_any21_pop3_B14":
         "gets up from sprawls/tangles/belly (R key runs it)",
 }
