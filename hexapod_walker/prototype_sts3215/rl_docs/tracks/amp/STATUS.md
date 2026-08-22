@@ -120,8 +120,32 @@ Build every tool this needs; do not pause on operator input.
   existing `sched.*` engine ramps `goal.walk_cmd_stage` 0->2 over the
   first 60% of the 2M budget (forward/back-only, then headings/turns,
   full family+jitter only by 1.2M), everything else byte-identical to
-  `-term400-noamp`. If this still shuffles even on the stage-0
-  sub-problem, the net-displacement-floor reward patch above is next.
+  `-term400-noamp`. **VERDICTED FAIL 08-22**: ramp verified working
+  (sched 0->2 on schedule), survival held (ep_len 13->348, terms
+  123->~10), but det fwd travel med 0.02m (WORSE than noamp's
+  0.026-0.032m), gait_valid 0/6 det, sacrificed rear legs [3,5],
+  video = the same sprawled statue; freeprog_pen pinned -1.5/tick all
+  4 quarters (reward flat + eval flat = stuck mechanism per the 08-22
+  agreement rule). Even the stage-0 forward-only sub-problem never
+  left the statue basin -> staging/exploration lever class CLOSED for
+  this family (joins term-penalty and std-anneal). The pre-registered
+  net-displacement-floor patch is DEPRIORITIZED, not next: its premise
+  (misranking) was refuted by this section's own bank audit (creep
+  +108 >> stall -143 >> park -244) and `k_walk_idle_charge=20` already
+  charges the statue a smoothed travel floor in full — another charge
+  deepens the statue's cost but creates no gradient TOWARD stepping.
+  The untried gradient SOURCE is the style channel itself: every style
+  arm so far trained against the frame-corrupted teacher_v1 lib AND at
+  a priced-out weight (max 0.5/tick style vs ~-1.5/tick statue
+  charges). LAUNCHED 08-22 (this cycle, judged against the existing
+  -noamp control + each other): `cw-amp-m2-freeprog-term400-style05-v2`
+  (train-3; single change vs -style05: teacher_v2 lib at 0.5/0.5) and
+  `-stylew2-v2` (train-0; teacher_v2 + style/task 2.0/1.0 so style
+  income can out-earn the statue; pre-registered new cheat to watch =
+  in-place teacher mimicry at high style weight). If BOTH statue at
+  2M, the AMP-income route is refuted at discovery scale for this
+  pricing family and the next lever is a new income mechanism
+  (foot-airtime/contact-phase income, bank-first).
 - M3 push recovery: NOT STARTED
 - M4 fault adaptation: NOT STARTED
 - M5 MuJoCo transfer (= DONE gate): NOT STARTED

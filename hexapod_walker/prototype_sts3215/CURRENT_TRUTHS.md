@@ -408,6 +408,29 @@ out-of-scope runs get honest triage but no agent follow-ups.
   (untested): a walk_freeprog analog of `k_walk_idle_charge` keyed to
   episode-window NET DISPLACEMENT rather than instantaneous speed —
   semantics-bank work before any further train.
+- FREEPROG STAGE-CURRICULUM REFUTED (08-22,
+  `cw-amp-m2-freeprog-term400-stagecurric` FAIL): ramping
+  `goal.walk_cmd_stage` 0->2 via `sched.*` (forward-only first,
+  verified ramping in W&B) on the byte-identical noamp stack did NOT
+  unlock locomotion — det fwd travel med 0.02m (worse than noamp's
+  0.026-0.032m), gait_valid 0/6 det, sacrificed rear legs [3,5],
+  video = the same sprawled statue; freeprog_pen pinned -1.5/tick all
+  four quarters (reward flat + eval flat = stuck mechanism). Even the
+  stage-0 forward-only sub-problem never left the statue basin, so the
+  "full-mix-from-step-0" analogy to the joystick steer2 fix does NOT
+  transfer to from-scratch training. Staging/exploration lever class
+  CLOSED for this family (joins term-penalty and std-anneal). The
+  net-displacement-floor patch below is DEPRIORITIZED: the SLIPWALK
+  bank audit already shows the ranking aligned (creep +108 >> stall
+  -143 >> park -244) and `k_walk_idle_charge=20` already charges the
+  statue a smoothed travel floor in full — the defect is a basin
+  BARRIER (no accessible income gradient from statue to stepping),
+  which more charges cannot fix. Untried gradient source launched
+  instead (this cycle): AMP style income with the CLEAN teacher_v2
+  lib — `-style05-v2` (lib swap only, 0.5/0.5) and `-stylew2-v2`
+  (2.0/1.0 so max style income 2/tick out-earns the statue's
+  ~-1.5/tick charges); pre-registered new cheat to watch = in-place
+  teacher mimicry at high style weight.
 - FREEPROG-EMA REUSE TESTED + REFUTED, ZERO GPU SPENT (08-22): the
   obvious cheap fix — feed `reward.walk_kernel_vel_ema`'s already-
   validated stride-averaged velocity into `walk_freeprog_score`

@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-08-22T16:08:59+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 4000000
 
 **parent**: cw-dep-bcgait4-phasedir9-longrun17
+
+**wandb_id**: ib0mwcru
 
 **hypothesis**: Sto-robustness dose test on the joystick lineage only DONE-gate det-mode passer: longrun17 (log-std-final=-3.2, std=0.041) passes the formal 60s session gate DET half at both DR-0 and own-DR (slip 2.30 vs cap 2.9, dir_err 34.7-37.4 vs allow 40, 0 falls) but FAILS the STO half (slip 4.0, dir_err 51-52) because sto-mode eval samples actions from the policy own trained std -- so the sto shortfall may be pure residual-noise-driven slip, fixable by annealing the final std lower than -3.2, rather than a distinct policy defect. Same fresh-reinit-from-BC-clone recipe and seed 17 as longrun17, ONLY --log-std-final lowered (dose grid, per the operator assume-and-go answer in OPERATOR_QUESTIONS q_20260822T1520Z: fix the sto gap as a policy property, not a gate exception). This is dose 3 of 3 (log-std-final=-4.5), sibling to the already-launched -3.6 (stotight) and -4.0 (stotight40) doses.
 
