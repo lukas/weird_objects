@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-08-22T16:37:13+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 2000000
 
 **parent**: cw-amp-m2-freeprog-term400-noamp
+
+**wandb_id**: i9iets9t
 
 **hypothesis**: Plain English: test whether a from-scratch policy can learn to walk forward AT ALL once the task is the exact simplest case the SLIPWALK semantics bank itself already validates -- one fixed slow forward speed (0.05 m/s) held the whole episode, no direction changes, no stops, no turns, no mid-episode resampling. Single lever vs cw-amp-m2-freeprog-term400-noamp: replace the goal.* command config with the literal SLIPWALK_OVERRIDES fixed command; byte-identical reward stack, no AMP. See --notes on the launched run for the full writeup.
 
