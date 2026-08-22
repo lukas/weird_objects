@@ -55,6 +55,20 @@ The attribution tests prove the margin comes from the NEW terms
 (k_walk_course + k_walk_overspeed), not from income the phasedir1
 stack already had (which measurably failed to hold the line).
 
+PHASEDIR3 REPRICE (2026-08-22, operator focus fb 20260822T051709Z):
+after cw-dep-bcgait4-phasedir2-staged-fwd failed obedient-but-slow
+(progress 0.836x clone; the det-band loadslip/overspeed charges taxed
+PPO's OWN exploration noise at std 0.36 and the cheapest gradient was
+a shrunken gait), the stack below is repriced for the TRAINING
+regime: loadslip thresholds sit above the measured noisy-clone band
+(ok 7.0 / max 10.0), overspeed uses the unbiased along-command
+projection (walk_course_overspeed_along=1), and the course charge is
+floored at 0.04 m/s smoothed speed. The NOISY-REGIME tests at the
+bottom of this file pin all of it; the det-band anti-skate claims the
+loadslip section used to make were RETIRED with measurement evidence
+(see the stack comment) — det-band slip is owned by the eval gate +
+the phase-locked BC anchor.
+
 The teacher clock in every drive is COMMAND-GATED (advances only on
 commanded ticks), matching goal.walk_phase_obs clock semantics and the
 clone's bc_init_gait convention. k_phase_contact is deliberately NOT
@@ -134,21 +148,45 @@ PHASEDIR2_STACK = {
     ("reward", "walk_course_overspeed_tol"): 0.05,
     ("reward", "k_walk_idle_charge"): 1.0,
     ("reward", "walk_idle_speed_m_s"): 0.04,
-    # Loaded-slip pricing, clone-banded (order item 3 "loaded slip").
-    # The teacher proxy for the overdrive attractor saturates near the
-    # commanded SPEED and dumps the excess drive into loaded slip, so
-    # the separator is the slip-per-metre band, not the speed band:
-    # clone slip/m 1.56-2.07 (det, measured 08-22) must gate factor ~1,
-    # the degraded 4.17 must gate to ~0 and pay the excess charge.
+    # Loaded-slip pricing, REPRICED to the measured NOISY-clone band
+    # (2026-08-22 phasedir3, operator focus fb 20260822T051709Z).
+    # phasedir2-staged-fwd showed the det-band thresholds (ok 2.2 /
+    # max 4.0) tax stochastic exploration itself: the clone driven at
+    # PPO's stuck std=0.36 measures ratio 4.8-6.4 (fwd 5.91, rear
+    # 4.76, stall 6.41) because exploration jitter is REAL loaded
+    # slip — the whole run trained at income factor ~0.07 plus a flat
+    # -1.19/tick excess charge, and the cheapest gradient was a
+    # shrunken gait (progress 0.836x clone). Filtering was REFUTED by
+    # measurement, not assumed away: an EMA-position slip twin
+    # (tau 0.08-0.4 sweep) attenuates the honest scuff signal FASTER
+    # than the noise (raw S/N 0.69/4.2 vs 0.31/2.89 at the best tau)
+    # because both live in the same stride-frequency band. So the
+    # thresholds move above the noisy-clone band: gross skating
+    # (ratio > 7) still gates income to 0 by 10 and pays the excess
+    # charge; det-band slip (clone 1.7 vs degraded 4.17) is no longer
+    # priced in TRAINING and is owned by the eval gate (slip <= 1.15x
+    # clone) + the phase-locked BC anchor (which preserved the gait
+    # 100% in phasedir2).
     ("reward", "walk_loadslip_gate"): 1.0,
-    ("reward", "loadslip_ok"): 2.2,
-    ("reward", "loadslip_max"): 4.0,
+    ("reward", "loadslip_ok"): 7.0,
+    ("reward", "loadslip_max"): 10.0,
     ("reward", "k_loadslip_excess"): 10.0,
+    # phasedir3 reprice (same order): overspeed priced on the UNBIASED
+    # along-command projection of the course EMA — |v_ema| is biased
+    # upward by zero-mean sway (norm of a noisy vector) and fired flat
+    # ~-3/tick on the noisy clone whose along travel was UNDER the
+    # band. Course charge gated to smoothed speeds >= 0.04 m/s (half
+    # command): below that the EMA direction is noise, and directed
+    # wrong-way travel at command speed still clears the bar and pays.
+    ("reward", "walk_course_overspeed_along"): 1.0,
+    ("reward", "walk_course_min_speed_m_s"): 0.04,
 }
 # phasedir1's stack = the candidate minus the new alignment terms.
 ALIGN_KEYS = (("reward", "k_walk_course"),
               ("reward", "k_walk_course_overspeed"),
               ("reward", "walk_course_overspeed_tol"),
+              ("reward", "walk_course_overspeed_along"),
+              ("reward", "walk_course_min_speed_m_s"),
               ("reward", "walk_course_tau_s"),
               ("reward", "k_walk_idle_charge"),
               ("reward", "walk_idle_speed_m_s"),
@@ -156,6 +194,7 @@ ALIGN_KEYS = (("reward", "k_walk_course"),
               ("reward", "loadslip_ok"),
               ("reward", "loadslip_max"),
               ("reward", "k_loadslip_excess"))
+NOISE_STD = 0.36                 # phasedir2's measured stuck train std
 PHASEDIR1_STACK = {k: v for k, v in PHASEDIR2_STACK.items()
                    if k not in ALIGN_KEYS}
 
@@ -196,7 +235,8 @@ def _pin_command(env, heading_rad: float, speed: float = CMD_SPEED):
 
 
 def _phasedir_rollout(drive: str, seed: int, heading_rad: float,
-                      overrides: dict) -> float:
+                      overrides: dict, noise_std: float = 0.0,
+                      collect: dict | None = None) -> float:
     # RAW module on purpose — the clone lineage's dialect (see header).
     from tripod_gait import TripodGait
 
@@ -210,6 +250,7 @@ def _phasedir_rollout(drive: str, seed: int, heading_rad: float,
     gait.sync_plant_stance(*WALK_PLANT)
     gait.reset_phase()
 
+    rng = np.random.default_rng(1000 + seed)
     total, step, t_gait = 0.0, 0, 0.0
     while True:
         i = min(step, n - 1)
@@ -221,6 +262,11 @@ def _phasedir_rollout(drive: str, seed: int, heading_rad: float,
             ux, uy = vx_ref / s_ref, vy_ref / s_ref
             if drive == "obey":
                 gv = (vx_ref, vy_ref)
+            elif drive == "shrunk":
+                # phasedir2's measured failure basin: same command,
+                # gait driven at 0.75x of it (progress 0.836x clone,
+                # speed at the 0.060 band floor).
+                gv = (0.75 * vx_ref, 0.75 * vy_ref)
             elif drive == "fastcadence":
                 f = ATTR_SPEED / CMD_SPEED
                 gv = (f * vx_ref, f * vy_ref)
@@ -245,17 +291,33 @@ def _phasedir_rollout(drive: str, seed: int, heading_rad: float,
         else:
             act = q_rad_to_action(
                 np.asarray(gait.desired_deg(t_gait)) * DEG2RAD)
-        _obs, r, term, trunc, _info = env.step(act)
+        if noise_std > 0.0:
+            # PPO's exploration regime: Gaussian action noise at the
+            # measured stuck std, clipped to the action space (SB3
+            # clips sampled actions the same way).
+            act = np.clip(act + rng.normal(0.0, noise_std, act.shape),
+                          -1.0, 1.0)
+        _obs, r, term, trunc, info = env.step(act)
         total += float(r)
         step += 1
+        if collect is not None:
+            for k in ("reward_loadslip_excess",
+                      "reward_walk_course_overspeed",
+                      "reward_walk_course"):
+                collect[k] = collect.get(k, 0.0) + float(info.get(k, 0.0))
+            for k in ("walk_loadslip_ratio", "walk_loadslip_factor"):
+                if k in info:
+                    collect[k] = float(info[k])
         if term or trunc:
             break
     env.close()
     return total
 
 
-def _mean(drive: str, heading: float, stack: dict) -> float:
-    return float(np.mean([_phasedir_rollout(drive, s, heading, stack)
+def _mean(drive: str, heading: float, stack: dict,
+          noise_std: float = 0.0) -> float:
+    return float(np.mean([_phasedir_rollout(drive, s, heading, stack,
+                                            noise_std=noise_std)
                           for s in SEEDS]))
 
 
@@ -280,10 +342,23 @@ def returns() -> dict[str, float]:
 @pytest.mark.parametrize("bin_name", list(HEADING_BINS))
 def test_obey_beats_fastcadence_every_bin(returns, bin_name):
     """Walking the commanded heading AT the commanded 0.08 m/s must
-    decisively out-earn the cadence-churned speed chase (slip/m ~2.5,
-    the measured degradation's slip mechanism) in every bin."""
+    out-earn the cadence-churned speed chase in every bin. Bar reduced
+    +30 -> +8 by the phasedir3 reprice (fb 20260822T051709Z): the old
+    margin came from det-band loadslip pricing (ok 2.2 taxed the
+    churner's slip 2.39), and that same pricing is what zeroed the
+    NOISY clone's income (ratio 5.91 at std 0.36) and shrank the gait
+    — the two cannot coexist on one ratio threshold because the noisy
+    clone measures HIGHER than the det attractor on the identical
+    scalar. The residual det margin here is honest income difference
+    (obey tracks the command better); det-band slip enforcement is
+    owned by the eval gate (slip <= 1.15x clone) + the phase-locked BC
+    anchor. KNOWN HOLE, recorded not hidden: at std 0.36 the NOISY
+    fastcadence out-earns the noisy clone (~121 vs ~112) because mean-
+    overdrive compensates noise and genuinely tracks the command
+    better; no behavior-priced term can separate them (measured
+    08-22). Containment = anchor + gate items (c)/(e)."""
     r = returns
-    assert r[f"{bin_name}_obey"] > r[f"{bin_name}_fastcadence"] + 30.0, {
+    assert r[f"{bin_name}_obey"] > r[f"{bin_name}_fastcadence"] + 8.0, {
         k: v for k, v in r.items() if k.startswith(bin_name)}
 
 
@@ -337,18 +412,22 @@ def test_obey_beats_command_ignoring_walk(returns, bin_name):
 
 @pytest.mark.parametrize("bin_name", ["fwd", "rear"])
 def test_alignment_terms_create_the_margin(returns, bin_name):
-    """The obey-vs-attractor margins must come from the NEW alignment
+    """The obey-vs-attractor margin must come from the NEW alignment
     terms: under the phasedir1 stack (course/overspeed/idle removed)
-    the margin was too small to stop PPO — require the new stack to
-    add real ordering pressure on both attractors."""
+    the margin was too small to stop PPO. SKEW ONLY since the
+    phasedir3 reprice: the course charge still prices off-course
+    travel hard (noise-robust: EMA direction + the 0.04 m/s smoothed-
+    speed floor), but fastcadence's only det signature was band slip,
+    whose pricing measurably taxed the noisy clone more than the
+    attractor (see test_obey_beats_fastcadence_every_bin) — its
+    attribution claim is retired WITH the pricing, honestly."""
     r = returns
-    for drive in ("fastcadence", "skew"):
+    for drive in ("skew",):
         new_m = r[f"{bin_name}_obey"] - r[f"{bin_name}_{drive}"]
         old_m = r[f"old_{bin_name}_obey"] - r[f"old_{bin_name}_{drive}"]
-        # +25 floor: measured 08-22 the new terms take rear/fastcadence
-        # from 11.7 to 48.6 (4x) and fwd/skew from ~90 to ~210; the
-        # floor asserts real added pressure without tuning reward doses
-        # to a test constant.
+        # +25 floor: measured 08-22 the course term takes fwd/skew
+        # from ~90 to ~210+; the floor asserts real added pressure
+        # without tuning reward doses to a test constant.
         assert new_m > old_m + 25.0, (
             f"{bin_name}/{drive}: new margin {new_m:.1f} vs "
             f"phasedir1-stack margin {old_m:.1f} — the new terms add "
@@ -407,6 +486,12 @@ def test_course_charge_spares_honest_sway_charges_wrongway():
     def course_sum(drive: str, k: float) -> tuple[float, int]:
         stack = dict(PHASEDIR2_STACK)
         stack[("reward", "k_walk_course")] = k
+        # Pin the pre-reprice 0.01 floor: this unit test proves the
+        # EMA itself spares stride sway (the launched stack's 0.04
+        # floor would silence the slower compat-gait obey rollout
+        # entirely and make the sway claim vacuous; the floor's
+        # noise-tick behavior is pinned by the NOISY-REGIME tests).
+        stack[("reward", "walk_course_min_speed_m_s")] = 0.01
         env = _make_walk_env(3, stack)
         env.reset()
         traj, n = _pin_command(env, math.pi)     # rear command
@@ -523,3 +608,132 @@ def test_bc_anchor_phase_lock_matches_command_gated_clock():
             expect = q_rad_to_action(
                 np.asarray(legacy.desired_deg(tick * dt_off)) * DEG2RAD)
             np.testing.assert_allclose(tgt, expect, atol=1e-6)
+
+
+# ---------------------------------------------------------------------------
+# NOISY-REGIME tests (2026-08-22 phasedir3 reprice, operator focus
+# fb 20260822T051709Z). phasedir2-staged-fwd's postmortem: PPO trains
+# on STOCHASTIC rollouts (std stuck ~0.36), and the det-band charges
+# taxed the exploration noise itself — training loadslip_ratio ~5.1
+# zeroed the income gate all run, the |v_ema| overspeed band fired
+# flat ~-3/tick, and the cheapest gradient was a shrunken gait
+# (progress 0.836x clone, speed at the 0.060 floor). These tests pin
+# the repriced stack IN THE TRAINING REGIME: the clone's own behavior
+# under exploration noise must keep its income and pay ~no charge,
+# and must out-earn the measured shrunken-gait basin, refusal, and
+# parking. Launch bar per the focus note: no phasedir relaunch until
+# these are green.
+
+
+@pytest.fixture(scope="module")
+def noisy_returns() -> dict[str, float]:
+    out = {}
+    for drive in ("obey", "shrunk", "stall", "park"):
+        out[drive] = _mean(drive, HEADING_BINS["fwd"], PHASEDIR2_STACK,
+                           noise_std=NOISE_STD)
+    return out
+
+
+def test_noisy_clone_keeps_income_and_pays_no_charges():
+    """The clone's own gait under PPO exploration noise (std 0.36)
+    must keep its loadslip income factor ~1 (phasedir2: 0.07) and pay
+    near-zero loadslip-excess + overspeed charge over a 10 s episode
+    (phasedir2: ~-286 loadslip alone, plus a flat |v_ema| overspeed
+    tax). The course term must also stay small — its 0.04 m/s
+    smoothed-speed floor exists exactly so noise-direction ticks are
+    not priced (phasedir2 paid ~-263/episode of course tax at
+    cos ~0.27)."""
+    sums = []
+    for s in SEEDS:
+        c: dict = {}
+        _phasedir_rollout("obey", s, 0.0, PHASEDIR2_STACK,
+                          noise_std=NOISE_STD, collect=c)
+        sums.append(c)
+    for c in sums:
+        charge = (c.get("reward_loadslip_excess", 0.0)
+                  + c.get("reward_walk_course_overspeed", 0.0))
+        assert charge > -20.0, (
+            f"noise still taxed: loadslip+overspeed {charge:.1f}; {c}")
+        assert c.get("reward_walk_course", 0.0) > -30.0, (
+            f"course term still taxes noise: {c}")
+        assert c.get("walk_loadslip_factor", 0.0) >= 0.9, (
+            f"income gate still shut on the noisy clone: {c}")
+
+
+def test_noisy_obey_beats_shrunken_gait():
+    """THE preflight the phasedir3 launch is gated on (focus note:
+    'launch fresh only after preflight proves progress-preserving
+    behavior beats shrunken gait'): under exploration noise, driving
+    the commanded 0.08 m/s must out-earn the measured failure basin
+    (same command, gait shrunk to 0.75x). Under the phasedir2 stack
+    this ordering was INVERTED (the shrink dodged noise-taxed
+    charges); measured after reprice: obey ~112 vs shrunk ~95."""
+    r_obey = _mean("obey", 0.0, PHASEDIR2_STACK, noise_std=NOISE_STD)
+    r_shrunk = _mean("shrunk", 0.0, PHASEDIR2_STACK,
+                     noise_std=NOISE_STD)
+    assert r_obey > r_shrunk + 5.0, (r_obey, r_shrunk)
+
+
+def test_noisy_obey_beats_refusal_and_park(noisy_returns):
+    """Ordering must hold in the training regime too: the noisy clone
+    out-earns marching in place and parking through the command.
+    Margins are honest and thin (park ~102 vs obey ~112 — noise
+    physically destroys most of the obedience income), so the bar is
+    ordering + a small float-slack, not a fat margin constant."""
+    r = noisy_returns
+    assert r["obey"] > r["stall"] + 20.0, r
+    assert r["obey"] > r["park"] + 3.0, r
+
+
+def test_overspeed_along_projection_spares_sway_prices_directed():
+    """Unit test for reward.walk_course_overspeed_along: on a REAR
+    command at a LOW commanded speed (0.04 m/s), wrong-way +x travel
+    at 0.08 m/s exceeds the |v_ema| band but its ALONG-command
+    projection is NEGATIVE — the along variant must charge ZERO
+    overspeed (the course term prices that travel, division of
+    labor), while the legacy |v_ema| variant must charge it. Obedient
+    travel at the same low command must clear the band either way."""
+    from tripod_gait import TripodGait
+
+    def overspeed_sum(drive: str, along: float) -> float:
+        stack = dict(PHASEDIR2_STACK)
+        stack[("reward", "walk_course_overspeed_along")] = along
+        stack[("goal", "walk_speed_min_m_s")] = 0.04
+        stack[("goal", "walk_speed_max_m_s")] = 0.04
+        env = _make_walk_env(3, stack)
+        env.reset()
+        traj, n = _pin_command(env, math.pi, speed=0.04)
+        gait = TripodGait(vx=0.0)
+        gait.sync_plant_stance(*WALK_PLANT)
+        gait.reset_phase()
+        tot, step, t_gait = 0.0, 0, 0.0
+        while True:
+            i = min(step, n - 1)
+            vx_ref, vy_ref = float(traj.vx[i]), float(traj.vy[i])
+            if math.hypot(vx_ref, vy_ref) > 1e-3:
+                t_gait += env.dt
+                gv = ((vx_ref, vy_ref) if drive == "obey"
+                      else (CMD_SPEED, 0.0))     # wrongway at 2x band
+            else:
+                gv = (0.0, 0.0)
+            gait.set_velocity(vx=gv[0], vy=gv[1])
+            act = q_rad_to_action(
+                np.asarray(gait.desired_deg(t_gait)) * DEG2RAD)
+            _o, _r, term, trunc, info = env.step(act)
+            tot += float(info.get("reward_walk_course_overspeed", 0.0))
+            step += 1
+            if term or trunc:
+                break
+        env.close()
+        return tot
+
+    wrong_legacy = overspeed_sum("wrongway", 0.0)
+    wrong_along = overspeed_sum("wrongway", 1.0)
+    obey_along = overspeed_sum("obey", 1.0)
+    assert wrong_legacy < -30.0, (
+        f"legacy |v_ema| band never fired on 2x wrong-way travel "
+        f"(bad test setup): {wrong_legacy}")
+    assert wrong_along > -1e-6, (
+        f"along projection charged wrong-way travel: {wrong_along}")
+    assert obey_along > -5.0, (
+        f"along projection taxes obedience: {obey_along}")

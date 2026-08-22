@@ -127,7 +127,7 @@ HTTPS_PORT = None   # actual HTTPS port that bound (443 if privileged, else 8443
 # on a browser reload without restarting the server.
 WEBUI_DIR = HERE / "webui"
 PAGE_PATHS = ("/", "/index.html", "/debug", "/motors", "/demos",
-              "/dance", "/quad", "/rl", "/experiments", "/measure",
+              "/dance", "/rock", "/quad", "/rl", "/experiments", "/measure",
               "/calibrate")
 # Exact whitelisted names only -- no generic static-dir handler, so nothing
 # else on disk is reachable (path-traversal safety).
@@ -749,6 +749,13 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, BENCH.measure_hold(
                     label=str(data.get("label", "planted")),
                     duration_s=float(data.get("duration_s", 30.0))))
+            elif path == "/api/measure/quad_pitch":
+                self._json(200, BENCH.measure_quad_pitch(
+                    pitches=data.get("pitches"),
+                    gait=str(data.get("gait", "rear_safe")),
+                    settle_s=float(data.get("settle_s", 1.0)),
+                    roll_guard_deg=float(data.get("roll_guard_deg", 6.0)),
+                    current_guard_a=float(data.get("current_guard_a", 2.0))))
             elif path == "/api/measure/slip":
                 self._json(200, BENCH.measure_slip())
             elif path == "/api/measure/axis_geometry":

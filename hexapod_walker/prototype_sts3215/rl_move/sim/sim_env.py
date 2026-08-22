@@ -2841,8 +2841,13 @@ class SimHexapodBalanceEnv(_GymBase):
         # foot that never lifts cannot defer payment). Allowances are
         # measured, not guessed (probe 08-11): the demonstrated
         # belly->plant rise inherently slides its pads 463 mm during
-        # the curl (0.55 default rise allowance keeps the honest
-        # reference free), the honest lower is anchored-feet by
+        # the curl at the old 128 mm tibia (0.55 default rise
+        # allowance kept the honest reference free). RE-MEASURED
+        # 2026-08-22 at the corrected 150 mm tibia geometry (the
+        # longer leg drags its pads further through the same curl):
+        # ~656 mm, so the allowance is raised to 0.75 with the same
+        # proportional headroom the original measurement carried.
+        # The honest lower is anchored-feet by
         # construction and the quiet stand measures 0.0 — both charge
         # from the first excess millimeter. Default k 0 = byte-exact
         # legacy. The trans_drag_mm metric is emitted whenever the
@@ -2872,7 +2877,7 @@ class SimHexapodBalanceEnv(_GymBase):
                 if mode_td in ("rise", "raise"):
                     allow_td = float(cfg_get(
                         self.cfg, "reward", "drag_trans_allow_rise_m",
-                        default=0.55))
+                        default=0.75))
                 else:
                     allow_td = float(cfg_get(
                         self.cfg, "reward", "drag_trans_allow_m",

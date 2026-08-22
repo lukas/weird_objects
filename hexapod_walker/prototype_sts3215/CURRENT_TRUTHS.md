@@ -55,14 +55,27 @@ out-of-scope runs get honest triage but no agent follow-ups.
   `_default_plant_deg` guard; hardware untouched. Residue: 7 FAILs
   (rise_valid_plant, rise_rock, trans_drag, getup_honest_ordering,
   recover_floor_rungs, fastprof), all true tibia-150 recalibration.
-  SHARPENED (08-22): re-minting `rise_ref_belly2plant.npz` is NOT a
-  stale-file fix — `extract_rise_ref.py --blend-to-plant`'s open-loop
-  linear joint-angle interpolation from the champion's crouch-stand to
-  `env._plant_deg` now FALLS on every seed (0-24) at tibia-150; a 2x
-  slower blend makes tracking error worse (10.1 vs 8.5deg), ruling out
-  a timing retune. Needs an IK/foot-anchored blend, not a re-run;
-  prerequisite for aligned-reward bank work and likely shares a root
-  cause with the stance fix arm below.
+  3/7 CLOSED same day by re-measuring stale thresholds (no behavior
+  change): trans_drag_honest_rise (rise-curl drag 463->656mm,
+  `reward.drag_trans_allow_rise_m` 0.55->0.75), rise_rock_feedback
+  (leveled peak 4.6-6.7->8.6deg, bound 8->9deg), recover_floor_rungs
+  (tangle_70/80 gap margin 2.0->1.5mm, still strictly monotonic).
+  STILL RED: rise_valid_plant/score_replay (PLANT_SPEC height-window
+  miss on an otherwise-clean final pose), getup_honest_ordering
+  (partial-crouch now pays less than freezing — a real pricing
+  defect), fastprof (separate fast-gait item). `extract_rise_ref.py
+  --blend-mode ik` (foot-anchored FK/IK blend + fresh-seed robustness
+  validation, replacing the raw joint-lerp that fell on every seed
+  0-99) is BUILT+TESTED but did not ship a new reference: the best
+  candidate from the pre-tibia-150 stance checkpoint
+  (`ppo_goal_cw_stance_dr10`) still nets MORE bank failures than the
+  current file because that checkpoint's crouch pose is itself
+  asymmetric at the new geometry (blend method can't fix a bad source
+  shape) — reverted, not shipped. CIRCULAR blocker: the real fix is a
+  tibia-150 stance retrain (mirroring the walk fix arm), but that is
+  itself a reward-mechanism launch gated on the same 2 still-red rise
+  tests, which don't need a training run to fix. Next: root-cause the
+  PLANT_SPEC height-window and getup partial-crouch pricing directly.
 - MEASURED-PLANT GATE BREAK (08-22): the download hierarchy
   HARD-FAILS the interactive session gate at tibia-150 (sit
   tilt_pitch + reverse tilt_roll falls, fwd yaw -21.8 deg) while the

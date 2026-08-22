@@ -1234,6 +1234,15 @@ class QuadPitchTrim:
         if calibration:
             self._load_calibration(calibration)
 
+    def _rear_up_cmd_sign(self) -> float:
+        """Sign of a command trim that asks the quad pose for more rear-up."""
+        try:
+            if self.expected_pitch_deg is not None:
+                return -1.0 if float(self.expected_pitch_deg) < 0.0 else 1.0
+        except (TypeError, ValueError):
+            pass
+        return -1.0
+
     def _axis_label(self) -> str:
         return _quad_trim_axis_label(self.imu_axis_roll, self.imu_axis_pitch)
 
@@ -1340,13 +1349,15 @@ class QuadPitchTrim:
         if self.recovering:
             # Full second-line authority against the tip; the walk is
             # brace-holding so the lean dominates the stride dynamics.
-            desired_pitch = -(0.9 * eff + 0.05 * rate)
-            desired_dx = -(0.0022 * eff + 0.00006 * rate)
+            cmd_sign = self._rear_up_cmd_sign()
+            desired_pitch = cmd_sign * (0.9 * eff + 0.05 * rate)
+            desired_dx = cmd_sign * (0.0022 * eff + 0.00006 * rate)
             max_pitch = QUAD_TRIM_RECOVER_MAX_PITCH_DEG
             max_dx = QUAD_TRIM_RECOVER_MAX_DX_M
         else:
-            desired_pitch = -(0.55 * eff + 0.04 * rate)
-            desired_dx = -(0.0012 * eff + 0.00004 * rate)
+            cmd_sign = self._rear_up_cmd_sign()
+            desired_pitch = cmd_sign * (0.55 * eff + 0.04 * rate)
+            desired_dx = cmd_sign * (0.0012 * eff + 0.00004 * rate)
             max_pitch = QUAD_TRIM_MAX_PITCH_DEG
             max_dx = QUAD_TRIM_MAX_DX_M
         desired_pitch = _clamp(desired_pitch, -max_pitch, max_pitch)
@@ -2581,6 +2592,82 @@ def frames_conductor(seconds: float = 8.0):
         yield pose_conductor(i * DT)
 
 
+# Rocking chair (seesaw): the mid pair (legs 1/4 — the two that point
+# straight out to the sides) stays stretched flat as outriggers while the
+# front (0/5) and rear (2/3) pairs press toward the floor in anti-phase —
+# one pair comes down as the other goes up.  The pressing pair lifts its
+# end of the chassis and the body seesaws over the belly.  The press is
+# commanded DEEP (femur 90 * sin(hip) + tibia 150 * sin(knee) ≈ 136 mm
+# below the hip plane vs the belly's ~45 mm resting height) on purpose:
+# trapezoid-restart tracking lags the sweep by tens of degrees at this
+# tempo (measured on the sim servo profile), and over-commanding turns
+# that lag into a firm, saturated press instead of a foot that never
+# lands.  Tempo matters for the same reason — 0.42 Hz never touched the
+# ground on the fitted profile; 0.30 Hz presses through.
+ROCK_UP_HIP_DEG = -40.0        # raised pair: femur overhead
+ROCK_UP_KNEE_DEG = -12.0       # tibia angled up (limit is -20)
+ROCK_PRESS_HIP_DEG = 26.0      # pressing pair: femur driven at the floor
+ROCK_PRESS_KNEE_DEG = 40.0
+ROCK_HZ = 0.30                 # one full front+rear rock per ~3.3 s
+ROCK_SPREAD_S = 2.5            # mids out / four arms up
+ROCK_RAMP_CYCLES = 2.0         # presses grow over the first two cycles
+ROCK_FADE_S = 2.5              # amplitude fade before the end
+ROCK_FRONT_LEGS = (0, 5)
+ROCK_REAR_LEGS = (2, 3)
+
+
+def make_pose_rock(seconds: float = 30.0):
+    """ROCKING CHAIR — mids out as outriggers, front/rear pairs pump.
+
+    Sitting show (the belly is the pivot; no stand-up).  After the
+    spread-in, the front and rear pairs swing in anti-phase — one pair
+    comes down while the other goes up.  The pressing pair tips the
+    body its way; as the rock falls back through level the tilted-low
+    end hands its feet to the opposite pair, which catches and pumps
+    it back — a rocking chair kept going for the whole run.  Presses
+    ramp in over the first couple of cycles ("one pair comes down
+    until it starts to rock") and fade out at the end so the run
+    closes at the arms-up pose.
+    """
+    total = max(8.0, float(seconds))
+    spread_s = min(ROCK_SPREAD_S, 0.2 * total)
+    fade_s = min(ROCK_FADE_S, 0.15 * total)
+    ramp_s = ROCK_RAMP_CYCLES / ROCK_HZ
+
+    def fn(t: float) -> list[float]:
+        pose = _zero_pose()
+        u = min(1.0, max(0.0, t / spread_s))
+        w_in = 0.5 - 0.5 * math.cos(math.pi * u)     # spread-in ease
+        tau = t - spread_s
+        amp = 0.0
+        if tau > 0.0:
+            amp = min(1.0, tau / ramp_s,
+                      max(0.0, (total - t) / fade_s))
+        s = math.sin(2.0 * math.pi * ROCK_HZ * tau) if tau > 0.0 else 0.0
+        press_front = amp * (0.5 + 0.5 * s)
+        press_rear = amp * (0.5 - 0.5 * s)
+        for legs, press in ((ROCK_FRONT_LEGS, press_front),
+                            (ROCK_REAR_LEGS, press_rear)):
+            hip = (ROCK_UP_HIP_DEG
+                   + (ROCK_PRESS_HIP_DEG - ROCK_UP_HIP_DEG) * press)
+            knee = (ROCK_UP_KNEE_DEG
+                    + (ROCK_PRESS_KNEE_DEG - ROCK_UP_KNEE_DEG) * press)
+            for leg in legs:
+                _yaw_hip_knee(leg, pose, hip=w_in * hip, knee=w_in * knee)
+        return pose
+
+    return fn
+
+
+make_pose_rock.duration_aware = True
+
+
+def frames_rock(seconds: float = 30.0):
+    fn = make_pose_rock(seconds)
+    for i in range(max(1, int(seconds / DT))):
+        yield fn(i * DT)
+
+
 def run_arms_up_demo(bus: FeetechBus, *,
                      abort_check=None,
                      speed: float = 1.0,
@@ -2881,6 +2968,7 @@ STREAM_POSE_FACTORIES = {
     "heartbeat": lambda: pose_heartbeat,
     "conductor": lambda: pose_conductor,
     "twinkle": make_pose_twinkle,
+    "rock": make_pose_rock,
     **{n: (lambda n=n: make_stand_pose_fn(n)) for n in STAND_STREAM_DEMOS},
     **QUAD_STREAM_FACTORIES,
 }
@@ -5585,6 +5673,8 @@ DEMOS = {
                  None),
     "ripple": ("[2 easy] yaw wave around the hex (air)", frames_ripple),
     "conductor": ("[2 easy] one leg waves; others hold", frames_conductor),
+    "rock": ("[2 easy] ROCKING CHAIR — mids out; front/rear pairs pump "
+             "the seesaw", frames_rock),
     "arms_up": ("[2 easy] sit: all six arms way over head", None),
     "air_meet": ("[3 air show] six solos LOCK into lineups, then scatter",
                  frames_air_meet),
@@ -5713,6 +5803,7 @@ AIR_DEMO_SECONDS = {
     "shimmy_v": 8.0,
     "ripple": 8.0,
     "conductor": 8.0,
+    "rock": 30.0,
     "arms_up": 6.0,
     "air_meet": 24.0,
     "air_pendulum": 20.0,

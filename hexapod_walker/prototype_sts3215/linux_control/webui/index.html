@@ -22,6 +22,7 @@
     <span class="tabsep"></span>
     <button id="tab-demos" class="tab">Demos</button>
     <button id="tab-dance" class="tab">Dance</button>
+    <button id="tab-rock" class="tab">Rock</button>
     <button id="tab-quad" class="tab">Quad</button>
     <button id="tab-rl" class="tab">RL</button>
     <button id="tab-experiments" class="tab">Experiments</button>
@@ -349,8 +350,9 @@ legs can reach instead of clipping it.">
 	          <option value="120">2 min</option>
 	          <option value="300" selected>5 min</option>
 	        </select></label>
-	      <div class="hint">Status: <span id="qstatus" class="pill">idle</span>
-	        <span id="qstatusdetail" style="color:#8089a0"></span></div>
+      <div class="hint">Status: <span id="qstatus" class="pill">idle</span>
+        <span id="qstatusdetail" style="color:#8089a0"></span></div>
+      <div class="hint">IMU: <b id="qpitch">—</b></div>
 	      <label class="slab"><input id="qmotionlog" type="checkbox">
 	        Full motion CSV
 	        <span style="color:#8089a0;font-weight:400">(diagnostic; reads encoders during motion)</span></label>
@@ -387,6 +389,44 @@ legs can reach instead of clipping it.">
     </div>
   </div>
   </div><!-- /view-dance -->
+
+  <div id="view-rock" class="view">
+  <div class="row">
+    <div class="pad">
+      <h2>Rocking chair</h2>
+      <div class="hint">Sitting show — the chassis never stands, so it is
+        safe on a desk. The mid pair (the two legs pointing straight out to
+        the sides) stretches flat as outriggers, the front and rear pairs
+        raise overhead, then the pairs press the floor in anti-phase — one
+        comes down as the other goes up — and the body seesaws over the
+        belly, about ±10° of pitch. Verified on the MuJoCo twin at
+        0.75×–1.5× tempo; the slider is clamped to that range.
+        Homes to <b>sit zero</b> (legs out) before it starts.</div>
+      <div class="btns" style="margin:12px 0">
+        <button id="rockstart" style="font-size:16px;background:#1c3d2a;border-color:#2e7d47">▶ Start rocking</button>
+        <button id="rockstop" class="danger">■ Stop</button>
+      </div>
+      <label class="slab">Speed <span class="tag" style="color:#5fd08a;border-color:#2e7d47">LIVE</span>:
+        <span id="rockspeedlab">1.00</span>×
+        <span style="color:#8089a0;font-weight:400">(0.75× → 1.5× · drag
+        while it rocks — the sim-verified tempo window; slower rocks
+        deeper, faster rocks shallower)</span></label>
+      <input id="rockspeed" type="range" min="75" max="150" value="100" step="5">
+      <label class="slab">Rock for:
+        <select id="rockdur">
+          <option value="30">30 s</option>
+          <option value="60" selected>60 s</option>
+          <option value="120">2 min</option>
+          <option value="300">5 min</option>
+        </select></label>
+      <div class="hint">Status: <span id="rockstatus" class="pill">idle</span>
+        <span id="rockstatusdetail" style="color:#8089a0"></span></div>
+      <div class="hint">Presses ramp in over the first two cycles, and fade
+        out at the end before easing back to sit zero and going limp.
+        E-STOP (top right) stops it instantly.</div>
+    </div>
+  </div>
+  </div><!-- /view-rock -->
 
   <div id="view-rl" class="view">
   <div class="row">
@@ -793,6 +833,6 @@ the trained forward wedge — same policy, body walks backward.">▼ Back</butto
   </div><!-- /view-debug -->
 </div><!-- /wrap -->
 </div><!-- /main -->
-<script src="/app.js?v=slip1"></script>
+<script src="/app.js?v=quadmsg2"></script>
 </body>
 </html>
