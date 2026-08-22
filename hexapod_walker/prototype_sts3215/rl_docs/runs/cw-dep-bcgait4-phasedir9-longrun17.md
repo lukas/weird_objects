@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: DONE
+**status**: FAIL
 
 **created**: 2026-08-22T13:46:44+00:00
 
@@ -18,5 +18,5 @@
 
 **gate**: Same clone-relative forward panel as pd9 (logs/ckpt_eval/phasedir3_clone_control_gate, DR-0 det+sto). Report progress/slip/speed/falls at final (4M) checkpoint plus the ~2M mid-run eval for trend. PASS = zero falls, gait_valid 6/6, progress >=0.9x clone, slip <=1.15x clone, speed in [0.06,0.096]. Compare directly against this run's OWN 2M reading (0.727x/1.27x) and longrun13's paired result before drawing a lineage-wide conclusion.
 
-**verdict**: FAIL (flat; confirms the pre-registered prediction-if-false): +2M steps beyond phasedir9-seed17's own budget (2M->4M, same anneal end-step ~1.2M) left det-gate progress statistically FLAT (0.727x clone -> 0.714x, 0.55m/0.77m) and slip flat-to-worse (1.27x -> 1.323x, 2.50/1.89) versus this run's own 2M reading, despite W&B ep_rew_mean also ending strongly positive/rising (-378 -> +104 -> +193). Zero falls, gait_valid 6/6 det+sto, clean video. Exactly matches the pre-registered prediction-if-false ('seed17 stays flat/worse through 4M despite the same schedule') -- seed17's bad 2M reading was NOT undertraining, it is a real seed-dependent outcome independent of anneal timing. Paired with longrun13 (same cycle, WORSE not just flat), this closes the budget question for this reward stack: reward keeps rising post-anneal but the clone-relative gate does not track it -- a reward<->eval misalignment per the 08-21 ruling, not an undertrained-run false negative. Hands off cleanly to the BC-anchor/phase-lock family-boundary dig-in.
+**verdict**: FAIL-as-budget-scaling: 4M steps (log-std-anneal-frac 0.3, 2.8M steps at converged std=0.041) did NOT recover seed17 toward pd9. DR-0 det progress 0.719x clone (need >=0.9x), slip 1.32x clone (cap 1.15x), speed 0.058 m/s (floor 0.06) -- flat/slightly worse than this seeds own 2M reading (0.727x/1.27x). Own-DR matches (0.55x prog raw, slip worse under sto). Zero falls, gait_valid 6/6 all 24 eps, six legs cycling clean video, no drag/flag-leg. W-and-B ep_rew quarters [-245,-379,104,193]: collapsed then partially recovered, mirroring -9-cont1s pattern, but recovery did not translate into gate-metric movement. Confirms the pre-registered prediction-if-false: real seed-dependent basin selection at this budget, independent of anneal timing.
 
