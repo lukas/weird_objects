@@ -113705,7 +113705,7 @@
     "log": "/tmp/train_cw-amp-m2-freeprog-noamp.log",
     "wandb_id": "ova8jg2e",
     "verified": "2026-08-22T13:43:37+00:00",
-    "triage": "in-cycle cw-amp-m2-freeprog-noamp since 2026-08-22T13:49:11",
+    "triage": "done",
     "checkups": [
       {
         "time": "2026-08-22T13:49:20+00:00",
@@ -113713,7 +113713,9 @@
         "verdict": "FINISHED_BEFORE_CHECKUP",
         "log_tail": "_mm 70.21962\nwandb:       env/height_mm -70.21551\nwandb:   env/height_ref_mm 0\nwandb:   env/max_current_a 1.63181\nwandb:  env/mean_current_a 0.45758\nwandb: env/pct_within_1deg 0.08276\nwandb:   env/pitch_ref_deg 0\nwandb:   env/reward_action -0.01344\nwandb:                 +91 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-amp-m2-freeprog-noamp at: https://wandb.ai/l2k2/hexapod-balance/runs/ova8jg2e\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 3 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260822_134112-ova8jg2e/logs\n"
       }
-    ]
+    ],
+    "hardware_ready": false,
+    "verdict": "FAIL (informative null, matched control): training reward DECLINED across the whole 2M discovery budget (quarters -82->-461->-858->-869/ep, never rising -- the 08-21 'reward rising' leniency does not apply). Held-out DR-0 gate: 8/12 episodes (4/6 det, 4/6 sto) terminated tilt_pitch/tilt_roll within 1-2s of a stable plant start; forward travel 0.008-0.071 m/15s in ALL 12 episodes, nowhere near the 0.10 m bar; slip 7.2-17.0/m. Video: rapid destabilizing topple from a standing start, not the predicted freeze (cw-nobc-slipwalk1-r1's fingerprint) and not real stepping -- a third, unpredicted failure mode. W&B component trace shows reward_walk_freeprog_pen (the cross-track/backward charge) already near its harsh end (-2.8/tick, ~half its -6 floor) from the FIRST logged step, before any learning -- a fresh high-std (0.367) from-scratch actor's uncoordinated flailing draws near-max freeprog penalty immediately, and 2M steps is not enough for it to learn coordinated directionality before repeatedly toppling. DIG-IN queued (see cw-amp-m2-freeprog-style05 pairing + STATUS.md) to root-cause whether this is fixable with a forced log-std anneal (mirroring the joystick track's phasedir8/9 fix) and/or a freeprog/idle-charge ramp-in, before committing another discovery arm."
   },
   {
     "run": "cw-dep-bcgait4-phasedir9-longrun13",
@@ -114027,7 +114029,10 @@
         "verdict": "FINISHED_BEFORE_CHECKUP",
         "log_tail": "      amp/d_real_mean 0.76851\nwandb:      amp/disc_updates 124\nwandb:                amp/gp 0.00751\nwandb:              amp/loss 0.14375\nwandb: amp/pairs_per_rollout 65087\nwandb:        amp/replay_len 500000\nwandb: amp/style_reward_mean 0.09264\nwandb:                  +102 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-amp-m2-freeprog-style05 at: https://wandb.ai/l2k2/hexapod-balance/runs/p2t7k88y\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 3 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260822_134506-p2t7k88y/logs\n"
       }
-    ]
+    ],
+    "hardware_ready": false,
+    "verdict": "FAIL, same failure mode as its matched noamp control -- the AMP style reward did NOT rescue this pricing regime. Reward declined the whole 2M budget (quarters -33->-216->-398->-372/ep; the partial q4 recovery tracks ep_len_mean SHRINKING 312->219 over the same window, i.e. episodes are dying faster, not behaving better -- a possible 'die fast to cap penalty exposure' artifact, not genuine improvement). Held-out DR-0 gate: 11/12 episodes terminated tilt_pitch/tilt_roll within 1-2s; forward travel 0.014-0.081 m/15s, nowhere near the 0.10 m bar; slip 5.2-12.4/m. Video: same rapid topple-from-standing fingerprint as noamp, not the predicted 'style buys stepping' outcome. AMP mechanism itself stayed healthy the whole run (d_real 0.77 vs d_fake -0.94, unsaturated, style_reward_mean 0.093, 124 disc updates) -- the style channel simply cannot out-bid a ~-1.4 to -2.8/tick freeprog+loadslip penalty that is maxed out from step zero regardless of AMP. Wave-1 sizing fork is UNRESOLVED: neither predicted branch (stepping vs freeze) occurred in either arm -- a third failure mode (catastrophic early instability) requires root-causing before another discovery arm is funded. DIG-IN queued alongside cw-amp-m2-freeprog-noamp.",
+    "triage": "done"
   },
   {
     "run": "cw-dep-bcgait4-phasedir9-longrun17",

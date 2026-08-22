@@ -1,20 +1,19 @@
 # amp - AMP locomotion from scratch
 
-Last updated: 2026-08-22 (M2 -c1 dig-in DONE, both arms verdicted
-MISALIGNED: the walk task's legacy reward pays a statue ~1.9/tick
+Last updated: 2026-08-22 (M2 freeprog fix pair VERDICTED FAIL, both
+arms — see banner below: the repriced anti-slip stack neither froze
+nor walked, it destabilized. DIG-IN queued before another discovery
+arm. Prior finding for lineage: the M2 -c1 dig-in found both
+legacy-priced pilots MISALIGNED — a statue paid ~1.9/tick
 (rise_finish + posture/height kernels + the sigma-0.05 velocity
 kernel paying ~0.45/tick to v=0 across low/stop commands) while
-locomotion income is an unreachable needle from scratch — ALL 38M of
+locomotion income was an unreachable needle from scratch — ALL 38M of
 reward rise was statue-polishing (rise_finish 0.09->0.86/tick,
 walk_speed flat). The AMP mechanism was healthy all run (d_real 0.97
 vs d_fake -0.96, never saturated) but its ~0.03/tick effective style
-income is priced out ~30-60x. Wave-1 NO-GO on the legacy pricing.
-Cheat encoded: test_slipwalk_stork_statue_is_priced_out (stork
-statue -238 vs gait +558, bank 6/6 PASS). Fix pair launched from
-scratch on the bank-calibrated freeprog anti-slip stack:
-cw-amp-m2-freeprog-{style05,noamp}, 2M discovery — the no-AMP
-freeprog run (cw-nobc-slipwalk1-r1) froze at 2M, so if the style
-gradient buys discovery, THIS is the config where it shows.)
+income was priced out ~30-60x. Cheat encoded:
+test_slipwalk_stork_statue_is_priced_out (stork statue -238 vs gait
++558, bank 6/6 PASS).
 Charter:
 `rl_docs/AMP_LOCOMOTION.md` (binding, incl. the repo-adaptation
 section — no Isaac Lab, MJX/Warp is the primary trainer). Keep this a
@@ -46,9 +45,11 @@ Build every tool this needs; do not pause on operator input.
 - M1 motion library: **DONE 08-22** (generator + v1 dataset;
   discriminator core + style reward + banks; live reward-loop wiring
   landed and smoke-verified — see Now item on AMPStyleVecWrapper)
-- M2 beautiful normal gait: IN PROGRESS (pilot pair at 2M verdicted
-  healthy-mechanism/pre-gait 08-22; matched -c1 continuations to 40M
-  running — the style-vs-control comparison lands there)
+- M2 beautiful normal gait: IN PROGRESS/BLOCKED (pilot pair -> -c1
+  MISALIGNED -> freeprog repriced fix pair FAIL, both 08-22: the
+  repriced stack destabilizes instead of freezing or walking; see
+  banner + Now. DIG-IN queued to find a survivable from-scratch
+  config before Wave-1 sizing)
 - M3 push recovery: NOT STARTED
 - M4 fault adaptation: NOT STARTED
 - M5 MuJoCo transfer (= DONE gate): NOT STARTED
@@ -326,6 +327,47 @@ now closed:
   yaw +/-0.5). Key comparison: cw-nobc-slipwalk1-r1 (same pricing,
   no AMP) froze at 2M — style05 stepping where its noamp twin
   freezes IS the first real style-vs-control signal.
+- **M2 FREEPROG FIX-PAIR VERDICT (08-22, both `cw-amp-m2-freeprog-
+  {noamp,style05}` FAIL as run)**: neither predicted branch happened.
+  Both arms show the SAME new failure mode — rapid catastrophic
+  instability, not the predicted freeze (`cw-nobc-slipwalk1-r1`'s
+  fingerprint) and not stepping. Gate eval (2M, DR-0, own cfg):
+  noamp 8/12 episodes terminated tilt_pitch/tilt_roll within 1-2s of
+  a stable plant spawn, fwd travel 0.008-0.071 m/15s in all 12
+  (bar 0.10 m), slip 7.2-17.0/m; style05 11/12 terminated, fwd
+  0.014-0.081 m/15s, slip 5.2-12.4/m — video near-identical topple
+  fingerprint in both. Training reward FELL the whole 2M budget in
+  both arms (noamp -82->-869/ep, style05 -33->-372/ep quarterly), so
+  the 08-21 "reward rising" leniency does not apply — this is a
+  genuine not-learning result at this budget/config, not a
+  misalignment-with-rising-reward case. AMP mechanism itself stayed
+  healthy in style05 (d_real 0.77 vs d_fake -0.94, unsaturated,
+  style_reward_mean 0.093, 124 disc updates) — the style channel had
+  nothing to rescue because both arms never survive long enough to
+  produce a coherent gait to reward. ROOT-CAUSE LEAD (not yet
+  confirmed, DIG-IN item): W&B shows `env/reward_walk_freeprog_pen`
+  (the cross-track/backward charge) already near its harsh -6 floor
+  (~-2.8/tick) from the FIRST logged training step in BOTH arms,
+  before any learning — a raw from-scratch actor at std=0.367 flails
+  incoherently and draws near-max penalty immediately; 2M steps is
+  not enough to learn directionality before repeatedly toppling.
+  style05's apparent partial reward recovery in its last quarter
+  coincides with `ep_len_mean` SHRINKING (312->219 steps) over the
+  same window — consistent with learning to die FASTER to cap
+  per-tick penalty exposure, not behaving better; flagged as a
+  possible pricing defect (termination underpriced vs. per-tick
+  charges) for the semantics bank to check directly. Candidate fixes
+  for the next arm (untested, do not launch blind): (a) forced
+  log-std anneal at launch, mirroring the joystick track's
+  phasedir8/9 repair, so exploration noise drops before the freeprog/
+  loadslip charges start biting; (b) ramp `k_walk_freeprog`/
+  `k_walk_idle_charge` in from 0 over the first few hundred-k steps
+  instead of full dose from step 0; (c) a semantics-bank check
+  (new scripted "topple-quickly" twin in `test_slipwalk_*`) for
+  whether dying fast under-prices relative to surviving-and-flailing.
+  Wave-1 sizing stays BLOCKED until a from-scratch config survives
+  long enough on video for a style-vs-control comparison to mean
+  anything.
 
 ## Required status block (update after each wave)
 
