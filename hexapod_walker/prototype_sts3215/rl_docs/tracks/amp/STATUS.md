@@ -24,9 +24,10 @@ Build every tool this needs; do not pause on operator input.
 ## Milestones (brief §13)
 
 - M0 infrastructure: IN PROGRESS (actor/critic split + GRU/history +
-  most of the command generator now exist on the primary trainer;
-  fault injection + wired-up joystick env + auto video/metrics still
-  open — see Now/Next)
+  command generator + the widened joystick envelope all now confirmed
+  composable on the primary trainer, 08-22 smoke; discriminator,
+  motion library, replay buffer, and fault injection still open —
+  see Now/Next)
 - M1 motion library: NOT STARTED
 - M2 beautiful normal gait: NOT STARTED
 - M3 push recovery: NOT STARTED
@@ -82,11 +83,33 @@ now closed:
 
 ## Next (brief §17 order — M0/M1)
 
-1. Wire a `goal.walk_cmd_mode=joystick` (or widen `stress_mix`) preset
-   that matches AMP §6's exact envelope/probabilities on top of the
-   existing sampler, plus `--cfg-set` defaults for the §16 skeleton;
-   confirm `--asym-critic` composes with it end-to-end (n_envs>=1024
-   smoke).
+1. **DONE 08-22** (`amp-m0-joycmd-asymcritic-smoke-v3`, W&B-disabled
+   infra smoke, n_envs=4096, 500k steps, train-0): confirmed
+   `--asym-critic` composes end-to-end with a FRESH (from-scratch,
+   no `--init-from`) policy over a widened `stress_mix` cfg bundle
+   matching AMP §6's envelope — `goal.walk_speed_min/max_m_s=0.0/0.60`,
+   full-circle heading (default `walk_heading_max_rad=-1`),
+   `goal.walk_yaw_cmd=1` + `walk_yaw_max_rad_s=1.0` +
+   `walk_yaw_zero_frac=0.15`, `walk_cmd_resample_s=1.75` +
+   `walk_cmd_resample_jitter=0.714` (spans exactly 0.5-3.0s),
+   `walk_cmd_blend_s_min/max=0.05/1.0` (mixed abrupt/ramped
+   transitions). Result: finite losses/values the whole run
+   (value_loss ~29-32, explained_variance 0.64-0.76, std stable
+   ~0.368, no NaN/crash), video reel ok, checkpoint verified on-pod
+   loads as `AsymActorCriticPolicy` with the expected 73-dim actor
+   obs space. TWO FAILED ATTEMPTS FIRST (v1/v2, both FAILED/logged):
+   warm-starting from the joystick track's phase-clone checkpoint hit
+   obs-width mismatches (the source checkpoint has neither the new
+   yaw_cmd dim nor a compatible phase_obs width), and
+   `--obs-pad-transplant` (the tool that would normally patch an
+   obs-width change onto a warm start) is explicitly incompatible
+   with `--asym-critic` — the fix was going from-scratch, which is
+   the track's own charter default anyway, not a new tool. LESSON:
+   AMP-track smokes must never `--init-from` a joystick-track
+   checkpoint; obs-width plumbing only needs to agree with itself.
+   The independent-vx/vy-vs-polar-speed+heading gap noted below is
+   NOT a blocker — full-circle heading + speed magnitude covers
+   reverse/lateral/diagonal commands functionally.
 2. Motion-library generation from the teacher (all command families:
    fwd/back/lateral/turn/diagonal/accel/decel; mirroring + speed/phase
    augmentation) + validation metrics; reject dragging/collision clips.
