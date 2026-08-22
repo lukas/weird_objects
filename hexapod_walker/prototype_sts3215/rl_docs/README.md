@@ -4,29 +4,35 @@ Small, single-purpose files so no one (human or LLM) has to dig
 through a 5,000-line log to answer a question. Each file says what
 it is for; keep them SHORT when you edit them.
 
+The campaign runs exactly two tracks (operator reset 2026-08-21):
+`joystick` and `amp`. Superseded docs live in
+`../archive/two_track_reset_2026-08-21/`.
+
 | File | What it answers | When to read |
 |------|-----------------|--------------|
-| `AGENT.md` | How the autonomous agent works, what we learned works/fails, future work | Taking over the campaign (human or LLM) — read FIRST |
-| `../RL_GOALS.md` | What are we doing and why, in plain English; where we are; what's blocked (moved from `GOAL.md` 08-10) | Every cycle, first |
-| `../STATUS.md` | How is it going: what the robot can do (real + sim), what's not working, big lessons learned — the operator-facing digest | Catching up after time away; after any hardware session or story-changing PASS (update it!) |
-| `SKILLS.md` | What the robot can DO today: passed skills + their checkpoints (W&B artifact per row) | On any PASS (update it!), or when the operator asks what works |
-| `WISHLIST.md` | Operator's backlog of things to learn — pull from it whenever pods would idle | Every cycle, when deciding launches |
-| `COMMANDS.md` | How to run everything: `ops.sh` helpers, paths, hard-won gotchas; § "Operator status page" = web dashboard runbook | Every cycle, before running commands; when the operator's status page is down |
-| `HARDWARE.md` | Real-robot evidence (traces in `rl_move/hardware_traces/`), sim2real findings, operator experiment backlog | When a decision hinges on real-world data; after any hardware session |
-| `SIM.md` | What the physics sim models, where every actuator number came from, which uncertain params are covered by DR instead of point estimates | Before touching sim params/DR, launching a `bus.servo_params` arm, or judging sim-vs-real gaps |
-| `REWARD.md` | Every reward term: cfg key, default, what it pays/charges, income-gate design rules; where a run's resolved reward config is recorded (W&B notes + `reward_cfg`) | Before adding/changing any reward term or judging a run's incentives |
-| `EVALS.md` | Every eval metric: `SCORE/*` headline names, `eval/*` details, offline harnesses, comparability caveats | Reading a W&B page or wiring a new metric |
-| `RISE.md` | Stand-up skill: plan, PLANT_SPEC standing spec, evidence trail | Working on rise/lower |
-| `TURN.md` | Yaw drift problem, anti-drift mechanisms, TURN bank | Working on yaw/turning |
-| `MULTITASK.md` | Multitask track design: acquisition-failure vs forgetting reframe, A/B/C specialist-vs-generalist cohort, transfer test, binding verdict labels | Working in the multitask track (read before triage) |
-| `DYNREP.md` | Dynamics-representation track design: self-supervised action-conditioned predictor, baseline gates (G1-G3), A/B/C PPO transfer plan | Working in the dynrep track (read before triage); code runbook: `rl_move/dynamics/README.md` |
-| `EXPERIMENT_LOGS.md` | Per-run `logs/experiments/<run>/summary.md` convention + cached W&B data | When finishing or investigating a run |
-| `WANDB.md` | How W&B is wired in: project/creds, ops.sh readers, run-page anatomy (OUTCOME notes, artifact lineage), gotchas | First time touching W&B, or when an API call fails auth |
-| `runs/` | One GENERATED summary per run (status, hypothesis, gate, verdict) — rendered from `experiments.json` by `launch_run.py`; never hand-edit | Browsing past runs; `launch_run.py runsmd` refreshes |
-| `../RL_PLAN.md` | The current plan, gates, and queue (~400-line budget; single topics break out into rl_docs/) | Every cycle |
-| `../RL_LOG.md` | Condensed campaign history; append ONE line per cycle via `ops.sh logline` only | Every cycle |
+| `../RL_GOALS.md` | The two goals in plain English | Every cycle, first |
+| `../CURRENT_TRUTHS.md` | Accepted facts and rulings; wins on conflict | Every cycle |
+| `../RL_PLAN.md` | The two-track operating plan and queue | Every cycle |
+| `../STATUS.md` | Operator-facing digest: how it's going, what's waiting | Catching up; after any story-changing verdict (update it!) |
+| `tracks/joystick/STATUS.md` | Goal/Now/Next for the RL-from-teacher joystick track | Working that track |
+| `tracks/amp/STATUS.md` | Goal/Milestones/Now/Next for the from-scratch AMP track | Working that track |
+| `AMP_LOCOMOTION.md` | The AMP program charter (binding, incl. repo adaptations — no Isaac Lab) | Before any amp-track design decision |
+| `DOWNLOAD_ANSWER.md` | The current deployable answer + gate evidence | When a verdict might change what we'd put on the robot |
+| `SKILLS.md` | What the robot can DO today: passed skills + checkpoints | On any PASS (update it!) |
+| `COMMANDS.md` | How to run everything: `ops.sh` helpers, paths, gotchas; § "Operator status page" = dashboard runbook | Every cycle, before running commands |
+| `HARDWARE.md` | Real-robot evidence, sim2real findings | When a decision hinges on real-world data |
+| `SIM.md` | What the physics sim models, actuator numbers, DR coverage | Before touching sim params/DR or judging sim-vs-real gaps |
+| `REWARD.md` | Every reward term: cfg key, default, what it pays/charges, income-gate design rules | Before adding/changing any reward term |
+| `EVALS.md` | Every eval metric: `SCORE/*` names, `eval/*` details, harnesses, caveats | Reading a W&B page or wiring a new metric |
+| `GAIT.md` | Anti-paddle gait quality: lift-and-place metrics, known exploits | Judging walking video; designing gait rewards |
+| `FAST_PROFILE.md` | Raised servo profile facts + command-tracking prep | Fast-gait arms on the joystick track |
+| `COMPLIANCE.md` | Structural-compliance measurement + sim hook | Sim-fidelity questions |
+| `EXPERIMENT_LOGS.md` | Per-run `logs/experiments/<run>/` convention (dig-ins) | When digging into a run |
+| `WANDB.md` | How W&B is wired: project/creds, ops.sh readers, gotchas | First time touching W&B or on auth failure |
+| `runs/` | One GENERATED summary per run — rendered from `experiments.json`; never hand-edit | Browsing past runs |
+| `../RESEARCH_RULES.md` + `../RUN_INTERPRETATION_RULES.md` | How to design, launch, continue, and judge runs (incl. the 08-21 reward/eval ruling) | Before launch/triage |
 | `../rl_move/orchestrator/guardrails.yaml` | Hard limits you must obey | Every cycle |
-| `../archive/` | Full history, reviews, audits (long; search, don't read) | Only when the condensed docs point there |
+| `../archive/` | Full history, reviews, retired docs (search, don't read) | Only when the active docs point there |
 
 Standing rule: if you had to FIGURE OUT a command (it failed, was
 slow, or took several tries) and then got it right, promote it —
