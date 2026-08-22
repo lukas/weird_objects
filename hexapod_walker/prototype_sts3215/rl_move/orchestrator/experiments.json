@@ -112125,7 +112125,7 @@
       "rl_move/sim/policies/ppo_goal_amp_m2_pilot_style05.zip"
     ],
     "created": "2026-08-22T11:44:58+00:00",
-    "status": "INTENT",
+    "status": "RUNNING",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -112134,7 +112134,18 @@
       "code_sha_local": "32017d93c45ea1693a0696f3aba777aee1446e2a",
       "code_sha_pod": "32017d93c45ea1693a0696f3aba777aee1446e2a",
       "init_from_on_pod": true,
-      "wandb_env_on_pod": true
+      "wandb_env_on_pod": true,
+      "pid": "3643786",
+      "log_growth_bytes": [
+        9306,
+        19753
+      ],
+      "wandb_id": "fn64do78",
+      "global_step_window": [
+        917504,
+        1507328
+      ],
+      "fps_estimate": 19660.8
     },
     "trainer": "ppo",
     "stack": "gpu-mjx",
@@ -112142,6 +112153,8 @@
     "assessment_scope": "full_budget_skill_acquisition",
     "evidence": "2M pilot verdicted DONE this cycle: discriminator healthy at 4096-env scale (amp/d_real .78 vs d_fake -.96 un-saturated, style_reward ~.08 not pinned, gp finite, no NaN), no fail branch fired; smoke_amp_style_wire_v1 + asymcritic-smoke-v3 are the mechanism precedents",
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:amp PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-amp-m2-pilot-style05-c1 --steps 38000000 --task joint_walk --asym-critic --n-envs 4096 --impl warp --host-workers 24 --episode-seconds 15 --eval-every 1000000 --video-every 2000000 --no-canary --seed 7 --amp-style-weight 0.5 --amp-task-weight 0.5 --amp-disc-steps 4 --amp-disc-batch 512 --amp-gp-weight 10.0 --amp-replay 500000 --cfg-set goal.walk_cmd_mode=stress_mix --cfg-set goal.walk_speed_min_m_s=0.0 --cfg-set goal.walk_speed_max_m_s=0.60 --cfg-set goal.walk_yaw_cmd=1 --cfg-set goal.walk_yaw_max_rad_s=1.0 --cfg-set goal.walk_yaw_zero_frac=0.15 --cfg-set goal.walk_cmd_resample_s=1.75 --cfg-set goal.walk_cmd_resample_jitter=0.714 --cfg-set goal.walk_cmd_blend_s_min=0.05 --cfg-set goal.walk_cmd_blend_s_max=1.0 --cfg-set goal.walk_stop_frac=0.15 --out-name ppo_goal_cw_amp_m2_pilot_style05_c1 --notes 'respec of cw-amp-m2-pilot-style05: Does an adversarial motion prior buy visible gait quality? Continuation of the 2M pilot to the gate'\"'\"'s own 40M comparison point \u2014 at 2M both arms were equally pre-locomotion (~1.3 episodes/env), so the style-vs-control question is still open. Warm-starts BOTH the policy (pilot checkpoint) and the discriminator (--amp-disc-init, 124 updates of head start). Prediction-if-true: at 40M total, videos show a recognizably cleaner six-leg alternating tripod than cw-amp-m2-pilot-noamp-c1 (all six feet cycling, no sacrificed legs 1&3 like the pilot'\"'\"'s det episodes), with amp/d_real > d_fake un-saturated and style reward off its 0/1 pins for >80% of the run. Fail branches (i)-(iii) inherited from the pilot: (i) style reward pins ~0 (disc too strong at scale) -> cut disc steps to 2; (ii) pins ~1 -> raise disc steps/batch; (iii) both arms still not locomoting at 40M -> the \u00a76 command envelope is the binding problem, narrow it per brief \u00a76 curriculum before touching AMP knobs.' --amp-disc-init rl_move/sim/policies/ppo_goal_amp_m2_pilot_style05.amp_disc.pt --init-from rl_move/sim/policies/ppo_goal_amp_m2_pilot_style05.zip > /tmp/train_cw-amp-m2-pilot-style05-c1.log 2>&1 < /dev/null & echo $!",
-    "log": "/tmp/train_cw-amp-m2-pilot-style05-c1.log"
+    "log": "/tmp/train_cw-amp-m2-pilot-style05-c1.log",
+    "wandb_id": "fn64do78",
+    "verified": "2026-08-22T11:48:10+00:00"
   }
 ]

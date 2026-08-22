@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-08-22T11:44:58+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 38000000
 
 **parent**: cw-amp-m2-pilot-style05
+
+**wandb_id**: fn64do78
 
 **hypothesis**: Does an adversarial motion prior buy visible gait quality? Continuation of the 2M pilot to the gate's own 40M comparison point — at 2M both arms were equally pre-locomotion (~1.3 episodes/env), so the style-vs-control question is still open. Warm-starts BOTH the policy (pilot checkpoint) and the discriminator (--amp-disc-init, 124 updates of head start). Prediction-if-true: at 40M total, videos show a recognizably cleaner six-leg alternating tripod than cw-amp-m2-pilot-noamp-c1 (all six feet cycling, no sacrificed legs 1&3 like the pilot's det episodes), with amp/d_real > d_fake un-saturated and style reward off its 0/1 pins for >80% of the run. Fail branches (i)-(iii) inherited from the pilot: (i) style reward pins ~0 (disc too strong at scale) -> cut disc steps to 2; (ii) pins ~1 -> raise disc steps/batch; (iii) both arms still not locomoting at 40M -> the §6 command envelope is the binding problem, narrow it per brief §6 curriculum before touching AMP knobs.
 
