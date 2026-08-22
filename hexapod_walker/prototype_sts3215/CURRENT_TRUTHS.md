@@ -34,6 +34,17 @@ out-of-scope runs get honest triage but no agent follow-ups.
   is the failure state; build tools, fund continuations, queue the
   next milestone arm.
 - SIM SPRINT and the seven-track structure are superseded.
+- BERKELEY/LEVINE MICROROBOT PAPER ADAPTATION (08-22): the relevant
+  lesson is NOT "try another PPO seed." Yang et al. optimize a small
+  CPG parameter vector with BO/contextual BO and judge the trial on the
+  same final displacement/drift/energy objective used for selection.
+  Local equivalent is `rl_move.sim.paper_cpg_search`: search
+  `SE2FootGait` timing/clearance/workspace parameters in MuJoCo, using
+  `sim_gait_compat.SE2FootGait` so knees cross the sim-relative
+  boundary correctly, and score the run directly on progress,
+  cross-track, loaded-foot slip, falls, tilt/height, and effort. Run
+  straight 50 x 20s first, then contextual headings/turns 250 x 20s
+  only if straight improves under the same metric.
 
 ## Facts that feed the two tracks
 

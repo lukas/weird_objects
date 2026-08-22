@@ -32,8 +32,9 @@ file, and the hardware classes are subclassed, never modified.
 """
 from __future__ import annotations
 
-import tripod_gait as _tg
 import noslip_gait as _ng
+import se2_foot_gait as _s2
+import tripod_gait as _tg
 from feetech_bus import standing_pose_degrees as _standing_abs_deg
 from rl_move.joint_frame import (
     model_rel_to_robot_abs as knee_abs_18,
@@ -41,7 +42,7 @@ from rl_move.joint_frame import (
 )
 
 __all__ = [
-    "TripodGait", "NoSlipGait",
+    "TripodGait", "NoSlipGait", "SE2FootGait",
     "knee_rel_18", "knee_abs_18", "standing_pose_degrees",
 ]
 
@@ -80,3 +81,7 @@ class TripodGait(_SimRelKneeMixin, _tg.TripodGait):
 
 class NoSlipGait(_SimRelKneeMixin, _ng.NoSlipGait):
     """noslip_gait.NoSlipGait with the sim-relative knee contract."""
+
+
+class SE2FootGait(_SimRelKneeMixin, _s2.SE2FootGait):
+    """se2_foot_gait.SE2FootGait with the sim-relative knee contract."""
