@@ -225,8 +225,8 @@ def test_read_imu_prefers_stream_snapshot():
     assert bytes(bus._ser.tx) == encode_sync_frame(ord("S"), [])
 
 
-def test_flush_sync_raises_when_binary_and_ascii_fallback_fail():
-    bus = _mk_bus(b"ERR\nERR\n")
+def test_flush_sync_raises_when_every_fallback_fails():
+    bus = _mk_bus(b"ERR\nERR\nERR\nERR\n")
     bus._pending = [(2, 2048, 400, 20)]
     try:
         bus._flush_sync()
@@ -236,16 +236,31 @@ def test_flush_sync_raises_when_binary_and_ascii_fallback_fail():
         raise AssertionError("expected SyncWrite failure to raise")
 
 
-def test_flush_sync_uses_wp_fallback_for_slow_sync_failure():
-    bus = _mk_bus(b"ERR\nERR\nOK\n")
-    bus._pending = [(2, 2048, 160, 12)]
+def test_flush_sync_uses_wp_fallback_when_sync_failure_persists():
+    bus = _mk_bus(b"ERR\nERR\nERR\nOK\n")
+    bus._pending = [(2, 2048, 2239, 200)]
 
     bus._flush_sync()
 
     tx = bytes(bus._ser.tx)
-    assert encode_sync_frame(ord("W"), [(2, 2048, 160, 12)]) in tx
-    assert b"SW 1 2 2048 160 12\n" in tx
-    assert b"WP 2 2048 160 12\n" in tx
+    assert tx.count(encode_sync_frame(ord("W"), [(2, 2048, 2239, 200)])) == 2
+    assert b"SW 1 2 2048 2239 200\n" in tx
+    assert b"WP 2 2048 2239 200\n" in tx
+
+
+def test_flush_sync_chunks_ascii_fallback_after_full_sw_fails():
+    items = [(2 + j, 2048 + j, 600, 40) for j in range(12)]
+    want_frame = encode_sync_frame(ord("W"), items)
+    bus = _mk_bus(b"ERR\nERR\nERR\nOK\nOK\n")
+    bus._pending = list(items)
+
+    bus._flush_sync()
+
+    tx = bytes(bus._ser.tx)
+    assert tx.count(want_frame) == 2
+    assert b"SW 12 " in tx
+    assert tx.count(b"SW 6 ") == 2
+    assert b"WP " not in tx
 
 
 def _main() -> int:
