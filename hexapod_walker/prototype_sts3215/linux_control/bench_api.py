@@ -1062,6 +1062,7 @@ class BenchAPI:
         home = ("sit" if (name in AIR_DEMO_NAMES or script is not None)
                 else "quad" if quad_requires_rear
                 else "stand")
+        quad_tuck_home = name in QUAD_REAR_DEMOS
         switched_from = None
         if self._demo_thread and self._demo_thread.is_alive():
             switched_from = self._demo_name
@@ -1071,7 +1072,8 @@ class BenchAPI:
                         "error": "previous demo did not stop — try Stop / E-STOP",
                         "demo": self.demo_state(), "robot": self.robot_state()}
 
-        params = {"speed": speed, "home": home}
+        params = {"speed": speed,
+                  "home": ("tuck stand" if quad_tuck_home else home)}
         if seconds is not None:
             params["seconds"] = seconds
         if name in ("breathe", "breathe_v", "dance", "dance_walk"):
@@ -1134,18 +1136,22 @@ class BenchAPI:
                     self._set_activity("demo", f"reared → {name}")
                     res_home = {"ok": True}
                 else:
+                    home_msg = "tuck stand" if quad_tuck_home else home
                     with self._lock:
-                        self._demo_status = f"homing {home}"
-                    self._set_activity("zeroing", f"{home} zero → {name}")
+                        self._demo_status = f"homing {home_msg}"
+                    self._set_activity("zeroing",
+                                       f"{home_msg} → {name}")
 
                     def _home_prog(p: dict) -> None:
                         with self._lock:
                             self._demo_status = str(p.get("msg")
-                                                    or f"homing {home}")
+                                                    or f"homing {home_msg}")
 
+                    start_kind = ("zero" if home == "sit"
+                                  else "stand_tuck" if quad_tuck_home
+                                  else "stand")
                     res_home = self._acquire_start(
-                        "zero" if home == "sit" else "stand",
-                        gen=gen, on_progress=_home_prog)
+                        start_kind, gen=gen, on_progress=_home_prog)
                 if gen != self._demo_gen:
                     return
                 if self._demo_abort.is_set():
@@ -1755,9 +1761,11 @@ class BenchAPI:
                        on_progress=None) -> dict:
         """Safely bring the robot to a routine's required start pose.
 
-        ``kind``: ``zero`` (belly down, legs out) or ``stand`` (the
-        captured plant stance). Runs INSIDE the caller's worker thread
-        — the caller must own the job slot (``gen``).
+        ``kind``: ``zero`` (belly down, legs out), ``stand`` (captured
+        plant stance), or ``stand_tuck`` (quad's slower tuck-to-plant
+        stand acquisition).
+        Runs INSIDE the caller's worker thread — the caller must own
+        the job slot (``gen``).
 
         Operator directive 08-11: stance-gated routines ACQUIRE their
         start instead of refusing. Strategy: collision-aware safe zero
@@ -1777,18 +1785,24 @@ class BenchAPI:
                 with self._lock:
                     self._cal_progress = dict(p)
 
-        kind = "stand" if str(kind).startswith("stand") else "zero"
+        raw_kind = str(kind).strip().lower()
+        tuck_stand = raw_kind in ("stand_tuck", "tuck_stand",
+                                  "quad_stand")
+        kind = "stand" if raw_kind.startswith("stand") else "zero"
         acquired: list[str] = []
         if kind == "stand":
             wp = None
             try:
                 from feetech_bus import standing_pose_degrees
-                wp, _ = self._delta_vs_present(standing_pose_degrees())
+                stand_goal = standing_pose_degrees()
+                wp, _ = self._delta_vs_present(stand_goal)
             except Exception:
                 wp = None
             if wp is not None and wp <= 8.0:
                 return {"ok": True, "acquired": acquired}
-            if wp is not None and wp <= 25.0:
+            if tuck_stand and wp is not None and wp <= 25.0:
+                return {"ok": True, "acquired": ["tuck_stand_near"]}
+            if not tuck_stand and wp is not None and wp <= 25.0:
                 # Already standing near the plant: the synthetic
                 # "plant" mode shortcuts to align + tripod re-seat —
                 # no pointless sit/stand cycle.
@@ -1817,14 +1831,18 @@ class BenchAPI:
             acquired.append("safe_zero")
         if kind == "zero":
             return {"ok": True, "acquired": acquired}
-        _prog({"msg": "acquiring start: stand-up onto plant…"})
-        rs = self.standup(mode="plant", speed=10.0, direction="up",
+        mode = "plant"
+        label = "tuck-to-plant stand" if tuck_stand else "plant"
+        _prog({"msg": f"acquiring start: stand-up to {label}…"})
+        rs = self.standup(mode=mode, speed=(6.0 if tuck_stand else 10.0),
+                          direction="up",
                           sync_gen=gen)
         if not rs.get("ok"):
             return {"ok": False, "acquired": acquired,
                     "error": ("could not reach stand start: "
                               + str(rs.get("error") or "aborted"))}
-        acquired.append("standup_plant")
+        acquired.append("standup_tuck_plant" if tuck_stand
+                        else f"standup_{mode}")
         return {"ok": True, "acquired": acquired}
 
     def pinned_tip_state(self) -> dict:
