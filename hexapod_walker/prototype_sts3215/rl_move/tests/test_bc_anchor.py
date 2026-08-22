@@ -574,7 +574,7 @@ def _pin_walk_cmd(env, vx: float, vy: float) -> None:
 def test_walk_emission_matches_scripted_gait():
     """Commanded walk ticks emit the TripodGait pose one tick ahead —
     verified against an independent gait instance driven identically."""
-    from tripod_gait import TripodGait
+    from sim_gait_compat import TripodGait
     env = _make_walk_env(0, {("train", "bc_anchor_coef"): 1.0})
     env.reset()
     assert env._walk_bc_gait is not None

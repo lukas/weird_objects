@@ -63,7 +63,7 @@ def main() -> None:
 
     import cv2
 
-    from noslip_gait import NoSlipGait
+    from sim_gait_compat import NoSlipGait
     from rl_move.sim.joint_task import q_rad_to_action
     from rl_move.sim.verify_noslip import (_make_env, PLANT_HIP_DEG,
                                            PLANT_KNEE_DEG)

@@ -730,7 +730,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                           "_ls_prev_xy", "_ls_prev_on",
                           "_ls_slip_m", "_ls_prog_m",
                           "_yaw_still_ema", "_stance_slip_acc",
-                          "_walk_idle_ema",
+                          "_walk_idle_ema", "_walk_course_ema",
                           "_gait_last_step", "_gait_cmd_tick",
                           "_gait_gate_qfactor", "_wp", "_vel_est")
 
@@ -825,6 +825,8 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # Anti-park travel-floor EMA (reward.k_walk_idle_charge);
         # per-episode/per-segment, snapshot via MJX_SNAPSHOT_EXTRA.
         self._walk_idle_ema = 0.0
+        # Commanded-course EMA (reward.k_walk_course); same lifecycle.
+        self._walk_course_ema = [0.0, 0.0]
         # Structural stance-slip charge (2026-08-11 charge-magnitude
         # audit, probe_drag_audit.py / GAIT.md P2): accumulated loaded
         # XY travel of the CURRENT stance period per foot. Reset at
@@ -1108,6 +1110,8 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # Anti-park travel-floor EMA (reward.k_walk_idle_charge);
         # per-episode/per-segment, snapshot via MJX_SNAPSHOT_EXTRA.
         self._walk_idle_ema = 0.0
+        # Commanded-course EMA (reward.k_walk_course); same lifecycle.
+        self._walk_course_ema = [0.0, 0.0]
         self._stance_slip_acc = [0.0] * 6
         self._gait_last_step = [0] * 6
         self._gait_cmd_tick = 0
@@ -1575,7 +1579,27 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # 20% +-45deg / 20% anywhere mix, draw-stream exact.
         h_max = float(cfg_get(self.cfg, "goal", "walk_heading_max_rad",
                               default=-1.0))
-        if h_max >= 0.0:
+        # Discrete commanded-heading SET (operator staged-curriculum
+        # order 2026-08-22, fb_20260822T032514: forward-only first,
+        # then a SMALL HEADING SET, then full fixed headings — never
+        # full +-180 from tick zero). goal.walk_heading_set, a JSON
+        # list of radians (--cfg-set 'goal.walk_heading_set=[0,0.7854,
+        # -0.7854]') or a comma-separated string, draws the episode
+        # heading uniformly FROM THE SET and overrides
+        # walk_heading_max_rad; mid-episode resamples (draw_heading
+        # below) use the same set. Default "" = off: no draw happens,
+        # every legacy rng stream is bit-exact.
+        h_set_raw = cfg_get(self.cfg, "goal", "walk_heading_set",
+                            default="")
+        if isinstance(h_set_raw, (list, tuple)):
+            h_set = [float(x) for x in h_set_raw]
+        elif isinstance(h_set_raw, str) and h_set_raw.strip():
+            h_set = [float(x) for x in h_set_raw.split(",")]
+        else:
+            h_set = []
+        if h_set:
+            ang = h_set[int(rng.integers(len(h_set)))]
+        elif h_max >= 0.0:
             ang = 0.0 if h_max == 0.0 \
                 else float(rng.uniform(-h_max, h_max))
         else:
@@ -1658,6 +1682,8 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             def draw_heading() -> float:
                 if stage0:
                     return 0.0   # stage-0 curriculum: fwd/back only
+                if h_set:
+                    return h_set[int(rng.integers(len(h_set)))]
                 if h_max >= 0.0:
                     return 0.0 if h_max == 0.0 \
                         else float(rng.uniform(-h_max, h_max))
@@ -2656,6 +2682,8 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # Anti-park travel-floor EMA (reward.k_walk_idle_charge);
         # per-episode/per-segment, snapshot via MJX_SNAPSHOT_EXTRA.
         self._walk_idle_ema = 0.0
+        # Commanded-course EMA (reward.k_walk_course); same lifecycle.
+        self._walk_course_ema = [0.0, 0.0]
         self._stance_slip_acc = [0.0] * 6
         self._gait_last_step = [0] * 6
         self._gait_cmd_tick = 0
@@ -3322,6 +3350,80 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 info["walk_along_ema_m_s"] = self._walk_idle_ema
                 info["walk_idle_shortfall"] = shortfall
                 info["reward_walk_idle"] = r_idle
+            # Commanded-COURSE charge (operator reward-alignment order
+            # 2026-08-22, fb_20260822T032514 item 3 — the phasedir1
+            # fix): price wrong-way / off-heading TRAVEL on the
+            # STRIDE-AVERAGED velocity, never the per-tick one.
+            # phasedir1's PPO drifted to a generic stable fast walk
+            # (dir_err med 35.6 -> 67.3 deg, rear headings collapsed)
+            # because no active term priced course; the existing
+            # per-tick k_walk_heading is the wrong tool because a
+            # clean tripod stride sways the instantaneous velocity
+            # ~35 deg (CURRENT_TRUTHS metric fact) and would charge
+            # honest gait mechanics. This EMAs the body-frame planar
+            # velocity over reward.walk_course_tau_s (default 0.75 s =
+            # one teacher gait period, so stride sway averages out
+            # over exactly one cycle) and charges
+            # -k * (1 - cos(course err)) per tick once the smoothed
+            # speed clears reward.walk_course_min_speed_m_s (course is
+            # undefined near zero travel; parking/refusal is priced by
+            # k_walk_idle_charge + the prog gates, not here).
+            # Commanded-motion ticks only; added AFTER the income
+            # gates so no gate can shrink it (gait-gate rule). Default
+            # 0 = off: no state update, no info keys, legacy bit-exact.
+            # cfg: reward.k_walk_course, reward.walk_course_tau_s,
+            # reward.walk_course_min_speed_m_s.
+            k_course = float(cfg_get(self.cfg, "reward",
+                                     "k_walk_course", default=0.0))
+            if k_course > 0.0 and s_ref > 1e-3:
+                tau_c = max(float(cfg_get(self.cfg, "reward",
+                                          "walk_course_tau_s",
+                                          default=0.75)), self.dt)
+                a_c = self.dt / tau_c
+                self._walk_course_ema[0] += a_c * (
+                    float(v[0]) - self._walk_course_ema[0])
+                self._walk_course_ema[1] += a_c * (
+                    float(v[1]) - self._walk_course_ema[1])
+                ex, ey = self._walk_course_ema
+                spd_c = math.hypot(ex, ey)
+                v_min_c = float(cfg_get(self.cfg, "reward",
+                                        "walk_course_min_speed_m_s",
+                                        default=0.01))
+                if spd_c >= v_min_c:
+                    cos_c = max(-1.0, min(1.0, (
+                        ex * goal.vx_ref + ey * goal.vy_ref)
+                        / (spd_c * s_ref)))
+                    r_course = -k_course * (1.0 - cos_c)
+                    reward = float(reward) + r_course
+                    info["walk_course_cos"] = cos_c
+                    info["reward_walk_course"] = r_course
+                # EMA-speed overspeed band charge (same order, same
+                # preflight: the INSTANT-speed k_walk_overspeed cannot
+                # separate the 1.3-1.7x attractor from the honest gait
+                # — a clean tripod's instantaneous speed pulses through
+                # the band every stride, so a tight instant band taxes
+                # obedience while a loose one lets the measured 0.139
+                # attractor keep out-earning obey (preflight bank
+                # 08-22: overspeed 504 vs obey 430 under
+                # k_walk_overspeed=2/tol=0.10). Charging the STRIDE-
+                # AVERAGED |v| prices sustained overspeed only:
+                # -k * min(over/s_ref, 3), over = max(0, |v_ema| -
+                # (1+tol)*s_ref). Default 0 = off, bit-exact.
+                # cfg: reward.k_walk_course_overspeed,
+                # reward.walk_course_overspeed_tol.
+                k_cover = float(cfg_get(self.cfg, "reward",
+                                        "k_walk_course_overspeed",
+                                        default=0.0))
+                if k_cover > 0.0:
+                    tol_co = float(cfg_get(
+                        self.cfg, "reward",
+                        "walk_course_overspeed_tol", default=0.05))
+                    over_c = max(0.0, spd_c - (1.0 + tol_co) * s_ref)
+                    if over_c > 0.0:
+                        r_cover = -k_cover * min(over_c / s_ref, 3.0)
+                        reward = float(reward) + r_cover
+                        info["walk_course_overspeed_m_s"] = over_c
+                        info["reward_walk_course_overspeed"] = r_cover
             _add_walk_direction_info(
                 info, float(v[0]), float(v[1]),
                 float(goal.vx_ref), float(goal.vy_ref),

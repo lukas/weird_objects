@@ -246,7 +246,7 @@ def parse_policy_spec(policy: str) -> tuple[str, float]:
 def rollout(policy: str, direction: str, seed: int, stack_name: str,
             deterministic: bool = True, dr_scale: float = 0.0,
             extra_sets: tuple = (), cmd: float = CMD_V) -> dict:
-    from tripod_gait import TripodGait
+    from sim_gait_compat import TripodGait
 
     base_pol, period_scale = parse_policy_spec(policy)
     stack = STACKS[stack_name]
@@ -265,7 +265,7 @@ def rollout(policy: str, direction: str, seed: int, stack_name: str,
         from stable_baselines3 import PPO
         model = PPO.load(str(ROOT / base_pol[5:]), device="cpu")
     elif base_pol.startswith("noslip"):
-        from noslip_gait import NoSlipGait
+        from sim_gait_compat import NoSlipGait
         if base_pol == "noslip_clean":
             gait = NoSlipGait.clamp_fit()
         else:

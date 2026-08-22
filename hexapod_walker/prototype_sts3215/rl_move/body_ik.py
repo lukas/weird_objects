@@ -156,6 +156,11 @@ def ik_leg_from_foot_body(foot_body: np.ndarray, leg_az: float
     if ik is None:
         return None
     hip, knee = ik
+    # Since 30660b51 tripod_gait._leg_ik returns the ABSOLUTE tibia
+    # angle (leg-plane convention of the measured robot); the sim knee
+    # hinge — and this module's fk_foot_body — are RELATIVE to the
+    # femur, so convert at the boundary.
+    knee -= hip
     return float(yaw), float(hip), float(knee)
 
 

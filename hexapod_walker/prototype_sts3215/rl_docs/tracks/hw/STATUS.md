@@ -21,16 +21,19 @@ OLD-PLANT numbers, see Live Runs for the tibia-150 break).
 
 ## Live Runs
 
-None. 08-22 finding: the shipped download pair HARD-FAILS eval_session
-at the measured tibia-150 plant (falls: sit tilt_pitch, back
-tilt_roll; fwd yaw -21.8 deg) while the matched 128 mm control (HEAD
-harness, only a4beb8af reverted) PASSES —
-`logs/ckpt_eval/plantgate_tibia150_session/`. Two warm-started fix
-arms are spec'd (below) but LAUNCH-BLOCKED: rise/lower/walk semantics
-banks are RED at HEAD (4 tibia-caused incl. the walk gait-gate
-honest/flag-leg orderings; 10 both-plant, onset 08-21/22 window).
-Bank bisect/repair is the topmost agent-doable item. Fast-gait fork
-still sits with the operator (zero-RL phase clone is the candidate).
+`cw-dep-bcgait1-plant150-1` (walk fix arm, launched 08-22 after the
+bank repair below; gate in queue item 2). 08-22 finding: the shipped
+download pair HARD-FAILS eval_session at tibia-150 while the matched
+128 mm control PASSES — `logs/ckpt_eval/plantgate_tibia150_session/`
+(differential stands; absolute numbers predate the harness repair).
+BANK REPAIR LANDED 08-22: the 08-21/22 bank collapse was bisected to
+30660b51's absolute-tibia knee convention + new default stand home
+leaking into the femur-relative sim (NOT the quad commits); fixed by
+`linux_control/sim_gait_compat.py` + `_default_plant_deg` guard.
+Walk banks GREEN; rise family retains 7 true tibia-150 residue FAILs
+=> stance fix arm still launch-blocked. Fast-gait fork still sits
+with the operator, BUT phasedir1 trained on the corrupted sim — its
+RL verdict is env-confounded (see queue item 3).
 
 ## Recently Finished
 
@@ -81,30 +84,32 @@ drifts. Hypothesis: full-heading conditioning from step 0 pushes the
 clone off-manifold; staged exposure keeps it on.
 Plant flag RESOLVED TO A FINDING 08-22 (see Live Runs). AGENT QUEUE,
 in order:
-1. [code] Bank bisect/repair: split is measured (4 tibia-150-caused:
-   rise_rock, trans_drag_honest_rise, walk_gait_gate keeps-honest +
-   collapses-flag-leg; 10 both-plant: rise_valid_plant, lower x2,
-   slipwalk x2, walkcurr4, hold_load_hover, walk_kick_pulse,
-   quadwalk_start, walk_gait_gate_collapses_quadwalk_midpin). Slipwalk
-   bank was green 08-21 ~13Z → bisect 08-21/22 commits (suspects:
-   quad rear-support 14cbf0de/ac22d050). Repair = fix stale test
-   plant-constants OR fix reward mis-pricing, per root cause; REWARD.md
-   + snapshot rules apply. Banks green = launch precondition met.
-2. [precondition: banks green] Launch fix arms, warm-started,
-   hardening phase, ~10M each, evidence = plantgate session FAIL +
-   champion lineage: `cw-stand-footlow2-plant150-1` (respec --from
-   cw-stand-footlow2-hard1, --init-from its zip; GATE at tibia-150:
-   det session (stance seat vs bcgait1_hard1) zero falls +
-   sit_descends PASS + rise 12/12 zero-fall; control = parent's
-   tibia-150 session fall on sit) and `cw-dep-bcgait1-plant150-1`
-   (respec --from cw-dep-bcgait1-hard1, --init-from its zip; GATE at
-   tibia-150: det session drive segments zero falls incl. reverse,
-   fwd_heading soft PASS, gait_valid 6/6, slip/m <= 2.0; control =
-   parent's back-fall + fwd yaw -21.8). Promotion of any passer is
-   [operator].
-3. [triage] After bank repair, re-read phasedir1's RL degradation in
-   light of the walk gait-gate mis-ordering at tibia-150 (it trained
-   on the possibly mis-ordered stack).
+1. [code] DONE 08-22 (convention repair, this cycle) — residue: 7
+   true tibia-150 recalibration FAILs (rise_valid_plant +
+   score_replay = stale 128 mm `rise_ref_belly2plant.npz`, re-mint
+   via extract_rise_ref at the measured plant; rise_rock; trans_drag;
+   getup_honest_ordering; recover_floor_rungs; fastprof_obeying).
+   Repair each per root cause (reward vs test/ref); REWARD.md +
+   snapshot rules apply. Rise/lower family green = stance-arm
+   precondition met.
+2. [precondition: rise banks green] `cw-stand-footlow2-plant150-1`
+   (respec --from cw-stand-footlow2-hard1, --init-from its zip; GATE
+   at tibia-150: det session (stance seat vs bcgait1_hard1) zero
+   falls + sit_descends PASS + rise 12/12 zero-fall; control =
+   parent's tibia-150 session fall on sit). The walk twin
+   `cw-dep-bcgait1-plant150-1` LAUNCHED 08-22 (walk banks green;
+   GATE at tibia-150: det session drive segments zero falls incl.
+   reverse, fwd_heading soft PASS, gait_valid 6/6, slip/m <= 2.0;
+   control = parent's back-fall + fwd yaw -21.8). Promotion of any
+   passer is [operator].
+3. [triage, upgraded] phasedir1 trained ON the corrupted sim (its
+   snapshot 061dfe69 contains 30660b51: walk spawn poses + BC anchor
+   knee-convention-broken). Its "RL degrades everything" verdict is
+   env-confounded: before any staged-curriculum decision, re-run the
+   SAME phasedir1 spec on the repaired sim (operator permission per
+   fb_20260822T003132 still applies to the staged variant; a
+   straight re-run of the already-approved spec on a fixed harness
+   is repair, not a new lever).
 
 ## Operator Gates
 

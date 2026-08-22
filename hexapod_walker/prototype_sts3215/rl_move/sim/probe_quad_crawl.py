@@ -118,7 +118,7 @@ class QuadCrawl:
                  mid_fwd: float = 0.05, body_back: float = 0.05,
                  sway: float = 0.06, shift_gain: float = 0.0,
                  shift_cap: float = 0.08, advance: str = "two"):
-        from tripod_gait import TripodGait
+        from sim_gait_compat import TripodGait
         self.scheme = scheme
         self.g = TripodGait(vx=0.0, lift=lift)
         self.g.sync_plant_stance(*plant)
@@ -241,11 +241,15 @@ class QuadCrawl:
             ik = TG._leg_ik((math.hypot(x_yaw, y_yaw), 0.0,
                              g.foot_neutral_z + dz))
             if ik is None:
+                # plant_*_deg live in the hardware ABSOLUTE-tibia
+                # convention since 30660b51; sim knee is femur-relative.
                 out.extend([0.0, math.radians(g.plant_hip_deg),
-                            math.radians(g.plant_knee_deg)])
+                            math.radians(g.plant_knee_deg
+                                         - g.plant_hip_deg)])
             else:
                 p, pt = ik
-                out.extend([math.atan2(y_yaw, x_yaw), p, pt])
+                # _leg_ik returns the absolute tibia angle -> relative.
+                out.extend([math.atan2(y_yaw, x_yaw), p, pt - p])
         return np.array(out)
 
 
@@ -293,7 +297,7 @@ def main() -> None:
     from rl_move.sim.joint_task import q_rad_to_action
     from rl_move.sim.servo_model import SimServoParams
     from rl_move.sim.walk_task import SimHexapodJointWalkEnv
-    from tripod_gait import TripodGait
+    from sim_gait_compat import TripodGait
 
     cfg = load_config()
     for (sec, leaf), val in STACK.items():

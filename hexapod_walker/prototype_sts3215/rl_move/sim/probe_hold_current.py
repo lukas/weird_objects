@@ -218,7 +218,7 @@ def main(argv=None) -> int:
 
     # C: scripted walk 30 mm/s, hardware gait write profile.
     try:
-        from tripod_gait import TripodGait
+        from sim_gait_compat import TripodGait
         gait = TripodGait(vx=0.03)
         gait.sync_plant_stance(20.0, 80.0)
         gait.set_lift_mm(25.0)

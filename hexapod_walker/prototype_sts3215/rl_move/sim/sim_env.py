@@ -262,12 +262,24 @@ def leg_chassis_collision_from_cfg(cfg) -> bool:
 
 
 def _default_plant_deg() -> np.ndarray:
-    """Standing plant in hardware convention (learned plant or +20/+80)."""
+    """Standing plant in SIM joint convention (knee relative to femur).
+
+    A genuinely CAPTURED plant (plant_pose.json) is authoritative: it is
+    stored in the measured robot's absolute-tibia convention since
+    30660b51 and sim_gait_compat converts it at the boundary. The
+    hardware DEFAULT stand home (+19/+28 absolute = +19/+9 relative) is
+    deliberately NOT adopted: it sits on the leg-extension boundary
+    (hip->foot ~239.9 of 240 mm), where the fixed-foot body IK is
+    singular, and the sim's canonical training/eval stance has always
+    been +20/+80 relative."""
     try:
-        from feetech_bus import standing_pose_degrees
-        return np.asarray(standing_pose_degrees(), dtype=float)
+        from feetech_bus import load_plant_pose
+        if load_plant_pose().get("learned"):
+            from sim_gait_compat import standing_pose_degrees
+            return np.asarray(standing_pose_degrees(), dtype=float)
     except Exception:
-        return np.array([0.0, 20.0, 80.0] * 6, dtype=float)
+        pass
+    return np.array([0.0, 20.0, 80.0] * 6, dtype=float)
 
 
 class SimHexapodBalanceEnv(_GymBase):
@@ -1480,7 +1492,7 @@ class SimHexapodBalanceEnv(_GymBase):
             # policy wakes up under. The gait is rolled forward ~1 s
             # plus a uniform slice of one period so its internal
             # command smoothing is engaged and every phase is sampled.
-            from tripod_gait import TripodGait
+            from sim_gait_compat import TripodGait
             traj = self._goal_traj
             i_ss = min(int(round(0.5 / self.dt)), len(traj.vx) - 1)
             g = TripodGait()
@@ -1727,7 +1739,7 @@ class SimHexapodBalanceEnv(_GymBase):
             # +-2 deg jitter matches the gait/park spawn convention.
             # Reached only from quadwalk trajectories, so no legacy
             # rng stream can be perturbed.
-            from tripod_gait import TripodGait
+            from sim_gait_compat import TripodGait
             splay = float(cfg_get(self.cfg, "goal",
                                   "quadwalk_mid_splay_m", default=0.06))
             g = TripodGait()
@@ -2053,6 +2065,7 @@ class SimHexapodBalanceEnv(_GymBase):
         # Default 1.0 (on) preserves every existing config bit-exact;
         # only an explicit bc_anchor_walk=0 disables this block.
         self._walk_bc_gait = None
+        self._walk_bc_t = 0.0
         if (self._goal_traj is not None
                 and getattr(self._goal_traj, "mode", "") == "walk"
                 and float(cfg_get(self.cfg, "train", "bc_anchor_coef",
@@ -2395,16 +2408,42 @@ class SimHexapodBalanceEnv(_GymBase):
 
     def _make_walk_bc_gait(self):
         """Per-episode TripodGait instance for the walk BC anchor
-        (shared by _reset_finalize and the mode-seq switch path)."""
+        (shared by _reset_finalize and the mode-seq switch path).
+
+        train.bc_anchor_knee_abs=1 (default 0) selects the RAW
+        hardware-module TripodGait, whose post-30660b51 desired_deg
+        knees are ABSOLUTE-tibia angles fed unconverted into the sim
+        knee joints. That IS the joint-space dialect of the 08-22
+        phase-BC-clone lineage (ppo_goal_cw_bcgait_init_fullprof_
+        phase1 was minted from the raw module before the
+        sim_gait_compat boundary existed, and it walks clean at the
+        measured plant) — anchoring that lineage to the CONVERTED
+        gait would pull the clone off its own proven gait. Default 0
+        keeps the convention-corrected sim gait, bit-exact."""
+        if float(cfg_get(self.cfg, "train", "bc_anchor_knee_abs",
+                         default=0.0)) > 0.0:
+            try:
+                from tripod_gait import TripodGait
+            except ImportError:
+                import sys as _sys
+                _lc = str(Path(__file__).resolve().parents[2]
+                          / "linux_control")
+                if _lc not in _sys.path:
+                    _sys.path.insert(0, _lc)
+                from tripod_gait import TripodGait
+            _g = TripodGait(vx=0.0)
+            _g.sync_plant_stance(20.0, 80.0)
+            _g.reset_phase()
+            return _g
         try:
-            from tripod_gait import TripodGait
+            from sim_gait_compat import TripodGait
         except ImportError:
             import sys as _sys
             _lc = str(Path(__file__).resolve().parents[2]
                       / "linux_control")
             if _lc not in _sys.path:
                 _sys.path.insert(0, _lc)
-            from tripod_gait import TripodGait
+            from sim_gait_compat import TripodGait
         _g = TripodGait(vx=0.0)
         # Canonical sim plant stance (same source as _default_plant
         # fallback and the WALK semantics bank): +20/+80.
@@ -2583,6 +2622,7 @@ class SimHexapodBalanceEnv(_GymBase):
         # for SNAP_ATTRS/pool compatibility.
         self._seq_pose_anchor = None
         self._walk_bc_gait = None
+        self._walk_bc_t = 0.0
         if (mode == "walk"
                 and float(cfg_get(self.cfg, "train", "bc_anchor_coef",
                                   default=0.0)) > 0.0
@@ -3917,8 +3957,35 @@ class SimHexapodBalanceEnv(_GymBase):
                     # so the next scripted action is desired_deg at
                     # _step_i * dt (the bank rollouts command
                     # desired_deg(step*dt) at pre-step tick `step`).
-                    _q_bc = np.asarray(_g.desired_deg(
-                        self._step_i * self.dt)) * DEG2RAD
+                    _t_bc = self._step_i * self.dt
+                    if float(cfg_get(self.cfg, "train",
+                                     "bc_anchor_phase_lock",
+                                     default=0.0)) > 0.0:
+                        # PHASE-LOCKED anchor clock (08-22, operator
+                        # reward-alignment order fb_20260822T032514,
+                        # phasedir2 line): with goal.walk_phase_obs=1
+                        # the POLICY's clock advances only while a
+                        # linear velocity is commanded
+                        # (walk_task._augment_obs), and the phase BC
+                        # clone was distilled against exactly that
+                        # clock (bc_init_gait unwraps the phase obs to
+                        # drive the teacher). The legacy wall-clock
+                        # time above jumps the gait phase across every
+                        # settle hold / stop segment (~0.33 cycle for
+                        # the standard 1 s spawn hold), so the anchor
+                        # would pull TOWARD A DIFFERENTLY-PHASED GAIT
+                        # than the clock the policy sees. This
+                        # accumulator advances by dt on exactly the
+                        # ticks the obs clock advances (s_ref > 1e-3;
+                        # a wz-only commanded tick keeps the clock —
+                        # and the gait phase — frozen, matching the
+                        # obs clock's linear-command gate). Default 0
+                        # = legacy wall-clock, bit-exact.
+                        if math.hypot(_bc_goal.vx_ref,
+                                      _bc_goal.vy_ref) > 1e-3:
+                            self._walk_bc_t += self.dt
+                        _t_bc = self._walk_bc_t
+                    _q_bc = np.asarray(_g.desired_deg(_t_bc)) * DEG2RAD
                     info["bc_target"] = q_rad_to_action(
                         _q_bc).astype(np.float32)
                     info["bc_mode"] = 3    # walk

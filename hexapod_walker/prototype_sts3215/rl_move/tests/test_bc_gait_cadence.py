@@ -19,7 +19,7 @@ for _p in (ROOT, ROOT / "linux_control", ROOT / "linux_control" / "urt2_setup"):
     if str(_p) not in sys.path:
         sys.path.insert(0, str(_p))
 
-from tripod_gait import TripodGait  # noqa: E402
+from sim_gait_compat import TripodGait  # noqa: E402
 from rl_move.sim.bc_init_gait import _make_teacher  # noqa: E402
 from rl_move.sim.probe_walk_income import parse_policy_spec  # noqa: E402
 

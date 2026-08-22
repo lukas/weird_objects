@@ -591,7 +591,7 @@ def _make_turn_env(seed: int, overrides: dict | None = None):
 
 def _turn_rollout(policy: str, wz_cmd: float, seed: int,
                   overrides: dict | None = None) -> float:
-    from tripod_gait import TripodGait
+    from sim_gait_compat import TripodGait
 
     env = _make_turn_env(seed, overrides)
     env.reset()
@@ -702,7 +702,7 @@ def _walk_rollout(policy: str, seed: int, *, vx: float = WALK_CMD_VX,
                   vy: float = 0.0,
                   overrides: dict | None = None,
                   stance: tuple[float, float] = WALK_PLANT) -> float:
-    from tripod_gait import TripodGait
+    from sim_gait_compat import TripodGait
 
     env = _make_walk_env(seed, overrides)
     env.reset()
@@ -831,7 +831,7 @@ def _slipwalk_rollout(policy: str, seed: int, *,
     "skate" (same gait, zero swing lift — feet slide), "stall"
     (march in place), "park" (hold the plant stance and refuse).
     """
-    from tripod_gait import TripodGait
+    from sim_gait_compat import TripodGait
 
     env = _make_walk_env(seed, SLIPWALK_OVERRIDES)
     env.reset()
@@ -1231,7 +1231,7 @@ def _fastprof_rollout(drive: str, seed: int,
     DRIVEN either at the command ('obey'), at 2.5x it ('overspeed' —
     the canary's measured ratio), or at the command rotated 55 deg
     ('skew' — the canary's measured heading drift)."""
-    from tripod_gait import TripodGait
+    from sim_gait_compat import TripodGait
 
     stack = dict(WALK_OVERRIDES)
     stack.update(overrides or {})
@@ -1357,7 +1357,7 @@ MIX_SEEDS = (0, 1, 2, 3, 4, 5)   # 0,1,2,5 draw turn-in-place episodes,
 def _mix_rollout(policy: str, seed: int) -> float:
     """Roll the SAMPLED (training-distribution) command trajectory:
     scripted gait following every command vs a frozen plant hold."""
-    from tripod_gait import TripodGait
+    from sim_gait_compat import TripodGait
 
     env = _make_walk_env(seed, OMNI_MIX_OVERRIDES)
     env.reset()                      # keep the sampled mixture
@@ -1464,7 +1464,7 @@ def _walk_rollout_terms(policy: str, seed: int,
     on a pinned straight-line command; adds the 'driftride' policy —
     walk the command but let the body rotate at the structural drift
     (the cheat that collects heading-hold yaw income for free)."""
-    from tripod_gait import TripodGait
+    from sim_gait_compat import TripodGait
 
     env = _make_walk_env(seed, overrides)
     env.reset()
@@ -2781,7 +2781,7 @@ def test_getup_forward_only_commands():
 
 def _getup_rollout(policy: str, seed: int, *, start: str = "zero",
                    cmd: tuple[float, float] = (0.0, 0.0)) -> dict:
-    from tripod_gait import TripodGait
+    from sim_gait_compat import TripodGait
 
     env = _make_getup_env(seed, start=start, cmd=cmd)
     env.reset()
@@ -3216,7 +3216,7 @@ def _quadwalk_rollout(policy: str, seed: int, *,
     freeze     quad stance park: support legs planted, fronts tucked,
                no stepping (refusal)
     """
-    from tripod_gait import TripodGait
+    from sim_gait_compat import TripodGait
 
     env = _make_quadwalk_env(seed, overrides)
     env.reset()
@@ -3430,7 +3430,7 @@ def _quad_hold_rollout(policy: str, seed: int, overrides: dict) -> float:
     commanded, independent of leg pattern, so this proxy exercises
     exactly the mechanism that prices the learned rear-four creep
     (0.022 m/s, cw-quad-turn1-r1)."""
-    from tripod_gait import TripodGait
+    from sim_gait_compat import TripodGait
 
     cfg = load_config()
     for (sec, leaf), val in overrides.items():
@@ -3624,7 +3624,7 @@ def test_quadwalk_start_quad_spawns_fronts_up():
     # Hold the spawn stance for 2 s — same construction as the spawn
     # itself and the bank's surviving freeze stance: TripodGait plant
     # with mid feet splayed +0.06 m forward, lift legs at tuck.
-    from tripod_gait import TripodGait
+    from sim_gait_compat import TripodGait
     gait = TripodGait()
     gait.sync_plant_stance(*WALK_PLANT)
     _orig = gait._foot_target_in_body
@@ -3708,7 +3708,7 @@ def _gait_gate_walk_rollout(policy: str, seed: int,
     pose (the one-leg-sacrifice cheat class). Returns the episode
     return plus the summed gated income terms and the post-6s median
     of the walk_gait_min metric."""
-    from tripod_gait import TripodGait
+    from sim_gait_compat import TripodGait
 
     env = _make_walk_env(seed, overrides)
     env.reset()
@@ -3760,7 +3760,7 @@ def _gait_gate_midpin_rollout(seed: int, overrides: dict) -> dict:
     honestly tucked — the scripted twin of cw-quadwalk4/5's cheat
     family (statically stable, unlike the air-park scoot, so the
     15 s episode survives and the gate window is actually exercised)."""
-    from tripod_gait import TripodGait
+    from sim_gait_compat import TripodGait
 
     env = _make_quadwalk_env(seed, overrides)
     env.reset()
@@ -4002,7 +4002,7 @@ def test_fullcircle_drag_then_fall_cannot_retain_positive_return():
     it by a wide margin — death is never a paying strategy, freezing
     beats dying, and (per the ordering tests above) walking beats
     freezing."""
-    from tripod_gait import TripodGait
+    from sim_gait_compat import TripodGait
 
     fall_tick = None
     drag_income = 0.0
@@ -4089,7 +4089,7 @@ def test_joycanary_bounded_term_cost_keeps_early_death_unpaid():
     freeze must still out-earn it — the cap trades the -730 critic
     cliff for a bounded charge WITHOUT making early death a paying
     strategy."""
-    from tripod_gait import TripodGait
+    from sim_gait_compat import TripodGait
 
     fall_tick = None
     drag_income = 0.0

@@ -185,8 +185,8 @@ class SimWebSession:
         for p in (root / "linux_control", root / "motor_setup"):
             if str(p) not in sys.path:
                 sys.path.insert(0, str(p))
-        from noslip_gait import NoSlipGait
-        from tripod_gait import TripodGait
+        from sim_gait_compat import NoSlipGait
+        from sim_gait_compat import TripodGait
 
         self.mujoco = mujoco
         self.PPO = PPO

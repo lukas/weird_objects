@@ -71,12 +71,12 @@ def _make_teacher(teacher: str, period_scale: float = 1.0):
             raise SystemExit(
                 "--tripod-period-scale only applies to the tripod "
                 "teacher; noslip gaits own their timing")
-        from noslip_gait import NoSlipGait
+        from sim_gait_compat import NoSlipGait
         gait = (NoSlipGait.clamp_fit() if teacher == "noslip_clean"
                 else NoSlipGait())
         gait.sync_plant_stance(*WALK_PLANT)
         return gait
-    from tripod_gait import TripodGait
+    from sim_gait_compat import TripodGait
     gait = TripodGait(vx=0.0, period_scale=period_scale)
     gait.sync_plant_stance(*WALK_PLANT)
     gait.reset_phase()

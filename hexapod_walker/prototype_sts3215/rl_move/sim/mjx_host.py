@@ -56,6 +56,10 @@ SNAP_ATTRS = (
     # per-episode TripodGait instance carrying phase/velocity state,
     # created in the reset path, read every walk tick.
     "_walk_bc_gait",
+    # Command-gated anchor clock (08-22, train.bc_anchor_phase_lock):
+    # accumulated commanded-tick seconds driving the anchor gait so it
+    # stays locked to the goal.walk_phase_obs clock the policy sees.
+    "_walk_bc_t",
     # Transition-drag bookkeeping (08-11 night, reward.k_drag_trans):
     # per-foot prev contact + XY plus the episode drag accumulator,
     # read every non-walk tick.
