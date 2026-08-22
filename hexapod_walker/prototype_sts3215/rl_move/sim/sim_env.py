@@ -840,6 +840,32 @@ class SimHexapodBalanceEnv(_GymBase):
         return er.walk_push_peak_nm * math.sin(
             math.pi * t / er.walk_push_dur_s)
 
+    def _ext_push_force_n(self) -> tuple[float, float]:
+        """dr.ext_push_* (AMP brief §7.4/§9.3, M3 push-recovery
+        curriculum): a mid-episode horizontal FORCE pulse (fx, fy),
+        world-frame, half-sine ramped like every pulse in this file.
+        Unlike ``_walk_push_torque_nm`` (a fixed roll TORQUE confined to
+        the first ~1.5s that reproduces the hardware TAKEOFF wobble),
+        this fires once at a random point LATER in a walk-mode episode
+        on a policy that is already walking -- the actual "shove it
+        mid-stride and see if it recovers" test. Stateless per tick
+        (pure function of _ep_rand + _step_i); zero outside its window
+        -> pool-restore safe, same as its sibling."""
+        er = self._ep_rand
+        if (er is None or er.ext_push_peak_n == 0.0
+                or er.ext_push_dur_s <= 0.0
+                or self._goal_traj is None
+                or getattr(self._goal_traj, "mode", "") != "walk"):
+            return (0.0, 0.0)
+        t = self._step_i * self.dt
+        t0 = er.ext_push_start_s
+        if t < t0 or t >= t0 + er.ext_push_dur_s:
+            return (0.0, 0.0)
+        mag = er.ext_push_peak_n * math.sin(
+            math.pi * (t - t0) / er.ext_push_dur_s)
+        return (mag * math.cos(er.ext_push_dir_rad),
+                mag * math.sin(er.ext_push_dir_rad))
+
     def _advance(self, *, limp: bool = False) -> None:
         assert self._profile is not None
         mujoco = self._mujoco
@@ -848,6 +874,7 @@ class SimHexapodBalanceEnv(_GymBase):
                  else self._ep_rand.imu_pos_m)
         vel = np.zeros(6)
         push_nm = 0.0 if limp else self._walk_push_torque_nm()
+        push_fx, push_fy = (0.0, 0.0) if limp else self._ext_push_force_n()
         for _ in range(self._substeps):
             target = self._profile.tick(h)
             q = self.data.qpos[self._qadr]

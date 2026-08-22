@@ -209,6 +209,27 @@ class RandRanges:
     fault_prob: float = 0.0
     fault_weak_scales: tuple[float, ...] = (0.7, 0.4, 0.2, 0.0)
     fault_mix: tuple[float, float, float] = (0.45, 0.25, 0.30)
+    # Mid-episode external PUSH (AMP brief §7.4/§9.3, M3 push-recovery
+    # curriculum). Distinct from dr.walk_push_* above (a fixed roll
+    # TORQUE confined to the first ~1.5s that reproduces the measured
+    # hardware TAKEOFF wobble): this is a random-direction horizontal
+    # FORCE pulse fired once at a random point later in a walk-mode
+    # episode, on a policy that is already walking, not taking off --
+    # the actual "shove it mid-stride and see if it recovers" test the
+    # brief and the M3/§9.3 cross-engine gate ask for ("recovers from
+    # moderate pushes"). Half-sine ramp in/out like every pulse in this
+    # file (net momentum, never a step discontinuity in xfrc). Direction
+    # is drawn in the WORLD frame: walk episodes already visit every
+    # heading via yaw-cmd, so a world-frame draw already covers
+    # lateral/fore-aft/diagonal relative to the robot per brief §7.4
+    # without needing a per-tick body-frame rotation. Default OFF
+    # (opt-in via dr.ext_push_prob); guarded draw, same convention as
+    # tipped/rock/kick/push/fault above (probability follows the
+    # curriculum, the dose menu does not).
+    ext_push_prob: float = 0.0
+    ext_push_n: tuple[float, float] = (10.0, 25.0)       # peak |force| N
+    ext_push_dur_s: tuple[float, float] = (0.15, 0.4)    # pulse duration
+    ext_push_start_s: tuple[float, float] = (1.5, 9.0)   # delay from ep start
 
     def scaled(self, s: float) -> "RandRanges":
         """Curriculum knob: shrink every range toward nominal by ``s``.
@@ -278,6 +299,14 @@ class RandRanges:
             fault_prob=self.fault_prob * s,
             fault_weak_scales=self.fault_weak_scales,
             fault_mix=self.fault_mix,
+            # Same convention as walk_push/fault: probability follows
+            # the curriculum, the dose (force/duration/timing menu)
+            # does not -- a homeopathic shove never visits the states
+            # the hardware push-recovery gate actually needs.
+            ext_push_prob=self.ext_push_prob * s,
+            ext_push_n=self.ext_push_n,
+            ext_push_dur_s=self.ext_push_dur_s,
+            ext_push_start_s=self.ext_push_start_s,
         )
 
 
@@ -339,6 +368,14 @@ class EpisodeRandomization:
     fault_mode: str = ""
     fault_joints: tuple[int, ...] = ()
     fault_scale: float = 1.0
+    # Mid-episode external push (dr.ext_push_*, see RandRanges): peak
+    # |force| N + pulse duration + delay from episode start + world-
+    # frame direction (0 = no push this episode; walk-mode episodes
+    # only, see sim_env._ext_push_force_n).
+    ext_push_peak_n: float = 0.0
+    ext_push_dur_s: float = 0.0
+    ext_push_start_s: float = 0.0
+    ext_push_dir_rad: float = 0.0
 
     def fault_health(self) -> np.ndarray:
         """(18,) health vector per AMP brief §8.2: 1.0 healthy, 0.0
@@ -581,6 +618,16 @@ class DomainRandomizer:
                 fault_joints = (3 * leg, 3 * leg + 1, 3 * leg + 2)
                 fault_scale = 0.0
 
+        # Mid-episode external push: same guarded-draw convention
+        # (ext_push_prob=0 keeps the legacy rng stream bit-exact).
+        ext_push, ext_push_dur, ext_push_start, ext_push_dir = (
+            0.0, 0.0, 0.0, 0.0)
+        if r.ext_push_prob > 0.0 and rng.random() < r.ext_push_prob:
+            ext_push = float(u(*r.ext_push_n))
+            ext_push_dur = float(u(*r.ext_push_dur_s))
+            ext_push_start = float(u(*r.ext_push_start_s))
+            ext_push_dir = float(u(0.0, 2.0 * math.pi))
+
         return EpisodeRandomization(
             mass_scale=u(*r.mass_scale),
             com_offset_m=np.array([
@@ -627,4 +674,8 @@ class DomainRandomizer:
             fault_mode=fault_mode,
             fault_joints=fault_joints,
             fault_scale=fault_scale,
+            ext_push_peak_n=ext_push,
+            ext_push_dur_s=ext_push_dur,
+            ext_push_start_s=ext_push_start,
+            ext_push_dir_rad=ext_push_dir,
         )
