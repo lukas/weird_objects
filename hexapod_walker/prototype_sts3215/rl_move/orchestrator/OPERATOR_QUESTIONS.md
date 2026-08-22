@@ -1356,3 +1356,31 @@ Entry format (append; newest last; update status in place):
   the corrupted sim — its RL verdict is env-confounded (hw STATUS).
 - ANSWER (operator): _
 - rulebook change: _
+
+## q_20260822T0430Z — OPEN
+- cycle: cycle_20260822T032518_operator-kick
+- operator order: fb_20260822T032514 ("Make the reward correctly
+  aligned and rerun" — staged phase-clock gait, reward must price
+  heading progress / wrong-way collapse / overspeed / loaded slip /
+  gait deviation; launch only after preflight ranks the clone above
+  the phasedir1 attractors).
+- conflicted with: RESEARCH_RULES MDP_PREFLIGHT WALK ordering
+  "useful commanded progress > march-in-place/paddle stall >
+  park/refusal". Under the ordered slip pricing
+  (k_loadslip_excess=10 at the clone-banded ratio) a scuffing
+  march-in-place earns ~47 vs a quiet park's ~112 (obey ~458-478) —
+  park > stall, inverting the generic contract's tail.
+- why the cycle would have declined: n/a — executed with a documented
+  adaptation instead. Weakening slip pricing to restore stall > park
+  would undo the order's item 3; the stall>park tail exists for
+  from-scratch discovery gradients, and this arm is warm-started from
+  a proven walking clone, so the launch-relevant orderings are
+  obey >> {stall, park}, asserted with >=100 margins per heading bin
+  (tests/test_phasedir_semantics.py::
+  test_walk_bank_contract_obey_buries_stall_and_park).
+- what was executed: PHASEDIR preflight bank (20 tests, green),
+  staged rung-A launch prepared per the order.
+- ANSWER (operator): _pending_
+- rulebook change: _pending_ (proposal: scope the WALK stall>park
+  tail to from-scratch/no-BC arms; imitation-anchored arms require
+  obey >> both instead).

@@ -23,6 +23,9 @@ provably ranks the good clone behavior above every measured attractor:
   wrongway     0.08 m/s toward +x REGARDLESS of the command (the
                command-ignoring generic-stable-walk basin)
   stall        march in place (the rear-heading refusal, prog ~0)
+  park         hold the plant stance and refuse (canonical WALK-bank
+               refusal; ordering obey > stall > park is the
+               MDP_PREFLIGHT WALK contract under THIS stack)
 
 TEACHER CONVENTION (important): the proxies use the RAW hardware
 tripod_gait module, NOT sim_gait_compat — the phase clone was minted
@@ -230,13 +233,18 @@ def _phasedir_rollout(drive: str, seed: int, heading_rad: float,
                 gv = (s_ref, 0.0)          # +x regardless of command
             elif drive == "stall":
                 gv = (0.0, 0.0)            # march in place at the spot
+            elif drive == "park":
+                gv = (0.0, 0.0)
             else:
                 raise ValueError(drive)
         else:
             gv = (0.0, 0.0)
         gait.set_velocity(vx=gv[0], vy=gv[1])
-        act = q_rad_to_action(
-            np.asarray(gait.desired_deg(t_gait)) * DEG2RAD)
+        if drive == "park":
+            act = q_rad_to_action(env._plant_deg * DEG2RAD)
+        else:
+            act = q_rad_to_action(
+                np.asarray(gait.desired_deg(t_gait)) * DEG2RAD)
         _obs, r, term, trunc, _info = env.step(act)
         total += float(r)
         step += 1
@@ -255,7 +263,7 @@ def _mean(drive: str, heading: float, stack: dict) -> float:
 def returns() -> dict[str, float]:
     out = {}
     for bin_name, h in HEADING_BINS.items():
-        for drive in ("obey", "fastcadence", "skew", "stall"):
+        for drive in ("obey", "fastcadence", "skew", "stall", "park"):
             out[f"{bin_name}_{drive}"] = _mean(drive, h, PHASEDIR2_STACK)
         if bin_name != "fwd":     # wrongway == obey on the fwd bin
             out[f"{bin_name}_wrongway"] = _mean(
@@ -295,6 +303,26 @@ def test_obey_beats_refusal_stall_every_bin(returns, bin_name):
     especially in the rear bin where phasedir1 actually refused."""
     r = returns
     assert r[f"{bin_name}_obey"] > r[f"{bin_name}_stall"] + 100.0, {
+        k: v for k, v in r.items() if k.startswith(bin_name)}
+
+
+@pytest.mark.parametrize("bin_name", list(HEADING_BINS))
+def test_walk_bank_contract_obey_buries_stall_and_park(returns, bin_name):
+    """MDP_PREFLIGHT WALK contract, adapted for THIS arm (deviation
+    filed in OPERATOR_QUESTIONS.md 2026-08-22): the generic bank
+    orders progress > stall > park to preserve the park->step->walk
+    DISCOVERY gradient for from-scratch learners. This arm is
+    warm-started from a proven walking clone, and the operator's
+    ordered loaded-slip pricing (k_loadslip_excess) intentionally
+    buries a scuffing march-in-place BELOW a quiet park (measured:
+    stall ~47, park ~112, obey ~458-478) — weakening slip pricing to
+    restore the generic stall>park ordering would undo the order's
+    item 3. Required here instead: obey decisively out-earns BOTH
+    refusal basins in every bin."""
+    r = returns
+    assert r[f"{bin_name}_obey"] > r[f"{bin_name}_stall"] + 100.0, {
+        k: v for k, v in r.items() if k.startswith(bin_name)}
+    assert r[f"{bin_name}_obey"] > r[f"{bin_name}_park"] + 100.0, {
         k: v for k, v in r.items() if k.startswith(bin_name)}
 
 
