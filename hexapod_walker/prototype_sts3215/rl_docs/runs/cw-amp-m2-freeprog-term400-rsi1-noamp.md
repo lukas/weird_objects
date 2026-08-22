@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-08-22T17:36:56+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 2000000
 
 **parent**: cw-amp-m2-freeprog-term400-noamp
+
+**wandb_id**: j3sovvc7
 
 **hypothesis**: Every from-scratch M2 freeprog lever tried so far (term-penalty, std-anneal, staging, task-complexity/fixedcmd, AMP style dose, k_walk_swing) changed the REWARD and all failed the same way: flat/declining training reward stuck in a ~0.03m/15s in-place-shuffle basin -- because a random from-scratch policy basically never DISCOVERS a coordinated six-leg walking state via unguided exploration, so no reward shape can select for one. This arm changes the INITIAL STATE instead: goal.walk_gait_start_frac=0.5 spawns half of episodes MID-STRIDE in the scripted tripod gait's own tall walking pose (built-in RSI-for-walk mechanism) with the walk command already active, so PPO only has to learn to SUSTAIN a gait it starts inside of, not discover one from a static crouch. This exact lever (cw-gait-rsi1, frac=0.5) was tried once before but on an OLDER pre-freeprog/pre-term400 stack (08-11) and refuted with the same freeze/statue signature -- untested on the CURRENT freeprog+term400 pricing, which did not exist then. Prediction-if-true: fwd travel clears meaningfully above the ~0.03m statue-family ceiling (ideally >=0.10m) because episodes that start mid-gait keep moving instead of re-collapsing to the statue. Prediction-if-false: even mid-gait spawns collapse back to the statue/shuffle within a few hundred steps (freeprog_pen stays pinned ~-1.4/tick) -- confirming the basin is an INCOME-not-DISCOVERY problem after all, and closing RSI as a lever for this family for good (both stacks now tested).
 
