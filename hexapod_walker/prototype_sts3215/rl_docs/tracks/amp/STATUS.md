@@ -1,6 +1,51 @@
 # amp - AMP locomotion from scratch
 
-Last updated: 2026-08-22 ~18:2x (TASK/STYLE DOSE LADDER CLOSED on the
+Last updated: 2026-08-22 ~18:5x (MEASUREMENT ARMS CLOSED, SECTION-5
+REWARD BUILT+BANK-TESTED, A/B/C GRID LAUNCHED: `cw-amp-m2-styleonly-
+v2-c1b` (the +10M pure-style continuation) VERDICTED FAIL —
+`amp/style_reward_mean` plateaued (quarter means 0.10/0.20/0.16/0.15,
+never sustained above the 0.3 pass bar) but DR-0 gate gait_valid
+jumped to 5/6 det+sto (was 0/6 for the parent stork statue) and video
+shows genuine multi-leg cyclic stepping, not a frozen pose — a
+march-in-place/leg-twitch degenerate (fwd 0.02-0.03m/15s, slip
+16-21/m): style organizes coordinated leg motion but has ZERO
+incentive to convert it into displacement (an AMP-standard
+limitation — the 60-dim single-tick feature set is body-frame-
+relative, so a translating and a non-translating gait look identical
+to the discriminator absent slip). Paired with taskdown01-style1-v3's
+FAIL, this CLOSES the pure-style-alone measurement question: task
+reward must supply the "go somewhere" signal, style supplies "look
+natural" — neither alone suffices, exactly per brief section 5, not
+a discriminator defect. BUILT + BANK-TESTED the section-5.1 literal
+minimal task reward (`AMP_MINIMAL_OVERRIDES`,
+`rl_move/tests/test_task_semantics.py`, 4/4 new tests; full bank
+163 pass / 4 skip / 1 xfail / 1 known-red — the sole red is the
+pre-existing unrelated `fastprof` item, untouched): needed ZERO
+new production code — it is exactly the plain
+Gaussian velocity kernel + linear progress (`walk_task.py`'s
+`K_WALK`/`SIGMA_V`/`k_walk_prog`) that already fires whenever the
+SLIPWALK anti-slip stack (freeprog/loadslip/idle-charge/gait-gate/
+step-event) is left at its off-by-default state, plus
+`reward.term_penalty=400` (the real anti-suicide pricing fix, kept —
+not SLIPWALK-specific). Measured 3-seed scripted-twin bank: real
+travel beats every stationary twin by a modest ~230-250/ep margin
+(weaker than SLIPWALK's engineered 300+, as expected with no
+anti-park apparatus) and stall/park/stork/skate are all bunched
+within ~15 points of each other (near-zero "trying beats refusing"
+gradient, pinned as a measurement not patched — style is relied on
+to supply that gradient, which styleonly-v2/-c1b just proved it can).
+LAUNCHED (this cycle) the brief's own pre-registered 3-arm task/style
+sweep on this reward — `cw-amp-m2-sec5-{taskA,taskB,taskC}`
+(task/style 0.7/0.3, 0.5/0.5, 0.3/0.7), from-scratch, teacher_v2 lib,
+2M discovery, same stress_mix command envelope as the retired
+freeprog family for comparability. Prediction-if-true (any arm):
+gait_valid climbs on real six-leg motion AND fwd travel clears
+~0.10m/15s with slip in a sane band — the section-5 reward is the M2
+fix. Prediction-if-false: same statue/march basin — the from-scratch
+exploration problem is deeper than reward shape (task restructuring
+or BC-pretrain phase becomes the next real lever, not further reward
+tuning). Previous update ~18:2x retained below (TASK/STYLE DOSE
+LADDER CLOSED on the
 SLIPWALK-derived reward architecture: `cw-amp-m2-taskdown01-style1-v3`
 (task_weight 0.1, the joint twin to styleonly-v2) VERDICTED FAIL —
 reward DECLINING every quarter (-2.4/-30.4/-69.2/-85.2, opposite of

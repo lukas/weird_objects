@@ -1,6 +1,38 @@
 # joystick - RL from the programmatic gait to joystick control
 
-Last updated: 2026-08-22 (~18:2x: **DEEPER NOISE FLOOR WIDENS EVERY
+Last updated: 2026-08-22 (~18:5x: **THE DOSE LADDER IS SEED-SPECIFIC —
+`stotight50-seed13` (best basin seed13 × -5.0) VERDICTED INFORMATIVE:
+still passes the 60s DONE-gate (0 falls/48, gait 48/48, clean six-leg
+video) but with WORSE margins than seed13's own -4.5 reading — slip
+2.407→2.63, dir 36.4→38.21 (own-DR slip 2.763/dir 39.59); the
+pre-registered PASS bar (slip ≤ 2.407) was missed and even the
+INFORMATIVE ceiling (2.569) exceeded. Det did NOT soften (15s DR-0
+det prog 0.79/slip 1.61, strong) and reward rose all run — reward and
+gate agree; the -5.0 rung's gains are seed17-basin-specific, not
+universal. **Champion candidate unchanged: seed13@-4.5 (slip
+2.407/dir 36.4) keeps the fattest margins.** Follow-up batch
+launched: `stotight50-seed23` / `stotight50-seed29` — does the deeper
+floor transfer to the two seeds holding the named hardening gaps
+(seed23 own-DR-alone dir 40.36; seed29 own-DR slip 2.736), or is the
+ladder purely a seed17 phenomenon? Prior banner below.)
+
+Previous entry (~18:4x: **LADDER STILL PAYING AT -5.5 —
+`stotight55` (seed17, log-std-final -5.0→-5.5, final std ~0.004)
+VERDICTED PASS on the 60s joystick session gate with the BEST
+direction-following of any passer: slip 2.515 (parent 2.569), dir
+34.97° (parent 38.02°, near the teacher floor ~35), own-DR pass slip
+2.542/dir 33.7, 0 falls/48, gait 48/48, no sacrificed legs; det
+improved yet again (15s DR-0 det prog 0.74/slip 1.63 vs parent
+0.69/1.72) — five monotone rungs (-3.6/-4.0/-4.5/-5.0/-5.5) and the
+det trade has never materialized past -4.5. Slip step is shrinking
+(-0.102 → -0.054/rung) but the 3° dir jump is well outside the prior
+rung's 0.6° step — not saturated. Follow-ups launched per the PASS
+branch: `stotight60` (seed17, -6.0 — knee search continues) and
+`stotight55-seed13` (best basin × this dose — champion-candidate
+margins; seed13@-5.0 still training on train-4). Prior banner
+below.)
+
+Previous entry (~18:2x: **DEEPER NOISE FLOOR WIDENS EVERY
 MARGIN — `stotight50` (seed17, log-std-final -4.5→-5.0) VERDICTED
 PASS on the 60s joystick session gate: slip 2.569 (parent 2.671),
 dir 38.02° (best of any passer), own-DR slip 2.623 (vs 2.736), 0

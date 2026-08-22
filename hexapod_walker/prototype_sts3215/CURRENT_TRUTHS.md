@@ -740,6 +740,58 @@ out-of-scope runs get honest triage but no agent follow-ups.
   next real M2 arm is the section-5 minimal-Gaussian-task reward
   rewrite (dropping freeprog/loadslip/drag-stance/idle-charge/
   anchor/gait-gate wholesale), not another task/style ratio point.
+- MEASUREMENT ARMS CLOSED + SECTION-5 REWARD BUILT+BANK-TESTED (08-22):
+  the +10M continuation `cw-amp-m2-styleonly-v2-c1b` VERDICTED FAIL —
+  `amp/style_reward_mean` plateaued (quarter means
+  0.10/0.20/0.16/0.15, never sustained above the 0.3 pass bar) but
+  DR-0 gait_valid jumped to 5/6 det+sto (was 0/6 for the parent's
+  frozen stork statue) with video showing genuine multi-leg cyclic
+  stepping, not a static pose — a march-in-place/leg-twitch
+  degenerate (fwd 0.02-0.03m/15s, slip 16-21/m): style organizes
+  coordinated leg motion but has ZERO incentive to convert it into
+  displacement, because the 60-dim discriminator feature set is
+  body-frame-relative (a translating and a non-translating cyclic
+  gait look identical to it absent slip) — an AMP-standard
+  limitation, not a bug. This CLOSES the pure-style-alone
+  measurement question definitively (paired with taskdown01-style1-
+  v3's FAIL): task reward supplies "go somewhere", style supplies
+  "look natural", neither alone suffices — exactly the brief's own
+  design, now measured not just read. BUILT the section-5.1 literal
+  minimal task reward as `AMP_MINIMAL_OVERRIDES`
+  (`rl_move/tests/test_task_semantics.py`) with ZERO new production
+  code: it is exactly the plain Gaussian velocity kernel + linear
+  progress (`walk_task.py` `K_WALK`/`SIGMA_V`/`k_walk_prog`) that
+  already fires whenever every SLIPWALK-only key
+  (k_step_event/k_park_duty/k_walk_freeprog/walk_loadslip_gate/
+  k_loadslip_excess/walk_gait_gate/k_walk_idle_charge/k_drag_stance)
+  is left at its off default, plus `reward.term_penalty=400` kept
+  (the real anti-suicide pricing fix, not SLIPWALK-specific).
+  DELIBERATE CHOICE (per the taskdown01-v3 trace bullet above, option
+  2): the legacy `env.compute_reward` posture/height/roll/pitch
+  kernel was left ON, not zeroed — adopted deliberately as the
+  brief's own upright/weak-height regularizer (5.1), eyes open, not
+  by omission. Measured on the 3-seed scripted-twin bank: real travel
+  beats every stationary twin (stall/park/stork/skate) by a modest
+  ~230-250/ep margin (weaker than SLIPWALK's engineered 300+, as
+  expected — no anti-park apparatus by design) and the stationary
+  twins are bunched within ~15 points of each other (near-zero
+  "trying beats refusing" gradient, pinned as a measurement, not
+  patched — style is relied on to supply that gradient, which
+  styleonly-v2/-c1b just proved it can). New tests 4/4 pass; full
+  bank 163 pass / 4 skip / 1 xfail / 1 known-red (pre-existing,
+  unrelated `fastprof`, untouched). CAVEAT CARRIED FORWARD, still
+  untested: the taskdown01-v3 trace bullet's chronic
+  height-tracking-failure confound (a trained policy sitting at
+  50-86mm height error the whole run, independent of reward shape)
+  is NOT ruled out by a scripted-twin bank (twins sit at the correct
+  physical height by construction) — if the new arms below also show
+  chronic `env/height_err_mm` >40mm, root-cause THAT before blaming
+  reward shape again. LAUNCHED (this cycle) the brief's own
+  pre-registered 3-arm task/style sweep on this reward:
+  `cw-amp-m2-sec5-{task70,task50,task30}` (task/style 0.7/0.3,
+  0.5/0.5, 0.3/0.7), from-scratch, teacher_v2 motion lib, same
+  stress_mix command envelope as the retired freeprog family, 2M
+  discovery each.
 - TASKDOWN01-V3 PER-COMPONENT REWARD TRACE, A DESIGN CONSTRAINT FOR
   THE SECTION-5 REWRITE (08-22, read off `env/*` W&B history, no
   GPU spent): the legacy `reward.k_track=1.0` attitude/height
