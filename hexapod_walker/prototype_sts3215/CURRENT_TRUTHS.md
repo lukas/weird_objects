@@ -14,12 +14,20 @@ program in `rl_docs/AMP_LOCOMOTION.md` (no Isaac Lab; MJX stack;
 build all tools; done at M5 MuJoCo transfer). Operator-launched
 out-of-scope runs get honest triage but no agent follow-ups.
 
-## Current top rulings (operator, 08-21)
+## Current top rulings (operator, 08-21/08-22)
 
-- Bad evals/canaries with training reward still rising is NOT a fail:
-  continue the run longer and/or align the reward with the evals
-  (`RUN_INTERPRETATION_RULES.md`). A known exploit on video means
-  misalignment to repair, not a lineage kill.
+- REWARD/EVAL AGREEMENT FIRST. Every run triage must compare reward
+  trend with gate/eval trend before proposing more seeds or budget. If
+  eval is unsatisfactory and flat/down while reward is rising, assume a
+  reward/eval/simulator mismatch until proven otherwise. Audit/fix the
+  objective (including simulator/contact/servo modeling if needed)
+  before same-recipe seed sweeps. Reward-flat + eval-flat means stuck
+  signal/mechanism, not "try seeds" by default
+  (`RUN_INTERPRETATION_RULES.md`).
+- Bad evals/canaries with reward and eval both improving can justify a
+  continuation. Bad evals with rising reward but non-improving evals
+  are MISALIGNED first, not UNDERTRAINED. A known exploit on video
+  means misalignment to repair, not a lineage kill.
 - No operator pauses: assume-and-go with recorded assumptions. Only
   physical-robot access and spend approvals wait.
 - While either gate is unmet, an idle fleet next to an empty backlog
