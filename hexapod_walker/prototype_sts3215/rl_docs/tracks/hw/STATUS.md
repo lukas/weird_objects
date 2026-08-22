@@ -28,16 +28,33 @@ baseline.
 
 ## Live Runs
 
-None. All four fast-gait speed-obedience levers tried so far are
-refuted; the fork sits with the operator (see Operator Gates).
+None. All five fast-gait RL levers tried so far are refuted; the fork
+sits with the operator (see Operator Gates) — now WITH a zero-RL
+candidate: the phase-conditioned BC clone (below).
 
 ## Recently Finished
 
-Fast-gait speed-obedience chain, 4 refuted levers in sequence (newest
-first), all warm from the `bcgait2-fastbc1` fresh-BC-INIT clone
-(itself a PASS: zero falls, straight, tall clean 6-leg gait, but
-~2x overspeeds the 0.05-0.08 command band):
+Fast-gait chain, 5 refuted RL levers in sequence (newest first):
 
+- `cw-dep-bcgait4-phasedir1` (operator 08-22 gait-phase/direction-first
+  order fb_20260822T000627: +2 phase obs sin/cos at the teacher clock,
+  fixed 0.08 cmd, fixed-heading diet, NO charges, vel:=ref as fastbc1;
+  first fast-gait arm on the MEASURED plant, tibia 150/a4beb8af):
+  RL FAIL per pre-registered mode (b) — vs the matched un-RL'd clone
+  control on the identical fixed-heading panel, 2M PPO degraded every
+  axis (dir_err med 35.6->67.3 deg, rear headings collapse to prog
+  0.01-0.07, speed 0.068->0.139 = the fastbc1 overspeed attractor,
+  slip/m 1.81->4.17, roll_settled 12/12->5/12) while keeping ZERO
+  falls + gait_valid 12/12 (phase input = effective anti-collapse
+  anchor; speedbc1 fell 34/48 without it). THE CLONE ITSELF
+  (`ppo_goal_cw_bcgait_init_fullprof_phase1`, committed, holdout err
+  0.0040) PASSES the whole direction-first curriculum with zero RL:
+  teacher grid 0.06-0.10 x 4 headings clean at the new plant; uniform
+  random fixed headings 12/12 (prog 0.65-0.76, slip 1.6-2.0, in-band
+  speed); irregular heading changes + stops 12/12 (prog 0.70-0.78).
+  Metric note: direction_err_mean_deg has a ~35 deg tick-level floor
+  from stride sway (the clean clone reads 35.6) — judge deltas, not
+  the raw <=30 bar. Evidence: logs/probe_phasedir/ (train-0..2).
 - `cw-dep-bcgait3-speedbc1-cont1` (+4M continuation, operator order
   fb 20260822T000318Z overriding a pre-registered STOP): FAILED WORSE
   than its parent. Rollout reward "recovered" (-137 -> -18) purely
@@ -87,9 +104,14 @@ addendum fb_20260821T224209).
 
 ## Next Agent Actions
 
-No fast-gait launches without an operator-chosen lever (4 refuted so
-far). Otherwise: protect the download hierarchy, attack named session
-gaps if a concrete lever exists.
+No fast-gait launches without an operator-chosen lever (5 refuted so
+far). If the operator adopts the phase clone: pre-registered next
+rungs are a DR hardening panel on the clone and board-side support for
+the command-gated phase clock in the walk runner (CODE). Otherwise:
+protect the download hierarchy, attack named session gaps if a
+concrete lever exists. Also flag: pre-08-22 lineages trained on the
+old 128 mm tibia plant; re-gating the download hierarchy on the
+measured plant is an open operator call.
 
 ## Operator Gates
 
