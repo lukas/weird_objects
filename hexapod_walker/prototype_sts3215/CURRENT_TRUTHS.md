@@ -112,21 +112,25 @@ out-of-scope runs get honest triage but no agent follow-ups.
   (plain-MLP `log_std` and gru-experts `_log_stds()`), default off/
   no-op, verified on-pod (`-2.0` -> std=0.135 exactly on all 18 dims).
   `cw-dep-bcgait4-phasedir5-stdoverride` (train-0) tests it directly.
-- PHASE-RL NOISE-BAND THEORY REFUTED (08-22, PRELIMINARY, UNVERDICTED
-  — DIG-IN pending): `cw-dep-bcgait4-phasedir5-stdoverride` confirmed
-  std=0.13 (<0.2 target, override held all run) and progress finally
-  cleared the clone-relative bar decisively (0.984x, cap 0.9x — first
-  arm ever to pass this axis, direction_err also improved to 0.794x
-  ratio) — but slip/m got WORSE (1.590x clone, cap 1.15x), continuing
-  a monotonic worsening trend across phasedir3 (1.41x) -> phasedir4
-  (1.518x) -> phasedir5 (1.590x) despite std dropping the whole time
-  (0.365->0.352->0.13). This is exactly the pre-registered refutation
-  branch: low std did NOT fix det slip, so slip is not primarily an
-  exploration-noise artifact — it reads as a genuine loadslip-charge/
-  gait-quality pricing question that trades off AGAINST obedience
-  under the current reward. Do not launch another anneal/override
-  variant off this; the run is left UNVERDICTED for a DIG-IN cycle
-  (per-leg gait metrics + video) before any further reward edit.
+- PHASE-RL NOISE-BAND THEORY REFUTED + ROOT-CAUSED (08-22, verdicted
+  after dig-in): `cw-dep-bcgait4-phasedir5-stdoverride` FAIL on slip
+  only (1.590x clone, cap 1.15x) with std held 0.13 all run; progress
+  0.984x clone (first-ever pass) and dir_err 0.794x PASS, zero falls.
+  Dig-in found the actual mechanism: SLIP-FINANCED PROGRESS — all
+  phasedir arms converge on a lower-cadence/longer-stride/duty-skewed
+  gait (swings/leg ~30->~22, stride +25%, leg5 duty 0.56-0.61 vs
+  tripod-A 0.42-0.47; swing_s-vs-slip r=0.75, zero cluster overlap
+  with the clone) that drags loaded feet to buy progress, because the
+  loadslip band (ok=7.0, sized to the std-0.368 clone's noisy sto
+  slip 4.8-6.4) never re-tightened after the std override: W&B
+  rollout ratio 4.2-4.7, factor ~0.99, excess ~-0.01/step — slip was
+  economically FREE while k_walk_course paid the progress. 08-21
+  MISALIGNMENT, not exploration noise and not an RL dead end. Cheat
+  encoded: `test_phasedir_*` loadslip-band pins in the bank (scripted
+  twins can't reproduce the drag regime — IK-clean TripodGait tops
+  out at ratio 1.84; the real cheat checkpoint is the bank behavior)
+  + matched-env pod pricing A/B `logs/ckpt_eval/pd5_newband_ab_*`.
+  Fix arm phasedir6 = band retighten only, A/B-gated.
 - direction_err_mean_deg has a ~35 deg tick-level floor from stride
   sway — judge deltas vs a matched clone, not raw values.
 - Every pre-08-22 checkpoint (incl. the download hierarchy) trained

@@ -5099,3 +5099,135 @@ def test_fastclean_combined_charges_stay_cheap_for_honest_gait():
     assert drop < 0.30 * abs(off) + 5.0, (
         f"combined charges cost the honest gait {drop:.1f} of "
         f"{off:.1f} — too expensive for the intended behavior")
+
+
+# --------------------------------------------------------------------------
+# PHASEDIR LOADSLIP BAND pin — the SLIP-FINANCED-PROGRESS cheat
+# (cw-dep-bcgait4-phasedir5-stdoverride dig-in, 2026-08-22).
+#
+# Observed on the harness (DR-0, det, clone-relative, matched control
+# logs/ckpt_eval/phasedir3_clone_control_gate): every phasedir RL arm
+# abandoned the clone's high-cadence short-stride tripod for a
+# lower-cadence longer-stride gait (swing_s 0.255->0.335-0.35 s,
+# swings/leg ~30->~22, stride 0.0335->0.042 m, duty skew: tripod-B
+# overstance leg5 0.52->0.56-0.61 while tripod-A understances
+# 0.42-0.47) that finances progress with dragged loaded feet: det
+# slip/m 1.89->3.00 (1.59x, gate cap 1.15x) while progress rose to
+# 0.98x clone. Training telemetry (W&B io3m0yr7): rollout loadslip
+# ratio sat 4.2-4.7 vs loadslip_ok=7.0 — factor ~0.99, excess charge
+# ~-0.01/step — SLIP WAS ECONOMICALLY FREE all run while course
+# income paid for the extra progress. Textbook 08-21 MISALIGNMENT:
+# the band was sized to the std-0.368 clone's noisy sto slip
+# (4.8-6.4) and never re-tightened after --warm-log-std-override
+# dropped rollout std to 0.13 (rollout ratio ~4.3, det ~3.0).
+#
+# Why there is no scripted twin here: the scripted TripodGait is
+# IK-consistent by construction and cannot reproduce the learned drag
+# regime — measured on the controller 08-22: even period_scale 2.0 +
+# lift_scale 0.35 + 1.15x drive tops out at loadslip ratio 1.84 (the
+# learned cheat sits at 3.0 det / 4.3 rollout). The REAL cheat policy
+# is therefore the bank behavior: the matched-env pricing A/B lives
+# on the run pod via eval_checkpoint (clone vs
+# ppo_goal_cw_dep_bcgait4_phasedir5_stdoverride under the full
+# training cfg with the retightened band; artifacts
+# logs/ckpt_eval/pd5_newband_ab_{clone,drag}). A/B MEASURED 08-22
+# (same seeds/harness as the gate evals): under ok=3.0/max=6.0 the
+# drag policy's own-rollout (sto, std 0.13) return fell +282.1 ->
+# -30.5 (the cheat lost its income) while the clone's det return
+# kept 99.2% (816.6 -> 809.7) and the det ordering clone>drag
+# widened (+26.9 -> +32.5). These unit rows pin the PRICING SHAPE
+# that closes the hole, using walk_task.py's exact formulas (income
+# gate: factor=clip((max-ratio)/(max-ok),0,1); excess:
+# k*max(ratio-ok,0)*dt per tick), so a future band edit that reopens
+# the free ride fails here first.
+
+PHASEDIR5_BAND_OLD = (7.0, 10.0)      # loadslip_ok, loadslip_max as run
+PHASEDIR6_BAND_NEW = (3.0, 6.0)       # retightened to the std-0.13 regime
+PHASEDIR_K_LSE = 10.0                 # reward.k_loadslip_excess, unchanged
+# Measured operating points (W&B io3m0yr7 rollout ratios at std 0.13;
+# det ratios from the DR-0 gate harness):
+RATIO_DRAG_ROLLOUT = 4.3              # the cheat gait, q4 mean
+RATIO_CLEAN_ROLLOUT = 3.3             # gate-passing det (~2.0-2.2) + the
+                                      # measured ~+1.3 std-0.13 noise floor
+RATIO_CLEAN_DET = 1.9                 # clone det slip/m (harness)
+RATIO_DRAG_DET = 3.0                  # phasedir5 det slip/m (harness)
+
+
+def _loadslip_price(ratio: float, band: tuple[float, float],
+                    k_lse: float = PHASEDIR_K_LSE,
+                    income_per_s: float = 54.0,
+                    seconds: float = 15.0) -> float:
+    """Episode walk income after the loadslip income gate + excess
+    charge, exactly per walk_task.py (income scaled by factor; excess
+    charged per second of commanded walking)."""
+    ok, mx = band
+    factor = min(max((mx - ratio) / max(mx - ok, 1e-6), 0.0), 1.0)
+    excess = k_lse * max(ratio - ok, 0.0) * seconds
+    return income_per_s * seconds * factor - excess
+
+
+def test_phasedir_old_band_left_the_drag_gait_unpriced():
+    """The hole itself, pinned: under the as-run band (ok=7/max=10)
+    the drag gait's rollout ratio (4.3) and a clean gait's (3.3) pay
+    IDENTICALLY (factor 1, zero excess) — slip-financed progress was
+    free, so course income alone picked the winner. If this test ever
+    fails, the old band stopped being a hole and this history note is
+    stale."""
+    p_drag = _loadslip_price(RATIO_DRAG_ROLLOUT, PHASEDIR5_BAND_OLD)
+    p_clean = _loadslip_price(RATIO_CLEAN_ROLLOUT, PHASEDIR5_BAND_OLD)
+    assert abs(p_drag - p_clean) < 1e-9, (
+        f"old band unexpectedly separates drag {p_drag:.2f} vs clean "
+        f"{p_clean:.2f}")
+
+
+def test_phasedir_new_band_prices_the_drag_gait():
+    """The fix: under the retightened band (ok=3/max=6) the measured
+    drag operating point must pay SUBSTANTIALLY worse than the
+    gate-passing operating point — enough that the ~10-15% course
+    income the extra progress earns (progress 0.98x vs 0.77x clone at
+    ~2.2/s) cannot buy it back. Margin: >= 30% of episode income."""
+    income = 2.2 * 15.0
+    p_drag = _loadslip_price(RATIO_DRAG_ROLLOUT, PHASEDIR6_BAND_NEW)
+    p_clean = _loadslip_price(RATIO_CLEAN_ROLLOUT, PHASEDIR6_BAND_NEW)
+    assert p_clean - p_drag > 0.30 * income, (
+        f"new band does not separate: clean {p_clean:.2f} vs drag "
+        f"{p_drag:.2f} (income {income:.1f})")
+
+
+def test_phasedir_new_band_keeps_the_honest_gait_cheap():
+    """Do not recreate phasedir2's obedient-but-slow collapse: a clean
+    det-band gait (clone 1.9 slip/m; and its ~3.3 std-0.13 rollout
+    twin) must keep the large majority of its income under the new
+    band — the charge targets the cheat, not the teacher."""
+    income = 2.2 * 15.0
+    for r in (RATIO_CLEAN_DET, RATIO_CLEAN_ROLLOUT):
+        p = _loadslip_price(r, PHASEDIR6_BAND_NEW)
+        assert p > 0.75 * income, (
+            f"honest ratio {r} keeps only {p:.1f} of {income:.1f} "
+            "under the new band — too expensive for the teacher gait")
+
+
+def test_phasedir_slow_escape_still_loses():
+    """The ratio's denominator is banked progress, so walking SLOWER
+    at the same absolute slip RAISES the ratio — the phasedir2 escape
+    (slower mean gait to dodge per-tick charges) must price WORSE,
+    not better, under the new band. Pin that design property."""
+    # same absolute slip, half the progress => double the ratio
+    p_normal = _loadslip_price(RATIO_DRAG_ROLLOUT, PHASEDIR6_BAND_NEW)
+    p_slow = _loadslip_price(2.0 * RATIO_DRAG_ROLLOUT, PHASEDIR6_BAND_NEW)
+    assert p_slow < p_normal, (
+        f"slow escape pays better: slow {p_slow:.2f} vs {p_normal:.2f}")
+
+
+def test_phasedir_new_band_price_monotone_in_ratio():
+    """Gradient sanity: price strictly non-increasing in ratio across
+    the whole band, strictly decreasing inside it — no plateau for
+    PPO to camp on between the honest gait and the cheat."""
+    band = PHASEDIR6_BAND_NEW
+    grid = np.linspace(2.0, 7.0, 26)
+    prices = [_loadslip_price(float(r), band) for r in grid]
+    diffs = np.diff(prices)
+    assert (diffs <= 1e-9).all(), "price not monotone in ratio"
+    inside = (grid[:-1] >= band[0]) & (grid[:-1] < band[1])
+    assert (diffs[inside] < -1e-6).all(), (
+        "price has a flat spot inside the band")

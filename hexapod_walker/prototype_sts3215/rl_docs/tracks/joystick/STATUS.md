@@ -1,6 +1,8 @@
 # joystick - RL from the programmatic gait to joystick control
 
-Last updated: 2026-08-22 (phasedir3 reprice launched). Keep this a
+Last updated: 2026-08-22 (phasedir5 dig-in verdicted: slip-financed
+progress cheat root-caused; band retighten queued as phasedir6). Keep
+this a
 short screenful: Goal / Now / Next. Run detail lives in
 `rl_docs/runs/`, W&B, and `RL_LOG.md`.
 
@@ -165,31 +167,32 @@ with:
   Launched `cw-dep-bcgait4-phasedir5-stdoverride` (train-0, respec of
   phasedir4, same unchanged reward stack, `--warm-log-std-override
   -2.0`) as the direct test of the noise-band theory.
-- 08-22 `cw-dep-bcgait4-phasedir5-stdoverride` finished within the
-  SAME cycle (fast H200 turnaround) — PRELIMINARY numbers gathered,
-  **UNVERDICTED, flagged for DIG-IN** per its own pre-registered fork
-  (do not blindly launch a phasedir6 off these numbers). policy_std
-  confirmed low (0.13, target <0.2 met — the override held for the
-  whole run, reward quarters rose 14.2/42.2/87.7/111.7, a completely
-  different training-reward shape than phasedir3/4's decline). Gate
-  table (det, clone-relative vs the same `phasedir3_clone_control_
-  gate`): progress_ratio 0.984x clone (cap 0.9x, PASS — first arm
-  ever to clear this bar, decisively) and direction_err 0.794x clone
-  ratio / 28.2deg vs clone+5=40.5deg (PASS, much tighter than
-  phasedir4's 38.1deg); but slip_per_m 1.590x clone (cap 1.15x, FAIL
-  — and WORSE than phasedir3's 1.41x and phasedir4's 1.518x, i.e.
-  monotonically worse across all three arms despite std dropping
-  0.365->0.352->0.13). Zero falls, gait 6/6 both modes. THIS IS THE
-  EXACT "false-anneal-worked-anyway" / noise-band-REFUTED branch the
-  gate itself pre-registered: std demonstrably shrunk to 0.13 (well
-  under the <0.2 bar) yet the slip miss did not improve — it got
-  worse while obedience (progress+direction) got much better. Reads
-  as evidence the loadslip charge as currently priced ANTI-correlates
-  with faster/more-obedient walking (a real gait-quality/pricing
-  question, not an exploration-noise artifact) — needs the full
-  per-leg gait metrics + video dig-in before any further reward or
-  std edit, per the pre-registration's own instruction not to launch
-  another variant blind.
+- 08-22 `cw-dep-bcgait4-phasedir5-stdoverride` VERDICTED (dig-in
+  cycle): gate FAIL on slip only (1.590x clone, cap 1.15x), noise-band
+  theory REFUTED per its own pre-registered fork — std held 0.13 all
+  run, progress 0.984x clone (cap 0.9x, first arm ever to pass) and
+  dir_err 0.794x/28.2deg PASS, zero falls, gait 6/6. DIG-IN ROOT
+  CAUSE (per-leg harness metrics, det DR-0, matched clone control):
+  every phasedir arm converges on the SAME cheat gait family — swing
+  time 0.255->0.335s, swings/leg ~30->~22, stride 0.0335->0.042m,
+  duty skew (leg5 0.56-0.61 overstance vs tripod-A 0.42-0.47; clone
+  is uniform 0.505-0.535); per-episode swing_s-vs-slip/m r=0.75 with
+  ZERO overlap between clone and RL-arm clusters. Video clean (no
+  exploit pose): the slip is loaded-foot DRAGGING that finances
+  progress. WHY IT PAID: the loadslip band (ok=7.0/max=10.0, sized to
+  the std-0.368 clone's noisy sto slip 4.8-6.4) never re-tightened
+  after the std override — W&B rollout ratio sat 4.2-4.7, factor
+  ~0.99, excess ~-0.01/step: slip was economically FREE while
+  k_walk_course paid for longer-stride progress. Textbook 08-21
+  MISALIGNMENT. ACTED ON: cheat encoded in the bank
+  (`test_phasedir_*` loadslip-band pricing pins; scripted TripodGait
+  twins CANNOT reproduce the drag regime — IK-clean, tops out at
+  ratio 1.84 even at period x2/lift x0.35 — so the real cheat policy
+  is the bank behavior via a matched-env pod pricing A/B,
+  `logs/ckpt_eval/pd5_newband_ab_{clone,drag}`). Fix arm phasedir6:
+  retighten the band to the std-0.13 regime (single change), gated on
+  the A/B ordering flip (clone must out-earn the phasedir5 checkpoint
+  under the new band in the training env).
 
 ## Next
 
