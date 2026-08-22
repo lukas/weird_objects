@@ -117316,7 +117316,7 @@
       }
     ],
     "checkup_resolution": "DEAD verdict was a false alarm (checkup polled after the trainer process had already exited cleanly): log confirms 4,000,000 steps in 456s, checkpoint ppo_goal_cw_dep_bcgait4_phasedir9_longrun17_stotight45.zip saved + W&B artifact synced (run ib0mwcru), no traceback. Ledger flipped RUNNING->FINISHED manually.",
-    "verdict": "PASS \u2014 FIRST full randomized 60s joystick DONE-gate pass on the track (versioned evaluator pass=true): 48/48 zero falls, gait_valid 48/48, no sacrificed legs, combined slip 2.671 (cap 2.9), dir_err 38.6deg (allow 40), and EVERY mode individually under caps (dr0 det 2.554/37.6, dr0 sto 2.660/39.4, ownDR det 2.605/38.7, ownDR sto 2.859/39.7). Sto slip fixed 4.0->2.66-2.86 by the -4.5 log-std-final dose, monotonic across the grid (prediction-if-true fired). Videos watched (video-joygate rerun, 4 strips both DR det+sto): clean 6-leg alternating gait. Caveats recorded: det softened vs longrun17 (session det slip 2.30->2.55, dir 34.7->37.6, still under caps; 15s rung prog 1.02x->0.85x clone) so the arm's own det-no-regression clause is only loosely met; own-DR sto margins thin (2.859/2.9, 39.7/40). md5 pod=controller 9fb86d18.",
+    "verdict": "PASS \u2014 FIRST full randomized 60s joystick DONE-gate pass on the track (versioned evaluator pass=true): 48/48 zero falls, gait_valid 48/48, no sacrificed legs, combined slip 2.671 (cap 2.9), dir_err 38.6deg (allow 40), and EVERY mode individually under caps (dr0 det 2.554/37.6, dr0 sto 2.660/39.4, ownDR det 2.605/38.7, ownDR sto 2.859/39.7). Sto slip fixed 4.0->2.66-2.86 by the -4.5 log-std-final dose, monotonic across the grid (prediction-if-true fired). Videos watched (video-joygate rerun, 4 strips both DR det+sto): clean 6-leg alternating gait. Caveats recorded: det softened vs longrun17 (session det slip 2.30->2.55, dir 34.7->37.6, still under caps; 15s rung prog 1.02x->0.85x clone) so the arm own det-no-regression clause is only loosely met; own-DR sto margins thin (2.859/2.9, 39.7/40). md5 pod=controller 9fb86d18. INDEPENDENT CONFIRMATION (separate cycle, seed base 314159 instead of 90000, same checkpoint, full correct cfg replay incl. bus.write_speed=1500): PASS again, margins slightly better (slip 2.629/2.9, dir 37.89/40, zero falls, no sacrificed legs) -- two independent held-out seed bases both clear the gate. See logs/ckpt_eval/cw_dep_bcgait4_phasedir9_longrun17_stotight45_joygate_seed2/.",
     "hardware_ready": "yes",
     "triage": "done"
   },
@@ -119560,7 +119560,7 @@
       "reward.k_walk_swing=1.0"
     ],
     "created": "2026-08-22T17:13:09+00:00",
-    "status": "FINISHED",
+    "status": "FAIL",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -119596,7 +119596,9 @@
         "verdict": "FINISHED_BEFORE_CHECKUP",
         "log_tail": "eal_mean 0.78827\nwandb:      amp/disc_updates 124\nwandb:                amp/gp 0.00762\nwandb:              amp/loss 0.1341\nwandb: amp/pairs_per_rollout 65334\nwandb:        amp/replay_len 500000\nwandb: amp/style_reward_mean 0.05823\nwandb:                  +103 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-amp-m2-freeprog-term400-swing-style05 at: https://wandb.ai/l2k2/hexapod-balance/runs/3zpdrkdn\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 3 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260822_171401-3zpdrkdn/logs\n"
       }
-    ]
+    ],
+    "verdict": "FAIL, matches its swing-noamp twin (statistically indistinguishable) -- the AMP style channel adds nothing on top of k_walk_swing either. DR-0 gate: det fwd med 0.032m/15s (bar 0.10m, twin 0.026m), gait_valid 5/6 (1 leg sacrificed once), slip 8.0-11.2/m; sto fwd med 0.026m, gait_valid 6/6, slip 4.4-23/m. Video near-identical shuffle fingerprint to swing-noamp (imbalanced duty across legs, no organized tripod, no net displacement). W&B: ep_rew_mean fell every quarter (-135/-352/-546/-517, never rising), env/reward_walk_freeprog_pen pinned -1.45 to -1.50/tick, env/reward_swing pinned ~0.05-0.06/tick (identical to the noamp twin -- AMP style income did not change the swing income or unlock anything it did not already have). style_reward_mean stayed low (consistent with every prior style arm in this family -- the discriminator never got the chance to matter). CLOSES the k_walk_swing x AMP-style combination for this family at this dose; the style-vs-control question this arm was built to answer (do they complement each other) reads NO at 2M/dose=1.0. Follow-up: cw-amp-m2-freeprog-term400-rsi1-{noamp,style05b} tests an INITIAL-STATE lever (RSI mid-gait spawn) instead of another reward-side income channel.",
+    "triage": "done"
   },
   {
     "run": "cw-amp-m2-freeprog-term400-swing-noamp",
@@ -119682,7 +119684,7 @@
       "reward.k_walk_swing=1.0"
     ],
     "created": "2026-08-22T17:14:52+00:00",
-    "status": "FINISHED",
+    "status": "FAIL",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -119718,7 +119720,9 @@
         "verdict": "FINISHED_BEFORE_CHECKUP",
         "log_tail": "\nwandb:       env/height_mm -73.01802\nwandb:   env/height_ref_mm 0\nwandb:   env/max_current_a 1.65035\nwandb:  env/mean_current_a 0.471\nwandb: env/pct_within_1deg 0.07349\nwandb:   env/pitch_ref_deg 0\nwandb:   env/reward_action -0.01358\nwandb:                 +92 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-amp-m2-freeprog-term400-swing-noamp at: https://wandb.ai/l2k2/hexapod-balance/runs/a88hxqac\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 3 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260822_171545-a88hxqac/logs\n"
       }
-    ]
+    ],
+    "verdict": "FAIL, k_walk_swing (dose 1.0) does not unlock the M2 freeprog statue basin. DR-0 gate: det fwd med 0.026m/15s (bar 0.10m), gait_valid 3/6 (legs sacrificed in 3/6 episodes), slip 6.9-11.4/m; sto fwd med 0.053m, gait_valid 6/6, slip 3.7-21/m. Same ~0.02-0.03m ceiling as the whole statue family (noamp/style05-v2/stylew2-v2/fixedcmd). Video: NOT a clean tripod -- duty cycle is heavily imbalanced across legs (one leg duty~0.99 almost never swings, another duty~0.02-0.19 almost never plants) despite every leg registering nonzero swing_count -- a shuffle/limp that farms swing-completion events without organizing coordinated locomotion, close to the pre-registered \"shuffle\" cheat shape (test_task_semantics.py) though not the bank scripted twin exactly. W&B: ep_rew_mean fell every quarter (-287/-683/-1127/-1090, never rising -- genuine flat-reward FAIL per the 08-21 ruling, not a continue-longer case), env/reward_walk_freeprog_pen pinned -1.43 to -1.53/tick all run (same flat floor as every prior arm in this family), env/reward_swing pinned ~0.05-0.06/tick the whole run (the swing bonus never grew -- policy never learned to farm it more than the baseline noise level). ROOT-CAUSE: same as style-dose (0.03-0.135/tick income) and task-complexity before it -- the new income channel is real (bank-verified to rank real gait over shuffle) but too small relative to freeprog_pen ~-1.4/tick to move a from-scratch PPO run out of the pre-existing basin at this dose/budget. CLOSES the k_walk_swing-as-single-gradient-source lever for this family (joins term-penalty, std-anneal, staging, style-dose, task-complexity, all refuted the same way). Follow-up launched same cycle: cw-amp-m2-freeprog-term400-rsi1-{noamp,style05b} -- switches from a REWARD-side lever (new income channel) to an INITIAL-STATE lever (RSI mid-gait spawn), since every reward-shape fix for this basin has now failed the same way.",
+    "triage": "done"
   },
   {
     "run": "cw-stand-footlow2-plant150-3-rsifix",
@@ -119843,7 +119847,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "in-cycle cw-amp-m2-freeprog-term400-rsi1-noamp-cw-dep-bcgait4-phasedi since 2026-08-22T17:44:38"
   },
   {
     "run": "cw-dep-bcgait4-phasedir9-stotight45-seed13",
@@ -120354,7 +120359,7 @@
       "reward.walk_course_overspeed_ref_floor_m_s=0.06"
     ],
     "created": "2026-08-22T17:32:13+00:00",
-    "status": "RUNNING",
+    "status": "PASS",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -120392,7 +120397,9 @@
         "verdict": "DEAD",
         "log_tail": "_roll_deg 1.93543\nwandb:           env/bc_mode 3\nwandb:     env/height_err_mm 24.90317\nwandb:         env/height_mm 24.9024\nwandb:     env/height_ref_mm 0\nwandb:     env/max_current_a 1.34182\nwandb:    env/mean_current_a 0.47563\nwandb:                  +104 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-dep-bcgait4-phasedir9-stotight45-seed23 at: https://wandb.ai/l2k2/hexapod-balance/runs/67r5g96d\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 4 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260822_173309-67r5g96d/logs\n"
       }
-    ]
+    ],
+    "triage": "done",
+    "verdict": "SECOND SEED PASSES THE JOYSTICK DONE GATE \u2014 the stotight45 recipe reproduces across seeds. Plain English: a brand-new seed (23) of the exact recipe that produced the first-ever 60s joystick gate pass (seed17) also passes the full randomized session gate: evaluator pass=true, ZERO falls 48/48, gait_valid 48/48, no sacrificed legs, slip/m 2.78 (cap 2.9), dir_err 39.4deg (allow 40). Honest margin notes: thinner than seed17's 2.671/38.6, and the own-DR-alone dir median is 40.36deg \u2014 a hair over the allowance on its own even though the gate's combined aggregation passes; sto own-DR worst-episode slip 4.08. 15s rung numbers strong and uniform: DR-0 det prog 0.58/slip 2.57/fwd 0.62m, own-DR det 0.62/2.53/0.66m, zero terminations anywhere. Video (DR-0 + own-DR det strips watched): clean level six-leg alternating gait, no flag leg, no dragging. Training reward rose all run (-163->504) with std annealed to 0.011 \u2014 reward and gate agree. Prediction-if-true fired exactly (sto slip landed 2.5-2.9, session passes). WHY IT MATTERS: seed17's pass is now NOT a 1-in-N lottery \u2014 2/2 stotight45 seeds measured so far pass (vs the -3.2 longrun recipe's 1/4); seed13/29 (concurrent cycle) complete the n=4 pass-rate reading. Hardware-ready: sim-gate yes; promotion/champion question already filed q_20260822T1730Z."
   },
   {
     "run": "cw-amp-m2-freeprog-term400-rsi1-noamp",
@@ -120478,7 +120485,7 @@
       "goal.walk_gait_start_frac=0.5"
     ],
     "created": "2026-08-22T17:36:56+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -120506,7 +120513,17 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:amp PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-amp-m2-freeprog-term400-rsi1-noamp --steps 2000000 --task joint_walk --asym-critic --n-envs 4096 --impl warp --host-workers 24 --episode-seconds 15 --eval-every 1000000 --video-every 2000000 --no-canary --seed 7 --cfg-set goal.walk_cmd_mode=stress_mix --cfg-set goal.walk_speed_min_m_s=0.0 --cfg-set goal.walk_speed_max_m_s=0.25 --cfg-set goal.walk_yaw_cmd=1 --cfg-set goal.walk_yaw_max_rad_s=0.5 --cfg-set goal.walk_yaw_zero_frac=0.15 --cfg-set goal.walk_cmd_resample_s=1.75 --cfg-set goal.walk_cmd_resample_jitter=0.714 --cfg-set goal.walk_cmd_blend_s_min=0.05 --cfg-set goal.walk_cmd_blend_s_max=1.0 --cfg-set goal.walk_stop_frac=0.15 --out-name ppo_goal_cw_amp_m2_freeprog_term400_rsi1_noamp --notes 'respec of cw-amp-m2-freeprog-term400-noamp: Every from-scratch M2 freeprog lever tried so far (term-penalty, std-anneal, staging, task-complexity/fixedcmd, AMP style dose, k_walk_swing) changed the REWARD and all failed the same way: flat/declining training reward stuck in a ~0.03m/15s in-place-shuffle basin -- because a random from-scratch policy basically never DISCOVERS a coordinated six-leg walking state via unguided exploration, so no reward shape can select for one. This arm changes the INITIAL STATE instead: goal.walk_gait_start_frac=0.5 spawns half of episodes MID-STRIDE in the scripted tripod gait'\"'\"'s own tall walking pose (built-in RSI-for-walk mechanism) with the walk command already active, so PPO only has to learn to SUSTAIN a gait it starts inside of, not discover one from a static crouch. This exact lever (cw-gait-rsi1, frac=0.5) was tried once before but on an OLDER pre-freeprog/pre-term400 stack (08-11) and refuted with the same freeze/statue signature -- untested on the CURRENT freeprog+term400 pricing, which did not exist then. Prediction-if-true: fwd travel clears meaningfully above the ~0.03m statue-family ceiling (ideally >=0.10m) because episodes that start mid-gait keep moving instead of re-collapsing to the statue. Prediction-if-false: even mid-gait spawns collapse back to the statue/shuffle within a few hundred steps (freeprog_pen stays pinned ~-1.4/tick) -- confirming the basin is an INCOME-not-DISCOVERY problem after all, and closing RSI as a lever for this family for good (both stacks now tested).' --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_park_duty=2.0 --cfg-set reward.k_walk_freeprog=3.0 --cfg-set reward.walk_freeprog_cap_m_s=0.05 --cfg-set reward.walk_loadslip_gate=0.0 --cfg-set reward.loadslip_ok=1.5 --cfg-set reward.k_loadslip_excess=6.0 --cfg-set reward.walk_gait_gate=1.0 --cfg-set reward.k_walk_idle_charge=20.0 --cfg-set reward.walk_idle_speed_m_s=0.02 --cfg-set reward.walk_idle_tau_s=1.0 --cfg-set goal.walk_pure=1.0 --cfg-set reward.term_penalty=400.0 --cfg-set goal.walk_gait_start_frac=0.5 > /tmp/train_cw-amp-m2-freeprog-term400-rsi1-noamp.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-amp-m2-freeprog-term400-rsi1-noamp.log",
     "wandb_id": "j3sovvc7",
-    "verified": "2026-08-22T17:40:14+00:00"
+    "verified": "2026-08-22T17:40:14+00:00",
+    "triage": "done",
+    "checkups": [
+      {
+        "time": "2026-08-22T17:45:24+00:00",
+        "process_alive": false,
+        "verdict": "FINISHED_BEFORE_CHECKUP",
+        "log_tail": "wandb:       env/height_mm -68.55705\nwandb:   env/height_ref_mm 0\nwandb:   env/max_current_a 1.64191\nwandb:  env/mean_current_a 0.45147\nwandb: env/pct_within_1deg 0.09302\nwandb:   env/pitch_ref_deg 0\nwandb:   env/reward_action -0.01369\nwandb:                 +91 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-amp-m2-freeprog-term400-rsi1-noamp at: https://wandb.ai/l2k2/hexapod-balance/runs/j3sovvc7\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 3 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260822_173750-j3sovvc7/logs\n"
+      }
+    ],
+    "verdict": "FAIL, matches the pre-registered prediction-if-false: RSI mid-gait spawn (goal.walk_gait_start_frac=0.5) does not unlock sustained six-leg locomotion on the current freeprog+term400 pricing -- confirms cw-gait-rsi1s 08-11 finding on a different stack. DR-0 gate: det fwd med 0.058m/15s (bar 0.10m; nominally above the ~0.03m statue-family ceiling but read as an RSI reset ARTIFACT, not real progress -- see below), gait_valid 0/6 (WORSE than every predecessor in this family: swing-noamp 3/6, swing-style05 5/6), legs 0+2 sacrificed in 5/6 episodes with swing_count as low as 1-2 (near-frozen) while the other 4 legs cycle; sto fwd med 0.037m (back to the family ceiling), gait_valid 6/6 but slip 9-21/m. Video: 2 legs visibly held in a fixed splayed pose the whole clip (marked/flagged in the render), body barely translates -- this is the \"collapse\" failure branch: episodes that start already moving from the RSI-seeded mid-stride pose coast on that head start (explaining the det fwd bump vs pure-statue arms) then settle into a 4-leg-drag/2-leg-frozen pattern, not a sustained six-leg gait. W&B: ep_rew_mean fell every quarter (-312/-852/-1175/-1093, the usual ep-len-shortening false \"recovery\" in q4), env/reward_walk_freeprog_pen pinned -1.5 to -1.7/tick all run -- genuine flat-reward FAIL per the 08-21 ruling. CLOSES RSI-for-walk (goal.walk_gait_start_frac) as a lever for the M2 freeprog basin on BOTH the pre-freeprog stack (cw-gait-rsi1, 08-11) and the current one -- the basin reads as an INCOME problem after all (the reward genuinely never selects for a coordinated gait, regardless of the starting state), not a discovery-only problem. Next real lever for this family is a structurally different mechanism (task restructuring or a short BC-pretrain phase before RL), not another dose/gradient-source/init-state tweak."
   },
   {
     "run": "cw-amp-m2-freeprog-term400-rsi1-style05",
@@ -120620,5 +120637,141 @@
     "phase": "discovery",
     "assessment_scope": "short_behavior_discovery",
     "refused_reason": "hexapod-mjx-train-0 code marker 0d50a42dcea7d7d31b3b330fab684821c054989e != local HEAD 4ab8022ea0f46bd2a8cf0ff27ccb292544af87c0. Sync first: snapshot.sh --sync hexapod-mjx-train-0 (and snapshot/commit before that if the tree is dirty)."
+  },
+  {
+    "run": "cw-amp-m2-freeprog-term400-rsi1-style05b",
+    "pod": "hexapod-mjx-train-0",
+    "steps": 2000000,
+    "smoke": false,
+    "hypothesis": "Style-vs-control twin to cw-amp-m2-freeprog-term400-rsi1-noamp (respec retry of rsi1-style05, which hit a tag collision from an earlier REFUSED attempt and never actually launched -- this is the real first attempt): does the AMP style channel (teacher_v2 lib, 0.5/0.5, the already-verdicted-FAIL style05-v2 config) add anything ON TOP of the RSI-for-walk mid-gait spawn (goal.walk_gait_start_frac=0.5), now that the whole reward-side ladder for this basin (term-penalty, std-anneal, staging, style-dose alone, k_walk_swing) is closed and RSI is the first lever that changes the INITIAL STATE instead of the reward? Single lever vs cw-amp-m2-freeprog-term400-rsi1-noamp: identical RSI cfg, PLUS teacher_v2 AMP style/task 0.5/0.5. Prediction-if-true: this arm's fwd travel clears noticeably ABOVE its rsi1-noamp twin's, because once RSI removes the discovery barrier the discriminator can finally push the sustained gait toward the teacher's clean cadence/coordination instead of a shuffle. Prediction-if-false: both RSI arms land at the same fwd-travel reading -- RSI supplies the whole gradient (if any) and AMP's contribution to this family stays unproven even with the discovery barrier removed. Cheat watch: in-place teacher mimicry (style_reward_mean pinned near 1.0 with fwd travel ~0) as in every prior style arm (never fired so far).",
+    "gate": "Discovery (2M, DR-0 harness walk mode, 6 det + 6 sto, own cfg), judged RELATIVE to cw-amp-m2-freeprog-term400-rsi1-noamp (twin) and the whole statue family at matched budget: PASS = median det fwd travel >= 0.10 m/15s AND gait_valid >= 4/6 det AND no sacrificed legs AND video shows six legs cycling with net displacement. INFORMATIVE = fwd travel clears meaningfully above its rsi1-noamp twin's reading (AMP adds real value once RSI removes the discovery barrier) even short of the 0.10m bar, or vice versa (indistinguishable = AMP still unproven for this family). Cheat check: in-place-teacher-mimicry (style_reward_mean pinned near 1.0, fwd travel ~0) voids a PASS/INFORMATIVE read regardless of return.",
+    "parent": "cw-amp-m2-freeprog-term400-style05-v2",
+    "track": "amp",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--asym-critic",
+      "--n-envs",
+      "4096",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--episode-seconds",
+      "15",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--no-canary",
+      "--seed",
+      "7",
+      "--amp-style-weight",
+      "0.5",
+      "--amp-task-weight",
+      "0.5",
+      "--amp-disc-steps",
+      "4",
+      "--amp-disc-batch",
+      "512",
+      "--amp-gp-weight",
+      "10.0",
+      "--amp-replay",
+      "500000",
+      "--cfg-set",
+      "goal.walk_cmd_mode=stress_mix",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.0",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.25",
+      "--cfg-set",
+      "goal.walk_yaw_cmd=1",
+      "--cfg-set",
+      "goal.walk_yaw_max_rad_s=0.5",
+      "--cfg-set",
+      "goal.walk_yaw_zero_frac=0.15",
+      "--cfg-set",
+      "goal.walk_cmd_resample_s=1.75",
+      "--cfg-set",
+      "goal.walk_cmd_resample_jitter=0.714",
+      "--cfg-set",
+      "goal.walk_cmd_blend_s_min=0.05",
+      "--cfg-set",
+      "goal.walk_cmd_blend_s_max=1.0",
+      "--cfg-set",
+      "goal.walk_stop_frac=0.15",
+      "--out-name",
+      "ppo_goal_cw_amp_m2_freeprog_term400_rsi1_style05b",
+      "--notes",
+      "respec of cw-amp-m2-freeprog-term400-style05-v2: Style-vs-control twin to cw-amp-m2-freeprog-term400-rsi1-noamp (respec retry of rsi1-style05, which hit a tag collision from an earlier REFUSED attempt and never actually launched -- this is the real first attempt): does the AMP style channel (teacher_v2 lib, 0.5/0.5, the already-verdicted-FAIL style05-v2 config) add anything ON TOP of the RSI-for-walk mid-gait spawn (goal.walk_gait_start_frac=0.5), now that the whole reward-side ladder for this basin (term-penalty, std-anneal, staging, style-dose alone, k_walk_swing) is closed and RSI is the first lever that changes the INITIAL STATE instead of the reward? Single lever vs cw-amp-m2-freeprog-term400-rsi1-noamp: identical RSI cfg, PLUS teacher_v2 AMP style/task 0.5/0.5. Prediction-if-true: this arm's fwd travel clears noticeably ABOVE its rsi1-noamp twin's, because once RSI removes the discovery barrier the discriminator can finally push the sustained gait toward the teacher's clean cadence/coordination instead of a shuffle. Prediction-if-false: both RSI arms land at the same fwd-travel reading -- RSI supplies the whole gradient (if any) and AMP's contribution to this family stays unproven even with the discovery barrier removed. Cheat watch: in-place teacher mimicry (style_reward_mean pinned near 1.0 with fwd travel ~0) as in every prior style arm (never fired so far).",
+      "--cfg-set",
+      "reward.k_step_event=1.0",
+      "--cfg-set",
+      "reward.k_park_duty=2.0",
+      "--cfg-set",
+      "reward.k_walk_freeprog=3.0",
+      "--cfg-set",
+      "reward.walk_freeprog_cap_m_s=0.05",
+      "--cfg-set",
+      "reward.walk_loadslip_gate=0.0",
+      "--cfg-set",
+      "reward.loadslip_ok=1.5",
+      "--cfg-set",
+      "reward.k_loadslip_excess=6.0",
+      "--cfg-set",
+      "reward.walk_gait_gate=1.0",
+      "--cfg-set",
+      "reward.k_walk_idle_charge=20.0",
+      "--cfg-set",
+      "reward.walk_idle_speed_m_s=0.02",
+      "--cfg-set",
+      "reward.walk_idle_tau_s=1.0",
+      "--cfg-set",
+      "goal.walk_pure=1.0",
+      "--cfg-set",
+      "reward.term_penalty=400.0",
+      "--amp-motion-lib",
+      "rl_move/sim/motion_library/teacher_v2.npz",
+      "--cfg-set",
+      "goal.walk_gait_start_frac=0.5"
+    ],
+    "created": "2026-08-22T17:42:03+00:00",
+    "status": "FINISHED",
+    "checks": {
+      "cpu_limit": 28,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-b29b4867-ac22-4270-8fa9-5d854396da05)",
+      "running_experiments_before": 1,
+      "code_sha_local": "48830ffc0ac032f822751bc5a0a324f8287ec778",
+      "code_sha_pod": "48830ffc0ac032f822751bc5a0a324f8287ec778",
+      "wandb_env_on_pod": true,
+      "pid": "1748245",
+      "log_growth_bytes": [
+        7321,
+        12909
+      ],
+      "wandb_id": "7m4yd9ar",
+      "global_step_window": [
+        524288,
+        917504
+      ],
+      "fps_estimate": 13107.2
+    },
+    "trainer": "ppo",
+    "stack": "gpu-mjx",
+    "phase": "discovery",
+    "assessment_scope": "short_behavior_discovery",
+    "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:amp PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-amp-m2-freeprog-term400-rsi1-style05b --steps 2000000 --task joint_walk --asym-critic --n-envs 4096 --impl warp --host-workers 24 --episode-seconds 15 --eval-every 1000000 --video-every 2000000 --no-canary --seed 7 --amp-style-weight 0.5 --amp-task-weight 0.5 --amp-disc-steps 4 --amp-disc-batch 512 --amp-gp-weight 10.0 --amp-replay 500000 --cfg-set goal.walk_cmd_mode=stress_mix --cfg-set goal.walk_speed_min_m_s=0.0 --cfg-set goal.walk_speed_max_m_s=0.25 --cfg-set goal.walk_yaw_cmd=1 --cfg-set goal.walk_yaw_max_rad_s=0.5 --cfg-set goal.walk_yaw_zero_frac=0.15 --cfg-set goal.walk_cmd_resample_s=1.75 --cfg-set goal.walk_cmd_resample_jitter=0.714 --cfg-set goal.walk_cmd_blend_s_min=0.05 --cfg-set goal.walk_cmd_blend_s_max=1.0 --cfg-set goal.walk_stop_frac=0.15 --out-name ppo_goal_cw_amp_m2_freeprog_term400_rsi1_style05b --notes 'respec of cw-amp-m2-freeprog-term400-style05-v2: Style-vs-control twin to cw-amp-m2-freeprog-term400-rsi1-noamp (respec retry of rsi1-style05, which hit a tag collision from an earlier REFUSED attempt and never actually launched -- this is the real first attempt): does the AMP style channel (teacher_v2 lib, 0.5/0.5, the already-verdicted-FAIL style05-v2 config) add anything ON TOP of the RSI-for-walk mid-gait spawn (goal.walk_gait_start_frac=0.5), now that the whole reward-side ladder for this basin (term-penalty, std-anneal, staging, style-dose alone, k_walk_swing) is closed and RSI is the first lever that changes the INITIAL STATE instead of the reward? Single lever vs cw-amp-m2-freeprog-term400-rsi1-noamp: identical RSI cfg, PLUS teacher_v2 AMP style/task 0.5/0.5. Prediction-if-true: this arm'\"'\"'s fwd travel clears noticeably ABOVE its rsi1-noamp twin'\"'\"'s, because once RSI removes the discovery barrier the discriminator can finally push the sustained gait toward the teacher'\"'\"'s clean cadence/coordination instead of a shuffle. Prediction-if-false: both RSI arms land at the same fwd-travel reading -- RSI supplies the whole gradient (if any) and AMP'\"'\"'s contribution to this family stays unproven even with the discovery barrier removed. Cheat watch: in-place teacher mimicry (style_reward_mean pinned near 1.0 with fwd travel ~0) as in every prior style arm (never fired so far).' --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_park_duty=2.0 --cfg-set reward.k_walk_freeprog=3.0 --cfg-set reward.walk_freeprog_cap_m_s=0.05 --cfg-set reward.walk_loadslip_gate=0.0 --cfg-set reward.loadslip_ok=1.5 --cfg-set reward.k_loadslip_excess=6.0 --cfg-set reward.walk_gait_gate=1.0 --cfg-set reward.k_walk_idle_charge=20.0 --cfg-set reward.walk_idle_speed_m_s=0.02 --cfg-set reward.walk_idle_tau_s=1.0 --cfg-set goal.walk_pure=1.0 --cfg-set reward.term_penalty=400.0 --amp-motion-lib rl_move/sim/motion_library/teacher_v2.npz --cfg-set goal.walk_gait_start_frac=0.5 > /tmp/train_cw-amp-m2-freeprog-term400-rsi1-style05b.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-amp-m2-freeprog-term400-rsi1-style05b.log",
+    "wandb_id": "7m4yd9ar",
+    "verified": "2026-08-22T17:45:51+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-22T17:51:26+00:00",
+        "process_alive": false,
+        "verdict": "FINISHED_BEFORE_CHECKUP",
+        "log_tail": "al_mean 0.77153\nwandb:      amp/disc_updates 124\nwandb:                amp/gp 0.00797\nwandb:              amp/loss 0.13662\nwandb: amp/pairs_per_rollout 65332\nwandb:        amp/replay_len 500000\nwandb: amp/style_reward_mean 0.05942\nwandb:                  +102 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-amp-m2-freeprog-term400-rsi1-style05b at: https://wandb.ai/l2k2/hexapod-balance/runs/7m4yd9ar\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 3 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260822_174326-7m4yd9ar/logs\n"
+      }
+    ]
   }
 ]

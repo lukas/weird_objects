@@ -1,6 +1,43 @@
 # amp - AMP locomotion from scratch
 
-Last updated: 2026-08-22 (STYLE-DOSE LEVER CLOSED: both clean-lib
+Last updated: 2026-08-22 ~18:0x (K_WALK_SWING LEVER CLOSED: both
+`cw-amp-m2-freeprog-term400-swing-{noamp,style05}` FAIL, landing in
+the SAME ~0.03m/15s statue-family ceiling as every prior arm
+[noamp/style05-v2/stylew2-v2/fixedcmd] — the swing-completion bonus
+was bank-verified (11/11) to rank real gait > shuffle > stall but at
+dose 1.0 its realized income stayed pinned ~0.05-0.06/tick, an order
+of magnitude below freeprog_pen's flat -1.4 to -1.5/tick, so it never
+moved a from-scratch PPO run out of the pre-existing basin — same
+failure shape as the style-dose lever. Video: NOT a clean tripod —
+duty cycle heavily imbalanced across legs (one leg duty~0.99, another
+~0.02-0.19) despite every leg registering nonzero swing_count, close
+to the bank's pre-registered "shuffle" cheat shape (farm swing events
+without organizing locomotion). ep_rew_mean fell every quarter in
+both arms (genuine flat/declining FAIL, not continue-longer). Style
+added nothing on top of swing either (noamp/style05 stats
+indistinguishable). This CLOSES THE WHOLE REWARD-SIDE LADDER for the
+M2 freeprog statue basin: term-penalty, std-anneal, staging, task-
+complexity/fixedcmd, style-dose (0.5x-2x), and now swing have all
+failed the identical way — a real, bank-verified income channel that
+is simply too small to out-bid the basin's incumbent local optimum
+at 2M/from-scratch budget. FOLLOW-UP (launched same cycle, first
+non-reward lever): `cw-amp-m2-freeprog-term400-rsi1-{noamp,style05b}`
+switches from pricing to the INITIAL STATE — `goal.walk_gait_start_
+frac=0.5` spawns half of episodes mid-stride in the scripted teacher's
+own tall walking pose (built-in RSI-for-walk mechanism, `cw-gait-
+rsi1`'s own lever) so PPO only has to SUSTAIN a gait it starts inside
+of, not discover one from a static crouch. This exact lever was
+tried once before (`cw-gait-rsi1`, 08-11) but on a stack that
+predates freeprog/term400 pricing entirely and was refuted with the
+same freeze signature — untested on the current pricing. If RSI also
+fails, the basin reads as INCOME-not-DISCOVERY after all and every
+accessible-income-channel idea (dose or gradient-source) is closed
+for this family; a genuinely different mechanism (task restructuring
+or a short BC-pretrain phase before RL, still consistent with the
+track's "demo is training data" charter) becomes the next thing to
+try, not another reward coefficient.)
+
+Previous update, 2026-08-22 (STYLE-DOSE LEVER CLOSED: both clean-lib
 style arms `-style05-v2` (0.5/0.5) and `-stylew2-v2` (2.0/1.0) FAIL,
 statistically indistinguishable from the -noamp control and from
 each other — the AMP-style-income route is refuted at 2M discovery

@@ -1,6 +1,20 @@
 # joystick - RL from the programmatic gait to joystick control
 
-Last updated: 2026-08-22 (~17:3x: **DONE GATE PASSED FOR THE FIRST
+Last updated: 2026-08-22 (~17:5x: **THE DONE-GATE PASS REPRODUCES ON
+A SECOND SEED** — `cw-dep-bcgait4-phasedir9-stotight45-seed23`
+(identical stotight45 recipe, only seed 17→23) VERDICTED PASS on the
+full 60s randomized joystick session gate: pass=true, 0 falls 48/48,
+gait_valid 48/48, no sacrificed legs, slip 2.78 (cap 2.9), dir 39.4°
+(allow 40); clean six-leg video at both DR scales; training reward
+rose all run with std annealed to 0.011 — reward and gate agree.
+Margins thinner than seed17 (own-DR-alone dir median 40.36°, a hair
+over the allowance on its own; combined gate passes). Recipe pass
+rate now 2/2 measured (seed13/29 owned by a concurrent cycle complete
+the n=4). Unlike the -3.2 longrun recipe's 1/4 lottery, stotight45
+looks like a REPRODUCIBLE recipe, strengthening the promotion case
+already filed as q_20260822T1730Z. Prior banner below.)
+
+Previous entry (~17:3x: **DONE GATE PASSED FOR THE FIRST
 TIME** — `cw-dep-bcgait4-phasedir9-longrun17-stotight45` (fresh
 reinit of the longrun17 recipe, only `--log-std-final` -3.2 -> -4.5,
 final std 0.011) passes the full randomized 60s joystick session

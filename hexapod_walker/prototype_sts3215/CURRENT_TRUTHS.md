@@ -572,6 +572,36 @@ out-of-scope runs get honest triage but no agent follow-ups.
   scripted twin could trigger it): single-leg farm (one leg cycling,
   five static, `env/reward_swing`>0 with fwd travel still ~0.02-
   0.03m) — FAIL on sight regardless of return if seen.
+- K_WALK_SWING LEVER CLOSED (08-22, both `cw-amp-m2-freeprog-term400-
+  swing-{noamp,style05}` FAIL): same ~0.03m/15s statue-family
+  ceiling as every prior arm (noamp/style05-v2/stylew2-v2/fixedcmd),
+  gait_valid 3/6 and 5/6 det with intermittent sacrificed legs. The
+  live signature was not the pre-cleared "single-leg farm" (all six
+  legs register nonzero swing_count) but a close cousin of the
+  bank's own pre-registered "shuffle" cheat: duty cycle heavily
+  IMBALANCED across legs (one leg duty~0.99 almost never swings,
+  another duty~0.02-0.19 almost never plants) — real strides that
+  never organize into a coordinated tripod or net displacement.
+  `env/reward_swing` stayed pinned ~0.05-0.06/tick the whole run in
+  both arms (style added nothing on top, statistically identical to
+  its noamp twin) — an order of magnitude below `walk_freeprog_pen`'s
+  flat -1.4 to -1.5/tick floor, so the bonus never had the income to
+  move a from-scratch PPO run out of the basin. ep_rew_mean fell
+  every quarter both arms (genuine flat/declining FAIL, not
+  continue-longer). This closes the WHOLE reward-side ladder for the
+  M2 freeprog statue basin: term-penalty, std-anneal, staging, task-
+  complexity, style-dose (0.5x-2x), and swing have now all failed
+  the identical way (real, bank-verified/aligned mechanisms too
+  small to out-bid the incumbent basin at 2M/from-scratch budget).
+  FOLLOW-UP (first non-reward lever): `cw-amp-m2-freeprog-term400-
+  rsi1-{noamp,style05b}` (`goal.walk_gait_start_frac=0.5`, RSI-for-
+  walk mid-gait spawn) — changes the INITIAL STATE instead of the
+  income, on the CURRENT freeprog+term400 pricing stack (the one
+  prior RSI test, `cw-gait-rsi1` 08-11, predates that pricing
+  entirely). If this also fails, the basin reads as INCOME-not-
+  DISCOVERY and every accessible-gradient idea (dose or source) is
+  closed for this family — next would be task restructuring or a
+  short BC-pretrain phase, not another coefficient.
 - FREEPROG-EMA REUSE TESTED + REFUTED, ZERO GPU SPENT (08-22): the
   obvious cheap fix — feed `reward.walk_kernel_vel_ema`'s already-
   validated stride-averaged velocity into `walk_freeprog_score`

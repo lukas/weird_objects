@@ -1584,4 +1584,19 @@ Entry format (append; newest last; update status in place):
   hardening honestly toward margin (nothing in flight yet — next
   cycles may fund a seed-repro of the stotight45 recipe and/or a
   margin arm ONLY if they name a concrete gap, per no-filler rules).
+- INDEPENDENT CONFIRMATION 08-22 ~17:5x (cycle triaging
+  cw-amp-m2-freeprog-term400-fixedcmd, unrelated primary task):
+  re-ran the SAME `stotight45` checkpoint through
+  `eval_joystick_gate.py` on its own pod with a SECOND held-out seed
+  base (314159 vs the original 90000), full correct cfg replay
+  (bus.write_speed=1500 fast profile + all training cfg-sets —
+  first attempt without the bus profile wrongly read dir_err
+  54deg/slip 4.9-5.2, a self-inflicted eval-cfg bug, corrected and
+  rerun). Result: PASS again, margins slightly BETTER than the
+  first seed base (slip 2.629 vs cap 2.9 [was 2.671]; dir_err 37.89
+  vs allow 40 [was 38.64]; zero falls 48/48; gait_valid 48/48; no
+  sacrificed legs). Two independent held-out seed bases both clear
+  the gate with the correct fast-servo eval cfg — raises confidence
+  this is a real, reproducible pass, not a lucky held-out draw.
+  Evidence: `logs/ckpt_eval/cw_dep_bcgait4_phasedir9_longrun17_stotight45_joygate_seed2/`.
 - ANSWER (operator): _
