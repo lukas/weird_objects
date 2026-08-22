@@ -42,6 +42,15 @@ DEG2RAD = math.pi / 180.0
 N_LEGS = 6
 G0 = 9.80665
 
+# Frozen-joint DOF damping (N·m·s/rad). Seized-gearbox approximation:
+# implicit (unconditionally stable) viscous lock. Against the fitted
+# joint kv range (0.02-3.0) this is a 150-25000x stiffening; measured
+# creep under a worst-case full-body drop-settle load is ~0.05 rad
+# over 2 s (bent knee, whole robot landing on it) and far less under
+# ordinary stance loads — effectively frozen at episode (15-60 s)
+# scale with zero stepper changes (dof_damping is per-world model DR).
+FROZEN_DOF_DAMPING = 500.0
+
 
 def _rot_rpy(roll: float, pitch: float, yaw: float) -> np.ndarray:
     cr, sr = math.cos(roll), math.sin(roll)
@@ -179,6 +188,27 @@ class RandRanges:
     walk_push_prob: float = 0.0
     walk_push_nm: tuple[float, float] = (2.0, 3.0)       # peak |torque|
     walk_push_s: tuple[float, float] = (0.8, 1.5)        # pulse duration
+    # Per-joint FAULT INJECTION (AMP brief §8; M0 checklist "fault
+    # injection works"). With prob fault_prob an episode carries ONE
+    # fault, drawn from fault_mix = (weakened joint, frozen joint,
+    # disabled leg):
+    #   - weakened: one joint's servo at fault_weak_scales strength
+    #     (kp + torque limit scaled; 0.0 = dead servo, free-swinging
+    #     against its kv backdrive damping);
+    #   - frozen: one joint's actuator force zeroed and its DOF locked
+    #     with FROZEN_DOF_DAMPING (seized-gearbox approximation — it
+    #     creeps ~2 deg/15 s under a 0.5 N·m gravity load, close
+    #     enough to "frozen at current position" at episode scale);
+    #   - disabled leg: all 3 joints of one leg dead (scale 0.0).
+    # Implementation is PURE MjModel field edits (actuator_gainprm/
+    # biasprm/forcerange, dof_damping) — every touched field is in
+    # mjx_backend.MODEL_DR_FIELDS, so the per-world model-DR upload
+    # carries faults to the batched GPU stacks with ZERO stepper
+    # changes. Default OFF (opt-in via dr.fault_*); the draw is
+    # GUARDED so fault_prob=0 keeps the legacy rng stream bit-exact.
+    fault_prob: float = 0.0
+    fault_weak_scales: tuple[float, ...] = (0.7, 0.4, 0.2, 0.0)
+    fault_mix: tuple[float, float, float] = (0.45, 0.25, 0.30)
 
     def scaled(self, s: float) -> "RandRanges":
         """Curriculum knob: shrink every range toward nominal by ``s``.
@@ -242,6 +272,12 @@ class RandRanges:
             walk_push_prob=self.walk_push_prob * s,
             walk_push_nm=self.walk_push_nm,
             walk_push_s=self.walk_push_s,
+            # Same convention as tipped/rock/push: probability follows
+            # the curriculum, the dose (strength menu / mix) does not —
+            # a half-strength fault is a different, easier fault.
+            fault_prob=self.fault_prob * s,
+            fault_weak_scales=self.fault_weak_scales,
+            fault_mix=self.fault_mix,
         )
 
 
@@ -294,6 +330,61 @@ class EpisodeRandomization:
     # as tipped_roll_deg).
     walk_push_peak_nm: float = 0.0
     walk_push_dur_s: float = 0.0
+    # Fault injection (dr.fault_*, see RandRanges). fault_mode "" =
+    # healthy episode (all fault fields inert, apply_fault_to_model
+    # is a no-op). "weak"/"frozen" carry ONE joint index in
+    # fault_joints; "leg" carries that leg's 3 joint indices.
+    # fault_scale is the strength multiplier for weak/leg (0.0 = dead
+    # servo) and is ignored for frozen.
+    fault_mode: str = ""
+    fault_joints: tuple[int, ...] = ()
+    fault_scale: float = 1.0
+
+    def fault_health(self) -> np.ndarray:
+        """(18,) health vector per AMP brief §8.2: 1.0 healthy, 0.0
+        disabled/frozen, intermediate = degraded strength. Deployable
+        as actor obs once M4 wiring lands; also handy for eval
+        reports."""
+        h = np.ones(N_JOINTS, dtype=np.float32)
+        if self.fault_mode:
+            v = 0.0 if self.fault_mode == "frozen" else float(self.fault_scale)
+            for j in self.fault_joints:
+                h[j] = v
+        return h
+
+    def apply_fault_to_model(self, model) -> None:
+        """Apply the episode's fault as pure MjModel field edits.
+
+        Call AFTER ``servo_model.apply_params_to_model`` (which SETS
+        actuator gain/bias/forcerange rows each reset — these edits
+        multiply/override them). Touches only fields in
+        ``mjx_backend.MODEL_DR_FIELDS`` (actuator_gainprm/biasprm/
+        forcerange, dof_damping) so the per-world model-DR path uploads
+        faults to the batched stacks unchanged. No-op when healthy.
+        """
+        if not self.fault_mode:
+            return
+        from .servo_model import _act_id, joint_names, joint_qvel_addrs
+
+        names = joint_names()
+        dadr = joint_qvel_addrs(model)
+        for j in self.fault_joints:
+            pa = _act_id(model, names[j])
+            va = _act_id(model, names[j] + "_d")
+            if self.fault_mode == "frozen":
+                # Seized gearbox: servo can't move it, backdrive locked.
+                model.actuator_forcerange[pa] = (0.0, 0.0)
+                model.actuator_forcerange[va] = (0.0, 0.0)
+                model.dof_damping[dadr[j]] = FROZEN_DOF_DAMPING
+            else:
+                s = float(self.fault_scale)
+                model.actuator_gainprm[pa, 0] *= s
+                model.actuator_biasprm[pa, 1] *= s
+                model.actuator_forcerange[pa] *= s
+                model.actuator_forcerange[va] *= s
+                # scale 0.0 = dead servo: joint free-swings against its
+                # existing kv damping + frictionloss (backdrive), which
+                # stay untouched.
 
     def apply_to_model(self, model, *, chassis_bid: int) -> None:
         """Mutate a (freshly restored) MjModel in place."""
@@ -368,6 +459,9 @@ class EpisodeRandomization:
             "walk_kick_dur_s": round(self.walk_kick_dur_s, 2),
             "walk_push_peak_nm": round(self.walk_push_peak_nm, 2),
             "walk_push_dur_s": round(self.walk_push_dur_s, 2),
+            "fault": ("none" if not self.fault_mode else
+                      f"{self.fault_mode}:j{list(self.fault_joints)}"
+                      f"@{round(self.fault_scale, 2)}"),
         }
 
 
@@ -465,6 +559,28 @@ class DomainRandomizer:
             if rng.random() < 0.5:
                 walk_push = -walk_push
 
+        # Fault injection: same guarded-draw convention (fault_prob=0
+        # keeps the legacy rng stream bit-exact).
+        fault_mode, fault_joints, fault_scale = "", (), 1.0
+        if r.fault_prob > 0.0 and rng.random() < r.fault_prob:
+            mix = np.asarray(r.fault_mix, dtype=float)
+            mix = mix / mix.sum()
+            pick = rng.random()
+            if pick < mix[0]:
+                fault_mode = "weak"
+                fault_joints = (int(rng.integers(N_JOINTS)),)
+                fault_scale = float(
+                    r.fault_weak_scales[
+                        int(rng.integers(len(r.fault_weak_scales)))])
+            elif pick < mix[0] + mix[1]:
+                fault_mode = "frozen"
+                fault_joints = (int(rng.integers(N_JOINTS)),)
+            else:
+                fault_mode = "leg"
+                leg = int(rng.integers(N_LEGS))
+                fault_joints = (3 * leg, 3 * leg + 1, 3 * leg + 2)
+                fault_scale = 0.0
+
         return EpisodeRandomization(
             mass_scale=u(*r.mass_scale),
             com_offset_m=np.array([
@@ -508,4 +624,7 @@ class DomainRandomizer:
             walk_kick_dur_s=walk_kick_s,
             walk_push_peak_nm=walk_push,
             walk_push_dur_s=walk_push_s,
+            fault_mode=fault_mode,
+            fault_joints=fault_joints,
+            fault_scale=fault_scale,
         )

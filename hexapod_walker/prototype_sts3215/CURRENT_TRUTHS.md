@@ -66,6 +66,16 @@ out-of-scope runs get honest triage but no agent follow-ups.
   operator confirmation (q_20260822T1730Z); until then treat
   stotight45 as the track's champion candidate — champions
   append-only.
+  **REPRODUCED 4/4 (08-22 ~18:1x): the recipe passes the DONE gate
+  on EVERY tested seed** — seed23 (slip 2.78 / dir 39.4), seed13
+  (2.407 / 36.4, widest margins) and seed29 (2.704 / 39.05) all
+  pass=true, 0 falls/48, gait_valid 48/48, no sacrificed legs,
+  videos watched det+sto both DR. Seeds 13/29 were the lineage's two
+  worst basins at the -3.2 dose (1/4 pass rate there): the -4.5
+  noise floor converted the seed lottery into a reproducible recipe.
+  Seed-robustness is CLOSED; the only honest hardening gaps left are
+  own-DR sto margins (thinnest: seed29 slip 2.736/2.9, dir 39.4/40)
+  and the shared 15s-rung det progress trade (~0.85x clone).
 
 - The scripted tripod teacher is verified clean at the measured
   tibia-150 plant (commit a4beb8af): 0.06-0.10 m/s x 4 headings, zero
@@ -212,10 +222,37 @@ out-of-scope runs get honest triage but no agent follow-ups.
   pre-existing known-red `fastprof` fails, unrelated). LAUNCHED:
   `cw-stand-footlow2-plant150-3-rsifix` (same checkpoint, ONLY the
   mechanism fix, 10M steps) — tests whether RSI now actually improves
-  with an aligned reward target; if it still stays pinned, the
-  remaining defect is the reference file's own intermediate joint
-  poses (candidate for `extract_rise_ref.py` re-extraction once a
-  clean tibia-150 stance source exists).
+  with an aligned reward target. **VERDICTED PASS 08-22 (~17:5x)**:
+  RSI-start rise went 0/5 -> 5/5 (det rsi height err 0.8/10.7/
+  11.7 mm, sto 3.2/1.2 mm, all <=15 mm), bridge/crouch/flat 7/7, 12/12
+  rise successes overall, zero terminations; training reward rose then
+  held — reward and eval now agree, confirming the misalignment
+  diagnosis end-to-end. Videos: mid-ramp sprawl -> symmetric rise ->
+  level planted stance. Caveats: 2/3 det RSI episodes end "leaning"
+  (roll 8.9-9.0 deg, height err at the window edge); and the
+  prestaged SESSION composition (this stance + vref1 walk) showed a
+  rise-segment FELL over_current — that harness likely carries the
+  stale pre-tibia-150 height cfg (the documented copy-paste trap), so
+  the stance-half promotion needs a corrected-cfg session-gate rerun
+  pairing this checkpoint with `cw-dep-bcgait1-plant150-1` before the
+  MEASURED-PLANT GATE BREAK's stance half can be declared closed.
+  **DONE 08-22 (~19:4x): STANCE HALF CLOSED.** The corrected rerun
+  (`eval_session`, rsifix stance x `cw-dep-bcgait1-plant150-1` walk,
+  `--cfg-set actions.max_height_mm=137 bus.servo_params=loaded` — the
+  run's own env-relevant cfg; goal./reward./train. keys are inert in
+  the session harness) passes ALL THREE hard gates: no falls (the
+  prestage's rise over_current FELL is GONE — it came from the default
+  harness pairing `ppo_goal_cw_dep_vref1_r1` + stale default cfg, not
+  from the checkpoint), rise z_end 170.3 mm, sit descends -57.8 mm.
+  Soft: 5/7 PASS incl. fwd_heading yaw drift 8.8 deg (the axis
+  plant150-1's own session narrowly missed at -10.6 with the old
+  partner) and drive_height; only track_right/track_back miss — the
+  documented all-model weakness (docstring baselines: back 12-34%,
+  all models), NOT a tibia-150 regression. Strip watched: symmetric
+  rise, level cruise, quiet hold, clean sit + re-stand. Evidence:
+  `logs/ckpt_eval/rsifix_plant150pair_session_corrected/`. The
+  tibia-150 download pair is now rsifix (stance) + plant150-1 (walk),
+  both halves session-clean on hard gates.
 - AMP M0 AUDIT + FIRST CODE (08-22): the GPU/Warp trainer
   (`train_ppo_mjx.py`) already had GRU/history/transformer actors and
   most of AMP §6's joystick-command shape (`walk_task.py`'s
@@ -583,6 +620,239 @@ out-of-scope runs get honest triage but no agent follow-ups.
   scripted twin could trigger it): single-leg farm (one leg cycling,
   five static, `env/reward_swing`>0 with fwd travel still ~0.02-
   0.03m) — FAIL on sight regardless of return if seen.
+- K_WALK_SWING LEVER CLOSED (08-22, both `cw-amp-m2-freeprog-term400-
+  swing-{noamp,style05}` FAIL): same ~0.03m/15s statue-family
+  ceiling as every prior arm (noamp/style05-v2/stylew2-v2/fixedcmd),
+  gait_valid 3/6 and 5/6 det with intermittent sacrificed legs. The
+  live signature was not the pre-cleared "single-leg farm" (all six
+  legs register nonzero swing_count) but a close cousin of the
+  bank's own pre-registered "shuffle" cheat: duty cycle heavily
+  IMBALANCED across legs (one leg duty~0.99 almost never swings,
+  another duty~0.02-0.19 almost never plants) — real strides that
+  never organize into a coordinated tripod or net displacement.
+  `env/reward_swing` stayed pinned ~0.05-0.06/tick the whole run in
+  both arms (style added nothing on top, statistically identical to
+  its noamp twin) — an order of magnitude below `walk_freeprog_pen`'s
+  flat -1.4 to -1.5/tick floor, so the bonus never had the income to
+  move a from-scratch PPO run out of the basin. ep_rew_mean fell
+  every quarter both arms (genuine flat/declining FAIL, not
+  continue-longer). This closes the WHOLE reward-side ladder for the
+  M2 freeprog statue basin: term-penalty, std-anneal, staging, task-
+  complexity, style-dose (0.5x-2x), and swing have now all failed
+  the identical way (real, bank-verified/aligned mechanisms too
+  small to out-bid the incumbent basin at 2M/from-scratch budget).
+  FOLLOW-UP (first non-reward lever): `cw-amp-m2-freeprog-term400-
+  rsi1-{noamp,style05b}` (`goal.walk_gait_start_frac=0.5`, RSI-for-
+  walk mid-gait spawn) — changes the INITIAL STATE instead of the
+  income, on the CURRENT freeprog+term400 pricing stack (the one
+  prior RSI test, `cw-gait-rsi1` 08-11, predates that pricing
+  entirely). If this also fails, the basin reads as INCOME-not-
+  DISCOVERY and every accessible-gradient idea (dose or source) is
+  closed for this family — next would be task restructuring or a
+  short BC-pretrain phase, not another coefficient.
+- RSI-FOR-WALK LEVER CLOSED, BOTH STACKS NOW TESTED (08-22, both
+  `cw-amp-m2-freeprog-term400-rsi1-{noamp,style05b}` FAIL): mid-gait
+  spawn (`goal.walk_gait_start_frac=0.5`) did NOT unlock sustained
+  six-leg locomotion on the current freeprog+term400 pricing either
+  — confirms `cw-gait-rsi1`'s 08-11 finding transfers to the new
+  stack. Det fwd travel nominally rose (0.046-0.058m vs the
+  ~0.03m statue ceiling) but this reads as an RSI RESET ARTIFACT,
+  not real progress: `gait_valid` REGRESSED to 0/6 (worse than every
+  reward-side arm in the family, which reached 3-5/6), with 2-3 legs
+  consistently near-frozen (duty 0.9-0.99, swing_count as low as
+  1-2) while the rest cycle — episodes coast on the RSI-seeded head
+  start's already-moving state, then collapse into a partial-leg-
+  drag pattern rather than sustaining the seeded gait. Style added
+  nothing on top of RSI either (style05b statistically matches its
+  noamp twin, if anything slightly worse; `amp/style_reward_mean`
+  stayed low 0.03-0.09, no in-place-mimicry cheat). `ep_rew_mean`
+  fell every quarter both arms, `env/reward_walk_freeprog_pen`
+  pinned -1.5 to -1.7/tick — genuine flat-reward FAILs. CONCLUSION:
+  the M2 freeprog basin is an INCOME problem, not a discovery-only
+  one — changing WHERE episodes start does not help when nothing
+  ever prices sustaining the gait once discovered. Every
+  accessible-gradient idea tried for this family (term-penalty,
+  std-anneal, staging, task-complexity, style-dose 0.5x-2x, swing,
+  RSI) has now failed the same way. NEXT REAL LEVER (untested):
+  task restructuring (e.g. a shorter/denser episode so the
+  freeprog charge's ~500-step horizon stops dominating, or a
+  reward that scores the WHOLE episode's net displacement rather
+  than per-tick cross-track charges) or a short BC-pretrain phase
+  on the motion library before RL (still consistent with the
+  track's "demo is training data, not the controller" charter) —
+  not another reward coefficient, gradient source, or reset-state
+  tweak.
+- CANDIDATE ROOT CAUSE FOR THE WHOLE M2 FREEPROG LADDER, TEXTUALLY
+  GROUNDED, NOT YET TESTED (08-22, read while writing up the
+  rsi1/swing FAILs — flagged for DIG-IN, no GPU spent on it yet):
+  `AMP_LOCOMOTION.md` section 2 ("Why the Previous Program Stalled")
+  describes the EXACT failure mode this whole 8-arm ladder keeps
+  reproducing — "repeatedly converged to paddle-creep, dragging,
+  narrow specialists, fragile choreography, or reward exploits" —
+  and names the fix as a SIMPLE task reward (section 5.1:
+  `r_linear_velocity = exp(-||v-v_cmd||^2/sigma_v)` +
+  `r_yaw_velocity` + `r_upright` + a WEAK height regularizer, "a
+  small number of interpretable reward families... avoid another
+  large reward-term search") carrying a DOMINANT-enough AMP style
+  weight (section 5.2: task/style in the 70/30-30/70 range, "strong
+  enough that the policy cannot ignore it") plus MODEST physical
+  regularizers (section 5.3, explicit: "Do not make stance slip the
+  dominant reward or a hard early gate"). Every M2 freeprog arm to
+  date (noamp/style05-v2/stylew2-v2/fixedcmd/swing-*/rsi1-*) instead
+  reused the JOYSTICK track's SLIPWALK semantics-bank pricing stack
+  wholesale: `k_walk_freeprog` (replaces the Gaussian kernel with a
+  SHARP saturating linear score, cap 0.05 m/s — any cross-track
+  jitter above 5 cm/s already maxes the charge), PLUS
+  `k_loadslip_excess`, `k_drag_stance=8000`, `k_walk_idle_charge`,
+  `walk_anchor_gate`, `walk_gait_gate` (a multiplicative income
+  discount) — a large, harshly-saturating, UNGATED anti-slip
+  apparatus built for a WARM-STARTED BC-refinement regime, not a
+  from-scratch AMP actor. Measured signature across every arm:
+  `env/reward_walk_freeprog_pen` (this stack's dominant single term)
+  sits flat at -1.4 to -1.7/tick from step 0, ~15-30x
+  `amp/style_reward_mean`'s realized income (0.03-0.09/tick even at
+  2x style weight) — i.e. exactly the "task reward drowns out style"
+  failure the brief's section 5.2 warns against, not a coincidence
+  of dose. NOT YET TESTED: a clean-slate M2 arm implementing section
+  5.1-5.4 close to literally (Gaussian velocity+yaw kernel, upright,
+  weak height, modest action/torque/collision regularizers, NO
+  freeprog/loadslip/drag-stance/idle-charge/anchor/gait-gate
+  machinery, term_penalty kept per the suicide-economics finding
+  which is a section-5.4-compatible reward choice not a termination-
+  condition change) at task/style 50/50. This is DISTINCT from both
+  prior reward families tried: the pre-freeprog "legacy" reward
+  statued via a DIFFERENT exploit (frozen half-tripod overpaid by
+  rise_finish/posture/height kernels, per the M2 -c1 finding) and
+  freeprog statued via the shuffle/drag-basin family above — a
+  brief-literal minimal reward has never been run. Needs careful
+  design (which modest regularizers to keep so the OLD freeze cheat
+  does not reopen) before training, i.e. real dig-in work, not a
+  cfg toggle — flagged, not launched, this cycle.
+- MEASUREMENT ARMS FOR THE REDESIGN, FIRST READING (08-22): before
+  spending design effort on the section-5 minimal-reward rewrite,
+  `cw-amp-m2-styleonly-v2` (amp-task-weight 0.0 / amp-style-weight
+  1.0, teacher_v2, canonical pure-imitation AMP pretraining, NO task
+  income or charges at all) directly tested whether the style
+  gradient is learnable in isolation. VERDICT: FAIL, not a
+  continuation, despite `ep_rew_mean` rising MONOTONICALLY every
+  quarter (14.2/21.9/30.3/37.8 — the first-ever rising trend in the
+  whole M2 freeprog family) and `amp/style_reward_mean` climbing
+  0.06->0.119 (2x the pinned floor, discriminator healthy: d_real
+  0.79/d_fake -0.96, unsaturated). DR-0 gate + fresh eval video both
+  show the SAME frozen-tripod statue as every prior arm — gait_valid
+  0/6 det AND sto, legs [1,3,5] (the mirror tripod of the swing/RSI
+  family's [0,2,4]) sacrificed/frozen, speed ~0.006-0.025 m/s,
+  prog_ratio ~0.00; the rising income bought a marginally more
+  discriminator-plausible STATIC pose, not progress toward six-leg
+  cycling — video overrides the reward-rising signal here (still
+  short of the arm's own pre-registered 0.3 informative-pass bar
+  too). READS AS: the AMP mechanism is confirmed alive (not
+  saturated/dead) even at zero task competition, but too weak/slow
+  on its own to organize six-leg coordination at 2M budget — rules
+  OUT "just remove the task reward" as a one-line fix. Twin
+  `cw-amp-m2-taskdown01-style1-v3` (task_weight 0.1, retry of a
+  code-sync-REFUSED v2 that trained 0 steps) completed the joint
+  read: FAIL, and the informative half — a task charge just 10% of
+  the SLIPWALK stack ALREADY erases styleonly-v2's fragile gain
+  (`amp/style_reward_mean` 0.087, LOWER than styleonly's 0.119;
+  `ep_rew_mean` declining -2.4/-30.4/-69.2/-85.2, opposite of
+  styleonly's rise) even though DR-0 gait_valid ticked up slightly
+  (det 1/6, sto 3/6 vs styleonly's 0/6 both) — still the same
+  near-static statue on video, legs [1,3,5] sacrificed. TASK/STYLE
+  DOSE LADDER ON THE SLIPWALK-DERIVED REWARD IS NOW FULLY CLOSED
+  (0.0/0.1/0.5/1.0/2.0 all tried, all FAIL, same failure family): no
+  ratio of task-vs-style income on the EXISTING SLIPWALK apparatus
+  works from scratch. This makes q_20260822T1815Z's diagnosis
+  (the reward ARCHITECTURE itself, not its dose, is the wrong shape)
+  a MEASURED finding, not just a textual reading of the brief — the
+  next real M2 arm is the section-5 minimal-Gaussian-task reward
+  rewrite (dropping freeprog/loadslip/drag-stance/idle-charge/
+  anchor/gait-gate wholesale), not another task/style ratio point.
+- MEASUREMENT ARMS CLOSED + SECTION-5 REWARD BUILT+BANK-TESTED (08-22):
+  the +10M continuation `cw-amp-m2-styleonly-v2-c1b` VERDICTED FAIL —
+  `amp/style_reward_mean` plateaued (quarter means
+  0.10/0.20/0.16/0.15, never sustained above the 0.3 pass bar) but
+  DR-0 gait_valid jumped to 5/6 det+sto (was 0/6 for the parent's
+  frozen stork statue) with video showing genuine multi-leg cyclic
+  stepping, not a static pose — a march-in-place/leg-twitch
+  degenerate (fwd 0.02-0.03m/15s, slip 16-21/m): style organizes
+  coordinated leg motion but has ZERO incentive to convert it into
+  displacement, because the 60-dim discriminator feature set is
+  body-frame-relative (a translating and a non-translating cyclic
+  gait look identical to it absent slip) — an AMP-standard
+  limitation, not a bug. This CLOSES the pure-style-alone
+  measurement question definitively (paired with taskdown01-style1-
+  v3's FAIL): task reward supplies "go somewhere", style supplies
+  "look natural", neither alone suffices — exactly the brief's own
+  design, now measured not just read. BUILT the section-5.1 literal
+  minimal task reward as `AMP_MINIMAL_OVERRIDES`
+  (`rl_move/tests/test_task_semantics.py`) with ZERO new production
+  code: it is exactly the plain Gaussian velocity kernel + linear
+  progress (`walk_task.py` `K_WALK`/`SIGMA_V`/`k_walk_prog`) that
+  already fires whenever every SLIPWALK-only key
+  (k_step_event/k_park_duty/k_walk_freeprog/walk_loadslip_gate/
+  k_loadslip_excess/walk_gait_gate/k_walk_idle_charge/k_drag_stance)
+  is left at its off default, plus `reward.term_penalty=400` kept
+  (the real anti-suicide pricing fix, not SLIPWALK-specific).
+  DELIBERATE CHOICE (per the taskdown01-v3 trace bullet above, option
+  2): the legacy `env.compute_reward` posture/height/roll/pitch
+  kernel was left ON, not zeroed — adopted deliberately as the
+  brief's own upright/weak-height regularizer (5.1), eyes open, not
+  by omission. Measured on the 3-seed scripted-twin bank: real travel
+  beats every stationary twin (stall/park/stork/skate) by a modest
+  ~230-250/ep margin (weaker than SLIPWALK's engineered 300+, as
+  expected — no anti-park apparatus by design) and the stationary
+  twins are bunched within ~15 points of each other (near-zero
+  "trying beats refusing" gradient, pinned as a measurement, not
+  patched — style is relied on to supply that gradient, which
+  styleonly-v2/-c1b just proved it can). New tests 4/4 pass; full
+  bank 163 pass / 4 skip / 1 xfail / 1 known-red (pre-existing,
+  unrelated `fastprof`, untouched). CAVEAT CARRIED FORWARD, still
+  untested: the taskdown01-v3 trace bullet's chronic
+  height-tracking-failure confound (a trained policy sitting at
+  50-86mm height error the whole run, independent of reward shape)
+  is NOT ruled out by a scripted-twin bank (twins sit at the correct
+  physical height by construction) — if the new arms below also show
+  chronic `env/height_err_mm` >40mm, root-cause THAT before blaming
+  reward shape again. LAUNCHED (this cycle) the brief's own
+  pre-registered 3-arm task/style sweep on this reward:
+  `cw-amp-m2-sec5-{task70,task50,task30}` (task/style 0.7/0.3,
+  0.5/0.5, 0.3/0.7), from-scratch, teacher_v2 motion lib, same
+  stress_mix command envelope as the retired freeprog family, 2M
+  discovery each.
+- TASKDOWN01-V3 PER-COMPONENT REWARD TRACE, A DESIGN CONSTRAINT FOR
+  THE SECTION-5 REWRITE (08-22, read off `env/*` W&B history, no
+  GPU spent): the legacy `reward.k_track=1.0` attitude/height
+  Gaussian kernel (`env.compute_reward`'s `r_task`, the SAME
+  mechanism the M2 -c1 dig-in blamed for the pre-freeprog frozen-
+  statue exploit) stayed present, UN-ZEROED, in every freeprog-
+  family arm including this one — but it is NOT acting as a standing
+  bonus here: `env/reward_task` collapsed from 0.60 (reset pose) to
+  a pinned 0.03-0.07/tick for the whole run, because
+  `env/height_err_mm` sits at a chronic 50-86mm (sig_h=20mm ->
+  the height factor inside the kernel is ~exp(-16) to exp(-8), i.e.
+  near-zero) — the robot is NOT resting comfortably at the goal
+  stance height; it is stuck low/crouched the entire run and never
+  recovers, and the resulting `env/reward_height` quadratic charge
+  (-0.7 to -0.28/tick) is the SECOND-largest per-tick penalty after
+  `env/reward_walk_freeprog_pen` (-1.4 to -1.5/tick). So the ladder's
+  statue is NOT currently being financed by an active k_track
+  standing-still payoff (that channel is self-defeating here); it
+  coexists with a large, un-diagnosed CHRONIC HEIGHT-TRACKING FAILURE
+  that every arm in the ladder has been silently paying for and never
+  fixed. Two concrete implications for whoever does the section-5
+  redesign: (1) `reward.k_track`/`k_height`/`k_roll`/`k_pitch` (the
+  legacy `env.compute_reward` terms) are NOT bit-exact-off in any M2
+  freeprog arm to date — they still fire every walk tick unless
+  explicitly zeroed, so "drop the SLIPWALK apparatus" must also
+  either zero these or deliberately keep them as the brief's own
+  upright/height regularizer (5.1) with eyes open, not by omission;
+  (2) the chronic height error itself is worth a direct root-cause
+  pass (is the goal height reference reachable from this policy's
+  crouched stance, e.g. a walk-goal height sampled for a taller gait
+  than the sprawled statue can reach, or a genuine height-tracking
+  bug) BEFORE assuming the task-reward SHAPE alone explains the
+  ladder — an untested confound the redesign should rule out first.
 - FREEPROG-EMA REUSE TESTED + REFUTED, ZERO GPU SPENT (08-22): the
   obvious cheap fix — feed `reward.walk_kernel_vel_ema`'s already-
   validated stride-averaged velocity into `walk_freeprog_score`

@@ -1584,4 +1584,72 @@ Entry format (append; newest last; update status in place):
   hardening honestly toward margin (nothing in flight yet — next
   cycles may fund a seed-repro of the stotight45 recipe and/or a
   margin arm ONLY if they name a concrete gap, per no-filler rules).
+- INDEPENDENT CONFIRMATION 08-22 ~17:5x (cycle triaging
+  cw-amp-m2-freeprog-term400-fixedcmd, unrelated primary task):
+  re-ran the SAME `stotight45` checkpoint through
+  `eval_joystick_gate.py` on its own pod with a SECOND held-out seed
+  base (314159 vs the original 90000), full correct cfg replay
+  (bus.write_speed=1500 fast profile + all training cfg-sets —
+  first attempt without the bus profile wrongly read dir_err
+  54deg/slip 4.9-5.2, a self-inflicted eval-cfg bug, corrected and
+  rerun). Result: PASS again, margins slightly BETTER than the
+  first seed base (slip 2.629 vs cap 2.9 [was 2.671]; dir_err 37.89
+  vs allow 40 [was 38.64]; zero falls 48/48; gait_valid 48/48; no
+  sacrificed legs). Two independent held-out seed bases both clear
+  the gate with the correct fast-servo eval cfg — raises confidence
+  this is a real, reproducible pass, not a lucky held-out draw.
+  Evidence: `logs/ckpt_eval/cw_dep_bcgait4_phasedir9_longrun17_stotight45_joygate_seed2/`.
+- ANSWER (operator): _
+
+## q_20260822T1815Z — AMP M2: switch from the SLIPWALK pricing stack to the brief's literal minimal reward? (assume-and-go, cycle c0822-fixedcmd-triage)
+
+- context: 8 from-scratch M2 freeprog arms (noamp/style05-v2/
+  stylew2-v2/fixedcmd-seed{7,11}/swing-{noamp,style05}/rsi1-{noamp,
+  style05b}) have ALL failed the same way — a ~0.03-0.06m/15s
+  statue/shuffle basin, `env/reward_walk_freeprog_pen` flat at -1.4
+  to -1.7/tick from step 0, style income 15-30x smaller. Every arm
+  reused the joystick track's SLIPWALK semantics-bank pricing
+  (k_walk_freeprog, k_loadslip_excess, k_drag_stance=8000,
+  k_walk_idle_charge, walk_anchor_gate, walk_gait_gate) — built for
+  a warm-started BC-refinement regime — instead of
+  `AMP_LOCOMOTION.md` section 5's own specified reward (simple
+  Gaussian velocity/yaw/upright/weak-height task terms, modest
+  regularizers, explicit "do not make stance slip the dominant
+  reward", task/style 70/30 to 30/70 "strong enough the policy
+  cannot ignore it"). Section 2 of the same brief describes this
+  exact stuck signature and names the fix.
+- the question: should the next M2 arm implement the brief's minimal
+  reward literally (dropping the SLIPWALK-derived anti-slip
+  apparatus wholesale) rather than continuing to dose/lever-tune
+  within that stack? This is a bigger structural change than the
+  single-lever tests so far, though still "one reward-architecture
+  change" in spirit.
+- assumed answer (acting on it, but NOT launched yet — flagging as
+  DIG-IN, not executing blind): yes, per the brief's own explicit
+  binding charter ("implement AMP_LOCOMOTION.md" is goal 2 itself,
+  section 5 is not optional guidance). Not launched this cycle
+  because it needs real design care first: the PRE-freeprog "legacy"
+  reward also statued (via a DIFFERENT exploit — frozen half-tripod
+  overpaid by rise_finish/posture/height kernels, the M2 -c1
+  finding) so a naive revert would likely reopen that cheat; the
+  right arm keeps term_penalty=400 (a section-5.4-compatible reward
+  choice, not a termination-condition change) and picks modest
+  regularizers carefully rather than just zeroing every SLIPWALK key.
+- UPDATE 08-22 ~18:2x (measured, not just textual, confirmation):
+  the two measurement arms this question's own diagnosis motivated
+  are both in. `cw-amp-m2-styleonly-v2` (task_weight 0.0, pure AMP
+  imitation) FAILED its own informative bar but proved the style
+  gradient is weakly alive (style_reward_mean 0.06->0.119, first-
+  ever rising `ep_rew_mean` in the family) — yet still statued on
+  video/gate (gait_valid 0/6 both modes). `cw-amp-m2-taskdown01-
+  style1-v3` (task_weight 0.1) then showed even 10% of the SLIPWALK
+  task charges erases that gain (style_reward_mean DROPS to 0.087,
+  reward reverts to declining). Task/style ratio 0.0/0.1/0.5/1.0/2.0
+  now spans the whole accessible range on this reward architecture
+  and every point fails — the dose ladder is exhausted, which is
+  exactly the evidence this question needed: the SLIPWALK apparatus
+  itself, not its weight, is the blocker. Assumed answer STANDS and
+  is now measured: the next M2 arm should be the section-5-literal
+  minimal-reward rewrite. Still not launched (real design work, not
+  a cfg toggle) — next cycle's or a DIG-IN cycle's job.
 - ANSWER (operator): _

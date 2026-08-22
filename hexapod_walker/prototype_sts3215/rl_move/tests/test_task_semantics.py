@@ -1365,6 +1365,169 @@ def test_freeprog_ema_creep_vs_stall_gap_measured(
 
 
 # --------------------------------------------------------------------------
+# AMP-MINIMAL bank (08-22, AMP M2 section-5 reward redesign,
+# q_20260822T1815Z): every from-scratch M2 arm on the SLIPWALK_OVERRIDES
+# anti-slip stack (k_walk_freeprog, k_loadslip_excess, walk_gait_gate,
+# k_walk_idle_charge, k_step_event, k_park_duty — built for BC-warm-
+# started fine-tuning) has failed the same way (a ~0.03-0.06m/15s
+# statue/shuffle basin, freeprog_pen flat at its floor from step 0)
+# across every tested lever (term-penalty, std-anneal, staging,
+# task-complexity, style-dose 0.5x-2.0x, swing, RSI). This same cycle's
+# `cw-amp-m2-styleonly-v2-c1b` (pure style, no task reward at all) DID
+# get the leg-cycling gait_valid up (5/6 det+sto, was 0/6 under every
+# task-mixed arm) but with ~0 net travel and huge slip (~20/m) — a
+# "march in place" degenerate: style alone rewards joint-motion
+# resemblance, never body displacement (an expected AMP limitation,
+# not a bug) — confirming the brief's own design (task reward supplies
+# the "go somewhere" signal, style supplies "look natural"; neither
+# alone suffices) rather than refuting AMP.
+#
+# AMP_LOCOMOTION.md section 5.1 specifies a much smaller task reward
+# than SLIPWALK: a Gaussian velocity-tracking kernel + yaw kernel +
+# upright/height regularizer + modest physical regularizers — no slip
+# gating, no idle-travel charge, no per-stride event bonus. That
+# reward ALREADY EXISTS in this codebase with zero new production
+# code: it is exactly what fires when reward.k_walk_freeprog is left
+# at its default 0 — the Gaussian kernel (K_WALK/SIGMA_V) + linear
+# progress (k_walk_prog) in walk_task.py's walk branch, plus the
+# shared env.compute_reward() posture/gyro/action/current terms every
+# task already gets. AMP_MINIMAL_OVERRIDES is that reward with ONLY
+# reward.term_penalty=400 kept on top (the anti-suicide fix is a real
+# pricing-bug repair — free death — not a SLIPWALK-specific mechanism;
+# see test_slipwalk_toppling_fast_is_not_an_escape) and every
+# SLIPWALK-only key explicitly zeroed, built from scratch (not
+# `dict(SLIPWALK_OVERRIDES)`) so a future edit to that dict can never
+# silently leak in here.
+#
+# MEASURED 08-22 (3 seeds, matches SLIPWALK's own scripted twins):
+# fast +1177.7 (0.43m) > gait +1072.3 (0.27m) > creep +978.2 (0.16m)
+# > stall +841.1 (0.00m) ~= stork +839.0 ~= park +834.8 ~= skate
+# +826.1, topple -380.7 (23 steps). Two honest findings, not just a
+# pass/fail: (1) real travel DOES beat every stationary twin, and
+# monotonically with distance (fast>gait>creep), so the minimal
+# kernel+progress design is directionally sound and the anti-suicide
+# fix transfers cleanly; (2) UNLIKE SLIPWALK's engineered stack, the
+# margin is modest (~230/ep, not the 300+ SLIPWALK requires) and every
+# stationary variant (stall/park/stork/skate) is bunched within ~15
+# points of each other — this reward gives almost NO discovery
+# gradient distinguishing "trying" (stall) from "refusing" (park),
+# the exact gap SLIPWALK's k_step_event/k_park_duty were built to
+# close. That gap is not being patched here: per the brief, the AMP
+# style term is the intended source of that missing "do something
+# coordinated" gradient (already demonstrated this cycle — pure style
+# alone organizes real leg-cycling), so this bank's job is only to
+# confirm the task reward does not actively fight that combination
+# (no stationary cheat beats travel, no suicide escape) before
+# spending GPU on the section-5.2 task/style ratio sweep.
+AMP_MINIMAL_OVERRIDES = {
+    ("reward", "term_penalty"): 400.0,
+    ("goal", "walk_speed_min_m_s"): SLIPWALK_CMD_VX,
+    ("goal", "walk_speed_max_m_s"): SLIPWALK_CMD_VX,
+    ("goal", "walk_heading_max_rad"): 0.0,
+    # Explicit zeros for every SLIPWALK-only lever (belt-and-braces:
+    # these already default to 0/off, but naming them keeps this
+    # dict's provenance self-documenting).
+    ("reward", "k_step_event"): 0.0,
+    ("reward", "k_park_duty"): 0.0,
+    ("reward", "k_walk_freeprog"): 0.0,
+    ("reward", "walk_loadslip_gate"): 0.0,
+    ("reward", "k_loadslip_excess"): 0.0,
+    ("reward", "walk_gait_gate"): 0.0,
+    ("reward", "k_walk_idle_charge"): 0.0,
+    ("reward", "k_drag_stance"): 0.0,
+}
+
+
+@pytest.fixture(scope="module")
+def amp_minimal_returns() -> dict[str, float]:
+    """Mean return per scripted behavior under AMP_MINIMAL_OVERRIDES —
+    the section-5.1 base task reward alone (no AMP style term: style
+    is a policy-side blend the scripted-twin harness never touches).
+    If a plain stall/park/stork ever beat real travel under just the
+    task reward, adding style on top only makes the basin worse (style
+    income is additive everywhere else in this codebase, never a fix
+    for a misranked task reward)."""
+    plan = {
+        "fast": ("gait", 2.0),
+        "gait": ("gait", 1.0),
+        "creep": ("gait", 0.5),
+        "skate": ("skate", 1.0),
+        "stall": ("stall", 1.0),
+        "park": ("park", 1.0),
+        "stork": ("stork", 1.0),
+        "topple": ("topple", 1.0),
+    }
+    out = {}
+    for name, (pol, scale) in plan.items():
+        runs = [_slipwalk_rollout(pol, s, gait_scale=scale,
+                                  overrides=AMP_MINIMAL_OVERRIDES)
+                for s in SEEDS]
+        out[name] = float(np.mean([r[0] for r in runs]))
+        out[name + "_dx"] = float(np.mean([r[1] for r in runs]))
+        out[name + "_steps"] = float(np.mean([r[2] for r in runs]))
+    return out
+
+
+def test_amp_minimal_travel_beats_stationary_behaviors(amp_minimal_returns):
+    """Real forward travel must beat every stationary/sliding twin
+    under the section-5.1 task reward alone. Margin bar (150) is
+    deliberately lower than SLIPWALK's (300): this reward has no
+    anti-slip/anti-park apparatus by design, so a modest edge from the
+    Gaussian kernel + linear progress is the honest expectation, not a
+    wide one (measured 08-22: gait beats stall/park/stork/skate by
+    ~231-246)."""
+    gait = amp_minimal_returns["gait"]
+    for cheat in ("stall", "park", "stork", "skate"):
+        assert gait > amp_minimal_returns[cheat] + 150.0, (
+            f"stationary '{cheat}' is competitive with real walking "
+            f"under the minimal task reward: {amp_minimal_returns}")
+
+
+def test_amp_minimal_more_travel_earns_more(amp_minimal_returns):
+    """Income must rise monotonically with real along-command distance
+    (creep -> gait -> fast), so the kernel+progress design still has a
+    gradient pointing at travelling further, not at settling for a
+    partial gait."""
+    assert (amp_minimal_returns["fast"] > amp_minimal_returns["gait"]
+            > amp_minimal_returns["creep"]), (
+        f"more travel does not earn more: {amp_minimal_returns}")
+    assert (amp_minimal_returns["fast_dx"] > amp_minimal_returns["gait_dx"]
+            > amp_minimal_returns["creep_dx"])
+
+
+def test_amp_minimal_toppling_is_not_an_escape(amp_minimal_returns):
+    """The reused anti-suicide fix (reward.term_penalty=400) must carry
+    over cleanly to the minimal stack: dying fast must sit far below
+    every survival behavior, not just below real walking."""
+    assert amp_minimal_returns["topple_steps"] < 75, (
+        "the topple twin did not die fast; the bank probe is broken: "
+        f"{amp_minimal_returns}")
+    assert amp_minimal_returns["topple"] < amp_minimal_returns["park"] - 300.0, (
+        f"dying fast is competitive with refusing to move under the "
+        f"minimal stack: {amp_minimal_returns}")
+    assert amp_minimal_returns["topple"] < amp_minimal_returns["stall"] - 300.0, (
+        f"dying fast is competitive with stepping in place under the "
+        f"minimal stack: {amp_minimal_returns}")
+
+
+def test_amp_minimal_stationary_variants_are_not_well_separated(
+        amp_minimal_returns):
+    """MEASUREMENT, not a design requirement (08-22): unlike SLIPWALK,
+    this reward gives almost no separation between trying (stall) and
+    refusing (park) — pinned here so a future reader does not have to
+    re-derive it, and so a change that suddenly opens a wide gap here
+    is flagged as a real change to investigate, not silently assumed
+    equivalent. This is exactly why the section-5.2 task/style sweep
+    is treated as an experiment, not a guaranteed win: closing this
+    gap is style's job (proven separately, this cycle, to organize
+    leg-cycling on its own), not this reward's."""
+    gap = abs(amp_minimal_returns["stall"] - amp_minimal_returns["park"])
+    assert gap < 50.0, (
+        "the stall/park gap moved outside the measured band — re-read "
+        f"this test before trusting the docstring: {amp_minimal_returns}")
+
+
+# --------------------------------------------------------------------------
 # HEIGHT bank — the height-keeping income gate (08-10, hardware
 # finding rl_docs/HARDWARE.md "sag": every deployed walk policy
 # migrates to a crouch 54-70 mm below the spawn stance; knees track

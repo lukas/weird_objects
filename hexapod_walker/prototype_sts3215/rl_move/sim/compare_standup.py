@@ -317,6 +317,7 @@ def reset_at_zero(env: SimHexapodBalanceEnv, *,
         apply_params_to_model(env.model, env.params,
                               kp_scale=er.kp_scale, kv_scale=er.kv_scale,
                               torque_scale=er.torque_scale * torque_scale)
+        er.apply_fault_to_model(env.model)  # dr.fault_*, no-op if healthy
     else:
         apply_params_to_model(env.model, env.params,
                               torque_scale=torque_scale)

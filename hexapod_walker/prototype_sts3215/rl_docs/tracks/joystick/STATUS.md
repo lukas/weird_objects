@@ -1,6 +1,162 @@
 # joystick - RL from the programmatic gait to joystick control
 
-Last updated: 2026-08-22 (~17:3x: **DONE GATE PASSED FOR THE FIRST
+Last updated: 2026-08-22 (~19:5x: **CMDMIX LEVER CLOSED — on-
+distribution command training is ANTI-PRODUCTIVE on BC-anchored
+recipes (batch 0/3 PASS, 2 FAIL).** The 3-basin batch (each seed's
+best dose retrained with the gate's own stress_mix command family,
+training rng only) landed on its pre-registered worst branch:
+`cmdmix45-seed13` FAIL (joygate slip 2.407→3.023 over the 2.9 cap,
+dir 36.4→41.26 over the 40 allow), `cmdmix50-seed23` FAIL and worst
+(slip 2.543→3.595, dir 35.31→43.67), `cmdmix55-seed17` INFORMATIVE
+(only evaluator-keeper: pass=true but every margin shrank — slip
+2.515→2.817 w/ own-DR 2.897 grazing the cap, dir 34.97→36.73, 15s det
+prog 0.70→0.55). Zero falls / gait 48/48 on all three — pure margin
+regression, reward rose on all three while gates worsened: the
+distribution change itself is the misalignment (mid-episode churn
+fights the BC anchor); emergent transfer from fixed-command training
+already beats practicing the transitions. No continuation, lever
+CLOSED (4th arm `cmdmix45-seed29` FINISHED ~19:5x: FAIL, joygate
+slip 3.043>2.9 / dir 39.45, zero falls, same pure margin regression —
+batch FINAL 0/4 PASS, 3 FAIL / 1 INFORMATIVE). **CHAMPION UNCHANGED:
+stotight45-seed13 (slip 2.407/dir 36.4).** With dose ladder, ramp,
+loadslip family, anneal-continue, and now command-mix all measured-
+closed, no untried margin lever remains on this lineage; DONE-gate
+pass stands reproduced 4/4 seeds, formal gate-green awaits operator
+ack (q_20260822T1730Z). Prior banner below.)
+
+Previous entry (~19:4x: **MEASURED-PLANT GATE BREAK stance
+half CLOSED.** The corrected-cfg tibia-150 session-gate rerun flagged
+by the `plant150-3-rsifix` PASS is done: rsifix stance x
+`cw-dep-bcgait1-plant150-1` walk (`actions.max_height_mm=137`,
+`bus.servo_params=loaded`) passes ALL hard gates — no falls (the
+prestage's rise over_current FELL was the default harness pairing
+vref1_r1 + stale cfg, not the checkpoint), rise 170.3 mm, sit
+descends — plus 5/7 soft incl. fwd_heading 8.8 deg (plant150-1's own
+earlier -10.6 miss now clean with this partner); only
+track_right/track_back miss, the documented all-model weakness.
+Strip watched: clean rise/cruise/sit/re-stand. Evidence:
+`logs/ckpt_eval/rsifix_plant150pair_session_corrected/`. The
+tibia-150 download pair = rsifix + plant150-1, both halves
+session-clean on hard gates. Prior banner below.)
+
+Previous entry (~19:3x: **STOTIGHT DOSE SEARCH COMPLETE — all four
+verdicts in, ladder closed, champion final.** The two in-flight reads
+landed: `stotight60` (seed17 × -6.0) INFORMATIVE — KNEE FOUND,
+margins regress well beyond noise (slip 2.515→2.823, dir 34.97→37.68,
+own-DR slip 2.873 grazing the cap) though the evaluator still passes
+and det holds (0.70/2.01); seed17's endpoint is -5.5.
+`stotight55-seed13` INFORMATIVE — dose and basin do NOT stack (slip
+2.407→2.594, dir 36.4→39.72, own-DR-alone dir 40.4); with
+stotight50-seed13 this brackets seed13's knee AT -4.5. **CHAMPION
+CANDIDATE FINAL: seed13@-4.5 (`stotight45-seed13`, slip 2.407/dir
+36.4).** Per-seed knees: seed13→-4.5, seed17→-5.5, seed23→-5.0,
+seed29→-4.5. No further stotight arms. Also cleaned a stale triage
+leak: `phasedir9-seed42` (old -3.2-era seed arm) FAIL,
+reward-collapsed, question superseded. **NEXT LEVER LAUNCHED (Next
+item 5, 3-arm batch, ~19:2x): `cmdmix45-seed13` / `cmdmix55-seed17` /
+`cmdmix50-seed23`** — every passer trained on ONE fixed forward
+command yet is graded on turns/stops/reverses; these train each
+best-per-seed recipe on the gate's own command family
+(walk_cmd_mode=stress_mix, resample 4.0s ±0.5, training rng only,
+held-out gate seed base 90000 untouched). Pre-registered batch read:
+3/3 PASS = general lever; 1/3 = basin lottery again; FAILs = command
+churn breaks the BC-anchored basin. Prior banner below.)
+
+Previous entry (~19:1x: **DOSE TRANSFER SPLIT — the -5.0
+rung CLOSES seed23's gap but WORSENS seed29's.** `stotight50-seed23`
+VERDICTED PASS on its pre-registered bar: joygate slip 2.543/dir
+35.31° (vs seed23@-4.5's 39.4°), own-DR-alone dir 36.94° — the 40.36°
+over-allowance gap that motivated the arm is closed by 3.4°; 0
+falls/48, gait 48/48, no det trade (15s DR-0 det prog 0.69/slip
+1.80), clean six-leg sheet. `stotight50-seed29` VERDICTED
+INFORMATIVE: evaluator still passes (0 falls/48, gait 48/48) but slip
+went the WRONG way — combined 2.748 vs its -4.5 reading 2.704, own-DR
+sto slip 2.986 over the 2.9 cap on that pass alone, det weakest of
+the batch (0.63/2.31). Reward rose and converged on both — honest
+basin answers. **Conclusion: dose response is seed-basin-specific and
+does NOT track gap type** (seed23's dir gap closed; seed29's slip gap
+widened). Per-seed bests now fully mapped: seed13@-4.5 (CHAMPION
+CANDIDATE, slip 2.407/dir 36.4), seed17@-5.5 (best dir 34.97),
+seed23@-5.0 (slip 2.543/dir 35.31), seed29@-4.5 (slip 2.704). Blanket
+per-seed dose sweeps are DONE — no further stotight dose arms except
+the two in-flight reads (`stotight60` knee search, `stotight55-seed13`
+stack test; evals running ~19:1x). Prior banner below.)
+
+Previous entry (~18:5x: **THE DOSE LADDER IS SEED-SPECIFIC —
+`stotight50-seed13` (best basin seed13 × -5.0) VERDICTED INFORMATIVE:
+still passes the 60s DONE-gate (0 falls/48, gait 48/48, clean six-leg
+video) but with WORSE margins than seed13's own -4.5 reading — slip
+2.407→2.63, dir 36.4→38.21 (own-DR slip 2.763/dir 39.59); the
+pre-registered PASS bar (slip ≤ 2.407) was missed and even the
+INFORMATIVE ceiling (2.569) exceeded. Det did NOT soften (15s DR-0
+det prog 0.79/slip 1.61, strong) and reward rose all run — reward and
+gate agree; the -5.0 rung's gains are seed17-basin-specific, not
+universal. **Champion candidate unchanged: seed13@-4.5 (slip
+2.407/dir 36.4) keeps the fattest margins.** Follow-up batch
+launched: `stotight50-seed23` / `stotight50-seed29` — does the deeper
+floor transfer to the two seeds holding the named hardening gaps
+(seed23 own-DR-alone dir 40.36; seed29 own-DR slip 2.736), or is the
+ladder purely a seed17 phenomenon? Prior banner below.)
+
+Previous entry (~18:4x: **LADDER STILL PAYING AT -5.5 —
+`stotight55` (seed17, log-std-final -5.0→-5.5, final std ~0.004)
+VERDICTED PASS on the 60s joystick session gate with the BEST
+direction-following of any passer: slip 2.515 (parent 2.569), dir
+34.97° (parent 38.02°, near the teacher floor ~35), own-DR pass slip
+2.542/dir 33.7, 0 falls/48, gait 48/48, no sacrificed legs; det
+improved yet again (15s DR-0 det prog 0.74/slip 1.63 vs parent
+0.69/1.72) — five monotone rungs (-3.6/-4.0/-4.5/-5.0/-5.5) and the
+det trade has never materialized past -4.5. Slip step is shrinking
+(-0.102 → -0.054/rung) but the 3° dir jump is well outside the prior
+rung's 0.6° step — not saturated. Follow-ups launched per the PASS
+branch: `stotight60` (seed17, -6.0 — knee search continues) and
+`stotight55-seed13` (best basin × this dose — champion-candidate
+margins; seed13@-5.0 still training on train-4). Prior banner
+below.)
+
+Previous entry (~18:2x: **DEEPER NOISE FLOOR WIDENS EVERY
+MARGIN — `stotight50` (seed17, log-std-final -4.5→-5.0) VERDICTED
+PASS on the 60s joystick session gate: slip 2.569 (parent 2.671),
+dir 38.02° (best of any passer), own-DR slip 2.623 (vs 2.736), 0
+falls/48, gait 48/48; and the feared det-progress trade did NOT
+appear — 15s det prog 0.69/slip 1.72 vs parent 0.65/1.83, det
+IMPROVED. Dose ladder -3.6/-4.0/-4.5/-5.0 still monotone. Follow-ups
+launched per the gate's own PASS branch: `stotight55` (seed17,
+-5.5 — find the knee) and `stotight50-seed13` (best-basin seed ×
+deeper dose — fattest-margin champion candidate, target slip <
+seed13@-4.5's 2.407). Prior banner below.)
+
+Previous entry (~18:1x: **DONE-GATE PASS REPRODUCES ON
+EVERY TESTED SEED — recipe 4/4, seed-robustness question CLOSED.**
+`stotight45-seed13` and `-seed29` both VERDICTED PASS on the full
+60s randomized joystick session gate, completing the n=4 sample:
+seed17 (original) slip 2.671 / dir 38.6; seed23 2.78 / 39.4; seed13
+2.407 / 36.4 (widest margins of any passer); seed29 2.704 / 39.05.
+All four: pass=true, 0 falls/48, gait_valid 48/48, no sacrificed
+legs, videos watched det+sto both DR (clean upright six-leg gait);
+training reward rose all run with std annealed to 0.011 on every
+seed — reward and gate agree everywhere. Seeds 13 and 29 were the
+lineage's two historically WORST basins at the -3.2 dose (1/4 pass
+rate there) — the -4.5 noise floor converted a seed lottery into a
+reproducible recipe; recipe property, not seed luck. The
+seed-reproduction bar implied by q_20260822T1730Z is met; formal
+gate-green + champion promotion remain operator-confirmed. Honest
+residual margin gaps if the operator wants hardening: own-DR sto
+margins (thinnest: seed29 slip 2.736/2.9, dir 39.4/40; seed23
+own-DR-alone dir 40.36 a hair over on its own) and the 15s-rung det
+progress trade (~0.85x clone) shared by the -4.5 passers. Prior
+banner below.)
+
+Previous entry (~17:5x: **THE DONE-GATE PASS REPRODUCES ON
+A SECOND SEED** — `cw-dep-bcgait4-phasedir9-stotight45-seed23`
+(identical stotight45 recipe, only seed 17→23) VERDICTED PASS on the
+full 60s randomized joystick session gate: pass=true, 0 falls 48/48,
+gait_valid 48/48, no sacrificed legs, slip 2.78 (cap 2.9), dir 39.4°
+(allow 40); clean six-leg video at both DR scales. Margins thinner
+than seed17 (own-DR-alone dir median 40.36°, a hair over the
+allowance on its own; combined gate passes).)
+
+Previous entry (~17:3x: **DONE GATE PASSED FOR THE FIRST
 TIME** — `cw-dep-bcgait4-phasedir9-longrun17-stotight45` (fresh
 reinit of the longrun17 recipe, only `--log-std-final` -3.2 -> -4.5,
 final std 0.011) passes the full randomized 60s joystick session

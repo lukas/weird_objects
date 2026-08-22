@@ -1,6 +1,245 @@
 # amp - AMP locomotion from scratch
 
-Last updated: 2026-08-22 (STYLE-DOSE LEVER CLOSED: both clean-lib
+Last updated: 2026-08-22 ~19:0x (MECHANICAL NOTE on the entry below:
+this cycle found the section-5 bank + STATUS text already drafted in
+the shared working tree by a concurrent cycle, but ledger/backlog had
+ZERO matching entries and all 12 GPUs were idle — the actual
+`launch_run.py launch` calls for `cw-amp-m2-sec5-{taskA,taskB,taskC}`
+had not yet executed. Snapshotted the shared tree (commit `cc53f4b1`,
+includes the AMP_MINIMAL_OVERRIDES bank + this doc's own draft) and
+ran the 3 launches exactly as pre-registered below, PLUS a 4th arm
+this cycle added for a real (not just scripted-twin) task-only
+baseline: `cw-amp-m2-sec5-noamp` (identical minimal reward, zero AMP
+flags, train-9) — isolates what the section-5 task reward alone buys
+before crediting style for any improvement. All 4 verified RUNNING
+(taskA/B/C on train-0/4/8, noamp on train-9); taskA/B/C are 2M-step
+arms and finish in ~2-3 min at this fps, so by the time this is read
+they may already be FINISHED and awaiting the watcher's prestage —
+ledger status was hand-corrected INTENT->RUNNING immediately after
+each launch (the multi-launch batch exceeded this cycle's tool-call
+time budget mid-verification) so the watcher's finish-detection scans
+them correctly instead of stranding them the way the 08-22 16:18
+stotight grid got stranded. Two harmless REFUSED artifacts from this
+cycle's own independent (pre-discovery) attempt at the identical idea
+under the name `cw-amp-m2-min5-noamp` are in the ledger — superseded
+by `cw-amp-m2-sec5-noamp` above, no action needed on them.
+
+Previous entry (~18:5x, MEASUREMENT ARMS CLOSED, SECTION-5
+REWARD BUILT+BANK-TESTED, A/B/C GRID LAUNCHED: `cw-amp-m2-styleonly-
+v2-c1b` (the +10M pure-style continuation) VERDICTED FAIL —
+`amp/style_reward_mean` plateaued (quarter means 0.10/0.20/0.16/0.15,
+never sustained above the 0.3 pass bar) but DR-0 gate gait_valid
+jumped to 5/6 det+sto (was 0/6 for the parent stork statue) and video
+shows genuine multi-leg cyclic stepping, not a frozen pose — a
+march-in-place/leg-twitch degenerate (fwd 0.02-0.03m/15s, slip
+16-21/m): style organizes coordinated leg motion but has ZERO
+incentive to convert it into displacement (an AMP-standard
+limitation — the 60-dim single-tick feature set is body-frame-
+relative, so a translating and a non-translating gait look identical
+to the discriminator absent slip). Paired with taskdown01-style1-v3's
+FAIL, this CLOSES the pure-style-alone measurement question: task
+reward must supply the "go somewhere" signal, style supplies "look
+natural" — neither alone suffices, exactly per brief section 5, not
+a discriminator defect. BUILT + BANK-TESTED the section-5.1 literal
+minimal task reward (`AMP_MINIMAL_OVERRIDES`,
+`rl_move/tests/test_task_semantics.py`, 4/4 new tests; full bank
+163 pass / 4 skip / 1 xfail / 1 known-red — the sole red is the
+pre-existing unrelated `fastprof` item, untouched): needed ZERO
+new production code — it is exactly the plain
+Gaussian velocity kernel + linear progress (`walk_task.py`'s
+`K_WALK`/`SIGMA_V`/`k_walk_prog`) that already fires whenever the
+SLIPWALK anti-slip stack (freeprog/loadslip/idle-charge/gait-gate/
+step-event) is left at its off-by-default state, plus
+`reward.term_penalty=400` (the real anti-suicide pricing fix, kept —
+not SLIPWALK-specific). Measured 3-seed scripted-twin bank: real
+travel beats every stationary twin by a modest ~230-250/ep margin
+(weaker than SLIPWALK's engineered 300+, as expected with no
+anti-park apparatus) and stall/park/stork/skate are all bunched
+within ~15 points of each other (near-zero "trying beats refusing"
+gradient, pinned as a measurement not patched — style is relied on
+to supply that gradient, which styleonly-v2/-c1b just proved it can).
+LAUNCHED (this cycle) the brief's own pre-registered 3-arm task/style
+sweep on this reward — `cw-amp-m2-sec5-{taskA,taskB,taskC}`
+(task/style 0.7/0.3, 0.5/0.5, 0.3/0.7), from-scratch, teacher_v2 lib,
+2M discovery, same stress_mix command envelope as the retired
+freeprog family for comparability. Prediction-if-true (any arm):
+gait_valid climbs on real six-leg motion AND fwd travel clears
+~0.10m/15s with slip in a sane band — the section-5 reward is the M2
+fix. Prediction-if-false: same statue/march basin — the from-scratch
+exploration problem is deeper than reward shape (task restructuring
+or BC-pretrain phase becomes the next real lever, not further reward
+tuning). **taskA VERDICTED FAIL 08-22 (~19:2x, task/style 0.7/0.3)**:
+fires the prediction-if-false branch — DR-0 gate det gait_valid 0/6
+(legs [3,5] sacrificed), prog_ratio 0.02, slip/m 9.41, dir_err
+68.7deg; sto gait_valid 4/6 but slip/m 15.20, dir_err 77.1deg,
+prog_ratio 0.03, only 3/6 settled; video shows a crouched near-static
+pose shuffling legs with no net translation, same march-in-place
+basin as every prior M2 arm. Training reward DECLINED every quarter
+(-39.3/-44.6/-72.5/-74.2, not the 08-21 rising-reward case): the
+mechanism trace shows `env/height_err_mm` jumping 5.8->87.7mm in Q1
+(policy actively crouches away from the upright target as soon as
+training starts) and only partially recovering to 58.5mm by 2M;
+`amp/style_reward_mean` rose slowly (0.009->0.106, disc healthy,
+d_real 0.78/d_fake -0.95, unsaturated) but a 0.3 style weight is too
+thin a share of the blend to rescue the crouch. taskB's early peek
+(0.5/0.5) shows the identical pattern (det gait_valid 3/6 legs[0,4]
+sacrificed, sto gait_valid 6/6 but slip 13.88/dir 76.1, still no net
+travel) — 2 of 4 grid arms now confirm the same basin regardless of
+task/style ratio; taskC/noamp (owned by a concurrent cycle) still to
+land before the joint grid conclusion. Previous update ~18:2x
+retained below (TASK/STYLE DOSE
+LADDER CLOSED on the
+SLIPWALK-derived reward architecture: `cw-amp-m2-taskdown01-style1-v3`
+(task_weight 0.1, the joint twin to styleonly-v2) VERDICTED FAIL —
+reward DECLINING every quarter (-2.4/-30.4/-69.2/-85.2, opposite of
+styleonly-v2's rise) and `amp/style_reward_mean` 0.087, actually
+LOWER than styleonly-v2's pure-style 0.119 — even 10% of the SLIPWALK
+task charges re-buries the fragile style gradient. DR-0 gate ticked
+up slightly (det gait_valid 1/6, sto 3/6, vs styleonly's 0/6 both)
+but video/contact-sheet is still the same near-static splayed statue,
+legs [1,3,5] sacrificed. Every task/style ratio on this reward
+architecture (0.0/0.1/0.5/1.0/2.0, spanning noamp through pure-style)
+has now failed — this CLOSES DOSE-TUNING as a lever on the SLIPWALK-
+derived stack entirely; the diagnosis in q_20260822T1815Z (the
+reward ARCHITECTURE — not its task/style ratio — is the wrong shape
+for a from-scratch AMP actor) is now measured, not just textual. NEXT
+REAL ARM (not yet launched, needs design care per the DIG-IN note
+below): a clean-slate implementation of `AMP_LOCOMOTION.md` section
+5.1-5.4's own minimal Gaussian-velocity/yaw/upright task reward + a
+dominant-enough style weight, dropping the SLIPWALK freeprog/
+loadslip/drag-stance/idle-charge/anchor/gait-gate apparatus wholesale
+— no more task/style ratio arms on the current stack until that
+redesign is tried.)
+
+Previous update ~18:2x (STYLEONLY-V2 VERDICTED FAIL, not a
+continuation — the podeval videos/gate the previous entry was
+waiting on are in: DR-0 gate + fresh eval contact sheet both show
+the SAME frozen-tripod statue signature as every prior M2 arm
+(gait_valid 0/6 det AND sto, legs [1,3,5] — the OTHER tripod from
+the swing/RSI family's [0,2,4] — sacrificed/frozen, speed
+~0.006-0.025 m/s, prog_ratio ~0.00); training video (2 late rollouts)
+shows the identical splayed near-static pose the whole clip, no
+cyclic motion. Per the video-overrides-scalar rule this is FAIL, not
+UNDERTRAINED-continue, despite the monotonically rising reward: the
+rising income bought a MARGINALLY more discriminator-plausible
+static/near-static pose (0.06->0.119 style_reward_mean, still <0.3
+informative bar), not progress toward real six-leg cycling — the
+same shape as every other M2 statue, just a different tripod frozen.
+Genuinely informative, though: the discriminator gradient is
+confirmed alive/unsaturated (d_real 0.79/d_fake -0.96) even at zero
+task competition, ruling out total AMP-mechanism failure — the style
+channel is just too weak/slow at this budget to organize six-leg
+coordination on its own. Retried its REFUSED twin (code-sync race,
+0 steps trained) as `cw-amp-m2-taskdown01-style1-v3` (task_weight
+0.0->0.1), now RUNNING on train-0 to complete the pre-registered
+joint read before deciding between GP/disc-tuning, much longer
+style-only budget, or the section-5 minimal-reward rearchitecture
+(q_20260822T1815Z).
+
+Previous update ~18:1x (RSI-FOR-WALK LEVER CLOSED: both
+`cw-amp-m2-freeprog-term400-rsi1-{noamp,style05b}` FAIL —
+`goal.walk_gait_start_frac=0.5` mid-gait spawn does not unlock
+sustained locomotion on the current freeprog+term400 pricing either
+[confirms `cw-gait-rsi1`'s 08-11 finding on the new stack]. Det fwd
+travel nominally rose to 0.046-0.058m [vs the ~0.03m statue ceiling]
+but `gait_valid` REGRESSED to 0/6 [worse than every reward-side arm,
+3-5/6] with 2-3 legs consistently near-frozen — reads as an RSI
+RESET ARTIFACT [coast on the seeded head start, then collapse into a
+partial-leg-drag], not real sustained six-leg walking. Style added
+nothing on top of RSI either. ep_rew_mean fell every quarter both
+arms — genuine flat-reward FAILs. This CLOSES EVERY ACCESSIBLE-
+GRADIENT LEVER tried for the M2 freeprog statue basin so far
+[term-penalty, std-anneal, staging, task-complexity, style-dose,
+swing, RSI — reward-side AND initial-state] — the basin is an INCOME
+problem, not a discovery-only one. NEXT (untested): task
+restructuring [shorter/denser episodes, or a whole-episode net-
+displacement score instead of per-tick cross-track charges] or a
+short BC-pretrain phase on the motion library before RL, still
+consistent with the "demo is training data" charter — not another
+coefficient/gradient-source/reset-state tweak. FLAGGED CANDIDATE
+ROOT CAUSE (not yet tested, DIG-IN item, see CURRENT_TRUTHS for full
+detail): every M2 freeprog arm reused the JOYSTICK track's harsh
+SLIPWALK anti-slip pricing stack instead of `AMP_LOCOMOTION.md`
+section 5's own specified reward (simple Gaussian velocity/yaw/
+upright/weak-height task reward, modest regularizers, "do not make
+stance slip the dominant reward", task/style 70/30-30/70) —
+`env/reward_walk_freeprog_pen` sits flat at -1.4 to -1.7/tick,
+~15-30x the realized style income, in every arm. Section 2 of the
+brief describes this EXACT failure signature (paddle-creep/
+dragging/reward-exploits from an under-specified task reward) and
+names the fix as simple-task-reward + dominant-style, which M2 has
+never actually implemented. A clean-slate brief-literal reward arm
+is the next real experiment, but needs careful design (which modest
+regularizers prevent reopening the OLDER pre-freeprog freeze cheat)
+before training. See CURRENT_TRUTHS for full detail; earlier 08-22
+history retained below this line.
+
+MEASUREMENT ARMS FOR THAT REDESIGN, LAUNCHED ~18:0x (same cycle
+that verdicted rsi1-noamp): before writing the section-5 reward,
+directly measure whether the style gradient is learnable AT ALL and
+where the task/style burial threshold sits — `cw-amp-m2-styleonly-v2`
+(task 0.0 / style 1.0, teacher_v2, pure imitation, no task income or
+charges; canonical AMP pretraining) and `cw-amp-m2-taskdown01-
+style1-v3` (task 0.1 / style 1.0 — first arm ever with style
+capacity ~6x the task charge floor; v3 = launcher self-repair retry
+of a code-sync REFUSED v2, identical config). FIRST READING,
+styleonly-v2 (FINISHED, 2M): amp/style_reward_mean climbed 0.06 ->
+0.119 — 2x the 0.05-0.07 band every buried arm was pinned at, still
+below the 0.3 INFORMATIVE bar, but ep_rew (pure style income) rose
+MONOTONICALLY all four quarters (14.2/21.9/30.3/37.8) with no
+plateau and the discriminator stayed unsaturated (d_real 0.79 /
+d_fake -0.96) — the style gradient IS alive without task
+competition. VERDICTED INFORMATIVE ~18:1x after harness+video:
+the behavior earning that income is a half-tripod STORK STATUE
+(legs 1,3,5 sacrificed in all 12 episodes, one front leg raised
+waving, fwd 0.02m/15s, prog ~0) — static pose resemblance, not
+cyclic motion. Since the gate metric here IS the reward and it was
+still rising at budget end (~1.3 ep/env), CONTINUED +10M as
+`cw-amp-m2-styleonly-v2-c1b` (policy + disc warm-started,
+acquisition): style >=0.3 + cyclic multi-leg motion => M2 fix is
+income rebalancing (feeds q_20260822T1815Z); plateau <=0.2 with the
+stork persisting => the 60-dim single-step transition feature set
+rewards static poses too well — dig-in goes to discriminator
+feature/temporal-horizon design, not pricing.)
+
+Previous update, 2026-08-22 ~18:0x (K_WALK_SWING LEVER CLOSED: both
+`cw-amp-m2-freeprog-term400-swing-{noamp,style05}` FAIL, landing in
+the SAME ~0.03m/15s statue-family ceiling as every prior arm
+[noamp/style05-v2/stylew2-v2/fixedcmd] — the swing-completion bonus
+was bank-verified (11/11) to rank real gait > shuffle > stall but at
+dose 1.0 its realized income stayed pinned ~0.05-0.06/tick, an order
+of magnitude below freeprog_pen's flat -1.4 to -1.5/tick, so it never
+moved a from-scratch PPO run out of the pre-existing basin — same
+failure shape as the style-dose lever. Video: NOT a clean tripod —
+duty cycle heavily imbalanced across legs (one leg duty~0.99, another
+~0.02-0.19) despite every leg registering nonzero swing_count, close
+to the bank's pre-registered "shuffle" cheat shape (farm swing events
+without organizing locomotion). ep_rew_mean fell every quarter in
+both arms (genuine flat/declining FAIL, not continue-longer). Style
+added nothing on top of swing either (noamp/style05 stats
+indistinguishable). This CLOSES THE WHOLE REWARD-SIDE LADDER for the
+M2 freeprog statue basin: term-penalty, std-anneal, staging, task-
+complexity/fixedcmd, style-dose (0.5x-2x), and now swing have all
+failed the identical way — a real, bank-verified income channel that
+is simply too small to out-bid the basin's incumbent local optimum
+at 2M/from-scratch budget. FOLLOW-UP (launched same cycle, first
+non-reward lever): `cw-amp-m2-freeprog-term400-rsi1-{noamp,style05b}`
+switches from pricing to the INITIAL STATE — `goal.walk_gait_start_
+frac=0.5` spawns half of episodes mid-stride in the scripted teacher's
+own tall walking pose (built-in RSI-for-walk mechanism, `cw-gait-
+rsi1`'s own lever) so PPO only has to SUSTAIN a gait it starts inside
+of, not discover one from a static crouch. This exact lever was
+tried once before (`cw-gait-rsi1`, 08-11) but on a stack that
+predates freeprog/term400 pricing entirely and was refuted with the
+same freeze signature — untested on the current pricing. If RSI also
+fails, the basin reads as INCOME-not-DISCOVERY after all and every
+accessible-income-channel idea (dose or gradient-source) is closed
+for this family; a genuinely different mechanism (task restructuring
+or a short BC-pretrain phase before RL, still consistent with the
+track's "demo is training data" charter) becomes the next thing to
+try, not another reward coefficient.)
+
+Previous update, 2026-08-22 (STYLE-DOSE LEVER CLOSED: both clean-lib
 style arms `-style05-v2` (0.5/0.5) and `-stylew2-v2` (2.0/1.0) FAIL,
 statistically indistinguishable from the -noamp control and from
 each other — the AMP-style-income route is refuted at 2M discovery
@@ -219,6 +458,37 @@ Build every tool this needs; do not pause on operator input.
 - M5 MuJoCo transfer (= DONE gate): NOT STARTED
 
 ## Now
+
+**08-22 ~20:0x — FAULT INJECTION BUILT + TESTED (M0 checklist "fault
+injection works"; M4 prerequisite; last confirmed-not-started M0
+item besides the push curriculum's random-direction extension).**
+`dr.fault_*` per-joint fault injection per brief §8: with
+`dr.fault_prob` (default 0.0 = OFF, guarded draw, legacy rng stream
+bit-exact) an episode carries ONE fault drawn from `dr.fault_mix` —
+weakened joint (`fault_weak_scales` 0.7/0.4/0.2/0.0 strength on
+kp+torque; 0.0 = dead servo free-swinging on its kv backdrive),
+frozen joint (actuator force zeroed + `FROZEN_DOF_DAMPING=500`
+viscous lock — measured creep 0.05 rad/2 s under a worst-case
+drop-settle load, stable), or disabled leg (3 joints dead).
+Implementation is PURE MjModel field edits applied after
+`apply_params_to_model` at all three DR sites (sim_env private
+model, `ModelDrScratch.rows_for` for both batched/sharded MJX vec
+envs, compare_standup probe); every touched field
+(actuator_gainprm/biasprm/forcerange, dof_damping) is already in
+`MODEL_DR_FIELDS`, so the per-world model-DR upload carries faults
+to the GPU stacks with ZERO stepper changes. §8.2 health vector
+available as `EpisodeRandomization.fault_health()` (18-dim, 1
+healthy / strength / 0 dead-frozen) — actor-obs wiring is M4 work,
+not done on purpose. Bank: `rl_move/tests/test_fault_injection.py`
+10/10 (default-off no-op + rng-stream guard, per-row edit scoping,
+mode/joint sampling validity, scaled() prob-not-dose convention,
+health vector, CPU env end-to-end with `--cfg-set dr.fault_prob=1`);
+regression `test_sim_env.py`+`test_physics_ease.py` 52/52,
+`test_struct_compliance.py` 6/6. First training use should ride a
+2M smoke arm per new-mechanism discipline. Eval-side fault cases
+(M4/M5 gates) need no new harness: `eval_checkpoint.py --cfg
+dr.fault_prob=...` reaches it through the existing dr.* override
+loop.
 
 08-22 audit of the shared MJX/Warp stack against the M0 checklist
 (§17 item 1: reuse before building) found more already reusable than
