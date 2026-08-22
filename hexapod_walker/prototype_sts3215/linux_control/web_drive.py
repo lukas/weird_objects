@@ -127,7 +127,7 @@ HTTPS_PORT = None   # actual HTTPS port that bound (443 if privileged, else 8443
 # on a browser reload without restarting the server.
 WEBUI_DIR = HERE / "webui"
 PAGE_PATHS = ("/", "/index.html", "/debug", "/motors", "/demos",
-              "/dance", "/quad", "/rl", "/experiments", "/measure",
+              "/dance", "/rock", "/quad", "/rl", "/experiments", "/measure",
               "/calibrate")
 # Exact whitelisted names only -- no generic static-dir handler, so nothing
 # else on disk is reachable (path-traversal safety).

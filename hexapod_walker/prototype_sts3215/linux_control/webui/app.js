@@ -1076,10 +1076,10 @@ $('dbgtestall').onclick = dbgTestAll;
 $('dbgteststop').onclick = ()=>{ dbgTestAbort = true; cmd('C'); showSent('C'); dbgStatus('Stopping…'); };
 
 // --- tab switching ----------------------------------------------------------
-const VIEWS = ['drive','motors','demos','dance','quad','rl','experiments',
-               'measure','calibrate','debug'];
+const VIEWS = ['drive','motors','demos','dance','rock','quad','rl',
+               'experiments','measure','calibrate','debug'];
 const TAB_TITLES = {drive:'Drive', motors:'Motors', demos:'Demos',
-                    dance:'Dance', quad:'Quad', rl:'RL',
+                    dance:'Dance', rock:'Rock', quad:'Quad', rl:'RL',
                     measure:'Measure', calibrate:'Calibrate', debug:'Debug'};
 function showView(which){
   activeView = which;
@@ -1110,6 +1110,7 @@ function showView(which){
     $('dancespeed').value = $('dspeed').value;   // stay in sync with Demos
     $('dancespeedlab').textContent = demoSpeed().toFixed(2);
   }
+  else if(which === 'rock'){ refreshDemoStatus(); startDemoPoll(); }
   else stopDemoPoll();
   if(which === 'calibrate'){
     if(servosArmed){ cmd('HOLD'); forceResend(); }
@@ -1125,6 +1126,7 @@ $('tab-drive').onclick = ()=> showView('drive');
 $('tab-motors').onclick = ()=> showView('motors');
 $('tab-demos').onclick = ()=> showView('demos');
 $('tab-dance').onclick = ()=> showView('dance');
+$('tab-rock').onclick = ()=> showView('rock');
 $('tab-quad').onclick = ()=> showView('quad');
 $('tab-rl').onclick = ()=> showView('rl');
 $('tab-experiments').onclick = ()=> showView('experiments');
@@ -2685,7 +2687,7 @@ function startDemoPoll(){
   // Status every 0.5s; zero probe every 2s (bus read — don't spam while demoing).
   demoTimer = setInterval(()=>{
     if(activeView!=='demos' && activeView!=='dance'
-       && activeView!=='quad') return;
+       && activeView!=='rock' && activeView!=='quad') return;
     demoPollN++;
     refreshRobotState(demoPollN % 4 === 0);
   }, 500);
@@ -2717,6 +2719,8 @@ function paintDemoStatus(d){
   // Mirror onto the Dance tab's status line (same payload, own ids).
   const del = $('dancestatus');
   if(del){ del.textContent = el.textContent; del.className = el.className; }
+  const rel = $('rockstatus');
+  if(rel){ rel.textContent = el.textContent; rel.className = el.className; }
   const detail = $('dstatusdetail');
   if(detail){
     const bits = [];
@@ -2734,6 +2738,8 @@ function paintDemoStatus(d){
     detail.textContent = bits.length ? (' · '+bits.join(' · ')) : '';
     const ddet = $('dancestatusdetail');
     if(ddet) ddet.textContent = detail.textContent;
+    const rdet = $('rockstatusdetail');
+    if(rdet) rdet.textContent = detail.textContent;
   }
   const telemEl = $('dtelem');
   if(telemEl){
@@ -2941,6 +2947,60 @@ $('dancespeed').oninput = ()=>{
   $('dancespeedlab').textContent = demoSpeed().toFixed(2);
   $('dspeed').oninput();                       // live-push if a show runs
 };
+
+// --- Rock tab: the rocking-chair seesaw, reusing the demo machinery ---------
+// Own speed slider (NOT the shared demo speed): the rock's tempo window is
+// sim-verified at 0.75x-1.5x — outside it the presses miss the floor (fast)
+// or the rock gets violent (slow).
+function rockSpeed(){ return Math.max(0.75, Math.min(1.5, (+$('rockspeed').value)/100)); }
+let rockSpeedTimer = null;
+$('rockspeed').oninput = ()=>{
+  $('rockspeedlab').textContent = rockSpeed().toFixed(2);
+  if(!(lastDemo && lastDemo.running && lastDemo.name === 'rock')) return;
+  if(rockSpeedTimer) clearTimeout(rockSpeedTimer);
+  rockSpeedTimer = setTimeout(async ()=>{
+    rockSpeedTimer = null;
+    try{
+      const r = await fetch('/api/demo/speed',{method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({speed: rockSpeed()})});
+      const j = await r.json();
+      if(j.ok && j.running) showSent('live speed → '+j.speed.toFixed(2)+'×');
+    }catch(e){}
+  }, 150);
+};
+$('rockstart').onclick = async ()=>{
+  let item = {name:'rock'};
+  try{   // hub mode annotates items with their target (robot vs sim)
+    const r = await fetch('/api/demos'); const d = await r.json();
+    item = (d.demos||[]).find(it=> it.name==='rock') || item;
+  }catch(e){}
+  if(!(await ensureDemoTarget(item))) return;
+  if(needArm()) return;
+  const sp = rockSpeed();
+  const body = {name:'rock', speed:sp,
+                seconds:Math.max(5, Math.min(300, +($('rockdur').value)||60))};
+  showSent('demo rock request sent…');
+  const res = await fetch('/api/demo',{method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify(body)});
+  const j = await res.json();
+  if(j.ok){
+    let msg = 'rock @ '+sp.toFixed(2)+'×';
+    if(j.switched) msg = 'switch←'+(j.switched_from||'?')+' · '+msg;
+    if(j.home) msg += ' (via '+j.home+' zero)';
+    showSent(requestReceiptLine(j, msg));
+  } else {
+    showSent(requestReceiptLine(j, 'rock')+'; failed: '
+      +(j.error||'unknown'), true);
+    if(j.zero){ lastZero = j.zero; paintZeroHint(j.zero); }
+  }
+  if(j.demo) paintDemoStatus(j.demo);
+  if(j.robot) paintRobotActivity(j.robot);
+  startDemoPoll();
+  refreshRobotState(true);
+};
+$('rockstop').onclick = ()=> $('dstop').onclick();
 
 $('dzero').onclick = ()=> goPoseZero('sit', 'sit zero');
 $('dstand').onclick = ()=> goPoseZero('stand', 'stand zero');
