@@ -15,6 +15,29 @@ Strip watched: clean rise/cruise/sit/re-stand. Evidence:
 tibia-150 download pair = rsifix + plant150-1, both halves
 session-clean on hard gates. Prior banner below.)
 
+Previous entry (~19:3x: **STOTIGHT DOSE SEARCH COMPLETE — all four
+verdicts in, ladder closed, champion final.** The two in-flight reads
+landed: `stotight60` (seed17 × -6.0) INFORMATIVE — KNEE FOUND,
+margins regress well beyond noise (slip 2.515→2.823, dir 34.97→37.68,
+own-DR slip 2.873 grazing the cap) though the evaluator still passes
+and det holds (0.70/2.01); seed17's endpoint is -5.5.
+`stotight55-seed13` INFORMATIVE — dose and basin do NOT stack (slip
+2.407→2.594, dir 36.4→39.72, own-DR-alone dir 40.4); with
+stotight50-seed13 this brackets seed13's knee AT -4.5. **CHAMPION
+CANDIDATE FINAL: seed13@-4.5 (`stotight45-seed13`, slip 2.407/dir
+36.4).** Per-seed knees: seed13→-4.5, seed17→-5.5, seed23→-5.0,
+seed29→-4.5. No further stotight arms. Also cleaned a stale triage
+leak: `phasedir9-seed42` (old -3.2-era seed arm) FAIL,
+reward-collapsed, question superseded. **NEXT LEVER LAUNCHED (Next
+item 5, 3-arm batch, ~19:2x): `cmdmix45-seed13` / `cmdmix55-seed17` /
+`cmdmix50-seed23`** — every passer trained on ONE fixed forward
+command yet is graded on turns/stops/reverses; these train each
+best-per-seed recipe on the gate's own command family
+(walk_cmd_mode=stress_mix, resample 4.0s ±0.5, training rng only,
+held-out gate seed base 90000 untouched). Pre-registered batch read:
+3/3 PASS = general lever; 1/3 = basin lottery again; FAILs = command
+churn breaks the BC-anchored basin. Prior banner below.)
+
 Previous entry (~19:1x: **DOSE TRANSFER SPLIT — the -5.0
 rung CLOSES seed23's gap but WORSENS seed29's.** `stotight50-seed23`
 VERDICTED PASS on its pre-registered bar: joygate slip 2.543/dir
