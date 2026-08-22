@@ -4086,7 +4086,10 @@ class BenchAPI:
             }
         roll = sum(r for r, _p in samples) / len(samples)
         pitch = sum(p for _r, p in samples) / len(samples)
-        expected = math.degrees(float(GAITS["rear"]["pitch"]))
+        # Body attitude convention is independent from the quad IK command
+        # sign: adjusted body pitch should be negative when the chassis is
+        # correctly reared back, positive when it is falling forward.
+        expected = -abs(math.degrees(float(GAITS["rear"]["pitch"])))
         body_frame = imu_body_frame_from_roll_pitch(
             roll, pitch, expected_pitch_deg=expected,
             samples=len(samples), source="quad_rear_body_frame")
@@ -5862,6 +5865,16 @@ class BenchAPI:
                 -imu["ax_g"], _math.hypot(imu["ay_g"], imu["az_g"])))
             out["roll_deg"] = round(roll, 2)
             out["pitch_deg"] = round(pitch, 2)
+            if imu.get("body_pitch_deg") is not None:
+                out["body_pitch_deg"] = round(float(imu["body_pitch_deg"]), 2)
+            if imu.get("body_roll_deg") is not None:
+                out["body_roll_deg"] = round(float(imu["body_roll_deg"]), 2)
+            if imu.get("body_pitch_target_deg") is not None:
+                out["body_pitch_target_deg"] = round(
+                    float(imu["body_pitch_target_deg"]), 2)
+            if imu.get("body_frame_calibrated") is not None:
+                out["body_frame_calibrated"] = bool(
+                    imu.get("body_frame_calibrated"))
             out["gyro_dps"] = [round(float(imu.get(k, 0.0)), 2)
                                for k in ("gx_dps", "gy_dps", "gz_dps")]
         return out
@@ -7631,6 +7644,227 @@ class BenchAPI:
         self._demo_thread.start()
         return {"ok": True, "stamp": stamp, "label": label,
                 "duration_s": secs}
+
+    def measure_quad_pitch(
+            self, *, pitches=None, gait: str = "rear_safe",
+            settle_s: float = 1.0, roll_guard_deg: float = 6.0,
+            current_guard_a: float = 2.0) -> dict:
+        """Four-support quad pitch sweep with calibrated IMU feedback.
+
+        This is a small live sign/authority test: acquire the safer
+        tuck-stand start, keep the same four support feet, command a list
+        of body pitch angles, and record the adjusted IMU pitch/roll plus
+        currents after each settle. This chassis uses positive quad IK
+        pitch for rear-up, while adjusted IMU body pitch should become
+        more negative when the physical body leans the intended way.
+        """
+        d = self.drive
+        if d.dry_run or not d.bus:
+            return {"ok": False, "error": "no bus"}
+        if self._demo_thread and self._demo_thread.is_alive():
+            return {"ok": False, "error": "stop the running job first"}
+        try:
+            targets = [float(x) for x in (pitches or
+                       [0.0, 4.0, 8.0, 12.0, 16.0, 20.0])]
+        except (TypeError, ValueError):
+            return {"ok": False, "error": "pitches must be numbers"}
+        targets = [max(-4.0, min(32.0, x)) for x in targets[:12]]
+        if not targets:
+            return {"ok": False, "error": "no pitch targets"}
+        settle = max(0.4, min(3.0, float(settle_s)))
+        roll_guard = max(3.0, min(18.0, float(roll_guard_deg)))
+        current_guard = max(0.8, min(4.0, float(current_guard_a)))
+        stamp = time.strftime("%Y%m%d_%H%M%S")
+
+        self._demo_gen += 1
+        gen = self._demo_gen
+        self._demo_abort.clear()
+        title = ("quad pitch sweep "
+                 + " ".join(f"{p:+.0f}" for p in targets) + "deg")
+        with self._lock:
+            self._demo_name = "measure_quad_pitch"
+            self._demo_status = title
+            self._demo_params = {
+                "pitches_deg": targets,
+                "gait": gait,
+                "settle_s": settle,
+                "roll_guard_deg": roll_guard,
+                "current_guard_a": current_guard,
+            }
+            self._cal_result = None
+            self._cal_progress = {"msg": title}
+        self._set_activity("measure", title)
+
+        def _imu_snapshot(bus) -> dict:
+            imu = None
+            try:
+                imu = bus.read_imu(apply_calib=True)
+            except TypeError:
+                try:
+                    imu = bus.read_imu()
+                except Exception:
+                    imu = None
+            except Exception:
+                imu = None
+            if not isinstance(imu, dict):
+                return {"ok": False}
+            out = {"ok": True}
+            for k in ("roll_deg", "pitch_deg", "body_roll_deg",
+                      "body_pitch_deg", "body_pitch_target_deg",
+                      "body_frame_calibrated"):
+                if k not in imu:
+                    continue
+                v = imu.get(k)
+                out[k] = round(float(v), 3) if isinstance(v, (int, float)) else v
+            return out
+
+        def _worker():
+            rec: dict = {
+                "kind": "quad_pitch_sweep",
+                "stamp": stamp,
+                "gait": gait,
+                "targets_deg": targets,
+                "samples": [],
+            }
+            try:
+                self._bus_hot_begin()
+                with self._lock:
+                    self._demo_status = "quad pitch: acquiring tuck stand"
+                    self._cal_progress = {"msg": self._demo_status}
+                res_a = self._acquire_start("stand_tuck", gen=gen)
+                if gen != self._demo_gen:
+                    return
+                if not res_a.get("ok"):
+                    with self._lock:
+                        self._cal_result = {
+                            "ok": False,
+                            "error": ("start pose not reached — "
+                                      + str(res_a.get("error")
+                                            or "aborted")),
+                        }
+                        self._demo_status = self._cal_result["error"]
+                    return
+
+                from inplace_demos import (
+                    CurrentPeakTracker, _enable_torque, _hold_here,
+                    _live_robot_ids, _read_pose, _set_torque_limit,
+                    ease_to_pose, _stand_zero_pose)
+                from quad_walk import FRONT_LEGS, TUCK_DEG, QuadRearWalk
+
+                live = _live_robot_ids(d.bus)
+                if len(live) < N_JOINTS:
+                    with self._lock:
+                        self._cal_result = {
+                            "ok": False,
+                            "error": f"only {len(live)}/18 servos live",
+                        }
+                        self._demo_status = self._cal_result["error"]
+                    return
+                with d._lock:
+                    d.mode = "demo"
+                    d.gait.stop()
+                    if not d.armed:
+                        d._torque_all(True)
+                        d.armed = True
+                _enable_torque(d.bus, live)
+                _set_torque_limit(d.bus, live, 850)
+
+                base = _stand_zero_pose()
+                quad = QuadRearWalk(base, max(30.0, len(targets) * 2.0),
+                                    gait=gait)
+                front = list(base)
+                for leg in FRONT_LEGS:
+                    front[3 * leg: 3 * leg + 3] = TUCK_DEG
+                feet = quad._support_feet(press=quad.rear_press)
+
+                def pose_for(pitch_deg: float) -> list[float]:
+                    return quad._solve(
+                        quad.body_dx, 0.0, math.radians(pitch_deg),
+                        feet, front, bz=quad.body_z)
+
+                tracker = CurrentPeakTracker()
+                last_good = None
+                aborted = None
+                for idx, pitch_deg in enumerate(targets):
+                    if self._demo_abort.is_set():
+                        aborted = "aborted"
+                        break
+                    with self._lock:
+                        self._demo_status = (
+                            f"quad pitch target {pitch_deg:+.0f}deg")
+                        self._cal_progress = {"msg": self._demo_status}
+                    goal = pose_for(pitch_deg)
+                    ok = ease_to_pose(
+                        d.bus, goal,
+                        abort_check=self._demo_abort.is_set,
+                        seconds=1.8 if idx == 0 else 1.1,
+                        label=f"quad pitch {pitch_deg:+.0f}",
+                        current_tracker=tracker)
+                    time.sleep(settle)
+                    tracker.sample(d.bus, live)
+                    imu = _imu_snapshot(d.bus)
+                    present = _read_pose(d.bus, live)
+                    total_a = 0.0
+                    for fb in tracker.last_fb:
+                        total_a += abs(float(fb.get("current_a", 0.0)))
+                    sample = {
+                        "cmd_pitch_deg": round(pitch_deg, 2),
+                        "imu": imu,
+                        "peak_a": round(float(tracker.peak_a), 3),
+                        "peak_joint": tracker.peak_joint,
+                        "bus_a": round(total_a, 3),
+                        "pose_deg": [round(float(x), 2) for x in present],
+                    }
+                    rec["samples"].append(sample)
+                    last_good = sample
+                    body_roll = imu.get("body_roll_deg", imu.get("roll_deg"))
+                    if not ok:
+                        aborted = "motion aborted"
+                        break
+                    if body_roll is not None and abs(float(body_roll)) > roll_guard:
+                        aborted = f"roll guard {body_roll:+.1f}deg"
+                        break
+                    if tracker.peak_a > current_guard:
+                        aborted = f"current guard {tracker.peak_a:.2f}A"
+                        break
+
+                _hold_here(d.bus, live)
+                rec["ok"] = aborted is None
+                rec["aborted"] = aborted
+                rec["last"] = last_good
+                out = self._meas_finalize(rec)
+                with self._lock:
+                    self._cal_result = out
+                    if aborted:
+                        self._demo_status = f"quad pitch stopped: {aborted}"
+                    else:
+                        self._demo_status = "quad pitch sweep done; holding"
+                    self._cal_progress = {"msg": self._demo_status}
+            except Exception as e:
+                try:
+                    from inplace_demos import _hold_here, _live_robot_ids
+                    _hold_here(d.bus, _live_robot_ids(d.bus))
+                except Exception:
+                    pass
+                if gen != self._demo_gen:
+                    return
+                with self._lock:
+                    self._cal_result = {"ok": False, "error": str(e)}
+                    self._demo_status = f"error: {e}"
+            finally:
+                self._bus_hot_end()
+                if gen == self._demo_gen:
+                    with d._lock:
+                        if d.mode == "demo":
+                            d.mode = "idle"
+                    with self._lock:
+                        st = self._demo_status
+                    self._set_activity(
+                        "armed" if d.armed else "limp", st)
+
+        self._demo_thread = threading.Thread(target=_worker, daemon=True)
+        self._demo_thread.start()
+        return {"ok": True, "stamp": stamp, "targets_deg": targets}
 
     def measure_axis_geometry(
             self, *, knee_height_mm: float | None = None,

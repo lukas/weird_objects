@@ -1225,6 +1225,15 @@ class QuadPitchTrim:
         if calibration:
             self._load_calibration(calibration)
 
+    def _rear_up_cmd_sign(self) -> float:
+        """Sign of a command trim that asks the quad pose for more rear-up."""
+        try:
+            if self.expected_pitch_deg is not None:
+                return -1.0 if float(self.expected_pitch_deg) < 0.0 else 1.0
+        except (TypeError, ValueError):
+            pass
+        return -1.0
+
     def _axis_label(self) -> str:
         return _quad_trim_axis_label(self.imu_axis_roll, self.imu_axis_pitch)
 
@@ -1331,13 +1340,15 @@ class QuadPitchTrim:
         if self.recovering:
             # Full second-line authority against the tip; the walk is
             # brace-holding so the lean dominates the stride dynamics.
-            desired_pitch = -(0.9 * eff + 0.05 * rate)
-            desired_dx = -(0.0022 * eff + 0.00006 * rate)
+            cmd_sign = self._rear_up_cmd_sign()
+            desired_pitch = cmd_sign * (0.9 * eff + 0.05 * rate)
+            desired_dx = cmd_sign * (0.0022 * eff + 0.00006 * rate)
             max_pitch = QUAD_TRIM_RECOVER_MAX_PITCH_DEG
             max_dx = QUAD_TRIM_RECOVER_MAX_DX_M
         else:
-            desired_pitch = -(0.55 * eff + 0.04 * rate)
-            desired_dx = -(0.0012 * eff + 0.00004 * rate)
+            cmd_sign = self._rear_up_cmd_sign()
+            desired_pitch = cmd_sign * (0.55 * eff + 0.04 * rate)
+            desired_dx = cmd_sign * (0.0012 * eff + 0.00004 * rate)
             max_pitch = QUAD_TRIM_MAX_PITCH_DEG
             max_dx = QUAD_TRIM_MAX_DX_M
         desired_pitch = _clamp(desired_pitch, -max_pitch, max_pitch)

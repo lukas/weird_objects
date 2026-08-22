@@ -68,6 +68,32 @@ def _axis_label(axis_roll: float, axis_pitch: float) -> str:
     return "mix"
 
 
+def _legacy_forward_axis_body_frame(data: dict, sign: float) -> bool:
+    """Detect a body-frame map learned from the old wrong-way quad pose.
+
+    On the current hardware the raw IMU pitch is positive when the body
+    falls forward/nose-down. Older quad body-frame calibration could run
+    the quad rear-up routine, have it actually tip forward, and then save
+    that forward vector as if it were the desired rear-up vector. Keep the
+    measured axis, but flip its sign so forward reads positive and the
+    rear-up target stays negative.
+    """
+    try:
+        expected = float(data.get("expected_pitch_deg"))
+        measured_pitch = float(data.get("measured_pitch_deg"))
+        measured_roll = float(data.get("measured_roll_deg", 0.0))
+    except (TypeError, ValueError):
+        return False
+    source = str(data.get("source") or "")
+    return (
+        source == "quad_rear_body_frame"
+        and expected < -5.0
+        and sign < 0.0
+        and measured_pitch > 5.0
+        and abs(measured_pitch) >= max(8.0, 1.5 * abs(measured_roll))
+    )
+
+
 def _valid_body_frame(data: dict | None) -> dict | None:
     if not isinstance(data, dict):
         return None
@@ -85,6 +111,9 @@ def _valid_body_frame(data: dict | None) -> dict | None:
     except (TypeError, ValueError):
         sign = -1.0
     sign = -1.0 if sign < 0.0 else 1.0
+    legacy_forward_axis = _legacy_forward_axis_body_frame(data, sign)
+    if legacy_forward_axis:
+        sign = 1.0
     out = {
         "version": int(data.get("version") or 1),
         "pitch_axis": str(data.get("pitch_axis") or _axis_label(ar, ap)),
@@ -103,6 +132,14 @@ def _valid_body_frame(data: dict | None) -> dict | None:
                 out[k] = float(data[k])
             except (TypeError, ValueError):
                 pass
+    if legacy_forward_axis:
+        target = out.get("body_pitch_target_deg")
+        measured = out.get("measured_lean_deg")
+        if target is not None:
+            out["body_pitch_target_deg"] = -abs(float(target))
+        elif measured is not None:
+            out["body_pitch_target_deg"] = -abs(float(measured))
+        out["source"] = "quad_forward_axis_recovered"
     return out
 
 
@@ -195,18 +232,31 @@ def imu_body_frame_from_roll_pitch(
             "n_samples": int(samples),
         }
     sign = -1.0 if float(expected_pitch_deg) < 0.0 else 1.0
+    source_s = str(source or "")
+    legacy_forward_axis = (
+        source_s == "quad_rear_body_frame"
+        and float(expected_pitch_deg) < -5.0
+        and base_pitch > 5.0
+        and abs(base_pitch) >= max(8.0, 1.5 * abs(base_roll))
+    )
+    if legacy_forward_axis:
+        sign = 1.0
     ar, ap = base_roll / measured, base_pitch / measured
+    target = sign * measured
+    if legacy_forward_axis:
+        target = -abs(target)
     return {
         "ok": True,
         "version": 1,
-        "source": source,
+        "source": ("quad_forward_axis_recovered"
+                   if legacy_forward_axis else source),
         "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S"),
         "n_samples": int(samples),
         "expected_pitch_deg": round(float(expected_pitch_deg), 3),
         "measured_roll_deg": round(base_roll, 3),
         "measured_pitch_deg": round(base_pitch, 3),
         "measured_lean_deg": round(measured, 3),
-        "body_pitch_target_deg": round(sign * measured, 3),
+        "body_pitch_target_deg": round(target, 3),
         "pitch_axis": _axis_label(ar, ap),
         "pitch_axis_roll": round(ar, 6),
         "pitch_axis_pitch": round(ap, 6),

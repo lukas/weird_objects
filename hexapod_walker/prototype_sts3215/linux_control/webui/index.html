@@ -349,8 +349,9 @@ legs can reach instead of clipping it.">
 	          <option value="120">2 min</option>
 	          <option value="300" selected>5 min</option>
 	        </select></label>
-	      <div class="hint">Status: <span id="qstatus" class="pill">idle</span>
-	        <span id="qstatusdetail" style="color:#8089a0"></span></div>
+      <div class="hint">Status: <span id="qstatus" class="pill">idle</span>
+        <span id="qstatusdetail" style="color:#8089a0"></span></div>
+      <div class="hint">IMU: <b id="qpitch">—</b></div>
 	      <label class="slab"><input id="qmotionlog" type="checkbox">
 	        Full motion CSV
 	        <span style="color:#8089a0;font-weight:400">(diagnostic; reads encoders during motion)</span></label>
@@ -793,6 +794,6 @@ the trained forward wedge — same policy, body walks backward.">▼ Back</butto
   </div><!-- /view-debug -->
 </div><!-- /wrap -->
 </div><!-- /main -->
-<script src="/app.js?v=slip1"></script>
+<script src="/app.js?v=quadmsg2"></script>
 </body>
 </html>

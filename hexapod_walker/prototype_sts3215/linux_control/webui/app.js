@@ -21,6 +21,7 @@ let robotTargetTransient = false;
 let robotTargetUrl = '';
 let targetLineMsg = {robot:null, sim:null};
 let lastRobotState = null;
+let lastFeedback = null;
 let lastTargetHealthMsg = '';
 let targetReconnectSince = {robot:0, sim:0};
 const TARGET_RESTART_GRACE_MS = 15000;
@@ -115,6 +116,9 @@ function requestReceiptLine(d, label){
   };
   return prefix + ' — ' + part('robot', h.robot) + ' · '
     + part('MuJoCo', h.sim);
+}
+function responseHomeLabel(d){
+  return (d && d.params && d.params.home) ? d.params.home : (d && d.home);
 }
 function applyBackendMeta(meta){
   if(!meta) return;
@@ -328,12 +332,43 @@ document.getElementById('statuscopy').onclick = async ()=>{
   b.textContent = '✓';
   setTimeout(()=>{ b.textContent = 'Copy'; }, 1200);
 };
+function isOkReceipt(line){
+  return /received\s+—.*\bOK\b/i.test(String(line || ''));
+}
 function showSent(line, isErr){
   sentEl.textContent = line;
-  if(isErr ||
-     /refus|fail|error|not ready|missing|timeout|no bus|unknown|denied|abort/i
-       .test(String(line)))
+  const text = String(line || '');
+  const looksBad = /refus|fail|error|not ready|missing|timeout|no bus|unknown|denied|abort/i
+    .test(text);
+  if(isErr || (looksBad && !isOkReceipt(text)))
     showErr(line);
+  else if(isOkReceipt(text) && isOkReceipt(errbarText.textContent))
+    errbarEl.style.display = 'none';
+}
+function fmtDeg(v, d=1){
+  return (v==null || Number.isNaN(Number(v))) ? '—' : Number(v).toFixed(d);
+}
+function feedbackPitchLabel(fb){
+  if(!fb || !fb.ok) return '';
+  const body = fb.body_pitch_deg;
+  const raw = fb.pitch_deg;
+  const target = fb.body_pitch_target_deg;
+  if(body != null){
+    let line = 'body pitch '+fmtDeg(body)+'°';
+    if(target != null) line += ' / target '+fmtDeg(target)+'°';
+    return line;
+  }
+  if(raw != null) return 'raw pitch '+fmtDeg(raw)+'°';
+  return '';
+}
+function paintFeedback(fb){
+  if(!fb || !fb.ok) return;
+  lastFeedback = fb;
+  const line = feedbackPitchLabel(fb);
+  const gp = $('gp');
+  if(gp && line) gp.textContent = line;
+  const q = $('qpitch');
+  if(q) q.textContent = line || '—';
 }
 
 // --- on-screen joysticks ----------------------------------------------------
@@ -447,8 +482,9 @@ async function padRunDemo(name, label){
       headers:{'Content-Type':'application/json'},
       body: JSON.stringify(body)});
     const j = await res.json();
+    const home = responseHomeLabel(j);
     if(j.ok) showSent(requestReceiptLine(j, 'demo '+name)
-      +(j.home?(' via '+j.home):''));
+      +(home?(' via '+home):''));
     else showSent(j.error||('demo '+name+' failed'), true);
     if(j.demo) paintDemoStatus(j.demo);
     if(j.robot) paintRobotActivity(j.robot);
@@ -724,10 +760,12 @@ async function refreshTelem(){
   try{
     const r = await fetch('/api/feedback?t='+Date.now(), {cache:'no-store'});
     const fb = await r.json();
-    const fmt = (v,d)=> (v==null || isNaN(v)) ? '—' : Number(v).toFixed(d);
     if(fb && fb.ok){
-      $('tmroll').textContent = fmt(fb.roll_deg, 1);
-      $('tmpitch').textContent = fmt(fb.pitch_deg, 1);
+      paintFeedback(fb);
+      $('tmroll').textContent = fmtDeg(
+        fb.body_roll_deg != null ? fb.body_roll_deg : fb.roll_deg, 1);
+      $('tmpitch').textContent = fmtDeg(
+        fb.body_pitch_deg != null ? fb.body_pitch_deg : fb.pitch_deg, 1);
       let total = null;
       for(const m of (fb.joints||[])){
         if(m && m.cur_a!=null) total = (total||0) + Math.abs(+m.cur_a || 0);
@@ -2699,6 +2737,8 @@ function paintRobotActivity(robot){
   const act = robot.activity || 'idle';
   const detail = robot.detail || '';
   el.textContent = detail ? (act+' · '+detail) : act;
+  const pitchEl = $('robotpitch');
+  if(pitchEl) pitchEl.textContent = feedbackPitchLabel(lastFeedback) || '';
   el.className = 'act-'+act;
   el.title = 'activity='+act+(detail?(' — '+detail):'')
     +' · mode='+(robot.mode||'?')
@@ -3013,8 +3053,9 @@ async function quadRun(name, label){
   if(j.ok){
     let msg = label+' @ '+sp.toFixed(2)+'×';
     if(isQuadDown(name)) msg = label;
-    else msg += ' · timeout '+body.seconds+'s';
-    if(j.home) msg += ' (via '+j.home+')';
+    else msg += ' · hold limit '+body.seconds+'s';
+    const home = responseHomeLabel(j);
+    if(home) msg += ' (via '+home+')';
     showSent(requestReceiptLine(j, msg));
   }
   else showSent(requestReceiptLine(j, label)+'; failed: '
