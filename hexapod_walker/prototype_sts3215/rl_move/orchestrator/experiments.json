@@ -115417,7 +115417,7 @@
       "0.5"
     ],
     "created": "2026-08-22T14:52:48+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -115446,7 +115446,7 @@
     "log": "/tmp/train_cw-amp-m2-freeprog-term400-stdanneal.log",
     "wandb_id": "ebazqv3o",
     "verified": "2026-08-22T14:56:02+00:00",
-    "triage": "awaiting since 2026-08-22T15:00:12",
+    "triage": "done",
     "checkups": [
       {
         "time": "2026-08-22T15:01:21+00:00",
@@ -115454,6 +115454,7 @@
         "verdict": "DEAD",
         "log_tail": "\nwandb:       env/height_mm -93.64258\nwandb:   env/height_ref_mm 0\nwandb:   env/max_current_a 1.59166\nwandb:  env/mean_current_a 0.45214\nwandb: env/pct_within_1deg 0.18262\nwandb:   env/pitch_ref_deg 0\nwandb:   env/reward_action -0.00173\nwandb:                 +94 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-amp-m2-freeprog-term400-stdanneal at: https://wandb.ai/l2k2/hexapod-balance/runs/ebazqv3o\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 3 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260822_145336-ebazqv3o/logs\n"
       }
-    ]
+    ],
+    "verdict": "Prediction-if-false CONFIRMED: annealing std 0.368->0.135 (train/std tracks exactly) did NOT fix the shuffle-in-place problem, it made the gait MORE regular while staying just as stationary. Median fwd travel collapsed to 0.005m det / 0.021m sto (worse than noamp's 0.026/0.032), but gait_valid is now a clean 6/6 det AND 6/6 sto (vs noamp's 3-5/6) with tight low-variance slip (10.3-11.5/m det) -- a textbook-regular six-leg marching-in-place gait, zero terminations. env/reward_walk_freeprog_pen still flat (-1.77->-1.18->-1.09->-1.10 across quarters, same plateau as noamp) and optimization/reward_per_tick_ema is WORSE than noamp's own plateau (-3.29 vs -2.84) -- the tighter policy just committed harder to the stationary local optimum. Root cause narrowed: this is a REWARD-SHAPE defect in walk_freeprog_score (rewards along-command velocity/no cross-track without a net-displacement floor), not an exploration-noise problem -- std-anneal lever CLOSED for this failure mode (mirrors the joystick track's own init-basin-flatness finding: a flat reward surface doesn't move by annealing noise alone)."
   }
 ]
