@@ -328,6 +328,29 @@ out-of-scope runs get honest triage but no agent follow-ups.
   Decisive contrast unchanged: `cw-nobc-slipwalk1-r1` (same pricing
   class, no AMP) froze at 2M — style05 stepping where its twin
   freezes/statues is the first real style-vs-control signal.
+- TERM400-NOAMP CONTROL VERDICTED FAIL (08-22, + bit-identical
+  `-rr1` repro): the suicide fix WORKED cleanly (0/12 terminations
+  DR-0 det+sto, both arms — term_penalty=400 does what it was sized
+  to do), but the control still fails the walk gate by the
+  predicted-if-false branch: median fwd travel 0.026-0.032 m/15s
+  (bar 0.10 m), slip 6.4-22.7/m, gait_valid 3-5/6 det. Six legs DO
+  cycle (not the earlier pure statue) but never organize into net
+  commanded-direction travel — a shuffle-in-place basin. W&B root
+  cause: `env/reward_walk_freeprog_pen` (the freeprog cross-track/
+  backward charge, the single largest-magnitude reward line at
+  ~-1.4 to -1.8/tick) sits FLAT with zero improvement from the end
+  of quarter 1 through quarter 4 at a CONSTANT policy std=0.368
+  (`--log-std-init=-1.0` default, never annealed in this arm) —
+  reward-per-tick-EMA actually worsens (-1.17->-2.84) then
+  flattens, so this is flat-reward-and-flat-metric (genuine FAIL per
+  the 08-21 ruling), not reward-still-rising. Matches the joystick
+  track's own noise-band fingerprint (constant high std never lets a
+  policy commit to organized behavior). Follow-up queued same cycle,
+  single lever: `cw-amp-m2-freeprog-term400-stdanneal` (`--log-std-
+  final=-2.0 --log-std-anneal-frac=0.5` added, everything else
+  identical) — tests whether annealing exploration noise down (the
+  fix that unlocked phasedir9 on the joystick track) also unlocks
+  organized locomotion here, before any freeprog reward-shape patch.
 - direction_err_mean_deg has a ~35 deg tick-level floor from stride
   sway — judge deltas vs a matched clone, not raw values.
 - Every pre-08-22 checkpoint (incl. the download hierarchy) trained
