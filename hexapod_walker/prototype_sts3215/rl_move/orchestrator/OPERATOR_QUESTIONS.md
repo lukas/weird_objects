@@ -1325,3 +1325,34 @@ Entry format (append; newest last; update status in place):
   DOWNLOAD_ANSWER change (caveat noted only), any bench action.
 - ANSWER (operator): (pending)
 - rulebook change: (pending)
+
+## q_20260822T0730Z — OPEN
+- cycle: c0822-bankrepair (idle-kick, deep model)
+- operator order: none directly — this is an ASSUMPTION record
+  (assume-and-go on the critical path), on top of operator commit
+  30660b51 "Use measured stand geometry for calibration and gaits".
+- conflicted with: 30660b51 changed shared default sim behavior
+  (scripted-gait/IK knee output convention -> absolute_tibia; hardware
+  default stand home +19/+28 absolute leaked into the sim as the
+  default plant), which collapsed the semantics banks (43 FAIL) and
+  mis-posed every rl_move scripted rollout, spawn pose, and BC anchor.
+- why the cycle would have declined: n/a — repaired instead of
+  reverting. Two judgment calls the operator should review: (1) the
+  hardware convention was kept and ADAPTED at the sim boundary
+  (linux_control/sim_gait_compat.py; hardware files untouched) rather
+  than reverting the operator's convention; (2) sim_env's default
+  plant does NOT adopt the hardware DEFAULT stand home (+19/+28 abs =
+  +19/+9 rel), because that pose is on the leg-extension boundary
+  (hip->foot 239.9 of 240 mm — body-IK singular); the sim keeps its
+  canonical +20/+80-rel default, while a genuinely CAPTURED
+  plant_pose.json IS adopted (converted). If the operator intends the
+  sim plant to follow the measured stand home, the plant-150 fix arms
+  and the balance-task IK envelope need a redesign, not just this fix.
+- what was executed: bisect (green a4beb8af -> broken 30660b51),
+  sim_gait_compat boundary module + import rewrite + body_ik/default
+  plant fixes, banks 43 FAIL -> 7 (all 7 reproduce pre-convention at
+  tibia-150 => true measured-plant residue), snapshot 778816cd, walk
+  fix arm cw-dep-bcgait1-plant150-1 queued. NOTE: phasedir1 trained on
+  the corrupted sim — its RL verdict is env-confounded (hw STATUS).
+- ANSWER (operator): _
+- rulebook change: _
