@@ -1,6 +1,23 @@
 # amp - AMP locomotion from scratch
 
-Last updated: 2026-08-22 ~23:3x (**M3 OPENED FOR REAL:
+Last updated: 2026-08-22 ~23:4x (**STYLE CHANNEL CLEARED FOR M3
+PUSH HARDENING: `cw-amp-m3-pushsmoke1-style05` VERDICTED PASS on the
+pre-registered joint read vs noamp r4 — the discriminator does NOT
+veto off-distribution shove-recovery transients.** Training tilt
+terminations fell at constant dose (pitch 22→8.3, roll 16.3→7.8 per
+window) while reward rose 28→246 over 2M; DR-0 own-cfg gate 6/6
+gait_valid det+sto, det prog 1.20 / slip 3.27 / fwd 0.72m (r4 band);
+topples 1/6 det + 1/6 sto vs r4's 1/6+3/6; disc healthy
+(style_reward_mean 0.19). FAIL-styleveto refuted at 2M scale.
+LAUNCHED same cycle: `cw-amp-m3-pushacq1-style05` — 6M acquisition
+from the smoke's own checkpoint, dose unchanged, the style-kept M3
+hardening candidate + matched style-vs-nostyle read beside the
+running `cw-amp-m3-pushacq1-noamp`. Also this cycle: checkup rc=1 on
+`-tip90-clockyaw` was a benign race — run finished its 2M budget
+cleanly, ledger flipped RUNNING→FINISHED; tip-pair joint read owned
+by the concurrent cycle. Previous banner below.)
+
+Previous entry (~23:3x (**M3 OPENED FOR REAL:
 `cw-amp-m3-pushsmoke1-noamp-r4` VERDICTED PASS on the mechanism-
 safety bar — first-ever training use of the mid-episode shove
 (`dr.ext_push_*`, 10-25N / 0.15-0.4s / random direction, once per
