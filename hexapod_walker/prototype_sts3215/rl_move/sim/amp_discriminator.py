@@ -81,6 +81,29 @@ class MotionLibrary:
         self.clip_starts = np.asarray(d["clip_starts"], dtype=np.int64)
         self.clip_lens = np.asarray(d["clip_lens"], dtype=np.int64)
         self.feat_dim = self.obs_style.shape[1]
+        # Global neutral pose (08-22 live-wiring convention): the
+        # builder records per-clip neutrals (q_20260822T0900Z), but in
+        # teacher_v1 every clip spawns from the SAME deterministic
+        # stand init, so joint_position - joint_position_rel_neutral is
+        # ONE pose (verified identical across all 15 clips to 1e-16).
+        # The live trainer's env emits RAW joints (neutral=0) and the
+        # AMPStyleVecWrapper subtracts THIS neutral, so both data paths
+        # share the library's own convention. None when the npz
+        # predates the raw-joint fields (fail loudly at use).
+        self.neutral_pose = None
+        if "joint_position" in d and "joint_position_rel_neutral" in d:
+            jp = np.asarray(d["joint_position"], dtype=np.float64)
+            rel = np.asarray(d["joint_position_rel_neutral"],
+                             dtype=np.float64)
+            neutrals = np.stack([jp[s] - rel[s] for s in self.clip_starts])
+            spread = float(np.abs(neutrals - neutrals.mean(axis=0)).max())
+            if spread > 1e-9:
+                raise ValueError(
+                    f"motion library {path} has per-clip neutrals that "
+                    f"actually differ (max spread {spread:.3e}); the "
+                    "live-wiring single-neutral convention no longer "
+                    "holds — revisit q_20260822T0900Z before training")
+            self.neutral_pose = neutrals[0].astype(np.float32)
 
         # valid transition start indices: every tick except the last
         # tick of each clip (that tick has no in-clip successor).

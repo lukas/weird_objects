@@ -1289,6 +1289,42 @@ def main(argv: list[str] | None = None) -> int:
                          "the whole run, 0.5 = reach the final value "
                          "at the halfway point and hold.")
     ap.add_argument("--target-kl", type=float, default=0.02)
+    # AMP style reward (AMP_LOCOMOTION.md §5.2/§7, wired 08-22).
+    # Default 0.0 = OFF, bit-exact legacy: no env cfg injection, no
+    # wrapper, no callback, no discriminator — nothing constructed.
+    ap.add_argument("--amp-style-weight", type=float, default=0.0,
+                    help="blend weight for the AMP discriminator style "
+                         "reward: r = amp_task_weight * r_env + "
+                         "amp_style_weight * r_style (r_style in "
+                         "[0,1]/tick). >0 auto-injects "
+                         "goal.amp_style_obs=1 into the env cfg, wraps "
+                         "the vec env in AMPStyleVecWrapper and trains "
+                         "the discriminator online each rollout. Brief "
+                         "§5.2 first sweep: 0.3 / 0.5 / 0.7.")
+    ap.add_argument("--amp-task-weight", type=float, default=1.0,
+                    help="task-reward weight in the AMP blend (only "
+                         "read when --amp-style-weight > 0). Brief "
+                         "§5.2 mixtures pair 0.7/0.3, 0.5/0.5, 0.3/0.7 "
+                         "— note the brief's task reward is its own "
+                         "compact §5.1 kernel set, so size this to the "
+                         "env reward actually configured.")
+    ap.add_argument("--amp-motion-lib", type=str, default=None,
+                    help="motion-library npz for the discriminator's "
+                         "real transitions + feature normalization + "
+                         "neutral pose (default: teacher_v1.npz).")
+    ap.add_argument("--amp-disc-lr", type=float, default=3e-4)
+    ap.add_argument("--amp-disc-steps", type=int, default=4,
+                    help="discriminator minibatch updates per PPO "
+                         "rollout (rollout-end callback).")
+    ap.add_argument("--amp-disc-batch", type=int, default=512)
+    ap.add_argument("--amp-gp-weight", type=float, default=10.0,
+                    help="R1 gradient-penalty weight (brief §16: 10).")
+    ap.add_argument("--amp-replay", type=int, default=500_000,
+                    help="policy-transition ring replay rows (the "
+                         "discriminator's fake side).")
+    ap.add_argument("--amp-disc-init", type=str, default=None,
+                    help="warm-start the discriminator from a prior "
+                         "run's <out>.amp_disc.pt (continuations).")
     ap.add_argument("--log-std-init", type=float, default=-1.0)
     ap.add_argument("--warm-log-std-override", type=float, default=None,
                     help="after a --init-from warm start loads the "
@@ -1976,6 +2012,19 @@ def main(argv: list[str] | None = None) -> int:
     ls_iters = args.mjx_ls_iterations if args.mjx_ls_iterations is not None \
         else (4 if impl == "warp" else 8)
 
+    if args.amp_style_weight > 0.0:
+        # AMP style blend needs the env's per-tick obs_style emission
+        # (sim_env._post_step, default off). Injected into cfg_set so
+        # training, cert and eval/video workers all agree on the env
+        # contract; the blend itself lives ONLY in the vec wrapper
+        # below (eval harness scores raw task metrics, unchanged).
+        args.cfg_set = list(args.cfg_set or []) + ["goal.amp_style_obs=1"]
+        print(f"[amp-style] ON: task_w={args.amp_task_weight} "
+              f"style_w={args.amp_style_weight} "
+              f"lib={args.amp_motion_lib or 'teacher_v1.npz(default)'} "
+              f"disc lr={args.amp_disc_lr} steps/rollout="
+              f"{args.amp_disc_steps} batch={args.amp_disc_batch} "
+              f"replay={args.amp_replay}")
     env_kw = _env_kwargs(args)      # resolves params via bus.servo_params
     if args.walk_curriculum:
         # training/cert envs keep the curriculum via env_kw's cfg; the
@@ -2192,6 +2241,19 @@ def main(argv: list[str] | None = None) -> int:
         if not hasattr(env_cls, "set_goal_mix"):
             raise SystemExit(f"--goal-mix needs a goal task, not {args.task}")
         venv.env_method("set_goal_mix", gm)
+    amp_wrap = None
+    if args.amp_style_weight > 0.0:
+        # Under VecMonitor so ep_rew_mean reflects the BLENDED reward
+        # (the actual PPO training signal). Style reward is computed on
+        # the host from info["amp_obs_style"] — worker/backend agnostic.
+        from .amp_style_vec import AMPStyleVecWrapper
+        amp_wrap = AMPStyleVecWrapper(
+            venv, style_weight=args.amp_style_weight,
+            task_weight=args.amp_task_weight,
+            motion_lib=args.amp_motion_lib, replay_size=args.amp_replay,
+            disc_lr=args.amp_disc_lr, gp_weight=args.amp_gp_weight,
+            seed=args.seed, disc_init=args.amp_disc_init)
+        venv = amp_wrap
     venv = VecMonitor(venv)
     print(f"[mjx-train] vec env up in {time.monotonic() - t0:.1f}s "
           f"(compile + {args.pool_per_env + 1} reset choreographies)")
@@ -2796,7 +2858,7 @@ def main(argv: list[str] | None = None) -> int:
         # stay for their special semantics (AUX* means abs()).
         SKIP = ("TimeLimit.truncated", "terminal_observation",
                 "termination_reason", "goal_mode", "walk_bucket",
-                "episode", "bc_target")
+                "episode", "bc_target", "amp_obs_style")
         SAMPLE = 256      # envs sampled per step for the means
 
         def __init__(self):
@@ -3152,6 +3214,36 @@ def main(argv: list[str] | None = None) -> int:
                                "ent_coef_anneal/frac": frac})
 
         callbacks.append(_EntCoefAnnealCb())
+    if amp_wrap is not None:
+        class _AMPDiscCb(BaseCallback):
+            """Online AMP discriminator update, once per PPO rollout
+            (standard AMP co-training cadence): real minibatches from
+            the motion library, fake minibatches from the wrapper's
+            policy-transition replay. Never constructed when
+            --amp-style-weight is 0 (bit-exact off path)."""
+
+            def _on_step(self) -> bool:
+                return True
+
+            def _on_rollout_end(self) -> None:
+                stats = amp_wrap.train_discriminator(
+                    args.amp_disc_steps, args.amp_disc_batch)
+                roll = amp_wrap.pop_rollout_stats()
+                if run is not None:
+                    import wandb
+                    payload = {"global_step": self.num_timesteps,
+                               "amp/style_reward_mean":
+                                   roll["style_reward_mean"],
+                               "amp/pairs_per_rollout": roll["pairs"]}
+                    if stats is not None:
+                        payload.update({f"amp/{k}": v
+                                        for k, v in stats.items()})
+                    wandb.log(payload)
+
+        callbacks.append(_AMPDiscCb())
+        print(f"[amp-style] discriminator co-training armed: "
+              f"{args.amp_disc_steps} updates x {args.amp_disc_batch} "
+              "batch per rollout")
     if args.predictive_live:
         class _LivePredictorCapture(BaseCallback):
             """Harvest a bounded MJX subset into CUDA live replay."""
@@ -4263,6 +4355,12 @@ def main(argv: list[str] | None = None) -> int:
         if bg is not None:
             bg.shutdown()
     model.save(out_path)
+    if amp_wrap is not None:
+        disc_path = out_path.with_suffix(".amp_disc.pt")
+        amp_wrap.save(disc_path)
+        print(f"[amp-style] discriminator saved -> {disc_path} "
+              f"({amp_wrap.disc_updates} updates); continue with "
+              f"--amp-disc-init {disc_path.name}")
     dt = time.monotonic() - t0
     print(f"[mjx-train] done: {args.steps:,} steps in {dt:.0f}s "
           f"({args.steps / dt:,.0f} env-steps/s incl. setup) -> {out_path}")

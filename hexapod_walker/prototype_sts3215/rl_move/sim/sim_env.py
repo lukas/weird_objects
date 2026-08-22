@@ -2385,6 +2385,36 @@ class SimHexapodBalanceEnv(_GymBase):
         """Subclass hook applied to EVERY completed step tuple (both the
         normal path and the rejected-action early return) — walk-mode
         shaping lives here so the batched vec env inherits it."""
+        # AMP track (08-22, M1 reward-loop wiring): when
+        # goal.amp_style_obs=1 (default 0 = bit-exact legacy: no key,
+        # no compute), emit the 60-dim AMP discriminator feature
+        # vector (rl_docs/AMP_LOCOMOTION.md §3.6) into info each tick.
+        # RAW joint angles in dims 0..17 (neutral=0): the trainer-side
+        # AMPStyleVecWrapper subtracts the motion library's OWN neutral
+        # pose so there is exactly one authoritative neutral convention
+        # (the library's — verified identical across all teacher_v1
+        # clips). Works on both physics backends: obs_style_from_data
+        # only touches qpos/qvel/xpos/xmat/sensordata, present on real
+        # MjData and on mjx_host.FakeData alike. On the rejected-action
+        # early return the mirror is one tick stale — that episode
+        # terminates immediately and the wrapper's done-masking drops
+        # the follow-up pairing, so at most one near-duplicate
+        # transition per (rare) rejected action reaches the
+        # discriminator replay.
+        amp_on = getattr(self, "_amp_style_on", None)
+        if amp_on is None:
+            amp_on = float(cfg_get(self.cfg, "goal", "amp_style_obs",
+                                   default=0.0)) > 0.0
+            self._amp_style_on = amp_on
+            if amp_on:
+                from .amp_features import chassis_pad_gyro_ids
+                self._amp_style_ids = chassis_pad_gyro_ids(self)
+                self._amp_style_neutral = np.zeros(
+                    int(self._amp_style_ids.qadr.shape[0]))
+        if amp_on:
+            from .amp_features import obs_style_from_data
+            result[4]["amp_obs_style"] = obs_style_from_data(
+                self.data, self._amp_style_ids, self._amp_style_neutral)
         return result
 
     def _rise_ref_clock(self, ref: dict) -> tuple[int, bool]:

@@ -1511,3 +1511,16 @@ Entry format (append; newest last; update status in place):
   `joint_position_rel_neutral` from the raw `joint_position` array
   (kept in the same npz) if the per-clip choice above doesn't match —
   no need to re-run the sim, just re-subtract.
+- RESOLVED IN CODE (08-22, live reward-loop wiring cycle): measured
+  the shipped npz — all 15 per-clip neutrals are IDENTICAL to 1e-16
+  (every clip spawns from the same deterministic stand init), so
+  per-clip vs. global is a distinction without a difference for
+  teacher_v1. Convention now enforced in one place:
+  `MotionLibrary.neutral_pose` (amp_discriminator.py) derives the
+  single global neutral from the npz and HARD-FAILS at load if any
+  future library's per-clip neutrals actually diverge (>1e-9);
+  the live env emits RAW joints (`goal.amp_style_obs=1`,
+  sim_env._post_step) and `AMPStyleVecWrapper` subtracts the
+  library's own neutral — the policy-side feature can never drift
+  from the demo-side convention. Question stays open only for the
+  operator to veto the single-global choice.

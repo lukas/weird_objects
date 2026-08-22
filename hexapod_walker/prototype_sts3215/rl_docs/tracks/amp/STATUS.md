@@ -1,7 +1,9 @@
 # amp - AMP locomotion from scratch
 
-Last updated: 2026-08-22 (M1 discriminator core + bank landed; live
-MJX-rollout obs_style wiring prerequisite closed + verified on-pod).
+Last updated: 2026-08-22 (M1 COMPLETE: live reward-loop wiring landed
+— AMPStyleVecWrapper blends the discriminator style reward into PPO's
+training signal with online discriminator co-training, smoke-verified
+end-to-end on-pod; first M2 pilot pair queued).
 Charter:
 `rl_docs/AMP_LOCOMOTION.md` (binding, incl. the repo-adaptation
 section — no Isaac Lab, MJX/Warp is the primary trainer). Keep this a
@@ -30,12 +32,11 @@ Build every tool this needs; do not pause on operator input.
   composable on the primary trainer, 08-22 smoke; discriminator,
   motion library, replay buffer, and fault injection still open —
   see Now/Next)
-- M1 motion library: IN PROGRESS (generator tool built + v1 dataset
-  shipped 08-22; discriminator core + demo replay buffer + style
-  reward now built and bank-tested 08-22, see Now — NOT YET WIRED
-  into the live train_ppo_mjx reward loop, that integration is the
-  next concrete step)
-- M2 beautiful normal gait: NOT STARTED
+- M1 motion library: **DONE 08-22** (generator + v1 dataset;
+  discriminator core + style reward + banks; live reward-loop wiring
+  landed and smoke-verified — see Now item on AMPStyleVecWrapper)
+- M2 beautiful normal gait: STARTED 08-22 (pilot pair
+  amp-m2-pilot-style05 vs amp-m2-pilot-noamp queued)
 - M3 push recovery: NOT STARTED
 - M4 fault adaptation: NOT STARTED
 - M5 MuJoCo transfer (= DONE gate): NOT STARTED
@@ -229,26 +230,51 @@ now closed:
    the shim's `FakeData` has no `xquat`; proven mathematically
    identical to `build_motion_library.py`'s method, see Now) —
    verified on a GPU pod against a real `MjxVecEnv` rollout
-   (`test_amp_features_mjx.py`, both tests PASS). STILL OPEN, the
-   actual next step: the live reward-loop change itself — blend
-   `style_reward` into the task reward each rollout tick + an online
-   discriminator-update step against the PPO rollout buffer, in
-   `train_ppo_mjx.py`, default-off / bit-exact-when-off, its own
-   dedicated cycle (this is a real training-loop change, not a
-   plumbing gap — deliberately not rushed the same cycle the prereq
-   was proven).
-4. Smoke test: gradients flow through PPO and the discriminator
-   trains without instant saturation on POLICY rollouts specifically.
-   **PARTIALLY DONE 08-22**: `test_discriminator_on_real_mjx_rollout`
-   feeds an ACTUAL MJX rollout's transitions (zero-action policy, 3
-   envs x 20 ticks) through `discriminator_loss` — finite, no NaN —
-   replacing the synthetic noise/shuffle placeholders as the
-   real-transition case. Still not "through PPO" in the sense of a
-   policy gradient actually flowing from the style reward back into
-   the actor — that needs item 3's remaining reward-loop wiring.
+   (`test_amp_features_mjx.py`, both tests PASS).
+   **DONE 08-22 (the live reward-loop wiring itself)**:
+   `rl_move/sim/amp_style_vec.py` (`AMPStyleVecWrapper`) sits between
+   the batched vec env and VecMonitor when `--amp-style-weight > 0`
+   (default 0.0 = wrapper/callback/discriminator never constructed,
+   bit-exact legacy — verified by an on-pod default-flags run with
+   zero amp output). Per tick it pairs the env's new cfg-gated
+   `info["amp_obs_style"]` emission (`goal.amp_style_obs`, default
+   off, `sim_env._post_step`, raw joints — the LIBRARY's neutral is
+   subtracted trainer-side so the convention lives in exactly one
+   place, `MotionLibrary.neutral_pose`, which hard-fails if a future
+   library's per-clip neutrals ever diverge) into episode-boundary-
+   masked (s_t, s_t1) transitions, computes the bounded [0,1]
+   least-squares style reward, and blends
+   `r = task_w * r_env + style_w * r_style` into the ACTUAL PPO
+   training signal (ep_rew_mean reflects the blend). A rollout-end
+   callback co-trains the discriminator (real = motion library,
+   fake = policy-transition ring replay, default 500k rows; R1
+   gp=10 per brief §16) and logs `amp/*` to W&B; discriminator
+   state round-trips via `<out>.amp_disc.pt` + `--amp-disc-init`
+   for continuations. Flags: `--amp-style-weight/--amp-task-weight/
+   --amp-motion-lib/--amp-disc-lr/--amp-disc-steps/--amp-disc-batch/
+   --amp-gp-weight/--amp-replay/--amp-disc-init`. Banks:
+   `test_amp_style_vec.py` 7/7 (env contract on/off, single-neutral
+   enforcement, blend math, first-tick + done boundary masking, ring
+   wrap, finite disc training with real>fake separation, save/load
+   round-trip) — 20/20 across all four AMP banks ON-POD.
+4. **DONE 08-22**: gradients flow through PPO with the discriminator
+   co-training on POLICY rollouts — on-pod smoke
+   `smoke_amp_style_wire_v1` (warp, 512 envs, 40k steps, task/style
+   0.5/0.5): finite losses/kl/value across all 5 rollouts, 20 disc
+   updates (4/rollout as configured), checkpoint + amp_disc.pt saved,
+   no NaN/crash; plus a default-flags control run with zero amp
+   codepath output (off = bit-exact).
 5. Wave 1 across 8 pods: 3 seeds at task/style 0.5/0.5, no-AMP
    ablation, recurrent vs fixed-history, higher/lower AMP weight.
    Select on videos + tracking/stability metrics, never scalar return.
+   **PILOT QUEUED 08-22 (M2 start, before committing 8 pods)**:
+   matched pair `amp-m2-pilot-style05` (from-scratch, asym-critic,
+   AMP-brief §6 stress_mix envelope = the v3 smoke bundle, task/style
+   0.5/0.5) vs `amp-m2-pilot-noamp` (identical minus amp flags) —
+   decides whether the style reward produces a recognizably cleaner
+   six-leg tripod than task-only at equal budget, and whether the
+   discriminator stays un-saturated at scale (watch amp/d_real vs
+   amp/d_fake and amp/style_reward_mean).
 
 ## Required status block (update after each wave)
 
