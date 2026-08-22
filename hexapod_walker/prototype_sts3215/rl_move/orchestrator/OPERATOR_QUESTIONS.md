@@ -1600,3 +1600,39 @@ Entry format (append; newest last; update status in place):
   this is a real, reproducible pass, not a lucky held-out draw.
   Evidence: `logs/ckpt_eval/cw_dep_bcgait4_phasedir9_longrun17_stotight45_joygate_seed2/`.
 - ANSWER (operator): _
+
+## q_20260822T1815Z — AMP M2: switch from the SLIPWALK pricing stack to the brief's literal minimal reward? (assume-and-go, cycle c0822-fixedcmd-triage)
+
+- context: 8 from-scratch M2 freeprog arms (noamp/style05-v2/
+  stylew2-v2/fixedcmd-seed{7,11}/swing-{noamp,style05}/rsi1-{noamp,
+  style05b}) have ALL failed the same way — a ~0.03-0.06m/15s
+  statue/shuffle basin, `env/reward_walk_freeprog_pen` flat at -1.4
+  to -1.7/tick from step 0, style income 15-30x smaller. Every arm
+  reused the joystick track's SLIPWALK semantics-bank pricing
+  (k_walk_freeprog, k_loadslip_excess, k_drag_stance=8000,
+  k_walk_idle_charge, walk_anchor_gate, walk_gait_gate) — built for
+  a warm-started BC-refinement regime — instead of
+  `AMP_LOCOMOTION.md` section 5's own specified reward (simple
+  Gaussian velocity/yaw/upright/weak-height task terms, modest
+  regularizers, explicit "do not make stance slip the dominant
+  reward", task/style 70/30 to 30/70 "strong enough the policy
+  cannot ignore it"). Section 2 of the same brief describes this
+  exact stuck signature and names the fix.
+- the question: should the next M2 arm implement the brief's minimal
+  reward literally (dropping the SLIPWALK-derived anti-slip
+  apparatus wholesale) rather than continuing to dose/lever-tune
+  within that stack? This is a bigger structural change than the
+  single-lever tests so far, though still "one reward-architecture
+  change" in spirit.
+- assumed answer (acting on it, but NOT launched yet — flagging as
+  DIG-IN, not executing blind): yes, per the brief's own explicit
+  binding charter ("implement AMP_LOCOMOTION.md" is goal 2 itself,
+  section 5 is not optional guidance). Not launched this cycle
+  because it needs real design care first: the PRE-freeprog "legacy"
+  reward also statued (via a DIFFERENT exploit — frozen half-tripod
+  overpaid by rise_finish/posture/height kernels, the M2 -c1
+  finding) so a naive revert would likely reopen that cheat; the
+  right arm keeps term_penalty=400 (a section-5.4-compatible reward
+  choice, not a termination-condition change) and picks modest
+  regularizers carefully rather than just zeroing every SLIPWALK key.
+- ANSWER (operator): _

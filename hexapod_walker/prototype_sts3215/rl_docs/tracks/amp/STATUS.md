@@ -20,8 +20,23 @@ restructuring [shorter/denser episodes, or a whole-episode net-
 displacement score instead of per-tick cross-track charges] or a
 short BC-pretrain phase on the motion library before RL, still
 consistent with the "demo is training data" charter — not another
-coefficient/gradient-source/reset-state tweak. See CURRENT_TRUTHS
-for full detail; earlier 08-22 history retained below this line.)
+coefficient/gradient-source/reset-state tweak. FLAGGED CANDIDATE
+ROOT CAUSE (not yet tested, DIG-IN item, see CURRENT_TRUTHS for full
+detail): every M2 freeprog arm reused the JOYSTICK track's harsh
+SLIPWALK anti-slip pricing stack instead of `AMP_LOCOMOTION.md`
+section 5's own specified reward (simple Gaussian velocity/yaw/
+upright/weak-height task reward, modest regularizers, "do not make
+stance slip the dominant reward", task/style 70/30-30/70) —
+`env/reward_walk_freeprog_pen` sits flat at -1.4 to -1.7/tick,
+~15-30x the realized style income, in every arm. Section 2 of the
+brief describes this EXACT failure signature (paddle-creep/
+dragging/reward-exploits from an under-specified task reward) and
+names the fix as simple-task-reward + dominant-style, which M2 has
+never actually implemented. A clean-slate brief-literal reward arm
+is the next real experiment, but needs careful design (which modest
+regularizers prevent reopening the OLDER pre-freeprog freeze cheat)
+before training. See CURRENT_TRUTHS for full detail; earlier 08-22
+history retained below this line.)
 
 Previous update, 2026-08-22 ~18:0x (K_WALK_SWING LEVER CLOSED: both
 `cw-amp-m2-freeprog-term400-swing-{noamp,style05}` FAIL, landing in

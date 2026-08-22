@@ -634,6 +634,52 @@ out-of-scope runs get honest triage but no agent follow-ups.
   track's "demo is training data, not the controller" charter) —
   not another reward coefficient, gradient source, or reset-state
   tweak.
+- CANDIDATE ROOT CAUSE FOR THE WHOLE M2 FREEPROG LADDER, TEXTUALLY
+  GROUNDED, NOT YET TESTED (08-22, read while writing up the
+  rsi1/swing FAILs — flagged for DIG-IN, no GPU spent on it yet):
+  `AMP_LOCOMOTION.md` section 2 ("Why the Previous Program Stalled")
+  describes the EXACT failure mode this whole 8-arm ladder keeps
+  reproducing — "repeatedly converged to paddle-creep, dragging,
+  narrow specialists, fragile choreography, or reward exploits" —
+  and names the fix as a SIMPLE task reward (section 5.1:
+  `r_linear_velocity = exp(-||v-v_cmd||^2/sigma_v)` +
+  `r_yaw_velocity` + `r_upright` + a WEAK height regularizer, "a
+  small number of interpretable reward families... avoid another
+  large reward-term search") carrying a DOMINANT-enough AMP style
+  weight (section 5.2: task/style in the 70/30-30/70 range, "strong
+  enough that the policy cannot ignore it") plus MODEST physical
+  regularizers (section 5.3, explicit: "Do not make stance slip the
+  dominant reward or a hard early gate"). Every M2 freeprog arm to
+  date (noamp/style05-v2/stylew2-v2/fixedcmd/swing-*/rsi1-*) instead
+  reused the JOYSTICK track's SLIPWALK semantics-bank pricing stack
+  wholesale: `k_walk_freeprog` (replaces the Gaussian kernel with a
+  SHARP saturating linear score, cap 0.05 m/s — any cross-track
+  jitter above 5 cm/s already maxes the charge), PLUS
+  `k_loadslip_excess`, `k_drag_stance=8000`, `k_walk_idle_charge`,
+  `walk_anchor_gate`, `walk_gait_gate` (a multiplicative income
+  discount) — a large, harshly-saturating, UNGATED anti-slip
+  apparatus built for a WARM-STARTED BC-refinement regime, not a
+  from-scratch AMP actor. Measured signature across every arm:
+  `env/reward_walk_freeprog_pen` (this stack's dominant single term)
+  sits flat at -1.4 to -1.7/tick from step 0, ~15-30x
+  `amp/style_reward_mean`'s realized income (0.03-0.09/tick even at
+  2x style weight) — i.e. exactly the "task reward drowns out style"
+  failure the brief's section 5.2 warns against, not a coincidence
+  of dose. NOT YET TESTED: a clean-slate M2 arm implementing section
+  5.1-5.4 close to literally (Gaussian velocity+yaw kernel, upright,
+  weak height, modest action/torque/collision regularizers, NO
+  freeprog/loadslip/drag-stance/idle-charge/anchor/gait-gate
+  machinery, term_penalty kept per the suicide-economics finding
+  which is a section-5.4-compatible reward choice not a termination-
+  condition change) at task/style 50/50. This is DISTINCT from both
+  prior reward families tried: the pre-freeprog "legacy" reward
+  statued via a DIFFERENT exploit (frozen half-tripod overpaid by
+  rise_finish/posture/height kernels, per the M2 -c1 finding) and
+  freeprog statued via the shuffle/drag-basin family above — a
+  brief-literal minimal reward has never been run. Needs careful
+  design (which modest regularizers to keep so the OLD freeze cheat
+  does not reopen) before training, i.e. real dig-in work, not a
+  cfg toggle — flagged, not launched, this cycle.
 - FREEPROG-EMA REUSE TESTED + REFUTED, ZERO GPU SPENT (08-22): the
   obvious cheap fix — feed `reward.walk_kernel_vel_ema`'s already-
   validated stride-averaged velocity into `walk_freeprog_score`
