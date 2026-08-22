@@ -104,7 +104,7 @@ with:
   pd9 rows (floor inert off / spares ramp class / keeps insurance /
   orderings survive / regime gap pinned). LAUNCHED
   `cw-dep-bcgait4-phasedir9-stdanneal` (pd8 stack + std anneal
-  0.135->0.04 by 60% of run + ref floor 0.06).
+  0.135->0.04 by 60% of run + ref floor 0.06). NOTE: a concurrent-cycle race left a duplicate in flight under a different name, `cw-dep-bcgait4-phasedir9b-stdanneal` (train-2), running the identical config+seed alongside the original (train-3) — harmless (~5-10 GPU-min), verdict off whichever finishes against its own gate first, treat the other as a redundant confirmation.
 
 ## Next
 
