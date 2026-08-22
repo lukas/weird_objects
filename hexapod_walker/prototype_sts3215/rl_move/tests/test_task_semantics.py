@@ -59,9 +59,25 @@ from rl_move.sim.servo_model import SimServoParams  # noqa: E402
 #           and reappeared in cw-stand-b2p1 as the flag-leg/tripod cheat.
 
 RISE_REF = "rl_move/sim/refs/rise_ref_belly2plant.npz"
+# rise_height_mm/max_height_mm RECALIBRATED 08-22 (rise_valid_plant
+# dig-in, test_rise_valid_plant_separates_stand_from_cheats): [108,114]
+# + max 115 are the PRE-tibia-150 (128 mm tibia) belly->plant height
+# gain, stale since the tibia-150 recalibration lengthened the tibia
+# ~22 mm. The demonstrated (tibia-150-correct) rise_ref_belly2plant.npz
+# reference deterministically settles at h_rel=131.94 mm (measured,
+# all 3 seeds, open-loop so seed-invariant) — ~24 mm above the stale
+# target, tripping PLANT_SPEC's height_err_mm=15 window even though
+# every other stand check (attitude/feet-down/no-flag/support/
+# footprint/current) passes clean. This is a genuine spec staleness
+# (the commanded target height, not the tolerance window, was wrong
+# for the new leg length) — not a re-measure-the-tolerance fudge: the
+# fix moves the TARGET to bracket the physically-correct settled
+# height with margin on both sides of PLANT_SPEC's window, matching
+# the same servo/contact-compliance sag (~22 mm below rigid FK) the
+# GETUP bank's getup_z_full_frac already documents at this geometry.
 RISE_OVERRIDES = {
-    ("actions", "max_height_mm"): 115.0,
-    ("goal", "rise_height_mm"): [108.0, 114.0],
+    ("actions", "max_height_mm"): 137.0,
+    ("goal", "rise_height_mm"): [128.0, 136.0],
     ("goal", "rise_ramp_s"): 6.0,
     ("reward", "k_rise_ref_track"): 2.0,
     ("reward", "rise_ref_path"): RISE_REF,
@@ -220,8 +236,11 @@ def test_rise_valid_plant_separates_stand_from_cheats(rise_bank):
 # the score must carry the ordering on its own.
 
 SCORE_OVERRIDES = {
-    ("actions", "max_height_mm"): 115.0,
-    ("goal", "rise_height_mm"): [108.0, 114.0],
+    # See RISE_OVERRIDES above (08-22 recalibration, same physical
+    # reference/geometry, same test_score_replay_ends_in_valid_plant
+    # PLANT_SPEC height fix).
+    ("actions", "max_height_mm"): 137.0,
+    ("goal", "rise_height_mm"): [128.0, 136.0],
     ("goal", "rise_ramp_s"): 6.0,
     ("reward", "rise_score_income"): 1.0,
     # 08-11 (post-rsi2): strip the legacy k_height PENALTY too — it

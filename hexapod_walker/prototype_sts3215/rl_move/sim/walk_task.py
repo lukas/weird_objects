@@ -887,6 +887,50 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 "target_m": _da_target_mm / 1000.0,
                 "frac": 1.0,
             }
+        # Termination-penalty RAMP (08-22, freeprog-term400-stall dig-in
+        # follow-up): term_penalty=400 correctly killed the suicide
+        # exploit (cw-amp-m2-freeprog-{noamp,style05}FAIL, dig-in
+        # 08-22) but the term400 fix pair's own dig-in found a NEW
+        # tension — env/reward_walk_freeprog_pen sits at a sustained
+        # ~-1.4 to -1.8/tick cross-track charge (six legs cycling but
+        # marching in place, near-zero along-command travel) for the
+        # WHOLE 2M budget with terminations mostly SURVIVED (truncated-
+        # dominant), i.e. the policy is choosing a known, bounded-cost
+        # micro-stepping basin over the unknown, front-loaded risk of
+        # a -400 charge while it is still unskilled at real strides.
+        # Symmetric fix to the drag-allow ramp above: start the
+        # termination charge LOW (reward.term_penalty_ramp_init, cheap
+        # to fall while still learning to move) and anneal it UP to
+        # the validated reward.term_penalty target over
+        # reward.term_penalty_ramp_steps global env steps — so early
+        # exploration of real strides is not front-loaded with the
+        # full anti-suicide cost, while the final regime still prices
+        # death at the validated deterrent level. Same cfg-armed /
+        # trainer-driven / default-OFF contract; armed-but-unbroadcast
+        # sits at the TARGET (full) penalty, so eval_checkpoint / play
+        # always judge the validated deterrent even mid-ramp cfg.
+        self._term_penalty_ramp: dict | None = None
+        self._term_penalty_override: float | None = None
+        _tp_ramp_steps = int(float(cfg_get(
+            self.cfg, "reward", "term_penalty_ramp_steps",
+            default=0) or 0))
+        if _tp_ramp_steps > 0:
+            _tp_target = float(cfg_get(self.cfg, "reward",
+                                       "term_penalty", default=0.0))
+            _tp_start = float(cfg_get(
+                self.cfg, "reward", "term_penalty_ramp_init",
+                default=0.0))
+            if _tp_start > _tp_target:
+                raise ValueError(
+                    "reward.term_penalty_ramp_init "
+                    f"({_tp_start:g}) must be <= the target "
+                    f"reward.term_penalty ({_tp_target:g}) — the ramp "
+                    "only ever raises, never lowers, the termination "
+                    "charge below the validated deterrent")
+            self._term_penalty_ramp = {
+                "steps": _tp_ramp_steps, "start": _tp_start,
+                "target": _tp_target, "frac": 1.0,
+            }
         # All-support-legs gait gate bookkeeping (08-13, quad track,
         # reward.walk_gait_gate): per-leg COMMANDED-tick index of the
         # last completed real swing (liftoff -> >=2 ticks airborne ->
@@ -1508,6 +1552,25 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         self._drag_allow_override_m = s + f * (t - s)
         self._drag_allow_ramp["frac"] = f
         return {"frac": f, "allow_mm": self._drag_allow_override_m * 1000.0}
+
+    def apply_term_penalty_frac(self, frac: float) -> dict:
+        """Move the live termination penalty to ``frac`` of the ramp
+        (0 = lenient start, 1 = the validated cfg target); trainer-
+        driven — see the ``reward.term_penalty_ramp_steps`` block in
+        ``__init__``. Mirrors ``apply_drag_allow_frac``'s contract
+        exactly: raises when the ramp is not armed.
+        """
+        if self._term_penalty_ramp is None:
+            raise RuntimeError(
+                "apply_term_penalty_frac called but reward."
+                "term_penalty_ramp_steps is not set (>0) in this "
+                "env's cfg — the term-penalty ramp is not armed")
+        f = min(max(float(frac), 0.0), 1.0)
+        s = self._term_penalty_ramp["start"]
+        t = self._term_penalty_ramp["target"]
+        self._term_penalty_override = s + f * (t - s)
+        self._term_penalty_ramp["frac"] = f
+        return {"frac": f, "term_penalty": self._term_penalty_override}
 
     def walkcurr_checkpoint_state(self) -> dict:
         """State paired with a promotion checkpoint (rollback/resume)."""
@@ -3954,8 +4017,11 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # Default 0.0 = bit-exact legacy. Eval/cert envs leave it 0
         # (evals run the raw reward, same rule as the transfer trainer).
         if term and not trunc:
-            _tp = float(cfg_get(self.cfg, "reward", "term_penalty",
-                                default=0.0))
+            if self._term_penalty_override is not None:
+                _tp = self._term_penalty_override
+            else:
+                _tp = float(cfg_get(self.cfg, "reward", "term_penalty",
+                                    default=0.0))
             if _tp > 0.0:
                 reward = float(reward) - _tp
         if self.walk_probe_on and self._wp is not None:
