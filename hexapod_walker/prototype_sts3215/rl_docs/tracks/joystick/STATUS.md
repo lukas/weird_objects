@@ -101,7 +101,14 @@ with:
   **STILL RED (4)**: `rise_valid_plant`/`score_replay_ends_in_valid_plant`
   (the rise reference's final pose still misses PLANT_SPEC —
   `height_ok: False` despite 6/6 feet down/no-flag/support/footprint
-  all OK, i.e. a fine-grained height-window miss, not a fall),
+  all OK, i.e. a fine-grained height-window miss, not a fall; measured
+  this cycle: h_err ~23.7mm vs the 15mm PLANT_SPEC tolerance, and the
+  reference npz itself predates the tibia-150 change (file mtime
+  Aug 11, before the Aug 21-22 geometry fix) — LEAD for next cycle:
+  check whether `RISE_OVERRIDES`'s `goal.rise_height_mm=[108,114]`
+  target window (not just the blend) is the stale-for-150mm constant,
+  since the reference's own delivered height did not move but the
+  tolerance math around it might need to),
   `getup_honest_ordering` (honest partial-crouch hold now pays LESS
   than freezing — a genuine reward-ordering defect, not a stale
   number), `fastprof_obeying_the_command_beats_overspeed` (separately-
