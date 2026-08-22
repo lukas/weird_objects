@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: RUNNING
+**status**: FAIL
 
 **created**: 2026-08-22T19:12:18+00:00
 
@@ -16,24 +16,5 @@
 
 **gate**: Discovery (2M steps, judged on det video (3+ episodes per arm) + gait_valid/fwd-travel harness numbers + amp/style_reward_mean, d_real/d_fake, NOT the joystick DONE gate). INFORMATIVE-PASS (any arm) = det video shows real net forward travel (>=0.10 m/15s) with visibly cyclic multi-leg contact/swing, discriminator unsaturated. FAIL-same-statue = frozen/half-tripod/march-in-place basin persists (gait_valid 0/6 or march-in-place with ~0 net travel) despite dropping the whole SLIPWALK stack -- closes the reward-architecture-alone hypothesis and points to task restructuring or a BC-pretrain phase as the next lever, per q_20260822T1815Z. Compare all 3 arms + the AMP_MINIMAL bank's own scripted-twin numbers; select on video first, reward second.
 
+**verdict**: FAIL-same-statue, arm C (task/style 0.3/0.7, style-dominant) of the pre-registered sec5 grid. Evidence: DR-0 gate det gait_valid 2/6 (legs [1,3] sacrificed), prog med 0.02, fwd med 0.03m/15s (bar 0.10), slip 8.79; sto gait_valid 5/6, fwd 0.04m, slip 12.04. Same Q1 crouch (height_err 59->84mm), style_reward 0.177->0.113 (best of grid but far below the 0.3 bar), disc healthy/unsaturated. Reward near-flat (-11.4/-7.6/-13.3/-3.0, within noise) with eval flat at zero travel = genuinely stuck mechanism per RUN_INTERPRETATION_RULES, not undertrained. Even a dominant style weight on the minimal reward cannot buy net displacement (consistent with the body-frame AMP feature limitation measured on styleonly-v2-c1b).
 
-## Triage notes (08-22 ~19:4x cycle, evals read, verdict deferred to dig-in)
-
-- W&B finished at 2,031,616 steps (checkup "stall at 2007040" = normal
-  completion; not a hang).
-- DR-0 gate (cw_amp_m2_sec5_taskC_gate): det prog med 0.02 / slip med
-  8.79 / fwd med 0.03m / gait_valid 2/6, sacrificed legs [1] and/or
-  [3] in 4/6 det episodes; sto prog 0.05 / slip 12.04 / fwd 0.04m /
-  gv 5/6. Bar was fwd >= 0.10m/15s. Zero terminations.
-- Contact sheet: same crouched splayed statue as noamp/taskA — no
-  translation.
-- Training reward flat (-11.4/-7.6/-13.3/-3.0). amp/style_reward_mean
-  plateaued 0.07-0.15 (never near the 0.3 informative bar);
-  discriminator healthy/unsaturated the whole run (d_real 0.78 /
-  d_fake -0.96). env/height_err_mm 5.8 -> 84.1 (Q1) -> 53.8 (end):
-  the 0.7 style weight partially fights the crouch (best of the grid)
-  but nowhere near walking. Reward-flat + eval-flat = stuck.
-- Pre-registered FAIL-same-statue branch fires. 3 of 4 grid arms now
-  read identical (taskB, concurrent cycle, early peek matches) —
-  grid-level conclusion + next-arm design (task restructuring vs
-  BC-pretrain vs pricing fix; see noamp notes) handed to the dig-in.

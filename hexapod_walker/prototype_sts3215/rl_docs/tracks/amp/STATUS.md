@@ -459,6 +459,37 @@ Build every tool this needs; do not pause on operator input.
 
 ## Now
 
+**08-22 ~20:0x — FAULT INJECTION BUILT + TESTED (M0 checklist "fault
+injection works"; M4 prerequisite; last confirmed-not-started M0
+item besides the push curriculum's random-direction extension).**
+`dr.fault_*` per-joint fault injection per brief §8: with
+`dr.fault_prob` (default 0.0 = OFF, guarded draw, legacy rng stream
+bit-exact) an episode carries ONE fault drawn from `dr.fault_mix` —
+weakened joint (`fault_weak_scales` 0.7/0.4/0.2/0.0 strength on
+kp+torque; 0.0 = dead servo free-swinging on its kv backdrive),
+frozen joint (actuator force zeroed + `FROZEN_DOF_DAMPING=500`
+viscous lock — measured creep 0.05 rad/2 s under a worst-case
+drop-settle load, stable), or disabled leg (3 joints dead).
+Implementation is PURE MjModel field edits applied after
+`apply_params_to_model` at all three DR sites (sim_env private
+model, `ModelDrScratch.rows_for` for both batched/sharded MJX vec
+envs, compare_standup probe); every touched field
+(actuator_gainprm/biasprm/forcerange, dof_damping) is already in
+`MODEL_DR_FIELDS`, so the per-world model-DR upload carries faults
+to the GPU stacks with ZERO stepper changes. §8.2 health vector
+available as `EpisodeRandomization.fault_health()` (18-dim, 1
+healthy / strength / 0 dead-frozen) — actor-obs wiring is M4 work,
+not done on purpose. Bank: `rl_move/tests/test_fault_injection.py`
+10/10 (default-off no-op + rng-stream guard, per-row edit scoping,
+mode/joint sampling validity, scaled() prob-not-dose convention,
+health vector, CPU env end-to-end with `--cfg-set dr.fault_prob=1`);
+regression `test_sim_env.py`+`test_physics_ease.py` 52/52,
+`test_struct_compliance.py` 6/6. First training use should ride a
+2M smoke arm per new-mechanism discipline. Eval-side fault cases
+(M4/M5 gates) need no new harness: `eval_checkpoint.py --cfg
+dr.fault_prob=...` reaches it through the existing dr.* override
+loop.
+
 08-22 audit of the shared MJX/Warp stack against the M0 checklist
 (§17 item 1: reuse before building) found more already reusable than
 the 08-21 "nothing built yet" note assumed, plus one real gap that's

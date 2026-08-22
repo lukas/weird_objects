@@ -223,6 +223,10 @@ class ModelDrScratch:
                                   kp_scale=er.kp_scale,
                                   kv_scale=er.kv_scale,
                                   torque_scale=er.torque_scale)
+            # dr.fault_*: per-episode fault rows (no-op when healthy).
+            # Every touched field is in MODEL_DR_FIELDS, so the
+            # per-world upload below carries the fault as-is.
+            er.apply_fault_to_model(m)
         else:
             apply_params_to_model(m, self.params)
         env._apply_struct_compliance_to_model(m)

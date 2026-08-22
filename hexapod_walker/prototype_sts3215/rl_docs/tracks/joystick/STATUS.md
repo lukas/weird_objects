@@ -1,6 +1,30 @@
 # joystick - RL from the programmatic gait to joystick control
 
-Last updated: 2026-08-22 (~19:4x: **MEASURED-PLANT GATE BREAK stance
+Last updated: 2026-08-22 (~19:5x: **CMDMIX LEVER CLOSED — on-
+distribution command training is ANTI-PRODUCTIVE on BC-anchored
+recipes (batch 0/3 PASS, 2 FAIL).** The 3-basin batch (each seed's
+best dose retrained with the gate's own stress_mix command family,
+training rng only) landed on its pre-registered worst branch:
+`cmdmix45-seed13` FAIL (joygate slip 2.407→3.023 over the 2.9 cap,
+dir 36.4→41.26 over the 40 allow), `cmdmix50-seed23` FAIL and worst
+(slip 2.543→3.595, dir 35.31→43.67), `cmdmix55-seed17` INFORMATIVE
+(only evaluator-keeper: pass=true but every margin shrank — slip
+2.515→2.817 w/ own-DR 2.897 grazing the cap, dir 34.97→36.73, 15s det
+prog 0.70→0.55). Zero falls / gait 48/48 on all three — pure margin
+regression, reward rose on all three while gates worsened: the
+distribution change itself is the misalignment (mid-episode churn
+fights the BC anchor); emergent transfer from fixed-command training
+already beats practicing the transitions. No continuation, lever
+CLOSED (4th arm `cmdmix45-seed29` FINISHED ~19:5x: FAIL, joygate
+slip 3.043>2.9 / dir 39.45, zero falls, same pure margin regression —
+batch FINAL 0/4 PASS, 3 FAIL / 1 INFORMATIVE). **CHAMPION UNCHANGED:
+stotight45-seed13 (slip 2.407/dir 36.4).** With dose ladder, ramp,
+loadslip family, anneal-continue, and now command-mix all measured-
+closed, no untried margin lever remains on this lineage; DONE-gate
+pass stands reproduced 4/4 seeds, formal gate-green awaits operator
+ack (q_20260822T1730Z). Prior banner below.)
+
+Previous entry (~19:4x: **MEASURED-PLANT GATE BREAK stance
 half CLOSED.** The corrected-cfg tibia-150 session-gate rerun flagged
 by the `plant150-3-rsifix` PASS is done: rsifix stance x
 `cw-dep-bcgait1-plant150-1` walk (`actions.max_height_mm=137`,
