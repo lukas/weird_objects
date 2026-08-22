@@ -218,13 +218,27 @@ out-of-scope runs get honest triage but no agent follow-ups.
   plant realization as the boundary, not supervision strength;
   raising `train.bc_anchor_coef` blind is NOT recommended before an
   on-pod per-tick trace (bc_target cadence vs realized policy cadence
-  vs raw un-phase-locked teacher cadence) exists. LAUNCHED (fresh
-  re-init from the raw BC clone — NOT a continuation, lineage rule
-  intact) `phasedir9-longrun13`/`-longrun17`: same stacks/seeds,
-  `--steps` 2M->4M, `--log-std-anneal-frac` 0.6->0.3 (anneal still
-  ends ~1.2M, ~2.8M steps now run in the converged regime vs ~800k)
-  — tests the 08-21 "needs to go longer" branch on a fresh run before
-  spending the phase-lock dig-in's forensic time.
+  vs raw un-phase-locked teacher cadence) exists.
+- PHASEDIR9 BUDGET LEVER CLOSED (08-22, `phasedir9-longrun13`/
+  `-longrun17`, both FAIL): 2x the converged-regime steps (fresh
+  re-inits from the raw BC clone, same stacks/seeds as stdanneal/
+  seed17, `--steps` 2M->4M, `--log-std-anneal-frac` 0.6->0.3 so the
+  anneal still ends at the same absolute ~1.2M step but ~2.8M steps
+  now run converged vs ~800k) did NOT close the gap either direction:
+  `longrun13` (from the seed that near-passed at 2M) got WORSE
+  (progress 0.873x->0.792x clone, slip 1.08x->1.286x); `longrun17`
+  (from the seed that missed at 2M) stayed FLAT (0.727x->0.714x,
+  1.27x->1.323x), matching its own pre-registered prediction-if-false
+  exactly. Both runs' W&B ep_rew_mean rose STRONGLY through the extra
+  budget (ending quarters +187/+193, far above either 2M run's ~-300)
+  while the clone-relative gate got worse-or-flat — a genuine
+  reward<->eval DIVERGENCE (08-21 ruling): more training under this
+  reward stack finds more of the stack's OWN income, not more of the
+  honest clone's behavior. Zero falls, gait_valid 6/6, clean 6-leg
+  video on all four phasedir9 runs. Budget/anneal-timing is now
+  EXONERATED end to end for this lineage; do not retry a different
+  anneal-frac/--steps combination on this stack. Sole remaining
+  lever: the BC-anchor/phase-lock family-boundary on-pod trace above.
 - AMP M2 STATUE MISALIGNMENT ROOT-CAUSED (08-22 dig-in, both -c1
   arms verdicted MISALIGNED, Wave-1 NO-GO on legacy pricing): the
   frozen half-tripod (triad 0,2,4 planted, 1,3,5 airborne) is the
