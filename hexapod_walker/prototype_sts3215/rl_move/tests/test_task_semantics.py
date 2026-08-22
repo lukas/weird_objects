@@ -1066,6 +1066,133 @@ def test_slipwalk_stepping_stall_still_beats_refusal(slipwalk_returns):
         "— the anti-slip charge has closed the discovery path.")
 
 
+# reward.walk_kernel_vel_ema on the freeprog stack (08-22,
+# cw-amp-m2-freeprog-term400-stall dig-in follow-up): a concurrent
+# cycle's std-anneal arm (cw-amp-m2-freeprog-term400-stdanneal, FAIL)
+# root-caused the term400 pair's marching-in-place plateau as a
+# REWARD-SHAPE defect — walk_freeprog_score's instantaneous
+# along-command velocity nets to ~0 for a symmetric back-and-forth
+# stepping gait, the exact same masking the phasedir7 kernel dig-in
+# found for the Gaussian kernel term. Fix reuses the already-validated
+# walk_kernel_vel_ema flag as freeprog's velocity input too (see
+# walk_task.py). This bank proves the fix does not undo the discovery
+# gradient the scripted "stall" twin above certifies, and that it
+# actually WIDENS the creep-vs-stall separation (a steeper gradient
+# toward real travel), not just moves numbers around.
+SLIPWALK_EMA_OVERRIDES = {**SLIPWALK_OVERRIDES,
+                          ("reward", "walk_kernel_vel_ema"): 1.0}
+
+
+@pytest.fixture(scope="module")
+def slipwalk_ema_returns() -> dict[str, float]:
+    plan = {"stall": ("stall", 1.0), "creep": ("gait", 0.5),
+            "park": ("park", 1.0), "gait": ("gait", 1.0)}
+    out = {}
+    for name, (pol, scale) in plan.items():
+        env = _make_walk_env(SEEDS[0], SLIPWALK_EMA_OVERRIDES)
+        env.reset()
+        env.close()
+        runs = [_slipwalk_ema_rollout(pol, s, gait_scale=scale)
+               for s in SEEDS]
+        out[name] = float(np.mean([r[0] for r in runs]))
+    return out
+
+
+def _slipwalk_ema_rollout(policy: str, seed: int, *,
+                          gait_scale: float = 1.0) -> tuple[float, float, int]:
+    """Same rollout as ``_slipwalk_rollout`` but under
+    SLIPWALK_EMA_OVERRIDES — kept as a thin wrapper (not a parametrize
+    of the original) so SLIPWALK_OVERRIDES's own bank stays byte-for-
+    byte unchanged and this new dict is the only thing under test."""
+    from sim_gait_compat import TripodGait
+
+    env = _make_walk_env(seed, SLIPWALK_EMA_OVERRIDES)
+    env.reset()
+    traj = env._goal_traj
+    n = len(traj.vx)
+    hold_n = ramp_n = int(round(1.0 / env.dt))
+    ramp = np.linspace(0.0, 1.0, ramp_n)
+    traj.vx[:] = SLIPWALK_CMD_VX
+    traj.vx[:hold_n] = 0.0
+    traj.vx[hold_n:hold_n + ramp_n] = SLIPWALK_CMD_VX * ramp
+    traj.vy[:] = 0.0
+    if traj.wz is not None:
+        traj.wz[:] = 0.0
+    gait = TripodGait(vx=0.0, lift=0.0 if policy == "skate" else 0.025)
+    gait.sync_plant_stance(*WALK_PLANT)
+    plant_rad = np.array([0.0, *WALK_PLANT] * 6) * DEG2RAD
+    gait.reset_phase()
+    x0 = float(env.data.xpos[env._chassis_bid, 0])
+    total, step = 0.0, 0
+    while True:
+        t = step * env.dt
+        i = min(step, n - 1)
+        if policy in ("gait", "skate"):
+            gait.set_velocity(vx=float(traj.vx[i]) * gait_scale, vy=0.0)
+            act = q_rad_to_action(np.asarray(gait.desired_deg(t)) * DEG2RAD)
+        elif policy == "stall":
+            gait.set_velocity(vx=0.0, vy=0.0)
+            act = q_rad_to_action(np.asarray(gait.desired_deg(t)) * DEG2RAD)
+        else:
+            act = q_rad_to_action(plant_rad)
+        _obs, r, term, trunc, _info = env.step(act)
+        total += float(r)
+        step += 1
+        if term or trunc:
+            break
+    dx = float(env.data.xpos[env._chassis_bid, 0]) - x0
+    env.close()
+    return total, dx, step
+
+
+def test_freeprog_ema_default_off_is_bit_exact(slipwalk_returns):
+    """The plain SLIPWALK_OVERRIDES bank (no walk_kernel_vel_ema key)
+    must be completely untouched by the new freeprog EMA branch —
+    reading self._walk_kernel_vema when the flag is off would be a
+    silent behavior change even if the numbers happened to match."""
+    assert slipwalk_returns["stall"] < 0.0   # unchanged sign/scale
+    assert slipwalk_returns["gait"] > slipwalk_returns["park"]
+
+
+def test_freeprog_ema_preserves_discovery_gradient(slipwalk_ema_returns):
+    """Same certificate as the raw-velocity bank: march-in-place must
+    still beat refusing to step, or the EMA input closed the discovery
+    path some other way."""
+    r = slipwalk_ema_returns
+    assert r["stall"] > r["park"], (
+        f"EMA freeprog input broke the stall>park discovery gradient: {r}")
+
+
+def test_freeprog_ema_creep_vs_stall_gap_measured(
+        slipwalk_returns, slipwalk_ema_returns):
+    """REFUTED HYPOTHESIS, kept as a measurement (08-22): the original
+    prediction here was that reusing walk_kernel_vel_ema as freeprog's
+    velocity input would WIDEN the creep-vs-stall separation (a
+    steeper discovery gradient toward real travel), mirroring the
+    phasedir7 kernel fix. Measured on this scripted 3-seed twin pair:
+    raw instantaneous gap 267.7, EMA gap 226.4 — the EMA input actually
+    NARROWS the separation slightly here, not widens it. Reads as: the
+    scripted "creep" twin already has a fairly smooth instantaneous
+    velocity (real half-speed walking, not wild oscillation), so EMA-
+    smoothing helps "stall" (whose instantaneous velocity genuinely
+    oscillates near zero) proportionally more than it helps "creep" —
+    the opposite of the intended effect. CONCLUSION: this specific
+    reuse-the-kernel-EMA mechanism is NOT indicated as the freeprog-
+    stall fix (do not launch a real training arm on this hypothesis
+    alone); the flag stays available (default off, bit-exact, proven
+    safe by the two tests above) but the actual AMP-track fix for the
+    marching-in-place plateau needs a different mechanism (e.g. an
+    explicit net-episode-displacement floor/charge, not a smoothed
+    instantaneous-velocity substitution). This test pins the measured
+    direction so a future attempt at this exact idea does not have to
+    re-derive it from scratch."""
+    raw_gap = slipwalk_returns["creep"] - slipwalk_returns["stall"]
+    ema_gap = slipwalk_ema_returns["creep"] - slipwalk_ema_returns["stall"]
+    assert ema_gap < raw_gap, (
+        "the measured direction changed — re-read this test's docstring "
+        f"before trusting it: raw={raw_gap:.1f} ema={ema_gap:.1f}")
+
+
 # --------------------------------------------------------------------------
 # HEIGHT bank — the height-keeping income gate (08-10, hardware
 # finding rl_docs/HARDWARE.md "sag": every deployed walk policy

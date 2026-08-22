@@ -2987,8 +2987,37 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                                    "k_walk_freeprog", default=0.0))
             r_free_pen = 0.0
             if k_free > 0.0 and s_ref > 1e-3:
+                # Stride-EMA input (08-22, freeprog-term400-stall dig-in
+                # follow-up): a second concurrent cycle's std-anneal
+                # arm (cw-amp-m2-freeprog-term400-stdanneal, FAIL)
+                # root-caused the marching-in-place plateau as a
+                # REWARD-SHAPE defect, not exploration noise —
+                # walk_freeprog_score's INSTANTANEOUS along-command
+                # velocity nets to ~0 for a symmetric back-and-forth
+                # stepping gait (push-off and recovery lobes cancel in
+                # the per-tick average) exactly the same way the
+                # phasedir7 kernel dig-in found for the Gaussian
+                # kernel term above — so it cannot distinguish "no net
+                # travel" from "just starting to walk slowly" by
+                # construction. Reuse of the SAME already-validated
+                # fix (reward.walk_kernel_vel_ema, phasedir7/7b/8):
+                # when both flags are on, freeprog scores the
+                # STRIDE-AVERAGED velocity (self._walk_kernel_vema,
+                # already updated unconditionally above whenever the
+                # flag is set) instead of the raw instantaneous one,
+                # so a true net-zero marcher still nets ~0 (unchanged)
+                # but a policy that starts converting oscillation into
+                # real forward drift gets a cleaner, less noise-
+                # cancelled gradient toward it. Default (flag off) is
+                # bit-exact legacy (raw v, unchanged).
+                if float(cfg_get(self.cfg, "reward", "walk_kernel_vel_ema",
+                                 default=0.0)) > 0.0:
+                    fv0, fv1 = (self._walk_kernel_vema[0],
+                               self._walk_kernel_vema[1])
+                else:
+                    fv0, fv1 = float(v[0]), float(v[1])
                 f_score, f_along, f_cross = walk_freeprog_score(
-                    float(v[0]), float(v[1]), goal.vx_ref, goal.vy_ref,
+                    fv0, fv1, goal.vx_ref, goal.vy_ref,
                     float(cfg_get(self.cfg, "reward",
                                   "walk_freeprog_cap_m_s",
                                   default=0.06)))
