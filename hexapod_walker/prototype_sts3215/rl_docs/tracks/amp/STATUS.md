@@ -1,6 +1,32 @@
 # amp - AMP locomotion from scratch
 
-Last updated: 2026-08-22 ~23:2x (**TIP PARK ROOT CAUSE FOUND: the
+Last updated: 2026-08-22 ~23:3x (**M3 OPENED FOR REAL:
+`cw-amp-m3-pushsmoke1-noamp-r4` VERDICTED PASS on the mechanism-
+safety bar — first-ever training use of the mid-episode shove
+(`dr.ext_push_*`, 10-25N / 0.15-0.4s / random direction, once per
+episode) is safe AND the walker visibly LEARNS to survive it:
+training tilt terminations fell ~3x at CONSTANT dose (tilt_pitch
+42→15, tilt_roll 27→7-11 per window) while reward rose 2.3→335;
+DR-0 own-cfg gate gait_valid 6/6 det+sto, zero sacrificed legs, det
+prog med 1.24 / slip 3.05 / fwd 0.70m. Blunt: the shove still wins
+1/6 det + 3/6 sto episodes (det_3 strip: clean walking ~13s then
+flipped; sto ep4 degraded prog 0.21 / slip 18.3) — this is
+survive-most-pushes, NOT recovery-after-knockdown. r1-r3 are
+REFUSED launch stubs, nothing trained. FOLLOW-UP BATCH LAUNCHED
+(this cycle): `cw-amp-m3-pushsmoke1-style05` (style twin from
+style05-headingsfull, speed pinned 0.08 so task cfg == r4's; first
+axis where AMP style could actively FIGHT the task — recovery
+transients are in no teacher_v2 clip; FAIL-styleveto branch
+pre-registered) + `cw-amp-m3-pushacq1-noamp` (6M acquisition from
+r4's checkpoint, dose unchanged — terminations still falling and
+reward still rising at the 2M cutoff, 08-21 ruling continuation;
+plateau branch names the push-magnitude curriculum and the
+REPEATED-push mechanism extension as next levers — M3's bar says
+repeated pushes and `dr.ext_push_*` currently draws exactly ONE per
+episode; that extension is real code work a future cycle owns).
+Tip-clock banner below.)
+
+Previous entry (~23:2x (**TIP PARK ROOT CAUSE FOUND: the
 gait clock FREEZES during turn-in-place commands — env defect, fixed
 this cycle, clock-fix dose pair launched.** Same defect FAMILY as the
 speed-cap finding in the next banner down — the phase clock ignores

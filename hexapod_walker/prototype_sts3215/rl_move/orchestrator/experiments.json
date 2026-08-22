@@ -128782,7 +128782,7 @@
       "goal.walk_phase_hz_max=3.0"
     ],
     "created": "2026-08-22T23:04:35+00:00",
-    "status": "FINISHED",
+    "status": "INFORMATIVE",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -128819,7 +128819,9 @@
         "verdict": "FINISHED_BEFORE_CHECKUP",
         "log_tail": "72\nwandb:      amp/disc_updates 124\nwandb:                amp/gp 0.01034\nwandb:              amp/loss 0.27516\nwandb: amp/pairs_per_rollout 65341\nwandb:        amp/replay_len 500000\nwandb: amp/style_reward_mean 0.17232\nwandb:                   +94 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-amp-m2-bcinit-sec5-style05-speedrange-cadcouple-r1 at: https://wandb.ai/l2k2/hexapod-balance/runs/su5kvtm9\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 3 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260822_230528-su5kvtm9/logs\n"
       }
-    ]
+    ],
+    "verdict": "The speed-coupled phase clock partially works but trades gait QUALITY for speed variety -- a mixed result, not a clean pass. DR-0 gate: gait_valid stays 6/6 det+sto, zero terminations/sacrificed legs (mechanism doesn't break the gait outright). Realized speed_mean now spans 0.051-0.114 m/s (ratio 2.24x, clears the pre-registered >=2.0 widening bar vs the pinned ~1.5x parent band) -- the clock coupling DOES let the robot vary its pace with command, confirming the fastphase/nostyle root cause (fixed-rate clock) was correct. BUT slip roughly doubled (det med 4.40 vs speedrange's 2.69, sto 6.59 vs 3.85; worst single episodes hit 6-12/m) and progress collapsed on the harder episodes (det med 0.32, sto 0.25, vs ~0.6-0.7 before). Video (walk_det_1, walk_sto_5) shows WHY: on high-commanded-speed segments the legs cycle visibly FASTER but the body barely advances across the checkerboard -- a high-frequency march/shuffle, not a longer stride. This is the pre-registered 'widens but paddle-creeps' failure mode named in the gate text (video overrides scalar): the clock now tracks command, but nothing couples STRIDE LENGTH to the faster cadence, so faster stepping just wastes more foot-contact time as slip instead of covering more ground. hardware-ready: no (2M discovery, DR-0). Root cause chain: behavior (fast legs, same body speed) <- incentive (task reward rewards velocity-vs-command, which nominally should punish this, but the reward+style blend apparently still nets positive since quarters rose 48->180) <- pricing gap (no term penalizes wasted-motion/slip specifically, so a busier-but-not-faster gait is not actively disincentivized enough at this training budget) <- mechanism (only the CLOCK RATE was coupled to command; stride length/amplitude stayed fixed by construction). Next: couple stride length (or workspace amplitude) to commanded speed alongside the clock, or add an explicit slip-vs-command-speed penalty, before crediting this lever.",
+    "triage": "done"
   },
   {
     "run": "cw-amp-m3-pushsmoke1-noamp-r4",
@@ -129067,7 +129069,7 @@
       "goal.walk_phase_hz_max=3.0"
     ],
     "created": "2026-08-22T23:08:14+00:00",
-    "status": "FINISHED",
+    "status": "INFORMATIVE",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -129104,7 +129106,9 @@
         "verdict": "FINISHED_BEFORE_CHECKUP",
         "log_tail": "eight_mm 8.91833\nwandb:   env/height_ref_mm 0\nwandb:   env/max_current_a 1.69617\nwandb:  env/mean_current_a 0.66568\nwandb: env/pct_within_1deg 0.11768\nwandb:   env/pitch_ref_deg 0\nwandb:   env/reward_action -0.0158\nwandb:                 +83 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-amp-m2-bcinit-sec5-style05-speedrange-cadcouple-nostyle at: https://wandb.ai/l2k2/hexapod-balance/runs/sn6cnls0\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 3 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260822_230907-sn6cnls0/logs\n"
       }
-    ]
+    ],
+    "verdict": "Task-only twin of cadcouple-r1 -- lands in the SAME partial regime, confirming AMP style neither vetoes nor rescues the cadence-coupling mechanism. DR-0 gate: gait_valid 6/6 det+sto, zero sacrificed legs; speed_mean spans 0.057-0.118 (styled sibling: 0.051-0.114, essentially identical spread and center); slip det med 5.11 (sibling 4.40), sto med 6.54 (sibling 6.59) -- same order of degradation, same high-frequency-shuffle signature on the worst episodes (walk_sto_4 frame-strip: legs cycling fast, body barely advancing across the checkerboard). This CLOSES the 'style-veto' branch this arm's own gate pre-registered: style is not fighting the faster/variable clock (nostyle shows the identical pathology), and style is not protecting against it either. Consistent with every other axis tested this cycle (heading 0/25/90/full, speed range, now cadence-coupling): AMP style has shown ZERO measured functional necessity anywhere in the M2 command envelope built so far on this reward/init. hardware-ready: no (2M discovery, DR-0). Next real lever (shared with the styled sibling): couple stride length/workspace amplitude to commanded speed, not just clock rate -- or price wasted-motion slip more directly during high-cadence segments.",
+    "triage": "done"
   },
   {
     "run": "cw-amp-m2-bcinit-sec5-style05-yawcmd-tip50-clockyaw",
@@ -129237,7 +129241,7 @@
       "goal.walk_phase_run_on_yaw=1"
     ],
     "created": "2026-08-22T23:18:43+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -129266,7 +129270,15 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:amp PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-amp-m2-bcinit-sec5-style05-yawcmd-tip50-clockyaw --steps 2000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_amp_m2_bcinit_sec5_style05_yawcmd.zip --episode-seconds 15 --no-canary --eval-every 1000000 --video-every 2000000 --n-envs 4096 --impl warp --host-workers 24 --seed 7 --ent-coef 0.001 --warm-log-std-override -2.0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set goal.walk_phase_obs=1 --cfg-set goal.walk_phase_hz=1.333333 --cfg-set goal.walk_obs_body_vel=2 --cfg-set goal.walk_heading_max_rad=-1 --cfg-set goal.walk_speed_min_m_s=0.08 --cfg-set goal.walk_speed_max_m_s=0.08 --cfg-set goal.walk_cmd_mode=stress_mix --cfg-set goal.walk_cmd_resample_s=4.0 --cfg-set goal.walk_cmd_resample_jitter=0.5 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set bus.write_speed=1500 --cfg-set bus.write_acc=80 --cfg-set bus.servo_vel_max_counts_s=write_speed --cfg-set safety.max_delta_q_deg=5.0 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --cfg-set reward.term_penalty=400.0 --cfg-set reward.k_step_event=0.0 --cfg-set reward.k_park_duty=0.0 --cfg-set reward.k_walk_freeprog=0.0 --cfg-set reward.walk_loadslip_gate=0.0 --cfg-set reward.k_loadslip_excess=0.0 --cfg-set reward.walk_gait_gate=0.0 --cfg-set reward.k_walk_idle_charge=0.0 --cfg-set reward.k_drag_stance=0.0 --amp-motion-lib rl_move/sim/motion_library/teacher_v2.npz --amp-disc-steps 4 --amp-disc-batch 512 --amp-gp-weight 10.0 --amp-replay 500000 --amp-task-weight 0.5 --amp-style-weight 0.5 --out-name ppo_goal_cw_amp_m2_bcinit_sec5_style05_yawcmd_tip50_clockyaw --notes 'respec of cw-amp-m2-bcinit-sec5-style05-yawcmd-tip50-r2: Plain English: the robot parked on turn-in-place commands because its gait CLOCK stops ticking whenever no linear velocity is commanded -- fixing the clock so it also runs during commanded turns should finally let it learn to turn on the spot. Root cause found this cycle (frozen-clock defect, walk_task._augment_obs): the walk_phase_obs clock only advanced while s_ref>1e-3, so during tip episodes (vx=vy=0, wz!=0) the phase obs FROZE -- this BC-clone substrate is phase-locked (steps by following the clock), so with a frozen time-base it structurally CANNOT step-turn, which is why pricing (yawcmd) and exposure (tip50-r2/tip90, zero dose-response 0.5->0.9) both failed with the identical park fingerprint (tip err == |wz_ref| exactly), while yaw-while-TRANSLATING (clock running) improved in every arm. Single lever vs tip50-r2: byte-identical config + goal.walk_phase_run_on_yaw=1 (new key landed+tested this cycle: 10/10 phase tests incl. 3 new, default-off bit-exact, snapshot tag exp/cw-amp-m2-bcinit-sec5-style05-yawcmd-tipclock-pair). Same init (yawcmd ckpt), same tip_frac=0.5, so tip50-r2 IS the matched control. Prediction-if-true: eval_yaw (WITH the clock key in its cfg-set!) shows command-SIGNED wz on tip-left AND tip-right with err well below the 0.30 park fingerprint; the policy already modulates wz inside the running-clock gait (arc scenarios), so given a time-base at vx=0 it should transfer. Prediction-if-false: still parks with a running clock -- the block is deeper than the clock (style/stance conflict), BC-turn-clone (teacher omega channel) becomes the next lever. Strongest alternative: it steps in place on tip commands (clock obeyed) but wz stays ~0 or wrong-signed -- stepping without rotating; that would still be progress (motor pattern present, rotation pricing then has something to bid on) and would fund the BC-turn-clone with the clock key on.' --obs-pad-transplant 0 --cfg-set goal.walk_yaw_cmd=1 --cfg-set goal.walk_yaw_max_rad_s=0.3 --cfg-set goal.walk_yaw_zero_frac=0.5 --cfg-set reward.k_walk_yaw=1.0 --cfg-set reward.walk_yaw_kernel_gate=1.0 --cfg-set reward.k_yaw_prog=1.0 --cfg-set reward.k_yaw_still=50 --cfg-set reward.walk_kernel_yaw_gate=1.0 --cfg-set reward.walk_yaw_hold_prog_gate=1.0 --cfg-set reward.yaw_still_avg_s=1.0 --cfg-set goal.walk_turn_in_place_frac=0.5 --cfg-set goal.walk_phase_run_on_yaw=1 > /tmp/train_cw-amp-m2-bcinit-sec5-style05-yawcmd-tip50-clockyaw.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-amp-m2-bcinit-sec5-style05-yawcmd-tip50-clockyaw.log",
     "wandb_id": "n8lu3b7h",
-    "verified": "2026-08-22T23:22:03+00:00"
+    "verified": "2026-08-22T23:22:03+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-22T23:27:41+00:00",
+        "process_alive": false,
+        "verdict": "FINISHED_BEFORE_CHECKUP",
+        "log_tail": "63712\nwandb:      amp/disc_updates 124\nwandb:                amp/gp 0.01015\nwandb:              amp/loss 0.22888\nwandb: amp/pairs_per_rollout 65340\nwandb:        amp/replay_len 500000\nwandb: amp/style_reward_mean 0.1635\nwandb:                  +102 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-amp-m2-bcinit-sec5-style05-yawcmd-tip50-clockyaw at: https://wandb.ai/l2k2/hexapod-balance/runs/n8lu3b7h\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 3 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260822_231937-n8lu3b7h/logs\n"
+      }
+    ]
   },
   {
     "run": "cw-amp-m2-bcinit-sec5-style05-yawcmd-tip90-clockyaw",
@@ -129399,7 +129411,7 @@
       "goal.walk_phase_run_on_yaw=1"
     ],
     "created": "2026-08-22T23:20:30+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -129428,7 +129440,16 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:amp PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-amp-m2-bcinit-sec5-style05-yawcmd-tip90-clockyaw --steps 2000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_amp_m2_bcinit_sec5_style05_yawcmd.zip --episode-seconds 15 --no-canary --eval-every 1000000 --video-every 2000000 --n-envs 4096 --impl warp --host-workers 24 --seed 7 --ent-coef 0.001 --warm-log-std-override -2.0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set goal.walk_phase_obs=1 --cfg-set goal.walk_phase_hz=1.333333 --cfg-set goal.walk_obs_body_vel=2 --cfg-set goal.walk_heading_max_rad=-1 --cfg-set goal.walk_speed_min_m_s=0.08 --cfg-set goal.walk_speed_max_m_s=0.08 --cfg-set goal.walk_cmd_mode=stress_mix --cfg-set goal.walk_cmd_resample_s=4.0 --cfg-set goal.walk_cmd_resample_jitter=0.5 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set bus.write_speed=1500 --cfg-set bus.write_acc=80 --cfg-set bus.servo_vel_max_counts_s=write_speed --cfg-set safety.max_delta_q_deg=5.0 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --cfg-set reward.term_penalty=400.0 --cfg-set reward.k_step_event=0.0 --cfg-set reward.k_park_duty=0.0 --cfg-set reward.k_walk_freeprog=0.0 --cfg-set reward.walk_loadslip_gate=0.0 --cfg-set reward.k_loadslip_excess=0.0 --cfg-set reward.walk_gait_gate=0.0 --cfg-set reward.k_walk_idle_charge=0.0 --cfg-set reward.k_drag_stance=0.0 --amp-motion-lib rl_move/sim/motion_library/teacher_v2.npz --amp-disc-steps 4 --amp-disc-batch 512 --amp-gp-weight 10.0 --amp-replay 500000 --amp-task-weight 0.5 --amp-style-weight 0.5 --out-name ppo_goal_cw_amp_m2_bcinit_sec5_style05_yawcmd_tip90_clockyaw --notes 'respec of cw-amp-m2-bcinit-sec5-style05-yawcmd-tip90: Plain English: dose twin of tip50-clockyaw -- with the gait clock finally ticking during commanded turns, does maximum turn exposure (90% of episodes) speed up or strengthen turn-in-place learning? Same frozen-clock root cause and fix as the tip50-clockyaw arm (goal.walk_phase_run_on_yaw=1, landed+tested this cycle, default-off bit-exact); byte-identical to tip90 otherwise, so tip90 (parked, tip err 0.2982/0.2999 == |wz_ref|) is the matched control. The original tip50/tip90 pair showed ZERO dose-response because the skill was unlearnable with a frozen clock at any exposure; if the clock was the binding constraint, dose-response should now APPEAR (this arm learns turn-in-place faster/stronger than tip50-clockyaw) -- that pattern would confirm the clock diagnosis twice over. Prediction-if-true: eval_yaw (with the clock key in cfg-set) tip errs drop well below 0.30 with command-signed wz both directions, at least matching tip50-clockyaw. Prediction-if-false: both clockyaw arms still park -- clock refuted as binding constraint, BC-turn-clone next. Translation erosion tolerated on this 0.9-frac arm (stage read, same as tip90).' --obs-pad-transplant 0 --cfg-set goal.walk_yaw_cmd=1 --cfg-set goal.walk_yaw_max_rad_s=0.3 --cfg-set goal.walk_yaw_zero_frac=0.5 --cfg-set reward.k_walk_yaw=1.0 --cfg-set reward.walk_yaw_kernel_gate=1.0 --cfg-set reward.k_yaw_prog=1.0 --cfg-set reward.k_yaw_still=50 --cfg-set reward.walk_kernel_yaw_gate=1.0 --cfg-set reward.walk_yaw_hold_prog_gate=1.0 --cfg-set reward.yaw_still_avg_s=1.0 --cfg-set goal.walk_turn_in_place_frac=0.9 --cfg-set goal.walk_phase_run_on_yaw=1 > /tmp/train_cw-amp-m2-bcinit-sec5-style05-yawcmd-tip90-clockyaw.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-amp-m2-bcinit-sec5-style05-yawcmd-tip90-clockyaw.log",
     "wandb_id": "vz07tkta",
-    "verified": "2026-08-22T23:23:48+00:00"
+    "verified": "2026-08-22T23:23:48+00:00",
+    "triage": "in-cycle cw-amp-m2-bcinit-sec5-style05-yawcmd-tip90-clockyaw since 2026-08-22T23:29:24",
+    "checkups": [
+      {
+        "time": "2026-08-22T23:29:43+00:00",
+        "process_alive": false,
+        "verdict": "DEAD",
+        "log_tail": ".62822\nwandb:      amp/disc_updates 124\nwandb:                amp/gp 0.01053\nwandb:              amp/loss 0.247\nwandb: amp/pairs_per_rollout 65339\nwandb:        amp/replay_len 500000\nwandb: amp/style_reward_mean 0.20857\nwandb:                   +96 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-amp-m2-bcinit-sec5-style05-yawcmd-tip90-clockyaw at: https://wandb.ai/l2k2/hexapod-balance/runs/vz07tkta\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 3 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260822_232125-vz07tkta/logs\n"
+      }
+    ]
   },
   {
     "run": "cw-amp-m3-pushsmoke1-style05",
@@ -129537,7 +129558,7 @@
       "dr.ext_push_prob=1.0"
     ],
     "created": "2026-08-22T23:23:36+00:00",
-    "status": "RUNNING",
+    "status": "PASS",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -129566,6 +129587,154 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:amp PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-amp-m3-pushsmoke1-style05 --steps 2000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_amp_m2_bcinit_sec5_style05_headingsfull.zip --episode-seconds 15 --no-canary --eval-every 1000000 --video-every 2000000 --n-envs 4096 --impl warp --host-workers 24 --seed 7 --ent-coef 0.001 --warm-log-std-override -2.0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set goal.walk_phase_obs=1 --cfg-set goal.walk_phase_hz=1.333333 --cfg-set goal.walk_obs_body_vel=2 --cfg-set goal.walk_heading_max_rad=-1 --cfg-set goal.walk_speed_min_m_s=0.08 --cfg-set goal.walk_speed_max_m_s=0.08 --cfg-set goal.walk_cmd_mode=stress_mix --cfg-set goal.walk_cmd_resample_s=4.0 --cfg-set goal.walk_cmd_resample_jitter=0.5 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set bus.write_speed=1500 --cfg-set bus.write_acc=80 --cfg-set bus.servo_vel_max_counts_s=write_speed --cfg-set safety.max_delta_q_deg=5.0 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --cfg-set reward.term_penalty=400.0 --cfg-set reward.k_step_event=0.0 --cfg-set reward.k_park_duty=0.0 --cfg-set reward.k_walk_freeprog=0.0 --cfg-set reward.walk_loadslip_gate=0.0 --cfg-set reward.k_loadslip_excess=0.0 --cfg-set reward.walk_gait_gate=0.0 --cfg-set reward.k_walk_idle_charge=0.0 --cfg-set reward.k_drag_stance=0.0 --amp-motion-lib rl_move/sim/motion_library/teacher_v2.npz --amp-disc-steps 4 --amp-disc-batch 512 --amp-gp-weight 10.0 --amp-replay 500000 --amp-task-weight 0.5 --amp-style-weight 0.5 --out-name ppo_goal_cw_amp_m3_pushsmoke1_style05 --notes 'respec of cw-amp-m2-bcinit-sec5-style05-speedrange: Plain English: the mid-episode shove smoke that just PASSED on the task-only (noamp) walker, now on the AMP-style twin -- does the style reward, a discriminator anchored to teacher_v2'\"'\"'s UNDISTURBED walking clips, tolerate or actively fight push-recovery transients (stumble/catch-step motions that appear in no demonstration)? This is the first axis in the M2/M3 envelope where style could plausibly HURT rather than be neutral (heading and speed axes all measured style-neutral). Clone of style05-speedrange'\"'\"'s config with speed pinned back to fixed 0.08 (making the task cfg identical to pushsmoke1-noamp-r4'\"'\"'s) plus the single new lever dr.ext_push_prob=1.0; init from the style05-headingsfull checkpoint (same stage as r4'\"'\"'s noamp-headingsfull init), fresh disc, 2M discovery, judged jointly against r4'\"'\"'s measured shape. Prediction-if-true (style tolerant): reward rises, training tilt terminations fall toward r4'\"'\"'s 42->15 pitch / 27->7 roll shape, DR-0 own-cfg gate gait_valid >=5/6 with topple counts comparable to r4 (1 det / 3 sto), amp/style_reward stays unsaturated. Prediction-if-false (style vetoes recovery): tilt terminations stay high/flat while task reward stalls or style reward collapses around pushes, or the policy goes rigid/crouched to stay in-distribution (height_err drop, statue fingerprint). Strongest alternative: a wash -- style neither helps nor hurts, matching every other axis tested; that still clears style to ride along into M3 push hardening.' --cfg-set dr.ext_push_prob=1.0 > /tmp/train_cw-amp-m3-pushsmoke1-style05.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-amp-m3-pushsmoke1-style05.log",
     "wandb_id": "ylfbz334",
-    "verified": "2026-08-22T23:26:52+00:00"
+    "verified": "2026-08-22T23:26:52+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-22T23:32:44+00:00",
+        "process_alive": false,
+        "verdict": "FINISHED_BEFORE_CHECKUP",
+        "log_tail": "    amp/d_real_mean 0.56714\nwandb:      amp/disc_updates 124\nwandb:                amp/gp 0.01078\nwandb:              amp/loss 0.28697\nwandb: amp/pairs_per_rollout 65309\nwandb:        amp/replay_len 500000\nwandb: amp/style_reward_mean 0.19453\nwandb:                   +93 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-amp-m3-pushsmoke1-style05 at: https://wandb.ai/l2k2/hexapod-balance/runs/ylfbz334\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 3 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260822_232428-ylfbz334/logs\n"
+      }
+    ],
+    "verdict": "The AMP style reward does NOT fight push recovery: the style twin of the r4 push smoke learned to survive mid-episode shoves just as well as the task-only walker, so M3 hardening may keep the style channel. Evidence: training tilt terminations fell at CONSTANT push dose (pitch 22->8.3, roll 16.3->7.8 per window across quarters) while reward rose 28->246 over the full 2M; DR-0 own-cfg gate gait_valid 6/6 det + 6/6 sto, zero sacrificed legs, det prog med 1.20 / slip 3.27 / fwd 0.72m (r4 control band: 1.24 / 3.05 / 0.70m); gate topples 1/6 det + 1/6 sto vs r4's 1/6 det + 3/6 sto -- inside the pre-registered ~2x joint-read bar, better on sto. Discriminator stayed healthy (d_real 0.57 / d_fake -0.84, gp 0.011, style_reward_mean 0.19), so this is not a collapsed-style artifact. Watched strips: det_5 = level body, all six legs cycling, 1.16m travel, no flag leg or dragging; det_3 = clean walking ~13s then a shove flips it (tilt_roll term) -- the residual shove-sometimes-wins mode identical to r4, not a style pathology. Pre-registered FAIL-styleveto branch refuted. hardware-ready: no (push-hardening still in progress; a strong shove still wins ~1/6 episodes). Next: 6M mirror acquisition cw-amp-m3-pushacq1-style05 from this checkpoint, the style-kept M3 hardening candidate running beside the noamp acquisition control.",
+    "triage": "done"
+  },
+  {
+    "run": "cw-amp-m3-pushacq1-noamp",
+    "pod": "hexapod-mjx-train-0",
+    "steps": 6000000,
+    "smoke": false,
+    "hypothesis": "Plain English: the push smoke showed the walker actively LEARNING to survive shoves -- topple rate fell ~3x in 2M and was still falling at the cutoff, with reward still rising (+88 in the last quarter) -- so give the identical recipe an honest 3x acquisition budget (6M) and measure how far the topple rate falls; this is the direct 'survive repeated randomized pushes' capability run for M3. Single change vs pushsmoke1-noamp-r4: warm-start from r4's own checkpoint + 6M steps (push dose unchanged, 10-25N / 0.15-0.4s / random direction, once per episode). Prediction-if-true: training tilt terminations keep falling to <=half r4's final window (<=8 pitch / <=5 roll), and the DR-0 own-cfg gate topples drop to <=1/6 det and <=2/6 sto with gait_valid >=5/6 and det prog med >=0.9. Prediction-if-false: terminations plateau at r4's floor -- a flat-dose ceiling; next lever is the push-magnitude curriculum (brief section 7.4's stated design) and/or a repeated-push mechanism extension (M3 wants REPEATED pushes; dr.ext_push_* currently draws exactly one per episode), not more budget. Strongest alternative: survival improves but via parking/crouching (height_err drops out of the walking band, prog collapses) -- a pricing problem to fix before any M3 claim.",
+    "gate": "Acquisition (6M, DR-0, push dose unchanged from r4). PASS = DR-0 own-cfg gate det terminations <=1/6 AND sto <=2/6, gait_valid >=5/6 det+sto, zero sacrificed legs, det prog med >=0.9, height_err stays in the 18-31mm walking band (no crouch-to-survive), video shows genuine stumble-and-keep-walking on pushed episodes. INFORMATIVE-plateau = gate topples no better than r4's (1 det / 3 sto) with training tilt-terms flat over the last 2M => flat-dose ceiling named; next lever is the push curriculum / repeated-push extension, not budget. FAIL = collapse/statue/numerical blowup.",
+    "parent": "cw-amp-m3-pushsmoke1-noamp-r4",
+    "track": "amp",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_amp_m3_pushsmoke1_noamp_r4.zip",
+      "--episode-seconds",
+      "15",
+      "--no-canary",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--n-envs",
+      "4096",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--seed",
+      "7",
+      "--ent-coef",
+      "0.001",
+      "--warm-log-std-override",
+      "-2.0",
+      "--goal-mix",
+      "walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0",
+      "--cfg-set",
+      "goal.walk_phase_obs=1",
+      "--cfg-set",
+      "goal.walk_phase_hz=1.333333",
+      "--cfg-set",
+      "goal.walk_obs_body_vel=2",
+      "--cfg-set",
+      "goal.walk_heading_max_rad=-1",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.08",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.08",
+      "--cfg-set",
+      "goal.walk_cmd_mode=stress_mix",
+      "--cfg-set",
+      "goal.walk_cmd_resample_s=4.0",
+      "--cfg-set",
+      "goal.walk_cmd_resample_jitter=0.5",
+      "--cfg-set",
+      "goal.walk_park_start_frac=0.25",
+      "--cfg-set",
+      "bus.write_speed=1500",
+      "--cfg-set",
+      "bus.write_acc=80",
+      "--cfg-set",
+      "bus.servo_vel_max_counts_s=write_speed",
+      "--cfg-set",
+      "safety.max_delta_q_deg=5.0",
+      "--cfg-set",
+      "safety.max_roll_deg=25",
+      "--cfg-set",
+      "safety.max_pitch_deg=25",
+      "--cfg-set",
+      "reward.term_penalty=400.0",
+      "--cfg-set",
+      "reward.k_step_event=0.0",
+      "--cfg-set",
+      "reward.k_park_duty=0.0",
+      "--cfg-set",
+      "reward.k_walk_freeprog=0.0",
+      "--cfg-set",
+      "reward.walk_loadslip_gate=0.0",
+      "--cfg-set",
+      "reward.k_loadslip_excess=0.0",
+      "--cfg-set",
+      "reward.walk_gait_gate=0.0",
+      "--cfg-set",
+      "reward.k_walk_idle_charge=0.0",
+      "--cfg-set",
+      "reward.k_drag_stance=0.0",
+      "--out-name",
+      "ppo_goal_cw_amp_m3_pushacq1_noamp",
+      "--notes",
+      "respec of cw-amp-m3-pushsmoke1-noamp-r4: Plain English: the push smoke showed the walker actively LEARNING to survive shoves -- topple rate fell ~3x in 2M and was still falling at the cutoff, with reward still rising (+88 in the last quarter) -- so give the identical recipe an honest 3x acquisition budget (6M) and measure how far the topple rate falls; this is the direct 'survive repeated randomized pushes' capability run for M3. Single change vs pushsmoke1-noamp-r4: warm-start from r4's own checkpoint + 6M steps (push dose unchanged, 10-25N / 0.15-0.4s / random direction, once per episode). Prediction-if-true: training tilt terminations keep falling to <=half r4's final window (<=8 pitch / <=5 roll), and the DR-0 own-cfg gate topples drop to <=1/6 det and <=2/6 sto with gait_valid >=5/6 and det prog med >=0.9. Prediction-if-false: terminations plateau at r4's floor -- a flat-dose ceiling; next lever is the push-magnitude curriculum (brief section 7.4's stated design) and/or a repeated-push mechanism extension (M3 wants REPEATED pushes; dr.ext_push_* currently draws exactly one per episode), not more budget. Strongest alternative: survival improves but via parking/crouching (height_err drops out of the walking band, prog collapses) -- a pricing problem to fix before any M3 claim.",
+      "--cfg-set",
+      "dr.ext_push_prob=1.0"
+    ],
+    "created": "2026-08-22T23:27:23+00:00",
+    "status": "RUNNING",
+    "checks": {
+      "cpu_limit": 28,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-b29b4867-ac22-4270-8fa9-5d854396da05)",
+      "running_experiments_before": 1,
+      "code_sha_local": "60e192993551050fba0f9f7287be7452f40cc3e6",
+      "code_sha_pod": "60e192993551050fba0f9f7287be7452f40cc3e6",
+      "init_from_on_pod": true,
+      "wandb_env_on_pod": true,
+      "pid": "3119842",
+      "log_growth_bytes": [
+        5503,
+        5599
+      ],
+      "wandb_id": "us2ovifu",
+      "global_step_window": [
+        851968,
+        1441792
+      ],
+      "fps_estimate": 19660.8
+    },
+    "trainer": "ppo",
+    "stack": "gpu-mjx",
+    "phase": "acquisition",
+    "assessment_scope": "full_budget_skill_acquisition",
+    "evidence": "cw-amp-m3-pushsmoke1-noamp-r4 (PASS, this cycle): recovery behavior already seen -- training tilt terminations fell 42->15 pitch / 27->7 roll per window during 2M at constant push dose while reward rose 2.3->335; DR-0 own-cfg gate 6/6 gait_valid det+sto with real travel; det/sto strips watched (upright six-leg walking through pushes, 1 det topple).",
+    "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:amp PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-amp-m3-pushacq1-noamp --steps 6000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_amp_m3_pushsmoke1_noamp_r4.zip --episode-seconds 15 --no-canary --eval-every 1000000 --video-every 2000000 --n-envs 4096 --impl warp --host-workers 24 --seed 7 --ent-coef 0.001 --warm-log-std-override -2.0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set goal.walk_phase_obs=1 --cfg-set goal.walk_phase_hz=1.333333 --cfg-set goal.walk_obs_body_vel=2 --cfg-set goal.walk_heading_max_rad=-1 --cfg-set goal.walk_speed_min_m_s=0.08 --cfg-set goal.walk_speed_max_m_s=0.08 --cfg-set goal.walk_cmd_mode=stress_mix --cfg-set goal.walk_cmd_resample_s=4.0 --cfg-set goal.walk_cmd_resample_jitter=0.5 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set bus.write_speed=1500 --cfg-set bus.write_acc=80 --cfg-set bus.servo_vel_max_counts_s=write_speed --cfg-set safety.max_delta_q_deg=5.0 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --cfg-set reward.term_penalty=400.0 --cfg-set reward.k_step_event=0.0 --cfg-set reward.k_park_duty=0.0 --cfg-set reward.k_walk_freeprog=0.0 --cfg-set reward.walk_loadslip_gate=0.0 --cfg-set reward.k_loadslip_excess=0.0 --cfg-set reward.walk_gait_gate=0.0 --cfg-set reward.k_walk_idle_charge=0.0 --cfg-set reward.k_drag_stance=0.0 --out-name ppo_goal_cw_amp_m3_pushacq1_noamp --notes 'respec of cw-amp-m3-pushsmoke1-noamp-r4: Plain English: the push smoke showed the walker actively LEARNING to survive shoves -- topple rate fell ~3x in 2M and was still falling at the cutoff, with reward still rising (+88 in the last quarter) -- so give the identical recipe an honest 3x acquisition budget (6M) and measure how far the topple rate falls; this is the direct '\"'\"'survive repeated randomized pushes'\"'\"' capability run for M3. Single change vs pushsmoke1-noamp-r4: warm-start from r4'\"'\"'s own checkpoint + 6M steps (push dose unchanged, 10-25N / 0.15-0.4s / random direction, once per episode). Prediction-if-true: training tilt terminations keep falling to <=half r4'\"'\"'s final window (<=8 pitch / <=5 roll), and the DR-0 own-cfg gate topples drop to <=1/6 det and <=2/6 sto with gait_valid >=5/6 and det prog med >=0.9. Prediction-if-false: terminations plateau at r4'\"'\"'s floor -- a flat-dose ceiling; next lever is the push-magnitude curriculum (brief section 7.4'\"'\"'s stated design) and/or a repeated-push mechanism extension (M3 wants REPEATED pushes; dr.ext_push_* currently draws exactly one per episode), not more budget. Strongest alternative: survival improves but via parking/crouching (height_err drops out of the walking band, prog collapses) -- a pricing problem to fix before any M3 claim.' --cfg-set dr.ext_push_prob=1.0 > /tmp/train_cw-amp-m3-pushacq1-noamp.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-amp-m3-pushacq1-noamp.log",
+    "wandb_id": "us2ovifu",
+    "verified": "2026-08-22T23:30:41+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-22T23:35:45+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 72,
+        "fps": 22118.4,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ],
+    "triage": "in-cycle cw-amp-m2-bcinit-sec5-style05-speedrange-cadcouple-nostyle-c since 2026-08-22T23:39:34"
   }
 ]
