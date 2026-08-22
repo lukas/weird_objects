@@ -47,6 +47,40 @@ _JOB_TITLES = {
     "calibrate": "CALIBRATE",
 }
 
+_CAL_PHASE_TITLES = {
+    "checkup": "CHECKUP",
+    "step": "JOINT STEP",
+    "shake": "SHAKE HOLD",
+    "plant": "PLANT HEIGHT",
+    "geometry": "GEOMETRY",
+    "imu": "IMU REST",
+    "safe_zero": "SAFE ZERO",
+    "imu_rest": "IMU REST",
+    "geometry_plant": "GROUND CONTACT",
+    "geometry_sweep": "DIMENSION SWEEP",
+    "geometry_plausibility": "GEOMETRY CHECK",
+    "imu_body_frame": "IMU BODY FRAME",
+    "imu_frame_validation": "IMU FRAME CHECK",
+    "stability_margin": "STABILITY",
+    "mass_shift_response": "MASS SHIFT",
+    "traction_probe": "TRACTION / SLIP",
+    "return_zero": "RETURN ZERO",
+    "proprioception_check": "PROPRIOCEPTION",
+    "camera_witness": "CAMERA WITNESS",
+    "bus_power_health": "BUS / POWER",
+    "actuator_snapshot": "ACTUATORS",
+    "report": "SAVING REPORT",
+    "calibration_report": "REPORT",
+    "done": "DONE",
+}
+
+
+def calibration_phase_title(phase: str | None) -> str:
+    key = str(phase or "").strip().lower()
+    if not key:
+        return ""
+    return _CAL_PHASE_TITLES.get(key, key.replace("_", " ").upper()[:26])
+
 
 def _wrap(text: str, width: int, max_lines: int) -> list[str]:
     words = str(text).split()
@@ -82,15 +116,25 @@ def format_job_screen(robot: dict) -> tuple[int, list[str]] | None:
         return None
 
     name = str(demo.get("name") or activity or "job")
-    title = _JOB_TITLES.get(
-        name, name.replace("rl_", "").replace("_", " ").upper())
+    if name.startswith("calibrate:") or name == "calibrate":
+        title = "CALIBRATING"
+    else:
+        title = _JOB_TITLES.get(
+            name, name.replace("rl_", "").replace("_", " ").upper())
     if activity == "stopping":
         title = "STOPPING"
 
     progress = demo.get("progress") or {}
     msg = str(progress.get("msg") or demo.get("status")
               or robot.get("detail") or "")
-    body = _wrap(msg, 26, 3)
+    body = []
+    phase_title = ""
+    if title == "CALIBRATING":
+        phase_title = calibration_phase_title(
+            progress.get("phase") or progress.get("mode"))
+    if phase_title:
+        body.append(phase_title)
+    body.extend(_wrap(msg, 26, 3 if not phase_title else 2))
 
     idx, total = progress.get("index"), progress.get("total")
     pct = -1

@@ -524,6 +524,33 @@ class McuFeetechBus:
             pass
         return reply
 
+    def _transact_try(self, cmd: str, *, timeout: float = 0.8) -> str | None:
+        """Best-effort transaction: return immediately if the MCU link is busy."""
+        if not self._lock.acquire(blocking=False):
+            return None
+        t0 = time.monotonic()
+        try:
+            self._ser.reset_input_buffer()
+            self._ser.write((cmd.strip() + "\n").encode("ascii"))
+            self._ser.flush()
+            reply = None
+            for _ in range(8):
+                line = self._readline(timeout)
+                if line is None:
+                    break
+                if line.startswith("HELLO") and not cmd.startswith("HELLO"):
+                    continue
+                reply = line
+                break
+        finally:
+            self._lock.release()
+        try:
+            from event_log import emit_mcu
+            emit_mcu(cmd.strip(), reply, ms=(time.monotonic() - t0) * 1000.0)
+        except Exception:
+            pass
+        return reply
+
     def ping(self, sid: int) -> bool:
         line = self._transact(f"PING {int(sid)}", timeout=0.4)
         return bool(line and line.startswith("OK"))
@@ -1062,6 +1089,20 @@ class McuFeetechBus:
             clean.append("")
         payload = f"{int(pct)}|" + "|".join(clean)
         line = self._transact("DJ " + payload, timeout=timeout)
+        return bool(line and line.startswith("OK"))
+
+    def display_job_try(self, lines: list[str], *, pct: int = -1,
+                        timeout: float = 1.5) -> bool:
+        """Best-effort ``display_job`` that never waits to acquire the lock."""
+        clean = []
+        for s in list(lines)[:6]:
+            t = "".join(ch if 32 <= ord(ch) <= 126 and ch != "|" else " "
+                        for ch in str(s))
+            clean.append(t[:26])
+        while len(clean) < 6:
+            clean.append("")
+        payload = f"{int(pct)}|" + "|".join(clean)
+        line = self._transact_try("DJ " + payload, timeout=timeout)
         return bool(line and line.startswith("OK"))
 
     def close(self) -> None:

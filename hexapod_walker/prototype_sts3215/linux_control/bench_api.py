@@ -52,6 +52,25 @@ AIR_DEMO_NAMES = frozenset({
     "dance_walk",
 })
 ZERO_TOL_DEG = 6.0
+CAL_TFT_MIN_PERIOD_S = 10.0
+CAL_TFT_PHASE_ORDER = (
+    "safe_zero",
+    "imu_rest",
+    "geometry_plant",
+    "geometry_sweep",
+    "geometry_plausibility",
+    "imu_body_frame",
+    "imu_frame_validation",
+    "stability_margin",
+    "mass_shift_response",
+    "traction_probe",
+    "return_zero",
+    "proprioception_check",
+    "camera_witness",
+    "bus_power_health",
+    "actuator_snapshot",
+    "report",
+)
 
 
 def _env_truthy(name: str, default: bool = False) -> bool:
@@ -154,6 +173,10 @@ class BenchAPI:
         self._meas_pending: dict | None = None
         self._status_display = None
         self._servo_watch = None
+        self._tft_progress_lock = threading.Lock()
+        self._tft_progress_thread: threading.Thread | None = None
+        self._tft_progress_key = ""
+        self._tft_progress_t = 0.0
         # Live drive session (rl_policy.DriveCommand) — set while an
         # rl_drive worker owns the demo slot, None otherwise.
         self._drive_cmd = None
@@ -234,6 +257,108 @@ class BenchAPI:
     def _bus_hot_end(self) -> None:
         with self._lock:
             self._bus_hot = max(0, int(self._bus_hot) - 1)
+
+    def _calibration_tft_pct(self, progress: dict) -> int:
+        idx, total = progress.get("index"), progress.get("total")
+        if isinstance(idx, int) and isinstance(total, int) and total > 0:
+            return int(round(100.0 * (idx + 0.5) / total))
+        phase = str(progress.get("phase") or "").strip().lower()
+        if phase in CAL_TFT_PHASE_ORDER:
+            i = CAL_TFT_PHASE_ORDER.index(phase)
+            return int(round(100.0 * (i + 0.5) / len(CAL_TFT_PHASE_ORDER)))
+        return -1
+
+    def _calibration_tft_lines(self, progress: dict, *,
+                               final: bool = False) -> list[str]:
+        try:
+            from status_display import calibration_phase_title
+        except ImportError:
+            def calibration_phase_title(phase):
+                return str(phase or "").replace("_", " ").upper()[:26]
+
+        def wrap(text: str, width: int, max_lines: int) -> list[str]:
+            words = str(text).split()
+            lines: list[str] = []
+            cur = ""
+            for word in words:
+                if not cur:
+                    cur = word
+                elif len(cur) + 1 + len(word) <= width:
+                    cur += " " + word
+                else:
+                    lines.append(cur)
+                    if len(lines) == max_lines:
+                        return lines
+                    cur = word
+            if cur:
+                lines.append(cur)
+            return lines[:max_lines]
+
+        msg = str(progress.get("msg") or "calibrating").replace("…", "...")
+        low = msg.lower()
+        if final:
+            title = (
+                "CALIBRATION STOPPED"
+                if ("abort" in low or "error" in low or "failed" in low)
+                else "CALIBRATION DONE"
+            )
+        else:
+            title = "CALIBRATING"
+        phase = str(progress.get("phase") or progress.get("mode") or "")
+        phase_title = calibration_phase_title(phase) or "CHECKUP"
+        body = [phase_title]
+        body.extend(wrap(msg, 26, 2))
+        while len(body) < 4:
+            body.append("")
+        armed = False
+        try:
+            with self.drive._lock:
+                armed = bool(self.drive.armed)
+        except Exception:
+            pass
+        footer = "ARMED" if armed else "limp"
+        if not final and not armed:
+            footer = "watch robot"
+        return [title] + body[:4] + [footer]
+
+    def _queue_calibration_tft(self, progress: dict, *, force: bool = False,
+                               final: bool = False) -> None:
+        """Opportunistic TFT progress hint; never waits to acquire the MCU lock."""
+        if not _env_truthy("HEXAPOD_TFT_CAL_PROGRESS", True):
+            return
+        d = self.drive
+        bus = None if getattr(d, "dry_run", False) else getattr(d, "bus", None)
+        display = getattr(bus, "display_job_try", None)
+        if not callable(display):
+            return
+        now = time.monotonic()
+        phase = str(progress.get("phase") or progress.get("mode") or "")
+        msg = str(progress.get("msg") or "")
+        key = phase or msg[:40]
+        with self._tft_progress_lock:
+            busy = (
+                self._tft_progress_thread is not None
+                and self._tft_progress_thread.is_alive()
+            )
+            phase_changed = bool(key and key != self._tft_progress_key)
+            rate_ok = now - self._tft_progress_t >= CAL_TFT_MIN_PERIOD_S
+            if busy or not (force or phase_changed or rate_ok):
+                return
+            lines = self._calibration_tft_lines(progress, final=final)
+            pct = self._calibration_tft_pct(progress)
+            self._tft_progress_key = key
+            self._tft_progress_t = now
+
+            def _paint() -> None:
+                try:
+                    display(lines, pct=pct, timeout=1.8)
+                except Exception:
+                    pass
+
+            thread = threading.Thread(
+                target=_paint, name="hexapod-cal-tft", daemon=True)
+            self._tft_progress_thread = thread
+            thread.start()
 
     def start_servo_watch(self) -> None:
         """Liveness + over-temp watchdog (TFT error panel, 65C cutoff)."""
@@ -5217,6 +5342,8 @@ class BenchAPI:
             self._cal_result = None
             self._cal_progress = {"msg": "starting…"}
         self._set_activity("calibrating", label)
+        self._queue_calibration_tft(
+            {"msg": label, "phase": mode, "mode": mode}, force=True)
 
         def _worker():
             d = self.drive
@@ -5233,6 +5360,7 @@ class BenchAPI:
                 with self._lock:
                     self._cal_progress = dict(p)
                     self._demo_status = str(p.get("msg") or "calibrating")
+                self._queue_calibration_tft(p)
 
             try:
                 self._bus_hot_begin()
@@ -5341,13 +5469,18 @@ class BenchAPI:
                         d.mode = "idle"
                 with self._lock:
                     st = self._demo_status
+                detail = (
+                    (st + " · limp") if (st and checkup_limped) else
+                    (st if st else (
+                        "checkup done · limp" if checkup_limped
+                        else "calibrate done")))
                 self._set_activity(
                     "limp" if checkup_limped else (
                         "armed" if d.armed else "limp"),
-                    ((st + " · limp") if (st and checkup_limped) else
-                     (st if st else (
-                         "checkup done · limp" if checkup_limped
-                         else "calibrate done"))))
+                    detail)
+                self._queue_calibration_tft(
+                    {"msg": detail, "phase": "done", "mode": mode},
+                    force=True, final=True)
 
         self._demo_thread = threading.Thread(target=_worker, daemon=True)
         self._demo_thread.start()
