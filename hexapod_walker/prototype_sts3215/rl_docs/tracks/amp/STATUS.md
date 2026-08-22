@@ -1,6 +1,31 @@
 # amp - AMP locomotion from scratch
 
-Last updated: 2026-08-22 ~18:2x (RSI-FOR-WALK LEVER CLOSED: both
+Last updated: 2026-08-22 ~18:2x (STYLEONLY-V2 VERDICTED FAIL, not a
+continuation — the podeval videos/gate the previous entry was
+waiting on are in: DR-0 gate + fresh eval contact sheet both show
+the SAME frozen-tripod statue signature as every prior M2 arm
+(gait_valid 0/6 det AND sto, legs [1,3,5] — the OTHER tripod from
+the swing/RSI family's [0,2,4] — sacrificed/frozen, speed
+~0.006-0.025 m/s, prog_ratio ~0.00); training video (2 late rollouts)
+shows the identical splayed near-static pose the whole clip, no
+cyclic motion. Per the video-overrides-scalar rule this is FAIL, not
+UNDERTRAINED-continue, despite the monotonically rising reward: the
+rising income bought a MARGINALLY more discriminator-plausible
+static/near-static pose (0.06->0.119 style_reward_mean, still <0.3
+informative bar), not progress toward real six-leg cycling — the
+same shape as every other M2 statue, just a different tripod frozen.
+Genuinely informative, though: the discriminator gradient is
+confirmed alive/unsaturated (d_real 0.79/d_fake -0.96) even at zero
+task competition, ruling out total AMP-mechanism failure — the style
+channel is just too weak/slow at this budget to organize six-leg
+coordination on its own. Retried its REFUSED twin (code-sync race,
+0 steps trained) as `cw-amp-m2-taskdown01-style1-v3` (task_weight
+0.0->0.1), now RUNNING on train-0 to complete the pre-registered
+joint read before deciding between GP/disc-tuning, much longer
+style-only budget, or the section-5 minimal-reward rearchitecture
+(q_20260822T1815Z).
+
+Previous update ~18:1x (RSI-FOR-WALK LEVER CLOSED: both
 `cw-amp-m2-freeprog-term400-rsi1-{noamp,style05b}` FAIL —
 `goal.walk_gait_start_frac=0.5` mid-gait spawn does not unlock
 sustained locomotion on the current freeprog+term400 pricing either
