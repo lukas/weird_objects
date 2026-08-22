@@ -2218,12 +2218,13 @@ def test_rise_rock_bias_rocks_the_honest_curl():
 def test_rise_rock_feedback_levels_it():
     """A dumb P-controller on measured roll keeps every rocked curl
     clear of the 10° trip band on BOTH sides at the full 10° dose
-    (4.6-6.7° peaks, zero terminations at authoring): the leveling
-    skill is closable through the action space, so it is learnable —
-    not physically impossible."""
+    (4.6-6.7° peaks at the old 128 mm tibia; RE-MEASURED 2026-08-22 at
+    the corrected 150 mm tibia geometry: 6.0-8.6°, still zero
+    terminations): the leveling skill is closable through the action
+    space, so it is learnable — not physically impossible."""
     for seed in SEEDS:
         fixed = _rock_rollout(seed, ROCK_OVERRIDES, counter=True)
-        assert fixed["peak_tilt_deg"] < 8.0 and not fixed["terminated"], (
+        assert fixed["peak_tilt_deg"] < 9.0 and not fixed["terminated"], (
             f"P-feedback does not level the rock "
             f"({fixed['peak_tilt_deg']:.1f}°, "
             f"terminated={fixed['terminated']}) — axis not closable")
@@ -2668,13 +2669,15 @@ def test_trans_drag_never_taxes_the_quiet_stand(tdrag_bank):
 
 
 def test_trans_drag_honest_rise_keeps_full_pay(tdrag_bank):
-    """The demonstrated rise slides its pads ~463 mm during the curl —
-    inherent to the belly->plant path, not a cheat. The measured 0.55 m
-    rise allowance must keep the reference completely uncharged, so
-    the charge can ride into mixed-mode stand arms without repricing
-    the one behavior that tape-provably works."""
+    """The demonstrated rise slides its pads ~656 mm during the curl at
+    the corrected tibia-150 geometry (was ~463 mm at the old 128 mm
+    tibia; re-measured 2026-08-22 alongside the drag_trans_allow_rise_m
+    default bump 0.55->0.75) — inherent to the belly->plant path, not a
+    cheat. The rise allowance must keep the reference completely
+    uncharged, so the charge can ride into mixed-mode stand arms
+    without repricing the one behavior that tape-provably works."""
     for r_on, r_off in zip(tdrag_bank["rise_on"], tdrag_bank["rise_off"]):
-        assert 350.0 < r_on["drag_mm"] < 550.0, (
+        assert 550.0 < r_on["drag_mm"] < 750.0, (
             f"rise reference drag {r_on['drag_mm']:.0f}mm left the "
             f"measured band — re-measure before trusting the allowance")
         assert r_on["charge"] == 0.0, (
@@ -4458,7 +4461,14 @@ def test_recover_floor_rungs_remain_distinct_after_physics_settle():
     spreads = [sig[k][2] for k in (
         "zero", "tangle_mild", "tangle_mid", "tangle_60", "tangle_70",
         "tangle_80", "tangle_90", "tangle")]
-    assert all(a + 2.0 < b for a, b in zip(spreads, spreads[1:])), sig
+    # RE-MEASURED 2026-08-22 at the corrected 150 mm tibia geometry:
+    # the tangle_70->tangle_80 gap (a longer tibia at a similar joint-
+    # angle severity band) narrowed from a comfortable >2mm to ~1.9mm
+    # while staying strictly monotonic (every rung still measurably
+    # distinct, just closer at this one severity step) -- margin
+    # relaxed 2.0->1.5mm; a real collapse (two rungs landing on the
+    # same settled pose) would still fail this.
+    assert all(a + 1.5 < b for a, b in zip(spreads, spreads[1:])), sig
 
 
 @pytest.mark.parametrize("kind,loaded", (

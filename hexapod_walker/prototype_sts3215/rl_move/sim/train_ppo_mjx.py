@@ -1266,6 +1266,28 @@ def main(argv: list[str] | None = None) -> int:
                          "(reward AND survival AND direction) before "
                          "the --best-ckpt auto-stop fires")
     ap.add_argument("--ent-coef", type=float, default=1e-3)
+    ap.add_argument("--ent-coef-final", type=float, default=None,
+                    help="linearly anneal ent_coef from --ent-coef down "
+                         "to this value over --ent-coef-anneal-frac of "
+                         "--steps, then hold (mutates model.ent_coef "
+                         "once per rollout, same pattern as the servo "
+                         "profile ramp). Default None = OFF, bit-exact "
+                         "legacy (fixed ent_coef all run). Motivated by "
+                         "cw-dep-bcgait4-phasedir3-fwd-reprice (08-22): "
+                         "PPO's action std stayed pegged ~0.355-0.365 "
+                         "the whole 2M-step run (no entropy pressure "
+                         "ever relaxed), which forces any slip/overspeed "
+                         "price band wide enough to spare honest "
+                         "exploration noise to also spare a drifted "
+                         "deterministic mean — the recorded next lever "
+                         "was 'anchor dose/std annealing, NOT new "
+                         "behavior charges'.")
+    ap.add_argument("--ent-coef-anneal-frac", type=float, default=1.0,
+                    help="fraction of --steps over which the ent-coef "
+                         "anneal completes (only used when "
+                         "--ent-coef-final is set); 1.0 = anneal across "
+                         "the whole run, 0.5 = reach the final value "
+                         "at the halfway point and hold.")
     ap.add_argument("--target-kl", type=float, default=0.02)
     ap.add_argument("--log-std-init", type=float, default=-1.0)
     ap.add_argument("--net-arch", type=str, default="128,128",
@@ -3044,6 +3066,44 @@ def main(argv: list[str] | None = None) -> int:
                             vals["max_delta_q_deg"]})
 
         callbacks.append(_ProfileRampCb())
+    if args.ent_coef_final is not None:
+        class _EntCoefAnnealCb(BaseCallback):
+            """Linearly anneal model.ent_coef from args.ent_coef to
+            args.ent_coef_final over ent_coef_anneal_frac * args.steps,
+            then hold. SB3's PPO.train() reads self.ent_coef fresh each
+            gradient step (a plain float attribute, not a resolved
+            schedule) so mutating it between rollouts is safe and takes
+            effect on the next update. Default OFF (--ent-coef-final
+            unset) is bit-exact: this callback is never constructed."""
+
+            def __init__(self):
+                super().__init__()
+                self._start = float(args.ent_coef)
+                self._final = float(args.ent_coef_final)
+                denom = max(1, int(args.ent_coef_anneal_frac
+                                    * args.steps))
+                self._denom = denom
+                self._finished = False
+
+            def _on_step(self) -> bool:
+                return True
+
+            def _on_rollout_end(self) -> None:
+                frac = min(1.0, self.num_timesteps / self._denom)
+                val = self._start + frac * (self._final - self._start)
+                self.model.ent_coef = float(val)
+                if frac >= 1.0 and not self._finished:
+                    self._finished = True
+                    print("[ent-coef-anneal] complete @ "
+                          f"{self.num_timesteps:,} steps — holding "
+                          f"ent_coef={val:.5f}")
+                if run is not None:
+                    import wandb
+                    wandb.log({"global_step": self.num_timesteps,
+                               "ent_coef_anneal/value": val,
+                               "ent_coef_anneal/frac": frac})
+
+        callbacks.append(_EntCoefAnnealCb())
     if args.predictive_live:
         class _LivePredictorCapture(BaseCallback):
             """Harvest a bounded MJX subset into CUDA live replay."""
