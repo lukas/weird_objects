@@ -170,3 +170,4 @@ W&B OUTCOME notes. Do not use this file as current truth; read
 - 08-22 19:56 sec5-taskC FAIL same statue (fwd 0.03m); style-dominant 0.3/0.7 no rescue 
 - 08-22 19:56 sec5-noamp FAIL statue without AMP; sec5 grid FINAL 0/4 — reward shape closed, next lever = BC-init/task restructure 
 - 08-22 20:0x fault injection built+tested (dr.fault_*, brief §8: weak/frozen/dead-leg per-world model DR, default-off bit-exact, 10/10 new + 58 regression tests green) — amp M0 fault item closed
+- 08-22 20:1x bcinit batch launched+finished (cw-amp-m2-bcinit-sec5-{style05,noamp}, 2M each): BOTH reward RISING (noamp 36->225, style 40->192) vs statue arms' flat/negative — eval triage next cycle; sec5 grid closed 0/4 this cycle
