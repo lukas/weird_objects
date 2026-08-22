@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-08-22T16:35:29+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 4000000
 
 **parent**: cw-dep-bcgait4-phasedir10-allowramp-seed23
+
+**wandb_id**: cr6ca8e4
 
 **hypothesis**: Plain English: the early foot-drag allowance was sized (48mm) from measurements on the one seed it ended up helping; this arm tests whether the hurt seeds need a WIDER starting allowance because their honest-but-noisy stance travel is fatter than that calibration. Single change vs cw-dep-bcgait4-phasedir10-allowramp-seed23 (FAIL, 0.792x/1.217x vs no-ramp longrun23 0.818x/1.175x): reward.drag_stance_allow_ramp_mm 48->64 (schedule unchanged at 1.2M, still lockstep with the log-std anneal; anneals to the same validated 24mm target). 'Wider start' half of the untried branch in joystick STATUS Next item 3. Grid launched as one batch per operator 08-22.
 
