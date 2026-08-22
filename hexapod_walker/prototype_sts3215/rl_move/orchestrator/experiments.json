@@ -128914,7 +128914,7 @@
       "dr.ext_push_prob=1.0"
     ],
     "created": "2026-08-22T23:06:19+00:00",
-    "status": "RUNNING",
+    "status": "PASS",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -128944,7 +128944,7 @@
     "log": "/tmp/train_cw-amp-m3-pushsmoke1-noamp-r4.log",
     "wandb_id": "gifbbe9c",
     "verified": "2026-08-22T23:09:38+00:00",
-    "triage": "in-cycle cw-amp-m2-bcinit-sec5-noamp-speedrange-cw-amp-m2-bcinit-sec5 since 2026-08-22T23:14:09",
+    "triage": "done",
     "checkups": [
       {
         "time": "2026-08-22T23:15:37+00:00",
@@ -128953,7 +128953,8 @@
         "log_tail": "20.99574\nwandb:       env/height_mm 19.27687\nwandb:   env/height_ref_mm 0\nwandb:   env/max_current_a 1.81294\nwandb:  env/mean_current_a 0.74422\nwandb: env/pct_within_1deg 0.08936\nwandb:   env/pitch_ref_deg 0\nwandb:   env/reward_action -0.01696\nwandb:                 +83 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-amp-m3-pushsmoke1-noamp-r4 at: https://wandb.ai/l2k2/hexapod-balance/runs/gifbbe9c\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 3 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260822_230713-gifbbe9c/logs\n"
       }
     ],
-    "checkup_note": "checkup rc=1 at 23:15 was a FALSE ALARM: run completed its full 2M steps in 317s (finished ~23:12, before the ~5min checkup). Checkpoint + wandb artifact synced cleanly (md5 ba9bc843). No cleanup/retry needed; triage owned by concurrent cycle."
+    "checkup_note": "checkup rc=1 at 23:15 was a FALSE ALARM: run completed its full 2M steps in 317s (finished ~23:12, before the ~5min checkup). Checkpoint + wandb artifact synced cleanly (md5 ba9bc843). No cleanup/retry needed; triage owned by concurrent cycle.",
+    "verdict": "First-ever training use of the mid-episode shove (dr.ext_push_*) is mechanism-safe AND the walker visibly LEARNS to survive most pushes within 2M. Reward finite and rising all four quarters (2.3/75.6/247.0/334.9, no NaN/crash; stronger shape than faultsmoke1-noamp's 9->209 comparator), and training tilt terminations FELL steadily under a CONSTANT push dose (tilt_pitch 42->15, tilt_roll 27->7-11 per window) -- the recovery-learning signature, not tolerance-by-luck. DR-0 gate at own cfg (push fires every episode): gait_valid 6/6 det + 6/6 sto, zero sacrificed legs, det prog med 1.24 / slip med 3.05 / fwd med 0.70m. Blunt pathology count: the shove still WINS in 1/6 det (walk_det_3 strip: clean upright six-leg walking with real travel for ~13s, then the push flips it -- tilt_roll term) and 3/6 sto episodes (tilt_pitch; sto ep4 badly degraded, prog 0.21 / slip 18.3). This is survive-most-pushes, NOT M3 push recovery -- no regain-gait-after-knockdown was demonstrated, only riding out the pulse. hardware-ready: no. Gate bar (gait_valid>=3/6 det, some recovery signature, not instant-collapse-every-time) comfortably met; the FAIL branch (dose miscalibrated, topple every episode) is refuted. Next (both launched this cycle): (1) style05 twin -- recovery transients appear in NO teacher_v2 clip, making this the first axis where AMP style could actively fight the task rather than being neutral; (2) acquisition continuation from this checkpoint -- terminations were still falling and reward still rising (+88 last quarter) at the 2M cutoff, so per the 08-21 ruling more budget is justified before reaching for a dose curriculum."
   },
   {
     "run": "cw-amp-m2-bcinit-sec5-style05-speedrange-cadcouple-nostyle",
@@ -129236,7 +129237,7 @@
       "goal.walk_phase_run_on_yaw=1"
     ],
     "created": "2026-08-22T23:18:43+00:00",
-    "status": "INTENT",
+    "status": "RUNNING",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -129245,14 +129246,27 @@
       "code_sha_local": "920724edde4aa9a28e27debcead9b769237699ac",
       "code_sha_pod": "920724edde4aa9a28e27debcead9b769237699ac",
       "init_from_on_pod": true,
-      "wandb_env_on_pod": true
+      "wandb_env_on_pod": true,
+      "pid": "3047553",
+      "log_growth_bytes": [
+        11688,
+        22094
+      ],
+      "wandb_id": "n8lu3b7h",
+      "global_step_window": [
+        1048576,
+        1572864
+      ],
+      "fps_estimate": 17476.3
     },
     "trainer": "ppo",
     "stack": "gpu-mjx",
     "phase": "discovery",
     "assessment_scope": "short_behavior_discovery",
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:amp PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-amp-m2-bcinit-sec5-style05-yawcmd-tip50-clockyaw --steps 2000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_amp_m2_bcinit_sec5_style05_yawcmd.zip --episode-seconds 15 --no-canary --eval-every 1000000 --video-every 2000000 --n-envs 4096 --impl warp --host-workers 24 --seed 7 --ent-coef 0.001 --warm-log-std-override -2.0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set goal.walk_phase_obs=1 --cfg-set goal.walk_phase_hz=1.333333 --cfg-set goal.walk_obs_body_vel=2 --cfg-set goal.walk_heading_max_rad=-1 --cfg-set goal.walk_speed_min_m_s=0.08 --cfg-set goal.walk_speed_max_m_s=0.08 --cfg-set goal.walk_cmd_mode=stress_mix --cfg-set goal.walk_cmd_resample_s=4.0 --cfg-set goal.walk_cmd_resample_jitter=0.5 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set bus.write_speed=1500 --cfg-set bus.write_acc=80 --cfg-set bus.servo_vel_max_counts_s=write_speed --cfg-set safety.max_delta_q_deg=5.0 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --cfg-set reward.term_penalty=400.0 --cfg-set reward.k_step_event=0.0 --cfg-set reward.k_park_duty=0.0 --cfg-set reward.k_walk_freeprog=0.0 --cfg-set reward.walk_loadslip_gate=0.0 --cfg-set reward.k_loadslip_excess=0.0 --cfg-set reward.walk_gait_gate=0.0 --cfg-set reward.k_walk_idle_charge=0.0 --cfg-set reward.k_drag_stance=0.0 --amp-motion-lib rl_move/sim/motion_library/teacher_v2.npz --amp-disc-steps 4 --amp-disc-batch 512 --amp-gp-weight 10.0 --amp-replay 500000 --amp-task-weight 0.5 --amp-style-weight 0.5 --out-name ppo_goal_cw_amp_m2_bcinit_sec5_style05_yawcmd_tip50_clockyaw --notes 'respec of cw-amp-m2-bcinit-sec5-style05-yawcmd-tip50-r2: Plain English: the robot parked on turn-in-place commands because its gait CLOCK stops ticking whenever no linear velocity is commanded -- fixing the clock so it also runs during commanded turns should finally let it learn to turn on the spot. Root cause found this cycle (frozen-clock defect, walk_task._augment_obs): the walk_phase_obs clock only advanced while s_ref>1e-3, so during tip episodes (vx=vy=0, wz!=0) the phase obs FROZE -- this BC-clone substrate is phase-locked (steps by following the clock), so with a frozen time-base it structurally CANNOT step-turn, which is why pricing (yawcmd) and exposure (tip50-r2/tip90, zero dose-response 0.5->0.9) both failed with the identical park fingerprint (tip err == |wz_ref| exactly), while yaw-while-TRANSLATING (clock running) improved in every arm. Single lever vs tip50-r2: byte-identical config + goal.walk_phase_run_on_yaw=1 (new key landed+tested this cycle: 10/10 phase tests incl. 3 new, default-off bit-exact, snapshot tag exp/cw-amp-m2-bcinit-sec5-style05-yawcmd-tipclock-pair). Same init (yawcmd ckpt), same tip_frac=0.5, so tip50-r2 IS the matched control. Prediction-if-true: eval_yaw (WITH the clock key in its cfg-set!) shows command-SIGNED wz on tip-left AND tip-right with err well below the 0.30 park fingerprint; the policy already modulates wz inside the running-clock gait (arc scenarios), so given a time-base at vx=0 it should transfer. Prediction-if-false: still parks with a running clock -- the block is deeper than the clock (style/stance conflict), BC-turn-clone (teacher omega channel) becomes the next lever. Strongest alternative: it steps in place on tip commands (clock obeyed) but wz stays ~0 or wrong-signed -- stepping without rotating; that would still be progress (motor pattern present, rotation pricing then has something to bid on) and would fund the BC-turn-clone with the clock key on.' --obs-pad-transplant 0 --cfg-set goal.walk_yaw_cmd=1 --cfg-set goal.walk_yaw_max_rad_s=0.3 --cfg-set goal.walk_yaw_zero_frac=0.5 --cfg-set reward.k_walk_yaw=1.0 --cfg-set reward.walk_yaw_kernel_gate=1.0 --cfg-set reward.k_yaw_prog=1.0 --cfg-set reward.k_yaw_still=50 --cfg-set reward.walk_kernel_yaw_gate=1.0 --cfg-set reward.walk_yaw_hold_prog_gate=1.0 --cfg-set reward.yaw_still_avg_s=1.0 --cfg-set goal.walk_turn_in_place_frac=0.5 --cfg-set goal.walk_phase_run_on_yaw=1 > /tmp/train_cw-amp-m2-bcinit-sec5-style05-yawcmd-tip50-clockyaw.log 2>&1 < /dev/null & echo $!",
-    "log": "/tmp/train_cw-amp-m2-bcinit-sec5-style05-yawcmd-tip50-clockyaw.log"
+    "log": "/tmp/train_cw-amp-m2-bcinit-sec5-style05-yawcmd-tip50-clockyaw.log",
+    "wandb_id": "n8lu3b7h",
+    "verified": "2026-08-22T23:22:03+00:00"
   },
   {
     "run": "cw-amp-m2-bcinit-sec5-style05-yawcmd-tip90-clockyaw",
