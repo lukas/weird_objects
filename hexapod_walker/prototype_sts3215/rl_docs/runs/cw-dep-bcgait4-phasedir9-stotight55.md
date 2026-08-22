@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-08-22T18:19:11+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 4000000
 
 **parent**: cw-dep-bcgait4-phasedir9-stotight50
+
+**wandb_id**: ty8ud4f3
 
 **hypothesis**: Plain English: every step down the trained-noise-floor ladder (-3.6/-4.0/-4.5/-5.0) has widened the joystick session-gate margins with no det cost yet — this arm takes one more rung (-5.5, final std ~0.004) on the same seed to find where the ladder stops paying. Single change vs the stotight50 PASS (joygate slip 2.569/dir 38.02, det prog 0.69): --log-std-final -5.0 -> -5.5, same seed 17, fresh reinit per the lineage rule. Prediction-if-true: margins widen again (combined slip < 2.5) with det still under every cap. Prediction-if-false: the knee finally appears — det softens below a cap, exploration starves and the basin flips, or the session gate fails. Strongest alternative: margins move inside eval noise of -5.0 (ladder saturated; -5.0 is the recipe endpoint).
 
