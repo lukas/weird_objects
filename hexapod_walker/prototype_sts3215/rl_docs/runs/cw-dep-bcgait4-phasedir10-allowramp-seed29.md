@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: RUNNING
+**status**: FAIL
 
 **created**: 2026-08-22T15:26:03+00:00
 
@@ -17,4 +17,6 @@
 **hypothesis**: Cross-seed generalization check for the drag-stance-allowance-ramp regime-gap fix: on seed13, the identical single-change A/B (respec of longrun13 adding reward.drag_stance_allow_ramp_steps=1.2M/ramp_mm=48) moved BOTH clone-relative progress (0.792x->0.830x) and slip (1.284x->1.162x) toward the gate simultaneously for the first time in the lineage, though it still missed the 0.9x/1.15x caps (see cw-dep-bcgait4-phasedir10-allowramp-a verdict). This arm applies the SAME ramp, unchanged, to seed29 -- the worst performer in the n=4 seed sample (longrun29: 0.740x progress / 1.296x slip, both clearly FAIL) -- to find out whether the regime-gap fix is a general pricing repair (helps every seed, even the worst) or an artifact specific to seed13's basin.,
 
 **gate**: Same clone-relative forward panel (logs/ckpt_eval/phasedir3_clone_control_gate, DR-0 det+sto). PASS = zero falls, gait_valid 6/6, progress >=0.9x clone, slip <=1.15x clone, speed in [0.06,0.096]. Prediction-if-general-fix: seed29 improves on BOTH axes vs its own longrun29 baseline (0.740x/1.296x), by a margin comparable to seed13's (+0.038 progress, -0.122 slip) or larger -- supports arming the ramp as a lineage-wide default and motivates a slower-ramp follow-up before promotion. Prediction-if-seed13-specific: seed29 stays flat or gets worse -- the seed13 result was basin-specific luck, not a general pricing fix; abandon the ramp mechanism and return to the BC-anchor/phase-lock residual-slip dig-in instead.
+
+**verdict**: FAIL, and REFUTES generalization of the drag-stance-allow-ramp fix: the identical single-change ramp (drag_stance_allow_ramp_steps=1.2M, ramp_mm=48) that moved seed13 toward the gate on BOTH axes made seed29 WORSE on both axes vs its own longrun29 baseline -- progress 0.742x->0.725x clone (down, was already the worst-of-lineage), slip 1.298x->1.466x clone (up, notably worse), speed 0.058 (still in-band but lower). own-DR0.35 matches (0.753x/1.356x). Zero falls, gait_valid 6/6 det+sto, no sacrificed legs, clean 6-leg video -- no new pathology, just a worse basin. This is the pre-registered prediction-if-seed13-specific branch, not prediction-if-general-fix. Combined with seed13's partial improvement (see phasedir10-allowramp-a), the ramp mechanism's effect is SEED-DEPENDENT, same as every other lever in this lineage (pd9/longrun/stdanneal): it can move a seed toward or away from the gate depending on which basin that seed's early noisy exploration lands in, not a uniform pricing fix. Do not promote the ramp as a lineage-wide default off one good seed. Next: either (a) try a slower/larger ramp on seed29 specifically before concluding the mechanism itself is right-shaped but mistimed, or (b) redirect to the still-open BC-anchor/phase-lock residual-slip dig-in (matched-timing stance slip) which is the other standing lead and doesn't carry this per-seed basin risk.
 
