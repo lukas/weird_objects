@@ -31,13 +31,22 @@ GAN variant, matching the brief's §3.6/§5.2 requirements):
 - ``discriminator_loss``: least-squares GAN discriminator loss (real
   wants D->1, fake wants D->-1) + gradient penalty term.
 
-NOT YET WIRED into train_ppo_mjx.py's live reward loop (that requires
-computing this SAME 60-dim obs_style vector from the batched Warp/MJX
-env each step, a separate integration task — tracked in
-rl_docs/tracks/amp/STATUS.md). This module is trainable and testable
-standalone against the motion library today; the "fake" transitions in
-the unit tests below stand in for policy-rollout transitions until
-that wiring lands.
+NOT YET WIRED into train_ppo_mjx.py's live reward loop — that requires
+a live-loop change (blend style reward into the task reward each step,
+run an online discriminator-update against the rollout buffer) that is
+intentionally a separate, larger, more carefully-tested change, still
+tracked in rl_docs/tracks/amp/STATUS.md.
+
+The PREREQUISITE for that wiring — computing this SAME 60-dim
+obs_style vector from the batched Warp/MJX env the live trainer
+actually uses (not just the offline CPU npz generator) — is done:
+see ``amp_features.py`` (cross-backend feature function; the MJX
+per-env state mirror has no ``xquat`` field, so it needed an
+xmat-based rewrite proven equivalent to this dataset's own extraction)
+and ``test_amp_features_mjx.py`` (feeds a REAL MJX rollout's
+transitions through this module's ``discriminator_loss`` for the first
+time, replacing the synthetic noise/shuffle fakes below as the
+"gradients flow, no instant saturation" check for that harder case).
 
 CPU-only, plain torch (matches asym_policy.py's dependency footprint).
 """

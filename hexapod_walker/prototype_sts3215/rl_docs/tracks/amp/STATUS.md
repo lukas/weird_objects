@@ -1,6 +1,7 @@
 # amp - AMP locomotion from scratch
 
-Last updated: 2026-08-22 (M1 discriminator core + bank landed).
+Last updated: 2026-08-22 (M1 discriminator core + bank landed; live
+MJX-rollout obs_style wiring prerequisite closed + verified on-pod).
 Charter:
 `rl_docs/AMP_LOCOMOTION.md` (binding, incl. the repo-adaptation
 section — no Isaac Lab, MJX/Warp is the primary trainer). Keep this a
@@ -131,22 +132,47 @@ now closed:
   1.09->0.40 over 200 steps, D(real) 0.04->0.57, D(fake) 0.03->-0.63.
   **NOT YET WIRED into train_ppo_mjx's live reward loop** — that
   requires computing this SAME 60-dim `obs_style` feature vector from
-  the batched Warp/MJX env each rollout tick. Scoped but not started:
-  the live env (`walk_task.py`) exposes `self.data.xpos` etc. on the
-  CPU/eval path only; the GPU/Warp vec-env path train_ppo_mjx actually
-  trains on does not currently expose per-foot Cartesian positions or
-  projected gravity as a reusable array the way `build_motion_library.py`
-  computes them off the CPU sim. Candidate lower-risk route (not yet
-  attempted): derive `obs_style` from the ACTOR'S OWN observation
-  vector at each step (which already contains joint pos/vel, IMU
-  angular velocity, projected gravity per §3.2) plus a forward-
-  kinematics-only foot-position reconstruction (reusing
-  `tripod_gait.foot_rz_from_hip_knee`/`_leg_ik`, as `extract_rise_ref.py`
-  already does), avoiding any new Warp-kernel-level work — this needs
-  its own dedicated cycle to build+bank-test the obs-vector-to-
-  obs_style mapping (index-matching the exact actor obs layout) before
-  it touches the reward loop, default-off, bit-exact-when-off per the
-  standing rule.
+  the batched Warp/MJX env each rollout tick.
+  **PREREQUISITE CLOSED THIS CYCLE (08-22)**: an earlier note here
+  guessed the GPU/Warp vec-env path "does not currently expose
+  per-foot Cartesian positions or projected gravity as a reusable
+  array" and proposed reconstructing them from the actor's own obs +
+  forward kinematics — CHECKED DIRECTLY against `mjx_host.py` and this
+  is not the actual gap: `mjx_host.FakeData` (the per-env numpy mirror
+  EVERY shim env's `self.data` points at when `MjxVecEnv` drives it)
+  already carries `xpos` for every body (chassis AND foot pads, via
+  `push_output_row`'s `pad_xpos`) and `xmat` for the chassis — real
+  Cartesian state, not reconstructed. The actual gap is narrower: it
+  has NO `xquat` field, and `build_motion_library.py`'s extraction
+  rotates world->body via `xquat` + `mju_rotVecQuat`, which would
+  simply crash (`AttributeError`) the moment it touched a shim env.
+  Fix: `rl_move/sim/amp_features.py`'s `obs_style_from_data` rotates
+  via `xmat` instead (`R = xmat[chassis_bid].reshape(3,3); R.T @ v` —
+  the SAME operation `walk_task.py`'s own `_body_vel_xy`/`_body_wz`
+  already use for velocity) — proven mathematically IDENTICAL to the
+  xquat method on a real rollout, not just plausible
+  (`test_amp_features.test_xmat_matches_xquat_rotation`, CPU, max
+  diff <1e-5 over 30 ticks). `build_motion_library.py`/`teacher_v1.npz`
+  are untouched (no re-generation, zero behavior change to the shipped
+  dataset) — `amp_features.py` is the one place both backends now
+  share. Verified end-to-end on a live batched env (`hexapod-mjx-train-1`,
+  jax/mjx installed there, not on the controller):
+  `test_amp_features_mjx.py::test_mjx_vecenv_obs_style_batched` builds
+  a real `MjxVecEnv(SimHexapodJointWalkEnv, B=3)`, steps it, and
+  computes `obs_style` for all 3 envs (first time ever computed from
+  the live trainer's actual physics backend, not the offline CPU
+  generator) — shape/finite-checked. `test_discriminator_on_real_mjx_rollout`
+  takes that live rollout's OWN transitions as the discriminator's
+  "fake" input (replacing the synthetic noise/shuffle placeholders
+  this module's docstring flagged) and confirms `discriminator_loss`
+  is finite — the harder, more realistic version of M1 item 4's
+  "gradients flow / no instant saturation" check. REMAINING gap,
+  unchanged in size/scope: the live reward-loop change itself (blend
+  `style_reward` into the task reward per step + an online
+  discriminator-update step against the PPO rollout buffer) — a
+  separate, larger, carefully-tested change (default-off,
+  bit-exact-when-off), not started this cycle on purpose (the prereq
+  above needed proving safe FIRST).
 - **CONFIRMED NOT STARTED**: demo replay-buffer <-> PPO co-training
   loop, fault injection, push-disturbance curriculum, and the
   dedicated joystick eval suite (`eval/joystick_script.py` etc. per
@@ -197,17 +223,29 @@ now closed:
    `teacher_v1.npz`'s `obs_style` field directly per §3.6/§4.5. Bank
    `test_amp_discriminator.py` 8/8 PASS (real-vs-noise AND
    real-vs-shuffled separation, finite gradient penalty, bounded
-   style reward). STILL OPEN, next concrete step: compute `obs_style`
-   from the LIVE train_ppo_mjx rollout so the discriminator can see
-   policy-generated transitions (not just the demo library) — see
-   the candidate route in Now (actor-obs + FK foot reconstruction,
-   avoiding new Warp-kernel work), then a co-training loop that
-   updates the discriminator alongside PPO each rollout.
+   style reward). **DONE 08-22 (wiring prerequisite)**:
+   `rl_move/sim/amp_features.py` computes the SAME `obs_style` vector
+   from the LIVE batched MJX/Warp vec env (`xmat`-based rotation —
+   the shim's `FakeData` has no `xquat`; proven mathematically
+   identical to `build_motion_library.py`'s method, see Now) —
+   verified on a GPU pod against a real `MjxVecEnv` rollout
+   (`test_amp_features_mjx.py`, both tests PASS). STILL OPEN, the
+   actual next step: the live reward-loop change itself — blend
+   `style_reward` into the task reward each rollout tick + an online
+   discriminator-update step against the PPO rollout buffer, in
+   `train_ppo_mjx.py`, default-off / bit-exact-when-off, its own
+   dedicated cycle (this is a real training-loop change, not a
+   plumbing gap — deliberately not rushed the same cycle the prereq
+   was proven).
 4. Smoke test: gradients flow through PPO and the discriminator
-   trains without instant saturation on POLICY rollouts specifically
-   (item 3's bank already proved this against a static real-vs-fake
-   split; this item is the live-rollout version, blocked on item 3's
-   remaining wiring).
+   trains without instant saturation on POLICY rollouts specifically.
+   **PARTIALLY DONE 08-22**: `test_discriminator_on_real_mjx_rollout`
+   feeds an ACTUAL MJX rollout's transitions (zero-action policy, 3
+   envs x 20 ticks) through `discriminator_loss` — finite, no NaN —
+   replacing the synthetic noise/shuffle placeholders as the
+   real-transition case. Still not "through PPO" in the sense of a
+   policy gradient actually flowing from the style reward back into
+   the actor — that needs item 3's remaining reward-loop wiring.
 5. Wave 1 across 8 pods: 3 seeds at task/style 0.5/0.5, no-AMP
    ablation, recurrent vs fixed-history, higher/lower AMP weight.
    Select on videos + tracking/stability metrics, never scalar return.
