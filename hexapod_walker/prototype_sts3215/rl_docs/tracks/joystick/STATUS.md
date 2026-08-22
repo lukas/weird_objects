@@ -1,6 +1,21 @@
 # joystick - RL from the programmatic gait to joystick control
 
-Last updated: 2026-08-22 (operator-ordered FORMAL SESSION-GATE
+Last updated: 2026-08-22 (`-longrun17-cont1` VERDICTED FAIL on its
+pre-registered prediction-if-false: the +4M continuation with std
+held at 0.041 RETAINED longrun17's full det DONE-gate pass (det slip
+2.38/2.65 vs cap 2.9, dir 34.5/37.6 vs 40, 0 falls 48/48) but sto
+stayed out (slip 3.93 DR-0 / 4.36 own-DR, dir 50-51deg) while
+training reward rose the whole run (91.6->225.6). CONTINUATION/
+BUDGET LEVER CLOSED for the sto axis — sto is a reward/eval
+divergence, not undertraining. Live probe: the stotight
+log-std-final dose grid (-3.6/-4.0/-4.5, all finished, triage
+pending); if sto slip stays ~4 across doses, next is train-time
+sto-robustness (perturbation training or sto-aware pricing). Also
+settled this day: recipe seed pass rate 1/4 (seed17 only;
+13/23/29 FAIL) — "seed lottery too thin to farm"; allowramp
+generalization REFUTED on seeds 23+29.)
+
+Previous entry (08-22, operator-ordered FORMAL SESSION-GATE
 reading on `-longrun17`, after the operator live-accepted the
 checkpoint under real joystick input on the Mac viewer: the full 60s
 randomized DONE gate (`eval_joystick_gate.py`, held-out stress_mix,
