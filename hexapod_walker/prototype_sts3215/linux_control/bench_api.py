@@ -2032,6 +2032,30 @@ class BenchAPI:
         }
 
     # -- step calibrate (cmd vs encoder) -------------------------------------
+    @staticmethod
+    def _checkup_diagnostic_issues(phases: list[dict]) -> list[dict]:
+        return [
+            p for p in phases
+            if isinstance(p, dict)
+            and not p.get("ok")
+            and not p.get("skipped")
+            and p.get("non_blocking")
+        ]
+
+    @staticmethod
+    def _checkup_blocking_problem(phases: list[dict]) -> dict | None:
+        return (
+            next((p for p in phases
+                  if isinstance(p, dict)
+                  and p.get("aborted")
+                  and not p.get("recoverable")), None)
+            or next((p for p in phases
+                     if isinstance(p, dict)
+                     and not p.get("ok")
+                     and not p.get("skipped")
+                     and not p.get("non_blocking")), None)
+        )
+
     def _latest_calibration_report(self) -> dict | None:
         path = (Path(__file__).resolve().parent / "logs"
                 / "calibration_report_latest.json")
@@ -2119,11 +2143,18 @@ class BenchAPI:
                             f"{float(manual_height['manual_mm']):.1f}mm")
                     except (KeyError, TypeError, ValueError):
                         pass
+                    p["non_blocking"] = True
                 p["summary"] = summary
         if phases:
-            report["ok"] = (
-                all(bool(p.get("ok")) for p in phases)
-                and not any(bool(p.get("aborted")) for p in phases))
+            diagnostic_issues = self._checkup_diagnostic_issues(phases)
+            report["diagnostic_issue_count"] = len(diagnostic_issues)
+            report["ok"] = self._checkup_blocking_problem(phases) is None
+            report["msg"] = (
+                "checkup complete with diagnostic issues; see phases"
+                if report["ok"] and diagnostic_issues else
+                "checkup complete"
+                if report["ok"] else
+                "checkup complete with issues; see phases")
         return report
 
     def _latest_geometry_sweep_report(self) -> dict | None:
@@ -3736,15 +3767,20 @@ class BenchAPI:
         path = log_dir / f"calibration_report_{stamp}.json"
         latest = log_dir / "calibration_report_latest.json"
         phase_rows = phases or []
+        diagnostic_issues = self._checkup_diagnostic_issues(phase_rows)
         ok = (
             True if not phase_rows
-            else (all(bool(p.get("ok")) for p in phase_rows)
-                  and not any(bool(p.get("aborted")) for p in phase_rows))
-        )
+            else self._checkup_blocking_problem(phase_rows) is None)
         report = {
             "ok": ok,
             "mode": "calibration_report",
             "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S"),
+            "msg": (
+                "checkup complete with diagnostic issues; see phases"
+                if ok and diagnostic_issues else
+                "checkup complete"
+                if ok else "checkup complete with issues; see phases"),
+            "diagnostic_issue_count": len(diagnostic_issues),
             "phases": phase_rows,
             "geometry": self._geometry_report(
                 geometry_sweep=geometry_sweep,
@@ -4796,6 +4832,8 @@ class BenchAPI:
                     "mode": "geometry_sweep",
                     "error": f"dimension sweep command failed: {e}",
                 }
+            if sweep_res.get("status") == "manual_geometry_mismatch":
+                sweep_res["non_blocking"] = True
             phase("geometry_sweep", sweep_res)
             if abort_check() or sweep_res.get("aborted"):
                 motion_ok = False
@@ -5031,19 +5069,9 @@ class BenchAPI:
             "log_name": report.get("log_name"),
             "summary": "sim-ready calibration report saved",
         })
-        problem = (
-            next((p for p in phases
-                  if p.get("aborted") and not p.get("recoverable")), None)
-            or next((p for p in phases if not p.get("ok")
-                     and not p.get("skipped")
-                     and not p.get("non_blocking")), None)
-        )
+        problem = self._checkup_blocking_problem(phases)
         ok = not abort_check() and problem is None
-        diagnostic_issues = [
-            p for p in phases
-            if not p.get("ok") and not p.get("skipped")
-            and p.get("non_blocking")
-        ]
+        diagnostic_issues = self._checkup_diagnostic_issues(phases)
         problem_msg = None
         if not ok and isinstance(problem, dict):
             problem_msg = (

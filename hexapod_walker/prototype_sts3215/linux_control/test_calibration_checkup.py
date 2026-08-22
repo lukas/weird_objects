@@ -16,6 +16,7 @@ for _p in (_HERE, _HERE.parent / "motor_setup"):
     if str(_p) not in sys.path:
         sys.path.insert(0, str(_p))
 
+import bench_api as bench_api_module  # noqa: E402
 from bench_api import BenchAPI  # noqa: E402
 
 
@@ -321,6 +322,70 @@ def test_non_blocking_geometry_issue_is_not_final_error() -> None:
     assert geo["non_blocking"] is True
     assert _phase(phases, "return_zero")["ok"] is True
     assert _phase(phases, "proprioception_check")["ok"] is True
+
+
+def test_manual_geometry_mismatch_sweep_is_diagnostic() -> None:
+    result, calls = _run_checkup(
+        sweep_res={
+            "ok": False,
+            "mode": "geometry_sweep",
+            "status": "manual_geometry_mismatch",
+            "msg": (
+                "dimension sweep manual_geometry_mismatch; FK/contact "
+                "height 126.5 vs measured 100.0mm"),
+        },
+        geometry_check_res={
+            "ok": False,
+            "non_blocking": True,
+            "mode": "geometry_plausibility",
+            "error": (
+                "geometry not trusted: contact-derived geometry disagrees "
+                "with hand measurements"),
+            "msg": (
+                "geometry not trusted: contact-derived geometry disagrees "
+                "with hand measurements"),
+        })
+    phases = result["phases"]
+    assert result["ok"], result
+    assert result["diagnostic_issue_count"] == 2
+    assert calls.count("safe_zero") == 2, calls
+    sweep = _phase(phases, "geometry_sweep")
+    assert sweep["ok"] is False
+    assert sweep["non_blocking"] is True
+    assert _phase(phases, "return_zero")["ok"] is True
+    assert _phase(phases, "proprioception_check")["ok"] is True
+
+
+def test_saved_report_treats_nonblocking_issue_as_diagnostic() -> None:
+    api = BenchAPI(object())
+    old_file = bench_api_module.__file__
+    with tempfile.TemporaryDirectory() as td:
+        try:
+            bench_api_module.__file__ = str(Path(td) / "bench_api.py")
+            api._geometry_report = lambda **_kwargs: {"ok": True}
+            api.imu_state = lambda: {"ok": True}
+            api._actuator_report = lambda _bus=None: {"ok": True}
+            report = api._save_calibration_report(phases=[
+                {
+                    "name": "geometry_sweep",
+                    "ok": False,
+                    "mode": "geometry_sweep",
+                    "non_blocking": True,
+                    "summary": "dimension sweep manual_geometry_mismatch",
+                },
+                {
+                    "name": "return_zero",
+                    "ok": True,
+                    "mode": "return_zero",
+                    "summary": "zero pose ready",
+                },
+            ])
+        finally:
+            bench_api_module.__file__ = old_file
+    assert report["ok"], report
+    assert report["diagnostic_issue_count"] == 1
+    assert report["msg"] == (
+        "checkup complete with diagnostic issues; see phases")
 
 
 def test_recoverable_stability_guard_skips_later_motion_but_returns_zero() -> None:
