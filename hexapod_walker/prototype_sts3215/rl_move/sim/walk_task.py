@@ -3418,7 +3418,25 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                     tol_co = float(cfg_get(
                         self.cfg, "reward",
                         "walk_course_overspeed_tol", default=0.05))
-                    over_c = max(0.0, spd_c - (1.0 + tol_co) * s_ref)
+                    # Along-command projection variant (2026-08-22
+                    # phasedir3 reprice): |v_ema| is biased UPWARD by
+                    # zero-mean exploration sway (norm of a noisy
+                    # vector), so at PPO std=0.36 the band charge fired
+                    # flat (~-3/tick) on a clone whose ALONG-command
+                    # travel was under the band. When
+                    # reward.walk_course_overspeed_along=1 the
+                    # exceedance uses the unbiased along-command
+                    # projection of the same course EMA instead —
+                    # sustained directed overspeed (the 0.139 m/s
+                    # attractor) still pays in full. Default 0 = off,
+                    # |v_ema| pricing, bit-exact legacy.
+                    spd_over = spd_c
+                    if float(cfg_get(self.cfg, "reward",
+                                     "walk_course_overspeed_along",
+                                     default=0.0)) == 1.0:
+                        spd_over = (ex * goal.vx_ref
+                                    + ey * goal.vy_ref) / s_ref
+                    over_c = max(0.0, spd_over - (1.0 + tol_co) * s_ref)
                     if over_c > 0.0:
                         r_cover = -k_cover * min(over_c / s_ref, 3.0)
                         reward = float(reward) + r_cover

@@ -870,32 +870,71 @@ class McuFeetechBus:
         self._pending.clear()
         if not items:
             return
+        binary_replies: list[str | None] = []
         frame = encode_sync_frame(ord("W"), items)
-        with self._lock:
-            self._ser.reset_input_buffer()
-            self._ser.write(frame)
-            self._ser.flush()
-            line = self._readline(0.8)
-        if not line or not line.startswith("OK"):
-            n = min(len(items), 18)
-            parts = ["SW", str(n)]
-            for sid, pos, speed, acc in items[:n]:
+        for attempt in range(2):
+            with self._lock:
+                self._ser.reset_input_buffer()
+                self._ser.write(frame)
+                self._ser.flush()
+                line = self._readline(0.8)
+            binary_replies.append(line)
+            if line and line.startswith("OK"):
+                return
+            # The MCU firmware notes that the host UART ring can drop a
+            # full W frame during acquisition passes. Re-sending the same
+            # absolute pose is idempotent enough and avoids abandoning a
+            # stand-up on one missed reply/frame.
+            if attempt == 0:
+                time.sleep(0.01)
+
+        ascii_replies = self._flush_sync_ascii_fallback(items)
+        if ascii_replies and all(r and r.startswith("OK")
+                                 for r in ascii_replies):
+            return
+        cause = (
+            f"binary={binary_replies!r} fallback={ascii_replies!r}")
+        self._flush_sync_slow_wp_fallback(items, cause=cause)
+
+    def _flush_sync_ascii_fallback(
+            self, items: list[tuple[int, int, int, int]],
+            *, chunk_n: int = 6) -> list[str | None]:
+        replies: list[str | None] = []
+
+        def send_sw(chunk: list[tuple[int, int, int, int]]) -> str | None:
+            parts = ["SW", str(len(chunk))]
+            for sid, pos, speed, acc in chunk:
                 parts.extend([str(sid), str(int(pos)),
                               str(int(speed)), str(int(acc))])
-            fallback = self._transact(" ".join(parts), timeout=1.0)
-            if not fallback or not fallback.startswith("OK"):
-                cause = (
-                    f"binary={line!r} fallback={fallback!r}")
-                self._flush_sync_slow_wp_fallback(items, cause=cause)
+            return self._transact(" ".join(parts), timeout=1.0)
+
+        n = min(len(items), 18)
+        whole = list(items[:n])
+        replies.append(send_sw(whole))
+        if replies[-1] and replies[-1].startswith("OK"):
+            return replies
+        if n <= chunk_n:
+            return replies
+        chunked: list[str | None] = []
+        for i in range(0, n, chunk_n):
+            reply = send_sw(whole[i:i + chunk_n])
+            chunked.append(reply)
+            if not reply or not reply.startswith("OK"):
+                replies.extend(chunked)
+                return replies
+        return chunked
 
     def _flush_sync_slow_wp_fallback(
             self, items: list[tuple[int, int, int, int]], *,
             cause: str) -> None:
-        """Last-resort slow-pose fallback for calibration/search glides."""
-        max_speed = max(int(speed) for _, _, speed, _ in items)
-        max_acc = max(int(acc) for _, _, _, acc in items)
-        if max_speed > 250 or max_acc > 30:
-            raise RuntimeError(f"SyncWrite failed: {cause}")
+        """Last-resort per-servo fallback.
+
+        This used to be limited to slow calibration/search glides. Stand-up
+        can also hit a dropped batch frame while the MCU is busy; sending
+        individual absolute goals is slightly less synchronous, but it is a
+        better failure mode than aborting mid-tuck and leaving the robot in
+        a half-folded pose.
+        """
         failures: list[str] = []
         for sid, pos, speed, acc in items:
             reply = self._transact(

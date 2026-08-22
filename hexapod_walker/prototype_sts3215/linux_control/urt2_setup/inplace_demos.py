@@ -4545,6 +4545,508 @@ def run_wild_dance(bus: FeetechBus, *, abort_check=None, status_cb=None,
     return "done"
 
 
+ENCORE_QUAD_SPEED_CAP = 1.2   # the horse actually WALKS — tighter than 1.5
+
+
+def run_encore_dance(bus: FeetechBus, *, abort_check=None, status_cb=None,
+                     torque=None, speed: float = 1.0, speed_fn=None,
+                     standup_fn=None, log_path: Path | None = None) -> str:
+    """THE ENCORE — greatest hits remixed, plus three brand-new acts.
+
+    I    overture: heartbeat vs drums — the resurrection heartbeat and
+         the floor-tap drum solo answer each other, tightening each
+         round until they collide in one unison slam
+    II   gearshift: the 1:2:3 gearbox meshes, a clutch FREEZE locks the
+         lineup, then it re-meshes spinning the other way with the
+         gear ratios swapped
+    III  trident bow: pairs merge into three thick arms, roll, take a
+         bowing round, gather overhead for one pulse
+    IV   STEP stand-up (no fake-outs — this show plays it straight)
+    V    the typewriter (NEW): one leg at a time lifts, flicks, and
+         taps back down around the hex — two laps, the second twice as
+         fast — then a double all-six carriage-return stomp
+    VI   the compass (NEW): a world-pinned no-slip turn — the feet
+         never scrub while the body sweeps ~30° one way, holds, and
+         sweeps back
+    VII  THE CIRCUS HORSE (NEW): rears onto four legs, paws the air,
+         then actually WALKS while reared — shies backward, holds,
+         and walks forward to its mark — and comes down, quad balance
+         trim armed the whole time
+    VIII victory ripple and descend
+    IX   curtain call: the legs take their bows overhead one by one,
+         tremble in crescendo, sweep down, and one last heartbeat
+
+    Without the bench ``standup_fn`` (CLI): acts I–III and the curtain
+    call only.  Live speed works everywhere; every reared act caps it
+    at 1.2x (the horse is walking, not just holding).
+    """
+    live = _live_robot_ids(bus)
+    if len(live) < 3:
+        print(f"  Only {len(live)} robot servo(s) — need more.")
+        return "skipped"
+    check = abort_check or (lambda: False)
+    base_spd = speed_fn or (lambda: _clamp_demo_speed(speed))
+
+    def note(msg: str) -> None:
+        print(f"  {msg}")
+        if status_cb is not None:
+            try:
+                status_cb(str(msg))
+            except Exception:
+                pass
+
+    _enable_torque(bus, live)
+    _set_torque_limit(bus, live, DEMO_TORQUE_LIMIT)
+    peaks = CurrentPeakTracker()
+
+    def bail(label: str) -> str:
+        _hold_here(bus, live)
+        _set_torque_limit(bus, live, 1000)
+        return f"error: {label}"
+
+    log_cm = MotionLog(log_path, live) if log_path is not None else None
+    if log_cm is not None:
+        log_cm.__enter__()
+    try:
+        def seg(pose_fn, secs: float, label: str, *, max_speed=3000,
+                max_acc=200, tick_s=STREAM_TICK_S, tilt=None,
+                spd=None, trim=None) -> str:
+            # Fresh tracker per segment (see run_wild_dance).
+            trk = CurrentPeakTracker()
+            st = stream_pose_fn(
+                bus, live, pose_fn, seconds=secs, abort_check=check,
+                speed_fn=spd or base_spd, status_cb=status_cb,
+                label=label, tracker=trk, log=log_cm,
+                max_speed=max_speed, max_acc=max_acc, tick_s=tick_s,
+                tilt_guard_deg=tilt, balance_trim=trim)
+            if trk.peak_a > peaks.peak_a:
+                peaks.peak_a = trk.peak_a
+                peaks.peak_joint = trk.peak_joint
+            for j, a in trk.max_a.items():
+                if a > peaks.max_a.get(j, 0.0):
+                    peaks.max_a[j] = a
+            peaks.samples += trk.samples
+            return st
+
+        def gate(st: str, label: str) -> str | None:
+            if st == "aborted":
+                _set_torque_limit(bus, live, 1000)
+                return "aborted"
+            if st == "guard":
+                return bail(f"current guard ({label})")
+            if st.startswith("tilt:"):
+                # stream already went limp for the soft landing
+                _set_torque_limit(bus, live, 1000)
+                return f"error: tilt {st[5:]} deg during {label} — went limp"
+            if st.startswith("balance:"):
+                # quad balance trim saw a fall / recovery timeout and
+                # already went limp — surface it, don't keep dancing.
+                _set_torque_limit(bus, live, 1000)
+                return f"error: balance ({st[8:]}) during {label} — went limp"
+            return None
+
+        # ---- Act I: overture — heartbeat vs drums ---------------------
+        note("act I — overture: heartbeat vs drums")
+        # Rounds tighten: (heartbeat_s, drum_s) per round, then a slam.
+        rounds = ((2.4, 2.0), (2.0, 1.6), (1.6, 1.3))
+        r_t0 = []
+        acc_t = 0.6
+        for hb_s, dr_s in rounds:
+            r_t0.append((acc_t, hb_s, dr_s))
+            acc_t += hb_s + dr_s
+        slam_t0 = acc_t + 0.2
+        overture_s = slam_t0 + 1.6
+
+        def overture(t: float) -> list[float]:
+            pose = _zero_pose()
+            for t0, hb_s, dr_s in r_t0:
+                if t0 <= t < t0 + hb_s:
+                    # heartbeat: double knee thump, all six in unison
+                    u = (t - t0) / hb_s
+                    for p0 in (0.05, 0.42):
+                        if p0 <= u < p0 + 0.28:
+                            b = math.sin(math.pi * (u - p0) / 0.28)
+                            for leg in range(6):
+                                _yaw_hip_knee(leg, pose, knee=9.5 * b,
+                                              hip=-3.5 * b)
+                    return pose
+                d0 = t0 + hb_s
+                if d0 <= t < d0 + dr_s:
+                    # drums answer: odd/even floor-tap doubles
+                    u = (t - d0) / dr_s
+                    hover = -8.0
+                    idx = int(u * 4.0)
+                    v = u * 4.0 - idx
+                    hit = math.sin(math.pi * v / 0.7) if v < 0.7 else 0.0
+                    for leg in range(6):
+                        b = hit if leg % 2 == idx % 2 else 0.0
+                        _yaw_hip_knee(leg, pose, hip=hover * (1.0 - b),
+                                      knee=5.0 * b)
+                    return pose
+            if slam_t0 <= t < slam_t0 + 0.55:
+                # both voices at once: one big unison slam
+                b = 1.25 * math.sin(math.pi * (t - slam_t0) / 0.55)
+                for leg in range(6):
+                    _yaw_hip_knee(leg, pose, knee=8.0 * b, hip=-4.0 * b)
+            return pose
+
+        st = seg(overture, overture_s, "overture")
+        r = gate(st, "overture")
+        if r:
+            return r
+
+        # ---- Act II: gearshift ----------------------------------------
+        note("act II — GEARSHIFT (clutch in …)")
+
+        def gearshift(t: float) -> list[float]:
+            a = min(1.0, t / 1.2, max(0.0, (14.0 - t) / 1.2))
+            fz = _win(t, 6.2, 6.8) - _win(t, 7.4, 8.0)   # clutch freeze
+            rev = _win(t, 7.4, 8.0)                       # reversed remesh
+            f0 = 0.4
+            hit = _swarm_pulse((t * f0) % 1.0)
+            pose = _zero_pose()
+            for leg in range(6):
+                # forward mesh: hips 1x pairsA, yaws 2x pairsB, knees 3x
+                hip_f = (-24.0 + _dp(t, leg, amp=15.0, freq=f0,
+                                     group="pairsA") - 3.0 * hit)
+                yaw_f = _dp(t, leg, amp=11.0, freq=2.0 * f0, group="pairsB")
+                knee_f = (8.0 + _dp(t, leg, amp=8.0, freq=3.0 * f0,
+                                    group="opposite") + 4.0 * hit)
+                # reversed mesh: spin flipped, yaw/knee ratios swapped
+                hip_r = (-24.0 + _dp(t, leg, amp=15.0, freq=f0,
+                                     group="pairsA", spin=-1.0) - 3.0 * hit)
+                yaw_r = _dp(t, leg, amp=10.0, freq=3.0 * f0,
+                            group="opposite", spin=-1.0)
+                knee_r = (8.0 + _dp(t, leg, amp=7.0, freq=2.0 * f0,
+                                    group="pairsB", spin=-1.0) + 4.0 * hit)
+                m = 1.0 - rev
+                hip = hip_f * m + hip_r * rev
+                yaw = yaw_f * m + yaw_r * rev
+                knee = knee_f * m + knee_r * rev
+                # the clutch: everything locks into a stiff lineup
+                hip = hip * (1.0 - fz) + (-30.0) * fz
+                yaw = yaw * (1.0 - fz)
+                knee = knee * (1.0 - fz) + 14.0 * fz
+                _yaw_hip_knee(leg, pose, yaw=yaw * a, hip=hip * a,
+                              knee=knee * a)
+            return pose
+
+        st = seg(gearshift, 14.0, "gearshift")
+        r = gate(st, "gearshift")
+        if r:
+            return r
+
+        # ---- Act III: trident bow -------------------------------------
+        note("act III — the trident bow")
+
+        def trident_bow(t: float) -> list[float]:
+            u = t / 12.0
+            form = _win(u, 0.0, 0.10)
+            gather = _win(u, 0.72, 0.82)
+            fade = _win(u, 0.88, 1.0)
+            pose = _zero_pose()
+            for leg in range(6):
+                pair_a = leg // 2
+                ph_a = 2.0 * math.pi * pair_a / 3.0
+                # rolling trident
+                hip_m = -26.0 + 11.0 * math.sin(2.0 * math.pi * 0.5 * t
+                                                + ph_a)
+                knee_m = 10.0 - 6.0 * math.sin(2.0 * math.pi * 0.5 * t
+                                               + ph_a)
+                # bowing round: one thick arm dips at a time (hip stays
+                # NEGATIVE — dips toward the floor, never into it)
+                bow = _win(u, 0.38, 0.44) - _win(u, 0.66, 0.72)
+                dip_ph = (t - 4.6) / 1.6
+                dip = 0.0
+                if 0.0 <= dip_ph < 3.0 and int(dip_ph) == pair_a:
+                    dip = math.sin(math.pi * (dip_ph - int(dip_ph)))
+                hip = (hip_m * (1.0 - bow)
+                       + (-34.0 + 26.0 * dip) * bow)
+                knee = (knee_m * (1.0 - bow)
+                        + (8.0 + 10.0 * dip) * bow)
+                yaw = _pair_sign(leg, 0) * AIR_PAIR_YAW_DEG
+                # final gather overhead + one pulse
+                pulse = 5.0 * math.sin(2.0 * math.pi * 1.2 * t) * gather
+                hip = hip * (1.0 - gather) + (ARMS_UP_HIP_DEG
+                                              + pulse) * gather
+                knee = knee * (1.0 - gather) + ARMS_UP_KNEE_DEG * gather
+                yaw = yaw * (1.0 - gather)
+                s = form * (1.0 - fade)
+                _yaw_hip_knee(leg, pose, yaw=yaw * s, hip=hip * s,
+                              knee=knee * s)
+            return pose
+
+        st = seg(trident_bow, 12.0, "trident bow")
+        r = gate(st, "trident bow")
+        if r:
+            return r
+
+        if standup_fn is not None:
+            # ---- Act IV: the real stand-up, played straight -----------
+            note("act IV — STEP stand-up")
+            ok, err = standup_fn()
+            if check():
+                return bail("stand-up aborted")
+            if not ok:
+                note(f"stand-up stopped: {err}")
+                return bail(f"stand-up: {err}")
+            _set_torque_limit(bus, live, RISE_TORQUE_LIMIT)
+            hip, knee = RISE_HIGH_HIP_DEG, RISE_HIGH_KNEE_DEG
+            planted = _elevated_stand_pose(hip=hip, knee=knee, yaw=0.0)
+            if not ease_to_pose(bus, planted, abort_check=check,
+                                seconds=0.7, label="set stance",
+                                current_tracker=peaks):
+                return bail("set stance")
+            _set_torque_limit(bus, live, DANCE_PLANT_TORQUE)
+
+            # ---- Act V: the typewriter --------------------------------
+            # Sequential single-leg taps: the active leg LIFTS first
+            # (friction released) before any yaw flick — never yaw a
+            # loaded leg (hardware lesson 08-19, see run_wild_dance).
+            note("act V — the typewriter")
+            lap1, lap2 = 0.85, 0.55
+            t_lap2 = 6 * lap1
+            t_cr = t_lap2 + 6 * lap2
+            type_s = t_cr + 1.6
+
+            def typewriter(t: float) -> list[float]:
+                pose = _elevated_stand_pose(hip=hip, knee=knee, yaw=0.0)
+                if t < t_cr:
+                    step = lap1 if t < t_lap2 else lap2
+                    tt = t if t < t_lap2 else t - t_lap2
+                    idx = min(5, int(tt / step))
+                    u = tt / step - idx
+                    b = math.sin(math.pi * min(1.0, u / 0.9))
+                    flick = 10.0 * math.sin(
+                        2.0 * math.pi * 1.5 * u) * b
+                    y, h, k = _show_blend_leg(hip, knee, idx, 0.85 * b,
+                                              wave_yaw=flick)
+                    _set_leg(pose, idx, yaw=y, hip=h, knee=k)
+                    return pose
+                # carriage return: two crisp all-six stomps
+                tt = t - t_cr
+                for t0 in (0.15, 0.8):
+                    if t0 <= tt < t0 + 0.4:
+                        b = math.sin(math.pi * (tt - t0) / 0.4)
+                        for leg in range(6):
+                            y, h, k = _show_blend_leg(hip, knee, leg,
+                                                      0.45 * b)
+                            _set_leg(pose, leg, yaw=y, hip=h, knee=k)
+                return pose
+
+            st = seg(typewriter, type_s, "typewriter",
+                     max_speed=900, max_acc=80)
+            r = gate(st, "typewriter")
+            if r:
+                return r
+
+            # ---- Act VI: the compass ----------------------------------
+            # World-pinned no-slip turn (the drive controller's GAIT 1
+            # machinery as choreography): clamp-fit timing, omega-only.
+            # Feet never scrub; the body sweeps ~30° and comes back.
+            note("act VI — the compass (no-slip pirouette)")
+            try:
+                from noslip_gait import NoSlipGait
+            except ImportError:
+                sys.path.insert(
+                    0, str(_HERE.parent / "linux_control"))
+                from noslip_gait import NoSlipGait
+            gait = NoSlipGait.clamp_fit()
+            gait.sync_plant_stance(hip, knee)
+
+            def compass(t: float) -> list[float]:
+                if t < 8.5:
+                    gait.set_velocity(omega=0.30)
+                elif t < 10.0:
+                    gait.set_velocity(omega=0.0)
+                elif t < 18.0:
+                    gait.set_velocity(omega=-0.30)
+                else:
+                    gait.set_velocity(omega=0.0)
+                return gait.desired_deg(t)
+
+            st = seg(compass, 19.5, "the compass",
+                     max_speed=900, max_acc=80)
+            r = gate(st, "the compass")
+            if r:
+                return r
+            if not ease_to_pose(bus, planted, abort_check=check,
+                                seconds=0.8, label="compass home",
+                                current_tracker=peaks):
+                return bail("compass home")
+
+            # ---- Act VII: THE CIRCUS HORSE ----------------------------
+            note("act VII — THE CIRCUS HORSE (tipping back …)")
+            from quad_walk import (ENTRY_TOTAL_S, EXIT_TOTAL_S, GAITS,
+                                   TUCK_DEG)
+            _set_torque_limit(bus, live, STAND_DANCE_TORQUE)
+            if not ease_to_pose(bus, _stand_zero_pose(),
+                                abort_check=check, seconds=0.8,
+                                label="horse base",
+                                current_tracker=peaks):
+                return bail("horse base")
+            horse_spd = lambda: min(  # noqa: E731
+                ENCORE_QUAD_SPEED_CAP, _clamp_live_speed(base_spd()))
+
+            def quad_trim(gait_key: str) -> QuadPitchTrim:
+                pitch = GAITS[gait_key].get("pitch")
+                return QuadPitchTrim(
+                    expected_pitch_deg=(math.degrees(float(pitch))
+                                        if pitch is not None else None),
+                    gait=gait_key)
+
+            def horse_seg(label: str, secs: float, *, gait_key: str,
+                          phase: str, direction: float = 1.0,
+                          gesture_fn=None,
+                          trimmed: bool = True) -> str | None:
+                trim = quad_trim(gait_key) if trimmed else None
+                fn = _make_quad_fn(
+                    secs, gait=gait_key, direction=direction,
+                    phase=phase,
+                    trim_fn=trim.pose_trim if trim else None)
+                if gesture_fn is not None:
+                    base_fn = fn
+
+                    def fn(t: float, _b=base_fn, _g=gesture_fn):  # noqa: E731
+                        return _g(t, _b(t))
+                    # balance recovery needs the stance schedule
+                    fn.all_stance_at = getattr(
+                        base_fn, "all_stance_at", None)
+                st = seg(fn, secs, label,
+                         max_acc=QUAD_STREAM_ACC,
+                         tick_s=QUAD_STREAM_TICK_S,
+                         tilt=QUAD_TILT_GUARD_DEG,
+                         spd=horse_spd, trim=trim)
+                return gate(st, label)
+
+            # rear up (entry choreography, untrimmed like quad_rear)
+            r = horse_seg("rear up", ENTRY_TOTAL_S + 2.5,
+                          gait_key="rear", phase="rear", trimmed=False)
+            if r:
+                return r
+
+            # pawing flourish on the reared hold
+            note("act VII — pawing the air")
+            paws_s = 7.0
+
+            def paws(t: float, pose: list[float]) -> list[float]:
+                w = min(1.0, t / 0.8, max(0.0, (paws_s - t) / 1.2))
+                w = 0.5 - 0.5 * math.cos(math.pi * w)
+                y0, h0, k0 = TUCK_DEG
+                for leg in (0, 5):
+                    if t < 4.4:               # alternating paw strokes
+                        k = int(t / 1.1)
+                        active = 5 if k % 2 == 0 else 0
+                        b = (math.sin(math.pi * (t / 1.1 - k))
+                             if leg == active else 0.0)
+                        gy, gh, gk = y0, h0 + 18.0 * b, k0 - 35.0 * b
+                    else:                     # both paws salute together
+                        b = math.sin(math.pi * min(1.0, (t - 4.4) / 1.4))
+                        gy, gh, gk = y0, h0 + 22.0 * b, k0 - 30.0 * b
+                    j = leg * 3
+                    pose[j] = pose[j] * (1.0 - w) + gy * w
+                    pose[j + 1] = pose[j + 1] * (1.0 - w) + gh * w
+                    pose[j + 2] = pose[j + 2] * (1.0 - w) + gk * w
+                return pose
+
+            r = horse_seg("pawing the air", paws_s,
+                          gait_key="rear", phase="hold", gesture_fn=paws)
+            if r:
+                return r
+
+            # Backward first, forward home: in the loaded-fit sim the
+            # reared walk travels reliably BACKWARD (~5 mm/s) but barely
+            # forward (uphill against the lean), so retreat-then-return
+            # keeps the net drift small and pointed AWAY from the
+            # audience (probe 08-21, /tmp/encore_probe2.py).
+            note("act VII — the horse SHIES BACK …")
+            r = horse_seg("horse walk back", 9.0,
+                          gait_key="walk", phase="walk", direction=-1.0)
+            if r:
+                return r
+
+            r = horse_seg("reared hold", 2.5,
+                          gait_key="rear", phase="hold")
+            if r:
+                return r
+
+            note("act VII — … and WALKS back to its mark")
+            r = horse_seg("horse walk fwd", 9.0,
+                          gait_key="walk", phase="walk")
+            if r:
+                return r
+
+            note("act VII — coming down")
+            r = horse_seg("horse down", EXIT_TOTAL_S + 1.0,
+                          gait_key="rear", phase="down", trimmed=False)
+            if r:
+                return r
+            _set_torque_limit(bus, live, DANCE_PLANT_TORQUE)
+
+            # ---- Act VIII: victory ripple + descend -------------------
+            if not ease_to_pose(bus, planted, abort_check=check,
+                                seconds=0.8, label="ripple stance",
+                                current_tracker=peaks):
+                return bail("ripple stance")
+            note("act VIII — victory ripple")
+            st = seg(lambda t: _show_stream_pose("ripple", t, hip, knee),
+                     4.0, "victory ripple", max_speed=900, max_acc=80)
+            r = gate(st, "victory ripple")
+            if r:
+                return r
+            note("coming back down …")
+            _set_torque_limit(bus, live, RISE_TORQUE_LIMIT)
+            if not ease_to_pose(bus, _zero_pose(), abort_check=check,
+                                seconds=4.5, label="descend",
+                                current_tracker=peaks):
+                return bail("descend")
+            _set_torque_limit(bus, live, DEMO_TORQUE_LIMIT)
+        else:
+            note("(no bench stand-up — skipping the standing acts)")
+
+        # ---- Act IX: curtain call (seated) ------------------------------
+        note("act IX — curtain call")
+        order = (0, 5, 1, 4, 2, 3)          # criss-cross roll call
+
+        def curtain(t: float) -> list[float]:
+            pose = _zero_pose()
+            fall = 1.0 - _win(t, 9.6, 10.8)
+            for slot, leg in enumerate(order):
+                t0 = 0.4 + 0.9 * slot
+                up = _win(t, t0, t0 + 1.1)
+                over = 6.0 * math.sin(math.pi * _win(t, t0, t0 + 1.6))
+                trem = 0.0
+                if t > 6.4:                  # unison tremolo crescendo
+                    amp = 2.0 + 4.0 * _win(t, 6.4, 9.4)
+                    trem = amp * math.sin(2.0 * math.pi * 2.2 * t)
+                _yaw_hip_knee(
+                    leg, pose,
+                    hip=(ARMS_UP_HIP_DEG - over + trem) * up * fall,
+                    knee=(ARMS_UP_KNEE_DEG - 0.6 * trem) * up * fall)
+            if 12.0 <= t < 12.5:             # one last heartbeat
+                b = 8.0 * math.sin(math.pi * (t - 12.0) / 0.5)
+                for leg in range(6):
+                    pose[leg * 3 + 2] += b
+            return pose
+
+        st = seg(curtain, 13.5, "curtain call")
+        r = gate(st, "curtain call")
+        if r:
+            return r
+    finally:
+        if log_cm is not None:
+            log_cm.__exit__(None, None, None)
+
+    peaks.print_report(phase="the encore")
+    note("that's the show.")
+    if not go_to_zero_pose(bus, abort_check=check, seconds=1.5):
+        _set_torque_limit(bus, live, 1000)
+        return "aborted"
+    _limp_all(bus, live)
+    _set_torque_limit(bus, live, 1000)
+    return "done"
+
+
 # Ordered gentlest → spiciest (web UI + CLI menu follow this order).
 DEMOS = {
     # --- gentle air (offsets around logical 0° / legs out) ---------------
@@ -4615,6 +5117,11 @@ DEMOS = {
                    "floor-drum solo, storm, fake-out stand-ups, planted "
                    "rampage, REARS UP like a stallion, big finale "
                    "(~2 min)", None),
+    "dance_encore": ("[6 show] THE ENCORE — heartbeat-vs-drums duel, "
+                     "gearshift, trident bow, typewriter taps, no-slip "
+                     "compass turn, and the CIRCUS HORSE: rears up and "
+                     "WALKS on four legs, there and back (~2.5 min)",
+                     None),
     # --- real walk (open-loop tripod gait) --------------------------------
     "walk": ("[7 walk] tripod forward a few strides, then stand", None),
     "walk_spin": ("[7 walk] in-place turn (tripod), then stand", None),
@@ -4688,6 +5195,7 @@ AIR_DEMO_SECONDS = {
     "dance_swarm_stand": 252.0,  # same song, standing choruses
     "dance_steeple": 56.0,
     "dance_wild": 125.0,
+    "dance_encore": 155.0,
 }
 
 
@@ -6502,6 +7010,12 @@ def run_demo(bus: FeetechBus, name: str, *,
     if name == "dance_wild":
         # Without the bench standup_fn it plays the seated acts only.
         return run_wild_dance(
+            bus, abort_check=abort_check, status_cb=status_cb,
+            torque=torque, speed=spd, speed_fn=speed_fn,
+            standup_fn=standup_fn, log_path=log_path)
+    if name == "dance_encore":
+        # Without the bench standup_fn it plays the seated acts only.
+        return run_encore_dance(
             bus, abort_check=abort_check, status_cb=status_cb,
             torque=torque, speed=spd, speed_fn=speed_fn,
             standup_fn=standup_fn, log_path=log_path)
