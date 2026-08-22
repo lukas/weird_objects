@@ -660,13 +660,18 @@ class MjxTickStepper:
 
     def tick(self, cmd: Command, *, limp: np.ndarray | bool = False,
              slip: bool = False,
-             push_nm: np.ndarray | None = None) -> TickOutput:
+             push_nm: np.ndarray | None = None,
+             push_fxy: np.ndarray | None = None) -> TickOutput:
         """Advance every env one control tick; returns device arrays
         (np.asarray() them host-side). ``slip=True`` uses the low-
         friction model variant (reset slip-settle; needs slip_mu).
         ``push_nm``: per-env (B,) chassis roll torque (N·m) applied as
         xfrc about each chassis's own x-axis for this tick — the
-        dr.walk_push_* takeoff disturbance (None/0 = no push)."""
+        dr.walk_push_* takeoff disturbance (None/0 = no push).
+        ``push_fxy``: per-env (B, 2) world-frame (fx, fy) horizontal
+        force applied as xfrc at the chassis for this tick — the
+        dr.ext_push_* mid-episode push-recovery disturbance
+        (None/0 = no push)."""
         assert self._dx is not None, "call reset_envs() first"
         jnp = self._jnp
         if slip:
@@ -682,9 +687,14 @@ class MjxTickStepper:
         push = (np.zeros(self.n_envs, np.float32) if push_nm is None
                 else np.broadcast_to(
                     np.asarray(push_nm, np.float32), (self.n_envs,)))
+        push_xy = (np.zeros((self.n_envs, 2), np.float32)
+                   if push_fxy is None
+                   else np.broadcast_to(
+                       np.asarray(push_fxy, np.float32),
+                       (self.n_envs, 2)))
         self._dx, self._prof, self._imu, out = fn(
             dr, self._dx, self._prof, self._imu, self._tick_params, cmd,
-            limp_b, jnp.asarray(push))
+            limp_b, jnp.asarray(push), jnp.asarray(push_xy))
         return out
 
     # -- state surgery (pooled resets) ---------------------------------------
