@@ -836,8 +836,8 @@ SLIPWALK_OVERRIDES = {
 
 
 def _slipwalk_rollout(policy: str, seed: int, *,
-                      gait_scale: float = 1.0) -> tuple[float, float]:
-    """Return (episode return, net forward body travel in m).
+                      gait_scale: float = 1.0) -> tuple[float, float, int]:
+    """Return (episode return, net forward body travel in m, steps).
 
     ``policy``: "gait" (scripted tripod at ``gait_scale`` x command),
     "skate" (same gait, zero swing lift — feet slide), "stall"
@@ -845,7 +845,11 @@ def _slipwalk_rollout(policy: str, seed: int, *,
     "stork" (the cw-amp-m2-pilot-{noamp,style05}-c1 38M cheat, 08-22:
     triad 0,2,4 holds the plant motionless while triad 1,3,5 is parked
     in the air — a statically stable half-tripod statue that collected
-    RISING reward for 38M steps under the legacy kernel stack).
+    RISING reward for 38M steps under the legacy kernel stack),
+    "topple" (the cw-amp-m2-freeprog-{noamp,style05} 2M cheat, 08-22:
+    lift the front pair from the plant stance so the body pitches over
+    and the episode tilt-terminates in ~1 s — the fastest scripted way
+    to die and stop paying the per-tick charge stack).
     """
     from sim_gait_compat import TripodGait
 
@@ -873,6 +877,14 @@ def _slipwalk_rollout(policy: str, seed: int, *,
     for _leg in (1, 3, 5):
         stork_rad[3 * _leg + 1] -= 50.0 * DEG2RAD
         stork_rad[3 * _leg + 2] -= 50.0 * DEG2RAD
+    # Topple twin: lift the FRONT pair (legs 0,1) with the same hip/knee
+    # splay — the support polygon loses its front edge and the body
+    # tips over in ~1 s (tilt_roll/tilt_pitch termination), measured
+    # 23-28 ticks on the controller 08-22.
+    topple_rad = plant_rad.copy()
+    for _leg in (0, 1):
+        topple_rad[3 * _leg + 1] -= 50.0 * DEG2RAD
+        topple_rad[3 * _leg + 2] -= 50.0 * DEG2RAD
     gait.reset_phase()
 
     x0 = float(env.data.xpos[env._chassis_bid, 0])
@@ -888,6 +900,8 @@ def _slipwalk_rollout(policy: str, seed: int, *,
             act = q_rad_to_action(np.asarray(gait.desired_deg(t)) * DEG2RAD)
         elif policy == "stork":
             act = q_rad_to_action(stork_rad)
+        elif policy == "topple":
+            act = q_rad_to_action(topple_rad)
         else:
             act = q_rad_to_action(plant_rad)
         _obs, r, term, trunc, _info = env.step(act)
@@ -897,16 +911,20 @@ def _slipwalk_rollout(policy: str, seed: int, *,
             break
     dx = float(env.data.xpos[env._chassis_bid, 0]) - x0
     env.close()
-    return total, dx
+    return total, dx, step
 
 
 @pytest.fixture(scope="module")
 def slipwalk_returns() -> dict[str, float]:
     """Mean return per behavior under the from-scratch anti-slip stack.
 
-    Controller measurement 2026-08-21 (3 seeds, 15 s episodes):
+    Controller measurement 2026-08-21 (3 seeds, 15 s episodes),
+    term_penalty=400 added 08-22 (bit-exact for all pre-existing
+    behaviors — they survive to truncation):
     fast(0.44 m) +851 > gait(0.22 m) +417 > creep(0.16 m) +108 >
-    stall -143 > park -244 > skate -1195.
+    stall -143 > park -244 > topple ~-381 > skate -1195.
+    (topple WITHOUT term_penalty measured +19/ep — see
+    test_slipwalk_toppling_fast_is_not_an_escape.)
     """
     plan = {
         "fast": ("gait", 2.0),
@@ -916,12 +934,14 @@ def slipwalk_returns() -> dict[str, float]:
         "stall": ("stall", 1.0),
         "park": ("park", 1.0),
         "stork": ("stork", 1.0),
+        "topple": ("topple", 1.0),
     }
     out = {}
     for name, (pol, scale) in plan.items():
         runs = [_slipwalk_rollout(pol, s, gait_scale=scale) for s in SEEDS]
         out[name] = float(np.mean([r[0] for r in runs]))
         out[name + "_dx"] = float(np.mean([r[1] for r in runs]))
+        out[name + "_steps"] = float(np.mean([r[2] for r in runs]))
     return out
 
 
@@ -984,6 +1004,35 @@ def test_slipwalk_stork_statue_is_priced_out(slipwalk_returns):
     assert slipwalk_returns["stall"] > slipwalk_returns["stork"], (
         f"the stork statue out-earns stepping in place: "
         f"{slipwalk_returns} — no uphill discovery path out of it.")
+
+
+def test_slipwalk_toppling_fast_is_not_an_escape(slipwalk_returns):
+    """The observed 2M freeprog cheat (cw-amp-m2-freeprog-{noamp,
+    style05}, 08-22 dig-in): with per-tick charges harsh from step 0
+    and termination FREE (term_penalty=0), dying immediately was the
+    best-paying behavior in the bank short of real walking — a scripted
+    1 s topple netted +19/ep vs park -243 / stall -143 — and both 2M
+    arms duly learned suicide in their final quarter (tilt terminations
+    59->132 and 90->241, ep_len collapsing 310->230-256, at CONSTANT
+    action std, after mid-run phases that had already proven survival
+    was reachable). With reward.term_penalty in the stack, death must
+    sit strictly below every survival behavior a from-scratch policy
+    can reach: refusal (park), stepping in place (stall), and real
+    walking — so the gradient out of a flailing state points at
+    stabilizing, never at falling over. (skate's deeper -1195 is an
+    undiscounted 375-tick accumulation; per-state at gamma=0.99 the
+    worst survivable continuation costs ~-300, which 400 covers.)"""
+    assert slipwalk_returns["topple_steps"] < 75, (
+        f"the topple twin did not die fast (steps="
+        f"{slipwalk_returns['topple_steps']}); the bank probe is broken")
+    assert slipwalk_returns["topple"] < slipwalk_returns["park"] - 100.0, (
+        f"dying fast out-earns (or is competitive with) refusing to "
+        f"move: {slipwalk_returns} — the suicide exploit is open.")
+    assert slipwalk_returns["topple"] < slipwalk_returns["stall"], (
+        f"dying fast out-earns stepping in place: {slipwalk_returns} "
+        "— the suicide exploit is open.")
+    assert slipwalk_returns["gait"] > slipwalk_returns["topple"] + 300.0, (
+        f"real walking does not clearly beat dying: {slipwalk_returns}")
 
 
 def test_slipwalk_stepping_stall_still_beats_refusal(slipwalk_returns):
