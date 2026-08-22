@@ -165,6 +165,31 @@ with:
   Launched `cw-dep-bcgait4-phasedir5-stdoverride` (train-0, respec of
   phasedir4, same unchanged reward stack, `--warm-log-std-override
   -2.0`) as the direct test of the noise-band theory.
+- 08-22 `cw-dep-bcgait4-phasedir5-stdoverride` finished within the
+  SAME cycle (fast H200 turnaround) — PRELIMINARY numbers gathered,
+  **UNVERDICTED, flagged for DIG-IN** per its own pre-registered fork
+  (do not blindly launch a phasedir6 off these numbers). policy_std
+  confirmed low (0.13, target <0.2 met — the override held for the
+  whole run, reward quarters rose 14.2/42.2/87.7/111.7, a completely
+  different training-reward shape than phasedir3/4's decline). Gate
+  table (det, clone-relative vs the same `phasedir3_clone_control_
+  gate`): progress_ratio 0.984x clone (cap 0.9x, PASS — first arm
+  ever to clear this bar, decisively) and direction_err 0.794x clone
+  ratio / 28.2deg vs clone+5=40.5deg (PASS, much tighter than
+  phasedir4's 38.1deg); but slip_per_m 1.590x clone (cap 1.15x, FAIL
+  — and WORSE than phasedir3's 1.41x and phasedir4's 1.518x, i.e.
+  monotonically worse across all three arms despite std dropping
+  0.365->0.352->0.13). Zero falls, gait 6/6 both modes. THIS IS THE
+  EXACT "false-anneal-worked-anyway" / noise-band-REFUTED branch the
+  gate itself pre-registered: std demonstrably shrunk to 0.13 (well
+  under the <0.2 bar) yet the slip miss did not improve — it got
+  worse while obedience (progress+direction) got much better. Reads
+  as evidence the loadslip charge as currently priced ANTI-correlates
+  with faster/more-obedient walking (a real gait-quality/pricing
+  question, not an exploration-noise artifact) — needs the full
+  per-leg gait metrics + video dig-in before any further reward or
+  std edit, per the pre-registration's own instruction not to launch
+  another variant blind.
 
 ## Next
 

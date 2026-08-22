@@ -112,6 +112,21 @@ out-of-scope runs get honest triage but no agent follow-ups.
   (plain-MLP `log_std` and gru-experts `_log_stds()`), default off/
   no-op, verified on-pod (`-2.0` -> std=0.135 exactly on all 18 dims).
   `cw-dep-bcgait4-phasedir5-stdoverride` (train-0) tests it directly.
+- PHASE-RL NOISE-BAND THEORY REFUTED (08-22, PRELIMINARY, UNVERDICTED
+  — DIG-IN pending): `cw-dep-bcgait4-phasedir5-stdoverride` confirmed
+  std=0.13 (<0.2 target, override held all run) and progress finally
+  cleared the clone-relative bar decisively (0.984x, cap 0.9x — first
+  arm ever to pass this axis, direction_err also improved to 0.794x
+  ratio) — but slip/m got WORSE (1.590x clone, cap 1.15x), continuing
+  a monotonic worsening trend across phasedir3 (1.41x) -> phasedir4
+  (1.518x) -> phasedir5 (1.590x) despite std dropping the whole time
+  (0.365->0.352->0.13). This is exactly the pre-registered refutation
+  branch: low std did NOT fix det slip, so slip is not primarily an
+  exploration-noise artifact — it reads as a genuine loadslip-charge/
+  gait-quality pricing question that trades off AGAINST obedience
+  under the current reward. Do not launch another anneal/override
+  variant off this; the run is left UNVERDICTED for a DIG-IN cycle
+  (per-leg gait metrics + video) before any further reward edit.
 - direction_err_mean_deg has a ~35 deg tick-level floor from stride
   sway — judge deltas vs a matched clone, not raw values.
 - Every pre-08-22 checkpoint (incl. the download hierarchy) trained
