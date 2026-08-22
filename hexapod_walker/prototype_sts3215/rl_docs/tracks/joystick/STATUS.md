@@ -1,9 +1,11 @@
 # joystick - RL from the programmatic gait to joystick control
 
-Last updated: 2026-08-22 (phasedir8 FAIL + regime-gap DIG-IN
-RESOLVED: det-calibrated pricing does not transfer to the noisy
-optimization regime and no separating drag allowance exists — the
-fix is annealing the noise itself; phasedir9 launched). Keep this a
+Last updated: 2026-08-22 (phasedir9 VERDICTED UNDERTRAINED, not
+FAIL: zero falls 24/24, gait_valid 6/6, slip/dir_err/speed all
+inside gate, only progress narrow-missed 0.873x clone vs 0.9x cap
+— best of lineage — while reward/tick was still climbing steeply
+and drag charge still falling at 2M; continuing as phasedir9-cont1
+per the 08-21 ruling instead of re-speccing the reward). Keep this a
 short screenful: Goal / Now / Next. Run detail lives in
 `rl_docs/runs/`, W&B, and `RL_LOG.md`.
 
@@ -120,23 +122,58 @@ with:
    source checkpoint exists — which itself needs the bank green
    first (circular; see finding above). fastprof residue is a
    separate, already-tracked fast-gait item, not a blocker here.
-2. **Build the gate harness**: a 60 s randomized joystick session
-   evaluator (held-out command scripts, falls / heading obedience /
-   slip-per-m / per-leg gait metrics, video) + a
-   `test_task_semantics.py` bank proving the training reward ranks
-   gate-passing behavior above every known cheat (park, paddle-creep,
-   overspeed attractor, sacrificed leg).
+2. **Evaluator half DONE 08-22** (`rl_move/sim/eval_joystick_gate.py`
+   + `test_eval_joystick_gate.py`, 8/8 pure-aggregation tests, no sim
+   touched): a reusable, versioned 60 s randomized joystick-session
+   gate — pure orchestration around `eval_checkpoint.py` with ONE
+   pinned held-out command bundle (`goal.walk_cmd_mode=stress_mix`
+   [full family: random_hold, flip_180=reverse, sweep_circle/
+   square=turns, stop_go, jitter] + `walk_cmd_resample_s=4.0` +/-
+   jitter 0.5, `--episode-seconds 60`, seed base 90000 — a range no
+   other harness/training run draws from), run at DR-0 + the
+   checkpoint's own DR, det+sto, aggregated into ONE PASS/FAIL against
+   the DONE gate's own numbers (zero falls, slip/m <= 2.9, dir_err
+   median within 5deg of the teacher's 35deg floor). FIRST-EVER
+   READING (n=12x2 det/sto, DR-0, `logs/ckpt_eval/
+   phase1_clone_joystick_gate_v1/`): the phase clone
+   (`ppo_goal_cw_bcgait_init_fullprof_phase1`) — previously verified
+   only against FIXED heading-per-episode panels — FAILS the real
+   randomized multi-segment session hard: zero falls / gait_valid
+   24/24 (the gait itself never breaks), but slip/m med 15.9 (cap
+   2.9) and dir_err med 65.4deg (allow 40deg) once commands actually
+   change direction/stop/reverse mid-episode instead of holding one
+   heading. This is the first measured, reusable confirmation that
+   "passes the direction-first curriculum" (fixed headings) and
+   "joystick controllable" (this DONE gate) are different bars — the
+   gap RL fine-tuning (Next item 4) must close. STILL OPEN: per-leg
+   gait metrics in the aggregate (eval_checkpoint already reports
+   these per-episode; the gate script doesn't summarize them yet —
+   cheap follow-up) and video-strip export (currently `--no-video`
+   for eval speed; pass `--extra-cfg-set` through unaffected, video
+   just needs re-adding to the wrapper's eval_checkpoint call when a
+   candidate needs visual triage). Semantics-bank half NOT started
+   dedicated to this exact 60s session (the walk task's own reward is
+   already alignment-tested per-mechanism via `test_phasedir_
+   semantics.py`, 34/34); a session-specific bank is lower priority
+   until a candidate gets close enough to the gate numbers to need
+   cheat-proofing at this exact horizon.
 3. **CLOSED 08-22 (superseded by the regime-gap finding in Now):**
    the loadslip-band, drag-stance-dose AND drag-stance-allowance
    lever family is measured-refuted for this lineage — no
    det-calibrated per-stance/band charge can separate the noisy
    honest gait from the det drag cheat (no separating threshold
-   exists). phasedir9 (`-stdanneal`) tests the remaining coherent
+   exists). phasedir9 (`-stdanneal`) tested the remaining coherent
    repair: anneal exploration noise to ~det so the measured-aligned
-   det pricing becomes the operative optimum. If phasedir9 fails
-   WITH std annealed and drag charge ~0 late, pricing is exonerated
-   and the binding constraint is the BC-anchor/phase-lock family
-   boundary (pd8's branch (ii)) — dig there, not at the reward.
+   det pricing becomes the operative optimum. 08-22 RESULT:
+   UNDERTRAINED, not exonerated or refuted — zero falls 24/24
+   episodes (best of lineage), gait/slip/dir_err/speed all inside
+   gate, progress 0.873x clone (best of lineage, still < 0.9x cap),
+   reward/tick and drag-stance charge both still moving (climbing
+   toward 0 / falling toward 0 respectively) at the 2M checkpoint.
+   Per the 08-21 ruling, continuing from checkpoint
+   (`cw-dep-bcgait4-phasedir9-cont1`, +4M steps, std held at the
+   annealed floor) BEFORE any reward re-spec or the anchor/phase-lock
+   dig-in below.
 4. RL fine-tune from the phase clone (and a walk-champion arm as
    control) with the reward aligned to the gate metrics, resuming
    the staged heading curriculum; extend budget while reward and
