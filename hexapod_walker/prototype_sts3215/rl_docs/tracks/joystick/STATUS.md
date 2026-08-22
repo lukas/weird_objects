@@ -1,6 +1,6 @@
 # joystick - RL from the programmatic gait to joystick control
 
-Last updated: 2026-08-22 (phasedir2-staged-fwd verdict). Keep this a
+Last updated: 2026-08-22 (phasedir3 reprice launched). Keep this a
 short screenful: Goal / Now / Next. Run detail lives in
 `rl_docs/runs/`, W&B, and `RL_LOG.md`.
 
@@ -89,15 +89,27 @@ with:
    `test_task_semantics.py` bank proving the training reward ranks
    gate-passing behavior above every known cheat (park, paddle-creep,
    overspeed attractor, sacrificed leg).
-3. **Fix the noise-taxed charges before any rung relaunch** (rung A
-   stopped 08-22 per its gate): move overspeed + loadslip pricing
-   onto stride-EMA/mean-behavior quantities (the course term already
-   does this) or the deterministic action, extend
-   `test_phasedir_semantics.py` to prove exploration noise at the
-   clone's std=0.36 pays ~zero charge on a clone rollout, then
-   relaunch rung A. Operator sign-off question filed
-   (OPERATOR_QUESTIONS.md 08-22); assume-and-go default is the
-   stride-EMA repricing.
+3. **DONE 08-22 — noise-taxed charges repriced, rung A relaunched**
+   as `cw-dep-bcgait4-phasedir3-fwd-reprice` (RUNNING, train-1,
+   fresh from the phase clone, same clone-relative gate). What
+   landed: (a) the stride-EMA loaded-slip idea was implemented and
+   REFUTED by measurement (tau sweep 0.08-0.4: the EMA kills the
+   honest det scuff signal faster than the noise — jitter-slip is
+   real physical slip in the same stride band), so the operator's
+   other branch was taken: loadslip ok/max 2.2/4.0 -> 7.0/10.0,
+   above the measured noisy-clone band 4.8-6.4 (det-band anti-skate
+   now owned by the eval gate + BC anchor, recorded honestly in the
+   bank); (b) NEW cfg `reward.walk_course_overspeed_along=1`
+   (default-off in code) prices overspeed on the unbiased
+   along-command projection instead of the sway-inflated |v_ema|;
+   (c) course charge floored at 0.04 m/s smoothed speed.
+   `test_phasedir_semantics.py` 24/24 incl. 4 new NOISY-REGIME tests
+   at std 0.36; the operator's launch bar (noisy obey > noisy
+   shrunken-gait) measured ~112 > ~95, sign-flipped from phasedir2.
+   KNOWN HOLE (q_20260822T0640Z): noisy mean-overdrive out-earns the
+   noisy clone ~121 vs ~112 and is behaviorally unpriceable at
+   std 0.36; containment = phase anchor + gate items (c)/(e) — if
+   phasedir3 det-overspeeds, it is this hole, not a mystery.
 4. RL fine-tune from the phase clone (and a walk-champion arm as
    control) with the reward aligned to the gate metrics, resuming
    the staged heading curriculum; extend budget while reward and
