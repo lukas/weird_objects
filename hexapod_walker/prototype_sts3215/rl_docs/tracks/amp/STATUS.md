@@ -1,6 +1,41 @@
 # amp - AMP locomotion from scratch
 
-Last updated: 2026-08-22 ~22:2x (**noamp-headings90-r1 PASS closes
+Last updated: 2026-08-22 ~22:2x (**STAGE-3 SPEEDRANGE VERDICTED
+INFORMATIVE (partial): the walker survives the 0.05-0.25 m/s speed
+command range cleanly but barely modulates speed on it.**
+`cw-amp-m2-bcinit-sec5-style05-speedrange` DR-0 gate: gait_valid 6/6
+det + 6/6 sto, zero terminations/sacrificed legs, height_err stayed
+in the walking band (training env/height_err_mm 18.5mm at 2M, no
+crouch), real per-episode travel 0.12-1.36m/15s, reward rose
+monotonically 50->226. But achieved speed_mean clusters 0.084-0.136
+det / 0.092-0.126 sto regardless of the per-episode commanded speed
+(est. 0.053-0.171 in this sample) — a 5x commanded range compresses
+into <2x realized range centered near the OLD fixed-0.08 pin; this is
+exactly the pre-registered "low band tracked, top band capped"
+partial, not a clean pass or a collapse. Root-cause lead (already on
+record from the joystick track's own phasedir9-seed17 dig-in): the
+`goal.walk_phase_hz` obs clock advances at a FIXED rate whenever any
+nonzero speed is commanded — the actor's step cadence was never made
+a function of commanded speed, so more speed can only come from
+longer strides at the same step rate, which this codebase has already
+seen plateau before (`cw-walk2-gait`: doubled stride, speed still
+capped ~0.045 m/s). **FOLLOW-UP PAIR LAUNCHED THIS CYCLE** (both from
+the speedrange checkpoint, fresh disc, 2M): `-speedrange-fastphase`
+(single lever: `goal.walk_phase_hz` 1.333->2.0, same 0.5/0.5 style)
+tests whether a faster reference clock lets the actor step faster and
+widen the realized speed band; `-speedrange-fastphase-nostyle` (same
+clock change PLUS `amp-task-weight=1.0/amp-style-weight=0.0`) isolates
+whether the AMP discriminator — anchored to teacher_v2's clips at
+their ORIGINAL recorded cadence — is itself vetoing faster-than-
+demonstrated stepping. Joint read decides: both widen => phase_hz was
+the cap; only nostyle widens => style/motion-library cadence is the
+real cap; neither widens => the ceiling is elsewhere (actor capacity
+at this budget) and the current ~0.05-0.14 m/s envelope should be
+accepted as this stage's real ceiling (still within/near the teacher's
+own 0.06-0.10 m/s hardware band) rather than spending more discovery
+budget chasing 0.25 m/s. Prior banner below.)
+
+Previous entry (~22:2x (**noamp-headings90-r1 PASS closes
 the noamp lineage's own record of the +/-90deg rung** — gait_valid
 6/6 det+sto, zero sacrificed legs, prog med det 1.12/sto 0.85, dir_err
 med det 39.2/sto 51.9, height_err single-digit mm, essentially a wash
@@ -19,6 +54,20 @@ faultsmoke1-noamp blind baseline (det gait_valid 5/6, faulted-episode
 prog_ratio 0.49/slip 5.99), with -control-r1 as the no-fault sanity
 twin isolating the obs-widening itself from the fault-seeing effect.
 First real M4 adaptation reading (M4 was NOT STARTED before this).
+**BOTH VERDICTED PASS 08-22 (~22:3x):** same eval seed reproduces
+the IDENTICAL per-episode fault draw as faultsmoke1-noamp, giving a
+clean apples-to-apples read — the faulted episode (leg[5] disabled)
+improved prog_ratio 0.495->0.585 (+18%) and slip/m 5.987->4.378
+(-27%) with fault-sight vs blind; a second degraded episode (a
+non-disabled fault type) also improved (slip -21%); sto mode
+improved in 4/6 episodes. Not a single-episode fluke, and the
+control-r1 sanity twin (fault_prob=0) confirms the obs-pad transplant
+itself is a true no-op (numbers indistinguishable from
+faultsmoke1-control). Caveat stated bluntly: the disabled leg still
+visibly drags in the frame strip either way — this is a measured
+COST REDUCTION, not a clean masked-fault gait. M4 now has its first
+real (non-smoke) adaptation evidence; fault_health obs-wiring is a
+proven lever, not just a built-but-untested mechanism.
 Prior banner below.)
 
 Previous entry (~22:0x (**HEADING CURRICULUM COMPLETE AT

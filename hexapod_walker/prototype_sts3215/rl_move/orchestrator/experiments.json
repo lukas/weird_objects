@@ -126114,7 +126114,7 @@
         "log_tail": "d_real_mean 0.61836\nwandb:      amp/disc_updates 124\nwandb:                amp/gp 0.00992\nwandb:              amp/loss 0.22898\nwandb: amp/pairs_per_rollout 65340\nwandb:        amp/replay_len 500000\nwandb: amp/style_reward_mean 0.15681\nwandb:                  +103 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-amp-m2-bcinit-sec5-style05-yawcmd at: https://wandb.ai/l2k2/hexapod-balance/runs/506whm12\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 3 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260822_220758-506whm12/logs\n"
       }
     ],
-    "triage": "awaiting since 2026-08-22T22:18:13"
+    "triage": "in-cycle cw-amp-m2-bcinit-sec5-style05-yawcmd-cw-amp-m4-faultobs1-noa since 2026-08-22T22:28:23"
   },
   {
     "run": "cw-amp-m2-bcinit-sec5-noamp-headingsfull",
@@ -126207,7 +126207,7 @@
       "respec of cw-amp-m2-bcinit-sec5-noamp-headings20: Task-only twin of cw-amp-m2-bcinit-sec5-style05-headingsfull (PASS: full-circle including backward walking works in one jump from +/-25deg, no intermediate rung needed, dir_err med det 33deg/sto 50deg, gait_valid 6/6 both). Does the noamp BC-init walker also handle full-circle commands including backward -- the hardest test yet since backward is never demonstrated by the forward-only BC teacher -- or is style specifically necessary for the backward/full-circle generalization (the strongest candidate so far for a REAL functional style benefit, since headings20/90 showed the style edge was cosmetic/washed out)? Continues from noamp-headings20 (--init-from-source), single lever: goal.walk_heading_max_rad 0.4363 -> -1 (full circle), identical to the style05 sibling."
     ],
     "created": "2026-08-22T22:09:43+00:00",
-    "status": "FINISHED",
+    "status": "PASS",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -126237,7 +126237,7 @@
     "log": "/tmp/train_cw-amp-m2-bcinit-sec5-noamp-headingsfull.log",
     "wandb_id": "6d8qdu6s",
     "verified": "2026-08-22T22:12:59+00:00",
-    "triage": "awaiting since 2026-08-22T22:18:13",
+    "triage": "done",
     "checkups": [
       {
         "time": "2026-08-22T22:18:14+00:00",
@@ -126245,7 +126245,8 @@
         "verdict": "FINISHED_BEFORE_CHECKUP",
         "log_tail": "ndb:       env/height_mm 20.86127\nwandb:   env/height_ref_mm 0\nwandb:   env/max_current_a 1.74089\nwandb:  env/mean_current_a 0.72626\nwandb: env/pct_within_1deg 0.08911\nwandb:   env/pitch_ref_deg 0\nwandb:   env/reward_action -0.01836\nwandb:                 +82 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-amp-m2-bcinit-sec5-noamp-headingsfull at: https://wandb.ai/l2k2/hexapod-balance/runs/6d8qdu6s\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 3 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260822_221034-6d8qdu6s/logs\n"
       }
-    ]
+    ],
+    "verdict": "noamp twin ALSO handles full-circle commands including backward in one jump from +/-25deg, matching the style05-headingsfull sibling (PASS: no intermediate rung needed). DR-0 gate: gait_valid 6/6 det+sto, zero sacrificed legs/terminations; det dir_err mean 29-41deg per episode (wrong_direction_frac 0.05-0.15) -- NOT bimodal/stuck at the ~90deg ignore-baseline, closely matching style05's own det dir_err ~33deg/wrong-frac<=0.11; sto dir_err 49-57deg (wrong_direction_frac 0.17-0.24), again matching style05's ~50deg/p90-146 band. det prog med 1.10/slip 2.90/fwd 0.44m, sto prog med 0.87/slip 4.14/fwd 0.63m -- comparable to style05's 1.19/2.77/0.47m det and 0.87/3.57/0.56m sto. Frame-strip (walk_det_4) shows clean six-leg alternating-tripod cycling throughout, no drag/skate/flag-leg, real off-axis/rear-hemisphere displacement. CLOSES the 'is style necessary for backward generalization' question in the negative -- the strongest remaining candidate for a functional (not cosmetic) style benefit does not pan out either: noamp handles the full command circle, including commands the BC teacher never demonstrated, just as well as the style arm. Batch conclusion across the whole heading curriculum (0/25/90/full, 4 stages x 2 arms = 8 runs, 8/8 PASS): the BC-init walking basin is robust to the ENTIRE heading command space with or without AMP style; style's only measured effect anywhere in this curriculum was a small, non-monotonic margin (helped at 0/25deg, washed out at 90deg, matched at full-circle) -- not yet earning a real functional role. hardware-ready: no (2M discovery, DR-0, full-circle envelope only just opened -- speed range/stops and yaw-rate commands remain untested, already in flight on the style05 line via a concurrent cycle)."
   },
   {
     "run": "cw-amp-m4-faultobs1-noamp",
@@ -126592,7 +126593,7 @@
       "obs.fault_health=1"
     ],
     "created": "2026-08-22T22:15:54+00:00",
-    "status": "FINISHED",
+    "status": "PASS",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -126622,7 +126623,7 @@
     "log": "/tmp/train_cw-amp-m4-faultobs1-control-r1.log",
     "wandb_id": "459eenli",
     "verified": "2026-08-22T22:19:10+00:00",
-    "triage": "awaiting since 2026-08-22T22:23:18",
+    "triage": "done",
     "checkups": [
       {
         "time": "2026-08-22T22:24:16+00:00",
@@ -126630,7 +126631,8 @@
         "verdict": "FINISHED_BEFORE_CHECKUP",
         "log_tail": "20.35146\nwandb:       env/height_mm 16.45774\nwandb:   env/height_ref_mm 0\nwandb:   env/max_current_a 1.6909\nwandb:  env/mean_current_a 0.67246\nwandb: env/pct_within_1deg 0.07715\nwandb:   env/pitch_ref_deg 0\nwandb:   env/reward_action -0.01982\nwandb:                 +82 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-amp-m4-faultobs1-control-r1 at: https://wandb.ai/l2k2/hexapod-balance/runs/459eenli\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 3 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260822_221646-459eenli/logs\n"
       }
-    ]
+    ],
+    "verdict": "Sanity control confirms the obs-pad transplant is a true no-op: with dr.fault_prob=0 (fault_health always all-ones), DR-0 gate is statistically indistinguishable from faultsmoke1-control's own numbers -- det gait_valid 6/6 (vs 6/6), prog_ratio 1.10/0.88 det/sto (vs 1.16/0.88), slip/m 2.73/4.04 (vs 2.36/4.08) -- every delta within 6-ep noise, no regression from widening the obs by 18 dims. This isolates faultobs1-noamp's measured +18% prog / -27% slip improvement (on the identical fault draw vs faultsmoke1-noamp) as the fault-observability effect itself, not a transplant artifact. Reward finite/rising (mirrors the control lineage). hardware-ready: no (2M continuation, DR-0)."
   },
   {
     "run": "cw-amp-m2-bcinit-sec5-style05-seed1",
@@ -126867,7 +126869,7 @@
       "respec of cw-amp-m2-bcinit-sec5-noamp: Plain English: task-only twin of cw-amp-m2-bcinit-sec5-style05-seed1 -- does the BC-init-alone escape from the crouch-statue basin (no AMP style at all) also reproduce on an independent seed, matching the seed-7 result where noamp PASSED (gait_valid 6/6 det+sto, real fwd travel) just slightly worse than the style05 twin on every axis? Single lever vs the seed-7 parent: --seed 7->1, everything else byte-identical (BC-clone init, sec5 minimal reward, clone-compatible obs, zero AMP flags, 2M discovery, DR-0). Paired with the style05-seed1 twin: gives the FIRST 2-seed style-vs-noamp comparison on a genuinely locomoting actor, testing whether style's modest seed-7 edge is a recipe property or n=6 noise."
     ],
     "created": "2026-08-22T22:21:55+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -126896,7 +126898,15 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:amp PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-amp-m2-bcinit-sec5-noamp-seed1 --steps 2000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_bcgait_init_fullprof_phase1.zip --episode-seconds 15 --no-canary --eval-every 1000000 --video-every 2000000 --n-envs 4096 --impl warp --host-workers 24 --seed 1 --ent-coef 0.001 --warm-log-std-override -2.0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set goal.walk_phase_obs=1 --cfg-set goal.walk_phase_hz=1.333333 --cfg-set goal.walk_obs_body_vel=2 --cfg-set goal.walk_heading_max_rad=0.0 --cfg-set goal.walk_speed_min_m_s=0.08 --cfg-set goal.walk_speed_max_m_s=0.08 --cfg-set goal.walk_cmd_mode=stress_mix --cfg-set goal.walk_cmd_resample_s=4.0 --cfg-set goal.walk_cmd_resample_jitter=0.5 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set bus.write_speed=1500 --cfg-set bus.write_acc=80 --cfg-set bus.servo_vel_max_counts_s=write_speed --cfg-set safety.max_delta_q_deg=5.0 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --cfg-set reward.term_penalty=400.0 --cfg-set reward.k_step_event=0.0 --cfg-set reward.k_park_duty=0.0 --cfg-set reward.k_walk_freeprog=0.0 --cfg-set reward.walk_loadslip_gate=0.0 --cfg-set reward.k_loadslip_excess=0.0 --cfg-set reward.walk_gait_gate=0.0 --cfg-set reward.k_walk_idle_charge=0.0 --cfg-set reward.k_drag_stance=0.0 --out-name ppo_goal_cw_amp_m2_bcinit_sec5_noamp_seed1 --notes 'respec of cw-amp-m2-bcinit-sec5-noamp: Plain English: task-only twin of cw-amp-m2-bcinit-sec5-style05-seed1 -- does the BC-init-alone escape from the crouch-statue basin (no AMP style at all) also reproduce on an independent seed, matching the seed-7 result where noamp PASSED (gait_valid 6/6 det+sto, real fwd travel) just slightly worse than the style05 twin on every axis? Single lever vs the seed-7 parent: --seed 7->1, everything else byte-identical (BC-clone init, sec5 minimal reward, clone-compatible obs, zero AMP flags, 2M discovery, DR-0). Paired with the style05-seed1 twin: gives the FIRST 2-seed style-vs-noamp comparison on a genuinely locomoting actor, testing whether style'\"'\"'s modest seed-7 edge is a recipe property or n=6 noise.' > /tmp/train_cw-amp-m2-bcinit-sec5-noamp-seed1.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-amp-m2-bcinit-sec5-noamp-seed1.log",
     "wandb_id": "kb7pwf37",
-    "verified": "2026-08-22T22:25:10+00:00"
+    "verified": "2026-08-22T22:25:10+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-22T22:30:19+00:00",
+        "process_alive": false,
+        "verdict": "FINISHED_BEFORE_CHECKUP",
+        "log_tail": "8849\nwandb:       env/height_mm 23.97709\nwandb:   env/height_ref_mm 0\nwandb:   env/max_current_a 1.59659\nwandb:  env/mean_current_a 0.62561\nwandb: env/pct_within_1deg 0.05786\nwandb:   env/pitch_ref_deg 0\nwandb:   env/reward_action -0.02282\nwandb:                 +82 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-amp-m2-bcinit-sec5-noamp-seed1 at: https://wandb.ai/l2k2/hexapod-balance/runs/kb7pwf37\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 3 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260822_222246-kb7pwf37/logs\n"
+      }
+    ]
   },
   {
     "run": "cw-amp-m2-bcinit-sec5-style05-speedrange-fastphase",
@@ -127003,7 +127013,7 @@
       "respec of cw-amp-m2-bcinit-sec5-style05-speedrange: Plain English: the speedrange arm just showed the walker's achieved speed barely tracks the commanded 0.05-0.25 m/s range, clustering 0.08-0.14 m/s instead -- is that a fixed STEP-RATE cap (the phase-obs clock ticks at a constant 1.333 Hz no matter what speed is commanded, so the actor never learned to step faster for faster commands)? Continues from the speedrange checkpoint (same sec5 reward + amp 0.5/0.5, fresh disc per stage protocol), single lever: goal.walk_phase_hz 1.333333 -> 2.0 (50% faster reference clock, same speed range). Prediction-if-true: gait stays valid (>=5/6 det+sto) and speed_mean's realized range widens meaningfully above the parent's ~0.08-0.14m/15s band (evidence the actor now steps faster on faster commands). Prediction-if-false-A: gait destabilizes (terminations/sacrificed legs) -- the actor cannot resync to a faster clock this late in the curriculum. Prediction-if-false-B: gait stays clean but speed_mean stays pinned in the same ~0.08-0.14m/15s band regardless -- the cap is not the observation clock rate at all (candidates: motion-library/style reward anchored to the ORIGINAL teacher cadence, or actor capacity), which the paired -nostyle arm (same lever, style weight zeroed) is designed to disambiguate. Strongest alternative: partial -- low commands unaffected, only the high end widens a little."
     ],
     "created": "2026-08-22T22:24:04+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -127032,6 +127042,150 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:amp PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-amp-m2-bcinit-sec5-style05-speedrange-fastphase --steps 2000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_amp_m2_bcinit_sec5_style05_speedrange.zip --episode-seconds 15 --no-canary --eval-every 1000000 --video-every 2000000 --n-envs 4096 --impl warp --host-workers 24 --seed 7 --ent-coef 0.001 --warm-log-std-override -2.0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set goal.walk_phase_obs=1 --cfg-set goal.walk_phase_hz=2.0 --cfg-set goal.walk_obs_body_vel=2 --cfg-set goal.walk_heading_max_rad=-1 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.25 --cfg-set goal.walk_cmd_mode=stress_mix --cfg-set goal.walk_cmd_resample_s=4.0 --cfg-set goal.walk_cmd_resample_jitter=0.5 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set bus.write_speed=1500 --cfg-set bus.write_acc=80 --cfg-set bus.servo_vel_max_counts_s=write_speed --cfg-set safety.max_delta_q_deg=5.0 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --cfg-set reward.term_penalty=400.0 --cfg-set reward.k_step_event=0.0 --cfg-set reward.k_park_duty=0.0 --cfg-set reward.k_walk_freeprog=0.0 --cfg-set reward.walk_loadslip_gate=0.0 --cfg-set reward.k_loadslip_excess=0.0 --cfg-set reward.walk_gait_gate=0.0 --cfg-set reward.k_walk_idle_charge=0.0 --cfg-set reward.k_drag_stance=0.0 --amp-motion-lib rl_move/sim/motion_library/teacher_v2.npz --amp-disc-steps 4 --amp-disc-batch 512 --amp-gp-weight 10.0 --amp-replay 500000 --amp-task-weight 0.5 --amp-style-weight 0.5 --out-name ppo_goal_cw_amp_m2_bcinit_sec5_style05_speedrange_fastphase --notes 'respec of cw-amp-m2-bcinit-sec5-style05-speedrange: Plain English: the speedrange arm just showed the walker'\"'\"'s achieved speed barely tracks the commanded 0.05-0.25 m/s range, clustering 0.08-0.14 m/s instead -- is that a fixed STEP-RATE cap (the phase-obs clock ticks at a constant 1.333 Hz no matter what speed is commanded, so the actor never learned to step faster for faster commands)? Continues from the speedrange checkpoint (same sec5 reward + amp 0.5/0.5, fresh disc per stage protocol), single lever: goal.walk_phase_hz 1.333333 -> 2.0 (50% faster reference clock, same speed range). Prediction-if-true: gait stays valid (>=5/6 det+sto) and speed_mean'\"'\"'s realized range widens meaningfully above the parent'\"'\"'s ~0.08-0.14m/15s band (evidence the actor now steps faster on faster commands). Prediction-if-false-A: gait destabilizes (terminations/sacrificed legs) -- the actor cannot resync to a faster clock this late in the curriculum. Prediction-if-false-B: gait stays clean but speed_mean stays pinned in the same ~0.08-0.14m/15s band regardless -- the cap is not the observation clock rate at all (candidates: motion-library/style reward anchored to the ORIGINAL teacher cadence, or actor capacity), which the paired -nostyle arm (same lever, style weight zeroed) is designed to disambiguate. Strongest alternative: partial -- low commands unaffected, only the high end widens a little.' > /tmp/train_cw-amp-m2-bcinit-sec5-style05-speedrange-fastphase.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-amp-m2-bcinit-sec5-style05-speedrange-fastphase.log",
     "wandb_id": "n79getfy",
-    "verified": "2026-08-22T22:27:23+00:00"
+    "verified": "2026-08-22T22:27:23+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-22T22:33:21+00:00",
+        "process_alive": false,
+        "verdict": "FINISHED_BEFORE_CHECKUP",
+        "log_tail": "0.595\nwandb:      amp/disc_updates 124\nwandb:                amp/gp 0.01051\nwandb:              amp/loss 0.27118\nwandb: amp/pairs_per_rollout 65341\nwandb:        amp/replay_len 500000\nwandb: amp/style_reward_mean 0.19225\nwandb:                   +93 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-amp-m2-bcinit-sec5-style05-speedrange-fastphase at: https://wandb.ai/l2k2/hexapod-balance/runs/n79getfy\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 3 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260822_222500-n79getfy/logs\n"
+      }
+    ]
+  },
+  {
+    "run": "cw-amp-m2-bcinit-sec5-style05-speedrange-fastphase-nostyle",
+    "pod": "hexapod-mjx-train-0",
+    "steps": 2000000,
+    "smoke": false,
+    "hypothesis": "Plain English: paired sibling to -fastphase, testing WHICH mechanism caps achieved speed at ~0.08-0.14 m/s despite a 0.05-0.25 m/s command range. Same single lever (goal.walk_phase_hz 1.333333 -> 2.0) but ALSO zeroes the AMP style weight (amp-task-weight 0.5->1.0, amp-style-weight 0.5->0.0) from the same speedrange checkpoint -- removes any pull from the discriminator toward the teacher_v2 library's ORIGINAL fixed-cadence clips while keeping every other lever (task reward, obs, faster clock) identical to the -fastphase sibling. Prediction-if-true (style is the cap): this arm's speed_mean spread widens past 0.08-0.14 while the style-keeping -fastphase sibling does not -- the discriminator was vetoing faster-than-demonstrated stepping. Prediction-if-false (style is not the cap): both arms behave the same (either both widen or both stay pinned) -- the cadence cap lives elsewhere (phase_hz itself, or actor/PPO capacity at this budget), not in AMP style pricing. Strongest alternative: removing style also destabilizes gait quality (paddle-creep/drag returns) even if speed widens -- a real task/style tradeoff, not a free fix.",
+    "gate": "Discovery continuation (2M, DR-0, judged jointly with the -fastphase sibling per the hypothesis above). INFORMATIVE-PASS = gait_valid stays >=5/6 det+sto, no new sacrificed legs/terminations, AND speed_mean spread widens past the parent's ~0.08-0.14 m/s band. FAIL-collapse = terminations/sacrificed legs/statue, OR gait quality regresses to drag/paddle-creep even if speed nominally rises (video-overrides-scalar). NO-CHANGE = matches -fastphase's own reading (both widen or both stay pinned) -- decides whether AMP style is the cap or not.",
+    "parent": "cw-amp-m2-bcinit-sec5-style05-speedrange",
+    "track": "amp",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_amp_m2_bcinit_sec5_style05_speedrange.zip",
+      "--episode-seconds",
+      "15",
+      "--no-canary",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--n-envs",
+      "4096",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--seed",
+      "7",
+      "--ent-coef",
+      "0.001",
+      "--warm-log-std-override",
+      "-2.0",
+      "--goal-mix",
+      "walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0",
+      "--cfg-set",
+      "goal.walk_phase_obs=1",
+      "--cfg-set",
+      "goal.walk_phase_hz=2.0",
+      "--cfg-set",
+      "goal.walk_obs_body_vel=2",
+      "--cfg-set",
+      "goal.walk_heading_max_rad=-1",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.05",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.25",
+      "--cfg-set",
+      "goal.walk_cmd_mode=stress_mix",
+      "--cfg-set",
+      "goal.walk_cmd_resample_s=4.0",
+      "--cfg-set",
+      "goal.walk_cmd_resample_jitter=0.5",
+      "--cfg-set",
+      "goal.walk_park_start_frac=0.25",
+      "--cfg-set",
+      "bus.write_speed=1500",
+      "--cfg-set",
+      "bus.write_acc=80",
+      "--cfg-set",
+      "bus.servo_vel_max_counts_s=write_speed",
+      "--cfg-set",
+      "safety.max_delta_q_deg=5.0",
+      "--cfg-set",
+      "safety.max_roll_deg=25",
+      "--cfg-set",
+      "safety.max_pitch_deg=25",
+      "--cfg-set",
+      "reward.term_penalty=400.0",
+      "--cfg-set",
+      "reward.k_step_event=0.0",
+      "--cfg-set",
+      "reward.k_park_duty=0.0",
+      "--cfg-set",
+      "reward.k_walk_freeprog=0.0",
+      "--cfg-set",
+      "reward.walk_loadslip_gate=0.0",
+      "--cfg-set",
+      "reward.k_loadslip_excess=0.0",
+      "--cfg-set",
+      "reward.walk_gait_gate=0.0",
+      "--cfg-set",
+      "reward.k_walk_idle_charge=0.0",
+      "--cfg-set",
+      "reward.k_drag_stance=0.0",
+      "--amp-motion-lib",
+      "rl_move/sim/motion_library/teacher_v2.npz",
+      "--amp-disc-steps",
+      "4",
+      "--amp-disc-batch",
+      "512",
+      "--amp-gp-weight",
+      "10.0",
+      "--amp-replay",
+      "500000",
+      "--amp-task-weight",
+      "1.0",
+      "--amp-style-weight",
+      "0.0",
+      "--out-name",
+      "ppo_goal_cw_amp_m2_bcinit_sec5_style05_speedrange_fastphase_nostyle",
+      "--notes",
+      "respec of cw-amp-m2-bcinit-sec5-style05-speedrange: Plain English: paired sibling to -fastphase, testing WHICH mechanism caps achieved speed at ~0.08-0.14 m/s despite a 0.05-0.25 m/s command range. Same single lever (goal.walk_phase_hz 1.333333 -> 2.0) but ALSO zeroes the AMP style weight (amp-task-weight 0.5->1.0, amp-style-weight 0.5->0.0) from the same speedrange checkpoint -- removes any pull from the discriminator toward the teacher_v2 library's ORIGINAL fixed-cadence clips while keeping every other lever (task reward, obs, faster clock) identical to the -fastphase sibling. Prediction-if-true (style is the cap): this arm's speed_mean spread widens past 0.08-0.14 while the style-keeping -fastphase sibling does not -- the discriminator was vetoing faster-than-demonstrated stepping. Prediction-if-false (style is not the cap): both arms behave the same (either both widen or both stay pinned) -- the cadence cap lives elsewhere (phase_hz itself, or actor/PPO capacity at this budget), not in AMP style pricing. Strongest alternative: removing style also destabilizes gait quality (paddle-creep/drag returns) even if speed widens -- a real task/style tradeoff, not a free fix."
+    ],
+    "created": "2026-08-22T22:27:55+00:00",
+    "status": "RUNNING",
+    "checks": {
+      "cpu_limit": 28,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-b29b4867-ac22-4270-8fa9-5d854396da05)",
+      "running_experiments_before": 2,
+      "code_sha_local": "b57e2bec13e3a767f838fca6e7e54def8643590c",
+      "code_sha_pod": "b57e2bec13e3a767f838fca6e7e54def8643590c",
+      "init_from_on_pod": true,
+      "wandb_env_on_pod": true,
+      "pid": "2810714",
+      "log_growth_bytes": [
+        5528,
+        5776
+      ],
+      "wandb_id": "hfvmy28b",
+      "global_step_window": [
+        917504,
+        1441792
+      ],
+      "fps_estimate": 17476.3
+    },
+    "trainer": "ppo",
+    "stack": "gpu-mjx",
+    "phase": "discovery",
+    "assessment_scope": "short_behavior_discovery",
+    "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:amp PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-amp-m2-bcinit-sec5-style05-speedrange-fastphase-nostyle --steps 2000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_amp_m2_bcinit_sec5_style05_speedrange.zip --episode-seconds 15 --no-canary --eval-every 1000000 --video-every 2000000 --n-envs 4096 --impl warp --host-workers 24 --seed 7 --ent-coef 0.001 --warm-log-std-override -2.0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set goal.walk_phase_obs=1 --cfg-set goal.walk_phase_hz=2.0 --cfg-set goal.walk_obs_body_vel=2 --cfg-set goal.walk_heading_max_rad=-1 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.25 --cfg-set goal.walk_cmd_mode=stress_mix --cfg-set goal.walk_cmd_resample_s=4.0 --cfg-set goal.walk_cmd_resample_jitter=0.5 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set bus.write_speed=1500 --cfg-set bus.write_acc=80 --cfg-set bus.servo_vel_max_counts_s=write_speed --cfg-set safety.max_delta_q_deg=5.0 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --cfg-set reward.term_penalty=400.0 --cfg-set reward.k_step_event=0.0 --cfg-set reward.k_park_duty=0.0 --cfg-set reward.k_walk_freeprog=0.0 --cfg-set reward.walk_loadslip_gate=0.0 --cfg-set reward.k_loadslip_excess=0.0 --cfg-set reward.walk_gait_gate=0.0 --cfg-set reward.k_walk_idle_charge=0.0 --cfg-set reward.k_drag_stance=0.0 --amp-motion-lib rl_move/sim/motion_library/teacher_v2.npz --amp-disc-steps 4 --amp-disc-batch 512 --amp-gp-weight 10.0 --amp-replay 500000 --amp-task-weight 1.0 --amp-style-weight 0.0 --out-name ppo_goal_cw_amp_m2_bcinit_sec5_style05_speedrange_fastphase_nostyle --notes 'respec of cw-amp-m2-bcinit-sec5-style05-speedrange: Plain English: paired sibling to -fastphase, testing WHICH mechanism caps achieved speed at ~0.08-0.14 m/s despite a 0.05-0.25 m/s command range. Same single lever (goal.walk_phase_hz 1.333333 -> 2.0) but ALSO zeroes the AMP style weight (amp-task-weight 0.5->1.0, amp-style-weight 0.5->0.0) from the same speedrange checkpoint -- removes any pull from the discriminator toward the teacher_v2 library'\"'\"'s ORIGINAL fixed-cadence clips while keeping every other lever (task reward, obs, faster clock) identical to the -fastphase sibling. Prediction-if-true (style is the cap): this arm'\"'\"'s speed_mean spread widens past 0.08-0.14 while the style-keeping -fastphase sibling does not -- the discriminator was vetoing faster-than-demonstrated stepping. Prediction-if-false (style is not the cap): both arms behave the same (either both widen or both stay pinned) -- the cadence cap lives elsewhere (phase_hz itself, or actor/PPO capacity at this budget), not in AMP style pricing. Strongest alternative: removing style also destabilizes gait quality (paddle-creep/drag returns) even if speed widens -- a real task/style tradeoff, not a free fix.' > /tmp/train_cw-amp-m2-bcinit-sec5-style05-speedrange-fastphase-nostyle.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-amp-m2-bcinit-sec5-style05-speedrange-fastphase-nostyle.log",
+    "wandb_id": "hfvmy28b",
+    "verified": "2026-08-22T22:31:14+00:00"
   }
 ]
