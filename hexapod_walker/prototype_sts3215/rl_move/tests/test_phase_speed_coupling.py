@@ -74,22 +74,20 @@ def test_clamp_and_floor():
 
 
 def _phase_advance_per_tick(env, vx):
-    """Reset, force a straight-line command of speed vx, measure the
-    obs-clock advance over one step from the sin/cos tail."""
-    from rl_move.sim.walk_task import N_MODE_OBS
-    env.reset(seed=0)
-    goal = env._current_goal()
-    # force the command the clock sees
-    goal.vx_ref, goal.vy_ref = float(vx), 0.0
-    p0 = float(env._phase)
-    a = np.zeros(env.action_space.shape, dtype=np.float32)
-    env.step(a)
-    goal2 = env._current_goal()
-    if goal2 is not None:
-        goal2.vx_ref, goal2.vy_ref = float(vx), 0.0
-    p1 = float(env._phase)
-    d = (p1 - p0) % (2.0 * math.pi)
-    return d
+    """Measure one _augment_obs clock advance with a stubbed command
+    of speed vx (the goal is re-derived per tick inside step(), so
+    stubbing _current_goal is the honest way to pin s_ref)."""
+    from types import SimpleNamespace
+    orig = env._current_goal
+    env._current_goal = lambda: SimpleNamespace(vx_ref=float(vx),
+                                                vy_ref=0.0, wz_ref=0.0)
+    try:
+        p0 = float(env._phase)
+        env._augment_obs(np.zeros(1, dtype=np.float32), reset=False)
+        p1 = float(env._phase)
+    finally:
+        env._current_goal = orig
+    return (p1 - p0) % (2.0 * math.pi)
 
 
 @pytest.mark.parametrize("scale,expect_ratio", [(0.0, 1.0), (1.0, 2.0)])
