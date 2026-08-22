@@ -1,6 +1,6 @@
 # hw - hardware joystick mainline
 
-Last updated: 2026-08-21 UTC. This is the current mainline status, not a
+Last updated: 2026-08-22 UTC. This is the current mainline status, not a
 run history. Details live in `rl_docs/runs/`, W&B, `RL_LOG.md`, and topic docs.
 
 ## Goal
@@ -27,6 +27,19 @@ Gate: held-out session n=600, det 0.967, sto 0.853. This is still the product
 baseline.
 
 ## Live Runs
+
+`cw-dep-bcgait3-speedbc1-cont1` (acquisition, +4M warm from the failed
+speedbc1 ckpt, train-7, launched 08-22 ~00:2x UTC by operator order fb
+20260822T000318Z overriding the pre-registered STOP): tests whether
+more training escapes the charge basin. Pre-launch decomposition of
+the parent (4yitv3cc) says the late reward "recovery" was an
+episode-length artifact — per-tick reward worsened (-2.95 -> -3.13)
+while ep_len fell 317 -> 249 and pitch rose 4.7 -> 6.3 deg (falling
+earlier truncates the net-negative heading+overspeed tax); direction
+error (~78 deg) and speed (0.12 m/s) stayed command-invariant. Gate
+forces per-tick-vs-ep-len decomposition + pinned-speed panels at every
+1M snapshot (ckpts every 0.5M via --save-every); reward-only rise =
+MISALIGNED verdict, fork back to operator. No download change.
 
 `cw-dep-bcgait3-speedbc1` (discovery, 2M, operator order
 20260821T224150Z — speed-conditioned BC + leg-odometry vel obs +
@@ -95,15 +108,15 @@ No further fast-gait dose sweeps without operator authorization.
 
 ## Next Agent Actions
 
-Nothing training; no fast-gait launches without an operator-chosen
-lever. On any new order: triage against its pre-registered gate,
-update ledger/W&B/run doc/RL_LOG, and touch this file + STATUS.md only
-if the story changes.
+Triage `cw-dep-bcgait3-speedbc1-cont1` against its gate (per-tick
+reward x ep_len decomposition + pinned-speed panels on the 0.5M/1M
+snapshots, det+sto, DR-0, vs the parent's 2M panel). Otherwise no
+fast-gait launches without an operator-chosen lever.
 
 ## Operator Gates
 
 - Promote `postlower4` and/or change the runner/eval contract to remaining-rise semantics.
-- Fast-gait fork: OPEN again — `cw-dep-bcgait3-speedbc1` (order 20260821T224150Z lever) FAILED its gate; refuted levers so far: faster cadence, k_walk_cmd_track, speed-obs + overspeed/heading charges. Next lever is an operator choice.
+- Fast-gait fork: operator chose "just keep training" (fb 20260822T000318Z) — `cw-dep-bcgait3-speedbc1-cont1` running. Refuted levers so far: faster cadence, k_walk_cmd_track, speed-obs + overspeed/heading charges. If cont1's reward rise proves misaligned (predicted), next lever is again an operator choice.
 - Bench-promote the download hierarchy when the robot returns.
 - Recover mode (reopened 08-20, sim-ready): decide flip handling (ship unsupported vs order a flip-hardening arm) and, when the robot is back, the recover-mode hardware safety contract (185 deg tilt envelope inside recover only) + on-robot transformer compute check. See `rl_docs/RECOVER_DEPLOY.md` blockers.
 - Reopen geometry/CAD only by explicit operator direction.

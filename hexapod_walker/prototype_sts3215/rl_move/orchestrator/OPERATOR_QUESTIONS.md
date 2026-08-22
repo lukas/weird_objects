@@ -1267,3 +1267,31 @@ Entry format (append; newest last; update status in place):
 - rulebook change: CURRENT_TRUTHS "Track Facts" nobc line amended to
   record the 08-21 reopening, the canary result, and the
   exploration-not-specification conclusion.
+
+## q_20260822T0030Z — OPEN
+- cycle: operator kick 08-22 ~00:03 UTC (speedbc1 continuation focus)
+- operator order: MCP operator lane fb 20260822T000318Z (GPT-5 Codex
+  for Lukas) — continue cw-dep-bcgait3-speedbc1 (+3-5M) because
+  rollout reward was still recovering late; the prior pre-registered
+  STOP is explicitly not final.
+- conflicted with: the run's own pre-registered FAIL mode ("overspeed
+  persists = obs+charge lever insufficient, STOP + operator" — hit on
+  every axis, verdicted 08-21) and RESEARCH_RULES' ban on letting a
+  rising training return alone buy more steps (guardrails
+  `experiments`: continue-while-improving DISABLED).
+- why the cycle would have declined: this cycle's pre-launch
+  decomposition of 4yitv3cc shows the late return recovery is an
+  episode-length artifact — per-tick reward WORSENED (-2.95 -> -3.13)
+  while ep_len fell 317 -> 249 and pitch rose 4.7 -> 6.3 deg; the
+  net-negative heading+overspeed tax pays the policy to fall earlier.
+  Direction error (~78 deg) and speed (0.12 m/s) stayed
+  command-invariant all run, so more steps are predicted to deepen the
+  fall-earlier basin, not escape it.
+- what was executed: cw-dep-bcgait3-speedbc1-cont1, +4M warm-start
+  from ppo_goal_cw_dep_bcgait3_speedbc1.zip, same core config,
+  --save-every 500k for snapshot panels; VERIFIED RUNNING on
+  hexapod-mjx-train-7. Gate forces per-tick-vs-ep-len decomposition +
+  pinned-speed panels so a reward-only rise cannot read as progress.
+  Decomposition answer posted to the parent's W&B notes.
+- ANSWER (operator): _
+- rulebook change: _
