@@ -44,7 +44,8 @@ TUCK_DEG = (0.0, -63.0, 112.0)
 # sway phase far off 125 deg starts slip-rocking — retune in sim first.
 PITCH_RAD = math.radians(-17.0)   # rot_y convention: NEGATIVE = nose up
 BODY_DX_M = -0.040                # body shift aft in the reared stance
-MID_SPLAY_RAD = math.radians(25.0)   # mid feet forward → wider polygon
+MID_SPLAY_RAD = math.radians(8.0)    # compact mid-foot splay; 25 deg braced
+                                     # the real robot too wide to rear back
 STRIDE_M = 0.045
 LIFT_M = 0.020
 PERIOD_S = 3.2                    # s per full 4-step cycle
@@ -97,20 +98,24 @@ GAITS: dict[str, dict] = {
     "walk": dict(stride=0.035, lift=0.026, lift_front=0.035,
                  period=5.0, duty=0.82,
                  body_dx=-0.070, pitch=math.radians(-24.0),
+                 splay=math.radians(8.0),
                  sway=0.020, sway_phase=SWAY_PHASE_RAD, phase=WALK_PHASE),
     "walk_pitch": dict(stride=0.030, lift=0.024, lift_front=0.032,
                        period=5.4, duty=0.84,
                        body_dx=-0.060, pitch=math.radians(-28.0),
+                       splay=math.radians(6.0),
                        sway=0.018, sway_phase=SWAY_PHASE_RAD,
                        phase=WALK_PHASE, speed_cap=0.8),
     "walk_aggressive": dict(stride=0.025, lift=0.022, lift_front=0.028,
                             period=6.0, duty=0.86,
                             body_dx=-0.050, pitch=math.radians(-32.0),
+                            splay=math.radians(4.0),
                             sway=0.014, sway_phase=SWAY_PHASE_RAD,
                             phase=WALK_PHASE, speed_cap=0.6),
     "trot": dict(stride=0.050, lift=0.022, lift_front=0.032,
                  period=4.8, duty=0.76,
                  body_dx=-0.070, pitch=math.radians(-24.0),
+                 splay=math.radians(8.0),
                  sway=0.016, sway_phase=math.radians(180.0),
                  roll=math.radians(3.0), roll_phase=math.radians(270.0),
                  phase={1: 0.0, 3: 0.0, 4: 0.5, 2: 0.5},
@@ -118,6 +123,7 @@ GAITS: dict[str, dict] = {
     "trot_pitch": dict(stride=0.040, lift=0.020, lift_front=0.030,
                        period=5.2, duty=0.80,
                        body_dx=-0.060, pitch=math.radians(-28.0),
+                       splay=math.radians(6.0),
                        sway=0.014, sway_phase=math.radians(180.0),
                        roll=math.radians(2.5),
                        roll_phase=math.radians(270.0),
@@ -126,6 +132,7 @@ GAITS: dict[str, dict] = {
     "trot_aggressive": dict(stride=0.032, lift=0.018, lift_front=0.024,
                             period=5.8, duty=0.82,
                             body_dx=-0.050, pitch=math.radians(-32.0),
+                            splay=math.radians(4.0),
                             sway=0.012,
                             sway_phase=math.radians(180.0),
                             roll=math.radians(2.0),
@@ -141,16 +148,19 @@ GAITS: dict[str, dict] = {
     "rear": dict(stride=0.0, lift=0.0, lift_front=0.0,
                  period=4.0, duty=0.75,
                  body_dx=-0.070, pitch=math.radians(-24.0),
+                 splay=math.radians(8.0),
                  sway=0.015, sway_phase=SWAY_PHASE_RAD, phase=WALK_PHASE,
                  speed_cap=1.5),
     "rear_pitch": dict(stride=0.0, lift=0.0, lift_front=0.0,
                        period=4.0, duty=0.75,
                        body_dx=-0.060, pitch=math.radians(-28.0),
+                       splay=math.radians(6.0),
                        sway=0.012, sway_phase=SWAY_PHASE_RAD,
                        phase=WALK_PHASE, speed_cap=1.0),
     "rear_aggressive": dict(stride=0.0, lift=0.0, lift_front=0.0,
                             period=4.0, duty=0.75,
                             body_dx=-0.050, pitch=math.radians(-32.0),
+                            splay=math.radians(4.0),
                             sway=0.010, sway_phase=SWAY_PHASE_RAD,
                             phase=WALK_PHASE, speed_cap=0.8),
 }
@@ -203,6 +213,7 @@ class QuadRearWalk:
         self.sway = g["sway"]
         self.sway_phase = g["sway_phase"]
         self.phase = dict(g["phase"])
+        self.splay = float(g.get("splay", MID_SPLAY_RAD))
         self.trim_fn = trim_fn
         # Counter-roll (rad, about x, once per cycle): diagonal 2-foot
         # support has no roll stiffness, so the body droops toward the
@@ -247,8 +258,8 @@ class QuadRearWalk:
             rx = self.anchors[leg][0] - ox0
             ry = self.anchors[leg][1] - oy0
             sgn = -1.0 if leg == 1 else 1.0
-            c = math.cos(sgn * MID_SPLAY_RAD)
-            s = math.sin(sgn * MID_SPLAY_RAD)
+            c = math.cos(sgn * self.splay)
+            s = math.sin(sgn * self.splay)
             self.anchors[leg][0] = ox0 + c * rx - s * ry
             self.anchors[leg][1] = oy0 + s * rx + c * ry
 
