@@ -1,9 +1,10 @@
 # amp - AMP locomotion from scratch
 
-Last updated: 2026-08-22 (M1 COMPLETE: live reward-loop wiring landed
-— AMPStyleVecWrapper blends the discriminator style reward into PPO's
-training signal with online discriminator co-training, smoke-verified
-end-to-end on-pod; first M2 pilot pair queued).
+Last updated: 2026-08-22 (M2 pilot pair VERDICTED at 2M: AMP
+machinery healthy at 4096-env scale — d_real 0.78 vs d_fake -0.96
+un-saturated, style reward off its pins — but both arms pre-gait at
+~1.3 episodes/env; matched continuations -c1 to the gate's own 40M
+comparison point launched).
 Charter:
 `rl_docs/AMP_LOCOMOTION.md` (binding, incl. the repo-adaptation
 section — no Isaac Lab, MJX/Warp is the primary trainer). Keep this a
@@ -35,8 +36,9 @@ Build every tool this needs; do not pause on operator input.
 - M1 motion library: **DONE 08-22** (generator + v1 dataset;
   discriminator core + style reward + banks; live reward-loop wiring
   landed and smoke-verified — see Now item on AMPStyleVecWrapper)
-- M2 beautiful normal gait: STARTED 08-22 (pilot pair
-  amp-m2-pilot-style05 vs amp-m2-pilot-noamp queued)
+- M2 beautiful normal gait: IN PROGRESS (pilot pair at 2M verdicted
+  healthy-mechanism/pre-gait 08-22; matched -c1 continuations to 40M
+  running — the style-vs-control comparison lands there)
 - M3 push recovery: NOT STARTED
 - M4 fault adaptation: NOT STARTED
 - M5 MuJoCo transfer (= DONE gate): NOT STARTED
@@ -275,6 +277,21 @@ now closed:
    six-leg tripod than task-only at equal budget, and whether the
    discriminator stays un-saturated at scale (watch amp/d_real vs
    amp/d_fake and amp/style_reward_mean).
+
+- **M2 PILOT VERDICT (08-22, `cw-amp-m2-pilot-style05` vs
+  `cw-amp-m2-pilot-noamp`, 2M discovery)**: mechanism PASS, behavior
+  pre-gait. Discriminator co-training at 4096 envs stayed healthy the
+  whole run (amp/d_real 0.78 vs d_fake -0.96 separated, never
+  saturated; style_reward_mean ~0.08 — low, disc winning, but not
+  pinned 0; gp finite; replay full; 124 updates). Both arms are
+  equally pre-locomotion at 2M (~1.3 episodes/env): sprawled
+  near-frozen stance, det fwd 0.007-0.026 m/15 s, slip ~9-12/m,
+  sacrificed legs (style05 held legs 1&3 off in all det episodes),
+  zero falls. No style-vs-control call possible this early; none of
+  the pre-registered fail branches fired. CONTINUED matched as
+  `-c1` runs (38M more each, policy + discriminator warm-started via
+  `--amp-disc-init`) — wave-1 sizing decision moves to the 40M
+  comparison.
 
 ## Required status block (update after each wave)
 

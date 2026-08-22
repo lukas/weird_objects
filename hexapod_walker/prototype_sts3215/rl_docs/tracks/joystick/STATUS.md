@@ -1,9 +1,9 @@
 # joystick - RL from the programmatic gait to joystick control
 
-Last updated: 2026-08-22 (step-function DIG-IN RESOLVED: two measured
-pricing defects — drag allowance under the honest tibia-150 stance
-tail + instantaneous kernel taxing stride sway left income flat in
-speed; both repaired, phasedir8 RUNNING). Keep this a
+Last updated: 2026-08-22 (phasedir8 FAIL + regime-gap DIG-IN
+RESOLVED: det-calibrated pricing does not transfer to the noisy
+optimization regime and no separating drag allowance exists — the
+fix is annealing the noise itself; phasedir9 launched). Keep this a
 short screenful: Goal / Now / Next. Run detail lives in
 `rl_docs/runs/`, W&B, and `RL_LOG.md`.
 
@@ -59,241 +59,52 @@ with:
   clone pays the same sto bill) pays them and the cheapest gradient
   is a slower mean gait. Charges must price stride-EMA/mean
   behavior, not tick noise, before any relaunch.
-- 08-22 rung A verdict (`cw-dep-bcgait4-phasedir3-fwd-reprice`, the
-  reprice from item 3 below): FAIL again, but a DIFFERENT and
-  NARROWER miss than phasedir2. The reprice worked exactly as
-  designed — walk_loadslip_factor sat 0.98-1.00 the whole run
-  (training ratio ~5.0-5.4, never zeroed) and det speed matched the
-  clone (0.069 vs 0.071 m/s, no det-overspeed, the recorded known
-  hole q_20260822T0640Z did NOT fire) — but that same widened
-  loadslip band (sized to spare the STOCHASTIC clone's noisy slip,
-  4.8-6.4) left loadslip_excess ~0 for the whole run regardless of
-  realized noise, so nothing kept DET-mode footfalls as clean as the
-  clone: slip/m drifted to 1.41x clone (cap 1.15x, clear miss) while
-  progress improved to 0.897x clone (cap 0.9x, still short but much
-  closer than phasedir2's 0.836x). Zero falls, gait 6/6, contact
-  sheet clean (no exploit) — a pure quantitative slip regression.
-  ep_rew_mean fell steadily through most of training (quarters
-  -37/-114/-176/-187) with only a small late uptick: reads as
-  converged at 2M, not undertrained. ROOT CAUSE: PPO's action std
-  stayed pegged 0.355-0.365 the entire run (never annealed), so ANY
-  flat threshold wide enough for the noisy rollout is too wide for
-  the tight det band the gate enforces. ACTED ON: built + on-pod
-  smoke-tested `train_ppo_mjx --ent-coef-final/--ent-coef-anneal-frac`
-  (rollout-end callback linearly annealing `model.ent_coef`, same
-  pattern as the existing servo-profile ramp; default off = bit-exact,
-  verified both paths on-pod). This is the "anchor dose/std
-  annealing" lever the gate itself named as the next step. Rung B
-  (heading-set respec) NOT launched per gate.
-- 08-22 findings inherited from the reset window: the semantics-bank
-  convention leak is repaired (`sim_gait_compat.py`) with a 7-test
-  tibia-150 recalibration residue; the download hierarchy hard-fails
-  the session gate at tibia-150. Fix arm `cw-dep-bcgait1-plant150-1`
-  landed PASS(core) this cycle (0/6 falls DR-0+own-DR, session
-  back-fall gone, fwd yaw -21.8->-10.6deg; promoted as the walk half).
-- 08-22 bank recalibration (3/7 CLOSED, code landed
-  `exp/c0822-riseref-bank-recal`): **CLOSED** — `trans_drag_honest_rise`
-  (measured rise-curl drag grew 463->656mm at the corrected tibia,
-  `reward.drag_trans_allow_rise_m` default bumped 0.55->0.75, band/
-  docstring re-measured), `rise_rock_feedback_levels_it` (P-controller
-  leveling peak grew 4.6-6.7deg->8.6deg, still zero terminations,
-  bound relaxed 8->9deg), `recover_floor_rungs_remain_distinct` (the
-  tangle_70/80 settle-spread gap narrowed to 1.9mm, margin relaxed
-  2.0->1.5mm, ordering still strictly monotonic) — all pure re-measure-
-  the-threshold fixes, no behavior change, no reward-mechanism edit.
-  **STILL RED (4)**: `rise_valid_plant`/`score_replay_ends_in_valid_plant`
-  (the rise reference's final pose still misses PLANT_SPEC —
-  `height_ok: False` despite 6/6 feet down/no-flag/support/footprint
-  all OK, i.e. a fine-grained height-window miss, not a fall; measured
-  this cycle: h_err ~23.7mm vs the 15mm PLANT_SPEC tolerance, and the
-  reference npz itself predates the tibia-150 change (file mtime
-  Aug 11, before the Aug 21-22 geometry fix) — LEAD for next cycle:
-  check whether `RISE_OVERRIDES`'s `goal.rise_height_mm=[108,114]`
-  target window (not just the blend) is the stale-for-150mm constant,
-  since the reference's own delivered height did not move but the
-  tolerance math around it might need to),
-  `getup_honest_ordering` (honest partial-crouch hold now pays LESS
-  than freezing — a genuine reward-ordering defect, not a stale
-  number), `fastprof_obeying_the_command_beats_overspeed` (separately-
-  tracked fast-gait saturation, unrelated to the rise reference).
-  BUILT + TESTED, NOT SHIPPED: `extract_rise_ref.py --blend-mode ik`
-  (default) replaces the raw joint-angle lerp with a per-leg
-  foot-anchored (FK/IK, `tripod_gait.foot_rz_from_hip_knee`/`_leg_ik`)
-  Cartesian blend, plus `--validate-seeds`/`--validate-margin-deg` to
-  replay a candidate into FRESH resets before accepting it (08-22
-  finding: a candidate can be safe for its own extraction seed and
-  still marginal elsewhere). Strictly better than lerp (found
-  self-consistent candidates on 9/100 seeds vs 0/25 for lerp;
-  lerp still falls on every seed 0-99, confirmed) — but the best
-  candidate found from `ppo_goal_cw_stance_dr10` (a PRE-tibia-150
-  checkpoint) still nets MORE bank failures than the current shipped
-  reference (a NEW rise_rock_default_off_is_inert regression, 10.3deg
-  vs the required <4deg) because that source checkpoint's crouch pose
-  is itself asymmetric/splayed at the new geometry (some legs near
-  max reach ~235mm of 240mm max, one leg folded to ~14mm) — no blend
-  method fixes a bad source shape. REVERTED, not shipped
-  (`rise_ref_belly2plant.npz` back to the pristine committed file).
-  ROOT CAUSE, sharpened: the blocker is upstream of the blend — a
-  fresh/fine-tuned STANCE source checkpoint trained AT tibia-150
-  (mirroring `cw-dep-bcgait1-plant150-1`'s own geometry re-adaptation)
-  is what's needed, not a smarter interpolation of the old one. That
-  launch is itself a reward-mechanism arm on the SAME red rise bank
-  (rise_valid_plant/getup residue), so it stays gated until those 2
-  remaining items close by other means (PLANT_SPEC height-window
-  fix; getup partial-crouch pricing fix) — CIRCULAR, filed as
-  `OPERATOR_QUESTIONS.md` q_20260822T0600Z with the assume-and-go
-  default (fix PLANT_SPEC/getup pricing first, since they don't need
-  a training run to diagnose).
-
-- 08-22 rung A verdict (`cw-dep-bcgait4-phasedir4-entanneal`, the
-  ent-coef-anneal lever from item 3 below): FAIL, and WORSE than
-  phasedir3 on both axes the reprice was supposed to fix. The anneal
-  mechanism itself worked exactly as coded (wandb `ent_coef_anneal/
-  value` fell 0.000951->0.0001, monotone, confirmed) but the resulting
-  policy std barely moved (0.368->0.352 over the whole 2M-step run,
-  vs phasedir3's pegged 0.355-0.365) — entropy bonus is too small a
-  fraction of PPO's total loss to meaningfully drag a WARM-STARTED
-  log_std down in 2M steps. Clone-relative (same control as
-  phasedir3, `logs/ckpt_eval/phasedir3_clone_control_gate`): progress
-  0.830x clone (cap 0.9x, worse than phasedir3's 0.897x), slip 1.518x
-  clone (cap 1.15x, worse than phasedir3's 1.41x); zero falls, gait
-  6/6, dir_err/speed both pass. Exactly the pre-registered
-  "weak-anneal" branch. ACTED ON: built + on-pod smoke-tested a
-  DIRECT lever instead of the indirect entropy-coefficient one —
-  `train_ppo_mjx --warm-log-std-override <logstd>` forcibly resets a
-  warm-started policy's log_std parameter(s) right after `--init-from`
-  loads (works on plain-MLP `log_std` and gru-experts `_log_stds()`);
-  verified on-pod it lands exactly on the requested value (-2.0 ->
-  std=0.135 on all 18 dims) and is a no-op/no-print when unset.
-  Launched `cw-dep-bcgait4-phasedir5-stdoverride` (train-0, respec of
-  phasedir4, same unchanged reward stack, `--warm-log-std-override
-  -2.0`) as the direct test of the noise-band theory.
-- 08-22 `cw-dep-bcgait4-phasedir5-stdoverride` VERDICTED (dig-in
-  cycle): gate FAIL on slip only (1.590x clone, cap 1.15x), noise-band
-  theory REFUTED per its own pre-registered fork — std held 0.13 all
-  run, progress 0.984x clone (cap 0.9x, first arm ever to pass) and
-  dir_err 0.794x/28.2deg PASS, zero falls, gait 6/6. DIG-IN ROOT
-  CAUSE (per-leg harness metrics, det DR-0, matched clone control):
-  every phasedir arm converges on the SAME cheat gait family — swing
-  time 0.255->0.335s, swings/leg ~30->~22, stride 0.0335->0.042m,
-  duty skew (leg5 0.56-0.61 overstance vs tripod-A 0.42-0.47; clone
-  is uniform 0.505-0.535); per-episode swing_s-vs-slip/m r=0.75 with
-  ZERO overlap between clone and RL-arm clusters. Video clean (no
-  exploit pose): the slip is loaded-foot DRAGGING that finances
-  progress. WHY IT PAID: the loadslip band (ok=7.0/max=10.0, sized to
-  the std-0.368 clone's noisy sto slip 4.8-6.4) never re-tightened
-  after the std override — W&B rollout ratio sat 4.2-4.7, factor
-  ~0.99, excess ~-0.01/step: slip was economically FREE while
-  k_walk_course paid for longer-stride progress. Textbook 08-21
-  MISALIGNMENT. ACTED ON: cheat encoded in the bank
-  (`test_phasedir_*` loadslip-band pricing pins; scripted TripodGait
-  twins CANNOT reproduce the drag regime — IK-clean, tops out at
-  ratio 1.84 even at period x2/lift x0.35 — so the real cheat policy
-  is the bank behavior via a matched-env pod pricing A/B,
-  `logs/ckpt_eval/pd5_newband_ab_{clone,drag}`). Fix arm phasedir6:
-  retighten the band to the std-0.13 regime (single change), gated on
-  the A/B ordering flip (clone must out-earn the phasedir5 checkpoint
-  under the new band in the training env).
-- 08-22 `cw-dep-bcgait4-phasedir6-slipband` VERDICTED: FAIL, and
-  slightly WORSE than phasedir5 (det slip 1.611x clone vs 1.590x, cap
-  1.15x) despite retightening loadslip_ok/max 7/10->3/6 — the
-  pre-registered branch (iii) fired exactly: W&B env/walk_loadslip_
-  ratio held 4.2-4.7 the entire run (never fell below ~4, same range
-  as phasedir5's unpriced band) even though walk_loadslip_factor DID
-  engage harder (0.99->0.48-0.56, so the tighter band did raise the
-  charge collected) — paying more didn't change the gait. Per-leg
-  signature (swings/leg, stride, duty skew) is statistically
-  unchanged from phasedir5's cheat family. Zero falls, gait 6/6,
-  progress/dir_err/speed all still PASS. ROOT CAUSE: the episode-
-  cumulative RATIO pricing (walk_loadslip_gate/k_loadslip_excess) is
-  dominated by the anchor/course/height reward terms at any (ok,max)
-  pair tried so far — the BAND VALUE lever is refuted for this
-  lineage, a third value would not be informative. ACTED ON (no new
-  code): found `reward.k_drag_stance` — a per-FOOT per-STANCE
-  absolute-mm drag charge, NOT diluted by episode-length progress —
-  already built and bank-tested 2026-08-11
-  (`test_drag_stance_stack_prices_skating_below_stepping`, k=8000/m
-  over a 6mm allowance) but never enabled in the phasedir lineage.
-  Validated with a matched-env pod pricing A/B before spending budget
-  (`logs/ckpt_eval/pd7_dragstance_ab_{clone,drag}`): under the full
-  phasedir6 stack + only this one new charge, the honest phase1 BC
-  clone (det slip/m 1.89) scores -1868 vs the phasedir6 cheat
-  checkpoint (det slip/m 3.04) scoring -3971 — a >2x swing in favor
-  of the honest gait, reproducing the 08-11 audit's calibration claim
-  on the ACTUAL cheat checkpoint. Launched
-  `cw-dep-bcgait4-phasedir7-dragstance` (train-0, single change: add
-  k_drag_stance=8000/allow=6mm/tick_floor=0.25 onto the phasedir6
-  stack, nothing else touched).
-- 08-22 `cw-dep-bcgait4-phasedir7-dragstance` VERDICTED FAIL: the
-  per-stance drag charge (k=8000) has real bite — det slip/m improved
-  1.611x clone -> 1.323x clone and stride length recovered to the
-  clone's own value (0.0435m cheat -> 0.036-0.038m) — but it
-  overcorrected: progress fell 0.961x -> 0.779x clone (now below the
-  0.9x cap) and det speed dropped to 0.059 m/s, 0.001 under the
-  [0.06,0.096] floor (a new failure axis phasedir6 didn't have). W&B
-  env/reward_drag_stance sat flat -20..-25/step the WHOLE 2M-step run
-  (never trended toward 0 — the charge fired on nearly every stance
-  start to finish); env/walk_loadslip_ratio stayed 4.3-5.1 (unmoved).
-  Matches the run's own pre-registered branch (ii) (dose too strong)
-  more than a rising-reward case: ep_len_mean saturated at 375 by
-  ~800k steps and ep_rew_mean plateaued flat for the back half.
-  ACTED ON: launched `cw-dep-bcgait4-phasedir7b-dragstance-halfdose`
-  (train-0, single change: k_drag_stance 8000->4000, everything else
-  identical) to test the dose-response hypothesis directly.
-- 08-22 `cw-dep-bcgait4-phasedir7b-dragstance-halfdose` VERDICTED FAIL
-  — and REFUTES the dose-response hypothesis outright rather than
-  finding a better point on a curve. Halving k_drag_stance changed
-  almost nothing: progress 0.779x->0.804x clone (cap 0.9x, still
-  short), slip 1.323x->1.346x clone (cap 1.15x, actually a HAIR
-  worse), speed 0.059->0.0585 m/s (still under the 0.06 floor). Per-
-  leg gait signature (swing count/leg, duty skew, stride length) is
-  statistically indistinguishable between k=8000 and k=4000. W&B
-  env/reward_drag_stance and ep_rew_mean both scaled down EXACTLY
-  proportionally to k (halved), meaning the same fraction of stances
-  pay the charge at either dose — the policy is not adapting its
-  behavior to the charge's magnitude at all. 3-POINT TABLE: phasedir6
-  (k=0-equiv) progress 0.961x/slip 1.611x/speed PASS; phasedir7
-  (k=8000) progress 0.779x/slip 1.323x/speed FAIL; phasedir7b
-  (k=4000) progress 0.804x/slip 1.346x/speed FAIL. This is a STEP
-  FUNCTION (any k_drag_stance>0 flips the policy into a second, fixed
-  local optimum whose speed sits just under the gate floor) not a
-  smooth dose curve — dosing k_drag_stance further would not be
-  informative. DIG-IN FLAGGED: why do the course/anchor pricing terms
-  cap speed at ~0.058-0.059 m/s once ANY per-stance drag charge is
-  active, regardless of its magnitude? Root-cause that interaction
-  before any further reward edit on this lineage.
-- 08-22 DIG-IN RESOLVED (deep cycle; evidence
-  `logs/ckpt_eval/pd7b_digin_stancedist/`, new tool
-  `rl_move/sim/probe_stance_slip_dist.py` — per-stance travel
-  distribution with exact k_drag_stance accounting, verified against
-  the env's own charge to the decimal). TWO measured pricing defects,
-  both invisible until the drag charge removed all other slack:
-  (A) ALLOWANCE UNDER THE HONEST TAIL — the honest clone's per-stance
-  loaded travel at tibia-150 is median 3.4mm but p90 12.3/p95 19mm;
-  at allow=6mm/k=8000 the clone paid 2.87x its ENTIRE income in
-  drag-stance charge (pd6 cheat 5.57x, pd7's own gait 2.44x), i.e.
-  travel itself was net-negative for EVERY gait at ANY k — the same
-  gradient direction and the same boundary optimum at k=4000 and
-  8000, which IS the step function. (B) INCOME FLAT IN SPEED — the
-  velocity kernel's instantaneous 2D error taxes honest stride sway:
-  pd7's 0.059 m/s low-sway gait out-earned the 0.0716 clone on the
-  kernel itself (357.1 vs 325.6/ep), cancelling k_walk_prog's linear
-  speed payment (+34/ep), so nothing paid for recovering speed once
-  a travel tax pushed it down. REPAIRED: allow 6->24mm (clone ~p98:
-  pays 0.10x income on ~2% of stances; pd6 drag gait still 0.49x),
-  NEW `reward.walk_kernel_vel_ema=1`/`walk_kernel_vel_tau_s=0.75`
-  (kernel error on a stride-EMA of body velocity, the k_walk_course
-  convention; default OFF, bit-exact, in MJX_SNAPSHOT_EXTRA),
-  k_walk_prog 1->2. Full-stack checkpoint pricing now orders
-  clone 1031 > pd7-slow 978 > pd6-drag 639 (was clone -1536 at
-  allow=6; clone 684 < slow 806 at allow=20 without B — B is
-  necessary). Bank `test_phasedir_semantics.py` 29/29 incl 5 new
-  phasedir8 rows (EMA-kernel bit-exact inertness, obey>shrunk det +
-  at the std-0.13 training regime, anti-attractor orderings survive,
-  honest drag charge <35% of walk income, income slope positive).
-  LAUNCHED `cw-dep-bcgait4-phasedir8-emakernel-allow24` (train-0,
-  acquisition, 2M, snapshot 1aa37235; gate = same clone-relative
-  panel + frozen control, fail branches pre-registered).
+- 08-22 phasedir3-8 lineage summary (full detail: RL_LOG + ledger
+  verdicts; every arm zero falls, gait 6/6, clean video): six
+  consecutive FAILs of the aligned-reward stack on the clone-relative
+  rung-A gate, each refuting one lever class. phasedir3 (loadslip
+  reprice to the noisy band): det slip unpriced -> 1.41x clone.
+  phasedir4 (ent-coef anneal): std barely moved, worse. phasedir5
+  (--warm-log-std-override -2.0, std held 0.13): progress finally
+  0.984x PASS but slip 1.59x — noise-band theory REFUTED; dig-in
+  found SLIP-FINANCED PROGRESS (lower-cadence/longer-stride/duty-skew
+  drag family; bank-pinned + pricing A/B). phasedir6 (band retighten
+  3/6): band VALUE lever refuted. phasedir7/7b (k_drag_stance 8000 ->
+  4000): STEP FUNCTION — identical slow optimum at both doses, speed
+  pinned 0.059. Dig-in found (A) allow=6 under the honest det stance
+  tail + (B) instantaneous kernel taxing stride sway (income flat in
+  speed); repaired as phasedir8 (allow 24, stride-EMA kernel
+  reward.walk_kernel_vel_ema, k_prog 2; bank 29/29).
+- 08-22 `cw-dep-bcgait4-phasedir8-emakernel-allow24` VERDICTED FAIL +
+  DIG-IN RESOLVED (deep cycle; evidence
+  `logs/ckpt_eval/pd8_digin_regime/`): det prog 0.770x / slip 1.254x
+  (best of lineage) / speed 0.0575 — misses persist. ROOT CAUSE, now
+  measured: the det/DR-0 pricing calibration DOES NOT TRANSFER to the
+  optimization regime. probe_stance_slip_dist (new --action-noise-std
+  / --dr-scale knobs) shows the honest clone at action-noise std
+  0.135 pays 0.76-9.7x its income in drag-stance charge at allow=24
+  (det: 0.002-0.36x); a CPU replication of the exact training env
+  reproduces the run's -2.87/tick drag bill to the decimal. NO
+  separating allowance exists: the noisy-honest per-stance tail needs
+  >=48mm untaxed while the pd6 det drag-cheat pays ZERO beyond 36mm —
+  the whole per-stance absolute-travel lever class is structurally
+  refuted under PPO exploration noise. Secondary Warp-side defect:
+  the EMA overspeed band divides by the RAMPING command speed, so
+  ramp-in drift paid the -12/tick clip (W&B mean charge
+  -2.38/charged-tick vs mean exceedance 0.002 m/s — arithmetically
+  requires tiny s_ref; doesn't reproduce on CPU). Also: the run's
+  falling ep_rew was an episode-LENGTH artifact (12->375 ticks),
+  not a learning collapse. REPAIRED: (1) new
+  `train_ppo_mjx --log-std-final/--log-std-anneal-frac` — forced
+  log_std schedule (the proven override mechanism, scheduled) so the
+  optimization regime CONVERGES to the det regime where full-stack
+  pricing is measured-aligned (clone 1031 > pd7-slow 978 > pd6-drag
+  639); (2) `reward.walk_course_overspeed_ref_floor_m_s` (default 0 =
+  bit-exact) floors the overspeed reference. Bank 34/34 incl 5 new
+  pd9 rows (floor inert off / spares ramp class / keeps insurance /
+  orderings survive / regime gap pinned). LAUNCHED
+  `cw-dep-bcgait4-phasedir9-stdanneal` (pd8 stack + std anneal
+  0.135->0.04 by 60% of run + ref floor 0.06).
 
 ## Next
 
@@ -315,32 +126,17 @@ with:
    `test_task_semantics.py` bank proving the training reward ranks
    gate-passing behavior above every known cheat (park, paddle-creep,
    overspeed attractor, sacrificed leg).
-3. **DONE 08-22 — the whole loadslip-band AND drag-stance-dose family
-   of levers is now refuted for this lineage; DIG-IN required before
-   any further reward edit.** phasedir3/4 established the loadslip
-   charge was unpriced/mistimed; phasedir5's direct std override
-   proved slip was NOT primarily exploration noise (std held 0.13,
-   slip still 1.59x clone). phasedir6 retightened the (ok,max) band
-   7/10->3/6: FAIL, band VALUE lever refuted (ratio never moved even
-   though the charge collected did). phasedir7 switched pricing
-   MECHANISM to `reward.k_drag_stance` (per-stance absolute-mm
-   charge, bank-tested 08-11, A/B-validated on the actual cheat
-   checkpoint before launch): FAIL — real bite on slip (1.611x->
-   1.323x) and stride shape (recovered to the clone's own value) but
-   overcorrected progress (0.961x->0.779x, now below cap) and pushed
-   speed 0.001 m/s under the floor. phasedir7b halved the dose
-   (k=4000): FAIL, and this is the informative part — progress/slip/
-   speed are essentially IDENTICAL to phasedir7's k=8000 numbers
-   (see `Now` above for the full 3-point dose-response table), and
-   per-leg gait metrics are statistically indistinguishable between
-   the two doses. This is a STEP FUNCTION (any k_drag_stance>0 flips
-   the policy into one fixed second optimum) not a dose curve —
-   dosing this lever further is refuted, matching phasedir7b's own
-   pre-registered branch (ii). DIG-IN DONE 08-22 (see Now): allowance
-   sat under the honest per-stance tail (travel net-negative at any
-   k) AND kernel income was flat in realized speed (instantaneous
-   error taxes stride sway). Both repaired + bank-pinned; phasedir8
-   (allow=24, EMA kernel, k_prog=2) is the live test.
+3. **CLOSED 08-22 (superseded by the regime-gap finding in Now):**
+   the loadslip-band, drag-stance-dose AND drag-stance-allowance
+   lever family is measured-refuted for this lineage — no
+   det-calibrated per-stance/band charge can separate the noisy
+   honest gait from the det drag cheat (no separating threshold
+   exists). phasedir9 (`-stdanneal`) tests the remaining coherent
+   repair: anneal exploration noise to ~det so the measured-aligned
+   det pricing becomes the operative optimum. If phasedir9 fails
+   WITH std annealed and drag charge ~0 late, pricing is exonerated
+   and the binding constraint is the BC-anchor/phase-lock family
+   boundary (pd8's branch (ii)) — dig there, not at the reward.
 4. RL fine-tune from the phase clone (and a walk-champion arm as
    control) with the reward aligned to the gate metrics, resuming
    the staged heading curriculum; extend budget while reward and

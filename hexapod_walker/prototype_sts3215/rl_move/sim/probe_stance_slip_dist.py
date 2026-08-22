@@ -59,6 +59,17 @@ def main() -> None:
     ap.add_argument("--k", type=float, default=8000.0,
                     help="k_drag_stance ($/m) used to price candidates")
     ap.add_argument("--tick-floor-mm", type=float, default=0.25)
+    # TRAINING-REGIME knobs (2026-08-22 phasedir8 dig-in): the 08-22
+    # det/DR-0 calibration did not transfer to the run's actual
+    # optimization regime (sto std 0.13, dr_scale 0.35, tipped starts
+    # 0.30) — these let the probe measure the SAME distribution under
+    # that regime. Defaults keep the original det/DR-0 behavior.
+    ap.add_argument("--dr-scale", type=float, default=0.0,
+                    help="env domain-randomization scale (0 = off)")
+    ap.add_argument("--action-noise-std", type=float, default=0.0,
+                    help="Gaussian noise added to the deterministic "
+                         "action, emulating a forced PPO log_std "
+                         "(e.g. 0.135 for --warm-log-std-override -2)")
     ap.add_argument("--out", default=None)
     args = ap.parse_args()
 
@@ -77,7 +88,7 @@ def main() -> None:
 
     env_cls = ENV_CLASSES[args.task]
     env = env_cls(params=SimServoParams.from_cfg(cfg_kw.get("cfg")),
-                  randomize=False, dr_scale=0.0,
+                  randomize=args.dr_scale > 0.0, dr_scale=args.dr_scale,
                   episode_seconds=args.episode_seconds,
                   seed=args.seed, render_mode=None, **cfg_kw)
     gen = env._goal_gen
@@ -105,8 +116,14 @@ def main() -> None:
         stances: list[float] = []
         ret, drag_paid, fwd = 0.0, 0.0, 0.0
         speeds = []
+        noise_rng = np.random.default_rng(77_000 + args.seed * 100 + ep)
         while True:
             act, _ = model.predict(obs, deterministic=True)
+            if args.action_noise_std > 0.0:
+                act = np.clip(
+                    act + noise_rng.normal(
+                        0.0, args.action_noise_std, size=np.shape(act)),
+                    env.action_space.low, env.action_space.high)
             obs, r, term, trunc, info = env.step(act)
             ret += float(r)
             drag_paid += float(info.get("reward_drag_stance", 0.0))

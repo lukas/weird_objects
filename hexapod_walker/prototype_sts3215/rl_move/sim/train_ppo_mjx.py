@@ -1353,6 +1353,34 @@ def main(argv: list[str] | None = None) -> int:
                          "(all four policy._log_stds() reset "
                          "identically); a policy with neither attribute "
                          "prints a warning and is left untouched.")
+    ap.add_argument("--log-std-final", type=float, default=None,
+                    help="linearly anneal the policy's log_std "
+                         "PARAMETER down to this value (log-space) over "
+                         "--log-std-anneal-frac of --steps, then hold — "
+                         "the anneal FORCIBLY re-sets the parameter at "
+                         "every rollout end (the --warm-log-std-"
+                         "override pattern applied on a schedule), so "
+                         "unlike --ent-coef-final it is guaranteed to "
+                         "move. Start value = --warm-log-std-override "
+                         "when set, else the policy's own mean log_std "
+                         "at launch. Default None = OFF, bit-exact "
+                         "legacy (no callback constructed). Motivated "
+                         "by the cw-dep-bcgait4-phasedir8 dig-in "
+                         "(08-22, logs/ckpt_eval/pd8_digin_regime/): "
+                         "per-stance drag pricing has NO separating "
+                         "allowance in the NOISY optimization regime "
+                         "(honest clone at std 0.135 needs allow>=48mm "
+                         "untaxed while the pd6 det drag cheat pays "
+                         "ZERO beyond 36mm) — the repair is to make "
+                         "the optimization regime CONVERGE to the det "
+                         "regime where the full-stack pricing is "
+                         "measured-aligned (clone 1031 > slow 978 > "
+                         "drag 639), i.e. anneal exploration noise "
+                         "away instead of widening det-blind bands.")
+    ap.add_argument("--log-std-anneal-frac", type=float, default=1.0,
+                    help="fraction of --steps over which the log-std "
+                         "anneal completes (only used when "
+                         "--log-std-final is set); 1.0 = whole run.")
     ap.add_argument("--net-arch", type=str, default="128,128",
                     help="MLP hidden sizes, comma-separated (from-"
                          "scratch and transplant builds only — a plain "
@@ -3214,6 +3242,67 @@ def main(argv: list[str] | None = None) -> int:
                                "ent_coef_anneal/frac": frac})
 
         callbacks.append(_EntCoefAnnealCb())
+    if args.log_std_final is not None:
+        class _LogStdAnnealCb(BaseCallback):
+            """Linearly anneal the policy's log_std parameter(s) to
+            args.log_std_final over log_std_anneal_frac * args.steps,
+            then hold. Unlike the entropy-bonus route this SETS the
+            parameter directly every rollout end (the proven
+            --warm-log-std-override mechanism on a schedule), so PPO's
+            own gradient cannot fight it between rollouts. Default OFF
+            (--log-std-final unset): callback never constructed,
+            bit-exact legacy."""
+
+            def __init__(self):
+                super().__init__()
+                if args.warm_log_std_override is not None:
+                    self._start = float(args.warm_log_std_override)
+                else:
+                    import torch as _th
+                    pol = model.policy
+                    with _th.no_grad():
+                        if hasattr(pol, "_log_stds"):
+                            vals = [float(_ls.data.mean())
+                                    for _ls in pol._log_stds()]
+                            self._start = sum(vals) / len(vals)
+                        elif hasattr(pol, "log_std"):
+                            self._start = float(pol.log_std.data.mean())
+                        else:
+                            self._start = float(args.log_std_final)
+                self._final = float(args.log_std_final)
+                self._denom = max(1, int(args.log_std_anneal_frac
+                                         * args.steps))
+                self._finished = False
+
+            def _on_step(self) -> bool:
+                return True
+
+            def _on_rollout_end(self) -> None:
+                import math as _math
+                import torch as _th
+                frac = min(1.0, self.num_timesteps / self._denom)
+                val = self._start + frac * (self._final - self._start)
+                pol = self.model.policy
+                with _th.no_grad():
+                    if hasattr(pol, "_log_stds"):
+                        for _ls in pol._log_stds():
+                            _ls.data.fill_(float(val))
+                    elif hasattr(pol, "log_std"):
+                        pol.log_std.data.fill_(float(val))
+                if frac >= 1.0 and not self._finished:
+                    self._finished = True
+                    print("[log-std-anneal] complete @ "
+                          f"{self.num_timesteps:,} steps — holding "
+                          f"log_std={val:.3f} "
+                          f"(std={_math.exp(val):.3f})")
+                if run is not None:
+                    import wandb
+                    wandb.log({"global_step": self.num_timesteps,
+                               "log_std_anneal/value": float(val),
+                               "log_std_anneal/std": _math.exp(val),
+                               "log_std_anneal/frac": frac})
+
+        callbacks.append(_LogStdAnnealCb())
     if amp_wrap is not None:
         class _AMPDiscCb(BaseCallback):
             """Online AMP discriminator update, once per PPO rollout

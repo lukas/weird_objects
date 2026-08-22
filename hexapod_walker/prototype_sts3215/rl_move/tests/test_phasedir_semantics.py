@@ -866,3 +866,163 @@ def test_pd8_ema_kernel_restores_income_slope_in_speed():
                     + c.get("reward_walk_prog", 0.0))
         inc[drive] = tot / len(SEEDS)
     assert inc["obey"] > inc["shrunk"] + 10.0, inc
+
+
+# ---------------------------------------------------------------------------
+# PHASEDIR9 (2026-08-22 phasedir8 dig-in, logs/ckpt_eval/pd8_digin_regime/).
+#
+# Measured on the ACTUAL checkpoints with probe_stance_slip_dist's new
+# training-regime knobs (--action-noise-std / --dr-scale):
+#
+#   C. REGIME GAP: the det/DR-0 drag_stance calibration does not
+#      transfer to the optimization regime. At allow=24/k=8000 the
+#      honest phase clone pays 0.002-0.36x income DET but 0.76-9.7x
+#      income at action noise std 0.135 alone (1.1-12x with
+#      DR 0.35 + tipped starts) — travel was net-negative IN-REGIME
+#      again, reproducing pd7's step-function optimum. Worse, NO
+#      separating allowance exists: the noisy-honest per-stance tail
+#      needs allow>=48mm untaxed while the pd6 det drag cheat pays
+#      ZERO beyond 36mm (det 0.35-0.40x at 24). The repair is NOT a
+#      band value — it is annealing the noise itself away
+#      (train_ppo_mjx --log-std-final) so the optimization regime
+#      converges to the det regime where the full-stack pricing is
+#      measured-aligned (clone 1031 > pd7-slow 978 > pd6-drag 639).
+#   D. RAMP MISFIRE (Warp-side): W&B on phasedir8 shows the EMA
+#      overspeed band charging -2.38/charged-tick against a mean
+#      exceedance of 0.002 m/s — arithmetically only possible on
+#      ticks where s_ref is a few mm/s (the command ramp), where BOTH
+#      the band threshold (1+tol)*s_ref and the fractional-exceedance
+#      denominator collapse. reward.walk_course_overspeed_ref_floor_m_s
+#      floors the reference: drift under (1+tol)*floor pays nothing,
+#      full-command pricing (s_ref >= floor) is bit-identical.
+# ---------------------------------------------------------------------------
+
+PHASEDIR9_STACK = dict(PHASEDIR8_STACK)
+PHASEDIR9_STACK.update({
+    ("reward", "walk_course_overspeed_ref_floor_m_s"): 0.06,
+})
+
+
+def test_pd9_overspeed_ref_floor_default_off_is_inert():
+    """ref_floor absent and =0.0 must be bit-exact equal, including
+    under the training exploration noise (the charge path the floor
+    touches only runs on noisy/low-command ticks)."""
+    stack_off = dict(PHASEDIR8_STACK)
+    stack_zero = dict(PHASEDIR8_STACK)
+    stack_zero[("reward", "walk_course_overspeed_ref_floor_m_s")] = 0.0
+    r_off = _phasedir_rollout("obey", 0, 0.0, stack_off,
+                              noise_std=STD_TRAIN)
+    r_zero = _phasedir_rollout("obey", 0, 0.0, stack_zero,
+                               noise_std=STD_TRAIN)
+    assert r_off == r_zero, (r_off, r_zero)
+
+
+def _overspeed_sum_low_cmd(drive_speed: float, cmd_speed: float,
+                           ref_floor: float, seed: int = 3) -> float:
+    """Overspeed charge total for a straight-line +x teacher drive at
+    drive_speed against a +x command pinned at cmd_speed — the
+    low-command tick class is the scripted stand-in for ramp ticks
+    (same s_ref scale, same charge formula)."""
+    from tripod_gait import TripodGait
+
+    stack = dict(PHASEDIR8_STACK)
+    stack[("goal", "walk_speed_min_m_s")] = cmd_speed
+    stack[("goal", "walk_speed_max_m_s")] = cmd_speed
+    if ref_floor > 0.0:
+        stack[("reward",
+               "walk_course_overspeed_ref_floor_m_s")] = ref_floor
+    env = _make_walk_env(seed, stack)
+    env.reset()
+    traj, n = _pin_command(env, 0.0, speed=cmd_speed)
+    gait = TripodGait(vx=0.0)
+    gait.sync_plant_stance(*WALK_PLANT)
+    gait.reset_phase()
+    tot, step, t_gait = 0.0, 0, 0.0
+    while True:
+        i = min(step, n - 1)
+        s_ref = math.hypot(float(traj.vx[i]), float(traj.vy[i]))
+        if s_ref > 1e-3:
+            t_gait += env.dt
+            gait.set_velocity(vx=drive_speed, vy=0.0)
+        else:
+            gait.set_velocity(vx=0.0, vy=0.0)
+        act = q_rad_to_action(
+            np.asarray(gait.desired_deg(t_gait)) * DEG2RAD)
+        _o, _r, term, trunc, info = env.step(act)
+        tot += float(info.get("reward_walk_course_overspeed", 0.0))
+        step += 1
+        if term or trunc:
+            break
+    env.close()
+    return tot
+
+
+def test_pd9_ref_floor_spares_ramp_class_prices_real_overspeed():
+    """The misfire class: millimetre-scale drift against a tiny
+    command (s_ref ~ ramp ticks) must stop paying under the floor,
+    while genuinely fast directed travel at the same tiny command
+    keeps paying real money (the insurance the band exists for).
+    Teacher creep at 0.02 m/s vs a 0.01 m/s command emulates the
+    drift-vs-ramp geometry (drift > (1+tol)*s_ref but far under the
+    floored threshold). The mechanism is exercised at floor=0.03
+    because no raw-teacher drive can sustain >0.063 along at the
+    plant (bank honesty note: 2.5-3.5x drives saturate ~0.05) — the
+    run-level floor 0.06 is cleared by the measured 0.139 m/s
+    attractor by construction (0.139 > 1.05*0.06)."""
+    drift_nofloor = _overspeed_sum_low_cmd(0.02, 0.01, 0.0)
+    drift_floor = _overspeed_sum_low_cmd(0.02, 0.01, 0.03)
+    fast_floor = _overspeed_sum_low_cmd(0.10, 0.01, 0.03)
+    assert drift_nofloor < -2.0, (
+        f"misfire class not reproduced (bad setup): {drift_nofloor}")
+    assert drift_floor > -1e-6, (
+        f"floor failed to spare drift-scale travel: {drift_floor}")
+    assert fast_floor < -10.0, (
+        f"floor killed the real-overspeed insurance: {fast_floor}")
+
+
+def test_pd9_full_command_pricing_bit_identical_under_floor(pd8_returns):
+    """At the full 0.08 m/s command s_ref >= floor, so every reward
+    path must be bit-identical: the pd9 stack's det obey return equals
+    the pd8 stack's (the floor only exists below 0.06 m/s)."""
+    r9 = _mean("obey", HEADING_BINS["fwd"], PHASEDIR9_STACK)
+    assert r9 == pd8_returns["obey"], (r9, pd8_returns["obey"])
+
+
+def test_pd9_det_orderings_survive_ref_floor():
+    """The pd8 anti-attractor orderings must survive the pd9 stack
+    (the floor never touches full-command ticks, but assert the
+    end-to-end orderings anyway — this is the stack a run launches
+    with)."""
+    r = {d: _mean(d, HEADING_BINS["fwd"], PHASEDIR9_STACK)
+         for d in ("obey", "shrunk", "fastcadence", "stall", "park")}
+    assert r["obey"] > r["shrunk"] + 10.0, r
+    assert r["obey"] > r["fastcadence"] + 20.0, r
+    assert r["obey"] > r["stall"] + 20.0, r
+    assert r["obey"] > r["park"] + 20.0, r
+
+
+def test_pd9_drag_regime_gap_pinned():
+    """Finding C pinned at the mechanism level with the scripted
+    teacher (the honest gait class): the SAME drive that pays a small
+    drag fraction det pays a large one at the training noise std —
+    the det calibration provably does not transfer to the noisy
+    regime (the full checkpoint numbers live in
+    logs/ckpt_eval/pd8_digin_regime/)."""
+    det_c: dict = {}
+    _phasedir_rollout("obey", 0, 0.0, PHASEDIR8_STACK, collect=det_c)
+    noisy_c: dict = {}
+    _phasedir_rollout("obey", 0, 0.0, PHASEDIR8_STACK,
+                      noise_std=STD_TRAIN, collect=noisy_c)
+    det_income = (det_c.get("reward_walk", 0.0)
+                  + det_c.get("reward_walk_prog", 0.0))
+    noisy_income = (noisy_c.get("reward_walk", 0.0)
+                    + noisy_c.get("reward_walk_prog", 0.0))
+    det_frac = -det_c.get("reward_drag_stance", 0.0) / max(det_income,
+                                                           1e-9)
+    noisy_frac = -noisy_c.get("reward_drag_stance", 0.0) / max(
+        noisy_income, 1e-9)
+    assert det_frac < 0.35, (det_frac, det_c)
+    assert noisy_frac > 2.0 * det_frac + 0.1, (
+        f"noise no longer fattens the drag bill? det {det_frac:.3f} "
+        f"noisy {noisy_frac:.3f} — recheck before trusting the "
+        f"log-std-anneal rationale")

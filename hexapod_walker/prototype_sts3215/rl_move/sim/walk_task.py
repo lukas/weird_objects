@@ -3480,9 +3480,30 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                                      default=0.0)) == 1.0:
                         spd_over = (ex * goal.vx_ref
                                     + ey * goal.vy_ref) / s_ref
-                    over_c = max(0.0, spd_over - (1.0 + tol_co) * s_ref)
+                    # Reference floor (2026-08-22 phasedir8 dig-in):
+                    # during a command RAMP s_ref sweeps up from ~0,
+                    # so BOTH the band threshold (1+tol)*s_ref and the
+                    # fractional-exceedance denominator shrink toward
+                    # zero — millimetre-per-second EMA drift on early
+                    # ramp ticks paid the full -3k clip (measured on
+                    # cw-dep-bcgait4-phasedir8: W&B mean charge
+                    # -2.38/charged-tick against mean exceedance
+                    # 0.002 m/s, only possible at s_ref of a few mm/s;
+                    # the charge taught "lag the ramp", capping mean
+                    # speed). Flooring the reference at
+                    # reward.walk_course_overspeed_ref_floor_m_s prices
+                    # overspeed against at least the floor speed:
+                    # ramp drift under (1+tol)*floor pays nothing;
+                    # sustained overspeed at the full command (s_ref >=
+                    # floor) is bit-identical. Default 0 = legacy
+                    # exact (s_den == s_ref).
+                    s_den = max(s_ref, float(cfg_get(
+                        self.cfg, "reward",
+                        "walk_course_overspeed_ref_floor_m_s",
+                        default=0.0)))
+                    over_c = max(0.0, spd_over - (1.0 + tol_co) * s_den)
                     if over_c > 0.0:
-                        r_cover = -k_cover * min(over_c / s_ref, 3.0)
+                        r_cover = -k_cover * min(over_c / s_den, 3.0)
                         reward = float(reward) + r_cover
                         info["walk_course_overspeed_m_s"] = over_c
                         info["reward_walk_course_overspeed"] = r_cover
