@@ -116613,7 +116613,10 @@
         "verdict": "FINISHED_BEFORE_CHECKUP",
         "log_tail": "oll_deg 1.94075\nwandb:           env/bc_mode 3\nwandb:     env/height_err_mm 28.91773\nwandb:         env/height_mm 28.91568\nwandb:     env/height_ref_mm 0\nwandb:     env/max_current_a 1.32251\nwandb:    env/mean_current_a 0.49436\nwandb:                  +104 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-dep-bcgait4-phasedir9-longrun17-stotight at: https://wandb.ai/l2k2/hexapod-balance/runs/oaidfi5d\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 4 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260822_160141-oaidfi5d/logs\n"
       }
-    ]
+    ],
+    "verdict": "Dose 1/3 (log-std-final=-3.6, std=0.027) of the sto-tightening grid on longrun17. Joygate (60s randomized session, DR-0+own-DR 0.35, det+sto, n=48): FAIL by dir_ok only -- slip_per_m_med 2.849 clears the 2.9 cap but direction_err_med 40.72deg narrowly misses the 40deg allow (teacher floor 35 + 5deg margin). Zero falls, gait_valid 48/48, no sacrificed legs, clean video (matches longrun17 own clean gait). This dose already clears slip (the harder axis) but not dir_err; siblings stotight40/-45 test lower std.",
+    "hardware_ready": "no",
+    "triage": "done"
   },
   {
     "run": "cw-dep-bcgait4-phasedir9-longrun17-cont1",
@@ -116985,7 +116988,10 @@
         ]
       }
     ],
-    "checkup_resolution": "SUSPECT false alarm (same class as term400-noamp-rr1): log confirms clean completion, 4,000,000 steps in 498s, checkpoint saved + W&B artifact synced (run 2a1q668g). Ledger flipped INTENT->FINISHED manually; W&B had already ended before checkup polled it -- a finish/poll race, not a real failure."
+    "checkup_resolution": "SUSPECT false alarm (same class as term400-noamp-rr1): log confirms clean completion, 4,000,000 steps in 498s, checkpoint saved + W&B artifact synced (run 2a1q668g). Ledger flipped INTENT->FINISHED manually; W&B had already ended before checkup polled it -- a finish/poll race, not a real failure.",
+    "verdict": "Dose 2/3 (log-std-final=-4.0, std=0.018) of the sto-tightening grid on longrun17. Joygate: FAIL by slip_ok only -- slip_per_m_med 2.94 narrowly misses the 2.9 cap (dir_err_med 39.01deg clears the 40deg allow). Zero falls, gait_valid 48/48, no sacrificed legs, clean video. Non-monotone vs dose 1 (slip rose 2.849->2.94) even though std kept dropping -- dose alone is not a clean monotone slip predictor at this range, but dir_err did improve monotonically (40.72->39.01). Sibling stotight45 (lower std still) is the deciding dose.",
+    "hardware_ready": "no",
+    "triage": "done"
   },
   {
     "run": "cw-amp-m2-freeprog-term400-style05-v2",
@@ -117309,7 +117315,10 @@
         "log_tail": "oll_deg 1.9291\nwandb:           env/bc_mode 3\nwandb:     env/height_err_mm 28.70573\nwandb:         env/height_mm 28.7045\nwandb:     env/height_ref_mm 0\nwandb:     env/max_current_a 1.19732\nwandb:    env/mean_current_a 0.44202\nwandb:                  +104 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-dep-bcgait4-phasedir9-longrun17-stotight45 at: https://wandb.ai/l2k2/hexapod-balance/runs/ib0mwcru\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 4 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260822_160950-ib0mwcru/logs\n"
       }
     ],
-    "checkup_resolution": "DEAD verdict was a false alarm (checkup polled after the trainer process had already exited cleanly): log confirms 4,000,000 steps in 456s, checkpoint ppo_goal_cw_dep_bcgait4_phasedir9_longrun17_stotight45.zip saved + W&B artifact synced (run ib0mwcru), no traceback. Ledger flipped RUNNING->FINISHED manually."
+    "checkup_resolution": "DEAD verdict was a false alarm (checkup polled after the trainer process had already exited cleanly): log confirms 4,000,000 steps in 456s, checkpoint ppo_goal_cw_dep_bcgait4_phasedir9_longrun17_stotight45.zip saved + W&B artifact synced (run ib0mwcru), no traceback. Ledger flipped RUNNING->FINISHED manually.",
+    "verdict": "PASS \u2014 FIRST full randomized 60s joystick DONE-gate pass on the track (versioned evaluator pass=true): 48/48 zero falls, gait_valid 48/48, no sacrificed legs, combined slip 2.671 (cap 2.9), dir_err 38.6deg (allow 40), and EVERY mode individually under caps (dr0 det 2.554/37.6, dr0 sto 2.660/39.4, ownDR det 2.605/38.7, ownDR sto 2.859/39.7). Sto slip fixed 4.0->2.66-2.86 by the -4.5 log-std-final dose, monotonic across the grid (prediction-if-true fired). Videos watched (video-joygate rerun, 4 strips both DR det+sto): clean 6-leg alternating gait. Caveats recorded: det softened vs longrun17 (session det slip 2.30->2.55, dir 34.7->37.6, still under caps; 15s rung prog 1.02x->0.85x clone) so the arm's own det-no-regression clause is only loosely met; own-DR sto margins thin (2.859/2.9, 39.7/40). md5 pod=controller 9fb86d18.",
+    "hardware_ready": "yes",
+    "triage": "done"
   },
   {
     "run": "cw-amp-m2-freeprog-term400-stylew2-v2",
@@ -119032,7 +119041,7 @@
       "train.bc_anchor_min_h_ahead_mm=15"
     ],
     "created": "2026-08-22T16:42:31+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -119075,7 +119084,8 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-stand-footlow2-plant150-2c-heightfix since 2026-08-22T16:58:56"
+    "triage": "done",
+    "verdict": "FAIL exactly on the pre-registered branch: RSI-start rise stays pinned at 22-29mm height error (det rsi 0/3, sto rsi 0/2) after 10M MORE steps, zero movement; bridge/crouch/flat held steady at the run's own corrected baseline (det 3/6, sto 4/6), no regression. Reward flattened after Q1 (120.6->201.1->198.1->200.6) matching reward-flat+eval-flat = stuck mechanism, not undertraining. ROOT-CAUSED (not just re-verdicted): sim_env.py's RSI height-schedule rewrite anchored the ABSOLUTE target to the reference npz's OWN recorded final height (ref['h'][-1]=110.96mm), which is stale pre-tibia-150 data -- the same q_rad trajectory settles at 131.94mm on the current sim (CURRENT_TRUTHS rise_valid_plant finding), a ~21mm gap matching the observed error almost exactly. Every RSI episode was being trained toward a target ~21mm below the real goal.rise_height_mm window -- misalignment, not an unlearnable motion. FIXED: anchor to the episode's own live-cfg target height, use the reference only for fractional progress at the spawn point (rl_move/sim/sim_env.py); 2 new regression tests added (test_rise_rsi_height_target.py, both PASS) + full bank re-run clean (159 pass, only the pre-existing known-red fastprof fails, unrelated). Follow-up: cw-stand-footlow2-plant150-3-rsifix continues from this checkpoint with the fix live."
   },
   {
     "run": "cw-amp-m2-freeprog-term400-fixedcmd",
@@ -119550,7 +119560,7 @@
       "reward.k_walk_swing=1.0"
     ],
     "created": "2026-08-22T17:13:09+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -119578,7 +119588,15 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:amp PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-amp-m2-freeprog-term400-swing-style05 --steps 2000000 --task joint_walk --asym-critic --n-envs 4096 --impl warp --host-workers 24 --episode-seconds 15 --eval-every 1000000 --video-every 2000000 --no-canary --seed 7 --amp-style-weight 0.5 --amp-task-weight 0.5 --amp-disc-steps 4 --amp-disc-batch 512 --amp-gp-weight 10.0 --amp-replay 500000 --cfg-set goal.walk_cmd_mode=stress_mix --cfg-set goal.walk_speed_min_m_s=0.0 --cfg-set goal.walk_speed_max_m_s=0.25 --cfg-set goal.walk_yaw_cmd=1 --cfg-set goal.walk_yaw_max_rad_s=0.5 --cfg-set goal.walk_yaw_zero_frac=0.15 --cfg-set goal.walk_cmd_resample_s=1.75 --cfg-set goal.walk_cmd_resample_jitter=0.714 --cfg-set goal.walk_cmd_blend_s_min=0.05 --cfg-set goal.walk_cmd_blend_s_max=1.0 --cfg-set goal.walk_stop_frac=0.15 --out-name ppo_goal_cw_amp_m2_freeprog_term400_swing_style05 --notes 'respec of cw-amp-m2-freeprog-term400-style05-v2: Style-vs-control twin to cw-amp-m2-freeprog-term400-swing-noamp: does the AMP style channel (teacher_v2 lib, 0.5/0.5, the already-verdicted-FAIL style05-v2 config) add anything ON TOP of the new k_walk_swing income gradient, now that command complexity, term-penalty, std-anneal, staging, style-dose, and RSI are all closed as levers for this statue and swing is the first mechanism to raise real-gait income in the bank (see swing-noamp'\"'\"'s hypothesis for the full ladder + bank numbers)? Single lever vs cw-amp-m2-freeprog-term400-style05-v2 (FAIL, statue): reward.k_walk_swing=1.0, everything else (teacher_v2 lib, style/task 0.5/0.5, term_penalty=400) unchanged. Prediction-if-true: this arm'\"'\"'s fwd travel clears noticeably ABOVE its swing-noamp twin'\"'\"'s -- the style channel supplies coordination (which LEG to swing, alternating tripod phase) that a direction-agnostic swing bonus alone cannot, so AMP + swing complement each other. Prediction-if-false: both swing arms land at the same fwd-travel reading -- swing supplies the whole gradient and AMP'\"'\"'s contribution to this family stays unproven at this pricing/budget. Same pre-registered single-leg-farm cheat to watch as the noamp twin, PLUS AMP'\"'\"'s own pre-registered cheat (in-place teacher mimicry at style_reward_mean pinned near 1.0 -- did not fire in style05-v2/stylew2-v2, watch again here since the swing bonus changes what states get visited).' --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_park_duty=2.0 --cfg-set reward.k_walk_freeprog=3.0 --cfg-set reward.walk_freeprog_cap_m_s=0.05 --cfg-set reward.walk_loadslip_gate=0.0 --cfg-set reward.loadslip_ok=1.5 --cfg-set reward.k_loadslip_excess=6.0 --cfg-set reward.walk_gait_gate=1.0 --cfg-set reward.k_walk_idle_charge=20.0 --cfg-set reward.walk_idle_speed_m_s=0.02 --cfg-set reward.walk_idle_tau_s=1.0 --cfg-set goal.walk_pure=1.0 --cfg-set reward.term_penalty=400.0 --amp-motion-lib rl_move/sim/motion_library/teacher_v2.npz --cfg-set reward.k_walk_swing=1.0 > /tmp/train_cw-amp-m2-freeprog-term400-swing-style05.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-amp-m2-freeprog-term400-swing-style05.log",
     "wandb_id": "3zpdrkdn",
-    "verified": "2026-08-22T17:16:25+00:00"
+    "verified": "2026-08-22T17:16:25+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-22T17:21:38+00:00",
+        "process_alive": false,
+        "verdict": "FINISHED_BEFORE_CHECKUP",
+        "log_tail": "eal_mean 0.78827\nwandb:      amp/disc_updates 124\nwandb:                amp/gp 0.00762\nwandb:              amp/loss 0.1341\nwandb: amp/pairs_per_rollout 65334\nwandb:        amp/replay_len 500000\nwandb: amp/style_reward_mean 0.05823\nwandb:                  +103 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-amp-m2-freeprog-term400-swing-style05 at: https://wandb.ai/l2k2/hexapod-balance/runs/3zpdrkdn\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 3 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260822_171401-3zpdrkdn/logs\n"
+      }
+    ]
   },
   {
     "run": "cw-amp-m2-freeprog-term400-swing-noamp",
@@ -119664,7 +119682,7 @@
       "reward.k_walk_swing=1.0"
     ],
     "created": "2026-08-22T17:14:52+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -119692,6 +119710,14 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:amp PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-amp-m2-freeprog-term400-swing-noamp --steps 2000000 --task joint_walk --asym-critic --n-envs 4096 --impl warp --host-workers 24 --episode-seconds 15 --eval-every 1000000 --video-every 2000000 --no-canary --seed 7 --cfg-set goal.walk_cmd_mode=stress_mix --cfg-set goal.walk_speed_min_m_s=0.0 --cfg-set goal.walk_speed_max_m_s=0.25 --cfg-set goal.walk_yaw_cmd=1 --cfg-set goal.walk_yaw_max_rad_s=0.5 --cfg-set goal.walk_yaw_zero_frac=0.15 --cfg-set goal.walk_cmd_resample_s=1.75 --cfg-set goal.walk_cmd_resample_jitter=0.714 --cfg-set goal.walk_cmd_blend_s_min=0.05 --cfg-set goal.walk_cmd_blend_s_max=1.0 --cfg-set goal.walk_stop_frac=0.15 --out-name ppo_goal_cw_amp_m2_freeprog_term400_swing_noamp --notes 'respec of cw-amp-m2-freeprog-term400-noamp: Give the from-scratch statue basin a genuinely accessible income gradient: reward.k_walk_swing pays a one-shot bonus for ANY completed lift-off->airborne->touchdown swing of >=15mm, in ANY direction (unlike k_step_event, which only pays swings that already project >=10mm along the commanded direction -- useless to a policy that has never lifted a foot at all). Every other lever for this statue is now closed: term_penalty (fixed suicide only), std-anneal (made the SAME basin more regular, not less stuck), stage curriculum (0/6 gait_valid even at stage-0 forward-only), style-weight dose 0.5x-2.0x (both statued, indistinguishable from -noamp), command complexity (the bank'\"'\"'s own literal simplest fixed-command case still statues, cw-amp-m2-freeprog-term400-fixedcmd{,-seed11}), and RSI-for-walk (goal.walk_gait_start_frac, refuted for this exact failure signature by cw-gait-rsi1 08-12 -- not re-tested). Single lever vs cw-amp-m2-freeprog-term400-noamp (FAIL, statue): reward.k_walk_swing=1.0. Bank-checked BEFORE this launch (test_task_semantics.py SLIPWALK_SWING_OVERRIDES, 11/11 new+existing PASS, zero regressions vs the 152-pass/1-known-fastprof-red baseline): real gait/creep income rises ~11-23% (558->622, 103->126) while every stationary twin (stall, park, skate) and a realistic farming twin I added (shuffle: a genuine coordinated six-leg tripod gait reversing direction every 0.6s, ~0 net travel despite real strides both ways) stay priced BELOW park -- so the mechanism does not reopen a known stationary-cheat exploit. Pre-registered NEW cheat to watch (no scripted twin could be made to trigger it, so this is a live-monitoring flag, not a bank-cleared risk): a single-leg farm pattern (one leg cycling in place, five legs sacrificed/static, env/reward_swing consistently >0 while det fwd travel stays ~0) -- if seen, it must be banked and fixed (e.g. gate k_walk_swing by the SAME six-leg walk_gait_gate MIN factor already used for velocity income) before any follow-up dose arm. Prediction-if-true: det fwd travel clears meaningfully above the 0.02-0.03m statue floor (even short of the 0.10m PASS bar counts as informative -- ANY real six-leg cycling with net travel v.s. every prior arm'\"'\"'s 0/6 gait_valid) and env/reward_walk_freeprog_pen finally leaves its -1.4 to -1.5/tick floor. Prediction-if-false: statue persists identically (reward_swing stays ~0, meaning even a direction-agnostic bonus finds no exploitable gradient from this exact initialization) -- then the exploration barrier is deeper than any per-tick income shape and the next lever is a structural one (BC-init is off-limits by the track'\"'\"'s from-scratch charter; next would be a stance-load/support-polygon curriculum or reducing to a 2-leg/4-leg sub-task).' --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_park_duty=2.0 --cfg-set reward.k_walk_freeprog=3.0 --cfg-set reward.walk_freeprog_cap_m_s=0.05 --cfg-set reward.walk_loadslip_gate=0.0 --cfg-set reward.loadslip_ok=1.5 --cfg-set reward.k_loadslip_excess=6.0 --cfg-set reward.walk_gait_gate=1.0 --cfg-set reward.k_walk_idle_charge=20.0 --cfg-set reward.walk_idle_speed_m_s=0.02 --cfg-set reward.walk_idle_tau_s=1.0 --cfg-set goal.walk_pure=1.0 --cfg-set reward.term_penalty=400.0 --cfg-set reward.k_walk_swing=1.0 > /tmp/train_cw-amp-m2-freeprog-term400-swing-noamp.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-amp-m2-freeprog-term400-swing-noamp.log",
     "wandb_id": "a88hxqac",
-    "verified": "2026-08-22T17:18:10+00:00"
+    "verified": "2026-08-22T17:18:10+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-22T17:23:39+00:00",
+        "process_alive": false,
+        "verdict": "FINISHED_BEFORE_CHECKUP",
+        "log_tail": "\nwandb:       env/height_mm -73.01802\nwandb:   env/height_ref_mm 0\nwandb:   env/max_current_a 1.65035\nwandb:  env/mean_current_a 0.471\nwandb: env/pct_within_1deg 0.07349\nwandb:   env/pitch_ref_deg 0\nwandb:   env/reward_action -0.01358\nwandb:                 +92 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-amp-m2-freeprog-term400-swing-noamp at: https://wandb.ai/l2k2/hexapod-balance/runs/a88hxqac\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 3 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260822_171545-a88hxqac/logs\n"
+      }
+    ]
   }
 ]

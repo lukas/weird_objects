@@ -1,14 +1,30 @@
 # joystick - RL from the programmatic gait to joystick control
 
-Last updated: 2026-08-22 (~17:1x: RAMP LEVER CLASS CLOSED — the
-4-arm allowramp2{slow,wide}-seed{23,29} grid verdicted: 3 arms worse
-on both clone-relative axes, 1 (slow29) a noise-edge nominal
-improver; no dose generalizes across seeds, best-ever ramp reading
-0.830x still far from the 0.9x gate. Judgment closure, not the
-literal 0-for-4 trigger — see Next item 3. Redirect: stotight sto
-dose grid (evals manually launched — the 16:18 FINISHED-flip
-bypassed watcher prestage; TRIAGE NEXT CYCLE) then item (b)
-matched-timing stance-slip.)
+Last updated: 2026-08-22 (~17:3x: **DONE GATE PASSED FOR THE FIRST
+TIME** — `cw-dep-bcgait4-phasedir9-longrun17-stotight45` (fresh
+reinit of the longrun17 recipe, only `--log-std-final` -3.2 -> -4.5,
+final std 0.011) passes the full randomized 60s joystick session
+gate: versioned evaluator pass=true, n=48 held-out episodes, ZERO
+falls, gait_valid 48/48, no sacrificed legs, combined slip 2.671
+(cap 2.9), dir_err 38.6deg (allow 40), and every mode individually
+under caps (worst: own-DR sto slip 2.859). Sto slip fell
+monotonically across the -3.6/-4.0/-4.5 dose grid (own-DR 15s-panel
+3.00/2.87/2.48; siblings near-miss the session gate at 40.7deg dir /
+2.94 slip). Videos watched (video-joygate rerun, det+sto, both DR):
+clean upright six-leg alternating gait. Honest caveats: det softened
+vs longrun17 (session det slip 2.30->2.55, dir 34.7->37.6, still
+under caps; 15s rung prog 1.02x->0.85x clone) — the expected
+noise-floor trade; own-DR sto margins thin. Checkpoint
+`ppo_goal_cw_dep_bcgait4_phasedir9_longrun17_stotight45.zip` pulled
+to controller, md5 9fb86d18 pod==controller. PROMOTION + formal
+gate-green declaration flagged for operator confirmation
+(OPERATOR_QUESTIONS q_20260822T1730Z); q_20260822T1520Z's assumed
+answer (sto gap is a policy property fixable by dose) is CONFIRMED.
+Same cycle: RAMP LEVER CLASS CLOSED — the 4-arm
+allowramp2{slow,wide}-seed{23,29} grid verdicted 3x worse-on-both-
+axes + 1 noise-edge nominal improver (slow29); no dose generalizes
+across seeds; judgment closure, not the literal 0-for-4 trigger —
+see Next item 3.)
 
 Previous entry (08-22): (`-longrun17-cont1` VERDICTED FAIL on its
 pre-registered prediction-if-false: the +4M continuation with std

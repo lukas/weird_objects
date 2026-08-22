@@ -1549,4 +1549,39 @@ Entry format (append; newest last; update status in place):
   as an excuse; promotion stays blocked until a full det+sto pass OR
   an explicit operator ruling that det-primary + sto-zero-falls
   (which longrun17 already meets) is the deployment-honest bar.
+- RESOLVED BY MEASUREMENT 08-22 ~17:3x (no operator ruling needed):
+  the assumed answer was right — the sto gap WAS a policy property
+  fixable by dose. `longrun17-stotight45` (log-std-final -4.5)
+  passes the full det+sto gate as written (see q_20260822T1730Z).
+  No gate edit was ever made. Question CLOSED.
+- ANSWER (operator): _
+
+## q_20260822T1730Z — joystick DONE gate PASSED by stotight45: confirm promotion + gate-green (assume-and-go, cycle c0822-allowramp2grid)
+
+- context: `cw-dep-bcgait4-phasedir9-longrun17-stotight45` (the
+  longrun17 recipe re-init with --log-std-final -4.5, std 0.011)
+  PASSES the full pre-registered 60s randomized joystick DONE gate:
+  evaluator pass=true, n=48 held-out episodes, zero falls 48/48,
+  gait_valid 48/48, slip 2.671 <= 2.9, dir 38.6 <= 40, every mode
+  individually under caps, det+sto, DR-0 + own-DR 0.35; videos
+  watched (clean six-leg gait). Sibling doses -3.6/-4.0 near-miss;
+  sto slip is monotone in the noise floor, confirming the mechanism.
+  Caveats: det slightly softer than longrun17 (2.30->2.55 slip,
+  still under caps; 15s-rung prog 0.85x clone), own-DR sto margins
+  thin (2.859/2.9, 39.7/40), legacy bc_anchor_knee_abs dialect,
+  phase-obs (+2 dims) runner contract.
+- the question: (a) confirm formal PROMOTION of stotight45 as the
+  joystick champion (your earlier longrun17 promotion was
+  pass-gated on exactly this gate, now met by its sibling); (b)
+  confirm the joystick track gate reads GREEN on this single-policy
+  panel as pre-registered, or name any additional bar (e.g. an
+  independent seed reproduction, a wider margin on own-DR sto, or a
+  live Mac-viewer acceptance like you did for longrun17).
+- assumed answer (acting on it): the gate text is met as written, so
+  the track's status docs record "first DONE-gate PASS / champion
+  candidate, promotion pending operator confirmation" — we do NOT
+  unilaterally declare the track finished; meanwhile the fleet keeps
+  hardening honestly toward margin (nothing in flight yet — next
+  cycles may fund a seed-repro of the stotight45 recipe and/or a
+  margin arm ONLY if they name a concrete gap, per no-filler rules).
 - ANSWER (operator): _

@@ -37,6 +37,25 @@ out-of-scope runs get honest triage but no agent follow-ups.
 
 ## Facts that feed the two tracks
 
+- **JOYSTICK DONE GATE: FIRST MEASURED PASS (08-22 ~17:3x)** —
+  `cw-dep-bcgait4-phasedir9-longrun17-stotight45` (longrun17 recipe,
+  fresh reinit, single change `--log-std-final` -3.2 -> -4.5, final
+  std 0.011) passes the versioned 60s randomized session gate
+  (`eval_joystick_gate`, held-out stress_mix, n=48, det+sto, DR-0 +
+  own-DR 0.35): pass=true, zero falls 48/48, gait_valid 48/48, no
+  sacrificed legs, combined slip 2.671 <= 2.9, dir 38.6 <= 40, every
+  mode individually under caps (thinnest: own-DR sto slip 2.859).
+  Root cause of the old sto failure CONFIRMED as trained-noise-floor
+  slip: sto slip fell monotonically across the -3.6/-4.0/-4.5 dose
+  grid; siblings near-miss (dir 40.7 / slip 2.94). Trade recorded:
+  det softened vs longrun17 (session det slip 2.30->2.55, 15s rung
+  prog 1.02x->0.85x clone) but stays under every cap. Videos watched
+  (det+sto, both DR): clean six-leg gait. Checkpoint on controller,
+  md5 9fb86d18. Promotion/formal gate-green declaration awaiting
+  operator confirmation (q_20260822T1730Z); until then treat
+  stotight45 as the track's champion candidate — champions
+  append-only.
+
 - The scripted tripod teacher is verified clean at the measured
   tibia-150 plant (commit a4beb8af): 0.06-0.10 m/s x 4 headings, zero
   falls, slip/m 1.4-2.9, full fast servo profile. It is the joystick
