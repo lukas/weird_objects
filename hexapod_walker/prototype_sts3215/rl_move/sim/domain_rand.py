@@ -230,6 +230,24 @@ class RandRanges:
     ext_push_n: tuple[float, float] = (10.0, 25.0)       # peak |force| N
     ext_push_dur_s: tuple[float, float] = (0.15, 0.4)    # pulse duration
     ext_push_start_s: tuple[float, float] = (1.5, 9.0)   # delay from ep start
+    # REPEATED pushes (M3 brief bar: "recovers from moderate pushes",
+    # plural -- the mechanism above draws exactly ONE pulse/episode).
+    # ext_push_repeat_max=1 (default) is the original single-push
+    # behavior, byte-for-byte: the repeat-sampling branch below is only
+    # entered when repeat_max>1, so it draws zero extra rng numbers and
+    # stays bit-exact at the default. >1 draws that many independent
+    # pulses (peak/dur/direction each redrawn from the SAME dose menus
+    # above) spaced out in time so each one lands on a policy that has
+    # had a chance to recover from the last: the Nth pulse starts
+    # ext_push_gap_s after the (N-1)th ends, and sampling stops early
+    # (fewer than repeat_max pulses that episode) once the next start
+    # would land past ext_push_horizon_s -- a short/fast episode simply
+    # gets fewer pulses rather than one crammed against the end. Same
+    # convention as every dose menu here: this is a curriculum DOSE,
+    # not scaled by DomainRandomizer.scaled(s) (only ext_push_prob is).
+    ext_push_repeat_max: int = 1
+    ext_push_gap_s: tuple[float, float] = (1.0, 3.0)
+    ext_push_horizon_s: float = 13.0
 
     def scaled(self, s: float) -> "RandRanges":
         """Curriculum knob: shrink every range toward nominal by ``s``.
@@ -307,6 +325,9 @@ class RandRanges:
             ext_push_n=self.ext_push_n,
             ext_push_dur_s=self.ext_push_dur_s,
             ext_push_start_s=self.ext_push_start_s,
+            ext_push_repeat_max=self.ext_push_repeat_max,
+            ext_push_gap_s=self.ext_push_gap_s,
+            ext_push_horizon_s=self.ext_push_horizon_s,
         )
 
 
@@ -376,6 +397,12 @@ class EpisodeRandomization:
     ext_push_dur_s: float = 0.0
     ext_push_start_s: float = 0.0
     ext_push_dir_rad: float = 0.0
+    # REPEATED pushes (dr.ext_push_repeat_max, see RandRanges): extra
+    # pulses beyond the first, each a (peak_n, dur_s, start_s, dir_rad)
+    # tuple in the same units/convention as the four fields above.
+    # Empty by default -- bit-exact no-op whenever repeat_max<=1 (the
+    # default), since sample() only ever appends here when repeat_max>1.
+    ext_push_extra: tuple[tuple[float, float, float, float], ...] = ()
 
     def fault_health(self) -> np.ndarray:
         """(18,) health vector per AMP brief §8.2: 1.0 healthy, 0.0
@@ -622,11 +649,29 @@ class DomainRandomizer:
         # (ext_push_prob=0 keeps the legacy rng stream bit-exact).
         ext_push, ext_push_dur, ext_push_start, ext_push_dir = (
             0.0, 0.0, 0.0, 0.0)
+        ext_push_extra: tuple[tuple[float, float, float, float], ...] = ()
         if r.ext_push_prob > 0.0 and rng.random() < r.ext_push_prob:
             ext_push = float(u(*r.ext_push_n))
             ext_push_dur = float(u(*r.ext_push_dur_s))
             ext_push_start = float(u(*r.ext_push_start_s))
             ext_push_dir = float(u(0.0, 2.0 * math.pi))
+            # Repeated pushes (dr.ext_push_repeat_max): only entered
+            # when >1, so the default draws zero extra rng numbers and
+            # stays bit-exact. See RandRanges.ext_push_repeat_max.
+            if r.ext_push_repeat_max > 1:
+                extras = []
+                prev_end = ext_push_start + ext_push_dur
+                for _ in range(r.ext_push_repeat_max - 1):
+                    gap = float(u(*r.ext_push_gap_s))
+                    start_i = prev_end + gap
+                    dur_i = float(u(*r.ext_push_dur_s))
+                    if start_i + dur_i > r.ext_push_horizon_s:
+                        break
+                    peak_i = float(u(*r.ext_push_n))
+                    dir_i = float(u(0.0, 2.0 * math.pi))
+                    extras.append((peak_i, dur_i, start_i, dir_i))
+                    prev_end = start_i + dur_i
+                ext_push_extra = tuple(extras)
 
         return EpisodeRandomization(
             mass_scale=u(*r.mass_scale),
@@ -678,4 +723,5 @@ class DomainRandomizer:
             ext_push_dur_s=ext_push_dur,
             ext_push_start_s=ext_push_start,
             ext_push_dir_rad=ext_push_dir,
+            ext_push_extra=ext_push_extra,
         )

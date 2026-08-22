@@ -85,7 +85,7 @@ def _make_teacher(teacher: str, period_scale: float = 1.0):
 
 def collect(episodes: int, seed0: int, noise: float = 0.05,
             teacher: str = "tripod", stack: dict | None = None,
-            period_scale: float = 1.0,
+            period_scale: float = 1.0, drive_omega: bool = False,
             ) -> tuple[np.ndarray, np.ndarray, object]:
     """Roll the scripted gait under the env's OWN sampled walk goals
     (dep-contract obs, DR off) and record (obs_t, scripted_action_t).
@@ -95,21 +95,52 @@ def collect(episodes: int, seed0: int, noise: float = 0.05,
     dataset covers slightly-off-cycle states and teaches the clone to
     steer BACK to the gait. Without it the pure clone walks tall but
     collapses to the mean pose in closed loop (measured 08-11: 11 mm
-    travel over a 15 s / 825 mm command)."""
+    travel over a 15 s / 825 mm command).
+
+    drive_omega (BC-turn-clone, amp M2-yaw, 08-22): every prior BC
+    clone called ``gait.set_velocity(vx=.., vy=..)`` and NEVER passed
+    the teacher's own ``omega`` channel (TripodGait/NoSlipGait both
+    accept it, computing the standard per-leg
+    ``v = v_lin +/- omega x r`` turn-in-place kinematics) even when the
+    env's sampled goal carried a nonzero ``wz_ref`` (``goal.walk_yaw_cmd
+    =1``) — the clone was demonstrated ONLY straight-line gaits, so
+    every downstream RL arm had to invent turning from a zero-omega
+    prior with no BC anchor to help it, and never did (tip50/tip90:
+    park at ~|wz_ref| regardless of exposure dose or the phase-clock
+    fix). Measured directly (probe, 08-22): the raw teacher at
+    omega=+/-0.3 rad/s achieves ~0.15-0.19 rad/s body wz in this sim
+    (45-65% realization, matching the pre-existing DRIFT_RIDE_WZ
+    calibration of ~40% while translating) — a real, correctly-signed,
+    non-trivial turning motor pattern no trained policy has ever come
+    close to. With drive_omega=True, ``goal.walk_yaw_cmd=1`` MUST be
+    set in ``stack`` (so ``env._goal_traj.wz`` exists) and
+    ``goal.walk_phase_run_on_yaw=1`` SHOULD be set too (else the
+    phase-obs clock this loop reads back to derive ``t_gait`` freezes
+    during pure-turn segments (vx=vy=0), which would replay a single
+    gait instant forever instead of a real stepping cycle during those
+    segments — the exact tip-clock defect this lever exists to
+    route around). Default False = every existing call site
+    (bc_init_gait's own CLI default, every caller in the codebase)
+    stays bit-for-bit unchanged."""
     if stack is None:
         stack = STACKS["vref1"]
     # With goal.walk_phase_obs=1 the env appends [sin, cos] of its walk
-    # phase clock at the obs tail (walk_task._augment_obs; requires
-    # walk_yaw_cmd / mode_onehot OFF so the tail really is the phase).
-    # The teacher's clock is then derived FROM that obs by unwrapping
-    # the angle — exact alignment with the env clock by construction,
-    # including the settle hold / park prefixes where the env clock
-    # freezes (it only advances while a velocity is commanded). This is
-    # what makes the clock-driven gait expressible for BC at all: the
-    # policy sees the same phase the teacher acts on. Set
-    # goal.walk_phase_hz = 1 / gait period so one clock revolution is
-    # one gait cycle (the sin/cos <-> phase map must be one-to-one per
-    # cycle for the feature to disambiguate).
+    # phase clock at the obs tail (walk_task._augment_obs). If
+    # goal.walk_yaw_cmd=1 is ALSO set, one more feature (wz_ref) is
+    # appended AFTER the phase pair, so the phase moves from
+    # obs[-2:] to obs[-3:-1] -- handled below via _phase_tail_off.
+    # obs.mode_onehot stacking further after that is NOT supported by
+    # this collector (fail closed rather than silently mis-index).
+    if float(stack.get(("obs", "mode_onehot"), 0.0)) != 0.0:
+        raise SystemExit(
+            "bc_init_gait.collect(): obs.mode_onehot is not supported "
+            "together with goal.walk_phase_obs (tail-index ambiguity)")
+    yaw_cmd_on = float(stack.get(("goal", "walk_yaw_cmd"), 0.0)) == 1.0
+    _phase_tail_off = 1 if yaw_cmd_on else 0
+    if drive_omega and not yaw_cmd_on:
+        raise SystemExit(
+            "--drive-omega requires goal.walk_yaw_cmd=1 in the stack "
+            "(env._goal_traj.wz would otherwise be None)")
     phase_obs = float(stack.get(("goal", "walk_phase_obs"), 0.0)) == 1.0
     if phase_obs and not teacher.startswith("noslip"):
         # The phase-obs <-> teacher-clock coupling (docstring above)
@@ -140,7 +171,10 @@ def collect(episodes: int, seed0: int, noise: float = 0.05,
         phase_prev = 0.0
         while True:
             if phase_obs:
-                phase = float(np.arctan2(obs[-2], obs[-1]))
+                off = _phase_tail_off
+                sin_i = len(obs) - 2 - off
+                cos_i = len(obs) - 1 - off
+                phase = float(np.arctan2(obs[sin_i], obs[cos_i]))
                 d = phase - phase_prev
                 if d < -np.pi:
                     d += 2.0 * np.pi
@@ -154,7 +188,13 @@ def collect(episodes: int, seed0: int, noise: float = 0.05,
             else:
                 t_gait = step * env.dt
             i = min(step, n - 1)
-            gait.set_velocity(vx=float(traj.vx[i]), vy=float(traj.vy[i]))
+            if drive_omega:
+                wz_i = float(traj.wz[i]) if traj.wz is not None else 0.0
+                gait.set_velocity(vx=float(traj.vx[i]),
+                                   vy=float(traj.vy[i]), omega=wz_i)
+            else:
+                gait.set_velocity(vx=float(traj.vx[i]),
+                                   vy=float(traj.vy[i]))
             act = q_rad_to_action(
                 np.asarray(gait.desired_deg(t_gait)) * DEG2RAD)
             obs_rows.append(np.asarray(obs, dtype=np.float32).copy())
@@ -188,6 +228,16 @@ def main() -> None:
                          "body speed). Tripod teacher only; with "
                          "goal.walk_phase_obs=1 collect() enforces "
                          "goal.walk_phase_hz = 1/(0.75*scale)")
+    ap.add_argument("--drive-omega", action="store_true",
+                    help="BC-turn-clone (amp M2-yaw, 08-22): drive the "
+                         "teacher's native TripodGait/NoSlipGait omega "
+                         "channel from the env's own sampled wz_ref, so "
+                         "the clone is demonstrated real turning, not "
+                         "just straight-line gaits. Requires --set "
+                         "goal.walk_yaw_cmd=1 (and goal.walk_phase_run_"
+                         "on_yaw=1 to keep the phase clock advancing "
+                         "during turn-in-place segments). Default off "
+                         "= bit-exact legacy collection.")
     ap.add_argument("--episodes", type=int, default=60)
     ap.add_argument("--epochs", type=int, default=80)
     ap.add_argument("--batch", type=int, default=1024)
@@ -236,10 +286,12 @@ def main() -> None:
           + (f" +{len(args.sets)} overrides" if args.sets else "")
           + (f", period_scale={args.tripod_period_scale}"
              if args.tripod_period_scale != 1.0 else "")
+          + (", drive_omega=1" if args.drive_omega else "")
           + ", dep-contract obs, DR off)...")
     X, Y, env = collect(args.episodes, args.seed, teacher=args.teacher,
                         stack=stack,
-                        period_scale=args.tripod_period_scale)
+                        period_scale=args.tripod_period_scale,
+                        drive_omega=args.drive_omega)
     print(f"dataset: {X.shape[0]} pairs, obs {X.shape[1]}, act {Y.shape[1]}")
 
     # Fresh PPO with the trainer's EXACT policy shape (train_ppo_sim:

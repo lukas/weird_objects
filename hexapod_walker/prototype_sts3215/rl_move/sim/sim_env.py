@@ -846,25 +846,32 @@ class SimHexapodBalanceEnv(_GymBase):
         world-frame, half-sine ramped like every pulse in this file.
         Unlike ``_walk_push_torque_nm`` (a fixed roll TORQUE confined to
         the first ~1.5s that reproduces the hardware TAKEOFF wobble),
-        this fires once at a random point LATER in a walk-mode episode
-        on a policy that is already walking -- the actual "shove it
-        mid-stride and see if it recovers" test. Stateless per tick
-        (pure function of _ep_rand + _step_i); zero outside its window
-        -> pool-restore safe, same as its sibling."""
+        this fires once (or, with dr.ext_push_repeat_max>1, several
+        times -- see EpisodeRandomization.ext_push_extra) at random
+        point(s) LATER in a walk-mode episode on a policy that is
+        already walking -- the actual "shove it mid-stride and see if
+        it recovers" test. Stateless per tick (pure function of
+        _ep_rand + _step_i); zero outside every pulse's window ->
+        pool-restore safe, same as its sibling. The pulses are sampled
+        non-overlapping (see domain_rand.sample), so at most one term
+        is ever nonzero -- summing is just the simplest way to combine
+        them without a branch per pulse."""
         er = self._ep_rand
-        if (er is None or er.ext_push_peak_n == 0.0
-                or er.ext_push_dur_s <= 0.0
-                or self._goal_traj is None
+        if (er is None or self._goal_traj is None
                 or getattr(self._goal_traj, "mode", "") != "walk"):
             return (0.0, 0.0)
         t = self._step_i * self.dt
-        t0 = er.ext_push_start_s
-        if t < t0 or t >= t0 + er.ext_push_dur_s:
-            return (0.0, 0.0)
-        mag = er.ext_push_peak_n * math.sin(
-            math.pi * (t - t0) / er.ext_push_dur_s)
-        return (mag * math.cos(er.ext_push_dir_rad),
-                mag * math.sin(er.ext_push_dir_rad))
+        fx = fy = 0.0
+        for peak, dur, t0, ang in (
+                (er.ext_push_peak_n, er.ext_push_dur_s,
+                 er.ext_push_start_s, er.ext_push_dir_rad),
+                *er.ext_push_extra):
+            if peak == 0.0 or dur <= 0.0 or t < t0 or t >= t0 + dur:
+                continue
+            mag = peak * math.sin(math.pi * (t - t0) / dur)
+            fx += mag * math.cos(ang)
+            fy += mag * math.sin(ang)
+        return (fx, fy)
 
     def _advance(self, *, limp: bool = False) -> None:
         assert self._profile is not None

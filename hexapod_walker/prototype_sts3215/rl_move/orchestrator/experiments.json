@@ -129241,7 +129241,7 @@
       "goal.walk_phase_run_on_yaw=1"
     ],
     "created": "2026-08-22T23:18:43+00:00",
-    "status": "FINISHED",
+    "status": "FAIL",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -129278,7 +129278,9 @@
         "verdict": "FINISHED_BEFORE_CHECKUP",
         "log_tail": "63712\nwandb:      amp/disc_updates 124\nwandb:                amp/gp 0.01015\nwandb:              amp/loss 0.22888\nwandb: amp/pairs_per_rollout 65340\nwandb:        amp/replay_len 500000\nwandb: amp/style_reward_mean 0.1635\nwandb:                  +102 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-amp-m2-bcinit-sec5-style05-yawcmd-tip50-clockyaw at: https://wandb.ai/l2k2/hexapod-balance/runs/n8lu3b7h\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 3 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260822_231937-n8lu3b7h/logs\n"
       }
-    ]
+    ],
+    "verdict": "Fires the pre-registered FAIL-park branch: running the gait clock during yaw commands (goal.walk_phase_run_on_yaw=1) does NOT unlock turning, even at 50% turn-in-place exposure. eval_yaw (run manually on the pod, matching this run's own cfg): turn_wz_err_med 0.268 rad/s (gate <=0.1, essentially unchanged from the pre-clock-fix ~0.27-0.30 ignore fingerprint), hold_wz_med 0.0045 (clean, gate 0.05), 0 falls across all 10 scenarios (fwd-hold/stop-hold/arc-L/R/max/tip-L/R/yaw-flips). Translation preserved on non-tip DR-0 panel episodes (det prog 1.19/1.09, sto prog 1.01/1.00/1.04, all >=0.8 bar) -- the fix didn't break walking, it just didn't buy turning either. This REFUTES the frozen-clock hypothesis: the clock now legitimately advances during commanded turns (that mechanism itself is verified working, per the paired -nostyle-style comparisons elsewhere this cycle), but the robot still parks/holds heading under a turn-in-place command. Root cause chain (per the gate's own pre-registered next step): behavior (ignores wz, translation-only) <- incentive (yaw reward income too rare/thin vs translation+style, as the original yawcmd FAIL already diagnosed) <- pricing verified honest <- the BINDING constraint was never actually the frozen clock, it's that the BC-init policy has no MOTOR PATTERN for turning in its repertoire to begin with (the teacher only ever demonstrated straight/heading-biased walking) -- clock timing was a red herring, not the cause. hardware-ready: no (no turning). Next: BC-turn-clone (a demonstration/motion-library source of an actual turning motor pattern) is the only lever left untried per this thread's own gate text; clock-rate tuning is CLOSED.",
+    "triage": "done"
   },
   {
     "run": "cw-amp-m2-bcinit-sec5-style05-yawcmd-tip90-clockyaw",
@@ -129411,7 +129413,7 @@
       "goal.walk_phase_run_on_yaw=1"
     ],
     "created": "2026-08-22T23:20:30+00:00",
-    "status": "FINISHED",
+    "status": "FAIL",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -129441,7 +129443,7 @@
     "log": "/tmp/train_cw-amp-m2-bcinit-sec5-style05-yawcmd-tip90-clockyaw.log",
     "wandb_id": "vz07tkta",
     "verified": "2026-08-22T23:23:48+00:00",
-    "triage": "in-cycle cw-amp-m2-bcinit-sec5-style05-yawcmd-tip90-clockyaw since 2026-08-22T23:29:24",
+    "triage": "done",
     "checkups": [
       {
         "time": "2026-08-22T23:29:43+00:00",
@@ -129449,7 +129451,8 @@
         "verdict": "DEAD",
         "log_tail": ".62822\nwandb:      amp/disc_updates 124\nwandb:                amp/gp 0.01053\nwandb:              amp/loss 0.247\nwandb: amp/pairs_per_rollout 65339\nwandb:        amp/replay_len 500000\nwandb: amp/style_reward_mean 0.20857\nwandb:                   +96 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-amp-m2-bcinit-sec5-style05-yawcmd-tip90-clockyaw at: https://wandb.ai/l2k2/hexapod-balance/runs/vz07tkta\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 3 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260822_232125-vz07tkta/logs\n"
       }
-    ]
+    ],
+    "verdict": "Dose twin of tip50-clockyaw (90% vs 50% turn-in-place exposure) -- ALSO fires FAIL-park, closing the dose question too. eval_yaw (already generated, this cycle's triage): turn_wz_err_med 0.271 rad/s (gate <=0.1), hold_wz_med 0.0025 (clean), 0 falls all scenarios. Matches tip50-clockyaw's 0.268 almost exactly -- more turn-in-place exposure (90% vs 50% of episodes) does not help once the clock-timing hypothesis itself is refuted; this isn't a dose problem, the mechanism (clock running during turns) simply doesn't supply what's missing. Confirms the same root cause named for tip50-clockyaw: the BC-init policy has no turning motor pattern in its repertoire at all -- clock rate and turn-exposure fraction were both red herrings. hardware-ready: no (no turning). CLOSES the entire clock-timing + turn-exposure-dose lever family for yaw command-following on this substrate; next untried lever per the shared gate text is BC-turn-clone (an actual turning demonstration), not further reward/exposure tuning."
   },
   {
     "run": "cw-amp-m3-pushsmoke1-style05",
@@ -129874,6 +129877,22 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:amp PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-amp-m3-pushacq1-style05 --steps 6000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_amp_m3_pushsmoke1_style05.zip --episode-seconds 15 --no-canary --eval-every 1000000 --video-every 2000000 --n-envs 4096 --impl warp --host-workers 24 --seed 7 --ent-coef 0.001 --warm-log-std-override -2.0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set goal.walk_phase_obs=1 --cfg-set goal.walk_phase_hz=1.333333 --cfg-set goal.walk_obs_body_vel=2 --cfg-set goal.walk_heading_max_rad=-1 --cfg-set goal.walk_speed_min_m_s=0.08 --cfg-set goal.walk_speed_max_m_s=0.08 --cfg-set goal.walk_cmd_mode=stress_mix --cfg-set goal.walk_cmd_resample_s=4.0 --cfg-set goal.walk_cmd_resample_jitter=0.5 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set bus.write_speed=1500 --cfg-set bus.write_acc=80 --cfg-set bus.servo_vel_max_counts_s=write_speed --cfg-set safety.max_delta_q_deg=5.0 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --cfg-set reward.term_penalty=400.0 --cfg-set reward.k_step_event=0.0 --cfg-set reward.k_park_duty=0.0 --cfg-set reward.k_walk_freeprog=0.0 --cfg-set reward.walk_loadslip_gate=0.0 --cfg-set reward.k_loadslip_excess=0.0 --cfg-set reward.walk_gait_gate=0.0 --cfg-set reward.k_walk_idle_charge=0.0 --cfg-set reward.k_drag_stance=0.0 --amp-motion-lib rl_move/sim/motion_library/teacher_v2.npz --amp-disc-steps 4 --amp-disc-batch 512 --amp-gp-weight 10.0 --amp-replay 500000 --amp-task-weight 0.5 --amp-style-weight 0.5 --out-name ppo_goal_cw_amp_m3_pushacq1_style05 --notes 'respec of cw-amp-m3-pushsmoke1-style05: Plain English: the push smoke just showed the AMP style reward tolerates shove-recovery transients (topple rate fell 2-3x in 2M at constant dose, matching the task-only twin), so give the style-kept recipe the same honest 3x acquisition budget (6M) its noamp control cw-amp-m3-pushacq1-noamp is already running -- does style stay tolerant at acquisition scale, and does the style-kept walker match the noamp one on push survival? This produces the style-kept M3 hardening candidate and a matched style-vs-nostyle read at 6M. Single change vs pushsmoke1-style05: warm-start from its own checkpoint + 6M steps (push dose unchanged: dr.ext_push_prob=1.0, 10-25N / 0.15-0.4s / random direction, once per episode). Prediction-if-true: training tilt terminations keep falling to <=half the smoke'\"'\"'s final window (<=4 pitch / <=4 roll), gate topples <=1/6 det and <=2/6 sto, gait_valid >=5/6, det prog med >=0.9, style_reward_mean stays >0.1 (discriminator not collapsed). Prediction-if-false: terminations plateau at the smoke'\"'\"'s floor while the noamp acquisition keeps improving -- style becomes the binding constraint at scale; M3 hardening proceeds noamp or with style annealed. Strongest alternative: survival improves via crouch-statue (height_err leaves the 18-31mm walking band, prog collapses) -- pricing problem, fix before any M3 claim.' --cfg-set dr.ext_push_prob=1.0 > /tmp/train_cw-amp-m3-pushacq1-style05.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-amp-m3-pushacq1-style05.log",
     "wandb_id": "s2js9v0h",
-    "verified": "2026-08-22T23:47:16+00:00"
+    "verified": "2026-08-22T23:47:16+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-22T23:52:35+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 170,
+        "cpu_centisec_deltas": [
+          2
+        ],
+        "verdict": "SUSPECT",
+        "problems": [
+          "W&B global_step stalled at 6021120"
+        ]
+      }
+    ],
+    "triage": "in-cycle cw-amp-m2-bcinit-sec5-style05-yawcmd-tip50-clockyaw-cw-amp-m since 2026-08-22T23:54:47"
   }
 ]

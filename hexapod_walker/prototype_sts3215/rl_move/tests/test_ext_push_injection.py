@@ -215,6 +215,96 @@ def test_off_episode_never_touches_xfrc_row_0_3():
         env.close()
 
 
+# ------------------------------------------------------- repeated pushes
+
+def test_repeat_max_default_is_bit_exact_no_extra_draws():
+    # repeat_max=1 (the default) must draw the SAME 4 rng numbers as
+    # before and leave ext_push_extra empty -- no new behavior at the
+    # legacy default.
+    r1 = RandRanges(ext_push_prob=1.0)
+    r2 = RandRanges(ext_push_prob=1.0, ext_push_repeat_max=1)
+    s1 = DomainRandomizer(r1).sample(np.random.default_rng(4))
+    s2 = DomainRandomizer(r2).sample(np.random.default_rng(4))
+    assert s1.ext_push_extra == () and s2.ext_push_extra == ()
+    assert s1.ext_push_peak_n == s2.ext_push_peak_n
+    assert s1.ext_push_start_s == s2.ext_push_start_s
+    assert s1.ext_push_dir_rad == s2.ext_push_dir_rad
+
+
+def test_repeat_max_scaled_is_not_shrunk_by_curriculum():
+    r = RandRanges(ext_push_prob=0.6, ext_push_repeat_max=3,
+                    ext_push_gap_s=(2.0, 2.0), ext_push_horizon_s=20.0)
+    r2 = r.scaled(0.5)
+    assert r2.ext_push_repeat_max == 3
+    assert r2.ext_push_gap_s == (2.0, 2.0)
+    assert r2.ext_push_horizon_s == 20.0
+    assert r2.ext_push_prob == pytest.approx(0.3)
+
+
+def test_repeat_max_draws_multiple_nonoverlapping_pulses():
+    r = RandRanges(ext_push_prob=1.0, ext_push_n=(10.0, 25.0),
+                    ext_push_dur_s=(0.15, 0.4),
+                    ext_push_start_s=(1.0, 2.0),
+                    ext_push_repeat_max=3,
+                    ext_push_gap_s=(1.0, 1.5),
+                    ext_push_horizon_s=30.0)
+    dr = DomainRandomizer(r)
+    rng = np.random.default_rng(1)
+    saw_3 = False
+    for _ in range(50):
+        er = dr.sample(rng)
+        assert er.ext_push_peak_n > 0.0
+        pulses = [(er.ext_push_peak_n, er.ext_push_dur_s,
+                   er.ext_push_start_s, er.ext_push_dir_rad),
+                  *er.ext_push_extra]
+        assert len(pulses) <= 3
+        if len(pulses) == 3:
+            saw_3 = True
+        # non-overlapping and monotonically later
+        for (peak, dur, t0, ang), (peak2, dur2, t02, ang2) in zip(
+                pulses, pulses[1:]):
+            assert t02 >= t0 + dur
+            assert 10.0 <= peak2 <= 25.0
+            assert 0.15 <= dur2 <= 0.4
+    assert saw_3, "never drew the full repeat_max=3 pulses in 50 samples"
+
+
+def test_repeat_max_stops_early_past_horizon():
+    # A tight horizon must cut the repeat count short rather than
+    # cramming a pulse in past it.
+    r = RandRanges(ext_push_prob=1.0, ext_push_start_s=(8.0, 8.0),
+                    ext_push_dur_s=(0.2, 0.2), ext_push_repeat_max=5,
+                    ext_push_gap_s=(1.0, 1.0), ext_push_horizon_s=9.0)
+    er = DomainRandomizer(r).sample(np.random.default_rng(2))
+    assert er.ext_push_extra == ()  # first push ends at 8.2; next
+    # would start at 9.2 > horizon 9.0 -> no extras drawn
+
+
+def test_force_n_sums_extra_pulse_in_its_own_window():
+    env = _walk_env()
+    env.reset(seed=0)
+    env._goal_traj.mode = "walk"
+    env._ep_rand = _er(
+        ext_push_peak_n=10.0, ext_push_dur_s=0.2,
+        ext_push_start_s=0.5, ext_push_dir_rad=0.0,
+        ext_push_extra=((20.0, 0.2, 3.0, math.pi / 2),))
+    dt = env.dt
+    # inside pulse 1's window: matches pulse-1-only math
+    env._step_i = int(0.6 / dt)
+    fx, fy = env._ext_push_force_n()
+    assert fx > 0.0 and abs(fy) < 1e-6
+    # between pulses: zero
+    env._step_i = int(1.5 / dt)
+    assert env._ext_push_force_n() == (0.0, 0.0)
+    # inside pulse 2's window: along its own (perpendicular) direction
+    env._step_i = int(3.1 / dt)
+    fx2, fy2 = env._ext_push_force_n()
+    assert abs(fx2) < 1e-6 and fy2 > 0.0
+    # after both: zero
+    env._step_i = int(4.0 / dt)
+    assert env._ext_push_force_n() == (0.0, 0.0)
+
+
 def test_push_measurably_perturbs_chassis_vs_push_off_twin():
     # Same seed, same everything, only ext_push_prob differs -> the
     # push-on twin's chassis trajectory must diverge from the push-off
