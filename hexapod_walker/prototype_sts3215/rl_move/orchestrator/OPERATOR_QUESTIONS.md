@@ -1447,3 +1447,41 @@ Entry format (append; newest last; update status in place):
   clone, rung A fwd-only, same clone-relative gate).
 - ANSWER (operator): (pending)
 - rulebook change: (pending)
+
+## q_20260822T0600Z — OPEN
+- cycle: c0822-riseref-bank-recal (triage cycle, assigned run
+  cw-dep-bcgait1-plant150-1 already fully verdicted; picked up the
+  joystick-track "finish the 7-test bank recalibration" Next item)
+- operator order: none specific; assume-and-go under the 08-21
+  operator_unblock_policy ("no idle fleet next to unmet gates").
+- conflicted with: the launcher's reward-mechanism-arms-need-a-green-
+  bank rule (RESEARCH_RULES.md / guardrails
+  `require_hypothesis_and_gate`-adjacent convention) turns out to be
+  CIRCULAR for the rise/stand line specifically: fixing the 2
+  remaining red rise-bank tests
+  (`rise_valid_plant`/`score_replay_ends_in_valid_plant`,
+  `getup_honest_ordering`) plausibly needs a NEW tibia-150 stance
+  source checkpoint (the old `ppo_goal_cw_stance_dr10`'s crouch pose
+  is asymmetric at the new geometry — measured this cycle, see
+  joystick STATUS "Now"), but training that checkpoint is ITSELF a
+  reward-mechanism launch gated on the same red bank.
+- why the cycle would have declined: n/a — no launch was attempted;
+  this only records the assumed resolution order so a future cycle
+  doesn't re-discover the loop.
+- what was executed: 3/7 bank residue items closed via direct
+  re-measurement (trans_drag allowance, rise_rock leveling bound,
+  recover_floor_rungs margin — all stale numeric thresholds from the
+  pre-tibia-150 geometry, no behavior/reward change). Built + tested
+  `extract_rise_ref.py --blend-mode ik` (foot-anchored FK/IK blend +
+  fresh-seed robustness validation) but did NOT ship a new reference
+  after it net-regressed the bank (worse source pose, not a blend
+  defect) — reverted cleanly.
+- ASSUMED RESOLUTION (assume-and-go): treat the 2 remaining red tests
+  as SPECIFICATION bugs to root-cause directly (PLANT_SPEC's height
+  window on an otherwise-clean final pose; getup's partial-crouch
+  pricing paying less than freezing) BEFORE attempting any new
+  stance/rise training launch — both are diagnosable from existing
+  checkpoints/references with no training run, so they break the
+  circularity without needing an exception to the bank-gate rule.
+- ANSWER (operator): (pending)
+- rulebook change: (pending)
