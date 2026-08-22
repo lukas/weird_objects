@@ -225,6 +225,23 @@ out-of-scope runs get honest triage but no agent follow-ups.
   the stance-half promotion needs a corrected-cfg session-gate rerun
   pairing this checkpoint with `cw-dep-bcgait1-plant150-1` before the
   MEASURED-PLANT GATE BREAK's stance half can be declared closed.
+  **DONE 08-22 (~19:4x): STANCE HALF CLOSED.** The corrected rerun
+  (`eval_session`, rsifix stance x `cw-dep-bcgait1-plant150-1` walk,
+  `--cfg-set actions.max_height_mm=137 bus.servo_params=loaded` — the
+  run's own env-relevant cfg; goal./reward./train. keys are inert in
+  the session harness) passes ALL THREE hard gates: no falls (the
+  prestage's rise over_current FELL is GONE — it came from the default
+  harness pairing `ppo_goal_cw_dep_vref1_r1` + stale default cfg, not
+  from the checkpoint), rise z_end 170.3 mm, sit descends -57.8 mm.
+  Soft: 5/7 PASS incl. fwd_heading yaw drift 8.8 deg (the axis
+  plant150-1's own session narrowly missed at -10.6 with the old
+  partner) and drive_height; only track_right/track_back miss — the
+  documented all-model weakness (docstring baselines: back 12-34%,
+  all models), NOT a tibia-150 regression. Strip watched: symmetric
+  rise, level cruise, quiet hold, clean sit + re-stand. Evidence:
+  `logs/ckpt_eval/rsifix_plant150pair_session_corrected/`. The
+  tibia-150 download pair is now rsifix (stance) + plant150-1 (walk),
+  both halves session-clean on hard gates.
 - AMP M0 AUDIT + FIRST CODE (08-22): the GPU/Warp trainer
   (`train_ppo_mjx.py`) already had GRU/history/transformer actors and
   most of AMP §6's joystick-command shape (`walk_task.py`'s

@@ -68,7 +68,26 @@ gait_valid climbs on real six-leg motion AND fwd travel clears
 fix. Prediction-if-false: same statue/march basin — the from-scratch
 exploration problem is deeper than reward shape (task restructuring
 or BC-pretrain phase becomes the next real lever, not further reward
-tuning). Previous update ~18:2x retained below (TASK/STYLE DOSE
+tuning). **taskA VERDICTED FAIL 08-22 (~19:2x, task/style 0.7/0.3)**:
+fires the prediction-if-false branch — DR-0 gate det gait_valid 0/6
+(legs [3,5] sacrificed), prog_ratio 0.02, slip/m 9.41, dir_err
+68.7deg; sto gait_valid 4/6 but slip/m 15.20, dir_err 77.1deg,
+prog_ratio 0.03, only 3/6 settled; video shows a crouched near-static
+pose shuffling legs with no net translation, same march-in-place
+basin as every prior M2 arm. Training reward DECLINED every quarter
+(-39.3/-44.6/-72.5/-74.2, not the 08-21 rising-reward case): the
+mechanism trace shows `env/height_err_mm` jumping 5.8->87.7mm in Q1
+(policy actively crouches away from the upright target as soon as
+training starts) and only partially recovering to 58.5mm by 2M;
+`amp/style_reward_mean` rose slowly (0.009->0.106, disc healthy,
+d_real 0.78/d_fake -0.95, unsaturated) but a 0.3 style weight is too
+thin a share of the blend to rescue the crouch. taskB's early peek
+(0.5/0.5) shows the identical pattern (det gait_valid 3/6 legs[0,4]
+sacrificed, sto gait_valid 6/6 but slip 13.88/dir 76.1, still no net
+travel) — 2 of 4 grid arms now confirm the same basin regardless of
+task/style ratio; taskC/noamp (owned by a concurrent cycle) still to
+land before the joint grid conclusion. Previous update ~18:2x
+retained below (TASK/STYLE DOSE
 LADDER CLOSED on the
 SLIPWALK-derived reward architecture: `cw-amp-m2-taskdown01-style1-v3`
 (task_weight 0.1, the joint twin to styleonly-v2) VERDICTED FAIL —

@@ -1,6 +1,21 @@
 # joystick - RL from the programmatic gait to joystick control
 
-Last updated: 2026-08-22 (~19:1x: **DOSE TRANSFER SPLIT — the -5.0
+Last updated: 2026-08-22 (~19:4x: **MEASURED-PLANT GATE BREAK stance
+half CLOSED.** The corrected-cfg tibia-150 session-gate rerun flagged
+by the `plant150-3-rsifix` PASS is done: rsifix stance x
+`cw-dep-bcgait1-plant150-1` walk (`actions.max_height_mm=137`,
+`bus.servo_params=loaded`) passes ALL hard gates — no falls (the
+prestage's rise over_current FELL was the default harness pairing
+vref1_r1 + stale cfg, not the checkpoint), rise 170.3 mm, sit
+descends — plus 5/7 soft incl. fwd_heading 8.8 deg (plant150-1's own
+earlier -10.6 miss now clean with this partner); only
+track_right/track_back miss, the documented all-model weakness.
+Strip watched: clean rise/cruise/sit/re-stand. Evidence:
+`logs/ckpt_eval/rsifix_plant150pair_session_corrected/`. The
+tibia-150 download pair = rsifix + plant150-1, both halves
+session-clean on hard gates. Prior banner below.)
+
+Previous entry (~19:1x: **DOSE TRANSFER SPLIT — the -5.0
 rung CLOSES seed23's gap but WORSENS seed29's.** `stotight50-seed23`
 VERDICTED PASS on its pre-registered bar: joygate slip 2.543/dir
 35.31° (vs seed23@-4.5's 39.4°), own-DR-alone dir 36.94° — the 40.36°
