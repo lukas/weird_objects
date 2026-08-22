@@ -1,13 +1,20 @@
 # amp - AMP locomotion from scratch
 
-Last updated: 2026-08-22 (M2 pilot -c1 continuations finished at
-38M/40M: BOTH arms still stuck in the identical frozen-tripod local
-optimum seen at the 2M pilot — one leg triad planted, the other held
-airborne all episode, gait_valid 0/6, near-zero progress, NEW falls
-appearing. Identical in the no-AMP control, so this is a base
-walk-task-reward/from-scratch issue, not AMP-specific. DIG-IN
-flagged rather than verdicted — decides the Wave-1 go/no-go; see
-CURRENT_TRUTHS.md).
+Last updated: 2026-08-22 (M2 -c1 dig-in DONE, both arms verdicted
+MISALIGNED: the walk task's legacy reward pays a statue ~1.9/tick
+(rise_finish + posture/height kernels + the sigma-0.05 velocity
+kernel paying ~0.45/tick to v=0 across low/stop commands) while
+locomotion income is an unreachable needle from scratch — ALL 38M of
+reward rise was statue-polishing (rise_finish 0.09->0.86/tick,
+walk_speed flat). The AMP mechanism was healthy all run (d_real 0.97
+vs d_fake -0.96, never saturated) but its ~0.03/tick effective style
+income is priced out ~30-60x. Wave-1 NO-GO on the legacy pricing.
+Cheat encoded: test_slipwalk_stork_statue_is_priced_out (stork
+statue -238 vs gait +558, bank 6/6 PASS). Fix pair launched from
+scratch on the bank-calibrated freeprog anti-slip stack:
+cw-amp-m2-freeprog-{style05,noamp}, 2M discovery — the no-AMP
+freeprog run (cw-nobc-slipwalk1-r1) froze at 2M, so if the style
+gradient buys discovery, THIS is the config where it shows.)
 Charter:
 `rl_docs/AMP_LOCOMOTION.md` (binding, incl. the repo-adaptation
 section — no Isaac Lab, MJX/Warp is the primary trainer). Keep this a
@@ -295,19 +302,30 @@ now closed:
   `-c1` runs (38M more each, policy + discriminator warm-started via
   `--amp-disc-init`) — wave-1 sizing decision moves to the 40M
   comparison.
-- **M2 -c1 RESULT (08-22, 38M/40M, DIG-IN flagged not verdicted)**:
-  the frozen-tripod pathology above did NOT resolve with 19x the
-  budget — same pattern exactly (legs 0,2,4 duty ~1.0/near-zero
-  swings, legs 1,3,5 duty ~0.02/airborne all episode), gait_valid
-  0/6 across all 12 held-out episodes both arms, near-zero progress,
-  slip med ~9-12/m, PLUS new tilt_pitch/over_current terminations
-  not seen at 2M. The no-AMP control shows the IDENTICAL pattern —
-  rules out the style reward as cause; this is the shared walk-task
-  reward/from-scratch-init setup. Decides Wave-1 go/no-go: do NOT
-  launch the 8-pod wave on this reward config until the dig-in
-  root-causes why one specific tripod half locks up and finds a
-  from-scratch-compatible fix (warm-starting AMP is out of scope per
-  the track's own from-scratch charter).
+- **M2 -c1 VERDICT (08-22 dig-in, both arms MISALIGNED per 08-21
+  ruling)**: root-cause chain — behavior: half-tripod statue (triad
+  0,2,4 planted duty ~1.0, triad 1,3,5 airborne duty ~0.02),
+  gait_valid 0/12 both arms, new tilt_pitch/over_current terms from
+  the ever-harder lean. Incentive: statue collects ~1.9/tick
+  (rise_finish ~0.85 + posture/height kernels ~0.6 + K_WALK=2
+  sigma=0.05 velocity kernel paying ~0.45/tick to v=0 across the
+  stress_mix low/stop command fraction) vs realized locomotion income
+  ~0.05/tick; the style channel (0.5 x style_reward_mean 0.06 =
+  0.03/tick) is priced out. Pricing: nothing charges the freeze; the
+  velocity needle gives no reachable from-scratch gradient. No sim
+  defect. W&B trend is decisive: 100% of the 38M reward rise is
+  statue income (rise_finish 0.09->0.86, task 0.09->0.59, walk_speed
+  flat 0.029->0.035). Wave-1 NO-GO until a repriced pilot walks.
+  Fix pair (launched, 2M discovery, from scratch per the 08-22
+  init-basin rule — both -c1 checkpoints are cheat-committed):
+  `cw-amp-m2-freeprog-{style05,noamp}` = pilot config with the
+  SLIPWALK bank-calibrated pricing (k_walk_freeprog=3/cap 0.05,
+  k_loadslip_excess=6, walk_gait_gate=1, k_walk_idle_charge=20,
+  k_park_duty=2, k_step_event=1), pure-walk diet, and the
+  pre-registered branch-(iii) envelope narrowing (speed 0-0.25 m/s,
+  yaw +/-0.5). Key comparison: cw-nobc-slipwalk1-r1 (same pricing,
+  no AMP) froze at 2M — style05 stepping where its noamp twin
+  freezes IS the first real style-vs-control signal.
 
 ## Required status block (update after each wave)
 

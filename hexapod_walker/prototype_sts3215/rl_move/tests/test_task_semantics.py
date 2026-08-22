@@ -829,7 +829,11 @@ def _slipwalk_rollout(policy: str, seed: int, *,
 
     ``policy``: "gait" (scripted tripod at ``gait_scale`` x command),
     "skate" (same gait, zero swing lift — feet slide), "stall"
-    (march in place), "park" (hold the plant stance and refuse).
+    (march in place), "park" (hold the plant stance and refuse),
+    "stork" (the cw-amp-m2-pilot-{noamp,style05}-c1 38M cheat, 08-22:
+    triad 0,2,4 holds the plant motionless while triad 1,3,5 is parked
+    in the air — a statically stable half-tripod statue that collected
+    RISING reward for 38M steps under the legacy kernel stack).
     """
     from sim_gait_compat import TripodGait
 
@@ -849,6 +853,14 @@ def _slipwalk_rollout(policy: str, seed: int, *,
     gait = TripodGait(vx=0.0, lift=0.0 if policy == "skate" else 0.025)
     gait.sync_plant_stance(*WALK_PLANT)
     plant_rad = np.array([0.0, *WALK_PLANT] * 6) * DEG2RAD
+    # Stork statue: plant triad {0,2,4}, park triad {1,3,5} in the air
+    # (hip -50 / knee -50 = the ~190 mm "parked high" splay class the
+    # hold bank calibrated 08-11; matches the M2 -c1 videos' airborne
+    # triad, duty ~0.02).
+    stork_rad = plant_rad.copy()
+    for _leg in (1, 3, 5):
+        stork_rad[3 * _leg + 1] -= 50.0 * DEG2RAD
+        stork_rad[3 * _leg + 2] -= 50.0 * DEG2RAD
     gait.reset_phase()
 
     x0 = float(env.data.xpos[env._chassis_bid, 0])
@@ -862,6 +874,8 @@ def _slipwalk_rollout(policy: str, seed: int, *,
         elif policy == "stall":
             gait.set_velocity(vx=0.0, vy=0.0)
             act = q_rad_to_action(np.asarray(gait.desired_deg(t)) * DEG2RAD)
+        elif policy == "stork":
+            act = q_rad_to_action(stork_rad)
         else:
             act = q_rad_to_action(plant_rad)
         _obs, r, term, trunc, _info = env.step(act)
@@ -889,6 +903,7 @@ def slipwalk_returns() -> dict[str, float]:
         "skate": ("skate", 1.0),
         "stall": ("stall", 1.0),
         "park": ("park", 1.0),
+        "stork": ("stork", 1.0),
     }
     out = {}
     for name, (pol, scale) in plan.items():
@@ -939,6 +954,24 @@ def test_slipwalk_has_no_speed_band(slipwalk_returns):
     assert slipwalk_returns["fast"] >= slipwalk_returns["gait"], (
         f"exceeding the commanded speed is punished: {slipwalk_returns} "
         "— a speed target leaked back into the stack.")
+
+
+def test_slipwalk_stork_statue_is_priced_out(slipwalk_returns):
+    """The observed 38M AMP-M2 cheat (cw-amp-m2-pilot-{noamp,style05}-c1,
+    08-22): a half-tripod statue — triad 0,2,4 planted motionless, triad
+    1,3,5 parked in the air — out-earned learning to walk for 38M steps
+    under the legacy kernel stack (statue income ~1.9/tick: rise_finish
+    + posture/height kernels + the sigma-0.05 velocity kernel paying
+    ~0.45/tick to v=0 across the low/stop command fraction). Under the
+    from-scratch stack real walking must beat the stork by a wide
+    margin, and stepping in place must still point uphill from it (the
+    discovery path out of the statue)."""
+    assert slipwalk_returns["gait"] > slipwalk_returns["stork"] + 300.0, (
+        f"the M2 stork statue is competitive with real walking: "
+        f"{slipwalk_returns} — the 38M freeze exploit is still open.")
+    assert slipwalk_returns["stall"] > slipwalk_returns["stork"], (
+        f"the stork statue out-earns stepping in place: "
+        f"{slipwalk_returns} — no uphill discovery path out of it.")
 
 
 def test_slipwalk_stepping_stall_still_beats_refusal(slipwalk_returns):
