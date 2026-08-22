@@ -1,6 +1,33 @@
 # amp - AMP locomotion from scratch
 
-Last updated: 2026-08-22 ~22:4x (**YAW-COMMAND QUESTION ANSWERED FOR
+Last updated: 2026-08-22 ~23:0x (**TURN-IN-PLACE EXPOSURE REFUTED —
+the tip dose pair is in and BOTH arms park.**
+`cw-amp-m2-bcinit-sec5-style05-yawcmd-tip50-r2` and `-tip90` both
+FAIL-INFORMATIVE (FAIL-park): eval_yaw tip-left/right err
+0.2996/0.3000 (0.5 dose) and 0.2982/0.2999 (0.9 dose) == |wz_ref|
+exactly — the parent's park fingerprint, zero dose-response from
+50%→90% whole-episode turn exposure (artifacts
+`logs/ckpt_eval/cw_amp_m2_bcinit_sec5_style05_yawcmd_tip{50_r2,90}_yawgate.json`).
+Both arms DID improve yaw-while-translating (fwd-hold drift err
+0.169→0.075-0.080, arc-right 0.273→0.150-0.180): the policy can
+modulate wz inside the walking gait but produces ZERO rotation from
+the parked stance at vx=0 at ANY exposure. Read: motor-pattern
+DISCOVERY block — the exact failure shape of the crouch-statue basin
+(0/4 sec5 arms) that only BC-init fixed. Pricing (yawcmd) and
+exposure (tip pair) are now BOTH refuted; recorded assumption
+(no-operator-pause): of the pre-registered structural options, the
+BC-turn-clone is funded FIRST (teacher turns near-perfectly,
+yaw_along 0.99/1.01; TripodGait.set_velocity has a native omega
+channel bc_init_gait.py simply never drives; mirror-symmetry
+regularizer is the fallback). TRIAGE GOTCHA recorded in the tip50-r2
+verdict: goal.walk_turn_in_place_frac rides the run cfg into the
+standard harness eval, so tip-arm DR-0 panels are ~frac-fraction
+parked episodes — panel medians look like gait collapse but are
+contamination; judge translation from the non-tip episodes (tip50-r2's
+were fully preserved: prog 0.94-1.11, slip 2.9-4.2, fwd to 1.02m).
+Prior banner below.)
+
+Previous entry (~22:4x (**YAW-COMMAND QUESTION ANSWERED FOR
 PRICING: `cw-amp-m2-bcinit-sec5-style05-yawcmd` FAIL-INFORMATIVE —
 even on the drift-free AMP substrate with real turn clips in
 teacher_v2 and the full bank-verified yaw pricing stack, the walker
