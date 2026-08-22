@@ -154,6 +154,37 @@ out-of-scope runs get honest triage but no agent follow-ups.
   under the gate floor. Dosing this lever further is refuted;
   DIG-IN flagged on the course/anchor-vs-drag-charge interaction
   before any further reward edit on this lineage.
+- STD-ANNEAL REPAIR IS CHECKPOINT-RECENCY SENSITIVE (08-22): the
+  regime-gap repair (`--log-std-final` schedule) applied to two
+  otherwise-identical launches diverged hugely by INIT checkpoint —
+  restarting from the raw BC phase clone (`cw-dep-bcgait4-
+  phasedir9-stdanneal`) landed the best arm of the whole phasedir
+  lineage (progress 0.873x clone, near-PASS, UNDERTRAINED verdict,
+  continuing as `-cont1`), while continuing from the already-
+  committed pd8 checkpoint (`cw-dep-bcgait4-phasedir9b-stdanneal`,
+  an accidental duplicate-name launch, NOT config-identical to `-9`
+  despite an earlier note here/in STATUS.md claiming otherwise) came
+  out WORSE than pd8 itself on every gate axis despite drag-stance
+  charge falling ~4x under the same anneal. DIG-IN flagged, not yet
+  root-caused: whether anneal-from-an-earlier/less-converged
+  checkpoint is a general escape-the-local-optimum lever or specific
+  to this reward stack's basin. `-9b` left UNVERDICTED pending the
+  dig-in (do not re-verdict it as a plain redundant duplicate).
+- JOYSTICK GATE HARNESS, evaluator half (08-22):
+  `rl_move/sim/eval_joystick_gate.py` (+`test_eval_joystick_gate.py`,
+  8/8, no sim) — a reusable, versioned wrapper around
+  `eval_checkpoint.py` implementing the DONE gate's randomized 60 s
+  multi-segment joystick session (stress_mix full family + 4 s+/-
+  jitter resampling, held-out seed base 90000), aggregated across
+  DR-0 + own-DR x det/sto into one PASS/FAIL. FIRST READING: the
+  phase clone (previously verified only on fixed-heading-per-episode
+  panels) FAILS this real session hard — zero falls / gait_valid
+  24/24, but slip/m med 15.9 (cap 2.9) and dir_err med 65.4deg (allow
+  40deg) once the command actually changes mid-episode
+  (`logs/ckpt_eval/phase1_clone_joystick_gate_v1/`). "Passes the
+  direction-first curriculum" and "joystick controllable" are
+  measurably different bars; RL fine-tuning must close this gap, not
+  just the shorter clone-relative phasedir rung gate.
 - direction_err_mean_deg has a ~35 deg tick-level floor from stride
   sway — judge deltas vs a matched clone, not raw values.
 - Every pre-08-22 checkpoint (incl. the download hierarchy) trained

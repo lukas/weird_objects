@@ -107,6 +107,37 @@ with:
   orderings survive / regime gap pinned). LAUNCHED
   `cw-dep-bcgait4-phasedir9-stdanneal` (pd8 stack + std anneal
   0.135->0.04 by 60% of run + ref floor 0.06). NOTE: a concurrent-cycle race left a duplicate in flight under a different name, `cw-dep-bcgait4-phasedir9b-stdanneal` (train-2), running the identical config+seed alongside the original (train-3) — harmless (~5-10 GPU-min), verdict off whichever finishes against its own gate first, treat the other as a redundant confirmation.
+- 08-22 CORRECTION: the "duplicate" note above is WRONG on inspection
+  — `cw-dep-bcgait4-phasedir9b-stdanneal` is NOT config-identical to
+  `-9-stdanneal`. Both share the pd8 reward stack + `--log-std-final`
+  anneal + seed 13, but `-9b` continues from the pd8 CHECKPOINT
+  (`--init-from ppo_goal_cw_dep_bcgait4_phasedir8_emakernel_
+  allow24.zip`, already committed to the drag-cheat gait) while `-9`
+  (the one just verdicted UNDERTRAINED above) restarts from the raw
+  BC phase clone (`--init-from ppo_goal_cw_bcgait_init_fullprof_
+  phase1.zip`). This turned out to be a highly informative accidental
+  natural experiment, not a wasted duplicate: `-9b`'s det gate reading
+  is WORSE than pd8's OWN numbers on every axis (progress 0.70x clone
+  vs pd8's 0.77x, slip 1.50x vs 1.25x, speed 0.054 vs 0.0575 — all
+  below pd8) despite drag-stance charge falling ~4x (-2.7/tick ->
+  -0.5..-0.9/tick, std fully annealed 0.135->0.04) — i.e. the SAME
+  reward-pricing repair that made `-9` the best arm of the lineage
+  (progress 0.873x, near-PASS) made `-9b` WORSE than its own parent
+  when applied by CONTINUING from the already-cheat-committed
+  checkpoint instead of restarting fresh. Video confirms: `-9b`'s
+  gait still cycles all six legs (no freeze/park, gait_valid 6/6) but
+  net translation is poor — walking mostly in place. Flagged DIG-IN
+  (see RL_LOG) rather than verdicted this cycle: the checkpoint-init
+  divergence is the strongest evidence yet for pd8's own predicted
+  branch (ii) ("annealing froze the policy in the same degenerate
+  optimum; would need to anneal from an earlier/less-converged
+  checkpoint") — anneal-from-an-earlier-checkpoint is EXACTLY what
+  `-9`'s from-scratch restart did, and it worked far better. Open
+  question for the dig-in: is checkpoint-recency-at-anneal-start a
+  general lever (anneal earlier = escape more local optima) or
+  specific to this reward stack's degenerate basin? `-9b` left
+  UNVERDICTED (status RUNNING in the ledger, awaiting the dig-in
+  cycle) — do not re-verdict it as a plain duplicate.
 
 ## Next
 
