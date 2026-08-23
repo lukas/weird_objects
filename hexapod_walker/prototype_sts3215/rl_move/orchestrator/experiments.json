@@ -145803,7 +145803,7 @@
       "dr.ext_push_n=5.0,18.0"
     ],
     "created": "2026-08-23T10:32:14+00:00",
-    "status": "FINISHED",
+    "status": "PASS",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -145833,7 +145833,7 @@
     "log": "/tmp/train_cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518.log",
     "wandb_id": "gzpaovbp",
     "verified": "2026-08-23T10:35:31+00:00",
-    "triage": "in-cycle cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518 since 2026-08-23T10:39:54",
+    "triage": "done",
     "checkups": [
       {
         "time": "2026-08-23T10:41:01+00:00",
@@ -145841,7 +145841,8 @@
         "verdict": "FINISHED_BEFORE_CHECKUP",
         "log_tail": "9\nwandb:      amp/disc_updates 124\nwandb:                amp/gp 0.0112\nwandb:              amp/loss 0.28416\nwandb: amp/pairs_per_rollout 65323\nwandb:        amp/replay_len 500000\nwandb: amp/style_reward_mean 0.19245\nwandb:                  +103 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518 at: https://wandb.ai/l2k2/hexapod-balance/runs/gzpaovbp\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 3 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260823_103307-gzpaovbp/logs\n"
       }
-    ]
+    ],
+    "verdict": "Recalibrating dr.ext_push_n 10-25N->5-18N on a FRESH retrain (2M, seed7, byte-identical otherwise) of the full turn-in-place+fault+push composition (tipfrac05 recipe) ELIMINATES the real falls: raw 'terminated' field is False on all 12/12 det+sto own-cfg DR-0 episodes (roll_peak max 12.3 det / 12.9 sto, vs parent tipfrac05's 41.3/23.7 with 2 real det falls at the same command script). Video-confirmed: contact sheet + per-episode frame strips show clean upright six-leg walking throughout, including the specific walk_det_3 episode that toppled 5/6 of the seed batch's checkpoints pre-recalibration -- now clean. One sto episode (sto/4) sacrifices a leg (fault-carry pattern, gait_valid=False) but does not fall -- expected fault behavior, not a new pathology. Direction-error/slip-per-m stay in the same range as the un-recalibrated parent (39-76deg dir_err, slip_per_m ~3.6-11.5 excluding two near-zero-cmd sto episodes with the known cmd_dist=0 divide artifact) -- no new regression traded in for the safety fix. This directly answers the pre-registered hypothesis: push-force recalibration (found on the pushcont1 ancestor) TRANSFERS to the full composition on a fresh retrain, confirming push magnitude (not turn-in-place or fault) was the root cause of the near-universal seed-safety-lottery finding. Promoting this checkpoint as the new M5-candidate base; next step is the full eval_amp_m5 cross-engine suite plus a small seed-reproduction check before any track-level promotion."
   },
   {
     "run": "cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518-seed23",
@@ -146354,6 +146355,14 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:amp PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518-seed13 --steps 2000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_amp_m4_turnfault_seq1.zip --episode-seconds 15 --no-canary --eval-every 1000000 --video-every 2000000 --n-envs 4096 --impl warp --host-workers 24 --seed 13 --ent-coef 0.001 --warm-log-std-override -2.0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set goal.walk_phase_obs=1 --cfg-set goal.walk_phase_hz=1.333333 --cfg-set goal.walk_obs_body_vel=2 --cfg-set goal.walk_heading_max_rad=-1 --cfg-set goal.walk_speed_min_m_s=0.08 --cfg-set goal.walk_speed_max_m_s=0.08 --cfg-set goal.walk_cmd_mode=stress_mix --cfg-set goal.walk_cmd_resample_s=4.0 --cfg-set goal.walk_cmd_resample_jitter=0.5 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set bus.write_speed=1500 --cfg-set bus.write_acc=80 --cfg-set bus.servo_vel_max_counts_s=write_speed --cfg-set safety.max_delta_q_deg=5.0 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --cfg-set reward.term_penalty=400.0 --cfg-set reward.k_step_event=0.0 --cfg-set reward.k_park_duty=0.0 --cfg-set reward.k_walk_freeprog=0.0 --cfg-set reward.walk_loadslip_gate=0.0 --cfg-set reward.k_loadslip_excess=0.0 --cfg-set reward.walk_gait_gate=0.0 --cfg-set reward.k_walk_idle_charge=0.0 --cfg-set reward.k_drag_stance=0.0 --amp-motion-lib rl_move/sim/motion_library/teacher_v2.npz --amp-disc-steps 4 --amp-disc-batch 512 --amp-gp-weight 10.0 --amp-replay 500000 --amp-task-weight 0.5 --amp-style-weight 0.5 --out-name ppo_goal_cw_amp_m4_turnfault_seq1_pushcont1_tipfrac05_pushcal518_seed13 --notes 'respec of cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518: Seed-robustness twin (see -seed23 sibling arm launched same cycle) of tipfrac05-pushcal518 (recalibrated dr.ext_push_n=5-18N on the full turn+fault+push composition). Original (uncalibrated) seed13 fell 1/12 plus 3 sacrificed-leg episodes; this checks whether recalibration fixes it too.' --obs-pad-transplant 0 --cfg-set goal.walk_yaw_cmd=1 --cfg-set goal.walk_yaw_max_rad_s=0.3 --cfg-set goal.walk_yaw_zero_frac=0.5 --cfg-set reward.k_walk_yaw=1.0 --cfg-set reward.walk_yaw_kernel_gate=1.0 --cfg-set reward.k_yaw_prog=1.0 --cfg-set reward.k_yaw_still=50 --cfg-set reward.walk_kernel_yaw_gate=1.0 --cfg-set reward.walk_yaw_hold_prog_gate=1.0 --cfg-set reward.yaw_still_avg_s=1.0 --cfg-set goal.walk_phase_run_on_yaw=1 --cfg-set dr.fault_prob=1.0 --cfg-set obs.fault_health=1 --cfg-set dr.ext_push_prob=1.0 --cfg-set reward.yaw_prog_overshoot_decay=1.0 --cfg-set reward.yaw_prog_avg_s=1.0 --cfg-set goal.walk_turn_in_place_frac=0.5 --cfg-set dr.ext_push_n=5.0,18.0 > /tmp/train_cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518-seed13.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518-seed13.log",
     "wandb_id": "4u7a6y8d",
-    "verified": "2026-08-23T10:43:33+00:00"
+    "verified": "2026-08-23T10:43:33+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-23T10:49:06+00:00",
+        "process_alive": false,
+        "verdict": "DEAD",
+        "log_tail": "      amp/disc_updates 124\nwandb:                amp/gp 0.01268\nwandb:              amp/loss 0.34272\nwandb: amp/pairs_per_rollout 65336\nwandb:        amp/replay_len 500000\nwandb: amp/style_reward_mean 0.19618\nwandb:                  +103 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518-seed13 at: https://wandb.ai/l2k2/hexapod-balance/runs/4u7a6y8d\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 3 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260823_104108-4u7a6y8d/logs\n"
+      }
+    ]
   }
 ]

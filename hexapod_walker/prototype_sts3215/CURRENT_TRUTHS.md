@@ -305,6 +305,31 @@ follow-ups.
   chain. Artifacts: `logs/ckpt_eval/pushdiag_tipfrac05_{off,low,high}/
   report.json` (+ contact sheets/videos, controller-local,
   gitignored).
+- **PUSH-FORCE RECALIBRATION FIX CONFIRMED ON FRESH RETRAINS, AT BOTH
+  COMPOSITION TIERS (08-23 ~10:3x-10:4x)**: recalibrating
+  `dr.ext_push_n` from the trained 10-25N to 5-18N (single lever,
+  everything else byte-identical, fresh init from `turnfault_seq1`,
+  seed=7, 2M) eliminates the real falls found above — not just at
+  eval-time on an already-trained checkpoint, but when the model is
+  actually TRAINED at the new range. Fault+push tier
+  (`pushcont1-pushcal518`): 0/12 real falls vs `pushcont1`'s own
+  4/12. FULL turn-in-place+fault+push composition
+  (`tipfrac05-pushcal518`): 0/12 real falls vs `tipfrac05`'s own
+  2/12 — including a clean pass on `walk/det/3`, the exact episode
+  index where 5/6-6/7 of the seed-safety batch toppled. Video-
+  confirmed both times: clean upright six-leg cycling, no topple
+  frame anywhere; direction_err/slip_per_m stay in the parent's own
+  range, no new regression traded for the fix. **This closes the
+  root-cause chain opened above: push magnitude (not turn-in-place,
+  not fault, not a training-seed lottery) was the actual mechanism,
+  and recalibrating the trained range — not more seeds, not more
+  pricing/curriculum levers — is the fix.** Still open before any
+  M5-candidate/champion promotion: seed-robustness of
+  `tipfrac05-pushcal518` (`-seed23`/`-seed13` twins launched
+  alongside, unverdicted) and a fresh `eval_amp_m5` cross-engine read
+  on the recalibrated checkpoint (the M5 PASS on record is for the
+  un-recalibrated `tipfrac05`). Evidence:
+  `logs/ckpt_eval/cw_amp_m4_turnfault_seq1_pushcont1_{pushcal518,tipfrac05_pushcal518}_gate/report.json`.
 - **JOYSTICK DONE GATE: FIRST MEASURED PASS (08-22 ~17:3x)** —
   `cw-dep-bcgait4-phasedir9-longrun17-stotight45` (longrun17 recipe,
   fresh reinit, single change `--log-std-final` -3.2 -> -4.5, final

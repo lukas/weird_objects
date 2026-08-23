@@ -2383,7 +2383,30 @@ Build every tool this needs; do not pause on operator input.
 
 ## Now
 
-**08-23 ~09:5x-c — ROOT CAUSE TRACED PAST THE SEED BATCH TO PUSH: the
+**08-23 ~10:4x — PUSH-FORCE RECALIBRATION FIX TRANSFERS TO THE FULL
+COMPOSITION ON A FRESH RETRAIN: `tipfrac05-pushcal518` (single lever
+vs `tipfrac05`, `dr.ext_push_n` 10-25N -> 5-18N, seed=7, 2M,
+otherwise byte-identical) reads 0/12 real falls (raw `terminated`
+field, both det+sto) vs the parent's own 2/12 — including a clean
+pass on `walk/det/3`, the exact episode index where 5/6 of the
+seed-safety batch toppled. Video-confirmed (contact sheet + per-
+episode frame strips): clean upright six-leg cycling throughout, no
+topple frame anywhere; one sto episode still sacrifices a leg
+(fault-carry pattern, not a fall). direction_err/slip_per_m stay in
+the parent's own range — no new regression traded for the fix. This
+directly answers the ~09:5x-c hypothesis below: push magnitude (not
+turn-in-place, not fault) was the root cause, and the fix generalizes
+across composition tiers, not just at the fault+push ancestor level.
+STILL OPEN before promotion: (1) seed-robustness — `-seed23`/
+`-seed13` twins launched alongside this arm, unverdicted; (2) a fresh
+`eval_amp_m5` cross-engine read on this exact (recalibrated)
+checkpoint — the existing M5 PASS on record is for the un-
+recalibrated `tipfrac05`. PASS verdict + SKILLS.md row recorded this
+cycle; do not promote to M5-candidate/champion status until (1)-(2)
+close. Evidence:
+`logs/ckpt_eval/cw_amp_m4_turnfault_seq1_pushcont1_tipfrac05_pushcal518_gate/`.**
+
+Previous entry (08-23 ~09:5x-c — ROOT CAUSE TRACED PAST THE SEED BATCH TO PUSH: the
 uncounted fall risk pre-dates turn-in-place AND fault. Fault-only
 `turnfault-seq1` = 0/12 real falls (clean); the moment push composes
 in (`pushcont1`) = 4/12 real falls, never counted (same `gait_valid`
