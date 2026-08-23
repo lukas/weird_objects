@@ -20,6 +20,11 @@ pair.  This variant closes the loop from the TOP:
     Four long standoffs on the existing CHASSIS_STANDOFF_HOLES_XY
     pattern tie it to chassis_bottom; the electronics-deck hole pattern
     is carried over so the deck hardware moves to the new top plate.
+    Six Phi 7 DRIVER ACCESS holes sit above the inboard cap bolts (legs
+    at yaw 0): the cap is a CAPTIVE BEARING CARRIER -- its 6805 is
+    pressed on once and never removed; all service unbolts the cap from
+    the coxa cradle (both bolts reachable with the plate on) and lifts
+    the plate + caps + bearings off as one rigid unit.
 
   Load path: hip moment -> cap boss -> top bearing -> top plate ->
   standoffs / five other legs.  Each yaw axis becomes simply-supported
@@ -97,6 +102,13 @@ POCKET_LEADIN = 0.8                       # pocket-mouth lead-in (per side)
 PLATE_T = hp.CHASSIS_PLATE_T              # 4 -- same sheet as chassis_bottom
 CENTRE_HOLE_D = 40.0                      # wiring / standoff-wrench access
 HOLE_D = hp.BRACKET_BOLT_HOLE             # 3.4 -- M3 clearance
+ACCESS_HOLE_D = 7.0                       # driver pass-through above the
+                                          # INBOARD cap bolt (at yaw 0): the
+                                          # cap unbolts from the coxa with
+                                          # the plate installed, so the cap +
+                                          # its pressed bearing come off as
+                                          # one captive unit -- the bearing
+                                          # fits are never fought in service
 
 # Cap-local (well-frame) geometry.  Well frame: origin = hip servo back-face
 # centre, +X = body long axis, +Y = out of the open face (world UP at the
@@ -168,6 +180,26 @@ def _inter_vol(a: trimesh.Trimesh, b: trimesh.Trimesh) -> float:
 # ---------------------------------------------------------------------------
 # New printed parts
 # ---------------------------------------------------------------------------
+
+def _access_hole_xy() -> list[tuple[float, float]]:
+    """World XY of each leg's INBOARD hip-cap clamp bolt at yaw 0.
+
+    ``hp.servo_clamp_bolt_centres()`` is the single source of truth for
+    the (x, z) bolt pattern in the well frame (bolt axis = well +/-Y =
+    world vertical at the hip).  One bolt of each pair lands outboard of
+    the hex edge (open sky, always reachable); the other hides under the
+    plate -- THAT one gets a driver pass-through hole so the cap can be
+    unbolted with the plate installed."""
+    out = []
+    for i in range(6):
+        Tc = leg_transforms(i)["hip_cap"]
+        for (bx, bz) in hp.servo_clamp_bolt_centres():
+            w = Tc @ np.array([bx, 0.0, bz, 1.0])
+            if np.hypot(w[0], w[1]) < APOTHEM:      # under the hex sheet
+                out.append((float(w[0]), float(w[1])))
+    assert len(out) == 6, f"expected 6 under-plate cap bolts, got {len(out)}"
+    return out
+
 
 def make_hip_cap_rigid() -> trimesh.Trimesh:
     """Stock hip clamp cap + yaw-axis pedestal + inner-race press boss.
@@ -248,6 +280,12 @@ def make_chassis_top_rigid() -> trimesh.Trimesh:
     for (x, y) in hp.ELEC_CHASSIS_MOUNT_HOLES_XY:
         cuts.append(_cyl_z(HOLE_D / 2.0, SHEET_Z0 - 1.0, SHEET_Z1 + 1.0,
                            x=float(x), y=float(y), sections=48))
+    # Driver pass-throughs above the inboard cap bolts (legs at yaw 0):
+    # a hex driver reaches the cap screws with the plate ON, so service
+    # unbolts the cap+bearing unit instead of separating any press fit.
+    for (x, y) in _access_hole_xy():
+        cuts.append(_cyl_z(ACCESS_HOLE_D / 2.0, SHEET_Z0 - 1.0, SHEET_Z1 + 1.0,
+                           x=x, y=y, sections=64))
     cuts.append(_cyl_z(CENTRE_HOLE_D / 2.0, SHEET_Z0 - 1.0, SHEET_Z1 + 1.0))
     return _diff(_union(solids), cuts)
 
@@ -370,6 +408,40 @@ def check_static(meshes: dict[str, trimesh.Trimesh]) -> None:
     assert v < 1e-6, f"bearing intersects top plate ({v:.2f} mm3)"
     print(f"  seated cap/bearing vs plate: no overlap "
           f"(race top z = {br.bounds[1][2]:.2f}, shoulder at {SHEET_Z0:.2f})")
+
+    # --- driver access holes: web clearances + clear line of sight ------
+    holes = _access_hole_xy()
+    other = ([(float(x), float(y), HOLE_D) for (x, y) in
+              list(hp.CHASSIS_STANDOFF_HOLES_XY)
+              + list(hp.ELEC_CHASSIS_MOUNT_HOLES_XY)]
+             + [(0.0, 0.0, CENTRE_HOLE_D)])
+    for k, (hx, hy) in enumerate(holes):
+        ax = leg_transforms(k)["coxa"][:2, 3]
+        web = np.hypot(hx - ax[0], hy - ax[1]) - RING_OD / 2.0 \
+            - ACCESS_HOLE_D / 2.0
+        assert web >= 0.5, f"access hole L{k}: only {web:.2f} mm to the ring"
+        for (ox, oy, od) in other:
+            gap = np.hypot(hx - ox, hy - oy) - (ACCESS_HOLE_D + od) / 2.0
+            assert gap >= 1.5, (
+                f"access hole L{k} within {gap:.2f} mm of another plate hole")
+    # A Phi 6.5 driver shaft dropped through the L0 hole down to the cap
+    # face must touch nothing (leg at yaw 0) -- the screw head sits in the
+    # cap flange counterbore right below.
+    hx, hy = holes[0]
+    shaft = _cyl_z(3.25, CAP_FACE_W + 0.05, SHEET_Z1 + 30.0, x=hx, y=hy,
+                   sections=48)
+    for key, frame in (("coxa_link", "coxa"), ("servo_body", "hip_cap"),
+                       ("hip_clamp_cap_rigid", "hip_cap"),
+                       ("bearing_6805", "hip_cap"),
+                       ("yaw_bearing_cap", "coxa")):
+        m = meshes[key].copy()
+        m.apply_transform(leg_transforms(0)[frame])
+        v = _inter_vol(shaft, m)
+        assert v < 1e-6, f"driver shaft fouls {key} ({v:.2f} mm3)"
+    v = _inter_vol(shaft, plate)
+    assert v < 1e-6, f"driver shaft fouls the plate ({v:.2f} mm3)"
+    print(f"  cap-bolt driver access: 6 holes Phi {ACCESS_HOLE_D:g}, "
+          f"ring web {web:.2f} mm, line of sight clear")
 
 
 def check_yaw_sweep(meshes: dict[str, trimesh.Trimesh]) -> None:

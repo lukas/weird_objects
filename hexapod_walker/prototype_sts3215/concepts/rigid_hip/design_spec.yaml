@@ -93,14 +93,16 @@ parts:
             code_name: BOSS_OD
             description: "= YAW_HUB_BOSS_OD, bench-tuned +0.15 press."
       puller_notches:
-        label: "2x pry slots under the inner race"
+        label: "2x pry slots under the inner race (last resort only)"
         kind: "relief"
         purpose: >-
-          The boss press is the permanent interface by design, but two
-          8 mm-wide, 2.2 mm-deep notches in the pedestal at +/-x expose
-          1.5 mm of the inner race's underside (r 13.0..14.5) so a flat
-          screwdriver or 2-jaw puller can walk the bearing off
-          non-destructively.  Notch floor stays 0.4 mm clear of the
+          The cap is a CAPTIVE BEARING CARRIER: its 6805 is pressed on
+          once and normal service never separates it (the cap unbolts
+          from the coxa instead, via the plate's driver access holes).
+          These two 8 mm-wide, 2.2 mm-deep notches at +/-x expose
+          1.5 mm of the inner race's underside (r 13.0..14.5) purely as
+          last-resort insurance so a worn bearing can still be walked
+          off non-destructively.  Notch floor stays 0.4 mm clear of the
           phi 25.15 boss root; the remaining seat annulus carries the
           race with ample area.
         dimensions:
@@ -161,6 +163,26 @@ parts:
             value: 44.0
             code_name: RING_OD
             description: "= bearing OD + 2x YAW_TOWER_WALL, same wall as the bottom tower."
+      cap_bolt_access:
+        label: "Phi 7 driver pass-through above each inboard cap bolt (x6)"
+        kind: "bore"
+        purpose: >-
+          With legs at yaw 0 (+/-2 deg) a hex driver reaches the hip
+          cap's INBOARD clamp bolt through the plate (the outboard bolt
+          sits beyond the hex edge under open sky), so the cap + its
+          pressed bearing unbolt from the coxa as one captive unit and
+          the plate lifts off with all six cap/bearing assemblies
+          attached -- no press fit is ever separated in service.
+          Positions derive from hp.servo_clamp_bolt_centres() through
+          the leg placement transforms; build-time checks assert
+          >= 1.74 mm web to the bearing ring, >= 1.5 mm to every other
+          plate hole, and a clear phi 6.5 driver line-of-sight down to
+          the cap counterbore.
+        dimensions:
+          access_hole_d:
+            label: "Access hole diameter"
+            value: 7.0
+            code_name: ACCESS_HOLE_D
 
   bearing_6805:
     label: "Top-plate 6805-2RS (25x37x7) — COTS, not printed"

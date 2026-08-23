@@ -99,32 +99,35 @@ variation only moves parts that stay outboard/below the plate.
    press until the shoulders touch the race tops.
 4. Bolt the 4 standoffs.
 
-## Disassembly & service
+## Disassembly & service — the cap is a captive bearing carrier
 
-None of the fits is a one-way trap — every interface has a designed
-exit:
+The 6805 is pressed onto the cap boss **once and never removed**: the
+serviceable interface is the cap-to-coxa BOLTED joint, not any bearing
+fit.  Both cap bolts are reachable with the plate installed — the
+outboard one sits beyond the hex edge under open sky, and the plate
+has six **Φ7 driver pass-through holes** directly above the inboard
+bolts (legs at yaw 0, ±2°; sight the screw head through the hole).
+Verified at build time: 1.74 mm web to the bearing ring, clear
+line-of-sight for a Φ6.5 driver shaft down to the cap counterbore.
 
-* **Plate off** (needed for hip servo access): remove the 4 standoff
-  screws from above, then walk the plate up off the six races.  The
-  pocket fit is the bench-proven "firm finger-press" class (Φ37.15 vs
-  Φ37 race, +0.15 clearance) — not a true press — and each race
-  deliberately protrudes 0.5 mm below its ring, with a 6 mm open gap
-  between ring bottoms and cap faces all around, so a flat pry tool
-  fits under every ring (fulcrum on the cap face).  Work the six
-  corners progressively like a cylinder head.
-* **Bearing off a cap boss**: the boss press (+0.15) is the permanent
-  interface by design (same philosophy as the production hub boss),
-  but the pedestal has **two puller notches** exposing 1.5 mm of the
-  inner race's underside at ±x, so a screwdriver twist or 2-jaw puller
-  walks it off non-destructively.
-* **Hip cap / servo**: with the plate off, service is exactly
-  production: 2× M3 cap bolts from above, cap lifts away (bearing
-  stays on its boss), servo lifts out of the cradle.
-* **Repeated-service threads**: the cap bolts become
-  every-service fasteners in this variant, so per the repo's insert
-  rule, drill the two cradle pilots Φ4.0 × 6 deep and fit M3 heat-set
-  inserts (94459A130) — a bench mod on the existing coxa_link print,
-  no reprint needed.  One-time builds can keep the self-taps.
+* **Any service** (hip servo swap, leg work, plate off): set legs to
+  yaw 0, remove the 6 inboard cap screws through the access holes, the
+  6 outboard screws, and the 4 standoff screws — 16 screws, all from
+  above/outside, **zero force** — then lift the plate: all six caps
+  and bearings come with it as one rigid subassembly, leaving every
+  hip servo sitting open in its cradle.
+* **Reassembly**: either lower the plate+caps unit back over all six
+  servos, or bolt the caps onto the servos first and lower the bare
+  plate onto the races (the original assembly order; descent verified
+  clear both ways).
+* **Repeated-service threads**: the cap bolts are now every-service
+  fasteners, so per the repo's insert rule, drill the two cradle
+  pilots Φ4.0 × 6 deep and fit M3 heat-set inserts (94459A130) — a
+  bench mod on the existing coxa_link print, no reprint.
+* **Last resort only**: the pocket fit is the bench-proven "firm
+  finger-press" class (never separated in normal service), and the
+  pedestal keeps two puller notches exposing the inner race underside
+  in case a bearing ever truly needs to come off a boss.
 
 ### Why the cap attachment stays the production 2-bolt clamshell
 
@@ -132,13 +135,16 @@ The moment path does not run through the bolts: radial bearing loads
 enter the cap and bear on the cradle through the tongue's snug ±x fit
 in the cavity, the top lip over the cradle plate, the seat-drop ledge,
 and the back/horn hooks — plastic-on-plastic interlocks on three
-sides.  The two M3s only clamp the stack shut.  Alternatives
+sides.  The two M3s only clamp the stack shut, which is exactly what
+makes them safe to use as the quick-disconnect.  Alternatives
 considered and rejected: a separate bolt-on bearing mast (puts a
 bolted joint in series with the moment path, same two bolts anyway,
-loses stiffness), and a quick-release pin (adds play exactly where
-this variant is buying rigidity).  With inserts in the pilots, the
-2-bolt attachment is both the stiffest and the most serviceable
-option.
+loses stiffness), a quick-release pin (adds play exactly where this
+variant is buying rigidity), and through-bolts from below (needs
+through-drilling the production cradle walls and inserts in the 4 mm
+cap flange).  With inserts in the pilots and driver access through
+the plate, the 2-bolt attachment is both the stiffest and the most
+serviceable option.
 
 ## Print notes
 
