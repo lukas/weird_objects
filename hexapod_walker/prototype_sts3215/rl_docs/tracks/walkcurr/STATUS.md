@@ -701,3 +701,81 @@ validity, on video. Speed obedience is secondary throughout.
   paying an explicit small per-step walking-attempt bonus that
   survives a fall) unlocks the walking excursion seen here, before
   or alongside the height/ground-contact charge fix.
+
+## Now (updated 08-23 ~23:2x — height-gate/termination mechanism built + 2-arm dose grid launched)
+
+- **`cw-walkcurr-pf-fwd6-rnd100` FAIL (verdicted, this cycle):** closes
+  the RND dose axis at the top end (0.02/0.10/1.0, a 50x span, zero
+  qualitative difference) — same belly-sit collapse (`height_err_end_mm`
+  115-116mm, roll_peak 2-7deg, rock-stable not falling), clip_fraction
+  healthy and RISING (0.014->0.167, no optimizer crush at any dose),
+  but `env/walk_speed` actively COLLAPSES 0.101->0.007 m/s over the
+  run. RND-as-a-class is refuted across dose; `rung0-swing3-rnd1`/
+  `-rnd3` were already verdicted FAIL (belly-sit again) by a concurrent
+  cycle before this one read them.
+- **MECHANISM BUILT (this cycle): the belly-sit escape hatch is closed
+  by composing two ALREADY-EXISTING, previously-unused-on-this-track
+  levers** — `reward.walk_height_gate` (Gaussian-gates walk income by
+  height error; first proven on the unrelated `cw-dynrep-criticD-
+  walkcurr4` lineage 08-18, `WALKCURR4` bank in
+  `test_task_semantics.py`) + `safety.walk_max_height_drop_mm` /
+  `walk_height_grace_s` (opt-in belly-collapse termination, already
+  wired in `sim_env.py::_step_finish`, never enabled on any walkcurr
+  arm to date). Root cause (confirmed by direct reward-trace probe,
+  eval-only, no training cost): under the x0.02-scaled rung-1 stack
+  the belly-sit pose's only charge (env.py's quadratic `k_height`,
+  scaled to 2.0) is tiny (-0.03/tick at 116mm) next to the discovery-
+  friction charges it dodges by never loading a foot, and NOTHING
+  ends the episode early — the pose rides the full 25s collecting a
+  small-but-positive-relative-to-trying income. This is the same
+  mechanism the concurrent `rnd10-cont1` `_best`-vs-final-checkpoint
+  finding independently pointed at (survive-motionless out-earning
+  attempt-and-risk-falling because a fall forfeits remaining income +
+  eats `term_penalty` while belly-sit forfeits nothing) — converging
+  evidence for the same fix.
+  **Calibration**: `calibrate_walk_height.py` run fresh this cycle
+  against the honest scripted tripod gait (12s x3 seeds x3 directions):
+  rides `+0.4..+6.0mm` around start (mean +3.8, std 1.5) — meaning
+  even a loose sigma/drop has 2.5-10x headroom over real gait noise.
+  A quick stance sweep (`park`-style static hold at increasing sim-
+  relative knee angle) found hip=20/knee=155 settles at -109.8mm,
+  matching the observed -116mm collapse almost exactly — used as the
+  new `belly_sit` scripted twin.
+  **Bank landed**: `test_walkcurr_pf_hgt_*` (4 tests x 2 doses = 8
+  cases, all green) in `test_task_semantics.py`, plus a `belly_sit`
+  policy option added to `_slipwalk_rollout` (hip=20/knee=155 static
+  hold). Proves, under the exact x0.02 rung-1 stack: gait/park/stall
+  all clearly out-earn belly_sit once gated, the honest gait keeps
+  >=90% of its ungated income (sigma not miscalibrated), the
+  pre-existing v2e ranking (gait>>park/stall) is undisturbed, and the
+  safety cutoff actually fires (belly_sit's episode cut from 375
+  steps to ~43-50 vs riding to truncation ungated). Full suite
+  re-run clean: 214 pass / 1 pre-existing-unrelated red (`fastprof`,
+  untouched, documented track record) / 4 skip / 1 xfail.
+  **CAVEAT surfaced by the bank itself** (recorded honestly, not
+  gate-blocking): comparing raw RETURNS gated-vs-ungated for the same
+  behavior is confounded by the probes' synthetic 1s zero-command
+  hold (a fixed, large-relative-to-a-short-terminated-episode income
+  artifact, same one the scaled bank already documents as a
+  training-irrelevant probe-only quirk) — the bank therefore checks
+  steps-to-termination and cross-behavior (gait/park/stall vs
+  belly_sit) comparisons, not raw same-behavior gated/ungated deltas.
+- **LAUNCHED, 2-arm dose grid (batched per operator 08-22 ruling —
+  both bank-proven before either launched):**
+  `cw-walkcurr-pf-fwd6-hgt1` (loose dose: `walk_height_sigma_mm=15`,
+  `walk_max_height_drop_mm=60`, `walk_height_grace_s=1.5` — picked
+  from-scratch-friendly, 2.5x the honest gait's calibrated band)
+  and `cw-walkcurr-pf-fwd6-hgt2` (tight dose: `sigma=11`/`drop=25`/
+  `grace=2.0`, matching WALKCURR4's proven-elsewhere calibration
+  exactly). Both respec'd off `cw-walkcurr-pf-fwd6-rscale50` (fresh
+  discovery, 2M, NOT warm-started), both VERIFIED RUNNING
+  (train-1, train-0). Decision: whichever dose (or neither) crosses
+  `walk_freeprog_score` past 0 with real six-leg stepping on video
+  decides the mechanism's operating point before any rung-2 respec;
+  if BOTH still show the belly-sit signature (same `height_err_end_mm`
+  band), the mechanism class itself is insufficient and the next
+  escalation is a direct minimum-total-foot-contact charge (last
+  fallback before BC-kickstart). Watch specifically for a SHALLOWER
+  static pose just under the drop threshold (e.g. 40-59mm on hgt2) —
+  that would mean the cutoff needs tightening further, not abandoning
+  the mechanism.
