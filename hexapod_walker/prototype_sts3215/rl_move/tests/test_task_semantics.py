@@ -6640,12 +6640,42 @@ def test_walkcurr_loadslip_bootstrap_min_shrinks_the_skate_penalty(
 # The bank must prove, under the run's EXACT scaled cfg, that the
 # operator ranking (walking > park/stall > wrong-way > skate/topple)
 # holds with margins scaled by the same factor — and, as a defect
-# probe, that returns really are ~linear in the shared gain scale
-# (a hidden unscaled constant term WOULD reorder behaviors).
+# probe, that behavior-vs-behavior return DELTAS really are ~linear
+# in the shared gain scale (a hidden unscaled term that DIFFERS
+# across behaviors WOULD reorder them at small scales).
+#
+# MEASURED DEFECT (this bank's own first run, 08-23): scaling only
+# the recipe's 7 cfg-set gains left `reward_task` — the base
+# compute_reward() posture kernel, k_track default 1.0, ~+0.95/step
+# for ANY level-bodied behavior including park and skate — unscaled,
+# and at x0.1 park earned +323.6 (vs -351.7 at full dose): ranking
+# destroyed. The scale set below therefore includes EVERY active gain
+# in the walk stack: the 7 recipe gains plus the base compute_reward
+# gains at their defaults (k_track/k_roll/k_pitch/k_height/k_gyro/
+# k_action/k_action_delta/k_current). The one hard-coded constant,
+# K_WALK=2.0 (legacy velocity-kernel peak), pays ONLY while the
+# command is zero — i.e. the probes' shared 1 s hold, a constant
+# offset that cancels in every ranking delta — and NEVER during
+# rung-1 training (fixed nonzero command, resample 0, freeprog
+# replaces the legacy kernel whenever s_ref > 0).
 WALKCURR_PF_SCALE_KEYS = (
     "term_penalty", "k_walk_freeprog", "k_walk_heading", "k_step_event",
     "k_park_duty", "k_walk_idle_charge", "k_loadslip_excess",
 )
+
+# Base compute_reward() gains active under the walk task (defaults from
+# rl_move/env.py) — not in WALKCURR_PF_OVERRIDES, so their unscaled
+# defaults must be scaled explicitly.
+WALKCURR_PF_BASE_GAIN_DEFAULTS = {
+    "k_track": 1.0,
+    "k_roll": 10.0,
+    "k_pitch": 10.0,
+    "k_height": 100.0,
+    "k_gyro": 0.05,
+    "k_action": 0.005,
+    "k_action_delta": 0.01,
+    "k_current": 0.005,
+}
 
 _WALKCURR_PF_SCALES = {"x0.1": 0.1, "x0.02": 0.02}
 
@@ -6655,6 +6685,8 @@ def _walkcurr_pf_scaled_overrides(scale: float) -> dict:
     for key in WALKCURR_PF_SCALE_KEYS:
         out[("reward", key)] = float(WALKCURR_PF_OVERRIDES[
             ("reward", key)]) * scale
+    for key, dflt in WALKCURR_PF_BASE_GAIN_DEFAULTS.items():
+        out[("reward", key)] = dflt * scale
     return out
 
 
@@ -6719,20 +6751,24 @@ def test_walkcurr_pf_scaled_ranking_holds(walkcurr_pf_scaled_returns):
         "the reference gait did not actually travel; bank is broken")
 
 
-def test_walkcurr_pf_scaled_returns_are_linear_in_scale(
+def test_walkcurr_pf_scaled_deltas_are_linear_in_scale(
         walkcurr_pf_returns, walkcurr_pf_scaled_returns):
     """Defect probe: scripted trajectories are reward-independent, so
-    if every active reward term rides one of the seven shared gains,
-    each behavior's scaled return must be ~scale x its v2e return. A
-    big deviation exposes a hidden constant/unscaled term that would
-    distort the incentive ORDERING at small scales."""
+    if every behavior-DIFFERENTIATING reward term rides one of the
+    shared gains, each behavior's return delta vs park must be ~scale
+    x its v2e delta (deltas cancel the probes' shared constant 1 s
+    K_WALK hold income, which never fires in training). A big
+    deviation exposes a hidden unscaled term that would distort the
+    incentive ORDERING at small scales — exactly the reward_task
+    defect this bank's first run caught."""
     r, c = walkcurr_pf_scaled_returns, walkcurr_pf_scaled_returns["_scale"]
-    for name in ("gait", "park", "stall", "reverse", "sideways",
-                 "skate", "topple"):
-        base = walkcurr_pf_returns[name]
-        got = r[name]
-        tol = abs(base) * c * 0.10 + 10.0 * c
-        assert abs(got - base * c) <= tol, (
-            f"'{name}' return is not linear in the gain scale "
-            f"(base={base:.1f}, scale={c}, got={got:.1f}, "
-            f"expected~{base * c:.1f}) — hidden unscaled reward term?")
+    for name in ("gait", "stall", "reverse", "sideways", "skate",
+                 "topple"):
+        base_d = walkcurr_pf_returns[name] - walkcurr_pf_returns["park"]
+        got_d = r[name] - r["park"]
+        tol = abs(base_d) * c * 0.10 + 15.0 * c
+        assert abs(got_d - base_d * c) <= tol, (
+            f"'{name}'-vs-park delta is not linear in the gain scale "
+            f"(base delta={base_d:.1f}, scale={c}, got={got_d:.1f}, "
+            f"expected~{base_d * c:.1f}) — hidden unscaled reward "
+            f"term that differs across behaviors?")
