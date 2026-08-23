@@ -16,5 +16,7 @@
 
 **gate**: Acquisition (6M total, DR-0, own cfg). Mechanism-safety bar unchanged from the discovery arm: gait_valid >=10/12 det+sto (was 9/12), faulted episodes limp not statue on video, no crouch. If it clears: compare faulted-episode prog_ratio/slip against faultobs2-headingsfull-style05's own numbers (det 1.09/3.08, sto 0.57/7.26) and eval_yaw turn tracking against turnclone-yawcmd0-r2's own numbers (tip errs ~0.15-0.19) to see whether the 3-way combination now matches solo-axis quality at matched budget. If it STILL misses the safety bar with reward now flat: the combination is genuinely harder than either pairwise composition and needs the sequential (turn+push solid first, then graft fault) route instead of more raw budget on a fresh 3-way stack.
 
+**verdict**: LAUNCH_CRASHED, zero training steps. My own respec bug: --init-from-source pointed at turnfault1's OWN checkpoint (already 93-dim obs, fault pad baked in) but the cloned command still carried the parent graft's --obs-pad-transplant 18 unchanged, and train_ppo_mjx hard-checks pad-vs-actual-widen and aborts (widened by 0, expected 18). r1-r3 (same run family, different names) never even reached this point -- REFUSED on tag-collision/stale-pod-code-marker races from concurrent cycles' snapshot pushes while I retried under fresh names; none of r1-r4 trained a single step. Fixed as r5 (--arg='--obs-pad-transplant=0'), launching now.
+
 **failed_reason**: run never appeared as 'running' in W&B within 240s
 
