@@ -1312,6 +1312,21 @@ def main(argv: list[str] | None = None) -> int:
                     help="motion-library npz for the discriminator's "
                          "real transitions + feature normalization + "
                          "neutral pose (default: teacher_v1.npz).")
+    ap.add_argument("--amp-style-cmd-cond", action="store_true",
+                    help="command-condition the discriminator: appends "
+                         "the live (vx_ref, vy_ref, wz_ref) to "
+                         "obs_style each tick (60 -> 63 dim; injects "
+                         "goal.amp_style_cmd_cond=1). REQUIRES a motion "
+                         "library built with "
+                         "build_motion_library.py --cmd-cond (a dim "
+                         "mismatch is a loud AMPDiscriminator shape "
+                         "error). Default off = bit-exact legacy "
+                         "60-dim path. 08-23 yaw-authority follow-up: "
+                         "fixes the discriminator's blindness to "
+                         "COMMAND, the root cause four other mechanism "
+                         "classes (pricing, wider demos, style "
+                         "ablation, reset densification) all failed to "
+                         "move (rl_docs/tracks/amp/STATUS.md).")
     ap.add_argument("--amp-disc-lr", type=float, default=3e-4)
     ap.add_argument("--amp-disc-steps", type=int, default=4,
                     help="discriminator minibatch updates per PPO "
@@ -2056,13 +2071,16 @@ def main(argv: list[str] | None = None) -> int:
         # contract; the blend itself lives ONLY in the vec wrapper
         # below (eval harness scores raw task metrics, unchanged).
         args.cfg_set = list(args.cfg_set or []) + ["goal.amp_style_obs=1"]
+        if args.amp_style_cmd_cond:
+            args.cfg_set = args.cfg_set + ["goal.amp_style_cmd_cond=1"]
         print(f"[amp-style] ON: task_w={args.amp_task_weight} "
               f"style_w={args.amp_style_weight} "
               f"lib={args.amp_motion_lib or 'teacher_v1.npz(default)'} "
               f"disc lr={args.amp_disc_lr} steps/rollout="
               f"{args.amp_disc_steps} batch={args.amp_disc_batch} "
               f"replay={args.amp_replay} "
-              f"mask_dims={args.amp_style_mask_dims or '(none)'}")
+              f"mask_dims={args.amp_style_mask_dims or '(none)'} "
+              f"cmd_cond={args.amp_style_cmd_cond}")
     env_kw = _env_kwargs(args)      # resolves params via bus.servo_params
     if args.walk_curriculum:
         # training/cert envs keep the curriculum via env_kw's cfg; the

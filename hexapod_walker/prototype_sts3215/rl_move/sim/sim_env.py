@@ -2502,6 +2502,26 @@ class SimHexapodBalanceEnv(_GymBase):
             amp_on = float(cfg_get(self.cfg, "goal", "amp_style_obs",
                                    default=0.0)) > 0.0
             self._amp_style_on = amp_on
+            # goal.amp_style_cmd_cond=1 (default 0 = bit-exact legacy,
+            # only reachable when amp_style_obs is also on): appends
+            # the CURRENT commanded (vx_ref, vy_ref, wz_ref) to the
+            # emitted obs_style vector (60 -> 63 dims). This is the
+            # command-conditioning fix for the 08-23 yaw-authority
+            # root-cause finding (rl_docs/tracks/amp/STATUS.md ~12:4x):
+            # the discriminator previously saw raw base_angular_velocity
+            # with no idea what rotation rate was COMMANDED, so any
+            # policy turning faster than the teacher's own demos (which
+            # embody ~0.13-0.18 rad/s regardless of label) read as
+            # "unlike the teacher" and got docked — pricing, wider-
+            # ceiling demos, style ablation and reset densification
+            # were all measured unable to move this. Only meaningful
+            # paired with a motion library built with
+            # ``build_motion_library.py --cmd-cond`` (matching 63-dim
+            # obs_style) — a mismatched dim is a loud shape error from
+            # AMPStyleVecWrapper/AMPDiscriminator, never a silent
+            # misread.
+            self._amp_style_cmd_cond = float(cfg_get(
+                self.cfg, "goal", "amp_style_cmd_cond", default=0.0)) > 0.0
             if amp_on:
                 from .amp_features import chassis_pad_gyro_ids
                 self._amp_style_ids = chassis_pad_gyro_ids(self)
@@ -2509,8 +2529,15 @@ class SimHexapodBalanceEnv(_GymBase):
                     int(self._amp_style_ids.qadr.shape[0]))
         if amp_on:
             from .amp_features import obs_style_from_data
+            cmd = None
+            if self._amp_style_cmd_cond:
+                goal = self._current_goal()
+                cmd = (float(getattr(goal, "vx_ref", 0.0)),
+                       float(getattr(goal, "vy_ref", 0.0)),
+                       float(getattr(goal, "wz_ref", 0.0)))
             result[4]["amp_obs_style"] = obs_style_from_data(
-                self.data, self._amp_style_ids, self._amp_style_neutral)
+                self.data, self._amp_style_ids, self._amp_style_neutral,
+                cmd=cmd)
         return result
 
     def _rise_ref_clock(self, ref: dict) -> tuple[int, bool]:

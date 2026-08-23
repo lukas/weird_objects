@@ -74,6 +74,66 @@ def test_env_emits_obs_style_only_when_cfg_on():
     env.close()
 
 
+def test_env_emits_cmd_conditioned_obs_style_when_flagged():
+    """08-23 yaw-authority follow-up: goal.amp_style_cmd_cond=1 (on
+    top of amp_style_obs=1) appends the LIVE (vx_ref, vy_ref, wz_ref)
+    at the tail -> 63-dim, and the appended triple matches the active
+    WalkGoal exactly. Default (cmd_cond absent/0) stays 60-dim, byte-
+    identical to the legacy path (already proven above) -- this test
+    only exercises the ON path plus one OFF-with-amp-on control."""
+    from rl_move.config import load_config
+    from rl_move.sim.walk_task import SimHexapodJointWalkEnv
+
+    def make_env(cmd_cond):
+        cfg = load_config()
+        goal = cfg.setdefault("goal", {})
+        goal["amp_style_obs"] = 1.0
+        if cmd_cond:
+            goal["amp_style_cmd_cond"] = 1.0
+        goal["walk_yaw_cmd"] = 1
+        goal["walk_yaw_max_rad_s"] = 0.3
+        goal["walk_turn_in_place_frac"] = 1.0
+        goal["walk_gait_start_frac"] = 1.0
+        env = SimHexapodJointWalkEnv(cfg, seed=0)
+        g = env._goal_gen
+        for m in ("hold", "lean", "track", "unload", "raise", "rise",
+                  "lower"):
+            if hasattr(g, f"p_{m}"):
+                setattr(g, f"p_{m}", 0.0)
+        g.p_walk = 1.0
+        env.reset()
+        return env
+
+    # OFF: amp_style_obs on, cmd_cond absent -> still 60-dim (the flag,
+    # not just amp_style_obs, gates the extra dims).
+    env_off = make_env(False)
+    _, _, _, _, info_off = env_off.step(
+        np.zeros(env_off.action_space.shape, dtype=np.float32))
+    assert info_off["amp_obs_style"].shape == (60,)
+    env_off.close()
+
+    # ON: 63-dim, tail == live WalkGoal command. Step past the legacy
+    # 1s zero-hold (no walk_gait_spawn_wz here, so the ramp is the
+    # plain walk_yaw_cmd default, not the fast-ramp densification
+    # tested in test_walk_gait_spawn_wz_turn_state_densification) so
+    # wz_ref is actually nonzero by the time we read it.
+    env_on = make_env(True)
+    n_steps = int(round(1.5 / env_on.dt))
+    info_on = None
+    for _ in range(n_steps):
+        _, _, _, _, info_on = env_on.step(
+            np.zeros(env_on.action_space.shape, dtype=np.float32))
+    goal2 = env_on._current_goal()
+    assert abs(float(getattr(goal2, "wz_ref", 0.0))) > 1e-9, (
+        "test needs a turn-in-place draw with nonzero wz_ref")
+    v = info_on["amp_obs_style"]
+    assert v.shape == (63,)
+    assert np.all(np.isfinite(v))
+    np.testing.assert_allclose(
+        v[60:], [goal2.vx_ref, goal2.vy_ref, goal2.wz_ref], atol=1e-6)
+    env_on.close()
+
+
 # ------------------------------------------------------------ library
 
 def test_motion_library_neutral_pose_single_convention():
@@ -155,6 +215,70 @@ def _wrap(stub, **kw):
     kw.setdefault("replay_size", 64)
     kw.setdefault("seed", 0)
     return AMPStyleVecWrapper(stub, **kw)
+
+
+def _write_tiny_library(path, extra_dims=0, n=40):
+    """Minimal synthetic library npz (08-23 cmd-cond follow-up): just
+    the fields MotionLibrary.__init__ reads. joint dims stay 18 always
+    (that convention is independent of obs_style's tail width);
+    extra_dims appends that many extra style columns (0 = plain 60-dim
+    legacy-shaped library, 3 = a stand-in for the cmd-cond 63-dim
+    library) so the SAME test helper covers both shapes."""
+    rng = np.random.default_rng(0)
+    jp = rng.normal(size=(n, 18)).astype(np.float32)
+    rel = jp - jp[0]
+    feat_dim = 60 + extra_dims  # 18+18+3+3+18(dummy foot dims)+extra
+    obs_style = rng.normal(size=(n, feat_dim)).astype(np.float32)
+    obs_style[:, :18] = rel  # keep the neutral-pose slice consistent
+    np.savez_compressed(
+        str(path), obs_style=obs_style,
+        clip_starts=np.array([0]), clip_lens=np.array([n]),
+        joint_position=jp, joint_position_rel_neutral=rel)
+
+
+def test_cmd_cond_library_composes_end_to_end(tmp_path):
+    """08-23 yaw-authority follow-up: AMPStyleVecWrapper/AMPDiscriminator
+    are dimension-generic (feat_dim derived from the library, never
+    hardcoded 60) -- prove it mechanically on a non-default-width
+    (63-dim, matching build_motion_library.py --cmd-cond) library, not
+    just by code inspection."""
+    lib_path = tmp_path / "tiny_cmdcond.npz"
+    _write_tiny_library(lib_path, extra_dims=3)
+
+    class _MatchedStub(_StubVecEnv):
+        def __init__(self):
+            super().__init__(n_envs=2, feat_dim=63)
+            lib = MotionLibrary(lib_path)
+            self._base = lib.obs_style[0].copy()
+            self._neutral = lib.neutral_pose.copy()
+
+    w = _wrap(_MatchedStub(), motion_lib=lib_path, replay_size=64)
+    assert w.lib.feat_dim == 63
+    w.reset()
+    for _ in range(10):
+        w.step_async(None)
+        obs, r, d, infos = w.step_wait()
+        assert np.all(np.isfinite(r))
+    stats = w.train_discriminator(2, 8)
+    assert stats is not None
+    for v in stats.values():
+        assert np.isfinite(v)
+
+
+def test_cmd_cond_dim_mismatch_raises_loud_error(tmp_path):
+    """A 63-dim (cmd-cond) library paired with an env still emitting
+    60-dim amp_obs_style rows (goal.amp_style_cmd_cond left off) must
+    fail LOUDLY, never silently truncate/misread."""
+    lib_path = tmp_path / "tiny_cmdcond.npz"
+    _write_tiny_library(lib_path, extra_dims=3)
+    stub = _StubVecEnv(n_envs=2, feat_dim=60)  # legacy 60-dim rows
+    w = _wrap(stub, motion_lib=lib_path, replay_size=64)
+    w.reset()
+    w.step_async(None)
+    with pytest.raises(ValueError):
+        w.step_wait()
+        w.step_async(None)
+        w.step_wait()
 
 
 def test_wrapper_rejects_style_weight_zero():

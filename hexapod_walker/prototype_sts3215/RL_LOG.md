@@ -364,3 +364,4 @@ DIG-IN: cw-amp-m4-turnpushfault1-style05-r2 — mechanism-safety PASS but turn t
 - 08-23 15:37 [amp] tipspawn1b seed-replicate grid 0/3 PASS (s11 3.55, s13 3.73, s17 3.765 vs bar 3.5; original 3.1855 = noise) -- state-visitation slip fork CLOSED per pre-registration; anneal family is the last live slip mechanism 
 - 08-23 15:38 [amp] tipspawn1b-s13 FAIL: m5 walk det_slip_med 3.73 > 3.5 bar; clean behavior, effect absent (grid 0/3) 
 - 08-23 15:38 [amp] tipspawn1b-s17 FAIL: m5 walk det_slip_med 3.765 > 3.5 bar; grid complete 0/3 -- state-visitation slip mechanism refuted 
+- 08-23 15:51 [amp] built+tested --amp-style-mask-dims (blind discriminator to yaw-rate dim 38, default-off bit-exact, 6 new tests, snapshot exp/...-wzmask1); LAUNCHED wzmask1 on pushcal518 (train-0, 2M) -- can noamp1's tip gain be had without its slip cost? 

@@ -174,7 +174,8 @@ def _families(clip_s: float = 6.0, turn_wz: float = 0.25):
 def run_clip(name: str, cmd_fn, clip_s: float, seed: int, *,
              controller: str = "tripod", cpg_params=None,
              yaw_trim: bool = False,
-             turn_scales: tuple[float, float] | None = None) -> dict:
+             turn_scales: tuple[float, float] | None = None,
+             cmd_cond: bool = False) -> dict:
     """Roll the scripted teacher through real physics for one command
     profile; return per-tick records + validation metrics.
 
@@ -343,13 +344,26 @@ def run_clip(name: str, cmd_fn, clip_s: float, seed: int, *,
     cmd_hist = np.asarray(cmd_hist)
     joint_pos_rel_neutral = joint_pos - neutral_q[None, :]
 
-    obs_style = np.concatenate([
+    # 08-23 yaw-authority follow-up (command-conditioned discriminator,
+    # see amp_features.obs_style_from_data's cmd= docstring): default
+    # False = bit-exact legacy 60-dim obs_style. True appends this
+    # clip's per-tick (vx, vy, wz) command history (identical values
+    # already computed above as ``cmd_hist``, and the SAME order
+    # sim_env.py's live cmd-cond path uses: vx_ref, vy_ref, wz_ref) —
+    # 63-dim. A library built one way can only pair with a live run
+    # configured the same way; a dim mismatch is a loud AMPDiscriminator
+    # shape error, never silent.
+    style_parts = [
         joint_pos_rel_neutral,
         joint_vel,
         base_angvel,
         proj_grav,
         foot_pos_body.reshape(n_got, -1),
-    ], axis=1) if n_got > 0 else np.zeros((0, 60))
+    ]
+    if cmd_cond:
+        style_parts.append(cmd_hist)
+    obs_style = (np.concatenate(style_parts, axis=1) if n_got > 0
+                else np.zeros((0, 63 if cmd_cond else 60)))
 
     slip_per_m = ls_slip_m / max(ls_prog_m, 0.05)
     # Measured steady-state body yaw rate over the final 3 s (08-23
@@ -427,6 +441,14 @@ def main():
                          "closed-loop yaw trim on turn_* clips "
                          "(default: trim ON, matching the verified "
                          "robust-gate recipe)")
+    ap.add_argument("--cmd-cond", action="store_true",
+                    help="append each clip's per-tick (vx, vy, wz) "
+                         "command history to obs_style (60 -> 63 dim) "
+                         "for a command-conditioned AMP discriminator "
+                         "(08-23 yaw-authority follow-up; default off "
+                         "= bit-exact legacy 60-dim library). Pair "
+                         "only with a live run that sets "
+                         "goal.amp_style_cmd_cond=1.")
     args = ap.parse_args()
 
     cpg_params = None
@@ -464,9 +486,14 @@ def main():
                                     cmd_tau=cpg_params.cmd_tau,
                                     workspace_margin=cpg_params.workspace_margin)
                               if cpg_params is not None else None),
-                "obs_style_layout": "joint_pos_rel_neutral(18) + "
+                "cmd_cond": args.cmd_cond,
+                "obs_style_layout": ("joint_pos_rel_neutral(18) + "
                 "joint_velocity(18) + base_angular_velocity(3) + "
-                "projected_gravity(3) + foot_positions_rel_body(18) = 60",
+                "projected_gravity(3) + foot_positions_rel_body(18) + "
+                "command_vx_vy_wz(3) = 63" if args.cmd_cond else
+                "joint_pos_rel_neutral(18) + "
+                "joint_velocity(18) + base_angular_velocity(3) + "
+                "projected_gravity(3) + foot_positions_rel_body(18) = 60"),
                 "neutral_convention": "per-clip: qpos at clip tick 0 "
                 "(post-reset spawn stance) -- see script docstring "
                 "ASSUMPTION / OPERATOR_QUESTIONS.md q_20260822T0900Z"}
@@ -480,7 +507,8 @@ def main():
                             yaw_trim=not args.no_yaw_trim,
                             turn_scales=(turn_scales
                                          if name.startswith("turn_")
-                                         else None))
+                                         else None),
+                            cmd_cond=args.cmd_cond)
             ok, reason = validate(clip, args.reject_slip_per_m, args.min_ticks)
             entry = dict(name=name, seed=seed, n_ticks=clip["n_ticks"],
                         slip_per_m=round(clip["slip_per_m"], 3),

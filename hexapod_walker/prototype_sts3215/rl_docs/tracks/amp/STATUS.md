@@ -19,7 +19,22 @@ carries the slip question alone, including its pre-registered
 PARTIAL→bar/metric-amendment branch for the probe-vs-m5
 dissociation. Ops note: s11's watcher prestage was missed; its
 checkpoint pull + gate/m5 evals were run manually this cycle.
-Evidence: `logs/ckpt_eval/cw_amp_m4_..._tipspawn1b_s{11,13,17}_{gate,m5}/`.)
+Evidence: `logs/ckpt_eval/cw_amp_m4_..._tipspawn1b_s{11,13,17}_{gate,m5}/`.
+SAME CYCLE, yaw axis re-armed: the yaw fork had NO live lever
+(pricing dose-refuted, turnlib3 demo-ceiling refuted at dose,
+tipspawn densification refuted, noamp1 disqualified by its slip
+trade) — built `--amp-style-mask-dims` (zero named obs_style dims on
+BOTH real+fake discriminator inputs; default '' bit-exact,
+`test_amp_style_mask.py` 6/6 + amp banks 21/21, snapshot
+`exp/...-wzmask1`) and LAUNCHED `-wzmask1` (mask dim 38 = gyro-z/yaw
+rate, single lever on pushcal518, 2M, train-0, VERIFIED RUNNING):
+tests whether noamp1's tip gain (−0.038/−0.020) can be had through
+the rotation channel alone WITHOUT its +0.25 slip cost. Gate: PASS =
+both tips improve ≥0.02 (≥1 side ≤0.20) with slip within ±0.15 of
+3.67; PARTIAL = tips improve but slip regresses (noamp1 trade
+reproduced → lever closed); FAIL = tips unmoved → one widen-mask
+follow-up (36-38), then the gyro-channel hypothesis closes and yaw
+goes to stance-geometry/turn-curriculum.)
 
 Previous entry (~15:2x: **`-stdanneal45-r2` PARTIAL — the
 train-noise floor is the FIRST mechanism to genuinely cut the

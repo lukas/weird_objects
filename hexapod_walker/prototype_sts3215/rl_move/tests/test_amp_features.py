@@ -130,6 +130,27 @@ def test_obs_style_from_data_shape_and_finite():
     env.close()
 
 
+def test_obs_style_from_data_cmd_cond_appends_tail():
+    """08-23 yaw-authority follow-up: cmd=None (default) is bit-exact
+    (60-dim, unchanged values); passing (vx, vy, wz) appends it at the
+    tail with the first 60 dims untouched -> 63-dim."""
+    env = _cpu_walk_env()
+    env.reset()
+    ids = chassis_pad_gyro_ids(env)
+    neutral = env.data.qpos[env._qadr].copy()
+    env.step(np.zeros(18))
+    base = obs_style_from_data(env.data, ids, neutral)
+    assert base.shape == (60,)
+    same = obs_style_from_data(env.data, ids, neutral, cmd=None)
+    np.testing.assert_array_equal(base, same)
+    cmd = (0.08, -0.01, 0.25)
+    ext = obs_style_from_data(env.data, ids, neutral, cmd=cmd)
+    assert ext.shape == (63,)
+    np.testing.assert_array_equal(ext[:60], base)
+    np.testing.assert_allclose(ext[60:], cmd, atol=1e-6)
+    env.close()
+
+
 def test_obs_style_batch_matches_per_env():
     """obs_style_batch over N copies of the same data must equal N
     stacked calls to obs_style_from_data (pure plumbing check)."""

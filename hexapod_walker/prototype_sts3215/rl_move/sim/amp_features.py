@@ -40,12 +40,15 @@ Public API:
   (same model, same layout; verified by
   ``test_mjx_vecenv_obs_style_batched``), so callers never touch
   private attributes directly.
-- ``obs_style_from_data(data, ids, neutral_qpos)``: the 60-dim
-  (joint_pos_rel_neutral[18] + joint_vel[18] + base_angular_velocity[3]
-  + projected_gravity[3] + foot_positions_rel_body[18]) vector for ONE
-  env at the CURRENT tick, from any object exposing
-  ``qpos/qvel/xpos/xmat/sensordata`` (real ``MjData`` or
-  ``mjx_host.FakeData`` both qualify).
+- ``obs_style_from_data(data, ids, neutral_qpos, cmd=None)``: the
+  60-dim (joint_pos_rel_neutral[18] + joint_vel[18] +
+  base_angular_velocity[3] + projected_gravity[3] +
+  foot_positions_rel_body[18]) vector for ONE env at the CURRENT tick,
+  from any object exposing ``qpos/qvel/xpos/xmat/sensordata`` (real
+  ``MjData`` or ``mjx_host.FakeData`` both qualify). ``cmd=None``
+  (default) is bit-exact legacy; passing an (vx_ref, vy_ref, wz_ref)
+  triple appends it, giving a 63-dim command-conditioned vector (08-23
+  yaw-ceiling follow-up — see the function docstring).
 - ``obs_style_batch(datas, ids, neutral_qpos_batch)``: stacks
   ``obs_style_from_data`` over a list of per-env data objects (e.g.
   ``[e.data for e in vecenv.envs]``) -> ``(n_envs, 60)``.
@@ -89,9 +92,11 @@ def chassis_pad_gyro_ids(env) -> ObsStyleIds:
 
 
 def obs_style_from_data(data, ids: ObsStyleIds,
-                         neutral_qpos: np.ndarray) -> np.ndarray:
-    """60-dim AMP discriminator feature vector for one env at the
-    current tick of ``data`` (real ``MjData`` or ``mjx_host.FakeData``).
+                         neutral_qpos: np.ndarray,
+                         cmd: np.ndarray | tuple | None = None) -> np.ndarray:
+    """60-dim (default) AMP discriminator feature vector for one env at
+    the current tick of ``data`` (real ``MjData`` or
+    ``mjx_host.FakeData``).
 
     World->body rotation via ``xmat`` (present on BOTH backends;
     ``xquat`` is NOT present on the MJX shim's ``FakeData`` — see
@@ -100,6 +105,24 @@ def obs_style_from_data(data, ids: ObsStyleIds,
     rotates a world-frame vector into the body frame — the same
     operation ``walk_task.py``'s ``_body_vel_xy``/``_body_wz`` already
     use for velocity, applied here to gravity and foot offsets.
+
+    ``cmd`` (08-23 yaw-authority follow-up, default None = bit-exact
+    legacy 60-dim vector): an optional (vx_ref, vy_ref, wz_ref)-shaped
+    command triple appended at the TAIL. This is the command-
+    conditioning fix for the discriminator's yaw ceiling
+    (rl_docs/tracks/amp/STATUS.md 08-23 ~12:4x root-cause: obs_style
+    carries raw ``base_angular_velocity`` with NO idea what rotation
+    rate was commanded, so any policy that turns faster than the
+    teacher's own demos — which embody ~0.13-0.18 rad/s regardless of
+    label — reads as "unlike the teacher" and gets docked; pricing,
+    wider-ceiling demos, style ablation, and reset densification were
+    all measured unable to move this). Callers must pass the SAME
+    convention (vx_ref, vy_ref, wz_ref order, matching
+    ``build_motion_library.py``'s ``cmd_hist`` and
+    ``walk_task.WalkGoal``) on both the motion-library side and the
+    live env side, and the caller (``sim_env.py``) only turns this on
+    behind a new cfg flag — a caller that never passes ``cmd`` gets the
+    identical old vector, unchanged shape and values.
     """
     qpos = np.asarray(data.qpos, dtype=np.float64)[ids.qadr]
     qvel = np.asarray(data.qvel, dtype=np.float64)[ids.vadr]
@@ -113,10 +136,13 @@ def obs_style_from_data(data, ids: ObsStyleIds,
         rel_world = np.asarray(data.xpos[b], dtype=np.float64) - chassis_xyz
         feet.append(R.T @ rel_world)
     foot_pos_body = np.concatenate(feet)
-    return np.concatenate([
+    parts = [
         qpos - np.asarray(neutral_qpos, dtype=np.float64),
         qvel, gyro, proj_grav, foot_pos_body,
-    ]).astype(np.float32)
+    ]
+    if cmd is not None:
+        parts.append(np.asarray(cmd, dtype=np.float64).reshape(-1))
+    return np.concatenate(parts).astype(np.float32)
 
 
 def obs_style_batch(datas, ids: ObsStyleIds,
