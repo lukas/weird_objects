@@ -1703,3 +1703,30 @@ Plain English: the straight-gait search result is real, but the scorer misread t
   style target mid-M2-curriculum would confound every running
   comparison.
 - status: OPEN
+
+## q_20260823T0130Z — M5 cross-engine suite v1 bars (assumed, adjustable)
+- context: AMP track's DONE gate is M5 (brief §13: same actor weights
+  replay in plain MuJoCo preserving command response, recognizable
+  gait, push recovery, partial fault adaptation). The trainer is
+  MJX/Warp and the standard harness (`eval_checkpoint.py`) is ALREADY
+  plain CPU MuJoCo, so the cross-engine ingredients existed but no
+  FIXED suite/gate did (STATUS board: "M5: NOT STARTED").
+- built this cycle: `rl_move/sim/eval_amp_m5.py` (amp-m5-v1) — pure
+  composition of existing tools (walk panel, eval_yaw, dr.ext_push_*,
+  dr.fault_*), one invocation, one m5_verdict.json. No new physics or
+  metrics.
+- assumption adopted (v1 pre-registered bars, sources named in the
+  module docstring): walk = 0 terms + gait_valid 12/12 + det prog med
+  >=0.75 + det slip med <=3.5 (M2 lineage gates); yaw = both tip errs
+  <=0.20 + 0 falls (turnclone lineage bar); push = <=2/6 det + <=3/6
+  sto topples + gait_valid >=10/12 at base 10-25N dose (M3 bars);
+  fault = <=2/12 terms + gait_valid >=10/12 + det fwd med >=0.10m
+  (M4 faultobs2 bars). Video review of section strips stays mandatory
+  before any m5_pass is declared a track-DONE claim.
+- question: are these the bars the operator wants for track-DONE, in
+  particular (a) push dose (base 10-25N single shove vs the hardened
+  20-40N/repeat3 doses M3 has since reached), (b) whether M5 should
+  require ONE checkpoint to pass all four sections (current suite
+  semantics) vs per-skill champions?
+- status: OPEN (proceeding with v1 bars + one-checkpoint semantics —
+  that is what brief §13 literally says: "A single policy…")
