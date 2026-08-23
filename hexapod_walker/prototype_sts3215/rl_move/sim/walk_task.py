@@ -974,6 +974,45 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 "steps": _tp_ramp_steps, "start": _tp_start,
                 "target": _tp_target, "frac": 1.0,
             }
+        # Dense walk-charge RAMP (08-23, walkcurr fwd1/fwd2 dig-in):
+        # from-scratch PPO froze into a tilt-safe splayed crouch for
+        # 2M steps in three straight rung-1 arms because the dense
+        # per-step walk charge flow (~-4.7/step, loadslip-dominated
+        # via the 0.03 m travel floor) both makes freezing the best
+        # REACHABLE policy and instantly punishes the flailing that
+        # exploration must pass through, while every income channel
+        # requires competent locomotion before it pays (walk_prog
+        # identically 0.0 across all three runs); no bank-legal
+        # income dose can compete (fwd2-swing/swingterm800 FAIL,
+        # 08-23). When armed (reward.walk_charge_ramp_steps > 0) the
+        # four dense walk charges — k_loadslip_excess, k_park_duty,
+        # k_walk_idle_charge, k_walk_heading — are scaled by
+        # walk_charge_ramp_min_frac at frac 0 and anneal linearly UP
+        # to the full bank-proven dose at frac 1. Same cfg-armed /
+        # trainer-driven / default-OFF contract as the term-penalty
+        # and drag-allow ramps: default absent/0 is bit-exact legacy,
+        # and armed-but-unbroadcast sits at the FULL charges so
+        # eval_checkpoint / play / the periodic C-env evals always
+        # judge the bank-proven pricing even mid-ramp cfg.
+        self._walk_charge_ramp: dict | None = None
+        self._walk_charge_override: float | None = None
+        _wc_ramp_steps = int(float(cfg_get(
+            self.cfg, "reward", "walk_charge_ramp_steps",
+            default=0) or 0))
+        if _wc_ramp_steps > 0:
+            _wc_min = float(cfg_get(
+                self.cfg, "reward", "walk_charge_ramp_min_frac",
+                default=0.15))
+            if not 0.0 <= _wc_min <= 1.0:
+                raise ValueError(
+                    "reward.walk_charge_ramp_min_frac "
+                    f"({_wc_min:g}) must be in [0, 1] — the ramp "
+                    "only ever anneals the charges UP to the "
+                    "bank-proven full dose")
+            self._walk_charge_ramp = {
+                "steps": _wc_ramp_steps, "min_frac": _wc_min,
+                "frac": 1.0,
+            }
         # All-support-legs gait gate bookkeeping (08-13, quad track,
         # reward.walk_gait_gate): per-leg COMMANDED-tick index of the
         # last completed real swing (liftoff -> >=2 ticks airborne ->
@@ -1677,6 +1716,34 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         self._term_penalty_override = s + f * (t - s)
         self._term_penalty_ramp["frac"] = f
         return {"frac": f, "term_penalty": self._term_penalty_override}
+
+    def apply_walk_charge_frac(self, frac: float) -> dict:
+        """Move the live dense-walk-charge scale to ``frac`` of the
+        ramp (0 = walk_charge_ramp_min_frac of every scaled charge,
+        1 = the full bank-proven dose); trainer-driven — see the
+        ``reward.walk_charge_ramp_steps`` block in ``__init__``.
+        Mirrors ``apply_term_penalty_frac``'s contract exactly:
+        raises when the ramp is not armed, so a broadcast that
+        silently no-ops is never a hidden failure mode.
+        """
+        if self._walk_charge_ramp is None:
+            raise RuntimeError(
+                "apply_walk_charge_frac called but reward."
+                "walk_charge_ramp_steps is not set (>0) in this "
+                "env's cfg — the walk-charge ramp is not armed")
+        f = min(max(float(frac), 0.0), 1.0)
+        m = self._walk_charge_ramp["min_frac"]
+        self._walk_charge_override = m + f * (1.0 - m)
+        self._walk_charge_ramp["frac"] = f
+        return {"frac": f, "charge_scale": self._walk_charge_override}
+
+    def _walk_charge_scale(self) -> float:
+        """Live scale on the four dense walk charges (see the
+        walk-charge ramp block in ``__init__``): 1.0 (bit-exact
+        legacy / full bank-proven dose) unless the trainer has
+        broadcast a ramp frac."""
+        ov = self._walk_charge_override
+        return 1.0 if ov is None else ov
 
     def walkcurr_checkpoint_state(self) -> dict:
         """State paired with a promotion checkpoint (rollback/resume)."""
@@ -3567,7 +3634,8 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 # legacy (no new info keys). cfg: reward.k_loadslip_excess.
                 k_lse = float(cfg_get(self.cfg, "reward",
                                       "k_loadslip_excess",
-                                      default=0.0))
+                                      default=0.0)) \
+                    * self._walk_charge_scale()
                 if k_lse > 0.0:
                     r_lse = -k_lse * max(ratio - ls_ok, 0.0) * self.dt
                     reward += r_lse
@@ -3707,7 +3775,8 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             k_over = float(cfg_get(self.cfg, "reward",
                                    "k_walk_overspeed", default=0.0))
             k_head = float(cfg_get(self.cfg, "reward",
-                                   "k_walk_heading", default=0.0))
+                                   "k_walk_heading", default=0.0)) \
+                * self._walk_charge_scale()
             if (k_over > 0.0 or k_head > 0.0) and s_ref > 1e-3:
                 spd_now = float(np.hypot(v[0], v[1]))
                 if k_over > 0.0:
@@ -3752,7 +3821,8 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             # cfg: reward.k_walk_idle_charge, reward.walk_idle_speed_m_s,
             # reward.walk_idle_tau_s.
             k_idle = float(cfg_get(self.cfg, "reward",
-                                   "k_walk_idle_charge", default=0.0))
+                                   "k_walk_idle_charge", default=0.0)) \
+                * self._walk_charge_scale()
             if k_idle > 0.0 and s_ref > 1e-3:
                 tau = max(float(cfg_get(self.cfg, "reward",
                                         "walk_idle_tau_s", default=1.0)),
@@ -3984,7 +4054,8 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             k_drag = float(cfg_get(self.cfg, "reward", "k_drag_loaded",
                                    default=0.0))
             k_park = float(cfg_get(self.cfg, "reward", "k_park_duty",
-                                   default=0.0))
+                                   default=0.0)) \
+                * self._walk_charge_scale()
             # Structural stance-slip charge (charge-magnitude audit,
             # 2026-08-11, probe_drag_audit.py): per-foot accumulated
             # loaded XY travel per STANCE PERIOD, charged continuously
