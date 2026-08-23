@@ -598,9 +598,16 @@ DRIFT_WZ = 0.09          # the measured structural left drift
 # ratio 1.78 while collecting MORE yaw_prog than the accurate
 # champion), and 3x income (yawprice3x) amplified the farm. Any turn
 # arm must now also train with the overshoot decay ON.
+# Two coupled levers (one mechanism — make yaw_prog's optimum the
+# accurately-tracked command): overshoot decay peaks income at
+# ratio 1.0, and the wz EMA (yaw_prog_avg_s, same DC-vs-AC fix as
+# yaw_still_avg_s 08-11) stops the instantaneous pricing from fining
+# the honest gait's zero-mean stride oscillation while paying the
+# smooth fast spinner.
 TURN_FIX_OVERRIDES = dict(TURN_OVERRIDES)
 TURN_FIX_OVERRIDES.update({
     ("reward", "yaw_prog_overshoot_decay"): 1.0,
+    ("reward", "yaw_prog_avg_s"): 1.0,
 })
 # The farm lives on LOW commanded rates (wz_ref ~ U(+-0.3)): the
 # scripted gait's achieved wz saturates ~0.16 rad/s in this env
@@ -748,6 +755,7 @@ def test_turn_overshoot_decay_default_off_is_bit_exact():
     branch must be dead code when off)."""
     explicit = dict(TURN_OVERRIDES)
     explicit[("reward", "yaw_prog_overshoot_decay")] = 0.0
+    explicit[("reward", "yaw_prog_avg_s")] = 0.0
     a = _turn_rollout("overspin", TURN_SLOW_WZ, SEEDS[0], TURN_OVERRIDES)
     b = _turn_rollout("overspin", TURN_SLOW_WZ, SEEDS[0], explicit)
     assert a == pytest.approx(b, abs=1e-9), (a, b)
