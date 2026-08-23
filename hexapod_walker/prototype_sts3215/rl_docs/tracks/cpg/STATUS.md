@@ -1,6 +1,21 @@
 # cpg - Berkeley-style parameter gait search
 
-Last updated: 2026-08-23 ~06:3x UTC (**TRACK GATE GREEN — adoption A/B
+Last updated: 2026-08-23 ~21:1x UTC (**SECOND independent adoption
+data point in — gate stays GREEN, adoption answer strengthened.**
+Fresh matched-6M A/B pair `cw-cpg-ab6m-cpglib` (PASS) vs
+`cw-cpg-ab6m-teachlib` (INFORMATIVE control): cpg_v1 parity-or-better
+on every DR-0 axis — det prog 1.28/fwd 0.76m/slip 2.53 vs teacher
+1.27/0.71m/2.58, sto prog 0.96/slip 3.10 vs 0.88/3.46, gait_valid
+24/24 combined, zero terms, both video-clean. The teacher's NO-SWAP
+branch is dead twice over; cpg_v1 now has LOWER slip in both modes on
+this pair. Ruling unchanged: co-equal (slightly favored) style source,
+no forced teacher_v2 swap at n=6 noise-edge deltas; future amp arms
+may pre-register cpg_v1 as the default. The second-data-point Next
+item is CLOSED. Remaining items are maintenance/[operator] only.
+Evidence: `logs/ckpt_eval/cw_cpg_ab6m_cpglib_gate/`,
+`logs/ckpt_eval/cw_cpg_ab6m_teachlib_gate/`. Prior banner below.)
+
+Previous entry (2026-08-23 ~06:3x UTC (**TRACK GATE GREEN — adoption A/B
 answered at matched budget; both tracks.json clauses now satisfied.**
 The +6M budget pair finished together and was read jointly per its own
 pre-registered gate: `cw-cpg-teacherfork-ab-cpgv1-acq1b` (CPG library
