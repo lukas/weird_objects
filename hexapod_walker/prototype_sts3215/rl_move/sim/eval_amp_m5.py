@@ -81,6 +81,22 @@ def _eval_ckpt(ckpt: str, out: Path, cfg_sets: list[str], per_mode: int,
     return json.loads(rep.read_text())
 
 
+def _median(vals: list) -> float | None:
+    """statistics.median, skipping None entries (08-23 fix: a
+    walk-section episode with goal.walk_turn_in_place_frac > 0 in the
+    checkpoint's own baked cfg draws a whole-episode ZERO linear
+    command, so eval_checkpoint.py's own progress_ratio is legitimately
+    None (cmd_dist_m ~ 0, division undefined) -- documented, expected
+    behavior there, not a defect. This suite's median crashed
+    (TypeError: '<' not supported between NoneType and float) the first
+    time a checkpoint trained with that cfg key reached it; every other
+    M5 checkpoint to date had cmd_dist_m > 0 in every walk episode so
+    the gap never fired before. Filtering mirrors eval_checkpoint.py's
+    own None-guard pattern (search progress_ratio is not None there)."""
+    v = [x for x in vals if x is not None]
+    return statistics.median(v) if v else None
+
+
 def _walk_stats(report: dict) -> dict:
     eps = report["episodes"]
     det = eps.get("walk/det", [])
@@ -93,11 +109,11 @@ def _walk_stats(report: dict) -> dict:
         sto_terms=sum(1 for e in sto if e.get("terminated")),
         gait_valid=sum(1 for e in both if e.get("gait_valid")),
         sacrificed=sorted({leg for e in both for leg in (e.get("sacrificed_legs") or [])}),
-        det_prog_med=statistics.median([e["progress_ratio"] for e in det]) if det else None,
-        det_slip_med=statistics.median([e["slip_per_m"] for e in det]) if det else None,
-        det_fwd_med=statistics.median([e["forward_dist_m"] for e in det]) if det else None,
-        sto_prog_med=statistics.median([e["progress_ratio"] for e in sto]) if sto else None,
-        sto_slip_med=statistics.median([e["slip_per_m"] for e in sto]) if sto else None,
+        det_prog_med=_median([e["progress_ratio"] for e in det]),
+        det_slip_med=_median([e["slip_per_m"] for e in det]),
+        det_fwd_med=_median([e["forward_dist_m"] for e in det]),
+        sto_prog_med=_median([e["progress_ratio"] for e in sto]),
+        sto_slip_med=_median([e["slip_per_m"] for e in sto]),
     )
 
 
