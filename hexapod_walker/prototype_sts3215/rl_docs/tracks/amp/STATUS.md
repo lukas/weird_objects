@@ -1,6 +1,36 @@
 # amp - AMP locomotion from scratch
 
-Last updated: 2026-08-23 ~17:3x (**wzmask2 widen-mask read is
+Last updated: 2026-08-23 ~17:3x (**the wzmask2-s23/s13/s17 decider
+grid's answer is MATHEMATICALLY LOCKED before the 3rd arm even
+finished: the gyro-channel yaw hypothesis is CLOSED FOR REAL.**
+`-wzmask2-s23` (this run) read m5 tips 0.2092/0.252; pooled with the
+two prior draws (`-wzmask2` 0.239/0.2371, `-gyroxyz` 0.174/0.202) and
+`-s13` (0.215/0.2234) gives n=4 pooled medians tip_left 0.2121,
+tip_right 0.2303 — both already inside the ±0.02 FAIL band around
+parent pooled 0.2168/0.2351. Because a 5-draw median is bounded by
+the sorted 4-draw's own 2nd/3rd order statistics (tip_left is
+mathematically confined to [0.2092,0.215], tip_right to
+[0.2234,0.2371] no matter what the still-running `-s17` reads), the
+grid's PASS branch is now IMPOSSIBLE — the FAIL conclusion does not
+wait on the last arm. Reading: the two straddling n=2 draws
+(`-wzmask2` FAIL-looking, `-gyroxyz` PASS-looking) were both samples
+from one noisy-but-flat distribution centered near the parent, not a
+real lever — masking the discriminator's rotation-sensing dims (gyro-z
+alone in `wzmask1`, then the full gyro triad in `wzmask2`) moves
+nothing. This closes the FIFTH+SIXTH yaw mechanism classes
+(discriminator-obs, both widths) on top of pricing/demos/
+style-ablation/reset-densification — the yaw fork has no live
+discriminator-obs lever left; it escalates to the 0.20-bar amendment
+(q_20260823T0130Z) or stance-geometry/turn-curriculum, not another
+mask arm. `-s23` itself is safety/slip clean: 0 falls/terms all
+sections, gait_valid 12/12 walk + push + fault, det_slip_med 3.527
+(at the family's known ~3.5 sampling-noise floor, not a regression),
+push PASS (slip 3.064), fault PASS (fwd 0.479m). `-s17` will still
+finish and get its own verdict for the completeness of the replicate
+record, but does not gate this conclusion. Evidence:
+`logs/ckpt_eval/..._wzmask2_s23_{gate,m5}/`.)
+
+Previous entry (~17:3x: **wzmask2 widen-mask read is
 INCONCLUSIVE in the most instructive way possible: two
 identical-config, identical-seed draws of the SAME recipe read
 opposite verdicts, exposing that the tip metric's replicate noise
