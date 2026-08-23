@@ -183,6 +183,19 @@ validity, on video. Speed obedience is secondary throughout.
   memory, or budget) while the rscale arms unfreeze — the two theories
   (action-insensitive-reward advantage starvation vs value-gradient
   crush) are now cleanly discriminated by one wave.
+- **`cw-walkcurr-pf-fwd6-rscale10-cont1b` FAIL (verdicted 08-23
+  ~21:27): crush-fix necessary-but-INSUFFICIENT at the x0.1 dose.**
+  The +4M continuation kept the optimizer healthy the whole way
+  (clip_fraction 0.03-0.16, value_loss ~6, std moving off init) —
+  the first rung-1 lineage without the collapse — yet
+  `walk_freeprog_score` never left the [-0.05,-0.08] band over 6M
+  total, det gate 0/6 at 0.002 m/s, identical static-crouch video
+  (leg 2 sacrificed). x0.1 same-recipe lineage CLOSED per its own
+  pre-registered branch. The escalation fork below now hinges
+  SOLELY on `rscale50-cont1` (x0.02, finished, its own cycle's
+  triage): parent's freeprog rose monotonically -0.103->-0.015, so
+  a zero-crossing there keeps the scale lever alive (dose-
+  sensitive); a sub-zero plateau there fires (a)/(b) below.
 - **If the scale arms fail**: escalate in this order — (a) prior-free
   exploration fix (curiosity/RND state-novelty bonus, or gSDE — a
   concurrent cycle landed `--use-sde` validation support 08-23; or a

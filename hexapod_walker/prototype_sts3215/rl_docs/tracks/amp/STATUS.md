@@ -30,6 +30,23 @@ declaration requires the replication read, not just one seed.
 Evidence: `logs/ckpt_eval/..._phasehz{09,11}_m5{,_wpm24}/`. Prior
 banner below.)
 
+**UPDATE ~21:2x-3x (concurrent cycle): `-phasehz05-cont1` VERDICTED
+PARTIAL** — +4M at 0.5 Hz grows walk det_prog_med 0.52 -> **0.669**
+(wpm24 n=28) while IMPROVING tips to **0.1146/0.1048** (family best;
+erosion alternative refuted at one dose) and cutting slip to a
+lineage-best **2.31**; push PASS, fault first-ever spotless (0
+terms, gv 12/12); m5_pass=false only on walk prog; reward still
+rising at cutoff (272.6 last quarter). Against phasehz11's PASS
+(prog 0.893/slip 3.13/tips 0.145): 0.5 Hz is the WIDE-MARGIN corner
+(tips/slip) that is still prog-limited, 1.1 Hz is the prog corner
+with thinner slip margin (3.13 vs 3.5 bar). `-phasehz05-cont2`
+LAUNCHED (+4M, acquisition): if prog reaches >=0.75 at 10M the 0.5 Hz
+recipe becomes a second full-PASS candidate with strictly wider
+tip/slip margins than 1.1 Hz — a champion-selection A/B, not a
+rescue; FAIL branch (<0.72, gain-per-4M collapsed) hands the
+operating point permanently to 1.1 Hz (or conditional-clock code
+work). Read jointly with the phasehz11 seed twins.
+
 Previous entry (~20:5x (**0.7 Hz dose point read — PARTIAL,
 and it sharpens the curve: TIPS ARE NON-MONOTONE IN CADENCE with the
 best point INTERIOR.** `-phasehz07` (clock 0.7 Hz, teacher_v2 demos,

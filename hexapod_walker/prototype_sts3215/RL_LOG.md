@@ -428,3 +428,4 @@ DIG-IN: cw-amp-m4-turnpushfault1-style05-r2 — mechanism-safety PASS but turn t
 - 08-23 21:12 cpg ab6m A/B: cpglib PASS ADOPTION-LIVE -- parity+ on det/sto with LOWER slip vs teacher at matched 6M; 2M deficit was budget-limited (2nd independent confirmation) 
 - 08-23 21:13 cpg ab6m A/B: teachlib INFORMATIVE -- teacher lead GONE at matched 6M (NO-SWAP branch dead); adoption fork stays live, cpg_v1 co-equal+ 
 - 08-23 21:25 amp phasehz05-cont1 PARTIAL: +4M grows prog 0.52->0.669 with tips IMPROVING to 0.115/0.105 + best-ever slip 2.31 -- no erosion, reward still rising, cont2 launched 
+- 08-23 21:27 walkcurr rscale10-cont1b FAIL: un-crushed PPO (clip 0.03-0.16 all run) still never discovers stepping -- freeprog flat [-0.05,-0.08] over +4M, 0/6 static-crouch video; x0.1 lineage closed, escalation pends sibling rscale50-cont1 read 
