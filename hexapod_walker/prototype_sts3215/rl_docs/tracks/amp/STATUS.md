@@ -37,6 +37,28 @@ arms) should be re-read for raw fall count via `ops.sh report`'s
 a safety baseline or promoted.** Evidence:
 `logs/ckpt_eval/cw_amp_m4_turnfault_seq1_{,pushcont1,pushcont1_ypfix1}_gate/report.json`,
 `logs/ckpt_eval/cw_amp_m3_pushcur1_noamp_b1530_gate/report.json`.
+
+**CONFIRMED BY DIRECT ISOLATION (same cycle, 2 extra eval-only reads
+on the controller CPU, zero GPU/training spent, checkpoint
+unchanged):** re-ran `pushcont1`'s own 12-episode own-cfg panel with
+ONLY `dr.ext_push_prob` flipped 1.0->0.0 (fault stays on) — **0/12
+real falls**, every roll_peak <=18.5deg, `walk/det/3` specifically
+drops from a TERM (tilt_pitch, 15.5deg) to roll_peak 4.0deg, clean.
+The complementary swap (`dr.fault_prob=0`, push stays on) still falls
+once (`walk/sto/0` tilt_pitch) though not at `det/3`. **Push is the
+necessary driver of real falls on this checkpoint; fault only shifts
+WHICH episode is vulnerable.** This is now a two-line reproduction,
+not a hypothesis: any future push-composition arm should sanity-check
+`dr.ext_push_prob=0` vs `=1` on its own panel before trusting
+`gait_valid` as a safety signal. Next dig-in step (not done this
+cycle, needs judgment/possibly reward code): sweep `dr.ext_push_n`
+magnitude at eval time to find a force threshold (calibration fix) vs
+a fails-even-at-modest-force recovery gap (training/reward fix) —
+check push timing vs gait phase (mid-swing vs mid-stance) and whether
+any `reward.*` term prices recovery-from-push at all today (unaudited
+so far). Artifacts:
+`logs/ckpt_eval/diag_pushcont1_{nopush,nofault}/report.json`
+(gitignored, controller-local diagnostic, not a ledger eval).
 Prior banner below.)
 
 Previous entry (2026-08-23 ~09:5x-b (**7th AND LAST SEED CLOSES THE

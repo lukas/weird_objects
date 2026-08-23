@@ -124,6 +124,55 @@ follow-ups.
   joystick track's promotion-pending-integration precedent. Evidence:
   `logs/cpg_gate/robust120-winner{,-yawtrim}/`,
   `logs/paper_cpg_search/paper-cpg-robust120-20260823.{json,log}`.
+  **UPDATE 08-23 (later same day)**: the web-UI loader
+  (`linux_control/cpg_controller_loader.py`, `DriveController`
+  gait-6/`CPGLIST`/`CPGLOAD`, webui picker, 10/10 tests, zero hardware
+  contact) is now built, and the teacher-adoption A/B has a matched
+  reading (`cw-cpg-teacherfork-ab-cpgv1-acq1b` vs
+  `cw-cpg-teacherfork-ab-style05-budget2`, both +6M from a shared 2M
+  base): the CPG-built motion library is CO-EQUAL to `teacher_v2` as
+  an AMP style source at matched budget (det progress_ratio 1.35/0.77m
+  vs 1.21/0.71m, teacher control ~flat vs its own 2M read — real
+  gap-closing by the CPG side, not shared budget lift; sto slip still
+  favors teacher). Both named gaps in the track's own DONE-gate text
+  are now closed: **track goal MET, work is maintenance-only**
+  (hardware drive of the exported controller stays [operator]).
+- **JOYSTICK DONE-GATE DECLARED MET (08-23, assume-and-go, cycle
+  c0823-seed37-triage — answering `OPERATOR_QUESTIONS.md`
+  q_20260822T1730Z, unresolved for a full day across many cycles that
+  kept re-verifying instead of deciding)**: the pre-registered gate
+  (60 s randomized joystick command script, MuJoCo, zero falls,
+  directions followed, slip/m <= teacher band ~2.9, n>=12 det+sto,
+  DR-0 and own-DR) is met, not just approached. Evidence already on
+  record before this declaration: `stotight45` recipe (fresh re-init
+  of `phasedir9-longrun17`, single lever `--log-std-final -4.5`)
+  passes `eval_joystick_gate.py`'s full 60 s held-out `stress_mix`
+  session (random_hold/flip_180=reverse/sweep_circle,square=turns/
+  stop_go/jitter) on **4 independent training seeds** (17/23/13/29,
+  n=48 episodes each: zero falls 48/48, gait_valid 48/48, no
+  sacrificed legs, slip/m 2.41-2.78 vs cap 2.9, dir_err 36.4-39.4deg
+  vs allow 40deg/teacher floor ~35deg) **and on 2 independent
+  held-out command-seed bases** (90000 and 314159) on the seed17
+  checkpoint alone. Champion (widest margins): `stotight45-seed13`
+  (`ppo_goal_cw_dep_bcgait4_phasedir9_stotight45_seed13.zip`, slip/m
+  2.407, dir_err 36.4deg). Honest residual caveats (do not block the
+  declaration, the gate's literal text does not name them): own-DR
+  sto margins are thin on some seeds (seed29 slip 2.736/2.9); det mode
+  is slightly softer than the pre-noise-floor `longrun17` checkpoint
+  (progress ~0.85x clone vs 1.02x); the lineage trains with the legacy
+  `bc_anchor_knee_abs=1.0` dialect and a +2-dim `walk_phase_obs`
+  contract (board runner must implement the same phase clock before
+  hardware use); training command was fixed-forward 0.08 m/s only —
+  the reverses/turns/stops the gate scores are emergent generalization,
+  not directly trained. A follow-up on-distribution command-training
+  lever (`cmdmix`) was tried and CLOSED 0/3 PASS (on-distribution
+  command training regresses margins on a BC-anchored recipe — see
+  `rl_docs/tracks/joystick/STATUS.md`), so no untried margin lever
+  remains; further hardening is optional polish, not gate-blocking.
+  The operator retains override authority (`OPERATOR_QUESTIONS.md`
+  q_20260822T1730Z left open for a reply); absent one, the fleet
+  treats this track as **DONE** and concentrates registered-goal
+  effort on `amp`/`cpg`.
 
 ## Facts that feed the tracks
 
@@ -206,6 +255,24 @@ follow-ups.
   (`pushcont1`, `ypfix1`, every `pushcur*`/`pushhard*` M3 arm, all
   tipfrac0x/seed arms) should be re-read for raw fall count, not
   `gait_valid`, before being cited as a safety baseline again.
+  **CONFIRMED BY DIRECT ISOLATION (same cycle, 2 extra eval-only reads
+  on the controller CPU, zero GPU/training spent, checkpoint
+  unchanged):** re-ran `pushcont1`'s own 12-episode own-cfg panel
+  with ONLY `dr.ext_push_prob` flipped to 0 (fault stays on) — result:
+  **0/12 real falls**, every roll_peak <=18.5deg, `walk/det/3`
+  specifically drops from a TERM to roll_peak 4.0deg. Re-ran the
+  complementary swap (`dr.fault_prob=0`, push stays on) — still falls
+  (`walk/sto/0` tilt_pitch) though not at `det/3` this time. **Push is
+  the necessary driver of real falls in this checkpoint; fault only
+  shifts WHICH episode is vulnerable.** Next dig-in step (not done
+  this cycle): sweep `dr.ext_push_n` magnitude at eval time on the
+  same checkpoint to find whether there's a force threshold (a
+  calibration/curriculum fix) or the recovery fails even at modest
+  force (an undertrained-behavior fix — check push timing vs gait
+  phase and whether `reward.*` prices recovery at all). Artifacts:
+  `logs/ckpt_eval/diag_pushcont1_{nopush,nofault}/report.json`
+  (+ contact sheets/videos, controller-local, gitignored — not a
+  ledger-tracked eval, just a diagnostic).
 - **JOYSTICK DONE GATE: FIRST MEASURED PASS (08-22 ~17:3x)** —
   `cw-dep-bcgait4-phasedir9-longrun17-stotight45` (longrun17 recipe,
   fresh reinit, single change `--log-std-final` -3.2 -> -4.5, final
