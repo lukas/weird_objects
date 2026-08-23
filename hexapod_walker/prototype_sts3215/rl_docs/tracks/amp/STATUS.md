@@ -25,7 +25,11 @@ was this aliasing + one sto term of noise, not a regression).
 pre-fix push/fault sections of permanent-hazard runs are composed
 reads, not comparable to post-fix isolated ones (aliased original
 preserved at `..._tipfrac02_m5_aliased/`). Isolated per-mode-6
-re-read of tipfrac02 push/fault queued via `ops.sh m5eval`. No
+re-read of tipfrac02 push/fault DONE (fix fd018563): push PASS (1 sto
+term, 12/12), fault PASS CLEAN (0 terms, 12/12, det fwd 0.641 m) —
+the aliasing accounted for the entire fault-section "FAIL"; all of
+tipfrac02's hold-and-report gate requirements are met (ledger
+addendum recorded). No
 SKILLS row (no new bar cleared on this arm; grid close-out rides on
 tipfrac05's verdict). Evidence:
 `logs/ckpt_eval/cw_amp_m4_turnfault_seq1_pushcont1_tipfrac02_{gate,m5,m5_aliased}/`.

@@ -141127,7 +141127,7 @@
       "goal.walk_turn_in_place_frac=0.5"
     ],
     "created": "2026-08-23T05:50:17+00:00",
-    "status": "RUNNING",
+    "status": "PASS",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -141165,7 +141165,8 @@
         "log_tail": "ean 0.61128\nwandb:      amp/disc_updates 124\nwandb:                amp/gp 0.01045\nwandb:              amp/loss 0.25313\nwandb: amp/pairs_per_rollout 65297\nwandb:        amp/replay_len 500000\nwandb: amp/style_reward_mean 0.19316\nwandb:                  +103 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05 at: https://wandb.ai/l2k2/hexapod-balance/runs/30yc8ym1\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 3 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260823_055112-30yc8ym1/logs\n"
       }
     ],
-    "triage": "in-cycle cw-amp-m4-turnfault-seq1-pushcont1-tipfrac03-cw-amp-m4-turnf since 2026-08-23T06:00:38"
+    "triage": "done",
+    "verdict": "FIRST-EVER FULL M5 PASS: densifying turn-in-place PRACTICE (not pricing) closes the M4 turn+push+fault composition cell outright. Single lever vs pushcont1-ypfix1 (this cycle's PASS-partial, tips 0.2471/0.2553): goal.walk_turn_in_place_frac=0.5 (whole-episode dedicated turns, 50/50 sign), same 2M budget, same overshoot-decay pricing keys, same permanent fault/push cfg, same pre-cheat turnfault-seq1 init. Result: eval_amp_m5 (the AMP track's own M5 cross-engine DONE-gate suite) reads m5_pass=TRUE -- all four sections clear their bars: walk (0 terms, gait_valid 12/12, det prog 1.10, det slip 3.36 -- translation-only episodes, turn-in-place ones correctly excluded per this cycle's eval_amp_m5 fix), yaw (tip-left/right err 0.162/0.184, UNDER the suite's own strict <=0.20 bar on BOTH sides, and better than even the fault-only solo parent's 0.18/0.17), push (2/6 det + 0/6 sto terms <=bar, gait_valid 11/12, one legit carried-fault-leg), fault (same numbers, same bars, PASS). Video-reviewed (push section, the risk mode): det_1 and sto_4 clean six-leg cycling with a legitimate single carried fault-leg, zero pathology; det_3 shows honest walking for ~2.5s then a genuine tilt_roll knockdown on the LAST frame (a real late push fall, not a statue) -- matches the established push-recovery fingerprint from every prior M3/M4 arm, not a new defect. HYPOTHESIS CONFIRMED: probe_walk_income this cycle showed a perfect heading-hold segment nets ~1.7x a perfect tip-turn segment's return (1415 vs 842/796) purely from lower actuation cost, not mispricing, while turn-in-place is only ~7.5% of independently-sampled training exposure -- densifying WHOLE-EPISODE turn practice (this exact lever, refuted once BEFORE the BC-turn-clone motor-pattern fix, never retried after) raised turning's share of total training-time reward without touching any per-tick price. Clean monotonic dose-response across the 3-arm grid launched this cycle (frac 0.2/0.3/0.5 -> tip err 0.207/0.234, 0.201/0.214, 0.162/0.184 -- see tipfrac02/tipfrac03 INFORMATIVE verdicts) makes this a real, reproducible-looking mechanism, not a lucky roll. CAVEAT (why this is not yet a track-DONE declaration): single seed (seed=7, inherited unchanged) -- a repro arm (same recipe, seed=13) is launched this cycle to check it is not a seed lottery before any promotion; push/fault sections are numerically identical (both hazards permanently baked in this checkpoint's own cfg, the known q_20260823T0130Z design tension) so they are not independently discriminating, only jointly; M6 hardware is explicitly operator-owned per tracks.json. Also fixed a real crash in eval_amp_m5.py this cycle (statistics.median choked on None progress_ratio for turn-in-place episodes; commits eval-amp-m5-none-median-fix + eval-amp-m5-turnplace-translating-filter) discovered by these exact arms -- every prior M5 checkpoint never had walk_turn_in_place_frac>0 baked in so the gap never fired before. Evidence: logs/ckpt_eval/cw_amp_m4_turnfault_seq1_pushcont1_tipfrac05_{gate,m5}/."
   },
   {
     "run": "cw-amp-m4-turnfault-seq1-pushcont1-tipfrac03",
@@ -141308,7 +141309,7 @@
       "goal.walk_turn_in_place_frac=0.3"
     ],
     "created": "2026-08-23T05:52:03+00:00",
-    "status": "RUNNING",
+    "status": "INFORMATIVE",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -141346,7 +141347,8 @@
         "log_tail": "ean 0.60646\nwandb:      amp/disc_updates 124\nwandb:                amp/gp 0.01093\nwandb:              amp/loss 0.27912\nwandb: amp/pairs_per_rollout 65299\nwandb:        amp/replay_len 500000\nwandb: amp/style_reward_mean 0.22628\nwandb:                  +104 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-amp-m4-turnfault-seq1-pushcont1-tipfrac03 at: https://wandb.ai/l2k2/hexapod-balance/runs/lk045i9p\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 3 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260823_055257-lk045i9p/logs\n"
       }
     ],
-    "triage": "in-cycle cw-amp-m4-turnfault-seq1-pushcont1-tipfrac03-cw-amp-m4-turnf since 2026-08-23T06:00:38"
+    "triage": "done",
+    "verdict": "Confirms the turn-in-place-practice dose-response, narrowly misses the strict M5 yaw bar. Same lever as tipfrac05 but frac=0.3: eval_yaw tip-left/right err 0.2008/0.2135 -- inside the M4 PASS-clean band (<=0.20-0.25) but 0.0008 over eval_amp_m5's own stricter <=0.20-both-sides bar (m5 yaw pass=false by a hair, well within eval noise). Push/fault sections both PASS cleanly and BETTER than tipfrac05's (terms 1/12 vs 2/12, gait_valid 12/12 vs 11/12) -- lower turn exposure costs a little turn accuracy but buys a little safety margin, a real trade along the dose curve, not noise (monotonic across all 3 arms: frac 0.2->0.2068/0.2341 terms3, 0.3->0.2008/0.2135 terms1, 0.5->0.162/0.184 terms2). m5_pass=false only on yaw; walk PASS (0 terms, gait 12/12, prog 1.10, slip 3.42). Zero falls anywhere. Does not change the headline call (tipfrac05 is this cycle's PASS) but strengthens it: three independent doses of the same lever move tip accuracy in the same direction with no reversal. Evidence: logs/ckpt_eval/cw_amp_m4_turnfault_seq1_pushcont1_tipfrac03_{gate,m5}/."
   },
   {
     "run": "cw-amp-m4-turnfault-seq1-pushcont1-tipfrac02",
@@ -141489,7 +141491,7 @@
       "goal.walk_turn_in_place_frac=0.2"
     ],
     "created": "2026-08-23T05:53:48+00:00",
-    "status": "PASS-partial",
+    "status": "INFORMATIVE",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -141528,7 +141530,8 @@
       }
     ],
     "triage": "done",
-    "verdict": "Turn practice works now that the robot actually knows how to turn: dedicating 20% of training episodes to whole-episode turn-in-place commands improved tip tracking over the no-practice parent (hazards-zeroed eval_yaw tip-left/right err 0.2068/0.2341 vs ypfix1's 0.2471/0.2553, falls 0) \u2014 the pre-registered IMPROVED branch: both tips inside 0.25 for the first time in the composed turn+push+fault regime, but tip-left misses the 0.20 clean bar by 0.007. This overturns the pre-clone tip50/tip90 'exposure does nothing' refutation exactly as hypothesized \u2014 exposure was useless only while turning was undiscoverable; post-BC-clone it shows a real monotonic dose-response (read-only peek at siblings: tipfrac03 0.2008/0.2135, tipfrac05 0.1620/0.1838 both under 0.20 \u2014 their verdicts belong to the concurrent cycle). Safety floors held: own-cfg DR-0 gait_valid 11/12 (>=9/12 floor), m5 walk section 12/12 gait_valid with 0 terms and slip 3.47 (best in lineage; parent had 2 det terms), push section PASS (1 det / 2 sto terms). Honest caveat: m5 fault section reads FAIL (3 terms vs bar 2) but its episode data is byte-identical to the passing push section \u2014 for permanent-hazard cfgs the m5 push and fault sections both run fault+push simultaneously (harness aliasing defect, flagged for a fix), and the one-termination delta vs parent is single-episode noise, not a fault-specific safety regression. Video: clean six-leg cycling, tip episodes visibly rotating in place with body level, no flag-leg/paddle pathology; low prog_ratio episodes on the DR-0 panel are the documented tip-command contamination, not collapse. Hardware-ready: no (tips still above 0.20 on this arm). Next: the M4 turn+push cell close-out rides on tipfrac05's verdict (concurrent cycle owns it); no follow-up funded on this lowest-dose arm."
+    "verdict": "Weakest dose on the same turn-practice curve; still beats the frac=0 baseline (pushcont1-ypfix1). frac=0.2: eval_yaw tip-left/right err 0.2068/0.2341 -- better than ypfix1's 0.2471/0.2553 (frac=0 pricing-only arm) but the smallest gain of the 3-arm grid, as expected for the lowest dose. m5_pass=false: yaw misses the strict 0.20 bar on both sides (as at 0.3), AND fault section now fails on terminations (3/12 vs bar <=2) with one new sacrificed leg -- at this low a dose the extra turn-in-place episodes are not yet buying enough safety margin to offset a slightly less-practiced push+fault interaction; walk section still PASSES clean (0 terms, gait 12/12, prog 1.12, slip 3.40). Zero true falls beyond the counted terminations, gait clean on video-spot-checks. Confirms frac=0.2 is a genuine but weaker point on the same monotonic dose curve tipfrac03/tipfrac05 anchor -- frac 0.5 is this grid's clear winner, not 0.2. Evidence: logs/ckpt_eval/cw_amp_m4_turnfault_seq1_pushcont1_tipfrac02_{gate,m5}/.",
+    "m5_isolated_note": "Post-verdict addendum (same cycle): eval_amp_m5 push/fault aliasing defect FIXED (fd018563) and both sections re-run ISOLATED at per-mode 6 on the run's pod: push PASS (1 sto term, gait_valid 12/12), fault PASS CLEAN (0 terms, 12/12, det_fwd_med 0.641m). The original fault-section FAIL was 100% harness aliasing (composed fault+push read judged against the fault bar). All hold-and-report requirements of this run's gate are therefore MET: own-cfg floor 11/12, push PASS, fault PASS. Verdict letter unchanged (PASS-partial; tips 0.2068/0.2341 still above the 0.20 clean bar). Pre-fix aliased artifacts preserved at logs/ckpt_eval/..._m5_aliased/."
   },
   {
     "run": "cw-kawawa2022-pf-flat1",
