@@ -1,6 +1,44 @@
 # amp - AMP locomotion from scratch
 
-Last updated: 2026-08-23 ~18:1x (**yaw fork: SEVENTH mechanism class
+Last updated: 2026-08-23 ~18:4x (**turnclip1 FAIL — the SEVENTH and
+LAST demo-side yaw mechanism is closed; the yaw fork now lives
+entirely on the curriculum/exposure side, and a 2-arm batch is
+launched there.** `-turnclip1` (teacher_v4 = teacher_v2 with ONLY
+turn_ccw/turn_cw spliced from the CPG controller's real ~0.29 rad/s
+clips, single lever on the unmutated `pushcal518` recipe) landed on
+its pre-registered FAIL branch: m5 yaw tips 0.2375/0.2457 vs parent
+seed7 0.2157/0.2351 — both sides slightly WORSE (+0.022/+0.011,
+at/inside the wzmask2-calibrated ±0.02 floor), no side <=0.22. The
+decisive detail: achieved wz on the m5 arc scenarios is 0.125-0.165
+rad/s — STILL pinned at the scripted teacher's 0.15-0.16 saturation
+even though the exact demo family the bar scores now demonstrates
+0.29 rad/s. The demo library does NOT set the policy's turn
+authority: pricing, demo-ceiling (turnlib3), style-ablation,
+densification, cpg-full-swap (cpgdemo1), discriminator-obs masking
+(x2 widths, n=5 grid), and now the surgical turn-clip splice are ALL
+refuted. Secondary: 0 falls, push PASS; walk det_slip_med 4.56 above
+the 3.2-4.0 band but on n_translating=3 (thin-sample noise per
+q_20260823T0700Z); fault gait_valid 8/12 (3 sacrificed legs, worse
+edge of the 10-12 family range) — watch fault on the next arms.
+REMAINING LIVE FORK (per the turn-authority probe: 0.30 rad/s IS
+plant-reachable, bar amendment answered NO): curriculum/exposure and
+joint-space capability. LAUNCHED 2-arm single-lever batch on the
+unmutated `pushcal518` recipe (teacher_v2, seed 7, 2M each):
+`-yawenv045` (goal.walk_yaw_max_rad_s 0.3->0.45: make the bar's 0.30
+an INTERIOR training command, not the distribution edge — the policy
+has literally never been commanded past the rate it is graded at) and
+`-yawexpo02` (goal.walk_yaw_zero_frac 0.5->0.2: ~2.7x more nonzero-
+yaw practice per rollout, everything else identical). Family gate
+convention (tips -0.03 / one side <=0.22 / slip band / safety) on
+both. If BOTH land tips-unmoved, the exposure class closes too and
+the fork escalates to joint-space capability (action-delta clamp /
+stance geometry / phase-clock constraint — e.g. an eval-only
+max_delta_q_deg probe on an existing checkpoint, and whether the
+1.333 Hz phase clock forbids the CPG's turning cadence). Evidence:
+`logs/ckpt_eval/..._turnclip1_m5/` (yaw.json scenarios),
+verdict on run l80xbg8f. Prior banner below.)
+
+Previous entry (~18:1x (**yaw fork: SEVENTH mechanism class
 launched (surgical turn-clip splice), and the slip-axis "thin
 sampling" amendment is independently CONFIRMED at n=28 translating
 episodes.** Two pieces of work this cycle, unblocked by (and
