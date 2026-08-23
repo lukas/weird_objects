@@ -163,51 +163,64 @@ parts:
             value: 44.0
             code_name: RING_OD
             description: "= bearing OD + 2x YAW_TOWER_WALL, same wall as the bottom tower."
+      cap_bolt_access:
+        label: "Phi 7 driver pass-through above each inboard cap bolt (x6)"
+        kind: "bore"
+        purpose: >-
+          With legs at yaw 0 (+/-2 deg) a hex driver reaches the hip
+          cap's INBOARD clamp bolt through the plate (the outboard bolt
+          sits beyond the hex edge under open sky), so the cap + its
+          pressed bearing unbolt from the coxa as one captive unit and
+          the plate lifts off with all six cap/bearing assemblies
+          attached -- no press fit is ever separated in service.
+          Positions derive from hp.servo_clamp_bolt_centres() through
+          the leg placement transforms; build-time checks assert
+          >= 1.74 mm web to the bearing ring, >= 1.5 mm to every other
+          plate hole, and a clear phi 6.5 driver line-of-sight down to
+          the cap counterbore.
+        dimensions:
+          access_hole_d:
+            label: "Access hole diameter"
+            value: 7.0
+            code_name: ACCESS_HOLE_D
       hatch_opening:
-        label: "Service-hatch opening (hex, 154 across flats)"
+        label: "Service-hatch opening (hex, 128 across flats)"
         kind: "cutout"
         purpose: >-
           A large hex chunk of the plate middle is removed so the
-          interior stays serviceable: electronics, wiring, yaw-cap
-          bolts AND the hip caps' inboard clamp screws, which a
-          vertical phi 6.5 driver reaches straight through the opening
-          with 0.93 mm to spare (legs within ~+/-9 deg of yaw 0;
-          verified at build time).  Flats face the bearing rings and
-          stop 1 mm short of the ring ODs, turning the frame into a
-          necklace: six full-height rings tied by corner gussets that
-          span the full apothem between legs.  The standoff,
-          electronics-deck and centre holes all fell inside the
-          opening and moved onto the removable top_hatch_rigid lid.
-          Six phi 8 pilot bosses (insert-ready phi 2.5 self-tap
-          pilots) are fused under the corner gussets for the lid
-          screws.
+          interior stays serviceable (electronics, wiring, yaw-cap
+          bolts).  Flats face the bearing rings, keeping a 14 mm web at
+          every ring; vertices reach toward the inter-leg directions
+          where the frame is widest.  The standoff, electronics-deck
+          and centre holes all fell inside the opening and moved onto
+          the removable top_hatch_rigid lid.  Six phi 8 pilot bosses
+          (insert-ready phi 2.5 self-tap pilots) are fused under the
+          sheet at the opening's corner directions for the lid screws.
         dimensions:
           opening_apothem:
             label: "Opening apothem"
-            value: 77.0
+            value: 64.0
             code_name: HATCH_OPEN_APO
           screw_rho:
             label: "Lid screw radius (corner azimuths 0/60/...)"
-            value: 91.2
+            value: 76.2
             code_name: HATCH_SCREW_RHO
 
   top_hatch_rigid:
     label: "Removable service hatch (concept)"
     aliases: ["hatch", "lid", "access panel", "service cover"]
     description: >-
-      A 4 mm hex lid (162 across flats) over the frame opening, sitting
-      ON the deck face (lapping 3 mm onto the ring tops) with a 1.5 mm
-      registration lip dropping just inside the opening (0.3 mm/side
-      clearance; straight drop-in verified at build time).  Held by 6x
-      M3 button-heads into the frame's pilot bosses plus the 4 chassis
-      standoff screws (standoff stacks grow to ~90 mm so they anchor
-      the hatch; chassis-hang loads run standoffs -> hatch -> deck face
-      -> frame in pure compression).  Carries the standoff pattern, the
-      electronics-deck pattern and the phi 40 centre hole, so the
-      electronics deck lifts out WITH the lid: 10 screws open the whole
-      interior -- including direct vertical access to the hip caps'
-      inboard clamp screws -- without touching the frame, bearings or
-      legs.
+      A 4 mm hex lid (136 across flats) over the frame opening, sitting
+      ON the deck face with a 1.5 mm registration lip dropping just
+      inside the opening (0.3 mm/side clearance; straight drop-in
+      verified at build time).  Held by 6x M3 button-heads into the
+      frame's pilot bosses plus the 4 chassis standoff screws (standoff
+      stacks grow to ~90 mm so they anchor the hatch; chassis-hang
+      loads run standoffs -> hatch -> deck face -> frame in pure
+      compression).  Carries the standoff pattern, the electronics-deck
+      pattern and the phi 40 centre hole, so the electronics deck lifts
+      out WITH the lid: 10 screws open the whole interior without
+      touching the frame, bearings or legs.
     geometry_source:
       function: "make_top_hatch_rigid"
       output_stl: "stl/top_hatch_rigid.stl"
@@ -232,7 +245,7 @@ parts:
             code_name: HATCH_LIP_H
           lid_apothem:
             label: "Lid apothem"
-            value: 81.0
+            value: 68.0
             code_name: HATCH_APO
 
   bearing_6805:

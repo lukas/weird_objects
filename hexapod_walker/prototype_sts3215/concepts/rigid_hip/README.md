@@ -10,22 +10,19 @@ servo — is a cantilever.  This variant closes the structure from the top:
   press boss that a **third 6805-2RS** presses onto.  The boss lands on
   solid flange-bar material, >9 mm clear of the cap's M3 counterbores.
   Knee caps stay stock.
-* **`chassis_top_rigid`** (print 1): a 200 mm flat-to-flat, 4 mm hex
-  FRAME — a "necklace" of six Φ44 full-height bearing bosses tied by
-  wide corner gussets (the sheet reaches the full apothem between the
-  legs).  Each boss pockets a race from below at Φ37.15, retained by a
-  complete 360° Φ34 shoulder.  The middle (154 mm across flats, flats
-  stopping 1 mm short of the ring ODs) is open for the service hatch;
-  the 140 mm `chassis_top` is not used in this variant.
-* **`top_hatch_rigid`** (print 1): a removable 4 mm hex lid (162 across
-  flats, lapping 3 mm onto the ring tops) — take it off and the whole
-  interior is open: electronics, wiring, yaw-cap bolts, standoffs,
-  **and the hip-cap clamp screws**, which a vertical driver reaches
-  straight through the opening (legs within ±9° of yaw 0).  Carries
-  the standoff pattern (±31.1, ±31.1), the electronics-deck pattern
-  (±24.75, ±24.75) and the Φ40 centre hole, all of which fell inside
-  the opening.  The electronics deck mounts on the hatch, so the lid
-  lifts out WITH the electronics (tethered by wiring) for bench work.
+* **`chassis_top_rigid`** (print 1): a second 200 mm flat-to-flat, 4 mm
+  hex FRAME (same footprint/thickness as chassis_bottom's sheet).  Six
+  Φ44 full-height bosses pocket the bearings' outer races from below at
+  Φ37.15, each race retained by a complete 360° Φ34 shoulder.  A large
+  hex chunk of the middle (128 mm across flats) is cut out for the
+  service hatch; the 140 mm `chassis_top` is not used in this variant.
+* **`top_hatch_rigid`** (print 1): a removable 4 mm hex lid over the
+  frame opening — take it off and the whole interior (electronics,
+  wiring, yaw-cap bolts, standoffs) is open.  Carries the standoff
+  pattern (±31.1, ±31.1), the electronics-deck pattern (±24.75,
+  ±24.75) and the Φ40 centre hole, all of which fell inside the
+  opening.  The electronics deck mounts on the hatch, so the lid lifts
+  out WITH the electronics (tethered by wiring) for bench work.
 
 Load path: hip moment → cap boss → top bearing → top plate →
 standoffs + the five other legs.  Each yaw axis becomes
@@ -63,27 +60,23 @@ The full plate buried everything the production robot had in the open,
 so the frame's middle opens up (the structure lives at the rim where
 the bearing rings are):
 
-* **Opening**: hex, 154 mm across flats, flats facing the rings and
-  stopping 1 mm short of the ring ODs — sized so a vertical Φ6.5
-  driver lands on every inboard hip-cap screw with 0.93 mm to spare
-  (verified at build time).  The frame becomes a necklace: six
-  full-height rings tied by corner gussets that still span the full
-  apothem between legs.
-* **Lid**: 4 mm hex (162 across flats) sitting ON the deck face and
-  lapping 3 mm onto the ring tops, with a 1.5 mm registration lip
-  dropping just inside the opening (0.3 mm/side clearance — straight
-  drop-in verified at build time).
+* **Opening**: hex, 128 mm across flats, flats facing the rings — a
+  14 mm web stays at every bearing ring, and the opening reaches
+  furthest between the legs where the frame is widest.
+* **Lid**: 4 mm hex (136 across flats) sitting ON the deck face with a
+  1.5 mm registration lip dropping just inside the opening (0.3 mm/side
+  clearance — straight drop-in verified at build time).
 * **Retention**: 6× M3 button-heads into Φ8 pilot bosses fused under
-  the frame's corner gussets (insert-ready: drill Φ4 × 6), PLUS the 4
-  chassis standoff screws, which now pass through the hatch into the
-  standoffs.  Chassis-hang loads run standoffs → hatch → deck face →
-  frame in pure compression; the screws only see rebound.
+  the frame at the opening's corner directions (insert-ready: drill
+  Φ4 × 6), PLUS the 4 chassis standoff screws, which now pass through
+  the hatch into the standoffs.  Chassis-hang loads run standoffs →
+  hatch → deck face → frame in pure compression; the screws only see
+  rebound.
 * **Interior access** = remove 10 screws (6 perimeter + 4 standoff)
-  and lift the lid — the frame, bearings and legs are untouched.  With
-  the lid off: hip-cap screws straight down (legs within ±9° of yaw
-  0), yaw-cap join bolts at a slight tilt, electronics and wiring in
-  the open.  Only the disc-horn clamp screws under the rings still
-  need the full plate-off.
+  and lift the lid — the frame, bearings and legs are untouched.  The
+  yaw-cap join bolts (Φ23.5 around each yaw axis) are reachable
+  through the opening with a long driver at ~14° tilt; the disc-horn
+  clamp screws under the rings still need the full plate-off.
 
 ## Fits — all bench-tuned production constants, nothing new
 
@@ -142,17 +135,19 @@ variation only moves parts that stay outboard/below the plate.
 
 The 6805 is pressed onto the cap boss **once and never removed**: the
 serviceable interface is the cap-to-coxa BOLTED joint, not any bearing
-fit.  Both cap bolts are reachable with just the lid off — the
-outboard one sits beyond the hex edge under open sky, and the inboard
-one is straight down through the hatch opening (legs within ±9° of
-yaw 0; verified clear line-of-sight for a Φ6.5 driver shaft down to
-the cap counterbore).
+fit.  Both cap bolts are reachable with the plate installed — the
+outboard one sits beyond the hex edge under open sky, and the plate
+has six **Φ7 driver pass-through holes** directly above the inboard
+bolts (legs at yaw 0, ±2°; sight the screw head through the hole).
+Verified at build time: 1.74 mm web to the bearing ring, clear
+line-of-sight for a Φ6.5 driver shaft down to the cap counterbore.
 
-* **Frame off** (full teardown): remove the lid (10 screws), then the
-  12 cap screws through/beside the opening — all from above/outside,
-  **zero force** — then lift the frame: all six caps and bearings come
-  with it as one rigid subassembly, leaving every hip servo sitting
-  open in its cradle.
+* **Any service** (hip servo swap, leg work, plate off): set legs to
+  yaw 0, remove the 6 inboard cap screws through the access holes, the
+  6 outboard screws, and the 4 standoff screws — 16 screws, all from
+  above/outside, **zero force** — then lift the plate: all six caps
+  and bearings come with it as one rigid subassembly, leaving every
+  hip servo sitting open in its cradle.
 * **Reassembly**: either lower the plate+caps unit back over all six
   servos, or bolt the caps onto the servos first and lower the bare
   plate onto the races (the original assembly order; descent verified
@@ -179,9 +174,9 @@ bolted joint in series with the moment path, same two bolts anyway,
 loses stiffness), a quick-release pin (adds play exactly where this
 variant is buying rigidity), and through-bolts from below (needs
 through-drilling the production cradle walls and inserts in the 4 mm
-cap flange).  With inserts in the pilots and direct driver access
-through the hatch opening, the 2-bolt attachment is both the stiffest
-and the most serviceable option.
+cap flange).  With inserts in the pilots and driver access through
+the plate, the 2-bolt attachment is both the stiffest and the most
+serviceable option.
 
 ## Print notes
 
