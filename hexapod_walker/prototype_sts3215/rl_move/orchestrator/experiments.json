@@ -137045,7 +137045,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "in-cycle cw-amp-m3-turnpush1-style05-acq1-r2 since 2026-08-23T02:11:57"
   },
   {
     "run": "cw-amp-m4-turnfault1-style05-acq1-r5",
@@ -137311,7 +137312,7 @@
       "dr.ext_push_prob=1.0"
     ],
     "created": "2026-08-23T02:09:26+00:00",
-    "status": "INTENT",
+    "status": "RUNNING",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -137324,13 +137325,26 @@
         "hexapod_walker/prototype_sts3215/rl_move/orchestrator/experiments.json"
       ],
       "init_from_on_pod": true,
-      "wandb_env_on_pod": true
+      "wandb_env_on_pod": true,
+      "pid": "3530459",
+      "log_growth_bytes": [
+        9742,
+        20169
+      ],
+      "wandb_id": "lz6hmcvp",
+      "global_step_window": [
+        4096,
+        1507328
+      ],
+      "fps_estimate": 50107.7
     },
     "trainer": "ppo",
     "stack": "gpu-mjx",
     "phase": "discovery",
     "assessment_scope": "short_behavior_discovery",
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:amp PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-amp-m4-pushfault1-noamp-r2 --steps 2000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_amp_m4_faultobs2_headingsfull_noamp.zip --episode-seconds 15 --no-canary --eval-every 1000000 --video-every 2000000 --n-envs 4096 --impl warp --host-workers 24 --seed 7 --ent-coef 0.001 --warm-log-std-override -2.0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set goal.walk_phase_obs=1 --cfg-set goal.walk_phase_hz=1.333333 --cfg-set goal.walk_obs_body_vel=2 --cfg-set goal.walk_heading_max_rad=-1 --cfg-set goal.walk_speed_min_m_s=0.08 --cfg-set goal.walk_speed_max_m_s=0.08 --cfg-set goal.walk_cmd_mode=stress_mix --cfg-set goal.walk_cmd_resample_s=4.0 --cfg-set goal.walk_cmd_resample_jitter=0.5 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set bus.write_speed=1500 --cfg-set bus.write_acc=80 --cfg-set bus.servo_vel_max_counts_s=write_speed --cfg-set safety.max_delta_q_deg=5.0 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --cfg-set reward.term_penalty=400.0 --cfg-set reward.k_step_event=0.0 --cfg-set reward.k_park_duty=0.0 --cfg-set reward.k_walk_freeprog=0.0 --cfg-set reward.walk_loadslip_gate=0.0 --cfg-set reward.k_loadslip_excess=0.0 --cfg-set reward.walk_gait_gate=0.0 --cfg-set reward.k_walk_idle_charge=0.0 --cfg-set reward.k_drag_stance=0.0 --out-name ppo_goal_cw_amp_m4_pushfault1_noamp_r2 --notes 'respec of cw-amp-m4-pushfault1-noamp: Plain English: retry of the dead-at-birth cw-amp-m4-pushfault1-noamp with its one config bug removed \u2014 this tests whether push recovery and fault tolerance compose WITHOUT turn in the mix, isolating whether turn is what makes two-axis composition hard. Same single lever vs cw-amp-m4-faultobs2-headingsfull-noamp (fault-sighted full-heading champion): add dr.ext_push_prob=1.0 (the proven 10-25N single-shove base dose). The original launch died fail-closed because it inherited --obs-pad-transplant 18 from the parent'\"'\"'s own launch args, but the parent checkpoint ALREADY has the widened 92-dim obs (fault_health included), so obs widened by 0 and the trainer refused; this retry drops the transplant flag and changes nothing else. Prediction-if-true: DR-0 own-cfg gate (both hazards active) stays gait_valid >=10/12, added-push terminations <=3/6 det and <=4/6 sto (pushsmoke1-noamp-r4'\"'\"'s first-2M shape), video shows compensation not statues. Prediction-if-false: terminations spike past the pushsmoke1 shape or gait_valid <9/12 with reward still rising \u2014 reads UNDERTRAINED per the 08-21 ruling, next lever is acquisition budget. Strongest alternative: the stacked per-episode randomization (one push AND one fault every episode) is a genuinely new difficulty class distinct from turn-composition.' --cfg-set dr.fault_prob=1.0 --obs-pad-transplant 0 --cfg-set obs.fault_health=1 --cfg-set dr.ext_push_prob=1.0 > /tmp/train_cw-amp-m4-pushfault1-noamp-r2.log 2>&1 < /dev/null & echo $!",
-    "log": "/tmp/train_cw-amp-m4-pushfault1-noamp-r2.log"
+    "log": "/tmp/train_cw-amp-m4-pushfault1-noamp-r2.log",
+    "wandb_id": "lz6hmcvp",
+    "verified": "2026-08-23T02:12:45+00:00"
   }
 ]
