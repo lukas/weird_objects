@@ -127,6 +127,30 @@ follow-ups.
 
 ## Facts that feed the tracks
 
+- **AMP M4/M5: FIRST-EVER FULL `eval_amp_m5` PASS (08-23 ~06:5x)** —
+  `cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05` (turn+push+fault
+  composition, single lever `goal.walk_turn_in_place_frac=0.5` —
+  whole-episode dedicated turn PRACTICE, not reward pricing — vs the
+  pushcont1-ypfix1 recipe) passes all four `eval_amp_m5` sections:
+  walk (0 terms, gait_valid 12/12), yaw (tip-left/right err
+  0.162/0.184, under the suite's own <=0.20 bar and better than the
+  fault-only solo parent's 0.18/0.17), push and fault (2/6 det + 0/6
+  sto terms, gait_valid 11/12, one legit carried-fault-leg). Clean
+  monotonic 3-arm dose grid (frac 0.2/0.3/0.5 -> tip err 0.207/0.234,
+  0.201/0.214, 0.162/0.184) confirms a real mechanism, not a lucky
+  seed. Root cause: a perfect heading-hold segment earns ~1.7x a
+  perfect tip-turn segment's return purely from lower actuation cost
+  (not mispricing) while turn-in-place was only ~7.5% of independently
+  -sampled training exposure; this exact curriculum lever was tried
+  and refuted once BEFORE the BC-turn-clone motor-pattern fix and
+  never retried after RL actually had a turning motor pattern to
+  practice. CAVEATS (not yet a track-DONE declaration): single seed
+  (seed=7) — repro arms in flight (seed13/s2/s3, an acquisition-budget
+  continuation); push/fault sections are jointly- not independently-
+  tested (both hazards permanently baked into this checkpoint's own
+  training cfg); M6 hardware is [operator]-owned regardless. Evidence:
+  `logs/ckpt_eval/cw_amp_m4_turnfault_seq1_pushcont1_tipfrac05_{gate,
+  m5}/`, `logs/probe_walk_income/hold_forward_income_ypfix1.json`.
 - **JOYSTICK DONE GATE: FIRST MEASURED PASS (08-22 ~17:3x)** —
   `cw-dep-bcgait4-phasedir9-longrun17-stotight45` (longrun17 recipe,
   fresh reinit, single change `--log-std-final` -3.2 -> -4.5, final

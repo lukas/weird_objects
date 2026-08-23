@@ -1,6 +1,60 @@
 # amp - AMP locomotion from scratch
 
-Last updated: 2026-08-23 ~06:2x (**`cw-amp-m4-turnfault-seq1-pushcont1-
+Last updated: 2026-08-23 ~06:5x (**HEADLINE: `cw-amp-m4-turnfault-seq1-
+pushcont1-tipfrac05` is the FIRST-EVER checkpoint to pass the whole
+`eval_amp_m5` cross-engine suite (walk+yaw+push+fault all PASS,
+turn-tip err 0.162/0.184, under the fault-only solo parent's own
+0.18/0.17) -- VERDICTED PASS this cycle. Same lever that produced
+tipfrac02/tipfrac03 (see banner below): `goal.walk_turn_in_place_frac`
+(whole-episode dedicated turn PRACTICE, not pricing) at dose 0.5,
+single lever vs `pushcont1-ypfix1`. Root cause the practice lever
+targets: `probe_walk_income` this cycle showed a perfect heading-hold
+segment earns ~1.7x a perfect tip-turn segment (1415 vs 842/796
+return) purely from lower actuation cost (turning taxes current/
+gyro/roll 4-10x harder than standing still), while turn-in-place is
+only ~7.5% of independently-sampled training exposure -- too rare to
+learn a skill that structurally can't out-earn hold/forward per
+segment. This exact curriculum lever was tried and REFUTED once
+before (tip50/tip90, pre-BC-turn-clone) but that was BEFORE RL had
+any discoverable turning motor pattern at all; it had never been
+retried post-clone until this grid. Clean monotonic 3-arm dose
+response: frac 0.2 -> 0.207/0.234 (tipfrac02, INFORMATIVE), 0.3 ->
+0.201/0.214 (tipfrac03, INFORMATIVE, misses m5's strict bar by
+0.0008), 0.5 -> 0.162/0.184 (tipfrac05, PASS). CAVEATS: single seed
+(seed=7) -- repro arms already in flight (`-seed13` this cycle's own
+launch, FINISHED pending triage; a concurrent cycle's `-s2`/`-s3`
+seed twins and `-acq1` budget continuation also running/queued, see
+their own entries); push/fault sections are jointly-not-independently
+tested (both hazards permanently baked in this checkpoint's cfg, the
+known q_20260823T0130Z design tension) -- M6 hardware stays
+[operator]-owned per tracks.json regardless. Also landed 3 small
+`eval_amp_m5.py` correctness fixes this cycle, all discovered because
+this is the FIRST lineage ever evaluated with
+`walk_turn_in_place_frac>0` baked into a checkpoint's cfg: (1) a
+`statistics.median` crash on turn-in-place episodes' legitimately-None
+`progress_ratio`; (2) slip/fwd medians were being computed INCLUDING
+turn-in-place episodes (a rotation-scrub artifact, not the "skating
+while walking" defect those bars target) -- now restricted to
+translating episodes only; (3) a `--skip` re-run used to overwrite the
+WHOLE `m5_verdict.json`, silently dropping any earlier FAIL section
+not recomputed this call and letting `m5_pass` go true on a partial
+read (caught live: a concurrent `--skip walk,yaw` re-run of tipfrac02
+briefly left its file reading `m5_pass=true` with yaw's real
+0.2068/0.2341 FAIL erased; re-ran full and confirmed corrected file
+now reads `m5_pass=false` as it should) -- `_prior_sections` now
+merges into any existing verdict file instead of clobbering it,
+5/5 new unit tests (`test_eval_amp_m5_merge.py`). None of these
+changed the SUBSTANCE of any verdict already written (tipfrac02/03/05
+were all read correctly the first time from full, non-skipped runs);
+they protect the NEXT partial-re-run cycle from a false pass. Tags:
+`exp/eval-amp-m5-none-median-fix`, `exp/eval-amp-m5-turnplace-
+translating-filter`, `exp/eval-amp-m5-verdict-merge-fix`. SKILLS.md
+row added for the tipfrac05 PASS. Evidence: `logs/ckpt_eval/
+cw_amp_m4_turnfault_seq1_pushcont1_tipfrac05_{gate,m5}/`,
+`logs/probe_walk_income/hold_forward_income_ypfix1.json` (controller
+`/tmp/hold_forward_income_ypfix1.json`). Prior banner below.)
+
+Previous entry (2026-08-23 ~06:2x (**`cw-amp-m4-turnfault-seq1-pushcont1-
 tipfrac02` VERDICTED PASS-partial: turn-in-place EXPOSURE is a live
 lever again post-BC-clone.** Lowest dose (frac 0.2) of the 3-arm
 tipfrac grid: hazards-zeroed eval_yaw tips 0.2068/0.2341, improved
