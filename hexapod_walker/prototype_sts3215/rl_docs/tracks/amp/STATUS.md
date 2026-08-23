@@ -1288,10 +1288,17 @@ Build every tool this needs; do not pause on operator input.
   the M2-yaw champion `yawcmd0-r2` (det-only v1 pass): walk PASS
   (0 terms, prog 1.11, slip 2.03), yaw PASS (tips 0.15/0.16), push
   PASS at base 10-25N dose (2/6 det topples, bar <=2 — zero push
-  training!), fault FAIL (leg-4 sacrificed, prog med 0.57) —
-  m5_pass=false; the measured consolidation gap is FAULT (and push
-  margins at hardened doses). det+sto 15s re-run in flight;
-  artifacts `logs/ckpt_eval/cw_amp_m2_turnclone_yawcmd0_r2_m5/`.
+  training!), fault FAIL. FULL det+sto 15s read (final, faithful to
+  the lineage gate — walk section reproduces the champion's own gate
+  numbers exactly, det prog 0.9455/slip 2.235): walk PASS 12/12
+  0 terms; yaw PASS tips 0.1525/0.1614; push PASS 2/6 det + 2/6 sto
+  topples, gait_valid 12/12; fault FAIL — 0 terminations and det
+  prog med 0.85 (it limps, never falls) but gait_valid 9/12 with
+  sacrificed legs {2,3,5} (strip watched: faulted leg carried high,
+  classic sacrifice) — m5_pass=false. The measured consolidation gap
+  is FAULT-VALID GAIT (exactly what the faultobs/turnfault lines
+  train) plus push margins at hardened doses; artifacts
+  `logs/ckpt_eval/cw_amp_m2_turnclone_yawcmd0_r2_m5/`.
 
 ## Now
 
