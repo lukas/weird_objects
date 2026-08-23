@@ -22,11 +22,23 @@ in-family (3.85) — the discriminator reads rotation off
 joint_vel/foot dims, not the yaw-rate channel; pre-registered single
 widen arm `-wzmask2` (mask 36-38, full gyro) VERIFIED RUNNING
 train-0 — if unmoved, gyro-channel hypothesis closes and yaw rests
-on `-cmdcond1` (command-conditioned discriminator, FINISHED, triage
-pending its own cycle) or stance-geometry/turn-curriculum. Tooling:
+on stance-geometry/turn-curriculum or the 0.20-bar amendment
+(q_20260823T0130Z). (4, ~16:3x cycle) `-cmdcond1` FAIL: command-
+conditioning the discriminator (63-dim obs_style + matched
+teacher_v2_cmdcond library) moved tips the WRONG way (0.249/0.2669
+vs parent 0.2157/0.2351, +0.033/+0.032), safety/slip clean (0 falls,
+walk gv 12/12, slip 3.5725), weights moved 13/13, disc healthy —
+the FIFTH yaw mechanism class refuted (pricing, demo ceiling,
+noamp1, reset densification, cmd-conditioning); discriminator-obs
+structural fixes now rest entirely on `-wzmask2`. Ops: cmdcond1's
+cycle independently launched the same widen arm as
+`-wzmask2-gyroxyz` (identical seed/args, 2-min race with the
+concurrent cycle's `-wzmask2`); the duplicate was killed at launch
+and ledger-verdicted — same-branch follow-ups from double-triaged
+parents are a known collision mode. Tooling:
 `m5_pod_eval.py --per-mode/--suffix` (default bit-exact). Evidence:
 `..._cpgdemo1_{m5,gate}/`, `cpgdemo1_slipdist.json`, `..._m5_x12/`,
-`..._wzmask1_m5/`.)
+`..._wzmask1_m5/`, `..._cmdcond1_m5/`.)
 
 Previous entry (~15:4x: **tipspawn1b seed-replicate grid
 0/3 PASS — the state-visitation slip fork is CLOSED; the noise-floor
