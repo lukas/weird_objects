@@ -1,6 +1,58 @@
 # amp - AMP locomotion from scratch
 
-Last updated: 2026-08-23 ~04:1x (**`cw-amp-m4-turnfault-seq1` PASS-preserved:
+Last updated: 2026-08-23 ~05:0x (**COMPOSITION-ORDER AND PUSH-DOSE BOTH
+CLOSED for M4 turn+push erosion; escalates the deferred hold/forward
+income-repricing build.** `cw-amp-m4-turnfault-seq1-pushcont1`
+(fault-then-push order, single lever dr.ext_push_prob=1.0 vs the
+turnfault-seq1 parent) PASS-partial: own-cfg DR-0 floor clears
+(gait_valid 10/12 >=9/12), but hand-run eval_yaw (hazards zeroed)
+reads tip-left/right err 0.2727/0.3029 -- worse than the fault-only
+parent's 0.18/0.17 and over the <=0.20-0.25 preserved band, though
+roughly HALF the erosion of every push-FIRST composition order tried
+(turnpush1-style05-acq1-r2 0.38/0.43, turnpushfault1-style05-r2
+0.42/0.49, ypfix1-r3 0.39/0.47, cont1 0.41/0.41). Order is a real,
+measured, but insufficient lever -- CLOSES the 3-way composition-order
+search (direct graft / push-first / fault-first all tried, all erode
+turn to some degree). Full `eval_amp_m5`: m5_pass=false (push section
+PASS clean; walk+fault sections FAIL on the already-known permanent-
+hazard design tension, q_20260823T0130Z -- not new). Follow-up 3-arm
+TRAINING-TIME push-probability dose sweep (`-pushdose025/05b/075`,
+dr.ext_push_prob 1.0->0.25/0.5/0.75, single lever, re-init from the
+SAME pre-cheat turnfault-seq1 checkpoint per the init-basin rule) all
+landed FAIL, clustered in the SAME 0.24-0.27 tip-err band regardless
+of exposure fraction (dose025 0.264/0.269, dose05b 0.239/0.257 --
+closest but still misses tip-right, dose075 0.261/0.255) -- a small,
+non-monotonic improvement over pushcont1's full-dose 0.27/0.30 shared
+by all doses, never reaching the fault-only parent's 0.18/0.17 or the
+0.20 m5 bar. Safety floors and video all clean (gait_valid 11-12/12,
+0-2 terms, clean six-leg cycling, legit single carried-fault legs).
+**CONCLUSION: dose is not the lever either -- the mere PRESENCE of
+push in the training distribution (not cumulative exposure fraction,
+not graft order) drives the erosion.** This is real income competition
+between push-recovery and honest turn-tracking, the same class of
+problem the M2-yaw income audit already measured and partially fixed
+elsewhere (hold-freeze richer than the honest tip ceiling, 1473 vs
+1209/ep) -- the ALREADY-BUILT overshoot-decay pricing keys
+(`reward.yaw_prog_overshoot_decay`/`yaw_prog_avg_s`) were tested
+directly on a composed turn+push+fault checkpoint (`ypfix1-r3`) and
+found INEFFECTIVE there (bit-identical clamp-pinned behavior) --
+repricing hold/forward income dominance (the OTHER named-but-deferred
+half of that audit, q_20260823T0240Z item b) is now the funded next
+lever, not another composition/dose arm on this axis. Separately,
+launched a matching 3-arm TRAINING-TIME fault-probability dose sweep
+(`-faultdose025/05/075`, same pre-cheat re-init, dr.ext_push_prob
+left at 1.0) testing the OPEN q_20260823T0130Z design-tension
+question directly: does a mixed (not permanent) fault curriculum let
+eval_amp_m5's walk section actually draw a fault-free episode
+fraction and clear its own terms/gait_valid bar -- results pending
+next-cycle triage (all VERIFIED RUNNING at cycle end, 2M steps each,
+finish in ~1-2 min of GPU wall time). Evidence:
+`logs/ckpt_eval/cw_amp_m4_turnfault_seq1_pushcont1_{gate,m5}/`,
+`logs/ckpt_eval/cw_amp_m4_turnfault_seq1_pushdose{025,075,05b}_m5/`.
+SKILLS.md not updated (no new capability cleared a bar). Prior banner
+below.)
+
+Previous entry (2026-08-23 ~04:1x (**`cw-amp-m4-turnfault-seq1` PASS-preserved:
 FAULT grafted sequentially onto the clean turn champion keeps tip
 tracking almost intact (eval_yaw 0.1818/0.1708, vs parent's own
 0.1525/0.1614) — decisively names PUSH, not axis-count, as the M4
