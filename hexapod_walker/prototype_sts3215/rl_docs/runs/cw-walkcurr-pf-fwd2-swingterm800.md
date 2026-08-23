@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: FINISHED_FAIL
+**status**: FAIL
 
 **created**: 2026-08-23T17:47:53+00:00
 
@@ -18,5 +18,5 @@
 
 **gate**: Same rung-1 gate as fwd1/fwd2-swing: C-env det fixed-forward panel -- zero tilt terms, cmd_prog_frac >= 0.35, direction_err <= 30 deg, slip/m <= 3.0, six legs cycling on >=4/6 episodes, video shows real stepping. Discovery-health read: step-event/swing rate rising with walk_prog > 0 but panel short = continue; flat/frozen like fwd1 = term_penalty-magnitude hypothesis refuted too, escalate to init/BC-kickstart dig-in.
 
-**verdict**: Clean FAIL, same collapse pattern as its twin -fwd2-swing: video shows the robot upright for frame 1 then splayed flat on the ground for the rest of the 25s episode, all 6 det episodes byte-identical (progress_ratio -0.001, forward_dist 0.005m, slip/m 7.71, height_err_end 94mm). gait_valid True (no sacrificed leg, slightly less degraded than swing's False+[1]) but behaviorally identical zero-progress collapse. Dropping term_penalty 1200->800 did NOT change the outcome -- prediction-if-false confirmed: term_penalty magnitude is not the mechanism keeping PPO from discovering stepping. Reward quarters -60.0/-478.4/-1131.7/-1899.9, same shape as both fwd1 and fwd2-swing. Combined with -fwd2-swing's identical result, this closes BOTH live rung-1 exploration hypotheses named in the fwd2 batch (swing-income reachability AND term_penalty-catastrophe dominance) -- per the batch's own pre-registered branch, the next lever is init/noise/BC-kickstart, dig-in tier, not another single-cfg reward tweak on this exact recipe.
+**verdict**: Catastrophe size is irrelevant: dropping term_penalty 1200->800 on top of the swing bonus produced a byte-similar freeze trajectory to fwd2-swing (ep_rew -2370 vs -2500, ep_len 485 vs 493, walk_prog identically 0.0, swing income flat 0.064-0.088/step, same static crouch on video, det prog -0.00 / fwd 0.01m). The twin cleanly isolates the blocker: it is NOT the -1200 termination cliff and NOT missing income — it is the dense per-step charge flow (~-4.7/step, loadslip-dominated) that both makes freezing the best reachable policy and instantly punishes every exploratory motion. hardware-ready: no. Term lever closed (keep 1200 for later rungs); next mechanism is the discovery-phase charge ramp.
 

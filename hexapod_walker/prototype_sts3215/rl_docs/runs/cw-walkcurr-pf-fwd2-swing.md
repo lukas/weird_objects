@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: FINISHED_FAIL
+**status**: FAIL
 
 **created**: 2026-08-23T17:44:08+00:00
 
@@ -18,5 +18,5 @@
 
 **gate**: Rung-1 gate (same as fwd1): C-env det fixed-forward panel — zero tilt terms, cmd_prog_frac >= 0.35, direction_err <= 30 deg, slip/m <= 3.0, six legs cycling on >=4/6 episodes, video shows real stepping. Discovery-health read (08-21 ruling): step-event/swing rate rising with walk_prog > 0 but panel short = continue; swing rate flat ~0.02/step at 2M = lever refuted, no same-recipe continuation.
 
-**verdict**: Clean FAIL on the rung-1 gate, and video shows something worse than fwd1's crouch-freeze: the robot starts upright (frame 1) then COLLAPSES flat onto a splayed belly-down pose by frame 2 and stays there the rest of the 25s episode, all 6 det episodes byte-identical (progress_ratio -0.001, forward_dist 0.021m, slip/m 9.0, height_err_end 96mm -- ~10cm off the walking height target). gait_valid is actually FALSE this time (was True/frozen-crouch on fwd1) with leg [1] sacrificed -- the swing bonus did not fix the freeze, it changed WHICH static failure basin the policy collapsed into (splayed-flat vs raised-crouch), not whether it explores real stepping. Reward quarters -85.6/-505.2/-1160.3/-1978.6, same monotonic-negative shape as fwd1 -- per the concurrent cycle's fwd1 root-cause (ep_len x negative-per-step-rate logging artifact, not real further degradation) this is expected under an unfixed freeze, not new information. Swing income (reward.k_walk_swing=1.0) alone does NOT give a random-init PPO policy a path out of the tilt-safe attractor on this recipe -- prediction-if-false (a) confirmed: swing credit stays effectively unreachable (nonzero swing_count in the report is limb micro-twitching in the collapsed pose, not gait cycling, per video). Paired with -swingterm800's identical outcome (see its own verdict), BOTH rung-1 fixes named in this arm's hypothesis are now refuted.
+**verdict**: The direction-free swing bonus did not rescue discovery: the policy froze into the exact same splayed crouch as fwd1 (video watched: motionless all episode, front pair raised, feet grinding; det prog -0.00, fwd 0.02m, slip 9-41). The lever's mechanism WAS reachable — env/reward_swing paid ~0.065-0.089/step from step 0 — but the income never grew (flat/declining to 2M) because +1/swing is ~60x smaller than the -4.7/step dense charge flow (loadslip -4.08, height -0.77, heading -0.5), and the bank ordering caps the direction-free dose at k<~1.7 (sideways farming). Prediction-if-false branch (a) confirmed: swing credit reachable but cannot steer exploration at any bank-legal dose. hardware-ready: no. Consequence (with the swingterm800 twin's identical read): income-side levers are EXHAUSTED within this pricing family; the exploration fix must reduce the dense penalty flow during discovery — a trainer-driven charge ramp (mirror of the existing term_penalty/drag-allow ramp contracts: cfg-armed, default OFF, eval judges target pricing) is next.
 
