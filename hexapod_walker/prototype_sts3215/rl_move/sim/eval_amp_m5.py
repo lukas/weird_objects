@@ -102,6 +102,25 @@ def _median(vals: list) -> float | None:
     return statistics.median(v) if v else None
 
 
+def _prior_sections(vpath: Path) -> dict:
+    """Sections already recorded in an existing m5_verdict.json at
+    `vpath`, or {} if none/unreadable (08-23 fix). A `--skip` re-run
+    seeds its own `verdict["sections"]` from this so it MERGES new
+    section reads into the existing file instead of overwriting the
+    whole thing -- previously a partial re-run (e.g. --skip walk,yaw
+    to cheaply re-read push/fault after a cfg fix) silently dropped
+    any earlier walk/FAIL or yaw/FAIL from the file and from the
+    m5_pass computation (which only looked at sections present in
+    THIS call), so a checkpoint with a real yaw failure could read
+    m5_pass=true after a push/fault-only re-run overwrote the file."""
+    if not vpath.is_file():
+        return {}
+    try:
+        return dict(json.loads(vpath.read_text()).get("sections", {}))
+    except (json.JSONDecodeError, OSError):
+        return {}
+
+
 def _translating(eps: list) -> list:
     """Episodes with a genuine (nonzero) commanded linear displacement
     (08-23 fix, same cause as _median above): a
@@ -158,8 +177,28 @@ def main() -> int:
     skip = {s.strip() for s in args.skip.split(",") if s.strip()}
     out: Path = args.out_dir
     out.mkdir(parents=True, exist_ok=True)
+    # MERGE with any existing verdict (08-23 fix): a --skip re-run (e.g.
+    # re-reading only push/fault after the isolation fix landed, without
+    # paying for a fresh walk/yaw pass) used to overwrite the WHOLE
+    # m5_verdict.json with only the sections it computed -- m5_pass was
+    # then `all(pass for ran-this-call)`, so a partial re-run with clean
+    # push/fault could silently report m5_pass=true while a real yaw FAIL
+    # from an earlier full run sat unrepresented (observed live: a
+    # concurrent --skip walk,yaw re-run of a checkpoint whose yaw tip-err
+    # was 0.2068/0.2341 -- an actual FAIL -- overwrote its m5_verdict.json
+    # to {"push":pass,"fault":pass,"m5_pass":true}, erasing the yaw
+    # section entirely). Now: start from the on-disk verdict's sections
+    # (if any) and only overwrite the keys this invocation actually
+    # recomputes; m5_pass is judged over the UNION of every section ever
+    # recorded for this checkpoint, not just this call's. A checkpoint
+    # whose first invocation already ran everything (the common case,
+    # no --skip) is unaffected -- there is nothing to merge with either
+    # because the file didn't exist yet, or every section is recomputed
+    # anyway so the union equals this call's own set.
+    vpath = out / "m5_verdict.json"
     verdict: dict = {"checkpoint": args.checkpoint, "suite": "amp-m5-v1",
-                     "bars": BARS, "sections": {}}
+                     "bars": BARS,
+                     "sections": _prior_sections(vpath)}
 
     # -- walk (command response + recognizable gait) ----------------------
     if "walk" not in skip:
