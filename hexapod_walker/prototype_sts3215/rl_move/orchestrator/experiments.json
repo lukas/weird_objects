@@ -141166,7 +141166,7 @@
       }
     ],
     "triage": "done",
-    "verdict": "FIRST-EVER FULL M5 PASS: densifying turn-in-place PRACTICE (not pricing) closes the M4 turn+push+fault composition cell outright. Single lever vs pushcont1-ypfix1 (this cycle's PASS-partial, tips 0.2471/0.2553): goal.walk_turn_in_place_frac=0.5 (whole-episode dedicated turns, 50/50 sign), same 2M budget, same overshoot-decay pricing keys, same permanent fault/push cfg, same pre-cheat turnfault-seq1 init. Result: eval_amp_m5 (the AMP track's own M5 cross-engine DONE-gate suite) reads m5_pass=TRUE -- all four sections clear their bars: walk (0 terms, gait_valid 12/12, det prog 1.10, det slip 3.36 -- translation-only episodes, turn-in-place ones correctly excluded per this cycle's eval_amp_m5 fix), yaw (tip-left/right err 0.162/0.184, UNDER the suite's own strict <=0.20 bar on BOTH sides, and better than even the fault-only solo parent's 0.18/0.17), push (2/6 det + 0/6 sto terms <=bar, gait_valid 11/12, one legit carried-fault-leg), fault (same numbers, same bars, PASS). Video-reviewed (push section, the risk mode): det_1 and sto_4 clean six-leg cycling with a legitimate single carried fault-leg, zero pathology; det_3 shows honest walking for ~2.5s then a genuine tilt_roll knockdown on the LAST frame (a real late push fall, not a statue) -- matches the established push-recovery fingerprint from every prior M3/M4 arm, not a new defect. HYPOTHESIS CONFIRMED: probe_walk_income this cycle showed a perfect heading-hold segment nets ~1.7x a perfect tip-turn segment's return (1415 vs 842/796) purely from lower actuation cost, not mispricing, while turn-in-place is only ~7.5% of independently-sampled training exposure -- densifying WHOLE-EPISODE turn practice (this exact lever, refuted once BEFORE the BC-turn-clone motor-pattern fix, never retried after) raised turning's share of total training-time reward without touching any per-tick price. Clean monotonic dose-response across the 3-arm grid launched this cycle (frac 0.2/0.3/0.5 -> tip err 0.207/0.234, 0.201/0.214, 0.162/0.184 -- see tipfrac02/tipfrac03 INFORMATIVE verdicts) makes this a real, reproducible-looking mechanism, not a lucky roll. CAVEAT (why this is not yet a track-DONE declaration): single seed (seed=7, inherited unchanged) -- a repro arm (same recipe, seed=13) is launched this cycle to check it is not a seed lottery before any promotion; push/fault sections are numerically identical (both hazards permanently baked in this checkpoint's own cfg, the known q_20260823T0130Z design tension) so they are not independently discriminating, only jointly; M6 hardware is explicitly operator-owned per tracks.json. Also fixed a real crash in eval_amp_m5.py this cycle (statistics.median choked on None progress_ratio for turn-in-place episodes; commits eval-amp-m5-none-median-fix + eval-amp-m5-turnplace-translating-filter) discovered by these exact arms -- every prior M5 checkpoint never had walk_turn_in_place_frac>0 baked in so the gap never fired before. Evidence: logs/ckpt_eval/cw_amp_m4_turnfault_seq1_pushcont1_tipfrac05_{gate,m5}/."
+    "verdict": "The M4 turn+push cell is CLOSED: 50% dedicated turn-episode exposure gives the composed turn+push+fault stack tip tracking of 0.162/0.184 \u2014 the pre-registered PASS-clean branch, under even the M5 suite's own 0.20 bar (first composed checkpoint ever to pass the m5 yaw section), and better than the fault-only parent's 0.182/0.171 on tip-left. Evidence: eval_amp_m5 yaw section (hazards zeroed); exposure-dose curve monotonic across the grid (0.2: 0.207/0.234, 0.3: 0.201/0.214, 0.5: 0.162/0.184) \u2014 the pre-clone 'exposure does nothing' refutation is overturned in the composed regime exactly as the grid hypothesis predicted. Holds: own-cfg DR-0 gait_valid 11/12 >=9/12 (single legitimate carried-fault leg, video-confirmed), post-fix ISOLATED push section PASS (12/12 gv, 1 term <=2), walk section PASS on translating episodes (0 terms, 12/12 gv, slip 3.36<=3.5). IMPORTANT CORRECTION: the prestage briefly showed m5_pass=TRUE, but that was scored on the pre-fix ALIASED harness (push/fault sections byte-identical composed reads); the post-fix isolated re-read puts the fault section at 9/12 gait_valid vs bar 10 (3 episodes each flag one parked carried-fault leg \u2014 video shows upright six-leg walking with the fault leg held, zero falls/terms; sibling tipfrac03 flags 2/12 and passes \u2014 a one-episode, noise-scale miss on a real bar), so m5_pass=false and M5 is NOT yet green: isolated fault-section gait_valid is the sole remaining suite gap. Reward and eval rose together (no misalignment). Next (all launched this cycle): seed twins s2/s3 (recipe-vs-lottery, n=3), +6M acq1 (budget stability of the attractor), tipfrac07 (dose turnover); fault-gv adjudication connects to the mixed-fault-curriculum tension (q_20260823T0130Z) the concurrent faultdose grid is testing. Aliased originals preserved at ..._tipfrac05_m5_aliased/."
   },
   {
     "run": "cw-amp-m4-turnfault-seq1-pushcont1-tipfrac03",
@@ -141309,7 +141309,7 @@
       "goal.walk_turn_in_place_frac=0.3"
     ],
     "created": "2026-08-23T05:52:03+00:00",
-    "status": "INFORMATIVE",
+    "status": "PASS",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -141348,7 +141348,7 @@
       }
     ],
     "triage": "done",
-    "verdict": "Confirms the turn-in-place-practice dose-response, narrowly misses the strict M5 yaw bar. Same lever as tipfrac05 but frac=0.3: eval_yaw tip-left/right err 0.2008/0.2135 -- inside the M4 PASS-clean band (<=0.20-0.25) but 0.0008 over eval_amp_m5's own stricter <=0.20-both-sides bar (m5 yaw pass=false by a hair, well within eval noise). Push/fault sections both PASS cleanly and BETTER than tipfrac05's (terms 1/12 vs 2/12, gait_valid 12/12 vs 11/12) -- lower turn exposure costs a little turn accuracy but buys a little safety margin, a real trade along the dose curve, not noise (monotonic across all 3 arms: frac 0.2->0.2068/0.2341 terms3, 0.3->0.2008/0.2135 terms1, 0.5->0.162/0.184 terms2). m5_pass=false only on yaw; walk PASS (0 terms, gait 12/12, prog 1.10, slip 3.42). Zero falls anywhere. Does not change the headline call (tipfrac05 is this cycle's PASS) but strengthens it: three independent doses of the same lever move tip accuracy in the same direction with no reversal. Evidence: logs/ckpt_eval/cw_amp_m4_turnfault_seq1_pushcont1_tipfrac03_{gate,m5}/."
+    "verdict": "Turn-in-place exposure at dose 0.3 lands both tip errors inside the pre-registered 0.25 clean band but misses the M5 suite's stricter 0.20 bar by a hair. Evidence: eval_amp_m5 yaw section (hazards zeroed) tip-left 0.2008 / tip-right 0.2135 vs parent ypfix1's 0.2471/0.2553; dose curve monotonic across the grid (0.2: 0.207/0.234 -> 0.3: 0.201/0.214 -> 0.5: 0.162/0.184). Every OTHER post-harness-fix isolated M5 section PASSES for this arm (walk: 12/12 gait_valid, 0 terms, translating slip 3.42<=3.5; push isolated: 12/12, 0 terms; fault isolated: 10/12, expected carried-fault legs) \u2014 it fails the full suite on yaw alone, by 0.0008. Safety floor held (own-cfg DR-0 gait_valid 12/12, one in-bar tilt_roll term under permanent push+fault), reward and eval rose together, video-clean six-leg cycling. Why: densifying whole-episode turn exposure raises turning's share of training income without touching per-tick prices \u2014 post-BC-clone this works, overturning the pre-clone tip50/tip90 exposure refutation. Next: the 0.5 sibling closes the cell (own verdict); 0.7 bracket + seed twins + 6M acq launched this cycle; fault-section noise adjudication rides on the faultdose grid."
   },
   {
     "run": "cw-amp-m4-turnfault-seq1-pushcont1-tipfrac02",
@@ -142364,7 +142364,7 @@
       "goal.walk_turn_in_place_frac=0.5"
     ],
     "created": "2026-08-23T06:38:06+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -142407,7 +142407,8 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-acq1-cw-amp-m4- since 2026-08-23T06:51:27"
+    "triage": "done",
+    "verdict": "Result: budget does NOT preserve turn-tracking -- 6M more steps from the tipfrac05 checkpoint ERODED tip accuracy back toward hold/forward income, exactly the pre-registered ERODED branch. Evidence: eval_amp_m5 tip-left/right err regressed 0.162/0.184 (2M parent, clean-pass) -> 0.204/0.269 (m5_pass=false; tip-right badly over the 0.20 bar, tip-left misses by 0.004); walk section also drifted over its own bar (det_slip_med 3.516 vs 3.5, a hair over, consistent direction not noise-canceling); meanwhile training reward rose 110->226/ep across Q1-Q2 then sat flat 226/226/230 for the last three quarters -- reward improved+plateaued while the targeted skill got worse, a genuine reward<->eval divergence, not a flat-reward stall. Safety/composition floors held: own-cfg DR-0 gait_valid 11/12 (6/6 det + 5/6 sto, meets the run's own >=11/12 bar), m5 push section PASS clean, m5 fault section PASS and even improved (gait_valid 9->11/12 vs the 2M parent) with one legitimately carried fault leg. Video: clean six-leg cycling in both walk and fault sections, no dragging/skating, no falls. Why: confirms the run's own hypothesis -- turning costs 4-10x more in current/gyro/roll than hold/forward per the probe_walk_income measurement, so any additional undirected training re-drifts the optimizer toward the cheaper income source; exposure (the tipfrac curriculum lever) only holds the line at discovery budget, it does not fix the underlying price gap. Next: per q_20260823T0240Z item (b), hold/forward income repricing is now CONFIRMED (not just assumed) as the necessary next M4 turn+push lever -- a bank-gated reward build, not a further budget/seed arm on this exact recipe."
   },
   {
     "run": "cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-seed13",
@@ -142730,7 +142731,7 @@
       "goal.walk_turn_in_place_frac=0.5"
     ],
     "created": "2026-08-23T06:43:35+00:00",
-    "status": "FINISHED",
+    "status": "PASS",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -142760,7 +142761,7 @@
     "log": "/tmp/train_cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-s2.log",
     "wandb_id": "t40gwlco",
     "verified": "2026-08-23T06:46:55+00:00",
-    "triage": "in-cycle cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-acq1-cw-amp-m4- since 2026-08-23T06:51:27",
+    "triage": "done",
     "checkups": [
       {
         "time": "2026-08-23T06:52:04+00:00",
@@ -142768,7 +142769,8 @@
         "verdict": "FINISHED_BEFORE_CHECKUP",
         "log_tail": " 0.54333\nwandb:      amp/disc_updates 124\nwandb:                amp/gp 0.01166\nwandb:              amp/loss 0.33542\nwandb: amp/pairs_per_rollout 65307\nwandb:        amp/replay_len 500000\nwandb: amp/style_reward_mean 0.20523\nwandb:                  +103 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-s2 at: https://wandb.ai/l2k2/hexapod-balance/runs/t40gwlco\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 3 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260823_064431-t40gwlco/logs\n"
       }
-    ]
+    ],
+    "verdict": "Result: recipe reproduces on a second seed (band-clean, not bar-clean). Evidence: eval_amp_m5 tip-left/right err 0.207/0.228 -- inside the run's own PASS band (<=0.20-0.25 both signs) though ~0.01-0.03 over the stricter 'm5-bar-clean' 0.20 line the seed=7 original hit (0.162/0.184). own-cfg DR-0 gait_valid 12/12 (6/6 det + 6/6 sto, well over the >=9/12 floor) with 2 isolated terminations (1 det tilt_roll, 1 sto tilt_pitch) that did not break gait_valid or cost sacrificed legs. m5 push section PASS clean (0/12 terms, gait_valid 12/12); m5 fault section PASS at the bar (gait_valid 10/12, one extra carried leg vs the original's pattern). m5 walk section itself misses its own slip bar (det_slip_med 4.167 vs 3.5) but that axis is not part of THIS run's own pre-registered PASS criteria (tips + safety floor + push/fault sections only). Video: clean six-leg cycling, no dragging, no visible falls. Why: second of three planned seed twins (seed 7->23) lands in-band, same direction and rough magnitude as the seed=7 original -- the turn_in_place_frac=0.5 curriculum lever is looking like a reproducible recipe, not a one-seed lottery win, though not yet bar-clean on this seed. Next: hold for the sibling -s3/-seed13 triage (owned by a concurrent cycle) to close the recipe-vs-lottery read at n=3; do not re-launch more seeds on this exact recipe from this cycle."
   },
   {
     "run": "cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-s3",

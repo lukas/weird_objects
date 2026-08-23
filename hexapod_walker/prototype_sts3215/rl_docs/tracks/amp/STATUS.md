@@ -1,6 +1,35 @@
 # amp - AMP locomotion from scratch
 
-Last updated: 2026-08-23 ~06:5x (**HEADLINE: `cw-amp-m4-turnfault-seq1-
+Last updated: 2026-08-23 ~07:1x (**CORRECTION to the 06:5x headline
+below, from the post-fix ISOLATED `eval_amp_m5` re-reads (run on
+train-8/9 with all three harness fixes; aliased originals preserved
+at `..._m5_aliased/` / `..._m5_prefix/`): tipfrac05 is NOT a full M5
+pass — its `m5_pass=true` was scored with push/fault still ALIASED
+(byte-identical composed reads, the very defect fix #3 repaired).
+Isolated re-read: walk PASS (12/12 gv, 0 terms, translating slip
+3.36), yaw PASS (tips 0.162/0.184 — the cell-closing result stands,
+first composed checkpoint to pass the m5 yaw section), push isolated
+PASS (12/12 gv, 1 det term), fault isolated FAIL BY ONE EPISODE
+(gait_valid 9/12 vs bar 10; each flagged episode = one parked
+carried-fault leg, video-clean upright walking, zero falls/terms;
+tipfrac03's isolated fault flags 2/12 and passes) → `m5_pass=false`;
+the SOLE remaining M5-suite gap is isolated fault-section gait_valid,
+and it is noise-scale at n=12. tipfrac03's isolated re-read is the
+mirror image: walk/push/fault ALL PASS, yaw alone misses by 0.0008
+(0.2008/0.2135 vs 0.20). Ledger verdicts recorded this cycle:
+tipfrac05 PASS (cell CLOSED per its pre-registered PASS-clean branch
+— the M4 turn+push cell closure STANDS; only the M5-suite-green claim
+is corrected), tipfrac03 PASS (0.25 band). SKILLS.md row amended to
+the corrected claim. Refills launched+finished this cycle (triage
+owned by next cycles): `-s2` (seed 23), `-s3` (seed 13), `-acq1`
+(+6M warm from tipfrac05), `-tipfrac07` (dose 0.7 bracket); the
+06:5x cycle's `-seed13` duplicates -s3's seed (harmless, extra n).
+M5-candidate operator question q_20260823T0700Z filed and updated
+with this correction; fault-gv adjudication joins the
+q_20260823T0130Z mixed-fault-curriculum question the faultdose grid
+tests. Prior banner below.)
+
+Previous entry (2026-08-23 ~06:5x (**HEADLINE: `cw-amp-m4-turnfault-seq1-
 pushcont1-tipfrac05` is the FIRST-EVER checkpoint to pass the whole
 `eval_amp_m5` cross-engine suite (walk+yaw+push+fault all PASS,
 turn-tip err 0.162/0.184, under the fault-only solo parent's own
