@@ -1947,6 +1947,27 @@ Plain English: a checkpoint just passed the ENTIRE cross-engine M5 suite for the
   reads 11.49 under the 08-23 ~13:41 invocation vs 14.03 under the
   r2-matched one) — gates should cite matched same-cycle controls,
   not cross-invocation constants.
+- AMENDMENT (08-23 ~15:5x, stdanneal50 cycle): the predicted repeat
+  happened, plus a sharper twist. Probe plateaued exactly as the
+  amendment above anticipated (9.55->9.6mm, flat/noise), but m5 walk
+  slip did NOT stay flat like stdanneal45-r2's read — it got WORSE
+  (3.71->4.1065), same for yaw tips (0.2088/0.2287->0.205/0.2668) and
+  fault gait_valid (12/12->10/12, 2 sacrificed legs newly appearing).
+  So the dissociation is not just "probe moves, m5 doesn't" — past the
+  -4.5 saturation point, pushing the SAME lever further makes the
+  probe-favored axis (stance travel) flat while actively degrading
+  every m5 axis. This strengthens option (a) (score m5 walk slip on
+  translating segments only, since stress_mix's turn-in-place phases
+  are the leading suspect for what the metric actually tracks) over
+  option (b) (add the probe as a second official bar) — a probe that
+  keeps improving while the thing it's supposed to proxy for gets
+  worse is not a good bar candidate itself. Noise-floor dosing on this
+  lineage is now CLOSED (gate-mandated stop); next lever is the
+  demo-anchor fork (cpg_v1.npz), not more anneal. No bar changed
+  unilaterally — still awaiting the operator's read on which
+  amendment (a) or (b) to adopt, or whether to leave the v1 bars as-is
+  and treat this as a documented known-dissociation instead of a bar
+  defect.
 
 ## q_20260823T1240Z — AMP demo clips capped the turn rate: rebuilt the motion library (teacher_v3) and launched the full-strength slip gate rather than the pre-registered partial one
 Plain English: the robot could not be PAID into turning faster because the thing it was being taught to imitate never turns fast either — the scripted teacher's own demo clips rotate at ~0.134 rad/s while labeled 0.25, and the AMP discriminator watches raw body yaw-rate with no idea what was commanded, so any faster rotation looks "unlike the teacher" and gets docked. Two assume-and-go decisions this cycle, both recorded here per the no-operator-pauses rule.

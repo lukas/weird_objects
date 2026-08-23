@@ -949,6 +949,24 @@ def _run_recover_cert_kind(vec_env, model, kind: str) -> dict:
     }
 
 
+def _activation_fn(name: str):
+    """Map an --activation-fn name to the torch activation class.
+
+    walkcurr track (operator order 20260823T154657Z, recovering the
+    lost Kawawa-2022 desktop trainer support canonically): the paper's
+    prior-free policy uses ELU heads. Default flag value "" never
+    reaches here (the caller skips the policy_kwargs entry entirely),
+    so existing lineages stay bit-exact.
+    """
+    from torch import nn
+    table = {"tanh": nn.Tanh, "relu": nn.ReLU, "elu": nn.ELU}
+    try:
+        return table[name]
+    except KeyError:
+        raise SystemExit(f"--activation-fn {name!r} not in "
+                         f"{sorted(table)}") from None
+
+
 def _env_kwargs(args, params: SimServoParams | None = None) -> dict:
     """Per-shim-env kwargs — mirrors train_ppo_sim._build_env, minus the
     model-DR pieces the shared-model backend can't honor yet.
@@ -1405,6 +1423,13 @@ def main(argv: list[str] | None = None) -> int:
                     help="fraction of --steps over which the log-std "
                          "anneal completes (only used when "
                          "--log-std-final is set); 1.0 = whole run.")
+    ap.add_argument("--activation-fn", type=str, default="",
+                    choices=["", "tanh", "relu", "elu"],
+                    help="MLP activation for from-scratch/transplant "
+                         "builds (walkcurr/Kawawa-2022 recipe uses "
+                         "'elu'). Default '' = SB3 default (Tanh), "
+                         "bit-exact legacy — no policy_kwargs entry "
+                         "is added at all.")
     ap.add_argument("--net-arch", type=str, default="128,128",
                     help="MLP hidden sizes, comma-separated (from-"
                          "scratch and transplant builds only — a plain "
@@ -2505,6 +2530,15 @@ def main(argv: list[str] | None = None) -> int:
 
     tb_dir = None if run is None else str(POLICY_DIR / "tb")
     net_arch = [int(x) for x in str(args.net_arch).split(",") if x.strip()]
+    if args.activation_fn:
+        if (args.init_from is not None and not args.init_from_actor_only
+                and not args.init_from_policy_backbone):
+            raise SystemExit("--activation-fn only applies to "
+                             "from-scratch/transplant builds; a plain "
+                             "--init-from warm start keeps the "
+                             "checkpoint's own activation")
+        extra_pk["activation_fn"] = _activation_fn(args.activation_fn)
+        print(f"[mjx-train] MLP activation: {args.activation_fn}")
     if args.init_from is not None and (
             args.init_from_actor_only or args.init_from_policy_backbone):
         # Condition-D actor-only transfer (operator addendum

@@ -1122,6 +1122,18 @@ def _slipwalk_rollout(policy: str, seed: int, *,
         if policy in ("gait", "skate"):
             gait.set_velocity(vx=float(traj.vx[i]) * gait_scale, vy=0.0)
             act = q_rad_to_action(np.asarray(gait.desired_deg(t)) * DEG2RAD)
+        elif policy == "reverse":
+            # Wrong-way twin (walkcurr bank, 08-23): a REAL six-leg
+            # tripod gait walking directly AGAINST the commanded
+            # forward direction. Genuine stepping, genuine travel —
+            # the reward must charge the direction, not the motion.
+            gait.set_velocity(vx=-float(traj.vx[i]) * gait_scale, vy=0.0)
+            act = q_rad_to_action(np.asarray(gait.desired_deg(t)) * DEG2RAD)
+        elif policy == "sideways":
+            # Cross-track twin (walkcurr bank, 08-23): real gait, real
+            # travel, 90 deg off the commanded direction.
+            gait.set_velocity(vx=0.0, vy=float(traj.vx[i]) * gait_scale)
+            act = q_rad_to_action(np.asarray(gait.desired_deg(t)) * DEG2RAD)
         elif policy == "stall":
             gait.set_velocity(vx=0.0, vy=0.0)
             act = q_rad_to_action(np.asarray(gait.desired_deg(t)) * DEG2RAD)
@@ -6109,3 +6121,137 @@ def test_loadgate_recal_band_monotone_no_plateau():
               for r in grid]
     diffs = _np.diff(prices)
     assert (diffs < -1e-6).all(), "income has a flat spot in the band"
+
+
+# ---------------------------------------------------------------------------
+# WALKCURR track rung-1 bank (operator focus note 20260823T154657Z; run
+# cw-walkcurr-pf-fwd1, recipe rl_move/sim/kawawa2022_recipe.py).
+#
+# Lesson bank for the cw-kawawa2022-pf-flat1 FAIL: that run's walk goal
+# tilt-terminated at every eval from 8M to 40M while aggregate reward
+# rose on the hold/raise/track/unload sub-goals. The rung-1 rerun is
+# WALK-PURE (no other goal exists to carry reward), so THIS bank must
+# prove, under the run's exact reward cfg and its fixed forward
+# command, the operator's required ranking:
+#
+#   clean commanded walking > park/stall > sideways/reverse/wrong-way
+#   > high-slip/skate/fall
+#
+# The stack is the kawawa2022 stride-EMA freeprog pricing (moderate
+# idle/loadslip charges — the harsh SLIPWALK doses are refuted for
+# from-scratch discovery: 8 statue arms on the amp track) PLUS
+# reward.term_penalty=400, the anti-suicide term the original run
+# fatally lacked (its walk episodes died by tilt_pitch, and dying
+# stopped the per-tick charges — same exploit the SLIPWALK bank
+# calibrated 08-22).
+WALKCURR_PF_OVERRIDES = {
+    ("reward", "term_penalty"): 400.0,
+    ("reward", "k_walk_freeprog"): 2.0,
+    ("reward", "walk_freeprog_cap_m_s"): 0.08,
+    ("reward", "walk_kernel_vel_ema"): 1.0,
+    ("reward", "walk_kernel_vel_tau_s"): 0.75,
+    ("reward", "k_walk_heading"): 1.0,
+    ("reward", "k_walk_idle_charge"): 0.8,
+    ("reward", "walk_idle_speed_m_s"): 0.025,
+    ("reward", "walk_idle_tau_s"): 1.0,
+    ("reward", "walk_loadslip_gate"): 0.75,
+    ("reward", "loadslip_ok"): 1.2,
+    ("reward", "loadslip_max"): 3.0,
+    ("reward", "loadslip_floor_m"): 0.03,
+    ("reward", "k_loadslip_excess"): 0.8,
+    ("goal", "walk_speed_min_m_s"): SLIPWALK_CMD_VX,
+    ("goal", "walk_speed_max_m_s"): SLIPWALK_CMD_VX,
+    ("goal", "walk_heading_max_rad"): 0.0,
+}
+
+
+@pytest.fixture(scope="module")
+def walkcurr_pf_returns() -> dict[str, float]:
+    """Mean return per scripted behavior under the walkcurr rung-1
+    stack (fixed forward command 0.05 m/s, 15 s episodes, 3 seeds).
+    Twins: the honest tripod gait at 2x/1x/0.5x command speed, the
+    refusal park, the march-in-place stall, the REAL-but-wrong-way
+    reverse and sideways gaits, the zero-lift skate, and the ~1 s
+    topple (fast death)."""
+    plan = {
+        "fast": ("gait", 2.0),
+        "gait": ("gait", 1.0),
+        "creep": ("gait", 0.5),
+        "park": ("park", 1.0),
+        "stall": ("stall", 1.0),
+        "reverse": ("reverse", 1.0),
+        "sideways": ("sideways", 1.0),
+        "skate": ("skate", 1.0),
+        "topple": ("topple", 1.0),
+    }
+    out = {}
+    for name, (pol, scale) in plan.items():
+        runs = [_slipwalk_rollout(pol, s, gait_scale=scale,
+                                  overrides=WALKCURR_PF_OVERRIDES)
+                for s in SEEDS]
+        out[name] = float(np.mean([r[0] for r in runs]))
+        out[name + "_dx"] = float(np.mean([r[1] for r in runs]))
+        out[name + "_steps"] = float(np.mean([r[2] for r in runs]))
+    return out
+
+
+def test_walkcurr_pf_walking_beats_stationary(walkcurr_pf_returns):
+    """Rank 1 vs rank 2: clean commanded walking must out-earn both
+    refusal (park) and marching in place (stall) by a wide margin —
+    the flat1 walk goal starved precisely because not-walking paid."""
+    gait = walkcurr_pf_returns["gait"]
+    for still in ("park", "stall"):
+        assert gait > walkcurr_pf_returns[still] + 300.0, (
+            f"stationary '{still}' is competitive with real walking "
+            f"under the walkcurr rung-1 stack: {walkcurr_pf_returns}")
+    assert walkcurr_pf_returns["gait_dx"] > 0.15, (
+        "the reference gait did not actually travel; bank is broken")
+
+
+def test_walkcurr_pf_stationary_beats_wrong_way(walkcurr_pf_returns):
+    """Rank 2 vs rank 3: parking/stalling must out-earn REAL walking in
+    the wrong direction (reverse) or 90 deg off (sideways). If honest
+    wrong-way travel paid better than standing, the policy could farm
+    motion income while ignoring the command — the exact 'directions
+    not actually followed' failure the track gate names."""
+    floor = min(walkcurr_pf_returns["park"], walkcurr_pf_returns["stall"])
+    for wrong in ("reverse", "sideways"):
+        assert floor > walkcurr_pf_returns[wrong] + 50.0, (
+            f"wrong-way '{wrong}' out-earns (or ties) standing still: "
+            f"{walkcurr_pf_returns} — direction is not priced.")
+
+
+def test_walkcurr_pf_slip_and_fall_are_the_floor(walkcurr_pf_returns):
+    """Rank 3 vs rank 4: high-slip skating and falling must sit below
+    every walking/standing/wrong-way behavior. Slip is highly
+    penalized (operator design note) — but via the loadslip charge and
+    the term penalty, NOT a hard early gate that would just teach
+    parking."""
+    floor = min(walkcurr_pf_returns[k]
+                for k in ("gait", "creep", "park", "stall",
+                          "reverse", "sideways"))
+    for worst in ("skate", "topple"):
+        assert walkcurr_pf_returns[worst] < floor - 50.0, (
+            f"'{worst}' is not the floor of the bank: "
+            f"{walkcurr_pf_returns}")
+    assert walkcurr_pf_returns["topple_steps"] < 75, (
+        "the topple twin did not die fast; bank probe is broken")
+
+
+def test_walkcurr_pf_no_speed_band_and_more_travel_earns_more(
+        walkcurr_pf_returns):
+    """Speed obedience is SECONDARY (operator): exceeding the commanded
+    speed must never be punished, and more along-command travel must
+    earn more, so the gradient out of a partial gait points forward."""
+    assert (walkcurr_pf_returns["fast"] >= walkcurr_pf_returns["gait"]
+            > walkcurr_pf_returns["creep"]), (
+        f"travel income is not monotone: {walkcurr_pf_returns}")
+
+
+def test_walkcurr_pf_discovery_gradient_out_of_park(walkcurr_pf_returns):
+    """From a parked from-scratch policy the first useful move is to
+    start lifting feet: march-in-place must out-earn refusal, or the
+    freeze basin has no exit (the amp-track statue lesson)."""
+    assert (walkcurr_pf_returns["stall"]
+            > walkcurr_pf_returns["park"]), (
+        f"refusal out-earns stepping in place: {walkcurr_pf_returns}")
