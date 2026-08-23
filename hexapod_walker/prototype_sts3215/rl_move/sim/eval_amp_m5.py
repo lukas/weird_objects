@@ -145,6 +145,22 @@ def main() -> int:
                    "--seed", str(args.seed), "--out", str(yjson)]
             for c in args.cfg_set:
                 cmd += ["--cfg-set", c]
+            # Force hazards OFF for the tracking read (08-23 fix): a
+            # checkpoint that trains push/fault permanently on (dr.
+            # fault_prob=1.0 / dr.ext_push_prob=1.0 baked into its OWN
+            # cfg-sets, e.g. every M4 push+fault/turn+push+fault arm so
+            # far) would otherwise carry those into eval_yaw untouched,
+            # confounding the tip-tracking read with concurrent shoves/
+            # faults -- exactly what this section's own pre-registered
+            # bar text ("dr.fault_prob=0/ext_push_prob=0") already
+            # assumed but no code enforced. cfg-set application is
+            # last-wins per key (eval_yaw / config.load_config), so
+            # appending after the base list overrides any baked 1.0
+            # cleanly; a no-op for checkpoints that never baked either
+            # key. Does not change obs width (only push/fault sections
+            # inject; obs.fault_health, if present, is untouched).
+            cmd += ["--cfg-set", "dr.fault_prob=0.0",
+                    "--cfg-set", "dr.ext_push_prob=0.0"]
             _run(cmd)  # its own gate rc is the strict 0.10 default; we re-judge
             if not yjson.exists():
                 verdict["sections"]["yaw"] = {"pass": False, "error": "eval_yaw failed"}
