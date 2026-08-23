@@ -92,28 +92,102 @@ validity, on video. Speed obedience is secondary throughout.
   the prior-free MLP recipe is refuted at this budget per the rule
   below.
 
+## Now (updated 08-23 ~20:0x)
+
+- **`cw-walkcurr-pf-fwd4-logstd0` / `-fwd4-entboost` FAIL (both
+  verdicted):** wider initial action noise (std 0.37->1.0) and 10x
+  entropy coefficient (0.001->0.01) both leave `walk_freeprog_score`
+  flat in [-0.10,-0.055] the whole 2M run — never trending toward 0.
+  Gate eval 0/6 det on both, identical static splayed-crouch video to
+  fwd1-fwd3. `fwd4-logstd0` additionally destabilized sto-mode into
+  real falls (5/6 term, tilt_roll/tilt_pitch, one sacrificed leg) — a
+  new, worse failure mode layered on the same freeze, not progress.
+  Exploration-noise-scale hypothesis CLOSED.
+- **`cw-walkcurr-pf-fwd5-loadslipboot300k` / `-600k` FAIL (both
+  verdicted):** built + bank-proved + smoke-tested the pre-registered
+  loadslip-bootstrap mechanism (`reward.walk_loadslip_bootstrap_steps`
+  / `_min_frac`, walk_task.py + train_ppo_mjx.py, 6 unit tests +
+  3 semantics-bank tests, smoke-verified end-to-end on-pod) — softens
+  ONLY `k_loadslip_excess` for an early window, annealing back to full
+  dose. **Bank floor-search finding**: 0.40 (the walk-charge-ramp's
+  own validated floor) is UNSAFE for this charge alone — held statically
+  at 0.40 with the other three discovery-friction charges at full dose,
+  'sideways' (-231) out-earns 'park' (-352), a genuine ranking reversal
+  (unlike the ramp's own 0.15/0.40 story, because nothing else is
+  loosened alongside it here). A 0.5-0.8 sweep found **0.65** the
+  lowest safe floor (park/stall stay strictly above every wrong-way
+  gait, margin ~37; skate charge still cut ~30%, -1339->-940 at full
+  dose vs floor). Trained at 0.65 for both 300k (15% of budget) and
+  600k (30%) windows: **both freeze identically** —
+  `walk_freeprog_score` flat in [-0.10,-0.05] the entire run, gate 0/6
+  det+sto, identical static-crouch video. Window length was not the
+  missing variable. **This closes the loadslip-bootstrap fork at both
+  tested doses.**
+- **Escalation triggered**: per the pre-registered rule below, BOTH
+  init/noise (fwd4, 2/2 FAIL) AND loadslip-bootstrap (fwd5, 2/2 FAIL)
+  are now refuted with aligned reward+eval (reward falls monotonically
+  as the charges ramp against a frozen policy; eval flat/0 the whole
+  way; adequate budget — 2M steps, 6 total rung-1 arms: fwd1, fwd2x2,
+  fwd3, fwd4x2, fwd5x2 is 8 arms total, all FAIL). **The prior-free
+  MLP-from-scratch recipe is refuted at the 2M discovery budget.**
+  Escalate to a dig-in before any further reward-magnitude variant —
+  see Next.
+
 ## Next
 
-- If fwd4 (either arm) gates or shows `walk_freeprog_score` trending
-  toward 0 (immature-but-real progress): continue/harden that arm;
-  rung 2 (small heading set) respec once a rung-1 pass lands. Consider
-  `--gru --gru-hidden-size 64` (in-repo recurrent path; the paper's
-  LSTM(64) trainer support died with the unpushed desktop clone) once
-  commands start changing mid-episode (rung 4), and a paper-pure
-  proprioception-only obs A/B (`goal.walk_obs_body_vel=0.0`) once the
-  policy is recurrent.
-- If fwd4 also freezes identically: build the loadslip-bootstrap
-  mechanism (soften `k_loadslip_excess` only for an early window,
-  e.g. first 200-500k steps, distinct from — and re-proven against —
-  the WALKCURR_PF bank at its own schedule, since the rejected 0.15
-  floor was tested as a permanent-through-convergence value, not a
-  short bootstrap) before declaring the prior-free MLP recipe refuted
-  at this budget.
-- If fwd1-lineage fails WITH aligned reward across ALL of init/noise
-  + loadslip-bootstrap (bank green, reward and eval agree, adequate
-  budget): the prior-free MLP recipe is refuted at this budget —
-  escalate to a dig-in before any architecture/budget escalation; do
-  NOT seed-sweep further reward-magnitude variants.
+- **NEW DIAGNOSTIC (08-23 ~20:1x, cheap W&B-history read on
+  `fwd5-loadslipboot600k`, no extra training): the freeze is a
+  vanishing-GRADIENT local optimum, not (only) an under-exploration
+  one.** `train/clip_fraction` goes to EXACTLY 0 by ~15% of the run
+  and stays there (policy_gradient_loss magnitude shrinks toward
+  ~1e-4, approx_kl toward ~4e-5) — PPO's updates become negligible
+  very early and never recover, while `rollout/ep_len_mean` climbs
+  steadily to the full episode length (freezing avoids every
+  tilt-term, so episodes stop truncating early) and `ep_rew_mean`
+  falls only because the ramped/annealed charges accrue over a longer
+  and longer episode against an UNCHANGING policy — this is consistent
+  across the reward-quarter pattern seen in every one of the 8 FAILed
+  arms. Working theory: once the policy locks onto "stand still safely"
+  in the first few rollouts, nearly all of the per-step reward
+  (idle/park/height/heading charges, term risk) is a function of STATE
+  and TIME since reset, not of the action taken from that state — so
+  the value function learns to predict it well (explained_variance
+  trends up to ~0.15-0.17) and the resulting ADVANTAGE for any
+  alternative action is close to zero, starving the policy gradient
+  regardless of how the reward is priced or how much noise/entropy is
+  added on top of it. This would explain why every dose/pricing/
+  exploration-noise lever failed IDENTICALLY: none of them change how
+  much the per-step reward actually depends on the action once frozen.
+  **Not yet confirmed** (only one run's history was read) — the next
+  cycle should (a) check 1-2 more of the 8 FAILed runs for the same
+  clip_fraction/approx_kl collapse-to-~0 signature to confirm it's
+  general, not one seed's artifact, and (b) if confirmed, prioritize
+  fixes that restore action-sensitive gradient EARLY (before the
+  freeze locks in) over fixes that only change the reward's resting
+  values: a short forced-exploration/action-noise-floor window, a
+  curiosity/RND-style bonus keyed to STATE novelty (still no motion
+  prior), or rung-0 (a) below, rather than more entropy-coefficient or
+  charge-dose variants (7 of those already refuted).
+- **DIG-IN (rung-0 / architecture), not another reward-magnitude
+  arm.** Candidates, roughly in order of how little they compromise
+  "prior-free": (a) a genuinely prior-free EXPLORATION fix the reward-
+  shape/noise-scale arms haven't tried yet — e.g. a curiosity/RND
+  bonus, or a much bigger discovery budget (5-10M) before declaring
+  the recipe dead at 2M, since every arm so far used the same 2M cap;
+  (b) rung-0: an even simpler sub-goal than "walk 0.05-0.06 m/s" (e.g.
+  "lift any foot" or "shift weight" as a separate certified step before
+  full walking) — closer to a real curriculum than the current single
+  rung; (c) `--gru --gru-hidden-size 64` (in-repo recurrent path) in
+  case memorylessness itself is the blocker, though this hasn't been
+  implicated by any finding so far; (d) last resort, most prior-
+  breaking: a brief BC kickstart from a few seconds of scripted motion
+  to escape the freeze basin, then continue prior-free — flag for an
+  operator read given it brushes against the track's own "no BC
+  teacher" rule.
+- Once ANY rung-1 mechanism actually gates: rung 2 (small heading set)
+  respec; consider the recurrent path + paper-pure proprioception-only
+  obs A/B (`goal.walk_obs_body_vel=0.0`) once commands start changing
+  mid-episode (rung 4).
 
 ## Key facts
 
