@@ -1,6 +1,23 @@
 # amp - AMP locomotion from scratch
 
-Last updated: 2026-08-23 ~01:0x (**M2-YAW BUDGET LEVER REFUTED —
+Last updated: 2026-08-23 ~01:2x (**M2-YAW STYLE CONTROL: PASS-neutral
+— the task-only twin of the M2-yaw champion matches it on every
+axis; style is still not load-bearing anywhere (7th axis).**
+`cw-amp-m2-turnclone-yawcmd0-r2-noamp` (single lever: style 0.5→0.0)
+VERDICTED PASS on the pre-registered within-noise branch: eval_yaw
+turn err med 0.1557 vs sibling 0.1548, tips 0.1806/0.1870 (both
+≤0.20 bar, nominal +0.03 vs 0.1525/0.1614 but inside per-scenario
+scatter — noamp 0.06 better on arc-right-max), hold 0.0038, 0 falls;
+DR-0 walk gate 6/6 det+sto (det prog 0.99/slip 2.31; sto 0.75/4.38,
+slightly better than sibling's 0.65/5.00), zero terms, det strips
+clean. yawcmd0-r2 (style05) STAYS champion. Also verdicted:
+`cw-amp-m3-turnpush1-style05` r1 FAILED launch-config (obs 75!=74 —
+respec from pushsmoke1-style05 lacked the yaw cfg block; zero steps);
+the fixed `-r2` is training on train-2, turn+push composition read
+pends it. M2-yaw open lever unchanged: income audit + bank case (or
+accept yawcmd0-r2 as champion + short doses). Previous banner below.)
+
+Previous entry (~01:0x (**M2-YAW BUDGET LEVER REFUTED —
 MORE TRAINING ERODES TURNING; M4 FAULT-SIGHT PASSES ON THE
 FULL-HEADING SUBSTRATE (style neutral again), blind control
 launched.** (1) `cw-amp-m2-turnclone-yawcmd0-acq1-r2` VERDICTED FAIL

@@ -133283,7 +133283,7 @@
       "dr.ext_push_n=15,30"
     ],
     "created": "2026-08-23T00:47:19+00:00",
-    "status": "RUNNING",
+    "status": "INFORMATIVE",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -133330,7 +133330,8 @@
         ]
       }
     ],
-    "triage": "in-cycle cw-amp-m3-pushcur1-noamp-b1530-cw-amp-m3-pushcur1-noamp-repe since 2026-08-23T01:00:49"
+    "triage": "done",
+    "verdict": "Plateau branch: count-held (repeat_max=3) + force bridged to 15-30N over-topples even its laxer bar \u2014 3/6 det topples (all TERM tilt_pitch; video det_1 shows a genuine full knockdown, no statues \u2014 det prog med 1.20, gait_valid 12/12, zero sacrificed) + 1/6 sto = 4/12 total, the SAME floor as both 20-40N flat-jump twins. The decisive axis is pitch and its training term is FLAT the whole run (30->27.5/window) with reward flat-to-declining after Q2 (147->139); roll term did fall (37.5->23) but roll is not the failing axis \u2014 per the 08-21 checklist this is a genuine plateau, not undertraining, so no continuation. style_reward_mean thinned 0.20->0.103, scraping the 0.1 bar (disc not vetoing, style still not load-bearing). Read: on the count-hardened style05 substrate the recoverable force envelope stays ~25N even when bridged \u2014 force-under-count does not compose at 6M. Joint with n2040 twins + b1530's clean single-shove bridge: force alone bridges (b1530), count alone is cheap (repeat2), but their COMBINATION saturates ~25N \u2014 names a recovery-specific mechanism (get-up/recovery reward or longer episodes) as the M3 lever past 25N, matching the pre-registered prediction-if-false."
   },
   {
     "run": "cw-amp-m3-pushcur1-noamp-repeat2",
@@ -133427,7 +133428,7 @@
       "dr.ext_push_repeat_max=2"
     ],
     "created": "2026-08-23T00:49:34+00:00",
-    "status": "RUNNING",
+    "status": "PASS",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -133472,7 +133473,8 @@
         ]
       }
     ],
-    "triage": "in-cycle cw-amp-m3-pushcur1-noamp-b1530-cw-amp-m3-pushcur1-noamp-repe since 2026-08-23T01:00:49"
+    "triage": "done",
+    "verdict": "Count rung 2 is clean: repeat_max=2 (two 10-25N shoves/ep) from pushacq1-noamp lands 0/6 det + 2/6 sto topples (bar <=1/6 det, <=2/6 sto), gait_valid 12/12, zero sacrificed, det prog med 1.12. Strips watched: det_4 absorbs a 22deg shove and returns to upright six-leg cycling. CAVEAT \u2014 the pre-named strongest-alternative fired: tilt terms started low AND stayed low (pitch 13->8.5, roll 7->5/window vs repeat3-r1's flat 15-17), i.e. rung 2 was largely FREE from the single-shove prior, so this run does not yet prove count is stageable \u2014 rung 3 is the real test. Next: pre-registered repeat_max=3 from THIS checkpoint (pushcur2-noamp-repeat3); if terms are flat there too, the plateau at 3 shoves is mid-recovery balance/shove density, not count per se \u2014 recovery-state mechanism becomes the named lever."
   },
   {
     "run": "cw-amp-m3-pushcur1-noamp-b1530",
@@ -133569,7 +133571,7 @@
       "dr.ext_push_n=15,30"
     ],
     "created": "2026-08-23T00:51:19+00:00",
-    "status": "RUNNING",
+    "status": "PASS",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -133600,7 +133602,7 @@
     "log": "/tmp/train_cw-amp-m3-pushcur1-noamp-b1530.log",
     "wandb_id": "ynpvsudc",
     "verified": "2026-08-23T00:54:37+00:00",
-    "triage": "in-cycle cw-amp-m3-pushcur1-noamp-b1530-cw-amp-m3-pushcur1-noamp-repe since 2026-08-23T01:00:49",
+    "triage": "done",
     "checkups": [
       {
         "time": "2026-08-23T01:00:30+00:00",
@@ -133612,7 +133614,8 @@
           "W&B no longer reports the run as running"
         ]
       }
-    ]
+    ],
+    "verdict": "Stage-1 force bridge works: 15-30N single-shove trained from pushacq1-noamp lands 1/6 det + 1/6 sto topples (bar <=1/6 det, <=2/6 sto), gait_valid 12/12, zero sacrificed legs, det prog med 1.20. Training tilt terminations fell 26->14/window \u2014 under the pre-registered <25 prediction and far below n2040's ~53 flat-jump plateau. Strips watched: genuine shove absorption (sto_1 rides a 22deg roll peak back to upright six-leg cycling; no crouch/statue). Why: the bridged dose keeps the recovery gradient alive where the flat 20-40N jump starved it. Next: pre-registered stage 2 \u2014 20-40N respec from THIS checkpoint (pushcur2-noamp-n2040), judged against n2040-c1 at matched total budget; NOTE the n2040-c1 budget control never trained (REFUSED x3 on stale pod code marker), relaunched this cycle."
   },
   {
     "run": "cw-amp-m3-pushhard1-noamp-n2040-c1",
@@ -133991,7 +133994,7 @@
       "goal.walk_phase_run_on_yaw=1"
     ],
     "created": "2026-08-23T01:01:37+00:00",
-    "status": "RUNNING",
+    "status": "PASS",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -134029,7 +134032,8 @@
         "log_tail": "6\nwandb:       env/height_mm 23.01777\nwandb:   env/height_ref_mm 0\nwandb:   env/max_current_a 1.64549\nwandb:  env/mean_current_a 0.65352\nwandb: env/pct_within_1deg 0.07251\nwandb:   env/pitch_ref_deg 0\nwandb:   env/reward_action -0.01998\nwandb:                 +91 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-amp-m2-turnclone-yawcmd0-r2-noamp at: https://wandb.ai/l2k2/hexapod-balance/runs/9fim4cwy\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 3 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260823_010231-9fim4cwy/logs\n"
       }
     ],
-    "triage": "in-cycle cw-amp-m2-turnclone-yawcmd0-r2-noamp-cw-amp-m3-turnpush1-sty since 2026-08-23T01:10:59"
+    "triage": "done",
+    "verdict": "PASS on the pre-registered within-noise branch: the style-neutral pattern extends to the COMBINED turn+heading substrate -- dropping AMP style entirely (0.5->0.0, single lever) changes nothing real. eval_yaw (identical panel/cfg to the style05 sibling, run's own pod, artifact logs/ckpt_eval/cw_amp_m2_turnclone_yawcmd0_r2_noamp_yawgate.json): turn |wz_err| med 0.1557 vs sibling 0.1548 (dead even), tip-left/right err 0.1806/0.1870 -- both <=0.20 lineage bar with correct sign, nominally +0.03 above the sibling's 0.1525/0.1614 but inside per-scenario scatter (noamp is 0.06 BETTER on arc-right-max, 0.140 vs 0.198; aggregate identical) -- not 'clearly worse'. Hold |wz| 0.0038, 0 falls. DR-0 walk gate: det gait_valid 6/6 prog med 0.99/slip 2.31 (sibling 0.95/2.24), sto 6/6 prog 0.75/slip 4.38 (sibling 0.65/5.00 -- noamp equal-or-slightly-better), zero terminations/sacrificed legs. Reward rose all 2M (quarters 69/189/314/412) and evals agree -- aligned, no continuation case. Det strips watched: upright level six-leg cycling, no crouch/flag-leg/paddle. This is the 7th M2/M3/M4 axis (headings, +/-90, full-circle, speed, push, fault, now turn+heading combined) where a task-only twin matches the style05 arm -- AMP style is still not functionally load-bearing anywhere on this stack. Hardware-ready: no (DR-0 only, fixed 0.08 m/s). Next: nothing on this pair -- yawcmd0-r2 stays M2-yaw champion (its +0.03 tip edge is within noise and it has the longer eval history); the open M2-yaw lever remains the income-audit/bank case, and turn+push composition reads out in turnpush1-style05-r2 (training)."
   },
   {
     "run": "cw-amp-m3-turnpush1-style05",
@@ -134138,7 +134142,7 @@
       "dr.ext_push_prob=1.0"
     ],
     "created": "2026-08-23T01:05:28+00:00",
-    "status": "INTENT",
+    "status": "FAILED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -134155,7 +134159,8 @@
     "assessment_scope": "short_behavior_discovery",
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:amp PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-amp-m3-turnpush1-style05 --steps 2000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_amp_m2_turnclone_yawcmd0_r2.zip --episode-seconds 15 --no-canary --eval-every 1000000 --video-every 2000000 --n-envs 4096 --impl warp --host-workers 24 --seed 7 --ent-coef 0.001 --warm-log-std-override -2.0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set goal.walk_phase_obs=1 --cfg-set goal.walk_phase_hz=1.333333 --cfg-set goal.walk_obs_body_vel=2 --cfg-set goal.walk_heading_max_rad=-1 --cfg-set goal.walk_speed_min_m_s=0.08 --cfg-set goal.walk_speed_max_m_s=0.08 --cfg-set goal.walk_cmd_mode=stress_mix --cfg-set goal.walk_cmd_resample_s=4.0 --cfg-set goal.walk_cmd_resample_jitter=0.5 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set bus.write_speed=1500 --cfg-set bus.write_acc=80 --cfg-set bus.servo_vel_max_counts_s=write_speed --cfg-set safety.max_delta_q_deg=5.0 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --cfg-set reward.term_penalty=400.0 --cfg-set reward.k_step_event=0.0 --cfg-set reward.k_park_duty=0.0 --cfg-set reward.k_walk_freeprog=0.0 --cfg-set reward.walk_loadslip_gate=0.0 --cfg-set reward.k_loadslip_excess=0.0 --cfg-set reward.walk_gait_gate=0.0 --cfg-set reward.k_walk_idle_charge=0.0 --cfg-set reward.k_drag_stance=0.0 --amp-motion-lib rl_move/sim/motion_library/teacher_v2.npz --amp-disc-steps 4 --amp-disc-batch 512 --amp-gp-weight 10.0 --amp-replay 500000 --amp-task-weight 0.5 --amp-style-weight 0.5 --out-name ppo_goal_cw_amp_m3_turnpush1_style05 --notes 'respec of cw-amp-m3-pushsmoke1-style05: Plain English: M3 push-recovery has only ever been trained/tested on the yaw-blind headingsfull substrate (no turning). cw-amp-m2-turnclone-yawcmd0-r2 just showed a single checkpoint can combine full-circle heading translation AND turn-in-place (eval_yaw tip err 0.15/0.16, DR-0 walk gate gait_valid 6/6, slip med 2.24 -- as good as the non-turn lineage). Does that combined substrate still tolerate mid-episode shoves the same way the plain headingsfull-style05 substrate did in pushsmoke1 (topple rate falling 2-3x over 2M, gait_valid staying high, no crouch-statue), or does the added yaw-command channel make push recovery harder (more directions to reacquire after a shove)? Single lever vs cw-amp-m3-pushsmoke1-style05: --init-from swapped from the plain style05-headingsfull checkpoint to the turn-capable cw-amp-m2-turnclone-yawcmd0-r2 checkpoint; identical push cfg (dr.ext_push_prob=1.0, 10-25N/0.15-0.4s/random direction once per episode), identical amp 0.5/0.5, 2M discovery.' --cfg-set dr.ext_push_prob=1.0 > /tmp/train_cw-amp-m3-turnpush1-style05.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-amp-m3-turnpush1-style05.log",
-    "triage": "in-cycle cw-amp-m2-turnclone-yawcmd0-r2-noamp-cw-amp-m3-turnpush1-sty since 2026-08-23T01:10:59"
+    "triage": "done",
+    "verdict": "Launch-config bug, zero training happened. The respec chain took pushsmoke1-style05's cfg (74-dim obs, no yaw command column) but swapped --init-from to the turn-capable cw-amp-m2-turnclone-yawcmd0-r2 checkpoint (75-dim obs, goal.walk_yaw_cmd=1 baked in); train_ppo_mjx hard-failed at model load: 'Observation spaces do not match: Box(75,) != Box(74,)' (confirmed in /tmp/train_cw-amp-m3-turnpush1-style05.log on train-2). Not a research result -- no push/turn read is possible from this entry. Already diagnosed and retried by the launching session as cw-amp-m3-turnpush1-style05-r2 (same question + the matching yaw cfg block, obs-contract fix not a reward change), currently RUNNING on train-2 -- the turn+push composition question stays open pending r2."
   },
   {
     "run": "cw-amp-m3-turnpush1-style05-r2",
@@ -134286,7 +134291,7 @@
       "goal.walk_phase_run_on_yaw=1"
     ],
     "created": "2026-08-23T01:09:16+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -134315,6 +134320,179 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:amp PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-amp-m3-turnpush1-style05-r2 --steps 2000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_amp_m2_turnclone_yawcmd0_r2.zip --episode-seconds 15 --no-canary --eval-every 1000000 --video-every 2000000 --n-envs 4096 --impl warp --host-workers 24 --seed 7 --ent-coef 0.001 --warm-log-std-override -2.0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set goal.walk_phase_obs=1 --cfg-set goal.walk_phase_hz=1.333333 --cfg-set goal.walk_obs_body_vel=2 --cfg-set goal.walk_heading_max_rad=-1 --cfg-set goal.walk_speed_min_m_s=0.08 --cfg-set goal.walk_speed_max_m_s=0.08 --cfg-set goal.walk_cmd_mode=stress_mix --cfg-set goal.walk_cmd_resample_s=4.0 --cfg-set goal.walk_cmd_resample_jitter=0.5 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set bus.write_speed=1500 --cfg-set bus.write_acc=80 --cfg-set bus.servo_vel_max_counts_s=write_speed --cfg-set safety.max_delta_q_deg=5.0 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --cfg-set reward.term_penalty=400.0 --cfg-set reward.k_step_event=0.0 --cfg-set reward.k_park_duty=0.0 --cfg-set reward.k_walk_freeprog=0.0 --cfg-set reward.walk_loadslip_gate=0.0 --cfg-set reward.k_loadslip_excess=0.0 --cfg-set reward.walk_gait_gate=0.0 --cfg-set reward.k_walk_idle_charge=0.0 --cfg-set reward.k_drag_stance=0.0 --amp-motion-lib rl_move/sim/motion_library/teacher_v2.npz --amp-disc-steps 4 --amp-disc-batch 512 --amp-gp-weight 10.0 --amp-replay 500000 --amp-task-weight 0.5 --amp-style-weight 0.5 --out-name ppo_goal_cw_amp_m3_turnpush1_style05_r2 --notes 'respec of cw-amp-m3-pushsmoke1-style05: Plain English (retry of the r1 obs-mismatch crash: pushsmoke1-style05'\"'\"'s cfg lacked the yaw-cmd obs column so the 75-dim turn-capable checkpoint didn'\"'\"'t load into a 74-dim env; fix is adding the SAME yaw cfg block turnclone-yawcmd0-r2 trained with). M3 push-recovery has only ever been trained/tested on the yaw-blind headingsfull substrate. cw-amp-m2-turnclone-yawcmd0-r2 showed a single checkpoint can combine full-circle heading translation AND turn-in-place (eval_yaw tip err 0.15/0.16, DR-0 walk gate gait_valid 6/6, slip med 2.24). Does that combined substrate still tolerate mid-episode shoves the way the plain headingsfull-style05 substrate did in pushsmoke1 (topple rate falling 2-3x over 2M, gait_valid staying high, no crouch-statue), or does the added yaw-command channel make push recovery harder? Single lever vs pushsmoke1-style05: --init-from swapped to the turn-capable checkpoint + the matching yaw cfg block (obs-contract requirement, not a reward change) + dr.ext_push_prob=1.0 unchanged.' --cfg-set dr.ext_push_prob=1.0 --cfg-set goal.walk_yaw_cmd=1 --cfg-set goal.walk_yaw_max_rad_s=0.3 --cfg-set goal.walk_yaw_zero_frac=0.5 --cfg-set reward.k_walk_yaw=1.0 --cfg-set reward.walk_yaw_kernel_gate=1.0 --cfg-set reward.k_yaw_prog=1.0 --cfg-set reward.k_yaw_still=50 --cfg-set reward.walk_kernel_yaw_gate=1.0 --cfg-set reward.walk_yaw_hold_prog_gate=1.0 --cfg-set reward.yaw_still_avg_s=1.0 --cfg-set goal.walk_phase_run_on_yaw=1 > /tmp/train_cw-amp-m3-turnpush1-style05-r2.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-amp-m3-turnpush1-style05-r2.log",
     "wandb_id": "v7orof4k",
-    "verified": "2026-08-23T01:12:32+00:00"
+    "verified": "2026-08-23T01:12:32+00:00",
+    "triage": "awaiting since 2026-08-23T01:16:03",
+    "checkups": [
+      {
+        "time": "2026-08-23T01:18:22+00:00",
+        "process_alive": false,
+        "verdict": "FINISHED_BEFORE_CHECKUP",
+        "log_tail": "   amp/d_real_mean 0.44265\nwandb:      amp/disc_updates 124\nwandb:                amp/gp 0.01159\nwandb:              amp/loss 0.38471\nwandb: amp/pairs_per_rollout 65286\nwandb:        amp/replay_len 500000\nwandb: amp/style_reward_mean 0.2707\nwandb:                  +102 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-amp-m3-turnpush1-style05-r2 at: https://wandb.ai/l2k2/hexapod-balance/runs/v7orof4k\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 3 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260823_011008-v7orof4k/logs\n"
+      }
+    ]
+  },
+  {
+    "run": "cw-amp-m4-turnfault1-style05",
+    "pod": "hexapod-mjx-train-4",
+    "steps": 2000000,
+    "smoke": false,
+    "hypothesis": "Plain English: M4 fault-sight has only been tested on yaw-blind substrates (forward-only faultobs1, full-heading-no-turn faultobs2). cw-amp-m2-turnclone-yawcmd0-r2 showed a single checkpoint can combine full-circle heading translation AND turn-in-place cleanly. Does the fault_health obs-wiring mechanism (already proven safe+beneficial on two simpler substrates: faultobs1 +18%prog/-27%slip vs blind, faultobs2-headingsfull PASS/neutral-style) still produce a non-crashing, compensating (not statue) walker when grafted onto this turn-capable substrate, or does stacking THREE things at once (heading diversity + turning + faults) break down? Single lever vs faultobs2-headingsfull-style05: --init-from swapped to the turn-capable checkpoint + the matching yaw cfg block (obs-contract requirement so the checkpoint's 75-dim actor obs loads correctly before the +18 fault_health pad), same dr.fault_prob=1.0 / obs.fault_health=1 / --obs-pad-transplant 18 wiring, same amp 0.5/0.5, conservative 2M discovery budget (not 4M acquisition) given the added combination risk.",
+    "gate": "Discovery (2M, DR-0, own cfg). Mechanism-safety bar first (per M4's new-mechanism discipline): gait_valid >=10/12 det+sto, faulted episodes show visible compensation on video (limping, not a sacrificed-leg statue), height_err stays in the walking band the whole run (no crouch), zero NaN/crash. If that bar clears, compare faulted-episode prog_ratio/slip against faultobs2-headingsfull-style05's own numbers (det prog med 1.089/slip med 3.084, sto 0.568/7.258) -- comparable = the combination composes; clearly worse = stacking axes costs fault tolerance, a real finding for a dig-in; also run eval_yaw manually to check turn tracking survived the fault-training on top.",
+    "parent": "cw-amp-m2-turnclone-yawcmd0-r2",
+    "track": "amp",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_amp_m2_turnclone_yawcmd0_r2.zip",
+      "--episode-seconds",
+      "15",
+      "--no-canary",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--n-envs",
+      "4096",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--seed",
+      "7",
+      "--ent-coef",
+      "0.001",
+      "--warm-log-std-override",
+      "-2.0",
+      "--goal-mix",
+      "walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0",
+      "--cfg-set",
+      "goal.walk_phase_obs=1",
+      "--cfg-set",
+      "goal.walk_phase_hz=1.333333",
+      "--cfg-set",
+      "goal.walk_obs_body_vel=2",
+      "--cfg-set",
+      "goal.walk_heading_max_rad=-1",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.08",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.08",
+      "--cfg-set",
+      "goal.walk_cmd_mode=stress_mix",
+      "--cfg-set",
+      "goal.walk_cmd_resample_s=4.0",
+      "--cfg-set",
+      "goal.walk_cmd_resample_jitter=0.5",
+      "--cfg-set",
+      "goal.walk_park_start_frac=0.25",
+      "--cfg-set",
+      "bus.write_speed=1500",
+      "--cfg-set",
+      "bus.write_acc=80",
+      "--cfg-set",
+      "bus.servo_vel_max_counts_s=write_speed",
+      "--cfg-set",
+      "safety.max_delta_q_deg=5.0",
+      "--cfg-set",
+      "safety.max_roll_deg=25",
+      "--cfg-set",
+      "safety.max_pitch_deg=25",
+      "--cfg-set",
+      "reward.term_penalty=400.0",
+      "--cfg-set",
+      "reward.k_step_event=0.0",
+      "--cfg-set",
+      "reward.k_park_duty=0.0",
+      "--cfg-set",
+      "reward.k_walk_freeprog=0.0",
+      "--cfg-set",
+      "reward.walk_loadslip_gate=0.0",
+      "--cfg-set",
+      "reward.k_loadslip_excess=0.0",
+      "--cfg-set",
+      "reward.walk_gait_gate=0.0",
+      "--cfg-set",
+      "reward.k_walk_idle_charge=0.0",
+      "--cfg-set",
+      "reward.k_drag_stance=0.0",
+      "--out-name",
+      "ppo_goal_cw_amp_m4_turnfault1_style05",
+      "--notes",
+      "respec of cw-amp-m4-faultobs2-headingsfull-style05: Plain English: M4 fault-sight has only been tested on yaw-blind substrates (forward-only faultobs1, full-heading-no-turn faultobs2). cw-amp-m2-turnclone-yawcmd0-r2 showed a single checkpoint can combine full-circle heading translation AND turn-in-place cleanly. Does the fault_health obs-wiring mechanism (already proven safe+beneficial on two simpler substrates: faultobs1 +18%prog/-27%slip vs blind, faultobs2-headingsfull PASS/neutral-style) still produce a non-crashing, compensating (not statue) walker when grafted onto this turn-capable substrate, or does stacking THREE things at once (heading diversity + turning + faults) break down? Single lever vs faultobs2-headingsfull-style05: --init-from swapped to the turn-capable checkpoint + the matching yaw cfg block (obs-contract requirement so the checkpoint's 75-dim actor obs loads correctly before the +18 fault_health pad), same dr.fault_prob=1.0 / obs.fault_health=1 / --obs-pad-transplant 18 wiring, same amp 0.5/0.5, conservative 2M discovery budget (not 4M acquisition) given the added combination risk.",
+      "--cfg-set",
+      "dr.fault_prob=1.0",
+      "--obs-pad-transplant",
+      "18",
+      "--cfg-set",
+      "obs.fault_health=1",
+      "--amp-motion-lib",
+      "rl_move/sim/motion_library/teacher_v2.npz",
+      "--amp-disc-steps",
+      "4",
+      "--amp-disc-batch",
+      "512",
+      "--amp-gp-weight",
+      "10.0",
+      "--amp-replay",
+      "500000",
+      "--amp-task-weight",
+      "0.5",
+      "--amp-style-weight",
+      "0.5",
+      "--cfg-set",
+      "goal.walk_yaw_cmd=1",
+      "--cfg-set",
+      "goal.walk_yaw_max_rad_s=0.3",
+      "--cfg-set",
+      "goal.walk_yaw_zero_frac=0.5",
+      "--cfg-set",
+      "reward.k_walk_yaw=1.0",
+      "--cfg-set",
+      "reward.walk_yaw_kernel_gate=1.0",
+      "--cfg-set",
+      "reward.k_yaw_prog=1.0",
+      "--cfg-set",
+      "reward.k_yaw_still=50",
+      "--cfg-set",
+      "reward.walk_kernel_yaw_gate=1.0",
+      "--cfg-set",
+      "reward.walk_yaw_hold_prog_gate=1.0",
+      "--cfg-set",
+      "reward.yaw_still_avg_s=1.0",
+      "--cfg-set",
+      "goal.walk_phase_run_on_yaw=1"
+    ],
+    "created": "2026-08-23T01:13:08+00:00",
+    "status": "RUNNING",
+    "checks": {
+      "cpu_limit": 26,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-c7c481c8-b38e-d350-964a-7156462b21c8)",
+      "running_experiments_before": 1,
+      "code_sha_local": "d92e59f52881241818b26c6c93e920c4e3ae2535",
+      "code_sha_pod": "d92e59f52881241818b26c6c93e920c4e3ae2535",
+      "init_from_on_pod": true,
+      "wandb_env_on_pod": true,
+      "pid": "1399714",
+      "log_growth_bytes": [
+        12137,
+        22692
+      ],
+      "wandb_id": "5c5rmv82",
+      "global_step_window": [
+        1048576,
+        1507328
+      ],
+      "fps_estimate": 15291.7
+    },
+    "trainer": "ppo",
+    "stack": "gpu-mjx",
+    "phase": "discovery",
+    "assessment_scope": "short_behavior_discovery",
+    "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:amp PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-amp-m4-turnfault1-style05 --steps 2000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_amp_m2_turnclone_yawcmd0_r2.zip --episode-seconds 15 --no-canary --eval-every 1000000 --video-every 2000000 --n-envs 4096 --impl warp --host-workers 24 --seed 7 --ent-coef 0.001 --warm-log-std-override -2.0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set goal.walk_phase_obs=1 --cfg-set goal.walk_phase_hz=1.333333 --cfg-set goal.walk_obs_body_vel=2 --cfg-set goal.walk_heading_max_rad=-1 --cfg-set goal.walk_speed_min_m_s=0.08 --cfg-set goal.walk_speed_max_m_s=0.08 --cfg-set goal.walk_cmd_mode=stress_mix --cfg-set goal.walk_cmd_resample_s=4.0 --cfg-set goal.walk_cmd_resample_jitter=0.5 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set bus.write_speed=1500 --cfg-set bus.write_acc=80 --cfg-set bus.servo_vel_max_counts_s=write_speed --cfg-set safety.max_delta_q_deg=5.0 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --cfg-set reward.term_penalty=400.0 --cfg-set reward.k_step_event=0.0 --cfg-set reward.k_park_duty=0.0 --cfg-set reward.k_walk_freeprog=0.0 --cfg-set reward.walk_loadslip_gate=0.0 --cfg-set reward.k_loadslip_excess=0.0 --cfg-set reward.walk_gait_gate=0.0 --cfg-set reward.k_walk_idle_charge=0.0 --cfg-set reward.k_drag_stance=0.0 --out-name ppo_goal_cw_amp_m4_turnfault1_style05 --notes 'respec of cw-amp-m4-faultobs2-headingsfull-style05: Plain English: M4 fault-sight has only been tested on yaw-blind substrates (forward-only faultobs1, full-heading-no-turn faultobs2). cw-amp-m2-turnclone-yawcmd0-r2 showed a single checkpoint can combine full-circle heading translation AND turn-in-place cleanly. Does the fault_health obs-wiring mechanism (already proven safe+beneficial on two simpler substrates: faultobs1 +18%prog/-27%slip vs blind, faultobs2-headingsfull PASS/neutral-style) still produce a non-crashing, compensating (not statue) walker when grafted onto this turn-capable substrate, or does stacking THREE things at once (heading diversity + turning + faults) break down? Single lever vs faultobs2-headingsfull-style05: --init-from swapped to the turn-capable checkpoint + the matching yaw cfg block (obs-contract requirement so the checkpoint'\"'\"'s 75-dim actor obs loads correctly before the +18 fault_health pad), same dr.fault_prob=1.0 / obs.fault_health=1 / --obs-pad-transplant 18 wiring, same amp 0.5/0.5, conservative 2M discovery budget (not 4M acquisition) given the added combination risk.' --cfg-set dr.fault_prob=1.0 --obs-pad-transplant 18 --cfg-set obs.fault_health=1 --amp-motion-lib rl_move/sim/motion_library/teacher_v2.npz --amp-disc-steps 4 --amp-disc-batch 512 --amp-gp-weight 10.0 --amp-replay 500000 --amp-task-weight 0.5 --amp-style-weight 0.5 --cfg-set goal.walk_yaw_cmd=1 --cfg-set goal.walk_yaw_max_rad_s=0.3 --cfg-set goal.walk_yaw_zero_frac=0.5 --cfg-set reward.k_walk_yaw=1.0 --cfg-set reward.walk_yaw_kernel_gate=1.0 --cfg-set reward.k_yaw_prog=1.0 --cfg-set reward.k_yaw_still=50 --cfg-set reward.walk_kernel_yaw_gate=1.0 --cfg-set reward.walk_yaw_hold_prog_gate=1.0 --cfg-set reward.yaw_still_avg_s=1.0 --cfg-set goal.walk_phase_run_on_yaw=1 > /tmp/train_cw-amp-m4-turnfault1-style05.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-amp-m4-turnfault1-style05.log",
+    "wandb_id": "5c5rmv82",
+    "verified": "2026-08-23T01:16:23+00:00"
   }
 ]

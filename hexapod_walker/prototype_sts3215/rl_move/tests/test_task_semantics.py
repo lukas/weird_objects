@@ -591,6 +591,26 @@ TURN_LEGACY_OVERRIDES = {
     if k[1] not in ("walk_yaw_hold_prog_gate", "yaw_still_avg_s")}
 TURN_CMD_WZ = 0.25       # rad/s, tested at BOTH signs
 DRIFT_WZ = 0.09          # the measured structural left drift
+# 08-23 over-spin farm fix (probe_walk_income yawcmd0 income audit):
+# k_yaw_prog's legacy clip pays up to 1.25x for OVER-rotation, so the
+# income gradient points PAST the commanded rate — the eroded
+# acq1-r2 checkpoint measurably farmed it (achieved/commanded yaw
+# ratio 1.78 while collecting MORE yaw_prog than the accurate
+# champion), and 3x income (yawprice3x) amplified the farm. Any turn
+# arm must now also train with the overshoot decay ON.
+TURN_FIX_OVERRIDES = dict(TURN_OVERRIDES)
+TURN_FIX_OVERRIDES.update({
+    ("reward", "yaw_prog_overshoot_decay"): 1.0,
+})
+# The farm lives on LOW commanded rates (wz_ref ~ U(+-0.3)): the
+# scripted gait's achieved wz saturates ~0.16 rad/s in this env
+# (measured 08-23: omega 0.15 -> ~0.08 achieved, omega >=0.75 ->
+# ~0.16 achieved, flat beyond), so at wz_cmd=0.08 spinning at the
+# natural fast rate IS a ~2x over-rotation while omega=0.15 tracks
+# the command ~1:1.
+TURN_SLOW_WZ = 0.08      # rad/s command the farm targets
+TRACKED_OMEGA = 0.15     # scripted omega achieving ~= TURN_SLOW_WZ
+OVERSPIN_OMEGA = 0.75    # scripted omega achieving ~2x TURN_SLOW_WZ
 
 
 def _make_turn_env(seed: int, overrides: dict | None = None):
@@ -611,7 +631,8 @@ def _make_turn_env(seed: int, overrides: dict | None = None):
 
 
 def _turn_rollout(policy: str, wz_cmd: float, seed: int,
-                  overrides: dict | None = None) -> float:
+                  overrides: dict | None = None,
+                  return_terms: bool = False):
     from sim_gait_compat import TripodGait
 
     env = _make_turn_env(seed, overrides)
@@ -630,7 +651,7 @@ def _turn_rollout(policy: str, wz_cmd: float, seed: int,
     plant_rad = np.array([0.0, *WALK_PLANT] * 6) * DEG2RAD
     gait.reset_phase()
 
-    total, step = 0.0, 0
+    total, step, yp_sum = 0.0, 0, 0.0
     while True:
         t = step * env.dt
         cmd = float(traj.wz[min(step, n - 1)])
@@ -640,6 +661,12 @@ def _turn_rollout(policy: str, wz_cmd: float, seed: int,
         elif policy == "partial":     # correct direction, ~35% of it
             gait.set_velocity(omega=0.35 * cmd)
             act = q_rad_to_action(np.asarray(gait.desired_deg(t)) * DEG2RAD)
+        elif policy == "tracked":     # achieves ~= the commanded rate
+            gait.set_velocity(omega=float(np.sign(cmd)) * TRACKED_OMEGA)
+            act = q_rad_to_action(np.asarray(gait.desired_deg(t)) * DEG2RAD)
+        elif policy == "overspin":    # correct direction, ~2x PAST it
+            gait.set_velocity(omega=float(np.sign(cmd)) * OVERSPIN_OMEGA)
+            act = q_rad_to_action(np.asarray(gait.desired_deg(t)) * DEG2RAD)
         elif policy == "drift":       # the structural fixed left drift
             gait.set_velocity(omega=DRIFT_WZ if step >= hold_n else 0.0)
             act = q_rad_to_action(np.asarray(gait.desired_deg(t)) * DEG2RAD)
@@ -647,10 +674,13 @@ def _turn_rollout(policy: str, wz_cmd: float, seed: int,
             act = q_rad_to_action(plant_rad)
         _obs, r, term, trunc, _info = env.step(act)
         total += float(r)
+        yp_sum += float(_info.get("reward_yaw_prog", 0.0))
         step += 1
         if term or trunc:
             break
     env.close()
+    if return_terms:
+        return total, yp_sum
     return total
 
 
@@ -673,6 +703,54 @@ def test_turn_reward_separates_command_from_drift(turn_returns):
     assert t["partial"] > t["drift"], (
         f"the structural drift out-earns honest partial turning: {t}")
     assert t["drift"] > t["park"], t
+
+
+def test_turn_overspin_farm_existed_in_legacy_stack():
+    """DEFECT PROOF (hold_legacy pattern): under the legacy k_yaw_prog
+    clip (+1.25 headroom, no overshoot decay), spinning ~2x PAST a
+    slow command collects at least as much yaw_prog income as
+    accurately tracking it — the measured farm the eroded acq1-r2
+    checkpoint drove through (income audit 08-23,
+    logs/probe_walk_income/yawcmd0_turn_income_audit.json; also why
+    yawprice3x got WORSE with 3x income)."""
+    yp = {p: float(np.mean(
+        [_turn_rollout(p, s_wz * TURN_SLOW_WZ, s, TURN_OVERRIDES,
+                       return_terms=True)[1]
+         for s in SEEDS for s_wz in (+1.0, -1.0)]))
+        for p in ("tracked", "overspin")}
+    assert yp["overspin"] >= 0.95 * yp["tracked"], (
+        f"legacy over-spin farm not reproduced ({yp}) — the audit's "
+        f"defect model needs revisiting before trusting the fix.")
+
+
+def test_turn_overspin_priced_out_by_overshoot_decay():
+    """THE FIX: with reward.yaw_prog_overshoot_decay=1.0 the yaw_prog
+    income peaks at the ACHIEVED==commanded rate — a ~2x over-spinner
+    must earn decisively less yaw_prog AND less total return than the
+    accurate tracker, and honest turning must still beat parking."""
+    res = {p: [_turn_rollout(p, s_wz * TURN_SLOW_WZ, s,
+                             TURN_FIX_OVERRIDES, return_terms=True)
+               for s in SEEDS for s_wz in (+1.0, -1.0)]
+           for p in ("tracked", "overspin", "park")}
+    tot = {p: float(np.mean([r[0] for r in res[p]])) for p in res}
+    yp = {p: float(np.mean([r[1] for r in res[p]])) for p in res}
+    assert yp["tracked"] > yp["overspin"], (
+        f"overshoot decay ON but over-spinning still collects more "
+        f"yaw_prog than tracking the command: {yp}")
+    assert tot["tracked"] > tot["overspin"], (
+        f"over-spinning still out-earns accurate turning in TOTAL "
+        f"return with the fix on: {tot}")
+    assert tot["tracked"] > tot["park"], tot
+
+
+def test_turn_overshoot_decay_default_off_is_bit_exact():
+    """New key absent vs explicitly 0.0: identical return (the decay
+    branch must be dead code when off)."""
+    explicit = dict(TURN_OVERRIDES)
+    explicit[("reward", "yaw_prog_overshoot_decay")] = 0.0
+    a = _turn_rollout("overspin", TURN_SLOW_WZ, SEEDS[0], TURN_OVERRIDES)
+    b = _turn_rollout("overspin", TURN_SLOW_WZ, SEEDS[0], explicit)
+    assert a == pytest.approx(b, abs=1e-9), (a, b)
 
 
 def test_turn_command_signs_priced_symmetrically():

@@ -768,7 +768,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                           "_walk_bucket", "_step_disp_bank",
                           "_ls_prev_xy", "_ls_prev_on",
                           "_ls_slip_m", "_ls_prog_m",
-                          "_yaw_still_ema", "_stance_slip_acc",
+                          "_yaw_still_ema", "_yaw_prog_ema", "_stance_slip_acc",
                           "_walk_idle_ema", "_walk_course_ema",
                           "_walk_kernel_vema",
                           "_gait_last_step", "_gait_cmd_tick",
@@ -848,6 +848,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # Heading-hold drift EMA (reward.yaw_still_avg_s); per-episode,
         # reset in _reset_begin, snapshot via MJX_SNAPSHOT_EXTRA.
         self._yaw_still_ema = 0.0
+        self._yaw_prog_ema = 0.0
         # Leg-odometry velocity estimator (goal.walk_obs_body_vel=3
         # only; None in every other mode = zero overhead). Per-episode
         # stateful — recreated on reset in _augment_obs, snapshot via
@@ -1312,6 +1313,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         self._gait_gate_qfactor = 1.0
         self._phase = 0.0
         self._yaw_still_ema = 0.0
+        self._yaw_prog_ema = 0.0
         self._vel_est = None
         if self._wc_on:
             # Bucket must be chosen BEFORE super() samples this
@@ -2908,6 +2910,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         self._anchor_prev_on = [False] * 6
         self._step_disp_bank = 0.0
         self._yaw_still_ema = 0.0
+        self._yaw_prog_ema = 0.0
         self._ls_prev_xy = [None] * 6
         self._ls_prev_on = [False] * 6
         self._ls_slip_m = 0.0
@@ -3238,8 +3241,51 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 if k_yp > 0.0 or k_ys > 0.0:
                     wz_now = self._body_wz()
                     if k_yp > 0.0 and abs(goal.wz_ref) > 1e-3:
-                        r_yp = k_yp * min(max(
-                            wz_now / goal.wz_ref, -1.5), 1.25)
+                        # OVER-SPIN FARM FIX (08-23 income audit,
+                        # probe_walk_income yawcmd0 stack): the legacy
+                        # clip's +1.25 headroom makes OVER-rotation
+                        # strictly dominant — the gradient points to
+                        # ratio 1.25, not 1.0, and the eroded acq1-r2
+                        # policy measurably farmed it (yaw_progress
+                        # ratio 1.78, yaw_prog income +14% over the
+                        # accurate champion; also explains yawprice3x
+                        # getting WORSE with 3x income). cfg
+                        # reward.yaw_prog_overshoot_decay > 0 makes
+                        # income PEAK at ratio 1.0 and decay linearly
+                        # past it (never below 0 on the overshoot
+                        # side, so gyro noise is not punished);
+                        # default 0.0 = bit-exact legacy clip.
+                        # DC-vs-AC (same defect class as the 08-11
+                        # yaw_still fix): pricing the INSTANTANEOUS wz
+                        # pays the smooth fast spinner and fines the
+                        # honest gait's zero-mean stride oscillation
+                        # (measured 08-23: a 0.95-ratio tracker earned
+                        # NEGATIVE yaw_prog while a 2.0-ratio spinner
+                        # earned +). cfg reward.yaw_prog_avg_s = EMA
+                        # time constant (s) for the wz used in the
+                        # ratio; default 0 = legacy instantaneous.
+                        # Per-episode EMA state rides
+                        # MJX_SNAPSHOT_EXTRA like _yaw_still_ema.
+                        tau_p = float(cfg_get(self.cfg, "reward",
+                                              "yaw_prog_avg_s",
+                                              default=0.0))
+                        if tau_p > 0.0:
+                            a_ema = min(self.dt / tau_p, 1.0)
+                            self._yaw_prog_ema += a_ema * (
+                                wz_now - self._yaw_prog_ema)
+                            wz_p = self._yaw_prog_ema
+                            info["yaw_prog_wz_avg"] = wz_p
+                        else:
+                            wz_p = wz_now
+                        ratio = wz_p / goal.wz_ref
+                        decay = float(cfg_get(
+                            self.cfg, "reward",
+                            "yaw_prog_overshoot_decay", default=0.0))
+                        if decay > 0.0 and ratio > 1.0:
+                            val = max(1.0 - decay * (ratio - 1.0), 0.0)
+                        else:
+                            val = min(max(ratio, -1.5), 1.25)
+                        r_yp = k_yp * val
                         reward = float(reward) + r_yp
                         info["reward_yaw_prog"] = r_yp
                     if k_ys > 0.0 and abs(goal.wz_ref) <= 1e-3:
