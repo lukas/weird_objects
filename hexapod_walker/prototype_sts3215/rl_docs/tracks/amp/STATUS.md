@@ -1,6 +1,52 @@
 # amp - AMP locomotion from scratch
 
-Last updated: 2026-08-23 ~00:5x (**M3 COUNT AXIS CLOSED ON THE
+Last updated: 2026-08-23 ~01:0x (**M2-YAW BUDGET LEVER REFUTED —
+MORE TRAINING ERODES TURNING; M4 FAULT-SIGHT PASSES ON THE
+FULL-HEADING SUBSTRATE (style neutral again), blind control
+launched.** (1) `cw-amp-m2-turnclone-yawcmd0-acq1-r2` VERDICTED FAIL
+on its own pre-registered branch: the 6M acquisition continuation off
+yawcmd0-r2 landed eval_yaw turn err med 0.264 vs parent 0.155 vs raw
+turn-clone 0.104; tip-left/right err 0.399/0.347 vs parent
+0.153/0.161 — WORSE than parking (0.30), i.e. RL actively unlearned
+the clone's turn pattern while reward rose the whole run (146→350)
+and translation held (gate 6/6 det+sto, det prog med 1.10; only det
+slip eroded 2.24→2.99). Joint story with yawprice3x (3x income → err
+0.208): turn-skill erosion is MONOTONE in training steps AND income
+multiplier — pricing, exposure, and budget are now ALL refuted on
+this substrate; per the 08-21 ruling this is misalignment, not
+undertraining. The yaw stack's optimum is provably not accurate wz
+tracking (hold segments stay perfect 0.001-0.007 in every arm while
+turn segments decay — the stack pays holds reliably; turn income is
+outbid or farmable). NEXT LEVER (named, not spent this cycle): an
+INCOME AUDIT + semantics-bank case — extend
+probe_walk_income/test_task_semantics to prove an accurate-turner
+out-earns the erode-to-park policy under the yawcmd stack, then
+reprice until it does (bank-first per the 08-21 ruling); the
+legitimate fallback is accepting `yawcmd0-r2` (2M, tips 0.15/0.16,
+<=0.20 milestone bar, clean full-heading translation) as the M2-yaw
+champion and keeping RL doses SHORT (<=2M) on turn-clone substrates.
+yawcmd0-r2 REMAINS champion; artifact
+`logs/ckpt_eval/cw_amp_m2_turnclone_yawcmd0_acq1_r2_yawgate.json`.
+(2) M4 fault line: `cw-amp-m4-faultobs2-headingsfull-noamp` PASS —
+fault-sighted walker survives the jump from forward-only to the
+full-heading substrate at 4M under guaranteed faults (DR-0 own-cfg:
+gait_valid 11/12, det prog med 1.14/slip 3.08; the sac=[0] episode
+WALKS 0.47m limping on 5 legs, worst-fault ep advances upright — no
+statue, no crouch, heights 0-22mm, 0 terminations).
+`-style05` twin PASS-neutral (12/12, paired same-seed episodes within
+noise on every axis, hard fault draws degrade BOTH arms identically;
+disc unsaturated d_real 0.78/d_fake -0.93, style_reward 0.121) — the
+first genuinely off-distribution axis (fault transients absent from
+teacher_v2) still finds style functionally neutral: no styleveto, no
+help. CAVEAT: the blind-vs-sighted delta (faultobs1's +18% prog/-27%
+slip) is still unmeasured on this substrate (faultobs1's blind
+control was forward-only) — LAUNCHED
+`cw-amp-m4-faultobs2-headingsfull-blind` (obs.fault_health 1→0,
+pad-transplant 0, single lever, 4M, train-0); its same-seed paired
+read vs the noamp gate report answers whether fault-sight
+generalizes to command diversity. Previous banner below.)
+
+Previous entry (~00:5x (**M3 COUNT AXIS CLOSED ON THE
 STYLE05 LINE: `cw-amp-m3-pushhard1-style05-repeat3` VERDICTED PASS
 on every pre-registered bar** — up to 3 shoves/ep at 10-25N: DR-0
 own-cfg topples 1/6 det + 0/6 sto (bar ≤2/≤3), gait_valid 12/12,
