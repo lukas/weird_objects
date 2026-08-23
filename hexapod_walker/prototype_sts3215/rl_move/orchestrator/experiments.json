@@ -146511,7 +146511,7 @@
       "dr.ext_push_n=5.0,18.0"
     ],
     "created": "2026-08-23T11:37:57+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -146541,7 +146541,7 @@
     "log": "/tmp/train_cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518-yawprice2.log",
     "wandb_id": "jcavr5tk",
     "verified": "2026-08-23T11:41:15+00:00",
-    "triage": "in-cycle cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518-yawp since 2026-08-23T11:45:59",
+    "triage": "done",
     "checkups": [
       {
         "time": "2026-08-23T11:47:09+00:00",
@@ -146549,7 +146549,8 @@
         "verdict": "DEAD",
         "log_tail": "    amp/disc_updates 124\nwandb:                amp/gp 0.01033\nwandb:              amp/loss 0.2599\nwandb: amp/pairs_per_rollout 65325\nwandb:        amp/replay_len 500000\nwandb: amp/style_reward_mean 0.17139\nwandb:                  +103 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518-yawprice2 at: https://wandb.ai/l2k2/hexapod-balance/runs/jcavr5tk\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 3 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260823_113850-jcavr5tk/logs\n"
       }
-    ]
+    ],
+    "verdict": "Result: doubling the turn-in-place reward income (k_yaw_prog 1.0->2.0) did NOT recover yaw-tip tracking margin against the M5 bar. Evidence: eval_amp_m5 yaw section tip_left_err 0.2164 (parent pushcal518 0.2157, unmoved) and tip_right_err 0.2596 (parent 0.2351, +0.024 WORSE, outside the +-0.02 noise band) -- one side regressed, neither cleared the 0.20 bar. Walk section also still misses its bar (det slip med 3.62 vs <=3.5) but did not regress past 3.8. Safety intact: own-cfg DR-0 gate 0/12 raw falls (walk+sto), gait_valid 12/12, video-clean six-leg gait, roll_peak max 17.1deg. Why: this is the pre-registered dose-grid gate's own FAIL condition (tips unmoved/worse) -- turn-in-place tip accuracy is not purchasable by raising k_yaw_prog alone at this dose. What's next: read jointly with yawprice3 (also finished) before deciding dose-vs-mechanism; a joint FAIL of both doses refutes income pricing as the tip-error lever per the pre-registered gate and escalates to mechanism (stance geometry / wz curriculum), not further dosing."
   },
   {
     "run": "cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518-slipexcess6",
@@ -146696,7 +146697,7 @@
       "reward.loadslip_ok=1.5"
     ],
     "created": "2026-08-23T11:39:43+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -146733,7 +146734,9 @@
         "verdict": "DEAD",
         "log_tail": " amp/disc_updates 124\nwandb:                amp/gp 0.01087\nwandb:              amp/loss 0.27842\nwandb: amp/pairs_per_rollout 65327\nwandb:        amp/replay_len 500000\nwandb: amp/style_reward_mean 0.17652\nwandb:                  +104 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518-slipexcess6 at: https://wandb.ai/l2k2/hexapod-balance/runs/wnugw2gq\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 3 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260823_114036-wnugw2gq/logs\n"
       }
-    ]
+    ],
+    "triage": "done",
+    "verdict": "Result: the per-tick loaded-slip excess charge (k_loadslip_excess=6.0 at loadslip_ok=1.5) did not move walk slip past noise. Evidence: eval_amp_m5 walk section det_slip_med 3.629 vs parent pushcal518's 3.67 -- a 0.04 improvement, far short of the gate's own PARTIAL threshold (>=0.15) and still misses the 3.5 bar. gait_valid 12/12, 0 det/sto terms, video-clean six-leg gait (contact sheet). Own-cfg DR-0 gate also 0/12 raw falls. Why: matches the pre-registered gate's FAIL condition (slip unmoved). The charge (~0.5/tick against ~3/tick walk income per the hypothesis) is real but too weak at this dose to bite the policy's slip behavior. What's next: read jointly with slipexcess12 (2x the dose, same lineage) before concluding -- if 12x also fails to move slip, additive per-tick slip pricing is refuted as the lever entirely and the next lever is a partial-strength loadslip income GATE (multiplying the walk income term down when loaded slip is high) rather than more additive charge."
   },
   {
     "run": "cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518-yawprice3",
@@ -146878,7 +146881,7 @@
       "dr.ext_push_n=5.0,18.0"
     ],
     "created": "2026-08-23T11:41:27+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -146907,7 +146910,17 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:amp PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518-yawprice3 --steps 2000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_amp_m4_turnfault_seq1.zip --episode-seconds 15 --no-canary --eval-every 1000000 --video-every 2000000 --n-envs 4096 --impl warp --host-workers 24 --seed 7 --ent-coef 0.001 --warm-log-std-override -2.0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set goal.walk_phase_obs=1 --cfg-set goal.walk_phase_hz=1.333333 --cfg-set goal.walk_obs_body_vel=2 --cfg-set goal.walk_heading_max_rad=-1 --cfg-set goal.walk_speed_min_m_s=0.08 --cfg-set goal.walk_speed_max_m_s=0.08 --cfg-set goal.walk_cmd_mode=stress_mix --cfg-set goal.walk_cmd_resample_s=4.0 --cfg-set goal.walk_cmd_resample_jitter=0.5 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set bus.write_speed=1500 --cfg-set bus.write_acc=80 --cfg-set bus.servo_vel_max_counts_s=write_speed --cfg-set safety.max_delta_q_deg=5.0 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --cfg-set reward.term_penalty=400.0 --cfg-set reward.k_step_event=0.0 --cfg-set reward.k_park_duty=0.0 --cfg-set reward.k_walk_freeprog=0.0 --cfg-set reward.walk_loadslip_gate=0.0 --cfg-set reward.k_loadslip_excess=0.0 --cfg-set reward.walk_gait_gate=0.0 --cfg-set reward.k_walk_idle_charge=0.0 --cfg-set reward.k_drag_stance=0.0 --amp-motion-lib rl_move/sim/motion_library/teacher_v2.npz --amp-disc-steps 4 --amp-disc-batch 512 --amp-gp-weight 10.0 --amp-replay 500000 --amp-task-weight 0.5 --amp-style-weight 0.5 --out-name ppo_goal_cw_amp_m4_turnfault_seq1_pushcont1_tipfrac05_pushcal518_yawprice3 --notes 'respec of cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518: Plain English: second dose point of the turn-payment raise \u2014 if doubling (yawprice2) moves turn-in-place accuracy but not far enough, tripling maps the dose-response; if even 3x does not move it, the limit is not the price. Single lever vs pushcal518: reward.k_yaw_prog 1.0->3.0. Note the historical yawprice3x failure predates the overshoot-decay/EMA fix (over-spin farm, since priced out and bank-proven); this re-tests the 3x dose under corrected semantics.' --obs-pad-transplant 0 --cfg-set goal.walk_yaw_cmd=1 --cfg-set goal.walk_yaw_max_rad_s=0.3 --cfg-set goal.walk_yaw_zero_frac=0.5 --cfg-set reward.k_walk_yaw=1.0 --cfg-set reward.walk_yaw_kernel_gate=1.0 --cfg-set reward.k_yaw_prog=3.0 --cfg-set reward.k_yaw_still=50 --cfg-set reward.walk_kernel_yaw_gate=1.0 --cfg-set reward.walk_yaw_hold_prog_gate=1.0 --cfg-set reward.yaw_still_avg_s=1.0 --cfg-set goal.walk_phase_run_on_yaw=1 --cfg-set dr.fault_prob=1.0 --cfg-set obs.fault_health=1 --cfg-set dr.ext_push_prob=1.0 --cfg-set reward.yaw_prog_overshoot_decay=1.0 --cfg-set reward.yaw_prog_avg_s=1.0 --cfg-set goal.walk_turn_in_place_frac=0.5 --cfg-set dr.ext_push_n=5.0,18.0 > /tmp/train_cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518-yawprice3.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518-yawprice3.log",
     "wandb_id": "wd74pmef",
-    "verified": "2026-08-23T11:44:51+00:00"
+    "verified": "2026-08-23T11:44:51+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-23T11:50:12+00:00",
+        "process_alive": false,
+        "verdict": "FINISHED_BEFORE_CHECKUP",
+        "log_tail": "   amp/disc_updates 124\nwandb:                amp/gp 0.01146\nwandb:              amp/loss 0.29021\nwandb: amp/pairs_per_rollout 65336\nwandb:        amp/replay_len 500000\nwandb: amp/style_reward_mean 0.18647\nwandb:                  +103 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518-yawprice3 at: https://wandb.ai/l2k2/hexapod-balance/runs/wd74pmef\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 3 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260823_114223-wd74pmef/logs\n"
+      }
+    ],
+    "verdict": "Result: tripling the turn-in-place reward income (k_yaw_prog 1.0->3.0, second dose point) ALSO did not recover yaw-tip tracking margin. Evidence: eval_amp_m5 yaw section tip_left_err 0.2472 (parent pushcal518 0.2157, +0.032 WORSE) and tip_right_err 0.2206 (parent 0.2351, -0.0145 slightly better but inside noise, does not clear 0.20 bar) -- same pattern as yawprice2 (2x dose): one side gets worse each time, neither dose clears the bar. Walk section still misses its own bar (det slip med 3.69 vs <=3.5, no regression past 3.8). Safety intact: 0/12 raw falls, gait_valid 12/12, video-clean. Why: matches the pre-registered gate's FAIL condition. JOINT FAIL of yawprice2 (2x) + yawprice3 (3x): income pricing is REFUTED as the tip-error lever across two dose points in the same direction -- this is not a dosing problem. What's next: escalate to mechanism (stance geometry at turn-in-place / a dedicated wz curriculum stage) rather than a third dose point; flagging DIG-IN for that redesign since it is a reward/env-mechanism change deciding a track fork.",
+    "triage": "done"
   },
   {
     "run": "cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518-slipexcess12",
@@ -147212,7 +147225,7 @@
       "reward.loadslip_ok=1.5"
     ],
     "created": "2026-08-23T11:46:31+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -147241,6 +147254,16 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:amp PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518-slipexcess12 --steps 2000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_amp_m4_turnfault_seq1.zip --episode-seconds 15 --no-canary --eval-every 1000000 --video-every 2000000 --n-envs 4096 --impl warp --host-workers 24 --seed 7 --ent-coef 0.001 --warm-log-std-override -2.0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set goal.walk_phase_obs=1 --cfg-set goal.walk_phase_hz=1.333333 --cfg-set goal.walk_obs_body_vel=2 --cfg-set goal.walk_heading_max_rad=-1 --cfg-set goal.walk_speed_min_m_s=0.08 --cfg-set goal.walk_speed_max_m_s=0.08 --cfg-set goal.walk_cmd_mode=stress_mix --cfg-set goal.walk_cmd_resample_s=4.0 --cfg-set goal.walk_cmd_resample_jitter=0.5 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set bus.write_speed=1500 --cfg-set bus.write_acc=80 --cfg-set bus.servo_vel_max_counts_s=write_speed --cfg-set safety.max_delta_q_deg=5.0 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --cfg-set reward.term_penalty=400.0 --cfg-set reward.k_step_event=0.0 --cfg-set reward.k_park_duty=0.0 --cfg-set reward.k_walk_freeprog=0.0 --cfg-set reward.walk_loadslip_gate=0.0 --cfg-set reward.k_loadslip_excess=12.0 --cfg-set reward.walk_gait_gate=0.0 --cfg-set reward.k_walk_idle_charge=0.0 --cfg-set reward.k_drag_stance=0.0 --amp-motion-lib rl_move/sim/motion_library/teacher_v2.npz --amp-disc-steps 4 --amp-disc-batch 512 --amp-gp-weight 10.0 --amp-replay 500000 --amp-task-weight 0.5 --amp-style-weight 0.5 --out-name ppo_goal_cw_amp_m4_turnfault_seq1_pushcont1_tipfrac05_pushcal518_slipexcess12 --notes 'respec of cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518: Plain English: second dose point of the slip charge \u2014 if the calibrated dose (slipexcess6) moves slip but not under the bar, doubling maps the dose-response; if 12x-per-excess also fails to move slip, price is not the lever. Single lever vs pushcal518: reward.k_loadslip_excess=12.0 at loadslip_ok=1.5 (~1.0/tick charge at the current ratio ~3.6 vs ~3/tick walk income \u2014 aggressive but survivable; term_penalty=400 anti-suicide already in the recipe per the bank'\"'\"'s topple finding).' --obs-pad-transplant 0 --cfg-set goal.walk_yaw_cmd=1 --cfg-set goal.walk_yaw_max_rad_s=0.3 --cfg-set goal.walk_yaw_zero_frac=0.5 --cfg-set reward.k_walk_yaw=1.0 --cfg-set reward.walk_yaw_kernel_gate=1.0 --cfg-set reward.k_yaw_prog=1.0 --cfg-set reward.k_yaw_still=50 --cfg-set reward.walk_kernel_yaw_gate=1.0 --cfg-set reward.walk_yaw_hold_prog_gate=1.0 --cfg-set reward.yaw_still_avg_s=1.0 --cfg-set goal.walk_phase_run_on_yaw=1 --cfg-set dr.fault_prob=1.0 --cfg-set obs.fault_health=1 --cfg-set dr.ext_push_prob=1.0 --cfg-set reward.yaw_prog_overshoot_decay=1.0 --cfg-set reward.yaw_prog_avg_s=1.0 --cfg-set goal.walk_turn_in_place_frac=0.5 --cfg-set dr.ext_push_n=5.0,18.0 --cfg-set reward.loadslip_ok=1.5 > /tmp/train_cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518-slipexcess12.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518-slipexcess12.log",
     "wandb_id": "9v8vij4t",
-    "verified": "2026-08-23T11:49:54+00:00"
+    "verified": "2026-08-23T11:49:54+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-23T11:55:14+00:00",
+        "process_alive": false,
+        "verdict": "DEAD",
+        "log_tail": " amp/disc_updates 124\nwandb:                amp/gp 0.00997\nwandb:              amp/loss 0.24296\nwandb: amp/pairs_per_rollout 65331\nwandb:        amp/replay_len 500000\nwandb: amp/style_reward_mean 0.1376\nwandb:                  +104 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518-slipexcess12 at: https://wandb.ai/l2k2/hexapod-balance/runs/9v8vij4t\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 3 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260823_114730-9v8vij4t/logs\n"
+      }
+    ],
+    "triage": "done",
+    "verdict": "Result: doubling the loaded-slip excess charge again (k_loadslip_excess=12.0, second dose point) did NOT reduce walk slip -- it went the WRONG way. Evidence: eval_amp_m5 walk section det_slip_med 3.7905, WORSE than both parent pushcal518 (3.67) and the 6x dose (3.629); still misses the <=3.5 bar by more than either. Safety and gait validity intact: own-cfg DR-0 gate 0/12 raw falls (walk+sto), m5 gait_valid 12/12, 0 terms, no parked/idle-farming pathology, video-clean six-leg gait. Yaw tips 0.2234/0.2413 -- in the same 0.20-0.25 band as the rest of the family, no yaw regression since this lever doesn't touch yaw pricing. Why: matches the pre-registered gate's FAIL condition (slip unmoved/worse); the dose-response is non-monotonic in the wrong direction, not just weak -- doubling the charge from 6x to 12x made slip 0.16 WORSE rather than better, which rules out 'just needs more dose'. JOINT FAIL of slipexcess6+12 (both single-seed, same lineage): additive per-tick loaded-slip pricing is REFUTED as the walk-slip lever at these two dose points. What's next: escalate to a structurally different lever -- a partial-strength loadslip INCOME gate (discount the walk-forward-progress reward term when loaded slip is high, rather than an additive side-charge) or root-cause why the policy's slip doesn't respond to per-tick charges (e.g. is 'slip' as measured driven by foot-plant geometry/gait timing rather than a controllable action the policy can cheaply reduce). Flagging DIG-IN for that mechanism question."
   }
 ]

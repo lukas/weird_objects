@@ -1,6 +1,24 @@
 # amp - AMP locomotion from scratch
 
-Last updated: 2026-08-23 ~11:4x (**DIG-IN RESOLVED: the "push
+Last updated: 2026-08-23 ~12:0x (**DOSE-GRID ARM 1 OF 4 READ:
+`-slipexcess6` FAIL on its pre-registered slip bar — the per-tick
+slip charge ENGAGED but slip is PRICE-INELASTIC at dose 6.** m5 walk
+det slip med 3.629 vs bar 3.5 and parent's ~3.67 (delta 0.04 <<
+0.15 PARTIAL threshold = unmoved); the mechanism worked as built
+(env/reward_loadslip_excess ramped to -0.48/tick, the designed ~0.5/
+tick pressure; training loadslip_ratio 3.45-3.63 vs parent
+3.57-3.70) — the policy just pays the fine. Safety fully intact:
+0/12 raw falls own-cfg DR-0 (roll_peak max 13.4), m5 walk terms 0 +
+gait_valid 12/12 + det prog 1.01. Watch item: yaw tips 0.253/0.261,
+marginally past the 0.25 band but inside the family span
+(0.198-0.317). **Charge-lever ruling now hangs on `-slipexcess12`
+(2x dose, still training): slip also unmoved there = per-tick charge
+REFUTED as the anti-slip lever -> next lever is the loadslip INCOME
+gate (walk_loadslip_gate) at partial strength, not more charge; do
+NOT launch that gate arm before slipexcess12 is read.** yawprice2/3
+are other cycles' triage. Prior banner below.)
+
+Previous entry (~11:4x: **DIG-IN RESOLVED: the "push
 recalibration systematically costs walk-slip/yaw-tip margin" claim is
 REFUTED — it was a BASELINE ARTIFACT. The 2-seed comparison anchored
 on parent `tipfrac05`(seed7)'s tips 0.162/0.184 + slip 3.36, which the
@@ -2471,7 +2489,12 @@ Build every tool this needs; do not pause on operator input.
 
 ## Now
 
-**UPDATE (08-23 ~11:0x, same cycle) — full `eval_amp_m5` cross-engine
+**UPDATE (08-23 ~12:0x) — PRICING-NUDGE DOSE GRID CLOSED AT n=4, BOTH LEVERS REFUTED: neither yaw-income nor slip-charge single-lever dosing recovers the walk-slip/yaw-tip margin.** All 4 arms of the pushcal518 dose grid (launched last cycle, `rl_docs/tracks/amp/STATUS.md` ~11:4x) finished and are VERDICTED FAIL, safety intact throughout (0/12 raw falls, gait_valid 12/12, video-clean six-leg gait on every arm):
+- **Yaw axis** (`k_yaw_prog` 1.0->2.0->3.0, `-yawprice2`/`-yawprice3`): tip_left/right errs vs parent's 0.2157/0.2351 — 2x: 0.2164/0.2596 (right WORSE by 0.024); 3x: 0.2472/0.2206 (left WORSE by 0.032, right marginally better but inside noise). Each dose makes ONE side worse; neither clears the 0.20 bar. Joint FAIL closes this lever: **turn-in-place tip accuracy is not purchasable by raising k_yaw_prog income alone.**
+- **Slip axis** (`k_loadslip_excess` 0->6.0->12.0 at `loadslip_ok=1.5`, `-slipexcess6`/`-slipexcess12`): walk det_slip_med vs parent's 3.67 — 6x: 3.629 (0.04 better, needed 0.15 for PARTIAL); 12x: 3.7905 (0.12 WORSE than parent, and worse than the 6x dose too — non-monotonic in the wrong direction). Joint FAIL closes this lever: **additive per-tick loaded-slip charging does not reduce measured slip, and stacking more charge makes it worse, not better.**
+- **Conclusion:** both halves of the "reward is underpriced" hypothesis from the ~11:4x dig-in are now refuted at the dosing level. The walk-slip/yaw-tip miss against the v1 M5 bars is not a simple income-magnitude problem on either axis. Next lever is STRUCTURAL, not more dose: for yaw, stance-geometry or a dedicated turn-in-place wz curriculum stage (the policy may not have the joint-space authority/gait-phase coupling to rotate faster while satisfying its other stance constraints, not just insufficient incentive to try); for slip, either a partial-strength loadslip INCOME gate (discount the forward-progress reward term under high loaded slip, rather than an additive side-charge that's apparently not on the policy's easily-reachable cost gradient) or a root-cause check on what is actually driving the measured slip (foot-plant/gait-timing artifact vs. a genuinely controllable action). Flagging DIG-IN for the mechanism redesign on both axes — this is a reward/env-code decision, not a triage-cycle call. Evidence: `logs/ckpt_eval/cw_amp_m4_turnfault_seq1_pushcont1_tipfrac05_pushcal518_{yawprice2,yawprice3,slipexcess6,slipexcess12}_m5/m5_verdict.json`, ledger verdicts on all 4 runs (08-23 ~12:0x).
+
+Previous entry (08-23 ~11:0x, same cycle) — full `eval_amp_m5` cross-engine
 re-read on this exact recalibrated checkpoint lands `m5_pass=false`,
 a GENUINE (not free) trade, not the clean promotion the PASS above
 implied:** push section improves (0 terms 12/12 gait_valid, was 1
