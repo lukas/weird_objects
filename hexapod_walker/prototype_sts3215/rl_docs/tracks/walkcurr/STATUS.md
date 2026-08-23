@@ -180,6 +180,33 @@ validity, on video. Speed obedience is secondary throughout.
   "shift weight" certified before full walking); (c) `--gru` recurrent
   path; (d) last resort, operator-flagged: brief BC kickstart (brushes
   the track's "no BC teacher" rule).
+- **PARALLEL FORK LAUNCHED, same cycle as the rscale pair (before this
+  cycle read the optimizer-crush write-up above — both read the same
+  clip_fraction-collapse symptom independently and reached for
+  different items on the (a)/(c) list): `cw-walkcurr-pf-fwd6-sde`**
+  (single lever `--use-sde`, gSDE temporally-correlated action noise
+  instead of i.i.d. per-tick noise, on the exact fwd3-chargeramp
+  recipe) **and `cw-walkcurr-pf-fwd6-gru`** (single lever `--gru
+  --n-steps=64`, recurrent actor/critic, same recipe otherwise) — both
+  VERIFIED RUNNING (train-1, train-2), 2M each, same rung-1 gate.
+  Built + unit-tested `--use-sde`/`--sde-sample-freq` in
+  `train_ppo_mjx.py` (4 construction sites threaded, default OFF
+  bit-exact, mirrors `--activation-fn`'s from-scratch-only guard;
+  `test_use_sde_flag.py` 4/4 — includes a `--help` subprocess
+  regression test that caught a real bug while writing the help text:
+  a literal `~15%` in a docstring crashes argparse's formatter at
+  `--help` time, `TypeError: %o format`). **HONEST CAVEAT given the
+  optimizer-crush write-up above**: neither gSDE (noise STRUCTURE)
+  nor GRU (memory) changes the mechanism the crush write-up blames
+  (global grad-norm clipping dominated by a large-scale value loss) —
+  if that theory is right, both of these arms predict-if-false FAIL
+  for the SAME underlying reason as fwd1-5, not a fresh refutation of
+  noise-structure/memory specifically. A PASS on either would be the
+  more informative (and surprising) outcome; a FAIL should be read
+  jointly with the rscale arms' verdict before concluding
+  noise-structure/memory are closed classes — if rscale FIXES the
+  freeze, re-test gSDE/GRU restricted to whether they change anything
+  ADDITIONAL on top of the rescaled reward before fully closing them.
 - Once ANY rung-1 mechanism actually gates: rung 2 (small heading set)
   respec; consider the recurrent path + paper-pure proprioception-only
   obs A/B (`goal.walk_obs_body_vel=0.0`) once commands start changing
