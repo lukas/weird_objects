@@ -17,13 +17,22 @@ firmware enough that the web UI can stay familiar:
                        4 = SE2 TETRAPOD (se2_foot_gait: per-leg
                        workspaces, Bézier swings, command auto-scaled
                        to reach), 5 = SE2 WAVE (same engine, one leg
-                       at a time); alpha 0..1 = body-motion overlap
+                       at a time), 6 = SE2 CPG (same engine, loaded
+                       parameters from a `cpg_controller_*.json`
+                       search-track artifact — refused until CPGLOAD
+                       picks one); alpha 0..1 = body-motion overlap
                        for gait 1 (0 = step-then-shift, 1 =
-                       continuous; ripple/wave/SE2 run their presets
-                       and ignore it). Swaps are refused while
+                       continuous; ripple/wave/SE2/CPG run their
+                       presets and ignore it). Swaps are refused while
                        walking — send J 0 0 0 first; alpha alone
                        retunes the live no-slip tripod at the next
                        phase boundary.
+  CPGLIST              list available `cpg_controller_*.json` artifacts
+                       (cpg track exports, `linux_control/policies` and
+                       `rl_move/sim/policies`).
+  CPGLOAD <name>       load one artifact's gait/period/swing_frac/lift/
+                       cmd_tau/workspace_margin (does not swap gaits by
+                       itself — send GAIT 6 after loading).
   # <j> <deg>          set one joint
   Q <j> <amp>          wiggle one joint
   HOLD                 freeze at present pose
@@ -55,6 +64,10 @@ from feetech_bus import (  # noqa: E402
     ADDR_TORQUE_ENABLE, BAUD_DEFAULT, N_JOINTS, WALK_ACC,
     WALK_SPEED, deg_to_count, joint_to_servo_id, normalize_acc,
     normalize_speed, standing_pose_degrees,
+)
+from cpg_controller_loader import (  # noqa: E402
+    list_cpg_controllers as _list_cpg_controllers,
+    load_cpg_controller as _load_cpg_controller,
 )
 from mcu_feetech_bus import open_feetech_bus  # noqa: E402
 from noslip_gait import NoSlipGait  # noqa: E402
@@ -93,6 +106,7 @@ class DriveController:
         self._gait_id = 0            # 0 = tripod (drag), 1 = no-slip
         self._noslip_alpha = 0.0     # body-motion overlap (no-slip only)
         self._lift_mm: float | None = None   # last K value, re-applied on swap
+        self._cpg_loaded: dict | None = None  # last CPGLOAD result (gait 6)
         self._last_pose = standing_pose_degrees()
         self.status = "init"
         self._live_ids_cache: set[int] = set()
@@ -246,12 +260,40 @@ class DriveController:
     _GAIT_NAMES = {0: "tripod (drag)", 1: "noslip tripod",
                    2: "noslip RIPPLE (pairs)", 3: "noslip WAVE (one leg)",
                    4: "SE2 TETRAPOD (auto-scaled)",
-                   5: "SE2 WAVE (auto-scaled)"}
+                   5: "SE2 WAVE (auto-scaled)",
+                   6: "SE2 CPG (loaded)"}
 
     def _gait_desc(self) -> str:
         if self._gait_id == 1:
             return f"noslip alpha={self._noslip_alpha:.2f}"
+        if self._gait_id == 6 and self._cpg_loaded is not None:
+            return f"SE2 CPG ({self._cpg_loaded['name']})"
         return self._GAIT_NAMES.get(self._gait_id, "tripod (drag)")
+
+    def list_cpg_controllers(self) -> list[dict]:
+        """List `cpg_controller_*.json` artifacts available to CPGLOAD."""
+        return _list_cpg_controllers()
+
+    def load_cpg_controller(self, name: str) -> str:
+        """CPGLOAD: parse + validate one artifact (no motion, no gait swap).
+
+        Does not touch ``self.gait`` — send ``GAIT 6`` afterward (while
+        stopped) to actually swap onto it. Keeping load and swap
+        separate means a bad/missing artifact name can never silently
+        leave a walking robot on a stale gait.
+        """
+        try:
+            result = _load_cpg_controller(name)
+        except (ValueError, OSError) as e:
+            return f"bad CPGLOAD: {e}"
+        self._cpg_loaded = result
+        gk = result["gait_kw"]
+        self.status = (f"loaded CPG '{result['name']}' ({result['gait']}, "
+                       f"period={gk['period']:.2f} "
+                       f"swing_frac={gk['swing_frac']:.3f} "
+                       f"lift={gk['lift'] * 1000:.1f}mm) "
+                       f"- send GAIT 6 to use it")
+        return self.status
 
     def _set_gait(self, gait_id: int, alpha: float | None = None) -> str:
         """Swap / retune the walk gait (call with the lock held).
@@ -259,11 +301,14 @@ class DriveController:
         Swaps only happen while NOT walking: a fresh gait re-pins its
         feet at neutral, which would yank mid-stride legs. Alpha alone
         retunes the live no-slip tripod safely (phase-boundary
-        semantics); ripple/wave run their clamp-tuned presets.
+        semantics); ripple/wave/CPG run their (or their loaded)
+        presets.
         """
         gait_id = int(gait_id)
         if gait_id not in self._GAIT_NAMES:
             gait_id = 0
+        if gait_id == 6 and self._cpg_loaded is None:
+            return "refused GAIT 6 - CPGLOAD a controller first"
         if alpha is not None:
             self._noslip_alpha = max(0.0, min(1.0, float(alpha)))
             if gait_id == 1 and self._gait_id == 1:
@@ -282,6 +327,9 @@ class DriveController:
             self.gait = SE2FootGait.tetrapod()
         elif gait_id == 5:
             self.gait = SE2FootGait.wave()
+        elif gait_id == 6:
+            self.gait = SE2FootGait(gait=self._cpg_loaded["gait"],
+                                    **self._cpg_loaded["gait_kw"])
         elif gait_id == 1:
             self.gait = NoSlipGait(alpha=self._noslip_alpha)
         else:
@@ -438,6 +486,13 @@ class DriveController:
                 except ValueError:
                     return "bad GAIT"
             return self._set_gait(gid, alpha)
+
+        if cmd == "CPGLIST":
+            import json as _json
+            return _json.dumps(self.list_cpg_controllers())
+
+        if cmd == "CPGLOAD" and len(parts) >= 2:
+            return self.load_cpg_controller(parts[1])
 
         if cmd == "#" and len(parts) >= 3:
             if not self.armed:

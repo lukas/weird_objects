@@ -703,6 +703,59 @@ function sendGait(){
   cmd(line); showSent(line); forceResend();
 }
 wgaitSel.onchange = sendGait;
+
+// --- cpg controller loader (cpg track artifacts, 08-23) ---------------------
+// CPGLIST/CPGLOAD are plain DriveController.handle() lines (same /cmd
+// channel as GAIT/J), so no new HTTP route was needed -- this is just a
+// convenience picker over the two commands. Loading never swaps the live
+// gait; the operator still picks "SE2 CPG" in the gait select above and
+// sends/starts the walk to actually use it.
+const wcpgSel = document.getElementById('wcpgsel');
+const wcpgStatus = document.getElementById('wcpgstatus');
+async function refreshCpgList(){
+  wcpgSel.innerHTML = '<option value="">(loading…)</option>';
+  try{
+    const r = await fetch('/cmd', {method:'POST', body:'CPGLIST'});
+    const text = await r.text();
+    const rows = JSON.parse(text);
+    wcpgSel.innerHTML = '';
+    if(!rows.length){
+      wcpgSel.innerHTML = '<option value="">(none found)</option>';
+      return;
+    }
+    for(const row of rows){
+      const opt = document.createElement('option');
+      opt.value = row.name || row.file;
+      const gate = row.gate_pass_dr0 === true ? 'PASS'
+        : row.gate_pass_dr0 === false ? 'fail' : '?';
+      const slip = row.gate_slip_per_m != null
+        ? row.gate_slip_per_m.toFixed(2) : '?';
+      opt.textContent = (row.error
+        ? row.file + ' — ' + row.error
+        : (row.name || row.file) + ' (' + (row.gait||'?')
+          + ', dr0 gate ' + gate + ', slip/m ' + slip + ')');
+      wcpgSel.appendChild(opt);
+    }
+  }catch(e){
+    wcpgSel.innerHTML = '<option value="">(list failed — link?)</option>';
+  }
+}
+document.getElementById('wcpgrefresh').onclick = refreshCpgList;
+document.getElementById('wcpgload').onclick = async ()=>{
+  const name = wcpgSel.value;
+  if(!name){ wcpgStatus.textContent = 'pick a controller first.'; return; }
+  const line = 'CPGLOAD ' + name;
+  try{
+    const r = await fetch('/cmd', {method:'POST', body:line});
+    const msg = await r.text();
+    wcpgStatus.textContent = msg;
+    showSent(line, !r.ok);
+  }catch(e){
+    wcpgStatus.textContent = 'load failed — link?';
+  }
+};
+refreshCpgList();
+
 walphaEl.oninput = ()=>{
   document.getElementById('walab').textContent =
     (parseFloat(walphaEl.value) || 0).toFixed(2);

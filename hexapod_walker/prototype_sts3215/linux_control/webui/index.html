@@ -133,8 +133,18 @@ legs can reach instead of clipping it.">
             <option value="3">no-slip wave (1 leg · steadiest)</option>
             <option value="4">SE2 tetrapod (auto-scaled · 4 down)</option>
             <option value="5">SE2 wave (auto-scaled · 5 down)</option>
+            <option value="6">SE2 CPG (loaded controller)</option>
           </select></label>
       </div>
+      <div class="btns" style="margin-top:8px; align-items:center">
+        <label class="hint">cpg controller
+          <select id="wcpgsel" title="cpg track search artifacts (rl_move/sim/policies + linux_control/policies, cpg_controller_*.json). Load one, then pick 'SE2 CPG' above and Send/Start to walk on it. Loading never swaps gaits by itself.">
+            <option value="">(refreshing…)</option>
+          </select></label>
+        <button id="wcpgrefresh" type="button">↻ refresh</button>
+        <button id="wcpgload" type="button">Load</button>
+      </div>
+      <div class="hint" id="wcpgstatus">No CPG controller loaded.</div>
       <div id="walphawrap" style="display:none">
         <label class="slab">No-slip α — body-motion overlap:
           <span id="walab">0.00</span></label>

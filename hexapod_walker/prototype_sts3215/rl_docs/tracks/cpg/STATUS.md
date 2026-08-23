@@ -1,6 +1,30 @@
 # cpg - Berkeley-style parameter gait search
 
-Last updated: 2026-08-23 ~05:2x UTC (**ROBUST GATE FULL PASS — closed-
+Last updated: 2026-08-23 ~05:5x UTC (**TEACHER-FORK A/B READ: CPG
+library WALKS as an AMP style source but isn't yet better than the
+scripted teacher.** `cw-cpg-teacherfork-ab-cpgv1` (Next item 3, single
+lever vs the PASSED `cw-amp-m2-bcinit-sec5-style05`: `--amp-motion-lib`
+teacher_v2.npz -> cpg_v1.npz, same BC-clone init/reward/2M budget)
+VERDICTED INFORMATIVE (WORSE-BUT-WALKING, the pre-registered middle
+branch): DR-0 gate det+sto gait_valid 6/6, zero falls/sacrificed legs,
+no crouch (height_err 1.7-19.1mm, tighter than style05's own healthy
+18-31mm range), video-clean six-leg cycling both modes — the CPG
+clip's obs_style distribution does NOT collapse this init, refuting
+that specific worry. But det margins run ~15-20% softer than style05's
+own numbers (progress_ratio med 0.99 vs 1.16, fwd dist med 0.59 vs
+0.69m/15s); sto is matched on progress (0.58 vs 0.58) and slightly
+better on raw distance (0.30 vs 0.23m). Answer to the track's own
+adoption question: the CPG motion library is a VIABLE but not yet
+SUPERIOR AMP style source on this one test — no teacher_v1/teacher_v2
+swap, no joystick slip-bar recalibration off this single result (per
+the item's own pre-registered caveat). A second data point (CPG-clone
+init instead of BC-clone init, or matched larger budget) would be
+needed before any real adoption fork; not funded this cycle — M4
+composition work on the amp track has priority for GPU budget right
+now. Evidence: `logs/ckpt_eval/cw_cpg_teacherfork_ab_cpgv1_gate_det/`.
+Prior banner below.)
+
+Previous entry (2026-08-23 ~05:2x UTC (**ROBUST GATE FULL PASS — closed-
 loop yaw trim built + verified, all 5 panels green.** The 120-iter
 robustness-refinement search (Next item 1) converged but could NOT
 fix the mu0.8 turn overshoot (best-found params still read 1.33/1.35,
@@ -136,19 +160,23 @@ banner above for full detail. This closes Next items 1 and 2 below
    hardware path (sim-only fix so far; hardware adoption is an
    [operator] physical-robot item per the standing rules, not blocked
    on anything code-side).
-3. **IN FLIGHT 08-23 ~05:3x**: `rl_move/sim/motion_library/cpg_v1.npz`
-   built (`build_motion_library.py --controller se2cpg`, new/default-
-   off/bit-exact-when-tripod, 3 tests) from the yaw-trim-verified
+3. **DONE 08-23**: `rl_move/sim/motion_library/cpg_v1.npz` built
+   (`build_motion_library.py --controller se2cpg`, new/default-off/
+   bit-exact-when-tripod, 3 tests) from the yaw-trim-verified
    `robust120_yawtrim` params, same 15-family command suite as
-   `teacher_v1`/`teacher_v2` — 45/45 clips accepted, slip/m 0.27-2.17
-   (as good or better than teacher_v2 per-clip). Launched
+   `teacher_v1`/`teacher_v2` — 45/45 clips accepted, slip/m 0.27-2.17.
    `cw-cpg-teacherfork-ab-cpgv1` (respec of the PASSED
-   `cw-amp-m2-bcinit-sec5-style05`, single lever: `--amp-motion-lib`
-   swapped to `cpg_v1.npz`, same BC-clone init/reward/2M budget) —
-   TRIAGE NEXT CYCLE against style05's own recorded numbers (gate text
-   in the ledger). Do not silently replace `teacher_v1`/`teacher_v2`
-   or recalibrate joystick slip bars until this reads out.
+   `cw-amp-m2-bcinit-sec5-style05`, single lever:
+   `--amp-motion-lib` swapped) VERDICTED INFORMATIVE
+   (WORSE-BUT-WALKING, see banner): CPG library sustains real walking
+   as an AMP style source but det margins run ~15-20% softer than
+   teacher_v2 (sto matched/better). ANSWER: viable, not yet superior;
+   no teacher swap, no bar recalibration off one result. A second data
+   point (CPG-clone init, or matched larger budget) would be needed
+   before any real adoption fork — not funded this cycle, amp M4
+   composition has GPU priority.
 4. A lightweight parallel item: a loader for `cpg_controller_*.json`
    in the web UI so the artifact is actually consumable, per the
    gate's own text — currently the schema exists but nothing reads it
-   back.
+   back. This is now the track's topmost unclaimed item (code-only,
+   no GPU budget needed).

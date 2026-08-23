@@ -1,0 +1,120 @@
+{
+  "gate_summary": {
+    "dr0": {
+      "checks": {
+        "gait_valid": true,
+        "headings_cross": true,
+        "headings_each": true,
+        "headings_mean": true,
+        "slip_ok": true,
+        "stops": true,
+        "turns": true,
+        "zero_falls": true
+      },
+      "heading_progress_frac_mean": 0.8967,
+      "pass": true,
+      "slip_per_m": 0.7092,
+      "turn_yaw_along": [
+        1.0106,
+        1.0151
+      ]
+    },
+    "dr0_script2": {
+      "checks": {
+        "gait_valid": true,
+        "headings_cross": true,
+        "headings_each": true,
+        "headings_mean": true,
+        "slip_ok": true,
+        "stops": true,
+        "turns": true,
+        "zero_falls": true
+      },
+      "heading_progress_frac_mean": 0.8986,
+      "pass": true,
+      "slip_per_m": 0.6868,
+      "turn_yaw_along": [
+        1.0168,
+        1.0124
+      ]
+    },
+    "loaded": {
+      "checks": {
+        "gait_valid": true,
+        "headings_cross": true,
+        "headings_each": true,
+        "headings_mean": true,
+        "slip_ok": true,
+        "stops": true,
+        "turns": true,
+        "zero_falls": true
+      },
+      "heading_progress_frac_mean": 0.9159,
+      "pass": true,
+      "slip_per_m": 0.819,
+      "turn_yaw_along": [
+        1.0152,
+        1.0123
+      ]
+    },
+    "mu08": {
+      "checks": {
+        "gait_valid": true,
+        "headings_cross": true,
+        "headings_each": true,
+        "headings_mean": true,
+        "slip_ok": true,
+        "stops": true,
+        "turns": true,
+        "zero_falls": true
+      },
+      "heading_progress_frac_mean": 0.8138,
+      "pass": true,
+      "slip_per_m": 1.3598,
+      "turn_yaw_along": [
+        1.0717,
+        1.0749
+      ]
+    },
+    "mu12": {
+      "checks": {
+        "gait_valid": true,
+        "headings_cross": true,
+        "headings_each": true,
+        "headings_mean": true,
+        "slip_ok": true,
+        "stops": true,
+        "turns": true,
+        "zero_falls": true
+      },
+      "heading_progress_frac_mean": 0.8619,
+      "pass": true,
+      "slip_per_m": 0.9599,
+      "turn_yaw_along": [
+        1.0387,
+        1.0443
+      ]
+    }
+  },
+  "kind": "cpg_se2_controller",
+  "knee_convention": "sim_relative (load via linux_control/sim_gait_compat.SE2FootGait)",
+  "name": "robust120-winner-yawtrim",
+  "params": {
+    "cmd_tau": 0.12640227327966688,
+    "gait": "tetrapod",
+    "lift_m": 0.030411220269556817,
+    "period": 2.0,
+    "swing_frac": 0.3,
+    "workspace_margin": 0.9416262600938416
+  },
+  "plant_stance_deg": {
+    "hip": 20.0,
+    "knee": 80.0
+  },
+  "provenance": {
+    "created_unix": 1787462416.2415066,
+    "gate_verdict": "/workspace/weird_objects/hexapod_walker/prototype_sts3215/logs/cpg_gate/robust120-winner-yawtrim/gate_verdict.json",
+    "git_sha": "ae947396",
+    "params_source": "logs/paper_cpg_search/paper-cpg-robust120-20260823.json"
+  }
+}

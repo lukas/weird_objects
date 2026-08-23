@@ -1808,6 +1808,17 @@ Plain English: two of tonight's readouts each end with a "the next fix is anothe
   to test the OTHER open half of this question — whether a mixed
   (not permanent) hazard curriculum fixes eval_amp_m5's walk-section
   design tension named below — results pending next-cycle triage.
+- AMENDMENT (08-23 ~05:4x): the pricing-correctness cell is now
+  CLOSED too. `cw-amp-m4-turnfault-seq1-pushcont1-ypfix1` (banked
+  overshoot-decay/avg_s keys ON, matched 2M) verdicted PASS-partial:
+  tips 0.2471/0.2553 vs pushcont1's 0.2727/0.3029 — measurably better,
+  safety floor better too (gait_valid 12/12 vs 10/12) — but tip-right
+  still misses the 0.25 PASS-clean bar by ~0.005. Composition order,
+  training-time dose, AND pricing-key correctness have now all been
+  tried on this axis and all land short of PASS-clean by a similar
+  small margin. Item (b) — hold/forward income repricing — is the
+  only untried lever left; it stays ASSUMED-AND-QUEUED as the funded
+  next M4 turn+push build.
 
 ## q_20260823T0430Z — ANSWER to operator kick "where are we at on the quad walking — can we give it a try?" (fb 20260823T033835Z)
 Plain English: there are three different "quad walking" artifacts in this repo; here is where each stands at the CURRENT (tibia-150-measured) sim, what I fixed this cycle, and the safest concrete try.
@@ -1836,3 +1847,4 @@ Plain English: the 04:29Z MCP note asked me to sync and drain queued run `cw-kaw
 - What I did NOT do, and why: I did not reimplement the Kawawa-Beaudan/Zakhor 2022 recipe from scratch and launch my own version — the note explicitly says "do not duplicate the queued item", the exact recipe/cfg lives only on that desktop, and an agent-initiated reconstruction would be an out-of-scope launch (kawawa baseline is not a `tracks.json` track; operator-initiated is fine, my reconstruction would not be operator's config).
 - ACTION NEEDED (operator/Codex desktop): `git push` the branch containing kawawa2022_recipe + trainer LSTM/ELU support + docs + tests + the `backlog.json` entry (or open a PR). The moment it lands on `origin/main` (or you tell any cycle the branch name), the normal drain will pick it up — pods are wide open (12/12 GPU slots free at 04:33Z).
 - status: WAITING-ON [operator] — push the missing commits; no agent-side workaround is faithful to the order.
+- UPDATE (08-23 ~05:5x): `cw-kawawa2022-pf-flat1` finished anyway (W&B `m9gqkl5i`, state=finished, 40,009,728 steps) — it was evidently launched directly against `hexapod-mjx-train-1` from the Codex desktop clone via kubectl, bypassing this repo's launcher entirely (still zero ledger/backlog trace, zero kawawa2022 code in any ref). Triaged honestly as an out-of-scope run per the standing prompt: FAIL (walk task falls via `tilt_pitch` on every periodic eval reel from step 8.0M through the final 40.0M checkpoint; video+W&B confirmed) — see the ledger verdict (backfilled entry, `--create`) and RL_LOG 08-23 05:56. The missing-push gap itself is UNCHANGED and still blocks any reproduction/follow-up: the recipe code is not in this repo, so no agent-side continuation is possible even though the FAIL verdict makes one moot for now. Closing as informational; re-open if the operator wants a registered re-run (would need the code pushed + a `tracks.json`-scoped hypothesis, since kawawa2022 is not a registered track).

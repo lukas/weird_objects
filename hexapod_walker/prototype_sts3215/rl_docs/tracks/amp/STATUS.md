@@ -1,6 +1,29 @@
 # amp - AMP locomotion from scratch
 
-Last updated: 2026-08-23 ~05:1x (**LAUNCHED: `cw-amp-m4-turnfault-seq1-
+Last updated: 2026-08-23 ~05:4x (**`cw-amp-m4-turnfault-seq1-pushcont1-
+ypfix1` VERDICTED PASS-partial: pricing helps, doesn't close the cell.**
+Single-lever respec of pushcont1 (banked overshoot-decay/avg_s keys ON,
+matched 2M, same pre-cheat turnfault-seq1 init): hand-run eval_yaw tips
+0.2471/0.2553, down from pushcont1's own 0.2727/0.3029 (-9%/-16%,
+closing on the fault-only parent's 0.1818/0.1708 ceiling) but
+tip-right still clears the 0.25 PASS-clean bar by ~0.005 while
+tip-left is already inside it -- lands in the pre-registered PARTIAL
+branch by a hair, not PASS-clean. Safety floor also improved:
+own-cfg DR-0 gait_valid 12/12 (pushcont1 was 10/12), zero falls,
+video-clean six-leg cycling with the expected one legitimate
+carried-fault-leg per episode. `eval_amp_m5`: m5_pass=false as
+expected (push/fault PASS clean, walk fails on the already-documented
+permanent-hazard design tension, yaw fails only the suite's generic
+0.10 bar). CONFIRMS the escalation call below: pricing-correctness is
+a real but insufficient lever on turn+push; per q_20260823T0240Z item
+(b) the funded next M4 lever is hold/forward income-dominance
+repricing, not another composition/dose/pricing-key arm on this same
+recipe. SKILLS.md not updated (no new bar cleared, same precedent as
+pushcont1's own PASS-partial). Evidence:
+`logs/ckpt_eval/cw_amp_m4_turnfault_seq1_pushcont1_ypfix1_{gate,m5}/`.
+Prior banner below.)
+
+Previous entry (2026-08-23 ~05:1x (**LAUNCHED: `cw-amp-m4-turnfault-seq1-
 pushcont1-ypfix1` -- the push-composition dose sweep never tested
 PRICING, only EXPOSURE.** The just-closed 3-arm dose sweep
 (pushdose025/05b/075, see entry below) held training-time push
