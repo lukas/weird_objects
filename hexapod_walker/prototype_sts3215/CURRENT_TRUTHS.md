@@ -330,6 +330,23 @@ follow-ups.
   on the recalibrated checkpoint (the M5 PASS on record is for the
   un-recalibrated `tipfrac05`). Evidence:
   `logs/ckpt_eval/cw_amp_m4_turnfault_seq1_pushcont1_{pushcal518,tipfrac05_pushcal518}_gate/report.json`.
+  **UPDATE (08-23 ~11:0x): that fresh `eval_amp_m5` read is now in —
+  `m5_pass=false`, a GENUINE trade, not a clean promotion.** Push
+  section improves (0 det terms, was 1) and fault section clears its
+  own bar for the FIRST time on this lineage (gait_valid 12/12, was
+  9/12 with 2 sacrificed legs — the named blocker on the original M5
+  attempt). But walk (det_slip_med 3.67 vs bar 3.5, parent 3.36) and
+  yaw (tip_left/right_err 0.2157/0.2351 vs bar 0.20, parent
+  0.162/0.184) both slip just past their own strict bars — zero
+  falls/terminations in either section, video-clean six-leg cycling,
+  a tracking-quality miss against a strict threshold, not a stability
+  regression. Also: `-seed23` twin verdicted PASS (0/12 falls,
+  matches seed7); `-seed13` still pending (another cycle's pod).
+  **Net position: push-force recalibration fixes the two things that
+  actually endanger the robot (real falls, fault-carry gait validity)
+  at a small cost to walk-slip/yaw-tip margin — do not call this
+  checkpoint an M5-candidate base yet.** Evidence:
+  `logs/ckpt_eval/cw_amp_m4_turnfault_seq1_pushcont1_tipfrac05_pushcal518_m5/m5_verdict.json`.
 - **JOYSTICK DONE GATE: FIRST MEASURED PASS (08-22 ~17:3x)** —
   `cw-dep-bcgait4-phasedir9-longrun17-stotight45` (longrun17 recipe,
   fresh reinit, single change `--log-std-final` -3.2 -> -4.5, final

@@ -2398,7 +2398,38 @@ Build every tool this needs; do not pause on operator input.
 
 ## Now
 
-**08-23 ~10:5x — SEED23 TWIN CONFIRMS: 2/2 recalibrated seeds now
+**UPDATE (08-23 ~11:0x, same cycle) — full `eval_amp_m5` cross-engine
+re-read on this exact recalibrated checkpoint lands `m5_pass=false`,
+a GENUINE (not free) trade, not the clean promotion the PASS above
+implied:** push section improves (0 terms 12/12 gait_valid, was 1
+det term) and **fault section now fully clears its own bar for the
+FIRST time on this lineage** (gait_valid 12/12, was 9/12 with 2
+sacrificed legs — this was the named blocker on the ORIGINAL M5
+attempt). But walk and yaw both slip just past their own strict bars:
+walk det_slip_med 3.67 vs bar <=3.5 (parent 3.36, clean); yaw
+tip_left/right_err 0.2157/0.2351 vs bar <=0.20 (parent 0.162/0.184,
+clean). Zero falls/terminations in either section (walk roll_peak
+max 5.7deg, both contact sheets video-clean six-leg cycling, no
+visible pathology) — this is a marginal tracking-quality miss against
+a strict threshold, not a stability regression. Net read: push-force
+recalibration fixes the two things that actually endanger the robot
+(real falls, fault-carry gait validity) at a small cost to walk-slip/
+yaw-tip margin that were themselves already the tightest bars in the
+whole suite (tipfrac05 passed them by a hair). Do NOT call this
+checkpoint an M5-candidate base yet — it is safer and fault-cleaner
+than tipfrac05 but currently FAILS the full M5 gate on 2 of 4
+sections. Options for the next cycle (not yet chosen): (a) a small
+walk/yaw-side pricing nudge to recover the lost tracking margin
+without reintroducing the push range that caused the falls; (b) treat
+the marginal miss as within noise and re-seed/re-check (seed23's own
+tip-tracking margin, once its m5 suite is read, will show whether
+this is basin noise or systematic); (c) accept the trade and revisit
+whether the assumed 0.20/3.5 bars (q_20260823T0130Z, never operator-
+specified) should have a small tolerance band given the safety gain.
+Evidence:
+`logs/ckpt_eval/cw_amp_m4_turnfault_seq1_pushcont1_tipfrac05_pushcal518_m5/{walk,yaw.json,push,fault,m5_verdict.json}`.
+
+Previous entry (08-23 ~10:5x — SEED23 TWIN CONFIRMS: 2/2 recalibrated seeds now
 clean on the full composition.** `tipfrac05-pushcal518-seed23`
 VERDICTED PASS: raw `terminated` False on all 12/12 own-cfg DR-0
 episodes (0/12 real falls), profile nearly identical to the seed7
