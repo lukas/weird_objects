@@ -1,6 +1,40 @@
 # amp - AMP locomotion from scratch
 
-Last updated: 2026-08-23 ~12:0x (**DOSE-GRID ARM 1 OF 4 READ:
+Last updated: 2026-08-23 ~12:4x (**DIG-IN RESOLVED: the joint
+pricing-grid FAIL's structural cause is MEASURED, and the fork is
+launched.** (1) YAW ROOT CAUSE: the untrimmed scripted tripod
+teacher ACHIEVES only 0.134-0.144 rad/s at commanded 0.25-0.30
+(direct probe this cycle; saturates ~0.15-0.16 at ANY commanded
+omega — foot sweep per stride is geometry-capped), so teacher_v2's
+turn demos EMBODY ~0.134 rad/s while labeled 0.25, and the AMP
+discriminator (obs_style contains base_angular_velocity,
+UNCONDITIONED on command) punishes rotating faster than the demos —
+that is why every arm sits at the price-invariant achieved-ratio
+~0.5 (yaw_prog val 0.48 at k=1 and 0.49 at k=3: pure income
+inflation, not an economic equilibrium). `-noamp1` (AMP-style-weight
+0 diagnostic, verdicted FAIL/this cycle) confirms direction: tips
+improved to 0.1778/0.2151 (left CLEARS the 0.20 bar) but walk slip
+REGRESSED 3.67->3.92 — the style term is the turn CAP and the slip
+FLOOR-HOLDER at once, so the fix is demos, not ablation. BUILT+
+SNAPSHOTTED: `teacher_v3.npz` (turn clips at stride_scale 1.4/
+period_scale 1.2 = measured 0.174 rad/s, +30% demo wz ceiling,
+slip/m 1.26; all non-turn clips bit-exact vs v2; builder now records
+measured_wz in manifests). LAUNCHED `-turnlib3` (single lever:
+--amp-motion-lib v2->v3, train-0). (2) SLIP: dose-honesty audit
+found the pre-registered PARTIAL income gate (g=0.5, band 1.5/4.5)
+exerts ~0.5/tick marginal — the SAME dose slipexcess12 already
+refuted — so the arm launched at FULL strength (g=1.0: ~1.0/tick
+marginal = 2x refuted, 70% of walk income withheld at operating
+ratio 3.6, floor 0.9/tick, bank 5/5 green incl. the pinned
+default-band zero-gradient no-information-tax finding): LAUNCHED
+`-loadgate45` (train-1). If loadgate45's slip is unmoved too,
+pricing on the slip axis is CLOSED (gate text pre-registers this) —
+next is a gait-level mechanism (k_walk_swing-style) or the
+q_20260823T0130Z bar ruling. Both arms' triage belongs to the
+watcher's next cycles; do NOT re-launch this pair. Prior banner
+below.)
+
+Previous entry (~12:0x: **DOSE-GRID ARM 1 OF 4 READ:
 `-slipexcess6` FAIL on its pre-registered slip bar — the per-tick
 slip charge ENGAGED but slip is PRICE-INELASTIC at dose 6.** m5 walk
 det slip med 3.629 vs bar 3.5 and parent's ~3.67 (delta 0.04 <<
