@@ -13,9 +13,16 @@ a section read here is directly comparable to the per-milestone gates
 that produced the bars.
 
 Sections and bars (v1, recorded in OPERATOR_QUESTIONS.md; sources named):
-  walk   eval_checkpoint, own cfg, DR-0, det+sto: 0 terminations,
-         gait_valid 12/12, det prog med >= 0.75, det slip med <= 3.5
-         (M2 bcinit-sec5 lineage gates).
+  walk   eval_checkpoint, own cfg, DR-0, det+sto, hazards forced OFF
+         (dr.fault_prob=0.0 / dr.ext_push_prob=0.0 appended after the
+         checkpoint's own baked cfg-sets, last-wins -- 08-23 fix,
+         q_20260823T0130Z: a checkpoint trained with either hazard
+         baked permanently on otherwise has no hazard-free mode for
+         THIS section to test, and reads numerically identical to the
+         push/fault sections below, which is the whole point of
+         checking "recognizable gait" separately from hazard recovery):
+         0 terminations, gait_valid 12/12, det prog med >= 0.75, det
+         slip med <= 3.5 (M2 bcinit-sec5 lineage gates).
   yaw    eval_yaw, own cfg: tip-left AND tip-right |wz_err| med <= 0.20,
          0 falls (turnclone lineage bar, 08-23). Skipped (marked
          not_capable, fails overall) if the cfg has no goal.walk_yaw_cmd=1.
@@ -118,8 +125,20 @@ def main() -> int:
 
     # -- walk (command response + recognizable gait) ----------------------
     if "walk" not in skip:
+        # Force hazards OFF (08-23 fix, mirrors the yaw-section fix
+        # above): a checkpoint that bakes dr.fault_prob=1.0 and/or
+        # dr.ext_push_prob=1.0 into its OWN training cfg-set (every
+        # M4 push+fault/turn+push+fault arm to date) would otherwise
+        # carry those into the "recognizable gait" read unfiltered,
+        # making this section numerically identical to the push/fault
+        # sections below and structurally unpassable for any policy
+        # trained on a permanent-hazard curriculum (q_20260823T0130Z).
+        # cfg-set application is last-wins per key, so appending after
+        # the base list overrides any baked 1.0 cleanly; a no-op for
+        # checkpoints that never baked either key.
         rep = _eval_ckpt(args.checkpoint, out / "walk", args.cfg_set,
-                         args.per_mode, args.seed, [],
+                         args.per_mode, args.seed,
+                         ["dr.fault_prob=0.0", "dr.ext_push_prob=0.0"],
                          episode_seconds=args.episode_seconds)
         if rep is None:
             verdict["sections"]["walk"] = {"pass": False, "error": "harness failed"}
