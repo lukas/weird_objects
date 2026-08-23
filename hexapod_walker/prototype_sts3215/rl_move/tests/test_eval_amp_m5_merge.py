@@ -7,6 +7,7 @@ subprocess -- exercises only the merge helper and the m5_pass
 aggregation math a real `main()` invocation performs.
 """
 import json
+import subprocess
 import sys
 from pathlib import Path
 
@@ -58,6 +59,49 @@ def test_skip_rerun_merges_not_clobbers(tmp_path):
     assert ran == ["walk", "yaw", "push", "fault"]  # yaw/walk survived
     assert sections["yaw"]["pass"] is False  # not lost
     assert m5_pass is False  # yaw's FAIL still vetoes overall pass
+
+
+def test_walk_per_mode_default_matches_per_mode(tmp_path, monkeypatch):
+    """--walk-per-mode omitted (the common case): the walk section's
+    _eval_ckpt call gets the SAME n as --per-mode -- bit-exact legacy
+    behavior, no CLI-only regression for every pre-existing invocation
+    (q_20260823T0700Z amendment, default-off)."""
+    seen = {}
+
+    def fake_eval_ckpt(ckpt, out, cfg_sets, per_mode, seed, extra_cfg,
+                        episode_seconds=15.0):
+        seen["per_mode"] = per_mode
+        return None  # harness "failed" -> main records an error section, fine
+
+    monkeypatch.setattr(m, "_eval_ckpt", fake_eval_ckpt)
+    monkeypatch.setattr(
+        sys, "argv",
+        ["eval_amp_m5", "fake.zip", "--out-dir", str(tmp_path / "out"),
+         "--per-mode", "6", "--skip", "yaw,push,fault"])
+    m.main()
+    assert seen["per_mode"] == 6
+
+
+def test_walk_per_mode_override_only_affects_walk(tmp_path, monkeypatch):
+    """--walk-per-mode 18 raises n_translating headroom for the walk
+    section alone without touching --per-mode (which push/fault still
+    use when they run)."""
+    seen = {}
+
+    def fake_eval_ckpt(ckpt, out, cfg_sets, per_mode, seed, extra_cfg,
+                        episode_seconds=15.0):
+        seen[out.name] = per_mode
+        return None
+
+    monkeypatch.setattr(m, "_eval_ckpt", fake_eval_ckpt)
+    monkeypatch.setattr(
+        sys, "argv",
+        ["eval_amp_m5", "fake.zip", "--out-dir", str(tmp_path / "out"),
+         "--per-mode", "6", "--walk-per-mode", "18", "--skip", "yaw"])
+    m.main()
+    assert seen["walk"] == 18
+    assert seen["push"] == 6
+    assert seen["fault"] == 6
 
 
 def test_full_run_no_prior_file_unaffected(tmp_path):

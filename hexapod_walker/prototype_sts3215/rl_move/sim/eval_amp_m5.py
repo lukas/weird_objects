@@ -165,6 +165,21 @@ def main() -> int:
     ap.add_argument("--cfg-set", action="append", default=[],
                     help="the checkpoint's OWN training cfg (obs contract)")
     ap.add_argument("--per-mode", type=int, default=6)
+    ap.add_argument("--walk-per-mode", type=int, default=None,
+                    help="override --per-mode for the walk section only "
+                         "(default: same as --per-mode, bit-exact legacy "
+                         "behavior). q_20260823T0700Z amendment: at the "
+                         "default per-mode=6, stress_mix's "
+                         "goal.walk_turn_in_place_frac draws leave only "
+                         "~3/12 walk episodes 'translating' (see "
+                         "_translating docstring), so every det_slip_med "
+                         "verdict on the dose-grid campaign has been a "
+                         "median of THREE episode-level numbers -- thin "
+                         "enough that a single unlucky/lucky draw swings "
+                         "the same ~0.3-0.7 magnitude every arm's "
+                         "win/loss has been read on. Bump this (e.g. 16-24) "
+                         "to grow n_translating toward >=6-8 without also "
+                         "paying the extra per-mode cost on push/fault.")
     ap.add_argument("--episode-seconds", type=float, default=15.0)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--speed", type=float, default=0.08,
@@ -214,7 +229,7 @@ def main() -> int:
         # the base list overrides any baked 1.0 cleanly; a no-op for
         # checkpoints that never baked either key.
         rep = _eval_ckpt(args.checkpoint, out / "walk", args.cfg_set,
-                         args.per_mode, args.seed,
+                         args.walk_per_mode or args.per_mode, args.seed,
                          ["dr.fault_prob=0.0", "dr.ext_push_prob=0.0"],
                          episode_seconds=args.episode_seconds)
         if rep is None:
