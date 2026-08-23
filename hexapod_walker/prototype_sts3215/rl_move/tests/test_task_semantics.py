@@ -6785,3 +6785,191 @@ def test_walkcurr_pf_scaled_deltas_are_linear_in_scale(
         f"topple-vs-park delta deviates beyond the K_WALK hold-income "
         f"artifact (base delta={base_d:.1f}, scale={c}, got={got_d:.1f}, "
         f"dev={dev:.1f}) — hidden unscaled reward term?")
+
+
+# ---------------------------------------------------------------------------
+# WALKCURR RUNG-0 bank (cycle 2026-08-23, pre-registered escalation
+# fired by the cw-walkcurr-pf-fwd6-rscale50-cont1 FAIL). Ten rung-1
+# arms froze into the same static splayed crouch; the dig-in fixed the
+# optimizer (global reward x0.02 keeps clip_fraction healthy) and the
+# +4M continuation proved the fix necessary but NOT sufficient — with
+# gradients flowing, PPO still prefers stillness because every rung-1
+# income needs competent locomotion before it pays, while the dense
+# charge stack prices the flail exploration must pass through (the
+# swing-income bank above already proved income-side levers exhausted
+# INSIDE the rung-1 diet at bank-legal doses).
+#
+# RUNG-0 changes the DIET, not the dose: leg-cycling IS the goal.
+#   - reward.k_walk_swing 3.0: dominant income, pays ANY completed
+#     physical swing (airborne, touchdown >=15 mm from liftoff, any
+#     direction) — reachable from random flail.
+#   - travel-demanding charges REMOVED: k_walk_heading=0,
+#     k_walk_idle_charge=0, k_step_event=0 (its 10 mm ALONG-command
+#     bar pays nothing in place; inert, kept off for clarity).
+#   - k_walk_freeprog 0.3 (10% of rung-1): keeps the legacy Gaussian
+#     speed kernel REPLACED (k_free>0 guard) and adds a slight
+#     forward preference so the gradient tilts stall -> gait.
+#   - k_park_duty 4.0, loadslip stack, term_penalty 1200 kept: the
+#     freeze keeps paying, dragging and dying stay the floor.
+# Required rung-0 ranking (certification = cycling, not travel):
+#   walking >= stepping-in-place > 0 > shuffle > freeze class
+#   (park/stork) > skate/topple floor. Walking ON TOP is deliberate:
+#   the rung-0 optimum must point THROUGH stepping toward walking so
+#   the rung-1b warm-start never fights rung-0 habits.
+# Controller measurement 2026-08-23 (3 seeds, 15 s, fixed fwd 0.05):
+#   x1:    gait +479.5 > creep +255.6 > stall +38.0 > shuffle -185.0
+#          > stork -320.1 ~ park -323.7 > topple -1164.2 > skate -1311.1
+#   x0.02: deltas vs park linear in scale (gait 16.06 exp 16.06,
+#          stall 7.23 exp 7.23, skate -19.75 exp -19.75); raw returns
+#          carry the unscaled K_WALK 1 s zero-command hold constant
+#          (~+42.5, cancels in every delta, never fires in training).
+#   swing9 (dose 9.0) preserves the full ordering; stall/shuffle
+#          deltas grow with dose (income dominance is dose-monotone).
+WALKCURR_RUNG0_OVERRIDES = {
+    ("reward", "term_penalty"): 1200.0,
+    ("reward", "k_walk_swing"): 3.0,
+    ("reward", "k_walk_freeprog"): 0.3,
+    ("reward", "walk_freeprog_cap_m_s"): 0.08,
+    ("reward", "walk_kernel_vel_ema"): 1.0,
+    ("reward", "walk_kernel_vel_tau_s"): 0.75,
+    ("reward", "k_walk_heading"): 0.0,
+    ("reward", "k_step_event"): 0.0,
+    ("reward", "k_park_duty"): 4.0,
+    ("reward", "k_walk_idle_charge"): 0.0,
+    ("reward", "walk_loadslip_gate"): 0.75,
+    ("reward", "loadslip_ok"): 1.2,
+    ("reward", "loadslip_max"): 3.0,
+    ("reward", "loadslip_floor_m"): 0.03,
+    ("reward", "k_loadslip_excess"): 4.5,
+    ("goal", "walk_speed_min_m_s"): SLIPWALK_CMD_VX,
+    ("goal", "walk_speed_max_m_s"): SLIPWALK_CMD_VX,
+    ("goal", "walk_heading_max_rad"): 0.0,
+}
+
+WALKCURR_RUNG0_SCALE_KEYS = (
+    "term_penalty", "k_walk_swing", "k_walk_freeprog", "k_park_duty",
+    "k_loadslip_excess",
+)
+
+
+def _walkcurr_rung0_overrides(scale: float, swing: float = 3.0) -> dict:
+    out = dict(WALKCURR_RUNG0_OVERRIDES)
+    out[("reward", "k_walk_swing")] = swing
+    for key in WALKCURR_RUNG0_SCALE_KEYS:
+        out[("reward", key)] = float(out[("reward", key)]) * scale
+    for key, dflt in WALKCURR_PF_BASE_GAIN_DEFAULTS.items():
+        out[("reward", key)] = dflt * scale
+    return out
+
+
+# (scale, swing dose): x1 calibration read, the two launch cfgs at the
+# crush-proven x0.02, and the swing-dose axis.
+_WALKCURR_RUNG0_STACKS = {
+    "x1-swing3": (1.0, 3.0),
+    "x0.02-swing3": (0.02, 3.0),
+    "x0.02-swing9": (0.02, 9.0),
+}
+
+
+@pytest.fixture(scope="module", params=sorted(_WALKCURR_RUNG0_STACKS))
+def walkcurr_rung0_returns(request) -> dict:
+    scale, swing = _WALKCURR_RUNG0_STACKS[request.param]
+    overrides = _walkcurr_rung0_overrides(scale, swing=swing)
+    plan = {
+        "gait": ("gait", 1.0),
+        "creep": ("gait", 0.5),
+        "park": ("park", 1.0),
+        "stall": ("stall", 1.0),
+        "shuffle": ("shuffle", 1.0),
+        "stork": ("stork", 1.0),
+        "skate": ("skate", 1.0),
+        "topple": ("topple", 1.0),
+    }
+    out = {"_scale": scale, "_swing": swing}
+    for name, (pol, gscale) in plan.items():
+        runs = [_slipwalk_rollout(pol, s, gait_scale=gscale,
+                                  overrides=overrides)
+                for s in SEEDS]
+        out[name] = float(np.mean([r[0] for r in runs]))
+        out[name + "_dx"] = float(np.mean([r[1] for r in runs]))
+        out[name + "_steps"] = float(np.mean([r[2] for r in runs]))
+    return out
+
+
+def test_walkcurr_rung0_cycling_beats_freeze(walkcurr_rung0_returns):
+    """The point of rung-0: every genuine leg-cycling behavior (walk,
+    creep, march-in-place, even the net-zero shuffle) must out-earn
+    the ENTIRE freeze class (park refusal AND the stork half-tripod
+    statue) with wide margins, so the exit gradient from the crouch
+    basin exists in every direction of cycling."""
+    r, c = walkcurr_rung0_returns, walkcurr_rung0_returns["_scale"]
+    freeze_top = max(r["park"], r["stork"])
+    for cyc in ("gait", "creep", "stall"):
+        assert r[cyc] > freeze_top + 250.0 * c, (
+            f"cycling '{cyc}' does not clearly beat the freeze class "
+            f"under rung-0: {r}")
+    assert r["shuffle"] > freeze_top + 80.0 * c, (
+        f"net-zero shuffle (genuine cycling) does not beat freezing: {r}")
+    assert r["gait_dx"] > 0.15, (
+        "the reference gait did not actually travel; bank is broken")
+
+
+def test_walkcurr_rung0_walking_stays_on_top(walkcurr_rung0_returns):
+    """Rung-0 must never TEACH not-walking: real commanded travel has
+    to stay the single best-paid behavior (freeprog 10% dose + swing
+    income), so the rung-1b warm-start continues, not unlearns."""
+    r, c = walkcurr_rung0_returns, walkcurr_rung0_returns["_scale"]
+    assert r["gait"] > r["stall"] + 200.0 * c, (
+        f"walking does not clearly out-earn marching in place: {r}")
+    assert r["gait"] > r["creep"], (
+        f"more travel does not earn more under rung-0: {r}")
+
+
+def test_walkcurr_rung0_goal_is_positive_income(walkcurr_rung0_returns):
+    """Stepping in place must be lifetime-POSITIVE and refusal
+    lifetime-NEGATIVE at the calibration scale, so PPO seeks the
+    sub-goal rather than merely suffering less (x1 only: the x0.02
+    raw returns carry the unscaled K_WALK 1 s hold constant, a probe
+    artifact that cancels in deltas and never fires in training)."""
+    r = walkcurr_rung0_returns
+    if r["_scale"] == 1.0:
+        assert r["stall"] > 0.0, f"stepping in place is not net-paid: {r}"
+        assert r["park"] < 0.0, f"refusal is net-paid under rung-0: {r}"
+    assert r["stall"] > r["park"] + 300.0 * r["_scale"], (
+        f"stall-vs-park margin too thin for discovery: {r}")
+
+
+def test_walkcurr_rung0_slip_and_fall_are_the_floor(walkcurr_rung0_returns):
+    """Zero-lift dragging (skate) and dying (topple) must sit strictly
+    below every cycling AND freeze behavior — removing the travel
+    charges must not reopen the skate/fall exits."""
+    r, c = walkcurr_rung0_returns, walkcurr_rung0_returns["_scale"]
+    floor = min(r[k] for k in ("gait", "creep", "park", "stall",
+                               "shuffle", "stork"))
+    for worst in ("skate", "topple"):
+        assert r[worst] < floor - 50.0 * c, (
+            f"'{worst}' is not the floor under rung-0: {r}")
+    assert r["topple_steps"] < 75, "topple twin did not die fast"
+
+
+def test_walkcurr_rung0_deltas_linear_in_scale(walkcurr_rung0_returns):
+    """Defect probe (same as the rung-1 scaled bank): at the x0.02
+    launch scale every behavior's return delta vs park must be ~scale
+    x its x1 delta, or a hidden unscaled term is distorting the
+    ordering at small scale. x1 reference deltas measured 08-23
+    (see the bank header). Topple is exempt for the documented K_WALK
+    hold-forfeit artifact; direction is still asserted by the floor
+    test above."""
+    r = walkcurr_rung0_returns
+    if r["_scale"] == 1.0 or r["_swing"] != 3.0:
+        return
+    base = {"gait": 803.2, "creep": 579.4, "stall": 361.8,
+            "shuffle": 138.7, "stork": 3.7, "skate": -987.4}
+    c = r["_scale"]
+    for name, base_d in base.items():
+        got_d = r[name] - r["park"]
+        tol = abs(base_d) * c * 0.15 + 15.0 * c
+        assert abs(got_d - base_d * c) <= tol, (
+            f"'{name}'-vs-park delta not linear in scale "
+            f"(base={base_d:.1f}, scale={c}, got={got_d:.1f}) — hidden "
+            f"unscaled reward term?")

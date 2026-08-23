@@ -157686,7 +157686,7 @@
       "rl_move/sim/policies/ppo_goal_cw_walkcurr_pf_fwd6_rscale50.zip"
     ],
     "created": "2026-08-23T21:08:46+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -157732,7 +157732,8 @@
       }
     ],
     "checkup_20260823T2118": "RESOLVED benign race: checkup fps=91 sampled during final W&B sync/shutdown; run finished cleanly at full 4030464-step budget (clean sync footer, ckpt artifact uploaded md5 4c727854). No starvation, no rebalance; triage to the finish-triggered cycle.",
-    "triage": "in-cycle cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518-phas since 2026-08-23T21:25:12"
+    "triage": "done",
+    "verdict": "The extra 4M steps did NOT turn the healthiest reward-scale arm into a walker -- the robot still sits in the same static splayed crouch, so the optimizer fix alone is not enough and the track escalates to a rung-0 stepping sub-goal. Evidence: walk_freeprog_score never left the [-0.10,-0.046] band across the whole +4M (final -0.075; the pre-registered gate demanded a zero crossing), det gate 0/6 with prog med -0.01, fwd 0.00m, slip 18.5, gait_valid 0/6, and the det strip shows the identical frozen crouch of all 9 prior rung-1 arms -- while train/clip_fraction stayed healthy (0.07-0.11) and value_loss O(1), i.e. gradients flowed and PPO still chose stillness. Why: this cleanly discriminates the parent's 'strongest alternative' -- the earlier freeprog rise (-0.103->-0.015) was stillness optimization saturating below zero, not approach to walking; with the optimizer crush fixed, the remaining blocker is the local reward landscape (every income needs competent locomotion first; charges price the flail exploration must pass through -- the swing-income bank already proved income-side levers exhausted at bank-legal doses). Next (pre-registered escalation, this cycle): rung-0 sub-goal -- a walk-pure diet where leg-cycling IS the certified goal (swing income, travel charges removed), bank-proven ranking first, from-scratch 2M discovery; RND novelty bonus stays the fallback if rung-0 also freezes. No further same-recipe continuations at x0.02; sibling rscale10-cont1b (other cycle) reads the x0.1 dose only. hardware-ready: no."
   },
   {
     "run": "cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518-phasehz11-s23",
@@ -158274,6 +158275,18 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:amp PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518-phasehz05-cont2 --steps 4000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_amp_m4_turnfault_seq1_pushcont1_tipfrac05_pushcal518_phasehz05_cont1.zip --episode-seconds 15 --no-canary --eval-every 1000000 --video-every 2000000 --n-envs 4096 --impl warp --host-workers 24 --seed 7 --ent-coef 0.001 --warm-log-std-override -2.0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set goal.walk_phase_obs=1 --cfg-set goal.walk_phase_hz=0.5 --cfg-set goal.walk_obs_body_vel=2 --cfg-set goal.walk_heading_max_rad=-1 --cfg-set goal.walk_speed_min_m_s=0.08 --cfg-set goal.walk_speed_max_m_s=0.08 --cfg-set goal.walk_cmd_mode=stress_mix --cfg-set goal.walk_cmd_resample_s=4.0 --cfg-set goal.walk_cmd_resample_jitter=0.5 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set bus.write_speed=1500 --cfg-set bus.write_acc=80 --cfg-set bus.servo_vel_max_counts_s=write_speed --cfg-set safety.max_delta_q_deg=5.0 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --cfg-set reward.term_penalty=400.0 --cfg-set reward.k_step_event=0.0 --cfg-set reward.k_park_duty=0.0 --cfg-set reward.k_walk_freeprog=0.0 --cfg-set reward.walk_loadslip_gate=0.0 --cfg-set reward.k_loadslip_excess=0.0 --cfg-set reward.walk_gait_gate=0.0 --cfg-set reward.k_walk_idle_charge=0.0 --cfg-set reward.k_drag_stance=0.0 --amp-motion-lib rl_move/sim/motion_library/teacher_v2.npz --amp-disc-steps 4 --amp-disc-batch 512 --amp-gp-weight 10.0 --amp-replay 500000 --amp-task-weight 0.5 --amp-style-weight 0.5 --out-name ppo_goal_cw_amp_m4_turnfault_seq1_pushcont1_tipfrac05_pushcal518_phasehz05_cont2 --notes 'respec of cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518-phasehz05-cont1: Plain English: the slow-metronome (0.5 Hz) walker keeps getting better the longer it trains -- give it 4M more steps to see if walking progress reaches the M5 bar, since nothing has plateaued yet. cont1 (+4M from phasehz05) grew walk det_prog_med 0.52 -> 0.669 (wpm24, n=28) while IMPROVING yaw tips to 0.1146/0.1048 (family best; the erosion alternative is refuted at one dose) and cutting slip to a lineage-best 2.31, with reward still rising at cutoff. Trajectory 0.52@2M -> 0.669@6M needs +0.081 more for the 0.75 M5 walk bar; 08-21 ruling: rising reward + rising gate metric = continue. Single lever: budget (+4M from cont1 checkpoint, byte-identical cfg). If-true: det_prog_med >= 0.75 with tips held <= 0.20 and slip <= 3.5 -- the 0.5 Hz recipe becomes the M5-candidate, superseding the cadence-compromise question. If-false (prog lands 0.67-0.72, gain per +4M collapsing): budget scaling saturates below the bar -- the operating point moves to the phasehz09/11 dose points or command-conditional clock code work (slow clock only under turn commands; semantics-bank first). Strongest alternative: tips erode at 10M where they did not at 6M -- tips re-gated, never assumed.' --obs-pad-transplant 0 --cfg-set goal.walk_yaw_cmd=1 --cfg-set goal.walk_yaw_max_rad_s=0.3 --cfg-set goal.walk_yaw_zero_frac=0.5 --cfg-set reward.k_walk_yaw=1.0 --cfg-set reward.walk_yaw_kernel_gate=1.0 --cfg-set reward.k_yaw_prog=1.0 --cfg-set reward.k_yaw_still=50 --cfg-set reward.walk_kernel_yaw_gate=1.0 --cfg-set reward.walk_yaw_hold_prog_gate=1.0 --cfg-set reward.yaw_still_avg_s=1.0 --cfg-set goal.walk_phase_run_on_yaw=1 --cfg-set dr.fault_prob=1.0 --cfg-set obs.fault_health=1 --cfg-set dr.ext_push_prob=1.0 --cfg-set reward.yaw_prog_overshoot_decay=1.0 --cfg-set reward.yaw_prog_avg_s=1.0 --cfg-set goal.walk_turn_in_place_frac=0.5 --cfg-set dr.ext_push_n=5.0,18.0 > /tmp/train_cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518-phasehz05-cont2.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518-phasehz05-cont2.log",
     "wandb_id": "3nwhpjdb",
-    "verified": "2026-08-23T21:29:55+00:00"
+    "verified": "2026-08-23T21:29:55+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-23T21:35:25+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 2423,
+        "verdict": "SUSPECT",
+        "problems": [
+          "W&B no longer reports the run as running"
+        ]
+      }
+    ]
   }
 ]

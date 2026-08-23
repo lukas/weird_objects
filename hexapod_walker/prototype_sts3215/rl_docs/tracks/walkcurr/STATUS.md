@@ -135,6 +135,37 @@ validity, on video. Speed obedience is secondary throughout.
 
 ## Next
 
+- **`cw-walkcurr-pf-fwd6-rscale50-cont1` FAIL (verdicted 08-23 ~21:3x)
+  — the optimizer-crush fix is necessary but NOT sufficient; the
+  pre-registered RUNG-0 escalation FIRES and THIS cycle owns it.**
+  +4M continuation (6M total at x0.02): `walk_freeprog_score` never
+  left [-0.10,-0.046] (final -0.075, zero crossing never reached),
+  det gate 0/6 (prog med -0.01, fwd 0.00 m, gait_valid 0/6, 0 terms),
+  det strip = the identical static splayed crouch of all 9 frozen
+  rung-1 arms — while clip_fraction stayed healthy (0.07-0.11) and
+  value_loss O(1). Gradients flow; PPO still prefers stillness. This
+  also resolves the parent's "strongest alternative": the earlier
+  freeprog rise was stillness optimization saturating below zero.
+  Combined with the swing-bank part-2 finding (income-side levers
+  exhausted at bank-legal doses inside the rung-1 diet), the blocker
+  is the rung-1 reward LANDSCAPE around park, not optimization.
+  **Escalation choice (recorded, assume-and-go): rung-0 sub-goal
+  before RND** — change the diet so leg-cycling IS the certified
+  goal: swing income (`k_walk_swing`, any-direction completed swings)
+  as the dominant term, travel-demanding charges (idle/heading)
+  REMOVED, freeprog at 10% dose (keeps the legacy speed kernel
+  replaced + a slight forward preference), park_duty/loadslip/term
+  kept, everything at the crush-proven x0.02 scale. Certification
+  gate: zero falls + six legs cycling (gait_valid) on the det panel +
+  video shows rhythmic stepping; travel NOT required. Then rung-1b
+  warm-starts the rung-1 diet from the certified stepper. RND
+  state-novelty stays the fallback if rung-0 also freezes.
+  **Coordination: the cycle triaging `rscale10-cont1b` should read
+  ONLY the x0.1 dose question (freeprog zero-crossing per its own
+  gate) — the escalation is owned here; no second escalation build.**
+  Rung-0 bank (stall/shuffle/gait > park/stork; skate/topple floor;
+  stall lifetime-positive) measured + landing in
+  `test_task_semantics.py` this cycle before launch.
 - **DIG-IN COMPLETE (08-23 ~20:4x, deep cycle): the freeze signature
   is CONFIRMED 8/8 and root-caused one level deeper — to the
   OPTIMIZER, not the reward shape or exploration.** (1) All 8 FAILed
