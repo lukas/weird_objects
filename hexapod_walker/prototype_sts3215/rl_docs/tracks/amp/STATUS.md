@@ -1,6 +1,34 @@
 # amp - AMP locomotion from scratch
 
-Last updated: 2026-08-23 ~15:4x (**tipspawn1b seed-replicate grid
+Last updated: 2026-08-23 ~16:3x (**slip axis CLOSED by measurement;
+gyro-mask yaw lever refuted at dim 38, final widen arm launched.**
+Three reads this cycle. (1) `-cpgdemo1` FAIL (double-triaged by two
+cycles, verdicts agree): swapping the demo anchor to the CPG-search
+library (cpg_v1, −39% slip in its own clips) made everything WORSE —
+m5 walk slip 4.37 (parent 3.67), probe 15.84mm (control 14.03),
+fault gait_valid 10/12 with 2 sacrificed legs; only tip_left 0.1936
+improved (first family member past 0.20, the predicted ccw clip
+asymmetry). Demo-anchor fork closed; obs_style does not transmit
+clip ground-contact slip. (2) The q_20260823T0700Z sampling
+amendment was EXECUTED, not just proposed: per-mode-12 parent
+resample (`_m5_x12`) reads det slip med **3.553** (eps 3.5/3.55/3.8)
+— the family sits AT the 3.5 bar, the campaign's ±0.1-0.2 "misses"
+were n=2-episode sampling noise, and only Δ>=0.4 regressions
+(stdanneal50, cpgdemo1) were real. NO more slip-mechanism training
+arms on this lineage; bar-value ruling is the operator's
+(q_20260823T0700Z). (3) `-wzmask1` FAIL: masking gyro-z alone leaves
+tips unmoved (0.202/0.2371 vs 0.2157/0.2351, band ±0.02) with slip
+in-family (3.85) — the discriminator reads rotation off
+joint_vel/foot dims, not the yaw-rate channel; pre-registered single
+widen arm `-wzmask2` (mask 36-38, full gyro) VERIFIED RUNNING
+train-0 — if unmoved, gyro-channel hypothesis closes and yaw rests
+on `-cmdcond1` (command-conditioned discriminator, FINISHED, triage
+pending its own cycle) or stance-geometry/turn-curriculum. Tooling:
+`m5_pod_eval.py --per-mode/--suffix` (default bit-exact). Evidence:
+`..._cpgdemo1_{m5,gate}/`, `cpgdemo1_slipdist.json`, `..._m5_x12/`,
+`..._wzmask1_m5/`.)
+
+Previous entry (~15:4x: **tipspawn1b seed-replicate grid
 0/3 PASS — the state-visitation slip fork is CLOSED; the noise-floor
 anneal family is the ONLY live slip mechanism.** Exact tipspawn1b
 recipe re-run at seeds 11/13/17 (2M each, trained normally, reward

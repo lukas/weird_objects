@@ -2020,6 +2020,24 @@ Plain English: a checkpoint just passed the ENTIRE cross-engine M5 suite for the
   a per-command-segment slip field (additive, v1 numbers untouched)
   remains the cleaner long-term instrument if the resample still
   straddles the bar.
+- RESAMPLE EXECUTED (08-23 ~16:3x, same second cpgdemo1 cycle): added
+  `--per-mode/--suffix` to `m5_pod_eval.py` (default 6 = bit-exact)
+  and re-read the PARENT (pushcal518) walk section at per-mode 12
+  (`..._m5_x12/`). Result: det_slip_med **3.553** (n_translating det
+  3: per-episode 3.5 / 3.55 / 3.8; the n=2 read was 3.67), sto med
+  4.28 (n=10), 0 terms, gait_valid 24/24. Reading: the family's true
+  det slip level sits essentially AT the 3.5 bar — the 0.05-0.17
+  "systematic miss" that consumed the 7-mechanism dose campaign is
+  within sampling noise of the bar itself; only Δ>=0.4 regressions
+  (stdanneal50 4.11, cpgdemo1 4.37) were real effects. Also measured:
+  det translating count grows slowly (per-mode 12 → only n=3, because
+  turn_in_place_frac 0.5 + park segments dominate det scripts), so
+  pushing per-mode higher is an inefficient power fix; the additive
+  per-segment slip field is the right instrument if the operator
+  wants the walk-slip bar litigated further. Slip-axis training arms
+  on this lineage STAY CLOSED (per the resolution above); the
+  bar-value question (is 3.5 the intended DONE number given the
+  family reads 3.5-3.8?) remains the operator's.
 
 ## q_20260823T1240Z — AMP demo clips capped the turn rate: rebuilt the motion library (teacher_v3) and launched the full-strength slip gate rather than the pre-registered partial one
 Plain English: the robot could not be PAID into turning faster because the thing it was being taught to imitate never turns fast either — the scripted teacher's own demo clips rotate at ~0.134 rad/s while labeled 0.25, and the AMP discriminator watches raw body yaw-rate with no idea what was commanded, so any faster rotation looks "unlike the teacher" and gets docked. Two assume-and-go decisions this cycle, both recorded here per the no-operator-pauses rule.
