@@ -1,6 +1,20 @@
 # amp - AMP locomotion from scratch
 
-Last updated: 2026-08-23 ~21:2x (**FIRST FULL amp-m5-v1 PASS —
+Last updated: 2026-08-23 ~21:4x (**SEED 2/4 CONFIRMS — `-phasehz11-s17`
+VERDICTED PASS, full m5 green on an independent seed with BETTER
+margins than the base: walk det_prog_med 0.983 / det_slip_med 2.661
+(wpm24, n_translating=28, bars 0.75/3.5), yaw tips 0.1141/0.1655
+(bar 0.20), 0 falls/terms anywhere, gait 48/48 walk + 12/12 push +
+11/12 fault, strips clean (level body, six-leg cycling, fault leg
+held out limp while five cycle). 1.1 Hz pass-rate now 2/4 (seed7
+base + s17); `-s23`/`-s29` (still training) decide the >=3/4
+sweet-spot branch that flips the track M5 gate. Note for future
+triage: the off-distribution DR-0 quick-gate report looks bad on
+this lineage (s17: det slip 3.95 there vs 2.66 on m5; base: 7.08 vs
+3.13) — judge on the m5 suite only. Evidence:
+`logs/ckpt_eval/..._phasehz11_s17_m5/`. Prior banner below.)
+
+Previous entry (~21:2x (**FIRST FULL amp-m5-v1 PASS —
 1.1 Hz is the cadence sweet spot; 3-seed replication batch RUNNING
 before the track M5 gate flips.** The dose curve is complete and
 NON-monotone: `-phasehz11` (goal.walk_phase_hz 1.33->1.1, single
