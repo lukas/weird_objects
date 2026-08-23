@@ -2115,8 +2115,43 @@ Build every tool this needs; do not pause on operator input.
 
 ## Now
 
-**08-23 ~08:2x — KERNEL-NOISE-TAX FIX (kernelema1) MADE TIP-TRACKING
-WORSE, not better — the run's own pre-registered WORSE branch fired.**
+**08-23 ~08:3x — DECOMPOSITION ARM #2: `-kernelema-velonly2`
+(translation-EMA ONLY, yaw kernel untouched) reproduces ~90% of the
+bundle's yaw regression — the original gate-conflict hypothesis is
+REFUTED.** VERDICTED FAIL. `eval_amp_m5` tip-left/right err
+0.2064/0.2286 (parent tipfrac05 bar-clean 0.1620/0.1838; bundled
+`kernelema1` 0.2264/0.2302) — over the 0.20 bar despite this arm
+never touching `walk_kernel_yaw_ema` or any yaw-side reward term.
+Since the yaw kernel is provably unchanged here, the bundle's
+originally-suspected mechanism (an EMA'd yaw kernel fighting the
+still-raw `walk_yaw_kernel_gate`/`walk_yaw_hold_prog_gate` achieved-
+rotation gates) CANNOT explain most of the regression — velonly2 gets
+there almost entirely from the translation-kernel EMA alone. New
+leading suspect: the EMA'd velocity-error state carries stale
+pre-transition error across the walk<->turn-in-place mode switch
+(commanded translation speed drops to ~0 mid-episode when a
+turn-in-place segment starts; if the EMA doesn't reset at that
+boundary, the turn segment inherits noise from the preceding walk
+segment). Walk/push/fault sections all PASS on this arm — fault
+gait_valid actually IMPROVED to 10/12 (parent missed its own bar at
+9/12) — so this is an isolated tracking-quality cost, not a stability
+one; video-clean six-leg cycling on both walk and fault contact
+sheets, zero falls. **Full attribution needs the third arm,
+`-kernelema-yawonly` (yaw-EMA only, owned by a concurrent cycle,
+still pending at review time):** if yawonly ALSO regresses despite
+never touching the velocity kernel, the mechanism is a general
+"any-kernel-EMA near a turn-in-place transition" problem, not
+axis-specific; if yawonly reads clean (~parent's 0.16-0.18), this
+result stands alone — translation-EMA is the sole culprit and a
+transition-boundary EMA reset (rather than abandoning the mechanism)
+becomes the next concrete fix to try. Do not stack either kernelema
+arm onto tipfrac05 meanwhile; the hold/forward income-repricing
+prerequisite for M5-candidate promotion remains OPEN. Evidence:
+`logs/ckpt_eval/cw_amp_m4_turnfault_seq1_pushcont1_tipfrac05_kernelema_velonly2_{gate,m5}/`.
+Prior banner below.
+
+Previous entry (08-23 ~08:2x — KERNEL-NOISE-TAX FIX (kernelema1) MADE TIP-TRACKING
+WORSE, not better — the run's own pre-registered WORSE branch fired.)
 `cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-kernelema1` (single
 lever vs tipfrac05: `reward.walk_kernel_vel_ema=1` +
 `reward.walk_kernel_yaw_ema=1`, tau=0.75s, bundled — de-noising the

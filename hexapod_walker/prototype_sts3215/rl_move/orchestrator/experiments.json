@@ -143820,7 +143820,7 @@
       "reward.walk_kernel_vel_tau_s=0.75"
     ],
     "created": "2026-08-23T08:02:43+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -143866,7 +143866,8 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-kernelema-velon since 2026-08-23T08:12:42"
+    "triage": "done",
+    "verdict": "Result: translation-axis-ONLY kernel-noise-tax fix (reward.walk_kernel_vel_ema=1, tau=0.75s, yaw kernel left untouched) still lands in the pre-registered WORSE branch on tip-tracking, nearly matching the bundled kernelema1 regression. Evidence: eval_amp_m5 tip-left/right err 0.2064/0.2286 (parent tipfrac05: 0.1620/0.1838, bar-clean; bundled kernelema1: 0.2264/0.2302) -- both now OVER the 0.20 bar despite the yaw kernel itself never being touched by this arm. Walk section PASS (det_slip_med 3.484<=3.5, prog 1.127 vs parent 1.0955, gait_valid 12/12, 0 terms), push PASS (1 term, gait_valid 12/12), fault section actually IMPROVED and now clears its own bar cleanly (gait_valid 10/12, meets the min-10 bar the parent itself missed at 9/12) -- video-clean six-leg cycling on both walk and fault contact sheets, zero falls anywhere, so this is a tracking-quality regression isolated to yaw, not a stability cost. Why: this is the single most informative arm in the 3-way decomposition -- because the yaw kernel was NEVER modified here, the original gate-text hypothesis (an EMA'd yaw kernel fighting the still-raw achieved-rotation gates walk_yaw_kernel_gate/walk_yaw_hold_prog_gate) CANNOT be the whole story, since velonly2 reproduces ~90% of the bundle's yaw regression (0.2064 vs 0.2264 tip-left) with zero yaw-side changes. The translation-kernel EMA itself (or its interaction with the walk<->turn-in-place transition, where commanded translation speed drops to ~0 during a turn-in-place segment and the EMA'd velocity-error state carries stale pre-transition error into the segment) is now the leading suspect. What's next: read jointly with the still-pending -kernelema-yawonly sibling (owned by a concurrent cycle) -- if yawonly ALSO regresses on tip err despite never touching the vel kernel, the mechanism is a general 'any-kernel-EMA near a turn-in-place transition' interaction, not axis-specific; if yawonly is clean (~parent's 0.16-0.18), this result stands alone as confirming the translation axis is the culprit and the yaw-EMA half of the bundle is exonerated (and could be re-tried solo once the translation-EMA's transition-boundary interaction is separately fixed, e.g. resetting the EMA state at walk/turn-in-place mode transitions). Do not stack kernelema1/velonly2 onto tipfrac05; the hold/forward income-repricing prerequisite for M5-candidate promotion remains OPEN. SKILLS.md M4 turn-erosion row to be amended once the joint read (all 3 arms) is complete."
   },
   {
     "run": "cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-kernelema-velonly",
@@ -144182,7 +144183,7 @@
       "walk_kernel_vel_tau_s=0.75"
     ],
     "created": "2026-08-23T08:16:57+00:00",
-    "status": "INTENT",
+    "status": "FAILED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -144191,13 +144192,19 @@
       "code_sha_local": "ca54956cf26e6def5ba28f3507c91fc5eddddbf6",
       "code_sha_pod": "ca54956cf26e6def5ba28f3507c91fc5eddddbf6",
       "init_from_on_pod": true,
-      "wandb_env_on_pod": true
+      "wandb_env_on_pod": true,
+      "pid": "1214442",
+      "log_growth_bytes": [
+        2309,
+        2309
+      ]
     },
     "trainer": "ppo",
     "stack": "gpu-mjx",
     "phase": "discovery",
     "assessment_scope": "short_behavior_discovery",
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:amp PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-kernelema-velonly --steps 2000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_amp_m4_turnfault_seq1.zip --episode-seconds 15 --no-canary --eval-every 1000000 --video-every 2000000 --n-envs 4096 --impl warp --host-workers 24 --seed 7 --ent-coef 0.001 --warm-log-std-override -2.0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set goal.walk_phase_obs=1 --cfg-set goal.walk_phase_hz=1.333333 --cfg-set goal.walk_obs_body_vel=2 --cfg-set goal.walk_heading_max_rad=-1 --cfg-set goal.walk_speed_min_m_s=0.08 --cfg-set goal.walk_speed_max_m_s=0.08 --cfg-set goal.walk_cmd_mode=stress_mix --cfg-set goal.walk_cmd_resample_s=4.0 --cfg-set goal.walk_cmd_resample_jitter=0.5 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set bus.write_speed=1500 --cfg-set bus.write_acc=80 --cfg-set bus.servo_vel_max_counts_s=write_speed --cfg-set safety.max_delta_q_deg=5.0 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --cfg-set reward.term_penalty=400.0 --cfg-set reward.k_step_event=0.0 --cfg-set reward.k_park_duty=0.0 --cfg-set reward.k_walk_freeprog=0.0 --cfg-set reward.walk_loadslip_gate=0.0 --cfg-set reward.k_loadslip_excess=0.0 --cfg-set reward.walk_gait_gate=0.0 --cfg-set reward.k_walk_idle_charge=0.0 --cfg-set reward.k_drag_stance=0.0 --amp-motion-lib rl_move/sim/motion_library/teacher_v2.npz --amp-disc-steps 4 --amp-disc-batch 512 --amp-gp-weight 10.0 --amp-replay 500000 --amp-task-weight 0.5 --amp-style-weight 0.5 --out-name ppo_goal_cw_amp_m4_turnfault_seq1_pushcont1_tipfrac05_kernelema_velonly --notes 'respec of cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05: Decomposition arm vs the bundled kernelema1 respec (same cycle): isolates the TRANSLATION half of the kernel-noise-tax fix (reward.walk_kernel_vel_ema only, the already-built phasedir7/7b/8 joystick-track lever never applied to this AMP lineage; yaw kernel untouched) to attribute any tip-tracking effect to the linear-velocity axis specifically rather than the bundle. Same single-lever discipline: seed=7, 2M, byte-identical tipfrac05 recipe otherwise.' --obs-pad-transplant 0 --cfg-set goal.walk_yaw_cmd=1 --cfg-set goal.walk_yaw_max_rad_s=0.3 --cfg-set goal.walk_yaw_zero_frac=0.5 --cfg-set reward.k_walk_yaw=1.0 --cfg-set reward.walk_yaw_kernel_gate=1.0 --cfg-set reward.k_yaw_prog=1.0 --cfg-set reward.k_yaw_still=50 --cfg-set reward.walk_kernel_yaw_gate=1.0 --cfg-set reward.walk_yaw_hold_prog_gate=1.0 --cfg-set reward.yaw_still_avg_s=1.0 --cfg-set goal.walk_phase_run_on_yaw=1 --cfg-set dr.fault_prob=1.0 --cfg-set obs.fault_health=1 --cfg-set dr.ext_push_prob=1.0 --cfg-set reward.yaw_prog_overshoot_decay=1.0 --cfg-set reward.yaw_prog_avg_s=1.0 --cfg-set goal.walk_turn_in_place_frac=0.5 --cfg-set walk_kernel_vel_ema=1 --cfg-set walk_kernel_vel_tau_s=0.75 > /tmp/train_cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-kernelema-velonly.log 2>&1 < /dev/null & echo $!",
-    "log": "/tmp/train_cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-kernelema-velonly.log"
+    "log": "/tmp/train_cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-kernelema-velonly.log",
+    "failed_reason": "run never appeared as 'running' in W&B within 240s"
   }
 ]
