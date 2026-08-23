@@ -175,8 +175,24 @@ banner above for full detail. This closes Next items 1 and 2 below
    point (CPG-clone init, or matched larger budget) would be needed
    before any real adoption fork — not funded this cycle, amp M4
    composition has GPU priority.
-4. A lightweight parallel item: a loader for `cpg_controller_*.json`
-   in the web UI so the artifact is actually consumable, per the
-   gate's own text — currently the schema exists but nothing reads it
-   back. This is now the track's topmost unclaimed item (code-only,
-   no GPU budget needed).
+4. **DONE 08-23**: a loader for `cpg_controller_*.json` in the web UI,
+   per the gate's own text. `linux_control/cpg_controller_loader.py`
+   (10/10 tests, pure file I/O, no hardware) parses/validates the
+   artifact into `SE2FootGait(**gait_kw)`; wired additively into
+   `DriveController` as gait id 6 ("SE2 CPG (loaded)") plus new
+   `CPGLIST`/`CPGLOAD <name>` commands (swap refused until a
+   controller is loaded, refused while walking — same discipline as
+   every other gait swap; verified end-to-end via `dry_run=True`, zero
+   hardware contact) and a small picker in `linux_control/webui`
+   (gait select + controller dropdown showing gate pass/slip + Load
+   button, both reusing the existing generic `/cmd` channel — no new
+   HTTP route needed). Copied `cpg_controller_robust120_yawtrim.json`
+   into `linux_control/policies/` (the deployable location) so it's
+   discoverable there too, not just in `rl_move/sim/policies`. This
+   was the last named gap in the track's own DONE-gate text. Actually
+   driving the physical robot on it is still an [operator] hardware
+   decision (no HTTP/SSH/firmware touched by this change). No further
+   named Next items remain on this track besides a real A/B adoption
+   decision (a second data point beyond the one INFORMATIVE
+   teacherfork-ab-cpgv1 read above) whenever amp/joystick GPU budget
+   allows it.
