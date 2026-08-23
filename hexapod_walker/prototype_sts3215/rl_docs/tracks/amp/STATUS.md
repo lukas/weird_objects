@@ -1,39 +1,41 @@
 # amp - AMP locomotion from scratch
 
-Last updated: 2026-08-23 ~08:4x (**KERNEL-EMA 3-ARM DECOMPOSITION GRID
-CLOSED: none of the three arms improve turn-tracking; the joint read's
-own IMPROVED/FLAT/WORSE test cannot attribute causation to either
-axis.** Triaged `-kernelema-yawonly` this cycle (ran `eval_amp_m5` by
-hand — the automatic prestage only covers the DR-0 gate, not m5):
-tips 0.2285/0.2053, WORSE than tipfrac05's clean-pass 0.162/0.184 and
-over the suite's 0.20 bar (m5_pass=false: yaw FAIL, walk FAIL-narrow
-on slip 3.65 vs bar 3.5/parent 3.36, push PASS, fault PASS gv 10/10).
-Read jointly with the two sibling arms (already scored by a
-concurrent cycle, not re-verdicted here): `-kernelema1` (both axes,
-tips 0.2264/0.2302) and `-kernelema-velonly2` (translation only, tips
-0.2064/0.2286). **All three land in the same ~0.21-0.23 band
-regardless of which axis got the EMA fix** — and that band is
-statistically indistinguishable from the tipfrac05 lineage's OWN
-already-measured seed-variance band (seed23 0.207/0.228, seed13
-0.218/0.228, same recipe, zero kernel change). Velonly regresses
-almost as much as yawonly despite never touching the yaw kernel, so
-the "yaw kernel interacts with the achieved-rotation gate" story does
-not survive the 3-way comparison — the more likely explanation is
-basin-selection noise at a fresh 2M from-scratch retrain swamps this
-lever's effect size. VERDICT: do NOT fund a dedicated yaw-kernel-ema
-production arm off this grid (the pre-registered IMPROVED branch did
-not fire for any arm). The mechanism itself (built + bank-tested,
-`reward.walk_kernel_yaw_ema`/`walk_kernel_vel_ema`) stays in the repo,
-default-off — it is not refuted as a mechanism, only as a *fresh-
-retrain* lever at 2M. The real unanswered question it was built for
-(q_20260823T0240Z item b: does repricing rescue BUDGET-CONTINUATION,
-i.e. the `-acq1` erosion failure) was never actually tested by this
-grid — that needs the EMA fix applied as a CONTINUATION on the
-tipfrac05 checkpoint itself (fixed basin), not another from-scratch
-retrain. Flagging that continuation as the funded next M4 arm.
-Evidence: `logs/ckpt_eval/cw_amp_m4_turnfault_seq1_pushcont1_
-tipfrac05_kernelema_{yawonly,1,velonly2}_m5/m5_verdict.json`. Prior
-banner below.)
+Last updated: 2026-08-23 ~09:1x (**KERNEL-EMA QUESTION CLOSED AT n=5:
+0/5 arms rescue yaw-tracking in either regime, and the fixed-basin
+continuation test CONFIRMS a real transition-handling defect, not
+fresh-retrain basin noise.** The two continuation arms launched off
+the 3-arm decomposition grid's inconclusive close (below) both FAIL:
+`-kernelema-cont1` (yaw+vel EMA, +6M from the tipfrac05 checkpoint
+itself) tips 0.2385/0.3168 — worse than the NON-EMA `-acq1`
+continuation's own erosion (0.2038/0.2692) on both signs, safety
+floor unchanged (gait_valid 11/12, 1 sacrificed leg, 0 falls, same as
+acq1). `-acq-kernelema` (identical lever, respec of `-acq1` directly)
+tips 0.2659/0.2901 — worse still, AND adds a genuine safety
+regression: 3 termination events across 12 DR-0 episodes
+(video-confirmed topples) plus 1 sacrificed leg, vs tipfrac05's and
+acq1's own zero falls. Both arms' isolated `eval_amp_m5`
+walk/push/fault sections PASS and are each a touch better than
+acq1's own numbers — kernel-EMA is not globally harmful, it
+specifically fails (and here actively worsens) the one axis it
+targets. Because BOTH continuations regress on the SAME fixed basin
+acq1 already occupies, this is the exact discriminating test the
+08:3x REFINED MECHANISM note asked for: pure basin noise predicted no
+effect; a real transition-handling defect predicted continued
+regression. It regressed — CONFIRMED real defect. Root cause
+(diagnosed, still unbuilt): the EMA'd kernels never reset on a
+`goal.vx_ref`/`wz_ref` command change, teaching a "damp body dynamics
+for ~tau after any translation-heavy segment ends" habit that costs
+nothing in ordinary stress_mix training but suppresses exactly the
+abrupt heading-authority `eval_amp_m5`'s tip-left/right segments
+measure. **Do not fund any further naive kernel-EMA arm on this
+lineage.** Both M5-candidate-promotion prerequisites (budget-
+stability, seed-safety variance) remain OPEN. Next concrete build:
+the targeted command-transition-aware EMA reset (3 env variants +
+`MJX_SNAPSHOT_EXTRA` + tests, real dig-in-cycle scope) or a
+structural hold/forward income-repricing lever that skips kernel
+smoothing entirely. Evidence:
+`logs/ckpt_eval/cw_amp_m4_turnfault_seq1_pushcont1_tipfrac05_
+{acq_kernelema,kernelema_cont1}_{gate,m5}/`. Prior banner below.)
 
 Previous entry (2026-08-23 ~08:1x (**hold/forward income-repricing
 (q_20260823T0240Z item b): FIRST MECHANISM BUILT + BANKED, not just
@@ -2150,8 +2152,56 @@ Build every tool this needs; do not pause on operator input.
 
 ## Now
 
-**08-23 ~08:4x — LAUNCHED the funded next step: kernel-EMA as a
-CONTINUATION (fixed basin), not another fresh retrain.** The
+**08-23 ~09:1x — KERNEL-EMA QUESTION CLOSED AT n=5: 0/5 arms rescue
+yaw-tracking in EITHER regime, and the fixed-basin continuation test
+CONFIRMS a real transition-handling defect, not fresh-retrain basin
+noise.** Triaged the two continuation arms the 08:4x entry below
+launched to discriminate the two live hypotheses. Both FAIL, both on
+their own pre-registered non-rescue branches: `-kernelema-cont1`
+(yaw+vel EMA, +6M from the tipfrac05 checkpoint itself) tips
+0.2385/0.3168 — worse than the NON-EMA `-acq1` continuation's own
+erosion (0.2038/0.2692) on both signs, safety floor unchanged
+(gait_valid 11/12, 1 sacrificed leg, 0 falls, same as acq1).
+`-acq-kernelema` (identical lever, respec of `-acq1` directly) tips
+0.2659/0.2901 — worse still, AND adds a genuine safety regression:
+own-cfg DR-0 gate shows 3 termination events across 12 episodes
+(video-confirmed topples, tilt_roll x2 + tilt_pitch x1) plus 1
+sacrificed leg, vs tipfrac05's and acq1's own zero falls. Both arms'
+isolated `eval_amp_m5` walk/push/fault sections PASS and are each a
+touch better than acq1's own numbers (lower slip, higher progress,
+fewer sacrificed legs) — kernel-EMA is not globally harmful, it
+specifically fails (and here actively worsens) the one axis it
+targets. Because BOTH continuations regress on the SAME fixed basin
+that acq1 already occupies, this is the exact discriminating test the
+08:3x REFINED MECHANISM note asked for: pure basin-selection noise
+predicted the continuation would be unaffected; a real
+transition-handling defect predicted it would still regress. It still
+regressed — CONFIRMED real defect, not noise. Root cause (diagnosed,
+still unbuilt): the EMA'd kernels never reset on a
+`goal.vx_ref`/`wz_ref` command change, so training under them teaches
+a "damp body dynamics for ~tau after any translation-heavy segment
+ends" habit that costs nothing during ordinary stress_mix resampling
+but directly suppresses the abrupt heading-authority `eval_amp_m5`'s
+tip-left/right segments (timed right after arc-max turns) measure.
+**CONCLUSION: do not fund any further naive kernel-EMA arm on this
+lineage.** The two named prerequisites for M5-candidate promotion
+past the 2M tipfrac05 checkpoint — (1) budget-stability (still FAILED:
+acq1 and both kernelema continuations all erode tips past the 2M
+parent) and (2) seed-safety variance (1/3 seeds unsafe at n=3) —
+remain OPEN. Next concrete build, when a dig-in cycle takes it: the
+targeted command-transition-aware EMA reset (snap `_walk_kernel_
+vema`/`_wz_ema` to the instantaneous value whenever the commanded
+vx/vy/wz changes beyond a small epsilon — touches CPU env + MJX shard
++ MJX batched reset sites + `MJX_SNAPSHOT_EXTRA` + new regression
+tests) OR skip straight to a structural hold/forward income-repricing
+lever that doesn't rely on kernel smoothing at all. SKILLS.md not
+amended (no new bar cleared, this is a clean double refutation).
+Evidence: `logs/ckpt_eval/cw_amp_m4_turnfault_seq1_pushcont1_
+tipfrac05_{acq_kernelema,kernelema_cont1}_{gate,m5}/`. Prior banner
+below.)
+
+Previous entry (08-23 ~08:4x — LAUNCHED the funded next step: kernel-EMA as a
+CONTINUATION (fixed basin), not another fresh retrain. The
 3-arm decomposition grid (kernelema1/-yawonly/-velonly2, all
 FAIL/INFORMATIVE — see entries below) closed without attributing the
 mechanism to either axis because a FRESH 2M retrain's basin-selection
@@ -2171,8 +2221,9 @@ a standing default for future AMP turn continuations); erosion
 matching acq1's despite the fix = repricing is real-but-insufficient
 against the untouched actuation-cost asymmetry (current/gyro/roll
 4-10x pricier on real motion), escalating to that harder lever next.
+Prior banner below.)
 
-**08-23 ~08:3x — DECOMPOSITION ARM #2: `-kernelema-velonly2`
+Previous entry (08-23 ~08:3x — DECOMPOSITION ARM #2: `-kernelema-velonly2`
 (translation-EMA ONLY, yaw kernel untouched) reproduces ~90% of the
 bundle's yaw regression — the original gate-conflict hypothesis is
 REFUTED.** VERDICTED FAIL. `eval_amp_m5` tip-left/right err

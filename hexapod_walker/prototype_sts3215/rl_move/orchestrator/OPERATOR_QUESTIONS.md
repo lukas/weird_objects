@@ -1834,6 +1834,36 @@ Plain English: two of tonight's readouts each end with a "the next fix is anothe
   the audit's own numbers: hold-freeze ~1473/ep vs honest tip ceiling
   ~1209/ep) is the next concrete M4 code task, not another
   composition/dose/seed/budget arm on this exact recipe.
+- AMENDMENT (08-23 ~09:1x): the FIRST concrete attempt at item (b) is
+  now built, tried, and CLOSED FAIL at n=5. `reward.walk_kernel_yaw_
+  ema`/`walk_kernel_vel_ema` (EMA-smooth the yaw-rate/velocity
+  tracking kernels so honest stride-to-stride sway isn't taxed as
+  mistracking) was tried bundled and axis-decomposed on 3 fresh 2M
+  retrains (kernelema1/-yawonly/-velonly2 — all regressed to the same
+  ~0.21-0.23 tip-err band, indistinguishable from basin noise at
+  fresh-retrain scale) AND as a direct continuation on the acq1 fixed
+  basin (`-acq-kernelema`/`-kernelema-cont1`, +6M from tipfrac05
+  itself) — both continuations regressed PAST acq1's own erosion
+  (0.24-0.27/0.29-0.32 vs acq1's 0.20/0.27), one of them (`-acq-
+  kernelema`) also adding 3 new falls. The fixed-basin result
+  discriminates cleanly: basin noise predicted no continuation effect,
+  a real mechanism defect predicted continued regression — regression
+  is what happened. Root cause: the EMA never resets on a command
+  change, so training teaches a "damp body dynamics for ~tau after any
+  translation-heavy segment ends" habit that eval's tip-turn segments
+  (which follow arc-max turns and need IMMEDIATE new rotation
+  authority) pay for directly. **Kernel-EMA (de-noising the existing
+  kernel) is REFUTED as the repricing mechanism; a structural fix
+  needs either (a) a command-transition-aware EMA reset (touches 3 env
+  variants, real dig-in-cycle scope, not yet built) or (b) reshaping
+  the hold/forward vs. turn PRICING directly (e.g. reducing
+  k_walk_yaw's payoff for near-zero achieved wz, or adding an explicit
+  turn-authority bonus) instead of smoothing the existing kernel.**
+  Neither sub-build is funded/built yet — flagged as the open M4 code
+  task for the next dig-in cycle, not attempted blind. Evidence:
+  `logs/ckpt_eval/cw_amp_m4_turnfault_seq1_pushcont1_tipfrac05_
+  {kernelema1,kernelema_yawonly,kernelema_velonly2,acq_kernelema,
+  kernelema_cont1}_{gate,m5}/`.
 
 ## q_20260823T0430Z — ANSWER to operator kick "where are we at on the quad walking — can we give it a try?" (fb 20260823T033835Z)
 Plain English: there are three different "quad walking" artifacts in this repo; here is where each stands at the CURRENT (tibia-150-measured) sim, what I fixed this cycle, and the safest concrete try.
