@@ -137944,7 +137944,7 @@
       "obs.fault_health=1"
     ],
     "created": "2026-08-23T02:32:47+00:00",
-    "status": "INTENT",
+    "status": "RUNNING",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -137953,13 +137953,26 @@
       "code_sha_local": "7f1f7312041a7788bbfbfdfa8271a59f16d5d4b6",
       "code_sha_pod": "7f1f7312041a7788bbfbfdfa8271a59f16d5d4b6",
       "init_from_on_pod": true,
-      "wandb_env_on_pod": true
+      "wandb_env_on_pod": true,
+      "pid": "1885307",
+      "log_growth_bytes": [
+        11198,
+        19926
+      ],
+      "wandb_id": "87yq6shs",
+      "global_step_window": [
+        851968,
+        1310720
+      ],
+      "fps_estimate": 15291.7
     },
     "trainer": "ppo",
     "stack": "gpu-mjx",
     "phase": "discovery",
     "assessment_scope": "short_behavior_discovery",
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:amp PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-amp-m4-turnpushfault1-style05-r2 --steps 2000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_amp_m3_turnpush1_style05_acq1_r2.zip --episode-seconds 15 --no-canary --eval-every 1000000 --video-every 2000000 --n-envs 4096 --impl warp --host-workers 24 --seed 7 --ent-coef 0.001 --warm-log-std-override -2.0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set goal.walk_phase_obs=1 --cfg-set goal.walk_phase_hz=1.333333 --cfg-set goal.walk_obs_body_vel=2 --cfg-set goal.walk_heading_max_rad=-1 --cfg-set goal.walk_speed_min_m_s=0.08 --cfg-set goal.walk_speed_max_m_s=0.08 --cfg-set goal.walk_cmd_mode=stress_mix --cfg-set goal.walk_cmd_resample_s=4.0 --cfg-set goal.walk_cmd_resample_jitter=0.5 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set bus.write_speed=1500 --cfg-set bus.write_acc=80 --cfg-set bus.servo_vel_max_counts_s=write_speed --cfg-set safety.max_delta_q_deg=5.0 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --cfg-set reward.term_penalty=400.0 --cfg-set reward.k_step_event=0.0 --cfg-set reward.k_park_duty=0.0 --cfg-set reward.k_walk_freeprog=0.0 --cfg-set reward.walk_loadslip_gate=0.0 --cfg-set reward.k_loadslip_excess=0.0 --cfg-set reward.walk_gait_gate=0.0 --cfg-set reward.k_walk_idle_charge=0.0 --cfg-set reward.k_drag_stance=0.0 --amp-motion-lib rl_move/sim/motion_library/teacher_v2.npz --amp-disc-steps 4 --amp-disc-batch 512 --amp-gp-weight 10.0 --amp-replay 500000 --amp-task-weight 0.5 --amp-style-weight 0.5 --out-name ppo_goal_cw_amp_m4_turnpushfault1_style05_r2 --notes 'respec of cw-amp-m3-turnpush1-style05-acq1-r2: Plain English: retry of the dead-at-birth cw-amp-m4-turnpushfault1-style05 with its config bug fixed -- grafts fault onto the SOLID turn+push acquisition checkpoint (8M, PASS: prog 1.11, topples 0/6+2/6, tip errs 0.14/0.12), the sequential-composition route named as the alternative to turnfault1-style05'\"'\"'s fresh 3-way stack (which missed its own safety bar at 2M: gait_valid 9/12 vs 10/12). The original died at birth: it copy-pasted turnfault1-style05'\"'\"'s obs-pad-transplant=18 wiring but its own --init-from arg was mistakenly pointed at the turnfault1-style05 checkpoint (already fault-widened, 93-dim) instead of the intended turnpush1-style05-acq1-r2 checkpoint (75-dim, no fault yet) -- 0 steps trained, W&B run finished empty. This retry uses launch_run.py respec --init-from-source (guarantees the ACTUAL turnpush1-style05-acq1-r2 output checkpoint is used, not a hand-copied path) with only the fault graft added: --obs-pad-transplant=18 + dr.fault_prob=1.0 + obs.fault_health=1, matching turnfault1-style05'\"'\"'s own wiring exactly. Prediction-if-true: mechanism-safety bar clears (gait_valid >=10/12 det+sto) where the fresh 3-way stack turnfault1-style05 missed (9/12) -- two of three axes no longer need simultaneous discovery, sequential order is the fix. Prediction-if-false: also misses the bar -- 3-way composition is hard regardless of substrate solidity, budget (not order) is the lever.' --cfg-set dr.ext_push_prob=1.0 --cfg-set goal.walk_yaw_cmd=1 --cfg-set goal.walk_yaw_max_rad_s=0.3 --cfg-set goal.walk_yaw_zero_frac=0.5 --cfg-set reward.k_walk_yaw=1.0 --cfg-set reward.walk_yaw_kernel_gate=1.0 --cfg-set reward.k_yaw_prog=1.0 --cfg-set reward.k_yaw_still=50 --cfg-set reward.walk_kernel_yaw_gate=1.0 --cfg-set reward.walk_yaw_hold_prog_gate=1.0 --cfg-set reward.yaw_still_avg_s=1.0 --cfg-set goal.walk_phase_run_on_yaw=1 --obs-pad-transplant 18 --cfg-set dr.fault_prob=1.0 --cfg-set obs.fault_health=1 > /tmp/train_cw-amp-m4-turnpushfault1-style05-r2.log 2>&1 < /dev/null & echo $!",
-    "log": "/tmp/train_cw-amp-m4-turnpushfault1-style05-r2.log"
+    "log": "/tmp/train_cw-amp-m4-turnpushfault1-style05-r2.log",
+    "wandb_id": "87yq6shs",
+    "verified": "2026-08-23T02:36:11+00:00"
   }
 ]

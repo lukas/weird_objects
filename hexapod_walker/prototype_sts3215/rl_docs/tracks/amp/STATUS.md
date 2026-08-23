@@ -57,12 +57,20 @@ Pattern now measured 3/3: every M3/M4 axis that read
 INFORMATIVE-undertrained at 2M discovery (push-alone, fault-alone,
 turn+push) closed clean at ~3x acquisition budget — no axis has yet
 been a genuinely broken combination, only an underbudgeted one.
-LAUNCHED same cycle: `cw-amp-m4-turnpushfault1-style05` (fault
-grafted onto THIS now-solid checkpoint, 2M discovery, same
+LAUNCHED this cycle (as `-r2`, after a self-inflicted launch-config
+crash on the first try — `respec --init-from-source` warm-starts from
+the SOURCE run's own checkpoint, not `--parent`, so the first attempt
+accidentally re-initialized from turnfault1-style05's own 93-dim
+checkpoint and padded it AGAIN, `--obs-pad-transplant 18` -> "widened
+by 0", zero steps, LAUNCH_CRASH recorded honestly; corrected `-r2`
+with an explicit `--init-from` override is RUNNING on train-1):
+`cw-amp-m4-turnpushfault1-style05-r2` — fault grafted onto THIS
+now-solid turn+push checkpoint (75-dim, correct init), same
 dr.fault_prob=1.0/obs.fault_health=1/--obs-pad-transplant 18 wiring
-as turnfault1-style05) — the sequential composition route the 08-23
-~00:xx entry named as the alternative to a fresh 3-way stack, now
-that turn+push no longer needs solidifying. Previous entry below.)
+as turnfault1-style05, 2M discovery — the sequential composition
+route the 08-23 ~00:xx entry named as the alternative to a fresh
+3-way stack, now that turn+push no longer needs solidifying.
+Previous entry below.)
 
 Previous entry (~02:0x (**M3 PUSH CURRICULUM STAGE 2: COUNT
 AXIS CLOSED at 3 shoves (PASS, staged beats cold jump 1/12 vs 3/12
