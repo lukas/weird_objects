@@ -1,6 +1,39 @@
 # amp - AMP locomotion from scratch
 
-Last updated: 2026-08-23 ~00:4x (**M3 ESCALATION GRID READ: BOTH flat
+Last updated: 2026-08-23 ~00:5x (**M3 COUNT AXIS CLOSED ON THE
+STYLE05 LINE: `cw-amp-m3-pushhard1-style05-repeat3` VERDICTED PASS
+on every pre-registered bar** — up to 3 shoves/ep at 10-25N: DR-0
+own-cfg topples 1/6 det + 0/6 sto (bar ≤2/≤3), gait_valid 12/12,
+zero sacrificed legs, det prog med 1.18 / slip 2.78,
+style_reward_mean 0.109 (>0.1, thinning 0.85→0.11);
+recovery-without-reset on mechanical record: 10/12 episodes
+roll_class=recovered (det/0 rides a 16.9° roll spike back to 1.0°
+tail while covering 1.21m), strips watched — upright six-leg
+cycling, no crouch/flag-leg. Caveats: training tilt-terms roughly
+FLAT across the 6M at ~20 pitch/~15 roll per window (~2.5-3x the
+parent's single-push floor — eval-time multi-push survival was
+largely inherited from pushacq1, same-dose budget mined out again,
+matching the grid's plateau pattern), and pushes cost HEADING (det
+dir_err mean 38.7°, fwd scatter 0.09-1.21m — tracking useful, not
+tight under fire). JOINT READ vs `noamp-repeat3-r1` (3/12 topples,
+flat learning): style05 lands better on the COUNT axis (1/12 vs
+3/12 topples, late pitch-term dip 21→8 vs noamp flat) — the first
+push-axis read where style05 beats noamp — but n=12 each with
+unequal-strength parents (pushacq1-noamp 0/12, -style05 1/12), so
+treat as within-noise until a matched retest, do NOT flip the
+style-not-load-bearing finding on this alone. LAUNCHED:
+`cw-amp-m3-pushcur1-style05-r3b1530` (repeat3's own ckpt,
+repeat_max=3 KEPT, per-shove force bridged 15-30N, 6M) — the
+style05-line curriculum rung the 00:4x noamp batch
+(b1530/n2040-c1/repeat2, all single-shove or count-only) leaves
+open: count is solved at base dose on this substrate, so escalate
+force UNDER count. Also this cycle: yawcmd0-r2 + tip90 turnclone
+reads were verdicted by their owning cycles; this cycle's duplicate
+eval_yaw on yawcmd0-r2 independently agreed (tip 0.153/0.161, 0
+falls, artifact `cw_amp_m2_turnclone_yawcmd0_r2_yawgate.json`).
+Previous banner below.)
+
+Previous entry (~00:4x (**M3 ESCALATION GRID READ: BOTH flat
 jumps (force 20-40N, count x3) hit their pre-registered plateau
 branches; style-kept 20-40N arm PASSES its own laxer bar but the
 joint read says style is STILL not load-bearing; push CURRICULUM
