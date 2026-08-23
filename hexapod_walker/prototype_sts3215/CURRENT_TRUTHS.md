@@ -1,18 +1,22 @@
 # CURRENT TRUTHS - accepted facts and rulings
 
-Last compacted: 2026-08-21 (two-track reset; folded the 08-22
+Last compacted: 2026-08-23 (third-track CPG update; folded the 08-22
 plant-gate/bank findings). Accepted current facts, not narrative. If
 history or old prose disagrees with this file, this file wins.
 
 ## Mission
 
-Two goals, and only two, until both gates are green (operator,
-08-21): (1) `joystick` — RL from the scripted programmatic gait to
+Three goals until all gates are green (operator 08-23 update): (1)
+`joystick` — RL from the scripted programmatic gait to
 joystick control, gated on 60 s of command-following in MuJoCo with
 zero falls and teacher-band slip; (2) `amp` — the from-scratch AMP
 program in `rl_docs/AMP_LOCOMOTION.md` (no Isaac Lab; MJX stack;
-build all tools; done at M5 MuJoCo transfer). Operator-launched
-out-of-scope runs get honest triage but no agent follow-ups.
+build all tools; done at M5 MuJoCo transfer); (3) `cpg` — a
+Berkeley-style low-dimensional gait-search path that directly
+optimizes parameterized SE2/CPG walking against the behavioral gate,
+with adoption into joystick/AMP only through measured A/B forks.
+Operator-launched out-of-scope runs get honest triage but no agent
+follow-ups.
 
 ## Current top rulings (operator, 08-21/08-22)
 
@@ -30,7 +34,7 @@ out-of-scope runs get honest triage but no agent follow-ups.
   means misalignment to repair, not a lineage kill.
 - No operator pauses: assume-and-go with recorded assumptions. Only
   physical-robot access and spend approvals wait.
-- While either gate is unmet, an idle fleet next to an empty backlog
+- While any track gate is unmet, an idle fleet next to an empty backlog
   is the failure state; build tools, fund continuations, queue the
   next milestone arm.
 - SIM SPRINT and the seven-track structure are superseded.
@@ -85,9 +89,11 @@ out-of-scope runs get honest triage but no agent follow-ups.
   ANSWERED YES; any use of these params (regenerating the AMP motion
   library / teacher-band refresh) is a separate pre-registered fork,
   not an automatic swap — logged in OPERATOR_QUESTIONS.md
-  (q_20260822T2140Z).
+  (q_20260822T2140Z). Operator update 08-23: this is now the third
+  first-class track `cpg`; it owns CPG gate hardening, controller
+  artifact export, and teacher-v2 A/B adoption experiments.
 
-## Facts that feed the two tracks
+## Facts that feed the tracks
 
 - **JOYSTICK DONE GATE: FIRST MEASURED PASS (08-22 ~17:3x)** —
   `cw-dep-bcgait4-phasedir9-longrun17-stotight45` (longrun17 recipe,

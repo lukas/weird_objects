@@ -1678,7 +1678,7 @@ Plain English: the straight-gait search result is real, but the scorer misread t
 3. Ran the 250x20s contextual search as a background CPU job on the controller (not via launch_run.py): it is a scripted-gait eval-harness search, not policy training; the launcher refuses CPU training and the GPU stack is the wrong tool. Artifacts under logs/paper_cpg_search/.
 4. Warm-started the contextual GP with the straight winner via new `--warm-json` (contextual-BO-from-prior, matching the paper's transfer idea).
 
-## q_20260822T2140Z — paper-CPG contextual winner: adopt as teacher / motion-library source? (assume-and-go)
+## q_20260822T2140Z — ANSWERED: paper-CPG contextual winner becomes third track, not silent swap
 - cycle: c0822-triage-style05-headings20
 - context: the operator-directed Berkeley/Levine paper adaptation
   (`paper_cpg_search`) finished both stages. Straight-50 winner
@@ -1702,7 +1702,13 @@ Plain English: the straight-gait search result is real, but the scorer misread t
   currently green/progressing on the v1 teacher; silently moving the
   style target mid-M2-curriculum would confound every running
   comparison.
-- status: OPEN
+- ANSWER (operator, 2026-08-23): make this a third track. The answer
+  is not "replace the current teacher everywhere"; it is "promote CPG
+  gait search to first-class work." The new `cpg` track owns held-out
+  gate hardening, controller artifact export, and teacher-v2 /
+  motion-library A/B experiments against current baselines.
+- rulebook change: `tracks.json`, `RL_PLAN.md`, `CURRENT_TRUTHS.md`,
+  `RESEARCH_RULES.md`, and `rl_docs/tracks/cpg/STATUS.md`.
 
 ## q_20260823T0130Z — M5 cross-engine suite v1 bars (assumed, adjustable)
 - context: AMP track's DONE gate is M5 (brief §13: same actor weights
