@@ -1791,6 +1791,23 @@ Plain English: two of tonight's readouts each end with a "the next fix is anothe
 - (b) M2-yaw hold/forward income repricing: yppeak proves the overshoot farm was only an amplifier — with it closed, yaw income and walk_yaw_err sit FLAT for 6M while reward rises entirely on hold/forward terms, and tips still erode 0.15/0.16 -> 0.27/0.24 (toward park, not past). Making accurate turning the global optimum means repricing hold/forward dominance (audit: hold-freeze 1473/ep > honest tip ceiling 1209) — a bank-gated repricing build. Deferred because the M2 turn bar (<=0.20 tips) is met by champion yawcmd0-r2 AND by the turnclone tip50/tip90 line, and turn accuracy 0.15 already satisfies eval_amp_m5 v1's yaw section.
 - question: if the operator wants EITHER axis hardened past its brief bar (40N shoves / 0.10-strict yaw), say so and the corresponding bank+mechanism build becomes a funded line; otherwise both stay parked behind M5 composition (pushfault acq, turnpushfault, turnfault acq — all in flight as of 02:3x).
 - status: OPEN (proceeding with M5-composition-first)
+- AMENDMENT (08-23 ~05:0x): M5 composition-first is now EXHAUSTED on
+  the turn+push axis without item (b) — `turnfault-seq1-pushcont1`
+  (composition order) and the 3-arm `pushdose{025,05b,075}` (training-
+  time push-probability dose) both closed FAIL/FLAT, all landing in
+  the same 0.24-0.30 tip-err band regardless of order or exposure
+  fraction, well over the fault-only parent's 0.18/0.17 and the 0.20
+  m5 bar. The already-built overshoot-decay pricing keys were tested
+  directly on a composed checkpoint (`ypfix1-r3`) and did nothing
+  (bit-identical clamp-pinned rollouts). Item (b) — hold/forward
+  income repricing — is the only untried lever left standing on this
+  axis; it is ASSUMED-AND-QUEUED as the next real M4 turn+push build
+  (bank-gated per the standing rule) rather than another composition/
+  dose arm. Item (a) stays parked (M3 bar still met). Separately
+  launched a fault-probability dose sweep (`faultdose{025,05,075}`)
+  to test the OTHER open half of this question — whether a mixed
+  (not permanent) hazard curriculum fixes eval_amp_m5's walk-section
+  design tension named below — results pending next-cycle triage.
 
 ## q_20260823T0430Z — ANSWER to operator kick "where are we at on the quad walking — can we give it a try?" (fb 20260823T033835Z)
 Plain English: there are three different "quad walking" artifacts in this repo; here is where each stands at the CURRENT (tibia-150-measured) sim, what I fixed this cycle, and the safest concrete try.

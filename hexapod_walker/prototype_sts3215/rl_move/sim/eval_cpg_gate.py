@@ -60,6 +60,13 @@ from rl_move.sim.paper_cpg_search import GaitParams, _clip_params  # noqa: E402
 from rl_move.sim.verify_noslip import (  # noqa: E402
     HOLD_S, PLANT_HIP_DEG, PLANT_KNEE_DEG, _make_env,
 )
+from rl_move.sim.yaw_trim import update_trim  # noqa: E402
+
+# Closed-loop yaw trim (cpg track, 08-23): default OFF, opt in via
+# --yaw-trim. See yaw_trim.py for why (mu0.8 turn overshoot is a gain
+# error an open-loop parameter search cannot fix).
+YAW_TRIM_PERIOD_S = 1.0
+YAW_TRIM_KP = 0.6
 
 # Search-time training angles (deg) for the contextual suite; held-out
 # headings are drawn away from these.
@@ -139,7 +146,8 @@ def _body_dir_world(env, vx: float, vy: float) -> np.ndarray:
 
 
 def run_session(env, params: GaitParams, script: list[Segment], *,
-                seed: int, video_path: Path | None) -> dict:
+                seed: int, video_path: Path | None,
+                yaw_trim: bool = False) -> dict:
     """One continuous plant-hold + scripted 60 s walk; per-segment metrics."""
     from sim_gait_compat import SE2FootGait
 
@@ -198,6 +206,8 @@ def run_session(env, params: GaitParams, script: list[Segment], *,
             "u_world": (_body_dir_world(env, seg.vx, seg.vy)
                         if seg.kind == "heading" else None),
             "slip_m": 0.0,
+            "trim_scale": 1.0,
+            "trim_ref_yaw": 0.0,
         }
 
     def _seg_end() -> None:
@@ -233,6 +243,8 @@ def run_session(env, params: GaitParams, script: list[Segment], *,
                 "yaw_along_frac": round(
                     yaw_d * np.sign(seg.wz) / abs(tgt), 4),
                 "drift_m": round(float(np.linalg.norm(delta)), 4),
+                "trim_scale_final": round(
+                    float(seg_state.get("trim_scale", 1.0)), 4),
             }
         else:  # stop
             row |= {
@@ -262,6 +274,21 @@ def run_session(env, params: GaitParams, script: list[Segment], *,
             seg_state["yaw_cum"] += _wrap_angle(
                 yaw_now - seg_state["yaw_prev"])
             seg_state["yaw_prev"] = yaw_now
+            if yaw_trim and seg is not None and seg.kind == "turn":
+                steps_in_seg = w - boundaries[seg_i]
+                period_steps = max(1, int(round(
+                    YAW_TRIM_PERIOD_S / env.dt)))
+                if steps_in_seg > 0 and steps_in_seg % period_steps == 0:
+                    window_yaw = (seg_state["yaw_cum"]
+                                  - seg_state["trim_ref_yaw"])
+                    measured_wz = window_yaw / (period_steps * env.dt)
+                    seg_state["trim_ref_yaw"] = seg_state["yaw_cum"]
+                    seg_state["trim_scale"] = update_trim(
+                        seg_state["trim_scale"], measured_wz, seg.wz,
+                        kp=YAW_TRIM_KP)
+                    gait.set_velocity(
+                        vx=seg.vx, vy=seg.vy,
+                        omega=seg.wz * seg_state["trim_scale"])
             touch = np.asarray([
                 float(env.data.sensordata[a]) > 0.5
                 for a in env._touch_adr], dtype=bool)
@@ -423,6 +450,11 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--seed", type=int, default=20260823)
     ap.add_argument("--robust", action="store_true",
                     help="add seed2/mu1.2/mu0.8/loaded panels after dr0")
+    ap.add_argument("--yaw-trim", action="store_true",
+                    help="closed-loop yaw-rate trim on turn segments "
+                         "(default off, bit-exact when off; see "
+                         "yaw_trim.py -- fixes mu0.8 turn overshoot, "
+                         "a gain error open-loop search cannot reach)")
     ap.add_argument("--no-video", action="store_true")
     ap.add_argument("--export", default="",
                     help="on overall PASS, write the named controller "
@@ -474,7 +506,7 @@ def main(argv: list[str] | None = None) -> int:
         video = None if args.no_video else out_dir / f"session_{pname}.mp4"
         try:
             sess = run_session(env, params, pcfg["script"], seed=args.seed,
-                               video_path=video)
+                               video_path=video, yaw_trim=args.yaw_trim)
         finally:
             env.close()
         verdict = judge_panel(sess)
@@ -501,6 +533,7 @@ def main(argv: list[str] | None = None) -> int:
         "params": asdict(params),
         "params_source": source,
         "thresholds": TH,
+        "yaw_trim": args.yaw_trim,
         "script": [asdict(s) for s in script],
         "script_seed": args.script_seed,
         "session_s": args.session_s,
