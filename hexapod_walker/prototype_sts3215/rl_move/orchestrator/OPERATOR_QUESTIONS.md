@@ -1807,3 +1807,15 @@ Plain English: I built the held-out 60 s CPG session gate the operator asked for
 - Result: contextual-250 winner passes DR-0/script2/mu1.2/loaded; mu0.8 fails ONLY on turn overshoot 1.328/1.348 (open-loop yaw scale is friction-dependent). Controller artifact export is gated on ALL panels passing, so nothing was exported yet; the funded next arm is a `--mu-list` robustness-scored search warm-started from the winner.
 - question: if the operator prefers (a) exporting a DR-0-scoped artifact now for the teacher_v2 A/B while robustness hardening continues, or (b) a different turn band than [0.70,1.30], say so; otherwise strict-export + these bars stand.
 - status: OPEN (proceeding strict)
+
+## q_20260823T0450Z — kawawa2022 drain order BLOCKED: the Codex desktop session's work never reached the repo (nothing to sync, nothing queued)
+Plain English: the 04:29Z MCP note asked me to sync and drain queued run `cw-kawawa2022-pf-flat1` with the new `rl_move.sim.kawawa2022_recipe` + LSTM/ELU trainer support — but none of that exists anywhere this controller can reach, so there is nothing to launch. The order is mechanically impossible as given, not declined on policy.
+- Evidence (all checked this cycle, 04:32-04:45Z):
+  - `origin/main` == local HEAD `d35e273b` (`git ls-remote`); `git pull` = already up to date.
+  - `backlog.json` = `[]`; `backlog_failed.json` = 15 old amp entries, no kawawa; no kawawa in `experiments.json` lineage.
+  - `git grep -il kawawa` across ALL remote branches (13) + PR refs 1-4: zero hits. No `rl_move/sim/kawawa2022_recipe*`, no `rl_docs/KAWAWA_2022_HEXAPOD.md`, no tests, in any ref or in the deploy copy `/workspace/prototype_sts3215`.
+  - `train_ppo_mjx.py` at HEAD has no LSTM/ELU policy support (only the existing `lstm_hidden_size` passthrough for the GRU distill path at L2139).
+- Diagnosis: the Codex session's edits (recipe, trainer support, docs, tests, backlog entry, attempt-counter reset) live only in its local desktop clone; the "local drain failed on missing wandb" story is consistent with running the drain against a desktop clone that was never pushed. Nothing was force-pushed over either (no kawawa in any reflog-reachable or remote ref).
+- What I did NOT do, and why: I did not reimplement the Kawawa-Beaudan/Zakhor 2022 recipe from scratch and launch my own version — the note explicitly says "do not duplicate the queued item", the exact recipe/cfg lives only on that desktop, and an agent-initiated reconstruction would be an out-of-scope launch (kawawa baseline is not a `tracks.json` track; operator-initiated is fine, my reconstruction would not be operator's config).
+- ACTION NEEDED (operator/Codex desktop): `git push` the branch containing kawawa2022_recipe + trainer LSTM/ELU support + docs + tests + the `backlog.json` entry (or open a PR). The moment it lands on `origin/main` (or you tell any cycle the branch name), the normal drain will pick it up — pods are wide open (12/12 GPU slots free at 04:33Z).
+- status: WAITING-ON [operator] — push the missing commits; no agent-side workaround is faithful to the order.
