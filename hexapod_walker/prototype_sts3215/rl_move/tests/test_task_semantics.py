@@ -7023,28 +7023,48 @@ def test_walkcurr_rung0_deltas_linear_in_scale(walkcurr_rung0_returns):
 # 1.5 s grace (belly_sit's -110 mm sits ~1.8x past the cutoff; a
 # clumsy exploratory dip has 10x the honest gait's band before it
 # risks termination).
-WALKCURR_PF_HGT_OVERRIDES = dict(_walkcurr_pf_scaled_overrides(0.02))
-WALKCURR_PF_HGT_OVERRIDES.update({
-    ("reward", "walk_height_gate"): 1.0,
-    ("reward", "walk_height_sigma_mm"): 15.0,
-    ("safety", "walk_max_height_drop_mm"): 60.0,
-    ("safety", "walk_height_grace_s"): 1.5,
-})
+def _walkcurr_pf_hgt_overrides(sigma_mm: float, drop_mm: float,
+                               grace_s: float) -> dict:
+    out = dict(_walkcurr_pf_scaled_overrides(0.02))
+    out.update({
+        ("reward", "walk_height_gate"): 1.0,
+        ("reward", "walk_height_sigma_mm"): sigma_mm,
+        ("safety", "walk_max_height_drop_mm"): drop_mm,
+        ("safety", "walk_height_grace_s"): grace_s,
+    })
+    return out
 
 
-@pytest.fixture(scope="module")
-def walkcurr_pf_hgt_returns() -> dict[str, float]:
+WALKCURR_PF_HGT_OVERRIDES = _walkcurr_pf_hgt_overrides(15.0, 60.0, 1.5)
+
+# (sigma_mm, drop_mm, grace_s): the launched "loose" dose (2.5x the
+# honest gait's calibrated band before the gate bites; this arm's
+# own launch, cw-walkcurr-pf-fwd6-hgt1) and a "tight" dose matching
+# WALKCURR4's proven-elsewhere sigma/drop exactly (that bank tuned
+# against an already-competent warm-started gait, not from-scratch
+# discovery — this bank proves it is ALSO bank-legal here before any
+# tight-dose arm is allowed to launch on the rung-1 diet).
+_WALKCURR_PF_HGT_DOSES = {
+    "loose": (15.0, 60.0, 1.5),
+    "tight": (11.0, 25.0, 2.0),
+}
+
+
+@pytest.fixture(scope="module", params=sorted(_WALKCURR_PF_HGT_DOSES))
+def walkcurr_pf_hgt_returns(request) -> dict[str, float]:
     """Mean return (+ dx/steps) per scripted behavior under the
     x0.02-scaled rung-1 stack, gated vs ungated, including the new
     belly_sit statue (3 seeds, 15 s fixed-forward probe)."""
+    sigma_mm, drop_mm, grace_s = _WALKCURR_PF_HGT_DOSES[request.param]
+    gated_ov = _walkcurr_pf_hgt_overrides(sigma_mm, drop_mm, grace_s)
     plan = {
         "gait": ("gait", 1.0),
         "park": ("park", 1.0),
         "stall": ("stall", 1.0),
         "belly_sit": ("belly_sit", 1.0),
     }
-    out = {}
-    for tag, ov in (("gated", WALKCURR_PF_HGT_OVERRIDES),
+    out = {"_dose": request.param, "_drop_mm": drop_mm}
+    for tag, ov in (("gated", gated_ov),
                     ("ungated", _walkcurr_pf_scaled_overrides(0.02))):
         for name, (pol, scale) in plan.items():
             runs = [_slipwalk_rollout(pol, s, gait_scale=scale,
