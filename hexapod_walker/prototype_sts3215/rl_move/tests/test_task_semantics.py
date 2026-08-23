@@ -1071,7 +1071,16 @@ def _slipwalk_rollout(policy: str, seed: int, *,
     physically valid swing, so a per-completed-swing bonus would pay
     it in full, but net body displacement is ~0; this is the realistic
     "farm the swing bonus without going anywhere" attack a single
-    accessible-income mechanism must not reopen).
+    accessible-income mechanism must not reopen),
+    "belly_sit" (08-23, the RND-wave cheat found on rung-0 AND rung-1:
+    all six legs held at a deep knee bend (hip 20 / knee 155, sim-
+    relative — probe-measured -109.8 mm chassis drop, matching the
+    -116 mm height_err_end_mm measured on every FAILed RND arm),
+    static, no stepping — the body settles low and level (roll/pitch
+    stay near 0, so the tilt safety never trips) while stance duty
+    collapses toward 0 (feet barely load), dodging park_duty/loadslip/
+    idle income-charges structurally rather than by refusing to move
+    upright the way "park" does).
 
     ``overrides``: cfg overrides dict, default ``SLIPWALK_OVERRIDES``
     (pass a superset to test an additional reward lever on top of the
@@ -1112,6 +1121,14 @@ def _slipwalk_rollout(policy: str, seed: int, *,
     for _leg in (0, 1):
         topple_rad[3 * _leg + 1] -= 50.0 * DEG2RAD
         topple_rad[3 * _leg + 2] -= 50.0 * DEG2RAD
+    # Belly-sit statue (08-23, RND-wave belly-sit/airborne-hover
+    # collapse): every leg bent to the same deep knee angle, static,
+    # roll/pitch left at the plant's level attitude (only height
+    # drops) — probe-measured -109.8 mm at hip=20/knee=155 sim-
+    # relative, matching the -116 mm height_err_end_mm on every
+    # FAILed RND arm (rung-0 swing3-rnd1/rnd3, rung-1 rnd02/rnd10/
+    # rnd100/rscale50-rnd1).
+    bellysit_rad = np.array([0.0, 20.0, 155.0] * 6) * DEG2RAD
     gait.reset_phase()
 
     x0 = float(env.data.xpos[env._chassis_bid, 0])
@@ -1146,6 +1163,8 @@ def _slipwalk_rollout(policy: str, seed: int, *,
             act = q_rad_to_action(stork_rad)
         elif policy == "topple":
             act = q_rad_to_action(topple_rad)
+        elif policy == "belly_sit":
+            act = q_rad_to_action(bellysit_rad)
         else:
             act = q_rad_to_action(plant_rad)
         _obs, r, term, trunc, _info = env.step(act)
@@ -6973,3 +6992,125 @@ def test_walkcurr_rung0_deltas_linear_in_scale(walkcurr_rung0_returns):
             f"'{name}'-vs-park delta not linear in scale "
             f"(base={base_d:.1f}, scale={c}, got={got_d:.1f}) — hidden "
             f"unscaled reward term?")
+
+
+# ---------------------------------------------------------------------------
+# WALKCURR HEIGHT-GATE bank (cycle 2026-08-23, closing the belly-sit/
+# airborne-hover escape hatch). Plain English: RND at every dose
+# tested (rung-0 1x/3x, rung-1 0.02/0.10/1.0, +4M budget) converged on
+# the IDENTICAL static pose — level attitude (roll/pitch near 0, so
+# the tilt safety never trips), chassis settled ~110-116 mm low, all
+# six legs near-zero duty. Root cause: under the x0.02-scaled rung-1
+# stack the only per-tick cost of that pose (env.py's quadratic
+# k_height charge, already scaled to 2.0) is tiny (-0.03/tick at
+# 116 mm) next to the discovery-friction charges (idle/park_duty/
+# loadslip) it dodges entirely by never loading a foot — and nothing
+# ENDS the episode early, so the tiny-but-positive-relative-to-trying
+# basin gets to collect for the full 25 s. This bank proves a second,
+# independent mechanism closes it: walk_height_gate (already-built,
+# default-off lever in walk_task.py, first proven on the unrelated
+# cw-dynrep-criticD-walkcurr4 lineage 08-18 — see the WALKCURR4 bank
+# above) multiplies walk income (freeprog/swing/prog) by a Gaussian on
+# height error, PLUS the already-built safety.walk_max_height_drop_mm
+# termination (sim_env.py, opt-in, default off) ends the episode
+# after a short grace instead of letting the pose ride to truncation.
+# Doses (looser than WALKCURR4's 11 mm / 25 mm — that bank tuned
+# against an ALREADY-COMPETENT warm-started gait; rung-1 is
+# from-scratch and must not choke early clumsy exploration):
+# walk_height_sigma_mm=15 (honest gait rides <6 mm per
+# calibrate_walk_height.py, so this is >2.5 honest-sigma of headroom
+# before the gate bites), safety.walk_max_height_drop_mm=60 with a
+# 1.5 s grace (belly_sit's -110 mm sits ~1.8x past the cutoff; a
+# clumsy exploratory dip has 10x the honest gait's band before it
+# risks termination).
+WALKCURR_PF_HGT_OVERRIDES = dict(_walkcurr_pf_scaled_overrides(0.02))
+WALKCURR_PF_HGT_OVERRIDES.update({
+    ("reward", "walk_height_gate"): 1.0,
+    ("reward", "walk_height_sigma_mm"): 15.0,
+    ("safety", "walk_max_height_drop_mm"): 60.0,
+    ("safety", "walk_height_grace_s"): 1.5,
+})
+
+
+@pytest.fixture(scope="module")
+def walkcurr_pf_hgt_returns() -> dict[str, float]:
+    """Mean return (+ dx/steps) per scripted behavior under the
+    x0.02-scaled rung-1 stack, gated vs ungated, including the new
+    belly_sit statue (3 seeds, 15 s fixed-forward probe)."""
+    plan = {
+        "gait": ("gait", 1.0),
+        "park": ("park", 1.0),
+        "stall": ("stall", 1.0),
+        "belly_sit": ("belly_sit", 1.0),
+    }
+    out = {}
+    for tag, ov in (("gated", WALKCURR_PF_HGT_OVERRIDES),
+                    ("ungated", _walkcurr_pf_scaled_overrides(0.02))):
+        for name, (pol, scale) in plan.items():
+            runs = [_slipwalk_rollout(pol, s, gait_scale=scale,
+                                      overrides=ov)
+                    for s in SEEDS]
+            out[f"{name}_{tag}"] = float(np.mean([r[0] for r in runs]))
+            out[f"{name}_{tag}_dx"] = float(np.mean([r[1] for r in runs]))
+            out[f"{name}_{tag}_steps"] = float(
+                np.mean([r[2] for r in runs]))
+    return out
+
+
+def test_walkcurr_pf_hgt_gate_bites_belly_sit(walkcurr_pf_hgt_returns):
+    """The gate + termination must do real work: belly_sit's return
+    must drop hard once they engage, or the mechanism is dead
+    weight."""
+    r = walkcurr_pf_hgt_returns
+    assert r["belly_sit_gated"] < r["belly_sit_ungated"] - 100.0, (
+        f"height gate barely moves the belly-sit return: {r}")
+
+
+def test_walkcurr_pf_hgt_belly_sit_terminates_fast(walkcurr_pf_hgt_returns):
+    """The safety cutoff must actually fire: belly_sit should die
+    within a couple seconds of the grace period under the gated
+    stack, not ride to the 15 s probe truncation (750 steps @ 50 Hz)
+    the ungated twin reaches."""
+    r = walkcurr_pf_hgt_returns
+    assert r["belly_sit_gated_steps"] < 250, (
+        f"belly_sit did not terminate under the height cutoff: {r}")
+    assert r["belly_sit_ungated_steps"] >= 700, (
+        f"belly_sit twin is broken (should survive ungated): {r}")
+
+
+def test_walkcurr_pf_hgt_gait_beats_belly_sit(walkcurr_pf_hgt_returns):
+    """The actual fix: under the gated stack real walking must clearly
+    out-earn the belly-sit collapse — the exact ordering the RND wave
+    found broken (belly_sit was competitive with or beat every
+    stationary behavior at every RND dose tested)."""
+    r = walkcurr_pf_hgt_returns
+    assert r["gait_gated"] > r["belly_sit_gated"] + 300.0 * 0.02, (
+        f"belly-sit still rivals walking under the height gate: {r}")
+    assert r["park_gated"] > r["belly_sit_gated"], (
+        f"belly-sit out-earns even refusal-to-move park: {r}")
+    assert r["stall_gated"] > r["belly_sit_gated"], (
+        f"belly-sit out-earns marching in place: {r}")
+
+
+def test_walkcurr_pf_hgt_light_tax_on_honest_gait(walkcurr_pf_hgt_returns):
+    """The honest gait bobs a few mm (calibrate_walk_height.py:
+    +0.4..+6.0 mm); the gate must charge it almost nothing, or the
+    sigma is miscalibrated and will fight rung-1 discovery the same
+    way the loadslip-bootstrap-at-full-dose fork was refuted."""
+    r = walkcurr_pf_hgt_returns
+    assert r["gait_gated"] > 0.90 * r["gait_ungated"], (
+        f"height gate taxes the honest gait: {r}")
+    assert r["gait_gated_dx"] > 0.15, (
+        "the reference gait did not actually travel; bank is broken")
+
+
+def test_walkcurr_pf_hgt_ranking_still_holds(walkcurr_pf_hgt_returns):
+    """Adding the height gate + safety cutoff on top of the x0.02
+    rung-1 stack must not disturb the pre-existing v2e ranking
+    (walking beats both stationary behaviors) — the new mechanism is
+    additive, not a replacement for the proven charge stack."""
+    r = walkcurr_pf_hgt_returns
+    for still in ("park", "stall"):
+        assert r["gait_gated"] > r[f"{still}_gated"] + 300.0 * 0.02, (
+            f"stationary '{still}' competitive with walking under the "
+            f"gated stack: {r}")

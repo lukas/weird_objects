@@ -602,3 +602,102 @@ validity, on video. Speed obedience is secondary throughout.
   (what termination/kernel geometry makes that specific height
   stable) and bank-prove a fix before any further rung-1 or rung-0
   training spend.
+
+## Now (updated 08-23 ~23:1x — rnd10-cont1's budget-axis read is DIFFERENT from every other arm; NOT folded into the reward-shape DIG-IN above — new DIG-IN flag)
+
+- **`cw-walkcurr-pf-fwd6-rnd10-cont1` UNVERDICTED, DIG-IN (do not
+  fold into the belly-sit/height_err_end_mm=116.3mm consensus above
+  without reading this first).** This is the +4M budget continuation
+  of `rnd10` (same `--rnd-coef 0.10`, same everything, warm-started
+  from rnd10's own checkpoint) — the "budget, not dose" arm this
+  file's own 22:5x section said to wait for. **Its own-cfg DR-0 gate
+  is qualitatively UNLIKE every one of the 7+ belly-sit arms
+  (rnd02/rnd10/rnd100/rscale50-rnd1/rung0-swing3-rnd1/-rnd3 etc):
+  `gait_valid: true` and `sacrificed_legs: []` on ALL 6/6 det
+  episodes** (first time any rung-1 or rung-0+RND arm has cleared
+  gait_valid at all), with real per-episode telemetry: `speed_mean_m_s
+  0.054` (essentially ON the 0.05-0.06 commanded band), `forward_dist_m
+  0.056m`, non-degenerate `duty_cycle` per leg ([0.35, 0.29, 0.94,
+  0.16, 0.42, 0.97] — imbalanced but not the frozen/near-zero-duty
+  belly-sit signature), `swing_count` 1-3 per leg. **But it still
+  reads `success: false` on every episode: all 6 det episodes
+  terminate `tilt_pitch` (`roll_class: "fell"`) after roughly ~1s of
+  real walking** (back-computed from forward_dist/speed), and
+  `direction_err_mean_deg` is 52.7deg (over whatever cap the gate
+  uses) with `slip_per_m` 4.51 (over the ~3 cap). Sto mode is mixed:
+  2/6 also clear gait_valid (one also tilt_pitch-terminates after
+  real motion), the other 4/6 sacrifice a leg (closer to the belly-sit
+  family). **W&B history shows this arm is NOT monotonically
+  approaching a walking optimum either**: `env/walk_freeprog_score`
+  improved fastest early in the +4M extension (best at ~25% through,
+  -0.0126) then WORSENED over the back half to -0.046 by the end
+  (worse than its own quarter-1 read) while `env/walk_speed` bottomed
+  at 0.0059 m/s around the same point and only partially recovered to
+  0.0185 m/s by the end — i.e. training moved through some better
+  intermediate state and partially regressed. **A `_best`-tagged
+  checkpoint exists on-pod from `--best-ckpt`
+  (`ppo_goal_cw_walkcurr_pf_fwd6_rnd10_cont1_best.zip`, saved ~3 min
+  before the final checkpoint) and has NOT yet been evaluated** — this
+  cycle pulled it to the controller and kicked off its own-cfg det+sto
+  eval directly on `hexapod-mjx-train-2` via `kubectl exec`
+  (`/tmp/eval_rnd10_cont1_best.log` on that pod, `--out
+  logs/ckpt_eval/cw_walkcurr_pf_fwd6_rnd10_cont1_best_gate`) but it was
+  still running (CPU eval, MJX compile overhead) when this cycle had
+  to hand off — check that log/output dir first before re-running.
+  **Why this matters for the reward-shape DIG-IN above**: that
+  synthesis (from `rnd100` + 5 other belly-sit arms) concludes the
+  blocker is a reward-shape/termination fix (price the low-height
+  pose out directly) BEFORE any more dose/budget spend — but this
+  arm, on the EXACT SAME reward shape as rnd10/rnd100, at the SAME
+  dose as rnd10 with only +4M more budget, produced the only
+  real-gait/real-progress episodes seen anywhere on this track,
+  immediately followed by a NEW failure mode (pitch-topple after ~1s)
+  that none of the belly-sit arms exhibit. Two readings compete: (a)
+  this is genuine evidence budget (not reward-shape) was the
+  remaining blocker, and the current checkpoint is a transient near a
+  basin boundary that either more budget or a stability fix (term
+  cause: pitching forward — check whether `k_pitch`=0.2 is
+  underpriced relative to forward-progress income, or whether the
+  policy is lurching rather than a controlled gait) would push
+  through to real walking; OR (b) this is a fragile one-off (a single
+  seed's brief excursion out of the belly-sit basin that the reward
+  landscape doesn't actually reward keeping) and the back-half
+  regression (freeprog -0.013->-0.046) is early evidence it's already
+  collapsing back. **Distinguishing these is exactly a DIG-IN task**:
+  read the `_best` checkpoint eval once it lands, watch the full
+  video (not just contact-sheet frames) for `walk_det_0.mp4` to see
+  whether the fall looks like a controlled-forward-lurch-then-trip or
+  a random flail, check whether a SECOND +4M continuation from
+  THIS checkpoint (not a fresh rnd10-cont2 from scratch) trends
+  further away from or back toward real walking, and only then decide
+  whether to fund a `k_pitch`-focused stability follow-up ahead of, or
+  parallel to, the reward-shape/height-termination fix already
+  flagged. Do not close the budget axis as "also refuted" off the
+  `rnd100` dose-only read — this is a different arm with a materially
+  different result.
+  Evidence: `logs/ckpt_eval/cw_walkcurr_pf_fwd6_rnd10_cont1_gate/
+  report.json` (+ contact sheet + per-episode mp4s), W&B run
+  `i5d3p177`, checkpoints `ppo_goal_cw_walkcurr_pf_fwd6_rnd10_cont1{,
+  _best}.zip` (both pulled to the controller).
+  **UPDATE, same cycle — the `_best` checkpoint eval finished and
+  sharpens the picture: `_best` reproduces the belly-sit signature
+  EXACTLY (`height_err_end_mm=116.3mm`, all 6 det legs sacrificed,
+  speed 0.005 m/s — genuinely indistinguishable from rnd02/rnd10/
+  rnd100), while the FINAL (non-best) checkpoint is the one with the
+  real gait_valid/forward-motion/pitch-fall episodes.** Since SB3
+  `--best-ckpt` selects on accumulated episodic reward and the belly-
+  sit pose survives the full 25s collecting a steady small per-step
+  income while a walking-then-falling episode gets truncated early
+  (losing the rest of that income and eating `term_penalty=24`), the
+  reward function is currently pricing "survive motionless" strictly
+  above "attempt to walk, risk a fall" — i.e. **this is itself
+  reward-shape evidence, not a separate axis from the belly-sit
+  DIG-IN above**: the SAME term_penalty/survival-income imbalance
+  that makes belly-sit a stable attractor is also plausibly what
+  drags the tail-end policy back toward it after episode 22:5x's
+  brief walking excursion (freeprog's back-half regression -0.013->
+  -0.046). Recommend the reward-shape DIG-IN explicitly check whether
+  softening `term_penalty` relative to per-step survival income (or
+  paying an explicit small per-step walking-attempt bonus that
+  survives a fall) unlocks the walking excursion seen here, before
+  or alongside the height/ground-contact charge fix.
