@@ -41,21 +41,42 @@ validity, on video. Speed obedience is secondary throughout.
 
 ## Now
 
-- **Rung-1 discovery batch v2 RUNNING (08-23 ~17:5x):**
-  `cw-walkcurr-pf-fwd2-swing` (train-0) and
-  `cw-walkcurr-pf-fwd2-swingterm800` (train-1), 2M discovery each,
-  fresh init, exact fwd1 recipe + `reward.k_walk_swing=1.0`
-  (direction-free per-completed-swing credit, the only income a
-  random-init policy can reach); the term800 twin also drops
-  term_penalty 1200->800 (largest drop keeping dying the strict
-  floor) to isolate catastrophe-dominance. Bank-proven under exact
-  cfgs incl. the pre-registered `shuffle` swing-farming attack
-  (gait +409.9 > stall -21.5 > park -351.7 > shuffle -430 NEGATIVE >
-  sideways -534.5 > reverse -675.2 > topple -1164/-764 > skate
-  -1339; 6/6 new tests green, snapshot
-  `exp/walkcurr-fwd2-swingbank`). Gate: fwd1's rung-1 panel +
-  discovery-health markers (swing/step-event rate must leave fwd1's
-  flat 0.02/step; walk_prog must leave 0.0).
+- **Rung-1 discovery batch v2 CLOSED, BOTH ARMS FAIL (08-23 ~18:0x)
+  — swing-income and term_penalty-magnitude are DEAD; escalate to
+  init/BC-kickstart, dig-in tier, before any more single-cfg reward
+  tweaks on this recipe.** `cw-walkcurr-pf-fwd2-swing` (train-0,
+  `reward.k_walk_swing=1.0`) and `cw-walkcurr-pf-fwd2-swingterm800`
+  (train-1, same + `term_penalty` 1200->800) both finished in ~10 min
+  (fast GPU fps) and both FAIL identically: det panel progress_ratio
+  ~-0.001 all 6 episodes byte-identical, forward_dist 0.005-0.021m
+  over 25s, slip/m 7.7-9.0 (cap 3.0), height_err_end 94-96mm.
+  **Video (both contact sheets) shows something WORSE than fwd1's
+  raised crouch: the robot starts upright for one frame then
+  COLLAPSES flat onto a splayed belly-down pose and stays there the
+  rest of the episode** — the nonzero swing_count in the report is
+  limb micro-twitching in the collapsed pose, not gait cycling.
+  `-swing`'s gait_valid even flips to False with 1 sacrificed leg
+  (was True/frozen-crouch on fwd1) — the swing bonus changed WHICH
+  static failure basin the policy falls into, not whether it explores
+  real stepping. Reward quarters both match fwd1's monotonic-negative
+  shape (expected per fwd1's own root-cause: ep_len x
+  negative-per-step logging artifact, not new degradation). Per the
+  batch's own pre-registered branch: since BOTH fixes froze/collapsed
+  identically to fwd1, term_penalty magnitude and swing-income
+  reachability are BOTH refuted as the rung-1 blocker — same
+  conclusion, from two independent single-lever probes, not a shared
+  confound. Bank-proven cfgs used (6/6 new tests green incl. the
+  `shuffle` swing-farming attack, snapshot
+  `exp/walkcurr-fwd2-swingbank`) — the failure is exploration
+  dynamics, not a reward-alignment cheat the bank would have caught.
+  **DIG-IN flagged for the next lever**: this decides the track's
+  second fork (does rung-1 need a fundamentally different exploration
+  mechanism — a few-thousand-step BC/kickstart into ANY forward
+  stepping, an action-noise schedule, or an init-pose change — rather
+  than another reward-magnitude dial) and per `RUN_INTERPRETATION_
+  RULES.md` a genuine root-cause-chain redesign belongs to a deep
+  cycle, not a same-recipe reward-tweak guess. Do NOT launch a 3rd
+  single-cfg variant of this exact recipe before that design lands.
 - `cw-walkcurr-pf-fwd1` VERDICTED FAIL (dig-in, 08-23 ~17:4x):
   PPO froze into a tilt-safe splayed crouch — rational under v2e:
   walk_prog identically 0.0 all run, step events flat 0.02/step,
