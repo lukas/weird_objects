@@ -142893,7 +142893,7 @@
       "goal.walk_turn_in_place_frac=0.5"
     ],
     "created": "2026-08-23T06:47:11+00:00",
-    "status": "INTENT",
+    "status": "RUNNING",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -142902,13 +142902,26 @@
       "code_sha_local": "110b4b3a8613d84040ab5c2c6bada8d4da5db3be",
       "code_sha_pod": "110b4b3a8613d84040ab5c2c6bada8d4da5db3be",
       "init_from_on_pod": true,
-      "wandb_env_on_pod": true
+      "wandb_env_on_pod": true,
+      "pid": "912462",
+      "log_growth_bytes": [
+        10843,
+        19219
+      ],
+      "wandb_id": "h56m3nn7",
+      "global_step_window": [
+        851968,
+        1441792
+      ],
+      "fps_estimate": 19660.8
     },
     "trainer": "ppo",
     "stack": "gpu-mjx",
     "phase": "discovery",
     "assessment_scope": "short_behavior_discovery",
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:amp PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-s3 --steps 2000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_amp_m4_turnfault_seq1.zip --episode-seconds 15 --no-canary --eval-every 1000000 --video-every 2000000 --n-envs 4096 --impl warp --host-workers 24 --seed 13 --ent-coef 0.001 --warm-log-std-override -2.0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set goal.walk_phase_obs=1 --cfg-set goal.walk_phase_hz=1.333333 --cfg-set goal.walk_obs_body_vel=2 --cfg-set goal.walk_heading_max_rad=-1 --cfg-set goal.walk_speed_min_m_s=0.08 --cfg-set goal.walk_speed_max_m_s=0.08 --cfg-set goal.walk_cmd_mode=stress_mix --cfg-set goal.walk_cmd_resample_s=4.0 --cfg-set goal.walk_cmd_resample_jitter=0.5 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set bus.write_speed=1500 --cfg-set bus.write_acc=80 --cfg-set bus.servo_vel_max_counts_s=write_speed --cfg-set safety.max_delta_q_deg=5.0 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --cfg-set reward.term_penalty=400.0 --cfg-set reward.k_step_event=0.0 --cfg-set reward.k_park_duty=0.0 --cfg-set reward.k_walk_freeprog=0.0 --cfg-set reward.walk_loadslip_gate=0.0 --cfg-set reward.k_loadslip_excess=0.0 --cfg-set reward.walk_gait_gate=0.0 --cfg-set reward.k_walk_idle_charge=0.0 --cfg-set reward.k_drag_stance=0.0 --amp-motion-lib rl_move/sim/motion_library/teacher_v2.npz --amp-disc-steps 4 --amp-disc-batch 512 --amp-gp-weight 10.0 --amp-replay 500000 --amp-task-weight 0.5 --amp-style-weight 0.5 --out-name ppo_goal_cw_amp_m4_turnfault_seq1_pushcont1_tipfrac05_s3 --notes 'respec of cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05: Plain English: second seed twin of the tipfrac05 M5-suite pass (see -s2): same exact config (50% turn-episode exposure, composed turn+push+fault, pricing keys ON, pre-cheat turnfault-seq1 init, 2M), only seed 7->13. Together with -s2 this answers recipe-vs-lottery at n=3. Prediction-if-true: tips <=0.20-0.25 with floors held. Prediction-if-false: park near 0.25+ = lottery. Strongest alternative: in-band but over the 0.20 m5 bar.' --obs-pad-transplant 0 --cfg-set goal.walk_yaw_cmd=1 --cfg-set goal.walk_yaw_max_rad_s=0.3 --cfg-set goal.walk_yaw_zero_frac=0.5 --cfg-set reward.k_walk_yaw=1.0 --cfg-set reward.walk_yaw_kernel_gate=1.0 --cfg-set reward.k_yaw_prog=1.0 --cfg-set reward.k_yaw_still=50 --cfg-set reward.walk_kernel_yaw_gate=1.0 --cfg-set reward.walk_yaw_hold_prog_gate=1.0 --cfg-set reward.yaw_still_avg_s=1.0 --cfg-set goal.walk_phase_run_on_yaw=1 --cfg-set dr.fault_prob=1.0 --cfg-set obs.fault_health=1 --cfg-set dr.ext_push_prob=1.0 --cfg-set reward.yaw_prog_overshoot_decay=1.0 --cfg-set reward.yaw_prog_avg_s=1.0 --cfg-set goal.walk_turn_in_place_frac=0.5 > /tmp/train_cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-s3.log 2>&1 < /dev/null & echo $!",
-    "log": "/tmp/train_cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-s3.log"
+    "log": "/tmp/train_cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-s3.log",
+    "wandb_id": "h56m3nn7",
+    "verified": "2026-08-23T06:50:32+00:00"
   }
 ]
