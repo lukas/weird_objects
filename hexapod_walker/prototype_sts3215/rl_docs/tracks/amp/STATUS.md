@@ -35,6 +35,31 @@ family's known ~3.5 sampling-noise floor); fault gait_valid ranges
 fault-section noise, not a mask effect. Evidence:
 `logs/ckpt_eval/..._wzmask2_{s23,s13,s17}_{gate,m5}/`.)
 
+**SAME-CYCLE ADDENDUM (~18:1x, turn-authority probe — the yaw fork's
+"is 0.30 rad/s even plant-reachable?" question is now MEASURED, not
+open):** ran the recommended eval-only probe (OPERATOR_QUESTIONS
+q_20260823T0130Z dig-in note): `eval_cpg_gate.py` on the exported CPG
+controller artifact (`cpg_controller_robust120_yawtrim.json`, same
+plant, same servo contract write 1500/acc 80) with the turn segments
+commanded at **wz=0.30** (the m5 yaw envelope) instead of the gate's
+default 0.20. Result: PASS — turn yaw_along_frac **0.898/0.977**
+(~0.27-0.29 rad/s achieved), prog_mean 0.894, slip/m 0.70, no falls,
+no sacrificed legs (`logs/ckpt_eval/cpg_turnauthority_wz030/`).
+Consequence: 0.30 rad/s turning IS physically achievable at this
+plant with a scripted controller, so the m5 yaw bar (tip_err<=0.20 =
+achieved>=0.10) is NOT plant-limited and the bar-amendment branch
+loses its "never physically achievable" justification — the miss is
+the POLICY's (and plausibly the demo library's: teacher_v2 clips
+saturate ~0.15-0.16 rad/s, q_20260823T1240Z, while the CPG controller
+demonstrably reaches ~0.29). Live levers for the next amp yaw arm, in
+order: (1) turn-curriculum/capability training (policy has never been
+made to practice max-rate turns against a reference that can actually
+do them), (2) a CPG-sourced TURN-clip library at wz 0.25-0.30 (raises
+the demo ceiling with clips from the one controller measured to turn
+at rate; distinct from cpgdemo1's refuted WALK-slip swap — that arm
+swapped the walk anchor for slip, this one adds turn-rate coverage).
+No mask/pricing/densification arms — those six classes are closed.)
+
 Previous entry (~17:3x: **wzmask2 widen-mask read is
 INCONCLUSIVE in the most instructive way possible: two
 identical-config, identical-seed draws of the SAME recipe read

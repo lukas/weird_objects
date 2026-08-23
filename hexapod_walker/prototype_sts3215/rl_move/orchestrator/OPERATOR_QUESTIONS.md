@@ -1806,6 +1806,21 @@ Plain English: the straight-gait search result is real, but the scorer misread t
   the 3.5 bar; gait-level mechanism arm (`-swing1`) launched instead.
 - status: OPEN (proceeding with v1 bars + one-checkpoint semantics —
   that is what brief §13 literally says: "A single policy…")
+- AMENDMENT (08-23 ~18:1x, measured): the wzmask2 5-draw grid closed
+  the last discriminator-obs yaw lever AND delivered the tip
+  replicate-noise calibration this question needed: five identical-
+  recipe draws read tip_left 0.174-0.239 (std ~0.021, spread 0.065),
+  tip_right 0.202-0.252 — single-read +-0.02 tip verdicts are inside
+  noise; any future tip bar decision should be n>=3 pooled. AND the
+  "is 0.30 rad/s plant-reachable" probe recommended above was RUN
+  (eval-only): the exported CPG controller artifact at wz=0.30 turns
+  with yaw_along_frac 0.898/0.977 (~0.27-0.29 rad/s achieved), PASS,
+  no falls (logs/ckpt_eval/cpg_turnauthority_wz030/). ADOPTED ANSWER
+  (assume-and-go): the 0.20 tip bar STAYS — it is physically
+  reachable (plant does ~0.29; bar needs >=0.10) and amending it now
+  would paper over a policy/demo-library learning gap. The yaw fork
+  proceeds on capability levers (turn curriculum; CPG-sourced
+  turn-rate clips), not bar surgery. Operator may override.
 
 ## q_20260823T0215Z — launcher: code-gate TOCTOU fixed; residual respec --now double-snapshot/tag defect (assumed-and-went)
 Plain English: launches kept getting refused because the launcher compared the pod's code marker against a git HEAD that concurrent cycles were advancing every few minutes with doc/ledger commits — five launches in a row got parked next to 10 idle GPUs. FIXED this cycle (tag `exp/launcher-codegate-toctou-fix`): if the pod's synced commit is an ancestor of HEAD and the delta touches ONLY orchestrator state/docs/logs/markdown, the pod runs identical training code and the launch proceeds (delta recorded in the ledger `checks.code_sha_stale_benign_delta`); any sim/control-code delta still refuses exactly as before. Positive test = the real race pair (accepts); negative test = a span containing `rl_move/sim/eval_amp_m5.py` (refuses).
