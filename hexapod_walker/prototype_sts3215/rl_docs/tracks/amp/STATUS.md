@@ -1,6 +1,36 @@
 # amp - AMP locomotion from scratch
 
-Last updated: 2026-08-23 ~14:0x (**`-tipspawn1b` (reset densification,
+Last updated: 2026-08-23 ~14:2x (**`-swing1` (gait-income slip fork)
+FAIL — the gait-income lever is CLOSED alongside pricing, and the
+slipdist probe explains the near-miss.** m5 walk det slip med 3.5035
+vs bar 3.5 / parent 3.67 — family-best among reward-side arms, but
+the 0.167 improvement lands BETWEEN the pre-registered bands
+(>±0.15 unmoved, <0.3 PARTIAL), so the gate-mandated slipdist rerun
+decides: per-stance loaded travel median got WORSE (11.49→13.54mm;
+champion 5.5) while only the heavy tail compressed (p90 40.3→33.6,
+p95 48.8→39.4) — swing income REDISTRIBUTED drag (trimmed worst-case
+drags = the eval delta) rather than producing cleaner plants: the
+pre-registered "foot-lift theater" alternative, half-confirmed. Plus
+a fault-section cost: sto gait_valid 9/12 (bar 10, parent 12/12;
+three DIFFERENT legs [5],[2],[1], det 6/6 — no farm/flag pattern).
+Safety intact (0/12 falls, walk gv 12/12, push PASS, tips unchanged
+0.2141/0.2352). LAUNCHED the strongest remaining stance-level
+mechanism as a 2-arm batch: this family trains at FIXED std 0.135
+(no anneal) while the 5.5mm-stance joystick champion stotight45s13
+annealed to log-std −4.5, and the joystick track measured (08-22 pd8
+dig-in) that the train-noise floor is what makes honest stances
+drag — `-stdanneal45` (--log-std-final=-4.5, single lever, train-1)
+and `-swinganneal45` (anneal+swing composition: does the tail win
+survive and does the fault regression follow swing; train-2). NOTE
+cross-fork: tipspawn1b (concurrent) hit walk slip 3.1855 via mid-walk
+RSI (`walk_gait_start_frac=0.5`) — state-visitation is a THIRD live
+slip mechanism (tipspawn2-startonly isolating it, train-0); when
+these read, compare all three before any adoption. Bar ruling
+unchanged: 5.5mm stances attainable → keep 3.5. Evidence:
+`logs/ckpt_eval/cw_amp_m4_..._swing1_{gate,m5}/`,
+`logs/ckpt_eval/swing1_slipdist.json`.
+
+Previous entry (~14:0x: **`-tipspawn1b` (reset densification,
 turn-tracking fork) FAIL on its pre-registered branch, but with a
 notable side win on the OTHER open fork (slip pricing).** m5 yaw
 tip_left/right_err 0.2448/0.2100 vs parent(pushcal518) 0.2157/0.2351:
