@@ -266,3 +266,4 @@ W&B OUTCOME notes. Do not use this file as current truth; read
 DIG-IN: cw-amp-m4-turnpushfault1-style05-r2 — mechanism-safety PASS but turn tracking (0.42/0.49) is WORSE than both its parent and the fresh-stack alternative it was meant to beat; root-cause whether this is the yaw-income-overshoot mechanism compounding under 3-axis stacking or a new wrong-sign defect before any further M4 turn+X+Y spend. 
 - 08-23 02:53 pushfault1-noamp-acq1 PASS: 8M closes push+fault at solo-axis quality (0/12 topples, gait 11/12 w/ legit carried-leg, det prog 1.03) — turn now the ONLY open M5 composition axis 
 - 08-23 02:53 turnpushfault1-r2 PASS-partial: safety bar 12/12 where fresh stack missed (9/12), but corrected-bus eval_yaw shows turn still parked (0.42/0.49, inherited from substrate) — only policy w/ all 4 M5 axes, turn sole gap 
+- 08-23 03:06 LAUNCH_CRASH ypfix1-r2 (0 steps, stale obs-pad-transplant=18 vs already-93-dim ckpt); fixed+relaunched -r3 
