@@ -1,6 +1,38 @@
 # amp - AMP locomotion from scratch
 
-Last updated: 2026-08-23 ~00:1x (**CADCOUPLE VERDICT: the speed-coupled
+Last updated: 2026-08-23 ~00:4x (**M3 ESCALATION GRID READ: BOTH flat
+jumps (force 20-40N, count x3) hit their pre-registered plateau
+branches; style-kept 20-40N arm PASSES its own laxer bar but the
+joint read says style is STILL not load-bearing; push CURRICULUM
+batch launched.** `cw-amp-m3-pushhard1-noamp-n2040` INFORMATIVE-
+plateau: 20-40N single shove from the 0/12 pushacq1-noamp champion
+costs 4/12 genuine knockdowns (3/6 det + 1/6 sto, full flips on
+video, no statues), pitch-terms flat over the last 2M (53.1→53.0)
+though roll still creeps (46→43) and reward still rises (84→115) —
+flat dose jump exceeds the 6M-recoverable envelope.
+`cw-amp-m3-pushhard1-noamp-repeat3-r1` INFORMATIVE-plateau, the
+starker one: up-to-3 shoves/ep learns NOTHING in 6M (reward flat
+315→322 after Q2, tilt-terms flat pitch ~15-17 / roll ~9-11 the
+whole run), 3/12 topples vs parent 0/12; NOT a FAIL — video shows
+real multi-shove survival (det_0 absorbs shoves, 1.24m) and terms
+run ~2.5x parent at 3x count (sublinear). `cw-amp-m3-pushhard1-
+style05-n2040` PASS its pre-registered bar (topples 2/6+2/6 vs
+≤2/≤3, gait_valid 12/12, det prog 1.23 / slip 2.98,
+style_reward_mean 0.13>0.1 though thinning 0.29→0.13) — but both
+n2040 twins land statistically identical (4/12 topples each; the
+verdict split is purely the differing pre-registered bars), so the
+running style-not-load-bearing finding extends to the hard-shove
+axis. LAUNCHED (queued to drain, 3x6M on the noamp line):
+`cw-amp-m3-pushcur1-noamp-b1530` (force-curriculum stage 1, 15-30N
+bridge from pushacq1-noamp ckpt; stage 2 = 20-40N chain on PASS) vs
+`cw-amp-m3-pushhard1-noamp-n2040-c1` (+6M at 20-40N from n2040's own
+ckpt, 08-21-ruling continuation — the matched curriculum-vs-budget
+control) + `cw-amp-m3-pushcur1-noamp-repeat2` (count-axis rung:
+repeat_max=2 from pushacq1-noamp ckpt, tests whether staging unlocks
+repeat3-r1's flat gradient). style05-repeat3 joint read pends its
+owning concurrent cycle. Previous banner below.)
+
+Previous entry (2026-08-23 ~00:1x (**CADCOUPLE VERDICT: the speed-coupled
 phase clock WORKS but trades gait quality for range — CLOCK-ONLY
 COUPLING IS INSUFFICIENT, both style05 and nostyle land in the SAME
 partial pathology.** `cw-amp-m2-bcinit-sec5-style05-speedrange-
@@ -1048,50 +1080,72 @@ Build every tool this needs; do not pause on operator input.
 
 ## Now
 
-**08-23 ~00:1x — BC-TURN-CLONE CONFIRMED REAL BUT PRICING-LIMITED:
-`cw-amp-m2-turnclone-yawcmd-tip50` VERDICTED INFORMATIVE.** The
-turn-clone init (TripodGait's native omega channel demonstrated for
-the first time) genuinely closes the motor-pattern discovery gap
-that made every prior yawcmd/tip arm park (err == |wz_ref| exactly):
-eval_yaw on this checkpoint reads turn |wz_err| med 0.140 (gate
-<=0.10, still FAIL) vs the old park fingerprint's 0.28-0.33 — real,
-command-signed rotation at roughly half the commanded magnitude, not
-a frozen statue (frame strips watched, visible body rotation on
-tip/turn episodes). BUT: the RAW untrained clone itself already
-scored 0.1035 (near-gate) before any RL, so 2M steps of RL under the
-unchanged tip50 pricing recipe made yaw tracking WORSE (0.10->0.14)
-while training reward rose 57->248/quarter — an 08-21-style
-misalignment (reward up, target metric down), not a second init gap.
-Translation fully intact (gait_valid 12/12 det+sto, 0 falls, prog/
-slip in the usual yawcmd band). Sibling `cw-amp-m2-turnclone-yawcmd0`
-(the zero-dose control) LAUNCH_CRASHED (stale `--obs-pad-transplant
-1` from the pre-clone parent chain vs the already-75-dim clone
-checkpoint) — corrected respec `-r2` already relaunched
-(`--obs-pad-transplant 0`) and training; `-tip90` still pending its
-own (concurrent-cycle-owned) verdict.
+**08-23 ~00:2x — CORRECTION to this section's own prior entry:**
+`cw-amp-m2-turnclone-yawcmd-tip50` (and `-tip90`) are **PASS**, not
+INFORMATIVE — a triage error in the entry below (now struck through
+in substance, kept for the audit trail) misapplied `eval_yaw.py`'s
+generic CLI-default turn-gate (0.10, a leftover from an older,
+stricter lineage) instead of THIS run's own pre-registered ledger
+gate (tip-left AND tip-right err <=0.20, correct sign, zero falls,
+translation preserved) written into its own `gate` field at launch
+time. Measured tip-left/right err 0.1601/0.1346 (tip50) and
+0.133/0.174 (tip90) both clear <=0.20 decisively; SKILLS.md already
+carries the correct PASS row (search "BC-TURN-CLONE BREAKS THE
+TIP-PARK WALL"). The behavioral substance of the struck entry is
+still true and useful (RL fine-tuning eroded, not sharpened, the raw
+clone's own turning accuracy: 0.10 raw -> 0.13-0.17 after 2M RL) —
+only the PASS/FAIL letter grade was wrong. Lesson for future triage:
+always quote the RUN'S OWN `gate` ledger field verbatim, never a
+tool's CLI default, when the two differ.
 
-**REPRICING LEVER TESTED SAME CYCLE AND REFUTED:**
-`cw-amp-m2-turnclone-yawcmd-tip50-yawprice3x` (single lever from the
-tip50 checkpoint: `k_walk_yaw`/`k_yaw_prog` 1.0->3.0) FAIL-INFORMATIVE
-— tripling yaw income made tracking WORSE, not better (eval_yaw turn
-err 0.140->0.208), while training reward more than doubled (240->564/
-quarter) with both yaw reward terms pegged near their kernel ceilings
-— pure reward-farming on a now-larger, still-saturated kernel, not
-real tracking improvement (a sharper 08-21 misalignment than the 1x
-run, not a fix for it). Translation/gait fully unaffected (same
-termination counts, walk_speed/height_err/direction_valid unchanged)
-so this is a clean isolated result, not a destabilization confound.
-CONCLUSION: yaw income MAGNITUDE is refuted as the bottleneck for
-this recipe — do not spend more budget on yaw-pricing-dose sweeps.
-The remaining lever is STRUCTURAL: a mirror-symmetry regularizer
-during training (distinct from the joystick track's existing
-inference-time `mirror.MirrorPolicy` reflection trick in
-`probe_mirror_turn.py`, which steers by selecting naked-vs-reflected
-policy rollouts post-hoc rather than training symmetry in) or a
-turn-specific gait-phase term/observation — genuinely unbuilt, a
-cycle-sized code task, not queued blind this cycle. The init question
-(can BC ever teach turning) is answered YES; the open question is now
-purely reward-shape/structural, not initialization.
+Given the corrected PASS baseline, the same-cycle repricing follow-up
+below reads even more sharply: `cw-amp-m2-turnclone-yawcmd-tip50-
+yawprice3x` (single lever, `k_walk_yaw`/`k_yaw_prog` 1.0->3.0 from
+the NOW-PASSING tip50 checkpoint) took a PASSING arm and made it FAIL
+its own inherited gate — tip-left/right err rose to 0.2018/0.2642
+(was 0.1601/0.1346), both now over the 0.20 bar, while training
+reward more than doubled (240->564/quarter) with both yaw reward
+terms pegged near their kernel ceilings — pure reward-farming on a
+larger, still-saturated kernel, not real tracking improvement (an
+08-21-style misalignment). Translation/gait fully unaffected (same
+termination counts, walk_speed/height_err/direction_valid unchanged),
+so this is a clean isolated regression, not a destabilization
+confound. CONCLUSION UNCHANGED: yaw income MAGNITUDE is refuted as a
+useful lever on this recipe (it actively hurts) — do not spend more
+budget on yaw-pricing-dose sweeps, and do NOT ship the yawprice3x
+checkpoint (it is strictly worse than tip50 on the very axis it was
+meant to improve). The `cw-amp-m2-turnclone-yawcmd0` zero-dose control
+LAUNCH_CRASHED (stale `--obs-pad-transplant 1` from the pre-clone
+parent chain vs the already-75-dim clone checkpoint) — corrected
+respecs (`-r2`, then `-acq1-r2`) already relaunched by a concurrent
+cycle. With tip50/tip90 both PASS and the pricing lever refuted, the
+M2-turn milestone's remaining open item is STRUCTURAL if further
+polish is wanted (a training-time mirror-symmetry regularizer,
+distinct from the joystick track's existing inference-time
+`mirror.MirrorPolicy` reflection trick in `probe_mirror_turn.py`
+which steers by selecting naked-vs-reflected rollouts post-hoc rather
+than training symmetry in) — genuinely unbuilt, a cycle-sized code
+task, not queued blind. The init question (can BC ever teach turning)
+is answered YES and the turn-in-place gate itself is now CLOSED.
+
+<details><summary>Superseded entry (wrong PASS/FAIL letter grade, kept for audit)</summary>
+
+08-23 ~00:1x — BC-TURN-CLONE CONFIRMED REAL BUT PRICING-LIMITED:
+`cw-amp-m2-turnclone-yawcmd-tip50` VERDICTED INFORMATIVE (WRONG —
+see correction above, this was actually PASS). The turn-clone init
+(TripodGait's native omega channel demonstrated for the first time)
+genuinely closes the motor-pattern discovery gap that made every
+prior yawcmd/tip arm park (err == |wz_ref| exactly): eval_yaw on this
+checkpoint reads turn |wz_err| med 0.140 vs the old park fingerprint's
+0.28-0.33 — real, command-signed rotation at roughly half the
+commanded magnitude, not a frozen statue. The RAW untrained clone
+itself already scored 0.1035 before any RL, so 2M steps of RL under
+the unchanged tip50 pricing recipe made yaw tracking WORSE (0.10->
+0.14) while training reward rose 57->248/quarter. Translation fully
+intact (gait_valid 12/12 det+sto, 0 falls, prog/slip in the usual
+yawcmd band).
+
+</details>
 
 Previous entry (08-22 ~20:0x, **FAULT INJECTION BUILT + TESTED** (M0
 checklist "fault injection works"; M4 prerequisite; last
