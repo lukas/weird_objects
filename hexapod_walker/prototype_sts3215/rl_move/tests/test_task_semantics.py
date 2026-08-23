@@ -6504,3 +6504,113 @@ def test_walkcurr_chargeramp_min_shuffle_not_profitable(
         f"shuffle competitive with walking at ramp minimum: {r}")
     assert r["shuffle"] < 50.0, (
         f"shuffle is a strongly positive-income rest point: {r}")
+
+
+# ---------------------------------------------------------------------------
+# WALKCURR rung-1 DISCOVERY-FIX bank, part 3 (cycle 2026-08-23,
+# following the fwd4-logstd0/fwd4-entboost double-FAIL — wider initial
+# action noise and 10x entropy coefficient both left
+# env/walk_freeprog_score flat/negative too, closing the exploration-
+# noise-scale hypothesis). The untried lever the walkcurr/STATUS.md
+# "Next" section names: reward.walk_loadslip_bootstrap_steps
+# (walk_task.py) softens ONLY k_loadslip_excess for an early bootstrap
+# window, annealing back UP to the full bank-proven dose — the exact
+# OPPOSITE combination from the already-rejected chargeramp-min design
+# (which loosened the OTHER three charges while keeping loadslip full).
+# This bank proves the ranking survives with loadslip alone held at
+# the bootstrap's own minimum (the point that matters for early
+# exploration) while the three discovery-friction charges stay at
+# their FULL v2e dose — the least-favorable single-lever combination
+# for this specific charge, since nothing else is helping suppress
+# skating either. FIRST FLOOR REJECTED (bank finding, this cycle):
+# 0.40 (reusing the walk-charge-ramp's own validated floor) lets
+# 'sideways' (-231) out-earn 'park' (-352) — a genuine ranking
+# reversal, unlike the ramp's own 0.15/0.40 story, because nothing
+# else is loosened alongside it here. A 0.5-0.8 sweep found 0.65 the
+# lowest floor that keeps park/stall strictly above every wrong-way
+# gait (margin ~37 at 0.65) while still cutting the skate charge by
+# ~30% (full-dose skate -1339 -> -940 at 0.65) relative to full dose.
+_LS_MIN_FRAC = 0.65
+WALKCURR_PF_LOADSLIP_BOOTSTRAP_MIN_OVERRIDES = dict(WALKCURR_PF_OVERRIDES)
+WALKCURR_PF_LOADSLIP_BOOTSTRAP_MIN_OVERRIDES[("reward", "k_loadslip_excess")] = (
+    WALKCURR_PF_OVERRIDES[("reward", "k_loadslip_excess")] * _LS_MIN_FRAC)
+
+
+@pytest.fixture(scope="module")
+def walkcurr_pf_loadslip_bootstrap_min_returns() -> dict[str, float]:
+    """Mean return per scripted behavior with k_loadslip_excess alone
+    held at the bootstrap's minimum fraction (frac=0 equivalent; the
+    three discovery-friction charges stay at their full v2e dose) —
+    the weakest anti-skate point the bootstrap ever visits."""
+    plan = {
+        "fast": ("gait", 2.0),
+        "gait": ("gait", 1.0),
+        "creep": ("gait", 0.5),
+        "park": ("park", 1.0),
+        "stall": ("stall", 1.0),
+        "reverse": ("reverse", 1.0),
+        "sideways": ("sideways", 1.0),
+        "skate": ("skate", 1.0),
+        "topple": ("topple", 1.0),
+        "shuffle": ("shuffle", 1.0),
+    }
+    out = {}
+    for name, (pol, scale) in plan.items():
+        runs = [_slipwalk_rollout(
+            pol, s, gait_scale=scale,
+            overrides=WALKCURR_PF_LOADSLIP_BOOTSTRAP_MIN_OVERRIDES)
+                for s in SEEDS]
+        out[name] = float(np.mean([r[0] for r in runs]))
+        out[name + "_dx"] = float(np.mean([r[1] for r in runs]))
+        out[name + "_steps"] = float(np.mean([r[2] for r in runs]))
+    return out
+
+
+def test_walkcurr_loadslip_bootstrap_min_ranking_holds(
+        walkcurr_pf_loadslip_bootstrap_min_returns):
+    """The operator's required ranking (walking > park/stall >
+    reverse/sideways > skate/topple) must survive even at the
+    bootstrap's loosest point — a weaker margin than full dose is
+    fine, a REVERSAL is not: it would mean the bootstrap opens a
+    skate income window during exactly the steps PPO explores most."""
+    r = walkcurr_pf_loadslip_bootstrap_min_returns
+    for still in ("park", "stall"):
+        assert r["gait"] > r[still], (
+            f"stationary '{still}' beats walking at bootstrap minimum: {r}")
+    floor = min(r["park"], r["stall"])
+    for wrong in ("reverse", "sideways"):
+        assert floor > r[wrong], (
+            f"wrong-way '{wrong}' beats standing at bootstrap minimum: {r}")
+    tier3 = min(r[k] for k in ("gait", "creep", "park", "stall",
+                               "reverse", "sideways"))
+    for worst in ("skate", "topple"):
+        assert r[worst] < tier3, (
+            f"'{worst}' is not the floor at bootstrap minimum: {r}")
+    assert r["topple_steps"] < 75, "topple twin did not die fast"
+
+
+def test_walkcurr_loadslip_bootstrap_min_shuffle_not_profitable(
+        walkcurr_pf_loadslip_bootstrap_min_returns):
+    """Loosening k_loadslip_excess alone must not resurrect the
+    swing-farming shuffle attack as a positive-income (or walking-
+    competitive) rest point at the exact point where PPO explores
+    hardest."""
+    r = walkcurr_pf_loadslip_bootstrap_min_returns
+    assert r["gait"] > r["shuffle"] + 150.0, (
+        f"shuffle competitive with walking at bootstrap minimum: {r}")
+    assert r["shuffle"] < 50.0, (
+        f"shuffle is a strongly positive-income rest point: {r}")
+
+
+def test_walkcurr_loadslip_bootstrap_min_shrinks_the_skate_penalty(
+        walkcurr_pf_returns, walkcurr_pf_loadslip_bootstrap_min_returns):
+    """The point of the lever: at the bootstrap's minimum, skating
+    should cost noticeably less than the full-dose v2e reading, or
+    the lever is a no-op relabeling. It must still stay below the
+    tier-3 floor (checked above) — this only asserts the charge
+    actually loosened."""
+    full = walkcurr_pf_returns["skate"]
+    boot = walkcurr_pf_loadslip_bootstrap_min_returns["skate"]
+    assert boot > full + 20.0, (
+        f"skate return did not move at bootstrap minimum: full={full} "
+        f"boot={boot}")

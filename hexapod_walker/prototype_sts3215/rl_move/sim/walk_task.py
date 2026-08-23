@@ -1029,6 +1029,58 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 "steps": _wc_ramp_steps, "min_frac": _wc_min,
                 "frac": 1.0,
             }
+        # Loaded-slip-excess BOOTSTRAP (08-23, walkcurr fwd4 dig-in
+        # follow-up): fwd1-fwd4 (four straight rung-1 arms — plain,
+        # swing-income x2, charge-ramp, wider-init-noise x2) all froze
+        # into a static splayed crouch with env/walk_freeprog_score
+        # flat/negative for the full 2M budget; the walk-charge ramp
+        # deliberately EXCLUDED k_loadslip_excess (bank finding: ramping
+        # it down TOGETHER with the other three charges at their shared
+        # min_frac=0.15 made 'skate'/'shuffle' beat every honest
+        # standing/wrong-way behavior). This is a SEPARATE, narrower
+        # lever: soften ONLY k_loadslip_excess, ONLY for a short early
+        # bootstrap window, ANNEALING BACK UP to the full bank-proven
+        # dose — distinct from the rejected permanent-low-floor design.
+        # Same cfg-armed / trainer-driven / default-OFF contract as the
+        # three ramps above (bit-exact when reward.
+        # walk_loadslip_bootstrap_steps is 0/absent). Re-proven at ITS
+        # OWN schedule against the WALKCURR_PF bank held at the
+        # bootstrap's min_frac (loadslip alone loosened, the other three
+        # discovery-friction charges at full dose — the opposite
+        # combination from the rejected chargeramp-min design) — see
+        # test_task_semantics.py WALKCURR_PF_LOADSLIP_BOOTSTRAP_MIN_OVERRIDES.
+        # cfg: reward.walk_loadslip_bootstrap_steps (int, 0=off),
+        # reward.walk_loadslip_bootstrap_min_frac (float in [0,1],
+        # default 0.65 — MEASURED separately from the walk-charge
+        # ramp's 0.40 floor: this charge, held alone at 0.40 while the
+        # other three discovery-friction charges stay at FULL dose
+        # (the least-favorable single-lever combination), lets
+        # 'sideways' (-231) out-earn 'park' (-352) — a ranking
+        # violation the bank catches
+        # (test_walkcurr_loadslip_bootstrap_min_ranking_holds); 0.65
+        # is the lowest floor in a 0.5-0.8 sweep that keeps
+        # park/stall strictly above every wrong-way gait (margin
+        # ~37) while still cutting the skate penalty by ~30% (-1339
+        # -> -940) relative to full dose — see test_task_semantics.py
+        # WALKCURR_PF_LOADSLIP_BOOTSTRAP_MIN_OVERRIDES.
+        self._ls_bootstrap: dict | None = None
+        self._ls_bootstrap_override: float | None = None
+        _lsb_steps = int(float(cfg_get(
+            self.cfg, "reward", "walk_loadslip_bootstrap_steps",
+            default=0) or 0))
+        if _lsb_steps > 0:
+            _lsb_min = float(cfg_get(
+                self.cfg, "reward", "walk_loadslip_bootstrap_min_frac",
+                default=0.65))
+            if not 0.0 <= _lsb_min <= 1.0:
+                raise ValueError(
+                    "reward.walk_loadslip_bootstrap_min_frac "
+                    f"({_lsb_min:g}) must be in [0, 1] — the bootstrap "
+                    "only ever anneals k_loadslip_excess UP to the "
+                    "bank-proven full dose")
+            self._ls_bootstrap = {
+                "steps": _lsb_steps, "min_frac": _lsb_min, "frac": 1.0,
+            }
         # All-support-legs gait gate bookkeeping (08-13, quad track,
         # reward.walk_gait_gate): per-leg COMMANDED-tick index of the
         # last completed real swing (liftoff -> >=2 ticks airborne ->
@@ -1761,6 +1813,33 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         bank-proven dose) unless the trainer has broadcast a ramp
         frac."""
         ov = self._walk_charge_override
+        return 1.0 if ov is None else ov
+
+    def apply_loadslip_bootstrap_frac(self, frac: float) -> dict:
+        """Move the live k_loadslip_excess scale to ``frac`` of the
+        bootstrap (0 = walk_loadslip_bootstrap_min_frac of the
+        bank-proven charge, 1 = full dose); trainer-driven — see the
+        ``reward.walk_loadslip_bootstrap_steps`` block in ``__init__``.
+        Mirrors ``apply_walk_charge_frac``'s contract exactly: raises
+        when the bootstrap is not armed, so a broadcast that silently
+        no-ops is never a hidden failure mode."""
+        if self._ls_bootstrap is None:
+            raise RuntimeError(
+                "apply_loadslip_bootstrap_frac called but reward."
+                "walk_loadslip_bootstrap_steps is not set (>0) in "
+                "this env's cfg — the loadslip bootstrap is not armed")
+        f = min(max(float(frac), 0.0), 1.0)
+        m = self._ls_bootstrap["min_frac"]
+        self._ls_bootstrap_override = m + f * (1.0 - m)
+        self._ls_bootstrap["frac"] = f
+        return {"frac": f, "excess_scale": self._ls_bootstrap_override}
+
+    def _loadslip_excess_scale(self) -> float:
+        """Live scale on k_loadslip_excess (see the loadslip-bootstrap
+        block in ``__init__``): 1.0 (bit-exact legacy / full
+        bank-proven dose) unless the trainer has broadcast a bootstrap
+        frac."""
+        ov = self._ls_bootstrap_override
         return 1.0 if ov is None else ov
 
     def walkcurr_checkpoint_state(self) -> dict:
@@ -3673,6 +3752,12 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 k_lse = float(cfg_get(self.cfg, "reward",
                                       "k_loadslip_excess",
                                       default=0.0))
+                # walkcurr loadslip-BOOTSTRAP (08-23, fwd4 dig-in
+                # follow-up; see the __init__ block + apply_loadslip_
+                # bootstrap_frac): scales this charge only, only while
+                # reward.walk_loadslip_bootstrap_steps is armed; 1.0
+                # (no-op, bit-exact) otherwise.
+                k_lse *= self._loadslip_excess_scale()
                 if k_lse > 0.0:
                     r_lse = -k_lse * max(ratio - ls_ok, 0.0) * self.dt
                     reward += r_lse

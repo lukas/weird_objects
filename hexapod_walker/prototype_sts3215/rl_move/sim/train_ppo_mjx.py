@@ -2488,6 +2488,40 @@ def main(argv: list[str] | None = None) -> int:
                   f"walk_charge_ramp_steps ({_wc_ramp_steps:,}) >= "
                   f"--steps ({args.steps:,}) — the policy will NEVER "
                   "train at the bank-proven full charges in this run")
+
+    # Loaded-slip-excess BOOTSTRAP (08-23, walkcurr fwd4 dig-in
+    # follow-up — see walk_task.py's __init__ block for the mechanism).
+    # Same cfg-armed / trainer-driven / default-OFF contract as the
+    # three ramps above; a SEPARATE, narrower lever from the walk-charge
+    # ramp (which deliberately excludes this exact charge).
+    _lsb_steps = 0
+    if env_kw.get("cfg") is not None:
+        from rl_move.config import cfg_get as _cfg_get_lsb
+        _lsb_steps = int(float(_cfg_get_lsb(
+            env_kw["cfg"], "reward", "walk_loadslip_bootstrap_steps",
+            default=0) or 0))
+
+    def _ls_bootstrap_frac_at(step: int) -> float:
+        return min(1.0, float(step) / float(_lsb_steps))
+
+    def _ls_bootstrap_apply(target_venv, step: int) -> dict | None:
+        if _lsb_steps <= 0:
+            return None
+        f = _ls_bootstrap_frac_at(step)
+        return target_venv.env_method("apply_loadslip_bootstrap_frac",
+                                       f)[0]
+
+    if _lsb_steps > 0:
+        _lsb0 = _ls_bootstrap_apply(venv, 0)
+        print(f"[loadslip-bootstrap] armed: {_lsb_steps:,} global env "
+              "steps from a softened k_loadslip_excess to the "
+              f"bank-proven full dose; step-0 excess_scale="
+              f"{_lsb0['excess_scale']:.3f}")
+        if _lsb_steps >= args.steps:
+            print("[loadslip-bootstrap] WARNING: "
+                  f"walk_loadslip_bootstrap_steps ({_lsb_steps:,}) >= "
+                  f"--steps ({args.steps:,}) — the policy will NEVER "
+                  "train at the full anti-skate charge in this run")
     if args.predictive_live:
         capture_indices = list(range(args.pred_capture_envs))
         venv.env_method("dynrep_capture_enable", True,
@@ -3467,6 +3501,37 @@ def main(argv: list[str] | None = None) -> int:
                             vals["charge_scale"]})
 
         callbacks.append(_WalkChargeRampCb())
+    if _lsb_steps > 0:
+        class _LoadslipBootstrapCb(BaseCallback):
+            """Advance the loadslip-excess bootstrap once per rollout
+            (see the arming block after venv construction). W&B gets
+            the live scale under loadslip_bootstrap/*."""
+
+            def __init__(self):
+                super().__init__()
+                self._finished = False
+
+            def _on_step(self) -> bool:
+                return True
+
+            def _on_rollout_end(self) -> None:
+                if self._finished:
+                    return
+                vals = _ls_bootstrap_apply(venv, self.num_timesteps)
+                if vals["frac"] >= 1.0:
+                    self._finished = True
+                    print("[loadslip-bootstrap] complete @ "
+                          f"{self.num_timesteps:,} steps — training "
+                          "at the full anti-skate charge from here on")
+                if run is not None:
+                    import wandb
+                    wandb.log({
+                        "global_step": self.num_timesteps,
+                        "loadslip_bootstrap/frac": vals["frac"],
+                        "loadslip_bootstrap/excess_scale":
+                            vals["excess_scale"]})
+
+        callbacks.append(_LoadslipBootstrapCb())
     if args.ent_coef_final is not None:
         class _EntCoefAnnealCb(BaseCallback):
             """Linearly anneal model.ent_coef from args.ent_coef to
