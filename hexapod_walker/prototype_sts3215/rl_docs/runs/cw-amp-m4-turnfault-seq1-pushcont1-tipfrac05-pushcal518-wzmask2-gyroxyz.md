@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: KILLED
+**status**: INFORMATIVE
 
 **created**: 2026-08-23T16:35:12+00:00
 
@@ -18,5 +18,5 @@
 
 **gate**: eval_amp_m5 full suite + weight-movement precheck vs turnfault_seq1 + discriminator health (d_real/d_fake separated, not collapsed). PASS = tip improvement >=0.03 on the worse side AND >=1 tip <=0.20 AND walk det_slip_med within +-0.15 of 3.67 AND 0 falls AND fault gait_valid>=10. PARTIAL = tips improve >=0.03 but slip outside +-0.15 (noamp1 trade reproduced -> lever closed, no continuation). FAIL = tips within +-0.03 of parent 0.2157/0.2351 -> gyro-channel hypothesis CLOSED; no further mask arms; yaw fork moves to stance-geometry/turn-curriculum or the 0.20-bar amendment. Falls/fault regression overrides to FAIL.
 
-**verdict**: KILLED as an exact duplicate, not a result: a concurrent cycle launched the same pre-registered wzmask1 FAIL-branch follow-up (-wzmask2, train-0, 16:33:24Z) two minutes before this launch (16:35:12Z) -- same seed 7, same --amp-style-mask-dims=36,37,38, same parent recipe, so the two runs would produce byte-identical trajectories and zero extra information. Killed within minutes of launch to free train-1. The scientific question (full-gyro discriminator mask) lives in -wzmask2.
+**verdict**: This run was recorded as a launch-race duplicate and killed — but the kill never took effect: the trainer ran to its full 2M budget (W&B gsss1sqt state=finished, 2,031,616 steps), and far from producing the byte-identical trajectory the kill verdict assumed, GPU non-determinism diverged it from its identical-config twin -wzmask2 (final ep_rew 262.4 vs 233.7). Its m5 read is the best yaw result ever measured in this family: tips 0.174/0.202 (parent 0.2157/0.2351; the 11-read family floor was 0.198), turn_err_med 0.154, 0 falls, 0 terms, walk gait_valid 12/12, det slip 3.83 (unmoved under the <0.3 sampling caveat), video-clean six-leg gait. It cannot be promoted as a gyro-mask effect: its identical twin read 0.239/0.2371, so this is one draw from a recipe whose replicate spread (0.065 on tip_left) exceeds every tip gate band used this campaign. Value delivered: (1) second replicate establishing the tip noise-floor finding; (2) checkpoint retained append-only as the family's yaw-best artifact — if the 3-seed decider grid (launching now) confirms the mask lever, this checkpoint is the promotion candidate; if not, it is a documented tail draw. OPS DEFECT: a kill was recorded in the ledger while the trainer kept running to completion on train-1 — kill paths must verify by process death + W&B state, not command exit; flagged in amp STATUS.
 

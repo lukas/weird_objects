@@ -47,6 +47,47 @@ validity, on video. Speed obedience is secondary throughout.
   tilt terms), cmd_prog_frac >= 0.35, direction_err <= 30 deg,
   slip/m <= 3.0, six legs cycling on >=4/6 episodes, video shows real
   stepping.
+  **FINISHED 08-23 ~16:5x, eval run (podeval) but UNVERDICTED —
+  flagging DIG-IN, not triaging blind.** W&B reward is not flat, it is
+  actively COLLAPSING across training: quarter means -100 / -541 /
+  -1169 / -1988 (ep_rew_mean final -2494), monotonically worse every
+  quarter, full 2M budget, fps healthy (~11.9k), no crash. Own-cfg DR-0
+  gate (`logs/ckpt_eval/cw_walkcurr_pf_fwd1_gate/`): det prog_frac
+  ~0.00 / slip 10.36 / fwd 0.01m on ALL 6 episodes (identical numbers
+  every episode -> looks like a fixed-point, not noise); sto prog
+  ~0.00, slip 37-42 (one TERM tilt_pitch). Video (det + sto contact
+  sheets, watched): the robot does NOT attempt to walk at all — it
+  settles into a static crouched/splayed pose with the two front legs
+  raised together and stays there the whole 25s episode (feet grind
+  in place = the >10x-over-cap slip reading, not real stepping). Gate
+  fails on every axis (prog 0.00 vs >=0.35, slip 10-42 vs <=3.0, zero
+  real stepping) — this is a clean, unambiguous FAIL by the numbers,
+  but the run decides the track's very first fork (is the v2e pricing
+  actually PPO-exploration-safe, not just bank-ranking-safe? see next
+  para) so it is being left for a dig-in cycle per the model-tiering
+  rule rather than triaged and relaunched blind.
+  **Working theory (not yet confirmed — dig-in should verify before
+  any relaunch):** `reward.term_penalty=1200` is large relative to
+  every other term in the v2e stack (gait +346 lifetime per the bank's
+  own scripted-trajectory ranking); a from-scratch policy that has not
+  yet discovered ANY stepping motion may find it cheaper to freeze
+  into a fall-proof static pose (paying only `k_park_duty`/
+  `k_walk_idle_charge`, both smaller and BOUNDED) than to explore
+  stepping motions that risk the 1200 catastrophe before it has any
+  gait to fall back on — an exploration/chicken-egg failure mode the
+  WALKCURR_PF bank cannot see (it only ranks pre-built scripted
+  trajectories against each other, never asks whether PPO can find
+  the walking trajectory from random-init exploration at all). If
+  confirmed, candidate fixes: a lower discovery-phase term_penalty
+  with a curriculum step-up once stepping is discovered, an explicit
+  step-event/exploration bonus active from step 0, or a few-thousand-
+  step BC/kickstart into ANY forward stepping before switching to pure
+  RL — needs the dig-in's judgment, not a same-recipe relaunch.
+  Evidence: `logs/ckpt_eval/cw_walkcurr_pf_fwd1_gate/{report.json,
+  contact_sheet.png,walk_det_*.mp4}`, W&B `fmbwu9p1`. Per the track's
+  own binding triage rule this is exactly "reward falling + walk eval
+  failing" -> no same-recipe seed sweep until the mechanism is
+  audited.
 
 ## Next
 
