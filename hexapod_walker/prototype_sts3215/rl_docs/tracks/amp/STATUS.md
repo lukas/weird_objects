@@ -1171,8 +1171,22 @@ Build every tool this needs; do not pause on operator input.
   2M, DR-0) — decides whether the single-push acquisition champion's
   recovery skill generalizes to a second/third shove in the same
   episode, or needs its own acquisition budget.
-- M4 fault adaptation: NOT STARTED
-- M5 MuJoCo transfer (= DONE gate): NOT STARTED
+- M4 fault adaptation: IN PROGRESS (fault injection built+trained;
+  faultobs1/2 sighted-vs-blind line — see Now banners)
+- M5 MuJoCo transfer (= DONE gate): **SUITE BUILT 08-23**
+  (`rl_move/sim/eval_amp_m5.py`, amp-m5-v1: ONE plain-MuJoCo
+  invocation composing walk/yaw/push/fault sections with
+  pre-registered bars from the M2/M3/M4 lineage gates —
+  q_20260823T0130Z records the assumed bars + one-checkpoint
+  semantics; the trainer is MJX/Warp so every section IS the
+  cross-engine replay the milestone demands). First baseline read on
+  the M2-yaw champion `yawcmd0-r2` (det-only v1 pass): walk PASS
+  (0 terms, prog 1.11, slip 2.03), yaw PASS (tips 0.15/0.16), push
+  PASS at base 10-25N dose (2/6 det topples, bar <=2 — zero push
+  training!), fault FAIL (leg-4 sacrificed, prog med 0.57) —
+  m5_pass=false; the measured consolidation gap is FAULT (and push
+  margins at hardened doses). det+sto 15s re-run in flight;
+  artifacts `logs/ckpt_eval/cw_amp_m2_turnclone_yawcmd0_r2_m5/`.
 
 ## Now
 

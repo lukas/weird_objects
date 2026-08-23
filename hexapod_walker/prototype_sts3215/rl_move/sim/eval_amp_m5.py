@@ -56,12 +56,14 @@ def _run(cmd: list[str]) -> int:
 
 
 def _eval_ckpt(ckpt: str, out: Path, cfg_sets: list[str], per_mode: int,
-               seed: int, extra_cfg: list[str]) -> dict | None:
+               seed: int, extra_cfg: list[str],
+               episode_seconds: float = 15.0) -> dict | None:
     out.mkdir(parents=True, exist_ok=True)
     cmd = [sys.executable, "-m", "rl_move.sim.eval_checkpoint", ckpt,
            "--task", "joint_walk", "--modes", "walk",
            "--per-mode", str(per_mode), "--dr-scale", "0",
            "--seed", str(seed), "--video-every", "1",
+           "--stochastic", "--episode-seconds", str(episode_seconds),
            "--out", str(out)]
     for c in cfg_sets + extra_cfg:
         cmd += ["--cfg-set", c]
@@ -99,6 +101,7 @@ def main() -> int:
     ap.add_argument("--cfg-set", action="append", default=[],
                     help="the checkpoint's OWN training cfg (obs contract)")
     ap.add_argument("--per-mode", type=int, default=6)
+    ap.add_argument("--episode-seconds", type=float, default=15.0)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--speed", type=float, default=0.08,
                     help="eval_yaw commanded translation speed")
@@ -116,7 +119,8 @@ def main() -> int:
     # -- walk (command response + recognizable gait) ----------------------
     if "walk" not in skip:
         rep = _eval_ckpt(args.checkpoint, out / "walk", args.cfg_set,
-                         args.per_mode, args.seed, [])
+                         args.per_mode, args.seed, [],
+                         episode_seconds=args.episode_seconds)
         if rep is None:
             verdict["sections"]["walk"] = {"pass": False, "error": "harness failed"}
         else:
@@ -161,7 +165,8 @@ def main() -> int:
     # -- push recovery ------------------------------------------------------
     if "push" not in skip:
         rep = _eval_ckpt(args.checkpoint, out / "push", args.cfg_set,
-                         args.per_mode, args.seed, ["dr.ext_push_prob=1.0"])
+                         args.per_mode, args.seed, ["dr.ext_push_prob=1.0"],
+                         episode_seconds=args.episode_seconds)
         if rep is None:
             verdict["sections"]["push"] = {"pass": False, "error": "harness failed"}
         else:
@@ -175,7 +180,8 @@ def main() -> int:
     # -- fault adaptation ---------------------------------------------------
     if "fault" not in skip:
         rep = _eval_ckpt(args.checkpoint, out / "fault", args.cfg_set,
-                         args.per_mode, args.seed, ["dr.fault_prob=1.0"])
+                         args.per_mode, args.seed, ["dr.fault_prob=1.0"],
+                         episode_seconds=args.episode_seconds)
         if rep is None:
             verdict["sections"]["fault"] = {"pass": False, "error": "harness failed"}
         else:
