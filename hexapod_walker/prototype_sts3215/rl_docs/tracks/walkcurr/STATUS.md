@@ -41,43 +41,79 @@ validity, on video. Speed obedience is secondary throughout.
 
 ## Now
 
-- **`cw-walkcurr-pf-fwd3-chargeramp` RUNNING (train-0, 2M discovery,
-  launched ~18:2x):** the dense-charge ramp fix. fwd2 batch verdicted
-  FAIL (double-triaged, verdicts agree): swing income was REACHABLE
-  (0.065-0.089/step from step 0) but flat — +1/swing is ~60x below
-  the -4.7/step charge flow, and the bank caps the dose at k<~1.7;
-  term 1200->800 changed nothing (byte-similar freeze). Blocker =
-  the dense charge flow itself. New mechanism
-  `reward.walk_charge_ramp_steps` (+`_min_frac`, default 0.40) scales
-  loadslip/park/idle/heading charges 40%->100% over 1M steps
-  (term/drag-ramp contract mirror: default OFF bit-exact, eval judges
-  full pricing; `test_walk_charge_ramp.py` 6/6). Floor bank (a
-  concurrent cycle's `test_walkcurr_chargeramp_min_*` layer) MEASURED
-  0.15 inverted the ranking (skate +131 > sideways, shuffle +228
-  rest point) -> floor raised to 0.40, re-measured 3/3 green: full
-  ranking + monotone positive ladder gait 439.7 > creep 327.7 >
-  stall 230.1 > park 98.5 > shuffle 27.6 > sideways -142 > reverse
-  -219 > skate -302 > topple -1164. No swing bonus (measured inert).
-  Snapshot `exp/walkcurr-fwd3-chargeramp`.
-  NOTE for the fwd2 dig-in loglines that named "init/BC-kickstart"
-  as next: BC-kickstart contradicts the track charter (prior-free —
-  no BC teacher, no motion prior); the charge ramp is the
-  charter-compliant fix and is now in flight. If fwd3 freezes even
-  at 40% charges, the next fork is init/noise (log_std) or a rung-0
-  curriculum, still prior-free.
+- **`cw-walkcurr-pf-fwd3-chargeramp` FAIL (verdicted 08-23 ~18:3x):**
+  the dense-charge ramp fix did NOT unfreeze discovery either — gate
+  eval 0/6 walk success (det+sto), prog_ratio ~0.00, speed
+  0.003-0.034 m/s vs 0.05-0.06 cmd, slip/m 10.4-39.2 (gate <=3.0),
+  contact sheet static splayed stance across all 10 frames — same
+  pathology as fwd1/fwd2. `env/walk_freeprog_score` (see metric note
+  below) sat flat NEGATIVE (~-0.06..-0.10) the entire 2M steps, never
+  crossing zero. This is the THIRD independent reward-magnitude/
+  schedule fix (fwd2 swing income, fwd2 term-penalty cut, fwd3 charge
+  softening) refuted with the same frozen-video signature — the
+  blocker looks upstream of reward shape: random-init PPO rollouts
+  never visit a state with positive forward progress to reinforce, so
+  no reshaping of charges the policy never triggers can matter.
+  **METRIC DEFECT found (fwd3 triage):** the discovery-health litmus
+  this section's gate text has been citing, `env/reward_walk_prog`,
+  is a DEAD METRIC under this recipe — `walk_task.py` sets
+  `r_prog = 0.0` unconditionally whenever `k_walk_freeprog > 0`
+  (freeprog REPLACES it), so it reads exactly 0.0 regardless of
+  actual behavior on every fwd1/fwd2/fwd3 run. It happened to agree
+  with the true (video-confirmed) verdict every time so far, but is
+  not a valid go/no-go signal — **use `env/walk_freeprog_score`
+  (or `walk_freeprog_score` in eval reports) instead in all future
+  rung-1+ gate text.**
+  **UNTRIED lever surfaced:** `k_loadslip_excess` is EXCLUDED from
+  `walk_charge_ramp` entirely (always full dose — a pre-launch safety
+  fix after floor 0.15 inverted the skate/shuffle ranking at
+  convergence-level pricing). It is the exact charge fwd1's dig-in
+  named (the loadslip "travel-floor" that prices a tiny exploratory
+  step's slip/progress ratio harshly since progress is floored at
+  `loadslip_floor_m`=0.03 m) and no arm has yet tried softening it,
+  even as a short bootstrap window (distinct from a permanent low
+  floor, which the bank already rejected at convergence).
+  Snapshot `exp/walkcurr-fwd3-chargeramp` (unchanged, FAIL result
+  only).
+  **`cw-walkcurr-pf-fwd4-logstd0` / `-fwd4-entboost` LAUNCHING
+  (08-23 ~18:3x):** the pre-registered init/exploration fork, 2-arm
+  dose pair off the exact fwd3 recipe (charge ramp kept — it's
+  harmless and bank-proven safe, just not sufficient alone):
+  (a) `--log-std-init 0.0` (std 0.37->1.0, ~2.7x wider initial action
+  noise) to test whether the random-init rollout distribution simply
+  never samples a forward-progress trajectory at the current noise
+  scale; (b) `--ent-coef 0.01` (10x default 1e-3) to test whether
+  entropy collapses to the frozen/park optimum before progress-
+  bearing states are ever visited. Single-lever each, no reward-
+  mechanism change (no bank re-proof required). Prediction-if-true:
+  `walk_freeprog_score` leaves its flat ~-0.07 band and trends toward
+  0 within 2M. Prediction-if-false (both freeze identically): the
+  loadslip-bootstrap lever above becomes the next fork to build, or
+  the prior-free MLP recipe is refuted at this budget per the rule
+  below.
 
 ## Next
 
-- If fwd1 gates: rung 2 (small heading set) respec; consider `--gru
-  --gru-hidden-size 64` (in-repo recurrent path; the paper's LSTM(64)
-  trainer support died with the unpushed desktop clone) once commands
-  start changing mid-episode (rung 4), and a paper-pure
+- If fwd4 (either arm) gates or shows `walk_freeprog_score` trending
+  toward 0 (immature-but-real progress): continue/harden that arm;
+  rung 2 (small heading set) respec once a rung-1 pass lands. Consider
+  `--gru --gru-hidden-size 64` (in-repo recurrent path; the paper's
+  LSTM(64) trainer support died with the unpushed desktop clone) once
+  commands start changing mid-episode (rung 4), and a paper-pure
   proprioception-only obs A/B (`goal.walk_obs_body_vel=0.0`) once the
   policy is recurrent.
-- If fwd1 fails WITH aligned reward (bank green, reward and eval
-  agree, adequate budget): the prior-free MLP recipe is refuted at
-  this budget — escalate to a dig-in before any architecture/budget
-  escalation; do NOT seed-sweep.
+- If fwd4 also freezes identically: build the loadslip-bootstrap
+  mechanism (soften `k_loadslip_excess` only for an early window,
+  e.g. first 200-500k steps, distinct from — and re-proven against —
+  the WALKCURR_PF bank at its own schedule, since the rejected 0.15
+  floor was tested as a permanent-through-convergence value, not a
+  short bootstrap) before declaring the prior-free MLP recipe refuted
+  at this budget.
+- If fwd1-lineage fails WITH aligned reward across ALL of init/noise
+  + loadslip-bootstrap (bank green, reward and eval agree, adequate
+  budget): the prior-free MLP recipe is refuted at this budget —
+  escalate to a dig-in before any architecture/budget escalation; do
+  NOT seed-sweep further reward-magnitude variants.
 
 ## Key facts
 
