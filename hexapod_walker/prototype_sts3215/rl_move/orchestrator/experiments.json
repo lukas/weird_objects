@@ -141489,7 +141489,7 @@
       "goal.walk_turn_in_place_frac=0.2"
     ],
     "created": "2026-08-23T05:53:48+00:00",
-    "status": "RUNNING",
+    "status": "PASS-partial",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -141527,7 +141527,8 @@
         "log_tail": "ean 0.53745\nwandb:      amp/disc_updates 124\nwandb:                amp/gp 0.01187\nwandb:              amp/loss 0.32877\nwandb: amp/pairs_per_rollout 65312\nwandb:        amp/replay_len 500000\nwandb: amp/style_reward_mean 0.18466\nwandb:                  +104 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-amp-m4-turnfault-seq1-pushcont1-tipfrac02 at: https://wandb.ai/l2k2/hexapod-balance/runs/0sfjrlj0\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 3 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260823_055444-0sfjrlj0/logs\n"
       }
     ],
-    "triage": "in-cycle cw-amp-m4-turnfault-seq1-pushcont1-tipfrac02-cw-cpg-teacherf since 2026-08-23T06:10:47"
+    "triage": "done",
+    "verdict": "Turn practice works now that the robot actually knows how to turn: dedicating 20% of training episodes to whole-episode turn-in-place commands improved tip tracking over the no-practice parent (hazards-zeroed eval_yaw tip-left/right err 0.2068/0.2341 vs ypfix1's 0.2471/0.2553, falls 0) \u2014 the pre-registered IMPROVED branch: both tips inside 0.25 for the first time in the composed turn+push+fault regime, but tip-left misses the 0.20 clean bar by 0.007. This overturns the pre-clone tip50/tip90 'exposure does nothing' refutation exactly as hypothesized \u2014 exposure was useless only while turning was undiscoverable; post-BC-clone it shows a real monotonic dose-response (read-only peek at siblings: tipfrac03 0.2008/0.2135, tipfrac05 0.1620/0.1838 both under 0.20 \u2014 their verdicts belong to the concurrent cycle). Safety floors held: own-cfg DR-0 gait_valid 11/12 (>=9/12 floor), m5 walk section 12/12 gait_valid with 0 terms and slip 3.47 (best in lineage; parent had 2 det terms), push section PASS (1 det / 2 sto terms). Honest caveat: m5 fault section reads FAIL (3 terms vs bar 2) but its episode data is byte-identical to the passing push section \u2014 for permanent-hazard cfgs the m5 push and fault sections both run fault+push simultaneously (harness aliasing defect, flagged for a fix), and the one-termination delta vs parent is single-episode noise, not a fault-specific safety regression. Video: clean six-leg cycling, tip episodes visibly rotating in place with body level, no flag-leg/paddle pathology; low prog_ratio episodes on the DR-0 panel are the documented tip-command contamination, not collapse. Hardware-ready: no (tips still above 0.20 on this arm). Next: the M4 turn+push cell close-out rides on tipfrac05's verdict (concurrent cycle owns it); no follow-up funded on this lowest-dose arm."
   },
   {
     "run": "cw-kawawa2022-pf-flat1",
@@ -141875,7 +141876,7 @@
       "respec of cw-cpg-teacherfork-ab-cpgv1: Plain English: cpgv1's own 2M discovery run was still improving when it stopped (reward quarters 38.9/101.9/157.4/185.8, still rising at the end) and it landed WORSE-BUT-WALKING vs the scripted-teacher-library style05 champion (det progress_ratio med 0.99 vs 1.16, fwd dist med 0.59 vs 0.69m/15s; sto already matched/better). Per the 08-21 ruling (bad-but-improving eval + rising reward = continue, don't verdict a lineage dead), this single-lever continuation (--init-from-source, same reward/env/motion-lib, +6M steps, no other change) tests whether the CPG-motion-library gap closes with more budget or is a real ceiling of this exact clip set."
     ],
     "created": "2026-08-23T06:03:00+00:00",
-    "status": "RUNNING",
+    "status": "PASS",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -141922,7 +141923,8 @@
         ]
       }
     ],
-    "triage": "awaiting since 2026-08-23T06:15:52"
+    "triage": "done",
+    "verdict": "The CPG motion library's weak 2M showing was undertraining, not a defect of the clip set: with +6M more steps the same run now beats the scripted-teacher style05 champion's own numbers on the DR-0 gate. CLOSES-GAP band met decisively \u2014 det progress_ratio med 1.35 (gate >=1.10; parent-at-2M 0.99; style05 target 1.16) and fwd dist med 0.77m (gate >=0.65m; parent 0.59; style05 0.69), sto prog med 0.90 vs parent's 0.58, gait_valid 6/6 det+sto, zero terminations, video-reviewed frame strips clean (upright six-leg cycling, no flag legs/crouch/drag). Reward and eval rose together (quarters 123.8->243.8->271.3->302.5) \u2014 aligned, textbook 08-21 continuation payoff. Residual: sto slip med 3.57 is above the 1.4-2.9 teacher det band (improved vs the budget2 sibling's 4.14); det slip 2.49 is in-band. Next: the adoption A/B is NOT decided by this run alone \u2014 the matched control cw-cpg-teacherfork-ab-style05-budget2 (+6M on the style05 side) is still training; the joint read at matched 8M budget decides whether cpg_v1.npz becomes a first-class AMP style source alternative or teacher_v2 also moves up with budget."
   },
   {
     "run": "cw-cpg-teacherfork-ab-cpgv1-budget2",
@@ -142198,6 +142200,23 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:cpg PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-cpg-teacherfork-ab-style05-budget2 --steps 6000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_amp_m2_bcinit_sec5_style05.zip --episode-seconds 15 --no-canary --eval-every 1000000 --video-every 2000000 --n-envs 4096 --impl warp --host-workers 24 --seed 7 --ent-coef 0.001 --warm-log-std-override -2.0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set goal.walk_phase_obs=1 --cfg-set goal.walk_phase_hz=1.333333 --cfg-set goal.walk_obs_body_vel=2 --cfg-set goal.walk_heading_max_rad=0.0 --cfg-set goal.walk_speed_min_m_s=0.08 --cfg-set goal.walk_speed_max_m_s=0.08 --cfg-set goal.walk_cmd_mode=stress_mix --cfg-set goal.walk_cmd_resample_s=4.0 --cfg-set goal.walk_cmd_resample_jitter=0.5 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set bus.write_speed=1500 --cfg-set bus.write_acc=80 --cfg-set bus.servo_vel_max_counts_s=write_speed --cfg-set safety.max_delta_q_deg=5.0 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --cfg-set reward.term_penalty=400.0 --cfg-set reward.k_step_event=0.0 --cfg-set reward.k_park_duty=0.0 --cfg-set reward.k_walk_freeprog=0.0 --cfg-set reward.walk_loadslip_gate=0.0 --cfg-set reward.k_loadslip_excess=0.0 --cfg-set reward.walk_gait_gate=0.0 --cfg-set reward.k_walk_idle_charge=0.0 --cfg-set reward.k_drag_stance=0.0 --amp-motion-lib rl_move/sim/motion_library/teacher_v2.npz --amp-disc-steps 4 --amp-disc-batch 512 --amp-gp-weight 10.0 --amp-replay 500000 --amp-task-weight 0.5 --amp-style-weight 0.5 --out-name ppo_goal_cw_cpg_teacherfork_ab_style05_budget2 --notes 'respec of cw-amp-m2-bcinit-sec5-style05: Matched control for cpg/STATUS.md Next item 3'\"'\"'s second data point (see cw-cpg-teacherfork-ab-cpgv1-acq1b, a concurrent cycle'\"'\"'s +6M continuation of the CPG-library arm): the teacherfork-ab A/B compared cpgv1 vs style05 at 2M each and found cpgv1 WORSE-BUT-WALKING (progress_ratio 0.99 vs 1.16, fwd dist 0.59 vs 0.69m/15s). Continuing cpgv1 alone without also continuing its teacher_v2 twin the same extra budget would confound '\"'\"'CPG gap closes with budget'\"'\"' with '\"'\"'style05 also keeps improving'\"'\"' -- this run applies the IDENTICAL +6M single-lever continuation (--init-from-source, same reward/env/motion-lib=teacher_v2.npz, no other change) to style05 so both sides of the A/B are read at the same 8M total budget.' > /tmp/train_cw-cpg-teacherfork-ab-style05-budget2.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-cpg-teacherfork-ab-style05-budget2.log",
     "wandb_id": "bh6qze4z",
-    "verified": "2026-08-23T06:13:57+00:00"
+    "verified": "2026-08-23T06:13:57+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-23T06:19:21+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 307,
+        "cpu_centisec_deltas": [
+          0,
+          4
+        ],
+        "verdict": "SUSPECT",
+        "problems": [
+          "W&B global_step stalled at 5017600"
+        ]
+      }
+    ],
+    "triage": "awaiting since 2026-08-23T06:26:01"
   }
 ]

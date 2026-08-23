@@ -1,6 +1,37 @@
 # amp - AMP locomotion from scratch
 
-Last updated: 2026-08-23 ~05:4x (**`cw-amp-m4-turnfault-seq1-pushcont1-
+Last updated: 2026-08-23 ~06:2x (**`cw-amp-m4-turnfault-seq1-pushcont1-
+tipfrac02` VERDICTED PASS-partial: turn-in-place EXPOSURE is a live
+lever again post-BC-clone.** Lowest dose (frac 0.2) of the 3-arm
+tipfrac grid: hazards-zeroed eval_yaw tips 0.2068/0.2341, improved
+from ypfix1's 0.2471/0.2553 — pre-registered IMPROVED branch (both
+inside 0.25 for the first time in the composed turn+push+fault
+regime; tip-left misses the 0.20 clean bar by 0.007). Read-only peek
+at the siblings (verdicts owned by the concurrent cycle) shows a
+MONOTONIC dose-response: tipfrac03 0.2008/0.2135, tipfrac05
+0.1620/0.1838 — 05 under the 0.20 m5 bar on both tips, likely closes
+the M4 turn+push cell pending its own safety floors. This overturns
+the pre-clone tip50/tip90 "exposure does nothing" refutation exactly
+as the grid hypothesis predicted: exposure was useless only while
+turning was undiscoverable. Safety floors held on tipfrac02 (own-cfg
+gait_valid 11/12, m5 walk section 12/12 with 0 terms — best in
+lineage). ALSO: found + FIXED an `eval_amp_m5` harness defect the
+triage exposed — for permanent-hazard cfgs the push and fault
+sections both ran fault+push composed (byte-identical episode data
+judged against two different bars; tipfrac02's fault-section "FAIL"
+was this aliasing + one sto term of noise, not a regression).
+`eval_amp_m5.py` push/fault sections now force the OTHER hazard to
+0.0 (fix #3, same last-wins pattern as the 08-23 walk/yaw fixes);
+pre-fix push/fault sections of permanent-hazard runs are composed
+reads, not comparable to post-fix isolated ones (aliased original
+preserved at `..._tipfrac02_m5_aliased/`). Isolated per-mode-6
+re-read of tipfrac02 push/fault queued via `ops.sh m5eval`. No
+SKILLS row (no new bar cleared on this arm; grid close-out rides on
+tipfrac05's verdict). Evidence:
+`logs/ckpt_eval/cw_amp_m4_turnfault_seq1_pushcont1_tipfrac02_{gate,m5,m5_aliased}/`.
+Prior banner below.)
+
+Previous entry (2026-08-23 ~05:4x (**`cw-amp-m4-turnfault-seq1-pushcont1-
 ypfix1` VERDICTED PASS-partial: pricing helps, doesn't close the cell.**
 Single-lever respec of pushcont1 (banked overshoot-decay/avg_s keys ON,
 matched 2M, same pre-cheat turnfault-seq1 init): hand-run eval_yaw tips

@@ -26,11 +26,16 @@ Sections and bars (v1, recorded in OPERATOR_QUESTIONS.md; sources named):
   yaw    eval_yaw, own cfg: tip-left AND tip-right |wz_err| med <= 0.20,
          0 falls (turnclone lineage bar, 08-23). Skipped (marked
          not_capable, fails overall) if the cfg has no goal.walk_yaw_cmd=1.
-  push   walk section + dr.ext_push_prob=1.0 (base 10-25N single shove):
-         terminations <= 2/6 det and <= 3/6 sto, gait_valid >= 10/12
-         (M3 pushsmoke/pushhard bars).
+  push   walk section + dr.ext_push_prob=1.0 (base 10-25N single shove),
+         dr.fault_prob forced 0.0 (08-23 fix #3: isolate the axis; before
+         this, permanent-hazard checkpoints ran push+fault composed here
+         and the section was byte-identical to fault below — pre-fix
+         push/fault sections for such checkpoints are composed reads, not
+         comparable to post-fix isolated ones): terminations <= 2/6 det
+         and <= 3/6 sto, gait_valid >= 10/12 (M3 pushsmoke/pushhard bars).
   fault  walk section + dr.fault_prob=1.0 (one weak/frozen/disabled-leg
-         fault per episode): terminations <= 2/12, gait_valid >= 10/12,
+         fault per episode), dr.ext_push_prob forced 0.0 (same fix):
+         terminations <= 2/12, gait_valid >= 10/12,
          det forward_dist med >= 0.10 m (no statue; M4 faultobs2 bars).
 
 Usage (run on a pod; each section is a full harness eval with videos):
@@ -232,8 +237,19 @@ def main() -> int:
 
     # -- push recovery ------------------------------------------------------
     if "push" not in skip:
+        # Isolate the push axis (08-23 fix #3, same rationale as the walk/
+        # yaw section fixes above): a checkpoint with dr.fault_prob=1.0
+        # baked into its OWN cfg-sets otherwise runs this section with
+        # faults AND pushes on, making it byte-identical to the fault
+        # section below (observed: tipfrac02 push==fault episode data) and
+        # judging the same composed read against two different bars. The
+        # header always promised "walk section + dr.ext_push_prob=1.0",
+        # i.e. hazard-free base plus ONE hazard. Last-wins append; no-op
+        # for checkpoints that never baked fault_prob; obs width untouched
+        # (obs.fault_health, if present, stays).
         rep = _eval_ckpt(args.checkpoint, out / "push", args.cfg_set,
-                         args.per_mode, args.seed, ["dr.ext_push_prob=1.0"],
+                         args.per_mode, args.seed,
+                         ["dr.fault_prob=0.0", "dr.ext_push_prob=1.0"],
                          episode_seconds=args.episode_seconds)
         if rep is None:
             verdict["sections"]["push"] = {"pass": False, "error": "harness failed"}
@@ -247,8 +263,11 @@ def main() -> int:
 
     # -- fault adaptation ---------------------------------------------------
     if "fault" not in skip:
+        # Mirror of the push-section isolation above: zero pushes so this
+        # section reads the fault axis alone.
         rep = _eval_ckpt(args.checkpoint, out / "fault", args.cfg_set,
-                         args.per_mode, args.seed, ["dr.fault_prob=1.0"],
+                         args.per_mode, args.seed,
+                         ["dr.ext_push_prob=0.0", "dr.fault_prob=1.0"],
                          episode_seconds=args.episode_seconds)
         if rep is None:
             verdict["sections"]["fault"] = {"pass": False, "error": "harness failed"}
