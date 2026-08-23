@@ -1,6 +1,41 @@
 # amp - AMP locomotion from scratch
 
-Last updated: 2026-08-23 ~02:2x (**M2+M3 TURN+PUSH COMPOSITION CLOSES
+Last updated: 2026-08-23 ~02:3x (**THREE READOUTS: (1) PUSH+FAULT
+COMPOSES FOR FREE — `cw-amp-m4-pushfault1-noamp-r2` PASSES the
+discovery safety bar at 2M with BOTH hazards every episode (gait
+11/12, topples 2/12, BETTER than solo-push's matched-2M 4/12; the one
+gv=False episode walks on five carrying its disabled leg; knockdowns
+are genuine end-frame flips) — reward still steep at cutoff, 6M
+acquisition continuation `pushfault1-noamp-acq1` RUNNING toward
+solo-axis bars; SKILLS row added. Read jointly with turnpush-acq1-r2's
+same-cycle PASS: NO axis pair is a broken combination. NOTE: the
+original `pushfault1-noamp` launch died fail-closed on an inherited
+one-shot `--obs-pad-transplant 18` (parent ckpt already 92-dim) —
+strip transplant flags when respeccing FROM the run that consumed
+them. (2) M3 FORCE AXIS CEILINGS BELOW 40N:
+`cw-amp-m3-pushcur2-noamp-n2040-c2r2` INFORMATIVE-plateau — 18M total
+lands 3/12 topples vs 12M's 4/12 (inside n=6 noise), tilt terms flat
+~102/window over the final 2M (never re-reached the parent's 96 exit)
+while reward rose (warm-start recovery shape); joint with
+pushhard1-noamp-n2040-c1r1's raw-budget plateau, BOTH curriculum and
+budget are refuted at 20-40N. Named lever stands (get-up/recovery
+mechanism: tilt-term relaxation + get-up reward + longer episodes —
+semantics-bank work first) but is DEPRIORITIZED: M3's brief bar
+(repeated pushes, recovery-without-reset, no crouch) is already met
+at 10-25N x3 (repeat3); 20-40N is beyond-brief hardening
+(q_20260823T0240Z). No more same-recipe continuations at this dose.
+(3) M2-YAW OVERSHOOT REPRICING READS OUT FAIL-branch-but-informative:
+`cw-amp-m2-yawcmd0-acq2-yppeak` tips 0.272/0.238 (>0.20 bar) BUT
+halves the erosion vs matched-budget no-fix acq1-r2 (0.399/0.347);
+with the farm closed, yaw income + walk_yaw_err went FLAT all 6M
+while total reward rose 152->363 — 100% of optimization pressure is
+hold/forward income, confirming audit branch (c) as the residual
+driver. yawcmd0-r2 REMAINS champion (its 0.153/0.161 already meets
+the <=0.20 M2 bar); hold/forward repricing logged as
+named-but-deprioritized vs M5 composition (q_20260823T0240Z). Keep
+RL doses short on the yawcmd0 substrate. Previous entry below.)
+
+Previous entry (~02:2x (**M2+M3 TURN+PUSH COMPOSITION CLOSES
 CLEAN AT ACQUISITION BUDGET — the 2M "turning makes push harder" read
 was undertraining, not a broken combination; fault graft onto this
 checkpoint launched (sequential M2->M3->M4 route).**
