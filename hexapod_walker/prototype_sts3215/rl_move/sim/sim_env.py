@@ -1552,6 +1552,22 @@ class SimHexapodBalanceEnv(_GymBase):
                                 float(self._plant_deg[2]))
             g.set_velocity(vx=float(traj.vx[i_ss]),
                            vy=float(traj.vy[i_ss]))
+            # Turn-state reset densification (08-23, turnlib3 FAIL
+            # branch): goal.walk_gait_spawn_wz (default 0 = off,
+            # bit-exact: omega is simply never passed) additionally
+            # feeds the episode's own commanded yaw rate into the
+            # scripted-gait pose generator, so turn / turn-in-place
+            # episodes SPAWN mid-rotation instead of always entering
+            # the turn from a standstill. Pricing (k_yaw_prog 1-3x),
+            # demo range (teacher_v3) and style ablation (-noamp1)
+            # were all measured unable to move tip tracking; the
+            # policy never VISITS fast-turning states — same
+            # densify-at-reset shape as park_start/gait_start.
+            spawn_wz = float(cfg_get(self.cfg, "goal",
+                                     "walk_gait_spawn_wz", default=0.0))
+            wz_arr = getattr(traj, "wz", None)
+            if spawn_wz > 0.0 and wz_arr is not None:
+                g.set_velocity(omega=float(wz_arr[i_ss]) * spawn_wz)
             g.reset_phase()
             warm = 1.0 + float(self.rng.uniform(0.0, g.period))
             t, q_deg = 0.0, g.neutral_pose_deg()

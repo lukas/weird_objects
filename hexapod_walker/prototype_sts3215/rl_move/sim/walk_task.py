@@ -2075,6 +2075,13 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         if self._yaw_cmd and tip_frac > 0.0 and rng.random() < tip_frac:
             vx[:] = 0.0
             vy[:] = 0.0
+            # Keep the head-replacement targets consistent: a gait
+            # spawn drawn below must CONTINUE this turn-in-place
+            # command, not resurrect the discarded linear draw
+            # (pre-existing latent interaction — no prior config ran
+            # tip_frac and gait_start_frac together).
+            vx_t = 0.0
+            vy_t = 0.0
             mag = float(rng.uniform(0.5 * wz_max, wz_max))
             wz_t = mag if rng.random() < 0.5 else -mag
             wz = np.full(n, wz_t)
@@ -2109,6 +2116,19 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             vy[:head] = vy_t
             vx[:ramp_fast] = np.linspace(0.0, vx_t, ramp_fast)
             vy[:ramp_fast] = np.linspace(0.0, vy_t, ramp_fast)
+            # Turn-state reset densification (08-23): when
+            # goal.walk_gait_spawn_wz > 0 (default 0 = off, legacy
+            # commands and rng streams bit-exact) the yaw command is
+            # ALSO live from the start (same 0.3 s fast ramp), matching
+            # the mid-rotation spawn pose sim_env builds from traj.wz —
+            # otherwise the policy would wake up turning under a zero
+            # yaw command it is then scored against.
+            spawn_wz = float(cfg_get(self.cfg, "goal",
+                                     "walk_gait_spawn_wz", default=0.0))
+            if spawn_wz > 0.0 and wz is not None:
+                wz_tgt = float(wz[min(head, n - 1)])
+                wz[:head] = wz_tgt
+                wz[:ramp_fast] = np.linspace(0.0, wz_tgt, ramp_fast)
             if h_off != 0.0:
                 height[:head] = h_off
                 height[:ramp_fast] = np.linspace(0.0, h_off, ramp_fast)

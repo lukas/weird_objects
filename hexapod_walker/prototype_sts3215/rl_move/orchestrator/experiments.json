@@ -147706,7 +147706,7 @@
       "dr.ext_push_n=5.0,18.0"
     ],
     "created": "2026-08-23T12:35:07+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -147743,7 +147743,9 @@
         "verdict": "DEAD",
         "log_tail": "    amp/disc_updates 124\nwandb:                amp/gp 0.01087\nwandb:              amp/loss 0.29231\nwandb: amp/pairs_per_rollout 65333\nwandb:        amp/replay_len 500000\nwandb: amp/style_reward_mean 0.18822\nwandb:                  +103 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518-turnlib3 at: https://wandb.ai/l2k2/hexapod-balance/runs/apan30st\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 3 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260823_123601-apan30st/logs\n"
       }
-    ]
+    ],
+    "triage": "done",
+    "verdict": "Raising the turn-demo speed ceiling did NOT fix turn-in-place tracking: the tips are unmoved, so the demo-ceiling hypothesis is refuted at this dose. Single lever --amp-motion-lib teacher_v2->teacher_v3 (turn clips re-generated at stride 1.4/period 1.2 = measured 0.174 rad/s demo wz, +30% over v2's 0.134). eval_amp_m5 yaw: tip_left 0.1965 / tip_right 0.248 vs parent 0.2157/0.2351 \u2014 left -0.019, right +0.013, BOTH inside the pre-registered +-0.02 unmoved band (and inside the measured seed noise: seed23 read 0.2493/0.2393). Walk stayed healthy: m5 walk det slip med 3.731 (<=3.8 allowance, parent 3.67), 12/12 gait_valid, 0/12 raw falls det+sto, gate-eval strips video-clean six-leg cycling. Reward rose all quarters (44->243) while tips sat still \u2014 with pricing (n=4 grid), demos (this arm), and style-ablation (noamp1: tips only reach 0.1778/0.2151 even with AMP OFF) all measured, the residual tip deficit is NOT purchasable by income, demo range, or style removal: the policy never visits fast-turning states. Per this gate's own FAIL branch: escalate to turn-state reset densification (walk gait-spawn omega passthrough), NOT further library re-dosing."
   },
   {
     "run": "cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518-loadgate45",
@@ -148052,7 +148054,7 @@
       "reward.loadslip_max=4.5"
     ],
     "created": "2026-08-23T12:37:41+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -148089,6 +148091,8 @@
         "verdict": "DEAD",
         "log_tail": "  amp/disc_updates 124\nwandb:                amp/gp 0.01114\nwandb:              amp/loss 0.27875\nwandb: amp/pairs_per_rollout 65327\nwandb:        amp/replay_len 500000\nwandb: amp/style_reward_mean 0.16652\nwandb:                  +103 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518-loadgate45 at: https://wandb.ai/l2k2/hexapod-balance/runs/agco4nu1\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 3 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260823_123838-agco4nu1/logs\n"
       }
-    ]
+    ],
+    "triage": "done",
+    "verdict": "The full-strength income gate did NOT reduce walk slip \u2014 it made it slightly worse while reward still rose, so PRICING ON THE SLIP AXIS IS NOW CLOSED per this gate's own pre-registration (additive 6x/12x charges + 2x-marginal income gate all refuted). Single lever: loadslip INCOME gate at g=1.0 (ok=1.5/max=4.5 recalibrated band, ~1.0/tick marginal, 70% of walk income withheld at the operating ratio, bank 5/5 green). eval_amp_m5 walk: det slip med 4.072 vs parent 3.67 and bar <=3.5 (own-cfg DR-0 gate eval read 4.79) \u2014 moved the WRONG way, far outside the +-0.15 unmoved band; PARTIAL needed an improvement >=0.15. Everything else held: 0/12 raw falls det+sto, m5 walk gait_valid 12/12, tips 0.2386/0.2376 within the 0.25 band, video-clean six-leg cycling. Reward rose every quarter (37->179): the policy simply paid the tax (or restructured income) rather than slip less \u2014 the measured slip is apparently not on the policy's reachable cost gradient, the same conclusion slipexcess12's economics pointed at. Next per pre-registration: NEVER another price arm; either a gait-level mechanism (k_walk_swing-style swing shaping) or a bar ruling on the assumed 3.5 slip bar (q_20260823T0130Z amendment), preceded by a root-cause read of WHAT drives measured slip (foot-plant/gait-timing artifact vs controllable action) \u2014 noamp1 already showed the AMP style term is the current slip FLOOR-HOLDER (removing it regressed slip 3.67->3.92)."
   }
 ]

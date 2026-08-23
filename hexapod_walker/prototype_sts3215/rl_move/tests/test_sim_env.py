@@ -1124,6 +1124,63 @@ def test_walk_gait_start_spawns_mid_stride_tall_with_live_command():
     env2.close()
 
 
+def test_walk_gait_spawn_wz_turn_state_densification():
+    """goal.walk_gait_spawn_wz (turn-state reset densification, 08-23,
+    turnlib3 FAIL branch): on a turn-in-place episode drawn into the
+    gait spawn, (1) the discarded linear command is NOT resurrected by
+    the head replacement (vx/vy stay ~0), (2) the yaw command is live
+    right after the 0.3 s fast ramp instead of the legacy 1 s zero
+    hold, and (3) the spawn pose itself differs from the spawn_wz=0
+    pose at the same seed (omega actually reaches the scripted-gait
+    pose generator). Default off (key absent) = wz head untouched."""
+    from rl_move.config import load_config
+    from rl_move.sim.walk_task import SimHexapodJointWalkEnv
+
+    def make_env(spawn_wz):
+        cfg = load_config()
+        goal = cfg.setdefault("goal", {})
+        goal["walk_yaw_cmd"] = 1
+        goal["walk_yaw_max_rad_s"] = 0.3
+        goal["walk_turn_in_place_frac"] = 1.0
+        goal["walk_gait_start_frac"] = 1.0
+        if spawn_wz:
+            goal["walk_gait_spawn_wz"] = spawn_wz
+        env = SimHexapodJointWalkEnv(cfg, seed=0)
+        g = env._goal_gen
+        for m in ("hold", "lean", "track", "unload", "raise", "rise",
+                  "lower"):
+            if hasattr(g, f"p_{m}"):
+                setattr(g, f"p_{m}", 0.0)
+        g.p_walk = 1.0
+        env.reset()
+        return env
+
+    env_on = make_env(1.0)
+    traj = env_on._goal_traj
+    assert traj.mode == "walk" and traj.start_at == "gait"
+    i = int(round(0.5 / env_on.dt))
+    # (1) turn-in-place preserved: no linear command resurrection.
+    assert float(np.hypot(traj.vx[i], traj.vy[i])) < 1e-9, (
+        traj.vx[i], traj.vy[i])
+    # (2) yaw command live at 0.5 s (tip draw guarantees |wz_t| >=
+    # 0.5 * wz_max = 0.15).
+    assert abs(float(traj.wz[i])) >= 0.15 - 1e-9, traj.wz[i]
+    q_on = env_on.data.qpos[7:7 + 18].copy()
+    env_on.close()
+
+    # Key off, same seed: rng streams identical (no extra draws), but
+    # the wz head keeps the legacy zero hold and the pose ignores wz.
+    env_off = make_env(0.0)
+    traj_off = env_off._goal_traj
+    assert traj_off.start_at == "gait"
+    assert abs(float(traj_off.wz[i])) < 1e-9, traj_off.wz[i]
+    q_off = env_off.data.qpos[7:7 + 18].copy()
+    env_off.close()
+    # (3) omega reached the pose generator: spawn joints differ.
+    assert float(np.max(np.abs(q_on - q_off))) > 1e-4, (
+        np.max(np.abs(q_on - q_off)))
+
+
 # ---------------------------------------------------------------------------
 # Terminal end-posture pricing (cycle 14, pre-registered structural option)
 
