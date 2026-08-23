@@ -63,8 +63,16 @@ eval-only reads, no training needed yet), THEN check push timing vs
 gait phase and whether any `reward.*` term prices recovery-from-push
 at all (unaudited), THEN decide recalibrate-the-range vs. add-
 recovery-training-exposure/pricing at the top of the current range.
-Artifacts:
-`logs/ckpt_eval/diag_pushcont1_{nopush,nofault,halfpush}/report.json`
+**BISECTED ONE MORE STEP (3rd eval-only read):** `dr.ext_push_n=
+12-18N` (upper-mid of the original 10-25N range) also lands 0/12 real
+falls, but roll_peak rises to 20.7deg (close to the 25deg term
+threshold) and two `sto` episodes start SACRIFICING a leg instead of
+falling — a visible transition zone. Threshold BRACKETED: clean
+through ~18N, real falls appear by 25N (the range's own top end) —
+tight enough to recalibrate `dr.ext_push_n` toward ~(5,18) as an
+immediate low-risk mitigation while recovery-training/pricing is dug
+into separately. Artifacts:
+`logs/ckpt_eval/diag_pushcont1_{nopush,nofault,halfpush,midpush}/report.json`
 (gitignored, controller-local diagnostics, not ledger evals).
 Prior banner below.)
 

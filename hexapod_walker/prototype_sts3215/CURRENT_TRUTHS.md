@@ -276,8 +276,18 @@ follow-ups.
   within 12-25N (a few more eval-only reads, no training needed yet)
   and decide recalibrate-the-range vs. add-recovery-training-exposure
   /pricing at the top of the current range; also worth checking push
-  timing vs gait phase once the threshold is pinned. Artifacts:
-  `logs/ckpt_eval/diag_pushcont1_{nopush,nofault,halfpush}/report.json`
+  timing vs gait phase once the threshold is pinned. **BISECTED ONE
+  MORE STEP (3rd eval-only read): `dr.ext_push_n=12-18N` (upper-mid of
+  the original 10-25N range) also lands 0/12 real falls, but roll_peak
+  rises to 20.7deg (det/5, close to the 25deg term threshold) and two
+  sto episodes start SACRIFICING a leg instead of falling (`sac=[2,4]`,
+  `sac=[0]`) — a visible transition zone. Threshold is bracketed:
+  clean through ~18N, real falls appear by 25N (the original range's
+  own top end) — narrow enough to recalibrate `dr.ext_push_n` toward
+  ~(5,18) as an immediate, low-risk mitigation while the
+  recovery-training/pricing question is dug into separately.**
+  Artifacts:
+  `logs/ckpt_eval/diag_pushcont1_{nopush,nofault,halfpush,midpush}/report.json`
   (+ contact sheets/videos, controller-local, gitignored — not a
   ledger-tracked eval, just a diagnostic).
 - **JOYSTICK DONE GATE: FIRST MEASURED PASS (08-22 ~17:3x)** —
