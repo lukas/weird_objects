@@ -1,6 +1,60 @@
 # amp - AMP locomotion from scratch
 
-Last updated: 2026-08-23 ~07:5x (**TURN-EXPOSURE DOSE GRID CLOSED at
+Last updated: 2026-08-23 ~08:1x (**hold/forward income-repricing
+(q_20260823T0240Z item b): FIRST MECHANISM BUILT + BANKED, not just
+assumed — a 3-arm decomposition grid is now running to measure it.**
+Two concurrent cycles this window both independently confirmed the
+repricing build was needed but explicitly deferred it to a dig-in
+cycle rather than build blind (see banners below). This cycle used
+`probe_walk_income`'s own numbers (`hold_forward_income_ypfix1.json`:
+reward_walk_yaw hold=374 vs forward=203 vs tip_left/right=132/147 per
+15s segment) to find a concrete, precedented mechanism: the SAME
+sway-tax defect the joystick track's `reward.walk_kernel_vel_ema` fix
+(phasedir7/7b/8) repaired for the linear-velocity kernel exists,
+unfixed, on the yaw-rate kernel too — a genuine full-stop command
+pins wz at ~0 with near-zero variance (nothing moving), so the
+instantaneous Gaussian sits at its peak almost every tick, while an
+honestly-tracking turner's wz oscillates stride-to-stride around its
+achieved mean even when that mean is correct, so the kernel never
+pays it as richly as standing still. Built `reward.walk_kernel_yaw_
+ema` (+`walk_kernel_yaw_tau_s`), the yaw-axis mirror of
+`walk_kernel_vel_ema`, narrowly scoped (only the kernel's own err
+term is smoothed; the already-on achieved-rotation/achieved-progress
+gates and k_yaw_prog/k_yaw_still keep reading raw instantaneous wz,
+so correctness gating is untouched). MECHANISM CONFIRMED on scripted
+references before spending any GPU budget: a "tracked" reference
+(achieves ~= the commanded rate with real stride oscillation) and a
+"turn" reference (achieves only ~half the command, lower variance)
+are STATISTICALLY TIED on the raw yaw kernel alone (153 vs 159/ep
+return, n=6 seed/sign draws) — no exploitable gradient toward better
+tracking on this channel — but cleanly SEPARATE with the EMA on (197
+vs 155/ep); the structural fixed-drift reference does not benefit
+(115.9->113.1, slightly down). 3 new/updated turn-bank tests added
+(`test_task_semantics.py`), default-off bit-exact verified, full bank
+re-run clean: 203 pass / 1 pre-existing known-red (`fastprof`,
+unrelated) / 4 skip / 1 xfail. Snapshotted
+(`exp/exp-amp-m4-walk-kernel-yaw-ema`). **LAUNCHED a 3-arm
+decomposition grid off tipfrac05 itself** (seed=7 matched, 2M,
+byte-identical recipe otherwise, single-lever discipline per arm):
+`-kernelema1` (both axes on, the full bundle — FINISHED already,
+~9 min wall, eval pending next cycle), `-kernelema-yawonly` (yaw axis
+only, RUNNING train-0), `-kernelema-velonly2` (translation axis only,
+RUNNING train-1; a `-kernelema-velonly` duplicate is also INTENT on
+train-2 from a launcher-drain retry of an earlier pod-collision
+REFUSED — harmless extra n, both may finish). Pre-registered joint
+read: IMPROVED (tips tighter than tipfrac05's own 0.162/0.184 with
+safety held) funds stacking with a budget-continuation retry of the
+acq1 erosion question; FLAT (within noise) means kernel noise-tax is
+real but small next to the gap, escalating to the harder untouched
+piece (actuation-cost asymmetry: current/gyro/roll price 4-10x higher
+on real motion than standing still, not addressed by this arm); WORSE
+triggers a revert/re-scope. This does NOT resolve the seed13/s3
+safety-seed-lottery finding (below) — that stays flagged for its own
+dig-in. Evidence: `logs/probe_walk_income/hold_forward_income_
+ypfix1.json` (mechanism source), `rl_move/tests/test_task_semantics.py`
+(TURN_YAWEMA_OVERRIDES + 3 tests). Prior banner below.)
+
+Previous entry (2026-08-23 ~07:5x (**TURN-EXPOSURE DOSE GRID CLOSED at
 4 points (0.2/0.3/0.5/0.7): 0.5 is the confirmed peak, not the
 largest dose tried.** `cw-amp-m4-turnfault-seq1-pushcont1-tipfrac07`
 (dose 0.7, the grid's last untried rung) VERDICTED INFORMATIVE — the
