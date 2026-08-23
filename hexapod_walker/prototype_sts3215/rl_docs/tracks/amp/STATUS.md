@@ -1,6 +1,26 @@
 # amp - AMP locomotion from scratch
 
-Last updated: 2026-08-23 ~20:0x (**CADENCE IS THE LEVER — the 0.5 Hz
+Last updated: 2026-08-23 ~20:5x (**0.7 Hz dose point read — PARTIAL,
+and it sharpens the curve: TIPS ARE NON-MONOTONE IN CADENCE with the
+best point INTERIOR.** `-phasehz07` (clock 0.7 Hz, teacher_v2 demos,
+otherwise unmutated phasehz05 recipe) m5: yaw PASS with tips
+**0.1013/0.1363** — better than BOTH endpoints (0.149/0.156 @0.5,
+0.216/0.235 @1.333; family-best left side), so slow-clock turn
+authority does NOT require the full 0.5 Hz walk sacrifice. Walk
+wpm24 (n_translating=28): det_prog_med **0.674** — recovers from
+0.52 @0.5 toward 0.944 @1.333 but under the 0.75 bar (pre-registered
+PARTIAL branch); det_slip_med **4.476** — above the 3.5 bar and the
+family 3.2-4.0 band AT SOLID n, a real regression (slip dose curve
+2.44 -> 4.48 -> 3.55 is non-monotone with the WORST point at 0.7).
+Safety spotless (0 falls/terms all sections, gait 12/12 + 48/48
+wpm24, no sacrificed legs). Consequence: `-phasehz09` (still
+training) is now the PIVOTAL read — prog needs +0.08 with 0.06-0.10
+tip margin available; its slip decides whether 0.7's 4.48 is a
+mid-cadence valley-wall or a fluke. Read 0.9/1.1 jointly with fixed
+points 0.5/0.7/1.333. Evidence: `logs/ckpt_eval/..._phasehz07_m5/`,
+`..._phasehz07_m5_wpm24/`. Prior banner below.)
+
+Previous entry (~20:0x (**CADENCE IS THE LEVER — the 0.5 Hz
 phase-clock batch produced the FIRST yaw-section PASS in this
 lineage's history AND the best walk slip ever measured, at the cost
 of halved walk progress; 4-arm follow-up batch RUNNING.** Both arms

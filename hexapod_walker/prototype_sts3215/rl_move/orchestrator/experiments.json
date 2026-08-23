@@ -155754,7 +155754,8 @@
           "W&B global_step stalled at 2007040"
         ]
       }
-    ]
+    ],
+    "triage": "awaiting since 2026-08-23T20:39:25"
   },
   {
     "run": "cw-walkcurr-pf-fwd6-budget5m",
@@ -156203,7 +156204,7 @@
       "reward.k_current=0.0005"
     ],
     "created": "2026-08-23T20:37:41+00:00",
-    "status": "INTENT",
+    "status": "RUNNING",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -156211,13 +156212,26 @@
       "running_experiments_before": 1,
       "code_sha_local": "0ac709d8957e0b06b2789044213f4d79cb2217c3",
       "code_sha_pod": "0ac709d8957e0b06b2789044213f4d79cb2217c3",
-      "wandb_env_on_pod": true
+      "wandb_env_on_pod": true,
+      "pid": "4049855",
+      "log_growth_bytes": [
+        10693,
+        17553
+      ],
+      "wandb_id": "pvmsnfzl",
+      "global_step_window": [
+        1179648,
+        1769472
+      ],
+      "fps_estimate": 19660.8
     },
     "trainer": "ppo",
     "stack": "gpu-mjx",
     "phase": "discovery",
     "assessment_scope": "short_behavior_discovery",
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:walkcurr PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walkcurr-pf-fwd6-rscale10 --steps 2000000 --task joint_walk --episode-seconds 25 --n-steps 24 --batch-size 24576 --net-arch 128,64,32 --activation-fn elu --log-std-init -1.0 --dr-scale 0.0 --require-gpu-physics --eval-every 1000000 --video-every 2000000 --best-ckpt --cfg-set bus.servo_params=loaded --cfg-set goal.walk_pure=1 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_heading_max_rad=0.0 --cfg-set goal.walk_cmd_resample_s=0.0 --cfg-set goal.walk_cmd_metrics=1 --cfg-set reward.k_walk_freeprog=0.3 --cfg-set reward.walk_freeprog_cap_m_s=0.08 --cfg-set reward.walk_kernel_vel_ema=1.0 --cfg-set reward.walk_kernel_vel_tau_s=0.75 --cfg-set reward.k_walk_heading=0.05 --cfg-set reward.k_step_event=0.1 --cfg-set reward.k_park_duty=0.4 --cfg-set reward.k_walk_idle_charge=0.2 --cfg-set reward.walk_idle_speed_m_s=0.025 --cfg-set reward.walk_idle_tau_s=1.0 --cfg-set reward.walk_loadslip_gate=0.75 --cfg-set reward.loadslip_ok=1.2 --cfg-set reward.loadslip_max=3.0 --cfg-set reward.loadslip_floor_m=0.03 --cfg-set reward.k_loadslip_excess=0.45 --cfg-set reward.term_penalty=120 --n-envs 4096 --out-name ppo_goal_cw_walkcurr_pf_fwd6_rscale10 --impl warp --host-workers 24 --notes 'respec of cw-walkcurr-pf-fwd3-chargeramp: Plain English: the robot never learns to walk because PPO'\"'\"'s own optimizer is crushing its learning signal -- the reward numbers are simply too BIG, so this arm shrinks every reward gain 10x without changing what the reward prefers. Dig-in evidence (all 8 FAILed rung-1 arms, cached W&B): train/clip_fraction hits EXACTLY 0 by 10-38% of every run, approx_kl ~3e-5, policy std frozen at its init 0.3685, while train/value_loss sits at 400-2000+ (returns are |1000s|-scale under v2e pricing). SB3 clips the GLOBAL grad norm (max_grad_norm=0.5) over policy+value params in ONE optimizer, so the value head'\"'\"'s huge gradients rescale the policy/log_std/entropy gradients toward zero -- explaining why pricing, init-noise (logstd0 collapsed FASTEST), and 10x-entropy (std moved only 0.369->0.376 in 2M) all failed identically. SB3 normalizes advantages per minibatch, so a global gain scale leaves the policy gradient invariant and shrinks ONLY the value gradient: the crush lifts, nothing about the incentive ordering changes. All 15 active gains scale together (7 recipe gains + 8 base compute_reward gains incl. k_track -- the scaled bank'\"'\"'s first run measured that scaling only the recipe 7 lets the unscaled reward_task posture kernel pay park +323, destroying the ranking). Bank green at x0.1: test_walkcurr_pf_scaled_* (ranking with scaled margins + behavior-delta linearity), snapshot exp/walkcurr-fwd6-rscale-batch. If-true: clip_fraction stays >~0.02 past 50% of the run, std moves off init, walk_freeprog_score (gain-independent) leaves the flat [-0.10,-0.05] band and trends toward 0. If-false (freeze recurs WITH healthy clip_fraction): optimizer-crush refuted, escalate to RND/rung-0 per STATUS. Strongest alternative: the sibling x0.02 arm if x0.1 still leaves value_loss dominant.' --cfg-set reward.walk_charge_ramp_steps=1000000 --cfg-set reward.walk_charge_ramp_min_frac=0.4 --cfg-set reward.k_track=0.1 --cfg-set reward.k_roll=1.0 --cfg-set reward.k_pitch=1.0 --cfg-set reward.k_height=10.0 --cfg-set reward.k_gyro=0.005 --cfg-set reward.k_action=0.0005 --cfg-set reward.k_action_delta=0.001 --cfg-set reward.k_current=0.0005 > /tmp/train_cw-walkcurr-pf-fwd6-rscale10.log 2>&1 < /dev/null & echo $!",
-    "log": "/tmp/train_cw-walkcurr-pf-fwd6-rscale10.log"
+    "log": "/tmp/train_cw-walkcurr-pf-fwd6-rscale10.log",
+    "wandb_id": "pvmsnfzl",
+    "verified": "2026-08-23T20:41:02+00:00"
   }
 ]
