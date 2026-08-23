@@ -251,6 +251,45 @@ validity, on video. Speed obedience is secondary throughout.
   read. If rscale ALSO fails with healthy clip_fraction, escalate to
   rung-0 sub-goal or RND per the pre-registered order above.
 
+## Now (updated 08-23 ~21:1x — fwd6 wave read complete except rscale50)
+
+- **OPS NOTE**: `fwd6-sde` was double-verdicted (this cycle + a
+  concurrent one, same FAIL conclusion, minutes apart — 3rd
+  double-triage today). Verdicts agree; no conflict to resolve.
+- **`cw-walkcurr-pf-fwd6-gru` FAIL (verdicted):** recurrence
+  refuted — GRU RecurrentPPO freezes identically (gate 0/6 det,
+  prog 0.00, static splayed crouch; clip_fraction 0.027@512k ->
+  0.0007@768k -> exactly 0 for the rest; std pinned 0.369;
+  freeprog flat [-0.09,-0.06]; value_loss 880-2400). The GRU value
+  head faces the same |1000s|-scale returns and the same global
+  max_grad_norm clip — memory is exonerated, crush cross-prediction
+  holds.
+- **`cw-walkcurr-pf-fwd6-rscale10` PARTIAL (verdicted): the
+  optimizer-crush theory is CONFIRMED mechanically at x0.1.** Only
+  arm of the wave whose clip_fraction never hit exactly 0 and
+  RECOVERED (0.021@1632k -> 0.079@2016k, rising; value_loss 8-18 vs
+  400-2400 unscaled; approx_kl 0.02) — but recovery came only in the
+  final ~15% of 2M, and behavior is still the frozen crouch (gate
+  0/6 det, det pose holds leg 3 up -> sac=[3]; freeprog left the
+  -0.10 start but hovers -0.05..-0.07). ~300k effective
+  post-recovery steps is too few to expect discovery.
+- **CONTINUATION RUNNING: `cw-walkcurr-pf-fwd6-rscale10-cont1b`**
+  (+4M acquisition, byte-identical cfg, `--init-from` the rscale10
+  checkpoint; first launch attempt `-cont1` FAILED W&B verification,
+  self-repair relaunched as `-cont1b` on train-0). Pre-registered
+  fork: freeprog leaves [-0.10,-0.05] toward 0 = discovery started;
+  flat ANOTHER 4M with clip_fraction healthy = optimizer-crush
+  necessary-but-insufficient -> escalate to RND state-novelty /
+  rung-0 sub-goal, same-recipe lineage closed. Note the 1M charge
+  ramp restarts with the continuation (bank-proven pricing; softer
+  charges during renewed exploration only help discovery).
+- **`fwd6-rscale50` (x0.02) finished ~20:54, unverdicted — next
+  cycle's read**: gives the dose comparison (does a stronger
+  down-scale un-crush from step 0 instead of the last 15%?). Do NOT
+  fund further exploration/architecture variants before rscale50 +
+  cont1b read; do NOT relaunch `fwd6-budget5m` (unscaled budget arm
+  is moot — the crush is dose-, not budget-, limited).
+
 ## Key facts
 
 - The RAW kawawa2022 reward stack was bank-REFUTED on 08-23: park
