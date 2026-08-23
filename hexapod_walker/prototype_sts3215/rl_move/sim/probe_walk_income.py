@@ -142,8 +142,55 @@ VREF1_STACK = {
     ("safety", "max_roll_deg"): 25.0,
     ("safety", "max_pitch_deg"): 25.0,
 }
+# Exact env-relevant cfg of the cw-amp-m2-turnclone-yawcmd0-r2 lineage
+# (ledger extra_args; M2-yaw champion + its eroded acq1-r2 child).
+# Added 08-23 for the INCOME AUDIT the amp STATUS names after the
+# budget lever was refuted: turn-skill erosion is monotone in steps AND
+# income multiplier, so per the 08-21 ruling the reward's optimum on
+# turn segments must be audited term-by-term (does an accurate turner
+# out-earn erode-to-park?) BEFORE any further repricing. Trainer-side
+# args (ent, AMP weights, warm-start) intentionally absent.
+YAWCMD0_STACK = {
+    ("goal", "walk_phase_obs"): 1,
+    ("goal", "walk_phase_hz"): 1.333333,
+    ("goal", "walk_obs_body_vel"): 2.0,
+    ("goal", "walk_heading_max_rad"): -1.0,
+    ("goal", "walk_speed_min_m_s"): 0.08,
+    ("goal", "walk_speed_max_m_s"): 0.08,
+    ("goal", "walk_cmd_mode"): "stress_mix",
+    ("goal", "walk_cmd_resample_s"): 4.0,
+    ("goal", "walk_cmd_resample_jitter"): 0.5,
+    ("goal", "walk_park_start_frac"): 0.25,
+    ("bus", "write_speed"): 1500,
+    ("bus", "write_acc"): 80,
+    ("bus", "servo_vel_max_counts_s"): "write_speed",
+    ("safety", "max_delta_q_deg"): 5.0,
+    ("safety", "max_roll_deg"): 25.0,
+    ("safety", "max_pitch_deg"): 25.0,
+    ("reward", "term_penalty"): 400.0,
+    ("reward", "k_step_event"): 0.0,
+    ("reward", "k_park_duty"): 0.0,
+    ("reward", "k_walk_freeprog"): 0.0,
+    ("reward", "walk_loadslip_gate"): 0.0,
+    ("reward", "k_loadslip_excess"): 0.0,
+    ("reward", "walk_gait_gate"): 0.0,
+    ("reward", "k_walk_idle_charge"): 0.0,
+    ("reward", "k_drag_stance"): 0.0,
+    ("goal", "walk_yaw_cmd"): 1,
+    ("goal", "walk_yaw_max_rad_s"): 0.3,
+    ("goal", "walk_yaw_zero_frac"): 0.5,
+    ("reward", "k_walk_yaw"): 1.0,
+    ("reward", "walk_yaw_kernel_gate"): 1.0,
+    ("reward", "k_yaw_prog"): 1.0,
+    ("reward", "k_yaw_still"): 50.0,
+    ("reward", "walk_kernel_yaw_gate"): 1.0,
+    ("reward", "walk_yaw_hold_prog_gate"): 1.0,
+    ("reward", "yaw_still_avg_s"): 1.0,
+    ("goal", "walk_phase_run_on_yaw"): 1,
+}
 STACKS = {"trans1": TRANS1_STACK, "mirror2": MIRROR2_STACK,
-          "mirror2fix": MIRROR2FIX_STACK, "vref1": VREF1_STACK}
+          "mirror2fix": MIRROR2FIX_STACK, "vref1": VREF1_STACK,
+          "yawcmd0": YAWCMD0_STACK}
 
 DIRS = {
     "forward": (1.0, 0.0),
@@ -151,6 +198,15 @@ DIRS = {
     "crab_left": (0.0, 1.0),
     "diag_back_right": (-0.707, -0.707),
 }
+# Yaw-command dirs (income audit, 08-23): vx=vy=0, wz = sign * --wz-cmd.
+# "hold" = full park (all-zero command; where k_yaw_still income lives).
+# Not in DIRS so the default --dirs invocation stays bit-exact on
+# stacks without a yaw channel.
+YAW_DIRS = {"tip_left": 1.0, "tip_right": -1.0, "hold": 0.0}
+# Scripted TripodGait realizes ~40% of commanded omega while turning
+# (measured, test_task_semantics.py DRIFT_RIDE_WZ) — scripted turner
+# references command omega = wz_ref / 0.4 to ACHIEVE the pinned rate.
+TURN_OMEGA_GAIN = 2.5
 
 # Video fingerprints being priced (rl_docs/TURN.md):
 #   sac3   mirror2/dr02: one tripod held planted, body barely moves
@@ -211,7 +267,7 @@ def make_env(seed: int, stack: dict, dr_scale: float = 0.0,
     return env
 
 
-def pin_command(env, vx: float, vy: float) -> None:
+def pin_command(env, vx: float, vy: float, wz: float = 0.0) -> None:
     """Deterministic command: hold 1 s, ramp 1 s, then constant."""
     traj = env._goal_traj
     n = len(traj.vx)
@@ -224,7 +280,13 @@ def pin_command(env, vx: float, vy: float) -> None:
     traj.vy[:hold_n] = 0.0
     traj.vy[hold_n:hold_n + ramp_n] = vy * ramp
     if getattr(traj, "wz", None) is not None:
-        traj.wz[:] = 0.0
+        traj.wz[:] = wz
+        traj.wz[:hold_n] = 0.0
+        traj.wz[hold_n:hold_n + ramp_n] = wz * ramp
+    elif abs(wz) > 1e-9:
+        raise SystemExit(
+            "pinned wz != 0 but the stack has no yaw channel "
+            "(goal.walk_yaw_cmd) — use --stack yawcmd0/mirror2fix")
 
 
 def parse_policy_spec(policy: str) -> tuple[str, float]:
@@ -245,16 +307,22 @@ def parse_policy_spec(policy: str) -> tuple[str, float]:
 
 def rollout(policy: str, direction: str, seed: int, stack_name: str,
             deterministic: bool = True, dr_scale: float = 0.0,
-            extra_sets: tuple = (), cmd: float = CMD_V) -> dict:
+            extra_sets: tuple = (), cmd: float = CMD_V,
+            wz_cmd: float = 0.3) -> dict:
     from sim_gait_compat import TripodGait
 
     base_pol, period_scale = parse_policy_spec(policy)
     stack = STACKS[stack_name]
     env = make_env(seed, stack, dr_scale, extra_sets)
     obs, _ = env.reset()
-    ux, uy = DIRS[direction]
+    if direction in YAW_DIRS:
+        ux, uy, uw = 0.0, 0.0, YAW_DIRS[direction]
+    else:
+        ux, uy = DIRS[direction]
+        uw = 0.0
     vx, vy = ux * cmd, uy * cmd
-    pin_command(env, vx, vy)
+    wz = uw * wz_cmd
+    pin_command(env, vx, vy, wz)
     traj = env._goal_traj
     n = len(traj.vx)
 
@@ -294,6 +362,9 @@ def rollout(policy: str, direction: str, seed: int, stack_name: str,
     contact_prev: list[bool] | None = None
     total, step, cmd_dist, along_dist = 0.0, 0, 0.0, 0.0
     wz_sum, wz_n = 0.0, 0
+    # yaw tracking (tip/turn segments): signed commanded + achieved yaw
+    # integrals and squared error, on ticks with |wz_ref| > 1e-3
+    yaw_cmd_int, yaw_ach_int, wz_se, wz_se_n = 0.0, 0.0, 0.0, 0
     term_reason = None
     scale = VEL_SCALE.get(base_pol, 1.0)
 
@@ -319,8 +390,16 @@ def rollout(policy: str, direction: str, seed: int, stack_name: str,
         elif base_pol == "freeze":
             act = q_rad_to_action(plant_rad)
         else:
-            omega = (DRIFT_RIDE_OMEGA if base_pol == "driftride"
-                     and t >= 2.0 else 0.0)
+            if base_pol == "driftride" and t >= 2.0:
+                omega = DRIFT_RIDE_OMEGA
+            elif getattr(traj, "wz", None) is not None:
+                # scripted turner reference: command the gait's omega so
+                # the ACHIEVED rate matches the pinned wz_ref (~40%
+                # realization, see TURN_OMEGA_GAIN). Zero on non-yaw
+                # dirs -> bit-exact legacy behavior.
+                omega = float(traj.wz[i]) * TURN_OMEGA_GAIN
+            else:
+                omega = 0.0
             gait.set_velocity(vx=float(traj.vx[i]) * scale,
                               vy=float(traj.vy[i]) * scale, omega=omega)
             q = np.asarray(gait.desired_deg(t)) * DEG2RAD
@@ -345,6 +424,16 @@ def rollout(policy: str, direction: str, seed: int, stack_name: str,
                                / s_ref) * env.dt
                 wz_sum += env._body_wz()
                 wz_n += 1
+            wz_ref = float(getattr(g, "wz_ref", 0.0))
+            if abs(wz_ref) > 1e-3:
+                bwz = float(env._body_wz())
+                yaw_cmd_int += wz_ref * env.dt
+                yaw_ach_int += bwz * env.dt
+                wz_se += (wz_ref - bwz) ** 2
+                wz_se_n += 1
+                if s_ref <= 1e-3:  # pure turn segment: still report wz
+                    wz_sum += bwz
+                    wz_n += 1
         contact_hist.append([
             float(env.data.sensordata[adr]) > 0.5
             for adr in env._touch_adr])
@@ -403,6 +492,11 @@ def rollout(policy: str, direction: str, seed: int, stack_name: str,
                     for k in factor_sums},
         "progress_ratio": along_dist / cmd_dist if cmd_dist > 0 else 0.0,
         "wz_mean": wz_sum / wz_n if wz_n else 0.0,
+        # yaw tracking on commanded-turn ticks (None when the episode
+        # had no |wz_ref| > 1e-3 ticks — legacy dirs unaffected)
+        "yaw_progress_ratio": (yaw_ach_int / yaw_cmd_int
+                               if abs(yaw_cmd_int) > 1e-9 else None),
+        "wz_rmse": (math.sqrt(wz_se / wz_se_n) if wz_se_n else None),
         # ruled skating metric: loaded foot-XY travel per meter of
         # along-command progress (eval_checkpoint convention)
         "slip_per_m": round(slip_m / max(along_dist, 0.05), 3),
@@ -456,6 +550,8 @@ def summarize(records: list[dict]) -> None:
     print("\n--- behavior fingerprints (mean) ---")
     for lab, key in (("progress_ratio", "progress_ratio"),
                      ("wz_mean", "wz_mean"),
+                     ("yaw_progress_ratio", "yaw_progress_ratio"),
+                     ("wz_rmse", "wz_rmse"),
                      ("slip_per_m", "slip_per_m"),
                      ("height_mm_mean", "height_mm_mean")):
         row = f"{lab:28s}"
@@ -686,6 +782,9 @@ def main() -> None:
                          "repeatable (audit: replay a run's ledger cfg)")
     ap.add_argument("--cmd", type=float, default=CMD_V,
                     help=f"pinned command speed m/s (default {CMD_V})")
+    ap.add_argument("--wz-cmd", type=float, default=0.3,
+                    help="pinned turn rate rad/s for tip_left/tip_right "
+                         "dirs (default 0.3 = training walk_yaw_max)")
     ap.add_argument("--clean", default=None,
                     help="policy name (as in --policies) of the CLEAN "
                          "reference for the verdict block")
@@ -710,9 +809,13 @@ def main() -> None:
 
     pols = [p for p in a.policies.split(",") if p]
     dirs = [d for d in a.dirs.split(",") if d]
+    for d in dirs:
+        if d not in DIRS and d not in YAW_DIRS:
+            raise SystemExit(f"unknown dir {d!r}; linear: {list(DIRS)} "
+                             f"yaw: {list(YAW_DIRS)}")
     seeds = [int(s) for s in a.seeds.split(",") if s != ""]
     jobs = [(p, d, s, a.stack, not a.stochastic, a.dr_scale,
-             extra_sets, a.cmd)
+             extra_sets, a.cmd, a.wz_cmd)
             for p in pols for d in dirs for s in seeds]
     print(f"probe_walk_income: stack={a.stack} dr={a.dr_scale} "
           f"cmd={a.cmd} sets={a.sets} {len(jobs)} rollouts "
