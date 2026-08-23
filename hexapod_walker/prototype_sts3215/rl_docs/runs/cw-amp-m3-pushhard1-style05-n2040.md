@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-08-23T00:10:47+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 6000000
 
 **parent**: cw-amp-m3-pushacq1-style05
+
+**wandb_id**: dztnp1p9
 
 **hypothesis**: Plain English: the push-hardened walker has stopped improving under one 10-25N shove per episode (training tilt-terminations flat over pushacq1-style05's final 3M at constant dose) — this arm escalates the OTHER axis vs its -repeat3 sibling: keep ONE shove per episode but make it substantially harder (dr.ext_push_n=20-40N, duration/timing unchanged). Does the walker learn to survive ~1.6x stronger pushes, or is ~25N near the recoverable ceiling for this morphology at this stance? Warm-start from the pushacq1-style05 checkpoint, style kept, 6M, DR-0. Prediction-if-true: tilt terminations spike at the start (harder dose) then fall over the run; DR-0 own-cfg gate holds gait_valid >=5/6 with topples <=2/6 det, <=3/6 sto at 20-40N. Prediction-if-false: terminations stay high AND flat with reward flat — 40N-class shoves are beyond recoverable for this build; that names a physical dose ceiling for the M3 spec (informative, not a lineage kill). Strongest alternative: survival improves via crouch-statue (drop stance, stop walking) — pricing problem to fix before any M3 claim, watch height band + prog.
 

@@ -130367,7 +130367,7 @@
       "goal.walk_phase_run_on_yaw=1"
     ],
     "created": "2026-08-23T00:03:20+00:00",
-    "status": "INTENT",
+    "status": "FAILED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -130376,7 +130376,12 @@
       "code_sha_local": "6d1dd4d15c2ea366c656f5286f144a7fc67d5eb8",
       "code_sha_pod": "6d1dd4d15c2ea366c656f5286f144a7fc67d5eb8",
       "init_from_on_pod": true,
-      "wandb_env_on_pod": true
+      "wandb_env_on_pod": true,
+      "pid": "3125497",
+      "log_growth_bytes": [
+        2749,
+        2749
+      ]
     },
     "trainer": "ppo",
     "stack": "gpu-mjx",
@@ -130384,7 +130389,7 @@
     "assessment_scope": "short_behavior_discovery",
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:amp PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-amp-m2-turnclone-yawcmd0 --steps 2000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_bcgait_turnclone_fullprof_phase1.zip --episode-seconds 15 --no-canary --eval-every 1000000 --video-every 2000000 --n-envs 4096 --impl warp --host-workers 24 --seed 7 --ent-coef 0.001 --warm-log-std-override -2.0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set goal.walk_phase_obs=1 --cfg-set goal.walk_phase_hz=1.333333 --cfg-set goal.walk_obs_body_vel=2 --cfg-set goal.walk_heading_max_rad=-1 --cfg-set goal.walk_speed_min_m_s=0.08 --cfg-set goal.walk_speed_max_m_s=0.08 --cfg-set goal.walk_cmd_mode=stress_mix --cfg-set goal.walk_cmd_resample_s=4.0 --cfg-set goal.walk_cmd_resample_jitter=0.5 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set bus.write_speed=1500 --cfg-set bus.write_acc=80 --cfg-set bus.servo_vel_max_counts_s=write_speed --cfg-set safety.max_delta_q_deg=5.0 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --cfg-set reward.term_penalty=400.0 --cfg-set reward.k_step_event=0.0 --cfg-set reward.k_park_duty=0.0 --cfg-set reward.k_walk_freeprog=0.0 --cfg-set reward.walk_loadslip_gate=0.0 --cfg-set reward.k_loadslip_excess=0.0 --cfg-set reward.walk_gait_gate=0.0 --cfg-set reward.k_walk_idle_charge=0.0 --cfg-set reward.k_drag_stance=0.0 --amp-motion-lib rl_move/sim/motion_library/teacher_v2.npz --amp-disc-steps 4 --amp-disc-batch 512 --amp-gp-weight 10.0 --amp-replay 500000 --amp-task-weight 0.5 --amp-style-weight 0.5 --out-name ppo_goal_cw_amp_m2_turnclone_yawcmd0 --notes 'respec of cw-amp-m2-bcinit-sec5-style05-yawcmd: Plain English: the zero-dose control of the turnclone batch -- no dedicated turn-in-place episodes, just the original yawcmd command mix (arc turns while translating + occasional stress_mix zero-speed segments). Does a BC init that was actually taught to turn (see tip50/tip90-turnclone siblings) do better than the original yawcmd run (which parked on turn-in-place, tip err 0.2995/0.3008 == |wz_ref|, while carrying a command-invariant left drift during translation) even WITHOUT dedicated tip exposure? Single lever vs cw-amp-m2-bcinit-sec5-style05-yawcmd: --init-from swapped from the plain (never-taught-to-turn) headingsfull-derived checkpoint to the turn-clone, plus goal.walk_phase_run_on_yaw=1 (harmless here since this arm has no turn_in_place_frac, but keeps the batch'\"'\"'s phase-clock behavior uniform for any stress_mix zero-speed segment it does sample).' --obs-pad-transplant 1 --cfg-set goal.walk_yaw_cmd=1 --cfg-set goal.walk_yaw_max_rad_s=0.3 --cfg-set goal.walk_yaw_zero_frac=0.5 --cfg-set reward.k_walk_yaw=1.0 --cfg-set reward.walk_yaw_kernel_gate=1.0 --cfg-set reward.k_yaw_prog=1.0 --cfg-set reward.k_yaw_still=50 --cfg-set reward.walk_kernel_yaw_gate=1.0 --cfg-set reward.walk_yaw_hold_prog_gate=1.0 --cfg-set reward.yaw_still_avg_s=1.0 --cfg-set goal.walk_phase_run_on_yaw=1 > /tmp/train_cw-amp-m2-turnclone-yawcmd0.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-amp-m2-turnclone-yawcmd0.log",
-    "triage": "in-cycle cw-amp-m2-turnclone-yawcmd-tip50-cw-amp-m2-turnclone-yawcmd0 since 2026-08-23T00:04:56"
+    "failed_reason": "run never appeared as 'running' in W&B within 240s"
   },
   {
     "run": "cw-amp-m3-pushhard1-style05-repeat3",
@@ -130796,7 +130801,7 @@
       "dr.ext_push_n=20,40"
     ],
     "created": "2026-08-23T00:10:47+00:00",
-    "status": "INTENT",
+    "status": "RUNNING",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -130805,7 +130810,18 @@
       "code_sha_local": "41b4530333a83579aaf47558943384949d7c6b77",
       "code_sha_pod": "41b4530333a83579aaf47558943384949d7c6b77",
       "init_from_on_pod": true,
-      "wandb_env_on_pod": true
+      "wandb_env_on_pod": true,
+      "pid": "1307312",
+      "log_growth_bytes": [
+        5694,
+        5775
+      ],
+      "wandb_id": "dztnp1p9",
+      "global_step_window": [
+        458752,
+        851968
+      ],
+      "fps_estimate": 13107.2
     },
     "trainer": "ppo",
     "stack": "gpu-mjx",
@@ -130813,7 +130829,9 @@
     "assessment_scope": "behavior_hardening",
     "evidence": "cw-amp-m3-pushacq1-style05 gate PASS: push survival while walking already demonstrated (12/12 gait_valid, topples 1det+0sto, det_0/sto_3 strips upright through the pushed window)",
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:amp PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-amp-m3-pushhard1-style05-n2040 --steps 6000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_amp_m3_pushacq1_style05.zip --episode-seconds 15 --no-canary --eval-every 1000000 --video-every 2000000 --n-envs 4096 --impl warp --host-workers 24 --seed 7 --ent-coef 0.001 --warm-log-std-override -2.0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set goal.walk_phase_obs=1 --cfg-set goal.walk_phase_hz=1.333333 --cfg-set goal.walk_obs_body_vel=2 --cfg-set goal.walk_heading_max_rad=-1 --cfg-set goal.walk_speed_min_m_s=0.08 --cfg-set goal.walk_speed_max_m_s=0.08 --cfg-set goal.walk_cmd_mode=stress_mix --cfg-set goal.walk_cmd_resample_s=4.0 --cfg-set goal.walk_cmd_resample_jitter=0.5 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set bus.write_speed=1500 --cfg-set bus.write_acc=80 --cfg-set bus.servo_vel_max_counts_s=write_speed --cfg-set safety.max_delta_q_deg=5.0 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --cfg-set reward.term_penalty=400.0 --cfg-set reward.k_step_event=0.0 --cfg-set reward.k_park_duty=0.0 --cfg-set reward.k_walk_freeprog=0.0 --cfg-set reward.walk_loadslip_gate=0.0 --cfg-set reward.k_loadslip_excess=0.0 --cfg-set reward.walk_gait_gate=0.0 --cfg-set reward.k_walk_idle_charge=0.0 --cfg-set reward.k_drag_stance=0.0 --amp-motion-lib rl_move/sim/motion_library/teacher_v2.npz --amp-disc-steps 4 --amp-disc-batch 512 --amp-gp-weight 10.0 --amp-replay 500000 --amp-task-weight 0.5 --amp-style-weight 0.5 --out-name ppo_goal_cw_amp_m3_pushhard1_style05_n2040 --notes 'respec of cw-amp-m3-pushacq1-style05: Plain English: the push-hardened walker has stopped improving under one 10-25N shove per episode (training tilt-terminations flat over pushacq1-style05'\"'\"'s final 3M at constant dose) \u2014 this arm escalates the OTHER axis vs its -repeat3 sibling: keep ONE shove per episode but make it substantially harder (dr.ext_push_n=20-40N, duration/timing unchanged). Does the walker learn to survive ~1.6x stronger pushes, or is ~25N near the recoverable ceiling for this morphology at this stance? Warm-start from the pushacq1-style05 checkpoint, style kept, 6M, DR-0. Prediction-if-true: tilt terminations spike at the start (harder dose) then fall over the run; DR-0 own-cfg gate holds gait_valid >=5/6 with topples <=2/6 det, <=3/6 sto at 20-40N. Prediction-if-false: terminations stay high AND flat with reward flat \u2014 40N-class shoves are beyond recoverable for this build; that names a physical dose ceiling for the M3 spec (informative, not a lineage kill). Strongest alternative: survival improves via crouch-statue (drop stance, stop walking) \u2014 pricing problem to fix before any M3 claim, watch height band + prog.' --cfg-set dr.ext_push_prob=1.0 --cfg-set dr.ext_push_n=20,40 > /tmp/train_cw-amp-m3-pushhard1-style05-n2040.log 2>&1 < /dev/null & echo $!",
-    "log": "/tmp/train_cw-amp-m3-pushhard1-style05-n2040.log"
+    "log": "/tmp/train_cw-amp-m3-pushhard1-style05-n2040.log",
+    "wandb_id": "dztnp1p9",
+    "verified": "2026-08-23T00:14:05+00:00"
   },
   {
     "run": "cw-amp-m3-pushhard1-noamp-repeat3",
