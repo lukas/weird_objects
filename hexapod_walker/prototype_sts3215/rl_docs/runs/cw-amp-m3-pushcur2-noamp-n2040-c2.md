@@ -4,9 +4,9 @@
 
 **status**: REFUSED
 
-**created**: 2026-08-23T01:50:58+00:00
+**created**: 2026-08-23T01:53:07+00:00
 
-**pod**: hexapod-mjx-train-1
+**pod**: hexapod-mjx-train-0
 
 **steps**: 6000000
 
@@ -16,5 +16,5 @@
 
 **gate**: Hardening continuation (6M more at 20-40N, warm from n2040 stage-2 ckpt, 18M total). PASS = own-cfg gate topples <=1/6 det AND <=2/6 sto, gait_valid >=5/6 det+sto, zero sacrificed, det prog med >=0.9, genuine recovery on video => force axis CLOSED at 40N. INFORMATIVE-plateau = topples ~4/12 with terms flat over last 2M => staging saturates below 40N; recovery mechanism is the named lever. FAIL = collapse/statue/NaN.
 
-**refused_reason**: hexapod-mjx-train-1 code marker 4ca9ba8813acc6ed8b942f5a420c8eca39560c6b != local HEAD acc9c02fe6230ae004a55fac287288b5a2ae452d. Sync first: snapshot.sh --sync hexapod-mjx-train-1 (and snapshot/commit before that if the tree is dirty).
+**refused_reason**: hexapod-mjx-train-0 code marker 331a459014c31c4796e32cb27ff66067468c8749 != local HEAD 8bb6ade3192610acc1e9152bcdd11575f16a75d4. Sync first: snapshot.sh --sync hexapod-mjx-train-0 (and snapshot/commit before that if the tree is dirty).
 
