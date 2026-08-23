@@ -173,6 +173,16 @@ validity, on video. Speed obedience is secondary throughout.
   [-0.10,-0.05] band. Prediction-if-false (freeze recurs WITH healthy
   clip_fraction): the optimizer-crush theory is refuted and the
   exploration/curriculum escalation below is next.
+- **Concurrent fwd6 batch (other cycle, 08-23 ~20:3x):**
+  `fwd6-sde` (gSDE state-dependent exploration, finished — awaiting
+  triage), `fwd6-gru` (recurrent, training), `fwd6-budget5m`
+  (REFUSED on a dirty code marker; relaunch if still wanted). CROSS-
+  PREDICTION registered by this dig-in: if the optimizer-crush theory
+  is right, sde/gru/budget arms ALL freeze again (their gradients are
+  crushed by the same global clip regardless of exploration structure,
+  memory, or budget) while the rscale arms unfreeze — the two theories
+  (action-insensitive-reward advantage starvation vs value-gradient
+  crush) are now cleanly discriminated by one wave.
 - **If the scale arms fail**: escalate in this order — (a) prior-free
   exploration fix (curiosity/RND state-novelty bonus, or gSDE — a
   concurrent cycle landed `--use-sde` validation support 08-23; or a
