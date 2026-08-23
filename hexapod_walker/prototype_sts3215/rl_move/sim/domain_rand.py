@@ -661,7 +661,11 @@ class DomainRandomizer:
             if r.ext_push_repeat_max > 1:
                 extras = []
                 prev_end = ext_push_start + ext_push_dur
-                for _ in range(r.ext_push_repeat_max - 1):
+                # int(): --cfg-set dr.ext_push_repeat_max=3 arrives as
+                # float 3.0 (_parse_cfg_set coerces every scalar to
+                # float); range() rejects floats. Direct-constructor
+                # callers pass ints and are unaffected.
+                for _ in range(int(r.ext_push_repeat_max) - 1):
                     gap = float(u(*r.ext_push_gap_s))
                     start_i = prev_end + gap
                     dur_i = float(u(*r.ext_push_dur_s))

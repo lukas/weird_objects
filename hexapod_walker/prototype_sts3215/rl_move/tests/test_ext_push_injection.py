@@ -327,3 +327,23 @@ def test_push_measurably_perturbs_chassis_vs_push_off_twin():
     finally:
         env_on.close()
         env_off.close()
+
+
+def test_repeat_max_float_from_cfg_set_does_not_crash():
+    # --cfg-set dr.ext_push_repeat_max=3 reaches RandRanges as FLOAT 3.0
+    # (train_ppo_sim._parse_cfg_set coerces scalars to float; sim_env's
+    # dr.* override setattrs it verbatim). range() rejects floats — this
+    # crashed the first attempted repeat-push launch prep (2026-08-22)
+    # before any training step. Must sample identically to int 3.
+    r_f = RandRanges(ext_push_prob=1.0, ext_push_repeat_max=3.0,  # type: ignore[arg-type]
+                     ext_push_start_s=(1.0, 2.0),
+                     ext_push_gap_s=(1.0, 1.5),
+                     ext_push_horizon_s=30.0)
+    r_i = RandRanges(ext_push_prob=1.0, ext_push_repeat_max=3,
+                     ext_push_start_s=(1.0, 2.0),
+                     ext_push_gap_s=(1.0, 1.5),
+                     ext_push_horizon_s=30.0)
+    er_f = DomainRandomizer(r_f).sample(np.random.default_rng(5))
+    er_i = DomainRandomizer(r_i).sample(np.random.default_rng(5))
+    assert er_f.ext_push_extra == er_i.ext_push_extra
+    assert er_f.ext_push_peak_n == er_i.ext_push_peak_n

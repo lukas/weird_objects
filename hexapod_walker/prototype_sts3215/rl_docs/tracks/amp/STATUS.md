@@ -1,6 +1,28 @@
 # amp - AMP locomotion from scratch
 
-Last updated: 2026-08-22 ~23:4x (**STYLE CHANNEL CLEARED FOR M3
+Last updated: 2026-08-23 ~00:0x (**STYLE-KEPT PUSH WALKER PASSES
+ACQUISITION; SINGLE-PUSH DOSE MINED OUT; M3 ESCALATION GRID
+LAUNCHED: `cw-amp-m3-pushacq1-style05` VERDICTED PASS** — 6M under
+a guaranteed 10-25N shove: DR-0 own-cfg topples 1/6 det + 0/6 sto
+(smoke was 1+1), gait_valid 12/12, det prog 1.23 / slip 3.19, no
+crouch-statue on video, style_reward_mean 0.116 (>0.1 bar but
+thinning 0.30→0.12). KEY NEGATIVE: training tilt-terminations went
+FLAT over the final ~3M at constant dose (pitch ~6-7, roll ~5-6.5
+per window; predicted halving to ≤4 did NOT happen) — same-dose
+budget is exhausted. LAUNCHED same cycle from this checkpoint, per
+M3's explicit repeated-push requirement:
+`cw-amp-m3-pushhard1-style05-repeat3` (dr.ext_push_repeat_max=3,
+up to 3 shoves/ep, gaps 1-3s, dose/shove unchanged) +
+`cw-amp-m3-pushhard1-style05-n2040` (single shove, dr.ext_push_n
+20-40N) — decomposes push COUNT vs push FORCE as the next
+frontier. Code this cycle: one-line domain_rand fix + regression
+test (cfg-set delivers repeat_max as float 3.0; range() crashed —
+caught in launch prep, never trained broken). Style-vs-noamp 6M
+joint read pends the concurrent cycle's `cw-amp-m3-pushacq1-noamp`
+verdict; if noamp reads clearly better, escalation respecs onto
+the noamp line are cheap. Previous banner below.)
+
+Previous entry (~23:4x (**STYLE CHANNEL CLEARED FOR M3
 PUSH HARDENING: `cw-amp-m3-pushsmoke1-style05` VERDICTED PASS on the
 pre-registered joint read vs noamp r4 — the discriminator does NOT
 veto off-distribution shove-recovery transients.** Training tilt
