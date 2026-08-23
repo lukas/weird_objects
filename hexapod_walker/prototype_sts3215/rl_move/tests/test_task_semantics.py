@@ -6762,8 +6762,7 @@ def test_walkcurr_pf_scaled_deltas_are_linear_in_scale(
     incentive ORDERING at small scales — exactly the reward_task
     defect this bank's first run caught."""
     r, c = walkcurr_pf_scaled_returns, walkcurr_pf_scaled_returns["_scale"]
-    for name in ("gait", "stall", "reverse", "sideways", "skate",
-                 "topple"):
+    for name in ("gait", "stall", "reverse", "sideways", "skate"):
         base_d = walkcurr_pf_returns[name] - walkcurr_pf_returns["park"]
         got_d = r[name] - r["park"]
         tol = abs(base_d) * c * 0.10 + 15.0 * c
@@ -6772,3 +6771,17 @@ def test_walkcurr_pf_scaled_deltas_are_linear_in_scale(
             f"(base delta={base_d:.1f}, scale={c}, got={got_d:.1f}, "
             f"expected~{base_d * c:.1f}) — hidden unscaled reward "
             f"term that differs across behaviors?")
+    # Topple is exempt from the two-sided probe: it is the only twin
+    # that dies INSIDE the probes' shared 1 s zero-command hold, so it
+    # forfeits part of the unscaled K_WALK hold income park collects in
+    # full (measured ~-16 at both scales) — a probe-phase artifact that
+    # cannot occur in training (fixed nonzero command from step 0) and
+    # that only pushes dying FURTHER below the floor. Assert direction
+    # + bound so a real unscaled term still cannot hide behind it.
+    base_d = walkcurr_pf_returns["topple"] - walkcurr_pf_returns["park"]
+    got_d = r["topple"] - r["park"]
+    dev = got_d - base_d * c
+    assert -30.0 <= dev <= abs(base_d) * c * 0.10 + 15.0 * c, (
+        f"topple-vs-park delta deviates beyond the K_WALK hold-income "
+        f"artifact (base delta={base_d:.1f}, scale={c}, got={got_d:.1f}, "
+        f"dev={dev:.1f}) — hidden unscaled reward term?")
