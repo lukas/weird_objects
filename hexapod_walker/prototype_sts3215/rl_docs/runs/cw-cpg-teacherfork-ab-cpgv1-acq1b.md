@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-08-23T06:03:00+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 6000000
 
 **parent**: cw-cpg-teacherfork-ab-cpgv1
+
+**wandb_id**: tccgmsx6
 
 **hypothesis**: Plain English: cpgv1's own 2M discovery run was still improving when it stopped (reward quarters 38.9/101.9/157.4/185.8, still rising at the end) and it landed WORSE-BUT-WALKING vs the scripted-teacher-library style05 champion (det progress_ratio med 0.99 vs 1.16, fwd dist med 0.59 vs 0.69m/15s; sto already matched/better). Per the 08-21 ruling (bad-but-improving eval + rising reward = continue, don't verdict a lineage dead), this single-lever continuation (--init-from-source, same reward/env/motion-lib, +6M steps, no other change) tests whether the CPG-motion-library gap closes with more budget or is a real ceiling of this exact clip set.
 

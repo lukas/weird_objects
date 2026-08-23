@@ -141526,7 +141526,8 @@
         "verdict": "DEAD",
         "log_tail": "ean 0.53745\nwandb:      amp/disc_updates 124\nwandb:                amp/gp 0.01187\nwandb:              amp/loss 0.32877\nwandb: amp/pairs_per_rollout 65312\nwandb:        amp/replay_len 500000\nwandb: amp/style_reward_mean 0.18466\nwandb:                  +104 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-amp-m4-turnfault-seq1-pushcont1-tipfrac02 at: https://wandb.ai/l2k2/hexapod-balance/runs/0sfjrlj0\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 3 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260823_055444-0sfjrlj0/logs\n"
       }
-    ]
+    ],
+    "triage": "awaiting since 2026-08-23T06:05:42"
   },
   {
     "run": "cw-kawawa2022-pf-flat1",
@@ -141874,7 +141875,7 @@
       "respec of cw-cpg-teacherfork-ab-cpgv1: Plain English: cpgv1's own 2M discovery run was still improving when it stopped (reward quarters 38.9/101.9/157.4/185.8, still rising at the end) and it landed WORSE-BUT-WALKING vs the scripted-teacher-library style05 champion (det progress_ratio med 0.99 vs 1.16, fwd dist med 0.59 vs 0.69m/15s; sto already matched/better). Per the 08-21 ruling (bad-but-improving eval + rising reward = continue, don't verdict a lineage dead), this single-lever continuation (--init-from-source, same reward/env/motion-lib, +6M steps, no other change) tests whether the CPG-motion-library gap closes with more budget or is a real ceiling of this exact clip set."
     ],
     "created": "2026-08-23T06:03:00+00:00",
-    "status": "INTENT",
+    "status": "RUNNING",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -141883,7 +141884,18 @@
       "code_sha_local": "18e85bb451bbbc213b2a4bcff290e02f8495764c",
       "code_sha_pod": "18e85bb451bbbc213b2a4bcff290e02f8495764c",
       "init_from_on_pod": true,
-      "wandb_env_on_pod": true
+      "wandb_env_on_pod": true,
+      "pid": "716777",
+      "log_growth_bytes": [
+        5692,
+        5760
+      ],
+      "wandb_id": "tccgmsx6",
+      "global_step_window": [
+        851968,
+        1376256
+      ],
+      "fps_estimate": 17476.3
     },
     "trainer": "ppo",
     "stack": "gpu-mjx",
@@ -141891,7 +141903,9 @@
     "assessment_scope": "full_budget_skill_acquisition",
     "evidence": "Healthy canary: cw-cpg-teacherfork-ab-cpgv1's own 2M discovery run (zero falls/sacrificed legs both modes, gait_valid 6/6 det+sto, reward quarters 38.9/101.9/157.4/185.8 still rising at end, no NaN/blowup, video-clean six-leg cycling both modes). Comparable full-budget precedent: cw-amp-m2-bcinit-sec5-style05 itself and its sibling 2M->longer-budget AMP M2/M4 acquisition continuations (e.g. cw-amp-m4-pushfault1-noamp-acq1, cw-amp-m2-turnclone-yawcmd-acq2-yppeak) all used the identical BC-clone-init + AMP-style-reward recipe family at 6-8M acquisition budgets without destabilizing.",
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:cpg PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-cpg-teacherfork-ab-cpgv1-acq1b --steps 6000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_cpg_teacherfork_ab_cpgv1.zip --episode-seconds 15 --no-canary --eval-every 1000000 --video-every 2000000 --n-envs 4096 --impl warp --host-workers 24 --seed 7 --ent-coef 0.001 --warm-log-std-override -2.0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set goal.walk_phase_obs=1 --cfg-set goal.walk_phase_hz=1.333333 --cfg-set goal.walk_obs_body_vel=2 --cfg-set goal.walk_heading_max_rad=0.0 --cfg-set goal.walk_speed_min_m_s=0.08 --cfg-set goal.walk_speed_max_m_s=0.08 --cfg-set goal.walk_cmd_mode=stress_mix --cfg-set goal.walk_cmd_resample_s=4.0 --cfg-set goal.walk_cmd_resample_jitter=0.5 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set bus.write_speed=1500 --cfg-set bus.write_acc=80 --cfg-set bus.servo_vel_max_counts_s=write_speed --cfg-set safety.max_delta_q_deg=5.0 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --cfg-set reward.term_penalty=400.0 --cfg-set reward.k_step_event=0.0 --cfg-set reward.k_park_duty=0.0 --cfg-set reward.k_walk_freeprog=0.0 --cfg-set reward.walk_loadslip_gate=0.0 --cfg-set reward.k_loadslip_excess=0.0 --cfg-set reward.walk_gait_gate=0.0 --cfg-set reward.k_walk_idle_charge=0.0 --cfg-set reward.k_drag_stance=0.0 --amp-motion-lib rl_move/sim/motion_library/cpg_v1.npz --amp-disc-steps 4 --amp-disc-batch 512 --amp-gp-weight 10.0 --amp-replay 500000 --amp-task-weight 0.5 --amp-style-weight 0.5 --out-name ppo_goal_cw_cpg_teacherfork_ab_cpgv1_acq1b --notes 'respec of cw-cpg-teacherfork-ab-cpgv1: Plain English: cpgv1'\"'\"'s own 2M discovery run was still improving when it stopped (reward quarters 38.9/101.9/157.4/185.8, still rising at the end) and it landed WORSE-BUT-WALKING vs the scripted-teacher-library style05 champion (det progress_ratio med 0.99 vs 1.16, fwd dist med 0.59 vs 0.69m/15s; sto already matched/better). Per the 08-21 ruling (bad-but-improving eval + rising reward = continue, don'\"'\"'t verdict a lineage dead), this single-lever continuation (--init-from-source, same reward/env/motion-lib, +6M steps, no other change) tests whether the CPG-motion-library gap closes with more budget or is a real ceiling of this exact clip set.' > /tmp/train_cw-cpg-teacherfork-ab-cpgv1-acq1b.log 2>&1 < /dev/null & echo $!",
-    "log": "/tmp/train_cw-cpg-teacherfork-ab-cpgv1-acq1b.log"
+    "log": "/tmp/train_cw-cpg-teacherfork-ab-cpgv1-acq1b.log",
+    "wandb_id": "tccgmsx6",
+    "verified": "2026-08-23T06:06:21+00:00"
   },
   {
     "run": "cw-cpg-teacherfork-ab-cpgv1-budget2",
@@ -141998,7 +142012,7 @@
       "respec of cw-cpg-teacherfork-ab-cpgv1: Second data point for cpg/STATUS.md Next item 3 (teacher_v2-vs-CPG-winner AMP style-source adoption): does the CPG library (cpg_v1.npz) close style05's 2M gap (progress_ratio med 0.99 vs 1.16, fwd dist 0.59 vs 0.69m/15s) given matched extra budget, or is the gap structural? Single lever vs the SAME source arm: warm-start from cw-cpg-teacherfork-ab-cpgv1's own 2M checkpoint, +6M more steps (8M total), identical reward/env/motion-lib. Matched control cw-cpg-teacherfork-ab-style05-budget2 continues the teacher_v2 twin the same +6M so both sides get equal extra budget, not just one."
     ],
     "created": "2026-08-23T06:04:49+00:00",
-    "status": "INTENT",
+    "status": "SUPERSEDED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -142007,7 +142021,18 @@
       "code_sha_local": "18e85bb451bbbc213b2a4bcff290e02f8495764c",
       "code_sha_pod": "18e85bb451bbbc213b2a4bcff290e02f8495764c",
       "init_from_on_pod": true,
-      "wandb_env_on_pod": true
+      "wandb_env_on_pod": true,
+      "pid": "2338433",
+      "log_growth_bytes": [
+        5694,
+        5694
+      ],
+      "wandb_id": "qs9dmqra",
+      "global_step_window": [
+        655360,
+        1048576
+      ],
+      "fps_estimate": 13107.2
     },
     "trainer": "ppo",
     "stack": "gpu-mjx",
@@ -142015,6 +142040,10 @@
     "assessment_scope": "full_budget_skill_acquisition",
     "evidence": "cw-cpg-teacherfork-ab-cpgv1 is a healthy 2M canary: det+sto gait_valid 6/6, zero falls/sacrificed legs, disc unsaturated, video-clean six-leg cycling (VERDICTED INFORMATIVE, not a collapse) -- continuing an already-walking checkpoint, not a fresh-basin gamble. Comparable full-budget precedent: cw-amp-m2-pilot-style05 -> -c1 (this track's own 2M-discovery-then-continue pattern, +38M) and the M4 turnfault-seq1 2M-discovery -> 6M-acquisition convention used throughout this cycle's own AMP composition work. (Renamed from -cont1 after a benign name collision with a concurrent cycle's identical idea: git tag exp/cw-cpg-teacherfork-ab-cpgv1-cont1 exists at 855a54d6 but no process is running on any pod for it -- their attempt did not reach a live launch either; proceeding under a distinct name rather than fighting the lock.)",
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:cpg PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-cpg-teacherfork-ab-cpgv1-budget2 --steps 6000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_cpg_teacherfork_ab_cpgv1.zip --episode-seconds 15 --no-canary --eval-every 1000000 --video-every 2000000 --n-envs 4096 --impl warp --host-workers 24 --seed 7 --ent-coef 0.001 --warm-log-std-override -2.0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set goal.walk_phase_obs=1 --cfg-set goal.walk_phase_hz=1.333333 --cfg-set goal.walk_obs_body_vel=2 --cfg-set goal.walk_heading_max_rad=0.0 --cfg-set goal.walk_speed_min_m_s=0.08 --cfg-set goal.walk_speed_max_m_s=0.08 --cfg-set goal.walk_cmd_mode=stress_mix --cfg-set goal.walk_cmd_resample_s=4.0 --cfg-set goal.walk_cmd_resample_jitter=0.5 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set bus.write_speed=1500 --cfg-set bus.write_acc=80 --cfg-set bus.servo_vel_max_counts_s=write_speed --cfg-set safety.max_delta_q_deg=5.0 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --cfg-set reward.term_penalty=400.0 --cfg-set reward.k_step_event=0.0 --cfg-set reward.k_park_duty=0.0 --cfg-set reward.k_walk_freeprog=0.0 --cfg-set reward.walk_loadslip_gate=0.0 --cfg-set reward.k_loadslip_excess=0.0 --cfg-set reward.walk_gait_gate=0.0 --cfg-set reward.k_walk_idle_charge=0.0 --cfg-set reward.k_drag_stance=0.0 --amp-motion-lib rl_move/sim/motion_library/cpg_v1.npz --amp-disc-steps 4 --amp-disc-batch 512 --amp-gp-weight 10.0 --amp-replay 500000 --amp-task-weight 0.5 --amp-style-weight 0.5 --out-name ppo_goal_cw_cpg_teacherfork_ab_cpgv1_budget2 --notes 'respec of cw-cpg-teacherfork-ab-cpgv1: Second data point for cpg/STATUS.md Next item 3 (teacher_v2-vs-CPG-winner AMP style-source adoption): does the CPG library (cpg_v1.npz) close style05'\"'\"'s 2M gap (progress_ratio med 0.99 vs 1.16, fwd dist 0.59 vs 0.69m/15s) given matched extra budget, or is the gap structural? Single lever vs the SAME source arm: warm-start from cw-cpg-teacherfork-ab-cpgv1'\"'\"'s own 2M checkpoint, +6M more steps (8M total), identical reward/env/motion-lib. Matched control cw-cpg-teacherfork-ab-style05-budget2 continues the teacher_v2 twin the same +6M so both sides get equal extra budget, not just one.' > /tmp/train_cw-cpg-teacherfork-ab-cpgv1-budget2.log 2>&1 < /dev/null & echo $!",
-    "log": "/tmp/train_cw-cpg-teacherfork-ab-cpgv1-budget2.log"
+    "log": "/tmp/train_cw-cpg-teacherfork-ab-cpgv1-budget2.log",
+    "wandb_id": "qs9dmqra",
+    "verified": "2026-08-23T06:08:09+00:00",
+    "verdict": "SUPERSEDED (self-killed, no verdict): duplicate of the concurrent cycle's cw-cpg-teacherfork-ab-cpgv1-acq1b, which reached VERIFIED RUNNING first (same source checkpoint, same +6M steps, same motion-lib/reward/env, identical hypothesis) -- discovered both were live simultaneously (train-0 acq1b @2.8M, train-1 budget2 @1.0M) via a benign name-collision race (this run started life as -cont1, which also collided with their commit 855a54d6 before either process actually launched). Killed this run's pod-side PIDs (2338432/2338433 on hexapod-mjx-train-1) rather than let two identical 6M continuations burn double GPU time; acq1b is the run of record for this side of the comparison. Redirected this cycle's contribution to the genuinely-missing piece: the matched style05 control at the same +6M budget (cw-cpg-teacherfork-ab-style05-budget2), which neither cycle had queued yet.",
+    "triage": "done"
   }
 ]
