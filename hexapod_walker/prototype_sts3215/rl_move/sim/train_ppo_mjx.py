@@ -3382,11 +3382,22 @@ def main(argv: list[str] | None = None) -> int:
             """Linearly anneal the policy's log_std parameter(s) to
             args.log_std_final over log_std_anneal_frac * args.steps,
             then hold. Unlike the entropy-bonus route this SETS the
-            parameter directly every rollout end (the proven
-            --warm-log-std-override mechanism on a schedule), so PPO's
-            own gradient cannot fight it between rollouts. Default OFF
-            (--log-std-final unset): callback never constructed,
-            bit-exact legacy."""
+            parameter directly (the proven --warm-log-std-override
+            mechanism on a schedule), so PPO's own gradient cannot
+            fight it between rollouts. Default OFF (--log-std-final
+            unset): callback never constructed, bit-exact legacy.
+
+            TIMING FIX (08-23, stdanneal45/swinganneal45 forensics):
+            the set MUST happen at rollout START, not rollout end.
+            Setting it between collection and train() shifts every
+            stored log_prob, inflating first-minibatch approx_kl
+            (~0.13 at a 2.5-nat/2M anneal rate) past SB3's
+            target_kl=0.02 early-stop, which fires BEFORE
+            optimizer.step() — both 08-23 amp anneal arms completed
+            2M steps with ZERO weight updates while reward 'rose'
+            purely from shrinking action noise. At rollout start the
+            collected actions, buffer log_probs and train() all share
+            one log_std, so ratios start at 1 as normal."""
 
             def __init__(self):
                 super().__init__()
@@ -3412,7 +3423,7 @@ def main(argv: list[str] | None = None) -> int:
             def _on_step(self) -> bool:
                 return True
 
-            def _on_rollout_end(self) -> None:
+            def _on_rollout_start(self) -> None:
                 import math as _math
                 import torch as _th
                 frac = min(1.0, self.num_timesteps / self._denom)

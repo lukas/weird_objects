@@ -148976,7 +148976,7 @@
       "-4.5"
     ],
     "created": "2026-08-23T14:12:18+00:00",
-    "status": "RUNNING",
+    "status": "INVALID",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -149014,7 +149014,8 @@
         "log_tail": " amp/disc_updates 124\nwandb:                amp/gp 0.01095\nwandb:              amp/loss 0.26777\nwandb: amp/pairs_per_rollout 65329\nwandb:        amp/replay_len 500000\nwandb: amp/style_reward_mean 0.15956\nwandb:                  +107 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518-stdanneal45 at: https://wandb.ai/l2k2/hexapod-balance/runs/4wd90gkv\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 3 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260823_141313-4wd90gkv/logs\n"
       }
     ],
-    "triage": "in-cycle cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518-stda since 2026-08-23T14:23:29"
+    "triage": "done",
+    "verdict": "INVALID \u2014 this run never trained: zero PPO gradient steps were taken, so the noise-floor hypothesis is UNTESTED, not refuted. Forensics: the saved checkpoint's 12 network tensors (actor AND critic) are byte-identical to the warm-start ancestor ppo_goal_cw_amp_m4_turnfault_seq1.zip; only log_std moved (annealed to -4.5 on schedule). Root cause: the --log-std-final callback sets log_std at on_rollout_end, i.e. BETWEEN collection and PPO's train(), so every first minibatch shows approx_kl ~0.13 purely from the log_std shift (18 dims x 0.082 log-std step/rollout at this 2.5-nat/2M anneal rate); SB3's target_kl=0.02 early-stop (trainer default) fires BEFORE optimizer.step() \u2014 the pod log shows 'Early stopping at step 0 due to reaching max kl' on 31/31 updates. The 'rising reward' curve (43->268) was pure artifact: shrinking action noise makes the SAME frozen policy score better \u2014 a textbook trap for the 08-21 reward-rising ruling; weight-level checks now added to triage. Blast radius audited: the joystick stotight ladder (same flag, target-kl 0.02) is CLEAN \u2014 all champions show real weight deltas (their anneal rate per rollout was ~6x smaller, KL bump below the early-stop line). Sibling swinganneal45 froze identically (byte-identical policy to this run \u2014 its swing-income cfg only re-priced the same trajectories). Next: trainer fixed this cycle (anneal moved to on_rollout_start so buffer log_probs stay consistent, ratios start at 1), smoke-verified weights move, both arms relaunched as -r2 on the fixed code with unchanged hypotheses/gates."
   },
   {
     "run": "cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518-swinganneal45",
@@ -149163,7 +149164,7 @@
       "-4.5"
     ],
     "created": "2026-08-23T14:16:03+00:00",
-    "status": "RUNNING",
+    "status": "INVALID",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -149193,7 +149194,7 @@
     "log": "/tmp/train_cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518-swinganneal45.log",
     "wandb_id": "dj2d99xh",
     "verified": "2026-08-23T14:19:22+00:00",
-    "triage": "in-cycle cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518-stda since 2026-08-23T14:23:29",
+    "triage": "done",
     "checkups": [
       {
         "time": "2026-08-23T14:24:40+00:00",
@@ -149202,7 +149203,8 @@
         "log_tail": "mp/disc_updates 124\nwandb:                amp/gp 0.01096\nwandb:              amp/loss 0.26532\nwandb: amp/pairs_per_rollout 65336\nwandb:        amp/replay_len 500000\nwandb: amp/style_reward_mean 0.16741\nwandb:                  +107 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518-swinganneal45 at: https://wandb.ai/l2k2/hexapod-balance/runs/dj2d99xh\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 3 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260823_141659-dj2d99xh/logs\n"
       }
     ],
-    "checkup_20260823T1424Z": "benign rc=1 race: trainer exited at full 2.0M budget (total_timesteps 2031616, ckpt artifact md5 2925738b, 0 tracebacks, wandb finished clean); checkup ran during wandb finalization. m5 eval pipeline live on train-2. No retry needed; verdict owned by concurrent cycle."
+    "checkup_20260823T1424Z": "benign rc=1 race: trainer exited at full 2.0M budget (total_timesteps 2031616, ckpt artifact md5 2925738b, 0 tracebacks, wandb finished clean); checkup ran during wandb finalization. m5 eval pipeline live on train-2. No retry needed; verdict owned by concurrent cycle.",
+    "verdict": "INVALID \u2014 this run never trained: zero PPO gradient steps, so the anneal+swing composition question is UNTESTED, not answered. Its policy.pth and policy.optimizer.pth are byte-identical to sibling stdanneal45's, and both are byte-identical (except the annealed log_std) to the warm-start ancestor ppo_goal_cw_amp_m4_turnfault_seq1.zip. Root cause (shared with the sibling): the --log-std-final callback sets log_std at on_rollout_end, between collection and train(), inflating first-minibatch approx_kl to ~0.13 from the log_std shift alone; SB3's target_kl=0.02 early-stop fired before optimizer.step() on every one of 31 updates ('Early stopping at step 0' x31 in the pod log). The W&B differences vs the sibling (ep_rew 299 vs 279, distinct SCORE curves) are exactly the k_walk_swing=1.0 income re-pricing the IDENTICAL trajectories \u2014 same frozen policy, same seed 7, same noise stream. Its eval-report return offsets vs the sibling (+58..+113/ep on behaviorally identical episodes) confirm it. Fault-regression sub-question (does swing1's fault-sto cost follow swing income under anneal) therefore also unanswered. Trainer fixed this cycle (anneal at on_rollout_start), arm relaunched as -r2 with unchanged hypothesis/gate."
   },
   {
     "run": "cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518-tipspawn3-wzonly",
@@ -149380,6 +149382,15 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:amp PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518-tipspawn3-wzonly --steps 2000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_amp_m4_turnfault_seq1.zip --episode-seconds 15 --no-canary --eval-every 1000000 --video-every 2000000 --n-envs 4096 --impl warp --host-workers 24 --seed 7 --ent-coef 0.001 --warm-log-std-override -2.0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set goal.walk_phase_obs=1 --cfg-set goal.walk_phase_hz=1.333333 --cfg-set goal.walk_obs_body_vel=2 --cfg-set goal.walk_heading_max_rad=-1 --cfg-set goal.walk_speed_min_m_s=0.08 --cfg-set goal.walk_speed_max_m_s=0.08 --cfg-set goal.walk_cmd_mode=stress_mix --cfg-set goal.walk_cmd_resample_s=4.0 --cfg-set goal.walk_cmd_resample_jitter=0.5 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set bus.write_speed=1500 --cfg-set bus.write_acc=80 --cfg-set bus.servo_vel_max_counts_s=write_speed --cfg-set safety.max_delta_q_deg=5.0 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --cfg-set reward.term_penalty=400.0 --cfg-set reward.k_step_event=0.0 --cfg-set reward.k_park_duty=0.0 --cfg-set reward.k_walk_freeprog=0.0 --cfg-set reward.walk_loadslip_gate=0.0 --cfg-set reward.k_loadslip_excess=0.0 --cfg-set reward.walk_gait_gate=0.0 --cfg-set reward.k_walk_idle_charge=0.0 --cfg-set reward.k_drag_stance=0.0 --amp-motion-lib rl_move/sim/motion_library/teacher_v2.npz --amp-disc-steps 4 --amp-disc-batch 512 --amp-gp-weight 10.0 --amp-replay 500000 --amp-task-weight 0.5 --amp-style-weight 0.5 --out-name ppo_goal_cw_amp_m4_turnfault_seq1_pushcont1_tipfrac05_pushcal518_tipspawn3_wzonly --notes 'respec of cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518-tipspawn1b: Plain English: tipspawn1b (start_frac=0.5 + spawn_wz=1.0) cut walk-slip sharply (3.1855 vs parent 3.67) but tipspawn2-startonly (start_frac=0.5 alone, spawn_wz=0) did NOT reproduce it (3.6015, unmoved) -- this arm tests the last untested cell of the 2x2 design: spawn_wz=1.0 ALONE (start_frac reverted to 0/default) on the same pushcal518 base. Mechanism: the turn-omega passthrough into mid-stride gait spawns may itself be what'\"'\"'s buying the slip win (e.g. by changing foot-plant phase distribution at episode start), independent of the RSI/reset-distribution half. Prediction-if-true (spawn_wz is the driver alone): walk det_slip_med lands near tipspawn1b'\"'\"'s 3.1855 (<=3.5 bar), completing the isolation -- promote goal.walk_gait_spawn_wz alone as the slip fix. Prediction-if-false (needs both / true interaction): slip reverts toward parent'\"'\"'s 3.67 like tipspawn2-startonly did -- neither lever alone suffices, only the combination works, meaning any promotion must carry both levers together (even though spawn_wz'\"'\"'s own named purpose, turn-in-place tip-tracking, already FAILED on tipspawn1b, refuted as a 5th independent turn-tracking mechanism if this reads badly on yaw too, though yaw is not this arm'\"'\"'s target). Strongest alternative: tipspawn1b'\"'\"'s slip result was noise (n=12) and neither half nor the combination is a real mechanism -- low prior given push/fault sections also read clean in both prior arms, but flagged for a re-check if this cell also fails and the eventual literature-clean answer is '\"'\"'no reproducible effect'\"'\"'.' --obs-pad-transplant 0 --cfg-set goal.walk_yaw_cmd=1 --cfg-set goal.walk_yaw_max_rad_s=0.3 --cfg-set goal.walk_yaw_zero_frac=0.5 --cfg-set reward.k_walk_yaw=1.0 --cfg-set reward.walk_yaw_kernel_gate=1.0 --cfg-set reward.k_yaw_prog=1.0 --cfg-set reward.k_yaw_still=50 --cfg-set reward.walk_kernel_yaw_gate=1.0 --cfg-set reward.walk_yaw_hold_prog_gate=1.0 --cfg-set reward.yaw_still_avg_s=1.0 --cfg-set goal.walk_phase_run_on_yaw=1 --cfg-set dr.fault_prob=1.0 --cfg-set obs.fault_health=1 --cfg-set dr.ext_push_prob=1.0 --cfg-set reward.yaw_prog_overshoot_decay=1.0 --cfg-set reward.yaw_prog_avg_s=1.0 --cfg-set goal.walk_turn_in_place_frac=0.5 --cfg-set dr.ext_push_n=5.0,18.0 --cfg-set goal.walk_gait_start_frac=0.0 --cfg-set goal.walk_gait_spawn_wz=1.0 > /tmp/train_cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518-tipspawn3-wzonly.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518-tipspawn3-wzonly.log",
     "wandb_id": "7ysj6mrj",
-    "verified": "2026-08-23T14:36:10+00:00"
+    "verified": "2026-08-23T14:36:10+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-23T14:41:42+00:00",
+        "process_alive": false,
+        "verdict": "DEAD",
+        "log_tail": "disc_updates 124\nwandb:                amp/gp 0.01199\nwandb:              amp/loss 0.28903\nwandb: amp/pairs_per_rollout 65323\nwandb:        amp/replay_len 500000\nwandb: amp/style_reward_mean 0.19811\nwandb:                  +103 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518-tipspawn3-wzonly at: https://wandb.ai/l2k2/hexapod-balance/runs/7ysj6mrj\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 3 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260823_143346-7ysj6mrj/logs\n"
+      }
+    ],
+    "triage": "in-cycle cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518-tips since 2026-08-23T14:43:51"
   }
 ]
