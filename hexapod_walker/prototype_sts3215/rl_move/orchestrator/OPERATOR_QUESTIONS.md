@@ -2038,6 +2038,30 @@ Plain English: a checkpoint just passed the ENTIRE cross-engine M5 suite for the
   on this lineage STAY CLOSED (per the resolution above); the
   bar-value question (is 3.5 the intended DONE number given the
   family reads 3.5-3.8?) remains the operator's.
+- TIP-METRIC ANALOG MEASURED (08-23 ~17:1x, wzmask2 cycle): the same
+  under-powering just surfaced on the YAW TIP metric, and with a
+  harder edge — it is not eval-sampling noise but TRAINING-replicate
+  noise. Two identical-config, identical-seed(7) runs of the
+  full-gyro-mask recipe (`-wzmask2` and its launch-race duplicate
+  `-wzmask2-gyroxyz`, whose kill silently failed so it trained to
+  completion) diverged via GPU non-determinism and read m5 tips
+  0.239/0.2371 vs **0.174/0.202** — Δtip_left 0.065 between literal
+  same-seed replicates, 3x the ±0.02 band every yaw-mechanism verdict
+  this campaign has used, wider than the parent's own 3-seed spread
+  (0.216-0.249), and the 0.174 sits BELOW the 11-read family floor
+  (0.198). Consequence: the five "refuted" yaw mechanism classes were
+  each judged on single draws from a distribution this wide; the
+  refutations are individually under-powered (the CLASS-level pattern
+  across many arms still stands, but any single ±0.02-0.03 read does
+  not). Assume-and-go resolution: a 3-seed decider grid of the exact
+  wzmask2 recipe (s23/s13/s17, pooled n=5 vs parent pooled n=3) is
+  launched — it settles the gyro-mask question at distribution level
+  AND delivers the first measured tip replicate-noise calibration.
+  Standing rule adopted until the operator says otherwise: no yaw
+  tip verdict on effects <0.04 without >=3 same-recipe draws (mirror
+  of the slip Δ>=0.4 rule above). The 0.20 yaw bar value itself stays
+  the operator's call — note it is now known to sit within one
+  replicate-noise width of the family's typical 0.216-0.249 reads.
 
 ## q_20260823T1240Z — AMP demo clips capped the turn rate: rebuilt the motion library (teacher_v3) and launched the full-strength slip gate rather than the pre-registered partial one
 Plain English: the robot could not be PAID into turning faster because the thing it was being taught to imitate never turns fast either — the scripted teacher's own demo clips rotate at ~0.134 rad/s while labeled 0.25, and the AMP discriminator watches raw body yaw-rate with no idea what was commanded, so any faster rotation looks "unlike the teacher" and gets docked. Two assume-and-go decisions this cycle, both recorded here per the no-operator-pauses rule.

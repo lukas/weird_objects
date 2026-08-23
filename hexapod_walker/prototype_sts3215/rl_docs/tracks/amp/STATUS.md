@@ -1,6 +1,48 @@
 # amp - AMP locomotion from scratch
 
-Last updated: 2026-08-23 ~16:3x (**slip axis CLOSED by measurement;
+Last updated: 2026-08-23 ~17:3x (**wzmask2 widen-mask read is
+INCONCLUSIVE in the most instructive way possible: two
+identical-config, identical-seed draws of the SAME recipe read
+opposite verdicts, exposing that the tip metric's replicate noise
+floor (Δleft 0.065) is 3x the ±0.02 band every yaw arm has been
+gated on; 3-seed decider grid launched.** The launch-race duplicate
+`-wzmask2-gyroxyz` was ledger-KILLED at 16:37 but the kill never
+took effect — it trained to its full 2M (W&B finished, 2,031,616
+steps) and GPU non-determinism diverged it from `-wzmask2` (ep_rew
+262.4 vs 233.7, NOT byte-identical as the kill verdict assumed).
+m5 reads: `-wzmask2` tips 0.239/0.2371 (the pre-registered FAIL
+signature: right unmoved, left wrong-way +0.023) vs `-gyroxyz`
+tips **0.174/0.202** (the PASS signature: both sides −0.033/−0.042,
+family-best-ever left, below the 11-read family floor 0.198; also
+the closest any family member has come to the v1 yaw bar). Both
+draws safety-clean: 0 falls, 0 terms, walk gv 12/12, det slip
+3.81/3.83 (unmoved under the <0.3 caveat), fault gv 10/12 with
+video-clean parked carried-fault legs, six-leg strips clean.
+Consequence: neither gyro-channel closure nor lever promotion is
+claimable at n=2 straddling, and every single-read ±0.02-0.03 tip
+verdict this campaign (wzmask1, cmdcond1, cpgdemo1's tip_left,
+noamp1's gain) is retroactively weakened — the tip analog of the
+slip x12 sampling finding. Per the tipspawn1b replicate-grid
+precedent, LAUNCHED the 3-seed decider grid `-wzmask2-s23/-s13/-s17`
+(exact recipe, 2M each; s23/s13 pair with the parent's own matched
+seeds 0.2493/0.2393 and 0.2168/0.2269): grid gate = pooled mask n=5
+medians vs parent pooled n=3 (0.2168/0.2351) — PASS both improve
+>=0.02 with >=2/5 draws at a side <=0.20; FAIL within ±0.02 (gyro
+closes for real, gyroxyz = tail draw); either way the grid delivers
+the first measured tip replicate-noise calibration, which the
+0.20-bar question (q_20260823T0130Z) needs regardless. gyroxyz's
+checkpoint retained append-only as the family yaw-best artifact /
+promotion candidate if the grid confirms. OPS: (1) killrun was a
+silent no-op on zero matches and never re-verified — FIXED in
+ops.sh (match count, re-scan, kill -9 escalation, 'verified dead'
+gate before any KILLED ledger mark); (2) one snapshot pull-rebase
+failed with 'Cannot rebase onto multiple branches' (FETCH_HEAD race
+with a concurrent cycle's fetch) and a STALE ~03:48 autostash was
+found+dropped — if you hit this, check `git stash list` age before
+popping. Evidence:
+`logs/ckpt_eval/..._wzmask2_{gate,m5}/`, `..._wzmask2_gyroxyz_{gate,m5}/`.)
+
+Previous entry (~16:3x: **slip axis CLOSED by measurement;
 gyro-mask yaw lever refuted at dim 38, final widen arm launched.**
 Three reads this cycle. (1) `-cpgdemo1` FAIL (double-triaged by two
 cycles, verdicts agree): swapping the demo anchor to the CPG-search
