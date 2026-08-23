@@ -1,6 +1,36 @@
 # amp - AMP locomotion from scratch
 
-Last updated: 2026-08-23 ~20:5x (**0.7 Hz dose point read — PARTIAL,
+Last updated: 2026-08-23 ~21:2x (**FIRST FULL amp-m5-v1 PASS —
+1.1 Hz is the cadence sweet spot; 3-seed replication batch RUNNING
+before the track M5 gate flips.** The dose curve is complete and
+NON-monotone: `-phasehz11` (goal.walk_phase_hz 1.33->1.1, single
+lever) VERDICTED **PASS** — all four m5 sections green for the first
+time in program history: yaw tips **0.1451/0.1453** (bar 0.20,
+parent 0.2157/0.2351, 0 falls), walk (wpm24, n_translating=28)
+det_prog_med **0.893** / det_slip_med **3.131** (bars 0.75/3.5),
+0 terms, gait 48/48 walk + 12/12 push + 11/12 fault, strips watched
+(walk/push/fault: upright, level, six legs cycling, no flag leg).
+`-phasehz09` VERDICTED PARTIAL: tips 0.1313/0.1801 pass but walk
+prog 0.642 / slip 4.739 (wpm24) — with the concurrent 0.7 read
+(prog 0.674/slip 4.48) the 0.7-0.9 band is a WALK TROUGH (worst of
+both worlds) while tips recover at every dose below 1.333; the
+feasible region for BOTH skills opens at ~1.1 Hz, i.e. the parent's
+tip saturation was a mild cadence ceiling needing only a 17%
+slowdown, not the 0.5 Hz sacrifice. Checkpoint
+`ppo_goal_..._phasehz11.zip` is the **M5 candidate champion**
+(SKILLS.md row added). LAUNCHED (this cycle, all VERIFIED RUNNING,
+2M discovery each): `-phasehz11-s17/-s23/-s29` — exact-recipe seed
+twins; joint 4-seed pass-rate gate (with seed-7 original): >=3/4
+PASS = recipe-level confirmation, M5 flips; 2/4 fragile ->
+continuations; <=1/4 seed luck. Still training elsewhere:
+`-phasehz05-cont1` (does 0.5 Hz recover prog with +4M — now a
+secondary question unless it beats 1.1's slip/prog jointly).
+Assumption recorded (OPERATOR_QUESTIONS.md q_20260823T2110Z): M5
+declaration requires the replication read, not just one seed.
+Evidence: `logs/ckpt_eval/..._phasehz{09,11}_m5{,_wpm24}/`. Prior
+banner below.)
+
+Previous entry (~20:5x (**0.7 Hz dose point read — PARTIAL,
 and it sharpens the curve: TIPS ARE NON-MONOTONE IN CADENCE with the
 best point INTERIOR.** `-phasehz07` (clock 0.7 Hz, teacher_v2 demos,
 otherwise unmutated phasehz05 recipe) m5: yaw PASS with tips
