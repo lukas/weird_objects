@@ -130058,7 +130058,15 @@
     "log": "/tmp/train_cw-amp-m2-turnclone-yawcmd-tip50.log",
     "wandb_id": "kj5u901l",
     "verified": "2026-08-22T23:59:58+00:00",
-    "triage": "in-cycle cw-amp-m2-turnclone-yawcmd-tip50-cw-amp-m2-turnclone-yawcmd0 since 2026-08-23T00:04:56"
+    "triage": "in-cycle cw-amp-m2-turnclone-yawcmd-tip50-cw-amp-m2-turnclone-yawcmd0 since 2026-08-23T00:04:56",
+    "checkups": [
+      {
+        "time": "2026-08-23T00:05:25+00:00",
+        "process_alive": false,
+        "verdict": "DEAD",
+        "log_tail": "amp/d_real_mean 0.49949\nwandb:      amp/disc_updates 124\nwandb:                amp/gp 0.01009\nwandb:              amp/loss 0.38546\nwandb: amp/pairs_per_rollout 65340\nwandb:        amp/replay_len 500000\nwandb: amp/style_reward_mean 0.29324\nwandb:                  +102 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-amp-m2-turnclone-yawcmd-tip50 at: https://wandb.ai/l2k2/hexapod-balance/runs/kj5u901l\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 3 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260822_235734-kj5u901l/logs\n"
+      }
+    ]
   },
   {
     "run": "cw-amp-m2-turnclone-yawcmd-tip90",

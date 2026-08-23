@@ -872,7 +872,7 @@ Build every tool this needs; do not pause on operator input.
   det fwd travel still ~0.02-0.03m) — if seen on triage, FAIL
   regardless of return and bank+fix a `walk_gait_gate`-style MIN-
   across-six-legs gate on the swing bonus before any follow-up.
-- M3 push recovery: IN PROGRESS (08-22 ~23:1x) — built + bank-tested
+- M3 push recovery: IN PROGRESS (08-23 ~00:0x) — built + bank-tested
   `dr.ext_push_*` (brief §7.4/§9.3): a mid-episode random-direction
   horizontal force pulse (10-25N/0.15-0.4s, half-sine, world-frame
   direction, once per walk-mode episode at a random 1.5-9s delay),
@@ -887,19 +887,50 @@ Build every tool this needs; do not pause on operator input.
   interactive tools that already use those same indices
   (`web_session.py`'s manual push slider, quad probes) — a real
   collision caught and fixed before launch, encoded as a permanent
-  regression test. Bank: `test_ext_push_injection.py` 12/12 (default-
-  off no-op + rng-stream guard, dose-range sampling, prob-not-dose
-  curriculum scaling, force-window math incl. direction, end-to-end
-  CPU env, xfrc-row ownership gate, measurable chassis perturbation
-  vs. a push-off twin); full suite still 163 pass/4 skip/1 xfail/1
-  pre-existing-red (fastprof, untouched). Verified on the actual
-  Warp/MJX GPU kernel (not just CPU): a direct `MjxTickStepper.tick(
-  push_fxy=...)` smoke showed the pushed env's chassis diverge
-  sharply from un-pushed sibling envs. First training use launched
-  (mechanism-safety smoke, not a graded gate, per the fault-injection
-  precedent): `cw-amp-m3-pushsmoke1-noamp-r4` (train-0, from
-  `cw-amp-m2-bcinit-sec5-noamp-headingsfull`, `dr.ext_push_prob=1.0`,
-  2M, DR-0) — VERIFIED RUNNING, verdict next cycle.
+  regression test. First training use, mechanism-safety smoke
+  (`cw-amp-m3-pushsmoke1-noamp-r4`, 2M, DR-0): **PASS** — reward
+  finite+rising every quarter, training tilt terminations fell ~3x at
+  constant dose, DR-0 gate gait_valid 6/6 det+sto, zero sacrificed
+  legs; blunt: the shove still won 1/6 det + 3/6 sto episodes
+  (survive-most, not recovery-after-knockdown). Style twin
+  (`cw-amp-m3-pushsmoke1-style05`) and a 6M acquisition continuation
+  (`cw-amp-m3-pushacq1-noamp`) launched off the back of that PASS.
+  **Acquisition PASS (08-23)**: 6M more steps at the SAME dose closed
+  the gap outright — DR-0 own-cfg gate 0/12 terminations det+sto (was
+  1/6 det + 3/6 sto), gait_valid 6/6 both, zero sacrificed legs, det
+  prog med 1.06 (bar ≥0.9), height_err single-digit-to-12mm all
+  episodes; training tilt terminations kept falling the whole 6M
+  (pitch 18.6→7.5, roll 11.4→5.4/window), reward rose 143→381 —
+  reward and gate agree. Video (the two hardest-hit episodes, roll
+  peak 10-16°): clean six-leg cycling continues through and after the
+  shove. Blunt limit unchanged: still ONE push per episode — M3's own
+  bar wants REPEATED pushes, which `dr.ext_push_*` could not draw
+  before this cycle. **BUILT + BANK-TESTED 08-23**:
+  `dr.ext_push_repeat_max` (RandRanges dose menu, default 1 = the
+  original single-pulse behavior byte-for-byte — the repeat-sampling
+  branch only runs when >1, so it draws zero extra rng numbers at the
+  default) draws that many independent pulses per episode, each timed
+  `dr.ext_push_gap_s` after the previous one ENDS (non-overlapping by
+  construction, so the policy gets a real window to recover between
+  shoves) and stopping early (fewer pulses that episode) once the next
+  start would land past `dr.ext_push_horizon_s` — a short/fast episode
+  gets fewer pulses, not one crammed at the tail. `sim_env._ext_push_force_n()` sums every pulse's half-sine
+  contribution (at most one nonzero at a time by the non-overlap
+  sampling). Same dose-not-scaled convention as every other push/kick/
+  fault menu (`.scaled()` shrinks only `ext_push_prob`). Bank:
+  `test_ext_push_injection.py` 17/17 (12 original + 5 new: default
+  bit-exact at repeat_max=1, dose menus obeyed for every extra pulse,
+  non-overlap + monotonic timing, early-stop past horizon,
+  force-summation in each pulse's own window); full regression
+  `test_sim_env.py` 44/44; full semantics bank 163 pass/4 skip/1
+  xfail/1 pre-existing-red (fastprof, untouched) — zero collateral
+  damage. First training use launched (mechanism-safety smoke, same
+  discipline as fault/single-push): `cw-amp-m3-pushrepeat1-noamp`
+  (from `cw-amp-m3-pushacq1-noamp`'s checkpoint, `dr.ext_push_repeat_
+  max=3`, `dr.ext_push_gap_s=(1.0,2.5)`, `dr.ext_push_horizon_s=13.0`,
+  2M, DR-0) — decides whether the single-push acquisition champion's
+  recovery skill generalizes to a second/third shove in the same
+  episode, or needs its own acquisition budget.
 - M4 fault adaptation: NOT STARTED
 - M5 MuJoCo transfer (= DONE gate): NOT STARTED
 
