@@ -239,3 +239,5 @@ W&B OUTCOME notes. Do not use this file as current truth; read
 - 08-23 01:19 b1530 PASS: 15-30N bridge holds 2/12 topples, terms 26->14; stage-2 20-40N chain launched 
 - 08-23 01:19 repeat2 PASS-but-free: 2 shoves nearly free from single-shove prior (2/12 topples, terms low-flat); rung-3 chain launched as the real staging test 
 - 08-23 01:20 style05-r3b1530-r1 INFORMATIVE-plateau: count x force does not compose (4/12 topples = flat-jump floor, pitch term flat all run); envelope ~25N under count, recovery mechanism named 
+- 08-23 01:31 turnpush1-r2 INFORMATIVE: push+turn composition lands 3x worse than push-alone-on-heading at matched 2M budget (prog 0.37 vs 1.20 det) despite reward still rising -- undertrained joint skill, not misaligned; 6M acquisition is the next lever 
+- 08-23 01:32 turnfault1 INFORMATIVE: 3-axis stack (heading+turn+fault) misses its own gait_valid>=10/12 bar at 2M (9/12, 3 sto statues) with reward still rising -- undertrained combo, not broken; compose sequentially or fund acquisition next 

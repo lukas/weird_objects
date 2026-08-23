@@ -133712,7 +133712,7 @@
       "dr.ext_push_n=20,40"
     ],
     "created": "2026-08-23T00:53:04+00:00",
-    "status": "REFUSED",
+    "status": "SUPERSEDED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -133726,7 +133726,9 @@
     "phase": "acquisition",
     "assessment_scope": "full_budget_skill_acquisition",
     "evidence": "cw-amp-m3-pushhard1-noamp-n2040 (INFORMATIVE-plateau 08-23): reward still rising in Q4 (84->115) and tilt-roll terms still creeping down (46->43/window) at the 6M cutoff \u2014 the 08-21 ruling's continuation condition; gate showed valid gait 12/12 with real recovery on 8/12 episodes.",
-    "refused_reason": "hexapod-mjx-train-0 code marker e67ddf87bbe25bd8e9470d7622bc711e819f5bb5 != local HEAD 50e8960b96e4d93694f1e73ad246ad87d45d249b. Sync first: snapshot.sh --sync hexapod-mjx-train-0 (and snapshot/commit before that if the tree is dirty)."
+    "refused_reason": "hexapod-mjx-train-0 code marker e67ddf87bbe25bd8e9470d7622bc711e819f5bb5 != local HEAD 50e8960b96e4d93694f1e73ad246ad87d45d249b. Sync first: snapshot.sh --sync hexapod-mjx-train-0 (and snapshot/commit before that if the tree is dirty).",
+    "verdict": "Never trained: REFUSED x3 on stale pod code marker (e67ddf87 vs HEAD), landed in backlog_failed. Relaunched verbatim as cw-amp-m3-pushhard1-noamp-n2040-c1r1 (08-23 ~01:2x, train-2) via respec --now sync path. Do not retry this stub again.",
+    "triage": "done"
   },
   {
     "run": "cw-amp-m4-faultobs2-headingsfull-blind",
@@ -134291,7 +134293,7 @@
       "goal.walk_phase_run_on_yaw=1"
     ],
     "created": "2026-08-23T01:09:16+00:00",
-    "status": "FINISHED",
+    "status": "INFORMATIVE",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -134321,7 +134323,7 @@
     "log": "/tmp/train_cw-amp-m3-turnpush1-style05-r2.log",
     "wandb_id": "v7orof4k",
     "verified": "2026-08-23T01:12:32+00:00",
-    "triage": "awaiting since 2026-08-23T01:16:03",
+    "triage": "done",
     "checkups": [
       {
         "time": "2026-08-23T01:18:22+00:00",
@@ -134329,7 +134331,8 @@
         "verdict": "FINISHED_BEFORE_CHECKUP",
         "log_tail": "   amp/d_real_mean 0.44265\nwandb:      amp/disc_updates 124\nwandb:                amp/gp 0.01159\nwandb:              amp/loss 0.38471\nwandb: amp/pairs_per_rollout 65286\nwandb:        amp/replay_len 500000\nwandb: amp/style_reward_mean 0.2707\nwandb:                  +102 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-amp-m3-turnpush1-style05-r2 at: https://wandb.ai/l2k2/hexapod-balance/runs/v7orof4k\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 3 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260823_011008-v7orof4k/logs\n"
       }
-    ]
+    ],
+    "verdict": "Push does NOT compose for free onto the turn-capable substrate at matched budget. Same 2M discovery / same push dose (dr.ext_push_prob=1.0, 10-25N) that pushsmoke1-style05 (plain heading substrate, no turn) handled cleanly (det prog med 1.20/slip 3.27, sto 0.94/3.59) lands far worse here: det prog med 0.37/slip 3.24, sto prog med 0.21/slip 5.33, one genuine fall (walk/sto/0 TERM tilt_pitch), dir_err 48/63 vs the pre-push parent's 40/65. gait_valid still 6/6 both modes (no statues), zero crashes. Training reward is still climbing at budget end (quarters 16->53->140->197, not flat) -- per the 08-21 ruling this is UNDERTRAINED, not misaligned: turn+push together is a harder joint skill that doesn't transplant for free from either axis solved alone, unlike push-onto-plain-heading which worked immediately at this same budget. Next (named, not spent): acquisition continuation (6M, matching pushacq1's own dose) is the natural next step; if 6M doesn't close the gap, a staged turn-then-push curriculum is the fallback."
   },
   {
     "run": "cw-amp-m4-turnfault1-style05",
@@ -134464,7 +134467,7 @@
       "goal.walk_phase_run_on_yaw=1"
     ],
     "created": "2026-08-23T01:13:08+00:00",
-    "status": "FINISHED",
+    "status": "INFORMATIVE",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -134494,7 +134497,7 @@
     "log": "/tmp/train_cw-amp-m4-turnfault1-style05.log",
     "wandb_id": "5c5rmv82",
     "verified": "2026-08-23T01:16:23+00:00",
-    "triage": "awaiting since 2026-08-23T01:21:08",
+    "triage": "done",
     "checkups": [
       {
         "time": "2026-08-23T01:21:23+00:00",
@@ -134502,7 +134505,8 @@
         "verdict": "FINISHED_BEFORE_CHECKUP",
         "log_tail": "      amp/d_real_mean 0.5894\nwandb:      amp/disc_updates 124\nwandb:                amp/gp 0.01038\nwandb:              amp/loss 0.26825\nwandb: amp/pairs_per_rollout 65340\nwandb:        amp/replay_len 500000\nwandb: amp/style_reward_mean 0.1938\nwandb:                  +103 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-amp-m4-turnfault1-style05 at: https://wandb.ai/l2k2/hexapod-balance/runs/5c5rmv82\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 3 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260823_011359-5c5rmv82/logs\n"
       }
-    ]
+    ],
+    "verdict": "Fails its own pre-registered mechanism-safety bar at 2M discovery: gait_valid 9/12 (6/6 det, only 3/6 sto) vs the >=10/12 bar, 3 sto episodes show a genuine sacrificed-leg statue (legs 2/4/4, video walk_sto_2: near-stationary shuffle, not a limp), progress collapses (det med 0.29, sto med 0.14) well below faultobs2-headingsfull-style05's own numbers (det 1.09/sto 0.57, though that ran at 4M not 2M) and slip is worse too (det 4.76 vs 3.08, sto 8.6 vs 7.26). Training reward is still climbing at budget end (quarters 46->99->170->203, not flat) -- per the 08-21 ruling this is UNDERTRAINED, not a proven-broken mechanism: stacking THREE axes at once (full-heading translation + turn-in-place + faults) on a fresh 2M budget is harder than any pair alone, and each axis individually composed fine on its own dedicated budget elsewhere in this track. Next (named, not spent): either a longer acquisition budget on this exact 3-way combo, or -- cleaner -- add fault AFTER turn+heading/push is acquisition-solid rather than stacking three brand-new axes simultaneously, matching the M2->M3->M4 sequential milestone design."
   },
   {
     "run": "cw-amp-m3-pushcur2-noamp-n2040",

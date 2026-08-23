@@ -1,6 +1,45 @@
 # amp - AMP locomotion from scratch
 
-Last updated: 2026-08-23 ~01:2x (**M2-YAW STYLE CONTROL: PASS-neutral
+Last updated: 2026-08-23 ~01:3x (**AXIS COMPOSITION DOES NOT COME FOR
+FREE: grafting M3 push and M4 fault onto the new turn-capable
+substrate (`cw-amp-m2-turnclone-yawcmd0-r2`) each land INFORMATIVE,
+well below the same mechanisms' solo-axis numbers at matched/lighter
+budget.** `cw-amp-m3-turnpush1-style05-r2` (push graft, 2M discovery,
+same dose pushsmoke1-style05 used) lands det prog med 0.37/slip 3.24,
+sto 0.21/5.33 (one genuine fall, sto/0 TERM tilt_pitch), dir_err
+48/63deg — vs pushsmoke1-style05's OWN numbers at the identical 2M
+budget on the non-turn substrate (det 1.20/3.27, sto 0.94/3.59):
+~3x worse progress for the same push dose, purely from the turn
+channel being present. `cw-amp-m4-turnfault1-style05` (fault graft,
+2M discovery) misses its own pre-registered mechanism-safety bar
+(gait_valid 9/12 vs >=10/12: 6/6 det but only 3/6 sto, 3 sacrificed
+legs — video walk_sto_2 shows a near-stationary shuffle, not a
+limp), prog collapses (det 0.29/sto 0.14) well below
+faultobs2-headingsfull-style05's 1.09/0.57 (that ran at 4M, not 2M,
+so not a clean control, but the gap is stark). BOTH runs: training
+reward still climbing at budget end (turnpush 16→197, turnfault
+46→203, neither flat) — per the 08-21 ruling this reads UNDERTRAINED,
+not misaligned: turn+push and turn+heading+fault are genuinely
+harder joint skills that do not transplant for free from each axis
+solved separately, unlike push-onto-plain-heading (worked immediately
+at 2M) or fault-onto-plain-heading (PASSED at matched-family budget).
+Zero crashes, gait never fully breaks (no NaN, det gait_valid stayed
+6/6 both runs). NEXT (named, not spent): acquisition-budget
+continuation (6M, matching pushacq1's dose) is the direct test of
+"just needed more steps"; the cleaner alternative is SEQUENTIAL
+composition (solidify turn+push before adding fault, rather than a
+fresh 3-way stack at once) — matches the brief's own M2->M3->M4
+milestone ordering. Also this cycle: the pre-registered
+style-vs-noamp fork on `cw-amp-m4-faultobs2-headingsfull-style05`
+(this cycle's assigned run) was independently triaged and PASS
+(neutral)-verdicted by a concurrent cycle before this cycle's own
+per-episode analysis finished; that analysis (paired same-seed
+episodes, 8-9/12 same-direction deltas but driven mostly by one
+outlier episode, combined medians actually favor style05 on slip)
+is CONSISTENT with the neutral verdict once the outlier is accounted
+for — no dig-in filed, no re-verdict needed. Previous banner below.)
+
+Previous entry (2026-08-23 ~01:2x (**M2-YAW STYLE CONTROL: PASS-neutral
 — the task-only twin of the M2-yaw champion matches it on every
 axis; style is still not load-bearing anywhere (7th axis).**
 `cw-amp-m2-turnclone-yawcmd0-r2-noamp` (single lever: style 0.5→0.0)
