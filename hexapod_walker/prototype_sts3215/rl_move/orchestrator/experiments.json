@@ -158859,7 +158859,7 @@
         "log_tail": "_s 0.05439\nwandb:   env/height_err_mm 111.48853\nwandb:       env/height_mm -111.48477\nwandb:   env/height_ref_mm 0\nwandb:   env/max_current_a 0.39994\nwandb:  env/mean_current_a 0.1201\nwandb: env/pct_within_1deg 0.88102\nwandb:   env/pitch_ref_deg 0\nwandb:                +114 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-walkcurr-pf-fwd6-rnd02 at: https://wandb.ai/l2k2/hexapod-balance/runs/9chzzd7a\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 2 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260823_222027-9chzzd7a/logs\n"
       }
     ],
-    "verdict": "RND state-novelty bonus at rnd_coef=0.02 does NOT unfreeze the rung-1 fixed-forward diet -- gate FAIL, identical static crouch to the parent (rscale50) and all 9 prior rung-1 arms. Evidence: own-cfg C-env det panel 0/6 gait_valid, ALL SIX legs sacrificed (duty<0.10) both det and sto, prog_ratio 0.00, speed 0.006-0.009 m/s vs 0.05-0.06 cmd, slip/m 8-11; video (walk_det_0..) shows the identical frozen splayed pose across all 10 sampled frames, no visible movement. W&B: optimizer stayed healthy the WHOLE run (clip_fraction 0.01-0.06, never collapsed, std crept 0.368->0.373) and env/walk_freeprog_score reached -0.007 by 2M -- closer to zero than the parent's own -0.015 and every other rung-1 arm, so the bonus DID measurably shift the trend -- but it never crossed zero into gait_valid behavior in this budget. rnd/intrinsic_mean decayed smoothly 0.037->0.0055 (the predictor caught up with a narrow, largely-static visited-state distribution -- exactly the mechanism's own signature of low novelty, not a bug). Why: reward is aligned (both freeprog trend and RND intrinsic behave exactly as designed) but the budget is insufficient at this dose to escape the crouch local optimum -- an aligned-but-undertrained-at-this-dose read per the 08-21 ruling, not misalignment. Next: read jointly with the 5x dose sibling (rnd10, same cycle) before deciding whether to fund a much bigger dose jump or move to the track's last-resort BC-kickstart item."
+    "verdict": "FAIL, jointly with rnd10. Result: RND-coef=0.02 on the crush-fixed rscale50 diet does NOT unfreeze rung-1 -- identical static splayed crouch to all 11 prior arms. Evidence: gate 0/6 det + 0/6 sto (all 6 legs sacrificed every episode), prog med 0.00, fwd 0.01m, slip 8.12-11.5 (cap ~3); contact sheet shows the same frozen pose across all 12 frames. W&B: env/walk_freeprog_score DID leave the old [-0.10,-0.05] dead band and rose monotonically to -0.007 (never crossed 0) with clip_fraction healthy the whole run (0.011-0.064, no collapse -- the crush fix held), std creeping 0.368->0.373 -- so the optimizer is fine and something IS moving, but env/walk_speed actually DECAYED from an initial-noise 0.10 m/s down to 0.006 m/s over training (converging toward stillness, not away from it), direction_err stayed flat at chance level (~90deg) the whole run, and rnd/intrinsic_mean decayed monotonically 0.037->0.0055 (the predictor caught up with a narrow/static visited-state set, exactly the pre-registered false-branch signature) with ep_rew_mean quarters declining 44.0->42.2->32.9->18.2. Why: the intrinsic novelty bonus collapses as fast as the policy narrows onto the frozen pose, so it never accumulates enough pressure to escape before its own signal dies out -- RND at this dose does not fight the crouch, it just gets absorbed by it. Next: read jointly with rnd10 (5x dose, same signature) -- both close the initial RND dose bracket; this cycle launched rnd100 (10x more, rnd-coef=1.0) and rnd10-cont1 (+4M budget continuation at the same coef) to close the remaining dose/budget axes before the track's rule-brushing BC-kickstart last resort."
   },
   {
     "run": "cw-arch-hist16-dep1-c1-joyfullcurr6",
@@ -159064,7 +159064,7 @@
       "0.02"
     ],
     "created": "2026-08-23T22:22:11+00:00",
-    "status": "FINISHED",
+    "status": "FAIL",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -159100,7 +159100,9 @@
         "verdict": "FINISHED_BEFORE_CHECKUP",
         "log_tail": "439\nwandb:   env/height_err_mm 111.63118\nwandb:       env/height_mm -111.6269\nwandb:   env/height_ref_mm 0\nwandb:   env/max_current_a 0.35631\nwandb:  env/mean_current_a 0.11375\nwandb: env/pct_within_1deg 0.89958\nwandb:   env/pitch_ref_deg 0\nwandb:                +107 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-walkcurr-pf-rung0-swing3-rnd1 at: https://wandb.ai/l2k2/hexapod-balance/runs/cyvk6sfu\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 2 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260823_222309-cyvk6sfu/logs\n"
       }
-    ]
+    ],
+    "verdict": "RND at rnd-coef=0.02 on the rung-0 swing3 diet does NOT certify -- 0/6 det gait_valid, all six legs sacrificed (duty 0.02-0.03), fwd_dist ~0.006m/25s, identical height_err_end_mm=116.3mm to the rung-1 fwd6-rnd02 arm's pose (same belly-sit collapse, not swing3's own one-leg-stork lean). Reward quarters declined (44.5/43.9/35.6/21.3), aligned with the flat eval per the 08-21 ruling -- genuine stuck read. Why: this is the FOURTH independent recipe (rung-1 rscale50+RND, rung-0 swing income at 1x/3x, now rung-0+RND) to converge on the exact same belly-sit pose -- strong evidence it is a structural escape in the shared base reward stack (no height-based termination exists, only tilt; k_height=2.0 apparently too cheap against the savings from dropping essentially all leg-load charges at once), not an artifact of any one mechanism (swing income, RND, or their interaction). Next: read jointly with -rnd3 (dose sibling) and the rung-1-direct rscale50-rnd1/rnd3/rnd10/rnd100 arms (concurrent cycle) before declaring RND-on-rung-0 refuted; either way the concrete next diagnostic (this cycle's STATUS.md addendum) is bisecting whether a bank-legal k_height raise alone prices the settle out, before reaching for a new height-termination or foot-contact-charge mechanism. hardware-ready: no.",
+    "triage": "done"
   },
   {
     "run": "cw-arch-hist16-dep1-c1-joyfullcurr6",
@@ -159680,7 +159682,7 @@
       "0.06"
     ],
     "created": "2026-08-23T22:26:44+00:00",
-    "status": "FINISHED",
+    "status": "FAIL",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -159716,7 +159718,9 @@
         "verdict": "FINISHED_BEFORE_CHECKUP",
         "log_tail": "48\nwandb:   env/height_err_mm 111.77045\nwandb:       env/height_mm -111.76624\nwandb:   env/height_ref_mm 0\nwandb:   env/max_current_a 0.32215\nwandb:  env/mean_current_a 0.10956\nwandb: env/pct_within_1deg 0.90218\nwandb:   env/pitch_ref_deg 0\nwandb:                +107 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-walkcurr-pf-rung0-swing3-rnd3 at: https://wandb.ai/l2k2/hexapod-balance/runs/a0kk6nqx\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 2 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260823_222744-a0kk6nqx/logs\n"
       }
-    ]
+    ],
+    "verdict": "RND at rnd-coef=0.06 (3x the -rnd1 dose) on the rung-0 swing3 diet ALSO does NOT certify -- 0/6 det gait_valid, all six legs sacrificed (duty 0.02-0.03), fwd_dist ~0.023m/25s, height_err_end_mm=116.3mm -- the identical belly-sit collapse pose as -rnd1 and the rung-1 fwd6-rnd02 arm, unmoved by tripling the intrinsic bonus. Reward quarters here actually ROSE then fell (50.1/55.1/50.2/39.1) rather than -rnd1's monotone decline, but the terminal eval is the same 0/6 FAIL -- read as a slightly different transient path into the same attractor, not a different outcome. Why: this closes the dose axis on the rung-0+RND question specifically -- 0.02 and 0.06 both land on the exact same collapse height/pose, so RND-on-rung-0 is refuted at both bank-legal-adjacent doses tested (matches the rung-1-direct arms' pattern). Next: with all 4 tested RND arms (rung-1 rnd02, rung-0 rnd1/rnd3, cross-checked against the concurrent cycle's rung-1 rnd10/rnd100/rscale50-rnd1/rnd3) converging on the same belly-sit pose, the fallback is no longer 'try another RND dose' -- it's the height/foot-contact pricing gap named in this cycle's STATUS.md addendum (bisect k_height dose first, eval-only, before any new mechanism). hardware-ready: no.",
+    "triage": "done"
   },
   {
     "run": "cw-arch-hist16-dep1-c1-joyfullcurr6",
@@ -160005,7 +160009,7 @@
         ]
       }
     ],
-    "triage": "awaiting since 2026-08-23T22:42:36"
+    "triage": "in-cycle cw-walkcurr-pf-fwd6-rnd02-cw-walkcurr-pf-fwd6-rscale50-rnd1 since 2026-08-23T22:47:41"
   },
   {
     "run": "cw-walkcurr-pf-fwd6-rscale50-rnd3",
@@ -160270,7 +160274,7 @@
       "1.0"
     ],
     "created": "2026-08-23T22:42:50+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -160302,7 +160306,16 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:walkcurr PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walkcurr-pf-fwd6-rnd100 --steps 2000000 --task joint_walk --episode-seconds 25 --n-steps 24 --batch-size 24576 --net-arch 128,64,32 --activation-fn elu --log-std-init -1.0 --dr-scale 0.0 --require-gpu-physics --eval-every 1000000 --video-every 2000000 --best-ckpt --cfg-set bus.servo_params=loaded --cfg-set goal.walk_pure=1 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_heading_max_rad=0.0 --cfg-set goal.walk_cmd_resample_s=0.0 --cfg-set goal.walk_cmd_metrics=1 --cfg-set reward.k_walk_freeprog=0.06 --cfg-set reward.walk_freeprog_cap_m_s=0.08 --cfg-set reward.walk_kernel_vel_ema=1.0 --cfg-set reward.walk_kernel_vel_tau_s=0.75 --cfg-set reward.k_walk_heading=0.01 --cfg-set reward.k_step_event=0.02 --cfg-set reward.k_park_duty=0.08 --cfg-set reward.k_walk_idle_charge=0.04 --cfg-set reward.walk_idle_speed_m_s=0.025 --cfg-set reward.walk_idle_tau_s=1.0 --cfg-set reward.walk_loadslip_gate=0.75 --cfg-set reward.loadslip_ok=1.2 --cfg-set reward.loadslip_max=3.0 --cfg-set reward.loadslip_floor_m=0.03 --cfg-set reward.k_loadslip_excess=0.09 --cfg-set reward.term_penalty=24 --n-envs 4096 --out-name ppo_goal_cw_walkcurr_pf_fwd6_rnd100 --impl warp --host-workers 24 --notes 'respec of cw-walkcurr-pf-fwd6-rscale50: Plain English: rnd02 (coef 0.02) and rnd10 (coef 0.10, 5x) both FAILED this cycle with NEARLY IDENTICAL rnd/intrinsic_mean decay curves -- a 5x dose change produced almost no measurable behavior difference, so this is a dose-INSENSITIVE freeze in that range, not a dose-starved one a small bump would fix. This arm jumps an order of magnitude further, --rnd-coef 1.0 (50x rnd02, 10x rnd10), to test whether the intrinsic bonus needs to be comparable in scale to the FULL per-step task reward (not just the small rung-1 walk charges, which are themselves only 0.01-0.09 at this x0.02-scaled recipe) before it can out-compete the static crouch'\"'\"'s own charge-avoidance income. Same exact fwd6-rscale50 diet otherwise, single lever. Pure exploration mechanism, no bank re-proof needed. Prediction-if-true: walk_freeprog_score crosses 0 within 2M, det gait_valid panel shows six legs cycling; rnd/intrinsic_mean should now show a VISIBLY DIFFERENT trajectory from the 0.02/0.10 pair (not just a rescaled copy) if the policy is actually exploring differently. Prediction-if-false (frozen again, AND rnd/intrinsic_mean still tracks the same shape as rnd02/rnd10): RND-as-a-class is refuted at bank-legal reward scales on this recipe regardless of dose -- declare the rung-1 from-scratch-MLP recipe fully refuted at 2M under every tested exploration mechanism (noise-scale, entropy, gSDE, GRU, reward-rescale, RND at 3 doses -- 12 total arms) and escalate to the track'\"'\"'s last-resort item (d), a brief BC kickstart (which brushes the '\"'\"'no BC teacher'\"'\"' rule but is now the only untried item on the pre-registered order). Strongest alternative: coef=1.0 overshoots so hard the policy chases pure novelty and never settles into a task-relevant gait even if it does move -- readable on video (chaotic flailing vs rhythmic stepping) and by comparing det gait_valid/slip against rnd02/rnd10.' --cfg-set reward.walk_charge_ramp_steps=1000000 --cfg-set reward.walk_charge_ramp_min_frac=0.4 --cfg-set reward.k_track=0.02 --cfg-set reward.k_roll=0.2 --cfg-set reward.k_pitch=0.2 --cfg-set reward.k_height=2.0 --cfg-set reward.k_gyro=0.001 --cfg-set reward.k_action=0.0001 --cfg-set reward.k_action_delta=0.0002 --cfg-set reward.k_current=0.0001 --rnd-coef 1.0 > /tmp/train_cw-walkcurr-pf-fwd6-rnd100.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walkcurr-pf-fwd6-rnd100.log",
     "wandb_id": "58wtkxxr",
-    "verified": "2026-08-23T22:46:15+00:00"
+    "verified": "2026-08-23T22:46:15+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-23T22:52:12+00:00",
+        "process_alive": false,
+        "verdict": "FINISHED_BEFORE_CHECKUP",
+        "log_tail": "s 0.05431\nwandb:   env/height_err_mm 111.44784\nwandb:       env/height_mm -111.4435\nwandb:   env/height_ref_mm 0\nwandb:   env/max_current_a 0.51546\nwandb:  env/mean_current_a 0.13927\nwandb: env/pct_within_1deg 0.78434\nwandb:   env/pitch_ref_deg 0\nwandb:                +114 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-walkcurr-pf-fwd6-rnd100 at: https://wandb.ai/l2k2/hexapod-balance/runs/58wtkxxr\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 2 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260823_224350-58wtkxxr/logs\n"
+      }
+    ],
+    "triage": "awaiting since 2026-08-23T22:52:46"
   },
   {
     "run": "cw-walkcurr-pf-fwd6-rnd100",
@@ -160427,5 +160440,152 @@
     "phase": "discovery",
     "assessment_scope": "short_behavior_discovery",
     "refused_reason": "a process for cw-walkcurr-pf-fwd6-rnd100 already exists on hexapod-mjx-train-1"
+  },
+  {
+    "run": "cw-walkcurr-pf-fwd6-rnd10-cont1",
+    "pod": "hexapod-mjx-train-2",
+    "steps": 4000000,
+    "smoke": false,
+    "hypothesis": "Plain English: rnd10 (coef 0.10) never crossed the freeprog zero line in 2M but was still trending toward it (-0.101->-0.0054, monotonic) with a healthy optimizer the whole way -- unlike the 9 flat-frozen arms, this one didn't plateau, so more budget (not more dose) is the untried axis. Straight +4M continuation, same recipe, same rnd-coef, byte-identical cfg otherwise. Prediction-if-true: walk_freeprog_score crosses 0 within the extension and det gait_valid panel starts showing real forward travel. Prediction-if-false (freeprog plateaus below 0, e.g. flattens in [-0.02,0.00] without crossing, OR walk_speed keeps decaying toward exactly 0): the trajectory was asymptoting at a near-frozen state, not genuinely approaching a walking optimum -- closes the budget axis alongside the dose axis (rnd02/rnd10/rnd100), leaving BC-kickstart as the track's only unexplored escalation item.",
+    "gate": "Same rung-1 gate: prog_ratio>0, gait_valid>=4/6 det with visible forward travel on video, walk_freeprog_score crosses 0 and stays positive, clip_fraction stays healthy. PASS = rung-1 lands (RND + budget mechanism). FAIL closes the budget axis; combined with rnd100's dose-bracket read, this fully closes RND-as-a-class before BC-kickstart.",
+    "parent": "cw-walkcurr-pf-fwd6-rnd10",
+    "track": "walkcurr",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--episode-seconds",
+      "25",
+      "--n-steps",
+      "24",
+      "--batch-size",
+      "24576",
+      "--net-arch",
+      "128,64,32",
+      "--activation-fn",
+      "",
+      "--log-std-init",
+      "-1.0",
+      "--dr-scale",
+      "0.0",
+      "--require-gpu-physics",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--best-ckpt",
+      "--cfg-set",
+      "bus.servo_params=loaded",
+      "--cfg-set",
+      "goal.walk_pure=1",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.05",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.06",
+      "--cfg-set",
+      "goal.walk_heading_max_rad=0.0",
+      "--cfg-set",
+      "goal.walk_cmd_resample_s=0.0",
+      "--cfg-set",
+      "goal.walk_cmd_metrics=1",
+      "--cfg-set",
+      "reward.k_walk_freeprog=0.06",
+      "--cfg-set",
+      "reward.walk_freeprog_cap_m_s=0.08",
+      "--cfg-set",
+      "reward.walk_kernel_vel_ema=1.0",
+      "--cfg-set",
+      "reward.walk_kernel_vel_tau_s=0.75",
+      "--cfg-set",
+      "reward.k_walk_heading=0.01",
+      "--cfg-set",
+      "reward.k_step_event=0.02",
+      "--cfg-set",
+      "reward.k_park_duty=0.08",
+      "--cfg-set",
+      "reward.k_walk_idle_charge=0.04",
+      "--cfg-set",
+      "reward.walk_idle_speed_m_s=0.025",
+      "--cfg-set",
+      "reward.walk_idle_tau_s=1.0",
+      "--cfg-set",
+      "reward.walk_loadslip_gate=0.75",
+      "--cfg-set",
+      "reward.loadslip_ok=1.2",
+      "--cfg-set",
+      "reward.loadslip_max=3.0",
+      "--cfg-set",
+      "reward.loadslip_floor_m=0.03",
+      "--cfg-set",
+      "reward.k_loadslip_excess=0.09",
+      "--cfg-set",
+      "reward.term_penalty=24",
+      "--n-envs",
+      "4096",
+      "--out-name",
+      "ppo_goal_cw_walkcurr_pf_fwd6_rnd10_cont1",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--notes",
+      "respec of cw-walkcurr-pf-fwd6-rnd10: Plain English: rnd10 (coef 0.10) never crossed the freeprog zero line in 2M but was still trending toward it (-0.101->-0.0054, monotonic) with a healthy optimizer the whole way -- unlike the 9 flat-frozen arms, this one didn't plateau, so more budget (not more dose) is the untried axis. Straight +4M continuation, same recipe, same rnd-coef, byte-identical cfg otherwise. Prediction-if-true: walk_freeprog_score crosses 0 within the extension and det gait_valid panel starts showing real forward travel. Prediction-if-false (freeprog plateaus below 0, e.g. flattens in [-0.02,0.00] without crossing, OR walk_speed keeps decaying toward exactly 0): the trajectory was asymptoting at a near-frozen state, not genuinely approaching a walking optimum -- closes the budget axis alongside the dose axis (rnd02/rnd10/rnd100), leaving BC-kickstart as the track's only unexplored escalation item.",
+      "--cfg-set",
+      "reward.walk_charge_ramp_steps=1000000",
+      "--cfg-set",
+      "reward.walk_charge_ramp_min_frac=0.4",
+      "--cfg-set",
+      "reward.k_track=0.02",
+      "--cfg-set",
+      "reward.k_roll=0.2",
+      "--cfg-set",
+      "reward.k_pitch=0.2",
+      "--cfg-set",
+      "reward.k_height=2.0",
+      "--cfg-set",
+      "reward.k_gyro=0.001",
+      "--cfg-set",
+      "reward.k_action=0.0001",
+      "--cfg-set",
+      "reward.k_action_delta=0.0002",
+      "--cfg-set",
+      "reward.k_current=0.0001",
+      "--rnd-coef",
+      "0.10",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_walkcurr_pf_fwd6_rnd10.zip"
+    ],
+    "created": "2026-08-23T22:46:52+00:00",
+    "status": "RUNNING",
+    "checks": {
+      "cpu_limit": 28,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-c6ce8fc2-ca9a-cc87-d687-1f3a603d664f)",
+      "running_experiments_before": 2,
+      "code_sha_local": "eb982eecc9d7de85b75685b29a141234b50ac2c8",
+      "code_sha_pod": "eb982eecc9d7de85b75685b29a141234b50ac2c8",
+      "init_from_on_pod": true,
+      "wandb_env_on_pod": true
+    },
+    "trainer": "ppo",
+    "stack": "gpu-mjx",
+    "phase": "acquisition",
+    "assessment_scope": "full_budget_skill_acquisition",
+    "evidence": "rnd10 parent finished healthy (clip_fraction never collapsed, 0.055-0.07 the whole 2M) but froze behaviorally (gate 0/6, walk_speed decayed 0.10->0.006 m/s, freeprog approached but never crossed 0 at -0.0054); this is the track's own pre-registered 'or a much bigger dose/budget probe' alternative to a fresh dose bracket -- +4M acquisition tests whether the near-zero-but-not-crossing freeprog trajectory eventually tips over with more steps at the SAME rnd-coef=0.10, discriminating a slow-but-real climb from a converged asymptote below zero.",
+    "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:walkcurr PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walkcurr-pf-fwd6-rnd10-cont1 --steps 4000000 --task joint_walk --episode-seconds 25 --n-steps 24 --batch-size 24576 --net-arch 128,64,32 --activation-fn '' --log-std-init -1.0 --dr-scale 0.0 --require-gpu-physics --eval-every 1000000 --video-every 2000000 --best-ckpt --cfg-set bus.servo_params=loaded --cfg-set goal.walk_pure=1 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_heading_max_rad=0.0 --cfg-set goal.walk_cmd_resample_s=0.0 --cfg-set goal.walk_cmd_metrics=1 --cfg-set reward.k_walk_freeprog=0.06 --cfg-set reward.walk_freeprog_cap_m_s=0.08 --cfg-set reward.walk_kernel_vel_ema=1.0 --cfg-set reward.walk_kernel_vel_tau_s=0.75 --cfg-set reward.k_walk_heading=0.01 --cfg-set reward.k_step_event=0.02 --cfg-set reward.k_park_duty=0.08 --cfg-set reward.k_walk_idle_charge=0.04 --cfg-set reward.walk_idle_speed_m_s=0.025 --cfg-set reward.walk_idle_tau_s=1.0 --cfg-set reward.walk_loadslip_gate=0.75 --cfg-set reward.loadslip_ok=1.2 --cfg-set reward.loadslip_max=3.0 --cfg-set reward.loadslip_floor_m=0.03 --cfg-set reward.k_loadslip_excess=0.09 --cfg-set reward.term_penalty=24 --n-envs 4096 --out-name ppo_goal_cw_walkcurr_pf_fwd6_rnd10_cont1 --impl warp --host-workers 24 --notes 'respec of cw-walkcurr-pf-fwd6-rnd10: Plain English: rnd10 (coef 0.10) never crossed the freeprog zero line in 2M but was still trending toward it (-0.101->-0.0054, monotonic) with a healthy optimizer the whole way -- unlike the 9 flat-frozen arms, this one didn'\"'\"'t plateau, so more budget (not more dose) is the untried axis. Straight +4M continuation, same recipe, same rnd-coef, byte-identical cfg otherwise. Prediction-if-true: walk_freeprog_score crosses 0 within the extension and det gait_valid panel starts showing real forward travel. Prediction-if-false (freeprog plateaus below 0, e.g. flattens in [-0.02,0.00] without crossing, OR walk_speed keeps decaying toward exactly 0): the trajectory was asymptoting at a near-frozen state, not genuinely approaching a walking optimum -- closes the budget axis alongside the dose axis (rnd02/rnd10/rnd100), leaving BC-kickstart as the track'\"'\"'s only unexplored escalation item.' --cfg-set reward.walk_charge_ramp_steps=1000000 --cfg-set reward.walk_charge_ramp_min_frac=0.4 --cfg-set reward.k_track=0.02 --cfg-set reward.k_roll=0.2 --cfg-set reward.k_pitch=0.2 --cfg-set reward.k_height=2.0 --cfg-set reward.k_gyro=0.001 --cfg-set reward.k_action=0.0001 --cfg-set reward.k_action_delta=0.0002 --cfg-set reward.k_current=0.0001 --rnd-coef 0.10 --init-from rl_move/sim/policies/ppo_goal_cw_walkcurr_pf_fwd6_rnd10.zip > /tmp/train_cw-walkcurr-pf-fwd6-rnd10-cont1.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-walkcurr-pf-fwd6-rnd10-cont1.log",
+    "checkups": [
+      {
+        "time": "2026-08-23T22:52:05+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 7969,
+        "fps": 15291.7,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ],
+    "wandb_id": "i5d3p177",
+    "verified": "2026-08-23T22:53:27+00:00"
   }
 ]
