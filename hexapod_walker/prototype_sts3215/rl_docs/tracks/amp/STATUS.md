@@ -1,6 +1,52 @@
 # amp - AMP locomotion from scratch
 
-Last updated: 2026-08-23 ~00:2x (**M2-YAW TIP-PARK WALL BROKEN:
+Last updated: 2026-08-23 ~00:1x (**CADCOUPLE VERDICT: the speed-coupled
+phase clock WORKS but trades gait quality for range — CLOCK-ONLY
+COUPLING IS INSUFFICIENT, both style05 and nostyle land in the SAME
+partial pathology.** `cw-amp-m2-bcinit-sec5-style05-speedrange-
+cadcouple-r1` (style 0.5/0.5) and `-cadcouple-nostyle`: DR-0 gate
+gait_valid stays 6/6 det+sto both arms, zero terminations/sacrificed
+legs (the mechanism doesn't break the gait outright) and realized
+speed_mean now spans 0.051-0.114 (r1) / 0.057-0.118 (nostyle) m/s —
+clears the pre-registered >=2.0x widening-ratio bar (2.24x/2.07x) vs
+the pinned ~1.5x parent band, confirming the fastphase/nostyle root
+cause (fixed-rate clock) was correctly diagnosed. BUT per-episode
+speed does NOT correlate with COMMANDED speed (r=0.02 r1, r=-0.05
+nostyle, computed against each episode's own cmd_dist_m/15s) — the
+range widened in absolute spread but not as a function of the command
+— and slip roughly doubled (det med 4.40 r1 / 4.20-ish nostyle vs the
+parent's ~2.7, worst episodes 6-12/m) with progress collapsing on the
+harder-commanded episodes (prog med 0.25-0.32 vs ~0.6-0.7 before).
+Video (walk_det_1, walk_sto_5 both arms): on high-commanded-speed
+segments the legs cycle visibly FASTER but the body barely advances
+across the checkerboard — a high-frequency march/shuffle, not a
+longer stride; the pre-registered "widens but paddle-creeps" failure
+mode named in the gate text (video overrides scalar). Style added
+NOTHING protective or harmful — r1 and nostyle are statistically
+indistinguishable on every axis, matching this whole M2 curriculum's
+running finding that style is not yet functionally load-bearing.
+Root-cause chain: behavior (fast legs, flat body speed, no command
+correlation) <- incentive (reward+style blend still nets positive
+since quarters rose 48->180, so the busier-but-not-faster gait is not
+actively disincentivized enough) <- pricing gap (nothing charges
+wasted-motion/slip specifically vs commanded speed) <- mechanism
+(ONLY the clock rate was coupled to command; stride length/workspace
+amplitude stayed fixed by construction, so faster stepping can only
+waste more foot-contact time as slip, not cover more ground). VERDICT:
+INFORMATIVE (both arms), CLOCK-ONLY LEVER CLOSED. Per the pre-
+registered joint read, "both widen" was the true branch, but the
+speed/slip/video evidence overrides the raw widening-ratio pass —
+real command-following speed modulation is not yet achieved. NEXT
+(not yet launched, real code + bank work, named not spent this
+cycle): couple stride length/workspace amplitude to commanded speed
+alongside the clock, OR add an explicit slip-vs-commanded-speed
+price (semantics-bank test first per the 08-21 ruling) — a plain
+"~0.05-0.14 m/s achieved, matches the teacher's own 0.06-0.10 m/s
+hardware band" acceptance is also a legitimate fallback if the next
+lever also fails, since M2's speed-range item is a beautification
+target, not the M3/M5 DONE gates. Previous banner below.)
+
+Previous entry (2026-08-23 ~00:2x (**M2-YAW TIP-PARK WALL BROKEN:
 CLOCK FIX WAS NECESSARY-NOT-SUFFICIENT; BC-TURN-CLONE (new tool this
 cycle) IS THE FIX. `turnclone-yawcmd-tip50`/`-tip90` PASS the run's
 own gate; `tip50/90-clockyaw` VERDICTED FAIL-park.** The clock-fix
