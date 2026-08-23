@@ -139089,7 +139089,7 @@
       "obs.fault_health=1"
     ],
     "created": "2026-08-23T03:40:29+00:00",
-    "status": "RUNNING",
+    "status": "PASS",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -139125,7 +139125,7 @@
     "log": "/tmp/train_cw-amp-m4-turnfault-seq1.log",
     "wandb_id": "bl8slho8",
     "verified": "2026-08-23T03:43:48+00:00",
-    "triage": "in-cycle cw-amp-m4-turnfault-seq1 since 2026-08-23T03:48:49",
+    "triage": "done",
     "checkups": [
       {
         "time": "2026-08-23T03:48:52+00:00",
@@ -139133,6 +139133,7 @@
         "verdict": "DEAD",
         "log_tail": "db:       amp/d_real_mean 0.59604\nwandb:      amp/disc_updates 124\nwandb:                amp/gp 0.01019\nwandb:              amp/loss 0.2582\nwandb: amp/pairs_per_rollout 65327\nwandb:        amp/replay_len 500000\nwandb: amp/style_reward_mean 0.2173\nwandb:                  +103 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-amp-m4-turnfault-seq1 at: https://wandb.ai/l2k2/hexapod-balance/runs/bl8slho8\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 3 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260823_034122-bl8slho8/logs\n"
       }
-    ]
+    ],
+    "verdict": "Result: FAULT-only sequential composition PRESERVES turn tip-tracking almost fully -- names PUSH specifically as the M4 turn-erosion driver, not 'any added axis'. Evidence: own-cfg DR-0 walk gate gait_valid 11/12 (6/6 det + 5/6 sto), 0 terminations, one legit carried-leg (sac=[2] sto/0, matches the known M4 fault-carried-leg pattern, video confirms clean 6-leg cycling not a topple) -- comfortably clears the 9/12 safety floor; det prog med 0.965/slip 3.69 and sto prog 0.53/slip 7.29 track the parent (0.946/2.24) and the fresh 3-way stack (0.902/4.52) closely, no walk-side collapse. Hand-run eval_yaw via the m5 suite (matched fast-servo cfg, dr.fault_prob explicitly zeroed for the yaw check): tip-left/right err 0.1818/0.1708 -- lands the PRESERVED branch cleanly (bar <=0.20-0.25) and nearly matches the parent yawcmd0-r2's own 0.1525/0.1614, versus push's 0.38/0.43, turnpushfault1-style05's 0.42/0.49, and the fresh-stack total-park 0.30/0.30. Directly refutes both the EQUAL-EROSION and TOTAL-PARK branches. Why: fault (a per-episode single-leg degradation) apparently does not compete with the turn-tracking objective the way push (an external disturbance requiring whole-body recovery torque) does -- push, not axis-count, is the erosion mechanism. Caveat found while building the m5 read: eval_yaw's scripted stop-hold scenario recorded ONE fall (deterministic, reproducible) where the matched parent recorded zero (logs/ckpt_eval/cw_amp_m2_turnclone_yawcmd0_r2_yawgate.json) -- a real but narrow anomaly (single scripted trial, zero-command hold, doesn't move the tip-tracking conclusion) worth a follow-up check, not blocking this verdict. Evidence: logs/ckpt_eval/cw_amp_m4_turnfault_seq1_gate/ (report+video), logs/ckpt_eval/cw_amp_m4_turnfault_seq1_m5/ (m5_verdict.json, yaw.json). What's next: this checkpoint is now the best turn-preserving hazard substrate available -- graft PUSH onto it next (fault-then-push order) to test whether sequencing push AFTER fault (instead of push directly onto the clean turn substrate, as turnpush1-style05 did) avoids or reduces the erosion; this is the concrete M4/M5 composition-order lever the hypothesis was built to unlock."
   }
 ]

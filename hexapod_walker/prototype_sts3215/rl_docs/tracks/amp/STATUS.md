@@ -1,6 +1,26 @@
 # amp - AMP locomotion from scratch
 
-Last updated: 2026-08-23 ~03:3x (**TOOLING: `ops.sh m5eval` built +
+Last updated: 2026-08-23 ~04:1x (**`cw-amp-m4-turnfault-seq1` PASS-preserved:
+FAULT grafted sequentially onto the clean turn champion keeps tip
+tracking almost intact (eval_yaw 0.1818/0.1708, vs parent's own
+0.1525/0.1614) — decisively names PUSH, not axis-count, as the M4
+turn-erosion driver (push composition eroded to 0.38/0.43+; a fresh
+3-way stack parks totally at 0.30/0.30; this fault-only graft stays
+near-parent). Safety floor gait_valid 11/12, 0 terminations, one
+legit carried-leg (video-confirmed clean 6-leg cycling). Caveat: the
+m5 suite's scripted stop-hold scenario recorded one deterministic
+fall the parent didn't have — narrow single-trial anomaly, doesn't
+move the tip-tracking verdict, flagged for a follow-up look. Evidence:
+`logs/ckpt_eval/cw_amp_m4_turnfault_seq1_gate/`,
+`logs/ckpt_eval/cw_amp_m4_turnfault_seq1_m5/`. SKILLS.md row added.
+**Refill: launched `cw-amp-m4-turnfault-seq1-pushcont1`** — grafts
+PUSH onto THIS checkpoint (fault-then-push order) to test whether
+sequencing push AFTER an already-turn-preserving fault graft avoids
+the erosion turnpush1 showed when push was grafted directly onto the
+clean turn substrate; if tips stay <=0.20-0.25 here too, fault-first
+composition order becomes the M4/M5 recipe. Prior entry below.)
+
+Previous entry (2026-08-23 ~03:3x (**TOOLING: `ops.sh m5eval` built +
 run for the record on the two live M4 composition candidates —
 `pushfault1-noamp-acq1` (best non-turn substrate) and
 `turnpushfault1-style05-r2` (only all-4-axis checkpoint); both
