@@ -152525,7 +152525,7 @@
       "reward.k_walk_swing=1.0"
     ],
     "created": "2026-08-23T17:44:08+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -152558,7 +152558,15 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:walkcurr PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walkcurr-pf-fwd2-swing --steps 2000000 --task joint_walk --episode-seconds 25 --n-steps 24 --batch-size 24576 --net-arch 128,64,32 --activation-fn elu --log-std-init -1.0 --dr-scale 0.0 --require-gpu-physics --eval-every 1000000 --video-every 2000000 --best-ckpt --cfg-set bus.servo_params=loaded --cfg-set goal.walk_pure=1 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_heading_max_rad=0.0 --cfg-set goal.walk_cmd_resample_s=0.0 --cfg-set goal.walk_cmd_metrics=1 --cfg-set reward.k_walk_freeprog=3.0 --cfg-set reward.walk_freeprog_cap_m_s=0.08 --cfg-set reward.walk_kernel_vel_ema=1.0 --cfg-set reward.walk_kernel_vel_tau_s=0.75 --cfg-set reward.k_walk_heading=0.5 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_park_duty=4.0 --cfg-set reward.k_walk_idle_charge=2.0 --cfg-set reward.walk_idle_speed_m_s=0.025 --cfg-set reward.walk_idle_tau_s=1.0 --cfg-set reward.walk_loadslip_gate=0.75 --cfg-set reward.loadslip_ok=1.2 --cfg-set reward.loadslip_max=3.0 --cfg-set reward.loadslip_floor_m=0.03 --cfg-set reward.k_loadslip_excess=4.5 --cfg-set reward.term_penalty=1200 --n-envs 4096 --out-name ppo_goal_cw_walkcurr_pf_fwd2_swing --impl warp --host-workers 24 --notes 'respec of cw-walkcurr-pf-fwd1: Plain English: rung-1 PPO froze because no reward income is reachable by a random-init policy (step events need 10mm along-command swings, freeprog needs real velocity) \u2014 this arm adds a direction-free swing bonus (reward.k_walk_swing=1.0, pays ANY completed >=15mm swing) so flailing itself earns, giving exploration a monotone path flail -> leg-cycling -> commanded walking. Single lever on the exact fwd1 recipe, fresh init (prior-free track; fwd1'\"'\"'s checkpoint IS the freeze attractor). Bank-proven under exact cfg incl. the pre-registered shuffle farming attack (shuffle -430, negative; gait +409.9 on top). Prediction-if-true: env/reward_step_event and swing income rise within the first 1M (vs fwd1'\"'\"'s flat 0.02/step), walk_prog leaves 0.0, eval panel shows real stepping. Prediction-if-false: (a) freeze again with swing rate flat = swing credit still unreachable -> exploration fix moves to init/noise, or (b) in-place shuffle farming (swing income up, prog 0) = the bank'\"'\"'s shuffle attack realized in-policy -> reprice shuffle. Strongest alternative: term_penalty catastrophe dominance suppresses exploration regardless of income (the swingterm800 twin tests exactly that).' --cfg-set reward.k_walk_swing=1.0 > /tmp/train_cw-walkcurr-pf-fwd2-swing.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walkcurr-pf-fwd2-swing.log",
     "wandb_id": "diomgtc8",
-    "verified": "2026-08-23T17:47:31+00:00"
+    "verified": "2026-08-23T17:47:31+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-23T17:53:05+00:00",
+        "process_alive": false,
+        "verdict": "FINISHED_BEFORE_CHECKUP",
+        "log_tail": "_m_s 0.0543\nwandb:   env/height_err_mm 86.13123\nwandb:       env/height_mm -86.12706\nwandb:   env/height_ref_mm 0\nwandb:   env/max_current_a 1.76153\nwandb:  env/mean_current_a 0.48562\nwandb: env/pct_within_1deg 0.11344\nwandb:   env/pitch_ref_deg 0\nwandb:                +108 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-walkcurr-pf-fwd2-swing at: https://wandb.ai/l2k2/hexapod-balance/runs/diomgtc8\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 2 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260823_174506-diomgtc8/logs\n"
+      }
+    ]
   },
   {
     "run": "cw-walkcurr-pf-fwd2-swingterm800",
