@@ -1367,6 +1367,38 @@ def main(argv: list[str] | None = None) -> int:
                          "discriminator cannot punish rotating faster "
                          "than the demos). Default '' = OFF, bit-exact "
                          "legacy features.")
+    ap.add_argument("--use-sde", action="store_true",
+                    help="SB3 generalized State-Dependent Exploration "
+                         "(gSDE): sample ONE noise matrix per rollout "
+                         "collection (or every --sde-sample-freq steps) "
+                         "instead of fresh i.i.d. per-timestep Gaussian "
+                         "noise, so exploration is TEMPORALLY CORRELATED "
+                         "-- a held noise draw biases the action mean in "
+                         "a fixed direction for many consecutive steps, "
+                         "which can produce a net-displacement excursion "
+                         "for the joint dynamics to integrate, unlike "
+                         "i.i.d. noise which tends to average to ~zero "
+                         "net drift within an episode. Motivated by the "
+                         "walkcurr rung-1 freeze diagnosis (08-23): "
+                         "train/clip_fraction collapses to exactly 0 "
+                         "early (roughly the first third) in every one "
+                         "of 8 FAILed from-scratch "
+                         "arms (confirmed on 3: fwd1, fwd2-swing, "
+                         "fwd3-chargeramp) regardless of reward pricing, "
+                         "initial log-std, or entropy coefficient -- "
+                         "i.i.d. per-step noise apparently never "
+                         "produces a rollout with real forward progress "
+                         "to reinforce. Only applies to from-scratch/"
+                         "transplant builds (mirrors --activation-fn's "
+                         "restriction — a plain --init-from warm start "
+                         "keeps the checkpoint's own exploration mode). "
+                         "Default OFF, bit-exact legacy (i.i.d. noise, "
+                         "SB3's own default).")
+    ap.add_argument("--sde-sample-freq", type=int, default=-1,
+                    help="steps between gSDE noise matrix resamples "
+                         "(only used when --use-sde is set); -1 = SB3 "
+                         "default, resample once per rollout "
+                         "(--n-steps).")
     ap.add_argument("--log-std-init", type=float, default=-1.0)
     ap.add_argument("--warm-log-std-override", type=float, default=None,
                     help="after a --init-from warm start loads the "
@@ -2604,6 +2636,15 @@ def main(argv: list[str] | None = None) -> int:
                              "checkpoint's own activation")
         extra_pk["activation_fn"] = _activation_fn(args.activation_fn)
         print(f"[mjx-train] MLP activation: {args.activation_fn}")
+    if args.use_sde:
+        if (args.init_from is not None and not args.init_from_actor_only
+                and not args.init_from_policy_backbone):
+            raise SystemExit("--use-sde only applies to from-scratch/"
+                             "transplant builds; a plain --init-from "
+                             "warm start keeps the checkpoint's own "
+                             "exploration mode")
+        print(f"[mjx-train] gSDE exploration ON "
+              f"(sde_sample_freq={args.sde_sample_freq})")
     if args.init_from is not None and (
             args.init_from_actor_only or args.init_from_policy_backbone):
         # Condition-D actor-only transfer (operator addendum
@@ -2621,6 +2662,8 @@ def main(argv: list[str] | None = None) -> int:
             gamma=(0.99 if args.gamma is None else args.gamma),
             gae_lambda=(0.95 if args.gae_lambda is None
                         else args.gae_lambda),
+            use_sde=args.use_sde,
+            sde_sample_freq=args.sde_sample_freq,
             ent_coef=args.ent_coef,
             clip_range=0.2,
             target_kl=(args.target_kl if args.target_kl > 0 else None),
@@ -2654,6 +2697,8 @@ def main(argv: list[str] | None = None) -> int:
                 gamma=(0.99 if args.gamma is None else args.gamma),
                 gae_lambda=(0.95 if args.gae_lambda is None
                             else args.gae_lambda),
+                use_sde=args.use_sde,
+                sde_sample_freq=args.sde_sample_freq,
                 ent_coef=args.ent_coef,
                 clip_range=0.2,
                 target_kl=(args.target_kl if args.target_kl > 0
@@ -2724,6 +2769,8 @@ def main(argv: list[str] | None = None) -> int:
                                else args.gamma),
                         gae_lambda=(0.95 if args.gae_lambda is None
                                     else args.gae_lambda),
+                        use_sde=args.use_sde,
+                        sde_sample_freq=args.sde_sample_freq,
                         ent_coef=args.ent_coef, clip_range=0.2,
                         target_kl=(args.target_kl if args.target_kl > 0
                                    else None),
@@ -2748,6 +2795,8 @@ def main(argv: list[str] | None = None) -> int:
             gamma=(0.99 if args.gamma is None else args.gamma),
             gae_lambda=(0.95 if args.gae_lambda is None
                         else args.gae_lambda),
+            use_sde=args.use_sde,
+            sde_sample_freq=args.sde_sample_freq,
             ent_coef=args.ent_coef,
             clip_range=0.2,
             target_kl=(args.target_kl if args.target_kl > 0 else None),
