@@ -159941,7 +159941,7 @@
       "0.02"
     ],
     "created": "2026-08-23T22:30:41+00:00",
-    "status": "INTENT",
+    "status": "RUNNING",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -159949,13 +159949,26 @@
       "running_experiments_before": 2,
       "code_sha_local": "7fe46a309f3c40af0bfc29d87837cadac16a8403",
       "code_sha_pod": "7fe46a309f3c40af0bfc29d87837cadac16a8403",
-      "wandb_env_on_pod": true
+      "wandb_env_on_pod": true,
+      "pid": "360409",
+      "log_growth_bytes": [
+        10701,
+        16510
+      ],
+      "wandb_id": "92h67d2m",
+      "global_step_window": [
+        983040,
+        1474560
+      ],
+      "fps_estimate": 16384.0
     },
     "trainer": "ppo",
     "stack": "gpu-mjx",
     "phase": "discovery",
     "assessment_scope": "short_behavior_discovery",
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:walkcurr PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walkcurr-pf-fwd6-rscale50-rnd1 --steps 2000000 --task joint_walk --episode-seconds 25 --n-steps 24 --batch-size 24576 --net-arch 128,64,32 --activation-fn elu --log-std-init -1.0 --dr-scale 0.0 --require-gpu-physics --eval-every 1000000 --video-every 2000000 --best-ckpt --cfg-set bus.servo_params=loaded --cfg-set goal.walk_pure=1 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_heading_max_rad=0.0 --cfg-set goal.walk_cmd_resample_s=0.0 --cfg-set goal.walk_cmd_metrics=1 --cfg-set reward.k_walk_freeprog=0.06 --cfg-set reward.walk_freeprog_cap_m_s=0.08 --cfg-set reward.walk_kernel_vel_ema=1.0 --cfg-set reward.walk_kernel_vel_tau_s=0.75 --cfg-set reward.k_walk_heading=0.01 --cfg-set reward.k_step_event=0.02 --cfg-set reward.k_park_duty=0.08 --cfg-set reward.k_walk_idle_charge=0.04 --cfg-set reward.walk_idle_speed_m_s=0.025 --cfg-set reward.walk_idle_tau_s=1.0 --cfg-set reward.walk_loadslip_gate=0.75 --cfg-set reward.loadslip_ok=1.2 --cfg-set reward.loadslip_max=3.0 --cfg-set reward.loadslip_floor_m=0.03 --cfg-set reward.k_loadslip_excess=0.09 --cfg-set reward.term_penalty=24 --n-envs 4096 --out-name ppo_goal_cw_walkcurr_pf_fwd6_rscale50_rnd1 --impl warp --host-workers 24 --notes 'respec of cw-walkcurr-pf-fwd6-rscale50: Plain English: instead of detouring through the rung-0 in-place-stepping sub-goal (which just refuted twice, static stork lean / airborne hover), try the state-novelty bonus DIRECTLY on the real rung-1 forward-walking diet -- if RND alone is enough to make a random policy stumble past the frozen splayed crouch into travel, it reaches the actual goal in one step instead of two. Single lever vs rscale50 (the crush-fixed x0.02-scale rung-1 recipe, itself already optimizer-healthy with a rising but sub-zero freeprog signal over 6M in its own -cont1 continuation): --rnd-coef 0.0 -> 0.02, fresh 2M init (not a continuation -- a clean discovery-phase read of the mechanism from scratch, matching how rscale50 itself was first tested). Prediction-if-true: env/walk_freeprog_score leaves the frozen [-0.10,-0.05] band and crosses toward/past 0 faster than rscale50'\"'\"'s own 6M-step climb, C-env det panel shows real cmd_prog_frac>0 with legs cycling. Prediction-if-false (still frozen crouch, RND intrinsic flat/high, clip_fraction healthy): RND does not fix the rung-1 landscape directly -- read jointly with the rung0-swing3-rnd siblings (RND applied to the easier in-place sub-goal) before concluding RND is refuted as a fallback altogether.' --cfg-set reward.walk_charge_ramp_steps=1000000 --cfg-set reward.walk_charge_ramp_min_frac=0.4 --cfg-set reward.k_track=0.02 --cfg-set reward.k_roll=0.2 --cfg-set reward.k_pitch=0.2 --cfg-set reward.k_height=2.0 --cfg-set reward.k_gyro=0.001 --cfg-set reward.k_action=0.0001 --cfg-set reward.k_action_delta=0.0002 --cfg-set reward.k_current=0.0001 --rnd-coef 0.02 > /tmp/train_cw-walkcurr-pf-fwd6-rscale50-rnd1.log 2>&1 < /dev/null & echo $!",
-    "log": "/tmp/train_cw-walkcurr-pf-fwd6-rscale50-rnd1.log"
+    "log": "/tmp/train_cw-walkcurr-pf-fwd6-rscale50-rnd1.log",
+    "wandb_id": "92h67d2m",
+    "verified": "2026-08-23T22:34:08+00:00"
   }
 ]

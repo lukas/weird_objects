@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-08-23T22:30:41+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 2000000
 
 **parent**: cw-walkcurr-pf-fwd6-rscale50
+
+**wandb_id**: 92h67d2m
 
 **hypothesis**: Plain English: instead of detouring through the rung-0 in-place-stepping sub-goal (which just refuted twice, static stork lean / airborne hover), try the state-novelty bonus DIRECTLY on the real rung-1 forward-walking diet -- if RND alone is enough to make a random policy stumble past the frozen splayed crouch into travel, it reaches the actual goal in one step instead of two. Single lever vs rscale50 (the crush-fixed x0.02-scale rung-1 recipe, itself already optimizer-healthy with a rising but sub-zero freeprog signal over 6M in its own -cont1 continuation): --rnd-coef 0.0 -> 0.02, fresh 2M init (not a continuation -- a clean discovery-phase read of the mechanism from scratch, matching how rscale50 itself was first tested). Prediction-if-true: env/walk_freeprog_score leaves the frozen [-0.10,-0.05] band and crosses toward/past 0 faster than rscale50's own 6M-step climb, C-env det panel shows real cmd_prog_frac>0 with legs cycling. Prediction-if-false (still frozen crouch, RND intrinsic flat/high, clip_fraction healthy): RND does not fix the rung-1 landscape directly -- read jointly with the rung0-swing3-rnd siblings (RND applied to the easier in-place sub-goal) before concluding RND is refuted as a fallback altogether.
 
