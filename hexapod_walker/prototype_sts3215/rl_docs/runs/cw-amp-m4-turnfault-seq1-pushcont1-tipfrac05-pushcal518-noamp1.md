@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-08-23T12:06:37+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 2000000
 
 **parent**: cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518
+
+**wandb_id**: oum37524
 
 **hypothesis**: Plain English: the pricing-nudge dose grid just closed 4/4 FAIL on both the yaw-tip and walk-slip axes (income-side dosing doesn't move either metric, and slip charge even moved the WRONG way) -- this diagnostic asks whether the AMP style term ITSELF is the structural cause, since the teacher_v2 motion library's turn_ccw/turn_cw/forward_turn_* clips are capped at only 0.20-0.25 rad/s while training/eval command turning up to 0.30 rad/s (a real, just-noticed mismatch: eval_yaw's tip-left/right commands sit right at that ceiling, and the achieved rate is only ~25-30% of commanded, more undershoot than the 0.25-vs-0.30 gap alone would predict but consistent with a discriminator that resists any motion pattern outside its narrow demonstrated range). Single lever vs pushcal518 (same seed/budget/push-recal/turn-fault composition): --amp-style-weight 0.5->0.0, which (per train_ppo_mjx.py L2043/2273) fully disables the AMPStyleVecWrapper construction -- a clean no-AMP ablation, same technique the wave-1 M2 plan already used as a standard control axis for this codebase.
 
