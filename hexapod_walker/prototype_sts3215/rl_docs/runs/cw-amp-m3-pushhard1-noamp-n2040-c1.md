@@ -4,9 +4,9 @@
 
 **status**: REFUSED
 
-**created**: 2026-08-23T00:42:08+00:00
+**created**: 2026-08-23T00:45:08+00:00
 
-**pod**: hexapod-mjx-train-1
+**pod**: hexapod-mjx-train-2
 
 **steps**: 6000000
 
@@ -16,5 +16,5 @@
 
 **gate**: Continuation (+6M at 20-40N, DR-0, single shove). Judged head-to-head vs cw-amp-m3-pushcur1-noamp-b1530's stage-2 chain at matched total budget. PASS = DR-0 own-cfg gate gait_valid >=5/6 det+sto, zero sacrificed legs, det prog med >=0.9, topples <=1/6 det AND <=2/6 sto. INFORMATIVE-plateau = topples still ~4/12 with terms flat over last 2M => flat-jump-plus-budget refuted, curriculum line owns the axis. FAIL = collapse/statue/NaN.
 
-**refused_reason**: hexapod-mjx-train-1 code marker c96540f45785701f8fbb71aedc9b175437a8d1c0 != local HEAD 07d79522e11398fbb316420fb0efdc6d7d589005. Sync first: snapshot.sh --sync hexapod-mjx-train-1 (and snapshot/commit before that if the tree is dirty).
+**refused_reason**: hexapod-mjx-train-2 code marker 07d79522e11398fbb316420fb0efdc6d7d589005 != local HEAD 868b169edcbcfe5bd0434431dd29e97b707feac5. Sync first: snapshot.sh --sync hexapod-mjx-train-2 (and snapshot/commit before that if the tree is dirty).
 
