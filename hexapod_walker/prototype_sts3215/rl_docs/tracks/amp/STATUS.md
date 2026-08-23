@@ -1,6 +1,32 @@
 # amp - AMP locomotion from scratch
 
-Last updated: 2026-08-23 ~07:2x (**SEED-TWIN + BUDGET-CONTINUATION
+Last updated: 2026-08-23 ~07:3x (**THIRD SEED (`-s3`, seed13) CLOSES
+the tipfrac05 grid at n=3 and finds a SAFETY seed-lottery, not a
+tip-tracking one.** Picked up this run too (its prestage never fired;
+ran gate+m5 by hand). eval_amp_m5 tips 0.218/0.228 — IN-BAND
+(<=0.25), so 3/3 seeds now land in-band on tip-tracking (seed=7
+bar-clean 0.162/0.184, seed23 0.207/0.228, seed13 0.218/0.228): that
+half of the recipe genuinely generalizes. But own-cfg DR-0 gait_valid
+crashes to 7/12 for this seed — ONE video-confirmed tilt_roll FALL
+(roll peak 30.2deg, clean topple on video, not a flag artifact) plus
+THREE separate sacrificed-leg episodes — vs seed7/seed23's clean
+12/12, and the m5 fault section also fails here (gait_valid 9/12 vs
+bar 10, three sacrificed legs vs the usual two). VERDICTED FAIL.
+**CONCLUSION: the turn-in-place curriculum's tip-tracking gain is
+seed-robust; its walking SAFETY margin is not — roughly 1-in-3 basins
+at this recipe lands unsafe even in the hazard-zeroed walk section.**
+This is a second, independent open risk on the tipfrac05 lineage
+alongside the already-flagged hold/forward income-repricing need
+(see the `-acq1` erosion result below): before any M5-candidate
+promotion, seed-safety variance needs either a larger n or a
+root-cause (why does seed13's basin sacrifice legs/fall even
+hazard-free?) — flagged for the next dig-in cycle alongside the
+repricing fork, not launched blind here. SKILLS.md row amended
+again. Evidence:
+`logs/ckpt_eval/cw_amp_m4_turnfault_seq1_pushcont1_tipfrac05_s3_{gate,m5}/`.
+Prior banner below.)
+
+Previous entry (2026-08-23 ~07:2x (**SEED-TWIN + BUDGET-CONTINUATION
 TRIAGE on tipfrac05's two named-in-flight children (this cycle's
 own): `-s2` (seed23, 2M) VERDICTED PASS — eval_amp_m5 tips 0.207/
 0.228, inside the run's own PASS band (<=0.20-0.25) though not
