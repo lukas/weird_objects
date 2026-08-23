@@ -4,7 +4,7 @@
 
 **status**: REFUSED
 
-**created**: 2026-08-23T22:21:18+00:00
+**created**: 2026-08-23T22:24:01+00:00
 
 **pod**: hexapod-mjx-train-0
 
@@ -16,5 +16,5 @@
 
 **gate**: walkcurr V6 precert B0 prog>=0.50; frontier past side90_60s via det certs (cmd_prog>=0.65, slip/m<=2.0, 0 falls); FINAL: eval_drive full-circle --heading-max-deg 180 DR0.5 random 60s flips: 0 falls, rear/side directions actually followed (low dir err/wrong-way), slip not exploding vs parent; DR0 + own-DR walk gates 6/6 gait_valid 0 term; video all six feet cycling, no flag leg
 
-**refused_reason**: hexapod-mjx-train-0 code marker 75863b8119a452cd35b4fde2447e427e99a3b6b0 != local HEAD e27969b4c41214eeff9077c2ca2673ac436f6497 and the delta is not benign-orchestrator-only. Sync first: snapshot.sh --sync hexapod-mjx-train-0 (and snapshot/commit before that if the tree is dirty).
+**refused_reason**: hexapod-mjx-train-0 already runs cw-walkcurr-pf-rung0-swing3-rnd1 — GPU pods host exactly one run; pick a free GPU pod.
 
