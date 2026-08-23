@@ -1,6 +1,72 @@
 # amp - AMP locomotion from scratch
 
-Last updated: 2026-08-23 ~00:0x (**STYLE-KEPT PUSH WALKER PASSES
+Last updated: 2026-08-23 ~00:2x (**M2-YAW TIP-PARK WALL BROKEN:
+CLOCK FIX WAS NECESSARY-NOT-SUFFICIENT; BC-TURN-CLONE (new tool this
+cycle) IS THE FIX. `turnclone-yawcmd-tip50`/`-tip90` PASS the run's
+own gate; `tip50/90-clockyaw` VERDICTED FAIL-park.** The clock-fix
+joint read landed FAIL on both arms: `tip50-clockyaw` (tip err
+0.290/0.326) and `tip90-clockyaw` (0.254/0.332) are statistically
+indistinguishable from their pre-fix parents (0.2996/0.3000,
+0.2982/0.2999) — `goal.walk_phase_run_on_yaw=1` lets the gait cycle
+continue through a turn-in-place segment but cannot invent a turning
+motor pattern the substrate was never shown. ROOT CAUSE (found this
+cycle): `bc_init_gait.py`'s `collect()` called
+`gait.set_velocity(vx=.., vy=..)` and NEVER drove TripodGait's own
+native `omega` channel (`_foot_target_in_body`'s standard
+`v = v_lin +/- omega x r` turn-in-place kinematics), even when the
+env's sampled goal carried a nonzero `wz_ref` — every BC clone in
+the whole lineage was demonstrated ONLY straight-line gaits, so every
+downstream RL arm had to invent rotation from a zero-omega prior with
+no anchor and never did. Probe confirmed the teacher's omega channel
+genuinely works in-sim first (fail-fast check before spending
+compute): raw TripodGait at omega=+/-0.3 achieves 0.15/-0.19 rad/s
+body wz (45-63% realization, matching the pre-existing
+`DRIFT_RIDE_WZ` calibration of ~40% while translating). **FIX
+LANDED**: `bc_init_gait.py --drive-omega` (default off, requires
+`goal.walk_yaw_cmd=1` in the stack, fails closed on
+`obs.mode_onehot`+`walk_phase_obs` combos) drives the teacher's omega
+from the env's own sampled `wz_ref`, with the tail phase-index
+arithmetic fixed to account for the extra `wz_ref` obs column.
+Bank `rl_move/tests/test_bc_init_gait_omega.py` 5/5 (bit-exact
+default-off regardless of yaw_cmd in the stack; requires-yaw-cmd
+fail-closed; mode_onehot fail-closed; action stream actually changes
+on turn ticks; phase stays correctly synced with the tail shift);
+full suite re-run 163 pass/1 pre-existing-red (`fastprof`, unrelated,
+same fail on the pre-change tree)/4 skip/1 xfail. Built a fresh
+clone `ppo_goal_cw_bcgait_turnclone_fullprof_phase1.zip` (same
+fullprof/phase1 env contract as the lineage's original clone, plus
+`goal.walk_yaw_cmd=1`/`walk_yaw_max_rad_s=0.3`/
+`walk_turn_in_place_frac=0.3`/`walk_phase_run_on_yaw=1` +
+`--drive-omega`; holdout act err 0.0069, obs width 75 = matches the
+yawcmd family's own obs natively, no `--obs-pad-transplant` needed).
+**The RAW clone alone (zero RL) already scores `eval_yaw` tip err
+0.096/0.108** (turn med 0.1035) — dramatically better than any
+RL-trained arm in the lineage, before any fine-tuning. Launched
+byte-identical respecs of the FAILed `tip50/90-clockyaw` arms with
+only `--init-from` swapped to the turn-clone
+(`cw-amp-m2-turnclone-yawcmd-tip50`/`-tip90`, 2M, same reward/
+exposure stack): **BOTH PASS** the run's own pre-registered
+tip-err-<=0.20-both-directions bar — tip50-turnclone 0.160/0.135,
+tip90-turnclone 0.133/0.174 (RL mildly eroded the raw clone's own
+0.10 floor rather than sharpening it, but stayed far above the
+0.25-0.33 park level; dose 0.5 vs 0.9 frac reads as a wash, not a
+clear response). Non-tip translation episodes stay clean at both
+doses (gait_valid true, slip/m 2.0-2.5, no sacrificed legs) — turning
+capability did not cost translation quality. One crash caught+fixed
+in-flight: the zero-dose control (`turnclone-yawcmd0`, no dedicated
+tip episodes) inherited `--obs-pad-transplant 1` from its parent's
+own respec lineage and crashed at step 0 (`obs widened by 0 (75 ->
+75)`) since the turn-clone's obs already matches natively; retried as
+`turnclone-yawcmd0-r2` with `--obs-pad-transplant 0`, RUNNING.
+SKILLS.md row added (AMP section); this closes the "next lever" this
+cycle's tip50/90-clockyaw verdicts pre-registered. Next: read
+yawcmd0-r2 (does dedicated tip exposure matter at all, or does the
+turn-taught init alone already clear the bar on arc-turns-while-
+translating?); if the pattern holds, re-run the style05 lineage's
+full heading/backward/lateral M2 milestone from this turn-capable
+substrate instead of the old yaw-blind one.)
+
+Previous entry (2026-08-23 ~00:0x (**STYLE-KEPT PUSH WALKER PASSES
 ACQUISITION; SINGLE-PUSH DOSE MINED OUT; M3 ESCALATION GRID
 LAUNCHED: `cw-amp-m3-pushacq1-style05` VERDICTED PASS** — 6M under
 a guaranteed 10-25N shove: DR-0 own-cfg topples 1/6 det + 0/6 sto
