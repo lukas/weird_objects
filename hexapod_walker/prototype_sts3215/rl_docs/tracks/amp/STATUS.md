@@ -1,6 +1,36 @@
 # amp - AMP locomotion from scratch
 
-Last updated: 2026-08-23 ~18:4x (**turnclip1 FAIL — the SEVENTH and
+Last updated: 2026-08-23 ~19:1x (**exposure batch back in minutes and
+both arms hit FAIL branches — envelope-overshoot VERDICTED FAIL;
+yawexpo02 left UNVERDICTED with a DIG-IN flag because its tips got
+WORSE with more practice, which decides the fork.** `-yawenv045`
+(walk_yaw_max_rad_s 0.3->0.45, single lever): tips 0.2238/0.2179 vs
+parent 0.2157/0.2351 — unmoved inside the ±0.02 floor, arcs marginal
+(0.1705 vs 0.1866), safety spotless (0 falls, 12/12 gait all
+sections, push+fault PASS) — envelope lever refuted, verdicted FAIL.
+`-yawexpo02` (walk_yaw_zero_frac 0.5->0.2, ~2.7x more nonzero-yaw
+practice): tips 0.2443/0.2793 — RIGHT SIDE +0.044 WORSE than parent,
+OUTSIDE the noise band, with walk actually healthy (det_slip 3.56 at
+n_transl=6, prog 0.944, all sections' gait 12/12, push+fault PASS).
+More turn practice made turn-in-place WORSE while everything else
+held: that is anomalous-beyond-noise and it decides the yaw fork's
+next mechanism class — if the slow turn is the INCENTIVE-STABLE
+optimum (style reward punishing large/fast turning steps harder than
+the yaw kernel rewards them, so extra practice entrenches it), the
+fix is reward realignment (08-21 semantics-bank route, never yet
+aimed at the yaw axis specifically), NOT capability; if per-leg gait
+analysis instead shows the policy stepping at teacher cadence and
+amplitude-saturated during tips, it's the phase-clock/stance-geometry
+capability class (delta-clamp half already REFUTED eval-only this
+cycle: dq10 probe left tips unmoved). DIG-IN NEEDED on yawexpo02:
+per-leg step cadence/amplitude during tip-in-place vs the CPG
+controller's turning gait + yaw-axis reward-flow accounting (style
+vs yaw-kernel per-step income during fast vs slow turning) before
+ANY next training arm. Evidence:
+`logs/ckpt_eval/..._yawenv045_m5/`, `..._yawexpo02_m5/`. Prior
+banner below.)
+
+Previous entry (~18:4x (**turnclip1 FAIL — the SEVENTH and
 LAST demo-side yaw mechanism is closed; the yaw fork now lives
 entirely on the curriculum/exposure side, and a 2-arm batch is
 launched there.** `-turnclip1` (teacher_v4 = teacher_v2 with ONLY
