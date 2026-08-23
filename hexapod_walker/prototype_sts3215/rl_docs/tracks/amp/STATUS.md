@@ -1,6 +1,41 @@
 # amp - AMP locomotion from scratch
 
-Last updated: 2026-08-23 ~08:1x (**hold/forward income-repricing
+Last updated: 2026-08-23 ~08:4x (**KERNEL-EMA 3-ARM DECOMPOSITION GRID
+CLOSED: none of the three arms improve turn-tracking; the joint read's
+own IMPROVED/FLAT/WORSE test cannot attribute causation to either
+axis.** Triaged `-kernelema-yawonly` this cycle (ran `eval_amp_m5` by
+hand — the automatic prestage only covers the DR-0 gate, not m5):
+tips 0.2285/0.2053, WORSE than tipfrac05's clean-pass 0.162/0.184 and
+over the suite's 0.20 bar (m5_pass=false: yaw FAIL, walk FAIL-narrow
+on slip 3.65 vs bar 3.5/parent 3.36, push PASS, fault PASS gv 10/10).
+Read jointly with the two sibling arms (already scored by a
+concurrent cycle, not re-verdicted here): `-kernelema1` (both axes,
+tips 0.2264/0.2302) and `-kernelema-velonly2` (translation only, tips
+0.2064/0.2286). **All three land in the same ~0.21-0.23 band
+regardless of which axis got the EMA fix** — and that band is
+statistically indistinguishable from the tipfrac05 lineage's OWN
+already-measured seed-variance band (seed23 0.207/0.228, seed13
+0.218/0.228, same recipe, zero kernel change). Velonly regresses
+almost as much as yawonly despite never touching the yaw kernel, so
+the "yaw kernel interacts with the achieved-rotation gate" story does
+not survive the 3-way comparison — the more likely explanation is
+basin-selection noise at a fresh 2M from-scratch retrain swamps this
+lever's effect size. VERDICT: do NOT fund a dedicated yaw-kernel-ema
+production arm off this grid (the pre-registered IMPROVED branch did
+not fire for any arm). The mechanism itself (built + bank-tested,
+`reward.walk_kernel_yaw_ema`/`walk_kernel_vel_ema`) stays in the repo,
+default-off — it is not refuted as a mechanism, only as a *fresh-
+retrain* lever at 2M. The real unanswered question it was built for
+(q_20260823T0240Z item b: does repricing rescue BUDGET-CONTINUATION,
+i.e. the `-acq1` erosion failure) was never actually tested by this
+grid — that needs the EMA fix applied as a CONTINUATION on the
+tipfrac05 checkpoint itself (fixed basin), not another from-scratch
+retrain. Flagging that continuation as the funded next M4 arm.
+Evidence: `logs/ckpt_eval/cw_amp_m4_turnfault_seq1_pushcont1_
+tipfrac05_kernelema_{yawonly,1,velonly2}_m5/m5_verdict.json`. Prior
+banner below.)
+
+Previous entry (2026-08-23 ~08:1x (**hold/forward income-repricing
 (q_20260823T0240Z item b): FIRST MECHANISM BUILT + BANKED, not just
 assumed — a 3-arm decomposition grid is now running to measure it.**
 Two concurrent cycles this window both independently confirmed the
@@ -2136,18 +2171,69 @@ segment). Walk/push/fault sections all PASS on this arm — fault
 gait_valid actually IMPROVED to 10/12 (parent missed its own bar at
 9/12) — so this is an isolated tracking-quality cost, not a stability
 one; video-clean six-leg cycling on both walk and fault contact
-sheets, zero falls. **Full attribution needs the third arm,
-`-kernelema-yawonly` (yaw-EMA only, owned by a concurrent cycle,
-still pending at review time):** if yawonly ALSO regresses despite
-never touching the velocity kernel, the mechanism is a general
-"any-kernel-EMA near a turn-in-place transition" problem, not
-axis-specific; if yawonly reads clean (~parent's 0.16-0.18), this
-result stands alone — translation-EMA is the sole culprit and a
-transition-boundary EMA reset (rather than abandoning the mechanism)
-becomes the next concrete fix to try. Do not stack either kernelema
-arm onto tipfrac05 meanwhile; the hold/forward income-repricing
-prerequisite for M5-candidate promotion remains OPEN. Evidence:
-`logs/ckpt_eval/cw_amp_m4_turnfault_seq1_pushcont1_tipfrac05_kernelema_velonly2_{gate,m5}/`.
+sheets, zero falls. **UPDATE (same review window): the third arm,
+`-kernelema-yawonly` (yaw-EMA only), has now landed — a concurrent
+cycle read it at tips 0.2285/0.2053, the SAME ~0.21-0.23 band as
+kernelema1 and velonly2 despite never touching the velocity kernel.**
+All three arms regress together regardless of which axis got the EMA
+— confirming the general "not axis-specific" branch predicted above.
+The concurrent cycle's own read attributes this to fresh-2M-retrain
+basin-selection noise (citing that the band overlaps the tipfrac05
+lineage's own seed-variance spread) and proposes a CONTINUATION arm
+on the tipfrac05 checkpoint itself (fixed basin) as the next
+discriminating test — see the top-of-file banner for that verdict's
+full text. The mechanism below is a SECOND, non-exclusive candidate
+explanation the same continuation arm would also help distinguish
+(a real transition-handling defect predicts the continuation still
+regresses on the SAME fixed basin; pure basin noise predicts it
+doesn't) — recorded here so whichever cycle runs that continuation
+checks both.
+
+**REFINED MECHANISM (same cycle, code read + `probe_walk_income`
+re-read, correcting the transition-boundary guess above):**
+`goal.walk_turn_in_place_frac` makes the WHOLE episode a dedicated
+turn from reset (`walk_task.py` ~2066-2078, zero linear command the
+entire episode) — there is no walk-then-turn transition inside those
+training episodes, so a per-episode EMA-reset-at-turn-onset fix would
+not even fire there. The real link is in `eval_amp_m5`'s OWN yaw-
+section scenario chain (`yaw.json`'s `scenarios` dict): one
+continuous rollout runs `fwd-hold -> stop-hold -> arc-left ->
+arc-right -> arc-left-max -> arc-right-max -> tip-left -> tip-right
+-> yaw-flip-*` in strict sequence — tip-left/right are graded
+IMMEDIATELY after two translating+turning arc-max segments, every
+single time, for every checkpoint. `walk_kernel_vel_ema`/
+`_yaw_ema`'s own code comment confirms the update is UNCONDITIONAL
+and never resets on a command change ("cannot be gamed by timing a
+segment boundary") — by design, for TRAINING's frequent stress_mix
+resamples. The theory: because ordinary training (stress_mix
+resampling every ~4s +/- jitter) constantly serves the EMA'd kernels
+transition tails identical in kind to arc-max -> tip-turn, a policy
+trained under the EMA'd kernel learns a general "damp overall body
+dynamics for ~tau after any translation-heavy segment ends" habit to
+avoid the smoothed kernel's lagging penalty — a habit that costs
+nothing during eval's own hold/arc segments (which don't need a fast
+NEW rotation right at the segment boundary) but directly suppresses
+exactly the abrupt heading-authority the tip-left/right segments are
+timed to measure. This predicts the SAME regression direction for
+ANY axis's kernel-EMA (translation or yaw) and requires no
+turn-in-place-specific code path, consistent with velonly2 alone
+reproducing most of the bundle's damage. NOT YET BUILT/TESTED: a
+targeted fix (e.g. snap `_walk_kernel_vema`/`_walk_kernel_wz_ema` to
+the fresh instantaneous value whenever `goal.vx_ref`/`vy_ref`/`wz_ref`
+changes tick-to-tick beyond a small epsilon, so the kernel forgives a
+command change immediately instead of lagging by `tau`) touches 3 env
+variants (CPU env + MJX shard + MJX batched, each with its own reset
+site per `grep _walk_kernel_vema`) plus `MJX_SNAPSHOT_EXTRA` state and
+new regression tests — real dig-in-cycle scope, not built blind this
+cycle. Do not stack either kernelema arm onto tipfrac05 meanwhile; the
+hold/forward income-repricing prerequisite for M5-candidate promotion
+remains OPEN. Evidence:
+`logs/ckpt_eval/cw_amp_m4_turnfault_seq1_pushcont1_tipfrac05_kernelema_velonly2_{gate,m5}/`,
+`logs/probe_walk_income/hold_forward_income_ypfix1.json` (re-read:
+the hold(1415)/forward(797) gap is dominated by the vel/yaw KERNEL
+sway-tax terms themselves, -401/-171, not by current/gyro/roll
+actuation cost, -43 combined — the EMA mechanism was aimed at the
+right term, its transition-handling is the bug).
 Prior banner below.
 
 Previous entry (08-23 ~08:2x — KERNEL-NOISE-TAX FIX (kernelema1) MADE TIP-TRACKING
