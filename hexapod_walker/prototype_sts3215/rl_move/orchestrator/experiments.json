@@ -152384,7 +152384,7 @@
       "36,37,38"
     ],
     "created": "2026-08-23T17:18:37+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED_FAIL",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -152430,6 +152430,7 @@
         ]
       }
     ],
-    "triage": "in-cycle cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518-wzma since 2026-08-23T17:28:41"
+    "triage": "done",
+    "verdict": "Third and final arm of the wzmask2 decider grid, and it lands exactly inside the range the other 4 draws had already mathematically locked: m5 yaw tip_left/right_err 0.2082/0.2442 (parent pooled 0.2168/0.2351). FULL n=5 pooled grid now closed: tip_left [0.239,0.174,0.2092,0.215,0.2082] median 0.2092 (delta -0.0076), tip_right [0.2371,0.202,0.252,0.2234,0.2442] median 0.2371 (delta +0.0020) -- both inside the +-0.02 FAIL band around parent, and only 1/5 draws (gyroxyz) has any side <=0.20, short of the >=2/5 PASS requirement. Grid gate: FAIL, confirming the wzmask2-s23 verdict's pre-completion math exactly. Gyro-channel yaw hypothesis (masking dims 36-38 from the AMP discriminator) is CLOSED FOR REAL -- combined with wzmask1 (gyro-z alone), no discriminator-obs rotation-channel mask moves yaw tracking. This run's own behavior: 0 falls/terms all sections, walk gait_valid 12/12 (det_slip_med 3.5195, at the family's ~3.5 sampling-noise floor), push PASS (slip 3.099), fault PASS but with cost -- gait_valid 10/12 with 2 sacrificed legs [1,2] (bar min 10, so it clears, but notably worse than s23's clean 12/12 fault read; same recipe, different seed, another data point for how noisy the fault section is seed-to-seed). Yaw fork has now exhausted all 6 discriminator/pricing/demo/densification mechanism classes; escalates to the 0.20-bar amendment (q_20260823T0130Z) or stance-geometry/turn-curriculum next, not another mask/obs arm."
   }
 ]
