@@ -936,9 +936,37 @@ Build every tool this needs; do not pause on operator input.
 
 ## Now
 
-**08-22 ~20:0x — FAULT INJECTION BUILT + TESTED (M0 checklist "fault
-injection works"; M4 prerequisite; last confirmed-not-started M0
-item besides the push curriculum's random-direction extension).**
+**08-23 ~00:1x — BC-TURN-CLONE CONFIRMED REAL BUT PRICING-LIMITED:
+`cw-amp-m2-turnclone-yawcmd-tip50` VERDICTED INFORMATIVE.** The
+turn-clone init (TripodGait's native omega channel demonstrated for
+the first time) genuinely closes the motor-pattern discovery gap
+that made every prior yawcmd/tip arm park (err == |wz_ref| exactly):
+eval_yaw on this checkpoint reads turn |wz_err| med 0.140 (gate
+<=0.10, still FAIL) vs the old park fingerprint's 0.28-0.33 — real,
+command-signed rotation at roughly half the commanded magnitude, not
+a frozen statue (frame strips watched, visible body rotation on
+tip/turn episodes). BUT: the RAW untrained clone itself already
+scored 0.1035 (near-gate) before any RL, so 2M steps of RL under the
+unchanged tip50 pricing recipe made yaw tracking WORSE (0.10->0.14)
+while training reward rose 57->248/quarter — an 08-21-style
+misalignment (reward up, target metric down), not a second init gap.
+Translation fully intact (gait_valid 12/12 det+sto, 0 falls, prog/
+slip in the usual yawcmd band). Sibling `cw-amp-m2-turnclone-yawcmd0`
+(the zero-dose control) LAUNCH_CRASHED (stale `--obs-pad-transplant
+1` from the pre-clone parent chain vs the already-75-dim clone
+checkpoint) — corrected respec `-r2` already relaunched
+(`--obs-pad-transplant 0`) and training; `-tip90` still pending its
+own (concurrent-cycle-owned) verdict. NEXT once the joint read closes:
+if tip90/yawcmd0-r2 show the same partial-erosion shape, the lever is
+reward-side (raise k_walk_yaw/k_yaw_prog relative to translation+style
+income so fine-tuning protects rather than erodes the clone's now-real
+turning skill) — not further init engineering; the init question
+(can BC ever teach turning) is now answered YES.
+
+Previous entry (08-22 ~20:0x, **FAULT INJECTION BUILT + TESTED** (M0
+checklist "fault injection works"; M4 prerequisite; last
+confirmed-not-started M0 item besides the push curriculum's
+random-direction extension):
 `dr.fault_*` per-joint fault injection per brief §8: with
 `dr.fault_prob` (default 0.0 = OFF, guarded draw, legacy rng stream
 bit-exact) an episode carries ONE fault drawn from `dr.fault_mix` —
