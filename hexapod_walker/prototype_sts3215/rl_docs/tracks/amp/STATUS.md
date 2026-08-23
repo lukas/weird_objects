@@ -33,6 +33,39 @@ sync path; c1 stub marked SUPERSEDED). Stage-2 fork at 12M total:
 curriculum vs raw budget vs both-plateau→recovery-mechanism.
 Previous banner below.)
 
+Parallel entry (~01:5x, checkup-cycle spend of the M2-yaw named
+lever: **INCOME AUDIT EXECUTED — THE TURN-EROSION MECHANISM IS
+MEASURED AND REPRICED; fix arm launched.** Plain English: we now know
+why more training made turning worse — the reward pays a robot that
+spins PAST the commanded rate more than one that tracks it. Evidence
+(probe_walk_income extended with a `yawcmd0` stack +
+tip_left/tip_right/hold dirs + yaw-tracking metrics;
+`logs/probe_walk_income/yawcmd0_turn_income_audit.json`, 3 seeds,
+turner=yawcmd0-r2 vs parker=acq1-r2 vs scripted refs): (a) the eroded
+policy does NOT park — it OVER-ROTATES (yaw ratio 1.78 vs champion
+1.09, wz_rmse 0.40 vs 0.25) yet collects MORE reward_yaw_prog (169 vs
+148): the legacy `k_yaw_prog` clip pays up to 1.25x for overshoot, so
+the income gradient points PAST the command — this also explains
+yawprice3x (3x income amplified the farm, not accuracy); (b) deeper,
+yaw terms price INSTANTANEOUS wz: a 0.95-ratio scripted tracker earns
+NEGATIVE yaw_prog (stride-oscillation sign flips hit the -1.5 clip)
+while a smooth 2.0-ratio spinner earns positive — the exact DC-vs-AC
+defect class fixed for k_yaw_still on 08-11; (c) the parker's
++28.6/ep total advantage sits in hold (+160) and forward (+118)
+segments — hold-freeze (1473/ep) is the richest cell in the table,
+above the honest tip ceiling (1209). FIX LANDED (walk_task.py, both
+keys NEW + default-off + bit-exact; TURN bank extended to 8/8 green
+incl. legacy defect-proof, fix, and bit-exact cases):
+`reward.yaw_prog_overshoot_decay` (income peaks at ratio 1.0, decays
+past it, never negative on overshoot) + `reward.yaw_prog_avg_s`
+(ratio priced on the wz EMA like yaw_still_avg_s). ARM LAUNCHED:
+`cw-amp-m2-yawcmd0-acq2-yppeak` = exact acq1-r2 respec (6M
+continuation off yawcmd0-r2) + the two keys ON — if pricing was the
+erosion driver, tip errs hold <=0.16 at 6M instead of decaying to
+0.35-0.40; if erosion recurs at matched budget, the residual lever is
+the hold/forward income dominance in (c). yawcmd0-r2 REMAINS champion
+until the arm reads out.)
+
 Previous entry (~01:3x (**AXIS COMPOSITION DOES NOT COME FOR
 FREE: grafting M3 push and M4 fault onto the new turn-capable
 substrate (`cw-amp-m2-turnclone-yawcmd0-r2`) each land INFORMATIVE,
