@@ -1968,6 +1968,39 @@ Plain English: a checkpoint just passed the ENTIRE cross-engine M5 suite for the
   amendment (a) or (b) to adopt, or whether to leave the v1 bars as-is
   and treat this as a documented known-dissociation instead of a bar
   defect.
+- AMENDMENT + LIKELY ROOT CAUSE (08-23 ~16:1x, cpgdemo1 cycle): the
+  demo-anchor fork (last named slip lever on this lineage) also FAILS
+  — cpg_v1.npz's own recorded clip slip is 39% lower than teacher_v2's
+  at the training speed, yet the trained policy's m5 walk slip AND the
+  (900+-stance) probe both got WORSE (4.3685 vs 3.67; 15.84 vs 14.03
+  matched control) — so the two instruments agree here, unlike the
+  anneal arms. Digging into why the anneal arms showed a dissociation
+  while this arm doesn't found the likely REAL explanation: the m5
+  walk section's slip bar already excludes turn-in-place episodes
+  (`eval_amp_m5._translating`, pre-existing code, not a bug) but at
+  the default `--per-mode 6` only `n_translating` ~= 3 of 12 walk
+  episodes qualify (confirmed on both stdanneal50 and cpgdemo1 this
+  cycle) — every walk-slip verdict on this whole dose-grid campaign
+  has been a median of THREE episode-level numbers, thin enough that
+  a single episode can swing the read by the same 0.3-0.7 magnitude
+  every arm's win/loss has hinged on. This reframes the "dissociation"
+  as LIKELY SAMPLING NOISE from n=3, not a hidden second mechanism the
+  metric is measuring — option (a) (translating-only scoring) turns
+  out to already be implemented; the actual gap is SAMPLE SIZE, not
+  metric definition. Assume-and-go resolution adopted (no operator
+  pause, no bar value changed): before spending another training arm
+  on this slip axis, bump `eval_amp_m5`'s per-mode walk sampling (6 ->
+  12+, cheap CLI-flag-only change, no code edit) so `n_translating`
+  lands >=6-8 before trusting a delta of this size again. The slip-
+  mechanism search on this lineage (pricing/income-gate/gait-income/
+  densification/anneal-dose/demo-source, 7 mechanism classes) is
+  CLOSED pending that resample; do not launch another slip-mechanism
+  training arm on `pushcal518` before either (i) the resample confirms
+  the family's true slip level with a tighter CI, or (ii) the operator
+  rules on bars (a)/(b)/status-quo above. Status: OPEN, no wait (this
+  is a measurement-quality fix, not a spend/hardware block) — flag if
+  the operator wants to weigh in on the bar-value question directly
+  instead of the sampling fix.
 
 ## q_20260823T1240Z — AMP demo clips capped the turn rate: rebuilt the motion library (teacher_v3) and launched the full-strength slip gate rather than the pre-registered partial one
 Plain English: the robot could not be PAID into turning faster because the thing it was being taught to imitate never turns fast either — the scripted teacher's own demo clips rotate at ~0.134 rad/s while labeled 0.25, and the AMP discriminator watches raw body yaw-rate with no idea what was commanded, so any faster rotation looks "unlike the teacher" and gets docked. Two assume-and-go decisions this cycle, both recorded here per the no-operator-pauses rule.
