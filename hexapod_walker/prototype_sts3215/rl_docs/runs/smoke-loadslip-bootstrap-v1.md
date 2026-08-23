@@ -2,9 +2,9 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: REFUSED
+**status**: PASS
 
-**created**: 2026-08-23T19:36:23+00:00
+**created**: 2026-08-23T19:38:31+00:00
 
 **pod**: hexapod-mjx-train-0
 
@@ -14,5 +14,5 @@
 
 **gate**: Trainer completes 40k steps, prints [loadslip-bootstrap] armed at step 0 and (if it finishes annealing) complete near end; no traceback.
 
-**refused_reason**: hexapod-mjx-train-0 code marker 407687abef6d5213a14302d77e5dec9d213b93e5-dirty != local HEAD 407687abef6d5213a14302d77e5dec9d213b93e5 and the delta is not benign-orchestrator-only. Sync first: snapshot.sh --sync hexapod-mjx-train-0 (and snapshot/commit before that if the tree is dirty).
+**verdict**: Smoke confirms the new loadslip-bootstrap mechanism (reward.walk_loadslip_bootstrap_steps/_min_frac, walk_task.py + train_ppo_mjx.py) wires end-to-end: 40k-step trainer run printed '[loadslip-bootstrap] armed ... step-0 excess_scale=0.650' and '[loadslip-bootstrap] complete @ 24,576 steps', finished cleanly (0 tracebacks, ckpt+video saved). Licenses training on it.
 
