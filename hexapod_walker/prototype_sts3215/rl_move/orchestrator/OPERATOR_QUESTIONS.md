@@ -2001,6 +2001,25 @@ Plain English: a checkpoint just passed the ENTIRE cross-engine M5 suite for the
   is a measurement-quality fix, not a spend/hardware block) — flag if
   the operator wants to weigh in on the bar-value question directly
   instead of the sampling fix.
+- CORROBORATION w/ sharper numbers (08-23 ~16:2x, second cpgdemo1
+  cycle — watcher double-assigned this run; both verdicts agree):
+  per-episode reads across 7 family members' walk reports show
+  `det_slip_med` is the median of exactly **n=2** det episodes (the
+  same two command scripts every time, cmd_dist 1.083/0.804 m; the
+  0.804 script is ~25% park/turn segments by commanded distance, so
+  within-episode contamination remains even after `_translating`).
+  Within-family spread on those two scripts is ep0 3.55-4.22 / ep3
+  2.99-4.06 (±0.3) — the 3.55-3.77 "systematic miss" of the 3.5 bar
+  is at the edge of n=2 resolution, but cpgdemo1's Δ+0.4-0.7 (worse
+  on BOTH scripts, plus the 900-stance probe agreeing) is real. Also:
+  on the near-pure-forward script the anneal's genuine −32%
+  median-stance drag cut moved episode slip_tot only −7%
+  (3.354→3.129 m) — total loaded-foot travel is TAIL-dominated
+  (probe p90 35.2→25.8), which is the mechanical content of the
+  earlier "dissociation". Supports the sampling-fix resolution above;
+  a per-command-segment slip field (additive, v1 numbers untouched)
+  remains the cleaner long-term instrument if the resample still
+  straddles the bar.
 
 ## q_20260823T1240Z — AMP demo clips capped the turn rate: rebuilt the motion library (teacher_v3) and launched the full-strength slip gate rather than the pre-registered partial one
 Plain English: the robot could not be PAID into turning faster because the thing it was being taught to imitate never turns fast either — the scripted teacher's own demo clips rotate at ~0.134 rad/s while labeled 0.25, and the AMP discriminator watches raw body yaw-rate with no idea what was commanded, so any faster rotation looks "unlike the teacher" and gets docked. Two assume-and-go decisions this cycle, both recorded here per the no-operator-pauses rule.
