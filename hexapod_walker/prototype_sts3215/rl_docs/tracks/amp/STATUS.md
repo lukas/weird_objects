@@ -1,6 +1,35 @@
 # amp - AMP locomotion from scratch
 
-Last updated: 2026-08-23 ~02:0x (**M3 PUSH CURRICULUM STAGE 2: COUNT
+Last updated: 2026-08-23 ~02:2x (**M2+M3 TURN+PUSH COMPOSITION CLOSES
+CLEAN AT ACQUISITION BUDGET — the 2M "turning makes push harder" read
+was undertraining, not a broken combination; fault graft onto this
+checkpoint launched (sequential M2->M3->M4 route).**
+`cw-amp-m3-turnpush1-style05-acq1-r2` (6M continuation of
+turnpush1-style05-r2, 8M total, same 10-25N single-shove dose) PASSES
+every pre-registered branch: DR-0 own-cfg gate (push+yaw both on) det
+prog med 1.113 (bar >=0.9, was 0.37 at 2M), topples 0/6 det + 2/6 sto
+(bar <=1/<=2, both sto losses genuine tilt_pitch/tilt_roll falls on
+video's LAST frame after 6-9 clean strides — not statues), gait_valid
+6/6 det+sto, zero sacrificed legs; eval_yaw (run manually, matched
+phase-obs cfg — not part of the standard prestage) tip-left/right err
+0.1431/0.1152, both <=0.21 and within 0.05 of the pre-push turn
+substrate's own 0.1525/0.1614 (tip-right actually IMPROVED under
+push training — turn was not sacrificed for push survival). Strips
+watched (det_0, sto_0/2/4): clean six-leg gait with visible heading
+rotation continuing under shove; the two sto topples are genuine
+late-episode falls, not paddle-creep/statue. SKILLS.md row added.
+Pattern now measured 3/3: every M3/M4 axis that read
+INFORMATIVE-undertrained at 2M discovery (push-alone, fault-alone,
+turn+push) closed clean at ~3x acquisition budget — no axis has yet
+been a genuinely broken combination, only an underbudgeted one.
+LAUNCHED same cycle: `cw-amp-m4-turnpushfault1-style05` (fault
+grafted onto THIS now-solid checkpoint, 2M discovery, same
+dr.fault_prob=1.0/obs.fault_health=1/--obs-pad-transplant 18 wiring
+as turnfault1-style05) — the sequential composition route the 08-23
+~00:xx entry named as the alternative to a fresh 3-way stack, now
+that turn+push no longer needs solidifying. Previous entry below.)
+
+Previous entry (~02:0x (**M3 PUSH CURRICULUM STAGE 2: COUNT
 AXIS CLOSED at 3 shoves (PASS, staged beats cold jump 1/12 vs 3/12
 topples); FORCE axis at 20-40N misses its bar by ONE sto episode with
 terms still falling — ceiling-continue launched.** (1)
