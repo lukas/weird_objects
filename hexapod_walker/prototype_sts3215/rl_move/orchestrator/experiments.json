@@ -130505,7 +130505,7 @@
       "dr.ext_push_repeat_max=3"
     ],
     "created": "2026-08-23T00:06:56+00:00",
-    "status": "RUNNING",
+    "status": "PASS",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -130552,7 +130552,8 @@
         ]
       }
     ],
-    "triage": "in-cycle cw-amp-m2-turnclone-yawcmd-tip90-cw-amp-m2-turnclone-yawcmd0 since 2026-08-23T00:20:10"
+    "triage": "done",
+    "verdict": "PASS on every pre-registered bar: the style-kept push walker now survives up to THREE 10-25N shoves per episode. DR-0 own-cfg gate: gait_valid 6/6 det + 6/6 sto, zero sacrificed legs, det prog med 1.18 / slip med 2.78, topples 1/6 det (det/1 tilt_roll) + 0/6 sto, style_reward_mean 0.109 (>0.1 bar, still thinning 0.85->0.11). Recovery-without-reset is on mechanical record: 10/12 episodes roll_class=recovered (det/0 rode a 16.9deg roll spike back to 1.0deg tail while covering 1.21m; sto/2 19.7deg->1.3deg), strips show upright six-leg walking throughout with no crouch (height_err_end 1.8mm), no flag leg, no paddle-creep. Blunt residuals: pushes cost HEADING - det dir_err mean 38.7deg and per-episode fwd travel scatters 0.09-1.21m, so command tracking is useful but not tight under fire; and training tilt-terms went UP ~3x at the 3-shove dose start (pitch ~20, roll ~18/window vs parent floor 6-7/5-6.5) then stayed roughly flat across 6M (pitch dipped 21->15->8 only in the last windows) with reward flat ~200-225 in the second half - eval-time multi-push survival was mostly already present in the parent, and same-dose training budget is again near-exhausted. Joint grid read: push COUNT is effectively solved at 10-25N; FORCE (n2040 sibling, pending) is the frontier. Next: grid-completing combo arm (repeat3 ckpt + 20-40N, repeat_max kept) launched this cycle."
   },
   {
     "run": "cw-amp-m2-turnclone-yawcmd0-r2",
@@ -130833,7 +130834,7 @@
       "dr.ext_push_n=20,40"
     ],
     "created": "2026-08-23T00:10:47+00:00",
-    "status": "RUNNING",
+    "status": "PASS",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -130878,7 +130879,8 @@
         ]
       }
     ],
-    "triage": "in-cycle cw-amp-m3-pushhard1-noamp-n2040-cw-amp-m3-pushhard1-noamp-re since 2026-08-23T00:30:20"
+    "triage": "done",
+    "verdict": "The style-kept walker clears its pre-registered 20-40N single-shove hardening bar: topples 2/6 det + 2/6 sto (bar <=2 det / <=3 sto), gait_valid 12/12, zero sacrificed legs, det prog med 1.23 / slip 2.98, style_reward_mean ends 0.13 (>0.1 bar, though still thinning 0.29->0.13 \u2014 the discriminator signal keeps eroding as recovery transients dominate), and video shows real stumble-and-keep-walking on survivors (det_0: upright six-leg cycling through the shove) with the 2 det topples being genuine full flips onto the back, not statues or crouches. HONEST JOINT READ vs the noamp twin: both arms land 4/12 total topples at this dose with overlapping quality stats (style05 det slip 2.98 vs noamp 4.05, sto slip 4.37 vs 3.83 \u2014 mixed, within noise) \u2014 the differing verdicts reflect differing pre-registered bars (noamp's was tighter, earned by its 0/12 parent floor), so style is STILL not load-bearing on the push axis, consistent with every M2/M3 style-vs-nostyle read so far. 20-40N robustness itself remains unfinished; the force-curriculum follow-ups run on the noamp line this cycle (pushcur1-noamp-b1530 + n2040-c1), with style05 escalation cheap to respec if the curriculum works. Hardware-ready: no."
   },
   {
     "run": "cw-amp-m3-pushhard1-noamp-repeat3",
@@ -131084,7 +131086,7 @@
       "dr.ext_push_repeat_max=3"
     ],
     "created": "2026-08-23T00:14:46+00:00",
-    "status": "RUNNING",
+    "status": "INFORMATIVE",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -131127,7 +131129,8 @@
         ]
       }
     ],
-    "triage": "in-cycle cw-amp-m3-pushhard1-noamp-n2040-cw-amp-m3-pushhard1-noamp-re since 2026-08-23T00:30:20"
+    "triage": "done",
+    "verdict": "Going from one shove to up-to-three per episode at 10-25N stalls learning completely: reward and tilt-terminations are flat from Q2 to the end (pitch ~15-17, roll ~9-11 per window; reward 315->322) and the gate lands 2/6 det + 1/6 sto topples vs the parent's single-push 0/12 \u2014 exactly the pre-registered INFORMATIVE-plateau branch: push COUNT needs its own staged curriculum/budget, not a flat respec. NOT a FAIL: strips show genuine multi-shove survival (det_0 absorbs shoves mid-episode and still covers 1.24m; gait_valid 12/12, zero sacrificed legs, det prog med 1.18) and training terms run ~2.5x the parent's window rate at 3x the push count \u2014 sublinear, so the linear-scaling FAIL branch is refuted. det_4 topple is a real flip onto its side, not a statue. Joint read vs the style05-repeat3 twin pends the concurrent cycle that owns it. Next: pushcur1-noamp-repeat2 queued (repeat_max=2 rung from the pushacq1-noamp checkpoint) to test whether staging the count axis unlocks the flat gradient. Hardware-ready: no."
   },
   {
     "run": "cw-amp-m3-pushhard1-noamp-n2040",
@@ -131224,7 +131227,7 @@
       "dr.ext_push_n=20,40"
     ],
     "created": "2026-08-23T00:19:22+00:00",
-    "status": "RUNNING",
+    "status": "INFORMATIVE",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -131269,7 +131272,8 @@
         ]
       }
     ],
-    "triage": "in-cycle cw-amp-m3-pushhard1-noamp-n2040-cw-amp-m3-pushhard1-noamp-re since 2026-08-23T00:30:20"
+    "triage": "done",
+    "verdict": "Doubling the single-shove force to 20-40N is too big a flat jump for a 6M budget: the walker keeps a valid six-leg gait but gets genuinely knocked over in 4/12 gate episodes (3/6 det + 1/6 sto) vs its parent pushacq1-noamp's 0/12 at 10-25N \u2014 misses the pre-registered PASS bar (<=1/6 det). Evidence: DR-0 own-cfg gate gait_valid 12/12, zero sacrificed legs, det prog med 1.01 / slip 4.05; strips show clean upright walking then full flips at the shove (det_1 ends on its side), no statue/crouch fingerprint. Training tilt-pitch terminations flat over the last 2M (53.1->53.0/window) but tilt-roll still creeping down (46->43) and reward still rising (Q3 84 -> Q4 115) \u2014 mostly the pre-registered INFORMATIVE-plateau branch (force curriculum, not a flat jump, is the next lever), with enough residual learning signal that the 08-21 ruling also funds a matched continuation. Root-cause: rare 30-40N draws give too little recovery gradient from a 10-25N-hardened prior; reward IS aligned (term_penalty 400 prices topples), the dose distribution is the problem. Next: matched pair launched \u2014 pushcur1-noamp-b1530 (15-30N bridge from pushacq1-noamp ckpt) vs pushhard1-noamp-n2040-c1 (+6M at 20-40N from this ckpt) \u2014 decides curriculum vs more-budget. Hardware-ready: no."
   },
   {
     "run": "cw-amp-m2-turnclone-yawcmd-tip50-yawprice3x",
@@ -131980,7 +131984,8 @@
           "log stopped growing"
         ]
       }
-    ]
+    ],
+    "triage": "in-cycle cw-amp-m2-turnclone-yawcmd-tip50-yawprice3x-cw-amp-m2-turncl since 2026-08-23T00:40:31"
   },
   {
     "run": "cw-amp-m4-faultobs2-headingsfull-style05",
@@ -132123,7 +132128,16 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:amp PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-amp-m4-faultobs2-headingsfull-style05 --steps 4000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_amp_m2_bcinit_sec5_style05_headingsfull.zip --episode-seconds 15 --no-canary --eval-every 1000000 --video-every 2000000 --n-envs 4096 --impl warp --host-workers 24 --seed 7 --ent-coef 0.001 --warm-log-std-override -2.0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set goal.walk_phase_obs=1 --cfg-set goal.walk_phase_hz=1.333333 --cfg-set goal.walk_obs_body_vel=2 --cfg-set goal.walk_heading_max_rad=-1 --cfg-set goal.walk_speed_min_m_s=0.08 --cfg-set goal.walk_speed_max_m_s=0.08 --cfg-set goal.walk_cmd_mode=stress_mix --cfg-set goal.walk_cmd_resample_s=4.0 --cfg-set goal.walk_cmd_resample_jitter=0.5 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set bus.write_speed=1500 --cfg-set bus.write_acc=80 --cfg-set bus.servo_vel_max_counts_s=write_speed --cfg-set safety.max_delta_q_deg=5.0 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --cfg-set reward.term_penalty=400.0 --cfg-set reward.k_step_event=0.0 --cfg-set reward.k_park_duty=0.0 --cfg-set reward.k_walk_freeprog=0.0 --cfg-set reward.walk_loadslip_gate=0.0 --cfg-set reward.k_loadslip_excess=0.0 --cfg-set reward.walk_gait_gate=0.0 --cfg-set reward.k_walk_idle_charge=0.0 --cfg-set reward.k_drag_stance=0.0 --out-name ppo_goal_cw_amp_m4_faultobs2_headingsfull_style05 --notes 'respec of cw-amp-m4-faultobs1-noamp: Plain English: style-vs-noamp twin of cw-amp-m4-faultobs2-headingsfull-noamp -- does the AMP style channel help or hurt fault compensation (a genuinely off-distribution, non-nominal-gait situation the motion library never demonstrated)? Every M2 heading/speed axis so far found style functionally neutral (a wash vs noamp); fault recovery is a plausible place for the discriminator to instead actively PENALIZE the compensating limp as off-style, which would be the first real negative style finding. Single lever vs faultobs2-headingsfull-noamp: same fault wiring/budget, +amp-task-weight=0.5/amp-style-weight=0.5 (fresh disc) from the style05-headingsfull checkpoint instead of the noamp-headingsfull one.' --cfg-set dr.fault_prob=1.0 --obs-pad-transplant 18 --cfg-set obs.fault_health=1 --amp-motion-lib rl_move/sim/motion_library/teacher_v2.npz --amp-disc-steps 4 --amp-disc-batch 512 --amp-gp-weight 10.0 --amp-replay 500000 --amp-task-weight 0.5 --amp-style-weight 0.5 > /tmp/train_cw-amp-m4-faultobs2-headingsfull-style05.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-amp-m4-faultobs2-headingsfull-style05.log",
     "wandb_id": "ihl3kqu6",
-    "verified": "2026-08-23T00:32:53+00:00"
+    "verified": "2026-08-23T00:32:53+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-23T00:39:46+00:00",
+        "process_alive": false,
+        "verdict": "DEAD",
+        "log_tail": "al_mean 0.78004\nwandb:      amp/disc_updates 248\nwandb:                amp/gp 0.00692\nwandb:              amp/loss 0.13246\nwandb: amp/pairs_per_rollout 65343\nwandb:        amp/replay_len 500000\nwandb: amp/style_reward_mean 0.12105\nwandb:                   +94 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-amp-m4-faultobs2-headingsfull-style05 at: https://wandb.ai/l2k2/hexapod-balance/runs/ihl3kqu6\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 4 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260823_003029-ihl3kqu6/logs\n"
+      }
+    ],
+    "triage": "awaiting since 2026-08-23T00:40:30"
   },
   {
     "run": "cw-amp-m4-faultobs2-headingsfull-noamp",
@@ -132327,7 +132341,7 @@
       "obs.fault_health=1"
     ],
     "created": "2026-08-23T00:31:20+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -132357,7 +132371,16 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:amp PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-amp-m4-faultobs2-headingsfull-noamp --steps 4000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_amp_m2_bcinit_sec5_noamp_headingsfull.zip --episode-seconds 15 --no-canary --eval-every 1000000 --video-every 2000000 --n-envs 4096 --impl warp --host-workers 24 --seed 7 --ent-coef 0.001 --warm-log-std-override -2.0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set goal.walk_phase_obs=1 --cfg-set goal.walk_phase_hz=1.333333 --cfg-set goal.walk_obs_body_vel=2 --cfg-set goal.walk_heading_max_rad=-1 --cfg-set goal.walk_speed_min_m_s=0.08 --cfg-set goal.walk_speed_max_m_s=0.08 --cfg-set goal.walk_cmd_mode=stress_mix --cfg-set goal.walk_cmd_resample_s=4.0 --cfg-set goal.walk_cmd_resample_jitter=0.5 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set bus.write_speed=1500 --cfg-set bus.write_acc=80 --cfg-set bus.servo_vel_max_counts_s=write_speed --cfg-set safety.max_delta_q_deg=5.0 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --cfg-set reward.term_penalty=400.0 --cfg-set reward.k_step_event=0.0 --cfg-set reward.k_park_duty=0.0 --cfg-set reward.k_walk_freeprog=0.0 --cfg-set reward.walk_loadslip_gate=0.0 --cfg-set reward.k_loadslip_excess=0.0 --cfg-set reward.walk_gait_gate=0.0 --cfg-set reward.k_walk_idle_charge=0.0 --cfg-set reward.k_drag_stance=0.0 --out-name ppo_goal_cw_amp_m4_faultobs2_headingsfull_noamp --notes 'respec of cw-amp-m4-faultobs1-noamp: Plain English: faultobs1 proved fault-sight helps (prog +18%/slip -27% vs blind) but only on a FORWARD-ONLY walker with a 2M smoke budget -- does the same fault_health-obs mechanism still help on the most command-diverse walker built so far (full-circle heading, incl. backward) at a real acquisition budget? Single lever vs faultobs1-noamp: --init-from swapped from the forward-only bcinit-sec5-noamp checkpoint to bcinit-sec5-noamp-headingsfull, goal.walk_heading_max_rad 0.0 -> -1 (matching that checkpoint'\"'\"'s own trained envelope), steps 2M -> 4M (acquisition, not smoke -- the mechanism-safety question is already answered). Same dr.fault_prob=1.0 fault_mix, same obs.fault_health=1 + --obs-pad-transplant 18 wiring. Prediction-if-true: faulted-episode prog_ratio/slip improve over a blind-compensation control by a similar or larger margin than faultobs1'\"'\"'s +18%/-27% (more command diversity in training should make the fault-sight signal more useful, not less). Prediction-if-false: no measurable delta or a regression -- heading diversity'\"'\"'s own action-space demands crowd out the fault-compensation gradient at this budget.' --cfg-set dr.fault_prob=1.0 --obs-pad-transplant 18 --cfg-set obs.fault_health=1 > /tmp/train_cw-amp-m4-faultobs2-headingsfull-noamp.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-amp-m4-faultobs2-headingsfull-noamp.log",
     "wandb_id": "0l6x3z3w",
-    "verified": "2026-08-23T00:34:49+00:00"
+    "verified": "2026-08-23T00:34:49+00:00",
+    "triage": "in-cycle cw-amp-m2-turnclone-yawcmd-tip50-yawprice3x-cw-amp-m2-turncl since 2026-08-23T00:40:31",
+    "checkups": [
+      {
+        "time": "2026-08-23T00:40:47+00:00",
+        "process_alive": false,
+        "verdict": "FINISHED_BEFORE_CHECKUP",
+        "log_tail": "\nwandb:       env/height_mm 7.32751\nwandb:   env/height_ref_mm 0\nwandb:   env/max_current_a 1.89229\nwandb:  env/mean_current_a 0.74849\nwandb: env/pct_within_1deg 0.05225\nwandb:   env/pitch_ref_deg 0\nwandb:   env/reward_action -0.01285\nwandb:                 +83 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-amp-m4-faultobs2-headingsfull-noamp at: https://wandb.ai/l2k2/hexapod-balance/runs/0l6x3z3w\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 3 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260823_003217-0l6x3z3w/logs\n"
+      }
+    ]
   },
   {
     "run": "cw-amp-m4-faultobs2-headingsfull-noamp",
