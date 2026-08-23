@@ -1793,6 +1793,17 @@ Plain English: the straight-gait search result is real, but the scorer misread t
   the raw cfg value; the fix is correctness/clarity-only (matches the
   documented gate semantics explicitly instead of by accident) and
   changes no historical number. No verdict correction needed.
+- AMENDMENT (08-23 ~13:3x, evidence AGAINST loosening the walk slip
+  bar): with slip pricing measured-closed (additive 6x/12x +
+  full-strength income gate, loadgate45 FAIL), the fallback of
+  amending the 3.5 slip bar was on the table. A per-stance
+  loaded-travel probe (probe_stance_slip_dist, hazard-free own-cfg)
+  now shows the pushcal518 family slides EVERY stance ~2x more than
+  the joystick champion at the same 0.08 m/s command and plant
+  geometry (median 11.5 mm vs 5.5 mm; p90 40 vs 10.8) — the bar is
+  attainable by a demonstrably better gait on this hardware model, so
+  the miss is a real gait-quality gap, not bar strictness. Keeping
+  the 3.5 bar; gait-level mechanism arm (`-swing1`) launched instead.
 - status: OPEN (proceeding with v1 bars + one-checkpoint semantics —
   that is what brief §13 literally says: "A single policy…")
 

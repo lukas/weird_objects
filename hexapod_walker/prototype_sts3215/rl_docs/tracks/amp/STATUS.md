@@ -1,6 +1,44 @@
 # amp - AMP locomotion from scratch
 
-Last updated: 2026-08-23 ~12:4x (**DIG-IN RESOLVED: the joint
+Last updated: 2026-08-23 ~13:3x (**BOTH FORK ARMS FAIL ON THEIR
+PRE-REGISTERED BRANCHES; both escalations executed same cycle.**
+(1) `-turnlib3` (teacher_v3 turn demos, +30% demo wz) FAIL: m5 tips
+0.1965/0.248 vs parent 0.2157/0.2351 — both inside the ±0.02 unmoved
+band (walk clean: slip 3.731 ≤3.8 allowance, 0/12 falls, 12/12
+gait_valid). Demo ceiling refuted at this dose; with pricing (n=4),
+demos, and style-ablation (noamp1) all measured unable to move tips,
+the residual cause is exposure: the policy never VISITS fast-turn
+states. BUILT+SNAPSHOTTED (exp/amp-gait-spawn-wz): `goal.
+walk_gait_spawn_wz` — omega passthrough into the mid-stride gait
+spawn (sim_env now feeds traj.wz into TripodGait.set_velocity;
+walk_task makes the yaw command live from the 0.3 s fast ramp; also
+fixed the latent tip×gait-spawn interaction that resurrected the
+discarded linear command; default off, bit-exact, test_sim_env 45/45,
+semantics bank 174 pass/1 pre-existing fastprof red). LAUNCHED
+`-tipspawn1b` (gait_start_frac=0.5 + spawn_wz=1.0 on pushcal518, 2M
+discovery). NOTE: first attempt `-tipspawn1` LAUNCH-FAILED — respec's
+`--arg` channel mangles `--cfg-set k=v` into `--cfg-set k v`; always
+use `--cfg K=V` for cfg pairs.
+(2) `-loadgate45` (full-strength g=1.0 loadslip income gate) FAIL:
+m5 walk det slip med 4.072 vs parent 3.67 / bar 3.5 — WORSE with
+reward rising 37→179; **slip-axis PRICING CLOSED per its own gate
+text** (additive 6x/12x + income-gate all refuted). ROOT-CAUSE PROBE
+run same cycle (probe_stance_slip_dist, hazard-free own-cfg, 6 eps):
+pushcal518 per-stance loaded travel median 11.5 mm / p90 40 mm /
+mean 16.6 vs the joystick champion stotight45-seed13's 5.5/10.8/5.8
+at the SAME 0.08 m/s command and plant geometry
+(`logs/ckpt_eval/{pushcal518,stotight45s13}_slipdist.json`). The
+slip excess is DIFFUSE (every stance ~2x) plus a heavy tail (p90
+3.7x) — a real gait-quality gap, NOT a metric artifact and NOT an
+unattainable bar: 5.5 mm stances are demonstrably achievable, which
+argues AGAINST loosening the 3.5 bar. LAUNCHED the gate's named
+gait-level escalation `-swing1` (reward.k_walk_swing=1.0 on
+pushcal518, 2M discovery; single-leg-farm live cheat pre-registered).
+If swing1's slip is unmoved, the fork is stance-geometry mechanisms
+vs the bar ruling — rerun the slipdist probe on it either way.
+Prior banner below.)
+
+Previous entry (~12:4x: **DIG-IN RESOLVED: the joint
 pricing-grid FAIL's structural cause is MEASURED, and the fork is
 launched.** (1) YAW ROOT CAUSE: the untrimmed scripted tripod
 teacher ACHIEVES only 0.134-0.144 rad/s at commanded 0.25-0.30
