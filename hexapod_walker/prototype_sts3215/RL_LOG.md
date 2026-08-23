@@ -340,3 +340,4 @@ DIG-IN: cw-amp-m4-turnpushfault1-style05-r2 — mechanism-safety PASS but turn t
 - 08-23 12:00 amp: yawprice3 (k_yaw_prog 3x) FAIL, same pattern as 2x -- JOINT FAIL closes the yaw income-dose grid, escalate to mechanism not dose 
 - 08-23 12:00 amp: slipexcess6 (k_loadslip_excess=6) FAIL -- slip barely moved (3.629 vs 3.67 parent, needed 0.15 to be PARTIAL), 0/12 falls, gait clean 
 - 08-23 12:00 amp: slipexcess12 (k_loadslip_excess=12x) FAIL, slip got WORSE (3.79 vs 3.67 parent) not better -- JOINT FAIL closes the slip-charge dose grid, additive pricing refuted 
+- 08-23 12:03 slipexcess12 FAIL: 12x slip charge fired (~1/tick paid) but slip unmoved (m5 walk det slip 3.79 vs parent 3.67, bar 3.5); safety held 0/12 falls, gait 12/12 — price is not the slip lever; joint pricing-refutation call pending slipexcess6 (concurrent cycle) 
