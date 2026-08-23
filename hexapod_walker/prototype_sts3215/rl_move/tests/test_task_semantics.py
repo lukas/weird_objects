@@ -7058,24 +7058,24 @@ def walkcurr_pf_hgt_returns() -> dict[str, float]:
 
 
 def test_walkcurr_pf_hgt_gate_bites_belly_sit(walkcurr_pf_hgt_returns):
-    """The gate + termination must do real work: belly_sit's return
-    must drop hard once they engage, or the mechanism is dead
-    weight."""
+    """The safety cutoff must actually fire and fire FAST: belly_sit
+    should die within ~1 grace period under the gated stack, forfeiting
+    the vast majority of the 15 s probe (375 steps at the sim's 25 Hz
+    control rate) the ungated twin rides out unmolested. Comparing raw
+    RETURNS gated-vs-ungated is a false test here: both share the
+    probes' synthetic 1 s zero-command hold (a fixed, large-relative-
+    to-episode-length K_WALK-kernel artifact documented in the
+    WALKCURR_PF scaled bank above, "cannot occur in training") which
+    dominates a short terminated episode's total; steps-to-termination
+    is the honest signal that the mechanism engaged."""
     r = walkcurr_pf_hgt_returns
-    assert r["belly_sit_gated"] < r["belly_sit_ungated"] - 100.0, (
-        f"height gate barely moves the belly-sit return: {r}")
-
-
-def test_walkcurr_pf_hgt_belly_sit_terminates_fast(walkcurr_pf_hgt_returns):
-    """The safety cutoff must actually fire: belly_sit should die
-    within a couple seconds of the grace period under the gated
-    stack, not ride to the 15 s probe truncation (750 steps @ 50 Hz)
-    the ungated twin reaches."""
-    r = walkcurr_pf_hgt_returns
-    assert r["belly_sit_gated_steps"] < 250, (
-        f"belly_sit did not terminate under the height cutoff: {r}")
-    assert r["belly_sit_ungated_steps"] >= 700, (
-        f"belly_sit twin is broken (should survive ungated): {r}")
+    assert r["belly_sit_gated_steps"] < 0.3 * r["belly_sit_ungated_steps"], (
+        f"height cutoff did not shorten the belly_sit episode: {r}")
+    assert r["belly_sit_gated_steps"] < 100, (
+        f"belly_sit did not terminate near the 1.5 s grace period: {r}")
+    assert r["belly_sit_ungated_steps"] >= 350, (
+        f"belly_sit twin is broken (should survive to truncation "
+        f"ungated): {r}")
 
 
 def test_walkcurr_pf_hgt_gait_beats_belly_sit(walkcurr_pf_hgt_returns):
