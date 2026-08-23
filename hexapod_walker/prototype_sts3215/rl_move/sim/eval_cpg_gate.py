@@ -448,14 +448,19 @@ def main(argv: list[str] | None = None) -> int:
     print("[eval_cpg_gate] script: " + " -> ".join(
         f"{s.name}({s.dur_s:.0f}s)" for s in script))
 
-    panels = [("dr0", dict(mu=0.0, servo_params="", seed=args.seed))]
+    # NOTE: with randomize=False the env is deterministic — varying the
+    # reset seed reproduces the identical rollout (verified 08-23:
+    # seed+100003 was bit-identical to dr0). The honest second held-out
+    # axis is a DIFFERENT COMMAND SCRIPT, not a different env seed.
+    script2 = build_script(args.script_seed + 1, args.session_s,
+                           args.speed, args.wz)
+    panels = [("dr0", dict(mu=0.0, servo_params="", script=script))]
     if args.robust:
         panels += [
-            ("dr0_seed2", dict(mu=0.0, servo_params="",
-                               seed=args.seed + 100_003)),
-            ("mu12", dict(mu=1.2, servo_params="", seed=args.seed)),
-            ("mu08", dict(mu=0.8, servo_params="", seed=args.seed)),
-            ("loaded", dict(mu=0.0, servo_params="loaded", seed=args.seed)),
+            ("dr0_script2", dict(mu=0.0, servo_params="", script=script2)),
+            ("mu12", dict(mu=1.2, servo_params="", script=script)),
+            ("mu08", dict(mu=0.8, servo_params="", script=script)),
+            ("loaded", dict(mu=0.0, servo_params="loaded", script=script)),
         ]
 
     episode_s = HOLD_S + args.session_s + 2.0
@@ -463,19 +468,21 @@ def main(argv: list[str] | None = None) -> int:
     for pname, pcfg in panels:
         t0 = time.time()
         env = _make_env(
-            pcfg["mu"], pcfg["servo_params"], pcfg["seed"],
+            pcfg["mu"], pcfg["servo_params"], args.seed,
             episode_s=episode_s, render=not args.no_video,
             write_speed=1500, write_acc=80, vel_max_deg_s=None)
         video = None if args.no_video else out_dir / f"session_{pname}.mp4"
         try:
-            sess = run_session(env, params, script, seed=pcfg["seed"],
+            sess = run_session(env, params, pcfg["script"], seed=args.seed,
                                video_path=video)
         finally:
             env.close()
         verdict = judge_panel(sess)
         sheet = _sheet(video) if video is not None else None
+        pcfg_json = {"mu": pcfg["mu"], "servo_params": pcfg["servo_params"],
+                     "script": [asdict(s) for s in pcfg["script"]]}
         results[pname] = {
-            "panel_cfg": pcfg, "session": sess, "verdict": verdict,
+            "panel_cfg": pcfg_json, "session": sess, "verdict": verdict,
             "video": str(video) if video else None,
             "sheet": str(sheet) if sheet else None,
         }

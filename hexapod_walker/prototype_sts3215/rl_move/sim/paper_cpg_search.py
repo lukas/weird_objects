@@ -489,6 +489,47 @@ def evaluate_candidate(env, params: GaitParams, commands: list[Command], *,
     }
 
 
+def evaluate_candidate_panel(envs: list[tuple[float, object]],
+                             params: GaitParams, commands: list[Command], *,
+                             walk_s: float, seed_base: int,
+                             slip_weight: float) -> dict:
+    """Robustness-panel scoring: mean candidate score across friction envs.
+
+    Motivated by the 08-23 eval_cpg_gate result: the contextual-250
+    winner passes DR-0/loaded/mu1.2 but overshoots turns ~33% at mu0.8
+    (open-loop yaw scale is friction-dependent). Scoring each candidate
+    across the same friction panel puts that failure axis INTO the
+    search objective — reward stays == eval.
+    """
+    per_mu = {}
+    for mu, env in envs:
+        rec = evaluate_candidate(env, params, commands, walk_s=walk_s,
+                                 seed_base=seed_base,
+                                 slip_weight=slip_weight)
+        per_mu[f"mu{mu:g}"] = rec
+    scores = [r["score"] for r in per_mu.values()]
+    return {
+        "params": asdict(params),
+        "score": float(np.mean(scores)),
+        "score_worst_mu": float(np.min(scores)),
+        "summary": {
+            "score": float(np.mean(scores)),
+            "per_mu": {k: v["summary"] for k, v in per_mu.items()},
+            "falls": int(sum(v["summary"]["falls"]
+                             for v in per_mu.values())),
+            "progress_frac_mean": float(np.mean([
+                v["summary"]["progress_frac_mean"]
+                for v in per_mu.values()
+                if v["summary"]["progress_frac_mean"] is not None])),
+            "slip_per_m_mean": float(np.mean([
+                v["summary"]["slip_per_m_mean"]
+                for v in per_mu.values()
+                if v["summary"]["slip_per_m_mean"] is not None])),
+        },
+        "rollouts_per_mu": {k: v["rollouts"] for k, v in per_mu.items()},
+    }
+
+
 def _write_report(path: Path, payload: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
@@ -515,6 +556,11 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--slip-weight", type=float, default=0.70)
     ap.add_argument("--seed", type=int, default=20260822)
     ap.add_argument("--mu", type=float, default=0.0)
+    ap.add_argument("--mu-list", default="",
+                    help="comma-separated friction panel (0 = XML "
+                         "default); scores each candidate as the MEAN "
+                         "over one env per mu. Empty = single --mu env "
+                         "(bit-exact legacy behavior)")
     ap.add_argument("--servo-params", default="",
                     help="'' = air fit, 'loaded' = loaded bench fit")
     ap.add_argument("--write-speed", type=int, default=1500)
@@ -547,14 +593,36 @@ def main(argv: list[str] | None = None) -> int:
         "best": None,
     }
 
-    env = _make_env(
-        args.mu, args.servo_params, args.seed,
-        episode_s=HOLD_S + args.walk_s + 1.0,
-        render=False,
-        write_speed=args.write_speed,
-        write_acc=args.write_acc,
-        vel_max_deg_s=args.vel_max,
-    )
+    mu_list = ([float(x) for x in args.mu_list.split(",") if x.strip()]
+               if args.mu_list else [])
+
+    def _env(mu: float):
+        return _make_env(
+            mu, args.servo_params, args.seed,
+            episode_s=HOLD_S + args.walk_s + 1.0,
+            render=False,
+            write_speed=args.write_speed,
+            write_acc=args.write_acc,
+            vel_max_deg_s=args.vel_max,
+        )
+
+    if mu_list:
+        panel = [(mu, _env(mu)) for mu in mu_list]
+        env = panel[0][1]
+
+        def _eval(params, seed_base):
+            return evaluate_candidate_panel(
+                panel, params, commands, walk_s=args.walk_s,
+                seed_base=seed_base, slip_weight=args.slip_weight)
+    else:
+        env = _env(args.mu)
+        panel = [(args.mu, env)]
+
+        def _eval(params, seed_base):
+            return evaluate_candidate(
+                env, params, commands, walk_s=args.walk_s,
+                seed_base=seed_base, slip_weight=args.slip_weight)
+
     try:
         if args.replay_json:
             # Held-out verification of one exact parameter set: the
@@ -564,12 +632,7 @@ def main(argv: list[str] | None = None) -> int:
             report["replay_params"] = asdict(params)
             for k in range(args.replay_seeds):
                 seed_base = args.seed + k * 100_003
-                rec = evaluate_candidate(
-                    env, params, commands,
-                    walk_s=args.walk_s,
-                    seed_base=seed_base,
-                    slip_weight=args.slip_weight,
-                )
+                rec = _eval(params, seed_base)
                 rec["iteration"] = k + 1
                 rec["seed_base"] = seed_base
                 rec["proposal_method"] = "replay"
@@ -624,12 +687,7 @@ def main(argv: list[str] | None = None) -> int:
                     pool_size=args.pool_size,
                     optimizer=args.optimizer,
                 )
-            rec = evaluate_candidate(
-                env, params, commands,
-                walk_s=args.walk_s,
-                seed_base=args.seed + i * 100_003,
-                slip_weight=args.slip_weight,
-            )
+            rec = _eval(params, args.seed + i * 100_003)
             rec["iteration"] = i + 1
             rec["proposal_method"] = method
             report["history"].append(rec)
@@ -648,7 +706,8 @@ def main(argv: list[str] | None = None) -> int:
                 flush=True,
             )
     finally:
-        env.close()
+        for _mu, e in panel:
+            e.close()
     print(f"[paper_cpg_search] wrote {out}")
     if report["best"]:
         print("[paper_cpg_search] best:")
