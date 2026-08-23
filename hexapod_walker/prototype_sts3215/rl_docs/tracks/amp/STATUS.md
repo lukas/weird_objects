@@ -1,6 +1,39 @@
 # amp - AMP locomotion from scratch
 
-Last updated: 2026-08-23 ~13:3x (**BOTH FORK ARMS FAIL ON THEIR
+Last updated: 2026-08-23 ~14:0x (**`-tipspawn1b` (reset densification,
+turn-tracking fork) FAIL on its pre-registered branch, but with a
+notable side win on the OTHER open fork (slip pricing).** m5 yaw
+tip_left/right_err 0.2448/0.2100 vs parent(pushcal518) 0.2157/0.2351:
+left got WORSE by 0.029 (outside the ±0.02 noise band), right
+improved by only 0.025 (short of the PARTIAL bar's required ≥0.03 on
+BOTH sides) — neither clears 0.20, so it's a genuine FAIL (mixed
+asymmetric trade, the same one-side-better-one-side-worse signature
+already seen in the `k_yaw_prog` pricing grid), not a clean miss and
+not PARTIAL. Zero raw falls anywhere, gait_valid 12/12 every section
+— safety unaffected. **Turn-tracking is now refuted against FOUR
+independent mechanism classes**: pricing (`k_yaw_prog` 1-3x),
+demos (`teacher_v3`, +30% wz ceiling), style-ablation (`noamp1`,
+confounded with slip), and now reset densification (this run).
+Remaining levers are stance-geometry/turn-authority (joint-space
+capability, not incentive/exposure) or the 0.20 bar amendment ruling
+(`q_20260823T0130Z`, still open) — do NOT re-dose
+`walk_gait_spawn_wz`. **Side finding, matches the launch notes' own
+pre-registered "strongest alternative" prediction:** walk
+det_slip_med improved sharply to 3.1855 (parent 3.67, bar 3.5) — the
+FIRST arm in the entire pricing/demos/densification dose-grid history
+to clear the walk-slip bar, right after additive/income-gate pricing
+on that exact axis was measured CLOSED (`-loadgate45` FAIL, same
+cycle). Push section slip 3.4955 also now under 3.5. This points at
+the mid-walk RSI half of the dose (`walk_gait_start_frac=0.5`, not
+the turn-spawn/`spawn_wz` half) as the actual mechanism — slip looks
+like a state-visitation/gait-phase-distribution problem, not a
+pricing problem. Next: isolate `walk_gait_start_frac` alone (no
+`spawn_wz`) to confirm which half of the dose earns the slip win, and
+compare against `-swing1`'s (running concurrently) different slip
+mechanism once it reads. Evidence:
+`logs/ckpt_eval/cw_amp_m4_turnfault_seq1_pushcont1_tipfrac05_pushcal518_tipspawn1b_{gate,m5}/`.
+
+Previous entry (~13:3x: **BOTH FORK ARMS FAIL ON THEIR
 PRE-REGISTERED BRANCHES; both escalations executed same cycle.**
 (1) `-turnlib3` (teacher_v3 turn demos, +30% demo wz) FAIL: m5 tips
 0.1965/0.248 vs parent 0.2157/0.2351 — both inside the ±0.02 unmoved
