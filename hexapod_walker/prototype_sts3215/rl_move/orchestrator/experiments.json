@@ -142551,7 +142551,7 @@
       "goal.walk_turn_in_place_frac=0.5"
     ],
     "created": "2026-08-23T06:41:45+00:00",
-    "status": "FINISHED",
+    "status": "INFORMATIVE",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -142588,7 +142588,9 @@
         "verdict": "FINISHED_BEFORE_CHECKUP",
         "log_tail": "1128\nwandb:      amp/disc_updates 124\nwandb:                amp/gp 0.01393\nwandb:              amp/loss 0.35244\nwandb: amp/pairs_per_rollout 65327\nwandb:        amp/replay_len 500000\nwandb: amp/style_reward_mean 0.19194\nwandb:                  +103 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-seed13 at: https://wandb.ai/l2k2/hexapod-balance/runs/tad9fo37\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 3 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260823_064243-tad9fo37/logs\n"
       }
-    ]
+    ],
+    "verdict": "Confirms the turn-practice mechanism direction on a second seed; full clean m5_pass is a seed-edge effect, not (yet) a robust recipe. Byte-identical to tipfrac05 except --seed 13: eval_yaw tip-left/right err 0.2276/0.2034 -- both clearly inside the M4 PASS-clean band (<=0.20-0.25) and far from the pre-lever baseline (ypfix1's 0.2471/0.2553), so the mechanism DIRECTIONALLY reproduces (a second independent seed also lands well above the no-practice recipe). But eval_amp_m5 m5_pass=false on TWO sections this time (seed7's tipfrac05 missed none): yaw misses the suite's strict <=0.20 bar on both sides by 0.003-0.028 (tighter margin than seed7's 0.162/0.184), and walk narrowly misses its slip bar (4.04 vs <=3.5) -- but that reading comes from only 3 translating episodes at frac=0.5 (12-episode panel, half-ish are dedicated turn-in-place by design), a small-sample median, not necessarily a real regression. Safety floors are IDENTICAL to seed7 and clean: zero falls/terminations anywhere (walk 0/12, push 2/12 det only, fault 2/12 det only), gait_valid 12/12 every section. READ: this is a seed-basin-edge case, the same class of variance the joystick track's phasedir9/longrun17 lineage already established for this reward regime near a gate bar -- not a lottery-reversal (tip err did NOT regress toward the 0.25-0.30 pre-lever band) and not a clean second full pass either. Per the pre-registered gate, doesn't cleanly fall in either Repro-PASS or Repro-FAIL bucket; recorded as INFORMATIVE. Fund a 3rd/4th seed (matching the joystick track's own n=4 promotion precedent) before any promotion claim on this recipe; tipfrac05 (seed7) remains the champion candidate PASS. Evidence: logs/ckpt_eval/cw_amp_m4_turnfault_seq1_pushcont1_tipfrac05_seed13_{gate,m5}/.",
+    "triage": "done"
   },
   {
     "run": "cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-s2",
