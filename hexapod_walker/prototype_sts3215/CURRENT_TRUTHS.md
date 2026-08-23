@@ -289,7 +289,22 @@ follow-ups.
   Artifacts:
   `logs/ckpt_eval/diag_pushcont1_{nopush,nofault,halfpush,midpush}/report.json`
   (+ contact sheets/videos, controller-local, gitignored — not a
-  ledger-tracked eval, just a diagnostic).
+  ledger-tracked eval, just a diagnostic). **INDEPENDENT REPLICATION on the fully-composed
+  CHAMPION checkpoint itself (not just the pre-turn-in-place
+  `pushcont1` ancestor), same cycle, 3 more eval-only reads on
+  `tipfrac05` (seed7, turn-in-place+push+fault all baked in):
+  `dr.ext_push_prob=0` -> 0/12 real falls (max roll 19.3deg, still
+  some leaning); `dr.ext_push_n=3-6N` -> 0/12, tightest margins of any
+  arm (max roll 14.5deg); `dr.ext_push_n=25-40N` (above the trained
+  10-25N ceiling) -> **8/12 real falls** (4/6 det incl. the recurring
+  `walk/det/3`, 4/6 sto), roll peaks 22-41deg. Same monotonic
+  magnitude dose-response as the `pushcont1` bisection, confirming
+  turn-in-place training did not change the underlying push-
+  vulnerability profile — it is a property of the push-recovery
+  mechanism itself, present unchanged through the whole composition
+  chain. Artifacts: `logs/ckpt_eval/pushdiag_tipfrac05_{off,low,high}/
+  report.json` (+ contact sheets/videos, controller-local,
+  gitignored).
 - **JOYSTICK DONE GATE: FIRST MEASURED PASS (08-22 ~17:3x)** —
   `cw-dep-bcgait4-phasedir9-longrun17-stotight45` (longrun17 recipe,
   fresh reinit, single change `--log-std-final` -3.2 -> -4.5, final
