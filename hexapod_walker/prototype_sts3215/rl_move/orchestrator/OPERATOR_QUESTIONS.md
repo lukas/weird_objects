@@ -1933,6 +1933,21 @@ Plain English: a checkpoint just passed the ENTIRE cross-engine M5 suite for the
 - UPDATE (08-23 ~11:4x, dig-in cycle): the "in direct tension with the push-recovery safety fix" framing above is WITHDRAWN — dig-in shows there is NO recalibration cost. The old-range family itself misses the same bars everywhere except one 1-in-11 outlier read (parent seed7 at exactly 2M): 11 old-range m5 reads span tips 0.198-0.317 / slip 2.97-4.33; the 3 recalibrated seeds (tips 0.216-0.249, slip 3.62-3.82) are indistinguishable-or-better, and acq1 (+6M, OLD range, reward rising) fails both bars too. So question (d)'s tolerance-band premise ("the safer checkpoint is penalized by the bars") is false: the bars are missed by the WHOLE recipe family because the reward optimum sits outside them (tip income underpriced; loaded-slip literally unpriced, k_loadslip_excess=0). Assume-and-go decision recorded: bars UNCHANGED; pricing-nudge dose grid launched (pushcal518-yawprice2/3, -slipexcess6/12, single-lever, bank 23/23 green). The bar question stays OPEN for the operator only as originally posed (are 0.20/3.5 the intended track-DONE numbers?), no longer as a safety-tradeoff question.
 
 
+- AMENDMENT (08-23 ~15:2x, stdanneal45-r2 cycle): probe-vs-m5 slip
+  DISSOCIATION measured — the train-noise anneal cut per-stance loaded
+  travel median 14.03->9.55mm (matched controls, -32%) while m5 walk
+  det slip/m stayed flat (3.71 vs 3.67). The m5 walk slip metric
+  appears dominated by something other than loaded-stance drag (likely
+  stress_mix turn-in-place phases). If stdanneal50 (running) repeats
+  the pattern (probe <=8, slip unmoved), proposed amendment: either
+  (a) score the m5 walk slip bar on translating segments only, or
+  (b) add the stance-travel probe median (<=9mm) as the drag bar and
+  keep 3.5 slip/m as a secondary. No bar changed unilaterally.
+  Also recorded: the slipdist probe is invocation-sensitive (parent
+  reads 11.49 under the 08-23 ~13:41 invocation vs 14.03 under the
+  r2-matched one) — gates should cite matched same-cycle controls,
+  not cross-invocation constants.
+
 ## q_20260823T1240Z — AMP demo clips capped the turn rate: rebuilt the motion library (teacher_v3) and launched the full-strength slip gate rather than the pre-registered partial one
 Plain English: the robot could not be PAID into turning faster because the thing it was being taught to imitate never turns fast either — the scripted teacher's own demo clips rotate at ~0.134 rad/s while labeled 0.25, and the AMP discriminator watches raw body yaw-rate with no idea what was commanded, so any faster rotation looks "unlike the teacher" and gets docked. Two assume-and-go decisions this cycle, both recorded here per the no-operator-pauses rule.
 - Evidence for the root cause (direct probe of the scripted tripod through real physics, this cycle): commanded 0.25 -> achieved 0.134; 0.30 -> 0.144; 0.40 -> 0.146; 0.60 -> 0.163; 0.80 -> 0.127. The gait SATURATES ~0.15-0.16 rad/s at any commanded omega (foot sweep per stride is geometry-capped), i.e. the ~0.5 achieved-ratio the entire 4/4-FAIL pricing grid could not move is a KINEMATIC ceiling embedded in the demos, not an economic equilibrium. Corroborated by `-noamp1` (style weight 0): tips improved 0.2157/0.2351 -> 0.1778/0.2151 with the discriminator off, while walk slip regressed 3.67 -> 3.92.

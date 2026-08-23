@@ -358,3 +358,9 @@ DIG-IN: cw-amp-m4-turnpushfault1-style05-r2 — mechanism-safety PASS but turn t
 - 08-23 14:42 [amp] swinganneal45 INVALID detail: byte-identical frozen twin of stdanneal45 (swing cfg only re-priced identical trajectories); composition question unanswered, relaunched -r2 
 - 08-23 14:53 [amp] smoke-logstd-anneal-v2b-freeze-fix PASS: rollout-start anneal trains (12/12 tensors move, 0 step-0 early-stops) — licenses stdanneal45-r2/swinganneal45-r2 
 - 08-23 15:02 amp: tipspawn3-wzonly FAIL — spawn_wz half alone unmoved (m5 walk slip 3.59 vs parent 3.67, band +-0.15; tipspawn1b combined 3.1855); 2x2 closed: only the interaction wins — launching tipspawn1b seed replicates 
+- 08-23 15:1x [amp] checkup false-alarm: stdanneal45-r2 rc=1 was normal completion, not death — full 2M budget done in <5 min (11.8k fps), graceful wandb finish, ckpt+artifact saved (md5 ee472eac), pod-0 clean; no retry needed, verdict owned by concurrent cycle
+- 08-23 15:24 amp: stdanneal45-r2 PARTIAL — noise-floor anneal is the FIRST mechanism to cut stance drag (probe median 9.55 vs matched parent 14.03, -32%) but m5 walk slip unmoved (3.71 vs 3.67, bar 3.5); precheck 12/12 tensors moved (r1 freeze fixed); dosing -5.0 next 
+- 08-23 15:24 amp: swinganneal45-r2 PARTIAL, composition NOT adopted — anneal is the active ingredient (probe 10.43 vs anneal-alone 9.55; tip_left 0.2512 out of band; fault gv 11/12); m5 slip 3.515 family-best but misses 3.5 
+- 08-23 15:37 [amp] tipspawn1b seed-replicate grid 0/3 PASS (s11 3.55, s13 3.73, s17 3.765 vs bar 3.5; original 3.1855 = noise) -- state-visitation slip fork CLOSED per pre-registration; anneal family is the last live slip mechanism 
+- 08-23 15:38 [amp] tipspawn1b-s13 FAIL: m5 walk det_slip_med 3.73 > 3.5 bar; clean behavior, effect absent (grid 0/3) 
+- 08-23 15:38 [amp] tipspawn1b-s17 FAIL: m5 walk det_slip_med 3.765 > 3.5 bar; grid complete 0/3 -- state-visitation slip mechanism refuted 

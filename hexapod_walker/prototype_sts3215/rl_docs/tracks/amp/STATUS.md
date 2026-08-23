@@ -1,6 +1,84 @@
 # amp - AMP locomotion from scratch
 
-Last updated: 2026-08-23 ~14:4x (**`-stdanneal45` + `-swinganneal45`
+Last updated: 2026-08-23 ~15:4x (**tipspawn1b seed-replicate grid
+0/3 PASS — the state-visitation slip fork is CLOSED; the noise-floor
+anneal family is the ONLY live slip mechanism.** Exact tipspawn1b
+recipe re-run at seeds 11/13/17 (2M each, trained normally, reward
+~41→250 all three): m5 walk det_slip_med **s11 3.55, s13 3.73, s17
+3.765** vs bar 3.5 — all three land in the 3.55–3.77 family baseline
+band (parent 3.67, startonly 3.60, wzonly 3.59), exactly the
+pre-registered prediction-if-false. The original tipspawn1b 3.1855
+was a one-seed fluke; per the grid's own ruling the combined
+RSI-start_frac × spawn_wz interaction is refuted and NOT promoted.
+Safety clean all seeds: 0 falls all sections, walk gait_valid 12/12,
+healthy six-leg det strips. Cross-fork comparison (answering the
+~15:2x note): state-visitation never moved the drag probe or slip;
+the train-noise anneal is the only mechanism with a real measured
+effect (probe −32%) — the running `-stdanneal50` rung (other cycle)
+carries the slip question alone, including its pre-registered
+PARTIAL→bar/metric-amendment branch for the probe-vs-m5
+dissociation. Ops note: s11's watcher prestage was missed; its
+checkpoint pull + gate/m5 evals were run manually this cycle.
+Evidence: `logs/ckpt_eval/cw_amp_m4_..._tipspawn1b_s{11,13,17}_{gate,m5}/`.)
+
+Previous entry (~15:2x: **`-stdanneal45-r2` PARTIAL — the
+train-noise floor is the FIRST mechanism to genuinely cut the
+family's loaded-foot drag; `-swinganneal45-r2` PARTIAL but the swing
+composition is NOT adopted.** Both r2 arms pass the weight-movement
+precheck (12/12 non-log_std tensors moved vs turnfault_seq1 AND
+pushcal518; log_std −4.46 — the r1 freeze fix works). Probe, matched
+same-cycle conditions (hazard-free own-cfg, seed 0, 6 eps, ~900
+stances; SAME-conditions parent control rerun reads **14.03mm**
+median, not the 11.49 recorded under the earlier invocation — use
+matched controls for this probe from now on): anneal-alone
+**9.55mm** (−32%, tail p90 25.8 vs 35.2) > anneal+swing 10.43 >
+parent 14.03. Every reward-side lever left this median at/above
+parent; the noise floor moved it. BUT m5 walk det slip did NOT
+follow: anneal 3.71 (unmoved vs 3.67, bar 3.5), anneal+swing 3.515
+(family-best, misses by 0.015) — a probe-vs-m5 DISSOCIATION (stance
+travel −32%, slip/m flat) suggesting the m5 walk slip metric is
+dominated by something other than loaded-stance drag (likely the
+stress_mix turn-in-place phases); noted on q_20260823T0700Z, no bar
+changed. Composition answered: swing income redistributes drag (tail
+p90 33.3 vs anneal's 25.8), regresses tip_left past the 0.25 band
+(0.2512) and costs fault sto gait_valid (11/12; swing1 alone 9/12) —
+the anneal is the active ingredient, swing is dropped. Safety clean
+both arms: 0 falls all sections, walk gait 12/12, videos clean.
+LAUNCHED the gate-prescribed dose rung `-stdanneal50`
+(--log-std-final=-5.0, single lever, train-0, VERIFIED RUNNING):
+PASS = probe <=8mm AND slip <=3.5; PARTIAL = probe <=8 with slip
+unmoved -> escalate the dissociation to a bar/metric amendment
+instead of more rungs; FAIL = probe >9 or robustness cost -> fork to
+teacher-v4 demo-anchor (CPG contextual winner as motion library).
+Cross-fork note: tipspawn1b seed replicates (concurrent cycle) probe
+the OTHER live slip mechanism (RSI×spawn_wz interaction, m5 slip
+3.1855); when both read, compare noise-floor vs state-visitation
+before any adoption. Evidence:
+`logs/ckpt_eval/{stdanneal45_r2,swinganneal45_r2,pushcal518_ctrl}_slipdist.json`,
+`logs/ckpt_eval/cw_amp_m4_..._{stdanneal45,swinganneal45}_r2_m5/`.)
+
+Previous entry (~15:0x: **`-tipspawn3-wzonly` FAIL — the
+2×2 slip-mechanism isolation is COMPLETE: neither lever alone works,
+only the combination; a 3-seed replicate batch of the combined dose
+is launched.** m5 walk det_slip_med 3.59 vs parent(pushcal518) 3.67 —
+Δ0.08, inside the pre-registered ±0.15 "unmoved" band (bar 3.5;
+tipspawn1b combined hit 3.1855). Full 2×2 on pushcal518: start_frac
+alone 3.6015 (unmoved), spawn_wz alone 3.59 (unmoved), both 3.1855
+(win) — the slip effect, if real, is an INTERACTION of mid-walk RSI
+× live spawn omega, not either half. Safety clean (0 falls all
+sections, walk gv 12/12, clean six-leg det strip; push PASS 3.2405,
+fault PASS gv 11/12). Yaw side-read: tip_left 0.1945 clears 0.20 but
+tip_right 0.2223 regressed — same asymmetric trade as the whole turn
+grid, no new signal. LAUNCHED per the run's own pre-registered FAIL
+branch: exact tipspawn1b replicates at seeds 11/13/17 (2M discovery,
+train-0/1/2; grid ruling ≥2/3 at ≤3.5 = effect REAL → promote both
+levers to an acquisition arm; 0/3 = tipspawn1b was noise → close the
+state-visitation fork, leaving the train-noise anneal family
+(stdanneal45-r2, concurrent cycle) as the last live slip mechanism;
+1/3 = fragile, dig in first). Evidence:
+`logs/ckpt_eval/cw_amp_m4_..._tipspawn3_wzonly_{gate,m5}/`.
+
+Previous entry (~14:4x: **`-stdanneal45` + `-swinganneal45`
 INVALID — NEITHER RUN EVER TRAINED; the noise-floor question is
 still OPEN, and a silent trainer defect is found+fixed.** Forensics:
 both checkpoints' 12 network tensors (actor AND critic) are

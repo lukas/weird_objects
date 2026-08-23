@@ -63,6 +63,19 @@ import torch.nn.functional as F
 DEFAULT_LIBRARY = Path(__file__).resolve().parent / "motion_library" / "teacher_v1.npz"
 
 
+def apply_style_mask(x: np.ndarray, dims) -> np.ndarray:
+    """Zero the named obs_style feature dims IN PLACE and return x.
+
+    Empty ``dims`` is a strict no-op (bit-exact off path). Used to
+    blind the discriminator to specific channels (e.g. dim 38 =
+    base_angular_velocity z / yaw rate) on BOTH the real (library) and
+    fake (policy) sides, so neither branch carries the masked signal.
+    """
+    if dims is not None and len(dims):
+        x[..., np.asarray(dims, dtype=np.int64)] = 0.0
+    return x
+
+
 class MotionLibrary:
     """Loads a build_motion_library.py npz and samples real transitions.
 
@@ -74,10 +87,23 @@ class MotionLibrary:
     per-clip boundary exclusion.
     """
 
-    def __init__(self, path: Path | str = DEFAULT_LIBRARY):
+    def __init__(self, path: Path | str = DEFAULT_LIBRARY,
+                 mask_dims=()):
         path = Path(path)
         d = np.load(path, allow_pickle=True)
         self.obs_style = np.asarray(d["obs_style"], dtype=np.float32)
+        # Optional feature mask (default () = bit-exact legacy): zero
+        # the named dims BEFORE fitting mean/std, so masked dims carry
+        # mean 0 and hit the constant-dim std guard (std -> 1.0). The
+        # same dims must be zeroed on the policy/fake side
+        # (apply_style_mask in the AMP wrapper).
+        self.mask_dims = tuple(sorted(int(i) for i in (mask_dims or ())))
+        if self.mask_dims:
+            if max(self.mask_dims) >= self.obs_style.shape[1] or min(self.mask_dims) < 0:
+                raise ValueError(
+                    f"mask_dims {self.mask_dims} out of range for "
+                    f"obs_style dim {self.obs_style.shape[1]}")
+            apply_style_mask(self.obs_style, self.mask_dims)
         self.clip_starts = np.asarray(d["clip_starts"], dtype=np.int64)
         self.clip_lens = np.asarray(d["clip_lens"], dtype=np.int64)
         self.feat_dim = self.obs_style.shape[1]

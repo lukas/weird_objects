@@ -1325,6 +1325,15 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--amp-disc-init", type=str, default=None,
                     help="warm-start the discriminator from a prior "
                          "run's <out>.amp_disc.pt (continuations).")
+    ap.add_argument("--amp-style-mask-dims", type=str, default="",
+                    help="comma-separated obs_style feature dims to "
+                         "ZERO on both the real (library) and fake "
+                         "(policy) discriminator inputs — blinds the "
+                         "style term to those channels (e.g. '38' = "
+                         "base_angular_velocity z / yaw rate, so the "
+                         "discriminator cannot punish rotating faster "
+                         "than the demos). Default '' = OFF, bit-exact "
+                         "legacy features.")
     ap.add_argument("--log-std-init", type=float, default=-1.0)
     ap.add_argument("--warm-log-std-override", type=float, default=None,
                     help="after a --init-from warm start loads the "
@@ -2052,7 +2061,8 @@ def main(argv: list[str] | None = None) -> int:
               f"lib={args.amp_motion_lib or 'teacher_v1.npz(default)'} "
               f"disc lr={args.amp_disc_lr} steps/rollout="
               f"{args.amp_disc_steps} batch={args.amp_disc_batch} "
-              f"replay={args.amp_replay}")
+              f"replay={args.amp_replay} "
+              f"mask_dims={args.amp_style_mask_dims or '(none)'}")
     env_kw = _env_kwargs(args)      # resolves params via bus.servo_params
     if args.walk_curriculum:
         # training/cert envs keep the curriculum via env_kw's cfg; the
@@ -2275,12 +2285,15 @@ def main(argv: list[str] | None = None) -> int:
         # (the actual PPO training signal). Style reward is computed on
         # the host from info["amp_obs_style"] — worker/backend agnostic.
         from .amp_style_vec import AMPStyleVecWrapper
+        mask_dims = tuple(int(t) for t in
+                          args.amp_style_mask_dims.split(",") if t.strip())
         amp_wrap = AMPStyleVecWrapper(
             venv, style_weight=args.amp_style_weight,
             task_weight=args.amp_task_weight,
             motion_lib=args.amp_motion_lib, replay_size=args.amp_replay,
             disc_lr=args.amp_disc_lr, gp_weight=args.amp_gp_weight,
-            seed=args.seed, disc_init=args.amp_disc_init)
+            seed=args.seed, disc_init=args.amp_disc_init,
+            style_mask_dims=mask_dims)
         venv = amp_wrap
     venv = VecMonitor(venv)
     print(f"[mjx-train] vec env up in {time.monotonic() - t0:.1f}s "

@@ -43,7 +43,8 @@ import torch
 from stable_baselines3.common.vec_env import VecEnvWrapper
 
 from .amp_discriminator import (AMPDiscriminator, MotionLibrary,
-                                discriminator_loss, style_reward)
+                                apply_style_mask, discriminator_loss,
+                                style_reward)
 
 
 class _TransitionRing:
@@ -96,15 +97,23 @@ class AMPStyleVecWrapper(VecEnvWrapper):
                  motion_lib: str | Path | None = None,
                  replay_size: int = 500_000, disc_lr: float = 3e-4,
                  gp_weight: float = 10.0, seed: int = 0,
-                 disc_init: str | Path | None = None):
+                 disc_init: str | Path | None = None,
+                 style_mask_dims=()):
         super().__init__(venv)
         if style_weight <= 0.0:
             raise ValueError("AMPStyleVecWrapper needs style_weight > 0; "
                              "for style off, do not wrap at all")
         self.style_weight = float(style_weight)
         self.task_weight = float(task_weight)
-        self.lib = (MotionLibrary(motion_lib) if motion_lib
-                    else MotionLibrary())
+        # Feature mask (default () = bit-exact legacy): zeroed on BOTH
+        # sides — the library masks its own obs_style at load, and
+        # _styles_from_infos masks the live policy features below.
+        self.style_mask_dims = tuple(sorted(int(i) for i
+                                            in (style_mask_dims or ())))
+        self.lib = (MotionLibrary(motion_lib,
+                                  mask_dims=self.style_mask_dims)
+                    if motion_lib
+                    else MotionLibrary(mask_dims=self.style_mask_dims))
         if self.lib.neutral_pose is None:
             raise ValueError(
                 "motion library lacks joint_position/"
@@ -146,7 +155,8 @@ class AMPStyleVecWrapper(VecEnvWrapper):
         s = np.asarray(rows, dtype=np.float32)
         # library-neutral convention: env emits RAW joints in dims 0..17
         s[:, :self.lib.neutral_pose.shape[0]] -= self.lib.neutral_pose
-        return s
+        # fake-side half of the feature mask (no-op when empty)
+        return apply_style_mask(s, self.style_mask_dims)
 
     def step_wait(self):
         obs, rews, dones, infos = self.venv.step_wait()
