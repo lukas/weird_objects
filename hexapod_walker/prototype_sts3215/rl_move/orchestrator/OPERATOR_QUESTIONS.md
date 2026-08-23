@@ -1819,6 +1819,21 @@ Plain English: two of tonight's readouts each end with a "the next fix is anothe
   small margin. Item (b) — hold/forward income repricing — is the
   only untried lever left; it stays ASSUMED-AND-QUEUED as the funded
   next M4 turn+push build.
+- AMENDMENT (08-23 ~07:2x): item (b) is now CONFIRMED NECESSARY, not
+  just assumed. `cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-acq1`
+  (+6M steps warm-started from the tipfrac05 checkpoint, zero other
+  changes) ERODED tips from the parent's clean-pass 0.162/0.184 to
+  0.204/0.269 while training reward rose then plateaued — the
+  curriculum-exposure lever (tipfrac grid) only holds turn-tracking
+  AT the 2M discovery budget it was tuned on; more of the same
+  training re-drifts toward hold/forward income exactly as the
+  pricing gap predicts. Composition/order/dose/pricing-key-
+  correctness/exposure-dose/exposure-budget are now ALL tried on this
+  axis and all land short or erode. Building the hold/forward
+  repricing mechanism (bank-gated per `test_task_semantics.py`, per
+  the audit's own numbers: hold-freeze ~1473/ep vs honest tip ceiling
+  ~1209/ep) is the next concrete M4 code task, not another
+  composition/dose/seed/budget arm on this exact recipe.
 
 ## q_20260823T0430Z — ANSWER to operator kick "where are we at on the quad walking — can we give it a try?" (fb 20260823T033835Z)
 Plain English: there are three different "quad walking" artifacts in this repo; here is where each stands at the CURRENT (tibia-150-measured) sim, what I fixed this cycle, and the safest concrete try.
@@ -1856,3 +1871,4 @@ Plain English: a checkpoint just passed the ENTIRE cross-engine M5 suite for the
 - question: does the operator want any additional bar for M5 (e.g. mixed-hazard curriculum so the checkpoint also has a hazard-FREE walking mode per q_20260823T0130Z, or tighter tip band) before declaring the track gate green?
 - status: OPEN (proceeding with candidate + reproduction/stability arms)
 - UPDATE (08-23 ~07:1x, same cycle): the m5_pass=true this question opened with was an ALIASED-HARNESS artifact — the pre-isolation-fix suite scored push/fault as byte-identical composed reads. Post-fix isolated re-read: walk/yaw/push PASS, fault section FAILS BY ONE EPISODE (gait_valid 9/12 vs bar 10; each flagged episode is one parked carried-fault leg, video-clean, zero falls — noise-scale at n=12; sibling tipfrac03 flags 2/12 and passes). So the amp track is ONE noise-scale fault-section episode from a true full-M5 pass, not there yet. The candidate framing stands; sub-questions (a)-(c) unchanged, plus (d): should the fault-section gait_valid bar tolerate the LEGITIMATE parked carried-fault leg (it is the commanded behavior under an injected fault), e.g. by excluding the injected-fault leg from the sacrificed-leg check? Assume-and-go position: do NOT loosen the bar unilaterally; grow n via the already-launched seed/acq arms and the faultdose grid first.
+- UPDATE (08-23 ~07:2x): sub-questions (b) and (c) now have their first hard answers, and (c) closes the "just wait for it to stabilize" hope. (b) seed reproduction: `-s2` (seed23) reads IN-BAND (tips 0.207/0.228, <=0.25) but NOT bar-clean (misses the strict 0.20 line both signs) — 2/2 seeds in-band, 1/2 bar-clean; `-s3`/`-seed13` still pending (concurrent cycle). (c) budget stability: `-acq1` (+6M from the exact tipfrac05 checkpoint) FAILS — tips ERODED to 0.204/0.269 (worse than the 2M parent on both signs) while training reward rose then plateaued. So the M5 candidate is NOT budget-stable as-is: more training on this exact recipe measurably un-does the turn-tracking gain. This makes the hold/forward income-repricing build (q_20260823T0240Z item b) a hard PREREQUISITE for any acquisition-scale (>2M) M5 candidate, not an optional hardening pass — flagged DIG-IN this cycle rather than attempted blind (it is a reward/env-code change deciding a track fork, the model-tiering trigger for handoff to the deeper-analysis cycle).

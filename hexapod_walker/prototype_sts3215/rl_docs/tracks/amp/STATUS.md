@@ -1,6 +1,40 @@
 # amp - AMP locomotion from scratch
 
-Last updated: 2026-08-23 ~07:1x (**CORRECTION to the 06:5x headline
+Last updated: 2026-08-23 ~07:2x (**SEED-TWIN + BUDGET-CONTINUATION
+TRIAGE on tipfrac05's two named-in-flight children (this cycle's
+own): `-s2` (seed23, 2M) VERDICTED PASS — eval_amp_m5 tips 0.207/
+0.228, inside the run's own PASS band (<=0.20-0.25) though not
+bar-clean like the seed=7 original (0.162/0.184); safety floors held
+(own-cfg DR-0 gait_valid 12/12), push section PASS clean, fault
+section PASS at the bar (gait_valid 10/12). 2/2 seeds now read
+in-band (`-s3`/`-seed13` still pending, owned by a concurrent cycle)
+— the turn-exposure recipe is looking reproducible, not a one-seed
+lottery win, though only the original seed hit the strict 0.20 line.
+`-acq1` (+6M steps warm from the tipfrac05 checkpoint itself)
+VERDICTED FAIL — tips ERODED to 0.204/0.269 (worse than the 2M
+parent on BOTH signs, tip-right badly over the 0.20 bar) while
+training reward rose 110->226/ep across Q1-Q2 then sat FLAT at
+226/226/230 for the rest of the run — the exact pre-registered
+ERODED branch, not a flat-reward stall. Composition floors held
+(own-cfg DR-0 gait_valid 11/12, m5 push/fault sections both PASS,
+fault gait_valid even IMPROVED 9->11/12 vs the 2M parent). Video
+clean six-leg cycling both arms, one legitimately carried fault leg,
+zero falls. **CONCLUSION: exposure-only (the tipfrac curriculum
+lever) is now measured on BOTH axes it needed to survive — a second
+seed (holds, in-band) and more budget (does not hold, erodes) — and
+the budget axis fails exactly as the mechanism predicts (turning
+costs 4-10x more in current/gyro/roll than hold/forward per
+`probe_walk_income`, so undirected extra training re-drifts toward
+the cheaper income once the curriculum's initial exposure boost is
+exhausted).** Per q_20260823T0240Z item (b), hold/forward income
+repricing is now CONFIRMED NECESSARY (not merely assumed) as the
+next M4 turn+push lever before promoting anything past the 2M
+tipfrac05 recipe itself; do not spend further budget/seed arms on
+this exact recipe. SKILLS.md row amended with both results. Evidence:
+`logs/ckpt_eval/cw_amp_m4_turnfault_seq1_pushcont1_tipfrac05_{s2,acq1}_m5/`,
+`..._{s2,acq1}_gate/`. Prior banner below.)
+
+Previous entry (2026-08-23 ~07:1x (**CORRECTION to the 06:5x headline
 below, from the post-fix ISOLATED `eval_amp_m5` re-reads (run on
 train-8/9 with all three harness fixes; aliased originals preserved
 at `..._m5_aliased/` / `..._m5_prefix/`): tipfrac05 is NOT a full M5
