@@ -1068,12 +1068,30 @@ slip in the usual yawcmd band). Sibling `cw-amp-m2-turnclone-yawcmd0`
 1` from the pre-clone parent chain vs the already-75-dim clone
 checkpoint) — corrected respec `-r2` already relaunched
 (`--obs-pad-transplant 0`) and training; `-tip90` still pending its
-own (concurrent-cycle-owned) verdict. NEXT once the joint read closes:
-if tip90/yawcmd0-r2 show the same partial-erosion shape, the lever is
-reward-side (raise k_walk_yaw/k_yaw_prog relative to translation+style
-income so fine-tuning protects rather than erodes the clone's now-real
-turning skill) — not further init engineering; the init question
-(can BC ever teach turning) is now answered YES.
+own (concurrent-cycle-owned) verdict.
+
+**REPRICING LEVER TESTED SAME CYCLE AND REFUTED:**
+`cw-amp-m2-turnclone-yawcmd-tip50-yawprice3x` (single lever from the
+tip50 checkpoint: `k_walk_yaw`/`k_yaw_prog` 1.0->3.0) FAIL-INFORMATIVE
+— tripling yaw income made tracking WORSE, not better (eval_yaw turn
+err 0.140->0.208), while training reward more than doubled (240->564/
+quarter) with both yaw reward terms pegged near their kernel ceilings
+— pure reward-farming on a now-larger, still-saturated kernel, not
+real tracking improvement (a sharper 08-21 misalignment than the 1x
+run, not a fix for it). Translation/gait fully unaffected (same
+termination counts, walk_speed/height_err/direction_valid unchanged)
+so this is a clean isolated result, not a destabilization confound.
+CONCLUSION: yaw income MAGNITUDE is refuted as the bottleneck for
+this recipe — do not spend more budget on yaw-pricing-dose sweeps.
+The remaining lever is STRUCTURAL: a mirror-symmetry regularizer
+during training (distinct from the joystick track's existing
+inference-time `mirror.MirrorPolicy` reflection trick in
+`probe_mirror_turn.py`, which steers by selecting naked-vs-reflected
+policy rollouts post-hoc rather than training symmetry in) or a
+turn-specific gait-phase term/observation — genuinely unbuilt, a
+cycle-sized code task, not queued blind this cycle. The init question
+(can BC ever teach turning) is answered YES; the open question is now
+purely reward-shape/structural, not initialization.
 
 Previous entry (08-22 ~20:0x, **FAULT INJECTION BUILT + TESTED** (M0
 checklist "fault injection works"; M4 prerequisite; last
