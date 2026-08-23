@@ -133827,7 +133827,7 @@
       "obs.fault_health=0"
     ],
     "created": "2026-08-23T00:53:57+00:00",
-    "status": "FINISHED",
+    "status": "PASS",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -133865,7 +133865,9 @@
         "verdict": "FINISHED_BEFORE_CHECKUP",
         "log_tail": "wandb:       env/height_mm 10.27236\nwandb:   env/height_ref_mm 0\nwandb:   env/max_current_a 1.90815\nwandb:  env/mean_current_a 0.74563\nwandb: env/pct_within_1deg 0.07593\nwandb:   env/pitch_ref_deg 0\nwandb:   env/reward_action -0.01556\nwandb:                 +83 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-amp-m4-faultobs2-headingsfull-blind at: https://wandb.ai/l2k2/hexapod-balance/runs/8k7hnm57\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 3 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260823_005450-8k7hnm57/logs\n"
       }
-    ]
+    ],
+    "verdict": "Blind fault control clears its own mechanism-safety floor (gait_valid 9/12 combined, exactly the >=9/12 bar) and completes the sighted-vs-blind pairing on the full-heading substrate: SIGHTED WINS decisively. Same-fault-draw comparison (seed 0, identical dr.fault_prob=1.0 command sampling) vs the already-PASSed noamp (sighted) and style05 (sighted) siblings: sto gait_valid blind 3/6 (sacrificed legs on 3 episodes: ep0 leg0, ep1 leg2, ep3 leg5) vs noamp 5/6 (1 sacrifice) vs style05 6/6 (ZERO sacrifices) -- fault_health obs-wiring more than triples the safe-limp rate on this substrate, matching faultobs1's earlier forward-only finding (+18%prog/-27%slip sighted) directionally. det stays gait_valid 6/6 for all three arms but blind's det slip is worse too (med 3.58 vs 3.08 both sighted). Video (walk_sto_0, walk_sto_3 sheets) confirms the failures are genuine LIMPS not statues -- one dangling/static leg while the other five keep cycling, same fingerprint as the sighted arms' failures elsewhere, so this isn't a different failure mode, just a higher rate of it. Closes the faultobs2-headingsfull PASS/PASS-neutral/blind-control trio: fault-sight is a real, load-bearing mechanism on the full-heading substrate (not just forward-only), style neither helps nor hurts it. No further action needed on this substrate; the M4 open question is now graft-onto-turn (turnfault1, already INFORMATIVE/undertrained) not sighted-vs-blind.",
+    "triage": "done"
   },
   {
     "run": "cw-amp-m2-turnclone-yawcmd0-r2-noamp",
@@ -134603,7 +134605,7 @@
       "dr.ext_push_n=20,40"
     ],
     "created": "2026-08-23T01:21:00+00:00",
-    "status": "RUNNING",
+    "status": "INFORMATIVE",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -134648,7 +134650,8 @@
         ]
       }
     ],
-    "triage": "awaiting since 2026-08-23T01:31:17"
+    "triage": "done",
+    "verdict": "Staged force at 20-40N gets the walker CLOSE but not under the bar at 12M total: 4/12 topples (det 1/6 PASSES its half, sto 3/6 misses the <=2/6 bar by ONE episode), gait_valid 12/12, zero sacrificed legs, det prog med 1.13. This is the pre-registered INFORMATIVE-ceiling branch, not the plateau: tilt terms fell MONOTONICALLY all run (pitch+roll 136->96/window by 1M-bucket, still declining at cutoff) and reward rose every quarter (-47/52/72/83) \u2014 unlike the flat-jump parent that sat flat. Strips watched: clean six-leg cycling, genuine 20-40N absorption (sto_5 rides shoves back to upright), knockdowns are real full topples (det_2 roll, sto_1 pitch), no crouch/statue. Caveat vs its own prediction-if-true: terms did NOT reach <30 \u2014 decline is slow (~4-5/window per 1M), so the curriculum keeps the gradient alive at 20-40N but has not converged. Per the branch + 08-21 ruling: 6M continuation launched from this ckpt (pushcur2-noamp-n2040-c2). The 12M curriculum-vs-budget fork vs pushhard1-noamp-n2040-c1r1 stays judged against THESE frozen 12M numbers (4/12, terms 96 falling)."
   },
   {
     "run": "cw-amp-m3-pushcur2-noamp-repeat3",
@@ -134745,7 +134748,7 @@
       "dr.ext_push_repeat_max=3"
     ],
     "created": "2026-08-23T01:24:38+00:00",
-    "status": "RUNNING",
+    "status": "PASS",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -134775,7 +134778,23 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:amp PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-amp-m3-pushcur2-noamp-repeat3 --steps 6000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_amp_m3_pushcur1_noamp_repeat2.zip --episode-seconds 15 --no-canary --eval-every 1000000 --video-every 2000000 --n-envs 4096 --impl warp --host-workers 24 --seed 7 --ent-coef 0.001 --warm-log-std-override -2.0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set goal.walk_phase_obs=1 --cfg-set goal.walk_phase_hz=1.333333 --cfg-set goal.walk_obs_body_vel=2 --cfg-set goal.walk_heading_max_rad=-1 --cfg-set goal.walk_speed_min_m_s=0.08 --cfg-set goal.walk_speed_max_m_s=0.08 --cfg-set goal.walk_cmd_mode=stress_mix --cfg-set goal.walk_cmd_resample_s=4.0 --cfg-set goal.walk_cmd_resample_jitter=0.5 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set bus.write_speed=1500 --cfg-set bus.write_acc=80 --cfg-set bus.servo_vel_max_counts_s=write_speed --cfg-set safety.max_delta_q_deg=5.0 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --cfg-set reward.term_penalty=400.0 --cfg-set reward.k_step_event=0.0 --cfg-set reward.k_park_duty=0.0 --cfg-set reward.k_walk_freeprog=0.0 --cfg-set reward.walk_loadslip_gate=0.0 --cfg-set reward.k_loadslip_excess=0.0 --cfg-set reward.walk_gait_gate=0.0 --cfg-set reward.k_walk_idle_charge=0.0 --cfg-set reward.k_drag_stance=0.0 --out-name ppo_goal_cw_amp_m3_pushcur2_noamp_repeat3 --notes 'respec of cw-amp-m3-pushcur1-noamp-repeat2: Plain English: the walker that found two shoves nearly free now takes up to THREE per episode \u2014 is the third shove learnable from the rung-2 prior, where the flat jump from one to three learned nothing (repeat3-r1: reward and terms flat all 6M, 3/12 topples)? Stage 2 of the count curriculum: identical to pushcur1-noamp-repeat2 except dr.ext_push_repeat_max=3, warm from repeat2'\"'\"'s own checkpoint (PASS at 2/12 topples but terms started AND stayed low \u2014 rung 2 was inherited, so THIS rung is the real test of whether count staging works at all). Prediction-if-true: terms start high and FALL, gate at repeat_max=3 beats repeat3-r1'\"'\"'s 3/12 within the <=1/6 det + <=2/6 sto bar \u2014 count is stageable and M3'\"'\"'s count axis closes at 3. Prediction-if-false: terms flat here too despite the rung-2 prior \u2014 the third shove lands mid-recovery and dose staging cannot reach mid-recovery balance; joint with style05-r3b1530-r1'\"'\"'s count-x-force plateau this locks in the recovery-mechanism lever for M3. Strongest alternative: rung 3 is also nearly free (terms low-flat, gate clean) \u2014 then repeat3-r1'\"'\"'s failure was its cold jump, and shove density/episode length is the real ceiling variable.' --cfg-set dr.ext_push_prob=1.0 --cfg-set dr.ext_push_repeat_max=3 > /tmp/train_cw-amp-m3-pushcur2-noamp-repeat3.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-amp-m3-pushcur2-noamp-repeat3.log",
     "wandb_id": "s7monu60",
-    "verified": "2026-08-23T01:27:54+00:00"
+    "verified": "2026-08-23T01:27:54+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-23T01:33:15+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 170,
+        "fps": 182.0,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "SUSPECT",
+        "problems": [
+          "fps 182 below expected floor 5000 for solo on GPU-MJX pod \u2014 starved or misplaced; consider rebalancing"
+        ]
+      }
+    ],
+    "triage": "done",
+    "verdict": "Count rung 3 is CLEAN: repeat_max=3 (three 10-25N shoves/ep) warm from the rung-2 ckpt lands 0/6 det + 1/6 sto topples (bar <=1/6 det, <=2/6 sto), gait_valid 12/12, zero sacrificed, det prog med 1.17/slip 2.97 \u2014 the M3 count axis CLOSES at 3 with staged-count as the recipe, and staging beats the cold jump outright (repeat3-r1 flat 1->3 sat at 3/12 with nothing learning; warm chain = 1/12). Strips watched: upright six-leg cycling det, the single sto knockdown is a genuine full roll topple. HOWEVER the pre-named strongest-alternative fired AGAIN: tilt terms started low and stayed low-flat (~19-21/window all 6M, reward flat after Q1) \u2014 rung 3 was largely FREE from the rung-2 prior, i.e. count-at-mild-force is not the hard direction; r1's failure was its cold jump. Open variable per the gate's own free-branch: shove DENSITY/mid-recovery landings. Density stress probe launched eval-side (repeat_max=6 at 15s, same ckpt, train-1, out logs/ckpt_eval/cw_amp_m3_pushcur2_noamp_repeat3_dense6) \u2014 if that stays clean, count/density is closed entirely and force (n2040 chain) is M3's only open axis; if it breaks, it's direct evidence for the recovery-mechanism lever."
   },
   {
     "run": "cw-amp-m3-pushhard1-noamp-n2040-c1r1",
@@ -134872,7 +134891,7 @@
       "dr.ext_push_n=20,40"
     ],
     "created": "2026-08-23T01:28:13+00:00",
-    "status": "RUNNING",
+    "status": "INFORMATIVE",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -134902,6 +134921,187 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:amp PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-amp-m3-pushhard1-noamp-n2040-c1r1 --steps 6000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_amp_m3_pushhard1_noamp_n2040.zip --episode-seconds 15 --no-canary --eval-every 1000000 --video-every 2000000 --n-envs 4096 --impl warp --host-workers 24 --seed 7 --ent-coef 0.001 --warm-log-std-override -2.0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set goal.walk_phase_obs=1 --cfg-set goal.walk_phase_hz=1.333333 --cfg-set goal.walk_obs_body_vel=2 --cfg-set goal.walk_heading_max_rad=-1 --cfg-set goal.walk_speed_min_m_s=0.08 --cfg-set goal.walk_speed_max_m_s=0.08 --cfg-set goal.walk_cmd_mode=stress_mix --cfg-set goal.walk_cmd_resample_s=4.0 --cfg-set goal.walk_cmd_resample_jitter=0.5 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set bus.write_speed=1500 --cfg-set bus.write_acc=80 --cfg-set bus.servo_vel_max_counts_s=write_speed --cfg-set safety.max_delta_q_deg=5.0 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --cfg-set reward.term_penalty=400.0 --cfg-set reward.k_step_event=0.0 --cfg-set reward.k_park_duty=0.0 --cfg-set reward.k_walk_freeprog=0.0 --cfg-set reward.walk_loadslip_gate=0.0 --cfg-set reward.k_loadslip_excess=0.0 --cfg-set reward.walk_gait_gate=0.0 --cfg-set reward.k_walk_idle_charge=0.0 --cfg-set reward.k_drag_stance=0.0 --out-name ppo_goal_cw_amp_m3_pushhard1_noamp_n2040_c1r1 --notes 'respec of cw-amp-m3-pushhard1-noamp-n2040: Plain English: does the 20-40N hard-shove walker just need MORE BUDGET, or was the flat dose jump the mistake? Retry of pushhard1-noamp-n2040-c1, which never trained (REFUSED 3x on a stale pod code marker \u2014 infra, not spec; this is the single permitted retry). Continues pushhard1-noamp-n2040 for 6M more at the SAME 20-40N dose from its own checkpoint (08-21 ruling: reward was still rising 84->115 in the final quarter and tilt-roll terms still falling 46->43 at cutoff), as the matched budget control for the force-curriculum chain (pushcur2-noamp-n2040, launched same cycle, 12M total each). Prediction-if-true (undertrained): tilt terms resume falling and the 20-40N gate reaches topples <=1/6 det + <=2/6 sto \u2014 flat-jump-plus-budget suffices, curriculum unnecessary. Prediction-if-false: reward inflates on surviving episodes while terms and topples stay at the ~4/12 plateau \u2014 the rare-hard-shove gradient is the bottleneck and the curriculum wins the fork. Strongest alternative: both this and the staged chain plateau at the same topple floor, pointing to a recovery-mechanism gap rather than a training-signal gap.' --cfg-set dr.ext_push_prob=1.0 --cfg-set dr.ext_push_n=20,40 > /tmp/train_cw-amp-m3-pushhard1-noamp-n2040-c1r1.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-amp-m3-pushhard1-noamp-n2040-c1r1.log",
     "wandb_id": "yqxt59me",
-    "verified": "2026-08-23T01:31:33+00:00"
+    "verified": "2026-08-23T01:31:33+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-23T01:37:07+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 0,
+        "cpu_centisec_deltas": [],
+        "verdict": "SUSPECT",
+        "problems": [
+          "W&B global_step stalled at 6012928",
+          "log stopped growing"
+        ]
+      }
+    ],
+    "triage": "done",
+    "verdict": "INFORMATIVE-plateau: doubling the budget does NOT fix the 20-40N hard-shove walker \u2014 the flat-dose jump, not budget, is the bottleneck. Plain English: we gave the same robot 6M more steps at the same hard-shove dose and it topples just as often. Evidence: own-cfg gate 3/12 topples (det 3/6: 2 pitch + 1 roll, all genuine end-frame knockdowns on strips after clean six-leg walking; sto 0/6) vs parent n2040's 4/12 at half the budget \u2014 inside noise; tilt_pitch/tilt_roll terms noisy-flat ~35-45/window over the last 2M (last-sample 27/26, no sustained fall; b1530's bridge fell 26->14 for contrast); reward flat-to-down after Q2 (131.8/131.2/121.1) so no 08-21 continuation case. Gait itself stays healthy: 12/12 gait_valid, det prog med 1.10, zero sacrificed. Why: rare-hard-shove gradient at the flat dose is too thin \u2014 the pre-registered prediction-if-false fired. Next: the curriculum-vs-recovery fork is decided by the staged chain (pushcur2-noamp-n2040 at matched 12M, concurrent cycle); if that also floors ~4/12, the named lever is a recovery-specific mechanism (get-up reward / longer episodes), since the observed knockdowns are full flips that a 15s tilt-terminated episode can never learn to recover from."
+  },
+  {
+    "run": "cw-amp-m2-yawcmd0-acq2-yppeak",
+    "pod": "hexapod-mjx-train-0",
+    "steps": 6000000,
+    "smoke": false,
+    "hypothesis": "Plain English: we found why more training made turning worse -- the reward pays a robot that spins PAST the commanded yaw rate more than one that tracks it, so RL erodes accurate turning into sloppy over-spinning while total reward rises. Evidence: 08-23 income audit (probe_walk_income yawcmd0 stack, logs/probe_walk_income/yawcmd0_turn_income_audit.json): eroded acq1-r2 over-rotates (yaw ratio 1.78 vs champion 1.09) yet collects MORE reward_yaw_prog (169 vs 148) via the legacy clip's 1.25x overshoot headroom; deeper, instantaneous-wz pricing fines the honest gait's zero-mean stride oscillation (0.95-ratio scripted tracker earns NEGATIVE yaw_prog) while paying a smooth 2x spinner -- the same DC-vs-AC defect fixed for k_yaw_still on 08-11. Also explains yawprice3x (3x income amplified the farm). This arm = EXACT acq1-r2 respec (6M continuation off yawcmd0-r2, seed/cfg identical) + ONLY the two audited fixes ON: reward.yaw_prog_overshoot_decay=1.0 (income peaks at ratio 1.0, decays past, never negative on overshoot) + reward.yaw_prog_avg_s=1.0 (ratio priced on wz EMA). Both keys new/default-off; TURN semantics bank extended (legacy defect-proof + fix + bit-exact cases) 8/8 GREEN. Prediction-if-true: turn accuracy no longer erodes -- eval_yaw tip errs <=0.16 at 6M (vs acq1-r2's 0.35-0.40 decay), translation held. Prediction-if-false: erosion recurs at matched budget -> the yaw_prog farm was not the driver; residual mechanism = hold/forward income dominance (audit: parker's +28.6/ep sits in hold +160 / forward +118, hold-freeze 1473 > honest tip ceiling 1209) -- that gets priced next. Strongest alternative: capacity interference (net trades turn skill for hold/forward polish regardless of pricing).",
+    "gate": "Acquisition (6M continuation, DR-0), judged vs BOTH yawcmd0-r2 (parent) and acq1-r2 (matched-budget FAIL baseline). Manual eval_yaw own-cfg: PASS = tip-left AND tip-right err <=0.16 (no erosion at the budget that previously eroded to 0.35-0.40) AND translation gait_valid 6/6 det+sto with slip/prog within 20% of yawcmd0-r2; PASS-strong = tip errs <=0.10 (eval_yaw strict bar). INFORMATIVE-ceiling = errs in 0.16-0.20 band with yaw terms still improving at cutoff (08-21 ruling: continue). FAIL = tip err >0.20 or translation erodes -> farm was not the erosion driver; next lever prices hold/forward income dominance. Class-note: a FAIL here does NOT touch yawcmd0-r2's champion status.",
+    "parent": "cw-amp-m2-turnclone-yawcmd0-acq1-r2",
+    "track": "amp",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_amp_m2_turnclone_yawcmd0_r2.zip",
+      "--episode-seconds",
+      "15",
+      "--no-canary",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--n-envs",
+      "4096",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--seed",
+      "7",
+      "--ent-coef",
+      "0.001",
+      "--warm-log-std-override",
+      "-2.0",
+      "--goal-mix",
+      "walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0",
+      "--cfg-set",
+      "goal.walk_phase_obs=1",
+      "--cfg-set",
+      "goal.walk_phase_hz=1.333333",
+      "--cfg-set",
+      "goal.walk_obs_body_vel=2",
+      "--cfg-set",
+      "goal.walk_heading_max_rad=-1",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.08",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.08",
+      "--cfg-set",
+      "goal.walk_cmd_mode=stress_mix",
+      "--cfg-set",
+      "goal.walk_cmd_resample_s=4.0",
+      "--cfg-set",
+      "goal.walk_cmd_resample_jitter=0.5",
+      "--cfg-set",
+      "goal.walk_park_start_frac=0.25",
+      "--cfg-set",
+      "bus.write_speed=1500",
+      "--cfg-set",
+      "bus.write_acc=80",
+      "--cfg-set",
+      "bus.servo_vel_max_counts_s=write_speed",
+      "--cfg-set",
+      "safety.max_delta_q_deg=5.0",
+      "--cfg-set",
+      "safety.max_roll_deg=25",
+      "--cfg-set",
+      "safety.max_pitch_deg=25",
+      "--cfg-set",
+      "reward.term_penalty=400.0",
+      "--cfg-set",
+      "reward.k_step_event=0.0",
+      "--cfg-set",
+      "reward.k_park_duty=0.0",
+      "--cfg-set",
+      "reward.k_walk_freeprog=0.0",
+      "--cfg-set",
+      "reward.walk_loadslip_gate=0.0",
+      "--cfg-set",
+      "reward.k_loadslip_excess=0.0",
+      "--cfg-set",
+      "reward.walk_gait_gate=0.0",
+      "--cfg-set",
+      "reward.k_walk_idle_charge=0.0",
+      "--cfg-set",
+      "reward.k_drag_stance=0.0",
+      "--amp-motion-lib",
+      "rl_move/sim/motion_library/teacher_v2.npz",
+      "--amp-disc-steps",
+      "4",
+      "--amp-disc-batch",
+      "512",
+      "--amp-gp-weight",
+      "10.0",
+      "--amp-replay",
+      "500000",
+      "--amp-task-weight",
+      "0.5",
+      "--amp-style-weight",
+      "0.5",
+      "--out-name",
+      "ppo_goal_cw_amp_m2_yawcmd0_acq2_yppeak",
+      "--notes",
+      "respec of cw-amp-m2-turnclone-yawcmd0-acq1-r2: Plain English: we found why more training made turning worse -- the reward pays a robot that spins PAST the commanded yaw rate more than one that tracks it, so RL erodes accurate turning into sloppy over-spinning while total reward rises. Evidence: 08-23 income audit (probe_walk_income yawcmd0 stack, logs/probe_walk_income/yawcmd0_turn_income_audit.json): eroded acq1-r2 over-rotates (yaw ratio 1.78 vs champion 1.09) yet collects MORE reward_yaw_prog (169 vs 148) via the legacy clip's 1.25x overshoot headroom; deeper, instantaneous-wz pricing fines the honest gait's zero-mean stride oscillation (0.95-ratio scripted tracker earns NEGATIVE yaw_prog) while paying a smooth 2x spinner -- the same DC-vs-AC defect fixed for k_yaw_still on 08-11. Also explains yawprice3x (3x income amplified the farm). This arm = EXACT acq1-r2 respec (6M continuation off yawcmd0-r2, seed/cfg identical) + ONLY the two audited fixes ON: reward.yaw_prog_overshoot_decay=1.0 (income peaks at ratio 1.0, decays past, never negative on overshoot) + reward.yaw_prog_avg_s=1.0 (ratio priced on wz EMA). Both keys new/default-off; TURN semantics bank extended (legacy defect-proof + fix + bit-exact cases) 8/8 GREEN. Prediction-if-true: turn accuracy no longer erodes -- eval_yaw tip errs <=0.16 at 6M (vs acq1-r2's 0.35-0.40 decay), translation held. Prediction-if-false: erosion recurs at matched budget -> the yaw_prog farm was not the driver; residual mechanism = hold/forward income dominance (audit: parker's +28.6/ep sits in hold +160 / forward +118, hold-freeze 1473 > honest tip ceiling 1209) -- that gets priced next. Strongest alternative: capacity interference (net trades turn skill for hold/forward polish regardless of pricing).",
+      "--obs-pad-transplant",
+      "0",
+      "--cfg-set",
+      "goal.walk_yaw_cmd=1",
+      "--cfg-set",
+      "goal.walk_yaw_max_rad_s=0.3",
+      "--cfg-set",
+      "goal.walk_yaw_zero_frac=0.5",
+      "--cfg-set",
+      "reward.k_walk_yaw=1.0",
+      "--cfg-set",
+      "reward.walk_yaw_kernel_gate=1.0",
+      "--cfg-set",
+      "reward.k_yaw_prog=1.0",
+      "--cfg-set",
+      "reward.k_yaw_still=50",
+      "--cfg-set",
+      "reward.walk_kernel_yaw_gate=1.0",
+      "--cfg-set",
+      "reward.walk_yaw_hold_prog_gate=1.0",
+      "--cfg-set",
+      "reward.yaw_still_avg_s=1.0",
+      "--cfg-set",
+      "goal.walk_phase_run_on_yaw=1",
+      "--cfg-set",
+      "reward.yaw_prog_overshoot_decay=1.0",
+      "--cfg-set",
+      "reward.yaw_prog_avg_s=1.0"
+    ],
+    "created": "2026-08-23T01:37:06+00:00",
+    "status": "RUNNING",
+    "checks": {
+      "cpu_limit": 28,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-b29b4867-ac22-4270-8fa9-5d854396da05)",
+      "running_experiments_before": 1,
+      "code_sha_local": "6475de0d4b4fd9f33c8da7e95fe63484a267015c",
+      "code_sha_pod": "6475de0d4b4fd9f33c8da7e95fe63484a267015c",
+      "init_from_on_pod": true,
+      "wandb_env_on_pod": true,
+      "pid": "3635229",
+      "log_growth_bytes": [
+        5698,
+        5698
+      ],
+      "wandb_id": "c6v97xte",
+      "global_step_window": [
+        589824,
+        983040
+      ],
+      "fps_estimate": 13107.2
+    },
+    "trainer": "ppo",
+    "stack": "gpu-mjx",
+    "phase": "acquisition",
+    "assessment_scope": "full_budget_skill_acquisition",
+    "evidence": "Healthy canary: yawcmd0-r2 itself (0 falls, reward monotonic 54.6->237.7 over 4 quarters, gait_valid 12/12 det+sto, no NaN/crash). Comparable full-budget precedent: pushacq1-noamp and pushacq1-style05 both PASSED the identical 2M->6M step multiplier off a healthy 2M discovery arm.",
+    "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:amp PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-amp-m2-yawcmd0-acq2-yppeak --steps 6000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_amp_m2_turnclone_yawcmd0_r2.zip --episode-seconds 15 --no-canary --eval-every 1000000 --video-every 2000000 --n-envs 4096 --impl warp --host-workers 24 --seed 7 --ent-coef 0.001 --warm-log-std-override -2.0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set goal.walk_phase_obs=1 --cfg-set goal.walk_phase_hz=1.333333 --cfg-set goal.walk_obs_body_vel=2 --cfg-set goal.walk_heading_max_rad=-1 --cfg-set goal.walk_speed_min_m_s=0.08 --cfg-set goal.walk_speed_max_m_s=0.08 --cfg-set goal.walk_cmd_mode=stress_mix --cfg-set goal.walk_cmd_resample_s=4.0 --cfg-set goal.walk_cmd_resample_jitter=0.5 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set bus.write_speed=1500 --cfg-set bus.write_acc=80 --cfg-set bus.servo_vel_max_counts_s=write_speed --cfg-set safety.max_delta_q_deg=5.0 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --cfg-set reward.term_penalty=400.0 --cfg-set reward.k_step_event=0.0 --cfg-set reward.k_park_duty=0.0 --cfg-set reward.k_walk_freeprog=0.0 --cfg-set reward.walk_loadslip_gate=0.0 --cfg-set reward.k_loadslip_excess=0.0 --cfg-set reward.walk_gait_gate=0.0 --cfg-set reward.k_walk_idle_charge=0.0 --cfg-set reward.k_drag_stance=0.0 --amp-motion-lib rl_move/sim/motion_library/teacher_v2.npz --amp-disc-steps 4 --amp-disc-batch 512 --amp-gp-weight 10.0 --amp-replay 500000 --amp-task-weight 0.5 --amp-style-weight 0.5 --out-name ppo_goal_cw_amp_m2_yawcmd0_acq2_yppeak --notes 'respec of cw-amp-m2-turnclone-yawcmd0-acq1-r2: Plain English: we found why more training made turning worse -- the reward pays a robot that spins PAST the commanded yaw rate more than one that tracks it, so RL erodes accurate turning into sloppy over-spinning while total reward rises. Evidence: 08-23 income audit (probe_walk_income yawcmd0 stack, logs/probe_walk_income/yawcmd0_turn_income_audit.json): eroded acq1-r2 over-rotates (yaw ratio 1.78 vs champion 1.09) yet collects MORE reward_yaw_prog (169 vs 148) via the legacy clip'\"'\"'s 1.25x overshoot headroom; deeper, instantaneous-wz pricing fines the honest gait'\"'\"'s zero-mean stride oscillation (0.95-ratio scripted tracker earns NEGATIVE yaw_prog) while paying a smooth 2x spinner -- the same DC-vs-AC defect fixed for k_yaw_still on 08-11. Also explains yawprice3x (3x income amplified the farm). This arm = EXACT acq1-r2 respec (6M continuation off yawcmd0-r2, seed/cfg identical) + ONLY the two audited fixes ON: reward.yaw_prog_overshoot_decay=1.0 (income peaks at ratio 1.0, decays past, never negative on overshoot) + reward.yaw_prog_avg_s=1.0 (ratio priced on wz EMA). Both keys new/default-off; TURN semantics bank extended (legacy defect-proof + fix + bit-exact cases) 8/8 GREEN. Prediction-if-true: turn accuracy no longer erodes -- eval_yaw tip errs <=0.16 at 6M (vs acq1-r2'\"'\"'s 0.35-0.40 decay), translation held. Prediction-if-false: erosion recurs at matched budget -> the yaw_prog farm was not the driver; residual mechanism = hold/forward income dominance (audit: parker'\"'\"'s +28.6/ep sits in hold +160 / forward +118, hold-freeze 1473 > honest tip ceiling 1209) -- that gets priced next. Strongest alternative: capacity interference (net trades turn skill for hold/forward polish regardless of pricing).' --obs-pad-transplant 0 --cfg-set goal.walk_yaw_cmd=1 --cfg-set goal.walk_yaw_max_rad_s=0.3 --cfg-set goal.walk_yaw_zero_frac=0.5 --cfg-set reward.k_walk_yaw=1.0 --cfg-set reward.walk_yaw_kernel_gate=1.0 --cfg-set reward.k_yaw_prog=1.0 --cfg-set reward.k_yaw_still=50 --cfg-set reward.walk_kernel_yaw_gate=1.0 --cfg-set reward.walk_yaw_hold_prog_gate=1.0 --cfg-set reward.yaw_still_avg_s=1.0 --cfg-set goal.walk_phase_run_on_yaw=1 --cfg-set reward.yaw_prog_overshoot_decay=1.0 --cfg-set reward.yaw_prog_avg_s=1.0 > /tmp/train_cw-amp-m2-yawcmd0-acq2-yppeak.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-amp-m2-yawcmd0-acq2-yppeak.log",
+    "wandb_id": "c6v97xte",
+    "verified": "2026-08-23T01:40:28+00:00"
   }
 ]

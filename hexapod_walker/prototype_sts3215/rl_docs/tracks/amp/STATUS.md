@@ -1,6 +1,28 @@
 # amp - AMP locomotion from scratch
 
-Last updated: 2026-08-23 ~01:4x (**M3 PUSH CURRICULUM STAGE 1: BOTH
+Last updated: 2026-08-23 ~01:5x (**M4 FAULT-SIGHT SIGHTED-VS-BLIND PAIRING CLOSED:
+fault_health obs-sight more than triples the safe-limp rate vs blind on
+the full-heading substrate, generalizing faultobs1's forward-only
+finding.** `cw-amp-m4-faultobs2-headingsfull-blind` (identical to the
+already-PASSed `..._noamp`/`..._style05` pair except `obs.fault_health`
+1->0) clears its own mechanism-safety floor (gait_valid 9/12, exactly
+the >=9/12 bar) and reads decisively on the paired comparison it was
+built for: same seed=0/same fault+command draws as the sighted
+siblings, sto gait_valid blind 3/6 (sacrificed legs ep0/1/3: legs
+0,2,5) vs noamp 5/6 (1 sacrifice) vs style05 6/6 (zero sacrifices);
+det stays 6/6 for all three but blind's det slip is also worse (med
+3.58 vs 3.08 both sighted). Video (walk_sto_0/_3 strips) confirms
+blind's failures are genuine LIMPS (one dangling/static leg, other
+five still cycling), not statues -- same fingerprint as the sighted
+arms elsewhere, just 3x more frequent; progress_ratio is NOT the
+discriminating metric (blind's sto prog median is actually slightly
+higher, inflated by the other 5 legs covering ground). Closes the
+faultobs2-headingsfull sighted/style/blind trio. SKILLS.md row added.
+M4's open frontier is now graft-onto-turn composition (turnfault1,
+already INFORMATIVE/undertrained at 2M, verdicted by a concurrent
+cycle), not sighted-vs-blind. Previous banner below.)
+
+Previous entry (2026-08-23 ~01:4x (**M3 PUSH CURRICULUM STAGE 1: BOTH
 noamp rungs PASS — force bridges (15-30N clean where the flat 20-40N
 jump plateaued) and count rung 2 is nearly FREE; but the count x
 force COMBINATION plateaus at the same 4/12 floor — stage-2 batch
