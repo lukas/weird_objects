@@ -6271,3 +6271,115 @@ def test_walkcurr_pf_discovery_gradient_out_of_park(walkcurr_pf_returns):
     assert (walkcurr_pf_returns["stall"]
             > walkcurr_pf_returns["park"]), (
         f"refusal out-earns stepping in place: {walkcurr_pf_returns}")
+
+
+# ---------------------------------------------------------------------------
+# WALKCURR rung-1 DISCOVERY-FIX bank (cycle 2026-08-23, dig-in on the
+# cw-walkcurr-pf-fwd1 FAIL). The v2e stack above is bank-ALIGNED on
+# scripted lifetime rankings but EXPLORATION-UNSAFE from random init:
+# fwd1's PPO froze into a tilt-safe splayed crouch for 2M steps
+# (env/reward_walk_prog identically 0.0 all run; step-event rate flat
+# at ~0.02/step) because every income channel (step_event needs a
+# >=10 mm ALONG-COMMAND swing, freeprog needs real command-direction
+# velocity) requires competent locomotion before it pays anything,
+# while the dense charge stack (loadslip via the 0.03 m travel floor,
+# height, heading) punishes the flailing that exploration must pass
+# through, and tilt-risky motion courts the -1200 catastrophe. The
+# fix under test: reward.k_walk_swing (existing mechanism, default
+# off) pays a one-shot credit for ANY completed physical swing
+# (airborne, touchdown >=15 mm from liftoff, any direction) — the
+# only income a random-init policy can reach, bridging flail ->
+# leg-cycling -> (freeprog/heading gradient) -> commanded walking.
+# Pre-registered attack: the "shuffle" twin (real tripod gait
+# reversing direction every 0.6 s — every stride is a genuine swing,
+# net travel ~0) must NOT become a positive-income rest point, and
+# commanded walking must stay strictly on top. Second stack adds
+# term_penalty 1200 -> 800 (largest drop that keeps dying the
+# strict floor per the margins below) to test whether catastrophe
+# dominance additionally suppresses exploration.
+WALKCURR_PF_SWING_OVERRIDES = dict(WALKCURR_PF_OVERRIDES)
+WALKCURR_PF_SWING_OVERRIDES[("reward", "k_walk_swing")] = 1.0
+
+WALKCURR_PF_SWINGTERM_OVERRIDES = dict(WALKCURR_PF_SWING_OVERRIDES)
+WALKCURR_PF_SWINGTERM_OVERRIDES[("reward", "term_penalty")] = 800.0
+
+_WALKCURR_SWING_STACKS = {
+    "swing": WALKCURR_PF_SWING_OVERRIDES,
+    "swingterm800": WALKCURR_PF_SWINGTERM_OVERRIDES,
+}
+
+
+@pytest.fixture(scope="module", params=sorted(_WALKCURR_SWING_STACKS))
+def walkcurr_pf_swing_returns(request) -> dict[str, float]:
+    """Mean return per scripted behavior under a candidate rung-1
+    discovery-fix stack (same probe family as walkcurr_pf_returns,
+    plus the pre-registered swing-farming 'shuffle' attack)."""
+    overrides = _WALKCURR_SWING_STACKS[request.param]
+    plan = {
+        "fast": ("gait", 2.0),
+        "gait": ("gait", 1.0),
+        "creep": ("gait", 0.5),
+        "park": ("park", 1.0),
+        "stall": ("stall", 1.0),
+        "reverse": ("reverse", 1.0),
+        "sideways": ("sideways", 1.0),
+        "skate": ("skate", 1.0),
+        "topple": ("topple", 1.0),
+        "shuffle": ("shuffle", 1.0),
+    }
+    out = {}
+    for name, (pol, scale) in plan.items():
+        runs = [_slipwalk_rollout(pol, s, gait_scale=scale,
+                                  overrides=overrides)
+                for s in SEEDS]
+        out[name] = float(np.mean([r[0] for r in runs]))
+        out[name + "_dx"] = float(np.mean([r[1] for r in runs]))
+        out[name + "_steps"] = float(np.mean([r[2] for r in runs]))
+    return out
+
+
+def test_walkcurr_swing_ranking_holds(walkcurr_pf_swing_returns):
+    """The operator's full required ranking must survive the swing
+    lever: clean commanded walking > park/stall > sideways/reverse >
+    skate/topple, with the same margins the v2e bank proved."""
+    r = walkcurr_pf_swing_returns
+    for still in ("park", "stall"):
+        assert r["gait"] > r[still] + 300.0, (
+            f"stationary '{still}' competitive with walking: {r}")
+    floor = min(r["park"], r["stall"])
+    for wrong in ("reverse", "sideways"):
+        assert floor > r[wrong] + 50.0, (
+            f"wrong-way '{wrong}' out-earns standing: {r}")
+    tier3 = min(r[k] for k in ("gait", "creep", "park", "stall",
+                               "reverse", "sideways"))
+    for worst in ("skate", "topple"):
+        assert r[worst] < tier3 - 50.0, (
+            f"'{worst}' is not the floor: {r}")
+    assert r["topple_steps"] < 75, "topple twin did not die fast"
+    assert (r["fast"] >= r["gait"] > r["creep"]), (
+        f"travel income not monotone: {r}")
+    assert r["stall"] > r["park"], f"freeze basin has no exit: {r}"
+
+
+def test_walkcurr_swing_no_farming_rest_point(walkcurr_pf_swing_returns):
+    """The pre-registered swing-farming attack: a genuine six-leg gait
+    that shuffles in place must (a) stay far below commanded walking
+    and (b) remain lifetime-NEGATIVE — real travel stays the only
+    positive-income behavior (recipe calibration principle)."""
+    r = walkcurr_pf_swing_returns
+    assert r["gait"] > r["shuffle"] + 200.0, (
+        f"swing-farming shuffle competitive with walking: {r}")
+    assert r["shuffle"] < 0.0, (
+        f"shuffle is a positive-income rest point: {r}")
+    assert abs(r["shuffle_dx"]) < 0.15, (
+        f"shuffle twin travelled; probe broken: {r}")
+
+
+def test_walkcurr_swing_pays_the_discovery_path(walkcurr_pf_swing_returns):
+    """The point of the lever: leg-cycling behaviors must now visibly
+    out-earn the frozen crouch so the flail->march->walk path has a
+    monotone start. march-in-place (stall) must beat park by MORE than
+    the +320 the v2e stack already gives it, or the lever is inert."""
+    r = walkcurr_pf_swing_returns
+    assert r["stall"] > r["park"] + 250.0, (
+        f"swing lever adds no discovery gradient out of park: {r}")

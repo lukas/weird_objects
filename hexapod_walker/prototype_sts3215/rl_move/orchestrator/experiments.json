@@ -152196,7 +152196,7 @@
       "36,37,38"
     ],
     "created": "2026-08-23T17:15:53+00:00",
-    "status": "RUNNING",
+    "status": "INFORMATIVE",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -152226,7 +152226,7 @@
     "log": "/tmp/train_cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518-wzmask2-s13.log",
     "wandb_id": "5d7ntfnt",
     "verified": "2026-08-23T17:19:17+00:00",
-    "triage": "in-cycle cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518-wzma since 2026-08-23T17:23:34",
+    "triage": "done",
     "checkups": [
       {
         "time": "2026-08-23T17:27:02+00:00",
@@ -152234,7 +152234,8 @@
         "verdict": "DEAD",
         "log_tail": " amp/disc_updates 124\nwandb:                amp/gp 0.01209\nwandb:              amp/loss 0.29281\nwandb: amp/pairs_per_rollout 65336\nwandb:        amp/replay_len 500000\nwandb: amp/style_reward_mean 0.15419\nwandb:                  +103 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518-wzmask2-s13 at: https://wandb.ai/l2k2/hexapod-balance/runs/5d7ntfnt\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 3 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260823_171652-5d7ntfnt/logs\n"
       }
-    ]
+    ],
+    "verdict": "Third of five pooled draws for the wzmask2 gyro-mask replicate-noise grid; individually safety-clean but does not show the mask's PASS signature. Result -> eval_amp_m5: walk PASS (0 raw terms det+sto, gait_valid 12/12, det_slip_med 3.4735 <= bar 3.5), push PASS (0 terms, gv 12/12), fault PASS (0 terms, gv 12/12, sacrificed [] -- clean, no carried-fault-leg sacrifice this draw), yaw FAIL (tip_left 0.215 / tip_right 0.2234, both above the 0.20 bar); m5_pass=false on yaw alone. Evidence: this seed's own unmasked ancestor pushcal518-seed13 read tips 0.2168/0.2269 (paired same-seed comparison per the arm's hypothesis) -- masked draw is flat/unmoved on tips (delta -0.0018/+... actually left +0.0018 worse, right -0.0035 better, both inside noise), i.e. this draw reads closer to the wzmask2 base FAIL signature (0.239/0.2371) than to the gyroxyz PASS signature (0.174/0.202). Walk slip did improve more than the <0.3 unmoved threshold (3.4735 vs seed13's own unmasked 3.82, delta 0.35) -- a side note, not gate-deciding. Why: this is exactly the grid's own pre-registered question -- whether the mask's one good draw (gyroxyz) was a real lever or a tail draw of a replicate distribution wide enough (dleft 0.065) that n=3 still cannot resolve 0.02. Current n=3 pooled (wzmask2, gyroxyz, this run): tip_left {0.239,0.174,0.215} median 0.215, tip_right {0.2371,0.202,0.2234} median 0.2234 -- both medians sit ABOVE the grid's own PASS bar (<=0.197/<=0.215) already at n=3, though the formal call needs the full n=5 (s17 + s23, other cycles' pods) per the gate text. What's next: no action here -- pool with s17/s23 when both land, then close the grid per its own PASS/FAIL text; do not launch further mask arms before that pooled read."
   },
   {
     "run": "cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518-wzmask2-s17",
