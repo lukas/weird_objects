@@ -286,7 +286,12 @@ validity, on video. Speed obedience is secondary throughout.
   0/6 det, det pose holds leg 3 up -> sac=[3]; freeprog left the
   -0.10 start but hovers -0.05..-0.07). ~300k effective
   post-recovery steps is too few to expect discovery.
-- **CONTINUATION RUNNING: `cw-walkcurr-pf-fwd6-rscale10-cont1b`**
+- **[RESOLVED while this section was being written: cont1b finished
+  its +4M in minutes and was verdicted FAIL by a concurrent cycle —
+  see the newer entry above. Optimizer healthy the whole run, policy
+  still frozen: crush necessary-but-insufficient at x0.1; escalation
+  decision rides on `rscale50-cont1` (x0.02, running).]**
+- CONTINUATION (launched this cycle): `cw-walkcurr-pf-fwd6-rscale10-cont1b`
   (+4M acquisition, byte-identical cfg, `--init-from` the rscale10
   checkpoint; first launch attempt `-cont1` FAILED W&B verification,
   self-repair relaunched as `-cont1b` on train-0). Pre-registered

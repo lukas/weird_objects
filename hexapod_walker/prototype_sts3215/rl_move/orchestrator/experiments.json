@@ -157915,7 +157915,8 @@
         "verdict": "FINISHED_BEFORE_CHECKUP",
         "log_tail": "mp/disc_updates 124\nwandb:                amp/gp 0.01162\nwandb:              amp/loss 0.28491\nwandb: amp/pairs_per_rollout 65339\nwandb:        amp/replay_len 500000\nwandb: amp/style_reward_mean 0.14244\nwandb:                  +103 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518-phasehz11-s23 at: https://wandb.ai/l2k2/hexapod-balance/runs/qkbzobrz\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 3 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260823_211140-qkbzobrz/logs\n"
       }
-    ]
+    ],
+    "triage": "in-cycle cw-amp-...-phasehz11-s29+rscale50-cont1 cycle since 2026-08-23T21:3x (joint 4-seed m5 read)"
   },
   {
     "run": "cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518-phasehz11-s29",
@@ -158243,7 +158244,7 @@
       "dr.ext_push_n=5.0,18.0"
     ],
     "created": "2026-08-23T21:26:30+00:00",
-    "status": "INTENT",
+    "status": "RUNNING",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -158252,7 +158253,18 @@
       "code_sha_local": "58a460ee31c64e3f214ae7fa6724bfa1fbf2878e",
       "code_sha_pod": "58a460ee31c64e3f214ae7fa6724bfa1fbf2878e",
       "init_from_on_pod": true,
-      "wandb_env_on_pod": true
+      "wandb_env_on_pod": true,
+      "pid": "54879",
+      "log_growth_bytes": [
+        9231,
+        18647
+      ],
+      "wandb_id": "3nwhpjdb",
+      "global_step_window": [
+        851968,
+        1310720
+      ],
+      "fps_estimate": 15291.7
     },
     "trainer": "ppo",
     "stack": "gpu-mjx",
@@ -158260,6 +158272,8 @@
     "assessment_scope": "full_budget_skill_acquisition",
     "evidence": "cont1 verdicted PARTIAL 08-23 21:25: prog 0.52->0.669 over +4M with reward still rising at cutoff (quarters 102.5/244.9/260.7/272.6), tips IMPROVED to 0.1146/0.1048, best-ever slip 2.31, zero terms 48/48 gait -- healthy full-budget precedent is cont1 itself (same recipe, same +4M). Artifacts logs/ckpt_eval/..._phasehz05_cont1_m5{,_wpm24}/.",
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:amp PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518-phasehz05-cont2 --steps 4000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_amp_m4_turnfault_seq1_pushcont1_tipfrac05_pushcal518_phasehz05_cont1.zip --episode-seconds 15 --no-canary --eval-every 1000000 --video-every 2000000 --n-envs 4096 --impl warp --host-workers 24 --seed 7 --ent-coef 0.001 --warm-log-std-override -2.0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set goal.walk_phase_obs=1 --cfg-set goal.walk_phase_hz=0.5 --cfg-set goal.walk_obs_body_vel=2 --cfg-set goal.walk_heading_max_rad=-1 --cfg-set goal.walk_speed_min_m_s=0.08 --cfg-set goal.walk_speed_max_m_s=0.08 --cfg-set goal.walk_cmd_mode=stress_mix --cfg-set goal.walk_cmd_resample_s=4.0 --cfg-set goal.walk_cmd_resample_jitter=0.5 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set bus.write_speed=1500 --cfg-set bus.write_acc=80 --cfg-set bus.servo_vel_max_counts_s=write_speed --cfg-set safety.max_delta_q_deg=5.0 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --cfg-set reward.term_penalty=400.0 --cfg-set reward.k_step_event=0.0 --cfg-set reward.k_park_duty=0.0 --cfg-set reward.k_walk_freeprog=0.0 --cfg-set reward.walk_loadslip_gate=0.0 --cfg-set reward.k_loadslip_excess=0.0 --cfg-set reward.walk_gait_gate=0.0 --cfg-set reward.k_walk_idle_charge=0.0 --cfg-set reward.k_drag_stance=0.0 --amp-motion-lib rl_move/sim/motion_library/teacher_v2.npz --amp-disc-steps 4 --amp-disc-batch 512 --amp-gp-weight 10.0 --amp-replay 500000 --amp-task-weight 0.5 --amp-style-weight 0.5 --out-name ppo_goal_cw_amp_m4_turnfault_seq1_pushcont1_tipfrac05_pushcal518_phasehz05_cont2 --notes 'respec of cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518-phasehz05-cont1: Plain English: the slow-metronome (0.5 Hz) walker keeps getting better the longer it trains -- give it 4M more steps to see if walking progress reaches the M5 bar, since nothing has plateaued yet. cont1 (+4M from phasehz05) grew walk det_prog_med 0.52 -> 0.669 (wpm24, n=28) while IMPROVING yaw tips to 0.1146/0.1048 (family best; the erosion alternative is refuted at one dose) and cutting slip to a lineage-best 2.31, with reward still rising at cutoff. Trajectory 0.52@2M -> 0.669@6M needs +0.081 more for the 0.75 M5 walk bar; 08-21 ruling: rising reward + rising gate metric = continue. Single lever: budget (+4M from cont1 checkpoint, byte-identical cfg). If-true: det_prog_med >= 0.75 with tips held <= 0.20 and slip <= 3.5 -- the 0.5 Hz recipe becomes the M5-candidate, superseding the cadence-compromise question. If-false (prog lands 0.67-0.72, gain per +4M collapsing): budget scaling saturates below the bar -- the operating point moves to the phasehz09/11 dose points or command-conditional clock code work (slow clock only under turn commands; semantics-bank first). Strongest alternative: tips erode at 10M where they did not at 6M -- tips re-gated, never assumed.' --obs-pad-transplant 0 --cfg-set goal.walk_yaw_cmd=1 --cfg-set goal.walk_yaw_max_rad_s=0.3 --cfg-set goal.walk_yaw_zero_frac=0.5 --cfg-set reward.k_walk_yaw=1.0 --cfg-set reward.walk_yaw_kernel_gate=1.0 --cfg-set reward.k_yaw_prog=1.0 --cfg-set reward.k_yaw_still=50 --cfg-set reward.walk_kernel_yaw_gate=1.0 --cfg-set reward.walk_yaw_hold_prog_gate=1.0 --cfg-set reward.yaw_still_avg_s=1.0 --cfg-set goal.walk_phase_run_on_yaw=1 --cfg-set dr.fault_prob=1.0 --cfg-set obs.fault_health=1 --cfg-set dr.ext_push_prob=1.0 --cfg-set reward.yaw_prog_overshoot_decay=1.0 --cfg-set reward.yaw_prog_avg_s=1.0 --cfg-set goal.walk_turn_in_place_frac=0.5 --cfg-set dr.ext_push_n=5.0,18.0 > /tmp/train_cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518-phasehz05-cont2.log 2>&1 < /dev/null & echo $!",
-    "log": "/tmp/train_cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518-phasehz05-cont2.log"
+    "log": "/tmp/train_cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518-phasehz05-cont2.log",
+    "wandb_id": "3nwhpjdb",
+    "verified": "2026-08-23T21:29:55+00:00"
   }
 ]
