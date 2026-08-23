@@ -148601,7 +148601,7 @@
       "reward.k_walk_swing=1.0"
     ],
     "created": "2026-08-23T13:36:33+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -148639,7 +148639,8 @@
         "log_tail": "      amp/disc_updates 124\nwandb:                amp/gp 0.01167\nwandb:              amp/loss 0.27977\nwandb: amp/pairs_per_rollout 65325\nwandb:        amp/replay_len 500000\nwandb: amp/style_reward_mean 0.18631\nwandb:                  +104 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518-swing1 at: https://wandb.ai/l2k2/hexapod-balance/runs/upxyu2sc\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 3 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260823_133729-upxyu2sc/logs\n"
       }
     ],
-    "triage": "in-cycle cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518-swin since 2026-08-23T13:47:54"
+    "triage": "done",
+    "verdict": "Paying the walker directly for clean lift-swing-touchdown foot cycles (k_walk_swing=1.0) did NOT close the slip gap \u2014 it redistributed drag instead of removing it. m5 walk det slip med 3.5035 vs bar 3.5 / parent 3.67: family-best number, but the 0.167 improvement is under the pre-registered PARTIAL threshold (0.3) and lands between the gate's bands, so the mandated slipdist probe rerun decides: typical stances got WORSE (per-stance loaded travel median 11.49->13.54mm; joystick champion 5.5mm) while only the heavy tail compressed (p90 40.3->33.6, p95 48.8->39.4, mean 16.6->15.4) \u2014 the eval delta came from trimming worst-case drags, not cleaner plants, which is the pre-registered 'foot-lift theater' alternative half-confirmed. Added cost: m5 fault-section sto gait_valid regressed to 9/12 (bar 10, parent 12/12; three DIFFERENT legs [5],[2],[1] \u2014 no farm/flag pattern, det 6/6 clean). Safety intact: 0/12 falls walk+yaw, walk gait_valid 12/12, push section PASS, tips unchanged 0.2141/0.2352 (that axis is tipspawn1b's). Per the gate's FAIL branch the gait-income lever is CLOSED alongside pricing (6x/12x additive, income gate). Next: strongest remaining stance-geometry mechanism \u2014 this family trains at FIXED std 0.135 (--warm-log-std-override -2, no anneal) while the 5.5mm-stance champion stotight45s13 annealed to log-std -4.5, and the joystick track MEASURED (08-22 pd8 dig-in) that the train-noise floor is what makes honest stances drag; launching stdanneal45 (anneal alone) + swinganneal45 (anneal+swing composition, watches whether the tail win survives and the fault regression follows swing). Bar ruling unchanged: probe still shows 5.5mm stances attainable \u2014 keep 3.5."
   },
   {
     "run": "cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518-tipspawn2-startonly",
