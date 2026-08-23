@@ -77,7 +77,14 @@ def test_mujoco_quad_walk_uses_calibrated_off_axis_trim() -> None:
     pl.model.geom_friction[:, 0] *= 0.6
     pl.model.actuator_forcerange[pl.pos_act] *= 0.85
     pl.cmd_rear(then_walk=True)
-    for _ in range(int(9.0 * 25)):
+    # Budget the entry from the gait's own timing (run_headless does the
+    # same): the 08-22 speed-cap retune stretched rear-up entry to
+    # ~ENTRY_TOTAL_S / speed_eff (~13.7 s) and the old fixed 9.0 s
+    # budget went stale — it timed out in ENTRY even under nominal
+    # physics.
+    import quad_walk as QW
+    entry_s = QW.ENTRY_TOTAL_S / max(pl.speed_eff, 0.05) + 4.0
+    for _ in range(int(entry_s * 25)):
         pl.step()
         if pl.state == Player.WALK:
             break
@@ -141,7 +148,14 @@ def test_mujoco_quad_walk_brace_holds_and_recovers_from_tip() -> None:
     pl.model.geom_friction[:, 0] *= 0.6
     pl.model.actuator_forcerange[pl.pos_act] *= 0.85
     pl.cmd_rear(then_walk=True)
-    for _ in range(int(9.0 * 25)):
+    # Budget the entry from the gait's own timing (run_headless does the
+    # same): the 08-22 speed-cap retune stretched rear-up entry to
+    # ~ENTRY_TOTAL_S / speed_eff (~13.7 s) and the old fixed 9.0 s
+    # budget went stale — it timed out in ENTRY even under nominal
+    # physics.
+    import quad_walk as QW
+    entry_s = QW.ENTRY_TOTAL_S / max(pl.speed_eff, 0.05) + 4.0
+    for _ in range(int(entry_s * 25)):
         pl.step()
         if pl.state == Player.WALK:
             break

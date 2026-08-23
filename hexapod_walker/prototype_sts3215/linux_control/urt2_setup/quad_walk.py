@@ -60,6 +60,10 @@ DUTY = 0.96                       # stance fraction (one leg up at a time)
 SWAY_M = 0.0
 SWAY_PHASE_RAD = math.radians(125.0)
 WALK_PHASE = {0: 0.0, 1: 0.25, 5: 0.5, 4: 0.75}   # LH LF RH RF
+# Diagonal trot pairs in the SAME (7c745a01) leg convention: LF+RH lead,
+# RF+LH at half cycle. The pre-rotation literal {1,3,4,2} dicts crashed
+# _walk_feet with KeyError: 0 once SUPPORT_LEGS became (0, 1, 4, 5).
+TROT_PHASE = {1: 0.0, 5: 0.0, 4: 0.5, 0: 0.5}  # LF RH RF LH
 
 # Gait presets. Keys: stride/lift/body_z m, period s, duty (stance
 # fraction), sway m + phase rad, phase = per-leg footfall offsets
@@ -121,7 +125,7 @@ GAITS: dict[str, dict] = {
                       sway=0.0, sway_phase=math.radians(180.0),
                       roll=math.radians(0.5),
                       roll_phase=math.radians(270.0),
-                      phase={1: 0.0, 3: 0.0, 4: 0.5, 2: 0.5},
+                      phase=TROT_PHASE,
                       speed_cap=0.30),
 
     # Default/cool: dynamic enough to video and learn from, but less
@@ -147,7 +151,7 @@ GAITS: dict[str, dict] = {
                  splay=0.0,
                  sway=0.0, sway_phase=math.radians(180.0),
                  roll=math.radians(1.0), roll_phase=math.radians(270.0),
-                 phase={1: 0.0, 3: 0.0, 4: 0.5, 2: 0.5},
+                 phase=TROT_PHASE,
                  speed_cap=0.35),
 
     # Isolate one change at a time for camera-based diagnosis.
@@ -173,7 +177,7 @@ GAITS: dict[str, dict] = {
                        sway=0.0, sway_phase=math.radians(180.0),
                        roll=math.radians(0.5),
                        roll_phase=math.radians(270.0),
-                       phase={1: 0.0, 3: 0.0, 4: 0.5, 2: 0.5},
+                       phase=TROT_PHASE,
                        speed_cap=0.30),
     "rear_aft": dict(stride=0.0, lift=0.0, lift_front=0.0,
                      period=4.0, duty=0.75,
@@ -197,7 +201,7 @@ GAITS: dict[str, dict] = {
                      sway=0.0, sway_phase=math.radians(180.0),
                      roll=math.radians(0.5),
                      roll_phase=math.radians(270.0),
-                     phase={1: 0.0, 3: 0.0, 4: 0.5, 2: 0.5},
+                     phase=TROT_PHASE,
                      speed_cap=0.30),
     "rear_high": dict(stride=0.0, lift=0.0, lift_front=0.0,
                       period=4.0, duty=0.75,
@@ -221,7 +225,7 @@ GAITS: dict[str, dict] = {
                       sway=0.0, sway_phase=math.radians(180.0),
                       roll=math.radians(0.5),
                       roll_phase=math.radians(270.0),
-                      phase={1: 0.0, 3: 0.0, 4: 0.5, 2: 0.5},
+                      phase=TROT_PHASE,
                       speed_cap=0.30),
     "rear_step": dict(stride=0.0, lift=0.0, lift_front=0.0,
                       period=4.0, duty=0.75,
@@ -245,7 +249,7 @@ GAITS: dict[str, dict] = {
                       sway=0.0, sway_phase=math.radians(180.0),
                       roll=math.radians(0.5),
                       roll_phase=math.radians(270.0),
-                      phase={1: 0.0, 3: 0.0, 4: 0.5, 2: 0.5},
+                      phase=TROT_PHASE,
                       speed_cap=0.30),
 
     # Aggressive remains available for sim and careful rear/hold tests.
@@ -265,7 +269,7 @@ GAITS: dict[str, dict] = {
                             sway_phase=math.radians(180.0),
                             roll=math.radians(3.0),
                             roll_phase=math.radians(270.0),
-                            phase={1: 0.0, 3: 0.0, 4: 0.5, 2: 0.5},
+                            phase=TROT_PHASE,
                             speed_cap=0.7),
     "rear_aggressive": dict(stride=0.0, lift=0.0, lift_front=0.0,
                             period=4.0, duty=0.75,

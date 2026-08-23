@@ -274,7 +274,12 @@ def run_headless(gaits: list[str], seconds: float, *,
         n = int(max(18.0 if rear_only else seconds, min_wall) * CTRL_HZ)
         max_tilt = 0.0
         fell = False
-        support_legs = {"L1", "L2", "L3", "L4"}
+        # Derive leg sets from the gait module itself — the 08-22
+        # front/support rotation (7c745a01: FRONT_LEGS=(2,3),
+        # SUPPORT_LEGS=(0,1,4,5)) made the old hardcoded
+        # {L1..L4}/{L0,L5} sets report false support/front failures.
+        support_legs = {f"L{i}" for i in QW.SUPPORT_LEGS}
+        front_legs = {f"L{i}" for i in QW.FRONT_LEGS}
         front_hits: set[str] = set()
         bad_contacts: set[str] = set()
         support_min = 99
@@ -290,7 +295,7 @@ def run_headless(gaits: list[str], seconds: float, *,
                 feet, bad = contact_snapshot(pl)
                 support_final = feet & support_legs
                 support_min = min(support_min, len(support_final))
-                front_hits.update(feet & {"L0", "L5"})
+                front_hits.update(feet & front_legs)
                 bad_contacts.update(bad)
                 contact_samples += 1
         dist_mm = 1000.0 * (float(pl.data.qpos[0]) - pl.x0)
