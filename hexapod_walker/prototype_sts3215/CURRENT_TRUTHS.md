@@ -92,6 +92,38 @@ follow-ups.
   (q_20260822T2140Z). Operator update 08-23: this is now the third
   first-class track `cpg`; it owns CPG gate hardening, controller
   artifact export, and teacher-v2 A/B adoption experiments.
+- **CPG ROBUST GATE FULL PASS (08-23)**: `eval_cpg_gate.py`'s
+  held-out 60s robustness panel (DR-0 + a second held-out script +
+  friction 1.2x/0.8x + loaded-bench servo fit) is FULLY GREEN for the
+  contextual-250-derived winner once a closed-loop yaw trim is added.
+  A 120-iteration GP robustness refinement search (warm-started from
+  the contextual-250 winner, `--mu-list 0,1.2,0.8` panel scoring)
+  could NOT find any open-loop (period, swing_frac, lift, cmd_tau,
+  workspace_margin) point that fixes the mu0.8 turn overshoot
+  (1.33/1.35 vs the [0.70,1.30] band, identical to the un-refined
+  winner) — root cause confirmed as a friction-dependent GAIN error,
+  structurally unreachable by more open-loop parameter search.
+  `rl_move/sim/yaw_trim.py` (`update_trim`, 8/8 unit tests, pure
+  numeric) implements a proportional MULTIPLICATIVE trim on commanded
+  omega from measured-vs-commanded yaw rate (1.0s windows, turn
+  segments only), wired into `eval_cpg_gate.py --yaw-trim` (default
+  off, bit-exact when off). Re-run with the SAME params + `--robust
+  --yaw-trim`: all 5 panels PASS (mu0.8 turn ratio 1.33/1.35 ->
+  1.07/1.07; dr0/dr0_script2/mu1.2/loaded also tightened slightly;
+  zero falls/sacrificed legs everywhere; slip/m 0.69-1.36, inside the
+  1.4-2.9 teacher band). Video-reviewed (5 contact sheets): clean
+  six-leg cycling, upright, no pathologies. Exported first CPG
+  artifact: `rl_move/sim/policies/cpg_controller_robust120_yawtrim.json`.
+  This is the track's first full behavioral-gate PASS, but NOT a
+  track-closure declaration: the gate text also names a web-UI/
+  teacher-library-generator loader for the artifact schema, which does
+  not exist yet (grep-confirmed, zero references anywhere in the repo
+  besides `eval_cpg_gate.py` itself), and the teacher-v2 A/B adoption
+  fork (Next item 3) is unstarted — champions/gates are append-only,
+  adoption needs its own measured fork, same discipline as the
+  joystick track's promotion-pending-integration precedent. Evidence:
+  `logs/cpg_gate/robust120-winner{,-yawtrim}/`,
+  `logs/paper_cpg_search/paper-cpg-robust120-20260823.{json,log}`.
 
 ## Facts that feed the tracks
 

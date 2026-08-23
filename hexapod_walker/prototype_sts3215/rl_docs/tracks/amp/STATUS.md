@@ -1,6 +1,33 @@
 # amp - AMP locomotion from scratch
 
-Last updated: 2026-08-23 ~05:0x (**COMPOSITION-ORDER AND PUSH-DOSE BOTH
+Last updated: 2026-08-23 ~05:1x (**LAUNCHED: `cw-amp-m4-turnfault-seq1-
+pushcont1-ypfix1` -- the push-composition dose sweep never tested
+PRICING, only EXPOSURE.** The just-closed 3-arm dose sweep
+(pushdose025/05b/075, see entry below) held training-time push
+probability fixed at pushcont1's LEGACY yaw pricing throughout --
+none of pushcont1 or its dose children ever carried the already-built,
+already-banked overshoot-farm fix (`reward.yaw_prog_overshoot_decay`/
+`reward.yaw_prog_avg_s`, landed 08-23 from the solo-turn income audit,
+so far only tried on the unrelated turnpushfault1-style05/clamp-pinned
+lineage's `ypfix1-r3`, which stayed bit-identical for a different,
+clamp-quantization reason). Single lever vs pushcont1: both keys
+0.0->1.0, same 2M budget, respec inherits pushcont1's own pre-cheat
+`--init-from turnfault_seq1` checkpoint (init-basin rule satisfied
+automatically). VERIFIED RUNNING on hexapod-mjx-train-9
+(wandb tracked via ledger). Pre-registered branches: PASS-clean
+(tips <=0.20-0.25, closes the M4/M5 turn+push cell outright),
+PARTIAL (better than pushcont1's 0.27/0.30 but still >0.25 --
+hold/forward repricing remains the next lever), FLAT (~unchanged --
+refutes pricing too, leaving only the from-scratch-capacity /
+operator-sizing branch of q_20260823T0240Z item b). Two launches also
+observed in flight from a concurrent cycle this same window (not
+touched by this entry): the M4 fault-training-dose grid
+(`turnfault-seq1-faultdose025/05/075`, testing the walk-section design
+tension named in q_20260823T0130Z) and cpg's closed-loop yaw-trim
+build (`cpg-yawtrim-closedloop`, STATUS Next#2) -- left alone,
+different tracks/axes, no overlap. Prior banner below.)
+
+Previous entry (2026-08-23 ~05:0x (**COMPOSITION-ORDER AND PUSH-DOSE BOTH
 CLOSED for M4 turn+push erosion; escalates the deferred hold/forward
 income-repricing build.** `cw-amp-m4-turnfault-seq1-pushcont1`
 (fault-then-push order, single lever dr.ext_push_prob=1.0 vs the

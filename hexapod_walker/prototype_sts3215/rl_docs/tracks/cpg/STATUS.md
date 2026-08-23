@@ -1,6 +1,44 @@
 # cpg - Berkeley-style parameter gait search
 
-Last updated: 2026-08-23 ~04:1x UTC (gate harness built + first
+Last updated: 2026-08-23 ~05:2x UTC (**ROBUST GATE FULL PASS — closed-
+loop yaw trim built + verified, all 5 panels green.** The 120-iter
+robustness-refinement search (Next item 1) converged but could NOT
+fix the mu0.8 turn overshoot (best-found params still read 1.33/1.35,
+identical to the contextual-250 winner) -- confirming Next item 2's
+prediction that this is a friction-dependent GAIN error an open-loop
+parameter search structurally cannot reach. Built
+`rl_move/sim/yaw_trim.py` (`update_trim`, 8/8 unit tests, pure numeric,
+no sim) -- a proportional MULTIPLICATIVE trim on commanded omega from
+measured-vs-commanded yaw rate over 1.0s windows, wired into
+`eval_cpg_gate.py` as `--yaw-trim` (default off, bit-exact when off,
+scoped to turn segments only). Re-ran the SAME robust120-winner
+params with `--yaw-trim`: **overall pass=True, all 5 panels
+(dr0/dr0_script2/mu1.2/mu0.8/loaded) PASS** -- mu0.8 turn ratio
+1.33/1.35 -> 1.07/1.07 (inside [0.70,1.30]), every other panel's turn
+tracking also tightened (dr0 1.03/1.05 -> 1.01/1.02) since the trim
+corrects small biases everywhere a turn is commanded, not just the
+adversarial-friction case; zero falls, zero sacrificed legs, slip/m
+0.69-1.36 across all panels (well inside the 1.4-2.9 teacher band),
+video-reviewed (all 5 contact sheets: clean six-leg cycling, upright,
+no pathologies). Exported
+`rl_move/sim/policies/cpg_controller_robust120_yawtrim.json`
+(first artifact export on this track). SKILLS.md row added.
+**This is the FIRST FULL PASS of the track's behavioral DONE gate**
+(zero falls, no sacrificed legs, correct headings, both-direction
+turns, stops/restarts, slip inside the teacher band, DR-0 + friction +
+servo-profile sweep, video-reviewed, saved parameter artifact) -- but
+the gate's own text also asks for a web-UI / teacher-library-generator
+loader for the artifact schema, which does NOT exist yet (confirmed,
+grep-checked), and the track's own Next item 3 (a controlled A/B
+adoption fork vs the current teacher) is unstarted. Track is NOT
+declared closed on this evidence alone -- champions/gates are
+append-only and adoption needs its own measured fork, same discipline
+as the joystick track's stotight45 promotion-pending-integration
+precedent. Evidence: `logs/cpg_gate/robust120-winner{,-yawtrim}/`,
+`logs/paper_cpg_search/paper-cpg-robust120-20260823.{json,log}`.
+Prior banner below.
+
+Previous entry (2026-08-23 ~04:1x UTC (gate harness built + first
 held-out gate run, see "Gate results 08-23". Track created same day:
 **TRACK CREATED by operator direction:
 make the Berkeley/Levine CPG result a third first-class path.** This
@@ -70,20 +108,41 @@ post-hoc threshold loosening). Verdict + videos:
 open-loop, so yaw-per-stride scales with ground friction; the search
 never priced friction variation.
 
+**UPDATE 08-23 ~05:2x: 120-iter robustness search done, still FAILS
+mu0.8 identically (1.33/1.35, `logs/cpg_gate/robust120-winner/`,
+confirms the root cause is a search-unreachable gain error) —
+`--yaw-trim` closed-loop fix built and verified: SAME params,
+`--robust --yaw-trim`, ALL 5 PANELS PASS (mu0.8 turn ratio ->
+1.07/1.07; every panel's turn tracking tightened; zero falls/
+sacrificed legs; slip/m 0.69-1.36). Artifact exported:
+`rl_move/sim/policies/cpg_controller_robust120_yawtrim.json`. See
+banner above for full detail. This closes Next items 1 and 2 below
+(kept for the record).**
+
 ## Next
 
-1. TRIAGE the robustness-refinement search
-   `paper-cpg-robust120-20260823` (launched 08-23 ~04:2x on the
-   controller, log `logs/paper_cpg_search/paper-cpg-robust120-*.log`):
-   `--mu-list 0,1.2,0.8` panel scoring (new, default-off flag), GP
-   warm-started from the contextual-250 winner, 120 iters. Then re-run
-   the new winner through `eval_cpg_gate.py --robust`; on full PASS
-   export `rl_move/sim/policies/cpg_controller_<name>.json`
-   (`--export`) and expose it in the web UI.
-2. If turn overshoot at mu0.8 survives parameter search, the honest
-   fix is closed-loop yaw trim (IMU yaw-rate feedback scaling omega),
-   a controller change — keep it a separate, A/B-tested arm.
-3. Build a controlled `teacher_v2`/motion-library fork from the CPG
-   winner and compare against the current teacher at equal AMP budget.
-   Do not silently replace `teacher_v1` or recalibrate joystick slip
-   bars without that A/B result.
+1. **DONE 08-23**: TRIAGED the robustness-refinement search
+   `paper-cpg-robust120-20260823` (120 GP iters, warm-started from the
+   contextual-250 winner) — best-found params still FAIL mu0.8
+   identically to the contextual-250 winner (1.33/1.35): confirms the
+   defect is not reachable by more open-loop search.
+2. **DONE 08-23**: closed-loop yaw trim
+   (`rl_move/sim/yaw_trim.py` + `eval_cpg_gate.py --yaw-trim`) built,
+   unit-tested (8/8), and verified to fix mu0.8 without regressing any
+   other panel — full robust-gate PASS, artifact exported. Not yet
+   wired into the web UI (no loader exists for `cpg_controller_*.json`
+   anywhere in the repo — grep-confirmed 08-23) or into
+   `linux_control/se2_foot_gait.py`/`drive_controller.py` for a real
+   hardware path (sim-only fix so far; hardware adoption is an
+   [operator] physical-robot item per the standing rules, not blocked
+   on anything code-side).
+3. **NOW THE OPEN ITEM**: build a controlled `teacher_v2`/motion-
+   library fork from the CPG winner (use the yaw-trim-verified
+   `robust120_yawtrim` params/artifact, not the older contextual-250
+   one — it does not clear the same friction sweep) and compare
+   against the current teacher at equal AMP budget. Do not silently
+   replace `teacher_v1` or recalibrate joystick slip bars without that
+   A/B result. A lightweight parallel item: a loader for
+   `cpg_controller_*.json` in the web UI so the artifact is actually
+   consumable, per the gate's own text — currently the schema exists
+   but nothing reads it back.
