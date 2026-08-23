@@ -1007,9 +1007,18 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             self.cfg, "reward", "walk_charge_ramp_steps",
             default=0) or 0))
         if _wc_ramp_steps > 0:
+            # Default floor 0.40, MEASURED (08-23 chargeramp floor
+            # bank): at 0.15 the loosened charges invert the required
+            # ranking (skate +131 out-earns sideways +52/reverse -1.3
+            # and shuffle +228 becomes a strong positive rest point);
+            # 0.40 is the lowest floor that keeps skate/shuffle priced
+            # below every honest behavior while the top of the
+            # landscape stays positive-sum (gait > stall > park, all
+            # positive) — see test_task_semantics.py
+            # WALKCURR_PF_CHARGERAMP_MIN_OVERRIDES.
             _wc_min = float(cfg_get(
                 self.cfg, "reward", "walk_charge_ramp_min_frac",
-                default=0.15))
+                default=0.40))
             if not 0.0 <= _wc_min <= 1.0:
                 raise ValueError(
                     "reward.walk_charge_ramp_min_frac "

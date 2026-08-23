@@ -130,10 +130,11 @@ def test_frac_mapping_and_clamping():
     out = env.apply_walk_charge_frac(-1.0)  # clamps
     assert out["charge_scale"] == pytest.approx(0.2)
     assert env._walk_charge_scale() == pytest.approx(0.2)
-    # default min_frac when the key is absent
+    # default min_frac when the key is absent (0.40, the measured
+    # lowest bank-green floor — see test_task_semantics.py)
     env2 = _env(RAMP_KEYS)
     out2 = env2.apply_walk_charge_frac(0.0)
-    assert out2["charge_scale"] == pytest.approx(0.15)
+    assert out2["charge_scale"] == pytest.approx(0.40)
 
 
 def test_bad_min_frac_fails_closed():
@@ -149,7 +150,10 @@ def test_bad_min_frac_fails_closed():
 def test_live_scale_changes_the_charge():
     """Identical seed + action sequence; reward does not feed back
     into dynamics, so the heading charge must scale by exactly the
-    broadcast ratio between two armed envs."""
+    broadcast ratio between two armed envs, while loadslip_excess
+    (deliberately excluded from the ramp — bank finding, see the
+    module docstring) must stay IDENTICAL between the full and min
+    envs regardless of the broadcast frac."""
     keys = dict(RAMP_KEYS)
     keys[("reward", "walk_charge_ramp_min_frac")] = 0.1
     # walkcurr rung-1 shaped context so the charges actually fire on
@@ -175,13 +179,19 @@ def test_live_scale_changes_the_charge():
             np.float32)
         *_a, info_f = env_full.step(act)
         *_b, info_m = env_min.step(act)
-        for key in ("reward_walk_heading", "reward_loadslip_excess"):
-            rf = info_f.get(key)
-            rm = info_m.get(key)
-            if rf is not None and rf != 0.0:
-                assert rm == pytest.approx(0.1 * rf, rel=1e-6), (
-                    f"{key} did not scale: full={rf} min={rm}")
-                got += 1
+        rf = info_f.get("reward_walk_heading")
+        rm = info_m.get("reward_walk_heading")
+        if rf is not None and rf != 0.0:
+            assert rm == pytest.approx(0.1 * rf, rel=1e-6), (
+                f"reward_walk_heading did not scale: full={rf} min={rm}")
+            got += 1
+        lf = info_f.get("reward_loadslip_excess")
+        lm = info_m.get("reward_loadslip_excess")
+        if lf is not None and lf != 0.0:
+            assert lm == pytest.approx(lf, rel=1e-6), (
+                "reward_loadslip_excess must NOT scale with the "
+                f"ramp (excluded by design): full={lf} min={lm}")
+            got += 1
         if _a[2] or _a[3]:   # term / trunc
             break
     assert got > 0, "no charge ever fired; probe is not exercising the ramp"

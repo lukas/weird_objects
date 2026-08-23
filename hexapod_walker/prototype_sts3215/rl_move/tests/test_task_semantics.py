@@ -6393,31 +6393,42 @@ def test_walkcurr_swing_pays_the_discovery_path(walkcurr_pf_swing_returns):
 # flow (loadslip -4.08, height -0.77, heading -0.5 by 2M steps) —
 # income-side levers are exhausted at any bank-legal dose; freezing
 # still pays more than exploring. The next lever is DISINCENTIVE-side:
-# reward.walk_charge_ramp_steps (walk_task.py) scales the four dense
-# walk CHARGES (k_loadslip_excess, k_walk_heading, k_walk_idle_charge,
-# k_park_duty — never the income terms freeprog/step_event/heading-
-# income) by walk_charge_ramp_min_frac at step 0 and anneals linearly
-# to the full bank-proven dose. This bank proves the ranking survives
-# at the RAMP'S OWN MINIMUM (the point that matters for early
-# exploration — the full-dose end is already the v2e bank above,
-# unchanged since the ramp reaches frac=1). Static equivalent of
-# frac=0: every scaled charge pre-multiplied by the default
-# walk_charge_ramp_min_frac (0.15) — this bank does not exercise the
-# trainer-driven anneal itself (test_walk_charge_ramp.py owns that),
-# only whether the loosened charges at the floor still price the
-# operator's required ranking.
+# reward.walk_charge_ramp_steps (walk_task.py) scales three
+# DISCOVERY-FRICTION walk CHARGES (k_walk_heading, k_walk_idle_charge,
+# k_park_duty — never the income terms freeprog/step_event, and never
+# k_loadslip_excess) by walk_charge_ramp_min_frac at step 0 and
+# anneals linearly to the full bank-proven dose. This bank proves the
+# ranking survives at the RAMP'S OWN MINIMUM (the point that matters
+# for early exploration — the full-dose end is already the v2e bank
+# above, unchanged since the ramp reaches frac=1). Static equivalent
+# of frac=0: the three scaled charges pre-multiplied by the default
+# walk_charge_ramp_min_frac (0.15); k_loadslip_excess stays at its
+# full v2e dose — this bank does not exercise the trainer-driven
+# anneal itself (test_walk_charge_ramp.py owns that), only whether the
+# loosened charges at the floor still price the operator's required
+# ranking.
+# FIRST DESIGN REJECTED (bank finding): scaling ALL FOUR charges
+# including k_loadslip_excess by the shared min_frac=0.15 made 'skate'
+# (+131) beat sideways(+52)/reverse(-1.3) and the swing-farming
+# 'shuffle' twin (+228) a strong positive rest point — loosening the
+# anti-skate floor during exactly the window a from-scratch policy
+# explores hardest. FIX: exclude k_loadslip_excess from the ramp
+# entirely (walk_task.py) — it always charges at full dose regardless
+# of ramp frac; only the three discovery-friction charges below loosen
+# early. Keep this dict's key set in sync with
+# SimHexapodJointWalkEnv._walk_charge_scale()'s call sites.
 _WC_MIN_FRAC = 0.15
 WALKCURR_PF_CHARGERAMP_MIN_OVERRIDES = dict(WALKCURR_PF_OVERRIDES)
-for _k in ("k_loadslip_excess", "k_walk_heading",
-           "k_walk_idle_charge", "k_park_duty"):
+for _k in ("k_walk_heading", "k_walk_idle_charge", "k_park_duty"):
     WALKCURR_PF_CHARGERAMP_MIN_OVERRIDES[("reward", _k)] = (
         WALKCURR_PF_OVERRIDES[("reward", _k)] * _WC_MIN_FRAC)
 
 
 @pytest.fixture(scope="module")
 def walkcurr_pf_chargeramp_min_returns() -> dict[str, float]:
-    """Mean return per scripted behavior with the four dense walk
-    charges held at the ramp's minimum fraction (frac=0 equivalent) —
+    """Mean return per scripted behavior with the three
+    discovery-friction walk charges held at the ramp's minimum
+    fraction (frac=0 equivalent; k_loadslip_excess stays full-dose) —
     the weakest-disincentive point the ramp ever visits, and the one
     that matters for from-scratch exploration."""
     plan = {
