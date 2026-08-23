@@ -1,6 +1,70 @@
 # amp - AMP locomotion from scratch
 
-Last updated: 2026-08-23 ~03:1x (**TWO READOUTS: (1) M4 push+fault
+Last updated: 2026-08-23 ~03:4x (**cont1 (the matched no-keys control
+named in the entry immediately below) FINISHED and VERDICTED
+INFORMATIVE — completes the keys-vs-budget joint read, and REFINES
+the FAIL-branch root cause: the safety erosion is the KEYS, not
+continued training.** cont1 (8M total, same checkpoint/budget as
+ypfix1-r3, reward pricing UNCHANGED) reproduces the identical
+clamp-saturated tip attractor (`logs/probe_walk_income/
+turnpushfault1_cont1_income_probe.json`: yaw_ratio 1.649/1.786,
+wz_mean +0.478/-0.518 — matching r2's parent probe to float
+precision, same as ypfix1-r3's own probe) and eval_yaw tips
+0.4062/0.4104 (bar 0.20, still far over) — so BOTH arms agree the
+overshoot-farm/clamp attractor is untouched by 6M more steps
+regardless of pricing, closing that half cleanly. BUT the two arms
+DIVERGE on safety: cont1's own-cfg DR-0 gate holds EXACTLY at r2's
+own numbers (gait_valid 12/12 det+sto, zero new sacrificed legs,
+topples 2/6 det + 0/6 sto = 2/12, identical to r2), while ypfix1-r3
+(keys ON, same budget, same starting checkpoint) eroded to
+gait_valid 10/12 with TWO new sacrificed legs. Since cont1 is the
+byte-for-byte pricing-unchanged control and shows ZERO erosion, the
+erosion the dig-in needs to root-cause is caused BY the overshoot-
+decay/avg_s keys specifically (some interaction with the clamp-
+pinned regime, not generic extra training) — narrows the dig-in's
+search space. Other turn axes also moved for cont1 specifically:
+fwd-hold spurious yaw worsened 0.157->0.264 rad/s and arc tracking
+softened slightly (0.288->0.345 / 0.320->0.436) even though tip
+itself barely moved — continued unpriced training leaks yaw
+elsewhere while the clamped tip cell stays frozen. Video (cont1
+det_1/det_4 topples): genuine clean six-leg cycling 5-10s then a
+real end-frame tilt flip, not a statue — matches r2's own read, no
+new pathology. Evidence: `logs/ckpt_eval/
+cw_amp_m4_turnpushfault1_style05_cont1_gate/`, `logs/
+probe_walk_income/turnpushfault1_cont1_income_probe.json`,
+`/tmp/cont1_eval_yaw.json` (+ a same-session r2 reproduction at
+`/tmp/r2_eval_yaw_verify.json` confirming the eval_yaw cfg-set match
+is apples-to-apples). Ledger verdict on `cw-amp-m4-
+turnpushfault1-style05-cont1`. Do not re-run this control; the open
+work is the dig-in on ypfix1-r3 (owned by the cycle that flagged it)
+now sharpened to "why do the overshoot keys specifically cost 2
+sacrificed legs on a clamp-pinned substrate." Prior banner below.)
+
+Previous entry (2026-08-23 ~03:4x (**ypfix1-r3 FINISHED — pre-registered
+FAIL branch conditions met, verdict DEFERRED to dig-in
+(model-tiering).** The banked overshoot keys (6M continuation on the
+only all-4-M5-axes checkpoint, 8M total, reward rose 99->194) did NOT
+move tip behavior AT ALL: signed income probe
+(`logs/probe_walk_income/ypfix1_r3_income_probe.json`) reads yaw_ratio
+1.649/1.786 — the deterministic tip rollouts are **BIT-IDENTICAL to
+the parent r2 probe** (wz_mean/rmse/slip exact float match) even
+though the weights genuinely moved (max|dW|=0.87, tensor-by-tensor
+check). The keys DID reprice the farm (yaw_prog on the same
+trajectory 291->131 / ~294->100) — income moved, behavior frozen.
+Corrected-bus eval_yaw tips 0.3909/0.4742 (bar 0.20; parent
+0.4248/0.4932). Safety bar eroded to the edge: gait_valid 10/12 with
+TWO new sacrificed legs (sto sac[5], sac[0], upright limps on video;
+lineage baseline zero). MECHANISM LEAD: probe feas shows requested
+joint speeds pegged EXACTLY at the 5.0 deg/tick safety clamp
+(125 deg/s, p95=max) in tip scenarios — tip behavior looks pinned at
+a clamp/quantization attractor that reward pricing cannot sculpt
+(sub-count action drift leaves executed servo counts unchanged). Per
+the run's own FAIL branch: NO further turn+X budget until the
+reward-structure/actuation-regime dig-in lands. Matched no-keys
+control `cont1` still training (keys-vs-budget attribution). Prior
+banner below.)
+
+Previous entry (2026-08-23 ~03:1x (**TWO READOUTS: (1) M4 push+fault
 STYLE-VS-CONTROL COMPLETED — style LOSES at acquisition scale,
 reversing its mild discovery-time edge; noamp is the M5 push+fault
 substrate. (2) `turnpushfault1-style05-ypfix1-r2` LAUNCH_CRASHED

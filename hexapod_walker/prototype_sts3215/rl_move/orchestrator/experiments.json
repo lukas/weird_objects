@@ -138558,7 +138558,7 @@
       "reward.yaw_prog_avg_s=1.0"
     ],
     "created": "2026-08-23T02:59:26+00:00",
-    "status": "FAILED",
+    "status": "LAUNCH_CRASHED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -138581,7 +138581,9 @@
     "evidence": "Healthy canary: parent cw-amp-m4-turnpushfault1-style05-r2 trained 2M clean (reward quarters 37->188, zero NaN, gait_valid 12/12 own-cfg gate, verdicted PASS-partial 08-23 02:53). Full-budget precedent: cw-amp-m2-yawcmd0-acq2-yppeak ran these exact two keys 6M on the same trainer stack (finished, erosion halved 0.40->0.27); cw-amp-m4-pushfault1-noamp-acq1 is the matched 6M-continuation dose precedent on this substrate family (PASS 08-23 02:53). (ypfix1 name burned by a tag-collision REFUSED stub, zero steps trained.)",
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:amp PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-amp-m4-turnpushfault1-style05-ypfix1-r2 --steps 6000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_amp_m4_turnpushfault1_style05_r2.zip --episode-seconds 15 --no-canary --eval-every 1000000 --video-every 2000000 --n-envs 4096 --impl warp --host-workers 24 --seed 7 --ent-coef 0.001 --warm-log-std-override -2.0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set goal.walk_phase_obs=1 --cfg-set goal.walk_phase_hz=1.333333 --cfg-set goal.walk_obs_body_vel=2 --cfg-set goal.walk_heading_max_rad=-1 --cfg-set goal.walk_speed_min_m_s=0.08 --cfg-set goal.walk_speed_max_m_s=0.08 --cfg-set goal.walk_cmd_mode=stress_mix --cfg-set goal.walk_cmd_resample_s=4.0 --cfg-set goal.walk_cmd_resample_jitter=0.5 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set bus.write_speed=1500 --cfg-set bus.write_acc=80 --cfg-set bus.servo_vel_max_counts_s=write_speed --cfg-set safety.max_delta_q_deg=5.0 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --cfg-set reward.term_penalty=400.0 --cfg-set reward.k_step_event=0.0 --cfg-set reward.k_park_duty=0.0 --cfg-set reward.k_walk_freeprog=0.0 --cfg-set reward.walk_loadslip_gate=0.0 --cfg-set reward.k_loadslip_excess=0.0 --cfg-set reward.walk_gait_gate=0.0 --cfg-set reward.k_walk_idle_charge=0.0 --cfg-set reward.k_drag_stance=0.0 --amp-motion-lib rl_move/sim/motion_library/teacher_v2.npz --amp-disc-steps 4 --amp-disc-batch 512 --amp-gp-weight 10.0 --amp-replay 500000 --amp-task-weight 0.5 --amp-style-weight 0.5 --out-name ppo_goal_cw_amp_m4_turnpushfault1_style05_ypfix1_r2 --notes 'respec of cw-amp-m4-turnpushfault1-style05-r2: Plain English: the only policy that carries all four M5 axes (walk/turn/push/fault) turns in the RIGHT direction but 1.7x too fast, because the reward still pays over-spinning more than accurate tracking -- this run keeps training it with the already-built pricing fix ON so income peaks at exactly the commanded rate. Evidence the fix is aimed right: signed income probe on this exact checkpoint reads wz_mean +0.478 on tip_left cmd +0.3 and -0.518 on tip_right cmd -0.3, yaw_ratio 1.65/1.79 with reward_yaw_prog 291/294 collected through the legacy 1.25x overshoot clip -- the SAME audited farm as the substrate'\"'\"'s 1.78 ratio, and it REFUTES the wrong-sign-rotation hypothesis in the 02:5x STATUS banner (correct sign both directions). yppeak precedent: on the M2-eroded checkpoint these keys halved erosion (0.40->0.27) but hold/forward dominance kept it over bar; HERE the skill is present and merely miscalibrated 1.7x, the closest-yet starting point for the keys to finish the job. 6M continuation, byte-identical cfg otherwise, keys reward.yaw_prog_overshoot_decay=1.0 + reward.yaw_prog_avg_s=1.0 (banked, TURN bank 8/8 green). Matched no-keys control cont1 launched same cycle to attribute any delta to pricing, not budget.' --cfg-set dr.ext_push_prob=1.0 --cfg-set goal.walk_yaw_cmd=1 --cfg-set goal.walk_yaw_max_rad_s=0.3 --cfg-set goal.walk_yaw_zero_frac=0.5 --cfg-set reward.k_walk_yaw=1.0 --cfg-set reward.walk_yaw_kernel_gate=1.0 --cfg-set reward.k_yaw_prog=1.0 --cfg-set reward.k_yaw_still=50 --cfg-set reward.walk_kernel_yaw_gate=1.0 --cfg-set reward.walk_yaw_hold_prog_gate=1.0 --cfg-set reward.yaw_still_avg_s=1.0 --cfg-set goal.walk_phase_run_on_yaw=1 --obs-pad-transplant 18 --cfg-set dr.fault_prob=1.0 --cfg-set obs.fault_health=1 --cfg-set reward.yaw_prog_overshoot_decay=1.0 --cfg-set reward.yaw_prog_avg_s=1.0 > /tmp/train_cw-amp-m4-turnpushfault1-style05-ypfix1-r2.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-amp-m4-turnpushfault1-style05-ypfix1-r2.log",
-    "failed_reason": "run never appeared as 'running' in W&B within 240s"
+    "failed_reason": "run never appeared as 'running' in W&B within 240s",
+    "verdict": "Died at 0 steps on the documented respec-hygiene bug class: --obs-pad-transplant=18 inherited from the parent's launch template while --init-from-source pointed at the parent's OWN 93-dim output checkpoint (transplant already consumed). Same class as pushfault1-noamp r1 and turnfault1-acq1 r1-r4. Fixed relaunch ypfix1-r3 (explicit trailing --obs-pad-transplant=0) VERIFIED RUNNING on train-1 with identical keys/budget/hypothesis. The plain ypfix1 name is a REFUSED evidence-stub (zero steps), superseded. Nothing trained; no behavioral information.",
+    "triage": "done"
   },
   {
     "run": "cw-amp-m4-turnpushfault1-style05-ypfix1-r3",
@@ -138752,7 +138754,26 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:amp PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-amp-m4-turnpushfault1-style05-ypfix1-r3 --steps 6000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_amp_m4_turnpushfault1_style05_r2.zip --episode-seconds 15 --no-canary --eval-every 1000000 --video-every 2000000 --n-envs 4096 --impl warp --host-workers 24 --seed 7 --ent-coef 0.001 --warm-log-std-override -2.0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set goal.walk_phase_obs=1 --cfg-set goal.walk_phase_hz=1.333333 --cfg-set goal.walk_obs_body_vel=2 --cfg-set goal.walk_heading_max_rad=-1 --cfg-set goal.walk_speed_min_m_s=0.08 --cfg-set goal.walk_speed_max_m_s=0.08 --cfg-set goal.walk_cmd_mode=stress_mix --cfg-set goal.walk_cmd_resample_s=4.0 --cfg-set goal.walk_cmd_resample_jitter=0.5 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set bus.write_speed=1500 --cfg-set bus.write_acc=80 --cfg-set bus.servo_vel_max_counts_s=write_speed --cfg-set safety.max_delta_q_deg=5.0 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --cfg-set reward.term_penalty=400.0 --cfg-set reward.k_step_event=0.0 --cfg-set reward.k_park_duty=0.0 --cfg-set reward.k_walk_freeprog=0.0 --cfg-set reward.walk_loadslip_gate=0.0 --cfg-set reward.k_loadslip_excess=0.0 --cfg-set reward.walk_gait_gate=0.0 --cfg-set reward.k_walk_idle_charge=0.0 --cfg-set reward.k_drag_stance=0.0 --amp-motion-lib rl_move/sim/motion_library/teacher_v2.npz --amp-disc-steps 4 --amp-disc-batch 512 --amp-gp-weight 10.0 --amp-replay 500000 --amp-task-weight 0.5 --amp-style-weight 0.5 --out-name ppo_goal_cw_amp_m4_turnpushfault1_style05_ypfix1_r3 --notes 'respec of cw-amp-m4-turnpushfault1-style05-ypfix1-r2: Plain English: the only policy that carries all four M5 axes (walk/turn/push/fault) turns in the RIGHT direction but 1.7x too fast, because the reward still pays over-spinning more than accurate tracking -- this run keeps training it with the already-built pricing fix ON so income peaks at exactly the commanded rate. Re-launch of ypfix1-r2, which LAUNCH_CRASHED at 0 steps on a stale --obs-pad-transplant=18 inherited from its parent'\"'\"'s launch template (init-from checkpoint is already 93-dim, no padding needed); single fix here is an explicit trailing --obs-pad-transplant=0 override (argparse last-flag-wins, verified). Same evidence as before: signed income probe wz_mean +0.478/-0.518 on tip_left/right, yaw_ratio 1.65/1.79 through the legacy 1.25x overshoot clip -- correct-sign, miscalibrated 1.7x, the closest-yet starting point for the yaw_prog_overshoot_decay/yaw_prog_avg_s keys to finish the job.' --cfg-set dr.ext_push_prob=1.0 --cfg-set goal.walk_yaw_cmd=1 --cfg-set goal.walk_yaw_max_rad_s=0.3 --cfg-set goal.walk_yaw_zero_frac=0.5 --cfg-set reward.k_walk_yaw=1.0 --cfg-set reward.walk_yaw_kernel_gate=1.0 --cfg-set reward.k_yaw_prog=1.0 --cfg-set reward.k_yaw_still=50 --cfg-set reward.walk_kernel_yaw_gate=1.0 --cfg-set reward.walk_yaw_hold_prog_gate=1.0 --cfg-set reward.yaw_still_avg_s=1.0 --cfg-set goal.walk_phase_run_on_yaw=1 --obs-pad-transplant 0 --cfg-set dr.fault_prob=1.0 --cfg-set obs.fault_health=1 --cfg-set reward.yaw_prog_overshoot_decay=1.0 --cfg-set reward.yaw_prog_avg_s=1.0 > /tmp/train_cw-amp-m4-turnpushfault1-style05-ypfix1-r3.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-amp-m4-turnpushfault1-style05-ypfix1-r3.log",
     "wandb_id": "0p3se9bz",
-    "verified": "2026-08-23T03:10:03+00:00"
+    "verified": "2026-08-23T03:10:03+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-23T03:15:11+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 0,
+        "cpu_centisec_deltas": [
+          4,
+          4
+        ],
+        "verdict": "SUSPECT",
+        "problems": [
+          "W&B global_step stalled at 5017600",
+          "log stopped growing"
+        ]
+      }
+    ],
+    "triage": "in-cycle cw-amp-m4-turnpushfault1-style05-ypfix1-r3 since 2026-08-23T03:17:58",
+    "triage_note": "TRIAGE 08-23 03:4x (verdict deferred to dig-in, model-tiering): finished 6.03M (8M total), reward rose 99->171->181->194. Pre-registered FAIL branch conditions met: (1) income-probe yaw_ratio UNCHANGED at 1.649/1.786 (logs/probe_walk_income/ypfix1_r3_income_probe.json) - deterministic tip rollouts are BIT-IDENTICAL to parent r2 probe (wz_mean/rmse/slip exact float match) despite weights moving (max|dW|=0.87, verified tensor-by-tensor): the overshoot keys repriced the farm (yaw_prog on same trajectory 291->131 left / ~294->100 right) but behavior did not move; (2) corrected-bus eval_yaw tips 0.3909/0.4742 vs bar 0.20 (parent 0.4248/0.4932; artifact logs/ckpt_eval/cw_amp_m4_turnpushfault1_style05_ypfix1_r3_gate/yaw_corrected_bus.json); (3) safety bar eroded to edge: gait_valid 10/12 (bar >=10), topples 1det+0sto ok, but TWO new sacrificed legs (sto/1 sac[5], sto/3 sac[0], upright limps on video, lineage baseline zero). Mechanism lead for dig-in: probe feas shows requested joint speeds pegged EXACTLY at the 5.0deg/tick safety clamp (125 deg/s p95=max) in tip scenarios - tip behavior looks pinned at a clamp/quantization attractor that pricing cannot sculpt (sub-count action drift leaves executed servo counts unchanged). FAIL branch prescription stands: reward-structure (or actuation-regime) dig-in before ANY further turn+X budget. Matched no-keys control cont1 still training - completes keys-vs-budget attribution."
   },
   {
     "run": "cw-amp-m4-turnpushfault1-style05-cont1",
@@ -138889,7 +138910,7 @@
       "obs.fault_health=1"
     ],
     "created": "2026-08-23T03:10:48+00:00",
-    "status": "INTENT",
+    "status": "INFORMATIVE",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -138898,7 +138919,18 @@
       "code_sha_local": "776964fdfc98cee45059d214a795b226d9ecddd4",
       "code_sha_pod": "776964fdfc98cee45059d214a795b226d9ecddd4",
       "init_from_on_pod": true,
-      "wandb_env_on_pod": true
+      "wandb_env_on_pod": true,
+      "pid": "3597509",
+      "log_growth_bytes": [
+        9920,
+        17426
+      ],
+      "wandb_id": "wvk1berk",
+      "global_step_window": [
+        720896,
+        1179648
+      ],
+      "fps_estimate": 15291.7
     },
     "trainer": "ppo",
     "stack": "gpu-mjx",
@@ -138906,6 +138938,22 @@
     "assessment_scope": "full_budget_skill_acquisition",
     "evidence": "Healthy canary: parent cw-amp-m4-turnpushfault1-style05-r2 trained 2M clean (reward 37->188/quarter, zero NaN, gait_valid 12/12, PASS-partial 08-23 02:53). Full-budget precedent: cw-amp-m4-pushfault1-noamp-acq1 (same substrate family, same 6M continuation dose, PASS 08-23 02:53) and cw-amp-m4-turnfault1-style05-acq1-r5 (6M continuation on a 3-way stack, finished clean).",
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:amp PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-amp-m4-turnpushfault1-style05-cont1 --steps 6000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_amp_m4_turnpushfault1_style05_r2.zip --episode-seconds 15 --no-canary --eval-every 1000000 --video-every 2000000 --n-envs 4096 --impl warp --host-workers 24 --seed 7 --ent-coef 0.001 --warm-log-std-override -2.0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set goal.walk_phase_obs=1 --cfg-set goal.walk_phase_hz=1.333333 --cfg-set goal.walk_obs_body_vel=2 --cfg-set goal.walk_heading_max_rad=-1 --cfg-set goal.walk_speed_min_m_s=0.08 --cfg-set goal.walk_speed_max_m_s=0.08 --cfg-set goal.walk_cmd_mode=stress_mix --cfg-set goal.walk_cmd_resample_s=4.0 --cfg-set goal.walk_cmd_resample_jitter=0.5 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set bus.write_speed=1500 --cfg-set bus.write_acc=80 --cfg-set bus.servo_vel_max_counts_s=write_speed --cfg-set safety.max_delta_q_deg=5.0 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --cfg-set reward.term_penalty=400.0 --cfg-set reward.k_step_event=0.0 --cfg-set reward.k_park_duty=0.0 --cfg-set reward.k_walk_freeprog=0.0 --cfg-set reward.walk_loadslip_gate=0.0 --cfg-set reward.k_loadslip_excess=0.0 --cfg-set reward.walk_gait_gate=0.0 --cfg-set reward.k_walk_idle_charge=0.0 --cfg-set reward.k_drag_stance=0.0 --amp-motion-lib rl_move/sim/motion_library/teacher_v2.npz --amp-disc-steps 4 --amp-disc-batch 512 --amp-gp-weight 10.0 --amp-replay 500000 --amp-task-weight 0.5 --amp-style-weight 0.5 --out-name ppo_goal_cw_amp_m4_turnpushfault1_style05_cont1 --notes 'respec of cw-amp-m4-turnpushfault1-style05-r2: Plain English: matched control for ypfix1-r3 -- same checkpoint, same 6M budget, NO reward changes -- so any turn-calibration difference between the two runs is attributable to the overshoot repricing keys, not to more training. Prior budget-alone evidence (M2 acq1-r2: erosion WORSENED 0.15->0.38 over 6M; turnfault1-acq1-r5: tip park unchanged over 6M) is from different substrates; this closes the loop on THIS one. Prediction: yaw_ratio stays ~1.7 or drifts higher (overshoot farm deepens, per the signed income probe on the shared parent: wz_mean +0.478/-0.518, ratio 1.65/1.79, yaw_prog 291/294 via the legacy 1.25x clip), tips stay >0.30. Includes explicit trailing --obs-pad-transplant=0 (respec-from-consumed-transplant bug class, same fix as ypfix1-r3).' --cfg-set dr.ext_push_prob=1.0 --cfg-set goal.walk_yaw_cmd=1 --cfg-set goal.walk_yaw_max_rad_s=0.3 --cfg-set goal.walk_yaw_zero_frac=0.5 --cfg-set reward.k_walk_yaw=1.0 --cfg-set reward.walk_yaw_kernel_gate=1.0 --cfg-set reward.k_yaw_prog=1.0 --cfg-set reward.k_yaw_still=50 --cfg-set reward.walk_kernel_yaw_gate=1.0 --cfg-set reward.walk_yaw_hold_prog_gate=1.0 --cfg-set reward.yaw_still_avg_s=1.0 --cfg-set goal.walk_phase_run_on_yaw=1 --obs-pad-transplant 0 --cfg-set dr.fault_prob=1.0 --cfg-set obs.fault_health=1 > /tmp/train_cw-amp-m4-turnpushfault1-style05-cont1.log 2>&1 < /dev/null & echo $!",
-    "log": "/tmp/train_cw-amp-m4-turnpushfault1-style05-cont1.log"
+    "log": "/tmp/train_cw-amp-m4-turnpushfault1-style05-cont1.log",
+    "wandb_id": "wvk1berk",
+    "verified": "2026-08-23T03:14:04+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-23T03:20:02+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 72,
+        "fps": 22118.4,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ],
+    "triage": "done",
+    "verdict": "Result: matched no-keys 6M control lands exactly on its own pre-registered EXPECTED branch -- budget alone does not repair the turn overshoot-farm. Evidence: own-cfg DR-0 gate matches parent r2 on safety with zero erosion (gait_valid 12/12 det+sto, topples 2/6 det [tilt_roll,tilt_pitch] + 0/6 sto = 2/12, identical count to r2's own 2/12; det prog med rose 0.785->0.95, slip fell 4.76->4.32). Signed income probe (probe_walk_income --stack yawcmd0) reproduces r2's overshoot fingerprint essentially unchanged: wz_mean +0.478/-0.518, yaw_ratio 1.65/1.79, yaw_prog income 291/294 through the legacy 1.25x clip -- 6M more steps under the same pricing left the optimizer pinned at the identical clamp-saturated attractor (md5-different checkpoint, functionally indistinguishable probe output). Hand-run eval_yaw (same fast-servo cfg-set both runs) confirms: tip-left/right err 0.4062/0.4104 (r2 0.4248/0.4932), both far over the 0.30 SURPRISE-branch bar -- and OTHER turn axes got WORSE with more training: fwd-hold spurious yaw 0.157->0.264 rad/s, arc-left 0.288->0.345, arc-right-max 0.320->0.436. Video (det_1/det_4, the two tilt topples): 5-10s of genuine clean six-leg tripod cycling then a real end-frame flip, not a statue/drag, matching r2's own read. Why: this IS the run's named EXPECTED outcome (ratio>=1.5, tips>0.30 => budget alone does not fix; the keys-vs-control delta is the pricing effect) -- confirms the misalignment diagnosis independently of the keys-ON sibling; per the 08-21 ruling this is not a lineage FAIL (safety floor exact, reward still mildly rising 195.3->205.7 Q3->Q4), it is the control half of a paired experiment. What's next: ypfix1-r3 (keys ON, RUNNING under a concurrent cycle) supplies the other half -- do not re-run this control; if ypfix1-r3 also misses <=0.20 tips, the M2 yppeak precedent (overshoot-decay only halved erosion there, hold/forward income dominance was the residual) predicts a second lever will be needed regardless of this control's own outcome."
   }
 ]
