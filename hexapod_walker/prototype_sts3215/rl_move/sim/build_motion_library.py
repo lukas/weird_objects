@@ -126,7 +126,7 @@ def _ramp_hold(cmd, t, t0=RAMP_S):
     return cmd * min(max(t / t0, 0.0), 1.0)
 
 
-def _families(clip_s: float = 6.0):
+def _families(clip_s: float = 6.0, turn_wz: float = 0.25):
     fam = {}
     for vx in (0.06, 0.08, 0.10):
         fam[f"forward_{vx:.2f}"] = (
@@ -137,7 +137,16 @@ def _families(clip_s: float = 6.0):
     for vy, tag in ((0.05, "left"), (-0.05, "right")):
         fam[f"lateral_{tag}"] = (
             lambda t, vy=vy: (0.0, _ramp_hold(vy, t), 0.0), clip_s)
-    for wz, tag in ((0.25, "ccw"), (-0.25, "cw")):
+    # turn_wz: commanded rate for the PURE turn-in-place clips. 0.25 is
+    # the legacy teacher_v1/v2 value (turn bank TURN_CMD_WZ). The 08-23
+    # yaw-authority dig-in measured the untrimmed tripod teacher
+    # ACHIEVING only 0.13-0.14 rad/s at cmd 0.25-0.30 (ratio ~0.5, the
+    # exact price-invariant ratio every tipfrac05 policy is pinned at:
+    # the discriminator sees base_angular_velocity unconditioned on
+    # command, so demo wz IS the style ceiling). teacher_v3 builds with
+    # turn_wz 0.30 + turn stance scales (below) = measured max
+    # ~0.176 rad/s.
+    for wz, tag in ((turn_wz, "ccw"), (-turn_wz, "cw")):
         fam[f"turn_{tag}"] = (
             lambda t, wz=wz: (0.0, 0.0, _ramp_hold(wz, t)), clip_s)
     for wz, tag in ((0.20, "ccw"), (-0.20, "cw")):
@@ -164,7 +173,8 @@ def _families(clip_s: float = 6.0):
 
 def run_clip(name: str, cmd_fn, clip_s: float, seed: int, *,
              controller: str = "tripod", cpg_params=None,
-             yaw_trim: bool = False) -> dict:
+             yaw_trim: bool = False,
+             turn_scales: tuple[float, float] | None = None) -> dict:
     """Roll the scripted teacher through real physics for one command
     profile; return per-tick records + validation metrics.
 
@@ -204,6 +214,17 @@ def run_clip(name: str, cmd_fn, clip_s: float, seed: int, *,
     env = _make_env(seed, episode_seconds=clip_s + 1.0)
     env.reset()
     gait.sync_plant_stance(*WALK_PLANT)
+    # Turn-in-place stance-geometry scaling (08-23 yaw-authority
+    # dig-in): the tripod's yaw rate SATURATES ~0.15 rad/s at default
+    # stride/period no matter the commanded omega (measured 0.30 ->
+    # 0.144, 0.60 -> 0.163, 0.80 -> 0.127 = degrading). Foot sweep per
+    # stride is dx ~ omega*r*period/2*stride_scale, so stride 1.4 x
+    # period 1.2 lifts the measured ceiling to ~0.176 rad/s at slip
+    # proxy ~2.1 (best probed point). Tripod-only, turn_* clips only,
+    # default None = bit-exact legacy build.
+    if turn_scales is not None and controller == "tripod":
+        gait.set_scales(stride_scale=turn_scales[0],
+                        period_scale=turn_scales[1])
     gait.reset_phase() if controller != "se2cpg" else gait.reset_phase(t=0.0)
 
     dt = env.dt
@@ -331,6 +352,22 @@ def run_clip(name: str, cmd_fn, clip_s: float, seed: int, *,
     ], axis=1) if n_got > 0 else np.zeros((0, 60))
 
     slip_per_m = ls_slip_m / max(ls_prog_m, 0.05)
+    # Measured steady-state body yaw rate over the final 3 s (08-23
+    # yaw-authority dig-in): the manifest must record what a clip
+    # actually ROTATES at, not just what was commanded — teacher_v2's
+    # turn clips are labeled 0.25 rad/s but embody ~0.134, and that gap
+    # (invisible until now) was the AMP style ceiling that pinned every
+    # tipfrac05 policy at ratio ~0.5 of the commanded rate. Pure
+    # measurement: no behavior/validation change.
+    measured_wz = 0.0
+    if n_got > 5:
+        yaws = np.array([math.atan2(
+            2.0 * (q[0] * q[3] + q[1] * q[2]),
+            1.0 - 2.0 * (q[2] * q[2] + q[3] * q[3])) for q in base_quat])
+        yaw_unwrapped = np.unwrap(yaws)
+        k = min(int(round(3.0 / dt)), n_got - 1)
+        measured_wz = float(
+            (yaw_unwrapped[-1] - yaw_unwrapped[-1 - k]) / (k * dt))
     return dict(
         name=name, seed=seed, n_ticks=n_got, dt=dt,
         joint_position=joint_pos, joint_position_rel_neutral=joint_pos_rel_neutral,
@@ -339,7 +376,7 @@ def run_clip(name: str, cmd_fn, clip_s: float, seed: int, *,
         foot_positions=foot_pos_body, phase_label=phase_label,
         command=cmd_hist, obs_style=obs_style,
         fell=fell, slip_per_m=slip_per_m, max_delta_q_deg=max_delta_q_deg,
-        neutral_pose=neutral_q,
+        neutral_pose=neutral_q, measured_wz=measured_wz,
     )
 
 
@@ -362,6 +399,19 @@ def main():
     ap.add_argument("--clip-seconds", type=float, default=6.0)
     ap.add_argument("--reject-slip-per-m", type=float, default=3.5)
     ap.add_argument("--min-ticks", type=int, default=50)
+    ap.add_argument("--turn-wz", type=float, default=0.25,
+                    help="commanded yaw rate for the pure turn-in-place"
+                         " clips (default 0.25 = legacy teacher_v1/v2)")
+    ap.add_argument("--turn-stride-scale", type=float, default=1.0,
+                    help="TripodGait stride_scale applied ONLY to "
+                         "turn_* clips (tripod controller only; "
+                         "default 1.0 = legacy). 08-23 probe: 1.4 with "
+                         "--turn-period-scale 1.2 lifts achieved turn "
+                         "rate 0.134 -> 0.176 rad/s")
+    ap.add_argument("--turn-period-scale", type=float, default=1.0,
+                    help="TripodGait period_scale applied ONLY to "
+                         "turn_* clips (tripod controller only; "
+                         "default 1.0 = legacy)")
     ap.add_argument("--controller", choices=["tripod", "se2cpg"],
                     default="tripod",
                     help="tripod (default, unchanged teacher_v1/v2 "
@@ -389,7 +439,10 @@ def main():
         params_dict = raw["params"] if "params" in raw else raw["best"]["params"]
         cpg_params = _clip_params(GaitParams(**params_dict))
 
-    families = _families(args.clip_seconds)
+    families = _families(args.clip_seconds, turn_wz=args.turn_wz)
+    turn_scales = None
+    if (args.turn_stride_scale != 1.0 or args.turn_period_scale != 1.0):
+        turn_scales = (args.turn_stride_scale, args.turn_period_scale)
     source = ("scripted_tripod_gait_teacher via sim_gait_compat "
               "knee-convention boundary (linux_control/tripod_gait.py"
               " + linux_control/sim_gait_compat.py)"
@@ -401,6 +454,9 @@ def main():
               f"{'' if args.no_yaw_trim else ' + closed-loop yaw trim on turn_* clips (rl_move/sim/yaw_trim.py)'}")
     manifest = {"families": sorted(families), "clips": [], "source": source,
                 "controller": args.controller,
+                "turn_wz": args.turn_wz,
+                "turn_stride_scale": args.turn_stride_scale,
+                "turn_period_scale": args.turn_period_scale,
                 "cpg_params": (dict(gait=cpg_params.gait,
                                     period=cpg_params.period,
                                     swing_frac=cpg_params.swing_frac,
@@ -421,10 +477,14 @@ def main():
             clip = run_clip(name, cmd_fn, clip_s, seed,
                             controller=args.controller,
                             cpg_params=cpg_params,
-                            yaw_trim=not args.no_yaw_trim)
+                            yaw_trim=not args.no_yaw_trim,
+                            turn_scales=(turn_scales
+                                         if name.startswith("turn_")
+                                         else None))
             ok, reason = validate(clip, args.reject_slip_per_m, args.min_ticks)
             entry = dict(name=name, seed=seed, n_ticks=clip["n_ticks"],
                         slip_per_m=round(clip["slip_per_m"], 3),
+                        measured_wz=round(clip["measured_wz"], 3),
                         max_delta_q_deg=round(clip["max_delta_q_deg"], 2),
                         fell=clip["fell"], accepted=ok, reason=reason,
                         quality_score=round(

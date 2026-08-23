@@ -5998,3 +5998,114 @@ def test_phasedir_new_band_price_monotone_in_ratio():
     inside = (grid[:-1] >= band[0]) & (grid[:-1] < band[1])
     assert (diffs[inside] < -1e-6).all(), (
         "price has a flat spot inside the band")
+
+
+# reward.walk_loadslip_gate at FULL strength on the recalibrated
+# (1.5, 4.5) band — the tipfrac05/pushcal518 anti-skate income gate
+# (08-23 yaw/slip dig-in). Context: the 4-arm pricing dose grid closed
+# 4/4 FAIL — additive k_loadslip_excess at 6x (-0.48/tick) and 12x
+# (-0.98/tick) both fired and slip did not move (family band 3.6-3.9
+# at the m5 walk section vs bar 3.5). Marginal-pressure audit: the
+# pre-registered "partial strength" gate (g=0.5, band 1.5/4.5) exerts
+# income*g/(max-ok) ~ 3*0.5/3 = 0.5/tick per unit ratio — the SAME
+# marginal dose slipexcess12 already refuted (12*dt = 0.48/tick), so
+# it would be a re-run in disguise. The honest escalation is the FULL
+# gate (g=1.0): ~1.0/tick marginal (2x the refuted dose) and ~70% of
+# walk income withheld at the measured operating ratio ~3.6, while
+# the wide band keeps a real income floor (factor 0.30 > 0) so the
+# statue/park basin stays priced out. The default band (0.75, 1.5)
+# is PINNED as a no-information constant tax at this family's
+# operating point (factor identically 0, zero gradient — the
+# 8b43a7c6 calibration finding).
+LOADGATE_BAND_DEFAULT = (0.75, 1.50)   # walk_task.py defaults
+LOADGATE_BAND_RECAL = (1.5, 4.5)       # recalibrated for ratio ~3.6
+LOADGATE_FAMILY_RATIO = 3.6            # pushcal518 family operating pt
+LOADGATE_BAR_RATIO = 3.5               # m5 walk section bar
+LOADGATE_CLEANER_RATIO = 2.5           # a genuinely cleaner gait
+LOADGATE_TEACHER_RATIO = 1.2           # scripted-teacher-grade slip
+WALK_INCOME_PER_TICK = 3.0             # measured walk income scale
+DT_TICK = 0.04
+REFUTED_MARGINAL_PER_TICK = 12.0 * DT_TICK  # slipexcess12, FAILed
+
+
+def _loadgate_income(ratio: float, band: tuple[float, float],
+                     g: float = 1.0,
+                     income_per_tick: float = WALK_INCOME_PER_TICK
+                     ) -> float:
+    """Per-tick walk income after the partial/full loadslip income
+    gate, exactly per walk_task.py: factor = clip((max-ratio)/
+    (max-ok), 0, 1); income *= (1-g) + g*factor."""
+    ok, mx = band
+    factor = min(max((mx - ratio) / max(mx - ok, 1e-6), 0.0), 1.0)
+    return income_per_tick * ((1.0 - g) + g * factor)
+
+
+def test_loadgate_default_band_is_a_no_information_tax():
+    """The 08-22 calibration finding, pinned: at the family's measured
+    operating ratio (~3.6) the DEFAULT band (0.75, 1.5) has factor
+    identically 0 on both sides of the operating point — zero gradient,
+    a constant tax that cannot select cleaner walking. Any arm that
+    enables the gate without recalibrating the band is a no-op."""
+    lo = _loadgate_income(LOADGATE_FAMILY_RATIO - 0.2,
+                          LOADGATE_BAND_DEFAULT)
+    hi = _loadgate_income(LOADGATE_FAMILY_RATIO + 0.2,
+                          LOADGATE_BAND_DEFAULT)
+    assert abs(lo - hi) < 1e-9, (
+        f"default band unexpectedly has gradient at 3.6: {lo} vs {hi}")
+
+
+def test_loadgate_recal_band_out_doses_the_refuted_charge():
+    """The launch precondition: the full gate on the recalibrated band
+    must exert MORE marginal pressure per unit ratio at the operating
+    point than the already-refuted slipexcess12 charge — otherwise the
+    arm is the same dose in a different wrapper and must not launch."""
+    d = 0.1
+    p_lo = _loadgate_income(LOADGATE_FAMILY_RATIO - d,
+                            LOADGATE_BAND_RECAL)
+    p_hi = _loadgate_income(LOADGATE_FAMILY_RATIO + d,
+                            LOADGATE_BAND_RECAL)
+    marginal = (p_lo - p_hi) / (2 * d)
+    assert marginal > 1.5 * REFUTED_MARGINAL_PER_TICK, (
+        f"gate marginal {marginal:.3f}/tick/ratio does not escalate "
+        f"past the refuted {REFUTED_MARGINAL_PER_TICK:.3f}")
+
+
+def test_loadgate_recal_band_keeps_income_floor_at_operating_point():
+    """No statue cliff: at the measured operating ratio the gated walk
+    income must remain strictly positive and a non-trivial fraction of
+    full income, so stepping still out-earns parking from step 0 (the
+    from-scratch statue-basin lesson; parking pays no walk income at
+    all)."""
+    p = _loadgate_income(LOADGATE_FAMILY_RATIO, LOADGATE_BAND_RECAL)
+    assert p > 0.2 * WALK_INCOME_PER_TICK, (
+        f"income at operating ratio 3.6 is {p:.2f} — cliff, not "
+        "gradient")
+
+
+def test_loadgate_recal_band_rewards_crossing_the_bar():
+    """Moving from the family operating point (3.6) to a genuinely
+    cleaner gait (2.5) must recover a LARGE income slice (>=25% of
+    full walk income), and teacher-grade slip (1.2) must earn full
+    income — the optimum sits at-or-below the bar, aligned with the
+    m5 walk section (08-21 reward<->eval agreement rule)."""
+    p_now = _loadgate_income(LOADGATE_FAMILY_RATIO, LOADGATE_BAND_RECAL)
+    p_clean = _loadgate_income(LOADGATE_CLEANER_RATIO,
+                               LOADGATE_BAND_RECAL)
+    p_teacher = _loadgate_income(LOADGATE_TEACHER_RATIO,
+                                 LOADGATE_BAND_RECAL)
+    assert p_clean - p_now >= 0.25 * WALK_INCOME_PER_TICK, (
+        f"cleaning 3.6->2.5 only recovers {p_clean - p_now:.2f}")
+    assert abs(p_teacher - WALK_INCOME_PER_TICK) < 1e-9, (
+        "teacher-grade slip does not earn full income")
+
+
+def test_loadgate_recal_band_monotone_no_plateau():
+    """Gradient sanity across the whole band: income strictly
+    decreasing in ratio inside (1.5, 4.5) — no camping plateau between
+    the teacher gait and the family operating point."""
+    import numpy as _np
+    grid = _np.linspace(1.6, 4.4, 15)
+    prices = [_loadgate_income(float(r), LOADGATE_BAND_RECAL)
+              for r in grid]
+    diffs = _np.diff(prices)
+    assert (diffs < -1e-6).all(), "income has a flat spot in the band"
