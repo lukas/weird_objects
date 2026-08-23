@@ -50,15 +50,22 @@ necessary driver of real falls on this checkpoint; fault only shifts
 WHICH episode is vulnerable.** This is now a two-line reproduction,
 not a hypothesis: any future push-composition arm should sanity-check
 `dr.ext_push_prob=0` vs `=1` on its own panel before trusting
-`gait_valid` as a safety signal. Next dig-in step (not done this
-cycle, needs judgment/possibly reward code): sweep `dr.ext_push_n`
-magnitude at eval time to find a force threshold (calibration fix) vs
-a fails-even-at-modest-force recovery gap (training/reward fix) —
-check push timing vs gait phase (mid-swing vs mid-stance) and whether
-any `reward.*` term prices recovery-from-push at all today (unaudited
-so far). Artifacts:
-`logs/ckpt_eval/diag_pushcont1_{nopush,nofault}/report.json`
-(gitignored, controller-local diagnostic, not a ledger eval).
+`gait_valid` as a safety signal. **ANSWERED, same cycle, one more
+eval-only read: it IS a magnitude threshold, not a blanket recovery
+failure.** Halving the push-force range (`dr.ext_push_n` 10-25N ->
+5-12N, fault still on, same checkpoint): **0/12 falls, every
+roll_peak <=8.0deg** (vs up to 41.3deg at full force) — clean
+recovery every time at half force. Push-recovery behavior is real and
+works up to roughly half the trained range; it specifically fails
+somewhere in the 12-25N band. Next dig-in step is now precisely
+bounded: bisect the actual threshold within 12-25N (a few more
+eval-only reads, no training needed yet), THEN check push timing vs
+gait phase and whether any `reward.*` term prices recovery-from-push
+at all (unaudited), THEN decide recalibrate-the-range vs. add-
+recovery-training-exposure/pricing at the top of the current range.
+Artifacts:
+`logs/ckpt_eval/diag_pushcont1_{nopush,nofault,halfpush}/report.json`
+(gitignored, controller-local diagnostics, not ledger evals).
 Prior banner below.)
 
 Previous entry (2026-08-23 ~09:5x-b (**7th AND LAST SEED CLOSES THE

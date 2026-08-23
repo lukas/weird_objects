@@ -264,13 +264,20 @@ follow-ups.
   complementary swap (`dr.fault_prob=0`, push stays on) — still falls
   (`walk/sto/0` tilt_pitch) though not at `det/3` this time. **Push is
   the necessary driver of real falls in this checkpoint; fault only
-  shifts WHICH episode is vulnerable.** Next dig-in step (not done
-  this cycle): sweep `dr.ext_push_n` magnitude at eval time on the
-  same checkpoint to find whether there's a force threshold (a
-  calibration/curriculum fix) or the recovery fails even at modest
-  force (an undertrained-behavior fix — check push timing vs gait
-  phase and whether `reward.*` prices recovery at all). Artifacts:
-  `logs/ckpt_eval/diag_pushcont1_{nopush,nofault}/report.json`
+  shifts WHICH episode is vulnerable.** **ANSWERED, same cycle, one
+  more eval-only read: it IS a magnitude threshold, not a blanket
+  recovery failure.** Halving the push-force range (`dr.ext_push_n`
+  10-25N -> 5-12N, fault still on) on the SAME checkpoint: **0/12
+  falls, every roll_peak <=8.0deg** (vs up to 41.3deg at full force)
+  — clean recovery every time at half force. The push-recovery
+  behavior is real and works up to roughly half the trained range; it
+  specifically fails somewhere in the 12-25N band. Next dig-in step
+  is now precisely bounded: bisect the actual failure threshold
+  within 12-25N (a few more eval-only reads, no training needed yet)
+  and decide recalibrate-the-range vs. add-recovery-training-exposure
+  /pricing at the top of the current range; also worth checking push
+  timing vs gait phase once the threshold is pinned. Artifacts:
+  `logs/ckpt_eval/diag_pushcont1_{nopush,nofault,halfpush}/report.json`
   (+ contact sheets/videos, controller-local, gitignored — not a
   ledger-tracked eval, just a diagnostic).
 - **JOYSTICK DONE GATE: FIRST MEASURED PASS (08-22 ~17:3x)** —
