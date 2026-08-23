@@ -6614,3 +6614,125 @@ def test_walkcurr_loadslip_bootstrap_min_shrinks_the_skate_penalty(
     assert boot > full + 20.0, (
         f"skate return did not move at bootstrap minimum: full={full} "
         f"boot={boot}")
+
+
+# ---------------------------------------------------------------------------
+# WALKCURR rung-1 OPTIMIZER-SCALE bank (cycle 2026-08-23, dig-in on the
+# fwd5-loadslipboot double-FAIL closing 8/8 rung-1 arms). Plain
+# English: this bank licenses arms that shrink EVERY reward gain by a
+# common factor so PPO's optimizer stops crushing its own updates —
+# the incentive ORDERING (what the operator's ranking rule protects)
+# is untouched by a global positive scale.
+#
+# DIAGNOSIS the arms test (measured on all 8 FAILed runs' cached W&B
+# histories, 08-23): train/clip_fraction collapses to EXACTLY 0 by
+# 10-38% of every run, approx_kl ~3e-5, policy std frozen at its init
+# value, while train/value_loss sits at 400->2000+ (returns are
+# |1000s|-scale under the v2e doses). SB3 clips the GLOBAL grad norm
+# (max_grad_norm=0.5) over policy+value parameters in ONE optimizer:
+# a value head chasing thousands-scale returns dominates the norm and
+# rescales the policy/log_std gradients toward zero — which explains
+# why reward-pricing, init-noise, and entropy-coefficient levers all
+# failed IDENTICALLY (they act downstream of the crush; SB3 advantage
+# normalization makes the policy gradient scale-invariant, so only
+# the VALUE gradient shrinks when all gains scale down together).
+#
+# The bank must prove, under the run's EXACT scaled cfg, that the
+# operator ranking (walking > park/stall > wrong-way > skate/topple)
+# holds with margins scaled by the same factor — and, as a defect
+# probe, that returns really are ~linear in the shared gain scale
+# (a hidden unscaled constant term WOULD reorder behaviors).
+WALKCURR_PF_SCALE_KEYS = (
+    "term_penalty", "k_walk_freeprog", "k_walk_heading", "k_step_event",
+    "k_park_duty", "k_walk_idle_charge", "k_loadslip_excess",
+)
+
+_WALKCURR_PF_SCALES = {"x0.1": 0.1, "x0.02": 0.02}
+
+
+def _walkcurr_pf_scaled_overrides(scale: float) -> dict:
+    out = dict(WALKCURR_PF_OVERRIDES)
+    for key in WALKCURR_PF_SCALE_KEYS:
+        out[("reward", key)] = float(WALKCURR_PF_OVERRIDES[
+            ("reward", key)]) * scale
+    return out
+
+
+@pytest.fixture(scope="module", params=sorted(_WALKCURR_PF_SCALES))
+def walkcurr_pf_scaled_returns(request) -> dict:
+    """Mean return per scripted behavior under the globally scaled
+    rung-1 stack (same probe family as walkcurr_pf_returns, plus the
+    swing-farming shuffle attack for safety)."""
+    scale = _WALKCURR_PF_SCALES[request.param]
+    overrides = _walkcurr_pf_scaled_overrides(scale)
+    plan = {
+        "fast": ("gait", 2.0),
+        "gait": ("gait", 1.0),
+        "creep": ("gait", 0.5),
+        "park": ("park", 1.0),
+        "stall": ("stall", 1.0),
+        "reverse": ("reverse", 1.0),
+        "sideways": ("sideways", 1.0),
+        "skate": ("skate", 1.0),
+        "topple": ("topple", 1.0),
+        "shuffle": ("shuffle", 1.0),
+    }
+    out = {"_scale": scale}
+    for name, (pol, gscale) in plan.items():
+        runs = [_slipwalk_rollout(pol, s, gait_scale=gscale,
+                                  overrides=overrides)
+                for s in SEEDS]
+        out[name] = float(np.mean([r[0] for r in runs]))
+        out[name + "_dx"] = float(np.mean([r[1] for r in runs]))
+        out[name + "_steps"] = float(np.mean([r[2] for r in runs]))
+    return out
+
+
+def test_walkcurr_pf_scaled_ranking_holds(walkcurr_pf_scaled_returns):
+    """The operator's full required ranking must hold under the global
+    gain scale with margins scaled by the same factor — a reversal
+    would mean some reward term does NOT ride the shared gains and the
+    scale is not the pure optimizer-side lever it claims to be."""
+    r = walkcurr_pf_scaled_returns
+    c = r["_scale"]
+    for still in ("park", "stall"):
+        assert r["gait"] > r[still] + 300.0 * c, (
+            f"stationary '{still}' competitive with walking at "
+            f"scale {c}: {r}")
+    floor = min(r["park"], r["stall"])
+    for wrong in ("reverse", "sideways"):
+        assert floor > r[wrong] + 50.0 * c, (
+            f"wrong-way '{wrong}' out-earns standing at scale {c}: {r}")
+    tier3 = min(r[k] for k in ("gait", "creep", "park", "stall",
+                               "reverse", "sideways"))
+    for worst in ("skate", "topple"):
+        assert r[worst] < tier3 - 50.0 * c, (
+            f"'{worst}' is not the floor at scale {c}: {r}")
+    assert r["topple_steps"] < 75, "topple twin did not die fast"
+    assert (r["fast"] >= r["gait"] > r["creep"]), (
+        f"travel income not monotone at scale {c}: {r}")
+    assert r["stall"] > r["park"], (
+        f"freeze basin has no exit at scale {c}: {r}")
+    assert r["gait"] > r["shuffle"] + 150.0 * c, (
+        f"shuffle competitive with walking at scale {c}: {r}")
+    assert r["gait_dx"] > 0.15, (
+        "the reference gait did not actually travel; bank is broken")
+
+
+def test_walkcurr_pf_scaled_returns_are_linear_in_scale(
+        walkcurr_pf_returns, walkcurr_pf_scaled_returns):
+    """Defect probe: scripted trajectories are reward-independent, so
+    if every active reward term rides one of the seven shared gains,
+    each behavior's scaled return must be ~scale x its v2e return. A
+    big deviation exposes a hidden constant/unscaled term that would
+    distort the incentive ORDERING at small scales."""
+    r, c = walkcurr_pf_scaled_returns, walkcurr_pf_scaled_returns["_scale"]
+    for name in ("gait", "park", "stall", "reverse", "sideways",
+                 "skate", "topple"):
+        base = walkcurr_pf_returns[name]
+        got = r[name]
+        tol = abs(base) * c * 0.10 + 10.0 * c
+        assert abs(got - base * c) <= tol, (
+            f"'{name}' return is not linear in the gain scale "
+            f"(base={base:.1f}, scale={c}, got={got:.1f}, "
+            f"expected~{base * c:.1f}) — hidden unscaled reward term?")
