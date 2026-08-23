@@ -1,6 +1,45 @@
 # amp - AMP locomotion from scratch
 
-Last updated: 2026-08-23 ~09:5x-c (**ROOT CAUSE TRACED PAST THE
+Last updated: 2026-08-23 ~10:3x (**PUSH-FORCE RECALIBRATION FIX CONFIRMED
+ON A FRESH RETRAIN: 0/12 real falls, transfers past eval-time
+clamping.** This cycle triaged `cw-amp-m4-turnfault-seq1-pushcont1-
+pushcal518` (single-lever respec of `pushcont1`: `dr.ext_push_n`
+10-25N -> 5-18N, same seed=7/2M/fresh-init recipe) launched last
+cycle to test whether the eval-time bisection finding (0/12 falls at
+this narrower range on the OLD pushcont1 checkpoint) would ALSO hold
+when the policy is actually TRAINED under the new range, not just
+evaluated under it. Raw per-episode `terminated` field (not
+`gait_valid`, confirmed again to never zero on a TERM): **0/12 real
+falls**, every roll_peak <=13.3deg, INCLUDING `walk/det/3` (the exact
+episode index where 5/6 turn+push+fault seeds toppled in the seed-
+safety batch below) — clean at 11.0deg here. Direct baseline
+(`pushcont1` itself, same recipe, untouched 10-25N range): 4/12 real
+falls, roll_peak up to 27.4deg. VERDICTED PASS. **This is the fix,
+not just a diagnosis** — recalibration is a real, sufficient
+intervention for the fault+push (no turn) tier, and it works through
+training, not merely as an eval-time force cap. Full writeup +
+SKILLS.md row: see `SKILLS.md`.
+
+**REFILL, same cycle (batch, 3 arms, all VERIFIED RUNNING, capacity
+was 12/12 free):** the open question is whether this ALSO fixes the
+FULL turn+fault+push composition (the tipfrac05 family, where 6/7
+seeds fell at the old push range, mostly at this same det/3-style
+episode) — a single-lever respec of `tipfrac05` itself
+(`dr.ext_push_n` -> 5-18N, seed=7) plus 2 seed-robustness twins
+(seed23, seed13) so the mechanism question and the seed-robustness
+question are both answered in one batch instead of the 4-cycle serial
+seed-farming the operator flagged 08-22:
+`cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518` (seed=7,
+already finished — off-limits, claimed by a concurrent cycle at
+prestage time), `-seed23` (running, train-0), `-seed13` (running,
+train-1). PASS on all three (0/12 falls each) would clear BOTH named
+M5-candidate-promotion prerequisites' safety half at once; any
+failure pattern (especially a repeat of det/3-style falls) would show
+turn-in-place adds independent fall risk beyond push magnitude, not
+just inheriting it. Do not re-launch this exact grid; triage the 3
+results next.
+
+Previous entry (2026-08-23 ~09:5x-c (**ROOT CAUSE TRACED PAST THE
 7-SEED BATCH: the fall risk PRE-DATES turn-in-place AND fault, and
 traces to PUSH.** Same raw-`terminated` audit (see the ~09:5x-b/09:5x
 entries below), extended one step further back the lineage: checked
