@@ -290,6 +290,42 @@ validity, on video. Speed obedience is secondary throughout.
   cont1b read; do NOT relaunch `fwd6-budget5m` (unscaled budget arm
   is moot — the crush is dose-, not budget-, limited).
 
+## Now (updated 08-23 ~21:1x)
+
+- **`cw-walkcurr-pf-fwd6-rscale50` PARTIAL (verdicted): the
+  optimizer-crush fix WORKS mechanically at x0.02, and this is the
+  first rung-1 arm ever with a rising discovery signal.** Cached W&B:
+  clip_fraction healthy every quarter (means 0.024/0.043/0.050/0.049,
+  last 0.083 — never the exactly-0 collapse of the 9 frozen arms),
+  std creeping off init (0.3678->0.3729), `walk_freeprog_score`
+  monotonic -0.103 -> -0.015 by quarter — left the [-0.10,-0.05] dead
+  band and trending toward the zero crossing. Gate eval still 0/6 det
+  (fwd 0.01 m, static splayed crouch on video), so behavior hasn't
+  crossed into stepping at 2M. **Dose read**: rscale50 (x0.02)
+  strictly dominates sibling rscale10 (x0.1: freeprog flat -0.055,
+  Q2 clip near-collapse 0.003) — the "x0.02 overshoots into the
+  value-net noise floor" alternative is REFUTED; the stronger scale
+  is the one trending.
+- **`cw-walkcurr-pf-fwd6-rscale50-cont1` LAUNCHED (+4M warm-start,
+  acquisition phase, train-1, VERIFIED RUNNING)** — byte-identical
+  cfg per the parent gate's own 08-21 continue branch. Startup
+  verified healthy at 1.5M: clip_fraction 0.093, std 0.385 (already
+  past parent final), value_loss 0.625 (crush fully gone). Decision
+  gate: freeprog crosses 0 and keeps rising = discovery live;
+  plateaus <0 over the final 2M with clip >0.02 = crush-fix
+  necessary-but-insufficient -> pre-registered RND/rung-0 escalation,
+  no further same-recipe continuations.
+- **RESPEC GOTCHA (cost sibling cont1 a dead launch)**: respec of any
+  fwd3-lineage run into an `--init-from` continuation MUST pass
+  `--arg='--activation-fn='` (empty is a valid argparse choice) —
+  the trainer fatally refuses `--activation-fn elu` combined with a
+  plain `--init-from` (checkpoint keeps its own activation). Also:
+  discovery caps at 2M steps; continuations go `--phase acquisition`
+  with `--evidence` naming the healthy canary + precedent.
+- Do NOT fund further noise-structure/exploration/dose variants while
+  the two continuations (rscale10-cont1 — other cycle; rscale50-cont1)
+  are in flight; they are the discriminating test.
+
 ## Key facts
 
 - The RAW kawawa2022 reward stack was bank-REFUTED on 08-23: park

@@ -425,3 +425,5 @@ DIG-IN: cw-amp-m4-turnpushfault1-style05-r2 — mechanism-safety PASS but turn t
 - 08-23 21:02 [amp] phasehz09 -> PARTIAL: tips 0.131/0.180 pass but walk prog 0.642/slip 4.74 fail — 0.9 Hz is the dose-curve trough; answer is 1.1 Hz (see phasehz11 PASS) 
 - 08-23 21:03 walkcurr rscale10-cont1 DEAD at launch (respec carried --activation-fn elu into --init-from, trainer SystemExit); retried as -cont1b with flag cleared 
 - 08-23 21:03 rscale50 PARTIAL: first rung-1 arm with rising freeprog (-0.10->-0.015) + healthy clip all run; eval still frozen; +4M cont1 launched 
+- 08-23 21:12 cpg ab6m A/B: cpglib PASS ADOPTION-LIVE -- parity+ on det/sto with LOWER slip vs teacher at matched 6M; 2M deficit was budget-limited (2nd independent confirmation) 
+- 08-23 21:13 cpg ab6m A/B: teachlib INFORMATIVE -- teacher lead GONE at matched 6M (NO-SWAP branch dead); adoption fork stays live, cpg_v1 co-equal+ 
