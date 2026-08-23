@@ -321,6 +321,17 @@ with:
 
 ## Now (inherited state, 08-21)
 
+- **08-23 operator order (fb_20260823T220651_5c66e3): hist16
+  full-circle joystick curriculum.** New `WALKCURR_BUCKETS_V6`
+  ladder landed + tested (bridge -> front45 -> side90 -> rear135/180
+  -> full-circle 60s -> DR 0.2/0.5; snapshot e180b161). Run
+  `cw-arch-hist16-dep1-c1-joyfullcurr6` RUNNING on train-4, warm from
+  `ppo_goal_cw_arch_hist16_dep1_c1` + loadslip/course reward; precert
+  B0 PASS pre-PPO (prog 1.164, 0 falls, slip/m 0.89), promoted to b1
+  @540k. Gate: eval_drive full-circle heading-max 180 DR0.5, 0 falls,
+  rear/side directions followed, slip sane. No duplicate seeds unless
+  primary fails pre-cert or triage demands it (operator).
+
 - Scripted tripod teacher verified clean at the measured tibia-150
   plant: 0.06-0.10 m/s x 4 headings, zero falls, slip/m 1.4-2.9,
   full fast servo profile.

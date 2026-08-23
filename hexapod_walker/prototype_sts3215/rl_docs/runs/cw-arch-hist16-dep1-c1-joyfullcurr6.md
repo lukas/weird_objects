@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-08-23T22:28:35+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 40000000
 
 **parent**: cw-arch-hist16-dep1-c1
+
+**wandb_id**: 1yjkjaa1
 
 **hypothesis**: Plain English: teach the 16-frame deployment-contract walker (hist16-dep1-c1) to follow joystick commands in EVERY direction - sideways, backwards, full circle - via a heading-band curriculum (operator order fb_20260823T220651_5c66e3). The lineage only ever trained front-cone (+-45 deg) commands. New WALKCURR_BUCKETS_V6 ladder: bridge at the source operating point (0.05-0.06 m/s straight), then front45 20/60s -> side90 20/60s -> rear135 40s -> rear180 60s -> full-circle 60s -> retain under DR 0.2/0.5. Reward adds the bank-proven direct loaded-slip charge (k_loadslip_excess=0.8, ok 1.2, max 3.0) and smoothed course-direction charge (k_walk_course=1.0, tau 0.75s) so training prices exactly what the full-circle drive eval measures; optional k_walk_cmd_track omitted to keep the coupled-change count down. If-true: precert B0 passes and the frontier promotes past side90 with real rear-heading command following (cmd_prog>=0.65, slip<=2.0, 0 falls at cert). If-false: precert fails (broken transplant) or frontier stalls at side90/rear while reward rises - that is a reward/eval misalignment audit per the 08-21 ruling, not a same-recipe seed relaunch. Strongest alternative: the gait is already heading-symmetric and rear rungs pass trivially (would show as fast full-ladder promotion, still a win).
 
