@@ -27,11 +27,17 @@ margin against the two strictest bars in the suite. Remaining fork —
 (a) a walk/yaw-side pricing nudge at 5-18N to recover the margin vs
 (c) a tolerance-band ruling on the never-operator-specified 0.20/3.5
 bars (q_20260823T0130Z) — is a reward/gate change and belongs to a
-dig-in cycle (DIG-IN flagged). seed13's push/fault M5 sections re-run
-launched to complete the record (first pass was killed mid-push by
-this cycle's own process handling, rc=-15; walk/yaw artifacts are
-complete and valid). Do not re-launch the seed grid or the walk/yaw
-m5 sections.** Prior banner below.)
+dig-in cycle (DIG-IN flagged). seed13's push/fault M5 sections
+completed on a re-run (first pass was killed mid-push by this cycle's
+own process handling, rc=-15; walk/yaw artifacts complete and valid):
+push PASS (0 terms, gait_valid 12/12, det slip 3.17), fault PASS
+(0 terms, gait_valid 11/12, sacrificed leg {2}, det fwd 0.584) —
+same profile as seed7. CAUTION: the re-run's `m5_verdict.json` says
+`m5_pass=true` but contains ONLY the push/fault sections (the --skip
+merge did not pick up the walk/yaw artifacts) — the honest full-suite
+read for seed13 is m5_pass=FALSE on walk+yaw, identical to seed7. Do
+not cite that file's m5_pass. Do not re-launch the seed grid or any
+m5 section for seed13.** Prior banner below.)
 
 Previous entry (~10:5x: **SEED-ROBUSTNESS TWIN #2 (seed23)
 CONFIRMS THE PUSH RECALIBRATION FIX ON THE FULL TURN+FAULT+PUSH
