@@ -140794,7 +140794,7 @@
       "reward.yaw_prog_avg_s=1.0"
     ],
     "created": "2026-08-23T05:17:33+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -140823,6 +140823,15 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:amp PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-amp-m4-turnfault-seq1-pushcont1-ypfix1 --steps 2000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_amp_m4_turnfault_seq1.zip --episode-seconds 15 --no-canary --eval-every 1000000 --video-every 2000000 --n-envs 4096 --impl warp --host-workers 24 --seed 7 --ent-coef 0.001 --warm-log-std-override -2.0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set goal.walk_phase_obs=1 --cfg-set goal.walk_phase_hz=1.333333 --cfg-set goal.walk_obs_body_vel=2 --cfg-set goal.walk_heading_max_rad=-1 --cfg-set goal.walk_speed_min_m_s=0.08 --cfg-set goal.walk_speed_max_m_s=0.08 --cfg-set goal.walk_cmd_mode=stress_mix --cfg-set goal.walk_cmd_resample_s=4.0 --cfg-set goal.walk_cmd_resample_jitter=0.5 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set bus.write_speed=1500 --cfg-set bus.write_acc=80 --cfg-set bus.servo_vel_max_counts_s=write_speed --cfg-set safety.max_delta_q_deg=5.0 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --cfg-set reward.term_penalty=400.0 --cfg-set reward.k_step_event=0.0 --cfg-set reward.k_park_duty=0.0 --cfg-set reward.k_walk_freeprog=0.0 --cfg-set reward.walk_loadslip_gate=0.0 --cfg-set reward.k_loadslip_excess=0.0 --cfg-set reward.walk_gait_gate=0.0 --cfg-set reward.k_walk_idle_charge=0.0 --cfg-set reward.k_drag_stance=0.0 --amp-motion-lib rl_move/sim/motion_library/teacher_v2.npz --amp-disc-steps 4 --amp-disc-batch 512 --amp-gp-weight 10.0 --amp-replay 500000 --amp-task-weight 0.5 --amp-style-weight 0.5 --out-name ppo_goal_cw_amp_m4_turnfault_seq1_pushcont1_ypfix1 --notes 'respec of cw-amp-m4-turnfault-seq1-pushcont1: Plain English: the push-probability dose sweep (0.25/0.5/0.75/1.0, all vs pushcont1) just closed FLAT -- every dose lands tip err in the same 0.24-0.30 band, so exposure fraction is not the lever. But NONE of those arms ever turned on the already-built, already-banked overshoot-farm fix (reward.yaw_prog_overshoot_decay/yaw_prog_avg_s, landed 08-23 from the solo-turn income audit and separately tested on the DIFFERENT turnpushfault1-style05/clamp-pinned lineage) -- pushcont1 and every pushdose child were trained on the LEGACY yaw pricing that pays overshoot up to 1.25x, the exact mechanism the audit named as the M2 turn-erosion driver before push was ever added. This is the untested cell: does closing the farm (pricing correctness), not exposure dosing, recover fault-first-order turn tracking under push? Single lever vs pushcont1: reward.yaw_prog_overshoot_decay 0.0->1.0, reward.yaw_prog_avg_s 0.0->1.0 (income now peaks at ratio 1.0 and never pays past it). Re-inits from the SAME pre-cheat turnfault-seq1 checkpoint pushcont1 itself used (per the 08-22 init-basin rule -- pushcont1'\"'\"'s own --init-from, inherited automatically via respec --from), matched 2M discovery budget.' --obs-pad-transplant 0 --cfg-set goal.walk_yaw_cmd=1 --cfg-set goal.walk_yaw_max_rad_s=0.3 --cfg-set goal.walk_yaw_zero_frac=0.5 --cfg-set reward.k_walk_yaw=1.0 --cfg-set reward.walk_yaw_kernel_gate=1.0 --cfg-set reward.k_yaw_prog=1.0 --cfg-set reward.k_yaw_still=50 --cfg-set reward.walk_kernel_yaw_gate=1.0 --cfg-set reward.walk_yaw_hold_prog_gate=1.0 --cfg-set reward.yaw_still_avg_s=1.0 --cfg-set goal.walk_phase_run_on_yaw=1 --cfg-set dr.fault_prob=1.0 --cfg-set obs.fault_health=1 --cfg-set dr.ext_push_prob=1.0 --cfg-set reward.yaw_prog_overshoot_decay=1.0 --cfg-set reward.yaw_prog_avg_s=1.0 > /tmp/train_cw-amp-m4-turnfault-seq1-pushcont1-ypfix1.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-amp-m4-turnfault-seq1-pushcont1-ypfix1.log",
     "wandb_id": "x2a1k1yi",
-    "verified": "2026-08-23T05:20:56+00:00"
+    "verified": "2026-08-23T05:20:56+00:00",
+    "triage": "in-cycle cw-amp-m4-turnfault-seq1-pushcont1-ypfix1 since 2026-08-23T05:24:59",
+    "checkups": [
+      {
+        "time": "2026-08-23T05:26:18+00:00",
+        "process_alive": false,
+        "verdict": "FINISHED_BEFORE_CHECKUP",
+        "log_tail": "l_mean 0.56187\nwandb:      amp/disc_updates 124\nwandb:                amp/gp 0.01037\nwandb:              amp/loss 0.27807\nwandb: amp/pairs_per_rollout 65306\nwandb:        amp/replay_len 500000\nwandb: amp/style_reward_mean 0.16737\nwandb:                  +104 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-amp-m4-turnfault-seq1-pushcont1-ypfix1 at: https://wandb.ai/l2k2/hexapod-balance/runs/x2a1k1yi\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 3 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260823_051832-x2a1k1yi/logs\n"
+      }
+    ]
   }
 ]

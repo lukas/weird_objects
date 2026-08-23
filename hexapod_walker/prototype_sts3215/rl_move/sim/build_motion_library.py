@@ -162,9 +162,21 @@ def _families(clip_s: float = 6.0):
     return fam
 
 
-def run_clip(name: str, cmd_fn, clip_s: float, seed: int) -> dict:
+def run_clip(name: str, cmd_fn, clip_s: float, seed: int, *,
+             controller: str = "tripod", cpg_params=None,
+             yaw_trim: bool = False) -> dict:
     """Roll the scripted teacher through real physics for one command
-    profile; return per-tick records + validation metrics."""
+    profile; return per-tick records + validation metrics.
+
+    `controller="tripod"` (default) is byte-for-byte the original
+    teacher_v1/teacher_v2 generator, unchanged. `controller="se2cpg"`
+    (cpg track, 08-23) drives the SAME command families through the
+    CPG-search `SE2FootGait` winner instead, for a controlled
+    teacher_v2-vs-CPG motion-library A/B (`rl_docs/tracks/cpg/STATUS.md`
+    Next item 3) -- everything else (env, physics, obs_style layout,
+    validation) is identical so a downstream A/B compares only the
+    GAIT, not the harness.
+    """
     # FRAME FIX (08-22, fb_20260822T145428 audit): import through the
     # ONE sim-side knee-convention boundary (sim_gait_compat), NOT raw
     # tripod_gait. Since 30660b51 the raw class speaks the hardware's
@@ -178,17 +190,39 @@ def run_clip(name: str, cmd_fn, clip_s: float, seed: int) -> dict:
     # slip) but are NOT the verified teacher's gait. Rebuilds from
     # this script now produce the true convention-correct motion
     # (default --out bumped to teacher_v2; v1 kept append-only).
-    from sim_gait_compat import TripodGait
+    if controller == "se2cpg":
+        from sim_gait_compat import SE2FootGait
+        gait = SE2FootGait(
+            gait=cpg_params.gait, period=cpg_params.period,
+            swing_frac=cpg_params.swing_frac, lift=cpg_params.lift_m,
+            cmd_tau=cpg_params.cmd_tau,
+            workspace_margin=cpg_params.workspace_margin)
+    else:
+        from sim_gait_compat import TripodGait
+        gait = TripodGait(vx=0.0, lift=0.025)
 
     env = _make_env(seed, episode_seconds=clip_s + 1.0)
     env.reset()
-    gait = TripodGait(vx=0.0, lift=0.025)
     gait.sync_plant_stance(*WALK_PLANT)
-    gait.reset_phase()
+    gait.reset_phase() if controller != "se2cpg" else gait.reset_phase(t=0.0)
 
     dt = env.dt
     n = int(round(clip_s / dt))
     neutral_q = env.data.qpos[env._qadr].copy()
+    # Closed-loop yaw trim (only meaningful for a PURE turn-in-place
+    # clip -- name starts with "turn_"; forward+turn/diagonal clips are
+    # untouched, matching the verified eval_cpg_gate.py scope): see
+    # rl_move/sim/yaw_trim.py for why an open-loop CPG gait needs this.
+    trim_active = (yaw_trim and controller == "se2cpg"
+                   and name.startswith("turn_"))
+    trim_scale = 1.0
+    trim_ref_yaw = 0.0
+    yaw_cum = 0.0
+    yaw_prev = None
+    if trim_active:
+        from rl_move.sim.eval_cpg_gate import _body_yaw, _wrap_angle
+        from rl_move.sim.yaw_trim import update_trim
+        yaw_prev = _body_yaw(env)
 
     joint_pos, joint_vel, base_quat, base_angvel = [], [], [], []
     foot_pos_body, proj_grav, phase_label, cmd_hist = [], [], [], []
@@ -202,7 +236,18 @@ def run_clip(name: str, cmd_fn, clip_s: float, seed: int) -> dict:
         t = step * dt
         vx, vy, wz = cmd_fn(t)
         cmd_hist.append((vx, vy, wz))
-        gait.set_velocity(vx=vx, vy=vy, omega=wz)
+        gait.set_velocity(vx=vx, vy=vy, omega=wz * trim_scale
+                          if trim_active else wz)
+        if trim_active:
+            yaw_now = _body_yaw(env)
+            if step > 0:
+                yaw_cum += _wrap_angle(yaw_now - yaw_prev)
+            yaw_prev = yaw_now
+            period_steps = max(1, int(round(1.0 / dt)))
+            if step > 0 and step % period_steps == 0:
+                measured_wz = (yaw_cum - trim_ref_yaw) / (period_steps * dt)
+                trim_ref_yaw = yaw_cum
+                trim_scale = update_trim(trim_scale, measured_wz, wz)
         q_prev = env.data.qpos[env._qadr].copy()
         act = q_rad_to_action(np.asarray(gait.desired_deg(t)) * DEG2RAD)
         _obs, _r, term, trunc, _info = env.step(act)
@@ -247,7 +292,18 @@ def run_clip(name: str, cmd_fn, clip_s: float, seed: int) -> dict:
         # clock currently commands into stance -- alternates every
         # half period by construction, unlike an agreement/mismatch
         # bit which stays ~1 the whole clip for a clean honest gait.
-        phase_label.append(1 if math.sin(gait._phase) >= 0.0 else 0)
+        if controller == "se2cpg":
+            # SE2FootGait has no single sinusoidal phase scalar (its
+            # scheduler assigns per-group swing WINDOWS over
+            # cpg_params.period) -- this field is descriptive metadata
+            # only (not consumed by any training/discriminator code
+            # today, grep-confirmed), so a period-locked proxy is
+            # sufficient to keep the array's shape/semantics.
+            phase_label.append(
+                1 if math.sin(2 * math.pi * t / cpg_params.period) >= 0.0
+                else 0)
+        else:
+            phase_label.append(1 if math.sin(gait._phase) >= 0.0 else 0)
         if term:
             fell = True
             break
@@ -306,14 +362,52 @@ def main():
     ap.add_argument("--clip-seconds", type=float, default=6.0)
     ap.add_argument("--reject-slip-per-m", type=float, default=3.5)
     ap.add_argument("--min-ticks", type=int, default=50)
+    ap.add_argument("--controller", choices=["tripod", "se2cpg"],
+                    default="tripod",
+                    help="tripod (default, unchanged teacher_v1/v2 "
+                         "generator) or se2cpg (cpg-track winner, "
+                         "cpg/STATUS.md Next item 3)")
+    ap.add_argument("--cpg-params-from", default="",
+                    help="required with --controller se2cpg: a "
+                         "paper_cpg_search report JSON (uses "
+                         "best.params) or an eval_cpg_gate --export "
+                         "controller artifact JSON (uses .params)")
+    ap.add_argument("--no-yaw-trim", action="store_true",
+                    help="with --controller se2cpg, skip the "
+                         "closed-loop yaw trim on turn_* clips "
+                         "(default: trim ON, matching the verified "
+                         "robust-gate recipe)")
     args = ap.parse_args()
 
+    cpg_params = None
+    if args.controller == "se2cpg":
+        if not args.cpg_params_from:
+            print("--controller se2cpg requires --cpg-params-from")
+            sys.exit(1)
+        from rl_move.sim.paper_cpg_search import GaitParams, _clip_params
+        raw = json.loads(Path(args.cpg_params_from).read_text())
+        params_dict = raw["params"] if "params" in raw else raw["best"]["params"]
+        cpg_params = _clip_params(GaitParams(**params_dict))
+
     families = _families(args.clip_seconds)
-    manifest = {"families": sorted(families), "clips": [], "source":
-                "scripted_tripod_gait_teacher via sim_gait_compat "
-                "knee-convention boundary (linux_control/tripod_gait.py"
-                " + linux_control/sim_gait_compat.py)"
-                " @ tibia-150 plant, real MuJoCo physics, no RL",
+    source = ("scripted_tripod_gait_teacher via sim_gait_compat "
+              "knee-convention boundary (linux_control/tripod_gait.py"
+              " + linux_control/sim_gait_compat.py)"
+              " @ tibia-150 plant, real MuJoCo physics, no RL"
+              if args.controller == "tripod" else
+              "cpg_search_se2_foot_gait winner (params from "
+              f"{args.cpg_params_from}) via sim_gait_compat.SE2FootGait"
+              " @ tibia-150 plant, real MuJoCo physics, no RL"
+              f"{'' if args.no_yaw_trim else ' + closed-loop yaw trim on turn_* clips (rl_move/sim/yaw_trim.py)'}")
+    manifest = {"families": sorted(families), "clips": [], "source": source,
+                "controller": args.controller,
+                "cpg_params": (dict(gait=cpg_params.gait,
+                                    period=cpg_params.period,
+                                    swing_frac=cpg_params.swing_frac,
+                                    lift_m=cpg_params.lift_m,
+                                    cmd_tau=cpg_params.cmd_tau,
+                                    workspace_margin=cpg_params.workspace_margin)
+                              if cpg_params is not None else None),
                 "obs_style_layout": "joint_pos_rel_neutral(18) + "
                 "joint_velocity(18) + base_angular_velocity(3) + "
                 "projected_gravity(3) + foot_positions_rel_body(18) = 60",
@@ -324,7 +418,10 @@ def main():
     accepted, rejected = [], []
     for name, (cmd_fn, clip_s) in families.items():
         for seed in args.seeds:
-            clip = run_clip(name, cmd_fn, clip_s, seed)
+            clip = run_clip(name, cmd_fn, clip_s, seed,
+                            controller=args.controller,
+                            cpg_params=cpg_params,
+                            yaw_trim=not args.no_yaw_trim)
             ok, reason = validate(clip, args.reject_slip_per_m, args.min_ticks)
             entry = dict(name=name, seed=seed, n_ticks=clip["n_ticks"],
                         slip_per_m=round(clip["slip_per_m"], 3),
