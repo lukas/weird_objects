@@ -967,6 +967,27 @@ def _activation_fn(name: str):
                          f"{sorted(table)}") from None
 
 
+def _validate_use_sde_scratch_only(use_sde: bool, init_from,
+                                    init_from_actor_only: bool,
+                                    init_from_policy_backbone: bool) -> None:
+    """--use-sde (gSDE) only applies to from-scratch/transplant builds,
+    mirroring --activation-fn's own restriction: a plain --init-from
+    warm start keeps the checkpoint's own exploration mode (use_sde is
+    baked into the saved policy, not something a CLI flag can safely
+    override post-hoc without touching PPO.load's kwargs). Pulled out
+    of main() as a pure function so it is unit-testable without mujoco/
+    GPU. No-op (returns None) whenever the combination is legal.
+    """
+    if not use_sde:
+        return
+    if init_from is not None and not init_from_actor_only \
+            and not init_from_policy_backbone:
+        raise SystemExit("--use-sde only applies to from-scratch/"
+                         "transplant builds; a plain --init-from "
+                         "warm start keeps the checkpoint's own "
+                         "exploration mode")
+
+
 def _env_kwargs(args, params: SimServoParams | None = None) -> dict:
     """Per-shim-env kwargs — mirrors train_ppo_sim._build_env, minus the
     model-DR pieces the shared-model backend can't honor yet.
@@ -2636,13 +2657,10 @@ def main(argv: list[str] | None = None) -> int:
                              "checkpoint's own activation")
         extra_pk["activation_fn"] = _activation_fn(args.activation_fn)
         print(f"[mjx-train] MLP activation: {args.activation_fn}")
+    _validate_use_sde_scratch_only(args.use_sde, args.init_from,
+                                    args.init_from_actor_only,
+                                    args.init_from_policy_backbone)
     if args.use_sde:
-        if (args.init_from is not None and not args.init_from_actor_only
-                and not args.init_from_policy_backbone):
-            raise SystemExit("--use-sde only applies to from-scratch/"
-                             "transplant builds; a plain --init-from "
-                             "warm start keeps the checkpoint's own "
-                             "exploration mode")
         print(f"[mjx-train] gSDE exploration ON "
               f"(sde_sample_freq={args.sde_sample_freq})")
     if args.init_from is not None and (

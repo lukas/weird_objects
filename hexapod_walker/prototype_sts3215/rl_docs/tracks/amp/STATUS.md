@@ -1,6 +1,46 @@
 # amp - AMP locomotion from scratch
 
-Last updated: 2026-08-23 ~19:2x (**RECONCILIATION + EXPOSURE CLASS
+Last updated: 2026-08-23 ~20:0x (**CADENCE IS THE LEVER — the 0.5 Hz
+phase-clock batch produced the FIRST yaw-section PASS in this
+lineage's history AND the best walk slip ever measured, at the cost
+of halved walk progress; 4-arm follow-up batch RUNNING.** Both arms
+PARTIAL (verdicted): `-phasehz05` (clock 0.5 Hz, teacher_v2 demos
+unchanged) m5 tips **0.1488/0.1557** vs parent 0.2157/0.2351 — both
+sides clear the strict 0.20 M5 bar, improvements 0.067/0.079, 4-8x
+the ±0.02 floor that eight prior mechanism classes (pricing,
+demo-ceiling, style-ablation, densification, cpg-full-swap, disc
+masking, turn-clip splice, envelope/exposure) never crossed; walk
+det_slip_med **2.443** at n_translating=28 (`--walk-per-mode 24`
+re-read; family band 3.47-3.83, bar 3.5) — best ever on the lineage;
+0 terms, gait 48/48 walk, push 12/12 gv (1 det term, bar<=2), fault
+11/12 (leg 5). `-phasehz05-cpglib` (coherent package: 0.5 Hz + cpg_v1
+demos) matches: tips 0.1458/0.1367, slip 2.676 @ n=28, same safety.
+READINGS: (1) the CLOCK is the mechanism, demos are second-order —
+the teacher_v2-demo sibling won just as big, so cpgdemo1's old slip
+regression was indeed the clock/demo cadence conflict; (2) the
+cpglib gate's BONUS branch FIRES — the closed slip fork REOPENS with
+CADENCE (not demo source) as the mechanism; (3) the COST: walk
+det_prog_med 0.52/0.465 vs family ~0.94 (m5 bar 0.75) — achieved
+~0.04 m/s vs 0.08 commanded; 0.5 Hz turns and grips but hasn't
+learned big-stride translation in 2M. NOT clean PASSes: the gates
+never priced prog, so both verdicted PARTIAL. LAUNCHED (this cycle,
+all VERIFIED RUNNING): cadence dose sweep `-phasehz07/-phasehz09/
+-phasehz11` (single lever each on the phasehz05 recipe, 2M discovery
+— with the 0.5/1.333 endpoints this is a 5-point dose curve: find a
+cadence with tips<=0.20 AND prog>=0.75, or declare the trade
+monotone) + `-phasehz05-cont1` (+4M acquisition continuation from
+the phasehz05 checkpoint per the 08-21 ruling — reward was still
+climbing 43.5->216.5 by quarters; tests whether stride growth
+recovers prog at 0.5 Hz, since cpg_v1 proves 0.08 m/s at 0.5 Hz is
+plant-reachable; tips re-gated, never assumed). If no cadence point
+is feasible and cont1 plateaus, next is command-conditional clock
+code work (slow clock only under turn commands — mechanism, so
+semantics-bank first). Tooling: `m5_pod_eval.py` now passes
+`--walk-per-mode=` through (committed). Evidence:
+`logs/ckpt_eval/..._{phasehz05,phasehz05_cpglib}_m5{,_wpm24}/
+m5_verdict.json`, ledger verdicts on both. Prior banner below.)
+
+Previous entry (~19:2x) (**RECONCILIATION + EXPOSURE CLASS
 CLOSED + CADENCE MEASUREMENT FLIPS THE PHASE-CLOCK ARM'S SIGN +
 2-arm capability batch RUNNING.** Two cycles raced on the exposure
 batch (ops note: yawenv045/yawexpo02 were THIS cycle's "just

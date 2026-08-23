@@ -158,6 +158,21 @@ validity, on video. Speed obedience is secondary throughout.
   added on top of it. This would explain why every dose/pricing/
   exploration-noise lever failed IDENTICALLY: none of them change how
   much the per-step reward actually depends on the action once frozen.
+  **CONFIRMED GENERAL (08-23 ~20:2x cycle, cached-history read on 3
+  more FAILed arms, no training):** `fwd1` clip_fraction quarters
+  [0.0054, 0, 0, 0] (zero from ~30% of run, approx_kl -> 4.6e-5),
+  `fwd4-entboost` [0.0069, 0, 0, 0] (zero from ~35%, kl -> 4.0e-5),
+  `fwd4-logstd0` [0, 0, 0, 0] (zero from the FIRST logged decile,
+  kl -> 3e-7) — identical collapse across baseline, 10x-entropy, and
+  wide-noise arms, with ep_len climbing in all three. The logstd0
+  detail is the sharpest: WIDER initial noise made the gradient die
+  FASTEST, directly supporting the theory that per-step reward is
+  action-insensitive once frozen (noise samples all score alike, so
+  advantages stay ~0 regardless of exploration scale). Noise/entropy
+  levers are dead for this freeze; only mechanisms that make reward/
+  novelty depend on the ACTION-reachable state (RND/curiosity, rung-0
+  sub-goal, or state-dependent exploration) remain live.
+  Original note (superseded where it says unconfirmed):
   **Not yet confirmed** (only one run's history was read) — the next
   cycle should (a) check 1-2 more of the 8 FAILed runs for the same
   clip_fraction/approx_kl collapse-to-~0 signature to confirm it's
