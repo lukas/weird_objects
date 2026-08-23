@@ -42,9 +42,24 @@ validity, on video. Speed obedience is secondary throughout.
 ## Now
 
 - **Rung-1 discovery batch v2 CLOSED, BOTH ARMS FAIL (08-23 ~18:0x)
-  — swing-income and term_penalty-magnitude are DEAD; escalate to
-  init/BC-kickstart, dig-in tier, before any more single-cfg reward
-  tweaks on this recipe.** `cw-walkcurr-pf-fwd2-swing` (train-0,
+  — swing-income and term_penalty-magnitude are DEAD.** UPDATE (same
+  cycle, concurrent read with reward-component telemetry): the
+  mechanism is now root-caused past "dig-in, direction unknown" —
+  `env/reward_swing` DID pay ~0.065-0.089/step from step 0 (the swing
+  lever IS reachable), but that income is ~60x smaller than the
+  ~-4.7/step dense charge flow (loadslip -4.08, height -0.77, heading
+  -0.5) and the bank ordering caps the direction-free swing dose at
+  k<~1.7 before sideways-farming becomes profitable — so income-side
+  levers (swing bonus, term_penalty magnitude) are EXHAUSTED within
+  this pricing family; freezing pays MORE than exploring at any
+  bank-legal dose. **Next lever named (not yet built): a
+  discovery-phase CHARGE RAMP** (mirror the existing term_penalty/
+  drag-allow ramp-contract pattern — cfg-armed, default OFF, anneal
+  the dense per-step charges from near-zero up as training
+  progresses) rather than an init/BC-kickstart change; still dig-in
+  tier (a reward-schedule mechanism, root-cause chain required before
+  building). Do NOT launch a 3rd single-cfg variant of this exact
+  recipe before that lands. `cw-walkcurr-pf-fwd2-swing` (train-0,
   `reward.k_walk_swing=1.0`) and `cw-walkcurr-pf-fwd2-swingterm800`
   (train-1, same + `term_penalty` 1200->800) both finished in ~10 min
   (fast GPU fps) and both FAIL identically: det panel progress_ratio
