@@ -222,6 +222,35 @@ validity, on video. Speed obedience is secondary throughout.
   obs A/B (`goal.walk_obs_body_vel=0.0`) once commands start changing
   mid-episode (rung 4).
 
+## Now (updated 08-23 ~20:5x)
+
+- **`cw-walkcurr-pf-fwd6-sde` FAIL (verdicted):** gSDE (temporally-
+  correlated per-rollout action noise instead of i.i.d. per-tick) does
+  NOT unfreeze rung-1 — identical static splayed-crouch to fwd1-fwd5.
+  Gate eval 0/6 det success, det speed 0.003 m/s vs 0.05-0.06 cmd,
+  dir_err 52.8deg, slip/m 9.46, prog_ratio 0.00 (sto 0/6 too). W&B
+  history: `train/clip_fraction` collapses 0.035->0 by ~50% of the
+  2M run and stays there; `train/std` never leaves its log-std-init
+  value (0.3673 the whole run); `env/walk_freeprog_score` flat in
+  [-0.18,-0.15] the entire run (flatter/worse than the [-0.10,-0.05]
+  prior band, never trends toward 0). This is exactly the cross-
+  prediction the optimizer-crush dig-in pre-registered: gSDE changes
+  noise STRUCTURE only, and does nothing about the mechanism blamed
+  (SB3's single global grad-norm clip dominated by |1000s|-scale
+  value loss crushing policy/log_std gradients regardless of noise
+  shape). **Noise-structure hypothesis CLOSED alongside noise-
+  magnitude/entropy (fwd4) and loadslip-bootstrap (fwd5) — 9/9
+  rung-1 arms now FAIL with the identical clip_fraction-collapse
+  signature.** `fwd6-gru` (recurrent, another concurrent-cycle arm)
+  is the last untriaged member of this batch; per the same cross-
+  prediction it should fail identically unless memory specifically
+  breaks the crush. The `fwd6-rscale10`/`-rscale50` siblings (reward
+  down-scale — the dig-in's actual proposed fix) remain the live
+  discriminating test; do not fund further noise-structure/
+  exploration variants (e.g. gSDE sample-freq sweeps) until they
+  read. If rscale ALSO fails with healthy clip_fraction, escalate to
+  rung-0 sub-goal or RND per the pre-registered order above.
+
 ## Key facts
 
 - The RAW kawawa2022 reward stack was bank-REFUTED on 08-23: park

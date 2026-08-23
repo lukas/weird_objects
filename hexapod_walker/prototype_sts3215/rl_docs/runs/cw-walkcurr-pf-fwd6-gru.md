@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: RUNNING
+**status**: FAIL
 
 **created**: 2026-08-23T20:33:11+00:00
 
@@ -17,4 +17,6 @@
 **hypothesis**: Plain English: fwd1-fwd5 (8 arms) all froze in an identical static crouch under a memoryless MLP actor, and a W&B-history read confirmed train/clip_fraction collapses to exactly 0 early and never recovers regardless of reward pricing or exploration-noise magnitude. This arm tests the one architecture-side candidate named in STATUS.md's own Next list that hasn't been implicated by any finding yet but also hasn't been tried: swap the from-scratch actor/critic for the in-repo recurrent GRU path (--gru, sb3-contrib RecurrentPPO). A recurrent hidden state carries information across the whole BPTT window (--n-steps 64, the documented recommended length for --gru vs the MLP recipe's 24, so the memory actually gets a usable window -- widening n-steps is part of the SAME single lever, not a second one, since --gru is defined to want it), which could let the critic/actor represent progress-since-episode-start rather than only current state+time, potentially avoiding the frozen-policy's near-zero-advantage trap the vanishing-gradient diagnosis describes. Fresh init, 2M steps, everything else byte-identical (charge ramp kept). Prediction-if-true: env/walk_freeprog_score leaves its flat [-0.10,-0.05] band and trends toward/above 0. Prediction-if-false: identical frozen video/flat score -- memorylessness is exonerated (matches the diagnosis's own framing: the trap is a property of the STATE-reward relationship, not the architecture), closing this STATUS.md Next-list item and sharpening the case for rung-0/RND.
 
 **gate**: Rung-1 gate (same as fwd1-fwd5): C-env det fixed-forward panel -- zero tilt terms, cmd_prog_frac >= 0.35, direction_err <= 30 deg, slip/m <= 3.0, six legs cycling on >=4/6 episodes, video shows real stepping. Discovery-health (08-21 ruling): env/walk_freeprog_score > -0.02 and rising at 2M = continue; still flat in [-0.10,-0.05] = recurrence hypothesis refuted, no same-recipe continuation -- escalates to rung-0/RND.
+
+**verdict**: FAIL -- recurrence hypothesis refuted, and the optimizer-crush cross-prediction holds. Result: identical rung-1 freeze under a GRU RecurrentPPO actor (gate 0/6 det, prog 0.00, fwd 0.01m, static splayed crouch on contact sheet; sto prog med 0.01 slip 41). Evidence (cached W&B): train/clip_fraction 0.027@512k -> 0.0007@768k -> EXACTLY 0 for the rest of 2M; std pinned at init 0.369; walk_freeprog_score flat in [-0.09,-0.06] band start to finish; value_loss 880-2400 (|1000s|-scale returns crush the shared grad-norm clip exactly as in the MLP arms). Why: memorylessness is exonerated -- the freeze is a property of the unscaled reward magnitudes, not architecture; the GRU value head faces the same thousands-scale returns and the same global max_grad_norm=0.5 clip. What's next: rung-1 discovery rides on the reward-scale wave (rscale10 PARTIAL-mechanical, rscale10-cont1 launched, rscale50 still training); no same-recipe GRU continuation per pre-registered gate.
 

@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-08-23T20:43:33+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 6000000
 
 **parent**: cw-amp-m2-bcinit-sec5-style05
+
+**wandb_id**: buvr417c
 
 **hypothesis**: Plain English: the control arm of a 2-run A/B asking whether the CPG-searched gait's ~15-20% deficit as an AMP style source (cw-cpg-teacherfork-ab-cpgv1, WORSE-BUT-WALKING at 2M) persists when both style sources get 3x budget, or was an early-training artifact. This arm: the already-PASSED style05 recipe (teacher_v2 library), byte-identical, at 6M instead of 2M. Prediction-if-true (deficit is real): this arm's det margins stay >=10% ahead of the cpg_v1 sibling at 6M. Prediction-if-false: the sibling matches/inverts. Strongest alternative: both arms ceiling the bars at 6M and margins become indistinguishable — then judge the pair on slip and gait-quality margins. cpg STATUS Next item (second adoption data point), funded now that GPUs are free.
 
