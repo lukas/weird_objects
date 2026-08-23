@@ -2150,6 +2150,28 @@ Build every tool this needs; do not pause on operator input.
 
 ## Now
 
+**08-23 ~08:4x — LAUNCHED the funded next step: kernel-EMA as a
+CONTINUATION (fixed basin), not another fresh retrain.** The
+3-arm decomposition grid (kernelema1/-yawonly/-velonly2, all
+FAIL/INFORMATIVE — see entries below) closed without attributing the
+mechanism to either axis because a FRESH 2M retrain's basin-selection
+noise (tipfrac05's own seed grid: 0.207-0.234) swamps the lever's
+effect size. That grid never actually tested the question the fix was
+built for (q_20260823T0240Z item b: does repricing rescue BUDGET-
+CONTINUATION, i.e. the `-acq1` +6M erosion 0.162/0.184 -> 0.204/0.269
+while reward rose then plateaued). Launched
+`cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-acq-kernelema`
+(train-0, VERIFIED RUNNING): respec of `-acq1` (+6M warm-started from
+the tipfrac05 checkpoint ITSELF — same fixed basin, same seed=7),
+single added lever = both `reward.walk_kernel_yaw_ema` +
+`walk_kernel_vel_ema` on (tau=0.75s). Pre-registered gate: tips
+staying <=0.25 both signs without eroding past the 2M parent's own
+seed-noise band = repricing rescues budget-continuation (promotes to
+a standing default for future AMP turn continuations); erosion
+matching acq1's despite the fix = repricing is real-but-insufficient
+against the untouched actuation-cost asymmetry (current/gyro/roll
+4-10x pricier on real motion), escalating to that harder lever next.
+
 **08-23 ~08:3x — DECOMPOSITION ARM #2: `-kernelema-velonly2`
 (translation-EMA ONLY, yaw kernel untouched) reproduces ~90% of the
 bundle's yaw regression — the original gate-conflict hypothesis is
