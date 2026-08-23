@@ -1,6 +1,48 @@
 # amp - AMP locomotion from scratch
 
-Last updated: 2026-08-23 ~01:5x (**M4 FAULT-SIGHT SIGHTED-VS-BLIND PAIRING CLOSED:
+Last updated: 2026-08-23 ~02:0x (**M3 PUSH CURRICULUM STAGE 2: COUNT
+AXIS CLOSED at 3 shoves (PASS, staged beats cold jump 1/12 vs 3/12
+topples); FORCE axis at 20-40N misses its bar by ONE sto episode with
+terms still falling — ceiling-continue launched.** (1)
+`cw-amp-m3-pushcur2-noamp-repeat3` PASS: repeat_max=3 warm from rung 2
+lands 0/6 det + 1/6 sto topples (bar <=1/<=2), gait 12/12, det prog
+med 1.17, zero sacrificed — count axis closes at 3, staged-count is
+the recipe (SKILLS row added). BUT the pre-named free-rung alternative
+fired again (tilt terms low-flat ~19-21/window all 6M, reward flat
+after Q1): count-at-mild-force is not the hard direction. Eval-side
+DENSITY probe (repeat_max=6 at 15s, same ckpt) running on train-1
+(`logs/ckpt_eval/cw_amp_m3_pushcur2_noamp_repeat3_dense6`) — clean =>
+count/density closed entirely and force is M3's only open axis;
+breaks => direct evidence for the recovery-mechanism lever. (2)
+`cw-amp-m3-pushcur2-noamp-n2040` INFORMATIVE-ceiling: staged 20-40N =
+4/12 topples (det 1/6 PASSES its half, prog med 1.13; sto 3/6 misses
+<=2/6 by one) with tilt terms falling MONOTONICALLY 136->96/window
+and reward rising every quarter (-47/52/72/83) — NOT the flat-jump
+plateau fingerprint; per its own branch + 08-21 ruling, 6M
+continuation `pushcur2-noamp-n2040-c2` queued (18M total). Caveat:
+decline is slow (~4-5/window per 1M); if c2 flattens in the 90s band,
+staging saturates below 40N and the recovery-specific mechanism
+(get-up reward / longer episodes) becomes the named M3 lever. The
+curriculum-vs-budget fork is now ADJUDICATED (02:1x):
+`pushhard1-noamp-n2040-c1r1` (raw +6M at the flat 20-40N dose, 12M
+total) read out INFORMATIVE-plateau — 3/12 topples (det 3/6, all
+genuine end-frame knockdowns incl. full flips; sto 0/6), tilt terms
+noisy-flat ~35-45/window over the last 2M, reward flat-to-down after
+Q2 (131.8/131.2/121.1). Same topple count as the curriculum today
+(3/12 vs 4/12, within noise) but ONLY the curriculum's terms are
+still falling — raw budget is refuted as the 20-40N lever, staging
+is the live mechanism; c2 decides whether it converges or saturates
+into the recovery-mechanism branch. Note: c1r1's knockdowns are FULL
+FLIPS — if c2 flattens, that is direct evidence the missing skill is
+righting/get-up, which a 15s tilt-terminated episode can never learn
+(no gradient after knockdown). (3) Also spent the STATUS-named turnpush lever:
+`cw-amp-m3-turnpush1-style05-acq1` queued — 6M acquisition
+continuation of turnpush1-style05-r2 (reward 16->197 still climbing
+at its 2M cutoff = undertrained read; gate separates budget-refuted
+vs turn-eroded vs turn-vs-push-interference branches). Previous
+entry below.)
+
+Previous entry (~01:5x): (**M4 FAULT-SIGHT SIGHTED-VS-BLIND PAIRING CLOSED:
 fault_health obs-sight more than triples the safe-limp rate vs blind on
 the full-heading substrate, generalizing faultobs1's forward-only
 finding.** `cw-amp-m4-faultobs2-headingsfull-blind` (identical to the
