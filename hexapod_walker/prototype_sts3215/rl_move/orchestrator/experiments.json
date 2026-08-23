@@ -159349,7 +159349,7 @@
       }
     ],
     "triage": "done",
-    "verdict": "RND at 5x dose (rnd_coef=0.10) ALSO does not unfreeze the rung-1 diet, and behaves almost identically to the 0.02 dose sibling -- gate FAIL. Evidence: own-cfg C-env det panel 0/6 gait_valid, all six legs sacrificed (duty<0.10) both det and sto, prog_ratio ~0.00, speed 0.007-0.008 m/s, slip/m 6.7-8.2; video shows the same frozen splayed pose across every sampled frame. W&B: clip_fraction stayed healthy (0.01-0.08, slightly higher variance than rnd02, consistent with 5x more exploration noise) and freeprog reached -0.005 by 2M (marginally better than rnd02's -0.007, but still no zero-crossing). KEY FINDING: rnd/intrinsic_mean and rnd/loss trajectories are NEARLY IDENTICAL between rnd02 and rnd10 (e.g. step 98304: 0.03664 vs 0.03664; step 2064384: 0.00552 vs 0.00565) -- the policy's visited-state distribution barely changed despite a 5x larger reward bonus, meaning the extra dose bought almost no additional exploration. Why: this is a dose-INSENSITIVE freeze, not a dose-starved one -- unlike the crush-fix rscale batch (where x0.1 vs x0.02 produced clearly different clip_fraction/freeprog trajectories), 0.02 vs 0.10 RND coefficient produced statistically indistinguishable behavior, so a small further dose bump is unlikely to help; the anti-exploration pull of the crouch's own charge-avoidance income appears to need either a MUCH larger bonus (order-of-magnitude, not 5x) or a fundamentally different mechanism. Aligned reward + adequate budget + no behavioral movement between two well-separated doses = a genuine, boring refutation, not a continue-longer case. Next: per track STATUS's pre-registered order, either fund one order-of-magnitude-bigger RND dose (~1.0, comparable to the FULL per-step task reward scale rather than the small walk charges) as the last untried point before declaring RND-as-a-class refuted at this budget, or move to the last-resort BC-kickstart (track-rule-brushing item (d)). Read jointly with rnd02 (this cycle) and the rung-0-diet+RND twin (cw-walkcurr-pf-rung0-swing3-rnd1/rnd3, a concurrent cycle's arms)."
+    "verdict": "FAIL, jointly with rnd02 (fired the pre-registered joint gate). Result: RND-coef=0.10 (5x rnd02) also does NOT unfreeze rung-1 -- same static splayed crouch. Evidence: gate 0/6 det + 0/6 sto (all 6 legs sacrificed every episode), prog med -0.00, fwd 0.01m, slip 6.73-9.46; contact sheet identical frozen pose across all 12 frames. W&B: env/walk_freeprog_score rose -0.101->-0.0054 (closer to 0 than rnd02 but still never crossed), clip_fraction stayed healthy the whole run (0.012-0.072, never collapsed), std 0.368->0.375 -- but env/walk_speed DECAYED 0.10->0.0058 m/s (same direction as rnd02, worse endpoint), direction_err flat ~88-92deg (chance) the whole run, rnd/intrinsic_mean decayed 0.037->0.0057 -- essentially IDENTICAL trajectory to rnd02 despite 5x the coefficient (raw reward_rnd_intrinsic ~0.06/step at coef 0.1, already comparable to the recipe's other small charges, yet no qualitative change vs 0.02). ep_rew_mean quarters roughly flat-then-down (54.7/62.6/62.3/53.5, driven mostly by the larger intrinsic payment, not task behavior). Why: a 5x dose bracket made no behavioral difference -- the mechanism (intrinsic bonus decaying as fast as the policy narrows onto the frozen pose) is dose-insensitive in this range, not dose-starved. Next: closes the RND dose bracket at 0.02/0.10. This cycle launched two follow-ups to close the remaining axes before the track's BC-kickstart last resort: cw-walkcurr-pf-fwd6-rnd100 (10x further, coef=1.0, makes RND the dominant per-step term) and cw-walkcurr-pf-fwd6-rnd10-cont1 (+4M budget continuation at the same coef=0.10, testing whether the still-rising-but-not-crossed freeprog trajectory eventually tips over with more steps)."
   },
   {
     "run": "cw-walkcurr-pf-fwd6-rnd10",
@@ -159967,7 +159967,7 @@
       "0.02"
     ],
     "created": "2026-08-23T22:30:41+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -160009,7 +160009,8 @@
         ]
       }
     ],
-    "triage": "in-cycle cw-walkcurr-pf-fwd6-rnd02-cw-walkcurr-pf-fwd6-rscale50-rnd1 since 2026-08-23T22:47:41"
+    "triage": "done",
+    "verdict": "RND state-novelty at rnd_coef=0.02 on the rung-1 rscale50 diet FAILS the gate -- and being a concurrent-cycle replicate of cw-walkcurr-pf-fwd6-rnd02 (same base recipe, same coef, same 2M budget, independent init), it seed-confirms that read: this is not a fluke of one init. Evidence: DR-0 C-env det panel 0/6 gait_valid, all six legs sacrificed (duty<0.10), prog 0.00, fwd med 0.02m vs 1.25-1.5m commanded, slip/m 7.7 det / 13.0 sto; frame strip walk_det_0 shows the identical static splayed crouch in every frame after settle. W&B mirrors rnd02 near-exactly: clip_fraction healthy the whole run (0.014-0.060, no collapse), value_loss tamed (310->0.4), env/walk_freeprog_score -0.105 -> -0.0086 monotone (tied with rnd02's -0.007 for best-ever rung-1 trend) but NEVER crosses zero; rnd/intrinsic_mean decays 0.037->0.0055 exactly as designed (predictor caught up with a narrow near-static visited set). Why: mechanism works, optimizer healthy, reward aligned (freeprog trend and intrinsic decay both behave as specified) -- the 0.02 dose plus 2M budget is insufficient to escape the crouch optimum; aligned-but-undertrained-at-dose per the 08-21 ruling, matching rnd02 and the dose-insensitive rnd10 read. Next: no new same-dose arms -- the open questions are already funded: rnd100 (coef 1.0, 50x, training) answers the big-dose fork and rnd10-cont1 (+4M, INTENT, other cycle) answers the budget fork; if both fail, the track's last-resort BC-kickstart item is next."
   },
   {
     "run": "cw-walkcurr-pf-fwd6-rscale50-rnd3",
@@ -160274,7 +160275,7 @@
       "1.0"
     ],
     "created": "2026-08-23T22:42:50+00:00",
-    "status": "FINISHED",
+    "status": "FAIL",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -160315,7 +160316,8 @@
         "log_tail": "s 0.05431\nwandb:   env/height_err_mm 111.44784\nwandb:       env/height_mm -111.4435\nwandb:   env/height_ref_mm 0\nwandb:   env/max_current_a 0.51546\nwandb:  env/mean_current_a 0.13927\nwandb: env/pct_within_1deg 0.78434\nwandb:   env/pitch_ref_deg 0\nwandb:                +114 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-walkcurr-pf-fwd6-rnd100 at: https://wandb.ai/l2k2/hexapod-balance/runs/58wtkxxr\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 2 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260823_224350-58wtkxxr/logs\n"
       }
     ],
-    "triage": "awaiting since 2026-08-23T22:52:46"
+    "triage": "done",
+    "verdict": "RND at 50x the original dose (rnd_coef=1.0, order-of-magnitude jump past rnd02/rnd10) STILL does not unfreeze the rung-1 diet -- gate FAIL, 0/6 det gait_valid, all six legs sacrificed (duty ~0.02 uniformly), prog_ratio ~0.00, slip/m 6.3-8.9. Unlike rnd02 vs rnd10 (near-identical optimizer stats), this dose DID move the optimizer: clip_fraction reached 0.12-0.17 (vs 0.03-0.08 at lower doses) and std grew further (0.368->0.380) -- real behavioral perturbation -- yet walk_freeprog_score ended WORSE (-0.020) than both lower doses (-0.005/-0.007), and rnd/intrinsic_mean's decay curve is STILL nearly the same shape as rnd02/rnd10 (0.0367->0.0061) despite the much bigger optimizer response -- the extra churn did not translate into genuinely novel STATES, just noisier movement within the same basin. CROSS-ARM STRUCTURAL FINDING (the headline result of this dose sweep): height_err_end_mm=116.3mm EXACTLY, on every det episode, in ALL THREE of this cycle's RND arms (rnd02/rnd10/rnd100) -- and matches, to the same 116.3mm, two independent concurrent-cycle arms on a DIFFERENT diet entirely (rung-0 swing3+RND at coef 0.02 and 0.06) plus a same-recipe replicate (fwd6-rscale50-rnd1). Six independent arms, three RND doses spanning 50x, two different task diets (rung-0 sub-goal vs rung-1 fixed-forward), all converge on the IDENTICAL collapse height and near-identical duty/pose signature -- this is not a per-run coincidence, it is a shared attractor in the BASE (non-walk-specific) reward stack that no exploration-mechanism dose can out-compete. Why: reward aligned + optimizer demonstrably NOT crushed at this dose (highest clip_fraction of any rung-1 arm ever) + still lands in the identical basin = the blocker is not exploration strength at all, it is a REWARD-SHAPE defect (a specific height/tilt pricing gap letting a low, splayed 'belly-sit' pose collect enough base income to beat any explored alternative) -- a genuine root-cause-needed finding per the 08-21 ruling's 'reward misaligned, fix and relaunch' branch, not a 4th dose or a BC-kickstart. Next: dig into WHY 116.3mm specifically is stable (what height/tilt termination and k_height=2.0 actually enforce at this scale) and reprice/re-terminate the base reward before spending any more exploration-mechanism budget -- flagged DIG-IN this cycle."
   },
   {
     "run": "cw-walkcurr-pf-fwd6-rnd100",
@@ -160555,7 +160557,7 @@
       "rl_move/sim/policies/ppo_goal_cw_walkcurr_pf_fwd6_rnd10.zip"
     ],
     "created": "2026-08-23T22:46:52+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],

@@ -476,6 +476,59 @@ validity, on video. Speed obedience is secondary throughout.
   policy today; "stork"/"topple" are the closest existing scripts but
   neither matches this pose) before it can be bank-proven.
 
+## Now (updated 08-23 ~22:5x — rnd02/rnd10 double-triaged, dose bracket extended)
+
+- **OPS NOTE**: `cw-walkcurr-pf-fwd6-rnd02`/`-rnd10` were double-verdicted
+  (a concurrent cycle recorded FAIL at 22:39/22:40 with the sharper
+  "airborne-hover/belly-sit collapse" diagnosis already in this file's
+  22:4x sections; this cycle independently recorded FAIL at 22:53/22:54
+  before spotting the prior entries, using plainer "static crouch"
+  language for the same pose — same conclusion, no conflict, same
+  precedent as today's earlier `fwd6-sde` double-triage). Cross-check:
+  both readings agree on every number that matters — gate 0/6 det+sto,
+  all 6 legs sacrificed, clip_fraction healthy throughout (no crush),
+  rnd/intrinsic_mean decaying cleanly (mechanism works, dose doesn't).
+  This cycle's read adds one quantitative point not yet in the file:
+  `env/walk_speed` **decays** from an initial-noise ~0.10 m/s down to
+  0.006-0.0058 m/s over the full 2M run on BOTH doses (0.02 and 0.10
+  are within noise of each other, final speeds 0.00647/0.00578), and
+  `direction_err_deg` sits flat at chance level (~88-92deg) the whole
+  time — the policy is converging AWAY from locomotion, not
+  approaching it despite freeprog trending toward 0; ep_rew_mean
+  quarters for rnd02 actively decline (44.0/42.2/32.9/18.2). This
+  reinforces (does not revise) the existing belly-sit/airborne-hover
+  verdict: freeprog's approach to 0 is the reward of settling into the
+  charge-avoiding static pose, not nascent walking.
+- **LAUNCHED (this cycle, before spotting the double-verdict —
+  still non-redundant with the pending 0.02/0.06/0.10 dose grid on
+  the other base): `cw-walkcurr-pf-fwd6-rnd100`** (fresh, `--rnd-coef
+  1.0`, 10x beyond rnd10 / 50x beyond rnd02 — makes the intrinsic term
+  the dominant per-step reward rather than a minor addition; tests the
+  overshoot-into-flailing alternative at last, since 0.02/0.06/0.10
+  found zero qualitative difference) **and `cw-walkcurr-pf-fwd6-rnd10-cont1`**
+  (+4M acquisition warm-start from `rnd10`'s own checkpoint, same
+  `--rnd-coef 0.10`, byte-identical cfg — tests the budget axis: does
+  the still-rising-but-not-crossed freeprog trajectory (-0.101→-0.0054)
+  eventually tip over, or was it asymptoting below the belly-sit
+  optimum). Both VERIFIED RUNNING (train-1, train-2 — a stuck INTENT
+  on the cont1 launch, caused by this cycle's own `--now` command
+  hitting its wrapper's 120s timeout mid-verification after the
+  trainer was already alive on-pod, was repaired by hand: `checkup`
+  confirmed HEALTHY, wandb id read directly from the pod's `wandb/`
+  dir via `kubectl exec`, ledger patched via `launch_run.py update
+  --set status=RUNNING --set wandb_id=... --set verified=...`).
+  **Decision context**: per this file's own 22:4x conclusion, if
+  BOTH of these also reproduce the airborne-hover/belly-sit pose (not
+  just "still frozen"), RND-as-a-class is refuted across the full
+  dose range (0.02→1.0) AND the budget axis, and the next fallback is
+  the already-named **direct ground-contact/no-fly charge** (or a
+  height-based termination) — NOT a further RND variant, NOT yet the
+  BC-kickstart last resort. Whichever cycle reads rnd100/rnd10-cont1
+  should check `env/walk_speed`, `height_err_end_mm`/`roll_peak_deg`
+  (the belly-sit signature) and per-leg contact duty, not just
+  gait_valid/freeprog, to tell a genuine unfreeze from a fourth
+  reproduction of the same escape hatch.
+
 ## Key facts
 
 - The RAW kawawa2022 reward stack was bank-REFUTED on 08-23: park
@@ -493,3 +546,59 @@ validity, on video. Speed obedience is secondary throughout.
 ## WAITING-ON
 
 (none)
+
+## Now (updated 08-23 ~22:5x — RND coef=0.02 replicate read)
+
+- **`cw-walkcurr-pf-fwd6-rscale50-rnd1` FAIL (verdicted):** this arm
+  turned out to be a concurrent-cycle REPLICATE of `fwd6-rnd02` (same
+  rscale50 base, same `--rnd-coef 0.02`, same 2M, independent init) —
+  and it fails identically, so the coef=0.02 read is now
+  replicate-confirmed, not an init fluke. Gate 0/6 det+sto, all six
+  legs sacrificed, fwd 0.02 m, identical static splayed crouch on
+  video. W&B mirrors rnd02: clip_fraction healthy throughout
+  (0.014-0.060), value_loss tamed (310->0.4),
+  `walk_freeprog_score` -0.105 -> -0.0086 monotone (best-ever rung-1
+  band, tied with rnd02's -0.007) but NO zero-crossing;
+  `rnd/intrinsic_mean` decays 0.037->0.0055 exactly as designed.
+  Aligned-but-undertrained-at-dose per 08-21, matching rnd02/rnd10.
+  **RND wave state: coef 0.02 FAIL x2 (replicated), 0.10 FAIL;
+  0.06 (`rscale50-rnd3`), 1.0 (`rnd100`), and the +4M budget fork
+  (`rnd10-cont1`) all FINISHED awaiting triage — those three reads
+  decide bigger-dose vs the last-resort BC-kickstart. Do NOT fund
+  further RND arms before they read; the coef=0.02/0.10 doses are
+  closed at 2M.**
+
+## Now (updated 08-23 ~23:0x — dose axis CLOSED, escalate to reward-shape, not more RND)
+
+- **`cw-walkcurr-pf-fwd6-rnd100` FAIL (verdicted): the 50x dose point
+  closes the RND-dose axis outright.** `--rnd-coef 1.0` (vs 0.02/0.10)
+  genuinely moved the optimizer harder than any prior rung-1 arm
+  (`clip_fraction` 0.12-0.17, the highest ever logged on this
+  lineage, vs 0.03-0.08 at the lower doses) — so this was NOT another
+  dose-insensitive no-op — yet it still lands 0/6 det gait_valid, all
+  six legs sacrificed, and `walk_freeprog_score` ends WORSE (-0.020)
+  than both lower doses (-0.005/-0.007). **`height_err_end_mm` is
+  116.3mm on every det episode, EXACTLY matching rnd02, rnd10, the
+  concurrent replicate `fwd6-rscale50-rnd1`, and (on a totally
+  different rung-0 sub-goal diet) `rung0-swing3-rnd1`/`-rnd3`** — six
+  independent arms, 3 RND doses spanning 50x, 2 different task diets,
+  one identical collapse height. More optimizer churn at 50x dose
+  still can't escape the basin — this rules out "exploration wasn't
+  strong enough" as the blocker.
+  **CONCLUSION: the RND-dose axis (0.02/0.10/1.0) and the rung-0
+  sub-goal axis (swing-income 1x/3x, +RND 1x/3x) are BOTH closed —
+  8 arms total this cycle/adjacent cycles, every one converging on
+  the identical belly-sit pose regardless of mechanism or dose. Per
+  the pre-registered order this file already named, the next step is
+  NOT a bigger RND dose and NOT yet the BC-kickstart last resort —
+  it is a **reward-shape dig-in**: find and reprice/re-terminate
+  whatever lets a low, splayed, near-zero-duty pose at height error
+  ~116.3mm collect enough BASE (non-walk-specific) reward to beat
+  every explored alternative (candidates already named: a direct
+  ground-contact/no-fly charge, or a height-based termination —
+  `k_height=2.0` alone is evidently too cheap at this reward scale
+  to price the pose out). DIG-IN flagged this cycle (triage-tier) for
+  the deep model to root-cause height_err_end_mm=116.3mm precisely
+  (what termination/kernel geometry makes that specific height
+  stable) and bank-prove a fix before any further rung-1 or rung-0
+  training spend.
