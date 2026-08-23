@@ -2,9 +2,9 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: REFUSED
+**status**: FAILED
 
-**created**: 2026-08-23T20:56:46+00:00
+**created**: 2026-08-23T20:57:35+00:00
 
 **pod**: hexapod-mjx-train-0
 
@@ -16,5 +16,5 @@
 
 **gate**: Rung-1 gate (same as fwd1-fwd6): C-env det fixed-forward panel -- zero tilt terms, cmd_prog_frac >= 0.35, direction_err <= 30 deg, slip/m <= 3.0, six legs cycling on >=4/6 episodes, video shows real stepping. Mechanism-health at +4M: freeprog_score > -0.02 or clearly risen out of [-0.10,-0.05] = discovery started (continue/iterate); freeprog still flat in band WITH clip_fraction healthy (>0.02 majority of run) = optimizer-crush necessary-but-insufficient, escalate to RND/rung-0, same-recipe lineage closed.
 
-**refused_reason**: discovery runs cap at 2000000 steps (asked 4000000): the question is 'did qualitatively correct behavior emerge?' - continue as --phase hardening with --evidence.
+**verdict**: Launch died at startup, zero steps trained -- NOT a training result. The respec cloned the from-scratch parent's --activation-fn elu flag into an --init-from warm start, and train_ppo_mjx.py fatally refuses that combination (SystemExit at line 2654: a plain --init-from keeps the checkpoint's own activation). W&B c78tekik is an empty shell (state=finished, steps=None); pod log /tmp/train_cw-walkcurr-pf-fwd6-rscale10-cont1.log ends at the SystemExit message. Retrying once per DEAD-launch protocol as cw-walkcurr-pf-fwd6-rscale10-cont1b with --activation-fn cleared; every other arg byte-identical.
 

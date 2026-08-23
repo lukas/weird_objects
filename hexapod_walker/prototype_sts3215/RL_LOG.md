@@ -421,3 +421,7 @@ DIG-IN: cw-amp-m4-turnpushfault1-style05-r2 — mechanism-safety PASS but turn t
 - 08-23 20:55 walkcurr fwd6-gru FAIL: GRU freezes identically (clip_fraction->0 by 768k, freeprog flat) -- recurrence exonerated, optimizer-crush cross-prediction confirmed 
 - 08-23 20:55 walkcurr fwd6-sde FAIL: gSDE freezes too (clip->0, freeprog -0.17 worsening, value_loss ~1e5) -- noise-structure refuted, crush theory strengthened 
 - 08-23 20:55 walkcurr fwd6-rscale10 PARTIAL: x0.1 scale un-crushes PPO (clip 0.08 rising, value_loss 8 vs 2000) but behavior still frozen at 2M -- +4M continuation launched 
+- 08-23 21:02 [amp] phasehz11 -> PASS: FIRST full m5 PASS (tips 0.145/0.145, walk prog 0.893, slip 3.13 @n=28, 0 falls) — 1.1 Hz is the cadence sweet spot; 3-seed replication launching 
+- 08-23 21:02 [amp] phasehz09 -> PARTIAL: tips 0.131/0.180 pass but walk prog 0.642/slip 4.74 fail — 0.9 Hz is the dose-curve trough; answer is 1.1 Hz (see phasehz11 PASS) 
+- 08-23 21:03 walkcurr rscale10-cont1 DEAD at launch (respec carried --activation-fn elu into --init-from, trainer SystemExit); retried as -cont1b with flag cleared 
+- 08-23 21:03 rscale50 PARTIAL: first rung-1 arm with rising freeprog (-0.10->-0.015) + healthy clip all run; eval still frozen; +4M cont1 launched 

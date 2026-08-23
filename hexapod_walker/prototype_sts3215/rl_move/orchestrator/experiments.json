@@ -155204,7 +155204,7 @@
       "dr.ext_push_n=5.0,18.0"
     ],
     "created": "2026-08-23T20:07:09+00:00",
-    "status": "RUNNING",
+    "status": "PARTIAL",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -155242,7 +155242,8 @@
         "log_tail": "   amp/disc_updates 124\nwandb:                amp/gp 0.01186\nwandb:              amp/loss 0.29604\nwandb: amp/pairs_per_rollout 65336\nwandb:        amp/replay_len 500000\nwandb: amp/style_reward_mean 0.17212\nwandb:                  +103 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518-phasehz09 at: https://wandb.ai/l2k2/hexapod-balance/runs/k42qdh3f\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 3 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260823_200806-k42qdh3f/logs\n"
       }
     ],
-    "triage": "in-cycle cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518-phas since 2026-08-23T20:24:10"
+    "triage": "done",
+    "verdict": "Middle of the metronome sweep: 0.9 Hz keeps the turning win but walking stays too slow and slippery \u2014 the dose curve's trough, not its answer. Evidence (m5 suite own-cfg; walk on the pre-registered wpm24 re-read, n_translating=28): yaw tips 0.1313/0.1801 (bar 0.20, parent 0.2157/0.2351 \u2014 clean tip win), but walk det_prog_med 0.642 (bar 0.75; PARTIAL band 0.6-0.75), det_slip_med 4.739 (bar 3.5), 1 det term, gait_valid 48/48, push/fault sections pass; strips watched: upright/level, six legs cycling, deficit is quantitative (short strides, sliding) not postural. Why: joint 5-point curve read \u2014 0.7 and 0.9 Hz are the worst-of-both region (prog 0.64-0.67, slip 4.5-4.7) while 1.1 Hz passes everything (sibling phasehz11 = first full m5 PASS); mid-cadence appears to break the stride/slip rhythm the policy can exploit at either 0.5 (grip) or 1.1 (speed). Prediction-if-false branch ('feasible region below 0.9') is REFUTED \u2014 the feasible point is ABOVE 0.9. Next: no follow-up on this dose; the lineage's next question is seed-robustness of the 1.1 Hz PASS (batch launched off phasehz11)."
   },
   {
     "run": "cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518-phasehz11",
@@ -155387,7 +155388,7 @@
       "dr.ext_push_n=5.0,18.0"
     ],
     "created": "2026-08-23T20:11:02+00:00",
-    "status": "RUNNING",
+    "status": "PASS",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -155417,7 +155418,7 @@
     "log": "/tmp/train_cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518-phasehz11.log",
     "wandb_id": "voskjicp",
     "verified": "2026-08-23T20:14:21+00:00",
-    "triage": "in-cycle cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518-phas since 2026-08-23T20:24:11",
+    "triage": "done",
     "checkups": [
       {
         "time": "2026-08-23T20:20:20+00:00",
@@ -155425,7 +155426,8 @@
         "verdict": "DEAD",
         "log_tail": "   amp/disc_updates 124\nwandb:                amp/gp 0.01156\nwandb:              amp/loss 0.28769\nwandb: amp/pairs_per_rollout 65322\nwandb:        amp/replay_len 500000\nwandb: amp/style_reward_mean 0.19356\nwandb:                  +103 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518-phasehz11 at: https://wandb.ai/l2k2/hexapod-balance/runs/voskjicp\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 3 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260823_201158-voskjicp/logs\n"
       }
-    ]
+    ],
+    "verdict": "FIRST FULL amp-m5-v1 PASS in program history: slowing the gait metronome just a notch (1.33->1.1 Hz) fixes turn-in-place completely while keeping near-full walking speed. Evidence (m5 suite, own-cfg, plain MuJoCo; walk judged on the pre-registered --walk-per-mode 24 re-read, n_translating=28): yaw tips 0.1451/0.1453 (bar 0.20; parent 0.2157/0.2351 \u2014 both sides improved ~0.07-0.09, 4x the +-0.02 noise floor), walk det_prog_med 0.893 (bar 0.75), det_slip_med 3.131 (bar 3.5, best-of-curve alongside 0.5Hz's 2.44), 0 terms, gait_valid 48/48 walk / 12/12 push / 11/12 fault (bars 12/10/10), 0 falls anywhere; strips watched: upright, level, all six legs cycling, no flag leg. Why: the 5-point cadence dose curve (0.5/0.7/0.9/1.1/1.333) is NON-monotone \u2014 tips recover at ALL doses below 1.333 (0.10-0.18) but walk prog/slip degrade at 0.5-0.9 (prog 0.52-0.67, slip 4.5-4.7) and recover only at 1.1; the parent's tip saturation was a cadence ceiling, and 1.1 Hz sits inside the feasible region for BOTH skills. Next: 3-seed replication batch of this exact recipe (is the sweet spot recipe-level or seed luck) before flipping the track M5 gate; checkpoint is the M5 candidate champion."
   },
   {
     "run": "cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518-phasehz05-cont1",
@@ -156371,7 +156373,7 @@
       "reward.k_current=0.0001"
     ],
     "created": "2026-08-23T20:41:43+00:00",
-    "status": "RUNNING",
+    "status": "PARTIAL",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -156414,7 +156416,8 @@
         ]
       }
     ],
-    "triage": "in-cycle cw-walkcurr-pf-fwd6-rscale50 since 2026-08-23T20:54:41"
+    "triage": "done",
+    "verdict": "PARTIAL -- strongest mechanical result of the fwd6 wave: x0.02 global reward scale keeps PPO's optimizer alive from step ~200k AND walk_freeprog_score rises the whole run, but behavior hasn't crossed into stepping at 2M. Evidence (cached W&B + gate eval): clip_fraction healthy every quarter (Q1-Q4 means 0.024/0.043/0.050/0.049, last 0.083 -- never the exactly-0 collapse of the 9 frozen rung-1 arms), std creeping off init (0.3678->0.3729), walk_freeprog_score monotonic by quarter -0.074/-0.045/-0.023/-0.015 (start -0.103) -- the FIRST rung-1 arm to leave the [-0.10,-0.05] dead band and trend toward 0. Gate eval still 0/6 det (fwd 0.01m, slip 6.5, static splayed crouch on video, all six legs non-cycling; sto slip 16-26, 1 tilt_pitch term). Dose read vs sibling: rscale10 hovered flat at -0.055 with a Q2 clip near-collapse (0.003) -- the 'x0.02 overshoots into the value-net noise floor' alternative in this run's own hypothesis is REFUTED; the stronger scale is the one trending. Why continue: this is the gate's own pre-registered branch (clip_fraction >0.02 last quarter + freeprog rising = 08-21 continue), and the score is approaching the zero crossing where forward progress starts paying. Next: cw-walkcurr-pf-fwd6-rscale50-cont1, +4M byte-identical warm-start (this cycle); if freeprog plateaus below 0 across the continuation with clip healthy, crush-fix was necessary-but-insufficient -> pre-registered RND/rung-0 escalation."
   },
   {
     "run": "cw-cpg-ab6m-teachlib",
@@ -156567,7 +156570,8 @@
           "W&B global_step stalled at 5017600"
         ]
       }
-    ]
+    ],
+    "triage": "in-cycle cw-cpg-ab6m-teachlib-cw-walkcurr-pf-fwd6-rscale10-cont1 since 2026-08-23T20:59:47"
   },
   {
     "run": "cw-cpg-ab6m-cpglib",
@@ -156841,5 +156845,138 @@
     "phase": "discovery",
     "assessment_scope": "short_behavior_discovery",
     "refused_reason": "discovery runs cap at 2000000 steps (asked 4000000): the question is 'did qualitatively correct behavior emerge?' - continue as --phase hardening with --evidence."
+  },
+  {
+    "run": "cw-walkcurr-pf-fwd6-rscale10-cont1",
+    "pod": "hexapod-mjx-train-0",
+    "steps": 4000000,
+    "smoke": false,
+    "hypothesis": "Plain English: the x0.1 reward-scale arm finally got PPO's optimizer unstuck, but only in the last ~15% of its 2M budget -- give the SAME run 4M more steps to see if walking behavior actually starts moving now that learning is mechanically alive. Parent cw-walkcurr-pf-fwd6-rscale10 ended with clip_fraction recovered and RISING (0.021@1632k -> 0.079@2016k, never exactly 0 -- unique in the fwd6 wave; gru/sde both collapsed to 0 and froze, completing the dig-in's cross-prediction), value_loss 8-18 vs 400-2400 unscaled, approx_kl 0.02, std creeping off init -- but eval behavior still the static crouch (gate 0/6 det, freeprog hovering -0.05..-0.07). ~300k effective post-recovery optimization steps is too few to expect gait discovery; this is the 08-21 continue branch of the parent's own pre-registered mechanism-health gate. Byte-identical config + --init-from parent checkpoint (single lever: budget); note the 1M-step charge ramp (min_frac 0.4) restarts with the continuation -- bank-proven pricing, and re-softened charges during renewed exploration can only help discovery. If-true: walk_freeprog_score leaves the [-0.10,-0.05] band and trends toward 0, det gate shows nonzero prog. If-false (freeprog flat ANOTHER 4M with clip_fraction staying healthy >0.02): optimizer-crush was necessary but NOT sufficient -- advantage-starvation/exploration is the residual blocker, escalate to RND state-novelty or rung-0 sub-goal per STATUS, no further same-recipe continuations. Strongest alternative: sibling rscale50 (x0.02) un-crushes from step 0 and answers faster.",
+    "gate": "Rung-1 gate (same as fwd1-fwd6): C-env det fixed-forward panel -- zero tilt terms, cmd_prog_frac >= 0.35, direction_err <= 30 deg, slip/m <= 3.0, six legs cycling on >=4/6 episodes, video shows real stepping. Mechanism-health at +4M: freeprog_score > -0.02 or clearly risen out of [-0.10,-0.05] = discovery started (continue/iterate); freeprog still flat in band WITH clip_fraction healthy (>0.02 majority of run) = optimizer-crush necessary-but-insufficient, escalate to RND/rung-0, same-recipe lineage closed.",
+    "parent": "cw-walkcurr-pf-fwd6-rscale10",
+    "track": "walkcurr",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--episode-seconds",
+      "25",
+      "--n-steps",
+      "24",
+      "--batch-size",
+      "24576",
+      "--net-arch",
+      "128,64,32",
+      "--activation-fn",
+      "elu",
+      "--log-std-init",
+      "-1.0",
+      "--dr-scale",
+      "0.0",
+      "--require-gpu-physics",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--best-ckpt",
+      "--cfg-set",
+      "bus.servo_params=loaded",
+      "--cfg-set",
+      "goal.walk_pure=1",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.05",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.06",
+      "--cfg-set",
+      "goal.walk_heading_max_rad=0.0",
+      "--cfg-set",
+      "goal.walk_cmd_resample_s=0.0",
+      "--cfg-set",
+      "goal.walk_cmd_metrics=1",
+      "--cfg-set",
+      "reward.k_walk_freeprog=0.3",
+      "--cfg-set",
+      "reward.walk_freeprog_cap_m_s=0.08",
+      "--cfg-set",
+      "reward.walk_kernel_vel_ema=1.0",
+      "--cfg-set",
+      "reward.walk_kernel_vel_tau_s=0.75",
+      "--cfg-set",
+      "reward.k_walk_heading=0.05",
+      "--cfg-set",
+      "reward.k_step_event=0.1",
+      "--cfg-set",
+      "reward.k_park_duty=0.4",
+      "--cfg-set",
+      "reward.k_walk_idle_charge=0.2",
+      "--cfg-set",
+      "reward.walk_idle_speed_m_s=0.025",
+      "--cfg-set",
+      "reward.walk_idle_tau_s=1.0",
+      "--cfg-set",
+      "reward.walk_loadslip_gate=0.75",
+      "--cfg-set",
+      "reward.loadslip_ok=1.2",
+      "--cfg-set",
+      "reward.loadslip_max=3.0",
+      "--cfg-set",
+      "reward.loadslip_floor_m=0.03",
+      "--cfg-set",
+      "reward.k_loadslip_excess=0.45",
+      "--cfg-set",
+      "reward.term_penalty=120",
+      "--n-envs",
+      "4096",
+      "--out-name",
+      "ppo_goal_cw_walkcurr_pf_fwd6_rscale10_cont1",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--notes",
+      "respec of cw-walkcurr-pf-fwd6-rscale10: Plain English: the x0.1 reward-scale arm finally got PPO's optimizer unstuck, but only in the last ~15% of its 2M budget -- give the SAME run 4M more steps to see if walking behavior actually starts moving now that learning is mechanically alive. Parent cw-walkcurr-pf-fwd6-rscale10 ended with clip_fraction recovered and RISING (0.021@1632k -> 0.079@2016k, never exactly 0 -- unique in the fwd6 wave; gru/sde both collapsed to 0 and froze, completing the dig-in's cross-prediction), value_loss 8-18 vs 400-2400 unscaled, approx_kl 0.02, std creeping off init -- but eval behavior still the static crouch (gate 0/6 det, freeprog hovering -0.05..-0.07). ~300k effective post-recovery optimization steps is too few to expect gait discovery; this is the 08-21 continue branch of the parent's own pre-registered mechanism-health gate. Byte-identical config + --init-from parent checkpoint (single lever: budget); note the 1M-step charge ramp (min_frac 0.4) restarts with the continuation -- bank-proven pricing, and re-softened charges during renewed exploration can only help discovery. If-true: walk_freeprog_score leaves the [-0.10,-0.05] band and trends toward 0, det gate shows nonzero prog. If-false (freeprog flat ANOTHER 4M with clip_fraction staying healthy >0.02): optimizer-crush was necessary but NOT sufficient -- advantage-starvation/exploration is the residual blocker, escalate to RND state-novelty or rung-0 sub-goal per STATUS, no further same-recipe continuations. Strongest alternative: sibling rscale50 (x0.02) un-crushes from step 0 and answers faster.",
+      "--cfg-set",
+      "reward.walk_charge_ramp_steps=1000000",
+      "--cfg-set",
+      "reward.walk_charge_ramp_min_frac=0.4",
+      "--cfg-set",
+      "reward.k_track=0.1",
+      "--cfg-set",
+      "reward.k_roll=1.0",
+      "--cfg-set",
+      "reward.k_pitch=1.0",
+      "--cfg-set",
+      "reward.k_height=10.0",
+      "--cfg-set",
+      "reward.k_gyro=0.005",
+      "--cfg-set",
+      "reward.k_action=0.0005",
+      "--cfg-set",
+      "reward.k_action_delta=0.001",
+      "--cfg-set",
+      "reward.k_current=0.0005",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_walkcurr_pf_fwd6_rscale10.zip"
+    ],
+    "created": "2026-08-23T20:57:35+00:00",
+    "status": "FAILED",
+    "checks": {
+      "cpu_limit": 28,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-b29b4867-ac22-4270-8fa9-5d854396da05)",
+      "running_experiments_before": 0,
+      "code_sha_local": "f49ebbd54cec36cdac5bc0e9d98ded018bac7a5f",
+      "code_sha_pod": "f49ebbd54cec36cdac5bc0e9d98ded018bac7a5f",
+      "init_from_on_pod": true,
+      "wandb_env_on_pod": true
+    },
+    "trainer": "ppo",
+    "stack": "gpu-mjx",
+    "phase": "acquisition",
+    "assessment_scope": "full_budget_skill_acquisition",
+    "evidence": "Parent cw-walkcurr-pf-fwd6-rscale10 (2M discovery, verdicted PARTIAL 08-23 20:55) is the first rung-1 arm whose optimizer never fully collapsed and RECOVERED: clip_fraction 0.021@1632k->0.079@2016k rising, value_loss 8-18 (vs 400-2400 unscaled), approx_kl 0.02 -- healthy-canary equivalent; comparable full-budget precedent: same-recipe fwd3-chargeramp lineage ran 2M clean mechanically, and the amp track's phasehz05-cont1 used the identical +4M continuation pattern. Eval artifacts logs/ckpt_eval/cw_walkcurr_pf_fwd6_rscale10_gate/.",
+    "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:walkcurr PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walkcurr-pf-fwd6-rscale10-cont1 --steps 4000000 --task joint_walk --episode-seconds 25 --n-steps 24 --batch-size 24576 --net-arch 128,64,32 --activation-fn elu --log-std-init -1.0 --dr-scale 0.0 --require-gpu-physics --eval-every 1000000 --video-every 2000000 --best-ckpt --cfg-set bus.servo_params=loaded --cfg-set goal.walk_pure=1 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_heading_max_rad=0.0 --cfg-set goal.walk_cmd_resample_s=0.0 --cfg-set goal.walk_cmd_metrics=1 --cfg-set reward.k_walk_freeprog=0.3 --cfg-set reward.walk_freeprog_cap_m_s=0.08 --cfg-set reward.walk_kernel_vel_ema=1.0 --cfg-set reward.walk_kernel_vel_tau_s=0.75 --cfg-set reward.k_walk_heading=0.05 --cfg-set reward.k_step_event=0.1 --cfg-set reward.k_park_duty=0.4 --cfg-set reward.k_walk_idle_charge=0.2 --cfg-set reward.walk_idle_speed_m_s=0.025 --cfg-set reward.walk_idle_tau_s=1.0 --cfg-set reward.walk_loadslip_gate=0.75 --cfg-set reward.loadslip_ok=1.2 --cfg-set reward.loadslip_max=3.0 --cfg-set reward.loadslip_floor_m=0.03 --cfg-set reward.k_loadslip_excess=0.45 --cfg-set reward.term_penalty=120 --n-envs 4096 --out-name ppo_goal_cw_walkcurr_pf_fwd6_rscale10_cont1 --impl warp --host-workers 24 --notes 'respec of cw-walkcurr-pf-fwd6-rscale10: Plain English: the x0.1 reward-scale arm finally got PPO'\"'\"'s optimizer unstuck, but only in the last ~15% of its 2M budget -- give the SAME run 4M more steps to see if walking behavior actually starts moving now that learning is mechanically alive. Parent cw-walkcurr-pf-fwd6-rscale10 ended with clip_fraction recovered and RISING (0.021@1632k -> 0.079@2016k, never exactly 0 -- unique in the fwd6 wave; gru/sde both collapsed to 0 and froze, completing the dig-in'\"'\"'s cross-prediction), value_loss 8-18 vs 400-2400 unscaled, approx_kl 0.02, std creeping off init -- but eval behavior still the static crouch (gate 0/6 det, freeprog hovering -0.05..-0.07). ~300k effective post-recovery optimization steps is too few to expect gait discovery; this is the 08-21 continue branch of the parent'\"'\"'s own pre-registered mechanism-health gate. Byte-identical config + --init-from parent checkpoint (single lever: budget); note the 1M-step charge ramp (min_frac 0.4) restarts with the continuation -- bank-proven pricing, and re-softened charges during renewed exploration can only help discovery. If-true: walk_freeprog_score leaves the [-0.10,-0.05] band and trends toward 0, det gate shows nonzero prog. If-false (freeprog flat ANOTHER 4M with clip_fraction staying healthy >0.02): optimizer-crush was necessary but NOT sufficient -- advantage-starvation/exploration is the residual blocker, escalate to RND state-novelty or rung-0 sub-goal per STATUS, no further same-recipe continuations. Strongest alternative: sibling rscale50 (x0.02) un-crushes from step 0 and answers faster.' --cfg-set reward.walk_charge_ramp_steps=1000000 --cfg-set reward.walk_charge_ramp_min_frac=0.4 --cfg-set reward.k_track=0.1 --cfg-set reward.k_roll=1.0 --cfg-set reward.k_pitch=1.0 --cfg-set reward.k_height=10.0 --cfg-set reward.k_gyro=0.005 --cfg-set reward.k_action=0.0005 --cfg-set reward.k_action_delta=0.001 --cfg-set reward.k_current=0.0005 --init-from rl_move/sim/policies/ppo_goal_cw_walkcurr_pf_fwd6_rscale10.zip > /tmp/train_cw-walkcurr-pf-fwd6-rscale10-cont1.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-walkcurr-pf-fwd6-rscale10-cont1.log",
+    "triage": "done",
+    "verdict": "Launch died at startup, zero steps trained -- NOT a training result. The respec cloned the from-scratch parent's --activation-fn elu flag into an --init-from warm start, and train_ppo_mjx.py fatally refuses that combination (SystemExit at line 2654: a plain --init-from keeps the checkpoint's own activation). W&B c78tekik is an empty shell (state=finished, steps=None); pod log /tmp/train_cw-walkcurr-pf-fwd6-rscale10-cont1.log ends at the SystemExit message. Retrying once per DEAD-launch protocol as cw-walkcurr-pf-fwd6-rscale10-cont1b with --activation-fn cleared; every other arg byte-identical."
   }
 ]
