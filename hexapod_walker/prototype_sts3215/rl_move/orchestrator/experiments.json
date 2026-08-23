@@ -154112,7 +154112,7 @@
       "dr.ext_push_n=5.0,18.0"
     ],
     "created": "2026-08-23T19:17:22+00:00",
-    "status": "RUNNING",
+    "status": "PARTIAL",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -154150,7 +154150,8 @@
         "log_tail": "    amp/disc_updates 124\nwandb:                amp/gp 0.0105\nwandb:              amp/loss 0.24014\nwandb: amp/pairs_per_rollout 65335\nwandb:        amp/replay_len 500000\nwandb: amp/style_reward_mean 0.16581\nwandb:                  +104 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518-phasehz05 at: https://wandb.ai/l2k2/hexapod-balance/runs/bs1myv8w\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 3 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260823_191817-bs1myv8w/logs\n"
       }
     ],
-    "triage": "in-cycle cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518-phas since 2026-08-23T19:28:16"
+    "triage": "done",
+    "verdict": "Slowing the gait metronome from 1.33 Hz to 0.5 Hz is the FIRST lever in eight mechanism classes that actually teaches the robot to turn in place at the graded rate -- and it fixes slip too, but it halves forward walking speed. Evidence (m5 suite + walk-per-mode-24 re-read, n_translating=28): yaw tips 0.1488/0.1557 vs parent 0.2157/0.2351 (improve 0.067/0.079, BOTH sides clear the strict 0.20 M5 bar for the first time on this lineage; yaw section PASS); walk det_slip_med 2.443 -- best ever on this lineage (family band 3.47-3.83, bar 3.5), gait_valid 48/48, 0 terms; fault 11/12 gv (leg 5 sacrificed, family range), push 12/12 gv with 1 det term (bar <=2). BUT walk det_prog_med 0.52 vs family ~0.94 and m5 bar 0.75 -- achieved speed ~0.04 m/s vs 0.08 commanded, a cost the pre-registered gate did not price, so PARTIAL not PASS (gate note: slip landed BELOW the literal 3.2-4.0 band -- on the good side; judged as improvement per the band's anti-regression intent). Why: cadence was the binding constraint on yaw-per-stride, exactly as the CPG 0.5Hz/13-15deg measurement predicted; but 2M steps at 0.5 Hz has not yet grown strides enough to hold 0.08 m/s translation. Next: cadence dose sweep 0.7/0.9/1.1 (find the point where tips stay <=0.20 and prog recovers >=0.75) + continue this arm +4M (reward still rising 43.5->216.5 by quarters; 08-21 ruling) to test if stride growth recovers prog at 0.5 Hz. Video: walk det strips clean six-leg cycling, upright, no flag leg."
   },
   {
     "run": "cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518-phasehz05-cpglib",
@@ -154295,7 +154296,7 @@
       "dr.ext_push_n=5.0,18.0"
     ],
     "created": "2026-08-23T19:21:19+00:00",
-    "status": "RUNNING",
+    "status": "PARTIAL",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -154325,7 +154326,7 @@
     "log": "/tmp/train_cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518-phasehz05-cpglib.log",
     "wandb_id": "sbdnpdwr",
     "verified": "2026-08-23T19:24:41+00:00",
-    "triage": "in-cycle cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518-phas since 2026-08-23T19:28:16",
+    "triage": "done",
     "checkups": [
       {
         "time": "2026-08-23T19:30:11+00:00",
@@ -154340,7 +154341,8 @@
         "log_tail": "/disc_updates 124\nwandb:                amp/gp 0.0141\nwandb:              amp/loss 0.38419\nwandb: amp/pairs_per_rollout 65337\nwandb:        amp/replay_len 500000\nwandb: amp/style_reward_mean 0.22888\nwandb:                  +104 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518-phasehz05-cpglib at: https://wandb.ai/l2k2/hexapod-balance/runs/sbdnpdwr\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 3 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260823_192217-sbdnpdwr/logs\n"
       }
     ],
-    "checkup_20260823T1930": "rc=1 BENIGN RACE, no action: run COMPLETED its full 2M-step discovery budget (2,031,616 steps, 124 disc updates) in ~6 min and exited cleanly before the 5-min checkup found a live process. Checkpoint zip + amp_disc.pt saved on pod-0 19:28, W&B artifact uploaded, clean sync. Not DEAD; no retry. Triage/verdict owned by the concurrent cycle."
+    "checkup_20260823T1930": "rc=1 BENIGN RACE, no action: run COMPLETED its full 2M-step discovery budget (2,031,616 steps, 124 disc updates) in ~6 min and exited cleanly before the 5-min checkup found a live process. Checkpoint zip + amp_disc.pt saved on pod-0 19:28, W&B artifact uploaded, clean sync. Not DEAD; no retry. Triage/verdict owned by the concurrent cycle.",
+    "verdict": "The coherent slow-gait package (0.5 Hz clock + matching CPG demos) confirms the sibling's finding -- turning is fixed, slip is excellent, but forward speed halves; and comparing the two arms shows the CLOCK, not the demos, is the mechanism. Evidence (m5 + walk-per-mode-24 re-read, n_translating=28): yaw tips 0.1458/0.1367 vs parent 0.2157/0.2351 (improve 0.070/0.098, both clear the strict 0.20 bar; yaw PASS), walk det_slip_med 2.676 (band 3.47-3.83; BONUS branch of this arm's gate FIRES: slip fork REOPENED -- but sibling phasehz05 with UNCHANGED teacher_v2 demos hit 2.443, so the reopened fork's mechanism is CADENCE, not cadence-coherent demos; cpgdemo1's earlier slip regression was indeed the clock/demo cadence conflict), gait_valid 48/48, 0 terms, fault 11/12, push 12/12 with 1 det term. BUT walk det_prog_med 0.465 vs bar 0.75 (family ~0.94) -- PARTIAL, same translation-speed cost as sibling; demo swap bought ~0.01-0.02 on tips (inside noise) and nothing on slip/prog vs sibling. Why: with clock and demos both slow the policy converges to the same slow-stride basin; demo source is second-order once the clock agrees. Next: cadence dose sweep runs on the SIMPLER teacher_v2 recipe (sibling lineage); this coupled bundle is not the preferred continuation base since it adds a variable without measurable gain. Video: walk det strips clean six-leg cycling, no pathology."
   },
   {
     "run": "smoke-loadslip-bootstrap-v1",
@@ -154731,6 +154733,142 @@
     "phase": "discovery",
     "assessment_scope": "short_behavior_discovery",
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:walkcurr PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walkcurr-pf-fwd5-loadslipboot300k --steps 2000000 --task joint_walk --episode-seconds 25 --n-steps 24 --batch-size 24576 --net-arch 128,64,32 --activation-fn elu --log-std-init -1.0 --dr-scale 0.0 --require-gpu-physics --eval-every 1000000 --video-every 2000000 --best-ckpt --cfg-set bus.servo_params=loaded --cfg-set goal.walk_pure=1 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_heading_max_rad=0.0 --cfg-set goal.walk_cmd_resample_s=0.0 --cfg-set goal.walk_cmd_metrics=1 --cfg-set reward.k_walk_freeprog=3.0 --cfg-set reward.walk_freeprog_cap_m_s=0.08 --cfg-set reward.walk_kernel_vel_ema=1.0 --cfg-set reward.walk_kernel_vel_tau_s=0.75 --cfg-set reward.k_walk_heading=0.5 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_park_duty=4.0 --cfg-set reward.k_walk_idle_charge=2.0 --cfg-set reward.walk_idle_speed_m_s=0.025 --cfg-set reward.walk_idle_tau_s=1.0 --cfg-set reward.walk_loadslip_gate=0.75 --cfg-set reward.loadslip_ok=1.2 --cfg-set reward.loadslip_max=3.0 --cfg-set reward.loadslip_floor_m=0.03 --cfg-set reward.k_loadslip_excess=4.5 --cfg-set reward.term_penalty=1200 --n-envs 4096 --out-name ppo_goal_cw_walkcurr_pf_fwd5_loadslipboot300k --impl warp --host-workers 24 --notes 'respec of cw-walkcurr-pf-fwd3-chargeramp: Plain English: does briefly going easy on the anti-skate/slip charge (not just the park/idle/heading charges fwd3'\"'\"'s ramp already softens) let a from-scratch policy discover forward walking? fwd1/fwd2/fwd3/fwd4x2 (5 straight rung-1 arms: plain, swing-income x2, charge-ramp, wider-init-noise x2, higher-entropy) all froze in an identical static crouch with env/walk_freeprog_score flat/negative ~[-0.10,-0.05] the whole 2M budget -- closing both the income-side and the walk-charge-ramp'\"'\"'s three discovery-friction charges as fixes. The one charge the ramp deliberately excludes is k_loadslip_excess (bank finding: loosening it together with the others at 0.15 let skate/shuffle beat every honest behavior). This arm adds a SEPARATE bootstrap (new reward.walk_loadslip_bootstrap_steps mechanism, smoke-tested this cycle: wires end-to-end, no crash) that softens ONLY k_loadslip_excess to 0.65x for the first 300k steps (15% of budget), annealing back to full dose -- bank-proven at its own floor this cycle (test_walkcurr_loadslip_bootstrap_min_ranking_holds: park/stall stay strictly above every wrong-way gait with margin ~37, skate charge cut ~30%). Keeps fwd3'\"'\"'s charge ramp (harmless, bank-proven) and fresh init. If-true: walk_freeprog_score leaves its flat band and trends toward/above 0 within the bootstrap window or shortly after, gate eval shows nonzero prog_ratio and six-leg stepping on video. If-false (freezes again): the loadslip charge specifically was not the binding constraint either -- BOTH init/noise AND loadslip-bootstrap are now refuted, matching the track'\"'\"'s own escalation rule (STATUS.md '\"'\"'Next'\"'\"'): the prior-free MLP recipe is refuted at this budget, escalate to a dig-in (rung-0 curriculum / BC-kickstart / architecture) before any further reward-magnitude variant.' --cfg-set reward.walk_charge_ramp_steps=1000000 --cfg-set reward.walk_charge_ramp_min_frac=0.4 --cfg-set reward.walk_loadslip_bootstrap_steps=300000 > /tmp/train_cw-walkcurr-pf-fwd5-loadslipboot300k.log 2>&1 < /dev/null & echo $!",
-    "log": "/tmp/train_cw-walkcurr-pf-fwd5-loadslipboot300k.log"
+    "log": "/tmp/train_cw-walkcurr-pf-fwd5-loadslipboot300k.log",
+    "triage": "in-cycle cw-walkcurr-pf-fwd5-loadslipboot300k-cw-walkcurr-pf-fwd5-loa since 2026-08-23T19:58:44"
+  },
+  {
+    "run": "cw-walkcurr-pf-fwd5-loadslipboot600k",
+    "pod": "hexapod-mjx-train-2",
+    "steps": 2000000,
+    "smoke": false,
+    "hypothesis": "Plain English: same question as the sibling fwd5-loadslipboot300k arm (does briefly softening ONLY the anti-skate/slip charge let a from-scratch policy discover forward walking, after 5 straight rung-1 arms froze), but with the bootstrap window 2x longer (600k = 30% of the 2M budget vs 15%) in case 300k anneals back to full pricing before the policy has actually found a walking gait to lock onto. Same recipe otherwise (fwd3's charge ramp kept, fresh init, same bank-proven 0.65 floor).",
+    "gate": "Rung-1 gate (same as fwd1/fwd3/fwd4/fwd5-300k): C-env det fixed-forward panel -- zero tilt terms, cmd_prog_frac >= 0.35, direction_err <= 30 deg, slip/m <= 3.0, six legs cycling on >=4/6 episodes, video shows real stepping. Discovery-health: env/walk_freeprog_score > -0.02 and rising at 2M = continue/harden; still flat in [-0.10,-0.05] at 2M = loadslip-bootstrap hypothesis refuted at both window lengths -> escalate to dig-in (rung-0/BC-kickstart/architecture), no further same-class reward-magnitude arm.",
+    "parent": "cw-walkcurr-pf-fwd3-chargeramp",
+    "track": "walkcurr",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--episode-seconds",
+      "25",
+      "--n-steps",
+      "24",
+      "--batch-size",
+      "24576",
+      "--net-arch",
+      "128,64,32",
+      "--activation-fn",
+      "elu",
+      "--log-std-init",
+      "-1.0",
+      "--dr-scale",
+      "0.0",
+      "--require-gpu-physics",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--best-ckpt",
+      "--cfg-set",
+      "bus.servo_params=loaded",
+      "--cfg-set",
+      "goal.walk_pure=1",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.05",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.06",
+      "--cfg-set",
+      "goal.walk_heading_max_rad=0.0",
+      "--cfg-set",
+      "goal.walk_cmd_resample_s=0.0",
+      "--cfg-set",
+      "goal.walk_cmd_metrics=1",
+      "--cfg-set",
+      "reward.k_walk_freeprog=3.0",
+      "--cfg-set",
+      "reward.walk_freeprog_cap_m_s=0.08",
+      "--cfg-set",
+      "reward.walk_kernel_vel_ema=1.0",
+      "--cfg-set",
+      "reward.walk_kernel_vel_tau_s=0.75",
+      "--cfg-set",
+      "reward.k_walk_heading=0.5",
+      "--cfg-set",
+      "reward.k_step_event=1.0",
+      "--cfg-set",
+      "reward.k_park_duty=4.0",
+      "--cfg-set",
+      "reward.k_walk_idle_charge=2.0",
+      "--cfg-set",
+      "reward.walk_idle_speed_m_s=0.025",
+      "--cfg-set",
+      "reward.walk_idle_tau_s=1.0",
+      "--cfg-set",
+      "reward.walk_loadslip_gate=0.75",
+      "--cfg-set",
+      "reward.loadslip_ok=1.2",
+      "--cfg-set",
+      "reward.loadslip_max=3.0",
+      "--cfg-set",
+      "reward.loadslip_floor_m=0.03",
+      "--cfg-set",
+      "reward.k_loadslip_excess=4.5",
+      "--cfg-set",
+      "reward.term_penalty=1200",
+      "--n-envs",
+      "4096",
+      "--out-name",
+      "ppo_goal_cw_walkcurr_pf_fwd5_loadslipboot600k",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--notes",
+      "respec of cw-walkcurr-pf-fwd3-chargeramp: Plain English: same question as the sibling fwd5-loadslipboot300k arm (does briefly softening ONLY the anti-skate/slip charge let a from-scratch policy discover forward walking, after 5 straight rung-1 arms froze), but with the bootstrap window 2x longer (600k = 30% of the 2M budget vs 15%) in case 300k anneals back to full pricing before the policy has actually found a walking gait to lock onto. Same recipe otherwise (fwd3's charge ramp kept, fresh init, same bank-proven 0.65 floor).",
+      "--cfg-set",
+      "reward.walk_charge_ramp_steps=1000000",
+      "--cfg-set",
+      "reward.walk_charge_ramp_min_frac=0.4",
+      "--cfg-set",
+      "reward.walk_loadslip_bootstrap_steps=600000"
+    ],
+    "created": "2026-08-23T19:50:50+00:00",
+    "status": "FINISHED",
+    "checks": {
+      "cpu_limit": 28,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-c6ce8fc2-ca9a-cc87-d687-1f3a603d664f)",
+      "running_experiments_before": 1,
+      "code_sha_local": "a22202e6d7a89a0e750810b43c49f2b78c1de1b2",
+      "code_sha_pod": "a22202e6d7a89a0e750810b43c49f2b78c1de1b2",
+      "wandb_env_on_pod": true,
+      "pid": "549929",
+      "log_growth_bytes": [
+        10777,
+        16867
+      ],
+      "wandb_id": "qg072atd",
+      "global_step_window": [
+        1081344,
+        1572864
+      ],
+      "fps_estimate": 16384.0
+    },
+    "trainer": "ppo",
+    "stack": "gpu-mjx",
+    "phase": "discovery",
+    "assessment_scope": "short_behavior_discovery",
+    "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:walkcurr PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walkcurr-pf-fwd5-loadslipboot600k --steps 2000000 --task joint_walk --episode-seconds 25 --n-steps 24 --batch-size 24576 --net-arch 128,64,32 --activation-fn elu --log-std-init -1.0 --dr-scale 0.0 --require-gpu-physics --eval-every 1000000 --video-every 2000000 --best-ckpt --cfg-set bus.servo_params=loaded --cfg-set goal.walk_pure=1 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_heading_max_rad=0.0 --cfg-set goal.walk_cmd_resample_s=0.0 --cfg-set goal.walk_cmd_metrics=1 --cfg-set reward.k_walk_freeprog=3.0 --cfg-set reward.walk_freeprog_cap_m_s=0.08 --cfg-set reward.walk_kernel_vel_ema=1.0 --cfg-set reward.walk_kernel_vel_tau_s=0.75 --cfg-set reward.k_walk_heading=0.5 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_park_duty=4.0 --cfg-set reward.k_walk_idle_charge=2.0 --cfg-set reward.walk_idle_speed_m_s=0.025 --cfg-set reward.walk_idle_tau_s=1.0 --cfg-set reward.walk_loadslip_gate=0.75 --cfg-set reward.loadslip_ok=1.2 --cfg-set reward.loadslip_max=3.0 --cfg-set reward.loadslip_floor_m=0.03 --cfg-set reward.k_loadslip_excess=4.5 --cfg-set reward.term_penalty=1200 --n-envs 4096 --out-name ppo_goal_cw_walkcurr_pf_fwd5_loadslipboot600k --impl warp --host-workers 24 --notes 'respec of cw-walkcurr-pf-fwd3-chargeramp: Plain English: same question as the sibling fwd5-loadslipboot300k arm (does briefly softening ONLY the anti-skate/slip charge let a from-scratch policy discover forward walking, after 5 straight rung-1 arms froze), but with the bootstrap window 2x longer (600k = 30% of the 2M budget vs 15%) in case 300k anneals back to full pricing before the policy has actually found a walking gait to lock onto. Same recipe otherwise (fwd3'\"'\"'s charge ramp kept, fresh init, same bank-proven 0.65 floor).' --cfg-set reward.walk_charge_ramp_steps=1000000 --cfg-set reward.walk_charge_ramp_min_frac=0.4 --cfg-set reward.walk_loadslip_bootstrap_steps=600000 > /tmp/train_cw-walkcurr-pf-fwd5-loadslipboot600k.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-walkcurr-pf-fwd5-loadslipboot600k.log",
+    "wandb_id": "qg072atd",
+    "verified": "2026-08-23T19:54:09+00:00",
+    "triage": "in-cycle cw-walkcurr-pf-fwd5-loadslipboot300k-cw-walkcurr-pf-fwd5-loa since 2026-08-23T19:58:45",
+    "checkups": [
+      {
+        "time": "2026-08-23T19:59:15+00:00",
+        "process_alive": false,
+        "verdict": "FINISHED_BEFORE_CHECKUP",
+        "log_tail": "\nwandb:   env/height_err_mm 85.75733\nwandb:       env/height_mm -85.75308\nwandb:   env/height_ref_mm 0\nwandb:   env/max_current_a 1.75561\nwandb:  env/mean_current_a 0.48655\nwandb: env/pct_within_1deg 0.11117\nwandb:   env/pitch_ref_deg 0\nwandb:                +111 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-walkcurr-pf-fwd5-loadslipboot600k at: https://wandb.ai/l2k2/hexapod-balance/runs/qg072atd\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 2 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260823_195146-qg072atd/logs\n"
+      }
+    ]
   }
 ]
