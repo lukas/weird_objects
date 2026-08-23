@@ -152525,7 +152525,7 @@
       "reward.k_walk_swing=1.0"
     ],
     "created": "2026-08-23T17:44:08+00:00",
-    "status": "FINISHED",
+    "status": "FINISHED_FAIL",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -152566,7 +152566,9 @@
         "verdict": "FINISHED_BEFORE_CHECKUP",
         "log_tail": "_m_s 0.0543\nwandb:   env/height_err_mm 86.13123\nwandb:       env/height_mm -86.12706\nwandb:   env/height_ref_mm 0\nwandb:   env/max_current_a 1.76153\nwandb:  env/mean_current_a 0.48562\nwandb: env/pct_within_1deg 0.11344\nwandb:   env/pitch_ref_deg 0\nwandb:                +108 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-walkcurr-pf-fwd2-swing at: https://wandb.ai/l2k2/hexapod-balance/runs/diomgtc8\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 2 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260823_174506-diomgtc8/logs\n"
       }
-    ]
+    ],
+    "verdict": "Clean FAIL on the rung-1 gate, and video shows something worse than fwd1's crouch-freeze: the robot starts upright (frame 1) then COLLAPSES flat onto a splayed belly-down pose by frame 2 and stays there the rest of the 25s episode, all 6 det episodes byte-identical (progress_ratio -0.001, forward_dist 0.021m, slip/m 9.0, height_err_end 96mm -- ~10cm off the walking height target). gait_valid is actually FALSE this time (was True/frozen-crouch on fwd1) with leg [1] sacrificed -- the swing bonus did not fix the freeze, it changed WHICH static failure basin the policy collapsed into (splayed-flat vs raised-crouch), not whether it explores real stepping. Reward quarters -85.6/-505.2/-1160.3/-1978.6, same monotonic-negative shape as fwd1 -- per the concurrent cycle's fwd1 root-cause (ep_len x negative-per-step-rate logging artifact, not real further degradation) this is expected under an unfixed freeze, not new information. Swing income (reward.k_walk_swing=1.0) alone does NOT give a random-init PPO policy a path out of the tilt-safe attractor on this recipe -- prediction-if-false (a) confirmed: swing credit stays effectively unreachable (nonzero swing_count in the report is limb micro-twitching in the collapsed pose, not gait cycling, per video). Paired with -swingterm800's identical outcome (see its own verdict), BOTH rung-1 fixes named in this arm's hypothesis are now refuted.",
+    "triage": "done"
   },
   {
     "run": "cw-walkcurr-pf-fwd2-swingterm800",
@@ -152660,7 +152662,7 @@
       "reward.k_walk_swing=1.0"
     ],
     "created": "2026-08-23T17:47:53+00:00",
-    "status": "FINISHED",
+    "status": "FINISHED_FAIL",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -152696,6 +152698,8 @@
         "verdict": "FINISHED_BEFORE_CHECKUP",
         "log_tail": "5437\nwandb:   env/height_err_mm 83.81935\nwandb:       env/height_mm -83.81516\nwandb:   env/height_ref_mm 0\nwandb:   env/max_current_a 1.74637\nwandb:  env/mean_current_a 0.48413\nwandb: env/pct_within_1deg 0.12191\nwandb:   env/pitch_ref_deg 0\nwandb:                +108 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-walkcurr-pf-fwd2-swingterm800 at: https://wandb.ai/l2k2/hexapod-balance/runs/5vucihz7\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 2 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260823_174854-5vucihz7/logs\n"
       }
-    ]
+    ],
+    "verdict": "Clean FAIL, same collapse pattern as its twin -fwd2-swing: video shows the robot upright for frame 1 then splayed flat on the ground for the rest of the 25s episode, all 6 det episodes byte-identical (progress_ratio -0.001, forward_dist 0.005m, slip/m 7.71, height_err_end 94mm). gait_valid True (no sacrificed leg, slightly less degraded than swing's False+[1]) but behaviorally identical zero-progress collapse. Dropping term_penalty 1200->800 did NOT change the outcome -- prediction-if-false confirmed: term_penalty magnitude is not the mechanism keeping PPO from discovering stepping. Reward quarters -60.0/-478.4/-1131.7/-1899.9, same shape as both fwd1 and fwd2-swing. Combined with -fwd2-swing's identical result, this closes BOTH live rung-1 exploration hypotheses named in the fwd2 batch (swing-income reachability AND term_penalty-catastrophe dominance) -- per the batch's own pre-registered branch, the next lever is init/noise/BC-kickstart, dig-in tier, not another single-cfg reward tweak on this exact recipe.",
+    "triage": "done"
   }
 ]
