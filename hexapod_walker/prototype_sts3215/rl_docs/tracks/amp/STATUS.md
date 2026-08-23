@@ -1,6 +1,161 @@
 # amp - AMP locomotion from scratch
 
-Last updated: 2026-08-23 ~09:1x (**KERNEL-EMA QUESTION CLOSED AT n=5:
+Last updated: 2026-08-23 ~09:5x-c (**ROOT CAUSE TRACED PAST THE
+7-SEED BATCH: the fall risk PRE-DATES turn-in-place AND fault, and
+traces to PUSH.** Same raw-`terminated` audit (see the ~09:5x-b/09:5x
+entries below), extended one step further back the lineage: checked
+the actual ANCESTOR checkpoints' own-cfg DR-0 gate reports for raw
+falls, not `gait_valid`. `cw-amp-m4-turnfault-seq1` (fault ONLY, no
+push, the recipe's own root) is genuinely 0/12 falls — clean. The
+instant push composes in, `cw-amp-m4-turnfault-seq1-pushcont1`
+(fault+push, no turn-in-place yet) shows **4/12 REAL falls** that its
+own same-day PASS-partial verdict never counted (it read "gait_valid
+10/12 >= 9/12" as the safety floor — the identical metric bug). Its
+`-ypfix1` yaw-pricing respec (an unrelated lever, same fault+push)
+roughly halves that to 2/12 — also uncounted at the time. Going back
+even further, an M3-era, fault-FREE, push-ONLY checkpoint
+(`cw-amp-m3-pushcur1-noamp-b1530`) already falls 2/12 (`walk/det/3`
+tilt_roll 40.9deg — the SAME episode index the whole tipfrac05 family
+falls at — plus `walk/sto/0` tilt_pitch). **CONCLUSION: this is not a
+turn-in-place-curriculum problem or a kernel-EMA-pricing problem — push
+-disturbance recovery itself has carried an uncounted ~15-30% real
+fall rate across the ENTIRE M3/M4 push-composition lineage since
+BEFORE fault injection and BEFORE any turn-in-place lever existed.**
+Everything built today to fix "turn+push erosion" (yaw-kernel-EMA,
+overshoot-decay pricing, turn-in-place dose grids) has been layered on
+top of, and did not cause, an already-shaky push-recovery foundation.
+`dr.ext_push_n=(10,25)` N over 0.15-0.4s pulses, random direction/
+timing (`domain_rand.py` `RandRanges`) — NOT YET DETERMINED whether
+push magnitude, push-timing-vs-gait-phase (mid-swing vs mid-stance),
+or genuinely undertrained recovery behavior is the actual mechanism;
+that trace is the next dig-in step, ranked AHEAD of any further
+turn-in-place or kernel-EMA arm on this lineage. **ACTION: every
+push-composition verdict logged before this correction (`pushcont1`,
+`ypfix1`, every M3 `pushcur*`/`pushhard*` arm, all tipfrac0x/seed
+arms) should be re-read for raw fall count via `ops.sh report`'s
+`TERM`/`terms N` output, not `gait_valid`, before being cited again as
+a safety baseline or promoted.** Evidence:
+`logs/ckpt_eval/cw_amp_m4_turnfault_seq1_{,pushcont1,pushcont1_ypfix1}_gate/report.json`,
+`logs/ckpt_eval/cw_amp_m3_pushcur1_noamp_b1530_gate/report.json`.
+Prior banner below.)
+
+Previous entry (2026-08-23 ~09:5x-b (**7th AND LAST SEED CLOSES THE
+BATCH: `-seed43` is the ONLY genuinely fall-free checkpoint of the
+7, and it STILL nearly falls on the same hard episode.** Own-cfg
+DR-0 gate: gait_valid 11/12 (1 sacrificed leg, walk/sto/4, a
+wobble-and-recover on video, not a topple), and — checked via the
+raw `terminated` field per the correction below, not `gait_valid` —
+ZERO real falls, the only seed of 7 with none. But its OWN
+`walk/det/3` episode (the exact index where 5/6 other seeds fall)
+reads `roll_class=recovered`, `roll_peak_deg=17.6` — the highest
+non-terminal roll peak anywhere in its 12-episode panel, i.e. it
+skirted the same near-fall the other seeds didn't survive. Verdicted
+PASS (own criteria: safe). Corrected 7-seed tally now FINAL:
+seed7=2 falls, seed23=2, seed13=1(+3 sacrificed legs), seed31=1,
+seed37=1, seed41=3, seed43=0 (near-miss) — 6/7 seeds have a real
+fall, 1/7 clean. This closes the seed-safety-variance batch at a
+worse-than-either-prior-estimate rate (not ~33%, not ~67% —
+effectively "almost every basin, including the champion, is
+vulnerable to one specific held-out maneuver") and reinforces the
+~09:4x/09:5x correction below: the lever to pull next is understanding
+and re-pricing/re-sampling that ONE maneuver (frozen/weak-leg fault +
+turn-in-place, per video), not more seeds and not the
+budget-stability/kernel-EMA track. Do not promote tipfrac05 as an M5
+candidate, and do not spend further seed arms on this exact recipe —
+the open question is now single-episode root cause, dig-in-tier.
+SKILLS.md not touched (no bar newly cleared; this refines an existing
+row's caveat). Evidence:
+`logs/ckpt_eval/cw_amp_m4_turnfault_seq1_pushcont1_tipfrac05_seed43_gate/report.json`,
+`..._seed43_gate/walk_sto_4_sheet.png`. Prior banner below.)
+
+Previous entry (2026-08-23 ~09:5x (**CORRECTION to the ~09:4x entry below:
+the "2 SAFE / 4 UNSAFE seed lottery" framing is WRONG -- the champion
+seed7 (`tipfrac05` itself) and its seed23 twin (`-s2`) are NOT
+fall-free either, and the falls that DO occur cluster overwhelmingly
+on ONE fixed deterministic eval episode, pointing at a specific hard
+command/maneuver, not per-basin luck.** Went back into the raw
+`report.json` per-episode `term_reason`/`roll_peak_deg` fields (not
+just the `gait_valid` scalar, which never zeroes on a TERM -- the same
+harness quirk flagged below) for ALL SIX completed seeds, because the
+09:4x batch's own "SAFE = matches seed7/seed23's clean profile"
+language turned out to be asserted, not verified this cycle. Actual
+raw fall counts on the 12-episode hazard-free own-cfg DR-0 gate:
+seed7(tipfrac05)=**2** (det/3 tilt_roll roll_peak 39.3deg, det/5
+tilt_roll 41.3deg), seed23(s2)=**2** (det/3 tilt_roll 35.4deg, sto/5
+tilt_pitch), seed13=**1** (det/3 tilt_roll 36.3deg), seed31=**1**
+(det/3 tilt_roll 38.4deg), seed37=**1** (det/3 tilt_roll 32.3deg),
+seed41=**3** (det/2 tilt_pitch, sto/0 tilt_pitch, sto/5 tilt_roll --
+notably NOT det/3). **FIVE of six checkpoints fall at the exact same
+deterministic episode index (`walk/det/3`), all `tilt_roll`, all in a
+tight 32-41deg roll-peak band** -- with eval `--seed 0` fixed and
+per-mode command draws deterministic, episode index 3 is the SAME
+commanded trajectory for every checkpoint in this family (frame
+strips for seed7/s2/seed37/seed31 all show clean walking for the
+whole strip then an abrupt topple on the last visible frame -- same
+shape, not independent random tips). Only seed41 escapes det/3
+(prog_ratio 1.172, no term there) but is the single worst checkpoint
+overall (3 falls elsewhere) -- consistent with "avoided the common
+failure maneuver by accident, not by being more robust." **REVISED
+CONCLUSION: this is not primarily a training-seed safety lottery --
+it's a near-universal (5/6) failure on one specific hard maneuver
+in the fixed eval script, which nobody had actually read per-episode
+term_reason for before (prior PASS verdicts on tipfrac05/s2 reported
+"gait_valid 11-12/12" and, for s2, explicitly logged "2 isolated
+terminations" but treated them as sub-threshold noise rather than a
+shared, reproducible failure point).** This makes the problem MORE
+tractable, not less: replay `walk_det_3.mp4` across the family to
+identify the exact maneuver (heading/speed transition timing) next,
+then check whether it's under-sampled in `stress_mix` training --
+likely a real, buildable training-exposure fix, not a basin-luck
+problem needing n=12 seeds to characterize. Does NOT reverse seed41's
+or seed37's FAIL verdicts (both are still the worst of the batch by
+raw fall count, 3 and 1-with-worse-severity-elsewhere respectively,
+and both verdicts already used per-episode video evidence, not the
+flawed gait_valid-only framing) -- it corrects the CHAMPION's own
+safety claim (tipfrac05 is NOT zero-fall, 2/12) and reframes the open
+blocker for the next (dig-in-tier) cycle. SKILLS.md not touched pending
+that re-read (a PASS-record correction, if warranted, is dig-in work,
+not a snap edit here). Evidence: same `..._{tipfrac05,s2,seed13,
+seed31,seed37,seed41}_gate/report.json` + `walk_det_3.mp4` across all
+six. Prior entry below.)
+
+Previous entry (2026-08-23 ~09:4x (**SEED-SAFETY BATCH CLOSES AT n=6:
+2 SAFE / 4 UNSAFE (~67%) -- the seed-safety-variance risk is now the
+CONFIRMED DOMINANT blocker on tipfrac05 promotion, not a minor
+caveat alongside the budget-stability question.** Triaged 2 of the
+4-arm seed31/37/41/43 batch launched to pin the true unsafe rate
+after seed13/s3 found 1/3 seeds unsafe: `-seed41` UNSAFE, and WORSE
+than any prior seed -- own-cfg DR-0 gate's gait_valid metric nominally
+reads 6/6 det + 6/6 sto (a harness quirk: it does not zero out on a
+TERM), but the raw per-episode report + frame strips show THREE
+separate video-confirmed topples (walk/det/2 tilt_pitch, walk/sto/0
+tilt_pitch, walk/sto/5 tilt_roll), with no sacrificed-leg workaround
+this time (sac=[] everywhere) -- a clean stability failure, not a
+degraded-gait compromise. Also picked up `-seed37`, an ORPHAN whose
+prestage never fired (no pullckpt/pod-evals in orchestrator.log,
+unclaimed by the concurrent cycle) -- ran podeval by hand on its own
+pod: also UNSAFE, 1 video-confirmed fall (walk/det/3 tilt_roll),
+matching the pattern read (context only, not verdicted here) on the
+concurrent cycle's `-seed31` (also 1 fall, det/3 tilt_roll). Combined
+tally across all 6 completed seeds (7, 23, 13, 31, 37, 41): SAFE =
+{7, 23}, UNSAFE = {13, 31, 37, 41}. This overturns the earlier n=3
+read of "roughly 1-in-3 basins unsafe" -- **it's closer to 2-in-3.**
+`-seed43` (batch's 4th arm) still training. **CONCLUSION: seed-safety
+variance is not a rare edge case to root-cause "eventually" -- most
+seeds sampled from this exact recipe (turn-in-place curriculum +
+push+fault composition, 2M, seed=7's own hyperparameters) produce a
+checkpoint that falls on a hazard-FREE walk eval. tipfrac05 (seed7)
+remains a real PASS on its own gate, but the RECIPE cannot be called
+seed-robust, and nothing past the single seed=7 checkpoint should be
+promoted toward M5-candidate status until this is root-caused.** This
+supersedes the priority ordering in the two named prerequisites below
+(budget-stability, seed-safety variance) -- seed-safety is now the
+more urgent of the two given the failure rate. No SKILLS.md update
+(both are FAIL verdicts, no new bar cleared). Evidence:
+`logs/ckpt_eval/cw_amp_m4_turnfault_seq1_pushcont1_tipfrac05_
+{seed31,seed37,seed41}_gate/`. Prior banner below.)
+
+Previous entry (2026-08-23 ~09:1x (**KERNEL-EMA QUESTION CLOSED AT n=5:
 0/5 arms rescue yaw-tracking in either regime, and the fixed-basin
 continuation test CONFIRMS a real transition-handling defect, not
 fresh-retrain basin noise.** The two continuation arms launched off
@@ -2152,10 +2307,100 @@ Build every tool this needs; do not pause on operator input.
 
 ## Now
 
-**08-23 ~09:1x — KERNEL-EMA QUESTION CLOSED AT n=5: 0/5 arms rescue
+**08-23 ~09:5x-c — ROOT CAUSE TRACED PAST THE SEED BATCH TO PUSH: the
+uncounted fall risk pre-dates turn-in-place AND fault. Fault-only
+`turnfault-seq1` = 0/12 real falls (clean); the moment push composes
+in (`pushcont1`) = 4/12 real falls, never counted (same `gait_valid`
+metric bug), and an M3-era push-only/fault-free checkpoint already
+falls 2/12 at the SAME episode index. Do not chase turn-in-place or
+kernel-EMA further until push-recovery itself is root-caused (push
+magnitude vs timing-vs-gait-phase vs undertrained recovery, next
+dig-in step) — see the top-of-file banner for full evidence.**
+
+**08-23 ~09:5x-b — 7th/last seed (`-seed43`) closes the batch: 1/7
+seeds genuinely fall-free (0 real falls), and even it nearly falls
+on the SAME held-out episode (`walk/det/3`, roll_peak 17.6deg,
+`roll_class=recovered`) that topples 5 of the other 6. Final tally:
+seed7=2 falls, seed23=2, seed13=1(+3 sac), seed31=1, seed37=1,
+seed41=3, seed43=0. Do not promote tipfrac05, do not fund more seed
+arms — see the top-of-file banner and CURRENT_TRUTHS.md for the full
+writeup; next step is root-causing/re-sampling the ONE maneuver
+(frozen/weak-leg fault + turn-in-place), dig-in-tier. Full detail
+below in the ~09:5x correction this closes out.**
+
+**08-23 ~09:5x — CORRECTION: the "2 SAFE / 4 UNSAFE seed-lottery" call
+below is WRONG; the real finding is a near-universal (5/6) fall on
+ONE fixed deterministic eval episode, not per-basin luck.** Went back
+into raw `report.json` per-episode `term_reason`/`roll_peak_deg`
+(the 09:4x entry, like several before it, read only the `gait_valid`
+scalar, which never zeroes on a TERM) for all 6 completed seeds.
+Actual hazard-free own-cfg-DR-0 fall counts: seed7(tipfrac05)=2
+(det/3 tilt_roll 39.3deg, det/5 tilt_roll 41.3deg), seed23(s2)=2
+(det/3 tilt_roll 35.4deg, sto/5 tilt_pitch), seed13=1 (det/3 tilt_roll
+36.3deg), seed31=1 (det/3 tilt_roll 38.4deg), seed37=1 (det/3
+tilt_roll 32.3deg), seed41=3 (det/2 tilt_pitch, sto/0 tilt_pitch,
+sto/5 tilt_roll -- notably NOT det/3). **Five of six fall at the SAME
+deterministic episode index (`walk/det/3`), all `tilt_roll`, all in a
+tight 32-41deg band** -- eval `--seed 0` is fixed and command draws
+are deterministic, so episode index 3 is the identical commanded
+trajectory across every checkpoint in the family; the seed7/s2/
+seed31/seed37 frame strips all show clean walking for the whole strip
+then an abrupt topple on the same last frame -- one shared failure
+shape, not four independent random tips. Only `seed41` escapes det/3
+(prog_ratio 1.172 there, no term) but is the single WORST checkpoint
+overall (3 falls elsewhere) -- reads as "avoided the common failure
+maneuver by accident," not "more robust." **REVISED CONCLUSION: this
+is primarily a near-universal gap on one hard maneuver in the fixed
+eval script (a training-exposure gap, buildable and testable), not a
+training-seed safety lottery needing more seeds to characterize.**
+Champion `tipfrac05` (seed7) is NOT actually zero-fall (2/12) --
+that safety claim needs correcting wherever it was implied. Does NOT
+reverse `-seed41`/`-seed37`'s own FAIL verdicts (video-evidenced, and
+still the worst of the batch by raw fall count) -- it reframes the
+blocker and the next step: replay `walk_det_3.mp4` across the family
+to pin the exact maneuver (heading/speed transition timing near
+episode end), then check its representation in `stress_mix` training
+sampling. Flagged for a dig-in cycle (deep per-leg/timing analysis,
+possibly a training-distribution fix) rather than more seed arms.
+SKILLS.md not touched pending that re-read. Evidence: same
+`..._{tipfrac05,s2,seed13,seed31,seed37,seed41}_gate/report.json` +
+`walk_det_3.mp4` across all six.
+
+Previous entry (08-23 ~09:4x — SEED-SAFETY BATCH CLOSES AT n=6: 2 SAFE / 4 UNSAFE
+(~67%), now the CONFIRMED DOMINANT blocker on tipfrac05 promotion.
+The seed31/37/41/43 batch was launched to pin the true unsafe rate
+after seed13/s3 found 1/3 seeds unsafe at n=3. This cycle triaged
+`-seed41` (UNSAFE: own-cfg DR-0 gate's gait_valid metric nominally
+reads 6/6+6/6 -- a harness quirk, it never zeroes on a TERM -- but the
+raw report + frame strips show THREE separate video-confirmed
+topples: walk/det/2 tilt_pitch, walk/sto/0 tilt_pitch, walk/sto/5
+tilt_roll, worse than any prior seed and with no sacrificed-leg
+softening this time) and picked up the orphaned `-seed37` by hand
+(its prestage never fired; podeval run directly on its own pod:
+UNSAFE, 1 video-confirmed fall, walk/det/3 tilt_roll). Read-only peek
+at the concurrent cycle's `-seed31` (not verdicted here) shows the
+same 1-fall pattern (det/3 tilt_roll). Combined tally across 6
+completed seeds (7, 23, 13, 31, 37, 41): SAFE = {7, 23}, UNSAFE =
+{13, 31, 37, 41} -- **2/6, not the 2/3 the n=3 read suggested.**
+`-seed43` (4th batch arm) still training, owned by a concurrent
+cycle. **CONCLUSION: most seeds sampled from this exact recipe (2M,
+turn-in-place curriculum on the composed turn+push+fault stack,
+seed=7's own hyperparameters) fall on a hazard-FREE walk eval.
+tipfrac05 (seed7) remains a real PASS on its own gate, but the RECIPE
+itself is not seed-robust for safety; nothing past the single seed=7
+checkpoint should move toward M5-candidate status until this is
+root-caused.** This re-orders the two named M5-candidate
+prerequisites below: seed-safety root-cause is now MORE urgent than
+the hold/forward income-repricing/budget-stability question (both
+remain open; neither is funded with a build yet -- next dig-in cycle
+should prioritize seed-safety). No SKILLS.md update (both FAIL
+verdicts). Evidence: `logs/ckpt_eval/cw_amp_m4_turnfault_seq1_
+pushcont1_tipfrac05_{seed31,seed37,seed41}_gate/`.
+
+Previous entry (08-23 ~09:1x — KERNEL-EMA QUESTION CLOSED AT n=5: 0/5 arms rescue
 yaw-tracking in EITHER regime, and the fixed-basin continuation test
 CONFIRMS a real transition-handling defect, not fresh-retrain basin
-noise.** Triaged the two continuation arms the 08:4x entry below
+noise. Triaged the two continuation arms the 08:4x entry below
 launched to discriminate the two live hypotheses. Both FAIL, both on
 their own pre-registered non-rescue branches: `-kernelema-cont1`
 (yaw+vel EMA, +6M from the tipfrac05 checkpoint itself) tips

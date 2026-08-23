@@ -151,6 +151,61 @@ follow-ups.
   training cfg); M6 hardware is [operator]-owned regardless. Evidence:
   `logs/ckpt_eval/cw_amp_m4_turnfault_seq1_pushcont1_tipfrac05_{gate,
   m5}/`, `logs/probe_walk_income/hold_forward_income_ypfix1.json`.
+- **AMP M4/M5 CORRECTION (08-23 ~09:5x, n=7 seeds closed)**:
+  `eval_checkpoint.py`'s `gait_valid` field is `not sacrificed_legs`
+  ONLY — it is NEVER cleared by a TERM, so "own-cfg DR-0 gait_valid
+  12/12" does NOT mean zero falls; always check the raw per-episode
+  `terminated`/`term_reason` (`ops.sh report` prints `TERM <reason>`
+  per line and a `terms N` aggregate — read that, not `gait_valid`
+  alone). Re-auditing all 7 completed `tipfrac05` (turn+push+fault,
+  `goal.walk_turn_in_place_frac=0.5`) seeds this way: the CHAMPION
+  seed7 itself has 2 real falls (walk/det/3 + det/5, both tilt_roll,
+  roll_peak 39-41deg) and seed23(s2) has 2 (det/3 + sto/5) — BOTH were
+  previously logged as "clean 12/12/zero-falls," which was wrong.
+  Corrected tally: only seed43 is genuinely fall-free (6/7 seeds have
+  >=1 real fall on the hazard-baked own-cfg DR-0 gate). Sharper
+  finding: 5 of 6 falling seeds (7,23,13,31,37) fall at the SAME
+  deterministic held-out episode index (`walk/det/3`, `--seed 0`
+  fixed so it's the identical command+fault draw for every
+  checkpoint), all `tilt_roll`; video shows a stiffly-held/dragging
+  leg (the permanently-baked per-episode weak/frozen-joint fault)
+  during what reads as a turn-in-place segment, then a clean topple.
+  This is a near-universal hard-maneuver failure the recipe sits at
+  its margin against, not primarily a training-seed lottery — do not
+  promote `tipfrac05` (or fund further acq1/kernel-EMA budget/pricing
+  arms on it) as an M5 candidate off any `gait_valid`-only safety
+  claim. DIG-IN flagged to replay `walk_det_3.mp4` across the family,
+  pin the exact fault+command combo, and check whether it's
+  under-sampled in `stress_mix` training (a buildable exposure fix,
+  not an n=12-seeds problem). Full detail + evidence paths:
+  `rl_docs/tracks/amp/STATUS.md` top banner.
+  **FURTHER TRACED (same audit, this cycle): the fall risk PRE-DATES
+  turn-in-place AND pre-dates fault, and traces to PUSH.** Raw-
+  `terminated` audit of the lineage's own ancestors:
+  `cw-amp-m4-turnfault-seq1` (fault only, NO push) — own-cfg DR-0
+  gate is genuinely 0/12 falls, clean. The moment push composes in,
+  `cw-amp-m4-turnfault-seq1-pushcont1` (fault+push) shows 4/12 REAL
+  falls that its own PASS-partial verdict never counted (it read
+  "gait_valid 10/12 >= 9/12" as the floor, same metric bug). Its
+  `-ypfix1` yaw-pricing respec (unrelated lever, same fault+push)
+  roughly halves it to 2/12 falls — also uncounted at the time. An
+  even earlier, fault-FREE, push-only M3 checkpoint
+  (`cw-amp-m3-pushcur1-noamp-b1530`) already falls 2/12 (det/3
+  tilt_roll 40.9deg — the SAME episode index again — + sto/0
+  tilt_pitch). **CONCLUSION: push-disturbance recovery itself has an
+  uncounted ~15-30% real fall rate across the ENTIRE M3/M4
+  push-composition lineage, present before fault injection and before
+  any turn-in-place lever — turn-in-place/kernel-EMA work has been
+  layered on top of, and is not the cause of, an already-shaky
+  push-recovery foundation.** `dr.ext_push_n=(10,25)` N over
+  0.15-0.4s, random direction/timing (`domain_rand.py` `RandRanges`)
+  — untested whether push magnitude, timing-vs-gait-phase, or
+  undertrained recovery is the actual mechanism; that trace is the
+  next dig-in step, ahead of any further turn-in-place or kernel-EMA
+  arm. Every push-composition verdict logged before this correction
+  (`pushcont1`, `ypfix1`, every `pushcur*`/`pushhard*` M3 arm, all
+  tipfrac0x/seed arms) should be re-read for raw fall count, not
+  `gait_valid`, before being cited as a safety baseline again.
 - **JOYSTICK DONE GATE: FIRST MEASURED PASS (08-22 ~17:3x)** —
   `cw-dep-bcgait4-phasedir9-longrun17-stotight45` (longrun17 recipe,
   fresh reinit, single change `--log-std-final` -3.2 -> -4.5, final
