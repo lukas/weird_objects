@@ -11,13 +11,18 @@ servo — is a cantilever.  This variant closes the structure from the top:
   solid flange-bar material, >9 mm clear of the cap's M3 counterbores.
   Knee caps stay stock.
 * **`chassis_top_rigid`** (print 1): a second 200 mm flat-to-flat, 4 mm
-  hex plate (same footprint/thickness as chassis_bottom's sheet).  Six
+  hex FRAME (same footprint/thickness as chassis_bottom's sheet).  Six
   Φ44 full-height bosses pocket the bearings' outer races from below at
-  Φ37.15, each race retained by a complete 360° Φ34 shoulder.  Carries
-  the existing 4-hole standoff pattern (±31.1, ±31.1), the
-  electronics-deck pattern (±24.75, ±24.75), and a Φ40 centre access
-  hole.  The electronics deck moves up here; the 140 mm `chassis_top`
-  is not used in this variant.
+  Φ37.15, each race retained by a complete 360° Φ34 shoulder.  A large
+  hex chunk of the middle (128 mm across flats) is cut out for the
+  service hatch; the 140 mm `chassis_top` is not used in this variant.
+* **`top_hatch_rigid`** (print 1): a removable 4 mm hex lid over the
+  frame opening — take it off and the whole interior (electronics,
+  wiring, yaw-cap bolts, standoffs) is open.  Carries the standoff
+  pattern (±31.1, ±31.1), the electronics-deck pattern (±24.75,
+  ±24.75) and the Φ40 centre hole, all of which fell inside the
+  opening.  The electronics deck mounts on the hatch, so the lid lifts
+  out WITH the electronics (tethered by wiring) for bench work.
 
 Load path: hip moment → cap boss → top bearing → top plate →
 standoffs + the five other legs.  Each yaw axis becomes
@@ -48,6 +53,30 @@ plate).
 
 Yaw axes sit exactly on the hex edge midpoints (apothem 100), so each
 Φ44 boss bulges half-outboard — same as the bottom towers.
+
+## Removable service hatch
+
+The full plate buried everything the production robot had in the open,
+so the frame's middle opens up (the structure lives at the rim where
+the bearing rings are):
+
+* **Opening**: hex, 128 mm across flats, flats facing the rings — a
+  14 mm web stays at every bearing ring, and the opening reaches
+  furthest between the legs where the frame is widest.
+* **Lid**: 4 mm hex (136 across flats) sitting ON the deck face with a
+  1.5 mm registration lip dropping just inside the opening (0.3 mm/side
+  clearance — straight drop-in verified at build time).
+* **Retention**: 6× M3 button-heads into Φ8 pilot bosses fused under
+  the frame at the opening's corner directions (insert-ready: drill
+  Φ4 × 6), PLUS the 4 chassis standoff screws, which now pass through
+  the hatch into the standoffs.  Chassis-hang loads run standoffs →
+  hatch → deck face → frame in pure compression; the screws only see
+  rebound.
+* **Interior access** = remove 10 screws (6 perimeter + 4 standoff)
+  and lift the lid — the frame, bearings and legs are untouched.  The
+  yaw-cap join bolts (Φ23.5 around each yaw axis) are reachable
+  through the opening with a long driver at ~14° tilt; the disc-horn
+  clamp screws under the rings still need the full plate-off.
 
 ## Fits — all bench-tuned production constants, nothing new
 
@@ -81,11 +110,13 @@ variation only moves parts that stay outboard/below the plate.
 
 * 6805-2RS count unchanged (12): the 6 lower yaw bearings move up to
   become the 6 top-plate bearings
-* 4× M3 standoff stacks, ~86 mm (bottom sheet top z≈2 → sheet bottom
-  88.05; e.g. 50+36 F-F, or M3 threaded rod in printed sleeves)
+* 4× M3 standoff stacks, ~90 mm (bottom sheet top z≈2 → hatch underside
+  92.05; e.g. 50+40 F-F, or M3 threaded rod in printed sleeves) + M3
+  screws down through the hatch into the stack tops
+* 6× M3×12 button-heads for the hatch perimeter
 * the 140 mm `chassis_top` deck + its 20 mm standoffs are not used
 * recommended: 12× M3 heat-set inserts (McMaster 94459A130) for the hip
-  cap pilots — see "Disassembly & service"
+  cap pilots, +6 for the hatch bosses — see "Disassembly & service"
 
 ## Assembly order
 
@@ -97,7 +128,8 @@ variation only moves parts that stay outboard/below the plate.
 3. Lower `chassis_top_rigid` straight down onto all six races (pockets
    are lead-in chamfered; descent path verified clear at build time),
    press until the shoulders touch the race tops.
-4. Bolt the 4 standoffs.
+4. Drop `top_hatch_rigid` into the frame opening (lip registers), drive
+   the 6 perimeter M3s and the 4 standoff screws.
 
 ## Disassembly & service — the cap is a captive bearing carrier
 
@@ -151,14 +183,15 @@ serviceable option.
 * `chassis_top_rigid`: deck face down.  Pockets then print as upward
   blind bores (clean press walls); the Φ34→37.15 shoulder is a short
   internal bridge, same as the bottom tower prints.
+* `top_hatch_rigid`: lid face down, lip up — flat print, no supports.
 * `hip_clamp_cap_rigid`: rest on the tongue face (outer face + boss
   up) so the press boss prints as a vertical cylinder; supports under
   the flange wings and hooks.  Printing in the stock flat orientation
   puts support scars on the press band — coupon-check the fit if you
   do that.
 * Reused parts in `stl/` (coxa_link, femur_link, …) are for the viewer;
-  print those from the main `stl_prototype/`.  Only the two parts above
-  are new.  `*_DO_NOT_PRINT.stl` are COTS visuals.
+  print those from the main `stl_prototype/`.  Only the three parts
+  above are new.  `*_DO_NOT_PRINT.stl` are COTS visuals.
 
 ## Build & view
 

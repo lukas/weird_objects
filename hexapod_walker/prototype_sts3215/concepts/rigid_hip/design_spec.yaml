@@ -116,8 +116,8 @@ parts:
             code_name: PULLER_NOTCH_DEPTH
 
   chassis_top_rigid:
-    label: "Full-size top chassis with bearing pockets (concept)"
-    aliases: ["top plate", "second chassis", "bearing plate"]
+    label: "Full-size top chassis FRAME with bearing pockets (concept)"
+    aliases: ["top plate", "second chassis", "bearing plate", "frame"]
     description: >-
       A second 200 mm flat-to-flat, 4 mm hex sheet (chassis_bottom's
       footprint) at world z 88.05..92.05.  Six phi 44 full-height
@@ -183,6 +183,70 @@ parts:
             label: "Access hole diameter"
             value: 7.0
             code_name: ACCESS_HOLE_D
+      hatch_opening:
+        label: "Service-hatch opening (hex, 128 across flats)"
+        kind: "cutout"
+        purpose: >-
+          A large hex chunk of the plate middle is removed so the
+          interior stays serviceable (electronics, wiring, yaw-cap
+          bolts).  Flats face the bearing rings, keeping a 14 mm web at
+          every ring; vertices reach toward the inter-leg directions
+          where the frame is widest.  The standoff, electronics-deck
+          and centre holes all fell inside the opening and moved onto
+          the removable top_hatch_rigid lid.  Six phi 8 pilot bosses
+          (insert-ready phi 2.5 self-tap pilots) are fused under the
+          sheet at the opening's corner directions for the lid screws.
+        dimensions:
+          opening_apothem:
+            label: "Opening apothem"
+            value: 64.0
+            code_name: HATCH_OPEN_APO
+          screw_rho:
+            label: "Lid screw radius (corner azimuths 0/60/...)"
+            value: 76.2
+            code_name: HATCH_SCREW_RHO
+
+  top_hatch_rigid:
+    label: "Removable service hatch (concept)"
+    aliases: ["hatch", "lid", "access panel", "service cover"]
+    description: >-
+      A 4 mm hex lid (136 across flats) over the frame opening, sitting
+      ON the deck face with a 1.5 mm registration lip dropping just
+      inside the opening (0.3 mm/side clearance; straight drop-in
+      verified at build time).  Held by 6x M3 button-heads into the
+      frame's pilot bosses plus the 4 chassis standoff screws (standoff
+      stacks grow to ~90 mm so they anchor the hatch; chassis-hang
+      loads run standoffs -> hatch -> deck face -> frame in pure
+      compression).  Carries the standoff pattern, the electronics-deck
+      pattern and the phi 40 centre hole, so the electronics deck lifts
+      out WITH the lid: 10 screws open the whole interior without
+      touching the frame, bearings or legs.
+    geometry_source:
+      function: "make_top_hatch_rigid"
+      output_stl: "stl/top_hatch_rigid.stl"
+    local_frame:
+      origin: "World/chassis frame (chassis_bottom sheet mid-plane z=0)"
+      axes:
+        x: "Chassis +x"
+        y: "Chassis +y"
+        z: "Up"
+    features:
+      registration_lip:
+        label: "1.5 mm hex lip into the frame opening"
+        kind: "boss"
+        purpose: >-
+          Registers the lid in shear against the frame opening walls
+          (0.3 mm/side clearance) so the screws only clamp; restores
+          some in-plane panel stiffness to the opened frame.
+        dimensions:
+          lip_h:
+            label: "Lip height"
+            value: 1.5
+            code_name: HATCH_LIP_H
+          lid_apothem:
+            label: "Lid apothem"
+            value: 68.0
+            code_name: HATCH_APO
 
   bearing_6805:
     label: "Top-plate 6805-2RS (25x37x7) — COTS, not printed"

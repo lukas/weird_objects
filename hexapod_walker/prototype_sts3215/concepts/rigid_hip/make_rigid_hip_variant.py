@@ -110,6 +110,35 @@ ACCESS_HOLE_D = 7.0                       # driver pass-through above the
                                           # one captive unit -- the bearing
                                           # fits are never fought in service
 
+# Removable service hatch (user, Aug 2026): a large hex chunk of the top
+# plate is cut out and replaced by a screw-down lid, restoring interior
+# access (electronics, wiring, yaw-cap bolts, standoff screws) that the
+# full-size plate had buried.  The structural work happens at the RIM --
+# the six bearing rings at the edge midpoints -- so the middle can open.
+# Opening flats face the rings (14 mm bottom web kept at every ring);
+# opening vertices point at the plate corners where the frame is widest.
+HATCH_OPEN_APO = 64.0                     # opening apothem (through-cut)
+HATCH_APO = 68.0                          # lid apothem: 4 mm overlap onto the
+                                          # deck, and its az-30 flats stop
+                                          # 1.3 mm short of the Phi 7 driver
+                                          # holes so cap access stays clear
+HATCH_LIP_CL = 0.3                        # lid registration lip vs opening
+HATCH_LIP_H = 1.5                         # lip drop into the opening
+HATCH_LIP_W = 2.7                         # lip ring radial width
+HATCH_SCREW_RHO = 76.2                    # 6x M3 at the opening's VERTEX
+                                          # azimuths (0..300 deg): clear of
+                                          # rings, driver holes and the
+                                          # opening corner (0.6 mm margins,
+                                          # asserted in check_static)
+HATCH_SCREW_BOSS_OD = 8.0                 # pilot boss fused under the sheet
+HATCH_SCREW_BOSS_H = 6.0                  # boss depth below the sheet
+HATCH_EAR_OD = 9.0                        # round lid ears around the screws:
+                                          # the bare hex corner leaves only
+                                          # ~0.3 mm wall at the hole (hub
+                                          # check caught it); the ear gives
+                                          # a 2.8 mm annulus, over solid frame
+PILOT_OD = hp.CLAMP_BOLT_PILOT_OD         # 2.5 -- M3 self-tap (insert-ready)
+
 # Cap-local (well-frame) geometry.  Well frame: origin = hip servo back-face
 # centre, +X = body long axis, +Y = out of the open face (world UP at the
 # hip), +Z = output axis.  The yaw axis pierces the cap at (x=0, z=AXIS_Z).
@@ -180,6 +209,25 @@ def _inter_vol(a: trimesh.Trimesh, b: trimesh.Trimesh) -> float:
 # ---------------------------------------------------------------------------
 # New printed parts
 # ---------------------------------------------------------------------------
+
+def _hex_prism(apothem: float, z0: float, z1: float,
+               flats_at_rings: bool = False) -> trimesh.Trimesh:
+    """Hexagonal prism.  Default = the PLATE's as-built orientation
+    (measured: VERTICES at the ring azimuths 30/90/... deg).  With
+    ``flats_at_rings`` the hex is rotated 30 deg so its FLATS face the
+    rings -- the hatch orientation, keeping the web at every ring wide
+    and reaching toward the inter-leg directions instead."""
+    p = _cyl_z(apothem / np.cos(np.pi / 6.0), z0, z1, sections=6)
+    if not flats_at_rings:
+        p.apply_transform(rotation_matrix(np.pi / 6.0, [0, 0, 1]))
+    return p
+
+
+def _hatch_screw_xy() -> list[tuple[float, float]]:
+    return [(HATCH_SCREW_RHO * np.cos(np.deg2rad(az)),
+             HATCH_SCREW_RHO * np.sin(np.deg2rad(az)))
+            for az in range(0, 360, 60)]
+
 
 def _access_hole_xy() -> list[tuple[float, float]]:
     """World XY of each leg's INBOARD hip-cap clamp bolt at yaw 0.
@@ -254,9 +302,7 @@ def make_chassis_top_rigid() -> trimesh.Trimesh:
     press up until the race top hits the Phi 34 shoulder.  Carries the
     4-hole standoff pattern, the electronics-deck pattern, and a Phi 40
     centre access hole."""
-    circum = APOTHEM / np.cos(np.pi / 6.0)
-    sheet = _cyl_z(circum, SHEET_Z0, SHEET_Z1, sections=6)
-    sheet.apply_transform(rotation_matrix(np.pi / 6.0, [0, 0, 1]))
+    sheet = _hex_prism(APOTHEM, SHEET_Z0, SHEET_Z1)
 
     solids = [sheet]
     cuts = []
@@ -274,20 +320,61 @@ def make_chassis_top_rigid() -> trimesh.Trimesh:
                            x=x, y=y))
         cuts.append(_cyl_z(SHOULDER_OD / 2.0, SHEET_Z0 - 0.01, SHEET_Z1 + 1.0,
                            x=x, y=y))
-    for (x, y) in hp.CHASSIS_STANDOFF_HOLES_XY:
-        cuts.append(_cyl_z(HOLE_D / 2.0, SHEET_Z0 - 1.0, SHEET_Z1 + 1.0,
-                           x=float(x), y=float(y), sections=48))
-    for (x, y) in hp.ELEC_CHASSIS_MOUNT_HOLES_XY:
-        cuts.append(_cyl_z(HOLE_D / 2.0, SHEET_Z0 - 1.0, SHEET_Z1 + 1.0,
-                           x=float(x), y=float(y), sections=48))
+    # Hatch-screw pilot bosses fused under the sheet at the opening's
+    # vertex azimuths (safe by z: everything yaw-rotating tops out at the
+    # cap face, 75.55, well below the boss bottoms at 82.05).
+    for (x, y) in _hatch_screw_xy():
+        solids.append(_cyl_z(HATCH_SCREW_BOSS_OD / 2.0,
+                             SHEET_Z0 - HATCH_SCREW_BOSS_H, SHEET_Z0 + 1.0,
+                             x=x, y=y, sections=48))
     # Driver pass-throughs above the inboard cap bolts (legs at yaw 0):
     # a hex driver reaches the cap screws with the plate ON, so service
     # unbolts the cap+bearing unit instead of separating any press fit.
     for (x, y) in _access_hole_xy():
         cuts.append(_cyl_z(ACCESS_HOLE_D / 2.0, SHEET_Z0 - 1.0, SHEET_Z1 + 1.0,
                            x=x, y=y, sections=64))
-    cuts.append(_cyl_z(CENTRE_HOLE_D / 2.0, SHEET_Z0 - 1.0, SHEET_Z1 + 1.0))
+    # SERVICE-HATCH opening: the standoff, electronics-deck and centre
+    # holes all fell inside it -- they move onto the removable hatch.
+    cuts.append(_hex_prism(HATCH_OPEN_APO, SHEET_Z0 - 1.0, SHEET_Z1 + 1.0,
+                           flats_at_rings=True))
+    for (x, y) in _hatch_screw_xy():
+        cuts.append(_cyl_z(PILOT_OD / 2.0, SHEET_Z0 - HATCH_SCREW_BOSS_H + 1.0,
+                           SHEET_Z1 + 1.0, x=x, y=y, sections=32))
     return _diff(_union(solids), cuts)
+
+
+def make_top_hatch_rigid() -> trimesh.Trimesh:
+    """Removable service hatch: a 4 mm hex lid over the frame opening.
+
+    Sits ON the deck face (4 mm overlap all around), registered by a
+    1.5 mm lip that drops just inside the opening, held by 6x M3 into
+    the frame's pilot bosses (vertex azimuths) AND the 4 chassis
+    standoff screws -- the standoff stacks grow ~4 mm so the standoffs
+    anchor the hatch, and chassis-hang loads run standoffs -> hatch ->
+    deck face -> frame in pure compression (screws only see rebound).
+    Carries the electronics-deck pattern and the Phi 40 centre hole, so
+    10 screws lift the lid + electronics out for full interior access."""
+    lid = _hex_prism(HATCH_APO, SHEET_Z1, SHEET_Z1 + PLATE_T,
+                     flats_at_rings=True)
+    lip = _diff(
+        _hex_prism(HATCH_OPEN_APO - HATCH_LIP_CL,
+                   SHEET_Z1 - HATCH_LIP_H, SHEET_Z1 + 0.1,
+                   flats_at_rings=True),
+        [_hex_prism(HATCH_OPEN_APO - HATCH_LIP_CL - HATCH_LIP_W,
+                    SHEET_Z1 - HATCH_LIP_H - 1.0, SHEET_Z1 + 1.0,
+                    flats_at_rings=True)])
+    ears = [_cyl_z(HATCH_EAR_OD / 2.0, SHEET_Z1, SHEET_Z1 + PLATE_T,
+                   x=x, y=y, sections=48) for (x, y) in _hatch_screw_xy()]
+    body = _union([lid, lip, *ears])
+    cuts = []
+    for (x, y) in list(_hatch_screw_xy()) \
+            + [(float(x), float(y)) for (x, y) in hp.CHASSIS_STANDOFF_HOLES_XY] \
+            + [(float(x), float(y)) for (x, y) in hp.ELEC_CHASSIS_MOUNT_HOLES_XY]:
+        cuts.append(_cyl_z(HOLE_D / 2.0, SHEET_Z1 - 1.0,
+                           SHEET_Z1 + PLATE_T + 1.0, x=x, y=y, sections=48))
+    cuts.append(_cyl_z(CENTRE_HOLE_D / 2.0, SHEET_Z1 - 1.0,
+                       SHEET_Z1 + PLATE_T + 1.0))
+    return _diff(body, cuts)
 
 
 # ---------------------------------------------------------------------------
@@ -334,6 +421,7 @@ MESH_FILES = {
     # always rebuilt, they are what this script iterates on.
     "hip_clamp_cap_rigid": (make_hip_cap_rigid, "hip_clamp_cap_rigid.stl"),
     "chassis_top_rigid": (make_chassis_top_rigid, "chassis_top_rigid.stl"),
+    "top_hatch_rigid": (make_top_hatch_rigid, "top_hatch_rigid.stl"),
     # Unchanged production prints (print from the MAIN stl_prototype/).
     "chassis_bottom": (hp.make_chassis_bottom, "chassis_bottom.stl"),
     "coxa_link": (hp.make_coxa_link_part, "coxa_link.stl"),
@@ -356,7 +444,8 @@ MESH_FILES = {
                           "yaw_bearing_upper_DO_NOT_PRINT.stl"),
     "bearing_6805": (make_bearing_6805, "bearing_6805_DO_NOT_PRINT.stl"),
 }
-ALWAYS_REBUILD = {"hip_clamp_cap_rigid", "chassis_top_rigid", "bearing_6805"}
+ALWAYS_REBUILD = {"hip_clamp_cap_rigid", "chassis_top_rigid",
+                  "top_hatch_rigid", "bearing_6805"}
 
 
 def build_meshes() -> dict[str, trimesh.Trimesh]:
@@ -388,7 +477,8 @@ def build_meshes() -> dict[str, trimesh.Trimesh]:
 def check_static(meshes: dict[str, trimesh.Trimesh]) -> None:
     """Seated-assembly sanity: new parts watertight, stack lands where the
     constants say, nothing but the boss/bearing enters the plate bore."""
-    for key in ("hip_clamp_cap_rigid", "chassis_top_rigid"):
+    for key in ("hip_clamp_cap_rigid", "chassis_top_rigid",
+                "top_hatch_rigid"):
         m = meshes[key]
         assert m.is_watertight, f"{key} not watertight"
         print(f"  {key:22s} watertight, vol {m.volume / 1000.0:.1f} cm3")
@@ -411,22 +501,36 @@ def check_static(meshes: dict[str, trimesh.Trimesh]) -> None:
 
     # --- driver access holes: web clearances + clear line of sight ------
     holes = _access_hole_xy()
-    other = ([(float(x), float(y), HOLE_D) for (x, y) in
-              list(hp.CHASSIS_STANDOFF_HOLES_XY)
-              + list(hp.ELEC_CHASSIS_MOUNT_HOLES_XY)]
-             + [(0.0, 0.0, CENTRE_HOLE_D)])
+    open_vertex_r = HATCH_OPEN_APO / np.cos(np.pi / 6.0)   # 73.90
+    hatch_vertex_r = HATCH_APO / np.cos(np.pi / 6.0)       # 78.52
     for k, (hx, hy) in enumerate(holes):
         ax = leg_transforms(k)["coxa"][:2, 3]
         web = np.hypot(hx - ax[0], hy - ax[1]) - RING_OD / 2.0 \
             - ACCESS_HOLE_D / 2.0
         assert web >= 0.5, f"access hole L{k}: only {web:.2f} mm to the ring"
-        for (ox, oy, od) in other:
-            gap = np.hypot(hx - ox, hy - oy) - (ACCESS_HOLE_D + od) / 2.0
+        rho = np.hypot(hx, hy)
+        # the hole must stay clear of the hatch opening AND outboard of
+        # the hatch lid's az-30 flat (extent = HATCH_APO there)
+        assert rho - ACCESS_HOLE_D / 2.0 - HATCH_OPEN_APO >= 1.0, \
+            f"access hole L{k} breaks into the hatch opening"
+        assert rho - ACCESS_HOLE_D / 2.0 - HATCH_APO >= 1.0, \
+            f"access hole L{k} covered by the hatch lid"
+        for (sx, sy) in _hatch_screw_xy():
+            gap = np.hypot(hx - sx, hy - sy) \
+                - (ACCESS_HOLE_D + HATCH_SCREW_BOSS_OD) / 2.0
             assert gap >= 1.5, (
-                f"access hole L{k} within {gap:.2f} mm of another plate hole")
+                f"access hole L{k} within {gap:.2f} mm of a hatch boss")
+    # hatch screw geometry: hole inside the lid overlap band at the
+    # opening's vertex direction, boss footprint outside the opening
+    assert HATCH_SCREW_RHO - HOLE_D / 2.0 - open_vertex_r >= 0.5, \
+        "hatch screw hole breaks into the opening corner"
+    assert hatch_vertex_r - HATCH_SCREW_RHO - HOLE_D / 2.0 >= 0.5, \
+        "hatch screw hole falls off the lid corner"
+    assert HATCH_SCREW_RHO - HATCH_SCREW_BOSS_OD / 2.0 - HATCH_OPEN_APO \
+        >= 0.0, "hatch screw boss can intrude under the lip corner"
     # A Phi 6.5 driver shaft dropped through the L0 hole down to the cap
     # face must touch nothing (leg at yaw 0) -- the screw head sits in the
-    # cap flange counterbore right below.
+    # cap flange counterbore right below.  The HATCH must not cover it.
     hx, hy = holes[0]
     shaft = _cyl_z(3.25, CAP_FACE_W + 0.05, SHEET_Z1 + 30.0, x=hx, y=hy,
                    sections=48)
@@ -438,10 +542,37 @@ def check_static(meshes: dict[str, trimesh.Trimesh]) -> None:
         m.apply_transform(leg_transforms(0)[frame])
         v = _inter_vol(shaft, m)
         assert v < 1e-6, f"driver shaft fouls {key} ({v:.2f} mm3)"
-    v = _inter_vol(shaft, plate)
-    assert v < 1e-6, f"driver shaft fouls the plate ({v:.2f} mm3)"
+    for key in ("chassis_top_rigid", "top_hatch_rigid"):
+        v = _inter_vol(shaft, meshes[key])
+        assert v < 1e-6, f"driver shaft fouls {key} ({v:.2f} mm3)"
     print(f"  cap-bolt driver access: 6 holes Phi {ACCESS_HOLE_D:g}, "
-          f"ring web {web:.2f} mm, line of sight clear")
+          f"ring web {web:.2f} mm, line of sight clear (hatch ON)")
+
+
+def check_hatch(meshes: dict[str, trimesh.Trimesh]) -> None:
+    """The hatch must drop STRAIGHT DOWN into the seated frame (lip into
+    the opening) with zero overlap, and its screw/standoff/elec holes
+    must land on frame bosses / open interior respectively."""
+    frame = meshes["chassis_top_rigid"]
+    hatch = meshes["top_hatch_rigid"]
+    v = _inter_vol(frame, hatch)
+    assert v < 1e-6, f"hatch overlaps the frame when seated ({v:.2f} mm3)"
+    for dz in (0.5, 2.0, 5.0, 20.0, 60.0):
+        h = hatch.copy()
+        h.apply_translation([0, 0, dz])
+        v = _inter_vol(h, frame)
+        assert v < 1e-6, f"hatch descent +{dz}: fouls the frame ({v:.1f} mm3)"
+        for i in range(6):
+            T = leg_transforms(i)
+            for key, fr in (("hip_clamp_cap_rigid", "hip_cap"),
+                            ("bearing_6805", "hip_cap"),
+                            ("coxa_link", "coxa")):
+                m = meshes[key].copy()
+                m.apply_transform(T[fr])
+                v = _inter_vol(h, m)
+                assert v < 1e-6, \
+                    f"hatch descent +{dz}: fouls L{i} {key} ({v:.1f} mm3)"
+    print("  hatch: seats with zero overlap, straight drop-in verified")
 
 
 def check_yaw_sweep(meshes: dict[str, trimesh.Trimesh]) -> None:
@@ -471,9 +602,10 @@ def check_yaw_sweep(meshes: dict[str, trimesh.Trimesh]) -> None:
         for key, frame in rotating:
             m = meshes[key].copy()
             m.apply_transform(T[frame])
-            v = _inter_vol(m, plate)
-            assert v < 1e-6, f"yaw {phi}: {key} hits plate ({v:.2f} mm3)"
-    print("  yaw sweep (0..360): coxa assembly clears the plate")
+            for pk in ("chassis_top_rigid", "top_hatch_rigid"):
+                v = _inter_vol(m, meshes[pk])
+                assert v < 1e-6, f"yaw {phi}: {key} hits {pk} ({v:.2f} mm3)"
+    print("  yaw sweep (0..360): coxa assembly clears the plate + hatch")
 
 
 def check_plate_descent(meshes: dict[str, trimesh.Trimesh]) -> None:
@@ -528,7 +660,8 @@ def sweep_femur_envelope(meshes: dict[str, trimesh.Trimesh],
         if any(_inter_vol(m, stack) > 1.0 for _k, m in moving(0, 0.0, p)):
             contact_a = float(p)
             break
-    # (B) vs the world-fixed plate, per yaw.
+    # (B) vs the world-fixed plate + hatch, per yaw.
+    hatch = meshes["top_hatch_rigid"]
     contact_b = {}
     for yaw in yaw_grid:
         contact_b[yaw] = None
@@ -537,7 +670,7 @@ def sweep_femur_envelope(meshes: dict[str, trimesh.Trimesh],
             for _k, m in moving(0, yaw, p):
                 if m.bounds[1][2] < RING_BOT_W:      # cheap z prefilter
                     continue
-                if _inter_vol(m, plate) > 1.0:
+                if _inter_vol(m, plate) > 1.0 or _inter_vol(m, hatch) > 1.0:
                     hit = True
                     break
             if hit:
@@ -562,7 +695,7 @@ def sweep_femur_envelope(meshes: dict[str, trimesh.Trimesh],
 # ---------------------------------------------------------------------------
 COLORS = {
     "hip_clamp_cap_rigid": "#4878b0", "chassis_top_rigid": "#5b8fd4",
-    "bearing_6805": "#303030",
+    "top_hatch_rigid": "#6fa8dc", "bearing_6805": "#303030",
     "yaw_bearing_upper": "#3a3a3a", "servo_body": "#6b6b6b",
     "chassis_bottom": "#8a8f98", "coxa_link": "#9aa0a6",
     "femur_link": "#9aa0a6", "tibia_knee_yoke": "#9aa0a6",
@@ -599,7 +732,8 @@ def build_scene(meshes, femur_up_limit: float) -> dict:
         return iid
 
     inst("chassis_bottom", "chassis_bottom", np.eye(4))
-    inst("chassis_top_rigid", "chassis_top_rigid (NEW)", np.eye(4))
+    inst("chassis_top_rigid", "chassis_top_rigid FRAME (NEW)", np.eye(4))
+    inst("top_hatch_rigid", "top_hatch (NEW, removable)", np.eye(4))
     for i in range(6):
         T = leg_transforms(i)
         a = (i + 0.5) * np.pi / 3.0
@@ -661,6 +795,7 @@ def build_scene(meshes, femur_up_limit: float) -> dict:
         "checksConfig": {
             "overlapMm3": 80.0, "pitchMm": 2.0,
             "ignoreOverlapPairs": [
+                ["chassis_top_rigid", "top_hatch_rigid"],
                 ["chassis_bottom", "servo_body"],
                 ["coxa_link", "servo_body"],
                 ["coxa_link", "yaw_bearing_cap"],
@@ -712,7 +847,9 @@ def render_preview(meshes) -> None:
     Rz = _rotz(-a)  # leg-0 radial -> +x
     T = leg_transforms(0)
     sections = [
-        ("chassis_top_rigid", np.eye(4), "#5b8fd4", "chassis_top_rigid (NEW)"),
+        ("chassis_top_rigid", np.eye(4), "#5b8fd4",
+         "chassis_top_rigid frame (NEW)"),
+        ("top_hatch_rigid", np.eye(4), "#6fa8dc", "service hatch (NEW)"),
         ("hip_clamp_cap_rigid", T["hip_cap"], "#4878b0",
          "hip cap + pedestal + boss (NEW)"),
         ("bearing_6805", T["hip_cap"], "#303030", "third 6805-2RS"),
@@ -760,6 +897,7 @@ def main() -> None:
 
     print("static checks ...")
     check_static(meshes)
+    check_hatch(meshes)
     check_yaw_sweep(meshes)
     check_plate_descent(meshes)
 

@@ -13,6 +13,10 @@
   "pitchMm": 2.0,
   "ignoreOverlapPairs": [
    [
+    "chassis_top_rigid",
+    "top_hatch_rigid"
+   ],
+   [
     "chassis_bottom",
     "servo_body"
    ],
@@ -72,6 +76,11 @@
    "id": "stl:chassis_top_rigid",
    "name": "chassis_top_rigid.stl",
    "url": "stl/chassis_top_rigid.stl"
+  },
+  {
+   "id": "stl:top_hatch_rigid",
+   "name": "top_hatch_rigid.stl",
+   "url": "stl/top_hatch_rigid.stl"
   },
   {
    "id": "stl:chassis_bottom",
@@ -165,9 +174,9 @@
    ]
   },
   {
-   "id": "001-chassis_top_rigid (NEW)",
+   "id": "001-chassis_top_rigid FRAME (NEW)",
    "meshId": "stl:chassis_top_rigid",
-   "name": "chassis_top_rigid (NEW)",
+   "name": "chassis_top_rigid FRAME (NEW)",
    "partType": "chassis_top_rigid",
    "role": "variant",
    "leg": null,
@@ -194,7 +203,36 @@
    ]
   },
   {
-   "id": "002-L0 coxa_link",
+   "id": "002-top_hatch (NEW, removable)",
+   "meshId": "stl:top_hatch_rigid",
+   "name": "top_hatch (NEW, removable)",
+   "partType": "top_hatch_rigid",
+   "role": "variant",
+   "leg": null,
+   "joint": null,
+   "cots": false,
+   "color": "#6fa8dc",
+   "transform": [
+    1.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    1.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    1.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    1.0
+   ]
+  },
+  {
+   "id": "003-L0 coxa_link",
    "meshId": "stl:coxa_link",
    "name": "L0 coxa_link",
    "partType": "coxa_link",
@@ -223,7 +261,7 @@
    ]
   },
   {
-   "id": "003-L0 yaw bearing (lower slot EMPTY)",
+   "id": "004-L0 yaw bearing (lower slot EMPTY)",
    "meshId": "stl:yaw_bearing_upper",
    "name": "L0 yaw bearing (lower slot EMPTY)",
    "partType": "yaw_bearing_upper",
@@ -252,7 +290,7 @@
    ]
   },
   {
-   "id": "004-L0 yaw bearing cap",
+   "id": "005-L0 yaw bearing cap",
    "meshId": "stl:yaw_bearing_cap",
    "name": "L0 yaw bearing cap",
    "partType": "yaw_bearing_cap",
@@ -281,7 +319,7 @@
    ]
   },
   {
-   "id": "005-L0 hip servo",
+   "id": "006-L0 hip servo",
    "meshId": "stl:servo_body",
    "name": "L0 hip servo",
    "partType": "servo_body",
@@ -310,7 +348,7 @@
    ]
   },
   {
-   "id": "006-L0 hip cap RIGID (NEW)",
+   "id": "007-L0 hip cap RIGID (NEW)",
    "meshId": "stl:hip_clamp_cap_rigid",
    "name": "L0 hip cap RIGID (NEW)",
    "partType": "hip_clamp_cap_rigid",
@@ -339,7 +377,7 @@
    ]
   },
   {
-   "id": "007-L0 third 6805 (NEW)",
+   "id": "008-L0 third 6805 (NEW)",
    "meshId": "stl:bearing_6805",
    "name": "L0 third 6805 (NEW)",
    "partType": "bearing_6805",
@@ -368,7 +406,7 @@
    ]
   },
   {
-   "id": "008-L0 yaw retainer",
+   "id": "009-L0 yaw retainer",
    "meshId": "stl:yaw_servo_retainer",
    "name": "L0 yaw retainer",
    "partType": "yaw_servo_retainer",
@@ -397,7 +435,7 @@
    ]
   },
   {
-   "id": "009-L0 yaw servo",
+   "id": "010-L0 yaw servo",
    "meshId": "stl:servo_body",
    "name": "L0 yaw servo",
    "partType": "servo_body",
@@ -426,7 +464,7 @@
    ]
   },
   {
-   "id": "010-L0 femur_link",
+   "id": "011-L0 femur_link",
    "meshId": "stl:femur_link",
    "name": "L0 femur_link",
    "partType": "femur_link",
@@ -455,7 +493,7 @@
    ]
   },
   {
-   "id": "011-L0 knee servo",
+   "id": "012-L0 knee servo",
    "meshId": "stl:servo_body",
    "name": "L0 knee servo",
    "partType": "servo_body",
@@ -484,7 +522,7 @@
    ]
   },
   {
-   "id": "012-L0 knee cap",
+   "id": "013-L0 knee cap",
    "meshId": "stl:knee_clamp_cap",
    "name": "L0 knee cap",
    "partType": "knee_clamp_cap",
@@ -513,7 +551,7 @@
    ]
   },
   {
-   "id": "013-L0 tibia yoke",
+   "id": "014-L0 tibia yoke",
    "meshId": "stl:tibia_knee_yoke",
    "name": "L0 tibia yoke",
    "partType": "tibia_knee_yoke",
@@ -542,7 +580,7 @@
    ]
   },
   {
-   "id": "014-L0 tibia tube",
+   "id": "015-L0 tibia tube",
    "meshId": "stl:tibia_tube",
    "name": "L0 tibia tube",
    "partType": "tibia_tube",
@@ -571,7 +609,7 @@
    ]
   },
   {
-   "id": "015-L0 foot boot",
+   "id": "016-L0 foot boot",
    "meshId": "stl:foot_boot",
    "name": "L0 foot boot",
    "partType": "foot_boot",
@@ -600,7 +638,7 @@
    ]
   },
   {
-   "id": "016-L1 coxa_link",
+   "id": "017-L1 coxa_link",
    "meshId": "stl:coxa_link",
    "name": "L1 coxa_link",
    "partType": "coxa_link",
@@ -629,7 +667,7 @@
    ]
   },
   {
-   "id": "017-L1 yaw bearing (lower slot EMPTY)",
+   "id": "018-L1 yaw bearing (lower slot EMPTY)",
    "meshId": "stl:yaw_bearing_upper",
    "name": "L1 yaw bearing (lower slot EMPTY)",
    "partType": "yaw_bearing_upper",
@@ -658,7 +696,7 @@
    ]
   },
   {
-   "id": "018-L1 yaw bearing cap",
+   "id": "019-L1 yaw bearing cap",
    "meshId": "stl:yaw_bearing_cap",
    "name": "L1 yaw bearing cap",
    "partType": "yaw_bearing_cap",
@@ -687,7 +725,7 @@
    ]
   },
   {
-   "id": "019-L1 hip servo",
+   "id": "020-L1 hip servo",
    "meshId": "stl:servo_body",
    "name": "L1 hip servo",
    "partType": "servo_body",
@@ -716,7 +754,7 @@
    ]
   },
   {
-   "id": "020-L1 hip cap RIGID (NEW)",
+   "id": "021-L1 hip cap RIGID (NEW)",
    "meshId": "stl:hip_clamp_cap_rigid",
    "name": "L1 hip cap RIGID (NEW)",
    "partType": "hip_clamp_cap_rigid",
@@ -745,7 +783,7 @@
    ]
   },
   {
-   "id": "021-L1 third 6805 (NEW)",
+   "id": "022-L1 third 6805 (NEW)",
    "meshId": "stl:bearing_6805",
    "name": "L1 third 6805 (NEW)",
    "partType": "bearing_6805",
@@ -774,7 +812,7 @@
    ]
   },
   {
-   "id": "022-L1 yaw retainer",
+   "id": "023-L1 yaw retainer",
    "meshId": "stl:yaw_servo_retainer",
    "name": "L1 yaw retainer",
    "partType": "yaw_servo_retainer",
@@ -803,7 +841,7 @@
    ]
   },
   {
-   "id": "023-L1 yaw servo",
+   "id": "024-L1 yaw servo",
    "meshId": "stl:servo_body",
    "name": "L1 yaw servo",
    "partType": "servo_body",
@@ -832,7 +870,7 @@
    ]
   },
   {
-   "id": "024-L1 femur_link",
+   "id": "025-L1 femur_link",
    "meshId": "stl:femur_link",
    "name": "L1 femur_link",
    "partType": "femur_link",
@@ -861,7 +899,7 @@
    ]
   },
   {
-   "id": "025-L1 knee servo",
+   "id": "026-L1 knee servo",
    "meshId": "stl:servo_body",
    "name": "L1 knee servo",
    "partType": "servo_body",
@@ -890,7 +928,7 @@
    ]
   },
   {
-   "id": "026-L1 knee cap",
+   "id": "027-L1 knee cap",
    "meshId": "stl:knee_clamp_cap",
    "name": "L1 knee cap",
    "partType": "knee_clamp_cap",
@@ -919,7 +957,7 @@
    ]
   },
   {
-   "id": "027-L1 tibia yoke",
+   "id": "028-L1 tibia yoke",
    "meshId": "stl:tibia_knee_yoke",
    "name": "L1 tibia yoke",
    "partType": "tibia_knee_yoke",
@@ -948,7 +986,7 @@
    ]
   },
   {
-   "id": "028-L1 tibia tube",
+   "id": "029-L1 tibia tube",
    "meshId": "stl:tibia_tube",
    "name": "L1 tibia tube",
    "partType": "tibia_tube",
@@ -977,7 +1015,7 @@
    ]
   },
   {
-   "id": "029-L1 foot boot",
+   "id": "030-L1 foot boot",
    "meshId": "stl:foot_boot",
    "name": "L1 foot boot",
    "partType": "foot_boot",
@@ -1006,7 +1044,7 @@
    ]
   },
   {
-   "id": "030-L2 coxa_link",
+   "id": "031-L2 coxa_link",
    "meshId": "stl:coxa_link",
    "name": "L2 coxa_link",
    "partType": "coxa_link",
@@ -1035,7 +1073,7 @@
    ]
   },
   {
-   "id": "031-L2 yaw bearing (lower slot EMPTY)",
+   "id": "032-L2 yaw bearing (lower slot EMPTY)",
    "meshId": "stl:yaw_bearing_upper",
    "name": "L2 yaw bearing (lower slot EMPTY)",
    "partType": "yaw_bearing_upper",
@@ -1064,7 +1102,7 @@
    ]
   },
   {
-   "id": "032-L2 yaw bearing cap",
+   "id": "033-L2 yaw bearing cap",
    "meshId": "stl:yaw_bearing_cap",
    "name": "L2 yaw bearing cap",
    "partType": "yaw_bearing_cap",
@@ -1093,7 +1131,7 @@
    ]
   },
   {
-   "id": "033-L2 hip servo",
+   "id": "034-L2 hip servo",
    "meshId": "stl:servo_body",
    "name": "L2 hip servo",
    "partType": "servo_body",
@@ -1122,7 +1160,7 @@
    ]
   },
   {
-   "id": "034-L2 hip cap RIGID (NEW)",
+   "id": "035-L2 hip cap RIGID (NEW)",
    "meshId": "stl:hip_clamp_cap_rigid",
    "name": "L2 hip cap RIGID (NEW)",
    "partType": "hip_clamp_cap_rigid",
@@ -1151,7 +1189,7 @@
    ]
   },
   {
-   "id": "035-L2 third 6805 (NEW)",
+   "id": "036-L2 third 6805 (NEW)",
    "meshId": "stl:bearing_6805",
    "name": "L2 third 6805 (NEW)",
    "partType": "bearing_6805",
@@ -1180,7 +1218,7 @@
    ]
   },
   {
-   "id": "036-L2 yaw retainer",
+   "id": "037-L2 yaw retainer",
    "meshId": "stl:yaw_servo_retainer",
    "name": "L2 yaw retainer",
    "partType": "yaw_servo_retainer",
@@ -1209,7 +1247,7 @@
    ]
   },
   {
-   "id": "037-L2 yaw servo",
+   "id": "038-L2 yaw servo",
    "meshId": "stl:servo_body",
    "name": "L2 yaw servo",
    "partType": "servo_body",
@@ -1238,7 +1276,7 @@
    ]
   },
   {
-   "id": "038-L2 femur_link",
+   "id": "039-L2 femur_link",
    "meshId": "stl:femur_link",
    "name": "L2 femur_link",
    "partType": "femur_link",
@@ -1267,7 +1305,7 @@
    ]
   },
   {
-   "id": "039-L2 knee servo",
+   "id": "040-L2 knee servo",
    "meshId": "stl:servo_body",
    "name": "L2 knee servo",
    "partType": "servo_body",
@@ -1296,7 +1334,7 @@
    ]
   },
   {
-   "id": "040-L2 knee cap",
+   "id": "041-L2 knee cap",
    "meshId": "stl:knee_clamp_cap",
    "name": "L2 knee cap",
    "partType": "knee_clamp_cap",
@@ -1325,7 +1363,7 @@
    ]
   },
   {
-   "id": "041-L2 tibia yoke",
+   "id": "042-L2 tibia yoke",
    "meshId": "stl:tibia_knee_yoke",
    "name": "L2 tibia yoke",
    "partType": "tibia_knee_yoke",
@@ -1354,7 +1392,7 @@
    ]
   },
   {
-   "id": "042-L2 tibia tube",
+   "id": "043-L2 tibia tube",
    "meshId": "stl:tibia_tube",
    "name": "L2 tibia tube",
    "partType": "tibia_tube",
@@ -1383,7 +1421,7 @@
    ]
   },
   {
-   "id": "043-L2 foot boot",
+   "id": "044-L2 foot boot",
    "meshId": "stl:foot_boot",
    "name": "L2 foot boot",
    "partType": "foot_boot",
@@ -1412,7 +1450,7 @@
    ]
   },
   {
-   "id": "044-L3 coxa_link",
+   "id": "045-L3 coxa_link",
    "meshId": "stl:coxa_link",
    "name": "L3 coxa_link",
    "partType": "coxa_link",
@@ -1441,7 +1479,7 @@
    ]
   },
   {
-   "id": "045-L3 yaw bearing (lower slot EMPTY)",
+   "id": "046-L3 yaw bearing (lower slot EMPTY)",
    "meshId": "stl:yaw_bearing_upper",
    "name": "L3 yaw bearing (lower slot EMPTY)",
    "partType": "yaw_bearing_upper",
@@ -1470,7 +1508,7 @@
    ]
   },
   {
-   "id": "046-L3 yaw bearing cap",
+   "id": "047-L3 yaw bearing cap",
    "meshId": "stl:yaw_bearing_cap",
    "name": "L3 yaw bearing cap",
    "partType": "yaw_bearing_cap",
@@ -1499,7 +1537,7 @@
    ]
   },
   {
-   "id": "047-L3 hip servo",
+   "id": "048-L3 hip servo",
    "meshId": "stl:servo_body",
    "name": "L3 hip servo",
    "partType": "servo_body",
@@ -1528,7 +1566,7 @@
    ]
   },
   {
-   "id": "048-L3 hip cap RIGID (NEW)",
+   "id": "049-L3 hip cap RIGID (NEW)",
    "meshId": "stl:hip_clamp_cap_rigid",
    "name": "L3 hip cap RIGID (NEW)",
    "partType": "hip_clamp_cap_rigid",
@@ -1557,7 +1595,7 @@
    ]
   },
   {
-   "id": "049-L3 third 6805 (NEW)",
+   "id": "050-L3 third 6805 (NEW)",
    "meshId": "stl:bearing_6805",
    "name": "L3 third 6805 (NEW)",
    "partType": "bearing_6805",
@@ -1586,7 +1624,7 @@
    ]
   },
   {
-   "id": "050-L3 yaw retainer",
+   "id": "051-L3 yaw retainer",
    "meshId": "stl:yaw_servo_retainer",
    "name": "L3 yaw retainer",
    "partType": "yaw_servo_retainer",
@@ -1615,7 +1653,7 @@
    ]
   },
   {
-   "id": "051-L3 yaw servo",
+   "id": "052-L3 yaw servo",
    "meshId": "stl:servo_body",
    "name": "L3 yaw servo",
    "partType": "servo_body",
@@ -1644,7 +1682,7 @@
    ]
   },
   {
-   "id": "052-L3 femur_link",
+   "id": "053-L3 femur_link",
    "meshId": "stl:femur_link",
    "name": "L3 femur_link",
    "partType": "femur_link",
@@ -1673,7 +1711,7 @@
    ]
   },
   {
-   "id": "053-L3 knee servo",
+   "id": "054-L3 knee servo",
    "meshId": "stl:servo_body",
    "name": "L3 knee servo",
    "partType": "servo_body",
@@ -1702,7 +1740,7 @@
    ]
   },
   {
-   "id": "054-L3 knee cap",
+   "id": "055-L3 knee cap",
    "meshId": "stl:knee_clamp_cap",
    "name": "L3 knee cap",
    "partType": "knee_clamp_cap",
@@ -1731,7 +1769,7 @@
    ]
   },
   {
-   "id": "055-L3 tibia yoke",
+   "id": "056-L3 tibia yoke",
    "meshId": "stl:tibia_knee_yoke",
    "name": "L3 tibia yoke",
    "partType": "tibia_knee_yoke",
@@ -1760,7 +1798,7 @@
    ]
   },
   {
-   "id": "056-L3 tibia tube",
+   "id": "057-L3 tibia tube",
    "meshId": "stl:tibia_tube",
    "name": "L3 tibia tube",
    "partType": "tibia_tube",
@@ -1789,7 +1827,7 @@
    ]
   },
   {
-   "id": "057-L3 foot boot",
+   "id": "058-L3 foot boot",
    "meshId": "stl:foot_boot",
    "name": "L3 foot boot",
    "partType": "foot_boot",
@@ -1818,7 +1856,7 @@
    ]
   },
   {
-   "id": "058-L4 coxa_link",
+   "id": "059-L4 coxa_link",
    "meshId": "stl:coxa_link",
    "name": "L4 coxa_link",
    "partType": "coxa_link",
@@ -1847,7 +1885,7 @@
    ]
   },
   {
-   "id": "059-L4 yaw bearing (lower slot EMPTY)",
+   "id": "060-L4 yaw bearing (lower slot EMPTY)",
    "meshId": "stl:yaw_bearing_upper",
    "name": "L4 yaw bearing (lower slot EMPTY)",
    "partType": "yaw_bearing_upper",
@@ -1876,7 +1914,7 @@
    ]
   },
   {
-   "id": "060-L4 yaw bearing cap",
+   "id": "061-L4 yaw bearing cap",
    "meshId": "stl:yaw_bearing_cap",
    "name": "L4 yaw bearing cap",
    "partType": "yaw_bearing_cap",
@@ -1905,7 +1943,7 @@
    ]
   },
   {
-   "id": "061-L4 hip servo",
+   "id": "062-L4 hip servo",
    "meshId": "stl:servo_body",
    "name": "L4 hip servo",
    "partType": "servo_body",
@@ -1934,7 +1972,7 @@
    ]
   },
   {
-   "id": "062-L4 hip cap RIGID (NEW)",
+   "id": "063-L4 hip cap RIGID (NEW)",
    "meshId": "stl:hip_clamp_cap_rigid",
    "name": "L4 hip cap RIGID (NEW)",
    "partType": "hip_clamp_cap_rigid",
@@ -1963,7 +2001,7 @@
    ]
   },
   {
-   "id": "063-L4 third 6805 (NEW)",
+   "id": "064-L4 third 6805 (NEW)",
    "meshId": "stl:bearing_6805",
    "name": "L4 third 6805 (NEW)",
    "partType": "bearing_6805",
@@ -1992,7 +2030,7 @@
    ]
   },
   {
-   "id": "064-L4 yaw retainer",
+   "id": "065-L4 yaw retainer",
    "meshId": "stl:yaw_servo_retainer",
    "name": "L4 yaw retainer",
    "partType": "yaw_servo_retainer",
@@ -2021,7 +2059,7 @@
    ]
   },
   {
-   "id": "065-L4 yaw servo",
+   "id": "066-L4 yaw servo",
    "meshId": "stl:servo_body",
    "name": "L4 yaw servo",
    "partType": "servo_body",
@@ -2050,7 +2088,7 @@
    ]
   },
   {
-   "id": "066-L4 femur_link",
+   "id": "067-L4 femur_link",
    "meshId": "stl:femur_link",
    "name": "L4 femur_link",
    "partType": "femur_link",
@@ -2079,7 +2117,7 @@
    ]
   },
   {
-   "id": "067-L4 knee servo",
+   "id": "068-L4 knee servo",
    "meshId": "stl:servo_body",
    "name": "L4 knee servo",
    "partType": "servo_body",
@@ -2108,7 +2146,7 @@
    ]
   },
   {
-   "id": "068-L4 knee cap",
+   "id": "069-L4 knee cap",
    "meshId": "stl:knee_clamp_cap",
    "name": "L4 knee cap",
    "partType": "knee_clamp_cap",
@@ -2137,7 +2175,7 @@
    ]
   },
   {
-   "id": "069-L4 tibia yoke",
+   "id": "070-L4 tibia yoke",
    "meshId": "stl:tibia_knee_yoke",
    "name": "L4 tibia yoke",
    "partType": "tibia_knee_yoke",
@@ -2166,7 +2204,7 @@
    ]
   },
   {
-   "id": "070-L4 tibia tube",
+   "id": "071-L4 tibia tube",
    "meshId": "stl:tibia_tube",
    "name": "L4 tibia tube",
    "partType": "tibia_tube",
@@ -2195,7 +2233,7 @@
    ]
   },
   {
-   "id": "071-L4 foot boot",
+   "id": "072-L4 foot boot",
    "meshId": "stl:foot_boot",
    "name": "L4 foot boot",
    "partType": "foot_boot",
@@ -2224,7 +2262,7 @@
    ]
   },
   {
-   "id": "072-L5 coxa_link",
+   "id": "073-L5 coxa_link",
    "meshId": "stl:coxa_link",
    "name": "L5 coxa_link",
    "partType": "coxa_link",
@@ -2253,7 +2291,7 @@
    ]
   },
   {
-   "id": "073-L5 yaw bearing (lower slot EMPTY)",
+   "id": "074-L5 yaw bearing (lower slot EMPTY)",
    "meshId": "stl:yaw_bearing_upper",
    "name": "L5 yaw bearing (lower slot EMPTY)",
    "partType": "yaw_bearing_upper",
@@ -2282,7 +2320,7 @@
    ]
   },
   {
-   "id": "074-L5 yaw bearing cap",
+   "id": "075-L5 yaw bearing cap",
    "meshId": "stl:yaw_bearing_cap",
    "name": "L5 yaw bearing cap",
    "partType": "yaw_bearing_cap",
@@ -2311,7 +2349,7 @@
    ]
   },
   {
-   "id": "075-L5 hip servo",
+   "id": "076-L5 hip servo",
    "meshId": "stl:servo_body",
    "name": "L5 hip servo",
    "partType": "servo_body",
@@ -2340,7 +2378,7 @@
    ]
   },
   {
-   "id": "076-L5 hip cap RIGID (NEW)",
+   "id": "077-L5 hip cap RIGID (NEW)",
    "meshId": "stl:hip_clamp_cap_rigid",
    "name": "L5 hip cap RIGID (NEW)",
    "partType": "hip_clamp_cap_rigid",
@@ -2369,7 +2407,7 @@
    ]
   },
   {
-   "id": "077-L5 third 6805 (NEW)",
+   "id": "078-L5 third 6805 (NEW)",
    "meshId": "stl:bearing_6805",
    "name": "L5 third 6805 (NEW)",
    "partType": "bearing_6805",
@@ -2398,7 +2436,7 @@
    ]
   },
   {
-   "id": "078-L5 yaw retainer",
+   "id": "079-L5 yaw retainer",
    "meshId": "stl:yaw_servo_retainer",
    "name": "L5 yaw retainer",
    "partType": "yaw_servo_retainer",
@@ -2427,7 +2465,7 @@
    ]
   },
   {
-   "id": "079-L5 yaw servo",
+   "id": "080-L5 yaw servo",
    "meshId": "stl:servo_body",
    "name": "L5 yaw servo",
    "partType": "servo_body",
@@ -2456,7 +2494,7 @@
    ]
   },
   {
-   "id": "080-L5 femur_link",
+   "id": "081-L5 femur_link",
    "meshId": "stl:femur_link",
    "name": "L5 femur_link",
    "partType": "femur_link",
@@ -2485,7 +2523,7 @@
    ]
   },
   {
-   "id": "081-L5 knee servo",
+   "id": "082-L5 knee servo",
    "meshId": "stl:servo_body",
    "name": "L5 knee servo",
    "partType": "servo_body",
@@ -2514,7 +2552,7 @@
    ]
   },
   {
-   "id": "082-L5 knee cap",
+   "id": "083-L5 knee cap",
    "meshId": "stl:knee_clamp_cap",
    "name": "L5 knee cap",
    "partType": "knee_clamp_cap",
@@ -2543,7 +2581,7 @@
    ]
   },
   {
-   "id": "083-L5 tibia yoke",
+   "id": "084-L5 tibia yoke",
    "meshId": "stl:tibia_knee_yoke",
    "name": "L5 tibia yoke",
    "partType": "tibia_knee_yoke",
@@ -2572,7 +2610,7 @@
    ]
   },
   {
-   "id": "084-L5 tibia tube",
+   "id": "085-L5 tibia tube",
    "meshId": "stl:tibia_tube",
    "name": "L5 tibia tube",
    "partType": "tibia_tube",
@@ -2601,7 +2639,7 @@
    ]
   },
   {
-   "id": "085-L5 foot boot",
+   "id": "086-L5 foot boot",
    "meshId": "stl:foot_boot",
    "name": "L5 foot boot",
    "partType": "foot_boot",
@@ -2645,12 +2683,12 @@
     15.25
    ],
    "instances": [
-    "002-L0 coxa_link",
-    "003-L0 yaw bearing (lower slot EMPTY)",
-    "004-L0 yaw bearing cap",
-    "005-L0 hip servo",
-    "006-L0 hip cap RIGID (NEW)",
-    "007-L0 third 6805 (NEW)"
+    "003-L0 coxa_link",
+    "004-L0 yaw bearing (lower slot EMPTY)",
+    "005-L0 yaw bearing cap",
+    "006-L0 hip servo",
+    "007-L0 hip cap RIGID (NEW)",
+    "008-L0 third 6805 (NEW)"
    ],
    "limits": {
     "min": -35.0,
@@ -2673,9 +2711,9 @@
     53.65
    ],
    "instances": [
-    "010-L0 femur_link",
-    "011-L0 knee servo",
-    "012-L0 knee cap"
+    "011-L0 femur_link",
+    "012-L0 knee servo",
+    "013-L0 knee cap"
    ],
    "limits": {
     "min": -47.5,
@@ -2698,9 +2736,9 @@
     91.68564355666294
    ],
    "instances": [
-    "013-L0 tibia yoke",
-    "014-L0 tibia tube",
-    "015-L0 foot boot"
+    "014-L0 tibia yoke",
+    "015-L0 tibia tube",
+    "016-L0 foot boot"
    ],
    "limits": {
     "min": -30.0,
@@ -2723,12 +2761,12 @@
     15.25
    ],
    "instances": [
-    "016-L1 coxa_link",
-    "017-L1 yaw bearing (lower slot EMPTY)",
-    "018-L1 yaw bearing cap",
-    "019-L1 hip servo",
-    "020-L1 hip cap RIGID (NEW)",
-    "021-L1 third 6805 (NEW)"
+    "017-L1 coxa_link",
+    "018-L1 yaw bearing (lower slot EMPTY)",
+    "019-L1 yaw bearing cap",
+    "020-L1 hip servo",
+    "021-L1 hip cap RIGID (NEW)",
+    "022-L1 third 6805 (NEW)"
    ],
    "limits": {
     "min": -35.0,
@@ -2751,9 +2789,9 @@
     53.65
    ],
    "instances": [
-    "024-L1 femur_link",
-    "025-L1 knee servo",
-    "026-L1 knee cap"
+    "025-L1 femur_link",
+    "026-L1 knee servo",
+    "027-L1 knee cap"
    ],
    "limits": {
     "min": -47.5,
@@ -2776,9 +2814,9 @@
     91.68564355666294
    ],
    "instances": [
-    "027-L1 tibia yoke",
-    "028-L1 tibia tube",
-    "029-L1 foot boot"
+    "028-L1 tibia yoke",
+    "029-L1 tibia tube",
+    "030-L1 foot boot"
    ],
    "limits": {
     "min": -30.0,
@@ -2801,12 +2839,12 @@
     15.25
    ],
    "instances": [
-    "030-L2 coxa_link",
-    "031-L2 yaw bearing (lower slot EMPTY)",
-    "032-L2 yaw bearing cap",
-    "033-L2 hip servo",
-    "034-L2 hip cap RIGID (NEW)",
-    "035-L2 third 6805 (NEW)"
+    "031-L2 coxa_link",
+    "032-L2 yaw bearing (lower slot EMPTY)",
+    "033-L2 yaw bearing cap",
+    "034-L2 hip servo",
+    "035-L2 hip cap RIGID (NEW)",
+    "036-L2 third 6805 (NEW)"
    ],
    "limits": {
     "min": -35.0,
@@ -2829,9 +2867,9 @@
     53.65
    ],
    "instances": [
-    "038-L2 femur_link",
-    "039-L2 knee servo",
-    "040-L2 knee cap"
+    "039-L2 femur_link",
+    "040-L2 knee servo",
+    "041-L2 knee cap"
    ],
    "limits": {
     "min": -47.5,
@@ -2854,9 +2892,9 @@
     91.68564355666294
    ],
    "instances": [
-    "041-L2 tibia yoke",
-    "042-L2 tibia tube",
-    "043-L2 foot boot"
+    "042-L2 tibia yoke",
+    "043-L2 tibia tube",
+    "044-L2 foot boot"
    ],
    "limits": {
     "min": -30.0,
@@ -2879,12 +2917,12 @@
     15.25
    ],
    "instances": [
-    "044-L3 coxa_link",
-    "045-L3 yaw bearing (lower slot EMPTY)",
-    "046-L3 yaw bearing cap",
-    "047-L3 hip servo",
-    "048-L3 hip cap RIGID (NEW)",
-    "049-L3 third 6805 (NEW)"
+    "045-L3 coxa_link",
+    "046-L3 yaw bearing (lower slot EMPTY)",
+    "047-L3 yaw bearing cap",
+    "048-L3 hip servo",
+    "049-L3 hip cap RIGID (NEW)",
+    "050-L3 third 6805 (NEW)"
    ],
    "limits": {
     "min": -35.0,
@@ -2907,9 +2945,9 @@
     53.65
    ],
    "instances": [
-    "052-L3 femur_link",
-    "053-L3 knee servo",
-    "054-L3 knee cap"
+    "053-L3 femur_link",
+    "054-L3 knee servo",
+    "055-L3 knee cap"
    ],
    "limits": {
     "min": -47.5,
@@ -2932,9 +2970,9 @@
     91.68564355666294
    ],
    "instances": [
-    "055-L3 tibia yoke",
-    "056-L3 tibia tube",
-    "057-L3 foot boot"
+    "056-L3 tibia yoke",
+    "057-L3 tibia tube",
+    "058-L3 foot boot"
    ],
    "limits": {
     "min": -30.0,
@@ -2957,12 +2995,12 @@
     15.25
    ],
    "instances": [
-    "058-L4 coxa_link",
-    "059-L4 yaw bearing (lower slot EMPTY)",
-    "060-L4 yaw bearing cap",
-    "061-L4 hip servo",
-    "062-L4 hip cap RIGID (NEW)",
-    "063-L4 third 6805 (NEW)"
+    "059-L4 coxa_link",
+    "060-L4 yaw bearing (lower slot EMPTY)",
+    "061-L4 yaw bearing cap",
+    "062-L4 hip servo",
+    "063-L4 hip cap RIGID (NEW)",
+    "064-L4 third 6805 (NEW)"
    ],
    "limits": {
     "min": -35.0,
@@ -2985,9 +3023,9 @@
     53.65
    ],
    "instances": [
-    "066-L4 femur_link",
-    "067-L4 knee servo",
-    "068-L4 knee cap"
+    "067-L4 femur_link",
+    "068-L4 knee servo",
+    "069-L4 knee cap"
    ],
    "limits": {
     "min": -47.5,
@@ -3010,9 +3048,9 @@
     91.68564355666294
    ],
    "instances": [
-    "069-L4 tibia yoke",
-    "070-L4 tibia tube",
-    "071-L4 foot boot"
+    "070-L4 tibia yoke",
+    "071-L4 tibia tube",
+    "072-L4 foot boot"
    ],
    "limits": {
     "min": -30.0,
@@ -3035,12 +3073,12 @@
     15.25
    ],
    "instances": [
-    "072-L5 coxa_link",
-    "073-L5 yaw bearing (lower slot EMPTY)",
-    "074-L5 yaw bearing cap",
-    "075-L5 hip servo",
-    "076-L5 hip cap RIGID (NEW)",
-    "077-L5 third 6805 (NEW)"
+    "073-L5 coxa_link",
+    "074-L5 yaw bearing (lower slot EMPTY)",
+    "075-L5 yaw bearing cap",
+    "076-L5 hip servo",
+    "077-L5 hip cap RIGID (NEW)",
+    "078-L5 third 6805 (NEW)"
    ],
    "limits": {
     "min": -35.0,
@@ -3063,9 +3101,9 @@
     53.65
    ],
    "instances": [
-    "080-L5 femur_link",
-    "081-L5 knee servo",
-    "082-L5 knee cap"
+    "081-L5 femur_link",
+    "082-L5 knee servo",
+    "083-L5 knee cap"
    ],
    "limits": {
     "min": -47.5,
@@ -3088,9 +3126,9 @@
     91.68564355666294
    ],
    "instances": [
-    "083-L5 tibia yoke",
-    "084-L5 tibia tube",
-    "085-L5 foot boot"
+    "084-L5 tibia yoke",
+    "085-L5 tibia tube",
+    "086-L5 foot boot"
    ],
    "limits": {
     "min": -30.0,
