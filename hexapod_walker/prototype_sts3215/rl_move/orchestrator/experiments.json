@@ -149351,7 +149351,7 @@
       "goal.walk_gait_spawn_wz=1.0"
     ],
     "created": "2026-08-23T14:32:50+00:00",
-    "status": "INTENT",
+    "status": "RUNNING",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -149360,13 +149360,26 @@
       "code_sha_local": "7fc8cc92b868cddf08dd0fe60af466867a85c583",
       "code_sha_pod": "7fc8cc92b868cddf08dd0fe60af466867a85c583",
       "init_from_on_pod": true,
-      "wandb_env_on_pod": true
+      "wandb_env_on_pod": true,
+      "pid": "2484532",
+      "log_growth_bytes": [
+        8967,
+        16441
+      ],
+      "wandb_id": "7ysj6mrj",
+      "global_step_window": [
+        655360,
+        1179648
+      ],
+      "fps_estimate": 17476.3
     },
     "trainer": "ppo",
     "stack": "gpu-mjx",
     "phase": "discovery",
     "assessment_scope": "short_behavior_discovery",
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:amp PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518-tipspawn3-wzonly --steps 2000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_amp_m4_turnfault_seq1.zip --episode-seconds 15 --no-canary --eval-every 1000000 --video-every 2000000 --n-envs 4096 --impl warp --host-workers 24 --seed 7 --ent-coef 0.001 --warm-log-std-override -2.0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set goal.walk_phase_obs=1 --cfg-set goal.walk_phase_hz=1.333333 --cfg-set goal.walk_obs_body_vel=2 --cfg-set goal.walk_heading_max_rad=-1 --cfg-set goal.walk_speed_min_m_s=0.08 --cfg-set goal.walk_speed_max_m_s=0.08 --cfg-set goal.walk_cmd_mode=stress_mix --cfg-set goal.walk_cmd_resample_s=4.0 --cfg-set goal.walk_cmd_resample_jitter=0.5 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set bus.write_speed=1500 --cfg-set bus.write_acc=80 --cfg-set bus.servo_vel_max_counts_s=write_speed --cfg-set safety.max_delta_q_deg=5.0 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --cfg-set reward.term_penalty=400.0 --cfg-set reward.k_step_event=0.0 --cfg-set reward.k_park_duty=0.0 --cfg-set reward.k_walk_freeprog=0.0 --cfg-set reward.walk_loadslip_gate=0.0 --cfg-set reward.k_loadslip_excess=0.0 --cfg-set reward.walk_gait_gate=0.0 --cfg-set reward.k_walk_idle_charge=0.0 --cfg-set reward.k_drag_stance=0.0 --amp-motion-lib rl_move/sim/motion_library/teacher_v2.npz --amp-disc-steps 4 --amp-disc-batch 512 --amp-gp-weight 10.0 --amp-replay 500000 --amp-task-weight 0.5 --amp-style-weight 0.5 --out-name ppo_goal_cw_amp_m4_turnfault_seq1_pushcont1_tipfrac05_pushcal518_tipspawn3_wzonly --notes 'respec of cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518-tipspawn1b: Plain English: tipspawn1b (start_frac=0.5 + spawn_wz=1.0) cut walk-slip sharply (3.1855 vs parent 3.67) but tipspawn2-startonly (start_frac=0.5 alone, spawn_wz=0) did NOT reproduce it (3.6015, unmoved) -- this arm tests the last untested cell of the 2x2 design: spawn_wz=1.0 ALONE (start_frac reverted to 0/default) on the same pushcal518 base. Mechanism: the turn-omega passthrough into mid-stride gait spawns may itself be what'\"'\"'s buying the slip win (e.g. by changing foot-plant phase distribution at episode start), independent of the RSI/reset-distribution half. Prediction-if-true (spawn_wz is the driver alone): walk det_slip_med lands near tipspawn1b'\"'\"'s 3.1855 (<=3.5 bar), completing the isolation -- promote goal.walk_gait_spawn_wz alone as the slip fix. Prediction-if-false (needs both / true interaction): slip reverts toward parent'\"'\"'s 3.67 like tipspawn2-startonly did -- neither lever alone suffices, only the combination works, meaning any promotion must carry both levers together (even though spawn_wz'\"'\"'s own named purpose, turn-in-place tip-tracking, already FAILED on tipspawn1b, refuted as a 5th independent turn-tracking mechanism if this reads badly on yaw too, though yaw is not this arm'\"'\"'s target). Strongest alternative: tipspawn1b'\"'\"'s slip result was noise (n=12) and neither half nor the combination is a real mechanism -- low prior given push/fault sections also read clean in both prior arms, but flagged for a re-check if this cell also fails and the eventual literature-clean answer is '\"'\"'no reproducible effect'\"'\"'.' --obs-pad-transplant 0 --cfg-set goal.walk_yaw_cmd=1 --cfg-set goal.walk_yaw_max_rad_s=0.3 --cfg-set goal.walk_yaw_zero_frac=0.5 --cfg-set reward.k_walk_yaw=1.0 --cfg-set reward.walk_yaw_kernel_gate=1.0 --cfg-set reward.k_yaw_prog=1.0 --cfg-set reward.k_yaw_still=50 --cfg-set reward.walk_kernel_yaw_gate=1.0 --cfg-set reward.walk_yaw_hold_prog_gate=1.0 --cfg-set reward.yaw_still_avg_s=1.0 --cfg-set goal.walk_phase_run_on_yaw=1 --cfg-set dr.fault_prob=1.0 --cfg-set obs.fault_health=1 --cfg-set dr.ext_push_prob=1.0 --cfg-set reward.yaw_prog_overshoot_decay=1.0 --cfg-set reward.yaw_prog_avg_s=1.0 --cfg-set goal.walk_turn_in_place_frac=0.5 --cfg-set dr.ext_push_n=5.0,18.0 --cfg-set goal.walk_gait_start_frac=0.0 --cfg-set goal.walk_gait_spawn_wz=1.0 > /tmp/train_cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518-tipspawn3-wzonly.log 2>&1 < /dev/null & echo $!",
-    "log": "/tmp/train_cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518-tipspawn3-wzonly.log"
+    "log": "/tmp/train_cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518-tipspawn3-wzonly.log",
+    "wandb_id": "7ysj6mrj",
+    "verified": "2026-08-23T14:36:10+00:00"
   }
 ]
