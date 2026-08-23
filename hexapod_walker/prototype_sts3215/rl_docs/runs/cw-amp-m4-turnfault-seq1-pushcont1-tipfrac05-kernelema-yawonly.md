@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-08-23T07:58:35+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 2000000
 
 **parent**: cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05
+
+**wandb_id**: 9rv88wr2
 
 **hypothesis**: Decomposition arm vs the bundled kernelema1 respec (same cycle): isolates the YAW half of the kernel-noise-tax fix (reward.walk_kernel_yaw_ema only, translation kernel untouched) to attribute any tip-tracking effect to the yaw axis specifically rather than the bundle. Same single-lever discipline as kernelema1: seed=7, 2M, byte-identical tipfrac05 recipe otherwise.
 

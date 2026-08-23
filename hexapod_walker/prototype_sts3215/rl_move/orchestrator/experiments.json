@@ -143316,7 +143316,8 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:amp PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-kernelema1 --steps 2000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_amp_m4_turnfault_seq1.zip --episode-seconds 15 --no-canary --eval-every 1000000 --video-every 2000000 --n-envs 4096 --impl warp --host-workers 24 --seed 7 --ent-coef 0.001 --warm-log-std-override -2.0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set goal.walk_phase_obs=1 --cfg-set goal.walk_phase_hz=1.333333 --cfg-set goal.walk_obs_body_vel=2 --cfg-set goal.walk_heading_max_rad=-1 --cfg-set goal.walk_speed_min_m_s=0.08 --cfg-set goal.walk_speed_max_m_s=0.08 --cfg-set goal.walk_cmd_mode=stress_mix --cfg-set goal.walk_cmd_resample_s=4.0 --cfg-set goal.walk_cmd_resample_jitter=0.5 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set bus.write_speed=1500 --cfg-set bus.write_acc=80 --cfg-set bus.servo_vel_max_counts_s=write_speed --cfg-set safety.max_delta_q_deg=5.0 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --cfg-set reward.term_penalty=400.0 --cfg-set reward.k_step_event=0.0 --cfg-set reward.k_park_duty=0.0 --cfg-set reward.k_walk_freeprog=0.0 --cfg-set reward.walk_loadslip_gate=0.0 --cfg-set reward.k_loadslip_excess=0.0 --cfg-set reward.walk_gait_gate=0.0 --cfg-set reward.k_walk_idle_charge=0.0 --cfg-set reward.k_drag_stance=0.0 --amp-motion-lib rl_move/sim/motion_library/teacher_v2.npz --amp-disc-steps 4 --amp-disc-batch 512 --amp-gp-weight 10.0 --amp-replay 500000 --amp-task-weight 0.5 --amp-style-weight 0.5 --out-name ppo_goal_cw_amp_m4_turnfault_seq1_pushcont1_tipfrac05_kernelema1 --notes 'respec of cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05: Plain English: does de-noising the reward'\"'\"'s velocity/yaw-rate tracking kernels (so an honest walker/turner'\"'\"'s natural stride-to-stride sway is not taxed as if it were mistracking) close part of the measured hold/forward income-dominance gap that eroded turn+push tracking under extra budget (tipfrac05-acq1 FAIL, q_20260823T0240Z item b)? Root cause measured on the real ypfix1 checkpoint via probe_walk_income: a genuine full-stop hold command pins body velocity/yaw-rate near-exactly at their zero targets (near-zero variance, nothing moving), so the INSTANTANEOUS Gaussian kernels sit at their peak almost every tick, while honest forward walking/turning necessarily oscillates around its achieved mean even when that mean matches the command well -- reward_walk_yaw hold=374 vs forward=203 vs tip_left/right=132/147 per 15s segment, a real richness gap ON TOP OF the already-collected k_walk_prog/k_yaw_prog progress bonuses. This mirrors the ALREADY-FIXED phasedir7/7b/8 sway-tax defect on the linear-velocity kernel (reward.walk_kernel_vel_ema, joystick track, never applied to this AMP lineage) -- this arm applies that same fix plus a newly-built yaw-kernel analog (reward.walk_kernel_yaw_ema, this cycle, bank-tested: test_task_semantics.py 10/10 new/updated turn-bank tests, mechanism confirmed on scripted references -- an accurate stride-oscillating tracker and a ~2x under-rotator are statistically TIED on the raw kernel (153 vs 159/ep) but cleanly separated with the EMA on (197 vs 155/ep), while the structural fixed-drift reference does not benefit). Single lever vs tipfrac05: both EMA flags on (one mechanism family, same tau=0.75s = one teacher gait period, the k_walk_course convention), everything else byte-identical (same seed=7, same goal.walk_turn_in_place_frac=0.5, same permanent push+fault cfg, same pre-cheat turnfault_seq1 init, same 2M budget). Default-off bit-exact verified (test_kernel_yaw_ema_default_off_is_bit_exact + the pre-existing walk_kernel_vel_ema off-path test).' --obs-pad-transplant 0 --cfg-set goal.walk_yaw_cmd=1 --cfg-set goal.walk_yaw_max_rad_s=0.3 --cfg-set goal.walk_yaw_zero_frac=0.5 --cfg-set reward.k_walk_yaw=1.0 --cfg-set reward.walk_yaw_kernel_gate=1.0 --cfg-set reward.k_yaw_prog=1.0 --cfg-set reward.k_yaw_still=50 --cfg-set reward.walk_kernel_yaw_gate=1.0 --cfg-set reward.walk_yaw_hold_prog_gate=1.0 --cfg-set reward.yaw_still_avg_s=1.0 --cfg-set goal.walk_phase_run_on_yaw=1 --cfg-set dr.fault_prob=1.0 --cfg-set obs.fault_health=1 --cfg-set dr.ext_push_prob=1.0 --cfg-set reward.yaw_prog_overshoot_decay=1.0 --cfg-set reward.yaw_prog_avg_s=1.0 --cfg-set goal.walk_turn_in_place_frac=0.5 --cfg-set reward.walk_kernel_yaw_ema=1.0 --cfg-set reward.walk_kernel_yaw_tau_s=0.75 --cfg-set reward.walk_kernel_vel_ema=1.0 --cfg-set reward.walk_kernel_vel_tau_s=0.75 > /tmp/train_cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-kernelema1.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-kernelema1.log",
     "wandb_id": "58dxiaek",
-    "verified": "2026-08-23T07:57:10+00:00"
+    "verified": "2026-08-23T07:57:10+00:00",
+    "triage": "in-cycle cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-kernelema1 since 2026-08-23T08:02:32"
   },
   {
     "run": "cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-kernelema-yawonly",
@@ -143463,7 +143464,7 @@
       "reward.walk_kernel_yaw_tau_s=0.75"
     ],
     "created": "2026-08-23T07:58:35+00:00",
-    "status": "INTENT",
+    "status": "RUNNING",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -143472,14 +143473,39 @@
       "code_sha_local": "11365c96f47914775d2713dd612c52f109217b08",
       "code_sha_pod": "11365c96f47914775d2713dd612c52f109217b08",
       "init_from_on_pod": true,
-      "wandb_env_on_pod": true
+      "wandb_env_on_pod": true,
+      "pid": "1107067",
+      "log_growth_bytes": [
+        9903,
+        19181
+      ],
+      "wandb_id": "9rv88wr2",
+      "global_step_window": [
+        851968,
+        1376256
+      ],
+      "fps_estimate": 17476.3
     },
     "trainer": "ppo",
     "stack": "gpu-mjx",
     "phase": "discovery",
     "assessment_scope": "short_behavior_discovery",
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:amp PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-kernelema-yawonly --steps 2000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_amp_m4_turnfault_seq1.zip --episode-seconds 15 --no-canary --eval-every 1000000 --video-every 2000000 --n-envs 4096 --impl warp --host-workers 24 --seed 7 --ent-coef 0.001 --warm-log-std-override -2.0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set goal.walk_phase_obs=1 --cfg-set goal.walk_phase_hz=1.333333 --cfg-set goal.walk_obs_body_vel=2 --cfg-set goal.walk_heading_max_rad=-1 --cfg-set goal.walk_speed_min_m_s=0.08 --cfg-set goal.walk_speed_max_m_s=0.08 --cfg-set goal.walk_cmd_mode=stress_mix --cfg-set goal.walk_cmd_resample_s=4.0 --cfg-set goal.walk_cmd_resample_jitter=0.5 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set bus.write_speed=1500 --cfg-set bus.write_acc=80 --cfg-set bus.servo_vel_max_counts_s=write_speed --cfg-set safety.max_delta_q_deg=5.0 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --cfg-set reward.term_penalty=400.0 --cfg-set reward.k_step_event=0.0 --cfg-set reward.k_park_duty=0.0 --cfg-set reward.k_walk_freeprog=0.0 --cfg-set reward.walk_loadslip_gate=0.0 --cfg-set reward.k_loadslip_excess=0.0 --cfg-set reward.walk_gait_gate=0.0 --cfg-set reward.k_walk_idle_charge=0.0 --cfg-set reward.k_drag_stance=0.0 --amp-motion-lib rl_move/sim/motion_library/teacher_v2.npz --amp-disc-steps 4 --amp-disc-batch 512 --amp-gp-weight 10.0 --amp-replay 500000 --amp-task-weight 0.5 --amp-style-weight 0.5 --out-name ppo_goal_cw_amp_m4_turnfault_seq1_pushcont1_tipfrac05_kernelema_yawonly --notes 'respec of cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05: Decomposition arm vs the bundled kernelema1 respec (same cycle): isolates the YAW half of the kernel-noise-tax fix (reward.walk_kernel_yaw_ema only, translation kernel untouched) to attribute any tip-tracking effect to the yaw axis specifically rather than the bundle. Same single-lever discipline as kernelema1: seed=7, 2M, byte-identical tipfrac05 recipe otherwise.' --obs-pad-transplant 0 --cfg-set goal.walk_yaw_cmd=1 --cfg-set goal.walk_yaw_max_rad_s=0.3 --cfg-set goal.walk_yaw_zero_frac=0.5 --cfg-set reward.k_walk_yaw=1.0 --cfg-set reward.walk_yaw_kernel_gate=1.0 --cfg-set reward.k_yaw_prog=1.0 --cfg-set reward.k_yaw_still=50 --cfg-set reward.walk_kernel_yaw_gate=1.0 --cfg-set reward.walk_yaw_hold_prog_gate=1.0 --cfg-set reward.yaw_still_avg_s=1.0 --cfg-set goal.walk_phase_run_on_yaw=1 --cfg-set dr.fault_prob=1.0 --cfg-set obs.fault_health=1 --cfg-set dr.ext_push_prob=1.0 --cfg-set reward.yaw_prog_overshoot_decay=1.0 --cfg-set reward.yaw_prog_avg_s=1.0 --cfg-set goal.walk_turn_in_place_frac=0.5 --cfg-set reward.walk_kernel_yaw_ema=1.0 --cfg-set reward.walk_kernel_yaw_tau_s=0.75 > /tmp/train_cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-kernelema-yawonly.log 2>&1 < /dev/null & echo $!",
-    "log": "/tmp/train_cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-kernelema-yawonly.log"
+    "log": "/tmp/train_cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-kernelema-yawonly.log",
+    "wandb_id": "9rv88wr2",
+    "verified": "2026-08-23T08:01:54+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-23T08:01:16+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 11464,
+        "fps": 17476.3,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   },
   {
     "run": "cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-kernelema-velonly",
