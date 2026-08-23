@@ -136718,7 +136718,19 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:amp PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-amp-m3-pushcur2-noamp-n2040-c2r2 --steps 6000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_amp_m3_pushcur2_noamp_n2040.zip --episode-seconds 15 --no-canary --eval-every 1000000 --video-every 2000000 --n-envs 4096 --impl warp --host-workers 24 --seed 7 --ent-coef 0.001 --warm-log-std-override -2.0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set goal.walk_phase_obs=1 --cfg-set goal.walk_phase_hz=1.333333 --cfg-set goal.walk_obs_body_vel=2 --cfg-set goal.walk_heading_max_rad=-1 --cfg-set goal.walk_speed_min_m_s=0.08 --cfg-set goal.walk_speed_max_m_s=0.08 --cfg-set goal.walk_cmd_mode=stress_mix --cfg-set goal.walk_cmd_resample_s=4.0 --cfg-set goal.walk_cmd_resample_jitter=0.5 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set bus.write_speed=1500 --cfg-set bus.write_acc=80 --cfg-set bus.servo_vel_max_counts_s=write_speed --cfg-set safety.max_delta_q_deg=5.0 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --cfg-set reward.term_penalty=400.0 --cfg-set reward.k_step_event=0.0 --cfg-set reward.k_park_duty=0.0 --cfg-set reward.k_walk_freeprog=0.0 --cfg-set reward.walk_loadslip_gate=0.0 --cfg-set reward.k_loadslip_excess=0.0 --cfg-set reward.walk_gait_gate=0.0 --cfg-set reward.k_walk_idle_charge=0.0 --cfg-set reward.k_drag_stance=0.0 --out-name ppo_goal_cw_amp_m3_pushcur2_noamp_n2040_c2r2 --notes 'respec of cw-amp-m3-pushcur2-noamp-n2040-c2: Plain English: the staged 20-40N walker missed its bar by ONE stochastic episode while still visibly improving \u2014 does 6M more at the same dose finish the job? Continuation of pushcur2-noamp-n2040 (its own pre-registered INFORMATIVE-ceiling branch + 08-21 ruling: terms fell monotonically 136->96/window, reward rose -47/52/72/83, no plateau). Prediction-if-true: terms keep falling and the 20-40N own-cfg gate reaches topples <=1/6 det AND <=2/6 sto (from 1/6+3/6) \u2014 force axis closes at 40N via 3-stage curriculum, 18M total. Prediction-if-false: terms flatten in the 90s band and topples stay ~4/12 \u2014 the slow decline was tail-chasing, staging saturates ~30N and the recovery-specific mechanism (get-up reward / longer episodes) becomes the named M3 lever. Strongest alternative: pushhard1-noamp-n2040-c1r1 (flat-jump control, 12M) lands equal or better \u2014 then budget, not curriculum, drives 20-40N and the staging story dies. (Infra retry: verbatim relaunch of a REFUSED stale-pod-code-marker stub via respec --now sync path; no spec change.)' --cfg-set dr.ext_push_prob=1.0 --cfg-set dr.ext_push_n=20,40 > /tmp/train_cw-amp-m3-pushcur2-noamp-n2040-c2r2.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-amp-m3-pushcur2-noamp-n2040-c2r2.log",
     "wandb_id": "8534ow0e",
-    "verified": "2026-08-23T01:59:30+00:00"
+    "verified": "2026-08-23T01:59:30+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-23T01:59:13+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 328,
+        "fps": 20389.0,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   },
   {
     "run": "cw-amp-m4-pushfault1-noamp",
