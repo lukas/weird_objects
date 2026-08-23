@@ -36,7 +36,27 @@ stance geometry / phase-clock constraint — e.g. an eval-only
 max_delta_q_deg probe on an existing checkpoint, and whether the
 1.333 Hz phase clock forbids the CPG's turning cadence). Evidence:
 `logs/ckpt_eval/..._turnclip1_m5/` (yaw.json scenarios),
-verdict on run l80xbg8f. Prior banner below.)
+verdict on run l80xbg8f.
+
+SAME-CYCLE ADDENDUM (~19:0x, eval-only delta-clamp probe — the
+joint-space-capability fork's first sub-hypothesis is already
+REFUTED, for free): added `--cfg=` passthrough to
+`rl_move/orchestrator/m5_pod_eval.py` (appended last, last-wins;
+always pair with `--suffix`) and re-ran the yaw-only m5 section on
+the frozen `pushcal518` checkpoint with `safety.max_delta_q_deg`
+relaxed 5.0->10.0 (`..._m5_dq10probe`): tip errs 0.2305/0.2328 vs
+default-clamp 0.2157/0.2351 — UNMOVED (+0.015/-0.002, inside the
+±0.02 floor), arcs turn_wz_err_med 0.1608 vs 0.1866 (marginal). The
+per-tick action-delta clamp is NOT what caps turn rate; the policy
+simply does not command a faster turn. Remaining capability
+candidates if the exposure batch fails: the fixed 1.333 Hz phase
+clock (CPG turning cadence may differ) and stance geometry.
+METRIC-SEMANTICS CORRECTION to the turnclip1 verdict text: the m5
+yaw scenario `wz_med` values are median |wz ERROR| (eval_amp_m5
+docstring line 26), not achieved rates — so turnclip1's achieved
+rates are ~0.135 on max arcs and ~0.065 on tips (parent ~0.065-0.084
+tips), NOT "achieved 0.15-0.16"; the verdict's conclusion (tips
+unmoved/worse, demo-side closed) is unaffected. Prior banner below.)
 
 Previous entry (~18:1x (**yaw fork: SEVENTH mechanism class
 launched (surgical turn-clip splice), and the slip-axis "thin
