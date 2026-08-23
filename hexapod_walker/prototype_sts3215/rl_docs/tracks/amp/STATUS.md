@@ -1,6 +1,40 @@
 # amp - AMP locomotion from scratch
 
-Last updated: 2026-08-23 ~11:1x (**SEED-ROBUSTNESS GRID CLOSED AT
+Last updated: 2026-08-23 ~11:4x (**DIG-IN RESOLVED: the "push
+recalibration systematically costs walk-slip/yaw-tip margin" claim is
+REFUTED — it was a BASELINE ARTIFACT. The 2-seed comparison anchored
+on parent `tipfrac05`(seed7)'s tips 0.162/0.184 + slip 3.36, which the
+full family table exposes as a 1-in-11 outlier: across ALL 11
+old-push-range (10-25N) tipfrac05-family m5 reads (s2/s3/seed31/
+seed41 seed twins, 5 kernelema arms, acq1) tips span 0.198-0.317
+(median ~0.23) and walk det slip 2.97-4.33 (median ~3.8); the 3
+recalibrated (5-18N) seeds — tips 0.216-0.249, slip 3.62-3.82 — sit
+INSIDE that distribution at-or-better than the median, while
+dominating on safety (0/12 falls x3 vs widespread) and fault
+gait_valid (12/11/11). Clincher: `acq1` (+6M at the OLD range, reward
+rising) fails BOTH bars too (slip 3.52, tips 0.204/0.269). ROOT
+CAUSE: family-wide reward<->M5-bar misalignment (08-21 ruling) — the
+reward optimum sits at tip-err ~0.21-0.25 (turn-in-place at ~25% of
+the commanded 0.3 rad/s; training env/walk_yaw_err ~0.25) and slip
+~3.6 (env/walk_loadslip_ratio 3.55-3.73, priced at ZERO:
+walk_loadslip_gate=0, k_loadslip_excess=0 across the entire family).
+Recalibration didn't cause the miss; it removed the fall-noise hiding
+it. FORK DECIDED: (a) pricing nudge, bars UNCHANGED (0.25 tip err =
+17% of commanded rate; eval_yaw's own gate is 0.1 — loosening would
+bless real sluggishness). Launched a 4-arm single-lever dose grid on
+the pushcal518 base (semantics bank 23/23 green this cycle):
+`-yawprice2/-yawprice3` (k_yaw_prog 2.0/3.0 — safe now that
+overshoot-decay+EMA price out the over-spin farm the pre-decay
+yawprice3x died on) and `-slipexcess6/-slipexcess12`
+(k_loadslip_excess 6/12 at bank-calibrated loadslip_ok=1.5, the never
+-yet-trained V5 anti-skate charge; ~0.5-1.0/tick pressure vs ~3/tick
+walk income). Each arm's gate: 0/12 raw falls (safety must hold) +
+its own m5 section bar + no cross-regression; joint FAIL of a pair
+refutes pricing as that axis's lever and escalates to mechanism, not
+dose. Do NOT re-launch this grid; triage the 4 results next. Prior
+banner below.)
+
+Previous entry (~11:1x: **SEED-ROBUSTNESS GRID CLOSED AT
 n=3: 3/3 RECALIBRATED SEEDS FALL-FREE ON THE FULL TURN+FAULT+PUSH
 COMPOSITION — `pushcal518` (dr.ext_push_n 5-18N) IS NOW THE LINEAGE'S
 SAFETY BASE; the 10-25N range is RETIRED on turnfault-seq1
