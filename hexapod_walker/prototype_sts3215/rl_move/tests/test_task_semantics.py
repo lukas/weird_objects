@@ -6383,3 +6383,113 @@ def test_walkcurr_swing_pays_the_discovery_path(walkcurr_pf_swing_returns):
     r = walkcurr_pf_swing_returns
     assert r["stall"] > r["park"] + 250.0, (
         f"swing lever adds no discovery gradient out of park: {r}")
+
+
+# ---------------------------------------------------------------------------
+# WALKCURR rung-1 DISCOVERY-FIX bank, part 2 (cycle 2026-08-23,
+# following the swing/swingterm800 double-FAIL). Reward-component
+# telemetry on both fwd2 runs showed env/reward_swing paying from
+# step 0 (0.065-0.089/step) but ~60x smaller than the dense charge
+# flow (loadslip -4.08, height -0.77, heading -0.5 by 2M steps) —
+# income-side levers are exhausted at any bank-legal dose; freezing
+# still pays more than exploring. The next lever is DISINCENTIVE-side:
+# reward.walk_charge_ramp_steps (walk_task.py) scales the four dense
+# walk CHARGES (k_loadslip_excess, k_walk_heading, k_walk_idle_charge,
+# k_park_duty — never the income terms freeprog/step_event/heading-
+# income) by walk_charge_ramp_min_frac at step 0 and anneals linearly
+# to the full bank-proven dose. This bank proves the ranking survives
+# at the RAMP'S OWN MINIMUM (the point that matters for early
+# exploration — the full-dose end is already the v2e bank above,
+# unchanged since the ramp reaches frac=1). Static equivalent of
+# frac=0: every scaled charge pre-multiplied by the default
+# walk_charge_ramp_min_frac (0.15) — this bank does not exercise the
+# trainer-driven anneal itself (test_walk_charge_ramp.py owns that),
+# only whether the loosened charges at the floor still price the
+# operator's required ranking.
+_WC_MIN_FRAC = 0.15
+WALKCURR_PF_CHARGERAMP_MIN_OVERRIDES = dict(WALKCURR_PF_OVERRIDES)
+for _k in ("k_loadslip_excess", "k_walk_heading",
+           "k_walk_idle_charge", "k_park_duty"):
+    WALKCURR_PF_CHARGERAMP_MIN_OVERRIDES[("reward", _k)] = (
+        WALKCURR_PF_OVERRIDES[("reward", _k)] * _WC_MIN_FRAC)
+
+
+@pytest.fixture(scope="module")
+def walkcurr_pf_chargeramp_min_returns() -> dict[str, float]:
+    """Mean return per scripted behavior with the four dense walk
+    charges held at the ramp's minimum fraction (frac=0 equivalent) —
+    the weakest-disincentive point the ramp ever visits, and the one
+    that matters for from-scratch exploration."""
+    plan = {
+        "fast": ("gait", 2.0),
+        "gait": ("gait", 1.0),
+        "creep": ("gait", 0.5),
+        "park": ("park", 1.0),
+        "stall": ("stall", 1.0),
+        "reverse": ("reverse", 1.0),
+        "sideways": ("sideways", 1.0),
+        "skate": ("skate", 1.0),
+        "topple": ("topple", 1.0),
+        "shuffle": ("shuffle", 1.0),
+    }
+    out = {}
+    for name, (pol, scale) in plan.items():
+        runs = [_slipwalk_rollout(pol, s, gait_scale=scale,
+                                  overrides=WALKCURR_PF_CHARGERAMP_MIN_OVERRIDES)
+                for s in SEEDS]
+        out[name] = float(np.mean([r[0] for r in runs]))
+        out[name + "_dx"] = float(np.mean([r[1] for r in runs]))
+        out[name + "_steps"] = float(np.mean([r[2] for r in runs]))
+    return out
+
+
+def test_walkcurr_chargeramp_min_ranking_holds(
+        walkcurr_pf_chargeramp_min_returns):
+    """The operator's required ranking (walking > park/stall >
+    reverse/sideways > skate/topple) must survive even at the ramp's
+    loosest point — a weaker margin than full dose is fine (that is
+    the whole point of ramping), a REVERSAL is not: it would mean the
+    ramp opens a wrong-way or slip income window during exactly the
+    steps PPO explores most."""
+    r = walkcurr_pf_chargeramp_min_returns
+    for still in ("park", "stall"):
+        assert r["gait"] > r[still], (
+            f"stationary '{still}' beats walking at ramp minimum: {r}")
+    floor = min(r["park"], r["stall"])
+    for wrong in ("reverse", "sideways"):
+        assert floor > r[wrong], (
+            f"wrong-way '{wrong}' beats standing at ramp minimum: {r}")
+    tier3 = min(r[k] for k in ("gait", "creep", "park", "stall",
+                               "reverse", "sideways"))
+    for worst in ("skate", "topple"):
+        assert r[worst] < tier3, (
+            f"'{worst}' is not the floor at ramp minimum: {r}")
+    assert r["topple_steps"] < 75, "topple twin did not die fast"
+
+
+def test_walkcurr_chargeramp_min_shrinks_the_discovery_penalty(
+        walkcurr_pf_chargeramp_min_returns):
+    """The point of the lever: at the ramp's minimum, the gap the
+    original v2e bank required stepping to climb (gait vs park/stall
+    by >=300, per test_walkcurr_pf_walking_beats_stationary) should
+    be a much smaller wall than at full dose, i.e. park/stall's return
+    should be markedly less negative than the full-dose v2e reading
+    (park -351.7, stall -31.5) — loosening the charges must actually
+    loosen something, or the ramp is a no-op relabeling."""
+    r = walkcurr_pf_chargeramp_min_returns
+    assert r["stall"] > -20.0, (
+        f"stall still deeply negative at ramp minimum, lever inert: {r}")
+    assert r["park"] > -250.0, (
+        f"park still deeply negative at ramp minimum, lever inert: {r}")
+
+
+def test_walkcurr_chargeramp_min_shuffle_not_profitable(
+        walkcurr_pf_chargeramp_min_returns):
+    """Loosening the charges must not resurrect the swing-farming
+    shuffle attack as a positive-income rest point at the exact point
+    (ramp minimum) where PPO explores hardest."""
+    r = walkcurr_pf_chargeramp_min_returns
+    assert r["gait"] > r["shuffle"] + 150.0, (
+        f"shuffle competitive with walking at ramp minimum: {r}")
+    assert r["shuffle"] < 50.0, (
+        f"shuffle is a strongly positive-income rest point: {r}")

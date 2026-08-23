@@ -985,10 +985,17 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # identically 0.0 across all three runs); no bank-legal
         # income dose can compete (fwd2-swing/swingterm800 FAIL,
         # 08-23). When armed (reward.walk_charge_ramp_steps > 0) the
-        # four dense walk charges — k_loadslip_excess, k_park_duty,
+        # three DISCOVERY-FRICTION walk charges — k_park_duty,
         # k_walk_idle_charge, k_walk_heading — are scaled by
         # walk_charge_ramp_min_frac at frac 0 and anneal linearly UP
-        # to the full bank-proven dose at frac 1. Same cfg-armed /
+        # to the full bank-proven dose at frac 1. k_loadslip_excess is
+        # DELIBERATELY EXCLUDED (bank finding, same day: ramping it
+        # down at the shared min_frac=0.15 made 'skate'/'shuffle' beat
+        # every wrong-way/standing behavior — see
+        # test_walkcurr_chargeramp_min_ranking_holds) and always
+        # charges at full dose; the ramp only loosens the charges that
+        # make REFUSING to move look falsely cheap, never the
+        # anti-skate/anti-fall floor. Same cfg-armed /
         # trainer-driven / default-OFF contract as the term-penalty
         # and drag-allow ramps: default absent/0 is bit-exact legacy,
         # and armed-but-unbroadcast sits at the FULL charges so
@@ -1738,10 +1745,12 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         return {"frac": f, "charge_scale": self._walk_charge_override}
 
     def _walk_charge_scale(self) -> float:
-        """Live scale on the four dense walk charges (see the
-        walk-charge ramp block in ``__init__``): 1.0 (bit-exact
-        legacy / full bank-proven dose) unless the trainer has
-        broadcast a ramp frac."""
+        """Live scale on the three discovery-friction walk charges
+        (k_park_duty, k_walk_idle_charge, k_walk_heading — see the
+        walk-charge ramp block in ``__init__``; k_loadslip_excess is
+        excluded and never scaled): 1.0 (bit-exact legacy / full
+        bank-proven dose) unless the trainer has broadcast a ramp
+        frac."""
         ov = self._walk_charge_override
         return 1.0 if ov is None else ov
 
@@ -3632,10 +3641,29 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 # walks clean pays nothing. Additive penalty — never
                 # shrunk by income gates. Default 0 = off, bit-exact
                 # legacy (no new info keys). cfg: reward.k_loadslip_excess.
+                # NOT scaled by the walk-charge ramp below (walkcurr
+                # bank finding, 2026-08-23,
+                # test_walkcurr_chargeramp_min_ranking_holds): the
+                # ramp exists to lower DISCOVERY FRICTION (park/idle/
+                # heading charges that make refusing-to-move look
+                # falsely safe), never the anti-skate/anti-fall floor.
+                # Scaling k_loadslip_excess by the same shared
+                # min_frac (0.15) made 'skate' (+130.6) and the swing-
+                # farming 'shuffle' twin (+227.9) BOTH beat every
+                # wrong-way/standing behavior at the ramp's minimum —
+                # exactly the "high-slip/skate/fall is the floor"
+                # invariant the track rule (STATUS.md, operator 08-23)
+                # forbids trading away, and precisely the window
+                # (early, high-exploration training) where a
+                # from-scratch policy is most likely to find and lock
+                # onto it. loadslip stays at its full bank-proven dose
+                # at every ramp frac; only k_walk_heading/
+                # k_walk_idle_charge/k_park_duty (discovery friction,
+                # bank-proven safe to loosen — see the same test file)
+                # ramp.
                 k_lse = float(cfg_get(self.cfg, "reward",
                                       "k_loadslip_excess",
-                                      default=0.0)) \
-                    * self._walk_charge_scale()
+                                      default=0.0))
                 if k_lse > 0.0:
                     r_lse = -k_lse * max(ratio - ls_ok, 0.0) * self.dt
                     reward += r_lse

@@ -61,13 +61,13 @@ def _cfg(extra=None):
     return cfg
 
 
-def _env(extra=None, seed=0):
+def _env(extra=None, seed=0, episode_seconds=2.0):
     from rl_move.sim.walk_task import SimHexapodJointWalkEnv
     cfg = _cfg(extra)
     params = SimServoParams.from_cfg(cfg)
     return SimHexapodJointWalkEnv(
         params=params, randomize=False, dr_scale=0.0,
-        episode_seconds=2.0, seed=seed, cfg=cfg)
+        episode_seconds=episode_seconds, seed=seed, cfg=cfg)
 
 
 def test_default_off_bit_exact_and_apply_raises():
@@ -143,8 +143,18 @@ def test_live_scale_changes_the_charge():
     broadcast ratio between two armed envs."""
     keys = dict(RAMP_KEYS)
     keys[("reward", "walk_charge_ramp_min_frac")] = 0.1
-    env_full = _env(keys, seed=5)
-    env_min = _env(keys, seed=5)
+    # walkcurr rung-1 shaped context so the charges actually fire on
+    # random flail: fixed forward command, loadslip stack armed.
+    keys[("goal", "walk_pure")] = 1
+    keys[("goal", "walk_speed_min_m_s")] = 0.05
+    keys[("goal", "walk_speed_max_m_s")] = 0.05
+    keys[("goal", "walk_heading_max_rad")] = 0.0
+    keys[("reward", "walk_loadslip_gate")] = 0.75
+    keys[("reward", "loadslip_ok")] = 1.2
+    keys[("reward", "loadslip_max")] = 3.0
+    keys[("reward", "loadslip_floor_m")] = 0.03
+    env_full = _env(keys, seed=5, episode_seconds=6.0)
+    env_min = _env(keys, seed=5, episode_seconds=6.0)
     env_full.apply_walk_charge_frac(1.0)   # scale 1.0
     env_min.apply_walk_charge_frac(0.0)    # scale 0.1
     env_full.reset(seed=5)
@@ -163,6 +173,6 @@ def test_live_scale_changes_the_charge():
                 assert rm == pytest.approx(0.1 * rf, rel=1e-6), (
                     f"{key} did not scale: full={rf} min={rm}")
                 got += 1
-        if _a[1] or _a[2]:
+        if _a[2] or _a[3]:   # term / trunc
             break
     assert got > 0, "no charge ever fired; probe is not exercising the ramp"
