@@ -41,69 +41,30 @@ validity, on video. Speed obedience is secondary throughout.
 
 ## Now
 
-- **Rung-1 discovery batch v2 CLOSED, BOTH ARMS FAIL (08-23 ~18:0x)
-  — swing-income and term_penalty-magnitude are DEAD.** UPDATE (same
-  cycle, concurrent read with reward-component telemetry): the
-  mechanism is now root-caused past "dig-in, direction unknown" —
-  `env/reward_swing` DID pay ~0.065-0.089/step from step 0 (the swing
-  lever IS reachable), but that income is ~60x smaller than the
-  ~-4.7/step dense charge flow (loadslip -4.08, height -0.77, heading
-  -0.5) and the bank ordering caps the direction-free swing dose at
-  k<~1.7 before sideways-farming becomes profitable — so income-side
-  levers (swing bonus, term_penalty magnitude) are EXHAUSTED within
-  this pricing family; freezing pays MORE than exploring at any
-  bank-legal dose. **Next lever named (not yet built): a
-  discovery-phase CHARGE RAMP** (mirror the existing term_penalty/
-  drag-allow ramp-contract pattern — cfg-armed, default OFF, anneal
-  the dense per-step charges from near-zero up as training
-  progresses) rather than an init/BC-kickstart change; still dig-in
-  tier (a reward-schedule mechanism, root-cause chain required before
-  building). Do NOT launch a 3rd single-cfg variant of this exact
-  recipe before that lands. `cw-walkcurr-pf-fwd2-swing` (train-0,
-  `reward.k_walk_swing=1.0`) and `cw-walkcurr-pf-fwd2-swingterm800`
-  (train-1, same + `term_penalty` 1200->800) both finished in ~10 min
-  (fast GPU fps) and both FAIL identically: det panel progress_ratio
-  ~-0.001 all 6 episodes byte-identical, forward_dist 0.005-0.021m
-  over 25s, slip/m 7.7-9.0 (cap 3.0), height_err_end 94-96mm.
-  **Video (both contact sheets) shows something WORSE than fwd1's
-  raised crouch: the robot starts upright for one frame then
-  COLLAPSES flat onto a splayed belly-down pose and stays there the
-  rest of the episode** — the nonzero swing_count in the report is
-  limb micro-twitching in the collapsed pose, not gait cycling.
-  `-swing`'s gait_valid even flips to False with 1 sacrificed leg
-  (was True/frozen-crouch on fwd1) — the swing bonus changed WHICH
-  static failure basin the policy falls into, not whether it explores
-  real stepping. Reward quarters both match fwd1's monotonic-negative
-  shape (expected per fwd1's own root-cause: ep_len x
-  negative-per-step logging artifact, not new degradation). Per the
-  batch's own pre-registered branch: since BOTH fixes froze/collapsed
-  identically to fwd1, term_penalty magnitude and swing-income
-  reachability are BOTH refuted as the rung-1 blocker — same
-  conclusion, from two independent single-lever probes, not a shared
-  confound. Bank-proven cfgs used (6/6 new tests green incl. the
-  `shuffle` swing-farming attack, snapshot
-  `exp/walkcurr-fwd2-swingbank`) — the failure is exploration
-  dynamics, not a reward-alignment cheat the bank would have caught.
-  **DIG-IN flagged for the next lever**: this decides the track's
-  second fork (does rung-1 need a fundamentally different exploration
-  mechanism — a few-thousand-step BC/kickstart into ANY forward
-  stepping, an action-noise schedule, or an init-pose change — rather
-  than another reward-magnitude dial) and per `RUN_INTERPRETATION_
-  RULES.md` a genuine root-cause-chain redesign belongs to a deep
-  cycle, not a same-recipe reward-tweak guess. Do NOT launch a 3rd
-  single-cfg variant of this exact recipe before that design lands.
-- `cw-walkcurr-pf-fwd1` VERDICTED FAIL (dig-in, 08-23 ~17:4x):
-  PPO froze into a tilt-safe splayed crouch — rational under v2e:
-  walk_prog identically 0.0 all run, step events flat 0.02/step,
-  every income channel unreachable from random init while the dense
-  charge stack (loadslip 0.03m travel-floor, height, heading)
-  punishes the flailing exploration must pass through; the
-  "reward collapse" was ep_len growth x negative per-step rate
-  (undiscounted logging artifact), with truncation bootstrap making
-  freeze (~-470 discounted) rationally beat exploratory falling
-  (-1200). The bank ranks scripted lifetimes and cannot see
-  reachability — exploration-safety is now a named, separate
-  property. Full chain in the run's W&B OUTCOME note.
+- **`cw-walkcurr-pf-fwd3-chargeramp` RUNNING (train-0, 2M discovery,
+  launched ~18:2x):** the dense-charge ramp fix. fwd2 batch verdicted
+  FAIL (double-triaged, verdicts agree): swing income was REACHABLE
+  (0.065-0.089/step from step 0) but flat — +1/swing is ~60x below
+  the -4.7/step charge flow, and the bank caps the dose at k<~1.7;
+  term 1200->800 changed nothing (byte-similar freeze). Blocker =
+  the dense charge flow itself. New mechanism
+  `reward.walk_charge_ramp_steps` (+`_min_frac`, default 0.40) scales
+  loadslip/park/idle/heading charges 40%->100% over 1M steps
+  (term/drag-ramp contract mirror: default OFF bit-exact, eval judges
+  full pricing; `test_walk_charge_ramp.py` 6/6). Floor bank (a
+  concurrent cycle's `test_walkcurr_chargeramp_min_*` layer) MEASURED
+  0.15 inverted the ranking (skate +131 > sideways, shuffle +228
+  rest point) -> floor raised to 0.40, re-measured 3/3 green: full
+  ranking + monotone positive ladder gait 439.7 > creep 327.7 >
+  stall 230.1 > park 98.5 > shuffle 27.6 > sideways -142 > reverse
+  -219 > skate -302 > topple -1164. No swing bonus (measured inert).
+  Snapshot `exp/walkcurr-fwd3-chargeramp`.
+  NOTE for the fwd2 dig-in loglines that named "init/BC-kickstart"
+  as next: BC-kickstart contradicts the track charter (prior-free —
+  no BC teacher, no motion prior); the charge ramp is the
+  charter-compliant fix and is now in flight. If fwd3 freezes even
+  at 40% charges, the next fork is init/noise (log_std) or a rung-0
+  curriculum, still prior-free.
 
 ## Next
 
