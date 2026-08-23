@@ -1,6 +1,21 @@
 # amp - AMP locomotion from scratch
 
-Last updated: 2026-08-23 ~10:3x (**PUSH-FORCE RECALIBRATION FIX CONFIRMED
+Last updated: 2026-08-23 ~10:5x (**SEED-ROBUSTNESS TWIN #2 (seed23)
+CONFIRMS THE PUSH RECALIBRATION FIX ON THE FULL TURN+FAULT+PUSH
+COMPOSITION.** `cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518-
+seed23` (finished this cycle) VERDICTED PASS: raw `terminated` field
+False on all 12/12 own-cfg DR-0 episodes (0/12 real falls), matching
+the already-PASSed seed7 parent's own profile almost exactly (prog/
+slip medians within 0.1 of each other, same benign walk/sto/4
+sacrificed-leg-not-a-fall signature); the same seed fell 2/12 at the
+old 10-25N push range. 2/2 recalibrated seeds now clean. `-seed13`
+(third twin, another cycle's pod) still training — that result closes
+the pre-registered n=3 grid; do not re-launch this grid. If seed13
+also passes, promote `pushcal518` as the lineage's new M5-candidate
+safety base and retire the 10-25N push range on turnfault-seq1
+descendants. SKILLS.md row added. Prior banner below.)
+
+Previous entry (~10:3x: **PUSH-FORCE RECALIBRATION FIX CONFIRMED
 ON A FRESH RETRAIN: 0/12 real falls, transfers past eval-time
 clamping.** This cycle triaged `cw-amp-m4-turnfault-seq1-pushcont1-
 pushcal518` (single-lever respec of `pushcont1`: `dr.ext_push_n`
@@ -2383,7 +2398,17 @@ Build every tool this needs; do not pause on operator input.
 
 ## Now
 
-**08-23 ~10:4x — PUSH-FORCE RECALIBRATION FIX TRANSFERS TO THE FULL
+**08-23 ~10:5x — SEED23 TWIN CONFIRMS: 2/2 recalibrated seeds now
+clean on the full composition.** `tipfrac05-pushcal518-seed23`
+VERDICTED PASS: raw `terminated` False on all 12/12 own-cfg DR-0
+episodes (0/12 real falls), profile nearly identical to the seed7
+parent (prog/slip medians within 0.1, same benign walk/sto/4
+sacrificed-leg pattern); the same seed fell 2/12 at the old 10-25N
+range. Item (1) from the ~10:4x entry below is now 2/3 closed —
+`-seed13` (another cycle's pod) is the last twin needed before
+promotion. Do not re-launch this grid. SKILLS.md row added.
+
+Previous entry (08-23 ~10:4x — PUSH-FORCE RECALIBRATION FIX TRANSFERS TO THE FULL
 COMPOSITION ON A FRESH RETRAIN: `tipfrac05-pushcal518` (single lever
 vs `tipfrac05`, `dr.ext_push_n` 10-25N -> 5-18N, seed=7, 2M,
 otherwise byte-identical) reads 0/12 real falls (raw `terminated`
