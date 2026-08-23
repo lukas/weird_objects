@@ -1,9 +1,49 @@
 # amp - AMP locomotion from scratch
 
-Last updated: 2026-08-23 ~19:1x (**exposure batch back in minutes and
-both arms hit FAIL branches — envelope-overshoot VERDICTED FAIL;
-yawexpo02 left UNVERDICTED with a DIG-IN flag because its tips got
-WORSE with more practice, which decides the fork.** `-yawenv045`
+Last updated: 2026-08-23 ~19:2x (**RECONCILIATION + EXPOSURE CLASS
+CLOSED + CADENCE MEASUREMENT FLIPS THE PHASE-CLOCK ARM'S SIGN +
+2-arm capability batch RUNNING.** Two cycles raced on the exposure
+batch (ops note: yawenv045/yawexpo02 were THIS cycle's "just
+finished" assignment; a concurrent cycle triaged them anyway —
+second double-triage today after wzmask2). Final recorded state:
+BOTH runs are VERDICTED FAIL on their pre-registered branches —
+yawenv045 tips unmoved (0.2238/0.2179 vs parent 0.2157/0.2351,
+±0.02 floor; envelope-overshoot lever closed), yawexpo02 tips WORSE
+(0.2443/0.2793, right +0.044 beyond the floor; exposure-dose lever
+closed). The concurrent cycle's DIG-IN fork question (incentive-
+stable optimum vs joint-space capability) is materially pre-answered
+on the incentive side: `-noamp1` ALREADY ablated the style reward to
+0.0 and tips stayed unmoved/worse — "style reward suppresses fast
+turning" was directly refuted by that run's own pre-registered gate.
+The still-open piece of the dig-in (per-leg cadence/amplitude of the
+POLICY during tip scenarios) is noted below as an optional analysis;
+the behavioral test is already training. NEW MEASUREMENT (this
+cycle, FFT on motion-library joint tracks): teacher_v2 = 1.33 Hz
+cadence, ~9 deg median p2p stride, turn clips wz~0.085; cpg_v1 (the
+controller measured at ~0.29 rad/s on this plant) = **0.5 Hz — 2.7x
+SLOWER — with 13-15 deg strides**. The plant-proven high-yaw gait is
+slow-cadence/big-stride, so the "raise phase_hz" idea has the WRONG
+SIGN; the capability lever is SLOWING the clock so yaw-per-stride
+can grow. It also reinterprets cpgdemo1's slip regression as a
+clock/demo cadence CONFLICT (0.5 Hz demos under a 1.33 Hz clock) —
+the coherent package was never tested. LAUNCHED 2-arm batch
+(VERIFIED RUNNING, 2M discovery each, family tip gate):
+`-phasehz05` (train-2: goal.walk_phase_hz 1.333->0.5, single lever)
+and `-phasehz05-cpglib` (train-0: 0.5 Hz clock + cpg_v1.npz demos,
+coupled bundle — clock and style agree; BONUS branch: if its walk
+det_slip_med <=3.5 with clean safety, the closed slip fork REOPENS
+via cadence-coherent demos). If both land tips-unmoved the
+phase-clock lever closes and the joint-space fork narrows to
+stance-geometry code work / the bar-amendment question. Evidence:
+`logs/ckpt_eval/..._{yawenv045,yawexpo02}_m5/m5_verdict.json`,
+ledger gates on both new arms. Prior banner below.)
+
+Previous entry (~19:1x, concurrent cycle, superseded where it
+conflicts with the reconciliation above) (**exposure batch back in
+minutes and both arms hit FAIL branches — envelope-overshoot
+VERDICTED FAIL; yawexpo02 left UNVERDICTED with a DIG-IN flag
+because its tips got WORSE with more practice, which decides the
+fork.** `-yawenv045`
 (walk_yaw_max_rad_s 0.3->0.45, single lever): tips 0.2238/0.2179 vs
 parent 0.2157/0.2351 — unmoved inside the ±0.02 floor, arcs marginal
 (0.1705 vs 0.1866), safety spotless (0 falls, 12/12 gait all
