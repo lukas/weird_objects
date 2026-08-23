@@ -136168,7 +136168,7 @@
       "dr.ext_push_n=20,40"
     ],
     "created": "2026-08-23T01:53:07+00:00",
-    "status": "REFUSED",
+    "status": "SUPERSEDED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -136182,7 +136182,9 @@
     "phase": "hardening",
     "assessment_scope": "behavior_hardening",
     "evidence": "cw-amp-m3-pushcur2-noamp-n2040 gate: 4/12 topples with tilt terms falling monotonically 136->96/window and reward rising every quarter at 6M cutoff (logs/ckpt_eval/cw_amp_m3_pushcur2_noamp_n2040_gate)",
-    "refused_reason": "hexapod-mjx-train-0 code marker 331a459014c31c4796e32cb27ff66067468c8749 != local HEAD 8bb6ade3192610acc1e9152bcdd11575f16a75d4. Sync first: snapshot.sh --sync hexapod-mjx-train-0 (and snapshot/commit before that if the tree is dirty)."
+    "refused_reason": "hexapod-mjx-train-0 code marker 331a459014c31c4796e32cb27ff66067468c8749 != local HEAD 8bb6ade3192610acc1e9152bcdd11575f16a75d4. Sync first: snapshot.sh --sync hexapod-mjx-train-0 (and snapshot/commit before that if the tree is dirty).",
+    "verdict": "SUPERSEDED by cw-amp-m3-pushcur2-noamp-n2040-c2r2 (this stub PARKED after 3x REFUSED on the launcher code-marker TOCTOU race, fixed this cycle at tag exp/launcher-codegate-toctou-fix; never trained)",
+    "triage": "done"
   },
   {
     "run": "cw-amp-m3-turnpush1-style05-acq1",
@@ -136313,7 +136315,7 @@
       "goal.walk_phase_run_on_yaw=1"
     ],
     "created": "2026-08-23T01:53:49+00:00",
-    "status": "REFUSED",
+    "status": "SUPERSEDED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -136327,7 +136329,9 @@
     "phase": "acquisition",
     "assessment_scope": "full_budget_skill_acquisition",
     "evidence": "cw-amp-m3-turnpush1-style05-r2 (INFORMATIVE, 08-23): at 2M discovery the turn+push graft walks with gait_valid 12/12 and zero crashes but prog 0.37/0.21 \u2014 and training reward was still climbing steeply at cutoff (16->197, not flat), the 08-21 undertrained signature; pushacq1 needed 6M on the plain substrate for the same push dose",
-    "refused_reason": "hexapod-mjx-train-0 code marker 331a459014c31c4796e32cb27ff66067468c8749 != local HEAD 8bb6ade3192610acc1e9152bcdd11575f16a75d4. Sync first: snapshot.sh --sync hexapod-mjx-train-0 (and snapshot/commit before that if the tree is dirty)."
+    "refused_reason": "hexapod-mjx-train-0 code marker 331a459014c31c4796e32cb27ff66067468c8749 != local HEAD 8bb6ade3192610acc1e9152bcdd11575f16a75d4. Sync first: snapshot.sh --sync hexapod-mjx-train-0 (and snapshot/commit before that if the tree is dirty).",
+    "verdict": "SUPERSEDED by cw-amp-m3-turnpush1-style05-acq1-r2 (this stub PARKED after 3x REFUSED on the launcher code-marker TOCTOU race, fixed this cycle; never trained)",
+    "triage": "done"
   },
   {
     "run": "cw-amp-m3-pushcur2-noamp-n2040-c2r1",
@@ -136424,7 +136428,7 @@
       "dr.ext_push_n=20,40"
     ],
     "created": "2026-08-23T01:54:31+00:00",
-    "status": "REFUSED",
+    "status": "SUPERSEDED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -136438,7 +136442,9 @@
     "phase": "hardening",
     "assessment_scope": "behavior_hardening",
     "evidence": "cw-amp-m3-pushcur2-noamp-n2040 gate: 4/12 topples with tilt terms falling monotonically 136->96/window and reward rising every quarter at 6M cutoff (logs/ckpt_eval/cw_amp_m3_pushcur2_noamp_n2040_gate)",
-    "refused_reason": "hexapod-mjx-train-1 code marker 331a459014c31c4796e32cb27ff66067468c8749 != local HEAD 8bb6ade3192610acc1e9152bcdd11575f16a75d4. Sync first: snapshot.sh --sync hexapod-mjx-train-1 (and snapshot/commit before that if the tree is dirty)."
+    "refused_reason": "hexapod-mjx-train-1 code marker 331a459014c31c4796e32cb27ff66067468c8749 != local HEAD 8bb6ade3192610acc1e9152bcdd11575f16a75d4. Sync first: snapshot.sh --sync hexapod-mjx-train-1 (and snapshot/commit before that if the tree is dirty).",
+    "verdict": "SUPERSEDED by cw-amp-m3-pushcur2-noamp-n2040-c2r2 (REFUSED on the same pre-fix TOCTOU race; never trained)",
+    "triage": "done"
   },
   {
     "run": "cw-amp-m4-turnfault1-style05-acq1-r4",
