@@ -158821,7 +158821,7 @@
       "0.02"
     ],
     "created": "2026-08-23T22:19:29+00:00",
-    "status": "FINISHED",
+    "status": "FAIL",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -158850,7 +158850,7 @@
     "log": "/tmp/train_cw-walkcurr-pf-fwd6-rnd02.log",
     "wandb_id": "9chzzd7a",
     "verified": "2026-08-23T22:22:50+00:00",
-    "triage": "awaiting since 2026-08-23T22:27:20",
+    "triage": "done",
     "checkups": [
       {
         "time": "2026-08-23T22:28:21+00:00",
@@ -158858,7 +158858,8 @@
         "verdict": "FINISHED_BEFORE_CHECKUP",
         "log_tail": "_s 0.05439\nwandb:   env/height_err_mm 111.48853\nwandb:       env/height_mm -111.48477\nwandb:   env/height_ref_mm 0\nwandb:   env/max_current_a 0.39994\nwandb:  env/mean_current_a 0.1201\nwandb: env/pct_within_1deg 0.88102\nwandb:   env/pitch_ref_deg 0\nwandb:                +114 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-walkcurr-pf-fwd6-rnd02 at: https://wandb.ai/l2k2/hexapod-balance/runs/9chzzd7a\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 2 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260823_222027-9chzzd7a/logs\n"
       }
-    ]
+    ],
+    "verdict": "RND state-novelty bonus at rnd_coef=0.02 does NOT unfreeze the rung-1 fixed-forward diet -- gate FAIL, identical static crouch to the parent (rscale50) and all 9 prior rung-1 arms. Evidence: own-cfg C-env det panel 0/6 gait_valid, ALL SIX legs sacrificed (duty<0.10) both det and sto, prog_ratio 0.00, speed 0.006-0.009 m/s vs 0.05-0.06 cmd, slip/m 8-11; video (walk_det_0..) shows the identical frozen splayed pose across all 10 sampled frames, no visible movement. W&B: optimizer stayed healthy the WHOLE run (clip_fraction 0.01-0.06, never collapsed, std crept 0.368->0.373) and env/walk_freeprog_score reached -0.007 by 2M -- closer to zero than the parent's own -0.015 and every other rung-1 arm, so the bonus DID measurably shift the trend -- but it never crossed zero into gait_valid behavior in this budget. rnd/intrinsic_mean decayed smoothly 0.037->0.0055 (the predictor caught up with a narrow, largely-static visited-state distribution -- exactly the mechanism's own signature of low novelty, not a bug). Why: reward is aligned (both freeprog trend and RND intrinsic behave exactly as designed) but the budget is insufficient at this dose to escape the crouch local optimum -- an aligned-but-undertrained-at-this-dose read per the 08-21 ruling, not misalignment. Next: read jointly with the 5x dose sibling (rnd10, same cycle) before deciding whether to fund a much bigger dose jump or move to the track's last-resort BC-kickstart item."
   },
   {
     "run": "cw-arch-hist16-dep1-c1-joyfullcurr6",
@@ -159308,7 +159309,7 @@
       "0.10"
     ],
     "created": "2026-08-23T22:24:03+00:00",
-    "status": "FINISHED",
+    "status": "FAIL",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -159345,7 +159346,8 @@
         "log_tail": "s 0.05432\nwandb:   env/height_err_mm 111.68165\nwandb:       env/height_mm -111.67729\nwandb:   env/height_ref_mm 0\nwandb:   env/max_current_a 0.33037\nwandb:  env/mean_current_a 0.11168\nwandb: env/pct_within_1deg 0.90918\nwandb:   env/pitch_ref_deg 0\nwandb:                +114 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-walkcurr-pf-fwd6-rnd10 at: https://wandb.ai/l2k2/hexapod-balance/runs/mavw1x9t\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 2 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260823_222503-mavw1x9t/logs\n"
       }
     ],
-    "triage": "awaiting since 2026-08-23T22:32:26"
+    "triage": "done",
+    "verdict": "RND at 5x dose (rnd_coef=0.10) ALSO does not unfreeze the rung-1 diet, and behaves almost identically to the 0.02 dose sibling -- gate FAIL. Evidence: own-cfg C-env det panel 0/6 gait_valid, all six legs sacrificed (duty<0.10) both det and sto, prog_ratio ~0.00, speed 0.007-0.008 m/s, slip/m 6.7-8.2; video shows the same frozen splayed pose across every sampled frame. W&B: clip_fraction stayed healthy (0.01-0.08, slightly higher variance than rnd02, consistent with 5x more exploration noise) and freeprog reached -0.005 by 2M (marginally better than rnd02's -0.007, but still no zero-crossing). KEY FINDING: rnd/intrinsic_mean and rnd/loss trajectories are NEARLY IDENTICAL between rnd02 and rnd10 (e.g. step 98304: 0.03664 vs 0.03664; step 2064384: 0.00552 vs 0.00565) -- the policy's visited-state distribution barely changed despite a 5x larger reward bonus, meaning the extra dose bought almost no additional exploration. Why: this is a dose-INSENSITIVE freeze, not a dose-starved one -- unlike the crush-fix rscale batch (where x0.1 vs x0.02 produced clearly different clip_fraction/freeprog trajectories), 0.02 vs 0.10 RND coefficient produced statistically indistinguishable behavior, so a small further dose bump is unlikely to help; the anti-exploration pull of the crouch's own charge-avoidance income appears to need either a MUCH larger bonus (order-of-magnitude, not 5x) or a fundamentally different mechanism. Aligned reward + adequate budget + no behavioral movement between two well-separated doses = a genuine, boring refutation, not a continue-longer case. Next: per track STATUS's pre-registered order, either fund one order-of-magnitude-bigger RND dose (~1.0, comparable to the FULL per-step task reward scale rather than the small walk charges) as the last untried point before declaring RND-as-a-class refuted at this budget, or move to the last-resort BC-kickstart (track-rule-brushing item (d)). Read jointly with rnd02 (this cycle) and the rung-0-diet+RND twin (cw-walkcurr-pf-rung0-swing3-rnd1/rnd3, a concurrent cycle's arms)."
   },
   {
     "run": "cw-walkcurr-pf-fwd6-rnd10",
@@ -159678,7 +159680,7 @@
       "0.06"
     ],
     "created": "2026-08-23T22:26:44+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -159706,7 +159708,15 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:walkcurr PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walkcurr-pf-rung0-swing3-rnd3 --steps 2000000 --task joint_walk --episode-seconds 25 --n-steps 24 --batch-size 24576 --net-arch 128,64,32 --activation-fn elu --log-std-init -1.0 --dr-scale 0.0 --require-gpu-physics --eval-every 1000000 --video-every 2000000 --best-ckpt --cfg-set bus.servo_params=loaded --cfg-set goal.walk_pure=1 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_heading_max_rad=0.0 --cfg-set goal.walk_cmd_resample_s=0.0 --cfg-set goal.walk_cmd_metrics=1 --cfg-set reward.k_walk_swing=0.06 --cfg-set reward.k_walk_freeprog=0.006 --cfg-set reward.walk_freeprog_cap_m_s=0.08 --cfg-set reward.walk_kernel_vel_ema=1.0 --cfg-set reward.walk_kernel_vel_tau_s=0.75 --cfg-set reward.k_walk_heading=0.0 --cfg-set reward.k_step_event=0.0 --cfg-set reward.k_park_duty=0.08 --cfg-set reward.k_walk_idle_charge=0.0 --cfg-set reward.walk_loadslip_gate=0.75 --cfg-set reward.loadslip_ok=1.2 --cfg-set reward.loadslip_max=3.0 --cfg-set reward.loadslip_floor_m=0.03 --cfg-set reward.k_loadslip_excess=0.09 --cfg-set reward.term_penalty=24 --cfg-set reward.k_track=0.02 --cfg-set reward.k_roll=0.2 --cfg-set reward.k_pitch=0.2 --cfg-set reward.k_height=2.0 --cfg-set reward.k_gyro=0.001 --cfg-set reward.k_action=0.0001 --cfg-set reward.k_action_delta=0.0002 --cfg-set reward.k_current=0.0001 --n-envs 4096 --impl warp --host-workers 24 --out-name ppo_goal_cw_walkcurr_pf_rung0_swing3_rnd3 --notes 'respec of cw-walkcurr-pf-rung0-swing3: Plain English: dose sibling of -rnd1 (3x the intrinsic-bonus weight, mirroring how swing9 was 3x swing3'\"'\"'s dose) -- if 0.02 is too weak against the swing-income diet'\"'\"'s static-pose optimum, 0.06 should show it. Single lever vs swing3: --rnd-coef 0.0 -> 0.06. Same predictions as -rnd1: if-true, intrinsic decays on repeats and gait_valid/rhythmic stepping appear; if-false on BOTH doses, RND-on-rung-0 is refuted for the swing-income static-pose cheat specifically. Strongest alternative: 0.06 overshoots into chaotic flailing that never settles (readable on video/gait_valid) rather than a clean gait -- still counts as a rung-0 PASS per the certification gate (six legs cycling, travel not required).' --rnd-coef 0.06 > /tmp/train_cw-walkcurr-pf-rung0-swing3-rnd3.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walkcurr-pf-rung0-swing3-rnd3.log",
     "wandb_id": "a0kk6nqx",
-    "verified": "2026-08-23T22:30:08+00:00"
+    "verified": "2026-08-23T22:30:08+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-23T22:35:26+00:00",
+        "process_alive": false,
+        "verdict": "FINISHED_BEFORE_CHECKUP",
+        "log_tail": "48\nwandb:   env/height_err_mm 111.77045\nwandb:       env/height_mm -111.76624\nwandb:   env/height_ref_mm 0\nwandb:   env/max_current_a 0.32215\nwandb:  env/mean_current_a 0.10956\nwandb: env/pct_within_1deg 0.90218\nwandb:   env/pitch_ref_deg 0\nwandb:                +107 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-walkcurr-pf-rung0-swing3-rnd3 at: https://wandb.ai/l2k2/hexapod-balance/runs/a0kk6nqx\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 2 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260823_222744-a0kk6nqx/logs\n"
+      }
+    ]
   },
   {
     "run": "cw-arch-hist16-dep1-c1-joyfullcurr6",
@@ -159827,7 +159837,19 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:joystick PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-arch-hist16-dep1-c1-joyfullcurr6 --steps 40000000 --task joint_walk --walk-curriculum --walk-curriculum-version 6 --episode-seconds 60 --dr-scale 0.5 --seed 0 --ent-coef 0.01 --no-canary --eval-every 1000000 --video-every 2000000 --init-from rl_move/sim/policies/ppo_goal_cw_arch_hist16_dep1_c1.zip --walkcurr-cert-at-init --walkcurr-precert-min-prog 0.50 --walkcurr-precert-buckets 2 --cfg-set obs.history_frames=16 --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set reward.k_loadslip_excess=0.8 --cfg-set reward.loadslip_ok=1.2 --cfg-set reward.loadslip_max=3.0 --cfg-set reward.loadslip_floor_m=0.03 --cfg-set reward.k_walk_course=1.0 --cfg-set reward.walk_course_tau_s=0.75 --cfg-set reward.walk_course_min_speed_m_s=0.01 --n-envs 3072 --impl warp --host-workers 24 --out-name ppo_goal_cw_arch_hist16_dep1_c1_joyfullcurr6 --notes 'Plain English: teach the 16-frame deployment-contract walker (hist16-dep1-c1) to follow joystick commands in EVERY direction - sideways, backwards, full circle - via a heading-band curriculum (operator order fb_20260823T220651_5c66e3). The lineage only ever trained front-cone (+-45 deg) commands. New WALKCURR_BUCKETS_V6 ladder: bridge at the source operating point (0.05-0.06 m/s straight), then front45 20/60s -> side90 20/60s -> rear135 40s -> rear180 60s -> full-circle 60s -> retain under DR 0.2/0.5. Reward adds the bank-proven direct loaded-slip charge (k_loadslip_excess=0.8, ok 1.2, max 3.0) and smoothed course-direction charge (k_walk_course=1.0, tau 0.75s) so training prices exactly what the full-circle drive eval measures; optional k_walk_cmd_track omitted to keep the coupled-change count down. If-true: precert B0 passes and the frontier promotes past side90 with real rear-heading command following (cmd_prog>=0.65, slip<=2.0, 0 falls at cert). If-false: precert fails (broken transplant) or frontier stalls at side90/rear while reward rises - that is a reward/eval misalignment audit per the 08-21 ruling, not a same-recipe seed relaunch. Strongest alternative: the gait is already heading-symmetric and rear rungs pass trivially (would show as fast full-ladder promotion, still a win). Parent: cw-arch-hist16-dep1-c1. Gate: walkcurr V6 precert B0 prog>=0.50; frontier past side90_60s via det certs (cmd_prog>=0.65, slip/m<=2.0, 0 falls); FINAL: eval_drive full-circle --heading-max-deg 180 DR0.5 random 60s flips: 0 falls, rear/side directions actually followed (low dir err/wrong-way), slip not exploding vs parent; DR0 + own-DR walk gates 6/6 gait_valid 0 term; video all six feet cycling, no flag leg' > /tmp/train_cw-arch-hist16-dep1-c1-joyfullcurr6.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-arch-hist16-dep1-c1-joyfullcurr6.log",
     "wandb_id": "1yjkjaa1",
-    "verified": "2026-08-23T22:31:59+00:00"
+    "verified": "2026-08-23T22:31:59+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-23T22:37:28+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 7584,
+        "fps": 7645.9,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   },
   {
     "run": "cw-walkcurr-pf-fwd6-rscale50-rnd1",
@@ -159969,6 +159991,161 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:walkcurr PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walkcurr-pf-fwd6-rscale50-rnd1 --steps 2000000 --task joint_walk --episode-seconds 25 --n-steps 24 --batch-size 24576 --net-arch 128,64,32 --activation-fn elu --log-std-init -1.0 --dr-scale 0.0 --require-gpu-physics --eval-every 1000000 --video-every 2000000 --best-ckpt --cfg-set bus.servo_params=loaded --cfg-set goal.walk_pure=1 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_heading_max_rad=0.0 --cfg-set goal.walk_cmd_resample_s=0.0 --cfg-set goal.walk_cmd_metrics=1 --cfg-set reward.k_walk_freeprog=0.06 --cfg-set reward.walk_freeprog_cap_m_s=0.08 --cfg-set reward.walk_kernel_vel_ema=1.0 --cfg-set reward.walk_kernel_vel_tau_s=0.75 --cfg-set reward.k_walk_heading=0.01 --cfg-set reward.k_step_event=0.02 --cfg-set reward.k_park_duty=0.08 --cfg-set reward.k_walk_idle_charge=0.04 --cfg-set reward.walk_idle_speed_m_s=0.025 --cfg-set reward.walk_idle_tau_s=1.0 --cfg-set reward.walk_loadslip_gate=0.75 --cfg-set reward.loadslip_ok=1.2 --cfg-set reward.loadslip_max=3.0 --cfg-set reward.loadslip_floor_m=0.03 --cfg-set reward.k_loadslip_excess=0.09 --cfg-set reward.term_penalty=24 --n-envs 4096 --out-name ppo_goal_cw_walkcurr_pf_fwd6_rscale50_rnd1 --impl warp --host-workers 24 --notes 'respec of cw-walkcurr-pf-fwd6-rscale50: Plain English: instead of detouring through the rung-0 in-place-stepping sub-goal (which just refuted twice, static stork lean / airborne hover), try the state-novelty bonus DIRECTLY on the real rung-1 forward-walking diet -- if RND alone is enough to make a random policy stumble past the frozen splayed crouch into travel, it reaches the actual goal in one step instead of two. Single lever vs rscale50 (the crush-fixed x0.02-scale rung-1 recipe, itself already optimizer-healthy with a rising but sub-zero freeprog signal over 6M in its own -cont1 continuation): --rnd-coef 0.0 -> 0.02, fresh 2M init (not a continuation -- a clean discovery-phase read of the mechanism from scratch, matching how rscale50 itself was first tested). Prediction-if-true: env/walk_freeprog_score leaves the frozen [-0.10,-0.05] band and crosses toward/past 0 faster than rscale50'\"'\"'s own 6M-step climb, C-env det panel shows real cmd_prog_frac>0 with legs cycling. Prediction-if-false (still frozen crouch, RND intrinsic flat/high, clip_fraction healthy): RND does not fix the rung-1 landscape directly -- read jointly with the rung0-swing3-rnd siblings (RND applied to the easier in-place sub-goal) before concluding RND is refuted as a fallback altogether.' --cfg-set reward.walk_charge_ramp_steps=1000000 --cfg-set reward.walk_charge_ramp_min_frac=0.4 --cfg-set reward.k_track=0.02 --cfg-set reward.k_roll=0.2 --cfg-set reward.k_pitch=0.2 --cfg-set reward.k_height=2.0 --cfg-set reward.k_gyro=0.001 --cfg-set reward.k_action=0.0001 --cfg-set reward.k_action_delta=0.0002 --cfg-set reward.k_current=0.0001 --rnd-coef 0.02 > /tmp/train_cw-walkcurr-pf-fwd6-rscale50-rnd1.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walkcurr-pf-fwd6-rscale50-rnd1.log",
     "wandb_id": "92h67d2m",
-    "verified": "2026-08-23T22:34:08+00:00"
+    "verified": "2026-08-23T22:34:08+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-23T22:39:17+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 335,
+        "cpu_centisec_deltas": [],
+        "verdict": "SUSPECT",
+        "problems": [
+          "W&B global_step stalled at 2007040"
+        ]
+      }
+    ]
+  },
+  {
+    "run": "cw-walkcurr-pf-fwd6-rscale50-rnd3",
+    "pod": "hexapod-mjx-train-1",
+    "steps": 2000000,
+    "smoke": false,
+    "hypothesis": "Plain English: dose sibling of rscale50-rnd1 (3x the intrinsic weight) applied directly to the rung-1 travel diet -- same logic as the rung0-swing3-rnd dose pair, testing whether 0.02 is too weak against the rung-1 landscape's static-crouch optimum. Single lever vs rscale50: --rnd-coef 0.0 -> 0.06, fresh 2M init. Prediction-if-true/false mirrors rscale50-rnd1; read the 2x2 grid (rung0 vs rung1-direct x low vs mid dose) jointly -- whichever base+dose first shows freeprog/gait_valid movement decides the next warm-start lineage.",
+    "gate": "Rung-1 gate (same as rscale50-rnd1): C-env det fixed-forward panel -- zero tilt terms, cmd_prog_frac >= 0.35, direction_err <= 30 deg, slip/m <= 3.0, six legs cycling on >=4/6 episodes. Mechanism health: clip_fraction > 0.02, freeprog trend vs rscale50's own no-RND 6M baseline.",
+    "parent": "cw-walkcurr-pf-fwd6-rscale50",
+    "track": "walkcurr",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--episode-seconds",
+      "25",
+      "--n-steps",
+      "24",
+      "--batch-size",
+      "24576",
+      "--net-arch",
+      "128,64,32",
+      "--activation-fn",
+      "elu",
+      "--log-std-init",
+      "-1.0",
+      "--dr-scale",
+      "0.0",
+      "--require-gpu-physics",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--best-ckpt",
+      "--cfg-set",
+      "bus.servo_params=loaded",
+      "--cfg-set",
+      "goal.walk_pure=1",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.05",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.06",
+      "--cfg-set",
+      "goal.walk_heading_max_rad=0.0",
+      "--cfg-set",
+      "goal.walk_cmd_resample_s=0.0",
+      "--cfg-set",
+      "goal.walk_cmd_metrics=1",
+      "--cfg-set",
+      "reward.k_walk_freeprog=0.06",
+      "--cfg-set",
+      "reward.walk_freeprog_cap_m_s=0.08",
+      "--cfg-set",
+      "reward.walk_kernel_vel_ema=1.0",
+      "--cfg-set",
+      "reward.walk_kernel_vel_tau_s=0.75",
+      "--cfg-set",
+      "reward.k_walk_heading=0.01",
+      "--cfg-set",
+      "reward.k_step_event=0.02",
+      "--cfg-set",
+      "reward.k_park_duty=0.08",
+      "--cfg-set",
+      "reward.k_walk_idle_charge=0.04",
+      "--cfg-set",
+      "reward.walk_idle_speed_m_s=0.025",
+      "--cfg-set",
+      "reward.walk_idle_tau_s=1.0",
+      "--cfg-set",
+      "reward.walk_loadslip_gate=0.75",
+      "--cfg-set",
+      "reward.loadslip_ok=1.2",
+      "--cfg-set",
+      "reward.loadslip_max=3.0",
+      "--cfg-set",
+      "reward.loadslip_floor_m=0.03",
+      "--cfg-set",
+      "reward.k_loadslip_excess=0.09",
+      "--cfg-set",
+      "reward.term_penalty=24",
+      "--n-envs",
+      "4096",
+      "--out-name",
+      "ppo_goal_cw_walkcurr_pf_fwd6_rscale50_rnd3",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--notes",
+      "respec of cw-walkcurr-pf-fwd6-rscale50: Plain English: dose sibling of rscale50-rnd1 (3x the intrinsic weight) applied directly to the rung-1 travel diet -- same logic as the rung0-swing3-rnd dose pair, testing whether 0.02 is too weak against the rung-1 landscape's static-crouch optimum. Single lever vs rscale50: --rnd-coef 0.0 -> 0.06, fresh 2M init. Prediction-if-true/false mirrors rscale50-rnd1; read the 2x2 grid (rung0 vs rung1-direct x low vs mid dose) jointly -- whichever base+dose first shows freeprog/gait_valid movement decides the next warm-start lineage.",
+      "--cfg-set",
+      "reward.walk_charge_ramp_steps=1000000",
+      "--cfg-set",
+      "reward.walk_charge_ramp_min_frac=0.4",
+      "--cfg-set",
+      "reward.k_track=0.02",
+      "--cfg-set",
+      "reward.k_roll=0.2",
+      "--cfg-set",
+      "reward.k_pitch=0.2",
+      "--cfg-set",
+      "reward.k_height=2.0",
+      "--cfg-set",
+      "reward.k_gyro=0.001",
+      "--cfg-set",
+      "reward.k_action=0.0001",
+      "--cfg-set",
+      "reward.k_action_delta=0.0002",
+      "--cfg-set",
+      "reward.k_current=0.0001",
+      "--rnd-coef",
+      "0.06"
+    ],
+    "created": "2026-08-23T22:34:37+00:00",
+    "status": "RUNNING",
+    "checks": {
+      "cpu_limit": 28,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-355c3628-64fd-3de4-c195-55797a8c64f4)",
+      "running_experiments_before": 2,
+      "code_sha_local": "8bb85a292ec0ac8c0f0bfdc41fa8212a4097bd72",
+      "code_sha_pod": "8bb85a292ec0ac8c0f0bfdc41fa8212a4097bd72",
+      "wandb_env_on_pod": true,
+      "pid": "4159667",
+      "log_growth_bytes": [
+        7972,
+        12592
+      ],
+      "wandb_id": "277om3m4",
+      "global_step_window": [
+        688128,
+        1081344
+      ],
+      "fps_estimate": 13107.2
+    },
+    "trainer": "ppo",
+    "stack": "gpu-mjx",
+    "phase": "discovery",
+    "assessment_scope": "short_behavior_discovery",
+    "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:walkcurr PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walkcurr-pf-fwd6-rscale50-rnd3 --steps 2000000 --task joint_walk --episode-seconds 25 --n-steps 24 --batch-size 24576 --net-arch 128,64,32 --activation-fn elu --log-std-init -1.0 --dr-scale 0.0 --require-gpu-physics --eval-every 1000000 --video-every 2000000 --best-ckpt --cfg-set bus.servo_params=loaded --cfg-set goal.walk_pure=1 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_heading_max_rad=0.0 --cfg-set goal.walk_cmd_resample_s=0.0 --cfg-set goal.walk_cmd_metrics=1 --cfg-set reward.k_walk_freeprog=0.06 --cfg-set reward.walk_freeprog_cap_m_s=0.08 --cfg-set reward.walk_kernel_vel_ema=1.0 --cfg-set reward.walk_kernel_vel_tau_s=0.75 --cfg-set reward.k_walk_heading=0.01 --cfg-set reward.k_step_event=0.02 --cfg-set reward.k_park_duty=0.08 --cfg-set reward.k_walk_idle_charge=0.04 --cfg-set reward.walk_idle_speed_m_s=0.025 --cfg-set reward.walk_idle_tau_s=1.0 --cfg-set reward.walk_loadslip_gate=0.75 --cfg-set reward.loadslip_ok=1.2 --cfg-set reward.loadslip_max=3.0 --cfg-set reward.loadslip_floor_m=0.03 --cfg-set reward.k_loadslip_excess=0.09 --cfg-set reward.term_penalty=24 --n-envs 4096 --out-name ppo_goal_cw_walkcurr_pf_fwd6_rscale50_rnd3 --impl warp --host-workers 24 --notes 'respec of cw-walkcurr-pf-fwd6-rscale50: Plain English: dose sibling of rscale50-rnd1 (3x the intrinsic weight) applied directly to the rung-1 travel diet -- same logic as the rung0-swing3-rnd dose pair, testing whether 0.02 is too weak against the rung-1 landscape'\"'\"'s static-crouch optimum. Single lever vs rscale50: --rnd-coef 0.0 -> 0.06, fresh 2M init. Prediction-if-true/false mirrors rscale50-rnd1; read the 2x2 grid (rung0 vs rung1-direct x low vs mid dose) jointly -- whichever base+dose first shows freeprog/gait_valid movement decides the next warm-start lineage.' --cfg-set reward.walk_charge_ramp_steps=1000000 --cfg-set reward.walk_charge_ramp_min_frac=0.4 --cfg-set reward.k_track=0.02 --cfg-set reward.k_roll=0.2 --cfg-set reward.k_pitch=0.2 --cfg-set reward.k_height=2.0 --cfg-set reward.k_gyro=0.001 --cfg-set reward.k_action=0.0001 --cfg-set reward.k_action_delta=0.0002 --cfg-set reward.k_current=0.0001 --rnd-coef 0.06 > /tmp/train_cw-walkcurr-pf-fwd6-rscale50-rnd3.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-walkcurr-pf-fwd6-rscale50-rnd3.log",
+    "wandb_id": "277om3m4",
+    "verified": "2026-08-23T22:38:04+00:00"
   }
 ]

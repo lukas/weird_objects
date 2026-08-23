@@ -375,6 +375,71 @@ validity, on video. Speed obedience is secondary throughout.
   the two continuations (rscale10-cont1 — other cycle; rscale50-cont1)
   are in flight; they are the discriminating test.
 
+## Now (updated 08-23 ~22:4x — rung-0 swing income CLOSED, RND wave)
+
+- **`cw-walkcurr-pf-rung0-swing3` / `-swing9` BOTH FAIL (verdicted):**
+  the rung-0 "lift your feet and step, anywhere" sub-goal, at both a
+  1x and 3x `k_walk_swing` dose, does NOT certify — but each dose
+  fails a DIFFERENT static-pose way: swing3 converges to a one-leg-
+  planted "stork" lean (5/6 legs sacrificed, one leg holds 0.96 stance
+  duty forever, cheap swing-event income farmed without ever bearing
+  load on the lifted legs); swing9 converges to an all-six-legs-
+  airborne static hover (every leg near-zero duty, avoiding
+  park_duty/loadslip charges entirely by never touching down). Both
+  reads are ALIGNED per the 08-21 ruling (reward AND eval decline
+  together, optimizer stays healthy — clip_fraction never collapses,
+  std creeps up) — genuine refutations, not undertraining. **Swing-
+  income-as-rung-0-mechanism is CLOSED at both bank-legal doses.**
+  RND state-novelty (the pre-registered fallback) is next.
+- **RND (Random Network Distillation) BUILT + LANDED**:
+  `rl_move/sim/rnd_vec.py` (`RNDVecWrapper`, standard Burda et al.
+  predictor/target MLP pair + running-std intrinsic blend, trained
+  online each rollout) + `--rnd-coef`/`--rnd-hidden`/`--rnd-out-dim`/
+  `--rnd-lr`/`--rnd-buffer`/`--rnd-train-steps`/`--rnd-train-batch`
+  wired into `train_ppo_mjx.py` (default 0.0 = bit-exact OFF, no
+  wrapper/predictor/target constructed) — `test_rnd_vec.py` 8/8 green
+  (off-path rejection, blend math, novelty-decay claim itself, ring
+  buffer, running stats, save/load round-trip). Treated as a pure
+  exploration mechanism (like `--use-sde`/`--gru`) that touches no
+  `k_*` walk charge — no WALKCURR_PF ranking-bank re-proof required
+  (the bank prices charge orderings; RND adds an orthogonal intrinsic
+  term with its own dedicated mechanism tests instead).
+- **RND WAVE (2 concurrent cycles, partially overlapping designs —
+  logged honestly): `cw-walkcurr-pf-fwd6-rnd02` FAIL (verdicted by a
+  concurrent cycle) — RND directly on the rung-1 rscale50 diet (no
+  rung-0 detour) at `--rnd-coef=0.02` does NOT unfreeze walking, and
+  finds a THIRD independent route to the SAME all-legs-airborne-hover
+  cheat swing9 found on rung-0: 0/6 gait_valid, forward_dist ~0.013m,
+  mechanism itself works exactly as designed (rnd/intrinsic_mean
+  decays 0.037->0.0055 as the predictor catches up; clip_fraction
+  healthy 0.03-0.06) but the dose is insufficient to disturb the
+  crouch/hover local optimum. **Cross-mechanism finding: airborne
+  hover is now confirmed on THREE independent recipes (rung-0 swing9,
+  rung-1 RND) — it looks like a structural escape hatch in this
+  reward family (leaving the ground voids every ground-contact-linked
+  charge: loadslip, park_duty, drag) rather than an artifact of any
+  one mechanism.** `cw-walkcurr-pf-fwd6-rnd10` (0.10 dose, 5x) is
+  FINISHED, unverdicted (same concurrent cycle's arm).
+  **This cycle's own arms (launched before reading the sibling
+  cycle's `rnd02`/`rnd10` — partial dose overlap, noted for the
+  record rather than hidden):**
+  `cw-walkcurr-pf-rung0-swing3-rnd1` (rnd-coef 0.02 on the rung-0
+  swing3 diet) / `-swing3-rnd3` (0.06) — both FINISHED, unverdicted
+  (next cycle's read; tests the RND-fixes-the-EASIER-in-place-cheat
+  question directly, distinct from the rung-1-direct arms above).
+  `cw-walkcurr-pf-fwd6-rscale50-rnd1` (0.02 — duplicates `rnd02`'s
+  design almost exactly, expect the same airborne-hover FAIL; kept
+  for independent-seed confirmation rather than killed once
+  discovered mid-flight) / `-rscale50-rnd3` (0.06 — fills the real
+  gap between the sibling cycle's 0.02/0.10 dose points) — both
+  RUNNING. **Decision on close: if the airborne-hover cheat recurs at
+  EVERY RND dose tested (0.02/0.06/0.10) on EITHER base, RND is
+  refuted as a rung-1/rung-0 unfreezer at any bank-safe-adjacent dose,
+  and the next fallback is a direct ground-contact/no-fly charge
+  (price near-zero total foot contact directly, closing the hover
+  escape hatch structurally) before reaching for item (d)'s brief BC
+  kickstart.**
+
 ## Key facts
 
 - The RAW kawawa2022 reward stack was bank-REFUTED on 08-23: park
