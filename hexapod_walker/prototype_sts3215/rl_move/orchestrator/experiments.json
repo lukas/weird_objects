@@ -138002,7 +138002,7 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-amp-m4-pushfault1-noamp-acq1-cw-amp-m4-pushfault1-style05 since 2026-08-23T02:42:26"
+    "triage": "DIG-IN flagged c0823-pushfault1-style05-triage: mechanism-safety PASS (gait_valid 12/12) but eval_yaw tip err 0.4248/0.4932 WORSE than both parent (0.38/0.43) and fresh-stack (0.30/0.30) -- wrong-direction spin under compounded axis stacking, left unverdicted pending root-cause (see amp STATUS 02:5x banner)."
   },
   {
     "run": "cw-amp-m4-pushfault1-noamp-acq1-r2",

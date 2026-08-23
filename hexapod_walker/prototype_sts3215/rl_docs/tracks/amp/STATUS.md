@@ -1,6 +1,65 @@
 # amp - AMP locomotion from scratch
 
-Last updated: 2026-08-23 ~02:46x (**CORRECTION (urgent, read before
+Last updated: 2026-08-23 ~02:5x (**`cw-amp-m4-turnpushfault1-style05-r2`
+READS OUT: MECHANISM-SAFETY BAR CLEARS DECISIVELY, BUT SEQUENTIAL
+COMPOSITION MAKES TURN TRACKING *WORSE* THAN THE FRESH 3-WAY STACK,
+NOT BETTER — left UNVERDICTED, DIG-IN FLAGGED (real trigger: result
+anomalous vs both named comparisons, decides the M4 composition-order
+fork).** Own-cfg DR-0 gate (fault+push+yaw all active, corrected fast
+servo profile throughout — this run's numbers are NOT subject to the
+bus-cfg bug flagged in the correction below): gait_valid 12/12
+det+sto (perfect, beats the fresh-stack turnfault1-style05's 9/12
+AND matches/exceeds every prior M4 arm), zero sacrificed legs,
+topples 2/6 det (both genuine tilt_roll knockdowns after 5+ clean
+walking frames on video, not statues) + 0/6 sto = 2/12 total, det
+prog med 0.77/slip 4.57, sto prog med 0.70/slip 5.10 (one sto
+episode, ep3, reads prog 0.08/slip 36.1 with gait_valid still True —
+video shows continuous six-leg movement, likely a turn-dominated
+command segment with near-zero net translation, not a pathology).
+Mechanism-safety verdict alone: clear PASS, best gait_valid of any
+3-way M4 arm to date. BUT hand-run `eval_yaw` (matched 93-dim cfg,
+CORRECT fast servo profile per the correction below — `bus.
+write_speed=1500`/`write_acc=80`/`servo_vel_max_counts_s=write_speed`/
+`safety.max_delta_q_deg=5.0` all set) reads tip-left/right err
+**0.4248/0.4932** — WORSE than both named comparison points: worse
+than its own immediate parent `turnpush1-style05-acq1-r2`'s corrected
+0.3838/0.4302, and worse than the fresh-stack `turnfault1-style05-
+acq1-r5`'s 0.2985/0.3002 "total park" reading. Since a pure-park
+policy (wz≈0) would read err≈wz_ref=0.3, an err of 0.42-0.49 implies
+the realized wz is NEGATIVE on a positive-commanded tip-turn — i.e.
+this checkpoint spins the WRONG WAY under a turn-in-place command,
+worse than not turning at all. arc-left/right also elevated (0.29,
+0.36, 0.36, 0.26 vs turnclone's clean 0.13-0.17 band) and even
+fwd-hold shows 0.157 rad/s of spurious yaw at wz_ref=0 (stop-hold is
+clean, 0.0). This DIRECTLY REFUTES the hypothesis this run was
+launched to test ("inheriting real tip tracking beats a fresh
+stack's none-at-all") — sequential composition did not preserve the
+(already-eroded) inherited turn skill, it degraded it FURTHER, to a
+point worse than the fresh stack's total-park failure mode. Reads as
+the M2 yaw-income-audit mechanism (hold/forward income dominates the
+tip cell, `k_yaw_prog` pays overshoot not accuracy) COMPOUNDING with
+every additional stacked pressure (push, now fault): each new axis
+gives the optimizer more reason to abandon the tip cell for richer
+hold/forward/limp-survival income, and here it went further and
+started actively profiting from wrong-direction rotation on the
+tip commands specifically. Per the cycle-tiering rule this is left
+UNVERDICTED (no PASS/FAIL written to the ledger) with a DIG-IN flag:
+the safety-bar half is unambiguous (PASS) but the turn-tracking half
+is a genuine anomaly-vs-both-parents that decides whether "sequential
+composition" is a real M4 route at all, or whether NEITHER order
+(fresh-stack or sequential) can carry turn accuracy through
+additional axis-stacking without a pricing fix — root-cause needed
+(is this the SAME overshoot-farming mechanism as yppeak's yaw audit,
+now expressed as wrong-sign rotation under compounded pressure, or a
+new defect specific to 3-axis stacking?) before spending any more
+acquisition budget on ANY 3-way turn+X+Y checkpoint. Do NOT acquisition-
+continue this checkpoint blind — more steps under the same pricing
+would likely just deepen whichever basin (overshoot or wrong-sign)
+the optimizer already picked. Artifacts:
+`logs/ckpt_eval/cw_amp_m4_turnpushfault1_style05_r2_{gate,yaw.json}`.
+Previous entry (the correction) below.)
+
+Previous entry (2026-08-23 ~02:46x (**CORRECTION (urgent, read before
 trusting any "0.14/0.12" or "turn+push substrate is SOLID" claim
 below): `cw-amp-m3-turnpush1-style05-acq1-r2`'s eval_yaw tip-err
 reading of 0.1431/0.1152 (this cycle's own earlier PASS verdict,
