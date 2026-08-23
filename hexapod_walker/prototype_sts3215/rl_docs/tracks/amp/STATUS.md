@@ -1,6 +1,37 @@
 # amp - AMP locomotion from scratch
 
-Last updated: 2026-08-23 ~07:3x (**THIRD SEED (`-s3`, seed13) CLOSES
+Last updated: 2026-08-23 ~07:5x (**TURN-EXPOSURE DOSE GRID CLOSED at
+4 points (0.2/0.3/0.5/0.7): 0.5 is the confirmed peak, not the
+largest dose tried.** `cw-amp-m4-turnfault-seq1-pushcont1-tipfrac07`
+(dose 0.7, the grid's last untried rung) VERDICTED INFORMATIVE — the
+pre-registered TURNOVER branch fired cleanly: yaw section tips
+regressed to 0.236/0.225 (worse than tipfrac05's bar-clean
+0.162/0.184, back into the tipfrac02/03 in-band-not-clean range) —
+MORE dedicated turn-episode exposure made tip-tracking WORSE past
+0.5, not better. Walk section also erodes: `n_translating` collapsed
+to 2/12 (0 of 6 det episodes were translating at this dose — a real
+harness-sampling gap for future high-turnfrac arms, not just a
+training defect — so `det_prog_med`/`det_slip_med` are
+null/unjudgeable) and the 2 translating episodes that did land both
+miss the slip bar (4.03/4.30 > 3.5). Own-cfg DR-0 gate regresses too:
+gait_valid 10/12 with TWO video-confirmed tilt_roll falls (roll peak
+35.0/34.6deg) plus 2 sacrificed-leg sto episodes — vs tipfrac05's
+clean 12/12/zero-falls — a dose-driven safety cost independent of
+the `-s3` seed-lottery finding (same seed=7 as the champion here).
+Fault section is the one axis that holds (10/12 gv, meets bar,
+slightly better than tipfrac05's post-fix 9/12) — not enough to
+offset yaw+walk+safety. **Grid CLOSED, champion UNCHANGED:
+`tipfrac05` (seed7, turn_in_place_frac=0.5) remains the sole
+M5-candidate; no further dose arms on this lever.** The two
+already-flagged prerequisites for actual M5-candidate promotion —
+hold/forward income repricing (budget-stability) and seed-safety-
+variance root-cause — are unaffected by this result and remain the
+funded path (in progress on a concurrent DIG-IN cycle at review
+time; left untouched, no duplicate work). Evidence:
+`logs/ckpt_eval/cw_amp_m4_turnfault_seq1_pushcont1_tipfrac07_{gate,m5}/`.
+Prior banner below.)
+
+Previous entry (2026-08-23 ~07:3x (**THIRD SEED (`-s3`, seed13) CLOSES
 the tipfrac05 grid at n=3 and finds a SAFETY seed-lottery, not a
 tip-tracking one.** Picked up this run too (its prestage never fired;
 ran gate+m5 by hand). eval_amp_m5 tips 0.218/0.228 — IN-BAND
@@ -2030,8 +2061,38 @@ Build every tool this needs; do not pause on operator input.
 
 ## Now
 
-**08-23 ~00:2x — CORRECTION to this section's own prior entry:**
-`cw-amp-m2-turnclone-yawcmd-tip50` (and `-tip90`) are **PASS**, not
+**08-23 ~07:5x — TURN-EXPOSURE DOSE GRID CLOSED at 4 points (0.2/0.3/
+0.5/0.7): 0.5 is the confirmed peak, not the largest dose tried.**
+`cw-amp-m4-turnfault-seq1-pushcont1-tipfrac07` (dose 0.7, the grid's
+last untried rung) VERDICTED INFORMATIVE — the pre-registered
+TURNOVER branch fired cleanly: yaw section tips regressed to
+0.236/0.225 (worse than tipfrac05's bar-clean 0.162/0.184, back into
+the tipfrac02/03 in-band-not-clean range) — MORE dedicated
+turn-episode exposure made tip-tracking WORSE past 0.5, not better.
+Walk section also erodes: `n_translating` collapsed to 2/12 (0 of 6
+det episodes were translating at this dose — a real harness-sampling
+gap for future high-turnfrac arms, not just a training defect — so
+`det_prog_med`/`det_slip_med` are null/unjudgeable) and the 2
+translating episodes that did land both miss the slip bar (4.03/4.30
+> 3.5). Own-cfg DR-0 gate regresses too: gait_valid 10/12 with TWO
+video-confirmed tilt_roll falls (roll peak 35.0/34.6deg) plus 2
+sacrificed-leg sto episodes — vs tipfrac05's clean 12/12/zero-falls —
+a dose-driven safety cost independent of the `-s3` seed-lottery
+finding (same seed=7 as the champion here). Fault section is the one
+axis that holds (10/12 gv, meets bar, slightly better than
+tipfrac05's post-fix 9/12) — not enough to offset yaw+walk+safety.
+**Grid CLOSED, champion UNCHANGED: `tipfrac05` (seed7, turn_in_
+place_frac=0.5) remains the sole M5-candidate; no further dose arms
+on this lever.** The two already-flagged prerequisites for actual
+M5-candidate promotion — hold/forward income repricing (budget-
+stability) and seed-safety-variance root-cause — are unaffected by
+this result and remain the funded path (in progress on a concurrent
+DIG-IN cycle at review time; left untouched, no duplicate work).
+Evidence: `logs/ckpt_eval/cw_amp_m4_turnfault_seq1_pushcont1_
+tipfrac07_{gate,m5}/`. Prior banner below.
+
+Previous entry (08-23 ~00:2x — CORRECTION to this section's own prior
+entry: `cw-amp-m2-turnclone-yawcmd-tip50` (and `-tip90`) are **PASS**, not
 INFORMATIVE — a triage error in the entry below (now struck through
 in substance, kept for the audit trail) misapplied `eval_yaw.py`'s
 generic CLI-default turn-gate (0.10, a leftover from an older,
