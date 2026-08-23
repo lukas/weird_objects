@@ -1,0 +1,20 @@
+# cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-kernelema1
+
+<!-- GENERATED from experiments.json by launch_run.py — do not edit -->
+
+**status**: RUNNING
+
+**created**: 2026-08-23T07:53:55+00:00
+
+**pod**: hexapod-mjx-train-2
+
+**steps**: 2000000
+
+**parent**: cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05
+
+**wandb_id**: 58dxiaek
+
+**hypothesis**: Plain English: does de-noising the reward's velocity/yaw-rate tracking kernels (so an honest walker/turner's natural stride-to-stride sway is not taxed as if it were mistracking) close part of the measured hold/forward income-dominance gap that eroded turn+push tracking under extra budget (tipfrac05-acq1 FAIL, q_20260823T0240Z item b)? Root cause measured on the real ypfix1 checkpoint via probe_walk_income: a genuine full-stop hold command pins body velocity/yaw-rate near-exactly at their zero targets (near-zero variance, nothing moving), so the INSTANTANEOUS Gaussian kernels sit at their peak almost every tick, while honest forward walking/turning necessarily oscillates around its achieved mean even when that mean matches the command well -- reward_walk_yaw hold=374 vs forward=203 vs tip_left/right=132/147 per 15s segment, a real richness gap ON TOP OF the already-collected k_walk_prog/k_yaw_prog progress bonuses. This mirrors the ALREADY-FIXED phasedir7/7b/8 sway-tax defect on the linear-velocity kernel (reward.walk_kernel_vel_ema, joystick track, never applied to this AMP lineage) -- this arm applies that same fix plus a newly-built yaw-kernel analog (reward.walk_kernel_yaw_ema, this cycle, bank-tested: test_task_semantics.py 10/10 new/updated turn-bank tests, mechanism confirmed on scripted references -- an accurate stride-oscillating tracker and a ~2x under-rotator are statistically TIED on the raw kernel (153 vs 159/ep) but cleanly separated with the EMA on (197 vs 155/ep), while the structural fixed-drift reference does not benefit). Single lever vs tipfrac05: both EMA flags on (one mechanism family, same tau=0.75s = one teacher gait period, the k_walk_course convention), everything else byte-identical (same seed=7, same goal.walk_turn_in_place_frac=0.5, same permanent push+fault cfg, same pre-cheat turnfault_seq1 init, same 2M budget). Default-off bit-exact verified (test_kernel_yaw_ema_default_off_is_bit_exact + the pre-existing walk_kernel_vel_ema off-path test).
+
+**gate**: IMPROVED = eval_yaw tip-left/right err measurably tighter than tipfrac05's own 0.162/0.184 (or at least holds inside the <=0.20-0.25 PASS band with safety floors >= tipfrac05's own gait_valid 12/12) -- kernel noise-tax is a real, fundable contributor to the income-dominance gap; worth stacking with a budget continuation retry (re-testing the acq1 erosion question with this fix on). FLAT = tips land within noise of tipfrac05's own 0.162/0.184 (no clear direction) -- the kernel-noise-tax component is real but small next to the gap; the actuation-cost asymmetry (current/gyro/roll 4-10x higher on real motion, not touched by this arm) is the dominant untried piece. WORSE = tips regress measurably or a safety floor drops (gait_valid < 10/12, any new fall/sacrificed leg) -- an unanticipated interaction (most likely with the already-on walk_yaw_kernel_gate/walk_yaw_hold_prog_gate achieved-rotation gates, which still read raw instantaneous wz) -- revert and re-scope narrower (e.g. kernel-only on translation, not yaw).
+
