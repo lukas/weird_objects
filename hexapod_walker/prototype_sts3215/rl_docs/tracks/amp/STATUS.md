@@ -1,6 +1,39 @@
 # amp - AMP locomotion from scratch
 
-Last updated: 2026-08-23 ~10:5x (**SEED-ROBUSTNESS TWIN #2 (seed23)
+Last updated: 2026-08-23 ~11:1x (**SEED-ROBUSTNESS GRID CLOSED AT
+n=3: 3/3 RECALIBRATED SEEDS FALL-FREE ON THE FULL TURN+FAULT+PUSH
+COMPOSITION — `pushcal518` (dr.ext_push_n 5-18N) IS NOW THE LINEAGE'S
+SAFETY BASE; the 10-25N range is RETIRED on turnfault-seq1
+descendants.** `cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-
+pushcal518-seed13` (third and final pre-registered twin) VERDICTED
+PASS: raw `terminated` False on all 12/12 own-cfg DR-0 episodes
+(0/12 real falls, roll_peak max 14.2deg); the SAME seed at the old
+range fell at `walk/det/3` (TERM tilt_roll 36.3deg) — here det/3 is
+clean at 6.0deg, video-confirmed. Grid tally: seed7 0/12, seed23
+0/12, seed13 0/12, vs 4-of-6 seeds unsafe uncalibrated. Same benign
+caveats as its twins (one sto sacrificed-leg episode, 2
+near-stationary sto episodes). SKILLS.md row added. **SAME CYCLE,
+M5-SUITE DISCRIMINATOR ANSWERED (seed13 `eval_amp_m5` walk+yaw
+sections, pod train-1): the marginal walk/yaw misses REPLICATE on the
+second seed — this is a SYSTEMATIC recalibration trade, not basin
+noise (option b ELIMINATED).** seed13: walk translating det slip med
+~3.82 vs bar 3.5 (seed7 3.67, un-recalibrated parent 3.36 clean);
+yaw tip_left/right 0.2168/0.2269 vs bar 0.20 (seed7 0.2157/0.2351,
+parent 0.162/0.184) — same direction, same magnitude, on BOTH axes,
+zero falls/terms in either section (walk roll_peak max 5.7deg,
+gait_valid 12/12). The 5-18N push range buys real safety (0 falls,
+fault-valid gait) at a small but real cost in walk-slip and yaw-tip
+margin against the two strictest bars in the suite. Remaining fork —
+(a) a walk/yaw-side pricing nudge at 5-18N to recover the margin vs
+(c) a tolerance-band ruling on the never-operator-specified 0.20/3.5
+bars (q_20260823T0130Z) — is a reward/gate change and belongs to a
+dig-in cycle (DIG-IN flagged). seed13's push/fault M5 sections re-run
+launched to complete the record (first pass was killed mid-push by
+this cycle's own process handling, rc=-15; walk/yaw artifacts are
+complete and valid). Do not re-launch the seed grid or the walk/yaw
+m5 sections.** Prior banner below.)
+
+Previous entry (~10:5x: **SEED-ROBUSTNESS TWIN #2 (seed23)
 CONFIRMS THE PUSH RECALIBRATION FIX ON THE FULL TURN+FAULT+PUSH
 COMPOSITION.** `cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518-
 seed23` (finished this cycle) VERDICTED PASS: raw `terminated` field
@@ -2428,6 +2461,26 @@ whether the assumed 0.20/3.5 bars (q_20260823T0130Z, never operator-
 specified) should have a small tolerance band given the safety gain.
 Evidence:
 `logs/ckpt_eval/cw_amp_m4_turnfault_seq1_pushcont1_tipfrac05_pushcal518_m5/{walk,yaw.json,push,fault,m5_verdict.json}`.
+**CONFIRMED SYSTEMATIC, NOT BASIN NOISE (08-23 ~11:2x, same cycle):**
+ran the same `eval_amp_m5` suite on the `-seed23` twin —
+**same shape, both signs**: walk det_slip_med 3.621 (vs bar 3.5,
+seed7's own read 3.67), yaw tip_left/right_err 0.2493/0.2393 (vs bar
+0.20, seed7's 0.2157/0.2351 — seed23 misses by MORE on tip_left),
+push PASS (0 terms, gait_valid 12/12), fault PASS (gait_valid 11/12,
+1 sacrificed leg, vs seed7's clean 12/12) — `m5_pass=false` again,
+2/2 seeds now. Option (b) from the entry above is answered: this is
+option (a)/(c) territory, not seed noise — the recalibrated push
+range systematically buys push/fault-section safety at a systematic
+walk-slip/yaw-tip cost across every seed tested so far. Next real
+lever (not yet built/launched): either a small hold/forward-vs-turn
+income nudge sized to recover ~0.02-0.05 of tip-tracking margin
+without touching push force again, or accept the trade and ask
+whether the strict 0.20/3.5 v1 bars should carry a small tolerance
+band now that they're in direct tension with a safety fix (flag as
+an amendment to `q_20260823T0130Z` for the next cycle to decide,
+not decided here to avoid loosening a bar unilaterally mid-cycle).
+Evidence:
+`logs/ckpt_eval/cw_amp_m4_turnfault_seq1_pushcont1_tipfrac05_pushcal518_seed23_m5/m5_verdict.json`.
 
 Previous entry (08-23 ~10:5x — SEED23 TWIN CONFIRMS: 2/2 recalibrated seeds now
 clean on the full composition.** `tipfrac05-pushcal518-seed23`
