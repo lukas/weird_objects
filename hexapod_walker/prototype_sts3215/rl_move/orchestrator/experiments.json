@@ -143287,7 +143287,7 @@
       "reward.walk_kernel_vel_tau_s=0.75"
     ],
     "created": "2026-08-23T07:53:55+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -143317,7 +143317,15 @@
     "log": "/tmp/train_cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-kernelema1.log",
     "wandb_id": "58dxiaek",
     "verified": "2026-08-23T07:57:10+00:00",
-    "triage": "in-cycle cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-kernelema1 since 2026-08-23T08:02:32"
+    "triage": "in-cycle cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-kernelema1 since 2026-08-23T08:02:32",
+    "checkups": [
+      {
+        "time": "2026-08-23T08:03:08+00:00",
+        "process_alive": false,
+        "verdict": "FINISHED_BEFORE_CHECKUP",
+        "log_tail": "\nwandb:      amp/disc_updates 124\nwandb:                amp/gp 0.01108\nwandb:              amp/loss 0.29316\nwandb: amp/pairs_per_rollout 65305\nwandb:        amp/replay_len 500000\nwandb: amp/style_reward_mean 0.20525\nwandb:                  +105 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-kernelema1 at: https://wandb.ai/l2k2/hexapod-balance/runs/58dxiaek\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 3 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260823_075446-58dxiaek/logs\n"
+      }
+    ]
   },
   {
     "run": "cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-kernelema-yawonly",
