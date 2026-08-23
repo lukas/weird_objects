@@ -267,3 +267,4 @@ DIG-IN: cw-amp-m4-turnpushfault1-style05-r2 — mechanism-safety PASS but turn t
 - 08-23 02:53 pushfault1-noamp-acq1 PASS: 8M closes push+fault at solo-axis quality (0/12 topples, gait 11/12 w/ legit carried-leg, det prog 1.03) — turn now the ONLY open M5 composition axis 
 - 08-23 02:53 turnpushfault1-r2 PASS-partial: safety bar 12/12 where fresh stack missed (9/12), but corrected-bus eval_yaw shows turn still parked (0.42/0.49, inherited from substrate) — only policy w/ all 4 M5 axes, turn sole gap 
 - 08-23 03:06 LAUNCH_CRASH ypfix1-r2 (0 steps, stale obs-pad-transplant=18 vs already-93-dim ckpt); fixed+relaunched -r3 
+- 08-23 03:12 INFORMATIVE-ceiling pushfault1-style05-acq1: 8M budget doesn't improve on 2M ceiling (3/12 topples both times) AND style now LOSES style-vs-noamp acq1 comparison (3/12+worse prog/slip vs noamp's clean 0/12 PASS) -- style deprioritized as M4 push+fault carrier, noamp is the M5 substrate 

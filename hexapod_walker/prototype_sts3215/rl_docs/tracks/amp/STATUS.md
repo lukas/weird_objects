@@ -1,6 +1,51 @@
 # amp - AMP locomotion from scratch
 
-Last updated: 2026-08-23 ~03:0x (**DIG-IN RESOLVED SAME CYCLE, run
+Last updated: 2026-08-23 ~03:1x (**TWO READOUTS: (1) M4 push+fault
+STYLE-VS-CONTROL COMPLETED — style LOSES at acquisition scale,
+reversing its mild discovery-time edge; noamp is the M5 push+fault
+substrate. (2) `turnpushfault1-style05-ypfix1-r2` LAUNCH_CRASHED
+(0 steps, same obs-pad-transplant respec-hygiene bug already seen
+twice this cluster), fixed+relaunched as `-r3`.** (1)
+`cw-amp-m4-pushfault1-style05-acq1` (6M continuation, 8M total)
+VERDICTED INFORMATIVE-ceiling: own-cfg DR-0 gate (fault+push both on)
+lands 3/12 topples (2 det tilt_roll/tilt_pitch + 1 sto tilt_roll) —
+the SAME total count as its 2M discovery (1 det + 2 sto, just
+reshuffled), gait_valid held 12/12, zero sacrificed legs,
+style_reward_mean held 0.117 (>0.1, not collapsed) — but det prog med
+fell 1.21->0.65 and slip rose 2.77->4.84 (sto 0.87->0.71 / 3.59->4.84)
+vs its own discovery numbers, with reward flat after Q1 (111->219->
+213->212). Videos (det_0/1/2, sto_1/5) confirm the topples are
+genuine end-frame flips after 6+ clean strides, not statues or a new
+pathology — matches the gate's own pre-registered INFORMATIVE-ceiling
+branch exactly (topples stay ~2-3/12, reward flattening), not PASS
+(needs <=1/12, det prog>=0.9) or FAIL (needs topples increasing or
+gait_valid<9/12 with reward still rising). Completing the named
+style-vs-control comparison this run existed to answer: the noamp
+twin's own acq1 (matched 8M budget, same dose, already PASSED)
+lands 0/12 topples, det prog med 1.03, sto 0.81 — clean and BETTER
+on every axis. Style05 REVERSES its mild discovery-time edge (3/12
+vs noamp's 2/12 at 2M, zero-sacrifice) into a clear loss at
+acquisition scale. Style is DEPRIORITIZED as the M4 push+fault
+carrier; `pushfault1-noamp-acq1` remains the substrate for any M5
+push+fault composition. (2) `cw-amp-m4-turnpushfault1-style05-
+ypfix1-r2` never trained: pod log shows `--obs-pad-transplant 18 but
+obs widened by 0 (93 -> 93); check cfg-sets` immediately after
+warm-start then exit, zero PPO iterations, wandb state=finished with
+steps=None — the respec inherited the stale transplant flag from its
+parent's own launch template even though its `--init-from` checkpoint
+is already 93-dim (fail-closed, not silent corruption). Same bug
+class as the pushfault1-noamp/turnpushfault1-style05 crashes already
+logged this cluster (strip transplant flags when respeccing from a
+run that already consumed them). VERDICTED LAUNCH_CRASH; fixed and
+relaunched same-cycle as `cw-amp-m4-turnpushfault1-style05-ypfix1-r3`
+with an explicit trailing `--obs-pad-transplant=0` override
+(argparse last-flag-wins, verified) — VERIFIED RUNNING on
+hexapod-mjx-train-1. This is the live repricing-keys test the
+concurrent cycle's entry below names (yaw_prog_overshoot_decay +
+yaw_prog_avg_s ON, matched no-keys control `cont1` running in
+parallel); read both together when they land. Previous entry below.)
+
+Previous entry (2026-08-23 ~03:0x (**DIG-IN RESOLVED SAME CYCLE, run
 VERDICTED PASS-partial (ledger 02:53), WRONG-SIGN HYPOTHESIS REFUTED
 BY SIGNED PROBE**: the entry below inferred from eval_yaw |err| medians
 (0.42/0.49 > park's 0.30) that `turnpushfault1-style05-r2` might spin
