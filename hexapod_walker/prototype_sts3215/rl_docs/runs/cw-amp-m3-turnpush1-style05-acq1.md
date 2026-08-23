@@ -4,9 +4,9 @@
 
 **status**: REFUSED
 
-**created**: 2026-08-23T01:48:43+00:00
+**created**: 2026-08-23T01:51:40+00:00
 
-**pod**: hexapod-mjx-train-2
+**pod**: hexapod-mjx-train-0
 
 **steps**: 6000000
 
@@ -16,5 +16,5 @@
 
 **gate**: Acquisition (6M continuation, 8M total, DR-0). PASS = own-cfg gate (push on, yaw cfg on) det prog med >=0.9, topples <=1/6 det + <=2/6 sto, gait_valid >=5/6 det+sto, zero sacrificed, AND eval_yaw tip errs <=0.21 (within 0.05 of substrate 0.15-0.16); video shows turning under shove absorption. INFORMATIVE-budget-refuted = reward flat with prog <0.6 => sequential composition is the named lever. INFORMATIVE-turn-eroded = prog recovers but tip errs >0.21 / park fingerprint => turn-vs-push interference, repricing keys next. FAIL = collapse/statue/NaN.
 
-**refused_reason**: hexapod-mjx-train-2 code marker 79a1d9fadb3f5378b8353f1691d345f1077e98ad != local HEAD e97d29f45f826f8e15863508eaf8fb3a9842fcc0. Sync first: snapshot.sh --sync hexapod-mjx-train-2 (and snapshot/commit before that if the tree is dirty).
+**refused_reason**: hexapod-mjx-train-0 code marker 4ca9ba8813acc6ed8b942f5a420c8eca39560c6b != local HEAD acc9c02fe6230ae004a55fac287288b5a2ae452d. Sync first: snapshot.sh --sync hexapod-mjx-train-0 (and snapshot/commit before that if the tree is dirty).
 
