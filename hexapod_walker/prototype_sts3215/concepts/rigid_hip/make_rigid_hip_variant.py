@@ -21,9 +21,18 @@ pair.  This variant closes the loop from the TOP:
     pattern tie it to chassis_bottom; the electronics-deck hole pattern
     is carried over so the deck hardware moves to the new top plate.
 
-  Load path: hip moment -> cap boss -> third bearing -> top plate ->
+  Load path: hip moment -> cap boss -> top bearing -> top plate ->
   standoffs / five other legs.  Each yaw axis becomes simply-supported
-  (bearing pair below, third bearing above) instead of cantilevered.
+  (one bearing below, one above, ~67 mm apart) instead of cantilevered.
+
+  BEARING COUNT: the production LOWER yaw bearing is OMITTED (it only
+  existed to form a 7 mm moment couple with the upper one; the top
+  bearing replaces that couple with a ~67 mm arm).  The upper bearing
+  is the production-located one -- outer race housed in the bolt-on
+  yaw cap's own Phi 37.15 bore under its Phi 34 lip, inner race seated
+  against the hub uflange by the horn clamp preload -- so omitting the
+  lower race changes NO production part; its pocket just stays empty.
+  Net bearings per robot: 12, same as production.
 
 TRADE-OFF (measured by the sweep in this script): the full-size top
 plate caps the femur's UP-swing.  The production workspace envelope is
@@ -74,6 +83,11 @@ RING_OD = BEARING_OD + 2.0 * hp.YAW_TOWER_WALL  # 44 -- same wall as the tower
 
 PED_OD = BEARING_INNER_OD                 # 29 -- pedestal = inner-race seat
 PED_H = 5.5                               # pedestal height above the cap face
+PULLER_NOTCH_W = 8.0                      # two pry slots under the inner race
+PULLER_NOTCH_DEPTH = 2.2                  # slot depth below the race seat
+PULLER_NOTCH_R0 = 13.0                    # slot inner face: exposes the race
+                                          # underside r 13.0..14.5, stays
+                                          # 0.4 mm clear of the Phi 25.15 boss
 RING_BOT_CL = 0.5                         # ring bottom vs race bottom (race
                                           # protrudes -> shoulder seats first)
 BOSS_TIP_STEP = 0.575                     # stepped lead-in: tip at Phi 24.0
@@ -168,7 +182,22 @@ def make_hip_cap_rigid() -> trimesh.Trimesh:
     boss = _cyl_y(BOSS_OD / 2.0, PED_Y1 - 1.0, BOSS_Y1, x=0.0, z=AXIS_Z)
     tip = _cyl_y(BOSS_OD / 2.0 - BOSS_TIP_STEP, BOSS_Y1 - 0.1, TIP_Y1,
                  x=0.0, z=AXIS_Z)
-    return _union([cap, ped, boss, tip])
+    body = _union([cap, ped, boss, tip])
+    # Two puller notches at +/-x: pry slots exposing the inner race's
+    # underside (r 13.0..14.5) so the pressed 6805 can be walked off the
+    # boss with a flat screwdriver / 2-jaw puller instead of being a
+    # one-way assembly.  The notch floor stays clear of the boss root.
+    notches = []
+    for sx in (+1.0, -1.0):
+        n = trimesh.creation.box(extents=(PED_OD / 2.0 - PULLER_NOTCH_R0 + 3.0,
+                                          PULLER_NOTCH_DEPTH + 0.05,
+                                          PULLER_NOTCH_W))
+        n.apply_translation([
+            sx * (PULLER_NOTCH_R0 + n.extents[0] / 2.0),
+            PED_Y1 - PULLER_NOTCH_DEPTH / 2.0 + 0.025,
+            AXIS_Z])
+        notches.append(n)
+    return _diff(body, notches)
 
 
 def make_bearing_6805() -> trimesh.Trimesh:
@@ -277,10 +306,14 @@ MESH_FILES = {
     "yaw_bearing_cap": (hp.make_yaw_bearing_cap, "yaw_bearing_cap.stl"),
     "yaw_servo_retainer": (hp.make_yaw_servo_retainer,
                            "yaw_servo_retainer.stl"),
-    # COTS / visual only.
+    # COTS / visual only.  NOTE: the production LOWER yaw bearing is
+    # deliberately absent -- it existed to form the 7 mm moment couple
+    # with the upper one, and the top plate replaces that with a ~67 mm
+    # couple.  The upper bearing is the LOCATED one (outer race in the
+    # yaw cap's own bore under its lip, inner race against the hub
+    # uflange + horn clamp preload), so omitting the lower race changes
+    # no production part.  Net robot bearing count stays 12.
     "servo_body": (hp.make_servo_body, "servo_body_DO_NOT_PRINT.stl"),
-    "yaw_bearing_lower": (hp.make_yaw_bearing_lower,
-                          "yaw_bearing_lower_DO_NOT_PRINT.stl"),
     "yaw_bearing_upper": (hp.make_yaw_bearing_upper,
                           "yaw_bearing_upper_DO_NOT_PRINT.stl"),
     "bearing_6805": (make_bearing_6805, "bearing_6805_DO_NOT_PRINT.stl"),
@@ -457,7 +490,7 @@ def sweep_femur_envelope(meshes: dict[str, trimesh.Trimesh],
 # ---------------------------------------------------------------------------
 COLORS = {
     "hip_clamp_cap_rigid": "#4878b0", "chassis_top_rigid": "#5b8fd4",
-    "bearing_6805": "#303030", "yaw_bearing_lower": "#3a3a3a",
+    "bearing_6805": "#303030",
     "yaw_bearing_upper": "#3a3a3a", "servo_body": "#6b6b6b",
     "chassis_bottom": "#8a8f98", "coxa_link": "#9aa0a6",
     "femur_link": "#9aa0a6", "tibia_knee_yoke": "#9aa0a6",
@@ -465,8 +498,7 @@ COLORS = {
     "yaw_servo_retainer": "#9aa0a6", "foot_boot": "#5a5f66",
     "tibia_tube": "#404040",
 }
-COTS = {"servo_body", "yaw_bearing_lower", "yaw_bearing_upper",
-        "bearing_6805", "tibia_tube"}
+COTS = {"servo_body", "yaw_bearing_upper", "bearing_6805", "tibia_tube"}
 
 
 def _mat16(M: np.ndarray) -> list[float]:
@@ -507,8 +539,8 @@ def build_scene(meshes, femur_up_limit: float) -> dict:
 
         yaw_ids = [
             inst("coxa_link", f"L{i} coxa_link", T["coxa"], leg=i),
-            inst("yaw_bearing_lower", f"L{i} yaw bearing lower", T["coxa"], leg=i),
-            inst("yaw_bearing_upper", f"L{i} yaw bearing upper", T["coxa"], leg=i),
+            inst("yaw_bearing_upper", f"L{i} yaw bearing (lower slot EMPTY)",
+                 T["coxa"], leg=i),
             inst("yaw_bearing_cap", f"L{i} yaw bearing cap", T["coxa"], leg=i),
             inst("servo_body", f"L{i} hip servo", T["hip_cap"], leg=i),
             inst("hip_clamp_cap_rigid", f"L{i} hip cap RIGID (NEW)",
@@ -560,7 +592,6 @@ def build_scene(meshes, femur_up_limit: float) -> dict:
                 ["chassis_bottom", "servo_body"],
                 ["coxa_link", "servo_body"],
                 ["coxa_link", "yaw_bearing_cap"],
-                ["coxa_link", "yaw_bearing_lower"],
                 ["coxa_link", "yaw_bearing_upper"],
                 ["femur_link", "servo_body"],
                 ["hip_clamp_cap_rigid", "servo_body"],

@@ -19,9 +19,22 @@ servo — is a cantilever.  This variant closes the structure from the top:
   hole.  The electronics deck moves up here; the 140 mm `chassis_top`
   is not used in this variant.
 
-Load path: hip moment → cap boss → third bearing → top plate →
+Load path: hip moment → cap boss → top bearing → top plate →
 standoffs + the five other legs.  Each yaw axis becomes
 simply-supported instead of cantilevered, holding the hip servo rigidly.
+
+## The bottom pair loses a bearing — net bearing count unchanged
+
+The production yaw joint stacked TWO 6805s only to form a 7 mm moment
+couple.  With the top bearing providing a ~67 mm couple, the **lower
+yaw bearing is omitted** — and that changes no production part: the
+lower race was already the "floating" one (press-fit retention only),
+while the upper bearing is the located one — outer race housed in the
+bolt-on yaw cap's own Φ37.15 bore under its Φ34 lip, inner race seated
+against the hub uflange by the horn clamp preload.  Its pocket in
+chassis_bottom simply stays empty.  Robot total stays **12 bearings**,
+same as production (2 per leg: one at the yaw cap, one at the top
+plate).
 
 ## Stack (world Z, chassis_bottom sheet mid-plane = 0)
 
@@ -66,22 +79,66 @@ variation only moves parts that stay outboard/below the plate.
 
 ## BOM delta vs production
 
-* +6× 6805-2RS (25×37×7) — 18 total on the robot
+* 6805-2RS count unchanged (12): the 6 lower yaw bearings move up to
+  become the 6 top-plate bearings
 * 4× M3 standoff stacks, ~86 mm (bottom sheet top z≈2 → sheet bottom
   88.05; e.g. 50+36 F-F, or M3 threaded rod in printed sleeves)
 * the 140 mm `chassis_top` deck + its 20 mm standoffs are not used
+* recommended: 12× M3 heat-set inserts (McMaster 94459A130) for the hip
+  cap pilots — see "Disassembly & service"
 
 ## Assembly order
 
-1. Build the robot exactly as production, including hip caps
-   (`hip_clamp_cap_rigid` in place of the stock hip cap — same 2× M3
-   into the same cradle pilots).
+1. Build the robot as production but install only ONE yaw bearing per
+   leg (the upper/located one; leave the lower pocket empty), and use
+   `hip_clamp_cap_rigid` in place of the stock hip cap — same 2× M3
+   into the same cradle pilots.
 2. Press a 6805 onto each cap boss until it seats on the Φ29 pedestal.
 3. Lower `chassis_top_rigid` straight down onto all six races (pockets
    are lead-in chamfered; descent path verified clear at build time),
    press until the shoulders touch the race tops.
-4. Bolt the 4 standoffs.  Servicing a hip servo requires lifting the
-   plate off again — the inboard cap bolt is under the sheet.
+4. Bolt the 4 standoffs.
+
+## Disassembly & service
+
+None of the fits is a one-way trap — every interface has a designed
+exit:
+
+* **Plate off** (needed for hip servo access): remove the 4 standoff
+  screws from above, then walk the plate up off the six races.  The
+  pocket fit is the bench-proven "firm finger-press" class (Φ37.15 vs
+  Φ37 race, +0.15 clearance) — not a true press — and each race
+  deliberately protrudes 0.5 mm below its ring, with a 6 mm open gap
+  between ring bottoms and cap faces all around, so a flat pry tool
+  fits under every ring (fulcrum on the cap face).  Work the six
+  corners progressively like a cylinder head.
+* **Bearing off a cap boss**: the boss press (+0.15) is the permanent
+  interface by design (same philosophy as the production hub boss),
+  but the pedestal has **two puller notches** exposing 1.5 mm of the
+  inner race's underside at ±x, so a screwdriver twist or 2-jaw puller
+  walks it off non-destructively.
+* **Hip cap / servo**: with the plate off, service is exactly
+  production: 2× M3 cap bolts from above, cap lifts away (bearing
+  stays on its boss), servo lifts out of the cradle.
+* **Repeated-service threads**: the cap bolts become
+  every-service fasteners in this variant, so per the repo's insert
+  rule, drill the two cradle pilots Φ4.0 × 6 deep and fit M3 heat-set
+  inserts (94459A130) — a bench mod on the existing coxa_link print,
+  no reprint needed.  One-time builds can keep the self-taps.
+
+### Why the cap attachment stays the production 2-bolt clamshell
+
+The moment path does not run through the bolts: radial bearing loads
+enter the cap and bear on the cradle through the tongue's snug ±x fit
+in the cavity, the top lip over the cradle plate, the seat-drop ledge,
+and the back/horn hooks — plastic-on-plastic interlocks on three
+sides.  The two M3s only clamp the stack shut.  Alternatives
+considered and rejected: a separate bolt-on bearing mast (puts a
+bolted joint in series with the moment path, same two bolts anyway,
+loses stiffness), and a quick-release pin (adds play exactly where
+this variant is buying rigidity).  With inserts in the pilots, the
+2-bolt attachment is both the stiffest and the most serviceable
+option.
 
 ## Print notes
 

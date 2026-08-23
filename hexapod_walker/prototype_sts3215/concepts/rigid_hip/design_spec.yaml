@@ -18,6 +18,14 @@
 # allowed -80).  Walking near STANCE_FEMUR_DEG = -25 keeps ~22 deg of
 # headroom; deep tucks (stand-up belly curl) must be re-checked before
 # this goes on the robot.
+#
+# Bearing count: the production LOWER yaw bearing is omitted (it only
+# formed a 7 mm moment couple with the upper one, now replaced by the
+# ~67 mm top-plate couple).  The lower race was the floating one; the
+# upper bearing is production-located (outer race in the yaw cap's own
+# bore under its lip, inner race against the hub uflange), so the
+# omission changes no production part -- the chassis_bottom pocket just
+# stays empty.  Net 12 bearings per robot, same as production.
 
 parts:
   hip_clamp_cap_rigid:
@@ -84,6 +92,26 @@ parts:
             value: 25.15
             code_name: BOSS_OD
             description: "= YAW_HUB_BOSS_OD, bench-tuned +0.15 press."
+      puller_notches:
+        label: "2x pry slots under the inner race"
+        kind: "relief"
+        purpose: >-
+          The boss press is the permanent interface by design, but two
+          8 mm-wide, 2.2 mm-deep notches in the pedestal at +/-x expose
+          1.5 mm of the inner race's underside (r 13.0..14.5) so a flat
+          screwdriver or 2-jaw puller can walk the bearing off
+          non-destructively.  Notch floor stays 0.4 mm clear of the
+          phi 25.15 boss root; the remaining seat annulus carries the
+          race with ample area.
+        dimensions:
+          notch_w:
+            label: "Notch width"
+            value: 8.0
+            code_name: PULLER_NOTCH_W
+          notch_depth:
+            label: "Notch depth below the race seat"
+            value: 2.2
+            code_name: PULLER_NOTCH_DEPTH
 
   chassis_top_rigid:
     label: "Full-size top chassis with bearing pockets (concept)"
@@ -135,12 +163,13 @@ parts:
             description: "= bearing OD + 2x YAW_TOWER_WALL, same wall as the bottom tower."
 
   bearing_6805:
-    label: "Third 6805-2RS (25x37x7) — COTS, not printed"
+    label: "Top-plate 6805-2RS (25x37x7) — COTS, not printed"
     description: >-
-      Same bearing as the production yaw pair (now 3 per leg, 18 per
-      robot).  Modeled with its bore at phi 25.15 (= the boss OD) so
-      the seated scene has zero mesh overlap; the real bore is phi 25
-      and the 0.15 is the press.
+      Same bearing as the production yaw joint; it is the 6 lower yaw
+      bearings RELOCATED up to the top plate (2 per leg, 12 per robot,
+      unchanged total).  Modeled with its bore at phi 25.15 (= the boss
+      OD) so the seated scene has zero mesh overlap; the real bore is
+      phi 25 and the 0.15 is the press.
 
   chassis_bottom:
     label: "Production chassis_bottom (unchanged, reference)"
@@ -171,12 +200,13 @@ parts:
   servo_body:
     label: "STS3215 servo body — COTS"
     description: "Visual stand-in, 18 per robot."
-  yaw_bearing_lower:
-    label: "Production lower yaw 6805 — COTS"
-    description: "Unchanged production bearing pair, lower race."
   yaw_bearing_upper:
-    label: "Production upper yaw 6805 — COTS"
-    description: "Unchanged production bearing pair, upper race."
+    label: "Production upper yaw 6805 — COTS (lower slot left EMPTY)"
+    description: >-
+      The single remaining bottom bearing: the production-located upper
+      one (outer race in the yaw cap bore under its lip, inner race
+      against the hub uflange).  The lower bearing's pocket in
+      chassis_bottom is deliberately empty in this variant.
   tibia_tube:
     label: "Phi 8 carbon tibia tube — COTS"
     description: "Unchanged production part."
