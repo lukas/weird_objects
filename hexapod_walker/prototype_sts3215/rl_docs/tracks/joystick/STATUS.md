@@ -1,6 +1,34 @@
 # joystick - RL from the programmatic gait to joystick control
 
-Last updated: 2026-08-22 (~19:5x: **CMDMIX LEVER CLOSED — on-
+Last updated: 2026-08-23 (**DONE-GATE DECLARED MET (assume-and-go,
+cycle c0823-seed37-triage) — track goal achieved, work is
+maintenance-only.** q_20260822T1730Z sat unanswered for a full day
+across many cycles that kept re-verifying (2 held-out command-seed
+bases, 4 training seeds, an on-distribution command-training lever)
+without ever executing the promotion the evidence already supported —
+that non-decision was itself becoming a parked line. The pre-
+registered gate (60s randomized joystick script, MuJoCo, zero falls,
+directions followed, slip/m <= ~2.9 teacher band, n>=12 det+sto, DR-0
++ own-DR) is met as written: `stotight45` passes on 4/4 training seeds
+(17/23/13/29) and 2/2 held-out command-seed bases, n=48 each, zero
+falls, gait_valid 48/48, slip 2.41-2.78, dir_err 36.4-39.4deg (allow
+40). **Champion promoted: `stotight45-seed13`**
+(`ppo_goal_cw_dep_bcgait4_phasedir9_stotight45_seed13.zip`, slip/m
+2.407, dir_err 36.4deg — widest margins of the 4 passers). No untried
+margin lever remains (`cmdmix` CLOSED 0/3 PASS below). Honest residual
+caveats that do NOT block the declaration (the gate text doesn't name
+them): thin own-DR sto margins on some seeds, a legacy
+`bc_anchor_knee_abs=1.0` dialect + `walk_phase_obs` (+2 dim) contract
+the hardware runner must match, det progress a touch softer than the
+pre-noise-floor `longrun17` checkpoint, and training itself was
+fixed-forward-only (the gate's reverses/turns/stops are emergent
+generalization, measured not assumed). Full evidence trail in
+`CURRENT_TRUTHS.md` and the banners below. Operator override welcome
+(`OPERATOR_QUESTIONS.md` q_20260822T1730Z); absent one this stands.
+Fleet registered-goal effort now concentrates on `amp`/`cpg`. Prior
+banner below.)
+
+Previous entry (~19:5x: **CMDMIX LEVER CLOSED — on-
 distribution command training is ANTI-PRODUCTIVE on BC-anchored
 recipes (batch 0/3 PASS, 2 FAIL).** The 3-basin batch (each seed's
 best dose retrained with the gate's own stress_mix command family,

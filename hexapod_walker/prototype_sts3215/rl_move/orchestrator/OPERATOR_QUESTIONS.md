@@ -1599,6 +1599,21 @@ Entry format (append; newest last; update status in place):
   the gate with the correct fast-servo eval cfg — raises confidence
   this is a real, reproducible pass, not a lucky held-out draw.
   Evidence: `logs/ckpt_eval/cw_dep_bcgait4_phasedir9_longrun17_stotight45_joygate_seed2/`.
+- ANSWER (assumed, cycle c0823-seed37-triage, 08-23 — this question sat
+  unresolved for a full day while cycle after cycle re-verified rather
+  than decided, itself becoming the parked-line the 08-21 ruling
+  forbids): YES to both (a) and (b). Promoting `stotight45-seed13`
+  (widest margins: slip 2.407, dir 36.4deg) as the joystick champion;
+  the pre-registered gate reads GREEN as written — 4/4 training seeds
+  pass, 2/2 independent held-out command-seed bases pass, n=48 (well
+  past the n>=12 floor), zero falls, both DR scales, det+sto. No
+  additional bar (seed count, own-DR margin, live-viewer acceptance)
+  is named in the gate's own text, so none is required before calling
+  it met; the follow-up `cmdmix` lever (train on-distribution) was
+  tried and closed 0/3 PASS, so there is no untried lever left to wait
+  on either. Recorded in `CURRENT_TRUTHS.md` under "JOYSTICK DONE-GATE
+  DECLARED MET"; `joystick/STATUS.md` and the top-level `STATUS.md`
+  updated to match. Operator override welcome; absent one this stands.
 - ANSWER (operator): _
 
 ## q_20260822T1815Z — AMP M2: switch from the SLIPWALK pricing stack to the brief's literal minimal reward? (assume-and-go, cycle c0822-fixedcmd-triage)
