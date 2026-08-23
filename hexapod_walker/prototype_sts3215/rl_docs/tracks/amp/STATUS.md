@@ -1,6 +1,39 @@
 # amp - AMP locomotion from scratch
 
-Last updated: 2026-08-23 ~01:3x (**AXIS COMPOSITION DOES NOT COME FOR
+Last updated: 2026-08-23 ~01:4x (**M3 PUSH CURRICULUM STAGE 1: BOTH
+noamp rungs PASS — force bridges (15-30N clean where the flat 20-40N
+jump plateaued) and count rung 2 is nearly FREE; but the count x
+force COMBINATION plateaus at the same 4/12 floor — stage-2 batch
+launched.** (1) `cw-amp-m3-pushcur1-noamp-b1530` PASS: 15-30N
+single-shove bridge from pushacq1-noamp lands 1/6 det + 1/6 sto
+topples, gait 12/12, det prog med 1.20, tilt terms 26→14/window
+(prediction <25; n2040's flat jump sat ~53) — bridged dose keeps the
+recovery gradient alive; genuine 22° recoveries on strips.
+(2) `cw-amp-m3-pushcur1-noamp-repeat2` PASS-but-free: repeat_max=2
+lands 0/6+2/6, but terms started AND stayed low (13→8.5/7→5) — the
+pre-named "rung 2 inherited from single-shove prior" alternative
+fired; rung 3 is the real staging test. (3)
+`cw-amp-m3-pushcur1-style05-r3b1530-r1` INFORMATIVE-plateau: count
+HELD (repeat3) + force bridged 15-30N over-topples its laxer bar
+(3/6 det all tilt_pitch genuine knockdowns + 1/6 sto = 4/12, the
+n2040 flat-jump floor) with the decisive pitch term FLAT all run
+(30→27.5) and reward flat after Q2 — force-under-count does NOT
+compose at 6M; envelope stays ~25N under count. Joint read: force
+alone bridges, count alone is cheap, the combination saturates —
+if the stage-2 batch also plateaus, a RECOVERY-SPECIFIC mechanism
+(get-up reward / longer episodes) is the named M3 lever past ~25N.
+style_reward_mean thinned to 0.103 (disc not vetoing; style still
+not load-bearing). LAUNCHED (3, all verified RUNNING):
+`cw-amp-m3-pushcur2-noamp-n2040` (stage 2: 20-40N from b1530 ckpt),
+`cw-amp-m3-pushcur2-noamp-repeat3` (rung 3 from repeat2 ckpt), and
+`cw-amp-m3-pushhard1-noamp-n2040-c1r1` (the matched budget control
+that NEVER TRAINED — c1 was REFUSED 3x on a stale pod code marker
+and fell into backlog_failed silently; relaunched via respec --now
+sync path; c1 stub marked SUPERSEDED). Stage-2 fork at 12M total:
+curriculum vs raw budget vs both-plateau→recovery-mechanism.
+Previous banner below.)
+
+Previous entry (~01:3x (**AXIS COMPOSITION DOES NOT COME FOR
 FREE: grafting M3 push and M4 fault onto the new turn-capable
 substrate (`cw-amp-m2-turnclone-yawcmd0-r2`) each land INFORMATIVE,
 well below the same mechanisms' solo-axis numbers at matched/lighter
