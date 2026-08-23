@@ -155572,7 +155572,7 @@
       "dr.ext_push_n=5.0,18.0"
     ],
     "created": "2026-08-23T20:16:11+00:00",
-    "status": "RUNNING",
+    "status": "PARTIAL",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -155615,7 +155615,8 @@
         ]
       }
     ],
-    "triage": "in-cycle cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518-phas since 2026-08-23T20:44:30"
+    "triage": "done",
+    "verdict": "PARTIAL per the pre-registered branch -- +4M continuation grows stride/progress substantially WITHOUT eroding the 0.5Hz tip win; in fact every other section improved. m5 read (initial + wpm24 walk re-read, n_translating=28): walk det_prog_med 0.669 (baseline 0.52, +0.149 -- clears the PARTIAL bar of +0.10, misses the 0.75 PASS bar), det_slip_med 2.31 = BEST EVER on the lineage (parent 2.443, family band 3.47-3.83), 0 terms, gait 48/48, no sacrificed legs; yaw tips 0.1146/0.1048 -- IMPROVED from parent 0.149/0.156, best in family, the strongest-alternative 'continuation erodes the tip win' is refuted; push PASS (1 det term <=2, gv 12/12); fault PASS with first-ever spotless section (0 terms, gv 12/12, det_fwd_med 0.296). m5_pass=false solely on walk prog. Video: clean upright six-leg cycling, real stepping. Reward vs eval: reward still rising at the end of +4M (quarters 102.5/244.9/260.7/272.6) and prog is rising 0.52@2M -> 0.669@6M, NOT plateaued (FAIL branch <0.62 not triggered) -- textbook 08-21 continue case. Context: cont1@6M matches phasehz07's prog (0.669 vs 0.674) with far better slip (2.31 vs 4.48) and better tips. Next: cont2 +4M from this checkpoint (launched this cycle); read jointly with phasehz09/11 dose points (other cycle) for the cadence operating-point decision."
   },
   {
     "run": "cw-walkcurr-pf-fwd6-sde",
@@ -157382,7 +157383,8 @@
           "fps 91 below expected floor 5000 for solo on GPU-MJX pod \u2014 starved or misplaced; consider rebalancing"
         ]
       }
-    ]
+    ],
+    "triage": "in-cycle cw-walkcurr-pf-fwd6-rscale10-cont1b since 2026-08-23T21:20:07"
   },
   {
     "run": "cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518-phasehz11-s17",
@@ -157727,7 +157729,9 @@
           "fps 91 below expected floor 5000 for solo on GPU-MJX pod \u2014 starved or misplaced; consider rebalancing"
         ]
       }
-    ]
+    ],
+    "checkup_20260823T2118": "RESOLVED benign race: checkup fps=91 sampled during final W&B sync/shutdown; run finished cleanly at full 4030464-step budget (clean sync footer, ckpt artifact uploaded md5 4c727854). No starvation, no rebalance; triage to the finish-triggered cycle.",
+    "triage": "in-cycle cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518-phas since 2026-08-23T21:25:12"
   },
   {
     "run": "cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518-phasehz11-s23",
@@ -158084,6 +158088,15 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:amp PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518-phasehz11-s29 --steps 2000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_amp_m4_turnfault_seq1.zip --episode-seconds 15 --no-canary --eval-every 1000000 --video-every 2000000 --n-envs 4096 --impl warp --host-workers 24 --seed 29 --ent-coef 0.001 --warm-log-std-override -2.0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set goal.walk_phase_obs=1 --cfg-set goal.walk_phase_hz=1.1 --cfg-set goal.walk_obs_body_vel=2 --cfg-set goal.walk_heading_max_rad=-1 --cfg-set goal.walk_speed_min_m_s=0.08 --cfg-set goal.walk_speed_max_m_s=0.08 --cfg-set goal.walk_cmd_mode=stress_mix --cfg-set goal.walk_cmd_resample_s=4.0 --cfg-set goal.walk_cmd_resample_jitter=0.5 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set bus.write_speed=1500 --cfg-set bus.write_acc=80 --cfg-set bus.servo_vel_max_counts_s=write_speed --cfg-set safety.max_delta_q_deg=5.0 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --cfg-set reward.term_penalty=400.0 --cfg-set reward.k_step_event=0.0 --cfg-set reward.k_park_duty=0.0 --cfg-set reward.k_walk_freeprog=0.0 --cfg-set reward.walk_loadslip_gate=0.0 --cfg-set reward.k_loadslip_excess=0.0 --cfg-set reward.walk_gait_gate=0.0 --cfg-set reward.k_walk_idle_charge=0.0 --cfg-set reward.k_drag_stance=0.0 --amp-motion-lib rl_move/sim/motion_library/teacher_v2.npz --amp-disc-steps 4 --amp-disc-batch 512 --amp-gp-weight 10.0 --amp-replay 500000 --amp-task-weight 0.5 --amp-style-weight 0.5 --out-name ppo_goal_cw_amp_m4_turnfault_seq1_pushcont1_tipfrac05_pushcal518_phasehz11_s29 --notes 'respec of cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518-phasehz11: Plain English: re-run the exact recipe that just gave the first full M5 pass with a different random seed, to check the win is the recipe and not luck. cw-...-phasehz11 (goal.walk_phase_hz=1.1, single lever on the phasehz05 recipe) passed every amp-m5-v1 section at seed 7; this seed-29 twin changes ONLY the seed. Prediction-if-true: full m5 PASS again (tips <=0.20, prog >=0.75, slip <=3.5). Prediction-if-false: a section drops out \u2014 the sweet spot is seed-dependent and M5 needs pass-rate evidence before declaring. Strongest alternative: eval noise (bounded by the wpm24 n=28 re-read in the gate).' --obs-pad-transplant 0 --cfg-set goal.walk_yaw_cmd=1 --cfg-set goal.walk_yaw_max_rad_s=0.3 --cfg-set goal.walk_yaw_zero_frac=0.5 --cfg-set reward.k_walk_yaw=1.0 --cfg-set reward.walk_yaw_kernel_gate=1.0 --cfg-set reward.k_yaw_prog=1.0 --cfg-set reward.k_yaw_still=50 --cfg-set reward.walk_kernel_yaw_gate=1.0 --cfg-set reward.walk_yaw_hold_prog_gate=1.0 --cfg-set reward.yaw_still_avg_s=1.0 --cfg-set goal.walk_phase_run_on_yaw=1 --cfg-set dr.fault_prob=1.0 --cfg-set obs.fault_health=1 --cfg-set dr.ext_push_prob=1.0 --cfg-set reward.yaw_prog_overshoot_decay=1.0 --cfg-set reward.yaw_prog_avg_s=1.0 --cfg-set goal.walk_turn_in_place_frac=0.5 --cfg-set dr.ext_push_n=5.0,18.0 > /tmp/train_cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518-phasehz11-s29.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518-phasehz11-s29.log",
     "wandb_id": "sdusalws",
-    "verified": "2026-08-23T21:18:00+00:00"
+    "verified": "2026-08-23T21:18:00+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-23T21:23:23+00:00",
+        "process_alive": false,
+        "verdict": "DEAD",
+        "log_tail": "mp/disc_updates 124\nwandb:                amp/gp 0.01158\nwandb:              amp/loss 0.28369\nwandb: amp/pairs_per_rollout 65348\nwandb:        amp/replay_len 500000\nwandb: amp/style_reward_mean 0.16672\nwandb:                  +104 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518-phasehz11-s29 at: https://wandb.ai/l2k2/hexapod-balance/runs/sdusalws\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 3 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260823_211536-sdusalws/logs\n"
+      }
+    ],
+    "triage": "in-cycle cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518-phas since 2026-08-23T21:25:12"
   }
 ]
