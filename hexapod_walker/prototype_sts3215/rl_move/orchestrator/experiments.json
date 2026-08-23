@@ -135120,7 +135120,7 @@
         ]
       }
     ],
-    "triage": "awaiting since 2026-08-23T01:51:38"
+    "triage": "in-cycle cw-amp-m2-yawcmd0-acq2-yppeak-cw-amp-m3-pushcur2-noamp-n2040 since 2026-08-23T02:06:51"
   },
   {
     "run": "cw-amp-m4-turnfault1-style05-acq1",
@@ -136579,7 +136579,7 @@
       "goal.walk_phase_run_on_yaw=1"
     ],
     "created": "2026-08-23T01:55:13+00:00",
-    "status": "INTENT",
+    "status": "FAILED",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -136588,7 +136588,12 @@
       "code_sha_local": "3e44a7eb8f803ea84b57620fc2c8865178537e4b",
       "code_sha_pod": "3e44a7eb8f803ea84b57620fc2c8865178537e4b",
       "init_from_on_pod": true,
-      "wandb_env_on_pod": true
+      "wandb_env_on_pod": true,
+      "pid": "1485165",
+      "log_growth_bytes": [
+        2723,
+        2723
+      ]
     },
     "trainer": "ppo",
     "stack": "gpu-mjx",
@@ -136597,7 +136602,7 @@
     "evidence": "Healthy canary: cw-amp-m4-turnfault1-style05 (INFORMATIVE at 2M, zero NaN/crash, gait never fully broke, reward rising 46->203/quarter). Comparable full-budget precedent: cw-amp-m3-pushacq1-{noamp,style05} and cw-amp-m4-faultobs2-headingsfull-{noamp,style05} both needed exactly this same 2M-discovery-to-6M/4M-acquisition step-up before their own single-axis grafts composed cleanly (PASS at acquisition after weaker discovery reads).",
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:amp PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-amp-m4-turnfault1-style05-acq1-r4 --steps 6000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_amp_m4_turnfault1_style05.zip --episode-seconds 15 --no-canary --eval-every 1000000 --video-every 2000000 --n-envs 4096 --impl warp --host-workers 24 --seed 7 --ent-coef 0.001 --warm-log-std-override -2.0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set goal.walk_phase_obs=1 --cfg-set goal.walk_phase_hz=1.333333 --cfg-set goal.walk_obs_body_vel=2 --cfg-set goal.walk_heading_max_rad=-1 --cfg-set goal.walk_speed_min_m_s=0.08 --cfg-set goal.walk_speed_max_m_s=0.08 --cfg-set goal.walk_cmd_mode=stress_mix --cfg-set goal.walk_cmd_resample_s=4.0 --cfg-set goal.walk_cmd_resample_jitter=0.5 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set bus.write_speed=1500 --cfg-set bus.write_acc=80 --cfg-set bus.servo_vel_max_counts_s=write_speed --cfg-set safety.max_delta_q_deg=5.0 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --cfg-set reward.term_penalty=400.0 --cfg-set reward.k_step_event=0.0 --cfg-set reward.k_park_duty=0.0 --cfg-set reward.k_walk_freeprog=0.0 --cfg-set reward.walk_loadslip_gate=0.0 --cfg-set reward.k_loadslip_excess=0.0 --cfg-set reward.walk_gait_gate=0.0 --cfg-set reward.k_walk_idle_charge=0.0 --cfg-set reward.k_drag_stance=0.0 --out-name ppo_goal_cw_amp_m4_turnfault1_style05_acq1_r4 --notes 'respec of cw-amp-m4-turnfault1-style05: Plain English: turnfault1'\"'\"'s 2M discovery stacked three brand-new axes at once (full-heading translation + turn-in-place + faults) and missed its own gait_valid>=10/12 safety bar (9/12, 3 sto leg-statues) while training reward was STILL RISING (46->203/quarter, never flat) -- per the 08-21 ruling that reads UNDERTRAINED, not a proven-broken combination, since push (pushacq1) and fault (faultobs2-headingsfull) each needed the SAME 3x acquisition step-up past their own 2M discovery reads before they composed cleanly. Single lever vs turnfault1-style05: continue from its own 2M checkpoint (--init-from-source) for 6M more steps, identical recipe (heading+turn+fault cfg, amp 0.5/0.5) unchanged, matching pushacq1'\"'\"'s own acquisition dose exactly. (r4: three earlier same-idea attempts this cycle window were REFUSED before training started on tag/code-marker races from concurrent snapshot pushes -- renamed again, retrying, same recipe.)' --cfg-set dr.fault_prob=1.0 --obs-pad-transplant 18 --cfg-set obs.fault_health=1 --amp-motion-lib rl_move/sim/motion_library/teacher_v2.npz --amp-disc-steps 4 --amp-disc-batch 512 --amp-gp-weight 10.0 --amp-replay 500000 --amp-task-weight 0.5 --amp-style-weight 0.5 --cfg-set goal.walk_yaw_cmd=1 --cfg-set goal.walk_yaw_max_rad_s=0.3 --cfg-set goal.walk_yaw_zero_frac=0.5 --cfg-set reward.k_walk_yaw=1.0 --cfg-set reward.walk_yaw_kernel_gate=1.0 --cfg-set reward.k_yaw_prog=1.0 --cfg-set reward.k_yaw_still=50 --cfg-set reward.walk_kernel_yaw_gate=1.0 --cfg-set reward.walk_yaw_hold_prog_gate=1.0 --cfg-set reward.yaw_still_avg_s=1.0 --cfg-set goal.walk_phase_run_on_yaw=1 > /tmp/train_cw-amp-m4-turnfault1-style05-acq1-r4.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-amp-m4-turnfault1-style05-acq1-r4.log",
-    "triage": "awaiting since 2026-08-23T01:56:43"
+    "failed_reason": "run never appeared as 'running' in W&B within 240s"
   },
   {
     "run": "cw-amp-m3-pushcur2-noamp-n2040-c2r2",
@@ -136736,7 +136741,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "in-cycle cw-amp-m2-yawcmd0-acq2-yppeak-cw-amp-m3-pushcur2-noamp-n2040 since 2026-08-23T02:06:52"
   },
   {
     "run": "cw-amp-m4-pushfault1-noamp",
@@ -136854,7 +136860,7 @@
     "assessment_scope": "short_behavior_discovery",
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:amp PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-amp-m4-pushfault1-noamp --steps 2000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_amp_m4_faultobs2_headingsfull_noamp.zip --episode-seconds 15 --no-canary --eval-every 1000000 --video-every 2000000 --n-envs 4096 --impl warp --host-workers 24 --seed 7 --ent-coef 0.001 --warm-log-std-override -2.0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set goal.walk_phase_obs=1 --cfg-set goal.walk_phase_hz=1.333333 --cfg-set goal.walk_obs_body_vel=2 --cfg-set goal.walk_heading_max_rad=-1 --cfg-set goal.walk_speed_min_m_s=0.08 --cfg-set goal.walk_speed_max_m_s=0.08 --cfg-set goal.walk_cmd_mode=stress_mix --cfg-set goal.walk_cmd_resample_s=4.0 --cfg-set goal.walk_cmd_resample_jitter=0.5 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set bus.write_speed=1500 --cfg-set bus.write_acc=80 --cfg-set bus.servo_vel_max_counts_s=write_speed --cfg-set safety.max_delta_q_deg=5.0 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --cfg-set reward.term_penalty=400.0 --cfg-set reward.k_step_event=0.0 --cfg-set reward.k_park_duty=0.0 --cfg-set reward.k_walk_freeprog=0.0 --cfg-set reward.walk_loadslip_gate=0.0 --cfg-set reward.k_loadslip_excess=0.0 --cfg-set reward.walk_gait_gate=0.0 --cfg-set reward.k_walk_idle_charge=0.0 --cfg-set reward.k_drag_stance=0.0 --out-name ppo_goal_cw_amp_m4_pushfault1_noamp --notes 'respec of cw-amp-m4-faultobs2-headingsfull-noamp: Plain English: M3 (push recovery) and M4 (fault tolerance) have each been solved SEPARATELY on the full-heading substrate, and turn+push / turn+fault composition both landed 3x worse than solo-axis at matched budget -- but nobody has tested push+fault together WITHOUT turn in the mix, which isolates whether turn specifically is what makes composition hard or whether ANY two-axis stack degrades. Single lever vs cw-amp-m4-faultobs2-headingsfull-noamp (the PASSed fault-sighted full-heading champion, gait_valid 11/12, zero terminations): add dr.ext_push_prob=1.0 (the exact single-shove 10-25N base dose pushsmoke1/pushacq1 already proved safe on the non-fault substrate). Same init checkpoint, same fault wiring (dr.fault_prob=1.0, obs.fault_health=1, obs already padded so no further transplant needed), 2M discovery. Prediction-if-true (composes for free, like push-onto-plain-heading did): DR-0 own-cfg gate (both dr.fault_prob=1.0 and dr.ext_push_prob=1.0 sampled) stays gait_valid >=10/12, det+sto terminations from the added push stay <=3/6 det and <=4/6 sto (matching pushsmoke1-noamp-r4'\"'\"'s own first-2M shape), faulted+pushed episodes still show compensation not statue on video. Prediction-if-false (degrades like the turn compositions): terminations spike well past the pushsmoke1 shape or gait_valid drops below 9/12 with reward still rising -- reads UNDERTRAINED per the 08-21 ruling, next lever is acquisition budget, not a broken combination. Strongest alternative: push and fault interact fine on their own but the STACKED randomization (one push AND one fault per episode, both active every eval episode here) is harder than either gate'\"'\"'s own single-axis eval, which only samples one hazard at a time -- a genuinely new difficulty class distinct from turn-composition.' --cfg-set dr.fault_prob=1.0 --obs-pad-transplant 18 --cfg-set obs.fault_health=1 --cfg-set dr.ext_push_prob=1.0 > /tmp/train_cw-amp-m4-pushfault1-noamp.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-amp-m4-pushfault1-noamp.log",
-    "triage": "awaiting since 2026-08-23T02:01:47"
+    "triage": "in-cycle cw-amp-m2-yawcmd0-acq2-yppeak-cw-amp-m3-pushcur2-noamp-n2040 since 2026-08-23T02:06:52"
   },
   {
     "run": "cw-amp-m3-turnpush1-style05-acq1-r2",
