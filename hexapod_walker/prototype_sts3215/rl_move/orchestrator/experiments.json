@@ -145619,7 +145619,7 @@
       "dr.ext_push_n=5.0,18.0"
     ],
     "created": "2026-08-23T10:17:29+00:00",
-    "status": "INTENT",
+    "status": "RUNNING",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -145628,13 +145628,26 @@
       "code_sha_local": "e58ac9a3e6c9d73d79de6b153adc9b3239db2c48",
       "code_sha_pod": "e58ac9a3e6c9d73d79de6b153adc9b3239db2c48",
       "init_from_on_pod": true,
-      "wandb_env_on_pod": true
+      "wandb_env_on_pod": true,
+      "pid": "1655716",
+      "log_growth_bytes": [
+        11712,
+        20241
+      ],
+      "wandb_id": "lgra8gib",
+      "global_step_window": [
+        917504,
+        1507328
+      ],
+      "fps_estimate": 19660.8
     },
     "trainer": "ppo",
     "stack": "gpu-mjx",
     "phase": "discovery",
     "assessment_scope": "short_behavior_discovery",
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:amp PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-amp-m4-turnfault-seq1-pushcont1-pushcal518 --steps 2000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_amp_m4_turnfault_seq1.zip --episode-seconds 15 --no-canary --eval-every 1000000 --video-every 2000000 --n-envs 4096 --impl warp --host-workers 24 --seed 7 --ent-coef 0.001 --warm-log-std-override -2.0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set goal.walk_phase_obs=1 --cfg-set goal.walk_phase_hz=1.333333 --cfg-set goal.walk_obs_body_vel=2 --cfg-set goal.walk_heading_max_rad=-1 --cfg-set goal.walk_speed_min_m_s=0.08 --cfg-set goal.walk_speed_max_m_s=0.08 --cfg-set goal.walk_cmd_mode=stress_mix --cfg-set goal.walk_cmd_resample_s=4.0 --cfg-set goal.walk_cmd_resample_jitter=0.5 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set bus.write_speed=1500 --cfg-set bus.write_acc=80 --cfg-set bus.servo_vel_max_counts_s=write_speed --cfg-set safety.max_delta_q_deg=5.0 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --cfg-set reward.term_penalty=400.0 --cfg-set reward.k_step_event=0.0 --cfg-set reward.k_park_duty=0.0 --cfg-set reward.k_walk_freeprog=0.0 --cfg-set reward.walk_loadslip_gate=0.0 --cfg-set reward.k_loadslip_excess=0.0 --cfg-set reward.walk_gait_gate=0.0 --cfg-set reward.k_walk_idle_charge=0.0 --cfg-set reward.k_drag_stance=0.0 --amp-motion-lib rl_move/sim/motion_library/teacher_v2.npz --amp-disc-steps 4 --amp-disc-batch 512 --amp-gp-weight 10.0 --amp-replay 500000 --amp-task-weight 0.5 --amp-style-weight 0.5 --out-name ppo_goal_cw_amp_m4_turnfault_seq1_pushcont1_pushcal518 --notes 'respec of cw-amp-m4-turnfault-seq1-pushcont1: Plain English: is the fall risk in the fault+push composition (found this cycle: pushcont1'\"'\"'s own hazard-baked own-cfg DR-0 gate has 4/12 REAL falls via raw terminated field, not the gait_valid metric which never zeros on TERM) fixable by simply recalibrating the trained push-force range downward, or does the checkpoint still fall even at a narrower trained range? Eval-only bisection this cycle on the SAME pushcont1 checkpoint (no retraining) found: dr.ext_push_n held at eval-time to 5-12N or 12-18N both land 0/12 real falls; the original trained 10-25N range produces 4/12 falls, so the failure threshold sits in roughly 18-25N. This arm actually RETRAINS (same recipe/seed=7/2M/init-from turnfault_seq1 as pushcont1, single lever: dr.ext_push_n 10,25 -> 5,18) to test whether training under the narrower, eval-confirmed-safe range produces a policy whose OWN own-cfg DR-0 gate is genuinely fall-free (raw terminated check), not just whether the OLD checkpoint tolerates weaker pushes at eval time.' --obs-pad-transplant 0 --cfg-set goal.walk_yaw_cmd=1 --cfg-set goal.walk_yaw_max_rad_s=0.3 --cfg-set goal.walk_yaw_zero_frac=0.5 --cfg-set reward.k_walk_yaw=1.0 --cfg-set reward.walk_yaw_kernel_gate=1.0 --cfg-set reward.k_yaw_prog=1.0 --cfg-set reward.k_yaw_still=50 --cfg-set reward.walk_kernel_yaw_gate=1.0 --cfg-set reward.walk_yaw_hold_prog_gate=1.0 --cfg-set reward.yaw_still_avg_s=1.0 --cfg-set goal.walk_phase_run_on_yaw=1 --cfg-set dr.fault_prob=1.0 --cfg-set obs.fault_health=1 --cfg-set dr.ext_push_prob=1.0 --cfg-set dr.ext_push_n=5.0,18.0 > /tmp/train_cw-amp-m4-turnfault-seq1-pushcont1-pushcal518.log 2>&1 < /dev/null & echo $!",
-    "log": "/tmp/train_cw-amp-m4-turnfault-seq1-pushcont1-pushcal518.log"
+    "log": "/tmp/train_cw-amp-m4-turnfault-seq1-pushcont1-pushcal518.log",
+    "wandb_id": "lgra8gib",
+    "verified": "2026-08-23T10:20:47+00:00"
   }
 ]
