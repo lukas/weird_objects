@@ -43,16 +43,18 @@ def test_recipe_is_walk_only_fixed_forward():
 
 def test_recipe_closes_the_suicide_exploit():
     # flat1's walk episodes tilt-terminated everywhere and dying was
-    # free; the rerun prices death per the 08-22 calibration.
-    assert "reward.term_penalty=400" in CFG_SET
+    # free; the rerun prices death per the 08-23 WALKCURR_PF bank
+    # calibration (below even the wrong-way honest gaits).
+    assert "reward.term_penalty=1200" in CFG_SET
 
 
 def test_recipe_keeps_loaded_calibration_and_slip_pricing():
     assert "bus.servo_params=loaded" in CFG_SET
-    assert "reward.k_walk_freeprog=2.0" in CFG_SET
+    assert "reward.k_walk_freeprog=3.0" in CFG_SET
     assert "reward.walk_kernel_vel_ema=1.0" in CFG_SET
     assert "reward.walk_loadslip_gate=0.75" in CFG_SET
-    assert "reward.k_loadslip_excess=0.8" in CFG_SET
+    assert "reward.k_loadslip_excess=4.5" in CFG_SET
+    assert "reward.k_park_duty=4.0" in CFG_SET
 
 
 def test_recipe_rung1_has_no_dr_pushes():

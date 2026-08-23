@@ -6,7 +6,7 @@ history or old prose disagrees with this file, this file wins.
 
 ## Mission
 
-Three goals until all gates are green (operator 08-23 update): (1)
+Four goals until all gates are green (operator 08-23 updates): (1)
 `joystick` — RL from the scripted programmatic gait to
 joystick control, gated on 60 s of command-following in MuJoCo with
 zero falls and teacher-band slip; (2) `amp` — the from-scratch AMP
@@ -14,11 +14,38 @@ program in `rl_docs/AMP_LOCOMOTION.md` (no Isaac Lab; MJX stack;
 build all tools; done at M5 MuJoCo transfer); (3) `cpg` — a
 Berkeley-style low-dimensional gait-search path that directly
 optimizes parameterized SE2/CPG walking against the behavioral gate,
-with adoption into joystick/AMP only through measured A/B forks.
+with adoption into joystick/AMP only through measured A/B forks;
+(4) `walkcurr` — prior-free walking curriculum (Kawawa-2022 lineage,
+registered by operator order 20260823T154657Z): from-scratch PPO,
+walk-only diet, fixed-forward-first rung ladder, bank-proven reward
+ranking before every mechanism launch.
 Operator-launched out-of-scope runs get honest triage but no agent
 follow-ups.
 
-## Current top rulings (operator, 08-21/08-22)
+## Current top rulings (operator, 08-21/08-22/08-23)
+
+- WALKCURR TRACK REGISTRATION (operator 08-23, focus note
+  20260823T154657Z — binding): the fourth first-class track. Rules:
+  (a) every rung trains WALK-ONLY (`goal.walk_pure=1`) — the
+  cw-kawawa2022-pf-flat1 failure (hold/raise/track/unload carrying
+  aggregate reward while walk died) must be impossible by
+  construction; (b) fixed forward 0.05-0.06 m/s first, headings/
+  direction-changes/DR only as later rungs after certified passes;
+  (c) reward-mechanism launches require the WALKCURR_PF bank green
+  (clean commanded walking > park/stall > sideways/reverse/wrong-way
+  > high-slip/skate/fall under the run's exact cfg); (d) BINDING
+  TRIAGE RULE: reward rising while walk eval flat/down or walk
+  terminating = misaligned -> stop same-recipe seeds/continuations,
+  audit reward/eval/simulator. FACT (bank measurement 08-23): the raw
+  kawawa launch stack was misaligned for the walk goal ALONE — park
+  +387 out-earned clean walking +325; the v2e re-pricing (freeprog
+  3.0 EMA, step_event 1.0, park_duty 4.0, idle 2.0, heading 0.5,
+  loadslip_excess 4.5, term_penalty 1200) measures the required
+  ranking exactly (gait +346 > stall -31 > park -352 > sideways -609
+  > reverse -741 > skate -1058 > topple -1164). FACT: desktop temp
+  commit b126ceb3 (RecurrentPPO/LSTM trainer support) is LOST; the
+  canonical recurrent path for later rungs is `--gru`; rung 1 is
+  memoryless MLP 128/64/32 + ELU (`--activation-fn`, landed 08-23).
 
 - REWARD/EVAL AGREEMENT FIRST. Every run triage must compare reward
   trend with gate/eval trend before proposing more seeds or budget. If

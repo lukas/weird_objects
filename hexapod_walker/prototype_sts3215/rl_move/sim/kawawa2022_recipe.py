@@ -28,9 +28,10 @@ of that recipe with the failure designed out:
   2. Fixed forward command first (0.05-0.06 m/s, heading 0, no
      resampling).  Heading sets / irregular direction changes are
      LATER rungs, unlocked only by a rung-1 pass (see RUNG_LADDER).
-  3. ``reward.term_penalty=400``: the original stack left dying free;
-     the walk goal tilt-terminated everywhere.  Sized per the 08-22
-     suicide-exploit calibration in test_task_semantics.py.
+  3. ``reward.term_penalty=1200``: the original stack left dying free;
+     the walk goal tilt-terminated everywhere.  Sized by the 08-23
+     WALKCURR_PF bank calibration in test_task_semantics.py (dying
+     must sit strictly below even the wrong-way honest gaits).
   4. The reward ranking (clean commanded walking > park/stall >
      sideways/reverse/wrong-way > high-slip/skate/fall) is PROVEN by
      the WALKCURR_PF bank in rl_move/tests/test_task_semantics.py
@@ -145,24 +146,33 @@ CFG_SET = (
     "goal.walk_cmd_resample_s=0.0",
     "goal.walk_cmd_metrics=1",
     # Direction-first income on stride-EMA velocity (the validated
-    # anti-noise-cancellation form), moderate anti-park and loaded-slip
-    # charges (the HARSH SLIPWALK doses are refuted for from-scratch
-    # discovery: 8 statue arms on the amp track), and the anti-suicide
-    # term the original run fatally lacked.
-    "reward.k_walk_freeprog=2.0",
+    # anti-noise-cancellation form) at the BANK-CALIBRATED v2e doses
+    # (test_task_semantics.py WALKCURR_PF_OVERRIDES, measured 08-23:
+    # gait +346 > stall -31 > park -352 > sideways -609 > reverse
+    # -741 > skate -1058 > topple -1164 — the operator's required
+    # ranking exactly). The RAW kawawa launch doses were bank-REFUTED
+    # (park out-earned walking +387 vs +325); the harsh SLIPWALK doses
+    # are equally refuted for from-scratch discovery (8 statue arms on
+    # the amp track). These sit in between: real travel is the only
+    # positive-income behavior, refusal is separated from marching by
+    # the park-duty charge, wrong-way honest gaits stay above the
+    # slip/fall class, and dying is strictly the worst outcome.
+    "reward.k_walk_freeprog=3.0",
     "reward.walk_freeprog_cap_m_s=0.08",
     "reward.walk_kernel_vel_ema=1.0",
     "reward.walk_kernel_vel_tau_s=0.75",
-    "reward.k_walk_heading=1.0",
-    "reward.k_walk_idle_charge=0.8",
+    "reward.k_walk_heading=0.5",
+    "reward.k_step_event=1.0",
+    "reward.k_park_duty=4.0",
+    "reward.k_walk_idle_charge=2.0",
     "reward.walk_idle_speed_m_s=0.025",
     "reward.walk_idle_tau_s=1.0",
     "reward.walk_loadslip_gate=0.75",
     "reward.loadslip_ok=1.2",
     "reward.loadslip_max=3.0",
     "reward.loadslip_floor_m=0.03",
-    "reward.k_loadslip_excess=0.8",
-    "reward.term_penalty=400",
+    "reward.k_loadslip_excess=4.5",
+    "reward.term_penalty=1200",
 )
 
 

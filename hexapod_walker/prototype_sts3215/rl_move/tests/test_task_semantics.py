@@ -6137,28 +6137,44 @@ def test_loadgate_recal_band_monotone_no_plateau():
 #   clean commanded walking > park/stall > sideways/reverse/wrong-way
 #   > high-slip/skate/fall
 #
-# The stack is the kawawa2022 stride-EMA freeprog pricing (moderate
-# idle/loadslip charges — the harsh SLIPWALK doses are refuted for
-# from-scratch discovery: 8 statue arms on the amp track) PLUS
-# reward.term_penalty=400, the anti-suicide term the original run
-# fatally lacked (its walk episodes died by tilt_pitch, and dying
-# stopped the per-tick charges — same exploit the SLIPWALK bank
-# calibrated 08-22).
+# CALIBRATION HISTORY (controller, 2026-08-23). The RAW kawawa2022
+# launch stack (freeprog 2.0, heading 1.0, idle 0.8, loadslip_excess
+# 0.8, term_penalty 400, no step_event/park_duty) was REFUTED by this
+# bank's first measurement: park +387 OUT-EARNED clean walking +325
+# (the walk goal of cw-kawawa2022-pf-flat1 was misaligned even before
+# the multi-goal diet starved it), skate sat at +176, and reverse
+# (-409) was priced below dying (-364). The doses below are the tuned
+# v2e stack, measured (3 seeds, 15 s, fixed fwd 0.05 m/s):
+#   gait +345.9 > stall -31.5 > park -351.7 > sideways -608.5 >
+#   reverse -741.2 > skate -1058.0 > topple -1164.2
+# i.e. exactly the operator-required ranking. Tuning rationale:
+# freeprog 3.0 + step_event pay real along-command travel; park_duty
+# 4.0 separates refusal from marching (idle_charge alone cannot — it
+# hits both at ~0 speed EMA); heading 0.5 keeps honest-but-wrong-way
+# gaits ABOVE the slip/fall class (at 1.0 reverse fell below skate);
+# loadslip_excess 4.5 puts skating at the floor ("slip is highly
+# penalized" via charge, NOT a hard early gate that teaches parking);
+# term_penalty 1200 keeps dying strictly the worst outcome. The harsh
+# SLIPWALK doses (idle 20 / loadslip 6 / gait_gate) are deliberately
+# NOT reused: 8 from-scratch statue arms on the amp track refuted that
+# all-negative landscape.
 WALKCURR_PF_OVERRIDES = {
-    ("reward", "term_penalty"): 400.0,
-    ("reward", "k_walk_freeprog"): 2.0,
+    ("reward", "term_penalty"): 1200.0,
+    ("reward", "k_walk_freeprog"): 3.0,
     ("reward", "walk_freeprog_cap_m_s"): 0.08,
     ("reward", "walk_kernel_vel_ema"): 1.0,
     ("reward", "walk_kernel_vel_tau_s"): 0.75,
-    ("reward", "k_walk_heading"): 1.0,
-    ("reward", "k_walk_idle_charge"): 0.8,
+    ("reward", "k_walk_heading"): 0.5,
+    ("reward", "k_step_event"): 1.0,
+    ("reward", "k_park_duty"): 4.0,
+    ("reward", "k_walk_idle_charge"): 2.0,
     ("reward", "walk_idle_speed_m_s"): 0.025,
     ("reward", "walk_idle_tau_s"): 1.0,
     ("reward", "walk_loadslip_gate"): 0.75,
     ("reward", "loadslip_ok"): 1.2,
     ("reward", "loadslip_max"): 3.0,
     ("reward", "loadslip_floor_m"): 0.03,
-    ("reward", "k_loadslip_excess"): 0.8,
+    ("reward", "k_loadslip_excess"): 4.5,
     ("goal", "walk_speed_min_m_s"): SLIPWALK_CMD_VX,
     ("goal", "walk_speed_max_m_s"): SLIPWALK_CMD_VX,
     ("goal", "walk_heading_max_rad"): 0.0,
