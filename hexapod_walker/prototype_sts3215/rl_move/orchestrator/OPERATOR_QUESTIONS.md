@@ -1728,6 +1728,50 @@ Plain English: the straight-gait search result is real, but the scorer misread t
   20-40N/repeat3 doses M3 has since reached), (b) whether M5 should
   require ONE checkpoint to pass all four sections (current suite
   semantics) vs per-skill champions?
+- AMENDMENT (08-23 ~03:2x, tooling added + one real finding): built
+  `ops.sh m5eval <run> [pod]` / `rl_move/orchestrator/m5_pod_eval.py`
+  so the suite always runs end-to-end on a pod with the run's own
+  ledger cfg (no more hand-rolled kubectl plumbing) — used it for the
+  suite's first two M4-composed-checkpoint reads: (1)
+  `cw-amp-m4-pushfault1-noamp-acq1` (the track's best non-turn
+  substrate, already PASS-verdicted on its own gate): m5_pass=false —
+  push/fault sections PASS clean, but the WALK section fails ONLY on
+  the zero-sacrificed-legs bar (`sacrificed=[0]`, same 1/12-episode
+  carried-leg pattern its own PASS verdict already named as
+  legitimate). Root cause: this checkpoint (like every M3/M4 arm so
+  far) trains with `dr.fault_prob=1.0` PERMANENTLY (100% of episodes
+  carry a fault, severity-varied) — there is no "clean, no-hazard"
+  walking mode in its behavior repertoire for the walk section to
+  test at all, so ANY seed drawing a full-disable severity on ANY
+  episode trips the bar; walk/push/fault sections came out numerically
+  IDENTICAL here (same seed, same always-on cfg) because there's
+  nothing distinguishing them. This means the current walk bar, taken
+  literally, may be near-unpassable for any policy trained on a
+  100%-probability hazard curriculum — a genuine M5 candidate might
+  need a MIXED curriculum (fault/push drawn at a mid probability, not
+  baked to 1.0) so a bona fide hazard-free walk mode exists, OR the
+  walk bar should tolerate the checkpoint's own known-legitimate
+  carried-leg pattern. Not adjudicated — flagging alongside the
+  original bars question rather than unilaterally changing the bar or
+  spending a training cycle on a mixed-probability arm blind. (2)
+  `cw-amp-m4-turnpushfault1-style05-r2` (already PASS-partial
+  verdicted, turn known-eroded): m5_pass=false as expected (walk fails
+  on terms/slip, yaw fails 0.4248/0.4932, push/fault pass) — third
+  independent reproduction of the same tip-err number, now via the
+  fixed suite. While building this I noticed `eval_yaw`'s own section
+  passed the checkpoint's BAKED `dr.fault_prob=1.0`/`ext_push_prob=1.0`
+  straight through unfiltered (not the "dr.fault_prob=0/ext_push_prob=0"
+  the bar text assumes) — fixed in `eval_amp_m5.py` (append explicit
+  `dr.fault_prob=0.0`/`dr.ext_push_prob=0.0` overrides after the base
+  cfg-set list before calling `eval_yaw`, last-wins per key). Verified
+  EMPIRICALLY INERT on this checkpoint (hand-reran the tip panel with
+  the override: bit-identical 0.4248/0.4932) — `eval_yaw` always
+  constructs its env with `randomize=(dr_scale>0)` and never passes
+  `--dr-scale`, so `dr.fault_prob`/`ext_push_prob` were already routed
+  through `DomainRandomizer.scaled(0)`-equivalent zero regardless of
+  the raw cfg value; the fix is correctness/clarity-only (matches the
+  documented gate semantics explicitly instead of by accident) and
+  changes no historical number. No verdict correction needed.
 - status: OPEN (proceeding with v1 bars + one-checkpoint semantics —
   that is what brief §13 literally says: "A single policy…")
 

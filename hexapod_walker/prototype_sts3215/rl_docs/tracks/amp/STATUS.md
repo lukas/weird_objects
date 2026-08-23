@@ -1,6 +1,42 @@
 # amp - AMP locomotion from scratch
 
-Last updated: 2026-08-23 ~03:4x (**cont1 (the matched no-keys control
+Last updated: 2026-08-23 ~03:3x (**TOOLING: `ops.sh m5eval` built +
+run for the record on the two live M4 composition candidates —
+`pushfault1-noamp-acq1` (best non-turn substrate) and
+`turnpushfault1-style05-r2` (only all-4-axis checkpoint); both
+m5_pass=false as expected, one real structural finding, no verdict
+changes.** New tool (`rl_move/orchestrator/m5_pod_eval.py` +
+`ops.sh m5eval <run> [pod]`, COMMANDS.md updated): derives a run's own
+training cfg-set from the ledger exactly like `evalcmd`, syncs code to
+the target pod, runs `eval_amp_m5`, copies `logs/ckpt_eval/<run>_m5/`
+back — no more hand-rolled kubectl plumbing for this suite. Results:
+(1) `pushfault1-noamp-acq1`: push and fault sections PASS clean; WALK
+section fails ONLY on the zero-sacrificed-legs bar (`sacrificed=[0]`,
+the same 1/12-episode carried-leg pattern its own PASS verdict already
+named legitimate) — root cause: this checkpoint (like every M3/M4
+push/fault arm to date) trains with `dr.fault_prob=1.0` on 100% of
+episodes, so it has NO clean hazard-free walking mode for the walk
+section to test; walk/push/fault sections read numerically IDENTICAL
+here since nothing distinguishes them. Flags a real design tension for
+what an M5-passing checkpoint's training curriculum needs to look like
+(mixed hazard probability vs permanent-on) — filed as an amendment to
+`q_20260823T0130Z`, not unilaterally resolved. (2)
+`turnpushfault1-style05-r2`: third independent reproduction of the
+known 0.4248/0.4932 tip-err (walk/yaw fail as already verdicted,
+push/fault pass). While building the suite invocation, found
+`eval_amp_m5`'s yaw section passed a checkpoint's baked
+`dr.fault_prob=1.0`/`ext_push_prob=1.0` straight into `eval_yaw`
+unfiltered instead of the zeroed hazards its own bar text assumes —
+fixed (append explicit `dr.fault_prob=0.0`/`ext_push_prob=0.0`
+overrides, last-wins per key) and then hand-verified the fix is
+BEHAVIORALLY INERT on this checkpoint (bit-identical 0.4248/0.4932
+with/without the override) because `eval_yaw` always builds its env
+at `dr_scale=0` regardless of `--cfg-set`, which already routes those
+guarded draws to zero — correctness/clarity fix only, no historical
+number was actually confounded, no verdict needed re-opening. Previous
+entry below.)
+
+Previous entry (2026-08-23 ~03:4x (**cont1 (the matched no-keys control
 named in the entry immediately below) FINISHED and VERDICTED
 INFORMATIVE — completes the keys-vs-budget joint read, and REFINES
 the FAIL-branch root cause: the safety erosion is the KEYS, not
