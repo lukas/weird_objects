@@ -160004,7 +160004,8 @@
           "W&B global_step stalled at 2007040"
         ]
       }
-    ]
+    ],
+    "triage": "awaiting since 2026-08-23T22:42:36"
   },
   {
     "run": "cw-walkcurr-pf-fwd6-rscale50-rnd3",
@@ -160146,6 +160147,7 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:walkcurr PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walkcurr-pf-fwd6-rscale50-rnd3 --steps 2000000 --task joint_walk --episode-seconds 25 --n-steps 24 --batch-size 24576 --net-arch 128,64,32 --activation-fn elu --log-std-init -1.0 --dr-scale 0.0 --require-gpu-physics --eval-every 1000000 --video-every 2000000 --best-ckpt --cfg-set bus.servo_params=loaded --cfg-set goal.walk_pure=1 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_heading_max_rad=0.0 --cfg-set goal.walk_cmd_resample_s=0.0 --cfg-set goal.walk_cmd_metrics=1 --cfg-set reward.k_walk_freeprog=0.06 --cfg-set reward.walk_freeprog_cap_m_s=0.08 --cfg-set reward.walk_kernel_vel_ema=1.0 --cfg-set reward.walk_kernel_vel_tau_s=0.75 --cfg-set reward.k_walk_heading=0.01 --cfg-set reward.k_step_event=0.02 --cfg-set reward.k_park_duty=0.08 --cfg-set reward.k_walk_idle_charge=0.04 --cfg-set reward.walk_idle_speed_m_s=0.025 --cfg-set reward.walk_idle_tau_s=1.0 --cfg-set reward.walk_loadslip_gate=0.75 --cfg-set reward.loadslip_ok=1.2 --cfg-set reward.loadslip_max=3.0 --cfg-set reward.loadslip_floor_m=0.03 --cfg-set reward.k_loadslip_excess=0.09 --cfg-set reward.term_penalty=24 --n-envs 4096 --out-name ppo_goal_cw_walkcurr_pf_fwd6_rscale50_rnd3 --impl warp --host-workers 24 --notes 'respec of cw-walkcurr-pf-fwd6-rscale50: Plain English: dose sibling of rscale50-rnd1 (3x the intrinsic weight) applied directly to the rung-1 travel diet -- same logic as the rung0-swing3-rnd dose pair, testing whether 0.02 is too weak against the rung-1 landscape'\"'\"'s static-crouch optimum. Single lever vs rscale50: --rnd-coef 0.0 -> 0.06, fresh 2M init. Prediction-if-true/false mirrors rscale50-rnd1; read the 2x2 grid (rung0 vs rung1-direct x low vs mid dose) jointly -- whichever base+dose first shows freeprog/gait_valid movement decides the next warm-start lineage.' --cfg-set reward.walk_charge_ramp_steps=1000000 --cfg-set reward.walk_charge_ramp_min_frac=0.4 --cfg-set reward.k_track=0.02 --cfg-set reward.k_roll=0.2 --cfg-set reward.k_pitch=0.2 --cfg-set reward.k_height=2.0 --cfg-set reward.k_gyro=0.001 --cfg-set reward.k_action=0.0001 --cfg-set reward.k_action_delta=0.0002 --cfg-set reward.k_current=0.0001 --rnd-coef 0.06 > /tmp/train_cw-walkcurr-pf-fwd6-rscale50-rnd3.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walkcurr-pf-fwd6-rscale50-rnd3.log",
     "wandb_id": "277om3m4",
-    "verified": "2026-08-23T22:38:04+00:00"
+    "verified": "2026-08-23T22:38:04+00:00",
+    "triage": "awaiting since 2026-08-23T22:42:36"
   }
 ]

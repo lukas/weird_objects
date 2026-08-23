@@ -440,6 +440,42 @@ validity, on video. Speed obedience is secondary throughout.
   escape hatch structurally) before reaching for item (d)'s brief BC
   kickstart.**
 
+## Now (updated 08-23 ~22:4x, addendum — hover mechanism refined)
+
+- **`cw-walkcurr-pf-fwd6-rnd02` FAIL (verdicted, this cycle):**
+  confirms the sibling cycle's prediction exactly — RND at 0.02 on
+  the rung-1 rscale50 diet reproduces the identical airborne-hover
+  cheat (own-cfg C-env det panel 0/6 gait_valid, every leg duty
+  0.02-0.04, fwd_dist ~0.013 m/25 s; sto also 0/6). Mechanism
+  telemetry confirms RND itself works as designed (rnd/intrinsic_mean
+  decayed cleanly 0.037->0.0055 as the predictor caught up,
+  clip_fraction stayed healthy) — the dose is just too small to move
+  this local optimum.
+- **MECHANISM REFINED (eval-only read, no training cost): it is a
+  BELLY-SIT COLLAPSE, not a true mid-air hover.** `height_err_end_mm`
+  on the hover episodes is 116 mm (a large, sustained height error)
+  while `roll_peak_deg` is only ~2.2 deg and `roll_tail_deg` is 0 —
+  rock-stable, not falling. Cross-checked against `walk_task.py`:
+  there is a tilt (roll/pitch) termination but **no height-based
+  termination at all** — a policy that lets the body settle low
+  (resting weight off the legs, splayed for lateral stability) never
+  triggers a safety stop and only pays `k_height`'s (dose 2.0) linear/
+  quadratic charge, which is evidently cheap relative to what it
+  saves by avoiding essentially all leg-load-linked charges
+  (`k_park_duty`, loadslip stack, drag) at once. This sharpens the
+  "direct ground-contact charge" fallback named above into two
+  concretely testable, cheap (eval-only first) next steps for
+  whichever cycle picks this up once the RND grid is fully read: (1)
+  bisect whether raising `k_height` alone (bank-legal dose, single
+  lever) prices the settle out without new code; (2) if not, that is
+  the evidence for a genuinely new mechanism — either a height-based
+  termination (mirrors the existing roll/pitch safety pattern) or a
+  direct minimum-total-foot-contact charge — either needs a new
+  scripted "sit"/"belly-collapse" behavior added to the
+  `test_task_semantics.py` harness (`_slipwalk_rollout` has no such
+  policy today; "stork"/"topple" are the closest existing scripts but
+  neither matches this pose) before it can be bank-proven.
+
 ## Key facts
 
 - The RAW kawawa2022 reward stack was bank-REFUTED on 08-23: park
