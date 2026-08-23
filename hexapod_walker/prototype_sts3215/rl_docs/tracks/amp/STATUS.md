@@ -1,6 +1,31 @@
 # amp - AMP locomotion from scratch
 
-Last updated: 2026-08-23 ~14:2x (**`-swing1` (gait-income slip fork)
+Last updated: 2026-08-23 ~14:4x (**`-stdanneal45` + `-swinganneal45`
+INVALID — NEITHER RUN EVER TRAINED; the noise-floor question is
+still OPEN, and a silent trainer defect is found+fixed.** Forensics:
+both checkpoints' 12 network tensors (actor AND critic) are
+byte-identical to the warm-start ancestor `turnfault_seq1` — only
+log_std moved. Root cause: the `--log-std-final` callback set
+log_std at `on_rollout_end`, i.e. between collection and PPO's
+`train()`; the log_prob shift alone put first-minibatch approx_kl at
+~0.13 > 1.5×target_kl(0.02), and SB3's early-stop fires BEFORE
+`optimizer.step()` — pod logs show `Early stopping at step 0` on
+31/31 updates. The twins' "rising reward" (43→268 / 48→294) was pure
+shrinking-noise artifact on the frozen policy; their W&B/eval deltas
+are k_walk_swing re-PRICING byte-identical trajectories (same seed
+7). Blast radius: joystick stotight ladder AUDITED CLEAN (all
+champions show real non-log_std weight deltas; their anneal rate per
+rollout was ~6× smaller so KL stayed under the stop). FIXED
+(`exp/logstd-anneal-rollout-start-fix`): anneal now sets log_std at
+`_on_rollout_start` so collection/buffer/train share one log_std;
+freeze-provoking smoke `smoke-logstd-anneal-v2-freeze-fix` gates on
+weights actually moving; both arms relaunched as `-r2` with
+unchanged hypotheses/gates (stdanneal45-r2 train-1, swinganneal45-r2
+train-2). Triage rule added to RUN_INTERPRETATION_RULES §1: rising
+reward on any noise-schedule run proves nothing until non-log_std
+weights are confirmed to differ from the parent.)
+
+Previous entry (~14:2x: **`-swing1` (gait-income slip fork)
 FAIL — the gait-income lever is CLOSED alongside pricing, and the
 slipdist probe explains the near-miss.** m5 walk det slip med 3.5035
 vs bar 3.5 / parent 3.67 — family-best among reward-side arms, but
