@@ -139271,7 +139271,7 @@
       "dr.ext_push_prob=1.0"
     ],
     "created": "2026-08-23T04:10:49+00:00",
-    "status": "FINISHED",
+    "status": "PASS-partial",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -139301,7 +139301,7 @@
     "log": "/tmp/train_cw-amp-m4-turnfault-seq1-pushcont1.log",
     "wandb_id": "2redye2g",
     "verified": "2026-08-23T04:14:08+00:00",
-    "triage": "in-cycle cw-amp-m4-turnfault-seq1-pushcont1 since 2026-08-23T04:20:07",
+    "triage": "done",
     "checkups": [
       {
         "time": "2026-08-23T04:19:55+00:00",
@@ -139309,6 +139309,7 @@
         "verdict": "FINISHED_BEFORE_CHECKUP",
         "log_tail": "p/d_real_mean 0.58729\nwandb:      amp/disc_updates 124\nwandb:                amp/gp 0.01035\nwandb:              amp/loss 0.30124\nwandb: amp/pairs_per_rollout 65290\nwandb:        amp/replay_len 500000\nwandb: amp/style_reward_mean 0.17241\nwandb:                  +103 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-amp-m4-turnfault-seq1-pushcont1 at: https://wandb.ai/l2k2/hexapod-balance/runs/2redye2g\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 3 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260823_041142-2redye2g/logs\n"
       }
-    ]
+    ],
+    "verdict": "Fault-first composition order softens but does not eliminate push-driven turn erosion. Own-cfg DR-0 gate (mechanism-safety floor): gait_valid 10/12 det+sto (>=9/12 bar), 4/12 terminations, 2 legitimate carried-fault-leg episodes (sac [4],[5], video-confirmed clean 6-leg cycling before the fall/carry, not statues). Hand-run eval_yaw (m5 suite, hazards zeroed for the check): tip-left/right err 0.2727/0.3029 -- FAILS the <=0.20-0.25 PRESERVED branch and the m5 v1 yaw bar (<=0.20), so this is not the clean fix. But it decisively beats every push-FIRST composition order tried so far (turnpush1-style05-acq1-r2 0.38/0.43, turnpushfault1-style05-r2 0.42/0.49, ypfix1-r3 0.39/0.47, cont1 0.41/0.41) by roughly 2x, and is much closer to the fault-only parent turnfault-seq1's 0.18/0.17 than any push-first arm ever got. Order is a real, measured lever (not noise) but an insufficient one on its own. Full eval_amp_m5: m5_pass=false (walk/yaw/fault sections fail; push section passes clean) -- walk/fault both fail on the SAME already-flagged design tension (dr.fault_prob=1.0 baked permanently means no hazard-free walk mode exists for those sections to test, q_20260823T0130Z, not new). CLOSES the 3-way composition-order search (direct graft / push-then-fault / fault-then-push all tried, all erode turn to some degree) -- push-vs-turn income competition during TRAINING, not axis identity or graft order, is the residual driver. Next: test whether the competition is dose-sensitive by lowering dr.ext_push_prob during training (not just at eval) -- launching a 3-arm dose batch (0.25/0.5/0.75) from the SAME turnfault-seq1 checkpoint (pre-cheat init, per the init-basin rule) this cycle."
   }
 ]
