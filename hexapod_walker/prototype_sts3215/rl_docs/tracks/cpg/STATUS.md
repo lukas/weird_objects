@@ -136,13 +136,19 @@ banner above for full detail. This closes Next items 1 and 2 below
    hardware path (sim-only fix so far; hardware adoption is an
    [operator] physical-robot item per the standing rules, not blocked
    on anything code-side).
-3. **NOW THE OPEN ITEM**: build a controlled `teacher_v2`/motion-
-   library fork from the CPG winner (use the yaw-trim-verified
-   `robust120_yawtrim` params/artifact, not the older contextual-250
-   one — it does not clear the same friction sweep) and compare
-   against the current teacher at equal AMP budget. Do not silently
-   replace `teacher_v1` or recalibrate joystick slip bars without that
-   A/B result. A lightweight parallel item: a loader for
-   `cpg_controller_*.json` in the web UI so the artifact is actually
-   consumable, per the gate's own text — currently the schema exists
-   but nothing reads it back.
+3. **IN FLIGHT 08-23 ~05:3x**: `rl_move/sim/motion_library/cpg_v1.npz`
+   built (`build_motion_library.py --controller se2cpg`, new/default-
+   off/bit-exact-when-tripod, 3 tests) from the yaw-trim-verified
+   `robust120_yawtrim` params, same 15-family command suite as
+   `teacher_v1`/`teacher_v2` — 45/45 clips accepted, slip/m 0.27-2.17
+   (as good or better than teacher_v2 per-clip). Launched
+   `cw-cpg-teacherfork-ab-cpgv1` (respec of the PASSED
+   `cw-amp-m2-bcinit-sec5-style05`, single lever: `--amp-motion-lib`
+   swapped to `cpg_v1.npz`, same BC-clone init/reward/2M budget) —
+   TRIAGE NEXT CYCLE against style05's own recorded numbers (gate text
+   in the ledger). Do not silently replace `teacher_v1`/`teacher_v2`
+   or recalibrate joystick slip bars until this reads out.
+4. A lightweight parallel item: a loader for `cpg_controller_*.json`
+   in the web UI so the artifact is actually consumable, per the
+   gate's own text — currently the schema exists but nothing reads it
+   back.
