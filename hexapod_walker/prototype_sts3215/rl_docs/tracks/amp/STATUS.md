@@ -2115,6 +2115,47 @@ Build every tool this needs; do not pause on operator input.
 
 ## Now
 
+**08-23 ~08:2x — KERNEL-NOISE-TAX FIX (kernelema1) MADE TIP-TRACKING
+WORSE, not better — the run's own pre-registered WORSE branch fired.**
+`cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-kernelema1` (single
+lever vs tipfrac05: `reward.walk_kernel_vel_ema=1` +
+`reward.walk_kernel_yaw_ema=1`, tau=0.75s, bundled — de-noising the
+velocity/yaw-rate tracking kernels so honest stride-to-stride sway
+isn't taxed as mistracking, the hypothesized fix for the measured
+hold/forward income-dominance gap) VERDICTED FAIL. `eval_amp_m5` tip-
+left/right err WORSENED to 0.2264/0.2302 (parent tipfrac05's bar-clean
+0.1620/0.1838) — both now OVER the 0.20 bar (parent passed clean
+under it), landing back in the tipfrac02/07 in-band-not-clean tier;
+yaw section flips PASS->FAIL. Walk section also crossed its own bar
+(det_slip_med 3.79 vs bar 3.5, parent 3.36 just under) though
+gait_valid held 12/12 with 0 terms — video-clean six-leg cycling
+(contact sheet reviewed), so this is a tracking-quality regression,
+not a stability one. Push (pass, det_terms 2=bar) and fault (pass,
+gait_valid 10/12=bar, same 2 carried-fault legs as parent) held at/
+near the bar; m5_pass=false overall. Root cause suspected exactly as
+the gate text pre-registered: an unanticipated interaction with the
+already-on achieved-rotation gates (`walk_yaw_kernel_gate`/
+`walk_yaw_hold_prog_gate`), which still read RAW instantaneous wz
+while the EMA'd kernel now rewards smoother-but-slower yaw-rate
+tracking than command — the policy under-rotates more, not less.
+Not a safety failure (0 falls, gait_valid floors held everywhere).
+**CONCLUSION: kernel-noise-tax de-noising, applied bundled and
+naively, is REFUTED as a drop-in fix for this checkpoint's
+income-dominance gap** — the mechanism from the joystick track
+(phasedir7/7b/8) does not transplant cleanly onto a reward that still
+prices ACHIEVED rotation on the raw instantaneous signal. Decomposition
+arms `-kernelema-yawonly` (yaw EMA alone) and `-kernelema-velonly2`
+(vel EMA alone, respec after the first `-kernelema-velonly` was
+REFUSED for a busy GPU slot) are in flight/finishing to attribute
+which axis (or their interaction) drives the regression — owned by
+whichever cycle triages them next, not duplicated here. Until
+attributed, do not spend further budget on the bundled recipe; the
+hold/forward income-repricing prerequisite for M5-candidate promotion
+remains OPEN and is now more clearly a per-tick pricing problem than
+a kernel-noise one. SKILLS.md M4 turn-erosion row amended. Evidence:
+`logs/ckpt_eval/cw_amp_m4_turnfault_seq1_pushcont1_tipfrac05_kernelema1_{gate,m5}/`.
+Prior banner below.
+
 **08-23 ~07:5x — TURN-EXPOSURE DOSE GRID CLOSED at 4 points (0.2/0.3/
 0.5/0.7): 0.5 is the confirmed peak, not the largest dose tried.**
 `cw-amp-m4-turnfault-seq1-pushcont1-tipfrac07` (dose 0.7, the grid's

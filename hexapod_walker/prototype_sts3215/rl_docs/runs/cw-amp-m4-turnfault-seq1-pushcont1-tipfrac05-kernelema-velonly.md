@@ -4,9 +4,9 @@
 
 **status**: INTENT
 
-**created**: 2026-08-23T08:04:29+00:00
+**created**: 2026-08-23T08:16:57+00:00
 
-**pod**: hexapod-mjx-train-2
+**pod**: hexapod-mjx-train-0
 
 **steps**: 2000000
 
