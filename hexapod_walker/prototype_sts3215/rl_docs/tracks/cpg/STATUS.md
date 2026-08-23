@@ -1,6 +1,36 @@
 # cpg - Berkeley-style parameter gait search
 
-Last updated: 2026-08-23 ~06:1x UTC (**SECOND DATA POINT LAUNCHED (matched
+Last updated: 2026-08-23 ~06:3x UTC (**TRACK GATE GREEN — adoption A/B
+answered at matched budget; both tracks.json clauses now satisfied.**
+The +6M budget pair finished together and was read jointly per its own
+pre-registered gate: `cw-cpg-teacherfork-ab-cpgv1-acq1b` (CPG library
+side, 8M total) VERDICTED PASS — DR-0 det progress_ratio med 1.35 /
+fwd 0.77m (CLOSES-GAP band was >=1.10/>=0.65m; its 2M read was
+0.99/0.59), sto prog 0.90, gait_valid 6/6 det+sto, zero terms,
+video-clean; reward+eval rose together (textbook 08-21 continuation
+payoff). `cw-cpg-teacherfork-ab-style05-budget2` (matched teacher_v2
+control) VERDICTED INFORMATIVE — det ~FLAT vs its own 2M numbers
+(1.16/0.69 -> 1.21/0.71, inside noise), so the CPG catch-up is REAL
+gap-closing, not a shared budget lift (sto improved on both sides,
+0.58->0.95 and 0.58->0.90 — that axis was undertrained for both).
+ADOPTION DECISION (recorded in both verdicts): `cpg_v1.npz` is
+promoted to a CO-EQUAL alternative AMP style source — det deltas
+favor CPG but sit at the edge of n=6 noise, sto slip slightly favors
+teacher (3.15 vs 3.57): no honest superiority claim, NO forced
+teacher_v2 swap, NO joystick slip-bar recalibration; future amp arms
+may pre-register either library. With this, the tracks.json cpg gate
+is GREEN: (1) held-out contextual robust gate FULL PASS 08-23
+(5 panels, zero falls, artifact `cpg_controller_robust120_yawtrim.json`
+exported, web-UI + DriveController loaders built); (2) downstream
+adoption measured as an A/B fork (2M pair + matched-8M budget pair),
+not a silent swap. Remaining items are maintenance/[operator] only:
+driving the physical robot on the CPG controller, and any future
+teacher-v2 regeneration fork if a later arm shows real superiority.
+Evidence: `logs/ckpt_eval/cw_cpg_teacherfork_ab_cpgv1_acq1b_gate/`,
+`logs/ckpt_eval/cw_cpg_teacherfork_ab_style05_budget2_gate/`.
+Prior banner below.)
+
+Previous entry (2026-08-23 ~06:1x UTC (**SECOND DATA POINT LAUNCHED (matched
 +6M budget pair):** a concurrent cycle continued `cw-cpg-teacherfork-ab-
 cpgv1` itself (+6M, `-acq1b`, RUNNING train-0, reward still rising at 2M
 per the 08-21 ruling); this cycle caught that the matched teacher_v2
