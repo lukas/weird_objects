@@ -135,70 +135,51 @@ validity, on video. Speed obedience is secondary throughout.
 
 ## Next
 
-- **NEW DIAGNOSTIC (08-23 ~20:1x, cheap W&B-history read on
-  `fwd5-loadslipboot600k`, no extra training): the freeze is a
-  vanishing-GRADIENT local optimum, not (only) an under-exploration
-  one.** `train/clip_fraction` goes to EXACTLY 0 by ~15% of the run
-  and stays there (policy_gradient_loss magnitude shrinks toward
-  ~1e-4, approx_kl toward ~4e-5) — PPO's updates become negligible
-  very early and never recover, while `rollout/ep_len_mean` climbs
-  steadily to the full episode length (freezing avoids every
-  tilt-term, so episodes stop truncating early) and `ep_rew_mean`
-  falls only because the ramped/annealed charges accrue over a longer
-  and longer episode against an UNCHANGING policy — this is consistent
-  across the reward-quarter pattern seen in every one of the 8 FAILed
-  arms. Working theory: once the policy locks onto "stand still safely"
-  in the first few rollouts, nearly all of the per-step reward
-  (idle/park/height/heading charges, term risk) is a function of STATE
-  and TIME since reset, not of the action taken from that state — so
-  the value function learns to predict it well (explained_variance
-  trends up to ~0.15-0.17) and the resulting ADVANTAGE for any
-  alternative action is close to zero, starving the policy gradient
-  regardless of how the reward is priced or how much noise/entropy is
-  added on top of it. This would explain why every dose/pricing/
-  exploration-noise lever failed IDENTICALLY: none of them change how
-  much the per-step reward actually depends on the action once frozen.
-  **CONFIRMED GENERAL (08-23 ~20:2x cycle, cached-history read on 3
-  more FAILed arms, no training):** `fwd1` clip_fraction quarters
-  [0.0054, 0, 0, 0] (zero from ~30% of run, approx_kl -> 4.6e-5),
-  `fwd4-entboost` [0.0069, 0, 0, 0] (zero from ~35%, kl -> 4.0e-5),
-  `fwd4-logstd0` [0, 0, 0, 0] (zero from the FIRST logged decile,
-  kl -> 3e-7) — identical collapse across baseline, 10x-entropy, and
-  wide-noise arms, with ep_len climbing in all three. The logstd0
-  detail is the sharpest: WIDER initial noise made the gradient die
-  FASTEST, directly supporting the theory that per-step reward is
-  action-insensitive once frozen (noise samples all score alike, so
-  advantages stay ~0 regardless of exploration scale). Noise/entropy
-  levers are dead for this freeze; only mechanisms that make reward/
-  novelty depend on the ACTION-reachable state (RND/curiosity, rung-0
-  sub-goal, or state-dependent exploration) remain live.
-  Original note (superseded where it says unconfirmed):
-  **Not yet confirmed** (only one run's history was read) — the next
-  cycle should (a) check 1-2 more of the 8 FAILed runs for the same
-  clip_fraction/approx_kl collapse-to-~0 signature to confirm it's
-  general, not one seed's artifact, and (b) if confirmed, prioritize
-  fixes that restore action-sensitive gradient EARLY (before the
-  freeze locks in) over fixes that only change the reward's resting
-  values: a short forced-exploration/action-noise-floor window, a
-  curiosity/RND-style bonus keyed to STATE novelty (still no motion
-  prior), or rung-0 (a) below, rather than more entropy-coefficient or
-  charge-dose variants (7 of those already refuted).
-- **DIG-IN (rung-0 / architecture), not another reward-magnitude
-  arm.** Candidates, roughly in order of how little they compromise
-  "prior-free": (a) a genuinely prior-free EXPLORATION fix the reward-
-  shape/noise-scale arms haven't tried yet — e.g. a curiosity/RND
-  bonus, or a much bigger discovery budget (5-10M) before declaring
-  the recipe dead at 2M, since every arm so far used the same 2M cap;
-  (b) rung-0: an even simpler sub-goal than "walk 0.05-0.06 m/s" (e.g.
-  "lift any foot" or "shift weight" as a separate certified step before
-  full walking) — closer to a real curriculum than the current single
-  rung; (c) `--gru --gru-hidden-size 64` (in-repo recurrent path) in
-  case memorylessness itself is the blocker, though this hasn't been
-  implicated by any finding so far; (d) last resort, most prior-
-  breaking: a brief BC kickstart from a few seconds of scripted motion
-  to escape the freeze basin, then continue prior-free — flag for an
-  operator read given it brushes against the track's own "no BC
-  teacher" rule.
+- **DIG-IN COMPLETE (08-23 ~20:4x, deep cycle): the freeze signature
+  is CONFIRMED 8/8 and root-caused one level deeper — to the
+  OPTIMIZER, not the reward shape or exploration.** (1) All 8 FAILed
+  rung-1 arms show the identical collapse in their cached W&B
+  histories: `train/clip_fraction` reaches EXACTLY 0 by 10-38% of the
+  run and never recovers (fwd4-logstd0 — the WIDEST init noise —
+  collapsed fastest, at 10%), approx_kl ~3e-5, final policy std at
+  its init value (0.3685 ~ e^-1). (2) Mechanism: `train/value_loss`
+  sits at 400->2000+ because v2e returns are |1000s|-scale; SB3 PPO
+  clips the GLOBAL grad norm (max_grad_norm=0.5) over policy+value
+  parameters in ONE optimizer, so a value head chasing thousands-scale
+  returns dominates the norm and rescales the policy/log_std/entropy
+  gradients toward zero. SB3's per-minibatch advantage normalization
+  makes the policy gradient scale-invariant, so ONLY a global reward
+  down-scale (or a grad-norm/vf_coef change) relieves the crush —
+  and it explains why pricing, init-noise, and entropy levers all
+  failed IDENTICALLY: they act downstream of it (10x ent_coef moved
+  std just 0.369->0.376 in 2M). Even at update 1 clip_fraction was
+  only ~0.013 (healthy PPO: 0.05-0.2). (3) **Bonus reward-stack
+  finding (scaled-bank measurement)**: the walk diet is NOT gain-pure
+  — `reward_task` (base compute_reward posture kernel, k_track=1.0
+  default, NOT in the recipe cfg) pays ~+0.95/step to EVERY
+  level-bodied behavior including park and skate (+348..+366 per 15 s
+  probe). Scaling only the 7 recipe gains would have DESTROYED the
+  ranking (park +323 at x0.1); the full scale set (7 recipe gains + 8
+  base compute_reward gains) is bank-GREEN at x0.1 and x0.02 with
+  margins scaled and behavior deltas linear
+  (`test_walkcurr_pf_scaled_*`, landed this cycle).
+- **LAUNCHED (this cycle): `cw-walkcurr-pf-fwd6-rscale10` /
+  `-fwd6-rscale50`** — global reward scale x0.1 / x0.02 on the exact
+  fwd3-chargeramp recipe (all 15 active gains scaled together;
+  ranking mathematically and bank-measurably unchanged; no bootstrap,
+  single lever). Prediction-if-true: clip_fraction stays healthy
+  (>~0.02) past 50% of the run, std moves off init, and
+  walk_freeprog_score (gain-independent metric) leaves the
+  [-0.10,-0.05] band. Prediction-if-false (freeze recurs WITH healthy
+  clip_fraction): the optimizer-crush theory is refuted and the
+  exploration/curriculum escalation below is next.
+- **If the scale arms fail**: escalate in this order — (a) prior-free
+  exploration fix (curiosity/RND state-novelty bonus, or gSDE — a
+  concurrent cycle landed `--use-sde` validation support 08-23; or a
+  5-10M discovery budget); (b) rung-0 sub-goal ("lift any foot" /
+  "shift weight" certified before full walking); (c) `--gru` recurrent
+  path; (d) last resort, operator-flagged: brief BC kickstart (brushes
+  the track's "no BC teacher" rule).
 - Once ANY rung-1 mechanism actually gates: rung 2 (small heading set)
   respec; consider the recurrent path + paper-pure proprioception-only
   obs A/B (`goal.walk_obs_body_vel=0.0`) once commands start changing
