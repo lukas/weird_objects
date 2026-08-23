@@ -1,6 +1,21 @@
 # cpg - Berkeley-style parameter gait search
 
-Last updated: 2026-08-23 ~05:5x UTC (**TEACHER-FORK A/B READ: CPG
+Last updated: 2026-08-23 ~06:1x UTC (**SECOND DATA POINT LAUNCHED (matched
++6M budget pair):** a concurrent cycle continued `cw-cpg-teacherfork-ab-
+cpgv1` itself (+6M, `-acq1b`, RUNNING train-0, reward still rising at 2M
+per the 08-21 ruling); this cycle caught that the matched teacher_v2
+control was NOT queued by either side (would confound "CPG gap closes
+with budget" against "both sides improve with budget") and launched
+`cw-cpg-teacherfork-ab-style05-budget2` (identical +6M single-lever
+continuation of the style05 champion, VERIFIED RUNNING train-1,
+`logs/experiments/` not yet populated — check both W&B runs jointly at
+~8M total for the next triage). Also self-caught and killed a duplicate
+launch attempt (own `cpgv1-budget2`, a re-continuation of the exact same
+checkpoint `-acq1b` already covers, born from two independent `-cont1`
+name collisions with the concurrent cycle) before it wasted a second
+GPU slot — see RL_LOG 08-23 06:1x. Prior banner below.
+
+Previous entry (2026-08-23 ~05:5x UTC (**TEACHER-FORK A/B READ: CPG
 library WALKS as an AMP style source but isn't yet better than the
 scripted teacher.** `cw-cpg-teacherfork-ab-cpgv1` (Next item 3, single
 lever vs the PASSED `cw-amp-m2-bcinit-sec5-style05`: `--amp-motion-lib`
