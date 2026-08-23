@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-08-23T20:07:09+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 2000000
 
 **parent**: cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518-phasehz05
+
+**wandb_id**: k42qdh3f
 
 **hypothesis**: Plain English: middle point of the metronome-speed sweep -- test whether 0.9 Hz keeps the newly-won turning skill while walking near full speed. See phasehz07 arm for the full dose-curve rationale (cadence proven the binding constraint on tips/slip at 0.5 Hz, cost = walk prog halved). This arm: goal.walk_phase_hz=0.9, single lever on the unmutated phasehz05 recipe. Prediction-if-true: tips <=0.20 with det_prog_med >=0.75, slip <=3.5. Prediction-if-false: tips revert at this cadence -- the feasible region, if any, is below 0.9 Hz. Strongest alternative: budget-limited prog (the -cont1 sibling tests it).
 
