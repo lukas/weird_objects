@@ -734,3 +734,122 @@ def test_v5_trajectories_encode_horizon_and_command_change_floor():
                 spec["duration_s"])
             assert traj.command_changes >= spec["min_command_changes"]
     env.close()
+
+
+# WALKCURR_BUCKETS_V6: hist16 full-circle joystick ladder (operator
+# order fb_20260823T220651_5c66e3): open the heading envelope of the
+# hist16-dep1/c1 front-cone walker in bands (front45 -> side90 ->
+# rear135/180) before the uniform full-circle 60 s task, then retain
+# it under DR 0.2 and DR 0.5.
+CURR_V6_ON = {("goal", "walk_curriculum"): 6.0}
+
+
+def test_v6_selects_the_v6_table_and_earlier_versions_untouched():
+    from rl_move.sim.walk_task import (WALKCURR_BUCKETS_V5,
+                                       WALKCURR_BUCKETS_V6)
+    env = _env(seed=7, extra=CURR_V6_ON, episode_seconds=60.0)
+    assert env._wc_version == 6
+    assert env._wc_table is WALKCURR_BUCKETS_V6
+    env.close()
+    env5 = _env(seed=7, extra=CURR_V5_ON, episode_seconds=60.0)
+    assert env5._wc_version == 5
+    assert env5._wc_table is WALKCURR_BUCKETS_V5
+    env5.close()
+
+
+def test_v6_requires_a_real_60_second_training_horizon():
+    with pytest.raises(ValueError):
+        _env(seed=0, extra=CURR_V6_ON, episode_seconds=10.0)
+    env = _env(seed=0, extra=CURR_V6_ON, episode_seconds=60.0)
+    env.close()
+
+
+def test_v6_ladder_opens_the_full_circle_in_bands_then_dr():
+    from rl_move.sim.walk_task import (WALKCURR_BUCKETS_V6,
+                                       WALKCURR_GATE_V6_BRIDGE,
+                                       WALKCURR_GATE_V6_JOYSTICK)
+    names = [b["name"] for b in WALKCURR_BUCKETS_V6]
+    assert names == [
+        "bridge_10s", "front45_20s", "front45_60s", "side90_20s",
+        "side90_60s", "rear135_40s", "rear180_60s", "fullcircle_60s",
+        "fullcircle_dr02_60s", "fullcircle_dr05_60s",
+    ]
+    b0 = WALKCURR_BUCKETS_V6[0]
+    # B0 bridge sits AT the source checkpoint's operating point
+    # (hist16-dep1-c1 trains at 0.05-0.06 m/s), DR0, no churn.
+    assert (b0["s_lo"], b0["s_hi"]) == (0.05, 0.06)
+    assert b0["head_hi"] == 0.0 and b0["resample_s"] == 0.0
+    assert b0["dr"] == 0.0 and b0["gate"] is WALKCURR_GATE_V6_BRIDGE
+    # Heading bands open monotonically: front cone, side, rear, full.
+    deg = math.degrees
+    assert deg(WALKCURR_BUCKETS_V6[1]["head_hi"]) == pytest.approx(45.0)
+    assert deg(WALKCURR_BUCKETS_V6[3]["head_lo"]) == pytest.approx(45.0)
+    assert deg(WALKCURR_BUCKETS_V6[3]["head_hi"]) == pytest.approx(90.0)
+    assert deg(WALKCURR_BUCKETS_V6[5]["head_lo"]) == pytest.approx(90.0)
+    assert deg(WALKCURR_BUCKETS_V6[5]["head_hi"]) == pytest.approx(135.0)
+    assert deg(WALKCURR_BUCKETS_V6[6]["head_lo"]) == pytest.approx(135.0)
+    assert WALKCURR_BUCKETS_V6[6]["head_hi"] == pytest.approx(math.pi)
+    # The three full-circle rungs draw uniformly over the whole circle.
+    for spec in WALKCURR_BUCKETS_V6[7:]:
+        assert spec["head_lo"] == 0.0
+        assert spec["head_hi"] == pytest.approx(math.pi)
+    # One command distribution across every joystick rung; only
+    # heading band, horizon, and DR move.
+    command_keys = ("s_lo", "s_hi", "resample_s", "jitter",
+                    "stop_frac", "blend_lo", "blend_hi")
+    baseline = tuple(WALKCURR_BUCKETS_V6[1][k] for k in command_keys)
+    for spec in WALKCURR_BUCKETS_V6[2:]:
+        assert tuple(spec[k] for k in command_keys) == baseline
+    assert [b["duration_s"] for b in WALKCURR_BUCKETS_V6] == [
+        10.0, 20.0, 60.0, 20.0, 60.0, 40.0, 60.0, 60.0, 60.0, 60.0]
+    # DR stays 0 until the full-circle task retains, then 0.2 -> 0.5.
+    assert [b["dr"] for b in WALKCURR_BUCKETS_V6] == [
+        0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.2, 0.5]
+    for spec in WALKCURR_BUCKETS_V6[1:]:
+        assert spec["gate"] is WALKCURR_GATE_V6_JOYSTICK
+        assert spec["stop_gate"] == 0.015
+
+
+def test_v6_gates_demand_command_following_inside_the_slip_band():
+    """V6 rungs must demand real command following (cmd_prog>=0.65)
+    with slip inside the joystick-track band (<=2.9; V6 uses the V4
+    joystick bar 2.0) and the all-feet cycling minima retained."""
+    from rl_move.sim.walk_task import (WALKCURR_GATE_V6_BRIDGE,
+                                       WALKCURR_GATE_V6_JOYSTICK)
+    j, b = WALKCURR_GATE_V6_JOYSTICK, WALKCURR_GATE_V6_BRIDGE
+    assert j["cmd_prog_frac_min"] == 0.65
+    assert j["cmd_prog_frac_p10_min"] == 0.50
+    assert j["slip_per_m_max"] == 2.0 <= 2.9
+    assert j["height_factor_min"] == 0.80
+    assert j["peak_roll_deg_max"] == 8.0
+    assert j["contact_sw_per_s_min"] == 3.0
+    assert j["foot_sw_min_per_s_min"] == 0.5
+    assert b["cmd_prog_frac_min"] == 0.60
+    assert b["slip_per_m_max"] == 2.0
+
+
+def test_v6_trajectories_encode_horizon_change_floor_and_full_circle():
+    from rl_move.sim.walk_task import WALKCURR_BUCKETS_V6
+    env = _env(seed=61, extra=CURR_V6_ON, episode_seconds=60.0)
+    for b, spec in enumerate(WALKCURR_BUCKETS_V6):
+        env.force_walk_curr_bucket = b
+        for _ in range(3):
+            traj = _sample_traj(env)
+            assert traj.duration_steps * env.dt == pytest.approx(
+                spec["duration_s"])
+            assert traj.command_changes >= spec["min_command_changes"]
+    # The full-circle rung actually draws rear headings (sign +-, up
+    # to +-180 deg): over many draws both left/right rear commands
+    # (negative vx with vy of either sign) must appear in the vx/vy
+    # command arrays.
+    env.force_walk_curr_bucket = 7
+    headings = []
+    for _ in range(40):
+        traj = _sample_traj(env)
+        sp = np.hypot(traj.vx, traj.vy)
+        mask = sp > 1e-6
+        headings.extend(np.arctan2(traj.vy[mask], traj.vx[mask]))
+    headings = np.asarray(headings)
+    assert headings.min() < math.radians(-100.0)
+    assert headings.max() > math.radians(100.0)
+    env.close()

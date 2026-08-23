@@ -158248,7 +158248,7 @@
       "dr.ext_push_n=5.0,18.0"
     ],
     "created": "2026-08-23T21:26:30+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -158291,7 +158291,8 @@
         ]
       }
     ],
-    "triage": "in-cycle cw-amp-m4-turnfault-seq1-pushcont1-tipfrac05-pushcal518-phas since 2026-08-23T21:40:28"
+    "triage": "done",
+    "verdict": "The 0.5 Hz slow-clock recipe cannot buy back walk progress with more training -- the budget route is refuted on its own pre-registered line. Another +4M (10M total) moved walk det progress only 0.669 -> 0.691 (m5 wpm24 read, n_translating=28), under both the 0.75 PASS bar and the 0.72 FAIL line, with gain-per-4M collapsed 0.149 -> 0.022. Everything else held or improved: yaw tips 0.113/0.160 (bar 0.20, no erosion; family-best band), det slip 2.358 / sto slip improved 4.73 -> 4.10, push PASS, fault PASS (gait 10/12), 0 falls/terms in every section, walk gait_valid 48/48; det strips watched -- upright, level, six legs cycling, no flag leg or pathology. Training reward still rose (272.6 -> 306.6 last quarter) while the aligned gate metric barely moved at adequate budget: genuine diminishing returns, not undertraining or misalignment, exactly the pre-registered closure. Consequence: 0.5 Hz remains the wide-tip/slip-margin corner but is permanently prog-limited; the cont1 checkpoint stands as that corner's artifact and this continuation lineage is CLOSED. The AMP operating point is 1.1 Hz (phasehz11 full m5 PASS; seed-replication batch reading concurrently) or, if replication fails, conditional-clock code work. Evidence: logs/ckpt_eval/..._phasehz05_cont2_m5_wpm24/."
   },
   {
     "run": "cw-walkcurr-pf-rung0-swing9",
@@ -158397,7 +158398,7 @@
       "Plain English: same rung-0 'lift your feet and step, anywhere' diet as cw-walkcurr-pf-rung0-swing3, with the stepping paycheck tripled -- if the swing income at 1x is still too small against the remaining charges for a random policy to notice, 3x should show it. Single lever vs the swing3 twin: reward.k_walk_swing 0.06 -> 0.18 (bank test_walkcurr_rung0_*[x0.02-swing9] GREEN at this exact cfg: full ordering preserved, stall/shuffle margins over the freeze class grow with dose, walking stays strictly on top, skate/topple floor unchanged; snapshot exp/walkcurr-rung0-bank). Prediction-if-true: reward_swing trends up and feet cycle within 2M (possibly earlier/stronger than swing3). Prediction-if-false on BOTH arms (frozen crouch, reward_swing ~0, clip_fraction healthy): swing-income dose is not the blocker at any bank-safe level inside the rung-0 diet -- reward-landscape theory refuted, escalate to RND state-novelty per track STATUS. Strongest alternative: swing9 unfreezes but farms chaotic flail-stepping that never settles into a gait -- readable on video and by gait_valid; still a rung-0 PASS if six legs cycle without falls, and rung-1b's freeprog/step_event pricing does the refinement. Gate: Rung-0 certification gate (same as swing3): C-env det fixed-forward panel -- zero tilt terms, six legs cycling (gait_valid) on >=4/6 det episodes, video shows rhythmic stepping; travel/prog NOT required. Mechanism health at 2M: env/reward_swing per-step > 0 and rising, clip_fraction > 0.02. Joint read with swing3: either arm certifying = rung-0 PASS (pick the cleaner video for rung-1b warm-start); both frozen = rung-0 refuted -> RND escalation."
     ],
     "created": "2026-08-23T21:41:36+00:00",
-    "status": "FINISHED",
+    "status": "FAIL",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -158433,7 +158434,9 @@
         "verdict": "FINISHED_BEFORE_CHECKUP",
         "log_tail": " 0.05438\nwandb:   env/height_err_mm 110.77295\nwandb:       env/height_mm -110.76867\nwandb:   env/height_ref_mm 0\nwandb:   env/max_current_a 0.58559\nwandb:  env/mean_current_a 0.14994\nwandb: env/pct_within_1deg 0.7902\nwandb:   env/pitch_ref_deg 0\nwandb:                +102 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-walkcurr-pf-rung0-swing9 at: https://wandb.ai/l2k2/hexapod-balance/runs/rns9frs5\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 2 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260823_214239-rns9frs5/logs\n"
       }
-    ]
+    ],
+    "verdict": "3x swing-income dose does NOT certify rung-0 either -- gate FAIL, and it fails a NEW way (static airborne splay, not the prior frozen crouch). Evidence: own-cfg C-env det panel 0/6 gait_valid (need >=4/6) -- every det episode sacrifices ALL SIX legs (duty_cycle 0.02-0.03 uniformly), forward_dist ~0.006m over 25s, sto 1/6 term (tilt_pitch) + only 1/6 gait_valid; video (walk_det_0, walk_sto_3) shows the robot lifting all six legs off the ground into a static splayed hover held for the whole clip -- not rhythmic stepping, not the swing3-style crouch. W&B confirms this is a NEW failure mode, not the old optimizer crush: clip_fraction stayed healthy and rising (0.010->0.083), std crept up (0.368->0.373) -- optimizer is fine -- but env/reward_swing FELL monotonically (0.016->0.003, the opposite of the prediction-if-true) while ep_rew_mean quarters also fell (42/40/30/15). Why: reward falling + eval failing is an ALIGNED read per the 08-21 ruling (not misalignment to repair) -- tripling k_walk_swing did not make swing income durably profitable; the policy found it cheaper to plant nothing (near-zero duty on every leg, near-zero park_duty/loadslip exposure too since it is airborne) than to bank swing pay, and rides that to a flat/declining return. This refutes swing-income DOSE as the lever at bank-legal scale (swing3 was 1x, swing9 3x, both fail -- read jointly with swing3's own verdict, which a concurrent cycle owns). Next: if swing3 also fails, this closes the rung-0 sub-goal fork under the swing-income mechanism specifically; escalate to RND state-novelty per track STATUS's pre-registered order, or reconsider a stance-duty-priced variant (pay for TIME-ON-GROUND per leg, not completed swings, so an airborne hover cannot free-ride) before funding RND. hardware-ready: no.",
+    "triage": "done"
   },
   {
     "run": "cw-walkcurr-pf-rung0-swing3",
@@ -158539,7 +158542,7 @@
       "Plain English: ten prior-free arms froze into a motionless crouch because every reward for moving required already knowing how to walk -- this run changes the goal itself to 'lift your feet and step, anywhere' so a random policy can stumble into income within one flail. Rung-0 diet at the crush-proven x0.02 scale: k_walk_swing=0.06 pays any completed >=15mm swing (the only income reachable from random flail), travel-demanding charges REMOVED (heading=0, idle_charge=0, step_event=0), freeprog kept at 10% dose (0.006: keeps the legacy speed kernel replaced + slight forward tilt), park_duty/loadslip/term kept so freezing, skating, dying stay priced. Bank test_walkcurr_rung0_* 15/15 GREEN at this exact cfg (snapshot exp/walkcurr-rung0-bank): gait +479 > creep +256 > stall +38 > shuffle -185 > stork -320 ~ park -324 > topple -1164 > skate -1311 at x1; deltas linear at x0.02. Prediction-if-true: env/reward_swing per-step trends up from ~0 within 2M, det panel shows six legs cycling (gait_valid >=4/6) even without travel; PASS -> rung-1b warm-start on the rung-1 diet. Prediction-if-false (frozen crouch again, reward_swing flat ~0 with healthy clip_fraction): the reward-landscape theory is refuted alongside the optimizer theory -- escalate to RND state-novelty per track STATUS. Strongest alternative: policy farms swing income by shuffling forever and rung-1b later fails to convert -- acceptable for rung-0 (cycling IS the certified goal; the bank keeps walking strictly on top so the gradient continues forward). Gate: Rung-0 certification gate: C-env det fixed-forward panel -- zero tilt terms, six legs cycling (gait_valid) on >=4/6 det episodes, video shows rhythmic stepping (in place or travelling); travel/prog NOT required, slip not gated (priced by loadslip charge). Mechanism health at 2M: env/reward_swing per-step > 0 and rising, clip_fraction > 0.02. PASS = certify + launch rung-1b warm-start (rung-1 rscale50 diet from this checkpoint). FAIL (static crouch, reward_swing ~0) on BOTH dose arms = rung-0 refuted -> RND escalation, no dose resweep."
     ],
     "created": "2026-08-23T21:43:29+00:00",
-    "status": "FINISHED",
+    "status": "FAIL",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -158568,7 +158571,7 @@
     "log": "/tmp/train_cw-walkcurr-pf-rung0-swing3.log",
     "wandb_id": "icv9nggt",
     "verified": "2026-08-23T21:46:54+00:00",
-    "triage": "in-cycle cw-walkcurr-pf-rung0-swing3 since 2026-08-23T21:50:37",
+    "triage": "done",
     "checkups": [
       {
         "time": "2026-08-23T21:52:17+00:00",
@@ -158576,6 +158579,7 @@
         "verdict": "FINISHED_BEFORE_CHECKUP",
         "log_tail": "0.05436\nwandb:   env/height_err_mm 109.69839\nwandb:       env/height_mm -109.69454\nwandb:   env/height_ref_mm 0\nwandb:   env/max_current_a 0.88443\nwandb:  env/mean_current_a 0.20463\nwandb: env/pct_within_1deg 0.59961\nwandb:   env/pitch_ref_deg 0\nwandb:                +102 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-walkcurr-pf-rung0-swing3 at: https://wandb.ai/l2k2/hexapod-balance/runs/icv9nggt\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 2 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260823_214432-icv9nggt/logs\n"
       }
-    ]
+    ],
+    "verdict": "1x swing-income dose does not certify rung-0: gate FAIL. Evidence: own-cfg C-env det panel 0/6 gait_valid (need >=4/6) -- 5/6 legs sacrificed (duty 0.02-0.04, essentially always airborne) while 1 leg holds stance duty 0.96, forward_dist ~0.005m/25s, slip/m 6.6; sto 1/6 gait_valid, 1/6 TERM tilt_pitch; video (walk_det_0..5, walk_sto_3) shows the SAME static one-leg-planted lean held across all 10 sampled frames of every episode -- no visible rhythmic stepping despite nonzero swing_count telemetry (a rung-0 'stork' pose, not the anticipated flat crouch). W&B: optimizer stayed healthy the whole 2M run (clip_fraction 0.01-0.08, never collapsed, std crept 0.368->0.373) but env/reward_swing FELL monotonically (0.0052->0.0019/step, opposite of the mechanism-health prediction) while ep_rew_mean quarters also fell (41.9/36.9/28.2/12.8) -- reward and eval both declining together, an ALIGNED read per the 08-21 ruling (not misalignment-to-repair), so this is a genuine FAIL, not a continue-longer case. Why: k_walk_swing pays for a completed >=15mm swing regardless of whether the leg ever bears load, so a permanently-elevated leg can farm cheap swing events without ever committing to stance -- PPO converged to a one-leg-stand equilibrium instead of a gait. Read jointly with swing9 (3x dose, also verdicted FAIL this cycle by a concurrent cycle, worse failure -- ALL SIX legs sacrificed into a static airborne hover): BOTH rung-0 swing-income dose arms fail -> per the pre-registered branch this refutes swing-income-only rung-0 under the swing-completion-event mechanism specifically. Next: escalate to RND state-novelty (a concurrent cycle is already building rnd_vec.py + wiring --rnd-coef into train_ppo_mjx.py) and/or a stance-duty-priced variant (pay time-on-ground per leg instead of completed swings, so an airborne hover can't free-ride) per track STATUS's pre-registered order -- do not fund a third swing-income dose point."
   }
 ]

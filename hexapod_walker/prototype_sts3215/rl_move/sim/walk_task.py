@@ -584,6 +584,100 @@ WALKCURR_BUCKETS_V5 = (
          stop_gate=0.015, gate=WALKCURR_GATE_V5_FAST),
 )
 
+# WALKCURR_BUCKETS_V6 ("hist16 full-circle joystick" ladder, operator
+# order fb_20260823T220651_5c66e3): teach the hist16-dep1/c1 learned
+# gait (16-frame deployment-contract walker, front-cone joystick only,
+# heading_max 45 deg in training) to follow joystick commands in EVERY
+# direction. Structure mirrors V4/V5: B0 is a strict 10-second bridge
+# at the source checkpoint's own operating point
+# (ppo_goal_cw_arch_hist16_dep1_c1 walks 0.05-0.06 m/s, front cone,
+# DR0.5-trained), then the heading envelope opens in bands — front
+# cone +-45 (20/60 s), side band 45-90 (20/60 s), rear bands 90-135
+# (40 s) and 135-180 (60 s) — before B6 draws uniformly over the FULL
+# CIRCLE for 60 s and B7/B8 retain the full-circle task under DR 0.2
+# then DR 0.5 (the lineage's own training DR). One command
+# distribution (3 s resamples, jitter, stops, partial blends) is held
+# fixed across every joystick rung; only heading band, sustained
+# horizon, and DR move. Gates are the V4 joystick bars (slip<=2.0 —
+# inside the joystick-track slip band <=2.9 — cmd_prog>=0.65,
+# all-feet cycling minima), bridge slightly softer, so promotion
+# demands real command following in the newly opened band, not just
+# survival.
+WALKCURR_GATE_V6_BRIDGE = dict(
+    cmd_prog_frac_min=0.60, cmd_prog_frac_p10_min=0.50,
+    slip_per_m_max=2.0, peak_roll_deg_max=8.0, slew_sat_max=0.95,
+    cross_track_frac_max=0.30, contact_sw_per_s_min=3.0,
+    foot_sw_min_per_s_min=0.5, height_factor_min=0.80)
+WALKCURR_GATE_V6_JOYSTICK = dict(
+    cmd_prog_frac_min=0.65, cmd_prog_frac_p10_min=0.50,
+    slip_per_m_max=2.0, peak_roll_deg_max=8.0, slew_sat_max=0.95,
+    cross_track_frac_max=0.30, contact_sw_per_s_min=3.0,
+    foot_sw_min_per_s_min=0.5, height_factor_min=0.80)
+
+WALKCURR_BUCKETS_V6 = (
+    # B0: prove the transplanted hist16 gait survives at its own
+    # operating point (0.05-0.06 m/s straight, DR0) before anything
+    # moves.
+    dict(name="bridge_10s", duration_s=10.0, min_command_changes=0,
+         s_lo=0.05, s_hi=0.06, head_lo=0.0, head_hi=0.0,
+         resample_s=0.0, jitter=0.0, stop_frac=0.0, blend_lo=1.0,
+         blend_hi=1.0, dr=0.0, stop_gate=None,
+         gate=WALKCURR_GATE_V6_BRIDGE),
+    # B1/B2: the front cone the lineage already knows (+-45 deg),
+    # joystick churn immediately, horizon 20 then 60 s.
+    dict(name="front45_20s", duration_s=20.0, min_command_changes=4,
+         s_lo=0.04, s_hi=0.08, head_lo=0.0,
+         head_hi=math.radians(45.0), resample_s=3.0, jitter=0.2,
+         stop_frac=0.10, blend_lo=0.5, blend_hi=0.9, dr=0.0,
+         stop_gate=0.015, gate=WALKCURR_GATE_V6_JOYSTICK),
+    dict(name="front45_60s", duration_s=60.0, min_command_changes=15,
+         s_lo=0.04, s_hi=0.08, head_lo=0.0,
+         head_hi=math.radians(45.0), resample_s=3.0, jitter=0.2,
+         stop_frac=0.10, blend_lo=0.5, blend_hi=0.9, dr=0.0,
+         stop_gate=0.015, gate=WALKCURR_GATE_V6_JOYSTICK),
+    # B3/B4: the side band opens (45-90 deg), 20 then 60 s.
+    dict(name="side90_20s", duration_s=20.0, min_command_changes=4,
+         s_lo=0.04, s_hi=0.08, head_lo=math.radians(45.0),
+         head_hi=math.radians(90.0), resample_s=3.0, jitter=0.2,
+         stop_frac=0.10, blend_lo=0.5, blend_hi=0.9, dr=0.0,
+         stop_gate=0.015, gate=WALKCURR_GATE_V6_JOYSTICK),
+    dict(name="side90_60s", duration_s=60.0, min_command_changes=15,
+         s_lo=0.04, s_hi=0.08,
+         head_lo=math.radians(45.0), head_hi=math.radians(90.0),
+         resample_s=3.0, jitter=0.2, stop_frac=0.10, blend_lo=0.5,
+         blend_hi=0.9, dr=0.0, stop_gate=0.015,
+         gate=WALKCURR_GATE_V6_JOYSTICK),
+    # B5/B6: rear bands 90-135 (40 s) then 135-180 (60 s).
+    dict(name="rear135_40s", duration_s=40.0, min_command_changes=10,
+         s_lo=0.04, s_hi=0.08, head_lo=math.radians(90.0),
+         head_hi=math.radians(135.0), resample_s=3.0, jitter=0.2,
+         stop_frac=0.10, blend_lo=0.5, blend_hi=0.9, dr=0.0,
+         stop_gate=0.015, gate=WALKCURR_GATE_V6_JOYSTICK),
+    dict(name="rear180_60s", duration_s=60.0, min_command_changes=15,
+         s_lo=0.04, s_hi=0.08, head_lo=math.radians(135.0),
+         head_hi=math.pi, resample_s=3.0, jitter=0.2,
+         stop_frac=0.10, blend_lo=0.5, blend_hi=0.9, dr=0.0,
+         stop_gate=0.015, gate=WALKCURR_GATE_V6_JOYSTICK),
+    # B7: the goal task — uniform full-circle joystick, 60 s.
+    dict(name="fullcircle_60s", duration_s=60.0, min_command_changes=15,
+         s_lo=0.04, s_hi=0.08, head_lo=0.0, head_hi=math.pi,
+         resample_s=3.0, jitter=0.2, stop_frac=0.10, blend_lo=0.5,
+         blend_hi=0.9, dr=0.0, stop_gate=0.015,
+         gate=WALKCURR_GATE_V6_JOYSTICK),
+    # B8/B9: retain the full-circle task under DR 0.2 then the
+    # lineage's own training DR 0.5.
+    dict(name="fullcircle_dr02_60s", duration_s=60.0,
+         min_command_changes=15, s_lo=0.04, s_hi=0.08, head_lo=0.0,
+         head_hi=math.pi, resample_s=3.0, jitter=0.2, stop_frac=0.10,
+         blend_lo=0.5, blend_hi=0.9, dr=0.2, stop_gate=0.015,
+         gate=WALKCURR_GATE_V6_JOYSTICK),
+    dict(name="fullcircle_dr05_60s", duration_s=60.0,
+         min_command_changes=15, s_lo=0.04, s_hi=0.08, head_lo=0.0,
+         head_hi=math.pi, resample_s=3.0, jitter=0.2, stop_frac=0.10,
+         blend_lo=0.5, blend_hi=0.9, dr=0.5, stop_gate=0.015,
+         gate=WALKCURR_GATE_V6_JOYSTICK),
+)
+
 # Sampling mixture over unlocked buckets (operator spec): 50% frontier,
 # 25% weakest mastered, 15% uniform over mastered, 10% the rung just
 # prior to the frontier. Empty components fold back to the frontier.
@@ -1109,9 +1203,11 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # the original V1 table; version 1 stays bit-exact unchanged.
         wc_version = float(cfg_get(self.cfg, "goal", "walk_curriculum",
                                    default=0.0))
-        self._wc_on = wc_version in (1.0, 2.0, 3.0, 4.0, 5.0)
+        self._wc_on = wc_version in (1.0, 2.0, 3.0, 4.0, 5.0, 6.0)
         self._wc_version = int(wc_version) if self._wc_on else 0
-        self._wc_table = (WALKCURR_BUCKETS_V5 if self._wc_version == 5
+        self._wc_table = (WALKCURR_BUCKETS_V6 if self._wc_version == 6
+                          else WALKCURR_BUCKETS_V5
+                          if self._wc_version == 5
                           else WALKCURR_BUCKETS_V4
                           if self._wc_version == 4
                           else WALKCURR_BUCKETS_V3
@@ -1119,7 +1215,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                           else WALKCURR_BUCKETS_V2
                           if self._wc_version == 2
                           else WALKCURR_BUCKETS)
-        if self._wc_version in (4, 5):
+        if self._wc_version in (4, 5, 6):
             required_s = max(float(b["duration_s"])
                              for b in self._wc_table)
             available_s = self.episode_steps * self.dt

@@ -23,9 +23,19 @@ added). Per `rl_docs/AMP_LOCOMOTION.md` the track is DONE at M5; M6
   obs_body_vel=2, fault_health obs) — physical-robot step, out of
   agent scope. Sim-side amp work is COMPLETE unless the operator
   re-opens (e.g. orders an M5 margin-hardening pass or a
-  cross-engine robustness sweep). Secondary open read (not blocking,
-  other cycle): `-phasehz05-cont1`/`cont2` 0.5 Hz continuation —
-  only relevant if it someday jointly beats 1.1's prog+slip.
+  cross-engine robustness sweep). Secondary read CLOSED 08-23 ~22:0x:
+  `-phasehz05-cont2` VERDICTED **FAIL on its pre-registered line** —
+  +4M (10M total) moved walk det_prog_med only 0.669 -> 0.691 (m5
+  wpm24, n=28 translating; bars 0.75 PASS / 0.72 FAIL; gain-per-4M
+  collapsed 0.149 -> 0.022) while tips held 0.113/0.160, sto slip
+  improved 4.73 -> 4.10, push/fault PASS, 0 falls/terms, gait 48/48,
+  strips clean (six-leg cycling, no pathology). Reward still rose
+  (272.6 -> 306.6) with the aligned gate flat: genuine diminishing
+  returns, not undertraining. 0.5 Hz is permanently the prog-limited
+  wide-tip/slip-margin corner; cont1 checkpoint stands as that
+  corner's artifact; the continuation lineage is closed and the
+  operating point is 1.1 Hz unconditionally. Evidence:
+  `logs/ckpt_eval/..._phasehz05_cont2_m5_wpm24/`.
 
 Previous banner (~21:4x (**SEED 2/4 CONFIRMS — `-phasehz11-s17`
 VERDICTED PASS, full m5 green on an independent seed with BETTER

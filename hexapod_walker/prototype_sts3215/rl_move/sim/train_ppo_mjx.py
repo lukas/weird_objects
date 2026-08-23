@@ -1388,6 +1388,38 @@ def main(argv: list[str] | None = None) -> int:
                          "discriminator cannot punish rotating faster "
                          "than the demos). Default '' = OFF, bit-exact "
                          "legacy features.")
+    # RND (Random Network Distillation) state-novelty bonus — walkcurr
+    # track's pre-registered fallback once rung-0 sub-goal arms (swing
+    # income) also fail to certify (rl_docs/tracks/walkcurr/STATUS.md,
+    # 08-23): both swing3/swing9 converge to a STATIC held pose that
+    # collects whatever income/charge balance is on offer without
+    # discovering rhythmic 6-leg cycling; a static pose stops
+    # generating fresh states, so RND's own intrinsic income should
+    # decay toward 0 there while any state-visiting policy keeps
+    # collecting it. Default 0.0 = OFF, bit-exact legacy: no wrapper,
+    # no callback, no predictor/target nets constructed.
+    ap.add_argument("--rnd-coef", type=float, default=0.0,
+                    help="RND intrinsic-reward blend weight: "
+                         "r = r_env + rnd_coef * (intrinsic / "
+                         "running_std(intrinsic)). >0 wraps the vec "
+                         "env in RNDVecWrapper (rnd_vec.py) and trains "
+                         "the predictor online each rollout.")
+    ap.add_argument("--rnd-hidden", type=int, default=128,
+                    help="predictor/target MLP hidden width (only "
+                         "read when --rnd-coef > 0).")
+    ap.add_argument("--rnd-out-dim", type=int, default=64,
+                    help="predictor/target output embedding width.")
+    ap.add_argument("--rnd-lr", type=float, default=1e-4,
+                    help="predictor Adam learning rate.")
+    ap.add_argument("--rnd-buffer", type=int, default=200_000,
+                    help="observation ring-buffer rows the predictor "
+                         "trains from each rollout.")
+    ap.add_argument("--rnd-train-steps", type=int, default=4,
+                    help="predictor minibatch updates per PPO rollout "
+                         "(rollout-end callback, mirrors "
+                         "--amp-disc-steps).")
+    ap.add_argument("--rnd-train-batch", type=int, default=256,
+                    help="predictor minibatch size per update.")
     ap.add_argument("--use-sde", action="store_true",
                     help="SB3 generalized State-Dependent Exploration "
                          "(gSDE): sample ONE noise matrix per rollout "
@@ -1728,7 +1760,7 @@ def main(argv: list[str] | None = None) -> int:
                          "sets cfg goal.walk_curriculum + "
                          "goal.walk_pure at env construction")
     ap.add_argument("--walk-curriculum-version", type=int, default=1,
-                    choices=(1, 2, 3, 4, 5),
+                    choices=(1, 2, 3, 4, 5, 6),
                     help="1 = WALKCURR_BUCKETS (walkcurr1), 2 = "
                          "WALKCURR_BUCKETS_V2 ignition ladder "
                          "(walkcurr2), 3 = WALKCURR_BUCKETS_V3 "
@@ -1739,7 +1771,11 @@ def main(argv: list[str] | None = None) -> int:
                          "anti-skate ladder adjacent to bcgait1-hard1 "
                          "(operator order fb_20260820T075230_4a90c6; "
                          "strict slip/direction/height gates, pairs "
-                         "with reward.k_loadslip_excess)")
+                         "with reward.k_loadslip_excess), 6 = hist16 "
+                         "full-circle joystick ladder (operator order "
+                         "fb_20260823T220651_5c66e3; bridge -> front45 "
+                         "-> side90 -> rear135/180 -> full circle "
+                         "-> DR 0.2/0.5)")
     ap.add_argument("--walkcurr-cert-every", type=int, default=500_000,
                     help="deterministic certification cadence (steps)")
     ap.add_argument("--walkcurr-cert-episodes", type=int, default=8,
@@ -1942,7 +1978,7 @@ def main(argv: list[str] | None = None) -> int:
                 "latest); drop --best-ckpt/--ev-stop-min")
         if (args.init_from is not None and not args.init_from_actor_only
                 and not args.init_from_policy_backbone
-                and args.walk_curriculum_version != 5):
+                and args.walk_curriculum_version not in (5, 6)):
             raise SystemExit("--walk-curriculum is a fresh-actor "
                              "acquisition contract (walkcurr lineage); "
                              "a full-checkpoint --init-from is not wired "
@@ -1952,6 +1988,7 @@ def main(argv: list[str] | None = None) -> int:
                              "promotion state fresh; EXCEPTION: V5 is "
                              "an adjacent-continuation ladder by "
                              "operator order fb_20260820T075230_4a90c6 "
+                             "and V6 by fb_20260823T220651_5c66e3 "
                              "— warm full-checkpoint --init-from is "
                              "allowed there, curriculum state still "
                              "starts fresh)")
@@ -1960,8 +1997,10 @@ def main(argv: list[str] | None = None) -> int:
             raise SystemExit("--walkcurr-post-promo-actor-lr requires "
                              "--actor-lr (it retargets the "
                              "update_health actor param group)")
-        if args.walk_curriculum_version in (4, 5):
-            if args.walk_curriculum_version == 5:
+        if args.walk_curriculum_version in (4, 5, 6):
+            if args.walk_curriculum_version == 6:
+                from .walk_task import WALKCURR_BUCKETS_V6 as _wc_tbl
+            elif args.walk_curriculum_version == 5:
                 from .walk_task import WALKCURR_BUCKETS_V5 as _wc_tbl
             else:
                 from .walk_task import WALKCURR_BUCKETS_V4 as _wc_tbl
@@ -2391,6 +2430,18 @@ def main(argv: list[str] | None = None) -> int:
             seed=args.seed, disc_init=args.amp_disc_init,
             style_mask_dims=mask_dims)
         venv = amp_wrap
+    rnd_wrap = None
+    if args.rnd_coef > 0.0:
+        # Under VecMonitor so ep_rew_mean reflects the BLENDED reward
+        # (the actual PPO training signal), same convention as AMP
+        # style above. Operates on the raw observation vector directly
+        # — no env cfg injection needed (unlike AMP's amp_obs_style).
+        from .rnd_vec import RNDVecWrapper
+        rnd_wrap = RNDVecWrapper(
+            venv, rnd_coef=args.rnd_coef, hidden=args.rnd_hidden,
+            out_dim=args.rnd_out_dim, lr=args.rnd_lr,
+            buffer_size=args.rnd_buffer, seed=args.seed)
+        venv = rnd_wrap
     venv = VecMonitor(venv)
     print(f"[mjx-train] vec env up in {time.monotonic() - t0:.1f}s "
           f"(compile + {args.pool_per_env + 1} reset choreographies)")
@@ -2620,8 +2671,9 @@ def main(argv: list[str] | None = None) -> int:
         from .walk_task import WALKCURR_BUCKETS_V3 as _WC3
         from .walk_task import WALKCURR_BUCKETS_V4 as _WC4
         from .walk_task import WALKCURR_BUCKETS_V5 as _WC5
+        from .walk_task import WALKCURR_BUCKETS_V6 as _WC6
         _tbl = {1: _WC1, 2: _WC2, 3: _WC3, 4: _WC4,
-                5: _WC5}[args.walk_curriculum_version]
+                5: _WC5, 6: _WC6}[args.walk_curriculum_version]
         print("[walkcurr] realized per-bucket DR (overrides --dr-scale "
               f"{args.dr_scale:g} per episode): "
               + " ".join(f"b{i}={row['dr']:g}"
@@ -3739,6 +3791,33 @@ def main(argv: list[str] | None = None) -> int:
         print(f"[amp-style] discriminator co-training armed: "
               f"{args.amp_disc_steps} updates x {args.amp_disc_batch} "
               "batch per rollout")
+    if rnd_wrap is not None:
+        class _RNDCb(BaseCallback):
+            """Online RND predictor update, once per PPO rollout
+            (mirrors _AMPDiscCb's cadence): trains toward the frozen
+            target on buffered (already-visited) obs. Never
+            constructed when --rnd-coef is 0 (bit-exact off path)."""
+
+            def _on_step(self) -> bool:
+                return True
+
+            def _on_rollout_end(self) -> None:
+                stats = rnd_wrap.train_predictor(
+                    args.rnd_train_steps, args.rnd_train_batch)
+                roll = rnd_wrap.pop_rollout_stats()
+                if run is not None:
+                    import wandb
+                    payload = {"global_step": self.num_timesteps,
+                               "rnd/intrinsic_mean": roll["intrinsic_mean"]}
+                    if stats is not None:
+                        payload.update({f"rnd/{k}": v
+                                        for k, v in stats.items()})
+                    wandb.log(payload)
+
+        callbacks.append(_RNDCb())
+        print(f"[rnd] predictor co-training armed: "
+              f"{args.rnd_train_steps} updates x {args.rnd_train_batch} "
+              "batch per rollout")
     if args.predictive_live:
         class _LivePredictorCapture(BaseCallback):
             """Harvest a bounded MJX subset into CUDA live replay."""
@@ -4226,14 +4305,15 @@ def main(argv: list[str] | None = None) -> int:
 
         from .walk_task import (WALKCURR_BUCKETS, WALKCURR_BUCKETS_V2,
                                 WALKCURR_BUCKETS_V3, WALKCURR_BUCKETS_V4,
-                                WALKCURR_BUCKETS_V5)
+                                WALKCURR_BUCKETS_V5, WALKCURR_BUCKETS_V6)
         from .walkcurr_cert import (WalkCurrController,
                                     aggregate_walk_probe,
                                     failed_probe_row,
                                     walkcurr_bucket_pass)
         wc_table = {1: WALKCURR_BUCKETS, 2: WALKCURR_BUCKETS_V2,
                     3: WALKCURR_BUCKETS_V3, 4: WALKCURR_BUCKETS_V4,
-                    5: WALKCURR_BUCKETS_V5}[args.walk_curriculum_version]
+                    5: WALKCURR_BUCKETS_V5,
+                    6: WALKCURR_BUCKETS_V6}[args.walk_curriculum_version]
         core_venv = _unwrap_vec(venv)
         wc_best_path = POLICY_DIR / f"{out_name}_best.zip"
         wc_promo_dir = POLICY_DIR / "walkcurr_promotions"

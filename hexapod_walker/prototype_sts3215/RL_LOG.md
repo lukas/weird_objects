@@ -433,3 +433,6 @@ DIG-IN: cw-amp-m4-turnpushfault1-style05-r2 — mechanism-safety PASS but turn t
 - 08-23 21:46 amp phasehz11-s17 PASS: full m5 pass on 2nd seed (prog 0.983, slip 2.66, tips 0.114/0.166, 0 falls); 1.1Hz pass-rate 2/4, s23/s29 decide 
 - 08-23 21:58 amp phasehz11-s29 PASS: strongest m5 ever (prog 1.058/slip 2.883/tips 0.111-0.142, 0 falls) -- 4-seed gate >=3/4, M5 GREEN, s29 new champion 
 - 08-23 21:58 amp phasehz11-s23 PASS: full m5 (prog 0.959/slip 3.294/tips 0.139-0.140, 0 falls) -- third seed, 4-seed gate sealed at >=3/4 
+- 08-23 22:07 walkcurr rung0-swing9 FAIL: 3x swing dose finds a NEW cheat (static all-legs-airborne hover, 0/6 det gait_valid, reward_swing falling not rising) not the old frozen crouch -- joint read with swing3 decides rung-0 sub-goal's fate 
+- 08-23 22:08 amp phasehz05-cont2 FAIL (pre-registered): +4M -> prog 0.669->0.691 (<0.72 line, gain collapsed), tips held 0.113/0.160 -- 0.5Hz budget route refuted, lineage closed, operating point 1.1Hz/conditional-clock 
+- 08-23 22:13 walkcurr rung0 swing3 (1x k_walk_swing): FAIL, one-leg-stand stork pose, reward+eval both declining (aligned per 08-21) -- joint with swing9 refutes swing-income rung-0, escalate RND/stance-duty 
