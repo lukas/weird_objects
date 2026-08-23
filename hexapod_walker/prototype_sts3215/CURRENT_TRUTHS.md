@@ -164,6 +164,20 @@ follow-ups.
   favors teacher). Both named gaps in the track's own DONE-gate text
   are now closed: **track goal MET, work is maintenance-only**
   (hardware drive of the exported controller stays [operator]).
+- **AMP M5 GATE GREEN (08-23 ~22:0x — 4/4 seed replication; track
+  DONE at M5 per `rl_docs/AMP_LOCOMOTION.md`, M6 hardware is
+  [operator])**: the 1.1 Hz cadence recipe
+  (`goal.walk_phase_hz=1.1` on the phasehz05/pushcal518 lineage)
+  passes the full own-cfg `eval_amp_m5` suite (walk judged at
+  wpm24, n_translating=28) on seeds 7/17/23/29 — every section, zero
+  falls/terms in every read, strips watched. Bars 0.75 prog / 3.5
+  slip / 0.20 tips; reads: seed7 0.893/3.131/0.145, s17
+  0.983/2.661/0.114-0.166, s23 0.959/3.294/0.138-0.140, s29
+  **1.058/2.883/0.111-0.142** (best). **M5 champion:
+  `ppo_goal_cw_amp_m4_turnfault_seq1_pushcont1_tipfrac05_pushcal518_phasehz11_s29.zip`.**
+  Cadence dose curve is NON-monotone (0.7-0.9 Hz walk trough); never
+  retune below 1.1 Hz without new evidence. Evidence:
+  `logs/ckpt_eval/..._phasehz11{,_s17,_s23,_s29}_m5/`.
 - **JOYSTICK DONE-GATE DECLARED MET (08-23, assume-and-go, cycle
   c0823-seed37-triage — answering `OPERATOR_QUESTIONS.md`
   q_20260822T1730Z, unresolved for a full day across many cycles that

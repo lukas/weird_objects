@@ -431,3 +431,5 @@ DIG-IN: cw-amp-m4-turnpushfault1-style05-r2 — mechanism-safety PASS but turn t
 - 08-23 21:27 walkcurr rscale10-cont1b FAIL: un-crushed PPO (clip 0.03-0.16 all run) still never discovers stepping -- freeprog flat [-0.05,-0.08] over +4M, 0/6 static-crouch video; x0.1 lineage closed, escalation pends sibling rscale50-cont1 read 
 - 08-23 21:33 walkcurr rscale50-cont1 FAIL: +4M, freeprog never crossed 0 (plateau -0.05..-0.10), det 0/6 static crouch w/ healthy clip_fraction 0.07-0.11 -- crush fix necessary not sufficient; firing pre-registered rung-0 escalation 
 - 08-23 21:46 amp phasehz11-s17 PASS: full m5 pass on 2nd seed (prog 0.983, slip 2.66, tips 0.114/0.166, 0 falls); 1.1Hz pass-rate 2/4, s23/s29 decide 
+- 08-23 21:58 amp phasehz11-s29 PASS: strongest m5 ever (prog 1.058/slip 2.883/tips 0.111-0.142, 0 falls) -- 4-seed gate >=3/4, M5 GREEN, s29 new champion 
+- 08-23 21:58 amp phasehz11-s23 PASS: full m5 (prog 0.959/slip 3.294/tips 0.139-0.140, 0 falls) -- third seed, 4-seed gate sealed at >=3/4 

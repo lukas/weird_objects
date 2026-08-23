@@ -1,6 +1,33 @@
 # amp - AMP locomotion from scratch
 
-Last updated: 2026-08-23 ~21:4x (**SEED 2/4 CONFIRMS — `-phasehz11-s17`
+Last updated: 2026-08-23 ~22:0x (**M5 GATE GREEN — 4/4 SEED
+REPLICATION COMPLETE; TRACK GOAL MET (sim scope).** `-phasehz11-s23`
+and `-s29` both VERDICTED full m5 PASS this cycle (own-cfg suite,
+walk wpm24 n_translating=28): s29 walk det_prog_med **1.058** /
+det_slip_med **2.883**, yaw tips **0.1109/0.1421** — the strongest
+M5 read in program history; s23 prog 0.959 / slip 3.294, tips
+0.1398/0.1383; both 0 falls/terms in every section, gait 48/48 walk
++ 12/12 push + >=11/12 fault, walk det strips watched (upright,
+level, six legs cycling, no flag leg). With seed-7 (base) and s17
+(concurrent cycle) the pre-registered 4-seed pass-rate gate reads
+**4/4** — the 1.1 Hz cadence sweet spot is recipe-level, not seed
+luck. **M5 champion: `ppo_goal_..._phasehz11_s29.zip`** (best prog
+AND tips of the four passers; champions append-only; SKILLS.md row
+added). Per `rl_docs/AMP_LOCOMOTION.md` the track is DONE at M5; M6
+(hardware transfer) is operator-owned.
+
+## WAITING-ON
+
+- `[operator]` M6 hardware transfer of the M5 champion
+  (`..._phasehz11_s29.zip`, dialect: walk_phase_obs 1.1 Hz,
+  obs_body_vel=2, fault_health obs) — physical-robot step, out of
+  agent scope. Sim-side amp work is COMPLETE unless the operator
+  re-opens (e.g. orders an M5 margin-hardening pass or a
+  cross-engine robustness sweep). Secondary open read (not blocking,
+  other cycle): `-phasehz05-cont1`/`cont2` 0.5 Hz continuation —
+  only relevant if it someday jointly beats 1.1's prog+slip.
+
+Previous banner (~21:4x (**SEED 2/4 CONFIRMS — `-phasehz11-s17`
 VERDICTED PASS, full m5 green on an independent seed with BETTER
 margins than the base: walk det_prog_med 0.983 / det_slip_med 2.661
 (wpm24, n_translating=28, bars 0.75/3.5), yaw tips 0.1141/0.1655
