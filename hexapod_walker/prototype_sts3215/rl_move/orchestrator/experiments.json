@@ -133329,7 +133329,8 @@
           "W&B global_step stalled at 6029312"
         ]
       }
-    ]
+    ],
+    "triage": "in-cycle cw-amp-m3-pushcur1-noamp-b1530-cw-amp-m3-pushcur1-noamp-repe since 2026-08-23T01:00:49"
   },
   {
     "run": "cw-amp-m3-pushcur1-noamp-repeat2",
@@ -133456,7 +133457,22 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:amp PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-amp-m3-pushcur1-noamp-repeat2 --steps 6000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_amp_m3_pushacq1_noamp.zip --episode-seconds 15 --no-canary --eval-every 1000000 --video-every 2000000 --n-envs 4096 --impl warp --host-workers 24 --seed 7 --ent-coef 0.001 --warm-log-std-override -2.0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set goal.walk_phase_obs=1 --cfg-set goal.walk_phase_hz=1.333333 --cfg-set goal.walk_obs_body_vel=2 --cfg-set goal.walk_heading_max_rad=-1 --cfg-set goal.walk_speed_min_m_s=0.08 --cfg-set goal.walk_speed_max_m_s=0.08 --cfg-set goal.walk_cmd_mode=stress_mix --cfg-set goal.walk_cmd_resample_s=4.0 --cfg-set goal.walk_cmd_resample_jitter=0.5 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set bus.write_speed=1500 --cfg-set bus.write_acc=80 --cfg-set bus.servo_vel_max_counts_s=write_speed --cfg-set safety.max_delta_q_deg=5.0 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --cfg-set reward.term_penalty=400.0 --cfg-set reward.k_step_event=0.0 --cfg-set reward.k_park_duty=0.0 --cfg-set reward.k_walk_freeprog=0.0 --cfg-set reward.walk_loadslip_gate=0.0 --cfg-set reward.k_loadslip_excess=0.0 --cfg-set reward.walk_gait_gate=0.0 --cfg-set reward.k_walk_idle_charge=0.0 --cfg-set reward.k_drag_stance=0.0 --out-name ppo_goal_cw_amp_m3_pushcur1_noamp_repeat2 --notes 'respec of cw-amp-m3-pushhard1-noamp-repeat3-r1: Plain English: the jump from one shove to three per episode gave the walker nothing to learn from (repeat3-r1: reward and tilt-terms flat for the whole 6M) \u2014 this tests whether staging the COUNT axis one rung at a time unlocks it, training at dr.ext_push_repeat_max=2 (up to TWO 10-25N shoves, gaps 1-3s) from the clean single-shove champion. Everything else identical to repeat3-r1. Prediction-if-true: tilt terms START high and FALL (unlike repeat3-r1'\"'\"'s flat-from-Q1 line) and the gate at repeat_max=2 holds topples <=1/6 det + <=2/6 sto \u2014 count is learnable in rungs, and repeat3 becomes stage 2 from this checkpoint. Prediction-if-false: terms flat here too \u2014 the second shove during recovery is a qualitatively different problem (mid-recovery balance) that dose staging cannot reach, naming a recovery-state curriculum or longer episodes as the real M3 lever. Strongest alternative: repeat2 is already almost free from the single-shove prior (terms start AND stay low, gate clean) \u2014 then the plateau at 3 is about shove DENSITY vs episode length, not count per se.' --cfg-set dr.ext_push_prob=1.0 --cfg-set dr.ext_push_repeat_max=2 > /tmp/train_cw-amp-m3-pushcur1-noamp-repeat2.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-amp-m3-pushcur1-noamp-repeat2.log",
     "wandb_id": "dkgr0fpb",
-    "verified": "2026-08-23T00:52:52+00:00"
+    "verified": "2026-08-23T00:52:52+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-23T00:58:40+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 0,
+        "fps": 182.0,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "SUSPECT",
+        "problems": [
+          "fps 182 below expected floor 5000 for solo on GPU-MJX pod \u2014 starved or misplaced; consider rebalancing"
+        ]
+      }
+    ],
+    "triage": "in-cycle cw-amp-m3-pushcur1-noamp-b1530-cw-amp-m3-pushcur1-noamp-repe since 2026-08-23T01:00:49"
   },
   {
     "run": "cw-amp-m3-pushcur1-noamp-b1530",
@@ -133583,7 +133599,20 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:amp PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-amp-m3-pushcur1-noamp-b1530 --steps 6000000 --task joint_walk --init-from rl_move/sim/policies/ppo_goal_cw_amp_m3_pushacq1_noamp.zip --episode-seconds 15 --no-canary --eval-every 1000000 --video-every 2000000 --n-envs 4096 --impl warp --host-workers 24 --seed 7 --ent-coef 0.001 --warm-log-std-override -2.0 --goal-mix walk=1.0,hold=0.0,lean=0.0,track=0.0,unload=0.0,raise=0.0,rise=0.0,lower=0.0 --cfg-set goal.walk_phase_obs=1 --cfg-set goal.walk_phase_hz=1.333333 --cfg-set goal.walk_obs_body_vel=2 --cfg-set goal.walk_heading_max_rad=-1 --cfg-set goal.walk_speed_min_m_s=0.08 --cfg-set goal.walk_speed_max_m_s=0.08 --cfg-set goal.walk_cmd_mode=stress_mix --cfg-set goal.walk_cmd_resample_s=4.0 --cfg-set goal.walk_cmd_resample_jitter=0.5 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set bus.write_speed=1500 --cfg-set bus.write_acc=80 --cfg-set bus.servo_vel_max_counts_s=write_speed --cfg-set safety.max_delta_q_deg=5.0 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --cfg-set reward.term_penalty=400.0 --cfg-set reward.k_step_event=0.0 --cfg-set reward.k_park_duty=0.0 --cfg-set reward.k_walk_freeprog=0.0 --cfg-set reward.walk_loadslip_gate=0.0 --cfg-set reward.k_loadslip_excess=0.0 --cfg-set reward.walk_gait_gate=0.0 --cfg-set reward.k_walk_idle_charge=0.0 --cfg-set reward.k_drag_stance=0.0 --out-name ppo_goal_cw_amp_m3_pushcur1_noamp_b1530 --notes 'respec of cw-amp-m3-pushhard1-noamp-n2040: Plain English: a shove-force CURRICULUM should reach 20-40N robustness where the flat jump plateaued \u2014 this is stage 1, an intermediate 15-30N bridge dose trained from the clean 10-25N champion (pushacq1-noamp, 0/12 topples), with a later cycle chaining stage 2 (20-40N) from this run'\"'\"'s checkpoint. Same recipe as pushhard1-noamp-n2040 except dr.ext_push_n=15,30 and everything else identical. Prediction-if-true: training tilt-terms fall well below n2040'\"'\"'s plateau (pitch settled ~53/window there; expect <25) and the DR-0 own-cfg gate at 15-30N holds topples <=1/6 det and <=2/6 sto with gait_valid >=5/6 and det prog med >=0.9, making the 20-40N stage-2 chain the next rung. Prediction-if-false: even 15-30N plateaus above the bar \u2014 the recoverable-force ceiling is closer to 25N than 40N and M3 needs a recovery-specific mechanism (e.g. get-up/recovery reward or longer episodes), not just dose staging. Strongest alternative: the matched continuation arm (n2040-c1, launched same cycle) closes the gap with raw budget alone, meaning curriculum staging is unnecessary.' --cfg-set dr.ext_push_prob=1.0 --cfg-set dr.ext_push_n=15,30 > /tmp/train_cw-amp-m3-pushcur1-noamp-b1530.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-amp-m3-pushcur1-noamp-b1530.log",
     "wandb_id": "ynpvsudc",
-    "verified": "2026-08-23T00:54:37+00:00"
+    "verified": "2026-08-23T00:54:37+00:00",
+    "triage": "in-cycle cw-amp-m3-pushcur1-noamp-b1530-cw-amp-m3-pushcur1-noamp-repe since 2026-08-23T01:00:49",
+    "checkups": [
+      {
+        "time": "2026-08-23T01:00:30+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 2137,
+        "verdict": "SUSPECT",
+        "problems": [
+          "W&B no longer reports the run as running"
+        ]
+      }
+    ]
   },
   {
     "run": "cw-amp-m3-pushhard1-noamp-n2040-c1",
