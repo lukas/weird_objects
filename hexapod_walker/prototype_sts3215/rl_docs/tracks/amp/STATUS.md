@@ -1,6 +1,50 @@
 # amp - AMP locomotion from scratch
 
-Last updated: 2026-08-23 ~17:4x (**the wzmask2-s23/s13/s17 decider
+Last updated: 2026-08-23 ~18:1x (**yaw fork: SEVENTH mechanism class
+launched (surgical turn-clip splice), and the slip-axis "thin
+sampling" amendment is independently CONFIRMED at n=28 translating
+episodes.** Two pieces of work this cycle, unblocked by (and
+downstream of) the wzmask2 n=5 grid closure + the concurrent cycle's
+turn-authority probe (both above): (1) built `eval_amp_m5.py
+--walk-per-mode` (default None = old `--per-mode`, bit-exact, 2 new
+unit tests) implementing the `q_20260823T0700Z` amendment, then ran
+an eval-only (no GPU/training spend) walk-only re-read of the
+lineage's real M5-candidate base (`...pushcal518`) at
+`--walk-per-mode 24`: n_translating jumps from ~3/12 to 13/24 det +
+15/24 sto, det_slip_med **3.553** — lands exactly on the earlier
+per-mode-12 read (3.553) and squarely in the family's 3.47-3.83 band,
+confirming (independently, 2nd invocation) that the walk-slip bar
+miss is noise-floor, not a live mechanism; 0 falls/terms, gait_valid
+24/24. (2) Built `merge_motion_library.py` (11/11 new unit tests) to
+splice NAMED clip families from one motion library into another,
+tick-range-exact — the tool neither `teacher_v3` (rescaled the
+SCRIPTED teacher's own turn clips, dose too small, `-turnlib3` FAIL)
+nor `cpgdemo1` (swapped the WHOLE library, slip regressed,
+`-cpgdemo1` FAIL) provided: isolate ONLY the turn_ccw/turn_cw demo
+family (the exact clips the M5 tip-left/right bar scores) at the
+CPG-search controller's own achieved rate (~0.29 rad/s at commanded
+0.30, just confirmed plant-reachable by the concurrent cycle's
+turn-authority probe), leaving every other family byte-identical to
+`teacher_v2` so a `cpgdemo1`-style slip trade is far less likely.
+Built `teacher_v4.npz` (39/45 clips from `teacher_v2`, 6/45 turn
+clips from `cpg_v1`; loads clean under `MotionLibrary`'s per-clip-
+neutral hard-fail check) and launched `-turnclip1` (single lever
+`--amp-motion-lib` v2->v4 on the unmutated `pushcal518` recipe, 2M
+discovery, VERIFIED RUNNING train-2) — the seventh yaw mechanism
+class and the first genuinely un-refuted one (pricing/demo-ceiling/
+style-ablation/densification/cpg-full-swap/discriminator-obs-masking
+are all closed FAIL). Pre-registered gate: PASS both tips improve
+>=0.03 with >=1 side <=0.22 and slip stays 3.2-4.0 and 0 falls;
+PARTIAL one tip clears or slip regresses >0.3 (cpgdemo1 trade
+reproduced); FAIL tips unmoved (+-0.02, wzmask2-grid-calibrated
+floor) -> closes ALL demo-side yaw mechanisms, leaving only
+curriculum/exposure (non-demo) mechanisms or the bar-amendment
+(already answered NO this cycle, q_20260823T0130Z/q_20260823T1750Z:
+0.30 rad/s is plant-reachable) as open forks. Evidence:
+`logs/ckpt_eval/diag_pushcal518_walkpermode24/`,
+`rl_move/orchestrator/OPERATOR_QUESTIONS.md` q_20260823T1750Z.)
+
+Previous entry (~17:4x: **the wzmask2-s23/s13/s17 decider
 grid is CLOSED at full n=5 — the gyro-channel yaw hypothesis is DEAD
 FOR REAL, and the close was predicted exactly by order-statistics
 math before the last arm even finished.** All five draws of the

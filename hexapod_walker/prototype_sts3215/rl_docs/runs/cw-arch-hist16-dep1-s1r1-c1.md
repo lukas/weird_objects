@@ -4,7 +4,7 @@
 
 **status**: REFUSED
 
-**created**: 2026-08-23T18:05:52+00:00
+**created**: 2026-08-23T18:10:51+00:00
 
 **pod**: hexapod-mjx-train-9
 
@@ -16,5 +16,5 @@
 
 **gate**: vs parent s1r1 and vs c1: own-cfg DR0.5 det+sto 6/6 gait_valid, 0 terminations; DR0 gate det+sto 6/6 gv, 0 term; joystick gate (eval_drive) 0 falls; video visually ordinary six-leg gait, no flag leg; slip/m improves or holds from s1r1's det 1.28-1.35 toward c1 levels (target det <=~1.25, sto <=~1.37)
 
-**refused_reason**: hexapod-mjx-train-9 code marker 91af10929f5227e588c32635d1597aaefbeddecb-dirty != local HEAD 62ea2893696d5b29518d4d7b9aaad0a8c2f0ba79 and the delta is not benign-orchestrator-only. Sync first: snapshot.sh --sync hexapod-mjx-train-9 (and snapshot/commit before that if the tree is dirty).
+**refused_reason**: hexapod-mjx-train-9 code marker 3ae146db02614653559c5650fd76d04a19e31b53-dirty != local HEAD 3ae146db02614653559c5650fd76d04a19e31b53 and the delta is not benign-orchestrator-only. Sync first: snapshot.sh --sync hexapod-mjx-train-9 (and snapshot/commit before that if the tree is dirty).
 

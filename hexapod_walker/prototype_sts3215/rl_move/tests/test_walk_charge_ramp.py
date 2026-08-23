@@ -10,14 +10,23 @@ instantly punishes exploratory flailing, while every income channel
 (step events, freeprog, even the direction-free swing bonus at its
 bank-capped dose) pays orders of magnitude less than the charges cost
 (env/reward_walk_prog identically 0.0 across all three runs). This
-ramp starts the four dense walk charges (k_loadslip_excess,
-k_park_duty, k_walk_idle_charge, k_walk_heading) at
-walk_charge_ramp_min_frac of their bank-proven dose and anneals them
-linearly UP to full over reward.walk_charge_ramp_steps global env
-steps, mirroring the term-penalty ramp's construction exactly
-(cfg-armed, trainer-driven via apply_walk_charge_frac, default OFF =
-bit-exact legacy, armed-but-unbroadcast sits at the FULL charges so
-evals always judge the bank-proven pricing).
+ramp starts three DISCOVERY-FRICTION walk charges (k_park_duty,
+k_walk_idle_charge, k_walk_heading) at walk_charge_ramp_min_frac of
+their bank-proven dose and anneals them linearly UP to full over
+reward.walk_charge_ramp_steps global env steps, mirroring the
+term-penalty ramp's construction exactly (cfg-armed, trainer-driven
+via apply_walk_charge_frac, default OFF = bit-exact legacy,
+armed-but-unbroadcast sits at the FULL charges so evals always judge
+the bank-proven pricing).
+
+k_loadslip_excess is DELIBERATELY EXCLUDED from the ramp (bank
+finding, same day, test_task_semantics.py
+test_walkcurr_chargeramp_min_ranking_holds): scaling it down at the
+shared min_frac=0.15 made 'skate' (+130.6) and the swing-farming
+'shuffle' twin (+227.9) both beat every wrong-way/standing behavior —
+the ramp must only loosen the charges that make REFUSING to move
+look falsely cheap, never the anti-skate/anti-fall floor. It always
+charges at full dose regardless of ramp state.
 
 Contract under test:
   - default (key absent/0) is bit-exact OFF: no ramp state, apply
