@@ -770,7 +770,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                           "_ls_slip_m", "_ls_prog_m",
                           "_yaw_still_ema", "_yaw_prog_ema", "_stance_slip_acc",
                           "_walk_idle_ema", "_walk_course_ema",
-                          "_walk_kernel_vema",
+                          "_walk_kernel_vema", "_walk_kernel_wz_ema",
                           "_gait_last_step", "_gait_cmd_tick",
                           "_gait_gate_qfactor", "_wp", "_vel_est")
 
@@ -871,6 +871,9 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # Stride-EMA velocity for the tracking kernel
         # (reward.walk_kernel_vel_ema); same lifecycle.
         self._walk_kernel_vema = [0.0, 0.0]
+        # Stride-EMA yaw-rate for the yaw tracking kernel
+        # (reward.walk_kernel_yaw_ema); same lifecycle.
+        self._walk_kernel_wz_ema = 0.0
         # Structural stance-slip charge (2026-08-11 charge-magnitude
         # audit, probe_drag_audit.py / GAIT.md P2): accumulated loaded
         # XY travel of the CURRENT stance period per foot. Reset at
@@ -1307,6 +1310,9 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # Stride-EMA velocity for the tracking kernel
         # (reward.walk_kernel_vel_ema); same lifecycle.
         self._walk_kernel_vema = [0.0, 0.0]
+        # Stride-EMA yaw-rate for the yaw tracking kernel
+        # (reward.walk_kernel_yaw_ema); same lifecycle.
+        self._walk_kernel_wz_ema = 0.0
         self._stance_slip_acc = [0.0] * 6
         self._gait_last_step = [0] * 6
         self._gait_cmd_tick = 0
@@ -2923,6 +2929,9 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # Stride-EMA velocity for the tracking kernel
         # (reward.walk_kernel_vel_ema); same lifecycle.
         self._walk_kernel_vema = [0.0, 0.0]
+        # Stride-EMA yaw-rate for the yaw tracking kernel
+        # (reward.walk_kernel_yaw_ema); same lifecycle.
+        self._walk_kernel_wz_ema = 0.0
         self._stance_slip_acc = [0.0] * 6
         self._gait_last_step = [0] * 6
         self._gait_cmd_tick = 0
@@ -3155,9 +3164,54 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 wz = self._body_wz()
                 sig_w = float(cfg_get(self.cfg, "reward",
                                       "yaw_sigma_rad_s", default=0.15))
+                # Stride-EMA yaw kernel (08-23, hold/forward income-
+                # dominance audit, probe_walk_income yawcmd0 stack): the
+                # SAME sway-tax defect the walk_kernel_vel_ema fix
+                # (phasedir7/7b/8) repaired for the linear-velocity
+                # kernel exists here too, unfixed — a genuine full-stop
+                # hold command pins wz near 0 with almost no variance
+                # (nothing is moving), while an honest walking/turning
+                # gait's body yaw-rate oscillates stride-to-stride around
+                # its achieved mean even when perfectly on-command, so
+                # the INSTANTANEOUS Gaussian never sits at its peak for
+                # real motion the way it does for standing still.
+                # Measured (probe_walk_income, ypfix1 checkpoint, full
+                # 15s pinned segments): reward_walk_yaw hold=374 vs
+                # forward=203 vs tip_left/right=132/147 — a real
+                # richness gap on TOP of the k_yaw_prog/k_yaw_still
+                # progress bonuses those segments already collect, part
+                # of the measured hold/forward income dominance
+                # (q_20260823T0240Z item b) that eroded turn+push
+                # tracking under extra budget (tipfrac05-acq1). Fix
+                # mirrors walk_kernel_vel_ema exactly in scope: ONLY the
+                # kernel's err term is smoothed; the g_yaw/g_hold
+                # achieved-rotation/achieved-progress gates below and
+                # k_yaw_prog/k_yaw_still still use the RAW instantaneous
+                # wz (those are correctness gates on real behavior, not
+                # a shaping kernel, and must not be desensitized).
+                # cfg reward.walk_kernel_yaw_ema > 0 turns it on; default
+                # 0.0 = bit-exact legacy (raw wz, unchanged). Update is
+                # unconditional while the flag is on (matches
+                # walk_kernel_vel_ema's stop-segments-included
+                # convention: the EMA lags any transition by ~tau for
+                # every candidate behavior equally, so it cannot be
+                # gamed by timing a segment boundary).
+                if float(cfg_get(self.cfg, "reward", "walk_kernel_yaw_ema",
+                                 default=0.0)) > 0.0:
+                    tau_kw = max(float(cfg_get(
+                        self.cfg, "reward", "walk_kernel_yaw_tau_s",
+                        default=0.75)), self.dt)
+                    a_kw = self.dt / tau_kw
+                    self._walk_kernel_wz_ema += a_kw * (
+                        wz - self._walk_kernel_wz_ema)
+                    wz_kernel = self._walk_kernel_wz_ema
+                    info["walk_kernel_wz_ema"] = wz_kernel
+                else:
+                    wz_kernel = wz
                 yaw_err = wz - goal.wz_ref
+                yaw_err_kernel = wz_kernel - goal.wz_ref
                 r_yaw = k_yaw * math.exp(
-                    -(yaw_err ** 2) / (2.0 * sig_w ** 2))
+                    -(yaw_err_kernel ** 2) / (2.0 * sig_w ** 2))
                 # Yaw income gated on ACHIEVED rotation (cw-walk-yawcmd1
                 # dig-in, 08-10: with sigma 0.15 the ungated kernel pays
                 # a command-ignoring policy exp(-.5*(0.135/0.15)^2)=0.67

@@ -658,7 +658,7 @@ def _turn_rollout(policy: str, wz_cmd: float, seed: int,
     plant_rad = np.array([0.0, *WALK_PLANT] * 6) * DEG2RAD
     gait.reset_phase()
 
-    total, step, yp_sum = 0.0, 0, 0.0
+    total, step, yp_sum, wy_sum = 0.0, 0, 0.0, 0.0
     while True:
         t = step * env.dt
         cmd = float(traj.wz[min(step, n - 1)])
@@ -682,10 +682,13 @@ def _turn_rollout(policy: str, wz_cmd: float, seed: int,
         _obs, r, term, trunc, _info = env.step(act)
         total += float(r)
         yp_sum += float(_info.get("reward_yaw_prog", 0.0))
+        wy_sum += float(_info.get("reward_walk_yaw", 0.0))
         step += 1
         if term or trunc:
             break
     env.close()
+    if return_terms == "walk_yaw":
+        return total, wy_sum
     if return_terms:
         return total, yp_sum
     return total
@@ -759,6 +762,108 @@ def test_turn_overshoot_decay_default_off_is_bit_exact():
     a = _turn_rollout("overspin", TURN_SLOW_WZ, SEEDS[0], TURN_OVERRIDES)
     b = _turn_rollout("overspin", TURN_SLOW_WZ, SEEDS[0], explicit)
     assert a == pytest.approx(b, abs=1e-9), (a, b)
+
+
+# ---------------------------------------------------------------------------
+# YAW KERNEL EMA (08-23, hold/forward income-dominance audit,
+# q_20260823T0240Z item b / probe_walk_income yawcmd0 stack). Mirrors
+# reward.walk_kernel_vel_ema (phasedir8, the linear-velocity kernel's
+# sway-tax fix) for the yaw-rate kernel — same defect, different axis:
+# a genuine full-stop hold command pins wz at ~0 with near-zero
+# variance (nothing is moving), so the INSTANTANEOUS Gaussian sits at
+# its peak almost every tick, while an honestly-tracking turner's body
+# wz oscillates stride-to-stride around its achieved mean even when
+# that mean matches the command well — the kernel never rewards it as
+# richly as standing still. Measured on the real ypfix1 checkpoint
+# (logs/probe_walk_income/hold_forward_income_ypfix1.json):
+# reward_walk_yaw hold=374 vs forward=203 vs tip_left/right=132/147.
+# Mechanism check below with the SCRIPTED references: "tracked"
+# achieves ~= the commanded rate (TRACKED_OMEGA tracks TURN_SLOW_WZ
+# ~1:1 per the overspin-farm bank above) but with real stride
+# oscillation (wz_std ~0.12 rad/s at a wz_mean ~0.07 rad/s command
+# 0.08); "turn" drives the gait at literally the commanded omega,
+# which this env's stepping dynamics under-realizes (achieved wz_mean
+# ~0.036, about HALF the command). Under the raw instantaneous kernel
+# the two are within noise of each other on reward_walk_yaw alone
+# (153.4 vs 154.4/ep, 6 seed/sign draws) — the kernel cannot tell
+# "close to the command with natural sway" from "well under the
+# command" apart, which is exactly the flat/no-gradient signal that
+# lets a turn-in-place skill stay undiscovered when it is rare in the
+# training distribution. With reward.walk_kernel_yaw_ema=1 the
+# ordering separates cleanly (196.5 vs 154.6) without moving "drift"
+# (the structural fixed off-command rotation, 115.9->113.1, slightly
+# DOWN) — the fix rewards accurate average tracking, not merely
+# rotating fast.
+TURN_YAWEMA_OVERRIDES = dict(TURN_FIX_OVERRIDES)
+TURN_YAWEMA_OVERRIDES.update({
+    ("reward", "walk_kernel_yaw_ema"): 1.0,
+    ("reward", "walk_kernel_yaw_tau_s"): 0.75,
+})
+
+
+def test_kernel_yaw_ema_default_off_is_bit_exact():
+    """New key absent vs explicitly 0.0: identical return AND no
+    state leak into pricing (the EMA branch must be dead code when
+    off, matching walk_kernel_vel_ema's own off-path contract)."""
+    explicit = dict(TURN_FIX_OVERRIDES)
+    explicit[("reward", "walk_kernel_yaw_ema")] = 0.0
+    a = _turn_rollout("tracked", TURN_SLOW_WZ, SEEDS[0], TURN_FIX_OVERRIDES)
+    b = _turn_rollout("tracked", TURN_SLOW_WZ, SEEDS[0], explicit)
+    assert a == pytest.approx(b, abs=1e-9), (a, b)
+
+
+def test_kernel_yaw_ema_separates_accurate_tracking_from_undershoot():
+    """THE FIX: under the raw instantaneous kernel, an honest tracker
+    whose ACHIEVED mean rotation matches the command (but oscillates
+    stride-to-stride) earns walk_yaw-kernel income within ~5/ep of a
+    policy that under-rotates by ~2x (153-159 vs 154/ep, well inside
+    the ~40/ep separation the EMA fix produces) — a near-flat gradient
+    toward better tracking on this channel alone.
+    With the EMA on, the accurate tracker must earn CLEARLY more than
+    the under-rotator (the ordering a turn-in-place skill needs to be
+    discoverable), and the structural fixed-drift reference must NOT
+    benefit (still well below both honest policies)."""
+    def mean_wy(policy: str, overrides: dict) -> float:
+        vals = [_turn_rollout(policy, s_wz * TURN_SLOW_WZ, s, overrides,
+                              return_terms="walk_yaw")[1]
+                for s in SEEDS for s_wz in (+1.0, -1.0)]
+        return float(np.mean(vals))
+
+    wy_off = {p: mean_wy(p, TURN_FIX_OVERRIDES)
+              for p in ("turn", "tracked", "drift")}
+    wy_on = {p: mean_wy(p, TURN_YAWEMA_OVERRIDES)
+             for p in ("turn", "tracked", "drift")}
+    assert wy_off["tracked"] <= wy_off["turn"] + 10.0, (
+        f"pre-fix baseline drifted — expected the accurate tracker to "
+        f"be statistically tied with (not already ahead of) the "
+        f"under-rotator on the raw kernel: {wy_off}")
+    assert wy_on["tracked"] > wy_on["turn"] + 20.0, (
+        f"EMA on but the kernel still can't separate accurate "
+        f"tracking from under-rotation: {wy_on}")
+    assert wy_on["drift"] < wy_on["turn"], (
+        f"EMA on made the structural off-command drift out-earn even "
+        f"the under-rotator on the kernel channel: {wy_on}")
+    assert wy_on["drift"] <= wy_off["drift"] + 5.0, (
+        f"EMA must not INCREASE the fixed drift's kernel income: "
+        f"off={wy_off['drift']} on={wy_on['drift']}")
+
+
+def test_kernel_yaw_ema_preserves_turn_beats_park_ordering():
+    """The already-closed stillness-subsidy ordering (turn_returns'
+    own turn > drift > park is NOT this bank's claim for TOTAL return
+    since park's zero-effort kernel/still income is a separate,
+    already-adjudicated design tradeoff — q_20260823T0130Z); this test
+    only pins that turning on the accurate-tracking reference still
+    clearly beats the fixed drift in TOTAL return with the new flag
+    on, i.e. the EMA does not resurrect the drift as a competitive
+    strategy once mixed with every other already-banked turn term."""
+    tot = {}
+    for p in ("tracked", "drift"):
+        vals = [_turn_rollout(p, s_wz * TURN_SLOW_WZ, s,
+                              TURN_YAWEMA_OVERRIDES)
+                for s in SEEDS for s_wz in (+1.0, -1.0)]
+        tot[p] = float(np.mean(vals))
+    assert tot["tracked"] > tot["drift"] + 20.0, tot
 
 
 def test_turn_command_signs_priced_symmetrically():
