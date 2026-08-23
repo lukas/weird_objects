@@ -137002,7 +137002,7 @@
       "goal.walk_phase_run_on_yaw=1"
     ],
     "created": "2026-08-23T01:59:52+00:00",
-    "status": "PASS",
+    "status": "INFORMATIVE-turn-eroded",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -137049,7 +137049,7 @@
       }
     ],
     "triage": "done",
-    "verdict": "TURN+PUSH COMPOSITION CLOSES WITH BUDGET: the 6M acquisition continuation (8M total) clears every pre-registered PASS branch. Evidence: DR-0 own-cfg gate (push+yaw both on) det prog med 1.113 (bar >=0.9, was 0.37 at 2M), 0/6 det + 2/6 sto terminations (bar <=1/6 det + <=2/6 sto, both genuine push topples on video's last frame not statues -- tilt_pitch/tilt_roll after 6-9 clean strides), gait_valid 6/6 det+sto, zero sacrificed legs. eval_yaw (ran manually, matching phase-obs cfg): tip-left/right err 0.1431/0.1152, both <=0.21 and within 0.05 of the pre-push turn substrate (0.1525/0.1614) -- turn tracking was NOT sacrificed for push survival (tip-right actually improved). Video (det_0, sto_2/0/4) shows clean six-leg alternating gait with visible heading rotation under push, genuine falls only on the two sto topples. Why: the 2M discovery read (r2, prog 0.37) was undertrained per the 08-21 ruling, not a broken combination -- same pattern as push-alone and fault-alone, which also needed a 3x acquisition step past their 2M discovery reads. What's next: turn+push is now acquisition-solid, so the M2->M3->M4 sequential-composition route (grafting fault onto THIS checkpoint, rather than a fresh 3-way stack) becomes runnable -- launching cw-amp-m4-turnpushfault1-style05 this cycle."
+    "verdict": "SELF-CORRECTION (same cycle): the earlier PASS verdict on this run's eval_yaw branch was WRONG \u2014 my manual eval_yaw check omitted the training servo profile (bus.write_speed/write_acc/servo_vel_max_counts_s/safety.max_delta_q_deg), silently defaulting to the gentle bus profile (write_speed=400/write_acc=20) instead of the trained fast profile (1500/80) \u2014 the exact self-inflicted eval-cfg bug already flagged once before on the joystick track (stotight45 second-seed-base re-eval note). Re-ran through the just-built eval_amp_m5 harness (which always sets the correct bus cfg) AND independently by hand with the correct bus cfg: tip-left/right err = 0.3838/0.4302 (my wrong reading: 0.1431/0.1152) -- both FAR over the 0.21 bar and WORSE than the historical park/statue fingerprint (0.28-0.33 rad/s). The substrate baseline (yawcmd0-r2, 0.1525/0.1614) reproduces EXACTLY through the same M5 harness, confirming the baseline was fine and only my manual check was misconfigured -- this is not a substrate-vs-substrate measurement error, it is a real, large turn-vs-push interference. CORRECTED VERDICT: INFORMATIVE-turn-eroded, this run's own pre-registered branch ('prog recovers but tip errs >0.21 / park fingerprint => turn-vs-push interference, repricing keys next'). The walk-side numbers in the withdrawn PASS stand unchanged (DR-0 own-cfg gate det prog med 1.113, topples 0/6 det+2/6 sto, gait_valid 6/6, zero sacrificed -- all still correct, only eval_yaw was misconfigured) but turn tracking IS badly sacrificed for push survival, not preserved. NEXT: apply the already-built+banked yaw_prog_overshoot_decay/yaw_prog_avg_s repricing keys (built for the yppeak arm) to this substrate instead of treating it as acquisition-solid. CAVEAT: this cycle already launched cw-amp-m4-turnpushfault1-style05(-r2) on the (now-refuted) premise that turn+push was solid -- letting the cheap 2M discovery finish since it is already running, but its 'graft fault onto a solid substrate' framing is invalid; re-read its result knowing turn was already broken on this substrate before fault was added, and do not cite it as sequential-composition evidence without re-verifying turn tracking with the CORRECT bus cfg."
   },
   {
     "run": "cw-amp-m4-turnfault1-style05-acq1-r5",
@@ -137184,7 +137184,7 @@
       "goal.walk_phase_run_on_yaw=1"
     ],
     "created": "2026-08-23T02:07:03+00:00",
-    "status": "RUNNING",
+    "status": "PASS-partial",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -137227,7 +137227,8 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-amp-m4-turnfault1-style05-acq1-r5-cw-amp-m4-turnpushfault since 2026-08-23T02:32:16"
+    "triage": "done",
+    "verdict": "Plain English: more training time fixed the leg-statue safety problem this 3-way stack (turn+heading+fault) had at 2M, but it did NOT teach the robot to turn in place -- that failure was already baked in before this run started and 6M more steps left it completely unchanged. Evidence: DR-0 own-cfg gate (fault_prob=1.0 baked into the eval cfg) gait_valid 12/12 det+sto (was 9/12 at 2M discovery with 3 sto leg-statues), zero terminations, zero sacrificed legs anywhere -- the run's own named mechanism-safety bar (>=10/12) clears cleanly and decisively. Progress/slip land in the same ballpark as the solo-axis fault comparison (faultobs2-headingsfull-style05 det 1.09/3.08, sto 0.57/7.26 prog/slip): this run's det med ~0.90/4.4, sto ~0.62/6.3. BUT the run's own second named comparison (eval_yaw turn tracking vs turnclone-yawcmd0-r2's 0.15-0.19) fails hard: hand-run eval_yaw panel (matched 93-dim cfg incl. fault_prob=1.0) gives tip-left/right err 0.2985/0.3002 rad/s -- essentially equal to |wz_ref| itself, i.e. the policy does not turn in place AT ALL -- vs turnpush1-style05-acq1-r2's 0.14/0.12 and turnclone-yawcmd0-r2's 0.15-0.19. Root cause isolated by running the IDENTICAL panel on the 2M discovery checkpoint: it ALSO reads tip err 0.30/0.30 (arc tracking a hair better at 2M: 0.13-0.17 vs 0.16-0.23 here) -- the tip-park defect predates this run entirely; the acquisition budget fixed gait safety but never touched (and did not worsen) turn-in-place tracking. Same defect class as the M2 turn-income finding (08-23 ~01:40 audit): hold/forward reward income dominates the tip-in-place cell, so a FRESH 3-way stack's optimizer never bothers to learn tip response, unlike the pairwise turn+push substrate (built from the turn-taught BC clone) which had already partially learned it before push/fault were grafted on. Video (all 12 det+sto strips) confirms clean six-leg cycling throughout, no flag-leg/dragging/statue -- the walking itself is genuinely good, it simply never rotates on the spot. Verdict: PASS on the run's own primary named gate (mechanism safety); the secondary named comparison (turn quality vs solo-axis) is an open gap, not a fresh regression caused by this run. Next: the sequential composition route already relaunched this cycle (cw-amp-m4-turnpushfault1-style05-r2, fault grafted onto the turn+push-solid checkpoint instead of a fresh 3-way stack) inherits the turn+push substrate's actual tip response -- that comparison will show whether sequencing (not just budget) is what recovers turn-in-place under fault composition."
   },
   {
     "run": "cw-amp-m4-pushfault1-noamp-r2",
@@ -137821,7 +137822,8 @@
           "W&B no longer reports the run as running"
         ]
       }
-    ]
+    ],
+    "triage": "in-cycle cw-amp-m4-pushfault1-noamp-acq1-cw-amp-m4-pushfault1-style05 since 2026-08-23T02:42:26"
   },
   {
     "run": "cw-amp-m4-turnpushfault1-style05-r2",
@@ -137999,7 +138001,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "in-cycle cw-amp-m4-pushfault1-noamp-acq1-cw-amp-m4-pushfault1-style05 since 2026-08-23T02:42:26"
   },
   {
     "run": "cw-amp-m4-pushfault1-noamp-acq1-r2",

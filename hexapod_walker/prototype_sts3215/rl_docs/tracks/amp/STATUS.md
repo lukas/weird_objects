@@ -1,6 +1,69 @@
 # amp - AMP locomotion from scratch
 
-Last updated: 2026-08-23 ~02:3x (**THREE READOUTS: (1) PUSH+FAULT
+Last updated: 2026-08-23 ~02:46x (**CORRECTION (urgent, read before
+trusting any "0.14/0.12" or "turn+push substrate is SOLID" claim
+below): `cw-amp-m3-turnpush1-style05-acq1-r2`'s eval_yaw tip-err
+reading of 0.1431/0.1152 (this cycle's own earlier PASS verdict,
+cited in the entry immediately below AND in the M4-turnfault-acq1-r5
+entry below that) was measured WITHOUT the training servo profile —
+`bus.write_speed`/`write_acc`/`servo_vel_max_counts_s`/
+`safety.max_delta_q_deg` were left at their gentle DEFAULTS
+(400/20/-/none) instead of the trained fast profile (1500/80/
+write_speed/5.0), the same self-inflicted eval-cfg bug already
+flagged once on the joystick track (stotight45 second-seed re-eval).
+Re-run through `eval_amp_m5` (which always sets the correct bus cfg)
+AND by hand with the correct cfg, TWICE reproduced: tip-left/right
+err = **0.3838/0.4302** — FAR over the 0.21 bar and WORSE than the
+park fingerprint (0.28-0.33), not a near-substrate pass. The
+yawcmd0-r2 substrate baseline (0.1525/0.1614) reproduces exactly
+through the same M5 harness with the correct cfg, so the baseline is
+fine — only the turnpush checkpoint's own reading was wrong. TRUE
+STATE: turn+push is turn-eroded, not solid (ledger corrected to
+INFORMATIVE-turn-eroded, SKILLS.md row removed). PRACTICAL EFFECT:
+`cw-amp-m4-turnpushfault1-style05-r2` (currently training, launched
+on the false "solid substrate" premise) is NOT a clean sequential-
+composition test — read its result knowing turn was already broken
+going in, and re-check ITS eval_yaw with the correct bus cfg before
+citing any tip-err number from it. The `turnfault1-style05-acq1-r5`
+entry below independently hand-measured 0.2985/0.3002 on the
+fresh-3-way-stack fault checkpoint and used the (wrong) 0.14/0.12 as
+its point of comparison — that comparison's DIRECTION may still hold
+(fresh-stack tip response reads as near-total park, arc tracking a
+hair better than turnpush's) but re-verify with the corrected
+0.38/0.43 number before drawing conclusions from the gap size.
+Previous entries below, uncorrected — treat any inherited "0.14/0.12"
+citation in them as wrong.)
+
+Previous entry (2026-08-23 ~02:4x (**M4 TURNFAULT ACQUISITION: SAFETY
+BAR FIXED, TURN-IN-PLACE STAYS BROKEN (pre-existing, not caused by
+this run) — sequential composition route is now the live test.**
+`cw-amp-m4-turnfault1-style05-acq1-r5` (6M continuation of the fresh
+3-way turn+heading+fault stack's 2M discovery) PASSES its own named
+mechanism-safety gate outright: gait_valid 12/12 det+sto (was 9/12,
+3 sto statues), zero terminations/sacrificed legs, prog/slip in the
+same ballpark as the solo-axis fault comparison (faultobs2-
+headingsfull-style05). BUT hand-run `eval_yaw` (matched 93-dim cfg)
+shows tip-left/right err 0.2985/0.3002 rad/s — essentially total
+park, vs turnpush1-style05-acq1-r2's 0.14/0.12. Root-caused by running
+the IDENTICAL panel on the 2M discovery checkpoint: it ALSO reads
+0.30/0.30 (arc tracking a hair better at 2M, 0.13-0.17 vs 0.16-0.23
+here) — the tip-park defect predates this run entirely; 6M more
+steps fixed gait safety but never touched turn-in-place. Same income-
+farming class as the M2 yaw audit (hold/forward income dominates the
+tip cell) — a FRESH 3-way stack's optimizer never bothers to learn
+tip response at all, unlike the turnclone-BC-taught pairwise turn+push
+substrate which had partially learned it before fault was grafted on.
+Video clean (six-leg cycling throughout, no flag-leg/drag/statue).
+SKILLS.md row added. Names the live fork this cycle already acted on:
+`cw-amp-m4-turnpushfault1-style05-r2` (fault grafted sequentially onto
+the turn+push-SOLID checkpoint instead of a fresh 3-way stack, VERIFIED
+RUNNING train-1) tests whether inheriting real tip tracking beats a
+fresh stack's none-at-all — the previous same-named launch attempt
+LAUNCH_CRASHED on a self-inflicted `--init-from-source`/checkpoint
+mixup (0 steps trained, verdicted, fixed same cycle). Previous entry
+below.)
+
+Previous entry (2026-08-23 ~02:3x (**THREE READOUTS: (1) PUSH+FAULT
 COMPOSES FOR FREE — `cw-amp-m4-pushfault1-noamp-r2` PASSES the
 discovery safety bar at 2M with BOTH hazards every episode (gait
 11/12, topples 2/12, BETTER than solo-push's matched-2M 4/12; the one
