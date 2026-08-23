@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: LAUNCH_CRASH
+**status**: FAILED
 
 **created**: 2026-08-23T02:59:26+00:00
 
@@ -16,5 +16,5 @@
 
 **gate**: Acquisition-repair (6M more, 8M total). PASS = corrected-bus eval_yaw (fast profile 1500/80, dr.fault_prob=0/ext_push_prob=0, obs.fault_health=1) tip-left AND tip-right err <=0.20 with income-probe yaw_ratio in [0.8,1.25], AND safety bar holds (own-cfg DR-0 gate gait_valid >=10/12, topples <=2/6 det + <=2/6 sto, no new sacrificed legs) => first genuine M5 full-suite candidate, run eval_amp_m5 immediately. PARTIAL = ratio drops toward 1.0 but tips stay >0.20 => overshoot farm closed, residual = hold/forward income dominance (yppeak FAIL-branch mechanism), next lever is the dominance repricing key (code+bank work, dig-in). FAIL = ratio unchanged ~1.7 or safety bar erodes => keys ineffective on composed stacks, escalate to reward-structure dig-in before any further turn+X budget.
 
-**verdict**: Result: 0 steps trained, dead at birth. Evidence: pod log shows '--obs-pad-transplant 18 but obs widened by 0 (93 -> 93); check cfg-sets' immediately after warm-start, then the process exits with no PPO iterations logged (wandb run finished, steps=None). Why: the respec inherited the stale --obs-pad-transplant=18 flag from its parent's (turnpushfault1-style05-r2) own launch template, but this run's --init-from checkpoint is already 93-dim (matches the ypfix-extended cfg exactly) — the trainer correctly fails closed on the dimension mismatch instead of silently corrupting the warm start. Same bug class as the pushfault1-noamp/turnpushfault1-style05 crashes already documented this cycle-cluster (strip transplant flags when respeccing from a run that already consumed them). What's next: fixed and relaunched same-cycle as -r3 with an explicit trailing --obs-pad-transplant=0 override (argparse last-wins, verified).
+**failed_reason**: run never appeared as 'running' in W&B within 240s
 

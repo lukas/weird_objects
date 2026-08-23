@@ -1,11 +1,33 @@
 # amp - AMP locomotion from scratch
 
-Last updated: 2026-08-23 ~02:5x (**`cw-amp-m4-turnpushfault1-style05-r2`
-READS OUT: MECHANISM-SAFETY BAR CLEARS DECISIVELY, BUT SEQUENTIAL
-COMPOSITION MAKES TURN TRACKING *WORSE* THAN THE FRESH 3-WAY STACK,
-NOT BETTER — left UNVERDICTED, DIG-IN FLAGGED (real trigger: result
-anomalous vs both named comparisons, decides the M4 composition-order
-fork).** Own-cfg DR-0 gate (fault+push+yaw all active, corrected fast
+Last updated: 2026-08-23 ~03:0x (**DIG-IN RESOLVED SAME CYCLE, run
+VERDICTED PASS-partial (ledger 02:53), WRONG-SIGN HYPOTHESIS REFUTED
+BY SIGNED PROBE**: the entry below inferred from eval_yaw |err| medians
+(0.42/0.49 > park's 0.30) that `turnpushfault1-style05-r2` might spin
+the WRONG WAY on tip commands. The signed income probe on the exact
+checkpoint (`probe_walk_income --stack yawcmd0`, dirs tip_left/right,
+`logs/probe_walk_income/turnpushfault1_r2_income_probe.json`) reads
+**wz_mean +0.478 on tip_left (cmd +0.3) and −0.518 on tip_right (cmd
+−0.3)** — CORRECT sign both directions, yaw_ratio **1.65/1.79**,
+reward_yaw_prog 291/294 collected through the legacy 1.25x overshoot
+clip. This is the SAME audited overshoot farm as the substrate's own
+1.78 ratio (08-23 yawcmd0 income audit), continuous through the fault
+graft, NOT a new wrong-sign defect: the eval_yaw |err| median conflates
+~1.7x over-rotation with stride oscillation (wz_rmse 0.47-0.50), which
+is why it exceeds the pure-park fingerprint. Root-cause chain closed:
+behavior (1.7x over-spin) <- incentive (yaw_prog pays overshoot) <-
+pricing (legacy clip; fix keys built+banked 08-23). Consequence: the
+built repricing keys are exactly aimed; per the 08-21 ruling this is
+misalignment-to-repair, so a keys-ON 6M continuation
+(`turnpushfault1-style05-ypfix1-r2`, overshoot_decay+avg_s ON) plus a
+matched no-keys 6M control (`turnpushfault1-style05-cont1`) were
+launched to attribute any turn repair to pricing vs budget. If keys-ON
+lands ratio~1.0 but tips stay >0.20, the residual is yppeak's
+hold/forward income dominance — THAT is the next code+bank lever.
+Superseded analysis kept below for audit.)
+
+Previous entry (02:5x, wrong-sign hypothesis now refuted, safety-bar
+numbers still correct): Own-cfg DR-0 gate (fault+push+yaw all active, corrected fast
 servo profile throughout — this run's numbers are NOT subject to the
 bus-cfg bug flagged in the correction below): gait_valid 12/12
 det+sto (perfect, beats the fresh-stack turnfault1-style05's 9/12
