@@ -97,11 +97,27 @@ def _median(vals: list) -> float | None:
     return statistics.median(v) if v else None
 
 
+def _translating(eps: list) -> list:
+    """Episodes with a genuine (nonzero) commanded linear displacement
+    (08-23 fix, same cause as _median above): a
+    goal.walk_turn_in_place_frac episode has cmd_dist_m ~ 0 by design
+    (whole-episode zero vx/vy), so BOTH slip_per_m (loaded-foot travel
+    / max(along_dist_m, 0.05) -- the 0.05 floor makes any real rotation
+    scrub read as 10-100+/m) and forward_dist_m are measuring rotation
+    artifacts there, not the "skating while walking forward" defect
+    these bars target. Excluding them from the translation medians
+    mirrors progress_ratio's own None-exclusion; a checkpoint trained
+    with the frac at 0 keeps every episode (no behavior change)."""
+    return [e for e in eps if e.get("progress_ratio") is not None]
+
+
 def _walk_stats(report: dict) -> dict:
     eps = report["episodes"]
     det = eps.get("walk/det", [])
     sto = eps.get("walk/sto", [])
     both = det + sto
+    det_t = _translating(det)
+    sto_t = _translating(sto)
     return dict(
         n=len(both),
         terms=sum(1 for e in both if e.get("terminated")),
@@ -109,11 +125,12 @@ def _walk_stats(report: dict) -> dict:
         sto_terms=sum(1 for e in sto if e.get("terminated")),
         gait_valid=sum(1 for e in both if e.get("gait_valid")),
         sacrificed=sorted({leg for e in both for leg in (e.get("sacrificed_legs") or [])}),
-        det_prog_med=_median([e["progress_ratio"] for e in det]),
-        det_slip_med=_median([e["slip_per_m"] for e in det]),
-        det_fwd_med=_median([e["forward_dist_m"] for e in det]),
-        sto_prog_med=_median([e["progress_ratio"] for e in sto]),
-        sto_slip_med=_median([e["slip_per_m"] for e in sto]),
+        n_translating=len(det_t) + len(sto_t),
+        det_prog_med=_median([e["progress_ratio"] for e in det_t]),
+        det_slip_med=_median([e["slip_per_m"] for e in det_t]),
+        det_fwd_med=_median([e["forward_dist_m"] for e in det_t]),
+        sto_prog_med=_median([e["progress_ratio"] for e in sto_t]),
+        sto_slip_med=_median([e["slip_per_m"] for e in sto_t]),
     )
 
 
