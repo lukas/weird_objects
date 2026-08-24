@@ -7124,7 +7124,8 @@ def test_walkcurr_rung0_deltas_linear_in_scale(walkcurr_rung0_returns):
 # clumsy exploratory dip has 10x the honest gait's band before it
 # risks termination).
 def _walkcurr_pf_hgt_overrides(sigma_mm: float, drop_mm: float,
-                               grace_s: float) -> dict:
+                               grace_s: float, extra: dict | None = None
+                               ) -> dict:
     out = dict(_walkcurr_pf_scaled_overrides(0.02))
     out.update({
         ("reward", "walk_height_gate"): 1.0,
@@ -7132,21 +7133,44 @@ def _walkcurr_pf_hgt_overrides(sigma_mm: float, drop_mm: float,
         ("safety", "walk_max_height_drop_mm"): drop_mm,
         ("safety", "walk_height_grace_s"): grace_s,
     })
+    if extra:
+        out.update(extra)
     return out
 
 
 WALKCURR_PF_HGT_OVERRIDES = _walkcurr_pf_hgt_overrides(15.0, 60.0, 1.5)
 
-# (sigma_mm, drop_mm, grace_s): the launched "loose" dose (2.5x the
-# honest gait's calibrated band before the gate bites; this arm's
+# (sigma_mm, drop_mm, grace_s, extra): the launched "loose" dose (2.5x
+# the honest gait's calibrated band before the gate bites; this arm's
 # own launch, cw-walkcurr-pf-fwd6-hgt1) and a "tight" dose matching
 # WALKCURR4's proven-elsewhere sigma/drop exactly (that bank tuned
 # against an already-competent warm-started gait, not from-scratch
 # discovery — this bank proves it is ALSO bank-legal here before any
 # tight-dose arm is allowed to launch on the rung-1 diet).
+#
+# "tight_pdw05"/"tight_pdw05_pdx3" (08-23, added after both "loose"
+# and "tight" FAILED as trained runs): hgt2 (tight) own-cfg wandb read
+# found `env/reward_park_duty` EXACTLY 0 for the entire run — the
+# default `goal.park_duty_window_s=2.0` trailing-duty history buffer
+# never fills before the SAME-VALUED `safety.walk_height_grace_s=2.0`
+# fires termination, so the one existing charge that already prices a
+# permanently-unloaded leg (k_park_duty's duty<0.1 branch) never gets
+# a chance to act on the belly-sit/frozen-stance behavior under this
+# dose. "tight_pdw05" shortens the window to 0.5 s (1/4 of the grace
+# period, so it fills with room to spare) — same sigma/drop/grace,
+# single extra lever. "tight_pdw05_pdx3" additionally triples
+# k_park_duty (0.08->0.24, still bank-legal per the scaled-bank's
+# proven linearity) to test whether the de-confounded charge merely
+# needs to fire vs. needs to fire HARDER to out-price the frozen
+# 3-leg-sacrificed stance hgt1 (loose) was actively climbing toward.
 _WALKCURR_PF_HGT_DOSES = {
-    "loose": (15.0, 60.0, 1.5),
-    "tight": (11.0, 25.0, 2.0),
+    "loose": (15.0, 60.0, 1.5, None),
+    "tight": (11.0, 25.0, 2.0, None),
+    "tight_pdw05": (11.0, 25.0, 2.0, {("goal", "park_duty_window_s"): 0.5}),
+    "tight_pdw05_pdx1p5": (11.0, 25.0, 2.0, {
+        ("goal", "park_duty_window_s"): 0.5,
+        ("reward", "k_park_duty"): 0.08 * 1.5,
+    }),
 }
 
 
@@ -7155,8 +7179,8 @@ def walkcurr_pf_hgt_returns(request) -> dict[str, float]:
     """Mean return (+ dx/steps) per scripted behavior under the
     x0.02-scaled rung-1 stack, gated vs ungated, including the new
     belly_sit statue (3 seeds, 15 s fixed-forward probe)."""
-    sigma_mm, drop_mm, grace_s = _WALKCURR_PF_HGT_DOSES[request.param]
-    gated_ov = _walkcurr_pf_hgt_overrides(sigma_mm, drop_mm, grace_s)
+    sigma_mm, drop_mm, grace_s, extra = _WALKCURR_PF_HGT_DOSES[request.param]
+    gated_ov = _walkcurr_pf_hgt_overrides(sigma_mm, drop_mm, grace_s, extra)
     plan = {
         "gait": ("gait", 1.0),
         "park": ("park", 1.0),

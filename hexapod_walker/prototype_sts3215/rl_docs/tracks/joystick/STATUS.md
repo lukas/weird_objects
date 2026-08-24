@@ -1,6 +1,63 @@
 # joystick - RL from the programmatic gait to joystick control
 
-Last updated: 2026-08-23 (**DONE-GATE DECLARED MET (assume-and-go,
+Last updated: 2026-08-23 ~23:5x (**`cw-arch-hist16-dep1-c1-joyfullcurr6`
+FINISHED its full 40M-step budget STUCK AT THE SECOND RUNG OF A
+10-BUCKET LADDER — DIG-IN FLAGGED, left unverdicted.** Plain English:
+the operator-ordered full-circle joystick curriculum (fb_20260823T220651_5c66e3)
+was supposed to climb bridge -> front45 -> side90 -> rear135/180 ->
+full-circle over the run; it promoted ONCE (b0->b1 at step 540k, round
+r1) and then FAILED bucket b1 (`front45_20s`) on its `stop` check on
+EVERY SINGLE certification round from r2 through the end of training
+(~80 rounds spanning the full 40M steps) — buckets b2-b9 (side90
+onward, the entire point of the operator's order) were NEVER PRACTICED
+AT ALL. Training reward converged early (ep_rew_mean quarters 913.9 /
+1062.0 / 1054.1 / 1042.6 — flat after Q1, not still rising), so this
+is NOT an undertrained-keep-going case per the 08-21 ruling; it is a
+genuine reward<->eval mismatch. Root cause (pinned via W&B history,
+no extra training cost): b1's cert gate requires `stop_speed_m_s <=
+0.015` m/s during the bucket's commanded-stop segments, but the
+run's own `walkcurr/b1_front45_20s/stop_speed_m_s` metric sat flat in
+[0.036, 0.047] for all 79 logged cert rounds (no downward trend) —
+2.4-3x over the cert threshold, essentially motionless numerically
+but never converging to true stillness. The recipe's active
+stop-pricing term is `walk_freeprog_score` (`k_walk_freeprog`,
+inherited from the parent, not touched by this run's cfg-set list),
+whose own stop-command formula charges speed against
+`walk_freeprog_cap_m_s` (default **0.06** m/s) — 4x LOOSER than the
+cert's 0.015 m/s bar — so the optimizer has genuinely converged to a
+local optimum (creep ~0.04 m/s) that is priced as "good enough" by
+the reward but fails the gate. The hypothesis's own text says
+`k_walk_cmd_track` (the ONE reward term in the codebase with a
+dedicated, separately-configurable `stop_speed_m_s` parameter,
+`walk_cmd_track_score` in `walk_task.py`) was "omitted to keep the
+coupled-change count down" — that omission is now the leading
+suspect for the fix, not a free variable. **Fork this decides:**
+before spending any more budget on the V6 ladder (side90/rear/full-
+circle are all still completely untested), either (a) tighten
+`walk_freeprog_cap_m_s` to <=0.015 for stop segments (or add a
+dedicated low-cap stop charge), or (b) turn on `k_walk_cmd_track`
+with `stop_speed_m_s=0.015` matching the cert bar, re-prove whichever
+lever against the WALKCURR-family bank discipline (this track hasn't
+had one for cmd_track/freeprog stop-pricing specifically — check
+`test_task_semantics.py` before relaunch), then relaunch from the
+SAME parent (`ppo_goal_cw_arch_hist16_dep1_c1.zip`) rather than
+continuing the frozen-at-b1 checkpoint (phasedir9-vs-9b precedent:
+continuing a converged-in-the-wrong-basin checkpoint does not escape
+it). Checkpoint IS saved
+(`ppo_goal_cw_arch_hist16_dep1_c1_joyfullcurr6.zip`, plus the
+promotion artifact `..._joyfullcurr6_promo_b1.zip`), gate/own-DR/
+joygate evals were prestaged and were still running on
+hexapod-mjx-train-4 as of this writing (`ops.sh waitlog` on
+`/tmp/eval_cw-arch-hist16-dep1-c1-joyfullcurr6*.log`) — read those
+before writing the formal verdict (this run's b0-only behavior may
+still cleanly pass the OLD front-cone-only DONE gate even though the
+new full-circle order's own bar was not met). Evidence:
+`logs/experiments/cw-arch-hist16-dep1-c1-joyfullcurr6/wandb_history.csv`
+(`walkcurr/b1_front45_20s/stop_speed_m_s` column), pod train log
+`/tmp/train_cw-arch-hist16-dep1-c1-joyfullcurr6.log` (grep `walkcurr
+cert`). Prior banner below.)
+
+Previous entry (2026-08-23 (**DONE-GATE DECLARED MET (assume-and-go,
 cycle c0823-seed37-triage) — track goal achieved, work is
 maintenance-only.** q_20260822T1730Z sat unanswered for a full day
 across many cycles that kept re-verifying (2 held-out command-seed

@@ -779,3 +779,64 @@ validity, on video. Speed obedience is secondary throughout.
   static pose just under the drop threshold (e.g. 40-59mm on hgt2) —
   that would mean the cutoff needs tightening further, not abandoning
   the mechanism.
+
+## Now (updated 08-23 ~23:5x — hgt2 FAIL + rnd10-cont1 FAIL, RND-as-a-class fully closed; park_duty/grace confound found)
+
+- **`cw-walkcurr-pf-fwd6-hgt2` (tight dose) FAIL (verdicted this
+  cycle):** `walk_freeprog_score` never leaves [-0.12,-0.08] across
+  the full 2M, `ep_rew_mean` flat at 14.0 after the first quarter
+  (24.1/14.0/14.0/14.0), `clip_fraction` crashes near-zero mid-run
+  (0.0035->1e-5->5e-5, only ticks back to 0.014 at the very end) —
+  reward AND eval both flat, genuinely stuck per the 08-21 ruling.
+  The termination DOES fire exactly as designed: 12/12 det+sto
+  episodes terminate `walk_low_height` at/near the 2.0s grace
+  boundary (`height_err_end_mm` ~100mm vs the 25mm threshold, video
+  confirms a fast crouch-to-belly within ~1s) — the safety cutoff
+  mechanism works, but alone it does not unlock walking exploration.
+  **NEW CONFOUND (own-cfg wandb read, no extra training cost):**
+  `walk_height_grace_s=2.0` exactly equals the default
+  `goal.park_duty_window_s=2.0` — the per-leg contact-duty history
+  buffer never fills before termination fires, so
+  `env/reward_park_duty` is **EXACTLY 0 for the entire run**. The one
+  pre-existing charge that already prices a permanently-airborne/
+  never-loaded leg (the `duty<0.1` branch of `k_park_duty`) never
+  gets a chance to act on this behavior under this dose. hgt1's grace
+  (1.5s) is shorter still, so the same buffer-never-fills confound
+  likely applies there too — worth checking once hgt1 is triaged.
+- **`cw-walkcurr-pf-fwd6-rnd10-cont1` FAIL (verdicted this cycle) —
+  closes the RND budget axis; combined with `rnd100`'s already-closed
+  dose axis, RND-as-a-class is now FULLY REFUTED at any bank-safe
+  dose or budget, before BC-kickstart.** Reward quarters rose then
+  regressed (59.9/63.1/51.4/37.9 — peaked ~25% through, worsened over
+  the back half). `--best-ckpt` (selects on accumulated episodic
+  reward) reverts to the track's familiar belly-sit signature
+  (`height_err_end_mm=116.3`, all 6 det legs sacrificed, 0.005 m/s).
+  The FINAL checkpoint shows a genuinely NEW failure mode: a forward
+  lurch with real `forward_dist` (~0.056m) and `gait_valid=True` on
+  all 6 det episodes, but terminates `tilt_pitch` 6/6 det (+ several
+  sto) every time — video shows legs splaying and the body pitching
+  forward/down within ~1s, a controlled fall, not alternating stance/
+  swing cycling. Mechanism: a fall forfeits the rest of the episode's
+  income and eats `term_penalty`, while belly-sit collects a small
+  steady income for the full 25s — reward prices "survive motionless"
+  strictly above "attempt to walk, risk a fall." This is the SAME
+  survive>risk-a-fall reward-shape finding that already motivated the
+  height-gate mechanism — independent corroboration, not a new axis.
+- **Net position, this cycle:** every previously-open escalation
+  branch except height-gate is now closed (RND: dose+budget both
+  refuted; rung-0 swing income: closed; GRU: closed; gSDE: closed;
+  rscale dose+continuations: closed). The height-gate mechanism
+  (hgt1/hgt2) is the only branch still live, and hgt2 (tight dose)
+  alone does not clear it. **hgt1 (loose dose) finished training on
+  wandb (`state=finished`, `bmj5oyfo`) but was explicitly out of
+  scope this cycle ("still training, leave its pod alone") and has
+  not yet been prestaged/triaged — next cycle should read it, check
+  it for the SAME park_duty/grace confound, and only then decide
+  between (a) a park_duty_window/grace recalibration respec of the
+  height-gate mechanism, (b) escalating to a direct minimum-total-
+  foot-contact charge (new mechanism, needs its own scripted twin +
+  bank proof before launch), or (c) finally flagging BC-kickstart to
+  the operator per item (d).** No further walkcurr training was
+  launched this cycle: the one live decision point is this joint
+  read, and inventing a parallel arm ahead of it would pre-empt the
+  track's own pre-registered sequencing rule.
