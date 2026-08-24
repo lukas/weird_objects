@@ -1,6 +1,29 @@
 # joystick - RL from the programmatic gait to joystick control
 
-Last updated: 2026-08-24 ~18:2x (**100 Hz RATE-CONVERSION LINEAGE:
+Last updated: 2026-08-24 ~18:5x (**hist64-rr1 CONFIRMS the transplant
+class stays closed (2nd repro, prog 0.056 vs 0.052, 0 GPU budget spent
+— fail-closed before `learn()`); tf64-small-canary's crash was NOT an
+architecture finding, it was a FLEET INFRA DEFECT, now partially
+fixed.** Plain English: the small-transformer 100 Hz canary never ran
+a single PPO step — all 24 vec-env workers SIGBUS'd inside the first
+`env.reset()`. Root cause: `obs.history_frames=64` at `n_envs=3072`
+makes the shared-memory obs array alone ~54MB, and pod train-8 was
+still on the k8s-default 64M `/dev/shm` — the 08-10 dshm-4Gi fix
+(COMMANDS.md gotcha 13c) was only ever HALF-applied fleet-wide.
+`df -h /dev/shm` audit across all 12 pods: train-1/5/7/9/10/11 fixed
+(4.0G), train-0/2/3/4/6/8 still legacy (64M). Recreated train-6 and
+train-8 (both idle) via `coreweave_pods_mjx_scaleout.yaml` +
+`bootstrap_train_pod.sh` — verified 4.0G on both; relaunched
+`cw-arch-tf64-small-joyfullcurr13-v7-hz100-canary-r1` on the fixed
+train-8, confirmed training past reset cleanly (2 iters/98k steps,
+healthy PPO stats) where the parent instantly crashed. **train-0/2/3/4
+remain legacy 64M** (recreate opportunistically next time one is
+idle). Full writeup + the apply-file gotcha (it also applies
+unauthorized train-12..15 blocks — caught + deleted, no lasting
+effect): `rl_docs/COMMANDS.md` gotcha 13c. Evidence:
+`RL_LOG.md` 08-24 18:45-18:51, W&B `6hvipngm`/`tvd8vdh8`/canary-r1.)
+
+Previous entry (2026-08-24 ~18:2x (**100 Hz RATE-CONVERSION LINEAGE:
 `-hist64` DIED AT INIT PRECERT TOO, WORSE than the plain `-r2` drop —
 UNVERDICTED, flagged DIG-IN, not a class-stop yet.** Plain English:
 after attempt-1 (`...-v7-hz100`) died fail-closed at init (b0

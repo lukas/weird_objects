@@ -311,6 +311,33 @@ report.json, and the W&B API for exactly these questions.
     `orchestrator/bootstrap_train_pod.sh <pod>` → `snapshot.sh --sync
     <pod>`. Verify with `df -h /dev/shm` (should say 4.0G).
 
+    **08-24 UPDATE: the fix was only ever HALF-APPLIED fleet-wide —
+    audit before trusting any pod.** `df -h /dev/shm` on all 12 pods
+    (08-24 ~18:4x) found train-1/5/7/9/10/11 on the fixed 4.0G tmpfs
+    but train-0/2/3/4/6/8 STILL on the legacy 64M `shm` mount, years
+    after the "fixed" snapshot — nobody had ever gone back and
+    recreated the stragglers once they went idle. This bit
+    `obs.history_frames=64` (a full transformer/hist64 100 Hz arm,
+    n_envs=3072): the "obs" shm array alone is ~3072*4608*4 =
+    56.6MB, and on a legacy 64M pod that alone is enough — ALL 24
+    workers SIGBUS in `env.reset()` before a single PPO step (0
+    training, not a science result). Recreated train-6/train-8 this
+    cycle (both were idle); a retry of the exact same config on the
+    now-4.0G pod trained cleanly past reset. **train-0/2/3/4 remain
+    legacy 64M** (0/4 idle at audit time) — recreate opportunistically
+    the next time one goes idle, and re-run this same `df -h`
+    12-pod sweep periodically since apply-time "fixed" is not
+    permanent (a pod recreated for an unrelated reason reverts to the
+    k8s default unless it's re-applied from the dshm-4Gi manifest).
+    CAUTION: `kubectl apply -f coreweave_pods_mjx_scaleout.yaml`
+    applies EVERY pod block in that file, including
+    train-12..15 blocks that guardrails.yaml's `gpu_pods` list does
+    NOT include (no 4th node exists to schedule them) — it will
+    silently CREATE 4 unauthorized Pending pods if you don't delete
+    them right back; only ever delete the ONE pod you mean to fix
+    before applying, then double-check `kubectl get pod` for
+    surprises.
+
 14. **Batch-eval shell footgun (c60):** `CFG="..." && nohup A $CFG & nohup B $CFG &`
     puts the assignment INSIDE the first background job's subshell — B
     (and later jobs) run with an EMPTY $CFG, i.e. default cfg = silently
