@@ -1,0 +1,305 @@
+<mujoco model="hexapod_sts3215_mesh_mjx">
+  <compiler angle="radian" coordinate="local" autolimits="true"/>
+  <option gravity="0 0 -9.81" timestep="0.002" iterations="50" solver="Newton" cone="elliptic"/>
+  <visual>
+    <global offwidth="1920" offheight="1200"/>
+  </visual>
+
+  <default>
+    <joint armature="0.0004" damping="0.01" limited="true"/>
+    <geom solref="0.006 1" solimp="0.95 0.99 0.001"/>
+    <default class="visual">
+      <geom contype="0" conaffinity="0" group="2" density="0"/>
+    </default>
+    <default class="collision">
+      <geom group="3" rgba="1 0 0 0.18" condim="4" friction="1.3 0.04 0.0001"/>
+    </default>
+    <default class="foot">
+      <geom group="3" rgba="0.02 0.02 0.02 1" condim="6" friction="2.0 0.1 0.001"
+            solref="0.01 1" solimp="0.95 0.99 0.001"/>
+    </default>
+    <default class="legcol">
+      <geom contype="4" conaffinity="0" group="3" rgba="1 0.55 0 0.25"
+            condim="3" friction="1.0 0.02 0.0001"/>
+    </default>
+  </default>
+
+  <asset>
+    <texture name="skybox" type="skybox" builtin="gradient" rgb1="0.7 0.85 1.0" rgb2="0.4 0.5 0.7" width="256" height="256"/>
+    <texture name="terrain_tex" type="2d" builtin="checker" rgb1="0.34 0.45 0.30" rgb2="0.26 0.36 0.22" width="320" height="320"/>
+    <material name="terrain_mat" texture="terrain_tex" texrepeat="12 12" reflectance="0.05" shininess="0.0"/>
+  </asset>
+
+  <worldbody>
+    <light name="sun" pos="2 -1.5 2.2" dir="-0.6 0.4 -1" castshadow="true"/>
+    <geom name="terrain" type="plane" size="8 8 0.05" material="terrain_mat" friction="1.5 0.05 0.0001" condim="4" conaffinity="5"/>
+
+    <body name="chassis" pos="0 0 0.125459">
+      <freejoint name="root"/>
+      <site name="chassis_imu" pos="0.002000 -0.043000 0.024800" size="0.008"/>
+      <inertial pos="0.00017444 -0.00042499 0.00320286" quat="-0.01850534 0.70604293 0.02762688 0.70738793" mass="1.472688" diaginertia="7.0243e-03 4.6650e-03 4.6420e-03"/>
+      <geom class="collision" name="chassis_box" type="box" pos="0.000000 0.000000 0.009000" size="0.114603 0.124852 0.015000"/>
+      <geom class="visual" rgba="0.78 0.82 0.85 1" type="box" pos="0.000000 0.000000 0.009000" size="0.114603 0.124852 0.015000"/>
+      <geom class="collision" name="lipo_battery_0" type="box" pos="0.009500 -0.016454 -0.019250" size="0.040976 0.033472 0.013250"/>
+      <geom class="visual" rgba="0.16 0.16 0.24 1" type="box" pos="0.009500 -0.016454 -0.019250" size="0.040976 0.033472 0.013250"/>
+      <geom class="collision" name="lipo_battery_1" type="box" pos="-0.009500 0.016454 -0.019250" size="0.040976 0.033472 0.013250"/>
+      <geom class="visual" rgba="0.16 0.16 0.24 1" type="box" pos="-0.009500 0.016454 -0.019250" size="0.040976 0.033472 0.013250"/>
+      <geom class="collision" name="L0_yaw_servo_col" type="box" pos="0.070514 0.040134 -0.014875" quat="1.00000000 0 0 0.00000000" size="0.035602 0.033771 0.025125"/>
+      <geom class="visual" rgba="0.05 0.05 0.06 1" type="box" pos="0.070514 0.040134 -0.014875" quat="1.00000000 0 0 0.00000000" size="0.035602 0.033771 0.025125"/>
+      <geom class="collision" name="L1_yaw_servo_col" type="box" pos="0.000500 0.081134 -0.014875" quat="0.86602540 0 0 0.50000000" size="0.035602 0.033771 0.025125"/>
+      <geom class="visual" rgba="0.05 0.05 0.06 1" type="box" pos="0.000500 0.081134 -0.014875" quat="0.86602540 0 0 0.50000000" size="0.035602 0.033771 0.025125"/>
+      <geom class="collision" name="L2_yaw_servo_col" type="box" pos="-0.070014 0.041000 -0.014875" quat="0.50000000 0 0 0.86602540" size="0.035602 0.033771 0.025125"/>
+      <geom class="visual" rgba="0.05 0.05 0.06 1" type="box" pos="-0.070014 0.041000 -0.014875" quat="0.50000000 0 0 0.86602540" size="0.035602 0.033771 0.025125"/>
+      <geom class="collision" name="L3_yaw_servo_col" type="box" pos="-0.070514 -0.040134 -0.014875" quat="0.00000000 0 0 1.00000000" size="0.035602 0.033771 0.025125"/>
+      <geom class="visual" rgba="0.05 0.05 0.06 1" type="box" pos="-0.070514 -0.040134 -0.014875" quat="0.00000000 0 0 1.00000000" size="0.035602 0.033771 0.025125"/>
+      <geom class="collision" name="L4_yaw_servo_col" type="box" pos="-0.000500 -0.081134 -0.014875" quat="-0.50000000 0 0 0.86602540" size="0.035602 0.033771 0.025125"/>
+      <geom class="visual" rgba="0.05 0.05 0.06 1" type="box" pos="-0.000500 -0.081134 -0.014875" quat="-0.50000000 0 0 0.86602540" size="0.035602 0.033771 0.025125"/>
+      <geom class="collision" name="L5_yaw_servo_col" type="box" pos="0.070014 -0.041000 -0.014875" quat="-0.86602540 0 0 0.50000000" size="0.035602 0.033771 0.025125"/>
+      <geom class="visual" rgba="0.05 0.05 0.06 1" type="box" pos="0.070014 -0.041000 -0.014875" quat="-0.86602540 0 0 0.50000000" size="0.035602 0.033771 0.025125"/>
+
+      <body name="L0_yaw" pos="0.086603 0.050000 0.015250" quat="0.96592583 0 0 0.25881905">
+        <joint name="L0_yaw" type="hinge" axis="0 0 1" range="-0.61 0.61"/>
+        <inertial pos="-0.00045307 -0.00127815 0.03147338" quat="0.72531512 0.00583168 -0.03206965 0.68764489" mass="0.161884" diaginertia="8.0633e-05 6.4028e-05 5.1623e-05"/>
+        <geom class="visual" rgba="0.78 0.82 0.85 1" type="box" pos="0.000000 0.000000 0.023150" size="0.032700 0.026200 0.032150"/>
+        <geom class="visual" rgba="0.05 0.05 0.06 1" type="box" pos="0.000000 0.000500 0.038400" size="0.022700 0.019150 0.012400"/>
+        <body name="L0_femur" pos="0.012500 -0.025650 0.038400">
+          <joint name="L0_pitch" type="hinge" axis="0 1 0" range="-1.4 0.52"/>
+          <inertial pos="0.06408185 0.02393982 0.00175845" quat="-0.00747942 0.69471490 -0.01452282 0.71909969" mass="0.143475" diaginertia="1.5226e-04 1.4084e-04 3.4208e-05"/>
+          <geom class="legcol" name="L0_femur_col" type="capsule" fromto="0 0.024150 0 0.090000 0.024150 0" size="0.010"/>
+          <geom class="legcol" name="L0_knee_servo_col" type="box" pos="0.077500 0.026150 -0.000000" size="0.022700 0.019150 0.012400"/>
+          <geom class="visual" rgba="0.78 0.82 0.85 1" type="capsule" fromto="0 0.024150 0 0.090000 0.024150 0" size="0.010"/>
+          <geom class="visual" rgba="0.05 0.05 0.06 1" type="box" pos="0.077500 0.026150 -0.000000" size="0.022700 0.019150 0.012400"/>
+          <body name="L0_tibia" pos="0.090000 0 0">
+            <joint name="L0_knee" type="hinge" axis="0 1 0" range="-0.35 2.62"/>
+            <inertial pos="0.02283314 0.02415000 -0.00000000" quat="-0.00000000 0.70710678 0.00000000 0.70710678" mass="0.029727" diaginertia="3.7180e-05 2.9908e-05 8.8284e-06"/>
+            <geom class="legcol" name="L0_tibia_yoke_col" type="box" pos="0.019500 0.024150 -0.000000" size="0.030000 0.028150 0.012000"/>
+            <geom class="legcol" name="L0_tibia_col" type="capsule" fromto="0.029500 0.024150 0.000000 0.138000 0.024150 0.000000" size="0.004000"/>
+            <geom class="visual" rgba="0.78 0.82 0.85 1" type="box" pos="0.019500 0.024150 -0.000000" size="0.030000 0.028150 0.012000"/>
+            <geom class="visual" rgba="0.78 0.82 0.85 1" type="capsule" fromto="0.029500 0.024150 0.000000 0.138000 0.024150 0.000000" size="0.004000"/>
+            <body name="L0_pad" pos="0.138000 0.024150 0.000000">
+              <inertial pos="-0.00471403 0.00000000 -0.00000000" quat="0.50000000 0.50000000 0.50000000 0.50000000" mass="0.003000" diaginertia="2.2324e-07 2.2324e-07 6.7374e-08"/>
+              <geom class="foot" name="L0_foot" type="sphere" pos="0.005000 0 0" size="0.007000"/>
+              <geom class="visual" rgba="0.05 0.05 0.06 1" type="sphere" pos="0.005000 0 0" size="0.007000"/>
+              <site name="L0_foot_site" pos="0.005000 0 0" size="0.018" group="4" rgba="1 1 1 0.05"/>
+            </body>
+          </body>
+        </body>
+      </body>
+      <body name="L1_yaw" pos="0.000000 0.100000 0.015250" quat="0.70710678 0 0 0.70710678">
+        <joint name="L1_yaw" type="hinge" axis="0 0 1" range="-0.61 0.61"/>
+        <inertial pos="-0.00045307 -0.00127815 0.03147338" quat="0.72531512 0.00583168 -0.03206965 0.68764489" mass="0.161884" diaginertia="8.0633e-05 6.4028e-05 5.1623e-05"/>
+        <geom class="visual" rgba="0.78 0.82 0.85 1" type="box" pos="0.000000 0.000000 0.023150" size="0.032700 0.026200 0.032150"/>
+        <geom class="visual" rgba="0.05 0.05 0.06 1" type="box" pos="0.000000 0.000500 0.038400" size="0.022700 0.019150 0.012400"/>
+        <body name="L1_femur" pos="0.012500 -0.025650 0.038400">
+          <joint name="L1_pitch" type="hinge" axis="0 1 0" range="-1.4 0.52"/>
+          <inertial pos="0.06408185 0.02393982 0.00175845" quat="-0.00747942 0.69471490 -0.01452282 0.71909969" mass="0.143475" diaginertia="1.5226e-04 1.4084e-04 3.4208e-05"/>
+          <geom class="legcol" name="L1_femur_col" type="capsule" fromto="0 0.024150 0 0.090000 0.024150 0" size="0.010"/>
+          <geom class="legcol" name="L1_knee_servo_col" type="box" pos="0.077500 0.026150 -0.000000" size="0.022700 0.019150 0.012400"/>
+          <geom class="visual" rgba="0.78 0.82 0.85 1" type="capsule" fromto="0 0.024150 0 0.090000 0.024150 0" size="0.010"/>
+          <geom class="visual" rgba="0.05 0.05 0.06 1" type="box" pos="0.077500 0.026150 -0.000000" size="0.022700 0.019150 0.012400"/>
+          <body name="L1_tibia" pos="0.090000 0 0">
+            <joint name="L1_knee" type="hinge" axis="0 1 0" range="-0.35 2.62"/>
+            <inertial pos="0.02313589 0.02415000 -0.00000000" quat="-0.00000000 0.70710678 0.00000000 0.70710678" mass="0.029727" diaginertia="3.8624e-05 3.1351e-05 8.8284e-06"/>
+            <geom class="legcol" name="L1_tibia_yoke_col" type="box" pos="0.019500 0.024150 -0.000000" size="0.030000 0.028150 0.012000"/>
+            <geom class="legcol" name="L1_tibia_col" type="capsule" fromto="0.029500 0.024150 0.000000 0.142000 0.024150 0.000000" size="0.004000"/>
+            <geom class="visual" rgba="0.78 0.82 0.85 1" type="box" pos="0.019500 0.024150 -0.000000" size="0.030000 0.028150 0.012000"/>
+            <geom class="visual" rgba="0.78 0.82 0.85 1" type="capsule" fromto="0.029500 0.024150 0.000000 0.142000 0.024150 0.000000" size="0.004000"/>
+            <body name="L1_pad" pos="0.142000 0.024150 0.000000">
+              <inertial pos="-0.00649168 0.00000000 -0.00000000" quat="0.50000000 0.50000000 0.50000000 0.50000000" mass="0.003000" diaginertia="1.7479e-07 1.7479e-07 6.5833e-08"/>
+              <geom class="foot" name="L1_foot" type="sphere" pos="0.001000 0 0" size="0.007000"/>
+              <geom class="visual" rgba="0.05 0.05 0.06 1" type="sphere" pos="0.001000 0 0" size="0.007000"/>
+              <site name="L1_foot_site" pos="0.001000 0 0" size="0.018" group="4" rgba="1 1 1 0.05"/>
+            </body>
+          </body>
+        </body>
+      </body>
+      <body name="L2_yaw" pos="-0.086603 0.050000 0.015250" quat="0.25881905 0 0 0.96592583">
+        <joint name="L2_yaw" type="hinge" axis="0 0 1" range="-0.61 0.61"/>
+        <inertial pos="-0.00045307 -0.00127815 0.03147338" quat="0.72531512 0.00583168 -0.03206965 0.68764489" mass="0.161884" diaginertia="8.0633e-05 6.4028e-05 5.1623e-05"/>
+        <geom class="visual" rgba="0.78 0.82 0.85 1" type="box" pos="0.000000 0.000000 0.023150" size="0.032700 0.026200 0.032150"/>
+        <geom class="visual" rgba="0.05 0.05 0.06 1" type="box" pos="0.000000 0.000500 0.038400" size="0.022700 0.019150 0.012400"/>
+        <body name="L2_femur" pos="0.012500 -0.025650 0.038400">
+          <joint name="L2_pitch" type="hinge" axis="0 1 0" range="-1.4 0.52"/>
+          <inertial pos="0.06408185 0.02393982 0.00175845" quat="-0.00747942 0.69471490 -0.01452282 0.71909969" mass="0.143475" diaginertia="1.5226e-04 1.4084e-04 3.4208e-05"/>
+          <geom class="legcol" name="L2_femur_col" type="capsule" fromto="0 0.024150 0 0.090000 0.024150 0" size="0.010"/>
+          <geom class="legcol" name="L2_knee_servo_col" type="box" pos="0.077500 0.026150 -0.000000" size="0.022700 0.019150 0.012400"/>
+          <geom class="visual" rgba="0.78 0.82 0.85 1" type="capsule" fromto="0 0.024150 0 0.090000 0.024150 0" size="0.010"/>
+          <geom class="visual" rgba="0.05 0.05 0.06 1" type="box" pos="0.077500 0.026150 -0.000000" size="0.022700 0.019150 0.012400"/>
+          <body name="L2_tibia" pos="0.090000 0 0">
+            <joint name="L2_knee" type="hinge" axis="0 1 0" range="-0.35 2.62"/>
+            <inertial pos="0.02313589 0.02415000 -0.00000000" quat="-0.00000000 0.70710678 0.00000000 0.70710678" mass="0.029727" diaginertia="3.8624e-05 3.1351e-05 8.8284e-06"/>
+            <geom class="legcol" name="L2_tibia_yoke_col" type="box" pos="0.019500 0.024150 -0.000000" size="0.030000 0.028150 0.012000"/>
+            <geom class="legcol" name="L2_tibia_col" type="capsule" fromto="0.029500 0.024150 0.000000 0.142000 0.024150 0.000000" size="0.004000"/>
+            <geom class="visual" rgba="0.78 0.82 0.85 1" type="box" pos="0.019500 0.024150 -0.000000" size="0.030000 0.028150 0.012000"/>
+            <geom class="visual" rgba="0.78 0.82 0.85 1" type="capsule" fromto="0.029500 0.024150 0.000000 0.142000 0.024150 0.000000" size="0.004000"/>
+            <body name="L2_pad" pos="0.142000 0.024150 0.000000">
+              <inertial pos="-0.00649168 0.00000000 -0.00000000" quat="0.50000000 0.50000000 0.50000000 0.50000000" mass="0.003000" diaginertia="1.7479e-07 1.7479e-07 6.5833e-08"/>
+              <geom class="foot" name="L2_foot" type="sphere" pos="0.001000 0 0" size="0.007000"/>
+              <geom class="visual" rgba="0.05 0.05 0.06 1" type="sphere" pos="0.001000 0 0" size="0.007000"/>
+              <site name="L2_foot_site" pos="0.001000 0 0" size="0.018" group="4" rgba="1 1 1 0.05"/>
+            </body>
+          </body>
+        </body>
+      </body>
+      <body name="L3_yaw" pos="-0.086603 -0.050000 0.015250" quat="-0.25881905 0 0 0.96592583">
+        <joint name="L3_yaw" type="hinge" axis="0 0 1" range="-0.61 0.61"/>
+        <inertial pos="-0.00045307 -0.00127815 0.03147338" quat="0.72531512 0.00583168 -0.03206965 0.68764489" mass="0.161884" diaginertia="8.0633e-05 6.4028e-05 5.1623e-05"/>
+        <geom class="visual" rgba="0.78 0.82 0.85 1" type="box" pos="0.000000 0.000000 0.023150" size="0.032700 0.026200 0.032150"/>
+        <geom class="visual" rgba="0.05 0.05 0.06 1" type="box" pos="0.000000 0.000500 0.038400" size="0.022700 0.019150 0.012400"/>
+        <body name="L3_femur" pos="0.012500 -0.025650 0.038400">
+          <joint name="L3_pitch" type="hinge" axis="0 1 0" range="-1.4 0.52"/>
+          <inertial pos="0.06408185 0.02393982 0.00175845" quat="-0.00747942 0.69471490 -0.01452282 0.71909969" mass="0.143475" diaginertia="1.5226e-04 1.4084e-04 3.4208e-05"/>
+          <geom class="legcol" name="L3_femur_col" type="capsule" fromto="0 0.024150 0 0.090000 0.024150 0" size="0.010"/>
+          <geom class="legcol" name="L3_knee_servo_col" type="box" pos="0.077500 0.026150 -0.000000" size="0.022700 0.019150 0.012400"/>
+          <geom class="visual" rgba="0.78 0.82 0.85 1" type="capsule" fromto="0 0.024150 0 0.090000 0.024150 0" size="0.010"/>
+          <geom class="visual" rgba="0.05 0.05 0.06 1" type="box" pos="0.077500 0.026150 -0.000000" size="0.022700 0.019150 0.012400"/>
+          <body name="L3_tibia" pos="0.090000 0 0">
+            <joint name="L3_knee" type="hinge" axis="0 1 0" range="-0.35 2.62"/>
+            <inertial pos="0.02313589 0.02415000 -0.00000000" quat="-0.00000000 0.70710678 0.00000000 0.70710678" mass="0.029727" diaginertia="3.8624e-05 3.1351e-05 8.8284e-06"/>
+            <geom class="legcol" name="L3_tibia_yoke_col" type="box" pos="0.019500 0.024150 -0.000000" size="0.030000 0.028150 0.012000"/>
+            <geom class="legcol" name="L3_tibia_col" type="capsule" fromto="0.029500 0.024150 0.000000 0.142000 0.024150 0.000000" size="0.004000"/>
+            <geom class="visual" rgba="0.78 0.82 0.85 1" type="box" pos="0.019500 0.024150 -0.000000" size="0.030000 0.028150 0.012000"/>
+            <geom class="visual" rgba="0.78 0.82 0.85 1" type="capsule" fromto="0.029500 0.024150 0.000000 0.142000 0.024150 0.000000" size="0.004000"/>
+            <body name="L3_pad" pos="0.142000 0.024150 0.000000">
+              <inertial pos="-0.00649168 0.00000000 -0.00000000" quat="0.50000000 0.50000000 0.50000000 0.50000000" mass="0.003000" diaginertia="1.7479e-07 1.7479e-07 6.5833e-08"/>
+              <geom class="foot" name="L3_foot" type="sphere" pos="0.001000 0 0" size="0.007000"/>
+              <geom class="visual" rgba="0.05 0.05 0.06 1" type="sphere" pos="0.001000 0 0" size="0.007000"/>
+              <site name="L3_foot_site" pos="0.001000 0 0" size="0.018" group="4" rgba="1 1 1 0.05"/>
+            </body>
+          </body>
+        </body>
+      </body>
+      <body name="L4_yaw" pos="-0.000000 -0.100000 0.015250" quat="-0.70710678 0 0 0.70710678">
+        <joint name="L4_yaw" type="hinge" axis="0 0 1" range="-0.61 0.61"/>
+        <inertial pos="-0.00045307 -0.00127815 0.03147338" quat="0.72531512 0.00583168 -0.03206965 0.68764489" mass="0.161884" diaginertia="8.0633e-05 6.4028e-05 5.1623e-05"/>
+        <geom class="visual" rgba="0.78 0.82 0.85 1" type="box" pos="0.000000 0.000000 0.023150" size="0.032700 0.026200 0.032150"/>
+        <geom class="visual" rgba="0.05 0.05 0.06 1" type="box" pos="0.000000 0.000500 0.038400" size="0.022700 0.019150 0.012400"/>
+        <body name="L4_femur" pos="0.012500 -0.025650 0.038400">
+          <joint name="L4_pitch" type="hinge" axis="0 1 0" range="-1.4 0.52"/>
+          <inertial pos="0.06408185 0.02393982 0.00175845" quat="-0.00747942 0.69471490 -0.01452282 0.71909969" mass="0.143475" diaginertia="1.5226e-04 1.4084e-04 3.4208e-05"/>
+          <geom class="legcol" name="L4_femur_col" type="capsule" fromto="0 0.024150 0 0.090000 0.024150 0" size="0.010"/>
+          <geom class="legcol" name="L4_knee_servo_col" type="box" pos="0.077500 0.026150 -0.000000" size="0.022700 0.019150 0.012400"/>
+          <geom class="visual" rgba="0.78 0.82 0.85 1" type="capsule" fromto="0 0.024150 0 0.090000 0.024150 0" size="0.010"/>
+          <geom class="visual" rgba="0.05 0.05 0.06 1" type="box" pos="0.077500 0.026150 -0.000000" size="0.022700 0.019150 0.012400"/>
+          <body name="L4_tibia" pos="0.090000 0 0">
+            <joint name="L4_knee" type="hinge" axis="0 1 0" range="-0.35 2.62"/>
+            <inertial pos="0.02283314 0.02415000 -0.00000000" quat="-0.00000000 0.70710678 0.00000000 0.70710678" mass="0.029727" diaginertia="3.7180e-05 2.9908e-05 8.8284e-06"/>
+            <geom class="legcol" name="L4_tibia_yoke_col" type="box" pos="0.019500 0.024150 -0.000000" size="0.030000 0.028150 0.012000"/>
+            <geom class="legcol" name="L4_tibia_col" type="capsule" fromto="0.029500 0.024150 0.000000 0.138000 0.024150 0.000000" size="0.004000"/>
+            <geom class="visual" rgba="0.78 0.82 0.85 1" type="box" pos="0.019500 0.024150 -0.000000" size="0.030000 0.028150 0.012000"/>
+            <geom class="visual" rgba="0.78 0.82 0.85 1" type="capsule" fromto="0.029500 0.024150 0.000000 0.138000 0.024150 0.000000" size="0.004000"/>
+            <body name="L4_pad" pos="0.138000 0.024150 0.000000">
+              <inertial pos="-0.00471403 0.00000000 -0.00000000" quat="0.50000000 0.50000000 0.50000000 0.50000000" mass="0.003000" diaginertia="2.2324e-07 2.2324e-07 6.7374e-08"/>
+              <geom class="foot" name="L4_foot" type="sphere" pos="0.005000 0 0" size="0.007000"/>
+              <geom class="visual" rgba="0.05 0.05 0.06 1" type="sphere" pos="0.005000 0 0" size="0.007000"/>
+              <site name="L4_foot_site" pos="0.005000 0 0" size="0.018" group="4" rgba="1 1 1 0.05"/>
+            </body>
+          </body>
+        </body>
+      </body>
+      <body name="L5_yaw" pos="0.086603 -0.050000 0.015250" quat="-0.96592583 0 0 0.25881905">
+        <joint name="L5_yaw" type="hinge" axis="0 0 1" range="-0.61 0.61"/>
+        <inertial pos="-0.00045307 -0.00127815 0.03147338" quat="0.72531512 0.00583168 -0.03206965 0.68764489" mass="0.161884" diaginertia="8.0633e-05 6.4028e-05 5.1623e-05"/>
+        <geom class="visual" rgba="0.78 0.82 0.85 1" type="box" pos="0.000000 0.000000 0.023150" size="0.032700 0.026200 0.032150"/>
+        <geom class="visual" rgba="0.05 0.05 0.06 1" type="box" pos="0.000000 0.000500 0.038400" size="0.022700 0.019150 0.012400"/>
+        <body name="L5_femur" pos="0.012500 -0.025650 0.038400">
+          <joint name="L5_pitch" type="hinge" axis="0 1 0" range="-1.4 0.52"/>
+          <inertial pos="0.06408185 0.02393982 0.00175845" quat="-0.00747942 0.69471490 -0.01452282 0.71909969" mass="0.143475" diaginertia="1.5226e-04 1.4084e-04 3.4208e-05"/>
+          <geom class="legcol" name="L5_femur_col" type="capsule" fromto="0 0.024150 0 0.090000 0.024150 0" size="0.010"/>
+          <geom class="legcol" name="L5_knee_servo_col" type="box" pos="0.077500 0.026150 -0.000000" size="0.022700 0.019150 0.012400"/>
+          <geom class="visual" rgba="0.78 0.82 0.85 1" type="capsule" fromto="0 0.024150 0 0.090000 0.024150 0" size="0.010"/>
+          <geom class="visual" rgba="0.05 0.05 0.06 1" type="box" pos="0.077500 0.026150 -0.000000" size="0.022700 0.019150 0.012400"/>
+          <body name="L5_tibia" pos="0.090000 0 0">
+            <joint name="L5_knee" type="hinge" axis="0 1 0" range="-0.35 2.62"/>
+            <inertial pos="0.02313589 0.02415000 -0.00000000" quat="-0.00000000 0.70710678 0.00000000 0.70710678" mass="0.029727" diaginertia="3.8624e-05 3.1351e-05 8.8284e-06"/>
+            <geom class="legcol" name="L5_tibia_yoke_col" type="box" pos="0.019500 0.024150 -0.000000" size="0.030000 0.028150 0.012000"/>
+            <geom class="legcol" name="L5_tibia_col" type="capsule" fromto="0.029500 0.024150 0.000000 0.142000 0.024150 0.000000" size="0.004000"/>
+            <geom class="visual" rgba="0.78 0.82 0.85 1" type="box" pos="0.019500 0.024150 -0.000000" size="0.030000 0.028150 0.012000"/>
+            <geom class="visual" rgba="0.78 0.82 0.85 1" type="capsule" fromto="0.029500 0.024150 0.000000 0.142000 0.024150 0.000000" size="0.004000"/>
+            <body name="L5_pad" pos="0.142000 0.024150 0.000000">
+              <inertial pos="-0.00649168 0.00000000 -0.00000000" quat="0.50000000 0.50000000 0.50000000 0.50000000" mass="0.003000" diaginertia="1.7479e-07 1.7479e-07 6.5833e-08"/>
+              <geom class="foot" name="L5_foot" type="sphere" pos="0.001000 0 0" size="0.007000"/>
+              <geom class="visual" rgba="0.05 0.05 0.06 1" type="sphere" pos="0.001000 0 0" size="0.007000"/>
+              <site name="L5_foot_site" pos="0.001000 0 0" size="0.018" group="4" rgba="1 1 1 0.05"/>
+            </body>
+          </body>
+        </body>
+      </body>
+    </body>
+  </worldbody>
+
+  <actuator>
+    <position name="L0_yaw" joint="L0_yaw" kp="18.0" forcerange="-2.2 2.2"/>
+    <position name="L0_pitch" joint="L0_pitch" kp="26.0" forcerange="-2.2 2.2"/>
+    <position name="L0_knee" joint="L0_knee" kp="24.0" forcerange="-2.2 2.2"/>
+    <velocity name="L0_yaw_d" joint="L0_yaw" kv="0.35" forcerange="-2.2 2.2"/>
+    <velocity name="L0_pitch_d" joint="L0_pitch" kv="0.45" forcerange="-2.2 2.2"/>
+    <velocity name="L0_knee_d" joint="L0_knee" kv="0.4" forcerange="-2.2 2.2"/>
+    <position name="L1_yaw" joint="L1_yaw" kp="18.0" forcerange="-2.2 2.2"/>
+    <position name="L1_pitch" joint="L1_pitch" kp="26.0" forcerange="-2.2 2.2"/>
+    <position name="L1_knee" joint="L1_knee" kp="24.0" forcerange="-2.2 2.2"/>
+    <velocity name="L1_yaw_d" joint="L1_yaw" kv="0.35" forcerange="-2.2 2.2"/>
+    <velocity name="L1_pitch_d" joint="L1_pitch" kv="0.45" forcerange="-2.2 2.2"/>
+    <velocity name="L1_knee_d" joint="L1_knee" kv="0.4" forcerange="-2.2 2.2"/>
+    <position name="L2_yaw" joint="L2_yaw" kp="18.0" forcerange="-2.2 2.2"/>
+    <position name="L2_pitch" joint="L2_pitch" kp="26.0" forcerange="-2.2 2.2"/>
+    <position name="L2_knee" joint="L2_knee" kp="24.0" forcerange="-2.2 2.2"/>
+    <velocity name="L2_yaw_d" joint="L2_yaw" kv="0.35" forcerange="-2.2 2.2"/>
+    <velocity name="L2_pitch_d" joint="L2_pitch" kv="0.45" forcerange="-2.2 2.2"/>
+    <velocity name="L2_knee_d" joint="L2_knee" kv="0.4" forcerange="-2.2 2.2"/>
+    <position name="L3_yaw" joint="L3_yaw" kp="18.0" forcerange="-2.2 2.2"/>
+    <position name="L3_pitch" joint="L3_pitch" kp="26.0" forcerange="-2.2 2.2"/>
+    <position name="L3_knee" joint="L3_knee" kp="24.0" forcerange="-2.2 2.2"/>
+    <velocity name="L3_yaw_d" joint="L3_yaw" kv="0.35" forcerange="-2.2 2.2"/>
+    <velocity name="L3_pitch_d" joint="L3_pitch" kv="0.45" forcerange="-2.2 2.2"/>
+    <velocity name="L3_knee_d" joint="L3_knee" kv="0.4" forcerange="-2.2 2.2"/>
+    <position name="L4_yaw" joint="L4_yaw" kp="18.0" forcerange="-2.2 2.2"/>
+    <position name="L4_pitch" joint="L4_pitch" kp="26.0" forcerange="-2.2 2.2"/>
+    <position name="L4_knee" joint="L4_knee" kp="24.0" forcerange="-2.2 2.2"/>
+    <velocity name="L4_yaw_d" joint="L4_yaw" kv="0.35" forcerange="-2.2 2.2"/>
+    <velocity name="L4_pitch_d" joint="L4_pitch" kv="0.45" forcerange="-2.2 2.2"/>
+    <velocity name="L4_knee_d" joint="L4_knee" kv="0.4" forcerange="-2.2 2.2"/>
+    <position name="L5_yaw" joint="L5_yaw" kp="18.0" forcerange="-2.2 2.2"/>
+    <position name="L5_pitch" joint="L5_pitch" kp="26.0" forcerange="-2.2 2.2"/>
+    <position name="L5_knee" joint="L5_knee" kp="24.0" forcerange="-2.2 2.2"/>
+    <velocity name="L5_yaw_d" joint="L5_yaw" kv="0.35" forcerange="-2.2 2.2"/>
+    <velocity name="L5_pitch_d" joint="L5_pitch" kv="0.45" forcerange="-2.2 2.2"/>
+    <velocity name="L5_knee_d" joint="L5_knee" kv="0.4" forcerange="-2.2 2.2"/>
+  </actuator>
+
+  <sensor>
+    <jointpos name="L0_yaw_p" joint="L0_yaw"/>
+    <jointpos name="L0_pitch_p" joint="L0_pitch"/>
+    <jointpos name="L0_knee_p" joint="L0_knee"/>
+    <touch name="L0_foot_t" site="L0_foot_site"/>
+    <jointpos name="L1_yaw_p" joint="L1_yaw"/>
+    <jointpos name="L1_pitch_p" joint="L1_pitch"/>
+    <jointpos name="L1_knee_p" joint="L1_knee"/>
+    <touch name="L1_foot_t" site="L1_foot_site"/>
+    <jointpos name="L2_yaw_p" joint="L2_yaw"/>
+    <jointpos name="L2_pitch_p" joint="L2_pitch"/>
+    <jointpos name="L2_knee_p" joint="L2_knee"/>
+    <touch name="L2_foot_t" site="L2_foot_site"/>
+    <jointpos name="L3_yaw_p" joint="L3_yaw"/>
+    <jointpos name="L3_pitch_p" joint="L3_pitch"/>
+    <jointpos name="L3_knee_p" joint="L3_knee"/>
+    <touch name="L3_foot_t" site="L3_foot_site"/>
+    <jointpos name="L4_yaw_p" joint="L4_yaw"/>
+    <jointpos name="L4_pitch_p" joint="L4_pitch"/>
+    <jointpos name="L4_knee_p" joint="L4_knee"/>
+    <touch name="L4_foot_t" site="L4_foot_site"/>
+    <jointpos name="L5_yaw_p" joint="L5_yaw"/>
+    <jointpos name="L5_pitch_p" joint="L5_pitch"/>
+    <jointpos name="L5_knee_p" joint="L5_knee"/>
+    <touch name="L5_foot_t" site="L5_foot_site"/>
+    <accelerometer name="chassis_acc" site="chassis_imu"/>
+    <gyro name="chassis_gyro" site="chassis_imu"/>
+    <framepos name="chassis_pos" objtype="body" objname="chassis"/>
+    <framezaxis name="chassis_up" objtype="body" objname="chassis"/>
+  </sensor>
+
+  <keyframe>
+    <key name="plant" qpos="0 0 0.125459 1 0 0 0 0.000000 0.349066 1.396263 0.000000 0.349066 1.396263 0.000000 0.349066 1.396263 0.000000 0.349066 1.396263 0.000000 0.349066 1.396263 0.000000 0.349066 1.396263" ctrl="0.000000 0.349066 1.396263 0 0 0 0.000000 0.349066 1.396263 0 0 0 0.000000 0.349066 1.396263 0 0 0 0.000000 0.349066 1.396263 0 0 0 0.000000 0.349066 1.396263 0 0 0 0.000000 0.349066 1.396263 0 0 0"/>
+    <key name="stance" qpos="0 0 0.040500 1 0 0 0 0.000000 -0.436332 1.308997 0.000000 -0.436332 1.308997 0.000000 -0.436332 1.308997 0.000000 -0.436332 1.308997 0.000000 -0.436332 1.308997 0.000000 -0.436332 1.308997" ctrl="0.000000 -0.436332 1.308997 0 0 0 0.000000 -0.436332 1.308997 0 0 0 0.000000 -0.436332 1.308997 0 0 0 0.000000 -0.436332 1.308997 0 0 0 0.000000 -0.436332 1.308997 0 0 0 0.000000 -0.436332 1.308997 0 0 0"/>
+  </keyframe>
+</mujoco>

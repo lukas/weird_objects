@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import json
 import math
+import os
 import sys
 import time
 from dataclasses import asdict, dataclass, field
@@ -273,10 +274,206 @@ def motor_contract_line(contract: dict) -> str:
 # MuJoCo model plumbing
 # ---------------------------------------------------------------------------
 
+MESH_DIR = _PROTO / "mesh_mujoco"
+MESH_XML = MESH_DIR / "hexapod_mesh.xml"           # generated, gitignored
+MESH_MJX_XML = MESH_DIR / "hexapod_mesh_mjx.xml"   # self-contained, checked in
+MODEL_SOURCES = ("mesh", "mesh_mjx", "primitive")
+
+
+def resolve_model_source(cfg=None) -> str:
+    """cfg ``env.model_source`` — which MJCF family ``build_model`` loads.
+
+    - ``mesh`` (default since 2026-08-24): the mesh-accurate model from
+      ``mesh_mujoco/build_mesh_model.py`` — real CAD kinematics (hip-pitch
+      axis at the true coxa anchor +38.4 mm rise; tibia/foot line on the
+      sandwich mid-plane, cancelling the legacy ~24 mm off-radial foot;
+      exact 150 mm knee->boot-apex) with per-part convex-hull collision on
+      CPU. Where the generated hull assets are absent (CoreWeave pods, fresh
+      worktrees) it automatically uses the checked-in primitive-collision
+      twin ``hexapod_mesh_mjx.xml`` — SAME kinematics, masses and inertia,
+      cheap fitted primitives for contact.
+    - ``mesh_mjx``: force the primitive-collision twin everywhere, making
+      Mac CPU rollouts bit-consistent with pod training/eval contact-wise.
+    - ``primitive``: the legacy ``mujoco_prototype`` model, bit-identical to
+      pre-08-24 behavior. REQUIRED for continuity whenever you resume,
+      warm-start (``respec --from``) or evaluate a checkpoint whose lineage
+      predates the switch — the two kinematic families do NOT transfer.
+
+    The ``HEXAPOD_MODEL_SOURCE`` environment variable overrides the cfg.
+    The calibrated behavior test suite pins itself to ``primitive`` with it
+    (``tests/conftest.py``) — those tests encode dynamics measured on the
+    legacy robot; mesh-family coverage lives in ``test_model_source.py``.
+    """
+    src = os.environ.get("HEXAPOD_MODEL_SOURCE", "").strip()
+    if not src:
+        from rl_move.config import cfg_get, load_config
+        if cfg is None:
+            cfg = load_config()
+        src = str(cfg_get(cfg, "env", "model_source", default="mesh")).strip()
+    if src not in MODEL_SOURCES:
+        raise ValueError(f"env.model_source={src!r} — expected one of "
+                         f"{MODEL_SOURCES}")
+    return src
+
+
+def _mesh_xml_text(want_full: bool):
+    """(xml, path, assets|None) for the mesh family. The full model needs
+    the gitignored STL assets (generated on the Mac); everywhere else fall
+    back to the checked-in primitive-collision twin."""
+    if want_full:
+        adir = MESH_DIR / "assets"
+        if MESH_XML.exists() and adir.is_dir():
+            assets = {p.name: p.read_bytes()
+                      for p in sorted(adir.glob("*.stl"))}
+            if assets:
+                return MESH_XML.read_text(), MESH_XML, assets
+        print("[servo_model] full mesh model not generated (run "
+              "mesh_mujoco/build_mesh_model.py); using the checked-in "
+              "primitive-collision twin hexapod_mesh_mjx.xml",
+              file=sys.stderr)
+    if not MESH_MJX_XML.exists():
+        raise FileNotFoundError(
+            f"{MESH_MJX_XML} missing — regenerate with "
+            "mesh_mujoco/build_mesh_model.py, or set "
+            "env.model_source=primitive")
+    return MESH_MJX_XML.read_text(), MESH_MJX_XML, None
+
+
+def _apply_leg_chassis_rewrites(xml: str, what: str) -> str:
+    """The belly knife-edge contact bit plan (see build_model docstring).
+    Geom names are shared between mujoco_prototype and the mesh_mjx twin,
+    so one rewrite list serves both."""
+    rewrites = [('<geom class="collision" name="chassis_box" ',
+                 '<geom class="collision" conaffinity="9" '
+                 'name="chassis_box" ')]
+    for i in range(6):
+        rewrites += [
+            (f'<geom class="collision" name="L{i}_yaw_servo_col" ',
+             f'<geom class="collision" conaffinity="25" '
+             f'name="L{i}_yaw_servo_col" '),
+            (f'<geom class="legcol" name="L{i}_tibia_col" ',
+             f'<geom class="legcol" contype="12" '
+             f'name="L{i}_tibia_col" '),
+            (f'<geom class="legcol" name="L{i}_knee_servo_col" ',
+             f'<geom class="legcol" contype="12" '
+             f'name="L{i}_knee_servo_col" '),
+            (f'<geom class="legcol" name="L{i}_femur_col" ',
+             f'<geom class="legcol" contype="20" '
+             f'name="L{i}_femur_col" '),
+        ]
+    for old, new in rewrites:
+        if xml.count(old) != 1:
+            raise RuntimeError(
+                f"leg_chassis_collision rewrite failed on {old!r} — "
+                f"{what} geom XML changed?")
+        xml = xml.replace(old, new)
+    return xml
+
+
+def _populate_terrain(model, flat_terrain: bool, terrain_amp: float,
+                      terrain_seed: int) -> None:
+    """Zero (flat) or populate the hfield, shared by every model source."""
+    import mujoco
+    import mujoco_prototype as MP
+    if not model.hfield_data.size:
+        return
+    if flat_terrain:
+        model.hfield_data[:] = 0.0
+        return
+    heights = MP.make_terrain_heightmap(seed=int(terrain_seed))
+    # hfield data must stay normalized to [0, 1]; physical bump height
+    # is data * hfield_size[2] (HFIELD_MAX_Z, 36 mm at amp 1.0). Amps
+    # <=1 scale the data; amps >1 scale the z-extent instead — the old
+    # np.clip(amp, 0, 1) here silently capped every terrain at 36 mm
+    # (found 08-11 when the champion probe returned bit-identical
+    # results at amp 1.5/2.0/3.0).
+    amp = max(0.0, float(terrain_amp))
+    heights = heights * min(amp, 1.0)
+    if amp > 1.0:
+        hf_id = mujoco.mj_name2id(
+            model, mujoco.mjtObj.mjOBJ_HFIELD, "terrain")
+        model.hfield_size[hf_id][2] *= amp
+    MP._populate_hfield(model, heights)
+
+
+def _build_mesh_model(*, source: str, fixed_base: bool, flat_terrain: bool,
+                      mjx_compat: bool, terrain_amp: float,
+                      terrain_seed: int, leg_chassis_collision: bool):
+    """build_model backend for the mesh family (source mesh / mesh_mjx)."""
+    import mujoco
+    want_full = source == "mesh" and not mjx_compat
+    xml, path, assets = _mesh_xml_text(want_full)
+    is_full = path == MESH_XML
+    if not flat_terrain and not is_full:
+        raise RuntimeError(
+            "rough terrain (env.terrain_amp > 0) needs the hfield: use the "
+            "full mesh model on CPU or env.model_source=primitive — the "
+            "mesh_mjx twin ships a flat plane only")
+    if fixed_base:
+        xml = xml.replace('<freejoint name="root"/>', '')
+    if leg_chassis_collision:
+        if is_full:
+            # the full mesh model has REAL chassis/leg hulls; enabling the
+            # knife-edge axis means opening full self-collision (a superset
+            # of the legacy bit plan: leg-leg included) by rewriting the
+            # legpart class default from floor-only to open pairing.
+            old = ('<geom type="mesh" contype="4" conaffinity="0" '
+                   'group="1" condim="3" friction="1.0 0.02 0.0001"/>')
+            if xml.count(old) != 1:
+                raise RuntimeError(
+                    "leg_chassis_collision legpart rewrite failed — "
+                    "mesh_mujoco legpart class XML changed?")
+            xml = xml.replace(
+                old, '<geom type="mesh" contype="1" conaffinity="1" '
+                     'group="1" condim="3" friction="1.0 0.02 0.0001"/>')
+        else:
+            xml = _apply_leg_chassis_rewrites(xml, path.name)
+    model = (mujoco.MjModel.from_xml_string(xml, assets=assets)
+             if assets else mujoco.MjModel.from_xml_string(xml))
+    _populate_terrain(model, flat_terrain, terrain_amp, terrain_seed)
+    return model
+
+
+def lowest_collidable_z(model, data) -> float:
+    """Lowest world-z over every collidable robot geom at the current
+    ``data`` pose (mesh vertices exact; sphere/capsule/box exact). Used for
+    model-driven base placement on the mesh-family models, where the legacy
+    analytic ``YAW_OUTPUT_HEIGHT``-based estimate is ~60 mm off."""
+    import mujoco
+    G = mujoco.mjtGeom
+    lows = []
+    for g in range(model.ngeom):
+        if model.geom_contype[g] == 0 and model.geom_conaffinity[g] == 0:
+            continue
+        t = model.geom_type[g]
+        if t in (G.mjGEOM_PLANE, G.mjGEOM_HFIELD):
+            continue  # ground, not robot
+        pos = data.geom_xpos[g]
+        R = data.geom_xmat[g].reshape(3, 3)
+        size = model.geom_size[g]
+        if t == G.mjGEOM_MESH:
+            mid = int(model.geom_dataid[g])
+            adr = int(model.mesh_vertadr[mid])
+            num = int(model.mesh_vertnum[mid])
+            v = model.mesh_vert[adr:adr + num]
+            lows.append(float((v @ R.T + pos)[:, 2].min()))
+        elif t == G.mjGEOM_SPHERE:
+            lows.append(float(pos[2]) - float(size[0]))
+        elif t == G.mjGEOM_CAPSULE:
+            lows.append(float(pos[2])
+                        - (abs(R[2, 2]) * float(size[1]) + float(size[0])))
+        elif t == G.mjGEOM_BOX:
+            lows.append(float(pos[2]) - float(np.abs(R[2, :]) @ size))
+        else:
+            lows.append(float(pos[2]) - float(np.max(size)))
+    return min(lows)
+
+
 def build_model(*, fixed_base: bool = False, flat_terrain: bool = True,
                 mesh_visuals: bool = True, mjx_compat: bool = False,
                 terrain_amp: float = 1.0, terrain_seed: int = 0,
-                leg_chassis_collision: bool = False):
+                leg_chassis_collision: bool = False,
+                source: str | None = None):
     """Load the hexapod MJCF. ``fixed_base`` welds the chassis (bench/air
     tests); ``flat_terrain`` zeroes the random hfield so the floor is flat.
 
@@ -303,8 +500,23 @@ def build_model(*, fixed_base: bool = False, flat_terrain: bool = True,
     rough-terrain experiments can run under ``impl="warp"``. The XLA
     impl still has no hfield collisions. Either way the backup floor
     plane is removed (redundant contact work on GPU).
+
+    ``source`` (default: cfg ``env.model_source``, see
+    ``resolve_model_source``) selects the MJCF family: ``mesh`` /
+    ``mesh_mjx`` load the mesh-accurate kinematics from ``mesh_mujoco/``
+    (``mjx_compat=True`` always uses the primitive-collision twin there;
+    ``mesh_visuals`` is a no-op — the meshes ARE the model); ``primitive``
+    is the legacy path below, bit-identical to pre-08-24 behavior.
     """
     import mujoco
+    if source is None:
+        source = resolve_model_source(None)
+    if source != "primitive":
+        return _build_mesh_model(
+            source=source, fixed_base=fixed_base, flat_terrain=flat_terrain,
+            mjx_compat=mjx_compat, terrain_amp=terrain_amp,
+            terrain_seed=terrain_seed,
+            leg_chassis_collision=leg_chassis_collision)
     import mujoco_prototype as MP
     saved = (MP.USE_PART_MESHES, MP.USE_SERVO_MESHES)
     try:
@@ -340,32 +552,7 @@ def build_model(*, fixed_base: bool = False, flat_terrain: bool = True,
         #           at nominal — inert in plant stance, live in the curl.
         # Leg-leg stays OFF (legcol conaffinity stays 0); floor / foot
         # pairings are bit-identical. DEFAULT OFF — bit-exact when off.
-        rewritten = xml
-        rewrites = [('<geom class="collision" name="chassis_box" ',
-                     '<geom class="collision" conaffinity="9" '
-                     'name="chassis_box" ')]
-        for i in range(6):
-            rewrites += [
-                (f'<geom class="collision" name="L{i}_yaw_servo_col" ',
-                 f'<geom class="collision" conaffinity="25" '
-                 f'name="L{i}_yaw_servo_col" '),
-                (f'<geom class="legcol" name="L{i}_tibia_col" ',
-                 f'<geom class="legcol" contype="12" '
-                 f'name="L{i}_tibia_col" '),
-                (f'<geom class="legcol" name="L{i}_knee_servo_col" ',
-                 f'<geom class="legcol" contype="12" '
-                 f'name="L{i}_knee_servo_col" '),
-                (f'<geom class="legcol" name="L{i}_femur_col" ',
-                 f'<geom class="legcol" contype="20" '
-                 f'name="L{i}_femur_col" '),
-            ]
-        for old, new in rewrites:
-            if rewritten.count(old) != 1:
-                raise RuntimeError(
-                    f"leg_chassis_collision rewrite failed on {old!r} — "
-                    "mujoco_prototype geom XML changed?")
-            rewritten = rewritten.replace(old, new)
-        xml = rewritten
+        xml = _apply_leg_chassis_rewrites(xml, "mujoco_prototype")
     if mjx_compat:
         import re
         if flat_terrain:
@@ -387,23 +574,7 @@ def build_model(*, fixed_base: bool = False, flat_terrain: bool = True,
             raise RuntimeError("mjx_compat floor removal failed — "
                                "mujoco_prototype floor XML changed?")
     model = mujoco.MjModel.from_xml_string(xml)
-    if flat_terrain and model.hfield_data.size:
-        model.hfield_data[:] = 0.0
-    elif not flat_terrain and model.hfield_data.size:
-        heights = MP.make_terrain_heightmap(seed=int(terrain_seed))
-        # hfield data must stay normalized to [0, 1]; physical bump height
-        # is data * hfield_size[2] (HFIELD_MAX_Z, 36 mm at amp 1.0). Amps
-        # <=1 scale the data; amps >1 scale the z-extent instead — the old
-        # np.clip(amp, 0, 1) here silently capped every terrain at 36 mm
-        # (found 08-11 when the champion probe returned bit-identical
-        # results at amp 1.5/2.0/3.0).
-        amp = max(0.0, float(terrain_amp))
-        heights = heights * min(amp, 1.0)
-        if amp > 1.0:
-            hf_id = mujoco.mj_name2id(
-                model, mujoco.mjtObj.mjOBJ_HFIELD, "terrain")
-            model.hfield_size[hf_id][2] *= amp
-        MP._populate_hfield(model, heights)
+    _populate_terrain(model, flat_terrain, terrain_amp, terrain_seed)
     return model
 
 

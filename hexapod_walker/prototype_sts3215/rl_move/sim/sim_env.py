@@ -41,7 +41,8 @@ from rl_move.safety import SafetyLayer, action_to_body_offset  # noqa: E402
 from .domain_rand import DomainRandomizer, EpisodeRandomization  # noqa: E402
 from .servo_model import (  # noqa: E402
     ServoProfile, SimServoParams, apply_params_to_model, build_model,
-    joint_qpos_addrs, joint_qvel_addrs, position_actuator_ids,
+    joint_qpos_addrs, joint_qvel_addrs, lowest_collidable_z,
+    position_actuator_ids, resolve_model_source,
 )
 from .struct_compliance import StructCompliance  # noqa: E402
 
@@ -483,6 +484,11 @@ class SimHexapodBalanceEnv(_GymBase):
         # must never be mutated per episode, so the shim path runs with
         # model DR disabled. Default (None): private model, as always.
         self._owns_model = model is None
+        # cfg env.model_source: mesh-family (corrected kinematics) or the
+        # legacy primitive model — see servo_model.resolve_model_source.
+        # Shared models arrive pre-built from the same cfg, so the resolved
+        # source still describes them.
+        self._model_source = resolve_model_source(self.cfg)
         if model is not None:
             # dr.walk_push_*: private-model envs apply the xfrc in
             # their own _advance loop; shared-model shims delegate to
@@ -506,7 +512,8 @@ class SimHexapodBalanceEnv(_GymBase):
                 terrain_seed=_t_seed,
                 mesh_visuals=mesh_visuals,
                 leg_chassis_collision=leg_chassis_collision_from_cfg(
-                    self.cfg))
+                    self.cfg),
+                source=self._model_source)
         self.data = mujoco.MjData(self.model)
         self._substeps = max(1, int(round(self.dt / self.model.opt.timestep)))
         self._qadr = joint_qpos_addrs(self.model)
@@ -1286,6 +1293,16 @@ class SimHexapodBalanceEnv(_GymBase):
         self.data.ctrl[:] = 0.0
         self.data.ctrl[self._pos_act] = q_rad
         mujoco.mj_forward(self.model, self.data)
+        if self._model_source != "primitive":
+            # The analytic base_z above uses the LEGACY kinematic constants
+            # (body_ik FK + YAW_OUTPUT_HEIGHT); on the mesh-family models
+            # (real hip rise, mid-plane foot line) it lands ~60 mm high and
+            # the spawn would free-fall through the settle. Re-place from
+            # the model's own geometry: lowest collidable point 2 mm above
+            # the ground plane (legacy path untouched — bit-exact).
+            low = lowest_collidable_z(self.model, self.data)
+            self.data.qpos[2] += 0.002 - low
+            mujoco.mj_forward(self.model, self.data)
         # Foot-height placement assumes feet are the lowest points. At the
         # zero pose (legs straight out) the yaw-servo belly boxes are lower
         # than the feet and would start inside the floor — lift until

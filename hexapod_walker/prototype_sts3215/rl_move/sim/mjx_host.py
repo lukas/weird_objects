@@ -15,7 +15,7 @@ import numpy as np
 from .mjx_backend import MODEL_DR_FIELDS
 from .servo_model import (
     SimServoParams, apply_params_to_model, build_model,
-    position_actuator_ids,
+    position_actuator_ids, resolve_model_source,
 )
 from .sim_env import (leg_chassis_collision_from_cfg,
                       set_foot_ground_friction, soften_contacts)
@@ -173,7 +173,8 @@ def prepare_shared_model(params: SimServoParams, *, iterations: int,
     model = build_model(fixed_base=False, flat_terrain=terrain_amp <= 0.0,
                         terrain_amp=terrain_amp, terrain_seed=terrain_seed,
                         mesh_visuals=False, mjx_compat=True,
-                        leg_chassis_collision=leg_chassis)
+                        leg_chassis_collision=leg_chassis,
+                        source=resolve_model_source(cfg))
     soften_contacts(model)
     if foot_mu > 0.0:
         set_foot_ground_friction(model, foot_mu)

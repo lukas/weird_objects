@@ -295,6 +295,40 @@ CHECK_STATUS_COLOR = {"fail": "#ff3b30", "warn": "#f59e0b", "pass": "#22c55e"}
 CHECK_OVERLAP_MM3 = 80.0
 CHECK_PITCH_MM = 2.0
 
+# --- mass model (BuildViz get_mass_properties + mesh_mujoco) ----------------
+# Real masses for BOUGHT parts (grams per instance) so the hub's mass tool
+# stops weighing servos/batteries/bearings as solid PLA.  Spec'd where a
+# datasheet exists; (est) = catalog-typical, refine by weighing.
+KNOWN_PART_MASSES_G = {
+    "yaw_servo": 61.0, "hip_servo": 61.0, "knee_servo": 61.0,  # STS3215 spec
+    "yaw_bearing_upper": 10.0, "yaw_bearing_lower": 10.0,      # 6805-2RS
+    "disc_horn_yaw": 4.0, "disc_horn_hip": 4.0, "disc_horn_knee": 4.0,
+    "passive_horn_hip": 4.0, "passive_horn_knee": 4.0,   # metal disc horns
+    "lipo_battery": 140.0,   # (est) ~68 cm3 hardcase pack — WEIGH to pin
+    "tibia_tube": 4.5,       # Ø8x1 CF tube, ~125 mm cut (solid-CAD cylinder)
+    "foot_boot": 3.0,        # TPU boot, thin walls + solid tip
+    "uno_q": 42.0, "screen": 40.0, "breakout": 8.0,      # (est)
+    "motor_controller": 22.0, "mpu6050": 1.5,            # (est)
+    "wago_power": 9.3, "wago_trunk": 9.3, "wago_v33": 9.3,   # 221-415
+    "wago_data": 5.0,                                        # 221-413
+    "hex_post_magnet": 3.0,                              # Ø8x8 N52
+    "chassis_standoff": 2.0, "hex_post_standoff": 2.0,   # M3 brass
+}
+# Effective densities (g/cm3) for volume-weighed parts.  Steel fasteners are
+# volume-accurate CAD; printed parts get PLA 1.24 x an infill factor from the
+# documented print settings (PROTOTYPE.md): plates/holster 25% gyroid 4 walls
+# (~0.5 of solid), structural yokes/brackets/caps 30-40% gyroid 4 walls
+# (~0.6 of solid).
+PART_DENSITIES_GCM3 = {
+    "screw_yaw": 7.85, "screw_hip": 7.85, "screw_knee": 7.85,
+    "screw_retainer": 7.85, "screw_chassis": 7.85,
+    "chassis_bottom": 0.62, "chassis_top": 0.62, "switch_holster": 0.62,
+    "hex_mount_plate": 0.62, "hex_raised_platform": 0.62,
+    "coxa_link": 0.744, "femur_link": 0.744, "tibia_knee_yoke": 0.744,
+    "yaw_bearing_cap": 0.744, "yaw_servo_retainer": 0.744,
+    "hip_clamp_cap": 0.744, "knee_clamp_cap": 0.744,
+}
+
 # Intended part-type matings (overlap by design): servo bodies seated in their
 # cradles, the disc horn clamped on its servo output, the carbon tube epoxied
 # into its sockets, and the bolt-together printed stacks that share a flush or
@@ -2201,6 +2235,10 @@ def main(single_leg: bool = False, motion: bool = True) -> None:
             "overlapMm3": CHECK_OVERLAP_MM3,
             "pitchMm": CHECK_PITCH_MM,
             "ignoreOverlapPairs": sorted(sorted(p) for p in INTENDED_OVERLAP_PAIRS),
+            # real bought-part masses + infill-corrected print densities so
+            # get_mass_properties reports the as-built weight, not solid PLA
+            "partMassesGrams": KNOWN_PART_MASSES_G,
+            "partDensitiesGCm3": PART_DENSITIES_GCM3,
         },
         "meshes": meshes_json,
         "instances": instances_json,
