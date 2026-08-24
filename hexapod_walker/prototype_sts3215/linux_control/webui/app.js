@@ -496,23 +496,20 @@ async function padRunDemo(name, label){
 async function goPoseZero(pose, label){
   // Bench routes arm the bus themselves and glide (Drive `P` was a silent
   // one-shot that looked like a no-op when disarmed / already near plant).
-  // SIT uses /api/safe_zero (collision-aware staged plan; LIMPS on any
-  // stall / unexpected-force feedback). STAND keeps the verified glide.
+  // Outside the Experiments page, normal upright lower/sit uses STEP-down.
+  // If the robot is not standing or is tangled, the backend falls back to
+  // safe-zero recovery instead of blindly reverse-playing STEP.
   dancePaused = true;
   if(pose === 'stand') armed = false;
   const tag = label || pose;
-  const safe = pose !== 'stand';
   showSent(tag + ' request sent…');
   try{
-    let r = await fetch(safe ? '/api/safe_zero' : '/api/zero',{method:'POST',
+    const stepSit = pose !== 'stand';
+    let r = await fetch(stepSit ? '/api/standup' : '/api/zero',{method:'POST',
       headers:{'Content-Type':'application/json'},
-      body: JSON.stringify(safe ? {} : {pose: pose})});
-    if(safe && r.status === 404){
-      // Older server without safe_zero — legacy glide fallback.
-      r = await fetch('/api/zero',{method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({pose: pose})});
-    }
+      body: JSON.stringify(stepSit
+        ? {mode:'step', speed:10, direction:'down'}
+        : {pose: pose})});
     const j = await r.json();
     if(!j.ok){
       showSent(requestReceiptLine(j, tag)+'; failed: '
@@ -522,12 +519,8 @@ async function goPoseZero(pose, label){
       return;
     }
     setArmed(true);
-    if(safe && j.plan && j.plan.stages)
-      showSent(requestReceiptLine(j, tag)+'; safe plan: '
-        +j.plan.stages.length+' stage(s), ~'
-        +(j.plan.total_s||'?')+'s');
-    else
-      showSent(requestReceiptLine(j, tag)+'; gliding');
+    showSent(requestReceiptLine(j, tag)+'; '
+      +(stepSit ? 'STEP lower' : 'gliding'));
     if(j.demo) paintDemoStatus(j.demo);
     if(j.robot) paintRobotActivity(j.robot);
     startDemoPoll();
@@ -1786,7 +1779,7 @@ function startRlPoll(){
   }, 500);
 }
 function rlButtons(disabled){
-  for(const id of ['rlstand','rllower','rlglide','rlcapture','rlwalkfwd',
+  for(const id of ['rlstand','rllower','rlcapture','rlwalkfwd',
                    'rlwalkleft','rlwalkright','rlwalkback',
                    'rlwalkfl','rlwalkfr','rlwalkbl','rlwalkbr',
                    'rldrivestart'])
@@ -1819,26 +1812,30 @@ async function rlMove(mode, body){
     rlButtons(false);
   }
 }
-$('rlstand').onclick = ()=> rlMove('stand');
-$('rllower').onclick = ()=> rlMove('lower');
-$('rlglide').onclick = async ()=>{
-  $('rlstatus').textContent = 'Plant stance request sent…';
+async function rlScriptedStand(mode, label, direction='up'){
+  $('rlstatus').textContent = label+' request sent…';
+  rlButtons(true);
   try{
     const r = await fetch('/api/standup', {method:'POST',
-      body: JSON.stringify({mode:'plant', speed:10})});
+      body: JSON.stringify({mode, speed:10, direction})});
     const d = await r.json();
     if(!d.ok){
-      $('rlstatus').textContent = requestReceiptLine(d, 'Plant stance')
+      $('rlstatus').textContent = requestReceiptLine(d, label)
         + '; refused: '+(d.error || 'unknown');
-      showErr('Plant stance: '+requestReceiptLine(d, '')+'; '
+      showErr(label+': '+requestReceiptLine(d, '')+'; '
         +(d.error || 'refused'));
+      rlButtons(false);
       return;
     }
-    $('rlstatus').textContent = requestReceiptLine(d, 'Plant stance')
-      + '; moving…';
-    startDemoPoll();
-  }catch(e){ $('rlstatus').textContent = 'Start failed (link?)'; }
-};
+    $('rlstatus').textContent = requestReceiptLine(d, label)+'; moving…';
+    startRlPoll();
+  }catch(e){
+    $('rlstatus').textContent = 'Start failed (link?)';
+    rlButtons(false);
+  }
+}
+$('rlstand').onclick = ()=> rlScriptedStand('step', 'Stand up');
+$('rllower').onclick = ()=> rlScriptedStand('step', 'Lower', 'down');
 $('rlcapture').onclick = async ()=>{
   $('rlstatus').textContent = 'Capturing plant pose (no motion)…';
   try{
@@ -1872,7 +1869,7 @@ $('rlstop').onclick = async ()=>{
 };
 
 // ---- Drive session (hold arrow keys — MuJoCo-viewer-style, 08-11) ---------
-// The browser streams (vx, vy) heartbeats at 5 Hz while the session is
+// The browser streams (vx, vy, wz) heartbeats at 5 Hz while the session is
 // active; the robot's 25 Hz loop slews toward them and treats anything
 // older than 0.6 s as "keys released". So: keydown = walk, keyup = stop
 // and hold, dead tab = stop and hold.
@@ -1884,14 +1881,18 @@ const DRV_KEYMAP = {
   arrowdown:'back', s:'back', k:'back',
   arrowleft:'left', a:'left', j:'left',
   arrowright:'right', d:'right', l:'right',
+  q:'yawL', u:'yawL',
+  e:'yawR', o:'yawR',
 };
 function drvVec(){
   let dx = (drvKeys.has('fwd')?1:0) - (drvKeys.has('back')?1:0);
   let dy = (drvKeys.has('left')?1:0) - (drvKeys.has('right')?1:0);
+  let dz = (drvKeys.has('yawL')?1:0) - (drvKeys.has('yawR')?1:0);
   if(!dx && !dy && drvPad){ dx = drvPad[0]; dy = drvPad[1]; }
   const n = Math.hypot(dx, dy);
   const s = parseFloat($('rlwalkspeed').value);
-  return n ? [dx/n*s, dy/n*s] : [0, 0];
+  const wz = dz ? dz * 0.18 : 0;
+  return n ? [dx/n*s, dy/n*s, wz] : [0, 0, wz];
 }
 function drvPaint(d){
   const live = (d && d.live) || {};
@@ -1900,6 +1901,7 @@ function drvPaint(d){
   if(live.vx_ref!=null)
     bits.push(`v (${Math.round(live.vx_ref*1000)}, `
               + `${Math.round(live.vy_ref*1000)}) mm/s`);
+  if(live.wz_ref) bits.push(`ω ${live.wz_ref} rad/s`);
   if(live.roll_deg!=null)
     bits.push(`tilt ${live.roll_deg}/${live.pitch_deg}°`);
   if(live.max_current_a!=null) bits.push(`maxI ${live.max_current_a} A`);
@@ -1911,10 +1913,10 @@ function drvPaint(d){
 }
 async function drvSend(){
   if(!drvActive) return;
-  const [vx, vy] = drvVec();
+  const [vx, vy, wz] = drvVec();
   try{
     const r = await fetch('/api/rl/drive/cmd', {method:'POST',
-      body: JSON.stringify({vx, vy})});
+      body: JSON.stringify({vx, vy, wz})});
     const d = await r.json();
     if(!d.active){ drvEnded(); return; }
     drvPaint(d);
@@ -3315,8 +3317,8 @@ function updateArmUI(){
     : 'Power the servos on (ARM). Nothing moves until you press Stand.';
   zeroBtn.disabled = !robotTargetAvailable;
   zeroBtn.title = robotTargetAvailable
-    ? 'Move to logical sit zero using the collision-aware safe-zero plan. '
-      +'This may enable torque while it moves, then leaves the robot at zero.'
+    ? 'Move to logical sit zero: STEP lower if standing; safe-zero '
+      +'recovery if not standing or tangled.'
     : 'Robot target is not connected.';
   $('estop').textContent = '■ E-STOP';
   $('estop').title = 'Cut all power to the servos IMMEDIATELY — the robot '
@@ -3341,14 +3343,14 @@ function settleServos(){ dbgTestAbort = true; cmd('SETTLE'); setArmed(false);
   showSent('DISARM — lowering gently, then servos off'); }
 async function topSafeZero(){
   if(targetHasSim && !targetHasRobot){
-    showSent('switch Robot active before safe zero', true);
+    showSent('switch Robot active before STEP lower', true);
     return;
   }
   if(!robotTargetAvailable){
     showSent('robot target not connected', true);
     return;
   }
-  await goPoseZero('sit', 'safe zero');
+  await goPoseZero('sit', 'STEP lower');
 }
 // INSTANT limp: cut all PWM NOW (true emergency stop; the robot drops). Always
 // allowed, even while disarmed, and used for the boot-time safe default.
@@ -3368,7 +3370,8 @@ function needArm(){
 }
 // The Disarm toggle is a NORMAL power-off -> graceful lower then limp.
 $('armbtn').onclick = ()=> servosArmed ? settleServos() : armServos();
-// Safe zero is a staged motion into logical sit zero, not an E-stop.
+// Header Zero uses the same smart lower: STEP-down from standing,
+// safe-zero recovery from tangled/not-standing poses.
 $('armzero').onclick = topSafeZero;
 // EMERGENCY STOP is the ONLY instant-limp control (cuts PWM immediately).
 $('estop').onclick  = disarmServos;

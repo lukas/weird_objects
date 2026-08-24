@@ -29,8 +29,8 @@ PHYSICALLY relevant axis (obs shape, DR ranges, safety envelope),
 add a new STACKS-style entry rather than assuming VREF1_STACK still
 matches — verify against that run's own launch command first.
 
-    ../../.venv/bin/python -m rl_move.sim.probe_walk_push
-    ../../.venv/bin/python -m rl_move.sim.probe_walk_push --ckpts bcgait1_hard1,tip1
+    uv run python -m rl_move.sim.probe_walk_push
+    uv run python -m rl_move.sim.probe_walk_push --ckpts bcgait1_hard1,tip1
 """
 from __future__ import annotations
 

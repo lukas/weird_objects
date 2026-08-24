@@ -35,7 +35,7 @@ Output: JSON trace + a per-episode stall summary to stdout. Pure
 diagnostic - no training, no env-code changes, C env on CPU.
 
 Usage (on the run's pod):
-    python -m rl_move.sim.probe_anchor_align \
+    uv run python -m rl_move.sim.probe_anchor_align \
         rl_move/sim/policies/ppo_goal_cw_stand_footlow1.zip \
         --cfg-set ... (the run's stack) --out /tmp/anchor_align.json
 """

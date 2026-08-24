@@ -39,8 +39,8 @@ sim_model.json). Envs select it with ``--cfg-set bus.servo_params=loaded``
 (default cfg keeps the air model — legacy byte-exact).
 
 Run (from prototype_sts3215/, repo .venv):
-    ../../.venv/bin/python -m rl_move.sim.fit_loaded_actuator --measure
-    ../../.venv/bin/python -m rl_move.sim.fit_loaded_actuator          # fit
+    uv run python -m rl_move.sim.fit_loaded_actuator --measure
+    uv run python -m rl_move.sim.fit_loaded_actuator          # fit
 """
 from __future__ import annotations
 

@@ -1634,6 +1634,126 @@ class BenchAPI:
             time.sleep(0.4)
         return None, None
 
+    @staticmethod
+    def _pose_delta(present: list[float], goal: list[float]
+                    ) -> float | None:
+        if len(present) != N_JOINTS or len(goal) != N_JOINTS:
+            return None
+        try:
+            return max(abs(float(a) - float(b))
+                       for a, b in zip(present, goal))
+        except (TypeError, ValueError):
+            return None
+
+    @staticmethod
+    def _median(vals: list[float]) -> float:
+        vals = sorted(float(v) for v in vals)
+        n = len(vals)
+        mid = n // 2
+        return vals[mid] if n % 2 else (vals[mid - 1] + vals[mid]) / 2.0
+
+    def _normal_standing_pose(self, present: list[float], *,
+                              tilt_deg: float | None = None,
+                              pinned: dict | None = None) -> dict | None:
+        """Return a normal-upright verdict, or ``None`` for recovery poses.
+
+        Motion routing rule, intentionally documented here because it is easy
+        to forget:
+
+        * Normal descent from a good upright stance uses baked STEP-down.
+          This includes either the walking/captured plant stance
+          (``standing_pose_degrees``) or STEP's own final high-knee stance.
+        * Safe zero is reserved for tangled, tipped, unknown, or already-low
+          poses where the collision-aware planner is the right tool.
+        * A stand command issued while already upright does not run another
+          rise. It re-holds/adjusts the plant stance height instead.
+
+        The classifier is deliberately conservative. Belly-zero can be only
+        ~28 deg from the default plant knee, so pose delta alone would produce
+        false "standing" hits; the median hip/knee shape gate keeps zero and
+        folded/tangled postures on the recovery path.
+        """
+        if pinned and pinned.get("pinned"):
+            return None
+        if tilt_deg is not None and abs(float(tilt_deg)) > 20.0:
+            return None
+        if len(present) != N_JOINTS:
+            return None
+        try:
+            hips = [float(present[3 * leg + 1]) for leg in range(6)]
+            knees = [float(present[3 * leg + 2]) for leg in range(6)]
+        except (TypeError, ValueError):
+            return None
+        hip_med = self._median(hips)
+        knee_med = self._median(knees)
+        if hip_med < 5.0 or knee_med < 12.0:
+            return None
+
+        refs: list[tuple[str, list[float], float]] = []
+        try:
+            from feetech_bus import standing_pose_degrees
+            refs.append(("plant", [float(v) for v in
+                                   standing_pose_degrees()], 25.0))
+        except Exception:
+            pass
+        try:
+            step = self._load_standup()["modes"]["step"]["keyframes"]
+            refs.append(("step", [float(v) for v in
+                                  step[-1]["q_deg"]], 35.0))
+        except Exception:
+            pass
+
+        best: dict | None = None
+        for name, goal, tol in refs:
+            delta = self._pose_delta(present, goal)
+            if delta is None or delta > tol:
+                continue
+            verdict = {
+                "kind": name,
+                "max_delta_deg": round(delta, 1),
+                "tol_deg": tol,
+                "hip_med_deg": round(hip_med, 1),
+                "knee_med_deg": round(knee_med, 1),
+            }
+            if tilt_deg is not None:
+                verdict["tilt_deg"] = round(float(tilt_deg), 1)
+            if best is None or delta < float(best["max_delta_deg"]):
+                best = verdict
+        return best
+
+    def _settle_stand_pose_sync(self, *, abort_check,
+                                on_progress=None) -> dict:
+        """Adjust an already-upright robot to the captured plant stance."""
+        try:
+            from inplace_demos import CurrentPeakTracker, go_to_stand_pose
+        except ImportError as e:
+            return {"ok": False, "error": str(e)}
+
+        def _prog(msg: str) -> None:
+            if not on_progress:
+                return
+            try:
+                on_progress({"msg": msg})
+            except Exception:
+                pass
+
+        _prog("standing already: adjusting legs / plant height…")
+        result: dict = {}
+        tracker = CurrentPeakTracker()
+        try:
+            ok = go_to_stand_pose(
+                self.drive.bus, abort_check=abort_check,
+                seconds=4.5, current_tracker=tracker, result=result)
+        except Exception as e:
+            return {"ok": False,
+                    "error": f"could not adjust standing pose: {e}"}
+        if not ok:
+            why = (result.get("error")
+                   or ("aborted" if result.get("aborted") else "failed"))
+            return {"ok": False, "error": f"standing adjust failed: {why}"}
+        return {"ok": True, "settled_stand": True,
+                "stand_check": result}
+
     def go_zero(self, pose: str = "sit", *, force: bool = False) -> dict:
         """Go to sit zero (legs out) or stand zero (standing stance) — SAFELY.
 
@@ -1641,13 +1761,13 @@ class BenchAPI:
 
         Neither direction refuses on a big delta any more (operator
         directives 08-10 sit / 08-11 stand): the robot ACQUIRES the
-        pose instead. SIT = the collision-aware safe-zero plan (stages
-        around ground and leg-vs-leg contact; LIMPS on stall or
-        unexpected force). STAND = safe zero first when needed, then
-        the validated keyframe step stand-up. If acquisition
-        fails the robot stops (hold or limp) and the job errors out.
-        Near-pose fast paths still delegate straight to the step
-        keyframes at 10x.
+        pose instead. Current standard:
+        - STAND while already upright adjusts/verifies plant height.
+        - STAND while not upright runs safe-zero, then STEP stand-up.
+        - SIT/LOWER while upright runs STEP-down.
+        - SIT/LOWER while not upright/tangled runs safe-zero recovery.
+        If acquisition fails the robot stops (hold or limp) and the job
+        errors out.
         """
         pose = (pose or "sit").strip().lower()
         if pose in ("stand", "standing", "plant"):
@@ -1668,29 +1788,22 @@ class BenchAPI:
                         "robot": self.robot_state()}
         self._quad_reared = False
 
-        # Standard stand/sit = the validated tuck keyframes at 10x
-        # (operator 08-10). When the robot sits at the tuck start
-        # (see _delta_vs_present for why the gates must be None-aware)
-        # (belly-down, legs out) a STAND delegates to the fast tuck
-        # rise; when it is in the tuck stance a SIT delegates to the
-        # reversed keyframes. Anything else acquires the pose safely
-        # below (safe-zero plan / step stand-up).
+        if pose == "sit":
+            return self.standup(mode="step", speed=10.0,
+                                direction="down")
+
+        # Standard stand = the validated STEP keyframes at 10x. When the
+        # robot is already near the first STEP frame (belly-down, legs
+        # out), delegate straight to the keyframes. Otherwise the worker
+        # below acquires safe zero first.
         try:
-            kfs = self._load_standup()["modes"]["tuck"]["keyframes"]
-            tuck_zero = [float(x) for x in kfs[0]["q_deg"]]
-            tuck_stand = [float(x) for x in kfs[-1]["q_deg"]]
-            d_zero, _ = self._delta_vs_present(tuck_zero)
-            d_stand, _ = self._delta_vs_present(tuck_stand)
+            kfs = self._load_standup()["modes"]["step"]["keyframes"]
+            step_zero = [float(x) for x in kfs[0]["q_deg"]]
+            d_zero, _ = self._delta_vs_present(step_zero)
             if (pose == "stand" and d_zero is not None
                     and d_zero <= 25.0):
                 return self.standup(mode="step", speed=10.0,
                                     direction="up")
-            # 35 deg: knees sag ~15-20 deg holding the stance at idle
-            # torque; the standup align phase eases that out safely.
-            if (pose == "sit" and d_stand is not None
-                    and d_stand <= 35.0):
-                return self.standup(mode="tuck", speed=10.0,
-                                    direction="down")
         except Exception:
             pass
 
@@ -1959,19 +2072,20 @@ class BenchAPI:
         kind = "stand" if raw_kind.startswith("stand") else "zero"
         acquired: list[str] = []
         if kind == "stand":
-            wp = None
-            try:
-                from feetech_bus import standing_pose_degrees
-                stand_goal = standing_pose_degrees()
-                wp, _ = self._delta_vs_present(stand_goal)
-            except Exception:
-                wp = None
-            if wp is not None and wp <= 8.0:
-                return {"ok": True, "acquired": acquired}
-            if tuck_stand and wp is not None and wp <= 25.0:
-                return {"ok": True, "acquired": ["tuck_stand_near"]}
-            if not tuck_stand and wp is not None and wp <= 25.0:
-                return {"ok": True, "acquired": ["stand_near"]}
+            present, missing = self._present_pose18()
+            standing = (None if missing else
+                        self._normal_standing_pose(present))
+            if standing:
+                res = self._settle_stand_pose_sync(
+                    abort_check=self._demo_abort.is_set,
+                    on_progress=on_progress)
+                if not res.get("ok"):
+                    return {"ok": False, "acquired": acquired,
+                            "error": str(res.get("error") or "failed")}
+                tag = ("tuck_stand_adjusted" if tuck_stand
+                       else "stand_adjusted")
+                return {"ok": True, "acquired": [tag],
+                        "standing": standing, **res}
         # Everything else goes through a safe zero first (no-op when
         # already there; plans around ground / leg collisions; limps
         # on stall or unexpected force).
@@ -1999,6 +2113,31 @@ class BenchAPI:
                     "error": ("could not reach stand start: "
                               + str(rs.get("error") or "aborted"))}
         acquired.append("standup_step")
+        if not tuck_stand:
+            # The baked step stand-up ends in a high +80° knee pose.  RL
+            # walk/lower preflight expects the learned plant from
+            # standing_pose_degrees(), so settle onto that target before
+            # reporting the start as acquired.
+            try:
+                from inplace_demos import CurrentPeakTracker, go_to_stand_pose
+                settle_result: dict = {}
+                _prog({"msg": "acquiring start: settle to captured plant…"})
+                tracker = CurrentPeakTracker()
+                ok = go_to_stand_pose(
+                    d.bus, abort_check=self._demo_abort.is_set,
+                    seconds=4.5, current_tracker=tracker,
+                    result=settle_result)
+            except Exception as e:
+                return {"ok": False, "acquired": acquired,
+                        "error": f"could not settle to plant start: {e}"}
+            if not ok:
+                why = (settle_result.get("error")
+                       or ("aborted" if settle_result.get("aborted")
+                           else "failed"))
+                return {"ok": False, "acquired": acquired,
+                        "limp": bool(settle_result.get("limp")),
+                        "error": f"could not settle to plant start: {why}"}
+            acquired.append("plant")
         return {"ok": True, "acquired": acquired}
 
     def pinned_tip_state(self) -> dict:
@@ -2130,15 +2269,20 @@ class BenchAPI:
 
     def safe_zero(self, *, dry_run: bool = False,
                   force: bool = False) -> dict:
-        """Collision-aware go-to-zero with limp-on-anomaly (ask 08-10).
+        """Smart go-to-zero with STEP-down for normal stance.
 
-        Plans staged waypoints from the present encoders to logical 0°
-        (``safe_zero.plan_safe_zero``: straighten → center yaws with
-        feet lifted clear of the ground → extend flat) and REFUSES with
-        an error when no ground/self-collision-free path exists. During
-        motion, any servo reporting stall-fight current, sustained
-        load, or "commanded but not turning" LIMPS the whole robot
-        immediately (``run_safe_zero``).
+        If the robot is level and near a normal standing pose (captured
+        plant or STEP's final stance), this endpoint delegates to
+        STEP-down. That is the normal descent path.
+
+        Otherwise this is the collision-aware untangle/recovery path:
+        it plans staged waypoints from present encoders to logical 0°
+        (``safe_zero.plan_safe_zero``: straighten → center yaws with feet
+        lifted clear of the ground → extend flat) and REFUSES with an
+        error when no ground/self-collision-free path exists. During
+        motion, any servo reporting stall-fight current, sustained load,
+        or "commanded but not turning" LIMPS the whole robot immediately
+        (``run_safe_zero``).
 
         ``dry_run=True`` returns the plan without any motion.
         ``force`` bypasses only the IMU tilt gate — never the
@@ -2205,6 +2349,24 @@ class BenchAPI:
                                   "hand-placed? Safe zero assumes "
                                   "roughly level. Right the robot (or "
                                   "force=true while watching).")}
+
+        standing = self._normal_standing_pose(
+            present, tilt_deg=tilt, pinned=pinned)
+        if standing:
+            # Safe zero is the tangled/unknown recovery path. A level,
+            # normal standing robot should descend through the same STEP
+            # lower used by all non-Experiments controls, not through the
+            # collision-avoidance untangle planner.
+            if dry_run:
+                return {"ok": True, "dry_run": True,
+                        "route": "step_lower",
+                        "standing": standing,
+                        "msg": "standing pose: would use STEP lower"}
+            res = self.standup(mode="step", speed=10.0,
+                               direction="down")
+            res["route"] = "step_lower"
+            res["standing"] = standing
+            return res
 
         plan = plan_safe_zero(present, ground_z_mm=belly_ground_z_mm())
         plan["present_deg"] = [round(v, 2) for v in present]
@@ -6053,16 +6215,16 @@ class BenchAPI:
     # atomically copies it over the live rl_policy_weights.json /
     # rl_walk_weights.json. No restart needed — run_policy_move loads
     # weights fresh at every episode start. Slot is inferred from the
-    # obs dim (68 = stance stand/lower, 72 = walk).
+    # obs dim (68 = stance stand/lower, 72/74/93 = walk).
     POLICIES_DIR = Path(__file__).resolve().parent / "policies"
     # Uploaded policies (rl_move/np_policy.py, POST /api/rl/policies)
     # live OUTSIDE the deploy tree so code pushes never wipe them —
     # same convention as ~/.hexapod_dances. On a name clash the upload
     # wins (robot-local state beats the repo).
     UPLOAD_POLICIES_DIR = Path.home() / ".hexapod_policies"
-    # obs 74 = walk + phase clock (sin/cos appended by the runner; the
-    # cw-arch-noslipphase1 no-slip line). Same walk slot.
-    _SLOT_OBS = {68: "stance", 72: "walk", 74: "walk"}
+    # obs 74 = walk + phase clock; obs 93 = AMP walk with phase,
+    # yaw-rate command, and all-healthy fault-health tail. Same walk slot.
+    _SLOT_OBS = {68: "stance", 72: "walk", 74: "walk", 93: "walk"}
 
     def _find_policy_file(self, file: str) -> Path | None:
         """Resolve a picker file name to a path (uploads shadow repo)."""
@@ -6140,7 +6302,7 @@ class BenchAPI:
         if slot is None:
             return {"ok": False,
                     "error": (f"obs_dim {meta.get('obs_dim')} fits no slot "
-                              f"(68 = stance, 72/74 = walk)")}
+                              f"(68 = stance, 72/74/93 = walk)")}
         dst = self._policy_slot_targets()[slot]
         tmp = dst.with_name(dst.name + ".tmp")
         tmp.write_text(payload)
@@ -6166,7 +6328,7 @@ class BenchAPI:
     # special hold value "walk" (the default) means "the walk policy at
     # zero command" — its trained stop, no model switch at all.
     ROLES_FILE = Path.home() / ".hexapod_rl_roles.json"
-    _ROLE_OBS = {"walk": (72, 74), "hold": (68, 72, 74),
+    _ROLE_OBS = {"walk": (72, 74, 93), "hold": (68, 72, 74, 93),
                  "stand": (68,), "lower": (68,)}
 
     def _roles(self) -> dict:
@@ -6341,14 +6503,15 @@ class BenchAPI:
                 out["result"] = self._cal_result
         return out
 
-    def rl_drive_cmd(self, *, vx: float = 0.0, vy: float = 0.0) -> dict:
-        """Heartbeat from the browser: body-frame (vx, vy) m/s while
-        keys are held, (0, 0) when released. Never touches the bus —
+    def rl_drive_cmd(self, *, vx: float = 0.0, vy: float = 0.0,
+                     wz: float = 0.0) -> dict:
+        """Heartbeat from the browser: body-frame (vx, vy) m/s and yaw
+        rate wz rad/s while keys are held. Never touches the bus —
         the 25 Hz session loop reads it. Stale heartbeats (> 0.6 s)
         decay to zero server-side, so this must keep streaming."""
         if not self._drive_active():
             return {"ok": False, "error": "no drive session", "active": False}
-        self._drive_cmd.set(float(vx), float(vy))
+        self._drive_cmd.set(float(vx), float(vy), float(wz))
         with self._lock:
             status = self._demo_status
         return {"ok": True, "active": True, "status": status,
@@ -6498,12 +6661,15 @@ class BenchAPI:
                        rot60: bool = True, turn: str | None = None,
                        tilt_trip_deg: float | None = None,
                        extra_hold_s: float = 0.0) -> dict:
-        """Run a trained RL policy: stand up / lower / walk.
+        """Run RL walk; stand/lower use baked STEP outside Experiments.
 
         Async (demo-thread slot, poll ``rl_state``, abort via ``rl_stop``).
         Read-only preflight refuses to move unless all 18 servos answer,
         the IMU is alive, and the present pose matches the expected start
-        (belly/zero for stand, captured plant for lower AND walk).
+        (captured plant for walk).
+        ``mode="stand"`` and ``mode="lower"`` deliberately delegate to
+        the STEP stand-up keyframes instead of the experimental learned
+        stance policies.
         Safety layer trips (tilt / sustained over-current / temp) limp
         immediately. Walk extras: body-frame vx/vy (m/s, clamped to the
         trained 0.06 band) and duration_s (clamped 3..20 s).
@@ -6514,6 +6680,12 @@ class BenchAPI:
         mode = (mode or "stand").strip().lower()
         if mode not in ("stand", "lower", "walk"):
             return {"ok": False, "error": f"bad mode {mode!r}"}
+        if mode == "stand":
+            return self.standup(mode="step", speed=10.0,
+                                direction="up")
+        if mode == "lower":
+            return self.standup(mode="step", speed=10.0,
+                                direction="down")
         try:
             from rl_policy import preflight, run_policy_move
         except ImportError as e:
@@ -6542,8 +6714,8 @@ class BenchAPI:
             # RL moves from any pose (operator 08-11): when the pose
             # or a MODERATE tilt is all that fails (servos + IMU
             # healthy), the worker ACQUIRES the expected start first —
-            # safe zero for RL stand; safe zero + the validated step
-            # stand-up for lower / walk — then re-preflights (strict
+            # safe zero for stand; safe zero + the validated step
+            # stand-up for walk — then re-preflights (strict
             # gates) and runs. A sprawled robot resting crooked on
             # folded legs reads 15-25 deg of tilt — the descent
             # flattens it. A truly tipped robot (roll toward 90)
@@ -6562,7 +6734,7 @@ class BenchAPI:
         self._demo_gen += 1
         gen = self._demo_gen
         self._demo_abort.clear()
-        label = {"stand": "RL stand up", "lower": "RL lower",
+        label = {"stand": "STEP stand up", "lower": "STEP lower",
                  "walk": "RL walk"}[mode]
         with self._lock:
             self._demo_name = f"rl_policy_{mode}"
@@ -6858,20 +7030,21 @@ class BenchAPI:
                 for name, m in (data.get("modes") or {}).items()],
         }
 
-    def standup(self, *, mode: str = "tuck", speed: float = 1.0,
+    def standup(self, *, mode: str = "step", speed: float = 1.0,
                 direction: str = "up", force: bool = False,
                 torque: int = 700, abort_current_a: float = 3.0,
                 sync_gen: int | None = None) -> dict:
         """Play one baked stand-up strategy (async).
 
-        ``direction="up"`` starts from the ZERO pose (belly down, legs
-        straight out); ``"down"`` plays the same keyframes in reverse —
-        from the mode's standing stance back to the belly. When the
-        present pose is far from the required start it ACQUIRES it
-        first (08-11 directive): up → safe zero first, then the
-        keyframes; down + not at stance → the safe descent to zero IS
-        the down path. Acquisition failure stops everything with an
-        error and the keyframes never play.
+        ``direction="up"`` normally starts from the ZERO pose (belly down,
+        legs straight out); if the robot is already upright, it adjusts
+        and verifies the plant stance instead of re-running a rise.
+        Otherwise it ACQUIRES zero first (08-11 directive), then plays
+        the keyframes. ``direction="down"`` plays the same keyframes in
+        reverse only when the robot is normally upright; down from a
+        not-standing/tangled pose delegates to safe-zero recovery.
+        Acquisition failure stops everything with an error and the
+        keyframes never play.
         Aborts between keyframes if any servo peaked above
         ``abort_current_a`` (stall-fight = the pinned-feet failure this
         lab exists to fix; do not grind on it).
@@ -6906,15 +7079,45 @@ class BenchAPI:
             keyframes = m["keyframes"]
         except (OSError, ValueError, KeyError, ImportError) as e:
             return {"ok": False, "error": f"unknown stand-up mode: {e}"}
+        down = str(direction) == "down"
         if sync_gen is None and (self._demo_thread
                                  and self._demo_thread.is_alive()):
             if not self._preempt_demo_thread(reason="→ standup",
                                              timeout=5.0):
                 return {"ok": False, "error": "previous job still running"}
 
+        if not force:
+            # State machine for ordinary stand/lower requests:
+            # - UP + already upright: adjust/verify the plant stance.
+            # - UP + not upright: safe-zero first, then STEP-up below.
+            # - DOWN + upright: play the selected reverse keyframes
+            #   (standard callers select STEP).
+            # - DOWN + not upright/tangled: use safe-zero recovery instead
+            #   of blindly reverse-playing stand-up keyframes.
+            present, missing = self._present_pose18()
+            standing = (None if missing else
+                        self._normal_standing_pose(present))
+        else:
+            standing = None
+        if not down and standing:
+            res = self.go_zero(pose="stand", force=force)
+            res["route"] = "stand_adjust"
+            res["standing"] = standing
+            return res
+        safe_zero_before_up = bool(not force and not down
+                                   and standing is None)
+        if down and not force and standing is None:
+            if sync_gen is None:
+                res = self.safe_zero(force=force)
+                res["route"] = "safe_zero_not_standing"
+                return res
+            res = self._safe_zero_sync(
+                abort_check=self._demo_abort.is_set)
+            res["route"] = "safe_zero_not_standing"
+            return res
+
         speed = max(0.25, min(10.0, float(speed)))
         torque = max(300, min(1000, int(torque)))
-        down = str(direction) == "down"
         # frames: (18-joint target deg, glide seconds). Reversed playback
         # keeps each segment's duration with its segment: the glide from
         # keyframe i to i-1 takes what i-1 -> i took, plus a short
@@ -6929,6 +7132,8 @@ class BenchAPI:
         first = frames[0][0]
         acquire_zero_first = False
         safe_down_instead = False
+        if safe_zero_before_up:
+            acquire_zero_first = True
         if not force:
             worst, j = self._delta_vs_present(first)
             if worst is None:

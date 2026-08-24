@@ -11,7 +11,7 @@ and wobble, not an idealized tripod — then walk_obs_body_vel=3 gives
 a deployable policy the same signal the privileged champions exploit.
 
 Run from prototype_sts3215:
-    ../../.venv/bin/python -m rl_move.sim.probe_estimator \
+    uv run python -m rl_move.sim.probe_estimator \
         --policy rl_move/sim/policies/ppo_goal_cw_walk_longdist_r2.zip
 """
 from __future__ import annotations

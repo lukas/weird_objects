@@ -19,7 +19,7 @@ class mean angles + margin to the hard joint limits, and the stance
 support radius. The scripted gait walks AT plant height, so its
 numbers are the existence proof of a tall stance geometry.
 
-    ../../.venv/bin/python -m rl_move.sim.probe_tall_wall
+    uv run python -m rl_move.sim.probe_tall_wall
 """
 from __future__ import annotations
 

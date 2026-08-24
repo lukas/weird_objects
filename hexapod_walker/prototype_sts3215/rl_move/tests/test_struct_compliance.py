@@ -4,7 +4,7 @@ The module must (a) refuse to run without measured stiffnesses — the
 directive forbids invented values — and (b) implement the quasi-static
 series-spring math exactly.
 
-Run: python3 -m pytest rl_move/tests/test_struct_compliance.py -q
+Run: uv run python -m pytest rl_move/tests/test_struct_compliance.py -q
 """
 from __future__ import annotations
 

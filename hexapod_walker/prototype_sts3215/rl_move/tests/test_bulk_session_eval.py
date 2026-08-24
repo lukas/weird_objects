@@ -7,7 +7,7 @@ shard is never re-run), Wilson interval math, aggregation strata/
 segment minima, and the legacy eval_modeseq path staying default-off
 (--strip-ep=0, --torch-seed=None).
 
-Run: python3 -m pytest rl_move/tests/test_bulk_session_eval.py -q
+Run: uv run python -m pytest rl_move/tests/test_bulk_session_eval.py -q
 """
 from __future__ import annotations
 

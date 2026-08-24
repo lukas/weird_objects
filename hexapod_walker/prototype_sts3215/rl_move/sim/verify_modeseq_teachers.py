@@ -20,7 +20,7 @@ segment mode. Pass condition per the directive's ARM 1 RESULT note:
 footlow2_hard1 composes in-env at ~ its instrument rate (~1/12 det
 falls), not 44%.
 
-    python -m rl_move.sim.verify_modeseq_teachers \
+    uv run python -m rl_move.sim.verify_modeseq_teachers \
         --stance-teacher rl_move/sim/policies/ppo_goal_cw_stand_footlow2_hard1.zip \
         --walk-teacher rl_move/sim/policies/ppo_goal_cw_walk_longdist_r2.zip \
         --episodes 225

@@ -1,6 +1,6 @@
 """Off-robot tests for the MCU stream-bridge codec (2026-08-19 upgrade).
 
-Run locally (repo venv):  python3 linux_control/test_mcu_stream.py
+Run locally:  uv run python linux_control/test_mcu_stream.py
 No hardware: a FakeSerial plays the firmware side of the 'S'/'s'
 combined write+snapshot transaction, byte-exact against the framing in
 firmware/feetech_bridge (sendSnapshot / feedHostByte).

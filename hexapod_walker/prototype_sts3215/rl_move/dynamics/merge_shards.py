@@ -5,7 +5,7 @@ writers (parallel collects into one dir race on the next shard index).
 The pod pipelines therefore collect into per-seed SUBDIRS in parallel
 and merge afterwards:
 
-    python -m rl_move.dynamics.merge_shards \
+    uv run python -m rl_move.dynamics.merge_shards \
         --src datasets/v3pod/s0 datasets/v3pod/s1 datasets/v3pod/s2 \
         --out datasets/v3pod --require-actor noslip:0.05
 

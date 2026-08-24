@@ -58,7 +58,7 @@ train task 1, checkpoint, warm-start task 2 with --init-from; the eval
 callback measures BOTH tasks at every eval so retention curves come
 for free.
 
-    ../../.venv/bin/python -m rl_move.dynamics.train_ppo_transfer \
+    uv run python -m rl_move.dynamics.train_ppo_transfer \
         --condition B --task hold --steps 150000 --seed 0 \
         --name pilot_hold_B
 

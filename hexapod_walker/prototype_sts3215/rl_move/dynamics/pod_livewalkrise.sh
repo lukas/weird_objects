@@ -23,7 +23,7 @@
 #     > rl_move/dynamics/logs/pod_livewalkrise1.log 2>&1 &
 set -e
 cd "$(dirname "$0")/../.."
-PY=${PYTHON:-python3}
+PY=${PYTHON:-uv run python}
 RUN_NAME=${RUN_NAME:?set RUN_NAME}
 SEED=${SEED:-5}
 STEPS=${STEPS:-10000000}

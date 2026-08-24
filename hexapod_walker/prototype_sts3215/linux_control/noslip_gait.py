@@ -67,7 +67,7 @@ the fitted ~31 deg/s servo cruise clamp).  Leg numbering: 0 front-left,
 1 mid-left, 2 rear-left, 3 rear-right, 4 mid-right, 5 front-right.
 
 Stdlib-only (like ``tripod_gait``) so it can be vendored to the Uno Q.
-Verify in sim with:  .venv/bin/python -m rl_move.sim.verify_noslip
+Verify in sim with:  uv run python -m rl_move.sim.verify_noslip
 (``--gait ripple`` / ``--gait wave`` replay the presets).
 """
 from __future__ import annotations

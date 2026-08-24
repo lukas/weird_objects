@@ -16,8 +16,8 @@ Writes ``rl_move/sim/sim_model.json`` (consumed by ``SimServoParams``)
 including the per-axis joint-to-joint spread used for DR ranges.
 
 Run (from prototype_sts3215/):
-    ../../.venv/bin/python -m rl_move.sim.fit_motor_model
-    ../../.venv/bin/python -m rl_move.sim.fit_motor_model --defaults
+    uv run python -m rl_move.sim.fit_motor_model
+    uv run python -m rl_move.sim.fit_motor_model --defaults
 """
 from __future__ import annotations
 

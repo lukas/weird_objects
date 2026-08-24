@@ -15,7 +15,7 @@ the script guesses it from the first sustained motion in the frame and
 prints the guess — re-run with --sync to correct if the clips look
 shifted.
 
-    python -m rl_move.scripts.video_review IMG_1234.mov \
+    uv run python -m rl_move.scripts.video_review IMG_1234.mov \
         [--session rl_move/hardware_traces/bench_blast_<stamp>] \
         [--sync 12.5]
 

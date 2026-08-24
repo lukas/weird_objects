@@ -207,9 +207,21 @@ def motor_contract(cfg: dict | None = None,
     one by construction.
     """
     from rl_move.config import cfg_get, load_config
-    resolved = cfg if cfg is not None else load_config()
+
+    def _merge(base: dict, override: dict | None) -> dict:
+        if not override:
+            return dict(base)
+        out = dict(base)
+        for key, val in override.items():
+            if isinstance(val, dict) and isinstance(out.get(key), dict):
+                out[key] = _merge(out[key], val)
+            else:
+                out[key] = val
+        return out
+
+    resolved = _merge(load_config(), cfg)
     if params is None:
-        params = SimServoParams.from_cfg(cfg)
+        params = SimServoParams.from_cfg(resolved)
     vel_deg = params.per_joint("vel_max_deg_s")
     hz = float(cfg_get(resolved, "control", "hz", default=25.0))
     max_dq = float(cfg_get(resolved, "safety", "max_delta_q_deg",

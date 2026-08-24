@@ -18,7 +18,7 @@ impossible directly — both the obs width (56 -> 68) and the action head
    --init-from <out>``.
 
 Run (from prototype_sts3215/):
-    ../../.venv/bin/python -m rl_move.sim.distill_joint_policy \
+    uv run python -m rl_move.sim.distill_joint_policy \
         --teacher rl_move/sim/policies/ppo_goal.zip \
         --episodes 300 --epochs 25
 """

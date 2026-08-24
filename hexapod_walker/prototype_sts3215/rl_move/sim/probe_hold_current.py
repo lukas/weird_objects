@@ -29,7 +29,7 @@ errors in deg — the candidate predictors for a fitted register-current
 model.
 
 Run on a train pod (mujoco not on the controller):
-    python3 -m rl_move.sim.probe_hold_current [--params loaded] [--json out]
+    uv run python -m rl_move.sim.probe_hold_current [--params loaded] [--json out]
 """
 from __future__ import annotations
 

@@ -32,7 +32,7 @@ LIVE blended command, so a stopped command must light the stance core
 here exactly as in training (pass --cfg-set obs.mode_onehot_cmd=0
 for a dual-core checkpoint trained on the episode-mode one-hot).
 
-    cd prototype_sts3215 && python3 -m rl_move.sim.eval_cmd_suite \
+    cd prototype_sts3215 && uv run python -m rl_move.sim.eval_cmd_suite \
         <ckpt.zip> --cmd 0.05,0,0 --cmd 0,0,0.3 [--suite cmds.json] \
         [--cfg-set k=v ...] [--out out.json]
 

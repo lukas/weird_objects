@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Unified script runner for the repo:
-#   1. Manages a single shared .venv at the repo root (so every project shares
-#      one set of installed wheels).
+#   1. Manages a single shared .venv at the repo root with uv (so every project
+#      shares one set of installed wheels).
 #   2. Resolves the target script either as an absolute path, a path relative
 #      to the repo root (e.g. `chandelier/all_polyhedra.py`), or a bare script
 #      name (which is searched for under the repo).
@@ -16,15 +16,14 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$ROOT_DIR"
 
 VENV_DIR=".venv"
-PYTHON="${PYTHON:-python3}"
+if ! command -v uv >/dev/null 2>&1; then
+    echo "uv is required for Python commands in this repo; install uv first." >&2
+    exit 127
+fi
 
 if [ ! -d "$VENV_DIR" ]; then
     echo "Creating virtual environment in $VENV_DIR..."
-    if command -v uv >/dev/null 2>&1; then
-        uv venv "$VENV_DIR"
-    else
-        "$PYTHON" -m venv "$VENV_DIR"
-    fi
+    uv venv "$VENV_DIR"
 fi
 
 # shellcheck disable=SC1091
@@ -36,14 +35,7 @@ CURRENT_HASH="$(shasum "$REQ_FILE" | awk '{print $1}')"
 
 if [ ! -f "$STAMP_FILE" ] || [ "$(cat "$STAMP_FILE")" != "$CURRENT_HASH" ]; then
     echo "Installing/updating dependencies..."
-    # The venv is uv-managed (created with `uv venv`, so it has no pip
-    # module).  Prefer uv; fall back to `python -m pip` for a stock venv.
-    if command -v uv >/dev/null 2>&1; then
-        uv pip install --python "$VENV_DIR/bin/python" -r "$REQ_FILE"
-    else
-        python -m pip install --upgrade pip
-        python -m pip install -r "$REQ_FILE"
-    fi
+    uv pip install --python "$VENV_DIR/bin/python" -r "$REQ_FILE"
     echo "$CURRENT_HASH" > "$STAMP_FILE"
 fi
 
@@ -77,4 +69,4 @@ cd "$TARGET_DIR"
 # Display path relative to repo root for nicer logs.
 REL_DISPLAY="${TARGET_ABS#$ROOT_DIR/}"
 echo "Running $REL_DISPLAY $*..."
-python "$TARGET_NAME" "$@"
+uv run --active python "$TARGET_NAME" "$@"

@@ -23,7 +23,7 @@ purely the pull-in method. Run under PLAIN python (offscreen cv2
 render path):
 
     cd hexapod_walker/prototype_sts3215
-    python -m rl_move.sim.compare_standup            # metrics sweep + videos
+    uv run python -m rl_move.sim.compare_standup            # metrics sweep + videos
 
 Outputs (rl_move/sim/logs/standup_compare/): results.json, one mp4 +
 contact-sheet png per strategy at default friction, printed table.

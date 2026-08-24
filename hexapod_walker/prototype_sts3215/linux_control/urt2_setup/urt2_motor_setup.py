@@ -11,14 +11,14 @@ Robot IDs = ``joint + 2`` → **2..19** (see ``feetech_bus.py``).
 
 Examples
 --------
-    python urt2_motor_setup.py              # menu: n/t/r/x/d/i/z/g/l/f/p/s/?/q
-    python urt2_motor_setup.py --debug     # dump fault status for all on bus
-    python urt2_motor_setup.py --once      # one action then exit
-    python urt2_motor_setup.py --leg 2     # old guided per-leg flow
-    python urt2_motor_setup.py --status
-    python urt2_motor_setup.py --reset
+    uv run python urt2_motor_setup.py              # menu: n/t/r/x/d/i/z/g/l/f/p/s/?/q
+    uv run python urt2_motor_setup.py --debug     # dump fault status for all on bus
+    uv run python urt2_motor_setup.py --once      # one action then exit
+    uv run python urt2_motor_setup.py --leg 2     # old guided per-leg flow
+    uv run python urt2_motor_setup.py --status
+    uv run python urt2_motor_setup.py --reset
 
-Install once:  python -m pip install ftservo-python-sdk
+Install once:  uv pip install ftservo-python-sdk
 """
 from __future__ import annotations
 

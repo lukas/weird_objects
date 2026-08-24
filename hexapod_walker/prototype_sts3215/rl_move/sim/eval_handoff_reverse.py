@@ -36,7 +36,7 @@ vs the lower ref (spec/direct), tail-0.5s per-pad clearance vs the
 harness's 60 mm belly allowance (the posture-strict lower rule),
 max tilt + peak descent speed (bang proxy) during the lower.
 
-    python3 -m rl_move.sim.eval_handoff_reverse \
+    uv run python -m rl_move.sim.eval_handoff_reverse \
         --stand rl_move/sim/policies/ppo_goal_cw_stand_holdbc1_hard1.zip \
         --walk  rl_move/sim/policies/ppo_goal_cw_walk_longdist_r2.zip \
         --episodes 6 --out logs/ckpt_eval/handoff_rev.json \

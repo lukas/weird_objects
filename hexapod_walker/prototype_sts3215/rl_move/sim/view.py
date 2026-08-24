@@ -5,12 +5,12 @@ Two ways to play:
   # 1. Pose & poke (default): servos hold the plant stance. Drag the
   #    robot around (double-click a body, then ctrl+drag = apply force,
   #    ctrl+right-drag = torque), move joints from the Control tab.
-  ../../.venv/bin/mjpython -m rl_move.sim.view
-  ../../.venv/bin/mjpython -m rl_move.sim.view --pose zero   # belly down
+  uv run mjpython -m rl_move.sim.view
+  uv run mjpython -m rl_move.sim.view --pose zero   # belly down
 
   # 2. Drive the trained policy YOURSELF (default when --policy given):
   #    you type goals, the policy executes them, you can also shove it.
-  ../../.venv/bin/mjpython -m rl_move.sim.view \
+  uv run mjpython -m rl_move.sim.view \
       --policy rl_move/sim/policies/ppo_goal.zip
 
   #    Keys (click the viewer window first so it has focus):
@@ -24,11 +24,11 @@ Two ways to play:
   #                  and stand, exactly like the training task)
 
   # 3. Or watch it run training-style sampled episodes:
-  ../../.venv/bin/mjpython -m rl_move.sim.view \
+  uv run mjpython -m rl_move.sim.view \
       --policy rl_move/sim/policies/ppo_goal.zip --mode rise
 
-Plain ``python`` also works — on macOS the script re-execs itself under
-the venv's mjpython (the GL UI cannot run on a non-main thread there).
+Plain ``uv run python`` also works — on macOS the script re-execs itself
+under the venv's mjpython (the GL UI cannot run on a non-main thread there).
 Episodes loop forever in policy mode; close the window to quit.
 """
 from __future__ import annotations
@@ -66,7 +66,7 @@ def _reexec_under_mjpython() -> None:
     mjpython = Path(sys.executable).with_name("mjpython")
     if not mjpython.is_file():
         sys.exit("mujoco viewer on macOS needs mjpython — run:\n"
-                 f"  {Path(sys.executable).parent}/mjpython {__file__}")
+                 "  uv run mjpython -m rl_move.sim.view")
     os.execv(str(mjpython), [str(mjpython), str(Path(__file__).resolve()),
                              *sys.argv[1:]])
 

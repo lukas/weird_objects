@@ -12,6 +12,7 @@ set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 LC="$(cd "$HERE/.." && pwd)"
 REMOTE_HOME="${HOME}/hexapod_sts/linux_control"
+UV_BIN="${UV_BIN:-${HOME}/.local/bin/uv}"
 export PYTHONPATH="${HERE}/vendor:${HERE}:${LC}:${REMOTE_HOME}:${PYTHONPATH:-}"
 export PYTHONUNBUFFERED=1
 export HEXAPOD_BUS_PORT="${HEXAPOD_BUS_PORT:-mcu}"
@@ -24,18 +25,18 @@ restart_web() {
       cd "$LC"
       PYTHONUNBUFFERED=1 \
       PYTHONPATH="${LC}/vendor:${HERE}:${LC}/../motor_setup:${LC}:${PYTHONPATH:-}" \
-      nohup python3 web_drive.py --port mcu --http-port 8080 --https-port 8443 \
+      nohup "$UV_BIN" run python web_drive.py --port mcu --http-port 8080 --https-port 8443 \
         >/tmp/hexapod_web.log 2>&1 </dev/null &
     ) || true
   fi
 }
 trap restart_web EXIT
 
-if pgrep -f '[p]ython3 .*web_drive.py' >/dev/null 2>&1; then
+if pgrep -f '[w]eb_drive.py' >/dev/null 2>&1; then
   WEB_WAS_RUNNING=1
   echo ">> stopping web_drive (needs exclusive bus) ..."
-  pkill -f '[p]ython3 .*web_drive.py' || true
+  pkill -f '[w]eb_drive.py' || true
   sleep 0.4
 fi
 
-exec python3 "${HERE}/urt2_motor_setup.py" "$@"
+exec "$UV_BIN" run python "${HERE}/urt2_motor_setup.py" "$@"

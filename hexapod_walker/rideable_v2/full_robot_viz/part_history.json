@@ -1,0 +1,291 @@
+{
+  "schema": 1,
+  "buildId": "rideable_v2",
+  "branch": "main",
+  "updatedAt": "2026-08-19T21:03:43.874Z",
+  "indexed": [
+    {
+      "name": "main",
+      "sceneSha1": "784160336b9d75014282a6eb73c7e4fef3c2dbea",
+      "pushedAt": "2026-08-14T01:40:27.317Z"
+    }
+  ],
+  "parts": {
+    "chassis_frame": [
+      {
+        "version": "main",
+        "pushedAt": "2026-08-14T01:40:27.317Z",
+        "changes": [
+          "added"
+        ],
+        "meshKey": "stl/000_chassis_frame.stl",
+        "instanceCount": 1,
+        "description": "Welded 6061 tube hex frame, ~880 mm across the yaw axes, carrying the 6 yaw actuator plates, deck, battery, e-bay."
+      }
+    ],
+    "deck_plate": [
+      {
+        "version": "main",
+        "pushedAt": "2026-08-14T01:40:27.317Z",
+        "changes": [
+          "added"
+        ],
+        "meshKey": "stl/001_deck_plate.stl",
+        "instanceCount": 1,
+        "description": "Aluminum rider deck (saddle + footpegs mount to it)."
+      }
+    ],
+    "battery": [
+      {
+        "version": "main",
+        "pushedAt": "2026-08-14T01:40:27.317Z",
+        "changes": [
+          "added"
+        ],
+        "meshKey": "stl/002_battery.stl",
+        "instanceCount": 1,
+        "description": "12S Li-ion ~40 Ah / ~1.8 kWh, low + central."
+      }
+    ],
+    "e_bay": [
+      {
+        "version": "main",
+        "pushedAt": "2026-08-14T01:40:27.317Z",
+        "changes": [
+          "added"
+        ],
+        "meshKey": "stl/003_e_bay.stl",
+        "instanceCount": 1,
+        "description": "Compute + contactor/pre-charge + fused branch bus + 48→24 V DC-DC."
+      }
+    ],
+    "saddle_post": [
+      {
+        "version": "main",
+        "pushedAt": "2026-08-14T01:40:27.317Z",
+        "changes": [
+          "added"
+        ],
+        "meshKey": "stl/004_saddle_post.stl",
+        "instanceCount": 1,
+        "description": "Suspension seatpost — isolates the rider from gait bob."
+      }
+    ],
+    "saddle": [
+      {
+        "version": "main",
+        "pushedAt": "2026-08-14T01:40:27.317Z",
+        "changes": [
+          "added"
+        ],
+        "meshKey": "stl/005_saddle.stl",
+        "instanceCount": 1,
+        "description": "Motorcycle/bicycle saddle."
+      }
+    ],
+    "controls": [
+      {
+        "version": "main",
+        "pushedAt": "2026-08-14T01:40:27.317Z",
+        "changes": [
+          "added"
+        ],
+        "meshKey": "stl/006_controls.stl",
+        "instanceCount": 1,
+        "description": "Handlebar + grips + latching-mushroom e-stop."
+      }
+    ],
+    "footpeg": [
+      {
+        "version": "main",
+        "pushedAt": "2026-08-14T01:40:27.317Z",
+        "changes": [
+          "added"
+        ],
+        "meshKey": "stl/007_footpeg.stl+stl/008_footpeg.stl",
+        "instanceCount": 2,
+        "description": "Rider footrests on the deck (one per side)."
+      }
+    ],
+    "yaw_actuator": [
+      {
+        "version": "main",
+        "pushedAt": "2026-08-14T01:40:27.317Z",
+        "changes": [
+          "added"
+        ],
+        "meshKey": "stl/009_yaw_actuator.stl+stl/024_yaw_actuator.stl+stl/039_yaw_actuator.stl+stl/054_yaw_actuator.stl+stl/069_yaw_actuator.stl+stl/084_yaw_actuator.stl",
+        "instanceCount": 6,
+        "description": "AK80-64 under the chassis vertex plate, offset from the yaw axis; drives the yaw joint through the 2:1 belt (run not modelled)."
+      }
+    ],
+    "yaw_pivot_pin": [
+      {
+        "version": "main",
+        "pushedAt": "2026-08-14T01:40:27.317Z",
+        "changes": [
+          "added"
+        ],
+        "meshKey": "stl/010_yaw_pivot_pin.stl+stl/025_yaw_pivot_pin.stl+stl/040_yaw_pivot_pin.stl+stl/055_yaw_pivot_pin.stl+stl/070_yaw_pivot_pin.stl+stl/085_yaw_pivot_pin.stl",
+        "instanceCount": 6,
+        "description": "Coaxial 30 mm hollow shaft on the yaw axis (32006 tapered pair): the only part bridging chassis and coxa, so the yaw DOF is free."
+      }
+    ],
+    "yaw_pulley": [
+      {
+        "version": "main",
+        "pushedAt": "2026-08-14T01:40:27.317Z",
+        "changes": [
+          "added"
+        ],
+        "meshKey": "stl/011_yaw_pulley.stl+stl/026_yaw_pulley.stl+stl/041_yaw_pulley.stl+stl/056_yaw_pulley.stl+stl/071_yaw_pulley.stl+stl/086_yaw_pulley.stl",
+        "instanceCount": 6,
+        "description": "Ø183.3 mm PD custom 72T pulley ON the yaw axis, bolted to the coxa yaw hub so it rotates with the leg."
+      }
+    ],
+    "coxa_frame": [
+      {
+        "version": "main",
+        "pushedAt": "2026-08-14T01:40:27.317Z",
+        "changes": [
+          "added"
+        ],
+        "meshKey": "stl/012_coxa_frame.stl+stl/027_coxa_frame.stl+stl/042_coxa_frame.stl+stl/057_coxa_frame.stl+stl/072_coxa_frame.stl+stl/087_coxa_frame.stl",
+        "instanceCount": 6,
+        "description": "6061 coxa: yaw hub + 120 mm box link + hip clevis + the mount plate carrying the hip actuator.  Moving femur connects only through the hip pivot pin."
+      }
+    ],
+    "hip_actuator": [
+      {
+        "version": "main",
+        "pushedAt": "2026-08-14T01:40:27.317Z",
+        "changes": [
+          "added"
+        ],
+        "meshKey": "stl/013_hip_actuator.stl+stl/028_hip_actuator.stl+stl/043_hip_actuator.stl+stl/058_hip_actuator.stl+stl/073_hip_actuator.stl+stl/088_hip_actuator.stl",
+        "instanceCount": 6,
+        "description": "AK80-64 on the coxa, axis parallel to the hip joint; drives the hip through the 4:1 belt (25T→100T, 8MGT-960-36)."
+      }
+    ],
+    "hip_pivot_pin": [
+      {
+        "version": "main",
+        "pushedAt": "2026-08-14T01:40:27.317Z",
+        "changes": [
+          "added"
+        ],
+        "meshKey": "stl/014_hip_pivot_pin.stl+stl/029_hip_pivot_pin.stl+stl/044_hip_pivot_pin.stl+stl/059_hip_pivot_pin.stl+stl/074_hip_pivot_pin.stl+stl/089_hip_pivot_pin.stl",
+        "instanceCount": 6,
+        "description": "Coaxial 25 mm joint shaft on the hip axis (30205 tapered pair): grips the femur hub and the coxa clevis plate."
+      }
+    ],
+    "hip_pulley": [
+      {
+        "version": "main",
+        "pushedAt": "2026-08-14T01:40:27.317Z",
+        "changes": [
+          "added"
+        ],
+        "meshKey": "stl/015_hip_pulley.stl+stl/030_hip_pulley.stl+stl/045_hip_pulley.stl+stl/060_hip_pulley.stl+stl/075_hip_pulley.stl+stl/090_hip_pulley.stl",
+        "instanceCount": 6,
+        "description": "Ø254.6 mm PD custom 100T pulley ON the hip axis, bolted to the femur hub; its web carries the parking-pin hole ring."
+      }
+    ],
+    "hip_lock": [
+      {
+        "version": "main",
+        "pushedAt": "2026-08-14T01:40:27.317Z",
+        "changes": [
+          "added"
+        ],
+        "meshKey": "stl/016_hip_lock.stl+stl/031_hip_lock.stl+stl/046_hip_lock.stl+stl/061_hip_lock.stl+stl/076_hip_lock.stl+stl/091_hip_lock.stl",
+        "instanceCount": 6,
+        "description": "Spring-applied / solenoid-retracted pin on the coxa, engaging the hip pulley web hole ring.  Power-off = engaged; holds the parked stance at zero motor current, at the JOINT (belt not in the holding path)."
+      }
+    ],
+    "femur_frame": [
+      {
+        "version": "main",
+        "pushedAt": "2026-08-14T01:40:27.317Z",
+        "changes": [
+          "added"
+        ],
+        "meshKey": "stl/017_femur_frame.stl+stl/032_femur_frame.stl+stl/047_femur_frame.stl+stl/062_femur_frame.stl+stl/077_femur_frame.stl+stl/092_femur_frame.stl",
+        "instanceCount": 6,
+        "description": "6061 60×40×3 box femur (hip → knee, 350 mm): hip pivot hub (which the hip pulley bolts to) + box beam + knee clevis + the mount plate carrying the knee actuator at the HIP end.  The knee belt runs down this beam (run not modelled)."
+      }
+    ],
+    "knee_actuator": [
+      {
+        "version": "main",
+        "pushedAt": "2026-08-14T01:40:27.317Z",
+        "changes": [
+          "added"
+        ],
+        "meshKey": "stl/018_knee_actuator.stl+stl/033_knee_actuator.stl+stl/048_knee_actuator.stl+stl/063_knee_actuator.stl+stl/078_knee_actuator.stl+stl/093_knee_actuator.stl",
+        "instanceCount": 6,
+        "description": "AK80-64 at the HIP end of the femur, ~140 mm from the hip axis (the brief's key layout move: far less leg swing inertia); drives the knee through the 3:1 belt down the femur (28T→84T, 8MGT-896-36, C≈212 mm), on the OPPOSITE femur face from the hip pulley."
+      }
+    ],
+    "knee_pivot_pin": [
+      {
+        "version": "main",
+        "pushedAt": "2026-08-14T01:40:27.317Z",
+        "changes": [
+          "added"
+        ],
+        "meshKey": "stl/019_knee_pivot_pin.stl+stl/034_knee_pivot_pin.stl+stl/049_knee_pivot_pin.stl+stl/064_knee_pivot_pin.stl+stl/079_knee_pivot_pin.stl+stl/094_knee_pivot_pin.stl",
+        "instanceCount": 6,
+        "description": "Coaxial 25 mm joint shaft on the knee axis (30205 tapered pair): grips the tibia hub and the femur clevis plate."
+      }
+    ],
+    "knee_pulley": [
+      {
+        "version": "main",
+        "pushedAt": "2026-08-14T01:40:27.317Z",
+        "changes": [
+          "added"
+        ],
+        "meshKey": "stl/020_knee_pulley.stl+stl/035_knee_pulley.stl+stl/050_knee_pulley.stl+stl/065_knee_pulley.stl+stl/080_knee_pulley.stl+stl/095_knee_pulley.stl",
+        "instanceCount": 6,
+        "description": "Ø213.9 mm PD custom 84T pulley ON the knee axis, bolted to the tibia hub; web carries the parking-pin hole ring."
+      }
+    ],
+    "knee_lock": [
+      {
+        "version": "main",
+        "pushedAt": "2026-08-14T01:40:27.317Z",
+        "changes": [
+          "added"
+        ],
+        "meshKey": "stl/021_knee_lock.stl+stl/036_knee_lock.stl+stl/051_knee_lock.stl+stl/066_knee_lock.stl+stl/081_knee_lock.stl+stl/096_knee_lock.stl",
+        "instanceCount": 6,
+        "description": "Spring-applied / solenoid-retracted pin on the femur, engaging the knee pulley web hole ring.  Power-off = engaged."
+      }
+    ],
+    "tibia_frame": [
+      {
+        "version": "main",
+        "pushedAt": "2026-08-14T01:40:27.317Z",
+        "changes": [
+          "added"
+        ],
+        "meshKey": "stl/022_tibia_frame.stl+stl/037_tibia_frame.stl+stl/052_tibia_frame.stl+stl/067_tibia_frame.stl+stl/082_tibia_frame.stl+stl/097_tibia_frame.stl",
+        "instanceCount": 6,
+        "description": "6061 Ø50×3 tube tibia (knee → foot, 450 mm): knee pivot hub + tube + ankle boss.  Connects to the femur ONLY through the knee joint shaft — the actuator/belt live on the femur side."
+      }
+    ],
+    "foot": [
+      {
+        "version": "main",
+        "pushedAt": "2026-08-14T01:40:27.317Z",
+        "changes": [
+          "added"
+        ],
+        "meshKey": "stl/023_foot.stl+stl/038_foot.stl+stl/053_foot.stl+stl/068_foot.stl+stl/083_foot.stl+stl/098_foot.stl",
+        "instanceCount": 6,
+        "description": "Urethane pad + aluminum disc + load-cell boss (contact / force sensing)."
+      }
+    ]
+  }
+}

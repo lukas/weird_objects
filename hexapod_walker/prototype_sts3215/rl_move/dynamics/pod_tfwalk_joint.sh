@@ -32,7 +32,7 @@
 #       > rl_move/dynamics/logs/pod_tfwalk_joint1_C_s5.log 2>&1 &
 set -e
 cd "$(dirname "$0")/../.."
-PY=${PYTHON:-python3}
+PY=${PYTHON:-uv run python}
 COND=${COND:?set COND=A|B|C}
 SEED=${SEED:-5}
 ENC=${ENC:-rl_move/dynamics/models/cw-dynrep-tf-state2-recovered1.pt}
@@ -58,7 +58,7 @@ fi
 if [ "$COND" = "C" ]; then
     [ -d "$DATA" ] || { echo "POD_TFWALK_JOINT_ABORT: rehearsal corpus $DATA missing"; exit 3; }
 fi
-# Match only a REAL trainer invocation (python -m rl_move.dynamics.
+# Match only a REAL trainer invocation (uv run python -m rl_move.dynamics.
 # train_ppo_transfer). Matching bare "train_ppo_transfer" false-aborted
 # on train-4 (08-16): a leftover `bash -c` launcher wrapper from the
 # risewalk cohort still carried that substring inside its own inline

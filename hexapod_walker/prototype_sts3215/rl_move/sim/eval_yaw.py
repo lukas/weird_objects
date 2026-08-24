@@ -14,7 +14,7 @@ scripted yaw panel the way eval_drive drives the linear panel:
 Per scenario: falls, median |wz - wz_ref| (blend-skipped). Aggregate
 gate = turn-segment |wz_err| med, zero-segment |wz| med, zero falls.
 
-    python3 -m rl_move.sim.eval_yaw <ckpt.zip> \
+    uv run python -m rl_move.sim.eval_yaw <ckpt.zip> \
         --speed 0.05 --wz-max 0.3 [--cfg-set k=v ...] [--out out.json]
 
 Exit 0 = gate passed, 1 = failed.

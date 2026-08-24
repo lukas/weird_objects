@@ -67,7 +67,7 @@ off, quadwalk mode, champion walk stack + quad income):
   route 2) — that ruling is now the ONLY route.
 
 Usage (controller or any train pod):
-    python3 -m rl_move.sim.probe_quad_crawl --scheme twophase \
+    uv run python -m rl_move.sim.probe_quad_crawl --scheme twophase \
         [--vx 0.03] [--period 3.2] [--mid-fwd 0.05] [--body-back 0.05] \
         [--sway 0.06] [--lift 0.03] [--seconds 15] [--seed 0] \
         [--video out.mp4]

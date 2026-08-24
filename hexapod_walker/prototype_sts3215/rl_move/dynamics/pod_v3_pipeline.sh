@@ -31,7 +31,7 @@
 #       > rl_move/dynamics/logs/pod_v3_rest.log 2>&1 &
 set -e
 cd "$(dirname "$0")/../.."
-PY=${PYTHON:-python3}
+PY=${PYTHON:-uv run python}
 DATA=rl_move/dynamics/datasets/v3pod
 ENC_NAME=dyn_v3pod_obs
 ENC=rl_move/dynamics/models/${ENC_NAME}.pt

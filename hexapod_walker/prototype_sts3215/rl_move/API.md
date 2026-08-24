@@ -85,7 +85,7 @@ Selection atomically copies the file over the live weights; it takes
 effect at the NEXT episode start (never mid-move) and is refused while
 a job is running. Slot is inferred from obs dim (68 stance / 72 walk).
 
-Add a policy: `python -m rl_move.sim.export_policy_np --policy <zip>
+Add a policy: `uv run python -m rl_move.sim.export_policy_np --policy <zip>
 --out linux_control/policies/<name>.json --name "<display>" --notes
 "<operator notes>"` → scp into
 `/home/arduino/hexapod_sts/linux_control/policies/` (no restart
@@ -141,7 +141,7 @@ Every stand / lower / walk run writes a full local trace under
 Fetch for analysis (laptop) — HTTP preferred, no SSH needed:
 
 ```bash
-curl -s http://hexapod.local:8080/api/logs | python3 -m json.tool   # list
+curl -s http://hexapod.local:8080/api/logs | uv run python -m json.tool   # list
 curl -sO http://hexapod.local:8080/api/logs/rl_walk_20260810_221553.csv
 curl -s 'http://hexapod.local:8080/api/logs/events.jsonl?tail=200'  # tail
 # scp still works: arduino@hexapod.local:hexapod_sts/linux_control/logs/
@@ -155,8 +155,8 @@ during walk, `overruns` in the summary for loop-rate health.
 ## Laptop
 
 ```bash
-python3 -m rl_move.remote state
-python3 -m rl_move.remote capture_plant
+uv run python -m rl_move.remote state
+uv run python -m rl_move.remote capture_plant
 # limp:
 curl -X POST --data 'X' http://hexapod.local:8080/cmd
 ```

@@ -23,7 +23,7 @@ Per rollout it reports, per leg family:
   - action-vs-bc_target MSE + per-joint-family |err| and best xcorr lag
 
 Usage (on the run's pod, from the PROTO dir):
-  python3 -m rl_move.sim.trace_bc_cadence rl_move/sim/policies/X.zip \
+  uv run python -m rl_move.sim.trace_bc_cadence rl_move/sim/policies/X.zip \
       [--control rl_move/sim/policies/CLONE.zip] --scripted-teacher \
       --episodes 2 --episode-seconds 15 --seed 0 \
       --cfg-set goal.walk_phase_obs=1 ... --out logs/ckpt_eval/trace_x

@@ -8,7 +8,7 @@ question (operator next-steps 08-13) is whether prediction quality
 improves with model size / context / data — not whether any single
 cell passes the gate.
 
-    python -m rl_move.dynamics.analyze_scale
+    uv run python -m rl_move.dynamics.analyze_scale
 """
 from __future__ import annotations
 

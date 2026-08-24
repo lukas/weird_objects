@@ -48,7 +48,7 @@ CFG = load_config(str(_ROOT / "rl_move" / "config.yaml"))
 # The specialist's trained goal overrides (ledger cw-stand-holdbc1-hard1).
 TRAINED_RISE_MM = (108.0, 114.0)
 TRAINED_RISE_RAMP_S = 6.0
-HZ = 25.0
+HZ = rl_policy.HZ
 
 
 def _live_meta() -> dict:

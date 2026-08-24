@@ -12,7 +12,7 @@ held-out 20%: R^2 for continuous targets, balanced accuracy for the
 binary per-foot contacts. A shuffled-target control column guards
 against trivially-high scores from label imbalance.
 
-    python -m rl_move.dynamics.probe_latents \
+    uv run python -m rl_move.dynamics.probe_latents \
         --latents rl_move/dynamics/logs/latents_dyn_v3_obs_<ts>.npz
 """
 from __future__ import annotations

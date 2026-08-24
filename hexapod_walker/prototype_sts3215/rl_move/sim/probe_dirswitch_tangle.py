@@ -33,7 +33,7 @@ stop/go, heading jitter. Dwells drawn irregularly in ~2-20 s.
 DR-0, deterministic, flat spawn (tipped starts off — the question is
 steering, not takeoff). Env cfg = hard1's exact eval stack.
 
-    python3 -m rl_move.sim.probe_dirswitch_tangle \
+    uv run python -m rl_move.sim.probe_dirswitch_tangle \
         rl_move/sim/policies/ppo_goal_cw_dep_bcgait1_hard1.zip \
         --seconds 120 --out logs/probe_dirswitch/hard1.json
 """

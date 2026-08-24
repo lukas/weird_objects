@@ -1,7 +1,7 @@
 """One-shot smoke test for the yaw-command channel and quad goal mode.
 
 Run locally (plain python, repo .venv):
-    python -m rl_move.sim.smoke_yaw_quad
+    uv run python -m rl_move.sim.smoke_yaw_quad
 Checks:
   1. LEGACY: default cfg -> obs width unchanged, goal modes sample,
      a walk episode steps without error.

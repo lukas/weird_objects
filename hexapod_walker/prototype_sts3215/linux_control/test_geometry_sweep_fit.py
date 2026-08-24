@@ -1,6 +1,6 @@
 """Off-robot tests for multi-contact geometry fitting.
 
-Run locally:  python3 linux_control/test_geometry_sweep_fit.py
+Run locally:  uv run python linux_control/test_geometry_sweep_fit.py
 No hardware: these tests synthesize floor contacts from known link geometry.
 """
 from __future__ import annotations

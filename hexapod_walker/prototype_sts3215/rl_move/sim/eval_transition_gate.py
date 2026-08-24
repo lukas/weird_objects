@@ -54,7 +54,7 @@ able) bars, independent of fall rate. Post-takeoff walking quality
 (tracking error, progress ratio) is also reported so a graceful-but-
 parked candidate cannot win by doing nothing.
 
-    python3 -m rl_move.sim.eval_transition_gate \
+    uv run python -m rl_move.sim.eval_transition_gate \
         --stand rl_move/sim/policies/ppo_goal_cw_stand_footlow2_hard1.zip \
         --candidates rl_move/sim/policies/ppo_goal_cw_walk_longdist_r2.zip \
         --starts plant,rise --seeds 0,1,2 \

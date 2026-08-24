@@ -55,11 +55,11 @@ measurements.jsonl.
 
 Usage (bench, robot ARMed and standing at plant, web UI handy):
 
-    python -m rl_move.scripts.bench_blast              # dry run (plan)
-    python -m rl_move.scripts.bench_blast --go
-    python -m rl_move.scripts.bench_blast --go --video  # film it instead
-    python -m rl_move.scripts.bench_blast --go --only ab tape
-    python -m rl_move.scripts.bench_blast --go --rounds 4
+    uv run python -m rl_move.scripts.bench_blast              # dry run (plan)
+    uv run python -m rl_move.scripts.bench_blast --go
+    uv run python -m rl_move.scripts.bench_blast --go --video  # film it instead
+    uv run python -m rl_move.scripts.bench_blast --go --only ab tape
+    uv run python -m rl_move.scripts.bench_blast --go --rounds 4
 
 INTERACTION MODES — how much typing each combination needs:
 
@@ -88,7 +88,7 @@ INTERACTION MODES — how much typing each combination needs:
 
   Fully unattended (agent-driven / zero stdin) invocation:
 
-      python -m rl_move.scripts.bench_blast --go --auto --video \
+      uv run python -m rl_move.scripts.bench_blast --go --auto --video \
           --camera 0 [--skip ...]
 
   Do NOT run without --video in a shell that has no stdin: the
@@ -1051,7 +1051,7 @@ class Session:
             f.write_text(json.dumps(self.summary, indent=1))
             print(f"\nwrote {f}")
             if self.summary.get("camera"):
-                print("next: python -m rl_move.scripts.video_review "
+                print("next: uv run python -m rl_move.scripts.video_review "
                       f"--session {self.out}")
 
 

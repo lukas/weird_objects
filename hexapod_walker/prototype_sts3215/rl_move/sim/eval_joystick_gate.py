@@ -45,7 +45,7 @@ zero falls in every one of them, median slip/m across every episode
 --dir-err-margin-deg of --teacher-dir-err-deg (the teacher clone's own
 measured tick-sway floor, CURRENT_TRUTHS.md).
 
-    cd prototype_sts3215 && python3 -m rl_move.sim.eval_joystick_gate \
+    cd prototype_sts3215 && uv run python -m rl_move.sim.eval_joystick_gate \
         rl_move/sim/policies/<ckpt>.zip --own-dr-scale 0.35 \
         --extra-cfg-set goal.walk_phase_obs=1 \
         --extra-cfg-set goal.walk_phase_hz=1.333333 \

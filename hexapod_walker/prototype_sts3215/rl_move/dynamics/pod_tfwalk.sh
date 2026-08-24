@@ -26,7 +26,7 @@
 #       > rl_move/dynamics/logs/pod_tfwalk_A.log 2>&1 &
 set -e
 cd "$(dirname "$0")/../.."
-PY=${PYTHON:-python3}
+PY=${PYTHON:-uv run python}
 COND=${COND:?set COND=A|B|C}
 SEED=${SEED:-5}
 ENC=${ENC:-rl_move/dynamics/models/cw-dynrep-tf-state2-recovered1.pt}

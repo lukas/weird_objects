@@ -339,7 +339,7 @@ Mac in `rl_move/sim/policies/` unless noted; pull missing ones with
 
 Each entry: what open decision it settles → procedure → output.
 
-**One-command session runner (08-11):** `python -m
+**One-command session runner (08-11):** `uv run python -m
 rl_move.scripts.bench_blast --go` walks the whole open list in order —
 policy/profile preflight, the vref1-vs-tip1 A/B (policy switch
 VERIFIED per walk + automatic roll-ramp analysis from the pulled
@@ -347,7 +347,7 @@ episode CSVs), RL-walk tape, first rot60 off-wedge heading, first
 learned stand-up (refused if the stance weights lack their goal
 profile), wz sign audit, hover-vs-planted currents. Dry run without
 `--go`; every motion step waits for an explicit operator `go`. Sim
-half: `python3 -m rl_move.sim.sim_blast` (roll-trap A/B across
+half: `uv run python -m rl_move.sim.sim_blast` (roll-trap A/B across
 frictions, joystick panels naked+rot60 for both walk ckpts, deployed-
 artifact tests).
 
@@ -355,7 +355,7 @@ artifact tests).
 floor, film the runway, and only type the per-step `go`s: every step
 is spoken aloud (macOS `say`) onto the video's audio track and
 unix-stamped in summary.json. Afterwards
-`python -m rl_move.scripts.video_review <footage>` syncs the video to
+`uv run python -m rl_move.scripts.video_review <footage>` syncs the video to
 the log (spoken sync mark; falls back to first-motion detection),
 cuts a timestamped frame sheet per walk/turn/stand plus full-res
 tape-zoom frames, and the analysis agent reads distance, turn sign,
@@ -380,7 +380,7 @@ shapes; the tab is the phone-friendly path.
    (`drive_controller`) already walks this robot. Procedure: drive
    scripted gait 20–30 s on the same floor; log per-servo currents
    (watchdog/event log) + video with a tape measure for true speed
-   and any foot slip. RUNNER (08-10): `python -m
+   and any foot slip. RUNNER (08-10): `uv run python -m
    rl_move.scripts.tape_measure_walk --go` — drives the timed legs,
    logs ~3 Hz servo/imu CSVs via the new fast `/api/feedback` route,
    prompts for the tape reading, writes commanded-vs-measured +

@@ -1,6 +1,6 @@
 """Off-robot tests for the all-in-one calibration checkup coordinator.
 
-Run locally:  python3 linux_control/test_calibration_checkup.py
+Run locally:  uv run python linux_control/test_calibration_checkup.py
 No hardware: tests monkeypatch the motion phases and assert sequencing.
 """
 from __future__ import annotations

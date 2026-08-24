@@ -30,7 +30,7 @@ checkpoint fails them, they define the bar for future candidates):
   - post-walk hold: peak tilt < 6 deg and >= 5 feet with load duty
     >= 0.5 (tripod hover-park catch).
 
-    cd prototype_sts3215 && python3 -m rl_move.sim.eval_session \
+    cd prototype_sts3215 && uv run python -m rl_move.sim.eval_session \
         --stance rl_move/sim/policies/<stance68>.zip \
         --walk rl_move/sim/policies/<walk72>.zip \
         [--strict] [--out report.json] [--strips dir] [--cfg-set k=v]

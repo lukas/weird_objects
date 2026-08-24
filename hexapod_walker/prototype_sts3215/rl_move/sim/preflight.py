@@ -21,7 +21,7 @@ that. A FAILURE episode (hard constant lean, expected to trip safety)
 calibrates the bottom of the scale.
 
 Usage (from prototype_sts3215/):
-    ../../.venv/bin/python -m rl_move.sim.preflight --dr-scale 0.2
+    uv run python -m rl_move.sim.preflight --dr-scale 0.2
 """
 from __future__ import annotations
 

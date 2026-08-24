@@ -13,7 +13,7 @@ header).
 
 Run (from prototype_sts3215/, repo .venv)::
 
-    python -m sysid.report --csv sysid/datasets/<dir>/*.csv \
+    uv run python -m sysid.report --csv sysid/datasets/<dir>/*.csv \
         --servo-params air loaded
 """
 from __future__ import annotations

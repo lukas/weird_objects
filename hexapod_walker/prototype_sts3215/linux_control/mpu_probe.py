@@ -4,7 +4,7 @@
 Header SDA/SCL (D20/D21) are STM32 Wire pins — Linux ``i2cdetect`` will
 never see 0x68 there. Talk to the sketch instead:
 
-    python3 mpu_probe.py                  # on the Uno Q
+    uv run python mpu_probe.py            # on the Uno Q
 
 Protocol (ASCII on /dev/ttyHS1 @ 921600, stop arduino-router first):
     HELLO → HELLO feetech_bridge

@@ -26,7 +26,7 @@
 #       > rl_move/dynamics/logs/pod_risewalk.log 2>&1 &
 set -e
 cd "$(dirname "$0")/../.."
-PY=${PYTHON:-python3}
+PY=${PYTHON:-uv run python}
 DATA=${DATA:-rl_move/dynamics/datasets/v2pod2}
 ENC=${ENC:-rl_move/dynamics/models/dyn_v2pod2_obs.pt}
 LOG=rl_move/dynamics/logs

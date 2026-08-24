@@ -1,6 +1,6 @@
 """Off-robot tests for pinned_tip (classifier + low-torque untrap).
 
-Run locally (repo venv):  python3 linux_control/test_pinned_tip.py
+Run locally:  uv run python linux_control/test_pinned_tip.py
 No hardware: reuses test_safe_zero's FakeBus, extended with a fake IMU
 whose tilt "levels out" once the knees fold past a threshold —
 simulating the body rolling flat off the trapped leg.

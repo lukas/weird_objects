@@ -37,7 +37,7 @@
     <button id="armbtn" class="armbtn"
       title="Power the servos on (ARM). Nothing moves until you press Stand. When armed this becomes Disarm: lowers gently to the ground, THEN cuts power.">Enable</button>
     <button id="armzero" class="armzero"
-      title="Move to logical sit zero using the collision-aware safe-zero plan. This may enable torque while it moves, then leaves the robot at zero.">Zero</button>
+      title="Move to logical sit zero: STEP lower if already standing; safe-zero recovery if not standing or tangled.">Zero</button>
     <button id="topsetzero" class="armsetzero"
       title="POST /api/set_zero — Feetech middle-calibrate on every live servo. No motion: the CURRENT hand pose becomes logical 0°. Limp (Motors → Limp all, or E-STOP) and hand-pose the legs first.">Set zero HERE</button>
     <button id="estop" class="estop" title="Cut all power to the servos IMMEDIATELY — the robot goes limp NOW and will drop. Use only in an emergency. For a normal, gentle power-off use Disarm / Sit &amp; power off.">■ E-STOP</button>
@@ -105,7 +105,7 @@
         <b>Enable servos</b> (top bar) →
         <b>Stand</b> → <b>Preflight</b>, then walk.</div>
       <div class="btns" style="margin-top:10px">
-        <button data-cmd="P" title="Verified glide to the captured plant stance (arms the bus itself). Controller: Y · keyboard: Space.">▲ Stand (plant)</button>
+        <button data-cmd="P" title="Standard stand-up path: uses the baked STEP stand-up outside the Experiments page. Controller: Y · keyboard: Space.">▲ Stand up</button>
         <button id="wpreflight" title="Read-only check (same as the tape script): all 18 servos answering, IMU alive, present pose near the plant stance.">Preflight</button>
       </div>
       <div class="hint" id="wpfout">Preflight result shows here.</div>
@@ -187,7 +187,7 @@ legs can reach instead of clipping it.">
     <div class="pad">
       <h2>4 · Wind down</h2>
       <div class="btns">
-        <button data-cmd="C" title="Glide back to sit zero (legs straight out). Controller: X · keyboard: C.">Center / Sit</button>
+        <button data-cmd="C" title="Lower to sit zero using the baked STEP stand-up in reverse. Controller: X · keyboard: C.">Center / Sit</button>
       </div>
       <button id="stop" class="danger" style="margin-top:10px"
         title="Gently lower to the ground, then cut servo power (firmware SETTLE). Instant drop = EMERGENCY STOP.">▼ Sit &amp; power off (gentle)</button>
@@ -455,15 +455,10 @@ legs can reach instead of clipping it.">
       <div class="hint" id="simstatus" style="margin-top:8px">—</div>
     </div>
     <div class="pad" style="flex:1 1 340px">
-      <h2 title="RL stand-up is not validated on hardware yet. Use Experiments > tuck for the verified hardware stand-up. Watch the robot while any policy is running.">Policy moves</h2>
+      <h2 title="Stand-up adjusts if already standing, otherwise safe-zero then STEP-up. Lower uses STEP-down when standing, otherwise safe-zero recovery. Walk still uses the selected RL policy.">Policy moves</h2>
       <div class="btns" style="margin-top:12px">
-        <button id="rlstand" class="on" title="RL stand-up policy. Not validated on hardware; use Experiments > tuck for the verified hardware stand-up. Refuses on tilt, missing servos, or dead IMU.">⬆ Stand up</button>
-        <button id="rllower" title="RL lower works once upright: descends from standing plant stance to belly over about 5 s, then goes limp.">⬇ Lower</button>
-        <button id="rlglide" title="Scripted (not RL) fast sequence to the
-captured plant stance — the pose Walk expects. From belly-down it runs the
-full tuck stand-up; from any standing stance it re-seats the feet by
-tripods. Use it to square up before Capture plant or Walk.">⤓ Plant
-stance (scripted)</button>
+        <button id="rlstand" class="on" title="If already standing, adjust the plant stance. Otherwise use safe-zero recovery first, then STEP stand-up.">⬆ Stand up</button>
+        <button id="rllower" title="STEP lower when standing; safe-zero recovery if not standing or tangled. Not the old learned RL lower policy.">⬇ Lower</button>
         <button id="rlcapture" title="Save the current 18-joint pose as
 the plant stance (no motion). Lower and Walk start only from this pose —
 capture while the robot is standing well.">📌 Capture plant</button>
@@ -472,7 +467,7 @@ capture while the robot is standing well.">📌 Capture plant</button>
       <div class="hint" id="rlstatus" style="margin-top:10px">Idle.</div>
       <h2 style="margin-top:16px" title="Start driving, then hold arrow keys, WASD, or the pad. Release to roll off to a stop and hold. Commands go stale in 0.6 s; session timeout holds.">Drive — hold keys</h2>
       <div class="btns" style="margin-top:10px">
-        <button id="rldrivestart" class="on" title="Start from the captured plant stance. Hold arrow keys, WASD, or the pad to walk.">▶ Start driving</button>
+        <button id="rldrivestart" class="on" title="Start from the captured plant stance. Hold arrows/WASD or the pad to walk; Q/E turns for yaw-command policies.">▶ Start driving</button>
         <button id="rldriveend" title="Rolls to a stop and holds.">■ End session (stop &amp; hold)</button>
         <label class="hint">speed
           <select id="rlwalkspeed">
@@ -484,7 +479,7 @@ capture while the robot is standing well.">📌 Capture plant</button>
           </select></label>
       </div>
       <div class="hint" id="rldrivestatus" style="margin-top:8px">No
-        session — Start driving, then hold keys.</div>
+        session — Start driving, then hold keys. Q/E turn.</div>
       <div id="rldrivepad" style="margin-top:10px;display:grid;
                   grid-template-columns:repeat(3,minmax(72px,1fr));
                   gap:6px;max-width:280px">

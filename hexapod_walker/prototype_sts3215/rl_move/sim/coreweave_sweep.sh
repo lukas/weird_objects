@@ -62,7 +62,7 @@ EOF
     kubectl --kubeconfig="$KC" cp "$SETUP" "$pod:/tmp/setup.sh"
     kubectl --kubeconfig="$KC" exec "$pod" -- bash /tmp/setup.sh > /dev/null
     kubectl --kubeconfig="$KC" exec "$pod" -- bash -c \
-        "cd /workspace/prototype_sts3215 && nohup python -m rl_move.sim.train_ppo_sim \
+        "cd /workspace/prototype_sts3215 && nohup uv run python -m rl_move.sim.train_ppo_sim \
          $BASE_ARGS $extra --run-name cw-$name --out-name ppo_goal_cw_$name \
          > /tmp/train.log 2>&1 & echo '[sweep] $name: training started'"
 }

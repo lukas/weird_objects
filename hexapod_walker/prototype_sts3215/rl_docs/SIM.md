@@ -234,7 +234,7 @@ about that env's own x-axis (plumbed 08-12 through `mjx_backend`,
 
 Air battery: `POST /api/rl/probe_dynamics` on the robot →
 `fit_motor_model.py`. Loaded: new bench traces into
-`rl_move/hardware_traces/`, then `python -m
+`rl_move/hardware_traces/`, then `uv run python -m
 rl_move.sim.fit_loaded_actuator` (`--measure` first to sanity-check
 parsing; it fits ±2/±10°, holds out ±5°, and replays the rl_stand
 cmd streams as multi-step validation). Both write provenance +

@@ -7,6 +7,14 @@ operations — use it. Sibling docs: `rl_docs/README.md` (index),
 `RL_GOALS.md` (plain-English mission), `rl_docs/EXPERIMENT_LOGS.md`
 (per-run summary.md convention).
 
+**PYTHON RULE:** local/project Python commands go through `uv`. Use
+`uv run python ...`, `uv run python -m ...`, or `uv run pytest ...`;
+do not run bare `python3`, bare `python`, or direct `.venv/bin/python`
+paths unless the command is an explicit exception. Native MuJoCo
+GUI/viewer launches on macOS use `uv run mjpython ...` or the Makefile
+viewer wrapper; board-side systemd and historical/generated logs are
+also explicit exceptions.
+
 **STANDING RULE — promote what you figure out:** if a command failed,
 was slow, or took several tries before you got it right, add it as an
 `ops.sh` subcommand (or a snippet below) IN THE SAME CYCLE, and note
@@ -20,17 +28,17 @@ leave the next agent to rediscover it.
 | **Triage a finished run (START HERE)** | `ops.sh review <run>` — ledger+gate, W&B trend, eval table, video paths in one shot |
 | Eval numbers table from a report.json | `ops.sh report <run\|path>` (per-episode + medians + term counts) |
 | What is actually training right now? | `ops.sh census` (/proc truth; W&B lags launches ~8 min) |
-| How many slots are free / where? | `python3 rl_move/orchestrator/capacity.py` |
+| How many slots are free / where? | `uv run python rl_move/orchestrator/capacity.py` |
 | Ledger + procs + watcher, one screen | `ops.sh status` |
 | One run's metrics/state | `ops.sh wandb <run>` (ledger: `ops.sh entry <run>`) |
 | What's queued to launch? | `launch_run.py backlog list` |
 | Queue a seed/rung/variant of an existing run | `launch_run.py respec --from <run> --run <new> [--seed N] [--arg='--flag=v'] [--cfg k=v] --hypothesis … --gate …` — clones the ledger args; never re-type them. Add `--init-from-source` to warm-start from the source's checkpoint; add `--now [--pod P]` to skip the backlog and launch directly (snapshot → sync → self-repair → verify, one command). Phase/evidence inherit from the source; override with `--phase`/`--evidence` |
-| Prove the reward prefers the skill over the cheats (MDP_PREFLIGHT) | `python -m pytest rl_move/tests/test_task_semantics.py -v` — BINDING before any reward/task-mechanism launch; a skipped bank for your mode = build the bank first |
-| Eval a DR/noise/latency child against its parent honestly | `python -m rl_move.sim.eval_checkpoint <child.zip> --baseline <parent.zip> --cfg-set <same injection> …` — matched-parent control; child-vs-clean-parent verdicts are invalid |
+| Prove the reward prefers the skill over the cheats (MDP_PREFLIGHT) | `uv run pytest rl_move/tests/test_task_semantics.py -v` — BINDING before any reward/task-mechanism launch; a skipped bank for your mode = build the bank first |
+| Eval a DR/noise/latency child against its parent honestly | `uv run python -m rl_move.sim.eval_checkpoint <child.zip> --baseline <parent.zip> --cfg-set <same injection> …` — matched-parent control; child-vs-clean-parent verdicts are invalid |
 | OPERATOR: fire one launch during a LAUNCH_HOLD | `ops.sh oplaunch respec --from <run> --run <new> --init-from-source --now --operator-override 'why' --hypothesis '<plain English — this LEADS the W&B notes>' --gate '…'` — runs on the controller from anywhere (incl. the operator Mac); the override is audited in the ledger and operator-only |
 | A past run's story | `rl_docs/runs/<run>.md` |
-| Yaw-command tracking (yawcmd lineage gate) | `python3 -m rl_move.sim.eval_yaw <ckpt> --cfg-set … [--out j.json]` — scripted turn panel; reports turn-segment \|wz_err\| med, hold \|wz\| med, falls (harness has no wz fields) |
-| AMP M5 cross-engine suite (track DONE gate) | `python3 -m rl_move.sim.eval_amp_m5 <ckpt> --out-dir logs/ckpt_eval/<name>_m5 --cfg-set <own cfg…>` — ONE invocation composing walk/yaw/push/fault sections in plain MuJoCo with pre-registered bars (amp-m5-v1, q_20260823T0130Z); run on a pod, read `m5_verdict.json`, watch the section strips before claiming. `ops.sh m5eval <run> [pod]` (08-23) does this end-to-end: derives the run's own cfg-set from the ledger (same logic as `evalcmd`), syncs code to the target pod, runs it, copies `logs/ckpt_eval/<run>_m5/` back — never hand-roll the kubectl plumbing |
+| Yaw-command tracking (yawcmd lineage gate) | `uv run python -m rl_move.sim.eval_yaw <ckpt> --cfg-set … [--out j.json]` — scripted turn panel; reports turn-segment \|wz_err\| med, hold \|wz\| med, falls (harness has no wz fields) |
+| AMP M5 cross-engine suite (track DONE gate) | `uv run python -m rl_move.sim.eval_amp_m5 <ckpt> --out-dir logs/ckpt_eval/<name>_m5 --cfg-set <own cfg…>` — ONE invocation composing walk/yaw/push/fault sections in plain MuJoCo with pre-registered bars (amp-m5-v1, q_20260823T0130Z); run on a pod, read `m5_verdict.json`, watch the section strips before claiming. `ops.sh m5eval <run> [pod]` (08-23) does this end-to-end: derives the run's own cfg-set from the ledger (same logic as `evalcmd`), syncs code to the target pod, runs it, copies `logs/ckpt_eval/<run>_m5/` back — never hand-roll the kubectl plumbing |
 | Are results being lost/ignored? | `ops.sh triage [hours]` |
 | Finished but not yet analyzed? | ledger `triage` field (watcher-stamped: `awaiting…` → `in-cycle…` → `done` on verdict); shown on the status page "Analysis pipeline" |
 | Write the cycle's RL_LOG line | `ops.sh logline "c<N>: …"` — the ONLY way; never `cat >>` RL_LOG |
@@ -91,8 +99,8 @@ report.json, and the W&B API for exactly these questions.
   init with FileNotFoundError (killed cw-walk-longdist, 08-09).
   If `kubectl cp`/exec-stdin streams keep dropping (websocket
   close/broken pipe — hit train-2/3, 08-09 c35): HTTP-serve from
-  the controller (`python3 -m http.server 8765` in policies/) and
-  on the pod `python3 -c "import urllib.request; urllib.request.
+  the controller (`uv run python -m http.server 8765` in policies/) and
+  on the pod `uv run python -c "import urllib.request; urllib.request.
   urlretrieve('http://10.0.0.46:8765/<zip>', '<dest>')"` — pods
   have no curl/wget. Always md5 after.
 - `ops.sh evalcmd <run>` — prints the exact-path harness eval command
@@ -167,14 +175,14 @@ report.json, and the W&B API for exactly these questions.
    the hung run remain usable).
 
 1. **`eval_checkpoint` runs ONLY as a module** from the PROTO dir:
-   `python3 -m rl_move.sim.eval_checkpoint …`. Running the .py path
+   `uv run python -m rl_move.sim.eval_checkpoint …`. Running the .py path
    dies on relative imports. Flags (stop re-running --help):
    `checkpoint --task {goal,joint_goal,joint_walk} --modes … --per-mode N
    --dr-scale F --seed N --episode-seconds S --stochastic
    [--end-posture-gate] [--no-video|--video-every N] --out DIR
    --cfg-set k=v (repeatable)`.
    **Driving candidates additionally need the JOYSTICK GATE**
-   (`python3 -m rl_move.sim.eval_drive <ckpt> --dr-scale 0.2 --out
+   (`uv run python -m rl_move.sim.eval_drive <ckpt> --dr-scale 0.2 --out
    FILE.json [--cfg-set …]`): scripted direction panel + randomized
    instant-flip stress; zero in-envelope falls = exit 0. The generic
    harness only samples the training distribution — it can't prove
@@ -415,7 +423,7 @@ Two pieces, both must be up:
      bash -c "tmux kill-session -t statusweb 2>/dev/null; \
        tmux new-session -d -s statusweb 'source /root/orchestrator.env; \
        cd /workspace/weird_objects/hexapod_walker/prototype_sts3215 && \
-       python3 rl_move/orchestrator/status_server.py 2>&1 | tee /tmp/status_server.log'"
+       uv run python rl_move/orchestrator/status_server.py 2>&1 | tee /tmp/status_server.log'"
    ```
 
 2. **Port-forward, on the operator's laptop** (dies on sleep/network
@@ -479,7 +487,7 @@ spawns a cycle by itself; guardrails/rulings still win on conflict —
 ORCHESTRATOR_PROMPT.md § "MCP feedback"). `kick_orchestrator` files
 an operator-tier kick (deep model, trusted focus note). It runs
 inside `statusweb`, so deploy = the same kill+restart runbook above.
-Dev standalone: `python3 rl_move/orchestrator/mcp_server.py` (port
+Dev standalone: `uv run python rl_move/orchestrator/mcp_server.py` (port
 8091).
 
 The server also serves a plain-markdown mirror so external LLMs

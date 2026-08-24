@@ -25,7 +25,7 @@ therefore CONFIRMED a no-op through this harness; these tests lock:
    in-context `_seq_plan`) -- rise_from_h_traj must not require or
    fabricate cross-segment stand-height tracking to do its job.
 
-Run: python3 -m pytest rl_move/tests/test_eval_modeseq_rise_from_h.py -q
+Run: uv run python -m pytest rl_move/tests/test_eval_modeseq_rise_from_h.py -q
 """
 from __future__ import annotations
 

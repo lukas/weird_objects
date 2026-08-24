@@ -39,7 +39,7 @@ Sections and bars (v1, recorded in OPERATOR_QUESTIONS.md; sources named):
          det forward_dist med >= 0.10 m (no statue; M4 faultobs2 bars).
 
 Usage (run on a pod; each section is a full harness eval with videos):
-  python3 -m rl_move.sim.eval_amp_m5 ckpt.zip --out-dir logs/ckpt_eval/<name>_m5 \
+  uv run python -m rl_move.sim.eval_amp_m5 ckpt.zip --out-dir logs/ckpt_eval/<name>_m5 \
       [--cfg-set k=v ...]   # the checkpoint's OWN training cfg-sets
       [--per-mode 6] [--seed 0] [--speed 0.08]
       [--skip walk,yaw,push,fault]

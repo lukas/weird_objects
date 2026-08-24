@@ -14,7 +14,7 @@ Streaming (no manual laptop IP)
   2. any laptop that beacons ``kind=log_sink`` on port **9378**
   3. optional ``HEXAPOD_LOG_HOST`` override if you still want one
 
-Laptop: ``python3 receive_robot_logs.py`` — listens on 9377 and beacons
+Laptop: ``uv run python receive_robot_logs.py`` — listens on 9377 and beacons
 its presence so the robot learns the unicast address automatically.
 """
 from __future__ import annotations

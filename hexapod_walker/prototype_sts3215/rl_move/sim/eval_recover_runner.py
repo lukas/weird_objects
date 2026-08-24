@@ -23,7 +23,7 @@ Deployment-honest deltas vs the matched training-eval
 Canonical invocation (controller smoke = 2-3 rungs; full gate on a
 train pod):
 
-    python3 -m rl_move.sim.eval_recover_runner \
+    uv run python -m rl_move.sim.eval_recover_runner \
         --out logs/recover_runner_gate
 """
 from __future__ import annotations

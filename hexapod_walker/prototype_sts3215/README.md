@@ -32,6 +32,12 @@ start at the entry point for the one you're working on:
 
 ## Quick commands
 
+Local Python convention: use `uv run python ...` or `uv run python -m ...`;
+do not copy old bare `python3` examples from logs/archive. The repo-root
+`AGENTS.md` and this project's `AGENTS.md` record the rule. Native
+MuJoCo GUI/viewer launches on macOS are the special exception: use
+`uv run mjpython ...` or the Makefile viewer targets.
+
 ```sh
 make -C hexapod_walker/prototype_sts3215 help
 make -C hexapod_walker/prototype_sts3215 build

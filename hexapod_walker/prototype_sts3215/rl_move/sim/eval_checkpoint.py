@@ -16,7 +16,7 @@ uses and runs per-mode deterministic episodes with:
   future fine-tune)
 
 Usage:
-  python -m rl_move.sim.eval_checkpoint POLICY.zip --task joint_goal \
+  uv run python -m rl_move.sim.eval_checkpoint POLICY.zip --task joint_goal \
       --per-mode 6 --dr-scale 0.2 --seed 0 [--modes rise lower] \
       [--stochastic] [--no-video]
 

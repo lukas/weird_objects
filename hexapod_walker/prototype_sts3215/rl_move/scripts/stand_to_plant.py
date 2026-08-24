@@ -2,7 +2,7 @@
 """DISABLED by default — do not auto-stand to +20/+80.
 
 Phase-1 policy (2026-08-06): physically set a stable stance, then
-``python3 -m rl_move.scripts.capture_plant``. Balance startup holds
+``uv run python -m rl_move.scripts.capture_plant``. Balance startup holds
 current joints and refuses if far from that snapshot.
 
 This script only runs with ``--force`` *and* a captured ``joints_deg``
@@ -43,14 +43,14 @@ def main() -> int:
     if not args.force:
         print("[stand] REFUSED: auto stand-to-plant is disabled.")
         print("  Physically set a stable feet-down stance, then:")
-        print("    python3 -m rl_move.scripts.capture_plant")
+        print("    uv run python -m rl_move.scripts.capture_plant")
         print("  Balance will hold current pose (no blend).")
         print("  (Emergency blend to a *captured* plant: --force)")
         return 2
     if plant.get("joints_deg") is None:
         print("[stand] REFUSED: --force needs plant_pose.json with joints_deg.")
         print("  Default +20/+80 tips the robot — will not use it.")
-        print("  Run: python3 -m rl_move.scripts.capture_plant")
+        print("  Run: uv run python -m rl_move.scripts.capture_plant")
         return 2
 
     cfg = load_config(args.config)

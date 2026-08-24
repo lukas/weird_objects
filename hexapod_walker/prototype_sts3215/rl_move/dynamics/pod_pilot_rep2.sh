@@ -21,7 +21,7 @@
 #   nohup sh rl_move/dynamics/pod_pilot_rep2.sh > .../pod_pilot_rep2.log &
 set -e
 cd "$(dirname "$0")/../.."
-PY=${PYTHON:-python3}
+PY=${PYTHON:-uv run python}
 DATA=rl_move/dynamics/datasets/v2pod2
 ENC_NAME=dyn_v2pod2_obs
 ENC=rl_move/dynamics/models/${ENC_NAME}.pt

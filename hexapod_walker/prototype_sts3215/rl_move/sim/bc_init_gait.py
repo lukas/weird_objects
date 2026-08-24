@@ -20,12 +20,12 @@ the known failure of anchor-during-RL does not apply.
 
 Usage (from prototype root):
 
-    ../../.venv/bin/python -m rl_move.sim.bc_init_gait \
+    uv run python -m rl_move.sim.bc_init_gait \
         --out rl_move/sim/policies/ppo_goal_cw_bcgait_init.zip
 
 Then verify with the campaign's binding metric BEFORE any RL:
 
-    ../../.venv/bin/python -m rl_move.sim.probe_tall_wall \
+    uv run python -m rl_move.sim.probe_tall_wall \
         --ckpt rl_move/sim/policies/ppo_goal_cw_bcgait_init.zip \
         --ref 0 --no-gait
 """

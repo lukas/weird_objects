@@ -12,7 +12,7 @@ train_ppo_transfer.py via run_pilot.sh) and reports, per condition:
 All numbers are mean +/- half-range across seeds (n is small; no
 stderr theater). A plot of the per-seed curves lands next to the logs.
 
-    python -m rl_move.dynamics.analyze_pilot [--seeds 0 1 2]
+    uv run python -m rl_move.dynamics.analyze_pilot [--seeds 0 1 2]
         [--hold-threshold -120] [--lower-threshold -40] [--plot]
 
 Phase 2 defaults to "lower" (the laptop pilot pair); the pod

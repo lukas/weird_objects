@@ -12,22 +12,27 @@ Two robots given the same file walk with the same brain.
 Artifact = the export_policy_np.py JSON:
 
     {"meta": {"name": "...", "notes": "...", "source": "...",
-              "obs_dim": 68|72|74, "act_dim": 18,
+              "obs_dim": 68|72|74|93, "act_dim": 18,
               "hidden": [h1, h2], "activation": "tanh",
+              "control_hz": 100,       # optional trained policy rate
+              "inner_hz": 100,         # optional robot stream override
+              "bus_write_speed": 1500, # optional robot bus profile
+              "bus_write_acc": 80,
               "profile": {...},        # optional trained goal ramps
-              "phase_hz": 0.1667},     # REQUIRED for obs 74
+              "phase_hz": 0.1667},     # REQUIRED for obs 74/93
      "W1": [[...]], "b1": [...], "W2": [[...]], "b2": [...],
      "Wout": [[...]], "bout": [...]}
 
 Validation is strict enough to make an upload safe to run: obs_dim
-must fit a known slot (68 stance / 72 walk / 74 phase-walk), act_dim
-18, all six matrices present with a consistent shape chain, every
-value finite, and a smoke forward pass must return 18 finite actions.
+must fit a known slot (68 stance / 72 walk / 74 phase-walk / 93 AMP
+yaw+fault walk), act_dim 18, all six matrices present with a consistent
+shape chain, every value finite, and a smoke forward pass must return
+18 finite actions.
 
 CLI (mirrors dance_script.py):
-    python -m rl_move.np_policy validate policies/foo.json
-    python -m rl_move.np_policy push foo.json --host http://hexapod.local:8080
-    python -m rl_move.np_policy pull foo --host http://robot-b.local:8080
+    uv run python -m rl_move.np_policy validate policies/foo.json
+    uv run python -m rl_move.np_policy push foo.json --host http://hexapod.local:8080
+    uv run python -m rl_move.np_policy pull foo --host http://robot-b.local:8080
 """
 from __future__ import annotations
 
@@ -41,7 +46,7 @@ import numpy as np
 UPLOAD_DIR = Path.home() / ".hexapod_policies"
 MAX_POLICY_BYTES = 8_000_000
 NAME_RE = re.compile(r"^[A-Za-z0-9._-]{1,64}$")
-KNOWN_OBS = (68, 72, 74)
+KNOWN_OBS = (68, 72, 74, 93)
 _MATS = ("W1", "b1", "W2", "b2", "Wout", "bout")
 
 
@@ -61,13 +66,14 @@ def validate_np_policy(obj) -> tuple[list[str], dict]:
             "notes": meta.get("notes", "")}
     if obs not in KNOWN_OBS:
         errs.append(f"obs_dim {obs!r} fits no slot "
-                    f"(68 stance / 72 walk / 74 phase-walk)")
+                    f"(68 stance / 72 walk / 74 phase-walk / "
+                    f"93 AMP yaw+fault walk)")
     if act != 18:
         errs.append(f"act_dim must be 18, got {act!r}")
     if meta.get("activation", "tanh") != "tanh":
         errs.append("activation must be tanh (export_policy_np contract)")
-    if obs == 74 and not meta.get("phase_hz"):
-        errs.append("obs 74 (phase clock) requires meta.phase_hz")
+    if obs in (74, 93) and not meta.get("phase_hz"):
+        errs.append(f"obs {obs} (phase clock) requires meta.phase_hz")
     for k in _MATS:
         if k not in obj:
             errs.append(f"missing matrix {k}")

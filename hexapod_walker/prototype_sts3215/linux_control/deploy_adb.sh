@@ -14,6 +14,7 @@ set -euo pipefail
 
 SRC="$(cd "$(dirname "$0")" && pwd)"
 REMOTE="/home/arduino/hexapod_sts"
+REMOTE_UV="/home/arduino/.local/bin/uv"
 MODE="start"
 NEED_BUS=0
 for a in "$@"; do
@@ -33,7 +34,7 @@ adb wait-for-device
 adb shell 'echo connected as $(whoami) on $(hostname)'
 
 if [ "$MODE" = "stop" ]; then
-  adb shell 'pkill -f "[p]ython3 .*web_drive.py" || true'
+  adb shell 'pkill -f "[w]eb_drive.py" || true'
   echo ">> stopped"
   exit 0
 fi
@@ -76,6 +77,7 @@ adb push "$SRC/policies" "$REMOTE/linux_control/"
 # Stand-up lab: baked keyframes from rl_move/sim/compare_standup.py --export.
 adb push "$SRC/standup_modes.json" "$REMOTE/linux_control/"
 adb push "$SRC/vendor" "$REMOTE/linux_control/"
+adb push "$SRC/systemd" "$REMOTE/linux_control/"
 # rl_move core (numpy-only): obs builder, state estimator, safety layer —
 # imported by rl_policy.py for the RL stand/lower buttons.
 adb shell "mkdir -p '$REMOTE/rl_move'"
@@ -122,7 +124,7 @@ fi
 paint_deploy_screen() {
   adb shell "cd '$REMOTE/linux_control' && \
     PYTHONPATH='$REMOTE/linux_control/vendor:$REMOTE/urt2_setup:$REMOTE/motor_setup:$REMOTE/linux_control' \
-    python3 deploy_status_display.py \
+    '$REMOTE_UV' run python deploy_status_display.py \
       --title DEPLOYING \
       --line 'code updated' \
       --line 'web restarting' \
@@ -130,22 +132,26 @@ paint_deploy_screen() {
       --footer 'screen will resume'" >/dev/null 2>&1 || true
 }
 
+echo ">> ensuring uv on Uno Q"
+adb shell "set -e; if [ ! -x '$REMOTE_UV' ]; then curl -LsSf https://astral.sh/uv/install.sh | sh; fi; '$REMOTE_UV' --version"
+
 echo ">> restarting web_drive.py"
 # Prefer the boot-enabled systemd unit when present.
 if adb shell 'systemctl is-enabled hexapod-web.service >/dev/null 2>&1'; then
   adb shell 'echo arduino | sudo -S systemctl stop hexapod-web.service' >/dev/null || true
+  adb shell "echo arduino | sudo -S cp '$REMOTE/linux_control/systemd/hexapod-web.service' /etc/systemd/system/hexapod-web.service && echo arduino | sudo -S systemctl daemon-reload" >/dev/null
   paint_deploy_screen
   adb shell 'echo arduino | sudo -S systemctl start hexapod-web.service' >/dev/null
   sleep 5
   adb shell 'systemctl --no-pager -l status hexapod-web.service | head -20 || true'
 else
-  adb shell "pkill -f '[p]ython3 .*web_drive.py' || true" >/dev/null || true
+  adb shell "pkill -f '[w]eb_drive.py' || true" >/dev/null || true
   paint_deploy_screen
   # Detach cleanly — a bare `adb shell '... &'` can hang until the child exits.
   adb shell "sh -c 'cd \"$REMOTE/linux_control\" && \
     PYTHONUNBUFFERED=1 \
     PYTHONPATH=\"$REMOTE/linux_control/vendor:$REMOTE/urt2_setup:$REMOTE/motor_setup:$REMOTE/linux_control\" \
-    nohup python3 web_drive.py $DRY $BUS_ARGS --http-port 8080 --https-port 8443 \
+    nohup \"$REMOTE_UV\" run python web_drive.py $DRY $BUS_ARGS --http-port 8080 --https-port 8443 \
     >/tmp/hexapod_web.log 2>&1 </dev/null & echo started_pid=\$!'"
   sleep 1.5
   adb shell 'tail -n 30 /tmp/hexapod_web.log || true'

@@ -26,7 +26,7 @@ fell / term_reason, peak |roll_rel| in the first 2.5 s and overall,
 peak |roll rate|, tail roll (last 1 s), forward progress by t=10 s
 (the throttle must not kill locomotion).
 
-    python3 -m rl_move.sim.probe_gait_entry --ckpts tip1,bcgait1_hard1
+    uv run python -m rl_move.sim.probe_gait_entry --ckpts tip1,bcgait1_hard1
 """
 from __future__ import annotations
 

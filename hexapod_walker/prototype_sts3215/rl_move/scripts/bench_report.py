@@ -4,9 +4,9 @@
 The fast way to read a night of hardware sessions without opening a
 single summary.json by hand:
 
-    python -m rl_move.scripts.bench_report                # all sessions
-    python -m rl_move.scripts.bench_report --since 20260811_19
-    python -m rl_move.scripts.bench_report --out report.md
+    uv run python -m rl_move.scripts.bench_report                # all sessions
+    uv run python -m rl_move.scripts.bench_report --since 20260811_19
+    uv run python -m rl_move.scripts.bench_report --out report.md
 
 For each session it reads summary.json (walks, transitions, recoveries,
 turn signs, aborts) and every pulled rl_walk CSV (per-tick roll trace)

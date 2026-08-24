@@ -18,7 +18,7 @@ tail |roll_rel_deg| median over the last 1.0s. Forward command only
 (the bench transient is a gait-start phenomenon, not direction-
 specific per bench_report).
 
-    ../../.venv/bin/python -m rl_move.sim.probe_walk_kick
+    uv run python -m rl_move.sim.probe_walk_kick
 """
 from __future__ import annotations
 

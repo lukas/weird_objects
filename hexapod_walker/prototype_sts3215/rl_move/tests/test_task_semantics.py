@@ -22,7 +22,7 @@ History that motivates each bank lives in the test docstrings. These
 are sim-rollout tests (~minutes, CPU); run them on demand, not as part
 of a quick unit sweep:
 
-    ../../.venv/bin/python -m pytest rl_move/tests/test_task_semantics.py -v
+    uv run python -m pytest rl_move/tests/test_task_semantics.py -v
 
 Add a bank whenever a new exploit is seen on video: encode the exploit
 as a scripted trajectory here FIRST, then fix the reward, then prove

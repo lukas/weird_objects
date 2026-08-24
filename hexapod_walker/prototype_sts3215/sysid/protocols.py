@@ -17,10 +17,10 @@ runner). The standard set covers the sysid plan:
 
 Build (from prototype_sts3215/, repo .venv)::
 
-    python -m sysid.protocols build
-    python -m sysid.protocols champion --csv <rl_*.csv> --out <name> \
+    uv run python -m sysid.protocols build
+    uv run python -m sysid.protocols champion --csv <rl_*.csv> --out <name> \
         [--start-tick 0 --ticks 400]
-    python -m sysid.protocols show sysid/protocols/steps_air_v1.json
+    uv run python -m sysid.protocols show sysid/protocols/steps_air_v1.json
 """
 from __future__ import annotations
 

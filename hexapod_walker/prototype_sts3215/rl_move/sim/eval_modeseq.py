@@ -68,14 +68,14 @@ v1; on the first, cold segment the window reads engagement, not a
 switch).
 
     # baseline (two specialists)
-    python3 -m rl_move.sim.eval_modeseq \
+    uv run python -m rl_move.sim.eval_modeseq \
         --stand rl_move/sim/policies/ppo_goal_cw_stand_footlow2_hard1.zip \
         --walk  rl_move/sim/policies/ppo_goal_cw_walk_longdist_r2.zip \
         --episodes 12 --grammar rise,walk,lower,rise,walk \
         --out logs/ckpt_eval/modeseq_baseline.json
 
     # one-model gate (Arm 1 / Arm 2 artifacts)
-    python3 -m rl_move.sim.eval_modeseq \
+    uv run python -m rl_move.sim.eval_modeseq \
         --single rl_move/sim/policies/ppo_goal_cw_gru_dual_bc_transdagger1.zip \
         --episodes 12 --grammar rise,walk,lower,rise,walk \
         --out logs/ckpt_eval/modeseq_transdagger1.json
@@ -102,7 +102,7 @@ grammar `rise,walk,lower,rise,walk` this is the ~60 s guarded
 specialist session REST->RISE->SETTLE->WALK_ENTRY->DRIVE->
 STOP_SETTLE->LOWER->RISE->DRIVE:
 
-    python3 -m rl_move.sim.eval_modeseq \
+    uv run python -m rl_move.sim.eval_modeseq \
         --stand rl_move/sim/policies/ppo_goal_cw_stand_footlow2_hard1.zip \
         --walk  rl_move/sim/policies/ppo_goal_cw_dep_bcgait1_hard1.zip \
         --episodes 12 --grammar rise,walk,lower,rise,walk \

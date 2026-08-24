@@ -19,7 +19,7 @@ starts — no mid-episode chunking, which would teach a bogus
 ``train_ppo_mjx --gru --init-from`` RL fine-tuning.
 
 Run (from prototype_sts3215/):
-    ../../.venv/bin/python -m rl_move.sim.distill_gru \
+    uv run python -m rl_move.sim.distill_gru \
         --episodes 400 --epochs 30
 
 TRANSITIONS_DIRECTIVE CODE item 2 (08-13): ``--transitions N`` adds N
@@ -29,7 +29,7 @@ every switch, the ACTIVE segment's teacher drives and labels, and the
 student sees one continuous stream with the mode one-hot flipping.
 DAgger rounds then run on whole sequences. Default 0 = feature off,
 behavior unchanged. Arm 1 recipe:
-    ../../.venv/bin/python -m rl_move.sim.distill_gru --dual \
+    uv run python -m rl_move.sim.distill_gru --dual \
         --transitions 300 --episodes 200 \
         --mix walk=0.30,rise=0.40,lower=0.15,hold=0.15 --epochs 30 \
         --dagger-rounds 2 --dagger-episodes 100 \

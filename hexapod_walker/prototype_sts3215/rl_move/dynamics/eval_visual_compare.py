@@ -31,7 +31,7 @@ and >=6-joints-simultaneous), mean chassis height, servo current
 mean/p95. Episode-level aggregate feeds the trainer's pre-registered
 locomotion_quality composite for a headline number.
 
-    python3 -m rl_move.dynamics.eval_visual_compare \
+    uv run python -m rl_move.dynamics.eval_visual_compare \
         --ckpt best6M=models/ppo_..._best.zip \
         --ckpt ck22M=models/ppo_..._ck22000000.zip \
         --dr-scales 0,0.3 --seeds 100,101,102 \

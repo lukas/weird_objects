@@ -52,7 +52,7 @@ def test_contract_reports_raised_profile():
     assert c["resolved_vel_max_counts_s_max"] == pytest.approx(1500.0)
     assert c["resolved_vel_max_deg_s_min"] == pytest.approx(
         1500.0 / COUNTS_PER_DEG)
-    assert c["slew_limit_deg_s"] == pytest.approx(125.0)
+    assert c["slew_limit_deg_s"] == pytest.approx(500.0)
     assert "+vel_max=1500cps" in c["servo_params_source"]
 
 

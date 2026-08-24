@@ -134,8 +134,8 @@ class FakeSession:
         self.calls.append(("rl_drive_start",))
         return {"ok": True, "active": True}
 
-    def rl_drive_cmd(self, vx, vy):
-        self.calls.append(("rl_drive_cmd", vx, vy))
+    def rl_drive_cmd(self, vx, vy, wz=0.0):
+        self.calls.append(("rl_drive_cmd", vx, vy, wz))
         return {"ok": True, "active": True}
 
     def rl_drive_stop(self):
@@ -195,7 +195,7 @@ def test_dispatches_rl_drive_and_sim_routes():
     assert _json(fake, "/api/sim/pose", method="POST",
                  body={"degrees": list(range(18)),
                        "source": "test"})["status"] == "synced test pose"
-    assert ("rl_drive_cmd", 0.05, -0.02) in fake.calls
+    assert ("rl_drive_cmd", 0.05, -0.02, 0.0) in fake.calls
     assert ("sim_reset", "belly") in fake.calls
     assert ("sim_pose", list(range(18)), "test") in fake.calls
 

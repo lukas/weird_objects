@@ -12,7 +12,7 @@ controller's `rl_move/sim/policies/` is a cache, NOT the archive
 (it is gitignored and the controller is an ephemeral pod).
 
 Demo any row locally:
-`.venv/bin/python -m rl_move.sim.drive_policy rl_move/sim/policies/<ckpt>.zip`
+`uv run python -m rl_move.sim.drive_policy rl_move/sim/policies/<ckpt>.zip`
 
 ## Walk (main line)
 

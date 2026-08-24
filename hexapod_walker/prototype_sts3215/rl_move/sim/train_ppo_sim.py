@@ -16,14 +16,14 @@ on the operator explicitly asking for hardware motion.
 
 Run (from prototype_sts3215/):
     # ~1 min smoke
-    ../../.venv/bin/python -m rl_move.sim.train_ppo_sim --smoke
+    uv run python -m rl_move.sim.train_ppo_sim --smoke
 
     # real run
-    ../../.venv/bin/python -m rl_move.sim.train_ppo_sim \
+    uv run python -m rl_move.sim.train_ppo_sim \
         --steps 2000000 --n-envs 8
 
     # evaluate a checkpoint (sim only)
-    ../../.venv/bin/python -m rl_move.sim.train_ppo_sim \
+    uv run python -m rl_move.sim.train_ppo_sim \
         --eval rl_move/sim/policies/ppo_balance.zip
 
 Weights & Biases: runs log to wandb entity ``l2k2``, project

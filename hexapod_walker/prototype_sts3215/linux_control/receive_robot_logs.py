@@ -5,10 +5,10 @@ Listens for UDP JSONL on :9377 and **beacons** this machine's address to the
 robot on :9378 so you never have to set ``HEXAPOD_LOG_HOST``.
 
     cd hexapod_walker/prototype_sts3215/linux_control
-    python3 receive_robot_logs.py
+    uv run python receive_robot_logs.py
 
     # backup if UDP is firewalled:
-    python3 receive_robot_logs.py --ssh arduino@hexapod.local
+    uv run python receive_robot_logs.py --ssh arduino@hexapod.local
 
 Writes ``logs/robot_events.jsonl`` next to this script (or --out).
 """

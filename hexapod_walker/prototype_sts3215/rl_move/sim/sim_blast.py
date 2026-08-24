@@ -4,8 +4,8 @@ Companion to ``rl_move/scripts/bench_blast.py`` (the hardware half).
 Each experiment answers a named decision for the NEXT bench session;
 none of this is training. Run from prototype_sts3215:
 
-    python3 -m rl_move.sim.sim_blast            # full (~30-45 min CPU)
-    python3 -m rl_move.sim.sim_blast --quick    # ~third the episodes
+    uv run python -m rl_move.sim.sim_blast            # full (~30-45 min CPU)
+    uv run python -m rl_move.sim.sim_blast --quick    # ~third the episodes
 
 Experiments (see RL_PLAN queue -1 / HARDWARE.md for the bench story):
 

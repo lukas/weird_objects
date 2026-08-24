@@ -32,7 +32,7 @@
 #   nohup sh rl_move/dynamics/pod_holdwalk.sh > .../pod_holdwalk.log &
 set -e
 cd "$(dirname "$0")/../.."
-PY=${PYTHON:-python3}
+PY=${PYTHON:-uv run python}
 DATA=${DATA:-rl_move/dynamics/datasets/v2pod}
 ENC=${ENC:-rl_move/dynamics/models/dyn_v2pod_obs.pt}
 LOG=rl_move/dynamics/logs

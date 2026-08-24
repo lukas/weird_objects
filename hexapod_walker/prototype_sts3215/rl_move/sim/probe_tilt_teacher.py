@@ -49,7 +49,7 @@ Pure diagnostic - C env on CPU, no env-code changes. Run on a train
 pod (COMMANDS.md gotcha 16: snapshot.sh --sync first).
 
 Usage:
-    python -m rl_move.sim.probe_tilt_teacher \
+    uv run python -m rl_move.sim.probe_tilt_teacher \
         [--ckpt rl_move/sim/policies/ppo_goal_cw_stand_tiltcomp1.zip] \
         --episodes 6 --tip-deg 8 --out /tmp/tilt_teacher.json
 """

@@ -29,7 +29,7 @@ random row + small joint noise, exactly like the other harvested-bank
 starts in this file family.
 
 Usage:
-  python -m rl_move.sim.harvest_recover_rsi_bank CKPT.zip \
+  uv run python -m rl_move.sim.harvest_recover_rsi_bank CKPT.zip \
       --kinds tangle,tangle_deep,tangle_mid,tangle_mild \
       --episodes-per-kind 400 --seed 7000 \
       --out rl_move/sim/park_banks/NAME.npz \

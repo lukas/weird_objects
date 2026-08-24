@@ -4,16 +4,18 @@ control:
   # 100 Hz is the trained contract of every NEW policy (operator order
   # 2026-08-24, fb_20260824T174619_c49b7e: "make all new models use
   # 100hz"). This value feeds the SIM env dt (sim_env.py) AND the robot
-  # runner rate (linux_control/rl_policy.py reads it), so training and
-  # deploy can never drift apart. The 2026-08-19 MCU stream bridge makes
-  # 100 Hz bus work feasible (tick bus work ~3-5 ms, was >20 ms).
-  # LEGACY: every checkpoint trained before 2026-08-24 is a 25 Hz policy
-  # — its ledger entry has no control.hz cfg-set (pod_eval pins 25 for
-  # those) and its export meta has no/25 control_hz; the runner REFUSES
-  # rate-mismatched policies instead of playing them 4x fast. Evaluate
-  # or continue legacy checkpoints with an explicit --cfg-set
-  # control.hz=25 (launcher: needs --allow-legacy-control-hz).
+  # runner's default rate, so training and deploy defaults do not drift.
+  # The 2026-08-19 MCU stream bridge makes 100 Hz bus work feasible
+  # (tick bus work ~3-5 ms, was >20 ms).
+  # PLAYBACK: linux_control/rl_policy.py adapts to the selected policy's
+  # own meta.control_hz / policy_hz; legacy/no-rate exports are treated
+  # as 25 Hz brains instead of being played 4x fast.
   hz: 100
+  # Robot runner only: interpolate a slower trained policy target into
+  # faster servo-stream writes. This does not change sim dt, policy obs,
+  # phase clocks, or action costs; with 100 Hz policies this is normally
+  # equal to control.hz and therefore disabled.
+  inner_hz: 100
 
 compat:
   # Policy joint frame. Default is the real robot's logical convention:

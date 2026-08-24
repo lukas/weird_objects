@@ -25,7 +25,7 @@ pay, the episode excess (m), the charge at --k, and charge/income
 probe works whether or not the stack already enables the charge).
 
 Usage (pod or controller; CPU, det, DR-0):
-    python3 -m rl_move.sim.probe_stance_slip_dist \
+    uv run python -m rl_move.sim.probe_stance_slip_dist \
         --checkpoint rl_move/sim/policies/<ckpt>.zip \
         --cfg-set goal.walk_phase_obs=1 ... \
         --episodes 4 --allowances 6,8,10,12,14,16 --k 8000 \

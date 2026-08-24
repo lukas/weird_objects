@@ -14,25 +14,23 @@ laptop with no hardware).
 
   1. "straighten"  hips → 0°, knees → a small lift angle that keeps the
      feet ~``LIFT_CLEAR_MM`` above the belly-down ground plane; yaws
-     held where they are. From the belly this is a small foot lift.
-     From a STAND (lowest foot > ``STAND_DETECT_MM`` below the belly
-     plane) the descent is planned drag-minimally instead (operator
-     ask 2026-08-12 — the old single blend slid the loaded feet
-     ~190 mm radially outward):
-       a. "fold crouch"  knees fold toward ``KNEE_FOLD_MAX_DEG`` with
-          each foot held at its present radius — the body sinks with
-          NO foot slide until the fold-reach limit binds;
-       b. "slide to belly"  the only loaded drag left: feet slide
-          outward just far enough (typically 30–70 mm, vs ~190 mm)
-          that belly contact is reachable with knee ≤
-          ``KNEE_CONTACT_MAX_DEG``;
-       c. "unfold skim"  belly carries the weight; the unloaded feet
-          sweep out at ``SKIM_CLEAR_MM`` over the floor to the lift
-          pose. Waypoints are refined (bisected through per-leg IK)
-          until every joint-space blend tracks the intended foot path
-          — no blend may press a foot or a folded knee into the floor.
-     Any pose the per-leg IK can't cover falls back to the legacy
-     single-blend straighten (still force-monitored).
+     held where they are.
+
+     From belly-down / tangled poses where the hip-frame floor model is
+     meaningful, ``plan_ik_pose_transition`` makes the decision:
+       a. if the direct joint-space path keeps every foot out of the
+          ground and adjacent legs clear, take that one direct air move;
+       b. otherwise try to lift/swing/place tripods, then individual
+          legs, using per-leg IK so a foot that would touch the ground
+          steps through the target instead of being dragged;
+       c. if neither direct nor stepped geometry is provably clear,
+          report failure to the caller.
+
+     From a true STAND (feet well below the belly-down ground plane) the
+     floor plane is not valid in the hip frame. Normal standing lowers
+     are routed by the web/backend through STEP-down before safe-zero is
+     considered. Legacy/offline callers still get a force-monitored
+     straighten blend rather than a geometry claim we cannot justify.
   2. "center yaws" all yaws → 0° with the feet geometrically clear of
      the ground. Tries all-at-once; if the top-view leg segments would
      cross, falls back to one-leg-at-a-time (largest |yaw| first); if
@@ -87,6 +85,7 @@ BELLY_GROUND_Z_MM = -40.0
 LIFT_CLEAR_MM = 22.0        # transit foot height above the ground plane
 GROUND_TOL_MM = 3.0         # slack on the geometric ground check
 LEG_CLEAR_MM = 30.0         # min top-view distance between adjacent legs
+FOOT_SLIP_TOL_MM = 4.0      # max horizontal move while a foot is near ground
 LIMIT_SLOP_DEG = 20.0       # encoder past limit+slop → zero frame suspect
 DONE_TOL_DEG = 4.0
 PATH_SAMPLES = 9
@@ -201,6 +200,25 @@ def ik_hip_knee(r_mm: float, z_mm: float) -> tuple[float, float] | None:
     return float(hip), float(knee)
 
 
+def ik_leg_angles(yaw_deg: float, r_mm: float,
+                  z_mm: float) -> tuple[float, float, float] | None:
+    """Full per-leg IK: ``(yaw, hip, knee)`` for a leg-plane foot target.
+
+    ``r_mm``/``z_mm`` are measured from the hip pivot in the leg's yawed
+    plane, using the same absolute-tibia convention as the rest of this
+    module. This is the public helper to use when a planner knows a foot
+    should be at a geometric point instead of hand-editing hip/knee angles.
+    """
+    yaw_lo, yaw_hi = AXIS_LIMITS_DEG[0]
+    yaw = float(yaw_deg)
+    if yaw < yaw_lo or yaw > yaw_hi:
+        return None
+    hk = ik_hip_knee(r_mm, z_mm)
+    if hk is None:
+        return None
+    return yaw, hk[0], hk[1]
+
+
 def leg_segment_2d(leg: int, yaw_deg: float, hip_deg: float,
                    knee_deg: float) -> tuple[tuple[float, float],
                                              tuple[float, float]]:
@@ -252,6 +270,12 @@ def _adjacent_dists(q: list[float]) -> dict[tuple[int, int], float]:
     return out
 
 
+def _foot_xy(q: list[float], leg: int) -> tuple[float, float]:
+    """Top-view foot-tip position for slip checks."""
+    return leg_segment_2d(
+        leg, q[leg * 3], q[leg * 3 + 1], q[leg * 3 + 2])[1]
+
+
 def _lerp(q0: list[float], q1: list[float], t: float) -> list[float]:
     return [a + (b - a) * t for a, b in zip(q0, q1)]
 
@@ -262,7 +286,8 @@ def _max_delta(q0: list[float], q1: list[float]) -> float:
 
 def _path_violation(q0: list[float], q1: list[float], *,
                     ground_z_mm: float | None = None,
-                    clear_mm: float = LIFT_CLEAR_MM) -> str | None:
+                    clear_mm: float = LIFT_CLEAR_MM,
+                    check_slip: bool = True) -> str | None:
     """Check the linear path q0→q1. Returns a description or None.
 
     Collision rule tolerates a pair that STARTS inside the margin as
@@ -270,6 +295,9 @@ def _path_violation(q0: list[float], q1: list[float], *,
     legs is always allowed).
     """
     base = _adjacent_dists(q0)
+    prev_z = [foot_z_mm(q0[leg * 3 + 1], q0[leg * 3 + 2])
+              for leg in range(6)]
+    prev_xy = [_foot_xy(q0, leg) for leg in range(6)]
     for k in range(1, PATH_SAMPLES + 1):
         q = _lerp(q0, q1, k / PATH_SAMPLES)
         if ground_z_mm is not None:
@@ -279,10 +307,24 @@ def _path_violation(q0: list[float], q1: list[float], *,
                     return (f"L{leg} foot would drop to "
                             f"{z - ground_z_mm:.0f} mm over ground "
                             f"(need ≥{clear_mm - GROUND_TOL_MM:.0f} mm)")
+                if check_slip:
+                    contact = z <= ground_z_mm + GROUND_TOL_MM
+                    prev_contact = prev_z[leg] <= ground_z_mm + GROUND_TOL_MM
+                    if contact and prev_contact:
+                        xy = _foot_xy(q, leg)
+                        slip = math.hypot(xy[0] - prev_xy[leg][0],
+                                          xy[1] - prev_xy[leg][1])
+                        if slip > FOOT_SLIP_TOL_MM:
+                            return (f"L{leg} foot would slide "
+                                    f"{slip:.0f} mm while near ground")
         for (i, j), d in _adjacent_dists(q).items():
             if d < LEG_CLEAR_MM and d < base[(i, j)] - 1.0:
                 return (f"legs L{i}/L{j} would close to {d:.0f} mm "
                         f"(need ≥{LEG_CLEAR_MM:.0f} mm)")
+        if ground_z_mm is not None:
+            prev_z = [foot_z_mm(q[leg * 3 + 1], q[leg * 3 + 2])
+                      for leg in range(6)]
+            prev_xy = [_foot_xy(q, leg) for leg in range(6)]
     return None
 
 
@@ -326,6 +368,174 @@ def _descent_pose(yaw_now: list[float],
             return None
         q.extend([yaw_now[leg], hk[0], hk[1]])
     return q
+
+
+def _foot_rz(q: list[float], leg: int) -> tuple[float, float]:
+    hip, knee = q[leg * 3 + 1], q[leg * 3 + 2]
+    return foot_r_mm(hip, knee), foot_z_mm(hip, knee)
+
+
+def _reachable_r_at_z(r_mm: float, z_mm: float) -> float:
+    """Nudge an air target inside reach while preserving direction.
+
+    Near full extension, "lift this foot straight up at the same radius" can
+    be a millimeter outside the two-link workspace. The planner may retract an
+    unloaded foot slightly while it is being lifted; it must not do this for a
+    loaded/direct path, which is why this helper is used only by step stages.
+    """
+    max_reach = FEMUR_MM + TIBIA_MM - 2.0
+    z = float(z_mm)
+    if math.hypot(float(r_mm), -z) <= max_reach:
+        return float(r_mm)
+    lim = math.sqrt(max(0.0, max_reach ** 2 - z ** 2))
+    return math.copysign(lim, float(r_mm) if abs(r_mm) > 1e-9 else 1.0)
+
+
+def _set_leg_ik(q: list[float], leg: int, yaw_deg: float,
+                r_mm: float, z_mm: float) -> bool:
+    angles = ik_leg_angles(yaw_deg, _reachable_r_at_z(r_mm, z_mm), z_mm)
+    if angles is None:
+        return False
+    q[leg * 3:leg * 3 + 3] = [angles[0], angles[1], angles[2]]
+    return True
+
+
+def _transition_stage(label: str, q0: list[float], q1: list[float],
+                      *, min_s: float = 1.0, max_s: float = 6.0,
+                      rate_dps: float = 24.0) -> dict | None:
+    d = _max_delta(q0, q1)
+    if d <= 1.0:
+        return None
+    return _stage(label, q1, min(max_s, max(min_s, d / rate_dps)), False)
+
+
+def _step_group_to_goal(q0: list[float], goal: list[float],
+                        legs: tuple[int, ...], *, label: str,
+                        ground_z_mm: float,
+                        lift_clear_mm: float) -> list[dict] | None:
+    q = list(q0)
+    stages: list[dict] = []
+    leg_label = "/".join(f"L{leg}" for leg in legs)
+
+    def _append(next_q: list[float], suffix: str, *,
+                min_s: float = 1.0, max_s: float = 6.0,
+                rate_dps: float = 24.0) -> bool:
+        v = _path_violation(q, next_q, ground_z_mm=ground_z_mm,
+                            clear_mm=0.0)
+        if v:
+            return False
+        st = _transition_stage(f"{label}: step {leg_label} {suffix}",
+                               q, next_q, min_s=min_s,
+                               max_s=max_s, rate_dps=rate_dps)
+        if st is not None:
+            stages.append(st)
+        q[:] = next_q
+        return True
+
+    lift_q = list(q)
+    clear_z_by_leg: dict[int, float] = {}
+    for leg in legs:
+        cur_r, cur_z = _foot_rz(q, leg)
+        goal_r, goal_z = _foot_rz(goal, leg)
+        clear_z = max(cur_z, goal_z, ground_z_mm + lift_clear_mm)
+        clear_z_by_leg[leg] = clear_z
+        if not _set_leg_ik(lift_q, leg, q[leg * 3], cur_r, clear_z):
+            return None
+    if not _append(lift_q, "lift", min_s=0.8, max_s=4.0,
+                   rate_dps=28.0):
+        return None
+
+    swing_q = list(q)
+    for leg in legs:
+        goal_r, _goal_z = _foot_rz(goal, leg)
+        if not _set_leg_ik(swing_q, leg, goal[leg * 3],
+                           goal_r, clear_z_by_leg[leg]):
+            return None
+    if not _append(swing_q, "swing", min_s=0.8, max_s=5.0,
+                   rate_dps=24.0):
+        return None
+
+    place_q = list(q)
+    for leg in legs:
+        place_q[leg * 3:leg * 3 + 3] = goal[leg * 3:leg * 3 + 3]
+    if not _append(place_q, "place", min_s=0.8, max_s=4.0,
+                   rate_dps=28.0):
+        return None
+    return stages
+
+
+def _step_groups_to_goal(present: list[float], goal: list[float],
+                         groups: list[tuple[int, ...]], *,
+                         label: str, ground_z_mm: float,
+                         lift_clear_mm: float) -> list[dict] | None:
+    q = list(present)
+    stages: list[dict] = []
+    for legs in groups:
+        part = _step_group_to_goal(
+            q, goal, legs, label=label, ground_z_mm=ground_z_mm,
+            lift_clear_mm=lift_clear_mm)
+        if part is None:
+            return None
+        stages.extend(part)
+        if part:
+            q = [float(v) for v in part[-1]["goal"]]
+    if _max_delta(q, goal) > 1.5:
+        return None
+    return stages
+
+
+def plan_ik_pose_transition(present: list[float], goal: list[float], *,
+                            label: str,
+                            ground_z_mm: float = BELLY_GROUND_Z_MM,
+                            lift_clear_mm: float = LIFT_CLEAR_MM) -> dict:
+    """Plan a transition to ``goal`` using geometry before brute force.
+
+    Decision order:
+    1. If the straight joint-space path keeps feet off the ground and
+       adjacent legs clear, use one direct stage.
+    2. If the straight path would touch the ground or close leg segments,
+       step unloaded feet through the target: tripods first, then one leg at
+       a time if tripod stepping cannot be proven clear.
+
+    This function is pure geometry. It never touches hardware and it never
+    emits intentional sliding stages; callers that accept dragging must keep
+    that fallback explicit.
+    """
+    present = [float(v) for v in present]
+    goal = [float(v) for v in goal]
+    if len(present) != N_JOINTS or len(goal) != N_JOINTS:
+        return {"ok": False, "error": "transition needs 18-joint poses"}
+    d = _max_delta(present, goal)
+    if d <= 1.0:
+        return {"ok": True, "stages": [], "strategy": "already_at_goal"}
+
+    direct_v = _path_violation(present, goal, ground_z_mm=ground_z_mm,
+                               clear_mm=0.0)
+    if direct_v is None:
+        return {
+            "ok": True,
+            "strategy": "direct_clear",
+            "stages": [_stage(f"{label} (direct clear path)", goal,
+                              min(8.0, max(1.2, d / 18.0)), False)],
+        }
+
+    tripod = _step_groups_to_goal(
+        present, goal, [(0, 2, 4), (1, 3, 5)], label=label,
+        ground_z_mm=ground_z_mm, lift_clear_mm=lift_clear_mm)
+    if tripod is not None:
+        return {"ok": True, "strategy": "step_tripods",
+                "direct_blocked_by": direct_v, "stages": tripod}
+
+    singles = _step_groups_to_goal(
+        present, goal, [(0,), (1,), (2,), (3,), (4,), (5,)], label=label,
+        ground_z_mm=ground_z_mm, lift_clear_mm=lift_clear_mm)
+    if singles is not None:
+        return {"ok": True, "strategy": "step_single_legs",
+                "direct_blocked_by": direct_v, "stages": singles}
+
+    return {"ok": False,
+            "error": (f"direct path blocked ({direct_v}) and no "
+                      "collision-free stepping order reached the target")}
 
 
 def _seg_foot_error(qa: list[float], qb: list[float],
@@ -538,38 +748,36 @@ def plan_safe_zero(present: list[float], *,
     stages: list[dict] = []
     notes: list[str] = []
 
-    # Stage 1 — straighten hips/knees (descent when standing). From a
-    # stand, prefer the low-drag fold→slide→skim descent; any pose it
-    # can't cover falls back to the legacy single blend (feet may drag
-    # on purpose; no geometric ground check, force-monitored instead).
+    # Stage 1 — reach the lifted-yaw-current pose.
+    #
+    # If the belly-down ground model is valid, prefer the IK transition
+    # helper: direct clear path first, then stepping unloaded feet by
+    # tripods / single legs so we do not drag feet across the floor. If
+    # the pose is truly standing, the ground plane in the hip frame is
+    # not valid; the smart web/backend layer routes normal standing lower
+    # to STEP-down before this planner, and this pure function keeps the
+    # old force-monitored fallback for offline callers/tests.
     descent_used = None
     d1 = _max_delta(present, q_lift)
     if d1 > 1.0:
-        desc = _plan_descent(present, yaw_now, ground_z_mm,
-                             knee_lift, z_lift)
-        if desc["ok"]:
-            prev = present
-            for s in desc["stages"]:
-                v = _path_violation(prev, s["goal"], ground_z_mm=None)
-                if v:
-                    desc = {"ok": False, "why": v}
-                    break
-                prev = s["goal"]
-        if desc["ok"]:
-            stages.extend(desc["stages"])
-            descent_used = {k: desc[k] for k in
-                            ("loaded_slide_mm", "legacy_slide_mm",
-                             "crouch_height_mm")}
-            notes.append(
-                f"low-drag descent: fold to "
-                f"{desc['crouch_height_mm']:.0f} mm height, loaded "
-                f"slide ≤{desc['loaded_slide_mm']:.0f} mm "
-                f"(legacy blend ≈{desc['legacy_slide_mm']:.0f} mm)")
+        lowest_z = min(foot_z_mm(present[leg * 3 + 1],
+                                 present[leg * 3 + 2])
+                       for leg in range(6))
+        floor_model_valid = lowest_z >= ground_z_mm - STAND_DETECT_MM
+        trans = (plan_ik_pose_transition(
+            present, q_lift, label="straighten hips/knees",
+            ground_z_mm=ground_z_mm, lift_clear_mm=lift_clear_mm)
+                 if floor_model_valid else
+                 {"ok": False, "error": "standing pose: hip-frame floor "
+                  "model invalid"})
+        if trans["ok"]:
+            stages.extend(trans["stages"])
+            notes.append(f"IK transition to lift pose: "
+                         f"{trans['strategy']}")
         else:
-            if desc.get("why") != "not standing":
-                notes.append(f"low-drag descent unavailable "
-                             f"({desc.get('why')}); using legacy "
-                             "straighten blend")
+            notes.append(f"IK transition unavailable "
+                         f"({trans.get('error')}); using monitored "
+                         "straighten blend")
             v = _path_violation(present, q_lift, ground_z_mm=None)
             if v:
                 return {"ok": False,

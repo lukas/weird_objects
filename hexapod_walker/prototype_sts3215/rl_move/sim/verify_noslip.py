@@ -13,10 +13,10 @@ full servo/safety stack at 25 Hz and measures, per foot:
 
 Also reports commanded vs actual body travel.
 
-    .venv/bin/python -m rl_move.sim.verify_noslip
-    .venv/bin/python -m rl_move.sim.verify_noslip --compare   # + drag gait
-    .venv/bin/python -m rl_move.sim.verify_noslip --mu 0.6    # calibrated mu
-    .venv/bin/python -m rl_move.sim.verify_noslip --video out.mp4
+    uv run python -m rl_move.sim.verify_noslip
+    uv run python -m rl_move.sim.verify_noslip --compare   # + drag gait
+    uv run python -m rl_move.sim.verify_noslip --mu 0.6    # calibrated mu
+    uv run python -m rl_move.sim.verify_noslip --video out.mp4
 
 Context: the classic body-frame drag gait (tripod_gait.TripodGait)
 measured 0.50-0.51 travel ratio on hardware (tape, 2026-08-10); the

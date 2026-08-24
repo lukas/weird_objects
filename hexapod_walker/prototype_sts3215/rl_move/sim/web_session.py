@@ -1090,11 +1090,18 @@ class SimWebSession:
                     self.stop_event.wait(delay)
 
     def run_native_viewer(self, web_url: str = "") -> None:
-        """Run physics and a native MuJoCo viewer on this process thread."""
+        """Run physics and a native MuJoCo viewer on this process thread.
+
+        Closing the window only detaches the viewer: the sim keeps
+        stepping headless and the web server stays up (operator 08-22 —
+        the old close-to-stop coupling kept killing the web UI by
+        accident). Ctrl-C in the terminal stops the whole server.
+        """
         import mujoco
         import mujoco.viewer
 
-        print("MuJoCo viewer: close the window to stop the sim server",
+        print("MuJoCo viewer: closing the window detaches the viewer; "
+              "the sim + web server keep running (Ctrl-C stops them)",
               flush=True)
         with mujoco.viewer.launch_passive(self.env.model,
                                           self.env.data) as viewer:
@@ -1114,7 +1121,11 @@ class SimWebSession:
                              - (time.monotonic() - t0))
                     if delay > 0:
                         self.stop_event.wait(delay)
-        self.stop_event.set()
+        if self.stop_event.is_set():
+            return
+        print("MuJoCo viewer closed — sim continues headless; web UI "
+              f"still at {web_url or 'the same URL'}", flush=True)
+        self._run()
 
     def _update_viewer_hud_locked(self, viewer: Any, mujoco_mod: Any,
                                   web_url: str) -> None:
@@ -1228,6 +1239,7 @@ class SimWebSession:
             "pitch_deg": pitch,
             "vx_ref_mps": round(float(self.traj.vx), 4),
             "vy_ref_mps": round(float(self.traj.vy), 4),
+            "wz_ref_rad_s": round(float(getattr(self, "om_cmd", 0.0)), 4),
             "vx_body_mps": round(vx, 4),
             "vy_body_mps": round(vy, 4),
             "stance": self._active_stance_name(),
@@ -1259,6 +1271,7 @@ class SimWebSession:
             "status": self.msg,
             "vx_ref": round(float(self.traj.vx), 4),
             "vy_ref": round(float(self.traj.vy), 4),
+            "wz_ref": round(float(getattr(self, "om_cmd", 0.0)), 4),
             "vx_body": round(vx, 4),
             "vy_body": round(vy, 4),
             "roll_deg": roll,
@@ -2207,6 +2220,7 @@ class SimWebSession:
             self.drive_active = False
             self.timed_walk_until = None
             self.traj.vx = self.traj.vy = 0.0
+            self.om_cmd = 0.0
             self.auto = None
             self._finish_job("stopped - holding")
             return {"ok": True, "status": self.msg, "live": self._live()}
@@ -2219,15 +2233,18 @@ class SimWebSession:
             self.drive_active = True
             self.last_drive_cmd_at = time.monotonic()
             self.traj.vx = self.traj.vy = 0.0
+            self.om_cmd = 0.0
             self._open_log("drive")
             self.msg = "drive session active"
             return {"ok": True, "active": True, "status": self.msg,
                     "live": self._live()}
 
-    def rl_drive_cmd(self, vx: float, vy: float) -> dict[str, Any]:
+    def rl_drive_cmd(self, vx: float, vy: float,
+                     wz: float = 0.0) -> dict[str, Any]:
         with self.lock:
+            wz = max(-0.5, min(0.5, float(wz)))
             self._record_command(
-                f"/api/rl/drive/cmd vx={vx:+.3f} vy={vy:+.3f}",
+                f"/api/rl/drive/cmd vx={vx:+.3f} vy={vy:+.3f} wz={wz:+.3f}",
                 key="drive-cmd")
             if not self.drive_active:
                 return {"ok": True, "active": False, "status": "not active",
@@ -2239,6 +2256,13 @@ class SimWebSession:
                 scale = min(vmax / mag, 1.0) if mag > 1e-9 else 0.0
                 self.traj.vx = float(vx * scale)
                 self.traj.vy = float(vy * scale)
+                self.om_cmd = wz
+                twz = getattr(self.traj, "wz", None)
+                if twz is not None:
+                    try:
+                        twz[:] = wz
+                    except (TypeError, ValueError):
+                        self.traj.wz = wz
             return {"ok": True, "active": self.drive_active,
                     "status": self.msg, "live": self._live()}
 
@@ -2247,6 +2271,7 @@ class SimWebSession:
             self._record_command("/api/rl/drive/stop")
             self.drive_active = False
             self.traj.vx = self.traj.vy = 0.0
+            self.om_cmd = 0.0
             self._close_log()
             self.job_result = {"ok": True, "ended": "drive stopped",
                                "sim_t_s": round(self.sim_t, 2),

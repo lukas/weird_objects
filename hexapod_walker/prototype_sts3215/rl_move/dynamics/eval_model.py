@@ -15,7 +15,7 @@ privileged-truth target metrics, and the latent-prediction MSE against
 the "latent unchanged" reference.
 JSON report -> rl_move/dynamics/logs/, table -> stdout.
 
-    ../../.venv/bin/python -m rl_move.dynamics.eval_model \
+    uv run python -m rl_move.dynamics.eval_model \
         --ckpt rl_move/dynamics/models/dyn_v1.pt \
         --data rl_move/dynamics/datasets/v1
 
@@ -468,7 +468,7 @@ def main() -> None:
                  *fr.PRIV_NAMES,
                  "n_feet_on", *[f"contact_{i}" for i in range(6)]]))
         print(f"latents: {lat_path}")
-        print("probe them: python -m rl_move.dynamics.probe_latents "
+        print("probe them: uv run python -m rl_move.dynamics.probe_latents "
               f"--latents {lat_path.relative_to(ROOT)}")
 
 

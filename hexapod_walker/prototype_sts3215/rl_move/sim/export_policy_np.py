@@ -7,7 +7,7 @@ action->joint-angle mapping constants, source checkpoint) and verify
 bit-for-bit-ish parity against model.predict before writing.
 
 Usage:
-    python -m rl_move.sim.export_policy_np \
+    uv run python -m rl_move.sim.export_policy_np \
         --policy rl_move/sim/policies/ppo_goal_cw_lower.zip \
         --out linux_control/rl_policy_weights.json
 """
@@ -20,6 +20,7 @@ from pathlib import Path
 import numpy as np
 
 from rl_move.joint_frame import FRAME_ROBOT_ABS, normalize_joint_frame
+from rl_move.config import cfg_get, load_config
 
 
 def export(policy_path: str, out_path: str, *, name: str = "",
@@ -114,6 +115,17 @@ if __name__ == "__main__":
     ap.add_argument("--extra-meta", default="",
                     help="JSON object merged into meta (e.g. the trained "
                          "goal 'profile' rl_policy.py reads)")
+    ap.add_argument("--control-hz", type=float, default=None,
+                    help="trained policy decision rate; robot runner checks "
+                         "this before playback (default: config "
+                         "control.hz)")
+    ap.add_argument("--inner-hz", type=float, default=None,
+                    help="optional robot-only servo stream rate override; "
+                         "does not change the trained policy rate")
+    ap.add_argument("--bus-write-speed", type=int, default=None,
+                    help="optional robot bus write_speed for this policy")
+    ap.add_argument("--bus-write-acc", type=int, default=None,
+                    help="optional robot bus write_acc for this policy")
     ap.add_argument("--joint-frame", default=FRAME_ROBOT_ABS,
                     help=("policy joint frame: robot_abs (default, real "
                           "robot logical knee) or model_rel (legacy "
@@ -123,8 +135,19 @@ if __name__ == "__main__":
                           "(default: current config control.hz). Legacy "
                           "pre-2026-08-24 checkpoints: pass 25."))
     args = ap.parse_args()
+    extra_meta = json.loads(args.extra_meta) if args.extra_meta else {}
+    if args.control_hz is None:
+        args.control_hz = float(cfg_get(load_config(), "control", "hz",
+                                        default=100.0))
+    for key, value in (
+        ("control_hz", args.control_hz),
+        ("inner_hz", args.inner_hz),
+        ("bus_write_speed", args.bus_write_speed),
+        ("bus_write_acc", args.bus_write_acc),
+    ):
+        if value is not None:
+            extra_meta[key] = value
     export(args.policy, args.out, name=args.name, notes=args.notes,
            joint_frame=args.joint_frame,
-           extra_meta=json.loads(args.extra_meta) if args.extra_meta
-           else None,
+           extra_meta=extra_meta or None,
            control_hz=args.control_hz)

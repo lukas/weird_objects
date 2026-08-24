@@ -39,8 +39,8 @@ loaded-foot slip inside the window.
 Reads ONLY local files — never the robot.
 
 Run (from prototype_sts3215/, repo .venv):
-    python -m rl_move.scripts.takeoff_audit --all
-    python -m rl_move.scripts.takeoff_audit --all --replay --md-out \
+    uv run python -m rl_move.scripts.takeoff_audit --all
+    uv run python -m rl_move.scripts.takeoff_audit --all --replay --md-out \
         rl_docs/TAKEOFF_AUDIT.md
 """
 from __future__ import annotations

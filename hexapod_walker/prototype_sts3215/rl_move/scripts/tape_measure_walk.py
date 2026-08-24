@@ -34,9 +34,9 @@ Outputs (in ``rl_move/hardware_traces/``):
 
 Usage (bench, operator watching, robot ARMed and standing at plant):
 
-    python -m rl_move.scripts.tape_measure_walk            # dry run
-    python -m rl_move.scripts.tape_measure_walk --go       # default plan
-    python -m rl_move.scripts.tape_measure_walk --go \
+    uv run python -m rl_move.scripts.tape_measure_walk            # dry run
+    uv run python -m rl_move.scripts.tape_measure_walk --go       # default plan
+    uv run python -m rl_move.scripts.tape_measure_walk --go \
         --leg fwd30:30,0,0,20 --leg crab30:0,30,0,20
 
 Default plan mirrors the 08-09 working session: fwd 30 mm/s x 20 s and

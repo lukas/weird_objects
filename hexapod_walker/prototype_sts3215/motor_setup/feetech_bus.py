@@ -343,7 +343,7 @@ def _import_sdk():
         raise SystemExit(
             "ftservo-python-sdk is required.  Install on the Uno Q "
             "(or your laptop) with:\n"
-            "  python -m pip install ftservo-python-sdk\n"
+            "  uv pip install ftservo-python-sdk\n"
             "(FEETECH's official SDK; provides the `scservo_sdk` module "
             "with the `sms_sts` STS-series class used here.  NOT the "
             "unofficial `feetech-servo-sdk` package, which lacks it)."

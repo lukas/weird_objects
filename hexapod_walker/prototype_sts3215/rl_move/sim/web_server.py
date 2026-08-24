@@ -2,7 +2,7 @@
 
 Run from ``hexapod_walker/prototype_sts3215``:
 
-    python3 -m rl_move.sim.web_server --http-port 8898
+    uv run python -m rl_move.sim.web_server --http-port 8898
 
 The route shapes intentionally match ``linux_control/web_drive.py`` so the
 same browser UI can drive either the physical robot or the MuJoCo twin.
@@ -261,7 +261,8 @@ def make_handler(session: Any, webui_dir: Path = WEBUI_DIR,
                 elif path == "/api/rl/drive/cmd":
                     self._json(200, session.rl_drive_cmd(
                         vx=float(data.get("vx", 0.0)),
-                        vy=float(data.get("vy", 0.0))))
+                        vy=float(data.get("vy", 0.0)),
+                        wz=float(data.get("wz", 0.0))))
                 elif path == "/api/rl/drive/stop":
                     self._json(200, session.rl_drive_stop())
                 elif path == "/api/rl/policies":
@@ -356,8 +357,7 @@ def _reexec_under_mjpython_for_viewer() -> None:
     mjpython = Path(sys.executable).with_name("mjpython")
     if not mjpython.is_file():
         sys.exit("native MuJoCo viewer on macOS needs mjpython; run:\n"
-                 f"  {Path(sys.executable).parent}/mjpython "
-                 "-m rl_move.sim.web_server --viewer")
+                 "  uv run mjpython -m rl_move.sim.web_server --viewer")
     os.execv(str(mjpython), [str(mjpython), "-m",
                              "rl_move.sim.web_server", *sys.argv[1:]])
 

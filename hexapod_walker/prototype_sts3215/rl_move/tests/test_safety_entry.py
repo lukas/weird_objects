@@ -6,7 +6,7 @@ takeoff posture snap). The entry ramp throttles the per-tick rate
 limit right after set_nominal(), ramping linearly back up to
 max_delta_q_deg. Default OFF must be bit-exact.
 
-Run: python3 -m pytest rl_move/tests/test_safety_entry.py -q
+Run: uv run python -m pytest rl_move/tests/test_safety_entry.py -q
 """
 from __future__ import annotations
 

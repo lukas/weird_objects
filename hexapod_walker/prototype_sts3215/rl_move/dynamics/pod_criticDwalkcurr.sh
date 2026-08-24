@@ -21,7 +21,7 @@
 #     > rl_move/dynamics/logs/pod_criticDwalkcurr1.log 2>&1 &
 set -e
 cd "$(dirname "$0")/../.."
-PY=${PYTHON:-python3}
+PY=${PYTHON:-uv run python}
 RUN_NAME=${RUN_NAME:-cw-dynrep-criticD-walkcurr1}
 SEED=${SEED:-8}
 STEPS=${STEPS:-40000000}

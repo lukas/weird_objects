@@ -29,7 +29,7 @@ loaded-slip definition matches the harness/walk_task: a foot's XY
 displacement on tick k counts while its touch force was > 0.5 N on
 tick k-1; slip_per_m divides by along-command chassis progress.
 
-    python -m rl_move.sim.probe_contact_parity \
+    uv run python -m rl_move.sim.probe_contact_parity \
         --configs c50,c14,warp14,warp88 --streams gait,freeze \
         --seconds 12 --out logs/probe_contact_parity/parity.json
 

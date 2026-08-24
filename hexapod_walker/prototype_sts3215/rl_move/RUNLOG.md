@@ -110,7 +110,7 @@ Append-only diary of hardware sessions. Newest entries at the bottom.
   feeds the sim env dt). The "no 50 Hz chase" ruling above is now a
   training-side decision only; the hardware blocker is gone.
 - Next bench session: flash `firmware/feetech_bridge`, then
-  `python3 linux_control/bus_bench.py` (read-only) — expect
+  `uv run python linux_control/bus_bench.py` (read-only) — expect
   read_snapshot well over 100 Hz and rl episode overruns 0.
 
 ### Same day, bench session — flashed + verified (operator present)

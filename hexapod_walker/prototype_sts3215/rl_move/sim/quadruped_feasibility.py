@@ -23,7 +23,7 @@ If NO region of this grid holds a comfortable margin without hot
 servos, PPO will not rescue the morphology (review: "geometry, not
 RL") and the quadruped line stops here. Usage:
 
-    python3 -m rl_move.sim.quadruped_feasibility \
+    uv run python -m rl_move.sim.quadruped_feasibility \
         [--quick] [--out logs/experiments/quadruped-feasibility]
 """
 from __future__ import annotations

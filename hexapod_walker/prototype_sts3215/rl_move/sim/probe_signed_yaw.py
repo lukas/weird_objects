@@ -14,7 +14,7 @@ the median planar speed per scenario, deterministic, DR 0:
   arc-left    vx=s  wz=+w/2   |
   arc-right   vx=s  wz=-w/2   |  same, while walking
 
-    python3 -m rl_move.sim.probe_signed_yaw <ckpt.zip> \
+    uv run python -m rl_move.sim.probe_signed_yaw <ckpt.zip> \
         --speed 0.05 --wz-max 0.15 [--cfg-set k=v ...] [--out out.json]
 
 Read: acquisition of "stop" = stop-hold speed_med well under the walk

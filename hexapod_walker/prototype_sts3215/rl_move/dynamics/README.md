@@ -40,18 +40,18 @@ Full design + gates: `rl_docs/DYNREP.md`.
 make -C rl_move/dynamics smoke      # tiny end-to-end sanity run (~3 min)
 
 # pretraining pass (layout v2 — obs-contract relative q):
-../../.venv/bin/python -m rl_move.dynamics.collect \
+uv run python -m rl_move.dynamics.collect \
     --out rl_move/dynamics/datasets/v2 --episodes 400 --seed 0
-../../.venv/bin/python -m rl_move.dynamics.train \
+uv run python -m rl_move.dynamics.train \
     --data rl_move/dynamics/datasets/v2 --name dyn_v2_obs \
     --input-set obs --steps 40000 --lr-final-frac 0.05
-../../.venv/bin/python -m rl_move.dynamics.eval_model \
+uv run python -m rl_move.dynamics.eval_model \
     --ckpt rl_move/dynamics/models/dyn_v2_obs.pt \
     --data rl_move/dynamics/datasets/v2 --dump-latents
 
 # Production H200 path: generate enough fresh GPU-sim data for the exact
 # optimizer budget, then train the full Transformer. Both stages use W&B.
-python3 -m rl_move.dynamics.fresh_pipeline \
+uv run python -m rl_move.dynamics.fresh_pipeline \
     --name cw-dynrep-tf-state2-fresh --steps 40000 \
     --data rl_move/dynamics/datasets/v5_mjx_fresh \
     --batch 512 --history 16 --horizons 1,2,5,10,25 \
@@ -60,7 +60,7 @@ python3 -m rl_move.dynamics.fresh_pipeline \
 
 # A/B/C transfer pilot (after G1 passes on the obs encoder):
 sh rl_move/dynamics/run_pilot.sh 150000 0      # [steps] [seed]
-../../.venv/bin/python -m rl_move.dynamics.analyze_pilot \
+uv run python -m rl_move.dynamics.analyze_pilot \
     --seeds 0 1 2 --plot
 
 # pod-scale hold->walk transfer pair (operator directive 08-13;
@@ -68,12 +68,12 @@ sh rl_move/dynamics/run_pilot.sh 150000 0      # [steps] [seed]
 # v2pod dataset + rep triage done):
 SEEDS="1 2 3 4 5" nohup sh rl_move/dynamics/pod_holdwalk.sh \
     > rl_move/dynamics/logs/pod_holdwalk.log &
-../../.venv/bin/python -m rl_move.dynamics.analyze_pilot \
+uv run python -m rl_move.dynamics.analyze_pilot \
     --seeds 1 2 3 4 5 --phase2 walk --phase2-threshold <thr> --plot
 
 # verify a script-owned cohort mechanically, never from prose:
-python3 -m rl_move.dynamics.check_cohort --cohort holdwalk
-python3 -m rl_move.dynamics.check_cohort --cohort risewalk
+uv run python -m rl_move.dynamics.check_cohort --cohort holdwalk
+uv run python -m rl_move.dynamics.check_cohort --cohort risewalk
 ```
 
 Training applies a one-time reward penalty on early termination

@@ -31,11 +31,11 @@ THE SAME metric set as the sim-side transition gate
 Usage:
 
     # one session dir (stand tape then walk tape, chronological):
-    python -m rl_move.scripts.analyze_rise_walk \
+    uv run python -m rl_move.scripts.analyze_rise_walk \
         rl_move/hardware_traces/bench_blast_<stamp>/ --plots out/
 
     # explicit tapes, plus sim comparison:
-    python -m rl_move.scripts.analyze_rise_walk rise.csv walk.csv \
+    uv run python -m rl_move.scripts.analyze_rise_walk rise.csv walk.csv \
         --sim-gate logs/ckpt_eval/transition_gate_baseline.json
 
 Writes <out>/rise_walk_metrics.json and per-tape event-aligned PNGs.

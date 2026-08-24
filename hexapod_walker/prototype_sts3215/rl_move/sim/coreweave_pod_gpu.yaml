@@ -9,7 +9,7 @@
 #   kubectl cp /tmp/code.tgz hexapod-mjx-bench:/tmp/code.tgz
 #   kubectl exec hexapod-mjx-bench -- env HEXAPOD_MJX=1 bash /workspace/setup.sh
 #   kubectl exec hexapod-mjx-bench -- bash -c \
-#     "cd /workspace/prototype_sts3215 && python -m rl_move.sim.bench_mjx --batch 256 1024 4096 8192"
+#     "cd /workspace/prototype_sts3215 && uv run python -m rl_move.sim.bench_mjx --batch 256 1024 4096 8192"
 apiVersion: v1
 kind: Pod
 metadata:

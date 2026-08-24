@@ -14,8 +14,8 @@ policy. This runner ports that idea to our current sim stack:
 
 Use a short straight-ahead run first, then widen to contextual headings:
 
-    python -m rl_move.sim.paper_cpg_search --iterations 50 --suite straight
-    python -m rl_move.sim.paper_cpg_search --iterations 250 --suite contextual
+    uv run python -m rl_move.sim.paper_cpg_search --iterations 50 --suite straight
+    uv run python -m rl_move.sim.paper_cpg_search --iterations 250 --suite contextual
 """
 from __future__ import annotations
 

@@ -35,7 +35,7 @@ Output: npz shards under --out (append-safe; existing shards are kept):
 
 Usage (from prototype_sts3215/):
 
-    ../../.venv/bin/python -m rl_move.dynamics.collect \
+    uv run python -m rl_move.dynamics.collect \
         --out rl_move/dynamics/datasets/v1 --episodes 400 --seed 0
 
 Smoke: --episodes 10 --episode-seconds 4.

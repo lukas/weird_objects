@@ -326,7 +326,7 @@ class HexapodBalanceEnv:
             if q_plant is None or plant.get("joints_deg") is None:
                 raise RuntimeError(
                     "no captured plant (joints_deg). Physically set a stable "
-                    "stance, then: python3 -m rl_move.scripts.capture_plant")
+                    "stance, then: uv run python -m rl_move.scripts.capture_plant")
         if q_plant is None:
             return
         err = np.max(np.abs(q_rad * RAD2DEG - q_plant))

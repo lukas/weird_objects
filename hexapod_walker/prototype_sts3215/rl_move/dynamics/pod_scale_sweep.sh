@@ -28,7 +28,7 @@
 #       > rl_move/dynamics/logs/scale_sweep.log 2>&1 &
 set -e
 cd "$(dirname "$0")/../.."
-PY=${PYTHON:-python3}
+PY=${PYTHON:-uv run python}
 BASE=rl_move/dynamics/datasets
 LOG=rl_move/dynamics/logs
 STAGE=${STAGE:-all}

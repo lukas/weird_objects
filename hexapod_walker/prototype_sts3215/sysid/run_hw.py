@@ -17,8 +17,8 @@ overwritten).
 
 Run (from prototype_sts3215/, repo .venv)::
 
-    python -m sysid.run_hw --protocol sysid/protocols/steps_air_v1.json --go
-    python -m sysid.run_hw --abort          # emergency stop the job
+    uv run python -m sysid.run_hw --protocol sysid/protocols/steps_air_v1.json --go
+    uv run python -m sysid.run_hw --abort          # emergency stop the job
 """
 from __future__ import annotations
 

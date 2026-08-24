@@ -32,7 +32,7 @@ sign, the pinwheel asymmetry dominates and reflection is refuted as a
 turning mechanism (then mirror-symmetry TRAINING, queue 0.2 step 3,
 is the remaining lever).
 
-    python -m rl_move.sim.probe_mirror_turn \
+    uv run python -m rl_move.sim.probe_mirror_turn \
         rl_move/sim/policies/ppo_goal_cw_dep_vref1_r1.zip \
         --seeds 0,1,2 --seconds 12 --out logs/mirror_turn/vref1r1.json
 """

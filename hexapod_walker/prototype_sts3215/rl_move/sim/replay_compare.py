@@ -9,7 +9,7 @@ This is the gate before trusting PPO-in-sim: if the sim's step responses
 do not match the hardware's within tolerance, fix the fit first.
 
 Run (from prototype_sts3215/):
-    ../../.venv/bin/python -m rl_move.sim.replay_compare \
+    uv run python -m rl_move.sim.replay_compare \
         --csv linux_control/logs/motor_dyn_YYYYMMDD_HHMMSS.csv [--plot]
 """
 from __future__ import annotations

@@ -19,7 +19,7 @@ same reference mid-flight.
 
 Usage (plain python, laptop or pod; C env, no GPU needed):
 
-    python -m rl_move.sim.extract_rise_ref \
+    uv run python -m rl_move.sim.extract_rise_ref \
         rl_move/sim/policies/ppo_goal_cw_stance_dr10.zip \
         --out rl_move/sim/refs/rise_ref_stance_dr10.npz
 

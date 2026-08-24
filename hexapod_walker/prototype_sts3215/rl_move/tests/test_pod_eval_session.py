@@ -17,6 +17,7 @@ pod_eval = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(pod_eval)
 
 session_side = pod_eval.session_side
+legacy_eval_cfgs = pod_eval.legacy_eval_cfgs
 
 
 def test_stance_only_mix_takes_stance_seat():
@@ -52,3 +53,21 @@ def test_deployed_pair_constants_exist_on_controller():
             f"deployed session partner {name} missing from "
             f"rl_move/sim/policies — update pod_eval.py's constants on "
             f"promotion (source of truth: linux_control/rl_policy.py)")
+
+
+def test_legacy_eval_cfgs_pin_old_unstamped_rate_contract():
+    assert legacy_eval_cfgs(["reward.foo=1"]) == [
+        "reward.foo=1",
+        "control.hz=25",
+        "safety.max_delta_q_deg=1.5",
+    ]
+
+
+def test_legacy_eval_cfgs_preserve_explicit_rate_contract():
+    assert legacy_eval_cfgs([
+        "control.hz=100",
+        "safety.max_delta_q_deg=0.375",
+    ]) == [
+        "control.hz=100",
+        "safety.max_delta_q_deg=0.375",
+    ]

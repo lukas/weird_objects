@@ -5,8 +5,8 @@ Reads ``/dev/input/event*`` (stdlib only). Joysticks feed ``DriveController``;
 face / shoulder chords hit the local web bench API when ``web_drive`` is up
 (``http://127.0.0.1:8080``), otherwise only walk/turn/sit/stand via the bus.
 
-  sudo python3 xbox_drive.py
-  python3 xbox_drive.py --list
+  sudo /home/arduino/.local/bin/uv run python xbox_drive.py
+  uv run python xbox_drive.py --list
 
 Mapping
 -------

@@ -102,7 +102,7 @@ must happen in one place.
 CLI
 ---
 
-    python -m motor_setup.wire_harness_plan
+    uv run python -m motor_setup.wire_harness_plan
         -> prints the 18-row markdown table to stdout (the BOM)
 
     from motor_setup.wire_harness_plan \\

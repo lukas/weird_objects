@@ -1,5 +1,23 @@
 # Agent conventions — weird_objects
 
+## Python commands: use uv
+
+For all local project Python commands, use `uv` instead of bare
+`python`, `python3`, or direct `.venv/bin/python` paths.
+
+- Prefer `uv run python ...` for scripts and `uv run python -m ...`
+  for modules.
+- Prefer `uv run pytest ...` or `uv run python -m pytest ...` for
+  tests.
+- Use `uv pip ...` / `uv venv ...` for dependency and environment
+  work.
+- Do not rewrite historical logs, generated run records, vendored code,
+  or shebangs just to say `uv`. Native MuJoCo GUI/viewer launches on
+  macOS are the named exception: use `uv run mjpython ...` or the
+  repo's Makefile wrapper, because Cocoa needs `mjpython`.
+- The Uno Q also uses uv. Its web service should launch as
+  `/home/arduino/.local/bin/uv run python ...`.
+
 ## BuildViz: two-port convention (5183 central, 5173 dev)
 
 BuildViz uses exactly **two** fixed ports. Never start a server on any other

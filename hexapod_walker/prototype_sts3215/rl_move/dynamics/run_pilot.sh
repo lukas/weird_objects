@@ -14,7 +14,7 @@
 # sweeps don't clobber each other's checkpoints or eval CSVs.
 set -e
 cd "$(dirname "$0")/../.."
-PY=../../.venv/bin/python
+PY=${PYTHON:-uv run python}
 STEPS=${1:-150000}
 SEED=${2:-0}
 

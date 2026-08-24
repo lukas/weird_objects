@@ -24,7 +24,7 @@ distribution directly from world-frame pad positions + touch sensors
     that same (k, deadband) costs the honest gait (must stay small —
     hardware slip is not failure, GAIT.md constitution).
 
-    ../../.venv/bin/python -m rl_move.sim.probe_drag_audit \
+    uv run python -m rl_move.sim.probe_drag_audit \
         --out rl_move/sim/logs/probe_drag_audit.json
 """
 from __future__ import annotations

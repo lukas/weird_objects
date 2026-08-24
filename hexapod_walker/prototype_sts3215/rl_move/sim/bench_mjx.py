@@ -8,9 +8,9 @@ dead-zone + physics step + IMU accumulation, 16 substeps per 25 Hz
 control tick, robot in contact with the ground at the plant pose.
 
 Usage (from prototype_sts3215/):
-    python -m rl_move.sim.bench_mjx                    # defaults
-    python -m rl_move.sim.bench_mjx --batch 512 4096   # GPU sizing
-    python -m rl_move.sim.bench_mjx --ticks 100
+    uv run python -m rl_move.sim.bench_mjx                    # defaults
+    uv run python -m rl_move.sim.bench_mjx --batch 512 4096   # GPU sizing
+    uv run python -m rl_move.sim.bench_mjx --ticks 100
 
 Interpretation: "env-steps/s" is control ticks x batch per second —
 compare directly against SB3 fps (which is control ticks/s across all

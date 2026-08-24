@@ -57,9 +57,9 @@ other gaits.
 
 Grid evaluation over all planar commands (kinematic, no sim):
 
-    python3 linux_control/se2_foot_gait.py                # default 5^3 grid
-    python3 linux_control/se2_foot_gait.py --gait wave --n 3
-    python3 linux_control/se2_foot_gait.py --cmd 0.01,0,0.05 --out out.json
+    uv run python linux_control/se2_foot_gait.py                # default 5^3 grid
+    uv run python linux_control/se2_foot_gait.py --gait wave --n 3
+    uv run python linux_control/se2_foot_gait.py --cmd 0.01,0,0.05 --out out.json
 
 Sim replay (full servo/safety stack) reuses the verify_noslip harness:
 build the gait and pass it to ``rl_move.sim.verify_noslip.rollout``.

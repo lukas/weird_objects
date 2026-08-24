@@ -3,14 +3,14 @@
 
 Read-only by default — safe to run any time (no torque, no motion):
 
-    python3 bus_bench.py                 # bench every read path, 3 s each
-    python3 bus_bench.py --seconds 5
+    uv run python bus_bench.py                 # bench every read path, 3 s each
+    uv run python bus_bench.py --seconds 5
 
 Optionally bench the combined write+snapshot tick ('S'). This DOES
 SyncWrite — it re-commands the PRESENT pose at hold speed, so nothing
 moves, but only run it when the operator asks for it:
 
-    python3 bus_bench.py --step
+    uv run python bus_bench.py --step
 
 Interpreting results (2026-08-19 stream-bridge upgrade): with STREAM
 firmware the MCU free-runs acquisition and every read here is served

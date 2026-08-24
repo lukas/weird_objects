@@ -1,7 +1,7 @@
 # dynamics (dynrep) — run from anywhere: make -C rl_move/dynamics <target>
 HERE  := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 PROTO := $(abspath $(HERE)/../..)
-PY    := $(abspath $(PROTO)/../..)/.venv/bin/python
+PY    := uv run python
 
 help:                    ## this help
 	@grep -E '^[a-z-]+:.*##' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-14s %s\n", $$1, $$2}'

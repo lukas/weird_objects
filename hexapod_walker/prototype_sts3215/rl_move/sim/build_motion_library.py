@@ -50,7 +50,7 @@ CPU-only (pure MuJoCo rollout via the existing joint/walk env
 machinery, no GPU/Warp) — run on the controller, not a train pod.
 
 Usage:
-    python3 -m rl_move.sim.build_motion_library \
+    uv run python -m rl_move.sim.build_motion_library \
         --out rl_move/sim/motion_library/teacher_v1
 """
 from __future__ import annotations

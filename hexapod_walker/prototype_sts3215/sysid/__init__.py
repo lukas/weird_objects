@@ -1,7 +1,7 @@
 """Sysid harness: measured hardware-to-MuJoCo calibration pipeline.
 
 See ``sysid/README.md`` for the workflow. Modules assume they are run
-from ``prototype_sts3215/`` as ``python -m sysid.<module>`` (repo
+from ``prototype_sts3215/`` as ``uv run python -m sysid.<module>`` (repo
 .venv); this package bootstraps ``sys.path`` so both the robot-side
 protocol code (``linux_control/sysid_protocol.py``) and the sim stack
 (``rl_move.sim``) import cleanly.

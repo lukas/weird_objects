@@ -16,9 +16,9 @@ stack at 25 Hz, and sweeps the foot-ground slide friction
 (cfg ``env.foot_friction_slide``, see ``sim_env.set_foot_ground_friction``)
 until sim travel ratio matches hardware:
 
-    .venv/bin/python -m rl_move.sim.calibrate_slip                # sweep
-    .venv/bin/python -m rl_move.sim.calibrate_slip --mu 0.6      # one point
-    .venv/bin/python -m rl_move.sim.calibrate_slip --servo-params loaded
+    uv run python -m rl_move.sim.calibrate_slip                # sweep
+    uv run python -m rl_move.sim.calibrate_slip --mu 0.6      # one point
+    uv run python -m rl_move.sim.calibrate_slip --servo-params loaded
 
 Output per (mu, vx): travel ratio (net chassis XY displacement /
 commanded distance), plus mean synthesized servo current while walking

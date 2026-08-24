@@ -16,7 +16,7 @@ distance covered. JOYSTICK GATE = zero falls across everything inside
 the policy's trained envelope; out-of-envelope scenarios are reported
 for information (expected to be rough until coverage lands).
 
-    cd prototype_sts3215 && python3 -m rl_move.sim.eval_drive \
+    cd prototype_sts3215 && uv run python -m rl_move.sim.eval_drive \
         rl_move/sim/policies/ppo_goal_cw_walk_wander30.zip \
         --speed 0.05 --heading-max-deg 45 [--cfg-set k=v ...]
 

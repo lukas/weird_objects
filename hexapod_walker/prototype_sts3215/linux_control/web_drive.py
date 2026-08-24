@@ -9,9 +9,9 @@ controller plugged into the laptop (browser Gamepad API needs HTTPS).
 Commands go to ``DriveController`` (TripodGait → Feetech bus), not the old
 v1 STM32 ``J`` bridge.
 
-  python3 web_drive.py                 # :8080 + https :8443
-  python3 web_drive.py --dry-run       # UI only (no bus)
-  python3 web_drive.py --port /dev/ttyUSB0
+  uv run python web_drive.py                 # :8080 + https :8443
+  uv run python web_drive.py --dry-run       # UI only (no bus)
+  uv run python web_drive.py --port /dev/ttyUSB0
 """
 
 from __future__ import annotations
@@ -734,8 +734,8 @@ class Handler(BaseHTTPRequestHandler):
                        else {"ok": False, "error": "no bench"})
         elif path == "/api/rl/drive/cmd":
             # High-rate heartbeat (~5 Hz while driving): body-frame
-            # vx/vy m/s. Kept out of the event log's HTTP stream by
-            # volume; the session's own 25 Hz CSV logs every ref.
+            # vx/vy m/s plus yaw-rate wz rad/s. Kept out of the event
+            # log's HTTP stream by volume; the session CSV logs refs.
             try:
                 data = json.loads(body or "{}") if body else {}
             except ValueError:
@@ -745,7 +745,8 @@ class Handler(BaseHTTPRequestHandler):
             else:
                 self._json(200, BENCH.rl_drive_cmd(
                     vx=float(data.get("vx", 0.0)),
-                    vy=float(data.get("vy", 0.0))))
+                    vy=float(data.get("vy", 0.0)),
+                    wz=float(data.get("wz", 0.0))))
         elif path == "/api/rl/drive/stop":
             self._json(200, BENCH.rl_drive_stop() if BENCH
                        else {"ok": False, "error": "no bench"})
@@ -812,7 +813,7 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(400, {"ok": False, "error": "no bench"})
             else:
                 self._json(200, BENCH.standup(
-                    mode=str(data.get("mode", "tuck")),
+                    mode=str(data.get("mode", "step")),
                     speed=float(data.get("speed", 1.0)),
                     direction=str(data.get("direction", "up")),
                     force=bool(data.get("force", False)),

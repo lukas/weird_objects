@@ -40,10 +40,10 @@ Design:
   strips (`--strip-ep`), reproducible because bulk shards pass
   `--torch-seed` (stochastic sampling is seeded).
 
-    python3 -m rl_move.sim.bulk_session_eval plan --print
-    python3 -m rl_move.sim.bulk_session_eval worker --part 0/11 --procs 8
-    python3 -m rl_move.sim.bulk_session_eval aggregate
-    python3 -m rl_move.sim.bulk_session_eval rerender --sample 12
+    uv run python -m rl_move.sim.bulk_session_eval plan --print
+    uv run python -m rl_move.sim.bulk_session_eval worker --part 0/11 --procs 8
+    uv run python -m rl_move.sim.bulk_session_eval aggregate
+    uv run python -m rl_move.sim.bulk_session_eval rerender --sample 12
 """
 from __future__ import annotations
 

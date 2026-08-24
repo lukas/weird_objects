@@ -68,7 +68,7 @@ passing against mujoco/mujoco-mjx 3.9.0, jax 0.11):
 
       kubectl apply -f rl_move/sim/coreweave_pod_gpu.yaml
       # tar/cp code, then: HEXAPOD_MJX=1 bash /workspace/setup.sh
-      python -m rl_move.sim.bench_mjx --batch 256 1024 4096 8192
+      uv run python -m rl_move.sim.bench_mjx --batch 256 1024 4096 8192
 
 ## Deliberate design decisions
 

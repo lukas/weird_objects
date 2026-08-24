@@ -1,6 +1,6 @@
 """Off-robot tests for safe_zero (planner geometry + executor trips).
 
-Run locally (repo venv):  python3 linux_control/test_safe_zero.py
+Run locally:  uv run python linux_control/test_safe_zero.py
 No hardware: the executor tests use a FakeBus that simulates servos
 converging on their targets (or one stalled joint fighting a force).
 """
@@ -20,7 +20,8 @@ from feetech_bus import (AXIS_LIMITS_DEG, N_JOINTS, deg_to_count,
                          joint_to_servo_id)
 from safe_zero import (BELLY_GROUND_Z_MM, GROUND_TOL_MM, LIFT_CLEAR_MM,
                        SLIDE_DEV_TOL_MM, foot_r_mm, foot_z_mm,
-                       ik_hip_knee, knee_for_foot_z, plan_safe_zero,
+                       ik_hip_knee, ik_leg_angles, knee_for_foot_z,
+                       plan_ik_pose_transition, plan_safe_zero,
                        run_safe_zero, seg_dist_2d)
 
 
@@ -29,6 +30,13 @@ def _pose(yaw=0.0, hip=0.0, knee=0.0) -> list[float]:
     for _ in range(6):
         out.extend([yaw, hip, knee])
     return out
+
+
+def _pose_from_rz(r_mm: float, z_mm: float,
+                  yaw=0.0) -> list[float]:
+    hk = ik_hip_knee(r_mm, z_mm)
+    assert hk is not None
+    return _pose(yaw=yaw, hip=hk[0], knee=hk[1])
 
 
 def _assert_within_limits(q):
@@ -127,6 +135,51 @@ def test_ik_hip_knee_roundtrip():
     assert ik_hip_knee(10.0, -10.0) is None   # inside the fold limit
 
 
+def test_ik_leg_angles_roundtrip():
+    r, z = 160.0, -30.0
+    for yaw in (-20.0, 0.0, 20.0):
+        angles = ik_leg_angles(yaw, r, z)
+        assert angles is not None
+        yaw_out, hip, knee = angles
+        assert yaw_out == yaw
+        assert abs(foot_r_mm(hip, knee) - r) < 1e-6
+        assert abs(foot_z_mm(hip, knee) - z) < 1e-6
+    assert ik_leg_angles(50.0, r, z) is None  # outside yaw limits
+
+
+def test_ik_transition_direct_clear_to_zero():
+    present = _pose(hip=0.0, knee=10.0)
+    goal = _pose()
+    t = plan_ik_pose_transition(present, goal, label="to zero")
+    assert t["ok"], t
+    assert t["strategy"] == "direct_clear"
+    assert len(t["stages"]) == 1
+    assert t["stages"][0]["label"] == "to zero (direct clear path)"
+    assert not t["stages"][0]["drag_ok"]
+    assert max(abs(v) for v in t["stages"][0]["goal"]) < 1e-6
+
+
+def test_ik_transition_steps_instead_of_sliding_grounded_feet():
+    present = _pose_from_rz(140.0, BELLY_GROUND_Z_MM)
+    goal = _pose_from_rz(180.0, BELLY_GROUND_Z_MM)
+    t = plan_ik_pose_transition(present, goal, label="slide-free move")
+    assert t["ok"], t
+    assert t["strategy"] == "step_tripods"
+    assert "slide" in t["direct_blocked_by"]
+    assert len(t["stages"]) == 6
+    assert all(s["drag_ok"] is False for s in t["stages"])
+    labels = [s["label"] for s in t["stages"]]
+    assert labels == [
+        "slide-free move: step L0/L2/L4 lift",
+        "slide-free move: step L0/L2/L4 swing",
+        "slide-free move: step L0/L2/L4 place",
+        "slide-free move: step L1/L3/L5 lift",
+        "slide-free move: step L1/L3/L5 swing",
+        "slide-free move: step L1/L3/L5 place",
+    ]
+    assert max(abs(a - b) for a, b in zip(t["stages"][-1]["goal"], goal)) < 1e-3
+
+
 def test_low_drag_descent_from_plant_stand():
     # Under the absolute-knee convention the old low-drag descent planner is
     # intentionally bypassed until retuned.  A measured stand should still
@@ -176,6 +229,9 @@ def test_belly_start_keeps_legacy_plan():
     _check_plan_geometry(p, present)
     assert "descent" not in p
     assert p["stages"][0]["label"].startswith("straighten")
+    assert p["stages"][0]["drag_ok"] is False
+    assert any("IK transition to lift pose: direct_clear" in n
+               for n in p.get("notes", []))
 
 
 def test_knee_for_foot_z_roundtrip():

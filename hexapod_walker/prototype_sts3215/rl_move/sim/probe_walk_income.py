@@ -17,7 +17,7 @@ references (honest gait, half-speed gait, 1/3-leg sacrifice, paddle,
 freeze — built to match the video fingerprints) and/or real
 checkpoints (ckpt:<path>).
 
-    python -m rl_move.sim.probe_walk_income --stack trans1 \
+    uv run python -m rl_move.sim.probe_walk_income --stack trans1 \
         --policies gait,gait_slow,sac1,sac3,paddle,freeze,ckpt:rl_move/sim/policies/ppo_goal_cw_omni_trans1.zip \
         --dirs forward,backward,crab_left,diag_back_right \
         --seeds 0,1,2 --jobs 8 --out logs/probe_walk_income/trans1.json
@@ -43,7 +43,7 @@ command schedule) plus termination economics, then classifies the gap:
      (clean saturates the clamp and undertracks);
   C. neither channel explains the gap (architecture/other — escalate).
 
-    python -m rl_move.sim.probe_walk_income --stack vref1 \
+    uv run python -m rl_move.sim.probe_walk_income --stack vref1 \
         --policies noslip_clean,ckpt:rl_move/sim/policies/ppo_goal_cw_walk_longdist_r2.zip \
         --dirs forward --seeds 0,1,2 \
         --clean noslip_clean \

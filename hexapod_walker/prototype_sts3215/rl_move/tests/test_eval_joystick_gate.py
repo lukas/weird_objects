@@ -6,7 +6,7 @@ cap, direction_err median within margin of the teacher floor. Uses
 synthetic report.json-shaped dicts (the same schema eval_checkpoint.py
 writes) so this never touches MuJoCo.
 
-Run: python3 -m pytest rl_move/tests/test_eval_joystick_gate.py -q
+Run: uv run python -m pytest rl_move/tests/test_eval_joystick_gate.py -q
 """
 from __future__ import annotations
 

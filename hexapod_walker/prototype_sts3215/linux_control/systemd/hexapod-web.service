@@ -27,7 +27,7 @@ Environment=HEXAPOD_LOG_PORT=9377
 Environment=HEXAPOD_LOG_BEACON_PORT=9378
 Environment=HEXAPOD_LOG_MCU=cmds
 # No ExecStartPre sleep: the bus claim settles and retries HELLO itself.
-ExecStart=/usr/bin/python3 /home/arduino/hexapod_sts/linux_control/web_drive.py --port mcu --http-port 8080 --https-port 8443
+ExecStart=/home/arduino/.local/bin/uv run python /home/arduino/hexapod_sts/linux_control/web_drive.py --port mcu --http-port 8080 --https-port 8443
 Restart=always
 RestartSec=2
 TimeoutStartSec=60

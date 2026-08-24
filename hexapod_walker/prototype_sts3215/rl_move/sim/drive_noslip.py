@@ -5,7 +5,7 @@ renderer + cv2.imshow, plain python (NOT mjpython — its viewer
 segfaults intermittently on macOS):
 
     cd hexapod_walker/prototype_sts3215
-    .venv/bin/python -m rl_move.sim.drive_noslip
+    uv run python -m rl_move.sim.drive_noslip
     # or: sim_viewer/sim_noslip.sh
 
 Controls (the "noslip drive" window must have focus; also drawn in it):

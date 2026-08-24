@@ -10,7 +10,7 @@
 # also removed from guardrails gpu_pods. When a 4th node returns:
 # repoint the 12..15 nodeSelector below to it, kubectl apply this
 # file, run bootstrap_train_pod.sh for each, re-add to gpu_pods.
-# Fleet: 16 slots. Live truth: python3 rl_move/orchestrator/capacity.py
+# Fleet: 16 slots. Live truth: uv run python rl_move/orchestrator/capacity.py
 # Pods may sit Pending while CoreWeave hpc-verification health checks
 # hold a node's GPUs; they schedule as soon as the check releases.
 # Bootstrap after apply: bash rl_move/orchestrator/bootstrap_train_pod.sh <pod>

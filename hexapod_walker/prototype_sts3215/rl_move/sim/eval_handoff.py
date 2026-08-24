@@ -31,7 +31,7 @@ then a scripted drive schedule (1 s settle, 6 s forward, 2 s stop) with
 falls / tracking error / distance / stumble-window (first 2 s) max tilt
 and height dip.
 
-    python3 -m rl_move.sim.eval_handoff \
+    uv run python -m rl_move.sim.eval_handoff \
         --stand rl_move/sim/policies/ppo_goal_cw_stand_holdbc1_hard1.zip \
         --walk  rl_move/sim/policies/ppo_goal_cw_walk_longdist_r2.zip \
         --episodes 4 --out logs/ckpt_eval/handoff.json \

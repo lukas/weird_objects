@@ -22,7 +22,7 @@ Two entry points:
 
 CLI::
 
-    python -m sysid.replay --csv sysid/datasets/<dir>/<trace>.csv \
+    uv run python -m sysid.replay --csv sysid/datasets/<dir>/<trace>.csv \
         --servo-params loaded --plot
 """
 from __future__ import annotations

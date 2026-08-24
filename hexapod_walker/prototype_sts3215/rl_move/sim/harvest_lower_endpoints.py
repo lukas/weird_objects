@@ -18,7 +18,7 @@ Harvest with a seed FAR from every eval stream (gate evals use seeds
 cohorts pre-register fresh ones): default 5000.
 
 Usage:
-  python -m rl_move.sim.harvest_lower_endpoints CKPT.zip \
+  uv run python -m rl_move.sim.harvest_lower_endpoints CKPT.zip \
       --episodes 300 --seed 5000 --out rl_move/sim/park_banks/NAME.npz \
       [--episode-seconds 15] [--cfg-set actions.max_height_mm=115 ...] \
       [--h-err-tol-mm 15]

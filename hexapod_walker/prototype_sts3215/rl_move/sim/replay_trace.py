@@ -20,7 +20,7 @@ causes:
 - both plausible, roll accel differs   -> inertia/CoM/mass distribution
 
 Run (from prototype_sts3215/, repo .venv):
-    ../../.venv/bin/python -m rl_move.sim.replay_trace \
+    uv run python -m rl_move.sim.replay_trace \
         --csv rl_move/hardware_traces/stand_fail_20260811/*.csv \
         --servo-params both --plot
 """

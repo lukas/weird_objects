@@ -33,7 +33,7 @@ the header's robot URL field (`POST /api/hub {robot_url, target}`).
 
 `web_drive.py` resolves this directory as `Path(__file__).parent / "webui"`
 — **never** the CWD, because systemd starts the server from an arbitrary
-directory (`/usr/bin/python3 /home/arduino/hexapod_sts/linux_control/web_drive.py …`).
+directory (`/home/arduino/.local/bin/uv run python /home/arduino/hexapod_sts/linux_control/web_drive.py …`).
 
 - `/`, `/index.html`, `/motors`, `/demos`, `/debug`, `/rl`, `/calibrate`
   all serve `index.html`, with the literal `__HTTPS_PORT__` replaced by the
@@ -84,16 +84,19 @@ the RL tooling depend on them.
 ### Drive (`#drive`) — bench-test workflow, in order of use
 
 1. *Zero & stand*: limp (Motors → **Limp all**, or E-STOP) + hand-pose,
-   **Set zero HERE** (top bar) · **Stand (plant)** →
-   verified glide via `POST /api/zero {pose:"stand"}` · **Preflight** →
-   `GET /api/rl/preflight?mode=lower` (read-only).
+   **Set zero HERE** (top bar) · **Stand up**. If already upright, Stand
+   adjusts/re-verifies the plant stance; otherwise it safe-zeros first,
+   then uses STEP stand-up via `POST /api/zero {pose:"stand"}` ·
+   **Preflight** → `GET /api/rl/preflight?mode=lower` (read-only).
 2. *Scripted gait walk*: **Start walk** sends `J vx vy ω` (confirm dialog;
    caps |vx|≤60, |vy|≤40 mm/s, |ω|≤0.5 rad/s, 3–60 s), timed stop or
    **STOP GAIT** sends `J 0 0 0`. Swing lift slider → `K <mm>`.
 3. *Manual drive*: on-screen sticks / WASD+QE / Xbox left+right stick →
    throttled `J vx vy ω gait` stream at ≤20 Hz (only on this tab).
    Keyboard: Space = stand, C = sit.
-4. *Wind down*: **Center / Sit** → glide via `POST /api/zero {pose:"sit"}` ·
+4. *Wind down*: **Center / Sit** → STEP lower if standing, safe-zero
+   recovery if not standing/tangled, via
+   `POST /api/standup {mode:"step", direction:"down"}` ·
    **Sit & power off** → `SETTLE`.
 - Telemetry strip: `GET /api/feedback` at 2 Hz while the tab is open.
 - Xbox (HTTPS page only): face buttons alone X=sit · Y=stand ·
@@ -148,7 +151,9 @@ keyframe stand-up and dance around the captured plant at τ900.
 
 ### RL (`#rl`)
 
-**Stand up / Lower** → `POST /api/rl/stand` / `/api/rl/lower` (confirm) ·
+**Stand up / Lower** → smart standard motion outside the Experiments page:
+standing Stand adjusts plant height, not-standing Stand safe-zeros then
+STEP-ups, standing Lower STEP-downs, not-standing Lower safe-zeros ·
 **Drive — hold keys**: **Start driving** → `POST /api/rl/drive/start`,
 then arrow keys / WASD (or the on-screen pad, pointerdown/up) stream
 `POST /api/rl/drive/cmd {vx, vy}` heartbeats at 5 Hz while the session
@@ -161,8 +166,8 @@ window blur releases everything. A page reload reconnects to a live
 session and resumes heartbeats. · **Timed walk** (details block) →
 `POST /api/rl/walk {vx, vy, duration_s}` · **Model roles** selects →
 `GET/POST /api/rl/roles` (which policy file serves walk / hold /
-stand / lower; no motion) · **Stand (scripted)** → same `/api/zero
-{pose:"stand"}` glide as Drive (confirm) · **Capture plant** →
+stand / lower; no motion) · **Stand up** → STEP stand-up ·
+**Capture plant** →
 `POST /api/rl/capture_plant` (no motion) · **Stop** →
 `POST /api/rl/stop` · readiness checks →
 `GET /api/rl/preflight?mode=stand|lower|walk` (read-only) · policy info →
@@ -192,7 +197,7 @@ stream) · **Test this servo** → `Q <joint> <amp>` · **Test ALL** → `C` the
 From anywhere on the Mac (paths are `__file__`-relative):
 
 ```bash
-python3 hexapod_walker/prototype_sts3215/linux_control/web_drive.py \
+uv run python hexapod_walker/prototype_sts3215/linux_control/web_drive.py \
     --dry-run --http-port 8899
 open http://127.0.0.1:8899/
 ```

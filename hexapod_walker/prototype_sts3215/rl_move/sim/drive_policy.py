@@ -5,7 +5,7 @@ training videos use) + cv2.imshow — NO mujoco.viewer / mjpython, which
 segfaults intermittently on macOS. Plain python works:
 
     cd hexapod_walker/prototype_sts3215
-    .venv/bin/python -m rl_move.sim.drive_policy \
+    uv run python -m rl_move.sim.drive_policy \
         rl_move/sim/policies/ppo_goal_cw_walk_anchorgate.zip
 
 Controls (the "hexapod drive" window must have focus):

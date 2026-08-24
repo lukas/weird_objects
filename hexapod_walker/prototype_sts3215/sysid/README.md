@@ -57,7 +57,7 @@ robot** — nothing here touches the robot until the operator runs
 - The runner uses soft torque, per-joint current/temp trips, and a
   tracking-error trip (unexpected force = limp + descriptive error,
   suggesting a `set_zero` re-check). It always limps at the end.
-- `python -m sysid.run_hw --abort` = emergency stop (`/api/rl/stop`).
+- `uv run python -m sysid.run_hw --abort` = emergency stop (`/api/rl/stop`).
 
 ## Workflow (maps to the plan's phases)
 
@@ -66,33 +66,33 @@ cd hexapod_walker/prototype_sts3215      # repo .venv via direnv
 
 # Phase 0 — build the versioned protocol files (already in git;
 # rebuild only to change repeats/amps — the hash changes with content)
-python -m sysid.protocols build
+uv run python -m sysid.protocols build
 
 # Preview any protocol in sim before touching hardware
-python -m sysid.replay --protocol sysid/protocols/steps_air_v1.json \
+uv run python -m sysid.replay --protocol sysid/protocols/steps_air_v1.json \
     --servo-params loaded --plot
 
 # Phase 1+2 — bench session (operator; robot suspended):
-python -m sysid.run_hw --protocol sysid/protocols/steps_air_v1.json --go
-python -m sysid.run_hw --protocol sysid/protocols/sines_air_v1.json --go
+uv run python -m sysid.run_hw --protocol sysid/protocols/steps_air_v1.json --go
+uv run python -m sysid.run_hw --protocol sysid/protocols/sines_air_v1.json --go
 # Phase 6 — every servo, reduced battery:
-python -m sysid.run_hw --protocol sysid/protocols/servo_spread_v1.json --go
+uv run python -m sysid.run_hw --protocol sysid/protocols/servo_spread_v1.json --go
 
 # First overlay + gap numbers (also covers Phase 2: latency/jitter
 # DISTRIBUTIONS from the per-tick t_send/t_recv and step onsets)
-python -m sysid.report --csv sysid/datasets/<run>/*.csv \
+uv run python -m sysid.report --csv sysid/datasets/<run>/*.csv \
     --servo-params air loaded
 
 # Phase 3 — fit actuator/timing params (holdout: ±10° steps, 0.5 Hz)
-python -m sysid.fit --csv sysid/datasets/<run>/*.csv \
+uv run python -m sysid.fit --csv sysid/datasets/<run>/*.csv \
     --out rl_move/sim/sim_model_sysid.json
 # use in training/eval: --cfg-set bus.servo_params=<path to json>
 
 # Phase 8 — suspended champion replay (Test A):
-python -m sysid.protocols champion --csv <rl_*.csv or sim eval csv>
-python -m sysid.run_hw --protocol sysid/protocols/champion_*.json \
+uv run python -m sysid.protocols champion --csv <rl_*.csv or sim eval csv>
+uv run python -m sysid.run_hw --protocol sysid/protocols/champion_*.json \
     --go --force
-python -m sysid.report --csv sysid/datasets/champion_*/*.csv \
+uv run python -m sysid.report --csv sysid/datasets/champion_*/*.csv \
     --servo-params sim_model_sysid.json
 ```
 

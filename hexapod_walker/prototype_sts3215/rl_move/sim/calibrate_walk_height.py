@@ -16,7 +16,7 @@ gait actually rides:
 
 Usage (controller CPU, ~1 min):
 
-    python3 -m rl_move.sim.calibrate_walk_height \
+    uv run python -m rl_move.sim.calibrate_walk_height \
         --teachers tripod noslip_clean --seconds 12 --seeds 3
 
 Prints per-teacher stats and a recommended (sigma_mm, drop_mm) pair.

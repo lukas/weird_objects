@@ -25,7 +25,7 @@ Output: a ``sim_model*.json`` (SimServoParams schema) selectable via
 
 Run (from prototype_sts3215/, repo .venv)::
 
-    python -m sysid.fit --csv sysid/datasets/<dir>/*.csv \
+    uv run python -m sysid.fit --csv sysid/datasets/<dir>/*.csv \
         --out rl_move/sim/sim_model_sysid.json
 """
 from __future__ import annotations

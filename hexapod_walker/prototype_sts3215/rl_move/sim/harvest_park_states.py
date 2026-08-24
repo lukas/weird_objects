@@ -15,7 +15,7 @@ Harvest with a seed FAR from the eval harness stream (default 1000):
 training on the literal gate-eval episodes would contaminate the gate.
 
 Usage:
-  python -m rl_move.sim.harvest_park_states CKPT.zip \
+  uv run python -m rl_move.sim.harvest_park_states CKPT.zip \
       --episodes 60 --seed 1000 --out rl_move/sim/park_banks/NAME.npz \
       [--episode-seconds 15] [--cfg-set goal.walk_speed_max_m_s=0.06 ...]
 """
