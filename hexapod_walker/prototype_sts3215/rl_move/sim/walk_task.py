@@ -857,7 +857,8 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
     # Per-episode walk bookkeeping the batched MJX vec env must carry in
     # its pooled reset-state snapshots (see mjx_vec_env.py).
     MJX_SNAPSHOT_EXTRA = ("_foot_on", "_liftoff_xy", "_liftoff_step",
-                          "_foot_prev_xy", "_duty_hist", "_phase",
+                          "_foot_prev_xy", "_foot_prev_force",
+                          "_foot_tan_slip_m", "_duty_hist", "_phase",
                           "_anchor_xy", "_anchor_prev_on",
                           "_walk_bucket", "_step_disp_bank",
                           "_ls_prev_xy", "_ls_prev_on",
@@ -926,6 +927,8 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         self._liftoff_xy = [None] * 6
         self._liftoff_step = [0] * 6
         self._foot_prev_xy = [None] * 6
+        self._foot_prev_force = [0.0] * 6
+        self._foot_tan_slip_m = [0.0] * 6
         self._duty_hist: list = []
         # Anchored-stance income gate bookkeeping (cycle 30): per-foot
         # world XY at touchdown ("anchor point") and its own prev-contact
@@ -1497,6 +1500,8 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         self._foot_on = [True] * 6
         self._liftoff_xy = [None] * 6
         self._foot_prev_xy = [None] * 6
+        self._foot_prev_force = [0.0] * 6
+        self._foot_tan_slip_m = [0.0] * 6
         self._duty_hist = []
         self._anchor_xy = [None] * 6
         self._anchor_prev_on = [False] * 6
@@ -3191,6 +3196,8 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # back to None/False and re-latch on the next loaded tick.
         self._liftoff_step = [0] * 6
         self._foot_prev_xy = [None] * 6
+        self._foot_prev_force = [0.0] * 6
+        self._foot_tan_slip_m = [0.0] * 6
         self._duty_hist = []
         self._anchor_xy = [None] * 6
         self._anchor_prev_on = [False] * 6
@@ -4333,9 +4340,32 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             gait_stride_m = float(cfg_get(self.cfg, "reward",
                                           "gait_gate_stride_mm",
                                           default=10.0)) / 1000.0
+            # Tangential planted-foot slip charge and contact diagnostics
+            # (2026-08-23 Stage-A probe). This is deliberately lighter
+            # than the episode-level loadslip ratio above: it only
+            # charges foot XY velocity while the same foot has meaningful
+            # contact on consecutive ticks, averages across measured
+            # feet instead of summing all six, applies a deadband/cap,
+            # and is default-off. cfg: reward.k_foot_slip_tangent,
+            # reward.foot_slip_contact_n,
+            # reward.foot_slip_deadband_m_s,
+            # reward.foot_slip_max_m_s; goal.walk_contact_diagnostics.
+            k_tslip = float(cfg_get(self.cfg, "reward",
+                                    "k_foot_slip_tangent", default=0.0))
+            contact_diag = bool(float(cfg_get(
+                self.cfg, "goal", "walk_contact_diagnostics",
+                default=0.0)) > 0.0)
+            tslip_contact_n = float(cfg_get(
+                self.cfg, "reward", "foot_slip_contact_n", default=1.0))
+            tslip_deadband = float(cfg_get(
+                self.cfg, "reward", "foot_slip_deadband_m_s",
+                default=0.015))
+            tslip_cap = float(cfg_get(
+                self.cfg, "reward", "foot_slip_max_m_s", default=0.25))
             if (k_swing > 0.0 or k_step > 0.0 or k_drag > 0.0
                     or k_park > 0.0 or k_ds > 0.0
-                    or g_gait > 0.0) and s_ref > 1e-3:
+                    or g_gait > 0.0 or k_tslip > 0.0
+                    or contact_diag) and s_ref > 1e-3:
                 if budget_m > 0.0:
                     # `along` here is still the BODY along-command
                     # velocity (m/s) from the r_prog block above (the
@@ -4346,18 +4376,35 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 r_step = 0.0
                 r_drag = 0.0
                 r_ds = 0.0
+                r_tslip = 0.0
                 contacts = [False] * 6
+                contact_forces = [0.0] * 6
+                meaningful_contacts = 0
+                touchdown_flags = [False] * 6
+                liftoff_flags = [False] * 6
+                swinging_flags = [False] * 6
+                air_times_s = [0.0] * 6
+                tangent_vels = [0.0] * 6
+                measured_tangent_vels = []
+                tangent_excess = []
                 for f in range(6):
                     adr = self._touch_adr[f]
-                    on = (adr >= 0 and
-                          float(self.data.sensordata[adr]) > 0.5)
+                    force = (max(0.0, float(self.data.sensordata[adr]))
+                             if adr >= 0 else 0.0)
+                    contact_forces[f] = force
+                    on = force > 0.5
                     contacts[f] = on
+                    meaningful = on and force >= tslip_contact_n
+                    if meaningful:
+                        meaningful_contacts += 1
                     xy = self.data.xpos[self._pad_bids[f], :2]
                     if on and not self._foot_on[f]:
+                        touchdown_flags[f] = True
                         # Touchdown: a new stance period earns a fresh
                         # slip allowance (k_drag_stance bookkeeping).
                         self._stance_slip_acc[f] = 0.0
                     if self._foot_on[f] and not on:
+                        liftoff_flags[f] = True
                         self._liftoff_xy[f] = xy.copy()
                         self._liftoff_step[f] = self._step_i
                     elif on and not self._foot_on[f] \
@@ -4398,10 +4445,20 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                                         credit = 0.0
                                 r_step += credit
                     elif on and self._foot_on[f] \
-                            and (k_drag > 0.0 or k_ds > 0.0) \
                             and self._foot_prev_xy[f] is not None:
                         slip = float(np.linalg.norm(
                             xy - self._foot_prev_xy[f]))
+                        prev_meaningful = (
+                            self._foot_prev_force[f] >= tslip_contact_n)
+                        if meaningful and prev_meaningful:
+                            tv = slip / max(self.dt, 1e-9)
+                            tangent_vels[f] = tv
+                            measured_tangent_vels.append(tv)
+                            self._foot_tan_slip_m[f] += slip
+                            ex = max(tv - tslip_deadband, 0.0)
+                            if tslip_cap > 0.0:
+                                ex = min(ex, tslip_cap)
+                            tangent_excess.append(ex)
                         if k_drag > 0.0 and slip > 0.0005:
                             r_drag -= k_drag * slip
                         if k_ds > 0.0 and slip > ds_floor:
@@ -4414,8 +4471,54 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                             # that never lifts cannot defer payment).
                             r_ds -= k_ds * (max(acc1 - allow_m, 0.0)
                                             - max(acc0 - allow_m, 0.0))
+                    if not on and self._liftoff_xy[f] is not None:
+                        swinging_flags[f] = True
+                        air_times_s[f] = (self._step_i
+                                          - self._liftoff_step[f]) * self.dt
                     self._foot_prev_xy[f] = xy.copy()
+                    self._foot_prev_force[f] = force
                     self._foot_on[f] = on
+                if k_tslip > 0.0:
+                    if tangent_excess:
+                        r_tslip = -k_tslip * float(np.mean(tangent_excess))
+                    reward += r_tslip
+                    info["reward_foot_slip_tangent"] = r_tslip
+                if k_tslip > 0.0 or contact_diag:
+                    info["walk_contact_feet"] = float(sum(contacts))
+                    info["walk_contact_meaningful_feet"] = float(
+                        meaningful_contacts)
+                    if measured_tangent_vels:
+                        info["walk_tangent_contact_vel_mean_m_s"] = float(
+                            np.mean(measured_tangent_vels))
+                        info["walk_tangent_contact_vel_max_m_s"] = float(
+                            max(measured_tangent_vels))
+                    else:
+                        info["walk_tangent_contact_vel_mean_m_s"] = 0.0
+                        info["walk_tangent_contact_vel_max_m_s"] = 0.0
+                    info["walk_touchdown_count"] = float(
+                        sum(touchdown_flags))
+                    info["walk_liftoff_count"] = float(sum(liftoff_flags))
+                    info["walk_swinging_feet"] = float(sum(swinging_flags))
+                if contact_diag:
+                    for f in range(6):
+                        info[f"walk_foot{f}_contact"] = (
+                            1.0 if contacts[f] else 0.0)
+                        info[f"walk_foot{f}_meaningful_contact"] = (
+                            1.0 if contact_forces[f] >= tslip_contact_n
+                            and contacts[f] else 0.0)
+                        info[f"walk_foot{f}_contact_force"] = (
+                            contact_forces[f])
+                        info[f"walk_foot{f}_tangent_vel_m_s"] = (
+                            tangent_vels[f])
+                        info[f"walk_foot{f}_tangent_slip_m_total"] = (
+                            self._foot_tan_slip_m[f])
+                        info[f"walk_foot{f}_swinging"] = (
+                            1.0 if swinging_flags[f] else 0.0)
+                        info[f"walk_foot{f}_touchdown"] = (
+                            1.0 if touchdown_flags[f] else 0.0)
+                        info[f"walk_foot{f}_liftoff"] = (
+                            1.0 if liftoff_flags[f] else 0.0)
+                        info[f"walk_foot{f}_air_time_s"] = air_times_s[f]
                 if r_swing:
                     reward += r_swing
                 if k_swing > 0.0:

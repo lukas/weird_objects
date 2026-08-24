@@ -43,6 +43,16 @@ from rl_move.sim.servo_model import SimServoParams  # noqa: E402
 CMD = 0.05
 NEW_INFO_KEYS = ("reward_walk_overspeed", "walk_overspeed_m_s",
                  "reward_walk_heading", "walk_heading_cos")
+SLIP_INFO_KEYS = (
+    "reward_foot_slip_tangent",
+    "walk_contact_feet",
+    "walk_contact_meaningful_feet",
+    "walk_tangent_contact_vel_mean_m_s",
+    "walk_tangent_contact_vel_max_m_s",
+    "walk_touchdown_count",
+    "walk_liftoff_count",
+    "walk_swinging_feet",
+)
 
 
 def _walk_env(extra=None, seed=0, episode_seconds=6.0):
@@ -80,6 +90,20 @@ def _step_info(env):
     return float(r), info
 
 
+def _prime_slip_latches(env, offset_m=0.02, prev_force=10.0):
+    """Seed previous planted-foot positions without perturbing physics."""
+    current_contacts = 0
+    for f, bid in enumerate(env._pad_bids):
+        adr = env._touch_adr[f]
+        force = (float(env.data.sensordata[adr]) if adr >= 0 else 0.0)
+        current_contacts += int(force > 0.5)
+        xy = env.data.xpos[bid, :2]
+        env._foot_prev_xy[f] = xy - np.array([offset_m, 0.0])
+        env._foot_prev_force[f] = prev_force
+        env._foot_on[f] = True
+    assert current_contacts > 0, "probe expects at least one planted foot"
+
+
 # ------------------------------------------------------------------ #
 # default-off bit-exactness
 # ------------------------------------------------------------------ #
@@ -89,6 +113,8 @@ def test_default_off_emits_no_new_keys_and_matches_zero_k():
     env_b = _walk_env(seed=3, extra={
         ("reward", "k_walk_overspeed"): 0.0,
         ("reward", "k_walk_heading"): 0.0,
+        ("reward", "k_foot_slip_tangent"): 0.0,
+        ("goal", "walk_contact_diagnostics"): 0.0,
     })
     env_a.reset()
     env_b.reset()
@@ -100,8 +126,82 @@ def test_default_off_emits_no_new_keys_and_matches_zero_k():
         assert ra == pytest.approx(rb, abs=0.0)
         for k in NEW_INFO_KEYS:
             assert k not in ia and k not in ib
+        for k in SLIP_INFO_KEYS:
+            assert k not in ia and k not in ib
     env_a.close()
     env_b.close()
+
+
+def test_action_space_stays_raw_18_joint_targets():
+    env = _walk_env()
+    assert env.action_space.shape == (18,)
+    env.close()
+
+
+# ------------------------------------------------------------------ #
+# planted-foot tangent slip charge + diagnostics
+# ------------------------------------------------------------------ #
+
+def test_contact_diagnostics_emit_without_reward_charge():
+    env = _walk_env(extra={("goal", "walk_contact_diagnostics"): 1.0})
+    env.reset()
+    _pin_forward(env)
+    _r, info = _step_info(env)
+    assert "reward_foot_slip_tangent" not in info
+    for k in SLIP_INFO_KEYS[1:]:
+        assert k in info
+    for f in range(6):
+        assert f"walk_foot{f}_contact" in info
+        assert f"walk_foot{f}_contact_force" in info
+        assert f"walk_foot{f}_tangent_vel_m_s" in info
+        assert f"walk_foot{f}_tangent_slip_m_total" in info
+        assert f"walk_foot{f}_swinging" in info
+    env.close()
+
+
+def test_foot_slip_tangent_reduces_return_modestly_when_contact_slides():
+    """Same physics, k on vs off: only the new slip charge separates."""
+    extra_on = {
+        ("reward", "k_foot_slip_tangent"): 0.05,
+        ("reward", "foot_slip_contact_n"): 0.0,
+        ("reward", "foot_slip_deadband_m_s"): 0.0,
+        ("reward", "foot_slip_max_m_s"): 0.25,
+    }
+    env_on = _walk_env(seed=7, extra=extra_on)
+    env_off = _walk_env(seed=7, extra={
+        ("reward", "k_foot_slip_tangent"): 0.0,
+        ("reward", "foot_slip_contact_n"): 0.0,
+        ("reward", "foot_slip_deadband_m_s"): 0.0,
+        ("reward", "foot_slip_max_m_s"): 0.25,
+    })
+    for env in (env_on, env_off):
+        env.reset()
+        _pin_forward(env)
+        _prime_slip_latches(env)
+    r_on, i_on = _step_info(env_on)
+    r_off, _i_off = _step_info(env_off)
+    assert i_on["reward_foot_slip_tangent"] < 0.0
+    assert i_on["reward_foot_slip_tangent"] >= -0.05 * 0.25
+    assert r_on - r_off == pytest.approx(
+        i_on["reward_foot_slip_tangent"], abs=1e-6)
+    env_on.close()
+    env_off.close()
+
+
+def test_foot_slip_tangent_requires_meaningful_current_contact():
+    env = _walk_env(extra={
+        ("reward", "k_foot_slip_tangent"): 0.05,
+        ("reward", "foot_slip_contact_n"): 1e9,
+        ("reward", "foot_slip_deadband_m_s"): 0.0,
+        ("reward", "foot_slip_max_m_s"): 0.25,
+    })
+    env.reset()
+    _pin_forward(env)
+    _prime_slip_latches(env, prev_force=1e9)
+    _r, info = _step_info(env)
+    assert info["reward_foot_slip_tangent"] == pytest.approx(0.0)
+    assert info["walk_contact_meaningful_feet"] == pytest.approx(0.0)
+    env.close()
 
 
 # ------------------------------------------------------------------ #

@@ -6807,6 +6807,106 @@ def test_walkcurr_pf_scaled_deltas_are_linear_in_scale(
 
 
 # ---------------------------------------------------------------------------
+# WALKCURR Stage-A modest tangent-slip probe (cycle 2026-08-23). This is
+# the direct "Berkeley-style first make flat forward walking easy" arm:
+# stay on the proven x0.02 fixed-forward rung-1 baseline, keep the 18 raw
+# joint-target action surface, make termination looser rather than adding
+# a height clamp, and add only a small contact-conditioned tangent-slip
+# charge plus diagnostics. The charge is deliberately averaged/capped so
+# it cannot become the dominant objective: at k=0.02 and cap=0.25 m/s it
+# is bounded by -0.005/tick no matter how many feet drag.
+WALKCURR_STAGEA_SLIP_SCALE = 0.02
+WALKCURR_PF_STAGEA_SLIP_OVERRIDES = _walkcurr_pf_scaled_overrides(
+    WALKCURR_STAGEA_SLIP_SCALE)
+WALKCURR_PF_STAGEA_SLIP_OVERRIDES.update({
+    ("reward", "k_foot_slip_tangent"): 0.02,
+    ("reward", "foot_slip_contact_n"): 2.0,
+    ("reward", "foot_slip_deadband_m_s"): 0.015,
+    ("reward", "foot_slip_max_m_s"): 0.25,
+    ("goal", "walk_contact_diagnostics"): 1.0,
+    ("safety", "max_roll_deg"): 35.0,
+    ("safety", "max_pitch_deg"): 35.0,
+    ("safety", "walk_max_height_drop_mm"): 0.0,
+    ("safety", "walk_height_grace_s"): 5.0,
+})
+
+
+@pytest.fixture(scope="module")
+def walkcurr_stagea_slip_returns() -> dict[str, float]:
+    """Mean return (+ dx/steps) for the launch stack and the unmodified
+    x0.02 parent gait, used to verify the new slip term stays modest."""
+    plan = {
+        "fast": ("gait", 2.0),
+        "gait": ("gait", 1.0),
+        "creep": ("gait", 0.5),
+        "park": ("park", 1.0),
+        "stall": ("stall", 1.0),
+        "reverse": ("reverse", 1.0),
+        "sideways": ("sideways", 1.0),
+        "skate": ("skate", 1.0),
+        "topple": ("topple", 1.0),
+        "shuffle": ("shuffle", 1.0),
+    }
+    out = {
+        "_scale": WALKCURR_STAGEA_SLIP_SCALE,
+        "_slip_k": WALKCURR_PF_STAGEA_SLIP_OVERRIDES[
+            ("reward", "k_foot_slip_tangent")],
+    }
+    for name, (pol, gscale) in plan.items():
+        runs = [_slipwalk_rollout(pol, s, gait_scale=gscale,
+                                  overrides=WALKCURR_PF_STAGEA_SLIP_OVERRIDES)
+                for s in SEEDS]
+        out[name] = float(np.mean([r[0] for r in runs]))
+        out[name + "_dx"] = float(np.mean([r[1] for r in runs]))
+        out[name + "_steps"] = float(np.mean([r[2] for r in runs]))
+    base = _walkcurr_pf_scaled_overrides(WALKCURR_STAGEA_SLIP_SCALE)
+    gait_base = [_slipwalk_rollout("gait", s, overrides=base)
+                 for s in SEEDS]
+    out["gait_parent"] = float(np.mean([r[0] for r in gait_base]))
+    return out
+
+
+def test_walkcurr_stagea_slip_ranking_holds(
+        walkcurr_stagea_slip_returns):
+    """The exact launch stack must preserve the fixed-forward rung-1
+    behavior order: walk > stationary > wrong-way > skate/fall."""
+    r = walkcurr_stagea_slip_returns
+    c = r["_scale"]
+    for still in ("park", "stall"):
+        assert r["gait"] > r[still] + 300.0 * c, (
+            f"stationary '{still}' competitive with walking: {r}")
+    floor = min(r["park"], r["stall"])
+    for wrong in ("reverse", "sideways"):
+        assert floor > r[wrong] + 50.0 * c, (
+            f"wrong-way '{wrong}' out-earns standing: {r}")
+    tier3 = min(r[k] for k in ("gait", "creep", "park", "stall",
+                               "reverse", "sideways"))
+    for worst in ("skate", "topple"):
+        assert r[worst] < tier3 - 50.0 * c, (
+            f"'{worst}' is not the floor under Stage-A slip: {r}")
+    # Unlike the height-gate arms, Stage A deliberately loosens safety
+    # termination so early clumsy exploration is not chopped short.
+    assert r["topple_steps"] > 300, (
+        f"Stage-A termination is unexpectedly tight: {r}")
+    assert (r["fast"] >= r["gait"] > r["creep"]), (
+        f"travel income not monotone under Stage-A slip: {r}")
+    assert r["gait"] > r["shuffle"] + 150.0 * c, (
+        f"shuffle competitive with walking under Stage-A slip: {r}")
+
+
+def test_walkcurr_stagea_slip_tax_on_honest_gait_is_small(
+        walkcurr_stagea_slip_returns):
+    """The new slip term is a diagnostic/cleanup nudge, not a hidden
+    replacement objective: the scripted honest gait should lose less
+    than two scaled reward points versus the current x0.02 parent."""
+    r = walkcurr_stagea_slip_returns
+    assert r["gait_parent"] - r["gait"] < 100.0 * r["_scale"], (
+        f"tangent-slip term overtaxes honest gait: {r}")
+    assert r["gait_dx"] > 0.15, (
+        "the reference gait did not actually travel; bank is broken")
+
+
+# ---------------------------------------------------------------------------
 # WALKCURR RUNG-0 bank (cycle 2026-08-23, pre-registered escalation
 # fired by the cw-walkcurr-pf-fwd6-rscale50-cont1 FAIL). Ten rung-1
 # arms froze into the same static splayed crouch; the dig-in fixed the
