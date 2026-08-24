@@ -2141,3 +2141,30 @@ while the registered DONE joygate keeps evaluating the bare policy
 (freeze off). If the operator instead wants BARE-policy stillness
 <=0.015, say so and we reopen the stop lever (likely needs a
 different action parameterization, not pricing).
+
+## 2026-08-24 ~20:0x — certfreeze-v8 kept at legacy control.hz=25 (assume-and-go)
+Q: `launch_run.py` auto-injects `--cfg-set control.hz=100` into every new
+PPO launch that doesn't specify one (binding 08-24 100 Hz ruling). The
+`cw-arch-hist16-dep1-c1-joyfullcurr14-certfreeze-v8` respec (a single-lever
+test of a walk-curriculum bucket-scope fix vs. its 25 Hz parent
+`certfreeze-v7`) would silently inherit control.hz=100 by default. A
+CONCURRENT cycle is already running the exact "warm-start a 25 Hz
+hist16/dep1/c1 checkpoint straight into 100 Hz" experiment on this same
+lineage family and it independently fails at INIT precert (b0 prog 0.203
+< 0.50 bar) before any training even starts — a diagnosed-in-progress,
+unrelated defect (rate mismatch on a warm-started actor), not something
+this cycle is trying to test. Letting v8 inherit control.hz=100 by default
+would make it untestable for the question it's actually asking (does the
+front45->side90 bucket-scope fix let the frontier leave b1?) — a FAIL
+would be uninterpretable (diet fix vs. rate-mismatch confound).
+Assumed answer: relaunch v8 with `--allow-legacy-control-hz --cfg-set
+control.hz=25 --cfg-set safety.max_delta_q_deg=1.5`, matching parent v7
+exactly, so `--walk-curriculum-version 7->8` is the ONLY lever. This does
+not contest the 100 Hz ruling for future NEW recipes — it's a deliberate,
+recorded legacy-rate comparison run explicitly carved out by the ruling's
+own `--allow-legacy-control-hz` escape hatch, chosen because this run's
+whole point is isolating a curriculum-sampler bug from the concurrent
+cycle's separate, still-open rate-conversion question. Once the rate-
+conversion question resolves (naive/transplant/from-scratch), a v8-at-100Hz
+retrain is the natural follow-up, not a substitute for this read.
+status: proceeding (assume-and-go), no pause.

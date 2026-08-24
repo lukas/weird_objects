@@ -1,6 +1,54 @@
 # joystick - RL from the programmatic gait to joystick control
 
-Last updated: 2026-08-24 ~19:1x (**cw-amp-joy60-s29-ft1 PARTIAL (metric
+Last updated: 2026-08-24 ~20:0x (**certfreeze-v7 FAIL: its own repair
+poisoned the entry-level cert bucket, frontier stuck at b1 the whole
+40M-step run -- scope-fixed as V8 and relaunched.** Plain English: V7
+was meant to add in-place-turn + full-reversal command diversity to the
+WIDE-heading buckets (side90+) so training would practice the held-out
+joygate's stress_mix distribution before those buckets certify. Its
+code instead applied the diet "from front45_20s onward", which
+includes front45_20s/60s -- still front-cone, not widened-heading, and
+the exact rung (b1) whose stop-settle cert (`stop_speed_m_s<=0.015`)
+gates every later promotion. Training-side telemetry: `walkcurr/
+promotions=1` (only the initial b0->b1 promotion, at cert_round 1 of
+80); `pre_b1_pass=False` every round after; b1's own `stop_speed_m_s`
+pinned 0.020-0.033 the entire run (a full reversal inside the same 20s
+window that must also settle to a stop leaves residual momentum the
+window can't absorb). Reward fell every quarter (694->641->525->438)
+-- per the 08-21 ruling, a genuine stuck/regressing signal. Held-out
+joygate: FAIL (falls 3/48 vs cap 2/48, dir_err med 51.9deg vs allow
+40). DR-0 gate: det 6/6 clean but noisy (prog med 0.67); sto 5/6 with
+a full leg-0 sacrifice + near-stall episode (video: robot parked,
+marching almost in place). own-DR(0.5): det 5/6 with a 2-leg [3,4]
+sacrifice+stall (video: two legs rigid while body wiggles), sto clean
+6/6. **Fix**: `WALKCURR_BUCKETS_V8` (walk_task.py) is byte-identical to
+V7 except the stress-diet extras (wz_max=0.3, reversal_frac=0.15)
+start at `side90_20s` (the first genuinely widened-heading rung)
+instead of `front45_20s` -- bridge/front45_20s/front45_60s stay
+bit-exact V6. `test_walk_curriculum.py` 48/48 (+5 new V8 tests,
+incl. a bit-exact-vs-V6 check on front45_60s), `test_walkcurr_mjx.py`
+19/19; snapshot `f0ce6f79`. Relaunched
+`cw-arch-hist16-dep1-c1-joyfullcurr14-certfreeze-v8` (same stopcur2
+warm start / cert-only-freeze / reward recipe as v7, single lever
+`--walk-curriculum-version 7->8`) on train-5, **deliberately pinned to
+v7's own legacy `control.hz=25`** (`--allow-legacy-control-hz`; see
+`OPERATOR_QUESTIONS.md` 08-24 ~20:0x) rather than silently inheriting
+the launcher's new-default `control.hz=100` -- a concurrent cycle is
+separately mid-debugging this exact lineage family's 100 Hz
+warm-start rate conversion (naive + hist-stride-transplant both dead
+at init precert), and letting that unrelated, still-open defect leak
+into this single-lever diet test would make a FAIL uninterpretable
+(diet-scope fix vs. rate mismatch). VERIFIED RUNNING train-5. Gate:
+PASS = frontier promotes past b1 to >=b3 AND joygate falls <=2/48 AND
+DR-0 det gait_valid 6/6 no sacrifice; FAIL = frontier still stalls at
+b1, pointing next at the stop-settle grace WINDOW itself rather than
+bucket placement. DONE gate stays met via `stotight45-seed13`
+(08-23); this V6/V7/V8 ladder remains operator-ordered full-circle
+hardening on top of that, not gate-blocking. Evidence:
+`logs/ckpt_eval/cw_arch_hist16_dep1_c1_joyfullcurr13_certfreeze_v7_{gate,
+owncfg,joygate}/`, W&B `flziz48k`.)
+
+Previous entry (2026-08-24 ~19:1x (**cw-amp-joy60-s29-ft1 PARTIAL (metric
 bug found+fixed) + scratch-s0 relaunched clean on a 4.0G pod.** Plain
 English, two threads: (1) the AMP-M5-champion joystick fine-tune
 ordered by the operator (MCP 20260824T175033Z) read as a catastrophic
