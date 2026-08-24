@@ -1296,3 +1296,39 @@ follow-ups.
   axes.
 - MJX/Warp GPU stack: 12 single-H200 train pods, ~4096 envs each,
   per-world model DR, canary probes, eval/video logging, desync.
+- **`eval_checkpoint.py` `slip_per_m` floor-divide bug (found+fixed
+  08-24 on `cw-amp-joy60-s29-ft1`)**: `slip_per_m` used to be
+  `slip_m / max(along_dist_m, 0.05)` unconditionally. On a
+  whole-episode zero-commanded-distance draw (a 60s `stress_mix`
+  hold/turn-in-place archetype, `cmd_dist_m==0.0`) this turned
+  ordinary marching-in-place foot travel (~9-11m/60s) into
+  slip_per_m~150-230 against a ~2.9 cap, dominating an n=24 median
+  even when every translating episode was healthy (that run's true
+  translating-episode slip/m was 3.12, not the reported 176.8).
+  Fixed to mirror the `progress_ratio` guard one line above it:
+  `slip_per_m` is `None` (undefined, excluded from aggregates —
+  downstream `eval_joystick_gate.py`/`bulk_session_eval.py` already
+  filtered on `is not None`, so no consumer change needed) whenever
+  `cmd_dist_m<=1e-6`; `slip_m_total` (raw meters) stays reported
+  either way. Does NOT retroactively change the 08-23 JOYSTICK
+  DONE-GATE declaration (`stotight45`, slip/m 2.4-2.8 under the OLD
+  buggy formula) — a healthy-under-the-bug reading means those
+  held-out episodes weren't hitting the zero-cmd_dist case, so the
+  fix is a no-op there; only checkpoints/sessions whose held-out draw
+  actually includes whole-episode hold/turn-in-place segments (this
+  fusion arm's stress_mix + `walk_turn_in_place_frac=0.5`) were
+  affected. Regression test: `test_walk_slip_per_m_undefined_for_zero_command_episode`
+  (`rl_move/tests/test_sim_env.py`).
+- `MjxShardedVecEnv` (`mjx_sharded_vec_env.py`) allocates its shared
+  observation/DR-field buffers proportional to `n_envs * n_obs`
+  against a per-pod `/dev/shm` tmpfs that is NOT uniform across the
+  fleet: the 08-10 fix bumped it from a legacy 64M default to 4.0G,
+  but as of 08-24 train-0/2/3/4 were found still stuck on the legacy
+  64M (never recreated since) while train-1/5/6/7/8/9/10/11 have the
+  4.0G fix — `df -h /dev/shm` on the target pod before any
+  `obs.history_frames>=64` (or otherwise obs-heavy) launch, route to
+  a 4.0G pod, don't just shrink `--n-envs`. A launch that lands on a
+  legacy pod dies as N silent SIGBUS (`exitcode=-7`) workers with no
+  python traceback before any PPO step — `_check_shm_budget` (landed
+  08-24) now computes the exact footprint and refuses with the fix
+  spelled out instead.

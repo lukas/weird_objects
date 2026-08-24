@@ -1,6 +1,44 @@
 # joystick - RL from the programmatic gait to joystick control
 
-Last updated: 2026-08-24 ~18:5x (**hist64-rr1 CONFIRMS the transplant
+Last updated: 2026-08-24 ~19:1x (**cw-amp-joy60-s29-ft1 PARTIAL (metric
+bug found+fixed) + scratch-s0 relaunched clean on a 4.0G pod.** Plain
+English, two threads: (1) the AMP-M5-champion joystick fine-tune
+ordered by the operator (MCP 20260824T175033Z) read as a catastrophic
+joygate FAIL (slip/m 176.8 vs cap 2.9) but that was mostly a bug in
+`eval_checkpoint.py`'s `slip_per_m` — it divided by
+`max(along_dist_m, 0.05)` unconditionally, so 8/24 held-out episodes
+that were whole-episode zero-commanded-speed draws (hold/turn-in-place
+`stress_mix` archetypes) turned ~9-11m of ordinary marching-in-place
+foot travel into slip_per_m~150-230, swamping the median even though
+every one of the 16 translating episodes was healthy. Fixed (mirrors
+the `progress_ratio` guard already one line above it; `slip_per_m` is
+now `None`/excluded when `cmd_dist_m<=0`, `slip_m_total` still reports
+raw meters either way; regression test in `test_sim_env.py`) — does
+NOT retroactively touch the 08-23 DONE-gate declaration (that champion
+was healthy even under the old buggy formula, so its held-out episodes
+weren't hitting the zero-cmd_dist case). Corrected reading: translating
+slip/m=3.12 (beats parent 3.679 and the PARTIAL bar), dir_err
+47.16deg (still >40), gait_valid_frac 0.833 (4/12 sto episodes
+sacrifice a leg — a new finding, not previously visible). Separate,
+ungated finding: this recipe zeroed every walkcurr-lineage
+stop-shaping reward term and visibly does not stand still on a
+zero-speed hold command (keeps marching) — the walkcurr V7
+stop-freeze mechanism is the fix if hold/stop robustness needs
+funding later. Verdict PARTIAL, not gate-blocking (DONE gate already
+independently met via `stotight45`; AMP is maintenance-only). (2) The
+100Hz from-scratch arm's THIRD launch attempt (`scratch-s0`) also died
+pre-training — same shm-fleet defect the tf64-canary hit below, this
+time on train-2 (also legacy 64M). Relaunched unchanged (n-envs 3072)
+pinned to train-1 (verified 4.0G, free) as `scratch-s0-r1`, now
+VERIFIED RUNNING (fps 3600+, healthy PPO stats) — the actual first
+live attempt at the from-scratch-100Hz-learnability question. Also
+landed `mjx_sharded_vec_env._check_shm_budget` (fails fast with the
+safe `--n-envs` spelled out instead of N silent SIGBUS workers).
+Evidence: `RL_LOG.md` 08-24 19:0x-19:1x, W&B `mpj70aqg`/`qx5s4c3l`
+(FAILED)/scratch-s0-r1. Full detail: `CURRENT_TRUTHS.md` Policy and
+eval facts.)
+
+Previous entry (2026-08-24 ~18:5x (**hist64-rr1 CONFIRMS the transplant
 class stays closed (2nd repro, prog 0.056 vs 0.052, 0 GPU budget spent
 — fail-closed before `learn()`); tf64-small-canary's crash was NOT an
 architecture finding, it was a FLEET INFRA DEFECT, now partially
