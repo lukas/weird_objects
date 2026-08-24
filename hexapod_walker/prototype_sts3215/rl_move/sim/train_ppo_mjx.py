@@ -1091,6 +1091,22 @@ def _assert_gpu_physics(venv, impl: str | None) -> None:
           flush=True)
 
 
+def apply_walkcurr_cert_cfg_overrides(cfg_d: dict,
+                                      specs: list[str] | None) -> dict:
+    """--walkcurr-cert-cfg-set (2026-08-24 freeze40 dig-in): apply
+    dotted K=V cfg overrides to the CERT env's cfg dict only. The
+    training env never sees these. Empty/None specs = no-op, bit-exact
+    prior behavior. Returns cfg_d for chaining. Unit-tested in
+    rl_move/tests/test_walkcurr_mjx.py."""
+    for dotted, val in _parse_cfg_set(list(specs or [])).items():
+        node = cfg_d
+        *path, leaf = dotted.split(".")
+        for k in path:
+            node = node.setdefault(k, {})
+        node[leaf] = val
+    return cfg_d
+
+
 def apply_walkcurr_post_promo_schedule(model, epochs: int,
                                        actor_lr: float,
                                        actor_lr_final: float) -> dict:
@@ -1190,6 +1206,8 @@ def _init_wandb(args, params: SimServoParams):
                 "walk_curriculum_version": args.walk_curriculum_version,
                 "walkcurr_cert_every": args.walkcurr_cert_every,
                 "walkcurr_cert_episodes": args.walkcurr_cert_episodes,
+                "walkcurr_cert_cfg_set": list(
+                    getattr(args, "walkcurr_cert_cfg_set", []) or []),
                 "mjx_iterations": args.mjx_iterations,
                 "mjx_ls_iterations": args.mjx_ls_iterations,
                 "recover_cert_every": args.recover_cert_every,
@@ -1813,6 +1831,21 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--walkcurr-cert-episodes", type=int, default=8,
                     help="held-out episodes per bucket per cert round "
                          "(= cert vec-env size)")
+    ap.add_argument("--walkcurr-cert-cfg-set", action="append",
+                    default=[], metavar="K=V",
+                    help="cfg override applied ONLY to the walkcurr "
+                         "cert/precert env, never the training env "
+                         "(repeatable). Built for the freeze40 dig-in "
+                         "(08-24): training WITH goal.walk_stop_freeze_s "
+                         "active corrupts on-policy data on stop ticks "
+                         "(executed command != policy action) and "
+                         "regressed the held-out joygate 1/48->4-7/48 "
+                         "falls; this lets the cert bar be assayed "
+                         "under the structural stop-hold supervisor "
+                         "(goal.walk_stop_freeze_s=0.4) while training "
+                         "stays clean. Default empty = cert env cfg "
+                         "identical to training (bit-exact prior "
+                         "behavior).")
     ap.add_argument("--walkcurr-post-promo-epochs", type=int, default=0,
                     help="frontier-gated update schedule (default 0 = "
                          "OFF, bit-exact): on the walk curriculum's "
@@ -4389,6 +4422,8 @@ def main(argv: list[str] | None = None) -> int:
                                        "cfg (goal.walk_curriculum "
                                        "injection failed)")
                 cfg_d.setdefault("goal", {})["walk_probe"] = 1.0
+                apply_walkcurr_cert_cfg_overrides(
+                    cfg_d, args.walkcurr_cert_cfg_set)
                 cert_kw.update(env_kwargs=ek, seed=args.seed + 616161,
                                pool_per_env=1, desync_episodes=False)
                 n_cert = int(args.walkcurr_cert_episodes)

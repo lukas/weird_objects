@@ -425,3 +425,23 @@ def test_post_promo_schedule_mutates_model_and_default_off():
         n_epochs = 5
     with pytest.raises(RuntimeError):
         apply_walkcurr_post_promo_schedule(Bare(), 3, 1e-4, 1e-5)
+
+
+def test_cert_cfg_overrides_default_noop_and_applies():
+    """--walkcurr-cert-cfg-set (08-24 freeze40 dig-in): default empty
+    is a no-op (cert cfg identical to training, bit-exact); when set,
+    the dotted overrides land in the CERT env cfg dict only."""
+    from rl_move.sim.train_ppo_mjx import apply_walkcurr_cert_cfg_overrides
+
+    cfg = {"goal": {"walk_probe": 1.0}}
+    before = {"goal": dict(cfg["goal"])}
+    out = apply_walkcurr_cert_cfg_overrides(cfg, None)
+    assert out is cfg and cfg == before          # None -> no-op
+    apply_walkcurr_cert_cfg_overrides(cfg, [])
+    assert cfg == before                          # [] -> no-op
+
+    apply_walkcurr_cert_cfg_overrides(
+        cfg, ["goal.walk_stop_freeze_s=0.4", "safety.max_roll_deg=25"])
+    assert cfg["goal"]["walk_stop_freeze_s"] == 0.4
+    assert cfg["goal"]["walk_probe"] == 1.0       # untouched sibling
+    assert cfg["safety"]["max_roll_deg"] == 25.0  # new section created

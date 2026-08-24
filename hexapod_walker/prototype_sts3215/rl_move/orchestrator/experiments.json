@@ -168205,7 +168205,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "in-cycle cw-arch-hist16-dep1-c1-joyfullcurr11-freeze40 since 2026-08-24T12:36:34"
   },
   {
     "run": "cw-arch-hist16-dep1-c1-joyfullcurr10-stopfreeze-probe-stopcur6",
@@ -168447,6 +168448,22 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:joystick PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-arch-hist16-dep1-c1-joyfullcurr11-freeze40-stopcur6 --steps 40000000 --task joint_walk --walk-curriculum --walk-curriculum-version 6 --episode-seconds 60 --dr-scale 0.5 --seed 0 --ent-coef 0.01 --no-canary --eval-every 1000000 --video-every 2000000 --init-from rl_move/sim/policies/ppo_goal_cw_arch_hist16_dep1_c1_joyfullcurr9_stopcur6.zip --walkcurr-cert-at-init --walkcurr-precert-min-prog 0.50 --walkcurr-precert-buckets 2 --cfg-set obs.history_frames=16 --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set reward.k_loadslip_excess=0.8 --cfg-set reward.loadslip_ok=1.2 --cfg-set reward.loadslip_max=3.0 --cfg-set reward.loadslip_floor_m=0.03 --cfg-set reward.k_walk_course=1.0 --cfg-set reward.walk_course_tau_s=0.75 --cfg-set reward.walk_course_min_speed_m_s=0.01 --n-envs 3072 --impl warp --host-workers 24 --out-name ppo_goal_cw_arch_hist16_dep1_c1_joyfullcurr11_freeze40_stopcur6 --notes 'respec of cw-arch-hist16-dep1-c1-joyfullcurr11-freeze40: Plain English: this cycle'\"'\"'s stopfreeze-probe-stopcur6 proved the structural stop-hold (goal.walk_stop_freeze_s=0.4) also clears the V6 b1 stop cert on the stopcur6 checkpoint (k=6.0 current charge, the dose that carries a known leg-3 rigid-lock trade under own-DR), matching stopcur2'\"'\"'s precert read exactly (0.0133). This is the real-training twin of freeze40 (which warm-starts from stopcur2): same freeze cfg, same 40M budget, but from the stopcur6 base, to test under real training + the full randomized joygate mix (1) whether walkcurr/frontier promotes past b1 into b2-b9 the same way, and (2) whether the freeze'\"'\"'s forced hold at stop ALSO reduces or removes stopcur6'\"'\"'s leg-3 sacrifice pathology (the freeze prevents the isometric fight that plausibly drives the lock) -- a question the eval-only precert probe cannot answer, only a full training + own-DR eval run can.' --cfg-set reward.k_walk_stop_charge=1.0 --cfg-set reward.walk_stop_grace_s=0.4 --cfg-set reward.k_walk_stop_current=2.0 --cfg-set goal.walk_stop_freeze_s=0.4 > /tmp/train_cw-arch-hist16-dep1-c1-joyfullcurr11-freeze40-stopcur6.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-arch-hist16-dep1-c1-joyfullcurr11-freeze40-stopcur6.log",
     "wandb_id": "z7kv7bsw",
-    "verified": "2026-08-24T09:20:09+00:00"
+    "verified": "2026-08-24T09:20:09+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-24T09:25:12+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 231,
+        "cpu_centisec_deltas": [
+          2363,
+          2258
+        ],
+        "note": "global_step flat in 45s window but trainer CPU busy \u2014 long-rollout iteration cadence, not a stall",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ],
+    "triage": "in-cycle cw-arch-hist16-dep1-c1-joyfullcurr11-freeze40-stopcur6 since 2026-08-24T12:51:49"
   }
 ]
