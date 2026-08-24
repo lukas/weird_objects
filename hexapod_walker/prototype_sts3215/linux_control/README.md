@@ -56,7 +56,7 @@ boot. Two things make boot fast and deterministic instead:
 
 Result: web up ~30 s after power (was 60 s+, or wedged forever if the port
 claim raced `arduino-router`'s MCU bring-up). If the bridge ever goes
-silent, `python3 -c "import mcu_feetech_bus as m; m.mcu_reset()"` reboots
+silent, `uv run python -c "import mcu_feetech_bus as m; m.mcu_reset()"` reboots
 the MCU without touching servo power.
 
 ## Timestamped command / log stream → laptop
@@ -69,9 +69,9 @@ broadcasts on the LAN and learns your laptop from beacons on port 9378.
 ```bash
 # on the laptop — leave running while you operate the robot
 cd hexapod_walker/prototype_sts3215/linux_control
-python3 receive_robot_logs.py
+uv run python receive_robot_logs.py
 # backup path if UDP is firewalled:
-python3 receive_robot_logs.py --ssh arduino@hexapod.local
+uv run python receive_robot_logs.py --ssh arduino@hexapod.local
 ```
 
 Robot side: `logs/events.jsonl`. Optional override only if you need it:
@@ -112,7 +112,7 @@ whole cautious sequence. These commands do not move the robot; only
 # from prototype_sts3215/
 make robot-check       # syntax + web JS + git diff hygiene; no robot access
 make robot-unit-check  # robot-check + fake-bus/off-robot tests
-make robot-resolve     # print the current hexapod.local mDNS IPv4 answer
+make robot-resolve     # refresh/print cached robot IP for hexapod.local
 make robot-status      # read-only /api/ping + compact /api/robot summary
 make robot-deploy      # robot-check + SSH deploy + remote compile + status
 ```
@@ -137,11 +137,15 @@ HEXAPOD_SSH_HOSTKEY_ALIAS=hexapod.local
 ```
 
 If `hexapod.local` resolution is flaky, do not commit an IP address. Resolve
-the current address and use it only for the command you are running:
+the current address once and let the helper cache it in `~/.hexapod/last_ip`.
+`make robot-status`, `make robot-deploy`, `make robot-deploy-fast`, and remote
+compile prefer the cached raw IP and only fall back to mDNS when the cache is
+missing or stale:
 
 ```bash
-IP=$(make -s robot-resolve)
-HEXAPOD_HOST=http://$IP:8080 HEXAPOD_SSH=arduino@$IP make robot-deploy
+make robot-resolve
+make robot-status
+make robot-deploy
 ```
 
 There is also an explicit-path commit helper, intended to avoid
@@ -283,8 +287,8 @@ Pair once on the board (`bluetoothctl`), then:
 ```bash
 adb shell
 cd ~/hexapod_sts/linux_control
-PYTHONPATH=vendor:urt2_setup:../motor_setup:. python3 xbox_drive.py --list
-PYTHONPATH=vendor:urt2_setup:../motor_setup:. python3 xbox_drive.py
+PYTHONPATH=vendor:urt2_setup:../motor_setup:. uv run python xbox_drive.py --list
+PYTHONPATH=vendor:urt2_setup:../motor_setup:. uv run python xbox_drive.py
 ```
 
 (User is already in the `input` group on stock Uno Q images.)

@@ -1,21 +1,20 @@
 # hexapod prototype CAD pipeline.
 #
-# All targets shell out to ../../run.sh so the shared repo-root venv
-# (with trimesh, scipy, shapely, pyvista, matplotlib, etc.) is on the
-# PATH for every Python invocation.
+# All targets shell out to ../../run.sh where possible, so Python
+# invocations go through uv and the shared repo-root venv.
 
 REPO_ROOT := $(abspath $(CURDIR)/../..)
 RUN       := $(REPO_ROOT)/run.sh
 
 # ``mujoco.viewer.launch_passive`` requires ``mjpython`` on macOS (it
 # needs to own the main thread for Cocoa to spin up an NSApplication).
-# Ship via the repo's shared venv, falling back to plain python on
-# Linux / other platforms where the regular interpreter is fine.
+# Keep the uv convention by running the repo-root venv's mjpython via
+# ``uv run --active`` on macOS; otherwise use ordinary uv Python.
 UNAME_S := $(shell uname -s)
 ifeq ($(UNAME_S),Darwin)
-MJ_PY  := $(REPO_ROOT)/.venv/bin/mjpython
+MJ_PY  := VIRTUAL_ENV=$(REPO_ROOT)/.venv PATH=$(REPO_ROOT)/.venv/bin:$(PATH) uv run --active mjpython
 else
-MJ_PY  := $(REPO_ROOT)/.venv/bin/python
+MJ_PY  := uv run --active python
 endif
 
 .PHONY: check-cad check-cad-fast check-strength validate render build verify-prototype verify-fast verify-changed clean-artifacts view view-static view-build view-buildviz verify-buildviz regen-fasteners bom-fasteners robot-video robot-check robot-unit-check robot-resolve robot-status robot-deploy robot-deploy-fast help
@@ -48,7 +47,7 @@ help:
 	@echo "  clean-artifacts   Delete artifacts/ (renders + cad_report.md)."
 	@echo "  robot-check       Fast linux_control syntax/JS/diff checks; no robot access."
 	@echo "  robot-unit-check  robot-check plus fake-bus/off-robot control tests."
-	@echo "  robot-resolve     Print the current hexapod.local mDNS IPv4 answer."
+	@echo "  robot-resolve     Refresh/print cached robot IP for hexapod.local."
 	@echo "  robot-status      Read-only robot web health summary."
 	@echo "  robot-deploy      robot-check + SSH deploy + remote compile + health."
 	@echo "  robot-deploy-fast robot-check + SSH deploy only; deploy waits for /api/ping."
@@ -131,11 +130,11 @@ view-static:
 # PyVista build inspector: every printable part placed at the assembled
 # pose, colored by part type (matching the MuJoCo viewer's palette),
 # with floating role labels, an exploded-view slider, and per-part-type
-# hide/show checkboxes.  Plain python is fine -- pyvista does not need
-# mjpython.  Forward ARGS=... for things like
+# hide/show checkboxes.  PyVista does not need mjpython; run it through
+# uv.  Forward ARGS=... for things like
 #   make view-build ARGS="--screenshot /tmp/build.png --explode 0.8"
 view-build:
-	cd $(REPO_ROOT) && PYTHONPATH=$(REPO_ROOT) $(REPO_ROOT)/.venv/bin/python hexapod_walker/prototype_sts3215/scripts/inspect_build.py $(ARGS)
+	cd $(REPO_ROOT) && PYTHONPATH=$(REPO_ROOT) uv run --active python hexapod_walker/prototype_sts3215/scripts/inspect_build.py $(ARGS)
 
 # Browser-based build inspector (https://github.com/lukas/buildviz).  To VIEW
 # the sts3215 full robot, publish it into the ONE machine-wide BuildViz hub
