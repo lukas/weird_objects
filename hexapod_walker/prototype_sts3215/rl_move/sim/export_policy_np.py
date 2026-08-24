@@ -24,7 +24,8 @@ from rl_move.joint_frame import FRAME_ROBOT_ABS, normalize_joint_frame
 
 def export(policy_path: str, out_path: str, *, name: str = "",
            notes: str = "", joint_frame: str = FRAME_ROBOT_ABS,
-           extra_meta: dict | None = None) -> None:
+           extra_meta: dict | None = None,
+           control_hz: float | None = None) -> None:
     from stable_baselines3 import PPO
     import torch
 
@@ -58,6 +59,20 @@ def export(policy_path: str, out_path: str, *, name: str = "",
         **(extra_meta or {}),
     }
     meta["joint_frame"] = normalize_joint_frame(meta.get("joint_frame"))
+    # Trained control cadence (2026-08-24 100 Hz flip,
+    # fb_20260824T174619_c49b7e): the robot runner
+    # (linux_control/rl_policy.py) REFUSES a policy whose control_hz
+    # doesn't match its own config-derived rate, so every export must
+    # carry it. Default = the CURRENT config's control.hz (what a
+    # just-trained checkpoint was trained at); pass --control-hz for
+    # legacy exports (e.g. 25 for pre-flip checkpoints). An explicit
+    # extra_meta control_hz wins over both.
+    if "control_hz" not in meta:
+        if control_hz is None:
+            from rl_move.config import cfg_get, load_config
+            control_hz = float(cfg_get(load_config(), "control", "hz",
+                                       default=25.0))
+        meta["control_hz"] = float(control_hz)
     payload = {
         "meta": {
             **meta,
@@ -103,8 +118,13 @@ if __name__ == "__main__":
                     help=("policy joint frame: robot_abs (default, real "
                           "robot logical knee) or model_rel (legacy "
                           "MuJoCo femur-relative knee)"))
+    ap.add_argument("--control-hz", type=float, default=None,
+                    help=("trained control rate written to meta.control_hz "
+                          "(default: current config control.hz). Legacy "
+                          "pre-2026-08-24 checkpoints: pass 25."))
     args = ap.parse_args()
     export(args.policy, args.out, name=args.name, notes=args.notes,
            joint_frame=args.joint_frame,
            extra_meta=json.loads(args.extra_meta) if args.extra_meta
-           else None)
+           else None,
+           control_hz=args.control_hz)

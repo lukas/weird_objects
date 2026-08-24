@@ -106,15 +106,45 @@ except Exception:                                          # pragma: no cover
 
 WEIGHTS_PATH = _HERE / "rl_policy_weights.json"        # stance (obs 68)
 WALK_WEIGHTS_PATH = _HERE / "rl_walk_weights.json"     # walk (obs 72)
-# 25 Hz is the TRAINED CONTRACT of every deployed policy (sim env steps
-# at config control.hz = 25). Since the MCU stream bridge (2026-08-19)
-# the bus is no longer the limit — a full tick's bus work is ~3-5 ms
-# (snapshot read + SyncWrite) vs >20 ms before, so 50-100 Hz loops fit —
-# but do NOT raise HZ here until a policy is trained at that rate: the
-# obs/action dynamics (qd filter, action-delta costs, phase clocks) are
-# rate-conditioned.
-HZ = 25.0
+# The runner tick rate is the config's control.hz — the SAME key the
+# sim env trains against (sim_env.py dt), so deploy cadence can never
+# drift from the trained contract by editing one file. 100 Hz since the
+# 2026-08-24 operator order (fb_20260824T174619_c49b7e); the MCU stream
+# bridge (2026-08-19) makes the bus fit (~3-5 ms/tick). Obs/action
+# dynamics (qd filter, action-delta costs, phase clocks) are
+# RATE-CONDITIONED, so a policy trained at another rate must never be
+# played here: policy_control_hz_error() refuses on mismatch, and
+# exports with NO control_hz metadata are assumed legacy 25 Hz.
+
+
+def _config_hz(default: float = 25.0) -> float:
+    try:
+        cfg = load_config(str(_HERE.parent / "rl_move" / "config.yaml"))
+        return float(cfg_get(cfg, "control", "hz", default=default))
+    except Exception:                                  # pragma: no cover
+        return default
+
+
+HZ = _config_hz()
 DT = 1.0 / HZ
+
+
+def policy_control_hz_error(meta: dict, name: str = "policy") -> str | None:
+    """Refusal string when a policy's trained control rate != runner HZ.
+
+    Policies exported before 2026-08-24 carry no meta.control_hz —
+    those are the legacy 25 Hz contract and are assumed 25, so under a
+    100 Hz runner they are refused instead of silently played 4x fast.
+    """
+    trained = float(meta.get("control_hz") or 25.0)
+    if abs(trained - HZ) > 1e-6:
+        return (f"{name}: trained control rate {trained:g} Hz"
+                f"{' (assumed: no control_hz in meta)' if not meta.get('control_hz') else ''}"
+                f" != runner {HZ:g} Hz (rl_move/config.yaml control.hz)."
+                " Re-export with the correct --control-hz metadata or"
+                " deploy a policy trained at the runner rate — never"
+                " play a checkpoint at the wrong cadence.")
+    return None
 
 # LEGACY trained trajectory shapes (stance_dr10-era rl_move/config.yaml
 # goal section). Policies exported since 08-11 carry their own trained
@@ -741,6 +771,9 @@ def run_policy_move(drive, mode: str, *, on_progress=None,
         prof = policy_profile(policy, mode)
         total_s = float(prof["total_s"]) + min(
             max(float(extra_hold_s or 0.0), 0.0), 15.0)
+    hz_err = policy_control_hz_error(policy.meta, Path(wpath).name)
+    if hz_err:
+        return {"ok": False, "error": hz_err}
     try:
         joint_frame = policy_joint_frame(policy, cfg)
     except ValueError as e:
@@ -1076,6 +1109,9 @@ def run_drive_session(drive, cmd: DriveCommand, *, on_progress=None,
         return {"ok": False,
                 "error": (f"{Path(wpath).name} is not a walk policy "
                           f"(obs {walk_obs} not 72/74)")}
+    hz_err = policy_control_hz_error(walk_policy.meta, Path(wpath).name)
+    if hz_err:
+        return {"ok": False, "error": hz_err}
     # obs 74 = phase-clock walk (see run_policy_move): all-heading
     # training, no rot-60/mirror, phase_hz required in export meta.
     phase_hz = 0.0
@@ -1095,6 +1131,10 @@ def run_drive_session(drive, cmd: DriveCommand, *, on_progress=None,
             return {"ok": False,
                     "error": (f"{Path(hold_weights).name} fits no hold "
                               f"role (obs {hold_obs}, need 68/72/74)")}
+        hz_err = policy_control_hz_error(hold_policy.meta,
+                                         Path(hold_weights).name)
+        if hz_err:
+            return {"ok": False, "error": hz_err}
         if hold_obs == 74 and "phase_hz" not in hold_policy.meta:
             return {"ok": False,
                     "error": (f"{Path(hold_weights).name} is obs-74 but "

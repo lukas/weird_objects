@@ -1,13 +1,19 @@
 # Phase-1 stationary balance — see RL_PLAN.md
 
 control:
-  # 25 Hz is the trained contract of every deployed checkpoint — this
-  # value feeds the SIM env dt (sim_env.py), so changing it changes what
-  # future policies are trained for AND breaks parity with existing
-  # champions. The old hardware blocker is GONE (2026-08-19 MCU stream
-  # bridge: tick bus work ~3-5 ms, was >20 ms), so a 50 Hz training run
-  # is now deployable whenever the RL side wants to take that on.
-  hz: 25
+  # 100 Hz is the trained contract of every NEW policy (operator order
+  # 2026-08-24, fb_20260824T174619_c49b7e: "make all new models use
+  # 100hz"). This value feeds the SIM env dt (sim_env.py) AND the robot
+  # runner rate (linux_control/rl_policy.py reads it), so training and
+  # deploy can never drift apart. The 2026-08-19 MCU stream bridge makes
+  # 100 Hz bus work feasible (tick bus work ~3-5 ms, was >20 ms).
+  # LEGACY: every checkpoint trained before 2026-08-24 is a 25 Hz policy
+  # — its ledger entry has no control.hz cfg-set (pod_eval pins 25 for
+  # those) and its export meta has no/25 control_hz; the runner REFUSES
+  # rate-mismatched policies instead of playing them 4x fast. Evaluate
+  # or continue legacy checkpoints with an explicit --cfg-set
+  # control.hz=25 (launcher: needs --allow-legacy-control-hz).
+  hz: 100
 
 compat:
   # Policy joint frame. Default is the real robot's logical convention:
@@ -68,12 +74,16 @@ goal:
 safety:
   max_roll_deg: 10.0           # tighter after tip/brownout
   max_pitch_deg: 10.0
-  # Per-tick joint rate limit. 0.5°/tick (12.5°/s at 25 Hz) made standing
-  # up from the zero pose take >10 s (the knee travels ~135°); 1.5°/tick
-  # = 37.5°/s matches the bus write_speed cap (400 units ≈ 35°/s) so the
-  # limit is the servo profile, not this clamp. Still far below the
-  # incident speeds.
-  max_delta_q_deg: 1.5
+  # Per-tick joint rate limit. PHYSICAL contract is 37.5°/s of command
+  # slew, expressed per tick at control.hz: 1.5°/tick at the legacy
+  # 25 Hz, 0.375°/tick at the 100 Hz contract (operator order
+  # 2026-08-24, fb_20260824T174619_c49b7e — rate flip must NOT quietly
+  # 4x the physical slew to 150°/s). History: 0.5°/tick @25 Hz
+  # (12.5°/s) made standing up take >10 s; 37.5°/s matches the old bus
+  # write_speed cap (400 units ≈ 35°/s). Still far below incident
+  # speeds. Legacy 25 Hz evals/continues must set BOTH control.hz=25
+  # and max_delta_q_deg=1.5 together.
+  max_delta_q_deg: 0.375
   # Staged gait-entry slew ramp (08-13 takeoff ruling; design +
   # measured results in rl_docs/TAKEOFF.md, DEFAULT OFF = bit-exact).
   # Instrumented mechanism (26+ walk tapes, takeoff_audit +

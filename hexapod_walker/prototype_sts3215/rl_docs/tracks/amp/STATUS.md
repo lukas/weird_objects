@@ -1,6 +1,22 @@
 # amp - AMP locomotion from scratch
 
-Last updated: 2026-08-23 ~22:0x (**M5 GATE GREEN — 4/4 SEED
+Last updated: 2026-08-24 ~17:4x (**NOTE (MCP fb_20260824T172835_91e272,
+no track action): manual eval of the M5 champion
+(`..._phasehz11_s29.zip`) through the canonical 60s randomized
+`eval_joystick_gate` stress_mix session FAILS the joystick DONE-gate
+— zero falls (48/48) but slip/m med 5.241 (cap 2.9) and
+direction_err med 60.65deg (allow 40) at both DR-0 and DR-0.35. This
+is expected and non-blocking: M5's own gate (walk prog/slip, yaw tip
+err, push/fault gait_valid — all already PASS, see banner below) is
+a different, already-met bar from the joystick track's 60s
+command-following gate, and the AMP goal never required joystick-
+style command tracking, only cross-engine transfer of its own
+demonstrated behavior. Recorded so nobody mistakes the M5 champion
+for a drop-in joystick-track candidate without dedicated fine-tuning/
+a session wrapper — no code or launch follow-up needed, track stays
+DONE (sim scope) per the banner below.)
+
+Previous entry (2026-08-23 ~22:0x (**M5 GATE GREEN — 4/4 SEED
 REPLICATION COMPLETE; TRACK GOAL MET (sim scope).** `-phasehz11-s23`
 and `-s29` both VERDICTED full m5 PASS this cycle (own-cfg suite,
 walk wpm24 n_translating=28): s29 walk det_prog_med **1.058** /

@@ -1,6 +1,32 @@
 # joystick - RL from the programmatic gait to joystick control
 
-Last updated: 2026-08-24 ~17:3x (**certfreeze VERDICTED FAIL — the
+Last updated: 2026-08-24 ~17:5x (**certfreeze SEED-PASS-RATE GRID
+CLOSED, 3/3 uniform FAIL — the base run's verdict was NOT seed luck.**
+`-s1`/`-s2` (the n=3 batch launched alongside the base arm) both
+finished and read exactly like the base: `walkcurr/frontier` promotes
+b0->b5 cleanly in all 3 seeds (precert b0/b1 pass every time) — the
+cert-only-freeze curriculum-unlock is real and seed-robust — but the
+held-out 60s joygate fails all 3 (falls 6/48 base, 7/48 s1, 8/48 s2,
+all over the <=2/48 cap) and the new DR-0 leg-3(+4) sacrifice lock
+appears in all 3 (base det gait_valid 3/6, s1 4/6, s2 2/6, always
+sac-ing leg index 2 = "leg 3"). Uniform, not split — per the grid's
+own pre-registered read this decisively rules out seed noise as the
+explanation and confirms the b2+ heading-widening V6 practice diet
+itself (not freeze mechanics, not current-charge dose, not seed) is
+the damage source. No further certfreeze-recipe arms of any seed;
+`cw-arch-hist16-dep1-c1-joyfullcurr13-certfreeze-v7` (wz turning +
+15% instant-reversal added to every V6 bucket, already built +
+VERIFIED RUNNING train-1 before this grid closed) remains the correct
+standing next lever and needs no seed batch of its own until its own
+single read comes back — if it fails too, its own pre-registered
+branch escalates to the heading-BAND-WIDTH axis, not more diet
+diversity. Champion unchanged (`stotight45-seed13`); joystick DONE
+gate stays met via that champion; this ladder remains operator-ordered
+full-circle hardening (`fb_20260823T220651_5c66e3`). Evidence:
+`logs/ckpt_eval/cw_arch_hist16_dep1_c1_joyfullcurr12_certfreeze_{s1,s2}_{gate,owncfg,joygate}/`,
+W&B runs `5nsinbnj` (s1) / `k7jfofa9` (s2). Prior banner below.)
+
+Previous entry (2026-08-24 ~17:3x (**certfreeze VERDICTED FAIL — the
 cert-only-freeze repair does NOT rescue the joygate; 3/3 independent
 arms (full training freeze, cert-only freeze, k=2.0/k=6.0 current-
 charge doses) now show the SAME ~6-7/48 over_current regression,
