@@ -441,8 +441,21 @@ def run_episode(env, model, *, deterministic: bool, video: bool,
         ep["cmd_dist_m"] = round(cmd_dist_m, 3)
         ep["progress_ratio"] = (round(along_dist_m / cmd_dist_m, 3)
                                 if cmd_dist_m > 1e-6 else None)
-        ep["slip_per_m"] = round(
+        # slip_per_m is undefined (not "huge") for a whole-episode
+        # zero-commanded-distance draw (hold/turn-in-place archetypes
+        # in a 60s stress_mix session) — same guard as progress_ratio
+        # just above. Before this fix the max(along_dist_m, 0.05) floor
+        # turned ~9-11m of ordinary marching-in-place foot travel into
+        # slip_per_m~150-230 (vs a 2.9 cap), which dominates the n=24
+        # median even when every translating episode is in-band (found
+        # 08-24 on cw-amp-joy60-s29-ft1: 7/12 det + 8/12 sto episodes
+        # were exactly this — cmd_dist_m==0.0 — masking a real
+        # translating-episode read of slip/m 3.0-6.9). slip_m_total
+        # (raw meters, unguarded) still reports the hold-episode foot
+        # travel for anyone auditing "does it stand still on command".
+        ep["slip_per_m"] = (round(
             float(np.sum(slips)) / max(along_dist_m, 0.05), 3)
+            if cmd_dist_m > 1e-6 else None)
     if mode == "getup":
         # Whole-sequence metrics (RISE_WALK_NEXT_48H P1, 08-13): a
         # getup "success" must mean the WHOLE pipeline worked — the
@@ -461,8 +474,9 @@ def run_episode(env, model, *, deterministic: bool, video: bool,
         ep["cmd_dist_m"] = round(cmd_dist_m, 3)
         ep["progress_ratio"] = (round(along_dist_m / cmd_dist_m, 3)
                                 if cmd_dist_m > 1e-6 else None)
-        ep["slip_per_m"] = round(
+        ep["slip_per_m"] = (round(
             float(np.sum(slips)) / max(along_dist_m, 0.05), 3)
+            if cmd_dist_m > 1e-6 else None)
     if mode in STAND_END_MODES + ("lower",) \
             and getattr(env, "_pad_z_ref", None) is not None:
         # Mean pad clearance over the final 0.5 s (single-frame contact

@@ -1377,3 +1377,48 @@ def test_leg_chassis_collision_inert_in_plant_stance():
     mujoco.mj_forward(m, d)
     tucked = _legcol_chassis_pairs(m, d)
     assert tucked, "yawed full tuck produced no leg-chassis contact"
+
+
+def test_walk_slip_per_m_undefined_for_zero_command_episode():
+    """eval_checkpoint bug fix (08-24, found via cw-amp-joy60-s29-ft1):
+    slip_per_m used to divide by max(along_dist_m, 0.05) unconditionally,
+    so a whole-episode zero-commanded-speed draw (a 'hold'/turn-in-place
+    stress_mix archetype) turned ordinary marching-in-place foot travel
+    into a slip_per_m of 100+ (vs a ~2.9 cap) -- exploding the n=24
+    median even when every translating episode was healthy. slip_per_m
+    must be undefined (None), matching the progress_ratio guard one
+    line above it, whenever cmd_dist_m is ~0; the raw slip_m_total stays
+    a real number either way so the 'does it stand still' question is
+    still answerable."""
+    from rl_move.config import load_config
+    from rl_move.sim.eval_checkpoint import run_episode
+    from rl_move.sim.walk_task import SimHexapodJointWalkEnv
+
+    class _ZeroModel:
+        def predict(self, obs, deterministic=True):
+            return np.zeros(N_ACT), None
+
+    cfg = load_config()
+    cfg.setdefault("goal", {})
+    cfg["goal"]["walk_speed_min_m_s"] = 0.0
+    cfg["goal"]["walk_speed_max_m_s"] = 0.0
+    cfg["goal"]["walk_yaw_cmd"] = 0.0
+    env = SimHexapodJointWalkEnv(cfg, seed=0)
+    g = env._goal_gen
+    for m in ("hold", "lean", "track", "unload", "raise", "rise",
+              "lower"):
+        if hasattr(g, f"p_{m}"):
+            setattr(g, f"p_{m}", 0.0)
+    g.p_walk = 1.0
+    env.reset(seed=0)
+    assert env._goal_traj.mode == "walk"
+    n_ticks = int(round(2.0 / env.dt))
+    env._episode_steps = n_ticks  # force a short truncation
+    ep, _frames = run_episode(env, _ZeroModel(), deterministic=True,
+                              video=False, annotate=None)
+    env.close()
+
+    assert ep["cmd_dist_m"] == 0.0
+    assert ep["slip_per_m"] is None
+    assert isinstance(ep["slip_m_total"], float)
+    assert ep["slip_m_total"] >= 0.0

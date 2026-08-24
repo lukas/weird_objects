@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: FAILED
+**status**: FAIL
 
 **created**: 2026-08-24T18:34:15+00:00
 
@@ -16,7 +16,7 @@
 
 **gate**: PASS: frontier promotions past b0 with reward/eval AGREEMENT at 100 Hz AND 60s randomized joygate at 100 Hz: falls<=2/48, no over_current cluster, directions followed on side/rear/turn/reversal stress, slip <=~2.9/m, video shows all six feet cycling. PARTIAL: genuinely learning (b0+ promotions, improving rung evals) but short of the 25 Hz lineage at budget end — continuation candidate (expected: 1/4 sim-seconds). FAIL: b0 never promotes with reward AND rung metrics flat at adequate budget, or reward rises while rungs stay flat (100 Hz reward/eval mismatch — audit before any seed sweep).
 
-**verdict**: Pure infra death, zero training: the sharded vec-env workers SIGBUS'd (Fatal Python error: Bus error in mjx_sharded_vec_env._worker_main) at _setup_learn because the hist64 obs shm buffer (3072 envs x 4608 dims x f32 = 56.6MB) nearly fills the pods' 64MB /dev/shm; the env's own _check_shm_budget guard passed by a sliver and the first full write went over. Not a recipe/science result — the from-scratch 100 Hz question is untouched. Retry (checkup DEAD->retry-once): same arm at --n-envs 2048 (obs 37.7MB, ~46MB total, real margin) as cw-arch-hist64-joyfullcurr13-v7-hz100-scratch2k-s0. Data point for the fleet: any obs.history_frames=64 run needs n_envs<=2048 on the current 64MB-shm pods.
+**verdict**: Never trained (0 PPO steps) -- died at env-construction with 24x silent SIGBUS (exitcode=-7), auto-marked FAILED by the launch-verify window. NOT the rate-learnability question this arm was meant to answer. Root cause traced this cycle: obs.history_frames=64 (the 100Hz-native 640ms context this arm needs) quadruples n_obs (1152->4608), needing ~101MB of /dev/shm at --n-envs 3072 -- but the pod it landed on (train-2) is one of the fleet's legacy-64M-shm pods that never got the 08-10 dshm-4Gi fix (a concurrent cycle's parallel fleet audit this same cycle found train-0/2/3/4 stuck on the old 64M tmpfs while train-1/5/6/7/8/9/10/11 have the fixed 4.0G). Real fix is routing to a fixed pod, not shrinking n-envs -- relaunched UNCHANGED (n-envs 3072) pinned to train-1 (verified 4.0G shm, CUDA-capable, free). Also landed a permanent guard (mjx_sharded_vec_env._check_shm_budget) so any future obs/DR-field growth or accidental legacy-pod routing fails fast with a clear message and the safe --n-envs spelled out instead of 24 silent worker crashes -- 5 new unit tests (rl_move/tests/test_mjx_shm_budget.py). The from-scratch-100Hz-learnability question itself is UNANSWERED, now actually running on train-1.
 
-**failed_reason**: run never appeared as 'running' in W&B within 240s
+**failed_reason**: ROOT CAUSE (this cycle): infra, not a training/rate-learnability failure. Landed on train-2, a legacy-64M-/dev/shm pod (never got the 08-10 dshm-4Gi fix -- confirmed via a concurrent cycle's parallel fleet audit finding train-0/2/3/4 still legacy). hist64's obs.history_frames=64 needs ~101MB of shm at n-envs=3072 -- 'mount -o remount' is permission-denied, so the launch died as 24 silent SIGBUS (exitcode=-7) workers with no python traceback before any PPO step ran. Fix: relaunched unchanged (n-envs 3072) pinned to train-1 (verified 4.0G shm + CUDA capable). Also landed mjx_sharded_vec_env._check_shm_budget (fails fast with a clear message pre-allocation instead of silent worker crashes; 5 new unit tests, rl_move/tests/test_mjx_shm_budget.py).
 
