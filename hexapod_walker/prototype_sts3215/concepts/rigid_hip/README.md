@@ -32,8 +32,12 @@ servo — is a cantilever.  This variant closes the structure from the top:
   edits — servo-cradle corners rounded to the 38.2 mm yaw envelope so
   the plain columns clear the swinging leg by 5 mm at every angle, and
   the hub flange extended down as a Φ29 seat ring to the relocated
-  bottom bearing (see below).  The one production part this variant
-  reprints.
+  bottom bearing (see below).
+* **`chassis_bottom_rigid`** (print 1): the production chassis with the
+  six tower platforms' square corners rounded to R10 arcs, the dead
+  cap-bolt ear lugs shaved off, and the 18 pillar-foot bolt holes
+  printed in (see below).  Every functional surface — bearing pocket,
+  seat, well walls, Wago trays, strap slots — is production geometry.
 * **`centre_wago_block`** (print 1): the pillars claim the corner Wago
   trays, so the power tree consolidates — 4× 5-port 221-415 (two per
   net, jumpered) in one press-fit block at the chassis centre under
@@ -57,8 +61,9 @@ Aug 24):
 
 * The single race drops into **chassis_bottom's own open-top Φ37.15
   pocket** — the production LOWER-race position, so the seat
-  (coxa-local z 0.5) and the straight drop-in path are print-proven.
-  chassis_bottom is still NOT reprinted.
+  (coxa-local z 0.5) and the straight drop-in path are print-proven
+  (the `chassis_bottom_rigid` reprint changes only cosmetic corners and
+  adds foot holes; the pocket is untouched production geometry).
 * The coxa hub grows a **Φ29 seat ring** (the production uflange OD,
   bearing only on the Φ25…29 inner-race land) from the uflange down to
   the relocated race top — free, since the coxa is already a variant
@@ -72,15 +77,39 @@ Aug 24):
   loads run up through the TOP bearing into the plate shoulder.  Each
   bearing takes one direction; no lip needed.
 * The cap's dust labyrinth is retired — the 6805-2RS is a **sealed**
-  bearing, and the tower's (now unused) cap-bolt ears leave no room to
-  drop the hub skirt down in its place.  The race's outer band is
-  exposed for ~3 mm; acceptable for a concept mule, note it if this
-  ever walks gravel.
+  bearing.  The race's outer band is exposed for ~3 mm; acceptable for
+  a concept mule, note it if this ever walks gravel.
 * Dropping the race 7 mm also stretches the bearing couple: mid-plane
   to mid-plane goes from ~58 mm (cap-held) to ~65 mm.
 
 Robot total stays **12 bearings**, same as production (2 per leg: one
 in the bottom tower, one at the top plate).
+
+## Rounded tower platforms — chassis_bottom becomes a variant print
+
+Each production yaw tower stands on a square outboard platform that
+juts past the hex edge; its corners poke 8.4 mm diagonally past the
+Φ44 tower.  Rounding them (user, Aug 24) makes `chassis_bottom_rigid`
+(see `chassis_corner_round.png` for before/after):
+
+* **Platform corners → R10 arcs**, tangent to the outboard face
+  (x 121.2 in the leg frame) and side faces, cut through the full
+  platform + belly-skirt band.  The arc never comes closer than
+  ~0.4 mm to the tower wall, asserted on every rebuild — the bearing
+  pocket, seat, well walls and rim are untouched production geometry.
+* **Dead cap-bolt ears shaved**: with the `yaw_bearing_cap` deleted,
+  the three M3 ear lugs per tower had no job.  The outboard one sat
+  exactly on the corner being rounded (it would overhang the new arc)
+  and is shaved flush to the tower cylinder; the tangential one poked
+  6.8 mm past the platform silhouette and is shaved flush to the
+  rim-wall face.  The inboard one stays — it merges into the
+  well-mouth collar, is invisible under the deck, and removing it
+  risks gouging the collar for zero visual gain.
+* **18 pillar-foot holes printed in** (same constants as the pillar
+  feet, aligned by construction) — no bench drilling on a fresh build.
+* Net: −9 cm³ (326 vs 335).  **On an existing stock chassis print**
+  all of this is a bench mod instead: saw/sand the 12 corners and the
+  ear lugs, drill the foot holes using the pillar feet as jigs.
 
 ## Stack (world Z, chassis_bottom sheet mid-plane = 0)
 
@@ -144,9 +173,8 @@ territory outside every swing envelope):
   servo-cradle corner edges rounded to the 38.2 mm arc — at most
   2.16 mm comes off (they used to reach 40.36 mm) — plus the Φ29 hub
   seat ring for the tower-seated bearing (previous section).  Hub,
-  horn drive, cradle pilots and cap seat are untouched, but note this
-  makes the coxa a **variant reprint**, no longer the stock print —
-  the price of a plain column instead of a scalloped one.
+  horn drive, cradle pilots and cap seat are untouched — the price of
+  a plain column instead of a scalloped one is a variant coxa print.
 * **Top**: stops 0.1 mm short of the frame sheet (the six bearing
   RACES define the plate plane — the screws pull the sheet down onto
   the pillar; sand/shim a proud pillar, never let it rock).  Two Φ2.5
@@ -159,14 +187,17 @@ territory outside every swing envelope):
   (no lever access), so the power splices **consolidate into the
   central block** (next section); the vacated bay becomes the pillar's
   socket — the foot fills it with 0.3 mm clearance to the 2.4 mm
-  production walls, which act as the shear/registration key.
-  chassis_bottom is NOT reprinted.
+  production walls, which act as the shear/registration key (the tray
+  is untouched production geometry on the `chassis_bottom_rigid`
+  reprint).
 * **Foot bolts**: three M3 through-bolts with nyloc nuts on the belly
   (two inside the bay, one on an inboard tab that sits under the open
-  hatch so its driver comes straight down).  The foot is its own
-  drill jig: sit the pillar in the tray, drill Φ3.4 through the 8 mm
-  sheet+floor, bolt.  A one-time bench drill mod, verified against
-  open belly at all three spots.
+  hatch so its driver comes straight down).  The Φ3.4 holes are
+  **printed into `chassis_bottom_rigid`** at the same constants the
+  foot uses, so they line up by construction; belly verified open at
+  all three nut spots.  (Bench-modding a STOCK chassis print instead?
+  The foot is its own drill jig: sit the pillar in the tray, drill
+  Φ3.4 through the 8 mm sheet+floor, bolt.)
 
 Why this shape: light (~140 g total for all six), cheap (pure print,
 ~$3 of filament + 24 screws), strong (six large-section columns at
@@ -200,7 +231,8 @@ one printed block at the chassis centre:
 * **Mount**: VHB pad — the exact scheme the production corner trays
   used for months before merging into the chassis print, and here the
   wire pull is a gentle radial fan rather than one corner's inward
-  yank.  No drilling, chassis_bottom untouched.
+  yank.  No drilling; the chassis floor under it is untouched
+  production sheet.
 * **Wiring delta**: each leg's power pigtail runs corner → centre
   (~60–70 mm longer); battery leads come up through the existing trunk
   pass directly into the east ports.
@@ -257,12 +289,17 @@ variation only moves parts that stay outboard/below the plate.
   yaw envelope the plain columns rely on nor reaches the tower-seated
   race (same filament as 6 production coxas; the old prints become
   spares)
+* **1× `chassis_bottom_rigid` reprint** (~326 cm³, same class as the
+  production chassis print) — rounded tower platforms, shaved ears,
+  printed foot holes.  A stock chassis print can be bench-modded
+  instead (saw/sand corners + drill), skipping the reprint entirely
 * recommended: 12× M3 heat-set inserts (McMaster 94459A130) for the hip
   cap pilots, +12 for the pillar-top pilots — see "Disassembly & service"
 
 ## Assembly order
 
-1. Build the robot as production but with three swaps: use
+1. Build the robot as production but with four swaps: build on
+   `chassis_bottom_rigid` (or a bench-modded stock chassis); use
    `coxa_link_rigid` in place of the stock coxa; press ONE 6805 onto
    each coxa's hub boss from below until it seats against the Φ29
    seat ring, then drop the leg + bearing into the tower pocket (the
@@ -276,8 +313,9 @@ variation only moves parts that stay outboard/below the plate.
    leads through the trunk pass into the east ports and each leg's
    (lengthened) pigtails into the fan-out ports.  The 6 corner and 2
    trunk nuts are retired.  Then sit each `corner_pillar` in its
-   vacated tray, drill the three Φ3.4 foot holes through the sheet
-   using the foot as the jig, and bolt down with M3×12 + belly nylocs.
+   vacated tray and bolt down with M3×12 + belly nylocs through the
+   printed foot holes (stock chassis: drill them first, using the
+   foot as the jig).
 3. Press a 6805 onto each cap boss until it seats on the Φ29 pedestal.
 4. Lower `chassis_top_rigid` straight down onto all six races (pockets
    are lead-in chamfered; descent path verified clear at build time —
@@ -352,6 +390,9 @@ serviceable option.
   orientation and supports).  The rounded corners change nothing; the
   Φ29 seat ring prints as a horizontal cylinder band exactly like the
   uflange above it (the coxa prints on its side).
+* `chassis_bottom_rigid`: print exactly like the production chassis
+  (belly up, same supports).  The rounded corners, shaved ears and
+  foot holes change nothing about the print strategy.
 * `centre_wago_block`: floor down — flat print, no supports; walls are
   plain vertical extrusions like the production trays.
 * `hip_clamp_cap_rigid`: rest on the tongue face (outer face + boss
@@ -361,10 +402,10 @@ serviceable option.
   do that.
 * Reused parts in `stl/` (femur_link, tibia_knee_yoke, …) are for the
   viewer; print those from the main `stl_prototype/`.  The variant
-  prints are the parts above (including `coxa_link_rigid.stl`, which
-  REPLACES the stock coxa).  There is no `yaw_bearing_cap.stl` here —
-  that production part is not used.  `*_DO_NOT_PRINT.stl` are COTS
-  visuals.
+  prints are the parts above (including `coxa_link_rigid.stl` and
+  `chassis_bottom_rigid.stl`, which REPLACE their stock parts).
+  There is no `yaw_bearing_cap.stl` here — that production part is
+  not used.  `*_DO_NOT_PRINT.stl` are COTS visuals.
 
 ## Build & view
 
@@ -381,8 +422,11 @@ npx buildviz register hexapod_walker/prototype_sts3215/concepts/rigid_hip \
 Checks run at build time: watertightness, seated-stack placement, the
 bottom joint (race on the tower seat, coxa/race contact = boss press
 only, seat ring lands on the race top, leg + bearing lift-out path),
-full 360° yaw sweep vs the plate, straight-down plate descent over all
-six bearings, pillar clearances (seated robot, ±45° operating yaw with
-margin, and an informational full hand-spin scan) and the femur
-pitch×yaw contact sweep (fails the build if the safe limit ever eats
-into walking headroom at −45°).
+the chassis variant (corners actually rounded, arcs never bit the
+tower wall, only the intentional inboard boss survives, foot holes
+open where the pillar feet expect them), full 360° yaw sweep vs the
+plate, straight-down plate descent over all six bearings, pillar
+clearances (seated robot, ±45° operating yaw with margin, and an
+informational full hand-spin scan) and the femur pitch×yaw contact
+sweep (fails the build if the safe limit ever eats into walking
+headroom at −45°).

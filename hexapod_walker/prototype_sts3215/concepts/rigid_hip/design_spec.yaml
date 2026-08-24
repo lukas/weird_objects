@@ -31,6 +31,13 @@
 # relocated race top (the coxa is already a variant print).  Bearing
 # couple ~65 mm mid-plane to mid-plane.  Net 12 bearings per robot,
 # same as production.
+#
+# Chassis variant (user, Aug 24: "round the corners on the chassis
+# bottom below where the bearings go"): chassis_bottom_rigid rounds the
+# six square tower platforms' corners to R 10, shaves the dead cap-bolt
+# ear lugs (outboard + tangential; the inboard one stays merged with
+# the well collar) and prints in the 18 pillar-foot holes.  All
+# functional surfaces stay production geometry.
 
 parts:
   hip_clamp_cap_rigid:
@@ -320,9 +327,9 @@ parts:
           tangential shear on the side walls, radial on the outer
           wall) plus an inboard tab whose bolt lands under the open
           hatch.  Three M3 through-bolts with nyloc nuts on the belly;
-          the foot is the drill jig for the phi 3.4 holes through the
-          8 mm sheet+floor (bench drill mod -- chassis_bottom is NOT
-          reprinted).
+          the phi 3.4 holes are printed into chassis_bottom_rigid at
+          the same constants (on a STOCK chassis print: the foot is
+          the drill jig, a bench mod).
         dimensions:
           key_clearance:
             label: "Foot-to-wall clearance per side"
@@ -396,8 +403,58 @@ parts:
       phi 25 and the 0.15 is the press.
 
   chassis_bottom:
-    label: "Production chassis_bottom (unchanged, reference)"
-    description: "Print from the main stl_prototype/ — unchanged by this variant."
+    label: "chassis_bottom_rigid — rounded tower platforms, ears shaved, foot holes (concept)"
+    aliases: ["rigid chassis", "chassis bottom rigid", "rounded chassis"]
+    description: >-
+      The production chassis_bottom with three variant edits (user,
+      Aug 24: "round the corners on the chassis bottom below where the
+      bearings go").  (1) PLATFORM CORNERS: the square outboard
+      platform under each yaw tower (face x 121.2 in the leg frame,
+      half-width 21.25 above the sheet / 18.9 for the belly skirt)
+      poked 8.4 mm diagonally past the phi 44 tower; its corners are
+      rounded with R 10 arcs tangent to both faces through the full
+      platform + skirt band.  The arc never comes closer than ~0.4 mm
+      to the tower wall (asserted every rebuild) -- pocket, seat, well
+      walls, trays and slots are untouched production geometry.
+      (2) DEAD EARS: the yaw_bearing_cap is deleted in this variant,
+      so its three M3 ear lugs per tower had no job; the outboard one
+      (which sat ON the rounded corner) is shaved flush to the tower
+      cylinder and the tangential one flush to the rim-wall face; the
+      inboard one stays merged with the well-mouth collar (invisible
+      under the deck).  (3) FOOT HOLES: the 18 phi 3.4 pillar-foot
+      bolt holes are printed through the sheet at the same PILLAR_*
+      constants as the feet.  Net -9 cm3 (326 vs 335).  A stock
+      chassis print can be bench-modded to match (saw/sand + drill)
+      instead of reprinting.
+    generated_by:
+      file: "concepts/rigid_hip/make_rigid_hip_variant.py"
+      function: "make_chassis_bottom_rigid"
+      output_stl: "stl/chassis_bottom_rigid.stl"
+    features:
+      corner_round:
+        label: "R10 rounded platform corners (x12)"
+        kind: "chamfer"
+        purpose: >-
+          Cosmetic cleanup of the square tower platforms (user
+          request); arcs tangent to the outboard and side faces, clear
+          of the tower wall at every z.
+        dimensions:
+          radius:
+            label: "Corner rounding radius"
+            value: 10.0
+            code_name: CHB_ROUND_R
+      foot_holes:
+        label: "18x phi 3.4 pillar-foot through-holes"
+        kind: "hole"
+        purpose: >-
+          M3 clearance for the corner_pillar foot bolts (two in-bay +
+          one inboard tab per corner azimuth), belly nylocs; printed
+          at the same constants the feet use, aligned by construction.
+        dimensions:
+          diameter:
+            label: "Hole diameter (M3 clearance)"
+            value: 3.4
+            code_name: HOLE_D
   coxa_link:
     label: "coxa_link_rigid — rounded corners + tower-bearing seat ring (concept)"
     aliases: ["rigid coxa", "rounded coxa", "coxa link rigid", "servo holder"]

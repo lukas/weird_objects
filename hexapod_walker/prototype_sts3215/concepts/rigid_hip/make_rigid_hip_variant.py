@@ -34,15 +34,21 @@ pair.  This variant closes the loop from the TOP:
     perimeter screw threads into the pillar top through the frame; one
     dedicated frame screw per pillar keeps the frame clamped with the
     lid off; two M3 through-bolts with belly nylocs hold each foot
-    (drilled through chassis_bottom using the foot as the jig -- a
-    bench drill mod, no reprint).  The four central 90 mm standoffs
-    remain only as hatch/electronics anchors.
+    through printed holes in ``chassis_bottom_rigid`` (on a STOCK
+    chassis print: drill them using the foot as the jig).  The four
+    central 90 mm standoffs remain only as hatch/electronics anchors.
   * ``coxa_link_rigid`` (x6) -- the production coxa with two variant
     edits: servo-cradle corners rounded to the 38.2 mm yaw envelope
     (max 2.16 mm off two vertical wall corners), and the hub uflange
     extended DOWN as a Phi 29 seat ring to the relocated bottom race
-    (see BEARING COUNT).  All other interfaces untouched.  The one
-    production part this variant reprints.
+    (see BEARING COUNT).  All other interfaces untouched.
+  * ``chassis_bottom_rigid`` (x1) -- the production chassis with the
+    six tower platforms' square corners rounded R 10 (user, Aug 24),
+    the dead cap-bolt ear lugs shaved (outboard + tangential; the
+    inboard one stays merged with the well collar), and the 18
+    pillar-foot holes printed in.  See the CHB_* constant block.
+    Every functional surface (pocket, seat, walls, trays, slots) is
+    production geometry.
   * ``centre_wago_block`` -- the pillars claim the corner Wago trays,
     so the power tree consolidates: 4x 5-port 221-415 (two per net,
     jumpered) in one printed press-fit block at the chassis centre,
@@ -230,6 +236,38 @@ HUB_RING_OD = hp.YAW_BEARING_INNER_OD     # 29 -- production uflange OD
 HUB_RING_ID = 24.0                        # overlaps the boss wall (22..25.15)
 HUB_RING_Z0 = hp.YAW_BEARING_LOWER_TOP_Z  # 7.5 -- relocated race TOP
 HUB_RING_Z1 = hp.YAW_BEARING_UPPER_TOP_Z + 1.5   # 16 -- well into the uflange
+
+# CHASSIS VARIANT (user, Aug 24: "round the corners on the chassis
+# bottom below where the bearings go").  Each production yaw tower
+# stands on a SQUARE outboard platform (leg-frame face x 121.2;
+# half-width 21.25 above the sheet, 18.9 for the z -6..-2 belly
+# skirt; top face z ~6.22) whose corners poke 8.4 mm diagonally past
+# the Phi 44 tower.  This variant rounds them with R 10 arcs tangent
+# to both faces -- the arc never comes closer than ~0.4 mm to the
+# tower wall across the whole cut band (checked numerically when
+# this was designed and re-asserted by check_chassis_variant), so
+# the bearing pocket, well walls and rim are untouched.  With the
+# yaw_bearing_cap deleted, the three M3 cap-bolt ear lugs per tower
+# (PCD 47, z 6.25..19.75) are dead weight:
+#   * the OUTBOARD ear (coxa az 330) sat ON the corner being rounded
+#     and would overhang the new arc -- shaved flush to the tower
+#     cylinder (0.05 bite into the tower skin for clean topology);
+#   * the TANGENTIAL ear (az 90) poked 6.8 mm past the platform
+#     silhouette -- shaved flush to the rim-wall face (y 20.45);
+#   * the INBOARD ear (az 210) merges into the well-mouth collar and
+#     STAYS: a 9 mm dead boss, invisible under the deck; removing it
+#     risks gouging the collar for zero visual gain.
+# Since the chassis is a variant print now anyway, the 18 pillar-
+# foot bolt holes are PRINTED IN (the foot-as-drill-jig bench mod
+# remains the documented path for modifying a STOCK chassis print).
+CHB_ROUND_R = 10.0            # platform corner rounding radius
+CHB_FACE_X = 121.2            # platform outboard face (measured)
+CHB_HALF_Y = 21.4             # platform half-width envelope (21.25+lead-in)
+CHB_PLATE_TOP = 6.2           # platform top face (measured 6.20..6.25)
+CHB_TOWER_R = hp.YAW_BEARING_OD / 2.0 + hp.YAW_TOWER_WALL   # 22.0
+CHB_KEEP_R = CHB_TOWER_R - 0.05   # ear cuts bite 0.05 into the tower skin
+CHB_EAR_R = 6.6               # covers the Phi 9 ear boss with margin
+CHB_WALL_FACE_Y = 20.45       # rim-wall outer face (20.33 measured) + cl
 PILLAR_RHO = 81.6                         # centre radius at az 0/60/...:
                                           # midway between the lid-screw
                                           # pilot (76.2) and the dedicated
@@ -251,8 +289,9 @@ PILLAR_BOT_Z = hp.CHASSIS_PLATE_T / 2.0   # +2.0 -- bottom sheet top face
 # splices CONSOLIDATE into the central block (see WBLK_* below); the
 # vacated tray becomes the pillar's SOCKET:
 # the foot fills the bay with 0.3 mm clearance to all three walls, so
-# the production walls themselves are the shear/registration key --
-# chassis_bottom is untouched.  The surrounding corner is otherwise
+# the production walls themselves are the shear/registration key (the
+# tray geometry is production, untouched by the CHB_* chassis edits).
+# The surrounding corner is otherwise
 # claimed (probed against the real solid): the leg cradle's diagonal
 # well wall at y ~ +/-19..26 and the retainer's corner pads (z to 9.25)
 # forbid any foot wings OUTSIDE the bay, so both bar bolts sit INSIDE
@@ -518,9 +557,9 @@ def make_corner_pillar() -> trimesh.Trimesh:
         production tray IS the shear/registration socket -- carrying
         two in-bay Phi 3.4 through-holes, plus a small inboard TAB
         whose bolt lands under the open hatch.  All three are M3
-        through-bolts with nyloc nuts on the belly (the foot is the
-        drill jig for the holes in chassis_bottom: a bench drill mod,
-        no reprint).
+        through-bolts with nyloc nuts on the belly; the matching holes
+        are printed into chassis_bottom_rigid (on a STOCK chassis
+        print, drill them using the foot as the jig).
     """
     top_z = SHEET_Z0 - PILLAR_TOP_GAP
 
@@ -587,6 +626,64 @@ def make_coxa_link_rigid() -> trimesh.Trimesh:
     z0, z1 = coxa.bounds[0][2] - 1.0, coxa.bounds[1][2] + 1.0
     keep = _cyl_z(ROT_ENVELOPE_R, z0, z1, sections=256)
     return trimesh.boolean.intersection([coxa, keep], engine="manifold")
+
+
+def make_chassis_bottom_rigid() -> trimesh.Trimesh:
+    """The production chassis_bottom with the CHB_* variant edits (see
+    the constant block above):
+
+      * PLATFORM CORNERS: the square outboard platform under each yaw
+        tower is rounded with an R 10 arc tangent to its outboard face
+        (x 121.2) and side faces (y +-21.4 envelope), through the full
+        platform + belly-skirt band (z -7..6.5).  The arc stays clear
+        of the Phi 44 tower wall at every z, so pocket/walls/rim keep
+        production geometry.
+      * DEAD EARS: the outboard (az 330) cap-bolt ear is shaved flush
+        to the tower cylinder, the tangential (az 90) ear flush to the
+        rim-wall face.  The inboard (az 210) ear stays merged with the
+        well-mouth collar.
+      * FOOT HOLES: the 18 Phi 3.4 pillar-foot bolt holes are printed
+        through the sheet (same PILLAR_* constants as the feet, so
+        they line up by construction).
+
+    This makes chassis_bottom the variant's second reprinted
+    production part (chassis_bottom_rigid.stl)."""
+    cb = hp.make_chassis_bottom()
+    ear_r = hp.YAW_CAP_BOLT_PCD / 2.0                        # 23.5
+    cutters = []
+    for i in range(6):
+        R = _rotz((i + 0.5) * np.pi / 3.0)                   # leg frame
+        leg_cuts = []
+        for sy in (+1.0, -1.0):                              # (a) corners
+            ccx = CHB_FACE_X - CHB_ROUND_R
+            ccy = sy * (CHB_HALF_Y - CHB_ROUND_R)
+            box = _box((CHB_ROUND_R + 2.0, CHB_ROUND_R + 2.0, 13.5),
+                       (ccx + (CHB_ROUND_R + 2.0) / 2.0,
+                        ccy + sy * (CHB_ROUND_R + 2.0) / 2.0, -0.25))
+            leg_cuts.append(_diff(box, [_cyl_z(CHB_ROUND_R, -8.0, 7.5,
+                                               x=ccx, y=ccy, sections=96)]))
+        keep = _cyl_z(CHB_KEEP_R, CHB_PLATE_TOP - 1.0, 21.6,
+                      x=APOTHEM, y=0.0, sections=128)
+        ear330 = _cyl_z(CHB_EAR_R, CHB_PLATE_TOP, 20.6,      # (b) outboard
+                        x=APOTHEM + ear_r * np.cos(-np.pi / 6.0),
+                        y=ear_r * np.sin(-np.pi / 6.0), sections=48)
+        leg_cuts.append(_diff(ear330, [keep.copy()]))
+        box90 = _box((12.0, 10.0, 20.6 - CHB_PLATE_TOP),     # (c) tangential
+                     (APOTHEM, CHB_WALL_FACE_Y + 5.0,
+                      (CHB_PLATE_TOP + 20.6) / 2.0))
+        leg_cuts.append(_diff(box90, [keep]))
+        for c in leg_cuts:
+            c.apply_transform(R)
+            cutters.append(c)
+    for az in range(0, 360, 60):                             # (d) foot holes
+        Ra = _rotz(np.deg2rad(az))
+        for hx, hy in ((PILLAR_BAR_HOLE_X, +PILLAR_BAR_HOLE_Y),
+                       (PILLAR_BAR_HOLE_X, -PILLAR_BAR_HOLE_Y),
+                       (PILLAR_TAB_RHO, 0.0)):
+            h = _cyl_z(HOLE_D / 2.0, -12.0, 12.0, x=hx, y=hy, sections=32)
+            h.apply_transform(Ra)
+            cutters.append(h)
+    return _diff(cb, cutters)
 
 
 def _pillar_meshes(meshes: dict) -> list[trimesh.Trimesh]:
@@ -722,12 +819,15 @@ MESH_FILES = {
     "top_hatch_rigid": (make_top_hatch_rigid, "top_hatch_rigid.stl"),
     "corner_pillar": (make_corner_pillar, "corner_pillar.stl"),
     "centre_wago_block": (make_centre_wago_block, "centre_wago_block.stl"),
-    # VARIANT reprint of a production part: cradle corners rounded to
-    # the 38.2 mm yaw envelope + Phi 29 hub seat ring down to the
-    # tower-seated bottom race (see make_coxa_link_rigid).
+    # VARIANT reprints of production parts: the coxa gets its cradle
+    # corners rounded to the 38.2 mm yaw envelope + a Phi 29 hub seat
+    # ring down to the tower-seated bottom race (make_coxa_link_rigid);
+    # the chassis gets its tower platforms' corners rounded, the dead
+    # cap-bolt ears shaved and the pillar-foot holes printed in
+    # (make_chassis_bottom_rigid).
     "coxa_link": (make_coxa_link_rigid, "coxa_link_rigid.stl"),
+    "chassis_bottom": (make_chassis_bottom_rigid, "chassis_bottom_rigid.stl"),
     # Unchanged production prints (print from the MAIN stl_prototype/).
-    "chassis_bottom": (hp.make_chassis_bottom, "chassis_bottom.stl"),
     "femur_link": (hp.make_femur_link_part, "femur_link.stl"),
     "tibia_knee_yoke": (hp.make_tibia_knee_yoke, "tibia_knee_yoke.stl"),
     "foot_boot": (hp.make_foot_boot, "foot_boot.stl"),
@@ -751,7 +851,7 @@ MESH_FILES = {
 }
 ALWAYS_REBUILD = {"hip_clamp_cap_rigid", "chassis_top_rigid",
                   "top_hatch_rigid", "corner_pillar", "centre_wago_block",
-                  "coxa_link", "bearing_6805"}
+                  "coxa_link", "chassis_bottom", "bearing_6805"}
 
 
 def build_meshes() -> dict[str, trimesh.Trimesh]:
@@ -900,6 +1000,70 @@ def check_bottom_joint(meshes: dict[str, trimesh.Trimesh]) -> None:
     print(f"  bottom joint: race on the tower seat (world z {seat_w:.2f}), "
           f"NO cap; coxa/race contact = boss press ({v_press:.1f} mm3), "
           f"leg + bearing lift straight out")
+
+
+def check_chassis_variant(meshes: dict[str, trimesh.Trimesh]) -> None:
+    """chassis_bottom_rigid edits landed as designed: platform corners
+    actually rounded (nothing left on the outboard face past the
+    tangency band), the R 10 arcs never bit the tower wall, only the
+    intentional az-210 boss survives past the tower cylinder above the
+    platform, and the printed foot holes are open exactly where the
+    pillar feet expect them.  (Pocket seat, tray socket and retainer
+    territory are re-verified against THIS mesh by the other checks.)"""
+    cb = meshes["chassis_bottom"]
+    assert cb.body_count == 1, "chassis variant not a single body"
+    v = trimesh.transform_points(cb.vertices, _rotz(-0.5 * np.pi / 3.0))
+    near = v[(np.abs(v[:, 1]) < 40.0) & (v[:, 0] > 55.0)]
+
+    # corners gone: on the outboard face only the tangency band remains
+    # (R 10 arc re-crosses x face-0.05 at |y| ~ 12.4), plus the tower
+    # crown (|y| < 3) poking 0.8 past the face
+    face = near[(near[:, 0] > CHB_FACE_X - 0.05) & (near[:, 2] < CHB_PLATE_TOP)]
+    y_max = float(np.abs(face[:, 1]).max())
+    assert y_max <= CHB_HALF_Y - CHB_ROUND_R + 1.2, \
+        f"platform face still reaches |y| {y_max:.2f} -- corner not rounded"
+
+    # tower wall unbitten by the corner arcs: full Phi 44 ring solid at
+    # the pocket band
+    ax = APOTHEM
+    ang = np.linspace(0.0, 2.0 * np.pi, 24, endpoint=False)
+    ring = np.column_stack([ax + (CHB_TOWER_R - 0.6) * np.cos(ang),
+                            (CHB_TOWER_R - 0.6) * np.sin(ang),
+                            np.full(24, 17.0)])
+    Rz = _rotz(0.5 * np.pi / 3.0)
+    got = cb.contains(trimesh.transform_points(ring, Rz))
+    assert got.all(), "tower wall bitten by a variant cut"
+
+    # ears: above the rim walls (they top out at z ~10.25; ears run to
+    # 19.75), the only material past the tower cylinder is the
+    # intentional az-210 boss
+    band = near[(near[:, 2] > 10.5) & (near[:, 2] < 19.9)]
+    d = band[:, :2] - [ax, 0.0]
+    rr = np.hypot(d[:, 0], d[:, 1])
+    out = d[rr > CHB_TOWER_R + 0.05]
+    if len(out):
+        a = np.degrees(np.arctan2(out[:, 1], out[:, 0])) % 360.0
+        assert ((a > 180.0) & (a < 240.0)).all(), \
+            "shaved ear (az 330/90) still pokes past the tower cylinder"
+
+    # printed foot holes: open at all 18 spots, floor solid beside them
+    centres, beside = [], []
+    for az in range(0, 360, 60):
+        Ra = _rotz(np.deg2rad(az))
+        for hx, hy in ((PILLAR_BAR_HOLE_X, +PILLAR_BAR_HOLE_Y),
+                       (PILLAR_BAR_HOLE_X, -PILLAR_BAR_HOLE_Y),
+                       (PILLAR_TAB_RHO, 0.0)):
+            centres.append(trimesh.transform_points(
+                np.array([[hx, hy, 0.0]]), Ra)[0])
+            beside.append(trimesh.transform_points(
+                np.array([[hx + 3.2, hy, 0.0]]), Ra)[0])
+    assert not cb.contains(np.array(centres)).any(), \
+        "a printed foot hole is blocked"
+    assert cb.contains(np.array(beside)).all(), \
+        "sheet not solid beside a printed foot hole"
+    print(f"  chassis variant: 12 platform corners rounded R {CHB_ROUND_R:g} "
+          f"(face band |y| <= {y_max:.1f}), az-330/90 ears shaved, "
+          f"18 foot holes printed in, {abs(cb.volume) / 1000.0:.0f} cm3")
 
 
 def check_pillars(meshes: dict[str, trimesh.Trimesh]) -> None:
@@ -1229,7 +1393,7 @@ COLORS = {
     "centre_wago_block": "#4a90a4", "wago5": "#d9822b",
     "bearing_6805": "#303030",
     "yaw_bearing_upper": "#3a3a3a", "servo_body": "#6b6b6b",
-    "chassis_bottom": "#8a8f98", "coxa_link": "#7ba1d1",
+    "chassis_bottom": "#8b93a6", "coxa_link": "#7ba1d1",
     "femur_link": "#9aa0a6", "tibia_knee_yoke": "#9aa0a6",
     "knee_clamp_cap": "#9aa0a6",
     "yaw_servo_retainer": "#9aa0a6", "foot_boot": "#5a5f66",
@@ -1264,7 +1428,7 @@ def build_scene(meshes, femur_up_limit: float) -> dict:
             "transform": _mat16(M)})
         return iid
 
-    inst("chassis_bottom", "chassis_bottom", np.eye(4))
+    inst("chassis_bottom", "chassis_bottom RIGID (rounded, NEW)", np.eye(4))
     inst("chassis_top_rigid", "chassis_top_rigid FRAME (NEW)", np.eye(4))
     inst("top_hatch_rigid", "top_hatch (NEW, removable)", np.eye(4))
     for az in range(0, 360, 60):
@@ -1400,7 +1564,8 @@ def render_preview(meshes) -> None:
          "coxa_link RIGID (rounded + seat ring, NEW)"),
         ("yaw_bearing_upper", T["coxa"] @ _trans([0.0, 0.0, YAWBR_DROP]),
          "#303030", "bottom 6805-2RS (tower-seated, cap DELETED)"),
-        ("chassis_bottom", np.eye(4), "#8a8f98", "chassis_bottom (stock)"),
+        ("chassis_bottom", np.eye(4), "#8b93a6",
+         "chassis_bottom RIGID (rounded, NEW)"),
         ("servo_body", T["hip_cap"], "#c9a227", "hip servo"),
     ]
     fig, ax = plt.subplots(figsize=(10.5, 6.2), dpi=130)
@@ -1445,6 +1610,7 @@ def main() -> None:
     print("static checks ...")
     check_static(meshes)
     check_bottom_joint(meshes)
+    check_chassis_variant(meshes)
     check_pillars(meshes)
     check_wago_block(meshes)
     check_hatch(meshes)

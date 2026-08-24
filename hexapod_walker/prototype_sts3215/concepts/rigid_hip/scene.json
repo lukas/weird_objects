@@ -107,8 +107,8 @@
   },
   {
    "id": "stl:chassis_bottom",
-   "name": "chassis_bottom.stl",
-   "url": "stl/chassis_bottom.stl"
+   "name": "chassis_bottom_rigid.stl",
+   "url": "stl/chassis_bottom_rigid.stl"
   },
   {
    "id": "stl:femur_link",
@@ -163,15 +163,15 @@
  ],
  "instances": [
   {
-   "id": "000-chassis_bottom",
+   "id": "000-chassis_bottom RIGID (rounded, NEW)",
    "meshId": "stl:chassis_bottom",
-   "name": "chassis_bottom",
+   "name": "chassis_bottom RIGID (rounded, NEW)",
    "partType": "chassis_bottom",
    "role": "variant",
    "leg": null,
    "joint": null,
    "cots": false,
-   "color": "#8a8f98",
+   "color": "#8b93a6",
    "transform": [
     1.0,
     0.0,
