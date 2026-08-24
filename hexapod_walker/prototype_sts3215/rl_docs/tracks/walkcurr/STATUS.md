@@ -1279,3 +1279,41 @@ validity, on video. Speed obedience is secondary throughout.
   refuted mechanism and BC-kickstart (flagged to the operator above)
   is the only unexplored escalation left in the track's pinned fork
   order.
+
+## Now (updated 08-24 ~02:4x — idleterm1/idleterm2 FAIL: mechanism verified firing but the raw-a=0 lineage still freezes; the diagnostic arm is launched)
+
+- **`cw-walkcurr-pf-fwd6-idleterm1` / `-idleterm2` FAIL, both
+  verdicted:** the qvel-based idle-termination mechanism fires
+  exactly as designed (verified end-to-end in the deployed eval
+  harness: `TERM walk_idle_terminate` on every det episode, matching
+  training-time behavior) but does NOT unfreeze walking on the fresh
+  `fwd6-rscale50` (no action-bias fix) lineage at either timing dose
+  (3s/3s or 1.5s/1.5s grace+eviction — closes the timing-dose axis).
+  Det gate: 0/6 and 6/6-but-zero-progress gait_valid respectively,
+  prog med ~0.02-0.04, slip 5.6-7.6, terminated every episode. Video
+  (both arms): legs visibly SPLAY OUTWARD into a wide low stance over
+  the first few frames then FREEZE there — a qualitatively NEW
+  transient vs the flat "identical frozen crouch from frame 1" every
+  prior rung-1 arm showed, but still just a different frozen
+  endpoint. Reward quarters fall monotonically both arms, aligned per
+  08-21. **Root-cause read**: this splay-then-freeze pose is
+  consistent with the actbias1 dig-in's raw-a=0-maps-to-hardware-
+  midrange finding — these arms were deliberately launched WITHOUT
+  that fix, so the mechanism likely just terminates episodes mid-way
+  through the SAME zero-point settle transient actbias1 already
+  diagnosed and fixed, cut short rather than allowed to run the full
+  15s. This does not yet test the mechanism's real question.
+- **LAUNCHED (this cycle): `cw-walkcurr-pf-fwd6-actbias1-idleterm1`**
+  — the diagnostic arm: idle-terminate (same params, penalty
+  rescaled 3.0 to match this stack's term_penalty=24) stacked on TOP
+  of `actbias1` (the clean, non-collapsing, already-diagnosed static
+  PARK-STAND — height ~15mm all episode, zero collapse — the exact
+  absorbing state this mechanism was designed to evict). VERIFIED
+  RUNNING (train-4). This is the single most diagnostic remaining
+  arm before the reward-mechanism side of the fork is exhausted:
+  if the clean park-stand ALSO survives being bounded by a real
+  termination, idle-termination joins park_duty/RND/loadslip-
+  bootstrap as fully refuted against the specific target it was
+  built for, and BC-kickstart (flagged to the operator,
+  `q_20260824T0233Z`) becomes the only unexplored escalation left in
+  the track's own pinned fork order.
