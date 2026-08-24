@@ -163,9 +163,9 @@
  ],
  "instances": [
   {
-   "id": "000-chassis_bottom RIGID (rounded, NEW)",
+   "id": "000-chassis_bottom RIGID (tower-trimmed, NEW)",
    "meshId": "stl:chassis_bottom",
-   "name": "chassis_bottom RIGID (rounded, NEW)",
+   "name": "chassis_bottom RIGID (tower-trimmed, NEW)",
    "partType": "chassis_bottom",
    "role": "variant",
    "leg": null,

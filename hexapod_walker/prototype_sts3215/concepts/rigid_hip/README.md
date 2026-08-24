@@ -34,10 +34,11 @@ servo — is a cantilever.  This variant closes the structure from the top:
   the hub flange extended down as a Φ29 seat ring to the relocated
   bottom bearing (see below).
 * **`chassis_bottom_rigid`** (print 1): the production chassis with the
-  six tower platforms' square corners rounded to R10 arcs, the dead
-  cap-bolt ear lugs shaved off, and the 18 pillar-foot bolt holes
-  printed in (see below).  Every functional surface — bearing pocket,
-  seat, well walls, Wago trays, strap slots — is production geometry.
+  six square tower platforms trimmed to the tower's own Φ44 cylinder —
+  one matching curve from belly to bearing pocket — the dead cap-bolt
+  ear lugs shaved off, and the 18 pillar-foot bolt holes printed in
+  (see below).  Every functional surface — bearing pocket, seat, well
+  walls, Wago trays, strap slots — is production geometry.
 * **`centre_wago_block`** (print 1): the pillars claim the corner Wago
   trays, so the power tree consolidates — 4× 5-port 221-415 (two per
   net, jumpered) in one press-fit block at the chassis centre under
@@ -90,26 +91,35 @@ in the bottom tower, one at the top plate).
 Each production yaw tower stands on a square outboard platform that
 juts past the hex edge; its corners poke 8.4 mm diagonally past the
 Φ44 tower.  Rounding them (user, Aug 24) makes `chassis_bottom_rigid`
-(see `chassis_corner_round.png` for before/after):
+(see `chassis_corner_round.png` for before/after).  A first revision
+used a bolt-on R10 corner radius, which stacked three different arcs
+at each corner (platform arc, the shallower chord the same cut left on
+the narrower belly skirt, and the tower crown right above) — rejected:
+*the curves must all match*.  Now:
 
-* **Platform corners → R10 arcs**, tangent to the outboard face
-  (x 121.2 in the leg frame) and side faces, cut through the full
-  platform + belly-skirt band.  The arc never comes closer than
-  ~0.4 mm to the tower wall, asserted on every rebuild — the bearing
-  pocket, seat, well walls and rim are untouched production geometry.
+* **Corners trimmed to the tower's own cylinder** (r 22.02 about the
+  yaw axis, 0.02 proud of the Φ44 wall so the cut never grazes it).
+  In production the tower already bulges through the platform band —
+  its circle crosses the ±21.25 side faces at x 100±5.9 — so the trim
+  just continues that same curve around the end and down the belly
+  skirt.  Every height shows one curve, the tower's, and the side-face
+  junction is the crease production already had.  The bearing pocket,
+  seat, well walls and rim are untouched production geometry
+  (asserted on every rebuild).
 * **Dead cap-bolt ears shaved**: with the `yaw_bearing_cap` deleted,
   the three M3 ear lugs per tower had no job.  The outboard one sat
-  exactly on the corner being rounded (it would overhang the new arc)
-  and is shaved flush to the tower cylinder; the tangential one poked
-  6.8 mm past the platform silhouette and is shaved flush to the
-  rim-wall face.  The inboard one stays — it merges into the
-  well-mouth collar, is invisible under the deck, and removing it
-  risks gouging the collar for zero visual gain.
+  exactly on the trimmed corner and is shaved flush to the tower
+  cylinder; the tangential one poked 6.8 mm past the platform
+  silhouette and is shaved flush to the rim-wall face.  The inboard
+  one stays — it merges into the well-mouth collar, is invisible under
+  the deck, and removing it risks gouging the collar for zero visual
+  gain.
 * **18 pillar-foot holes printed in** (same constants as the pillar
   feet, aligned by construction) — no bench drilling on a fresh build.
-* Net: −9 cm³ (326 vs 335).  **On an existing stock chassis print**
-  all of this is a bench mod instead: saw/sand the 12 corners and the
-  ear lugs, drill the foot holes using the pillar feet as jigs.
+* Net: −15 cm³ (320 vs 335).  **On an existing stock chassis print**
+  all of this is a bench mod instead: saw/sand the corners back to the
+  tower barrel and shave the ear lugs, drill the foot holes using the
+  pillar feet as jigs.
 
 ## Stack (world Z, chassis_bottom sheet mid-plane = 0)
 
@@ -289,10 +299,11 @@ variation only moves parts that stay outboard/below the plate.
   yaw envelope the plain columns rely on nor reaches the tower-seated
   race (same filament as 6 production coxas; the old prints become
   spares)
-* **1× `chassis_bottom_rigid` reprint** (~326 cm³, same class as the
-  production chassis print) — rounded tower platforms, shaved ears,
-  printed foot holes.  A stock chassis print can be bench-modded
-  instead (saw/sand corners + drill), skipping the reprint entirely
+* **1× `chassis_bottom_rigid` reprint** (~320 cm³, same class as the
+  production chassis print) — tower platforms trimmed to the tower
+  cylinder, shaved ears, printed foot holes.  A stock chassis print
+  can be bench-modded instead (saw/sand corners + drill), skipping the
+  reprint entirely
 * recommended: 12× M3 heat-set inserts (McMaster 94459A130) for the hip
   cap pilots, +12 for the pillar-top pilots — see "Disassembly & service"
 
@@ -391,7 +402,7 @@ serviceable option.
   Φ29 seat ring prints as a horizontal cylinder band exactly like the
   uflange above it (the coxa prints on its side).
 * `chassis_bottom_rigid`: print exactly like the production chassis
-  (belly up, same supports).  The rounded corners, shaved ears and
+  (belly up, same supports).  The tower-cylinder trim, shaved ears and
   foot holes change nothing about the print strategy.
 * `centre_wago_block`: floor down — flat print, no supports; walls are
   plain vertical extrusions like the production trays.
@@ -422,9 +433,10 @@ npx buildviz register hexapod_walker/prototype_sts3215/concepts/rigid_hip \
 Checks run at build time: watertightness, seated-stack placement, the
 bottom joint (race on the tower seat, coxa/race contact = boss press
 only, seat ring lands on the race top, leg + bearing lift-out path),
-the chassis variant (corners actually rounded, arcs never bit the
-tower wall, only the intentional inboard boss survives, foot holes
-open where the pillar feet expect them), full 360° yaw sweep vs the
+the chassis variant (nothing outboard survives past the tower
+cylinder, the trim never bit the tower wall, only the intentional
+inboard boss survives, foot holes open where the pillar feet expect
+them), full 360° yaw sweep vs the
 plate, straight-down plate descent over all six bearings, pillar
 clearances (seated robot, ±45° operating yaw with margin, and an
 informational full hand-spin scan) and the femur pitch×yaw contact

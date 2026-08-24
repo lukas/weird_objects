@@ -33,11 +33,13 @@
 # same as production.
 #
 # Chassis variant (user, Aug 24: "round the corners on the chassis
-# bottom below where the bearings go"): chassis_bottom_rigid rounds the
-# six square tower platforms' corners to R 10, shaves the dead cap-bolt
-# ear lugs (outboard + tangential; the inboard one stays merged with
-# the well collar) and prints in the 18 pillar-foot holes.  All
-# functional surfaces stay production geometry.
+# bottom below where the bearings go"; rev 2: "the multiple curves
+# should all match"): chassis_bottom_rigid trims the six square tower
+# platforms to the tower's own phi 44 cylinder (one matching curve
+# from belly to bearing pocket), shaves the dead cap-bolt ear lugs
+# (outboard + tangential; the inboard one stays merged with the well
+# collar) and prints in the 18 pillar-foot holes.  All functional
+# surfaces stay production geometry.
 
 parts:
   hip_clamp_cap_rigid:
@@ -403,46 +405,50 @@ parts:
       phi 25 and the 0.15 is the press.
 
   chassis_bottom:
-    label: "chassis_bottom_rigid — rounded tower platforms, ears shaved, foot holes (concept)"
+    label: "chassis_bottom_rigid — tower-trimmed platforms, ears shaved, foot holes (concept)"
     aliases: ["rigid chassis", "chassis bottom rigid", "rounded chassis"]
     description: >-
       The production chassis_bottom with three variant edits (user,
       Aug 24: "round the corners on the chassis bottom below where the
-      bearings go").  (1) PLATFORM CORNERS: the square outboard
-      platform under each yaw tower (face x 121.2 in the leg frame,
-      half-width 21.25 above the sheet / 18.9 for the belly skirt)
-      poked 8.4 mm diagonally past the phi 44 tower; its corners are
-      rounded with R 10 arcs tangent to both faces through the full
-      platform + skirt band.  The arc never comes closer than ~0.4 mm
-      to the tower wall (asserted every rebuild) -- pocket, seat, well
-      walls, trays and slots are untouched production geometry.
-      (2) DEAD EARS: the yaw_bearing_cap is deleted in this variant,
-      so its three M3 ear lugs per tower had no job; the outboard one
-      (which sat ON the rounded corner) is shaved flush to the tower
-      cylinder and the tangential one flush to the rim-wall face; the
-      inboard one stays merged with the well-mouth collar (invisible
-      under the deck).  (3) FOOT HOLES: the 18 phi 3.4 pillar-foot
-      bolt holes are printed through the sheet at the same PILLAR_*
-      constants as the feet.  Net -9 cm3 (326 vs 335).  A stock
-      chassis print can be bench-modded to match (saw/sand + drill)
-      instead of reprinting.
+      bearings go"; rev 2: "the multiple curves should all match").
+      (1) PLATFORM CORNERS: the square outboard platform under each
+      yaw tower (face x 121.2 in the leg frame, half-width 21.25 above
+      the sheet / 18.9 for the belly skirt) poked 8.4 mm diagonally
+      past the phi 44 tower; everything outboard of the hex edge in
+      the platform + skirt band is now TRIMMED to the tower's own
+      cylinder (r 22.02 about the yaw axis, 0.02 proud so the cut
+      never grazes the tower wall).  Every height shows the tower's
+      one curve -- production already had that curve bulging through
+      the platform band, so no new crease appears -- and pocket, seat,
+      well walls, trays and slots are untouched production geometry
+      (asserted every rebuild).  (2) DEAD EARS: the yaw_bearing_cap is
+      deleted in this variant, so its three M3 ear lugs per tower had
+      no job; the outboard one (which sat ON the trimmed corner) is
+      shaved flush to the tower cylinder and the tangential one flush
+      to the rim-wall face; the inboard one stays merged with the
+      well-mouth collar (invisible under the deck).  (3) FOOT HOLES:
+      the 18 phi 3.4 pillar-foot bolt holes are printed through the
+      sheet at the same PILLAR_* constants as the feet.  Net -15 cm3
+      (320 vs 335).  A stock chassis print can be bench-modded to
+      match (saw/sand + drill) instead of reprinting.
     generated_by:
       file: "concepts/rigid_hip/make_rigid_hip_variant.py"
       function: "make_chassis_bottom_rigid"
       output_stl: "stl/chassis_bottom_rigid.stl"
     features:
-      corner_round:
-        label: "R10 rounded platform corners (x12)"
+      corner_trim:
+        label: "Tower-cylinder corner trim (x6 platforms)"
         kind: "chamfer"
         purpose: >-
           Cosmetic cleanup of the square tower platforms (user
-          request); arcs tangent to the outboard and side faces, clear
-          of the tower wall at every z.
+          request, rev 2): the trim IS the tower cylinder continued
+          down through the platform and belly skirt, so all corner
+          curves match at every height.
         dimensions:
           radius:
-            label: "Corner rounding radius"
-            value: 10.0
-            code_name: CHB_ROUND_R
+            label: "Trim radius about the yaw axis (tower r22 + 0.02)"
+            value: 22.02
+            code_name: CHB_TRIM_R
       foot_holes:
         label: "18x phi 3.4 pillar-foot through-holes"
         kind: "hole"
