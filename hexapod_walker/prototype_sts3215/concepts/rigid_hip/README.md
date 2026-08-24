@@ -28,10 +28,12 @@ servo — is a cantilever.  This variant closes the structure from the top:
   the actual top↔bottom structural connection (see below).  Each
   stands in a vacated corner Wago tray and doubles as the boss its
   hatch perimeter screw threads into.
-* **`coxa_link_rounded`** (print 6): the production coxa with its
-  servo-cradle corners rounded to the 38.2 mm yaw envelope so the
-  plain columns clear the swinging leg by 5 mm at every angle.  The
-  one production part this variant reprints.
+* **`coxa_link_rigid`** (print 6): the production coxa with two variant
+  edits — servo-cradle corners rounded to the 38.2 mm yaw envelope so
+  the plain columns clear the swinging leg by 5 mm at every angle, and
+  the hub flange extended down as a Φ29 seat ring to the relocated
+  bottom bearing (see below).  The one production part this variant
+  reprints.
 * **`centre_wago_block`** (print 1): the pillars claim the corner Wago
   trays, so the power tree consolidates — 4× 5-port 221-415 (two per
   net, jumpered) in one press-fit block at the chassis centre under
@@ -42,18 +44,43 @@ Load path: hip moment → cap boss → top bearing → top plate →
 axis becomes simply-supported instead of cantilevered, holding the hip
 servo rigidly.
 
-## The bottom pair loses a bearing — net bearing count unchanged
+## One tower-seated bottom bearing — the yaw bearing cap is deleted
 
 The production yaw joint stacked TWO 6805s only to form a 7 mm moment
-couple.  With the top bearing providing a ~67 mm couple, the **lower
-yaw bearing is omitted** — and that changes no production part: the
-lower race was already the "floating" one (press-fit retention only),
-while the upper bearing is the located one — outer race housed in the
-bolt-on yaw cap's own Φ37.15 bore under its Φ34 lip, inner race seated
-against the hub uflange by the horn clamp preload.  Its pocket in
-chassis_bottom simply stays empty.  Robot total stays **12 bearings**,
-same as production (2 per leg: one at the yaw cap, one at the top
-plate).
+couple; with the top bearing providing a ~65 mm couple, one bottom
+bearing suffices.  Earlier revisions of this variant kept that single
+race where production located it — in the bolt-on `yaw_bearing_cap`'s
+own bore, over an EMPTY chassis pocket.  That kept 6 printed caps and
+18 M3 join screws in the build just to hold a race and provide
+retention the top plate now provides anyway.  Simplified (user,
+Aug 24):
+
+* The single race drops into **chassis_bottom's own open-top Φ37.15
+  pocket** — the production LOWER-race position, so the seat
+  (coxa-local z 0.5) and the straight drop-in path are print-proven.
+  chassis_bottom is still NOT reprinted.
+* The coxa hub grows a **Φ29 seat ring** (the production uflange OD,
+  bearing only on the Φ25…29 inner-race land) from the uflange down to
+  the relocated race top — free, since the coxa is already a variant
+  print.
+* The **`yaw_bearing_cap` is deleted**: −6 prints, −18 M3×8 screws,
+  and one less part in the race-to-race tolerance stack.  Its two jobs
+  moved: *radial housing* → the pocket's 4 mm press band (production
+  gave this race 4 mm tower + 3 mm cap; the cap's 3 mm was housing,
+  not seat), *axial retention* → split by direction.  Hanging loads
+  run hub → seat ring → inner race → outer race → tower seat; standing
+  loads run up through the TOP bearing into the plate shoulder.  Each
+  bearing takes one direction; no lip needed.
+* The cap's dust labyrinth is retired — the 6805-2RS is a **sealed**
+  bearing, and the tower's (now unused) cap-bolt ears leave no room to
+  drop the hub skirt down in its place.  The race's outer band is
+  exposed for ~3 mm; acceptable for a concept mule, note it if this
+  ever walks gravel.
+* Dropping the race 7 mm also stretches the bearing couple: mid-plane
+  to mid-plane goes from ~58 mm (cap-held) to ~65 mm.
+
+Robot total stays **12 bearings**, same as production (2 per leg: one
+in the bottom tower, one at the top plate).
 
 ## Stack (world Z, chassis_bottom sheet mid-plane = 0)
 
@@ -88,9 +115,8 @@ the bearing rings are):
   the screws only see rebound.
 * **Interior access** = remove 10 screws (6 perimeter + 4 standoff)
   and lift the lid — the frame, bearings and legs are untouched.  The
-  yaw-cap join bolts (Φ23.5 around each yaw axis) are reachable
-  through the opening with a long driver at ~14° tilt; the disc-horn
-  clamp screws under the rings still need the full plate-off.
+  disc-horn clamp screws under the rings still need the full
+  plate-off (there are no yaw-cap bolts anymore — the cap is deleted).
 
 ## Six rim pillars — how the top actually connects to the bottom
 
@@ -108,18 +134,19 @@ territory outside every swing envelope):
   **not** the column's problem: every part that rotates with a yaw
   joint is kept inside a **38.2 mm envelope** about its own axis (the
   coxa's cradle corners are rounded to that arc — see
-  `coxa_link_rounded` below; the hip cap already fits at 37.0, the
+  `coxa_link_rigid` below; the hip cap already fits at 37.0, the
   servo at 29.4).  The column surface sits 43.2 mm from each
   neighbouring axis, so **≥ 5 mm clearance holds at every yaw angle
   by construction** — measured 5.03 mm at build time, envelope and
   distance both asserted on every rebuild, verified clear for a full
   360° hand-spin of a disassembled leg.
-* **`coxa_link_rounded`** (print 6): the production coxa with its two
+* **`coxa_link_rigid`** (print 6): the production coxa with its two
   servo-cradle corner edges rounded to the 38.2 mm arc — at most
-  2.16 mm comes off (they used to reach 40.36 mm).  Hub, horn drive,
-  cradle pilots and cap seat are untouched, but note this makes the
-  coxa a **variant reprint**, no longer the stock print — the price
-  of a plain column instead of a scalloped one.
+  2.16 mm comes off (they used to reach 40.36 mm) — plus the Φ29 hub
+  seat ring for the tower-seated bearing (previous section).  Hub,
+  horn drive, cradle pilots and cap seat are untouched, but note this
+  makes the coxa a **variant reprint**, no longer the stock print —
+  the price of a plain column instead of a scalloped one.
 * **Top**: stops 0.1 mm short of the frame sheet (the six bearing
   RACES define the plate plane — the screws pull the sheet down onto
   the pillar; sand/shim a proud pillar, never let it rock).  Two Φ2.5
@@ -182,10 +209,11 @@ one printed block at the chassis centre:
 
 | interface | Φ (mm) | source constant |
 |---|---|---|
-| boss → inner race | 25.15 (+0.15 press) | `YAW_HUB_BOSS_OD` |
-| pocket → outer race | 37.15 (+0.15 firm slip) | `YAW_TOWER_BORE_OD` |
+| boss → inner race (top AND bottom) | 25.15 (+0.15 press) | `YAW_HUB_BOSS_OD` |
+| pocket → outer race (top plate AND bottom tower) | 37.15 (+0.15 firm slip) | `YAW_TOWER_BORE_OD` |
 | race shoulder | 34 | `YAW_TOWER_SHOULDER_OD` |
 | ring wall | 44 = 37 + 2×3.5 | `YAW_TOWER_WALL` |
+| hub seat ring → inner-race land | 29 (axial seat, not a fit) | `YAW_BEARING_INNER_OD` |
 
 Boss tip has a Φ24×0.8 stepped lead-in; pocket mouths have a 0.8 mm
 lead-in ring.
@@ -208,8 +236,11 @@ variation only moves parts that stay outboard/below the plate.
 
 ## BOM delta vs production
 
-* 6805-2RS count unchanged (12): the 6 lower yaw bearings move up to
-  become the 6 top-plate bearings
+* 6805-2RS count unchanged (12): the 6 upper yaw bearings move up to
+  become the 6 top-plate bearings; the 6 lower ones stay in their
+  production tower pockets
+* **−6 `yaw_bearing_cap` prints and −18 M3×8 cap join screws** — the
+  cap is deleted (see "One tower-seated bottom bearing")
 * 4× M3 standoff stacks, ~90 mm (bottom sheet top z≈2 → hatch underside
   92.05; e.g. 50+40 F-F, or M3 threaded rod in printed sleeves) + M3
   screws down through the hatch into the stack tops — **non-structural**
@@ -222,20 +253,23 @@ variation only moves parts that stay outboard/below the plate.
 * **−4 Wago 221-415**: the 6 corner + 2 trunk nuts become 4 in
   `centre_wago_block` (print 1, ~11 g, VHB pad; leg power pigtails
   ~60–70 mm longer — wiring change only)
-* **6× `coxa_link_rounded` reprints** — the stock coxa no longer fits
-  the yaw envelope the plain columns rely on (same filament as 6
-  production coxas; the old prints become spares)
+* **6× `coxa_link_rigid` reprints** — the stock coxa neither fits the
+  yaw envelope the plain columns rely on nor reaches the tower-seated
+  race (same filament as 6 production coxas; the old prints become
+  spares)
 * recommended: 12× M3 heat-set inserts (McMaster 94459A130) for the hip
   cap pilots, +12 for the pillar-top pilots — see "Disassembly & service"
 
 ## Assembly order
 
-1. Build the robot as production but with three swaps: install only
-   ONE yaw bearing per leg (the upper/located one; leave the lower
-   pocket empty), use `coxa_link_rounded` in place of the stock coxa
-   (identical everywhere except the rounded cradle corners), and use
-   `hip_clamp_cap_rigid` in place of the stock hip cap — same 2× M3
-   into the same cradle pilots.
+1. Build the robot as production but with three swaps: use
+   `coxa_link_rigid` in place of the stock coxa; press ONE 6805 onto
+   each coxa's hub boss from below until it seats against the Φ29
+   seat ring, then drop the leg + bearing into the tower pocket (the
+   production lower-race seat — no `yaw_bearing_cap`, no cap bolts)
+   and couple the horn as production; and use `hip_clamp_cap_rigid`
+   in place of the stock hip cap — same 2× M3 into the same cradle
+   pilots.
 2. Re-splice power at the centre: VHB `centre_wago_block` to the floor
    centred on the origin (footprint verified/asserted against the real
    chassis solid), seat 4× 221-415, jumper each pair, land the battery
@@ -272,6 +306,10 @@ line-of-sight for a Φ6.5 driver shaft down to the cap counterbore.
   lift the plate: all six caps and bearings come with it as one rigid
   subassembly, leaving every hip servo sitting open in its cradle (the
   pillars stay bolted to the bottom).
+* **Leg removal** (plate off): undo the horn screws and the whole leg
+  lifts straight out of the tower pocket WITH its bottom bearing —
+  verified drop-in/lift-out path at build time.  No cap to unbolt,
+  no press fit to separate (the race stays pressed on the hub boss).
 * **Reassembly**: either lower the plate+caps unit back over all six
   servos, or bolt the caps onto the servos first and lower the bare
   plate onto the races (the original assembly order; descent verified
@@ -279,7 +317,7 @@ line-of-sight for a Φ6.5 driver shaft down to the cap counterbore.
 * **Repeated-service threads**: the cap bolts are now every-service
   fasteners, so per the repo's insert rule, drill the two cradle
   pilots Φ4.0 × 6 deep and fit M3 heat-set inserts (94459A130) — a
-  bench mod on the `coxa_link_rounded` print.
+  bench mod on the `coxa_link_rigid` print.
 * **Last resort only**: the pocket fit is the bench-proven "firm
   finger-press" class (never separated in normal service), and the
   pedestal keeps two puller notches exposing the inner race underside
@@ -310,9 +348,10 @@ serviceable option.
 * `top_hatch_rigid`: lid face down, lip up — flat print, no supports.
 * `corner_pillar`: foot down, column up — plain solid column, no
   supports.
-* `coxa_link_rounded`: print exactly like the production coxa (same
-  orientation and supports); the rounded corners change nothing about
-  printability.
+* `coxa_link_rigid`: print exactly like the production coxa (same
+  orientation and supports).  The rounded corners change nothing; the
+  Φ29 seat ring prints as a horizontal cylinder band exactly like the
+  uflange above it (the coxa prints on its side).
 * `centre_wago_block`: floor down — flat print, no supports; walls are
   plain vertical extrusions like the production trays.
 * `hip_clamp_cap_rigid`: rest on the tongue face (outer face + boss
@@ -322,8 +361,10 @@ serviceable option.
   do that.
 * Reused parts in `stl/` (femur_link, tibia_knee_yoke, …) are for the
   viewer; print those from the main `stl_prototype/`.  The variant
-  prints are the parts above (including `coxa_link_rounded.stl`, which
-  REPLACES the stock coxa).  `*_DO_NOT_PRINT.stl` are COTS visuals.
+  prints are the parts above (including `coxa_link_rigid.stl`, which
+  REPLACES the stock coxa).  There is no `yaw_bearing_cap.stl` here —
+  that production part is not used.  `*_DO_NOT_PRINT.stl` are COTS
+  visuals.
 
 ## Build & view
 
@@ -337,9 +378,11 @@ npx buildviz register hexapod_walker/prototype_sts3215/concepts/rigid_hip \
 # http://127.0.0.1:5183/?build=sts3215-rigid-hip
 ```
 
-Checks run at build time: watertightness, seated-stack placement, full
-360° yaw sweep vs the plate, straight-down plate descent over all six
-bearings, pillar clearances (seated robot, ±45° operating yaw with
+Checks run at build time: watertightness, seated-stack placement, the
+bottom joint (race on the tower seat, coxa/race contact = boss press
+only, seat ring lands on the race top, leg + bearing lift-out path),
+full 360° yaw sweep vs the plate, straight-down plate descent over all
+six bearings, pillar clearances (seated robot, ±45° operating yaw with
 margin, and an informational full hand-spin scan) and the femur
 pitch×yaw contact sweep (fails the build if the safe limit ever eats
 into walking headroom at −45°).

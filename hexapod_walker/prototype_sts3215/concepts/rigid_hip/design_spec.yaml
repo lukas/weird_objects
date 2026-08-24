@@ -19,13 +19,18 @@
 # headroom; deep tucks (stand-up belly curl) must be re-checked before
 # this goes on the robot.
 #
-# Bearing count: the production LOWER yaw bearing is omitted (it only
-# formed a 7 mm moment couple with the upper one, now replaced by the
-# ~67 mm top-plate couple).  The lower race was the floating one; the
-# upper bearing is production-located (outer race in the yaw cap's own
-# bore under its lip, inner race against the hub uflange), so the
-# omission changes no production part -- the chassis_bottom pocket just
-# stays empty.  Net 12 bearings per robot, same as production.
+# Bearing count (user, Aug 24: "one bearing on the bottom -- simplify"):
+# ONE bottom bearing per leg, seated directly in chassis_bottom's own
+# open-top phi 37.15 pocket (the production LOWER-race position; seat
+# and drop-in path are print-proven).  The bolt-on yaw_bearing_cap is
+# DELETED (-6 prints, -18 M3 screws): its radial-housing job moves to
+# the pocket's 4 mm press band, its retention job splits by direction
+# (hanging loads: hub seat ring -> inner race -> outer race -> tower
+# seat; standing loads: up through the TOP bearing into the plate
+# shoulder).  The coxa hub grows a phi 29 seat ring down to the
+# relocated race top (the coxa is already a variant print).  Bearing
+# couple ~65 mm mid-plane to mid-plane.  Net 12 bearings per robot,
+# same as production.
 
 parts:
   hip_clamp_cap_rigid:
@@ -188,8 +193,8 @@ parts:
         kind: "cutout"
         purpose: >-
           A large hex chunk of the plate middle is removed so the
-          interior stays serviceable (electronics, wiring, yaw-cap
-          bolts).  Flats face the bearing rings, keeping a 14 mm web at
+          interior stays serviceable (electronics, wiring, the central
+          splice block).  Flats face the bearing rings, keeping a 14 mm web at
           every ring; vertices reach toward the inter-leg directions
           where the frame is widest.  The standoff, electronics-deck
           and centre holes all fell inside the opening and moved onto
@@ -267,7 +272,7 @@ parts:
       PLAIN column (user, Aug 24: no scallops/weird shape) -- leg
       clearance is guaranteed by the rotating parts instead: every
       part turning with a yaw joint fits a ROT_ENVELOPE_R = 38.2 mm
-      cylinder about its own axis (see coxa_link_rounded), and the
+      cylinder about its own axis (see coxa_link_rigid), and the
       column surface sits 43.24 mm from each neighbouring axis, so
       >= 5 mm clearance holds at EVERY yaw angle by construction
       (measured 5.03 mm; envelope + distance asserted on every
@@ -384,7 +389,7 @@ parts:
   bearing_6805:
     label: "Top-plate 6805-2RS (25x37x7) — COTS, not printed"
     description: >-
-      Same bearing as the production yaw joint; it is the 6 lower yaw
+      Same bearing as the production yaw joint; it is the 6 upper yaw
       bearings RELOCATED up to the top plate (2 per leg, 12 per robot,
       unchanged total).  Modeled with its bore at phi 25.15 (= the boss
       OD) so the seated scene has zero mesh overlap; the real bore is
@@ -394,24 +399,30 @@ parts:
     label: "Production chassis_bottom (unchanged, reference)"
     description: "Print from the main stl_prototype/ — unchanged by this variant."
   coxa_link:
-    label: "coxa_link_rounded — cradle corners rounded to the yaw envelope (concept)"
-    aliases: ["rounded coxa", "coxa link rounded", "servo holder"]
+    label: "coxa_link_rigid — rounded corners + tower-bearing seat ring (concept)"
+    aliases: ["rigid coxa", "rounded coxa", "coxa link rigid", "servo holder"]
     description: >-
-      The production coxa_link with its two servo-cradle corner edges
-      rounded to a 38.2 mm arc about its own yaw axis
-      (ROT_ENVELOPE_R): boolean intersection with the envelope
-      cylinder removes at most 2.16 mm from corners that used to
-      reach 40.36 mm (8 vertices).  Hub, horn drive, cradle pilots
-      and cap seat are untouched.  This keeps every rotating part
-      inside the envelope so the plain corner_pillar columns clear
-      the swinging leg by >= 5 mm at every yaw angle -- the user
-      chose rounding the servo holder over scalloping the pillar.
-      NOTE: this makes the coxa a VARIANT print (6x), replacing the
-      stock coxa_link on this build.
+      The production coxa_link with two variant edits.  (1) ENVELOPE
+      ROUND: its two servo-cradle corner edges are rounded to a
+      38.2 mm arc about its own yaw axis (ROT_ENVELOPE_R): boolean
+      intersection with the envelope cylinder removes at most 2.16 mm
+      from corners that used to reach 40.36 mm.  This keeps every
+      rotating part inside the envelope so the plain corner_pillar
+      columns clear the swinging leg by >= 5 mm at every yaw angle --
+      the user chose rounding the servo holder over scalloping the
+      pillar.  (2) HUB SEAT RING: the phi 29 uflange extends down as a
+      ring to coxa-local z 7.5, the top of the single bottom bearing
+      now seated in the chassis tower pocket (production LOWER-race
+      position); the ring bears only on the phi 25..29 inner-race
+      land, the same contact the uflange made one race higher, and
+      replaces the deleted yaw_bearing_cap's retention.  Hub, horn
+      drive, cradle pilots and cap seat are untouched.  NOTE: this
+      makes the coxa a VARIANT print (6x), replacing the stock
+      coxa_link on this build.
     generated_by:
       file: "concepts/rigid_hip/make_rigid_hip_variant.py"
-      function: "make_coxa_link_rounded"
-      output_stl: "stl/coxa_link_rounded.stl"
+      function: "make_coxa_link_rigid"
+      output_stl: "stl/coxa_link_rigid.stl"
     features:
       envelope_round:
         label: "Cradle-corner rounding arc"
@@ -424,6 +435,25 @@ parts:
             label: "Yaw-axis envelope radius"
             value: 38.2
             code_name: ROT_ENVELOPE_R
+      hub_seat_ring:
+        label: "Phi 29 bottom-race seat ring"
+        kind: "boss"
+        purpose: >-
+          Extends the hub uflange down to the tower-seated race top
+          (coxa-local z 14.5 -> 7.5) so hanging-leg loads run hub ->
+          ring -> inner race -> outer race -> tower seat with no
+          bolt-on cap.  ID 24 merges the ring into the boss wall;
+          OD 29 = the inner-race land, 2 mm clear of the phi 33
+          outer-race band and its seal.
+        dimensions:
+          ring_od:
+            label: "Ring OD (inner-race land)"
+            value: 29.0
+            code_name: HUB_RING_OD
+          ring_z0:
+            label: "Ring underside (coxa-local z) = race top"
+            value: 7.5
+            code_name: HUB_RING_Z0
   femur_link:
     label: "Production femur_link (unchanged, reference)"
     description: "Print from the main stl_prototype/ — unchanged by this variant."
@@ -438,9 +468,6 @@ parts:
     description: >-
       The knee keeps the stock cap; only the six HIP caps become
       hip_clamp_cap_rigid.
-  yaw_bearing_cap:
-    label: "Production yaw bearing cap (unchanged, reference)"
-    description: "Print from the main stl_prototype/ — unchanged by this variant."
   yaw_servo_retainer:
     label: "Production yaw servo retainer (unchanged, reference)"
     description: "Print from the main stl_prototype/ — unchanged by this variant."
@@ -448,12 +475,16 @@ parts:
     label: "STS3215 servo body — COTS"
     description: "Visual stand-in, 18 per robot."
   yaw_bearing_upper:
-    label: "Production upper yaw 6805 — COTS (lower slot left EMPTY)"
+    label: "Bottom yaw 6805 — COTS, tower-seated (cap deleted)"
     description: >-
-      The single remaining bottom bearing: the production-located upper
-      one (outer race in the yaw cap bore under its lip, inner race
-      against the hub uflange).  The lower bearing's pocket in
-      chassis_bottom is deliberately empty in this variant.
+      The single bottom bearing per leg, seated in chassis_bottom's own
+      open-top phi 37.15 pocket at the production LOWER-race position
+      (coxa-local z 0.5..7.5; the mesh is the production upper-race
+      model instanced 7 mm down).  Inner race pressed on the hub boss
+      against the coxa's phi 29 seat ring; outer race radially housed
+      by the pocket's 4 mm band and seated on the z 0.5 shoulder.  The
+      production yaw_bearing_cap that used to house it is deleted in
+      this variant.
   tibia_tube:
     label: "Phi 8 carbon tibia tube — COTS"
     description: "Unchanged production part."

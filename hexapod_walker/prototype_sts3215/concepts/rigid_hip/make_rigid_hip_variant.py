@@ -25,7 +25,7 @@ pair.  This variant closes the loop from the TOP:
   * ``corner_pillar`` (x6) -- plain solid elliptical printed columns
     at the six corner azimuths (rho 81.6, between adjacent rings);
     >= 5 mm leg clearance at every yaw angle is guaranteed by the
-    rotating parts' ROT_ENVELOPE_R trim (see ``coxa_link_rounded``),
+    rotating parts' ROT_ENVELOPE_R trim (see ``coxa_link_rigid``),
     not by shaping the column.  They tie the top
     frame to chassis_bottom at the RIM, where each hip moment's force
     couple actually wants to react (push at the bottom tower, pull at
@@ -37,10 +37,12 @@ pair.  This variant closes the loop from the TOP:
     (drilled through chassis_bottom using the foot as the jig -- a
     bench drill mod, no reprint).  The four central 90 mm standoffs
     remain only as hatch/electronics anchors.
-  * ``coxa_link_rounded`` (x6) -- the production coxa with its
-    servo-cradle corners rounded to the 38.2 mm yaw envelope (max
-    2.16 mm off two vertical wall corners; all interfaces untouched).
-    The one production part this variant reprints.
+  * ``coxa_link_rigid`` (x6) -- the production coxa with two variant
+    edits: servo-cradle corners rounded to the 38.2 mm yaw envelope
+    (max 2.16 mm off two vertical wall corners), and the hub uflange
+    extended DOWN as a Phi 29 seat ring to the relocated bottom race
+    (see BEARING COUNT).  All other interfaces untouched.  The one
+    production part this variant reprints.
   * ``centre_wago_block`` -- the pillars claim the corner Wago trays,
     so the power tree consolidates: 4x 5-port 221-415 (two per net,
     jumpered) in one printed press-fit block at the chassis centre,
@@ -48,17 +50,22 @@ pair.  This variant closes the loop from the TOP:
 
   Load path: hip moment -> cap boss -> top bearing -> top plate ->
   six rim pillars -> chassis_bottom / five other legs.  Each yaw axis
-  becomes simply-supported (one bearing below, one above, ~67 mm
-  apart) instead of cantilevered.
+  becomes simply-supported (one bearing below, one above, ~65 mm
+  mid-plane to mid-plane) instead of cantilevered.
 
-  BEARING COUNT: the production LOWER yaw bearing is OMITTED (it only
-  existed to form a 7 mm moment couple with the upper one; the top
-  bearing replaces that couple with a ~67 mm arm).  The upper bearing
-  is the production-located one -- outer race housed in the bolt-on
-  yaw cap's own Phi 37.15 bore under its Phi 34 lip, inner race seated
-  against the hub uflange by the horn clamp preload -- so omitting the
-  lower race changes NO production part; its pocket just stays empty.
-  Net bearings per robot: 12, same as production.
+  BEARING COUNT (user, Aug 24: "we really only need one bearing on
+  the bottom -- simplify"): ONE bottom bearing per leg, seated
+  directly in chassis_bottom's own open-top Phi 37.15 pocket (the
+  production LOWER-race position: drop-in path and z=0.5 seat are
+  print-proven).  The bolt-on ``yaw_bearing_cap`` is DELETED -- it
+  only existed to house the second race and retain the pair, and the
+  top plate now does both jobs: standing loads go UP through the top
+  bearing into the plate shoulder, hanging loads go DOWN through the
+  hub's new Phi 29 seat ring -> inner race -> outer race -> tower
+  seat.  -6 printed caps, -18 M3x8 cap screws, and the leg + bearing
+  lift straight out once the plate is off (horn centre screw only).
+  The cap's dust labyrinth is retired: the 6805-2RS is a sealed
+  bearing.  Net bearings per robot: 12, same as production.
 
 TRADE-OFF (measured by the sweep in this script): the full-size top
 plate caps the femur's UP-swing.  The production workspace envelope is
@@ -185,7 +192,7 @@ PILLAR_TAN_SCALE = 0.7                    # ELLIPTICAL section: tangential
 # <= 38.2 mm rotating envelope guarantees >= 5 mm clearance at EVERY
 # yaw angle -- same guarantee the scallops gave, now carried by the
 # rotating parts:
-#   * coxa_link_rounded -- the production coxa's servo-cradle corners
+#   * coxa_link_rigid -- the production coxa's servo-cradle corners
 #     reached 40.36 mm; they are rounded back to the envelope arc
 #     (max 2.16 mm off two vertical wall corners, 8 vertices; the
 #     cap-bolt bosses are untouched).  THE COXA IS NOT A STOCK PRINT
@@ -196,6 +203,33 @@ ROT_ENVELOPE_R = 38.2                     # max rotating reach, enforced
 PILLAR_MIN_CL = 5.0                       # guaranteed clearance to column
 ROT_BAND_Z0 = 24.0                        # lowest z where anything rotates
                                           # outside the (static) tower
+
+# BOTTOM JOINT (user, Aug 24: "we really only need one bearing on the
+# bottom -- so maybe its possible to simplify the design").  The
+# variant already ran one bottom bearing, but kept the production
+# apparatus around it: the bolt-on yaw_bearing_cap (3x M3 each)
+# housing the race in its own bore, sitting over an EMPTY production
+# pocket.  Now the single race sits IN that pocket -- the production
+# LOWER-race position (open-top Phi 37.15 bore, seat at coxa-local
+# z 0.5, a print-proven drop-in path) -- and the cap is DELETED
+# (-6 prints, -18 screws, one less part in the race-to-race tolerance
+# stack).  The coxa hub grows a Phi 29 ring (the production uflange
+# OD, which bears only on the Phi 25..29 inner-race land) from the
+# uflange underside (z 14.5) down to the relocated race top (z 7.5);
+# the coxa is already a variant print, so the ring is free.  Axial:
+# hanging legs load hub -> ring -> inner race -> outer race -> tower
+# seat; standing loads go up through the TOP bearing into the plate
+# shoulder -- each bearing takes one direction, no cap lip needed.
+# The race is radially housed by the pocket's 4 mm band (production
+# gave it 4 mm tower + 3 mm cap; the extra 3 mm was cap housing, not
+# seat).  The cap's dust labyrinth is retired -- the 2RS bearing is
+# sealed, and the tower's cap-bolt ears (r to 28) leave no room to
+# drop the hub skirt down instead.
+YAWBR_DROP = -hp.YAW_BEARING_W            # -7: race to the tower pocket
+HUB_RING_OD = hp.YAW_BEARING_INNER_OD     # 29 -- production uflange OD
+HUB_RING_ID = 24.0                        # overlaps the boss wall (22..25.15)
+HUB_RING_Z0 = hp.YAW_BEARING_LOWER_TOP_Z  # 7.5 -- relocated race TOP
+HUB_RING_Z1 = hp.YAW_BEARING_UPPER_TOP_Z + 1.5   # 16 -- well into the uflange
 PILLAR_RHO = 81.6                         # centre radius at az 0/60/...:
                                           # midway between the lid-screw
                                           # pilot (76.2) and the dedicated
@@ -528,14 +562,28 @@ def make_corner_pillar() -> trimesh.Trimesh:
     return _diff(body, cuts)
 
 
-def make_coxa_link_rounded() -> trimesh.Trimesh:
-    """The production coxa with its servo-cradle corners rounded to the
-    ROT_ENVELOPE_R arc about its own yaw axis (the coxa local z axis
-    through the origin).  Removes at most 2.16 mm from two vertical
-    wall corners that used to reach 40.36 mm; every interface (hub,
-    horn drive, cradle pilots, cap seat) is untouched.  This makes the
-    coxa a VARIANT print (6x) -- the trade for a plain rim column."""
+def make_coxa_link_rigid() -> trimesh.Trimesh:
+    """The production coxa with the two variant edits (see the constant
+    blocks above):
+
+      * ENVELOPE ROUND: servo-cradle corners rounded to the
+        ROT_ENVELOPE_R arc about its own yaw axis (max 2.16 mm off two
+        vertical wall corners that used to reach 40.36 mm) so the plain
+        rim columns clear by >= 5 mm at every yaw angle.
+      * HUB SEAT RING: the Phi 29 uflange extends down to z 7.5, where
+        the single bottom race now sits (tower pocket, LOWER position).
+        The ring bears only on the Phi 25..29 inner-race land -- same
+        contact the production uflange made one race higher -- and
+        merges with the boss wall over Phi 24..25.15.
+
+    Every other interface (hub, horn drive, cradle pilots, cap seat) is
+    untouched.  This makes the coxa a VARIANT print (6x)."""
     coxa = hp.make_coxa_link_part()
+    ring = _diff(
+        _cyl_z(HUB_RING_OD / 2.0, HUB_RING_Z0, HUB_RING_Z1, sections=128),
+        [_cyl_z(HUB_RING_ID / 2.0, HUB_RING_Z0 - 1.0, HUB_RING_Z1 + 1.0,
+                sections=128)])
+    coxa = _union([coxa, ring])
     z0, z1 = coxa.bounds[0][2] - 1.0, coxa.bounds[1][2] + 1.0
     keep = _cyl_z(ROT_ENVELOPE_R, z0, z1, sections=256)
     return trimesh.boolean.intersection([coxa, keep], engine="manifold")
@@ -675,24 +723,26 @@ MESH_FILES = {
     "corner_pillar": (make_corner_pillar, "corner_pillar.stl"),
     "centre_wago_block": (make_centre_wago_block, "centre_wago_block.stl"),
     # VARIANT reprint of a production part: cradle corners rounded to
-    # the 38.2 mm yaw envelope so the plain rim columns clear by 5 mm.
-    "coxa_link": (make_coxa_link_rounded, "coxa_link_rounded.stl"),
+    # the 38.2 mm yaw envelope + Phi 29 hub seat ring down to the
+    # tower-seated bottom race (see make_coxa_link_rigid).
+    "coxa_link": (make_coxa_link_rigid, "coxa_link_rigid.stl"),
     # Unchanged production prints (print from the MAIN stl_prototype/).
     "chassis_bottom": (hp.make_chassis_bottom, "chassis_bottom.stl"),
     "femur_link": (hp.make_femur_link_part, "femur_link.stl"),
     "tibia_knee_yoke": (hp.make_tibia_knee_yoke, "tibia_knee_yoke.stl"),
     "foot_boot": (hp.make_foot_boot, "foot_boot.stl"),
     "knee_clamp_cap": (hp.make_servo_clamp_cap, "knee_clamp_cap.stl"),
-    "yaw_bearing_cap": (hp.make_yaw_bearing_cap, "yaw_bearing_cap.stl"),
+    # NOTE: the production yaw_bearing_cap is DELETED in this variant --
+    # the ONE bottom bearing sits in the chassis tower's own pocket
+    # (production LOWER-race position) and the top plate provides the
+    # retention the cap used to (see the BOTTOM JOINT constant block).
     "yaw_servo_retainer": (hp.make_yaw_servo_retainer,
                            "yaw_servo_retainer.stl"),
-    # COTS / visual only.  NOTE: the production LOWER yaw bearing is
-    # deliberately absent -- it existed to form the 7 mm moment couple
-    # with the upper one, and the top plate replaces that with a ~67 mm
-    # couple.  The upper bearing is the LOCATED one (outer race in the
-    # yaw cap's own bore under its lip, inner race against the hub
-    # uflange + horn clamp preload), so omitting the lower race changes
-    # no production part.  Net robot bearing count stays 12.
+    # COTS / visual only.  ONE bottom bearing per leg: the production
+    # UPPER-race mesh (built at coxa-local z 7.5..14.5) is instanced
+    # with a -7 z drop into the LOWER position, seated on the tower
+    # pocket's z=0.5 shoulder.  Net robot bearing count stays 12
+    # (6 bottom + 6 top-plate).
     "servo_body": (hp.make_servo_body, "servo_body_DO_NOT_PRINT.stl"),
     "yaw_bearing_upper": (hp.make_yaw_bearing_upper,
                           "yaw_bearing_upper_DO_NOT_PRINT.stl"),
@@ -792,8 +842,7 @@ def check_static(meshes: dict[str, trimesh.Trimesh]) -> None:
                    sections=48)
     for key, frame in (("coxa_link", "coxa"), ("servo_body", "hip_cap"),
                        ("hip_clamp_cap_rigid", "hip_cap"),
-                       ("bearing_6805", "hip_cap"),
-                       ("yaw_bearing_cap", "coxa")):
+                       ("bearing_6805", "hip_cap")):
         m = meshes[key].copy()
         m.apply_transform(leg_transforms(0)[frame])
         v = _inter_vol(shaft, m)
@@ -806,6 +855,51 @@ def check_static(meshes: dict[str, trimesh.Trimesh]) -> None:
         assert v < 1e-6, f"driver shaft fouls pillar az{j * 60} ({v:.2f} mm3)"
     print(f"  cap-bolt driver access: 6 holes Phi {ACCESS_HOLE_D:g}, "
           f"ring web {web:.2f} mm, line of sight clear (hatch ON)")
+
+
+def check_bottom_joint(meshes: dict[str, trimesh.Trimesh]) -> None:
+    """ONE tower-seated bottom bearing, NO cap (user, Aug 24): the race
+    sits in the production pocket on its z=0.5 seat with only the
+    Phi 25.15 boss press touching the coxa, the hub's new Phi 29 ring
+    lands exactly on the race top, and with the plate off the leg +
+    bearing lift straight out of the pocket (horn centre screw only)."""
+    T = leg_transforms(0)
+    br = meshes["yaw_bearing_upper"].copy()
+    br.apply_transform(T["coxa"] @ _trans([0.0, 0.0, YAWBR_DROP]))
+    seat_w = hp.CHASSIS_YAW_OUTPUT_Z + hp.YAW_BEARING_LOWER_BOT_Z
+    assert abs(br.bounds[0][2] - seat_w) < 1e-3, \
+        f"race bottom {br.bounds[0][2]:.2f} not on the tower seat {seat_w:.2f}"
+    v_pocket = _inter_vol(br, meshes["chassis_bottom"])
+    assert v_pocket < 1.0, f"race overlaps the tower pocket ({v_pocket:.2f} mm3)"
+
+    coxa = meshes["coxa_link"].copy()
+    coxa.apply_transform(T["coxa"])
+    v_press = _inter_vol(coxa, br)
+    assert v_press < 60.0, \
+        f"coxa vs seated race: {v_press:.1f} mm3 (want the boss press only)"
+    v = _inter_vol(coxa, meshes["chassis_bottom"])
+    assert v < 1e-6, f"ringed coxa overlaps chassis_bottom ({v:.2f} mm3)"
+
+    # the seat ring lands ON the race top (kiss): material just above it
+    # on the inner-race land, none below it
+    ax, ay = T["coxa"][:2, 3]
+    race_top = seat_w + hp.YAW_BEARING_W
+    r_mid = (HUB_RING_ID + HUB_RING_OD) / 4.0
+    got = coxa.contains(np.array([[ax + r_mid, ay, race_top + 0.3],
+                                  [ax + r_mid, ay, race_top - 0.3]]))
+    assert got[0] and not got[1], "hub seat ring does not land on the race top"
+
+    # service: plate off -> leg + bearing lift straight out of the pocket
+    for dz in (2.0, 5.0, 12.0, 30.0):
+        for name, m in (("coxa", coxa), ("race", br)):
+            mm = m.copy()
+            mm.apply_translation([0.0, 0.0, dz])
+            v = _inter_vol(mm, meshes["chassis_bottom"])
+            assert v < 1e-6, \
+                f"lift +{dz}: {name} fouls chassis_bottom ({v:.1f} mm3)"
+    print(f"  bottom joint: race on the tower seat (world z {seat_w:.2f}), "
+          f"NO cap; coxa/race contact = boss press ({v_press:.1f} mm3), "
+          f"leg + bearing lift straight out")
 
 
 def check_pillars(meshes: dict[str, trimesh.Trimesh]) -> None:
@@ -837,7 +931,6 @@ def check_pillars(meshes: dict[str, trimesh.Trimesh]) -> None:
         T = leg_transforms(i)
         for key, fr in (("coxa_link", "coxa"), ("servo_body", "hip_cap"),
                         ("hip_clamp_cap_rigid", "hip_cap"),
-                        ("yaw_bearing_cap", "coxa"),
                         ("yaw_servo_retainer", "coxa")):
             m = meshes[key].copy()
             m.apply_transform(T[fr])
@@ -859,8 +952,7 @@ def check_pillars(meshes: dict[str, trimesh.Trimesh]) -> None:
     for yaw in (-45.0, -35.0, -20.0, 0.0, 20.0, 35.0, 45.0):
         T = leg_transforms(0, yaw_deg=yaw)
         for key, fr in (("coxa_link", "coxa"), ("servo_body", "hip_cap"),
-                        ("hip_clamp_cap_rigid", "hip_cap"),
-                        ("yaw_bearing_cap", "coxa")):
+                        ("hip_clamp_cap_rigid", "hip_cap")):
             m = meshes[key].copy()
             m.apply_transform(T[fr])
             for j in (0, 1):    # pillars at az 0 and az 60 flank leg 0
@@ -908,8 +1000,7 @@ def check_pillars(meshes: dict[str, trimesh.Trimesh]) -> None:
         T = leg_transforms(0, yaw_deg=float(yaw))
         hit = False
         for key, fr in (("coxa_link", "coxa"), ("servo_body", "hip_cap"),
-                        ("hip_clamp_cap_rigid", "hip_cap"),
-                        ("yaw_bearing_cap", "coxa")):
+                        ("hip_clamp_cap_rigid", "hip_cap")):
             m = meshes[key].copy()
             m.apply_transform(T[fr])
             for j in (0, 1):
@@ -1018,7 +1109,7 @@ def check_yaw_sweep(meshes: dict[str, trimesh.Trimesh]) -> None:
     Analytic guard on all rotating vertices + boolean spot checks."""
     plate = meshes["chassis_top_rigid"]
     rotating = [("coxa_link", "coxa"), ("hip_clamp_cap_rigid", "hip_cap"),
-                ("servo_body", "hip_cap"), ("yaw_bearing_cap", "coxa")]
+                ("servo_body", "hip_cap")]
     axis_xy = leg_transforms(0)["coxa"][:2, 3]
     for key, frame in rotating:
         m = meshes[key].copy()
@@ -1054,8 +1145,7 @@ def check_plate_descent(meshes: dict[str, trimesh.Trimesh]) -> None:
         T = leg_transforms(i)
         for key, frame in (("coxa_link", "coxa"), ("servo_body", "hip_cap"),
                            ("hip_clamp_cap_rigid", "hip_cap"),
-                           ("bearing_6805", "hip_cap"),
-                           ("yaw_bearing_cap", "coxa")):
+                           ("bearing_6805", "hip_cap")):
             m = meshes[key].copy()
             m.apply_transform(T[frame])
             static.append((f"L{i}-{key}", m))
@@ -1141,7 +1231,7 @@ COLORS = {
     "yaw_bearing_upper": "#3a3a3a", "servo_body": "#6b6b6b",
     "chassis_bottom": "#8a8f98", "coxa_link": "#7ba1d1",
     "femur_link": "#9aa0a6", "tibia_knee_yoke": "#9aa0a6",
-    "knee_clamp_cap": "#9aa0a6", "yaw_bearing_cap": "#9aa0a6",
+    "knee_clamp_cap": "#9aa0a6",
     "yaw_servo_retainer": "#9aa0a6", "foot_boot": "#5a5f66",
     "tibia_tube": "#404040",
 }
@@ -1195,11 +1285,10 @@ def build_scene(meshes, femur_up_limit: float) -> dict:
         knee_pt = (T["femur"] @ np.array([hp.FEMUR_LENGTH, 0.0, 0.0, 1.0]))[:3]
 
         yaw_ids = [
-            inst("coxa_link", f"L{i} coxa_link ROUNDED (NEW)",
+            inst("coxa_link", f"L{i} coxa_link RIGID (NEW)",
                  T["coxa"], leg=i),
-            inst("yaw_bearing_upper", f"L{i} yaw bearing (lower slot EMPTY)",
-                 T["coxa"], leg=i),
-            inst("yaw_bearing_cap", f"L{i} yaw bearing cap", T["coxa"], leg=i),
+            inst("yaw_bearing_upper", f"L{i} yaw bearing (tower-seated)",
+                 T["coxa"] @ _trans([0.0, 0.0, YAWBR_DROP]), leg=i),
             inst("servo_body", f"L{i} hip servo", T["hip_cap"], leg=i),
             inst("hip_clamp_cap_rigid", f"L{i} hip cap RIGID (NEW)",
                  T["hip_cap"], leg=i),
@@ -1253,7 +1342,6 @@ def build_scene(meshes, femur_up_limit: float) -> dict:
                 ["centre_wago_block", "wago5"],   # 0.15 press wedge
                 ["chassis_bottom", "servo_body"],
                 ["coxa_link", "servo_body"],
-                ["coxa_link", "yaw_bearing_cap"],
                 ["coxa_link", "yaw_bearing_upper"],
                 ["femur_link", "servo_body"],
                 ["hip_clamp_cap_rigid", "servo_body"],
@@ -1307,8 +1395,12 @@ def render_preview(meshes) -> None:
         ("top_hatch_rigid", np.eye(4), "#6fa8dc", "service hatch (NEW)"),
         ("hip_clamp_cap_rigid", T["hip_cap"], "#4878b0",
          "hip cap + pedestal + boss (NEW)"),
-        ("bearing_6805", T["hip_cap"], "#303030", "third 6805-2RS"),
-        ("coxa_link", T["coxa"], "#9aa0a6", "coxa_link (unchanged)"),
+        ("bearing_6805", T["hip_cap"], "#303030", "top 6805-2RS (NEW)"),
+        ("coxa_link", T["coxa"], "#7ba1d1",
+         "coxa_link RIGID (rounded + seat ring, NEW)"),
+        ("yaw_bearing_upper", T["coxa"] @ _trans([0.0, 0.0, YAWBR_DROP]),
+         "#303030", "bottom 6805-2RS (tower-seated, cap DELETED)"),
+        ("chassis_bottom", np.eye(4), "#8a8f98", "chassis_bottom (stock)"),
         ("servo_body", T["hip_cap"], "#c9a227", "hip servo"),
     ]
     fig, ax = plt.subplots(figsize=(10.5, 6.2), dpi=130)
@@ -1352,6 +1444,7 @@ def main() -> None:
 
     print("static checks ...")
     check_static(meshes)
+    check_bottom_joint(meshes)
     check_pillars(meshes)
     check_wago_block(meshes)
     check_hatch(meshes)
