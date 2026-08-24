@@ -161169,7 +161169,7 @@
       "goal.park_duty_window_s=0.5"
     ],
     "created": "2026-08-24T00:04:31+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -161198,15 +161198,22 @@
     "log": "/tmp/train_cw-walkcurr-pf-fwd6-hgt2-pdw05.log",
     "wandb_id": "725hv284",
     "verified": "2026-08-24T00:07:51+00:00",
-    "triage": "in-cycle cw-walkcurr-pf-fwd6-hgt2-pdw05 since 2026-08-24T00:09:02",
+    "triage": "done",
     "checkups": [
       {
         "time": "2026-08-24T00:13:09+00:00",
         "process_alive": false,
         "verdict": "DEAD",
         "log_tail": "0.03527\nwandb:   env/height_err_mm 50.75486\nwandb:       env/height_mm -50.72484\nwandb:   env/height_ref_mm 0\nwandb:   env/max_current_a 0.98642\nwandb:  env/mean_current_a 0.2832\nwandb: env/pct_within_1deg 0.25846\nwandb:   env/pitch_ref_deg 0\nwandb:                +113 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-walkcurr-pf-fwd6-hgt2-pdw05 at: https://wandb.ai/l2k2/hexapod-balance/runs/725hv284\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 3 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260824_000526-725hv284/logs\n"
+      },
+      {
+        "time": "2026-08-24T00:17:00+00:00",
+        "process_alive": false,
+        "verdict": "DEAD",
+        "log_tail": "0.03527\nwandb:   env/height_err_mm 50.75486\nwandb:       env/height_mm -50.72484\nwandb:   env/height_ref_mm 0\nwandb:   env/max_current_a 0.98642\nwandb:  env/mean_current_a 0.2832\nwandb: env/pct_within_1deg 0.25846\nwandb:   env/pitch_ref_deg 0\nwandb:                +113 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-walkcurr-pf-fwd6-hgt2-pdw05 at: https://wandb.ai/l2k2/hexapod-balance/runs/725hv284\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 3 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260824_000526-725hv284/logs\n"
       }
-    ]
+    ],
+    "verdict": "Confound-fix arm FAILS the rung-1 gate on the SAME underlying trajectory as every prior height-gate arm, even though the fix itself worked mechanically. Evidence: env/reward_park_duty is now nonzero throughout (-0.003 -> -0.011, was EXACTLY 0 all run on hgt2) confirming goal.park_duty_window_s=0.5 does fill before the 2.0s grace and the charge fires as designed. But env/walk_freeprog_score never leaves [-0.11,-0.10] (ends -0.098, no improvement over hgt2/hgt1), env/walk_speed decays 0.10->0.054 m/s, env/height_err_mm climbs monotonically 11->51mm the same way hgt1's did, and clip_fraction dips to near-zero mid-run (2.6e-5) before a partial recovery (0.029) -- reward and eval both non-improving with adequate budget = genuinely stuck, not misaligned, per the 08-21 ruling. Own-cfg gate: 6/6 det + 6/6 sto episodes terminate walk_low_height (the tight 25mm cutoff now firing every time, height_err_end 63-95mm), gait_valid now TRUE with duty spread 0.12-0.84 (no more sacrificed legs, so the tripod-lock escape specifically IS closed) but forward_dist is 0.007-0.03m/25s and slip_per_m 5.8-7.8 -- video (walk_det_0.png) shows a slow progressive splay-and-sink over the episode into a wide low crouch, zero net translation, then the safety cutoff ends it. Why: de-confounding the charge changed WHICH static pose the policy settles into (rigid tripod-lock -> splayed slow-sink) but not WHETHER it settles into one; the underlying survive-motionless-beats-risk-a-fall economics this whole campaign has been probing is untouched by this lever. What's next: read jointly with the pdx15 dose sibling (also FAIL, same signature) -- this closes the park_duty-class charge (any bank-legal dose, confound fixed or not) as a mechanism for unlocking rung-1 discovery. DIG-IN flagged for the next escalation choice (direct minimum-total-foot-contact charge, a new mechanism needing its own scripted twin + bank proof, vs. finally flagging the BC-kickstart last resort to the operator) since every other named lever (RND dose+budget, rung-0 swing-income, GRU, gSDE, rscale dose+continuations, height-gate dose+confound) is now closed."
   },
   {
     "run": "cw-walkcurr-pf-fwd6-stagea-slip1",
@@ -161338,7 +161345,7 @@
       "safety.walk_height_grace_s=5.0"
     ],
     "created": "2026-08-24T00:06:19+00:00",
-    "status": "RUNNING",
+    "status": "FINISHED",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -161366,7 +161373,15 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:walkcurr PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walkcurr-pf-fwd6-stagea-slip1 --steps 2000000 --task joint_walk --episode-seconds 25 --n-steps 24 --batch-size 24576 --net-arch 128,64,32 --activation-fn elu --log-std-init -1.0 --dr-scale 0.0 --require-gpu-physics --eval-every 1000000 --video-every 2000000 --best-ckpt --cfg-set bus.servo_params=loaded --cfg-set goal.walk_pure=1 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.05 --cfg-set goal.walk_heading_max_rad=0.0 --cfg-set goal.walk_cmd_resample_s=0.0 --cfg-set goal.walk_cmd_metrics=1 --cfg-set reward.k_walk_freeprog=0.06 --cfg-set reward.walk_freeprog_cap_m_s=0.08 --cfg-set reward.walk_kernel_vel_ema=1.0 --cfg-set reward.walk_kernel_vel_tau_s=0.75 --cfg-set reward.k_walk_heading=0.01 --cfg-set reward.k_step_event=0.02 --cfg-set reward.k_park_duty=0.08 --cfg-set reward.k_walk_idle_charge=0.04 --cfg-set reward.walk_idle_speed_m_s=0.025 --cfg-set reward.walk_idle_tau_s=1.0 --cfg-set reward.walk_loadslip_gate=0.75 --cfg-set reward.loadslip_ok=1.2 --cfg-set reward.loadslip_max=3.0 --cfg-set reward.loadslip_floor_m=0.03 --cfg-set reward.k_loadslip_excess=0.09 --cfg-set reward.term_penalty=24 --n-envs 4096 --out-name ppo_goal_cw_walkcurr_pf_fwd6_stagea_slip1 --impl warp --host-workers 24 --notes 'respec of cw-walkcurr-pf-fwd6-rscale50: Stage-A flat-forward slip diagnostic arm from the current fwd6-rscale50 baseline. Keep the same PPO/MJX infrastructure and 18 raw joint-target action representation, but simplify the command diet to exactly 0.05 m/s forward on flat ground, loosen roll/pitch safety so early clumsy exploration is not cut short, and add a modest planted-foot tangent slip charge only on meaningful consecutive contact. The slip term is averaged across measured feet, deadbanded, and capped, so it is a cleanup pressure and diagnostic, not the main objective. If true: optimizer health from rscale50 stays healthy, per-foot tangent-contact velocity and swing/contact metrics appear in W&B, reward_foot_slip_tangent remains small relative to existing loadslip/idle charges, and walk_freeprog_score/swing-contact telemetry leave the static-crouch basin earlier than the parent. If false: reward_foot_slip_tangent dominates or the same static crouch persists with near-zero liftoff/touchdown counts, closing this lever without blaming the 18-action interface.' --cfg-set reward.walk_charge_ramp_steps=1000000 --cfg-set reward.walk_charge_ramp_min_frac=0.4 --cfg-set reward.k_track=0.02 --cfg-set reward.k_roll=0.2 --cfg-set reward.k_pitch=0.2 --cfg-set reward.k_height=2.0 --cfg-set reward.k_gyro=0.001 --cfg-set reward.k_action=0.0001 --cfg-set reward.k_action_delta=0.0002 --cfg-set reward.k_current=0.0001 --cfg-set env.terrain_amp=0.0 --cfg-set reward.k_foot_slip_tangent=0.02 --cfg-set reward.foot_slip_contact_n=2.0 --cfg-set reward.foot_slip_deadband_m_s=0.015 --cfg-set reward.foot_slip_max_m_s=0.25 --cfg-set goal.walk_contact_diagnostics=1.0 --cfg-set safety.max_roll_deg=35.0 --cfg-set safety.max_pitch_deg=35.0 --cfg-set safety.walk_max_height_drop_mm=0.0 --cfg-set safety.walk_height_grace_s=5.0 > /tmp/train_cw-walkcurr-pf-fwd6-stagea-slip1.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walkcurr-pf-fwd6-stagea-slip1.log",
     "wandb_id": "rwdahh6d",
-    "verified": "2026-08-24T00:09:40+00:00"
+    "verified": "2026-08-24T00:09:40+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-24T00:15:11+00:00",
+        "process_alive": false,
+        "verdict": "FINISHED_BEFORE_CHECKUP",
+        "log_tail": "55\nwandb:   env/height_err_mm 110.62181\nwandb:       env/height_mm -110.61756\nwandb:   env/height_ref_mm 0\nwandb:   env/max_current_a 0.66354\nwandb:  env/mean_current_a 0.16294\nwandb: env/pct_within_1deg 0.73519\nwandb:   env/pitch_ref_deg 0\nwandb:                +169 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-walkcurr-pf-fwd6-stagea-slip1 at: https://wandb.ai/l2k2/hexapod-balance/runs/rwdahh6d\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 3 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260824_000716-rwdahh6d/logs\n"
+      }
+    ]
   },
   {
     "run": "cw-walkcurr-pf-fwd6-hgt2-pdw05-pdx15",
@@ -161756,7 +161771,7 @@
       "goal.park_duty_window_s=0.5"
     ],
     "created": "2026-08-24T00:10:02+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -161784,6 +161799,145 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:walkcurr PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walkcurr-pf-fwd6-hgt2-pdw05-pdx15 --steps 2000000 --task joint_walk --episode-seconds 25 --n-steps 24 --batch-size 24576 --net-arch 128,64,32 --activation-fn elu --log-std-init -1.0 --dr-scale 0.0 --require-gpu-physics --eval-every 1000000 --video-every 2000000 --best-ckpt --cfg-set bus.servo_params=loaded --cfg-set goal.walk_pure=1 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_heading_max_rad=0.0 --cfg-set goal.walk_cmd_resample_s=0.0 --cfg-set goal.walk_cmd_metrics=1 --cfg-set reward.k_walk_freeprog=0.06 --cfg-set reward.walk_freeprog_cap_m_s=0.08 --cfg-set reward.walk_kernel_vel_ema=1.0 --cfg-set reward.walk_kernel_vel_tau_s=0.75 --cfg-set reward.k_walk_heading=0.01 --cfg-set reward.k_step_event=0.02 --cfg-set reward.k_park_duty=0.12 --cfg-set reward.k_walk_idle_charge=0.04 --cfg-set reward.walk_idle_speed_m_s=0.025 --cfg-set reward.walk_idle_tau_s=1.0 --cfg-set reward.walk_loadslip_gate=0.75 --cfg-set reward.loadslip_ok=1.2 --cfg-set reward.loadslip_max=3.0 --cfg-set reward.loadslip_floor_m=0.03 --cfg-set reward.k_loadslip_excess=0.09 --cfg-set reward.term_penalty=24 --n-envs 4096 --out-name ppo_goal_cw_walkcurr_pf_fwd6_hgt2_pdw05_pdx15 --impl warp --host-workers 24 --notes 'respec of cw-walkcurr-pf-fwd6-hgt2: Retry (prior attempt PARKED on a stale-code-marker sync race, unrelated to this arm'\"'\"'s own logic; see cw-walkcurr-pf-fwd6-hgt2-pdw05-pdx15'\"'\"'s original entry). Plain English: dose sibling of hgt2-pdw05 -- same confound fix (goal.park_duty_window_s 2.0->0.5, park-duty charge now fires before the 2.0s termination grace expires) PLUS 1.5x the per-leg contact-duty charge (reward.k_park_duty 0.08->0.12) to test whether the de-confounded charge merely needs to fire vs. needs to fire HARDER to out-price the frozen tripod/belly-sit stances every RND and height-gate arm has converged to so far. Bank-proven at exactly this dose (test_walkcurr_pf_hgt_ tight_pdw05_pdx1p5, 16/16 green -- 3x (0.24) was tried first and REFUTED at the bank stage: it over-taxes the honest '\"'\"'park'\"'\"' stand-still behavior itself, pushing park_gated BELOW belly_sit_gated; 1.5x is the largest dose that stays bank-legal). Prediction-if-true: freeprog crosses toward/past 0 faster or further than the plain pdw05 sibling. Prediction-if-tied: dose doesn'\"'\"'t matter once the confound is fixed. Prediction-if-both-fail identically: park_duty-class charges are insufficient regardless of confound/dose, escalate to a direct minimum-total-foot-contact charge before BC-kickstart.' --cfg-set reward.walk_charge_ramp_steps=1000000 --cfg-set reward.walk_charge_ramp_min_frac=0.4 --cfg-set reward.k_track=0.02 --cfg-set reward.k_roll=0.2 --cfg-set reward.k_pitch=0.2 --cfg-set reward.k_height=2.0 --cfg-set reward.k_gyro=0.001 --cfg-set reward.k_action=0.0001 --cfg-set reward.k_action_delta=0.0002 --cfg-set reward.k_current=0.0001 --cfg-set reward.walk_height_gate=1.0 --cfg-set reward.walk_height_sigma_mm=11.0 --cfg-set safety.walk_max_height_drop_mm=25.0 --cfg-set safety.walk_height_grace_s=2.0 --cfg-set goal.park_duty_window_s=0.5 > /tmp/train_cw-walkcurr-pf-fwd6-hgt2-pdw05-pdx15.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walkcurr-pf-fwd6-hgt2-pdw05-pdx15.log",
     "wandb_id": "jqccc0zq",
-    "verified": "2026-08-24T00:13:28+00:00"
+    "verified": "2026-08-24T00:13:28+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-24T00:17:02+00:00",
+        "process_alive": false,
+        "verdict": "FINISHED_BEFORE_CHECKUP",
+        "log_tail": "\nwandb:   env/height_err_mm 50.52977\nwandb:       env/height_mm -50.50163\nwandb:   env/height_ref_mm 0\nwandb:   env/max_current_a 0.98621\nwandb:  env/mean_current_a 0.28215\nwandb: env/pct_within_1deg 0.25602\nwandb:   env/pitch_ref_deg 0\nwandb:                +113 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-walkcurr-pf-fwd6-hgt2-pdw05-pdx15 at: https://wandb.ai/l2k2/hexapod-balance/runs/jqccc0zq\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 3 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260824_001104-jqccc0zq/logs\n"
+      }
+    ],
+    "verdict": "Dose sibling of hgt2-pdw05 (park_duty_window fix + 1.5x k_park_duty, 0.08->0.12) FAILS identically -- the extra dose changes nothing qualitatively. env/reward_park_duty nonzero throughout (-0.005 -> -0.016, proportionally larger than the plain-dose sibling's -0.003/-0.011 as expected from the 1.5x multiplier -- the dose IS landing), but env/walk_freeprog_score still flat in [-0.11,-0.10] the whole run (ends -0.101, no better than the plain dose), env/walk_speed decays 0.10->0.054 m/s (same curve, same numbers as the plain dose to 2 decimal places), env/height_err_mm climbs 11->51mm identically, clip_fraction crashes to EXACTLY 0 mid-run (step 161, worse collapse than the plain dose's 2.6e-5) before a partial recovery to 0.011. Own-cfg gate: 6/6 det + 6/6 sto terminate walk_low_height, gait_valid TRUE (duty 0.24-0.78, no sacrificed legs), forward_dist 0.005-0.03m/25s, slip/m 5.8-7.8, height_err_end 65-94mm -- video (walk_det_0.png) is visually indistinguishable from the plain-dose sibling: slow splay-and-sink into a low wide crouch, zero net translation, cut off by the safety cutoff. Read jointly with hgt2-pdw05: dose does NOT matter once the confound is fixed (matches the pre-registered 'Prediction-if-tied' branch exactly) -- the park_duty-class charge (any bank-legal dose, 0.08 or 0.12, confound-fixed or not) is now CLOSED as a mechanism for unlocking rung-1 discovery. This is the last cheap dose-lever on the existing charge stack; every other item on the track's own escalation list (RND dose+budget, rung-0 swing-income, GRU, gSDE, rscale dose+continuations, height-gate loose/tight dose, park_duty confound+dose) is now closed. DIG-IN flagged (same as hgt2-pdw05) for the next design decision: build a direct minimum-total-foot-contact charge (new mechanism + scripted twin + bank proof) vs. finally escalate BC-kickstart to the operator per the track's own item (d).",
+    "triage": "done"
+  },
+  {
+    "run": "cw-arch-hist16-dep1-c1-joyfullcurr7",
+    "pod": "hexapod-mjx-train-0",
+    "steps": 40000000,
+    "smoke": false,
+    "hypothesis": "Plain English: same operator-ordered full-circle joystick ladder as joyfullcurr6, with the one measured defect fixed - the robot now gets explicitly charged for moving when told to STOP, so the curriculum can promote past the rung where its predecessor sat for 40M steps. joyfullcurr6 froze at b1 because its cert stop bar (mean stop-tick speed <= 0.015 m/s) had NO matching reward term: on stop ticks every walk term except the shallow Gaussian kernel is s_ref-guarded, and PPO converged to a 0.04 m/s creep priced as near-optimal (dig-in 08-24, corrected root cause - k_walk_freeprog was never active). New reward.k_walk_stop_charge=1.0 (scale 0.015 = the cert bar, cap 4.0, turn-in-place exempt, default-off key, bank-proven: still_charged > creep_charged by >300/ep under this exact stack, stillness untaxed). Single-mechanism delta vs joyfullcurr6; same parent ppo_goal_cw_arch_hist16_dep1_c1.zip (NOT the regressed joyfullcurr6 checkpoint - it fell 8/48 on the joygate). If-true: b1 stop cert clears and the frontier climbs into side90/rear buckets. If-false: b1 stop_speed still >0.015 with the charge active (deeper defect - e.g. decel-transient dominates the mean and the bar itself needs a settle grace), or the stop charge trades away walking quality (watch b0/b1 cmd_prog and slip vs joyfullcurr6's own certs).",
+    "gate": "walkcurr V6 b1 cert clears its stop check (stop_speed_m_s <= 0.015) and frontier promotes past side90_60s (cmd_prog>=0.65, slip/m<=2.0, 0 falls); FINAL unchanged from joyfullcurr6: full-circle 60s drive eval DR0.5, 0 falls, rear/side followed, slip not exploding vs parent; DR0+ownDR walk gates 6/6 gait_valid 0 term; video all six feet cycling",
+    "parent": "cw-arch-hist16-dep1-c1-joyfullcurr6",
+    "track": "joystick",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--walk-curriculum",
+      "--walk-curriculum-version",
+      "6",
+      "--episode-seconds",
+      "60",
+      "--dr-scale",
+      "0.5",
+      "--seed",
+      "0",
+      "--ent-coef",
+      "0.01",
+      "--no-canary",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--init-from",
+      "rl_move/sim/policies/ppo_goal_cw_arch_hist16_dep1_c1.zip",
+      "--walkcurr-cert-at-init",
+      "--walkcurr-precert-min-prog",
+      "0.50",
+      "--walkcurr-precert-buckets",
+      "2",
+      "--cfg-set",
+      "obs.history_frames=16",
+      "--cfg-set",
+      "goal.walk_obs_body_vel=2",
+      "--cfg-set",
+      "safety.max_roll_deg=25",
+      "--cfg-set",
+      "safety.max_pitch_deg=25",
+      "--cfg-set",
+      "reward.k_step_event=1.0",
+      "--cfg-set",
+      "reward.k_drag_loaded=10.0",
+      "--cfg-set",
+      "reward.k_park_duty=1.0",
+      "--cfg-set",
+      "reward.walk_kernel_prog_gate=1.0",
+      "--cfg-set",
+      "goal.walk_park_start_frac=0.25",
+      "--cfg-set",
+      "reward.walk_anchor_gate=1.0",
+      "--cfg-set",
+      "reward.anchor_tol_mm=10.0",
+      "--cfg-set",
+      "reward.k_loadslip_excess=0.8",
+      "--cfg-set",
+      "reward.loadslip_ok=1.2",
+      "--cfg-set",
+      "reward.loadslip_max=3.0",
+      "--cfg-set",
+      "reward.loadslip_floor_m=0.03",
+      "--cfg-set",
+      "reward.k_walk_course=1.0",
+      "--cfg-set",
+      "reward.walk_course_tau_s=0.75",
+      "--cfg-set",
+      "reward.walk_course_min_speed_m_s=0.01",
+      "--n-envs",
+      "3072",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--out-name",
+      "ppo_goal_cw_arch_hist16_dep1_c1_joyfullcurr7",
+      "--notes",
+      "respec of cw-arch-hist16-dep1-c1-joyfullcurr6: Plain English: same operator-ordered full-circle joystick ladder as joyfullcurr6, with the one measured defect fixed - the robot now gets explicitly charged for moving when told to STOP, so the curriculum can promote past the rung where its predecessor sat for 40M steps. joyfullcurr6 froze at b1 because its cert stop bar (mean stop-tick speed <= 0.015 m/s) had NO matching reward term: on stop ticks every walk term except the shallow Gaussian kernel is s_ref-guarded, and PPO converged to a 0.04 m/s creep priced as near-optimal (dig-in 08-24, corrected root cause - k_walk_freeprog was never active). New reward.k_walk_stop_charge=1.0 (scale 0.015 = the cert bar, cap 4.0, turn-in-place exempt, default-off key, bank-proven: still_charged > creep_charged by >300/ep under this exact stack, stillness untaxed). Single-mechanism delta vs joyfullcurr6; same parent ppo_goal_cw_arch_hist16_dep1_c1.zip (NOT the regressed joyfullcurr6 checkpoint - it fell 8/48 on the joygate). If-true: b1 stop cert clears and the frontier climbs into side90/rear buckets. If-false: b1 stop_speed still >0.015 with the charge active (deeper defect - e.g. decel-transient dominates the mean and the bar itself needs a settle grace), or the stop charge trades away walking quality (watch b0/b1 cmd_prog and slip vs joyfullcurr6's own certs).",
+      "--cfg-set",
+      "reward.k_walk_stop_charge=1.0"
+    ],
+    "created": "2026-08-24T00:15:17+00:00",
+    "status": "RUNNING",
+    "checks": {
+      "cpu_limit": 28,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-b29b4867-ac22-4270-8fa9-5d854396da05)",
+      "running_experiments_before": 0,
+      "code_sha_local": "34da6b6a69ac789e675d01907c86d89825ce07ee",
+      "code_sha_pod": "34da6b6a69ac789e675d01907c86d89825ce07ee",
+      "init_from_on_pod": true,
+      "wandb_env_on_pod": true,
+      "pid": "689029",
+      "log_growth_bytes": [
+        13501,
+        21456
+      ],
+      "wandb_id": "6l0afxr1",
+      "global_step_window": [
+        688128,
+        1032192
+      ],
+      "fps_estimate": 11468.8
+    },
+    "trainer": "ppo",
+    "stack": "gpu-mjx",
+    "phase": "acquisition",
+    "assessment_scope": "full_budget_skill_acquisition",
+    "evidence": "operator order fb_20260823T220651_5c66e3 (MCP operator lane); parent cw-arch-hist16-dep1-c1 PASS (0 falls, 12/12 gait_valid, seed-0 cleaner); V6 ladder validated this cycle: test_walk_curriculum.py 38/38 PASS incl 5 new V6 tests, walk/loadslip/course semantics bank subset 69 PASS, V6 env smoke full-circle heading draws -180..180 deg; precert-at-init (min-prog 0.50, 2 buckets) gates the transplant before any PPO update; snapshot e180b161",
+    "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:joystick PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-arch-hist16-dep1-c1-joyfullcurr7 --steps 40000000 --task joint_walk --walk-curriculum --walk-curriculum-version 6 --episode-seconds 60 --dr-scale 0.5 --seed 0 --ent-coef 0.01 --no-canary --eval-every 1000000 --video-every 2000000 --init-from rl_move/sim/policies/ppo_goal_cw_arch_hist16_dep1_c1.zip --walkcurr-cert-at-init --walkcurr-precert-min-prog 0.50 --walkcurr-precert-buckets 2 --cfg-set obs.history_frames=16 --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set reward.k_loadslip_excess=0.8 --cfg-set reward.loadslip_ok=1.2 --cfg-set reward.loadslip_max=3.0 --cfg-set reward.loadslip_floor_m=0.03 --cfg-set reward.k_walk_course=1.0 --cfg-set reward.walk_course_tau_s=0.75 --cfg-set reward.walk_course_min_speed_m_s=0.01 --n-envs 3072 --impl warp --host-workers 24 --out-name ppo_goal_cw_arch_hist16_dep1_c1_joyfullcurr7 --notes 'respec of cw-arch-hist16-dep1-c1-joyfullcurr6: Plain English: same operator-ordered full-circle joystick ladder as joyfullcurr6, with the one measured defect fixed - the robot now gets explicitly charged for moving when told to STOP, so the curriculum can promote past the rung where its predecessor sat for 40M steps. joyfullcurr6 froze at b1 because its cert stop bar (mean stop-tick speed <= 0.015 m/s) had NO matching reward term: on stop ticks every walk term except the shallow Gaussian kernel is s_ref-guarded, and PPO converged to a 0.04 m/s creep priced as near-optimal (dig-in 08-24, corrected root cause - k_walk_freeprog was never active). New reward.k_walk_stop_charge=1.0 (scale 0.015 = the cert bar, cap 4.0, turn-in-place exempt, default-off key, bank-proven: still_charged > creep_charged by >300/ep under this exact stack, stillness untaxed). Single-mechanism delta vs joyfullcurr6; same parent ppo_goal_cw_arch_hist16_dep1_c1.zip (NOT the regressed joyfullcurr6 checkpoint - it fell 8/48 on the joygate). If-true: b1 stop cert clears and the frontier climbs into side90/rear buckets. If-false: b1 stop_speed still >0.015 with the charge active (deeper defect - e.g. decel-transient dominates the mean and the bar itself needs a settle grace), or the stop charge trades away walking quality (watch b0/b1 cmd_prog and slip vs joyfullcurr6'\"'\"'s own certs).' --cfg-set reward.k_walk_stop_charge=1.0 > /tmp/train_cw-arch-hist16-dep1-c1-joyfullcurr7.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-arch-hist16-dep1-c1-joyfullcurr7.log",
+    "wandb_id": "6l0afxr1",
+    "verified": "2026-08-24T00:18:43+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-24T00:24:13+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 9745,
+        "fps": 8738.1,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   }
 ]

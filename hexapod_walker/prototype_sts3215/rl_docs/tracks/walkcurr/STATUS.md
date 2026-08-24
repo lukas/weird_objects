@@ -840,3 +840,86 @@ validity, on video. Speed obedience is secondary throughout.
   launched this cycle: the one live decision point is this joint
   read, and inventing a parallel arm ahead of it would pre-empt the
   track's own pre-registered sequencing rule.
+
+## Now (updated 08-24 ~00:2x — hgt1 confirmed, park_duty-class CLOSED at every dose, DIG-IN flagged)
+
+- **`cw-walkcurr-pf-fwd6-hgt1` (loose dose) FAIL, verdicted (a
+  concurrent cycle raced this same triage; both readings agree, no
+  conflict — recorded here for the doc trail):** clip_fraction stays
+  healthy/rising the whole run (0.0125->0.088->0.112, no crush) yet
+  reward monotonically FALLS (ep_rew_mean quarters 32.0/14.3/14.0/
+  13.5/10.5) while `env/height_err_mm` climbs monotonically
+  11.5->43.6mm — the policy is actively learning to crouch lower
+  every checkpoint, converging TOWARD (not away from) a static
+  optimum, just never crossing the loose 60mm cutoff in 2M. Own-cfg
+  gate: det panel is a **rigid tripod-lock** — duty
+  `[0.96, 0.98, 0.03, 0.02, 0.99, 0.03]` on every one of 6/6 episodes
+  (3 legs permanently planted at ~1.0 duty, 3 permanently airborne at
+  ~0.03), `sacrificed_legs=[2,3,5]`, `gait_valid=false`,
+  `forward_dist_m≈0.02`, `height_err_end_mm≈41.4` (consistently just
+  under the 60mm cutoff — video-confirmed, walk_det_0.png: a static
+  three-legs-down/three-legs-up stand, zero body translation across
+  all 10 frames). sto mode is noisier and worse: 4/6 episodes
+  `tilt_pitch`-terminate attempting to escape the hold, slip/m up to
+  38.8. This is exactly the pre-registered **"NEW shallower static
+  pose just under the drop threshold"** branch, and closes the loose
+  end of the height-gate dose bracket the same way hgt2 closed the
+  tight end.
+- **`cw-walkcurr-pf-fwd6-hgt2-pdw05` / `-pdw05-pdx15` FAIL (both
+  verdicted this cycle) — the park_duty/grace confound fix WORKS
+  mechanically but does not change the outcome, at either bank-legal
+  dose.** Both are single/double-lever respecs of hgt2 fixing the
+  `goal.park_duty_window_s`==`safety.walk_height_grace_s` confound
+  hgt2 found (window shortened 2.0s->0.5s so the trailing-duty buffer
+  fills before termination), one at unchanged `k_park_duty=0.08` and
+  one at `0.12` (1.5x — the largest dose the bank allows; 3x was
+  tried and REFUTED at the bank stage first, since it over-taxes the
+  honest `park` stand-still behavior itself and inverts
+  `park_gated`/`belly_sit_gated`, `test_walkcurr_pf_hgt_*` now 16/16
+  green across 4 parametrized doses incl. both of these). Both
+  launched, trained (2M, ~215s each — MJX throughput is fast enough
+  that a same-cycle dose pair completes within one triage session),
+  and read this cycle. `env/reward_park_duty` is confirmed nonzero
+  throughout on both (was EXACTLY 0 on hgt2) — the fix lands — but
+  `env/walk_freeprog_score` stays flat in [-0.11,-0.10] on both
+  (ends -0.098/-0.101, no better than hgt1/hgt2), `env/walk_speed`
+  decays 0.10->0.054 m/s on both (nearly identical curves), and
+  `env/height_err_mm` climbs 11->51mm on both. Own-cfg gate: 6/6 det
+  + 6/6 sto terminate `walk_low_height` on both arms, `gait_valid`
+  is now **TRUE** on every episode (duty spread 0.12-0.84, no more
+  sacrificed legs — the confound fix DOES close the specific
+  tripod-lock escape) but `forward_dist_m` is 0.005-0.03/25s and
+  `slip_per_m` 5.8-7.8 on both — video (`walk_det_0.png`, both arms,
+  visually near-identical) shows a **slow progressive splay-and-sink**
+  over the episode into a wide low crouch, zero net translation,
+  ended by the safety cutoff. **Reading: de-confounding the charge
+  changes WHICH static pose the policy settles into (rigid
+  tripod-lock -> gradual splayed sink) but not WHETHER it settles
+  into one — the survive-motionless-beats-risk-a-fall economics this
+  entire campaign has been probing is untouched by this lever, and
+  1.5x dose is no different from 1x (the pre-registered "tied"
+  branch).**
+- **TRACK STATE: every named escalation lever is now closed.** RND
+  (dose 0.02/0.10/1.0 + budget continuation), rung-0 swing-income
+  (1x/3x), `--gru`, `--use-sde`, reward-scale dose+continuations
+  (x0.1/x0.02), height-gate loose/tight dose, and now park_duty
+  confound-fix at both bank-legal doses — eight independent mechanism
+  classes, all refuted with aligned reward+eval (reward flat or
+  actively worsening, never crossing into real locomotion, at
+  adequate 2M-6M budgets). What remains from the track's own
+  escalation order: **(b) a direct minimum-total-foot-contact charge
+  is the one UNBUILT mechanism** (price ANY near-static pose
+  directly — e.g. a charge on "too few legs cycling within a trailing
+  window" that doesn't key off height or per-leg duty extremes the
+  way `k_park_duty` does, so it can't be dodged by finding a new duty
+  *pattern* the way tripod-lock -> splayed-sink just did) — needs its
+  own scripted twin (the splayed-sink pose specifically, not just
+  `belly_sit`/`park`) and bank proof before any launch; **(d) BC-
+  kickstart** is the operator-flagged last resort. **DIG-IN flagged**
+  for whichever cycle picks this up next: design+build+bank-prove the
+  foot-contact charge (preferred, stays inside the "no BC teacher"
+  rule) unless the deep read concludes the reward-shape space is
+  structurally exhausted, in which case flag BC-kickstart to the
+  operator explicitly rather than trying a ninth reward variant.
+  Evidence: `logs/ckpt_eval/cw_walkcurr_pf_fwd6_{hgt1,hgt2_pdw05,
+  hgt2_pdw05_pdx15}_gate/`.
