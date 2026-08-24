@@ -167283,7 +167283,19 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:joystick PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-arch-hist16-dep1-c1-joyfullcurr9-stopcur2 --steps 40000000 --task joint_walk --walk-curriculum --walk-curriculum-version 6 --episode-seconds 60 --dr-scale 0.5 --seed 0 --ent-coef 0.01 --no-canary --eval-every 1000000 --video-every 2000000 --init-from rl_move/sim/policies/ppo_goal_cw_arch_hist16_dep1_c1.zip --walkcurr-cert-at-init --walkcurr-precert-min-prog 0.50 --walkcurr-precert-buckets 2 --cfg-set obs.history_frames=16 --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set reward.k_loadslip_excess=0.8 --cfg-set reward.loadslip_ok=1.2 --cfg-set reward.loadslip_max=3.0 --cfg-set reward.loadslip_floor_m=0.03 --cfg-set reward.k_walk_course=1.0 --cfg-set reward.walk_course_tau_s=0.75 --cfg-set reward.walk_course_min_speed_m_s=0.01 --n-envs 3072 --impl warp --host-workers 24 --out-name ppo_goal_cw_arch_hist16_dep1_c1_joyfullcurr9_stopcur2 --notes 'respec of cw-arch-hist16-dep1-c1-joyfullcurr8-stopgrace: Plain English: the robot keeps falling on stop commands because it freezes by stiffly fighting the ground, drawing sustained actuator current until the 2.5A/0.8s safety cutoff trips -- so we now charge the actuator CURRENT itself on stop ticks instead of only charging residual body speed. joyfullcurr7 (speed charge) and joyfullcurr8 (+0.4s grace) both ended with 100% of joygate falls = over_current; re-timing a speed charge cannot touch a sustained-current trip by construction (trip needs >2.5A held 0.8s through a 0.1s LPF -- an isometric fight, not a braking transient). New mechanism (built+bank-proven this cycle, test_walk_stop_current.py 5/5 incl. a scripted fight pose that reproduces the over_current termination exactly and is charged ~-4.7/tick while the relaxed plant stance pays ~0; grace 4/4 + stopcharge 3/3 unaffected; tag exp/cw-arch-hist16-dep1-c1-joyfullcurr9-stopcur): reward.k_walk_stop_current=2.0 charges per-servo current quadratically above 1.5A headroom on stop ticks only, sharing the 0.4s grace timer so braking current pays little. Speed charge k=1.0 + grace 0.4 inherited unchanged; same base parent checkpoint. Dose sibling stopcur6 (k=6.0) brackets whether the charge must exceed the speed-charge cap (4.0/tick) to win. If-true: joygate falls drop toward/below 8/48 with over_current no longer dominant AND b1 stop cert clears. If-false at BOTH doses (falls stay over_current-dominated): the fight is not reward-driven -- suspect the cert bar itself (0.015 m/s may be unreachable without stiffness) or the sim current model, and audit before any further stop-pricing arm.' --cfg-set reward.k_walk_stop_charge=1.0 --cfg-set reward.walk_stop_grace_s=0.4 --cfg-set reward.k_walk_stop_current=2.0 > /tmp/train_cw-arch-hist16-dep1-c1-joyfullcurr9-stopcur2.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-arch-hist16-dep1-c1-joyfullcurr9-stopcur2.log",
     "wandb_id": "ft3d73yx",
-    "verified": "2026-08-24T04:40:42+00:00"
+    "verified": "2026-08-24T04:40:42+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-24T04:45:51+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 8894,
+        "fps": 8738.1,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   },
   {
     "run": "cw-arch-hist16-dep1-c1-joyfullcurr9-stopcur6",
@@ -167404,6 +167416,18 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:joystick PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-arch-hist16-dep1-c1-joyfullcurr9-stopcur6 --steps 40000000 --task joint_walk --walk-curriculum --walk-curriculum-version 6 --episode-seconds 60 --dr-scale 0.5 --seed 0 --ent-coef 0.01 --no-canary --eval-every 1000000 --video-every 2000000 --init-from rl_move/sim/policies/ppo_goal_cw_arch_hist16_dep1_c1.zip --walkcurr-cert-at-init --walkcurr-precert-min-prog 0.50 --walkcurr-precert-buckets 2 --cfg-set obs.history_frames=16 --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set reward.k_loadslip_excess=0.8 --cfg-set reward.loadslip_ok=1.2 --cfg-set reward.loadslip_max=3.0 --cfg-set reward.loadslip_floor_m=0.03 --cfg-set reward.k_walk_course=1.0 --cfg-set reward.walk_course_tau_s=0.75 --cfg-set reward.walk_course_min_speed_m_s=0.01 --n-envs 3072 --impl warp --host-workers 24 --out-name ppo_goal_cw_arch_hist16_dep1_c1_joyfullcurr9_stopcur6 --notes 'respec of cw-arch-hist16-dep1-c1-joyfullcurr8-stopgrace: Plain English: high-dose sibling of stopcur2 -- if a mild actuator-current charge on stop ticks is not enough to stop the robot from stiffly fighting the ground until the over_current safety cutoff, this arm makes the near-trip fight decisively more expensive than anything the stop-speed charge can pay for. The speed charge caps at 4.0/tick; at k=2.0 a single servo at the 2.5A trip pays only 2.0/tick, so the trained policy could still net-profit from a hard frozen brake. k=6.0 prices one trip-level servo at 6.0/tick (cap 24/tick), strictly above the speed-charge cap, so no braking strategy that holds near-trip current can be reward-optimal. Same bank proof as stopcur2 (test_walk_stop_current.py 5/5; ranking relaxed-still > fight/creep/walk holds at any k>0 since the charge only fires on stop-tick current excess). Risk this arm measures: over-taxing stop-tick current may make the policy avoid crisp stops (slow creepy settling to dodge braking current), visible as stop_speed_m_s regression vs stopcur2. If-true: joygate falls <= 8/48, over_current no longer dominant, stop cert clears. If-false at BOTH doses: fight is not reward-driven -- audit the cert bar / sim current model before more stop-pricing arms.' --cfg-set reward.k_walk_stop_charge=1.0 --cfg-set reward.walk_stop_grace_s=0.4 --cfg-set reward.k_walk_stop_current=6.0 > /tmp/train_cw-arch-hist16-dep1-c1-joyfullcurr9-stopcur6.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-arch-hist16-dep1-c1-joyfullcurr9-stopcur6.log",
     "wandb_id": "eponx2n1",
-    "verified": "2026-08-24T04:42:32+00:00"
+    "verified": "2026-08-24T04:42:32+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-24T04:47:41+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 6980,
+        "fps": 6553.6,
+        "placement": "solo on GPU-MJX pod",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   }
 ]
