@@ -1560,3 +1560,119 @@ validity, on video. Speed obedience is secondary throughout.
   different axis (episode SCHEDULE, not reward/architecture/reset-
   pose) and worth building only if `sde-actbias1` also closes the
   fork — do not build it speculatively before that read.
+
+## Now (updated 08-24 ~03:5x — sde-actbias1 FAIL closes the sde-combo line; 14 non-BC classes now refuted; episode-length lever built+launched before treating BC-kickstart as final)
+
+- **`cw-walkcurr-pf-fwd6-rscale50-sde-actbias1` FAIL, verdicted:**
+  stacking the action-bias base onto gSDE does NOT let the sde
+  parent's forward lurch survive with a stable posture underneath —
+  it SUPPRESSES the lurch entirely instead. Det gate 0/6 gait_valid,
+  IDENTICAL frozen pose all 6 episodes (slip/m pinned 11.07,
+  sac=[0,1,3]); sto gate 0/6 too, prog med -0.00 (vs the plain-sde
+  parent's +0.32-0.47) with 5/6 tilt_pitch terms — falls stay just as
+  frequent, the directed-lurch signature is simply gone.
+  `env/walk_freeprog_score` sits in [-0.19,-0.15] the whole run,
+  worse than either parent alone; `clip_fraction` stayed the
+  healthiest of any rung-1 arm (0.13-0.15, no crush); reward falls
+  every quarter. Aligned FAIL per 08-21. **This closes the sde-
+  combination line** alongside the two sibling reads already in:
+  `sde-s2` FAIL (the lurch direction was seed luck — backward, not
+  forward, on the replicate) and `sde-actbias1-idleterm1` FAIL (the
+  three-ingredient stack dodges idle-terminate via in-place fidget).
+- **Tally: 14 independently-designed rung-1 mechanism/architecture/
+  reset-pose classes are now closed, all aligned FAILs** (exploration
+  noise, entropy, loadslip-bootstrap x2, height-gate x2, park_duty
+  confound+dose+actbias-stack x3, RND x3 doses+budget, rung-0
+  swing-income x2, GRU x2, gSDE x2 doses + 2 combo arms, reward-
+  rescale continuations, idle-termination x3 configs, reset-state-
+  diversity x2 doses). Per `OPERATOR_QUESTIONS.md` q_20260824T0233Z's
+  own pre-registered framing, this makes the BC-kickstart operator
+  ruling the sole remaining reward/architecture/reset-pose lever.
+- **BUILT + LAUNCHED instead of treating that as final: `--training-
+  episode-seconds`** (`train_ppo_mjx.py`, new CLI flag +
+  `_resolve_training_episode_seconds` pure function, default
+  `None` = bit-exact identical to `--episode-seconds`;
+  `test_training_episode_seconds.py` 4/4; on-pod smoke-verified with
+  the exact walkcurr recipe, `goal.walk_pure=1`,
+  `--training-episode-seconds 4.0`, ran clean). Decouples the
+  TRAINING rollout episode length from the eval/gate episode length
+  (always 25s, unchanged, so every arm's gate stays comparable) — a
+  genuinely untried axis (episode SCHEDULE, not reward pricing,
+  architecture, or reset-pose distribution) that directly targets the
+  campaign's original dig-in finding: a fixed-length 25s episode lets
+  the policy settle into (and keep reinforcing) a single static
+  optimum for the whole episode, when the real fix might just be more
+  frequent resets/goal-resamples per unit step-budget. Snapshot
+  `exp/cw-walkcurr-pf-fwd6-shortep1` pushed before launch.
+  **LAUNCHED (this cycle): `cw-walkcurr-pf-fwd6-actbias1-shortep3`**
+  (`--training-episode-seconds=3.0`, ~8x more resets/budget than the
+  25s baseline) **and `-shortep8`** (`=8.0`, ~3x more resets, kept
+  long enough for the freeprog EMA's 0.75s tau to stabilize — rules
+  out "3s is too short to read" as a confound), both single-lever
+  respecs off the clean `actbias1` base, from scratch, 2M discovery,
+  VERIFIED RUNNING (train-2, train-4). Prediction-if-true (either
+  dose): `walk_freeprog_score` leaves the dead band toward/past 0
+  and/or the 25s gate shows real stepping for the first time.
+  Prediction-if-false (both, same static-stand-or-thrash signature):
+  the episode-length axis closes too, and per this note's own
+  pre-registration, `OPERATOR_QUESTIONS.md` q_20260824T0233Z's
+  BC-kickstart ruling becomes the sole remaining lever with NO
+  further non-BC mechanism pre-registered or credible — the next
+  cycle that reads shortep3/shortep8 as a double-FAIL should treat
+  that note as fully load-bearing rather than deriving a new lever.
+
+## Now (updated 08-24 ~04:1x — shortep3 (3s dose) FAIL; shortep8 (8s) still training)
+
+- **`cw-walkcurr-pf-fwd6-actbias1-shortep3` FAIL, verdicted:** the
+  3.0s training-episode dose (~8x more resets/2M budget vs the
+  implicit 25s baseline) does NOT unfreeze rung-1. Det gate 0/6
+  gait_valid, prog med 0.01, fwd med 0.02m/25s, slip/m med 3.80, legs
+  [0,2,3,5] sacrificed identically 5/6 episodes; sto gait_valid 5/6
+  but slip/m med 31.56 (in-place thrash, prog med -0.01).
+  `env/walk_freeprog_score` bounced in [-0.085,-0.04] the entire 2M
+  run with NO trend toward 0 (worse than the rscale50 parent's
+  monotonic rise at the same scale) — this dose does not even
+  replicate the parent's partial discovery signal, let alone convert
+  it. `rollout/ep_rew_mean` flat 47-49 all 4 quarters;
+  `train/clip_fraction` healthy 0.001->0.11 (rising, no crush) — an
+  ALIGNED FAIL per 08-21. `rollout/ep_len_mean` saturates at exactly
+  75 steps (3.0s*25Hz), confirming `--training-episode-seconds` wired
+  correctly (not a silent no-op). Contact sheet: bit-identical static
+  splayed crouch, zero net translation, all 6 det episodes — the
+  15th independently-designed mechanism/architecture/reset-pose/
+  schedule class to fail this way.
+- **`cw-walkcurr-pf-fwd6-actbias1-shortep8` (8.0s dose) FAIL,
+  verdicted (08-24 ~04:2x) — THIS CLOSES THE EPISODE-LENGTH AXIS AND
+  EVERY NAMED NON-BC LEVER.** Same signature as `-shortep3`, not a
+  new failure mode: det gate 0/6 gait_valid, legs [0,2,3,5]
+  sacrificed IDENTICALLY on all 6/6 episodes, `forward_dist_m` pinned
+  at 0.03 every episode (speed 0.002-0.003 vs cmd 0.05-0.06), contact
+  sheet bit-identical static tripod-lock crouch across all 10 frames
+  (video-confirmed); sto gait_valid 6/6 but in-place thrash (slip/m
+  30-48, direction_err 84-93deg = chance level). `env/walk_freeprog_
+  score` pinned in [-0.085,-0.056] the whole 2M run (no trend toward
+  0, ruling out the "needs >10 EMA tau-windows to read" alternative
+  this dose was specifically built to test — 8s gives >10 windows at
+  tau=0.75s and still shows nothing); `env/height_err_mm` 5->20-24mm
+  (healthy, non-collapse — actbias1's fix holds); `train/clip_
+  fraction` healthy 0.002->0.09-0.12 rising (no crush);
+  `rollout/ep_rew_mean` DECLINES every quarter (47.8/43.5/41.3/41.1).
+  Aligned FAIL per 08-21. **The episode-length/reset-frequency axis
+  is dose-insensitive across an 8x span (3s/8s vs implicit 25s) and
+  is now CLOSED — the 15th independently-designed rung-1 mechanism/
+  architecture/reset-pose/schedule class refuted, every one an
+  aligned FAIL.** Per this note's own pre-registration, **no further
+  non-BC lever is pre-registered, credible, or has been left untried
+  by this campaign.** `OPERATOR_QUESTIONS.md` q_20260824T0233Z is now
+  updated to reflect BOTH arms closed (not one pending) — the
+  BC-kickstart ruling is the track's sole remaining lever, with
+  NOTHING else in flight anywhere on this track. **Do not launch any
+  further walkcurr rung-1 arms** (there is no untried rule-(a)-legal
+  axis to try) **until the operator answers.** The fleet's registered-
+  goal effort now concentrates entirely on amp/cpg maintenance
+  ([operator]-owned past their own gates) and joystick's active
+  hardening lineage (the V6 full-circle stop-charge ladder, currently
+  blocked on its own DIG-IN: a direct actuator-current/current-rate
+  charge is needed before the next joyfullcurr arm — see joystick/
+  STATUS.md 08-24 ~04:1x). Evidence: `logs/ckpt_eval/
+  cw_walkcurr_pf_fwd6_actbias1_shortep8_gate/`, W&B run `hol9okg5`.

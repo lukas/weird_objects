@@ -164273,7 +164273,7 @@
       "reward.walk_stop_grace_s=0.4"
     ],
     "created": "2026-08-24T02:19:10+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -164315,7 +164315,9 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "done",
+    "verdict": "Result: the settle-grace fix is a REAL partial improvement on slip/direction but does NOT fix the thing it was built to fix (actuator over-current falls on the held-out joygate), so it stays a FAIL against its own pre-registered bar. Evidence: b1 stop cert fails 'stop' on every certification round through the full 40M budget (checked r61-r80: stop_speed_m_s plateaus 0.026-0.031 m/s, same shape as joyfullcurr7, never crosses the 0.015 cert bar; walkcurr/frontier stuck at b1, buckets b2-b9 never practiced). Held-out 60s joygate: falls=14/48 (worse than the joyfullcurr6 bar of <=8/48, roughly flat vs joyfullcurr7's 13/48) and per-episode term_reason shows ALL 14 falls are over_current (100%, dr0 6/12+4/12, dr0p5 2/12+2/12) -- the grace window did not reduce over-current at all, it just moved falls slightly from dr0p5-heavy to dr0-heavy. slip/m improved (2.474->2.248, well under the 2.9 cap) and dir_err improved a lot (45.67->40.17deg, just missing the 40.0 allow) so the mechanism is not neutral -- it measurably softened the braking-speed pricing's side effects on tracking -- but it left the safety-trip mechanism itself untouched. Standard non-adversarial DR-0/own-DR walk gate stayed healthy (det 6/6 + own-DR 5/6 gait_valid gate-side, own-DR det 5/6 + sto 6/6, zero terminations either report) -- no general walking regression, this is narrowly the harder joygate's stop-transition handling. Training reward quarters 858.4/941.5/906.3/880.4 (peaks Q2, declines) -- aligned FAIL per 08-21 (plateau, not still-rising). Why: this confirms the joyfullcurr7 hypothesis's own pre-registered if-false branch verbatim -- 'the transient itself isn't the cause and a torque/current-rate charge is the next lever, not stop-speed pricing at all.' Ramping a SPEED-based charge's multiplier changes WHEN in the stop segment the charge bites but not the peak actuator demand the policy uses to satisfy it, so it cannot touch a current-limit safety trip by construction. What's next: build a direct actuator-current (or current-rate/jerk) charge on stop segments instead of speed-based pricing -- this is a new reward mechanism needing its own bank proof (test_task_semantics.py) before relaunch, flagged DIG-IN rather than attempted under triage-cycle time budget. Do NOT dose up k_walk_stop_charge or walk_stop_grace_s further on this same mechanism -- both axes (dose in joyfullcurr7, transient-timing in this run) are now tested and neither moves over_current. Champion unchanged (stotight45-seed13); joystick DONE gate stays met per the 08-23 declaration -- this V6 ladder is operator-ordered hardening (fb_20260823T220651_5c66e3), not a re-open of the core mission gate. Evidence: logs/ckpt_eval/cw_arch_hist16_dep1_c1_joyfullcurr8_stopgrace_{gate,owncfg,joygate}/, W&B run bm6vwexb."
   },
   {
     "run": "cw-walkcurr-pf-fwd6-idleterm1",
@@ -164762,7 +164764,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "in-cycle cw-arch-hist16-dep1-c1-joyfullcurr8-stopgrace-hi-cw-arch-his since 2026-08-24T03:57:57"
   },
   {
     "run": "cw-arch-hist16-dep1-c1-joyfullcurr8-stopgrace-hi",
@@ -164893,7 +164896,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "in-cycle cw-arch-hist16-dep1-c1-joyfullcurr8-stopgrace-hi-cw-arch-his since 2026-08-24T03:57:57"
   },
   {
     "run": "cw-walkcurr-pf-fwd6-rscale50-gru",
@@ -166100,7 +166104,7 @@
       }
     ],
     "triage": "done",
-    "verdict": "The last open branch of the fork -- does gSDE's forward-excursion tendency survive on the stable, non-collapsing action-bias-fixed base? -- also FAILS, and does so WORSE than plain actbias1: this is the decisive read that closes the non-BC mechanism space. Evidence: det gate 0/6 gait_valid, and strikingly ALL SIX det episodes land on the bit-identical outcome (sac legs [0,1,3], fwd 0.02m, slip/m 11.07) -- gSDE's single per-rollout noise draw collapses to the SAME fixed action under det (zero noise) regardless of command/DR draw, a rigid degenerate tripod-lock, worse (higher slip, from skating in place) than plain actbias1's quieter park-stand. sto is worse still: gait_valid 0/6, 5/6 episodes TERM tilt_pitch (real falls, video-confirmed progressive topple across the clip) -- the sde noise structure that let the pure-sde-lineage parent find transient forward excursions destabilizes this base instead of producing directed walking. W&B history: env/walk_freeprog_score sits in [-0.15,-0.20] the ENTIRE run, WORSE than the [-0.10,-0.05] dead band every other rung-1 arm converged to, never trending toward 0; rollout/ep_len_mean RISES then FALLS (22->105 peak around 700k steps ->80 by the end) -- a new, worse shape than every other arm's monotonic rise-toward-max, consistent with falls becoming MORE frequent as training progresses, not less; ep_rew_mean falls hard then plateaus low (15.7/11.8/10.9/10.7, much lower than actbias1-family's ~45 quarters); clip_fraction stays the healthiest of any rung-1 arm (0.12-0.16) -- an ALIGNED FAIL, not an optimizer issue. height_err_mm stayed low (9-12mm) confirming the action-bias fix's structural benefit holds even here; the failure is behavioral/dynamic (falling), not the belly-sit collapse. This combination is a genuine net NEGATIVE versus its two parents (worse gate metrics than actbias1 alone, worse stability than sde alone), closing the sde-combination line the fork was waiting on. Per OPERATOR_QUESTIONS.md q_20260824T0233Z (updated this cycle before this read): this was the LAST credible non-BC lever in flight. With it FAILing, literally every reward-pricing (loadslip-bootstrap, park_duty confound+dose+actbias-stack), termination (height-gate x2, idle-terminate x2 configs), architecture/exploration-structure (GRU x2 doses, gSDE x2 doses + this combination, RND x3 doses+budget), and reset-state-diversity (park_start_frac x2 doses) mechanism this track has been able to invent has failed with an ALIGNED signature at the 2M discovery budget. 13-14 independently-designed classes closed. Updating OPERATOR_QUESTIONS.md q_20260824T0233Z: the BC-kickstart ruling is now the sole remaining decision for walkcurr rung-1 progress; no further non-BC mechanism is pre-registered or credible without new evidence changing the picture."
+    "verdict": "Result: stacking the action-bias recentering fix onto gSDE does NOT let the sde parent's forward-lurch survive with a stable posture underneath -- instead it SUPPRESSES the lurch entirely and returns a frozen, worse-than-plain-actbias1 outcome. Evidence: det gate 0/6 gait_valid, IDENTICAL frozen splayed pose across all 6 det episodes (slip/m pinned at 11.07, sac=[0,1,3] every episode, prog 0.00) -- the video (10-frame strip, both det and sto) shows a static level stand from frame 1, no cycling. sto gate 0/6 gait_valid too: prog med -0.00 (vs the plain-sde parent's sto prog +0.32-0.47 forward excursions) with 5/6 episodes terminating tilt_pitch -- the sde parent's directed-lurch mechanism is GONE, not stabilized; falls remain just as frequent (terminations/tilt_pitch+tilt_roll climb to 520+644 by end of run, ep_len_mean stuck 80-105 the whole 2M, never lengthening). W&B: env/walk_freeprog_score sits in [-0.19,-0.15] the ENTIRE run (WORSE than plain actbias1's [-0.08,-0.06] and roughly matching/no-better-than plain sde's [-0.19,-0.16]), never trending toward 0; train/clip_fraction stays healthy 0.13-0.15 (highest of any rung-1 arm, no optimizer crush); reward falls every quarter (17.8->13.2->10.3->11.6, roughly flat-low after Q1). Aligned FAIL per 08-21 (healthy optimizer, adequate budget, eval flat/bad the whole run). Why this matters for the fork: the sde-alone forward-excursion finding needed EITHER (a) a stable base to convert into real walking, or (b) to persist as an uncontrolled-but-real signal when combined with stability. Neither happened -- the stable zero-point base apparently damps the very action-mean perturbation gSDE was exploiting, while falls stay just as common. Combined with the sibling reads (sde-s2 FAIL: the lurch direction was seed luck, not a real forward bias; sde-actbias1-idleterm1 FAIL: adding idle-terminate on top just produces a fake-fidget dodge; parkstart-p25/p50 FAIL: reset-diversity is dose-insensitive) -- ALL non-BC mechanisms this campaign has been able to invent (14 independently-designed classes: exploration noise/entropy, loadslip-bootstrap x2, height-gate x2, park_duty confound+dose+actbias-stack, RND x3 doses+budget, rung-0 swing-income x2, GRU x2, gSDE x2 doses + 2 combo arms, reward-rescale, idle-termination x3 configs, reset-state-diversity x2 doses) are now closed with aligned FAILs at the 2M discovery budget. Per OPERATOR_QUESTIONS.md q_20260824T0233Z, this makes the BC-kickstart operator ruling the sole remaining reward/architecture/reset-side lever. This cycle registers and launches one more non-BC, non-reward, non-architecture axis before treating that as final: episode-length/reset-frequency (see logline)."
   },
   {
     "run": "cw-walkcurr-pf-fwd6-actbias1-parkstart-p25",
@@ -166957,7 +166961,7 @@
       "3.0"
     ],
     "created": "2026-08-24T03:48:03+00:00",
-    "status": "INTENT",
+    "status": "FAIL",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -166965,13 +166969,198 @@
       "running_experiments_before": 3,
       "code_sha_local": "54d1cbfbf64b25bf11afb581a3b398c4a5fa894f",
       "code_sha_pod": "54d1cbfbf64b25bf11afb581a3b398c4a5fa894f",
-      "wandb_env_on_pod": true
+      "wandb_env_on_pod": true,
+      "pid": "1174879",
+      "log_growth_bytes": [
+        6047,
+        9809
+      ],
+      "wandb_id": "lpy9ogdp",
+      "global_step_window": [
+        393216,
+        884736
+      ],
+      "fps_estimate": 16384.0
     },
     "trainer": "ppo",
     "stack": "gpu-mjx",
     "phase": "discovery",
     "assessment_scope": "short_behavior_discovery",
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:walkcurr PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walkcurr-pf-fwd6-actbias1-shortep3 --steps 2000000 --task joint_walk --episode-seconds 25 --n-steps 24 --batch-size 24576 --net-arch 128,64,32 --activation-fn elu --log-std-init -1.0 --dr-scale 0.0 --require-gpu-physics --eval-every 1000000 --video-every 2000000 --best-ckpt --cfg-set bus.servo_params=loaded --cfg-set goal.walk_pure=1 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_heading_max_rad=0.0 --cfg-set goal.walk_cmd_resample_s=0.0 --cfg-set goal.walk_cmd_metrics=1 --cfg-set reward.k_walk_freeprog=0.06 --cfg-set reward.walk_freeprog_cap_m_s=0.08 --cfg-set reward.walk_kernel_vel_ema=1.0 --cfg-set reward.walk_kernel_vel_tau_s=0.75 --cfg-set reward.k_walk_heading=0.01 --cfg-set reward.k_step_event=0.02 --cfg-set reward.k_park_duty=0.08 --cfg-set reward.k_walk_idle_charge=0.04 --cfg-set reward.walk_idle_speed_m_s=0.025 --cfg-set reward.walk_idle_tau_s=1.0 --cfg-set reward.walk_loadslip_gate=0.75 --cfg-set reward.loadslip_ok=1.2 --cfg-set reward.loadslip_max=3.0 --cfg-set reward.loadslip_floor_m=0.03 --cfg-set reward.k_loadslip_excess=0.09 --cfg-set reward.term_penalty=24 --n-envs 4096 --out-name ppo_goal_cw_walkcurr_pf_fwd6_actbias1_shortep3 --impl warp --host-workers 24 --notes 'respec of cw-walkcurr-pf-fwd6-actbias1: Plain English: every one of 13 independently-designed reward-pricing/architecture/reset-pose mechanisms tried on this track converges to the same static park-stand or fall from a random init. This arm touches NONE of those -- it only shortens the TRAINING episode length (eval/gate stays at the full 25s) so a fixed 2M-step budget buys ~8x more resets/goal-resamples than every prior arm, the one axis (episode SCHEDULE) this campaign registered but never tried (see walkcurr STATUS.md 08-24 ~03:3x). Off the actbias1 base (the cleanest non-collapsing arm -- action-space zero-point already fixed, so any remaining freeze is pure reward-economics, not a sim defect). New CLI flag --training-episode-seconds (default None=bit-exact, unit-tested test_training_episode_seconds.py 4/4, smoke-verified on this exact recipe on-pod) decouples training-episode length from eval-episode length so the 25s gate stays comparable across arms. Prediction-if-true: env/walk_freeprog_score leaves the [-0.10,-0.05] dead band and trends toward/past 0 faster or further than any prior arm, and/or the 25s gate eval shows real stepping (gait_valid>=4/6, net translation) for the first time. Prediction-if-false: same static-stand-or-thrash signature at this dose too -- read jointly with the -shortep8 sibling before declaring the axis closed (dose-insensitivity, not a single-dose miss). Strongest alternative: 3s is too short for the freeprog EMA (tau=0.75s) to register a stable signal at all, confounding a real freeze with a metric artifact -- checked against the -shortep8 (8s, >10 tau windows) sibling.' --cfg-set reward.walk_charge_ramp_steps=1000000 --cfg-set reward.walk_charge_ramp_min_frac=0.4 --cfg-set reward.k_track=0.02 --cfg-set reward.k_roll=0.2 --cfg-set reward.k_pitch=0.2 --cfg-set reward.k_height=2.0 --cfg-set reward.k_gyro=0.001 --cfg-set reward.k_action=0.0001 --cfg-set reward.k_action_delta=0.0002 --cfg-set reward.k_current=0.0001 --cfg-set goal.joint_action_bias_hip_deg=45.0 --cfg-set goal.joint_action_bias_knee_deg=15.0 --training-episode-seconds 3.0 > /tmp/train_cw-walkcurr-pf-fwd6-actbias1-shortep3.log 2>&1 < /dev/null & echo $!",
-    "log": "/tmp/train_cw-walkcurr-pf-fwd6-actbias1-shortep3.log"
+    "log": "/tmp/train_cw-walkcurr-pf-fwd6-actbias1-shortep3.log",
+    "wandb_id": "lpy9ogdp",
+    "verified": "2026-08-24T03:51:26+00:00",
+    "triage": "done",
+    "checkups": [
+      {
+        "time": "2026-08-24T03:56:57+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 613,
+        "cpu_centisec_deltas": [],
+        "verdict": "SUSPECT",
+        "problems": [
+          "W&B global_step stalled at 2007040"
+        ]
+      }
+    ],
+    "checkup_20260824_0358": "SUSPECT false alarm: global_step 2007040 is the FINAL step of the 2M budget; trainlog shows clean '[mjx-train] done: 2,000,000 steps in 529s', ckpt saved+artifact uploaded, wandb synced, no trainer proc on pod; watcher prestage gate eval running at checkup time. No intervention; triage owned by concurrent cycle.",
+    "verdict": "Result: FAIL -- the 3s training-episode dose (vs the implicit 25s baseline, ~8x more resets/2M budget) does NOT unfreeze rung-1; identical static splayed-crouch/thrash signature to all 14 prior refuted mechanisms. Evidence: det gate 0/6 gait_valid, prog med 0.01, fwd med 0.02m/25s, slip/m med 3.80, legs [0,2,3,5] sacrificed identically across 5/6 episodes; sto gait_valid 5/6 but slip/m med 31.56 (in-place thrash, prog med -0.01); env/walk_freeprog_score bounced in [-0.085,-0.04] the whole 2M run with no trend toward 0 (worse than the rscale50 parent's monotonic -0.10->-0.015 rise); rollout/ep_rew_mean flat 47-49 all 4 quarters; train/clip_fraction healthy 0.001->0.11 (rising, no crush); rollout/ep_len_mean saturates at exactly 75 steps (=3.0s*25Hz, confirms --training-episode-seconds worked as intended -- not a wiring bug); env/height_err_mm creeps 5->19mm, inside actbias1's non-collapse band. Contact sheet: bit-identical static splayed crouch, zero net translation, all 6 det episodes. Why: aligned FAIL per the 08-21 ruling -- reward flat, eval flat, optimizer healthy, adequate 2M budget -- genuine refutation, not misalignment/undertraining. What's next: this is ONE dose of the pre-registered 2-arm episode-length pair; -shortep8 (8.0s, still training as of this cycle) is the required sibling read before declaring the episode-length axis closed (dose-insensitivity + rules out the 'freeprog EMA needs >10 tau windows' confound this pair was designed to separate). Do not launch further episode-length doses until shortep8 reads. If shortep8 also fails with the same signature, the episode-length axis closes and OPERATOR_QUESTIONS.md q_20260824T0233Z's BC-kickstart ruling becomes the track's sole remaining lever (already flagged OPEN, awaiting operator)."
+  },
+  {
+    "run": "cw-walkcurr-pf-fwd6-actbias1-shortep8",
+    "pod": "hexapod-mjx-train-4",
+    "steps": 2000000,
+    "smoke": false,
+    "hypothesis": "Plain English: dose sibling of -shortep3, same reasoning (episode-length/reset-frequency is the one axis the 13-mechanism-refuted walkcurr rung-1 campaign never tried; see walkcurr STATUS.md 08-24 ~03:3x). This arm sets --training-episode-seconds=8.0 (vs -shortep3's 3.0 and the parent's implicit 25.0) -- roughly 3x more resets per step budget than baseline, but with >10 EMA tau-windows (walk_kernel_vel_tau_s=0.75) per episode so the freeprog reward signal has time to stabilize, ruling out the 3s sibling's 'metric too short to read' alternative. Off the same actbias1 base, single lever, from scratch, 2M steps. Prediction-if-true: walk_freeprog_score trends toward/past 0 and/or the 25s gate eval shows real stepping, WITH a cleaner (less noisy) freeprog trace than -shortep3 since the training signal itself has more time per episode to resolve. Prediction-if-false: same static-stand-or-thrash signature -- if BOTH doses fail with the aligned-FAIL signature (reward flat/falling, healthy optimizer, eval flat), the episode-length-curriculum axis is closed and BC-kickstart becomes the sole remaining lever (q_20260824T0233Z).",
+    "gate": "Same rung-1 gate as every fwd6 arm: C-env det fixed-forward panel at the standard 25s EVAL horizon (unchanged) -- zero tilt terms, cmd_prog_frac >= 0.35, direction_err <= 30 deg, slip/m <= 3.0, six legs cycling on >=4/6 episodes. Mechanism-health: env/walk_freeprog_score trend vs the dead band; env/height_err_mm stays in actbias1's healthy ~15-30mm band; clip_fraction stays healthy. Read jointly with -shortep3 for the dose-response shape before closing or promoting the episode-length axis.",
+    "parent": "cw-walkcurr-pf-fwd6-actbias1",
+    "track": "walkcurr",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--episode-seconds",
+      "25",
+      "--n-steps",
+      "24",
+      "--batch-size",
+      "24576",
+      "--net-arch",
+      "128,64,32",
+      "--activation-fn",
+      "elu",
+      "--log-std-init",
+      "-1.0",
+      "--dr-scale",
+      "0.0",
+      "--require-gpu-physics",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--best-ckpt",
+      "--cfg-set",
+      "bus.servo_params=loaded",
+      "--cfg-set",
+      "goal.walk_pure=1",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.05",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.06",
+      "--cfg-set",
+      "goal.walk_heading_max_rad=0.0",
+      "--cfg-set",
+      "goal.walk_cmd_resample_s=0.0",
+      "--cfg-set",
+      "goal.walk_cmd_metrics=1",
+      "--cfg-set",
+      "reward.k_walk_freeprog=0.06",
+      "--cfg-set",
+      "reward.walk_freeprog_cap_m_s=0.08",
+      "--cfg-set",
+      "reward.walk_kernel_vel_ema=1.0",
+      "--cfg-set",
+      "reward.walk_kernel_vel_tau_s=0.75",
+      "--cfg-set",
+      "reward.k_walk_heading=0.01",
+      "--cfg-set",
+      "reward.k_step_event=0.02",
+      "--cfg-set",
+      "reward.k_park_duty=0.08",
+      "--cfg-set",
+      "reward.k_walk_idle_charge=0.04",
+      "--cfg-set",
+      "reward.walk_idle_speed_m_s=0.025",
+      "--cfg-set",
+      "reward.walk_idle_tau_s=1.0",
+      "--cfg-set",
+      "reward.walk_loadslip_gate=0.75",
+      "--cfg-set",
+      "reward.loadslip_ok=1.2",
+      "--cfg-set",
+      "reward.loadslip_max=3.0",
+      "--cfg-set",
+      "reward.loadslip_floor_m=0.03",
+      "--cfg-set",
+      "reward.k_loadslip_excess=0.09",
+      "--cfg-set",
+      "reward.term_penalty=24",
+      "--n-envs",
+      "4096",
+      "--out-name",
+      "ppo_goal_cw_walkcurr_pf_fwd6_actbias1_shortep8",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--notes",
+      "respec of cw-walkcurr-pf-fwd6-actbias1: Plain English: dose sibling of -shortep3, same reasoning (episode-length/reset-frequency is the one axis the 13-mechanism-refuted walkcurr rung-1 campaign never tried; see walkcurr STATUS.md 08-24 ~03:3x). This arm sets --training-episode-seconds=8.0 (vs -shortep3's 3.0 and the parent's implicit 25.0) -- roughly 3x more resets per step budget than baseline, but with >10 EMA tau-windows (walk_kernel_vel_tau_s=0.75) per episode so the freeprog reward signal has time to stabilize, ruling out the 3s sibling's 'metric too short to read' alternative. Off the same actbias1 base, single lever, from scratch, 2M steps. Prediction-if-true: walk_freeprog_score trends toward/past 0 and/or the 25s gate eval shows real stepping, WITH a cleaner (less noisy) freeprog trace than -shortep3 since the training signal itself has more time per episode to resolve. Prediction-if-false: same static-stand-or-thrash signature -- if BOTH doses fail with the aligned-FAIL signature (reward flat/falling, healthy optimizer, eval flat), the episode-length-curriculum axis is closed and BC-kickstart becomes the sole remaining lever (q_20260824T0233Z).",
+      "--cfg-set",
+      "reward.walk_charge_ramp_steps=1000000",
+      "--cfg-set",
+      "reward.walk_charge_ramp_min_frac=0.4",
+      "--cfg-set",
+      "reward.k_track=0.02",
+      "--cfg-set",
+      "reward.k_roll=0.2",
+      "--cfg-set",
+      "reward.k_pitch=0.2",
+      "--cfg-set",
+      "reward.k_height=2.0",
+      "--cfg-set",
+      "reward.k_gyro=0.001",
+      "--cfg-set",
+      "reward.k_action=0.0001",
+      "--cfg-set",
+      "reward.k_action_delta=0.0002",
+      "--cfg-set",
+      "reward.k_current=0.0001",
+      "--cfg-set",
+      "goal.joint_action_bias_hip_deg=45.0",
+      "--cfg-set",
+      "goal.joint_action_bias_knee_deg=15.0",
+      "--training-episode-seconds",
+      "8.0"
+    ],
+    "created": "2026-08-24T03:50:16+00:00",
+    "status": "FAIL",
+    "checks": {
+      "cpu_limit": 26,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-c7c481c8-b38e-d350-964a-7156462b21c8)",
+      "running_experiments_before": 3,
+      "code_sha_local": "8347b224ad22d8a59e06c1b5d189a63bfba33f49",
+      "code_sha_pod": "8347b224ad22d8a59e06c1b5d189a63bfba33f49",
+      "wandb_env_on_pod": true,
+      "pid": "3305201",
+      "log_growth_bytes": [
+        8853,
+        17526
+      ],
+      "wandb_id": "hol9okg5",
+      "global_step_window": [
+        1081344,
+        1671168
+      ],
+      "fps_estimate": 19660.8
+    },
+    "trainer": "ppo",
+    "stack": "gpu-mjx",
+    "phase": "discovery",
+    "assessment_scope": "short_behavior_discovery",
+    "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:walkcurr PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walkcurr-pf-fwd6-actbias1-shortep8 --steps 2000000 --task joint_walk --episode-seconds 25 --n-steps 24 --batch-size 24576 --net-arch 128,64,32 --activation-fn elu --log-std-init -1.0 --dr-scale 0.0 --require-gpu-physics --eval-every 1000000 --video-every 2000000 --best-ckpt --cfg-set bus.servo_params=loaded --cfg-set goal.walk_pure=1 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_heading_max_rad=0.0 --cfg-set goal.walk_cmd_resample_s=0.0 --cfg-set goal.walk_cmd_metrics=1 --cfg-set reward.k_walk_freeprog=0.06 --cfg-set reward.walk_freeprog_cap_m_s=0.08 --cfg-set reward.walk_kernel_vel_ema=1.0 --cfg-set reward.walk_kernel_vel_tau_s=0.75 --cfg-set reward.k_walk_heading=0.01 --cfg-set reward.k_step_event=0.02 --cfg-set reward.k_park_duty=0.08 --cfg-set reward.k_walk_idle_charge=0.04 --cfg-set reward.walk_idle_speed_m_s=0.025 --cfg-set reward.walk_idle_tau_s=1.0 --cfg-set reward.walk_loadslip_gate=0.75 --cfg-set reward.loadslip_ok=1.2 --cfg-set reward.loadslip_max=3.0 --cfg-set reward.loadslip_floor_m=0.03 --cfg-set reward.k_loadslip_excess=0.09 --cfg-set reward.term_penalty=24 --n-envs 4096 --out-name ppo_goal_cw_walkcurr_pf_fwd6_actbias1_shortep8 --impl warp --host-workers 24 --notes 'respec of cw-walkcurr-pf-fwd6-actbias1: Plain English: dose sibling of -shortep3, same reasoning (episode-length/reset-frequency is the one axis the 13-mechanism-refuted walkcurr rung-1 campaign never tried; see walkcurr STATUS.md 08-24 ~03:3x). This arm sets --training-episode-seconds=8.0 (vs -shortep3'\"'\"'s 3.0 and the parent'\"'\"'s implicit 25.0) -- roughly 3x more resets per step budget than baseline, but with >10 EMA tau-windows (walk_kernel_vel_tau_s=0.75) per episode so the freeprog reward signal has time to stabilize, ruling out the 3s sibling'\"'\"'s '\"'\"'metric too short to read'\"'\"' alternative. Off the same actbias1 base, single lever, from scratch, 2M steps. Prediction-if-true: walk_freeprog_score trends toward/past 0 and/or the 25s gate eval shows real stepping, WITH a cleaner (less noisy) freeprog trace than -shortep3 since the training signal itself has more time per episode to resolve. Prediction-if-false: same static-stand-or-thrash signature -- if BOTH doses fail with the aligned-FAIL signature (reward flat/falling, healthy optimizer, eval flat), the episode-length-curriculum axis is closed and BC-kickstart becomes the sole remaining lever (q_20260824T0233Z).' --cfg-set reward.walk_charge_ramp_steps=1000000 --cfg-set reward.walk_charge_ramp_min_frac=0.4 --cfg-set reward.k_track=0.02 --cfg-set reward.k_roll=0.2 --cfg-set reward.k_pitch=0.2 --cfg-set reward.k_height=2.0 --cfg-set reward.k_gyro=0.001 --cfg-set reward.k_action=0.0001 --cfg-set reward.k_action_delta=0.0002 --cfg-set reward.k_current=0.0001 --cfg-set goal.joint_action_bias_hip_deg=45.0 --cfg-set goal.joint_action_bias_knee_deg=15.0 --training-episode-seconds 8.0 > /tmp/train_cw-walkcurr-pf-fwd6-actbias1-shortep8.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-walkcurr-pf-fwd6-actbias1-shortep8.log",
+    "wandb_id": "hol9okg5",
+    "verified": "2026-08-24T03:53:41+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-24T03:59:48+00:00",
+        "process_alive": false,
+        "verdict": "FINISHED_BEFORE_CHECKUP",
+        "log_tail": "\nwandb:   env/height_err_mm 20.25422\nwandb:       env/height_mm 20.25399\nwandb:   env/height_ref_mm 0\nwandb:   env/max_current_a 1.47461\nwandb:  env/mean_current_a 0.37739\nwandb: env/pct_within_1deg 0.34945\nwandb:   env/pitch_ref_deg 0\nwandb:                +107 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-walkcurr-pf-fwd6-actbias1-shortep8 at: https://wandb.ai/l2k2/hexapod-balance/runs/hol9okg5\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 3 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260824_035114-hol9okg5/logs\n"
+      }
+    ],
+    "verdict": "Result: FAIL -- the 8s training-episode dose (the sibling designed to rule out '3s is too short for the freeprog EMA to read') does NOT unfreeze rung-1 either; identical static-stand-or-thrash signature to -shortep3 and all 14 prior refuted mechanisms. Evidence (own-cfg C-env det panel, run's own pod, eval-only): det gate 0/6 gait_valid, legs [0,2,3,5] sacrificed IDENTICALLY on all 6/6 episodes, forward_dist_m pinned at 0.03 every episode, speed_mean_m_s 0.002-0.003 (cmd 0.05-0.06), contact sheet bit-identical static tripod-lock crouch across all 10 frames, zero net translation -- indistinguishable from -shortep3's video. Sto: gait_valid 6/6 but in-place thrash (slip/m 30-48, direction_err 84-93deg = chance-level, forward_dist_m 0.02-0.08/25s). W&B: env/walk_freeprog_score stayed pinned in [-0.085,-0.056] the entire 2M run, no trend toward 0 (matches -shortep3's [-0.085,-0.04] bounce, both far worse than the rscale50 parent's monotonic -0.10->-0.015 climb); env/height_err_mm 5->20-24mm, inside actbias1's healthy non-collapse band (rules out belly-sit); train/clip_fraction healthy 0.002->0.09-0.12 rising all run (no optimizer crush); rollout/ep_rew_mean DECLINES every quarter (47.8/43.5/41.3/41.1). Why: aligned FAIL per the 08-21 ruling -- reward declining, eval flat/zero, optimizer healthy, adequate 2M budget with >10 EMA tau-windows/episode (rules out the 'metric too short to stabilize' alternative this arm was built to test) -- a genuine refutation, not misalignment or undertraining. Combined with -shortep3 (3.0s dose, also FAIL, also verdicted this cycle-family): the episode-length/reset-frequency axis is dose-insensitive across an 8x span (3s/8s/implicit-25s) and is now CLOSED, the 15th independently-designed rung-1 mechanism/architecture/schedule class refuted, all aligned FAILs. What's next: per OPERATOR_QUESTIONS.md q_20260824T0233Z's own pre-registration, this was explicitly the last rule-(a)-compliant (no gait clock/BC teacher/motion prior) lever this track had identified -- no further non-BC mechanism is pre-registered or credible. The BC-kickstart operator ruling is now the track's SOLE remaining lever with nothing else in flight; STATUS.md and the question note updated this cycle to reflect the axis is fully closed, not just 1/2 read. No new walkcurr rung-1 arms should be launched pending that ruling.",
+    "triage": "done"
   }
 ]

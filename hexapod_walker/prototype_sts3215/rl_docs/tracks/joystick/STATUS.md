@@ -1,6 +1,58 @@
 # joystick - RL from the programmatic gait to joystick control
 
-Last updated: 2026-08-24 ~02:0x (**`cw-arch-hist16-dep1-c1-joyfullcurr7`
+Last updated: 2026-08-24 ~04:1x (**`cw-arch-hist16-dep1-c1-joyfullcurr8-stopgrace`
+FAIL, verdicted — the settle-grace fix (built+launched last cycle
+to answer joyfullcurr7's over_current finding) softens slip/direction
+but does NOT touch over_current at all; the mechanism's own
+pre-registered if-false branch fires.** Plain English: ramping the
+stop-speed charge in over the first 0.4s (instead of applying it at
+full strength immediately) was supposed to remove the pressure to
+brake hard right after a stop command, which joyfullcurr7 showed was
+tripping the actuator current-limit safety cutoff on every single
+fall. It didn't: b1's stop cert still fails every certification round
+through the full 40M budget (`stop_speed_m_s` plateaus 0.026-0.031
+m/s, same shape as joyfullcurr7, never below the 0.015 cert bar;
+`walkcurr/frontier` stuck at b1, buckets b2-b9 side90/rear/full-circle
+still never practiced). Held-out 60s joygate: falls=**14/48** — worse
+than the joyfullcurr6 bar (<=8/48) and flat vs joyfullcurr7's 13/48 —
+and per-episode `term_reason` audit shows **100% of falls are still
+over_current** (dr0 6/12+4/12, dr0p5 2/12+2/12), unchanged in kind
+from joyfullcurr7. The grace window IS a real, non-null lever though:
+slip/m improved 2.474->2.248 (well under the 2.9 cap) and dir_err
+improved a lot, 45.67->**40.17deg** (allow 40.0 — a hair's-breadth
+miss, closest any arm in this ladder has come). Standard
+non-adversarial DR-0/own-DR walk gate stayed healthy (gate-side det
+6/6 + sto 5/6 gait_valid, own-DR det 5/6 + sto 6/6, zero terminations
+either report) — no general walking regression, this is narrowly the
+harder joygate's stop-transition handling. Training reward quarters
+858.4/941.5/906.3/880.4 (peaks Q2, declines) — aligned FAIL per 08-21
+(plateau, not still-rising). **Root cause, confirmed exactly as
+joyfullcurr7's own hypothesis pre-registered for this branch**: a
+SPEED-based charge, however it's timed/ramped, prices the wrong
+physical quantity — it changes WHEN in the stop segment the policy
+feels pressure to decelerate, not the PEAK ACTUATOR EFFORT it spends
+doing so, so it structurally cannot move a current-limit safety trip.
+**NEXT (specified, not built — DIG-IN flagged, this is a new
+reward-mechanism design+bank-proof task, not a triage-cycle-budget
+edit)**: replace/augment the stop charge with a direct actuator
+current (or current-RATE/jerk) charge on stop segments — servo
+current is already read elsewhere in this file (`servo_current`
+state, existing `reward.k_current` regularizer) so the plumbing
+exists; the new piece is pricing it specifically and harshly enough
+during commanded-stop segments, bank-proven under
+`test_task_semantics.py` before any relaunch. Do NOT dose up
+`k_walk_stop_charge` or `walk_stop_grace_s` further on this same
+speed-based mechanism — both the dose axis (joyfullcurr7) and the
+transient-timing axis (this run) are now tested and neither moves
+over_current. Champion unchanged (`stotight45-seed13`); the joystick
+DONE gate itself stays met per the 08-23 declaration — this V6
+full-circle ladder is operator-ordered hardening
+(`fb_20260823T220651_5c66e3`), not a re-open of the core mission
+gate. Evidence: `logs/ckpt_eval/cw_arch_hist16_dep1_c1_joyfullcurr8_
+stopgrace_{gate,owncfg,joygate}/`, W&B run `bm6vwexb`. Prior banner
+below.)
+
+Previous entry (2026-08-24 ~02:0x (**`cw-arch-hist16-dep1-c1-joyfullcurr7`
 FAIL, verdicted — the stop-charge fix (landed for joyfullcurr7, see
 banner below) is a REAL PARTIAL fix, not a no-op, but plateaus short
 of the cert bar and trades away actuator safety margin.** Plain

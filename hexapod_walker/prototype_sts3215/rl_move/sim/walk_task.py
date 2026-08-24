@@ -4166,7 +4166,13 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             # reward.walk_stop_charge_cap, reward.walk_stop_grace_s.
             k_stopc = float(cfg_get(self.cfg, "reward",
                                     "k_walk_stop_charge", default=0.0))
-            if k_stopc > 0.0:
+            # Read the stop-CURRENT gain here too: both stop charges
+            # share the _walk_stop_cmd_s grace timer, so the timer must
+            # tick whenever EITHER is armed (k_stopcur=0 default keeps
+            # the guard identical to the pre-current-charge code).
+            k_stopcur = float(cfg_get(self.cfg, "reward",
+                                      "k_walk_stop_current", default=0.0))
+            if k_stopc > 0.0 or k_stopcur > 0.0:
                 # Elapsed time since the current stop segment began
                 # (reset the instant translation is commanded again).
                 # Tracked whenever the charge is active at all so the
@@ -4215,6 +4221,65 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 info["walk_stop_speed_m_s"] = sp_sc
                 info["reward_walk_stop"] = r_stopc
                 info["walk_stop_grace_mult"] = grace_mult
+            # Commanded-STOP actuator-current charge (2026-08-24,
+            # joyfullcurr8 dig-in): joyfullcurr7 (stop-speed charge,
+            # no grace) and joyfullcurr8 (+0.4s grace ramp) BOTH ended
+            # with 100% of held-out joygate falls = over_current; the
+            # grace ramp moved slip/dir_err but over_current not at
+            # all. Root cause: the SafetyLayer trips on servo current
+            # > 2.5 A SUSTAINED for 0.8 s through a ~0.1 s low-pass
+            # (safety.py / sim_env._read_state) -- that is not a
+            # braking transient, it is a sustained isometric fight
+            # (stiff position targets pressing against contact) held
+            # through the stop stance. NOTHING in the stack prices
+            # that fight on stop ticks (k_current_hot is global and
+            # OFF in this lineage), so speed-based stop pricing pushes
+            # the policy INTO it: braking/freezing hard is the
+            # cheapest way to zero the speed charge. This charges, on
+            # stop ticks only (same s_ref/turn-in-place scoping as the
+            # speed charge above), per-servo current quadratically
+            # above a headroom threshold (default 1.5 A = 1.0 A under
+            # the trip): r -= k * grace_mult * min(sum(max(|I|-thr,0)^2),
+            # cap). A settled deadband stance draws ~0 A (sim_env
+            # firmware dead-zone), so RELAXED stillness pays nothing
+            # -- the optimum is stop-without-fighting, exactly what
+            # the joygate demands. Level charge, not current-rate: the
+            # trip fires on sustained level, and the 0.1 s LPF already
+            # erases spikes a rate term would price. Shares
+            # walk_stop_grace_s (same timer) so the unavoidable
+            # braking current of the first grace window pays little.
+            # Added AFTER the income gates (gait-gate rule). Default
+            # 0 = off, legacy bit-exact (no new info keys).
+            # cfg: reward.k_walk_stop_current, reward.walk_stop_current_a,
+            # reward.walk_stop_current_cap (+ shared walk_stop_grace_s).
+            if (k_stopcur > 0.0 and s_ref <= 1e-3
+                    and not (self._yaw_cmd
+                             and abs(float(getattr(goal, "wz_ref", 0.0)
+                                           or 0.0)) > 1e-3)):
+                cur_sc = getattr(self._state, "servo_current", None)
+                if cur_sc is not None:
+                    thr_cur = float(cfg_get(self.cfg, "reward",
+                                            "walk_stop_current_a",
+                                            default=1.5))
+                    cap_cur = float(cfg_get(self.cfg, "reward",
+                                            "walk_stop_current_cap",
+                                            default=4.0))
+                    grace_s_cur = float(cfg_get(self.cfg, "reward",
+                                                "walk_stop_grace_s",
+                                                default=0.0))
+                    gm_cur = 1.0
+                    if grace_s_cur > 1e-6:
+                        gm_cur = min(max(
+                            self._walk_stop_cmd_s / grace_s_cur, 0.0), 1.0)
+                    over_cur = np.maximum(
+                        np.abs(np.asarray(cur_sc, dtype=float)) - thr_cur,
+                        0.0)
+                    r_stopcur = -k_stopcur * gm_cur * min(
+                        float(np.sum(over_cur ** 2)), cap_cur)
+                    reward = float(reward) + r_stopcur
+                    info["walk_stop_current_max_a"] = float(
+                        np.max(np.abs(cur_sc)))
+                    info["reward_walk_stop_current"] = r_stopcur
             # Commanded-COURSE charge (operator reward-alignment order
             # 2026-08-22, fb_20260822T032514 item 3 — the phasedir1
             # fix): price wrong-way / off-heading TRAVEL on the
