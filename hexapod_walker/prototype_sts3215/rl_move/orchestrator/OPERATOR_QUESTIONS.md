@@ -2168,3 +2168,28 @@ cycle's separate, still-open rate-conversion question. Once the rate-
 conversion question resolves (naive/transplant/from-scratch), a v8-at-100Hz
 retrain is the natural follow-up, not a substitute for this read.
 status: proceeding (assume-and-go), no pause.
+
+## 2026-08-24 ~22:0x — recurring {0,2,5}-vs-{1,3,4} leg-sacrifice fingerprint across independent lineages (research note, no operator action needed)
+Not a question, filed so a deep/DIG-IN cycle doesn't need to re-derive
+the pattern. `cw-arch-hist64-joyfullcurr13-v7-hz100-scratch-s0-r1`
+(from-scratch MLP, 100Hz, V7 walkcurr diet, verdicted FAIL this
+cycle) shows a REPRODUCIBLE structural leg-sacrifice split — legs
+{0,2,5} pinned near-zero duty, legs {1,3,4} carrying the whole gait —
+identical in BOTH the held-out joygate (n=48) and the separate
+own-DR(0.5) owncfg pass (det AND sto, i.e. 4 independent readings
+agree). This partially overlaps the walkcurr track's own chronic
+{0,2,3,5}-sacrifice signature (15+ independently-designed mechanism
+arms, totally different architecture/diet/track, see walkcurr/
+STATUS.md) — different exact leg set (walkcurr also loses leg 3;
+this run's leg 3 is active) but the SAME asymmetric-triad shape
+(3-4 legs statue, 2-3 legs doing all the work) recurring across at
+least two independent tracks, architectures (from-scratch MLP vs
+warm-started hist16), diet versions, and control rates (25Hz walkcurr
+vs 100Hz this run). Worth a dedicated root-cause pass (per-leg reward
+term calibration, obs/action leg indexing/ordering, or a structural
+sim asymmetry — e.g. an odd-vs-even or front/back gravity-loading
+bias baked into the URDF/contact model) before spending more budget
+on reward-side fixes for either track: if the defect is structural
+(sim/indexing), no amount of reward re-pricing on either track will
+fix it. status: informational, no operator input needed; flagged for
+whichever cycle next picks up a leg-sacrifice DIG-IN on either track.

@@ -11,13 +11,16 @@ apt-get install -y -qq libosmesa6 libglib2.0-0 > /dev/null
 mkdir -p /workspace/prototype_sts3215
 tar -xzf /tmp/code.tgz -C /workspace/prototype_sts3215
 
+pip install --quiet --no-cache-dir uv
+UV_PIP=(uv pip install --system --quiet --no-cache)
+
 # Pins mirror the laptop venv (rebuilt 2026-08-07 on Python 3.14 /
 # MuJoCo 3.11 — physics A/B against 2.3.7 in RL_PLAN). Keep both sides
 # on the SAME mujoco version or local evals disagree with training.
 # numpy is 2.4.6 here (2.5.x needs py>=3.12; image is python:3.11) —
 # laptop runs 2.5.1, which is fine: numpy is glue, mujoco is physics.
-pip install --quiet --no-cache-dir torch==2.13.0 --index-url https://download.pytorch.org/whl/cpu
-pip install --quiet --no-cache-dir \
+"${UV_PIP[@]}" torch==2.13.0 --index-url https://download.pytorch.org/whl/cpu
+"${UV_PIP[@]}" \
     mujoco==3.11.0 \
     stable_baselines3==2.9.0 \
     sb3-contrib==2.9.0 \
@@ -45,12 +48,12 @@ if [ "${HEXAPOD_MJX:-0}" = "1" ]; then
     if command -v nvidia-smi > /dev/null 2>&1; then
         # mujoco-warp: the fast impl="warp" backend (~30x the XLA impl
         # on the hexapod — see MJX_PORT.md benchmark table).
-        pip install --quiet --no-cache-dir mujoco-mjx==3.11.0 "jax[cuda12]" mujoco-warp
+        "${UV_PIP[@]}" mujoco-mjx==3.11.0 "jax[cuda12]" mujoco-warp
     else
-        pip install --quiet --no-cache-dir mujoco-mjx==3.11.0 jax
+        "${UV_PIP[@]}" mujoco-mjx==3.11.0 jax
     fi
-    python -c "from mujoco import mjx; import jax; print('mjx ok', jax.devices())"
+    uv run python -c "from mujoco import mjx; import jax; print('mjx ok', jax.devices())"
 fi
 
-python -c "import mujoco, stable_baselines3, sb3_contrib, torch; print('deps ok')"
+uv run python -c "import mujoco, stable_baselines3, sb3_contrib, torch; print('deps ok')"
 echo "SETUP_DONE"

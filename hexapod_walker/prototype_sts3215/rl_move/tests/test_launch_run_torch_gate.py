@@ -48,6 +48,8 @@ def _patch_common(monkeypatch):
             return "GPU 0: NVIDIA H200\n"
         if "torch.cuda.is_available" in script:
             return "2.11.0+cu128 NVIDIA H200\n"
+        if "command -v uv" in script:
+            return "/usr/local/bin/python\n"
         if "wandb.env" in script:
             return "OK"
         return ""
@@ -140,8 +142,8 @@ def test_canary_verdict_guard_blocks_behavioral_category_error():
 
 
 def test_dynrep_uses_recorded_capability_and_live_runtime_probe(monkeypatch):
-    # A recorded capability lets dynrep consider system python3 after the
-    # private venv; the live CUDA probe still has to succeed before launch.
+    # A recorded capability lets dynrep consider uv's Python after the private
+    # CUDA venv; the live CUDA probe still has to succeed before launch.
     _patch_common(monkeypatch)
     calls = []
     monkeypatch.setattr(lr._torch_cap, "is_capable",

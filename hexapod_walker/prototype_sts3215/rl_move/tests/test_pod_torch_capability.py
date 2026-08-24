@@ -124,7 +124,10 @@ def test_run_smoke_shell_quotes_multiline_python(monkeypatch):
     monkeypatch.setattr(ptc, "_kexec", fake_kexec)
     smoke = ptc._run_smoke("train-A", full=True)
     assert smoke["jax_roundtrip_ok"] is True
-    assert all("python3 -c '" in command for command in commands)
+    smoke_commands = [command for command in commands
+                      if "CAPPROBE_JSON" in command or "FULLPROBE_JSON" in command]
+    assert smoke_commands
+    assert all("uv run python -c '" in command for command in smoke_commands)
     assert all("\\n" not in command for command in commands)
     assert "==12.0" in ptc._FULL_SMOKE_PY
 

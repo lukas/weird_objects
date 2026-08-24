@@ -1,6 +1,64 @@
 # joystick - RL from the programmatic gait to joystick control
 
-Last updated: 2026-08-24 ~21:5x (**cw-arch-tf64-joyfullcurr13-v7-hz100-canary2
+Last updated: 2026-08-24 ~22:0x (**cw-arch-hist64-joyfullcurr13-v7-hz100-scratch-s0-r1
+FAIL: the from-scratch 100Hz MLP arm learns real forward motion but
+converges to a chronic 3-leg-sacrifice drag, never a valid six-leg
+gait — CONFIRMS the reward/PPO stack is learnable from scratch at
+100Hz (unlike the sibling transformer canaries above), but this
+checkpoint itself does not clear the gate.** Plain English: this is
+the "sibling MLP" already cited by the tf64 canary verdicts as proof
+100Hz isn't inherently unlearnable — reward rose the whole 40M run
+(quarters -1089.3/121.1/471.0/402.5, ep_rew_mean 876.7) and the b0
+rung's own cmd_prog_frac climbed from ~0 to 1.0-1.5+ (real forward
+progress, not noise). But `walkcurr/frontier`/`promotions` stayed 0
+the entire run (80 cert rounds, zero promotions past b0), and
+`b0_bridge_10s/pass`=0 every single round — most tellingly, `falls`
+pinned at exactly 1/round for ~50 consecutive cert rounds (steps
+~7450-11331) with NO declining trend, i.e. a stable bad plateau, not
+slow convergence toward a pass. Held-out joygate (n=48, seed 90000):
+FAIL — 12/48 falls (25%), `gait_valid_frac=0.0` (zero of 48 episodes
+had a valid six-leg gait), dir_err med 53.9deg (cap 40); slip/m med
+2.096 is the only passing check, and only because the sacrifice-drag
+barely displaces the body. Per-leg duty is REPRODUCIBLE across both
+the joygate and the separate own-DR(0.5) owncfg pass (det AND sto):
+legs {0,2,5} pinned near-zero duty (0.0-0.06, fully sacrificed) while
+{1,3,4} carry the gait at 0.93-0.97 duty — a structural split, not
+per-episode noise. Own-DR(0.5): det/sto gait_valid 0/6 both, slip/m
+15.6/9.2 (vs cap 2.9), roll peak 19-21deg. Video (owncfg contact
+sheet) confirms: body tilted, legs splayed/dragging rather than
+cycling. In-training periodic self-eval (`eval/walk/survived_frac`)
+reads 0 at every logged point from step 4871 to the end (two 0.5
+blips only) — the policy has been falling in its own held-out-style
+probe for ~3/4 of training with zero improving trend. Per the
+08-21/08-22 rules this is the MISALIGNED shape (progress-linked
+metrics rising, survival/gait-validity flat-bad the whole back half),
+not undertrained-continue — the progress/speed reward terms are
+satisfiable by a 3-leg drag that the falls/gait-validity terms don't
+suppress at 100Hz's 4x-denser per-tick pricing. The separate DR-0
+gate pass (dr-scale 0.0) hung and timed out after 45min with zero
+output (rc=-1, no artifacts) — an infra anomaly, not counted against
+the verdict, flagged for a dig-in rather than re-run blind. **No
+relaunch from this cycle**: falls are plateaued, not slowly
+improving, so blind continuation is not well-supported; the V7->V8
+walkcurr-diet fix (built for certfreeze-v7's failure) does NOT apply
+here since V7/V8 only diverge at side90_20s+ and this run never
+promoted past b0/bridge. The decisive next fork is already in flight
+on sibling arms this cycle does not own: `cw-arch-hist16-dep1-c1-
+joyfullcurr13-v7-hz100-r2` (warm-start at 100Hz) will show whether
+starting from a competent walker avoids the same {0,2,5} sacrifice,
+and `cw-arch-hist16-dep1-c1-joyfullcurr14-certfreeze-v8` is separately
+testing the V7-diet-scope fix on the warm-start lineage. **DIG-IN
+flagged**: the identical {0,2,5}-sacrificed/{1,3,4}-active split
+appears in both this run's joygate and its own-DR owncfg pass, and
+partially overlaps walkcurr's chronic {0,2,3,5}-sacrifice signature
+on a totally different architecture/diet/track — worth a dedicated
+root-cause pass (obs/action leg indexing, per-leg reward calibration,
+or a structural sim asymmetry), since fixing it could unblock both
+this ladder and (if in-bounds) the walkcurr rung-1 campaign. Evidence:
+`logs/ckpt_eval/cw_arch_hist64_joyfullcurr13_v7_hz100_scratch_s0_r1_
+{owncfg,joygate}/`, W&B `c4s7i0e2`.)
+
+Previous entry (2026-08-24 ~21:5x (**cw-arch-tf64-joyfullcurr13-v7-hz100-canary2
 CANARY FAIL - CAPACITY RULED OUT, ATTENTION-SPECIFIC PATHOLOGY
 CONFIRMED, DIG-IN FLAGGED.** Plain English: the escalation arm
 (2L/d128/8h/ff256, matching the proven pre-100Hz `tf-r1-hard1` config,
