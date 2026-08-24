@@ -1,6 +1,41 @@
 # joystick - RL from the programmatic gait to joystick control
 
-Last updated: 2026-08-24 ~04:4x (**joyfullcurr8 DIG-IN resolved: the
+Last updated: 2026-08-24 ~06:2x (**`cw-arch-hist16-dep1-c1-joyfullcurr9-stopcur6`
+VERDICTED PARTIAL — the stop-CURRENT charge (k=6.0, 2x the speed-charge
+cap) WORKS on its primary target but trades in a new pathology.**
+Plain English: pricing sustained per-servo current on stop ticks
+(instead of body speed) was hypothesized to fix the over_current
+safety-trip falls that dominated joyfullcurr7/8 — it does, hard: held-out
+60s joygate falls crashed **14/48 -> 1/48**, the best result in the
+entire V6 stop-pricing lineage (previous best joyfullcurr6 8/48), with
+slip/m 2.317 (cap 2.9) and dir_err 45.39deg. But two of the ledger's
+other named bars stay unmet: (1) the V6 curriculum's own b1 cert
+(`stop_speed_m_s <= 0.015`) never clears — `walkcurr/frontier` stuck
+at 1 the entire 40M steps, `b1_front45_20s/stop_speed_m_s` oscillating
+0.034-0.047 with no downward trend, because a current charge prices a
+different physical quantity than the cert's body-speed metric and was
+never expected to move it; (2) a NEW, video-confirmed leg-3 sacrifice
+pathology appears, worst under domain randomization — own-cfg
+(DR 0.5) det gait_valid crashed 5/6 (stopgrace parent) -> **2/6**,
+DR-0 gate det also dropped 6/6 -> 4/6, always the same leg (index 3)
+held rigidly aloft the whole clip (`walk_det_1.png/.mp4` vs the clean
+6-leg `walk_det_0.png`). Reward quarters 848.8/908.1/855.4/811.4
+(peaks Q2, declines) = aligned per 08-21, not undertrained. Read:
+at 2x the speed-charge cap, immobilizing one joint is a cheaper way to
+avoid the current charge than lowering peak current gait-wide,
+especially exposed under DR. **NEXT**: joint dose read against the
+k=2.0 sibling `cw-arch-hist16-dep1-c1-joyfullcurr9-stopcur2` (owned by
+a concurrent cycle, unverdicted at this writing) decides whether the
+lower dose keeps the over_current win without the leg-sacrifice trade;
+if k=2 also sacrifices a leg, the fix needs a per-leg-fairness/
+smoothness term alongside the current charge, not a dose retune, and
+that would be a new DIG-IN. Champion unchanged (`stotight45-seed13`,
+the core joystick DONE gate stays met per 08-23); this V6 full-circle
+ladder remains operator-ordered hardening (`fb_20260823T220651_5c66e3`).
+Evidence: `logs/ckpt_eval/cw_arch_hist16_dep1_c1_joyfullcurr9_stopcur6_
+{gate,owncfg,joygate}/`, W&B run `eponx2n1`. Prior banner below.)
+
+Previous entry (2026-08-24 ~04:4x (**joyfullcurr8 DIG-IN resolved: the
 specified stop-CURRENT mechanism is BUILT, BANK-PROVEN and TRAINING.**
 New `reward.k_walk_stop_current` (walk_task.py, tag
 `exp/cw-arch-hist16-dep1-c1-joyfullcurr9-stopcur`): on stop ticks only

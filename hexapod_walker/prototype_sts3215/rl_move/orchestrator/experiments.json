@@ -167295,7 +167295,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "in-cycle cw-arch-hist16-dep1-c1-joyfullcurr9-stopcur2 since 2026-08-24T05:59:58"
   },
   {
     "run": "cw-arch-hist16-dep1-c1-joyfullcurr9-stopcur6",
@@ -167386,7 +167387,7 @@
       "reward.k_walk_stop_current=6.0"
     ],
     "created": "2026-08-24T04:39:10+00:00",
-    "status": "RUNNING",
+    "status": "PARTIAL",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -167428,6 +167429,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "done",
+    "verdict": "Result: the k_walk_stop_current=6.0 dose (2x the speed-charge cap) DID achieve its primary design goal -- joygate falls crashed from joyfullcurr8's 14/48 to 1/48 (best-ever in this stop-pricing lineage, previous best was joyfullcurr6's 8/48), slip/m improved to 2.317 (cap 2.9), and dir_err 45.39deg -- but it did NOT clear the ledger's other two named bars and introduced a new video-confirmed pathology. Evidence: gate_verdict.json falls_total=1/48 (the sole survivor still over_current, dr0p5); walkcurr/frontier stayed pinned at 1 all 40M steps (b1 stop_speed_m_s oscillated 0.034-0.047, never trending toward the 0.015 cert bar -- this specific lever prices actuator current, not the cert's body-speed metric, so no reason it should move this axis); own-cfg (DR 0.5) det gait_valid CRASHED to 2/6 (was 5/6 on the stopgrace parent), gate DR0 det also dropped to 4/6 -- both from a NEW, consistent leg-3 sacrifice (sac=[3] in 4/6 owncfg-det + 2/6 gate-det episodes), video-confirmed (walk_det_1.png/.mp4: leg held rigidly aloft the whole clip vs walk_det_0.png's clean 6-leg cycle) -- a real trade the k=6 dose introduces, not noise. Reward quarters 848.8/908.1/855.4/811.4 (peaks Q2, declines) = aligned per 08-21, not a keep-training case. Why: at 2x the speed-charge cap the policy found a cheaper way to avoid the current charge on one specific joint (immobilize it) rather than moving the whole gait to lower peak current, especially exposed under DR. What's next: joint dose read with the k=2.0 sibling (cw-arch-hist16-dep1-c1-joyfullcurr9-stopcur2, owned by a concurrent cycle) decides whether the lower dose keeps the over_current win without the leg-sacrifice trade; if k=2 also sacrifices a leg, the fix needs a per-leg-fairness or smoothness term alongside the current charge, not a dose retune. Champion unchanged (stotight45-seed13); this V6 hardening lineage remains operator-ordered polish (fb_20260823T220651_5c66e3), not the core DONE gate."
   }
 ]
