@@ -988,6 +988,28 @@ def _validate_use_sde_scratch_only(use_sde: bool, init_from,
                          "exploration mode")
 
 
+def _resolve_training_episode_seconds(training_episode_seconds,
+                                       episode_seconds: float) -> float:
+    """Normalizes --training-episode-seconds vs --episode-seconds.
+
+    Pulled out of main() as a pure function so it is unit-testable
+    without mujoco/GPU (mirrors _validate_use_sde_scratch_only above).
+    ``None`` (the CLI default) resolves to ``episode_seconds`` —
+    bit-exact with the pre-flag behavior, where the training env
+    kwargs' ``getattr(args, "training_episode_seconds",
+    args.episode_seconds)`` fallback always hit the same value because
+    the attribute did not exist yet. A non-positive override is
+    rejected (raises SystemExit, matching argparse's own ap.error
+    convention) rather than silently producing a zero/negative-length
+    episode.
+    """
+    if training_episode_seconds is None:
+        return episode_seconds
+    if training_episode_seconds <= 0.0:
+        raise SystemExit("--training-episode-seconds must be > 0")
+    return training_episode_seconds
+
+
 def _env_kwargs(args, params: SimServoParams | None = None) -> dict:
     """Per-shim-env kwargs — mirrors train_ppo_sim._build_env, minus the
     model-DR pieces the shared-model backend can't honor yet.
@@ -1235,6 +1257,16 @@ def main(argv: list[str] | None = None) -> int:
                          "pods), else the XLA default (laptop smoke)")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--episode-seconds", type=float, default=10.0)
+    ap.add_argument(
+        "--training-episode-seconds", type=float, default=None,
+        help="episode length used ONLY for the training rollout envs "
+             "(default: same as --episode-seconds, bit-exact legacy). "
+             "Eval/video envs always use --episode-seconds regardless "
+             "of this flag. A plain schedule lever independent of "
+             "reward/architecture/reset-pose: shorter training "
+             "episodes buy more resets (more exploration diversity) "
+             "per fixed --steps budget. --walk-curriculum (v4-6) "
+             "still overrides this with its own required horizon.")
     ap.add_argument("--no-dr", action="store_true")
     ap.add_argument("--dr-scale", type=float, default=1.0)
     ap.add_argument("--cfg-set", action="append", default=None,
@@ -1939,6 +1971,16 @@ def main(argv: list[str] | None = None) -> int:
         if float(_parse_goal_mix(args.goal_mix).get("recover", 0.0)) <= 0.0:
             ap.error("--recover-init-curriculum requires recover episodes "
                      "in --goal-mix")
+
+    if args.training_episode_seconds is None:
+        # Bit-exact default: identical to the pre-flag behavior where
+        # the training env kwargs' getattr(...) fallback resolved to
+        # --episode-seconds. Setting it explicitly here (rather than
+        # leaving the attribute unset) keeps every downstream getattr
+        # call correct even though the attribute now always exists.
+        args.training_episode_seconds = args.episode_seconds
+    elif args.training_episode_seconds <= 0.0:
+        ap.error("--training-episode-seconds must be > 0")
 
     if not mjx_is_available():
         raise SystemExit("mujoco-mjx / jax not installed — "
