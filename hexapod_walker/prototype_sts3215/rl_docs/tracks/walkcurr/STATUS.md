@@ -1252,26 +1252,30 @@ validity, on video. Speed obedience is secondary throughout.
   bank (the mechanism is surgical, not a blanket anti-stillness tax);
   the dedicated penalty (not the full term_penalty) is what makes
   the ranking hold.
-- **LAUNCHED (this cycle): `cw-walkcurr-pf-fwd6-idleterm1`** — single
-  lever vs `actbias1-pdw05-pdx15` (the last park_duty-class FAIL):
-  adds `safety.walk_idle_terminate_s=3.0` /
-  `walk_idle_terminate_grace_s=3.0` /
-  `walk_idle_terminate_qvel_deg_s=2.0` and
-  `reward.walk_idle_terminate_penalty=150.0` on top of the identical
-  actbias1-pdw05-pdx15 recipe (action-bias fix + 1.5x park_duty kept
-  — bank-proven harmless, not the active question). Prediction-if-
-  true: the static-stand basin becomes genuinely absorbing-with-a-
-  boundary rather than free — episodes reset every ~3-6s instead of
-  running the full 15s from the static optimum, PPO samples far more
-  initial conditions per unit wall-clock, and `walk_freeprog_score`/
-  `env/height_err_mm` should show the same qualitative unfreezing
-  actbias1 showed for the OLD belly-sit collapse (i.e. episode length
-  should visibly shrink from ~375 steps toward ~150 early in
-  training, then the policy should either re-discover a still-cheaper
-  static point the mechanism doesn't cover, or actually start
-  stepping). Prediction-if-false (same static park-stand recurs,
-  episodes still running ~375 steps because the trained policy learns
-  to keep qvel just above the 2 deg/s floor without going anywhere —
-  a "fake fidget" cheat): the qvel floor needs raising or gating on
-  net displacement too, OR the escalation moves to BC-kickstart per
-  the operator flag above. VERIFIED RUNNING.
+- **LAUNCHED (mechanically, off this cycle's committed bank —
+  correction to this entry's own earlier draft): `cw-walkcurr-pf-fwd6-
+  idleterm1`**, VERIFIED RUNNING (train-1). Landed as a respec of
+  `cw-walkcurr-pf-fwd6-rscale50` (the crush-fix x0.02-scaled recipe,
+  fresh 2M discovery, no warm start) rather than this entry's
+  originally-drafted `actbias1-pdw05-pdx15` warm-start — a fair
+  alternative choice (tests the mechanism against the ORIGINAL
+  belly-sit/frozen-crouch attractor the whole campaign has been
+  fighting, at the reward SCALE the mechanism's bank numbers do not
+  cover; the WALKCURR_PF_IDLE_TERM bank above uses the full-scale
+  v2e doses, so its exact penalty=150 does not transfer literally —
+  the launched arm uses a rescaled `reward.walk_idle_terminate_penalty
+  =3.0` matched to the x0.02 stack's own term_penalty=24, same ratio
+  logic). Single mechanism addition, `safety.walk_idle_terminate_s=3.0`
+  / grace 3.0 / qvel floor 2 deg/s, on top of 9 previously-refuted
+  rung-1 mechanism classes (init-noise, entropy, loadslip-bootstrap,
+  height-gate loose/tight, park_duty confound+dose, RND at 3 doses).
+  Own-cfg mechanism-health read (not just gate pass/fail): watch
+  `env/walk_freeprog_score` for a real zero-crossing (every prior
+  arm sat flat in [-0.10,-0.05]) AND mean episode length — it must
+  NOT sit flat at ~6s (grace+terminate_s) all run, which would mean
+  the policy learned to survive juuust past the boundary rather than
+  to walk (a "fake fidget" cheat this entry's earlier draft also
+  flagged). Prediction-if-false: idle-termination becomes the 10th
+  refuted mechanism and BC-kickstart (flagged to the operator above)
+  is the only unexplored escalation left in the track's pinned fork
+  order.
