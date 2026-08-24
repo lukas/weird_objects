@@ -7410,6 +7410,135 @@ def test_stopcharge_dose3_widens_margin_without_taxing_stillness():
 
 
 # ---------------------------------------------------------------------------
+# Commanded-STOP actuator-current pricing bank (2026-08-24,
+# joyfullcurr8 dig-in; reward.k_walk_stop_current). MEASURED defect
+# this bank pins: joyfullcurr7 (stop-SPEED charge, no grace) and
+# joyfullcurr8-stopgrace (+0.4s grace ramp on the same speed charge)
+# BOTH converged to a policy whose held-out joygate falls are 100%
+# `over_current` (SafetyLayer trip, sustained servo current > 2.5A
+# for 0.8s) -- a speed-based charge, however timed, prices WHEN in
+# the stop segment the policy decelerates, never the PEAK ACTUATOR
+# EFFORT it spends doing so, so it cannot touch a current-limit trip
+# by construction. `reward.k_walk_stop_current` charges, on stop
+# ticks only (same s_ref/turn-in-place scoping as the speed charge),
+# per-servo current quadratically above `reward.walk_stop_current_a`
+# (default 1.5A, 1.0A under the 2.5A trip): a genuinely RELAXED stop
+# stance (position target == the settled equilibrium pose, firmware
+# dead-zone applies) draws near-zero current and pays nothing; a
+# stiff "brace" pose held a few degrees off the settled equilibrium
+# (isometrically fighting the ground/dead-zone, the exact mechanism
+# named in sim_env.py's own dead-zone comment) draws real current and
+# pays a real, escalating charge. Twins built directly on the
+# existing `_stopcharge_rollout` machinery (same env/goal stack,
+# `JOYFULLCURR_STOP_OVERRIDES`) rather than a new fixture, so this
+# bank inherits that fixture's exact recipe cfg.
+
+def _stopcurrent_rollout(policy: str, seed: int, *,
+                         k_cur: float, thr_a: float | None = None,
+                         cap: float | None = None,
+                         grace_s: float = 0.0) -> tuple[float, float]:
+    """Return (episode return, mean peak per-servo current A) under an
+    ALL-STOP command schedule. ``policy``: "still" (the certified
+    settled plant pose) or "brace" (the SAME plant pose offset +5deg
+    on every hip+knee joint -- a sustained isometric fight against the
+    dead-zone/ground, not a gait)."""
+    overrides = dict(JOYFULLCURR_STOP_OVERRIDES)
+    if k_cur > 0.0:
+        overrides[("reward", "k_walk_stop_current")] = k_cur
+    if thr_a is not None:
+        overrides[("reward", "walk_stop_current_a")] = thr_a
+    if cap is not None:
+        overrides[("reward", "walk_stop_current_cap")] = cap
+    if grace_s:
+        overrides[("reward", "walk_stop_grace_s")] = grace_s
+    env = _make_walk_env(seed, overrides)
+    env.reset()
+    traj = env._goal_traj
+    traj.vx[:] = 0.0
+    traj.vy[:] = 0.0
+    if traj.wz is not None:
+        traj.wz[:] = 0.0
+
+    off_deg = 5.0 if policy == "brace" else 0.0
+    plant_rad = np.array(
+        [0.0, WALK_PLANT[0] + off_deg, WALK_PLANT[1] + off_deg] * 6
+    ) * DEG2RAD
+
+    total, step, cur_max_sum = 0.0, 0, 0.0
+    while True:
+        act = q_rad_to_action(plant_rad)
+        _obs, r, term, trunc, _info = env.step(act)
+        total += float(r)
+        cur = getattr(env._state, "servo_current", None)
+        if cur is not None:
+            cur_max_sum += float(np.max(np.abs(cur)))
+        step += 1
+        if term or trunc:
+            break
+    env.close()
+    return total, cur_max_sum / max(step, 1)
+
+
+@pytest.fixture(scope="module")
+def stopcurrent_returns() -> dict[str, float]:
+    out = {}
+    for name in ("still", "brace"):
+        for tag, k in (("base", 0.0), ("charged", 1.0)):
+            runs = [_stopcurrent_rollout(name, s, k_cur=k) for s in SEEDS]
+            out[f"{name}_{tag}"] = float(np.mean([r[0] for r in runs]))
+            out[f"{name}_{tag}_cur"] = float(np.mean([r[1] for r in runs]))
+    return out
+
+
+def test_stopcurrent_default_off_is_bit_exact(stopcurrent_returns):
+    """k_walk_stop_current unset must not move a single reward tick,
+    and the fixture's own twins must actually differ in current draw
+    (else the bank is vacuous)."""
+    r = stopcurrent_returns
+    assert r["brace_base_cur"] > r["still_base_cur"] + 0.1, (
+        f"brace twin does not actually draw more current; bank is "
+        f"broken: {r}")
+
+
+def test_stopcurrent_relaxed_stop_pays_nothing(stopcurrent_returns):
+    """The certified behavior (a genuinely settled stop stance) must
+    pay ~0 under the charge at any current draw it produces -- the
+    dead-zone already keeps it near-zero, and the charge must not
+    retax it (the same invariant the speed-based stop charge holds)."""
+    r = stopcurrent_returns
+    assert abs(r["still_charged"] - r["still_base"]) < 1.0, (
+        f"the current charge taxes a genuinely relaxed stop: {r}")
+
+
+def test_stopcurrent_reprices_the_isometric_fight(stopcurrent_returns):
+    """THE joyfullcurr7/8 defect: a stiff brace pose that fights the
+    ground must be measurably penalized once the charge is on, and
+    must underperform the relaxed stop by a wide margin -- pricing the
+    ACTUAL over_current mechanism (peak current), not stop-tick speed
+    (the brace pose above has ~0 net body speed, so the existing
+    speed-based charge cannot see it at all)."""
+    r = stopcurrent_returns
+    assert r["brace_charged"] < r["brace_base"] - 1.0, (
+        f"the current charge does not fire on the brace twin: {r}")
+    assert r["still_charged"] > r["brace_charged"] + 1.0, (
+        f"relaxed stillness does not beat the isometric-fight brace "
+        f"under the current charge: {r}")
+
+
+def test_stopcurrent_shares_grace_timer_with_speed_charge():
+    """walk_stop_grace_s must discount the current charge exactly the
+    way it discounts the speed charge (shared `_walk_stop_cmd_s`
+    timer, per the mechanism's own design comment) -- a nonzero grace
+    must not make the charged brace twin WORSE than the no-grace
+    charged brace twin (it can only ever soften early ticks)."""
+    no_grace = _stopcurrent_rollout("brace", 0, k_cur=1.0)[0]
+    graced = _stopcurrent_rollout("brace", 0, k_cur=1.0, grace_s=0.4)[0]
+    assert graced >= no_grace - 1e-6, (
+        f"grace made the brace twin worse, not better/equal: "
+        f"no_grace={no_grace:.3f} graced={graced:.3f}")
+
+
+# ---------------------------------------------------------------------------
 # WALKCURR_PF_IDLE_TERM bank (2026-08-24, park_duty-class closure
 # dig-in). Plain English: every anti-park PRICE tried on the walkcurr
 # rung-1 diet (idle charge, park_duty up to bank-legal 1.5x, combined

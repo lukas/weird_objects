@@ -1,6 +1,31 @@
 # joystick - RL from the programmatic gait to joystick control
 
-Last updated: 2026-08-24 ~04:1x (**`cw-arch-hist16-dep1-c1-joyfullcurr8-stopgrace`
+Last updated: 2026-08-24 ~04:4x (**joyfullcurr8 DIG-IN resolved: the
+specified stop-CURRENT mechanism is BUILT, BANK-PROVEN and TRAINING.**
+New `reward.k_walk_stop_current` (walk_task.py, tag
+`exp/cw-arch-hist16-dep1-c1-joyfullcurr9-stopcur`): on stop ticks only
+(same s_ref/turn-in-place scoping as the speed charge), charges
+per-servo current quadratically above a 1.5A headroom threshold
+(`walk_stop_current_a`; trip is 2.5A sustained 0.8s), sharing the
+0.4s `walk_stop_grace_s` timer so braking current pays little. Level
+charge, not current-rate: the SafetyLayer trips on SUSTAINED level
+through a ~0.1s LPF, so the over_current falls are a held isometric
+fight against contact, not a spike a rate term would see. Bank:
+`test_walk_stop_current.py` 5/5 — includes a scripted fight pose
+(knees -40° into contact) that REPRODUCES the over_current
+termination exactly and pays ~-4.7/tick while the relaxed plant
+stance pays ~0 and stays the global optimum under the full
+joyfullcurr stack; default-off bit-exact; grace 4/4 + stopcharge 3/3
+unaffected. Launched the dose pair in one batch (08-22 batching
+order): `joyfullcurr9-stopcur2` (k=2.0, train-0) and
+`joyfullcurr9-stopcur6` (k=6.0 — prices one trip-level servo at
+6/tick, strictly above the speed charge's 4.0/tick cap so no frozen
+hard-brake can be reward-optimal, train-1), both VERIFIED RUNNING,
+same base parent checkpoint, speed charge k=1.0 + grace 0.4
+inherited. Pre-registered if-false at BOTH doses: the fight is not
+reward-driven — audit the 0.015 m/s cert bar and the sim current
+model before any further stop-pricing arm.) Previous entry
+(joyfullcurr8-stopgrace FAIL, 04:1x): (**`cw-arch-hist16-dep1-c1-joyfullcurr8-stopgrace`
 FAIL, verdicted — the settle-grace fix (built+launched last cycle
 to answer joyfullcurr7's over_current finding) softens slip/direction
 but does NOT touch over_current at all; the mechanism's own
