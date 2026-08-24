@@ -1338,3 +1338,49 @@ validity, on video. Speed obedience is secondary throughout.
   track's pinned fork lands squarely on the `actbias1-idleterm1`
   read + the BC-kickstart values question (`OPERATOR_QUESTIONS.md`
   q_20260824T0233Z) — not another noise/architecture variant.
+
+## Now (updated 08-24 ~03:1x — both crush-decoupled arms FAIL; every architecture/noise lever now exhausted)
+
+- **`cw-walkcurr-pf-fwd6-rscale50-gru` FAIL, verdicted:** recurrence
+  with a genuinely healthy optimizer (clip_fraction 0.013->0.042,
+  never collapsed) still settles into a static splayed stand by
+  frame 2 and stays frozen (det gate 0/6 gait_valid, sac=[1], fwd
+  0.02m/25s; sto gait_valid 6/6 but slip/m 39.67 — in-place
+  thrashing, prog ~0). `env/walk_freeprog_score` sat flat in
+  [-0.09,-0.06] the whole 2M run — WORSE than the memoryless MLP
+  parent's own -0.103->-0.015 trend at the same scale/budget.
+  Memory is now cleanly exonerated (no crush confound left to blame).
+- **`cw-walkcurr-pf-fwd6-rscale50-sde` FAIL, verdicted, but with a
+  genuinely new signature worth banking:** the deterministic policy
+  is the same frozen splayed crouch (det 0/6 gait_valid), but the
+  STOCHASTIC rollout does something no other rung-1 arm has shown —
+  real forward-cycling locomotion for ~1-1.5s (sto prog med +0.32)
+  before pitching over (6/6 `tilt_pitch` terms). gSDE's single
+  per-rollout correlated noise draw can bias the action mean into a
+  genuine (if uncontrolled) excursion; i.i.d. per-tick noise (every
+  other arm) apparently cannot. It never converts into a
+  deterministic walking policy: `env/walk_freeprog_score` sat WORSE
+  than every prior arm's band (-0.164 -> -0.194, deteriorating) and
+  `rollout/ep_len_mean` stayed flat ~65-70 steps the entire run
+  (falling at a roughly constant rate throughout, not converging
+  toward either a freeze or real walking) despite clip_fraction
+  being the HIGHEST/healthiest of any rung-1 arm (0.03->0.14).
+- **Track position: with the crush confound now removed from both,
+  EVERY architecture/exploration-structure lever (MLP init-noise,
+  entropy, GRU, gSDE, at both the original crushed dose and the
+  crush-fixed x0.02 dose) is exhausted.** Combined with the
+  concurrent `cw-walkcurr-pf-fwd6-actbias1-idleterm1` diagnostic
+  (idle-termination stacked on the clean action-bias park-stand also
+  FAILs, closing idle-termination in both tested configurations) —
+  **11 independently-designed rung-1 mechanism/architecture classes
+  are now refuted** (init-noise, entropy, loadslip-bootstrap,
+  height-gate x2, park_duty confound+dose+actbias-stack, RND x3
+  doses+budget, rung-0 swing-income x2, GRU x2 doses, gSDE x2 doses,
+  reward-rescale continuations, idle-termination x2). Per that same
+  diagnostic's own verdict, BC-kickstart directly contradicts the
+  track's explicit founding rule and is NOT built unilaterally; the
+  live lever is `goal.walk_park_start_frac` (pure-procedural
+  reset-state diversification, already built, rule-compliant, smoke-
+  tested, with a measured precedent fixing an analogous park-
+  persistence problem on a different lineage) — `-parkstart-p25`/
+  `-p50` already launched by that cycle, next cycle's read.
