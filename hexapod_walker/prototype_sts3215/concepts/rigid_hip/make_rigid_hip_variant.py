@@ -37,11 +37,14 @@ pair.  This variant closes the loop from the TOP:
     through printed holes in ``chassis_bottom_rigid`` (on a STOCK
     chassis print: drill them using the foot as the jig).  The four
     central 90 mm standoffs remain only as hatch/electronics anchors.
-  * ``coxa_link_rigid`` (x6) -- the production coxa with two variant
+  * ``coxa_link_rigid`` (x6) -- the production coxa with three variant
     edits: servo-cradle corners rounded to the 38.2 mm yaw envelope
-    (max 2.16 mm off two vertical wall corners), and the hub uflange
+    (max 2.16 mm off two vertical wall corners), the hub uflange
     extended DOWN as a Phi 29 seat ring to the relocated bottom race
-    (see BEARING COUNT).  All other interfaces untouched.
+    (see BEARING COUNT), and a Phi 44 DUST SKIRT that roofs the
+    exposed race and drops a curtain to 0.5 above the tower rim --
+    non-contact, continuing the tower cylinder (see the SKIRT_*
+    constants).  All other interfaces untouched.
   * ``chassis_bottom_rigid`` (x1) -- the production chassis with the
     six tower platforms trimmed to the tower's own Phi 44 cylinder
     (user, Aug 24: corners rounded; rev 2: all corner curves must
@@ -72,8 +75,10 @@ pair.  This variant closes the loop from the TOP:
   hub's new Phi 29 seat ring -> inner race -> outer race -> tower
   seat.  -6 printed caps, -18 M3x8 cap screws, and the leg + bearing
   lift straight out once the plate is off (horn centre screw only).
-  The cap's dust labyrinth is retired: the 6805-2RS is a sealed
-  bearing.  Net bearings per robot: 12, same as production.
+  The race's top 3 mm stands proud of the tower rim; the coxa's new
+  DUST SKIRT covers it with a non-contact labyrinth (user, Aug 24 --
+  see the SKIRT_* constants).  Net bearings per robot: 12, same as
+  production.
 
 TRADE-OFF (measured by the sweep in this script): the full-size top
 plate caps the femur's UP-swing.  The production workspace envelope is
@@ -230,14 +235,32 @@ ROT_BAND_Z0 = 24.0                        # lowest z where anything rotates
 # shoulder -- each bearing takes one direction, no cap lip needed.
 # The race is radially housed by the pocket's 4 mm band (production
 # gave it 4 mm tower + 3 mm cap; the extra 3 mm was cap housing, not
-# seat).  The cap's dust labyrinth is retired -- the 2RS bearing is
-# sealed, and the tower's cap-bolt ears (r to 28) leave no room to
-# drop the hub skirt down instead.
+# seat).  With the cap gone the race's top 3 mm (z 4.5..7.5) stands
+# proud of the tower rim (hp.YAW_SPLIT_Z = 4.5), seal face open to the
+# sky.  A DUST SKIRT on the coxa covers it (user, Aug 24: "should a
+# ring from the coxa link come down and cover part of the bearing
+# that's sticking up?"): a brim roofs the race 0.5 above its top face
+# and a curtain wall drops around the proud band to 0.5 above the
+# tower rim -- Phi 44 OD, continuing the tower's own cylinder (the
+# production cap's dust lip reborn coxa-side).  It touches
+# NOTHING: grit has to turn under the curtain (0.5 axial over the
+# rim), climb the 0.5 radial moat past the race OD, then turn again
+# under the brim -- a three-turn labyrinth, no scraping, no friction.
+# The remaining az-210 cap-bolt ear tops out AT the rim (z 4.5), so
+# the curtain clears it by the same 0.5.
 YAWBR_DROP = -hp.YAW_BEARING_W            # -7: race to the tower pocket
 HUB_RING_OD = hp.YAW_BEARING_INNER_OD     # 29 -- production uflange OD
 HUB_RING_ID = 24.0                        # overlaps the boss wall (22..25.15)
 HUB_RING_Z0 = hp.YAW_BEARING_LOWER_TOP_Z  # 7.5 -- relocated race TOP
 HUB_RING_Z1 = hp.YAW_BEARING_UPPER_TOP_Z + 1.5   # 16 -- well into the uflange
+SKIRT_GAP = 0.5                           # every labyrinth gap, axial + radial
+SKIRT_OD = hp.YAW_BEARING_OD + 2.0 * hp.YAW_TOWER_WALL   # 44 -- flush with the
+                                          # tower cylinder (production's dust
+                                          # lip was 52.4, out over the cap ears)
+SKIRT_ID = hp.YAW_BEARING_OD + 2.0 * SKIRT_GAP   # 38 -- clears the static race OD
+SKIRT_BOT_Z = hp.YAW_SPLIT_Z + SKIRT_GAP  # 5.0 -- hovers over the tower rim
+BRIM_BOT_Z = HUB_RING_Z0 + SKIRT_GAP      # 8.0 -- roof 0.5 above the race top
+BRIM_TOP_Z = 11.0                         # 3 mm roof, fuses over the seat ring
 
 # CHASSIS VARIANT (user, Aug 24: "round the corners on the chassis
 # bottom below where the bearings go"; rev 2 same day: "I don't like
@@ -611,8 +634,8 @@ def make_corner_pillar() -> trimesh.Trimesh:
 
 
 def make_coxa_link_rigid() -> trimesh.Trimesh:
-    """The production coxa with the two variant edits (see the constant
-    blocks above):
+    """The production coxa with the three variant edits (see the
+    constant blocks above):
 
       * ENVELOPE ROUND: servo-cradle corners rounded to the
         ROT_ENVELOPE_R arc about its own yaw axis (max 2.16 mm off two
@@ -623,6 +646,10 @@ def make_coxa_link_rigid() -> trimesh.Trimesh:
         The ring bears only on the Phi 25..29 inner-race land -- same
         contact the production uflange made one race higher -- and
         merges with the boss wall over Phi 24..25.15.
+      * DUST SKIRT: a Phi 44 brim (z 8..11) roofs the exposed race
+        0.5 above its top face and a curtain wall (Phi 38..44) drops
+        around the proud race band to 0.5 above the tower rim.
+        Non-contact everywhere -- see the SKIRT_* constants.
 
     Every other interface (hub, horn drive, cradle pilots, cap seat) is
     untouched.  This makes the coxa a VARIANT print (6x)."""
@@ -631,7 +658,15 @@ def make_coxa_link_rigid() -> trimesh.Trimesh:
         _cyl_z(HUB_RING_OD / 2.0, HUB_RING_Z0, HUB_RING_Z1, sections=128),
         [_cyl_z(HUB_RING_ID / 2.0, HUB_RING_Z0 - 1.0, HUB_RING_Z1 + 1.0,
                 sections=128)])
-    coxa = _union([coxa, ring])
+    brim = _diff(
+        _cyl_z(SKIRT_OD / 2.0, BRIM_BOT_Z, BRIM_TOP_Z, sections=192),
+        [_cyl_z(HUB_RING_ID / 2.0, BRIM_BOT_Z - 1.0, BRIM_TOP_Z + 1.0,
+                sections=128)])
+    curtain = _diff(
+        _cyl_z(SKIRT_OD / 2.0, SKIRT_BOT_Z, BRIM_BOT_Z + 0.5, sections=192),
+        [_cyl_z(SKIRT_ID / 2.0, SKIRT_BOT_Z - 1.0, BRIM_BOT_Z + 1.5,
+                sections=192)])
+    coxa = _union([coxa, ring, brim, curtain])
     z0, z1 = coxa.bounds[0][2] - 1.0, coxa.bounds[1][2] + 1.0
     keep = _cyl_z(ROT_ENVELOPE_R, z0, z1, sections=256)
     return trimesh.boolean.intersection([coxa, keep], engine="manifold")
@@ -975,8 +1010,10 @@ def check_bottom_joint(meshes: dict[str, trimesh.Trimesh]) -> None:
     """ONE tower-seated bottom bearing, NO cap (user, Aug 24): the race
     sits in the production pocket on its z=0.5 seat with only the
     Phi 25.15 boss press touching the coxa, the hub's new Phi 29 ring
-    lands exactly on the race top, and with the plate off the leg +
-    bearing lift straight out of the pocket (horn centre screw only)."""
+    lands exactly on the race top, the dust skirt hovers its SKIRT_GAP
+    labyrinth over the tower rim without touching chassis or race, and
+    with the plate off the leg + bearing lift straight out of the
+    pocket (horn centre screw only)."""
     T = leg_transforms(0)
     br = meshes["yaw_bearing_upper"].copy()
     br.apply_transform(T["coxa"] @ _trans([0.0, 0.0, YAWBR_DROP]))
@@ -1003,6 +1040,27 @@ def check_bottom_joint(meshes: dict[str, trimesh.Trimesh]) -> None:
                                   [ax + r_mid, ay, race_top - 0.3]]))
     assert got[0] and not got[1], "hub seat ring does not land on the race top"
 
+    # dust skirt: curtain wall present around the proud race band, its
+    # bottom edge hovering exactly SKIRT_GAP above the tower rim (the
+    # chassis owns the space below the gap; nobody owns the gap itself),
+    # and the curtain ID standing SKIRT_GAP off the static race OD
+    assert SKIRT_ID / 2.0 - hp.YAW_BEARING_OD / 2.0 == SKIRT_GAP
+    assert SKIRT_BOT_Z - hp.YAW_SPLIT_Z == SKIRT_GAP
+    assert SKIRT_BOT_Z < HUB_RING_Z0, "curtain does not reach the proud band"
+    rim_w = hp.CHASSIS_YAW_OUTPUT_Z + hp.YAW_SPLIT_Z          # tower rim, world
+    r_cur = (SKIRT_ID + SKIRT_OD) / 4.0                       # mid-curtain
+    probes = np.array([
+        [ax + r_cur, ay, rim_w + SKIRT_GAP + 0.3],   # in the curtain wall
+        [ax + r_cur, ay, rim_w + SKIRT_GAP - 0.3],   # in the labyrinth gap
+        [ax + r_cur, ay, rim_w - 0.3],               # in the tower rim
+    ])
+    assert coxa.contains(probes[:1])[0], "dust-skirt curtain missing"
+    in_cx = coxa.contains(probes[1:2])[0]
+    in_ch = meshes["chassis_bottom"].contains(probes[1:2])[0]
+    assert not in_cx and not in_ch, "labyrinth gap is not open"
+    assert meshes["chassis_bottom"].contains(probes[2:])[0], \
+        "no tower rim under the curtain"
+
     # service: plate off -> leg + bearing lift straight out of the pocket
     for dz in (2.0, 5.0, 12.0, 30.0):
         for name, m in (("coxa", coxa), ("race", br)):
@@ -1013,6 +1071,7 @@ def check_bottom_joint(meshes: dict[str, trimesh.Trimesh]) -> None:
                 f"lift +{dz}: {name} fouls chassis_bottom ({v:.1f} mm3)"
     print(f"  bottom joint: race on the tower seat (world z {seat_w:.2f}), "
           f"NO cap; coxa/race contact = boss press ({v_press:.1f} mm3), "
+          f"dust skirt hovers {SKIRT_GAP:g} over the rim, "
           f"leg + bearing lift straight out")
 
 
@@ -1579,7 +1638,7 @@ def render_preview(meshes) -> None:
          "hip cap + pedestal + boss (NEW)"),
         ("bearing_6805", T["hip_cap"], "#303030", "top 6805-2RS (NEW)"),
         ("coxa_link", T["coxa"], "#7ba1d1",
-         "coxa_link RIGID (rounded + seat ring, NEW)"),
+         "coxa_link RIGID (rounded + seat ring + dust skirt, NEW)"),
         ("yaw_bearing_upper", T["coxa"] @ _trans([0.0, 0.0, YAWBR_DROP]),
          "#303030", "bottom 6805-2RS (tower-seated, cap DELETED)"),
         ("chassis_bottom", np.eye(4), "#8b93a6",

@@ -30,7 +30,11 @@
 # shoulder).  The coxa hub grows a phi 29 seat ring down to the
 # relocated race top (the coxa is already a variant print).  Bearing
 # couple ~65 mm mid-plane to mid-plane.  Net 12 bearings per robot,
-# same as production.
+# same as production.  The race's top 3 mm stands proud of the tower
+# rim; a phi 44 DUST SKIRT on the coxa covers it (user, Aug 24:
+# "should a ring from the coxa link come down and cover part of the
+# bearing that's sticking up?") with 0.5 mm non-contact labyrinth
+# gaps -- it never scrapes the chassis.
 #
 # Chassis variant (user, Aug 24: "round the corners on the chassis
 # bottom below where the bearings go"; rev 2: "the multiple curves
@@ -462,10 +466,10 @@ parts:
             value: 3.4
             code_name: HOLE_D
   coxa_link:
-    label: "coxa_link_rigid — rounded corners + tower-bearing seat ring (concept)"
+    label: "coxa_link_rigid — rounded corners + seat ring + dust skirt (concept)"
     aliases: ["rigid coxa", "rounded coxa", "coxa link rigid", "servo holder"]
     description: >-
-      The production coxa_link with two variant edits.  (1) ENVELOPE
+      The production coxa_link with three variant edits.  (1) ENVELOPE
       ROUND: its two servo-cradle corner edges are rounded to a
       38.2 mm arc about its own yaw axis (ROT_ENVELOPE_R): boolean
       intersection with the envelope cylinder removes at most 2.16 mm
@@ -478,10 +482,18 @@ parts:
       now seated in the chassis tower pocket (production LOWER-race
       position); the ring bears only on the phi 25..29 inner-race
       land, the same contact the uflange made one race higher, and
-      replaces the deleted yaw_bearing_cap's retention.  Hub, horn
-      drive, cradle pilots and cap seat are untouched.  NOTE: this
-      makes the coxa a VARIANT print (6x), replacing the stock
-      coxa_link on this build.
+      replaces the deleted yaw_bearing_cap's retention.  (3) DUST
+      SKIRT (user, Aug 24: "should a ring from the coxa link come
+      down and cover part of the bearing that's sticking up?"): the
+      race's top 3 mm stands proud of the tower rim, so a phi 44 brim
+      roofs it 0.5 above the race top and a phi 38..44 curtain wall
+      drops around the proud band to 0.5 above the rim, continuing
+      the tower's own cylinder.  Non-contact everywhere (no scraping
+      the chassis): the 0.5 gaps form a three-turn labyrinth that
+      rides out print tolerance and bearing play.  Hub, horn drive,
+      cradle pilots and cap seat are untouched.  NOTE: this makes the
+      coxa a VARIANT print (6x), replacing the stock coxa_link on
+      this build.
     generated_by:
       file: "concepts/rigid_hip/make_rigid_hip_variant.py"
       function: "make_coxa_link_rigid"
@@ -517,6 +529,33 @@ parts:
             label: "Ring underside (coxa-local z) = race top"
             value: 7.5
             code_name: HUB_RING_Z0
+      dust_skirt:
+        label: "Phi 44 non-contact dust skirt over the bottom race"
+        kind: "shroud"
+        purpose: >-
+          Covers the race band standing proud of the tower rim with a
+          brim + curtain labyrinth: 0.5 axial over the rim, 0.5
+          radial past the race OD, 0.5 axial under the brim.  Touches
+          neither chassis nor race -- a contact wiper would drag,
+          squeak and wear.  OD 44 continues the tower cylinder the
+          chassis corners were trimmed to.
+        dimensions:
+          skirt_od:
+            label: "Skirt OD (= tower cylinder)"
+            value: 44.0
+            code_name: SKIRT_OD
+          curtain_id:
+            label: "Curtain ID (race OD 37 + 2x gap)"
+            value: 38.0
+            code_name: SKIRT_ID
+          gap:
+            label: "Labyrinth gap, axial and radial"
+            value: 0.5
+            code_name: SKIRT_GAP
+          curtain_bottom_z:
+            label: "Curtain bottom (coxa-local z; rim at 4.5)"
+            value: 5.0
+            code_name: SKIRT_BOT_Z
   femur_link:
     label: "Production femur_link (unchanged, reference)"
     description: "Print from the main stl_prototype/ — unchanged by this variant."

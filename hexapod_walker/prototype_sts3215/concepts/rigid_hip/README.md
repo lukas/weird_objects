@@ -28,11 +28,12 @@ servo — is a cantilever.  This variant closes the structure from the top:
   the actual top↔bottom structural connection (see below).  Each
   stands in a vacated corner Wago tray and doubles as the boss its
   hatch perimeter screw threads into.
-* **`coxa_link_rigid`** (print 6): the production coxa with two variant
-  edits — servo-cradle corners rounded to the 38.2 mm yaw envelope so
-  the plain columns clear the swinging leg by 5 mm at every angle, and
-  the hub flange extended down as a Φ29 seat ring to the relocated
-  bottom bearing (see below).
+* **`coxa_link_rigid`** (print 6): the production coxa with three
+  variant edits — servo-cradle corners rounded to the 38.2 mm yaw
+  envelope so the plain columns clear the swinging leg by 5 mm at
+  every angle, the hub flange extended down as a Φ29 seat ring to the
+  relocated bottom bearing, and a Φ44 dust skirt that covers the
+  exposed race with a non-contact labyrinth (see below).
 * **`chassis_bottom_rigid`** (print 1): the production chassis with the
   six square tower platforms trimmed to the tower's own Φ44 cylinder —
   one matching curve from belly to bearing pocket — the dead cap-bolt
@@ -77,9 +78,19 @@ Aug 24):
   run hub → seat ring → inner race → outer race → tower seat; standing
   loads run up through the TOP bearing into the plate shoulder.  Each
   bearing takes one direction; no lip needed.
-* The cap's dust labyrinth is retired — the 6805-2RS is a **sealed**
-  bearing.  The race's outer band is exposed for ~3 mm; acceptable for
-  a concept mule, note it if this ever walks gravel.
+* With the cap gone the race's top 3 mm stands proud of the tower rim.
+  A **dust skirt on the coxa** covers it (user, Aug 24: *"should a
+  ring from the coxa link come down and cover part of the bearing
+  that's sticking up?"*): a brim roofs the race 0.5 mm above its top
+  face and a Φ38→Φ44 curtain wall drops around the proud band to
+  0.5 mm above the tower rim, continuing the tower's own Φ44 cylinder.
+  It **touches nothing** — no scraping: grit has to turn under the
+  curtain (0.5 axial over the rim), climb the 0.5 radial moat past the
+  race OD, then turn again under the brim.  A contact wiper would add
+  friction, squeak PETG-on-PETG, and wear; 0.5 mm rides out print
+  tolerance and bearing play while keeping gravel and grit off the
+  seal.  See `skirt_section.png` / `skirt_closeup.png` (generated with
+  `buildviz section`).
 * Dropping the race 7 mm also stretches the bearing couple: mid-plane
   to mid-plane goes from ~58 mm (cap-held) to ~65 mm.
 
@@ -182,9 +193,10 @@ territory outside every swing envelope):
 * **`coxa_link_rigid`** (print 6): the production coxa with its two
   servo-cradle corner edges rounded to the 38.2 mm arc — at most
   2.16 mm comes off (they used to reach 40.36 mm) — plus the Φ29 hub
-  seat ring for the tower-seated bearing (previous section).  Hub,
-  horn drive, cradle pilots and cap seat are untouched — the price of
-  a plain column instead of a scalloped one is a variant coxa print.
+  seat ring and Φ44 dust skirt for the tower-seated bearing (previous
+  section).  Hub, horn drive, cradle pilots and cap seat are
+  untouched — the price of a plain column instead of a scalloped one
+  is a variant coxa print.
 * **Top**: stops 0.1 mm short of the frame sheet (the six bearing
   RACES define the plate plane — the screws pull the sheet down onto
   the pillar; sand/shim a proud pillar, never let it rock).  Two Φ2.5
@@ -256,6 +268,7 @@ one printed block at the chassis centre:
 | race shoulder | 34 | `YAW_TOWER_SHOULDER_OD` |
 | ring wall | 44 = 37 + 2×3.5 | `YAW_TOWER_WALL` |
 | hub seat ring → inner-race land | 29 (axial seat, not a fit) | `YAW_BEARING_INNER_OD` |
+| dust skirt (curtain ID / OD) | 38 / 44 — 0.5 mm gap everywhere, never touches | `SKIRT_*` in the generator |
 
 Boss tip has a Φ24×0.8 stepped lead-in; pocket mouths have a 0.8 mm
 lead-in ring.
@@ -399,8 +412,9 @@ serviceable option.
   supports.
 * `coxa_link_rigid`: print exactly like the production coxa (same
   orientation and supports).  The rounded corners change nothing; the
-  Φ29 seat ring prints as a horizontal cylinder band exactly like the
-  uflange above it (the coxa prints on its side).
+  Φ29 seat ring, dust-skirt brim and Φ44 curtain all print as
+  horizontal cylinder bands exactly like the uflange above them (the
+  coxa prints on its side).
 * `chassis_bottom_rigid`: print exactly like the production chassis
   (belly up, same supports).  The tower-cylinder trim, shaved ears and
   foot holes change nothing about the print strategy.
@@ -432,7 +446,9 @@ npx buildviz register hexapod_walker/prototype_sts3215/concepts/rigid_hip \
 
 Checks run at build time: watertightness, seated-stack placement, the
 bottom joint (race on the tower seat, coxa/race contact = boss press
-only, seat ring lands on the race top, leg + bearing lift-out path),
+only, seat ring lands on the race top, dust-skirt labyrinth open on
+both sides of the gap with the rim proven under the curtain, leg +
+bearing lift-out path),
 the chassis variant (nothing outboard survives past the tower
 cylinder, the trim never bit the tower wall, only the intentional
 inboard boss survives, foot holes open where the pillar feet expect
