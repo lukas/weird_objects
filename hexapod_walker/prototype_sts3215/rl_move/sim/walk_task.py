@@ -989,6 +989,10 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # unavoidable deceleration transient -- see the charge
         # site below. Same lifecycle as _walk_idle_ema.
         self._walk_stop_cmd_s = 0.0
+        # Structural stop-hold timer (goal.walk_stop_freeze_s);
+        # same lifecycle as _walk_stop_cmd_s -- see
+        # sim_env._walk_stop_freeze_override.
+        self._walk_stop_freeze_cmd_s = 0.0
         # Commanded-course EMA (reward.k_walk_course); same lifecycle.
         self._walk_course_ema = [0.0, 0.0]
         # Stride-EMA velocity for the tracking kernel
@@ -1563,6 +1567,10 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # unavoidable deceleration transient -- see the charge
         # site below. Same lifecycle as _walk_idle_ema.
         self._walk_stop_cmd_s = 0.0
+        # Structural stop-hold timer (goal.walk_stop_freeze_s);
+        # same lifecycle as _walk_stop_cmd_s -- see
+        # sim_env._walk_stop_freeze_override.
+        self._walk_stop_freeze_cmd_s = 0.0
         # Commanded-course EMA (reward.k_walk_course); same lifecycle.
         self._walk_course_ema = [0.0, 0.0]
         # Stride-EMA velocity for the tracking kernel
@@ -3324,6 +3332,10 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # unavoidable deceleration transient -- see the charge
         # site below. Same lifecycle as _walk_idle_ema.
         self._walk_stop_cmd_s = 0.0
+        # Structural stop-hold timer (goal.walk_stop_freeze_s);
+        # same lifecycle as _walk_stop_cmd_s -- see
+        # sim_env._walk_stop_freeze_override.
+        self._walk_stop_freeze_cmd_s = 0.0
         # Commanded-course EMA (reward.k_walk_course); same lifecycle.
         self._walk_course_ema = [0.0, 0.0]
         # Stride-EMA velocity for the tracking kernel

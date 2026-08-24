@@ -1099,6 +1099,59 @@ class SimHexapodBalanceEnv(_GymBase):
             dq[3 * leg + 2] += 0.5 * fold
         return dq
 
+    def _walk_stop_freeze_override(self, q_safe):
+        """goal.walk_stop_freeze_s (2026-08-24, joyfullcurr10-
+        stopsettle-probe dig-in): STRUCTURAL stop-hold, not a reward
+        charge. The stopsettle diagnostic measured the V6 b1 cert's
+        residual creep as a genuine POST-grace floor (excluding the
+        exact 0.4s reward.walk_stop_grace_s window a checkpoint was
+        trained under barely moved the metric: stop_speed_settled_m_s
+        0.03107 vs raw stop_speed_m_s 0.03264, ~5%) -- refuting the
+        entire stop-speed/stop-current REWARD-PRICING lever both by
+        dose (joyfullcurr9/10) and by measurement methodology (this
+        run), per that run's own pre-registered gate text. This hook
+        is the named next lever: instead of pricing sustained motion
+        and hoping the policy learns true stillness, it FORCES the
+        physical command to hold -- once a walk/quadwalk-mode stop
+        segment has been commanded for more than walk_stop_freeze_s
+        seconds (same grace convention as the stop reward charges),
+        the tick's own q_safe is discarded and replaced with the
+        PREVIOUS tick's own safe command (self._cmd, read before it is
+        overwritten below) -- i.e. the policy's action this tick is
+        never issued to the plant. This is why the override must
+        return the previous q_safe rather than re-deriving a target
+        from a zeroed action: the action space is an offset from the
+        nominal pose, not from the previous command, so a zeroed
+        action would NOT generally hold the current pose. Turn-in-
+        place commands (wz_ref != 0) are exempted exactly like the
+        stop reward charges (a nonzero turn IS the commanded motion).
+        The elapsed-stop timer still advances during an exempted turn
+        (matching the reward charges' own timer semantics) so a turn
+        that stops mid-episode does not get a fresh grace window.
+        Default 0.0 = off, bit-exact (returns q_safe unchanged, no
+        state touched)."""
+        thr = float(cfg_get(self.cfg, "goal", "walk_stop_freeze_s",
+                             default=0.0))
+        if thr <= 0.0:
+            return q_safe
+        if (self._goal_traj is None
+                or getattr(self._goal_traj, "mode", "")
+                not in ("walk", "quadwalk")):
+            return q_safe
+        goal = self._current_goal()
+        s_ref = float(np.hypot(
+            float(getattr(goal, "vx_ref", 0.0) or 0.0),
+            float(getattr(goal, "vy_ref", 0.0) or 0.0)))
+        if s_ref > 1e-3:
+            self._walk_stop_freeze_cmd_s = 0.0
+            return q_safe
+        t = getattr(self, "_walk_stop_freeze_cmd_s", 0.0) + self.dt
+        self._walk_stop_freeze_cmd_s = t
+        wz = abs(float(getattr(goal, "wz_ref", 0.0) or 0.0))
+        if wz > 1e-3 or t < thr:
+            return q_safe
+        return self._cmd.copy()
+
     def _true_roll_pitch(self) -> tuple[float, float]:
         """Ground-truth chassis attitude in the IMU's roll/pitch
         convention (privileged; reset-time only). Uses the episode's
@@ -2439,6 +2492,11 @@ class SimHexapodBalanceEnv(_GymBase):
         q_safe, status = self.safety.filter(
             q_prop, self._state, ik_ok=q_ok, ik_reason=q_reason,
             action=clipped)
+        # Structural stop-hold override (goal.walk_stop_freeze_s,
+        # default 0.0 = off, bit-exact identity) -- see
+        # _walk_stop_freeze_override for why this runs here (after
+        # the safety filter, before self._cmd is latched below).
+        q_safe = self._walk_stop_freeze_override(q_safe)
 
         terminated = bool(status.terminate)
         if not terminated:

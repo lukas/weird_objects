@@ -1,6 +1,59 @@
 # joystick - RL from the programmatic gait to joystick control
 
-Last updated: 2026-08-24 ~06:3x (**`cw-arch-hist16-dep1-c1-joyfullcurr9-stopcur2`
+Last updated: 2026-08-24 ~08:4x (**`joyfullcurr10-chg2`/`-chg4` BOTH
+FAIL, and a same-cycle cert-methodology audit CLOSES the
+stop-speed-charge-dose lever for good, by both price AND
+measurement.** Plain English: after stopcur2 proved the actuator-
+CURRENT charge fixes over_current falls but leaves the walkcurr b1
+"stop creep" cert untouched, this cycle doubled/quadrupled the
+stop-SPEED charge on top of it (`k_walk_stop_charge` 1.0->2.0/4.0,
+`k_walk_stop_current` held at the proven 2.0). Neither moves the cert
+(`stop_speed_m_s` finishes 0.0416/0.0426, cap 0.015, same 0.027-0.048
+band every dose 0/1/2/4x has landed in across 80 cert rounds each) and
+BOTH actively regress what stopcur2 had just fixed, monotonically with
+dose: held-out 60s joygate falls 1/48 (stopcur2) -> 4/48 (chg2) ->
+8/48 (chg4, slip/m now over the 2.9 cap too); own-DR(0.5) det gait
+5/6 (stopcur2) -> 2/6 (chg2, 3/6 video-confirmed leg-3 rigid-lock,
+the SAME shortcut stopcur6 found at k=6.0, now reappearing at a lower
+dose once the SPEED charge is doubled) -> an actual video-confirmed
+tilt_roll FALL (chg4). Reward quarters decline in both (chg2
+805/826/740/664, chg4 713/722/572/394, chg4 steeper) — aligned per
+08-21, not undertrained; the charge bites, there is no basin left to
+buy the cert with more of the same price.
+**Same-cycle audit (`joyfullcurr10-stopsettle-probe`, INFORMATIVE,
+diagnostic-only, no training):** built `goal.walk_stop_settle_s`
+(default 0.0, additive-only metric, bit-exact-when-absent, 4/4 new
+tests `test_walk_stop_settle_metric.py`) to test whether the cert's
+`stop_speed_m_s` — which has always averaged EVERY stop tick from the
+very first one of a commanded-stop segment — differs from a version
+that excludes the same 0.4s grace window the reward's own stop charges
+already exempt (`reward.walk_stop_grace_s`, built for exactly this
+transient in the joyfullcurr7 dig-in). A `--walkcurr-precert-only` dry
+run (no PPO, exits in ~15s) on the stopcur2 checkpoint's b1 bucket
+read `stop_speed_m_s=0.0326` vs the new `stop_speed_settled_m_s=0.0311`
+(`settled_frac=0.80`) — only a 5% drop, both ~2x the cap. **This
+definitively closes the audit**: the residual creep is a genuine
+POST-grace steady-state floor, not a cert-methodology artifact
+(excluding the reward's own exempted window barely moves the number)
+and not primarily a decel transient (80% of counted ticks were already
+past it). Combined with the dose ladder's price-insensitivity, the
+stop-speed-charge mechanism class is closed by BOTH price and
+methodology — no further stop-charge dosing and no cert-measurement
+fix is worth attempting. **Next specified-but-unbuilt lever**: a
+structural anchor/hold gate on loaded-foot position during stop ticks
+(reusing the existing `walk_anchor_gate` pattern, which today only
+fires while `s_ref > 1e-3` — extend it, or an analogous new gate, to
+price POSITION DRIFT of loaded feet during stop instead of
+instantaneous body speed) rather than any further speed/current
+pricing. Champion unchanged (`stotight45-seed13`); the core joystick
+DONE gate stays met per 08-23; this V6 ladder remains operator-ordered
+hardening (`fb_20260823T220651_5c66e3`). Evidence:
+`logs/ckpt_eval/cw_arch_hist16_dep1_c1_joyfullcurr10_{chg2,chg4}_
+{gate,owncfg,joygate}/` (chg4 owncfg `walk_det_1.mp4/.png`
+video-confirms the fall), W&B runs `zi9qtmgu`/`nq6a26vc`/`xfx92c1i`.
+Prior banner below.)
+
+Previous entry (2026-08-24 ~06:3x (**`cw-arch-hist16-dep1-c1-joyfullcurr9-stopcur2`
 VERDICTED PARTIAL (dose sibling of stopcur6, read jointly) — the k=2.0
 stop-current charge keeps the over_current win with only a MILD version
 of stopcur6's leg-sacrifice trade, but still does not touch the b1
