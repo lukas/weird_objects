@@ -179,10 +179,14 @@ variation only moves parts that stay outboard/below the plate.
    leg (the upper/located one; leave the lower pocket empty), and use
    `hip_clamp_cap_rigid` in place of the stock hip cap — same 2× M3
    into the same cradle pilots.
-2. Move the 6 corner Wagos inboard (velcro/zip under the hatch
-   footprint); sit each `corner_pillar` in its vacated tray, drill the
-   three Φ3.4 foot holes through the sheet using the foot as the jig,
-   and bolt down with M3×12 + belly nylocs.
+2. Move the 6 corner Wagos inboard: each one slides ~30 mm along its
+   own corner azimuth to **rho ≈ 46, long side tangential, levers up**
+   (floor verified free at rho 38–54 × ±20 mm on all six corners),
+   velcro'd to the sheet — directly under the hatch opening, so levers
+   stay reachable from above with the lid off.  Pigtails need
+   ~30–35 mm extra.  Then sit each `corner_pillar` in its vacated
+   tray, drill the three Φ3.4 foot holes through the sheet using the
+   foot as the jig, and bolt down with M3×12 + belly nylocs.
 3. Press a 6805 onto each cap boss until it seats on the Φ29 pedestal.
 4. Lower `chassis_top_rigid` straight down onto all six races (pockets
    are lead-in chamfered; descent path verified clear at build time —
