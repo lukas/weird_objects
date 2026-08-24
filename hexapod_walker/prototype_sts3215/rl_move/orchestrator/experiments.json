@@ -161345,7 +161345,7 @@
       "safety.walk_height_grace_s=5.0"
     ],
     "created": "2026-08-24T00:06:19+00:00",
-    "status": "FINISHED",
+    "status": "FAIL",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -161381,7 +161381,9 @@
         "verdict": "FINISHED_BEFORE_CHECKUP",
         "log_tail": "55\nwandb:   env/height_err_mm 110.62181\nwandb:       env/height_mm -110.61756\nwandb:   env/height_ref_mm 0\nwandb:   env/max_current_a 0.66354\nwandb:  env/mean_current_a 0.16294\nwandb: env/pct_within_1deg 0.73519\nwandb:   env/pitch_ref_deg 0\nwandb:                +169 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-walkcurr-pf-fwd6-stagea-slip1 at: https://wandb.ai/l2k2/hexapod-balance/runs/rwdahh6d\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 3 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260824_000716-rwdahh6d/logs\n"
       }
-    ]
+    ],
+    "verdict": "The Stage-A slip-diagnostic arm FAILS discovery, and its distinguishing lever -- loosening the safety cutoffs -- made the known belly-sit basin strictly WORSE: the robot now drops flat onto its belly within the first seconds and lies there with five of six feet waving in the air, so the new planted-foot slip charge it was built to measure never even fires (feet that never touch cannot slip). Evidence: reward fell MONOTONICALLY all run (quarters 43.8/38.8/25.7/9.5, end ep_rew_mean -0.03) while height_err climbed 11->111mm, walk_swinging_feet rose 3.1->5.3/6, liftoff_count decayed 0.38->0.10/s, walk_speed 0.10->0.009 m/s, and reward_foot_slip_tangent sat at -0.00007 (unmeasurably small, per the no-contact evasion, NOT because slipping is clean). Own-cfg gate (podeval, watched det strip): det 0/6 gait_valid with ALL SIX legs sacrificed, prog med -0.01, fwd 0.01m, slip/m 7.49, ZERO terminations (the disabled height cutoff lets episodes marinate the full 25s in the absorbing pose); sto slip 19-23/m is just exploration jitter ground-scrubbing. Video: splayed belly-flat collapse by frame 2, zero net motion after. Hardware-ready: no. Reward AND eval both falling with adequate budget = genuine FAIL per the 08-21 ruling, not misaligned-continue. Mechanism reads for the open escalation DIG-IN (pdw05/pdx15): (1) the safety termination was the only pressure bounding time-in-basin -- removing it turned belly-sit into a fully absorbing state that PPO's state distribution slides into even as collected reward falls; any future anti-collapse charge (e.g. the named minimum-total-foot-contact/no-fly charge) must come WITH a termination/hard boundary, never INSTEAD of one, because absorbing states beat prices. (2) The tangent-slip charge is closed as a discovery lever on this rung: it is evadable by zero contact and returns no data in exactly the failure mode that matters. (3) METRIC WARNING: walk_freeprog_score read 'best-ever' (-0.016, monotone toward 0) on this arm purely because EMA speed -> 0 while lying down -- freeprog-toward-zero must never be read as discovery health without a contact/height cross-check. (4) This is now the ~11th independent mechanism (RND doses x3, rung-0 swing income x2+RND, GRU, gSDE, rscale, hgt1/hgt2 terminations, park_duty confound+dose, tangent slip + loosened safety) converging on the same static/collapsed basin from random init -- strengthens the case the escalation cycle weighs for the BC-kickstart last resort vs one final bank-proven contact-floor charge WITH termination.",
+    "triage": "done"
   },
   {
     "run": "cw-walkcurr-pf-fwd6-hgt2-pdw05-pdx15",

@@ -923,3 +923,86 @@ validity, on video. Speed obedience is secondary throughout.
   operator explicitly rather than trying a ninth reward variant.
   Evidence: `logs/ckpt_eval/cw_walkcurr_pf_fwd6_{hgt1,hgt2_pdw05,
   hgt2_pdw05_pdx15}_gate/`.
+
+## Now (updated 08-24 ~00:3x — ROOT CAUSE FOUND: raw-joint action-space zero point is a belly-sit pose, by construction, no policy required)
+
+- **DIG-IN (this cycle, triaging `cw-walkcurr-pf-fwd6-hgt2-pdw05` —
+  concurrent cycle already verdicted it + its `-pdx15` sibling FAIL
+  above; this entry does not re-verdict, it adds a finding neither
+  read had): the report.json metrics for hgt2-pdw05/hgt2/hgt1
+  CONTRADICT the "frozen static crouch" framing used across most of
+  the last ~20 verdicts.** `walk/det` episodes show real
+  `swing_count` (4-11 per leg, not 0), duty spread 0.12-0.84 (not
+  pinned), and `speed_mean_m_s` 0.055-0.065 -- close to the 0.05-0.06
+  m/s COMMAND. What actually fails is `direction_err_mean_deg`
+  ~80deg (should be ~0) and `slip_per_m` ~7.3-7.5 (cap 3.0): the legs
+  ARE cycling, just not coherently enough to produce net forward
+  travel before the height-gate terminates the episode ~2s in. Coarse
+  6-frame video sampling at ~0.5s intervals aliases this real
+  high-frequency limb activity into what reads, by eye, as a static
+  splayed pose.
+  **ROOT CAUSE, found by a zero-training, zero-reward physical probe
+  (no policy at all -- just `env.step(np.zeros(18))` in a loop):**
+  this recipe's action space is `SimHexapodJointGoalEnv` (raw 18-dim
+  joint targets, `--task joint_walk`), where `a=0` maps to
+  `action_to_q_rad(0)` = the HARDWARE AXIS MID-RANGE (hip=-25deg,
+  knee=65deg per leg, from `_CENTER_RAD` in `joint_task.py`) -- NOT
+  the settled standing pose. The env's own post-reset `q_nom` (read
+  from the physics-settled stand) is hip~15.75deg/knee~84.8deg,
+  matching the semantics bank's `WALK_PLANT=(20,80)` almost exactly.
+  Stepping the env with a CONSTANT all-zero action for 50 ticks (2s,
+  no policy, no reward signal driving it) sinks the chassis
+  **-110mm** while roll/pitch stay **exactly 0.00deg** the entire
+  time -- bit-for-bit the "belly_sit" signature (`height_err_end_mm`
+  ~110-116mm, level attitude) that EVERY RND arm (rung-0 1x/3x,
+  rung-1 0.02/0.10/1.0 dose, +4M budget), both height-gate doses, and
+  both park_duty-confound-fix doses independently converged to. A
+  freshly initialized (small-weight, near-zero-mean) PPO policy
+  reproduces this basin by construction -- none of the 8+ "closed"
+  mechanism classes (RND, rung-0 swing-income, GRU, gSDE, reward
+  rscale dose/budget, height-gate dose, park-duty dose) could have
+  fixed this, because none of them touch what the action space's
+  neutral point physically does. This is the "sim/action defect"
+  link in the root-cause chain the 08-21 ruling asks to check before
+  another reward patch, and it was never checked until this cycle
+  because every prior dig-in reasoned about REWARD shape, not the
+  ACTION MAPPING.
+  **FIX BUILT + TESTED (bit-exact when off):** `joint_task.py` gains
+  a cfg-gated per-axis action bias (`goal.joint_action_bias_{yaw,
+  hip,knee}_deg`, default 0.0 each) applied inside `_act_to_q` before
+  the existing `action_to_q_rad` mapping -- a pure translation of the
+  action's zero point, clipped back into the hardware axis range, so
+  the full reachable range and every other joint_task consumer are
+  untouched at the default. `test_joint_action_bias.py` (6/6 green):
+  pins the defect (`test_zero_action_collapses_without_the_fix`,
+  reproduces the -110mm/level-attitude collapse from zero action
+  alone), proves bias=0 is bit-exact against the un-biased mapping
+  for random actions, proves a nonzero bias shifts exactly the
+  requested degrees and clips correctly at the extremes, and proves
+  the SAME zero-action probe stays within 30mm of reference height
+  once the bias re-centers `a=0` on `hip=20deg/knee=80deg` (+45/+15
+  vs the hardware-midrange default). Full `test_task_semantics.py`
+  walkcurr bank re-run clean (56/56) -- the change is additive and
+  does not touch reward semantics.
+  **LAUNCHING (this cycle): `cw-walkcurr-pf-fwd6-actbias1`** --
+  single new lever vs the strongest existing rung-1 baseline
+  (`cw-walkcurr-pf-fwd6-rscale50`, the only prior arm whose
+  `walk_freeprog_score` ever trended toward 0): add
+  `goal.joint_action_bias_hip_deg=45` / `_knee_deg=15`, from scratch,
+  2M, everything else byte-identical. Prediction-if-true: with the
+  policy's initial/undertrained mean action no longer physically
+  sinking the chassis, `walk_freeprog_score` should leave the
+  [-0.11,-0.05] dead band materially faster/further than rscale50
+  did alone, and det video should show the robot actually STANDING
+  at t=0 instead of visibly sinking over the first ~1-2s regardless
+  of command. Prediction-if-false (same collapse signature despite
+  a verified-correct neutral pose): the zero-point defect was real
+  but not the (only) blocker -- fall back to the pre-registered
+  foot-contact-charge mechanism or BC-kickstart per the entry above,
+  but only after checking whether PPO's exploration noise (std~0.37
+  on 18 dims) is simply large enough to random-walk back into the
+  collapse basin regardless of where the mean sits (worth an
+  action-bias + tighter-log-std-init pairing as the next fork if so).
+  Evidence: `rl_move/sim/joint_task.py`, `rl_move/tests/
+  test_joint_action_bias.py`, snapshot tag
+  `exp/walkcurr-fwd6-actbias1`.
