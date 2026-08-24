@@ -36,8 +36,10 @@ def test_contract_default_reports_stock_config():
     assert c["bus.write_speed"] == 400.0
     assert c["bus.write_acc"] == 20.0
     assert c["bus.servo_vel_max_counts_s"] == ""
-    assert c["control.hz"] == 25.0
-    assert c["safety.max_delta_q_deg"] == 1.5
+    # 2026-08-24 100 Hz flip (fb_20260824T174619_c49b7e): rate x4,
+    # per-tick slew /4 — the PHYSICAL 37.5 deg/s contract is unchanged.
+    assert c["control.hz"] == 100.0
+    assert c["safety.max_delta_q_deg"] == 0.375
     assert c["slew_limit_deg_s"] == pytest.approx(37.5)
     assert c["resolved_vel_max_deg_s_max"] == pytest.approx(base.max())
     assert c["backend_profile"] == "servo_profile_np"

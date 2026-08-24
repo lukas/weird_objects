@@ -1,6 +1,22 @@
 # joystick - RL from the programmatic gait to joystick control
 
-Last updated: 2026-08-24 ~17:5x (**certfreeze SEED-PASS-RATE GRID
+Last updated: 2026-08-24 ~18:0x (**NEW OPERATOR-ORDERED CANDIDATE
+LINEAGE: `cw-amp-joy60-s29-ft1` VERIFIED RUNNING train-4** (MCP order
+20260824T175033Z). The AMP M5 champion `..._phasehz11_s29.zip` was
+manually run through the corrected 60 s joygate (fastprofile_v1,
+operator-run): FAIL but stable — n=48, ZERO falls, gait_valid 1.0, no
+sacrificed legs, slip 3.679 (cap 2.9), dir_err 48.15 (cap 40); det
+near-gate, stochastic/command-churn is the miss. This run fine-tunes
+s29 warm-start with its exact trained recipe (25 Hz, phase_obs 1.1 Hz,
+obs_body_vel=2, yaw_cmd 0.3, phase_run_on_yaw, fault_health, fast
+motor contract 1500/80/5deg, stress_mix 4.0 s jitter 0.5, AMP style
+0.5) changing ONLY episode-seconds 15->60 to match the gate horizon;
+8M steps, phase hardening, track joystick (cross-track by operator
+order; watcher joygate fires on finish, held-out seed 90000, DR-0+
+own-DR det+sto, PASS = 0 falls + gait valid + slip<=2.9 + dir<=40).
+Independent of the certfreeze/V7 ladder below — champion unchanged.)
+
+Previous entry (2026-08-24 ~17:5x (**certfreeze SEED-PASS-RATE GRID
 CLOSED, 3/3 uniform FAIL — the base run's verdict was NOT seed luck.**
 `-s1`/`-s2` (the n=3 batch launched alongside the base arm) both
 finished and read exactly like the base: `walkcurr/frontier` promotes

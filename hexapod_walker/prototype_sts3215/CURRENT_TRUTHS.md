@@ -22,7 +22,28 @@ ranking before every mechanism launch.
 Operator-launched out-of-scope runs get honest triage but no agent
 follow-ups.
 
-## Current top rulings (operator, 08-21/08-22/08-23)
+## Current top rulings (operator, 08-21/08-22/08-23/08-24)
+
+- 100 Hz CONTROL CADENCE (operator 08-24, fb_20260824T174619_c49b7e —
+  binding, implemented + snapshotted 08-24 ~18Z): every NEW PPO/MJX
+  policy trains at `control.hz=100` with `safety.max_delta_q_deg=0.375`
+  — the PHYSICAL command-slew contract stays 37.5 deg/s, rate-invariant.
+  Mechanics: (a) launch_run.py injects an explicit `--cfg-set
+  control.hz=100` into every PPO launch that lacks one and REFUSES an
+  explicit non-100 value without `--allow-legacy-control-hz` (recorded
+  in ledger checks); (b) pod_eval pins `control.hz=25` +
+  `max_delta_q_deg=1.5` for ledger entries with NO control.hz key —
+  since the flip that key is always present, so "missing" always means
+  "pre-flip, trained at 25 Hz"; (c) export_policy_np writes
+  `meta.control_hz` (default = config; `--control-hz 25` for legacy
+  exports); (d) linux_control/rl_policy.py derives its tick rate from
+  config control.hz and REFUSES any policy whose control_hz metadata
+  (missing = assumed 25) mismatches the runner rate. FACT: every
+  checkpoint trained before 2026-08-24 ~18Z is a 25 Hz policy. BUDGET
+  FACT: 40M steps at 100 Hz is 1/4 the simulated seconds of a 25 Hz
+  40M run — first conversions are rate-conversion experiments under
+  the current cap, not sim-time equivalents. (The note's
+  `control.inner_hz` key does not exist in this workspace — no-op.)
 
 - WALKCURR TRACK REGISTRATION (operator 08-23, focus note
   20260823T154657Z — binding): the fourth first-class track. Rules:
