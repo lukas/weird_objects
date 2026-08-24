@@ -802,7 +802,13 @@ def leg_transforms(i: int, yaw_deg: float = 0.0,
     T_coxa = _trans(edge) @ _rotz(a) @ _rotz(np.deg2rad(yaw_deg))
     T_femur = T_coxa @ _trans(hip_local) @ rotation_matrix(p, [0, 1, 0])
     T_tibia = T_coxa @ _trans(knee_local) @ rotation_matrix(pt, [0, 1, 0])
+    # Chassis-mounted cradle frame: leg azimuth rotation at chassis z=0, NO
+    # yaw and NO yaw-output lift. This is where the yaw_servo_retainer lives
+    # (production places it at exactly this frame; parking it on T_coxa put
+    # it CHASSIS_YAW_OUTPUT_Z = 15.25 mm too high, jammed into the platform).
+    T_cradle = _trans([edge[0], edge[1], 0.0]) @ _rotz(a)
     return {"coxa": T_coxa, "femur": T_femur, "tibia": T_tibia,
+            "cradle": T_cradle,
             "hip_cap": T_coxa @ M_HIP_JP,
             "knee_cap": T_femur @ M_KNEE_JP}
 
@@ -1108,7 +1114,7 @@ def check_pillars(meshes: dict[str, trimesh.Trimesh]) -> None:
         T = leg_transforms(i)
         for key, fr in (("coxa_link", "coxa"), ("servo_body", "hip_cap"),
                         ("hip_clamp_cap_rigid", "hip_cap"),
-                        ("yaw_servo_retainer", "coxa")):
+                        ("yaw_servo_retainer", "cradle")):
             m = meshes[key].copy()
             m.apply_transform(T[fr])
             statics.append((f"L{i}-{key}", m))
@@ -1472,7 +1478,7 @@ def build_scene(meshes, femur_up_limit: float) -> dict:
                  T["hip_cap"], leg=i),
             inst("bearing_6805", f"L{i} third 6805 (NEW)", T["hip_cap"], leg=i),
         ]
-        inst("yaw_servo_retainer", f"L{i} yaw retainer", T["coxa"], leg=i)
+        inst("yaw_servo_retainer", f"L{i} yaw retainer", T["cradle"], leg=i)
         # Yaw servo is CHASSIS-mounted (does not rotate with the leg), so it
         # is placed via the leg frame but NOT listed in the yaw joint.
         inst("servo_body", f"L{i} yaw servo",
@@ -1527,8 +1533,6 @@ def build_scene(meshes, femur_up_limit: float) -> dict:
                 ["tibia_knee_yoke", "servo_body"],
                 ["foot_boot", "tibia_tube"],
                 ["tibia_knee_yoke", "tibia_tube"],
-                ["chassis_bottom", "yaw_servo_retainer"],
-                ["servo_body", "yaw_servo_retainer"],
             ]},
         "meshes": mesh_defs,
         "instances": instances,
