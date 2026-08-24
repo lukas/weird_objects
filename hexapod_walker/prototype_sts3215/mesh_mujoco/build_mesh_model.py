@@ -31,9 +31,19 @@ tube + ``foot_boot_plus4``, same apex).  The CAD's merged-tibia formula would
 land it at ~179.5 mm; the tube is a cut-to-length bought part, so the printed
 parts stay exact.
 
-Outputs (both gitignored -- regenerate with this script):
-  assets/*.stl       part meshes in mm (MJCF loads them with scale 0.001)
-  hexapod_mesh.xml   the model
+Outputs:
+  assets/*.stl          part meshes in mm, gitignored (MJCF scale 0.001)
+  hexapod_mesh.xml      full mesh model, gitignored -- regenerate here
+  hexapod_mesh_mjx.xml  MJX/CPU variant: SAME kinematics/masses (inertials
+                        baked from the compiled mesh model), but primitive
+                        collision (boxes/capsules/spheres fitted to the
+                        meshes) and no mesh assets.  Self-contained single
+                        file, CHECKED IN so CoreWeave pods (no manifold3d)
+                        can train/eval on it.  Geom names + classes mirror
+                        mujoco_prototype (chassis_box, L{i}_yaw_servo_col,
+                        L{i}_femur_col, L{i}_knee_servo_col, L{i}_tibia_col,
+                        legcol/collision/foot) so servo_model's
+                        leg_chassis_collision bitmask rewrites apply as-is.
 
 Run (repo venv):  python build_mesh_model.py [--no-render]
 """
@@ -58,6 +68,7 @@ from trimesh.transformations import (  # noqa: E402
 )
 
 import hexapod_prototype as HP  # noqa: E402
+import mujoco_prototype as LEGACY  # noqa: E402  (hfield constants parity)
 import _verify_prototype as V  # noqa: E402
 import full_robot_viz_build as VIZ  # noqa: E402
 from part_palette import PART_COLORS  # noqa: E402
@@ -66,6 +77,7 @@ MM = 0.001  # mm -> m
 
 ASSET_DIR = HERE / "assets"
 XML_PATH = HERE / "hexapod_mesh.xml"
+MJX_XML_PATH = HERE / "hexapod_mesh_mjx.xml"
 PREVIEW_DIR = HERE / "previews"
 
 # --- legacy-sim parity constants (mujoco_prototype.py) ---------------------
@@ -74,10 +86,25 @@ KP = {"yaw": 18.0, "pitch": 26.0, "knee": 24.0}
 KV = {"yaw": 0.35, "pitch": 0.45, "knee": 0.40}
 ARMATURE = 0.0004
 JOINT_RANGE = {"yaw": (-0.61, 0.61), "pitch": (-1.40, 0.52), "knee": (-0.35, 2.62)}
-BODY_MASS_BUDGET = {  # calibrated per-body masses from the legacy sim (kg)
-    "chassis": 0.55, "coxa": 0.110, "femur": 0.105, "tibia": 0.040, "pad": 0.004,
+
+# Mass model (2026-08-24, replaces the legacy 2.104 kg per-link budgets —
+# those were never bench-weighed and left ~190 g for the plates + electronics
+# + BOTH LiPo packs + wiring + screws combined).  Source of truth is
+# full_robot_viz_build.KNOWN_PART_MASSES_G (spec/typical masses for bought
+# parts: STS3215 61 g, 6805-2RS 10 g, LiPo ~140 g est, ...) and
+# PART_DENSITIES_GCM3 (steel fasteners; PLA x documented gyroid-infill
+# factors for prints).  Screws and the wiring harness are not MuJoCo geoms,
+# so their mass enters as per-body allowances spread over the printed parts
+# by volume.  Refine with a bench weigh-in (whole robot / one pack).
+EXTRA_MASS_G = {
+    # 104 chassis screws (48 yaw + 48 retainer + 8 plate, steel by CAD
+    # volume ~68 g) + body harness/XT60/velcro allowance (~150 g est)
+    "chassis": 74.0 + 150.0,
+    "coxa": 9.1 + 4.0,    # 12 hip screws / leg + servo-lead share
+    "femur": 9.1 + 4.0,   # 12 knee screws / leg + servo-lead share
+    "tibia": 0.0, "pad": 0.0, "pad_short": 0.0,
 }
-SERVO_MASS = 0.060  # one STS3215, pinned exactly wherever a servo body sits
+LEGACY_TOTAL_KG = 2.104  # old sim total, printed for comparison only
 
 # CAD display stance (spider pose).  NOTE: with the REAL hip height this pose
 # rests the robot on its under-belly yaw-servo retainers, feet unloaded --
@@ -97,9 +124,6 @@ COLLIDE_PARTS = {
     "hip_clamp_cap", "knee_clamp_cap", "yaw_servo_retainer",
     "chassis_top", "chassis_bottom", "switch_holster", "lipo_battery",
 }
-
-# part types that ARE an STS3215 body (mass pinned to SERVO_MASS)
-SERVO_PARTS = {"yaw_servo", "hip_servo", "knee_servo"}
 
 # viz partType -> MuJoCo body ("yaw" link = coxa body etc.)
 LINK_TO_BODY = {"yaw": "coxa", "hip": "femur", "knee": "tibia"}
@@ -158,7 +182,7 @@ class Part:
         self.mesh = mesh
         self.local = np.asarray(local, float)
         self.collide = collide
-        self.mass = 0.0  # filled by distribute_masses
+        self.mass = 0.0  # filled by assign_masses
 
     @property
     def volume(self) -> float:
@@ -260,34 +284,30 @@ def collect_parts():
     return bodies, assets, (ta, std_run, short_run)
 
 
-def distribute_masses(bodies: dict[str, list[Part]]):
-    """Match each MuJoCo body's total mass to the calibrated legacy-sim
-    budget: STS3215 bodies pinned at 60 g, the remainder spread over the
-    body's other parts proportional to actual mesh volume.  Chassis parts in
-    leg frames (yaw servo + retainer) replicate 6x and are budgeted as such."""
-    for body, budget in BODY_MASS_BUDGET.items():
-        if body == "pad":
-            for grp in ("pad", "pad_short"):
-                for p in bodies[grp]:
-                    p.mass = budget
-            continue
-        parts = bodies[body]
-        mult = (lambda p: 6 if p.part_type in
-                ("yaw_servo", "yaw_servo_retainer") else 1) \
-            if body == "chassis" else (lambda p: 1)
-        pinned = sum(SERVO_MASS * mult(p) for p in parts
-                     if p.part_type in SERVO_PARTS)
-        rest = [p for p in parts if p.part_type not in SERVO_PARTS]
-        vol = sum(p.volume * mult(p) for p in rest)
-        remaining = budget - pinned
-        if remaining <= 0:
-            raise RuntimeError(f"{body}: servo mass exceeds budget {budget}")
+def assign_masses(bodies: dict[str, list[Part]]):
+    """As-built masses: bought parts at their real (spec/typical) grams from
+    ``VIZ.KNOWN_PART_MASSES_G``; printed parts at CAD volume x effective
+    density (``VIZ.PART_DENSITIES_GCM3``: documented infill factors, steel
+    for fasteners); screw + wiring allowances (``EXTRA_MASS_G``) spread over
+    each body's volume-weighed parts.  Chassis parts emitted once per leg
+    (yaw servo + retainer) count 6x toward the spread weights."""
+    known = VIZ.KNOWN_PART_MASSES_G
+    dens = VIZ.PART_DENSITIES_GCM3
+    for grp, parts in bodies.items():
+        def mult(p) -> int:
+            return 6 if (grp == "chassis" and p.part_type in
+                         ("yaw_servo", "yaw_servo_retainer")) else 1
+        vol_parts = [p for p in parts if p.part_type not in known]
+        vol_w = sum(p.volume * mult(p) for p in vol_parts)
+        extra_kg = EXTRA_MASS_G.get(grp, 0.0) / 1000.0
         for p in parts:
-            if p.part_type in SERVO_PARTS:
-                p.mass = SERVO_MASS
+            if p.part_type in known:
+                p.mass = known[p.part_type] / 1000.0
             else:
-                p.mass = remaining * p.volume / vol
-    # the short-tube asset shares the std tube's mass (4 mm shorter is noise)
+                # mm^3 x g/cm^3 -> kg
+                p.mass = p.volume * dens.get(p.part_type, 1.24) / 1e6
+                if vol_w > 0:
+                    p.mass += extra_kg * p.volume / vol_w
 
 
 def _color_for(part_type: str) -> tuple[float, float, float]:
@@ -313,8 +333,39 @@ def _fmt_local(local: np.ndarray) -> str:
     return s
 
 
-def _geom_xml(name: str, p: Part, *, asset: str | None = None) -> str:
-    cls = "part" if p.collide else "visual"
+def _actuator_block(i: int) -> str:
+    return f"""    <position name="L{i}_yaw" joint="L{i}_yaw" kp="{KP['yaw']}" forcerange="-{TORQUE_LIMIT} {TORQUE_LIMIT}"/>
+    <position name="L{i}_pitch" joint="L{i}_pitch" kp="{KP['pitch']}" forcerange="-{TORQUE_LIMIT} {TORQUE_LIMIT}"/>
+    <position name="L{i}_knee" joint="L{i}_knee" kp="{KP['knee']}" forcerange="-{TORQUE_LIMIT} {TORQUE_LIMIT}"/>
+    <velocity name="L{i}_yaw_d" joint="L{i}_yaw" kv="{KV['yaw']}" forcerange="-{TORQUE_LIMIT} {TORQUE_LIMIT}"/>
+    <velocity name="L{i}_pitch_d" joint="L{i}_pitch" kv="{KV['pitch']}" forcerange="-{TORQUE_LIMIT} {TORQUE_LIMIT}"/>
+    <velocity name="L{i}_knee_d" joint="L{i}_knee" kv="{KV['knee']}" forcerange="-{TORQUE_LIMIT} {TORQUE_LIMIT}"/>
+"""
+
+
+def _sensor_block(i: int) -> str:
+    return f"""    <jointpos name="L{i}_yaw_p" joint="L{i}_yaw"/>
+    <jointpos name="L{i}_pitch_p" joint="L{i}_pitch"/>
+    <jointpos name="L{i}_knee_p" joint="L{i}_knee"/>
+    <touch name="L{i}_foot_t" site="L{i}_foot_site"/>
+"""
+
+
+def _keyframes_xml(base_z: dict) -> str:
+    def _key(name: str, pose, z: float) -> str:
+        q = " ".join(f"{v:.6f}" for v in pose)
+        qpos = f"0 0 {z:.6f} 1 0 0 0 " + " ".join([q] * 6)
+        ctrl = " ".join([q + " 0 0 0"] * 6)
+        return f'<key name="{name}" qpos="{qpos}" ctrl="{ctrl}"/>'
+
+    return "\n    ".join(
+        _key(name, pose, base_z[name])
+        for name, pose in (("plant", PLANT), ("stance", STANCE)))
+
+
+def _geom_xml(name: str, p: Part, *, asset: str | None = None,
+              cls: str | None = None) -> str:
+    cls = cls or ("part" if p.collide else "visual")
     return (f'<geom class="{cls}" name="{name}" mesh="{asset or p.asset}" '
             f'{_fmt_local(p.local)} material="mat_{p.part_type}" '
             f'mass="{p.mass:.6f}"/>')
@@ -371,16 +422,21 @@ def build_xml(bodies, assets, tube_info, base_z: dict) -> str:
         site_x = (tip_l - HP.FOOT_BOOT_OD / 2.0) * MM  # dome centre
 
         def geoms(body: str, indent: str, leg=i) -> str:
+            # collidable leg-link parts get class "legpart" (contype 4 /
+            # conaffinity 0: floor-only pairing, same contact plan as the
+            # legacy sim's legcol; servo_model can rewrite the class line
+            # for full self-collision)
             out = []
             cnt: dict[str, int] = {}
             for p in bodies[body]:
+                cls = "legpart" if p.collide else None
                 if p.part_type == "tibia_tube":
                     out.append(_geom_xml(f"L{leg}_tibia_tube", p,
-                                         asset=tube_asset))
+                                         asset=tube_asset, cls=cls))
                     continue
                 k = cnt[p.part_type] = cnt.get(p.part_type, 0) + 1
                 name = f"L{leg}_{p.part_type}" + (f"_{k}" if k > 1 else "")
-                out.append(_geom_xml(name, p))
+                out.append(_geom_xml(name, p, cls=cls))
             return ("\n" + indent).join(out)
 
         boot = pad_parts[0]
@@ -402,28 +458,10 @@ def build_xml(bodies, assets, tube_info, base_z: dict) -> str:
         </body>
       </body>
 """)
-        act_blocks.append(f"""    <position name="L{i}_yaw" joint="L{i}_yaw" kp="{KP['yaw']}" forcerange="-{TORQUE_LIMIT} {TORQUE_LIMIT}"/>
-    <position name="L{i}_pitch" joint="L{i}_pitch" kp="{KP['pitch']}" forcerange="-{TORQUE_LIMIT} {TORQUE_LIMIT}"/>
-    <position name="L{i}_knee" joint="L{i}_knee" kp="{KP['knee']}" forcerange="-{TORQUE_LIMIT} {TORQUE_LIMIT}"/>
-    <velocity name="L{i}_yaw_d" joint="L{i}_yaw" kv="{KV['yaw']}" forcerange="-{TORQUE_LIMIT} {TORQUE_LIMIT}"/>
-    <velocity name="L{i}_pitch_d" joint="L{i}_pitch" kv="{KV['pitch']}" forcerange="-{TORQUE_LIMIT} {TORQUE_LIMIT}"/>
-    <velocity name="L{i}_knee_d" joint="L{i}_knee" kv="{KV['knee']}" forcerange="-{TORQUE_LIMIT} {TORQUE_LIMIT}"/>
-""")
-        sens_blocks.append(f"""    <jointpos name="L{i}_yaw_p" joint="L{i}_yaw"/>
-    <jointpos name="L{i}_pitch_p" joint="L{i}_pitch"/>
-    <jointpos name="L{i}_knee_p" joint="L{i}_knee"/>
-    <touch name="L{i}_foot_t" site="L{i}_foot_site"/>
-""")
+        act_blocks.append(_actuator_block(i))
+        sens_blocks.append(_sensor_block(i))
 
-    def _key(name: str, pose, z: float) -> str:
-        q = " ".join(f"{v:.6f}" for v in pose)
-        qpos = f"0 0 {z:.6f} 1 0 0 0 " + " ".join([q] * 6)
-        ctrl = " ".join([q + " 0 0 0"] * 6)
-        return f'<key name="{name}" qpos="{qpos}" ctrl="{ctrl}"/>'
-
-    keys_xml = "\n    ".join(
-        _key(name, pose, base_z[name])
-        for name, pose in (("plant", PLANT), ("stance", STANCE)))
+    keys_xml = _keyframes_xml(base_z)
 
     return f"""<mujoco model="hexapod_sts3215_mesh">
   <compiler angle="radian" coordinate="local" autolimits="true" meshdir="assets"/>
@@ -439,6 +477,14 @@ def build_xml(bodies, assets, tube_info, base_z: dict) -> str:
     <default class="part">
       <geom type="mesh" group="1" condim="3" friction="1.0 0.02 0.0001"/>
     </default>
+    <default class="legpart">
+      <!-- leg-link parts pair ONLY with the flat floor plane
+           (conaffinity=5), mirroring the legacy sim's legcol contact
+           plan: no leg-leg / leg-chassis hull contacts by default.
+           servo_model.build_model(leg_chassis_collision=1) rewrites
+           this line to contype="1" conaffinity="1" (full self-collision). -->
+      <geom type="mesh" contype="4" conaffinity="0" group="1" condim="3" friction="1.0 0.02 0.0001"/>
+    </default>
     <default class="visual">
       <geom type="mesh" contype="0" conaffinity="0" group="2" density="0"/>
     </default>
@@ -452,13 +498,17 @@ def build_xml(bodies, assets, tube_info, base_z: dict) -> str:
     <texture name="skybox" type="skybox" builtin="gradient" rgb1="0.7 0.85 1.0" rgb2="0.4 0.5 0.7" width="256" height="256"/>
     <texture name="grid" type="2d" builtin="checker" rgb1="0.25 0.3 0.35" rgb2="0.18 0.22 0.27" width="300" height="300"/>
     <material name="grid" texture="grid" texrepeat="6 6" reflectance="0.15"/>
+    <texture name="terrain_tex" type="2d" builtin="checker" rgb1="0.34 0.45 0.30" rgb2="0.26 0.36 0.22" width="320" height="320"/>
+    <material name="terrain_mat" texture="terrain_tex" texrepeat="12 12" reflectance="0.05" shininess="0.0"/>
+    <hfield name="terrain" nrow="{LEGACY.HFIELD_NROW}" ncol="{LEGACY.HFIELD_NCOL}" size="{LEGACY.HFIELD_SIZE} {LEGACY.HFIELD_SIZE} {LEGACY.HFIELD_MAX_Z} {LEGACY.HFIELD_BASE}"/>
     {mat_xml}
     {mesh_xml}
   </asset>
 
   <worldbody>
     <light name="sun" pos="2 -1.5 2.2" dir="-0.6 0.4 -1" castshadow="true"/>
-    <geom name="floor" type="plane" size="8 8 0.05" material="grid" friction="1.5 0.05 0.0001"/>
+    <geom name="floor" type="plane" size="8 8 0.05" pos="0 0 -0.001" material="grid" friction="1.5 0.05 0.0001" conaffinity="5"/>
+    <geom name="terrain" type="hfield" hfield="terrain" material="terrain_mat" friction="1.5 0.05 0.0001" condim="4"/>
 
     <body name="chassis" pos="0 0 {base_z['plant']:.6f}">
       <freejoint name="root"/>
@@ -485,6 +535,226 @@ def build_xml(bodies, assets, tube_info, base_z: dict) -> str:
 """
 
 
+def _parts_aabb(parts: list[Part], types: set[str]):
+    """Body-frame AABB (mm) over every part of the listed types."""
+    lo = np.full(3, np.inf)
+    hi = np.full(3, -np.inf)
+    for p in parts:
+        if p.part_type in types:
+            v = trimesh.transform_points(p.mesh.vertices, p.local)
+            lo = np.minimum(lo, v.min(axis=0))
+            hi = np.maximum(hi, v.max(axis=0))
+    if not np.isfinite(lo).all():
+        raise RuntimeError(f"no parts of types {types}")
+    return lo, hi
+
+
+def _box_attr(lo, hi) -> str:
+    c = (lo + hi) / 2.0 * MM
+    s = (hi - lo) / 2.0 * MM
+    return (f'pos="{c[0]:.6f} {c[1]:.6f} {c[2]:.6f}" '
+            f'size="{s[0]:.6f} {s[1]:.6f} {s[2]:.6f}"')
+
+
+def extract_inertials(xml: str) -> dict:
+    """Compile the full mesh model and read back per-body inertials
+    (mass, com, principal axes) so the primitive variant carries EXACTLY
+    the same mass distribution without any mesh assets."""
+    import mujoco
+    model = mujoco.MjModel.from_xml_string(xml, assets=_asset_bytes())
+    out = {}
+    for b in range(model.nbody):
+        name = mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_BODY, b)
+        if name and name != "world":
+            out[name] = (float(model.body_mass[b]),
+                         model.body_ipos[b].copy(),
+                         model.body_iquat[b].copy(),
+                         model.body_inertia[b].copy())
+    return out
+
+
+def _inertial_xml(inertials: dict, name: str) -> str:
+    mass, ipos, iquat, diag = inertials[name]
+    return (f'<inertial pos="{ipos[0]:.8f} {ipos[1]:.8f} {ipos[2]:.8f}" '
+            f'quat="{iquat[0]:.8f} {iquat[1]:.8f} {iquat[2]:.8f} '
+            f'{iquat[3]:.8f}" mass="{mass:.6f}" '
+            f'diaginertia="{diag[0]:.4e} {diag[1]:.4e} {diag[2]:.4e}"/>')
+
+
+def build_mjx_xml(bodies, tube_info, inertials: dict, base_z: dict) -> str:
+    """Primitive-collision variant for MJX / CoreWeave pods.
+
+    Same body tree, joint frames, actuators, sensors and keyframes as the
+    mesh model; per-body <inertial> baked from its compiled masses; collision
+    from primitives FITTED to the real meshes (AABB boxes, tube-line
+    capsules, boot-dome sphere).  Geom names and classes mirror
+    mujoco_prototype so servo_model's leg_chassis_collision bitmask rewrites
+    apply verbatim.  Ground is a single plane named "terrain" with
+    conaffinity=5, so legcol geoms keep their floor pairing under MJX (the
+    legacy hfield->plane rewrite silently dropped it).  Self-contained: no
+    mesh assets, safe to check in and load anywhere."""
+    ta, std_run, short_run = tube_info
+    apothem = HP.CHASSIS_FLAT_TO_FLAT / 2.0 * MM
+    hip = np.array(HP.COXA_HIP_ANCHOR) * MM
+    femur = HP.FEMUR_LENGTH * MM
+    tube_r = HP.LEG_TUBE_OD / 2.0 * MM
+
+    ch = bodies["chassis"]
+    box_lo, box_hi = _parts_aabb(ch, {"chassis_top", "chassis_bottom"})
+    ys_lo, ys_hi = _parts_aabb(ch, {"yaw_servo", "yaw_servo_retainer"})
+    ys_c, ys_s = (ys_lo + ys_hi) / 2.0 * MM, (ys_hi - ys_lo) / 2.0 * MM
+    lipo = [_parts_aabb([p], {"lipo_battery"})
+            for p in ch if p.part_type == "lipo_battery"]
+    cox_lo, cox_hi = _parts_aabb(bodies["coxa"], {"coxa_link"})
+    hs_lo, hs_hi = _parts_aabb(bodies["coxa"], {"hip_servo"})
+    ks_lo, ks_hi = _parts_aabb(bodies["femur"], {"knee_servo"})
+    fl_lo, fl_hi = _parts_aabb(bodies["femur"], {"femur_link"})
+    fem_y = (fl_lo[1] + fl_hi[1]) / 2.0 * MM  # sandwich mid-plane
+    yk_lo, yk_hi = _parts_aabb(bodies["tibia"], {"tibia_knee_yoke"})
+
+    def vis(shape: str, rgba: str) -> str:
+        return f'<geom class="visual" rgba="{rgba}" {shape}/>'
+
+    GRAY, DARK, BLUE = "0.78 0.82 0.85 1", "0.05 0.05 0.06 1", "0.16 0.16 0.24 1"
+    chassis_geoms = [
+        f'<geom class="collision" name="chassis_box" type="box" '
+        f'{_box_attr(box_lo, box_hi)}/>',
+        vis(f'type="box" {_box_attr(box_lo, box_hi)}', GRAY),
+    ]
+    for k, (lo, hi) in enumerate(lipo):
+        chassis_geoms.append(
+            f'<geom class="collision" name="lipo_battery_{k}" type="box" '
+            f'{_box_attr(lo, hi)}/>')
+        chassis_geoms.append(vis(f'type="box" {_box_attr(lo, hi)}', BLUE))
+    for i in range(6):
+        aa = i * math.pi / 3.0
+        Rz = rotation_matrix(aa, [0, 0, 1])[:3, :3]
+        c = Rz @ ys_c
+        qw, qz = math.cos(aa / 2.0), math.sin(aa / 2.0)
+        attr = (f'type="box" pos="{c[0]:.6f} {c[1]:.6f} {c[2]:.6f}" '
+                f'quat="{qw:.8f} 0 0 {qz:.8f}" '
+                f'size="{ys_s[0]:.6f} {ys_s[1]:.6f} {ys_s[2]:.6f}"')
+        chassis_geoms.append(
+            f'<geom class="collision" name="L{i}_yaw_servo_col" {attr}/>')
+        chassis_geoms.append(vis(attr, DARK))
+    chassis_xml = "\n      ".join(chassis_geoms)
+
+    imu = getattr(HP, "MPU_ASBUILT_CENTRE", (0.0, 0.0))
+    imu_z = getattr(HP, "CHASSIS_TOP_TOP_Z", 36.0) + \
+        getattr(HP, "IMU_PCB_T", 1.6) / 2.0
+    imu_pos = (imu[0] * MM, imu[1] * MM, imu_z * MM)
+
+    leg_blocks, act_blocks, sens_blocks = [], [], []
+    for i in range(6):
+        a = (i + 0.5) * math.pi / 3.0
+        px, py = apothem * math.cos(a), apothem * math.sin(a)
+        pz = HP.CHASSIS_YAW_OUTPUT_Z * MM
+        qw, qz = math.cos(a / 2.0), math.sin(a / 2.0)
+        short = i in HP.SHORT_CF_LEG_INDICES
+        run = short_run if short else std_run
+        tube_end_x = (ta[0] + run) * MM
+        tip_l = HP.FOOT_BOOT_TIP_L + (HP.FOOT_BOOT_SHORT_EXTRA if short else 0)
+        site_x = (tip_l - HP.FOOT_BOOT_OD / 2.0) * MM
+        fem_cap = (f'type="capsule" fromto="0 {fem_y:.6f} 0 '
+                   f'{femur:.6f} {fem_y:.6f} 0" size="0.010"')
+        tib_cap = (f'type="capsule" fromto="{ta[0] * MM:.6f} {ta[1] * MM:.6f} '
+                   f'{ta[2] * MM:.6f} {tube_end_x:.6f} {ta[1] * MM:.6f} '
+                   f'{ta[2] * MM:.6f}" size="{tube_r:.6f}"')
+        rng = JOINT_RANGE
+        leg_blocks.append(f"""      <body name="L{i}_yaw" pos="{px:.6f} {py:.6f} {pz:.6f}" quat="{qw:.8f} 0 0 {qz:.8f}">
+        <joint name="L{i}_yaw" type="hinge" axis="0 0 1" range="{rng['yaw'][0]} {rng['yaw'][1]}"/>
+        {_inertial_xml(inertials, f'L{i}_yaw')}
+        {vis(f'type="box" {_box_attr(cox_lo, cox_hi)}', GRAY)}
+        {vis(f'type="box" {_box_attr(hs_lo, hs_hi)}', DARK)}
+        <body name="L{i}_femur" pos="{hip[0]:.6f} {hip[1]:.6f} {hip[2]:.6f}">
+          <joint name="L{i}_pitch" type="hinge" axis="0 1 0" range="{rng['pitch'][0]} {rng['pitch'][1]}"/>
+          {_inertial_xml(inertials, f'L{i}_femur')}
+          <geom class="legcol" name="L{i}_femur_col" {fem_cap}/>
+          <geom class="legcol" name="L{i}_knee_servo_col" type="box" {_box_attr(ks_lo, ks_hi)}/>
+          {vis(fem_cap, GRAY)}
+          {vis(f'type="box" {_box_attr(ks_lo, ks_hi)}', DARK)}
+          <body name="L{i}_tibia" pos="{femur:.6f} 0 0">
+            <joint name="L{i}_knee" type="hinge" axis="0 1 0" range="{rng['knee'][0]} {rng['knee'][1]}"/>
+            {_inertial_xml(inertials, f'L{i}_tibia')}
+            <geom class="legcol" name="L{i}_tibia_yoke_col" type="box" {_box_attr(yk_lo, yk_hi)}/>
+            <geom class="legcol" name="L{i}_tibia_col" {tib_cap}/>
+            {vis(f'type="box" {_box_attr(yk_lo, yk_hi)}', GRAY)}
+            {vis(tib_cap, GRAY)}
+            <body name="L{i}_pad" pos="{tube_end_x:.6f} {ta[1] * MM:.6f} {ta[2] * MM:.6f}">
+              {_inertial_xml(inertials, f'L{i}_pad')}
+              <geom class="foot" name="L{i}_foot" type="sphere" pos="{site_x:.6f} 0 0" size="{FOOT_R:.6f}"/>
+              {vis(f'type="sphere" pos="{site_x:.6f} 0 0" size="{FOOT_R:.6f}"', DARK)}
+              <site name="L{i}_foot_site" pos="{site_x:.6f} 0 0" size="0.018" group="4" rgba="1 1 1 0.05"/>
+            </body>
+          </body>
+        </body>
+      </body>
+""")
+        act_blocks.append(_actuator_block(i))
+        sens_blocks.append(_sensor_block(i))
+
+    return f"""<mujoco model="hexapod_sts3215_mesh_mjx">
+  <compiler angle="radian" coordinate="local" autolimits="true"/>
+  <option gravity="0 0 -9.81" timestep="0.002" iterations="50" solver="Newton" cone="elliptic"/>
+  <visual>
+    <global offwidth="1920" offheight="1200"/>
+  </visual>
+
+  <default>
+    <joint armature="{ARMATURE}" damping="0.01" limited="true"/>
+    <geom solref="0.006 1" solimp="0.95 0.99 0.001"/>
+    <default class="visual">
+      <geom contype="0" conaffinity="0" group="2" density="0"/>
+    </default>
+    <default class="collision">
+      <geom group="3" rgba="1 0 0 0.18" condim="4" friction="1.3 0.04 0.0001"/>
+    </default>
+    <default class="foot">
+      <geom group="3" rgba="0.02 0.02 0.02 1" condim="6" friction="2.0 0.1 0.001"
+            solref="0.01 1" solimp="0.95 0.99 0.001"/>
+    </default>
+    <default class="legcol">
+      <geom contype="4" conaffinity="0" group="3" rgba="1 0.55 0 0.25"
+            condim="3" friction="1.0 0.02 0.0001"/>
+    </default>
+  </default>
+
+  <asset>
+    <texture name="skybox" type="skybox" builtin="gradient" rgb1="0.7 0.85 1.0" rgb2="0.4 0.5 0.7" width="256" height="256"/>
+    <texture name="terrain_tex" type="2d" builtin="checker" rgb1="0.34 0.45 0.30" rgb2="0.26 0.36 0.22" width="320" height="320"/>
+    <material name="terrain_mat" texture="terrain_tex" texrepeat="12 12" reflectance="0.05" shininess="0.0"/>
+  </asset>
+
+  <worldbody>
+    <light name="sun" pos="2 -1.5 2.2" dir="-0.6 0.4 -1" castshadow="true"/>
+    <geom name="terrain" type="plane" size="8 8 0.05" material="terrain_mat" friction="1.5 0.05 0.0001" condim="4" conaffinity="5"/>
+
+    <body name="chassis" pos="0 0 {base_z['plant']:.6f}">
+      <freejoint name="root"/>
+      <site name="chassis_imu" pos="{imu_pos[0]:.6f} {imu_pos[1]:.6f} {imu_pos[2]:.6f}" size="0.008"/>
+      {_inertial_xml(inertials, 'chassis')}
+      {chassis_xml}
+
+{''.join(leg_blocks)}    </body>
+  </worldbody>
+
+  <actuator>
+{''.join(act_blocks)}  </actuator>
+
+  <sensor>
+{''.join(sens_blocks)}    <accelerometer name="chassis_acc" site="chassis_imu"/>
+    <gyro name="chassis_gyro" site="chassis_imu"/>
+    <framepos name="chassis_pos" objtype="body" objname="chassis"/>
+    <framezaxis name="chassis_up" objtype="body" objname="chassis"/>
+  </sensor>
+
+  <keyframe>
+    {_keyframes_xml(base_z)}
+  </keyframe>
+</mujoco>
+"""
+
+
 def export_assets(assets):
     ASSET_DIR.mkdir(exist_ok=True)
     for name, mesh in assets.items():
@@ -493,23 +763,35 @@ def export_assets(assets):
 
 
 def _lowest_collidable_z(model, data) -> float:
-    """Lowest world-z point over every collidable geom (mesh verts exact)."""
+    """Lowest world-z point over every collidable robot geom (mesh verts
+    exact; sphere/capsule/box exact; anything else falls back to the
+    bounding radius)."""
     import mujoco
+    G = mujoco.mjtGeom
     lows = []
     for g in range(model.ngeom):
         if model.geom_contype[g] == 0 and model.geom_conaffinity[g] == 0:
             continue
-        if model.geom_type[g] == mujoco.mjtGeom.mjGEOM_PLANE:
-            continue
+        t = model.geom_type[g]
+        if t in (G.mjGEOM_PLANE, G.mjGEOM_HFIELD):
+            continue  # ground, not robot
         pos = data.geom_xpos[g]
         R = data.geom_xmat[g].reshape(3, 3)
-        if model.geom_type[g] == mujoco.mjtGeom.mjGEOM_MESH:
+        size = model.geom_size[g]
+        if t == G.mjGEOM_MESH:
             mid = int(model.geom_dataid[g])
             adr, num = int(model.mesh_vertadr[mid]), int(model.mesh_vertnum[mid])
             v = model.mesh_vert[adr:adr + num]
             lows.append(float((v @ R.T + pos)[:, 2].min()))
+        elif t == G.mjGEOM_SPHERE:
+            lows.append(float(pos[2]) - float(size[0]))
+        elif t == G.mjGEOM_CAPSULE:
+            lows.append(float(pos[2])
+                        - (abs(R[2, 2]) * float(size[1]) + float(size[0])))
+        elif t == G.mjGEOM_BOX:
+            lows.append(float(pos[2]) - float(np.abs(R[2, :]) @ size))
         else:
-            lows.append(float(pos[2]) - float(np.max(model.geom_size[g])))
+            lows.append(float(pos[2]) - float(np.max(size)))
     return min(lows)
 
 
@@ -540,14 +822,21 @@ def _up_z(data) -> float:
     return 1.0 - 2.0 * (x * x + y * y)
 
 
-def check_model(render: bool = True):
+GROUND_GEOMS = {"floor", "terrain"}
+
+
+def check_model(xml_path: Path = XML_PATH, render: bool = True):
     import mujoco
-    model = mujoco.MjModel.from_xml_path(str(XML_PATH))
+    model = mujoco.MjModel.from_xml_path(str(xml_path))
     data = mujoco.MjData(model)
     print(f"  model: nq={model.nq} nv={model.nv} nu={model.nu} "
           f"nbody={model.nbody} ngeom={model.ngeom} nmesh={model.nmesh}")
     total = float(np.sum(model.body_mass))
-    print(f"  total mass = {total:.3f} kg (legacy sim: 2.104)")
+    print(f"  total mass = {total:.3f} kg "
+          f"(as-built estimate; legacy sim was {LEGACY_TOTAL_KG})")
+
+    def gname(gid: int) -> str:
+        return mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_GEOM, gid) or "?"
 
     for kname in ("plant", "stance"):
         k = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_KEY, kname)
@@ -559,40 +848,34 @@ def check_model(render: bool = True):
         print(f"  [{kname}] base z = {z0 * 1000:.1f} mm, foot dome centre "
               f"r={math.hypot(p[0], p[1]) * 1000:.1f} mm z={p[2] * 1000:.1f} mm")
 
-        # non-floor penetration report at the keyframe pose
+        # non-ground penetration report at the keyframe pose
         bad = []
         for c in data.contact:
-            g1 = mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_GEOM, c.geom1) or "?"
-            g2 = mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_GEOM, c.geom2) or "?"
-            if "floor" in (g1, g2):
+            g1, g2 = gname(c.geom1), gname(c.geom2)
+            if GROUND_GEOMS & {g1, g2}:
                 continue
             if c.dist < -1e-4:
                 bad.append((g1, g2, c.dist))
         if bad:
-            print(f"  [{kname}] NON-FLOOR penetrating contacts:")
+            print(f"  [{kname}] NON-GROUND penetrating contacts:")
             for g1, g2, d in sorted(bad, key=lambda t: t[2])[:20]:
                 print(f"    {g1} <-> {g2}: {d * 1000:.2f} mm")
         else:
-            print(f"  [{kname}] no non-floor penetrations")
+            print(f"  [{kname}] no non-ground penetrations")
 
         # settle 3 s holding the keyframe's servo targets
         for _ in range(int(3.0 / model.opt.timestep)):
             mujoco.mj_step(model, data)
-        floor_geoms = sorted({
-            (mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_GEOM, c.geom2)
-             if mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_GEOM,
-                                  c.geom1) == "floor"
-             else mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_GEOM, c.geom1))
+        resting = sorted({
+            g2 if g1 in GROUND_GEOMS else g1
             for c in data.contact
-            if "floor" in (mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_GEOM,
-                                             c.geom1),
-                           mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_GEOM,
-                                             c.geom2))})
+            for g1, g2 in [(gname(c.geom1), gname(c.geom2))]
+            if GROUND_GEOMS & {g1, g2}})
         print(f"  [{kname}] after 3 s: base z = {data.qpos[2] * 1000:.1f} mm "
               f"(drop {(z0 - data.qpos[2]) * 1000:+.1f}), upright = "
               f"{_up_z(data):.4f}, max |qvel| = "
               f"{np.max(np.abs(data.qvel)):.4f}")
-        print(f"  [{kname}] resting on: {', '.join(floor_geoms)}")
+        print(f"  [{kname}] resting on: {', '.join(resting)}")
         if not np.isfinite(data.qpos).all():
             raise RuntimeError("simulation diverged (NaN in qpos)")
 
@@ -635,15 +918,15 @@ def main():
     ap.add_argument("--no-render", action="store_true")
     args = ap.parse_args()
 
-    print("[1/4] building part meshes from CAD factories ...")
+    print("[1/5] building part meshes from CAD factories ...")
     bodies, assets, tube_info = collect_parts()
-    distribute_masses(bodies)
+    assign_masses(bodies)
     export_assets(assets)
 
-    print("[2/4] emitting MJCF ...")
+    print("[2/5] emitting mesh MJCF ...")
     xml = build_xml(bodies, assets, tube_info,
                     base_z={"plant": 0.5, "stance": 0.5})
-    print("[3/4] solving keyframe base heights ...")
+    print("[3/5] solving keyframe base heights ...")
     base_z = compute_base_z(xml)
     xml = build_xml(bodies, assets, tube_info, base_z=base_z)
     XML_PATH.write_text(xml)
@@ -651,8 +934,21 @@ def main():
           f"(base z: plant {base_z['plant'] * 1000:.1f} mm, "
           f"stance {base_z['stance'] * 1000:.1f} mm)")
 
-    print("[4/4] checking model ...")
-    check_model(render=not args.no_render)
+    print("[4/5] emitting MJX primitive-collision variant ...")
+    inertials = extract_inertials(xml)
+    mjx_xml = build_mjx_xml(bodies, tube_info, inertials, base_z=base_z)
+    mjx_base_z = compute_base_z(mjx_xml)
+    mjx_xml = build_mjx_xml(bodies, tube_info, inertials, base_z=mjx_base_z)
+    MJX_XML_PATH.write_text(mjx_xml)
+    print(f"  wrote {MJX_XML_PATH.relative_to(HERE)} "
+          f"(base z: plant {mjx_base_z['plant'] * 1000:.1f} mm, "
+          f"stance {mjx_base_z['stance'] * 1000:.1f} mm)")
+
+    print("[5/5] checking models ...")
+    print(f"-- {XML_PATH.name}")
+    check_model(XML_PATH, render=not args.no_render)
+    print(f"-- {MJX_XML_PATH.name}")
+    check_model(MJX_XML_PATH, render=False)
     print("done.")
 
 

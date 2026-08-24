@@ -78,9 +78,15 @@ pushed with `servo_model.apply_params_to_model`.
 - Horns, bearings and the electronics stack are render-only (group 2);
   LiPo packs and servo retainers DO collide — they are what the robot
   rests on when it sits.
-- Masses match the calibrated legacy budgets exactly (total 2.104 kg):
-  every STS3215 pinned at 60 g, each body's remaining budget spread over
-  its parts by real mesh volume, so inertia tensors follow the true shape.
+- Masses are the AS-BUILT estimate (total **3.50 kg** — the legacy sim's
+  2.104 kg budgets were never weighed and are ~40 % light): bought parts at
+  spec/typical grams (`full_robot_viz_build.KNOWN_PART_MASSES_G`: STS3215
+  61 g, 6805-2RS 10 g, LiPo ~140 g est, metal horns, ...), prints at CAD
+  volume × infill-corrected density (25 % gyroid plates ×0.5, 30–40 %
+  brackets ×0.6 of solid PLA), plus per-body screw + wiring allowances
+  (`EXTRA_MASS_G`). One table drives BuildViz `get_mass_properties`
+  (scene `checksConfig.partMassesGrams`) and both MuJoCo models. Refine
+  by weighing the robot / one LiPo pack. Inertias follow the true shapes.
 - Boot contact: soft solref + high friction on the actual TPU dome mesh
   (whose apex IS the printed hemisphere).
 
@@ -91,4 +97,5 @@ pushed with `servo_model.apply_params_to_model`.
 | `build_mesh_model.py` | generator: CAD factories → `assets/` + `hexapod_mesh.xml` + checks + previews |
 | `view_mesh.sh` / `view_mesh.py` | interactive viewer (`plant` / `stance` keyframes) |
 | `assets/`, `hexapod_mesh.xml` | generated, gitignored — rebuild any time |
+| `hexapod_mesh_mjx.xml` | CHECKED-IN primitive-collision twin: same kinematics, baked full-mesh inertials, fitted box/capsule/sphere contacts with legacy geom names (so `servo_model`'s collision rewrites apply). MJX-compatible; what pods and asset-less checkouts load for `env.model_source=mesh` |
 | `previews/*.png` | rendered stills from the last build |
