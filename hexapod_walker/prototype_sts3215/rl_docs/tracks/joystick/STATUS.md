@@ -1,6 +1,44 @@
 # joystick - RL from the programmatic gait to joystick control
 
-Last updated: 2026-08-24 ~20:0x (**certfreeze-v7 FAIL: its own repair
+Last updated: 2026-08-24 ~20:5x (**tf64-small-canary-r1 CANARY FAIL -
+MECHANISM: the small-transformer 100Hz architecture arm collapses,
+isolated to the transformer trunk itself, NOT the 100Hz rate or reward
+stack.** Plain English: the operator-ordered 1-layer/d64/4-head/ff128
+causal transformer (0.64s hist64 window at control.hz=100, V7
+certfreeze recipe) trained clean to its full 2M canary budget (no
+crash/NaN, checkpoint+video synced) but got WORSE the whole way:
+reward fell every quarter (-20.4/-197.1/-384.1/-609.4, ep_rew_mean
+-734 final), walkcurr frontier never promoted past b0 in any of 4
+cert rounds, height_err_mm grew 0->99mm, walk_loadslip_ratio grew
+0.2->5.76 (cap 3.0), walk_direction_valid fell 0.94->0.63. Video:
+rollout_25 (early) is an ordinary static stand; rollout_49 (late) is a
+lower, asymmetric crouch. Ran the held-out joygate too (not required
+at 2M, but decisive): gait_valid_frac 0.02 (1/48), slip/m 20-22 (cap
+2.9), dir_err ~79deg (cap 40), leg-0 sacrificed in 47/48 episodes — a
+near-permanent single-leg lock (zero falls; it drags/circles, never
+topples). **Decisive isolation**: the sibling from-scratch MLP arch on
+the IDENTICAL 100Hz/V7-curriculum/reward stack
+(`cw-arch-hist64-joyfullcurr13-v7-hz100-scratch-s0-r1`, same family,
+37.7-38.5M/40M this cycle) shows HEALTHY rising reward the whole time
+(quarters -1089.3/121.1/484.5/384.4, ep_rew_mean=746) — proving the
+100Hz rate + reward stack IS learnable, and isolating this canary's
+collapse to the tf64-small transformer trunk specifically (under-
+capacity or an attention-specific pathology), not a rate-conversion or
+reward-alignment defect. Caveat: this canary silently ran on CPU torch
+(train-8's CUDA install was wiped by the pod recreation; already
+flagged 08-24 ~18:5x as acceptable for a 2M canary) — not implicated
+in the behavioral collapse since CPU vs GPU changes wall-clock, not
+learning dynamics. Per the run's own pre-registered gate text (FAIL ->
+under-capacity suspected -> escalate tf width/layers, not seeds):
+launched `cw-arch-tf64-joyfullcurr13-v7-hz100-canary2` (2L/d128/8h/
+ff256, matching the proven `cw-arch-tf-r1-hard1` config that DID learn
+to walk at 40M on the pre-100Hz stack), single-lever width/depth
+escalation, same V7/hist64/100Hz recipe otherwise, on a CUDA-verified
++ shm-fixed pod. Evidence:
+`logs/ckpt_eval/cw_arch_tf64_small_joyfullcurr13_v7_hz100_canary_r1_
+{gate,owncfg,joygate}/`, W&B `heklqc5l`.)
+
+Previous entry (2026-08-24 ~20:0x (**certfreeze-v7 FAIL: its own repair
 poisoned the entry-level cert bucket, frontier stuck at b1 the whole
 40M-step run -- scope-fixed as V8 and relaunched.** Plain English: V7
 was meant to add in-place-turn + full-reversal command diversity to the

@@ -170439,7 +170439,7 @@
       "respec of cw-arch-tf64-small-joyfullcurr13-v7-hz100-canary: Plain English: retry of the small-transformer 100Hz mechanism-health canary on FIXED infra -- the first attempt never trained a single step because pod train-8 was still mounting the legacy 64M /dev/shm k8s default and obs.history_frames=64 at n_envs=3072 makes the shared obs array alone ~54MB, so every worker died with SIGBUS inside env.reset() before any PPO step. This cycle recreated train-8 (and train-6) with the dshm-4Gi manifest and verified df -h /dev/shm now reports 4.0G; identical config otherwise (1L/d64/4h/ff128 transformer, obs.history_frames=64, control.hz=100, V7 certfreeze joystick recipe, 2M canary). Prediction-if-true: boots past reset, trains to 2M with no crash/NaN, reward and walkcurr b0 frontier/eval move together. Prediction-if-false: a genuine mechanism problem (crash/NaN/dead-flat reward, or reward-up-eval-flat 100Hz mismatch) now that the infra confound is removed. Strongest alternative: tf64-small trunk is under-capacity, reads as slow-but-healthy learning, answered at full budget not here."
     ],
     "created": "2026-08-24T18:46:56+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "control_hz": 100.0,
       "cpu_limit": 26,
@@ -170481,8 +170481,16 @@
         "placement": "solo on GPU-MJX pod",
         "verdict": "HEALTHY",
         "problems": []
+      },
+      {
+        "time": "2026-08-24T20:46:35+00:00",
+        "process_alive": false,
+        "verdict": "DEAD",
+        "log_tail": "env/height_mm -98.9017\nwandb:   env/height_ref_mm 0\nwandb:   env/max_current_a 1.75097\nwandb:  env/mean_current_a 0.46038\nwandb: env/pct_within_1deg 0.01343\nwandb:   env/pitch_ref_deg 0\nwandb:   env/reward_action -0.01593\nwandb:                +133 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-arch-tf64-small-joyfullcurr13-v7-hz100-canary-r1 at: https://wandb.ai/l2k2/hexapod-balance/runs/heklqc5l\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 3 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260824_184756-heklqc5l/logs\n"
       }
-    ]
+    ],
+    "triage": "done",
+    "verdict": "CANARY FAIL - MECHANISM: under-capacity branch. Trained clean to 2M (no crash/NaN, checkpoint+video synced) but reward DECLINED every quarter (-20.4/-197.1/-384.1/-609.4, ep_rew_mean -734 at end, never rising) while walkcurr frontier never promoted past b0 in any of 4 cert rounds. Own-cfg diagnostics: height_err_mm grew 0->99mm, walk_loadslip_ratio grew 0.2->5.76 (cap 3.0), walk_direction_valid fell 0.94->0.63 over the run -- a real regression, not slow-but-healthy learning. Video confirms: rollout_25 (early) is an ordinary static stand; rollout_49 (late) is a lower, more asymmetric crouch. Ran the held-out joygate anyway (not required at 2M, but decisive): gait_valid_frac 0.02 (1/48), slip/m 20-22 (cap 2.9), dir_err ~79deg (cap 40), leg-0 sacrificed in 47/48 episodes -- a near-permanent single-leg lock, zero falls (it drags/circles rather than topples). Root-cause isolation: the sibling MLP arch on the IDENTICAL 100Hz/V7-curriculum/reward stack (cw-arch-hist64-joyfullcurr13-v7-hz100-scratch-s0-r1, same family, currently 38.5M/40M) shows HEALTHY rising reward (quarters -1089/121/484/384, ep_rew_mean=746) -- proving the reward/100Hz combination is learnable and isolating the failure to the tf64-small (1L/d64/4h/ff128) transformer trunk itself, not a rate-conversion or reward-alignment defect. Caveat: this canary silently ran on CPU torch (train-8's CUDA install was wiped by the pod recreation; previously flagged acceptable for a 2M canary, not a factor in the behavioral collapse since CPU vs GPU only changes wall-clock not learning dynamics). Per the run's own pre-registered gate text: FAIL, under-capacity branch -> escalate tf width/layers, not seeds. Next: launching a wider/deeper transformer canary (2L/d128/8h/ff256, matching the proven tf-r1-hard1 config that DID learn to walk at 40M) on a CUDA-verified pod, single lever."
   },
   {
     "run": "cw-arch-hist64-joyfullcurr13-v7-hz100-scratch2k-s0",
@@ -171539,6 +171547,21 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:joystick PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-arch-hist16-dep1-c1-joyfullcurr14-certfreeze-v8 --steps 40000000 --task joint_walk --walk-curriculum --walk-curriculum-version 8 --episode-seconds 60 --dr-scale 0.5 --seed 0 --ent-coef 0.01 --no-canary --eval-every 1000000 --video-every 2000000 --init-from rl_move/sim/policies/ppo_goal_cw_arch_hist16_dep1_c1_joyfullcurr9_stopcur2.zip --walkcurr-cert-at-init --walkcurr-precert-min-prog 0.50 --walkcurr-precert-buckets 2 --cfg-set obs.history_frames=16 --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set reward.k_loadslip_excess=0.8 --cfg-set reward.loadslip_ok=1.2 --cfg-set reward.loadslip_max=3.0 --cfg-set reward.loadslip_floor_m=0.03 --cfg-set reward.k_walk_course=1.0 --cfg-set reward.walk_course_tau_s=0.75 --cfg-set reward.walk_course_min_speed_m_s=0.01 --cfg-set reward.k_walk_stop_charge=1.0 --cfg-set reward.walk_stop_grace_s=0.4 --cfg-set reward.k_walk_stop_current=2.0 --cfg-set goal.walk_stop_freeze_s=0.0 --cfg-set control.hz=25 --cfg-set safety.max_delta_q_deg=1.5 --walkcurr-cert-cfg-set goal.walk_stop_freeze_s=0.4 --n-envs 3072 --impl warp --host-workers 24 --out-name ppo_goal_cw_arch_hist16_dep1_c1_joyfullcurr14_certfreeze_v8 --notes 'certfreeze-v8: scope-fixed V7 (stress-diet starts at side90_20s not front45_20s), held at legacy 25 Hz to keep single-lever vs v7' > /tmp/train_cw-arch-hist16-dep1-c1-joyfullcurr14-certfreeze-v8.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-arch-hist16-dep1-c1-joyfullcurr14-certfreeze-v8.log",
     "wandb_id": "tvps19cg",
-    "verified": "2026-08-24T20:16:25+00:00"
+    "verified": "2026-08-24T20:16:25+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-24T20:20:25+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 3100,
+        "cpu_centisec_deltas": [
+          2246,
+          2420
+        ],
+        "note": "global_step flat in 45s window but trainer CPU busy \u2014 long-rollout iteration cadence, not a stall",
+        "verdict": "HEALTHY",
+        "problems": []
+      }
+    ]
   }
 ]
