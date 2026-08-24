@@ -1,6 +1,34 @@
 # joystick - RL from the programmatic gait to joystick control
 
-Last updated: 2026-08-24 ~20:5x (**tf64-small-canary-r1 CANARY FAIL -
+Last updated: 2026-08-24 ~21:5x (**cw-arch-tf64-joyfullcurr13-v7-hz100-canary2
+CANARY FAIL - CAPACITY RULED OUT, ATTENTION-SPECIFIC PATHOLOGY
+CONFIRMED, DIG-IN FLAGGED.** Plain English: the escalation arm
+(2L/d128/8h/ff256, matching the proven pre-100Hz `tf-r1-hard1` config,
+per canary-r1's own pre-registered "under-capacity -> escalate width/
+layers" branch) reproduces the IDENTICAL decline shape as the 1L/d64
+canary despite 4x+ more width/depth — reward quarters
+-17.7/-192.7/-376.7/-611.9 (r1: -20.4/-197.1/-384.1/-609.4, nearly
+indistinguishable), ep_rew_mean -739 (r1: -734). `walkcurr/frontier`
+pinned at 0 through all 4 cert rounds, `frontier_pass`=0,
+`promotions`=0 (zero real curriculum practice ever unlocked);
+`env/height_err_mm` rises 0->104mm (progressive crouch collapse);
+`env/walk_loadslip_ratio` rises 0.2->6.17 (2x over the 3.0 cap);
+`env/walk_direction_valid` falls 0.95->0.52 with only a partial late
+uptick to ~0.69-0.73. Per the canary's own decision tree this is
+decisively the FAIL-same-signature branch, not the PASS branch —
+width/depth changed nothing about the trajectory. **Per the gate's
+own text: STOP dosing tf width/layers; no further transformer arm
+until an architecture root-cause trace runs** (attention-weight/
+gradient-norm inspection; whether the 0.64s hist64 window's
+positional handling is broken specifically at 100Hz control cadence,
+not parameter count) — DIG-IN flagged this cycle, unclaimed. DR-0/
+joygate reads were not required at this 2M canary bar and were not
+waited on; training telemetry alone matches r1's shape point-for-
+point and is fully decisive. Evidence:
+`logs/experiments/cw-arch-tf64-joyfullcurr13-v7-hz100-canary2/`, W&B
+`rel6d200`.)
+
+Previous entry (2026-08-24 ~20:5x (**tf64-small-canary-r1 CANARY FAIL -
 MECHANISM: the small-transformer 100Hz architecture arm collapses,
 isolated to the transformer trunk itself, NOT the 100Hz rate or reward
 stack.** Plain English: the operator-ordered 1-layer/d64/4-head/ff128

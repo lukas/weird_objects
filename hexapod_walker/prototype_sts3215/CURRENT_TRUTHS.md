@@ -1332,3 +1332,34 @@ follow-ups.
   python traceback before any PPO step — `_check_shm_budget` (landed
   08-24) now computes the exact footprint and refuses with the fix
   spelled out instead.
+- **`pod_eval.py` PASS_TIMEOUT_S/JOYGATE_TIMEOUT_S (2700s/3600s) SILENTLY
+  LOSE THE ENTIRE PASS for any control.hz=100 + episode-seconds=60
+  run (found+fixed 08-24 on `cw-arch-hist16-dep1-c1-joyfullcurr13-v7-
+  hz100-r2`)**: those constants were calibrated for the 25 Hz/15s
+  baseline; a 100 Hz/60s config needs (100/25)*(60/15)=16x the sim
+  ticks per episode (video-every-1 rendering measured ~5 min/episode
+  at 100Hz/60s vs seconds at 25Hz/60s) — the fixed 2700s cap kills the
+  DR-0 gate pass (`rc=-1`) partway through (6 det done, only 2/6 sto)
+  and, because the copy-back code path only runs `if rc == 0`, the
+  ENTIRE pass is lost with no report.json ever reaching the
+  controller — not a partial read, a silent total loss the ledger/
+  W&B never flag (the log just shows `SYNCED rc=-1`, easy to miss).
+  **Every control.hz=100 + episode-seconds=60 run launched before this
+  fix landed (~08-24 21:4x) is at risk**: confirmed-affected by cfg
+  audit: `cw-arch-hist16-dep1-c1-joyfullcurr13-v7-hz100-r2` (this run,
+  gate pass lost, manually re-run out-of-band),
+  `cw-arch-hist64-joyfullcurr13-v7-hz100-scratch-s0-r1` (finished
+  ~21:1x, another cycle's, gate pass likely lost too — check for a
+  missing `logs/ckpt_eval/..._gate/report.json` before trusting any
+  triage on it), `cw-arch-tf64-joyfullcurr13-v7-hz100-canary2`
+  (finishing ~20:5x-21:0x, same risk). `certfreeze-v8` is NOT affected
+  (deliberately pinned to legacy `control.hz=25`). **FIXED**:
+  `pod_eval.eval_timeout_scale(control_hz, episode_s)` (pure function,
+  5 unit tests in `test_pod_eval_timeout.py`) scales both timeouts by
+  `(hz/25)*(episode_s/15)`, floored at 1x (never shrinks the budget
+  for cheaper configs); wired into both `p.wait()` call sites.
+  Snapshot `podeval-timeout-scale-fix`. Any cycle finding a
+  control.hz=100 run with a suspiciously-thin or missing gate report
+  (esp. one with episode-seconds>=60) should re-run
+  `ops.sh podeval <run>` (now safe) rather than trust an `rc=-1`-era
+  read.
