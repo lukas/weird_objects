@@ -1384,3 +1384,40 @@ validity, on video. Speed obedience is secondary throughout.
   tested, with a measured precedent fixing an analogous park-
   persistence problem on a different lineage) — `-parkstart-p25`/
   `-p50` already launched by that cycle, next cycle's read.
+
+## Now (updated 08-24 ~03:2x — gru/sde verdicts recorded; sde-lineage combo batch launched)
+
+- **Verdicts recorded this cycle**: `cw-walkcurr-pf-fwd6-rscale50-gru`
+  FAIL (crush-deconfounded recurrence retest: clip_fraction healthy
+  0.013-0.077 all run, freeprog flat -0.06..-0.08, walk_speed decays
+  0.056->0.033, reward falls 44.5->-3.3, det 0/6 static splay-sink at
+  ~86mm — genuine FAIL per 08-21, closes the GRU gap) and
+  `cw-walkcurr-pf-fwd6-rscale50-sde` FAIL-with-finding (det 0/6 LEVEL
+  park-stand, height 10-18mm ALL RUN with no action bias — first
+  belly-sit escape without actbias; sto prog 0.32-0.47, the track's
+  first directed forward progress, but 6/6 tilt_pitch forward-topple;
+  training fall-dominated ~1400 tilt terms/window).
+- **Fork note**: the pre-registered exhaustion condition ("both
+  crush-decoupled arms reproduce the belly-sit") is UNMET — sde broke
+  it. gSDE's correlated noise is the only mechanism that has ever
+  produced forward-progress states; what it lacks is postural
+  stability to survive/reinforce them. That makes mechanism
+  COMBINATIONS (not new single levers) the honest next arms, in
+  parallel with the concurrent cycle's `parkstart` reset-diversity
+  line on the actbias lineage.
+- **Launched (3-arm batch, 08-24 ~03:1x)**:
+  `cw-walkcurr-pf-fwd6-rscale50-sde-actbias1` (sde noise + the proven
+  a=0 recentering: excursions with a recoverable posture underneath;
+  read tilt-term rate vs sde's ~1400/window),
+  `cw-walkcurr-pf-fwd6-rscale50-sde-actbias1-idleterm1` (adds qvel
+  park-eviction for the branch where the stable stance absorbs the
+  noise back into a park), and `cw-walkcurr-pf-fwd6-rscale50-sde-s2`
+  (seed replicate — the forward-excursion/level-stance finding
+  currently rests on one seed; if it fails to replicate, any combo
+  success credits actbias, not sde). All fresh 2M discovery, no new
+  reward mechanism (bank unchanged: actbias = goal.* action-space
+  keys proven by test_joint_action_bias; idleterm keys bank-tested in
+  idleterm1/2).
+- **Ops note**: two concurrent `launch_run.py respec` backlog adds
+  raced (read-modify-write) and one item was silently clobbered —
+  queue backlog adds SERIALLY until the launcher locks that path.

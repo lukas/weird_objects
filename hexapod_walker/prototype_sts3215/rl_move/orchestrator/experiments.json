@@ -165911,7 +165911,25 @@
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:walkcurr PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walkcurr-pf-fwd6-rscale50-sde-actbias1-idleterm1 --steps 2000000 --task joint_walk --episode-seconds 25 --n-steps 24 --batch-size 24576 --net-arch 128,64,32 --activation-fn elu --log-std-init -1.0 --dr-scale 0.0 --require-gpu-physics --eval-every 1000000 --video-every 2000000 --best-ckpt --cfg-set bus.servo_params=loaded --cfg-set goal.walk_pure=1 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_heading_max_rad=0.0 --cfg-set goal.walk_cmd_resample_s=0.0 --cfg-set goal.walk_cmd_metrics=1 --cfg-set reward.k_walk_freeprog=0.06 --cfg-set reward.walk_freeprog_cap_m_s=0.08 --cfg-set reward.walk_kernel_vel_ema=1.0 --cfg-set reward.walk_kernel_vel_tau_s=0.75 --cfg-set reward.k_walk_heading=0.01 --cfg-set reward.k_step_event=0.02 --cfg-set reward.k_park_duty=0.08 --cfg-set reward.k_walk_idle_charge=0.04 --cfg-set reward.walk_idle_speed_m_s=0.025 --cfg-set reward.walk_idle_tau_s=1.0 --cfg-set reward.walk_loadslip_gate=0.75 --cfg-set reward.loadslip_ok=1.2 --cfg-set reward.loadslip_max=3.0 --cfg-set reward.loadslip_floor_m=0.03 --cfg-set reward.k_loadslip_excess=0.09 --cfg-set reward.term_penalty=24 --n-envs 4096 --out-name ppo_goal_cw_walkcurr_pf_fwd6_rscale50_sde_actbias1_idleterm1 --impl warp --host-workers 24 --notes 'respec of cw-walkcurr-pf-fwd6-rscale50-sde: Plain English: covers the named failure branch of the sde-actbias1 sibling -- if the recentered stable stance ABSORBS the gSDE excursions back into a clean park-stand (exactly what actbias1 alone converged to), the qvel idle-terminate mechanism evicts that absorbing state so the only long-episode income left is actual walking, while the sde noise supplies the directional escapes idleterm'\"'\"'s raw-a=0 lineage never had. Full three-ingredient stack (stable zero-point + park eviction + correlated exploration), each ingredient individually built, bank-proven and behavior-verified; fresh 2M discovery. Prediction-if-true: episodes stop running full length from a park (idle-terminate fires), freeprog leaves the dead band and det gate shows stepping where sde-actbias1 alone parks. Prediction-if-false (evicted park just cycles into re-park or falls): parking is priced AND evicted AND escapable yet still wins -- strong evidence the discovery gap is value-initialization, feeding the BC-kickstart operator question (q_20260824T0233Z) with the completed lever inventory.' --cfg-set reward.walk_charge_ramp_steps=1000000 --cfg-set reward.walk_charge_ramp_min_frac=0.4 --cfg-set reward.k_track=0.02 --cfg-set reward.k_roll=0.2 --cfg-set reward.k_pitch=0.2 --cfg-set reward.k_height=2.0 --cfg-set reward.k_gyro=0.001 --cfg-set reward.k_action=0.0001 --cfg-set reward.k_action_delta=0.0002 --cfg-set reward.k_current=0.0001 --use-sde --cfg-set goal.joint_action_bias_hip_deg=45.0 --cfg-set goal.joint_action_bias_knee_deg=15.0 --cfg-set safety.walk_idle_terminate_s=3.0 --cfg-set safety.walk_idle_terminate_grace_s=3.0 --cfg-set safety.walk_idle_terminate_qvel_deg_s=2.0 --cfg-set reward.walk_idle_terminate_penalty=3.0 > /tmp/train_cw-walkcurr-pf-fwd6-rscale50-sde-actbias1-idleterm1.log 2>&1 < /dev/null & echo $!",
     "log": "/tmp/train_cw-walkcurr-pf-fwd6-rscale50-sde-actbias1-idleterm1.log",
     "wandb_id": "ugm8iobn",
-    "verified": "2026-08-24T03:13:48+00:00"
+    "verified": "2026-08-24T03:13:48+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-24T03:19:19+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 0,
+        "cpu_centisec_deltas": [
+          2,
+          3
+        ],
+        "verdict": "SUSPECT",
+        "problems": [
+          "W&B global_step stalled at 2007040",
+          "log stopped growing"
+        ]
+      }
+    ],
+    "triage": "in-cycle cw-walkcurr-pf-fwd6-actbias1-parkstart-p25-cw-walkcurr-pf-fw since 2026-08-24T03:22:16"
   },
   {
     "run": "cw-walkcurr-pf-fwd6-rscale50-sde-actbias1",
@@ -166183,7 +166201,7 @@
       "goal.walk_park_start_frac=0.25"
     ],
     "created": "2026-08-24T03:14:05+00:00",
-    "status": "INTENT",
+    "status": "RUNNING",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -166201,14 +166219,28 @@
         "hexapod_walker/prototype_sts3215/rl_docs/tracks/walkcurr/STATUS.md",
         "hexapod_walker/prototype_sts3215/rl_move/orchestrator/experiments.json"
       ],
-      "wandb_env_on_pod": true
+      "wandb_env_on_pod": true,
+      "pid": "1134240",
+      "log_growth_bytes": [
+        9739,
+        16525
+      ],
+      "wandb_id": "ujevqqfg",
+      "global_step_window": [
+        1081344,
+        1671168
+      ],
+      "fps_estimate": 19660.8
     },
     "trainer": "ppo",
     "stack": "gpu-mjx",
     "phase": "discovery",
     "assessment_scope": "short_behavior_discovery",
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:walkcurr PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walkcurr-pf-fwd6-actbias1-parkstart-p25 --steps 2000000 --task joint_walk --episode-seconds 25 --n-steps 24 --batch-size 24576 --net-arch 128,64,32 --activation-fn elu --log-std-init -1.0 --dr-scale 0.0 --require-gpu-physics --eval-every 1000000 --video-every 2000000 --best-ckpt --cfg-set bus.servo_params=loaded --cfg-set goal.walk_pure=1 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_heading_max_rad=0.0 --cfg-set goal.walk_cmd_resample_s=0.0 --cfg-set goal.walk_cmd_metrics=1 --cfg-set reward.k_walk_freeprog=0.06 --cfg-set reward.walk_freeprog_cap_m_s=0.08 --cfg-set reward.walk_kernel_vel_ema=1.0 --cfg-set reward.walk_kernel_vel_tau_s=0.75 --cfg-set reward.k_walk_heading=0.01 --cfg-set reward.k_step_event=0.02 --cfg-set reward.k_park_duty=0.08 --cfg-set reward.k_walk_idle_charge=0.04 --cfg-set reward.walk_idle_speed_m_s=0.025 --cfg-set reward.walk_idle_tau_s=1.0 --cfg-set reward.walk_loadslip_gate=0.75 --cfg-set reward.loadslip_ok=1.2 --cfg-set reward.loadslip_max=3.0 --cfg-set reward.loadslip_floor_m=0.03 --cfg-set reward.k_loadslip_excess=0.09 --cfg-set reward.term_penalty=24 --n-envs 4096 --out-name ppo_goal_cw_walkcurr_pf_fwd6_actbias1_parkstart_p25 --impl warp --host-workers 24 --notes 'respec of cw-walkcurr-pf-fwd6-actbias1: Plain English: does densifying the reset distribution with tripod-lifted '\"'\"'park'\"'\"' starting poses (no reference motion, no teacher gait, no BC -- pure procedural hip-offset perturbation, ALREADY BUILT in the codebase for a different lineage) let PPO discover an exit gradient out of the same static park-stand attractor that 10 independently-designed reward/architecture/termination mechanisms all failed to dislodge? Single lever vs actbias1 (the clean, non-collapsing zero-point-fixed base -- no idle-termination stacked, since that class is separately closed): goal.walk_park_start_frac=0.25, the exact dose historically validated on a different (AMP-lineage) walk recipe (cw-walk-parkstart-mjx-c1: 11/12 fwd>=0.40m, park-exit 11/12 met). Does not touch reward pricing (test_task_semantics.py comment confirms start-pose-diversity keys are excluded from the WALKCURR_PF bank), so no bank re-proof required. Prediction-if-true: env/walk_freeprog_score crosses zero and/or det gate shows real six-leg stepping, distinctly better than actbias1'\"'\"'s static 3-leg tripod hold. Prediction-if-false (identical static park-stand persists despite densified park-adjacent starts): reset-state diversity is exonerated too -- the static-stand economics dominate regardless of where episodes start, and BC-kickstart genuinely is the only unexplored escalation (flagged to the operator, q_20260824T0233Z).' --cfg-set reward.walk_charge_ramp_steps=1000000 --cfg-set reward.walk_charge_ramp_min_frac=0.4 --cfg-set reward.k_track=0.02 --cfg-set reward.k_roll=0.2 --cfg-set reward.k_pitch=0.2 --cfg-set reward.k_height=2.0 --cfg-set reward.k_gyro=0.001 --cfg-set reward.k_action=0.0001 --cfg-set reward.k_action_delta=0.0002 --cfg-set reward.k_current=0.0001 --cfg-set goal.joint_action_bias_hip_deg=45.0 --cfg-set goal.joint_action_bias_knee_deg=15.0 --cfg-set goal.walk_park_start_frac=0.25 > /tmp/train_cw-walkcurr-pf-fwd6-actbias1-parkstart-p25.log 2>&1 < /dev/null & echo $!",
-    "log": "/tmp/train_cw-walkcurr-pf-fwd6-actbias1-parkstart-p25.log"
+    "log": "/tmp/train_cw-walkcurr-pf-fwd6-actbias1-parkstart-p25.log",
+    "wandb_id": "ujevqqfg",
+    "verified": "2026-08-24T03:17:32+00:00",
+    "triage": "in-cycle cw-walkcurr-pf-fwd6-actbias1-parkstart-p25-cw-walkcurr-pf-fw since 2026-08-24T03:22:16"
   },
   {
     "run": "cw-walkcurr-pf-fwd6-rscale50-sde-s2",
@@ -166578,7 +166610,7 @@
       "2"
     ],
     "created": "2026-08-24T03:16:00+00:00",
-    "status": "INTENT",
+    "status": "RUNNING",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -166586,13 +166618,172 @@
       "running_experiments_before": 6,
       "code_sha_local": "e41648774ded58fc45a2ccc8a75fe8aa18d4c091",
       "code_sha_pod": "e41648774ded58fc45a2ccc8a75fe8aa18d4c091",
-      "wandb_env_on_pod": true
+      "wandb_env_on_pod": true,
+      "pid": "1296362",
+      "log_growth_bytes": [
+        6066,
+        7044
+      ],
+      "wandb_id": "oqp7upaw",
+      "global_step_window": [
+        196608,
+        491520
+      ],
+      "fps_estimate": 3276.8
     },
     "trainer": "ppo",
     "stack": "gpu-mjx",
     "phase": "discovery",
     "assessment_scope": "short_behavior_discovery",
     "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:walkcurr PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walkcurr-pf-fwd6-rscale50-sde-s2 --steps 2000000 --task joint_walk --episode-seconds 25 --n-steps 24 --batch-size 24576 --net-arch 128,64,32 --activation-fn elu --log-std-init -1.0 --dr-scale 0.0 --require-gpu-physics --eval-every 1000000 --video-every 2000000 --best-ckpt --cfg-set bus.servo_params=loaded --cfg-set goal.walk_pure=1 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_heading_max_rad=0.0 --cfg-set goal.walk_cmd_resample_s=0.0 --cfg-set goal.walk_cmd_metrics=1 --cfg-set reward.k_walk_freeprog=0.06 --cfg-set reward.walk_freeprog_cap_m_s=0.08 --cfg-set reward.walk_kernel_vel_ema=1.0 --cfg-set reward.walk_kernel_vel_tau_s=0.75 --cfg-set reward.k_walk_heading=0.01 --cfg-set reward.k_step_event=0.02 --cfg-set reward.k_park_duty=0.08 --cfg-set reward.k_walk_idle_charge=0.04 --cfg-set reward.walk_idle_speed_m_s=0.025 --cfg-set reward.walk_idle_tau_s=1.0 --cfg-set reward.walk_loadslip_gate=0.75 --cfg-set reward.loadslip_ok=1.2 --cfg-set reward.loadslip_max=3.0 --cfg-set reward.loadslip_floor_m=0.03 --cfg-set reward.k_loadslip_excess=0.09 --cfg-set reward.term_penalty=24 --n-envs 4096 --out-name ppo_goal_cw_walkcurr_pf_fwd6_rscale50_sde_s2 --impl warp --host-workers 24 --notes 'respec of cw-walkcurr-pf-fwd6-rscale50-sde: Plain English: seed replicate of the sde breakthrough before building a lineage on it -- the parent produced the track'\"'\"'s first-ever forward-progress states (sto prog 0.32-0.47) and the first belly-sit escape WITHOUT the action-bias fix (height 10-18mm all run), and both claims currently rest on a single seed. Exact parent recipe, seed 2, fresh 2M. Prediction-if-true (mechanism, not luck): level stance + fall-dominated forward excursions reproduce (height <30mm all run, tilt-term-dominated training, nonzero sto prog). Prediction-if-false (belly-sit or frozen splay recurs): the parent'\"'\"'s signature was seed-contingent and the sde-actbias combos must be read with that caveat -- any success there would credit actbias, not sde.' --cfg-set reward.walk_charge_ramp_steps=1000000 --cfg-set reward.walk_charge_ramp_min_frac=0.4 --cfg-set reward.k_track=0.02 --cfg-set reward.k_roll=0.2 --cfg-set reward.k_pitch=0.2 --cfg-set reward.k_height=2.0 --cfg-set reward.k_gyro=0.001 --cfg-set reward.k_action=0.0001 --cfg-set reward.k_action_delta=0.0002 --cfg-set reward.k_current=0.0001 --use-sde --seed 2 > /tmp/train_cw-walkcurr-pf-fwd6-rscale50-sde-s2.log 2>&1 < /dev/null & echo $!",
-    "log": "/tmp/train_cw-walkcurr-pf-fwd6-rscale50-sde-s2.log"
+    "log": "/tmp/train_cw-walkcurr-pf-fwd6-rscale50-sde-s2.log",
+    "wandb_id": "oqp7upaw",
+    "verified": "2026-08-24T03:20:31+00:00"
+  },
+  {
+    "run": "cw-walkcurr-pf-fwd6-actbias1-parkstart-p50",
+    "pod": "hexapod-mjx-train-7",
+    "steps": 2000000,
+    "smoke": false,
+    "hypothesis": "Plain English: dose companion to -parkstart-p25 (same cycle, same rationale: does densifying reset states with tripod-lifted 'park' postures let PPO discover an exit gradient out of the static park-stand attractor?) at a stronger dose -- HALF of all walk episodes now start park-lifted instead of a quarter. Single lever vs actbias1: goal.walk_park_start_frac=0.5. Smoke-verified this cycle against this exact cfg stack: draw rate 31/60 (matches 0.5), park draws show real 2-11deg post-settle hip asymmetry vs 0.0deg at frac=0, stable 50-step zero-action rollout. Prediction-if-true: freeprog crosses zero and/or shows a stronger/faster effect than p25 (dose-response, more of training spent already displaced from the exact static optimum). Prediction-if-false: identical static park-stand at both doses -> reset-state-diversity is dose-insensitive and fully exonerated, strengthening the case that BC-kickstart is the only remaining lever (q_20260824T0233Z).",
+    "gate": "Rung-1 gate: C-env det fixed-forward panel -- zero tilt terms, cmd_prog_frac >= 0.35, direction_err <= 30 deg, slip/m <= 3.0, six legs cycling on >=4/6 episodes. Mechanism-health: env/walk_freeprog_score trend vs the [-0.10,-0.05] dead band; env/height_err_mm stays in actbias1's healthy ~15-22mm band; clip_fraction stays healthy. Read jointly with -parkstart-p25 for the dose-response shape.",
+    "parent": "cw-walkcurr-pf-fwd6-actbias1",
+    "track": "walkcurr",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--episode-seconds",
+      "25",
+      "--n-steps",
+      "24",
+      "--batch-size",
+      "24576",
+      "--net-arch",
+      "128,64,32",
+      "--activation-fn",
+      "elu",
+      "--log-std-init",
+      "-1.0",
+      "--dr-scale",
+      "0.0",
+      "--require-gpu-physics",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--best-ckpt",
+      "--cfg-set",
+      "bus.servo_params=loaded",
+      "--cfg-set",
+      "goal.walk_pure=1",
+      "--cfg-set",
+      "goal.walk_speed_min_m_s=0.05",
+      "--cfg-set",
+      "goal.walk_speed_max_m_s=0.06",
+      "--cfg-set",
+      "goal.walk_heading_max_rad=0.0",
+      "--cfg-set",
+      "goal.walk_cmd_resample_s=0.0",
+      "--cfg-set",
+      "goal.walk_cmd_metrics=1",
+      "--cfg-set",
+      "reward.k_walk_freeprog=0.06",
+      "--cfg-set",
+      "reward.walk_freeprog_cap_m_s=0.08",
+      "--cfg-set",
+      "reward.walk_kernel_vel_ema=1.0",
+      "--cfg-set",
+      "reward.walk_kernel_vel_tau_s=0.75",
+      "--cfg-set",
+      "reward.k_walk_heading=0.01",
+      "--cfg-set",
+      "reward.k_step_event=0.02",
+      "--cfg-set",
+      "reward.k_park_duty=0.08",
+      "--cfg-set",
+      "reward.k_walk_idle_charge=0.04",
+      "--cfg-set",
+      "reward.walk_idle_speed_m_s=0.025",
+      "--cfg-set",
+      "reward.walk_idle_tau_s=1.0",
+      "--cfg-set",
+      "reward.walk_loadslip_gate=0.75",
+      "--cfg-set",
+      "reward.loadslip_ok=1.2",
+      "--cfg-set",
+      "reward.loadslip_max=3.0",
+      "--cfg-set",
+      "reward.loadslip_floor_m=0.03",
+      "--cfg-set",
+      "reward.k_loadslip_excess=0.09",
+      "--cfg-set",
+      "reward.term_penalty=24",
+      "--n-envs",
+      "4096",
+      "--out-name",
+      "ppo_goal_cw_walkcurr_pf_fwd6_actbias1_parkstart_p50",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--notes",
+      "respec of cw-walkcurr-pf-fwd6-actbias1: Plain English: dose companion to -parkstart-p25 (same cycle, same rationale: does densifying reset states with tripod-lifted 'park' postures let PPO discover an exit gradient out of the static park-stand attractor?) at a stronger dose -- HALF of all walk episodes now start park-lifted instead of a quarter. Single lever vs actbias1: goal.walk_park_start_frac=0.5. Smoke-verified this cycle against this exact cfg stack: draw rate 31/60 (matches 0.5), park draws show real 2-11deg post-settle hip asymmetry vs 0.0deg at frac=0, stable 50-step zero-action rollout. Prediction-if-true: freeprog crosses zero and/or shows a stronger/faster effect than p25 (dose-response, more of training spent already displaced from the exact static optimum). Prediction-if-false: identical static park-stand at both doses -> reset-state-diversity is dose-insensitive and fully exonerated, strengthening the case that BC-kickstart is the only remaining lever (q_20260824T0233Z).",
+      "--cfg-set",
+      "reward.walk_charge_ramp_steps=1000000",
+      "--cfg-set",
+      "reward.walk_charge_ramp_min_frac=0.4",
+      "--cfg-set",
+      "reward.k_track=0.02",
+      "--cfg-set",
+      "reward.k_roll=0.2",
+      "--cfg-set",
+      "reward.k_pitch=0.2",
+      "--cfg-set",
+      "reward.k_height=2.0",
+      "--cfg-set",
+      "reward.k_gyro=0.001",
+      "--cfg-set",
+      "reward.k_action=0.0001",
+      "--cfg-set",
+      "reward.k_action_delta=0.0002",
+      "--cfg-set",
+      "reward.k_current=0.0001",
+      "--cfg-set",
+      "goal.joint_action_bias_hip_deg=45.0",
+      "--cfg-set",
+      "goal.joint_action_bias_knee_deg=15.0",
+      "--cfg-set",
+      "goal.walk_park_start_frac=0.5"
+    ],
+    "created": "2026-08-24T03:17:52+00:00",
+    "status": "RUNNING",
+    "checks": {
+      "cpu_limit": 26,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-267bdffd-dd7f-13e3-8d8f-146232bfe703)",
+      "running_experiments_before": 7,
+      "code_sha_local": "0168fa90612586f64e83b3653200f5b7e20c45b0",
+      "code_sha_pod": "0168fa90612586f64e83b3653200f5b7e20c45b0",
+      "wandb_env_on_pod": true,
+      "pid": "753094",
+      "log_growth_bytes": [
+        10684,
+        17470
+      ],
+      "wandb_id": "m5a690ik",
+      "global_step_window": [
+        1179648,
+        1671168
+      ],
+      "fps_estimate": 16384.0
+    },
+    "trainer": "ppo",
+    "stack": "gpu-mjx",
+    "phase": "discovery",
+    "assessment_scope": "short_behavior_discovery",
+    "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:walkcurr PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-walkcurr-pf-fwd6-actbias1-parkstart-p50 --steps 2000000 --task joint_walk --episode-seconds 25 --n-steps 24 --batch-size 24576 --net-arch 128,64,32 --activation-fn elu --log-std-init -1.0 --dr-scale 0.0 --require-gpu-physics --eval-every 1000000 --video-every 2000000 --best-ckpt --cfg-set bus.servo_params=loaded --cfg-set goal.walk_pure=1 --cfg-set goal.walk_speed_min_m_s=0.05 --cfg-set goal.walk_speed_max_m_s=0.06 --cfg-set goal.walk_heading_max_rad=0.0 --cfg-set goal.walk_cmd_resample_s=0.0 --cfg-set goal.walk_cmd_metrics=1 --cfg-set reward.k_walk_freeprog=0.06 --cfg-set reward.walk_freeprog_cap_m_s=0.08 --cfg-set reward.walk_kernel_vel_ema=1.0 --cfg-set reward.walk_kernel_vel_tau_s=0.75 --cfg-set reward.k_walk_heading=0.01 --cfg-set reward.k_step_event=0.02 --cfg-set reward.k_park_duty=0.08 --cfg-set reward.k_walk_idle_charge=0.04 --cfg-set reward.walk_idle_speed_m_s=0.025 --cfg-set reward.walk_idle_tau_s=1.0 --cfg-set reward.walk_loadslip_gate=0.75 --cfg-set reward.loadslip_ok=1.2 --cfg-set reward.loadslip_max=3.0 --cfg-set reward.loadslip_floor_m=0.03 --cfg-set reward.k_loadslip_excess=0.09 --cfg-set reward.term_penalty=24 --n-envs 4096 --out-name ppo_goal_cw_walkcurr_pf_fwd6_actbias1_parkstart_p50 --impl warp --host-workers 24 --notes 'respec of cw-walkcurr-pf-fwd6-actbias1: Plain English: dose companion to -parkstart-p25 (same cycle, same rationale: does densifying reset states with tripod-lifted '\"'\"'park'\"'\"' postures let PPO discover an exit gradient out of the static park-stand attractor?) at a stronger dose -- HALF of all walk episodes now start park-lifted instead of a quarter. Single lever vs actbias1: goal.walk_park_start_frac=0.5. Smoke-verified this cycle against this exact cfg stack: draw rate 31/60 (matches 0.5), park draws show real 2-11deg post-settle hip asymmetry vs 0.0deg at frac=0, stable 50-step zero-action rollout. Prediction-if-true: freeprog crosses zero and/or shows a stronger/faster effect than p25 (dose-response, more of training spent already displaced from the exact static optimum). Prediction-if-false: identical static park-stand at both doses -> reset-state-diversity is dose-insensitive and fully exonerated, strengthening the case that BC-kickstart is the only remaining lever (q_20260824T0233Z).' --cfg-set reward.walk_charge_ramp_steps=1000000 --cfg-set reward.walk_charge_ramp_min_frac=0.4 --cfg-set reward.k_track=0.02 --cfg-set reward.k_roll=0.2 --cfg-set reward.k_pitch=0.2 --cfg-set reward.k_height=2.0 --cfg-set reward.k_gyro=0.001 --cfg-set reward.k_action=0.0001 --cfg-set reward.k_action_delta=0.0002 --cfg-set reward.k_current=0.0001 --cfg-set goal.joint_action_bias_hip_deg=45.0 --cfg-set goal.joint_action_bias_knee_deg=15.0 --cfg-set goal.walk_park_start_frac=0.5 > /tmp/train_cw-walkcurr-pf-fwd6-actbias1-parkstart-p50.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-walkcurr-pf-fwd6-actbias1-parkstart-p50.log",
+    "wandb_id": "m5a690ik",
+    "verified": "2026-08-24T03:21:20+00:00"
   }
 ]
