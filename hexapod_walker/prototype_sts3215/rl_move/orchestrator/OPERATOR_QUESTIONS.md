@@ -2126,3 +2126,18 @@ Plain English: the walkcurr track's own founding rule (operator 08-23) is "no ga
 - status: **OPEN — one more non-BC arm in flight (episode-length dose pair); [operator] decision on BC-kickstart still required if/when that also fails.**
 - **UPDATE 08-24 ~04:2x — BOTH episode-length doses now read, BOTH FAIL. This closes the axis for real; nothing is left in flight anywhere on this track.** `shortep3` (3.0s training-episode dose) FAILed: det gate 0/6 gait_valid, legs [0,2,3,5] sacrificed identically 5/6 episodes, freeprog bounced in [-0.085,-0.04] with no trend, reward flat. `shortep8` (8.0s dose, specifically built to rule out "the freeprog EMA needs >10 tau-windows to read") FAILed identically: det gate 0/6, legs [0,2,3,5] sacrificed on ALL 6/6 episodes (video-confirmed bit-identical static tripod-lock crouch, zero net translation), freeprog pinned in [-0.085,-0.056] the whole 2M run, reward DECLINING every quarter, height_err healthy (rules out belly-sit), clip_fraction healthy (rules out optimizer crush). Dose-insensitive across an 8x span, exactly the same failure shape as every other closed axis. **Tally is now 15 independently-designed rung-1 mechanism/architecture/reset-pose/schedule classes, every one an aligned FAIL.** This note's own framing from ~03:4x/03:5x is now exactly correct with no further correction: no untried rule-(a)-legal lever remains, credible or pre-registered, anywhere in the track's own escalation order. The fleet will not launch further walkcurr rung-1 arms on its own initiative.
 - status: **OPEN — [operator] decision required, fully load-bearing, nothing else in flight.** Both named paths from the ~03:4x update stand unchanged: (1) rule BC-kickstart in-bounds (fleet builds+bank-proves it next cycle, no further pause), or (2) rule it out-of-bounds (walkcurr rung-1, and every later rung gated on it, is recorded in STATUS.md as blocked at the from-scratch-MLP-PPO architecture/budget this track specified — a scope/architecture limit, not an in-progress campaign). Fleet effort concentrates on amp/cpg maintenance ([operator]-owned past their gates) and joystick's V6 hardening lineage (itself currently blocked on its own small DIG-IN: a direct actuator-current charge, see joystick/STATUS.md 08-24 ~04:1x) in the meantime.
+
+## 2026-08-24 ~13:3x — stop-stillness bar: supervisor-assisted cert adopted (assume-and-go)
+Q: The V6 ladder's b1 stop-speed bar (<=0.015 m/s) is unreachable by
+reward pricing (6+ arms, ~280M steps) and training-time structural
+freeze corrupts on-policy data (freeze40/freeze40-stopcur6: joygate
+1/48 -> 6-7/48 falls at both current-charge doses; 2x2 isolation in
+the freeze40 verdict). Assumed answer: the bar is legitimately
+satisfied with the stop-hold supervisor active AT CERT TIME ONLY
+(`--walkcurr-cert-cfg-set goal.walk_stop_freeze_s=0.4`) — i.e. we
+accept "policy + deploy-time hold supervisor" as the stopping story
+so b2+ (side/rear/full-circle, the operator's order) get practiced,
+while the registered DONE joygate keeps evaluating the bare policy
+(freeze off). If the operator instead wants BARE-policy stillness
+<=0.015, say so and we reopen the stop lever (likely needs a
+different action parameterization, not pricing).

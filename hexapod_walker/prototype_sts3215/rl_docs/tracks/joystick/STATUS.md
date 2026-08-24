@@ -1,6 +1,50 @@
 # joystick - RL from the programmatic gait to joystick control
 
-Last updated: 2026-08-24 ~13:2x (**`cw-arch-hist16-dep1-c1-joyfullcurr11-freeze40-stopcur6`
+Last updated: 2026-08-24 ~13:3x (**freeze40 DIG-IN COMPLETE — verdict
+FAIL, root cause ISOLATED by a 2x2 control, mechanism repaired and
+relaunched as `cw-arch-hist16-dep1-c1-joyfullcurr12-certfreeze`
+(VERIFIED RUNNING, train-1).** Plain English: the stop-freeze
+genuinely unlocks the curriculum (first-ever b0->b5; b1 cert held all
+run) but applying it during TRAINING damages the policy itself. The
+2x2 on the same held-out joygate seeds (90000) settles where the
+damage lives: A freeze40ckpt+freeze-ON-eval **7/48** falls; B
+freeze40ckpt+freeze-OFF **4/48**; C stopcur2 parent+OFF **1/48**; D
+parent+ON **2/48** (artifacts on controller: `logs/ckpt_eval/
+cw_arch_hist16_dep1_c1_joyfullcurr11_freeze40_joygate_freezeoff/`,
+`..._joyfullcurr9_stopcur2_joygate_freezeon/`). B repeats A's exact
+DR-0 det falls (det6/det11, both over_current) with the mechanism
+disabled — the DR-0 regression is in the WEIGHTS; the eval-time
+mechanism on healthy parent weights costs ~1 fall (C->D, noise-band).
+dir_err regression is eval-mechanism-only (B dr0 33.75deg == parent
+33.93; A 41.78). Fall videos (reproduced DR-0 det pass, train-1
+`..._freeze40_joygate_dr0_video/`): over_current STRAIN terminations
+(det6 progressive crouch/splay, det11 upright cycling then current
+trip), not topples. ROOT CAUSE: the freeze discards the policy's
+action on frozen ticks, so PPO trains on executed!=proposed
+transitions — the policy drifts unpunished during holds and strains
+after resume (plus a b2-b5 diet shift). This ALSO answers the
+stopcur6-twin banner's open question just below: the falls are NOT
+eval-time freeze-release events (B falls with freeze OFF), so
+per-tick release traces are moot — trace the TRAINING-data corruption
+instead, which the repair removes. REPAIR (landed, tag
+`exp/cw-arch-hist16-dep1-c1-joyfullcurr12-certfreeze`, 24/24 tests):
+new `--walkcurr-cert-cfg-set K=V` applies cfg overrides to the
+walkcurr CERT/PRECERT env ONLY (default empty = bit-exact).
+certfreeze arm = warm-start stopcur2, training freeze OFF
+(goal.walk_stop_freeze_s=0.0), cert-env freeze ON (0.4); verified at
+init: precert b0 PASS + b1 PASS (stop 0.0124 < 0.015) at step 0.
+Gate: frontier past b1 AND joygate in parent band (falls <=2/48, dr0
+dir_err ~<=36deg; its joygate prestage correctly evals freeze-OFF
+since the flag is not a --cfg-set). If it STILL regresses ~4+/48,
+the damage is the b2+ practice diet itself -> next lever is mixing
+stress_mix commands into bucket training, not freeze mechanics. The
+freeze-arm launch hold is LIFTED for cert-only-freeze arms; training-
+time freeze (--cfg-set goal.walk_stop_freeze_s>0) stays CLOSED as a
+class — evidence: freeze40 (k=2.0) + freeze40-stopcur6 (k=6.0), same
+regression both doses. The stopcur6 twin stays another cycle's to
+verdict; this 2x2 is its dig-in evidence. Prior banner below.)
+
+Previous entry (2026-08-24 ~13:2x (**`cw-arch-hist16-dep1-c1-joyfullcurr11-freeze40-stopcur6`
 finished, UNVERDICTED — the second twin CONFIRMS the freeze40 finding
 is a property of the FREEZE MECHANISM ITSELF, not a k=2.0-current-
 charge-dose artifact, and DECISIVELY CLOSES one of the two open
