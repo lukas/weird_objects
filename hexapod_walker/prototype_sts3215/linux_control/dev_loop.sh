@@ -67,6 +67,7 @@ files = [
     "linux_control/web_drive.py",
     "linux_control/bench_api.py",
     "linux_control/drive_controller.py",
+    "linux_control/cpg_controller_loader.py",
     "linux_control/mcu_feetech_bus.py",
     "linux_control/event_log.py",
     "linux_control/status_display.py",
@@ -343,6 +344,7 @@ hex_remote_compile() {
       linux_control/web_drive.py \
       linux_control/bench_api.py \
       linux_control/drive_controller.py \
+      linux_control/cpg_controller_loader.py \
       linux_control/urt2_setup/inplace_demos.py \
       linux_control/urt2_setup/motion_telemetry.py \
       motor_setup/inplace_demos.py \

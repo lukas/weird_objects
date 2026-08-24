@@ -177,6 +177,7 @@ mkdir -p "$STAGE/linux_control" "$STAGE/motor_setup" \
   "$STAGE/urt2_setup" "$STAGE/rl_move/sim"
 
 cp "$SRC/tripod_gait.py" "$SRC/drive_controller.py" \
+  "$SRC/cpg_controller_loader.py" \
   "$SRC/mcu_feetech_bus.py" "$SRC/bench_api.py" "$SRC/web_drive.py" \
   "$SRC/xbox_drive.py" "$SRC/joint_calibrate.py" \
   "$SRC/plant_calibrate.py" "$SRC/geometry_plant.py" "$SRC/imu_calibrate.py" \
