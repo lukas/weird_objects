@@ -1190,3 +1190,88 @@ validity, on video. Speed obedience is secondary throughout.
   OLD un-replaced Gaussian kernel, not evidence of a live parked-robot
   exploit under the active reward. No new lever found this way;
   recorded so no future cycle re-derives and wastes a launch on it.
+
+## Now (updated 08-24 ~02:2x — foot/joint-freeze mechanism BUILT + bank-GREEN, ready to launch)
+
+- **`cw-walkcurr-pf-fwd6-actbias1-pdw05-pdx15` FAIL, verdicted this
+  cycle:** 1.5x park_duty dose (bank-legal max, stacked on the
+  action-bias fix) does NOT unlock rung-1 walking — det gate 0/6
+  gait_valid, 5/6 legs sacrificed (video-confirmed static park-stand,
+  body root fixed all 6 frames), sto thrashes (slip/m 31-47, leg
+  motion without coordinated progress). This closes the park_duty-
+  class at every bank-legal dose combined with the action-bias fix
+  (actbias1, actbias1-pdw05, actbias1-pdw05-pdx15 all FAIL with the
+  identical static-stand signature). Per the pre-registered fork:
+  next mechanism is a direct foot-contact/joint-freeze charge WITH a
+  termination (the stagea-slip1 lesson: absorbing states beat prices
+  alone), OR BC-kickstart — flagged to the operator now (brushes the
+  track's own "no BC teacher" founding rule; three independent
+  reward-mechanism classes — loadslip-bootstrap, RND, park_duty —
+  have now failed to escape the static-stand attractor at this
+  budget) in `OPERATOR_QUESTIONS.md`.
+
+- **BUILT + LANDED this cycle: `safety.walk_idle_terminate_s`**
+  (`sim_env.py`/`walk_task.py`), the direct-mechanism half of the
+  fork above. Ends the episode once mean |joint velocity| across the
+  18 actuated joints (own EMA, tau default 0.25s) stays below
+  `safety.walk_idle_terminate_qvel_deg_s` for
+  `safety.walk_idle_terminate_s` consecutive seconds (past an initial
+  `safety.walk_idle_terminate_grace_s` settle window), charging a
+  DEDICATED `reward.walk_idle_terminate_penalty` (falls back to
+  `reward.term_penalty` if unset). Default `walk_idle_terminate_s=0.0`
+  = OFF, bit-exact legacy (confirmed: `test_walk_idle_terminate.py`
+  5/5, plus the full existing 56-test WALKCURR_PF bank unchanged —
+  these new keys are absent from every existing bank stack).
+  **Two rejected designs, root-caused before landing the third:**
+  (1) an along-COMMAND speed EMA also flags real wrong-direction
+  travel (reverse/sideways) as "idle" (their along-component is ~0
+  despite genuine walking), cutting them short before the
+  full-episode heading/loadslip charges the bank needs to rank them
+  below a plain park — measured to invert that ranking (park fell to
+  within ~20 of sideways, sometimes below it). (2) a TOTAL body-speed
+  EMA still misclassifies "skate" (feet drag, body barely translates
+  by construction) as idle, robbing it of its designed loadslip
+  charge — measured to make skate BETTER than reverse/sideways,
+  another inversion. Mean |qvel| has neither defect: a scripted probe
+  showed park's steady-state qvel at ~5e-5 rad/s (pure contact-solver
+  settle jitter) vs >=0.1 rad/s for every other twin (gait/skate/
+  stall/reverse/sideways all have legs genuinely being commanded to
+  move) — a ~2000x gap, not a tuning-sensitive threshold. Also found
+  and fixed: reusing the full anti-suicide `term_penalty` (1200) for
+  this termination collapses the fine per-tick ranking among
+  non-progressing behaviors once ALL of them pay the same lump —
+  the dedicated, independently-sized `walk_idle_terminate_penalty`
+  (150 in the bank) fixes this.
+- **NEW bank landed: `WALKCURR_PF_IDLE_TERM` in
+  `test_task_semantics.py`** (4 tests, all green) proves, under the
+  run's exact stack (qvel floor 2 deg/s, 3s grace, 3s duration,
+  penalty 150): the full required ranking (gait > park/stall >
+  reverse/sideways > skate/topple) holds; ONLY "park" terminates
+  early (149/375 steps) — gait/fast/creep/stall/reverse/sideways/
+  skate/topple are bit-for-bit identical to the unarmed WALKCURR_PF
+  bank (the mechanism is surgical, not a blanket anti-stillness tax);
+  the dedicated penalty (not the full term_penalty) is what makes
+  the ranking hold.
+- **LAUNCHED (this cycle): `cw-walkcurr-pf-fwd6-idleterm1`** — single
+  lever vs `actbias1-pdw05-pdx15` (the last park_duty-class FAIL):
+  adds `safety.walk_idle_terminate_s=3.0` /
+  `walk_idle_terminate_grace_s=3.0` /
+  `walk_idle_terminate_qvel_deg_s=2.0` and
+  `reward.walk_idle_terminate_penalty=150.0` on top of the identical
+  actbias1-pdw05-pdx15 recipe (action-bias fix + 1.5x park_duty kept
+  — bank-proven harmless, not the active question). Prediction-if-
+  true: the static-stand basin becomes genuinely absorbing-with-a-
+  boundary rather than free — episodes reset every ~3-6s instead of
+  running the full 15s from the static optimum, PPO samples far more
+  initial conditions per unit wall-clock, and `walk_freeprog_score`/
+  `env/height_err_mm` should show the same qualitative unfreezing
+  actbias1 showed for the OLD belly-sit collapse (i.e. episode length
+  should visibly shrink from ~375 steps toward ~150 early in
+  training, then the policy should either re-discover a still-cheaper
+  static point the mechanism doesn't cover, or actually start
+  stepping). Prediction-if-false (same static park-stand recurs,
+  episodes still running ~375 steps because the trained policy learns
+  to keep qvel just above the 2 deg/s floor without going anywhere —
+  a "fake fidget" cheat): the qvel floor needs raising or gating on
+  net displacement too, OR the escalation moves to BC-kickstart per
+  the operator flag above. VERIFIED RUNNING.
