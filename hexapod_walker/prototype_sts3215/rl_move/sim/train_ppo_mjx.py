@@ -1682,6 +1682,19 @@ def main(argv: list[str] | None = None) -> int:
                          "the parent policy is bit-identical until "
                          "training moves them (port of the "
                          "train_ppo_sim mechanism)")
+    ap.add_argument("--hist-stride-transplant", type=int, default=0,
+                    help="warm-start across a history-stack "
+                         "DENSIFICATION: the control rate rose by this "
+                         "factor (e.g. 4 for 25->100 Hz) and "
+                         "obs.history_frames rose by the same factor, "
+                         "so parent frame k maps to child frame "
+                         "k*stride (same wall-clock lag). First-layer "
+                         "columns scatter to those slots, all other new "
+                         "columns start zero: at init the policy is the "
+                         "parent evaluated on rate-matched (old-cadence-"
+                         "spaced) frames; training then grows into the "
+                         "denser history. Plain-MLP only "
+                         "(fb_20260824T180427_4c2e26)")
     ap.add_argument("--eval-every", type=int, default=1_000_000,
                     help="background per-mode eval on a C-MuJoCo env every "
                          "N steps (0 = off). Doubles as a continuous "
@@ -2336,6 +2349,34 @@ def main(argv: list[str] | None = None) -> int:
                 f"--gru-{'dual' if args.gru_dual else 'experts'} requires "
                 "--cfg-set obs.mode_onehot=1 (the policy routes by the "
                 "obs-tail skill one-hot)")
+    if args.hist_stride_transplant:
+        _hs = int(args.hist_stride_transplant)
+        if _hs < 2:
+            raise SystemExit("--hist-stride-transplant must be >= 2")
+        if args.init_from is None:
+            raise SystemExit("--hist-stride-transplant requires "
+                             "--init-from (it is a warm-start mapping)")
+        if args.obs_pad_transplant:
+            raise SystemExit("--hist-stride-transplant + "
+                             "--obs-pad-transplant: pick ONE obs-"
+                             "widening transplant path")
+        if (args.gru or args.gru_dual or args.gru_experts
+                or args.transformer or args.asym_critic
+                or args.critic_encoder is not None
+                or args.init_from_actor_only
+                or args.init_from_policy_backbone):
+            raise SystemExit("--hist-stride-transplant is plain-MLP "
+                             "only; drop --gru*/--transformer/"
+                             "--asym-critic/--critic-encoder/"
+                             "--init-from-actor-only/"
+                             "--init-from-policy-backbone")
+        _hs_hist = int(float(_parse_cfg_set(args.cfg_set).get(
+            "obs.history_frames", 1)))
+        if _hs_hist < _hs or _hs_hist % _hs:
+            raise SystemExit(
+                f"--hist-stride-transplant {_hs} needs --cfg-set "
+                f"obs.history_frames set and divisible by {_hs} "
+                f"(got {_hs_hist})")
     if args.gru:
         if mirror_coef > 0.0:
             raise SystemExit("--gru + mirror loss is not implemented "
@@ -2831,12 +2872,16 @@ def main(argv: list[str] | None = None) -> int:
               f"{len(copied)} tensors copied ({copied}); predictive "
               "adapters/gates + transformer snapshot untouched")
     elif args.init_from is not None:
-        if args.obs_pad_transplant:
+        if args.obs_pad_transplant or args.hist_stride_transplant:
             # Obs-widening warm start (port of train_ppo_sim's
             # --obs-pad-transplant): parent weights copy exactly, the
             # policy/value first layers gain N zero columns for the new
-            # tail dims. Optimizer state is fresh (architecture changed).
-            from .train_ppo_sim import pad_obs_transplant
+            # tail dims. --hist-stride-transplant instead SCATTERS the
+            # parent's first-layer frame blocks to rate-matched slots of
+            # a densified history stack (25->100 Hz conversion). Either
+            # way optimizer state is fresh (architecture changed).
+            from .train_ppo_sim import (hist_stride_transplant,
+                                        pad_obs_transplant)
             old = PPO.load(args.init_from, device="cpu")
             model = algo_cls(
                 "MlpPolicy", venv,
@@ -2855,11 +2900,22 @@ def main(argv: list[str] | None = None) -> int:
                                    log_std_init=args.log_std_init),
                 seed=args.seed, verbose=1, device=args.device,
                 tensorboard_log=tb_dir)
-            pad_obs_transplant(old, model, args.obs_pad_transplant)
+            if args.obs_pad_transplant:
+                pad_obs_transplant(old, model, args.obs_pad_transplant)
+                _tp_note = (f"+{args.obs_pad_transplant} obs-pad "
+                            "transplant")
+            else:
+                _tp_hist = int(float(_parse_cfg_set(args.cfg_set).get(
+                    "obs.history_frames", 1)))
+                hist_stride_transplant(old, model,
+                                       args.hist_stride_transplant,
+                                       _tp_hist)
+                _tp_note = (f"hist-stride x{args.hist_stride_transplant} "
+                            f"transplant to {_tp_hist} frames")
             model.num_timesteps = old.num_timesteps
             del old
             print(f"[mjx-train] warm start from {args.init_from} "
-                  f"(+{args.obs_pad_transplant} obs-pad transplant)")
+                  f"({_tp_note})")
         else:
             from .gru_policy import is_recurrent_checkpoint
             if args.gru and not is_recurrent_checkpoint(args.init_from):

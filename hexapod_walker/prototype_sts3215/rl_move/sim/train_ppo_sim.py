@@ -291,6 +291,78 @@ def pad_obs_transplant(old_model, new_model, n_pad: int) -> None:
           f"zero-padded first-layer columns in {widened}")
 
 
+def hist_stride_transplant(old_model, new_model, stride: int,
+                           hist_frames: int) -> None:
+    """Warm-start across a history-stack DENSIFICATION (rate conversion).
+
+    The obs is a newest-first frame stack ``[f(t), f(t-1), ...]``. When
+    the control rate rises by ``stride`` (e.g. 4 for 25 Hz -> 100 Hz)
+    and ``obs.history_frames`` rises by the same factor (16 -> 64), the
+    parent's frame k (k old ticks = k*stride new ticks ago) lives at the
+    child's frame ``k*stride``. First-layer columns of the policy/value
+    MLPs are scattered to those slots and every other column is zeroed,
+    so the transplanted policy computes the parent's function of the
+    rate-matched (old-cadence-spaced) frames (measured max action diff
+    7e-6 on the cw_arch_hist16 parent — float32 matmul summation-order
+    noise from the wider first layer, not a mapping error) until
+    training moves the zero columns. Every same-shape tensor copies exactly; optimizer
+    state is fresh (architecture changed). A tail-append zero-pad
+    (``pad_obs_transplant``) is WRONG for this conversion: it would map
+    the parent onto the newest ``hist_old`` frames — a window ``stride``x
+    shorter in wall clock than the parent ever saw.
+    """
+    import torch
+    stride = int(stride)
+    hist_frames = int(hist_frames)
+    n_new = int(new_model.observation_space.shape[0])
+    n_old = int(old_model.observation_space.shape[0])
+    if stride < 2:
+        raise SystemExit("--hist-stride-transplant needs stride >= 2")
+    if hist_frames < stride or hist_frames % stride:
+        raise SystemExit(
+            f"--hist-stride-transplant {stride} needs obs.history_frames "
+            f"divisible by the stride (got {hist_frames})")
+    if n_new % hist_frames:
+        raise SystemExit(
+            f"obs dim {n_new} is not a multiple of obs.history_frames "
+            f"{hist_frames}; check cfg-sets")
+    width = n_new // hist_frames
+    hist_old = hist_frames // stride
+    if n_old != hist_old * width:
+        raise SystemExit(
+            f"parent obs {n_old} != {hist_old} frames x {width} dims — "
+            "parent/child per-frame obs contracts differ; align cfg "
+            "before transplanting")
+    sd_old = old_model.policy.state_dict()
+    sd_new = new_model.policy.state_dict()
+    if set(sd_old) != set(sd_new):
+        raise SystemExit("state_dict key mismatch; transplant needs the "
+                         "same net_arch as the parent")
+    widened = []
+    with torch.no_grad():
+        for k, v_new in sd_new.items():
+            v_old = sd_old[k]
+            if v_new.shape == v_old.shape:
+                v_new.copy_(v_old)
+            elif (v_new.dim() == 2 and v_new.shape[0] == v_old.shape[0]
+                  and v_new.shape[1] == n_new
+                  and v_old.shape[1] == n_old):
+                v_new.zero_()
+                for f in range(hist_old):
+                    dst = f * stride * width
+                    v_new[:, dst:dst + width].copy_(
+                        v_old[:, f * width:(f + 1) * width])
+                widened.append(k)
+            else:
+                raise SystemExit(f"unexpected shape change for {k}: "
+                                 f"{tuple(v_old.shape)} -> "
+                                 f"{tuple(v_new.shape)}")
+    new_model.policy.load_state_dict(sd_new, strict=True)
+    print(f"[train] hist-stride transplant: {n_old} -> {n_new} dims "
+          f"({hist_old} -> {hist_frames} frames x {width}, stride "
+          f"{stride}); scattered first-layer columns in {widened}")
+
+
 def _warn_if_defaults(params: SimServoParams) -> None:
     if params.source == "defaults":
         print("[train] WARNING: sim_model.json is defaults (no hardware "
