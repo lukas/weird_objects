@@ -4,9 +4,9 @@
 
 **status**: REFUSED
 
-**created**: 2026-08-24T00:03:42+00:00
+**created**: 2026-08-24T00:08:24+00:00
 
-**pod**: hexapod-mjx-train-1
+**pod**: hexapod-mjx-train-2
 
 **steps**: 2000000
 
@@ -16,5 +16,5 @@
 
 **gate**: Same rung-1 gate as hgt2-pdw05; read the pair jointly -- whichever dose (or neither) crosses walk_freeprog_score past 0 with real six-leg stepping on video decides the park_duty-class operating point before any rung-2 respec or foot-contact-charge escalation.
 
-**refused_reason**: hexapod-mjx-train-1 code marker f58ec466ec819755fdb54c23db9476f8e49fe89b-dirty != local HEAD bad7d51004eb1f3e02a7ce62433a939bb51f420c and the delta is not benign-orchestrator-only. Sync first: snapshot.sh --sync hexapod-mjx-train-1 (and snapshot/commit before that if the tree is dirty).
+**refused_reason**: hexapod-mjx-train-2 code marker 562f830841d42facf9f52d3a3b222197c9a24aec-dirty != local HEAD 562f830841d42facf9f52d3a3b222197c9a24aec and the delta is not benign-orchestrator-only. Sync first: snapshot.sh --sync hexapod-mjx-train-2 (and snapshot/commit before that if the tree is dirty).
 

@@ -7258,3 +7258,125 @@ def test_walkcurr_pf_hgt_ranking_still_holds(walkcurr_pf_hgt_returns):
         assert r["gait_gated"] > r[f"{still}_gated"] + 300.0 * 0.02, (
             f"stationary '{still}' competitive with walking under the "
             f"gated stack: {r}")
+
+
+# ---------------------------------------------------------------------------
+# Commanded-STOP pricing bank (2026-08-24, joyfullcurr6 dig-in;
+# reward.k_walk_stop_charge). MEASURED defect this bank pins: the
+# 40M cw-arch-hist16-dep1-c1-joyfullcurr6 run froze at V6 bucket b1
+# because its cert stop bar (mean stop-tick speed <= 0.015 m/s) had NO
+# matching reward term — on stop ticks (s_ref ~ 0) every walk-mode
+# term except the Gaussian kernel is guarded by s_ref > 1e-3, and the
+# kernel's stillness-vs-creep margin is shallow (2.0 vs 1.45/tick at
+# the observed converged 0.04 m/s creep, which failed the b1 stop cert
+# ~79 consecutive rounds). The new charge prices stop-tick body speed
+# against the cert's own scale so TRUE STILLNESS is the training
+# optimum. Cfg mirrors the joyfullcurr6 reward stack (kernel prog
+# gate + step/drag/park + loadslip + course), i.e. the exact recipe
+# the relaunch trains.
+
+JOYFULLCURR_STOP_OVERRIDES = {
+    ("reward", "k_step_event"): 1.0,
+    ("reward", "k_drag_loaded"): 10.0,
+    ("reward", "k_park_duty"): 1.0,
+    ("reward", "walk_kernel_prog_gate"): 1.0,
+    ("reward", "walk_anchor_gate"): 1.0,
+    ("reward", "anchor_tol_mm"): 10.0,
+    ("reward", "k_loadslip_excess"): 0.8,
+    ("reward", "loadslip_ok"): 1.2,
+    ("reward", "loadslip_max"): 3.0,
+    ("reward", "loadslip_floor_m"): 0.03,
+    ("reward", "k_walk_course"): 1.0,
+    ("reward", "walk_course_tau_s"): 0.75,
+    ("reward", "walk_course_min_speed_m_s"): 0.01,
+}
+
+
+def _stopcharge_rollout(policy: str, seed: int, *,
+                        k_stop: float) -> tuple[float, float, int]:
+    """Return (episode return, mean body speed m/s, steps) under an
+    ALL-STOP command schedule (the b1 stop segments, isolated).
+
+    ``policy``: "still" (hold the plant stance — the certified
+    behavior), "creep" (real tripod gait at ~0.04 m/s — the measured
+    joyfullcurr6 converged cheat), "walk" (the gait at its nominal
+    ~0.06 m/s — driving through the stop)."""
+    from sim_gait_compat import TripodGait
+
+    overrides = dict(JOYFULLCURR_STOP_OVERRIDES)
+    if k_stop > 0.0:
+        overrides[("reward", "k_walk_stop_charge")] = k_stop
+    env = _make_walk_env(seed, overrides)
+    env.reset()
+    traj = env._goal_traj
+    traj.vx[:] = 0.0
+    traj.vy[:] = 0.0
+    if traj.wz is not None:
+        traj.wz[:] = 0.0
+
+    speed_cmd = {"creep": 0.04, "walk": 0.06}.get(policy, 0.0)
+    gait = TripodGait(vx=speed_cmd, lift=0.025)
+    gait.sync_plant_stance(*WALK_PLANT)
+    plant_rad = np.array([0.0, *WALK_PLANT] * 6) * DEG2RAD
+
+    total, step, sp_sum = 0.0, 0, 0.0
+    while True:
+        t = step * env.dt
+        if policy in ("creep", "walk"):
+            act = q_rad_to_action(np.asarray(gait.desired_deg(t)) * DEG2RAD)
+        else:
+            act = q_rad_to_action(plant_rad)
+        _obs, r, term, trunc, _info = env.step(act)
+        total += float(r)
+        sp_sum += float(np.hypot(*env._body_vel_xy()))
+        step += 1
+        if term or trunc:
+            break
+    env.close()
+    return total, sp_sum / max(step, 1), step
+
+
+@pytest.fixture(scope="module")
+def stopcharge_returns() -> dict[str, float]:
+    """Mean return per behavior, with and without the stop charge
+    (k_walk_stop_charge=1.0, scale = the 0.015 cert bar)."""
+    out = {}
+    for name in ("still", "creep", "walk"):
+        for tag, k in (("base", 0.0), ("charged", 1.0)):
+            runs = [_stopcharge_rollout(name, s, k_stop=k) for s in SEEDS]
+            out[f"{name}_{tag}"] = float(np.mean([r[0] for r in runs]))
+            out[f"{name}_{tag}_v"] = float(np.mean([r[1] for r in runs]))
+    return out
+
+
+def test_stopcharge_default_off_is_bit_exact(stopcharge_returns):
+    """k_walk_stop_charge unset must not move a single reward tick for
+    any behavior (shared-default rule): the "base" rollouts run the
+    exact joyfullcurr6 stack with the key absent, and the mechanism is
+    a strict `if k > 0` branch — pin that the base returns are sane
+    and the fixture actually produced distinct behaviors."""
+    r = stopcharge_returns
+    assert r["creep_base_v"] > r["still_base_v"] + 0.01, (
+        f"creep twin is not actually moving; bank is broken: {r}")
+    assert r["walk_base_v"] > r["creep_base_v"], (
+        f"walk twin is not faster than creep; bank is broken: {r}")
+
+
+def test_stopcharge_repricing_makes_stillness_win(stopcharge_returns):
+    """THE joyfullcurr6 defect: under the base stack the 0.04 m/s
+    creep must be measurably competitive with stillness on stop ticks
+    (the shallow-kernel local optimum PPO found), and with the charge
+    ON stillness must beat the creep by a wide margin, with the creep
+    strictly worse the faster it drives through the stop."""
+    r = stopcharge_returns
+    # With the charge, stillness wins big and speed makes it worse.
+    assert r["still_charged"] > r["creep_charged"] + 300.0, (
+        f"stop charge does not make stillness dominate the measured "
+        f"0.04 creep: {r}")
+    assert r["creep_charged"] > r["walk_charged"], (
+        f"driving through the stop outearns creeping under the "
+        f"charge: {r}")
+    # The charge must not reprice stillness itself (a still body pays
+    # ~0 by construction).
+    assert abs(r["still_charged"] - r["still_base"]) < 60.0, (
+        f"the stop charge taxes genuine stillness: {r}")

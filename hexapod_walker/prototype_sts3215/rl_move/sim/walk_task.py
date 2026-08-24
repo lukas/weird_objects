@@ -4064,6 +4064,49 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 info["walk_along_ema_m_s"] = self._walk_idle_ema
                 info["walk_idle_shortfall"] = shortfall
                 info["reward_walk_idle"] = r_idle
+            # Commanded-STOP speed charge (2026-08-24, joyfullcurr6
+            # dig-in): during commanded-stop segments NOTHING in this
+            # stack prices residual body speed except the shallow
+            # Gaussian kernel (stillness 2.0/tick vs a 0.04 m/s creep's
+            # 1.45/tick, +0.55/tick margin) — every other walk term
+            # (prog gate, course, park-duty, step/drag, idle) is guarded
+            # by s_ref > 1e-3 and pays/charges NOTHING on stop ticks.
+            # The V6 ladder's cert bar (mean stop-tick speed <= 0.015
+            # m/s) therefore had no matching reward optimum, and the
+            # 40M joyfullcurr6 run converged to a ~0.04 m/s creep that
+            # failed the b1 stop cert ~79 rounds in a row while reward
+            # sat converged. This charges, on stop ticks only (s_ref ~
+            # 0 and NOT a commanded turn-in-place — that motion is the
+            # command), the instantaneous body speed against
+            # reward.walk_stop_scale_m_s (default = the 0.015 cert
+            # bar): r -= k * min(speed/scale, cap). Stillness pays 0,
+            # the observed creep pays ~2.7k/tick, walking through a
+            # stop pays the cap — so true stillness is the optimum by
+            # construction, matching the cert exactly. Added AFTER the
+            # income gates so no gate can shrink it. NOT part of the
+            # walk_charge_ramp trio (that ramp loosens charges that
+            # make refusal falsely cheap; this one prices obedience to
+            # an explicit stop command and must never loosen). Default
+            # 0 = off, legacy bit-exact (no new info keys).
+            # cfg: reward.k_walk_stop_charge, reward.walk_stop_scale_m_s,
+            # reward.walk_stop_charge_cap.
+            k_stopc = float(cfg_get(self.cfg, "reward",
+                                    "k_walk_stop_charge", default=0.0))
+            if (k_stopc > 0.0 and s_ref <= 1e-3
+                    and not (self._yaw_cmd
+                             and abs(float(getattr(goal, "wz_ref", 0.0)
+                                           or 0.0)) > 1e-3)):
+                scale_sc = max(float(cfg_get(
+                    self.cfg, "reward", "walk_stop_scale_m_s",
+                    default=0.015)), 1e-6)
+                cap_sc = float(cfg_get(self.cfg, "reward",
+                                       "walk_stop_charge_cap",
+                                       default=4.0))
+                sp_sc = float(np.hypot(float(v[0]), float(v[1])))
+                r_stopc = -k_stopc * min(sp_sc / scale_sc, cap_sc)
+                reward = float(reward) + r_stopc
+                info["walk_stop_speed_m_s"] = sp_sc
+                info["reward_walk_stop"] = r_stopc
             # Commanded-COURSE charge (operator reward-alignment order
             # 2026-08-22, fb_20260822T032514 item 3 — the phasedir1
             # fix): price wrong-way / off-heading TRAVEL on the
