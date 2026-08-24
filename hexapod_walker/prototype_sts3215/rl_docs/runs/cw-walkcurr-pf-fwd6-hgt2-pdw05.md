@@ -4,7 +4,7 @@
 
 **status**: REFUSED
 
-**created**: 2026-08-24T00:39:47+00:00
+**created**: 2026-08-24T00:50:18+00:00
 
 **pod**: hexapod-mjx-train-1
 
@@ -16,5 +16,5 @@
 
 **gate**: Same rung-1 gate as every fwd6 arm: C-env det fixed-forward panel -- prog_ratio>0 and gait_valid on >=4/6 det episodes with visible forward travel on video, env/walk_freeprog_score leaves [-0.12,-0.08] and trends toward/past 0 by 2M, clip_fraction stays healthy. Additionally check env/reward_park_duty is nonzero by the end (confirms the confound fix actually engaged) and read jointly with hgt2-pdw05-pdx15 (the dose-boosted sibling) before any further height-gate calibration.
 
-**refused_reason**: hexapod-mjx-train-1 already runs cw-walkcurr-pf-fwd6-actbias1 — GPU pods host exactly one run; pick a free GPU pod.
+**refused_reason**: W&B already has a run named cw-walkcurr-pf-fwd6-hgt2-pdw05 (names are append-only; pick a new one)
 
