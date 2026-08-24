@@ -1421,3 +1421,49 @@ validity, on video. Speed obedience is secondary throughout.
 - **Ops note**: two concurrent `launch_run.py respec` backlog adds
   raced (read-modify-write) and one item was silently clobbered —
   queue backlog adds SERIALLY until the launcher locks that path.
+
+## Now (updated 08-24 ~03:3x — parkstart-p25 + sde-actbias1-idleterm1 both FAIL; idleterm fully closed, parkstart/sde forks ride on the 3 pending sibling reads)
+
+- **`cw-walkcurr-pf-fwd6-actbias1-parkstart-p25` FAIL, verdicted:**
+  seeding 25% of episodes from tripod-lifted park poses does NOT
+  dislodge the static park-stand. Det gate 0/6 gait_valid (fwd med
+  0.03m/25s, prog 0.01, slip/m 8.87, zero terms; video: level upright
+  stance, in-place jitter, zero body translation all 10 frames); sto
+  gait_valid 5/6 but slip/m 35.9 in-place thrash. Telling detail:
+  `rollout/ep_len_mean` RISES 64->490 over the run — the policy
+  learns to recover from the perturbed park starts back INTO the
+  stand (the exit gradient exists; the economics still price
+  re-standing above stepping). freeprog flat in the dead band
+  (-0.084->-0.075), dir_err ~88deg all run, reward falls 45->7 with
+  healthy clip — aligned FAIL, exactly the pre-registered
+  prediction-if-false. The `-p50` dose sibling (finished, another
+  cycle's read) gives the final word on the parkstart class.
+- **`cw-walkcurr-pf-fwd6-rscale50-sde-actbias1-idleterm1` FAIL,
+  verdicted — and it fails by a NEW dodge worth banking: the "fake
+  fidget" cheat the idleterm1 launch entry pre-flagged is now
+  OBSERVED.** The three-ingredient stack (actbias zero-point + qvel
+  idle-terminate + gSDE) converges to an in-place fidget that keeps
+  mean |qvel| above the 2 deg/s floor — idle-terminate NEVER fires
+  (det: zero terminations, slip/m 11.2, fwd 0.02m; no
+  `terminations/walk_idle_terminate` key ever logged in training).
+  Training is fall-dominated instead (tilt 554+647/window, ep_len ~90
+  steps); sto prog med is -0.06 (slightly BACKWARD — the sde parent's
+  +0.32 forward excursions do NOT survive this stack), 6/6 sto tilt
+  terms, video shows legs splaying sideways into a topple. freeprog
+  -0.19->-0.16, reward flat ~10-11 — aligned FAIL.
+  **Idle-termination is now closed in all three tested configurations
+  (rscale50 base, actbias1 base, sde+actbias1 base); raising the qvel
+  floor to catch the fidget would start misclassifying real walking
+  and is not funded.** Watcher SUSPECT on this run was a false alarm
+  (run had completed its 2M budget).
+- **Fork position after these two reads:** every branch decision now
+  rides on the 3 sibling reads owned by other cycles/fan-out —
+  `sde-actbias1` (does the stable zero-point let sde excursions
+  convert without the idleterm confound?), `sde-s2` (does the sde
+  forward-excursion finding replicate at all?), and `parkstart-p50`
+  (parkstart dose class final word). No new walkcurr arms were
+  launched this cycle: with idleterm and parkstart-p25 closed, any
+  new arm would pre-empt exactly the reads that decide between the
+  sde-combination line and the BC-kickstart operator question
+  (q_20260824T0233Z). Whichever cycle completes those three reads
+  owns the fork declaration.
