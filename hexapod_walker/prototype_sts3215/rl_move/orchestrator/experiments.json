@@ -166635,7 +166635,7 @@
       "2"
     ],
     "created": "2026-08-24T03:16:00+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -166681,7 +166681,8 @@
         ]
       }
     ],
-    "triage": "in-cycle cw-walkcurr-pf-fwd6-rscale50-sde-s2 since 2026-08-24T03:32:28"
+    "triage": "done",
+    "verdict": "Result: seed-2 replicate of the rscale50-sde arm FAILS the gate, and the replication read is decisive \u2014 the parent's gSDE lurch MECHANISM replicates but its forward DIRECTION does not, demoting the parent's 'first-ever forward-progress states' from mechanism to seed luck. Evidence: det gate 0/6 gait_valid, prog med 0.00, fwd 0.01m, slip/m 13.8 (in-place micro-slip), identical static splayed-crouch strip (sac=[0,4] all 6 eps); sto gate 0/6 with prog med -0.46 \u2014 real displacement excursions (fwd med 0.07m) but BACKWARD, all 6 eps terminating tilt_pitch/tilt_roll, strip shows the robot lurching and tipping over backward. Pre-registered replication reads: env/height_err_mm 6.9-22.5mm all run (<30mm band \u2014 belly-sit escape REPLICATED without actbias), tilt-term-dominated training with ep_len flat ~60-73 all 2M (parent: 65-70) REPLICATED, healthy clip_fraction 0.13-0.16 all run REPLICATED, nonzero sto excursions REPLICATED \u2014 but sto prog is -0.46 vs parent's +0.32: the single per-rollout correlated noise draw biases the action mean in a SEED-RANDOM direction, and the mean policy never learns to walk in either seed (det static both times). walk_freeprog_score deteriorates -0.149->-0.214 (parent -0.164->-0.194, same worsening band), reward falls every quarter (17.9->12.4). Aligned FAIL per 08-21 (healthy optimizer, adequate budget, eval bad and deteriorating). Why it matters: (1) confirms the sde lineage is closed \u2014 no further sde-only variants; (2) sharpens the caveat for the concurrent sde-actbias combos (other cycle): any directional success there credits actbias, not sde; (3) leaves the track's pinned fork unchanged \u2014 the parkstart-p50 read and the BC-kickstart operator question (q_20260824T0233Z) remain the live decision. Evidence: logs/ckpt_eval/cw_walkcurr_pf_fwd6_rscale50_sde_s2_gate/, W&B oqp7upaw."
   },
   {
     "run": "cw-walkcurr-pf-fwd6-actbias1-parkstart-p50",
@@ -166799,7 +166800,7 @@
       "goal.walk_park_start_frac=0.5"
     ],
     "created": "2026-08-24T03:17:52+00:00",
-    "status": "FINISHED",
+    "status": "FAIL",
     "checks": {
       "cpu_limit": 26,
       "existing_trainers": [],
@@ -166828,7 +166829,7 @@
     "log": "/tmp/train_cw-walkcurr-pf-fwd6-actbias1-parkstart-p50.log",
     "wandb_id": "m5a690ik",
     "verified": "2026-08-24T03:21:20+00:00",
-    "triage": "in-cycle cw-walkcurr-pf-fwd6-actbias1-parkstart-p50-cw-walkcurr-pf-fw since 2026-08-24T03:27:22",
+    "triage": "done",
     "checkups": [
       {
         "time": "2026-08-24T03:28:55+00:00",
@@ -166836,6 +166837,7 @@
         "verdict": "FINISHED_BEFORE_CHECKUP",
         "log_tail": "ndb:   env/height_err_mm 25.6456\nwandb:       env/height_mm 25.64557\nwandb:   env/height_ref_mm 0\nwandb:   env/max_current_a 1.58829\nwandb:  env/mean_current_a 0.39213\nwandb: env/pct_within_1deg 0.2085\nwandb:   env/pitch_ref_deg 0\nwandb:                +110 ...\nwandb: \nwandb: \ud83d\ude80 View run cw-walkcurr-pf-fwd6-actbias1-parkstart-p50 at: https://wandb.ai/l2k2/hexapod-balance/runs/m5a690ik\nwandb: \u2b50\ufe0f View project at: https://wandb.ai/l2k2/hexapod-balance\nwandb: Synced 5 W&B file(s), 2 media file(s), 2 artifact file(s) and 1 other file(s)\nwandb: Find logs at: ./wandb/run-20260824_031857-m5a690ik/logs\n"
       }
-    ]
+    ],
+    "verdict": "Doubling park-start reset-diversity dose to 0.5 (half of all walk episodes spawn tripod-lifted) does NOT unlock walking either -- confirms -p25's finding, closing the dose axis. Evidence: det gate 0/6 gait_valid (sac legs vary per episode: [4], [0,3,4], [4,5] -- no consistent tripod lock this time, but still zero net travel), prog_ratio med 0.01, fwd med 0.03m/15s, slip/m med 3.52 (low -- not skating, just not moving), zero terminations; sto gait_valid 6/6 but slip/m med 43.96 (heavy in-place thrashing, prog ~0.00-0.04, dir_err 87.5deg -- noise-driven jitter, not walking). W&B history: env/walk_freeprog_score bumps from -0.084 to a mid-run best of -0.056 (step ~211-239) then REGRESSES to -0.071 by the end -- same shape as actbias1-idleterm1 and -parkstart-p25, never crossing zero. rollout/ep_len_mean climbs steadily 16->496 (near the ~500-step max) over the run: the policy is learning to recover FROM the perturbed park starts back INTO a stable stand, not to walk -- the exit gradient this mechanism was designed to create genuinely exists (video shows more varied/less rigidly-tripod-locked leg use than plain actbias1), but the economics still price re-standing above stepping, exactly as -p25 found. clip_fraction stayed healthy (0.002->0.08, never collapsed) and reward fell every quarter (45.3/42.5/31.1/16.6) -- an ALIGNED FAIL per the 08-21 ruling, not misalignment or undertraining. height_err_mm ran a bit higher than plain actbias1 (23-30mm vs 14-22mm) but never collapsed toward the belly-sit band -- the action-bias fix held. Video (6 det + 6 sto contact sheets/mp4s watched) confirms: robot recovers to level/upright and stays there, no net body translation across any clip. DOSE READ: 0.25 and 0.5 fail IDENTICALLY (both aligned, both show the rise-to-near-max ep_len recovery signature, freeprog bump-then-regress in the same band) -- park_start_frac is dose-insensitive in this range, closing goal.walk_park_start_frac as a rung-1 discovery mechanism at both tested doses. This was the last credible non-BC, non-reward-pricing, non-architecture lever this campaign could name (see OPERATOR_QUESTIONS.md q_20260824T0233Z): with idle-termination (2 configs), reset-state diversity (2 doses), and 9 earlier reward/architecture classes ALL closed with aligned FAILs at 2M, from-scratch discovery of forward walking is refuted at this budget/architecture for every non-BC mechanism this track has been able to invent. Updating OPERATOR_QUESTIONS.md q_20260824T0233Z to make the BC-kickstart ruling fully live (no further non-BC lever pre-registered or credible) rather than advisory."
   }
 ]

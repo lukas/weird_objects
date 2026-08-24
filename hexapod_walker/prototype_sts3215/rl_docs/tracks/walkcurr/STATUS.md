@@ -1467,3 +1467,83 @@ validity, on video. Speed obedience is secondary throughout.
   sde-combination line and the BC-kickstart operator question
   (q_20260824T0233Z). Whichever cycle completes those three reads
   owns the fork declaration.
+
+## Now (updated 08-24 ~03:3x — sde-s2 replication read)
+
+- **`cw-walkcurr-pf-fwd6-rscale50-sde-s2` FAIL (verdicted): the sde
+  forward-excursion finding does NOT replicate as forward — the
+  lurch MECHANISM replicates, the DIRECTION was seed luck.** Seed-2
+  exact-recipe replicate of the rscale50-sde parent. All four
+  pre-registered mechanism reads reproduced: belly-sit escape
+  without actbias (env/height_err_mm 6.9-22.5mm all run, <30mm
+  band), tilt-term-dominated training (ep_len flat ~60-73 all 2M),
+  healthy clip_fraction (0.13-0.16), real nonzero sto excursions
+  ending 6/6 in tilt terms. But sto prog med is **-0.46 (backward)**
+  vs the parent's +0.32 (forward) — the single per-rollout gSDE
+  noise draw drags the action mean in a seed-random direction, and
+  the DET (mean) policy is the identical static splayed crouch in
+  both seeds (0/6, prog 0.00). freeprog deteriorates -0.149->-0.214
+  (parent -0.164->-0.194), reward falls every quarter. Aligned FAIL.
+  **Consequences: (1) sde-only lineage CLOSED — no further seeds or
+  continuations; the parent's "first forward-progress states" claim
+  is demoted to noise-direction luck. (2) Binding caveat for the
+  `sde-actbias1` read (other cycle): forward directionality cannot
+  be credited to sde; any directional success credits actbias or
+  the combination, and needs its own seed replicate before building
+  on it. (3) Fork position unchanged — `sde-actbias1` +
+  `parkstart-p50` remain the reads that decide between the
+  sde-combination line and the BC-kickstart operator question
+  (q_20260824T0233Z).**
+
+## Now (updated 08-24 ~03:4x — parkstart-p50 FAIL: reset-diversity CLOSED at both doses; only `sde-actbias1` remains before the BC-kickstart question is fully live)
+
+- **`cw-walkcurr-pf-fwd6-actbias1-parkstart-p50` FAIL, verdicted (this
+  cycle, the arm's own launcher):** doubling the park-start dose to
+  0.5 does NOT unlock walking either — confirms `-p25`, closing the
+  dose axis. Det gate 0/6 gait_valid (sac legs vary per episode: [4],
+  [0,3,4], [4,5] — no single rigid tripod lock this time, but still
+  zero net travel), prog med 0.01, fwd med 0.03m/15s, slip/m med 3.52
+  (low — not skating, just not moving), zero terms; sto gait_valid
+  6/6 but slip/m med 43.96 (heavy in-place thrashing, dir_err
+  87.5deg). Same tell as `-p25`: `rollout/ep_len_mean` climbs
+  16->496 (near the episode max) while `env/walk_freeprog_score`
+  bumps to a mid-run best of -0.056 then REGRESSES to -0.071 by the
+  end, reward falls every quarter (45.3/42.5/31.1/16.6), clip_fraction
+  stays healthy (0.002->0.08) — an ALIGNED FAIL, the policy recovers
+  FROM the perturbed park starts back INTO a stable stand rather than
+  learning to walk. `height_err_mm` ran a touch higher than plain
+  actbias1 (23-30mm vs 14-22mm) but never collapsed toward belly-sit.
+  Video (6 det + 6 sto strips) confirms: recovers to level/upright,
+  zero net translation. **`goal.walk_park_start_frac` is CLOSED as a
+  rung-1 discovery mechanism — dose-insensitive (0.25 and 0.5 fail
+  identically), 13th independently-designed mechanism/architecture
+  class refuted.**
+- **Per the fork pinned above, this leaves exactly ONE credible
+  non-BC lever still in flight and unread: `cw-walkcurr-pf-fwd6-
+  rscale50-sde-actbias1`** (gSDE + the stable action-bias base,
+  without the idle-terminate confound — owned by a concurrent cycle,
+  still RUNNING as of this entry). `OPERATOR_QUESTIONS.md`
+  q_20260824T0233Z updated this cycle with the corrected framing: if
+  `sde-actbias1` ALSO fails with the same static-stand-or-fall
+  signature every other arm has shown, literally every reward-
+  pricing, termination, architecture/exploration-structure, and
+  reset-state-diversity mechanism this track has been able to invent
+  is exhausted at the 2M discovery budget, and the BC-kickstart
+  operator ruling becomes the sole remaining decision (no further
+  non-BC lever is pre-registered or credible at this point) — do NOT
+  launch another same-class variant on a `sde-actbias1` FAIL; take
+  the ruling to the operator note instead. **Do not launch further
+  walkcurr rung-1 arms until `sde-actbias1` reads** — it is the last
+  open branch.
+- **Untried idea worth registering for whoever reads `sde-actbias1`
+  (not launched this cycle — needs new code, unlike park-start which
+  was already built): an episode-length CURRICULUM** (short training
+  episodes early, e.g. 3-5s instead of the full 15s, to multiply
+  reset frequency per step-budget without touching reward, teacher,
+  or gait clock). `train_ppo_mjx.py` already has an internal
+  `training_episode_seconds` distinct from eval `episode_seconds`
+  (used today only by `--walk-curriculum` v4-6), but no standalone
+  CLI flag exposes it for a plain schedule. This is a genuinely
+  different axis (episode SCHEDULE, not reward/architecture/reset-
+  pose) and worth building only if `sde-actbias1` also closes the
+  fork — do not build it speculatively before that read.
