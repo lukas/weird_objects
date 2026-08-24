@@ -1202,7 +1202,12 @@ with:
 
 0. **100 Hz RATE CONVERSION (operator 08-24, fb_20260824T174619_c49b7e
    — launched this cycle as `cw-arch-hist16-dep1-c1-joyfullcurr13-v7-
-   hz100`)**: all NEW PPO models train at `control.hz=100` /
+   hz100-r2`, VERIFIED RUNNING train-0; attempt 1 without `-r2` died
+   FAIL-CLOSED at the inherited walkcurr-precert bar — init prog=0.203
+   < 0.50 at exact-b0/100 Hz with 0 falls, i.e. obs mapping INTACT,
+   degradation = the expected rate mismatch — so -r2 drops
+   cert-at-init/precert and starts the frontier honestly at b0)**:
+   all NEW PPO models train at `control.hz=100` /
    `safety.max_delta_q_deg=0.375` (37.5 deg/s physical slew preserved;
    launcher-enforced, see CURRENT_TRUTHS 08-24 ruling). First arm: the
    V7 certfreeze recipe (stress-diversified WALKCURR_BUCKETS_V7,
