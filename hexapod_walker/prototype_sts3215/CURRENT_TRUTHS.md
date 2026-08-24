@@ -44,6 +44,14 @@ follow-ups.
   40M run — first conversions are rate-conversion experiments under
   the current cap, not sim-time equivalents. (The note's
   `control.inner_hz` key does not exist in this workspace — no-op.)
+  FACT (08-24 dig-in, tf64 canary chain): from-scratch V7-walkcurr
+  training at 100 Hz passes through an architecture-independent reward
+  VALLEY — ~−739 at 2M, ~−1460 at 7M, crossing zero only ~12–14M (MLP
+  sibling c4s7i0e2's own trajectory; both transformer canaries matched
+  it point-for-point at matched steps). A "reward must improve by 2M"
+  canary bar therefore FAILS known-good architectures: judge
+  from-scratch 100 Hz canaries against a MATCHED-STEP control
+  trajectory, never against another run's end-of-run value.
 
 - WALKCURR TRACK REGISTRATION (operator 08-23, focus note
   20260823T154657Z — binding): the fourth first-class track. Rules:

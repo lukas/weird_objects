@@ -1,6 +1,42 @@
 # joystick - RL from the programmatic gait to joystick control
 
-Last updated: 2026-08-24 ~22:0x (**cw-arch-hist64-joyfullcurr13-v7-hz100-scratch-s0-r1
+Last updated: 2026-08-24 ~22:1x (**DIG-IN VERDICT: the tf64 "attention
+pathology" read is OVERTURNED — both transformer canaries re-classed
+CANARY PASS; the 2M canary bar itself was miscalibrated; 38M
+matched-gate continuation `cw-arch-tf64-joyfullcurr13-v7-hz100-acq1`
+RUNNING on train-6.** Plain English: the transformer was declared
+broken because its reward fell for all 2M steps while "the MLP
+sibling rises to 746" — but that compared the transformer at 2M
+against the MLP at 38M. At MATCHED step counts the MLP is
+statistically identical to both tf canaries (MLP −738.9 / height_err
+94.3mm / loadslip 5.39 at 2M vs canary2 −739.5/95.4/5.54 and r1
+−734/99/5.76), and the MLP kept falling to ~−1460 by 7M, crossing
+zero only ~12–14M. The "identical collapse signature" across 1L/d64
+and 2L/d128 is the architecture-INDEPENDENT early reward valley of
+the V7 stack at 100Hz — which is also why 4x width/depth changed
+nothing. Checkpoint-level trace found nothing wrong with the
+mechanism: attention near-uniform (init-like, entropy 4.11–4.14 vs
+ln64=4.16, no NaN/degeneracy), pos_embed at init as is NORMAL at 1230
+optimizer steps (the healthy MLP's actor-trunk grad_rms 7.2e-7 is
+even smaller than the tf trunk's 2–9e-6), healthy feature variance
+(0.69/dim), and per-frame gradient sensitivity correctly dominated by
+the newest frame (14x) — framing/causality sound, matching the green
+test bank. LESSON (binding for future canaries on this stack): a
+from-scratch 100Hz "reward must improve by 2M" bar FAILS the
+known-good architecture too — from-scratch canary reads need a
+MATCHED-STEP control trajectory, not an end-of-run comparison.
+Follow-up now running: `...-acq1` continues canary2's 2L/d128
+checkpoint 38M more (40M total, = MLP budget), gated on the MLP's own
+matched-step trajectory (upturn by 15M, cross 0 by ~18M, frontier
+past b0; still-monotone-down at 15M = REAL architecture evidence and
+closes the line). Caveat: the MLP itself FAILED its 40M gate via the
+{0,2,5} 3-leg-sacrifice drag (see next entry) — so acq1's
+architecture read weights the (a)–(c) shape/turn/frontier clauses;
+its end-state gait clauses share whatever 100Hz reward-misalignment
+fix that dig-in produces. Evidence: W&B rel6d200/heklqc5l notes +
+attached analysis artifacts.)
+
+Previous entry (2026-08-24 ~22:0x (**cw-arch-hist64-joyfullcurr13-v7-hz100-scratch-s0-r1
 FAIL: the from-scratch 100Hz MLP arm learns real forward motion but
 converges to a chronic 3-leg-sacrifice drag, never a valid six-leg
 gait — CONFIRMS the reward/PPO stack is learnable from scratch at
