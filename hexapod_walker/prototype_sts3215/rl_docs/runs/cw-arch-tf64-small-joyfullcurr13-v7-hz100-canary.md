@@ -2,9 +2,9 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: REFUSED
+**status**: FAIL
 
-**created**: 2026-08-24T18:19:28+00:00
+**created**: 2026-08-24T18:32:09+00:00
 
 **pod**: hexapod-mjx-train-8
 
@@ -14,5 +14,7 @@
 
 **gate**: MECHANISM-HEALTH CANARY ONLY: do not judge skill acquisition, close a behavior/reward class, or require mature gait at this checkpoint. PASS = boots and trains to 2M with no crash/NaN, healthy CUDA fps, reward/frontier/eval AGREEMENT (ep_rew and b0 walkcurr eval move together; per Lukas's rule, reward up + eval flat/worse = STOP and audit reward/eval alignment before ANY more budget or seeds). Directional gait NOT required at 2M (tf-r1 precedent: transformer family needed 40M for gait). If PASS -> respec full 40M as cw-arch-tf64-small-joyfullcurr13-v7-hz100 (acquisition, evidence = this canary + cw-arch-tf-r1-hard1 40M transformer-walking precedent). If FAIL by misalignment -> audit; if under-capacity suspected -> the escalation axis is tf width/layers, not seeds.
 
-**refused_reason**: hexapod-mjx-train-8 code marker 11bb18ed03026cc279ed71f0f9fd07c5cb79b974 != local HEAD de7bdbcc002b207ac6737f6e09bc391730897aa4 and the delta is not benign-orchestrator-only. Sync first: snapshot.sh --sync hexapod-mjx-train-8 (and snapshot/commit before that if the tree is dirty).
+**verdict**: CANARY FAIL - INFRASTRUCTURE: not an architecture or mechanism finding -- an infra defect, now fixed. Plain English: the transformer canary never trained a single step; all 24 vec-env workers died with a Bus error (SIGBUS, exitcode -7) inside the very first env.reset(). Root cause traced (not guessed): obs.history_frames=64 at n_envs=3072 makes the shared-memory obs array alone ~54MB, and pod hexapod-mjx-train-8 was still mounting the LEGACY k8s-default 64M /dev/shm -- never recreated with the dshm-4Gi fix from the 08-10 gotcha-13c writeup (rl_docs/COMMANDS.md). Confirmed via df -h on every train pod: train-1/5/7/9/10/11 already show tmpfs 4.0G; train-0/2/3/4/6/8 were still stuck at legacy 64M, a widespread half-applied infra fix. This is the exact documented 08-10 EOFError/SIGBUS class, just never hit before because no run had reached full-env reset() at history_frames>=64 (the sibling hist64-rr1 MLP arm dies fail-closed at a small 8-episode precert BEFORE ever touching the big vec env). FIX APPLIED this cycle: recreated hexapod-mjx-train-8 and hexapod-mjx-train-6 (both idle) via the scaleout manifest (dshm 4Gi) plus bootstrap; verified df -h /dev/shm now reports 4.0G on both. Caught and corrected a mistake made while doing this: applying the manifest also created 4 unauthorized train-12..15 pods outside guardrails.yaml's gpu_pods list with no node to schedule to -- deleted immediately, no lasting capacity impact. No verdict on the transformer architecture itself is possible from this run. Next: relaunch as a -r1 retry (identical config) on the now-fixed pod.
+
+**failed_reason**: run never appeared as 'running' in W&B within 240s
 

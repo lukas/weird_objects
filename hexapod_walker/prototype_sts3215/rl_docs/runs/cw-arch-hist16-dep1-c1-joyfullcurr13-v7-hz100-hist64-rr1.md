@@ -1,10 +1,10 @@
-# cw-arch-hist16-dep1-c1-joyfullcurr13-v7-hz100-hist64
+# cw-arch-hist16-dep1-c1-joyfullcurr13-v7-hz100-hist64-rr1
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: FAILED
+**status**: FAIL
 
-**created**: 2026-08-24T18:17:30+00:00
+**created**: 2026-08-24T18:30:14+00:00
 
 **pod**: hexapod-mjx-train-2
 
@@ -16,7 +16,7 @@
 
 **gate**: PASS: init precert b0 clears (prog>=0.50) AND training healthy at 100 Hz with reward/eval AGREEMENT (frontier promotions track reward) AND 60s randomized joygate at 100 Hz: falls<=2/48, no over_current cluster, directions followed on side/rear/turn/reversal stress, slip <=~2.9/m, video shows all six feet cycling. PARTIAL: precert passes and genuinely learning (promotions + improving evals) but short of the 25 Hz lineage at budget end — continuation candidate. FAIL: precert fails again (temporal-context hypothesis refuted -> from-scratch 100 Hz arm), or reward rises while rung evals stay flat (100 Hz reward/eval mismatch — audit, do not seed-sweep).
 
-**verdict**: The rate-matched transplant did not rescue the 100 Hz retrain: with a 64-frame history and the parent's weights scattered so it saw exactly its trained 40 ms-spaced inputs (mapping verified offline to 7e-6 fp noise on the real checkpoint), the init policy walked WORSE than the naive attempt (precert b0 prog=0.052 vs 0.203, six_leg_gait now failing, 0 falls) and the run exited at the guard. This cleanly refutes the temporal-context hypothesis from fb_20260824T180427_4c2e26: the input contract was restored and behavior still degraded. Leading mechanism: 0.052 is almost exactly 0.203/4 — with the physical slew preserved (0.375 deg/tick at 100 Hz) a 25 Hz policy's per-decision motion authority is quartered; the naive hist16 arm perceived time 4x fast and accidentally compensated by cycling 4x faster (sloppy but moving), while the rate-matched arm paces its trained wall-clock gait tempo and the quartered authority shows directly. So 25->100 Hz is NOT weight-transplantable in either input dialect; policies must (re)learn the action rhythm at the new rate. Next: the concurrent kick cycle's -r2 (guard-dropped adaptation from the degraded warm start) covers the adaptation branch; this cycle launches the note's other branch, a LABELED from-scratch 100 Hz V7 arm, so we learn whether the recipe can learn 100 Hz walking at all. The --hist-stride-transplant tool (7c7175e2) stays: correct and tested for future history densifications.
+**verdict**: Repro attempt of the --hist-stride-transplant repair CONFIRMS the mechanism is broken, not a fluke. Plain English: this is a straight re-launch of the exact hist64-transplant config that already failed once; it reproduces the same fail-closed outcome (init precert b0 prog=0.056 vs the first attempt's 0.052, both far under the 0.50 bar, 0 falls, slip/m 3.31) so the earlier reading was not noise. The script's own fail-closed guard stopped it before any PPO training (never called model.learn()), so this run spent ~0 GPU budget. Evidence: pod-2 /tmp/train_cw-arch-hist16-dep1-c1-joyfullcurr13-v7-hz100-hist64-rr1.log (copied to logs/ckpt_eval/ before rotation risk). Per the already-recorded root-cause conclusion (per-tick action authority quartered at 100Hz, not temporal context), no further --hist-stride-transplant arms are warranted; the labeled from-scratch 100Hz arm (cw-arch-hist64-joyfullcurr13-v7-hz100-scratch-s0, already VERIFIED RUNNING on train-2) is the correct live lever and needs no repro of its own transplant ancestor. Closing this arm; -r2 (plain 100Hz, no transplant) remains the live rate-conversion read.
 
 **failed_reason**: run never appeared as 'running' in W&B within 240s
 

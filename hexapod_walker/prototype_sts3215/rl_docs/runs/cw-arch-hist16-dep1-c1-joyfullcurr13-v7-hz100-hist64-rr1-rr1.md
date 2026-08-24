@@ -1,10 +1,10 @@
-# cw-arch-hist16-dep1-c1-joyfullcurr13-v7-hz100-hist64
+# cw-arch-hist16-dep1-c1-joyfullcurr13-v7-hz100-hist64-rr1-rr1
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: FAILED
+**status**: INTENT
 
-**created**: 2026-08-24T18:17:30+00:00
+**created**: 2026-08-24T18:43:36+00:00
 
 **pod**: hexapod-mjx-train-2
 
@@ -15,8 +15,4 @@
 **hypothesis**: Plain English: the 100 Hz retrain of the best joystick recipe died at launch because the 25 Hz-trained brain was fed its 16-frame history at 4x the frame rate (its 640 ms of context shrank to 160 ms of oddly-spaced frames); this relaunch gives it a 64-frame history with a stride-4 weight transplant so at initialization it sees exactly the 40 ms-spaced inputs it was trained on (verified equivalent to the parent within 7e-6 fp noise on the real checkpoint), and training can then grow into the denser 100 Hz history. Requested by fb_20260824T180427_4c2e26; recipe otherwise the V7 certfreeze ladder at control.hz=100, physical slew preserved at 37.5 deg/s (max_delta_q_deg=0.375), warm start ppo_goal_cw_arch_hist16_dep1_c1.zip. RATE-CONVERSION CAVEAT: 40M ticks at 100 Hz is 1/4 the simulated seconds of a 25 Hz 40M run. Prediction-if-true: precert b0 clears at init (prog>=0.50, the parent's own gait) and the V7 ladder trains at 100 Hz with reward and frontier promotions rising together. Prediction-if-false: precert fails again — the transfer gap is per-tick action/physics semantics at 100 Hz, not temporal context; follow-up is a labeled from-scratch 100 Hz arm, never guard relaxation. Strongest alternative: precert passes but the ladder stalls later at 100 Hz — reads as budget/rate question per the 08-21 ruling (continue), or a 100 Hz reward/eval mismatch if reward rises while rungs do not (audit before seeds).
 
 **gate**: PASS: init precert b0 clears (prog>=0.50) AND training healthy at 100 Hz with reward/eval AGREEMENT (frontier promotions track reward) AND 60s randomized joygate at 100 Hz: falls<=2/48, no over_current cluster, directions followed on side/rear/turn/reversal stress, slip <=~2.9/m, video shows all six feet cycling. PARTIAL: precert passes and genuinely learning (promotions + improving evals) but short of the 25 Hz lineage at budget end — continuation candidate. FAIL: precert fails again (temporal-context hypothesis refuted -> from-scratch 100 Hz arm), or reward rises while rung evals stay flat (100 Hz reward/eval mismatch — audit, do not seed-sweep).
-
-**verdict**: The rate-matched transplant did not rescue the 100 Hz retrain: with a 64-frame history and the parent's weights scattered so it saw exactly its trained 40 ms-spaced inputs (mapping verified offline to 7e-6 fp noise on the real checkpoint), the init policy walked WORSE than the naive attempt (precert b0 prog=0.052 vs 0.203, six_leg_gait now failing, 0 falls) and the run exited at the guard. This cleanly refutes the temporal-context hypothesis from fb_20260824T180427_4c2e26: the input contract was restored and behavior still degraded. Leading mechanism: 0.052 is almost exactly 0.203/4 — with the physical slew preserved (0.375 deg/tick at 100 Hz) a 25 Hz policy's per-decision motion authority is quartered; the naive hist16 arm perceived time 4x fast and accidentally compensated by cycling 4x faster (sloppy but moving), while the rate-matched arm paces its trained wall-clock gait tempo and the quartered authority shows directly. So 25->100 Hz is NOT weight-transplantable in either input dialect; policies must (re)learn the action rhythm at the new rate. Next: the concurrent kick cycle's -r2 (guard-dropped adaptation from the degraded warm start) covers the adaptation branch; this cycle launches the note's other branch, a LABELED from-scratch 100 Hz V7 arm, so we learn whether the recipe can learn 100 Hz walking at all. The --hist-stride-transplant tool (7c7175e2) stays: correct and tested for future history densifications.
-
-**failed_reason**: run never appeared as 'running' in W&B within 240s
 

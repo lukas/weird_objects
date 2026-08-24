@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import multiprocessing as mp
 import os
+import shutil
 import traceback
 from dataclasses import dataclass
 from multiprocessing import shared_memory
@@ -128,6 +129,52 @@ def _shm_layout(B: int, n_act: int, n_obs: int, nq: int, nv: int,
             layout[f"seq_qpos_{fam}"] = s(f"sp{fam[0]}", (B, nq),
                                           "float64")
     return layout
+
+
+def _shm_layout_bytes(layout: dict[str, "_ShmSpec"]) -> int:
+    """Total byte footprint of a ``_shm_layout`` (sum of every block)."""
+    total = 0
+    for spec in layout.values():
+        total += int(np.prod(spec.shape)) * np.dtype(spec.dtype).itemsize
+    return total
+
+
+def _check_shm_budget(layout: dict[str, "_ShmSpec"], B: int,
+                       root: str = "/dev/shm",
+                       headroom: float = 0.85) -> None:
+    """Fail fast (parent process, clear message) instead of letting every
+    worker SIGBUS on first page touch.
+
+    08-24: a 100 Hz ``obs.history_frames=64`` launch at the same
+    ``--n-envs`` as a working ``history_frames=16`` config (n_obs
+    72->1152->4608, ~4x per history quadrupling) blew the pod's fixed
+    64M ``/dev/shm`` tmpfs (``mount -o remount`` is permission-denied
+    in this environment — the mount size is NOT ours to grow), and the
+    only symptom was 24 workers dying with bare ``exitcode=-7`` and no
+    python traceback (SIGBUS on first shared-memory write) — a launch
+    that silently burns ~4 minutes of GPU time before failing. Compute
+    the exact footprint before allocating and refuse with the fix
+    (a safe ``--n-envs``) spelled out, rather than crash workers.
+    """
+    need = _shm_layout_bytes(layout)
+    try:
+        total_shm, _used, free_shm = shutil.disk_usage(root)
+    except OSError:
+        return  # can't stat /dev/shm (e.g. no tmpfs here) — skip the guard
+    budget = int(total_shm * headroom)
+    if need <= budget:
+        return
+    safe_B = max(1, int(B * budget / max(need, 1)))
+    raise RuntimeError(
+        f"MjxShardedVecEnv: requested shm layout is {need / 1e6:.1f}MB "
+        f"(--n-envs {B}) but {root} is only {total_shm / 1e6:.1f}MB total "
+        f"({free_shm / 1e6:.1f}MB free right now) and this pod cannot "
+        f"remount it larger (permission denied). This would have died as "
+        f"24x silent SIGBUS (exitcode=-7) workers on first reset instead "
+        f"of this message. Fix: relaunch with --n-envs <= ~{safe_B} for "
+        f"this obs.history_frames/dr/mode_seq combination (scale n_envs "
+        f"down as history_frames or DR field count grows — shm use is "
+        f"~linear in n_envs * n_obs).")
 
 
 def _gc_orphaned_shm(root: str = "/dev/shm", prefix: str = "hexmjx-") -> int:
@@ -580,6 +627,7 @@ class MjxShardedVecEnv(VecEnv):
             self.mj_model.nv, self.mj_model.nsensordata,
             tag=f"{seed}-{np.random.randint(1 << 30)}",
             dr_shapes=self._dr_shapes, seq=self._seq_on)
+        _check_shm_budget(layout, B)
         self._shm = _ShmArrays(layout, create=True)
 
         ctx = mp.get_context("spawn")
