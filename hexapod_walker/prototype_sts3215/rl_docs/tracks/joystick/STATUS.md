@@ -1200,6 +1200,23 @@ with:
 
 ## Next
 
+0. **100 Hz RATE CONVERSION (operator 08-24, fb_20260824T174619_c49b7e
+   — launched this cycle as `cw-arch-hist16-dep1-c1-joyfullcurr13-v7-
+   hz100`)**: all NEW PPO models train at `control.hz=100` /
+   `safety.max_delta_q_deg=0.375` (37.5 deg/s physical slew preserved;
+   launcher-enforced, see CURRENT_TRUTHS 08-24 ruling). First arm: the
+   V7 certfreeze recipe (stress-diversified WALKCURR_BUCKETS_V7,
+   cert-only freeze, k_walk_stop_current=2.0) warm-started from the
+   stable seed0 parent `ppo_goal_cw_arch_hist16_dep1_c1.zip` (V7 itself
+   still mid-training, no checkpoint to prefer), 40M ticks = 1/4 the
+   sim-seconds of a 25 Hz 40M run — a rate-conversion experiment, not
+   a 160M-tick equivalence. Triage MUST compare reward vs frontier/
+   joygate trends: rising reward + flat evals at 100 Hz = per-tick
+   pricing misalignment (4x denser action-delta/current charges), not
+   seed lottery. Every pre-08-24 checkpoint is 25 Hz — legacy evals
+   pin control.hz=25 automatically (pod_eval), and the robot runner
+   refuses rate-mismatched exports.
+
 1. **CLOSED 08-22, all 3 remaining rise-bank items, root-cause (not
    re-measurement)** (7/7 tibia-150 residue now closed except
    fastprof, a separate already-tracked item): PLANT_SPEC's
