@@ -1,6 +1,41 @@
 # joystick - RL from the programmatic gait to joystick control
 
-Last updated: 2026-08-24 ~13:3x (**freeze40 DIG-IN COMPLETE — verdict
+Last updated: 2026-08-24 ~13:4x (**freeze40-stopcur6 DIG-IN COMPLETE —
+verdict FAIL (both its own pre-registered FAIL branches fired), with
+TWO corrections to the prior triage's story.** (1) **CFG DRIFT
+discovered: the "k=6.0 twin" actually TRAINED at
+`reward.k_walk_stop_current=2.0`** — the respec inherited freeze40's
+reward cfg and only changed `--init-from` (ledger `extra_args` + W&B
+`config.reward_cfg` both confirm k=2). The earlier "dose-invariant
+across k=2.0/k=6.0" claim is therefore WRONG; the correct claim is
+**INIT-invariant**: the training-time-freeze regression reproduces
+from a second, differently-trained warm-start (stopcur6's k=6-trained
+weights), with BOTH freeze runs training at k=2.0. The class-stop on
+training-time freeze (`--cfg-set goal.walk_stop_freeze_s>0`) still
+stands — its controlled evidence is freeze40's 2x2 plus this
+second-init reproduction, not a dose sweep. (2) **New B-control run
+this dig-in** (twin ckpt + freeze-OFF joygate, same held-out seeds
+90000, `logs/ckpt_eval/cw_arch_hist16_dep1_c1_joyfullcurr11_freeze40_
+stopcur6_joygate_freezeoff/`): **3/48 falls (0 at DR-0, dir_err dr0
+36.65deg == parent 36.02) vs freeze-ON 6/48 (3 at DR-0, dir 43.8) vs
+parent 1/48.** Unlike freeze40 — whose DR-0 det falls persisted with
+freeze OFF — THIS checkpoint's DR-0 regression (falls AND dir_err) is
+entirely EVAL-mechanism-caused; its weights damage expresses only
+under own-DR(0.5) (1 -> 3 over_current stop-episode falls with the
+mechanism off). Same training-data-corruption root cause, milder/
+DR-shifted expression; the certfreeze repair (cert-only freeze,
+training freeze off, eval freeze off) removes both expressions.
+(3) **Bonus fact for the leg-lock lever: 40M steps at the REDUCED
+k=2.0 dose did NOT undo the leg-3 lock** (own-DR det gait_valid 2/6,
+numerically identical to the k=6-trained parent) — the lock is baked
+into the stopcur6 WEIGHTS, not sustained by ongoing k=6 reward
+pressure, so dose-reduction-only is refuted as a lock repair; a
+future lock arm needs its own mechanism and should prefer the clean
+stopcur2 lineage. Frontier win reconfirmed (b1->b5, 4 promotions/0
+rollbacks, b1 cert 72/79). Verdict + artifacts on the run; certfreeze
+(train-1) remains the live repair arm. Prior banner below.)
+
+Previous entry (2026-08-24 ~13:3x (**freeze40 DIG-IN COMPLETE — verdict
 FAIL, root cause ISOLATED by a 2x2 control, mechanism repaired and
 relaunched as `cw-arch-hist16-dep1-c1-joyfullcurr12-certfreeze`
 (VERIFIED RUNNING, train-1).** Plain English: the stop-freeze
