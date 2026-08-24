@@ -38,6 +38,26 @@ uv run --no-project --python 3.12 \
   python hexapod_walker/prototype_sts3215/cad_step_test/build_step_assembly_views.py --with-servos
 ```
 
+A focused yaw-bearing stack for one leg plus `chassis_bottom` can be generated
+from the same BuildViz scene transforms:
+
+```bash
+uv run --no-project --python 3.12 \
+  --with build123d --with trimesh --with numpy \
+  python hexapod_walker/prototype_sts3215/cad_step_test/build_step_assembly_views.py \
+    --yaw-bearing-focus --leg-index 0
+```
+
+The optional stock C-horn variant has its own additive STEP-first exporter. It
+imports the measured/assumed constants from `tools/make_chorn_variant.py`, but
+does not write to `extra_stl/chorn/`:
+
+```bash
+uv run --no-project --python 3.12 \
+  --with build123d --with trimesh --with numpy \
+  python hexapod_walker/prototype_sts3215/cad_step_test/build_chorn_step.py
+```
+
 Outputs are written to `cad_step_test/out/`:
 
 - `step/*.step`: clean CAD/BREP exchange files.
@@ -46,8 +66,11 @@ Outputs are written to `cad_step_test/out/`:
   legacy-STL comparison when a baseline STL exists.
 - `assembled_robot*_manifest.json`: composed robot-view STEP/STL diagnostics
   using BuildViz's assembly frames.
+- `yaw_bearing_focus_L*_manifest.json`: compact one-leg yaw stack diagnostics.
+- `chorn_manifest.json`: STEP-first stock C-horn variant diagnostics.
 - `hexapod_step_first_test_bundle.zip`: a small bundle suitable for uploading
   to Onshape as a test.
+- `chorn_step_first_bundle.zip`: C-horn variant STEP/STL bundle.
 
 ## Current migration scope
 
@@ -69,6 +92,17 @@ Migrated in this sidecar:
 - `yaw_bearing_lower`
 - `yaw_servo_retainer`
 - `yaw_bearing_upper`
+
+Additional additive STEP-first diagnostics:
+
+- `yaw_bearing_focus_L0` assembly: full `chassis_bottom` plus leg-0
+  `coxa_link`, `yaw_bearing_cap`, lower/upper 6805 bearings, and yaw
+  `disc_horn`.
+- Stock C-horn variant parts:
+  - `chorn_reference_DO_NOT_PRINT`
+  - `spacers`
+  - `femur_chorn_body`
+  - `tibia_chorn_socket`
 
 Still pending:
 
