@@ -168160,7 +168160,7 @@
       "goal.walk_stop_freeze_s=0.4"
     ],
     "created": "2026-08-24T09:00:15+00:00",
-    "status": "RUNNING",
+    "status": "FAIL",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -168206,7 +168206,8 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-arch-hist16-dep1-c1-joyfullcurr11-freeze40 since 2026-08-24T12:36:34"
+    "triage": "done",
+    "verdict": "The structural stop-freeze unlocks the curriculum (first-ever promotion b0->b5; b1 stop cert holds 0.012-0.016 all run) but TRAINING with the override active damages the policy itself: held-out joygate falls regress 1/48 (stopcur2 parent) -> 7/48. OBSERVATIONS (dig-in 2x2 on the run's pod, same held-out joygate seeds 90000): A=freeze40ckpt+freeze-ON-eval 7/48 falls; B=freeze40ckpt+freeze-OFF 4/48; C=parent+OFF 1/48; D=parent+ON 2/48. B repeats A's exact DR-0 det falls (det6, det11, both over_current) with the mechanism disabled, so the DR-0 regression lives in the WEIGHTS; the eval-time mechanism on healthy parent weights costs ~1 fall (C->D, noise-band). dir_err regression is eval-mechanism-only (B dr0 33.75deg == parent 33.93; A 41.78). Videos of reproduced DR-0 falls: over_current strain terminations (det6 progressive crouch/splay, det11 upright cycling gait then current trip), not topples. INTERPRETATION (root-cause chain): falls <- over_current strain under the stop-heavy random mix <- PPO trained on corrupted stop ticks (the freeze discards the policy's action, so executed!=proposed transitions let the policy drift unpunished during holds; resume then executes a drifted action) plus b2-b5 diet shift <- applying an eval-time supervisor at TRAINING time. VERDICT: FAIL against its own gate (pre-registered if-false branch fired), NOT a lineage kill per 08-21 - mechanism repaired: new --walkcurr-cert-cfg-set applies cfg overrides to the cert/precert env ONLY (default empty = bit-exact, 24/24 tests green, tag exp/cw-arch-hist16-dep1-c1-joyfullcurr12-certfreeze). hardware-ready: no. HYPOTHESIS STATUS: half-true - bucket-promotion prediction TRUE, zero-new-pathology prediction FALSE and root-caused. Next: joyfullcurr12-certfreeze trains from stopcur2 with freeze OFF in training, ON only in the cert assay; if joygate stays in the parent band while frontier promotes, the on-policy-corruption read is confirmed and the promotion win is kept cleanly."
   },
   {
     "run": "cw-arch-hist16-dep1-c1-joyfullcurr10-stopfreeze-probe-stopcur6",
