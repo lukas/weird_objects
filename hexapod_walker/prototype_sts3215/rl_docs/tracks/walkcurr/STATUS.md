@@ -1115,3 +1115,31 @@ validity, on video. Speed obedience is secondary throughout.
   fix supersedes needing them as a fix for that specific mechanism.**
   Evidence: `logs/ckpt_eval/cw_walkcurr_pf_fwd6_actbias1_gate/`
   (`walk_det_0_sheet.png`, `walk_sto_0_sheet.png`).
+
+## Now (updated 08-24 ~01:2x — actbias1-pdw05 FAIL: dose escalation launched)
+
+- **`cw-walkcurr-pf-fwd6-actbias1-pdw05` FAIL, verdicted.** Stacking
+  the action-bias fix with the bank-proven `park_duty_window_s=0.5`
+  confound fix: `env/reward_park_duty` now fires correctly (-0.005 ->
+  -0.025 over the run, confirming the confound fix generalizes to
+  this base pose), but every walking metric is UNCHANGED from
+  actbias1 alone — `height_err_mm` stays low/stable (14-22mm, still no
+  collapse), `walk_direction_err_deg` pinned ~87-89deg the entire run,
+  `walk_freeprog_score` flat -0.07..-0.08 (no zero-crossing). Gate:
+  det 0/6 gait_valid, **5/6 legs sacrificed** (a tighter tripod-lock
+  than actbias1's 3/6), dir_err 71deg, prog_ratio 0.00; sto 5/6
+  gait_valid but dir_err 88.6deg / slip/m 43.98 (in-place thrashing).
+  Video: same clean level park-stand as actbias1, visually static —
+  the confound-fixed charge fires but does not dislodge the stand.
+  Exactly the pre-registered prediction-if-false. **Launched (this
+  cycle): `cw-walkcurr-pf-fwd6-actbias1-pdw05-pdx15`** — same stack,
+  `reward.k_park_duty` 0.08->0.12 (1.5x, the same bank-legal max dose
+  already proven on `hgt2-pdw05-pdx15`/pdx15b, bank test
+  `tight_pdw05_pdx1p5` 16/16 green; 3x was bank-refuted for inverting
+  the park/belly_sit ranking). Prediction-if-false (same static
+  park-stand persists at 1.5x too): park_duty-class is CLOSED even
+  combined with the bias fix — next mechanism is the direct
+  minimum-total-foot-contact charge (WITH a termination, per the
+  stagea-slip1 absorbing-state lesson) and BC-kickstart gets flagged
+  to the operator as the named last resort in the same verdict, no
+  further park_duty dose variants after this one.
