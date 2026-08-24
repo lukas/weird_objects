@@ -4610,6 +4610,10 @@ def main(argv: list[str] | None = None) -> int:
                         f"{pfx}/duty_factor": m["duty_factor"],
                         f"{pfx}/slew_sat": m["slew_sat"],
                         f"{pfx}/stop_speed_m_s": m["stop_speed_m_s"],
+                        f"{pfx}/stop_speed_settled_m_s":
+                            m["stop_speed_settled_m_s"],
+                        f"{pfx}/stop_ticks_settled_frac":
+                            m["stop_ticks_settled_frac"],
                         f"{pfx}/return": m["return"],
                         # Body height + income factor vs the reward
                         # gate's anchor, and the DR the bucket REALIZES
@@ -4782,6 +4786,9 @@ def main(argv: list[str] | None = None) -> int:
                       f" h_err={_f(m_b.get('h_err_mm'), 0):+.1f}mm"
                       f" hf={_f(m_b.get('height_factor'), 0):.2f}"
                       f" slew={_f(m_b.get('slew_sat'), -1):.2f}"
+                      f" stop={_f(m_b.get('stop_speed_m_s'), -1):.4f}"
+                      f" stop_settled={_f(m_b.get('stop_speed_settled_m_s'), -1):.4f}"
+                      f" settled_frac={_f(m_b.get('stop_ticks_settled_frac'), -1):.2f}"
                       + ("" if bi == 0 else "  [informational]"))
                 if run is not None:
                     import wandb
@@ -4797,7 +4804,10 @@ def main(argv: list[str] | None = None) -> int:
                                      "survival_s_min", "command_changes",
                                      "command_changes_min",
                                      "cmd_prog_frac_p10",
-                                     "height_factor_p10")
+                                     "height_factor_p10",
+                                     "stop_speed_m_s",
+                                     "stop_speed_settled_m_s",
+                                     "stop_ticks_settled_frac")
                            if m_b.get(k) is not None
                            and float(m_b[k]) == float(m_b[k])}
                     wandb.log({"global_step": 0,

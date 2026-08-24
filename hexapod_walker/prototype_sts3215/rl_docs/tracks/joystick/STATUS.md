@@ -1,6 +1,62 @@
 # joystick - RL from the programmatic gait to joystick control
 
-Last updated: 2026-08-24 ~06:2x (**`cw-arch-hist16-dep1-c1-joyfullcurr9-stopcur6`
+Last updated: 2026-08-24 ~06:3x (**`cw-arch-hist16-dep1-c1-joyfullcurr9-stopcur2`
+VERDICTED PARTIAL (dose sibling of stopcur6, read jointly) — the k=2.0
+stop-current charge keeps the over_current win with only a MILD version
+of stopcur6's leg-sacrifice trade, but still does not touch the b1
+cert.** Plain English: same mechanism as stopcur6 (charge sustained
+per-servo current above headroom on stop ticks) at a lower dose.
+Held-out 60s joygate falls: **1/48** (matches stopcur6's 1/48 exactly,
+both crushing joyfullcurr6's 8/48 bar), the one remaining fall still
+over_current but now a rare tail event, not the dominant mode; slip/m
+2.178 (cap 2.9), dir_err 42.83deg (allow 40, narrowly misses, in line
+with the whole ladder's history). DR-0 gate is fully clean (det 6/6,
+sto 5/6 gait_valid, 0 terms) — no leg-3 sacrifice at DR-0, unlike
+stopcur6's 4/6. Own-DR (0.5) shows the SAME leg-3 pathology stopcur6's
+triage flagged, just milder: det 5/6 gait_valid, one episode (det/1)
+sacrifices leg 3 (slip/m 6.63) exactly like stopcur6's fingerprint,
+but only 1/6 vs stopcur6's 2/6-5/6-ish rate — **the leg-3 sacrifice
+trade is dose-dependent and k=2.0 sits in a meaningfully safer regime
+than k=6.0, not a clean zero**, worth remembering for any future
+current-charge dose increase. On the walkcurr side: in-training
+`walkcurr/b1_front45_20s/stop_speed_m_s` plateaus 0.027-0.048 m/s
+across the full 40M run (79 cert rounds, no downward trend) —
+identical band to joyfullcurr6/7/8 and to stopcur6 — because
+`env/walk_stop_current_max_a` stayed 1.1-1.4A the whole run, under the
+1.5A headroom the charge fires above: it is a no-op against a gentle,
+low-current sustained creep, which is exactly what the cert measures.
+`walkcurr/frontier` never leaves b1; buckets b2-b9 (side90/rear/
+full-circle, the actual point of the operator's order) stay
+unpracticed. Reward quarters 841/932/899/864 (peaks Q2, declines) =
+plateau, aligned per 08-21 for the cert metric specifically (the
+over_current axis is a genuine, separate win, not undertrained).
+**Joint read with stopcur6**: both doses solve over_current
+identically (1/48 each) and both leave the cert bar completely
+unmoved — the current-charge mechanism's job is done (over_current is
+fixed), and no further current-charge dose is worth spending; k=2.0 is
+the safer operating point given the leg-3 finding.
+**REFILL (this cycle): the old "do not dose up k_walk_stop_charge"
+caution (recorded when over_current was still unsolved and a hard
+brake was the feared failure mode) no longer applies now that a
+proven, separate mechanism prices the fight directly** — launched
+`cw-arch-hist16-dep1-c1-joyfullcurr10-chg2`/`-chg4`
+(`k_walk_stop_charge` 1.0->2.0/4.0, `k_walk_stop_current` held at the
+proven, safer 2.0, same base parent `ppo_goal_cw_arch_hist16_dep1_c1.zip`),
+both VERIFIED RUNNING (train-0, train-1), to attack the cert-blocking
+creep directly. Watch per-leg `sacrificed_legs` closely on both — a
+higher speed charge could plausibly find the SAME leg-3-lock shortcut
+to cheapen its own metric (locking a leg reduces measured body speed
+too), which would be a new, orthogonal finding, not a repeat of the
+current-charge story. If-false at both (creep dose-insensitive again):
+close the stop-speed-charge-dose lever for good and audit whether the
+0.015 m/s cert bar is achievable at all given actuator/contact
+settle-time physics. Champion unchanged (`stotight45-seed13`); the
+core joystick DONE gate stays met per 08-23; this V6 ladder remains
+operator-ordered hardening (`fb_20260823T220651_5c66e3`). Evidence:
+`logs/ckpt_eval/cw_arch_hist16_dep1_c1_joyfullcurr9_stopcur2_{gate,
+owncfg,joygate}/`, W&B run `ft3d73yx`. Prior banner below.)
+
+Previous entry (2026-08-24 ~06:2x (**`cw-arch-hist16-dep1-c1-joyfullcurr9-stopcur6`
 VERDICTED PARTIAL — the stop-CURRENT charge (k=6.0, 2x the speed-charge
 cap) WORKS on its primary target but trades in a new pathology.**
 Plain English: pricing sustained per-servo current on stop ticks

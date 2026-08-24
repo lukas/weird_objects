@@ -1617,6 +1617,8 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             h_sum=0.0, vx_se=0.0, vy_se=0.0, wz_se=0.0, vx_n=0,
             cmd_dist=0.0, prog_m=0.0, cross_m=0.0,
             stop_v_sum=0.0, stop_ticks=0,
+            stop_v_sum_settled=0.0, stop_ticks_settled=0,
+            stop_seg_s=0.0,
             head_ticks=int(round(2.0 / self.dt)),
             ret=0.0, n=0)
 
@@ -1680,9 +1682,40 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 w["cross_m"] += ((float(vy_meas) * vx_c
                                   - float(vx_meas) * vy_c) / s_ref
                                  * self.dt)
-            elif n > w["head_ticks"]:
-                w["stop_v_sum"] += float(np.hypot(vx_meas, vy_meas))
-                w["stop_ticks"] += 1
+                w["stop_seg_s"] = 0.0
+            else:
+                # Elapsed time already spent in THIS stop segment
+                # before this tick (2026-08-24, joyfullcurr10
+                # cert-methodology audit: the legacy `stop_v_sum`/
+                # `stop_ticks` below count every stop tick from the
+                # very first one, with no per-segment settle
+                # exemption -- unlike the reward's own
+                # `reward.walk_stop_grace_s`, which explicitly ramps
+                # the stop charges' multiplier 0->1 over the first
+                # grace window because that transient is an
+                # unavoidable physical deceleration, not creep. That
+                # asymmetry means dosing the reward charge can only
+                # ever discipline the POST-grace ticks the cert
+                # already weights identically to the pre-grace ones,
+                # so a dose-insensitive `stop_speed_m_s` plateau does
+                # not by itself prove the creep is unshapeable --
+                # `goal.walk_stop_settle_s` (default 0.0, additive
+                # metric only, legacy `stop_v_sum`/`stop_ticks` path
+                # below is untouched) lets an offline read exclude the
+                # first N seconds of each stop segment the same way,
+                # surfacing `stop_speed_settled_m_s` for comparison.
+                seg_s_before = w["stop_seg_s"]
+                w["stop_seg_s"] = seg_s_before + self.dt
+                if n > w["head_ticks"]:
+                    w["stop_v_sum"] += float(np.hypot(vx_meas, vy_meas))
+                    w["stop_ticks"] += 1
+                    settle_s = float(cfg_get(
+                        self.cfg, "goal", "walk_stop_settle_s",
+                        default=0.0))
+                    if seg_s_before >= settle_s:
+                        w["stop_v_sum_settled"] += float(
+                            np.hypot(vx_meas, vy_meas))
+                        w["stop_ticks_settled"] += 1
         if term or trunc:
             info["walk_probe"] = self._walk_probe_summary(bool(term))
 
@@ -1741,6 +1774,12 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                           if w["cmd_dist"] > 0.01 else nan),
             "stop_speed_m_s": (w["stop_v_sum"] / w["stop_ticks"]
                                if w["stop_ticks"] else nan),
+            "stop_speed_settled_m_s": (
+                w["stop_v_sum_settled"] / w["stop_ticks_settled"]
+                if w["stop_ticks_settled"] else nan),
+            "stop_ticks_settled_frac": (
+                w["stop_ticks_settled"] / w["stop_ticks"]
+                if w["stop_ticks"] else nan),
             "foot_sw_min_per_s": (min(w["sw_foot"])
                                   / max(w["n"] * self.dt, 1e-9)),
             "duty_factor": w["on_ticks"] / max(w["n"] * 6, 1),

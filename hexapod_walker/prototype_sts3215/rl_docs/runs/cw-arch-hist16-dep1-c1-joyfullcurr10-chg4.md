@@ -1,0 +1,20 @@
+# cw-arch-hist16-dep1-c1-joyfullcurr10-chg4
+
+<!-- GENERATED from experiments.json by launch_run.py — do not edit -->
+
+**status**: RUNNING
+
+**created**: 2026-08-24T06:37:05+00:00
+
+**pod**: hexapod-mjx-train-1
+
+**steps**: 40000000
+
+**parent**: cw-arch-hist16-dep1-c1-joyfullcurr9-stopcur2
+
+**wandb_id**: nq6a26vc
+
+**hypothesis**: Plain English: high-dose sibling of joyfullcurr10-chg2. joyfullcurr9-stopcur2 proved the actuator-current stop charge (k=2.0) kills the over_current fall pathology (14/48->1/48) but leaves the walkcurr b1 cert (stop_speed_m_s<=0.015) completely unmoved -- creep plateaued 0.027-0.048 m/s the whole 40M run because the current charge only fires near the 2.5A trip and never touches a gentle low-current creep. This arm quadruples the stop-speed charge (k_walk_stop_charge 1.0->4.0, matching the charge's own existing dose-cap ceiling) on top of the unchanged, proven k_walk_stop_current=2.0, same base parent, same recipe otherwise -- brackets whether -chg2's dose (if it moves the metric at all) needs to go further, or whether the creep is dose-insensitive entirely (mirroring the original k_walk_stop_charge 0->1.0 dose step, which reduced creep once then plateaued rather than continuing down with more training). If-true: stop_speed_m_s drops toward/below 0.015 and frontier promotes past b1, without reopening over_current (falls stay near stopcur2's 1/48). If-false at BOTH doses (this and -chg2): the residual creep is dose-insensitive -- close the stop-speed-charge-dose lever for good and audit whether the 0.015 m/s cert bar is physically achievable (actuator/contact settle-time floor) before any further stop-pricing mechanism.
+
+**gate**: walkcurr V6 b1 cert clears its stop check (stop_speed_m_s <= 0.015) and frontier promotes past b1; joygate falls stay <= stopcur2's 1/48 with over_current not the dominant term_reason; DR0+ownDR walk gates stay >=5/6 gait_valid with no systemic term regression; video all six feet cycling
+
