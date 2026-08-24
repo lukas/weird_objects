@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-08-24T13:43:44+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 40000000
 
 **parent**: cw-arch-hist16-dep1-c1-joyfullcurr12-certfreeze
+
+**wandb_id**: k7jfofa9
 
 **hypothesis**: Plain English: seed replicate 2 of the cert-only-freeze repair (see certfreeze-s1) -- third arm of the n=3 seed-pass-rate batch on whether cert-only freeze keeps the curriculum-promotion win without the training-time-freeze fall regression.
 

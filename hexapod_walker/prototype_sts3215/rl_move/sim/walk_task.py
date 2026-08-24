@@ -678,6 +678,32 @@ WALKCURR_BUCKETS_V6 = (
          gate=WALKCURR_GATE_V6_JOYSTICK),
 )
 
+# WALKCURR_BUCKETS_V7 ("stress-diet" ladder, 08-24 assume-and-go
+# repair): same heading/duration/DR/gate ladder as V6 (the certfreeze
+# dig-in's own pre-registered if-false branch — "the damage is the
+# b2+ practice diet itself... next lever is mixing stress_mix
+# commands into bucket training, not freeze mechanics" — B2-B9's
+# held-out joygate falls (over_current, 1/48 parent -> 6-7/48 across
+# 3 independent freeze/no-freeze arms) never moved with the freeze
+# mechanism, so the fix targets the DIET, not the supervisor). V6's
+# own command sampler never draws an in-place turn (wz) or a full
+# reversal — the held-out joygate's stress_mix family (flip_180,
+# sweep_circle, square, jitter) does both every episode. V7 adds
+# per-bucket `wz_max`/`wz_zero_frac` (in-place turning, same
+# semantics as goal.walk_yaw_max_rad_s/walk_yaw_zero_frac) and
+# `reversal_frac` (probability a resampled segment is a full
+# instantaneous reversal, the bucket-diet analogue of flip_180) from
+# front45_20s onward; the bridge rung (B0, proving the transplanted
+# gait survives at all) stays untouched at 0/1.0/0.0. `_sample_walk_
+# curr` reads these with `.get(..., 0.0)` defaults, so V1-V6 tables
+# (missing the keys) are bit-exact unchanged.
+WALKCURR_BUCKETS_V7 = tuple(
+    (dict(b, wz_max=0.0, wz_zero_frac=1.0, reversal_frac=0.0)
+     if b["name"] == "bridge_10s" else
+     dict(b, wz_max=0.3, wz_zero_frac=0.5, reversal_frac=0.15))
+    for b in WALKCURR_BUCKETS_V6
+)
+
 # Sampling mixture over unlocked buckets (operator spec): 50% frontier,
 # 25% weakest mastered, 15% uniform over mastered, 10% the rung just
 # prior to the frontier. Empty components fold back to the frontier.
@@ -1236,9 +1262,11 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # the original V1 table; version 1 stays bit-exact unchanged.
         wc_version = float(cfg_get(self.cfg, "goal", "walk_curriculum",
                                    default=0.0))
-        self._wc_on = wc_version in (1.0, 2.0, 3.0, 4.0, 5.0, 6.0)
+        self._wc_on = wc_version in (1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0)
         self._wc_version = int(wc_version) if self._wc_on else 0
-        self._wc_table = (WALKCURR_BUCKETS_V6 if self._wc_version == 6
+        self._wc_table = (WALKCURR_BUCKETS_V7 if self._wc_version == 7
+                          else WALKCURR_BUCKETS_V6
+                          if self._wc_version == 6
                           else WALKCURR_BUCKETS_V5
                           if self._wc_version == 5
                           else WALKCURR_BUCKETS_V4
@@ -1248,7 +1276,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                           else WALKCURR_BUCKETS_V2
                           if self._wc_version == 2
                           else WALKCURR_BUCKETS)
-        if self._wc_version in (4, 5, 6):
+        if self._wc_version in (4, 5, 6, 7):
             required_s = max(float(b["duration_s"])
                              for b in self._wc_table)
             available_s = self.episode_steps * self.dt
@@ -2096,6 +2124,14 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         vx[hold_n:end] = np.linspace(0.0, vx_t, end - hold_n)
         vy[hold_n:end] = np.linspace(0.0, vy_t, end - hold_n)
         rs_s = float(spec["resample_s"])
+        # V7 stress-diet extras (walk_task.py WALKCURR_BUCKETS_V7
+        # banner): missing on every V1-V6 bucket, so `.get` defaults
+        # keep this branch a true no-op (zero extra rng draws) for
+        # every pre-existing table.
+        wz_max = float(spec.get("wz_max", 0.0))
+        wz_zero_frac = float(spec.get("wz_zero_frac", 1.0))
+        reversal_frac = float(spec.get("reversal_frac", 0.0))
+        wz = np.zeros(n) if wz_max > 0.0 else None
         if rs_s > 0.0:
             jit = float(spec["jitter"])
             bl_lo, bl_hi = float(spec["blend_lo"]), float(spec["blend_hi"])
@@ -2112,11 +2148,18 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                     return 0
                 return max(1, int(round(max(bl, self.dt) / self.dt)))
 
-            cvx, cvy = vx_t, vy_t
+            cvx, cvy, cwz = vx_t, vy_t, 0.0
             i = hold_n + ramp_n + seg_len()
             while i < command_n:
                 if rng.random() < float(spec["stop_frac"]):
                     nvx = nvy = 0.0
+                elif reversal_frac > 0.0 and rng.random() < reversal_frac:
+                    # Bucket-diet analogue of stress_mix's flip_180: an
+                    # instantaneous full reversal of the current
+                    # command (the joygate's dominant held-out failure
+                    # mode, over_current on stop/reverse, is never
+                    # PRACTICED by the plain V6 sampler).
+                    nvx, nvy = -cvx, -cvy
                 else:
                     nvx, nvy = draw_cmd()
                 n_blend = blend_len()
@@ -2127,13 +2170,20 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                 vx[end_b:command_n] = nvx
                 vy[end_b:command_n] = nvy
                 cvx, cvy = nvx, nvy
+                if wz is not None:
+                    nwz = (0.0 if rng.random() < wz_zero_frac
+                          else float(rng.uniform(-wz_max, wz_max)))
+                    if n_blend:
+                        wz[i:end_b] = np.linspace(cwz, nwz, end_b - i)
+                    wz[end_b:command_n] = nwz
+                    cwz = nwz
                 command_changes += 1
                 i += seg_len()
         zeros = np.zeros(n)
         self._walk_bucket = None
         traj = WalkTrajectory(mode="walk", roll=zeros, pitch=zeros,
                               height=zeros, unload_leg=None,
-                              start_at="plant", vx=vx, vy=vy, wz=None,
+                              start_at="plant", vx=vx, vy=vy, wz=wz,
                               cmd_mode="walkcurr",
                               duration_steps=duration_steps,
                               command_changes=command_changes)

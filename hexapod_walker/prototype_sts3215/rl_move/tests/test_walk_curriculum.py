@@ -853,3 +853,111 @@ def test_v6_trajectories_encode_horizon_change_floor_and_full_circle():
     assert headings.min() < math.radians(-100.0)
     assert headings.max() > math.radians(100.0)
     env.close()
+
+
+# -- walkcurr7 (08-24 assume-and-go stress-diet repair): same ladder as
+# V6 plus in-place turning + full-reversal segments in every non-bridge
+# bucket, so training practices the held-out joygate's stress_mix
+# distribution (flip_180/sweep_circle/square/jitter) instead of only
+# smooth heading-band walks. See walk_task.py WALKCURR_BUCKETS_V7
+# banner and CURRENT_TRUTHS/joystick STATUS.md 08-24 certfreeze verdict
+# for the evidence this repairs (over_current joygate falls, 1/48
+# parent -> 6-7/48, unmoved by the freeze mechanism across 3 arms). ---
+CURR_V7_ON = {("goal", "walk_curriculum"): 7.0}
+
+
+def test_v7_selects_the_v7_table_and_v6_untouched():
+    from rl_move.sim.walk_task import (WALKCURR_BUCKETS_V6,
+                                       WALKCURR_BUCKETS_V7)
+    env = _env(seed=7, extra=CURR_V7_ON, episode_seconds=60.0)
+    assert env._wc_version == 7
+    assert env._wc_table is WALKCURR_BUCKETS_V7
+    env.close()
+    env6 = _env(seed=7, extra=CURR_V6_ON, episode_seconds=60.0)
+    assert env6._wc_version == 6
+    assert env6._wc_table is WALKCURR_BUCKETS_V6
+    env6.close()
+
+
+def test_v7_ladder_matches_v6_apart_from_the_stress_fields():
+    from rl_move.sim.walk_task import (WALKCURR_BUCKETS_V6,
+                                       WALKCURR_BUCKETS_V7)
+    assert len(WALKCURR_BUCKETS_V7) == len(WALKCURR_BUCKETS_V6)
+    shared_keys = ("name", "duration_s", "min_command_changes", "s_lo",
+                  "s_hi", "head_lo", "head_hi", "resample_s", "jitter",
+                  "stop_frac", "blend_lo", "blend_hi", "dr",
+                  "stop_gate", "gate")
+    for b6, b7 in zip(WALKCURR_BUCKETS_V6, WALKCURR_BUCKETS_V7):
+        for k in shared_keys:
+            assert b6[k] == b7[k], (b7["name"], k)
+    # Bridge (B0) is untouched: no in-place turning, no reversals.
+    bridge = WALKCURR_BUCKETS_V7[0]
+    assert bridge["name"] == "bridge_10s"
+    assert bridge["wz_max"] == 0.0
+    assert bridge["reversal_frac"] == 0.0
+    # Every other rung gets the stress-diet extras.
+    for spec in WALKCURR_BUCKETS_V7[1:]:
+        assert spec["wz_max"] == pytest.approx(0.3)
+        assert spec["wz_zero_frac"] == pytest.approx(0.5)
+        assert spec["reversal_frac"] == pytest.approx(0.15)
+
+
+def test_v6_sampler_bit_exact_when_stress_fields_absent():
+    """V6's own table has no wz_max/reversal_frac keys; the sampler's
+    `.get(..., 0.0)` defaults must reproduce the EXACT same command
+    trajectory (rng draw-for-draw) as before this repair landed."""
+    env = _env(seed=13, extra=CURR_V6_ON, episode_seconds=60.0)
+    env.force_walk_curr_bucket = 2  # front45_60s: resample_s > 0
+    traj = _sample_traj(env)
+    assert traj.wz is None
+    env.close()
+
+
+def _plateaus(vx, vy, min_run=5):
+    """Distinct held-command segments (runs of >=min_run identical
+    (vx, vy) samples, i.e. after a blend has settled) as a list of
+    (vx, vy) tuples in order."""
+    out = []
+    i = 0
+    n = len(vx)
+    while i < n:
+        j = i + 1
+        while j < n and abs(vx[j] - vx[i]) < 1e-9 and abs(
+                vy[j] - vy[i]) < 1e-9:
+            j += 1
+        if j - i >= min_run:
+            out.append((float(vx[i]), float(vy[i])))
+        i = j
+    return out
+
+
+def test_v7_draws_in_place_turning_and_reversals():
+    env = _env(seed=5, extra=CURR_V7_ON, episode_seconds=60.0)
+    env.force_walk_curr_bucket = 2  # front45_60s
+    saw_nonzero_wz = False
+    saw_reversal = False
+    for _ in range(15):
+        traj = _sample_traj(env)
+        assert traj.wz is not None
+        assert np.abs(traj.wz).max() <= 0.3 + 1e-9
+        if np.any(np.abs(traj.wz) > 1e-6):
+            saw_nonzero_wz = True
+        plateaus = _plateaus(traj.vx, traj.vy)
+        for (ax, ay), (bx, by) in zip(plateaus, plateaus[1:]):
+            if (math.hypot(ax, ay) > 0.01
+                    and abs(bx + ax) < 1e-6 and abs(by + ay) < 1e-6):
+                saw_reversal = True
+    assert saw_nonzero_wz, "V7 never drew an in-place turn in 15 episodes"
+    assert saw_reversal, "V7 never drew a reversal segment in 15 episodes"
+    # Bridge (B0) stays exactly like V6: no wz, no reversals.
+    env.force_walk_curr_bucket = 0
+    bridge_traj = _sample_traj(env)
+    assert bridge_traj.wz is None
+    env.close()
+
+
+def test_v7_requires_a_real_60_second_training_horizon():
+    with pytest.raises(ValueError):
+        _env(seed=0, extra=CURR_V7_ON, episode_seconds=10.0)
+    env = _env(seed=0, extra=CURR_V7_ON, episode_seconds=60.0)
+    env.close()
