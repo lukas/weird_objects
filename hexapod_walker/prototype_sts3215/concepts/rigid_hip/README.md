@@ -23,7 +23,7 @@ servo — is a cantilever.  This variant closes the structure from the top:
   ±24.75) and the Φ40 centre hole, all of which fell inside the
   opening.  The electronics deck mounts on the hatch, so the lid lifts
   out WITH the electronics (tethered by wiring) for bench work.
-* **`corner_pillar`** (print 6): hollow columns at the six corner
+* **`corner_pillar`** (print 6): solid scalloped columns at the six corner
   azimuths tying the frame to chassis_bottom at the RIM — the actual
   top↔bottom structural connection (see below).  Each stands in a
   vacated corner Wago tray and doubles as the boss its hatch perimeter
@@ -95,11 +95,17 @@ hatch/electronics anchors only.  The tie is six printed pillars at the
 corner azimuths (rho 81.6, between adjacent legs — the only rim
 territory outside every swing envelope):
 
-* **Column**: hollow, elliptical section 20 mm radial × 14 mm
-  tangential (walls 4 / 2.8), z 2 → 87.95, ~19 g each in PETG.  The
-  tangential waist keeps a **measured 2.9 mm clearance** to the coxa
-  tail sweep of both flanking legs across the whole yaw range —
-  verified clear even for a full 360° hand-spin of a disassembled leg.
+* **Column**: solid, elliptical section 20 mm radial × 14 mm
+  tangential, z 2 → 87.95, ~23 g each in PETG.  **The legs' swept
+  keep-out volume is carved out of its flanks**: a vertical cylinder
+  of radius sweep + 5 mm (measured worst rotating reach = 40.4 mm,
+  the coxa cradle arm; the hip servo itself never gets within
+  13.8 mm) is subtracted around both flanking yaw axes over the
+  rotating z band (24–78).  So **≥ 5 mm clearance holds at every yaw
+  angle by construction** — measured 5.03 mm at build time, asserted
+  on every rebuild, and verified clear for a full 360° hand-spin of a
+  disassembled leg.  Everywhere outside that band the column keeps
+  its full section.
 * **Top**: stops 0.1 mm short of the frame sheet (the six bearing
   RACES define the plate plane — the screws pull the sheet down onto
   the pillar; sand/shim a proud pillar, never let it rock).  Two Φ2.5
@@ -120,7 +126,7 @@ territory outside every swing envelope):
   sheet+floor, bolt.  A one-time bench drill mod, verified against
   open belly at all three spots.
 
-Why this shape: light (~115 g total for all six), cheap (pure print,
+Why this shape: light (~140 g total for all six), cheap (pure print,
 ~$3 of filament + 24 screws), strong (six large-section columns at
 2× the standoff radius — slender-column estimates put plate shear ~3×
 and torsion ~6× the four-standoff baseline, before counting the keyed
@@ -251,8 +257,8 @@ serviceable option.
   blind bores (clean press walls); the Φ34→37.15 shoulder is a short
   internal bridge, same as the bottom tower prints.
 * `top_hatch_rigid`: lid face down, lip up — flat print, no supports.
-* `corner_pillar`: foot down, column up — no supports (the bore
-  ceiling is a short internal bridge under the top plug).
+* `corner_pillar`: foot down, column up — solid, no supports (the
+  scallops are gentle vertical concave faces, nothing overhangs).
 * `hip_clamp_cap_rigid`: rest on the tongue face (outer face + boss
   up) so the press boss prints as a vertical cylinder; supports under
   the flange wings and hooks.  Printing in the stock flat orientation

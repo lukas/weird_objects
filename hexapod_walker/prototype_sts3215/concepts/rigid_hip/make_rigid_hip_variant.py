@@ -22,8 +22,10 @@ pair.  This variant closes the loop from the TOP:
     pressed on once and never removed; all service unbolts the cap from
     the coxa cradle (both bolts reachable with the plate on) and lifts
     the plate + caps + bearings off as one rigid unit.
-  * ``corner_pillar`` (x6) -- hollow printed Phi 20 columns at the six
-    corner azimuths (rho 81.6, between adjacent rings) that tie the top
+  * ``corner_pillar`` (x6) -- solid elliptical printed columns at the
+    six corner azimuths (rho 81.6, between adjacent rings), with the
+    legs' swept keep-out volume carved out of their flanks (>= 5 mm
+    clearance at every yaw angle by construction), that tie the top
     frame to chassis_bottom at the RIM, where each hip moment's force
     couple actually wants to react (push at the bottom tower, pull at
     the top ring) and where torsional leverage is ~4x the old standoff
@@ -151,24 +153,34 @@ PILOT_OD = hp.CLAMP_BOLT_PILOT_OD         # 2.5 -- M3 self-tap (insert-ready)
 # hip moment's force couple as RIM SHEAR (push at the bottom tower, pull
 # at the top ring) -- the four central 90 mm M3 standoff stacks are
 # slender bending columns at rho 44 and were the compliance that would
-# have given the rigidity back.  Six printed hollow pillars at the
-# corner azimuths (between adjacent rings, outside every swing
-# envelope: >=50 mm from each yaw axis vs the 36 mm coxa-tail sweep)
-# tie the plates at the rim, where torsion leverage scales with r^2.
+# have given the rigidity back.  Six printed pillars at the corner
+# azimuths (between adjacent rings, the only rim territory outside
+# every swing envelope) tie the plates at the rim, where torsion
+# leverage scales with r^2.
 # Each pillar doubles as the lid-screw boss: the hatch perimeter screw
 # passes lid -> frame -> pillar top, and one dedicated frame screw per
 # pillar keeps the frame clamped with the lid off.  The four central
 # standoffs remain only as hatch/electronics anchors.
 PILLAR_OD = 20.0                          # column RADIAL outer diameter
-PILLAR_BORE = 12.0                        # radial bore (walls: 4 radial,
-                                          # 2.8 tangential after the scale)
 PILLAR_TAN_SCALE = 0.7                    # ELLIPTICAL section: tangential
-                                          # half-axis 7 (the coxa tail sweeps
-                                          # to 40.27 mm from its axis at
-                                          # z 38..41 -- measured graze on the
-                                          # round column -- the slim waist
-                                          # restores ~2.9 mm true clearance
-                                          # to both flanking legs)
+                                          # half-axis 7 (a round Phi 20 was
+                                          # a measured graze on the coxa
+                                          # sweep; the ellipse is step one,
+                                          # the SCALLOPS below are step two)
+# Swept-keep-out SCALLOPS (user, Aug 24: "worried these columns will
+# bang into the hip servo when it rotates"): measured over a full 360
+# revolution, the rotating assembly's worst reach from its yaw axis is
+# 40.4 mm (coxa cradle arm, z 30..45; the hip SERVO itself never gets
+# within 13.8 mm).  Rather than trust a thin static margin, the column
+# subtracts a vertical cylinder of radius sweep+5 around BOTH flanking
+# yaw axes across the z band where anything rotates -- so >= 5 mm
+# clearance at EVERY yaw angle is guaranteed by construction, and the
+# column keeps its full section everywhere else.  The column is SOLID
+# (no bore): simpler, stiffer at the scalloped waist, ~25 g each.
+PILLAR_SWEEP_R = 40.4                     # measured max rotating reach
+PILLAR_SWEEP_CL = 5.0                     # clearance carved beyond it
+PILLAR_SWEEP_Z = (24.0, 78.0)             # rotating parts live in z 25..76;
+                                          # band padded 1-2 mm each way
 PILLAR_RHO = 81.6                         # centre radius at az 0/60/...:
                                           # midway between the lid-screw
                                           # pilot (76.2) and the dedicated
@@ -180,14 +192,6 @@ PILLAR_TOP_GAP = 0.1                      # nominal gap to the frame sheet:
                                           # the sheet down onto the pillar
                                           # (never the reverse -- shim/sand
                                           # a proud pillar, do not rock)
-PILLAR_TOP_SOLID = 10.0                   # solid top plug with the pilots
-                                          # (the bore is OPEN at the bottom:
-                                          # the bay floor closes it after
-                                          # assembly -- a sealed internal
-                                          # cavity would be a hub-check
-                                          # disconnected-island + a slicer
-                                          # annoyance, and the open tube
-                                          # prints cleaner from the bed)
 PILLAR_FRAME_SCREW_RHO = 87.0             # dedicated frame->pillar M3
 PILLAR_BOT_Z = hp.CHASSIS_PLATE_T / 2.0   # +2.0 -- bottom sheet top face
 
@@ -422,12 +426,16 @@ def make_chassis_top_rigid() -> trimesh.Trimesh:
 
 def make_corner_pillar() -> trimesh.Trimesh:
     """One rim pillar, modeled in WORLD position at az 0 (instances are
-    placed by 60-deg rotations).  A hollow Phi 20 column from the bottom
-    sheet's top face up to PILLAR_TOP_GAP below the frame, with:
+    placed by 60-deg rotations).  A SOLID elliptical column from the
+    bottom sheet's top face up to PILLAR_TOP_GAP below the frame, with:
 
-      * a solid top plug carrying two Phi 2.5 self-tap pilots
-        (insert-ready): the shared lid screw (rho 76.2) and the
-        dedicated frame screw (rho 87);
+      * swept-keep-out SCALLOPS: the volume within PILLAR_SWEEP_R +
+        PILLAR_SWEEP_CL of both flanking yaw axes is subtracted over
+        the rotating z band, so >= 5 mm leg clearance holds at every
+        yaw angle by construction;
+      * two Phi 2.5 self-tap pilots in the top face (insert-ready):
+        the shared lid screw (rho 76.2) and the dedicated frame screw
+        (rho 87);
       * a bottom FOOT plate that fills the (vacated) corner Wago tray
         bay with 0.3 mm clearance to its three 2.4 mm walls -- the
         production tray IS the shear/registration socket -- carrying
@@ -458,10 +466,16 @@ def make_corner_pillar() -> trimesh.Trimesh:
     tab.apply_translation([PILLAR_RHO - PILLAR_OD / 2.0 - 2.0, 0.0,
                            PILLAR_BOT_Z + PILLAR_FOOT_T / 2.0])
     body = _union([col, bar, tab])
+    ax = APOTHEM * np.cos(np.pi / 6.0)
+    ay = APOTHEM * np.sin(np.pi / 6.0)
     cuts = [
-        # hollow bore, open through the foot (bay floor closes it)
-        _ecyl(PILLAR_BORE / 2.0, PILLAR_BOT_Z - 1.0,
-              top_z - PILLAR_TOP_SOLID),
+        # swept-keep-out scallops around both flanking yaw axes
+        _cyl_z(PILLAR_SWEEP_R + PILLAR_SWEEP_CL,
+               PILLAR_SWEEP_Z[0], PILLAR_SWEEP_Z[1],
+               x=ax, y=+ay, sections=128),
+        _cyl_z(PILLAR_SWEEP_R + PILLAR_SWEEP_CL,
+               PILLAR_SWEEP_Z[0], PILLAR_SWEEP_Z[1],
+               x=ax, y=-ay, sections=128),
         # top pilots: shared lid screw + dedicated frame screw
         _cyl_z(PILOT_OD / 2.0, top_z - 8.0, top_z + 1.0,
                x=HATCH_SCREW_RHO, y=0.0, sections=32),
@@ -761,6 +775,27 @@ def check_pillars(meshes: dict[str, trimesh.Trimesh]) -> None:
                 v = _inter_vol(placed[j], m)
                 assert v < 1e-6, \
                     f"yaw {yaw:+g}: {key} hits pillar az{j * 60} ({v:.2f} mm3)"
+    # QUANTITATIVE margin (user, Aug 24): not just non-colliding --
+    # assert the measured distance stays >= the carved clearance minus
+    # a small numerical allowance, across the operating range.
+    from trimesh.proximity import signed_distance
+    min_marg = 1e9
+    for yaw in (-45.0, -20.0, 0.0, 20.0, 45.0):
+        T = leg_transforms(0, yaw_deg=yaw)
+        for key, fr in (("coxa_link", "coxa"), ("servo_body", "hip_cap"),
+                        ("hip_clamp_cap_rigid", "hip_cap")):
+            m = meshes[key].copy()
+            m.apply_transform(T[fr])
+            for j in (0, 1):
+                if not _bounds_touch(placed[j], m):
+                    continue
+                d = float(-signed_distance(placed[j], m.vertices).max())
+                min_marg = min(min_marg, d)
+    assert min_marg >= PILLAR_SWEEP_CL - 0.5, \
+        f"pillar clearance margin dropped to {min_marg:.2f} mm"
+    print(f"  pillars: measured leg clearance >= {min_marg:.2f} mm "
+          f"(carved keep-out: sweep {PILLAR_SWEEP_R:g} + {PILLAR_SWEEP_CL:g})")
+
     # informational: full hand-spin (servo out) contact scan
     first_contact = None
     for yaw in np.arange(-180.0, 180.0, 15.0):
