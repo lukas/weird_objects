@@ -193,9 +193,11 @@ parts:
           every ring; vertices reach toward the inter-leg directions
           where the frame is widest.  The standoff, electronics-deck
           and centre holes all fell inside the opening and moved onto
-          the removable top_hatch_rigid lid.  Six phi 8 pilot bosses
-          (insert-ready phi 2.5 self-tap pilots) are fused under the
-          sheet at the opening's corner directions for the lid screws.
+          the removable top_hatch_rigid lid.  The six lid screws pass
+          THROUGH the frame (phi 3.4 clearance) into the corner-pillar
+          top plugs below; a second phi 3.4 hole per corner (rho 87)
+          takes the dedicated frame-to-pillar screw that keeps the
+          frame clamped down when the lid is off.
         dimensions:
           opening_apothem:
             label: "Opening apothem"
@@ -213,10 +215,11 @@ parts:
       A 4 mm hex lid (136 across flats) over the frame opening, sitting
       ON the deck face with a 1.5 mm registration lip dropping just
       inside the opening (0.3 mm/side clearance; straight drop-in
-      verified at build time).  Held by 6x M3 button-heads into the
-      frame's pilot bosses plus the 4 chassis standoff screws (standoff
-      stacks grow to ~90 mm so they anchor the hatch; chassis-hang
-      loads run standoffs -> hatch -> deck face -> frame in pure
+      verified at build time).  Held by 6x M3 x 16 button-heads that
+      pass through lid AND frame into the corner-pillar top plugs,
+      plus the 4 chassis standoff screws (standoff stacks grow to
+      ~90 mm so they anchor the hatch; chassis-hang loads run
+      standoffs -> hatch -> deck face -> frame in pure
       compression).  Carries the standoff pattern, the electronics-deck
       pattern and the phi 40 centre hole, so the electronics deck lifts
       out WITH the lid: 10 screws open the whole interior without
@@ -247,6 +250,75 @@ parts:
             label: "Lid apothem"
             value: 68.0
             code_name: HATCH_APO
+
+  corner_pillar:
+    label: "Rim pillar tying the top frame to chassis_bottom (concept)"
+    aliases: ["pillar", "corner column", "rim tie"]
+    description: >-
+      Hollow printed column (elliptical section: 20 mm radial x 14 mm
+      tangential, walls 4/2.8 mm) at each corner azimuth (rho 81.6,
+      az 0/60/...), from the bottom sheet's top face (z 2) to 0.1 mm
+      under the frame sheet (z 87.95; the six bearing RACES define the
+      plate plane, the screws close the gap).  This is the variant's
+      top-to-bottom structural tie: each hip moment's force couple
+      reacts as rim shear (push at the bottom tower, pull at the top
+      ring), which the four slender central standoffs at rho 44 could
+      not carry; six rim columns take it at ~2x the radius with ~6x
+      the section.  The elliptical waist keeps a measured 2.9 mm
+      clearance to the coxa tail sweep of BOTH flanking legs across
+      the full yaw range (clear even for a 360-deg hand spin).
+      The foot fills the corner Wago-tray bay of chassis_bottom with
+      0.3 mm clearance to its three 2.4 mm walls -- the production
+      tray IS the shear/registration socket; the corner Wagos
+      (buried under solid deck in this variant anyway) relocate
+      inboard under the service hatch.  6 per robot.
+    generated_by:
+      file: "concepts/rigid_hip/make_rigid_hip_variant.py"
+      function: "make_corner_pillar"
+      output_stl: "stl/corner_pillar.stl"
+    local_frame:
+      origin: "World/chassis frame; the STL is the az-0 pillar, others are 60-deg rotations"
+      axes:
+        x: "Chassis +x (radial at az 0)"
+        y: "Chassis +y (tangential at az 0)"
+        z: "Up"
+    features:
+      top_plug:
+        label: "10 mm solid top plug with two M3 pilots"
+        kind: "boss"
+        purpose: >-
+          Receives the shared hatch-perimeter screw (rho 76.2: one
+          M3 x 16 clamps lid -> frame -> pillar) and the dedicated
+          frame screw (rho 87) so the frame stays clamped with the lid
+          off.  Phi 2.5 self-tap pilots, insert-ready (phi 4 x 6
+          drill-out for 94459A130).
+        dimensions:
+          top_gap:
+            label: "Nominal gap under the frame sheet"
+            value: 0.1
+            code_name: PILLAR_TOP_GAP
+            description: >-
+              Races locate the plate; screws pull the sheet down onto
+              the pillar.  Sand/shim a proud pillar, never let it rock
+              the plate off the races.
+      bay_foot:
+        label: "Wago-bay foot with 3 belly through-bolts"
+        kind: "boss"
+        purpose: >-
+          4 mm plate filling the vacated tray bay (registration in
+          tangential shear on the side walls, radial on the outer
+          wall) plus an inboard tab whose bolt lands under the open
+          hatch.  The column bore is OPEN through the foot (the bay
+          floor closes it; no sealed cavity to slice or flag).
+          Three M3 through-bolts with nyloc nuts on the belly;
+          the foot is the drill jig for the phi 3.4 holes through the
+          8 mm sheet+floor (bench drill mod -- chassis_bottom is NOT
+          reprinted).
+        dimensions:
+          key_clearance:
+            label: "Foot-to-wall clearance per side"
+            value: 0.3
+            code_name: PILLAR_KEY_CL
 
   bearing_6805:
     label: "Top-plate 6805-2RS (25x37x7) — COTS, not printed"

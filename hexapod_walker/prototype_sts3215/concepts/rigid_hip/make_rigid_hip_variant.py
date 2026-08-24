@@ -17,18 +17,28 @@ pair.  This variant closes the loop from the TOP:
     Phi 44 bosses pocket the bearings' outer races at Phi 37.15
     (= ``YAW_TOWER_BORE_OD``, the bench-tuned firm finger-press fit),
     race retained by the Phi 34 shoulder (= ``YAW_TOWER_SHOULDER_OD``).
-    Four long standoffs on the existing CHASSIS_STANDOFF_HOLES_XY
-    pattern tie it to chassis_bottom; the electronics-deck hole pattern
-    is carried over so the deck hardware moves to the new top plate.
     Six Phi 7 DRIVER ACCESS holes sit above the inboard cap bolts (legs
     at yaw 0): the cap is a CAPTIVE BEARING CARRIER -- its 6805 is
     pressed on once and never removed; all service unbolts the cap from
     the coxa cradle (both bolts reachable with the plate on) and lifts
     the plate + caps + bearings off as one rigid unit.
+  * ``corner_pillar`` (x6) -- hollow printed Phi 20 columns at the six
+    corner azimuths (rho 81.6, between adjacent rings) that tie the top
+    frame to chassis_bottom at the RIM, where each hip moment's force
+    couple actually wants to react (push at the bottom tower, pull at
+    the top ring) and where torsional leverage is ~4x the old standoff
+    radius.  Each pillar doubles as the lid-screw boss: the hatch
+    perimeter screw threads into the pillar top through the frame; one
+    dedicated frame screw per pillar keeps the frame clamped with the
+    lid off; two M3 through-bolts with belly nylocs hold each foot
+    (drilled through chassis_bottom using the foot as the jig -- a
+    bench drill mod, no reprint).  The four central 90 mm standoffs
+    remain only as hatch/electronics anchors.
 
   Load path: hip moment -> cap boss -> top bearing -> top plate ->
-  standoffs / five other legs.  Each yaw axis becomes simply-supported
-  (one bearing below, one above, ~67 mm apart) instead of cantilevered.
+  six rim pillars -> chassis_bottom / five other legs.  Each yaw axis
+  becomes simply-supported (one bearing below, one above, ~67 mm
+  apart) instead of cantilevered.
 
   BEARING COUNT: the production LOWER yaw bearing is OMITTED (it only
   existed to form a 7 mm moment couple with the upper one; the top
@@ -130,14 +140,78 @@ HATCH_SCREW_RHO = 76.2                    # 6x M3 at the opening's VERTEX
                                           # rings, driver holes and the
                                           # opening corner (0.6 mm margins,
                                           # asserted in check_static)
-HATCH_SCREW_BOSS_OD = 8.0                 # pilot boss fused under the sheet
-HATCH_SCREW_BOSS_H = 6.0                  # boss depth below the sheet
 HATCH_EAR_OD = 9.0                        # round lid ears around the screws:
                                           # the bare hex corner leaves only
                                           # ~0.3 mm wall at the hole (hub
                                           # check caught it); the ear gives
                                           # a 2.8 mm annulus, over solid frame
 PILOT_OD = hp.CLAMP_BOLT_PILOT_OD         # 2.5 -- M3 self-tap (insert-ready)
+
+# Corner pillars (user, Aug 23 eve): the top-bottom tie must carry each
+# hip moment's force couple as RIM SHEAR (push at the bottom tower, pull
+# at the top ring) -- the four central 90 mm M3 standoff stacks are
+# slender bending columns at rho 44 and were the compliance that would
+# have given the rigidity back.  Six printed hollow pillars at the
+# corner azimuths (between adjacent rings, outside every swing
+# envelope: >=50 mm from each yaw axis vs the 36 mm coxa-tail sweep)
+# tie the plates at the rim, where torsion leverage scales with r^2.
+# Each pillar doubles as the lid-screw boss: the hatch perimeter screw
+# passes lid -> frame -> pillar top, and one dedicated frame screw per
+# pillar keeps the frame clamped with the lid off.  The four central
+# standoffs remain only as hatch/electronics anchors.
+PILLAR_OD = 20.0                          # column RADIAL outer diameter
+PILLAR_BORE = 12.0                        # radial bore (walls: 4 radial,
+                                          # 2.8 tangential after the scale)
+PILLAR_TAN_SCALE = 0.7                    # ELLIPTICAL section: tangential
+                                          # half-axis 7 (the coxa tail sweeps
+                                          # to 40.27 mm from its axis at
+                                          # z 38..41 -- measured graze on the
+                                          # round column -- the slim waist
+                                          # restores ~2.9 mm true clearance
+                                          # to both flanking legs)
+PILLAR_RHO = 81.6                         # centre radius at az 0/60/...:
+                                          # midway between the lid-screw
+                                          # pilot (76.2) and the dedicated
+                                          # frame-screw pilot (87.0) so both
+                                          # get equal 3.35 mm plug walls
+PILLAR_TOP_GAP = 0.1                      # nominal gap to the frame sheet:
+                                          # the six RACES define the plate
+                                          # plane; the two top screws pull
+                                          # the sheet down onto the pillar
+                                          # (never the reverse -- shim/sand
+                                          # a proud pillar, do not rock)
+PILLAR_TOP_SOLID = 10.0                   # solid top plug with the pilots
+                                          # (the bore is OPEN at the bottom:
+                                          # the bay floor closes it after
+                                          # assembly -- a sealed internal
+                                          # cavity would be a hub-check
+                                          # disconnected-island + a slicer
+                                          # annoyance, and the open tube
+                                          # prints cleaner from the bed)
+PILLAR_FRAME_SCREW_RHO = 87.0             # dedicated frame->pillar M3
+PILLAR_BOT_Z = hp.CHASSIS_PLATE_T / 2.0   # +2.0 -- bottom sheet top face
+
+# The pillar stands in the production WAGO TRAY at each corner flat
+# (chassis_bottom grows a U of 2.4 mm walls there for a 5-way Wago).
+# With the top frame installed those corner Wagos are buried under
+# solid deck (no lever access), so in this variant they RELOCATE inboard
+# under the service hatch; the vacated tray becomes the pillar's SOCKET:
+# the foot fills the bay with 0.3 mm clearance to all three walls, so
+# the production walls themselves are the shear/registration key --
+# chassis_bottom is untouched.  The surrounding corner is otherwise
+# claimed (probed against the real solid): the leg cradle's diagonal
+# well wall at y ~ +/-19..26 and the retainer's corner pads (z to 9.25)
+# forbid any foot wings OUTSIDE the bay, so both bar bolts sit INSIDE
+# the bay, plus a small INBOARD tab whose bolt lands under the open
+# hatch (driver comes straight down, even with the frame on).  Nyloc
+# nuts go on the belly (-6 face, verified open at all three spots).
+_WAGO_BAY_W = hp.WAGO5_W + hp.WAGO_MOUNT_BAY_CLEAR    # 29.85 tangential
+PILLAR_KEY_CL = 0.3                       # foot-to-wall clearance per side
+_BAY_OUT_X = hp.WAGO_MOUNT_EDGE_R - hp.WAGO_MOUNT_WALL_T   # 97.6 outer wall
+PILLAR_BAR_HOLE_X = 93.0                  # in-bay bolt pair, radial pos
+PILLAR_BAR_HOLE_Y = 11.0                  # in-bay bolt pair, tangential +/-
+PILLAR_TAB_RHO = 67.6                     # inboard tab bolt radius
+PILLAR_FOOT_T = 4.0                       # foot plate thickness
 
 # Cap-local (well-frame) geometry.  Well frame: origin = hip servo back-face
 # centre, +X = body long axis, +Y = out of the open face (world UP at the
@@ -320,13 +394,8 @@ def make_chassis_top_rigid() -> trimesh.Trimesh:
                            x=x, y=y))
         cuts.append(_cyl_z(SHOULDER_OD / 2.0, SHEET_Z0 - 0.01, SHEET_Z1 + 1.0,
                            x=x, y=y))
-    # Hatch-screw pilot bosses fused under the sheet at the opening's
-    # vertex azimuths (safe by z: everything yaw-rotating tops out at the
-    # cap face, 75.55, well below the boss bottoms at 82.05).
-    for (x, y) in _hatch_screw_xy():
-        solids.append(_cyl_z(HATCH_SCREW_BOSS_OD / 2.0,
-                             SHEET_Z0 - HATCH_SCREW_BOSS_H, SHEET_Z0 + 1.0,
-                             x=x, y=y, sections=48))
+    # (The old sub-sheet lid-screw bosses are gone: the corner PILLARS
+    # sit under these positions now and receive the screws instead.)
     # Driver pass-throughs above the inboard cap bolts (legs at yaw 0):
     # a hex driver reaches the cap screws with the plate ON, so service
     # unbolts the cap+bearing unit instead of separating any press fit.
@@ -337,10 +406,88 @@ def make_chassis_top_rigid() -> trimesh.Trimesh:
     # holes all fell inside it -- they move onto the removable hatch.
     cuts.append(_hex_prism(HATCH_OPEN_APO, SHEET_Z0 - 1.0, SHEET_Z1 + 1.0,
                            flats_at_rings=True))
+    # Lid screws pass THROUGH the frame into the pillar tops (M3
+    # clearance), and each pillar gets one dedicated frame screw so the
+    # frame stays clamped down with the lid removed.
     for (x, y) in _hatch_screw_xy():
-        cuts.append(_cyl_z(PILOT_OD / 2.0, SHEET_Z0 - HATCH_SCREW_BOSS_H + 1.0,
-                           SHEET_Z1 + 1.0, x=x, y=y, sections=32))
+        cuts.append(_cyl_z(HOLE_D / 2.0, SHEET_Z0 - 1.0, SHEET_Z1 + 1.0,
+                           x=x, y=y, sections=32))
+    for az in range(0, 360, 60):
+        cuts.append(_cyl_z(HOLE_D / 2.0, SHEET_Z0 - 1.0, SHEET_Z1 + 1.0,
+                           x=PILLAR_FRAME_SCREW_RHO * np.cos(np.deg2rad(az)),
+                           y=PILLAR_FRAME_SCREW_RHO * np.sin(np.deg2rad(az)),
+                           sections=32))
     return _diff(_union(solids), cuts)
+
+
+def make_corner_pillar() -> trimesh.Trimesh:
+    """One rim pillar, modeled in WORLD position at az 0 (instances are
+    placed by 60-deg rotations).  A hollow Phi 20 column from the bottom
+    sheet's top face up to PILLAR_TOP_GAP below the frame, with:
+
+      * a solid top plug carrying two Phi 2.5 self-tap pilots
+        (insert-ready): the shared lid screw (rho 76.2) and the
+        dedicated frame screw (rho 87);
+      * a bottom FOOT plate that fills the (vacated) corner Wago tray
+        bay with 0.3 mm clearance to its three 2.4 mm walls -- the
+        production tray IS the shear/registration socket -- carrying
+        two in-bay Phi 3.4 through-holes, plus a small inboard TAB
+        whose bolt lands under the open hatch.  All three are M3
+        through-bolts with nyloc nuts on the belly (the foot is the
+        drill jig for the holes in chassis_bottom: a bench drill mod,
+        no reprint).
+    """
+    top_z = SHEET_Z0 - PILLAR_TOP_GAP
+
+    def _ecyl(r_rad: float, z0: float, z1: float) -> trimesh.Trimesh:
+        c = trimesh.creation.cylinder(radius=r_rad, height=z1 - z0,
+                                      sections=64)
+        c.apply_transform(np.diag([1.0, PILLAR_TAN_SCALE, 1.0, 1.0]))
+        c.apply_translation([PILLAR_RHO, 0.0, (z0 + z1) / 2.0])
+        return c
+
+    col = _ecyl(PILLAR_OD / 2.0, PILLAR_BOT_Z, top_z)
+    bay_x0 = PILLAR_RHO + 2.0                       # 83.6 -- inside the bay
+    bay_x1 = _BAY_OUT_X - PILLAR_KEY_CL             # 97.3
+    bay_half = _WAGO_BAY_W / 2.0 - PILLAR_KEY_CL    # 14.63
+    bar = trimesh.creation.box(
+        extents=(bay_x1 - bay_x0, 2.0 * bay_half, PILLAR_FOOT_T))
+    bar.apply_translation([(bay_x0 + bay_x1) / 2.0, 0.0,
+                           PILLAR_BOT_Z + PILLAR_FOOT_T / 2.0])
+    tab = trimesh.creation.box(extents=(12.0, 12.0, PILLAR_FOOT_T))
+    tab.apply_translation([PILLAR_RHO - PILLAR_OD / 2.0 - 2.0, 0.0,
+                           PILLAR_BOT_Z + PILLAR_FOOT_T / 2.0])
+    body = _union([col, bar, tab])
+    cuts = [
+        # hollow bore, open through the foot (bay floor closes it)
+        _ecyl(PILLAR_BORE / 2.0, PILLAR_BOT_Z - 1.0,
+              top_z - PILLAR_TOP_SOLID),
+        # top pilots: shared lid screw + dedicated frame screw
+        _cyl_z(PILOT_OD / 2.0, top_z - 8.0, top_z + 1.0,
+               x=HATCH_SCREW_RHO, y=0.0, sections=32),
+        _cyl_z(PILOT_OD / 2.0, top_z - 8.0, top_z + 1.0,
+               x=PILLAR_FRAME_SCREW_RHO, y=0.0, sections=32),
+        # inboard tab bolt (under the open hatch)
+        _cyl_z(HOLE_D / 2.0, PILLAR_BOT_Z - 1.0,
+               PILLAR_BOT_Z + PILLAR_FOOT_T + 1.0, x=PILLAR_TAB_RHO, y=0.0,
+               sections=32),
+    ]
+    for sy in (+1.0, -1.0):
+        cuts.append(_cyl_z(HOLE_D / 2.0, PILLAR_BOT_Z - 1.0,
+                           PILLAR_BOT_Z + PILLAR_FOOT_T + 1.0,
+                           x=PILLAR_BAR_HOLE_X,
+                           y=sy * PILLAR_BAR_HOLE_Y, sections=32))
+    return _diff(body, cuts)
+
+
+def _pillar_meshes(meshes: dict) -> list[trimesh.Trimesh]:
+    """The six placed pillar copies (az 0/60/.../300)."""
+    out = []
+    for az in range(0, 360, 60):
+        m = meshes["corner_pillar"].copy()
+        m.apply_transform(_rotz(np.deg2rad(az)))
+        out.append(m)
+    return out
 
 
 def make_top_hatch_rigid() -> trimesh.Trimesh:
@@ -422,6 +569,7 @@ MESH_FILES = {
     "hip_clamp_cap_rigid": (make_hip_cap_rigid, "hip_clamp_cap_rigid.stl"),
     "chassis_top_rigid": (make_chassis_top_rigid, "chassis_top_rigid.stl"),
     "top_hatch_rigid": (make_top_hatch_rigid, "top_hatch_rigid.stl"),
+    "corner_pillar": (make_corner_pillar, "corner_pillar.stl"),
     # Unchanged production prints (print from the MAIN stl_prototype/).
     "chassis_bottom": (hp.make_chassis_bottom, "chassis_bottom.stl"),
     "coxa_link": (hp.make_coxa_link_part, "coxa_link.stl"),
@@ -445,7 +593,7 @@ MESH_FILES = {
     "bearing_6805": (make_bearing_6805, "bearing_6805_DO_NOT_PRINT.stl"),
 }
 ALWAYS_REBUILD = {"hip_clamp_cap_rigid", "chassis_top_rigid",
-                  "top_hatch_rigid", "bearing_6805"}
+                  "top_hatch_rigid", "corner_pillar", "bearing_6805"}
 
 
 def build_meshes() -> dict[str, trimesh.Trimesh]:
@@ -478,7 +626,7 @@ def check_static(meshes: dict[str, trimesh.Trimesh]) -> None:
     """Seated-assembly sanity: new parts watertight, stack lands where the
     constants say, nothing but the boss/bearing enters the plate bore."""
     for key in ("hip_clamp_cap_rigid", "chassis_top_rigid",
-                "top_hatch_rigid"):
+                "top_hatch_rigid", "corner_pillar"):
         m = meshes[key]
         assert m.is_watertight, f"{key} not watertight"
         print(f"  {key:22s} watertight, vol {m.volume / 1000.0:.1f} cm3")
@@ -515,19 +663,19 @@ def check_static(meshes: dict[str, trimesh.Trimesh]) -> None:
             f"access hole L{k} breaks into the hatch opening"
         assert rho - ACCESS_HOLE_D / 2.0 - HATCH_APO >= 1.0, \
             f"access hole L{k} covered by the hatch lid"
-        for (sx, sy) in _hatch_screw_xy():
-            gap = np.hypot(hx - sx, hy - sy) \
-                - (ACCESS_HOLE_D + HATCH_SCREW_BOSS_OD) / 2.0
+        for az in range(0, 360, 60):
+            px = PILLAR_RHO * np.cos(np.deg2rad(az))
+            py = PILLAR_RHO * np.sin(np.deg2rad(az))
+            gap = np.hypot(hx - px, hy - py) \
+                - (ACCESS_HOLE_D + PILLAR_OD) / 2.0
             assert gap >= 1.5, (
-                f"access hole L{k} within {gap:.2f} mm of a hatch boss")
+                f"access hole L{k} within {gap:.2f} mm of a corner pillar")
     # hatch screw geometry: hole inside the lid overlap band at the
-    # opening's vertex direction, boss footprint outside the opening
+    # opening's vertex direction
     assert HATCH_SCREW_RHO - HOLE_D / 2.0 - open_vertex_r >= 0.5, \
         "hatch screw hole breaks into the opening corner"
     assert hatch_vertex_r - HATCH_SCREW_RHO - HOLE_D / 2.0 >= 0.5, \
         "hatch screw hole falls off the lid corner"
-    assert HATCH_SCREW_RHO - HATCH_SCREW_BOSS_OD / 2.0 - HATCH_OPEN_APO \
-        >= 0.0, "hatch screw boss can intrude under the lip corner"
     # A Phi 6.5 driver shaft dropped through the L0 hole down to the cap
     # face must touch nothing (leg at yaw 0) -- the screw head sits in the
     # cap flange counterbore right below.  The HATCH must not cover it.
@@ -545,8 +693,103 @@ def check_static(meshes: dict[str, trimesh.Trimesh]) -> None:
     for key in ("chassis_top_rigid", "top_hatch_rigid"):
         v = _inter_vol(shaft, meshes[key])
         assert v < 1e-6, f"driver shaft fouls {key} ({v:.2f} mm3)"
+    for j, p in enumerate(_pillar_meshes(meshes)):
+        v = _inter_vol(shaft, p)
+        assert v < 1e-6, f"driver shaft fouls pillar az{j * 60} ({v:.2f} mm3)"
     print(f"  cap-bolt driver access: 6 holes Phi {ACCESS_HOLE_D:g}, "
           f"ring web {web:.2f} mm, line of sight clear (hatch ON)")
+
+
+def check_pillars(meshes: dict[str, trimesh.Trimesh]) -> None:
+    """Corner pillars: land exactly on the bottom sheet, stop PILLAR_TOP_GAP
+    short of the frame (races define the plate plane, screws close the
+    gap), keep their screw pilots inside the solid plug, and stay clear
+    of every leg through the whole operating yaw range with margin."""
+    pillar = meshes["corner_pillar"]
+    b = pillar.bounds
+    assert abs(b[0][2] - PILLAR_BOT_Z) < 1e-3, "pillar foot not on the sheet"
+    assert abs(b[1][2] - (SHEET_Z0 - PILLAR_TOP_GAP)) < 1e-3, \
+        "pillar top not at the frame gap plane"
+    vol = pillar.volume / 1000.0
+    print(f"  corner_pillar: {vol:.1f} cm3 (~{vol * 1.27:.0f} g PETG), "
+          f"top gap {PILLAR_TOP_GAP:g} mm under the frame")
+
+    # screw pilots must sit deep inside the Phi 20 plug with real webs
+    for rho in (HATCH_SCREW_RHO, PILLAR_FRAME_SCREW_RHO):
+        edge = PILLAR_OD / 2.0 - abs(rho - PILLAR_RHO) - PILOT_OD / 2.0
+        assert edge >= 3.0, f"pilot at rho {rho:g}: only {edge:.2f} mm wall"
+    web = abs(HATCH_SCREW_RHO - PILLAR_FRAME_SCREW_RHO) - PILOT_OD
+    assert web >= 2.0, f"only {web:.2f} mm between the two top pilots"
+
+    placed = _pillar_meshes(meshes)
+    # seated robot: every pillar vs every leg's static parts + both plates
+    statics = [("chassis_bottom", meshes["chassis_bottom"]),
+               ("chassis_top_rigid", meshes["chassis_top_rigid"])]
+    for i in range(6):
+        T = leg_transforms(i)
+        for key, fr in (("coxa_link", "coxa"), ("servo_body", "hip_cap"),
+                        ("hip_clamp_cap_rigid", "hip_cap"),
+                        ("yaw_bearing_cap", "coxa"),
+                        ("yaw_servo_retainer", "coxa")):
+            m = meshes[key].copy()
+            m.apply_transform(T[fr])
+            statics.append((f"L{i}-{key}", m))
+        ys = meshes["servo_body"].copy()
+        ys.apply_transform(T["coxa"] @ _trans([-hp.SERVO_OUTPUT_X, 0.0,
+                                               -(hp.HORN_STACK_H
+                                                 + hp.WELL_RIM_Z)]))
+        statics.append((f"L{i}-yaw_servo", ys))
+    for j, p in enumerate(placed):
+        for name, m in statics:
+            if not _bounds_touch(p, m):
+                continue
+            v = _inter_vol(p, m)
+            assert v < 1e-6, f"pillar az{j * 60} overlaps {name} ({v:.2f} mm3)"
+    print("  pillars: seated robot clear (all 6 legs + plates + yaw servos)")
+
+    # operating yaw range with margin: leg 0 vs its two flanking pillars
+    for yaw in (-45.0, -35.0, -20.0, 0.0, 20.0, 35.0, 45.0):
+        T = leg_transforms(0, yaw_deg=yaw)
+        for key, fr in (("coxa_link", "coxa"), ("servo_body", "hip_cap"),
+                        ("hip_clamp_cap_rigid", "hip_cap"),
+                        ("yaw_bearing_cap", "coxa")):
+            m = meshes[key].copy()
+            m.apply_transform(T[fr])
+            for j in (0, 1):    # pillars at az 0 and az 60 flank leg 0
+                if not _bounds_touch(placed[j], m):
+                    continue
+                v = _inter_vol(placed[j], m)
+                assert v < 1e-6, \
+                    f"yaw {yaw:+g}: {key} hits pillar az{j * 60} ({v:.2f} mm3)"
+    # informational: full hand-spin (servo out) contact scan
+    first_contact = None
+    for yaw in np.arange(-180.0, 180.0, 15.0):
+        T = leg_transforms(0, yaw_deg=float(yaw))
+        hit = False
+        for key, fr in (("coxa_link", "coxa"), ("servo_body", "hip_cap"),
+                        ("hip_clamp_cap_rigid", "hip_cap"),
+                        ("yaw_bearing_cap", "coxa")):
+            m = meshes[key].copy()
+            m.apply_transform(T[fr])
+            for j in (0, 1):
+                if _bounds_touch(placed[j], m) \
+                        and _inter_vol(placed[j], m) > 1e-6:
+                    hit = True
+        if hit and abs(yaw) > 46.0:
+            first_contact = float(yaw) if first_contact is None \
+                else first_contact
+        assert not (hit and abs(yaw) <= 46.0), \
+            f"pillar contact inside operating yaw range at {yaw:+g}"
+    if first_contact is None:
+        print("  pillars: clear even for a full 360 hand-spin of the leg")
+    else:
+        print(f"  pillars: operating range +/-45 clear; hand-spinning a leg "
+              f"past {first_contact:+g} deg would touch a pillar (note only)")
+
+
+def _bounds_touch(a: trimesh.Trimesh, b: trimesh.Trimesh) -> bool:
+    return bool(np.all(a.bounds[0] <= b.bounds[1] + 1.0)
+                and np.all(b.bounds[0] <= a.bounds[1] + 1.0))
 
 
 def check_hatch(meshes: dict[str, trimesh.Trimesh]) -> None:
@@ -621,6 +864,8 @@ def check_plate_descent(meshes: dict[str, trimesh.Trimesh]) -> None:
             m = meshes[key].copy()
             m.apply_transform(T[frame])
             static.append((f"L{i}-{key}", m))
+    for j, p in enumerate(_pillar_meshes(meshes)):
+        static.append((f"pillar-az{j * 60}", p))
     plate = meshes["chassis_top_rigid"]
     for dz in (0.5, 2.0, 5.0, 10.0, 25.0, 50.0):
         p = plate.copy()
@@ -695,7 +940,8 @@ def sweep_femur_envelope(meshes: dict[str, trimesh.Trimesh],
 # ---------------------------------------------------------------------------
 COLORS = {
     "hip_clamp_cap_rigid": "#4878b0", "chassis_top_rigid": "#5b8fd4",
-    "top_hatch_rigid": "#6fa8dc", "bearing_6805": "#303030",
+    "top_hatch_rigid": "#6fa8dc", "corner_pillar": "#3f6ea6",
+    "bearing_6805": "#303030",
     "yaw_bearing_upper": "#3a3a3a", "servo_body": "#6b6b6b",
     "chassis_bottom": "#8a8f98", "coxa_link": "#9aa0a6",
     "femur_link": "#9aa0a6", "tibia_knee_yoke": "#9aa0a6",
@@ -734,6 +980,9 @@ def build_scene(meshes, femur_up_limit: float) -> dict:
     inst("chassis_bottom", "chassis_bottom", np.eye(4))
     inst("chassis_top_rigid", "chassis_top_rigid FRAME (NEW)", np.eye(4))
     inst("top_hatch_rigid", "top_hatch (NEW, removable)", np.eye(4))
+    for az in range(0, 360, 60):
+        inst("corner_pillar", f"corner pillar az{az} (NEW)",
+             _rotz(np.deg2rad(az)))
     for i in range(6):
         T = leg_transforms(i)
         a = (i + 0.5) * np.pi / 3.0
@@ -796,6 +1045,8 @@ def build_scene(meshes, femur_up_limit: float) -> dict:
             "overlapMm3": 80.0, "pitchMm": 2.0,
             "ignoreOverlapPairs": [
                 ["chassis_top_rigid", "top_hatch_rigid"],
+                ["corner_pillar", "chassis_bottom"],
+                ["corner_pillar", "chassis_top_rigid"],
                 ["chassis_bottom", "servo_body"],
                 ["coxa_link", "servo_body"],
                 ["coxa_link", "yaw_bearing_cap"],
@@ -897,6 +1148,7 @@ def main() -> None:
 
     print("static checks ...")
     check_static(meshes)
+    check_pillars(meshes)
     check_hatch(meshes)
     check_yaw_sweep(meshes)
     check_plate_descent(meshes)
