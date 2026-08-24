@@ -76,6 +76,7 @@ ASSEMBLY_BUILDERS: dict[str, PartBuilder] = {
     "stl:chassis_bottom": step.make_chassis_bottom,
     "stl:chassis_top": step.make_chassis_top,
     "stl:switch_holster": step.make_switch_holster,
+    "stl:disc_horn": step.make_disc_horn,
     "stl:coxa_link": step.make_coxa_link,
     # BuildViz places femur_link in the make_femur_link_part local frame and
     # carries the joint pitch transform in the instance matrix.
@@ -120,6 +121,21 @@ def _bbox(compound: object) -> dict:
     }
 
 
+def _place_instance(inst: dict, cache: dict[str, object]) -> object | None:
+    mesh_id = inst.get("meshId")
+    builder = ASSEMBLY_BUILDERS.get(mesh_id)
+    if builder is None:
+        return None
+    if mesh_id not in cache:
+        cache[mesh_id] = builder()
+    shape = _location_from_matrix(_buildviz_matrix(inst.get("transform"))) * cache[mesh_id]
+    shape.label = inst.get("name") or mesh_id.replace("stl:", "")
+    color = _hex_color(inst.get("color"))
+    if color is not None:
+        shape.color = color
+    return shape
+
+
 def build_assembly(*, include_servo_bodies: bool) -> dict:
     included = set(BASE_INCLUDED)
     if include_servo_bodies:
@@ -137,17 +153,10 @@ def build_assembly(*, include_servo_bodies: bool) -> dict:
         if mesh_id not in included:
             skipped[mesh_id] += 1
             continue
-        builder = ASSEMBLY_BUILDERS.get(mesh_id)
-        if builder is None:
+        shape = _place_instance(inst, cache)
+        if shape is None:
             skipped[mesh_id] += 1
             continue
-        if mesh_id not in cache:
-            cache[mesh_id] = builder()
-        shape = _location_from_matrix(_buildviz_matrix(inst.get("transform"))) * cache[mesh_id]
-        shape.label = inst.get("name") or mesh_id.replace("stl:", "")
-        color = _hex_color(inst.get("color"))
-        if color is not None:
-            shape.color = color
         placed.append(shape)
         counts[mesh_id] += 1
 
@@ -175,6 +184,79 @@ def build_assembly(*, include_servo_bodies: bool) -> dict:
     return manifest
 
 
+YAW_FOCUS_INCLUDED = {
+    "stl:chassis_bottom",
+    "stl:coxa_link",
+    "stl:yaw_bearing_cap",
+    "stl:yaw_bearing_lower",
+    "stl:yaw_bearing_upper",
+    "stl:disc_horn",
+}
+
+
+def build_yaw_bearing_focus(*, leg_index: int) -> dict:
+    """Export a compact yaw-stack assembly for one leg plus chassis_bottom."""
+    scene_path = PROTO_DIR / "full_robot_viz" / "scene.json"
+    scene = json.loads(scene_path.read_text())
+    cache: dict[str, object] = {}
+    placed = []
+    counts: Counter[str] = Counter()
+    source_instances = []
+    skipped: Counter[str] = Counter()
+
+    for inst in scene.get("instances", []):
+        mesh_id = inst.get("meshId")
+        keep = mesh_id == "stl:chassis_bottom"
+        if mesh_id in YAW_FOCUS_INCLUDED and inst.get("leg") == leg_index:
+            keep = True
+            if mesh_id == "stl:disc_horn" and inst.get("joint") != "yaw":
+                keep = False
+        if not keep:
+            if mesh_id in YAW_FOCUS_INCLUDED:
+                skipped[mesh_id] += 1
+            continue
+
+        shape = _place_instance(inst, cache)
+        if shape is None:
+            skipped[mesh_id] += 1
+            continue
+        placed.append(shape)
+        counts[mesh_id] += 1
+        source_instances.append(
+            {
+                "id": inst.get("id"),
+                "name": inst.get("name"),
+                "meshId": mesh_id,
+                "leg": inst.get("leg"),
+                "joint": inst.get("joint"),
+            }
+        )
+
+    variant = f"yaw_bearing_focus_L{leg_index}"
+    compound = Compound(placed, label=variant)
+    step_path = STEP_DIR / f"{variant}.step"
+    stl_path = STL_DIR / f"{variant}.stl"
+    STEP_DIR.mkdir(parents=True, exist_ok=True)
+    STL_DIR.mkdir(parents=True, exist_ok=True)
+    export_step(compound, step_path)
+    export_stl(compound, stl_path)
+
+    manifest = {
+        "variant": variant,
+        "sourceScene": str(scene_path.relative_to(PROTO_DIR)),
+        "step": str(step_path.relative_to(THIS_DIR)),
+        "stl": str(stl_path.relative_to(THIS_DIR)),
+        "includedInstances": len(placed),
+        "countsByMeshId": dict(counts),
+        "sourceInstances": source_instances,
+        "skippedCandidateMeshIds": {k: v for k, v in skipped.items() if k},
+        "bboxMm": _bbox(compound),
+    }
+    manifest_path = OUT_DIR / f"{variant}_manifest.json"
+    manifest_path.write_text(json.dumps(manifest, indent=2) + "\n")
+    return manifest
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -182,9 +264,23 @@ def main() -> None:
         action="store_true",
         help="Include STS3215 servo-body envelopes for clamp-cap diagnosis.",
     )
+    parser.add_argument(
+        "--yaw-bearing-focus",
+        action="store_true",
+        help="Export one yaw-bearing stack plus chassis_bottom instead of the full robot.",
+    )
+    parser.add_argument(
+        "--leg-index",
+        type=int,
+        default=0,
+        help="Leg index to use with --yaw-bearing-focus.",
+    )
     args = parser.parse_args()
 
-    manifest = build_assembly(include_servo_bodies=args.with_servos)
+    if args.yaw_bearing_focus:
+        manifest = build_yaw_bearing_focus(leg_index=args.leg_index)
+    else:
+        manifest = build_assembly(include_servo_bodies=args.with_servos)
     print(json.dumps(manifest, indent=2))
 
 
