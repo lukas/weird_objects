@@ -167253,7 +167253,7 @@
       "reward.k_walk_stop_current=2.0"
     ],
     "created": "2026-08-24T04:37:20+00:00",
-    "status": "RUNNING",
+    "status": "PARTIAL",
     "checks": {
       "cpu_limit": 28,
       "existing_trainers": [],
@@ -167296,7 +167296,8 @@
         "problems": []
       }
     ],
-    "triage": "in-cycle cw-arch-hist16-dep1-c1-joyfullcurr9-stopcur2 since 2026-08-24T05:59:58"
+    "triage": "done",
+    "verdict": "Actuator-current stop charge (k_walk_stop_current=2.0) does exactly what it was built for and nothing more. Result: held-out 60s joygate falls collapsed 14/48 (joyfullcurr8) -> 1/48, decisively clearing the joyfullcurr6 8/48 bar; the one remaining fall is still over_current (dr0p5) but is now a rare tail event, not the dominant failure mode (100% of a set 14x smaller). DR-0 gate stays healthy (det 6/6, sto 5/6 gait_valid, 0 terms, slip/m med 1.19-1.95, well under the 2.9 cap); own-DR (0.5) also healthy (det 5/6, sto 6/6 gait_valid, 0 terms). dir_err 42.83deg still misses the 40deg allow (closest so far is joyfullcurr8's 40.17). But it does NOT move the walkcurr V6 b1 cert at all: in-training walkcurr/b1_front45_20s/stop_speed_m_s plateaus 0.027-0.048 m/s across the whole 40M run (W&B, 79 cert rounds), the same band joyfullcurr6/7/8 all showed, never nearing the 0.015 bar -- frontier stays pinned at b1 the entire run, buckets b2-b9 (side90/rear/full-circle, the actual point of the operator's order) still never practiced. Root cause (env/walk_stop_current_max_a stayed 1.1-1.4A the whole run, under the 1.5A headroom): the current charge only fires when a servo nears the 2.5A trip, so it kills the STIFF-FIGHT pathology but is a no-op against a gentle, low-current sustained creep -- which is exactly what's blocking the cert. Reward quarters 841/932/899/864 (peaks Q2, declines) = plateau, not still-rising, so per 08-21 this is not an undertrained-keep-going case for the cert metric specifically; it is a genuine, isolated mechanism win (over_current, SOLVED) stacked on an unmoved mechanism (creep-speed pricing, UNCHANGED). Champion unchanged (stotight45-seed13); joystick DONE gate stays met per 08-23 -- this V6 ladder is operator-ordered hardening. Next: the old 'do not dose up k_walk_stop_charge' caution predates this safety net and was never actually tested past k=1.0 -- now that over-current is separately handled, raise the stop-SPEED charge's own dose to attack the cert metric directly; launched cw-arch-hist16-dep1-c1-joyfullcurr10-chg2/-chg4 (k_walk_stop_charge=2.0/4.0, current charge held at the proven 2.0)."
   },
   {
     "run": "cw-arch-hist16-dep1-c1-joyfullcurr9-stopcur6",
