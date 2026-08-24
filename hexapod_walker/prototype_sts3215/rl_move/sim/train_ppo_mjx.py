@@ -1972,15 +1972,8 @@ def main(argv: list[str] | None = None) -> int:
             ap.error("--recover-init-curriculum requires recover episodes "
                      "in --goal-mix")
 
-    if args.training_episode_seconds is None:
-        # Bit-exact default: identical to the pre-flag behavior where
-        # the training env kwargs' getattr(...) fallback resolved to
-        # --episode-seconds. Setting it explicitly here (rather than
-        # leaving the attribute unset) keeps every downstream getattr
-        # call correct even though the attribute now always exists.
-        args.training_episode_seconds = args.episode_seconds
-    elif args.training_episode_seconds <= 0.0:
-        ap.error("--training-episode-seconds must be > 0")
+    args.training_episode_seconds = _resolve_training_episode_seconds(
+        args.training_episode_seconds, args.episode_seconds)
 
     if not mjx_is_available():
         raise SystemExit("mujoco-mjx / jax not installed — "
