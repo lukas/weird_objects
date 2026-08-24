@@ -28,6 +28,10 @@ servo — is a cantilever.  This variant closes the structure from the top:
   top↔bottom structural connection (see below).  Each stands in a
   vacated corner Wago tray and doubles as the boss its hatch perimeter
   screw threads into.
+* **`centre_wago_block`** (print 1): the pillars claim the corner Wago
+  trays, so the power tree consolidates — 4× 5-port 221-415 (two per
+  net, jumpered) in one press-fit block at the chassis centre under
+  the open hatch, replacing the 6 corner + 2 trunk nuts (see below).
 
 Load path: hip moment → cap boss → top bearing → top plate →
 **six rim pillars** → chassis_bottom + the five other legs.  Each yaw
@@ -114,11 +118,12 @@ territory outside every swing envelope):
   so the frame stays clamped with the lid off.
 * **Foot = the corner Wago tray**: chassis_bottom already grows a
   three-walled tray for a 5-way Wago at every corner flat.  With the
-  top frame on, those Wagos are buried under solid deck (no lever
-  access), so they **relocate inboard under the service hatch**; the
-  vacated bay becomes the pillar's socket — the foot fills it with
-  0.3 mm clearance to the 2.4 mm production walls, which act as the
-  shear/registration key.  chassis_bottom is NOT reprinted.
+  top frame on, those Wagos would be buried under solid deck anyway
+  (no lever access), so the power splices **consolidate into the
+  central block** (next section); the vacated bay becomes the pillar's
+  socket — the foot fills it with 0.3 mm clearance to the 2.4 mm
+  production walls, which act as the shear/registration key.
+  chassis_bottom is NOT reprinted.
 * **Foot bolts**: three M3 through-bolts with nyloc nuts on the belly
   (two inside the bay, one on an inboard tab that sits under the open
   hatch so its driver comes straight down).  The foot is its own
@@ -132,6 +137,36 @@ Why this shape: light (~140 g total for all six), cheap (pure print,
 and torsion ~6× the four-standoff baseline, before counting the keyed
 sockets), and easy (each pillar drops into a socket that already
 exists on the production part and takes 4 screws).
+
+## Central splice block — the power tree consolidates 8 nuts → 4
+
+With the corner trays claimed by the pillars, per-corner splices no
+longer earn their keep — `centre_wago_block` (print 1, ~11 g) replaces
+the **6 corner Wagos AND the 2 trunk nuts** with 4× 5-port 221-415 in
+one printed block at the chassis centre:
+
+* **Layout**: two back-to-back press-fit rows sharing the middle wall
+  (production tray constants: 0.15 mm wedge, 2.4 mm walls, walls stop
+  ~1.9 mm below the nut top).  North pair = V+, south pair = GND; the
+  two nuts of each net are jumpered, which leaves battery-in + six leg
+  branches + one spare port per net.  Wire entries face outward, so
+  the leg pigtails fan in radially without crossing the block.
+* **Location**: centred on the origin, 66.9 × 44.1 mm footprint —
+  probed and asserted against the real chassis_bottom solid: fully on
+  solid sheet (VHB backing, no slot bridged), 2 mm shy of the battery
+  strap slots (inner edge y = 24), 6+ mm from the standoff posts, and
+  the battery-lead trunk pass (x 41…55) lands right at its east
+  ports.  Corner radius 40.1 mm — the whole block sits under the
+  64 mm hatch opening, **levers up, reachable from straight above with
+  the lid off**; even a flipped-open lever (z ≈ 22) stays below the
+  z 24 rotating band.
+* **Mount**: VHB pad — the exact scheme the production corner trays
+  used for months before merging into the chassis print, and here the
+  wire pull is a gentle radial fan rather than one corner's inward
+  yank.  No drilling, chassis_bottom untouched.
+* **Wiring delta**: each leg's power pigtail runs corner → centre
+  (~60–70 mm longer); battery leads come up through the existing trunk
+  pass directly into the east ports.
 
 ## Fits — all bench-tuned production constants, nothing new
 
@@ -174,8 +209,9 @@ variation only moves parts that stay outboard/below the plate.
 * 6× M3×10 for the dedicated frame→pillar screws
 * 18× M3×12 + 18× M3 nyloc nuts for the pillar feet (belly side)
 * the 140 mm `chassis_top` deck + its 20 mm standoffs are not used
-* the 6 corner 5-way Wagos relocate inboard under the hatch (longer
-  leg-power pigtails at the corners; wiring change only)
+* **−4 Wago 221-415**: the 6 corner + 2 trunk nuts become 4 in
+  `centre_wago_block` (print 1, ~11 g, VHB pad; leg power pigtails
+  ~60–70 mm longer — wiring change only)
 * recommended: 12× M3 heat-set inserts (McMaster 94459A130) for the hip
   cap pilots, +12 for the pillar-top pilots — see "Disassembly & service"
 
@@ -185,14 +221,14 @@ variation only moves parts that stay outboard/below the plate.
    leg (the upper/located one; leave the lower pocket empty), and use
    `hip_clamp_cap_rigid` in place of the stock hip cap — same 2× M3
    into the same cradle pilots.
-2. Move the 6 corner Wagos inboard: each one slides ~30 mm along its
-   own corner azimuth to **rho ≈ 46, long side tangential, levers up**
-   (floor verified free at rho 38–54 × ±20 mm on all six corners),
-   velcro'd to the sheet — directly under the hatch opening, so levers
-   stay reachable from above with the lid off.  Pigtails need
-   ~30–35 mm extra.  Then sit each `corner_pillar` in its vacated
-   tray, drill the three Φ3.4 foot holes through the sheet using the
-   foot as the jig, and bolt down with M3×12 + belly nylocs.
+2. Re-splice power at the centre: VHB `centre_wago_block` to the floor
+   centred on the origin (footprint verified/asserted against the real
+   chassis solid), seat 4× 221-415, jumper each pair, land the battery
+   leads through the trunk pass into the east ports and each leg's
+   (lengthened) pigtails into the fan-out ports.  The 6 corner and 2
+   trunk nuts are retired.  Then sit each `corner_pillar` in its
+   vacated tray, drill the three Φ3.4 foot holes through the sheet
+   using the foot as the jig, and bolt down with M3×12 + belly nylocs.
 3. Press a 6805 onto each cap boss until it seats on the Φ29 pedestal.
 4. Lower `chassis_top_rigid` straight down onto all six races (pockets
    are lead-in chamfered; descent path verified clear at build time —
@@ -259,6 +295,8 @@ serviceable option.
 * `top_hatch_rigid`: lid face down, lip up — flat print, no supports.
 * `corner_pillar`: foot down, column up — solid, no supports (the
   scallops are gentle vertical concave faces, nothing overhangs).
+* `centre_wago_block`: floor down — flat print, no supports; walls are
+  plain vertical extrusions like the production trays.
 * `hip_clamp_cap_rigid`: rest on the tongue face (outer face + boss
   up) so the press boss prints as a vertical cylinder; supports under
   the flange wings and hooks.  Printing in the stock flat orientation

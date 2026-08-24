@@ -36,6 +36,10 @@ pair.  This variant closes the loop from the TOP:
     (drilled through chassis_bottom using the foot as the jig -- a
     bench drill mod, no reprint).  The four central 90 mm standoffs
     remain only as hatch/electronics anchors.
+  * ``centre_wago_block`` -- the pillars claim the corner Wago trays,
+    so the power tree consolidates: 4x 5-port 221-415 (two per net,
+    jumpered) in one printed press-fit block at the chassis centre,
+    under the open hatch, replacing the 6 corner + 2 trunk nuts.
 
   Load path: hip moment -> cap boss -> top bearing -> top plate ->
   six rim pillars -> chassis_bottom / five other legs.  Each yaw axis
@@ -198,8 +202,9 @@ PILLAR_BOT_Z = hp.CHASSIS_PLATE_T / 2.0   # +2.0 -- bottom sheet top face
 # The pillar stands in the production WAGO TRAY at each corner flat
 # (chassis_bottom grows a U of 2.4 mm walls there for a 5-way Wago).
 # With the top frame installed those corner Wagos are buried under
-# solid deck (no lever access), so in this variant they RELOCATE inboard
-# under the service hatch; the vacated tray becomes the pillar's SOCKET:
+# solid deck (no lever access), so in this variant the corner + trunk
+# splices CONSOLIDATE into the central block (see WBLK_* below); the
+# vacated tray becomes the pillar's SOCKET:
 # the foot fills the bay with 0.3 mm clearance to all three walls, so
 # the production walls themselves are the shear/registration key --
 # chassis_bottom is untouched.  The surrounding corner is otherwise
@@ -216,6 +221,29 @@ PILLAR_BAR_HOLE_X = 93.0                  # in-bay bolt pair, radial pos
 PILLAR_BAR_HOLE_Y = 11.0                  # in-bay bolt pair, tangential +/-
 PILLAR_TAB_RHO = 67.6                     # inboard tab bolt radius
 PILLAR_FOOT_T = 4.0                       # foot plate thickness
+
+# CENTRAL SPLICE BLOCK (user, Aug 24: consolidate).  With the corner
+# trays claimed by the pillars, the power tree collapses into ONE
+# printed block at the chassis centre: 4x 5-port 221-415 in two
+# back-to-back press-fit rows (north pair = V+, south pair = GND; the
+# two nuts of a net are jumpered, leaving battery-in + 6 leg branches
+# + a spare port per net).  It replaces the 6 corner nuts AND the two
+# trunk nuts: 8 -> 4.  Bays reuse the bench-tuned production tray
+# constants (0.15 mm wedge, 2.4 mm walls, walls stop ~1.9 mm below the
+# nut top).  The floor sits on probed-solid sheet between the battery
+# strap slots (inner edge y = 24), west of the battery-lead trunk pass
+# (x 41..55) whose leads enter the east ports directly; the whole
+# block is under the open hatch, levers up.  Mounted with a VHB pad --
+# the exact scheme the production corner trays used for months before
+# they merged into the chassis print (and here the wire pull is a
+# gentle radial fan, not one corner's inward yank).
+WBLK_BAY_W = hp.WAGO5_W + hp.WAGO_MOUNT_BAY_CLEAR   # 29.85 (block X)
+WBLK_BAY_D = hp.WAGO5_D + hp.WAGO_MOUNT_BAY_CLEAR   # 18.45 (block Y)
+WBLK_WALL_T = hp.WAGO_MOUNT_WALL_T                  # 2.4
+WBLK_WALL_H = hp.WAGO_MOUNT_WALL_H                  # 6.5 above the floor
+WBLK_FLOOR_T = 2.0
+WBLK_HALF_X = WBLK_BAY_W + 1.5 * WBLK_WALL_T        # 33.45
+WBLK_HALF_Y = WBLK_WALL_T / 2.0 + WBLK_BAY_D + WBLK_WALL_T   # 22.05
 
 # Cap-local (well-frame) geometry.  Well frame: origin = hip servo back-face
 # centre, +X = body long axis, +Y = out of the open face (world UP at the
@@ -266,6 +294,12 @@ def _cyl_y(r: float, y0: float, y1: float, x: float = 0.0, z: float = 0.0,
     c.apply_transform(rotation_matrix(-np.pi / 2.0, [1, 0, 0]))  # axis -> +Y
     c.apply_translation([x, 0.5 * (y0 + y1), z])
     return c
+
+
+def _box(extents, center) -> trimesh.Trimesh:
+    b = trimesh.creation.box(extents=extents)
+    b.apply_translation(list(center))
+    return b
 
 
 def _union(meshes):
@@ -504,6 +538,48 @@ def _pillar_meshes(meshes: dict) -> list[trimesh.Trimesh]:
     return out
 
 
+def make_centre_wago_block() -> trimesh.Trimesh:
+    """Central power-splice block: 4x 5-port 221-415 bays in two
+    back-to-back rows sharing the middle wall, production press-fit
+    dims.  Wire entries face outward (north row +Y, south row -Y).
+    Modeled in world position: centred on the chassis origin, floor on
+    the bottom sheet's top face.  See the WBLK_* constant block."""
+    z0 = PILLAR_BOT_Z
+    zf = z0 + WBLK_FLOOR_T
+    top = zf + WBLK_WALL_H
+    # ONE solid minus four bay pockets: cutting (instead of unioning
+    # wall boxes) leaves no exactly-flush coplanar seams to T-junction.
+    body = _box((2 * WBLK_HALF_X, 2 * WBLK_HALF_Y, top - z0),
+                center=(0.0, 0.0, (z0 + top) / 2.0))
+    x_c = WBLK_WALL_T / 2.0 + WBLK_BAY_W / 2.0
+    cuts = []
+    for sy in (+1.0, -1.0):
+        for sx in (-1.0, +1.0):
+            # pocket runs from the middle wall face out PAST the front
+            # edge, so each bay is open at its wire-entry side
+            y0 = WBLK_WALL_T / 2.0
+            y1 = WBLK_HALF_Y + 2.0
+            cuts.append(_box(
+                (WBLK_BAY_W, y1 - y0, WBLK_WALL_H + 2.0),
+                center=(sx * x_c, sy * (y0 + y1) / 2.0,
+                        zf + (WBLK_WALL_H + 2.0) / 2.0)))
+    return _diff(body, cuts)
+
+
+def _wago5_scene_frames() -> list[np.ndarray]:
+    """World 4x4 for the four seated splice nuts (visuals).  The wago5
+    visual's local -X is the wire-entry face; rotate it outward."""
+    y_c = WBLK_WALL_T / 2.0 + WBLK_BAY_D / 2.0     # 10.425
+    zf = PILLAR_BOT_Z + WBLK_FLOOR_T
+    x_c = WBLK_WALL_T / 2.0 + WBLK_BAY_W / 2.0     # 16.125
+    out = []
+    for sy in (+1.0, -1.0):                         # north row, south row
+        for sx in (-1.0, +1.0):
+            out.append(_trans([sx * x_c, sy * y_c, zf])
+                       @ _rotz(-sy * np.pi / 2.0))
+    return out
+
+
 def make_top_hatch_rigid() -> trimesh.Trimesh:
     """Removable service hatch: a 4 mm hex lid over the frame opening.
 
@@ -584,6 +660,7 @@ MESH_FILES = {
     "chassis_top_rigid": (make_chassis_top_rigid, "chassis_top_rigid.stl"),
     "top_hatch_rigid": (make_top_hatch_rigid, "top_hatch_rigid.stl"),
     "corner_pillar": (make_corner_pillar, "corner_pillar.stl"),
+    "centre_wago_block": (make_centre_wago_block, "centre_wago_block.stl"),
     # Unchanged production prints (print from the MAIN stl_prototype/).
     "chassis_bottom": (hp.make_chassis_bottom, "chassis_bottom.stl"),
     "coxa_link": (hp.make_coxa_link_part, "coxa_link.stl"),
@@ -605,9 +682,11 @@ MESH_FILES = {
     "yaw_bearing_upper": (hp.make_yaw_bearing_upper,
                           "yaw_bearing_upper_DO_NOT_PRINT.stl"),
     "bearing_6805": (make_bearing_6805, "bearing_6805_DO_NOT_PRINT.stl"),
+    "wago5": (hp.make_wago5_visual, "wago5_DO_NOT_PRINT.stl"),
 }
 ALWAYS_REBUILD = {"hip_clamp_cap_rigid", "chassis_top_rigid",
-                  "top_hatch_rigid", "corner_pillar", "bearing_6805"}
+                  "top_hatch_rigid", "corner_pillar", "centre_wago_block",
+                  "bearing_6805"}
 
 
 def build_meshes() -> dict[str, trimesh.Trimesh]:
@@ -827,6 +906,60 @@ def _bounds_touch(a: trimesh.Trimesh, b: trimesh.Trimesh) -> bool:
                 and np.all(b.bounds[0] <= a.bounds[1] + 1.0))
 
 
+def check_wago_block(meshes: dict[str, trimesh.Trimesh]) -> None:
+    """Central splice block: printable, sits on solid sheet, fits its
+    territory (strap slots / standoffs / trunk pass), whole footprint
+    under the open hatch, and the nut stack stays below the rotating
+    band even with a lever flipped up."""
+    blk = meshes["centre_wago_block"]
+    assert blk.is_watertight, "wago block not watertight"
+    assert blk.body_count == 1, "wago block not a single body"
+
+    # nothing on the chassis floor where it sits (walls, pads, ports)
+    inter = trimesh.boolean.intersection(
+        [blk, meshes["chassis_bottom"]], engine="manifold")
+    v = 0.0 if inter.is_empty else abs(inter.volume)
+    assert v < 1.0, f"wago block overlaps chassis_bottom ({v:.2f} mm3)"
+
+    # solid sheet under the full footprint (VHB backing, no slot bridged)
+    xs = np.linspace(-WBLK_HALF_X + 1, WBLK_HALF_X - 1, 23)
+    ys = np.linspace(-WBLK_HALF_Y + 1, WBLK_HALF_Y - 1, 15)
+    XX, YY = np.meshgrid(xs, ys)
+    pts = np.column_stack([XX.ravel(), YY.ravel(),
+                           np.full(XX.size, PILLAR_BOT_Z - 1.0)])
+    frac = meshes["chassis_bottom"].contains(pts).mean()
+    assert frac > 0.999, f"floor under wago block only {frac:.1%} solid"
+
+    # territory: strap slots (inner edge y=24), standoff posts, trunk pass
+    slot_y0 = hp.BATTERY_STRAP_SLOT_Y - 2.0                    # 24
+    assert WBLK_HALF_Y + 1.5 <= slot_y0, "block reaches the strap slots"
+    assert WBLK_HALF_Y + 6.0 <= abs(hp.CHASSIS_STANDOFF_HOLES_XY[0][1]), \
+        "block reaches the standoff posts"
+    assert WBLK_HALF_X + 2.0 <= (hp.BATTERY_TRUNK_HOLE_CENTRE[0]
+                                 - hp.BATTERY_TRUNK_HOLE_X / 2.0), \
+        "block reaches the battery trunk pass"
+
+    # fully under the open hatch, and levers stay below the swing band
+    corner_r = float(np.hypot(WBLK_HALF_X, WBLK_HALF_Y))
+    assert corner_r <= HATCH_OPEN_APO - 3.0, \
+        f"block corner r {corner_r:.1f} not under the hatch opening"
+    lever_top = PILLAR_BOT_Z + WBLK_FLOOR_T + hp.WAGO5_H + 10.0
+    assert lever_top < PILLAR_SWEEP_Z[0], \
+        f"open lever top z {lever_top:.1f} enters the rotating band"
+
+    # seated nuts: the 0.15 press wedge is the ONLY block contact
+    for M in _wago5_scene_frames():
+        w = meshes["wago5"].copy()
+        w.apply_transform(M)
+        inter = trimesh.boolean.intersection([w, blk], engine="manifold")
+        v = 0.0 if inter.is_empty else abs(inter.volume)
+        assert v < 40.0, f"seated nut vs block: {v:.2f} mm3 (not a wedge)"
+    print(f"  wago block: {abs(blk.volume) / 1000.0:.1f} cm3, "
+          f"4 bays press-fit, corner r {corner_r:.1f} "
+          f"under the {HATCH_OPEN_APO:g} mm opening, "
+          f"lever top {lever_top:.1f} < band {PILLAR_SWEEP_Z[0]:g}")
+
+
 def check_hatch(meshes: dict[str, trimesh.Trimesh]) -> None:
     """The hatch must drop STRAIGHT DOWN into the seated frame (lip into
     the opening) with zero overlap, and its screw/standoff/elec holes
@@ -976,6 +1109,7 @@ def sweep_femur_envelope(meshes: dict[str, trimesh.Trimesh],
 COLORS = {
     "hip_clamp_cap_rigid": "#4878b0", "chassis_top_rigid": "#5b8fd4",
     "top_hatch_rigid": "#6fa8dc", "corner_pillar": "#3f6ea6",
+    "centre_wago_block": "#4a90a4", "wago5": "#d9822b",
     "bearing_6805": "#303030",
     "yaw_bearing_upper": "#3a3a3a", "servo_body": "#6b6b6b",
     "chassis_bottom": "#8a8f98", "coxa_link": "#9aa0a6",
@@ -984,7 +1118,8 @@ COLORS = {
     "yaw_servo_retainer": "#9aa0a6", "foot_boot": "#5a5f66",
     "tibia_tube": "#404040",
 }
-COTS = {"servo_body", "yaw_bearing_upper", "bearing_6805", "tibia_tube"}
+COTS = {"servo_body", "yaw_bearing_upper", "bearing_6805", "tibia_tube",
+        "wago5"}
 
 
 def _mat16(M: np.ndarray) -> list[float]:
@@ -1018,6 +1153,11 @@ def build_scene(meshes, femur_up_limit: float) -> dict:
     for az in range(0, 360, 60):
         inst("corner_pillar", f"corner pillar az{az} (NEW)",
              _rotz(np.deg2rad(az)))
+    inst("centre_wago_block", "central splice block (NEW)", np.eye(4))
+    for k, (M, label) in enumerate(zip(_wago5_scene_frames(),
+                                       ("V+ west", "V+ east",
+                                        "GND west", "GND east"))):
+        inst("wago5", f"221-415 {label}", M)
     for i in range(6):
         T = leg_transforms(i)
         a = (i + 0.5) * np.pi / 3.0
@@ -1082,6 +1222,7 @@ def build_scene(meshes, femur_up_limit: float) -> dict:
                 ["chassis_top_rigid", "top_hatch_rigid"],
                 ["corner_pillar", "chassis_bottom"],
                 ["corner_pillar", "chassis_top_rigid"],
+                ["centre_wago_block", "wago5"],   # 0.15 press wedge
                 ["chassis_bottom", "servo_body"],
                 ["coxa_link", "servo_body"],
                 ["coxa_link", "yaw_bearing_cap"],
@@ -1184,6 +1325,7 @@ def main() -> None:
     print("static checks ...")
     check_static(meshes)
     check_pillars(meshes)
+    check_wago_block(meshes)
     check_hatch(meshes)
     check_yaw_sweep(meshes)
     check_plate_descent(meshes)

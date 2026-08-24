@@ -273,9 +273,9 @@ parts:
       clear even for a 360-deg hand spin).
       The foot fills the corner Wago-tray bay of chassis_bottom with
       0.3 mm clearance to its three 2.4 mm walls -- the production
-      tray IS the shear/registration socket; the corner Wagos
-      (buried under solid deck in this variant anyway) relocate
-      inboard under the service hatch.  6 per robot.
+      tray IS the shear/registration socket; the corner power splices
+      (buried under solid deck in this variant anyway) consolidate
+      into centre_wago_block.  6 per robot.
     generated_by:
       file: "concepts/rigid_hip/make_rigid_hip_variant.py"
       function: "make_corner_pillar"
@@ -321,6 +321,63 @@ parts:
             label: "Foot-to-wall clearance per side"
             value: 0.3
             code_name: PILLAR_KEY_CL
+
+  centre_wago_block:
+    label: "Central power-splice block (concept)"
+    aliases: ["wago block", "splice block", "power block"]
+    description: >-
+      The pillars claim the six corner Wago trays, so the power tree
+      consolidates: 4x 5-port Wago 221-415 in one printed press-fit
+      block at the chassis centre, replacing the 6 corner + 2 trunk
+      nuts (8 -> 4).  Two back-to-back rows share the middle wall
+      (north pair = V+, south pair = GND; each net's two nuts are
+      jumpered, leaving battery-in + 6 leg branches + a spare port).
+      Bays reuse the bench-tuned production tray constants (0.15 mm
+      wedge across the port width, 2.4 mm walls stopping ~1.9 mm below
+      the nut top); wire entries face outward so the leg pigtails fan
+      in radially.  Footprint 66.9 x 44.1 mm centred on the origin --
+      probed/asserted on solid sheet between the battery strap slots
+      (2 mm shy of their inner edge y=24), 6+ mm from the standoff
+      posts, west of the battery trunk pass whose leads land in the
+      east ports.  Entirely under the 64 mm hatch opening, levers up;
+      an open lever (z ~22) stays below the z 24 rotating band.
+      Mounted on a VHB pad (the production corner trays' original,
+      bench-proven scheme).  2 mm floor, walls 6.5 above it.  1 per
+      robot, ~11 g.
+    generated_by:
+      file: "concepts/rigid_hip/make_rigid_hip_variant.py"
+      function: "make_centre_wago_block"
+      output_stl: "stl/centre_wago_block.stl"
+    local_frame:
+      origin: "World/chassis frame; floor bottom on the sheet top face (z 2)"
+      axes:
+        x: "Chassis +x (rows run along x)"
+        y: "Chassis +y (rows separated in y; entries face +/-y)"
+        z: "Up"
+    features:
+      bays:
+        label: "4x 221-415 press-fit bays"
+        kind: "pocket"
+        purpose: >-
+          Production tray press: bay width WAGO5_W - 0.15 wedges the
+          nut across its ports; back face butts the shared middle
+          wall.  Cross walls run past the bay fronts as ledges, like
+          the production corner trays.
+        dimensions:
+          bay_width:
+            label: "Bay width (block X)"
+            value: 29.85
+            code_name: WBLK_BAY_W
+          bay_depth:
+            label: "Bay depth (block Y)"
+            value: 18.45
+            code_name: WBLK_BAY_D
+
+  wago5:
+    label: "Wago 221-415 5-port lever nut — COTS"
+    description: >-
+      Visual stand-in (30 x 18.6 x 8.4 box), 4 per robot in this
+      variant (was 8: 6 corner + 2 trunk).
 
   bearing_6805:
     label: "Top-plate 6805-2RS (25x37x7) — COTS, not printed"
