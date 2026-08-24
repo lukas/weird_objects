@@ -264,13 +264,15 @@ parts:
       shear (push at the bottom tower, pull at the top ring), which
       the four slender central standoffs at rho 44 could not carry;
       six rim columns take it at ~2x the radius with ~6x the section.
-      SWEPT-KEEP-OUT SCALLOPS: a vertical cylinder of radius
-      PILLAR_SWEEP_R + PILLAR_SWEEP_CL (measured worst rotating reach
-      40.4 mm + 5 mm) around BOTH flanking yaw axes is subtracted over
-      the rotating z band (24..78), so >= 5 mm leg clearance holds at
-      EVERY yaw angle by construction (measured 5.03 mm, asserted on
-      every rebuild; the hip servo itself never gets within 13.8 mm;
-      clear even for a 360-deg hand spin).
+      PLAIN column (user, Aug 24: no scallops/weird shape) -- leg
+      clearance is guaranteed by the rotating parts instead: every
+      part turning with a yaw joint fits a ROT_ENVELOPE_R = 38.2 mm
+      cylinder about its own axis (see coxa_link_rounded), and the
+      column surface sits 43.24 mm from each neighbouring axis, so
+      >= 5 mm clearance holds at EVERY yaw angle by construction
+      (measured 5.03 mm; envelope + distance asserted on every
+      rebuild; the hip servo never gets within 13.8 mm; clear even
+      for a 360-deg hand spin).
       The foot fills the corner Wago-tray bay of chassis_bottom with
       0.3 mm clearance to its three 2.4 mm walls -- the production
       tray IS the shear/registration socket; the corner power splices
@@ -392,8 +394,36 @@ parts:
     label: "Production chassis_bottom (unchanged, reference)"
     description: "Print from the main stl_prototype/ — unchanged by this variant."
   coxa_link:
-    label: "Production coxa_link (unchanged, reference)"
-    description: "Print from the main stl_prototype/ — unchanged by this variant."
+    label: "coxa_link_rounded — cradle corners rounded to the yaw envelope (concept)"
+    aliases: ["rounded coxa", "coxa link rounded", "servo holder"]
+    description: >-
+      The production coxa_link with its two servo-cradle corner edges
+      rounded to a 38.2 mm arc about its own yaw axis
+      (ROT_ENVELOPE_R): boolean intersection with the envelope
+      cylinder removes at most 2.16 mm from corners that used to
+      reach 40.36 mm (8 vertices).  Hub, horn drive, cradle pilots
+      and cap seat are untouched.  This keeps every rotating part
+      inside the envelope so the plain corner_pillar columns clear
+      the swinging leg by >= 5 mm at every yaw angle -- the user
+      chose rounding the servo holder over scalloping the pillar.
+      NOTE: this makes the coxa a VARIANT print (6x), replacing the
+      stock coxa_link on this build.
+    generated_by:
+      file: "concepts/rigid_hip/make_rigid_hip_variant.py"
+      function: "make_coxa_link_rounded"
+      output_stl: "stl/coxa_link_rounded.stl"
+    features:
+      envelope_round:
+        label: "Cradle-corner rounding arc"
+        kind: "fillet"
+        purpose: >-
+          Caps the coxa's reach from its yaw axis so column clearance
+          is guaranteed by the part, not by pillar shaping.
+        dimensions:
+          envelope_radius:
+            label: "Yaw-axis envelope radius"
+            value: 38.2
+            code_name: ROT_ENVELOPE_R
   femur_link:
     label: "Production femur_link (unchanged, reference)"
     description: "Print from the main stl_prototype/ — unchanged by this variant."

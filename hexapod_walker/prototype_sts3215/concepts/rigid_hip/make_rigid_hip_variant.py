@@ -22,10 +22,11 @@ pair.  This variant closes the loop from the TOP:
     pressed on once and never removed; all service unbolts the cap from
     the coxa cradle (both bolts reachable with the plate on) and lifts
     the plate + caps + bearings off as one rigid unit.
-  * ``corner_pillar`` (x6) -- solid elliptical printed columns at the
-    six corner azimuths (rho 81.6, between adjacent rings), with the
-    legs' swept keep-out volume carved out of their flanks (>= 5 mm
-    clearance at every yaw angle by construction), that tie the top
+  * ``corner_pillar`` (x6) -- plain solid elliptical printed columns
+    at the six corner azimuths (rho 81.6, between adjacent rings);
+    >= 5 mm leg clearance at every yaw angle is guaranteed by the
+    rotating parts' ROT_ENVELOPE_R trim (see ``coxa_link_rounded``),
+    not by shaping the column.  They tie the top
     frame to chassis_bottom at the RIM, where each hip moment's force
     couple actually wants to react (push at the bottom tower, pull at
     the top ring) and where torsional leverage is ~4x the old standoff
@@ -36,6 +37,10 @@ pair.  This variant closes the loop from the TOP:
     (drilled through chassis_bottom using the foot as the jig -- a
     bench drill mod, no reprint).  The four central 90 mm standoffs
     remain only as hatch/electronics anchors.
+  * ``coxa_link_rounded`` (x6) -- the production coxa with its
+    servo-cradle corners rounded to the 38.2 mm yaw envelope (max
+    2.16 mm off two vertical wall corners; all interfaces untouched).
+    The one production part this variant reprints.
   * ``centre_wago_block`` -- the pillars claim the corner Wago trays,
     so the power tree consolidates: 4x 5-port 221-415 (two per net,
     jumpered) in one printed press-fit block at the chassis centre,
@@ -169,22 +174,28 @@ PILLAR_OD = 20.0                          # column RADIAL outer diameter
 PILLAR_TAN_SCALE = 0.7                    # ELLIPTICAL section: tangential
                                           # half-axis 7 (a round Phi 20 was
                                           # a measured graze on the coxa
-                                          # sweep; the ellipse is step one,
-                                          # the SCALLOPS below are step two)
-# Swept-keep-out SCALLOPS (user, Aug 24: "worried these columns will
-# bang into the hip servo when it rotates"): measured over a full 360
-# revolution, the rotating assembly's worst reach from its yaw axis is
-# 40.4 mm (coxa cradle arm, z 30..45; the hip SERVO itself never gets
-# within 13.8 mm).  Rather than trust a thin static margin, the column
-# subtracts a vertical cylinder of radius sweep+5 around BOTH flanking
-# yaw axes across the z band where anything rotates -- so >= 5 mm
-# clearance at EVERY yaw angle is guaranteed by construction, and the
-# column keeps its full section everywhere else.  The column is SOLID
-# (no bore): simpler, stiffer at the scalloped waist, ~25 g each.
-PILLAR_SWEEP_R = 40.4                     # measured max rotating reach
-PILLAR_SWEEP_CL = 5.0                     # clearance carved beyond it
-PILLAR_SWEEP_Z = (24.0, 78.0)             # rotating parts live in z 25..76;
-                                          # band padded 1-2 mm each way
+                                          # sweep at 2.9 mm; slimming the
+                                          # tangential axis buys the margin)
+# ROUNDED-CORNER ENVELOPE (user, Aug 24: "round the corners of the
+# servo holder instead of making the pillar a weird shape").  The
+# scalloped column is gone; instead, everything that rotates with a
+# yaw joint is kept inside a 38.2 mm cylinder about its own axis, and
+# the column is a plain solid ellipse.  Axis-to-column-surface is
+# 43.24 mm (measured: 43.24 - 40.36 gave the old 2.88 graze), so a
+# <= 38.2 mm rotating envelope guarantees >= 5 mm clearance at EVERY
+# yaw angle -- same guarantee the scallops gave, now carried by the
+# rotating parts:
+#   * coxa_link_rounded -- the production coxa's servo-cradle corners
+#     reached 40.36 mm; they are rounded back to the envelope arc
+#     (max 2.16 mm off two vertical wall corners, 8 vertices; the
+#     cap-bolt bosses are untouched).  THE COXA IS NOT A STOCK PRINT
+#     in this variant (6 reprints) -- the price of the plain column.
+#   * hip_clamp_cap_rigid already fits (max reach 36.98) -- asserted.
+#   * hip servo: max reach 29.38, COTS, nothing to trim.
+ROT_ENVELOPE_R = 38.2                     # max rotating reach, enforced
+PILLAR_MIN_CL = 5.0                       # guaranteed clearance to column
+ROT_BAND_Z0 = 24.0                        # lowest z where anything rotates
+                                          # outside the (static) tower
 PILLAR_RHO = 81.6                         # centre radius at az 0/60/...:
                                           # midway between the lid-screw
                                           # pilot (76.2) and the dedicated
@@ -460,13 +471,11 @@ def make_chassis_top_rigid() -> trimesh.Trimesh:
 
 def make_corner_pillar() -> trimesh.Trimesh:
     """One rim pillar, modeled in WORLD position at az 0 (instances are
-    placed by 60-deg rotations).  A SOLID elliptical column from the
-    bottom sheet's top face up to PILLAR_TOP_GAP below the frame, with:
+    placed by 60-deg rotations).  A PLAIN SOLID elliptical column from
+    the bottom sheet's top face up to PILLAR_TOP_GAP below the frame
+    (leg clearance is guaranteed by the rotating parts' ROT_ENVELOPE_R
+    trim, not by shaping the column), with:
 
-      * swept-keep-out SCALLOPS: the volume within PILLAR_SWEEP_R +
-        PILLAR_SWEEP_CL of both flanking yaw axes is subtracted over
-        the rotating z band, so >= 5 mm leg clearance holds at every
-        yaw angle by construction;
       * two Phi 2.5 self-tap pilots in the top face (insert-ready):
         the shared lid screw (rho 76.2) and the dedicated frame screw
         (rho 87);
@@ -500,16 +509,7 @@ def make_corner_pillar() -> trimesh.Trimesh:
     tab.apply_translation([PILLAR_RHO - PILLAR_OD / 2.0 - 2.0, 0.0,
                            PILLAR_BOT_Z + PILLAR_FOOT_T / 2.0])
     body = _union([col, bar, tab])
-    ax = APOTHEM * np.cos(np.pi / 6.0)
-    ay = APOTHEM * np.sin(np.pi / 6.0)
     cuts = [
-        # swept-keep-out scallops around both flanking yaw axes
-        _cyl_z(PILLAR_SWEEP_R + PILLAR_SWEEP_CL,
-               PILLAR_SWEEP_Z[0], PILLAR_SWEEP_Z[1],
-               x=ax, y=+ay, sections=128),
-        _cyl_z(PILLAR_SWEEP_R + PILLAR_SWEEP_CL,
-               PILLAR_SWEEP_Z[0], PILLAR_SWEEP_Z[1],
-               x=ax, y=-ay, sections=128),
         # top pilots: shared lid screw + dedicated frame screw
         _cyl_z(PILOT_OD / 2.0, top_z - 8.0, top_z + 1.0,
                x=HATCH_SCREW_RHO, y=0.0, sections=32),
@@ -526,6 +526,19 @@ def make_corner_pillar() -> trimesh.Trimesh:
                            x=PILLAR_BAR_HOLE_X,
                            y=sy * PILLAR_BAR_HOLE_Y, sections=32))
     return _diff(body, cuts)
+
+
+def make_coxa_link_rounded() -> trimesh.Trimesh:
+    """The production coxa with its servo-cradle corners rounded to the
+    ROT_ENVELOPE_R arc about its own yaw axis (the coxa local z axis
+    through the origin).  Removes at most 2.16 mm from two vertical
+    wall corners that used to reach 40.36 mm; every interface (hub,
+    horn drive, cradle pilots, cap seat) is untouched.  This makes the
+    coxa a VARIANT print (6x) -- the trade for a plain rim column."""
+    coxa = hp.make_coxa_link_part()
+    z0, z1 = coxa.bounds[0][2] - 1.0, coxa.bounds[1][2] + 1.0
+    keep = _cyl_z(ROT_ENVELOPE_R, z0, z1, sections=256)
+    return trimesh.boolean.intersection([coxa, keep], engine="manifold")
 
 
 def _pillar_meshes(meshes: dict) -> list[trimesh.Trimesh]:
@@ -661,9 +674,11 @@ MESH_FILES = {
     "top_hatch_rigid": (make_top_hatch_rigid, "top_hatch_rigid.stl"),
     "corner_pillar": (make_corner_pillar, "corner_pillar.stl"),
     "centre_wago_block": (make_centre_wago_block, "centre_wago_block.stl"),
+    # VARIANT reprint of a production part: cradle corners rounded to
+    # the 38.2 mm yaw envelope so the plain rim columns clear by 5 mm.
+    "coxa_link": (make_coxa_link_rounded, "coxa_link_rounded.stl"),
     # Unchanged production prints (print from the MAIN stl_prototype/).
     "chassis_bottom": (hp.make_chassis_bottom, "chassis_bottom.stl"),
-    "coxa_link": (hp.make_coxa_link_part, "coxa_link.stl"),
     "femur_link": (hp.make_femur_link_part, "femur_link.stl"),
     "tibia_knee_yoke": (hp.make_tibia_knee_yoke, "tibia_knee_yoke.stl"),
     "foot_boot": (hp.make_foot_boot, "foot_boot.stl"),
@@ -686,7 +701,7 @@ MESH_FILES = {
 }
 ALWAYS_REBUILD = {"hip_clamp_cap_rigid", "chassis_top_rigid",
                   "top_hatch_rigid", "corner_pillar", "centre_wago_block",
-                  "bearing_6805"}
+                  "coxa_link", "bearing_6805"}
 
 
 def build_meshes() -> dict[str, trimesh.Trimesh]:
@@ -854,9 +869,21 @@ def check_pillars(meshes: dict[str, trimesh.Trimesh]) -> None:
                 v = _inter_vol(placed[j], m)
                 assert v < 1e-6, \
                     f"yaw {yaw:+g}: {key} hits pillar az{j * 60} ({v:.2f} mm3)"
-    # QUANTITATIVE margin (user, Aug 24): not just non-colliding --
-    # assert the measured distance stays >= the carved clearance minus
-    # a small numerical allowance, across the operating range.
+    # ROTATING ENVELOPE (user, Aug 24: round the parts, not the pillar)
+    # -- every rotating part must fit the 38.2 mm cylinder about its
+    # own yaw axis; that alone guarantees the column clearance.
+    r_coxa = float(np.linalg.norm(
+        meshes["coxa_link"].vertices[:, :2], axis=1).max())
+    assert r_coxa <= ROT_ENVELOPE_R + 0.05, \
+        f"rounded coxa reaches {r_coxa:.2f} > envelope {ROT_ENVELOPE_R}"
+    vc = meshes["hip_clamp_cap_rigid"].vertices
+    r_cap = float(np.hypot(vc[:, 0], vc[:, 2] - AXIS_Z).max())
+    assert r_cap <= ROT_ENVELOPE_R + 0.05, \
+        f"hip cap reaches {r_cap:.2f} > envelope {ROT_ENVELOPE_R}"
+
+    # QUANTITATIVE margin: not just non-colliding -- assert the
+    # measured distance stays >= the guaranteed clearance minus a
+    # small numerical allowance, across the operating range.
     from trimesh.proximity import signed_distance
     min_marg = 1e9
     for yaw in (-45.0, -20.0, 0.0, 20.0, 45.0):
@@ -870,10 +897,10 @@ def check_pillars(meshes: dict[str, trimesh.Trimesh]) -> None:
                     continue
                 d = float(-signed_distance(placed[j], m.vertices).max())
                 min_marg = min(min_marg, d)
-    assert min_marg >= PILLAR_SWEEP_CL - 0.5, \
+    assert min_marg >= PILLAR_MIN_CL - 0.25, \
         f"pillar clearance margin dropped to {min_marg:.2f} mm"
-    print(f"  pillars: measured leg clearance >= {min_marg:.2f} mm "
-          f"(carved keep-out: sweep {PILLAR_SWEEP_R:g} + {PILLAR_SWEEP_CL:g})")
+    print(f"  pillars: coxa/cap envelope {r_coxa:.2f}/{r_cap:.2f} <= "
+          f"{ROT_ENVELOPE_R:g}; measured leg clearance >= {min_marg:.2f} mm")
 
     # informational: full hand-spin (servo out) contact scan
     first_contact = None
@@ -944,7 +971,7 @@ def check_wago_block(meshes: dict[str, trimesh.Trimesh]) -> None:
     assert corner_r <= HATCH_OPEN_APO - 3.0, \
         f"block corner r {corner_r:.1f} not under the hatch opening"
     lever_top = PILLAR_BOT_Z + WBLK_FLOOR_T + hp.WAGO5_H + 10.0
-    assert lever_top < PILLAR_SWEEP_Z[0], \
+    assert lever_top < ROT_BAND_Z0, \
         f"open lever top z {lever_top:.1f} enters the rotating band"
 
     # seated nuts: the 0.15 press wedge is the ONLY block contact
@@ -957,7 +984,7 @@ def check_wago_block(meshes: dict[str, trimesh.Trimesh]) -> None:
     print(f"  wago block: {abs(blk.volume) / 1000.0:.1f} cm3, "
           f"4 bays press-fit, corner r {corner_r:.1f} "
           f"under the {HATCH_OPEN_APO:g} mm opening, "
-          f"lever top {lever_top:.1f} < band {PILLAR_SWEEP_Z[0]:g}")
+          f"lever top {lever_top:.1f} < band {ROT_BAND_Z0:g}")
 
 
 def check_hatch(meshes: dict[str, trimesh.Trimesh]) -> None:
@@ -1112,7 +1139,7 @@ COLORS = {
     "centre_wago_block": "#4a90a4", "wago5": "#d9822b",
     "bearing_6805": "#303030",
     "yaw_bearing_upper": "#3a3a3a", "servo_body": "#6b6b6b",
-    "chassis_bottom": "#8a8f98", "coxa_link": "#9aa0a6",
+    "chassis_bottom": "#8a8f98", "coxa_link": "#7ba1d1",
     "femur_link": "#9aa0a6", "tibia_knee_yoke": "#9aa0a6",
     "knee_clamp_cap": "#9aa0a6", "yaw_bearing_cap": "#9aa0a6",
     "yaw_servo_retainer": "#9aa0a6", "foot_boot": "#5a5f66",
@@ -1168,7 +1195,8 @@ def build_scene(meshes, femur_up_limit: float) -> dict:
         knee_pt = (T["femur"] @ np.array([hp.FEMUR_LENGTH, 0.0, 0.0, 1.0]))[:3]
 
         yaw_ids = [
-            inst("coxa_link", f"L{i} coxa_link", T["coxa"], leg=i),
+            inst("coxa_link", f"L{i} coxa_link ROUNDED (NEW)",
+                 T["coxa"], leg=i),
             inst("yaw_bearing_upper", f"L{i} yaw bearing (lower slot EMPTY)",
                  T["coxa"], leg=i),
             inst("yaw_bearing_cap", f"L{i} yaw bearing cap", T["coxa"], leg=i),
