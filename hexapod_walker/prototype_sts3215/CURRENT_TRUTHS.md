@@ -24,6 +24,29 @@ follow-ups.
 
 ## Current top rulings (operator, 08-21/08-22/08-23/08-24)
 
+- SIM MODEL FAMILIES (operator 08-24 — binding; merged to main 08-24):
+  the MuJoCo robot has TWO model families, selected by cfg
+  `env.model_source` (resolver `rl_move/sim/servo_model.py`; env var
+  `HEXAPOD_MODEL_SOURCE` overrides). `mesh` (the NEW DEFAULT) /
+  `mesh_mjx`: mesh-accurate model generated from the real CAD
+  (`mesh_mujoco/`) — corrected kinematics (hip-pitch axis at the true
+  +38 mm coxa anchor, radial foot line, exact 150 mm knee→foot) AND
+  as-built masses: **3.50 kg total vs the legacy 2.104 kg** (~40 %
+  light; audited bottom-up against BuildViz `get_mass_properties` with
+  real servo/battery/bearing/screw masses + infill-corrected prints).
+  On pods the generated mesh assets don't exist, so `mesh` auto-loads
+  the checked-in primitive-collision twin
+  `mesh_mujoco/hexapod_mesh_mjx.xml` — same kinematics/masses/inertia,
+  fitted-primitive contacts, MJX-ready. `primitive` = the legacy
+  `mujoco_prototype` model, bit-identical to pre-08-24 behavior.
+  CONTINUITY FACT: every checkpoint lineage started before 2026-08-24
+  is a primitive-family policy — any resume, warm-start
+  (`respec --from`) or eval of one MUST set
+  `env.model_source=primitive`; the families do NOT transfer (same obs
+  layout, +66 % mass, shifted hip axis). The calibrated behavior test
+  suite pins itself to primitive (`rl_move/tests/conftest.py`);
+  mesh-family coverage is `rl_move/tests/test_model_source.py`. Full
+  note: ORCHESTRATOR_PROMPT.md "SIM MODEL CHANGE".
 - 100 Hz CONTROL CADENCE (operator 08-24, fb_20260824T174619_c49b7e —
   binding, implemented + snapshotted 08-24 ~18Z): every NEW PPO/MJX
   policy trains at `control.hz=100` with `safety.max_delta_q_deg=0.375`
