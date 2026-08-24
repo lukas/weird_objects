@@ -1,6 +1,42 @@
 # joystick - RL from the programmatic gait to joystick control
 
-Last updated: 2026-08-24 ~18:0x (**NEW OPERATOR-ORDERED CANDIDATE
+Last updated: 2026-08-24 ~18:2x (**100 Hz RATE-CONVERSION LINEAGE:
+`-hist64` DIED AT INIT PRECERT TOO, WORSE than the plain `-r2` drop —
+UNVERDICTED, flagged DIG-IN, not a class-stop yet.** Plain English:
+after attempt-1 (`...-v7-hz100`) died fail-closed at init (b0
+prog=0.203 < 0.50 bar), a concurrent cycle built `--hist-stride-
+transplant` (scatter the 25 Hz parent's hist16 first-layer columns to
+rate-matched slots of a densified hist64 stack, so at init the policy
+theoretically reads exactly its trained 40 ms-spaced frames) and
+relaunched as `...-v7-hz100-hist64` keeping `--walkcurr-cert-at-init`
+on. It died at the SAME precert gate, but WORSE: b0 prog=0.052 (vs
+0.203 for the naive same-old-hist16-just-faster-ticking `-r2` arm),
+0 falls, slip/m 3.65. The transplant's own offline smoke test (a
+`DummyVecEnv` synthetic + the real parent checkpoint at exact launch
+shapes) verified action-equivalence within 7e-6 fp noise BEFORE
+launch — so either that equivalence check doesn't cover something the
+real MJX walk env does differently (frame ordering, obs scaling,
+value-net width, or a `history_frames` cfg key read inconsistently
+between the offline check and the actual env), or the theory itself is
+wrong about what "equivalent to the parent" should score under the
+precert bucket sampler. **Root cause NOT isolated — do not retry
+another `--hist-stride-transplant` dose/stride blind, and do not
+conclude the mechanism is a dead end either; both are live
+possibilities pending a trace.** Meanwhile `...-v7-hz100-r2` (cert-
+at-init/precert dropped, frontier starts honest at b0, no transplant)
+is VERIFIED RUNNING train-0 and training normally — that arm is
+unaffected by this finding and remains the live 100 Hz read. Ledger
+state fixed this cycle (`hist64` was stuck INTENT after its own dead
+process went unreconciled — `launch_run.py checkup` confirmed DEAD,
+status set to FAILED with log tail via `update --set`); no
+interpretive verdict written pending the trace. Evidence: pod
+train-2 log `/tmp/train_cw-arch-hist16-dep1-c1-joyfullcurr13-v7-hz100-
+hist64.log` (already rotated off the pod once a new run lands there —
+copy it first), W&B `ppjeexty`, code `rl_move/sim/train_ppo_sim.py`
+`hist_stride_transplant` + `train_ppo_mjx.py` `--hist-stride-
+transplant` (snapshot `7c7175e2`).)
+
+Previous entry (2026-08-24 ~18:0x (**NEW OPERATOR-ORDERED CANDIDATE
 LINEAGE: `cw-amp-joy60-s29-ft1` VERIFIED RUNNING train-4** (MCP order
 20260824T175033Z). The AMP M5 champion `..._phasehz11_s29.zip` was
 manually run through the corrected 60 s joygate (fastprofile_v1,
