@@ -169584,7 +169584,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "in-cycle cw-arch-hist16-dep1-c1-joyfullcurr13-v7-hz100-r2 since 2026-08-24T20:51:15"
   },
   {
     "run": "cw-arch-hist16-dep1-c1-joyfullcurr13-v7-hz100-hist64",
@@ -170936,7 +170937,8 @@
         "verdict": "HEALTHY",
         "problems": []
       }
-    ]
+    ],
+    "triage": "in-cycle cw-arch-hist64-joyfullcurr13-v7-hz100-scratch-s0-r1 since 2026-08-24T21:11:38"
   },
   {
     "run": "cw-arch-hist16-dep1-c1-joyfullcurr14-certfreeze-v8",
@@ -171563,5 +171565,156 @@
         "problems": []
       }
     ]
+  },
+  {
+    "run": "cw-arch-tf64-joyfullcurr13-v7-hz100-canary2",
+    "pod": "hexapod-mjx-train-6",
+    "steps": 2000000,
+    "smoke": false,
+    "hypothesis": "Plain English: was the small-transformer's 100Hz collapse (reward -20->-609 declining, frontier stuck at b0, leg-0 locked 47/48 joygate episodes) an under-capacity problem or an attention-architecture-specific pathology? The canary-r1 read already isolates the failure away from the 100Hz rate and reward stack (a sibling MLP on the identical stack learns healthy, reward rising to 746). This arm escalates ONLY tf width/layers (1L/d64/4h/ff128 -> 2L/d128/8h/ff256, the exact config that DID learn to walk at 40M pre-100Hz as cw-arch-tf-r1-hard1), same V7 certfreeze recipe, same hist64/control.hz=100 window, same 2M canary budget, per the FAILed canary's own pre-registered escalation branch. Prediction-if-true (capacity was the bottleneck): reward stops declining and starts climbing with frontier/eval moving together, roughly matching the MLP sibling's shape. Prediction-if-false (still declining/leg-locking at the bigger width): the pathology is not pure parameter-count capacity -- something about the attention mechanism itself (e.g. history-window framing, positional handling at 100Hz) is broken, and further tf-scale arms should stop pending a dig-in, not be dosed further.",
+    "gate": "MECHANISM-HEALTH CANARY ONLY: do not judge skill acquisition, close a behavior/reward class, or require mature gait at this checkpoint. MECHANISM-HEALTH CANARY ONLY, same bar as canary-r1: PASS = boots+trains to 2M with no crash/NaN, healthy CUDA fps, and reward/frontier/eval improving together (not just non-declining) -- if PASS, respec full 40M as an acquisition arm. FAIL-same-signature (reward declining quarter over quarter, frontier stuck at b0) = the collapse is not simple under-capacity; stop dosing tf width/layers and flag DIG-IN for an attention-architecture-specific root cause before any further transformer arm. Directional gait not required at 2M.",
+    "parent": "cw-arch-tf64-small-joyfullcurr13-v7-hz100-canary-r1",
+    "track": "joystick",
+    "extra_args": [
+      "--task",
+      "joint_walk",
+      "--walk-curriculum",
+      "--walk-curriculum-version",
+      "7",
+      "--episode-seconds",
+      "60",
+      "--dr-scale",
+      "0.5",
+      "--seed",
+      "0",
+      "--ent-coef",
+      "0.01",
+      "--no-canary",
+      "--eval-every",
+      "1000000",
+      "--video-every",
+      "2000000",
+      "--device",
+      "cuda",
+      "--transformer",
+      "--tf-layers",
+      "2",
+      "--tf-width",
+      "128",
+      "--tf-heads",
+      "8",
+      "--tf-ff",
+      "256",
+      "--cfg-set",
+      "obs.history_frames=64",
+      "--cfg-set",
+      "goal.walk_obs_body_vel=2",
+      "--cfg-set",
+      "safety.max_roll_deg=25",
+      "--cfg-set",
+      "safety.max_pitch_deg=25",
+      "--cfg-set",
+      "reward.k_step_event=1.0",
+      "--cfg-set",
+      "reward.k_drag_loaded=10.0",
+      "--cfg-set",
+      "reward.k_park_duty=1.0",
+      "--cfg-set",
+      "reward.walk_kernel_prog_gate=1.0",
+      "--cfg-set",
+      "goal.walk_park_start_frac=0.25",
+      "--cfg-set",
+      "reward.walk_anchor_gate=1.0",
+      "--cfg-set",
+      "reward.anchor_tol_mm=10.0",
+      "--cfg-set",
+      "reward.k_loadslip_excess=0.8",
+      "--cfg-set",
+      "reward.loadslip_ok=1.2",
+      "--cfg-set",
+      "reward.loadslip_max=3.0",
+      "--cfg-set",
+      "reward.loadslip_floor_m=0.03",
+      "--cfg-set",
+      "reward.k_walk_course=1.0",
+      "--cfg-set",
+      "reward.walk_course_tau_s=0.75",
+      "--cfg-set",
+      "reward.walk_course_min_speed_m_s=0.01",
+      "--cfg-set",
+      "reward.k_walk_stop_charge=1.0",
+      "--cfg-set",
+      "reward.walk_stop_grace_s=0.4",
+      "--cfg-set",
+      "reward.k_walk_stop_current=2.0",
+      "--cfg-set",
+      "goal.walk_stop_freeze_s=0.0",
+      "--walkcurr-cert-cfg-set",
+      "goal.walk_stop_freeze_s=0.4",
+      "--cfg-set",
+      "control.hz=100",
+      "--cfg-set",
+      "safety.max_delta_q_deg=0.375",
+      "--n-envs",
+      "3072",
+      "--impl",
+      "warp",
+      "--host-workers",
+      "24",
+      "--out-name",
+      "ppo_goal_cw_arch_tf64_joyfullcurr13_v7_hz100_canary2",
+      "--notes",
+      "respec of cw-arch-tf64-small-joyfullcurr13-v7-hz100-canary-r1: Plain English: was the small-transformer's 100Hz collapse (reward -20->-609 declining, frontier stuck at b0, leg-0 locked 47/48 joygate episodes) an under-capacity problem or an attention-architecture-specific pathology? The canary-r1 read already isolates the failure away from the 100Hz rate and reward stack (a sibling MLP on the identical stack learns healthy, reward rising to 746). This arm escalates ONLY tf width/layers (1L/d64/4h/ff128 -> 2L/d128/8h/ff256, the exact config that DID learn to walk at 40M pre-100Hz as cw-arch-tf-r1-hard1), same V7 certfreeze recipe, same hist64/control.hz=100 window, same 2M canary budget, per the FAILed canary's own pre-registered escalation branch. Prediction-if-true (capacity was the bottleneck): reward stops declining and starts climbing with frontier/eval moving together, roughly matching the MLP sibling's shape. Prediction-if-false (still declining/leg-locking at the bigger width): the pathology is not pure parameter-count capacity -- something about the attention mechanism itself (e.g. history-window framing, positional handling at 100Hz) is broken, and further tf-scale arms should stop pending a dig-in, not be dosed further."
+    ],
+    "created": "2026-08-24T20:49:27+00:00",
+    "status": "RUNNING",
+    "checks": {
+      "control_hz": 100.0,
+      "cpu_limit": 26,
+      "existing_trainers": [],
+      "gpu": "GPU 0: NVIDIA H200 (UUID: GPU-091fd187-5ef1-8187-1927-20faf428512c)",
+      "torch_device": "cuda",
+      "running_experiments_before": 2,
+      "code_sha_local": "5cd94801188a40f51bb391fab4c8ccbef8c193af",
+      "code_sha_pod": "5cd94801188a40f51bb391fab4c8ccbef8c193af",
+      "wandb_env_on_pod": true,
+      "pid": "6408",
+      "log_growth_bytes": [
+        7759,
+        13391
+      ],
+      "wandb_id": "rel6d200",
+      "global_step_window": [
+        393216,
+        540672
+      ],
+      "fps_estimate": 4915.2
+    },
+    "trainer": "ppo",
+    "stack": "gpu-mjx",
+    "phase": "canary",
+    "assessment_scope": "mechanism_health",
+    "command": "cd /workspace/prototype_sts3215 && WANDB_TAGS=track:joystick PYTHONUNBUFFERED=1 nohup python -m rl_move.sim.train_ppo_mjx --run-name cw-arch-tf64-joyfullcurr13-v7-hz100-canary2 --steps 2000000 --task joint_walk --walk-curriculum --walk-curriculum-version 7 --episode-seconds 60 --dr-scale 0.5 --seed 0 --ent-coef 0.01 --no-canary --eval-every 1000000 --video-every 2000000 --device cuda --transformer --tf-layers 2 --tf-width 128 --tf-heads 8 --tf-ff 256 --cfg-set obs.history_frames=64 --cfg-set goal.walk_obs_body_vel=2 --cfg-set safety.max_roll_deg=25 --cfg-set safety.max_pitch_deg=25 --cfg-set reward.k_step_event=1.0 --cfg-set reward.k_drag_loaded=10.0 --cfg-set reward.k_park_duty=1.0 --cfg-set reward.walk_kernel_prog_gate=1.0 --cfg-set goal.walk_park_start_frac=0.25 --cfg-set reward.walk_anchor_gate=1.0 --cfg-set reward.anchor_tol_mm=10.0 --cfg-set reward.k_loadslip_excess=0.8 --cfg-set reward.loadslip_ok=1.2 --cfg-set reward.loadslip_max=3.0 --cfg-set reward.loadslip_floor_m=0.03 --cfg-set reward.k_walk_course=1.0 --cfg-set reward.walk_course_tau_s=0.75 --cfg-set reward.walk_course_min_speed_m_s=0.01 --cfg-set reward.k_walk_stop_charge=1.0 --cfg-set reward.walk_stop_grace_s=0.4 --cfg-set reward.k_walk_stop_current=2.0 --cfg-set goal.walk_stop_freeze_s=0.0 --walkcurr-cert-cfg-set goal.walk_stop_freeze_s=0.4 --cfg-set control.hz=100 --cfg-set safety.max_delta_q_deg=0.375 --n-envs 3072 --impl warp --host-workers 24 --out-name ppo_goal_cw_arch_tf64_joyfullcurr13_v7_hz100_canary2 --notes 'respec of cw-arch-tf64-small-joyfullcurr13-v7-hz100-canary-r1: Plain English: was the small-transformer'\"'\"'s 100Hz collapse (reward -20->-609 declining, frontier stuck at b0, leg-0 locked 47/48 joygate episodes) an under-capacity problem or an attention-architecture-specific pathology? The canary-r1 read already isolates the failure away from the 100Hz rate and reward stack (a sibling MLP on the identical stack learns healthy, reward rising to 746). This arm escalates ONLY tf width/layers (1L/d64/4h/ff128 -> 2L/d128/8h/ff256, the exact config that DID learn to walk at 40M pre-100Hz as cw-arch-tf-r1-hard1), same V7 certfreeze recipe, same hist64/control.hz=100 window, same 2M canary budget, per the FAILed canary'\"'\"'s own pre-registered escalation branch. Prediction-if-true (capacity was the bottleneck): reward stops declining and starts climbing with frontier/eval moving together, roughly matching the MLP sibling'\"'\"'s shape. Prediction-if-false (still declining/leg-locking at the bigger width): the pathology is not pure parameter-count capacity -- something about the attention mechanism itself (e.g. history-window framing, positional handling at 100Hz) is broken, and further tf-scale arms should stop pending a dig-in, not be dosed further.' > /tmp/train_cw-arch-tf64-joyfullcurr13-v7-hz100-canary2.log 2>&1 < /dev/null & echo $!",
+    "log": "/tmp/train_cw-arch-tf64-joyfullcurr13-v7-hz100-canary2.log",
+    "wandb_id": "rel6d200",
+    "verified": "2026-08-24T20:52:53+00:00",
+    "checkups": [
+      {
+        "time": "2026-08-24T20:58:17+00:00",
+        "process_alive": true,
+        "tracebacks_in_tail": 0,
+        "log_growth_bytes": 0,
+        "cpu_centisec_deltas": [
+          3,
+          2
+        ],
+        "verdict": "SUSPECT",
+        "problems": [
+          "W&B global_step stalled at 2015232",
+          "log stopped growing"
+        ]
+      }
+    ],
+    "checkup_note": "21:00 SUSPECT was false-positive: run hit its full 2M canary budget at ~20:57 and is in end-of-run video/cert render (worker +5.5 CPU-min per 30s wall, reel growing). Left alone to finish; triage on the finish event."
   }
 ]
