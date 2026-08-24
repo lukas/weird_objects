@@ -1,6 +1,40 @@
 # joystick - RL from the programmatic gait to joystick control
 
-Last updated: 2026-08-24 ~08:5x (**BUILT + VALIDATED the structural
+Last updated: 2026-08-24 ~09:1x (**stopfreeze-probe-stopcur6 PASS: the
+structural stop-hold GENERALIZES across current-charge dose.** Plain
+English: same eval-only (~15s, no PPO) precert dry run as the original
+stopfreeze-probe, this time reading the stopcur6 checkpoint (k=6.0
+current charge, the dose with the known leg-3 rigid-lock trade under
+own-DR) instead of stopcur2. Result: b1 front45_20s stop_speed_m_s
+0.0133 (settled 0.0044, settled_frac 0.80) — under the 0.015 cap,
+matching stopcur2's post-freeze read to 3 decimals exactly. This is
+informative beyond just "it works twice": two checkpoints trained
+under different reward prices converge on the IDENTICAL residual
+number once the freeze overrides their command stream, which points
+at the freeze's post-grace floor being a hold-mechanics/momentum-decay
+property, not something either checkpoint's policy quality
+contributes to. **REFILL (this cycle):** launched
+`cw-arch-hist16-dep1-c1-joyfullcurr11-freeze40-stopcur6` (respec of
+`freeze40`, same freeze cfg, same 40M budget, but warm-started from
+`stopcur6.zip` instead of `stopcur2.zip`; VERIFIED RUNNING,
+train-0), the real-training twin of `freeze40` for this dose. It
+answers two things the precert probe cannot: (1) does
+`walkcurr/frontier` promote past b1 the same way under real training +
+the full randomized joygate mix, and (2) does the freeze's forced hold
+at stop also reduce/remove stopcur6's own-DR leg-3 sacrifice pathology
+(plausible since the lock looks like a stop-adjacent isometric fight
+the freeze would preempt) — orthogonal to `freeze40`'s own stopcur2
+read, which has no leg-3 pathology to test against. Gate: held-out
+joygate falls stay <=1/48 (not regressed by the freeze), own-DR det
+gait_valid recovers toward 6/6 (leg-3 lock reduced/gone), frontier
+promotes past b1. If-false (leg-3 lock persists unchanged): freeze
+fixes the speed-cert floor but is orthogonal to the current-charge
+leg-lock pathology, which still needs its own fix (a per-leg-fairness/
+smoothness term, per the stopcur6 verdict's own open item). Evidence:
+`rl_docs/runs/cw-arch-hist16-dep1-c1-joyfullcurr10-stopfreeze-probe-
+stopcur6.md`, W&B run `yaq7sy9z`. Prior banner below.)
+
+Previous entry (2026-08-24 ~08:5x (**BUILT + VALIDATED the structural
 stop-hold lever the stopsettle-probe's own gate text named, and it
 WORKS on the first try.** Plain English: the audit banner just below
 (stopsettle-probe, INFORMATIVE) closed the entire stop-speed/stop-
