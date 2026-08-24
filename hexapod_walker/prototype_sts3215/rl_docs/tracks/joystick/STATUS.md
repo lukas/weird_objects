@@ -1,6 +1,47 @@
 # joystick - RL from the programmatic gait to joystick control
 
-Last updated: 2026-08-23 ~23:5x (**`cw-arch-hist16-dep1-c1-joyfullcurr6`
+Last updated: 2026-08-24 ~00:1x (**`cw-arch-hist16-dep1-c1-joyfullcurr6`
+VERDICTED FAIL (dig-in complete) — root cause CORRECTED, stop-charge
+fix landed, relaunch queued.** The dig-in finalized the flagged run:
+joygate FAIL (8 falls/48, 5 at DR-0, dir_err 40.69>40, gait_valid
+0.917 — the parent lineage passed this gate 0 falls, so 40M steps of
+b1-only churn REGRESSED the base gait), own-DR walk FAIL (det 1/6
+over_current termination, gait_valid 3/6 det, dir_err med 42.1; sto
+5/6 gait_valid, slip 1.61), checkpoint kept append-only, NOT a
+champion candidate; champion unchanged (stotight45-seed13).
+**ROOT-CAUSE CORRECTION to the banner below:** the earlier triage
+blamed `walk_freeprog_score`'s 0.06 stop cap — but `k_walk_freeprog`
+was NEVER ACTIVE in this run (default 0.0, not in the cfg-set list,
+no freeprog keys in the W&B history). The real defect, verified in
+code: on commanded-stop ticks (s_ref ~ 0) EVERY walk-mode term except
+the Gaussian velocity kernel is guarded by `s_ref > 1e-3`
+(prog gate, k_walk_course, park-duty, step/drag, idle), and the
+kernel's stillness-vs-creep margin is shallow (2.0/tick still vs
+1.45/tick at the converged 0.04 m/s creep) — the V6 cert stop bar
+(mean stop-tick speed <= 0.015 m/s incl. decel transient,
+walk_task.py stop_v_sum accounting) had NO matching reward optimum,
+so PPO's converged creep was priced as near-optimal. **FIX LANDED
+(2026-08-24):** new `reward.k_walk_stop_charge` (default 0 = off,
+bit-exact; scale `reward.walk_stop_scale_m_s` default 0.015 = the
+cert bar, cap `walk_stop_charge_cap` 4.0) charges stop-tick body
+speed linearly against the cert's own scale — stillness pays 0, the
+observed creep pays ~2.7k/tick, driving through the stop pays the
+cap; turn-in-place ticks exempt; NOT in the walk_charge_ramp trio.
+Bank-proven under the run's exact reward stack
+(test_task_semantics.py stopcharge bank: still_charged > creep_charged
+by >300/ep, creep > walk-through-stop, stillness itself untaxed;
+walk bank 62 PASS, test_walk_curriculum.py 38/38). Relaunch
+`cw-arch-hist16-dep1-c1-joyfullcurr7` from the SAME parent
+(`ppo_goal_cw_arch_hist16_dep1_c1.zip`, NOT the regressed
+joyfullcurr6 checkpoint — phasedir9-vs-9b precedent) = joyfullcurr6
+recipe + k_walk_stop_charge=1.0. Infra nit for the watcher: the
+prestaged session eval crashed on obs dim (1152 vs 72 — harness
+didn't apply obs.history_frames=16); gate DR-0 pass was still
+running at verdict time, artifacts will land in
+`logs/ckpt_eval/cw_arch_hist16_dep1_c1_joyfullcurr6_gate`. Prior
+(superseded on the freeprog point) banner below.)
+
+Previous entry (2026-08-23 ~23:5x: **`cw-arch-hist16-dep1-c1-joyfullcurr6`
 FINISHED its full 40M-step budget STUCK AT THE SECOND RUNG OF A
 10-BUCKET LADDER — DIG-IN FLAGGED, left unverdicted.** Plain English:
 the operator-ordered full-circle joystick curriculum (fb_20260823T220651_5c66e3)

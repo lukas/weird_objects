@@ -2,7 +2,7 @@
 
 <!-- GENERATED from experiments.json by launch_run.py — do not edit -->
 
-**status**: INTENT
+**status**: RUNNING
 
 **created**: 2026-08-24T00:06:19+00:00
 
@@ -11,6 +11,8 @@
 **steps**: 2000000
 
 **parent**: cw-walkcurr-pf-fwd6-rscale50
+
+**wandb_id**: rwdahh6d
 
 **hypothesis**: Stage-A flat-forward slip diagnostic arm from the current fwd6-rscale50 baseline. Keep the same PPO/MJX infrastructure and 18 raw joint-target action representation, but simplify the command diet to exactly 0.05 m/s forward on flat ground, loosen roll/pitch safety so early clumsy exploration is not cut short, and add a modest planted-foot tangent slip charge only on meaningful consecutive contact. The slip term is averaged across measured feet, deadbanded, and capped, so it is a cleanup pressure and diagnostic, not the main objective. If true: optimizer health from rscale50 stays healthy, per-foot tangent-contact velocity and swing/contact metrics appear in W&B, reward_foot_slip_tangent remains small relative to existing loadslip/idle charges, and walk_freeprog_score/swing-contact telemetry leave the static-crouch basin earlier than the parent. If false: reward_foot_slip_tangent dominates or the same static crouch persists with near-zero liftoff/touchdown counts, closing this lever without blaming the 18-action interface.
 
