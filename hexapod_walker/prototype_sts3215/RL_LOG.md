@@ -507,3 +507,4 @@ DIG-IN: cw-amp-m4-turnpushfault1-style05-r2 — mechanism-safety PASS but turn t
 - 08-24 08:39 joyfullcurr10-chg2 FAIL: stop-speed-charge x2 doesn't move the b1 cert (0.042 vs 0.015) and reopens leg-3-lock (own-DR det 2/6) + joygate falls (1->4/48); dose lever closed. 
 - 08-24 08:40 joyfullcurr10-chg4 FAIL (worse than chg2): stop-speed-charge x4 causes a real fall + joygate falls 8/48 + slip over cap, cert still unmoved (0.043); dose lever CLOSED both arms. 
 - 08-24 08:40 joyfullcurr10-stopsettle-probe INFORMATIVE: settle-window audit shows the b1 stop creep is a real post-grace floor (0.0326->0.0311, 5%), not a methodology artifact -- closes BOTH the dose and methodology branches, next lever is a structural stop-anchor mechanism. 
+- 08-24 08:55 joyfullcurr10-stopfreeze-probe PASS: structural stop-hold clears b1 cert outright on unchanged ckpt (0.0133 vs 0.015 bar, was 0.033-0.048 across 7 prior pricing arms) -- wiring into a training continuation next. 
