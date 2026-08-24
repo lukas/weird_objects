@@ -1,6 +1,53 @@
 # joystick - RL from the programmatic gait to joystick control
 
-Last updated: 2026-08-24 ~09:1x (**stopfreeze-probe-stopcur6 PASS: the
+Last updated: 2026-08-24 ~12:4x (**`cw-arch-hist16-dep1-c1-joyfullcurr11-freeze40`
+finished, UNVERDICTED — DIG-IN flagged: the freeze mechanism DOES
+promote the ladder past b1 for the first time ever, but the held-out
+joygate got WORSE, not better, exactly the run's own pre-registered
+if-false branch.** Plain English: real 40M-step training with the
+stop-hold freeze (`goal.walk_stop_freeze_s=0.4`) on top of stopcur2
+finally unstuck the curriculum — `walkcurr/frontier` climbed b0->b1->
+b2->b3->b4->b5 (cert_round 1/2/3/9/13, 5 promotions, 13 rollbacks
+along the way), so buckets b2-b5 (front45_60s/side90_20s/side90_60s/
+rear135_40s — the actual point of the operator's full-circle order)
+got REAL PPO practice for the first time in the whole V6 lineage. b1's
+own stop cert held up fine through training (88% cert-round pass rate,
+0.012-0.016 m/s band, no downward trend, no regression). But the
+standard held-out 60s randomized joygate — the safety net the run's
+own gate text named — got WORSE than its stopcur2 parent, not
+neutral: falls **1/48 (stopcur2) -> 7/48 (freeze40)**, dir_err med
+41.8/51.7 (dr0/dr0p5) vs stopcur2's ~42-45, own-DR(0.5) sub-pass alone
+is 5/24 falls. Per-episode `term_reason` audit: 5/7 falls are still
+`over_current` (the exact failure mode stopcur2's current-charge was
+built to fix, reappearing despite the SAME k_walk_stop_current=2.0
+still being active) and 1 fall is `tilt_roll` with `sacrificed_legs:
+[3]` — the same leg-3 signature stopcur6 showed at k=6.0, now
+appearing at k=2.0+freeze under the harder randomized command mix.
+gait_valid_frac 0.9375 (was 1.0 at DR-0 for stopcur2). Standard DR-0/
+own-DR gate+owncfg evals were still running on the pod at triage time
+(60s x12x2 episodes each, not done yet) — not needed to make the call:
+the joygate result alone is a >=7x regression vs the named parent,
+squarely the run's own pre-registered "if the freeze introduces a new
+fall mode: dig into the resume-transition (frozen command -> fresh
+policy action) before any wider deployment" branch. Leaving this run
+UNVERDICTED per the model-tiering rule (this is a triage cycle) —
+frontier promotion is genuinely good news, joygate regression is a
+genuine new pathology, and the correct read (does the freeze mechanism
+itself cause over_current/leg-sacrifice at the freeze-release
+transition, or is this a training-time interaction with the
+current-charge under the fuller command mix) needs the full toolkit
+(per-episode video, isolate freeze-on/off at eval-time on this exact
+checkpoint) rather than a triage-cycle guess. The concurrent
+`-freeze40-stopcur6` twin (k=6.0 dose, another cycle's pod) will give
+a second data point on the same question. Do not launch any further
+freeze-mechanism arms until this dig-in reads. Evidence: `logs/
+experiments/cw-arch-hist16-dep1-c1-joyfullcurr11-freeze40/
+wandb_history.csv` (walkcurr/frontier, b1 stop cert trend),
+`logs/ckpt_eval/cw_arch_hist16_dep1_c1_joyfullcurr11_freeze40_joygate/
+gate_verdict.json` + per-pass `report.json` (term_reason audit), W&B
+run `yi0s9g6x`. Prior banner below.)
+
+Previous entry (2026-08-24 ~09:1x (**stopfreeze-probe-stopcur6 PASS: the
 structural stop-hold GENERALIZES across current-charge dose.** Plain
 English: same eval-only (~15s, no PPO) precert dry run as the original
 stopfreeze-probe, this time reading the stopcur6 checkpoint (k=6.0
