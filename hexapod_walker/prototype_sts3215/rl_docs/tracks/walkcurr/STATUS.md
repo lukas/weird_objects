@@ -1075,3 +1075,43 @@ validity, on video. Speed obedience is secondary throughout.
   SAME entry flag BC-kickstart to the operator as the named last
   resort if that ninth mechanism also fails. No other walkcurr arms
   before actbias1 reads.
+
+## Now (updated 08-24 ~01:0x — actbias1 FAIL-but-major: collapse defect CONFIRMED FIXED on video, park-stand is the new floor)
+
+- **`cw-walkcurr-pf-fwd6-actbias1` FAIL, verdicted:** the action-
+  recentering fix from the entry above WORKS exactly as predicted on
+  the physical mechanism, but the recipe still doesn't walk.
+  `env/height_err_mm` stabilizes 14-17mm the ENTIRE 2M run (vs
+  50-116mm climbing on every one of the ~20 prior rung-1 arms), zero
+  terminations on det or sto, and video (`walk_det_0`/`walk_sto_0`
+  contact sheets) shows the robot standing LEVEL and UPRIGHT
+  (h_rel +2..+4mm) for the whole episode both modes -- the pervasive
+  belly-sit collapse this entire campaign fought is GONE, video-
+  confirmed, not just inferred from a metric. Gate: det gait_valid
+  0/6 (`sac=[0,2,4]`, a stable 3-leg-planted tripod HOLD, prog med
+  0.01, fwd 0.03m, slip med 3.05 -- much lower than belly-sit-era
+  ~7.3); sto gait_valid 5/6 but slip med 42.6 (noise-driven in-place
+  thrashing on top of a stand-still mean, not falling). `ep_rew_mean`
+  quarters fell 45.6->43.1->31.8->18.3 with clip_fraction healthy the
+  whole run (0.002->0.12) -- a genuine aligned FAIL, not
+  misalignment: removing the collapse escape just exposed the
+  NEXT-cheapest static optimum, a clean stable PARK stand (the exact
+  class the original WALKCURR_PF bank was built to out-price), not a
+  new phenomenon and not the "false stand" belly-sit was.
+  **LAUNCHED (this cycle): `cw-walkcurr-pf-fwd6-actbias1-pdw05`** --
+  stacks the bias fix with the already bank-proven
+  `goal.park_duty_window_s=0.5` confound fix (hgt2-pdw05's own lever)
+  for the first time, single new lever vs actbias1. Prediction-if-
+  true: `env/reward_park_duty` goes meaningfully negative against the
+  current stand and `walk_freeprog_score`/`walk_speed` leave their
+  flat-near-zero band, tripod unlocks into six-leg cycling on video.
+  Prediction-if-false: park-duty pricing is insufficient even against
+  a healthy (non-collapsing) base pose -- raise `k_park_duty` dose
+  directly (bank-legal to 1.5x) before building the foot-contact-
+  charge mechanism or flagging BC-kickstart. **This is a materially
+  different, better-understood failure class than everything before
+  it in this campaign -- do not re-open RND/GRU/gSDE/rscale-dose
+  variants on top of the OLD (collapse) diagnosis; the action-bias
+  fix supersedes needing them as a fix for that specific mechanism.**
+  Evidence: `logs/ckpt_eval/cw_walkcurr_pf_fwd6_actbias1_gate/`
+  (`walk_det_0_sheet.png`, `walk_sto_0_sheet.png`).
