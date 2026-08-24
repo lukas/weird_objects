@@ -1,6 +1,55 @@
 # joystick - RL from the programmatic gait to joystick control
 
-Last updated: 2026-08-24 ~08:4x (**`joyfullcurr10-chg2`/`-chg4` BOTH
+Last updated: 2026-08-24 ~08:5x (**BUILT + VALIDATED the structural
+stop-hold lever the stopsettle-probe's own gate text named, and it
+WORKS on the first try.** Plain English: the audit banner just below
+(stopsettle-probe, INFORMATIVE) closed the entire stop-speed/stop-
+current REWARD-PRICING lever for good and named the specified next
+step: "an explicit freeze/hold controller on stop commands." This
+cycle built exactly that: `goal.walk_stop_freeze_s`
+(`sim_env._walk_stop_freeze_override`, default 0.0 = off/bit-exact,
+5/5 new unit tests in `test_walk_stop_freeze.py`) is a hook in the
+shared `_step_begin` pre-physics path (used by every task/goal, every
+backend — CPU sim, MJX warp, eval scripts — so one hook covers the
+whole stack). Once a walk/quadwalk-mode stop segment has been
+commanded for more than the threshold, it DISCARDS the policy's own
+proposed command for that tick and re-issues the PREVIOUS tick's own
+safe command instead — an actual physical hold, not a price. Turn-
+in-place (`wz_ref != 0`) is exempted exactly like the reward charges.
+Landed via `cw-arch-hist16-dep1-c1-joyfullcurr10-stopfreeze-probe`
+(another `--walkcurr-precert-only` eval-only dry run, ~15s, no PPO,
+reading the UNCHANGED `stopcur2` checkpoint): with the freeze on,
+`walkcurr/pre_b1_pass` flips **0 -> 1** — `stop_speed_m_s` drops
+**0.0326 -> 0.0133** (under the 0.015 cap for the first time in the
+entire V6 ladder, 6+ arms and ~280M cumulative training steps), with
+zero cost elsewhere (`prog_frac` 1.06, falls 0, roll 2.8deg, all
+in-band). This is a genuinely different kind of fix from every prior
+arm: it needed **zero additional training** — a structural
+supervisory override on an already-trained checkpoint clears a bar
+that reward-shaping alone never touched at any dose. **REFILL (this
+cycle):** launched `cw-arch-hist16-dep1-c1-joyfullcurr11-freeze40`
+(warm-start from `stopcur2`'s own checkpoint, same reward cfg
+including the proven `k_walk_stop_current=2.0`, `+goal.walk_stop_
+freeze_s=0.4`, real 40M-step budget, VERIFICATION FAILED is expected
+launcher-poll noise per the stopsettle-probe/stopfreeze-probe
+precedent — check the ledger/pod log directly, not just the
+launcher's own status field) to answer the two things the static
+precert probe cannot: (1) does `walkcurr/frontier` finally promote
+past b1 and start practicing b2-b9 (side90/rear/full-circle — the
+actual point of the operator's full-circle order, never once
+practiced across the whole lineage), and (2) does the freeze survive
+real training dynamics and the full randomized joygate command mix
+(turn/stop/resume sequences far richer than the scripted precert
+probe) without a new fall mode at the freeze-release transition.
+If-false (frontier still stuck, or a new fall mode appears at
+resume): dig into the resume transition before any wider deployment.
+Evidence: `logs/experiments/cw-arch-hist16-dep1-c1-joyfullcurr10-
+stopfreeze-probe/`, W&B run `u3go1oj8`; code: `sim_env.py`
+`_walk_stop_freeze_override`, `walk_task.py` (3 reset-site inits),
+`test_walk_stop_freeze.py` (5/5), tag `exp/cw-arch-hist16-dep1-c1-
+joyfullcurr10-stopfreeze-probe`. Prior banner below.)
+
+Previous entry (2026-08-24 ~08:4x (**`joyfullcurr10-chg2`/`-chg4` BOTH
 FAIL, and a same-cycle cert-methodology audit CLOSES the
 stop-speed-charge-dose lever for good, by both price AND
 measurement.** Plain English: after stopcur2 proved the actuator-
