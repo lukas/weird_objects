@@ -1,6 +1,58 @@
 # joystick - RL from the programmatic gait to joystick control
 
-Last updated: 2026-08-24 ~13:4x (**freeze40-stopcur6 DIG-IN COMPLETE —
+Last updated: 2026-08-24 ~17:3x (**certfreeze VERDICTED FAIL — the
+cert-only-freeze repair does NOT rescue the joygate; 3/3 independent
+arms (full training freeze, cert-only freeze, k=2.0/k=6.0 current-
+charge doses) now show the SAME ~6-7/48 over_current regression,
+decisively pointing at the b2+ heading-widening PRACTICE DIET itself,
+exactly the gate's own pre-registered if-false branch.** Plain
+English: making the stop-hold freeze cert-time-only (training clean,
+cert/precert env frozen) keeps the frontier-promotion win (b0->b5
+again) but does NOT fix the safety regression — held-out 60s joygate
+falls 6/48 (dr0 4/24, dr0p5 2/24), all six `over_current`, vs parent
+stopcur2's 1/48 and the gate's own <=2/48 bar. **NEW finding**: this
+run's own DR-0/own-DR gate (fixed-heading, not just the joygate) also
+regressed hard and shows a mechanism candidate — det gait_valid
+crashed 6/6 (stopcur2 parent, clean) -> 3/6, with **leg 3 SACRIFICED
+in half the det episodes** (progress_ratio ~0.53 vs ~1.0-1.6 clean),
+reappearing at DR-0 from a lineage that was previously clean there.
+Since stopcur2 (front-cone-only training) is clean and certfreeze
+(same weights + b2-b5 wide-heading training) is not, the wide-heading
+practice itself — not the current-charge dose, previously blamed on
+stopcur6 — can induce this lock fresh. Root cause (band-width vs.
+command-diversity within the band) is NOT yet isolated — flagged for
+a deep dig-in once the repair below reads, regardless of its verdict.
+**REPAIR BUILT + LAUNCHED same cycle**: new `WALKCURR_BUCKETS_V7`
+(`--walk-curriculum-version 7`, tag `exp/cw-arch-hist16-dep1-c1-
+joyfullcurr12-certfreeze-v7`, snapshot 8a4261ba) — byte-identical
+ladder to V6 except every non-bridge bucket now also draws in-place
+turning (wz +-0.3 rad/s, 50% zero) and a 15%-chance full instant
+reversal per resampled segment, the bucket-diet analogue of the
+held-out joygate's stress_mix family (sweep_circle/square/flip_180)
+that the plain V6 sampler never drew at all. V1-V6 tables lack the
+new keys so `.get(..., 0.0)` defaults make this bit-exact for every
+existing lineage (`test_v6_sampler_bit_exact_when_stress_fields_
+absent`); `test_walk_curriculum.py` 49/49 (+6 new), `test_walkcurr_
+mjx.py` 19/19, `test_task_semantics.py` unaffected (211 tests, 1
+pre-existing known-red unrelated to this change). Launched
+`cw-arch-hist16-dep1-c1-joyfullcurr13-certfreeze-v7` (single lever
+vs certfreeze: V6->V7 only, same stopcur2 warm-start, same
+k_walk_stop_current=2.0, same cert-only-freeze frontier assist;
+VERIFIED RUNNING train-1). Gate: PASS = frontier still promotes past
+b1 AND joygate falls <=2/48 AND DR-0 det gait_valid stays >=5/6 with
+no leg-3 sacrifice; PARTIAL = joygate improves without clearing, or a
+genuine trade against frontier/DR-0-gait; FAIL = joygate stays
+>=4/48 over_current and/or leg-3 lock persists unchanged, which would
+point the next lever at heading-BAND-WIDTH itself (a staged/narrower
+band-opening ladder) rather than command diversity within a band.
+Champion unchanged (`stotight45-seed13`); the core joystick DONE gate
+stays met per 08-23 via that champion; this V6/V7 ladder remains
+operator-ordered full-circle hardening (`fb_20260823T220651_5c66e3`).
+Evidence: `logs/ckpt_eval/cw_arch_hist16_dep1_c1_joyfullcurr12_
+certfreeze_{gate,owncfg,joygate}/`, W&B run `ffhhv474`. Prior banner
+below.)
+
+Previous entry (2026-08-24 ~13:4x (**freeze40-stopcur6 DIG-IN COMPLETE —
 verdict FAIL (both its own pre-registered FAIL branches fired), with
 TWO corrections to the prior triage's story.** (1) **CFG DRIFT
 discovered: the "k=6.0 twin" actually TRAINED at
