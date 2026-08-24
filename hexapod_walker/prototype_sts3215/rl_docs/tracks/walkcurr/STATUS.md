@@ -545,7 +545,20 @@ validity, on video. Speed obedience is secondary throughout.
 
 ## WAITING-ON
 
-(none)
+- **[operator]** (08-24 ~03:4x): rung-1 discovery-from-scratch is
+  blocked pending a ruling on `OPERATOR_QUESTIONS.md` q_20260824T0233Z
+  — is a brief BC-kickstart (imitation warm-start solely to escape the
+  initial-state basin) in-bounds despite the track's own founding rule
+  (a) "no gait clock, no BC teacher, no motion prior"? 14
+  independently-designed non-BC mechanism/architecture/reset-diversity
+  classes have now failed with an aligned signature at the 2M (up to
+  6M) discovery budget (full tally in the question note and the "Now"
+  entries above) — no further non-BC lever is pre-registered or
+  credible. Do NOT launch further rung-1 discovery arms on this
+  recipe until answered; the fleet's effort concentrates on
+  amp/cpg maintenance and joystick polish in the meantime (per
+  `CURRENT_TRUTHS.md`, both amp M5 and the cpg gate are already
+  GREEN/`[operator]`-owned past this point).
 
 ## Now (updated 08-23 ~22:5x — RND coef=0.02 replicate read)
 
