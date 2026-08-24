@@ -1317,3 +1317,24 @@ validity, on video. Speed obedience is secondary throughout.
   built for, and BC-kickstart (flagged to the operator,
   `q_20260824T0233Z`) becomes the only unexplored escalation left in
   the track's own pinned fork order.
+
+## Now (updated 08-24 ~02:5x — crush-confound removed from the two untested architecture/noise arms)
+
+- **LAUNCHED (this cycle): `cw-walkcurr-pf-fwd6-rscale50-gru` /
+  `-rscale50-sde`** — the cross-test this file's own 08-23 `fwd6-sde`
+  banner pre-registered and nobody had run yet: the original `fwd6-gru`
+  and `fwd6-sde` FAILs were BOTH trained at the raw unscaled v2e dose
+  (`term_penalty=1200`, before the optimizer-crush root cause and its
+  `rscale50` x0.02 fix existed) — their own cached W&B histories show
+  the same clip_fraction-collapses-to-exactly-0 signature every
+  unscaled MLP arm showed, so recurrence and gSDE were never actually
+  tested with a healthy optimizer. These two respec the crush-fixed
+  `fwd6-rscale50` recipe with a single added lever each (`--gru
+  --n-steps=64` / `--use-sde`), fresh 2M discovery, no warm start.
+  VERIFIED RUNNING (train-2, train-5). If both reproduce the
+  ~116mm belly-sit signature with a healthy (non-collapsing)
+  clip_fraction, every architecture/exploration-structure lever this
+  track has is genuinely exhausted (crush confound removed) and the
+  track's pinned fork lands squarely on the `actbias1-idleterm1`
+  read + the BC-kickstart values question (`OPERATOR_QUESTIONS.md`
+  q_20260824T0233Z) — not another noise/architecture variant.
