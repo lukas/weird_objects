@@ -1686,6 +1686,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
             cmd_dist=0.0, prog_m=0.0, cross_m=0.0,
             stop_v_sum=0.0, stop_ticks=0,
             stop_v_sum_settled=0.0, stop_ticks_settled=0,
+            stop_v_sum_pure=0.0, stop_ticks_pure=0,
             stop_seg_s=0.0,
             head_ticks=int(round(2.0 / self.dt)),
             ret=0.0, n=0)

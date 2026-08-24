@@ -1,6 +1,64 @@
 # joystick - RL from the programmatic gait to joystick control
 
-Last updated: 2026-08-24 ~22:1x (**DIG-IN VERDICT: the tf64 "attention
+Last updated: 2026-08-24 ~23:0x (**certfreeze-v8 PARTIAL: the bucket-
+scope fix works exactly as designed (frontier leaves b1, reaches b3,
+side90 opens) but then plateaus AT b3 with the IDENTICAL stuck-stop-
+cert signature v7 showed at b1 -- ROOT-CAUSED to a freeze/cert
+semantics mismatch, DIG-IN flagged, not fixed this cycle.** Plain
+English: `walkcurr/promotions` climbed 1->2->3 in the first ~1000 cert
+rounds (b0/b1/b2 all instant off the warm start, matching the V8
+design intent that front-cone buckets stay clean) but then sat at
+frontier=3 (side90_20s) for the remaining ~76/77 cert rounds spanning
+nearly the whole 40M-step budget -- `walkcurr/b3_side90_20s/pass`=0
+every single round, `stop_speed_m_s` pinned 0.023-0.042 (cap 0.015),
+never trending down. This is the run's own pre-registered if-false
+branch firing, just one bucket later: bucket placement was not the
+mechanism, the stop-settle bar itself is too tight for ANY bucket
+that also trains the wz/reversal diet. Held-out 60s joygate: falls
+4/48 (cap <=2, v7 was 3/48 -- flat/slightly worse), dir_err med
+47.49deg (allow 40), slip/m 2.268 (cap 2.9, clean). DR-0 gate's named
+clause ("det gait_valid 6/6 no sacrifice") IS met (clean, prog 0.89,
+slip/m 1.35); sto/own-DR still show leg sacrifice (not gate-named).
+Zero raw falls anywhere (4 passes / 24+48 episodes), video-clean
+six-leg cycling both owncfg contact sheets checked (det0/det3).
+**ROOT CAUSE (code-read, not inference)**: `_walk_stop_freeze_override`
+(the cert-time supervisor `--walkcurr-cert-cfg-set
+goal.walk_stop_freeze_s=0.4` relies on) explicitly EXEMPTS any tick
+where `wz_ref != 0` -- correct, a real turn-in-place command should
+not be forced to hold still. But `_sample_walk_curr`'s stop and wz
+draws are INDEPENDENT rng calls on the same resampled segment
+(`stop_frac` for vx/vy, `wz_zero_frac` separately for wz), so in any
+V8 bucket carrying the diet (side90_20s onward), roughly HALF of the
+nominal "stop" segments (vx=vy=0) also draw wz!=0 and are therefore
+exempted from the freeze -- while the cert's own `stop_v_sum`/
+`stop_ticks` accumulator (`_walk_probe_summary`) counts every
+vx=vy=0 tick toward `stop_speed_m_s` regardless of wz. The
+freeze-on/freeze-off numbers already on record from the original
+stopfreeze-probe (0.0133 frozen vs 0.0326 unfrozen, on b1 which has
+wz_max=0 and is therefore 100% frozen) bracket b3's observed
+0.023-0.042 almost exactly as a half-frozen/half-unfrozen average.
+This is a genuine, structural freeze<->cert semantics mismatch: for
+any bucket that trains wz on top of a linear stop, the cert as
+written can NEVER clear 0.015 regardless of policy quality, because
+half its "stop" ticks are (correctly) exempted from the very
+supervisor meant to force the pass. **NEXT (specified, not built --
+DIG-IN)**: align the cert's stop-tick accumulation with the freeze's
+own wz-exemption (only count ticks where BOTH linear speed AND wz are
+~0 as "stop" for `stop_speed_m_s`/`stop_gate` purposes), or build a
+separate, explicit turn-in-place drift/stillness gate if in-place
+skate during a "stop-but-turning" segment is itself something worth
+grading -- this is a mechanism-semantics design call, needs its own
+bank-proof (`test_task_semantics.py`/`test_walkcurr_mjx.py`) before
+any V9 relaunch, not a triage-budget edit. Do NOT spend another
+bucket-scope or stop-charge-dose arm on this lineage until that
+lands. Champion unchanged (`stotight45-seed13`); DONE gate stays met
+per 08-23; this V6/V7/V8 ladder remains operator-ordered hardening
+(`fb_20260823T220651_5c66e3`), not gate-blocking. Evidence: `logs/
+ckpt_eval/cw_arch_hist16_dep1_c1_joyfullcurr14_certfreeze_v8_{gate,
+owncfg,joygate}/`, W&B run `tvps19cg`, `logs/experiments/
+cw-arch-hist16-dep1-c1-joyfullcurr14-certfreeze-v8/wandb_history.csv`.)
+
+Previous entry (2026-08-24 ~22:1x (**DIG-IN VERDICT: the tf64 "attention
 pathology" read is OVERTURNED — both transformer canaries re-classed
 CANARY PASS; the 2M canary bar itself was miscalibrated; 38M
 matched-gate continuation `cw-arch-tf64-joyfullcurr13-v7-hz100-acq1`

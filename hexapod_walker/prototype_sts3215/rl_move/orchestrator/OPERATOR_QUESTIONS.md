@@ -2193,3 +2193,32 @@ on reward-side fixes for either track: if the defect is structural
 (sim/indexing), no amount of reward re-pricing on either track will
 fix it. status: informational, no operator input needed; flagged for
 whichever cycle next picks up a leg-sacrifice DIG-IN on either track.
+
+## 2026-08-24 ~23:0x — certfreeze-v8 b3 stall root-caused to a freeze/cert wz-exemption mismatch (research note, no operator action needed)
+Not a question, filed so the DIG-IN cycle doesn't need to re-derive
+the trace. `cw-arch-hist16-dep1-c1-joyfullcurr14-certfreeze-v8`
+(verdicted PARTIAL this cycle) confirms the V8 bucket-scope fix works
+as designed (frontier b1->b3, side90 opens) but then plateaus AT b3
+with the identical stuck-stop-cert signature v7 showed at b1. Traced
+via direct code read (not just telemetry): `_walk_stop_freeze_override`
+(sim_env.py) exempts any tick with `wz_ref != 0`; `_sample_walk_curr`
+(walk_task.py) draws the stop condition (`stop_frac`) and the wz value
+(`wz_zero_frac`) as INDEPENDENT rng calls on the same segment, so in
+any V8 bucket carrying the wz/reversal diet (side90_20s onward),
+~half of nominal "stop" segments also carry wz!=0 and are therefore
+exempt from the freeze, while the cert's `stop_v_sum`/`stop_ticks`
+accumulator (`_walk_probe_summary`) counts ALL vx=vy=0 ticks toward
+`stop_speed_m_s` regardless of wz. The known freeze-on/freeze-off
+numbers (0.0133 vs 0.0326, b1, 100% frozen since wz_max=0 there)
+bracket b3's observed 0.023-0.042 almost exactly as a half-frozen/
+half-unfrozen average — quantitatively consistent, not just
+plausible. This structurally guarantees any wz-diet bucket can never
+clear the 0.015 stop_gate regardless of policy quality. Proposed fix
+(not built, needs its own bank-proof before landing): make the cert's
+stop-tick accumulation agree with the freeze's own exemption — only
+count ticks where BOTH linear speed and wz are ~0 toward
+`stop_speed_m_s`/`stop_gate`, OR add a separate explicit turn-in-place
+drift gate if skate-during-a-turning-"stop" is itself worth grading
+independently. Full trace + numbers: `rl_docs/tracks/joystick/
+STATUS.md` top banner (23:0x). status: informational, no operator
+input needed; flagged for whichever cycle next picks up this DIG-IN.
