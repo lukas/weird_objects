@@ -1006,3 +1006,72 @@ validity, on video. Speed obedience is secondary throughout.
   Evidence: `rl_move/sim/joint_task.py`, `rl_move/tests/
   test_joint_action_bias.py`, snapshot tag
   `exp/walkcurr-fwd6-actbias1`.
+
+## Now (updated 08-24 ~00:4x — Stage-A tangent-slip diagnostic read: loosened safety is ACTIVELY HARMFUL)
+
+- **`cw-walkcurr-pf-fwd6-stagea-slip1` FAIL (verdicted this cycle,
+  full mechanism read in the ledger/W&B note).** The Stage-A arm
+  (fixed 0.05 m/s diet + planted-foot tangent-slip charge + LOOSENED
+  safety: `walk_max_height_drop_mm=0.0` i.e. height cutoff disabled,
+  grace 5s, roll/pitch 35deg) made the belly basin strictly WORSE:
+  instead of the static crouch/belly-sit, the policy drops FLAT onto
+  its belly within seconds and ends with **5.3/6 feet airborne**
+  (`walk_swinging_feet` 3.1->5.3, liftoff_count 0.38->0.10/s,
+  height_err 11->111mm, speed 0.10->0.009 m/s) while reward falls
+  MONOTONICALLY (43.8/38.8/25.7/9.5 -> -0.03) — the safety
+  termination was evidently the only pressure bounding time-in-basin;
+  removing it made belly-flat an absorbing state PPO's state
+  distribution slides into even as collected reward falls. Own-cfg
+  gate: det 0/6 gait_valid, ALL SIX legs sacrificed, prog -0.01, fwd
+  0.01m, ZERO terminations; det video = splayed belly-flat by frame 2,
+  no motion after. Three consequences for the open escalation DIG-IN
+  (pdw05/pdx15): (1) any anti-collapse charge (incl. the named
+  minimum-total-foot-contact/no-fly charge) must come WITH a
+  termination/hard boundary, never INSTEAD of one — absorbing states
+  beat prices; (2) the tangent-slip charge is CLOSED as a discovery
+  lever on this rung — it is evaded by zero contact
+  (`reward_foot_slip_tangent` -0.00007 all run) and returns no data in
+  exactly the failure mode that matters; (3) METRIC WARNING:
+  `walk_freeprog_score` read "best-ever" (-0.016 trending to 0) here
+  purely because EMA speed -> 0 while lying down — never read
+  freeprog-toward-zero as discovery health without a contact/height
+  cross-check. This is now the ~11th independent mechanism converging
+  on the same static/collapsed basin from random init; it strengthens
+  the BC-kickstart side of the escalation fork the pdw05/pdx15 DIG-IN
+  owns (actbias1, launched by a concurrent cycle, is the last
+  in-flight zero-point/mechanism arm before that fork must be taken).
+
+## Now (updated 08-24 ~00:5x — pdw05/pdx15 DIG-IN CLOSED; fork rule pinned)
+
+- **DIG-IN COMPLETE (deep cycle, `cw-walkcurr-pf-fwd6-hgt2-pdw05-pdx15`
+  + sibling): verdicts STAND as recorded (both FAIL, ledger + W&B +
+  RL_LOG already fanned out by the 00:2x cycle — no re-verdict), and
+  the root-cause depth the flag asked for is CONFIRMED independently.**
+  (1) Re-read the pdx15 gate report: the pose is NOT frozen — swing
+  6-12/leg, duty 0.24-0.78, speed_mean 0.063 m/s ≈ command — but
+  incoherent (dir_err ~60deg, wrong-direction 38%, slip/m 7.76,
+  fwd 0.011 m) while height_err climbs to 63-95mm until
+  `walk_low_height` fires; matches the 00:3x contradiction finding,
+  and the det contact sheet shows the same progressive splay-and-sink
+  with zero translation. (2) Re-ran `test_joint_action_bias.py` 6/6
+  green, independently confirming the 00:3x root cause: the raw-joint
+  action zero (`a=0` -> hardware axis midrange hip=-25/knee=65) sinks
+  the chassis ~110mm with level attitude by construction — the
+  ~110-116mm attractor is where random init STARTS (action-map
+  defect), and the survive-motionless>risk-a-fall economics are why
+  PPO STAYS. No further training spend needed for the root cause.
+  **FORK RULE (pre-registered here so the actbias1 triage is
+  mechanical):** `actbias1` (in flight, the zero-point fix arm) is the
+  discriminating read — (a) if its `walk_freeprog_score` leaves the
+  dead band materially beyond rscale50's -0.015 best (ideally a zero
+  crossing) with det video standing at t=0, the action-map defect was
+  the missing blocker: continue that lineage, no new mechanism. (b) If
+  it reproduces the collapse/static basin DESPITE the verified-correct
+  neutral pose, the economics dominate: build the direct
+  minimum-total-foot-contact charge (preferred, stays inside the
+  no-BC rule) — WITH a termination, never instead of one, per the
+  stagea-slip1 lesson (absorbing states beat prices) and with a
+  splayed-sink scripted twin + bank proof before launch — and in the
+  SAME entry flag BC-kickstart to the operator as the named last
+  resort if that ninth mechanism also fails. No other walkcurr arms
+  before actbias1 reads.
