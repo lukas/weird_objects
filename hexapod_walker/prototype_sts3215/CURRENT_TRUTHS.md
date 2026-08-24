@@ -54,7 +54,22 @@ follow-ups.
   Mechanics: (a) launch_run.py injects an explicit `--cfg-set
   control.hz=100` into every PPO launch that lacks one and REFUSES an
   explicit non-100 value without `--allow-legacy-control-hz` (recorded
-  in ledger checks); (b) pod_eval pins `control.hz=25` +
+  in ledger checks) — **CORRECTION (08-24, certfreeze-v9 dig-in): the
+  `--allow-legacy-control-hz` escape hatch was documented here as
+  already landed but was NEVER actually wired into
+  `_with_default_control_hz` (no such parameter existed; every
+  explicit non-100 value was an unconditional REFUSE with no bypass)
+  — certfreeze-v8's own already-precedented `control.hz=25` legacy
+  pin (OPERATOR_QUESTIONS.md 08-24 ~20:0x) was reproducible only
+  because it launched via a hand-built raw command, not through
+  `launch_run.py`. Actually implemented this cycle: `launch
+  --allow-legacy-control-hz` / `respec --allow-legacy-control-hz` /
+  `backlog add --allow-legacy-control-hz` (threaded through drain's
+  own launch subprocess too), default False = bit-exact
+  unconditional-refuse unchanged; 8 new unit tests
+  `test_launch_run_control_hz.py`. This paragraph's mechanics (a)-(d)
+  are now actually true, not just documented.**; (b) pod_eval pins
+  `control.hz=25` +
   `max_delta_q_deg=1.5` for ledger entries with NO control.hz key —
   since the flip that key is always present, so "missing" always means
   "pre-flip, trained at 25 Hz"; (c) export_policy_np writes

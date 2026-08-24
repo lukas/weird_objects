@@ -2222,3 +2222,35 @@ drift gate if skate-during-a-turning-"stop" is itself worth grading
 independently. Full trace + numbers: `rl_docs/tracks/joystick/
 STATUS.md` top banner (23:0x). status: informational, no operator
 input needed; flagged for whichever cycle next picks up this DIG-IN.
+
+## 2026-08-24 ~23:2x — certfreeze-v8 b3 stall: FIXED + LAUNCHED (closes the note above)
+Follow-up to the ~23:0x note above (freeze/cert wz-exemption mismatch
+root cause). Not left as a pure dig-in handoff: built + bank-checked
++ launched the fix same cycle. `stop_speed_pure_m_s` (walk_task.py,
+purely additive, excludes ticks where the SAME `|wz_ref|<=1e-3`
+threshold `_walk_stop_freeze_override` uses) + `WALKCURR_BUCKETS_V9`
+(byte-identical to V8 except gated buckets read the new metric) +
+`walkcurr_cert.walkcurr_bucket_pass` honoring an optional
+`spec["stop_metric"]` (bit-exact default). This is a cert-measurement
+alignment fix, not a reward-pricing change, so `test_task_semantics.py`
+does not apply to it (confirmed zero references to
+stop_speed/stop_metric/stop_gate anywhere in that file; its own
+`-k "stop or walkcurr"` subset has 27 PRE-EXISTING reds, all
+`walkcurr_pf_*` — the walkcurr TRACK's own `goal.walk_pure` reward-
+ranking mechanism, unrelated to this joystick-track curriculum-cert
+fix). 12 new tests, all existing walkcurr/stop banks re-green.
+**Also found+fixed a real doc/code gap while launching**: CURRENT_TRUTHS
+documented `--allow-legacy-control-hz` as already landed with the
+08-24 100 Hz ruling, but `launch_run.py`'s `_with_default_control_hz`
+had no such parameter — every explicit non-100 `--cfg-set control.hz`
+was an unconditional REFUSE with no bypass. Built it for real (`launch`
+/ `respec` / `backlog add`, default False = bit-exact unchanged, 8 new
+unit tests `test_launch_run_control_hz.py`), corrected CURRENT_TRUTHS.
+Launched `cw-arch-hist16-dep1-c1-joyfullcurr16-certfreeze-v9` (single
+lever `--walk-curriculum-version=9`, pinned to v8's own legacy
+`control.hz=25` via the new escape hatch to stay isolated from the
+concurrently-running 100Hz question), VERIFIED RUNNING train-5; live
+pod log confirms the mechanism fires correctly. Full detail:
+`rl_docs/tracks/joystick/STATUS.md` top banner (23:2x).
+status: RESOLVED (fix built, tested, snapshotted, launched — no
+operator input needed). Next triage cycle reads v9's own gate.

@@ -109,16 +109,57 @@ own wz-exemption (only count ticks where BOTH linear speed AND wz are
 ~0 as "stop" for `stop_speed_m_s`/`stop_gate` purposes), or build a
 separate, explicit turn-in-place drift/stillness gate if in-place
 skate during a "stop-but-turning" segment is itself something worth
-grading -- this is a mechanism-semantics design call, needs its own
-bank-proof (`test_task_semantics.py`/`test_walkcurr_mjx.py`) before
-any V9 relaunch, not a triage-budget edit. Do NOT spend another
-bucket-scope or stop-charge-dose arm on this lineage until that
-lands. Champion unchanged (`stotight45-seed13`); DONE gate stays met
-per 08-23; this V6/V7/V8 ladder remains operator-ordered hardening
+grading -- this is a mechanism-semantics design call. **BUILT + BANK-
+PROVED + LAUNCHED, same cycle** (this was a pure cert-measurement
+alignment, not a reward-pricing change, so `test_task_semantics.py`'s
+reward-ranking bank does not apply -- confirmed it has zero
+`stop_speed`/`stop_metric`/`stop_gate` references at all, `-k "stop or
+walkcurr"` subset re-run clean of any NEW failure from this change,
+its 27 pre-existing reds are all unrelated `walkcurr_pf_*`
+reward-ranking tests on the walkcurr TRACK's own `goal.walk_pure`
+mechanism, nothing this fix touches): `stop_speed_pure_m_s`
+(walk_task.py, purely additive, excludes ticks where `|wz_ref|>1e-3`,
+the SAME threshold `_walk_stop_freeze_override` uses) +
+`WALKCURR_BUCKETS_V9` (byte-identical to V8 except every gated bucket
+adds `stop_metric="stop_speed_pure_m_s"`) + `walkcurr_cert.
+walkcurr_bucket_pass` reading `spec.get("stop_metric", "stop_speed_m_s")`
+(bit-exact when absent). 12 new tests (`test_walk_curriculum.py` 4,
+`test_walk_stop_settle_metric.py` 2, `test_launch_run_control_hz.py`
+8), full existing banks re-green (`test_walk_curriculum.py` 52/52,
+`test_walkcurr_mjx.py` 19/19, `test_walk_stop_freeze/grace/current.py`
+14/14). **Also found+fixed a real gap while launching**: the
+`--allow-legacy-control-hz` escape hatch CURRENT_TRUTHS documents as
+already landed with the 08-24 100 Hz ruling did not actually exist in
+`launch_run.py` (`_with_default_control_hz` had no such parameter --
+every explicit non-100 `--cfg-set control.hz` was an unconditional
+REFUSE), so certfreeze-v8's own already-precedented legacy-rate
+pinning could not be reproduced through the normal launch/respec path.
+Built it (`launch --allow-legacy-control-hz` / `respec
+--allow-legacy-control-hz` / `backlog add --allow-legacy-control-hz`,
+threaded through drain's subprocess too; default False = bit-exact
+unconditional-refuse, unchanged). **Launched
+`cw-arch-hist16-dep1-c1-joyfullcurr16-certfreeze-v9`** (single lever
+`--walk-curriculum-version=9`, pinned to the SAME legacy
+`control.hz=25` as v8 via the new escape hatch to keep this isolated
+from the separate, concurrently-running 100Hz rate-conversion question
+`joyfullcurr15-v8-hz100-r1/r2`), VERIFIED RUNNING train-5 -- live pod
+log confirms the mechanism fires correctly (`b1 front45_20s` precert:
+`stop=0.0125 stop_pure=0.0125 pure_frac=1.00`, bit-exact as designed
+since that bucket carries no wz diet). Gate: PASS = frontier promotes
+past b3 to >=b5 (rear135 opens) AND joygate falls <=2/48 AND DR-0 det
+gait_valid 6/6 no sacrifice; PARTIAL = frontier moves but joygate/
+DR-0-gait doesn't fully clear; FAIL = frontier still stalls at b3
+(metric fix didn't touch the mechanism, or turn-in-place genuinely
+induces real drift the freeze can't suppress) -- points next at a
+dedicated turn-in-place drift/stillness gate instead of a metric fix.
+Champion unchanged (`stotight45-seed13`); DONE gate stays met per
+08-23; this V6/V7/V8/V9 ladder remains operator-ordered hardening
 (`fb_20260823T220651_5c66e3`), not gate-blocking. Evidence: `logs/
 ckpt_eval/cw_arch_hist16_dep1_c1_joyfullcurr14_certfreeze_v8_{gate,
 owncfg,joygate}/`, W&B run `tvps19cg`, `logs/experiments/
-cw-arch-hist16-dep1-c1-joyfullcurr14-certfreeze-v8/wandb_history.csv`.)
+cw-arch-hist16-dep1-c1-joyfullcurr14-certfreeze-v8/wandb_history.csv`;
+snapshot `0b383a1c` (tag
+`exp/cw-arch-hist16-dep1-c1-joyfullcurr16-certfreeze-v9`).)
 
 Previous entry (2026-08-24 ~22:1x (**DIG-IN VERDICT: the tf64 "attention
 pathology" read is OVERTURNED — both transformer canaries re-classed
