@@ -1,6 +1,79 @@
 # joystick - RL from the programmatic gait to joystick control
 
-Last updated: 2026-08-24 ~12:4x (**`cw-arch-hist16-dep1-c1-joyfullcurr11-freeze40`
+Last updated: 2026-08-24 ~13:2x (**`cw-arch-hist16-dep1-c1-joyfullcurr11-freeze40-stopcur6`
+finished, UNVERDICTED — the second twin CONFIRMS the freeze40 finding
+is a property of the FREEZE MECHANISM ITSELF, not a k=2.0-current-
+charge-dose artifact, and DECISIVELY CLOSES one of the two open
+sub-questions.** Plain English: same freeze cfg
+(`goal.walk_stop_freeze_s=0.4`) as `-freeze40`, but warm-started from
+`stopcur6` (k=6.0 current charge, the dose with the pre-existing
+leg-3 rigid-lock trade under own-DR) instead of `stopcur2`. Full
+40M-step training run, all 5 prestage passes now read (DR-0 gate,
+own-DR(0.5), session [informational, obs-mismatch as expected], the
+held-out 60s joygate, and W&B history). Results, read jointly with
+`-freeze40`:
+- **Frontier promotion: TRUE, matches freeze40.** `walkcurr/frontier`
+  climbed b0->b5 (4 promotions, 0 rollbacks across 80 cert rounds —
+  even cleaner than freeze40's 13-rollback path), so b2-b5 got real
+  PPO practice on this dose too. b1's own stop cert held (72/79
+  rounds, 91% <=0.015 m/s, no downward trend) — the freeze's core
+  win (unstick the curriculum) reproduces across BOTH current-charge
+  doses.
+- **Held-out joygate: REGRESSED, matches freeze40's direction and
+  magnitude.** falls **1/48 (stopcur6 parent) -> 6/48 (freeze40-
+  stopcur6)** — freeze40 itself went 1/48 (stopcur2 parent) -> 7/48.
+  Per-episode `term_reason` audit: 5/6 falls are `over_current`
+  (dr0/det/0, dr0/sto/11, dr0p5/sto/{0,4,10}) and 1/6 is `tilt_roll`
+  (dr0/sto/6, roll_peak 26.2deg, sac=[]) — the SAME dominant
+  over_current signature as freeze40 (5/7 there), at a DIFFERENT
+  current-charge dose (k=6.0 vs k=2.0). dir_err med 47.09deg (dr0
+  43.8/dr0p5 49.56) vs stopcur6's own ~45deg. **This rules out
+  "current-charge dose specifically interacting with the freeze" as
+  the mechanism — the regression is dose-invariant, so the freeze's
+  resume-transition (frozen command -> fresh policy action, timer
+  resets to 0 the instant a new command begins per
+  `test_walk_stop_freeze.py::test_resumed_walking_resets_the_timer`)
+  is the prime suspect, not an interaction with the current-charge
+  reward term.**
+- **Leg-3 lock / own-DR gait_valid: UNCHANGED, not reduced — the
+  run's OWN pre-registered FAIL/PARTIAL branch, decisively closed.**
+  own-DR(0.5) det gait_valid = **2/6** (sac=[3,4], video-confirmed on
+  `walk_det_1.mp4`/`.png`: leg 3 held rigidly folded/aloft in an
+  identical pose across the whole clip while the other 5 legs cycle)
+  — IDENTICAL to `stopcur6`'s own already-recorded 2/6, not "reduced/
+  gone" as the gate's if-true branch hoped. DR-0 (gate pass) det also
+  matches the parent's own 4/6 exactly (sac=[3]). **The freeze does
+  NOT touch the current-charge leg-lock pathology at all — confirmed
+  orthogonal, not just "still present," by an exact numeric match to
+  the untouched parent.**
+- **Net read (joint with freeze40): the freeze mechanism has now
+  been tested at two current-charge doses (k=2.0, k=6.0) with
+  IDENTICAL qualitative behavior on all three axes** (frontier: both
+  promote cleanly; joygate: both regress ~6-7x, both dominated by
+  over_current; leg-lock: both leave the dose-specific pathology
+  numerically unchanged). This is strong evidence the freeze
+  mechanism itself — not a training-time interaction with any
+  particular current-charge dose — is the joygate regression's cause,
+  and that leg-lock needs its own separate fix regardless of the
+  freeze (both of the run's own pre-registered if-false branches
+  confirmed). What is NOT yet answered by either twin (needs the
+  dig-in's full toolkit, not another triage read): whether the
+  over_current spike specifically clusters at the freeze-RELEASE tick
+  (the mechanistic story implied by the immediate timer-reset code
+  path) versus somewhere else in the stop/resume cycle — that needs
+  per-tick current traces around freeze-release events on an
+  eval-only isolated run (freeze on vs off, same checkpoint, same
+  command seed), not a from-scratch relaunch. Leaving this run
+  UNVERDICTED per the model-tiering rule (this is a triage cycle);
+  both twins are DIG-IN evidence for whichever cycle traces the
+  resume-transition. Do not launch any further freeze-mechanism arms
+  until that dig-in reads. Evidence: `logs/ckpt_eval/
+  cw_arch_hist16_dep1_c1_joyfullcurr11_freeze40_stopcur6_{gate,
+  owncfg,joygate}/`, `logs/experiments/cw-arch-hist16-dep1-c1-
+  joyfullcurr11-freeze40-stopcur6/wandb_history.csv`, W&B run
+  `z7kv7bsw`. Prior banner below.)
+
+Previous entry (2026-08-24 ~12:4x (**`cw-arch-hist16-dep1-c1-joyfullcurr11-freeze40`
 finished, UNVERDICTED — DIG-IN flagged: the freeze mechanism DOES
 promote the ladder past b1 for the first time ever, but the held-out
 joygate got WORSE, not better, exactly the run's own pre-registered
