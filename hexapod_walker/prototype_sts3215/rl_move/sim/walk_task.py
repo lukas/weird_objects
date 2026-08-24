@@ -704,6 +704,37 @@ WALKCURR_BUCKETS_V7 = tuple(
     for b in WALKCURR_BUCKETS_V6
 )
 
+# WALKCURR_BUCKETS_V8 (08-24 scope-fix respec of V7, cw-arch-hist16-
+# dep1-c1-joyfullcurr13-certfreeze-v7 FAIL): V7's own banner names the
+# damage source as "the b2+ [heading-]widening practice diet", but its
+# implementation applied the new wz-turn/reversal diet "from
+# front45_20s onward" — i.e. INCLUDING front45_20s/front45_60s, which
+# are still front-cone (not widened-heading) rungs and were the
+# already-clean, already-certifying B1 in V6. Training-side audit of
+# the certfreeze-v7 run confirms the resulting defect precisely: with
+# the diet also baked into front45_20s, walkcurr/frontier never left
+# bucket 1 for the ENTIRE 40M-step run (pre_b1_pass stuck False every
+# cert round after round 1; b1's own stop_speed_m_s sits at
+# 0.020-0.033 vs the 0.015 stop_gate for all 80 cert rounds — a full
+# reversal inside the SAME 20s bucket that must also settle to a stop
+# leaves residual momentum the window can't absorb) — the wide-heading
+# buckets (side90+) the diet was actually meant to harden never trained
+# at all, and reward fell across training (694->641->525->438 by
+# quarter) instead of rising. V8 is the scope fix: identical to V7
+# except the stress-diet extras start at side90_20s (the first
+# heading-WIDENED rung) instead of front45_20s, so bridge_10s AND both
+# front45 rungs stay byte-identical to V6 (clean cert path preserved)
+# while every side/rear/full-circle rung still gets the full wz-turn +
+# reversal diet V7 intended. `.get(..., 0.0)` defaults keep V1-V7
+# unaffected.
+_V8_CLEAN_NAMES = frozenset(("bridge_10s", "front45_20s", "front45_60s"))
+WALKCURR_BUCKETS_V8 = tuple(
+    (dict(b, wz_max=0.0, wz_zero_frac=1.0, reversal_frac=0.0)
+     if b["name"] in _V8_CLEAN_NAMES else
+     dict(b, wz_max=0.3, wz_zero_frac=0.5, reversal_frac=0.15))
+    for b in WALKCURR_BUCKETS_V6
+)
+
 # Sampling mixture over unlocked buckets (operator spec): 50% frontier,
 # 25% weakest mastered, 15% uniform over mastered, 10% the rung just
 # prior to the frontier. Empty components fold back to the frontier.
@@ -1262,9 +1293,10 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
         # the original V1 table; version 1 stays bit-exact unchanged.
         wc_version = float(cfg_get(self.cfg, "goal", "walk_curriculum",
                                    default=0.0))
-        self._wc_on = wc_version in (1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0)
+        self._wc_on = wc_version in (1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0)
         self._wc_version = int(wc_version) if self._wc_on else 0
-        self._wc_table = (WALKCURR_BUCKETS_V7 if self._wc_version == 7
+        self._wc_table = (WALKCURR_BUCKETS_V8 if self._wc_version == 8
+                          else WALKCURR_BUCKETS_V7 if self._wc_version == 7
                           else WALKCURR_BUCKETS_V6
                           if self._wc_version == 6
                           else WALKCURR_BUCKETS_V5
@@ -1276,7 +1308,7 @@ class SimHexapodJointWalkEnv(SimHexapodJointGoalEnv):
                           else WALKCURR_BUCKETS_V2
                           if self._wc_version == 2
                           else WALKCURR_BUCKETS)
-        if self._wc_version in (4, 5, 6, 7):
+        if self._wc_version in (4, 5, 6, 7, 8):
             required_s = max(float(b["duration_s"])
                              for b in self._wc_table)
             available_s = self.episode_steps * self.dt

@@ -961,3 +961,105 @@ def test_v7_requires_a_real_60_second_training_horizon():
         _env(seed=0, extra=CURR_V7_ON, episode_seconds=10.0)
     env = _env(seed=0, extra=CURR_V7_ON, episode_seconds=60.0)
     env.close()
+
+
+# -- walkcurr8 (08-24 scope-fix respec of V7, certfreeze-v7 FAIL
+# post-mortem): V7's own banner blamed "the b2+ [heading-]widening
+# practice diet" but applied the stress-diet extras starting at
+# front45_20s — still front-cone, not widened-heading, and the rung
+# that must keep certifying for the frontier to ever leave B1. The
+# certfreeze-v7 training-side read confirms this exactly: frontier
+# stuck at bucket 1 for all 80 cert rounds of a 40M-step run,
+# front45_20s's own stop_speed_m_s pinned at 0.02-0.033 (cert bar
+# 0.015) the entire time. V8 starts the diet at side90_20s instead,
+# the first rung whose head_hi widens past the front cone, so
+# bridge_10s/front45_20s/front45_60s stay byte-identical to V6. See
+# walk_task.py WALKCURR_BUCKETS_V8 banner.
+CURR_V8_ON = {("goal", "walk_curriculum"): 8.0}
+
+
+def test_v8_selects_the_v8_table_and_earlier_versions_untouched():
+    from rl_move.sim.walk_task import (WALKCURR_BUCKETS_V6,
+                                       WALKCURR_BUCKETS_V7,
+                                       WALKCURR_BUCKETS_V8)
+    env = _env(seed=7, extra=CURR_V8_ON, episode_seconds=60.0)
+    assert env._wc_version == 8
+    assert env._wc_table is WALKCURR_BUCKETS_V8
+    env.close()
+    env7 = _env(seed=7, extra=CURR_V7_ON, episode_seconds=60.0)
+    assert env7._wc_version == 7
+    assert env7._wc_table is WALKCURR_BUCKETS_V7
+    env7.close()
+    env6 = _env(seed=7, extra=CURR_V6_ON, episode_seconds=60.0)
+    assert env6._wc_version == 6
+    assert env6._wc_table is WALKCURR_BUCKETS_V6
+    env6.close()
+
+
+def test_v8_front_cone_rungs_stay_identical_to_v6_v7_widens_them():
+    """The whole point of the scope fix: front45_20s/front45_60s (and
+    the bridge) carry NO stress-diet extras in V8, but every rung from
+    side90_20s onward does — exactly the rungs V7 mislabeled."""
+    from rl_move.sim.walk_task import WALKCURR_BUCKETS_V6, WALKCURR_BUCKETS_V8
+    assert len(WALKCURR_BUCKETS_V8) == len(WALKCURR_BUCKETS_V6)
+    shared_keys = ("name", "duration_s", "min_command_changes", "s_lo",
+                  "s_hi", "head_lo", "head_hi", "resample_s", "jitter",
+                  "stop_frac", "blend_lo", "blend_hi", "dr",
+                  "stop_gate", "gate")
+    for b6, b8 in zip(WALKCURR_BUCKETS_V6, WALKCURR_BUCKETS_V8):
+        for k in shared_keys:
+            assert b6[k] == b8[k], (b8["name"], k)
+    clean_names = {"bridge_10s", "front45_20s", "front45_60s"}
+    for spec in WALKCURR_BUCKETS_V8:
+        if spec["name"] in clean_names:
+            assert spec["wz_max"] == 0.0, spec["name"]
+            assert spec["wz_zero_frac"] == 1.0, spec["name"]
+            assert spec["reversal_frac"] == 0.0, spec["name"]
+        else:
+            assert spec["wz_max"] == pytest.approx(0.3), spec["name"]
+            assert spec["wz_zero_frac"] == pytest.approx(0.5), spec["name"]
+            assert spec["reversal_frac"] == pytest.approx(0.15), spec["name"]
+
+
+def test_v8_front45_sampler_bit_exact_with_v6():
+    """front45_60s (index 2) must draw the IDENTICAL command trajectory
+    under V8 as under V6 — the exact bucket certfreeze-v7 broke."""
+    env6 = _env(seed=13, extra=CURR_V6_ON, episode_seconds=60.0)
+    env6.force_walk_curr_bucket = 2  # front45_60s
+    traj6 = _sample_traj(env6)
+    env6.close()
+    env8 = _env(seed=13, extra=CURR_V8_ON, episode_seconds=60.0)
+    env8.force_walk_curr_bucket = 2  # front45_60s
+    traj8 = _sample_traj(env8)
+    env8.close()
+    assert traj8.wz is None
+    np.testing.assert_allclose(traj6.vx, traj8.vx)
+    np.testing.assert_allclose(traj6.vy, traj8.vy)
+
+
+def test_v8_side90_onward_draws_in_place_turning_and_reversals():
+    env = _env(seed=5, extra=CURR_V8_ON, episode_seconds=60.0)
+    env.force_walk_curr_bucket = 4  # side90_60s (widened heading)
+    saw_nonzero_wz = False
+    saw_reversal = False
+    for _ in range(15):
+        traj = _sample_traj(env)
+        assert traj.wz is not None
+        assert np.abs(traj.wz).max() <= 0.3 + 1e-9
+        if np.any(np.abs(traj.wz) > 1e-6):
+            saw_nonzero_wz = True
+        plateaus = _plateaus(traj.vx, traj.vy)
+        for (ax, ay), (bx, by) in zip(plateaus, plateaus[1:]):
+            if (math.hypot(ax, ay) > 0.01
+                    and abs(bx + ax) < 1e-6 and abs(by + ay) < 1e-6):
+                saw_reversal = True
+    assert saw_nonzero_wz, "V8 never drew an in-place turn in side90_60s"
+    assert saw_reversal, "V8 never drew a reversal segment in side90_60s"
+    env.close()
+
+
+def test_v8_requires_a_real_60_second_training_horizon():
+    with pytest.raises(ValueError):
+        _env(seed=0, extra=CURR_V8_ON, episode_seconds=10.0)
+    env = _env(seed=0, extra=CURR_V8_ON, episode_seconds=60.0)
+    env.close()

@@ -1823,7 +1823,7 @@ def main(argv: list[str] | None = None) -> int:
                          "sets cfg goal.walk_curriculum + "
                          "goal.walk_pure at env construction")
     ap.add_argument("--walk-curriculum-version", type=int, default=1,
-                    choices=(1, 2, 3, 4, 5, 6, 7),
+                    choices=(1, 2, 3, 4, 5, 6, 7, 8),
                     help="1 = WALKCURR_BUCKETS (walkcurr1), 2 = "
                          "WALKCURR_BUCKETS_V2 ignition ladder "
                          "(walkcurr2), 3 = WALKCURR_BUCKETS_V3 "
@@ -1844,7 +1844,16 @@ def main(argv: list[str] | None = None) -> int:
                          "turning + full-reversal segments in every "
                          "non-bridge bucket, so training practices the "
                          "held-out joygate's stress_mix distribution "
-                         "instead of only smooth heading-band walks)")
+                         "instead of only smooth heading-band walks), "
+                         "8 = WALKCURR_BUCKETS_V8 scope-fix of 7 "
+                         "(certfreeze-v7 FAIL post-mortem: 7 applied "
+                         "the stress-diet extras starting at "
+                         "front45_20s, poisoning the still-front-cone "
+                         "B1/B2 cert rungs so the frontier never left "
+                         "B1 for a full 40M-step run; 8 starts the "
+                         "diet at side90_20s, the first heading-"
+                         "WIDENED rung, leaving both front45 rungs "
+                         "byte-identical to 6)")
     ap.add_argument("--walkcurr-cert-every", type=int, default=500_000,
                     help="deterministic certification cadence (steps)")
     ap.add_argument("--walkcurr-cert-episodes", type=int, default=8,
@@ -2065,7 +2074,7 @@ def main(argv: list[str] | None = None) -> int:
                 "latest); drop --best-ckpt/--ev-stop-min")
         if (args.init_from is not None and not args.init_from_actor_only
                 and not args.init_from_policy_backbone
-                and args.walk_curriculum_version not in (5, 6, 7)):
+                and args.walk_curriculum_version not in (5, 6, 7, 8)):
             raise SystemExit("--walk-curriculum is a fresh-actor "
                              "acquisition contract (walkcurr lineage); "
                              "a full-checkpoint --init-from is not wired "
@@ -2075,18 +2084,21 @@ def main(argv: list[str] | None = None) -> int:
                              "promotion state fresh; EXCEPTION: V5 is "
                              "an adjacent-continuation ladder by "
                              "operator order fb_20260820T075230_4a90c6, "
-                             "V6 by fb_20260823T220651_5c66e3, and V7 "
-                             "(stress-diet repair, 08-24) rides the "
-                             "same exception — warm full-checkpoint "
-                             "--init-from is allowed there, curriculum "
-                             "state still starts fresh)")
+                             "V6 by fb_20260823T220651_5c66e3, and V7/V8 "
+                             "(stress-diet repair + its front45-scope "
+                             "fix, 08-24) ride the same exception — warm "
+                             "full-checkpoint --init-from is allowed "
+                             "there, curriculum state still starts "
+                             "fresh)")
         if (args.walkcurr_post_promo_actor_lr > 0.0
                 and args.actor_lr <= 0.0):
             raise SystemExit("--walkcurr-post-promo-actor-lr requires "
                              "--actor-lr (it retargets the "
                              "update_health actor param group)")
-        if args.walk_curriculum_version in (4, 5, 6, 7):
-            if args.walk_curriculum_version == 7:
+        if args.walk_curriculum_version in (4, 5, 6, 7, 8):
+            if args.walk_curriculum_version == 8:
+                from .walk_task import WALKCURR_BUCKETS_V8 as _wc_tbl
+            elif args.walk_curriculum_version == 7:
                 from .walk_task import WALKCURR_BUCKETS_V7 as _wc_tbl
             elif args.walk_curriculum_version == 6:
                 from .walk_task import WALKCURR_BUCKETS_V6 as _wc_tbl
@@ -2791,8 +2803,10 @@ def main(argv: list[str] | None = None) -> int:
         from .walk_task import WALKCURR_BUCKETS_V5 as _WC5
         from .walk_task import WALKCURR_BUCKETS_V6 as _WC6
         from .walk_task import WALKCURR_BUCKETS_V7 as _WC7
+        from .walk_task import WALKCURR_BUCKETS_V8 as _WC8
         _tbl = {1: _WC1, 2: _WC2, 3: _WC3, 4: _WC4,
-                5: _WC5, 6: _WC6, 7: _WC7}[args.walk_curriculum_version]
+                5: _WC5, 6: _WC6, 7: _WC7,
+                8: _WC8}[args.walk_curriculum_version]
         print("[walkcurr] realized per-bucket DR (overrides --dr-scale "
               f"{args.dr_scale:g} per episode): "
               + " ".join(f"b{i}={row['dr']:g}"
@@ -4440,7 +4454,7 @@ def main(argv: list[str] | None = None) -> int:
         from .walk_task import (WALKCURR_BUCKETS, WALKCURR_BUCKETS_V2,
                                 WALKCURR_BUCKETS_V3, WALKCURR_BUCKETS_V4,
                                 WALKCURR_BUCKETS_V5, WALKCURR_BUCKETS_V6,
-                                WALKCURR_BUCKETS_V7)
+                                WALKCURR_BUCKETS_V7, WALKCURR_BUCKETS_V8)
         from .walkcurr_cert import (WalkCurrController,
                                     aggregate_walk_probe,
                                     failed_probe_row,
@@ -4448,7 +4462,8 @@ def main(argv: list[str] | None = None) -> int:
         wc_table = {1: WALKCURR_BUCKETS, 2: WALKCURR_BUCKETS_V2,
                     3: WALKCURR_BUCKETS_V3, 4: WALKCURR_BUCKETS_V4,
                     5: WALKCURR_BUCKETS_V5, 6: WALKCURR_BUCKETS_V6,
-                    7: WALKCURR_BUCKETS_V7}[args.walk_curriculum_version]
+                    7: WALKCURR_BUCKETS_V7,
+                    8: WALKCURR_BUCKETS_V8}[args.walk_curriculum_version]
         core_venv = _unwrap_vec(venv)
         wc_best_path = POLICY_DIR / f"{out_name}_best.zip"
         wc_promo_dir = POLICY_DIR / "walkcurr_promotions"
